@@ -1,96 +1,189 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH v4] net: Introduce realloc_netdev_mq()
-Date: Sun, 17 Jan 2010 08:56:28 -0800
-Message-ID: <C27F8246C663564A84BB7AB34397724218281B8382@IRVEXCHCCR01.corp.ad.broadcom.com>
-References: <20100117003653.GA3073@del.dom.local>
+Subject: [PATCH net-next 2/2] bnx2: Save statistics during reset.
+Date: Sun, 17 Jan 2010 09:30:44 -0800
+Message-ID: <1263749444-17072-2-git-send-email-mchan@broadcom.com>
+References: <1263749444-17072-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"David Miller" <davem@davemloft.net>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>,
-	"Peter P Waskiewicz Jr" <peter.p.waskiewicz.jr@intel.com>
-To: "'Jarek Poplawski'" <jarkao2@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: leitao@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	"Michael Chan" <mchan@broadcom.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4479 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1519 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753288Ab0AQQ4i convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jan 2010 11:56:38 -0500
-In-Reply-To: <20100117003653.GA3073@del.dom.local>
-Content-Language: en-US
+	id S1752552Ab0AQRW1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Jan 2010 12:22:27 -0500
+In-Reply-To: <1263749444-17072-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote
-> On Sat, Jan 16, 2010 at 02:50:48PM -0800, Michael Chan wrote:
-> > The problem with the patch below is that
-> > dev->real_num_tx_queues can still be reduced during bnx2_open().
-> >
->
-> I'm not sure I get your point, but there should be no problem with
-> changing dev->real_num_tx_queues during ->open(). The main intention
-> of realloc_netdev_mq() is to give drivers some official way to change
-> dev->num_tx_queues until register_netdev() with the main aim: not to
-> treat obviously non-mq chips as mq according to netif_is_multiqueue().
-> Additional gain is memory saved in the case fixed by the patch below
-> (which btw. waits for some refinement/verification).
+MTU changes, ring size changes, etc cause the chip to be reset and the
+statisctics flushed.  To keep track of the accumulated statistics, we
+add code to save the whole statistics block before reset.  We also
+modify the macros and statistics functions to return the sum of the
+saved and current counters.
 
-Yes, the patch achieves what you describe.  dev->num_tx_queues will
-be set more accurately during ->probe based on chip type.  In ->open(),
-the dev->real_num_tx_queues will still be possibly reduced depending
-on the number of CPU cores and whether we can enable and allocate the
-MSI-X vectors.
+Based on original patch by Breno Leitao <leitao@linux.vnet.ibm.com>
 
->
-> > Is it possible to call realloc_netdev_mq() during ->open()?
->
-> No, and no such intention, since there was kind of agreement it's not
-> necessary and collides with preserving qdisc state (stats). But the
-> discussion isn't closed...
->
-> Thanks,
-> Jarek P.
->
-> >
-> > > OOPS! Take 2...;-)
-> > >
-> > > Jarek P.
-> > > ---
-> > >
-> > >  drivers/net/bnx2.c |    5 +++++
-> > >  1 files changed, 5 insertions(+), 0 deletions(-)
-> > >
-> > > diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-> > > index 4bfc808..c1ba2b1 100644
-> > > --- a/drivers/net/bnx2.c
-> > > +++ b/drivers/net/bnx2.c
-> > > @@ -8288,6 +8288,11 @@ bnx2_init_one(struct pci_dev
-> *pdev, const struct pci_device_id *ent)
-> > >           dev->features |= NETIF_F_TSO6;
-> > >           vlan_features_add(dev, NETIF_F_TSO6);
-> > >   }
-> > > +
-> > > + if (!((bp->flags & BNX2_FLAG_MSIX_CAP) ||
-> > > +      (bp->flags & BNX2_FLAG_MSI_CAP)) || disable_msi)
-> > > +         realloc_netdev_mq(dev, 1);
-> > > +
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/bnx2.c |   64 +++++++++++++++++++++++++++++++++++++++++++++------
+ drivers/net/bnx2.h |    1 +
+ 2 files changed, 57 insertions(+), 8 deletions(-)
 
-I think we can refine this a little:
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 47fb508..d83512d 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -6231,6 +6231,8 @@ bnx2_open(struct net_device *dev)
+ 
+ 	atomic_set(&bp->intr_sem, 0);
+ 
++	memset(bp->temp_stats_blk, 0, sizeof(struct statistics_block));
++
+ 	bnx2_enable_int(bp);
+ 
+ 	if (bp->flags & BNX2_FLAG_USING_MSI) {
+@@ -6542,6 +6544,30 @@ bnx2_close(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static void
++bnx2_save_stats(struct bnx2 *bp)
++{
++	u32 *hw_stats = (u32 *) bp->stats_blk;
++	u32 *temp_stats = (u32 *) bp->temp_stats_blk;
++	int i;
++
++	/* The 1st 10 counters are 64-bit counters */
++	for (i = 0; i < 20; i += 2) {
++		u32 hi;
++		u64 lo;
++
++		hi = *(temp_stats + i) + *(hw_stats + i);
++		lo = *(temp_stats + i + 1) + *(hw_stats + i + 1);
++		if (lo > 0xffffffff)
++			hi++;
++		*(temp_stats + i) = hi;
++		*(temp_stats + i + 1) = lo & 0xffffffff;
++	}
++
++	for ( ; i < sizeof(struct statistics_block) / 4; i++)
++		*(temp_stats + i) = *(temp_stats + i) + *(hw_stats + i);
++}
++
+ #define GET_64BIT_NET_STATS64(ctr)				\
+ 	(unsigned long) ((unsigned long) (ctr##_hi) << 32) +	\
+ 	(unsigned long) (ctr##_lo)
+@@ -6551,14 +6577,17 @@ bnx2_close(struct net_device *dev)
+ 
+ #if (BITS_PER_LONG == 64)
+ #define GET_64BIT_NET_STATS(ctr)				\
+-	GET_64BIT_NET_STATS64(bp->stats_blk->ctr)
++	GET_64BIT_NET_STATS64(bp->stats_blk->ctr) +		\
++	GET_64BIT_NET_STATS64(bp->temp_stats_blk->ctr)
+ #else
+ #define GET_64BIT_NET_STATS(ctr)				\
+-	GET_64BIT_NET_STATS32(bp->stats_blk->ctr)
++	GET_64BIT_NET_STATS32(bp->stats_blk->ctr) +		\
++	GET_64BIT_NET_STATS32(bp->temp_stats_blk->ctr)
+ #endif
+ 
+ #define GET_32BIT_NET_STATS(ctr)				\
+-	(unsigned long) (bp->stats_blk->ctr)
++	(unsigned long) (bp->stats_blk->ctr +			\
++			 bp->temp_stats_blk->ctr)
+ 
+ static struct net_device_stats *
+ bnx2_get_stats(struct net_device *dev)
+@@ -7089,6 +7118,9 @@ static int
+ bnx2_change_ring_size(struct bnx2 *bp, u32 rx, u32 tx)
+ {
+ 	if (netif_running(bp->dev)) {
++		/* Reset will erase chipset stats; save them */
++		bnx2_save_stats(bp);
++
+ 		bnx2_netif_stop(bp);
+ 		bnx2_reset_chip(bp, BNX2_DRV_MSG_CODE_RESET);
+ 		bnx2_free_skbs(bp);
+@@ -7433,6 +7465,7 @@ bnx2_get_ethtool_stats(struct net_device *dev,
+ 	struct bnx2 *bp = netdev_priv(dev);
+ 	int i;
+ 	u32 *hw_stats = (u32 *) bp->stats_blk;
++	u32 *temp_stats = (u32 *) bp->temp_stats_blk;
+ 	u8 *stats_len_arr = NULL;
+ 
+ 	if (hw_stats == NULL) {
+@@ -7449,21 +7482,26 @@ bnx2_get_ethtool_stats(struct net_device *dev,
+ 		stats_len_arr = bnx2_5708_stats_len_arr;
+ 
+ 	for (i = 0; i < BNX2_NUM_STATS; i++) {
++		unsigned long offset;
++
+ 		if (stats_len_arr[i] == 0) {
+ 			/* skip this counter */
+ 			buf[i] = 0;
+ 			continue;
+ 		}
++
++		offset = bnx2_stats_offset_arr[i];
+ 		if (stats_len_arr[i] == 4) {
+ 			/* 4-byte counter */
+-			buf[i] = (u64)
+-				*(hw_stats + bnx2_stats_offset_arr[i]);
++			buf[i] = (u64) *(hw_stats + offset) +
++				 *(temp_stats + offset);
+ 			continue;
+ 		}
+ 		/* 8-byte counter */
+-		buf[i] = (((u64) *(hw_stats +
+-					bnx2_stats_offset_arr[i])) << 32) +
+-				*(hw_stats + bnx2_stats_offset_arr[i] + 1);
++		buf[i] = (((u64) *(hw_stats + offset)) << 32) +
++			 *(hw_stats + offset + 1) +
++			 (((u64) *(temp_stats + offset)) << 32) +
++			 *(temp_stats + offset + 1);
+ 	}
+ }
+ 
+@@ -7831,6 +7869,14 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 	bp->flags = 0;
+ 	bp->phy_flags = 0;
+ 
++	bp->temp_stats_blk =
++		kzalloc(sizeof(struct statistics_block), GFP_KERNEL);
++
++	if (bp->temp_stats_blk == NULL) {
++		rc = -ENOMEM;
++		goto err_out;
++	}
++
+ 	/* enable device (incl. PCI PM wakeup), and bus-mastering */
+ 	rc = pci_enable_device(pdev);
+ 	if (rc) {
+@@ -8352,6 +8398,8 @@ bnx2_remove_one(struct pci_dev *pdev)
+ 	if (bp->regview)
+ 		iounmap(bp->regview);
+ 
++	kfree(bp->temp_stats_blk);
++
+ 	free_netdev(dev);
+ 	pci_release_regions(pdev);
+ 	pci_disable_device(pdev);
+diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
+index 939dc44..b860fbb 100644
+--- a/drivers/net/bnx2.h
++++ b/drivers/net/bnx2.h
+@@ -6851,6 +6851,7 @@ struct bnx2 {
+ 	dma_addr_t		status_blk_mapping;
+ 
+ 	struct statistics_block	*stats_blk;
++	struct statistics_block	*temp_stats_blk;
+ 	dma_addr_t		stats_blk_mapping;
+ 
+ 	int			ctx_pages;
+-- 
+1.6.4.GIT
 
-        if (!(bp->flags & BNX2_FLAG_MSIX_CAP) || disable_msi)
-                realloc_netdev_mq(dev, 1);
-
-Thanks.
-
-> > >   if ((rc = register_netdev(dev))) {
-> > >           dev_err(&pdev->dev, "Cannot register net device\n");
-> > >           goto error;
-> > >
-> >
-> >
->
->
 
