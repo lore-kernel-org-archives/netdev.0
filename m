@@ -1,49 +1,76 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH v5] rps: Receive Packet Steering
-Date: Sun, 17 Jan 2010 09:22:21 -0800
-Message-ID: <20100117092221.2fca789c@nehalam>
-References: <alpine.DEB.1.00.1001141353140.19018@pokey.mtv.corp.google.com>
-	<20100114145633.4c2d4ac6@nehalam>
-	<1263607893.17815.114.camel@localhost>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: disablenetwork (v5): Simplify the disablenetwork sendmsg hook.
+Date: Sun, 17 Jan 2010 20:04:06 +0200
+Message-ID: <20100117180405.GA32339@redhat.com>
+References: <20100117161053.GG3420@redhat.com> <20100117170431.GA2949@heat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:41780 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752174Ab0AQRWs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Jan 2010 12:22:48 -0500
-In-Reply-To: <1263607893.17815.114.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Anthony Liguori <anthony@codemonkey.ws>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org
+To: Michael Stone <michael@laptop.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100117170431.GA2949@heat>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 16 Jan 2010 02:11:33 +0000
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+On Sun, Jan 17, 2010 at 12:04:32PM -0500, Michael Stone wrote:
+> Michael Tsirkin wrote:
+>> On Fri, Jan 15, 2010 at 03:12:46AM -0500, Michael Stone wrote:
+>>> The idea is that calls like
+>>>
+>>>    sendto(fd, buffer, len, 0, NULL, 0);
+>>>    send(fd, buffer, len, 0)
+>>>    write(fd, buffer, len)
+>>>
+>>> are all to be permitted but that calls like
+>>>
+>>>    sendto(fd, buffer, len, 0, (struct sockadr *) &addr, sizeof(addr));
+>>>
+>>> are to be rejected when the current task's network is disabled on the grounds
+>>> that the former calls must use previously connected sockets but that the latter
+>>> socket need not have been previously connected.
+>>>
+>>> Signed-off-by: Michael Stone <michael@laptop.org>
+>>
+>> Michael, if I understand correctly, with this patch one could use
+>> disablenetwork to pass an af_packet socket bound to a device to a
+>> task, and make sure that the task does not use it to inject packets into
+>> another device?
+>
+> Michael,
+>
+> Thanks for writing. If I understand you correctly, you're asking:
+>
+>   May a network-disabled process use recvmsg() with SCM_RIGHTS control messages
+>   to receive a file descriptor pointing to previously connected or bound
+>   AF_PACKET socket and, having received such an fd, may the network-disabled
+>   process use the socket normally?
+>
+> If I've understood correctly, then the answer is "yes, to the extent that you
+> can't do stupid things with sendmsg(), fnctl(), ioctl(), and friends."
+>
+> I intend to look more carefully at the ability to use those calls to do stupid
+> things in coming weeks.
+>
+> Does this help?
+>
+> Regards,
+>
+> Michael
+>
+> P.S. - Incidentally, what is the nature of your interest?
 
-> On Thu, 2010-01-14 at 14:56 -0800, Stephen Hemminger wrote:
-> > On Thu, 14 Jan 2010 13:56:23 -0800 (PST)
-> > Tom Herbert <therbert@google.com> wrote:
-> [...]
-> > > The CPU masks is set on a per device basis in the sysfs variable
-> > > /sys/class/net/<device>/rps_cpus.  This is a set of canonical bit maps for
-> > > each NAPI nstance of the device.  For example:
-> > > 
-> > > echo "0b 0b0 0b00 0b000" > /sys/class/net/eth0/rps_cpus
-> > 
-> > Why not make a kobject out of cpus which would add subdirectory.
-> > This would keep interface consistent with the one value per file
-> > semantic of sysfs.
-> 
-> Do you mean a kobject per NAPI context, each initially with a rps_cpus
-> attribute holding a CPU mask, or a kobject per CPU, each with an
-> attribute specifying which NAPI contexts it does work for?  (Personally
-> I'd favour the first.)
+We discussed using af_packet sockets for networking in qemu.  qemu is a
+large project so it might not be a great idea to run it as root all the
+time: a better idea is to e.g. get fd from a priveledged server.
+However, we'd like to limit qemu even more, so that it can only use the
+fd for send/receive.
 
-Yes, make NAPI real kobjects, linked to device.
+> (And was your question intentionally or accidentally off-list?)
 
-BUT
-make sure this also handles case of N to 1 mapping as well
-as 1 to N case.
+Oops. Adding it back.
+
+-- 
+MST
