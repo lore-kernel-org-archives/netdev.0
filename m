@@ -1,88 +1,73 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: linux-next build failure (was: Re: [PATCH/REPOST] pci: push deprecated
- pci_find_device() function to last user)
-Date: Mon, 18 Jan 2010 16:46:00 +0100
-Message-ID: <4B548238.9080008@imap.cc>
-References: <10f740e81001180644yd44121cv6dd963349563a290@mail.gmail.com>
+From: "Andrew G. Morgan" <morgan@kernel.org>
+Subject: Re: [PATCH 2/3] Security: Implement disablenetwork semantics. (v4)
+Date: Mon, 18 Jan 2010 07:56:47 -0800
+Message-ID: <551280e51001180756q2a438d3cv99bbb4e87eb073f4@mail.gmail.com>
+References: <alpine.LRH.2.00.1001110811350.25601@tundra.namei.org>
+	 <20100110215409.GA3705@heat> <20100110215848.GA26609@elf.ucw.cz>
+	 <5768.1263264853@localhost>
+	 <20100112075927.GA24256@atrey.karlin.mff.cuni.cz>
+	 <32558.1263306523@localhost>
+	 <20100114092250.GA11500@atrey.karlin.mff.cuni.cz>
+	 <17852.1263819244@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig8B6F6B46BA13FB05BA6FA36D"
-Cc: Jesse Barnes <jbarnes@virtuousgeek.org>,
-	David Miller <davem@davemloft.net>, Greg KH <gregkh@suse.de>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Karsten Keil <isdn@linux-pingi.de>,
-	isdn4linux@listserv.isdn4linux.de
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2.smtp.messagingengine.com ([66.111.4.26]:39107 "EHLO
-	out2.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754075Ab0ARPxU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 10:53:20 -0500
-In-Reply-To: <10f740e81001180644yd44121cv6dd963349563a290@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pavel Machek <pavel@ucw.cz>, Michael Stone <michael@laptop.org>,
+	James Morris <jmorris@namei.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	Andi Kleen <andi@firstfloor.org>, David Lang <david@lang.hm>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Bryan Donlan <bdonlan@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"C. Scott Ananian" <cscott@cscott.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Bernie Innocenti <bernie@codewiz.org>,
+	Mark Seaborn <mrs@mythic-beasts.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	"Am?rico Wang" <xiyou.wangcong@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Samir Bellabes <sam@synack.fr>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>,
+	Al Viro <viro@zeniv.linu
+To: Valdis.Kletnieks@vt.edu
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <17852.1263819244@localhost>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig8B6F6B46BA13FB05BA6FA36D
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On Mon, Jan 18, 2010 at 4:54 AM,  <Valdis.Kletnieks@vt.edu> wrote:
+> (Interestingly enough, the capabilities bug came *later*:
+>
+> 8.12.1/8.12.1 =A0 2001/10/01
+> =A0 =A0 =A0 =A0SECURITY: Check whether dropping group privileges actu=
+ally succeeded
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0to avoid possible compromises of the m=
+ail system by
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0supplying bogus data. =A0Add configura=
+tion options for
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0different set*gid() calls to reset sav=
+ed gid. =A0Problem
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0found by Michal Zalewski.
+>
+> and was mostly an issue because the same problem existed in pre-8.12 =
+sendmails
+> that were still setuid and hadn't upgraded yet...
+>
+>
 
-Am 18.01.2010 15:44 schrieb Geert Uytterhoeven:
-> On Fri, Jan 15, 2010 at 19:08, Jesse Barnes <jbarnes@virtuousgeek.org> =
-wrote:
->> On Thu, 14 Jan 2010 23:18:41 +0100 (CET)
->> Tilman Schmidt <tilman@imap.cc> wrote:
->>>
->>> Subject: [PATCH] pci: push deprecated pci_find_device() function to
->>> last user
->>>
->>> The ISDN4Linux HiSax driver family contains the last remaining users
->>> of the deprecated pci_find_device() function. This patch creates a
->>> private copy of that function in HiSax, and removes the now unused
->>> global function together with its controlling configuration option,
->>> CONFIG_PCI_LEGACY.
->>>
->>> Impact: code reorganization, no functional change
->>> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
->>> ---
->>> Note: This patch is not, nor does it intend to be, checkpatch.pl
->>> clean. The issues checkpatch.pl reports on it were already present
->>> before, and are unrelated to the topic of this patch.
->>
->> Applied to my linux-next branch, thanks Tilman.
->=20
-> Just guessing: something's wrong if CONFIG_PCI is not set?
->=20
-> http://kisskb.ellerman.id.au/kisskb/buildresult/2042085/
+I think the above was 'a' sendmail bug. 'The' capabilities bug came bef=
+ore that:
 
-Sorry, oversight of mine. I thought that hisax/avm_pci.c depended on
-CONFIG_PCI, but it doesn't, as it also handles ISA PnP cards. I will
-issue a corrected patch ASAP.
+http://userweb.kernel.org/~morgan/sendmail-capabilities-war-story.html
 
-Thanks,
-Tilman
+Cheers
 
---=20
-Tilman Schmidt                    E-Mail: tilman@imap.cc
-Bonn, Germany
-Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-Unge=C3=B6ffnet mindestens haltbar bis: (siehe R=C3=BCckseite)
-
-
---------------enig8B6F6B46BA13FB05BA6FA36D
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.12 (GNU/Linux)
-Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAktUgkIACgkQQ3+did9BuFvLhgCdFlr0VFSqbRUdSFpn5zHWu6gt
-1U0An0qs6CXr/zChybVdaA42sdnaRzuu
-=jS+8
------END PGP SIGNATURE-----
-
---------------enig8B6F6B46BA13FB05BA6FA36D--
+Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe linux-securit=
+y-module" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
