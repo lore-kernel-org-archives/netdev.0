@@ -1,46 +1,38 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: Regression: Wake on LAN doesn't work in sky2 with 2.6.33-rc4-git2
-Date: Mon, 18 Jan 2010 01:36:45 +0100
-Message-ID: <201001180136.45823.rjw@sisk.pl>
-References: <20100115091053.GA5477@mac.home> <201001152323.37718.rjw@sisk.pl> <20100117231932.GA5504@mac.home>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] improve netem reorder flexibility
+Date: Sun, 17 Jan 2010 18:56:36 -0800 (PST)
+Message-ID: <20100117.185636.163664050.davem@davemloft.net>
+References: <20091221095407.5430a630@nehalam>
+	<20100116.014654.69913255.davem@davemloft.net>
+	<201001171311.19278.christian.samsel@rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Tino Keitel <tino.keitel@tikei.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755200Ab0ARAgc@vger.kernel.org>
-In-Reply-To: <20100117231932.GA5504@mac.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: christian.samsel@rwth-aachen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33821
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754543Ab0ARC40 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jan 2010 21:56:26 -0500
+In-Reply-To: <201001171311.19278.christian.samsel@rwth-aachen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 18 January 2010, Tino Keitel wrote:
-> On Fri, Jan 15, 2010 at 23:23:37 +0100, Rafael J. Wysocki wrote:
-> > On Friday 15 January 2010, Stephen Hemminger wrote:
-> 
-> [...]
-> 
-> > > This has already been reported.
-> > > 
-> > > Rafael has been doing the generic PM stuff.
-> > > Look for thread,
-> > >  [Bug 14730] sky2 won't work after suspend/resume cycle
-> > 
-> > This has been fixed already and the bug appears to be different.
-> 
-> Yes, sounds different. The interface works after a resume. My issue is
-> that the computer just won't resume at all using wake on LAN.
-> 
-> > 
-> > No idea what it is at the moment.
-> > 
-> > Tino, please check if reverting commit
-> > dc1a94ae1749d14c55f8b54e9d92bd89df82d51a helps, although the messages
-> > indicate that the generic PCI-side does its job.
-> 
-> No luck with the commit reverted, WoL still doesn't work.
+From: Christian Samsel <christian.samsel@rwth-aachen.de>
+Date: Sun, 17 Jan 2010 13:11:18 +0100
 
-Well, this commit is the only PCI core change affecting WoL after 2.6.32 IIRC.
+> Am Samstag, 16. Januar 2010 10:46:54 schrieb David Miller:
+>> This is a complete mess, and we need to sort it out before we think
+>> about changing the size of qopt at this point.
+>> 
+> Just to state this clearly, by cleaning up the mess you mean switching netem 
+> completely over to netlink attributes? 
 
-Rafael
+I think the only way we can proceed is to keep the current qopt
+structure static, and only add things using new attributes.
+
+I would also suggest that we make sch_netem.c strictly require a
+specific size for the structure.  And before anyone says that will
+break something, it's much better than what we have now which is
+random, silent, dropping of attributes.
