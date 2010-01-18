@@ -1,46 +1,54 @@
-From: Tino Keitel <tino.keitel@tikei.de>
-Subject: Re: Regression: Wake on LAN doesn't work in sky2 with
- 2.6.33-rc4-git2
-Date: Mon, 18 Jan 2010 19:52:45 +0100
-Message-ID: <20100118185245.GA3750@mac.home>
-References: <20100115091053.GA5477@mac.home>
- <201001152323.37718.rjw@sisk.pl>
- <20100117231932.GA5504@mac.home>
- <201001180136.45823.rjw@sisk.pl>
- <20100118083757.GA2619@mac.home>
- <4B544D2C.8040400@ring3k.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Mike McCormack <mikem@ring3k.org>
+From: greg@enjellic.com
+Subject: Global IPV6 auto-configuration does not work as expected.
+Date: Mon, 18 Jan 2010 13:06:06 -0600
+Message-ID: <201001181906.o0IJ66mG028647@wind.enjellic.com>
+Reply-To: greg@enjellic.com
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eazy.amigager.de ([213.239.192.238]:53440 "EHLO
-	eazy.amigager.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755871Ab0ARSwt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 13:52:49 -0500
-Received: from mac.home (port-92-206-67-99.dynamic.qsc.de [92.206.67.99])
-	by eazy.amigager.de (Postfix) with ESMTPA id 6D307C8C10A
-	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 19:52:48 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <4B544D2C.8040400@ring3k.org>
+Received: from wind.enjellic.com ([209.243.13.15]:43449 "EHLO
+	wind.enjellic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756027Ab0ARTX7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 14:23:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 18, 2010 at 20:59:40 +0900, Mike McCormack wrote:
-> Tino Keitel wrote:
-> > Hi,
-> > 
-> > reverting this commit fixes WoL for me:
-> > 
-> > commit 166a0fd4c788ec7f10ca8194ec6d526afa12db75
-> 
-> Hi Tino,
-> 
-> Does this fix WoL also?  Compile tested only...
+Good afternoon, hope this note finds everyone's week starting well.
 
-No, still no wakeup on WoL packets.
+We are in the process of beginning full scale deployment of IPv6 and
+have run into the following issue.  It is probably user error so feel
+free to note it as such.
 
-Regards,
-Tino
+We want to turn off auto-configuration of IPv6 by our routers on all
+interfaces on our servers.  From a bit of Googling and intuition we
+assumed the following sysctl key would do this:
+
+net.ipv6.conf.all.autoconf=0
+
+But this seems to have no effect.  We have booted the machines and set
+the above directive before the network configures and have also tried
+setting the directive after boot followed by manual deletion of the
+router assigned addresses but they keep returning.  It's happening
+with 2.6.31.x and 2.6.32.x kernels.
+
+The only way we have been able to disable the auto-configuration has
+been to explicitly disable it at the individual interface level with
+net.ipv6.conf.ethN.autoconf=0 directives.
+
+We've noted the net.ipv6.conf.default.autoconf and experimented with
+that a bit as well but haven't been able to accomplish our objective.
+
+Thoughts?
+
+Best wishes for a productive week.
+
+As always,
+Dr. G.W. Wettstein, Ph.D.   Enjellic Systems Development, LLC.
+4206 N. 19th Ave.           Specializing in information infra-structure
+Fargo, ND  58102            development.
+PH: 701-281-1686
+FAX: 701-281-3949           EMAIL: greg@enjellic.com
+------------------------------------------------------------------------------
+"Quidquid latine dictum sit, altum viditur."
+        (Whatever is said in Latin, sounds profound.)
+                                -- Kevin M Bealer
