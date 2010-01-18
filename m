@@ -1,76 +1,146 @@
-From: Michael Breuer <mbreuer@majjas.com>
-Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
-Date: Mon, 18 Jan 2010 17:47:11 -0500
-Message-ID: <4B54E4EF.8080602@majjas.com>
-References: <4B53906B.2020608@majjas.com> <20100117230531.GC3161@del.dom.local>
- <4B539A0A.2000504@majjas.com> <20100118073018.GA6270@ff.dom.local>
- <4B548C6B.10607@majjas.com> <20100118204658.GC3157@del.dom.local>
- <4B54CB0D.5070604@majjas.com> <20100118212516.GE3157@del.dom.local>
- <4B54D50C.90608@majjas.com> <20100118220814.GG3157@del.dom.local>
- <20100118221747.GH3157@del.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH 5/5 v2] tc: man: add man page for drr scheduler
+Date: Mon, 18 Jan 2010 23:54:02 +0100
+Message-ID: <1263855242-1618-1-git-send-email-fw@strlen.de>
+References: <1263329126-19756-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta4.srv.hcvlny.cv.net ([167.206.4.199]:62103 "EHLO
-	mta4.srv.hcvlny.cv.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754878Ab0ARWrt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 17:47:49 -0500
-In-reply-to: <20100118221747.GH3157@del.dom.local>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:54435 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753268Ab0ARWzF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 17:55:05 -0500
+In-Reply-To: <1263329126-19756-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/18/2010 5:17 PM, Jarek Poplawski wrote:
-> On Mon, Jan 18, 2010 at 11:08:14PM +0100, Jarek Poplawski wrote:
->    
->> Btw, I wonder if you could test it skipping the (HP?) switch?
->>      
-> If so, then of course don't forget to try tcpdump on the router.
->
-> Jarek P.
->    
-Well - no.... but I'm not sure that would show anything.
+With help from Patrick McHardy.
 
-Setup diagram:
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
 
-Server->gb switch-> (100mb) wifi router -> devices
-                     |
-               Win7 PC (gb)
+ Aplogies for taking so long to re-spin this.
+ Changes since v1:
+  - fix garbled formatting of drr example usage
+  - add all changes Patrick suggested.
 
-The problem does not occur (at least I haven't been able to recreate it) 
-at 100mb, and the wifi router doesn't do 1Gb. I drive the traffic from 
-the win7 PC to the server. I've seen the loss when the only traffic 
-going through the wifi router was ping & dhcp. I've also never seen any 
-loss on a device directly attached to the 1GB switch. I can drive load 
-through the wifi router while driving load from the Win7 box, but don't 
-see TX packet loss at all when not doing DHCP RELEASE/RENEW.
+ man/man8/tc-drr.8 |   94 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ man/man8/tc.8     |    1 +
+ 2 files changed, 95 insertions(+), 0 deletions(-)
+ create mode 100644 man/man8/tc-drr.8
 
-As there is no packet loss to devices not involved in the DHCP sequence 
-through the same path, I'm not really sure that the GB switch is implicated.
+diff --git a/man/man8/tc-drr.8 b/man/man8/tc-drr.8
+new file mode 100644
+index 0000000..16a8ec0
+--- /dev/null
++++ b/man/man8/tc-drr.8
+@@ -0,0 +1,94 @@
++.TH TC 8 "January 2010" "iproute2" "Linux"
++.SH NAME
++drr \- deficit round robin scheduler
++.SH SYNOPSIS
++.B tc qdisc ... add drr
++.B [ quantum
++bytes
++.B ]
++
++.SH DESCRIPTION
++
++The Deficit Round Robin Scheduler is a classful queuing discipline as
++a more flexible replacement for Stochastic Fairness Queuing.
++
++Unlike SFQ, there are no built-in queues \-\- you need to add classes
++and then set up filters to classify packets accordingly.
++This can be useful e.g. for using RED qdiscs with different settings for particular
++traffic. There is no default class \-\- if a packet cannot be classified,
++it is dropped.
++
++.SH ALGORITHM
++Each class is assigned a deficit counter, initialized to
++.B quantum.
++
++DRR maintains an (internal) ''active'' list of classes whose qdiscs are
++non-empty.  This list is used for dequeuing.  A packet is dequeued from
++the class at the head of the list if the packet size is smaller or equal
++to the deficit counter.  If the counter is too small, it is increased by
++.B quantum
++and the scheduler moves on to the next class in the active list.
++
++
++.SH PARAMETERS
++.TP
++quantum
++Amount of bytes a flow is allowed to dequeue before the scheduler moves to
++the next class.  Defaults to the MTU of the interface. The minimum value is 1.
++
++.SH EXAMPLE & USAGE
++
++To attach to device eth0, using the interface MTU as its quantum:
++.P
++# tc qdisc add dev eth0 handle 1 root drr
++.P
++Adding two classes:
++.P
++# tc class add dev eth0 parent 1: classid 1:1 drr
++# tc class add dev eth0 parent 1: classid 1:2 drr
++.P
++You also need to add at least one filter to classify packets.
++.P
++# tc filter add dev eth0 protocol .. classid 1:1
++.P
++
++Like SFQ, DRR is only useful when it owns the queue \-\- it is a pure scheduler and does
++not delay packets.  Attaching non-work-conserving qdiscs like tbf to it does not make
++sense \-\- other qdiscs in the active list will also become inactive until the dequeue
++operation succeeds.  Embed DRR within another qdisc like HTB or HFSC to ensure it owns the queue.
++.P
++You can mimic SFQ behavior by assigning packets to the attached classes using the
++flow filter:
++
++.B tc qdisc add dev .. drr
++
++.B for i in .. 1024;do
++.br
++.B \ttc class add dev ..  classid $handle:$(print %x $i)
++.br
++.B \ttc qdisc add dev .. fifo limit 16
++.br
++.B done
++
++.B tc filter add .. protocol ip .. $handle flow hash keys src,dst,proto,proto-src,proto-dst divisor 1024 perturb 10
++
++
++.SH SOURCE
++.TP
++o
++M. Shreedhar and George Varghese "Efficient Fair
++Queuing using Deficit Round Robin", Proc. SIGCOMM 95.
++
++.SH NOTES
++
++This implementation does not drop packets from the longest queue on overrun,
++as limits are handled by the individual child qdiscs.
++
++.SH SEE ALSO
++.BR tc (8),
++.BR tc-htb (8),
++.BR tc-sfq (8)
++
++.SH AUTHOR
++sched_drr was written by Patrick McHardy.
++
+diff --git a/man/man8/tc.8 b/man/man8/tc.8
+index 8c0880f..e17ce68 100644
+--- a/man/man8/tc.8
++++ b/man/man8/tc.8
+@@ -367,6 +367,7 @@ print rates in IEC units (ie. 1K = 1024).
+ was written by Alexey N. Kuznetsov and added in Linux 2.2.
+ .SH SEE ALSO
+ .BR tc-cbq (8),
++.BR tc-drr (8),
+ .BR tc-htb (8),
+ .BR tc-sfq (8),
+ .BR tc-red (8),
+-- 
+1.6.4.4
 
-As I don't have a standalone sniffer, I'm thinking that it might be 
-easier to instrument places where the TX packet could be dropped and see 
-at least whether it's getting to the card.
-
-Given the circumstances of the TX drop, and that it was DHCP traffic 
-while under load that caused the oops rectified with the two patches, 
-I'm thinking that the packet loss is the current manifestation of 
-whatever the underlying problem is. Given the extra hop required to 
-break things, and given that a dhcp release/renew seems to trigger 
-things, I keep coming back to arp logic as being somehow implicated.
-
-If arp is somehow involved, then I'd expect to see manifestations under 
-similar circumstances with other drivers. As the pskb_may_pull patch 
-stopped the crash, perhaps other drivers do suffer packet loss and it's 
-just not been widely noticed or attributed to the kernel - especially if 
-the network topology is a factor. I do know people at large enterprises 
-who have been complaining of what *could* be this same issue, however 
-they're currently blaming their switch vendors. As most traffic is TCP, 
-this is really only noticed by those few places deeply concerned with 
-latency. It's likely something altogether different, but then again, 
-maybe not.
