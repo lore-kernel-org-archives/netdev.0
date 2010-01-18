@@ -1,61 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] S2io: two branches the same in wait_for_cmd_complete()
-Date: Sun, 17 Jan 2010 19:13:59 -0800 (PST)
-Message-ID: <20100117.191359.190417865.davem@davemloft.net>
-References: <4B53284C.1090405@gmail.com>
+Subject: Re: [PATCH] net: spread __net_init, __net_exit
+Date: Sun, 17 Jan 2010 19:16:17 -0800 (PST)
+Message-ID: <20100117.191617.123049160.davem@davemloft.net>
+References: <20100117133532.GB6178@x200>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, sivakumar.subramani@neterion.com,
-	ram.vepa@neterion.com, santosh.rastapur@neterion.com,
-	sreenivasa.honnur@neterion.com, anil.murthy@neterion.com
-To: roel.kluin@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755254Ab0ARDNz@vger.kernel.org>
-In-Reply-To: <4B53284C.1090405@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: adobriyan@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48115
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754788Ab0ARDQH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jan 2010 22:16:07 -0500
+In-Reply-To: <20100117133532.GB6178@x200>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Roel Kluin <roel.kluin@gmail.com>
-Date: Sun, 17 Jan 2010 16:10:04 +0100
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Sun, 17 Jan 2010 15:35:32 +0200
 
-> Regardless of the bit_state, the branches execute the same code.
+> __net_init/__net_exit are apparently not going away, so use them
+> to full extent.
 > 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> ---
->  drivers/net/s2io.c |   13 +++----------
->  1 files changed, 3 insertions(+), 10 deletions(-)
+> In some cases __net_init was removed, because it was called from
+> __net_exit code.
 > 
-> Maybe something else was intended?
-> this was introduced in commit 9fc93a41a1ad11
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-If you know the guilty commit, at least do the author(s) of commit
-and/or the driver maintainer(s) the courtesy of CC:'ing them on
-patches like this.
+Applied to net-next-2.6
 
-I've fixed this up here in my reply.
-
-> diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-> index cc42186..0e353d6 100644
-> --- a/drivers/net/s2io.c
-> +++ b/drivers/net/s2io.c
-> @@ -3415,16 +3415,9 @@ static int wait_for_cmd_complete(void __iomem *addr, u64 busy_bit,
->  
->  	do {
->  		val64 = readq(addr);
-> -		if (bit_state == S2IO_BIT_RESET) {
-> -			if (!(val64 & busy_bit)) {
-> -				ret = SUCCESS;
-> -				break;
-> -			}
-> -		} else {
-> -			if (!(val64 & busy_bit)) {
-> -				ret = SUCCESS;
-> -				break;
-> -			}
-> +		if (!(val64 & busy_bit)) {
-> +			ret = SUCCESS;
-> +			break;
->  		}
->  
->  		if (in_interrupt())
