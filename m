@@ -1,70 +1,32 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: linux-next build failure (was: Re: [PATCH/REPOST] pci: push
-	deprecated pci_find_device() function to last user)
-Date: Mon, 18 Jan 2010 15:44:27 +0100
-Message-ID: <10f740e81001180644yd44121cv6dd963349563a290@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tilman Schmidt <tilman@imap.cc>,
-	David Miller <davem@davemloft.net>, Greg KH <gregkh@suse.de>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Karsten Keil <isdn@linux-pingi.de>,
-	isdn4linux@listserv.isdn4linux.de
-To: Jesse Barnes <jbarnes@virtuousgeek.org>
+From: Kristoffer Glembo <kristoffer@gaisler.com>
+Subject: [PATCH 0/1 V2] net: Add Aeroflex Gaisler 10/100/1G Ethernet MAC driver
+Date: Mon, 18 Jan 2010 16:07:56 +0100
+Message-ID: <1263827277-7165-1-git-send-email-kristoffer@gaisler.com>
+Cc: bhutchings@solarflare.com,
+	Kristoffer Glembo <kristoffer@gaisler.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.26]:25666 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752884Ab0AROo3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 09:44:29 -0500
+Received: from mail168c2.megamailservers.com ([69.49.111.68]:53095 "EHLO
+	mail168c2.megamailservers.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752719Ab0ARPIM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 10:08:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 15, 2010 at 19:08, Jesse Barnes <jbarnes@virtuousgeek.org> =
-wrote:
-> On Thu, 14 Jan 2010 23:18:41 +0100 (CET)
-> Tilman Schmidt <tilman@imap.cc> wrote:
->
->> Am 14.01.2010 17:28 schrieb Jesse Barnes:
->> > I can take it, but I lost the original patch. =C2=A0Tilman, can yo=
-u
->> > resend?
->>
->> Sure, here you are:
->>
->> Subject: [PATCH] pci: push deprecated pci_find_device() function to
->> last user
->>
->> The ISDN4Linux HiSax driver family contains the last remaining users
->> of the deprecated pci_find_device() function. This patch creates a
->> private copy of that function in HiSax, and removes the now unused
->> global function together with its controlling configuration option,
->> CONFIG_PCI_LEGACY.
->>
->> Impact: code reorganization, no functional change
->> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
->> ---
->> Note: This patch is not, nor does it intend to be, checkpatch.pl
->> clean. The issues checkpatch.pl reports on it were already present
->> before, and are unrelated to the topic of this patch.
->
-> Applied to my linux-next branch, thanks Tilman.
+This driver adds support for Aeroflex Gaisler 10/100 and 10/100/1G Ethernet MACs.
 
-Just guessing: something's wrong if CONFIG_PCI is not set?
+This is the second round for this patch. I have incorporated fixes suggested by Ben Hutchings
+after reviewing (parts) of the original patch.
 
-http://kisskb.ellerman.id.au/kisskb/buildresult/2042085/
+Kristoffer Glembo (1):
+  net: Add Aeroflex Gaisler 10/100/1G Ethernet MAC driver
 
-Gr{oetje,eeting}s,
+ MAINTAINERS          |    6 +
+ drivers/net/Kconfig  |    9 +
+ drivers/net/Makefile |    1 +
+ drivers/net/greth.c  | 1538 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/greth.h  |  147 +++++
+ 5 files changed, 1701 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/greth.c
+ create mode 100644 drivers/net/greth.h
 
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
-
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-							    -- Linus Torvalds
