@@ -1,186 +1,163 @@
 From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Subject: [PATCH 0/5] tracing/events: add tracepoint to TCP/IP stack and netdev
- layer
-Date: Mon, 18 Jan 2010 17:26:25 +0900
-Message-ID: <4B541B31.5090207@jp.fujitsu.com>
+Subject: [PATCH 1/5] tracing/events: add tracepoint to netdev layer
+Date: Mon, 18 Jan 2010 17:27:20 +0900
+Message-ID: <4B541B68.7090101@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
 Cc: izumi.taku@jp.fujitsu.com, kaneshige.kenji@jp.fujitsu.com
 To: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:42783 "EHLO
-	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753221Ab0ARI0h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 03:26:37 -0500
+Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:45277 "EHLO
+	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754157Ab0ARI1N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 03:27:13 -0500
 Received: from m4.gw.fujitsu.co.jp ([10.0.50.74])
-	by fgwmail7.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o0I8QZ5C010752
+	by fgwmail5.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o0I8RBhR013205
 	for <netdev@vger.kernel.org> (envelope-from sanagi.koki@jp.fujitsu.com);
-	Mon, 18 Jan 2010 17:26:36 +0900
+	Mon, 18 Jan 2010 17:27:11 +0900
 Received: from smail (m4 [127.0.0.1])
-	by outgoing.m4.gw.fujitsu.co.jp (Postfix) with ESMTP id B0D8E45DD75
-	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 17:26:32 +0900 (JST)
+	by outgoing.m4.gw.fujitsu.co.jp (Postfix) with ESMTP id A42F245DE7B
+	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 17:27:11 +0900 (JST)
 Received: from s4.gw.fujitsu.co.jp (s4.gw.fujitsu.co.jp [10.0.50.94])
-	by m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 4AC9245DE7F
-	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 17:26:30 +0900 (JST)
+	by m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 3950A45DE7A
+	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 17:27:11 +0900 (JST)
 Received: from s4.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id 8A5E0E18001
-	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 17:26:29 +0900 (JST)
-Received: from m108.s.css.fujitsu.com (m108.s.css.fujitsu.com [10.249.87.108])
-	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id D68E6E18002
-	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 17:26:26 +0900 (JST)
+	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id 15EF31DB803F
+	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 17:27:11 +0900 (JST)
+Received: from m107.s.css.fujitsu.com (m107.s.css.fujitsu.com [10.249.87.107])
+	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id D3FEB1DB8042
+	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 17:27:09 +0900 (JST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These patch-set adds some tracepoints to the TCP/IP stack and netdev layer.
-
-As described below,
-http://marc.info/?l=linux-netdev&m=126096487212459&w=2
-dev_hard_start_xmit and netif_receive_skb are important location to add
-tracepoints. Because driver depends on an machine environment, we usually
-check this point when solving network problem. But these two points are lack of
-infrotmation that what packets are passed, So I add other tracepoints to know
-what packets are passed and to give some merits.
-
-Added tracepoints are at transmit/receive entry of TCP, UDP, RAW, IPv4, driver
-and Qdisc. And tracepoints to output information to make connection
-between these entry tracepoints are also added.
-
-These tracepoints give some merits.
-For example, they enable us to measure packet latency.
-By using tcpdump, we can analyze what packets are passed, but we cannot analyze
-how long it takes to pass through network layer(In other words, latency of TCP
-layer, IP layer and Qdisc). 
-Packet latency is very useful information to solve a network bad performance or
-bad reaction network application, packet latency is very useful information.
-
-As an other use case, unlike a tcpdump, they are recorded in ftrace buffer
-without IO burden. Only when you need, output recorded information.
-I mean, they are fit to run always.
-
-Details of added tracepoint are below.
-
-skb_clone               chase the cloned skb
-senddata_copy_skb       copy userdata to skb for transmit
+This patch adds tracepoints at dev_hard_start_xmit, dev_queue_xmit and
+netif_receive_skb function.
 
 netdev_start_xmit       entry of driver's transmit function.
 netdev_receive_skb      entry of netstack(receive).
 dev_queue_xmit          entry of Qdisc.	
 
-ip_queue_xmit           entry of IP layer(TCP transmit)
-ip_push_pending_frames  entry of IP layer(UDP transmit)
-ip_output               entry of IP layer(RAW transmit)
-ip_frag_queue           aggregate fragmented packet
-ip_frag_reasm           reasemble fragmented packet
-ip_rcv                  entry of IP layer(receive)
+Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+---
+ include/trace/events/skb.h |   69 ++++++++++++++++++++++++++++++++++++++++++++
+ net/core/dev.c             |    4 ++
+ 2 files changed, 73 insertions(+), 0 deletions(-)
 
-tcp_sendmsg             entry of TCP layer(transmit)
-tcp_sendpage            entry of TCP layer(transmit)
-tcp_push_pending_frames all data(tcp_sendmsg have) have copied to skb
-tcp_v4_rcv              entry of TCP layer(receive)
-
-udp_sendmsg             entry of UDP layer(transmit)
-udp_sendpage            entry of UDP layer(transmit)
-udp_push_pending_frames all data(udp_sendmsg have) have copied to skb
-udp_rcv                 entry of UDP layer(receive).
-
-raw_sendmsg             entry of RAW layer(transmit).
-raw_rcv                 entry of RAW layer(receive).
-
-Outputs are below.
-
-TCP send
-         netperf-2513  [000]  2603.586818: tcp_sendmsg: sk=f644eac0 len=5000
-         netperf-2513  [000]  2603.586818: senddata_copy_skb: sk=f644eac0 skbaddr=f7159800 len=1416
-         netperf-2513  [000]  2603.586820: senddata_copy_skb: sk=f644eac0 skbaddr=f7159500 len=1448
-         netperf-2513  [000]  2603.586821: senddata_copy_skb: sk=f644eac0 skbaddr=f7158d80 len=1448
-         netperf-2513  [000]  2603.586822: senddata_copy_skb: sk=f644eac0 skbaddr=f7159c80 len=688
-         netperf-2513  [000]  2603.586822: tcp_push_pending_frames: sk=f644eac0 sport=54875 dport=51707
-            tail-2514  [001]  2603.587577: skb_clone: original=f7159800 clone=f71598b4
-            tail-2514  [001]  2603.587578: ip_queue_xmit: skbaddr=f71598b4 saddr=192.168.100.5 daddr=192.168.100.2
-            tail-2514  [001]  2603.587579: ip_output: skbaddr=f71598b4 saddr=192.168.100.5 daddr=192.168.100.2
-            tail-2514  [001]  2603.587579: dev_queue_xmit: dev=eth10 skbaddr=f71598b4 len=1514
-            tail-2514  [001]  2603.587580: netdev_start_xmit: dev=eth10 skbaddr=f71598b4 len=1514
-            tail-2514  [001]  2603.587628: skb_clone: original=f7159500 clone=f71595b4
-            tail-2514  [001]  2603.587629: ip_queue_xmit: skbaddr=f71595b4 saddr=192.168.100.5 daddr=192.168.100.2
-            tail-2514  [001]  2603.587630: ip_output: skbaddr=f71595b4 saddr=192.168.100.5 daddr=192.168.100.2
-            tail-2514  [001]  2603.587631: dev_queue_xmit: dev=eth10 skbaddr=f71595b4 len=1514
-            tail-2514  [001]  2603.587632: netdev_start_xmit: dev=eth10 skbaddr=f71595b4 len=1514
-            tail-2514  [001]  2603.587632: skb_clone: original=f7158d80 clone=f7158e34
-            tail-2514  [001]  2603.587633: ip_queue_xmit: skbaddr=f7158e34 saddr=192.168.100.5 daddr=192.168.100.2
-            tail-2514  [001]  2603.587634: ip_output: skbaddr=f7158e34 saddr=192.168.100.5 daddr=192.168.100.2
-            tail-2514  [001]  2603.587635: dev_queue_xmit: dev=eth10 skbaddr=f7158e34 len=1514
-            tail-2514  [001]  2603.587635: netdev_start_xmit: dev=eth10 skbaddr=f7158e34 len=1514
-            tail-2514  [001]  2603.587685: skb_clone: original=f7159c80 clone=f7159d34
-            tail-2514  [001]  2603.587685: ip_queue_xmit: skbaddr=f7159d34 saddr=192.168.100.5 daddr=192.168.100.2
-            tail-2514  [001]  2603.587687: ip_output: skbaddr=f7159d34 saddr=192.168.100.5 daddr=192.168.100.2
-            tail-2514  [001]  2603.587687: dev_queue_xmit: dev=eth10 skbaddr=f7159d34 len=1514
-            tail-2514  [001]  2603.587688: netdev_start_xmit: dev=eth10 skbaddr=f7159d34 len=1514
-
-TCP recv
-          <idle>-0     [001]  3499.386601: netdev_receive_skb: dev=eth10 skbaddr=f4a88480 len=1500
-          <idle>-0     [001]  3499.386602: ip_rcv: skbaddr=f4a88480 saddr=192.168.100.2 daddr=192.168.100.5
-          <idle>-0     [001]  3499.386604: tcp_v4_rcv: skbaddr=f4a88480 sport=51035 dport=34474
-          <idle>-0     [000]  3499.386619: netdev_receive_skb: dev=eth10 skbaddr=f3c75300 len=1500
-          <idle>-0     [000]  3499.386619: ip_rcv: skbaddr=f3c75300 saddr=192.168.100.2 daddr=192.168.100.5
-          <idle>-0     [000]  3499.386622: tcp_v4_rcv: skbaddr=f3c75300 sport=51035 dport=34474
-       netserver-2519  [000]  3499.386626: skb_copy_datagram_iovec: skbaddr=f4a88480 len=1448
-       netserver-2519  [000]  3499.386628: skb_copy_datagram_iovec: skbaddr=f3c75300 len=1448
-
-UDP send
-         netperf-2506  [001]  2309.073460: udp_sendmsg: sk=f662e6c0 len=5000
-         netperf-2506  [001]  2309.073466: senddata_copy_skb: sk=f662e6c0 skbaddr=f5f65780 len=1472
-         netperf-2506  [001]  2309.073467: senddata_copy_skb: sk=f662e6c0 skbaddr=f5f65000 len=1480
-         netperf-2506  [001]  2309.073468: senddata_copy_skb: sk=f662e6c0 skbaddr=f3decf00 len=1480
-         netperf-2506  [001]  2309.073469: senddata_copy_skb: sk=f662e6c0 skbaddr=f4802840 len=568
-         netperf-2506  [001]  2309.073470: udp_push_pending_frames: sk=f662e6c0 sport=42679 dport=47640
-         netperf-2506  [001]  2309.073470: ip_push_pending_frames: skbaddr=f5f65780 saddr=192.168.100.5 daddr=192.168.100.2
-         netperf-2506  [001]  2309.073471: ip_output: skbaddr=f5f65780 saddr=192.168.100.5 daddr=192.168.100.2
-         netperf-2506  [001]  2309.073472: dev_queue_xmit: dev=eth10 skbaddr=f5f65780 len=1514
-         netperf-2506  [001]  2309.073473: dev_queue_xmit: dev=eth10 skbaddr=f5f65000 len=1514
-         netperf-2506  [001]  2309.073474: dev_queue_xmit: dev=eth10 skbaddr=f3decf00 len=1514
-         netperf-2506  [001]  2309.073474: dev_queue_xmit: dev=eth10 skbaddr=f4802840 len=602
-          <idle>-0     [001]  2309.073615: netdev_start_xmit: dev=eth10 skbaddr=f5f65780 len=1514
-          <idle>-0     [001]  2309.073616: netdev_start_xmit: dev=eth10 skbaddr=f5f65000 len=1514
-          <idle>-0     [000]  2309.073633: netdev_start_xmit: dev=eth10 skbaddr=f3decf00 len=1514
-          <idle>-0     [000]  2309.073633: netdev_start_xmit: dev=eth10 skbaddr=f4802840 len=602
-
-UDP recv
-          <idle>-0     [001]  3671.663678: netdev_receive_skb: dev=eth10 skbaddr=f5f72d80 len=1500
-          <idle>-0     [001]  3671.663678: ip_rcv: skbaddr=f5f72d80 saddr=192.168.100.2 daddr=192.168.100.5
-          <idle>-0     [001]  3671.663680: ip_frag_queue: skbaddr=f5f72d80 prev=(null)
-          <idle>-0     [001]  3671.663681: netdev_receive_skb: dev=eth10 skbaddr=f5f6aa80 len=1500
-          <idle>-0     [001]  3671.663681: ip_rcv: skbaddr=f5f6aa80 saddr=192.168.100.2 daddr=192.168.100.5
-          <idle>-0     [001]  3671.663681: ip_frag_queue: skbaddr=f5f6aa80 prev=f5f72d80
-          <idle>-0     [000]  3671.663702: netdev_receive_skb: dev=eth10 skbaddr=f4800840 len=1500
-          <idle>-0     [000]  3671.663703: ip_rcv: skbaddr=f4800840 saddr=192.168.100.2 daddr=192.168.100.5
-          <idle>-0     [000]  3671.663703: ip_frag_queue: skbaddr=f4800840 prev=f5f6aa80
-          <idle>-0     [000]  3671.663704: netdev_receive_skb: dev=eth10 skbaddr=f4a88b40 len=588
-          <idle>-0     [000]  3671.663705: ip_rcv: skbaddr=f4a88b40 saddr=192.168.100.2 daddr=192.168.100.5
-          <idle>-0     [000]  3671.663705: ip_frag_queue: skbaddr=f4a88b40 prev=f4800840
-          <idle>-0     [000]  3671.663706: skb_clone: original=f4a88b40 clone=f5fff480
-          <idle>-0     [000]  3671.663707: kfree_skb: skbaddr=f5f72d80 protocol=2048 location=c0715f1a
-          <idle>-0     [000]  3671.663707: ip_frag_reasm: head=f4a88b40 len=1480
-          <idle>-0     [000]  3671.663711: udp_rcv: skbaddr=f4a88b40 sport=57915 dport=37634
-       netserver-2525  [000]  3671.663718: skb_copy_datagram_iovec: skbaddr=f4a88b40 len=5000
-       netserver-2525  [000]  3671.663718: skb_copy_datagram_iovec: skbaddr=f5f6aa80 len=1480
-       netserver-2525  [000]  3671.663719: skb_copy_datagram_iovec: skbaddr=f4800840 len=1480
-       netserver-2525  [000]  3671.663719: skb_copy_datagram_iovec: skbaddr=f5fff480 len=568
-
-RAW send
-            send-2431  [001]  1813.799957: raw_sendmsg: sk=f4a37200 len=1500
-            send-2431  [001]  1813.799959: senddata_copy_skb: sk=f4a37200 skbaddr=f3dec180 len=1500
-            send-2431  [001]  1813.799960: ip_output: skbaddr=f3dec180 saddr=192.168.100.5 daddr=192.168.100.2
-            send-2431  [001]  1813.799960: dev_queue_xmit: dev=eth10 skbaddr=f3dec180 len=1514
-            send-2431  [001]  1813.799961: netdev_start_xmit: dev=eth10 skbaddr=f3dec180 len=1514
-
-RAW recv
-          <idle>-0     [000]  2052.858947: netdev_receive_skb: dev=eth1 skbaddr=f5f66000 len=1500
-          <idle>-0     [000]  2052.858947: ip_rcv: skbaddr=f5f66000 saddr=192.168.101.2 daddr=192.168.101.5
-          <idle>-0     [000]  2052.858951: skb_clone: original=f5f66000 clone=f3e43cc0
-          <idle>-0     [000]  2052.858952: raw_rcv: skbaddr=f3e43cc0 len=1476
-            recv-2499  [001]  2052.858970: skb_copy_datagram_iovec: skbaddr=f3e43cc0 len=1500
-
-Best Regards,
-Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
+index 4b2be6d..d732f07 100644
+--- a/include/trace/events/skb.h
++++ b/include/trace/events/skb.h
+@@ -8,6 +8,75 @@
+ #include <linux/netdevice.h>
+ #include <linux/tracepoint.h>
+ 
++TRACE_EVENT(dev_queue_xmit,
++
++	TP_PROTO(struct sk_buff *skb,
++		 struct net_device *dev),
++
++	TP_ARGS(skb, dev),
++
++	TP_STRUCT__entry(
++		__field(	const void *,	skbaddr		)
++		__field(	unsigned int,	len		)
++		__string(		name,	dev->name	)
++       ),
++
++	TP_fast_assign(
++		__entry->skbaddr = skb;
++		__entry->len = skb->len;
++		__assign_str(name, dev->name);
++	),
++
++	TP_printk("dev=%s skbaddr=%p len=%u",
++		__get_str(name), __entry->skbaddr, __entry->len)
++);
++
++TRACE_EVENT(netdev_start_xmit,
++
++	TP_PROTO(struct sk_buff *skb,
++		 struct net_device *dev),
++
++	TP_ARGS(skb, dev),
++
++	TP_STRUCT__entry(
++		__field(	const void *,	skbaddr		)
++		__field(	unsigned int,	len		)
++		__string(		name,	dev->name	)
++       ),
++
++	TP_fast_assign(
++		__entry->skbaddr = skb;
++		__entry->len = skb->len;
++		__assign_str(name, dev->name);
++	),
++
++	TP_printk("dev=%s skbaddr=%p len=%u",
++		__get_str(name), __entry->skbaddr, __entry->len)
++);
++
++TRACE_EVENT(netdev_receive_skb,
++
++	TP_PROTO(struct sk_buff *skb,
++		 struct net_device *dev),
++
++	TP_ARGS(skb, dev),
++
++	TP_STRUCT__entry(
++		__field(	const void *,	skbaddr		)
++		__field(	unsigned int,	len		)
++		__string(		name,	dev->name	)
++       ),
++
++	TP_fast_assign(
++		__entry->skbaddr = skb;
++		__entry->len = skb->len;
++		__assign_str(name, dev->name);
++	),
++
++	TP_printk("dev=%s skbaddr=%p len=%u",
++		__get_str(name), __entry->skbaddr, __entry->len)
++);
++
+ /*
+  * Tracepoint for free an sk_buff:
+  */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a008f69..ef38f8e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -129,6 +129,7 @@
+ #include <linux/jhash.h>
+ #include <linux/random.h>
+ #include <trace/events/napi.h>
++#include <trace/events/skb.h>
+ 
+ #include "net-sysfs.h"
+ 
+@@ -1810,6 +1811,7 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	int rc = NETDEV_TX_OK;
+ 
+ 	if (likely(!skb->next)) {
++		trace_netdev_start_xmit(skb, dev);
+ 		if (!list_empty(&ptype_all))
+ 			dev_queue_xmit_nit(skb, dev);
+ 
+@@ -2043,6 +2045,7 @@ int dev_queue_xmit(struct sk_buff *skb)
+ 	}
+ 
+ gso:
++	trace_dev_queue_xmit(skb, dev);
+ 	/* Disable soft irqs for various locks below. Also
+ 	 * stops preemption for RCU.
+ 	 */
+@@ -2458,6 +2461,7 @@ int netif_receive_skb(struct sk_buff *skb)
+ 
+ 	__get_cpu_var(netdev_rx_stat).total++;
+ 
++	trace_netdev_receive_skb(skb, orig_dev);
+ 	skb_reset_network_header(skb);
+ 	skb_reset_transport_header(skb);
+ 	skb->mac_len = skb->network_header - skb->mac_header;
 
