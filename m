@@ -1,112 +1,73 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: [PATCH 1/1] sched: add head drop fifo queue
-Date: Mon, 18 Jan 2010 17:44:10 +0100
-Message-ID: <1263833050-11635-1-git-send-email-hagen@jauu.net>
-References: <4B548DAE.3000205@trash.net>
-Cc: kaber@trash.net, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:34019 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751688Ab0ARQoM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 11:44:12 -0500
-In-Reply-To: <4B548DAE.3000205@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] list.h: add list_for_each_struct_entry macro
+Date: Mon, 18 Jan 2010 17:17:13 +0000
+Message-ID: <1263835033.3667.23.camel@achroite.uk.solarflarecom.com>
+References: <20100118162338.GD4229@psychotron.lab.eng.brq.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754742Ab0ARRR1@vger.kernel.org>
+In-Reply-To: <20100118162338.GD4229@psychotron.lab.eng.brq.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This add an additional queuing strategy, called pfifo_head_drop,
-to remove the oldest skb in the case of an overflow within the queue -
-the head element - instead of the last skb (tail). To remove the oldest
-skb in a congested situations is useful for sensor network environments
-where newer packets reflects the superior information.
+On Mon, 2010-01-18 at 17:23 +0100, Jiri Pirko wrote:
+> When preparing to upcoming migration of mc_list (list of multicast MACs)
+> to list_head, the need of traversing the list over one structure member
+> appeared. I thought I'll do it locally but I decided that an intruduction
+> the macro in list.h would be much clearer. Please kindly for a review.
+> 
+> Jirka
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> 
+> diff --git a/include/linux/list.h b/include/linux/list.h
+> index 969f6e9..8350a94 100644
+> --- a/include/linux/list.h
+> +++ b/include/linux/list.h
+> @@ -420,6 +420,22 @@ static inline void list_splice_tail_init(struct list_head *list,
+>  	     pos = list_entry(pos->member.prev, typeof(*pos), member))
+>  
+>  /**
+> + * list_for_each_struct_entry  -       iterate over list of given type using
+> + *                                     the struct member.
+> + * @pos:       the type * to use as a loop cursor.
+> + * @head:      the head for your list.
+> + * @type:      the type of the struct.
+> + * @posmember: the name ot the loop cursor within the struct.
+> + * @member:    the name of the list_struct within the struct.
+> + */
+> +#define list_for_each_struct_entry(pos, head, type, posmember, member)		\
+> +	for (pos = list_entry((head)->next, type, member)->posmember;		\
 
-Reviewed-by: Florian Westphal <fw@strlen.de>
-Acked-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
----
- include/net/pkt_sched.h |    1 +
- net/sched/sch_api.c     |    1 +
- net/sched/sch_fifo.c    |   36 ++++++++++++++++++++++++++++++++++++
- 3 files changed, 38 insertions(+), 0 deletions(-)
+Surely &list_entry(...)->posmember ?
 
-diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
-index 2d56726..b6cdc33 100644
---- a/include/net/pkt_sched.h
-+++ b/include/net/pkt_sched.h
-@@ -71,6 +71,7 @@ extern void qdisc_watchdog_cancel(struct qdisc_watchdog *wd);
- 
- extern struct Qdisc_ops pfifo_qdisc_ops;
- extern struct Qdisc_ops bfifo_qdisc_ops;
-+extern struct Qdisc_ops pfifo_head_drop_qdisc_ops;
- 
- extern int fifo_set_limit(struct Qdisc *q, unsigned int limit);
- extern struct Qdisc *fifo_create_dflt(struct Qdisc *sch, struct Qdisc_ops *ops,
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 75fd1c6..6cd4910 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -1707,6 +1707,7 @@ static int __init pktsched_init(void)
- {
- 	register_qdisc(&pfifo_qdisc_ops);
- 	register_qdisc(&bfifo_qdisc_ops);
-+	register_qdisc(&pfifo_head_drop_qdisc_ops);
- 	register_qdisc(&mq_qdisc_ops);
- 	proc_net_fops_create(&init_net, "psched", 0, &psched_fops);
- 
-diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
-index 69188e8..b719272 100644
---- a/net/sched/sch_fifo.c
-+++ b/net/sched/sch_fifo.c
-@@ -43,6 +43,28 @@ static int pfifo_enqueue(struct sk_buff *skb, struct Qdisc* sch)
- 	return qdisc_reshape_fail(skb, sch);
- }
- 
-+static int pfifo_front_enqueue(struct sk_buff *skb, struct Qdisc* sch)
-+{
-+	struct sk_buff *skb_head;
-+	struct fifo_sched_data *q = qdisc_priv(sch);
-+
-+	if (likely(skb_queue_len(&sch->q) < q->limit))
-+		return qdisc_enqueue_tail(skb, sch);
-+
-+	/* queue full, remove one skb to fulfill the limit */
-+	skb_head = qdisc_dequeue_head(sch);
-+	sch->bstats.bytes -= qdisc_pkt_len(skb_head);
-+	sch->bstats.packets--;
-+	sch->q.qlen--;
-+	sch->qstats.drops++;
-+	kfree_skb(skb_head);
-+
-+	qdisc_enqueue_tail(skb, sch);
-+
-+	return NET_XMIT_CN;
-+}
-+
-+
- static int fifo_init(struct Qdisc *sch, struct nlattr *opt)
- {
- 	struct fifo_sched_data *q = qdisc_priv(sch);
-@@ -108,6 +130,20 @@ struct Qdisc_ops bfifo_qdisc_ops __read_mostly = {
- };
- EXPORT_SYMBOL(bfifo_qdisc_ops);
- 
-+struct Qdisc_ops pfifo_head_drop_qdisc_ops __read_mostly = {
-+	.id		=	"pfifo_head_drop",
-+	.priv_size	=	sizeof(struct fifo_sched_data),
-+	.enqueue	=	pfifo_front_enqueue,
-+	.dequeue	=	qdisc_dequeue_head,
-+	.peek		=	qdisc_peek_head,
-+	.drop		=	qdisc_queue_drop,
-+	.init		=	fifo_init,
-+	.reset		=	qdisc_reset_queue,
-+	.change		=	fifo_init,
-+	.dump		=	fifo_dump,
-+	.owner		=	THIS_MODULE,
-+};
-+
- /* Pass size change message down to embedded FIFO */
- int fifo_set_limit(struct Qdisc *q, unsigned int limit)
- {
+> +	     prefetch(container_of(pos, type, posmember)->member.next),		\
+> +	     &container_of(pos, type, posmember)->member != (head);		\
+
+It seems a bit dodgy to do this pointer arithmetic on a list node which
+might be the list head.
+
+> +	     pos = list_entry(container_of(pos, type, posmember)->member.next,	\
+> +	     type, member)->posmember)
+
+My version:
+
+#define list_for_each_struct_entry(pos, head, type, posmember, member)	     \
+	for (pos = list_empty(head) ? NULL :				     \
+		&list_first_entry(head, type, member)->posmember;	     \
+	     prefetch(container_of(pos, type, posmember)->member.next), pos; \
+	     pos = list_is_last(&container_of(pos, type, posmember)->member, \
+				head) ?	NULL :				     \
+		&list_entry(container_of(pos, type, posmember)->member.next, \
+			    type, member)->posmember)
+
+Ben.
+
 -- 
-1.6.6.196.g1f735.dirty
-
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
