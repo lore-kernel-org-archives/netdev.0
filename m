@@ -1,47 +1,121 @@
-From: Tino Keitel <tino.keitel@tikei.de>
-Subject: Re: Regression: Wake on LAN doesn't work in sky2 with
- 2.6.33-rc4-git2
-Date: Mon, 18 Jan 2010 09:37:58 +0100
-Message-ID: <20100118083757.GA2619@mac.home>
-References: <20100115091053.GA5477@mac.home>
- <201001152323.37718.rjw@sisk.pl>
- <20100117231932.GA5504@mac.home>
- <201001180136.45823.rjw@sisk.pl>
+From: Li Yewang <lyw@cn.fujitsu.com>
+Subject: [PATCH][XFRM] Use the simple  name when adding SAD with ip xfrm state
+Date: Mon, 18 Jan 2010 16:42:17 +0800
+Message-ID: <4B541EE9.9010803@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eazy.amigager.de ([213.239.192.238]:41785 "EHLO
-	eazy.amigager.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752088Ab0ARIiE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 03:38:04 -0500
-Received: from mac.home (port-92-206-67-99.dynamic.qsc.de [92.206.67.99])
-	by eazy.amigager.de (Postfix) with ESMTPA id 96776F48052
-	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 09:38:01 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <201001180136.45823.rjw@sisk.pl>
+Received: from cn.fujitsu.com ([222.73.24.84]:57176 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1755244Ab0ARInM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jan 2010 03:43:12 -0500
+Received: from tang.cn.fujitsu.com (tang.cn.fujitsu.com [10.167.250.3])
+	by song.cn.fujitsu.com (Postfix) with ESMTP id 47C20170091
+	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 16:43:10 +0800 (CST)
+Received: from fnst.cn.fujitsu.com (tang.cn.fujitsu.com [127.0.0.1])
+	by tang.cn.fujitsu.com (8.14.3/8.13.1) with ESMTP id o0I8ghFG008791
+	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 16:42:43 +0800
+Received: from [127.0.0.1] (unknown [10.167.141.89])
+	by fnst.cn.fujitsu.com (Postfix) with ESMTPA id 081A0D4707
+	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 16:44:13 +0800 (CST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+The encryption name such as "rfc3686(ctr(aes))" is too complex.
+I think simple name is better for user when using "ip xfrm state ..." command.
+ 
 
-reverting this commit fixes WoL for me:
+Signed-off-by: Li Yewang <lyw@cn.fujitsu.com>
+---
+ net/xfrm/xfrm_algo.c |   10 ++++++++++
+ 1 files changed, 10 insertions(+), 0 deletions(-)
 
-commit 166a0fd4c788ec7f10ca8194ec6d526afa12db75
-Author: stephen hemminger <shemminger@vyatta.com>
-Date:   Mon Dec 14 08:50:12 2009 +0000
+diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
+index 743c013..6de2780 100644
+--- a/net/xfrm/xfrm_algo.c
++++ b/net/xfrm/xfrm_algo.c
+@@ -31,6 +31,7 @@
+ static struct xfrm_algo_desc aead_list[] = {
+ {
+ 	.name = "rfc4106(gcm(aes))",
++	.compat = "gcm",
+ 
+ 	.uinfo = {
+ 		.aead = {
+@@ -47,6 +48,7 @@ static struct xfrm_algo_desc aead_list[] = {
+ },
+ {
+ 	.name = "rfc4106(gcm(aes))",
++	.compat = "gcm",
+ 
+ 	.uinfo = {
+ 		.aead = {
+@@ -63,6 +65,7 @@ static struct xfrm_algo_desc aead_list[] = {
+ },
+ {
+ 	.name = "rfc4106(gcm(aes))",
++	.compat = "gcm",
+ 
+ 	.uinfo = {
+ 		.aead = {
+@@ -79,6 +82,7 @@ static struct xfrm_algo_desc aead_list[] = {
+ },
+ {
+ 	.name = "rfc4309(ccm(aes))",
++	.compat = "gcm",
+ 
+ 	.uinfo = {
+ 		.aead = {
+@@ -95,6 +99,7 @@ static struct xfrm_algo_desc aead_list[] = {
+ },
+ {
+ 	.name = "rfc4309(ccm(aes))",
++	.compat = "ccm",
+ 
+ 	.uinfo = {
+ 		.aead = {
+@@ -111,6 +116,7 @@ static struct xfrm_algo_desc aead_list[] = {
+ },
+ {
+ 	.name = "rfc4309(ccm(aes))",
++	.compat = "ccm",
+ 
+ 	.uinfo = {
+ 		.aead = {
+@@ -201,6 +207,7 @@ static struct xfrm_algo_desc aalg_list[] = {
+ },
+ {
+ 	.name = "hmac(sha384)",
++	.compat = "sha384",
+ 
+ 	.uinfo = {
+ 		.auth = {
+@@ -218,6 +225,7 @@ static struct xfrm_algo_desc aalg_list[] = {
+ },
+ {
+ 	.name = "hmac(sha512)",
++	.compat = "sha512",
+ 
+ 	.uinfo = {
+ 		.auth = {
+@@ -253,6 +261,7 @@ static struct xfrm_algo_desc aalg_list[] = {
+ },
+ {
+ 	.name = "xcbc(aes)",
++	.compat = "aes-xcbc",
+ 
+ 	.uinfo = {
+ 		.auth = {
+@@ -435,6 +444,7 @@ static struct xfrm_algo_desc ealg_list[] = {
+ },
+ {
+ 	.name = "rfc3686(ctr(aes))",
++	.compat = "aes-ctr",
+ 
+ 	.uinfo = {
+ 		.encr = {
+-- 
+1.6.4.1
 
-    sky2: leave PCI config space writeable
-    
-    Since power management is done by PCI subsystem as well as driver,
-    don't toggle the bit that disables PCI register writes.
-    
-    Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-    Acked-by: Rafael J. Wysocki <rjw@sisk.pl>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-
-Regards,
-Tino
