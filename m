@@ -1,40 +1,56 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
-Date: Mon, 18 Jan 2010 23:40:07 +0100
-Message-ID: <20100118224007.GA3498@del.dom.local>
-References: <20100117230531.GC3161@del.dom.local>
- <4B539A0A.2000504@majjas.com>
- <20100118073018.GA6270@ff.dom.local>
- <4B548C6B.10607@majjas.com>
- <20100118204658.GC3157@del.dom.local>
- <4B54CB0D.5070604@majjas.com>
- <20100118212516.GE3157@del.dom.local>
- <4B54D50C.90608@majjas.com>
- <20100118220814.GG3157@del.dom.local>
- <4B54DFE7.4060802@majjas.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Regression: Wake on LAN doesn't work in sky2 with
+ 2.6.33-rc4-git2
+Date: Mon, 18 Jan 2010 14:43:40 -0800
+Message-ID: <20100118144340.100c9544@nehalam>
+References: <20100115091053.GA5477@mac.home>
+	<201001180136.45823.rjw@sisk.pl>
+	<20100118083757.GA2619@mac.home>
+	<201001182234.55113.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Michael Breuer <mbreuer@majjas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755700Ab0ARWkT@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B54DFE7.4060802@majjas.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Tino Keitel <tino.keitel@tikei.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:53558 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754907Ab0ARWnv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jan 2010 17:43:51 -0500
+In-Reply-To: <201001182234.55113.rjw@sisk.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 18, 2010 at 05:25:43PM -0500, Michael Breuer wrote:
-> On 1/18/2010 5:08 PM, Jarek Poplawski wrote:
-> >Could you remind us if the problem is always with this first device?
-> >Btw, I wonder if you could test it skipping the (HP?) switch?
-> >
-> >Jarek P.
-> No - can be any device connected via the wifi router - wired or wireless.
+On Mon, 18 Jan 2010 22:34:55 +0100
+"Rafael J. Wysocki" <rjw@sisk.pl> wrote:
 
-Anyway, if it can't be repeated with this Win7 box or even the router
-getting dhcp itself, then this router's interaction seems most
-suspected.
+> On Monday 18 January 2010, Tino Keitel wrote:
+> > Hi,
+> > 
+> > reverting this commit fixes WoL for me:
+> > 
+> > commit 166a0fd4c788ec7f10ca8194ec6d526afa12db75
+> > Author: stephen hemminger <shemminger@vyatta.com>
+> > Date:   Mon Dec 14 08:50:12 2009 +0000
+> > 
+> >     sky2: leave PCI config space writeable
+> >     
+> >     Since power management is done by PCI subsystem as well as driver,
+> >     don't toggle the bit that disables PCI register writes.
+> >     
+> >     Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> >     Acked-by: Rafael J. Wysocki <rjw@sisk.pl>
+> >     Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> Hmm, this is kind of interesting.
+> 
+> Perhaps we clear the WoL setting somewhere we shouldn't, but the
+> "disable PCI register writes" bit prevents this from actually happening?
+> 
+> Rafael
 
-Jarek P.
+How about getting a register dump of pci config space with
+good/bad version?
+
+-- 
