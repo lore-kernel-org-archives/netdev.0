@@ -1,73 +1,58 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [PATCH] S2io: two branches the same in wait_for_cmd_complete()
-Date: Mon, 18 Jan 2010 02:20:06 -0500
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77061418BF@nekter>
-References: <4B53284C.1090405@gmail.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: Re: [PATCH 3/9] drivers/net: Eliminate useless code
+Date: Mon, 18 Jan 2010 09:12:21 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.1001180911080.12648@ask.diku.dk>
+References: <Pine.LNX.4.64.1001161657400.28745@ask.diku.dk>
+ <20100117.193140.153138395.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-To: "Roel Kluin" <roel.kluin@gmail.com>, <netdev@vger.kernel.org>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"LKML" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754210Ab0ARHfX@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <4B53284C.1090405@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: ron.mercer@qlogic.com, linux-driver@qlogic.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754929Ab0ARIM0@vger.kernel.org>
+In-Reply-To: <20100117.193140.153138395.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Regardless of the bit_state, the branches execute the same code.
-> 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> ---
->  drivers/net/s2io.c |   13 +++----------
->  1 files changed, 3 insertions(+), 10 deletions(-)
-> 
-> Maybe something else was intended?
-> this was introduced in commit 9fc93a41a1ad11
-> 
-> diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-> index cc42186..0e353d6 100644
-> --- a/drivers/net/s2io.c
-> +++ b/drivers/net/s2io.c
-> @@ -3415,16 +3415,9 @@ static int wait_for_cmd_complete(void __iomem
-> *addr, u64 busy_bit,
-> 
->  	do {
->  		val64 = readq(addr);
-> -		if (bit_state == S2IO_BIT_RESET) {
-> -			if (!(val64 & busy_bit)) {
-> -				ret = SUCCESS;
-> -				break;
-> -			}
-> -		} else {
-> -			if (!(val64 & busy_bit)) {
-> -				ret = SUCCESS;
-> -				break;
-> -			}
-> +		if (!(val64 & busy_bit)) {
-> +			ret = SUCCESS;
-> +			break;
->  		}
-> 
->  		if (in_interrupt())
-> --
-Thanks for catching this bug. The fix should be as follows -
---- a/drivers/net/s2io.c
-+++ b/drivers/net/s2io.c
-@@ -3421,7 +3421,7 @@ static int wait_for_cmd_complete(void __iomem
-*addr, u64 busy_bit,
-                                break;
-                        }
-                } else {
--                       if (!(val64 & busy_bit)) {
-+                       if (val64 & busy_bit) {
-                                ret = SUCCESS;
-                                break;
-                        }
+From: Julia Lawall <julia@diku.dk>
 
-We've not hit this bug because wait_for_cmd_complete() is always called
-with S2IO_BIT_RESET.
+The variable qdev is initialized twice to the same (side effect-free)
+expression.  Drop one initialization.
 
-Ram
+A simplified version of the semantic match that finds this problem is:
+(http://coccinelle.lip6.fr/)
+
+// <smpl>
+@forall@
+idexpression *x;
+identifier f!=ERR_PTR;
+@@
+
+x = f(...)
+... when != x
+(
+x = f(...,<+...x...+>,...)
+|
+* x = f(...)
+)
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+ drivers/net/qla3xxx.c               |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/qla3xxx.c b/drivers/net/qla3xxx.c
+index f922294..4ef0afb 100644
+--- a/drivers/net/qla3xxx.c
++++ b/drivers/net/qla3xxx.c
+@@ -4087,7 +4087,6 @@ static void __devexit ql3xxx_remove(struct pci_dev *pdev)
+ 	struct ql3_adapter *qdev = netdev_priv(ndev);
+ 
+ 	unregister_netdev(ndev);
+-	qdev = netdev_priv(ndev);
+ 
+ 	ql_disable_interrupts(qdev);
+ 
