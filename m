@@ -1,145 +1,77 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: [PATCH V2] sched: add head drop fifo queue
-Date: Mon, 18 Jan 2010 21:27:26 +0100
-Message-ID: <1263846446-24757-1-git-send-email-hagen@jauu.net>
-References: <20100118195907.GI16482@nuttenaction>
-Cc: kaber@trash.net, davem@davemloft.net, jarkao2@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:36473 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752102Ab0ARU12 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 15:27:28 -0500
-In-Reply-To: <20100118195907.GI16482@nuttenaction>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
+Date: Mon, 18 Jan 2010 21:46:58 +0100
+Message-ID: <20100118204658.GC3157@del.dom.local>
+References: <4B4E2F89.2050606@majjas.com>
+ <20100113210908.GA3065@del.dom.local>
+ <4B4E3834.3000609@majjas.com>
+ <4B533A46.9050600@majjas.com>
+ <20100117221746.GA3161@del.dom.local>
+ <4B53906B.2020608@majjas.com>
+ <20100117230531.GC3161@del.dom.local>
+ <4B539A0A.2000504@majjas.com>
+ <20100118073018.GA6270@ff.dom.local>
+ <4B548C6B.10607@majjas.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Michael Breuer <mbreuer@majjas.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754215Ab0ARUrL@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4B548C6B.10607@majjas.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This adds an additional queuing strategy, called pfifo_head_drop,
-to remove the oldest skb in the case of an overflow within the queue -
-the head element - instead of the last skb (tail). To remove the oldest
-skb in congested situations is useful for sensor network environments
-where newer packets reflect the superior information.
+On Mon, Jan 18, 2010 at 11:29:31AM -0500, Michael Breuer wrote:
+> Ok - up on the two patches, no DMAR. Some early observations:
+> 
+> 1. There's an early on MMAP oops (see below). This happens once, at
+> the completion of the transition to runlevel 5 (I've seen it
+> entering runlevel 3 as well). This does not recur when runlevels are
+> subsequently changed. I do not see this when running with DMAR
+> enabled.
 
-Reviewed-by: Florian Westphal <fw@strlen.de>
-Acked-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
----
+OK, you mentioned this oops (actually a warning only) happened during
+previous tests too.
 
-This patch additionaly add the function qdisc_queue_drop_head() to be
-consistent with drop. Additionally some suggestions from Jarek.
+> 
+> 2. The dropped tx packet (DHCP) is a bit harder to recreate, but it
+> still happens.
 
- include/net/pkt_sched.h   |    1 +
- include/net/sch_generic.h |   19 +++++++++++++++++++
- net/sched/sch_api.c       |    1 +
- net/sched/sch_fifo.c      |   34 ++++++++++++++++++++++++++++++++++
- 4 files changed, 55 insertions(+), 0 deletions(-)
+Btw, I guess you improved the test because you didn't mention it here,
+even after my explicit question?:
+http://permalink.gmane.org/gmane.linux.network/149171
 
-diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
-index 2d56726..b6cdc33 100644
---- a/include/net/pkt_sched.h
-+++ b/include/net/pkt_sched.h
-@@ -71,6 +71,7 @@ extern void qdisc_watchdog_cancel(struct qdisc_watchdog *wd);
- 
- extern struct Qdisc_ops pfifo_qdisc_ops;
- extern struct Qdisc_ops bfifo_qdisc_ops;
-+extern struct Qdisc_ops pfifo_head_drop_qdisc_ops;
- 
- extern int fifo_set_limit(struct Qdisc *q, unsigned int limit);
- extern struct Qdisc *fifo_create_dflt(struct Qdisc *sch, struct Qdisc_ops *ops,
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index dad558b..67dc08e 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -427,6 +427,25 @@ static inline struct sk_buff *qdisc_dequeue_head(struct Qdisc *sch)
- 	return __qdisc_dequeue_head(sch, &sch->q);
- }
- 
-+static inline unsigned int __qdisc_queue_drop_head(struct Qdisc *sch,
-+					      struct sk_buff_head *list)
-+{
-+	struct sk_buff *skb = __qdisc_dequeue_head(sch, list);
-+
-+	if (likely(skb != NULL)) {
-+		unsigned int len = qdisc_pkt_len(skb);
-+		kfree_skb(skb);
-+		return len;
-+	}
-+
-+	return 0;
-+}
-+
-+static inline unsigned int qdisc_queue_drop_head(struct Qdisc *sch)
-+{
-+	return __qdisc_queue_drop_head(sch, &sch->q);
-+}
-+
- static inline struct sk_buff *__qdisc_dequeue_tail(struct Qdisc *sch,
- 						   struct sk_buff_head *list)
- {
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 75fd1c6..6cd4910 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -1707,6 +1707,7 @@ static int __init pktsched_init(void)
- {
- 	register_qdisc(&pfifo_qdisc_ops);
- 	register_qdisc(&bfifo_qdisc_ops);
-+	register_qdisc(&pfifo_head_drop_qdisc_ops);
- 	register_qdisc(&mq_qdisc_ops);
- 	proc_net_fops_create(&init_net, "psched", 0, &psched_fops);
- 
-diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
-index 69188e8..4b0a6cc 100644
---- a/net/sched/sch_fifo.c
-+++ b/net/sched/sch_fifo.c
-@@ -43,6 +43,26 @@ static int pfifo_enqueue(struct sk_buff *skb, struct Qdisc* sch)
- 	return qdisc_reshape_fail(skb, sch);
- }
- 
-+static int pfifo_tail_enqueue(struct sk_buff *skb, struct Qdisc* sch)
-+{
-+	struct sk_buff *skb_head;
-+	struct fifo_sched_data *q = qdisc_priv(sch);
-+
-+	if (likely(skb_queue_len(&sch->q) < q->limit))
-+		return qdisc_enqueue_tail(skb, sch);
-+
-+	/* queue full, remove one skb to fulfill the limit */
-+	skb_head = qdisc_dequeue_head(sch);
-+	sch->bstats.bytes -= qdisc_pkt_len(skb_head);
-+	sch->bstats.packets--;
-+	sch->qstats.drops++;
-+	kfree_skb(skb_head);
-+
-+	qdisc_enqueue_tail(skb, sch);
-+
-+	return NET_XMIT_CN;
-+}
-+
- static int fifo_init(struct Qdisc *sch, struct nlattr *opt)
- {
- 	struct fifo_sched_data *q = qdisc_priv(sch);
-@@ -108,6 +128,20 @@ struct Qdisc_ops bfifo_qdisc_ops __read_mostly = {
- };
- EXPORT_SYMBOL(bfifo_qdisc_ops);
- 
-+struct Qdisc_ops pfifo_head_drop_qdisc_ops __read_mostly = {
-+	.id		=	"pfifo_head_drop",
-+	.priv_size	=	sizeof(struct fifo_sched_data),
-+	.enqueue	=	pfifo_tail_enqueue,
-+	.dequeue	=	qdisc_dequeue_head,
-+	.peek		=	qdisc_peek_head,
-+	.drop		=	qdisc_queue_drop_head,
-+	.init		=	fifo_init,
-+	.reset		=	qdisc_reset_queue,
-+	.change		=	fifo_init,
-+	.dump		=	fifo_dump,
-+	.owner		=	THIS_MODULE,
-+};
-+
- /* Pass size change message down to embedded FIFO */
- int fifo_set_limit(struct Qdisc *q, unsigned int limit)
- {
--- 
-1.6.6.196.g1f735.dirty
+> Interestingly, I initially saw no dropped packets
+> with ping - but after I went the DCHP route and eventually
+> reconnected, I could then cause dropped tx packets with ping. To
+> clarify:
+> 
+> a) start throughput
+> b) ping device - no packet loss - this was true for the entire test run.
+> c) start throughput again
+> d) ping - no loss.
+> e) drop wifi on the device & restart - first attempt worked. Repeat
+> attempt yielded the dropped DHCPOFFER packets. After about 6 tries,
+> the device reconnected to wifi.
+> f) ping again (after the reconnection) - packet loss rate about 80%.
+> g) simultaneously ping the wifi router - no loss.
+> h) After a while, packets are no longer dropped during ping. If I
+> manage to cause the dhcp drop again, and then ping after the device
+> finally reconnects, packet loss is significant for a while (maybe 30
+> sec to a minute). Then things return to normal. Note that the packet
+> loss continues even if the reported throughput drops to nil.
+> i) I can't cause the initial packet loss at RX rates below about
+> 30,000KBPS (as reported by nethogs).  At rates over 40 I can
+> reproduce this on this set of patches & config about 60% of the
+> time.
 
+I forgot to mention, but did you try to check if these lost ping
+packets are "being dropped somewhere after wireshark sees them and
+before hitting the wire" like DHCPOFFER? Aren't there any sky2
+warnings/resets while this happens?
+
+Jarek P.
