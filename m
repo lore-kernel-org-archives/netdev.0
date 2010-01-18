@@ -1,39 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: account SYN-ACK timeouts & retransmissions
-Date: Sun, 17 Jan 2010 19:09:55 -0800 (PST)
-Message-ID: <20100117.190955.150527197.davem@davemloft.net>
-References: <201001132307.59472.opurdila@ixiacom.com>
-	<20100114.020322.168786392.davem@davemloft.net>
-	<201001172127.03713.opurdila@ixiacom.com>
+Subject: Re: [PATCH] S2io: two branches the same in wait_for_cmd_complete()
+Date: Sun, 17 Jan 2010 19:13:59 -0800 (PST)
+Message-ID: <20100117.191359.190417865.davem@davemloft.net>
+References: <4B53284C.1090405@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mpyatkovskiy@ixiacom.com
-To: opurdila@ixiacom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56341
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751984Ab0ARDJq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jan 2010 22:09:46 -0500
-In-Reply-To: <201001172127.03713.opurdila@ixiacom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, sivakumar.subramani@neterion.com,
+	ram.vepa@neterion.com, santosh.rastapur@neterion.com,
+	sreenivasa.honnur@neterion.com, anil.murthy@neterion.com
+To: roel.kluin@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755254Ab0ARDNz@vger.kernel.org>
+In-Reply-To: <4B53284C.1090405@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Octavian Purdila <opurdila@ixiacom.com>
-Date: Sun, 17 Jan 2010 21:27:03 +0200
+From: Roel Kluin <roel.kluin@gmail.com>
+Date: Sun, 17 Jan 2010 16:10:04 +0100
 
-> [net-next PATCH v2] tcp: account SYN-ACK timeouts & retransmissions
+> Regardless of the bit_state, the branches execute the same code.
 > 
-> Currently we don't increment SYN-ACK timeouts & retransmissions
-> although we do increment the same stats for SYN. We seem to have lost
-> the SYN-ACK accounting with the introduction of tcp_syn_recv_timer
-> (commit 2248761e in the netdev-vger-cvs tree).
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> ---
+>  drivers/net/s2io.c |   13 +++----------
+>  1 files changed, 3 insertions(+), 10 deletions(-)
 > 
-> This patch fixes this issue. In the process we also rename the v4/v6
-> syn/ack retransmit functions for clarity. We also add a new
-> request_socket operations (syn_ack_timeout) so we can keep code in
-> inet_connection_sock.c protocol agnostic.
-> 
-> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+> Maybe something else was intended?
+> this was introduced in commit 9fc93a41a1ad11
 
-Applied, thanks Octavian.
+If you know the guilty commit, at least do the author(s) of commit
+and/or the driver maintainer(s) the courtesy of CC:'ing them on
+patches like this.
+
+I've fixed this up here in my reply.
+
+> diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+> index cc42186..0e353d6 100644
+> --- a/drivers/net/s2io.c
+> +++ b/drivers/net/s2io.c
+> @@ -3415,16 +3415,9 @@ static int wait_for_cmd_complete(void __iomem *addr, u64 busy_bit,
+>  
+>  	do {
+>  		val64 = readq(addr);
+> -		if (bit_state == S2IO_BIT_RESET) {
+> -			if (!(val64 & busy_bit)) {
+> -				ret = SUCCESS;
+> -				break;
+> -			}
+> -		} else {
+> -			if (!(val64 & busy_bit)) {
+> -				ret = SUCCESS;
+> -				break;
+> -			}
+> +		if (!(val64 & busy_bit)) {
+> +			ret = SUCCESS;
+> +			break;
+>  		}
+>  
+>  		if (in_interrupt())
