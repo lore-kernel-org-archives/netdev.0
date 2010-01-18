@@ -1,33 +1,41 @@
 From: Li Yewang <lyw@cn.fujitsu.com>
-Subject: [PATCH][XFRM] Use the simple  name when adding SAD with ip xfrm state
-Date: Mon, 18 Jan 2010 16:42:17 +0800
-Message-ID: <4B541EE9.9010803@cn.fujitsu.com>
+Subject: Re: [PATCH][XFRM] Use the simple  name when adding SAD with ip xfrm
+ state
+Date: Mon, 18 Jan 2010 16:48:18 +0800
+Message-ID: <4B542052.2000409@cn.fujitsu.com>
+References: <4B541EE9.9010803@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:57176 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:53496 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755244Ab0ARInM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jan 2010 03:43:12 -0500
+	id S1752606Ab0ARItO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jan 2010 03:49:14 -0500
 Received: from tang.cn.fujitsu.com (tang.cn.fujitsu.com [10.167.250.3])
-	by song.cn.fujitsu.com (Postfix) with ESMTP id 47C20170091
-	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 16:43:10 +0800 (CST)
+	by song.cn.fujitsu.com (Postfix) with ESMTP id 35E6717011A
+	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 16:49:13 +0800 (CST)
 Received: from fnst.cn.fujitsu.com (tang.cn.fujitsu.com [127.0.0.1])
-	by tang.cn.fujitsu.com (8.14.3/8.13.1) with ESMTP id o0I8ghFG008791
-	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 16:42:43 +0800
+	by tang.cn.fujitsu.com (8.14.3/8.13.1) with ESMTP id o0I8mjES009090
+	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 16:48:46 +0800
 Received: from [127.0.0.1] (unknown [10.167.141.89])
-	by fnst.cn.fujitsu.com (Postfix) with ESMTPA id 081A0D4707
-	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 16:44:13 +0800 (CST)
+	by fnst.cn.fujitsu.com (Postfix) with ESMTPA id 9270DD473F
+	for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 16:50:15 +0800 (CST)
+In-Reply-To: <4B541EE9.9010803@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The encryption name such as "rfc3686(ctr(aes))" is too complex.
-I think simple name is better for user when using "ip xfrm state ..." command.
- 
 
-Signed-off-by: Li Yewang <lyw@cn.fujitsu.com>
+Li Yewang wrote:
+> The encryption name such as "rfc3686(ctr(aes))" is too complex.
+> I think simple name is better for user when using "ip xfrm state ..." command.
+>  
+  sorry for bad patch about previous mail.
+
+
+  Signed-off-by: Li Yewang <lyw@cn.fujitsu.com>
+  
 ---
  net/xfrm/xfrm_algo.c |   10 ++++++++++
  1 files changed, 10 insertions(+), 0 deletions(-)
@@ -64,7 +72,7 @@ index 743c013..6de2780 100644
  },
  {
  	.name = "rfc4309(ccm(aes))",
-+	.compat = "gcm",
++	.compat = "ccm",
  
  	.uinfo = {
  		.aead = {
