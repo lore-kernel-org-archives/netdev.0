@@ -1,73 +1,54 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] list.h: add list_for_each_struct_entry macro
-Date: Mon, 18 Jan 2010 17:17:13 +0000
-Message-ID: <1263835033.3667.23.camel@achroite.uk.solarflarecom.com>
-References: <20100118162338.GD4229@psychotron.lab.eng.brq.redhat.com>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 1/1] Constify struct sysfs_ops for v2.6.33-rc4
+Date: Sun, 17 Jan 2010 17:35:21 -0800
+Message-ID: <20100118013521.GA4190@suse.de>
+References: <4B5338D6.2050209@gmail.com>
+ <20100117182537.GQ19799@ZenIV.linux.org.uk>
+ <4B536FF5.3000705@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+Content-Type: text/plain; charset=us-ascii
+Cc: Al Viro <viro@ZenIV.linux.org.uk>, linux-kernel@vger.kernel.org,
+	teigland@redhat.com, Matt_Domsch@dell.com,
+	maciej.sosnowski@intel.com, hjk@linutronix.de,
+	Pekka Enberg <penberg@cs.helsinki.fi>, jens.axboe@oracle.com,
+	shemminger@vyatta.com, akpm@linux-foundation.org,
+	davem@davemloft.net, torvalds@linux-foundation.org,
 	netdev@vger.kernel.org
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754742Ab0ARRR1@vger.kernel.org>
-In-Reply-To: <20100118162338.GD4229@psychotron.lab.eng.brq.redhat.com>
+To: Emese Revfy <re.emese@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755828Ab0ARSSv@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4B536FF5.3000705@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-01-18 at 17:23 +0100, Jiri Pirko wrote:
-> When preparing to upcoming migration of mc_list (list of multicast MACs)
-> to list_head, the need of traversing the list over one structure member
-> appeared. I thought I'll do it locally but I decided that an intruduction
-> the macro in list.h would be much clearer. Please kindly for a review.
+On Sun, Jan 17, 2010 at 09:15:49PM +0100, Emese Revfy wrote:
+> Al Viro wrote:
+> > On Sun, Jan 17, 2010 at 05:20:38PM +0100, Emese Revfy wrote:
+> > 
+> >> Signed-off-by: Emese Revfy <re.emese@gmail.com>
+> >> Acked-by: David Teigland <teigland@redhat.com>
+> >> Acked-by: Matt Domsch <Matt_Domsch@dell.com>
+> >> Acked-by: Maciej Sosnowski <maciej.sosnowski@intel.com>
+> >> Acked-by: Hans J. Koch <hjk@linutronix.de>
+> >> Acked-by: Pekka Enberg <penberg@cs.helsinki.fi>
+> >> Acked-by: Jens Axboe <jens.axboe@oracle.com>
+> >> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+> > 
+> > NACKed-by: Al Viro <viro@zeniv.linux.org.uk>
+> > 
+> > Same reason.
+> > 
+> >> -        ssize_t (*show)(struct kobject *, struct attribute *, char *);
+> >> -        ssize_t (*store)(struct kobject *, struct attribute *, const char *);
+> >> +        ssize_t (* const show)(struct kobject *, struct attribute *, char *);
+> >> +        ssize_t (* const store)(struct kobject *, struct attribute *, const char *);
+> > 
 > 
-> Jirka
-> 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> 
-> diff --git a/include/linux/list.h b/include/linux/list.h
-> index 969f6e9..8350a94 100644
-> --- a/include/linux/list.h
-> +++ b/include/linux/list.h
-> @@ -420,6 +420,22 @@ static inline void list_splice_tail_init(struct list_head *list,
->  	     pos = list_entry(pos->member.prev, typeof(*pos), member))
->  
->  /**
-> + * list_for_each_struct_entry  -       iterate over list of given type using
-> + *                                     the struct member.
-> + * @pos:       the type * to use as a loop cursor.
-> + * @head:      the head for your list.
-> + * @type:      the type of the struct.
-> + * @posmember: the name ot the loop cursor within the struct.
-> + * @member:    the name of the list_struct within the struct.
-> + */
-> +#define list_for_each_struct_entry(pos, head, type, posmember, member)		\
-> +	for (pos = list_entry((head)->next, type, member)->posmember;		\
+> Ok, I removed the field constification, here's the updated patch:
 
-Surely &list_entry(...)->posmember ?
+Please resend with proper changelog and other information so that it
+could be applied.
 
-> +	     prefetch(container_of(pos, type, posmember)->member.next),		\
-> +	     &container_of(pos, type, posmember)->member != (head);		\
+thanks,
 
-It seems a bit dodgy to do this pointer arithmetic on a list node which
-might be the list head.
-
-> +	     pos = list_entry(container_of(pos, type, posmember)->member.next,	\
-> +	     type, member)->posmember)
-
-My version:
-
-#define list_for_each_struct_entry(pos, head, type, posmember, member)	     \
-	for (pos = list_empty(head) ? NULL :				     \
-		&list_first_entry(head, type, member)->posmember;	     \
-	     prefetch(container_of(pos, type, posmember)->member.next), pos; \
-	     pos = list_is_last(&container_of(pos, type, posmember)->member, \
-				head) ?	NULL :				     \
-		&list_entry(container_of(pos, type, posmember)->member.next, \
-			    type, member)->posmember)
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+greg k-h
