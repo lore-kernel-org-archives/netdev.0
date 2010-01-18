@@ -1,138 +1,56 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] dccp: fix dccp rmmod when kernel configured to use slub
-Date: Sun, 17 Jan 2010 22:16:12 -0500
-Message-ID: <20100118031611.GA2221@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: phylib: kernel oops on resume with 2.6.33-rc4
+Date: Sun, 17 Jan 2010 19:23:53 -0800 (PST)
+Message-ID: <20100117.192353.85482728.davem@davemloft.net>
+References: <B85A65D85D7EB246BE421B3FB0FBB59301E2025EA9@dbde02.ent.ti.com>
+	<20100116223703.GA13190@oksana.dev.rtsoft.ru>
+	<B85A65D85D7EB246BE421B3FB0FBB59301E2025EED@dbde02.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: acme@ghostprotocols.net, davem@davemloft.net, nhorman@tuxdriver.com
-To: dccp@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: avorontsov@ru.mvista.com, netdev@vger.kernel.org
+To: nsekhar@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:35761 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755238Ab0ARDQR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jan 2010 22:16:17 -0500
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37446
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751984Ab0ARDXn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jan 2010 22:23:43 -0500
+In-Reply-To: <B85A65D85D7EB246BE421B3FB0FBB59301E2025EED@dbde02.ent.ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey all-
-	I was tinkering with dccp recently and noticed that I BUG halted the
-kernel when I rmmod-ed the dccp module.  The bug halt occured because the page
-that I passed to kfree failed the PageCompound and PageSlab test in the slub
-implementation of kfree.  I tracked the problem down to the following set of
-events:
+From: "Nori, Sekhar" <nsekhar@ti.com>
+Date: Sun, 17 Jan 2010 13:58:39 +0530
 
-1) dccp, unlike all other uses of kmem_cache_create, allocates a string
-dynamically when registering a slab cache.  This allocated string is freed when
-the cache is destroyed.
+> On Sun, Jan 17, 2010 at 04:07:03, Anton Vorontsov wrote:
+>> Hello,
+>>
+>> On Sat, Jan 16, 2010 at 09:38:34PM +0530, Nori, Sekhar wrote:
+>> > Hello all,
+>> >
+>> > I am hitting a kernel oops when resuming from suspend-to-RAM on 2.6.33-rc4
+>> > kernel.
+>> >
+>> > The MAC is TI DaVinci EMAC and PHY is SMSC LAN8710. However, I also hit the
+>> > issue even when using generic PHY driver (CONFIG_SMSC_PHY turned off).
+>> >
+>> > On reverting commit 541cd3e "phylib: Fix deadlock on resume" which was
+>> > introduced in 2.6.33-rc4, the issue doesn't come about. So far, I haven't
+>> > figured out how this particular commit is causing the oops. Full oops report
+>> > is attached. Appreciate any help in debugging this.
+>>
+>> It seems phy_start_machine() needlessly reinitialized work
+>> struct. This is OK for ucc_geth and gianfar driver because
+>> these drivers do not detach PHYs on suspend, but TI davinci
+>> does. :-/
+>>
+>> Can you try the patch down below?
+> 
+> This seems to have fixed the problem. Thanks! I hope this can be
+> included for the next rc. FWIW,
+> 
+> Reported-and-Tested-by: Sekhar Nori <nsekhar@ti.com>
 
-2) Normally, (1) is not an issue, but when Slub is in use, it is possible that
-caches are 'merged'.  This process causes multiple caches of simmilar
-configuration to use the same cache data structure.  When this happens, the new
-name of the cache is effectively dropped.
+Anton, please resubmit with your signoff.
 
-3) (2) results in kmem_cache_name returning an ambigous value (i.e.
-ccid_kmem_cache_destroy, which uses this fuction to retrieve the name pointer
-for freeing), is no longer guaranteed that the string it assigned is what is
-returned. 
-
-4) If such merge event occurs, ccid_kmem_cache_destroy frees the wrong pointer,
-which trips over the BUG in the slub implementation of kfree (since its likely
-not a slab allocation, but rather a pointer into the static string table
-section.
-
-So, what to do about this.  At first blush this is pretty clearly a leak in the
-information that slub owns, and as such a slub bug.  Unfortunately, theres no
-really good way to fix it, without exposing slub specific implementation details
-to the generic slab interface.  Also, even if we could fix this in slub cleanly,
-I think the RCU free option would force us to do lots of string duplication, not
-only in slub, but in every slab allocator.  As such, I'd like to propose this
-solution.  Basically, I just move the storage for the kmem cache name to the
-ccid_operations structure.  In so doing, we don't have to do the kstrdup or
-kfree when we allocate/free the various caches for dccp, and so we avoid the
-problem, by storing names with static memory, rather than heap, the way all
-other calls to kmem_cache_create do.
-
-I've tested this out myself here, and it solves the problem quite well.
-
-Neil
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-
-
- ccid.c |   18 +++++-------------
- ccid.h |    2 ++
- 2 files changed, 7 insertions(+), 13 deletions(-)
-
-
-diff --git a/net/dccp/ccid.c b/net/dccp/ccid.c
-index f3e9ba1..57dfb9c 100644
---- a/net/dccp/ccid.c
-+++ b/net/dccp/ccid.c
-@@ -77,34 +77,24 @@ int ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
- 	return err;
- }
- 
--static struct kmem_cache *ccid_kmem_cache_create(int obj_size, const char *fmt,...)
-+static struct kmem_cache *ccid_kmem_cache_create(int obj_size, char *slab_name_fmt, const char *fmt,...)
- {
- 	struct kmem_cache *slab;
--	char slab_name_fmt[32], *slab_name;
- 	va_list args;
- 
- 	va_start(args, fmt);
- 	vsnprintf(slab_name_fmt, sizeof(slab_name_fmt), fmt, args);
- 	va_end(args);
- 
--	slab_name = kstrdup(slab_name_fmt, GFP_KERNEL);
--	if (slab_name == NULL)
--		return NULL;
--	slab = kmem_cache_create(slab_name, sizeof(struct ccid) + obj_size, 0,
-+	slab = kmem_cache_create(slab_name_fmt, sizeof(struct ccid) + obj_size, 0,
- 				 SLAB_HWCACHE_ALIGN, NULL);
--	if (slab == NULL)
--		kfree(slab_name);
- 	return slab;
- }
- 
- static void ccid_kmem_cache_destroy(struct kmem_cache *slab)
- {
--	if (slab != NULL) {
--		const char *name = kmem_cache_name(slab);
--
-+	if (slab != NULL)
- 		kmem_cache_destroy(slab);
--		kfree(name);
--	}
- }
- 
- static int ccid_activate(struct ccid_operations *ccid_ops)
-@@ -113,6 +103,7 @@ static int ccid_activate(struct ccid_operations *ccid_ops)
- 
- 	ccid_ops->ccid_hc_rx_slab =
- 			ccid_kmem_cache_create(ccid_ops->ccid_hc_rx_obj_size,
-+					       ccid_ops->ccid_hc_rx_slab_name,
- 					       "ccid%u_hc_rx_sock",
- 					       ccid_ops->ccid_id);
- 	if (ccid_ops->ccid_hc_rx_slab == NULL)
-@@ -120,6 +111,7 @@ static int ccid_activate(struct ccid_operations *ccid_ops)
- 
- 	ccid_ops->ccid_hc_tx_slab =
- 			ccid_kmem_cache_create(ccid_ops->ccid_hc_tx_obj_size,
-+					       ccid_ops->ccid_hc_tx_slab_name,
- 					       "ccid%u_hc_tx_sock",
- 					       ccid_ops->ccid_id);
- 	if (ccid_ops->ccid_hc_tx_slab == NULL)
-diff --git a/net/dccp/ccid.h b/net/dccp/ccid.h
-index facedd2..269958b 100644
---- a/net/dccp/ccid.h
-+++ b/net/dccp/ccid.h
-@@ -49,6 +49,8 @@ struct ccid_operations {
- 	const char		*ccid_name;
- 	struct kmem_cache	*ccid_hc_rx_slab,
- 				*ccid_hc_tx_slab;
-+	char			ccid_hc_rx_slab_name[32];
-+	char			ccid_hc_tx_slab_name[32];
- 	__u32			ccid_hc_rx_obj_size,
- 				ccid_hc_tx_obj_size;
- 	/* Interface Routines */
+Thanks.
