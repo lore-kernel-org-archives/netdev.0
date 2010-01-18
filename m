@@ -1,34 +1,73 @@
-From: Luis Correia <luis.f.correia@gmail.com>
-Subject: SIS 190 driver patch
-Date: Mon, 18 Jan 2010 07:32:36 +0000
-Message-ID: <efe7343f1001172332t2f86accfl864954e2d1ff78d0@mail.gmail.com>
-References: <efe7343f1001171314g7cec9703g531a3f39ce63f3f3@mail.gmail.com>
+From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
+Subject: RE: [PATCH] S2io: two branches the same in wait_for_cmd_complete()
+Date: Mon, 18 Jan 2010 02:20:06 -0500
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77061418BF@nekter>
+References: <4B53284C.1090405@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f219.google.com ([209.85.219.219]:58250 "EHLO
-	mail-ew0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751756Ab0ARHch (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 02:32:37 -0500
-Received: by ewy19 with SMTP id 19so214270ewy.21
-        for <netdev@vger.kernel.org>; Sun, 17 Jan 2010 23:32:36 -0800 (PST)
-In-Reply-To: <efe7343f1001171314g7cec9703g531a3f39ce63f3f3@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+To: "Roel Kluin" <roel.kluin@gmail.com>, <netdev@vger.kernel.org>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"LKML" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754210Ab0ARHfX@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <4B53284C.1090405@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+> Regardless of the bit_state, the branches execute the same code.
+> 
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> ---
+>  drivers/net/s2io.c |   13 +++----------
+>  1 files changed, 3 insertions(+), 10 deletions(-)
+> 
+> Maybe something else was intended?
+> this was introduced in commit 9fc93a41a1ad11
+> 
+> diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+> index cc42186..0e353d6 100644
+> --- a/drivers/net/s2io.c
+> +++ b/drivers/net/s2io.c
+> @@ -3415,16 +3415,9 @@ static int wait_for_cmd_complete(void __iomem
+> *addr, u64 busy_bit,
+> 
+>  	do {
+>  		val64 = readq(addr);
+> -		if (bit_state == S2IO_BIT_RESET) {
+> -			if (!(val64 & busy_bit)) {
+> -				ret = SUCCESS;
+> -				break;
+> -			}
+> -		} else {
+> -			if (!(val64 & busy_bit)) {
+> -				ret = SUCCESS;
+> -				break;
+> -			}
+> +		if (!(val64 & busy_bit)) {
+> +			ret = SUCCESS;
+> +			break;
+>  		}
+> 
+>  		if (in_interrupt())
+> --
+Thanks for catching this bug. The fix should be as follows -
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -3421,7 +3421,7 @@ static int wait_for_cmd_complete(void __iomem
+*addr, u64 busy_bit,
+                                break;
+                        }
+                } else {
+-                       if (!(val64 & busy_bit)) {
++                       if (val64 & busy_bit) {
+                                ret = SUCCESS;
+                                break;
+                        }
 
-there's a patch available as a bug that makes my laptop's on-board
-ethernet work.
+We've not hit this bug because wait_for_cmd_complete() is always called
+with S2IO_BIT_RESET.
 
-http://bugzilla.kernel.org/show_bug.cgi?id=11926
-
-This is being added as a distribution patch to Mandriva, but I would
-like to have it added to the mainline kernel.
-
-
-(p.s. i'm not subscribed here so CC me on replies.)
-
-Thanks,
-Luis Correia
+Ram
