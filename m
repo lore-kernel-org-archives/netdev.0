@@ -1,289 +1,135 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: pull request: wireless-2.6 2010-01-18
-Date: Mon, 18 Jan 2010 17:22:09 -0500
-Message-ID: <20100118222208.GA28686@tuxdriver.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: Global IPV6 auto-configuration does not work as expected.
+Date: Mon, 18 Jan 2010 17:30:38 -0500
+Message-ID: <20100118223038.GA17767@hmsreliant.think-freely.org>
+References: <nhorman@tuxdriver.com>
+ <201001182108.o0IL8nBB029112@wind.enjellic.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: greg@enjellic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56463 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755627Ab0ARWan (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 17:30:43 -0500
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <201001182108.o0IL8nBB029112@wind.enjellic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dave,
+On Mon, Jan 18, 2010 at 03:08:49PM -0600, greg@enjellic.com wrote:
+> On Jan 18,  3:17pm, Neil Horman wrote:
+> } Subject: Re: Global IPV6 auto-configuration does not work as expected.
+> 
+> Hi Neil, thanks for the note.
+> 
+> > > The only way we have been able to disable the auto-configuration has
+> > > been to explicitly disable it at the individual interface level with
+> > > net.ipv6.conf.ethN.autoconf=0 directives.
+> > > 
+> > > We've noted the net.ipv6.conf.default.autoconf and experimented with
+> > > that a bit as well but haven't been able to accomplish our objective.
+> > > 
+> > > Thoughts?
+> > > 
+> > > Best wishes for a productive week.
+> > > 
+> 
+> > First guess would be that you have autoconf configured for you
+> > interfaces in the config files.  The default sysctl directory just
+> > controls the state of the device when its first registered, while
+> > the all sysctl directory provides a 1-shot mechanism to affect the
+> > state of all devices at once.  Neither prevents autoconfiguration
+> > from getting set on devices when udev responds to their creation.
+> > Do the following:
+> >
+> > 1) cd /etc/sysconfig/network-scripts
+> > 2) grep IPV6_AUTOCONF ifcfg*
+> > 
+> > If you get any results in step 2 that read like this:
+> > IPV6_AUTOCONF=yes
+> > 
+> > Then your configuration is teling the system to enable autoconf on those
+> > interfaces.  You can correct that by removing those lines from those config
+> > file, or changing them to:
+> > IPV6_AUTOCONF=no
+> 
+> The boxes are not running any of the standard distributions.  They are
+> running a very minimalistic distribution that I put together in early
+> 1992 and have been maintaining ever since.... :-) So the network
+> configuration script isn't playing a role in this.
+> 
+Um, wow, ok.  What kernel version is this running?  Are you managing any udev
+events?
 
-Here are a few more fixes intended for 2.6.33 -- I don't think there
-is anything controversial this time. :-)  The biggest one just adds
-some copyright notices to a couple of files.  Everything else is
-more-or-less one-liner stuff, and one adds a device ID...
+> The 'sysctl -p' command is issued by the rc.sysinit script very early
+> in the boot process.  Long before the interfaces are actually
+> 'upped'.  I'm assuming from your description that the:
+> 
+> net.ipv6.conf.default.autoconf 
+> 
+> If set to 0 before the network interfaces are configured should
+> prevent auto-configuration from occuring.  I will re-test but I don't
+> think that is happening.
+> 
+Only if nothing else changes the default on a per-interface basis.  Hence my
+comment regarding the use of network config scripts.
 
-Please let me know if there are problems!
+If you set the default value of autoconf, then insmod a network driver that
+registers (for example) eth0, what does /proc/sys/net/ipv6/conf/eth0/autoconf
+contain?  If its 0, then you should be good.  If its 1, then something else is
+afoot, changing the config value.
 
-Thanks,
+> Also from your description I'm assuming the following:
+> 
+> net.ipv6.conf.all.autoconf=0
+> 
+> If set should globally turn off auto-configuration.
+> 
+As a 1-shot, yes, but again, that doesn't stop someone from overriding it after
+its issued.  Its the same as doing this:
+for i in `every interface`
+do
+	echo 0 > /proc/sys/net/ipv6/conf/$i/autoconf
+done
 
-John
 
----
+> I just tested that again.  After setting the 'all' directive to zero I
+> removed the IPv6 addresses and after a short time the were
+> auto-configured again.
+> 
+> For good measure I also set net.ipv6.conf.default.autoconf=0 and
+> removed the IPv6 addresses.  With both directives set to 0 the IPv6
+> autoconf address returned.
+> 
+> I'm certainly not discounting user error but according to your
+> description the net.ipv6.conf.all.autoconf=0 should globally disable
+> auto-configuration on the interfaces, yet it doesn't seem to.  Unless
+> the interfaces need to be 'downed' and 'upped' after the sysctl value
+> is set but that seems counter-intuitive.
+> 
+What address values are you seeing on here?
+Neil
 
-The following changes since commit cd65c3c7d1081290b7365897c2290a84aa967d4d:
-  Octavian Purdila (1):
-        net: fix build erros with CONFIG_BUG=n, CONFIG_GENERIC_BUG=n
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-
-Abhijeet Kolekar (1):
-      cfg80211: fix channel setting for wext
-
-Benoit Papillault (1):
-      mac80211: check that ieee80211_set_power_mgmt only handles STA interfaces.
-
-Bob Copeland (1):
-      mac80211: fix sign error in pid controller
-
-Christian Lamparter (1):
-      p54pci: rx frame length check
-
-Hin-Tak Leung (1):
-      zd1211rw: adding 0409:0248 to supported device list
-
-Reinette Chatre (1):
-      iwlwifi: add license to tracing files
-
-Samuel Ortiz (1):
-      iwmc3200wifi: Add UMAC wifi headers to the pmkid command
-
-Wey-Yi Guy (1):
-      iwlwifi: Fix throughput stall issue in HT mode for 5000
-
- drivers/net/wireless/iwlwifi/iwl-5000.c      |    5 +++++
- drivers/net/wireless/iwlwifi/iwl-devtrace.c  |   26 ++++++++++++++++++++++++++
- drivers/net/wireless/iwlwifi/iwl-devtrace.h  |   26 ++++++++++++++++++++++++++
- drivers/net/wireless/iwmc3200wifi/commands.c |    4 ++++
- drivers/net/wireless/iwmc3200wifi/commands.h |    1 +
- drivers/net/wireless/p54/p54pci.c            |    8 ++++++++
- drivers/net/wireless/zd1211rw/zd_usb.c       |    1 +
- net/mac80211/cfg.c                           |    3 +++
- net/mac80211/rc80211_pid_algo.c              |    2 +-
- net/wireless/sme.c                           |    1 +
- 10 files changed, 76 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/wireless/iwlwifi/iwl-5000.c b/drivers/net/wireless/iwlwifi/iwl-5000.c
-index 33a5866..de45f30 100644
---- a/drivers/net/wireless/iwlwifi/iwl-5000.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-5000.c
-@@ -1598,6 +1598,7 @@ struct iwl_cfg iwl5300_agn_cfg = {
- 	.use_bsm = false,
- 	.ht_greenfield_support = true,
- 	.led_compensation = 51,
-+	.use_rts_for_ht = true, /* use rts/cts protection */
- 	.chain_noise_num_beacons = IWL_CAL_NUM_BEACONS,
- 	.sm_ps_mode = WLAN_HT_CAP_SM_PS_DISABLED,
- };
-@@ -1622,6 +1623,7 @@ struct iwl_cfg iwl5100_bgn_cfg = {
- 	.use_bsm = false,
- 	.ht_greenfield_support = true,
- 	.led_compensation = 51,
-+	.use_rts_for_ht = true, /* use rts/cts protection */
- 	.chain_noise_num_beacons = IWL_CAL_NUM_BEACONS,
- };
- 
-@@ -1667,6 +1669,7 @@ struct iwl_cfg iwl5100_agn_cfg = {
- 	.use_bsm = false,
- 	.ht_greenfield_support = true,
- 	.led_compensation = 51,
-+	.use_rts_for_ht = true, /* use rts/cts protection */
- 	.chain_noise_num_beacons = IWL_CAL_NUM_BEACONS,
- 	.sm_ps_mode = WLAN_HT_CAP_SM_PS_DISABLED,
- };
-@@ -1691,6 +1694,7 @@ struct iwl_cfg iwl5350_agn_cfg = {
- 	.use_bsm = false,
- 	.ht_greenfield_support = true,
- 	.led_compensation = 51,
-+	.use_rts_for_ht = true, /* use rts/cts protection */
- 	.chain_noise_num_beacons = IWL_CAL_NUM_BEACONS,
- 	.sm_ps_mode = WLAN_HT_CAP_SM_PS_DISABLED,
- };
-@@ -1715,6 +1719,7 @@ struct iwl_cfg iwl5150_agn_cfg = {
- 	.use_bsm = false,
- 	.ht_greenfield_support = true,
- 	.led_compensation = 51,
-+	.use_rts_for_ht = true, /* use rts/cts protection */
- 	.chain_noise_num_beacons = IWL_CAL_NUM_BEACONS,
- 	.sm_ps_mode = WLAN_HT_CAP_SM_PS_DISABLED,
- };
-diff --git a/drivers/net/wireless/iwlwifi/iwl-devtrace.c b/drivers/net/wireless/iwlwifi/iwl-devtrace.c
-index e7d88d1..83cc4e5 100644
---- a/drivers/net/wireless/iwlwifi/iwl-devtrace.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-devtrace.c
-@@ -1,3 +1,29 @@
-+/******************************************************************************
-+ *
-+ * Copyright(c) 2009 - 2010 Intel Corporation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of version 2 of the GNU General Public License as
-+ * published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
-+ *
-+ * The full GNU General Public License is included in this distribution in the
-+ * file called LICENSE.
-+ *
-+ * Contact Information:
-+ *  Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ *
-+ *****************************************************************************/
-+
- #include <linux/module.h>
- 
- /* sparse doesn't like tracepoint macros */
-diff --git a/drivers/net/wireless/iwlwifi/iwl-devtrace.h b/drivers/net/wireless/iwlwifi/iwl-devtrace.h
-index 2136196..d9c7363 100644
---- a/drivers/net/wireless/iwlwifi/iwl-devtrace.h
-+++ b/drivers/net/wireless/iwlwifi/iwl-devtrace.h
-@@ -1,3 +1,29 @@
-+/******************************************************************************
-+ *
-+ * Copyright(c) 2009 - 2010 Intel Corporation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of version 2 of the GNU General Public License as
-+ * published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
-+ *
-+ * The full GNU General Public License is included in this distribution in the
-+ * file called LICENSE.
-+ *
-+ * Contact Information:
-+ *  Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-+ * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+ *
-+ *****************************************************************************/
-+
- #if !defined(__IWLWIFI_DEVICE_TRACE) || defined(TRACE_HEADER_MULTI_READ)
- #define __IWLWIFI_DEVICE_TRACE
- 
-diff --git a/drivers/net/wireless/iwmc3200wifi/commands.c b/drivers/net/wireless/iwmc3200wifi/commands.c
-index 777584d..1e41ad0 100644
---- a/drivers/net/wireless/iwmc3200wifi/commands.c
-+++ b/drivers/net/wireless/iwmc3200wifi/commands.c
-@@ -973,6 +973,10 @@ int iwm_send_pmkid_update(struct iwm_priv *iwm,
- 
- 	memset(&update, 0, sizeof(struct iwm_umac_pmkid_update));
- 
-+	update.hdr.oid = UMAC_WIFI_IF_CMD_PMKID_UPDATE;
-+	update.hdr.buf_size = cpu_to_le16(sizeof(struct iwm_umac_pmkid_update) -
-+					  sizeof(struct iwm_umac_wifi_if));
-+
- 	update.command = cpu_to_le32(command);
- 	if (pmksa->bssid)
- 		memcpy(&update.bssid, pmksa->bssid, ETH_ALEN);
-diff --git a/drivers/net/wireless/iwmc3200wifi/commands.h b/drivers/net/wireless/iwmc3200wifi/commands.h
-index 06af055..3dfd9f0 100644
---- a/drivers/net/wireless/iwmc3200wifi/commands.h
-+++ b/drivers/net/wireless/iwmc3200wifi/commands.h
-@@ -463,6 +463,7 @@ struct iwm_umac_cmd_stop_resume_tx {
- #define IWM_CMD_PMKID_FLUSH 3
- 
- struct iwm_umac_pmkid_update {
-+	struct iwm_umac_wifi_if hdr;
- 	__le32 command;
- 	u8 bssid[ETH_ALEN];
- 	__le16 reserved;
-diff --git a/drivers/net/wireless/p54/p54pci.c b/drivers/net/wireless/p54/p54pci.c
-index a15962a..a72f7c2 100644
---- a/drivers/net/wireless/p54/p54pci.c
-+++ b/drivers/net/wireless/p54/p54pci.c
-@@ -197,6 +197,14 @@ static void p54p_check_rx_ring(struct ieee80211_hw *dev, u32 *index,
- 			i %= ring_limit;
- 			continue;
- 		}
-+
-+		if (unlikely(len > priv->common.rx_mtu)) {
-+			if (net_ratelimit())
-+				dev_err(&priv->pdev->dev, "rx'd frame size "
-+					"exceeds length threshold.\n");
-+
-+			len = priv->common.rx_mtu;
-+		}
- 		skb_put(skb, len);
- 
- 		if (p54_rx(dev, skb)) {
-diff --git a/drivers/net/wireless/zd1211rw/zd_usb.c b/drivers/net/wireless/zd1211rw/zd_usb.c
-index ac19ecd..72d3e43 100644
---- a/drivers/net/wireless/zd1211rw/zd_usb.c
-+++ b/drivers/net/wireless/zd1211rw/zd_usb.c
-@@ -62,6 +62,7 @@ static struct usb_device_id usb_ids[] = {
- 	{ USB_DEVICE(0x6891, 0xa727), .driver_info = DEVICE_ZD1211 },
- 	/* ZD1211B */
- 	{ USB_DEVICE(0x0053, 0x5301), .driver_info = DEVICE_ZD1211B },
-+	{ USB_DEVICE(0x0409, 0x0248), .driver_info = DEVICE_ZD1211B },
- 	{ USB_DEVICE(0x0411, 0x00da), .driver_info = DEVICE_ZD1211B },
- 	{ USB_DEVICE(0x0471, 0x1236), .driver_info = DEVICE_ZD1211B },
- 	{ USB_DEVICE(0x0471, 0x1237), .driver_info = DEVICE_ZD1211B },
-diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
-index 6dc3579..9ae1a47 100644
---- a/net/mac80211/cfg.c
-+++ b/net/mac80211/cfg.c
-@@ -1331,6 +1331,9 @@ static int ieee80211_set_power_mgmt(struct wiphy *wiphy, struct net_device *dev,
- 	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
- 	struct ieee80211_conf *conf = &local->hw.conf;
- 
-+	if (sdata->vif.type != NL80211_IFTYPE_STATION)
-+		return -EOPNOTSUPP;
-+
- 	if (!(local->hw.flags & IEEE80211_HW_SUPPORTS_PS))
- 		return -EOPNOTSUPP;
- 
-diff --git a/net/mac80211/rc80211_pid_algo.c b/net/mac80211/rc80211_pid_algo.c
-index 699d3ed..29bc4c5 100644
---- a/net/mac80211/rc80211_pid_algo.c
-+++ b/net/mac80211/rc80211_pid_algo.c
-@@ -190,7 +190,7 @@ static void rate_control_pid_sample(struct rc_pid_info *pinfo,
- 	rate_control_pid_normalize(pinfo, sband->n_bitrates);
- 
- 	/* Compute the proportional, integral and derivative errors. */
--	err_prop = (pinfo->target << RC_PID_ARITH_SHIFT) - pf;
-+	err_prop = (pinfo->target - pf) << RC_PID_ARITH_SHIFT;
- 
- 	err_avg = spinfo->err_avg_sc >> pinfo->smoothing_shift;
- 	spinfo->err_avg_sc = spinfo->err_avg_sc - err_avg + err_prop;
-diff --git a/net/wireless/sme.c b/net/wireless/sme.c
-index 2333d78..dc0fc49 100644
---- a/net/wireless/sme.c
-+++ b/net/wireless/sme.c
-@@ -655,6 +655,7 @@ void __cfg80211_disconnected(struct net_device *dev, const u8 *ie,
- 	memset(&wrqu, 0, sizeof(wrqu));
- 	wrqu.ap_addr.sa_family = ARPHRD_ETHER;
- 	wireless_send_event(dev, SIOCGIWAP, &wrqu, NULL);
-+	wdev->wext.connect.ssid_len = 0;
- #endif
- }
- 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > Best
+> > Neil
+> 
+> Greg
+> 
+> }-- End of excerpt from Neil Horman
+> 
+> As always,
+> Dr. G.W. Wettstein, Ph.D.   Enjellic Systems Development, LLC.
+> 4206 N. 19th Ave.           Specializing in information infra-structure
+> Fargo, ND  58102            development.
+> PH: 701-281-1686
+> FAX: 701-281-3949           EMAIL: greg@enjellic.com
+> ------------------------------------------------------------------------------
+> "Programming without software engineering is like sculpting with a
+>  chain saw.  The very talented can produce a work of art, the mediocre
+>  wind up with a misshapen lump in a pile of rubble, and in neither case
+>  does the end result have more than a passing resemblance to the
+>  original intent."
+>                                 -- Bill Davidsen
+> 
