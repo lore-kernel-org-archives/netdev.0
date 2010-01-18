@@ -1,146 +1,308 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH 5/5 v2] tc: man: add man page for drr scheduler
-Date: Mon, 18 Jan 2010 23:54:02 +0100
-Message-ID: <1263855242-1618-1-git-send-email-fw@strlen.de>
-References: <1263329126-19756-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: ppp_generic.c severly whitespace damanged by
+	9c705260feea6ae329bc6b6d5f6d2ef0227eda0a
+Date: Mon, 18 Jan 2010 17:59:55 -0500
+Message-ID: <20100118225955.GA24307@caffeine.csclub.uwaterloo.ca>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Gabriele Paoloni <gabriele.paoloni@intel.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Len Sorensen <lsorense@csclub.uwaterloo.ca>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:54435 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753268Ab0ARWzF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 17:55:05 -0500
-In-Reply-To: <1263329126-19756-1-git-send-email-fw@strlen.de>
+Received: from caffeine.csclub.uwaterloo.ca ([129.97.134.17]:44794 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756459Ab0ARW74 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 17:59:56 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With help from Patrick McHardy.
+I was just looking at ppp_generic, and noticed that it fairly recently
+(as in the last year) got rather mangled with many spaces turned into tabs
+in places they very much shouldn't have been.  I tracked it down to commit
+9c705260feea6ae329bc6b6d5f6d2ef0227eda0a (ppp: ppp_mp_explode() redesign).
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
+I am amazed if that patch passed the patch checking script.  I have no
+idea what kind of weird editor setting did this, but it has to have been a
+weird editor setting or a very unfortunate search and replace gone wrong.
+I only found it trying to apply a patch I was playing with and wondering
+why it wouldn't apply.  Then I found there were tabs in the middle of
+comments that used to be spaces.
 
- Aplogies for taking so long to re-spin this.
- Changes since v1:
-  - fix garbled formatting of drr example usage
-  - add all changes Patrick suggested.
+Well here is a patch that should fix it up as far as I can tell.
 
- man/man8/tc-drr.8 |   94 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- man/man8/tc.8     |    1 +
- 2 files changed, 95 insertions(+), 0 deletions(-)
- create mode 100644 man/man8/tc-drr.8
+Purely whitespace repair.  No actual code changes.
 
-diff --git a/man/man8/tc-drr.8 b/man/man8/tc-drr.8
-new file mode 100644
-index 0000000..16a8ec0
---- /dev/null
-+++ b/man/man8/tc-drr.8
-@@ -0,0 +1,94 @@
-+.TH TC 8 "January 2010" "iproute2" "Linux"
-+.SH NAME
-+drr \- deficit round robin scheduler
-+.SH SYNOPSIS
-+.B tc qdisc ... add drr
-+.B [ quantum
-+bytes
-+.B ]
-+
-+.SH DESCRIPTION
-+
-+The Deficit Round Robin Scheduler is a classful queuing discipline as
-+a more flexible replacement for Stochastic Fairness Queuing.
-+
-+Unlike SFQ, there are no built-in queues \-\- you need to add classes
-+and then set up filters to classify packets accordingly.
-+This can be useful e.g. for using RED qdiscs with different settings for particular
-+traffic. There is no default class \-\- if a packet cannot be classified,
-+it is dropped.
-+
-+.SH ALGORITHM
-+Each class is assigned a deficit counter, initialized to
-+.B quantum.
-+
-+DRR maintains an (internal) ''active'' list of classes whose qdiscs are
-+non-empty.  This list is used for dequeuing.  A packet is dequeued from
-+the class at the head of the list if the packet size is smaller or equal
-+to the deficit counter.  If the counter is too small, it is increased by
-+.B quantum
-+and the scheduler moves on to the next class in the active list.
-+
-+
-+.SH PARAMETERS
-+.TP
-+quantum
-+Amount of bytes a flow is allowed to dequeue before the scheduler moves to
-+the next class.  Defaults to the MTU of the interface. The minimum value is 1.
-+
-+.SH EXAMPLE & USAGE
-+
-+To attach to device eth0, using the interface MTU as its quantum:
-+.P
-+# tc qdisc add dev eth0 handle 1 root drr
-+.P
-+Adding two classes:
-+.P
-+# tc class add dev eth0 parent 1: classid 1:1 drr
-+# tc class add dev eth0 parent 1: classid 1:2 drr
-+.P
-+You also need to add at least one filter to classify packets.
-+.P
-+# tc filter add dev eth0 protocol .. classid 1:1
-+.P
-+
-+Like SFQ, DRR is only useful when it owns the queue \-\- it is a pure scheduler and does
-+not delay packets.  Attaching non-work-conserving qdiscs like tbf to it does not make
-+sense \-\- other qdiscs in the active list will also become inactive until the dequeue
-+operation succeeds.  Embed DRR within another qdisc like HTB or HFSC to ensure it owns the queue.
-+.P
-+You can mimic SFQ behavior by assigning packets to the attached classes using the
-+flow filter:
-+
-+.B tc qdisc add dev .. drr
-+
-+.B for i in .. 1024;do
-+.br
-+.B \ttc class add dev ..  classid $handle:$(print %x $i)
-+.br
-+.B \ttc qdisc add dev .. fifo limit 16
-+.br
-+.B done
-+
-+.B tc filter add .. protocol ip .. $handle flow hash keys src,dst,proto,proto-src,proto-dst divisor 1024 perturb 10
-+
-+
-+.SH SOURCE
-+.TP
-+o
-+M. Shreedhar and George Varghese "Efficient Fair
-+Queuing using Deficit Round Robin", Proc. SIGCOMM 95.
-+
-+.SH NOTES
-+
-+This implementation does not drop packets from the longest queue on overrun,
-+as limits are handled by the individual child qdiscs.
-+
-+.SH SEE ALSO
-+.BR tc (8),
-+.BR tc-htb (8),
-+.BR tc-sfq (8)
-+
-+.SH AUTHOR
-+sched_drr was written by Patrick McHardy.
-+
-diff --git a/man/man8/tc.8 b/man/man8/tc.8
-index 8c0880f..e17ce68 100644
---- a/man/man8/tc.8
-+++ b/man/man8/tc.8
-@@ -367,6 +367,7 @@ print rates in IEC units (ie. 1K = 1024).
- was written by Alexey N. Kuznetsov and added in Linux 2.2.
- .SH SEE ALSO
- .BR tc-cbq (8),
-+.BR tc-drr (8),
- .BR tc-htb (8),
- .BR tc-sfq (8),
- .BR tc-red (8),
+Signed-off-by: Len Sorensen <lsorense@csclub.uwaterloo.ca>
+
+diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
+index 2282e72..6d61602 100644
+--- a/drivers/net/ppp_generic.c
++++ b/drivers/net/ppp_generic.c
+@@ -167,7 +167,7 @@ struct channel {
+ 	u8		avail;		/* flag used in multilink stuff */
+ 	u8		had_frag;	/* >= 1 fragments have been sent */
+ 	u32		lastseq;	/* MP: last sequence # received */
+-	int     speed;		/* speed of the corresponding ppp channel*/
++	int		speed;		/* speed of the corresponding ppp channel*/
+ #endif /* CONFIG_PPP_MULTILINK */
+ };
+ 
+@@ -1293,13 +1293,13 @@ ppp_push(struct ppp *ppp)
+  */
+ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ {
+-	int	len, totlen;
+-	int	i, bits, hdrlen, mtu;
+-	int	flen;
+-	int	navail,	nfree, nzero;
+-	int	nbigger;
+-	int	totspeed;
+-	int	totfree;
++	int len, totlen;
++	int i, bits, hdrlen, mtu;
++	int flen;
++	int navail, nfree, nzero;
++	int nbigger;
++	int totspeed;
++	int totfree;
+ 	unsigned char *p, *q;
+ 	struct list_head *list;
+ 	struct channel *pch;
+@@ -1307,21 +1307,21 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ 	struct ppp_channel *chan;
+ 
+ 	totspeed = 0; /*total bitrate of the bundle*/
+-	nfree =	0;	/* # channels which	have no	packet already queued */
+-	navail = 0;	/* total # of usable channels (not deregistered) */
+-	nzero =	0; /* number of	channels with zero speed associated*/
+-	totfree	= 0; /*total # of channels available and
++	nfree = 0; /* # channels which have no packet already queued */
++	navail = 0; /* total # of usable channels (not deregistered) */
++	nzero = 0; /* number of channels with zero speed associated*/
++	totfree = 0; /*total # of channels available and
+ 				  *having no queued packets before
+ 				  *starting the fragmentation*/
+ 
+ 	hdrlen = (ppp->flags & SC_MP_XSHORTSEQ)? MPHDRLEN_SSN: MPHDRLEN;
+-	i =	0;
+-	list_for_each_entry(pch, &ppp->channels, clist)	{
++	i = 0;
++	list_for_each_entry(pch, &ppp->channels, clist) {
+ 		navail += pch->avail = (pch->chan != NULL);
+ 		pch->speed = pch->chan->speed;
+-		if (pch->avail)	{
++		if (pch->avail) {
+ 			if (skb_queue_empty(&pch->file.xq) ||
+-				!pch->had_frag)	{
++				!pch->had_frag) {
+ 					if (pch->speed == 0)
+ 						nzero++;
+ 					else
+@@ -1331,60 +1331,60 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ 					++nfree;
+ 					++totfree;
+ 				}
+-			if (!pch->had_frag && i	< ppp->nxchan)
+-				ppp->nxchan	= i;
++			if (!pch->had_frag && i < ppp->nxchan)
++				ppp->nxchan = i;
+ 		}
+ 		++i;
+ 	}
+ 	/*
+-	 * Don't start sending this	packet unless at least half	of
+-	 * the channels	are	free.  This	gives much better TCP
+-	 * performance if we have a	lot	of channels.
++	 * Don't start sending this packet unless at least half of
++	 * the channels are free.  This gives much better TCP
++	 * performance if we have a lot of channels.
+ 	 */
+-	if (nfree == 0 || nfree	< navail / 2)
+-		return 0; /* can't take now, leave it in xmit_pending	*/
++	if (nfree == 0 || nfree < navail / 2)
++		return 0; /* can't take now, leave it in xmit_pending */
+ 
+ 	/* Do protocol field compression (XXX this should be optional) */
+-	p =	skb->data;
+-	len	= skb->len;
++	p = skb->data;
++	len = skb->len;
+ 	if (*p == 0) {
+ 		++p;
+ 		--len;
+ 	}
+ 
+ 	totlen = len;
+-	nbigger	= len %	nfree;
++	nbigger = len % nfree;
+ 
+-	/* skip	to the channel after the one we	last used
+-	   and start at	that one */
++	/* skip to the channel after the one we last used
++	   and start at that one */
+ 	list = &ppp->channels;
+-	for	(i = 0;	i <	ppp->nxchan; ++i) {
++	for (i = 0; i < ppp->nxchan; ++i) {
+ 		list = list->next;
+-		if (list ==	&ppp->channels)	{
+-			i =	0;
++		if (list == &ppp->channels) {
++			i = 0;
+ 			break;
+ 		}
+ 	}
+ 
+-	/* create a	fragment for each channel */
++	/* create a fragment for each channel */
+ 	bits = B;
+-	while (len	> 0) {
++	while (len > 0) {
+ 		list = list->next;
+-		if (list ==	&ppp->channels)	{
+-			i =	0;
++		if (list == &ppp->channels) {
++			i = 0;
+ 			continue;
+ 		}
+-		pch	= list_entry(list, struct channel, clist);
++		pch = list_entry(list, struct channel, clist);
+ 		++i;
+ 		if (!pch->avail)
+ 			continue;
+ 
+ 		/*
+-		 * Skip	this channel if	it has a fragment pending already and
+-		 * we haven't given	a fragment to all of the free channels.
++		 * Skip this channel if it has a fragment pending already and
++		 * we haven't given a fragment to all of the free channels.
+ 		 */
+ 		if (pch->avail == 1) {
+-			if (nfree >	0)
++			if (nfree > 0)
+ 				continue;
+ 		} else {
+ 			pch->avail = 1;
+@@ -1393,32 +1393,32 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ 		/* check the channel's mtu and whether it is still attached. */
+ 		spin_lock_bh(&pch->downl);
+ 		if (pch->chan == NULL) {
+-			/* can't use this channel, it's	being deregistered */
++			/* can't use this channel, it's being deregistered */
+ 			if (pch->speed == 0)
+ 				nzero--;
+ 			else
+-				totspeed -=	pch->speed;
++				totspeed -= pch->speed;
+ 
+ 			spin_unlock_bh(&pch->downl);
+ 			pch->avail = 0;
+ 			totlen = len;
+ 			totfree--;
+ 			nfree--;
+-			if (--navail ==	0)
++			if (--navail == 0)
+ 				break;
+ 			continue;
+ 		}
+ 
+ 		/*
+ 		*if the channel speed is not set divide
+-		*the packet	evenly among the free channels;
++		*the packet evenly among the free channels;
+ 		*otherwise divide it according to the speed
+ 		*of the channel we are going to transmit on
+ 		*/
+ 		flen = len;
+ 		if (nfree > 0) {
+ 			if (pch->speed == 0) {
+-				flen = totlen/nfree	;
++				flen = totlen/nfree;
+ 				if (nbigger > 0) {
+ 					flen++;
+ 					nbigger--;
+@@ -1436,8 +1436,8 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ 		}
+ 
+ 		/*
+-		 *check	if we are on the last channel or
+-		 *we exceded the lenght	of the data	to
++		 *check if we are on the last channel or
++		 *we exceded the lenght of the data to
+ 		 *fragment
+ 		 */
+ 		if ((nfree <= 0) || (flen > len))
+@@ -1448,29 +1448,29 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ 		 *above formula will be equal or less than zero.
+ 		 *Skip the channel in this case
+ 		 */
+-		if (flen <=	0) {
++		if (flen <= 0) {
+ 			pch->avail = 2;
+ 			spin_unlock_bh(&pch->downl);
+ 			continue;
+ 		}
+ 
+-		mtu	= pch->chan->mtu - hdrlen;
+-		if (mtu	< 4)
+-			mtu	= 4;
++		mtu = pch->chan->mtu - hdrlen;
++		if (mtu < 4)
++			mtu = 4;
+ 		if (flen > mtu)
+ 			flen = mtu;
+-		if (flen ==	len)
+-			bits |=	E;
+-		frag = alloc_skb(flen +	hdrlen + (flen == 0), GFP_ATOMIC);
++		if (flen == len)
++			bits |= E;
++		frag = alloc_skb(flen + hdrlen + (flen == 0), GFP_ATOMIC);
+ 		if (!frag)
+ 			goto noskb;
+-		q =	skb_put(frag, flen + hdrlen);
++		q = skb_put(frag, flen + hdrlen);
+ 
+-		/* make	the	MP header */
++		/* make the MP header */
+ 		q[0] = PPP_MP >> 8;
+ 		q[1] = PPP_MP;
+ 		if (ppp->flags & SC_MP_XSHORTSEQ) {
+-			q[2] = bits	+ ((ppp->nxseq >> 8) & 0xf);
++			q[2] = bits + ((ppp->nxseq >> 8) & 0xf);
+ 			q[3] = ppp->nxseq;
+ 		} else {
+ 			q[2] = bits;
+@@ -1483,24 +1483,24 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ 
+ 		/* try to send it down the channel */
+ 		chan = pch->chan;
+-		if (!skb_queue_empty(&pch->file.xq)	||
++		if (!skb_queue_empty(&pch->file.xq) ||
+ 			!chan->ops->start_xmit(chan, frag))
+ 			skb_queue_tail(&pch->file.xq, frag);
+-		pch->had_frag =	1;
++		pch->had_frag = 1;
+ 		p += flen;
+-		len	-= flen;
++		len -= flen;
+ 		++ppp->nxseq;
+ 		bits = 0;
+ 		spin_unlock_bh(&pch->downl);
+ 	}
+-	ppp->nxchan	= i;
++	ppp->nxchan = i;
+ 
+ 	return 1;
+ 
+  noskb:
+ 	spin_unlock_bh(&pch->downl);
+ 	if (ppp->debug & 1)
+-		printk(KERN_ERR	"PPP: no memory	(fragment)\n");
++		printk(KERN_ERR "PPP: no memory (fragment)\n");
+ 	++ppp->dev->stats.tx_errors;
+ 	++ppp->nxseq;
+ 	return 1;	/* abandon the frame */
+
 -- 
-1.6.4.4
-
+Len Sorensen
