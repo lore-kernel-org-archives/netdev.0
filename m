@@ -1,76 +1,46 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: Re: [PATCH 3/9] drivers/net: Eliminate useless code
-Date: Mon, 18 Jan 2010 06:47:30 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.1001180646460.12648@ask.diku.dk>
-References: <Pine.LNX.4.64.1001161657400.28745@ask.diku.dk>
- <20100117.193140.153138395.davem@davemloft.net>
+From: Jie Yang <Jie.Yang@Atheros.com>
+Subject: RE: atl1e: TSO is broken
+Date: Mon, 18 Jan 2010 13:42:43 +0800
+Message-ID: <72981EBCFD196144B7C6999B9FC34A9A49508C6376@SHEXMB-01.global.atheros.com>
+References: <20100115.135613.1130385479658158300.anders@netinsight.net>
+ <20100115165447.2eb7d547@varda>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: ron.mercer@qlogic.com, linux-driver@qlogic.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Xiong Huang <Xiong.Huang@Atheros.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: =?iso-8859-1?Q?Alejandro_Riveira_Fern=E1ndez?= <ariveira@gmail.com>,
+	=?iso-8859-1?Q?Anders_Bostr=F6m?= <anders@netinsight.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:57922 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750733Ab0ARFrd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jan 2010 00:47:33 -0500
-In-Reply-To: <20100117.193140.153138395.davem@davemloft.net>
+Received: from 175.210.DSNET ([203.110.175.210]:43021 "EHLO mail.atheros.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750751Ab0ARFsL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 00:48:11 -0500
+In-Reply-To: <20100115165447.2eb7d547@varda>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 17 Jan 2010, David Miller wrote:
+On Friday, January 15, 2010 11:55 PM
+Alejandro Riveira Fern=E1ndez <ariveira@gmail.com> wrote:
+> > Short desription
+> > ----------------
+> >
+> > TCP Segmentation Offload (TSO) result in broken
+> IPv4-packets sent out
+> > from Atheros AR8121/AR8113/AR8114 with the atl1e driver.
+> >
+> >
+> > Work around
+> > -----------
+> >
+> > Turn off TSO. Requires 2.6.33-rc1 or later.
+> >
+> >
 
-> From: Julia Lawall <julia@diku.dk>
-> Date: Sat, 16 Jan 2010 16:57:56 +0100 (CET)
-> 
-> > The variable qdev is initialized twice to the same (side effect-free)
-> > expression.  Drop one initialization.
-> > 
-> > A simplified version of the semantic match that finds this problem is:
-> > (http://coccinelle.lip6.fr/)
-> > 
-> > // <smpl>
-> > @forall@
-> > idexpression *x;
-> > identifier f!=ERR_PTR;
-> > @@
-> > 
-> > x = f(...)
-> > ... when != x
-> > (
-> > x = f(...,<+...x...+>,...)
-> > |
-> > * x = f(...)
-> > )
-> > // </smpl>
-> > 
-> > Signed-off-by: Julia Lawall <julia@diku.dk>
-> 
-> Something in your patch creation process is corrupting these
-> patches.
-> 
-> > diff --git a/drivers/net/qla3xxx.c b/drivers/net/qla3xxx.c
-> > index f922294..4ef0afb 100644
-> > --- a/drivers/net/qla3xxx.c
-> > +++ b/drivers/net/qla3xxx.c
-> > @@ -4087,9 +4087,8 @@ static void __devexit ql3xxx_remove(struct pci_dev *pdev)
-> >  	struct ql3_adapter *qdev = netdev_priv(ndev);
-> >  
-> >  	unregister_netdev(ndev);
-> > -	qdev = netdev_priv(ndev);
-> >  
-> >  	ql_disable_interrupts(qdev);
-> >  
-> > --
-> 
-> That hunk header states that after the line is removed there should
-> be 8 lines present in the hunk, but the patch only shows 7 such
-> lines.
-> 
-> I suspect something is eating the final line of your patches.
+Ok, I will try to reproduce it first.
 
-Oops, sorry.  I will try again.  I'm surprised that checkpatch didn't 
-complain.
-
-julia
+Best wishes
+jie
