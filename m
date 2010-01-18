@@ -1,54 +1,114 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH] list.h: add list_for_each_struct_entry macro
-Date: Mon, 18 Jan 2010 17:23:39 +0100
-Message-ID: <20100118162338.GD4229@psychotron.lab.eng.brq.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bhutchings@solarflare.com, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: [PATCH 1/1] sched: add head drop fifo queue
+Date: Mon, 18 Jan 2010 17:27:05 +0100
+Message-ID: <1263832025-28937-1-git-send-email-hagen@jauu.net>
+References: <4B546F24.6070404@trash.net>
+Cc: kaber@trash.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21542 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754388Ab0ARQXu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jan 2010 11:23:50 -0500
-Content-Disposition: inline
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:38027 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754602Ab0ARQ1I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 11:27:08 -0500
+In-Reply-To: <4B546F24.6070404@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When preparing to upcoming migration of mc_list (list of multicast MACs)
-to list_head, the need of traversing the list over one structure member
-appeared. I thought I'll do it locally but I decided that an intruduction
-the macro in list.h would be much clearer. Please kindly for a review.
+This add an additional queuing strategy, called pfifo_head_drop,
+to remove the oldest skb in the case of an overflow within the queue -
+the head element - instead of the last skb (tail). To remove the oldest
+skb in a congested situations is useful for sensor network environments
+where newer packets reflects the superior information.
 
-Jirka
+Reviewed-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+---
+ include/net/pkt_sched.h |    2 ++
+ net/sched/sch_api.c     |    2 ++
+ net/sched/sch_fifo.c    |   37 +++++++++++++++++++++++++++++++++++++
+ 3 files changed, 41 insertions(+), 0 deletions(-)
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-
-diff --git a/include/linux/list.h b/include/linux/list.h
-index 969f6e9..8350a94 100644
---- a/include/linux/list.h
-+++ b/include/linux/list.h
-@@ -420,6 +420,22 @@ static inline void list_splice_tail_init(struct list_head *list,
- 	     pos = list_entry(pos->member.prev, typeof(*pos), member))
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index 2d56726..42dc85a 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -71,6 +71,8 @@ extern void qdisc_watchdog_cancel(struct qdisc_watchdog *wd);
  
- /**
-+ * list_for_each_struct_entry  -       iterate over list of given type using
-+ *                                     the struct member.
-+ * @pos:       the type * to use as a loop cursor.
-+ * @head:      the head for your list.
-+ * @type:      the type of the struct.
-+ * @posmember: the name ot the loop cursor within the struct.
-+ * @member:    the name of the list_struct within the struct.
-+ */
-+#define list_for_each_struct_entry(pos, head, type, posmember, member)		\
-+	for (pos = list_entry((head)->next, type, member)->posmember;		\
-+	     prefetch(container_of(pos, type, posmember)->member.next),		\
-+	     &container_of(pos, type, posmember)->member != (head);		\
-+	     pos = list_entry(container_of(pos, type, posmember)->member.next,	\
-+	     type, member)->posmember)
+ extern struct Qdisc_ops pfifo_qdisc_ops;
+ extern struct Qdisc_ops bfifo_qdisc_ops;
++extern struct Qdisc_ops pfifo_head_drop_qdisc_ops;
++extern struct Qdisc_ops bfifo_head_drop_qdisc_ops;
+ 
+ extern int fifo_set_limit(struct Qdisc *q, unsigned int limit);
+ extern struct Qdisc *fifo_create_dflt(struct Qdisc *sch, struct Qdisc_ops *ops,
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 75fd1c6..6eaa35d 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -1707,6 +1707,8 @@ static int __init pktsched_init(void)
+ {
+ 	register_qdisc(&pfifo_qdisc_ops);
+ 	register_qdisc(&bfifo_qdisc_ops);
++	register_qdisc(&pfifo_head_drop_qdisc_ops);
++	register_qdisc(&bfifo_head_drop_qdisc_ops);
+ 	register_qdisc(&mq_qdisc_ops);
+ 	proc_net_fops_create(&init_net, "psched", 0, &psched_fops);
+ 
+diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
+index 69188e8..44f80ca 100644
+--- a/net/sched/sch_fifo.c
++++ b/net/sched/sch_fifo.c
+@@ -43,6 +43,28 @@ static int pfifo_enqueue(struct sk_buff *skb, struct Qdisc* sch)
+ 	return qdisc_reshape_fail(skb, sch);
+ }
+ 
++static int pfifo_front_enqueue(struct sk_buff *skb, struct Qdisc* sch)
++{
++	struct sk_buff *skb_head;
++	struct fifo_sched_data *q = qdisc_priv(sch);
 +
-+/**
-  * list_prepare_entry - prepare a pos entry for use in list_for_each_entry_continue()
-  * @pos:	the type * to use as a start point
-  * @head:	the head of the list
++	if (likely(skb_queue_len(&sch->q) < q->limit))
++		return qdisc_enqueue_tail(skb, sch);
++
++	/* queue full, remove one skb to fulfill the limit */
++	skb_head = qdisc_dequeue_head(sch);
++	sch->bstats.bytes -= qdisc_pkt_len(skb_head);
++	sch->bstats.packets--;
++	sch->q.qlen--;
++	sch->qstats.drops++;
++	kfree_skb(skb_head);
++
++	qdisc_enqueue_tail(skb, sch);
++
++	return NET_XMIT_CN;
++}
++
++
+ static int fifo_init(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct fifo_sched_data *q = qdisc_priv(sch);
+@@ -108,6 +130,21 @@ struct Qdisc_ops bfifo_qdisc_ops __read_mostly = {
+ };
+ EXPORT_SYMBOL(bfifo_qdisc_ops);
+ 
++struct Qdisc_ops pfifo_head_drop_qdisc_ops __read_mostly = {
++	.id		=	"pfifo_head_drop",
++	.priv_size	=	sizeof(struct fifo_sched_data),
++	.enqueue	=	pfifo_front_enqueue,
++	.dequeue	=	qdisc_dequeue_head,
++	.peek		=	qdisc_peek_head,
++	.drop		=	qdisc_queue_drop,
++	.init		=	fifo_init,
++	.reset		=	qdisc_reset_queue,
++	.change		=	fifo_init,
++	.dump		=	fifo_dump,
++	.owner		=	THIS_MODULE,
++};
++EXPORT_SYMBOL(pfifo_head_drop_qdisc_ops);
++
+ /* Pass size change message down to embedded FIFO */
+ int fifo_set_limit(struct Qdisc *q, unsigned int limit)
+ {
+-- 
+1.6.6.196.g1f735.dirty
+
