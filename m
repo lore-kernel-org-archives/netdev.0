@@ -1,46 +1,45 @@
-From: "Simon Arlott" <simon@fire.lp0.eu>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [PATCH] xt_TCPMSS: SYN packets are allowed to contain data
-Date: Tue, 19 Jan 2010 12:50:28 -0000
-Message-ID: <dad314e12c5750b1b5d70c3ea3c6f6134b8fa0f3@8b5064a13e22126c1b9329f0dc35b8915774b7c3.invalid>
-References: <4B54CDE5.3070100@simon.arlott.org.uk>
-    <4B5578A5.50705@gmail.com>
+Date: Tue, 19 Jan 2010 13:53:13 +0100
+Message-ID: <4B55AB39.5020505@trash.net>
+References: <4B54CDE5.3070100@simon.arlott.org.uk> <4B5578A5.50705@gmail.com>    <4B557BA2.7080407@trash.net> <a1c09459b273a62b96a5f3937a36a3f337d36bab@8b5064a13e22126c1b9329f0dc35b8915774b7c3.invalid>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "netdev" <netdev@vger.kernel.org>,
-	"Patrick McHardy" <kaber@trash.net>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>
-To: "William Allen Simpson" <william.allen.simpson@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754063Ab0ASMuc@vger.kernel.org>
-In-Reply-To: <4B5578A5.50705@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: William Allen Simpson <william.allen.simpson@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Simon Arlott <simon@fire.lp0.eu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754214Ab0ASMxU@vger.kernel.org>
+In-Reply-To: <a1c09459b273a62b96a5f3937a36a3f337d36bab@8b5064a13e22126c1b9329f0dc35b8915774b7c3.invalid>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, January 19, 2010 09:17, William Allen Simpson wrote:
-> Simon Arlott wrote:
->> The check for data only needs to apply where the packet length
->> could be increased by adding the MSS option. (The MSS option
->> itself applies to the sender's maximum receive size which is
->> not relevant to any data in its own packet.)
->>
->> This moves the check for (header size != packet size) to after
->> attempting to modify an existing MSS option. Another check is
->> needed before looking through the header to ensure it doesn't
->> claim to be larger than the packet size.
->>
->
-> 2) There certainly *can* be data on SYN.  That code is already in
-> 2.6.33....
+Simon Arlott wrote:
+> On Tue, January 19, 2010 09:30, Patrick McHardy wrote:
+>> William Allen Simpson wrote:
+>>> Simon Arlott wrote:
+>>>> This moves the check for (header size != packet size) to after
+>>>> attempting to modify an existing MSS option. Another check is
+>>>> needed before looking through the header to ensure it doesn't
+>>>> claim to be larger than the packet size.
+>>>>
+>>> What's the path from tcp_v[4,6]_rcv() to these tests?
+>>>
+>>> 1) Header larger than the packet is already tested in about 5 places,
+>>> and my patch "tcp: harmonize tcp_vx_rcv header length assumptions"
+>>> tries to get them all down to just *one* test.
+>> We're talking about a netfilter module here, which has to deal
+>> with forwarded traffic and can only rely on the IP header checks
+>> done in ip_rcv().
+> 
+> My gateway (where these error messages occur) is running 2.6.29,
+> and skb->len (from the prink) is 40 bytes.
+> 
+> If this is 20 (IPv4 Header) + 20 (TCP Header) = 40 bytes, then there
+> is no data and the header offset is wrong so it hasn't been checked.
 
-I could change the comment too, but the same logic applies when
-there is data and no MSS option - the packet can't be increased
-in size if it would then exceed 576 bytes and/or the destination
-MTU.
-
-If it's possible to know that the packet can have an additional
-option added without exceeding MTU then this could be changed.
-The data part would need to be moved to make space at the end of
-the header.
-
--- 
-Simon Arlott
+That's odd. If the packet is really only 40 bytes large, then there
+are no TCP options, so your patch shouldn't have any effect.
