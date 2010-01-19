@@ -1,69 +1,80 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
-Date: Tue, 19 Jan 2010 23:45:08 +0100
-Message-ID: <20100119224508.GA3473@del.dom.local>
-References: <20100118212516.GE3157@del.dom.local>
- <4B54D50C.90608@majjas.com>
- <20100118220814.GG3157@del.dom.local>
- <20100118221747.GH3157@del.dom.local>
- <4B54E4EF.8080602@majjas.com>
- <4B554730.6090000@majjas.com>
- <20100119104739.GA9088@ff.dom.local>
- <4B55D40F.5080509@majjas.com>
- <20100119195933.GA3060@del.dom.local>
- <4B5610A9.7030902@majjas.com>
+From: =?UTF-8?B?0JLQmtC+0L3RgtCw0LrRgtC1LtGA0YM=?= <admin@vkontakte.ru>
+Subject: =?UTF-8?B?0JDQu9C70LAg0JTQsNCy0L3QuNGH0LXQvdC60L4g0LTQvtCx0LDQstC40LvQ?=
+ =?UTF-8?B?sCDQktCw0YEg0LIg0LTRgNGD0LfRjNGPINC90LAg0YHQsNC50YLQtSDQktCa?=
+ =?UTF-8?B?0L7QvdGC0LDQutGC0LUu0YDRgw==?=
+Date: Wed, 20 Jan 2010 01:46:53 +0300
+Message-ID: <cb700b6fcba61eca465dfafc0db53644@localhost.localdomain>
+Reply-To: "Pavel Durov, inContact.ru Admin" <admin@vkontakte.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Michael Breuer <mbreuer@majjas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755957Ab0ASWpS@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B5610A9.7030902@majjas.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: =?UTF-8?B?0JfQtNGA0LDQstGB0YLQstGD0LnRgtC1?=
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cs17.vkontakte.ru ([93.186.224.17]:60376 "EHLO vkontakte.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755926Ab0ASWrB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jan 2010 17:47:01 -0500
+Received: from localhost ([127.0.0.1] helo=localhost.localdomain)
+	by vkontakte.ru with esmtp (Exim 4.63)
+	(envelope-from <admin@vkontakte.ru>)
+	id 1NXMqb-0007Mh-Tv
+	for netdev@vger.kernel.org; Wed, 20 Jan 2010 01:46:54 +0300
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 19, 2010 at 03:06:01PM -0500, Michael Breuer wrote:
-> On 1/19/2010 2:59 PM, Jarek Poplawski wrote:
-> >On Tue, Jan 19, 2010 at 10:47:27AM -0500, Michael Breuer wrote:
-> >...
-> >>Still get the warning... but now 60 bytes.
-> >>Jan 19 10:43:50 mail kernel: ------------[ cut here ]------------
-> >>Jan 19 10:43:50 mail kernel: WARNING: at lib/dma-debug.c:902
-> >Thanks for trying this.
-> >Jarek P.
-> NP. Let me know what else I can do to help with this one. Note that
-> it seems innocuous. I'll continue with the older set and no dmar for
-> now and see if I get another crash.
+=D0=97=D0=B4=D1=80=D0=B0=D0=B2=D1=81=D1=82=D0=B2=D1=83=D0=B9=D1=82=D0=B5=
+,
 
-Maybe one more idea to try (not compiled).
+=D0=90=D0=BB=D0=BB=D0=B0 =D0=94=D0=B0=D0=B2=D0=BD=D0=B8=D1=87=D0=B5=D0=BD=
+=D0=BA=D0=BE =D0=B4=D0=BE=D0=B1=D0=B0=D0=B2=D0=B8=D0=BB=D0=B0 =D0=92=D0=
+=B0=D1=81 =D0=B2 =D0=B4=D1=80=D1=83=D0=B7=D1=8C=D1=8F =D0=BD=D0=B0 =D1=81=
+=D0=B0=D0=B9=D1=82=D0=B5 =D0=92=D0=9A=D0=BE=D0=BD=D1=82=D0=B0=D0=BA=D1=82=
+=D0=B5.=D1=80=D1=83
 
-Jarek P.
----
+=D0=92=D1=8B =D0=BC=D0=BE=D0=B6=D0=B5=D1=82=D0=B5 =D0=B7=D0=B0=D0=B9=D1=
+=82=D0=B8 =D0=BD=D0=B0 =D1=81=D0=B0=D0=B9=D1=82 =D0=B8 =D0=BF=D1=80=D0=BE=
+=D1=81=D0=BC=D0=BE=D1=82=D1=80=D0=B5=D1=82=D1=8C =D1=81=D1=82=D1=80=D0=B0=
+=D0=BD=D0=B8=D1=86=D1=8B =D0=92=D0=B0=D1=88=D0=B8=D1=85 =D0=B4=D1=80=D1=
+=83=D0=B7=D0=B5=D0=B9, =D0=B8=D1=81=D0=BF=D0=BE=D0=BB=D1=8C=D0=B7=D1=83=
+=D1=8F
+=D0=92=D0=B0=D1=88 e-mail =D0=B8 =D0=B0=D0=B2=D1=82=D0=BE=D0=BC=D0=B0=D1=
+=82=D0=B8=D1=87=D0=B5=D1=81=D0=BA=D0=B8 =D1=81=D0=BE=D0=B7=D0=B4=D0=B0=D0=
+=BD=D0=BD=D1=8B=D0=B9 =D0=BF=D0=B0=D1=80=D0=BE=D0=BB=D1=8C: 8P5HvuF0
 
- drivers/net/sky2.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+=D0=92=D0=9A=D0=BE=D0=BD=D1=82=D0=B0=D0=BA=D1=82=D0=B5.=D1=80=D1=83 - =D1=
+=81=D0=B0=D0=B9=D1=82, =D0=BA=D0=BE=D1=82=D0=BE=D1=80=D1=8B=D0=B9 =D0=B5=
+=D0=B6=D0=B5=D0=B4=D0=BD=D0=B5=D0=B2=D0=BD=D0=BE =D0=BF=D0=BE=D0=B7=D0=B2=
+=D0=BE=D0=BB=D1=8F=D0=B5=D1=82 =D0=B4=D0=B5=D1=81=D1=8F=D1=82=D0=BA=D0=B0=
+=D0=BC =D0=BC=D0=B8=D0=BB=D0=BB=D0=B8=D0=BE=D0=BD=D0=BE=D0=B2 =D0=BB=D1=
+=8E=D0=B4=D0=B5=D0=B9 =D0=BD=D0=B0=D1=85=D0=BE=D0=B4=D0=B8=D1=82=D1=8C =
+=D1=81=D1=82=D0=B0=D1=80=D1=8B=D1=85 =D0=B4=D1=80=D1=83=D0=B7=D0=B5=D0=B9=
+ =D0=B8 =D0=BE=D1=81=D1=82=D0=B0=D0=B2=D0=B0=D1=82=D1=8C=D1=81=D1=8F =D1=
+=81 =D0=BD=D0=B8=D0=BC=D0=B8 =D0=BD=D0=B0 =D1=81=D0=B2=D1=8F=D0=B7=D0=B8=
+, =D0=B4=D0=B5=D0=BB=D0=B8=D1=82=D1=8C=D1=81=D1=8F =D1=84=D0=BE=D1=82=D0=
+=BE=D0=B3=D1=80=D0=B0=D1=84=D0=B8=D1=8F=D0=BC=D0=B8
+=D0=B8 =D1=81=D0=BE=D0=B1=D1=8B=D1=82=D0=B8=D1=8F=D0=BC=D0=B8 =D0=B8=D0=
+=B7 =D0=B6=D0=B8=D0=B7=D0=BD=D0=B8.
 
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 7650f73..cdebdd3 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -2252,12 +2252,14 @@ static struct sk_buff *receive_copy(struct sky2_port *sky2,
- 	skb = netdev_alloc_skb_ip_align(sky2->netdev, length);
- 	if (likely(skb)) {
- 		pci_dma_sync_single_for_cpu(sky2->hw->pdev, re->data_addr,
--					    length, PCI_DMA_FROMDEVICE);
-+					    pci_unmap_len(re, data_size),
-+					    PCI_DMA_FROMDEVICE);
- 		skb_copy_from_linear_data(re->skb, skb->data, length);
- 		skb->ip_summed = re->skb->ip_summed;
- 		skb->csum = re->skb->csum;
- 		pci_dma_sync_single_for_device(sky2->hw->pdev, re->data_addr,
--					       length, PCI_DMA_FROMDEVICE);
-+					       pci_unmap_len(re, data_size),
-+					       PCI_DMA_FROMDEVICE);
- 		re->skb->ip_summed = CHECKSUM_NONE;
- 		skb_put(skb, length);
- 	}
+=D0=A7=D1=82=D0=BE=D0=B1=D1=8B =D0=B2=D0=BE=D0=B9=D1=82=D0=B8 =D0=BD=D0=
+=B0 =D1=81=D0=B0=D0=B9=D1=82, =D0=BF=D1=80=D0=BE=D0=B9=D0=B4=D0=B8=D1=82=
+=D0=B5 =D0=BF=D0=BE =D1=81=D1=81=D1=8B=D0=BB=D0=BA=D0=B5:
+http://vkontakte.ru/login.php?regemail=3Dnetdev@vger.kernel.org#8P5HvuF=
+0
+
+=D0=92=D0=BD=D0=B8=D0=BC=D0=B0=D0=BD=D0=B8=D0=B5: =D0=92=D0=B0=D1=88=D0=
+=B0 =D1=80=D0=B5=D0=B3=D0=B8=D1=81=D1=82=D1=80=D0=B0=D1=86=D0=B8=D1=8F =
+=D0=BD=D0=B5 =D0=B1=D1=83=D0=B4=D0=B5=D1=82 =D0=B0=D0=BA=D1=82=D0=B8=D0=
+=B2=D0=B8=D1=80=D0=BE=D0=B2=D0=B0=D0=BD=D0=B0, =D0=B5=D1=81=D0=BB=D0=B8=
+ =D0=92=D1=8B =D0=BF=D1=80=D0=BE=D0=B8=D0=B3=D0=BD=D0=BE=D1=80=D0=B8=D1=
+=80=D1=83=D0=B5=D1=82=D0=B5
+=D1=8D=D1=82=D0=BE =D0=BF=D1=80=D0=B8=D0=B3=D0=BB=D0=B0=D1=88=D0=B5=D0=BD=
+=D0=B8=D0=B5.
+
+=D0=96=D0=B5=D0=BB=D0=B0=D0=B5=D0=BC =D1=83=D0=B4=D0=B0=D1=87=D0=B8!
+=D0=A1 =D1=83=D0=B2=D0=B0=D0=B6=D0=B5=D0=BD=D0=B8=D0=B5=D0=BC,
+=D0=90=D0=B4=D0=BC=D0=B8=D0=BD=D0=B8=D1=81=D1=82=D1=80=D0=B0=D1=86=D0=B8=
+=D1=8F =D0=92=D0=9A=D0=BE=D0=BD=D1=82=D0=B0=D0=BA=D1=82=D0=B5.=D1=80=D1=
+=83
+
+
