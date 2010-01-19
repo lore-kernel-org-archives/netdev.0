@@ -1,55 +1,79 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: Crazy TCP bug (keepalive flood?) in 2.6.32?
-Date: Tue, 19 Jan 2010 13:09:03 +0200
-Message-ID: <201001191309.03927.denys@visp.net.lb>
-References: <200912261703.49067.denys@visp.net.lb> <201001161612.04747.denys@visp.net.lb> <4B5576F4.5020002@tvk.rwth-aachen.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-To: Damian Lukowski <damian@tvk.rwth-aachen.de>,
-	Ilpo =?iso-8859-1?q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	netdev@vger.kernel.org
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH 4/6] netdev: bfin_mac: deduce Ethernet FCS from hardware IP payload checksum
+Date: Tue, 19 Jan 2010 06:08:25 -0500
+Message-ID: <1263899307-10627-4-git-send-email-vapier@gentoo.org>
+References: <1263899307-10627-1-git-send-email-vapier@gentoo.org>
+Cc: uclinux-dist-devel@blackfin.uclinux.org,
+	Sonic Zhang <sonic.zhang@analog.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:40318 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755394Ab0ASLHo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2010 06:07:44 -0500
-In-Reply-To: <4B5576F4.5020002@tvk.rwth-aachen.de>
+Received: from smtp.gentoo.org ([140.211.166.183]:59088 "EHLO smtp.gentoo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755906Ab0ASLIT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jan 2010 06:08:19 -0500
+In-Reply-To: <1263899307-10627-1-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 19 January 2010 11:10:12 you wrote:
-> Hi,
-> thank you for testing. So srtt and rttvar is zero in any of those cases.
-> Ilpo, it is a bug in tcp_rtt_estimator then, I suppose?
-> 
-> There is also a code comment in tcp_input.c, saying:
-> > * NOTE: clamping at TCP_RTO_MIN is not required, current algo
-> > * guarantees that rto is higher.
-> 
-> So we either fix tcp_rtt_estimator or simply clamp at TCP_RTO_MIN?
-> 
-> Damian
-> 
-> > On Monday 11 January 2010 15:02:34 you wrote:
-> >> On Sat, 26 Dec 2009, Denys Fedoryshchenko wrote:
-> >>> Few more dumps. I notice:
-> >>> 1)Ack always equal 1
-> >>> 2)It is usually first segment of data sent (?)
-> >>>
-> >>> Maybe some value not initialised properly?
-> >>
-> >> Can you see if the RTO lower bound is violated (I added some printing of
-> >> vars there too already now if it turns out to be something):
-> >>
-> >> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> >> index 65b8ebf..d84469f 100644
-> >> --- a/net/ipv4/tcp_ipv4.c
-> >> +++ b/net/ipv4/tcp_ipv4.c
-As i see in code it is rounding RTO to minimum value.
-It fixes my problem seems.
+From: Sonic Zhang <sonic.zhang@analog.com>
 
-Btw just a bit about my environment - wireless networks (sometimes lossy!) 
-with low speed (128-512Kbps) customers working over pppoe. Maybe it will give 
-a tip why rtt value is too low.
+IP checksum is based on 16-bit one's complement algorithm.
+To deduce a value from checksum is equal to add its complement.
+
+Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+ drivers/net/bfin_mac.c |   23 +++++++++++++++++++++++
+ 1 files changed, 23 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
+index a907e33..112d13e 100644
+--- a/drivers/net/bfin_mac.c
++++ b/drivers/net/bfin_mac.c
+@@ -994,6 +994,10 @@ static void bfin_mac_rx(struct net_device *dev)
+ 	struct sk_buff *skb, *new_skb;
+ 	unsigned short len;
+ 	struct bfin_mac_local *lp __maybe_unused = netdev_priv(dev);
++#if defined(BFIN_MAC_CSUM_OFFLOAD)
++	unsigned int i;
++	unsigned char fcs[ETH_FCS_LEN + 1];
++#endif
+ 
+ 	/* check if frame status word reports an error condition
+ 	 * we which case we simply drop the packet
+@@ -1027,6 +1031,8 @@ static void bfin_mac_rx(struct net_device *dev)
+ 	current_rx_ptr->desc_a.start_addr = (unsigned long)new_skb->data - 2;
+ 
+ 	len = (unsigned short)((current_rx_ptr->status.status_word) & RX_FRLEN);
++	/* Deduce Ethernet FCS length from Ethernet payload length */
++	len -= ETH_FCS_LEN;
+ 	skb_put(skb, len);
+ 
+ 	skb->protocol = eth_type_trans(skb, dev);
+@@ -1035,6 +1041,23 @@ static void bfin_mac_rx(struct net_device *dev)
+ 
+ #if defined(BFIN_MAC_CSUM_OFFLOAD)
+ 	skb->csum = current_rx_ptr->status.ip_payload_csum;
++	/*
++	 * Deduce Ethernet FCS from hardware generated IP payload checksum.
++	 * IP checksum is based on 16-bit one's complement algorithm.
++	 * To deduce a value from checksum is equal to add its inversion.
++	 * If the IP payload len is odd, the inversed FCS should also
++	 * begin from odd address and leave first byte zero.
++	 */
++	if (skb->len % 2) {
++		fcs[0] = 0;
++		for (i = 0; i < ETH_FCS_LEN; i++)
++			fcs[i + 1] = ~skb->data[skb->len + i];
++		skb->csum = csum_partial(fcs, ETH_FCS_LEN + 1, skb->csum);
++	} else {
++		for (i = 0; i < ETH_FCS_LEN; i++)
++			fcs[i] = ~skb->data[skb->len + i];
++		skb->csum = csum_partial(fcs, ETH_FCS_LEN, skb->csum);
++	}
+ 	skb->ip_summed = CHECKSUM_COMPLETE;
+ #endif
+ 
+-- 
+1.6.6
+
