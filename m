@@ -1,39 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next-2.6] IFix IPv6 GSO type checks in Intel
-	ethernet drivers
-Date: Wed, 20 Jan 2010 11:39:34 +1300
-Message-ID: <20100119223934.GA30140@gondor.apana.org.au>
-References: <1263934927.1635.24.camel@w-sridhar.beaverton.ibm.com> <alpine.WNT.2.00.1001191306450.5776@jbrandeb-desk1.amr.corp.intel.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: tg3 driver / BCM5722 dropping to 10Base-HD
+Date: Tue, 19 Jan 2010 15:08:27 -0800
+Message-ID: <20100119230827.GA23501@xw6200.broadcom.net>
+References: <3b2bc9d1001180617m8c2e8ddm2bc99099758e53c3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sridhar Samudrala <sri@us.ibm.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "marco gaddoni" <marco.gaddoni@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:41407 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750775Ab0ASXFr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2010 18:05:47 -0500
+Received: from mms3.broadcom.com ([216.31.210.19]:3597 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751668Ab0ASXIg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jan 2010 18:08:36 -0500
+In-Reply-To: <3b2bc9d1001180617m8c2e8ddm2bc99099758e53c3@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <alpine.WNT.2.00.1001191306450.5776@jbrandeb-desk1.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 19, 2010 at 01:11:00PM -0800, Brandeburg, Jesse wrote:
->
-> Looks fine, thanks!  The current code in net-next and 2.6.32 both have 
-> exactly the same condition in skb_is_gso_v6, so I'm not sure that this 
-> patch alone will fix any issues, FYI.  If this patch is part of another 
-> set or dependent upon another for the actual change in behavior mentioned 
-> in the comment, I think it should be noted or sent in a series.
+On Mon, Jan 18, 2010 at 06:17:32AM -0800, marco gaddoni wrote:
+> Hello,
+> 
+> i have a dell with a BCM5722 driven by the tg3 driver.
+> 
+> this pc is connected to an unmanaged switch by micronet;
+> the connection is at 1000MBs.
+> 
+> the system is normally stable;
+> sometimes the connection get dropped to 10Mbs/HD.
+> 
+> i can get te connection back up to 1000Mbps
+> with an ethtool -t eth0.
+> 
+> do you have any idea on what is the cause of this ?
+> is this the wrong adderess?
+> 
+> please cc: me as i am not subscibed to netdev.
+> 
+> thank you in advance,
+>  marco,
 
-skb_is_gso_v6 does an & test instead of == so the patch is definitely
-not a noop.
+Can you post the driver messages from the syslog and the output of
+ethtool -i eth0?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
