@@ -1,91 +1,103 @@
-From: Patrick Rabau <pr2345@gmail.com>
-Subject: Re: [PATCH net-next 2/2] bnx2: Save statistics during reset.
-Date: Mon, 18 Jan 2010 22:41:14 -0600
-Message-ID: <719756751001182041wbb1f648r3f02d1b4366b8fa1@mail.gmail.com>
-References: <719756751001182031i50981b30y4dd9c3beea3785de@mail.gmail.com>
+From: Michael Breuer <mbreuer@majjas.com>
+Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
+Date: Tue, 19 Jan 2010 00:46:24 -0500
+Message-ID: <4B554730.6090000@majjas.com>
+References: <4B53906B.2020608@majjas.com> <20100117230531.GC3161@del.dom.local>
+ <4B539A0A.2000504@majjas.com> <20100118073018.GA6270@ff.dom.local>
+ <4B548C6B.10607@majjas.com> <20100118204658.GC3157@del.dom.local>
+ <4B54CB0D.5070604@majjas.com> <20100118212516.GE3157@del.dom.local>
+ <4B54D50C.90608@majjas.com> <20100118220814.GG3157@del.dom.local>
+ <20100118221747.GH3157@del.dom.local> <4B54E4EF.8080602@majjas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.25]:64115 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754779Ab0ASElP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jan 2010 23:41:15 -0500
-Received: by ey-out-2122.google.com with SMTP id d26so876240eyd.19
-        for <netdev@vger.kernel.org>; Mon, 18 Jan 2010 20:41:14 -0800 (PST)
-In-Reply-To: <719756751001182031i50981b30y4dd9c3beea3785de@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752337Ab0ASFr1@vger.kernel.org>
+In-reply-to: <4B54E4EF.8080602@majjas.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch has already been applied, but seems to have a problem.
-
-> MTU changes, ring size changes, etc cause the chip to be reset and th=
-e
-> statisctics flushed. =A0To keep track of the accumulated statistics, =
-we
-> add code to save the whole statistics block before reset. =A0We also
-> modify the macros and statistics functions to return the sum of the
-> saved and current counters.
+On 1/18/2010 5:47 PM, Michael Breuer wrote:
+> On 1/18/2010 5:17 PM, Jarek Poplawski wrote:
+>> On Mon, Jan 18, 2010 at 11:08:14PM +0100, Jarek Poplawski wrote:
+>>> Btw, I wonder if you could test it skipping the (HP?) switch?
+>> If so, then of course don't forget to try tcpdump on the router.
+>>
+>> Jarek P.
+> Well - no.... but I'm not sure that would show anything.
 >
-> Based on original patch by Breno Leitao <leitao@xxxxxxxxxxxxxxxxxx>
+> Setup diagram:
 >
-> Signed-off-by: Michael Chan <mchan@xxxxxxxxxxxx>
-> ---
-> =A0drivers/net/bnx2.c | =A0 64 ++++++++++++++++++++++++++++++++++++++=
-+++++++------
-> =A0drivers/net/bnx2.h | =A0 =A01 +
-> =A02 files changed, 57 insertions(+), 8 deletions(-)
+> Server->gb switch-> (100mb) wifi router -> devices
+>                     |
+>               Win7 PC (gb)
 >
-> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-> index 47fb508..d83512d 100644
-> --- a/drivers/net/bnx2.c
-> +++ b/drivers/net/bnx2.c
-
-=2E..
-
-> @@ -6542,6 +6544,30 @@ bnx2_close(struct net_device *dev)
-> =A0 =A0 =A0 =A0return 0;
-> =A0}
+> The problem does not occur (at least I haven't been able to recreate 
+> it) at 100mb, and the wifi router doesn't do 1Gb. I drive the traffic 
+> from the win7 PC to the server. I've seen the loss when the only 
+> traffic going through the wifi router was ping & dhcp. I've also never 
+> seen any loss on a device directly attached to the 1GB switch. I can 
+> drive load through the wifi router while driving load from the Win7 
+> box, but don't see TX packet loss at all when not doing DHCP 
+> RELEASE/RENEW.
 >
-> +static void
-> +bnx2_save_stats(struct bnx2 *bp)
-> +{
-> + =A0 =A0 =A0 u32 *hw_stats =3D (u32 *) bp->stats_blk;
-> + =A0 =A0 =A0 u32 *temp_stats =3D (u32 *) bp->temp_stats_blk;
-> + =A0 =A0 =A0 int i;
-> +
-> + =A0 =A0 =A0 /* The 1st 10 counters are 64-bit counters */
-> + =A0 =A0 =A0 for (i =3D 0; i < 20; i +=3D 2) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 u32 hi;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 u64 lo;
-> +
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 hi =3D *(temp_stats + i) + *(hw_stats +=
- i);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 lo =3D *(temp_stats + i + 1) + *(hw_sta=
-ts + i + 1);
-
-The rhs of the assignment above will always have type u32,
-because temp_stats and hw_stats have type pointer to u32.
-Would need to cast before doing the addition, otherwise
-declaring lo as u64 is not doing anything.
-
-I think it would also be more readable to use array indexing
-notation in various places.  For example:
-  hi =3D temp_stats[i] + hs_stats[i];
-  lo =3D (u64)temp_stats[i + 1] + (u64)hw_stats[i + 1];
-
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (lo > 0xffffffff)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 hi++;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 *(temp_stats + i) =3D hi;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 *(temp_stats + i + 1) =3D lo & 0xffffff=
-ff;
-> + =A0 =A0 =A0 }
-> +
-> + =A0 =A0 =A0 for ( ; i < sizeof(struct statistics_block) / 4; i++)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 *(temp_stats + i) =3D *(temp_stats + i)=
- + *(hw_stats + i);
-> +}
+> As there is no packet loss to devices not involved in the DHCP 
+> sequence through the same path, I'm not really sure that the GB switch 
+> is implicated.
 >
+> As I don't have a standalone sniffer, I'm thinking that it might be 
+> easier to instrument places where the TX packet could be dropped and 
+> see at least whether it's getting to the card.
+>
+> Given the circumstances of the TX drop, and that it was DHCP traffic 
+> while under load that caused the oops rectified with the two patches, 
+> I'm thinking that the packet loss is the current manifestation of 
+> whatever the underlying problem is. Given the extra hop required to 
+> break things, and given that a dhcp release/renew seems to trigger 
+> things, I keep coming back to arp logic as being somehow implicated.
+>
+> If arp is somehow involved, then I'd expect to see manifestations 
+> under similar circumstances with other drivers. As the pskb_may_pull 
+> patch stopped the crash, perhaps other drivers do suffer packet loss 
+> and it's just not been widely noticed or attributed to the kernel - 
+> especially if the network topology is a factor. I do know people at 
+> large enterprises who have been complaining of what *could* be this 
+> same issue, however they're currently blaming their switch vendors. As 
+> most traffic is TCP, this is really only noticed by those few places 
+> deeply concerned with latency. It's likely something altogether 
+> different, but then again, maybe not.
+Ok - one last update for a while ...not sure what's next... I put some 
+printk's into sky2.c xmit logic - the packets are being sent to the 
+card, and the i/o's are completing successfully. So it would seem either 
+the switch is dropping the packets, or else the wifi router is. As 
+tcpdump doesn't show the packets arriving on the wifi router, I'm 
+leaning towards the switch. I ran wireshark on the win7 box to see what 
+is coming off the switch. I did notice one thing that's visible to the 
+win7 box but is not showing up on the linux wireshark - before every 
+successful dhcpoffer, there's an XID message broadcast from the device. 
+I'm wondering why I don't see this on the linux side:
 
--- PR
+The packet is from the mac of the device, dst ff:ff:ff:ff:ff:ff; 
+protocol eth:llc... hex packet: ffffffffffff001cccf39ff600060001af810100.
+
+Now I guess I've got some reading to do... I've got no idea what the 
+correct application of llc messages would be given my topology :(. I do 
+suspect that the llc stuff (or lack thereof under some conditions) is 
+causing the switch to fail to forward the dhcpoffer message. As the 
+dhcpoffer message is not broadcast, but directed to the remote mac 
+address and as that address is not connected directly to the switch, I'm 
+guessing that under some conditions whatever tells the switch how to 
+find the mac is missing. I'd guess that the wifi router should be 
+letting the switch know around the time it forwards the first arp and/or 
+DHCP broadcast message from the client... or maybe the linux box should 
+be doing something before the offer.
+
+So net-net, as far as my TX packet loss issue, sky2 is in the clear. If 
+something on the linux side should be informing the switch about 
+something then there may still be an issue. If the wifi router should be 
+doing something differently, then it's unfortunately likely a 2.4.37 
+kernel issue (That's what dd-wrt is using).
