@@ -1,63 +1,45 @@
-From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
-Subject: [net-next PATCH 2/2] be2net: Add link test to list of ethtool self
- tests.
-Date: Tue, 19 Jan 2010 20:45:36 +0530
-Message-ID: <20100119151526.GA8267@serverengines.com>
-Reply-To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+From: Michael Breuer <mbreuer@majjas.com>
+Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
+Date: Tue, 19 Jan 2010 10:28:05 -0500
+Message-ID: <4B55CF85.6060600@majjas.com>
+References: <20100118073018.GA6270@ff.dom.local> <4B548C6B.10607@majjas.com>
+ <20100118204658.GC3157@del.dom.local> <4B54CB0D.5070604@majjas.com>
+ <20100118212516.GE3157@del.dom.local> <4B54D50C.90608@majjas.com>
+ <20100118220814.GG3157@del.dom.local> <20100118221747.GH3157@del.dom.local>
+ <4B54E4EF.8080602@majjas.com> <4B554730.6090000@majjas.com>
+ <20100119084120.GA6366@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:33991 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754188Ab0ASPPg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2010 10:15:36 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753473Ab0ASP3I@vger.kernel.org>
+In-reply-to: <20100119084120.GA6366@ff.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Sarveshwar Bandi <sarveshwarb@serverengines.com>
----
- drivers/net/benet/be_ethtool.c |   11 +++++++++++
- 1 files changed, 11 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
-index 2f2ebbd..09d8899 100644
---- a/drivers/net/benet/be_ethtool.c
-+++ b/drivers/net/benet/be_ethtool.c
-@@ -112,6 +112,7 @@ static const char et_self_tests[][ETH_GS
- 	"PHY Loopback test",
- 	"External Loopback test",
- 	"DDR DMA test"
-+	"Link test"
- };
- 
- #define ETHTOOL_TESTS_NUM ARRAY_SIZE(et_self_tests)
-@@ -529,6 +530,9 @@ static void
- be_self_test(struct net_device *netdev, struct ethtool_test *test, u64 *data)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
-+	bool link_up;
-+	u8 mac_speed = 0;
-+	u16 qos_link_speed = 0;
- 
- 	memset(data, 0, sizeof(u64) * ETHTOOL_TESTS_NUM);
- 
-@@ -552,6 +556,13 @@ be_self_test(struct net_device *netdev, 
- 		test->flags |= ETH_TEST_FL_FAILED;
- 	}
- 
-+	if (be_cmd_link_status_query(adapter, &link_up, &mac_speed,
-+				&qos_link_speed) != 0) {
-+		test->flags |= ETH_TEST_FL_FAILED;
-+		data[4] = -1;
-+	} else if (mac_speed) {
-+		data[4] = 1;
-+	}
- }
- 
- static int
--- 
-1.4.0
-
+On 1/19/2010 3:41 AM, Jarek Poplawski wrote:
+> On Tue, Jan 19, 2010 at 12:46:24AM -0500, Michael Breuer wrote:
+>    
+>> So net-net, as far as my TX packet loss issue, sky2 is in the clear. If
+>> something on the linux side should be informing the switch about
+>> something then there may still be an issue. If the wifi router should be
+>> doing something differently, then it's unfortunately likely a 2.4.37
+>> kernel issue (That's what dd-wrt is using).
+>>      
+> IMHO until there is no proof from a sniffer or some regs dumps the
+> switch and the router are more suspicious than your NIC or linux box.
+> Then debugging these other things isn't so much interesting from my
+> POV ;-)
+>
+> Anyway, if you only want to get it working (instead of debugging),
+> it seems you might try moving the dhcp server to the router or maybe
+> even using two separate servers with their pools - unless I missed
+> something in your config.
+>
+> Jarek P.
+>    
+I'm going to take a stab at debugging before creating a new subnet. Thanks.
