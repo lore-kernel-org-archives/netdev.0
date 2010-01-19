@@ -1,73 +1,48 @@
 From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH 3/6] netdev: bfin_mac: invalid data cache only once for each new rx skb buffer
-Date: Tue, 19 Jan 2010 06:08:24 -0500
-Message-ID: <1263899307-10627-3-git-send-email-vapier@gentoo.org>
+Subject: [PATCH 5/6] netdev: bfin_mac: clear RXCKS if hardware generated checksum is not enabled
+Date: Tue, 19 Jan 2010 06:08:26 -0500
+Message-ID: <1263899307-10627-5-git-send-email-vapier@gentoo.org>
 References: <1263899307-10627-1-git-send-email-vapier@gentoo.org>
 Cc: uclinux-dist-devel@blackfin.uclinux.org,
 	Sonic Zhang <sonic.zhang@analog.com>
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:59079 "EHLO smtp.gentoo.org"
+Received: from smtp.gentoo.org ([140.211.166.183]:59093 "EHLO smtp.gentoo.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755996Ab0ASLIS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jan 2010 06:08:18 -0500
+	id S1755991Ab0ASLIU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jan 2010 06:08:20 -0500
 In-Reply-To: <1263899307-10627-1-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sonic Zhang <sonic.zhang@analog.com>
 
-The skb buffer isn't actually used until we finish transferring and pass
-it up to higher layers, so only invalidate the range once before we start
-receiving actual data.  This also avoids the problem with data invalidating
-on Blackfin systems -- there is no invalidate-only, just invalidate+flush.
-So when running in writeback mode, there is the small (but not uncommon)
-possibility of the flush overwriting valid DMA-ed data from the cache.
+Otherwise we might be get a setting mismatch from a previous module or
+bootloader and what the driver currently expects.
 
 Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
 Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 ---
- drivers/net/bfin_mac.c |   13 ++++++++-----
- 1 files changed, 8 insertions(+), 5 deletions(-)
+ drivers/net/bfin_mac.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index 36c7996..a907e33 100644
+index 112d13e..af45f65 100644
 --- a/drivers/net/bfin_mac.c
 +++ b/drivers/net/bfin_mac.c
-@@ -203,6 +203,11 @@ static int desc_list_init(void)
- 			goto init_error;
- 		}
- 		skb_reserve(new_skb, NET_IP_ALIGN);
-+		/* Invidate the data cache of skb->data range when it is write back
-+		 * cache. It will prevent overwritting the new data from DMA
-+		 */
-+		blackfin_dcache_invalidate_range((unsigned long)new_skb->head,
-+					 (unsigned long)new_skb->end);
- 		r->skb = new_skb;
- 
- 		/*
-@@ -1012,19 +1017,17 @@ static void bfin_mac_rx(struct net_device *dev)
- 	}
- 	/* reserve 2 bytes for RXDWA padding */
- 	skb_reserve(new_skb, NET_IP_ALIGN);
--	current_rx_ptr->skb = new_skb;
--	current_rx_ptr->desc_a.start_addr = (unsigned long)new_skb->data - 2;
--
- 	/* Invidate the data cache of skb->data range when it is write back
- 	 * cache. It will prevent overwritting the new data from DMA
+@@ -515,10 +515,11 @@ void setup_system_regs(struct net_device *dev)
+ 	 * Configure checksum support and rcve frame word alignment
  	 */
- 	blackfin_dcache_invalidate_range((unsigned long)new_skb->head,
- 					 (unsigned long)new_skb->end);
- 
-+	current_rx_ptr->skb = new_skb;
-+	current_rx_ptr->desc_a.start_addr = (unsigned long)new_skb->data - 2;
-+
- 	len = (unsigned short)((current_rx_ptr->status.status_word) & RX_FRLEN);
- 	skb_put(skb, len);
--	blackfin_dcache_invalidate_range((unsigned long)skb->head,
--					 (unsigned long)skb->tail);
- 
- 	skb->protocol = eth_type_trans(skb, dev);
+ 	sysctl = bfin_read_EMAC_SYSCTL();
++	sysctl |= RXDWA;
+ #if defined(BFIN_MAC_CSUM_OFFLOAD)
+-	sysctl |= RXDWA | RXCKS;
++	sysctl |= RXCKS;
+ #else
+-	sysctl |= RXDWA;
++	sysctl &= ~RXCKS;
+ #endif
+ 	bfin_write_EMAC_SYSCTL(sysctl);
  
 -- 
 1.6.6
