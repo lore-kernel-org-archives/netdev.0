@@ -1,79 +1,70 @@
 From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH 4/6] netdev: bfin_mac: deduce Ethernet FCS from hardware IP payload checksum
-Date: Tue, 19 Jan 2010 06:08:25 -0500
-Message-ID: <1263899307-10627-4-git-send-email-vapier@gentoo.org>
-References: <1263899307-10627-1-git-send-email-vapier@gentoo.org>
+Subject: [PATCH 1/6] netdev: bfin_mac: handler RX status errors
+Date: Tue, 19 Jan 2010 06:08:22 -0500
+Message-ID: <1263899307-10627-1-git-send-email-vapier@gentoo.org>
 Cc: uclinux-dist-devel@blackfin.uclinux.org,
-	Sonic Zhang <sonic.zhang@analog.com>
+	Peter Meerwald <pmeerw@pmeerw.net>,
+	Graf Yang <graf.yang@analog.com>
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:59088 "EHLO smtp.gentoo.org"
+Received: from smtp.gentoo.org ([140.211.166.183]:59063 "EHLO smtp.gentoo.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755906Ab0ASLIT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jan 2010 06:08:19 -0500
-In-Reply-To: <1263899307-10627-1-git-send-email-vapier@gentoo.org>
+	id S1755906Ab0ASLIQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jan 2010 06:08:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sonic Zhang <sonic.zhang@analog.com>
+From: Peter Meerwald <pmeerw@pmeerw.net>
 
-IP checksum is based on 16-bit one's complement algorithm.
-To deduce a value from checksum is equal to add its complement.
-
-Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+Signed-off-by: Peter Meerwald <pmeerw@pmeerw.net>
+Signed-off-by: Graf Yang <graf.yang@analog.com>
 Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 ---
- drivers/net/bfin_mac.c |   23 +++++++++++++++++++++++
- 1 files changed, 23 insertions(+), 0 deletions(-)
+ drivers/net/bfin_mac.c |   17 ++++++++++++++---
+ 1 files changed, 14 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index a907e33..112d13e 100644
+index 0b23bc4..e0fe9d0 100644
 --- a/drivers/net/bfin_mac.c
 +++ b/drivers/net/bfin_mac.c
-@@ -994,6 +994,10 @@ static void bfin_mac_rx(struct net_device *dev)
+@@ -660,11 +660,24 @@ out:
+ 	return NETDEV_TX_OK;
+ }
+ 
++#define RX_ERROR_MASK (RX_LONG | RX_ALIGN | RX_CRC | RX_LEN | \
++	RX_FRAG | RX_ADDR | RX_DMAO | RX_PHY | RX_LATE | RX_RANGE)
++
+ static void bfin_mac_rx(struct net_device *dev)
+ {
  	struct sk_buff *skb, *new_skb;
  	unsigned short len;
- 	struct bfin_mac_local *lp __maybe_unused = netdev_priv(dev);
-+#if defined(BFIN_MAC_CSUM_OFFLOAD)
-+	unsigned int i;
-+	unsigned char fcs[ETH_FCS_LEN + 1];
-+#endif
  
- 	/* check if frame status word reports an error condition
- 	 * we which case we simply drop the packet
-@@ -1027,6 +1031,8 @@ static void bfin_mac_rx(struct net_device *dev)
- 	current_rx_ptr->desc_a.start_addr = (unsigned long)new_skb->data - 2;
- 
- 	len = (unsigned short)((current_rx_ptr->status.status_word) & RX_FRLEN);
-+	/* Deduce Ethernet FCS length from Ethernet payload length */
-+	len -= ETH_FCS_LEN;
- 	skb_put(skb, len);
- 
- 	skb->protocol = eth_type_trans(skb, dev);
-@@ -1035,6 +1041,23 @@ static void bfin_mac_rx(struct net_device *dev)
- 
- #if defined(BFIN_MAC_CSUM_OFFLOAD)
- 	skb->csum = current_rx_ptr->status.ip_payload_csum;
-+	/*
-+	 * Deduce Ethernet FCS from hardware generated IP payload checksum.
-+	 * IP checksum is based on 16-bit one's complement algorithm.
-+	 * To deduce a value from checksum is equal to add its inversion.
-+	 * If the IP payload len is odd, the inversed FCS should also
-+	 * begin from odd address and leave first byte zero.
++	/* check if frame status word reports an error condition
++	 * we which case we simply drop the packet
 +	 */
-+	if (skb->len % 2) {
-+		fcs[0] = 0;
-+		for (i = 0; i < ETH_FCS_LEN; i++)
-+			fcs[i + 1] = ~skb->data[skb->len + i];
-+		skb->csum = csum_partial(fcs, ETH_FCS_LEN + 1, skb->csum);
-+	} else {
-+		for (i = 0; i < ETH_FCS_LEN; i++)
-+			fcs[i] = ~skb->data[skb->len + i];
-+		skb->csum = csum_partial(fcs, ETH_FCS_LEN, skb->csum);
++	if (current_rx_ptr->status.status_word & RX_ERROR_MASK) {
++		printk(KERN_NOTICE DRV_NAME
++		       ": rx: receive error - packet dropped\n");
++		dev->stats.rx_dropped++;
++		goto out;
 +	}
- 	skb->ip_summed = CHECKSUM_COMPLETE;
- #endif
++
+ 	/* allocate a new skb for next time receive */
+ 	skb = current_rx_ptr->skb;
+ 	new_skb = dev_alloc_skb(PKT_BUF_SZ + NET_IP_ALIGN);
+@@ -699,11 +712,9 @@ static void bfin_mac_rx(struct net_device *dev)
+ 	netif_rx(skb);
+ 	dev->stats.rx_packets++;
+ 	dev->stats.rx_bytes += len;
++out:
+ 	current_rx_ptr->status.status_word = 0x00000000;
+ 	current_rx_ptr = current_rx_ptr->next;
+-
+-out:
+-	return;
+ }
  
+ /* interrupt routine to handle rx and error signal */
 -- 
 1.6.6
 
