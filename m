@@ -1,47 +1,46 @@
-From: Tino Keitel <tino.keitel@tikei.de>
-Subject: Re: Regression: Wake on LAN doesn't work in sky2 with
- 2.6.33-rc4-git2
-Date: Tue, 19 Jan 2010 11:32:48 +0100
-Message-ID: <20100119103248.GA8527@mac.home>
-References: <20100115091053.GA5477@mac.home>
- <201001180136.45823.rjw@sisk.pl>
- <20100118083757.GA2619@mac.home>
- <201001182234.55113.rjw@sisk.pl>
- <20100118144340.100c9544@nehalam>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
+Date: Tue, 19 Jan 2010 10:47:39 +0000
+Message-ID: <20100119104739.GA9088@ff.dom.local>
+References: <20100118073018.GA6270@ff.dom.local> <4B548C6B.10607@majjas.com> <20100118204658.GC3157@del.dom.local> <4B54CB0D.5070604@majjas.com> <20100118212516.GE3157@del.dom.local> <4B54D50C.90608@majjas.com> <20100118220814.GG3157@del.dom.local> <20100118221747.GH3157@del.dom.local> <4B54E4EF.8080602@majjas.com> <4B554730.6090000@majjas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eazy.amigager.de ([213.239.192.238]:32849 "EHLO
-	eazy.amigager.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754412Ab0ASKcv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2010 05:32:51 -0500
-Received: from mac.home (port-92-206-67-99.dynamic.qsc.de [92.206.67.99])
-	by eazy.amigager.de (Postfix) with ESMTPA id EC3CCC8C0D3
-	for <netdev@vger.kernel.org>; Tue, 19 Jan 2010 11:32:49 +0100 (CET)
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Michael Breuer <mbreuer@majjas.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932169Ab0ASKrr@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20100118144340.100c9544@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4B554730.6090000@majjas.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 18, 2010 at 14:43:40 -0800, Stephen Hemminger wrote:
-> On Mon, 18 Jan 2010 22:34:55 +0100
-> "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+On Tue, Jan 19, 2010 at 12:46:24AM -0500, Michael Breuer wrote:
+> Ok - one last update for a while ...not sure what's next... I put some  
+> printk's into sky2.c xmit logic - the packets are being sent to the  
+...
 
-[...]
+Btw, could you try if this patch can makes difference in triggering
+the "lib/dma-debug.c:898" warning?
 
-> > Perhaps we clear the WoL setting somewhere we shouldn't, but the
-> > "disable PCI register writes" bit prevents this from actually happening?
-> > 
-> > Rafael
-> 
-> How about getting a register dump of pci config space with
-> good/bad version?
+Jarek P.
+---
 
-At which point should the dump be placed? Somewhere as near to the              
-actual suspend as possible?                                                     
-                                                                                
-Regards,                                                                        
-Tino                                                                            
+ drivers/net/sky2.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index 7650f73..e02e9e9 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -2479,6 +2479,9 @@ static int sky2_status_intr(struct sky2_hw *hw, int to_do, u16 idx)
+ 
+ 		port = le->css & CSS_LINK_BIT;
+ 		dev = hw->dev[port];
++		if (!netif_running(dev))
++			continue;
++
+ 		sky2 = netdev_priv(dev);
+ 		length = le16_to_cpu(le->length);
+ 		status = le32_to_cpu(le->status);
