@@ -1,45 +1,107 @@
-From: Michael Breuer <mbreuer@majjas.com>
-Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
-Date: Tue, 19 Jan 2010 10:28:05 -0500
-Message-ID: <4B55CF85.6060600@majjas.com>
-References: <20100118073018.GA6270@ff.dom.local> <4B548C6B.10607@majjas.com>
- <20100118204658.GC3157@del.dom.local> <4B54CB0D.5070604@majjas.com>
- <20100118212516.GE3157@del.dom.local> <4B54D50C.90608@majjas.com>
- <20100118220814.GG3157@del.dom.local> <20100118221747.GH3157@del.dom.local>
- <4B54E4EF.8080602@majjas.com> <4B554730.6090000@majjas.com>
- <20100119084120.GA6366@ff.dom.local>
+From: "Josef Meser" <josef.meser@frequentis.com>
+Subject: [PATCH] drivers/net/e100.c: fix eeprom writes > 1 byte
+Date: Tue, 19 Jan 2010 16:32:28 +0100
+Message-ID: <891F39F12F3D4F119108C75F3626A035@frequentis.frq>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753473Ab0ASP3I@vger.kernel.org>
-In-reply-to: <20100119084120.GA6366@ff.dom.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	format=flowed;
+	charset="x-user-defined";
+	reply-type=original
+Content-Transfer-Encoding: 7bit
+Cc: <jesse.brandeburg@intel.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.frequentis.com ([212.186.194.131]:22314 "EHLO
+	mail1.frequentis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753850Ab0ASPoK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2010 10:44:10 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 1/19/2010 3:41 AM, Jarek Poplawski wrote:
-> On Tue, Jan 19, 2010 at 12:46:24AM -0500, Michael Breuer wrote:
->    
->> So net-net, as far as my TX packet loss issue, sky2 is in the clear. If
->> something on the linux side should be informing the switch about
->> something then there may still be an issue. If the wifi router should be
->> doing something differently, then it's unfortunately likely a 2.4.37
->> kernel issue (That's what dd-wrt is using).
->>      
-> IMHO until there is no proof from a sniffer or some regs dumps the
-> switch and the router are more suspicious than your NIC or linux box.
-> Then debugging these other things isn't so much interesting from my
-> POV ;-)
->
-> Anyway, if you only want to get it working (instead of debugging),
-> it seems you might try moving the dhcp server to the router or maybe
-> even using two separate servers with their pools - unless I missed
-> something in your config.
->
-> Jarek P.
->    
-I'm going to take a stab at debugging before creating a new subnet. Thanks.
+As requested by Jesse on e1000-devel I repost my patch for e100 here:
+
+Hi,
+
+ethtool is able to program the eeprom with one byte per invocation.
+When I tried to use a patched version of ethtool (see e.g.
+http://kerneltrap.org/mailarchive/linux-netdev/2008/6/18/2162964)
+to program the whole eeprom (connected to an 82551ER) at once,
+the e100 driver refuses to program the 128 bytes.
+
+This patch fixes 2 eeprom word address handlings, to make e100
+work correct for eeprom writes with size > 1 byte.
+
+@line 814:
+When called with the values
+start = 0;
+count = 64; (number of u16 words to be written)
+eeprom_wc = 64; (length of the eeprom in words)
+
+the eeprom was not written, because this condition was true:
+- if (start + count >= nic->eeprom_wc)
+  return -EINVAL;
+
+but it should be:
++ if (start + count > nic->eeprom_wc)
+   return -EINVAL;
+
+I think it never showed up, because ethtool normaly only writes
+1 byte (/-> 1 word).
+
+@line 2478:
+The 3rd argument of eeprom_save() should hand over the number of words
+to be written. (eeprom->len holds the number of bytes to be written).
+
+So when trying to write 128 bytes with
+ return e100_eeprom_save(nic, eeprom->offset >> 1,
+-  (eeprom->len >> 1) + 1);
+
+(128 >> 1) + 1 = 65 words were requested
+-> which is wrong, and rejected by eeprom_save(),
+because it is larger than the size of the eeprom.
+
+It just never showed up, because ethtool only writes 1 byte:
+(1 >> 1) + 1 = 1 word requested -> ok by chance.
+
+Correct is:
++  (eeprom->len + 1) >> 1);
+
+which results for programming 1 byte:
+(1 + 1) >> 1 = 1 word requested, ok.
+
+and programming 128 bytes:
+(128 + 1) >> 1 = 64 words requested, ok.
+
+Regards,
+Josef
+
+Signed-off-by: Josef Meser <j... at frequentis dot com>
+---
+ drivers/net/e100.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+index 3c29a20..7c9597e 100644
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -811,7 +811,7 @@ static int e100_eeprom_save(struct nic *nic, u16 start, u16 count)
+  e100_eeprom_read(nic, &addr_len, 0);
+  nic->eeprom_wc = 1 << addr_len;
+
+- if (start + count >= nic->eeprom_wc)
++ if (start + count > nic->eeprom_wc)
+   return -EINVAL;
+
+  for (addr = start; addr < start + count; addr++)
+@@ -2475,7 +2475,7 @@ static int e100_set_eeprom(struct net_device *netdev,
+  memcpy(&((u8 *)nic->eeprom)[eeprom->offset], bytes, eeprom->len);
+
+  return e100_eeprom_save(nic, eeprom->offset >> 1,
+-  (eeprom->len >> 1) + 1);
++  (eeprom->len + 1) >> 1);
+ }
+
+ static void e100_get_ringparam(struct net_device *netdev,
+--
+1.5.4.3
+
