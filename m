@@ -1,80 +1,39 @@
-From: =?UTF-8?B?0JLQmtC+0L3RgtCw0LrRgtC1LtGA0YM=?= <admin@vkontakte.ru>
-Subject: =?UTF-8?B?0JDQu9C70LAg0JTQsNCy0L3QuNGH0LXQvdC60L4g0LTQvtCx0LDQstC40LvQ?=
- =?UTF-8?B?sCDQktCw0YEg0LIg0LTRgNGD0LfRjNGPINC90LAg0YHQsNC50YLQtSDQktCa?=
- =?UTF-8?B?0L7QvdGC0LDQutGC0LUu0YDRgw==?=
-Date: Wed, 20 Jan 2010 01:46:53 +0300
-Message-ID: <cb700b6fcba61eca465dfafc0db53644@localhost.localdomain>
-Reply-To: "Pavel Durov, inContact.ru Admin" <admin@vkontakte.ru>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next-2.6] IFix IPv6 GSO type checks in Intel
+	ethernet drivers
+Date: Wed, 20 Jan 2010 11:39:34 +1300
+Message-ID: <20100119223934.GA30140@gondor.apana.org.au>
+References: <1263934927.1635.24.camel@w-sridhar.beaverton.ibm.com> <alpine.WNT.2.00.1001191306450.5776@jbrandeb-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: =?UTF-8?B?0JfQtNGA0LDQstGB0YLQstGD0LnRgtC1?=
-	<netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cs17.vkontakte.ru ([93.186.224.17]:60376 "EHLO vkontakte.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755926Ab0ASWrB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jan 2010 17:47:01 -0500
-Received: from localhost ([127.0.0.1] helo=localhost.localdomain)
-	by vkontakte.ru with esmtp (Exim 4.63)
-	(envelope-from <admin@vkontakte.ru>)
-	id 1NXMqb-0007Mh-Tv
-	for netdev@vger.kernel.org; Wed, 20 Jan 2010 01:46:54 +0300
+Received: from rhun.apana.org.au ([64.62.148.172]:41407 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750775Ab0ASXFr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2010 18:05:47 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.WNT.2.00.1001191306450.5776@jbrandeb-desk1.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=D0=97=D0=B4=D1=80=D0=B0=D0=B2=D1=81=D1=82=D0=B2=D1=83=D0=B9=D1=82=D0=B5=
-,
+On Tue, Jan 19, 2010 at 01:11:00PM -0800, Brandeburg, Jesse wrote:
+>
+> Looks fine, thanks!  The current code in net-next and 2.6.32 both have 
+> exactly the same condition in skb_is_gso_v6, so I'm not sure that this 
+> patch alone will fix any issues, FYI.  If this patch is part of another 
+> set or dependent upon another for the actual change in behavior mentioned 
+> in the comment, I think it should be noted or sent in a series.
 
-=D0=90=D0=BB=D0=BB=D0=B0 =D0=94=D0=B0=D0=B2=D0=BD=D0=B8=D1=87=D0=B5=D0=BD=
-=D0=BA=D0=BE =D0=B4=D0=BE=D0=B1=D0=B0=D0=B2=D0=B8=D0=BB=D0=B0 =D0=92=D0=
-=B0=D1=81 =D0=B2 =D0=B4=D1=80=D1=83=D0=B7=D1=8C=D1=8F =D0=BD=D0=B0 =D1=81=
-=D0=B0=D0=B9=D1=82=D0=B5 =D0=92=D0=9A=D0=BE=D0=BD=D1=82=D0=B0=D0=BA=D1=82=
-=D0=B5.=D1=80=D1=83
+skb_is_gso_v6 does an & test instead of == so the patch is definitely
+not a noop.
 
-=D0=92=D1=8B =D0=BC=D0=BE=D0=B6=D0=B5=D1=82=D0=B5 =D0=B7=D0=B0=D0=B9=D1=
-=82=D0=B8 =D0=BD=D0=B0 =D1=81=D0=B0=D0=B9=D1=82 =D0=B8 =D0=BF=D1=80=D0=BE=
-=D1=81=D0=BC=D0=BE=D1=82=D1=80=D0=B5=D1=82=D1=8C =D1=81=D1=82=D1=80=D0=B0=
-=D0=BD=D0=B8=D1=86=D1=8B =D0=92=D0=B0=D1=88=D0=B8=D1=85 =D0=B4=D1=80=D1=
-=83=D0=B7=D0=B5=D0=B9, =D0=B8=D1=81=D0=BF=D0=BE=D0=BB=D1=8C=D0=B7=D1=83=
-=D1=8F
-=D0=92=D0=B0=D1=88 e-mail =D0=B8 =D0=B0=D0=B2=D1=82=D0=BE=D0=BC=D0=B0=D1=
-=82=D0=B8=D1=87=D0=B5=D1=81=D0=BA=D0=B8 =D1=81=D0=BE=D0=B7=D0=B4=D0=B0=D0=
-=BD=D0=BD=D1=8B=D0=B9 =D0=BF=D0=B0=D1=80=D0=BE=D0=BB=D1=8C: 8P5HvuF0
-
-=D0=92=D0=9A=D0=BE=D0=BD=D1=82=D0=B0=D0=BA=D1=82=D0=B5.=D1=80=D1=83 - =D1=
-=81=D0=B0=D0=B9=D1=82, =D0=BA=D0=BE=D1=82=D0=BE=D1=80=D1=8B=D0=B9 =D0=B5=
-=D0=B6=D0=B5=D0=B4=D0=BD=D0=B5=D0=B2=D0=BD=D0=BE =D0=BF=D0=BE=D0=B7=D0=B2=
-=D0=BE=D0=BB=D1=8F=D0=B5=D1=82 =D0=B4=D0=B5=D1=81=D1=8F=D1=82=D0=BA=D0=B0=
-=D0=BC =D0=BC=D0=B8=D0=BB=D0=BB=D0=B8=D0=BE=D0=BD=D0=BE=D0=B2 =D0=BB=D1=
-=8E=D0=B4=D0=B5=D0=B9 =D0=BD=D0=B0=D1=85=D0=BE=D0=B4=D0=B8=D1=82=D1=8C =
-=D1=81=D1=82=D0=B0=D1=80=D1=8B=D1=85 =D0=B4=D1=80=D1=83=D0=B7=D0=B5=D0=B9=
- =D0=B8 =D0=BE=D1=81=D1=82=D0=B0=D0=B2=D0=B0=D1=82=D1=8C=D1=81=D1=8F =D1=
-=81 =D0=BD=D0=B8=D0=BC=D0=B8 =D0=BD=D0=B0 =D1=81=D0=B2=D1=8F=D0=B7=D0=B8=
-, =D0=B4=D0=B5=D0=BB=D0=B8=D1=82=D1=8C=D1=81=D1=8F =D1=84=D0=BE=D1=82=D0=
-=BE=D0=B3=D1=80=D0=B0=D1=84=D0=B8=D1=8F=D0=BC=D0=B8
-=D0=B8 =D1=81=D0=BE=D0=B1=D1=8B=D1=82=D0=B8=D1=8F=D0=BC=D0=B8 =D0=B8=D0=
-=B7 =D0=B6=D0=B8=D0=B7=D0=BD=D0=B8.
-
-=D0=A7=D1=82=D0=BE=D0=B1=D1=8B =D0=B2=D0=BE=D0=B9=D1=82=D0=B8 =D0=BD=D0=
-=B0 =D1=81=D0=B0=D0=B9=D1=82, =D0=BF=D1=80=D0=BE=D0=B9=D0=B4=D0=B8=D1=82=
-=D0=B5 =D0=BF=D0=BE =D1=81=D1=81=D1=8B=D0=BB=D0=BA=D0=B5:
-http://vkontakte.ru/login.php?regemail=3Dnetdev@vger.kernel.org#8P5HvuF=
-0
-
-=D0=92=D0=BD=D0=B8=D0=BC=D0=B0=D0=BD=D0=B8=D0=B5: =D0=92=D0=B0=D1=88=D0=
-=B0 =D1=80=D0=B5=D0=B3=D0=B8=D1=81=D1=82=D1=80=D0=B0=D1=86=D0=B8=D1=8F =
-=D0=BD=D0=B5 =D0=B1=D1=83=D0=B4=D0=B5=D1=82 =D0=B0=D0=BA=D1=82=D0=B8=D0=
-=B2=D0=B8=D1=80=D0=BE=D0=B2=D0=B0=D0=BD=D0=B0, =D0=B5=D1=81=D0=BB=D0=B8=
- =D0=92=D1=8B =D0=BF=D1=80=D0=BE=D0=B8=D0=B3=D0=BD=D0=BE=D1=80=D0=B8=D1=
-=80=D1=83=D0=B5=D1=82=D0=B5
-=D1=8D=D1=82=D0=BE =D0=BF=D1=80=D0=B8=D0=B3=D0=BB=D0=B0=D1=88=D0=B5=D0=BD=
-=D0=B8=D0=B5.
-
-=D0=96=D0=B5=D0=BB=D0=B0=D0=B5=D0=BC =D1=83=D0=B4=D0=B0=D1=87=D0=B8!
-=D0=A1 =D1=83=D0=B2=D0=B0=D0=B6=D0=B5=D0=BD=D0=B8=D0=B5=D0=BC,
-=D0=90=D0=B4=D0=BC=D0=B8=D0=BD=D0=B8=D1=81=D1=82=D1=80=D0=B0=D1=86=D0=B8=
-=D1=8F =D0=92=D0=9A=D0=BE=D0=BD=D1=82=D0=B0=D0=BA=D1=82=D0=B5.=D1=80=D1=
-=83
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
