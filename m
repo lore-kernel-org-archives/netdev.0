@@ -1,46 +1,55 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
-Date: Tue, 19 Jan 2010 10:47:39 +0000
-Message-ID: <20100119104739.GA9088@ff.dom.local>
-References: <20100118073018.GA6270@ff.dom.local> <4B548C6B.10607@majjas.com> <20100118204658.GC3157@del.dom.local> <4B54CB0D.5070604@majjas.com> <20100118212516.GE3157@del.dom.local> <4B54D50C.90608@majjas.com> <20100118220814.GG3157@del.dom.local> <20100118221747.GH3157@del.dom.local> <4B54E4EF.8080602@majjas.com> <4B554730.6090000@majjas.com>
+From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+Subject: Re: [net-next PATCH v3] ipv4: allow warming up the ARP cache with
+ request type gratuitous ARP
+Date: Tue, 19 Jan 2010 21:18:18 +1030
+Message-ID: <20100119211818.28f48713@opy.nosense.org>
+References: <201001190058.44495.opurdila@ixiacom.com>
+	<20100119100913.65177497@opy.nosense.org>
+	<20100119.021138.172154379.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: opurdila@ixiacom.com, ja@ssi.bg, chavey@google.com,
 	netdev@vger.kernel.org
-To: Michael Breuer <mbreuer@majjas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932169Ab0ASKrr@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B554730.6090000@majjas.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4.adam.net.au ([202.136.110.247]:53700 "EHLO
+	smtp4.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751356Ab0ASKse (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2010 05:48:34 -0500
+In-Reply-To: <20100119.021138.172154379.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 19, 2010 at 12:46:24AM -0500, Michael Breuer wrote:
-> Ok - one last update for a while ...not sure what's next... I put some  
-> printk's into sky2.c xmit logic - the packets are being sent to the  
-...
+Hi Dave,
 
-Btw, could you try if this patch can makes difference in triggering
-the "lib/dma-debug.c:898" warning?
+On Tue, 19 Jan 2010 02:11:38 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-Jarek P.
----
+> From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+> Date: Tue, 19 Jan 2010 10:09:13 +1030
+> 
+> > I don't think this complies with the ARP RFC (RFC826). Walking through
+> > the validation steps, Gratuitous ARP seems to only pass if there is an
+> > existing entry in the table, otherwise they'd fail, as the target
+> > address in the GA packet doesn't match that of the receiving host.
+> 
+> It's fine if it's guarded by the per-device ARP_ACCEPT sysctl which
+> defaults to off, and that's what he's doing.
 
- drivers/net/sky2.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+Fair enough.
 
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 7650f73..e02e9e9 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -2479,6 +2479,9 @@ static int sky2_status_intr(struct sky2_hw *hw, int to_do, u16 idx)
- 
- 		port = le->css & CSS_LINK_BIT;
- 		dev = hw->dev[port];
-+		if (!netif_running(dev))
-+			continue;
-+
- 		sky2 = netdev_priv(dev);
- 		length = le16_to_cpu(le->length);
- 		status = le32_to_cpu(le->status);
+I wasn't familiar with the ARP_ACCEPT sysctl. It seems that this patch
+is not only adding the feature of creating new ARP table entries in
+response to GARPs, but is also fixing the ARP implementation because it
+looks like the default wasn't to accept GARPs, despite the validation
+steps in RFC826 allowing them. 
+
+ARP_ACCEPT / the /proc "arp_accept" file is really confusingly named -
+unless you knew better I doubt anybody would guess it's only referring
+to GARPs. Is there any chance of renaming it or symlinking a new name
+of something like "garp_accept" to the old one? Is this a significant
+enough behaviour change that it creates that opportunity?
+
+Regards,
+Mark.
