@@ -1,42 +1,36 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH 6/6] netdev: bfin_mac: avoid tx skb overflows in the tx DMA ring
-Date: Tue, 19 Jan 2010 06:08:27 -0500
-Message-ID: <1263899307-10627-6-git-send-email-vapier@gentoo.org>
-References: <1263899307-10627-1-git-send-email-vapier@gentoo.org>
-Cc: uclinux-dist-devel@blackfin.uclinux.org,
-	Sonic Zhang <sonic.zhang@analog.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH v3] ipv4: allow warming up the ARP cache with
+ request type gratuitous ARP
+Date: Tue, 19 Jan 2010 03:13:43 -0800 (PST)
+Message-ID: <20100119.031343.44943528.davem@davemloft.net>
+References: <20100119100913.65177497@opy.nosense.org>
+	<20100119.021138.172154379.davem@davemloft.net>
+	<20100119211818.28f48713@opy.nosense.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: opurdila@ixiacom.com, ja@ssi.bg, chavey@google.com,
+	netdev@vger.kernel.org
+To: lk-netdev@lk-netdev.nosense.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:59098 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756033Ab0ASLIV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jan 2010 06:08:21 -0500
-In-Reply-To: <1263899307-10627-1-git-send-email-vapier@gentoo.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44139
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932178Ab0ASLNf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2010 06:13:35 -0500
+In-Reply-To: <20100119211818.28f48713@opy.nosense.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sonic Zhang <sonic.zhang@analog.com>
+From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+Date: Tue, 19 Jan 2010 21:18:18 +1030
 
-Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
- drivers/net/bfin_mac.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+> ARP_ACCEPT / the /proc "arp_accept" file is really confusingly named -
+> unless you knew better I doubt anybody would guess it's only referring
+> to GARPs. Is there any chance of renaming it or symlinking a new name
+> of something like "garp_accept" to the old one? Is this a significant
+> enough behaviour change that it creates that opportunity?
 
-diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index af45f65..f5a22c8 100644
---- a/drivers/net/bfin_mac.c
-+++ b/drivers/net/bfin_mac.c
-@@ -920,6 +920,9 @@ static int bfin_mac_hard_start_xmit(struct sk_buff *skb,
- 	u32 data_align = (unsigned long)(skb->data) & 0x3;
- 	union skb_shared_tx *shtx = skb_tx(skb);
- 
-+	if (current_tx_ptr->next == tx_list_head)
-+		return NETDEV_TX_BUSY;
-+
- 	current_tx_ptr->skb = skb;
- 
- 	if (data_align == 0x2) {
--- 
-1.6.6
+It's been there forever, it's well documented, and creating
+symlinks is messy.
 
+So no.
