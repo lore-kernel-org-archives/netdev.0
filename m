@@ -1,56 +1,47 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH 02/11] fs_enet: Add FEC TX Alignment workaround for
- MPC5121
-Date: Wed, 20 Jan 2010 10:42:25 +1100
-Message-ID: <20100120104225.3361e6c4.sfr@canb.auug.org.au>
-References: <1263932653-3634-1-git-send-email-agust@denx.de>
-	<1263932653-3634-3-git-send-email-agust@denx.de>
-	<20100119.123706.12493208.davem@davemloft.net>
+From: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
+Subject: RE: [PATCH 2.6.33 1/3] net: Micrel KSZ8841/2 PCI Ethernet driver
+Date: Tue, 19 Jan 2010 15:48:50 -0800
+Message-ID: <14385191E87B904DBD836449AA30269D580AEB@MORGANITE.micrel.com>
+References: <14385191E87B904DBD836449AA30269D021A4A@MORGANITE.micrel.com><20100116.012004.166836523.davem@davemloft.net><14385191E87B904DBD836449AA30269D580A76@MORGANITE.micrel.com> <20100119134059.63b355e4@nehalam>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__20_Jan_2010_10_42_25_+1100_oW.M=5hrH7YvCaLK"
-Cc: agust@denx.de, kosmo@semihalf.com, dzu@denx.de,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	jrigby@freescale.com, wd@denx.de
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: "Stephen Hemminger" <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:35031 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751913Ab0ASXme (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jan 2010 18:42:34 -0500
-In-Reply-To: <20100119.123706.12493208.davem@davemloft.net>
+Received: from p01c11o145.mxlogic.net ([208.65.144.68]:43718 "EHLO
+	p01c11o145.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752321Ab0ASXvP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2010 18:51:15 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20100119134059.63b355e4@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Signature=_Wed__20_Jan_2010_10_42_25_+1100_oW.M=5hrH7YvCaLK
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Stephen Hemminger wrote:
+>> Now for the driver implementation for STP support.  I programmed the
+>> switch's static MAC table to always pass the following frames to the
+>> host: BPDU frames with specific multicast address, broadcast frames,
+>> unicast frames with the device bridge's MAC address, and multicast
+>> frames with ICMPv6 multicast address.  All other frames are not
+passed
+>> to the host and are handled by the switch, forwarding each frame with
+>> its standard forwarding logic.  The port can be shut off if it is
+>> blocked and those frames will not pass through that port.  The host
+>> gets BPDU frames so that the bridge can determine each port's state.
+>> The other broadcast, unicast, and multicast frames passed to the host
+>> are necessary if some other network devices want to communicate with
+>> the host.  As the forwarding is done by hardware rather than
+software,
+>> overall performance does increase.
+> 
+> What about LACP needed by bridging?
+> 
 
-Hi Dave,
-
-On Tue, 19 Jan 2010 12:37:06 -0800 (PST) David Miller <davem@davemloft.net>=
- wrote:
->
-> Well... where are the other 9 patches?
-
-I think the other 9 are not network related, just PowerPC related.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Wed__20_Jan_2010_10_42_25_+1100_oW.M=5hrH7YvCaLK
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAktWQ2EACgkQjjKRsyhoI8ysFwCfVM2hUB11JZt6w9YzG2Bwr+EV
-M2gAoKSOD8g/A3XyZ/MOyfAqN9Tl+/10
-=t3vp
------END PGP SIGNATURE-----
-
---Signature=_Wed__20_Jan_2010_10_42_25_+1100_oW.M=5hrH7YvCaLK--
+I am not aware of LACP and do not know how this protocol works under
+bridging.  If the requirement is certain multicast frames do not get
+forwarded and must pass to the host bridge, I can add those fixed
+multicast addresses.  The static MAC table has 8 entries, so there are 4
+more to use.
