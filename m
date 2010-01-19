@@ -1,29 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] S2io: two branches the same in wait_for_cmd_complete()
-Date: Tue, 19 Jan 2010 01:59:59 -0800 (PST)
-Message-ID: <20100119.015959.104877543.davem@davemloft.net>
-References: <4B53284C.1090405@gmail.com>
-	<78C9135A3D2ECE4B8162EBDCE82CAD77061418BF@nekter>
+Subject: Re: [PATCH] ucc_geth: Fix full TX queue processing
+Date: Tue, 19 Jan 2010 02:00:38 -0800 (PST)
+Message-ID: <20100119.020038.152864417.davem@davemloft.net>
+References: <20100118154750.GA9224@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roel.kluin@gmail.com, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org
-To: Ramkrishna.Vepa@neterion.com
+Cc: B06378@freescale.com, leoli@freescale.com,
+	lsorense@csclub.uwaterloo.ca, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: avorontsov@ru.mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50762
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50780
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755701Ab0ASJ7t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2010 04:59:49 -0500
-In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD77061418BF@nekter>
+	by vger.kernel.org with ESMTP id S1755913Ab0ASKA2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2010 05:00:28 -0500
+In-Reply-To: <20100118154750.GA9224@oksana.dev.rtsoft.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Date: Mon, 18 Jan 2010 02:20:06 -0500
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Date: Mon, 18 Jan 2010 18:47:50 +0300
 
-> Thanks for catching this bug. The fix should be as follows -
+> From: Jiajun Wu <b06378@freescale.com>
+> 
+> commit 7583605b6d29f1f7f6fc505b883328089f3485ad ("ucc_geth: Fix empty
+> TX queue processing") fixed empty TX queue mishandling, but didn't
+> account another corner case: when TX queue becomes full.
+> 
+> Without this patch the driver will stop transmiting when TX queue
+> becomes full since 'bd == ugeth->txBd[txQ]' actually checks for
+> two things: queue empty or full.
+> 
+> Let's better check for NULL skb, which unambiguously signals an empty
+> queue.
+> 
+> Signed-off-by: Jiajun Wu <b06378@freescale.com>
+> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 
-This doesn't apply to net-2.6, and I'd need your signoff too.
-
-Please fix this up and resubmit, thanks.
+Applied.
