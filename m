@@ -1,56 +1,56 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next-2.6] IFix IPv6 GSO type checks in Intel
- ethernet drivers
-Date: Tue, 19 Jan 2010 15:15:45 -0800
-Message-ID: <1263942945.17501.1.camel@localhost>
-References: <1263934927.1635.24.camel@w-sridhar.beaverton.ibm.com>
-	 <alpine.WNT.2.00.1001191306450.5776@jbrandeb-desk1.amr.corp.intel.com>
-	 <20100119.141438.266557246.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH 02/11] fs_enet: Add FEC TX Alignment workaround for
+ MPC5121
+Date: Wed, 20 Jan 2010 10:42:25 +1100
+Message-ID: <20100120104225.3361e6c4.sfr@canb.auug.org.au>
+References: <1263932653-3634-1-git-send-email-agust@denx.de>
+	<1263932653-3634-3-git-send-email-agust@denx.de>
+	<20100119.123706.12493208.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"sri@us.ibm.com" <sri@us.ibm.com>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__20_Jan_2010_10_42_25_+1100_oW.M=5hrH7YvCaLK"
+Cc: agust@denx.de, kosmo@semihalf.com, dzu@denx.de,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	jrigby@freescale.com, wd@denx.de
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:62889 "EHLO mga09.intel.com"
+Received: from chilli.pcug.org.au ([203.10.76.44]:35031 "EHLO smtps.tip.net.au"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932099Ab0ASXPt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jan 2010 18:15:49 -0500
-In-Reply-To: <20100119.141438.266557246.davem@davemloft.net>
+	id S1751913Ab0ASXme (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jan 2010 18:42:34 -0500
+In-Reply-To: <20100119.123706.12493208.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-01-19 at 15:14 -0700, David Miller wrote:
-> From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-> Date: Tue, 19 Jan 2010 13:11:00 -0800 (Pacific Standard Time)
-> 
-> > 
-> > 
-> > On Tue, 19 Jan 2010, Sridhar Samudrala wrote:
-> > 
-> >> Found this problem when testing IPv6 from a KVM guest to a remote
-> >> host via e1000e device on the host.
-> >> The following patch fixes the check for IPv6 GSO packet in Intel
-> >> ethernet drivers to use skb_is_gso_v6(). SKB_GSO_DODGY is also set
-> >> when packets are forwarded from a guest.
-> >> 
-> >> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com
-> > 
-> > Looks fine, thanks!  The current code in net-next and 2.6.32 both have 
-> > exactly the same condition in skb_is_gso_v6, so I'm not sure that this 
-> > patch alone will fix any issues, FYI.  If this patch is part of another 
-> > set or dependent upon another for the actual change in behavior mentioned 
-> > in the comment, I think it should be noted or sent in a series.
-> > 
-> > Ack-ed by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> 
-> Just FYI, I'm assuming I'll get this via Jeff eventually.
+--Signature=_Wed__20_Jan_2010_10_42_25_+1100_oW.M=5hrH7YvCaLK
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Correct, I will add this patch to my queue of patches.
+Hi Dave,
 
+On Tue, 19 Jan 2010 12:37:06 -0800 (PST) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> Well... where are the other 9 patches?
+
+I think the other 9 are not network related, just PowerPC related.
+
+--=20
 Cheers,
-Jeff
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
+--Signature=_Wed__20_Jan_2010_10_42_25_+1100_oW.M=5hrH7YvCaLK
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAktWQ2EACgkQjjKRsyhoI8ysFwCfVM2hUB11JZt6w9YzG2Bwr+EV
+M2gAoKSOD8g/A3XyZ/MOyfAqN9Tl+/10
+=t3vp
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__20_Jan_2010_10_42_25_+1100_oW.M=5hrH7YvCaLK--
