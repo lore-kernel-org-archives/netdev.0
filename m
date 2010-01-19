@@ -1,58 +1,59 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 2.6.33 1/3] net: Micrel KSZ8841/2 PCI Ethernet driver
-Date: Tue, 19 Jan 2010 16:11:47 -0800
-Message-ID: <20100119161147.6faca543@nehalam>
-References: <14385191E87B904DBD836449AA30269D021A4A@MORGANITE.micrel.com>
-	<20100116.012004.166836523.davem@davemloft.net>
-	<14385191E87B904DBD836449AA30269D580A76@MORGANITE.micrel.com>
-	<20100119134059.63b355e4@nehalam>
-	<14385191E87B904DBD836449AA30269D580AEB@MORGANITE.micrel.com>
+From: =?UTF-8?Q?Kolbj=C3=B8rn_Barmen?= <linux@kolla.no>
+Subject: IPv6 autoconf/accept_ra default values - revisited
+Date: Wed, 20 Jan 2010 00:45:37 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1001200020280.9283@firda.kolla.no>
+References: <> <1237945752-14362-1-git-send-email-brian.haley@hp.com> <49C99315.6070504@hp.com> <alpine.LNX.2.00.0903250526050.6682@firda.kolla.no> <49CA4D86.4070403@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Vlad Yasevich <vladislav.yasevich@hp.com>, davem@davemloft.net,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:59537 "EHLO mail.vyatta.com"
+Received: from ufisa.uninett.no ([158.38.152.126]:38936 "EHLO ufisa.uninett.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753738Ab0ATAL6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jan 2010 19:11:58 -0500
-In-Reply-To: <14385191E87B904DBD836449AA30269D580AEB@MORGANITE.micrel.com>
+	id S1753738Ab0ATAMd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jan 2010 19:12:33 -0500
+In-Reply-To: <49CA4D86.4070403@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 19 Jan 2010 15:48:50 -0800
-"Ha, Tristram" <Tristram.Ha@Micrel.Com> wrote:
 
-> Stephen Hemminger wrote:
-> >> Now for the driver implementation for STP support.  I programmed the
-> >> switch's static MAC table to always pass the following frames to the
-> >> host: BPDU frames with specific multicast address, broadcast frames,
-> >> unicast frames with the device bridge's MAC address, and multicast
-> >> frames with ICMPv6 multicast address.  All other frames are not
-> passed
-> >> to the host and are handled by the switch, forwarding each frame with
-> >> its standard forwarding logic.  The port can be shut off if it is
-> >> blocked and those frames will not pass through that port.  The host
-> >> gets BPDU frames so that the bridge can determine each port's state.
-> >> The other broadcast, unicast, and multicast frames passed to the host
-> >> are necessary if some other network devices want to communicate with
-> >> the host.  As the forwarding is done by hardware rather than
-> software,
-> >> overall performance does increase.
-> > 
-> > What about LACP needed by bridging?
-> > 
-> 
-> I am not aware of LACP and do not know how this protocol works under
-> bridging.  If the requirement is certain multicast frames do not get
-> forwarded and must pass to the host bridge, I can add those fixed
-> multicast addresses.  The static MAC table has 8 entries, so there are 4
-> more to use.
+Cheers, remember me? :)
 
-Anything 01:80:C2:00:00:00 should go local host.
-LACP is part of 802.3ad bonding and uses 01:80:C2:00:02
+Regarding the autoconf parameter for the ipv6 module, was it not the
+intention that it should cover accept_ra as well?
 
-In general anything to 01:80:C2:00:00:XX is likely to be
-used by some IEEE 802 standard for link only multicast.
+I ask since I have used this paramater in the belief that it also did
+cover accept_ra, however on a couple of systems that are using bridge
+interface, I noticed that they "fall off" ipv6-wise, unless I explisitly
+ping them.
+
+So I finally got around to find out what was going on, and to my surprise
+I see that they both have autoconfigured routes on eth0 (using link local)
+that they want to use instead of what I have statically configured for br0.
+
+So, could "autoconf" also please turn off accept_ra?
+Or, if you like, add another parameter for it :P
+
+I tried using disable_ipv6 in all kinds of tricky ways to get what I want,
+but it's close to impossble, with interfaces coming and going in the
+bridge I always end up with autoconfigured addresses where I dont want
+them, strange routing issues etc. I cannot just add entries in sysctl.conf
+for bridge interfaces, since the bridge interfaces (and others for that
+matter) are not there when sysctl is run on bootup.
+
+And the entire "all" vs. "default" still confuses me.
+
+* "default" is supposed to cover _all future_ interfaces?
+* "all" is supposed to cover _all existing_ interfaces, and change them?
+  If not, then what is its function?
+
+
+And lastly - all this would be a non-issue if the defaults values were so
+that all autoconf/accept_ra were 0 - it's _so_ easy to turn on, but
+incredibly complicated to turn off. The harder it is to make sense out of
+things like this, the harder it is to have people start with IPv6.
+
+Cheers again! :)
+
+-- kolla
