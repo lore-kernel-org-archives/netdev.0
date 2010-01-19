@@ -1,108 +1,51 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 2.6.33 1/3] net: Micrel KSZ8841/2 PCI Ethernet driver
-Date: Tue, 19 Jan 2010 13:40:59 -0800
-Message-ID: <20100119134059.63b355e4@nehalam>
-References: <14385191E87B904DBD836449AA30269D021A4A@MORGANITE.micrel.com>
-	<20100116.012004.166836523.davem@davemloft.net>
-	<14385191E87B904DBD836449AA30269D580A76@MORGANITE.micrel.com>
+From: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
+Subject: RE: [PATCH 2.6.33 1/3] net: Micrel KSZ8841/2 PCI Ethernet driver
+Date: Tue, 19 Jan 2010 13:51:58 -0800
+Message-ID: <14385191E87B904DBD836449AA30269D580AA0@MORGANITE.micrel.com>
+References: <14385191E87B904DBD836449AA30269D021A4A@MORGANITE.micrel.com> <e2d7436a1001160800u11206f54iaf07bb92331a256a@mail.gmail.com> <4B51E64B.6010706@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753021Ab0ASVlU@vger.kernel.org>
-In-Reply-To: <14385191E87B904DBD836449AA30269D580A76@MORGANITE.micrel.com>
+Content-Transfer-Encoding: 7BIT
+Cc: "Dave Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, "Michael Buesch" <mb@bu3sch.de>,
+	=?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+To: "Felix Fietkau" <nbd@openwrt.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753826Ab0ASVxp@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <4B51E64B.6010706@openwrt.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Jan 2010 12:03:20 -0800
-"Ha, Tristram" <Tristram.Ha@Micrel.Com> wrote:
-
-> David Miller wrote:
-> > From: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
-> > Date: Fri, 15 Jan 2010 18:57:59 -0800
-> > 
-> >> The KSZ8842 has a switch with lots of hardware configurations.  The =
-> >> driver uses the proc system to allow users to configure the switch.
-> >> If = this is not desired the whole thing can be removed by not
-> calling the =
-> >> init_proc() function.
-> > 
-> > I think there needs to be a serious discussion about how this driver
-> uses bridge layer internals
-> > by doing things like: 
-> > 
-> > +/* Needed for STP support. */
-> > +#ifdef CONFIG_KSZ8842_STP
-> > +#include <../net/bridge/br_private.h>
-> > +#endif
-> > 
-> > and uses procfs to configure the ports.
-> > 
-> > Stephen please look this over and make suggestions for better ways to
-> support and configure
-> > these kinds of devices. 
-> > 
-> > Thanks.
+>> If my assumptions are correct, then I thing it would be better to have
+>> a driver that presents this device as two: one - an ethernet device,
+>> and second - a switch management interface like the one used in OpenWRT.
+>> 
+>> Here are some links for reference:
+>> http://downloads.openwrt.org/kamikaze/8.09.2/kamikaze_8.09.2_source.ta r.bz2;
+>> subdir: package/switch/src/
+>>   -> switch management driver for ADMTEK Adm6996 and Broadcom
+>> BCM5325E/536x
+> Don't look at that ;)
+> The code you're referring to is just a simple hack of mine that is a few years old now. It's
+> going to be removed as soon as the drivers have been ported to a proper API. 
 > 
-> I like to explain a little bit about this Spanning Tree Protocol
-> support.
+> I've been working on a switch configuration API based on netlink, which is being used on some of
+> the other platforms in OpenWrt. 
 > 
-> Micrel KSZ8842's 3-port switch and Micrel's other 5-port switches have
-> port controls to enable/disable tx and rx and stop MAC address learning.
-> They are supposed to help run STP more efficiently, but somebody needs
-> to control those ports.
+> You can find the sources here:
+> https://dev.openwrt.org/export/19173/trunk/target/linux/generic-2.6/files/drivers/net/phy/swconfig.c
+> https://dev.openwrt.org/export/19173/trunk/target/linux/generic-2.6/files/include/linux/switch.h
 > 
-> From my observation of how the brctl application controls the network
-> devices when running STP, I know the kernel bridge puts all the devices
-> under it in promiscuous mode and declares the state of each bridge port
-> associated with the device blocked or forwarding depending on the BPDU
-> frames received.  When the port is blocked, the device is still active
-> and passes all frames to the host.  The bridge only looks at BPDU frames
-> and drops all other frames.  It is better to just shut off the port.
+> It's meant to be used with drivers that hook into the PHY abstraction layer.
+> You can find an example of such a driver here:
+> https://dev.openwrt.org/export/19173/trunk/target/linux/generic-2.6/files/drivers/net/phy/rtl8306.c
+> 
+> I'll do the final cleanups and submit it for review once I have time to do so.
+> 
+> - Felix
 
-Ok.
+Your work looks interesting, but rtl8036 seems to use MDIO page registers to access its own internal registers.  Micrel switches do not have that feature and so cannot use that way.
 
-> From the time when the KSZ8842 driver was developed for the Linux 2.4
-> kernel I looked for a kernel API to tell the bridge port's state so the
-> device driver can shut off the port if necessary.  I could not find one
-> and so I came up with this hack to look at the bridge port's structure
-> directly.  It looks dangerous but is quite safe.  The driver only looks
-> at the bridge port state variable and finds out the MAC address
-> associated with the bridge device.  It can get the state definitions
-> from the if_bridge header.  The private bridge structure may change in
-> the future and break the code, but as kernel network interfaces are
-> changing all the time, the driver just needs to be modified for the new
-> version.  To avoid this situation, the kernel may need to export two
-> functions to tell the bridge port state and bridge device address and
-> put the prototypes in the if_bridge header.
+I am looking at those PHY drivers and try to figure out how they work under mdio bus.  I am using Micrel's own KSZ8695P and KSZ9692P SoC to develop and debug the KSZ884X PCI driver.  KSZ9692P actually has two external PHYs so that the PHY driver can run on it.  But the driver does not load because I probably need to add some hooks to the mdio bus driver to do the actual hardware access.  Can somebody give me some pointers to this mdio bus support?  Does the PHY driver create a user interface like eth0 so that it can be accessed using some tools like ethtool?
 
-There was one added for user level RSTP support.
-RSTP is where Linux STP is headed, so adding more hooks into
-existing STP is going backwards.
-
-> Now for the driver implementation for STP support.  I programmed the
-> switch's static MAC table to always pass the following frames to the
-> host: BPDU frames with specific multicast address, broadcast frames,
-> unicast frames with the device bridge's MAC address, and multicast
-> frames with ICMPv6 multicast address.  All other frames are not passed
-> to the host and are handled by the switch, forwarding each frame with
-> its standard forwarding logic.  The port can be shut off if it is
-> blocked and those frames will not pass through that port.  The host gets
-> BPDU frames so that the bridge can determine each port's state.  The
-> other broadcast, unicast, and multicast frames passed to the host are
-> necessary if some other network devices want to communicate with the
-> host.  As the forwarding is done by hardware rather than software,
-> overall performance does increase.
-
-What about LACP needed by bridging?
-
-> I did verify the driver disables or enables the port appropriately when
-> the bridge port state changes, but as I do not have the experience of
-> running a full-scale Spanning Tree, I do not know if this hardware
-> implementation behaves the same as the software one provided by the
-> kernel and brctl.  I also did not try using VLAN.
-
-
--- 
+Anyway I am afraid the phy driver model does not work on KSZ884X.  I cannot think of how the mdio bus accesses hardware registers located on a PCI device.
