@@ -1,45 +1,81 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] xt_TCPMSS: SYN packets are allowed to contain data
-Date: Tue, 19 Jan 2010 13:53:13 +0100
-Message-ID: <4B55AB39.5020505@trash.net>
-References: <4B54CDE5.3070100@simon.arlott.org.uk> <4B5578A5.50705@gmail.com>    <4B557BA2.7080407@trash.net> <a1c09459b273a62b96a5f3937a36a3f337d36bab@8b5064a13e22126c1b9329f0dc35b8915774b7c3.invalid>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: [PATCH] sky2: Enable/disable WOL per hardware device
+Date: Tue, 19 Jan 2010 23:11:26 +0900
+Message-ID: <4B55BD8E.2040705@ring3k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: William Allen Simpson <william.allen.simpson@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Simon Arlott <simon@fire.lp0.eu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754214Ab0ASMxU@vger.kernel.org>
-In-Reply-To: <a1c09459b273a62b96a5f3937a36a3f337d36bab@8b5064a13e22126c1b9329f0dc35b8915774b7c3.invalid>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pw0-f42.google.com ([209.85.160.42]:46341 "EHLO
+	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750943Ab0ASOPt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2010 09:15:49 -0500
+Received: by pwj9 with SMTP id 9so2407186pwj.21
+        for <netdev@vger.kernel.org>; Tue, 19 Jan 2010 06:15:48 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Simon Arlott wrote:
-> On Tue, January 19, 2010 09:30, Patrick McHardy wrote:
->> William Allen Simpson wrote:
->>> Simon Arlott wrote:
->>>> This moves the check for (header size != packet size) to after
->>>> attempting to modify an existing MSS option. Another check is
->>>> needed before looking through the header to ensure it doesn't
->>>> claim to be larger than the packet size.
->>>>
->>> What's the path from tcp_v[4,6]_rcv() to these tests?
->>>
->>> 1) Header larger than the packet is already tested in about 5 places,
->>> and my patch "tcp: harmonize tcp_vx_rcv header length assumptions"
->>> tries to get them all down to just *one* test.
->> We're talking about a netfilter module here, which has to deal
->> with forwarded traffic and can only rely on the IP header checks
->> done in ip_rcv().
-> 
-> My gateway (where these error messages occur) is running 2.6.29,
-> and skb->len (from the prink) is 40 bytes.
-> 
-> If this is 20 (IPv4 Header) + 20 (TCP Header) = 40 bytes, then there
-> is no data and the header offset is wrong so it hasn't been checked.
+Y2_HW_WOL_ON/Y2_HW_WOL_OFF should be set and cleared per chip,
+not per port.  On dual port cards, Y2_HW_WOL_ON should be
+enabled if either sky2 port has WOL enabled.
 
-That's odd. If the packet is really only 40 bytes large, then there
-are no TCP options, so your patch shouldn't have any effect.
+Found while reviewing code for a WOL regression, though this is
+probably not the cause of the regression.
+
+Signed-off-by: Mike McCormack <mikem@ring3k.org>
+---
+ drivers/net/sky2.c |   29 ++++++++++++++++++++++-------
+ 1 files changed, 22 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index 4c06020..d86b7e8 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -3238,6 +3238,27 @@ static inline u8 sky2_wol_supported(const struct sky2_hw *hw)
+ 	return sky2_is_copper(hw) ? (WAKE_PHY | WAKE_MAGIC) : 0;
+ }
+ 
++static void sky2_hw_set_wol(struct sky2_hw *hw)
++{
++	int wol = 0;
++	int i;
++
++	for (i = 0; i < hw->ports; i++) {
++		struct net_device *dev = hw->dev[i];
++		struct sky2_port *sky2 = netdev_priv(dev);
++
++		if (sky2->wol)
++			wol = 1;
++	}
++
++	if (hw->chip_id == CHIP_ID_YUKON_EC_U ||
++	    hw->chip_id == CHIP_ID_YUKON_EX ||
++	    hw->chip_id == CHIP_ID_YUKON_FE_P)
++		sky2_write32(hw, B0_CTST, wol ? Y2_HW_WOL_ON : Y2_HW_WOL_OFF);
++
++	device_set_wakeup_enable(&hw->pdev->dev, wol);
++}
++
+ static void sky2_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+ {
+ 	const struct sky2_port *sky2 = netdev_priv(dev);
+@@ -3257,13 +3278,7 @@ static int sky2_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+ 
+ 	sky2->wol = wol->wolopts;
+ 
+-	if (hw->chip_id == CHIP_ID_YUKON_EC_U ||
+-	    hw->chip_id == CHIP_ID_YUKON_EX ||
+-	    hw->chip_id == CHIP_ID_YUKON_FE_P)
+-		sky2_write32(hw, B0_CTST, sky2->wol
+-			     ? Y2_HW_WOL_ON : Y2_HW_WOL_OFF);
+-
+-	device_set_wakeup_enable(&hw->pdev->dev, sky2->wol);
++	sky2_hw_set_wol(hw);
+ 
+ 	if (!netif_running(dev))
+ 		sky2_wol_init(sky2);
+-- 
+1.5.6.5
+
