@@ -1,31 +1,55 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] lib/vsprintf.c: Add %pMF to format FDDI bit reversed
- MAC addresses
-Date: Tue, 19 Jan 2010 02:57:34 -0800
-Message-ID: <20100119025734.ce74ae5b.akpm@linux-foundation.org>
-References: <BD79186B4FD85F4B8E60E381CAEE19090208954A@mi8nycmail19.Mi8.com>
-	<1262888625.10429.23.camel@Joe-Laptop.home>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: Crazy TCP bug (keepalive flood?) in 2.6.32?
+Date: Tue, 19 Jan 2010 13:09:03 +0200
+Message-ID: <201001191309.03927.denys@visp.net.lb>
+References: <200912261703.49067.denys@visp.net.lb> <201001161612.04747.denys@visp.net.lb> <4B5576F4.5020002@tvk.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: H Hartley Sweeten <hartleys@visionengravers.com>,
-	David Miller <davem@davemloft.net>,
-	"Maciej W. Rozycki" <macro@linux-mips.org>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
+To: Damian Lukowski <damian@tvk.rwth-aachen.de>,
+	Ilpo =?iso-8859-1?q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:52243 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752141Ab0ASLAK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2010 06:00:10 -0500
-In-Reply-To: <1262888625.10429.23.camel@Joe-Laptop.home>
+Received: from hosting.visp.net.lb ([194.146.153.11]:40318 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755394Ab0ASLHo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2010 06:07:44 -0500
+In-Reply-To: <4B5576F4.5020002@tvk.rwth-aachen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 07 Jan 2010 10:23:45 -0800 Joe Perches <joe@perches.com> wrote:
+On Tuesday 19 January 2010 11:10:12 you wrote:
+> Hi,
+> thank you for testing. So srtt and rttvar is zero in any of those cases.
+> Ilpo, it is a bug in tcp_rtt_estimator then, I suppose?
+> 
+> There is also a code comment in tcp_input.c, saying:
+> > * NOTE: clamping at TCP_RTO_MIN is not required, current algo
+> > * guarantees that rto is higher.
+> 
+> So we either fix tcp_rtt_estimator or simply clamp at TCP_RTO_MIN?
+> 
+> Damian
+> 
+> > On Monday 11 January 2010 15:02:34 you wrote:
+> >> On Sat, 26 Dec 2009, Denys Fedoryshchenko wrote:
+> >>> Few more dumps. I notice:
+> >>> 1)Ack always equal 1
+> >>> 2)It is usually first segment of data sent (?)
+> >>>
+> >>> Maybe some value not initialised properly?
+> >>
+> >> Can you see if the RTO lower bound is violated (I added some printing of
+> >> vars there too already now if it turns out to be something):
+> >>
+> >> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> >> index 65b8ebf..d84469f 100644
+> >> --- a/net/ipv4/tcp_ipv4.c
+> >> +++ b/net/ipv4/tcp_ipv4.c
+As i see in code it is rounding RTO to minimum value.
+It fixes my problem seems.
 
-> Adds 56 bytes to object size
-
-You might want to consider making some of the net-specific code in
-vsprintf.c go away if CONFIG_NET=n.
-
+Btw just a bit about my environment - wireless networks (sometimes lossy!) 
+with low speed (128-512Kbps) customers working over pppoe. Maybe it will give 
+a tip why rtt value is too low.
