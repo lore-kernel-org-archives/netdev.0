@@ -1,81 +1,47 @@
-From: Mike McCormack <mikem@ring3k.org>
-Subject: [PATCH] sky2: Enable/disable WOL per hardware device
-Date: Tue, 19 Jan 2010 23:11:26 +0900
-Message-ID: <4B55BD8E.2040705@ring3k.org>
+From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+Subject: [net-next PATCH 1/2] be2net: ethtool self test reorganization.
+Date: Tue, 19 Jan 2010 20:45:00 +0530
+Message-ID: <20100119151450.GA8250@serverengines.com>
+Reply-To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f42.google.com ([209.85.160.42]:46341 "EHLO
-	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750943Ab0ASOPt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2010 09:15:49 -0500
-Received: by pwj9 with SMTP id 9so2407186pwj.21
-        for <netdev@vger.kernel.org>; Tue, 19 Jan 2010 06:15:48 -0800 (PST)
+Received: from segment-124-30.sify.net ([124.30.166.146]:33946 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753212Ab0ASPPB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2010 10:15:01 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Y2_HW_WOL_ON/Y2_HW_WOL_OFF should be set and cleared per chip,
-not per port.  On dual port cards, Y2_HW_WOL_ON should be
-enabled if either sky2 port has WOL enabled.
+The ddr dma ethtool self test needs to be performed even when ETH_TEST_FL_OFFLINE is not set.
 
-Found while reviewing code for a WOL regression, though this is
-probably not the cause of the regression.
-
-Signed-off-by: Mike McCormack <mikem@ring3k.org>
+Signed-off-by: Sarveshwar Bandi <sarveshwarb@serverengines.com>
 ---
- drivers/net/sky2.c |   29 ++++++++++++++++++++++-------
- 1 files changed, 22 insertions(+), 7 deletions(-)
+ drivers/net/benet/be_ethtool.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 4c06020..d86b7e8 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -3238,6 +3238,27 @@ static inline u8 sky2_wol_supported(const struct sky2_hw *hw)
- 	return sky2_is_copper(hw) ? (WAKE_PHY | WAKE_MAGIC) : 0;
- }
- 
-+static void sky2_hw_set_wol(struct sky2_hw *hw)
-+{
-+	int wol = 0;
-+	int i;
-+
-+	for (i = 0; i < hw->ports; i++) {
-+		struct net_device *dev = hw->dev[i];
-+		struct sky2_port *sky2 = netdev_priv(dev);
-+
-+		if (sky2->wol)
-+			wol = 1;
+diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
+index f18c02f..2f2ebbd 100644
+--- a/drivers/net/benet/be_ethtool.c
++++ b/drivers/net/benet/be_ethtool.c
+@@ -545,10 +545,11 @@ be_self_test(struct net_device *netdev, 
+ 						&data[2]) != 0) {
+ 			test->flags |= ETH_TEST_FL_FAILED;
+ 		}
 +	}
-+
-+	if (hw->chip_id == CHIP_ID_YUKON_EC_U ||
-+	    hw->chip_id == CHIP_ID_YUKON_EX ||
-+	    hw->chip_id == CHIP_ID_YUKON_FE_P)
-+		sky2_write32(hw, B0_CTST, wol ? Y2_HW_WOL_ON : Y2_HW_WOL_OFF);
-+
-+	device_set_wakeup_enable(&hw->pdev->dev, wol);
-+}
-+
- static void sky2_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
- {
- 	const struct sky2_port *sky2 = netdev_priv(dev);
-@@ -3257,13 +3278,7 @@ static int sky2_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
  
- 	sky2->wol = wol->wolopts;
+-		data[3] = be_test_ddr_dma(adapter);
+-		if (data[3] != 0)
+-			test->flags |= ETH_TEST_FL_FAILED;
++	if (be_test_ddr_dma(adapter) != 0) {
++		data[3] = 1;
++		test->flags |= ETH_TEST_FL_FAILED;
+ 	}
  
--	if (hw->chip_id == CHIP_ID_YUKON_EC_U ||
--	    hw->chip_id == CHIP_ID_YUKON_EX ||
--	    hw->chip_id == CHIP_ID_YUKON_FE_P)
--		sky2_write32(hw, B0_CTST, sky2->wol
--			     ? Y2_HW_WOL_ON : Y2_HW_WOL_OFF);
--
--	device_set_wakeup_enable(&hw->pdev->dev, sky2->wol);
-+	sky2_hw_set_wol(hw);
- 
- 	if (!netif_running(dev))
- 		sky2_wol_init(sky2);
+ }
 -- 
-1.5.6.5
+1.4.0
 
