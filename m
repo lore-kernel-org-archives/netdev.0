@@ -1,46 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sky2: Fix WARNING: at lib/dma-debug.c:902 check_sync
-Date: Wed, 20 Jan 2010 14:50:10 -0800 (PST)
-Message-ID: <20100120.145010.80864889.davem@davemloft.net>
-References: <1264018312.9030.76.camel@nseg_linux_HP1.broadcom.com>
-	<20100120123033.0746b11e@nehalam>
-	<20100120205842.GA3072@del.dom.local>
+Subject: Re: [PATCH 02/11] sky2: fix DMA sync_single length error
+Date: Wed, 20 Jan 2010 14:52:18 -0800 (PST)
+Message-ID: <20100120.145218.259766536.davem@davemloft.net>
+References: <20100120204459.820265084@vyatta.com>
+	<20100120204558.901334592@vyatta.com>
+	<20100120213259.GB3072@del.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, mchan@broadcom.com,
-	mbreuer@majjas.com, akpm@linux-foundation.org, flyboy@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	pcnet32@verizon.net, romieu@fr.zoreil.com, mcarlson@broadcom.com
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
 To: jarkao2@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754828Ab0ATWuF@vger.kernel.org>
-In-Reply-To: <20100120205842.GA3072@del.dom.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50251
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754033Ab0ATWwH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2010 17:52:07 -0500
+In-Reply-To: <20100120213259.GB3072@del.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Wed, 20 Jan 2010 21:58:42 +0100
+Date: Wed, 20 Jan 2010 22:32:59 +0100
 
-> Yes, and it's mainly for lib/dma-debug (until it's not verified dmar
-> errors reported by Michael Breuer could be connected). So, I'm not
-> sure for now how serious this warning could be. On the other hand,
-> Documentation/(PCI-?)DMA-mapping, mentioned by Stephen, doesn't seem
-> to allow or use in examples the "size" different than mapped.
+> On Wed, Jan 20, 2010 at 12:45:01PM -0800, Stephen Hemminger wrote:
+>> From: Jarek Poplawski <jarkao2@gmail.com>
+>> 
+>> Using pci_unmap_len(), with the same length as pci_map_single(), with
+>> pci_dma_sync_single_for_cpu()/_device() fixes this warning (2.6.32.4):
+>> 
+>> > Jan 19 10:43:50 mail kernel: WARNING: at lib/dma-debug.c:902 
+>> > check_sync+0xc1/0x43f()
+>> > Jan 19 10:43:50 mail kernel: Hardware name: System Product Name
+>> > Jan 19 10:43:50 mail kernel: sky2 0000:04:00.0: DMA-API: device driver 
+>> > tries to sync DMA memory it has not allocated [device 
+>> > address=0x0000000320a0b022] [size=60 bytes]  
+>> 
+>> Reported-by: Michael Breuer <mbreuer@majjas.com>
+>> Tested-by: Michael Breuer <mbreuer@majjas.com>
+>> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+>> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> Thanks for acking and completing this, Stephen!
 
-Someone find me even one actual implemenetation of the DMA APIs, not
-the debugging code, which can't handle a partial sync correctly, then
-we can talk.
+It's not a bug, lib/dma-debug.c and the DMA API documentation
+are both buggy.
 
-As the person who originally created the PCI DMA APIs I can tell
-you the intention was definitely to allow arbitrary SYNC lengths
-and there was no requirement that the length needed to be the
-same as that used in the mapping call.
-
-Nothing else makes sense.  People sync when they have a partially used
-buffer and want to copy the data out then recycle the big original
-buffer back to the chip.  I knew this when creating the PCI DMA APIs
-because I first tried to use them in network drivers and that's what
-so many of them do.
-
-Currently all we have is an overly anal DMA debugging layer check, and
-some speculation that it might or might not fix some real bug.
+I'm not applying any of this, the fix belongs in the infrastructure
+debugging and documentation not in the drivers, they are doing the
+correct and only reasonable thing.
