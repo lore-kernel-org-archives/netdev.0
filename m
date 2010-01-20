@@ -1,62 +1,79 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [RFC] [PATCH] Optimize TCP sendmsg in favour of fast devices?
-Date: Wed, 20 Jan 2010 17:49:18 +0530
-Message-ID: <OF0A3AFFAB.FFA8088C-ON652576B1.001D7B08-652576B1.0042980B@in.ibm.com>
-References: <20100115.003636.199394610.davem@davemloft.net>	<OF1B0853DD.2824263E-ON652576AC.002FA9D4-652576AC.0030AC47@LocalDomain>
-	<OF0D3FEC3A.84663D58-ON652576AC.0031CA59-652576AC.003232CF@in.ibm.com> <20100115.011829.03057807.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: eric.dumazet@gmail.com, ilpo.jarvinen@helsinki.fi,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Krishna Kumar <krkumar2@in.ibm.com>
+Subject: net: [PATCH] Optimize non-gso test checks
+Date: Wed, 20 Jan 2010 18:00:33 +0530
+Message-ID: <20100120123033.28183.78883.sendpatchset@krkumar2.in.ibm.com>
+Cc: netdev@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp03.in.ibm.com ([122.248.162.3]:55462 "EHLO
-	e28smtp03.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751477Ab0ATMH2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2010 07:07:28 -0500
-Received: from d28relay05.in.ibm.com (d28relay05.in.ibm.com [9.184.220.62])
-	by e28smtp03.in.ibm.com (8.14.3/8.13.1) with ESMTP id o0KC7Pow013815
-	for <netdev@vger.kernel.org>; Wed, 20 Jan 2010 17:37:25 +0530
-Received: from d28av05.in.ibm.com (d28av05.in.ibm.com [9.184.220.67])
-	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o0KC7PcL688336
-	for <netdev@vger.kernel.org>; Wed, 20 Jan 2010 17:37:25 +0530
-Received: from d28av05.in.ibm.com (loopback [127.0.0.1])
-	by d28av05.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o0KC7PhO020299
-	for <netdev@vger.kernel.org>; Wed, 20 Jan 2010 23:07:25 +1100
-In-Reply-To: <20100115.011829.03057807.davem@davemloft.net>
+Received: from e23smtp08.au.ibm.com ([202.81.31.141]:60655 "EHLO
+	e23smtp08.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932094Ab0ATMah (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2010 07:30:37 -0500
+Received: from d23relay05.au.ibm.com (d23relay05.au.ibm.com [202.81.31.247])
+	by e23smtp08.au.ibm.com (8.14.3/8.13.1) with ESMTP id o0KNUZSw030853
+	for <netdev@vger.kernel.org>; Thu, 21 Jan 2010 10:30:35 +1100
+Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
+	by d23relay05.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o0KCPppe1638494
+	for <netdev@vger.kernel.org>; Wed, 20 Jan 2010 23:25:51 +1100
+Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
+	by d23av02.au.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o0KCUZHn017243
+	for <netdev@vger.kernel.org>; Wed, 20 Jan 2010 23:30:35 +1100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Krishna Kumar <krkumar2@in.ibm.com>
 
-> David Miller <davem@davemloft.net> wrote on 01/15/2010 02:48:29 PM:
->
-> Re: [RFC] [PATCH] Optimize TCP sendmsg in favour of fast devices?
->
-> From: Krishna Kumar2 <krkumar2@in.ibm.com>
-> Date: Fri, 15 Jan 2010 14:50:04 +0530
->
-> > I wonder if there is some other way to test it. I could test it on
-> > the card I have, cxgbe, by ethtool F_SG off, and then testing
-> > this patch with existing code (both with ethtool F_SG off)? Will
-> > that be enough to get an idea, or I cannot assume this is
-> > reasonable for real non-sg drivers? I am sure there is a
-> > degradation, and mentioned that part as a "penalty" for those
-> > drivers in my patch.
->
-> I think such a test would provide useful data by which to judge this
-> change.
+Avoid checking twice whether skb needs to be linearized, if one
+skb_linearize was already done.
 
-I had to remove the F_SG flag from cxgb3 driver (using ethtool
-didn't show any difference in performance since GSO was enabled
-on the device due to register_netdev setting it). Testing show a
-drop of 25% in performance with this patch for non-SG device,
-the extra alloc/memcpy is showing up.
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+---
+ net/core/dev.c |   29 +++++++++++++++++------------
+ 1 file changed, 17 insertions(+), 12 deletions(-)
 
-For the SG driver, I get a good performace gain (not anywhere
-close to 25% though). What do you suggest?
-
-Thanks,
-
-- KK
-
+diff -ruNp org/net/core/dev.c new/net/core/dev.c
+--- org/net/core/dev.c	2010-01-18 14:53:02.000000000 +0530
++++ new/net/core/dev.c	2010-01-20 17:58:33.000000000 +0530
+@@ -1982,6 +1982,21 @@ static inline int __dev_xmit_skb(struct 
+ 	return rc;
+ }
+ 
++/*
++ * Returns true if either:
++ *	1. skb has frag_list and the device doesn't support FRAGLIST, or
++ *	2. skb is fragmented and the device does not support SG, or if
++ *	   at least one of fragments is in highmem and device does not
++ *	   support DMA from it.
++ */
++static inline int skb_needs_linearize(struct sk_buff *skb,
++				      struct net_device *dev)
++{
++	return (skb_has_frags(skb) && !(dev->features & NETIF_F_FRAGLIST)) ||
++	       (skb_shinfo(skb)->nr_frags && (!(dev->features & NETIF_F_SG) ||
++					      illegal_highdma(dev, skb)));
++}
++
+ /**
+  *	dev_queue_xmit - transmit a buffer
+  *	@skb: buffer to transmit
+@@ -2018,18 +2033,8 @@ int dev_queue_xmit(struct sk_buff *skb)
+ 	if (netif_needs_gso(dev, skb))
+ 		goto gso;
+ 
+-	if (skb_has_frags(skb) &&
+-	    !(dev->features & NETIF_F_FRAGLIST) &&
+-	    __skb_linearize(skb))
+-		goto out_kfree_skb;
+-
+-	/* Fragmented skb is linearized if device does not support SG,
+-	 * or if at least one of fragments is in highmem and device
+-	 * does not support DMA from it.
+-	 */
+-	if (skb_shinfo(skb)->nr_frags &&
+-	    (!(dev->features & NETIF_F_SG) || illegal_highdma(dev, skb)) &&
+-	    __skb_linearize(skb))
++	/* Convert a paged skb to linear, if required */
++	if (skb_needs_linearize(skb, dev) && __skb_linearize(skb))
+ 		goto out_kfree_skb;
+ 
+ 	/* If packet is not checksummed and device does not support
