@@ -1,79 +1,67 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: net: [PATCH] Optimize non-gso test checks
-Date: Wed, 20 Jan 2010 18:00:33 +0530
-Message-ID: <20100120123033.28183.78883.sendpatchset@krkumar2.in.ibm.com>
-Cc: netdev@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>
-To: davem@davemloft.net
+From: "Simon Arlott" <simon@fire.lp0.eu>
+Subject: Re: [PATCH] xt_TCPMSS: SYN packets are allowed to contain data
+Date: Wed, 20 Jan 2010 12:59:16 -0000
+Message-ID: <710ab0ca79305c82013982d43250b0a1fd45824d@8b5064a13e22126c1b9329f0dc35b8915774b7c3.invalid>
+References: <4B54CDE5.3070100@simon.arlott.org.uk> <4B5578A5.50705@gmail.com>
+    <dad314e12c5750b1b5d70c3ea3c6f6134b8fa0f3@8b5064a13e22126c1b9329f0dc35b8915774b7c3.invalid>
+    <4B55D372.4020807@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain;charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "netdev" <netdev@vger.kernel.org>,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: "William Allen Simpson" <william.allen.simpson@gmail.com>,
+	"Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp08.au.ibm.com ([202.81.31.141]:60655 "EHLO
-	e23smtp08.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932094Ab0ATMah (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2010 07:30:37 -0500
-Received: from d23relay05.au.ibm.com (d23relay05.au.ibm.com [202.81.31.247])
-	by e23smtp08.au.ibm.com (8.14.3/8.13.1) with ESMTP id o0KNUZSw030853
-	for <netdev@vger.kernel.org>; Thu, 21 Jan 2010 10:30:35 +1100
-Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
-	by d23relay05.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o0KCPppe1638494
-	for <netdev@vger.kernel.org>; Wed, 20 Jan 2010 23:25:51 +1100
-Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
-	by d23av02.au.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o0KCUZHn017243
-	for <netdev@vger.kernel.org>; Wed, 20 Jan 2010 23:30:35 +1100
+Received: from proxima.lp0.eu ([81.2.80.65]:36136 "EHLO proxima.lp0.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750976Ab0ATM7T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jan 2010 07:59:19 -0500
+In-Reply-To: <4B55D372.4020807@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krishna Kumar <krkumar2@in.ibm.com>
+On Tue, January 19, 2010 15:44, William Allen Simpson wrote:
+> Simon Arlott wrote:
+>> On Tue, January 19, 2010 09:17, William Allen Simpson wrote:
+>> I could change the comment too, but the same logic applies when
+>> there is data and no MSS option - the packet can't be increased
+>> in size if it would then exceed 576 bytes and/or the destination
+>> MTU.
+>>
+> Please change the comment.
 
-Avoid checking twice whether skb needs to be linearized, if one
-skb_linearize was already done.
+I've made a new version of the patch which I'll be able to test
+tonight.
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
----
- net/core/dev.c |   29 +++++++++++++++++------------
- 1 file changed, 17 insertions(+), 12 deletions(-)
+> If there is no MSS option, it should *not* be added, under *ANY*
+> circumstances.  That violates the end-to-end arguments (some call
+> them principles).
 
-diff -ruNp org/net/core/dev.c new/net/core/dev.c
---- org/net/core/dev.c	2010-01-18 14:53:02.000000000 +0530
-+++ new/net/core/dev.c	2010-01-20 17:58:33.000000000 +0530
-@@ -1982,6 +1982,21 @@ static inline int __dev_xmit_skb(struct 
- 	return rc;
- }
- 
-+/*
-+ * Returns true if either:
-+ *	1. skb has frag_list and the device doesn't support FRAGLIST, or
-+ *	2. skb is fragmented and the device does not support SG, or if
-+ *	   at least one of fragments is in highmem and device does not
-+ *	   support DMA from it.
-+ */
-+static inline int skb_needs_linearize(struct sk_buff *skb,
-+				      struct net_device *dev)
-+{
-+	return (skb_has_frags(skb) && !(dev->features & NETIF_F_FRAGLIST)) ||
-+	       (skb_shinfo(skb)->nr_frags && (!(dev->features & NETIF_F_SG) ||
-+					      illegal_highdma(dev, skb)));
-+}
-+
- /**
-  *	dev_queue_xmit - transmit a buffer
-  *	@skb: buffer to transmit
-@@ -2018,18 +2033,8 @@ int dev_queue_xmit(struct sk_buff *skb)
- 	if (netif_needs_gso(dev, skb))
- 		goto gso;
- 
--	if (skb_has_frags(skb) &&
--	    !(dev->features & NETIF_F_FRAGLIST) &&
--	    __skb_linearize(skb))
--		goto out_kfree_skb;
--
--	/* Fragmented skb is linearized if device does not support SG,
--	 * or if at least one of fragments is in highmem and device
--	 * does not support DMA from it.
--	 */
--	if (skb_shinfo(skb)->nr_frags &&
--	    (!(dev->features & NETIF_F_SG) || illegal_highdma(dev, skb)) &&
--	    __skb_linearize(skb))
-+	/* Convert a paged skb to linear, if required */
-+	if (skb_needs_linearize(skb, dev) && __skb_linearize(skb))
- 		goto out_kfree_skb;
- 
- 	/* If packet is not checksummed and device does not support
+Agreed. The added MSS is likely to be larger than 536 too... I've
+removed this code.
+
+> MSS isn't about the _destination_ MTU, it's about the *source*.
+> If you cannot guarantee you know the source MTU, there's no basis
+> for deciding the MSS.
+
+I was referring to the SYN packet itself. It wouldn't always be
+possible to add an option without exceeding the MTU of that packet's
+destination if it had data.
+
+
+On 19/01/10 12:53, Patrick McHardy wrote:
+> Simon Arlott wrote:
+>> If this is 20 (IPv4 Header) + 20 (TCP Header) = 40 bytes, then
+>> there is no data and the header offset is wrong so it hasn't been
+>> checked.
+>
+> That's odd. If the packet is really only 40 bytes large, then there
+> are no TCP options, so your patch shouldn't have any effect.
+
+Except to remove the printk which fills up my serial console (because
+the header offset is wrong).
+
+-- 
+Simon Arlott
