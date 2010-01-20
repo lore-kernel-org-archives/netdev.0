@@ -1,7 +1,7 @@
 From: Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 2/3] Add a veth_get_peer() and veth_set_peer() functions
-Date: Wed, 20 Jan 2010 07:01:12 -0800
-Message-ID: <1263999673-11279-3-git-send-email-danms@us.ibm.com>
+Subject: [PATCH 1/3] Expose rtnl_link_ops_get()
+Date: Wed, 20 Jan 2010 07:01:11 -0800
+Message-ID: <1263999673-11279-2-git-send-email-danms@us.ibm.com>
 References: <1263999673-11279-1-git-send-email-danms@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,56 +21,37 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is needed for C/R.  For checkpoint, we need to be able to follow
-the link from one veth device to its peer.  For restart, we need to be
-able to link two veth devices we've restored to re-establish their
-relationship.
-
 Signed-off-by: Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 ---
- drivers/net/veth.c   |   14 ++++++++++++++
- include/linux/veth.h |    5 +++++
- 2 files changed, 19 insertions(+), 0 deletions(-)
+ include/net/rtnetlink.h |    1 +
+ net/core/rtnetlink.c    |    2 +-
+ 2 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index ade5b34..eb47080 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -454,6 +454,20 @@ static void veth_dellink(struct net_device *dev)
- 	unregister_netdevice(peer);
- }
+diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+index c3aa044..a165769 100644
+--- a/include/net/rtnetlink.h
++++ b/include/net/rtnetlink.h
+@@ -82,6 +82,7 @@ extern void	rtnl_kill_links(struct net *net, struct rtnl_link_ops *ops);
+ extern int	rtnl_link_register(struct rtnl_link_ops *ops);
+ extern void	rtnl_link_unregister(struct rtnl_link_ops *ops);
  
-+struct net_device *veth_get_peer(struct net_device *veth)
-+{
-+	struct veth_priv *priv = netdev_priv(veth);
-+
-+	return priv->peer;
-+}
-+
-+void veth_set_peer(struct net_device *veth, struct net_device *peer)
-+{
-+	struct veth_priv *priv = netdev_priv(veth);
-+
-+	priv->peer = peer;
-+}
-+
- static const struct nla_policy veth_policy[VETH_INFO_MAX + 1];
++extern const struct rtnl_link_ops *rtnl_link_ops_get(const char *kind);
+ extern struct net_device *rtnl_create_link(struct net *net, char *ifname,
+ 		const struct rtnl_link_ops *ops, struct nlattr *tb[]);
+ extern const struct nla_policy ifla_policy[IFLA_MAX+1];
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index eb42873..2b2150c 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -325,7 +325,7 @@ void rtnl_link_unregister(struct rtnl_link_ops *ops)
  
- static struct rtnl_link_ops veth_link_ops = {
-diff --git a/include/linux/veth.h b/include/linux/veth.h
-index 3354c1e..eee059d 100644
---- a/include/linux/veth.h
-+++ b/include/linux/veth.h
-@@ -9,4 +9,9 @@ enum {
- #define VETH_INFO_MAX	(__VETH_INFO_MAX - 1)
- };
+ EXPORT_SYMBOL_GPL(rtnl_link_unregister);
  
-+#ifdef __KERNEL__
-+struct net_device *veth_get_peer(struct net_device *veth);
-+void veth_set_peer(struct net_device *veth, struct net_device *peer);
-+#endif
-+
- #endif
+-static const struct rtnl_link_ops *rtnl_link_ops_get(const char *kind)
++const struct rtnl_link_ops *rtnl_link_ops_get(const char *kind)
+ {
+ 	const struct rtnl_link_ops *ops;
+ 
 -- 
 1.6.2.5
