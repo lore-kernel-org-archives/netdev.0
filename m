@@ -1,34 +1,21 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/2] IPv6: reassembly: replace magic number with macro
- definitions
-Date: Wed, 20 Jan 2010 10:37:35 +0100
-Message-ID: <4B56CEDF.9030305@trash.net>
-References: <4B56A0DD.1010404@cn.fujitsu.com> <20100120.013208.258496398.davem@davemloft.net>
+Subject: Re: [PATCH 1/2] conntrack: delete the redundant macro definitions
+Date: Wed, 20 Jan 2010 10:40:03 +0100
+Message-ID: <4B56CF73.1000705@trash.net>
+References: <4B56A0B9.7020406@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: shanwei@cn.fujitsu.com, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	yoshfuji@linux-ipv6.org, eric.dumazet@gmail.com,
-	adobriyan@gmail.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	yasuyuki.kozakai@toshiba.co.jp, netfilter-devel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Shan Wei <shanwei@cn.fujitsu.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100120.013208.258496398.davem@davemloft.net>
+In-Reply-To: <4B56A0B9.7020406@cn.fujitsu.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Shan Wei <shanwei@cn.fujitsu.com>
-> Date: Wed, 20 Jan 2010 14:21:17 +0800
-> 
->> Use macro to define high/low thresh value, refer to IPV6_FRAG_TIMEOUT.
->>
->>
->> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
-> 
-> Patrick you can take this into your tree:
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+Shan Wei wrote:
+> The following three macro definitions are never used, so delete them.
 
-Will do, thanks.
-
+Applied, thanks.
