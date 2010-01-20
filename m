@@ -1,50 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 02/11] sky2: fix DMA sync_single length error
-Date: Wed, 20 Jan 2010 14:52:18 -0800 (PST)
-Message-ID: <20100120.145218.259766536.davem@davemloft.net>
-References: <20100120204459.820265084@vyatta.com>
-	<20100120204558.901334592@vyatta.com>
-	<20100120213259.GB3072@del.dom.local>
+Subject: Re: [PATCH] sky2: Fix WARNING: at lib/dma-debug.c:902 check_sync
+Date: Wed, 20 Jan 2010 14:53:16 -0800 (PST)
+Message-ID: <20100120.145316.109996493.davem@davemloft.net>
+References: <20100120094103.GA6225@ff.dom.local>
+	<20100120222414.57909d14@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: jarkao2@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50251
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754033Ab0ATWwH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2010 17:52:07 -0500
-In-Reply-To: <20100120213259.GB3072@del.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jarkao2@gmail.com, shemminger@linux-foundation.org,
+	mbreuer@majjas.com, akpm@linux-foundation.org, flyboy@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	mchan@broadcom.com, pcnet32@verizon.net, romieu@fr.zoreil.com,
+	mcarlson@broadcom.com
+To: alan@lxorguk.ukuu.org.uk
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754855Ab0ATWxK@vger.kernel.org>
+In-Reply-To: <20100120222414.57909d14@lxorguk.ukuu.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Wed, 20 Jan 2010 22:32:59 +0100
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Date: Wed, 20 Jan 2010 22:24:14 +0000
 
-> On Wed, Jan 20, 2010 at 12:45:01PM -0800, Stephen Hemminger wrote:
->> From: Jarek Poplawski <jarkao2@gmail.com>
+>> > Seems like an underlying bug in the DMA api. Maybe it just can't
+>> > handle operations on partial mapping.
+>> > 
+>> > Other drivers with same problem:
+>> >   bnx2, cassini, pcnet32, r8169, rrunner, skge, sungem, tg3, 
 >> 
->> Using pci_unmap_len(), with the same length as pci_map_single(), with
->> pci_dma_sync_single_for_cpu()/_device() fixes this warning (2.6.32.4):
->> 
->> > Jan 19 10:43:50 mail kernel: WARNING: at lib/dma-debug.c:902 
->> > check_sync+0xc1/0x43f()
->> > Jan 19 10:43:50 mail kernel: Hardware name: System Product Name
->> > Jan 19 10:43:50 mail kernel: sky2 0000:04:00.0: DMA-API: device driver 
->> > tries to sync DMA memory it has not allocated [device 
->> > address=0x0000000320a0b022] [size=60 bytes]  
->> 
->> Reported-by: Michael Breuer <mbreuer@majjas.com>
->> Tested-by: Michael Breuer <mbreuer@majjas.com>
->> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
->> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+>> It seems using the same length (even without pci_unmap_len()) is
+>> crucial here, but I hope maintainers (added to CC) will take care.
 > 
-> Thanks for acking and completing this, Stephen!
+> The API needs fixing - if you've got a large mapping and you want to sync
+> part of it then we need to support that. Now it might well be that the
+> implementation on some braindead platform has to sync the entire thing,
+> and some implementations entire pages or cache lines.
+> 
+> You can't fix this in the drivers, they requested a service and they
+> don't have enough information nor is it their job to know about all the
+> platform specific rules.
 
-It's not a bug, lib/dma-debug.c and the DMA API documentation
+Absolutely and %100 agreed, the DMA debugging layer and documentation
 are both buggy.
 
-I'm not applying any of this, the fix belongs in the infrastructure
-debugging and documentation not in the drivers, they are doing the
-correct and only reasonable thing.
+The intention from the beginning was always to allow partial SYNCs
+exactly for the reasons Alan and myself are mentioning here.
