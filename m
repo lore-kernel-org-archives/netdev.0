@@ -1,8 +1,8 @@
 From: sjur.brandeland@stericsson.com
-Subject: [PATCH net-next-2.6 07/13] net-caif: add CAIF device registration
- functionality
-Date: Wed, 20 Jan 2010 23:55:24 +0100
-Message-ID: <1264028130-14364-8-git-send-email-sjur.brandeland@stericsson.com>
+Subject: [PATCH net-next-2.6 13/13] net-caif-driver: add CAIF serial driver
+ (ldisc)
+Date: Wed, 20 Jan 2010 23:55:30 +0100
+Message-ID: <1264028130-14364-14-git-send-email-sjur.brandeland@stericsson.com>
 References: <1264028130-14364-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN
@@ -14,581 +14,558 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from bgo1smout1.broadpark.no ([217.13.4.94]:52371 "EHLO
 	bgo1smout1.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754301Ab0ATX4c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2010 18:56:32 -0500
+	with ESMTP id S1754576Ab0ATX4p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2010 18:56:45 -0500
 Received: from bgo1sminn1.broadpark.no ([217.13.4.93])
  by bgo1smout1.broadpark.no
  (Sun Java(tm) System Messaging Server 6.3-3.01 (built Jul 12 2007; 32bit))
- with ESMTP id <0KWK00DQUIDLDL70@bgo1smout1.broadpark.no> for
- netdev@vger.kernel.org; Wed, 20 Jan 2010 23:56:09 +0100 (CET)
+ with ESMTP id <0KWK00CG0IDSGCC0@bgo1smout1.broadpark.no> for
+ netdev@vger.kernel.org; Wed, 20 Jan 2010 23:56:16 +0100 (CET)
 Received: from localhost.localdomain ([84.49.71.7]) by bgo1sminn1.broadpark.no
  (Sun Java(tm) System Messaging Server 6.3-3.01 (built Jul 12 2007; 32bit))
  with ESMTP id <0KWK00LQBICIDUE0@bgo1sminn1.broadpark.no> for
- netdev@vger.kernel.org; Wed, 20 Jan 2010 23:56:09 +0100 (CET)
+ netdev@vger.kernel.org; Wed, 20 Jan 2010 23:56:16 +0100 (CET)
 In-reply-to: <1264028130-14364-1-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-Registration and deregistration of CAIF Link Layer.
+Add CAIF Serial driver. This driver is implemented as a line discipline.
+The TTY is opened from inside the kernel module.
+
+caif_serial uses the following module parameters:
+ser_ttyname - specifies the tty name.
+ser_use_stx - specifies if STart of frame eXtension is in use.
+ser_loop    - sets the interface in loopback mode.
 
 Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
 ---
- net/caif/caif_config_util.c |  121 +++++++++++++
- net/caif/caif_dev.c         |  417 +++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 538 insertions(+), 0 deletions(-)
+ drivers/net/Kconfig            |    2 +
+ drivers/net/Makefile           |    1 +
+ drivers/net/caif/Kconfig       |   15 ++
+ drivers/net/caif/Makefile      |   14 ++
+ drivers/net/caif/caif_serial.c |  420 ++++++++++++++++++++++++++++++++++++++++
+ include/linux/tty.h            |    4 +-
+ 6 files changed, 454 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/caif/Kconfig
+ create mode 100644 drivers/net/caif/Makefile
+ create mode 100644 drivers/net/caif/caif_serial.c
 
-diff --git a/net/caif/caif_config_util.c b/net/caif/caif_config_util.c
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index dd9a09c..c2e670c 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2789,6 +2789,8 @@ source "drivers/ieee802154/Kconfig"
+ 
+ source "drivers/s390/net/Kconfig"
+ 
++source "drivers/net/caif/Kconfig"
++
+ config XEN_NETDEV_FRONTEND
+ 	tristate "Xen network device frontend driver"
+ 	depends on XEN
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index ad1346d..b7ffa35 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -285,5 +285,6 @@ obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+ obj-$(CONFIG_SFC) += sfc/
+ 
+ obj-$(CONFIG_WIMAX) += wimax/
++obj-$(CONFIG_CAIF) += caif/
+ 
+ obj-$(CONFIG_OCTEON_MGMT_ETHERNET) += octeon/
+diff --git a/drivers/net/caif/Kconfig b/drivers/net/caif/Kconfig
 new file mode 100644
-index 0000000..b9ae530
+index 0000000..8a1a273
 --- /dev/null
-+++ b/net/caif/caif_config_util.c
-@@ -0,0 +1,121 @@
++++ b/drivers/net/caif/Kconfig
+@@ -0,0 +1,15 @@
++#
++# CAIF physical drivers
++#
++
++if CAIF
++
++comment "CAIF transport drivers"
++
++config CAIF_TTY
++	tristate "CAIF TTY transport driver"
++	default n
++	---help---
++	The CAIF TTY transport driver.
++
++endif # CAIF
+diff --git a/drivers/net/caif/Makefile b/drivers/net/caif/Makefile
+new file mode 100644
+index 0000000..01784a0
+--- /dev/null
++++ b/drivers/net/caif/Makefile
+@@ -0,0 +1,14 @@
++ifeq ($(CONFIG_CAIF_DEBUG),1)
++CAIF_DBG_FLAGS := -DDEBUG
++endif
++
++KBUILD_EXTRA_SYMBOLS=net/caif/Module.symvers
++
++ccflags-y := $(CAIF_FLAGS) $(CAIF_DBG_FLAGS)
++clean-dirs:= .tmp_versions
++clean-files:= Module.symvers modules.order *.cmd *~ \
++
++# Serial interface
++obj-$(CONFIG_CAIF_TTY) += caif_serial.o
++
++
+diff --git a/drivers/net/caif/caif_serial.c b/drivers/net/caif/caif_serial.c
+new file mode 100644
+index 0000000..7d6636b
+--- /dev/null
++++ b/drivers/net/caif/caif_serial.c
+@@ -0,0 +1,420 @@
 +/*
 + * Copyright (C) ST-Ericsson AB 2010
-+ * Author:	Sjur Brendeland sjur.brandeland@stericsson.com
++ * Author:	Sjur Brendeland / sjur.brandeland@stericsson.com
 + * License terms: GNU General Public License (GPL) version 2
 + */
 +
-+#include <net/caif/generic/cfglue.h>
-+#include <net/caif/generic/cfctrl.h>
-+#include <net/caif/generic/cfcnfg.h>
-+#include <linux/caif/caif_config.h>
-+
-+int
-+channel_config_2_link_param(struct cfcnfg *cnfg,
-+		struct caif_channel_config *s, struct cfctrl_link_param *l)
-+{
-+	struct dev_info *dev_info;
-+	enum cfcnfg_phy_preference pref;
-+	memset(l, 0, sizeof(*l));
-+	l->priority = s->priority;
-+	if (s->phy_name[0] != '\0') {
-+		l->phyid = cfcnfg_get_named(cnfg, s->phy_name);
-+	} else {
-+		switch (s->phy_pref) {
-+		case CAIF_PHYPREF_UNSPECIFIED:
-+			pref = CFPHYPREF_UNSPECIFIED;
-+			break;
-+		case CAIF_PHYPREF_LOW_LAT:
-+			pref = CFPHYPREF_LOW_LAT;
-+			break;
-+		case CAIF_PHYPREF_HIGH_BW:
-+			pref = CFPHYPREF_HIGH_BW;
-+			break;
-+		case CAIF_PHYPREF_LOOP:
-+			pref = CFPHYPREF_LOOP;
-+			break;
-+		default:
-+			return -CFGLU_ENODEV;
-+		}
-+		dev_info = cfcnfg_get_phyid(cnfg, pref);
-+		if (dev_info == NULL)
-+			return -CFGLU_ENODEV;
-+		l->phyid = dev_info->id;
-+	}
-+	switch (s->type) {
-+	case CAIF_CHTY_AT:
-+		l->linktype = CFCTRL_SRV_VEI;
-+		l->chtype = 0x02;
-+		l->endpoint = 0x00;
-+		break;
-+	case CAIF_CHTY_AT_CTRL:
-+		l->linktype = CFCTRL_SRV_VEI;
-+		l->chtype = 0x00;
-+		l->endpoint = 0x00;
-+		break;
-+	case CAIF_CHTY_AT_PAIRED:
-+		l->linktype = CFCTRL_SRV_VEI;
-+		l->chtype = 0x03;
-+		l->endpoint = 0x00;
-+		break;
-+	case CAIF_CHTY_VIDEO:
-+		l->linktype = CFCTRL_SRV_VIDEO;
-+		l->chtype = 0x00;
-+		l->endpoint = 0x00;
-+		l->u.video.connid = s->u.dgm.connection_id;
-+		break;
-+	case CAIF_CHTY_DATAGRAM:
-+		l->linktype = CFCTRL_SRV_DATAGRAM;
-+		l->chtype = 0x00;
-+		l->u.datagram.connid = s->u.dgm.connection_id;
-+		break;
-+	case CAIF_CHTY_DATAGRAM_LOOP:
-+		l->linktype = CFCTRL_SRV_DATAGRAM;
-+		l->chtype = 0x03;
-+		l->endpoint = 0x00;
-+		l->u.datagram.connid = s->u.dgm.connection_id;
-+		break;
-+	case CAIF_CHTY_DEBUG:
-+		l->linktype = CFCTRL_SRV_DBG;
-+		l->endpoint = 0x01;	/* ACC SIDE */
-+		l->chtype = 0x00;	/* Single channel with interactive
-+					 * debug and print-out mixed.
-+					 */
-+		break;
-+	case CAIF_CHTY_DEBUG_INTERACT:
-+		l->linktype = CFCTRL_SRV_DBG;
-+		l->endpoint = 0x01;	/* ACC SIDE */
-+		l->chtype = 0x02;	/* Interactive debug only */
-+		break;
-+	case CAIF_CHTY_DEBUG_TRACE:
-+		l->linktype = CFCTRL_SRV_DBG;
-+		l->endpoint = 0x01;	/* ACC SIDE */
-+		l->chtype = 0x01;	/* Debug print-out only */
-+		break;
-+	case CAIF_CHTY_RFM:
-+		l->linktype = CFCTRL_SRV_RFM;
-+		l->u.datagram.connid = s->u.rfm.connection_id;
-+		strncpy(l->u.rfm.volume, s->u.rfm.volume,
-+			sizeof(l->u.rfm.volume)-1);
-+		l->u.rfm.volume[sizeof(l->u.rfm.volume)-1] = 0;
-+		break;
-+	case CAIF_CHTY_UTILITY:
-+		l->linktype = CFCTRL_SRV_UTIL;
-+		l->endpoint = 0x00;
-+		l->chtype = 0x00;
-+		l->u.utility.fifosize_bufs = s->u.utility.fifosize_bufs;
-+		l->u.utility.fifosize_kb = s->u.utility.fifosize_kb;
-+		strncpy(l->u.utility.name, s->u.utility.name,
-+			sizeof(l->u.utility.name)-1);
-+		l->u.utility.name[sizeof(l->u.utility.name)-1] = 0;
-+		l->u.utility.paramlen = s->u.utility.paramlen;
-+		if (l->u.utility.paramlen > sizeof(l->u.utility.params))
-+			l->u.utility.paramlen = sizeof(l->u.utility.params);
-+		memcpy(l->u.utility.params, s->u.utility.params,
-+		       l->u.utility.paramlen);
-+		break;
-+	default:
-+		return -CFGLU_EINVAL;
-+	}
-+	return 0;
-+}
-+EXPORT_SYMBOL(channel_config_2_link_param);
-diff --git a/net/caif/caif_dev.c b/net/caif/caif_dev.c
-new file mode 100644
-index 0000000..a268ddd
---- /dev/null
-+++ b/net/caif/caif_dev.c
-@@ -0,0 +1,417 @@
-+/*
-+ * CAIF Interface registration.
-+ * Copyright (C) ST-Ericsson AB 2010
-+ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
-+ * License terms: GNU General Public License (GPL) version 2
-+ *
-+ * Borrowed heavily from file: pn_dev.c. Thanks to
-+ *  Remi Denis-Courmont <remi.denis-courmont@nokia.com>
-+ *  and Sakari Ailus <sakari.ailus@nokia.com>
-+ */
-+
++#include <linux/init.h>
 +#include <linux/version.h>
 +#include <linux/module.h>
-+#include <linux/kernel.h>
-+#include <linux/if_arp.h>
-+#include <linux/net.h>
-+#include <linux/netdevice.h>
++#include <linux/device.h>
++#include <linux/types.h>
 +#include <linux/skbuff.h>
-+#include <linux/sched.h>
-+#include <linux/wait.h>
-+#include <net/netns/generic.h>
-+#include <net/net_namespace.h>
-+#include <net/pkt_sched.h>
++#include <linux/netdevice.h>
++#include <linux/rtnetlink.h>
++#include <linux/tty.h>
++#include <linux/file.h>
++#include <linux/if_arp.h>
 +#include <net/caif/caif_device.h>
-+#include <net/caif/caif_dev.h>
 +#include <net/caif/generic/caif_layer.h>
-+#include <net/caif/generic/cfpkt.h>
 +#include <net/caif/generic/cfcnfg.h>
++#include <linux/err.h>
 +
 +MODULE_LICENSE("GPL");
-+#define TIMEOUT (HZ*1000)
++MODULE_AUTHOR("Sjur Brendeland<sjur.brandeland@stericsson.com>");
++MODULE_DESCRIPTION("CAIF serial device TTY line discipline");
++MODULE_LICENSE("GPL");
++MODULE_ALIAS_LDISC(N_CAIF);
 +
-+/* Used for local tracking of the CAIF net devices */
-+struct caif_device_entry {
-+	struct layer layer;
-+	struct list_head list;
-+	atomic_t in_use;
-+	atomic_t state;
-+	uint16 phyid;
-+	struct net_device *netdev;
-+	wait_queue_head_t event;
++#define CAIF_SENDING	1
++#define CAIF_UART_TX_COMPLETED	2
++#define CAIF_FLOW_OFF_SENT	4
++#define MAX_WRITE_CHUNK	     4096
++#define ON 1
++#define OFF 0
++#define CAIF_MAX_MTU 4096
++
++struct net_device *device;
++char *ser_ttyname = "/dev/ttyS0";
++module_param(ser_ttyname, charp, S_IRUGO);
++MODULE_PARM_DESC(ser_ttyname, "TTY to open.");
++
++int ser_loop;
++module_param(ser_loop, bool, S_IRUGO);
++MODULE_PARM_DESC(ser_loop, "Run in simulated loopback mode.");
++
++int ser_use_stx;
++module_param(ser_use_stx, bool, S_IRUGO);
++MODULE_PARM_DESC(ser_use_stx, "STX enabled or not.");
++
++int ser_write_chunk = MAX_WRITE_CHUNK;
++module_param(ser_write_chunk, int, S_IRUGO);
++
++MODULE_PARM_DESC(ser_write_chunk, "Maximum size of data written to UART.");
++
++
++static int caif_net_open(struct net_device *dev);
++static int caif_net_close(struct net_device *dev);
++
++struct ser_device {
++	struct caif_dev_common common;
++	struct net_device *dev;
++	struct sk_buff_head head;
++	int xoff;
++	struct tty_struct *tty;
++	bool tx_started;
++	unsigned long state;
++	struct file *file;
++	char *tty_name;
 +};
 +
-+struct caif_device_entry_list {
-+	struct list_head list;
-+	spinlock_t lock;
-+};
++static int ser_phy_tx(struct ser_device *ser, struct sk_buff *skb);
++static void caifdev_setup(struct net_device *dev);
++static void ser_tx_wakeup(struct tty_struct *tty);
 +
-+struct caif_net {
-+	struct caif_device_entry_list caifdevs;
-+};
-+
-+int caif_net_id;
-+struct cfcnfg *cfg;
-+
-+struct caif_device_entry_list *caif_device_list(struct net *net)
++static void ser_receive(struct tty_struct *tty, const u8 *data,
++			char *flags, int count)
 +{
-+	struct caif_net *caifn;
-+	BUG_ON(!net);
-+	caifn = net_generic(net, caif_net_id);
-+	BUG_ON(!caifn);
-+	return &caifn->caifdevs;
-+}
++	struct sk_buff *skb = NULL;
++	struct ser_device *ser;
++	int ret;
++	u8 *p;
++	ser = tty->disc_data;
 +
-+/* Allocate new CAIF device. */
-+static struct caif_device_entry *caif_device_alloc(struct net_device *dev)
-+{
-+	struct caif_device_entry_list *caifdevs;
-+	struct caif_device_entry *caifd;
-+	caifdevs = caif_device_list(dev_net(dev));
-+	BUG_ON(!caifdevs);
-+	caifd = kzalloc(sizeof(*caifd), GFP_ATOMIC);
-+	if (!caifd)
-+		return NULL;
-+	caifd->netdev = dev;
-+	list_add(&caifd->list, &caifdevs->list);
-+	init_waitqueue_head(&caifd->event);
-+	return caifd;
-+}
-+
-+static struct caif_device_entry *caif_get(struct net_device *dev)
-+{
-+	struct caif_device_entry_list *caifdevs =
-+	    caif_device_list(dev_net(dev));
-+	struct caif_device_entry *caifd;
-+	BUG_ON(!caifdevs);
-+	list_for_each_entry(caifd, &caifdevs->list, list) {
-+		if (caifd->netdev == dev)
-+			return caifd;
-+	}
-+	return NULL;
-+}
-+
-+static void caif_device_destroy(struct net_device *dev)
-+{
-+	struct caif_device_entry_list *caifdevs =
-+	    caif_device_list(dev_net(dev));
-+	struct caif_device_entry *caifd;
-+	ASSERT_RTNL();
-+	if (dev->type != ARPHRD_CAIF)
-+		return;
-+
-+	spin_lock_bh(&caifdevs->lock);
-+	caifd = caif_get(dev);
-+	if (caifd == NULL) {
-+		spin_unlock_bh(&caifdevs->lock);
-+		return;
-+	}
-+
-+	list_del(&caifd->list);
-+	spin_unlock_bh(&caifdevs->lock);
-+
-+	kfree(caifd);
-+	return;
-+}
-+
-+static int transmit(struct layer *layer, struct cfpkt *pkt)
-+{
-+	struct caif_device_entry *caifd =
-+	    container_of(layer, struct caif_device_entry, layer);
-+	struct sk_buff *skb, *skb2;
-+	int ret = -EINVAL;
-+	skb = cfpkt_tonative(pkt);
-+	skb->dev = caifd->netdev;
 +	/*
-+	 * Don't allow SKB to be destroyed upon error, but signal resend
-+	 * notification to clients. We can't rely on the return value as
-+	 * congestion (NET_XMIT_CN) sometimes drops the packet, sometimes don't.
++	 * Workaround for garbage at start of transmission,
++	 * only enable if STX handling is not enables
 +	 */
-+	if (netif_queue_stopped(caifd->netdev))
-+		return -EAGAIN;
-+	skb2 = skb_get(skb);
-+
-+	ret = dev_queue_xmit(skb2);
-+
-+	if (!ret)
-+		kfree_skb(skb);
-+	else
-+		return -EAGAIN;
-+
-+	return 0;
-+}
-+
-+static int modemcmd(struct layer *layr, enum caif_modemcmd ctrl)
-+{
-+	struct caif_device_entry *caifd;
-+	struct caif_dev_common *caifdev;
-+	caifd = container_of(layr, struct caif_device_entry, layer);
-+	caifdev = netdev_priv(caifd->netdev);
-+	if (ctrl == _CAIF_MODEMCMD_PHYIF_USEFULL) {
-+		atomic_set(&caifd->in_use, 1);
-+		wake_up_interruptible(&caifd->event);
-+
-+	} else if (ctrl == _CAIF_MODEMCMD_PHYIF_USELESS) {
-+		atomic_set(&caifd->in_use, 0);
-+		wake_up_interruptible(&caifd->event);
-+	}
-+	return 0;
-+}
-+
-+/*
-+ * Stuff received packets to associated sockets.
-+ * On error, returns non-zero and releases the skb.
-+ */
-+static int receive(struct sk_buff *skb, struct net_device *dev,
-+		   struct packet_type *pkttype, struct net_device *orig_dev)
-+{
-+	struct net *net;
-+	struct cfpkt *pkt;
-+	struct caif_device_entry *caifd;
-+	net = dev_net(dev);
-+	pkt = cfpkt_fromnative(CAIF_DIR_IN, skb);
-+	caifd = caif_get(dev);
-+	if (!caifd || !caifd->layer.up || !caifd->layer.up->ctrlcmd)
-+		return NET_RX_DROP;
-+
-+	if (caifd->layer.up->receive(caifd->layer.up, pkt))
-+		return NET_RX_DROP;
-+
-+	return 0;
-+}
-+
-+static struct packet_type caif_packet_type __read_mostly = {
-+	.type = cpu_to_be16(ETH_P_CAIF),
-+	.func = receive,
-+};
-+
-+static void dev_flowctrl(struct net_device *dev, int on)
-+{
-+	struct caif_device_entry *caifd = caif_get(dev);
-+	if (!caifd || !caifd->layer.up || !caifd->layer.up->ctrlcmd)
++	if (!ser->common.use_stx && !ser->tx_started) {
++		dev_info(&ser->dev->dev,
++			"Bytes received before initial transmission -"
++			"bytes discarded.\n");
 +		return;
++	}
 +
-+	caifd->layer.up->ctrlcmd(caifd->layer.up,
-+				 on ?
-+				 _CAIF_CTRLCMD_PHYIF_FLOW_ON_IND :
-+				 _CAIF_CTRLCMD_PHYIF_FLOW_OFF_IND,
-+				 caifd->layer.id);
++	BUG_ON(ser->dev == NULL);
++
++	/* Get a suitable caif packet and copy in data. */
++	skb = netdev_alloc_skb(ser->dev, count+1);
++	BUG_ON(skb == NULL);
++	p = skb_put(skb, count);
++	memcpy(p, data, count);
++
++	skb->protocol = htons(ETH_P_CAIF);
++	skb_reset_mac_header(skb);
++	skb->dev = ser->dev;
++
++	/* Push received packet up the stack. */
++	ret = netif_rx(skb);
++	if (!ret) {
++		ser->dev->stats.rx_packets++;
++		ser->dev->stats.rx_bytes += count;
++	} else
++		++ser->dev->stats.rx_dropped;
 +}
 +
-+/* notify Caif of device events */
-+static int caif_device_notify(struct notifier_block *me, unsigned long what,
-+			      void *arg)
++static int handle_tx(struct ser_device *ser)
 +{
-+	struct net_device *dev = arg;
-+	struct caif_device_entry *caifd = NULL;
-+	struct caif_dev_common *caifdev;
-+	int res = -EINVAL;
-+	enum caif_phy_preference phy_pref;
-+	enum cfcnfg_phy_type phy_type;
++	struct tty_struct *tty;
++	struct sk_buff *skb;
++	char *buf;
++	int tty_wr, len, room, pktlen;
++	tty = ser->tty;
 +
-+	if (dev->type != ARPHRD_CAIF)
++	/*
++	 * NOTE: This workaround is not really needed when STX is enabled.
++	 * Remove?
++	 */
++	if (ser->tx_started == false)
++		ser->tx_started = true;
++
++	if (test_and_set_bit(CAIF_SENDING, &ser->state)) {
++		set_bit(CAIF_UART_TX_COMPLETED, &ser->state);
 +		return 0;
++	}
 +
-+	switch (what) {
-+	case NETDEV_REGISTER:
-+		pr_info("CAIF: %s():register %s\n", __func__, dev->name);
-+		caifd = caif_device_alloc(dev);
-+		if (caifd == NULL)
-+			break;
-+		caifdev = netdev_priv(dev);
-+		caifdev->flowctrl = dev_flowctrl;
-+		atomic_set(&caifd->state, what);
-+		res = 0;
-+		break;
++	do {
++		skb = skb_peek(&ser->head);
++		if (skb != NULL && skb->len == 0) {
++			struct sk_buff *tmp;
++			tmp = skb_dequeue(&ser->head);
++			BUG_ON(tmp != skb);
++			kfree_skb(skb);
++			skb = skb_peek(&ser->head);
++		}
 +
-+	case NETDEV_UP:
-+		pr_info("CAIF: %s(): up %s\n", __func__, dev->name);
-+		caifd = caif_get(dev);
-+		if (caifd == NULL)
-+			break;
-+		caifdev = netdev_priv(dev);
-+		if (atomic_read(&caifd->state) == NETDEV_UP) {
-+			pr_info("CAIF: %s():%s already up\n",
-+				__func__, dev->name);
++		if (skb == NULL) {
++			if (test_and_clear_bit(
++				    CAIF_FLOW_OFF_SENT,
++				    &ser->state)) {
++				if (ser->common.flowctrl != NULL)
++					ser->common.flowctrl(ser->dev, ON);
++			}
 +			break;
 +		}
-+		atomic_set(&caifd->state, what);
-+		caifd->layer.transmit = transmit;
-+		caifd->layer.modemcmd = modemcmd;
-+		if (caifdev->link_select == CAIF_PHYPREF_LOW_LAT)
-+			phy_pref = CAIF_LINK_LOW_LATENCY;
-+		else
-+			phy_pref = CAIF_LINK_HIGH_BANDW;
 +
-+		if (caifdev->use_frag)
-+			phy_type = CFPHYTYPE_FRAG;
-+		else
-+			phy_type = CFPHYTYPE_CAIF;
 +
-+		cfcnfg_add_phy_layer(get_caif_conf(),
-+				     phy_type,
-+				     dev,
-+				     &caifd->layer,
-+				     &caifd->phyid,
-+				     phy_pref,
-+				     caifdev->use_fcs,
-+				     caifdev->use_stx);
-+		strncpy(caifd->layer.name, dev->name,
-+			sizeof(caifd->layer.name) - 1);
-+		caifd->layer.name[sizeof(caifd->layer.name) - 1] = 0;
-+		break;
++		buf = skb->data;
++		pktlen = len = skb->len;
 +
-+	case NETDEV_GOING_DOWN:
-+		caifd = caif_get(dev);
-+		if (caifd == NULL)
-+			break;
-+		pr_info("CAIF: %s():going down %s\n", __func__, dev->name);
-+		atomic_set(&caifd->state, what);
-+		if (!caifd || !caifd->layer.up || !caifd->layer.up->ctrlcmd)
-+			return -EINVAL;
-+		caifd->layer.up->ctrlcmd(caifd->layer.up,
-+					 _CAIF_CTRLCMD_PHYIF_DOWN_IND,
-+					 caifd->layer.id);
-+		res = wait_event_interruptible_timeout(caifd->event,
-+					atomic_read(&caifd->in_use) == 0,
-+					TIMEOUT);
-+		break;
++		clear_bit(CAIF_UART_TX_COMPLETED, &ser->state);
++		room = tty_write_room(tty);
++		if (room > ser_write_chunk)
++			room = ser_write_chunk;
 +
-+	case NETDEV_DOWN:
-+		caifd = caif_get(dev);
-+		if (caifd == NULL)
-+			break;
-+		pr_info("CAIF: %s(): down %s\n", __func__, dev->name);
-+		if (atomic_read(&caifd->in_use))
-+			pr_warning("CAIF: %s(): "
-+				   "Unregistering an active CAIF device: %s\n",
-+				   __func__, dev->name);
-+		cfcnfg_del_phy_layer(get_caif_conf(), &caifd->layer);
-+		atomic_set(&caifd->state, what);
-+		break;
++		if (len > room)
++			len = room;
 +
-+	case NETDEV_UNREGISTER:
-+		caifd = caif_get(dev);
-+		pr_info("CAIF: %s(): unregister %s\n", __func__, dev->name);
-+		atomic_set(&caifd->state, what);
-+		caif_device_destroy(dev);
-+		break;
-+	}
++		if (!ser_loop) {
++			tty_wr = tty->ops->write(tty, buf, len);
++		} else {
++			tty_wr = len;
++			ser_receive(tty, buf, 0, len);
++		}
++		ser->dev->stats.tx_packets++;
++		ser->dev->stats.tx_bytes += tty_wr;
++		if (tty_wr > 0)
++			skb_pull(skb, tty_wr);
++
++		if (ser_loop)
++			ser_tx_wakeup(tty);
++
++	} while (test_bit(CAIF_UART_TX_COMPLETED, &(ser->state)));
++
++	clear_bit(CAIF_SENDING, &ser->state);
 +	return 0;
 +}
 +
-+static struct notifier_block caif_device_notifier = {
-+	.notifier_call = caif_device_notify,
-+	.priority = 0,
-+};
-+
-+
-+struct cfcnfg *get_caif_conf(void)
++static int ser_phy_tx(struct ser_device *ser, struct sk_buff *skb)
 +{
-+	return cfg;
++	if (skb_peek(&ser->head) !=  NULL) {
++		if (!test_and_set_bit(CAIF_FLOW_OFF_SENT, &ser->state)
++		    && ser->common.flowctrl != NULL)
++			ser->common.flowctrl(ser->dev, OFF);
++	}
++	skb_queue_tail(&ser->head, skb);
++	if (!test_bit(CAIF_SENDING, &ser->state))
++		handle_tx(ser);
++	return 0;
 +}
-+EXPORT_SYMBOL(get_caif_conf);
 +
-+static int (*caif_ioctl_func)(unsigned int cmd, unsigned long arg, bool);
-+
-+void caif_register_ioctl(
-+			 int (*ioctl)(unsigned int cmd,
-+				      unsigned long arg,
-+				      bool))
++static int caif_xmit(struct sk_buff *skb, struct net_device *dev)
 +{
-+	caif_ioctl_func = ioctl;
-+}
-+EXPORT_SYMBOL(caif_register_ioctl);
-+
-+int caif_ioctl(unsigned int cmd, unsigned long arg, bool from_user_land)
-+{
-+	if (caif_ioctl_func == NULL)
++	struct ser_device *ser;
++	if (!dev)
 +		return -EINVAL;
-+	return caif_ioctl_func(cmd, arg, from_user_land);
++	ser = netdev_priv(dev);
++	return ser_phy_tx(ser, skb);
 +}
-+EXPORT_SYMBOL(caif_ioctl);
 +
-+int caifdev_adapt_register(struct caif_channel_config *config,
-+			   struct layer *adap_layer)
++
++static void ser_tx_wakeup(struct tty_struct *tty)
 +{
-+	struct cfctrl_link_param param;
-+
-+	if (channel_config_2_link_param(get_caif_conf(), config, &param) == 0)
-+		/* Hook up the adaptation layer. */
-+		return cfcnfg_add_adaptation_layer(get_caif_conf(),
-+						&param, adap_layer);
-+
-+	return -EINVAL;
++	struct ser_device *ser;
++	ser = tty->disc_data;
++	if (ser == NULL)
++		return;
++	set_bit(CAIF_UART_TX_COMPLETED, &ser->state);
++	if (ser->tty != tty)
++		return;
++	handle_tx(ser);
 +}
-+EXPORT_SYMBOL(caifdev_adapt_register);
 +
-+int caifdev_adapt_unregister(struct layer *adap_layer)
++static void remove_caif_phy_dev(struct net_device *dev)
 +{
-+	return cfcnfg_del_adapt_layer(get_caif_conf(), adap_layer);
++	/* Remove may be called inside or outside of rtnl_lock */
++	int islocked = rtnl_is_locked();
++	if (!islocked)
++		rtnl_lock();
++	dev_close(dev);
++	/* device is freed automagically by net-sysfs */
++	unregister_netdevice(dev);
++	if (!islocked)
++		rtnl_unlock();
 +}
-+EXPORT_SYMBOL(caifdev_adapt_unregister);
 +
-+/* Per-namespace Caif devices handling */
-+static int caif_init_net(struct net *net)
++static int ser_open(struct tty_struct *tty)
 +{
-+	struct caif_net *caifn = net_generic(net, caif_net_id);
-+	INIT_LIST_HEAD(&caifn->caifdevs.list);
-+	spin_lock_init(&caifn->caifdevs.lock);
++	struct ser_device *ser;
++	/* Use global device to map tty with ser */
++	ser = netdev_priv(device);
++	if (ser->file == NULL ||
++		tty != (struct tty_struct *)ser->file->private_data) {
++		dev_err(&ser->dev->dev,
++			  "Cannot install ldisc %s from userspace!",
++			  tty->name);
++		return -EINVAL;
++	}
++	tty->receive_room = 4096;
++	ser->tty = tty;
++	tty->disc_data = ser;
++	set_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
 +	return 0;
 +}
 +
-+static void caif_exit_net(struct net *net)
++static void ser_close(struct tty_struct *tty)
 +{
-+	struct net_device *dev;
-+	int res;
-+	rtnl_lock();
-+	for_each_netdev(net, dev) {
-+		if (dev->type != ARPHRD_CAIF)
-+			continue;
-+		res = dev_close(dev);
-+		caif_device_destroy(dev);
-+	}
-+	rtnl_unlock();
++	struct ser_device *ser;
++	ser = tty->disc_data;
 +}
 +
-+static struct pernet_operations caif_net_ops = {
-+	.init = caif_init_net,
-+	.exit = caif_exit_net,
-+	.id   = &caif_net_id,
-+	.size = sizeof(struct caif_net),
++static int start_ldisc(struct ser_device *ser)
++{
++	struct file *f;
++	mm_segment_t oldfs;
++	struct termios tio;
++	int ldiscnr = N_CAIF;
++	int ret;
++	f = filp_open(ser->tty_name, 0, 0);
++	if (IS_ERR(f)) {
++		dev_err(&ser->dev->dev, "CAIF cannot open:%s\n", ser->tty_name);
++		ret = -EINVAL;
++		goto error;
++	}
++	if (f == NULL || f->f_op == NULL || f->f_op->unlocked_ioctl == NULL) {
++		dev_err(&ser->dev->dev, "TTY cannot do IOCTL:%s\n",
++			ser->tty_name);
++		ret = -EINVAL;
++		goto error;
++	}
++
++	ser->file = f;
++	oldfs = get_fs();
++	set_fs(KERNEL_DS);
++
++	f->f_op->unlocked_ioctl(f, TCFLSH, 0x2);
++	memset(&tio, 0, sizeof(tio));
++	tio.c_cflag = B115200 | CRTSCTS | CS8 | CLOCAL | CREAD;
++	f->f_op->unlocked_ioctl(f, TCSETS, (long unsigned int)&tio);
++	f->f_op->unlocked_ioctl(f, TIOCSETD, (long unsigned int)&ldiscnr);
++	set_fs(oldfs);
++	return 0;
++error:
++	oldfs = get_fs();
++	set_fs(KERNEL_DS);
++	return ret;
++}
++
++/* The line discipline structure. */
++static struct tty_ldisc_ops caif_ldisc = {
++	.owner =	THIS_MODULE,
++	.magic =	TTY_LDISC_MAGIC,
++	.name =		"n_caif",
++	.open =		ser_open,
++	.close =	ser_close,
++	.receive_buf =	ser_receive,
++	.write_wakeup =	ser_tx_wakeup
 +};
 +
-+/* Initialize Caif devices list */
-+int __init caif_device_init(void)
++
++static int register_ldisc(struct ser_device *ser)
 +{
 +	int result;
-+	cfg = cfcnfg_create();
-+	if (!cfg) {
-+		pr_warning("CAIF: %s(): can't create cfcnfg.\n", __func__);
-+		goto err_cfcnfg_create_failed;
-+	}
-+	result = register_pernet_device(&caif_net_ops);
++	result = tty_register_ldisc(N_CAIF, &caif_ldisc);
 +
-+	if (result) {
-+		kfree(cfg);
-+		cfg = NULL;
++	if (result < 0) {
++		dev_err(&ser->dev->dev,
++			"cannot register CAIF ldisc=%d err=%d\n",
++			N_CAIF,
++			result);
 +		return result;
 +	}
-+	dev_add_pack(&caif_packet_type);
-+	register_netdevice_notifier(&caif_device_notifier);
-+
 +	return result;
-+err_cfcnfg_create_failed:
-+	return -ENODEV;
 +}
 +
-+void __exit caif_device_exit(void)
++static const struct net_device_ops netdev_ops = {
++	.ndo_open = caif_net_open,
++	.ndo_stop = caif_net_close,
++	.ndo_start_xmit = caif_xmit
++};
++static void caifdev_setup(struct net_device *dev)
 +{
-+	dev_remove_pack(&caif_packet_type);
-+	unregister_pernet_device(&caif_net_ops);
-+	unregister_netdevice_notifier(&caif_device_notifier);
-+	cfcnfg_remove(cfg);
++	struct ser_device *serdev = netdev_priv(dev);
++	dev->features = 0;
++
++	dev->netdev_ops = &netdev_ops;
++
++	dev->type = ARPHRD_CAIF;
++	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_POINTOPOINT;
++	dev->mtu = CAIF_MAX_MTU;
++	dev->hard_header_len = CAIF_NEEDED_HEADROOM;
++	dev->tx_queue_len = 0;
++	dev->destructor = free_netdev;
++	skb_queue_head_init(&serdev->head);
++	serdev->common.link_select = CAIF_LINK_LOW_LATENCY;
++	serdev->common.use_frag = true;
++	serdev->common.use_stx = ser_use_stx;
++	serdev->common.use_fcs = true;
++	serdev->xoff = 0;
++	serdev->dev = dev;
 +}
 +
-+module_init(caif_device_init);
-+module_exit(caif_device_exit);
++static int caif_net_open(struct net_device *dev)
++{
++	struct ser_device *ser;
++	int ret;
++	ser = netdev_priv(dev);
++	ret = register_ldisc(ser);
++	if (ret)
++		return ret;
++	ret = start_ldisc(ser);
++	if (ret) {
++		dev_err(&ser->dev->dev, "CAIF: %s() - open failed:%d\n",
++			__func__, ret);
++		tty_unregister_ldisc(N_CAIF);
++		return ret;
++	}
++	netif_wake_queue(dev);
++	ser->xoff = 0;
++	return 0;
++}
++
++static int caif_net_close(struct net_device *dev)
++{
++	struct ser_device *ser = netdev_priv(dev);
++	netif_stop_queue(dev);
++	/* Close the file handle */
++	if (ser->file)
++		fput(ser->file);
++	return tty_unregister_ldisc(N_CAIF);
++}
++
++static int register_setenv(char *ttyname,
++			   struct net_device **device)
++{
++	struct net_device *dev;
++	struct ser_device *ser;
++	int result;
++	dev = alloc_netdev(sizeof(*ser), "caifser%d", caifdev_setup);
++	if (!dev)
++		return -ENODEV;
++	ser = netdev_priv(dev);
++	pr_info("CAIF: %s(): "
++		"Starting CAIF Physical LDisc on tty:%s\n",
++		__func__, ttyname);
++	ser->tty_name = ttyname;
++	netif_stop_queue(dev);
++	ser->dev = dev;
++
++	*device = dev;
++	result = register_netdev(dev);
++	if (result) {
++		free_netdev(dev);
++		*device = 0;
++		return -ENODEV;
++	}
++	return 0;
++}
++
++static int __init caif_ser_init(void)
++{
++	return register_setenv(ser_ttyname, &device);
++}
++
++static void __exit caif_ser_exit(void)
++{
++	remove_caif_phy_dev(device);
++}
++
++module_init(caif_ser_init);
++module_exit(caif_ser_exit);
+diff --git a/include/linux/tty.h b/include/linux/tty.h
+index ef3a294..5dd674b 100644
+--- a/include/linux/tty.h
++++ b/include/linux/tty.h
+@@ -23,7 +23,7 @@
+  */
+ #define NR_UNIX98_PTY_DEFAULT	4096      /* Default maximum for Unix98 ptys */
+ #define NR_UNIX98_PTY_MAX	(1 << MINORBITS) /* Absolute limit */
+-#define NR_LDISCS		20
++#define NR_LDISCS		21
+ 
+ /* line disciplines */
+ #define N_TTY		0
+@@ -46,8 +46,8 @@
+ #define N_GIGASET_M101	16	/* Siemens Gigaset M101 serial DECT adapter */
+ #define N_SLCAN		17	/* Serial / USB serial CAN Adaptors */
+ #define N_PPS		18	/* Pulse per Second */
+-
+ #define N_V253		19	/* Codec control over voice modem */
++#define N_CAIF		20      /* CAIF protocol for talking to modems */
+ 
+ /*
+  * This character is the same as _POSIX_VDISABLE: it cannot be used as
 -- 
 1.6.3.3
 
