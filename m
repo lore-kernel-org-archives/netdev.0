@@ -1,74 +1,86 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: [PATCH 2/2] IPv6: reassembly:  replace  magic number with macro definitions
-Date: Wed, 20 Jan 2010 14:21:17 +0800
-Message-ID: <4B56A0DD.1010404@cn.fujitsu.com>
+From: Blaschka <frank.blaschka@de.ibm.com>
+Subject: Re: [PATCH]: net: Unexport napi_gro_flush().
+Date: Wed, 20 Jan 2010 07:56:54 +0100
+Message-ID: <20100120065654.GA7826@tuxmaker.boeblingen.de.ibm.com>
+References: <20100119.141255.90146762.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org
-To: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, yoshfuji@linux-ipv6.org,
-	Patrick McHardy <kaber@trash.net>, eric.dumazet@gmail.com,
-	adobriyan@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate5.de.ibm.com ([195.212.17.165]:44316 "EHLO
+	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752685Ab0ATG44 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2010 01:56:56 -0500
+Content-Disposition: inline
+In-Reply-To: <20100119.141255.90146762.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, Jan 19, 2010 at 02:12:55PM -0800, David Miller wrote:
+> 
+> Nothing outside of net/core/dev.c uses it.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  include/linux/netdevice.h |    1 -
+>  net/core/dev.c            |    3 +--
+>  2 files changed, 1 insertions(+), 3 deletions(-)
+>
 
-Use macro to define high/low thresh value, refer to IPV6_FRAG_TIMEOUT.
+Hi Dave,
 
+I have a qeth patch which uses napi_gro_flush (not posted yet).
+There is following idea:
 
-Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
----
- include/net/ipv6.h                      |    2 ++
- net/ipv6/netfilter/nf_conntrack_reasm.c |    4 ++--
- net/ipv6/reassembly.c                   |    4 ++--
- 3 files changed, 6 insertions(+), 4 deletions(-)
+The inbound processing of the qeth driver is already in bottomhalf
+(qdio input tasklet) so we can switch from netif_rx to
+netif_receive_skb. This allows us to exploit gro code for the
+layer 3 driver. I would introduce a dummy napi_struct and call
+napi_gro_flush when the inbound tasklet ends.
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index ccab594..299bbf5 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -246,6 +246,8 @@ extern int ipv6_opt_accepted(struct sock *sk, struct sk_buff *skb);
- int ip6_frag_nqueues(struct net *net);
- int ip6_frag_mem(struct net *net);
+Should I post the patch for review?
+
+Thanks,
+  Frank
  
-+#define IPV6_FRAG_HIGH_THRESH	262144		/* == 256*1024 */
-+#define IPV6_FRAG_LOW_THRESH	196608		/* == 192*1024 */
- #define IPV6_FRAG_TIMEOUT	(60*HZ)		/* 60 seconds */
- 
- extern int __ipv6_addr_type(const struct in6_addr *addr);
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index 1030ce1..744ea49 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -666,8 +666,8 @@ int nf_ct_frag6_init(void)
- 	nf_frags.frag_expire = nf_ct_frag6_expire;
- 	nf_frags.secret_interval = 10 * 60 * HZ;
- 	nf_init_frags.timeout = IPV6_FRAG_TIMEOUT;
--	nf_init_frags.high_thresh = 256 * 1024;
--	nf_init_frags.low_thresh = 192 * 1024;
-+	nf_init_frags.high_thresh = IPV6_FRAG_HIGH_THRESH;
-+	nf_init_frags.low_thresh = IPV6_FRAG_LOW_THRESH;
- 	inet_frags_init_net(&nf_init_frags);
- 	inet_frags_init(&nf_frags);
- 
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index 2cddea3..15bb122 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -747,8 +747,8 @@ static inline void ip6_frags_sysctl_unregister(void)
- 
- static int ipv6_frags_init_net(struct net *net)
- {
--	net->ipv6.frags.high_thresh = 256 * 1024;
--	net->ipv6.frags.low_thresh = 192 * 1024;
-+	net->ipv6.frags.high_thresh = IPV6_FRAG_HIGH_THRESH;
-+	net->ipv6.frags.low_thresh = IPV6_FRAG_LOW_THRESH;
- 	net->ipv6.frags.timeout = IPV6_FRAG_TIMEOUT;
- 
- 	inet_frags_init_net(&net->ipv6.frags);
--- 
-1.6.3.3
-
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index a3fccc8..468a11d 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1527,7 +1527,6 @@ extern int		netif_rx(struct sk_buff *skb);
+>  extern int		netif_rx_ni(struct sk_buff *skb);
+>  #define HAVE_NETIF_RECEIVE_SKB 1
+>  extern int		netif_receive_skb(struct sk_buff *skb);
+> -extern void		napi_gro_flush(struct napi_struct *napi);
+>  extern gro_result_t	dev_gro_receive(struct napi_struct *napi,
+>  					struct sk_buff *skb);
+>  extern gro_result_t	napi_skb_finish(gro_result_t ret, struct sk_buff *skb);
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index a008f69..5747b9e 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2582,7 +2582,7 @@ out:
+>  	return netif_receive_skb(skb);
+>  }
+> 
+> -void napi_gro_flush(struct napi_struct *napi)
+> +static void napi_gro_flush(struct napi_struct *napi)
+>  {
+>  	struct sk_buff *skb, *next;
+> 
+> @@ -2595,7 +2595,6 @@ void napi_gro_flush(struct napi_struct *napi)
+>  	napi->gro_count = 0;
+>  	napi->gro_list = NULL;
+>  }
+> -EXPORT_SYMBOL(napi_gro_flush);
+> 
+>  enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+>  {
+> -- 
+> 1.6.5
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
