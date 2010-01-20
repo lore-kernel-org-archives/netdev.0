@@ -1,7 +1,7 @@
 From: sjur.brandeland@stericsson.com
-Subject: [PATCH net-next-2.6 05/13] net-caif: add CAIF generic protocol stack
-Date: Wed, 20 Jan 2010 23:55:22 +0100
-Message-ID: <1264028130-14364-6-git-send-email-sjur.brandeland@stericsson.com>
+Subject: [PATCH net-next-2.6 08/13] net-caif: add CAIF socket implementation
+Date: Wed, 20 Jan 2010 23:55:25 +0100
+Message-ID: <1264028130-14364-9-git-send-email-sjur.brandeland@stericsson.com>
 References: <1264028130-14364-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN
@@ -13,2054 +13,1466 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from bgo1smout1.broadpark.no ([217.13.4.94]:52371 "EHLO
 	bgo1smout1.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754287Ab0ATX4a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2010 18:56:30 -0500
+	with ESMTP id S1754384Ab0ATX4e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2010 18:56:34 -0500
 Received: from bgo1sminn1.broadpark.no ([217.13.4.93])
  by bgo1smout1.broadpark.no
  (Sun Java(tm) System Messaging Server 6.3-3.01 (built Jul 12 2007; 32bit))
- with ESMTP id <0KWK00DQ8IDIDL70@bgo1smout1.broadpark.no> for
- netdev@vger.kernel.org; Wed, 20 Jan 2010 23:56:06 +0100 (CET)
+ with ESMTP id <0KWK00DR8IDMDL70@bgo1smout1.broadpark.no> for
+ netdev@vger.kernel.org; Wed, 20 Jan 2010 23:56:10 +0100 (CET)
 Received: from localhost.localdomain ([84.49.71.7]) by bgo1sminn1.broadpark.no
  (Sun Java(tm) System Messaging Server 6.3-3.01 (built Jul 12 2007; 32bit))
  with ESMTP id <0KWK00LQBICIDUE0@bgo1sminn1.broadpark.no> for
- netdev@vger.kernel.org; Wed, 20 Jan 2010 23:56:06 +0100 (CET)
+ netdev@vger.kernel.org; Wed, 20 Jan 2010 23:56:10 +0100 (CET)
 In-reply-to: <1264028130-14364-1-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-CAIF generic protocol implementation. This layer is
-somewhat generic in order to be able to use and test it outside
-the Linux Kernel.
-
-cfctrl.c     - CAIF control protocol layer
-cfdgml.c     - CAIF datagram protocol layer
-cffrml.c     - CAIF framing protocol layer
-cfmuxl.c     - CAIF mux protocol layer
-cfrfml.c     - CAIF remote file manager protocol layer
-cfserl.c     - CAIF serial (fragmentation) protocol layer
-cfsrvl.c     - CAIF generic service layer functions
-cfutill.c    - CAIF utility protocol layer
-cfveil.c     - CAIF AT protocol layer
-cfvidl.c     - CAIF video protocol layer
+Implementation of CAIF sockets for protocol and address family
+PF_CAIF and AF_CAIF.
+CAIF socket is connection oriented implementing SOCK_SEQPACKET
+interface with supporting blocking and non-blocking mode.
 
 Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
 ---
- net/caif/generic/cfctrl.c  |  699 ++++++++++++++++++++++++++++++++++++++++++++
- net/caif/generic/cfdgml.c  |  106 +++++++
- net/caif/generic/cffrml.c  |  148 ++++++++++
- net/caif/generic/cfmuxl.c  |  225 ++++++++++++++
- net/caif/generic/cfrfml.c  |  104 +++++++
- net/caif/generic/cfserl.c  |  198 +++++++++++++
- net/caif/generic/cfsrvl.c  |  182 ++++++++++++
- net/caif/generic/cfutill.c |  112 +++++++
- net/caif/generic/cfveil.c  |  106 +++++++
- net/caif/generic/cfvidl.c  |   62 ++++
- 10 files changed, 1942 insertions(+), 0 deletions(-)
+ net/caif/caif_socket.c | 1427 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 1427 insertions(+), 0 deletions(-)
 
-diff --git a/net/caif/generic/cfctrl.c b/net/caif/generic/cfctrl.c
+diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
 new file mode 100644
-index 0000000..d2e0034
+index 0000000..1e98bf6
 --- /dev/null
-+++ b/net/caif/generic/cfctrl.c
-@@ -0,0 +1,699 @@
++++ b/net/caif/caif_socket.c
+@@ -0,0 +1,1427 @@
 +/*
 + * Copyright (C) ST-Ericsson AB 2010
-+ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
++ * Author:	Sjur Brendeland sjur.brandeland@stericsson.com
++ *		Per Sigmond per.sigmond@stericsson.com
 + * License terms: GNU General Public License (GPL) version 2
 + */
 +
-+#include <net/caif/generic/cfglue.h>
++#include <linux/fs.h>
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/sched.h>
++#include <linux/spinlock.h>
++#include <linux/mutex.h>
++#include <linux/list.h>
++#include <linux/wait.h>
++#include <linux/poll.h>
++#include <linux/tcp.h>
++#include <linux/uaccess.h>
++#include <asm/atomic.h>
++
++#include <linux/caif/caif_socket.h>
++#include <linux/caif/caif_config.h>
 +#include <net/caif/generic/caif_layer.h>
++#include <net/caif/caif_dev.h>
 +#include <net/caif/generic/cfpkt.h>
-+#include <net/caif/generic/cfctrl.h>
 +
-+#define container_obj(layr) cfglu_container_of(layr, struct cfctrl, serv.layer)
-+#define UTILITY_NAME_LENGTH 16
-+#define CFPKT_CTRL_PKT_LEN 20
++MODULE_LICENSE("GPL");
 +
++#define CHNL_SKT_READ_QUEUE_HIGH 2000
++#define CHNL_SKT_READ_QUEUE_LOW 100
 +
-+#ifdef CAIF_NO_LOOP
-+static inline int handle_loop(struct cfctrl *ctrl,
-+			      int cmd, struct cfpkt *pkt){
-+	return CAIF_FAILURE;
-+}
++int caif_sockbuf_size = 40000;
++static struct kmem_cache *caif_sk_cachep;
++static atomic_t caif_nr_socks = ATOMIC_INIT(0);
++
++#define CONN_STATE_OPEN_BIT	      1
++#define CONN_STATE_PENDING_BIT	      2
++#define CONN_STATE_PEND_DESTROY_BIT   3
++#define CONN_REMOTE_SHUTDOWN_BIT      4
++
++#define TX_FLOW_ON_BIT		      1
++#define RX_FLOW_ON_BIT		      2
++
++#define STATE_IS_OPEN(cf_sk) test_bit(CONN_STATE_OPEN_BIT,\
++				    (void *) &(cf_sk)->conn_state)
++#define STATE_IS_REMOTE_SHUTDOWN(cf_sk) test_bit(CONN_REMOTE_SHUTDOWN_BIT,\
++				    (void *) &(cf_sk)->conn_state)
++#define STATE_IS_PENDING(cf_sk) test_bit(CONN_STATE_PENDING_BIT,\
++				       (void *) &(cf_sk)->conn_state)
++#define STATE_IS_PENDING_DESTROY(cf_sk) test_bit(CONN_STATE_PEND_DESTROY_BIT,\
++				       (void *) &(cf_sk)->conn_state)
++
++#define SET_STATE_PENDING_DESTROY(cf_sk) set_bit(CONN_STATE_PEND_DESTROY_BIT,\
++				    (void *) &(cf_sk)->conn_state)
++#define SET_STATE_OPEN(cf_sk) set_bit(CONN_STATE_OPEN_BIT,\
++				    (void *) &(cf_sk)->conn_state)
++#define SET_STATE_CLOSED(cf_sk) clear_bit(CONN_STATE_OPEN_BIT,\
++					(void *) &(cf_sk)->conn_state)
++#define SET_PENDING_ON(cf_sk) set_bit(CONN_STATE_PENDING_BIT,\
++				    (void *) &(cf_sk)->conn_state)
++#define SET_PENDING_OFF(cf_sk) clear_bit(CONN_STATE_PENDING_BIT,\
++				       (void *) &(cf_sk)->conn_state)
++#define SET_REMOTE_SHUTDOWN(cf_sk) set_bit(CONN_REMOTE_SHUTDOWN_BIT,\
++				    (void *) &(cf_sk)->conn_state)
++
++#define SET_REMOTE_SHUTDOWN_OFF(dev) clear_bit(CONN_REMOTE_SHUTDOWN_BIT,\
++				    (void *) &(dev)->conn_state)
++#define RX_FLOW_IS_ON(cf_sk) test_bit(RX_FLOW_ON_BIT,\
++				    (void *) &(cf_sk)->flow_state)
++#define TX_FLOW_IS_ON(cf_sk) test_bit(TX_FLOW_ON_BIT,\
++				    (void *) &(cf_sk)->flow_state)
++
++#define SET_RX_FLOW_OFF(cf_sk) clear_bit(RX_FLOW_ON_BIT,\
++				       (void *) &(cf_sk)->flow_state)
++#define SET_RX_FLOW_ON(cf_sk) set_bit(RX_FLOW_ON_BIT,\
++				    (void *) &(cf_sk)->flow_state)
++#define SET_TX_FLOW_OFF(cf_sk) clear_bit(TX_FLOW_ON_BIT,\
++				       (void *) &(cf_sk)->flow_state)
++#define SET_TX_FLOW_ON(cf_sk) set_bit(TX_FLOW_ON_BIT,\
++				    (void *) &(cf_sk)->flow_state)
++
++#define SKT_READ_FLAG 0x01
++#define SKT_WRITE_FLAG 0x02
++static struct dentry *debugfsdir;
++#include <linux/debugfs.h>
++
++#ifdef CONFIG_DEBUG_FS
++struct debug_fs_counter {
++	atomic_t num_open;
++	atomic_t num_close;
++	atomic_t num_init;
++	atomic_t num_init_resp;
++	atomic_t num_init_fail_resp;
++	atomic_t num_deinit;
++	atomic_t num_deinit_resp;
++	atomic_t num_remote_shutdown_ind;
++	atomic_t num_tx_flow_off_ind;
++	atomic_t num_tx_flow_on_ind;
++	atomic_t num_rx_flow_off;
++	atomic_t num_rx_flow_on;
++};
++struct debug_fs_counter cnt;
++#define	dbfs_atomic_inc(v) atomic_inc(v)
 +#else
-+static int handle_loop(struct cfctrl *ctrl,
-+		int cmd, struct cfpkt *pkt);
++#define	dbfs_atomic_inc(v)
 +#endif
-+static int cfctrl_recv(struct layer *layr, struct cfpkt *pkt);
-+static void cfctrl_ctrlcmd(struct layer *layr, enum caif_ctrlcmd ctrl,
-+			   int phyid);
 +
++/* The AF_CAIF socket */
++struct caifsock {
++	/* NOTE: sk has to be the first member */
++	struct sock sk;
++	struct layer layer;
++	char name[CAIF_LAYER_NAME_SZ];
++	u32 conn_state;
++	u32 flow_state;
++	struct cfpktq *pktq;
++	int file_mode;
++	struct caif_channel_config config;
++	int read_queue_len;
++	spinlock_t read_queue_len_lock;
++	struct dentry *debugfs_socket_dir;
++};
 +
-+struct layer *cfctrl_create()
++static void drain_queue(struct caifsock *cf_sk);
++
++/* Packet Receive Callback function called from CAIF Stack */
++static int caif_sktrecv_cb(struct layer *layr, struct cfpkt *pkt)
 +{
-+	struct cfctrl *this =
-+	    (struct cfctrl *) cfglu_alloc(sizeof(struct cfctrl));
-+	if (!this) {
-+		pr_warning("CAIF: %s(): Out of memory\n", __func__);
-+		return NULL;
-+	}
-+	caif_assert(offsetof(struct cfctrl, serv.layer) == 0);
-+	memset(this, 0, sizeof(*this));
-+	cfglu_init_lock(this->info_list_lock);
-+	cfglu_atomic_set(this->req_seq_no, 1);
-+	cfglu_atomic_set(this->rsp_seq_no, 1);
-+	this->serv.dev_info.id = 0xff;
-+	this->serv.layer.id = 0;
-+	this->serv.layer.receive = cfctrl_recv;
-+	sprintf(this->serv.layer.name, "ctrl");
-+	this->serv.layer.ctrlcmd = cfctrl_ctrlcmd;
-+	cfglu_init_lock(this->loop_linkid_lock);
-+	this->loop_linkid = 1;
-+	return &this->serv.layer;
-+}
++	struct caifsock *cf_sk;
++	int read_queue_high;
++	cf_sk = container_of(layr, struct caifsock, layer);
 +
-+bool param_eq(struct cfctrl_link_param *p1, struct cfctrl_link_param *p2)
-+{
-+	bool eq =
-+	    p1->linktype == p2->linktype &&
-+	    p1->priority == p2->priority &&
-+	    p1->phyid == p2->phyid &&
-+	    p1->endpoint == p2->endpoint && p1->chtype == p2->chtype;
-+
-+	if (!eq)
-+		return false;
-+
-+	switch (p1->linktype) {
-+	case CFCTRL_SRV_VEI:
-+		return true;
-+	case CFCTRL_SRV_DATAGRAM:
-+		return p1->u.datagram.connid == p2->u.datagram.connid;
-+	case CFCTRL_SRV_RFM:
-+		return
-+		    p1->u.rfm.connid == p2->u.rfm.connid &&
-+		    strcmp(p1->u.rfm.volume, p2->u.rfm.volume) == 0;
-+	case CFCTRL_SRV_UTIL:
-+		return
-+		    p1->u.utility.fifosize_kb == p2->u.utility.fifosize_kb
-+		    && p1->u.utility.fifosize_bufs ==
-+		    p2->u.utility.fifosize_bufs
-+		    && strcmp(p1->u.utility.name, p2->u.utility.name) == 0
-+		    && p1->u.utility.paramlen == p2->u.utility.paramlen
-+		    && memcmp(p1->u.utility.params, p2->u.utility.params,
-+			      p1->u.utility.paramlen) == 0;
-+
-+	case CFCTRL_SRV_VIDEO:
-+		return p1->u.video.connid == p2->u.video.connid;
-+	case CFCTRL_SRV_DBG:
-+		return true;
-+	case CFCTRL_SRV_DECM:
-+		return false;
-+	default:
-+		return false;
-+	}
-+	return false;
-+}
-+
-+bool cfctrl_req_eq(struct cfctrl_request_info *r1,
-+		   struct cfctrl_request_info *r2)
-+{
-+	if (r1->cmd != r2->cmd)
-+		return false;
-+	if (r1->cmd == CFCTRL_CMD_LINK_SETUP)
-+		return param_eq(&r1->param, &r2->param);
-+	else
-+		return r1->channel_id == r2->channel_id;
-+}
-+
-+/* Insert request at the end */
-+void cfctrl_insert_req(struct cfctrl *ctrl,
-+			      struct cfctrl_request_info *req)
-+{
-+	struct cfctrl_request_info *p;
-+	cfglu_lock(ctrl->info_list_lock);
-+	req->next = NULL;
-+	cfglu_atomic_inc(ctrl->req_seq_no);
-+	req->sequence_no = cfglu_atomic_read(ctrl->req_seq_no);
-+	if (ctrl->first_req == NULL) {
-+		ctrl->first_req = req;
-+		cfglu_unlock(ctrl->info_list_lock);
-+		return;
-+	}
-+	p = ctrl->first_req;
-+	while (p->next != NULL)
-+		p = p->next;
-+	p->next = req;
-+	cfglu_unlock(ctrl->info_list_lock);
-+}
-+
-+static void cfctrl_insert_req2(struct cfctrl *ctrl, enum cfctrl_cmd cmd,
-+			       uint8 linkid, struct layer *user_layer)
-+{
-+	struct cfctrl_request_info *req = cfglu_alloc(sizeof(*req));
-+	if (!req) {
-+		pr_warning("CAIF: %s(): Out of memory\n", __func__);
-+		return;
-+	}
-+	req->client_layer = user_layer;
-+	req->cmd = cmd;
-+	req->channel_id = linkid;
-+	cfctrl_insert_req(ctrl, req);
-+}
-+
-+/* Compare and remove request */
-+struct cfctrl_request_info *cfctrl_remove_req(struct cfctrl *ctrl,
-+					      struct cfctrl_request_info *req)
-+{
-+	struct cfctrl_request_info *p;
-+	struct cfctrl_request_info *ret;
-+
-+	cfglu_lock(ctrl->info_list_lock);
-+	if (ctrl->first_req == NULL) {
-+		cfglu_unlock(ctrl->info_list_lock);
-+		return NULL;
-+	}
-+
-+	if (cfctrl_req_eq(req, ctrl->first_req)) {
-+		ret = ctrl->first_req;
-+		cfglu_atomic_set(ctrl->rsp_seq_no,
-+				 ctrl->first_req->sequence_no);
-+		ctrl->first_req = ctrl->first_req->next;
-+		cfglu_unlock(ctrl->info_list_lock);
-+		return ret;
-+	}
-+
-+	pr_warning("CAIF: %s(): Requests are not received in order/matching\n",
-+		   __func__);
-+
-+	p = ctrl->first_req;
-+
-+	while (p->next != NULL) {
-+		if (cfctrl_req_eq(req, p->next)) {
-+			ret = p->next;
-+			cfglu_atomic_set(ctrl->rsp_seq_no,
-+					 p->next->sequence_no);
-+			p = p->next;
-+			cfglu_unlock(ctrl->info_list_lock);
-+			return ret;
-+		}
-+		p = p->next;
-+	}
-+	cfglu_unlock(ctrl->info_list_lock);
-+	return NULL;
-+}
-+
-+/* Compare and remove old requests based on sequence no. */
-+void cfctrl_prune_req(struct cfctrl *ctrl)
-+{
-+	struct cfctrl_request_info *p;
-+	struct cfctrl_request_info *del;
-+
-+	cfglu_lock(ctrl->info_list_lock);
-+	if (ctrl->first_req == NULL) {
-+		cfglu_unlock(ctrl->info_list_lock);
-+		return;
-+	}
-+
-+	if (ctrl->first_req->sequence_no <
-+	    cfglu_atomic_read(ctrl->req_seq_no)) {
-+		del = ctrl->first_req;
-+		ctrl->first_req = ctrl->first_req->next;
-+		cfglu_free(del);
-+	}
-+	p = ctrl->first_req;
-+	while (p->next != NULL) {
-+		if (p->next->sequence_no <
-+		    cfglu_atomic_read(ctrl->rsp_seq_no)) {
-+			del = p->next;
-+			p = p->next;
-+			cfglu_atomic_set(ctrl->rsp_seq_no,
-+					 ctrl->first_req->sequence_no);
-+			cfglu_free(del);
-+		}
-+		p = p->next;
-+	}
-+	cfglu_unlock(ctrl->info_list_lock);
-+}
-+
-+struct cfctrl_rsp *cfctrl_get_respfuncs(struct layer *layer)
-+{
-+	struct cfctrl *this = container_obj(layer);
-+	return &this->res;
-+}
-+
-+void cfctrl_set_dnlayer(struct layer *this, struct layer *dn)
-+{
-+	this->dn = dn;
-+}
-+
-+void cfctrl_set_uplayer(struct layer *this, struct layer *up)
-+{
-+	this->up = up;
-+}
-+
-+void init_info(struct payload_info *info, struct cfctrl *cfctrl)
-+{
-+	info->hdr_len = 0;
-+	info->channel_id = cfctrl->serv.layer.id;
-+	info->dev_info = &cfctrl->serv.dev_info;
-+}
-+
-+void cfctrl_enum_req(struct layer *layer, uint8 physlinkid)
-+{
-+	struct cfctrl *cfctrl = container_obj(layer);
-+	int ret;
-+	struct cfpkt *pkt = cfpkt_create(CFPKT_CTRL_PKT_LEN);
-+	if (!pkt) {
-+		pr_warning("CAIF: %s(): Out of memory\n", __func__);
-+		return;
-+	}
-+	caif_assert(offsetof(struct cfctrl, serv.layer) == 0);
-+	init_info(cfpkt_info(pkt), cfctrl);
-+	cfpkt_info(pkt)->dev_info->id = physlinkid;
-+	cfctrl->serv.dev_info.id = physlinkid;
-+	cfpkt_addbdy(pkt, CFCTRL_CMD_ENUM);
-+	cfpkt_addbdy(pkt, physlinkid);
-+	ret =
-+	    cfctrl->serv.layer.dn->transmit(cfctrl->serv.layer.dn, pkt);
-+	if (ret < 0) {
-+		pr_err("CAIF: %s(): Could not transmit enum message\n",
-+			__func__);
-+		cfpkt_destroy(pkt);
-+	}
-+}
-+
-+void cfctrl_linkup_request(struct layer *layer, struct cfctrl_link_param *param,
-+			   struct layer *user_layer)
-+{
-+	struct cfctrl *cfctrl = container_obj(layer);
-+	uint32 tmp32;
-+	uint16 tmp16;
-+	uint8 tmp8;
-+	struct cfctrl_request_info *req;
-+	int ret;
-+	char utility_name[16];
-+	struct cfpkt *pkt = cfpkt_create(CFPKT_CTRL_PKT_LEN);
-+	if (!pkt) {
-+		pr_warning("CAIF: %s(): Out of memory\n", __func__);
-+		return;
-+	}
-+	cfpkt_addbdy(pkt, CFCTRL_CMD_LINK_SETUP);
-+	cfpkt_addbdy(pkt, (param->chtype << 4) + param->linktype);
-+	cfpkt_addbdy(pkt, (param->priority << 3) + param->phyid);
-+	cfpkt_addbdy(pkt, param->endpoint & 0x03);
-+	switch (param->linktype) {
-+	case CFCTRL_SRV_VEI:
-+		break;
-+	case CFCTRL_SRV_VIDEO:
-+		cfpkt_addbdy(pkt, (uint8) param->u.video.connid);
-+		break;
-+	case CFCTRL_SRV_DBG:
-+		break;
-+	case CFCTRL_SRV_DATAGRAM:
-+		tmp32 = cfglu_cpu_to_le32(param->u.datagram.connid);
-+		cfpkt_add_body(pkt, &tmp32, 4);
-+		break;
-+	case CFCTRL_SRV_RFM:
-+		/* Construct a frame, convert DatagramConnectionID to network
-+		 * format long and copy it out...
-+		 */
-+		tmp32 = cfglu_cpu_to_le32(param->u.rfm.connid);
-+		cfpkt_add_body(pkt, &tmp32, 4);
-+		/* Add volume name, including zero termination... */
-+		cfpkt_add_body(pkt, param->u.rfm.volume,
-+			       strlen(param->u.rfm.volume) + 1);
-+		break;
-+	case CFCTRL_SRV_UTIL:
-+		tmp16 = cfglu_cpu_to_le16(param->u.utility.fifosize_kb);
-+		cfpkt_add_body(pkt, &tmp16, 2);
-+		tmp16 = cfglu_cpu_to_le16(param->u.utility.fifosize_bufs);
-+		cfpkt_add_body(pkt, &tmp16, 2);
-+		memset(utility_name, 0, sizeof(utility_name));
-+		strncpy(utility_name, param->u.utility.name,
-+			UTILITY_NAME_LENGTH - 1);
-+		cfpkt_add_body(pkt, utility_name, UTILITY_NAME_LENGTH);
-+		tmp8 = param->u.utility.paramlen;
-+		cfpkt_add_body(pkt, &tmp8, 1);
-+		cfpkt_add_body(pkt, param->u.utility.params,
-+			       param->u.utility.paramlen);
-+		break;
-+	default:
-+		pr_warning("CAIF: %s():Request setup of bad link type = %d\n",
-+			   __func__, param->linktype);
-+	}
-+	req = cfglu_alloc(sizeof(*req));
-+	if (!req) {
-+		pr_warning("CAIF: %s(): Out of memory\n", __func__);
-+		return;
-+	}
-+	memset(req, 0, sizeof(*req));
-+	req->client_layer = user_layer;
-+	req->cmd = CFCTRL_CMD_LINK_SETUP;
-+	req->param = *param;
-+	cfctrl_insert_req(cfctrl, req);
-+	init_info(cfpkt_info(pkt), cfctrl);
-+	cfpkt_info(pkt)->dev_info->id = param->phyid;
-+	ret =
-+	    cfctrl->serv.layer.dn->transmit(cfctrl->serv.layer.dn, pkt);
-+	if (ret < 0) {
-+		pr_err("CAIF: %s(): Could not transmit linksetup request\n",
-+			__func__);
-+		cfpkt_destroy(pkt);
-+	}
-+}
-+
-+int cfctrl_linkdown_req(struct layer *layer, uint8 channelid,
-+				struct layer *client)
-+{
-+	int ret;
-+	struct cfctrl *cfctrl = container_obj(layer);
-+	struct cfpkt *pkt = cfpkt_create(CFPKT_CTRL_PKT_LEN);
-+	if (!pkt) {
-+		pr_warning("CAIF: %s(): Out of memory\n", __func__);
-+		return CFGLU_ENOMEM;
-+	}
-+	cfctrl_insert_req2(cfctrl, CFCTRL_CMD_LINK_DESTROY, channelid, client);
-+	cfpkt_addbdy(pkt, CFCTRL_CMD_LINK_DESTROY);
-+	cfpkt_addbdy(pkt, channelid);
-+	init_info(cfpkt_info(pkt), cfctrl);
-+	ret =
-+	    cfctrl->serv.layer.dn->transmit(cfctrl->serv.layer.dn, pkt);
-+	if (ret < 0) {
-+		pr_err("CAIF: %s(): Could not transmit link-down request\n",
-+			__func__);
-+		cfpkt_destroy(pkt);
-+	}
-+	return ret;
-+}
-+
-+void cfctrl_sleep_req(struct layer *layer)
-+{
-+	int ret;
-+	struct cfctrl *cfctrl = container_obj(layer);
-+	struct cfpkt *pkt = cfpkt_create(CFPKT_CTRL_PKT_LEN);
-+	if (!pkt) {
-+		pr_warning("CAIF: %s(): Out of memory\n", __func__);
-+		return;
-+	}
-+	cfpkt_addbdy(pkt, CFCTRL_CMD_SLEEP);
-+	init_info(cfpkt_info(pkt), cfctrl);
-+	ret =
-+	    cfctrl->serv.layer.dn->transmit(cfctrl->serv.layer.dn, pkt);
-+	if (ret < 0)
-+		cfpkt_destroy(pkt);
-+}
-+
-+void cfctrl_wake_req(struct layer *layer)
-+{
-+	int ret;
-+	struct cfctrl *cfctrl = container_obj(layer);
-+	struct cfpkt *pkt = cfpkt_create(CFPKT_CTRL_PKT_LEN);
-+	if (!pkt) {
-+		pr_warning("CAIF: %s(): Out of memory\n", __func__);
-+		return;
-+	}
-+	cfpkt_addbdy(pkt, CFCTRL_CMD_WAKE);
-+	init_info(cfpkt_info(pkt), cfctrl);
-+	ret =
-+	    cfctrl->serv.layer.dn->transmit(cfctrl->serv.layer.dn, pkt);
-+	if (ret < 0)
-+		cfpkt_destroy(pkt);
-+}
-+
-+void cfctrl_getstartreason_req(struct layer *layer)
-+{
-+	int ret;
-+	struct cfctrl *cfctrl = container_obj(layer);
-+	struct cfpkt *pkt = cfpkt_create(CFPKT_CTRL_PKT_LEN);
-+	if (!pkt) {
-+		pr_warning("CAIF: %s(): Out of memory\n", __func__);
-+		return;
-+	}
-+	cfpkt_addbdy(pkt, CFCTRL_CMD_START_REASON);
-+	init_info(cfpkt_info(pkt), cfctrl);
-+	ret =
-+	    cfctrl->serv.layer.dn->transmit(cfctrl->serv.layer.dn, pkt);
-+	if (ret < 0)
-+		cfpkt_destroy(pkt);
-+}
-+
-+void cfctrl_setmode_req(struct layer *layer, uint8 mode)
-+{
-+	int ret;
-+	struct cfctrl *cfctrl = container_obj(layer);
-+	struct cfpkt *pkt = cfpkt_create(CFPKT_CTRL_PKT_LEN);
-+	if (!pkt) {
-+		pr_warning("CAIF: %s(): Out of memory\n", __func__);
-+		return;
-+	}
-+	cfpkt_addbdy(pkt, CFCTRL_CMD_RADIO_SET);
-+	cfpkt_addbdy(pkt, mode);
-+	init_info(cfpkt_info(pkt), cfctrl);
-+	ret =
-+	    cfctrl->serv.layer.dn->transmit(cfctrl->serv.layer.dn, pkt);
-+	if (ret < 0)
-+		cfpkt_destroy(pkt);
-+}
-+
-+static int cfctrl_recv(struct layer *layer, struct cfpkt *pkt)
-+{
-+	uint8 cmdrsp;
-+	uint8 cmd;
-+	int ret = -1;
-+	uint16 tmp16;
-+	uint8 len;
-+	uint8 param[255];
-+	uint8 linkid;
-+	struct cfctrl *cfctrl = container_obj(layer);
-+	struct cfctrl_request_info rsp, *req;
-+
-+
-+	cfpkt_extr_head(pkt, &cmdrsp, 1);
-+	cmd = cmdrsp & CFCTRL_CMD_MASK;
-+	if (cmd != CFCTRL_CMD_LINK_ERR
-+	    && CFCTRL_RSP_BIT != (CFCTRL_RSP_BIT & cmdrsp)) {
-+		if (handle_loop(cfctrl, cmd, pkt) == CAIF_FAILURE) {
-+			pr_info("CAIF: %s() CAIF Protocol error:"
-+				"Response bit not set\n", __func__);
-+			goto error;
-+		}
-+	}
-+
-+	switch (cmd) {
-+	case CFCTRL_CMD_LINK_SETUP:
-+		{
-+			enum cfctrl_srv serv;
-+			enum cfctrl_srv servtype;
-+			uint8 endpoint;
-+			uint8 physlinkid;
-+			uint8 prio;
-+			uint8 tmp;
-+			uint32 tmp32;
-+			uint8 *cp;
-+			int i;
-+			struct cfctrl_link_param linkparam;
-+			memset(&linkparam, 0, sizeof(linkparam));
-+
-+			cfpkt_extr_head(pkt, &tmp, 1);
-+
-+			serv = tmp & CFCTRL_SRV_MASK;
-+			linkparam.linktype = serv;
-+
-+			servtype = tmp >> 4;
-+			linkparam.chtype = servtype;
-+
-+			cfpkt_extr_head(pkt, &tmp, 1);
-+			physlinkid = tmp & 0x07;
-+			prio = tmp >> 3;
-+
-+			linkparam.priority = prio;
-+			linkparam.phyid = physlinkid;
-+			cfpkt_extr_head(pkt, &endpoint, 1);
-+			linkparam.endpoint = endpoint & 0x03;
-+
-+			switch (serv) {
-+			case CFCTRL_SRV_VEI:
-+			case CFCTRL_SRV_DBG:
-+				/* Link ID */
-+				cfpkt_extr_head(pkt, &linkid, 1);
-+				break;
-+			case CFCTRL_SRV_VIDEO:
-+				cfpkt_extr_head(pkt, &tmp, 1);
-+				linkparam.u.video.connid = tmp;
-+				/* Link ID */
-+				cfpkt_extr_head(pkt, &linkid, 1);
-+				break;
-+
-+			case CFCTRL_SRV_DATAGRAM:
-+				cfpkt_extr_head(pkt, &tmp32, 4);
-+				linkparam.u.datagram.connid =
-+				    cfglu_le32_to_cpu(tmp32);
-+				/* Link ID */
-+				cfpkt_extr_head(pkt, &linkid, 1);
-+				break;
-+			case CFCTRL_SRV_RFM:
-+				/* Construct a frame, convert
-+				 * DatagramConnectionID
-+				 * to network format long and copy it out...
-+				 */
-+				cfpkt_extr_head(pkt, &tmp32, 4);
-+				linkparam.u.rfm.connid =
-+				  cfglu_le32_to_cpu(tmp32);
-+				cp = (uint8 *) linkparam.u.rfm.volume;
-+				for (cfpkt_extr_head(pkt, &tmp, 1);
-+				     cfpkt_more(pkt) && tmp != '\0';
-+				     cfpkt_extr_head(pkt, &tmp, 1))
-+					*cp++ = tmp;
-+				*cp = '\0';
-+
-+				/* Link ID */
-+				cfpkt_extr_head(pkt, &linkid, 1);
-+
-+				break;
-+			case CFCTRL_SRV_UTIL:
-+				/* Construct a frame, convert
-+				 * DatagramConnectionID
-+				 * to network format long and copy it out...
-+				 */
-+				/* Fifosize KB */
-+				cfpkt_extr_head(pkt, &tmp16, 2);
-+				linkparam.u.utility.fifosize_kb =
-+				    cfglu_le16_to_cpu(tmp16);
-+				/* Fifosize bufs */
-+				cfpkt_extr_head(pkt, &tmp16, 2);
-+				linkparam.u.utility.fifosize_bufs =
-+				    cfglu_le16_to_cpu(tmp16);
-+				/* name */
-+				cp = (uint8 *) linkparam.u.utility.name;
-+				caif_assert(sizeof(linkparam.u.utility.name)
-+					     >= UTILITY_NAME_LENGTH);
-+				for (i = 0;
-+				     i < UTILITY_NAME_LENGTH
-+				     && cfpkt_more(pkt); i++) {
-+					cfpkt_extr_head(pkt, &tmp, 1);
-+					*cp++ = tmp;
-+				}
-+				/* Length */
-+				cfpkt_extr_head(pkt, &len, 1);
-+				linkparam.u.utility.paramlen = len;
-+				/* Param Data */
-+				cp = linkparam.u.utility.params;
-+				while (cfpkt_more(pkt) && len--) {
-+					cfpkt_extr_head(pkt, &tmp, 1);
-+					*cp++ = tmp;
-+				}
-+				/* Link ID */
-+				cfpkt_extr_head(pkt, &linkid, 1);
-+				/* Length */
-+				cfpkt_extr_head(pkt, &len, 1);
-+				/* Param Data */
-+				cfpkt_extr_head(pkt, &param, len);
-+				break;
-+			default:
-+				pr_warning("CAIF: %s(): Request setup "
-+					   "- invalid link type (%d)",
-+					   __func__, serv);
-+				goto error;
-+			}
-+			if (cfpkt_erroneous(pkt)) {
-+				pr_err("CAIF: %s(): Packet is erroneous!",
-+					__func__);
-+				goto error;
-+			}
-+			rsp.cmd = cmd;
-+			rsp.param = linkparam;
-+			req = cfctrl_remove_req(cfctrl, &rsp);
-+
-+			if (CFCTRL_ERR_BIT == (CFCTRL_ERR_BIT & cmdrsp)) {
-+				pr_err("CAIF: %s(): Invalid O/E bit "
-+				       "on CAIF control channel", __func__);
-+				cfctrl->res.reject_rsp(cfctrl->serv.layer.up,
-+						       0,
-+						       req ? req->client_layer
-+						       : NULL);
-+			} else {
-+				cfctrl->res.linksetup_rsp(cfctrl->serv.
-+							  layer.up, linkid,
-+							  serv, physlinkid,
-+							  req ? req->
-+							  client_layer : NULL);
-+			}
-+
-+			if (req != NULL)
-+				cfglu_free(req);
-+		}
-+		break;
-+	case CFCTRL_CMD_LINK_DESTROY:
-+		cfpkt_extr_head(pkt, &linkid, 1);
-+		rsp.cmd = cmd;
-+		rsp.channel_id = linkid;
-+		req = cfctrl_remove_req(cfctrl, &rsp);
-+		cfctrl->res.linkdestroy_rsp(cfctrl->serv.layer.up, linkid,
-+					    req ? req->client_layer : NULL);
-+		if (req != NULL)
-+			cfglu_free(req);
-+		break;
-+	case CFCTRL_CMD_LINK_ERR:
-+		pr_err("CAIF: %s(): Frame Error Indication received \n",
-+			__func__);
-+		cfctrl->res.linkerror_ind();
-+		break;
-+	case CFCTRL_CMD_ENUM:
-+		cfctrl->res.enum_rsp();
-+		break;
-+	case CFCTRL_CMD_SLEEP:
-+		cfctrl->res.sleep_rsp();
-+		break;
-+	case CFCTRL_CMD_WAKE:
-+		cfctrl->res.wake_rsp();
-+		break;
-+	case CFCTRL_CMD_LINK_RECONF:
-+		cfctrl->res.restart_rsp();
-+		break;
-+	case CFCTRL_CMD_RADIO_SET:
-+		cfctrl->res.radioset_rsp();
-+		break;
-+	default:
-+		pr_err("CAIF: %s(): Unrecognized Control Frame\n", __func__);
-+		goto error;
-+		break;
-+	}
-+	ret = 0;
-+error:
-+	cfpkt_destroy(pkt);
-+	return ret;
-+}
-+
-+static void cfctrl_ctrlcmd(struct layer *layr, enum caif_ctrlcmd ctrl,
-+			int phyid)
-+{
-+	struct cfctrl *this = container_obj(layr);
-+	switch (ctrl) {
-+	case _CAIF_CTRLCMD_PHYIF_FLOW_OFF_IND:
-+	case CAIF_CTRLCMD_FLOW_OFF_IND:
-+		cfglu_lock(this->info_list_lock);
-+		if (this->first_req != NULL) {
-+			pr_warning("CAIF: %s(): Received flow off in "
-+				   "control layer", __func__);
-+		}
-+		cfglu_unlock(this->info_list_lock);
-+		break;
-+	default:
-+		break;
-+	}
-+}
-+
-+#ifndef CAIF_NO_LOOP
-+int handle_loop(struct cfctrl *ctrl, int cmd, struct cfpkt *pkt)
-+{
-+	uint8 linkid, linktype, tmp;
-+	switch (cmd) {
-+	case CFCTRL_CMD_LINK_SETUP:
-+		cfglu_lock(ctrl->loop_linkid_lock);
-+		for (linkid = 0x1; linkid < 255; linkid++) {
-+			if (!ctrl->loop_linkused[linkid]) {
-+				ctrl->loop_linkused[linkid] = 1;
-+				break;
-+			}
-+		}
-+		cfpkt_add_trail(pkt, &linkid, 1);
-+		cfglu_unlock(ctrl->loop_linkid_lock);
-+		cfpkt_peek_head(pkt, &linktype, 1);
-+		if (linktype ==  CFCTRL_SRV_UTIL) {
-+			tmp = 0x01;
-+			cfpkt_add_trail(pkt, &tmp, 1);
-+			cfpkt_add_trail(pkt, &tmp, 1);
-+		}
-+		break;
-+
-+	case CFCTRL_CMD_LINK_DESTROY:
-+		cfglu_lock(ctrl->loop_linkid_lock);
-+		cfpkt_peek_head(pkt, &linkid, 1);
-+		ctrl->loop_linkused[linkid] = 0;
-+		cfglu_unlock(ctrl->loop_linkid_lock);
-+		break;
-+	default:
-+		break;
-+	}
-+	return CAIF_SUCCESS;
-+}
-+#endif
-diff --git a/net/caif/generic/cfdgml.c b/net/caif/generic/cfdgml.c
-new file mode 100644
-index 0000000..1b0825b
---- /dev/null
-+++ b/net/caif/generic/cfdgml.c
-@@ -0,0 +1,106 @@
-+/*
-+ * Copyright (C) ST-Ericsson AB 2010
-+ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
-+ * License terms: GNU General Public License (GPL) version 2
-+ */
-+
-+#include <net/caif/generic/cfglue.h>
-+#include <net/caif/generic/caif_layer.h>
-+#include <net/caif/generic/cfsrvl.h>
-+#include <net/caif/generic/cfpkt.h>
-+
-+#define container_obj(layr) ((struct cfsrvl *) layr)
-+
-+#define DGM_CMD_BIT  0x80
-+#define DGM_FLOW_OFF 0x81
-+#define DGM_FLOW_ON  0x80
-+#define DGM_CTRL_PKT_SIZE 1
-+
-+static int cfdgml_receive(struct layer *layr, struct cfpkt *pkt);
-+static int cfdgml_transmit(struct layer *layr, struct cfpkt *pkt);
-+
-+struct layer *cfdgml_create(uint8 channel_id, struct dev_info *dev_info)
-+{
-+	struct cfsrvl *dgm = cfglu_alloc(sizeof(struct cfsrvl));
-+	if (!dgm) {
-+		pr_warning("CAIF: %s(): Out of memory\n", __func__);
-+		return NULL;
-+	}
-+	caif_assert(offsetof(struct cfsrvl, layer) == 0);
-+	memset(dgm, 0, sizeof(struct cfsrvl));
-+	cfsrvl_init(dgm, channel_id, dev_info);
-+	dgm->layer.receive = cfdgml_receive;
-+	dgm->layer.transmit = cfdgml_transmit;
-+	snprintf(dgm->layer.name, CAIF_LAYER_NAME_SZ - 1, "dgm%d", channel_id);
-+	dgm->layer.name[CAIF_LAYER_NAME_SZ - 1] = '\0';
-+	return &dgm->layer;
-+}
-+
-+static int cfdgml_receive(struct layer *layr, struct cfpkt *pkt)
-+{
-+	uint8 cmd = -1;
-+	uint8 dgmhdr[3];
-+	int ret;
-+	caif_assert(layr->up != NULL);
-+	caif_assert(layr->receive != NULL);
-+	caif_assert(layr->ctrlcmd != NULL);
-+
-+	if (cfpkt_extr_head(pkt, &cmd, 1) < 0) {
-+		pr_err("CAIF: %s(): Packet is erroneous!\n", __func__);
-+		cfpkt_destroy(pkt);
-+		return CFGLU_EPROTO;
-+	}
-+
-+	if ((cmd & DGM_CMD_BIT) == 0) {
-+		if (cfpkt_extr_head(pkt, &dgmhdr, 3) < 0) {
-+			pr_err("CAIF: %s(): Packet is erroneous!\n", __func__);
-+			cfpkt_destroy(pkt);
-+			return CFGLU_EPROTO;
-+		}
-+		ret = layr->up->receive(layr->up, pkt);
-+		return ret;
-+	}
-+
-+	switch (cmd) {
-+	case DGM_FLOW_OFF:	/* FLOW OFF */
-+		layr->ctrlcmd(layr, CAIF_CTRLCMD_FLOW_OFF_IND, 0);
++	if (!STATE_IS_OPEN(cf_sk)) {
++		/*FIXME: This should be allowed finally!*/
++		pr_debug("CAIF: %s(): called after close request\n", __func__);
 +		cfpkt_destroy(pkt);
 +		return 0;
-+	case DGM_FLOW_ON:	/* FLOW ON */
-+		layr->ctrlcmd(layr, CAIF_CTRLCMD_FLOW_ON_IND, 0);
-+		cfpkt_destroy(pkt);
-+		return 0;
-+	default:
-+		cfpkt_destroy(pkt);
-+		pr_info("CAIF: %s(): Unknown datagram control %d (0x%x)\n",
-+			__func__, cmd, cmd);
-+		return CFGLU_EPROTO;
 +	}
-+}
++	/* NOTE: This function may be called in Tasklet context! */
 +
-+static int cfdgml_transmit(struct layer *layr, struct cfpkt *pkt)
-+{
-+	uint32 zero = 0;
-+	struct payload_info *info;
-+	struct cfsrvl *service = container_obj(layr);
-+	int ret;
-+	if (!cfsrvl_ready(service, &ret))
-+		return ret;
++	/* The queue has its own lock */
++	cfpkt_queue(cf_sk->pktq, pkt, 0);
 +
-+	cfpkt_add_head(pkt, &zero, 4);
++	spin_lock(&cf_sk->read_queue_len_lock);
++	cf_sk->read_queue_len++;
 +
-+	/* Add info for MUX-layer to route the packet out. */
-+	info = cfpkt_info(pkt);
-+	info->channel_id = service->layer.id;
-+	/* To optimize alignment, we add up the size of CAIF header
-+	 * before payload.
-+	 */
-+	info->hdr_len = 4;
-+	info->dev_info = &service->dev_info;
-+	ret = layr->dn->transmit(layr->dn, pkt);
-+	if (ret < 0) {
-+		uint32 tmp32;
-+		cfpkt_extr_head(pkt, &tmp32, 4);
-+	}
-+	return ret;
-+}
-diff --git a/net/caif/generic/cffrml.c b/net/caif/generic/cffrml.c
-new file mode 100644
-index 0000000..f7249d7
---- /dev/null
-+++ b/net/caif/generic/cffrml.c
-@@ -0,0 +1,148 @@
-+/*
-+ * CAIF Framing Layer.
-+ *
-+ * Copyright (C) ST-Ericsson AB 2010
-+ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
-+ * License terms: GNU General Public License (GPL) version 2
-+ */
++	read_queue_high = (cf_sk->read_queue_len > CHNL_SKT_READ_QUEUE_HIGH);
++	spin_unlock(&cf_sk->read_queue_len_lock);
 +
-+#define container_obj(layr) cfglu_container_of(layr, struct cffrml, layer)
++	if (RX_FLOW_IS_ON(cf_sk) && read_queue_high) {
++		dbfs_atomic_inc(&cnt.num_rx_flow_off);
++		SET_RX_FLOW_OFF(cf_sk);
 +
-+#include <net/caif/generic/cfglue.h>
-+#include <net/caif/generic/caif_layer.h>
-+#include <net/caif/generic/cfpkt.h>
-+#include <net/caif/generic/cffrml.h>
++		/* Send flow off (NOTE: must not sleep) */
++		pr_debug("CAIF: %s():"
++			" sending flow OFF (queue len = %d)\n",
++			__func__,
++		     cf_sk->read_queue_len);
++		caif_assert(cf_sk->layer.dn);
++		caif_assert(cf_sk->layer.dn->ctrlcmd);
 +
-+struct cffrml {
-+	struct layer layer;
-+	bool dofcs;		/* !< FCS active */
-+};
-+
-+static int cffrml_receive(struct layer *layr, struct cfpkt *pkt);
-+static int cffrml_transmit(struct layer *layr, struct cfpkt *pkt);
-+static void cffrml_ctrlcmd(struct layer *layr, enum caif_ctrlcmd ctrl,
-+				int phyid);
-+
-+uint32 cffrml_rcv_error;
-+uint32 cffrml_rcv_checsum_error;
-+struct layer *cffrml_create(uint16 phyid, bool use_fcs)
-+{
-+	struct cffrml *this = cfglu_alloc(sizeof(struct cffrml));
-+	if (!this) {
-+		pr_warning("CAIF: %s(): Out of memory\n", __func__);
-+		return NULL;
-+	}
-+	caif_assert(offsetof(struct cffrml, layer) == 0);
-+
-+	memset(this, 0, sizeof(struct layer));
-+	this->layer.receive = cffrml_receive;
-+	this->layer.transmit = cffrml_transmit;
-+	this->layer.ctrlcmd = cffrml_ctrlcmd;
-+	snprintf(this->layer.name, CAIF_LAYER_NAME_SZ, "frm%d", phyid);
-+	this->dofcs = use_fcs;
-+	this->layer.id = phyid;
-+	return (struct layer *) this;
-+}
-+
-+void cffrml_set_uplayer(struct layer *this, struct layer *up)
-+{
-+	this->up = up;
-+}
-+
-+void cffrml_set_dnlayer(struct layer *this, struct layer *dn)
-+{
-+	this->dn = dn;
-+}
-+
-+static uint16 cffrml_checksum(uint16 chks, void *buf, uint16 len)
-+{
-+	/* FIXME: FCS should be moved to glue in order to use OS-Specific
-+	 * solutions
-+	 */
-+	return fcs16(chks, buf, len);
-+}
-+
-+static int cffrml_receive(struct layer *layr, struct cfpkt *pkt)
-+{
-+	uint16 tmp;
-+	uint16 len;
-+	uint16 hdrchks;
-+	uint16 pktchks;
-+	struct cffrml *this;
-+	this = container_obj(layr);
-+
-+	cfpkt_extr_head(pkt, &tmp, 2);
-+	len = cfglu_le16_to_cpu(tmp);
-+
-+	/* Subtract for FCS on length if FCS is not used. */
-+	if (!this->dofcs)
-+		len -= 2;
-+
-+	if (cfpkt_setlen(pkt, len) < 0) {
-+		++cffrml_rcv_error;
-+		pr_err("CAIF: %s():Framing length error (%d)\n", __func__, len);
-+		cfpkt_destroy(pkt);
-+		return CFGLU_EPKT;
-+	}
-+	/*
-+	 * Don't do extract if FCS is false, rather do setlen - then we don't
-+	 * get a cache-miss.
-+	 */
-+	if (this->dofcs) {
-+		cfpkt_extr_trail(pkt, &tmp, 2);
-+		hdrchks = cfglu_le16_to_cpu(tmp);
-+		pktchks = cfpkt_iterate(pkt, cffrml_checksum, 0xffff);
-+		if (pktchks != hdrchks) {
-+			cfpkt_add_trail(pkt, &tmp, 2);
-+			++cffrml_rcv_error;
-+			++cffrml_rcv_checsum_error;
-+			pr_info("CAIF: %s(): Frame checksum error "
-+				"(0x%x != 0x%x)\n", __func__, hdrchks, pktchks);
-+			return CFGLU_EFCS;
-+		}
-+	}
-+	if (cfpkt_erroneous(pkt)) {
-+		++cffrml_rcv_error;
-+		pr_err("CAIF: %s(): Packet is erroneous!\n", __func__);
-+		cfpkt_destroy(pkt);
-+		return CFGLU_EPKT;
-+	}
-+	return layr->up->receive(layr->up, pkt);
-+}
-+
-+static int cffrml_transmit(struct layer *layr, struct cfpkt *pkt)
-+{
-+	int tmp;
-+	uint16 chks;
-+	uint16 len;
-+	int ret;
-+	struct cffrml *this = container_obj(layr);
-+	if (this->dofcs) {
-+		chks = cfpkt_iterate(pkt, cffrml_checksum, 0xffff);
-+		tmp = cfglu_cpu_to_le16(chks);
-+		cfpkt_add_trail(pkt, &tmp, 2);
-+	} else {
-+		cfpkt_pad_trail(pkt, 2);
-+	}
-+	len = cfpkt_getlen(pkt);
-+	tmp = cfglu_cpu_to_le16(len);
-+	cfpkt_add_head(pkt, &tmp, 2);
-+	cfpkt_info(pkt)->hdr_len += 2;
-+	if (cfpkt_erroneous(pkt)) {
-+		pr_err("CAIF: %s(): Packet is erroneous!\n", __func__);
-+		return CFGLU_EPROTO;
-+	}
-+	ret = layr->dn->transmit(layr->dn, pkt);
-+	if (ret < 0) {
-+		/* Remove header on faulty packet. */
-+		cfpkt_extr_head(pkt, &tmp, 2);
-+	}
-+	return ret;
-+}
-+
-+static void cffrml_ctrlcmd(struct layer *layr, enum caif_ctrlcmd ctrl,
-+					int phyid)
-+{
-+	if (layr->up->ctrlcmd)
-+		layr->up->ctrlcmd(layr->up, ctrl, layr->id);
-+}
-diff --git a/net/caif/generic/cfmuxl.c b/net/caif/generic/cfmuxl.c
-new file mode 100644
-index 0000000..bc6451b
---- /dev/null
-+++ b/net/caif/generic/cfmuxl.c
-@@ -0,0 +1,225 @@
-+/*
-+ * Copyright (C) ST-Ericsson AB 2010
-+ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
-+ * License terms: GNU General Public License (GPL) version 2
-+ */
-+
-+#include <net/caif/generic/cfglue.h>
-+#include <net/caif/generic/cfpkt.h>
-+#include <net/caif/generic/cflst.h>
-+#include <net/caif/generic/cfmuxl.h>
-+#include <net/caif/generic/cfsrvl.h>
-+#include <net/caif/generic/cffrml.h>
-+
-+#define container_obj(layr) cfglu_container_of(layr, struct cfmuxl, layer)
-+
-+#define CAIF_CTRL_CHANNEL 0
-+#define UP_CACHE_SIZE 8
-+#define DN_CACHE_SIZE 8
-+
-+struct cfmuxl {
-+	struct layer layer;
-+	struct layer *up_cache[UP_CACHE_SIZE];
-+	struct layer *dn_cache[DN_CACHE_SIZE];
-+	/*
-+	 * Set when inserting or removing downwards layers.
-+	 */
-+	cfglu_lock_t transmit_lock;
-+
-+	/*
-+	 * Set when inserting or removing upwards layers.
-+	 */
-+	cfglu_lock_t receive_lock;
-+
-+};
-+
-+static int cfmuxl_receive(struct layer *layr, struct cfpkt *pkt);
-+static int cfmuxl_transmit(struct layer *layr, struct cfpkt *pkt);
-+static void cfmuxl_ctrlcmd(struct layer *layr, enum caif_ctrlcmd ctrl,
-+				int phyid);
-+static struct layer *get_up(struct cfmuxl *muxl, int id);
-+
-+struct layer *cfmuxl_create()
-+{
-+	struct cfmuxl *this = cfglu_alloc(sizeof(struct cfmuxl));
-+	if (!this) {
-+		pr_warning("CAIF: %s(): Out of memory\n", __func__);
-+		return NULL;
-+	}
-+	memset(this, 0, sizeof(*this));
-+	this->layer.receive = cfmuxl_receive;
-+	this->layer.transmit = cfmuxl_transmit;
-+	this->layer.ctrlcmd = cfmuxl_ctrlcmd;
-+	cfglu_init_lock(this->transmit_lock);
-+	cfglu_init_lock(this->receive_lock);
-+	snprintf(this->layer.name, CAIF_LAYER_NAME_SZ, "mux");
-+	return &this->layer;
-+}
-+
-+int cfmuxl_set_uplayer(struct layer *layr, struct layer *up, uint8 linkid)
-+{
-+	int res;
-+	struct cfmuxl *muxl = container_obj(layr);
-+	cfglu_lock(muxl->receive_lock);
-+	res = cflst_put(&muxl->layer.up, linkid, up);
-+	cfglu_unlock(muxl->receive_lock);
-+	return res;
-+}
-+
-+bool cfmuxl_is_phy_inuse(struct layer *layr, uint8 phyid)
-+{
-+	struct layer *p;
-+	struct cfmuxl *muxl = container_obj(layr);
-+	bool match = false;
-+	cfglu_lock(muxl->receive_lock);
-+
-+	for (p = layr->up; p != NULL; p = p->next) {
-+		if (cfsrvl_phyid_match(p, phyid)) {
-+			match = true;
-+			break;
-+		}
-+	}
-+	cfglu_unlock(muxl->receive_lock);
-+	return match;
-+}
-+
-+uint8 cfmuxl_get_phyid(struct layer *layr, uint8 channel_id)
-+{
-+	struct layer *up;
-+	int phyid;
-+	struct cfmuxl *muxl = container_obj(layr);
-+	cfglu_lock(muxl->receive_lock);
-+	up = get_up(muxl, channel_id);
-+	if (up != NULL)
-+		phyid = cfsrvl_getphyid(up);
-+	else
-+		phyid = 0;
-+	cfglu_unlock(muxl->receive_lock);
-+	return phyid;
-+}
-+
-+int cfmuxl_set_dnlayer(struct layer *layr, struct layer *dn, uint8 phyid)
-+{
-+	int ret;
-+	struct cfmuxl *muxl = (struct cfmuxl *) layr;
-+	cfglu_lock(muxl->transmit_lock);
-+	ret = cflst_put(&muxl->layer.dn, phyid, dn);
-+	cfglu_unlock(muxl->transmit_lock);
-+	return ret;
-+}
-+
-+struct layer *cfmuxl_remove_dnlayer(struct layer *layr, uint8 phyid)
-+{
-+	struct cfmuxl *muxl = container_obj(layr);
-+	struct layer *dn;
-+	cfglu_lock(muxl->transmit_lock);
-+	memset(muxl->dn_cache, 0, sizeof(muxl->dn_cache));
-+	dn = cflst_del(&muxl->layer.dn, phyid);
-+	caif_assert(dn != NULL);
-+	cfglu_unlock(muxl->transmit_lock);
-+	return dn;
-+}
-+
-+/* Invariant: lock is taken */
-+static struct layer *get_up(struct cfmuxl *muxl, int id)
-+{
-+	struct layer *up;
-+	int idx = id % UP_CACHE_SIZE;
-+	up = muxl->up_cache[idx];
-+	if (up == NULL || up->id != id) {
-+		up = cflst_get(&muxl->layer.up, id);
-+		muxl->up_cache[idx] = up;
-+	}
-+	return up;
-+}
-+
-+/* Invariant: lock is taken */
-+static struct layer *get_dn(struct cfmuxl *muxl, struct dev_info *dev_info)
-+{
-+	struct layer *dn;
-+	int idx = dev_info->id % DN_CACHE_SIZE;
-+	dn = muxl->dn_cache[idx];
-+	if (dn == NULL || dn->id != dev_info->id) {
-+		dn = cflst_get(&muxl->layer.dn, dev_info->id);
-+		muxl->dn_cache[idx] = dn;
-+	}
-+	return dn;
-+}
-+
-+struct layer *cfmuxl_remove_uplayer(struct layer *layr, uint8 id)
-+{
-+	struct layer *up;
-+	struct cfmuxl *muxl = container_obj(layr);
-+	cfglu_lock(muxl->receive_lock);
-+	memset(muxl->up_cache, 0, sizeof(muxl->up_cache));
-+	up = cflst_del(&muxl->layer.up, id);
-+	cfglu_unlock(muxl->receive_lock);
-+	return up;
-+}
-+
-+static int cfmuxl_receive(struct layer *layr, struct cfpkt *pkt)
-+{
-+	int ret;
-+	struct cfmuxl *muxl = container_obj(layr);
-+	uint8 id;
-+	struct layer *up;
-+	if (cfpkt_extr_head(pkt, &id, 1) < 0) {
-+		pr_err("CAIF: %s(): erroneous Caif Packet\n", __func__);
-+		cfpkt_destroy(pkt);
-+		return CFGLU_EPKT;
++		(void) cf_sk->layer.dn->modemcmd(cf_sk->layer.dn,
++					       CAIF_MODEMCMD_FLOW_OFF_REQ);
 +	}
 +
-+	up = get_up(muxl, id);
-+	if (up == NULL) {
-+		pr_info("CAIF: %s():Received data on unknown link ID = %d "
-+			"(0x%x)	 up == NULL", __func__, id, id);
-+		cfpkt_destroy(pkt);
-+		/*
-+		 * Don't return ERROR, since modem misbehaves and sends out
-+		 * flow before linksetup response.
-+		 */
-+		return /* CFGLU_EPROT; */ CFGLU_EOK;
-+	}
++	/* Signal reader that data is available. */
 +
-+	ret = up->receive(up, pkt);
++	wake_up_interruptible(cf_sk->sk.sk_sleep);
 +
-+
-+	return ret;
-+}
-+
-+static int cfmuxl_transmit(struct layer *layr, struct cfpkt *pkt)
-+{
-+	int ret;
-+	struct cfmuxl *muxl = container_obj(layr);
-+	uint8 linkid;
-+	struct layer *dn;
-+	struct payload_info *info = cfpkt_info(pkt);
-+	dn = get_dn(muxl, cfpkt_info(pkt)->dev_info);
-+	if (dn == NULL) {
-+		pr_warning("CAIF: %s(): Send data on unknown phy "
-+			   "ID = %d (0x%x)\n",
-+			   __func__, info->dev_info->id, info->dev_info->id);
-+		return CFGLU_ENOTCONN;
-+	}
-+	info->hdr_len += 1;
-+	linkid = info->channel_id;
-+	cfpkt_add_head(pkt, &linkid, 1);
-+	ret = dn->transmit(dn, pkt);
-+	if (ret < 0) {
-+		/* Remove MUX protocol header upon error. */
-+		cfpkt_extr_head(pkt, &linkid, 1);
-+	}
-+
-+	return ret;
-+}
-+
-+static void cfmuxl_ctrlcmd(struct layer *layr, enum caif_ctrlcmd ctrl,
-+				int phyid)
-+{
-+	struct layer *p;
-+	struct cfmuxl *muxl = container_obj(layr);
-+	for (p = muxl->layer.up; p != NULL; p = p->next) {
-+		if (cfsrvl_phyid_match(p, phyid))
-+			p->ctrlcmd(p, ctrl, phyid);
-+	}
-+}
-diff --git a/net/caif/generic/cfrfml.c b/net/caif/generic/cfrfml.c
-new file mode 100644
-index 0000000..97bc972
---- /dev/null
-+++ b/net/caif/generic/cfrfml.c
-@@ -0,0 +1,104 @@
-+/*
-+ * Copyright (C) ST-Ericsson AB 2010
-+ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
-+ * License terms: GNU General Public License (GPL) version 2
-+ */
-+
-+#include <net/caif/generic/cfglue.h>
-+#include <net/caif/generic/caif_layer.h>
-+#include <net/caif/generic/cfsrvl.h>
-+#include <net/caif/generic/cfpkt.h>
-+
-+#define container_obj(layr) cfglu_container_of(layr, struct cfsrvl, layer)
-+
-+#define RFM_SEGMENTATION_BIT 0x01
-+#define RFM_PAYLOAD  0x00
-+#define RFM_CMD_BIT  0x80
-+#define RFM_FLOW_OFF 0x81
-+#define RFM_FLOW_ON  0x80
-+#define RFM_SET_PIN  0x82
-+#define RFM_CTRL_PKT_SIZE 1
-+
-+static int cfrfml_receive(struct layer *layr, struct cfpkt *pkt);
-+static int cfrfml_transmit(struct layer *layr, struct cfpkt *pkt);
-+
-+struct layer *cfrfml_create(uint8 channel_id, struct dev_info *dev_info)
-+{
-+	struct cfsrvl *rfm = cfglu_alloc(sizeof(struct cfsrvl));
-+	if (!rfm) {
-+		pr_warning("CAIF: %s(): Out of memory\n", __func__);
-+		return NULL;
-+	}
-+	caif_assert(offsetof(struct cfsrvl, layer) == 0);
-+	memset(rfm, 0, sizeof(struct cfsrvl));
-+	cfsrvl_init(rfm, channel_id, dev_info);
-+	rfm->layer.receive = cfrfml_receive;
-+	rfm->layer.transmit = cfrfml_transmit;
-+	snprintf(rfm->layer.name, CAIF_LAYER_NAME_SZ, "rfm%d", channel_id);
-+	return &rfm->layer;
-+}
-+
-+void cffrml_destroy(struct layer *layer)
-+{
-+	cfglu_free(layer);
-+}
-+
-+static int cfrfml_receive(struct layer *layr, struct cfpkt *pkt)
-+{
-+	uint8 tmp;
-+	bool segmented;
-+	int ret;
-+	caif_assert(layr->up != NULL);
-+	caif_assert(layr->receive != NULL);
-+
-+	/*
-+	 * RFM is taking care of segmentation and stripping of
-+	 * segmentation bit.
-+	 */
-+	if (cfpkt_extr_head(pkt, &tmp, 1) < 0) {
-+		pr_err("CAIF: %s(): Packet is erroneous!\n", __func__);
-+		cfpkt_destroy(pkt);
-+		return CFGLU_EPROTO;
-+	}
-+	segmented = tmp & RFM_SEGMENTATION_BIT;
-+	caif_assert(!segmented);
-+
-+	ret = layr->up->receive(layr->up, pkt);
-+	return ret;
-+}
-+
-+static int cfrfml_transmit(struct layer *layr, struct cfpkt *pkt)
-+{
-+	uint8 tmp = 0;
-+	int ret;
-+	struct cfsrvl *service = container_obj(layr);
-+
-+	caif_assert(layr->dn != NULL);
-+	caif_assert(layr->dn->transmit != NULL);
-+
-+	if (!cfsrvl_ready(service, &ret))
-+		return ret;
-+
-+	if (!cfpkt_getlen(pkt) > CAIF_MAX_PAYLOAD_SIZE) {
-+		pr_err("CAIF: %s():Packet too large - size=%d\n",
-+			__func__, cfpkt_getlen(pkt));
-+		return CFGLU_EOVERFLOW;
-+	}
-+	if (cfpkt_add_head(pkt, &tmp, 1) < 0) {
-+		pr_err("CAIF: %s(): Packet is erroneous!\n", __func__);
-+		return CFGLU_EPKT;
-+	}
-+
-+	/* Add info for MUX-layer to route the packet out. */
-+	cfpkt_info(pkt)->channel_id = service->layer.id;
-+	/*
-+	 * To optimize alignment, we add up the size of CAIF header before
-+	 * payload.
-+	 */
-+	cfpkt_info(pkt)->hdr_len = 1;
-+	cfpkt_info(pkt)->dev_info = &service->dev_info;
-+	ret = layr->dn->transmit(layr->dn, pkt);
-+	if (ret < 0)
-+		cfpkt_extr_head(pkt, &tmp, 1);
-+	return ret;
-+}
-diff --git a/net/caif/generic/cfserl.c b/net/caif/generic/cfserl.c
-new file mode 100644
-index 0000000..baf80fc
---- /dev/null
-+++ b/net/caif/generic/cfserl.c
-@@ -0,0 +1,198 @@
-+/*
-+ * Copyright (C) ST-Ericsson AB 2010
-+ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
-+ * License terms: GNU General Public License (GPL) version 2
-+ */
-+
-+#include <net/caif/generic/cfglue.h>
-+#include <net/caif/generic/caif_layer.h>
-+#include <net/caif/generic/cfpkt.h>
-+
-+#define container_obj(layr) ((struct cfserl *) layr)
-+
-+#define CFSERL_STX 0x02
-+#define CAIF_MINIUM_PACKET_SIZE 4
-+struct cfserl {
-+	struct layer layer;
-+	struct cfpkt *incomplete_frm;
-+	cfglu_lock_t sync;
-+	bool usestx;
-+};
-+#define STXLEN(layr) (layr->usestx ? 1 : 0)
-+
-+static int cfserl_receive(struct layer *layr, struct cfpkt *pkt);
-+static int cfserl_transmit(struct layer *layr, struct cfpkt *pkt);
-+static void cfserl_ctrlcmd(struct layer *layr, enum caif_ctrlcmd ctrl,
-+				int phyid);
-+
-+struct cfserl *cfserl_create(int type, int instance, bool use_stx)
-+{
-+	struct cfserl *this = cfglu_alloc(sizeof(struct cfserl));
-+	if (!this) {
-+		pr_warning("CAIF: %s(): Out of memory\n", __func__);
-+		return NULL;
-+	}
-+	caif_assert(offsetof(struct cfserl, layer) == 0);
-+	memset(this, 0, sizeof(struct cfserl));
-+	this->layer.receive = cfserl_receive;
-+	this->layer.transmit = cfserl_transmit;
-+	this->layer.ctrlcmd = cfserl_ctrlcmd;
-+	this->layer.type = type;
-+	this->usestx = use_stx;
-+	cfglu_init_lock(this->sync);
-+	snprintf(this->layer.name, CAIF_LAYER_NAME_SZ, "ser1");
-+	return this;
-+}
-+
-+void cfserl_set_uplayer(struct cfserl *this, struct layer *up)
-+{
-+	this->layer.up = up;
-+}
-+
-+void cfserl_set_dnlayer(struct cfserl *this, struct layer *dn)
-+{
-+	this->layer.dn = dn;
-+}
-+
-+static int cfserl_receive(struct layer *l, struct cfpkt *newpkt)
-+{
-+	struct cfserl *layr = container_obj(l);
-+	uint16 pkt_len;
-+	struct cfpkt *pkt = NULL;
-+	struct cfpkt *tail_pkt = NULL;
-+	uint8 tmp8;
-+	uint16 tmp;
-+	uint8 stx = CFSERL_STX;
-+	int ret;
-+	uint16 expectlen = 0;
-+	caif_assert(newpkt != NULL);
-+	cfglu_lock(layr->sync);
-+
-+	if (layr->incomplete_frm != NULL) {
-+
-+		layr->incomplete_frm =
-+		    cfpkt_append(layr->incomplete_frm, newpkt, expectlen);
-+		pkt = layr->incomplete_frm;
-+	} else {
-+		pkt = newpkt;
-+	}
-+	layr->incomplete_frm = NULL;
-+
-+	do {
-+		/* Search for STX at start of pkt if STX is used */
-+		if (layr->usestx) {
-+			cfpkt_extr_head(pkt, &tmp8, 1);
-+			if (tmp8 != CFSERL_STX) {
-+				while (cfpkt_more(pkt)
-+				       && tmp8 != CFSERL_STX) {
-+					cfpkt_extr_head(pkt, &tmp8, 1);
-+				}
-+				if (!cfpkt_more(pkt)) {
-+					cfpkt_destroy(pkt);
-+					layr->incomplete_frm = NULL;
-+					cfglu_unlock(layr->sync);
-+					return CFGLU_EPROTO;
-+				}
-+			}
-+		}
-+
-+		pkt_len = cfpkt_getlen(pkt);
-+
-+		/*
-+		 *  pkt_len is the accumulated length of the packet data
-+		 *  we have received so far.
-+		 *  Exit if frame doesn't hold length.
-+		 */
-+
-+		if (pkt_len < 2) {
-+			if (layr->usestx)
-+				cfpkt_add_head(pkt, &stx, 1);
-+			layr->incomplete_frm = pkt;
-+			cfglu_unlock(layr->sync);
-+			return 0;
-+		}
-+
-+		/*
-+		 *  Find length of frame.
-+		 *  expectlen is the length we need for a full frame.
-+		 */
-+		cfpkt_peek_head(pkt, &tmp, 2);
-+		expectlen = cfglu_le16_to_cpu(tmp) + 2;
-+		/*
-+		 * Frame error handling
-+		 */
-+		if (expectlen < CAIF_MINIUM_PACKET_SIZE
-+		    || expectlen > CAIF_MAX_FRAMESIZE) {
-+			if (!layr->usestx) {
-+				if (pkt != NULL)
-+					cfpkt_destroy(pkt);
-+				layr->incomplete_frm = NULL;
-+				expectlen = 0;
-+				cfglu_unlock(layr->sync);
-+				return CFGLU_EPROTO;
-+			}
-+			continue;
-+		}
-+
-+		if (pkt_len < expectlen) {
-+			/* Too little received data */
-+			if (layr->usestx)
-+				cfpkt_add_head(pkt, &stx, 1);
-+			layr->incomplete_frm = pkt;
-+			cfglu_unlock(layr->sync);
-+			return 0;
-+		}
-+
-+		/*
-+		 * Enough data for at least one frame.
-+		 * Split the frame, if too long
-+		 */
-+		if (pkt_len > expectlen)
-+			tail_pkt = cfpkt_split(pkt, expectlen);
-+		else
-+			tail_pkt = NULL;
-+
-+		/* Send the first part of packet upwards.*/
-+		cfglu_unlock(layr->sync);
-+		ret = layr->layer.up->receive(layr->layer.up, pkt);
-+		cfglu_lock(layr->sync);
-+		if (ret == CFGLU_EFCS) {
-+			if (layr->usestx) {
-+				if (tail_pkt != NULL)
-+					pkt = cfpkt_append(pkt, tail_pkt, 0);
-+
-+				/* Start search for next STX if frame failed */
-+				continue;
-+			} else {
-+				cfpkt_destroy(pkt);
-+				pkt = NULL;
-+			}
-+		}
-+
-+		pkt = tail_pkt;
-+
-+	} while (pkt != NULL);
-+
-+	cfglu_unlock(layr->sync);
 +	return 0;
 +}
 +
-+static int cfserl_transmit(struct layer *layer, struct cfpkt *newpkt)
-+{
-+	struct cfserl *layr = container_obj(layer);
-+	int ret;
-+	uint8 tmp8 = CFSERL_STX;
-+	if (layr->usestx)
-+		cfpkt_add_head(newpkt, &tmp8, 1);
-+	ret = layer->dn->transmit(layer->dn, newpkt);
-+	if (ret < 0)
-+		cfpkt_extr_head(newpkt, &tmp8, 1);
-+
-+	return ret;
-+}
-+
-+static void cfserl_ctrlcmd(struct layer *layr, enum caif_ctrlcmd ctrl,
++/* Packet Flow Control Callback function called from CAIF */
++static void caif_sktflowctrl_cb(struct layer *layr,
++				enum caif_ctrlcmd flow,
 +				int phyid)
 +{
-+	layr->up->ctrlcmd(layr->up, ctrl, phyid);
-+}
-diff --git a/net/caif/generic/cfsrvl.c b/net/caif/generic/cfsrvl.c
-new file mode 100644
-index 0000000..5770042
---- /dev/null
-+++ b/net/caif/generic/cfsrvl.c
-@@ -0,0 +1,182 @@
-+/*
-+ * Copyright (C) ST-Ericsson AB 2010
-+ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
-+ * License terms: GNU General Public License (GPL) version 2
-+ */
++	struct caifsock *cf_sk;
 +
-+#include <net/caif/generic/cfglue.h>
-+#include <net/caif/generic/caif_layer.h>
-+#include <net/caif/generic/cfsrvl.h>
-+#include <net/caif/generic/cfpkt.h>
++	/* NOTE: This function may be called in Tasklet context! */
++	trace_printk("CAIF: %s(): flowctrl func called: %s.\n",
++		      __func__,
++		      flow == CAIF_CTRLCMD_FLOW_ON_IND ? "ON" :
++		      flow == CAIF_CTRLCMD_FLOW_OFF_IND ? "OFF" :
++		      flow == CAIF_CTRLCMD_INIT_RSP ? "INIT_RSP" :
++		      flow == CAIF_CTRLCMD_DEINIT_RSP ? "DEINIT_RSP" :
++		      flow == CAIF_CTRLCMD_INIT_FAIL_RSP ? "INIT_FAIL_RSP" :
++		      flow ==
++		      CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND ? "REMOTE_SHUTDOWN" :
++		      "UKNOWN CTRL COMMAND");
 +
-+#define SRVL_CTRL_PKT_SIZE 1
-+#define SRVL_FLOW_OFF 0x81
-+#define SRVL_FLOW_ON  0x80
-+#define SRVL_SET_PIN  0x82
-+#define SRVL_CTRL_PKT_SIZE 1
-+
-+#define container_obj(layr) cfglu_container_of(layr, struct cfsrvl, layer)
-+
-+static void cfservl_ctrlcmd(struct layer *layr, enum caif_ctrlcmd ctrl,
-+				int phyid)
-+{
-+	struct cfsrvl *service = container_obj(layr);
-+	caif_assert(layr->up != NULL);
-+	caif_assert(layr->up->ctrlcmd != NULL);
-+	switch (ctrl) {
-+	case CAIF_CTRLCMD_INIT_RSP:
-+		service->open = true;
-+		layr->up->ctrlcmd(layr->up, ctrl, phyid);
-+		break;
-+	case CAIF_CTRLCMD_DEINIT_RSP:
-+	case CAIF_CTRLCMD_INIT_FAIL_RSP:
-+		service->open = false;
-+		layr->up->ctrlcmd(layr->up, ctrl, phyid);
-+		break;
-+	case _CAIF_CTRLCMD_PHYIF_FLOW_OFF_IND:
-+		if (phyid != service->dev_info.id)
-+			break;
-+		if (service->modem_flow_on)
-+			layr->up->ctrlcmd(layr->up,
-+					  CAIF_CTRLCMD_FLOW_OFF_IND, phyid);
-+		service->phy_flow_on = false;
-+		break;
-+	case _CAIF_CTRLCMD_PHYIF_FLOW_ON_IND:
-+		if (phyid != service->dev_info.id)
-+			return;
-+		if (service->modem_flow_on) {
-+			layr->up->ctrlcmd(layr->up,
-+					   CAIF_CTRLCMD_FLOW_ON_IND,
-+					   phyid);
-+		}
-+		service->phy_flow_on = true;
-+		break;
-+	case CAIF_CTRLCMD_FLOW_OFF_IND:
-+		if (service->phy_flow_on) {
-+			layr->up->ctrlcmd(layr->up,
-+					  CAIF_CTRLCMD_FLOW_OFF_IND, phyid);
-+		}
-+		service->modem_flow_on = false;
-+		break;
++	cf_sk = container_of(layr, struct caifsock, layer);
++	switch (flow) {
 +	case CAIF_CTRLCMD_FLOW_ON_IND:
-+		if (service->phy_flow_on) {
-+			layr->up->ctrlcmd(layr->up,
-+					  CAIF_CTRLCMD_FLOW_ON_IND, phyid);
++		dbfs_atomic_inc(&cnt.num_tx_flow_on_ind);
++		/* Signal reader that data is available. */
++		SET_TX_FLOW_ON(cf_sk);
++		wake_up_interruptible(cf_sk->sk.sk_sleep);
++		break;
++
++	case CAIF_CTRLCMD_FLOW_OFF_IND:
++		dbfs_atomic_inc(&cnt.num_tx_flow_off_ind);
++		SET_TX_FLOW_OFF(cf_sk);
++		break;
++
++	case CAIF_CTRLCMD_INIT_RSP:
++		dbfs_atomic_inc(&cnt.num_init_resp);
++		/* Signal reader that data is available. */
++		caif_assert(STATE_IS_OPEN(cf_sk));
++		SET_PENDING_OFF(cf_sk);
++		SET_TX_FLOW_ON(cf_sk);
++		wake_up_interruptible(cf_sk->sk.sk_sleep);
++		break;
++
++	case CAIF_CTRLCMD_DEINIT_RSP:
++		dbfs_atomic_inc(&cnt.num_deinit_resp);
++		caif_assert(!STATE_IS_OPEN(cf_sk));
++		SET_PENDING_OFF(cf_sk);
++		if (!STATE_IS_PENDING_DESTROY(cf_sk)) {
++			if (cf_sk->sk.sk_sleep != NULL)
++				wake_up_interruptible(cf_sk->sk.sk_sleep);
 +		}
-+		service->modem_flow_on = true;
++		sock_put(&cf_sk->sk);
 +		break;
-+	case _CAIF_CTRLCMD_PHYIF_DOWN_IND:
-+		/* In case interface is down, let's fake a remove shutdown */
-+		layr->up->ctrlcmd(layr->up,
-+				CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND, phyid);
++
++	case CAIF_CTRLCMD_INIT_FAIL_RSP:
++		dbfs_atomic_inc(&cnt.num_init_fail_resp);
++		caif_assert(STATE_IS_OPEN(cf_sk));
++		SET_STATE_CLOSED(cf_sk);
++		SET_PENDING_OFF(cf_sk);
++		SET_TX_FLOW_OFF(cf_sk);
++		wake_up_interruptible(cf_sk->sk.sk_sleep);
 +		break;
++
 +	case CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND:
-+		layr->up->ctrlcmd(layr->up, ctrl, phyid);
++		dbfs_atomic_inc(&cnt.num_remote_shutdown_ind);
++		caif_assert(STATE_IS_OPEN(cf_sk));
++		caif_assert(STATE_IS_PENDING(cf_sk));
++		SET_REMOTE_SHUTDOWN(cf_sk);
++		SET_TX_FLOW_OFF(cf_sk);
++		drain_queue(cf_sk);
++		SET_RX_FLOW_ON(cf_sk);
++		cf_sk->file_mode = 0;
++		wake_up_interruptible(cf_sk->sk.sk_sleep);
 +		break;
++
 +	default:
-+		pr_warning("CAIF: %s(): "
-+			   "Unexpected ctrl in cfsrvl (%d)\n", __func__, ctrl);
-+		/* We have both modem and phy flow on, send flow on */
-+		layr->up->ctrlcmd(layr->up, ctrl, phyid);
-+		service->phy_flow_on = true;
-+		break;
++		pr_debug("CAIF: %s(): Unexpected flow command %d\n",
++			      __func__, flow);
 +	}
 +}
 +
-+static int cfservl_modemcmd(struct layer *layr, enum caif_modemcmd ctrl)
-+{
-+	struct cfsrvl *service = container_obj(layr);
-+	caif_assert(layr != NULL);
-+	caif_assert(layr->dn != NULL);
-+	caif_assert(layr->dn->transmit != NULL);
-+	switch (ctrl) {
-+	case CAIF_MODEMCMD_FLOW_ON_REQ:
-+		{
-+			struct cfpkt *pkt;
-+			struct payload_info *info;
-+			uint8 flow_on = SRVL_FLOW_ON;
-+			pkt = cfpkt_create(SRVL_CTRL_PKT_SIZE);
-+			if (!pkt) {
-+				pr_warning("CAIF: %s(): Out of memory\n",
-+					__func__);
-+				return CFGLU_ENOMEM;
-+			}
 +
-+			if (cfpkt_add_head(pkt, &flow_on, 1) < 0) {
-+				pr_err("CAIF: %s(): Packet is erroneous!\n",
-+					__func__);
-+				cfpkt_destroy(pkt);
-+				return CFGLU_EPROTO;
-+			}
-+			info = cfpkt_info(pkt);
-+			info->channel_id = service->layer.id;
-+			info->hdr_len = 1;
-+			info->dev_info = &service->dev_info;
-+			return layr->dn->transmit(layr->dn, pkt);
++
++static struct sk_buff *caif_alloc_send_skb(struct sock *sk,
++				    unsigned long data_len,
++				    int *err)
++{
++	struct sk_buff *skb;
++	unsigned int sk_allocation = sk->sk_allocation;
++
++	sk->sk_allocation |= GFP_KERNEL;
++
++	/* Allocate a buffer structure to hold the signal. */
++	skb = sock_alloc_send_skb(sk, data_len, 1, err);
++
++	sk->sk_allocation = sk_allocation;
++
++	return skb;
++}
++
++static int caif_recvmsg(struct kiocb *iocb, struct socket *sock,
++				struct msghdr *m, size_t buf_len, int flags)
++
++{
++	struct sock *sk = sock->sk;
++	struct caifsock *cf_sk = container_of(sk, struct caifsock, sk);
++	struct cfpkt *pkt = NULL;
++	size_t len;
++	int result;
++	struct sk_buff *skb;
++	ssize_t ret = -EIO;
++	int read_queue_low;
++
++	if (cf_sk == NULL) {
++		pr_debug("CAIF: %s(): private_data not set!\n",
++			      __func__);
++		ret = -EBADFD;
++		goto read_error;
++	}
++
++	/* Don't do multiple iovec entries yet */
++	if (m->msg_iovlen != 1)
++		return -EOPNOTSUPP;
++
++	if (unlikely(!buf_len))
++		return -EINVAL;
++
++	lock_sock(&(cf_sk->sk));
++
++	caif_assert(cf_sk->pktq);
++
++	if (!STATE_IS_OPEN(cf_sk)) {
++		/* Socket is closed or closing. */
++		if (!STATE_IS_PENDING(cf_sk)) {
++			pr_debug("CAIF: %s(): socket is closed (by remote)\n",
++				 __func__);
++			ret = -EPIPE;
++		} else {
++			pr_debug("CAIF: %s(): socket is closing..\n", __func__);
++			ret = -EBADF;
 +		}
-+	case CAIF_MODEMCMD_FLOW_OFF_REQ:
-+		{
-+			struct cfpkt *pkt;
-+			struct payload_info *info;
-+			uint8 flow_off = SRVL_FLOW_OFF;
-+			pkt = cfpkt_create(SRVL_CTRL_PKT_SIZE);
-+			if (cfpkt_add_head(pkt, &flow_off, 1) < 0) {
-+				pr_err("CAIF: %s(): Packet is erroneous!\n",
-+					__func__);
-+				cfpkt_destroy(pkt);
-+				return CFGLU_EPROTO;
-+			}
-+			info = cfpkt_info(pkt);
-+			info->channel_id = service->layer.id;
-+			info->hdr_len = 1;
-+			info->dev_info = &service->dev_info;
-+			return layr->dn->transmit(layr->dn, pkt);
++		goto read_error;
++	}
++
++	/* Socket is open or opening. */
++	if (STATE_IS_PENDING(cf_sk)) {
++		pr_debug("CAIF: %s(): socket is opening...\n", __func__);
++
++		if (flags & MSG_DONTWAIT) {
++			/* We can't block. */
++			pr_debug("CAIF: %s():state pending and MSG_DONTWAIT\n",
++				 __func__);
++			ret = -EAGAIN;
++			goto read_error;
 +		}
-+	default:
-+	  break;
-+	}
-+	return CFGLU_EINVAL;
-+}
 +
-+void cfservl_destroy(struct layer *layer)
-+{
-+	cfglu_free(layer);
-+}
++		/*
++		 * Blocking mode; state is pending and we need to wait
++		 * for its conclusion.
++		 */
++		release_sock(&cf_sk->sk);
 +
-+void cfsrvl_init(struct cfsrvl *service,
-+		 uint8 channel_id,
-+		 struct dev_info *dev_info)
-+{
-+	caif_assert(offsetof(struct cfsrvl, layer) == 0);
-+	service->open = false;
-+	service->modem_flow_on = true;
-+	service->phy_flow_on = true;
-+	service->layer.id = channel_id;
-+	service->layer.ctrlcmd = cfservl_ctrlcmd;
-+	service->layer.modemcmd = cfservl_modemcmd;
-+	service->dev_info = *dev_info;
-+}
++		result =
++		    wait_event_interruptible(*cf_sk->sk.sk_sleep,
++					     !STATE_IS_PENDING(cf_sk));
 +
-+bool cfsrvl_ready(struct cfsrvl *service, int *err)
-+{
-+	if (service->open && service->modem_flow_on && service->phy_flow_on)
-+		return true;
-+	if (!service->open) {
-+		*err = CFGLU_ENOTCONN;
-+		return false;
-+	}
-+	caif_assert(!(service->modem_flow_on && service->phy_flow_on));
-+	*err = CFGLU_ERETRY;
-+	return false;
-+}
-+uint8 cfsrvl_getphyid(struct layer *layer)
-+{
-+	struct cfsrvl *servl = container_obj(layer);
-+	return servl->dev_info.id;
-+}
++		lock_sock(&(cf_sk->sk));
 +
-+bool cfsrvl_phyid_match(struct layer *layer, int phyid)
-+{
-+	struct cfsrvl *servl = container_obj(layer);
-+	return servl->dev_info.id == phyid;
-+}
-diff --git a/net/caif/generic/cfutill.c b/net/caif/generic/cfutill.c
-new file mode 100644
-index 0000000..5029e0b
---- /dev/null
-+++ b/net/caif/generic/cfutill.c
-@@ -0,0 +1,112 @@
-+/*
-+ * Copyright (C) ST-Ericsson AB 2010
-+ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
-+ * License terms: GNU General Public License (GPL) version 2
-+ */
-+
-+#include <net/caif/generic/cfglue.h>
-+#include <net/caif/generic/caif_layer.h>
-+#include <net/caif/generic/cfsrvl.h>
-+#include <net/caif/generic/cfpkt.h>
-+
-+#define container_obj(layr) ((struct cfsrvl *) layr)
-+#define UTIL_PAYLOAD  0x00
-+#define UTIL_CMD_BIT  0x80
-+#define UTIL_REMOTE_SHUTDOWN 0x82
-+#define UTIL_FLOW_OFF 0x81
-+#define UTIL_FLOW_ON  0x80
-+#define UTIL_CTRL_PKT_SIZE 1
-+static int cfutill_receive(struct layer *layr, struct cfpkt *pkt);
-+static int cfutill_transmit(struct layer *layr, struct cfpkt *pkt);
-+
-+struct layer *cfutill_create(uint8 channel_id, struct dev_info *dev_info)
-+{
-+	struct cfsrvl *util = cfglu_alloc(sizeof(struct cfsrvl));
-+	if (!util) {
-+		pr_warning("CAIF: %s(): Out of memory\n", __func__);
-+		return NULL;
-+	}
-+	caif_assert(offsetof(struct cfsrvl, layer) == 0);
-+	memset(util, 0, sizeof(struct cfsrvl));
-+	cfsrvl_init(util, channel_id, dev_info);
-+	util->layer.receive = cfutill_receive;
-+	util->layer.transmit = cfutill_transmit;
-+	snprintf(util->layer.name, CAIF_LAYER_NAME_SZ - 1, "util1");
-+	return &util->layer;
-+}
-+
-+static int cfutill_receive(struct layer *layr, struct cfpkt *pkt)
-+{
-+	uint8 cmd = -1;
-+	struct cfsrvl *service = container_obj(layr);
-+	caif_assert(layr != NULL);
-+	caif_assert(layr->up != NULL);
-+	caif_assert(layr->up->receive != NULL);
-+	caif_assert(layr->up->ctrlcmd != NULL);
-+	if (cfpkt_extr_head(pkt, &cmd, 1) < 0) {
-+		pr_err("CAIF: %s(): Packet is erroneous!\n", __func__);
-+		cfpkt_destroy(pkt);
-+		return CFGLU_EPROTO;
++		if (result == -ERESTARTSYS) {
++			pr_debug("CAIF: %s(): wait_event_interruptible"
++				 " woken by a signal (1)", __func__);
++			ret = -ERESTARTSYS;
++			goto read_error;
++		}
 +	}
 +
-+	switch (cmd) {
-+	case UTIL_PAYLOAD:
-+		return layr->up->receive(layr->up, pkt);
-+	case UTIL_FLOW_OFF:
-+		layr->ctrlcmd(layr, CAIF_CTRLCMD_FLOW_OFF_IND, 0);
-+		cfpkt_destroy(pkt);
-+		return 0;
-+	case UTIL_FLOW_ON:
-+		layr->ctrlcmd(layr, CAIF_CTRLCMD_FLOW_ON_IND, 0);
-+		cfpkt_destroy(pkt);
-+		return 0;
-+	case UTIL_REMOTE_SHUTDOWN:	/* Remote Shutdown Request */
-+		pr_err("CAIF: %s(): REMOTE SHUTDOWN REQUEST RECEIVED\n",
-+			__func__);
-+		layr->ctrlcmd(layr, CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND, 0);
-+		service->open = false;
-+		cfpkt_destroy(pkt);
-+		return 0;
-+	default:
-+		cfpkt_destroy(pkt);
-+		pr_warning("CAIF: %s(): Unknown service control %d (0x%x)\n",
-+			   __func__, cmd, cmd);
-+		return CFGLU_EPROTO;
-+	}
-+}
-+
-+static int cfutill_transmit(struct layer *layr, struct cfpkt *pkt)
-+{
-+	uint8 zero = 0;
-+	struct payload_info *info;
-+	int ret;
-+	struct cfsrvl *service = container_obj(layr);
-+	caif_assert(layr != NULL);
-+	caif_assert(layr->dn != NULL);
-+	caif_assert(layr->dn->transmit != NULL);
-+	if (!cfsrvl_ready(service, &ret))
-+		return ret;
-+
-+	if (cfpkt_getlen(pkt) > CAIF_MAX_PAYLOAD_SIZE) {
-+		pr_err("CAIF: %s(): packet too large size=%d\n",
-+			__func__, cfpkt_getlen(pkt));
-+		return CFGLU_EOVERFLOW;
++	if (STATE_IS_REMOTE_SHUTDOWN(cf_sk)) {
++		pr_debug("CAIF: %s(): received remote_shutdown indication\n",
++			 __func__);
++		ret = -ESHUTDOWN;
++		goto read_error;
 +	}
 +
-+	cfpkt_add_head(pkt, &zero, 1);
-+	/* Add info for MUX-layer to route the packet out. */
-+	info = cfpkt_info(pkt);
-+	info->channel_id = service->layer.id;
 +	/*
-+	 * To optimize alignment, we add up the size of CAIF header before
-+	 * payload.
++	 * Block if we don't have any received buffers.
++	 * The queue has its own lock.
 +	 */
-+	info->hdr_len = 1;
-+	info->dev_info = &service->dev_info;
-+	ret = layr->dn->transmit(layr->dn, pkt);
++	while ((pkt = cfpkt_qpeek(cf_sk->pktq)) == NULL) {
++
++		if (flags & MSG_DONTWAIT) {
++			pr_debug("CAIF: %s(): MSG_DONTWAIT\n", __func__);
++			ret = -EAGAIN;
++			goto read_error;
++		}
++		pr_debug("CAIF: %s() wait_event\n", __func__);
++
++		/* Let writers in. */
++		release_sock(&cf_sk->sk);
++
++		/* Block reader until data arrives or socket is closed. */
++		if (wait_event_interruptible(*cf_sk->sk.sk_sleep,
++					cfpkt_qpeek(cf_sk->pktq)
++					|| STATE_IS_REMOTE_SHUTDOWN(cf_sk)
++					|| !STATE_IS_OPEN(cf_sk)) ==
++		    -ERESTARTSYS) {
++			pr_debug("CAIF: %s():"
++				" wait_event_interruptible woken by "
++				"a signal, signal_pending(current) = %d\n",
++				__func__,
++				signal_pending(current));
++			return -ERESTARTSYS;
++		}
++
++		pr_debug("CAIF: %s() awake\n", __func__);
++		if (STATE_IS_REMOTE_SHUTDOWN(cf_sk)) {
++			pr_debug("CAIF: %s(): "
++				 "received remote_shutdown indication\n",
++				 __func__);
++			ret = -ESHUTDOWN;
++			goto read_error_no_unlock;
++		}
++
++		/* I want to be alone on cf_sk (except status and queue). */
++		lock_sock(&(cf_sk->sk));
++
++		if (!STATE_IS_OPEN(cf_sk)) {
++			/* Someone closed the link, report error. */
++			pr_debug("CAIF: %s(): remote end shutdown!\n",
++				      __func__);
++			ret = -EPIPE;
++			goto read_error;
++		}
++	}
++
++	/* The queue has its own lock. */
++	len = cfpkt_getlen(pkt);
++
++	/* Check max length that can be copied. */
++	if (len > buf_len) {
++		pr_debug("CAIF: %s(): user buffer too small\n", __func__);
++		ret = -EINVAL;
++		goto read_error;
++	}
++
++	/*
++	 * Get packet from queue.
++	 * The queue has its own lock.
++	 */
++	pkt = cfpkt_dequeue(cf_sk->pktq);
++
++	spin_lock(&cf_sk->read_queue_len_lock);
++	cf_sk->read_queue_len--;
++	read_queue_low = (cf_sk->read_queue_len < CHNL_SKT_READ_QUEUE_LOW);
++	spin_unlock(&cf_sk->read_queue_len_lock);
++
++	if (!RX_FLOW_IS_ON(cf_sk) && read_queue_low) {
++		dbfs_atomic_inc(&cnt.num_rx_flow_on);
++		SET_RX_FLOW_ON(cf_sk);
++
++		/* Send flow on. */
++		pr_debug("CAIF: %s(): sending flow ON (queue len = %d)\n",
++			 __func__, cf_sk->read_queue_len);
++		caif_assert(cf_sk->layer.dn);
++		caif_assert(cf_sk->layer.dn->ctrlcmd);
++		(void) cf_sk->layer.dn->modemcmd(cf_sk->layer.dn,
++					       CAIF_MODEMCMD_FLOW_ON_REQ);
++
++		caif_assert(cf_sk->read_queue_len >= 0);
++	}
++	skb = cfpkt_tonative(pkt);
++	result = skb_copy_datagram_iovec(skb, 0, m->msg_iov, len);
++	if (result) {
++		pr_debug("CAIF: %s(): cfpkt_raw_extract failed\n", __func__);
++		cfpkt_destroy(pkt);
++		ret = -EFAULT;
++		goto read_error;
++	}
++	if (unlikely(buf_len < len)) {
++		len = buf_len;
++		m->msg_flags |= MSG_TRUNC;
++	}
++
++	/* Free packet. */
++	skb_free_datagram(sk, skb);
++
++	/* Let the others in. */
++	release_sock(&cf_sk->sk);
++	return len;
++
++read_error:
++	release_sock(&cf_sk->sk);
++read_error_no_unlock:
++	return ret;
++}
++
++/* Send a signal as a consequence of sendmsg, sendto or caif_sendmsg. */
++static int caif_sendmsg(struct kiocb *kiocb, struct socket *sock,
++			struct msghdr *msg, size_t len)
++{
++
++	struct sock *sk = sock->sk;
++	struct caifsock *cf_sk = container_of(sk, struct caifsock, sk);
++	void *payload;
++	size_t payload_size = msg->msg_iov->iov_len;
++	struct cfpkt *pkt = NULL;
++	struct payload_info info;
++	unsigned char *txbuf;
++	int err = 0;
++	ssize_t ret = -EIO;
++	int result;
++	struct sk_buff *skb;
++	caif_assert(msg->msg_iovlen == 1);
++
++	if (cf_sk == NULL) {
++		pr_debug("CAIF: %s(): private_data not set!\n",
++			      __func__);
++		ret = -EBADFD;
++		goto write_error_no_unlock;
++	}
++
++	if (unlikely(msg->msg_iov->iov_base == NULL)) {
++		pr_warning("CAIF: %s(): Buffer is NULL.\n", __func__);
++		ret = -EINVAL;
++		goto write_error_no_unlock;
++	}
++
++	payload = msg->msg_iov->iov_base;
++	if (payload_size > CAIF_MAX_PAYLOAD_SIZE) {
++		pr_debug("CAIF: %s(): buffer too long\n", __func__);
++		ret = -EINVAL;
++		goto write_error_no_unlock;
++	}
++	/* I want to be alone on cf_sk (except status and queue) */
++	lock_sock(&(cf_sk->sk));
++
++	caif_assert(cf_sk->pktq);
++
++	if (!STATE_IS_OPEN(cf_sk)) {
++		/* Socket is closed or closing */
++		if (!STATE_IS_PENDING(cf_sk)) {
++			pr_debug("CAIF: %s(): socket is closed (by remote)\n",
++				 __func__);
++			ret = -EPIPE;
++		} else {
++			pr_debug("CAIF: %s(): socket is closing...\n",
++				 __func__);
++			ret = -EBADF;
++		}
++		goto write_error;
++	}
++
++	/* Socket is open or opening */
++	if (STATE_IS_PENDING(cf_sk)) {
++		pr_debug("CAIF: %s(): socket is opening...\n", __func__);
++
++		if (msg->msg_flags & MSG_DONTWAIT) {
++			/* We can't block */
++			trace_printk("CAIF: %s():state pending:"
++				     "state=MSG_DONTWAIT\n", __func__);
++			ret = -EAGAIN;
++			goto write_error;
++		}
++
++		/* Let readers in */
++		release_sock(&cf_sk->sk);
++
++		/*
++		 * Blocking mode; state is pending and we need to wait
++		 * for its conclusion.
++		 */
++		result =
++		    wait_event_interruptible(*cf_sk->sk.sk_sleep,
++					     !STATE_IS_PENDING(cf_sk));
++
++		/* I want to be alone on cf_sk (except status and queue) */
++		lock_sock(&(cf_sk->sk));
++
++		if (result == -ERESTARTSYS) {
++			pr_debug("CAIF: %s(): wait_event_interruptible"
++				 " woken by a signal (1)", __func__);
++			ret = -ERESTARTSYS;
++			goto write_error;
++		}
++	}
++
++	if (STATE_IS_REMOTE_SHUTDOWN(cf_sk)) {
++		pr_debug("CAIF: %s(): received remote_shutdown indication\n",
++			 __func__);
++		ret = -ESHUTDOWN;
++		goto write_error;
++	}
++
++	if (!TX_FLOW_IS_ON(cf_sk)) {
++
++		/* Flow is off. Check non-block flag */
++		if (msg->msg_flags & MSG_DONTWAIT) {
++			trace_printk("CAIF: %s(): MSG_DONTWAIT and tx flow off",
++				 __func__);
++			ret = -EAGAIN;
++			goto write_error;
++		}
++
++		/* release lock before waiting */
++		release_sock(&cf_sk->sk);
++
++		/* Wait until flow is on or socket is closed */
++		if (wait_event_interruptible(*cf_sk->sk.sk_sleep,
++					TX_FLOW_IS_ON(cf_sk)
++					|| !STATE_IS_OPEN(cf_sk)
++					|| STATE_IS_REMOTE_SHUTDOWN(cf_sk)
++					) == -ERESTARTSYS) {
++			pr_debug("CAIF: %s():"
++				 " wait_event_interruptible woken by a signal",
++				 __func__);
++			ret = -ERESTARTSYS;
++			goto write_error_no_unlock;
++		}
++
++		/* I want to be alone on cf_sk (except status and queue) */
++		lock_sock(&(cf_sk->sk));
++
++		if (!STATE_IS_OPEN(cf_sk)) {
++			/* someone closed the link, report error */
++			pr_debug("CAIF: %s(): remote end shutdown!\n",
++				      __func__);
++			ret = -EPIPE;
++			goto write_error;
++		}
++
++		if (STATE_IS_REMOTE_SHUTDOWN(cf_sk)) {
++			pr_debug("CAIF: %s(): "
++				 "received remote_shutdown indication\n",
++				 __func__);
++			ret = -ESHUTDOWN;
++			goto write_error;
++		}
++	}
++
++	/* Create packet, buf=NULL means no copying */
++	skb = caif_alloc_send_skb(sk,
++				payload_size + CAIF_NEEDED_HEADROOM +
++				CAIF_NEEDED_TAILROOM,
++				&err);
++
++	if (skb == NULL) {
++		pr_debug("CAIF: %s(): caif_alloc_send_skb returned NULL\n",
++			  __func__);
++		ret = -ENOMEM;
++		goto write_error;
++	}
++
++	skb_reserve(skb, CAIF_NEEDED_HEADROOM);
++	pkt = cfpkt_fromnative(CAIF_DIR_OUT, skb);
++	caif_assert((void *)pkt == (void *)skb);
++
++	if (cfpkt_raw_append(pkt, (void **) &txbuf, payload_size) < 0) {
++		pr_debug("CAIF: %s(): cfpkt_raw_append failed\n", __func__);
++		cfpkt_destroy(pkt);
++		ret = -EINVAL;
++		goto write_error;
++	}
++
++	/* Copy data into buffer. */
++	if (copy_from_user(txbuf, payload, payload_size)) {
++		pr_debug("CAIF: %s(): copy_from_user returned non zero.\n",
++			 __func__);
++		cfpkt_destroy(pkt);
++		ret = -EINVAL;
++		goto write_error;
++	}
++	memset(&info, 0, sizeof(info));
++
++	/* Send the packet down the stack. */
++	caif_assert(cf_sk->layer.dn);
++	caif_assert(cf_sk->layer.dn->transmit);
++
++	do {
++		ret = cf_sk->layer.dn->transmit(cf_sk->layer.dn, pkt);
++
++		if (likely((ret >= 0) || (ret != -EAGAIN)))
++			break;
++
++		/* EAGAIN - retry */
++		if (msg->msg_flags & MSG_DONTWAIT) {
++			pr_debug("CAIF: %s(): NONBLOCK and transmit failed,"
++				 " error = %d\n", __func__, ret);
++			ret = -EAGAIN;
++			goto write_error;
++		}
++
++		/* Let readers in */
++		release_sock(&cf_sk->sk);
++
++		/* Wait until flow is on or socket is closed */
++		if (wait_event_interruptible(*cf_sk->sk.sk_sleep,
++					TX_FLOW_IS_ON(cf_sk)
++					|| !STATE_IS_OPEN(cf_sk)
++					|| STATE_IS_REMOTE_SHUTDOWN(cf_sk)
++					) == -ERESTARTSYS) {
++			pr_debug("CAIF: %s(): wait_event_interruptible"
++				 " woken by a signal", __func__);
++			ret = -ERESTARTSYS;
++			goto write_error_no_unlock;
++		}
++
++		/* I want to be alone on cf_sk (except status and queue) */
++		lock_sock(&(cf_sk->sk));
++
++	} while (ret == -EAGAIN);
++
 +	if (ret < 0) {
-+		uint32 tmp32;
-+		cfpkt_extr_head(pkt, &tmp32, 4);
++		cfpkt_destroy(pkt);
++		pr_debug("CAIF: %s(): transmit failed, error = %d\n",
++			  __func__, ret);
++
++		goto write_error;
 +	}
++
++	release_sock(&cf_sk->sk);
++	return payload_size;
++
++write_error:
++	release_sock(&cf_sk->sk);
++write_error_no_unlock:
 +	return ret;
 +}
-diff --git a/net/caif/generic/cfveil.c b/net/caif/generic/cfveil.c
-new file mode 100644
-index 0000000..c2fccfd
---- /dev/null
-+++ b/net/caif/generic/cfveil.c
-@@ -0,0 +1,106 @@
-+/*
-+ * Copyright (C) ST-Ericsson AB 2010
-+ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
-+ * License terms: GNU General Public License (GPL) version 2
++
++static unsigned int caif_poll(struct file *file, struct socket *sock,
++						poll_table *wait)
++{
++	struct sock *sk = sock->sk;
++	struct caifsock *cf_sk = container_of(sk, struct caifsock, sk);
++	u32 mask = 0;
++
++	poll_wait(file, sk->sk_sleep, wait);
++	lock_sock(&(cf_sk->sk));
++	if (cfpkt_qpeek(cf_sk->pktq) != NULL)
++		mask |= (POLLIN | POLLRDNORM);
++	if (!STATE_IS_OPEN(cf_sk))
++		mask |= POLLHUP;
++	else if (TX_FLOW_IS_ON(cf_sk))
++		mask |= (POLLOUT | POLLWRNORM);
++	release_sock(&cf_sk->sk);
++	trace_printk("CAIF: %s(): poll mask=0x%04x...\n",
++		      __func__, mask);
++	return mask;
++}
++
++static void drain_queue(struct caifsock *cf_sk)
++{
++	struct cfpkt *pkt = NULL;
++
++	/* Empty the queue */
++	do {
++		/* The queue has its own lock */
++		pkt = cfpkt_dequeue(cf_sk->pktq);
++		if (!pkt)
++			break;
++		pr_debug("CAIF: %s(): freeing packet from read queue\n",
++			 __func__);
++		cfpkt_destroy(pkt);
++
++	} while (1);
++
++	spin_lock(&cf_sk->read_queue_len_lock);
++	cf_sk->read_queue_len = 0;
++	spin_unlock(&cf_sk->read_queue_len_lock);
++}
++
++
++static int setsockopt(struct socket *sock,
++			int lvl, int opt, char __user *ov, unsigned int ol)
++{
++	struct sock *sk = sock->sk;
++	struct caifsock *cf_sk = container_of(sk, struct caifsock, sk);
++	struct caif_channel_opt confopt;
++	int res;
++
++	if (lvl != SOL_CAIF) {
++		pr_debug("CAIF: %s(): setsockopt bad level\n", __func__);
++		return -ENOPROTOOPT;
++	}
++
++	switch (opt) {
++	case CAIFSO_CHANNEL_CONFIG:
++		if (ol < sizeof(struct caif_channel_opt)) {
++			pr_debug("CAIF: %s(): setsockopt"
++				 " CAIFSO_CHANNEL_CONFIG bad size\n", __func__);
++			return -EINVAL;
++		}
++		res = copy_from_user(&confopt, ov, sizeof(confopt));
++		if (res)
++			return res;
++		lock_sock(&(cf_sk->sk));
++		cf_sk->config.priority = confopt.priority;
++		cf_sk->config.phy_pref = confopt.link_selector;
++		strncpy(cf_sk->config.phy_name, confopt.link_name,
++			sizeof(cf_sk->config.phy_name));
++		pr_debug("CAIF: %s(): Setting sockopt pri=%d pref=%d name=%s\n",
++			      __func__,
++			      cf_sk->config.priority,
++			      cf_sk->config.phy_pref,
++			      cf_sk->config.phy_name);
++		release_sock(&cf_sk->sk);
++		return 0;
++/* TODO: Implement the remaining options:
++ *	case CAIF_REQ_PARAM_OPT:
++ *	case CAIF_RSP_PARAM_OPT:
++ *	case CAIF_UTIL_FLOW_OPT:
++ *	case CAIF_CONN_INFO_OPT:
++ *	case CAIF_CONN_ID_OPT:
 + */
-+
-+#include <net/caif/generic/cfglue.h>
-+#include <net/caif/generic/caif_layer.h>
-+#include <net/caif/generic/cfsrvl.h>
-+#include <net/caif/generic/cfpkt.h>
-+
-+#define VEI_PAYLOAD  0x00
-+#define VEI_CMD_BIT  0x80
-+#define VEI_FLOW_OFF 0x81
-+#define VEI_FLOW_ON  0x80
-+#define VEI_SET_PIN  0x82
-+#define VEI_CTRL_PKT_SIZE 1
-+#define container_obj(layr) cfglu_container_of(layr, struct cfsrvl, layer)
-+
-+static int cfvei_receive(struct layer *layr, struct cfpkt *pkt);
-+static int cfvei_transmit(struct layer *layr, struct cfpkt *pkt);
-+
-+struct layer *cfvei_create(uint8 channel_id, struct dev_info *dev_info)
-+{
-+	struct cfsrvl *vei = cfglu_alloc(sizeof(struct cfsrvl));
-+	if (!vei) {
-+		pr_warning("CAIF: %s(): Out of memory\n", __func__);
-+		return NULL;
++	default:
++		pr_debug("CAIF: %s(): unhandled option %d\n", __func__, opt);
++		return -EINVAL;
 +	}
-+	caif_assert(offsetof(struct cfsrvl, layer) == 0);
-+	memset(vei, 0, sizeof(struct cfsrvl));
-+	cfsrvl_init(vei, channel_id, dev_info);
-+	vei->layer.receive = cfvei_receive;
-+	vei->layer.transmit = cfvei_transmit;
-+	snprintf(vei->layer.name, CAIF_LAYER_NAME_SZ - 1, "vei%d", channel_id);
-+	return &vei->layer;
++
++
 +}
 +
-+static int cfvei_receive(struct layer *layr, struct cfpkt *pkt)
++static int getsockopt(struct socket *sock,
++			int lvl, int opt, char __user *ov, int __user *ol)
 +{
-+	uint8 cmd;
-+	int ret;
-+	caif_assert(layr->up != NULL);
-+	caif_assert(layr->receive != NULL);
-+	caif_assert(layr->ctrlcmd != NULL);
-+
-+
-+	if (cfpkt_extr_head(pkt, &cmd, 1) < 0) {
-+		pr_err("CAIF: %s(): Packet is erroneous!\n", __func__);
-+		cfpkt_destroy(pkt);
-+		return CFGLU_EPROTO;
-+	}
-+	switch (cmd) {
-+	case VEI_PAYLOAD:
-+		ret = layr->up->receive(layr->up, pkt);
-+		return ret;
-+	case VEI_FLOW_OFF:
-+		layr->ctrlcmd(layr, CAIF_CTRLCMD_FLOW_OFF_IND, 0);
-+		cfpkt_destroy(pkt);
-+		return CFGLU_EOK;
-+	case VEI_FLOW_ON:
-+		layr->ctrlcmd(layr, CAIF_CTRLCMD_FLOW_ON_IND, 0);
-+		cfpkt_destroy(pkt);
-+		return CFGLU_EOK;
-+	case VEI_SET_PIN:	/* SET RS232 PIN */
-+		cfpkt_destroy(pkt);
-+		return CFGLU_EOK;
-+	default:		/* SET RS232 PIN */
-+		pr_warning("CAIF: %s():Unknown VEI control packet %d (0x%x)!\n",
-+			   __func__, cmd, cmd);
-+		cfpkt_destroy(pkt);
-+		return CFGLU_EPROTO;
-+	}
++	return -EINVAL;
 +}
 +
-+static int cfvei_transmit(struct layer *layr, struct cfpkt *pkt)
++static int caif_channel_config(struct caifsock *cf_sk,
++				struct sockaddr *sock_addr, int len,
++				struct caif_channel_config *config)
 +{
-+	uint8 tmp = 0;
-+	struct payload_info *info;
-+	int ret;
-+	struct cfsrvl *service = container_obj(layr);
-+	if (!cfsrvl_ready(service, &ret))
-+		return ret;
-+	caif_assert(layr->dn != NULL);
-+	caif_assert(layr->dn->transmit != NULL);
-+	if (!cfpkt_getlen(pkt) > CAIF_MAX_PAYLOAD_SIZE) {
-+		pr_warning("CAIF: %s(): Packet too large - size=%d\n",
-+			   __func__, cfpkt_getlen(pkt));
-+		return CFGLU_EOVERFLOW;
++	struct sockaddr_caif *addr = (struct sockaddr_caif *)sock_addr;
++
++
++		if (len != sizeof(struct sockaddr_caif)) {
++			pr_debug("CAIF: %s(): Bad address len (%d,%d)\n",
++				 __func__, len, sizeof(struct sockaddr_caif));
++			return -EINVAL;
++	}
++	if (sock_addr->sa_family != AF_CAIF) {
++		pr_debug("CAIF: %s(): Bad address family (%d)\n",
++			 __func__, sock_addr->sa_family);
++		return -EAFNOSUPPORT;
 +	}
 +
-+	if (cfpkt_add_head(pkt, &tmp, 1) < 0) {
-+		pr_err("CAIF: %s(): Packet is erroneous!\n", __func__);
-+		return CFGLU_EPKT;
++	switch (cf_sk->sk.sk_protocol) {
++	case CAIFPROTO_AT:
++		config->type = CAIF_CHTY_AT;
++		break;
++	case CAIFPROTO_DATAGRAM:
++		config->type = CAIF_CHTY_DATAGRAM;
++		break;
++	case CAIFPROTO_DATAGRAM_LOOP:
++		config->type = CAIF_CHTY_DATAGRAM_LOOP;
++		config->u.dgm.connection_id = addr->u.dgm.connection_id;
++		break;
++	case CAIFPROTO_UTIL:
++		config->type = CAIF_CHTY_UTILITY;
++		strncpy(config->u.utility.name, addr->u.util.service,
++				sizeof(config->u.utility.name));
++		/* forcing the end of string to be null-terminated  */
++		config->u.utility.name[sizeof(config->u.utility.name)-1] = '\0';
++		break;
++	case CAIFPROTO_RFM:
++		config->type = CAIF_CHTY_RFM;
++		config->u.rfm.connection_id = addr->u.rfm.connection_id;
++		strncpy(config->u.rfm.volume, addr->u.rfm.volume,
++			sizeof(config->u.rfm.volume));
++		/* forcing the end of string to be null-terminated  */
++		config->u.rfm.volume[sizeof(config->u.rfm.volume)-1] = '\0';
++		break;
++	default:
++		pr_debug("CAIF: %s(): Bad caif protocol type (%d)\n",
++			 __func__, cf_sk->sk.sk_protocol);
++		return -EINVAL;
++	}
++	trace_printk("CAIF: %s(): Setting connect param PROTO=%s\n",
++		 __func__,
++		(cf_sk->sk.sk_protocol == CAIFPROTO_AT) ?
++		"CAIFPROTO_AT" :
++		(cf_sk->sk.sk_protocol == CAIFPROTO_DATAGRAM) ?
++		"CAIFPROTO_DATAGRAM" :
++		(cf_sk->sk.sk_protocol == CAIFPROTO_DATAGRAM_LOOP) ?
++		"CAIFPROTO_DATAGRAM_LOOP" :
++		(cf_sk->sk.sk_protocol == CAIFPROTO_UTIL) ?
++		"CAIFPROTO_UTIL" :
++		(cf_sk->sk.sk_protocol == CAIFPROTO_RFM) ?
++		"CAIFPROTO_RFM" : "ERROR");
++	return 0;
++}
++
++
++int caif_connect(struct socket *sock, struct sockaddr *uservaddr,
++	       int sockaddr_len, int flags)
++{
++	struct caifsock *cf_sk = NULL;
++	int result = -1;
++	int mode = 0;
++	int ret = -EIO;
++	struct sock *sk = sock->sk;
++
++	BUG_ON(sk == NULL);
++
++	cf_sk = container_of(sk, struct caifsock, sk);
++
++	trace_printk("CAIF: %s(): cf_sk=%p OPEN=%d, TX_FLOW=%d, RX_FLOW=%d\n",
++		 __func__, cf_sk,
++		STATE_IS_OPEN(cf_sk),
++		TX_FLOW_IS_ON(cf_sk), RX_FLOW_IS_ON(cf_sk));
++
++	sk->sk_state	= TCP_CLOSE;
++	sock->state	= SS_UNCONNECTED;
++
++	if (sock->type == SOCK_SEQPACKET) {
++		sock->state	= SS_CONNECTED;
++		sk->sk_state	= TCP_ESTABLISHED;
++	} else
++		goto out;
++
++	/* I want to be alone on cf_sk (except status and queue) */
++	lock_sock(&(cf_sk->sk));
++
++	ret = caif_channel_config(cf_sk, uservaddr, sockaddr_len,
++				&cf_sk->config);
++	if (ret) {
++		pr_debug("CAIF: %s(): Cannot set socket address\n",
++		     __func__);
++		goto open_error;
 +	}
 +
-+	/* Add info-> for MUX-layer to route the packet out. */
-+	info = cfpkt_info(pkt);
-+	info->channel_id = service->layer.id;
-+	info->hdr_len = 1;
-+	info->dev_info = &service->dev_info;
-+	ret = layr->dn->transmit(layr->dn, pkt);
-+	if (ret < 0)
-+		cfpkt_extr_head(pkt, &tmp, 1);
++	dbfs_atomic_inc(&cnt.num_open);
++	mode = SKT_READ_FLAG | SKT_WRITE_FLAG;
++
++	/* If socket is not open, make sure socket is in fully closed state */
++	if (!STATE_IS_OPEN(cf_sk)) {
++		/* Has link close response been received (if we ever sent it)?*/
++		if (STATE_IS_PENDING(cf_sk)) {
++			/*
++			 * Still waiting for close response from remote.
++			 * If opened non-blocking, report "would block"
++			 */
++			if (flags & MSG_DONTWAIT) {
++				pr_debug("CAIF: %s(): MSG_DONTWAIT"
++					" && close pending\n", __func__);
++				ret = -EAGAIN;
++				goto open_error;
++			}
++
++			pr_debug("CAIF: %s(): Wait for close response"
++				 " from remote...\n", __func__);
++
++			release_sock(&cf_sk->sk);
++
++			/*
++			 * Blocking mode; close is pending and we need to wait
++			 * for its conclusion.
++			 */
++			result =
++			    wait_event_interruptible(*cf_sk->sk.sk_sleep,
++						     !STATE_IS_PENDING(cf_sk));
++
++			lock_sock(&(cf_sk->sk));
++			if (result == -ERESTARTSYS) {
++				pr_debug("CAIF: %s(): wait_event_interruptible"
++					 "woken by a signal (1)", __func__);
++				ret = -ERESTARTSYS;
++				goto open_error;
++			}
++		}
++	}
++
++	/* socket is now either closed, pending open or open */
++	if (STATE_IS_OPEN(cf_sk) && !STATE_IS_PENDING(cf_sk)) {
++		/* Open */
++		pr_debug("CAIF: %s(): Socket is already opened (cf_sk=%p)"
++			" check access f_flags = 0x%x file_mode = 0x%x\n",
++			 __func__, cf_sk, mode, cf_sk->file_mode);
++
++		if (mode & cf_sk->file_mode) {
++			pr_debug("CAIF: %s(): Access mode already in use"
++				"0x%x\n",
++				__func__, mode);
++			ret = -EBUSY;
++			goto open_error;
++		}
++	} else {
++		/* We are closed or pending open.
++		 * If closed:	    send link setup
++		 * If pending open: link setup already sent (we could have been
++		 *		    interrupted by a signal last time)
++		 */
++		if (!STATE_IS_OPEN(cf_sk)) {
++			/* First opening of file; connect lower layers: */
++					/* Drain queue (very unlikely) */
++			drain_queue(cf_sk);
++
++			cf_sk->layer.receive = caif_sktrecv_cb;
++
++			SET_STATE_OPEN(cf_sk);
++			SET_PENDING_ON(cf_sk);
++
++			/* Register this channel. */
++			result =
++			    caifdev_adapt_register(&cf_sk->config,
++						&cf_sk->layer);
++			if (result < 0) {
++				pr_debug("CAIF: %s(): can't register channel\n",
++					__func__);
++				ret = -EIO;
++				SET_STATE_CLOSED(cf_sk);
++				SET_PENDING_OFF(cf_sk);
++				goto open_error;
++			}
++			dbfs_atomic_inc(&cnt.num_init);
++		}
++
++		/* If opened non-blocking, report "success".
++		 */
++		if (flags & MSG_DONTWAIT) {
++			pr_debug("CAIF: %s(): MSG_DONTWAIT success\n",
++				 __func__);
++			ret = 0;
++			goto open_success;
++		}
++
++		trace_printk("CAIF: %s(): Wait for connect response\n",
++			     __func__);
++
++		/* release lock before waiting */
++		release_sock(&cf_sk->sk);
++
++		result =
++		    wait_event_interruptible(*cf_sk->sk.sk_sleep,
++					     !STATE_IS_PENDING(cf_sk));
++
++		lock_sock(&(cf_sk->sk));
++
++		if (result == -ERESTARTSYS) {
++			pr_debug("CAIF: %s(): wait_event_interruptible"
++				 "woken by a signal (2)", __func__);
++			ret = -ERESTARTSYS;
++			goto open_error;
++		}
++
++		if (!STATE_IS_OPEN(cf_sk)) {
++			/* Lower layers said "no" */
++			pr_debug("CAIF: %s(): Closed received\n", __func__);
++			ret = -EPIPE;
++			goto open_error;
++		}
++
++		trace_printk("CAIF: %s(): Connect received\n", __func__);
++	}
++open_success:
++	/* Open is ok */
++	cf_sk->file_mode |= mode;
++
++	trace_printk("CAIF: %s(): Connected - file mode = %x\n",
++		  __func__, cf_sk->file_mode);
++
++	release_sock(&cf_sk->sk);
++	return 0;
++open_error:
++	release_sock(&cf_sk->sk);
++out:
 +	return ret;
 +}
-diff --git a/net/caif/generic/cfvidl.c b/net/caif/generic/cfvidl.c
-new file mode 100644
-index 0000000..f88450e
---- /dev/null
-+++ b/net/caif/generic/cfvidl.c
-@@ -0,0 +1,62 @@
-+/*
-+ * Copyright (C) ST-Ericsson AB 2010
-+ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
-+ * License terms: GNU General Public License (GPL) version 2
-+ */
 +
-+#include <net/caif/generic/caif_layer.h>
-+#include <net/caif/generic/cfglue.h>
-+#include <net/caif/generic/cfsrvl.h>
-+#include <net/caif/generic/cfpkt.h>
-+
-+#define container_obj(layr) ((struct cfsrvl *) layr)
-+
-+static int cfvidl_receive(struct layer *layr, struct cfpkt *pkt);
-+static int cfvidl_transmit(struct layer *layr, struct cfpkt *pkt);
-+
-+struct layer *cfvidl_create(uint8 channel_id, struct dev_info *dev_info)
++static int caif_shutdown(struct socket *sock, int how)
 +{
-+	struct cfsrvl *vid = cfglu_alloc(sizeof(struct cfsrvl));
-+	if (!vid) {
-+		pr_warning("CAIF: %s(): Out of memory\n", __func__);
-+		return NULL;
++	struct caifsock *cf_sk = NULL;
++	int result;
++	int tx_flow_state_was_on;
++	struct sock *sk = sock->sk;
++	int res = 0;
++
++	if (how != SHUT_RDWR)
++		return -EOPNOTSUPP; /* FIXME: ENOTSUP in userland for POSIX */
++
++	cf_sk = container_of(sk, struct caifsock, sk);
++	if (cf_sk == NULL) {
++		pr_debug("CAIF: %s(): COULD NOT FIND SOCKET\n", __func__);
++		return -EBADF;
 +	}
-+	caif_assert(offsetof(struct cfsrvl, layer) == 0);
 +
-+	memset(vid, 0, sizeof(struct cfsrvl));
-+	cfsrvl_init(vid, channel_id, dev_info);
-+	vid->layer.receive = cfvidl_receive;
-+	vid->layer.transmit = cfvidl_transmit;
-+	snprintf(vid->layer.name, CAIF_LAYER_NAME_SZ - 1, "vid1");
-+	return &vid->layer;
-+}
++	/* I want to be alone on cf_sk (except status queue) */
++	lock_sock(&(cf_sk->sk));
++	dbfs_atomic_inc(&cnt.num_close);
 +
-+static int cfvidl_receive(struct layer *layr, struct cfpkt *pkt)
-+{
-+	uint32 videoheader;
-+	if (cfpkt_extr_head(pkt, &videoheader, 4) < 0) {
-+		pr_err("CAIF: %s(): Packet is erroneous!\n", __func__);
-+		cfpkt_destroy(pkt);
-+		return CFGLU_EPROTO;
++	/* Is the socket open? */
++	if (!STATE_IS_OPEN(cf_sk)) {
++		pr_debug("CAIF: %s(): socket not open (cf_sk=%p) \n",
++			      __func__, cf_sk);
++		release_sock(&cf_sk->sk);
++		return 0;
 +	}
-+	return layr->up->receive(layr->up, pkt);
++
++	/* Is the socket waiting for link setup response? */
++	if (STATE_IS_PENDING(cf_sk)) {
++		pr_debug("CAIF: %s(): Socket is open pending (cf_sk=%p) \n",
++				__func__, cf_sk);
++		release_sock(&cf_sk->sk);
++		/* What to return here? Seems that EBADF is the closest :-| */
++		return -EBADF;
++	}
++	/* IS_CLOSED have double meaning:
++	 * 1) Spontanous Remote Shutdown Request.
++	 * 2) Ack on a channel teardown(disconnect)
++	 * Must clear bit in case we previously received
++	 * remote shudown request.
++	 */
++
++	SET_STATE_CLOSED(cf_sk);
++	SET_PENDING_ON(cf_sk);
++	sock->state = SS_DISCONNECTING; /* FIXME: Update the sock->states */
++	tx_flow_state_was_on = TX_FLOW_IS_ON(cf_sk);
++	SET_TX_FLOW_OFF(cf_sk);
++	sock_hold(&cf_sk->sk);
++	result = caifdev_adapt_unregister(&cf_sk->layer);
++
++	if (result < 0) {
++		pr_debug("CAIF: %s(): caifdev_adapt_unregister() failed\n",
++			 __func__);
++		SET_STATE_CLOSED(cf_sk);
++		SET_PENDING_OFF(cf_sk);
++		SET_TX_FLOW_OFF(cf_sk);
++		release_sock(&cf_sk->sk);
++		return -EIO;
++	}
++	if (STATE_IS_REMOTE_SHUTDOWN(cf_sk)) {
++		SET_PENDING_OFF(cf_sk);
++		SET_REMOTE_SHUTDOWN_OFF(cf_sk);
++	}
++
++	dbfs_atomic_inc(&cnt.num_deinit);
++
++	/*
++	 * We don't wait for close response here. Close pending state will be
++	 * cleared by flow control callback when response arrives.
++	 */
++	drain_queue(cf_sk);
++	SET_RX_FLOW_ON(cf_sk);
++	cf_sk->file_mode = 0;
++
++	release_sock(&cf_sk->sk);
++	return res;
++}
++static ssize_t caif_sock_no_sendpage(struct socket *sock,
++				     struct page *page,
++				     int offset, size_t size, int flags)
++{
++	return -EOPNOTSUPP;
 +}
 +
-+static int cfvidl_transmit(struct layer *layr, struct cfpkt *pkt)
++/* This function is called as part of close. */
++static int caif_release(struct socket *sock)
 +{
-+	struct cfsrvl *service = container_obj(layr);
-+	struct payload_info *info;
-+	uint32 videoheader = 0;
-+	int ret;
-+	if (!cfsrvl_ready(service, &ret))
-+		return ret;
-+	cfpkt_add_head(pkt, &videoheader, 4);
-+	/* Add info for MUX-layer to route the packet out */
-+	info = cfpkt_info(pkt);
-+	info->channel_id = service->layer.id;
-+	info->dev_info = &service->dev_info;
-+	ret = layr->dn->transmit(layr->dn, pkt);
-+	if (ret < 0)
-+		cfpkt_extr_head(pkt, &videoheader, 4);
-+	return ret;
++	struct sock *sk = sock->sk;
++	struct caifsock *cf_sk = NULL;
++
++	caif_assert(sk != NULL);
++	cf_sk = container_of(sk, struct caifsock, sk);
++
++	caif_shutdown(sock, SHUT_RDWR);
++	lock_sock(&(cf_sk->sk));
++
++	sock->sk = NULL;
++
++	/* Detach the socket from its process context by making it orphan. */
++	sock_orphan(sk);
++
++	/*
++	 * Setting SHUTDOWN_MASK means that both send and receive are shutdown
++	 * for the socket.
++	 */
++	sk->sk_shutdown = SHUTDOWN_MASK;
++
++	/*
++	 * Set the socket state to closed, the TCP_CLOSE macro is used when
++	 * closing any socket.
++	 */
++	sk->sk_state = TCP_CLOSE;
++
++	/* Flush out this sockets receive queue. */
++	drain_queue(cf_sk);
++
++	/* Finally release the socket. */
++	STATE_IS_PENDING_DESTROY(cf_sk);
++	release_sock(&cf_sk->sk);
++
++	/*
++	 * The rest of the cleanup will be handled from the
++	 * caif_sock_destructor
++	 */
++	sock_put(sk);
++	return 0;
 +}
++
++static int caif_sock_ioctl(struct socket *sock,
++		       unsigned int cmd,
++		       unsigned long arg)
++
++{
++	return caif_ioctl(cmd, arg, true);
++}
++
++static struct proto_ops caif_ops = {
++	.family = PF_CAIF,
++	.owner = THIS_MODULE,
++	.release = caif_release,
++	.bind = sock_no_bind,
++	.connect = caif_connect,
++	.socketpair = sock_no_socketpair,
++	.accept = sock_no_accept,
++	.getname = sock_no_getname,
++	.poll = caif_poll,
++	.ioctl = caif_sock_ioctl,
++	.listen = sock_no_listen,
++	.shutdown = caif_shutdown,
++	.setsockopt = setsockopt,
++	.getsockopt = getsockopt,
++	.sendmsg = caif_sendmsg,
++	.recvmsg = caif_recvmsg,
++	.mmap = sock_no_mmap,
++	.sendpage = caif_sock_no_sendpage,
++};
++
++/* This function is called when a socket is finally destroyed. */
++static void caif_sock_destructor(struct sock *sk)
++{
++	struct caifsock *cf_sk = NULL;
++	cf_sk = container_of(sk, struct caifsock, sk);
++
++	/* Error checks. */
++	caif_assert(!atomic_read(&sk->sk_wmem_alloc));
++	caif_assert(sk_unhashed(sk));
++	caif_assert(!sk->sk_socket);
++
++	if (!sock_flag(sk, SOCK_DEAD)) {
++		pr_debug("CAIF: %s(): 0x%p", __func__, sk);
++		return;
++	}
++
++	lock_sock(&(cf_sk->sk));
++
++	if (STATE_IS_OPEN(cf_sk)) {
++		pr_debug("CAIF: %s(): socket is opened (cf_sk=%p)"
++			 " file_mode = 0x%x\n", __func__,
++			 cf_sk, cf_sk->file_mode);
++		release_sock(&cf_sk->sk);
++		return;
++	}
++	drain_queue(cf_sk);
++	cfglu_free(cf_sk->pktq);
++
++	if (cf_sk->debugfs_socket_dir != NULL)
++		debugfs_remove_recursive(cf_sk->debugfs_socket_dir);
++
++	release_sock(&cf_sk->sk);
++	trace_printk("CAIF: %s(): caif_sock_destructor: Removing socket %s\n",
++		__func__, cf_sk->name);
++	atomic_dec(&caif_nr_socks);
++}
++
++static int caif_create(struct net *net, struct socket *sock, int protocol,
++		       int kern)
++{
++	struct sock *sk = NULL;
++	struct caifsock *cf_sk = NULL;
++	int result = 0;
++
++	static struct proto prot = {.name = "PF_CAIF",
++		.owner = THIS_MODULE,
++		.obj_size = sizeof(struct caifsock),
++	};
++	prot.slab = caif_sk_cachep;
++
++	if (net != &init_net)
++		return -EAFNOSUPPORT;
++
++	if (protocol < 0 || protocol >= CAIFPROTO_MAX)
++		return -EPROTONOSUPPORT;
++
++	/*
++	 * Set the socket state to unconnected.	 The socket state is really
++	 * not used at all in the net/core or socket.c but the
++	 * initialization makes sure that sock->state is not uninitialized.
++	 */
++	sock->state = SS_UNCONNECTED;
++
++	sk = sk_alloc(net, PF_CAIF, GFP_KERNEL, &prot);
++	if (!sk)
++		return -ENOMEM;
++
++	cf_sk = container_of(sk, struct caifsock, sk);
++
++	/* Store the protocol */
++	sk->sk_protocol = (unsigned char) protocol;
++
++	spin_lock_init(&cf_sk->read_queue_len_lock);
++
++	/* Fill in some information concerning the misc socket. */
++	snprintf(cf_sk->name, sizeof(cf_sk->name), "cf_sk%d",
++		atomic_read(&caif_nr_socks));
++	snprintf(cf_sk->config.name, sizeof(cf_sk->config.name), "caifconf%d",
++		atomic_read(&caif_nr_socks));
++
++	/*
++	 * The sock->type specifies the socket type to use. The CAIF socket is
++	 * a packet stream in the sence that it is packet based.
++	 * CAIF trusts the reliability of the link, no resending is implemented.
++	 */
++	switch (sock->type) {
++	case SOCK_SEQPACKET:
++		sock->ops = &caif_ops;
++		break;
++	default:
++		sk_free(sk);
++		return -ESOCKTNOSUPPORT;
++	}
++
++	/*
++	 * Lock in order to try to stop someone from opening the socket
++	 * too early.
++	 */
++	lock_sock(&(cf_sk->sk));
++
++	/* Initialize the nozero default sock structure data. */
++	sock_init_data(sock, sk);
++
++	sk->sk_destruct = caif_sock_destructor;
++	sk->sk_sndbuf = caif_sockbuf_size;
++	sk->sk_rcvbuf = caif_sockbuf_size;
++
++	cf_sk->pktq = cfpktq_create();
++
++	if (!cf_sk->pktq) {
++		pr_err("CAIF: %s(): queue create failed.\n", __func__);
++		result = -ENOMEM;
++		release_sock(&cf_sk->sk);
++		goto err_failed;
++	}
++
++	cf_sk->layer.ctrlcmd = caif_sktflowctrl_cb;
++	SET_STATE_CLOSED(cf_sk);
++	SET_PENDING_OFF(cf_sk);
++	SET_TX_FLOW_OFF(cf_sk);
++	SET_RX_FLOW_ON(cf_sk);
++
++	/* Increase the number of sockets created. */
++	atomic_inc(&caif_nr_socks);
++	if (!IS_ERR(debugfsdir)) {
++		cf_sk->debugfs_socket_dir =
++			debugfs_create_dir(cf_sk->name, debugfsdir);
++		debugfs_create_u32("conn_state", S_IRUSR | S_IWUSR,
++				cf_sk->debugfs_socket_dir, &cf_sk->conn_state);
++		debugfs_create_u32("flow_state", S_IRUSR | S_IWUSR,
++				cf_sk->debugfs_socket_dir, &cf_sk->flow_state);
++		debugfs_create_u32("read_queue_len", S_IRUSR | S_IWUSR,
++				cf_sk->debugfs_socket_dir,
++				(u32 *) &cf_sk->read_queue_len);
++		debugfs_create_u32("identity", S_IRUSR | S_IWUSR,
++				cf_sk->debugfs_socket_dir,
++				(u32 *) &cf_sk->layer.id);
++	}
++	release_sock(&cf_sk->sk);
++	return 0;
++err_failed:
++	sk_free(sk);
++	return result;
++}
++
++
++static struct net_proto_family caif_family_ops = {
++	.family = PF_CAIF,
++	.create = caif_create,
++	.owner = THIS_MODULE,
++};
++
++int af_caif_init(void)
++{
++	int err;
++	err = sock_register(&caif_family_ops);
++
++	if (!err)
++		return err;
++
++	return 0;
++}
++
++static int __init caif_sktinit_module(void)
++{
++	int stat;
++#ifdef CONFIG_DEBUG_FS
++	debugfsdir = debugfs_create_dir("chnl_skt", NULL);
++	if (!IS_ERR(debugfsdir)) {
++		atomic_inc(&caif_nr_socks);
++		debugfs_create_u32("num_sockets", S_IRUSR | S_IWUSR,
++				debugfsdir,
++				(u32 *) &caif_nr_socks);
++		debugfs_create_u32("num_open", S_IRUSR | S_IWUSR,
++				debugfsdir,
++				(u32 *) &cnt.num_open);
++		debugfs_create_u32("num_close", S_IRUSR | S_IWUSR,
++				debugfsdir,
++				(u32 *) &cnt.num_close);
++		debugfs_create_u32("num_init", S_IRUSR | S_IWUSR,
++				debugfsdir,
++				(u32 *) &cnt.num_init);
++		debugfs_create_u32("num_init_resp", S_IRUSR | S_IWUSR,
++				debugfsdir,
++				(u32 *) &cnt.num_init_resp);
++		debugfs_create_u32("num_init_fail_resp", S_IRUSR | S_IWUSR,
++				debugfsdir,
++				(u32 *) &cnt.num_init_fail_resp);
++		debugfs_create_u32("num_deinit", S_IRUSR | S_IWUSR,
++				debugfsdir,
++				(u32 *) &cnt.num_deinit);
++		debugfs_create_u32("num_deinit_resp", S_IRUSR | S_IWUSR,
++				debugfsdir,
++				(u32 *) &cnt.num_deinit_resp);
++		debugfs_create_u32("num_remote_shutdown_ind",
++				S_IRUSR | S_IWUSR, debugfsdir,
++				(u32 *) &cnt.num_remote_shutdown_ind);
++		debugfs_create_u32("num_tx_flow_off_ind", S_IRUSR | S_IWUSR,
++				debugfsdir,
++				(u32 *) &cnt.num_tx_flow_off_ind);
++		debugfs_create_u32("num_tx_flow_on_ind", S_IRUSR | S_IWUSR,
++				debugfsdir,
++				(u32 *) &cnt.num_tx_flow_on_ind);
++		debugfs_create_u32("num_rx_flow_off", S_IRUSR | S_IWUSR,
++				debugfsdir,
++				(u32 *) &cnt.num_rx_flow_off);
++		debugfs_create_u32("num_rx_flow_on", S_IRUSR | S_IWUSR,
++				debugfsdir,
++				(u32 *) &cnt.num_rx_flow_on);
++	}
++#endif
++	stat = af_caif_init();
++	if (stat) {
++		pr_err("CAIF: %s(): Failed to initialize CAIF socket layer.",
++		       __func__);
++		return stat;
++	}
++	return 0;
++}
++
++static void __exit caif_sktexit_module(void)
++{
++	sock_unregister(PF_CAIF);
++	if (debugfsdir != NULL)
++		debugfs_remove_recursive(debugfsdir);
++}
++
++module_init(caif_sktinit_module);
++module_exit(caif_sktexit_module);
++
 -- 
 1.6.3.3
 
