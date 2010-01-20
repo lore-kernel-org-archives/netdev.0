@@ -1,67 +1,76 @@
-From: "Simon Arlott" <simon@fire.lp0.eu>
-Subject: Re: [PATCH] xt_TCPMSS: SYN packets are allowed to contain data
-Date: Wed, 20 Jan 2010 12:59:16 -0000
-Message-ID: <710ab0ca79305c82013982d43250b0a1fd45824d@8b5064a13e22126c1b9329f0dc35b8915774b7c3.invalid>
-References: <4B54CDE5.3070100@simon.arlott.org.uk> <4B5578A5.50705@gmail.com>
-    <dad314e12c5750b1b5d70c3ea3c6f6134b8fa0f3@8b5064a13e22126c1b9329f0dc35b8915774b7c3.invalid>
-    <4B55D372.4020807@gmail.com>
+From: Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 2/3] Add a veth_get_peer() and veth_set_peer() functions
+Date: Wed, 20 Jan 2010 07:01:12 -0800
+Message-ID: <1263999673-11279-3-git-send-email-danms@us.ibm.com>
+References: <1263999673-11279-1-git-send-email-danms@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "netdev" <netdev@vger.kernel.org>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
-To: "William Allen Simpson" <william.allen.simpson@gmail.com>,
-	"Patrick McHardy" <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxima.lp0.eu ([81.2.80.65]:36136 "EHLO proxima.lp0.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750976Ab0ATM7T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jan 2010 07:59:19 -0500
-In-Reply-To: <4B55D372.4020807@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1263999673-11279-1-git-send-email-danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, January 19, 2010 15:44, William Allen Simpson wrote:
-> Simon Arlott wrote:
->> On Tue, January 19, 2010 09:17, William Allen Simpson wrote:
->> I could change the comment too, but the same logic applies when
->> there is data and no MSS option - the packet can't be increased
->> in size if it would then exceed 576 bytes and/or the destination
->> MTU.
->>
-> Please change the comment.
+This is needed for C/R.  For checkpoint, we need to be able to follow
+the link from one veth device to its peer.  For restart, we need to be
+able to link two veth devices we've restored to re-establish their
+relationship.
 
-I've made a new version of the patch which I'll be able to test
-tonight.
+Signed-off-by: Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+---
+ drivers/net/veth.c   |   14 ++++++++++++++
+ include/linux/veth.h |    5 +++++
+ 2 files changed, 19 insertions(+), 0 deletions(-)
 
-> If there is no MSS option, it should *not* be added, under *ANY*
-> circumstances.  That violates the end-to-end arguments (some call
-> them principles).
-
-Agreed. The added MSS is likely to be larger than 536 too... I've
-removed this code.
-
-> MSS isn't about the _destination_ MTU, it's about the *source*.
-> If you cannot guarantee you know the source MTU, there's no basis
-> for deciding the MSS.
-
-I was referring to the SYN packet itself. It wouldn't always be
-possible to add an option without exceeding the MTU of that packet's
-destination if it had data.
-
-
-On 19/01/10 12:53, Patrick McHardy wrote:
-> Simon Arlott wrote:
->> If this is 20 (IPv4 Header) + 20 (TCP Header) = 40 bytes, then
->> there is no data and the header offset is wrong so it hasn't been
->> checked.
->
-> That's odd. If the packet is really only 40 bytes large, then there
-> are no TCP options, so your patch shouldn't have any effect.
-
-Except to remove the printk which fills up my serial console (because
-the header offset is wrong).
-
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index ade5b34..eb47080 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -454,6 +454,20 @@ static void veth_dellink(struct net_device *dev)
+ 	unregister_netdevice(peer);
+ }
+ 
++struct net_device *veth_get_peer(struct net_device *veth)
++{
++	struct veth_priv *priv = netdev_priv(veth);
++
++	return priv->peer;
++}
++
++void veth_set_peer(struct net_device *veth, struct net_device *peer)
++{
++	struct veth_priv *priv = netdev_priv(veth);
++
++	priv->peer = peer;
++}
++
+ static const struct nla_policy veth_policy[VETH_INFO_MAX + 1];
+ 
+ static struct rtnl_link_ops veth_link_ops = {
+diff --git a/include/linux/veth.h b/include/linux/veth.h
+index 3354c1e..eee059d 100644
+--- a/include/linux/veth.h
++++ b/include/linux/veth.h
+@@ -9,4 +9,9 @@ enum {
+ #define VETH_INFO_MAX	(__VETH_INFO_MAX - 1)
+ };
+ 
++#ifdef __KERNEL__
++struct net_device *veth_get_peer(struct net_device *veth);
++void veth_set_peer(struct net_device *veth, struct net_device *peer);
++#endif
++
+ #endif
 -- 
-Simon Arlott
+1.6.2.5
