@@ -1,52 +1,48 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] vhost: fix TUN=m VHOST_NET=y
-Date: Wed, 20 Jan 2010 13:30:38 +0200
-Message-ID: <20100120113037.GA9182@redhat.com>
+Subject: Re: linux-next: Tree for January 19 (vhost_net)
+Date: Wed, 20 Jan 2010 13:33:41 +0200
+Message-ID: <20100120113341.GA9610@redhat.com>
+References: <20100119181041.ab55f645.sfr@canb.auug.org.au> <20100119104139.2ec9164b.randy.dunlap@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9163 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750962Ab0ATLdw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jan 2010 06:33:52 -0500
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Return-path: <linux-next-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20100119104139.2ec9164b.randy.dunlap@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-drivers/built-in.o: In function `get_tun_socket':
-    net.c:(.text+0x15436e): undefined reference to `tun_get_socket'
+On Tue, Jan 19, 2010 at 10:41:39AM -0800, Randy Dunlap wrote:
+> On Tue, 19 Jan 2010 18:10:41 +1100 Stephen Rothwell wrote:
+> 
+> > Hi all,
+> > 
+> > Changes since 20100118:
+> 
+> 
+> When CONFIG_TUN is not enabled:
+> 
+> drivers/built-in.o: In function `get_socket':
+> net.c:(.text+0x2899a3): undefined reference to `tun_get_socket'
+> 
+> 
+> so VHOST_NET can either depend on TUN or select TUN, but if it
+> selects TUN, it will also need to select CRC32.
+> 
+> ---
+> ~Randy
 
-If tun is a module, vhost must be a module, too.
-If tun is built-in or disabled, vhost can be built-in.
+Just to clarify sure, the broken configuration is VHOST=y TUN=m, I sent
+a fixup patch to forbid that configuration.  But both VHOST=y TUN=n and
+VHOST=m TUN=n build fine for me on linux-next (commit
+af2b07e7e0a9c6bf82ce4d6a77f0412ae54f575b).  Randy, could you please
+confirm that VHOST=y TUN=m is what you tested, or alternatively make
+your .config available to me so I can reproduce the problem?
 
-Note: TUN || !TUN might look a bit strange until you realize
-that boolean logic rules do not apply for tristate variables.
+Thanks!
 
-Reported-by: Randy Dunlap <randy.dunlap@oracle.com>
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
-
-The above was already applied by Rusty, but got lost.
-The patch is on top of net-next.
-
- drivers/vhost/Kconfig |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/vhost/Kconfig b/drivers/vhost/Kconfig
-index 9f409f4..9e93553 100644
---- a/drivers/vhost/Kconfig
-+++ b/drivers/vhost/Kconfig
-@@ -1,6 +1,6 @@
- config VHOST_NET
- 	tristate "Host kernel accelerator for virtio net (EXPERIMENTAL)"
--	depends on NET && EVENTFD && EXPERIMENTAL
-+	depends on NET && EVENTFD && (TUN || !TUN) && EXPERIMENTAL
- 	---help---
- 	  This kernel module can be loaded in host kernel to accelerate
- 	  guest networking with virtio_net. Not to be confused with virtio_net
 -- 
-1.6.6.144.g5c3af
+MST
