@@ -1,52 +1,37 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] sfc: EFX_ETHTOOL_STAT calculates the offset of the
- efx##source_name's field in both cases
-Date: Wed, 20 Jan 2010 03:12:19 +0000
-Message-ID: <1263957139.6090.3.camel@localhost>
-References: <4B56659E.3040001@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 02/11] fs_enet: Add FEC TX Alignment workaround for
+ MPC5121
+Date: Tue, 19 Jan 2010 20:04:39 -0800 (PST)
+Message-ID: <20100119.200439.193706380.davem@davemloft.net>
+References: <1263932653-3634-3-git-send-email-agust@denx.de>
+	<20100119.123706.12493208.davem@davemloft.net>
+	<20100120104225.3361e6c4.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	Steve Hodgson <shodgson@solarflare.com>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Roel Kluin <roel.kluin@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754471Ab0ATDMb@vger.kernel.org>
-In-Reply-To: <4B56659E.3040001@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: agust@denx.de, kosmo@semihalf.com, dzu@denx.de,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	jrigby@freescale.com, wd@denx.de
+To: sfr@canb.auug.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43837
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752539Ab0ATEEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2010 23:04:30 -0500
+In-Reply-To: <20100120104225.3361e6c4.sfr@canb.auug.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-01-20 at 03:08 +0100, Roel Kluin wrote:
-> EFX_ETHTOOL_STAT calculated the offset of the efx##source_name's field
-> Regardless of whether that field was NULL.
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 20 Jan 2010 10:42:25 +1100
+
+> On Tue, 19 Jan 2010 12:37:06 -0800 (PST) David Miller <davem@davemloft.net> wrote:
+>>
+>> Well... where are the other 9 patches?
 > 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> ---
-> This looks like a bug, but I am not sure whether I understood this correctly,
-> nor was it tested, was this intended?
+> I think the other 9 are not network related, just PowerPC related.
 
-The condition is really a type check.  The result should be the same
-regardless of whether it is true.
+Ok, but that's very confusing.
 
-Ben.
-
-> diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
-> index 6c0bbed..722bac7 100644
-> --- a/drivers/net/sfc/ethtool.c
-> +++ b/drivers/net/sfc/ethtool.c
-> @@ -41,7 +41,7 @@ struct efx_ethtool_stat {
->  	.source = EFX_ETHTOOL_STAT_SOURCE_##source_name,		\
->  	.offset = ((((field_type *) 0) ==				\
->  		      &((struct efx_##source_name *)0)->field) ?	\
-> -		    offsetof(struct efx_##source_name, field) :		\
-> +		    offsetof(struct efx_##stat_name, field) :		\
->  		    offsetof(struct efx_##source_name, field)),		\
->  	.get_stat = get_stat_function,					\
->  }
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+If it's meant to go into two different trees split the
+patches up into two different series.
