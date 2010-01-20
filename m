@@ -1,24 +1,44 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/2] IPv6: reassembly:  replace  magic number with macro
- definitions
-Date: Wed, 20 Jan 2010 10:43:28 +0100
-Message-ID: <4B56D040.8020808@trash.net>
-References: <4B56A0DD.1010404@cn.fujitsu.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: linux-next: Tree for January 19 (vhost_net)
+Date: Wed, 20 Jan 2010 12:16:44 +0200
+Message-ID: <20100120101643.GA22706@redhat.com>
+References: <20100119181041.ab55f645.sfr@canb.auug.org.au> <20100119104139.2ec9164b.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, yoshfuji@linux-ipv6.org, eric.dumazet@gmail.com,
-	adobriyan@gmail.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org
-To: Shan Wei <shanwei@cn.fujitsu.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B56A0DD.1010404@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100119104139.2ec9164b.randy.dunlap@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Shan Wei wrote:
-> Use macro to define high/low thresh value, refer to IPV6_FRAG_TIMEOUT.
+On Tue, Jan 19, 2010 at 10:41:39AM -0800, Randy Dunlap wrote:
+> On Tue, 19 Jan 2010 18:10:41 +1100 Stephen Rothwell wrote:
+> 
+> > Hi all,
+> > 
+> > Changes since 20100118:
+> 
+> 
+> When CONFIG_TUN is not enabled:
+> 
+> drivers/built-in.o: In function `get_socket':
+> net.c:(.text+0x2899a3): undefined reference to `tun_get_socket'
+> 
+> 
+> so VHOST_NET can either depend on TUN or select TUN, but if it
+> selects TUN, it will also need to select CRC32.
+> 
+> ---
+> ~Randy
 
-Also applied, thanks.
+Oh, I fixed this already but then I lost the patch:
+http://lkml.org/lkml/2009/11/10/137
+
+Sorry about that, I'll repost the fix immediately.
+
+-- 
+MST
