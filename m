@@ -1,34 +1,35 @@
-From: David Miller <davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
 Subject: Re: [PATCH] sky2: Fix WARNING: at lib/dma-debug.c:902 check_sync
-Date: Wed, 20 Jan 2010 14:53:16 -0800 (PST)
-Message-ID: <20100120.145316.109996493.davem@davemloft.net>
+Date: Wed, 20 Jan 2010 23:53:22 +0100
+Message-ID: <20100120225322.GC3072@del.dom.local>
 References: <20100120094103.GA6225@ff.dom.local>
-	<20100120222414.57909d14@lxorguk.ukuu.org.uk>
+ <20100120222414.57909d14@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, shemminger@linux-foundation.org,
-	mbreuer@majjas.com, akpm@linux-foundation.org, flyboy@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	mchan@broadcom.com, pcnet32@verizon.net, romieu@fr.zoreil.com,
-	mcarlson@broadcom.com
-To: alan@lxorguk.ukuu.org.uk
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754855Ab0ATWxK@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Michael Breuer <mbreuer@majjas.com>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
+	Don Fry <pcnet32@verizon.net>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Matt Carlson <mcarlson@broadcom.com>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754882Ab0ATWxl@vger.kernel.org>
+Content-Disposition: inline
 In-Reply-To: <20100120222414.57909d14@lxorguk.ukuu.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Wed, 20 Jan 2010 22:24:14 +0000
-
->> > Seems like an underlying bug in the DMA api. Maybe it just can't
->> > handle operations on partial mapping.
->> > 
->> > Other drivers with same problem:
->> >   bnx2, cassini, pcnet32, r8169, rrunner, skge, sungem, tg3, 
->> 
->> It seems using the same length (even without pci_unmap_len()) is
->> crucial here, but I hope maintainers (added to CC) will take care.
+On Wed, Jan 20, 2010 at 10:24:14PM +0000, Alan Cox wrote:
+> > > Seems like an underlying bug in the DMA api. Maybe it just can't
+> > > handle operations on partial mapping.
+> > > 
+> > > Other drivers with same problem:
+> > >   bnx2, cassini, pcnet32, r8169, rrunner, skge, sungem, tg3, 
+> > 
+> > It seems using the same length (even without pci_unmap_len()) is
+> > crucial here, but I hope maintainers (added to CC) will take care.
 > 
 > The API needs fixing - if you've got a large mapping and you want to sync
 > part of it then we need to support that. Now it might well be that the
@@ -39,8 +40,8 @@ Date: Wed, 20 Jan 2010 22:24:14 +0000
 > don't have enough information nor is it their job to know about all the
 > platform specific rules.
 
-Absolutely and %100 agreed, the DMA debugging layer and documentation
-are both buggy.
+Yes, the need to repeat some other values if there is a dedicated
+structure/pointer could be misleading. Btw, it seems to be a trivial
+overlooking since there is dma_sync_single_range() ready to use.
 
-The intention from the beginning was always to allow partial SYNCs
-exactly for the reasons Alan and myself are mentioning here.
+Jarek P.
