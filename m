@@ -1,7 +1,7 @@
 From: sjur.brandeland@stericsson.com
-Subject: [PATCH net-next-2.6 11/13] net-caif: add CAIF Kconfig and Makefiles
-Date: Wed, 20 Jan 2010 23:55:28 +0100
-Message-ID: <1264028130-14364-12-git-send-email-sjur.brandeland@stericsson.com>
+Subject: [PATCH net-next-2.6 01/13] net-caif: add CAIF protocol definitions
+Date: Wed, 20 Jan 2010 23:55:18 +0100
+Message-ID: <1264028130-14364-2-git-send-email-sjur.brandeland@stericsson.com>
 References: <1264028130-14364-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN
@@ -13,159 +13,88 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from bgo1smout1.broadpark.no ([217.13.4.94]:52371 "EHLO
 	bgo1smout1.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754490Ab0ATX4m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2010 18:56:42 -0500
+	with ESMTP id S1754055Ab0ATX4U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2010 18:56:20 -0500
 Received: from bgo1sminn1.broadpark.no ([217.13.4.93])
  by bgo1smout1.broadpark.no
  (Sun Java(tm) System Messaging Server 6.3-3.01 (built Jul 12 2007; 32bit))
- with ESMTP id <0KWK00CFIIDPGCC0@bgo1smout1.broadpark.no> for
- netdev@vger.kernel.org; Wed, 20 Jan 2010 23:56:13 +0100 (CET)
+ with ESMTP id <0KWK00CD8IDDGCC0@bgo1smout1.broadpark.no> for
+ netdev@vger.kernel.org; Wed, 20 Jan 2010 23:56:01 +0100 (CET)
 Received: from localhost.localdomain ([84.49.71.7]) by bgo1sminn1.broadpark.no
  (Sun Java(tm) System Messaging Server 6.3-3.01 (built Jul 12 2007; 32bit))
  with ESMTP id <0KWK00LQBICIDUE0@bgo1sminn1.broadpark.no> for
- netdev@vger.kernel.org; Wed, 20 Jan 2010 23:56:13 +0100 (CET)
+ netdev@vger.kernel.org; Wed, 20 Jan 2010 23:56:01 +0100 (CET)
 In-reply-to: <1264028130-14364-1-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-Kconfig and Makefiles with options for:
-CAIF:        Including caif
-CAIF_DEBUG:  CAIF Debug
-CAIF_SOCK:   CAIF Socket Implementation
-CAIF_NETDEV: CAIF Network Device for GPRS Contexts
+Add CAIF definitions to existing header files.
+Files: if_arp.h, if_ether.h, socket.h.
+Types: ARPHRD_CAIF, ETH_P_CAIF, AF_CAIF, PF_CAIF, SOL_CAIF, N_CAIF
 
 Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
 ---
- net/Kconfig       |    2 +
- net/Makefile      |    1 +
- net/caif/Kconfig  |   57 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- net/caif/Makefile |   29 +++++++++++++++++++++++++++
- 4 files changed, 89 insertions(+), 0 deletions(-)
+ include/linux/if_arp.h   |    1 +
+ include/linux/if_ether.h |    1 +
+ include/linux/socket.h   |    5 ++++-
+ 3 files changed, 6 insertions(+), 1 deletions(-)
 
-diff --git a/net/Kconfig b/net/Kconfig
-index 041c35e..9342f7b 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -275,5 +275,7 @@ source "net/wimax/Kconfig"
+diff --git a/include/linux/if_arp.h b/include/linux/if_arp.h
+index e80b7f8..6d722f4 100644
+--- a/include/linux/if_arp.h
++++ b/include/linux/if_arp.h
+@@ -90,6 +90,7 @@
  
- source "net/rfkill/Kconfig"
- source "net/9p/Kconfig"
-+source "net/caif/Kconfig"
-+
+ #define ARPHRD_PHONET	820		/* PhoNet media type		*/
+ #define ARPHRD_PHONET_PIPE 821		/* PhoNet pipe header		*/
++#define ARPHRD_CAIF	822		/* CAIF media type		*/
  
- endif   # if NET
-diff --git a/net/Makefile b/net/Makefile
-index 1542e72..a5eae27 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -56,6 +56,7 @@ obj-$(CONFIG_NETLABEL)		+= netlabel/
- obj-$(CONFIG_IUCV)		+= iucv/
- obj-$(CONFIG_RFKILL)		+= rfkill/
- obj-$(CONFIG_NET_9P)		+= 9p/
-+obj-$(CONFIG_CAIF)		+= caif/
- ifneq ($(CONFIG_DCB),)
- obj-y				+= dcb/
- endif
-diff --git a/net/caif/Kconfig b/net/caif/Kconfig
-new file mode 100644
-index 0000000..7d32059
---- /dev/null
-+++ b/net/caif/Kconfig
-@@ -0,0 +1,57 @@
-+#
-+# CAIF net configurations
-+#
-+
-+#menu "CAIF Support"
-+comment "CAIF Support"
-+menuconfig CAIF
-+	tristate "Enable CAIF support"
-+	select CRC_CCITT
-+	default n
-+	---help---
-+	The "Communication CPU to Application CPU Interface" (CAIF) is a packet
-+	based connection-oriented MUX protocol developed by ST-Ericsson for use
-+	with its modems.
-+
-+	Say Y (or M) here if you build for a phone product (e.g. Android) that
-+	uses CAIF as transport, if unsure say N.
-+
-+	If you select to build it as module then CAIF_SOCK and CAIF_NETDEV also
-+	needs to be built as modules. You will also need to say yes to any CAIF
-+	physical devices that your platform requires.
-+
-+	See Documentation/networking/caif for a further explanation on how to
-+	use and configure CAIF.
-+
-+if CAIF
-+
-+config  CAIF_DEBUG
-+	bool "Enable Debug"
-+	default n
-+	--- help ---
-+	Enable the inclusion of debug code in the CAIF stack.
-+	Be aware that doing this will impact performance.
-+	If unsure say N.
-+
-+config CAIF_SOCK
-+	tristate "CAIF Sockets"
-+	default CAIF
-+	---help---
-+	Say Y if you will be using CAIF Sockets.
-+	This can be either built-in or a loadable module,
-+	If you select to build it as a built-in then the main CAIF device must
-+	also be a built-in,
-+	If unsure say Y.
-+
-+config CAIF_NETDEV
-+	tristate "CAIF GPRS Network device"
-+	default CAIF
-+	---help---
-+	Say Y if you will be using a CAIF based GPRS network device.
-+	This can be either built-in or a loadable module,
-+	If you select to build it as a built-in then the main CAIF device must
-+	also be a built-in.
-+	If unsure say Y.
-+
-+endif
-+#endmenu
-diff --git a/net/caif/Makefile b/net/caif/Makefile
-new file mode 100644
-index 0000000..c49438b
---- /dev/null
-+++ b/net/caif/Makefile
-@@ -0,0 +1,29 @@
-+ifeq ($(CONFIG_CAIF_DEBUG),1)
-+CAIF_DBG_FLAGS := -DDEBUG
-+endif
-+
-+ccflags-y := $(CAIF_FLAGS) $(CAIF_DBG_FLAGS)
-+
-+caif-objs := caif_dev.o caif_chnlif.o \
-+	generic/cfcnfg.o generic/cfmuxl.o generic/cfctrl.o  \
-+	generic/cffrml.o generic/cfveil.o generic/cflist.o  \
-+	generic/cfserl.o generic/cfdgml.o  \
-+	generic/cfrfml.o generic/cfvidl.o generic/cfutill.o \
-+	generic/cfsrvl.o generic/cfpkt_skbuff.o caif_config_util.o
-+
-+clean-dirs:= .tmp_versions
-+
-+clean-files:= \
-+	Module.symvers \
-+	modules.order \
-+	*.cmd \
-+	*~ \
-+	generic/*.o \
-+	generic/*~
-+
-+obj-$(CONFIG_CAIF) += caif.o
-+obj-$(CONFIG_CAIF_NETDEV) += chnl_net.o
-+obj-$(CONFIG_CAIF_SOCK) += caif_socket.o
-+
-+export-objs := caif.o
-+
+ #define ARPHRD_VOID	  0xFFFF	/* Void type, nothing is known */
+ #define ARPHRD_NONE	  0xFFFE	/* zero header length */
+diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
+index 299b412..bed7a46 100644
+--- a/include/linux/if_ether.h
++++ b/include/linux/if_ether.h
+@@ -109,6 +109,7 @@
+ #define ETH_P_TRAILER	0x001C		/* Trailer switch tagging	*/
+ #define ETH_P_PHONET	0x00F5		/* Nokia Phonet frames          */
+ #define ETH_P_IEEE802154 0x00F6		/* IEEE802.15.4 frame		*/
++#define ETH_P_CAIF	0x00F7		/* ST-Ericsson CAIF protocol	*/
+ 
+ /*
+  *	This is an Ethernet frame header.
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 7b3aae2..960659b 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -189,7 +189,8 @@ struct ucred {
+ #define AF_ISDN		34	/* mISDN sockets 		*/
+ #define AF_PHONET	35	/* Phonet sockets		*/
+ #define AF_IEEE802154	36	/* IEEE802154 sockets		*/
+-#define AF_MAX		37	/* For now.. */
++#define AF_CAIF		37	/* CAIF sockets			*/
++#define AF_MAX		38	/* For now.. */
+ 
+ /* Protocol families, same as address families. */
+ #define PF_UNSPEC	AF_UNSPEC
+@@ -229,6 +230,7 @@ struct ucred {
+ #define PF_ISDN		AF_ISDN
+ #define PF_PHONET	AF_PHONET
+ #define PF_IEEE802154	AF_IEEE802154
++#define PF_CAIF		AF_CAIF
+ #define PF_MAX		AF_MAX
+ 
+ /* Maximum queue length specifiable by listen.  */
+@@ -300,6 +302,7 @@ struct ucred {
+ #define SOL_PNPIPE	275
+ #define SOL_RDS		276
+ #define SOL_IUCV	277
++#define SOL_CAIF	278
+ 
+ /* IPX options */
+ #define IPX_TYPE	1
 -- 
 1.6.3.3
 
