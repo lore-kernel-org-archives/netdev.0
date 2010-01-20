@@ -1,42 +1,92 @@
-From: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
-Subject: RE: [PATCH 2.6.33 1/3] net: Micrel KSZ8841/2 PCI Ethernet driver
-Date: Tue, 19 Jan 2010 16:12:04 -0800
-Message-ID: <14385191E87B904DBD836449AA30269D580AF2@MORGANITE.micrel.com>
-References: <14385191E87B904DBD836449AA30269D021A4A@MORGANITE.micrel.com><20100116145014.172ad340@lxorguk.ukuu.org.uk><14385191E87B904DBD836449AA30269D580A93@MORGANITE.micrel.com> <20100119213214.024b7794@lxorguk.ukuu.org.uk>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH 1/2] e1000: enhance frame fragment detection
+Date: Tue, 19 Jan 2010 16:15:38 -0800
+Message-ID: <20100120001511.25175.55030.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Dave Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: "Alan Cox" <alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756200Ab0ATANf@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <20100119213214.024b7794@lxorguk.ukuu.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:36055
+	"EHLO qmta10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755122Ab0ATAQA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jan 2010 19:16:00 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alan Cox wrote:
->>> If you make a private copy of pdev in your struct you should
->>> refcount
->> it and use
->>> pci_dev_get/pci_dev_put when you take and release the reference.
-> 
->> I do not understand how pci_dev_get/pci_dev_put work.  Does the pdev
->> pointer actually change during the lifetime of the PCI driver?
-> 
-> No but it can go away if the device is removed. The pci_dev_get
-ensures it won't go away while
-> you have a pointer to it. and the pci_dev_put gives up your reference.
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-> 
+Originally From: Neil Horman <nhorman@tuxdriver.com>
+Modified by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-If the PCI device is removed, like physically removing the card,
-shouldn't the kernel also close the network device assocated with the
-PCI device?  The driver does actually cleanup the network devices and
-free all memory when the pci remove function is called.
+Hey all-
+	A security discussion was recently given:
+http://events.ccc.de/congress/2009/Fahrplan//events/3596.en.html
+And a patch that I submitted awhile back was brought up.  Apparently some of
+their testing revealed that they were able to force a buffer fragment in e1000
+in which the trailing fragment was greater than 4 bytes.  As a result the
+fragment check I introduced failed to detect the fragement and a partial
+invalid frame was passed up into the network stack.  I've written this patch
+to correct it.  I'm in the process of testing it now, but it makes good
+logical sense to me.  Effectively it maintains a per-adapter state variable
+which detects a non-EOP frame, and discards it and subsequent non-EOP frames
+leading up to _and_ _including_ the next positive-EOP frame (as it is by
+definition the last fragment).  This should prevent any and all partial frames
+from entering the network stack from e1000.
 
->From the PCI network drivers included in the kernel I found most drivers
-use pci_dev_put only on devices that are outside their own PCI devices,
-retrieved from the pci_get_device call.  (They never call pci_dev_get.)
-That makes sense as those PCI devices are outside PCI driver control.
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/e1000/e1000.h      |    2 ++
+ drivers/net/e1000/e1000_main.c |   13 +++++++++++--
+ 2 files changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
+index 2a567df..e8932db 100644
+--- a/drivers/net/e1000/e1000.h
++++ b/drivers/net/e1000/e1000.h
+@@ -326,6 +326,8 @@ struct e1000_adapter {
+ 	/* for ioport free */
+ 	int bars;
+ 	int need_ioport;
++
++	bool discarding;
+ };
+ 
+ enum e1000_state_t {
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 7e855f9..9bc9fcd 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -3850,13 +3850,22 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
+ 
+ 		length = le16_to_cpu(rx_desc->length);
+ 		/* !EOP means multiple descriptors were used to store a single
+-		 * packet, also make sure the frame isn't just CRC only */
+-		if (unlikely(!(status & E1000_RXD_STAT_EOP) || (length <= 4))) {
++		 * packet, if thats the case we need to toss it.  In fact, we
++		 * to toss every packet with the EOP bit clear and the next
++		 * frame that _does_ have the EOP bit set, as it is by
++		 * definition only a frame fragment
++		 */
++		if (unlikely(!(status & E1000_RXD_STAT_EOP)))
++			adapter->discarding = true;
++
++		if (adapter->discarding) {
+ 			/* All receives must fit into a single buffer */
+ 			E1000_DBG("%s: Receive packet consumed multiple"
+ 				  " buffers\n", netdev->name);
+ 			/* recycle */
+ 			buffer_info->skb = skb;
++			if (status & E1000_RXD_STAT_EOP)
++				adapter->discarding = false;
+ 			goto next_desc;
+ 		}
+ 
+
