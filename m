@@ -1,86 +1,49 @@
-From: marco gaddoni <marco.gaddoni@gmail.com>
-Subject: Re: tg3 driver / BCM5722 dropping to 10Base-HD
-Date: Wed, 20 Jan 2010 08:40:55 +0100
-Message-ID: <3b2bc9d1001192340t29834477oc2943e3306700c63@mail.gmail.com>
-References: <3b2bc9d1001180617m8c2e8ddm2bc99099758e53c3@mail.gmail.com>
-	 <20100119230827.GA23501@xw6200.broadcom.net>
+From: Anders =?iso-8859-1?Q?Bostr=F6m?= <anders@netinsight.net>
+Subject: Re: Bug#565404: linux-image-2.6.26-2-amd64: atl1e: TSO is broken
+Date: Wed, 20 Jan 2010 10:27:04 +0100 (CET)
+Message-ID: <20100120.102704.295948365864962720.anders@netinsight.net>
+References: <1263767939.8876.94.camel@localhost>
+	<20100118.154347.314005348620400016.anders@netinsight.net>
+	<CDAFEDABF718A54BABD0DA5476695307443F1E8D@SHEXMB-01.global.atheros.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Matt Carlson <mcarlson@broadcom.com>
+Cc: ben@decadent.org.uk, netdev@vger.kernel.org,
+	565404@bugs.debian.org, Xiong.Huang@Atheros.com
+To: Jie.Yang@Atheros.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:19813 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754767Ab0ATHk4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2010 02:40:56 -0500
-Received: by fg-out-1718.google.com with SMTP id 16so773184fgg.1
-        for <netdev@vger.kernel.org>; Tue, 19 Jan 2010 23:40:55 -0800 (PST)
-In-Reply-To: <20100119230827.GA23501@xw6200.broadcom.net>
+Received: from ernst.netinsight.se ([194.16.221.21]:10612 "HELO
+	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751061Ab0ATJ1P convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2010 04:27:15 -0500
+In-Reply-To: <CDAFEDABF718A54BABD0DA5476695307443F1E8D@SHEXMB-01.global.atheros.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 20, 2010 at 00:08, Matt Carlson <mcarlson@broadcom.com> wro=
-te:
-> On Mon, Jan 18, 2010 at 06:17:32AM -0800, marco gaddoni wrote:
->> Hello,
->>
->> i have a dell with a BCM5722 driven by the tg3 driver.
->>
->> this pc is connected to an unmanaged switch by micronet;
->> the connection is at 1000MBs.
->>
->> the system is normally stable;
->> sometimes the connection get dropped to 10Mbs/HD.
->>
->> i can get te connection back up to 1000Mbps
->> with an ethtool -t eth0.
->>
->> do you have any idea on what is the cause of this ?
->> is this the wrong adderess?
->>
->> please cc: me as i am not subscibed to netdev.
->>
->> thank you in advance,
->> =C2=A0marco,
->
-> Can you post the driver messages from the syslog and the output of
-> ethtool -i eth0?
->
->
+>>>>> "JY" =3D=3D Jie Yang <Jie.Yang@Atheros.com> writes:
 
-hello,
+ JY> Anders Bostr=F6m <anders@netinsight.net> wrote:
+ >> It is an ASUS M4A78 PRO motherboard with the Atheros
+ >> AR8121/AR8113/AR8114 on-board.
+ >>=20
+ >> >> ~25Mbyte/s performance. I get ~5000 retransmitted packets
+ >> per GByte  >> data, according to RetransSegs in
+ >> /proc/net/snmp . wireshark in the  >> client show that the
+ >> server send out a sequence of frames. All but the  >> last
+ >> one are 1500 bytes IP-packets. The last one is shorter, but
+ >> the  >> IP-header still say 1500 byte. The client then
+ >> requests retransmit,  >> and the retransmitted frame arrives
+ >> with correct IP-header.
 
-here they are:
+ JY> i just test it on Linux localhost.localdomain 2.6.31.5-127.fc12.x8=
+6_64 #1 SMP Sat Nov 7 21:11:14 EST 2009 x86_64 x86_64 x86_64 GNU/Linux.
+ JY> with hardware, Atheros AR8121/AR8113/AR8114 PCI-E Ethernet Control=
+ler (rev b0)
+ JY> device id : 1969:1026 (rev b0)
 
-tg3.c:v3.99d (May 26, 2009)
-tg3 0000:01:00.0: setting latency timer to 64
-eth0: Tigon3 [partno(BCM95722) rev a200] (PCI Express) MAC address
-00:26:b9:2e:79:b9
-eth0: attached PHY is 5722/5756 (10/100/1000Base-T Ethernet) (WireSpeed=
-[1])
-eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1] TSOcap[1]
-eth0: dma_rwctrl[76180000] dma_mask[64-bit]
-tg3 0000:02:00.0: setting latency timer to 64
-eth1: Tigon3 [partno(BCM95722) rev a200] (PCI Express) MAC address
-00:26:b9:2e:79:ba
-eth1: attached PHY is 5722/5756 (10/100/1000Base-T Ethernet) (WireSpeed=
-[1])
-eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1] TSOcap[1]
-eth1: dma_rwctrl[76180000] dma_mask[64-bit]
+ JY> i upload/download a 382M it work well with retransmit packet:
 
-=2E..
+Have you tested NFS over TCP? The block-size the application uses can
+have an effect on this. What application did you use? Block-size?
 
-tg3: eth0: Link is up at 1000 Mbps, full duplex.
-tg3: eth0: Flow control is on for TX and on for RX.
-
-
-srvlinux:~ # ethtool -i eth0
-driver: tg3
-version: 3.99d
-firmware-version: 5722-v3.08, ASFIPMI v6.02
-bus-info: 0000:01:00.0
-
-
---=20
-"Reality continues to ruin my life." - Calvin.
+/ Anders
