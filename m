@@ -1,35 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPv6: fix rt_lookup in pmtu_discovery
-Date: Wed, 20 Jan 2010 14:57:36 -0800 (PST)
-Message-ID: <20100120.145736.210975167.davem@davemloft.net>
-References: <20100110.131524.241344047.davem@davemloft.net>
-	<55a4f86e1001131651j102b600fm1552a42866c3c671@mail.gmail.com>
-	<55a4f86e1001201455j669bc401v56c5f5bf3857d19@mail.gmail.com>
+Subject: Re: [PATCH 4/9] net/sctp: Eliminate useless code
+Date: Wed, 20 Jan 2010 15:03:43 -0800 (PST)
+Message-ID: <20100120.150343.236848237.davem@davemloft.net>
+References: <Pine.LNX.4.64.1001161657570.28745@ask.diku.dk>
+	<4B574702.4040602@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lorenzo@google.com, therbert@google.com, netdev@vger.kernel.org
-To: zenczykowski@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: julia@diku.dk, sri@us.ibm.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42460
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51704
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751587Ab0ATW50 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jan 2010 17:57:26 -0500
-In-Reply-To: <55a4f86e1001201455j669bc401v56c5f5bf3857d19@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1752472Ab0ATXDd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2010 18:03:33 -0500
+In-Reply-To: <4B574702.4040602@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Maciej =AFenczykowski <zenczykowski@gmail.com>
-Date: Wed, 20 Jan 2010 14:55:10 -0800
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Wed, 20 Jan 2010 13:10:10 -0500
 
-> David, could you comment on this?
+> 
+> 
+> Julia Lawall wrote:
+>> From: Julia Lawall <julia@diku.dk>
+>> 
+>> The variable newinet is initialized twice to the same (side effect-free)
+>> expression.  Drop one initialization.
+>> 
+>> A simplified version of the semantic match that finds this problem is:
+>> (http://coccinelle.lip6.fr/)
+>> 
+>> // <smpl>
+>> @forall@
+>> idexpression *x;
+>> identifier f!=ERR_PTR;
+>> @@
+>> 
+>> x = f(...)
+>> ... when != x
+>> (
+>> x = f(...,<+...x...+>,...)
+>> |
+>> * x = f(...)
+>> )
+>> // </smpl>
+>> 
+>> Signed-off-by: Julia Lawall <julia@diku.dk>
+> 
+> Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-I'll get to your patch when I get to it.  I have tons of other thing
-that have much higher priority than this.
-
-If it's in patchwork in "under review" state (which this one is), that
-means it's in my backlog and just poking me about it will serve only
-to irritate me and put it even lower ino my TODO list.
-
-Thanks.
+Julia,  just like patch #3 this one had the missing final
+line of the patch corrupting it, so you'll need to resubmit.
