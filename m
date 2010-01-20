@@ -1,59 +1,42 @@
-From: =?UTF-8?Q?Kolbj=C3=B8rn_Barmen?= <linux@kolla.no>
-Subject: IPv6 autoconf/accept_ra default values - revisited
-Date: Wed, 20 Jan 2010 00:45:37 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1001200020280.9283@firda.kolla.no>
-References: <> <1237945752-14362-1-git-send-email-brian.haley@hp.com> <49C99315.6070504@hp.com> <alpine.LNX.2.00.0903250526050.6682@firda.kolla.no> <49CA4D86.4070403@hp.com>
+From: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
+Subject: RE: [PATCH 2.6.33 1/3] net: Micrel KSZ8841/2 PCI Ethernet driver
+Date: Tue, 19 Jan 2010 16:12:04 -0800
+Message-ID: <14385191E87B904DBD836449AA30269D580AF2@MORGANITE.micrel.com>
+References: <14385191E87B904DBD836449AA30269D021A4A@MORGANITE.micrel.com><20100116145014.172ad340@lxorguk.ukuu.org.uk><14385191E87B904DBD836449AA30269D580A93@MORGANITE.micrel.com> <20100119213214.024b7794@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Vlad Yasevich <vladislav.yasevich@hp.com>, davem@davemloft.net,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: Brian Haley <brian.haley@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ufisa.uninett.no ([158.38.152.126]:38936 "EHLO ufisa.uninett.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753738Ab0ATAMd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jan 2010 19:12:33 -0500
-In-Reply-To: <49CA4D86.4070403@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Dave Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: "Alan Cox" <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756200Ab0ATANf@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20100119213214.024b7794@lxorguk.ukuu.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Alan Cox wrote:
+>>> If you make a private copy of pdev in your struct you should
+>>> refcount
+>> it and use
+>>> pci_dev_get/pci_dev_put when you take and release the reference.
+> 
+>> I do not understand how pci_dev_get/pci_dev_put work.  Does the pdev
+>> pointer actually change during the lifetime of the PCI driver?
+> 
+> No but it can go away if the device is removed. The pci_dev_get
+ensures it won't go away while
+> you have a pointer to it. and the pci_dev_put gives up your reference.
 
-Cheers, remember me? :)
+> 
 
-Regarding the autoconf parameter for the ipv6 module, was it not the
-intention that it should cover accept_ra as well?
+If the PCI device is removed, like physically removing the card,
+shouldn't the kernel also close the network device assocated with the
+PCI device?  The driver does actually cleanup the network devices and
+free all memory when the pci remove function is called.
 
-I ask since I have used this paramater in the belief that it also did
-cover accept_ra, however on a couple of systems that are using bridge
-interface, I noticed that they "fall off" ipv6-wise, unless I explisitly
-ping them.
-
-So I finally got around to find out what was going on, and to my surprise
-I see that they both have autoconfigured routes on eth0 (using link local)
-that they want to use instead of what I have statically configured for br0.
-
-So, could "autoconf" also please turn off accept_ra?
-Or, if you like, add another parameter for it :P
-
-I tried using disable_ipv6 in all kinds of tricky ways to get what I want,
-but it's close to impossble, with interfaces coming and going in the
-bridge I always end up with autoconfigured addresses where I dont want
-them, strange routing issues etc. I cannot just add entries in sysctl.conf
-for bridge interfaces, since the bridge interfaces (and others for that
-matter) are not there when sysctl is run on bootup.
-
-And the entire "all" vs. "default" still confuses me.
-
-* "default" is supposed to cover _all future_ interfaces?
-* "all" is supposed to cover _all existing_ interfaces, and change them?
-  If not, then what is its function?
-
-
-And lastly - all this would be a non-issue if the defaults values were so
-that all autoconf/accept_ra were 0 - it's _so_ easy to turn on, but
-incredibly complicated to turn off. The harder it is to make sense out of
-things like this, the harder it is to have people start with IPv6.
-
-Cheers again! :)
-
--- kolla
+>From the PCI network drivers included in the kernel I found most drivers
+use pci_dev_put only on devices that are outside their own PCI devices,
+retrieved from the pci_get_device call.  (They never call pci_dev_get.)
+That makes sense as those PCI devices are outside PCI driver control.
