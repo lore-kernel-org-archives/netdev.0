@@ -1,54 +1,36 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: Tree for January 19 (vhost_net)
-Date: Wed, 20 Jan 2010 22:37:14 +1100
-Message-ID: <20100120223714.0d357f09.sfr@canb.auug.org.au>
-References: <20100119181041.ab55f645.sfr@canb.auug.org.au>
-	<20100119104139.2ec9164b.randy.dunlap@oracle.com>
-	<20100120101643.GA22706@redhat.com>
+From: Christoph Egger <siccegge@stud.informatik.uni-erlangen.de>
+Subject: Obsolete config in kernel (epic100) source (CONFIG_BIG_ENDIAN)
+Date: Wed, 20 Jan 2010 12:50:23 +0100
+Message-ID: <20100120115022.GA3580@faui49.informatik.uni-erlangen.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__20_Jan_2010_22_37_14_+1100_2Ys=Tv=zCFtuewAi"
-Cc: Randy Dunlap <randy.dunlap@oracle.com>,
-	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100120101643.GA22706@redhat.com>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: siccegge@stud.informatik.uni-erlangen.de,
+	Reinhard.Tartler@informatik.uni-erlangen.de
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	viro@ftp.linux.org.uk
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753388Ab0ATLuG@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Wed__20_Jan_2010_22_37_14_+1100_2Ys=Tv=zCFtuewAi
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Hi all!
 
-Hi Michael,
+	As part of the VAMOS[0] research project at the University of
+Erlangen we're checking referential integrity between kernel KConfig
+options and in-code Conditional blocks.
 
-On Wed, 20 Jan 2010 12:16:44 +0200 "Michael S. Tsirkin" <mst@redhat.com> wr=
-ote:
->
-> Oh, I fixed this already but then I lost the patch:
-> http://lkml.org/lkml/2009/11/10/137
->=20
-> Sorry about that, I'll repost the fix immediately.
+	The epic100 kernel dirver checks the variable
+CONFIG_BIG_ENDIAN for turning on byteswapping. This Variable seems to
+only have ever existed as a configuration option on the sh64 Platform
+and is even there now renamed and no longer existent. SO I fear the
+code won't behave as expected.
 
-Thanks.
+	I'm not attaching any patch as I'm not sure how to correctly
+handle Endianess.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+	Please keep me informed of this patch getting confirmed /
+merged so we can keep track of it.
 
---Signature=_Wed__20_Jan_2010_22_37_14_+1100_2Ys=Tv=zCFtuewAi
-Content-Type: application/pgp-signature
+Regards
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAktW6uoACgkQjjKRsyhoI8yvqACfRWezKvj8weqAu4S9hD0msIMu
-JdAAmwYYeffIj4otob+XN7ddifNpIGjr
-=Ei9X
------END PGP SIGNATURE-----
-
---Signature=_Wed__20_Jan_2010_22_37_14_+1100_2Ys=Tv=zCFtuewAi--
+	Christoph Egger
