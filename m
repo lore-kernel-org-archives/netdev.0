@@ -1,37 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 02/11] sky2: fix DMA sync_single length error
-Date: Wed, 20 Jan 2010 16:15:34 -0800 (PST)
-Message-ID: <20100120.161534.173867444.davem@davemloft.net>
-References: <20100120.154126.152942350.davem@davemloft.net>
-	<20100120235920.GF3072@del.dom.local>
-	<20100120160407.3a365a92@nehalam>
+Subject: Re: [PATCH 00/11] DMA sync errors
+Date: Wed, 20 Jan 2010 16:18:05 -0800 (PST)
+Message-ID: <20100120.161805.118613816.davem@davemloft.net>
+References: <20100120204459.820265084@vyatta.com>
+	<20100120.144639.31770545.davem@davemloft.net>
+	<20100120152832.06a905a5@nehalam>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: jarkao2@gmail.com, netdev@vger.kernel.org
 To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45739
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33271
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754736Ab0AUAPY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2010 19:15:24 -0500
-In-Reply-To: <20100120160407.3a365a92@nehalam>
+	by vger.kernel.org with ESMTP id S1754344Ab0AUARz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jan 2010 19:17:55 -0500
+In-Reply-To: <20100120152832.06a905a5@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 20 Jan 2010 16:04:07 -0800
+Date: Wed, 20 Jan 2010 15:28:32 -0800
 
-> The usage of jumbo frames on the Marvell Yukon-2 chip version that
-> Michael has is suspect. In order to do Jumbo frames, the driver has
-> turns off the store-forward buffer; this reduces the window for transmit
-> underrun, and triggers a problem.  I suspect the unwind logic for
-> transmit underrun is broken and may not be fixable without more hardware
-> information.  Turning off jumbo frame support for that chip type
-> is probably the safest solution.
+> This should fix the dma-debug API code (and documentation), to
+> avoid false positives when sync is done on a partial map.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+ ...
+> --- a/lib/dma-debug.c	2010-01-20 15:22:55.919519883 -0800
+> +++ b/lib/dma-debug.c	2010-01-20 15:26:31.648895638 -0800
+> @@ -285,11 +285,9 @@ static struct dma_debug_entry *hash_buck
+>  	}
+>  
+>  	/*
+> -	 * If we have multiple matches but no perfect-fit, just return
+> -	 * NULL.
+> +	 * If we have multiple matches but no perfect-fit
+> +	 * return best value and let caller deal with it.
+>  	 */
+> -	ret = (matches == 1) ? ret : NULL;
+> -
+>  	return ret;
+>  }
+>  
 
-So let's do that.
+I think you have to enforce a perfect-fit match for the
+non-SYNC cases.
 
-Meanwhile I think the DMA debugging patch you posted earlier today
-need a little work, will reply there.
+check_sync() can pass in 'true' for a new bool argument "partial_ok"
+added to hash_bucket_find() whereas check_unmap() can pass 'false'.
+
+get_nr_mapped_entries() should pass 'false' as well.
 
