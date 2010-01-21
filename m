@@ -1,101 +1,196 @@
-From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Subject: RE: Problems with tg3 driver after lowering the MTU
-Date: Thu, 21 Jan 2010 15:02:54 -0800
-Message-ID: <E1829B60731D1740BB7A0626B4FAF0A6467F0DA2B8@XCH-NW-01V.nw.nos.boeing.com>
-References: <ac67d9131001210721q37a6883eg85430f9564d8e007@mail.gmail.com>
- 	<1264087643.2794.2.camel@achroite.uk.solarflarecom.com>
- 	<ac67d9131001210742x7bb6af87o546007707c412835@mail.gmail.com>
- 	<E1829B60731D1740BB7A0626B4FAF0A6467F0DA0D5@XCH-NW-01V.nw.nos.boeing.com>
- <1264098605.2794.39.camel@achroite.uk.solarflarecom.com>
+From: "Luis R. Rodriguez" <mcgrof@bombadil.infradead.org>
+Subject: [RFC/RFT v2]: compat-wireless for 2.6.32.4 - multiqueue backport
+	support
+Date: Thu, 21 Jan 2010 18:06:00 -0500
+Message-ID: <20100121230600.GC8069@bombadil.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Szilveszter Ordog <slipszi@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, lrodriguez@atheros.com
+To: linux-wireless <linux-wireless@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from slb-smtpout-01.boeing.com ([130.76.64.48]:47780 "EHLO
-	slb-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754584Ab0AUXC7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 18:02:59 -0500
-In-Reply-To: <1264098605.2794.39.camel@achroite.uk.solarflarecom.com>
-Content-Language: en-US
+Received: from bombadil.infradead.org ([18.85.46.34]:59822 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755136Ab0AUXGI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 18:06:08 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben,
+The 2.6.32.4 kernel got added MQ support back. I've tried to backport
+this and this is what I have so far:
 
-> -----Original Message-----
-> From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> Sent: Thursday, January 21, 2010 10:30 AM
-> To: Templin, Fred L
-> Cc: Szilveszter Ordog; netdev@vger.kernel.org
-> Subject: RE: Problems with tg3 driver after lowering the MTU
-> 
-> On Thu, 2010-01-21 at 09:47 -0800, Templin, Fred L wrote:
-> > > -----Original Message-----
-> > > From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Szilveszter
-> > > Ordog
-> > > Sent: Thursday, January 21, 2010 7:42 AM
-> > > To: netdev@vger.kernel.org
-> > > Subject: Re: Problems with tg3 driver after lowering the MTU
-> > >
-> > > On Thu, Jan 21, 2010 at 16:27, Ben Hutchings <bhutchings@solarflare.com> wrote:
-> > > > On Thu, 2010-01-21 at 16:21 +0100, Szilveszter Ordog wrote:
-> > > >> After the MTU is lowered (e.g. to 1420) on a tg3-driven interface,
-> > > >> received packets larger than that (e.g. 1500 bytes) are silently
-> > > >> discarded by the driver. Therefore the system doesn't send ICMP
-> > > >> fragmentation-needed packets and the other side doesn't detect this
-> > > >> condition.
-> > > >>
-> > > >> Is this a known bug?
-> > > >
-> > > > I don't believe this a bug.  Within a local network, MTU should be set
-> > > > the same for all interfaces.  Routers that connect networks with
-> > > > different MTUs will generate the fragmentation-needed message as
-> > > > appropriate.
-> > >
-> > > Other drivers do not behave like that. Most of them always allow
-> > > packets smaller than 1500 bytes. That is why I think that this is a
-> > > bug.
-> >
-> > The question seems to be what happens when the
-> > Maximum Transmission Unit (MTU) is smaller than
-> > the Maximum Receive Unit (MRU)?
-> >
-> > For TCP, MSS is calculated based on MTU (not MRU)
-> > so there should not be any size mismatches with TCP.
-> > For large packets of other IP protocols, it should
-> > be OK for the end system to receive a packet larger
-> > than it is capable of sending. So, it seems to me
-> > that packets that are larger than MTU but no larger
-> > than MRU should be accepted.
-> 
-> In theory, MRU and MTU could be quite separate.  However, there is no
-> standard interface to set an interface's MRU, so where the hardware
-> supports a variable MRU drivers normally set it based on the MTU.
+http://bombadil.infradead.org/~mcgrof/tmp/compat-wireless-2.6.32.4-rc2.tar.bz2
 
-In RFC1122, EMTU_S (i.e., the MTU) and EMTU_R (i.e., the
-MRU) are maintained separately and are not specified as
-dependent on one another directly. Intuitively however,
-the relationship MTU <= MRU seems appropriate, and consistent
-with a number of specs that require the reassembly size to
-be no smaller than the interface MTU. The term "MRU" itself
-came from RFC1661 (PPP) where it is the MRU and not MTU that
-is negotiated.
+sha1sum: 
+6d5dac4fd7d6c1a065d6e83bdfa75df2ca34fa39  compat-wireless-2.6.32.4-rc2.tar.bz2
 
-So I see evidence to support the assertion that MTU <= MRU,
-but I don't see much evidence to support the assertion that
-MTU == MRU. Besides, if a packet arrives that is larger
-than MTU but no larger than MRU, why throw away good data?
+I've made some more changes based on comments from Johannes and some more
+reading and review of select_queue stuff, and net_device_ops changes. Only
+thing I did not add was the ndev->features |= NETIF_F_MULTI_QUEUE because
+I just see that used by netif_is_multiqueue() and that in turn by
+net/sched/sch_prio.c which I do not think we would ever use, not sure
+qdisc stuff confuses me.
 
-Fred
-fred.l.templin@boeing.com
+I appreciate your review. I only compile tested it against
+the 2.6.23..2.6.26 releases.
+
+=== compat/patches/18-multiqueue.patch ====
+
+Backport multiqueue support for kernels < 2.6.27
+
+The 2.6.23 kernel added some initial multiqueue support.
+That release relied on the on the notion of struct
+net_device_subqueue attached to the netdevice struct
+as an array. The 2.6.27 renamed these to struct netdev_queue,
+and enhanced MQ support by providing locks separately onto
+each queue. MQ support on 2.6.27 also extended each netdev
+to be able to assign a select_queue callback to be used by
+core networking for prior to pushing the skb out to the device
+driver so that queue selection can be dealt with and
+customized internally on the driver.
+
+For kernels 2.6.23..2.6.26 then we backport MQ support by
+using the equivalent calls on the struct netdev_queue to
+the struct net_device_subqueue.
+
+For older kernels than 2.6.23 we can only stop all the
+queues then and wake them up only if no other queue had
+been stopped previously. This means for kernels older
+than 2.6.23 there is a performance penalty and congestion
+on one queue would imply propagating the same congestion
+impact on all the other queues.
+
+The select_queue callback was only added as of 2.6.27 via
+commit eae792b7 so for kernels older than 2.6.23 and up
+to 2.6.27 we must ensure we do the selection of the queue
+once the core networking calls mac80211's dev_hard_start_xmit()
+(ndo_start_xmit() callback on newer kernels).
+
+This patch then consists of three parts:
+
+  1) Addresses the lack of select_queue on older kernels than 2.6.27
+  2) Extends the backport of net_device_ops for select_queue for kernels >= 2.6.27
+  3) Backporting wake/stop queue for older kernels:
+	- Handle with net_device_subqueue for >= 2.6.23
+	- Treat each queue operation as an aggregate for all queues
+
+Monitor interfaces have their own select_queue -- monitor interfaces
+are used for injecting frames so they have their own respective queue
+handling, but mac80211 just always sends management frames on VO
+queue by using skb_set_queue_mapping(skb, 0) through ieee80211_tx_skb()
+
+--- a/net/mac80211/util.c	2010-01-21 11:22:36.000000000 -0800
++++ b/net/mac80211/util.c	2010-01-21 11:34:13.000000000 -0800
+@@ -267,6 +267,18 @@ __le16 ieee80211_ctstoself_duration(stru
+ }
+ EXPORT_SYMBOL(ieee80211_ctstoself_duration);
  
-> Ben.
-> 
-> --
-> Ben Hutchings, Senior Software Engineer, Solarflare Communications
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
-
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23))
++static bool ieee80211_all_queues_stopped(struct ieee80211_hw *hw)
++{
++	unsigned int queue;
++
++	for (queue = 0; queue < hw->queues; queue++)
++		if (!ieee80211_queue_stopped(hw, queue))
++			return false;
++	return true;
++}
++#endif
++
+ static void __ieee80211_wake_queue(struct ieee80211_hw *hw, int queue,
+ 				   enum queue_stop_reason reason)
+ {
+@@ -287,7 +299,14 @@ static void __ieee80211_wake_queue(struc
+ 
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(sdata, &local->interfaces, list)
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27))
+ 		netif_tx_wake_queue(netdev_get_tx_queue(sdata->dev, queue));
++#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23))
++		netif_start_subqueue(sdata->dev, queue);
++#else
++		if (ieee80211_all_queues_stopped(hw))
++			netif_wake_queue(sdata->dev);
++#endif
+ 	rcu_read_unlock();
+ }
+ 
+@@ -322,7 +341,13 @@ static void __ieee80211_stop_queue(struc
+ 
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(sdata, &local->interfaces, list)
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27))
+ 		netif_tx_stop_queue(netdev_get_tx_queue(sdata->dev, queue));
++#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23))
++		netif_stop_subqueue(sdata->dev, queue);
++#else
++		netif_stop_queue(sdata->dev);
++#endif
+ 	rcu_read_unlock();
+ }
+ 
+--- a/net/mac80211/tx.c	2010-01-21 12:13:24.000000000 -0800
++++ b/net/mac80211/tx.c	2010-01-21 12:22:54.000000000 -0800
+@@ -1484,6 +1484,10 @@ static void ieee80211_xmit(struct ieee80
+ 				return;
+ 			}
+ 
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27))
++	/* Older kernels do not have the select_queue callback */
++	skb_set_queue_mapping(skb, ieee80211_select_queue(sdata, skb));
++#endif
+ 	ieee80211_set_qos_hdr(local, skb);
+ 	ieee80211_tx(sdata, skb, false);
+ 	dev_put(sdata->dev);
+--- a/net/mac80211/iface.c	2010-01-21 12:26:53.000000000 -0800
++++ b/net/mac80211/iface.c	2010-01-21 12:34:40.000000000 -0800
+@@ -644,11 +644,13 @@ static void ieee80211_teardown_sdata(str
+ 	WARN_ON(flushed);
+ }
+ 
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27))
+ static u16 ieee80211_netdev_select_queue(struct net_device *dev,
+ 					 struct sk_buff *skb)
+ {
+ 	return ieee80211_select_queue(IEEE80211_DEV_TO_SUB_IF(dev), skb);
+ }
++#endif
+ 
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29))
+ static const struct net_device_ops ieee80211_dataif_ops = {
+@@ -662,6 +664,7 @@ static const struct net_device_ops ieee8
+ 	.ndo_select_queue	= ieee80211_netdev_select_queue,
+ };
+ 
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27))
+ static u16 ieee80211_monitor_select_queue(struct net_device *dev,
+ 					  struct sk_buff *skb)
+ {
+@@ -687,6 +690,7 @@ static u16 ieee80211_monitor_select_queu
+ 	skb->priority = 0;
+ 	return ieee80211_downgrade_queue(local, skb);
+ }
++#endif
+ 
+ static const struct net_device_ops ieee80211_monitorif_ops = {
+ 	.ndo_open		= ieee80211_open,
+@@ -715,6 +719,9 @@ static void ieee80211_if_setup(struct ne
+ 	/* we will validate the address ourselves in ->open */
+ 	dev->validate_addr = NULL;
+ #endif
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27))
++	dev->select_queue = ieee80211_netdev_select_queue;
++#endif
+ #endif
+ 	dev->destructor = free_netdev;
+ }
+@@ -761,6 +768,9 @@ static void ieee80211_setup_sdata(struct
+ 		sdata->dev->netdev_ops = &ieee80211_monitorif_ops;
+ #else
+ 		sdata->dev->hard_start_xmit = ieee80211_monitor_start_xmit;
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27))
++		sdata->dev->select_queue = ieee80211_monitor_select_queue;
++#endif
+ #endif
+ 		sdata->u.mntr_flags = MONITOR_FLAG_CONTROL |
+ 				      MONITOR_FLAG_OTHER_BSS;
