@@ -1,77 +1,69 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: [PATCH 2/2] e1000: Fix DMA mapping error handling on RX
-Date: Thu, 21 Jan 2010 22:44:20 +1100
-Message-ID: <20100121114420.GA11892@kryten>
-References: <20100121114244.GC32259@kryten>
+From: Sathya Perla <sathyap@serverengines.com>
+Subject: [PATCH] be2net: fix bug in rx page posting
+Date: Thu, 21 Jan 2010 17:26:17 +0530
+Message-ID: <20100121115617.GA29213@serverengines.com>
+Reply-To: Sathya Perla <sathyap@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	Joh
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:45347 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751502Ab0AULqF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jan 2010 06:46:05 -0500
+Received: from segment-124-30.sify.net ([124.30.166.146]:29048 "EHLO
+	sperla-laptop.localdomain" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752894Ab0AUL4V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 06:56:21 -0500
 Content-Disposition: inline
-In-Reply-To: <20100121114244.GC32259@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Pages are posted to the rxq in such a way that more than one frag
+can share the page. The last frag that uses the page unmaps the
+page.  In the case when a page is not fully used (due to lack of space in rxq)
+the last frag that uses the page is not being set as a "last_page_user";
+instead, the next frag in the rxq is incorrectly being set.
 
-Check for error return from pci_map_single/pci_map_page and clean up.
+The fix has also been tested on ppc64 with 64k pages...
 
-With this and the previous patch the driver was able to handle a significant
-percentage of errors (I set the fault injection rate to 10% and could still
-download large files at a reasonable speed).
-
-Signed-off-by: Anton Blanchard <anton@samba.org>
+Signed-off-by: Sathya Perla <sathyap@serverengines.com>
 ---
+ drivers/net/benet/be_main.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
 
-I wasn't able to stress the jumbo frame path, so that part could do with some
-more eyes.
-
-Index: linux.trees.git/drivers/net/e1000/e1000_main.c
-===================================================================
---- linux.trees.git.orig/drivers/net/e1000/e1000_main.c	2010-01-21 11:13:10.000000000 +1100
-+++ linux.trees.git/drivers/net/e1000/e1000_main.c	2010-01-21 11:15:54.000000000 +1100
-@@ -4014,11 +4014,21 @@ check_page:
- 			}
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 3a1f790..33ab8c7 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -910,7 +910,7 @@ static inline struct page *be_alloc_pages(u32 size)
+ static void be_post_rx_frags(struct be_adapter *adapter)
+ {
+ 	struct be_rx_page_info *page_info_tbl = adapter->rx_obj.page_info_tbl;
+-	struct be_rx_page_info *page_info = NULL;
++	struct be_rx_page_info *page_info = NULL, *prev_page_info = NULL;
+ 	struct be_queue_info *rxq = &adapter->rx_obj.q;
+ 	struct page *pagep = NULL;
+ 	struct be_eth_rx_d *rxd;
+@@ -941,7 +941,6 @@ static void be_post_rx_frags(struct be_adapter *adapter)
+ 		rxd = queue_head_node(rxq);
+ 		rxd->fragpa_lo = cpu_to_le32(frag_dmaaddr & 0xFFFFFFFF);
+ 		rxd->fragpa_hi = cpu_to_le32(upper_32_bits(frag_dmaaddr));
+-		queue_head_inc(rxq);
+ 
+ 		/* Any space left in the current big page for another frag? */
+ 		if ((page_offset + rx_frag_size + rx_frag_size) >
+@@ -949,10 +948,13 @@ static void be_post_rx_frags(struct be_adapter *adapter)
+ 			pagep = NULL;
+ 			page_info->last_page_user = true;
  		}
++
++		prev_page_info = page_info;
++		queue_head_inc(rxq);
+ 		page_info = &page_info_tbl[rxq->head];
+ 	}
+ 	if (pagep)
+-		page_info->last_page_user = true;
++		prev_page_info->last_page_user = true;
  
--		if (!buffer_info->dma)
-+		if (!buffer_info->dma) {
- 			buffer_info->dma = pci_map_page(pdev,
- 			                                buffer_info->page, 0,
- 			                                buffer_info->length,
- 			                                PCI_DMA_FROMDEVICE);
-+			if (pci_dma_mapping_error(pdev, buffer_info->dma)) {
-+				put_page(buffer_info->page);
-+				dev_kfree_skb(skb);
-+				buffer_info->page = NULL;
-+				buffer_info->skb = NULL;
-+				buffer_info->dma = 0;
-+				adapter->alloc_rx_buff_failed++;
-+				break; /* while !buffer_info->skb */
-+			}
-+		}
- 
- 		rx_desc = E1000_RX_DESC(*rx_ring, i);
- 		rx_desc->buffer_addr = cpu_to_le64(buffer_info->dma);
-@@ -4109,6 +4119,13 @@ map_skb:
- 						  skb->data,
- 						  buffer_info->length,
- 						  PCI_DMA_FROMDEVICE);
-+		if (pci_dma_mapping_error(pdev, buffer_info->dma)) {
-+			dev_kfree_skb(skb);
-+			buffer_info->skb = NULL;
-+			buffer_info->dma = 0;
-+			adapter->alloc_rx_buff_failed++;
-+			break; /* while !buffer_info->skb */
-+		}
- 
- 		/*
- 		 * XXX if it was allocated cleanly it will never map to a
+ 	if (posted) {
+ 		atomic_add(posted, &rxq->used);
+-- 
+1.6.3.3
+
