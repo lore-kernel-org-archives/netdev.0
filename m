@@ -1,8 +1,8 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 04/10] tg3: Abort phy init for 5717 serdes
- devices
-Date: Wed, 20 Jan 2010 18:58:05 -0800
-Message-ID: <1264042691-28284-5-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 10/10] tg3: Add 57765 phy ID and enable
+ devices.
+Date: Wed, 20 Jan 2010 18:58:11 -0800
+Message-ID: <1264042691-28284-11-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -10,52 +10,70 @@ Cc: netdev@vger.kernel.org, andy@greyhouse.net,
 	"Matt Carlson" <mcarlson@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1730 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4741 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751663Ab0AUC61 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jan 2010 21:58:27 -0500
+	id S1753562Ab0AUC6a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jan 2010 21:58:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The 5717 serdes devices have a different phy register layout than all
-other previous serdes devices.  This patch aborts the phy init sequence
-in tg3_phy_reset() if the device is a 5717 serdes.  It also aborts the
-tg3_phy_toggle_apd() operation.  Most other operations in the MII_SERDES
-path are O.K.
+This patch rounds out the 57765 asic rev support by adding the 57765 phy
+ID and entering the 57765 device IDs in the pci table.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 ---
- drivers/net/tg3.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
+ drivers/net/tg3.c |    7 +++++++
+ drivers/net/tg3.h |    3 ++-
+ 2 files changed, 9 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 4a65347..7a36bf4 100644
+index 7810202..eaed2aa 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -1560,7 +1560,9 @@ static void tg3_phy_toggle_apd(struct tg3 *tp, bool enable)
- {
- 	u32 reg;
+@@ -244,6 +244,12 @@ static DEFINE_PCI_DEVICE_TABLE(tg3_pci_tbl) = {
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5717)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5718)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5724)},
++	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57781)},
++	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57785)},
++	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57761)},
++	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57765)},
++	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57791)},
++	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57795)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_9DXX)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_9MXX)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_ALTIMA, PCI_DEVICE_ID_ALTIMA_AC1000)},
+@@ -14199,6 +14205,7 @@ static char * __devinit tg3_phy_string(struct tg3 *tp)
+ 	case PHY_ID_BCM5761:	return "5761";
+ 	case PHY_ID_BCM5718C:	return "5718C";
+ 	case PHY_ID_BCM5718S:	return "5718S";
++	case PHY_ID_BCM57765:	return "57765";
+ 	case PHY_ID_BCM8002:	return "8002/serdes";
+ 	case 0:			return "serdes";
+ 	default:		return "unknown";
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index edb7a14..34c9ef4 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2895,6 +2895,7 @@ struct tg3 {
+ #define PHY_ID_BCM5761			0xbc050fd0
+ #define PHY_ID_BCM5718C			0x5c0d8a00
+ #define PHY_ID_BCM5718S			0xbc050ff0
++#define PHY_ID_BCM57765			0x5c0d8a40
+ #define PHY_ID_BCM5906			0xdc00ac40
+ #define PHY_ID_BCM8002			0x60010140
+ #define PHY_ID_INVALID			0xffffffff
+@@ -2938,7 +2939,7 @@ struct tg3 {
+ 	 (X) == PHY_ID_BCM5755 || (X) == PHY_ID_BCM5756 || \
+ 	 (X) == PHY_ID_BCM5906 || (X) == PHY_ID_BCM5761 || \
+ 	 (X) == PHY_ID_BCM5718C || (X) == PHY_ID_BCM5718S || \
+-	 (X) == PHY_ID_BCM8002)
++	 (X) == PHY_ID_BCM57765 || (X) == PHY_ID_BCM8002)
  
--	if (!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS))
-+	if (!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS) ||
-+		(GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 &&
-+	     (tp->tg3_flags2 & TG3_FLG2_MII_SERDES)))
- 		return;
- 
- 	if (tp->tg3_flags3 & TG3_FLG3_PHY_IS_FET) {
-@@ -1935,6 +1937,10 @@ static int tg3_phy_reset(struct tg3 *tp)
- 		}
- 	}
- 
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 &&
-+	    (tp->tg3_flags2 & TG3_FLG2_MII_SERDES))
-+		return 0;
-+
- 	tg3_phy_apply_otp(tp);
- 
- 	if (tp->tg3_flags3 & TG3_FLG3_PHY_ENABLE_APD)
+ 	struct tg3_hw_stats		*hw_stats;
+ 	dma_addr_t			stats_mapping;
 -- 
 1.6.4.4
 
