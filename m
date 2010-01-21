@@ -1,70 +1,42 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
-Date: Thu, 21 Jan 2010 17:14:05 +0100
-Message-ID: <4B587D4D.2010300@s5r6.in-berlin.de>
-References: <20100118212516.GE3157@del.dom.local>	<4B54D50C.90608@majjas.com>	<20100118220814.GG3157@del.dom.local>	<20100118221747.GH3157@del.dom.local>	<4B54E4EF.8080602@majjas.com>	<4B554730.6090000@majjas.com>	<20100119104739.GA9088@ff.dom.local>	<4B55D40F.5080509@majjas.com>	<20100119195933.GA3060@del.dom.local>	<4B5610A9.7030902@majjas.com>	<20100119224508.GA3473@del.dom.local>	<4B5655D6.8090503@majjas.com> <20100119171013.207cac5c@nehalam>
+From: Anders =?iso-8859-1?Q?Bostr=F6m?= <anders@netinsight.net>
+Subject: Re: Bug#565404: linux-image-2.6.26-2-amd64: atl1e: TSO is broken
+Date: Thu, 21 Jan 2010 17:42:47 +0100 (CET)
+Message-ID: <20100121.174247.769487074466946522.anders@netinsight.net>
+References: <CDAFEDABF718A54BABD0DA5476695307443F1E8D@SHEXMB-01.global.atheros.com>
+	<20100120.102704.295948365864962720.anders@netinsight.net>
+	<CDAFEDABF718A54BABD0DA5476695307455062E7@SHEXMB-01.global.atheros.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Michael Breuer <mbreuer@majjas.com>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753201Ab0AUQP7@vger.kernel.org>
-In-Reply-To: <20100119171013.207cac5c@nehalam>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ben@decadent.org.uk, netdev@vger.kernel.org,
+	565404@bugs.debian.org, Xiong.Huang@Atheros.com
+To: Jie.Yang@Atheros.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ernst.netinsight.se ([194.16.221.21]:38525 "HELO
+	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753438Ab0AUQm7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 11:42:59 -0500
+In-Reply-To: <CDAFEDABF718A54BABD0DA5476695307455062E7@SHEXMB-01.global.atheros.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Tue, 19 Jan 2010 20:01:10 -0500
-> Michael Breuer <mbreuer@majjas.com> wrote:
->> On 1/19/2010 5:45 PM, Jarek Poplawski wrote:
-[...]
->> > --- a/drivers/net/sky2.c
->> > +++ b/drivers/net/sky2.c
->> > @@ -2252,12 +2252,14 @@ static struct sk_buff *receive_copy(struct sky2_port *sky2,
->> >   	skb = netdev_alloc_skb_ip_align(sky2->netdev, length);
->> >   	if (likely(skb)) {
->> >   		pci_dma_sync_single_for_cpu(sky2->hw->pdev, re->data_addr,
->> > -					    length, PCI_DMA_FROMDEVICE);
->> > +					    pci_unmap_len(re, data_size),
->> > +					    PCI_DMA_FROMDEVICE);
->> >   		skb_copy_from_linear_data(re->skb, skb->data, length);
->> >   		skb->ip_summed = re->skb->ip_summed;
->> >   		skb->csum = re->skb->csum;
->> >   		pci_dma_sync_single_for_device(sky2->hw->pdev, re->data_addr,
->> > -					       length, PCI_DMA_FROMDEVICE);
->> > +					       pci_unmap_len(re, data_size),
->> > +					       PCI_DMA_FROMDEVICE);
->> >   		re->skb->ip_summed = CHECKSUM_NONE;
->> >   		skb_put(skb, length);
->> >   	}
->> >    
->> That not only compiled, but it cleared the error as well. Additionally, 
->> I used to see a bit of a delay receiving the login prompt when first 
->> connecting to the box by ssh. That delay is gone with this patch. I'd 
->> guess that the warning wasn't quite as innocuous as I thought.
->> Note: tested on 2.6.32.4.  I'll leave this up for a bit before 
->> attempting to move back to head.
-> 
-> Seems like an underlying bug in the DMA api. Maybe it just can't
-> handle operations on partial mapping.
-> 
-> Other drivers with same problem:
->   bnx2, cassini, pcnet32, r8169, rrunner, skge, sungem, tg3, 
+>>>>> "JY" == Jie Yang <Jie.Yang@Atheros.com> writes:
 
-I didn't read the start of this thread and may misunderstand the issue,
-but I comment anyway...:
+ >> Have you tested NFS over TCP? The block-size the application
+ >> uses can have an effect on this. What application did you
+ >> use? Block-size?
+ >> 
+ JY> yes, I tested NFS over TCP.
 
-Documentation/DMA-API.txt says the following about (pci_)dma_sync_single
-and friends:  "All the parameters must be the same as those passed into
-the single mapping API."
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=blob;f=Documentation/DMA-API.txt;h=5aceb88b3f8b622c8c23ed288f37f42de705c904;hb=HEAD#l367
+One strange observation is that I can only reproduce this problem when
+transmitting data from a NFS-server using TCP with Atheros
+AR8121/AR8113/AR8114.
 
-So, it might be considered an API bug --- but it is a documented one. :-)
--- 
-Stefan Richter
--=====-==-=- ---= =-=-=
-http://arcgraph.de/sr/
+I've tried to reproduce the problem using test-programs, like nttcp
+and netpipe, without any success. One observation is that the
+test-programs *only* generates 1500 bytes IP-packets. When
+the NFS-server sends data, a sequence of 1500 bytes IP-packets are
+generated, ending with a shorter packet. And this last packet in the
+sequence has 1500 in the IP-header length field, but is shorter.
+
+/ Anders
