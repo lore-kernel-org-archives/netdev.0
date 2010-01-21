@@ -1,96 +1,105 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH]IP: Send  an ICMP "Fragment Reassembly Timeout" message
- when enabling connection track
-Date: Thu, 21 Jan 2010 13:13:38 +0100
-Message-ID: <4B5844F2.30104@trash.net>
-References: <4B57AC35.8070902@cn.fujitsu.com>
+From: Blaschka <frank.blaschka@de.ibm.com>
+Subject: [RFC] qeth: exploit gro for layer 3 driver
+Date: Thu, 21 Jan 2010 13:37:22 +0100
+Message-ID: <20100121123722.GA13815@tuxmaker.boeblingen.de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	eric.dumazet@gmail.com, david@blue-labs.org, jorge@dti2.net,
-	opurdila@ixiacom.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
-To: Shan Wei <shanwei@cn.fujitsu.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B57AC35.8070902@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate6.de.ibm.com ([195.212.17.166]:43993 "EHLO
+	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752241Ab0AUMhY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 07:37:24 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Shan Wei wrote:
-> No matter whether connection track is enabled, an end host should send 
-> an ICMPv4 "Fragment Reassembly Timeout" message when defrag timeout. 
-> The reasons are following two points:  
-> 
-> 1. RFC 792 says:
->    >>>> >> > >   If a host reassembling a fragmented datagram cannot complete the
->    >>>> >> > >   reassembly due to missing fragments within its time limit it
->    >>>> >> > >   discards the datagram, and it may send a time exceeded message.
->    >>>> >> > > 
->    >>>> >> > >   If fragment zero is not available then no time exceeded need be
->    >>>> >> > >   sent at all.
->    >>>> >> > > 
->    >>>> >> > > Read more: http://www.faqs.org/rfcs/rfc792.html#ixzz0aOXRD7Wp
-> 
-> 2. Patrick McHardy also agrees with this opinion. :-) 
->    About the discussion of this opinion, refer to http://patchwork.ozlabs.org/patch/41649
-> 
-> The patch fixed the problem like this:
-> When enabling connection track, fragments are received at PRE_ROUTING HOOK.
-> If they are failed to reassemble, ip_expire() will be called. 
-> Before sending an ICMP "Fragment Reassembly Timeout" message, 
-> the patch searches router table to get the destination entry only for host type.
-> 
-> The patch has been tested on both host type and route type.
+Since the qeth driver can not use NAPI I would like to hear
+your opinion about following approach to exploit GRO.
 
-Looks good. One comment below:
+The patch apply to net-next. To make it compile/work Dave's
+commit 11380a4b2d86fae9a6bce75c9373668cc323fe57 has to be reverted.
 
-> @@ -205,13 +207,38 @@ static void ip_expire(unsigned long arg)
->  	if ((qp->q.last_in & INET_FRAG_FIRST_IN) && qp->q.fragments != NULL) {
->  		struct sk_buff *head = qp->q.fragments;
->  
-> -		/* Send an ICMP "Fragment Reassembly Timeout" message. */
->  		rcu_read_lock();
->  		head->dev = dev_get_by_index_rcu(net, qp->iif);
-> -		if (head->dev)
-> -			icmp_send(head, ICMP_TIME_EXCEEDED, ICMP_EXC_FRAGTIME, 0);
-> -		rcu_read_unlock();
-> +		if (!head->dev)
-> +			goto out_rcu_unlock;
-> +
-> +		/*
-> +		 * Only search router table for the head fragment,
-> +		 * when defraging timeout at PRE_ROUTING HOOK.
-> +		 */
-> +		if (qp->user == IP_DEFRAG_CONNTRACK_IN && !skb_dst(head)) {
-> +			const struct iphdr *iph = ip_hdr(head);
-> +			int err = ip_route_input(head, iph->daddr, iph->saddr,
-> +						 iph->tos, head->dev);
-> +			if (unlikely(err))
-> +				goto out_rcu_unlock;
-> +
-> +			/*
-> +			 * Only an end host needs to send an ICMP
-> +			 * "Fragment Reassembly Timeout" message, per RFC792.
-> +			 */
-> +			if (skb_rtable(head)->rt_type != RTN_LOCAL) {
-> +				skb_dst_drop(head);
+There is following idea:
 
-Is manually dropping the dst entry necessary here? It will get released
-by the fragment destructor anyways if I'm not mistaken.
+The inbound processing of the qeth driver is already in bottomhalf
+(qdio input tasklet) so we can switch from netif_rx to
+netif_receive_skb. This allows us to exploit gro code for the
+layer 3 driver. I would introduce a dummy napi_struct and call
+napi_gro_flush when the inbound tasklet ends.
 
-> +				goto out_rcu_unlock;
-> +			}
-> +		}
-> +
-> +		/* Send an ICMP "Fragment Reassembly Timeout" message. */
-> +		icmp_send(head, ICMP_TIME_EXCEEDED, ICMP_EXC_FRAGTIME, 0);
->  	}
-> +
-> +out_rcu_unlock:
-> +	rcu_read_unlock();
->  out:
->  	spin_unlock(&qp->q.lock);
->  	ipq_put(qp);
+We have to do some final performance measurements but a first try
+looks promising.
+
+Thanks,
+  Frank
+
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+---
+
+ drivers/s390/net/qeth_core.h    |    1 +
+ drivers/s390/net/qeth_l2_main.c |    2 +-
+ drivers/s390/net/qeth_l3_main.c |    9 ++++++---
+ 3 files changed, 8 insertions(+), 4 deletions(-)
+
+--- a/drivers/s390/net/qeth_core.h
++++ b/drivers/s390/net/qeth_core.h
+@@ -739,6 +739,7 @@ struct qeth_card {
+ 	atomic_t force_alloc_skb;
+ 	struct service_level qeth_service_level;
+ 	struct qdio_ssqd_desc ssqd;
++	struct napi_struct napi;
+ };
+ 
+ struct qeth_card_list_struct {
+--- a/drivers/s390/net/qeth_l2_main.c
++++ b/drivers/s390/net/qeth_l2_main.c
+@@ -431,7 +431,7 @@ static void qeth_l2_process_inbound_buff
+ 			if (skb->protocol == htons(ETH_P_802_2))
+ 				*((__u32 *)skb->cb) = ++card->seqno.pkt_seqno;
+ 			len = skb->len;
+-			netif_rx(skb);
++			netif_receive_skb(skb);
+ 			break;
+ 		case QETH_HEADER_TYPE_OSN:
+ 			if (card->info.type == QETH_CARD_TYPE_OSN) {
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -2106,14 +2106,14 @@ static void qeth_l3_process_inbound_buff
+ 			len = skb->len;
+ 			if (vlan_tag && !card->options.sniffer)
+ 				if (card->vlangrp)
+-					vlan_hwaccel_rx(skb, card->vlangrp,
+-						vlan_tag);
++					vlan_gro_receive(&card->napi,
++						card->vlangrp, vlan_tag, skb);
+ 				else {
+ 					dev_kfree_skb_any(skb);
+ 					continue;
+ 				}
+ 			else
+-				netif_rx(skb);
++				napi_gro_receive(&card->napi, skb);
+ 			break;
+ 		case QETH_HEADER_TYPE_LAYER2: /* for HiperSockets sniffer */
+ 			skb->pkt_type = PACKET_HOST;
+@@ -3245,6 +3245,8 @@ static int qeth_l3_setup_netdev(struct q
+ 				NETIF_F_HW_VLAN_FILTER;
+ 	card->dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
+ 	card->dev->gso_max_size = 15 * PAGE_SIZE;
++	/* dummy napi struct to use napi gro code */
++	netif_napi_add(card->dev, &card->napi, NULL, 64);
+ 
+ 	SET_NETDEV_DEV(card->dev, &card->gdev->dev);
+ 	return register_netdev(card->dev);
+@@ -3286,6 +3288,7 @@ static void qeth_l3_qdio_input_handler(s
+ 		qeth_put_buffer_pool_entry(card, buffer->pool_entry);
+ 		qeth_queue_input_buffer(card, index);
+ 	}
++	napi_gro_flush(&card->napi);
+ 	if (card->options.performance_stats)
+ 		card->perf_stats.inbound_time += qeth_get_micros() -
+ 			card->perf_stats.inbound_start_time;
+
+
