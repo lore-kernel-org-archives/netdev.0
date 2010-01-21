@@ -1,84 +1,62 @@
-From: Li Yewang <lyw@cn.fujitsu.com>
-Subject: Re: [PATCH][XFRM] Use the simple name when adding SAD with ip xfrm
- state
-Date: Thu, 21 Jan 2010 13:22:17 +0800
-Message-ID: <4B57E489.6010707@cn.fujitsu.com>
-References: <20100119022033.GA18155@gondor.apana.org.au>	<4B556C72.40403@cn.fujitsu.com> <20100119.003041.193317921.davem@davemloft.net>
+From: Jie Yang <Jie.Yang@Atheros.com>
+Subject: RE: Bug#565404: linux-image-2.6.26-2-amd64: atl1e: TSO is broken
+Date: Thu, 21 Jan 2010 13:37:41 +0800
+Message-ID: <CDAFEDABF718A54BABD0DA5476695307455062E7@SHEXMB-01.global.atheros.com>
+References: <1263767939.8876.94.camel@localhost>
+	<20100118.154347.314005348620400016.anders@netinsight.net>
+	<CDAFEDABF718A54BABD0DA5476695307443F1E8D@SHEXMB-01.global.atheros.com>
+ <20100120.102704.295948365864962720.anders@netinsight.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"565404@bugs.debian.org" <565404@bugs.debian.org>,
+	Xiong Huang <Xiong.Huang@Atheros.com>
+To: =?iso-8859-1?Q?Anders_Bostr=F6m?= <anders@netinsight.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:51973 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750969Ab0AUFXO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jan 2010 00:23:14 -0500
-In-Reply-To: <20100119.003041.193317921.davem@davemloft.net>
+Received: from 175.210.DSNET ([203.110.175.210]:35849 "EHLO mail.atheros.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750941Ab0AUFho convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 00:37:44 -0500
+In-Reply-To: <20100120.102704.295948365864962720.anders@netinsight.net>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry, I am new to crypto.
-
-I searched the soucre code in the directory of /crypto,
-and found that, all cryptos use shortname, for example:
-
-crypto/xcbc.c
-static struct crypto_template crypto_xcbc_tmpl = {
-        .name = "xcbc",
-        .create = xcbc_create,
-        .free = shash_free_instance,
-        .module = THIS_MODULE,
-};
-
-
-The name such as rfc3686(ctr(aes)) only used by "ip xfrm state" command to set SAD.
-
-
-
-David Miller wrote:
-> From: Li Yewang <lyw@cn.fujitsu.com>
-> Date: Tue, 19 Jan 2010 16:25:22 +0800
-> 
->>
->> Herbert Xu wrote:
->>> Li Yewang <lyw@cn.fujitsu.com> wrote:
->>>> The encryption name such as "rfc3686(ctr(aes))" is too complex.
->>>> I think simple name is better for user when using "ip xfrm state ..." command.
->>>>
->>>>
->>>> Signed-off-by: Li Yewang <lyw@cn.fujitsu.com>
->>> Nack.  If we want to support simple names such as these, they
->>> should be done in the crypto layer.  Otherwise every crypto user
->>> that wants this would have to reinvent it.
->>   But user sets SAD for ipsec with "ip xfrm state ..." must use the name such as "rfc3686(ctr(aes))".
->>   Is that reasonable? Maybe user can not remember this complex name.
->>
->>   There are some simple names for other encryptions, 
->>   such as "cbc(blowfish)", you can use "ip xfrm state ... enc blowfish ...".
-> 
-> You're not reading what Herbert is saying.
-> 
-> He's fine with the shorter name, he just wants you to implement
-> is in the crypto layer core instead of the XFRM specific code.
-> 
-> That way all crypto users will benefit from the shorter naming.
-> 
-> 
-> 
-
--- 
-Regards
-Li Yewang
---------------------------------------------------
-Li Yewang
-Development Dept.I
-Nanjing Fujitsu Nanda Software Tech. Co., Ltd.(FNST)
-8/F., Civil Defense Building, No.189 Guangzhou Road,
-Nanjing, 210029, China 
-TEL: +86+25-86630566-888
-COINS: 79955-888
-FAX: +86+25-83317685
-MAIL: lyw@cn.fujitsu.com
---------------------------------------------------
-
+ Anders Bostr=F6m <anders@netinsight.net>
+> Sent: Wednesday, January 20, 2010 5:27 PM
+> To: Jie Yang
+> Cc: ben@decadent.org.uk; netdev@vger.kernel.org;
+> 565404@bugs.debian.org; Xiong Huang
+> Subject: Re: Bug#565404: linux-image-2.6.26-2-amd64: atl1e:
+> TSO is broken
+>
+> >>>>> "JY" =3D=3D Jie Yang <Jie.Yang@Atheros.com> writes:
+>
+>  JY> Anders Bostr=F6m <anders@netinsight.net> wrote:
+>  >> It is an ASUS M4A78 PRO motherboard with the Atheros  >>
+> AR8121/AR8113/AR8114 on-board.
+>  >>
+>  >> >> ~25Mbyte/s performance. I get ~5000 retransmitted
+> packets  >> per GByte  >> data, according to RetransSegs in
+> >> /proc/net/snmp . wireshark in the  >> client show that the
+>  >> server send out a sequence of frames. All but the  >>
+> last  >> one are 1500 bytes IP-packets. The last one is
+> shorter, but  >> the  >> IP-header still say 1500 byte. The
+> client then  >> requests retransmit,  >> and the
+> retransmitted frame arrives  >> with correct IP-header.
+>
+>  JY> i just test it on Linux localhost.localdomain
+> 2.6.31.5-127.fc12.x86_64 #1 SMP Sat Nov 7 21:11:14 EST 2009
+> x86_64 x86_64 x86_64 GNU/Linux.
+>  JY> with hardware, Atheros AR8121/AR8113/AR8114 PCI-E
+> Ethernet Controller (rev b0)  JY> device id : 1969:1026 (rev b0)
+>
+>  JY> i upload/download a 382M it work well with retransmit packet:
+>
+> Have you tested NFS over TCP? The block-size the application
+> uses can have an effect on this. What application did you
+> use? Block-size?
+>
+yes, I tested NFS over TCP.
