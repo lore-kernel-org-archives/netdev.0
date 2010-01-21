@@ -1,45 +1,73 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH net-next-2.6 02/13] net-caif: add CAIF header files
-Date: Thu, 21 Jan 2010 08:44:17 +0100
-Message-ID: <4B5805D1.3000803@trash.net>
-References: <1264028130-14364-1-git-send-email-sjur.brandeland@stericsson.com> <1264028130-14364-3-git-send-email-sjur.brandeland@stericsson.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH v5] rps: Receive Packet Steering
+Date: Thu, 21 Jan 2010 15:54:13 +0800
+Message-ID: <412e6f7f1001202354g1022bb64rae267a1b19713b8a@mail.gmail.com>
+References: <alpine.DEB.1.00.1001141353140.19018@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, marcel@holtmann.org,
-	stefano.babic@babic.homelinux.org, randy.dunlap@oracle.com
-To: sjur.brandeland@stericsson.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53679 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754032Ab0AUHoY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 02:44:24 -0500
-In-Reply-To: <1264028130-14364-3-git-send-email-sjur.brandeland@stericsson.com>
+Received: from mail-fx0-f220.google.com ([209.85.220.220]:39083 "EHLO
+	mail-fx0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752742Ab0AUHyP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 02:54:15 -0500
+Received: by fxm20 with SMTP id 20so1001815fxm.1
+        for <netdev@vger.kernel.org>; Wed, 20 Jan 2010 23:54:13 -0800 (PST)
+In-Reply-To: <alpine.DEB.1.00.1001141353140.19018@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sjur.brandeland@stericsson.com wrote:
-> +/**
-> + * enum ifla_caif
-> + * When using RT Netlink to create, destroy or configure a CAIF IP interface,
-> + * enum ifla_caif is used to specify the configuration attributes.
-> + *
-> + * @IFLA_CAIF_IPV4_CONNID:  Connection ID for IPv4 PDP Context.
-> + *			    The type of attribute is NLA_U32.
-> + * @IFLA_CAIF_IPV6_CONNID:  Connection ID for IPv6 PDP Context.
-> + *			    The type of attribute is NLA_U32.
-> + * @IFLA_CAIF_LOOPBACK:	    If different from zero, device is doing loopback
-> + *			    The type of attribute is NLA_U8.
+On Fri, Jan 15, 2010 at 5:56 AM, Tom Herbert <therbert@google.com> wrot=
+e:
+> +/*
+> + * get_rps_cpu is called from netif_receive_skb and returns the targ=
+et
+> + * CPU from the RPS map of the receiving NAPI instance for a given s=
+kb.
 > + */
-> +enum ifla_caif {
-> +	IFLA_CAIF_IPV4_CONNID,
-> +	IFLA_CAIF_IPV6_CONNID,
-> +	IFLA_CAIF_LOOPBACK,
-> +	__IFLA_CAIF_MAX
-> +};
-> +#define	IFLA_CAIF_MAX (__IFLA_CAIF_MAX-1)
+> +static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb)
+> +{
+> + =C2=A0 =C2=A0 =C2=A0 u32 addr1, addr2, ports;
+> + =C2=A0 =C2=A0 =C2=A0 struct ipv6hdr *ip6;
+> + =C2=A0 =C2=A0 =C2=A0 struct iphdr *ip;
+> + =C2=A0 =C2=A0 =C2=A0 u32 ihl;
+> + =C2=A0 =C2=A0 =C2=A0 u8 ip_proto;
+> + =C2=A0 =C2=A0 =C2=A0 int cpu =3D -1;
+> + =C2=A0 =C2=A0 =C2=A0 struct dev_rps_maps *drmap;
+> + =C2=A0 =C2=A0 =C2=A0 struct rps_map *map =3D NULL;
+> + =C2=A0 =C2=A0 =C2=A0 u16 index;
 > +
-> +#endif /*IF_CAIF_H_*/
+> + =C2=A0 =C2=A0 =C2=A0 rcu_read_lock();
+> +
+> + =C2=A0 =C2=A0 =C2=A0 drmap =3D rcu_dereference(dev->dev_rps_maps);
+> + =C2=A0 =C2=A0 =C2=A0 if (!drmap)
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto done;
+> +
+> + =C2=A0 =C2=A0 =C2=A0 index =3D skb_get_rx_queue(skb);
+> + =C2=A0 =C2=A0 =C2=A0 if (index >=3D drmap->num_maps)
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 index =3D 0;
+> +
+> + =C2=A0 =C2=A0 =C2=A0 map =3D (struct rps_map *)
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ((void *)drmap->maps + (rps_map_=
+size * index));
+> + =C2=A0 =C2=A0 =C2=A0 if (!map->len)
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto done;
+> +
+> + =C2=A0 =C2=A0 =C2=A0 if (skb->rxhash)
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto got_hash; /* =
+Skip hash computation on packet header */
+> +
 
-You should add an IFLA_CAIF_UNSPEC at the beginning, some of the
-nlattr helpers skip attributes with a value of zero.
+Sometimes, rxhash will be 0 generated. In order to check whether
+rxhash is generated or not, a new bit field in sk_buff is needed. When
+rxhash is generated and saved in sk_buff, the bit is set.
+
+And, I think rxhash should be reserved when calling skb_copy and skb_cl=
+one.
+
+
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
