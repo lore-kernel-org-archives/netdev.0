@@ -1,41 +1,73 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
-Date: Thu, 21 Jan 2010 17:50:02 +0100
-Message-ID: <4B5885BA.7090007@s5r6.in-berlin.de>
-References: <20100118212516.GE3157@del.dom.local>	<4B54D50C.90608@majjas.com>	<20100118220814.GG3157@del.dom.local>	<20100118221747.GH3157@del.dom.local>	<4B54E4EF.8080602@majjas.com>	<4B554730.6090000@majjas.com>	<20100119104739.GA9088@ff.dom.local>	<4B55D40F.5080509@majjas.com>	<20100119195933.GA3060@del.dom.local>	<4B5610A9.7030902@majjas.com>	<20100119224508.GA3473@del.dom.local>	<4B5655D6.8090503@majjas.com> <20100119171013.207cac5c@nehalam> <4B587D4D.2010300@s5r6.in-berlin.de>
+From: Alan Cox <alan@linux.intel.com>
+Subject: [RFC PATCH] e100: Fix workqueue race
+Date: Thu, 21 Jan 2010 16:48:01 +0000
+Message-ID: <20100121164801.416170b9@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Michael Breuer <mbreuer@majjas.com>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+To: jesse.brandeburg@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hp3.statik.tu-cottbus.de ([141.43.120.68]:39975 "EHLO
-	hp3.statik.tu-cottbus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751650Ab0AUQvu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 11:51:50 -0500
-In-Reply-To: <4B587D4D.2010300@s5r6.in-berlin.de>
+Received: from mga05.intel.com ([192.55.52.89]:43360 "EHLO
+	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753801Ab0AURNm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 12:13:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stefan Richter wrote:
-> I didn't read the start of this thread and may misunderstand the issue,
-> but I comment anyway...:
-> 
-> Documentation/DMA-API.txt says the following about (pci_)dma_sync_single
-> and friends:  "All the parameters must be the same as those passed into
-> the single mapping API."
-> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=blob;f=Documentation/DMA-API.txt;h=5aceb88b3f8b622c8c23ed288f37f42de705c904;hb=HEAD#l367
-> 
-> So, it might be considered an API bug --- but it is a documented one. :-)
+(Incidentally this doesn't seem to be the only net driver that looks
+suspect here)
 
-Disregard my comment.  I just noticed that there is more qualified
-discussion of this in the thread "[PATCH] sky2: Fix WARNING: at
-lib/dma-debug.c:902 check_sync".
--- 
-Stefan Richter
--=====-==-=- ---= =-=-=
-http://arcgraph.de/sr/
+e100: Fix the TX workqueue race
+
+From: Alan Cox <alan@linux.intel.com>
+
+Nothing stops the workqueue being left to run in parallel with close or a
+few other operations. This causes double unmaps and the like.
+
+See kerneloops.org #1041230 for an example
+
+Signed-off-by: Alan Cox <alan@linux.intel.com>
+---
+
+ drivers/net/e100.c |   13 +++++++++++--
+ 1 files changed, 11 insertions(+), 2 deletions(-)
+
+
+diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+index 5c7a155..5e02e4f 100644
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -2232,7 +2232,7 @@ err_rx_clean_list:
+ 	return err;
+ }
+ 
+-static void e100_down(struct nic *nic)
++static void e100_do_down(struct nic *nic)
+ {
+ 	/* wait here for poll to complete */
+ 	napi_disable(&nic->napi);
+@@ -2245,6 +2245,15 @@ static void e100_down(struct nic *nic)
+ 	e100_rx_clean_list(nic);
+ }
+ 
++/* For the non TX timeout case we want to kill the tx timeout before
++   we do this otherwise a parallel tx timeout will make a nasty mess. */
++
++static void e100_down(struct nic *nic)
++{
++	cancel_work_sync(&nic->tx_timeout_task);
++	e100_do_down(nic);
++}
++
+ static void e100_tx_timeout(struct net_device *netdev)
+ {
+ 	struct nic *nic = netdev_priv(netdev);
+@@ -2261,7 +2270,7 @@ static void e100_tx_timeout_task(struct work_struct *work)
+ 
+ 	DPRINTK(TX_ERR, DEBUG, "scb.status=0x%02X\n",
+ 		ioread8(&nic->csr->scb.status));
+-	e100_down(netdev_priv(netdev));
++	e100_do_down(netdev_priv(netdev));
+ 	e100_up(netdev_priv(netdev));
+ }
+ 
