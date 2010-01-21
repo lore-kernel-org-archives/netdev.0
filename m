@@ -1,82 +1,62 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: Re: [PATCH 4/9] net/sctp: Eliminate useless code
-Date: Thu, 21 Jan 2010 11:49:10 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.1001211148310.13529@ask.diku.dk>
-References: <4B574702.4040602@hp.com> <20100120.150343.236848237.davem@davemloft.net>
- <Pine.LNX.4.64.1001211121500.13529@ask.diku.dk> <20100121.024337.57448535.davem@davemloft.net>
+From: Anton Blanchard <anton@samba.org>
+Subject: [PATCH 1/2] e1000: Fix DMA mapping error handling on TX
+Date: Thu, 21 Jan 2010 22:42:44 +1100
+Message-ID: <20100121114244.GC32259@kryten>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: vladislav.yasevich@hp.com, sri@us.ibm.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	Joh
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:60533 "EHLO mgw2.diku.dk"
+Received: from ozlabs.org ([203.10.76.45]:45346 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753769Ab0AUKtN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jan 2010 05:49:13 -0500
-In-Reply-To: <20100121.024337.57448535.davem@davemloft.net>
+	id S1750938Ab0AULqF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jan 2010 06:46:05 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 21 Jan 2010, David Miller wrote:
 
-> From: Julia Lawall <julia@diku.dk>
-> Date: Thu, 21 Jan 2010 11:22:38 +0100 (CET)
-> 
-> > On Wed, 20 Jan 2010, David Miller wrote:
-> > 
-> >> From: Vlad Yasevich <vladislav.yasevich@hp.com>
-> >> Date: Wed, 20 Jan 2010 13:10:10 -0500
-> >> 
-> >> > 
-> >> > 
-> >> > Julia Lawall wrote:
-> >> >> From: Julia Lawall <julia@diku.dk>
-> >> >> 
-> >> >> The variable newinet is initialized twice to the same (side effect-free)
-> >> >> expression.  Drop one initialization.
-> >> >> 
-> >> >> A simplified version of the semantic match that finds this problem is:
-> >> >> (http://coccinelle.lip6.fr/)
-> >> >> 
-> >> >> // <smpl>
-> >> >> @forall@
-> >> >> idexpression *x;
-> >> >> identifier f!=ERR_PTR;
-> >> >> @@
-> >> >> 
-> >> >> x = f(...)
-> >> >> ... when != x
-> >> >> (
-> >> >> x = f(...,<+...x...+>,...)
-> >> >> |
-> >> >> * x = f(...)
-> >> >> )
-> >> >> // </smpl>
-> >> >> 
-> >> >> Signed-off-by: Julia Lawall <julia@diku.dk>
-> >> > 
-> >> > Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-> >> 
-> >> Julia,  just like patch #3 this one had the missing final
-> >> line of the patch corrupting it, so you'll need to resubmit.
-> > 
-> > I have generated and sent it again, but this time I don't see the problem.  
-> > If there is still a problem, perhaps you could send me back the patch you 
-> > received?
-> 
-> You dropped Vlad' ACK in your re-submission.
-> 
-> I'll fix it up this time, but please accumulate ACK's when
-> resubmitting patches merely for the purpose of fixing some
-> technical submission problem.
-> 
-> Thanks.
+There were a few issues in the DMA mapping error handling in e1000_tx_map
+which I found via fault injection.
 
-OK, I will keep that in mind.
+If we fail to map the first descriptor count will end up as -1 but the
+check of (count >= 0) will still be true since count is unsigned. Instead
+of changing count to be signed, just simplify the logic.
 
-Is the new one better than the old one?  Because in my local copies, they 
-are the same...
+Secondly, when we wrap the tx ring we rely on i to go negative, but it
+was unsigned.
 
-julia
+Signed-off-by: Anton Blanchard <anton@samba.org>
+---
+
+Index: linux.trees.git/drivers/net/e1000/e1000_main.c
+===================================================================
+--- linux.trees.git.orig/drivers/net/e1000/e1000_main.c	2010-01-21 11:10:00.000000000 +1100
++++ linux.trees.git/drivers/net/e1000/e1000_main.c	2010-01-21 11:12:52.000000000 +1100
+@@ -2693,8 +2693,9 @@ static int e1000_tx_map(struct e1000_ada
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	struct e1000_buffer *buffer_info;
+ 	unsigned int len = skb_headlen(skb);
+-	unsigned int offset = 0, size, count = 0, i;
++	unsigned int offset = 0, size, count = 0;
+ 	unsigned int f;
++	int i;
+ 
+ 	i = tx_ring->next_to_use;
+ 
+@@ -2802,10 +2803,8 @@ static int e1000_tx_map(struct e1000_ada
+ dma_error:
+ 	dev_err(&pdev->dev, "TX DMA map failed\n");
+ 	buffer_info->dma = 0;
+-	count--;
+ 
+-	while (count >= 0) {
+-		count--;
++	while (count--) {
+ 		i--;
+ 		if (i < 0)
+ 			i += tx_ring->count;
