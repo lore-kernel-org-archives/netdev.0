@@ -1,44 +1,61 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/6] netdev: bfin_mac: handler RX
- status errors
-Date: Thu, 21 Jan 2010 01:33:58 -0800 (PST)
-Message-ID: <20100121.013358.45891896.davem@davemloft.net>
-References: <1263899307-10627-1-git-send-email-vapier@gentoo.org>
-	<20100121.011445.26519711.davem@davemloft.net>
-	<8bd0f97a1001210131w74d53c82h3f548e645bb14be7@mail.gmail.com>
+From: Anatolij Gustschin <agust@denx.de>
+Subject: Re: [net-next-2.6 PATCH 2/3] fs_enet: Add support for MPC512x to
+ fs_enet driver
+Date: Thu, 21 Jan 2010 10:33:52 +0100
+Message-ID: <20100121103352.788a6f80@wker>
+References: <1264039999-25731-1-git-send-email-agust@denx.de>
+	<1264039999-25731-3-git-send-email-agust@denx.de>
+	<20100121.012235.161201297.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, pmeerw-jW+XmwGofnusTnJN9+BGXg@public.gmane.org,
-        uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-To: vapier.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-In-Reply-To: <8bd0f97a1001210131w74d53c82h3f548e645bb14be7-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://blackfin.uclinux.org/mailman/options/uclinux-dist-devel>,
-	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
-List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
-List-Subscribe: <https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
-	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
-Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dzu@denx.de, wd@denx.de, jcrigby@gmail.com,
+	kosmo@semihalf.com, linuxppc-dev@ozlabs.org,
+	grant.likely@secretlab.ca
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.9]:38472 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932128Ab0AUJeE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 04:34:04 -0500
+In-Reply-To: <20100121.012235.161201297.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mike Frysinger <vapier.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Thu, 21 Jan 2010 04:31:17 -0500
+On Thu, 21 Jan 2010 01:22:35 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-> On Thu, Jan 21, 2010 at 04:14, David Miller wrote:
->> This patch set doesn't apply cleanly to net-next-2.6, please
->> respin.
+> From: Anatolij Gustschin <agust@denx.de>
+> Date: Thu, 21 Jan 2010 03:13:18 +0100
 > 
-> i thought you said you merged the patch i sent out earlier ?
-> bfin_mac: use the newer CLKBUFOE bit name via asm/dpmc.h
+> >  struct fec_info {
+> > -	fec_t __iomem *fecp;
+> > +	void __iomem *fecp;
+>  ...
+> >  /* write */
+> > -#define FW(_fecp, _reg, _v) __fs_out32(&(_fecp)->fec_ ## _reg, (_v))
+> > +#define FW(_regp, _reg, _v) __fs_out32((_regp)->fec_ ## _reg, (_v))
+>  ...
+> > +/* register address macros */
+> > +#define fec_reg_addr(_type, _reg) \
+> > +	(fep->fec.rtbl->fec_##_reg = (u32 __iomem *)((u32)fep->fec.fecp + \
+> > +				(u32)&((__typeof__(_type) *)NULL)->fec_##_reg))
+> > +
+> > +#define fec_reg_mpc8xx(_reg) \
+> > +	fec_reg_addr(struct mpc8xx_fec, _reg)
+> > +
+> > +#define fec_reg_mpc5121(_reg) \
+> > +	fec_reg_addr(struct mpc5121_fec, _reg)
+> 
+> This is a step backwards in my view.
+> 
+> If you use the "fec_t __iomem *" type for the register
+> pointer, you simply use &p->fecp->XXX to get the I/O
+> address of register XXX and that's what you pass to
+> the appropriate I/O accessor routines.
+> 
+> Now you've made it typeless, and then you have to walk
+> through all of these contortions to get the offset.
+ 
+OK, i give up
 
-I did, to net-2.6 since it fixed a build.
-
-If you are sending me patches that depend upon net-2.6 changes,
-you have to mention that in your patch submission.
-
-Otherwise how do I know that I need to merge net-2.6 into
-net-next-2.6 in order to apply your patches?
