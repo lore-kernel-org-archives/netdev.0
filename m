@@ -1,61 +1,53 @@
-From: Anatolij Gustschin <agust@denx.de>
-Subject: Re: [net-next-2.6 PATCH 2/3] fs_enet: Add support for MPC512x to
- fs_enet driver
-Date: Thu, 21 Jan 2010 10:33:52 +0100
-Message-ID: <20100121103352.788a6f80@wker>
-References: <1264039999-25731-1-git-send-email-agust@denx.de>
-	<1264039999-25731-3-git-send-email-agust@denx.de>
-	<20100121.012235.161201297.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC] [PATCH] Optimize TCP sendmsg in favour of fast devices?
+Date: Thu, 21 Jan 2010 22:41:57 +1300
+Message-ID: <20100121094157.GA15262@gondor.apana.org.au>
+References: <20100121.012520.254679483.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dzu@denx.de, wd@denx.de, jcrigby@gmail.com,
-	kosmo@semihalf.com, linuxppc-dev@ozlabs.org,
-	grant.likely@secretlab.ca
+Content-Type: text/plain; charset=us-ascii
+Cc: krkumar2@in.ibm.com, eric.dumazet@gmail.com,
+	ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:38472 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932128Ab0AUJeE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 04:34:04 -0500
-In-Reply-To: <20100121.012235.161201297.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:58504 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752175Ab0AUJmK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 04:42:10 -0500
+Content-Disposition: inline
+In-Reply-To: <20100121.012520.254679483.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 21 Jan 2010 01:22:35 -0800 (PST)
 David Miller <davem@davemloft.net> wrote:
+> From: Krishna Kumar2 <krkumar2@in.ibm.com>
+> Date: Wed, 20 Jan 2010 17:49:18 +0530
+> 
+>> I had to remove the F_SG flag from cxgb3 driver (using ethtool
+>> didn't show any difference in performance since GSO was enabled
+>> on the device due to register_netdev setting it). Testing show a
+>> drop of 25% in performance with this patch for non-SG device,
+>> the extra alloc/memcpy is showing up.
+>> 
+>> For the SG driver, I get a good performace gain (not anywhere
+>> close to 25% though). What do you suggest?
+> 
+> I don't think we can add your change if it hurts non-SG
+> devices that much.
 
-> From: Anatolij Gustschin <agust@denx.de>
-> Date: Thu, 21 Jan 2010 03:13:18 +0100
-> 
-> >  struct fec_info {
-> > -	fec_t __iomem *fecp;
-> > +	void __iomem *fecp;
->  ...
-> >  /* write */
-> > -#define FW(_fecp, _reg, _v) __fs_out32(&(_fecp)->fec_ ## _reg, (_v))
-> > +#define FW(_regp, _reg, _v) __fs_out32((_regp)->fec_ ## _reg, (_v))
->  ...
-> > +/* register address macros */
-> > +#define fec_reg_addr(_type, _reg) \
-> > +	(fep->fec.rtbl->fec_##_reg = (u32 __iomem *)((u32)fep->fec.fecp + \
-> > +				(u32)&((__typeof__(_type) *)NULL)->fec_##_reg))
-> > +
-> > +#define fec_reg_mpc8xx(_reg) \
-> > +	fec_reg_addr(struct mpc8xx_fec, _reg)
-> > +
-> > +#define fec_reg_mpc5121(_reg) \
-> > +	fec_reg_addr(struct mpc5121_fec, _reg)
-> 
-> This is a step backwards in my view.
-> 
-> If you use the "fec_t __iomem *" type for the register
-> pointer, you simply use &p->fecp->XXX to get the I/O
-> address of register XXX and that's what you pass to
-> the appropriate I/O accessor routines.
-> 
-> Now you've made it typeless, and then you have to walk
-> through all of these contortions to get the offset.
- 
-OK, i give up
+Wait, we need to be careful when testing this.  Non-SG devices
+do actually benefit from TSO which they otherwise cannot access.
 
+If you unset the F_SG bit, then that would disable TSO too.  So
+you need to enable GSO to compensate.  So Krishna, did you check
+with tcpdump to see if GSO was really enabled with SG off?
+
+IIRC when I did a similar test with e1000 back when I wrote this
+the performance of GSO with SG off was pretty much the same as
+no GSO with SG off.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
