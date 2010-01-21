@@ -1,79 +1,50 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: [PATCH] l2tp: Fix a UDP socket reference count bug in the pppol2tp
-	driver
-Date: Thu, 21 Jan 2010 16:10:09 +0000
-Message-ID: <20100121161009.5223.34288.stgit@bert.katalix.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: VLAN vs bridging receive precedence
+Date: Thu, 21 Jan 2010 16:11:27 +0000
+Message-ID: <1264090287.2794.34.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:42315 "EHLO mail.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752514Ab0AUQKz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jan 2010 11:10:55 -0500
+Received: from exchange.solarflare.com ([216.237.3.220]:32806 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751457Ab0AUQLa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 11:11:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bug can cause a kernel stack trace when a tunnel socket is closed.
+When a physical device is attached to a bridge device and also to one or
+more VLAN devices, received tagged frames might be passed on to either
+the appropriate VLAN device or to the bridge.
 
-WARNING: at include/net/sock.h:435 udp_lib_unhash+0x117/0x120()
-Pid: 1086, comm: openl2tpd Not tainted 2.6.33-rc1 #8
-Call Trace:
- [<c119e9b7>] ? udp_lib_unhash+0x117/0x120
- [<c101b871>] ? warn_slowpath_common+0x71/0xd0
- [<c119e9b7>] ? udp_lib_unhash+0x117/0x120
- [<c101b8e3>] ? warn_slowpath_null+0x13/0x20
- [<c119e9b7>] ? udp_lib_unhash+0x117/0x120
- [<c11598a7>] ? sk_common_release+0x17/0x90
- [<c11a5e33>] ? inet_release+0x33/0x60
- [<c11577b0>] ? sock_release+0x10/0x60
- [<c115780f>] ? sock_close+0xf/0x30
- [<c106e542>] ? __fput+0x52/0x150
- [<c106b68e>] ? filp_close+0x3e/0x70
- [<c101d2e2>] ? put_files_struct+0x62/0xb0
- [<c101eaf7>] ? do_exit+0x5e7/0x650
- [<c1081623>] ? mntput_no_expire+0x13/0x70
- [<c106b68e>] ? filp_close+0x3e/0x70
- [<c101eb8a>] ? do_group_exit+0x2a/0x70
- [<c101ebe1>] ? sys_exit_group+0x11/0x20
- [<c10029b0>] ? sysenter_do_call+0x12/0x26
+Drivers that support VLAN receive acceleration call __vlan_hwaccel_rx(),
+which updates skb->dev to point to the VLAN device.
 
-Signed-off-by: James Chapman <jchapman@katalix.com>
+In the absence of VLAN receive acceleration, 802.1q is treated as just
+another protocol, and netif_receive_skb() does:
 
----
+	skb = handle_bridge(skb, &pt_prev, &ret, orig_dev);
+	if (!skb)
+		goto out;
+	...
+	type = skb->protocol;
+	list_for_each_entry_rcu(ptype,
+			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
+		...
+	}
 
-This patch may be a candidate for -stable.
----
- drivers/net/pppol2tp.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+So the bridge device claims the skb before the VLAN code has a chance
+to.
 
-diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
-index 9fbb2eb..0b5d96e 100644
---- a/drivers/net/pppol2tp.c
-+++ b/drivers/net/pppol2tp.c
-@@ -756,6 +756,7 @@ static int pppol2tp_recv_core(struct sock *sock, struct sk_buff *skb)
- 
- 	/* Try to dequeue as many skbs from reorder_q as we can. */
- 	pppol2tp_recv_dequeue(session);
-+	sock_put(sock);
- 
- 	return 0;
- 
-@@ -772,6 +773,7 @@ discard_bad_csum:
- 	UDP_INC_STATS_USER(&init_net, UDP_MIB_INERRORS, 0);
- 	tunnel->stats.rx_errors++;
- 	kfree_skb(skb);
-+	sock_put(sock);
- 
- 	return 0;
- 
-@@ -1661,6 +1663,7 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
- 		if (tunnel_sock == NULL)
- 			goto end;
- 
-+		sock_hold(tunnel_sock);
- 		tunnel = tunnel_sock->sk_user_data;
- 	} else {
- 		tunnel = pppol2tp_tunnel_find(sock_net(sk), sp->pppol2tp.s_tunnel);
+It is not clear which behaviour is 'correct'.  However it appears that
+the XenCenter network management software currently depends on the
+accelerated behaviour.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
