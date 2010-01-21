@@ -1,73 +1,64 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: Problems with tg3 driver after lowering the MTU
-Date: Thu, 21 Jan 2010 18:30:05 +0000
-Message-ID: <1264098605.2794.39.camel@achroite.uk.solarflarecom.com>
-References: <ac67d9131001210721q37a6883eg85430f9564d8e007@mail.gmail.com>
-	 <1264087643.2794.2.camel@achroite.uk.solarflarecom.com>
-	 <ac67d9131001210742x7bb6af87o546007707c412835@mail.gmail.com>
-	 <E1829B60731D1740BB7A0626B4FAF0A6467F0DA0D5@XCH-NW-01V.nw.nos.boeing.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] sky2: Fix WARNING: at lib/dma-debug.c:902 check_sync
+Date: Thu, 21 Jan 2010 19:41:58 +0100
+Message-ID: <20100121184158.GA3085@del.dom.local>
+References: <20100120094103.GA6225@ff.dom.local>
+ <20100120222414.57909d14@lxorguk.ukuu.org.uk>
+ <20100120225322.GC3072@del.dom.local>
+ <20100122002053X.fujita.tomonori@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Szilveszter Ordog <slipszi@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:42236 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752986Ab0AUSaJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 13:30:09 -0500
-In-Reply-To: <E1829B60731D1740BB7A0626B4FAF0A6467F0DA0D5@XCH-NW-01V.nw.nos.boeing.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: alan@lxorguk.ukuu.org.uk, davem@davemloft.net,
+	shemminger@linux-foundation.org, mbreuer@majjas.com,
+	akpm@linux-foundation.org, flyboy@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	mchan@broadcom.com, pcnet32@verizon.net, romieu@fr.zoreil.com,
+	mcarlson@broadcom.com
+To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754966Ab0AUSmN@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100122002053X.fujita.tomonori@lab.ntt.co.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2010-01-21 at 09:47 -0800, Templin, Fred L wrote:
-> > -----Original Message-----
-> > From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Szilveszter
-> > Ordog
-> > Sent: Thursday, January 21, 2010 7:42 AM
-> > To: netdev@vger.kernel.org
-> > Subject: Re: Problems with tg3 driver after lowering the MTU
-> > 
-> > On Thu, Jan 21, 2010 at 16:27, Ben Hutchings <bhutchings@solarflare.com> wrote:
-> > > On Thu, 2010-01-21 at 16:21 +0100, Szilveszter Ordog wrote:
-> > >> After the MTU is lowered (e.g. to 1420) on a tg3-driven interface,
-> > >> received packets larger than that (e.g. 1500 bytes) are silently
-> > >> discarded by the driver. Therefore the system doesn't send ICMP
-> > >> fragmentation-needed packets and the other side doesn't detect this
-> > >> condition.
-> > >>
-> > >> Is this a known bug?
-> > >
-> > > I don't believe this a bug.  Within a local network, MTU should be set
-> > > the same for all interfaces.  Routers that connect networks with
-> > > different MTUs will generate the fragmentation-needed message as
-> > > appropriate.
-> > 
-> > Other drivers do not behave like that. Most of them always allow
-> > packets smaller than 1500 bytes. That is why I think that this is a
-> > bug.
+On Fri, Jan 22, 2010 at 12:22:10AM +0900, FUJITA Tomonori wrote:
+> On Wed, 20 Jan 2010 23:53:22 +0100
+> Jarek Poplawski <jarkao2@gmail.com> wrote:
 > 
-> The question seems to be what happens when the
-> Maximum Transmission Unit (MTU) is smaller than
-> the Maximum Receive Unit (MRU)?
+> > On Wed, Jan 20, 2010 at 10:24:14PM +0000, Alan Cox wrote:
+> > > > > Seems like an underlying bug in the DMA api. Maybe it just can't
+> > > > > handle operations on partial mapping.
+> > > > > 
+> > > > > Other drivers with same problem:
+> > > > >   bnx2, cassini, pcnet32, r8169, rrunner, skge, sungem, tg3, 
+> > > > 
+> > > > It seems using the same length (even without pci_unmap_len()) is
+> > > > crucial here, but I hope maintainers (added to CC) will take care.
+> > > 
+> > > The API needs fixing - if you've got a large mapping and you want to sync
+> > > part of it then we need to support that. Now it might well be that the
+> > > implementation on some braindead platform has to sync the entire thing,
+> > > and some implementations entire pages or cache lines.
+> > > 
+> > > You can't fix this in the drivers, they requested a service and they
+> > > don't have enough information nor is it their job to know about all the
+> > > platform specific rules.
+> > 
+> > Yes, the need to repeat some other values if there is a dedicated
+> > structure/pointer could be misleading. Btw, it seems to be a trivial
+> > overlooking since there is dma_sync_single_range() ready to use.
 > 
-> For TCP, MSS is calculated based on MTU (not MRU)
-> so there should not be any size mismatches with TCP.
-> For large packets of other IP protocols, it should
-> be OK for the end system to receive a packet larger
-> than it is capable of sending. So, it seems to me
-> that packets that are larger than MTU but no larger
-> than MRU should be accepted.
+> Yeah, dma_sync_single_range() enables you to do a partial sync. But
+> you must be really careful with a partial sync (as DMA-API.txt says).
 
-In theory, MRU and MTU could be quite separate.  However, there is no
-standard interface to set an interface's MRU, so where the hardware
-supports a variable MRU drivers normally set it based on the MTU.
+Actually, we are trying to establish here (and a few more netdev@
+threads) what exactly the author was worried about. After looking at
+some implementations it seems to me this carefullness in observing
+the cache alignment and width is needed only wrt. the 'offset'. But
+then, the way the 'size' is used (or rather not used for anything
+crucial) suggests dma_sync_single_range() with zero offset seems
+completely safe. But then it's equivalent to dma_sync_single() with
+the 'size' possibly less than 'passed into the single mapping'. Which
+according to the other comment seems wrong...
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Jarek P.
