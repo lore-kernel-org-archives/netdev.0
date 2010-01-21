@@ -1,62 +1,84 @@
-From: Jie Yang <Jie.Yang@Atheros.com>
-Subject: RE: Bug#565404: linux-image-2.6.26-2-amd64: atl1e: TSO is broken
-Date: Thu, 21 Jan 2010 13:37:41 +0800
-Message-ID: <CDAFEDABF718A54BABD0DA5476695307455062E7@SHEXMB-01.global.atheros.com>
-References: <1263767939.8876.94.camel@localhost>
-	<20100118.154347.314005348620400016.anders@netinsight.net>
-	<CDAFEDABF718A54BABD0DA5476695307443F1E8D@SHEXMB-01.global.atheros.com>
- <20100120.102704.295948365864962720.anders@netinsight.net>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH v5] rps: Receive Packet Steering
+Date: Thu, 21 Jan 2010 15:04:13 +0800
+Message-ID: <412e6f7f1001202304n5e34aaebu6c052687ce355582@mail.gmail.com>
+References: <4B5011F4.8010204@gmail.com>
+	 <20100115.004915.64525965.davem@davemloft.net>
+	 <412e6f7f1001150120r622450eem2d9f54da27c42fba@mail.gmail.com>
+	 <20100115.012613.223485835.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"565404@bugs.debian.org" <565404@bugs.debian.org>,
-	Xiong Huang <Xiong.Huang@Atheros.com>
-To: =?iso-8859-1?Q?Anders_Bostr=F6m?= <anders@netinsight.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 175.210.DSNET ([203.110.175.210]:35849 "EHLO mail.atheros.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750941Ab0AUFho convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 00:37:44 -0500
-In-Reply-To: <20100120.102704.295948365864962720.anders@netinsight.net>
-Content-Language: zh-CN
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, therbert@google.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20100115.012613.223485835.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- Anders Bostr=F6m <anders@netinsight.net>
-> Sent: Wednesday, January 20, 2010 5:27 PM
-> To: Jie Yang
-> Cc: ben@decadent.org.uk; netdev@vger.kernel.org;
-> 565404@bugs.debian.org; Xiong Huang
-> Subject: Re: Bug#565404: linux-image-2.6.26-2-amd64: atl1e:
-> TSO is broken
+On Fri, Jan 15, 2010 at 5:26 PM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Changli Gao <xiaosuo@gmail.com>
+> Date: Fri, 15 Jan 2010 17:20:43 +0800
 >
-> >>>>> "JY" =3D=3D Jie Yang <Jie.Yang@Atheros.com> writes:
+> Calling a function is expensive.
 >
->  JY> Anders Bostr=F6m <anders@netinsight.net> wrote:
->  >> It is an ASUS M4A78 PRO motherboard with the Atheros  >>
-> AR8121/AR8113/AR8114 on-board.
->  >>
->  >> >> ~25Mbyte/s performance. I get ~5000 retransmitted
-> packets  >> per GByte  >> data, according to RetransSegs in
-> >> /proc/net/snmp . wireshark in the  >> client show that the
->  >> server send out a sequence of frames. All but the  >>
-> last  >> one are 1500 bytes IP-packets. The last one is
-> shorter, but  >> the  >> IP-header still say 1500 byte. The
-> client then  >> requests retransmit,  >> and the
-> retransmitted frame arrives  >> with correct IP-header.
+> What was now a leaf function deep in the call chain, will no longer
+> be, so GCC will need to push all live registers onto the stack,
+> then reload them back into registers when ipv6_skip_exthdr() returns.
 >
->  JY> i just test it on Linux localhost.localdomain
-> 2.6.31.5-127.fc12.x86_64 #1 SMP Sat Nov 7 21:11:14 EST 2009
-> x86_64 x86_64 x86_64 GNU/Linux.
->  JY> with hardware, Atheros AR8121/AR8113/AR8114 PCI-E
-> Ethernet Controller (rev b0)  JY> device id : 1969:1026 (rev b0)
+> And that function is expensive, it's a lot of code that %99 of the
+> time serves no purpose at all.
 >
->  JY> i upload/download a 382M it work well with retransmit packet:
+> This will be executed for every single packet we process, and Linux
+> can process millions of packets per second, so every cycle and every
+> memory reference matters.
 >
-> Have you tested NFS over TCP? The block-size the application
-> uses can have an effect on this. What application did you
-> use? Block-size?
->
-yes, I tested NFS over TCP.
+
+We can write a new inline function like this:
+
+static inline int ipv6_get_ports(const struct sk_buff *skb, u16 *port1,
+                u16 *port2)
+{
+        u8 nexthdr;
+        int hdrlen;
+
+        nexthdr =3D ipv6_hdr(skb)->nexthdr;
+        hdrlen =3D sizeof(struct ipv6hdr);
+        while (1) {
+                switch (nexthdr) {
+                case IPPROTO_TCP:
+                case IPPROTO_UDP:
+                case IPPROTO_DCCP:
+                case IPPROTO_ESP:
+                case IPPROTO_AH:
+                case IPPROTO_SCTP:
+                case IPPROTO_UDPLITE:
+                        skb_copy_bits(skb, hdrlen, port1, 2);
+                        skb_copy_bits(skb, hdrlen + 2, port2, 2);
+                        return 0;
+                case NEXTHDR_HOP:
+                case NEXTHDR_ROUTING:
+                case NEXTHDR_FRAGMENT:
+                case NEXTHDR_AUTH:
+                case NEXTHDR_DEST:
+                        // some code like ipv6_skip_exthdr()
+                        ....
+                        break;
+                case NEXTHDR_NONE:
+                        return -1;
+                default:
+                        return -1;
+                }
+        }
+}
+
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
