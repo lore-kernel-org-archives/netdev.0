@@ -1,51 +1,137 @@
 From: Michael Breuer <mbreuer@majjas.com>
-Subject: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit()
-Date: Thu, 21 Jan 2010 14:48:57 -0500
-Message-ID: <4B58AFA9.1000600@majjas.com>
-References: <20100118073018.GA6270@ff.dom.local> <4B548C6B.10607@majjas.com>
- <20100118204658.GC3157@del.dom.local> <4B54CB0D.5070604@majjas.com>
- <20100118212516.GE3157@del.dom.local> <4B54D50C.90608@majjas.com>
- <20100118220814.GG3157@del.dom.local> <20100118221747.GH3157@del.dom.local>
- <4B54E4EF.8080602@majjas.com> <4B554730.6090000@majjas.com>
- <20100119084120.GA6366@ff.dom.local>
+Subject: Re: [PATCH] sky2: Fix WARNING: at lib/dma-debug.c:902 check_sync
+Date: Thu, 21 Jan 2010 14:59:19 -0500
+Message-ID: <4B58B217.8030001@majjas.com>
+References: <20100120094103.GA6225@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7BIT
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	akpm@linux-foundation.org, flyboy@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Michael Chan <mchan@broadcom.com>,
+	Don Fry <pcnet32@verizon.net>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Matt Carlson <mcarlson@broadcom.com>
 To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754986Ab0AUTtR@vger.kernel.org>
-In-reply-to: <20100119084120.GA6366@ff.dom.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mta5.srv.hcvlny.cv.net ([167.206.4.200]:42359 "EHLO
+	mta5.srv.hcvlny.cv.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752436Ab0AUT7V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 14:59:21 -0500
+In-reply-to: <20100120094103.GA6225@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 1/19/2010 3:41 AM, Jarek Poplawski wrote:
-> On Tue, Jan 19, 2010 at 12:46:24AM -0500, Michael Breuer wrote:
+On 1/20/2010 4:41 AM, Jarek Poplawski wrote:
+> [ previously: Re: [PATCH] af_packet: Don't use skb after dev_queue_xmit() ]
+> On Tue, Jan 19, 2010 at 05:10:13PM -0800, Stephen Hemminger wrote:
 >    
->> So net-net, as far as my TX packet loss issue, sky2 is in the clear. If
->> something on the linux side should be informing the switch about
->> something then there may still be an issue. If the wifi router should be
->> doing something differently, then it's unfortunately likely a 2.4.37
->> kernel issue (That's what dd-wrt is using).
+>> On Tue, 19 Jan 2010 20:01:10 -0500
+>> Michael Breuer<mbreuer@majjas.com>  wrote:
+>>
 >>      
-> IMHO until there is no proof from a sniffer or some regs dumps the
-> switch and the router are more suspicious than your NIC or linux box.
-> Then debugging these other things isn't so much interesting from my
-> POV ;-)
->
-> Anyway, if you only want to get it working (instead of debugging),
-> it seems you might try moving the dhcp server to the router or maybe
-> even using two separate servers with their pools - unless I missed
-> something in your config.
->
-> Jarek P.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+>>> On 1/19/2010 5:45 PM, Jarek Poplawski wrote:
+>>>        
+>>>> On Tue, Jan 19, 2010 at 03:06:01PM -0500, Michael Breuer wrote:
+>>>>
+>>>>          
+>>>>> On 1/19/2010 2:59 PM, Jarek Poplawski wrote:
+>>>>>
+>>>>>            
+>>>>>> On Tue, Jan 19, 2010 at 10:47:27AM -0500, Michael Breuer wrote:
+>>>>>> ...
+>>>>>>
+>>>>>>              
+>>>>>>> Still get the warning... but now 60 bytes.
+>>>>>>> Jan 19 10:43:50 mail kernel: ------------[ cut here ]------------
+>>>>>>> Jan 19 10:43:50 mail kernel: WARNING: at lib/dma-debug.c:902
+>>>>>>>                
+> ...
 >    
-Postscript: HP has confirmed that the 1400-8g switch doesn't work, 
-"well," in a mixed 100Mb/1000Mb environment, and is dropping DHCP packets.
+>>> That not only compiled, but it cleared the error as well. Additionally,
+>>> I used to see a bit of a delay receiving the login prompt when first
+>>> connecting to the box by ssh. That delay is gone with this patch. I'd
+>>> guess that the warning wasn't quite as innocuous as I thought.
+>>> Note: tested on 2.6.32.4.  I'll leave this up for a bit before
+>>> attempting to move back to head.
+>>>        
+>> Seems like an underlying bug in the DMA api. Maybe it just can't
+>> handle operations on partial mapping.
+>>
+>> Other drivers with same problem:
+>>    bnx2, cassini, pcnet32, r8169, rrunner, skge, sungem, tg3,
+>>      
+> It seems using the same length (even without pci_unmap_len()) is
+> crucial here, but I hope maintainers (added to CC) will take care.
+>
+> Btw, it's not tested yet, but it might affect CONFIG_DMAR problems.
+>
+> Thanks,
+> Jarek P.
+> ----------------------->
+>
+> Using pci_unmap_len(), with the same length as pci_map_single(), with
+> pci_dma_sync_single_for_cpu()/_device() fixes this warning (2.6.32.4):
+>
+>    
+>> Jan 19 10:43:50 mail kernel: WARNING: at lib/dma-debug.c:902
+>> check_sync+0xc1/0x43f()
+>> Jan 19 10:43:50 mail kernel: Hardware name: System Product Name
+>> Jan 19 10:43:50 mail kernel: sky2 0000:04:00.0: DMA-API: device driver
+>> tries to sync DMA memory it has not allocated [device
+>> address=0x0000000320a0b022] [size=60 bytes]
+>>      
+> Reported-by: Michael Breuer<mbreuer@majjas.com>
+> Tested-by: Michael Breuer<mbreuer@majjas.com>
+> Signed-off-by: Jarek Poplawski<jarkao2@gmail.com>
+> ---
+>
+>   drivers/net/sky2.c |    6 ++++--
+>   1 files changed, 4 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+> index 7650f73..cdebdd3 100644
+> --- a/drivers/net/sky2.c
+> +++ b/drivers/net/sky2.c
+> @@ -2252,12 +2252,14 @@ static struct sk_buff *receive_copy(struct sky2_port *sky2,
+>   	skb = netdev_alloc_skb_ip_align(sky2->netdev, length);
+>   	if (likely(skb)) {
+>   		pci_dma_sync_single_for_cpu(sky2->hw->pdev, re->data_addr,
+> -					    length, PCI_DMA_FROMDEVICE);
+> +					    pci_unmap_len(re, data_size),
+> +					    PCI_DMA_FROMDEVICE);
+>   		skb_copy_from_linear_data(re->skb, skb->data, length);
+>   		skb->ip_summed = re->skb->ip_summed;
+>   		skb->csum = re->skb->csum;
+>   		pci_dma_sync_single_for_device(sky2->hw->pdev, re->data_addr,
+> -					       length, PCI_DMA_FROMDEVICE);
+> +					       pci_unmap_len(re, data_size),
+> +					       PCI_DMA_FROMDEVICE);
+>   		re->skb->ip_summed = CHECKSUM_NONE;
+>   		skb_put(skb, length);
+>   	}
+>    
+Just a testing update: I went back to CONFIG_DMAR=Y yesterday and have 
+not (yet) encountered the sky2 crash I'd been having prior to this fix. 
+I've been pumping traffic through, and based on pre-patch experience, it 
+would likely have crashed by now.
+
+Will keep the system up for the next couple of days w/o reboot to 
+confirm that the sky2 lockup I'd been seeing has stopped happening with 
+this patch.
+
+Test notes:
+
+1) Warning previously apparent on start (dma_debug check_sync) with 
+CONFIG_DMAR=n is gone.
+2) W/o the above patch, I was getting sky2 DMAR errors and subsequent TX 
+hangs requiring reboot to clear. The hangs happened after at least 12 
+hours of uptime, and under RX load at the time of the hang.
+3) With the above patch (and no other changes) I have not been able to 
+recreate the crash - the system is stable.
+
+I have been following the discussion about the DMA api would suggest 
+that the length issue when DMAR is enabled is less innocuous than 
+previously believed.
