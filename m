@@ -1,57 +1,44 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH iproute2] ip xfrm policy: allow different tmpl family
-Date: Thu, 21 Jan 2010 10:11:31 -0800
-Message-ID: <20100121101131.51624e33@nehalam>
-References: <1263223444-14092-1-git-send-email-abadea@ixiacom.com>
+Subject: Re: [iproute2] minor tc cleanup patches
+Date: Thu, 21 Jan 2010 10:13:33 -0800
+Message-ID: <20100121101333.515d3d5d@nehalam>
+References: <20100112203428.GA24531@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Alex Badea <abadea@ixiacom.com>
-To: Alex Badea <abadea@ixiacom.com>
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:48585 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:48683 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752228Ab0AUSLm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jan 2010 13:11:42 -0500
-In-Reply-To: <1263223444-14092-1-git-send-email-abadea@ixiacom.com>
+	id S1754859Ab0AUSNi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jan 2010 13:13:38 -0500
+In-Reply-To: <20100112203428.GA24531@Chamillionaire.breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 11 Jan 2010 17:24:04 +0200
-Alex Badea <abadea@ixiacom.com> wrote:
+On Tue, 12 Jan 2010 21:34:28 +0100
+Florian Westphal <fw@strlen.de> wrote:
 
-> Allow tmpl IP addresses to have a different family than
-> selector addresses.  This is useful in conjunction with
-> XFRM_STATE_AF_UNSPEC.
+> Hello Stephen, hello Patrick,
 > 
-> Signed-off-by: Alex Badea <abadea@ixiacom.com>
-> ---
+> here are 5 minor patches for iproute2/tc:
+> the first two are small man page adjustments.
+> The 3rd one makes tc print a more verbose error message instead of -EINVAL.
 > 
-> Rather than resetting preferred_family unconditionally, we could
-> have a new optional keyword for TMPL, e.g. "ip xfrm policy add ...
-> tmpl unspec mode tunnel ...".  Let me know if that would be preferred.
+> The 4th is a janitorial patch that removes some stale (c&p) code.
 > 
->  ip/xfrm_policy.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
+> Last patch adds a man page for sched_drr.
+> Patrick, it would be nice if you could have a look at this one to see
+> if I got everything right (or if i forgot something important).
 > 
-> diff --git a/ip/xfrm_policy.c b/ip/xfrm_policy.c
-> index 11116e5..2788477 100644
-> --- a/ip/xfrm_policy.c
-> +++ b/ip/xfrm_policy.c
-> @@ -201,10 +201,10 @@ static int xfrm_tmpl_parse(struct xfrm_user_tmpl *tmpl,
->  				break;
->  			}
->  			idp = *argv;
-> +			preferred_family = AF_UNSPEC;
->  			xfrm_id_parse(&tmpl->saddr, &tmpl->id, &tmpl->family,
->  				      0, &argc, &argv);
-> -			if (preferred_family == AF_UNSPEC)
-> -				preferred_family = tmpl->family;
-> +			preferred_family = tmpl->family;
->  		}
->  
->  		if (!NEXT_ARG_OK())
+> Thanks a lot!
+> 
+> Alternatively, you may pull from
+> 
+> git://git.breakpoint.cc/fw/iproute2.git cleanups
+> 
+> to obtain the following changes since commit
 
-applied
 
--- 
+Applied 1-4 will wait for updated DRR man page for 5
