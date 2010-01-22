@@ -1,48 +1,41 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] icmp: move icmp_err_convert[] to .rodata
-Date: Fri, 22 Jan 2010 22:18:25 +0200
-Message-ID: <20100122201824.GD22342@x200>
+From: Brian Haley <brian.haley@hp.com>
+Subject: [PATCH] IPv6: Update documentation for better built-in help with
+ params
+Date: Fri, 22 Jan 2010 15:24:49 -0500
+Message-ID: <4B5A0991.9080701@hp.com>
+References: <201001221901.o0MJ1oLk016090@wind.enjellic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: greg@enjellic.com, nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f220.google.com ([209.85.220.220]:49786 "EHLO
-	mail-fx0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753859Ab0AVUS3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 15:18:29 -0500
-Received: by fxm20 with SMTP id 20so1739908fxm.21
-        for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 12:18:27 -0800 (PST)
-Content-Disposition: inline
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:3495 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932116Ab0AVUYy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 15:24:54 -0500
+In-Reply-To: <201001221901.o0MJ1oLk016090@wind.enjellic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+Update IPv6 documentation to describe how to set parameters when it's
+built-into the kernel.  Reported by <greg@enjellic.com>.
+
+Signed-off-by: Brian Haley <brian.haley@hp.com>
 ---
 
- include/net/icmp.h |    2 +-
- net/ipv4/icmp.c    |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
---- a/include/net/icmp.h
-+++ b/include/net/icmp.h
-@@ -28,7 +28,7 @@ struct icmp_err {
-   unsigned	fatal:1;
- };
+diff --git a/Documentation/networking/ipv6.txt b/Documentation/networking/ipv6.txt
+index 9fd7e21..d52166b 100644
+--- a/Documentation/networking/ipv6.txt
++++ b/Documentation/networking/ipv6.txt
+@@ -6,6 +6,10 @@ or modprobe command, but are usually specified in either the
+ /etc/modules.conf or /etc/modprobe.conf configuration file, or in a
+ distro-specific configuration file.
  
--extern struct icmp_err icmp_err_convert[];
-+extern const struct icmp_err icmp_err_convert[];
- #define ICMP_INC_STATS(net, field)	SNMP_INC_STATS((net)->mib.icmp_statistics, field)
- #define ICMP_INC_STATS_BH(net, field)	SNMP_INC_STATS_BH((net)->mib.icmp_statistics, field)
- #define ICMPMSGOUT_INC_STATS(net, field)	SNMP_INC_STATS((net)->mib.icmpmsg_statistics, field+256)
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -114,7 +114,7 @@ struct icmp_bxm {
- /* An array of errno for error messages from dest unreach. */
- /* RFC 1122: 3.2.2.1 States that NET_UNREACH, HOST_UNREACH and SR_FAILED MUST be considered 'transient errs'. */
++For cases where IPv6 is built-into the kernel, you can set these
++parameters by specifying them on the kernel command line, for
++example, "ipv6.autoconf=0".
++
+ The available ipv6 module parameters are listed below.  If a parameter
+ is not specified the default value is used.
  
--struct icmp_err icmp_err_convert[] = {
-+const struct icmp_err icmp_err_convert[] = {
- 	{
- 		.errno = ENETUNREACH,	/* ICMP_NET_UNREACH */
- 		.fatal = 0,
