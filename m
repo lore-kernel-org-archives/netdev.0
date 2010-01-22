@@ -1,9 +1,9 @@
 From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: Re: [PATCH v2 2/3] igb: add registers etc. printout code just before
+Subject: Re: [PATCH v2 3/3] ixgbe: add registers etc. printout code just before
  resetting adapters
-Date: Fri, 22 Jan 2010 17:49:24 +0900
-Message-ID: <4B596694.1030604@jp.fujitsu.com>
-References: <4B593B74.2020601@jp.fujitsu.com> <4B593C6E.5050405@jp.fujitsu.com>
+Date: Fri, 22 Jan 2010 17:50:01 +0900
+Message-ID: <4B5966B9.5010309@jp.fujitsu.com>
+References: <4B593B74.2020601@jp.fujitsu.com> <4B593C9F.8010102@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
@@ -15,27 +15,27 @@ To: netdev@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	John Ronciak <john.ronciak@intel
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail6.fujitsu.co.jp ([192.51.44.36]:42892 "EHLO
+Received: from fgwmail6.fujitsu.co.jp ([192.51.44.36]:42919 "EHLO
 	fgwmail6.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752273Ab0AVItl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 03:49:41 -0500
-Received: from m5.gw.fujitsu.co.jp ([10.0.50.75])
-	by fgwmail6.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o0M8neUa018142
+	with ESMTP id S1752386Ab0AVIuN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 03:50:13 -0500
+Received: from m4.gw.fujitsu.co.jp ([10.0.50.74])
+	by fgwmail6.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o0M8oCRJ018496
 	for <netdev@vger.kernel.org> (envelope-from izumi.taku@jp.fujitsu.com);
-	Fri, 22 Jan 2010 17:49:40 +0900
-Received: from smail (m5 [127.0.0.1])
-	by outgoing.m5.gw.fujitsu.co.jp (Postfix) with ESMTP id E2DE945DE54
-	for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 17:49:38 +0900 (JST)
-Received: from s5.gw.fujitsu.co.jp (s5.gw.fujitsu.co.jp [10.0.50.95])
-	by m5.gw.fujitsu.co.jp (Postfix) with ESMTP id 8FA0F45DE52
-	for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 17:49:38 +0900 (JST)
-Received: from s5.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s5.gw.fujitsu.co.jp (Postfix) with ESMTP id 4EC991DB805B
-	for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 17:49:38 +0900 (JST)
-Received: from ml14.s.css.fujitsu.com (ml14.s.css.fujitsu.com [10.249.87.104])
-	by s5.gw.fujitsu.co.jp (Postfix) with ESMTP id D13AF1DB8040
-	for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 17:49:37 +0900 (JST)
-In-Reply-To: <4B593C6E.5050405@jp.fujitsu.com>
+	Fri, 22 Jan 2010 17:50:12 +0900
+Received: from smail (m4 [127.0.0.1])
+	by outgoing.m4.gw.fujitsu.co.jp (Postfix) with ESMTP id CA86A45DE6F
+	for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 17:50:11 +0900 (JST)
+Received: from s4.gw.fujitsu.co.jp (s4.gw.fujitsu.co.jp [10.0.50.94])
+	by m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 9BCA645DD75
+	for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 17:50:11 +0900 (JST)
+Received: from s4.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id 78BA51DB803A
+	for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 17:50:11 +0900 (JST)
+Received: from m106.s.css.fujitsu.com (m106.s.css.fujitsu.com [10.249.87.106])
+	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id 086ADE18003
+	for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 17:50:11 +0900 (JST)
+In-Reply-To: <4B593C9F.8010102@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -52,119 +52,119 @@ of course, the amount of output becomes quite large.
 Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
 ---
- drivers/net/igb/e1000_hw.h   |    7 +
- drivers/net/igb/e1000_regs.h |   21 +++
- drivers/net/igb/igb_main.c   |  294 +++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 322 insertions(+)
+ drivers/net/ixgbe/ixgbe_main.c |  294 +++++++++++++++++++++++++++++++++++++++++
+ drivers/net/ixgbe/ixgbe_type.h |   29 ++++
+ 2 files changed, 323 insertions(+)
 
-Index: net-next-2.6/drivers/net/igb/igb_main.c
+Index: net-next-2.6/drivers/net/ixgbe/ixgbe_main.c
 ===================================================================
---- net-next-2.6.orig/drivers/net/igb/igb_main.c
-+++ net-next-2.6/drivers/net/igb/igb_main.c
-@@ -60,6 +60,14 @@ static const struct e1000_info *igb_info
- 	[board_82575] = &e1000_82575_info,
+--- net-next-2.6.orig/drivers/net/ixgbe/ixgbe_main.c
++++ net-next-2.6/drivers/net/ixgbe/ixgbe_main.c
+@@ -60,6 +60,15 @@ static const struct ixgbe_info *ixgbe_in
+ 	[board_82599] = &ixgbe_82599_info,
  };
 
++
 +static unsigned int dump_flag = 1;
 +module_param(dump_flag, uint, 0644);
 +MODULE_PARM_DESC(dump_flag, "Dump Flag");
-+#define IGB_DUMP_REGS		(1 << 0)
-+#define IGB_DUMP_TX_RINGS	(1 << 1)
-+#define IGB_DUMP_RX_RINGS	(1 << 2)
-+#define IGB_DUMP_BUFFERS	(1 << 3)
++#define IXGBE_DUMP_REGS		(1 << 0)
++#define IXGBE_DUMP_TX_RINGS	(1 << 1)
++#define IXGBE_DUMP_RX_RINGS	(1 << 2)
++#define IXGBE_DUMP_BUFFERS	(1 << 3)
 +
- static DEFINE_PCI_DEVICE_TABLE(igb_pci_tbl) = {
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82580_COPPER), board_82575 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82580_FIBER), board_82575 },
-@@ -189,6 +197,291 @@ MODULE_DESCRIPTION("Intel(R) Gigabit Eth
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_VERSION);
+ /* ixgbe_pci_tbl - PCI Device ID Table
+  *
+  * Wildcard entries (PCI_ANY_ID) should come last
+@@ -174,6 +183,290 @@ static inline void ixgbe_disable_sriov(s
+ 	adapter->flags &= ~IXGBE_FLAG_SRIOV_ENABLED;
+ }
 
 +/*
-+ * igb_regdump - register printout routine
++ * ixgbe_regdump - register printout routine
 + */
-+static void igb_regdump(struct e1000_hw *hw, u32 reg,
-+			char *name, u32 (*get_regofs)(int))
++static void ixgbe_regdump(struct ixgbe_hw *hw, u32 reg,
++			  char *name, u32 (*get_regofs)(int))
 +{
-+	printk(KERN_ERR "%-15s %08x\n", name, rd32(reg));
++	printk(KERN_ERR "%-15s %08x\n", name, IXGBE_READ_REG(hw, reg));
 +}
 +
 +/*
-+ * igb_regdump_n - register printout routine
++ * ixgbe_regdump_n - register printout routine
 + */
-+static void igb_regdump_n(struct e1000_hw *hw, u32 reg,
-+			  char *name, u32 (*get_regofs)(int))
++static void ixgbe_regdump_n(struct ixgbe_hw *hw, u32 reg,
++			    char *name, u32 (*get_regofs)(int))
 +{
-+	int n = 0;
++	int i = 0, j = 0;
 +	char rname[16];
 +
 +	if (!get_regofs)
 +		return;
 +
-+	snprintf(rname, 16, "%s%s", name, "[0-3]");
-+	printk(KERN_ERR "%-15s ", rname);
-+	for (n = 0; n < 4; n++)
-+		printk(KERN_CONT "%08x ", rd32(get_regofs(n)));
-+	printk(KERN_CONT "\n");
++	for (i = 0; i < 8; i++) {
++		snprintf(rname, 16, "%s[%d-%d]", name, i*8, i*8+7);
++		printk(KERN_ERR "%-15s ", rname);
++		for (j = 0; j < 8; j++)
++			printk(KERN_CONT "%08x ",
++				IXGBE_READ_REG(hw, get_regofs(i*8+j)));
++		printk(KERN_CONT "\n");
++	}
 +}
 +
-+static const struct igb_reg_info igb_reg_info_tbl[] = {
++static const struct ixgbe_reg_info ixgbe_reg_info_tbl[] = {
 +
 +	/* General Registers */
-+	{E1000_CTRL, "CTRL", NULL, igb_regdump},
-+	{E1000_STATUS, "STATUS", NULL, igb_regdump},
-+	{E1000_CTRL_EXT, "CTRL_EXT", NULL, igb_regdump},
++	{IXGBE_CTRL, "CTRL", NULL, ixgbe_regdump},
++	{IXGBE_STATUS, "STATUS", NULL, ixgbe_regdump},
++	{IXGBE_CTRL_EXT, "CTRL_EXT", NULL, ixgbe_regdump},
 +
 +	/* Interrupt Registers */
-+	{E1000_ICR, "ICR", NULL, igb_regdump},
++	{IXGBE_EICR, "EICR", NULL, ixgbe_regdump},
 +
 +	/* RX Registers */
-+	{E1000_RCTL, "RCTL", NULL, igb_regdump},
-+	{E1000_RDLEN(0), "RDLEN", get_regofs_RDLEN, igb_regdump_n},
-+	{E1000_RDH(0), "RDH", get_regofs_RDH, igb_regdump_n},
-+	{E1000_RDT(0), "RDT", get_regofs_RDT, igb_regdump_n},
-+	{E1000_RXDCTL(0), "RXDCTL", get_regofs_RXDCTL, igb_regdump_n},
-+	{E1000_RDBAL(0), "RDBAL", get_regofs_RDBAL, igb_regdump_n},
-+	{E1000_RDBAH(0), "RDBAH", get_regofs_RDBAH, igb_regdump_n},
++	{IXGBE_SRRCTL(0), "SRRCTL", get_regofs_SRRCTL, ixgbe_regdump_n},
++	{IXGBE_DCA_RXCTRL(0), "DRXCTL", get_regofs_DCA_RXCTRL, ixgbe_regdump_n},
++	{IXGBE_RDLEN(0), "RDLEN", get_regofs_RDLEN, ixgbe_regdump_n},
++	{IXGBE_RDH(0), "RDH", get_regofs_RDH, ixgbe_regdump_n},
++	{IXGBE_RDT(0), "RDT", get_regofs_RDT, ixgbe_regdump_n},
++	{IXGBE_RXDCTL(0), "RXDCTL", get_regofs_RXDCTL, ixgbe_regdump_n},
++	{IXGBE_RDBAL(0), "RDBAL", get_regofs_RDBAL, ixgbe_regdump_n},
++	{IXGBE_RDBAH(0), "RDBAH", get_regofs_RDBAH, ixgbe_regdump_n},
 +
 +	/* TX Registers */
-+	{E1000_TCTL, "TCTL", NULL, igb_regdump},
-+	{E1000_TDBAL(0), "TDBAL", get_regofs_TDBAL, igb_regdump_n},
-+	{E1000_TDBAH(0), "TDBAH", get_regofs_TDBAH, igb_regdump_n},
-+	{E1000_TDLEN(0), "TDLEN", get_regofs_TDLEN, igb_regdump_n},
-+	{E1000_TDH(0), "TDH", get_regofs_TDH, igb_regdump_n},
-+	{E1000_TDT(0), "TDT", get_regofs_TDT, igb_regdump_n},
-+	{E1000_TXDCTL(0), "TXDCTL", get_regofs_TXDCTL, igb_regdump_n},
-+	{E1000_TDFH, "TDFH", NULL, igb_regdump},
-+	{E1000_TDFT, "TDFT", NULL, igb_regdump},
-+	{E1000_TDFHS, "TDFHS", NULL, igb_regdump},
-+	{E1000_TDFPC, "TDFPC", NULL, igb_regdump},
++	{IXGBE_TDBAL(0), "TDBAL", get_regofs_TDBAL, ixgbe_regdump_n},
++	{IXGBE_TDBAH(0), "TDBAH", get_regofs_TDBAH, ixgbe_regdump_n},
++	{IXGBE_TDLEN(0), "TDLEN", get_regofs_TDLEN, ixgbe_regdump_n},
++	{IXGBE_TDH(0), "TDH", get_regofs_TDH, ixgbe_regdump_n},
++	{IXGBE_TDT(0), "TDT", get_regofs_TDT, ixgbe_regdump_n},
++	{IXGBE_TXDCTL(0), "TXDCTL", get_regofs_TXDCTL, ixgbe_regdump_n},
 +
 +	/* List Terminator */
 +	{}
 +};
 +
 +/*
-+ * igb_dump - Print registers, tx-rings and rx-rings
++ * ixgbe_dump - Print registers, tx-rings and rx-rings
 + */
-+static void igb_dump(struct igb_adapter *adapter)
++static void ixgbe_dump(struct ixgbe_adapter *adapter)
 +{
 +	struct net_device *netdev = adapter->netdev;
-+	struct e1000_hw *hw = &adapter->hw;
-+	struct igb_reg_info *reginfo;
++	struct ixgbe_hw *hw = &adapter->hw;
++	struct ixgbe_reg_info *reginfo;
 +	int n = 0;
-+	struct igb_ring *tx_ring;
-+	union e1000_adv_tx_desc *tx_desc;
++	struct ixgbe_ring *tx_ring;
++	struct ixgbe_tx_buffer *tx_buffer_info;
++	union ixgbe_adv_tx_desc *tx_desc;
 +	struct my_u0 { u64 a; u64 b; } *u0;
-+	struct igb_buffer *buffer_info;
-+	struct igb_ring *rx_ring;
-+	union e1000_adv_rx_desc *rx_desc;
++	struct ixgbe_ring *rx_ring;
++	union ixgbe_adv_rx_desc *rx_desc;
++	struct ixgbe_rx_buffer *rx_buffer_info;
 +	u32 staterr;
 +	int i = 0;
 +
 +	/* Print netdevice Info */
++	dev_err(&adapter->pdev->dev, "Net device Info\n");
 +	if (netdev) {
-+		dev_err(&adapter->pdev->dev, "Net device Info\n");
 +		printk(KERN_ERR "Device Name     state            "
 +			"trans_start      last_rx\n");
 +		printk(KERN_ERR "%-15s %016lX %016lX %016lX\n",
@@ -175,12 +175,12 @@ Index: net-next-2.6/drivers/net/igb/igb_main.c
 +	}
 +
 +	/* Print Registers */
-+	if ((dump_flag & IGB_DUMP_REGS) == 0)
++	if ((dump_flag & IXGBE_DUMP_REGS) == 0)
 +		goto tx_ring_summary;
 +
 +	dev_err(&adapter->pdev->dev, "Register Dump\n");
 +	printk(KERN_ERR " Register Name   Value \n");
-+	for (reginfo = (struct igb_reg_info *)igb_reg_info_tbl;
++	for (reginfo = (struct ixgbe_reg_info *)ixgbe_reg_info_tbl;
 +	     reginfo->name; reginfo++) {
 +		reginfo->dump_reg(hw, reginfo->reg, reginfo->name,
 +					reginfo->get_regofs);
@@ -192,21 +192,22 @@ Index: net-next-2.6/drivers/net/igb/igb_main.c
 +		goto exit;
 +
 +	dev_err(&adapter->pdev->dev, "TX Rings Summary\n");
-+	printk(KERN_ERR "Queue [NTU] [NTC] [bi(ntc)->dma  ]"
-+		" leng ntw timestamp\n");
++	printk(KERN_ERR "Queue [NTU] [NTC] [bi(ntc)->dma  ] "
++		"leng ntw timestamp\n");
 +	for (n = 0; n < adapter->num_tx_queues; n++) {
 +		tx_ring = &adapter->tx_ring[n];
-+		buffer_info = &tx_ring->buffer_info[tx_ring->next_to_clean];
++		tx_buffer_info =
++			&tx_ring->tx_buffer_info[tx_ring->next_to_clean];
 +		printk(KERN_ERR " %5d %5X %5X %016llX %04X %3X %016llX\n",
 +			   n, tx_ring->next_to_use, tx_ring->next_to_clean,
-+			   (u64)buffer_info->dma,
-+			   buffer_info->length,
-+			   buffer_info->next_to_watch,
-+			   (u64)buffer_info->time_stamp);
++			   (u64)tx_buffer_info->dma,
++			   tx_buffer_info->length,
++			   tx_buffer_info->next_to_watch,
++			   (u64)tx_buffer_info->time_stamp);
 +	}
 +
 +	/* Print TX Rings */
-+	if ((dump_flag & IGB_DUMP_TX_RINGS) == 0)
++	if ((dump_flag & IXGBE_DUMP_TX_RINGS) == 0)
 +		goto rx_ring_summary;
 +
 +	dev_err(&adapter->pdev->dev, "TX Rings Dump\n");
@@ -217,9 +218,9 @@ Index: net-next-2.6/drivers/net/igb/igb_main.c
 +	 *   +--------------------------------------------------------------+
 +	 * 0 |         Buffer Address [63:0]                                |
 +	 *   +--------------------------------------------------------------+
-+	 * 8 | PAYLEN  | PORTS  |CC|IDX | STA | DCMD  |DTYP|MAC|RSV| DTALEN |
++	 * 8 |  PAYLEN  | PORTS  | IDX | STA | DCMD  |DTYP |  RSV |  DTALEN |
 +	 *   +--------------------------------------------------------------+
-+	 *   63      46 45    40 39 38 36 35 32 31   24             15       0
++	 *   63       46 45    40 39 36 35 32 31   24 23 20 19              0
 +	 */
 +
 +	for (n = 0; n < adapter->num_tx_queues; n++) {
@@ -228,22 +229,22 @@ Index: net-next-2.6/drivers/net/igb/igb_main.c
 +		printk(KERN_ERR "TX QUEUE INDEX = %d\n", tx_ring->queue_index);
 +		printk(KERN_ERR "------------------------------------\n");
 +		printk(KERN_ERR "T [desc]     [address 63:0  ] "
-+			"[PlPOCIStDDM Ln] [bi->dma       ] "
++			"[PlPOIdStDDt Ln] [bi->dma       ] "
 +			"leng  ntw timestamp        bi->skb\n");
 +
 +		for (i = 0; tx_ring->desc && (i < tx_ring->count); i++) {
-+			tx_desc = E1000_TX_DESC_ADV(*tx_ring, i);
-+			buffer_info = &tx_ring->buffer_info[i];
++			tx_desc = IXGBE_TX_DESC_ADV(*tx_ring, i);
++			tx_buffer_info = &tx_ring->tx_buffer_info[i];
 +			u0 = (struct my_u0 *)tx_desc;
 +			printk(KERN_ERR "T [0x%03X]    %016llX %016llX %016llX"
 +				" %04X  %3X %016llX %p", i,
 +				le64_to_cpu(u0->a),
 +				le64_to_cpu(u0->b),
-+				(u64)buffer_info->dma,
-+				buffer_info->length,
-+				buffer_info->next_to_watch,
-+				(u64)buffer_info->time_stamp,
-+				buffer_info->skb);
++				(u64)tx_buffer_info->dma,
++				tx_buffer_info->length,
++				tx_buffer_info->next_to_watch,
++				(u64)tx_buffer_info->time_stamp,
++				tx_buffer_info->skb);
 +			if (i == tx_ring->next_to_use &&
 +				i == tx_ring->next_to_clean)
 +				printk(KERN_CONT " NTC/U\n");
@@ -254,12 +255,12 @@ Index: net-next-2.6/drivers/net/igb/igb_main.c
 +			else
 +				printk(KERN_CONT "\n");
 +
-+			if ((dump_flag & IGB_DUMP_BUFFERS) &&
-+				buffer_info->dma != 0)
++			if ((dump_flag & IXGBE_DUMP_BUFFERS) &&
++				tx_buffer_info->dma != 0)
 +				print_hex_dump(KERN_ERR, "",
-+					DUMP_PREFIX_ADDRESS,
-+					16, 1, phys_to_virt(buffer_info->dma),
-+					buffer_info->length, true);
++					DUMP_PREFIX_ADDRESS, 16, 1,
++					phys_to_virt(tx_buffer_info->dma),
++					tx_buffer_info->length, true);
 +		}
 +	}
 +
@@ -269,12 +270,12 @@ Index: net-next-2.6/drivers/net/igb/igb_main.c
 +	printk(KERN_ERR "Queue [NTU] [NTC]\n");
 +	for (n = 0; n < adapter->num_rx_queues; n++) {
 +		rx_ring = &adapter->rx_ring[n];
-+		printk(KERN_ERR " %5d %5X %5X\n", n,
++		printk(KERN_ERR "%5d %5X %5X\n", n,
 +			   rx_ring->next_to_use, rx_ring->next_to_clean);
 +	}
 +
 +	/* Print RX Rings */
-+	if ((dump_flag & IGB_DUMP_RX_RINGS) == 0)
++	if ((dump_flag & IXGBE_DUMP_RX_RINGS) == 0)
 +		goto exit;
 +
 +	dev_err(&adapter->pdev->dev, "RX Rings Dump\n");
@@ -290,7 +291,7 @@ Index: net-next-2.6/drivers/net/igb/igb_main.c
 +	 *
 +	 * Advanced Receive Descriptor (Write-Back) Format
 +	 *
-+	 *   63       48 47    32 31  30      21 20 17 16   4 3     0
++	 *   63       48 47    32 31  30      21 20 16 15   4 3     0
 +	 *   +------------------------------------------------------+
 +	 * 0 | Packet     IP     |SPH| HDR_LEN   | RSV|Packet|  RSS |
 +	 *   | Checksum   Ident  |   |           |    | Type | Type |
@@ -299,7 +300,6 @@ Index: net-next-2.6/drivers/net/igb/igb_main.c
 +	 *   +------------------------------------------------------+
 +	 *   63       48 47    32 31            20 19               0
 +	 */
-+
 +	for (n = 0; n < adapter->num_rx_queues; n++) {
 +		rx_ring = &adapter->rx_ring[n];
 +		printk(KERN_ERR "------------------------------------\n");
@@ -313,39 +313,39 @@ Index: net-next-2.6/drivers/net/igb/igb_main.c
 +			"<-- Adv Rx Write-Back format\n");
 +
 +		for (i = 0; i < rx_ring->count; i++) {
-+			buffer_info = &rx_ring->buffer_info[i];
-+			rx_desc = E1000_RX_DESC_ADV(*rx_ring, i);
++			rx_buffer_info = &rx_ring->rx_buffer_info[i];
++			rx_desc = IXGBE_RX_DESC_ADV(*rx_ring, i);
 +			u0 = (struct my_u0 *)rx_desc;
 +			staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
-+			if (staterr & E1000_RXD_STAT_DD) {
++			if (staterr & IXGBE_RXD_STAT_DD) {
 +				/* Descriptor Done */
 +				printk(KERN_ERR "RWB[0x%03X]     %016llX "
 +					"%016llX ---------------- %p", i,
 +					le64_to_cpu(u0->a),
 +					le64_to_cpu(u0->b),
-+					buffer_info->skb);
++					rx_buffer_info->skb);
 +			} else {
 +				printk(KERN_ERR "R  [0x%03X]     %016llX "
 +					"%016llX %016llX %p", i,
 +					le64_to_cpu(u0->a),
 +					le64_to_cpu(u0->b),
-+					(u64)buffer_info->dma,
-+					buffer_info->skb);
++					(u64)rx_buffer_info->dma,
++					rx_buffer_info->skb);
 +
-+				if (dump_flag & IGB_DUMP_BUFFERS) {
++				if (dump_flag & IXGBE_DUMP_BUFFERS) {
 +					print_hex_dump(KERN_ERR, "",
-+						DUMP_PREFIX_ADDRESS,
-+						16, 1,
-+						phys_to_virt(buffer_info->dma),
-+						rx_ring->rx_buffer_len, true);
-+					if (rx_ring->rx_buffer_len
-+						< IGB_RXBUFFER_1024)
++					   DUMP_PREFIX_ADDRESS, 16, 1,
++					   phys_to_virt(rx_buffer_info->dma),
++					   rx_ring->rx_buf_len, true);
++
++					if (rx_ring->rx_buf_len
++						< IXGBE_RXBUFFER_2048)
 +						print_hex_dump(KERN_ERR, "",
-+						  DUMP_PREFIX_ADDRESS,
-+						  16, 1,
++						  DUMP_PREFIX_ADDRESS, 16, 1,
 +						  phys_to_virt(
-+						    buffer_info->page_dma +
-+						    buffer_info->page_offset),
++						    rx_buffer_info->page_dma +
++						    rx_buffer_info->page_offset
++						  ),
 +						  PAGE_SIZE/2, true);
 +				}
 +			}
@@ -364,65 +364,54 @@ Index: net-next-2.6/drivers/net/igb/igb_main.c
 +	return;
 +}
 +
-+
- /**
-  * igb_read_clock - read raw cycle counter (to be used by time counter)
-  */
-@@ -3854,6 +4147,7 @@ static void igb_reset_task(struct work_s
- 	struct igb_adapter *adapter;
- 	adapter = container_of(work, struct igb_adapter, reset_task);
+ static void ixgbe_release_hw_control(struct ixgbe_adapter *adapter)
+ {
+ 	u32 ctrl_ext;
+@@ -3306,6 +3599,7 @@ static void ixgbe_reset_task(struct work
 
-+	igb_dump(adapter);
- 	igb_reinit_locked(adapter);
+ 	adapter->tx_timeout_count++;
+
++	ixgbe_dump(adapter);
+ 	ixgbe_reinit_locked(adapter);
  }
 
-Index: net-next-2.6/drivers/net/igb/e1000_regs.h
+Index: net-next-2.6/drivers/net/ixgbe/ixgbe_type.h
 ===================================================================
---- net-next-2.6.orig/drivers/net/igb/e1000_regs.h
-+++ net-next-2.6/drivers/net/igb/e1000_regs.h
-@@ -322,4 +322,25 @@
+--- net-next-2.6.orig/drivers/net/ixgbe/ixgbe_type.h
++++ net-next-2.6/drivers/net/ixgbe/ixgbe_type.h
+@@ -2568,4 +2568,33 @@ struct ixgbe_info {
+ #define IXGBE_ERR_EEPROM_VERSION                -24
+ #define IXGBE_NOT_IMPLEMENTED                   0x7FFFFFFF
 
- /* DMA Coalescing registers */
- #define E1000_PCIEMISC          0x05BB8 /* PCIE misc config register */
 +
-+
-+#define IGB_GET_REGOFS_FUNC(name)				\
-+static inline u32 get_regofs_##name(int n)			\
-+{								\
-+	return E1000_##name(n);					\
-+}								\
-+
-+IGB_GET_REGOFS_FUNC(RDLEN)
-+IGB_GET_REGOFS_FUNC(RDH)
-+IGB_GET_REGOFS_FUNC(RDT)
-+IGB_GET_REGOFS_FUNC(RXDCTL)
-+IGB_GET_REGOFS_FUNC(RDBAL)
-+IGB_GET_REGOFS_FUNC(RDBAH)
-+IGB_GET_REGOFS_FUNC(TDBAL)
-+IGB_GET_REGOFS_FUNC(TDBAH)
-+IGB_GET_REGOFS_FUNC(TDLEN)
-+IGB_GET_REGOFS_FUNC(TDH)
-+IGB_GET_REGOFS_FUNC(TDT)
-+IGB_GET_REGOFS_FUNC(TXDCTL)
-+
- #endif
-Index: net-next-2.6/drivers/net/igb/e1000_hw.h
-===================================================================
---- net-next-2.6.orig/drivers/net/igb/e1000_hw.h
-+++ net-next-2.6/drivers/net/igb/e1000_hw.h
-@@ -508,6 +508,13 @@ struct e1000_hw {
- 	u8  revision_id;
- };
-
-+struct igb_reg_info {
++struct ixgbe_reg_info {
 +	u32 reg;
 +	char *name;
 +	u32 (*get_regofs)(int);
-+	void (*dump_reg)(struct e1000_hw *, u32, char *, u32 (*)(int));
++	void (*dump_reg)(struct ixgbe_hw *, u32, char *, u32 (*)(int));
 +};
 +
- #ifdef DEBUG
- extern char *igb_get_hw_dev_name(struct e1000_hw *hw);
- #define hw_dbg(format, arg...) \
++#define IXGBE_GET_REGOFS_FUNC(name)				\
++static inline u32 get_regofs_##name(int n)			\
++{								\
++	return IXGBE_##name(n);					\
++}								\
++
++IXGBE_GET_REGOFS_FUNC(SRRCTL)
++IXGBE_GET_REGOFS_FUNC(DCA_RXCTRL)
++IXGBE_GET_REGOFS_FUNC(RDLEN)
++IXGBE_GET_REGOFS_FUNC(RDH)
++IXGBE_GET_REGOFS_FUNC(RDT)
++IXGBE_GET_REGOFS_FUNC(RXDCTL)
++IXGBE_GET_REGOFS_FUNC(RDBAL)
++IXGBE_GET_REGOFS_FUNC(RDBAH)
++IXGBE_GET_REGOFS_FUNC(TDBAL)
++IXGBE_GET_REGOFS_FUNC(TDBAH)
++IXGBE_GET_REGOFS_FUNC(TDLEN)
++IXGBE_GET_REGOFS_FUNC(TDH)
++IXGBE_GET_REGOFS_FUNC(TDT)
++IXGBE_GET_REGOFS_FUNC(TXDCTL)
++
+ #endif /* _IXGBE_TYPE_H_ */
 
 
