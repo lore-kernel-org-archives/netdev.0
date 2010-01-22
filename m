@@ -1,34 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1 V2] net: Add Aeroflex Gaisler 10/100/1G Ethernet
- MAC driver
-Date: Thu, 21 Jan 2010 22:47:48 -0800 (PST)
-Message-ID: <20100121.224748.251929245.davem@davemloft.net>
-References: <1263827277-7165-1-git-send-email-kristoffer@gaisler.com>
-	<1263827277-7165-2-git-send-email-kristoffer@gaisler.com>
+Subject: Re: [net-next PATCH 2/2] be2net: Add link test to list of ethtool
+ self tests.
+Date: Thu, 21 Jan 2010 22:50:06 -0800 (PST)
+Message-ID: <20100121.225006.253435177.davem@davemloft.net>
+References: <20100119151526.GA8267@serverengines.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
-To: kristoffer@gaisler.com
+Cc: netdev@vger.kernel.org
+To: sarveshwarb@serverengines.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46846
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46856
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750729Ab0AVGrg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 01:47:36 -0500
-In-Reply-To: <1263827277-7165-2-git-send-email-kristoffer@gaisler.com>
+	by vger.kernel.org with ESMTP id S1751266Ab0AVGtz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 01:49:55 -0500
+In-Reply-To: <20100119151526.GA8267@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kristoffer Glembo <kristoffer@gaisler.com>
-Date: Mon, 18 Jan 2010 16:07:57 +0100
+From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+Date: Tue, 19 Jan 2010 20:45:36 +0530
 
-> +#undef DEBUG_TX_PACKETS
-> +#undef DEBUG_RX_PACKETS
+> Signed-off-by: Sarveshwar Bandi <sarveshwarb@serverengines.com>
 
-There is an existing facility for doing run-time debug
-enabling for things like this.
-
-So instead of this ifdef mess, make use of netdev->msg_enable
-to control various types of debugging messages.
-
-Thanks.
+Applied.
