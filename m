@@ -1,77 +1,52 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [RFC PATCH] e100: Fix workqueue race
-Date: Fri, 22 Jan 2010 09:38:34 +0000
-Message-ID: <20100122093834.GA7629@ff.dom.local>
-References: <20100121164801.416170b9@linux.intel.com> <20100122084200.GB6200@ff.dom.local> <20100122090731.GC6200@ff.dom.local>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH net-next-2.6 11/13] net-caif: add CAIF Kconfig and
+ Makefiles
+Date: Fri, 22 Jan 2010 10:40:42 +0100
+Message-ID: <1264153242.3469.31.camel@violet>
+References: <1264028130-14364-1-git-send-email-sjur.brandeland@stericsson.com>
+	 <1264028130-14364-12-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jesse.brandeburg@intel.com, netdev@vger.kernel.org
-To: Alan Cox <alan@linux.intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	stefano.babic@babic.homelinux.org, randy.dunlap@oracle.com
+To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f223.google.com ([209.85.220.223]:53233 "EHLO
-	mail-fx0-f223.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753118Ab0AVJik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 04:38:40 -0500
-Received: by fxm23 with SMTP id 23so1080008fxm.38
-        for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 01:38:39 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20100122090731.GC6200@ff.dom.local>
+Received: from senator.holtmann.net ([87.106.208.187]:45496 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752786Ab0AVJjm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 04:39:42 -0500
+In-Reply-To: <1264028130-14364-12-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 22, 2010 at 09:07:31AM +0000, Jarek Poplawski wrote:
-> On Fri, Jan 22, 2010 at 08:42:00AM +0000, Jarek Poplawski wrote:
-> > On 21-01-2010 17:48, Alan Cox wrote:
-> > > (Incidentally this doesn't seem to be the only net driver that looks
-> > > suspect here)
-> > > 
-> > > e100: Fix the TX workqueue race
-> > > 
-> > > From: Alan Cox <alan@linux.intel.com>
-> > > 
-> > > Nothing stops the workqueue being left to run in parallel with close or a
-> > > few other operations. This causes double unmaps and the like.
-> > > 
-> > > See kerneloops.org #1041230 for an example
-> > > 
-> > > Signed-off-by: Alan Cox <alan@linux.intel.com>
-> > > ---
-> > > 
-> > >  drivers/net/e100.c |   13 +++++++++++--
-> > >  1 files changed, 11 insertions(+), 2 deletions(-)
-> > > 
-> > > 
-> > > diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-> > > index 5c7a155..5e02e4f 100644
-> > > --- a/drivers/net/e100.c
-> > > +++ b/drivers/net/e100.c
-> > > @@ -2232,7 +2232,7 @@ err_rx_clean_list:
-> > >  	return err;
-> > >  }
-> > >  
-> > > -static void e100_down(struct nic *nic)
-> > > +static void e100_do_down(struct nic *nic)
-> > >  {
-> > >  	/* wait here for poll to complete */
-> > >  	napi_disable(&nic->napi);
-> > > @@ -2245,6 +2245,15 @@ static void e100_down(struct nic *nic)
-> > >  	e100_rx_clean_list(nic);
-> > >  }
-> > >  
-> > > +/* For the non TX timeout case we want to kill the tx timeout before
-> > > +   we do this otherwise a parallel tx timeout will make a nasty mess. */
-> > > +
-> > > +static void e100_down(struct nic *nic)
-> > > +{
-> > > +	cancel_work_sync(&nic->tx_timeout_task);
-> > 
-> > Can't tx_timeout_task be triggered just between these two calls here?
-> 
-> More exactly: except when this is called from dev_close(), where it
-> should work OK. (At least until tx_timeout_task doesn't take any lock
-> held here - especially rtnl_lock.)
+Hi Sjur,
 
-Hmm... Even more exactly, since tx_timeout_task can be triggered not
-only by dev_watchdog(), dev_close() is suspicious too.
+> +config CAIF_SOCK
+> +	tristate "CAIF Sockets"
+> +	default CAIF
+> +	---help---
+> +	Say Y if you will be using CAIF Sockets.
+> +	This can be either built-in or a loadable module,
+> +	If you select to build it as a built-in then the main CAIF device must
+> +	also be a built-in,
+> +	If unsure say Y.
+> +
+> +config CAIF_NETDEV
+> +	tristate "CAIF GPRS Network device"
+> +	default CAIF
+> +	---help---
+> +	Say Y if you will be using a CAIF based GPRS network device.
+> +	This can be either built-in or a loadable module,
+> +	If you select to build it as a built-in then the main CAIF device must
+> +	also be a built-in.
+> +	If unsure say Y.
 
-Jarek P.
+any real use cases where NOT building CAIF_SOCK would make sense. Maybe
+it would be better to move CAIF_SOCK and CAIF_NETDEV under EMBEDDED.
+
+Regards
+
+Marcel
+
+
