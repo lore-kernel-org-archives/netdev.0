@@ -1,45 +1,69 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: VLAN vs bridging receive precedence
-Date: Sat, 23 Jan 2010 09:13:31 +1300
-Message-ID: <20100122201331.GA2974@gondor.apana.org.au>
-References: <20100122031153.GA26565@gondor.apana.org.au> <1264180303.2784.19.camel@achroite.uk.solarflarecom.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] neigh: simplify seq_file code
+Date: Fri, 22 Jan 2010 22:16:05 +0200
+Message-ID: <20100122201605.GB22342@x200>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:50823 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753622Ab0AVUNe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 15:13:34 -0500
+Received: from mail-fx0-f220.google.com ([209.85.220.220]:60523 "EHLO
+	mail-fx0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752488Ab0AVUQN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 15:16:13 -0500
+Received: by fxm20 with SMTP id 20so1737369fxm.21
+        for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 12:16:08 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1264180303.2784.19.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 22, 2010 at 05:11:42PM +0000, Ben Hutchings wrote:
-.
-> The administrator might just be trying to bridge a VLAN to a guest.
-> 
-> XenCenter attaches a bridge interface ('Network') to each NIC.  The
-> administrator can define additional Networks which are associated with
-> VLANs on specific NICs; for each of these it attaches a VLAN interface
-> to the physical interface and a bridge interface to the VLAN interface.
+Simpily pass 'struct neigh_table' with seq_file private pointer,
+and save one dereference. Proc entry itself isn't interesting.
 
-But that should work perfectly.  The problem here is that the
-bridge is being attached to the physical interface, no?
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-> Ideally people wouldn't mix tagged and untagged traffic, and then
-> XenCenter could refuse to bridge both a physical interface and a VLAN
-> attached to it.  In practice, people do mix them, and I think we need to
-> work out what the proper semantics are.
+ net/core/neighbour.c |   11 ++++-------
+ 1 file changed, 4 insertions(+), 7 deletions(-)
 
-Mixing should work as well, as long as you don't attach both
-bridging and VLAN to the physical interface.
-
-Cheeers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -2417,8 +2417,7 @@ EXPORT_SYMBOL(neigh_seq_stop);
+ 
+ static void *neigh_stat_seq_start(struct seq_file *seq, loff_t *pos)
+ {
+-	struct proc_dir_entry *pde = seq->private;
+-	struct neigh_table *tbl = pde->data;
++	struct neigh_table *tbl = seq->private;
+ 	int cpu;
+ 
+ 	if (*pos == 0)
+@@ -2435,8 +2434,7 @@ static void *neigh_stat_seq_start(struct seq_file *seq, loff_t *pos)
+ 
+ static void *neigh_stat_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+-	struct proc_dir_entry *pde = seq->private;
+-	struct neigh_table *tbl = pde->data;
++	struct neigh_table *tbl = seq->private;
+ 	int cpu;
+ 
+ 	for (cpu = *pos; cpu < nr_cpu_ids; ++cpu) {
+@@ -2455,8 +2453,7 @@ static void neigh_stat_seq_stop(struct seq_file *seq, void *v)
+ 
+ static int neigh_stat_seq_show(struct seq_file *seq, void *v)
+ {
+-	struct proc_dir_entry *pde = seq->private;
+-	struct neigh_table *tbl = pde->data;
++	struct neigh_table *tbl = seq->private;
+ 	struct neigh_statistics *st = v;
+ 
+ 	if (v == SEQ_START_TOKEN) {
+@@ -2501,7 +2498,7 @@ static int neigh_stat_seq_open(struct inode *inode, struct file *file)
+ 
+ 	if (!ret) {
+ 		struct seq_file *sf = file->private_data;
+-		sf->private = PDE(inode);
++		sf->private = PDE(inode)->data;
+ 	}
+ 	return ret;
+ };
