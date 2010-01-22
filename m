@@ -1,48 +1,77 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [net-next-2.6 PATCH 2/3] fs_enet: Add support for MPC512x to
- fs_enet driver
-Date: Fri, 22 Jan 2010 10:35:59 +0100
-Message-ID: <4B59717F.6090200@grandegger.com>
-References: <1264039999-25731-3-git-send-email-agust@denx.de>	<20100121.012235.161201297.davem@davemloft.net>	<4B5871F2.9090005@grandegger.com> <20100121.180311.228791894.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [RFC PATCH] e100: Fix workqueue race
+Date: Fri, 22 Jan 2010 09:38:34 +0000
+Message-ID: <20100122093834.GA7629@ff.dom.local>
+References: <20100121164801.416170b9@linux.intel.com> <20100122084200.GB6200@ff.dom.local> <20100122090731.GC6200@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: agust@denx.de, netdev@vger.kernel.org, dzu@denx.de, wd@denx.de,
-	jcrigby@gmail.com, kosmo@semihalf.com, linuxppc-dev@ozlabs.org,
-	grant.likely@secretlab.ca
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: jesse.brandeburg@intel.com, netdev@vger.kernel.org
+To: Alan Cox <alan@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:58583 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753190Ab0AVJhG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 04:37:06 -0500
-In-Reply-To: <20100121.180311.228791894.davem@davemloft.net>
+Received: from mail-fx0-f223.google.com ([209.85.220.223]:53233 "EHLO
+	mail-fx0-f223.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753118Ab0AVJik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 04:38:40 -0500
+Received: by fxm23 with SMTP id 23so1080008fxm.38
+        for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 01:38:39 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20100122090731.GC6200@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Wolfgang Grandegger <wg@grandegger.com>
-> Date: Thu, 21 Jan 2010 16:25:38 +0100
+On Fri, Jan 22, 2010 at 09:07:31AM +0000, Jarek Poplawski wrote:
+> On Fri, Jan 22, 2010 at 08:42:00AM +0000, Jarek Poplawski wrote:
+> > On 21-01-2010 17:48, Alan Cox wrote:
+> > > (Incidentally this doesn't seem to be the only net driver that looks
+> > > suspect here)
+> > > 
+> > > e100: Fix the TX workqueue race
+> > > 
+> > > From: Alan Cox <alan@linux.intel.com>
+> > > 
+> > > Nothing stops the workqueue being left to run in parallel with close or a
+> > > few other operations. This causes double unmaps and the like.
+> > > 
+> > > See kerneloops.org #1041230 for an example
+> > > 
+> > > Signed-off-by: Alan Cox <alan@linux.intel.com>
+> > > ---
+> > > 
+> > >  drivers/net/e100.c |   13 +++++++++++--
+> > >  1 files changed, 11 insertions(+), 2 deletions(-)
+> > > 
+> > > 
+> > > diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+> > > index 5c7a155..5e02e4f 100644
+> > > --- a/drivers/net/e100.c
+> > > +++ b/drivers/net/e100.c
+> > > @@ -2232,7 +2232,7 @@ err_rx_clean_list:
+> > >  	return err;
+> > >  }
+> > >  
+> > > -static void e100_down(struct nic *nic)
+> > > +static void e100_do_down(struct nic *nic)
+> > >  {
+> > >  	/* wait here for poll to complete */
+> > >  	napi_disable(&nic->napi);
+> > > @@ -2245,6 +2245,15 @@ static void e100_down(struct nic *nic)
+> > >  	e100_rx_clean_list(nic);
+> > >  }
+> > >  
+> > > +/* For the non TX timeout case we want to kill the tx timeout before
+> > > +   we do this otherwise a parallel tx timeout will make a nasty mess. */
+> > > +
+> > > +static void e100_down(struct nic *nic)
+> > > +{
+> > > +	cancel_work_sync(&nic->tx_timeout_task);
+> > 
+> > Can't tx_timeout_task be triggered just between these two calls here?
 > 
->> Do you see a more clever solution to this problem?
-> 
-> See how we handle this in the ESP scsi driver.  We have a set of
-> defines for the register offsets, and a set of methods a chip driver
-> implements for register accesses.
-> 
-> If the offsets differ, the register access method can translate the
-> generic register offsets into whatever layout their implementation
-> actually uses.
+> More exactly: except when this is called from dev_close(), where it
+> should work OK. (At least until tx_timeout_task doesn't take any lock
+> held here - especially rtnl_lock.)
 
-I think you speak about:
+Hmm... Even more exactly, since tx_timeout_task can be triggered not
+only by dev_watchdog(), dev_close() is suspicious too.
 
-    void (*esp_write8)(struct esp *esp, u8 val, unsigned long reg);
-    u8 (*esp_read8)(struct esp *esp, unsigned long reg);
-
-But still we need to translate the *generic* offset (reg) into the real
-offset, which requires a lookup/table to get it. For me this seems not
-really more efficient and less transparent as it bends the offsets.
-
-Wolfgang.
-
-
+Jarek P.
