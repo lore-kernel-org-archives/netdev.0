@@ -1,57 +1,66 @@
-From: Jan Kiszka <jan.kiszka@web.de>
-Subject: [PATCH 31/31] CAPI: Officially claim char major 191
-Date: Sun, 10 Jan 2010 14:21:31 +0100
-Message-ID: <445e1bf881b6f8b6a5886d6eee70f6435a5619d6.1264201408.git.jan.kiszka@web.de>
-References: <cover.1264201406.git.jan.kiszka@web.de>
-Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
-	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	Alan Cox <alan@linux.intel.com>
-To: David Miller <davem@davemloft.net>,
-	Karsten Keil <isdn@linux-pingi.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate02.web.de ([217.72.192.227]:51452 "EHLO
-	fmmailgate02.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754248Ab0AVX34 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 18:29:56 -0500
-In-Reply-To: <cover.1264201406.git.jan.kiszka@web.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Hang: 2.6.32.4 sky2/DMAR (was [PATCH] sky2: Fix WARNING: at
+ lib/dma-debug.c:902 check_sync)
+Date: Sat, 23 Jan 2010 00:46:56 +0100
+Message-ID: <20100122234656.GC3105@del.dom.local>
+References: <20100120094103.GA6225@ff.dom.local>
+ <4B58B217.8030001@majjas.com>
+ <20100121204133.GB3085@del.dom.local>
+ <4B59E7EB.3050605@majjas.com>
+ <20100122215304.GA3105@del.dom.local>
+ <4B5A2362.6000306@majjas.com>
+ <20100122230605.GB3105@del.dom.local>
+ <4B5A33D8.90501@majjas.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	akpm@linux-foundation.org, flyboy@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Michael Chan <mchan@broadcom.com>,
+	Don Fry <pcnet32@verizon.net>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Matt Carlson <mcarlson@broadcom.com>
+To: Michael Breuer <mbreuer@majjas.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753221Ab0AVXrI@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4B5A33D8.90501@majjas.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I found no trace of this mysterious "pcl181" device, neither in-tree nor
-out there in the wild. At the same time, the in-tree CAPI middleware is
-using major 191 for many years now and obviously without any conflict.
-Let's officially claim this major number.
+On Fri, Jan 22, 2010 at 06:25:12PM -0500, Michael Breuer wrote:
+> On 1/22/2010 6:06 PM, Jarek Poplawski wrote:
+> >On Fri, Jan 22, 2010 at 05:14:58PM -0500, Michael Breuer wrote:
+> >>Not sure I can do that. Note that based on the log messages, there
+> >>were no errors/dropped packets involving dhcp. Moving the dhcp
+> >>server off of the affected machine is not trivial. The dhcp
+> >>correlation is based on logged messages preceding each crash. I
+> >>cannot confirm that they're related, however it's really suspicious.
+> >>If it helps, HP replaced my unmanaged switch with a managed one so I
+> >>can see whether there were any switch events logged the next time I
+> >>have a crash.
+> >>
+> >>At this point, it seems the following is required to trigger the crash:
+> >>1) Uptime of 24-36 hours
+> >>2) High RX load on server (cifs traffic is what I've triggered it with).
+> >>3) Normal DHCP traffic.
+> >Do you mean you got these crashes with the new switch too, and this
+> >switch doesn't drop DHCP at all? (Otherwise, let's try this switch
+> >first.)
+> >
+> >Jarek P.
+> Nope - just got the new switch. Crash was old switch. That said, I
+> don't think (based on the log messages) that the dhcpoffer packet
+> drop was happening prior to the crash. I also can't fathom why a
+> DHCPOFFER packet dropped after leaving the server would have any
+> bearing on the issue.
 
-CC: Alan Cox <alan@linux.intel.com>
-Signed-off-by: Jan Kiszka <jan.kiszka@web.de>
----
- Documentation/devices.txt |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+You wrote earlier:
+> [...] Also, there is always a dhcp exchange of some sort
+> preceding the event.
 
-diff --git a/Documentation/devices.txt b/Documentation/devices.txt
-index 53d64d3..4dfc2a0 100644
---- a/Documentation/devices.txt
-+++ b/Documentation/devices.txt
-@@ -403,7 +403,7 @@ Your cooperation is appreciated.
- 		188 = /dev/smbusbios	SMBus BIOS
- 		189 = /dev/ussp_ctl	User space serial port control
- 		190 = /dev/crash	Mission Critical Linux crash dump facility
--		191 = /dev/pcl181	<information missing>
-+		191 = /dev/capi/[0-9]*	CAPI 2.0 middleware, NCCI TTYs
- 		192 = /dev/nas_xbus	NAS xbus LCD/buttons access
- 		193 = /dev/d7s		SPARC 7-segment display
- 		194 = /dev/zkshim	Zero-Knowledge network shim control
-@@ -2618,7 +2618,10 @@ Your cooperation is appreciated.
- 		  1 = /dev/kctt1	Second KCT/T card
- 		    ...
- 
--191 char	Reserved for PCMCIA
-+191 char	CAPI 2.0 middleware, NCCI TTYs
-+		  0 = /dev/capi/0	TTY for NCCI ID 0
-+		  1 = /dev/capi/1	TTY for NCCI ID 1
-+		    ...
- 
- 192 char	Kernel profiling interface
- 		  0 = /dev/profile	Profiling control device
--- 
-1.6.0.2
+So, I'm not sure there was "3) Normal DHCP traffic." if the switch
+could drop DHCP packets in some buggy conditions. Anyway, let's try
+the new one with really "3) Normal DHCP traffic.", I hope.
+
+Jarek P.
