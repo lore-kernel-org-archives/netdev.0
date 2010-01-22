@@ -1,52 +1,67 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: VLAN vs bridging receive precedence
-Date: Sat, 23 Jan 2010 10:26:18 +1300
-Message-ID: <20100122212618.GA3582@gondor.apana.org.au>
-References: <20100122031153.GA26565@gondor.apana.org.au> <1264180303.2784.19.camel@achroite.uk.solarflarecom.com> <20100122201331.GA2974@gondor.apana.org.au> <1264192497.2784.31.camel@achroite.uk.solarflarecom.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: [RFC PATCH] net: NETDEV WATCHDOG should print something every time
+Date: Fri, 22 Jan 2010 13:43:33 -0800
+Message-ID: <20100122214333.14389.86017.stgit@jbrandeb-ich9b.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:58303 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750831Ab0AVV0f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 16:26:35 -0500
-Content-Disposition: inline
-In-Reply-To: <1264192497.2784.31.camel@achroite.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, jesse.brandeburg@intel.com
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754636Ab0AVVnf@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 22, 2010 at 08:34:56PM +0000, Ben Hutchings wrote:
-. 
-> As I said, it attaches a bridge interface to each NIC (physical
-> interface) to start with - whether or not the administrator chooses to
-> bridge the NIC to any guest interfaces.  So it doesn't work without VLAN
-> receive acceleration.
+commit 5337407c changed NETDEV WATCHDOG messages into a message
+that will only print once per driver load.  This removed a significant amount
+of information from an admin who might be missing that his system was having
+NETDEV WATCHDOGs, esp since there is no other global counter available to
+count these events.
 
-That should work fine, as long as it doesn't also attach a VLAN
-device to the same physical device.  The VLAN device should instead
-be attached to the bridge device.
+simply check the __warned flag and print a simple version of the message
+without the full stack dump if the (kerneloops related) WARN_ON_ONCE has
+already logged the hardware type and one hang.
 
-No you won't get VLAN acceleration, but really the cost wouldn't
-be worth it anyway.
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: Arjan <arjan@linux.intel.com>
+---
 
-> And if you are going to mix them, on a virtualised server you may want
-> to bridge them both to guests, separately.  That seems to require either
-> that a VLAN interface and a bridge interface can be attached to the
-> physical interface, with the VLAN interface taking precedence on
-> receive; or that a virtual interface accepting only untagged traffic can
-> be attached to the physical interface.
+ include/asm-generic/bug.h |    5 +++++
+ net/sched/sch_generic.c   |    9 +++++++--
+ 2 files changed, 12 insertions(+), 2 deletions(-)
 
-You mean you want to bridge both the physical device and VLAN
-devices on top of it? Again it works fine if you set it up right.
-You first create a bridge which includes the physical device,
-then you add a VLAN on top of the bridge, and not the physical
-device, finally you bridge that VLAN device.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/include/asm-generic/bug.h b/include/asm-generic/bug.h
+index 18c435d..ad810a0 100644
+--- a/include/asm-generic/bug.h
++++ b/include/asm-generic/bug.h
+@@ -132,6 +132,11 @@ extern void warn_slowpath_null(const char *file, const int line);
+ 	unlikely(__ret_warn_once);				\
+ })
+ 
++#define WARNED_ALREADY() ({					\
++	static bool __warned;					\
++	unlikely(__warned);					\
++})
++
+ #define WARN_ON_RATELIMIT(condition, state)			\
+ 		WARN_ON((condition) && __ratelimit(state))
+ 
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 5173c1e..28fb14f 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -251,8 +251,13 @@ static void dev_watchdog(unsigned long arg)
+ 
+ 			if (some_queue_timedout) {
+ 				char drivername[64];
+-				WARN_ONCE(1, KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit queue %u timed out\n",
+-				       dev->name, netdev_drivername(dev, drivername, 64), i);
++				/* FIXME: is there a way to const char string[] = "NETDEV WATCHDOG..." */
++				if (!WARNED_ALREADY())
++					WARN_ONCE(1, KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit queue %u timed out\n",
++						  dev->name, netdev_drivername(dev, drivername, 64), i);
++				else
++					printk(KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit queue %u timed out\n",
++					       dev->name, netdev_drivername(dev, drivername, 64), i);
+ 				dev->netdev_ops->ndo_tx_timeout(dev);
+ 			}
+ 			if (!mod_timer(&dev->watchdog_timer,
