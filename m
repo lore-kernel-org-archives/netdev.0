@@ -1,76 +1,85 @@
-From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: Re: [PATCH v2 0/3] e1000e,igb,ixgbe: add registers etc. printout
- code just before resetting adapters
-Date: Fri, 22 Jan 2010 17:46:30 +0900
-Message-ID: <4B5965E6.8090109@jp.fujitsu.com>
-References: <4B593B74.2020601@jp.fujitsu.com> <1264141501.32383.75.camel@Joe-Laptop.home>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [RFC PATCH] e100: Fix workqueue race
+Date: Fri, 22 Jan 2010 08:42:00 +0000
+Message-ID: <20100122084200.GB6200@ff.dom.local>
+References: <20100121164801.416170b9@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	Koki Sanagi <sanagi.koki@jp.fujitsu.com>,
-	Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
-	chavey@google.com
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jesse.brandeburg@intel.com, netdev@vger.kernel.org
+To: Alan Cox <alan@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:56472 "EHLO
-	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752112Ab0AVIqt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 03:46:49 -0500
-Received: from m6.gw.fujitsu.co.jp ([10.0.50.76])
-	by fgwmail7.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o0M8kmuh028717
-	for <netdev@vger.kernel.org> (envelope-from izumi.taku@jp.fujitsu.com);
-	Fri, 22 Jan 2010 17:46:48 +0900
-Received: from smail (m6 [127.0.0.1])
-	by outgoing.m6.gw.fujitsu.co.jp (Postfix) with ESMTP id 5514B45DE4F
-	for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 17:46:48 +0900 (JST)
-Received: from s6.gw.fujitsu.co.jp (s6.gw.fujitsu.co.jp [10.0.50.96])
-	by m6.gw.fujitsu.co.jp (Postfix) with ESMTP id 324B745DE50
-	for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 17:46:47 +0900 (JST)
-Received: from s6.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s6.gw.fujitsu.co.jp (Postfix) with ESMTP id 1C7D91DB8037
-	for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 17:46:47 +0900 (JST)
-Received: from m107.s.css.fujitsu.com (m107.s.css.fujitsu.com [10.249.87.107])
-	by s6.gw.fujitsu.co.jp (Postfix) with ESMTP id 6B46BE08002
-	for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 17:46:46 +0900 (JST)
-In-Reply-To: <1264141501.32383.75.camel@Joe-Laptop.home>
+Received: from mail-fx0-f210.google.com ([209.85.220.210]:36478 "EHLO
+	mail-fx0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751774Ab0AVIsX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 03:48:23 -0500
+Received: by fxm2 with SMTP id 2so978273fxm.25
+        for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 00:48:21 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20100121164801.416170b9@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 21-01-2010 17:48, Alan Cox wrote:
+> (Incidentally this doesn't seem to be the only net driver that looks
+> suspect here)
+> 
+> e100: Fix the TX workqueue race
+> 
+> From: Alan Cox <alan@linux.intel.com>
+> 
+> Nothing stops the workqueue being left to run in parallel with close or a
+> few other operations. This causes double unmaps and the like.
+> 
+> See kerneloops.org #1041230 for an example
+> 
+> Signed-off-by: Alan Cox <alan@linux.intel.com>
+> ---
+> 
+>  drivers/net/e100.c |   13 +++++++++++--
+>  1 files changed, 11 insertions(+), 2 deletions(-)
+> 
+> 
+> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+> index 5c7a155..5e02e4f 100644
+> --- a/drivers/net/e100.c
+> +++ b/drivers/net/e100.c
+> @@ -2232,7 +2232,7 @@ err_rx_clean_list:
+>  	return err;
+>  }
+>  
+> -static void e100_down(struct nic *nic)
+> +static void e100_do_down(struct nic *nic)
+>  {
+>  	/* wait here for poll to complete */
+>  	napi_disable(&nic->napi);
+> @@ -2245,6 +2245,15 @@ static void e100_down(struct nic *nic)
+>  	e100_rx_clean_list(nic);
+>  }
+>  
+> +/* For the non TX timeout case we want to kill the tx timeout before
+> +   we do this otherwise a parallel tx timeout will make a nasty mess. */
+> +
+> +static void e100_down(struct nic *nic)
+> +{
+> +	cancel_work_sync(&nic->tx_timeout_task);
 
-(2010/01/22 15:25), Joe Perches wrote:
-> Trivial:
-> 
-> All of the printks without KERN_<level>  should be KERN_CONT
-> 
-> For example:
-> 
->> +	printk(KERN_ERR "%-15s ", rname);
->> +	for (n = 0; n<  2; n++)
->> +		printk("%08x ", __er32(hw, get_regofs(n)));
->> +	printk("\n");
-> 
-> This should be:
-> 
-> 	printk(KERN_ERR etc...)
-> 	for (n = 0...)
-> 		printk(KERN_CONT "%08x ", etc...
-> 	printk(KERN_CONT "\n")
-> 
-> or perhaps written without the for loop
-> 
-> 	printk(KERN_ERR "%-15s %08x %08x\n",
-> 	       name, __er32(hw, get_regofs(0)), __er32(hw, get_regofs(1)));
-> 
+Can't tx_timeout_task be triggered just between these two calls here?
 
-Thank you for good information! I didn't realize that.
-I'll rewrite all.
+Jarek P.
 
-Best regards,
-Taku Izumi
-
+> +	e100_do_down(nic);
+> +}
+> +
+>  static void e100_tx_timeout(struct net_device *netdev)
+>  {
+>  	struct nic *nic = netdev_priv(netdev);
+> @@ -2261,7 +2270,7 @@ static void e100_tx_timeout_task(struct work_struct *work)
+>  
+>  	DPRINTK(TX_ERR, DEBUG, "scb.status=0x%02X\n",
+>  		ioread8(&nic->csr->scb.status));
+> -	e100_down(netdev_priv(netdev));
+> +	e100_do_down(netdev_priv(netdev));
+>  	e100_up(netdev_priv(netdev));
+>  }
+>  
+> --
