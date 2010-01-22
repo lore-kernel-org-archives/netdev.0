@@ -1,91 +1,64 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [RFC PATCH] e100: Fix workqueue race
-Date: Fri, 22 Jan 2010 09:07:31 +0000
-Message-ID: <20100122090731.GC6200@ff.dom.local>
-References: <20100121164801.416170b9@linux.intel.com> <20100122084200.GB6200@ff.dom.local>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: RE: [PATCH net-next-2.6 02/13] net-caif: add CAIF header files
+Date: Fri, 22 Jan 2010 10:16:19 +0100
+Message-ID: <1264151779.3469.14.camel@violet>
+References: <1264028130-14364-1-git-send-email-sjur.brandeland@stericsson.com>
+	 <1264028130-14364-3-git-send-email-sjur.brandeland@stericsson.com>
+	 <1264146719.3469.5.camel@violet>
+	 <61D8D34BB13CFE408D154529C120E07903231FED@eseldmw101.eemea.ericsson.se>
+	 <1264149542.3469.8.camel@violet>
+	 <61D8D34BB13CFE408D154529C120E07903232025@eseldmw101.eemea.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jesse.brandeburg@intel.com, netdev@vger.kernel.org
-To: Alan Cox <alan@linux.intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	stefano.babic@babic.homelinux.org, randy.dunlap@oracle.com
+To: Sjur =?ISO-8859-1?Q?Br=E6ndeland?=
+	<sjur.brandeland@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f223.google.com ([209.85.220.223]:52301 "EHLO
-	mail-fx0-f223.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751844Ab0AVJHj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 04:07:39 -0500
-Received: by fxm23 with SMTP id 23so1050290fxm.38
-        for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 01:07:37 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20100122084200.GB6200@ff.dom.local>
+Received: from senator.holtmann.net ([87.106.208.187]:37160 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752867Ab0AVJPT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 04:15:19 -0500
+In-Reply-To: <61D8D34BB13CFE408D154529C120E07903232025@eseldmw101.eemea.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 22, 2010 at 08:42:00AM +0000, Jarek Poplawski wrote:
-> On 21-01-2010 17:48, Alan Cox wrote:
-> > (Incidentally this doesn't seem to be the only net driver that looks
-> > suspect here)
+Hi Sjur,
+
+> >> CAIFSO_CHANNEL is used for specifying the physical interface to use
+> >> for the CAIF Channel. You can select the type of interface to use by
+> >> setting link_selector: CAIF_PHYPREF_LOW_LAT will typically be used
+> >> for AT (or other control traffic), and CAIF_PHYPREF_HIGH_BW for IP
+> >> traffic. 
+> >> When the CAIF interfaces registers itself it will inform about their
+> >> type, (low-latency or high-bandwidth). This approach assumes that you
+> >> have only one modem, but multiple links to it (e.g. USB and UART).
+> >> 
+> >> But you can also specify interface by name using link_name. In this
+> >> case you specify the name of the interface to use. I think this would
+> >> support your use case with multiple modems attached.
 > > 
-> > e100: Fix the TX workqueue race
-> > 
-> > From: Alan Cox <alan@linux.intel.com>
-> > 
-> > Nothing stops the workqueue being left to run in parallel with close or a
-> > few other operations. This causes double unmaps and the like.
-> > 
-> > See kerneloops.org #1041230 for an example
-> > 
-> > Signed-off-by: Alan Cox <alan@linux.intel.com>
-> > ---
-> > 
-> >  drivers/net/e100.c |   13 +++++++++++--
-> >  1 files changed, 11 insertions(+), 2 deletions(-)
-> > 
-> > 
-> > diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-> > index 5c7a155..5e02e4f 100644
-> > --- a/drivers/net/e100.c
-> > +++ b/drivers/net/e100.c
-> > @@ -2232,7 +2232,7 @@ err_rx_clean_list:
-> >  	return err;
-> >  }
-> >  
-> > -static void e100_down(struct nic *nic)
-> > +static void e100_do_down(struct nic *nic)
-> >  {
-> >  	/* wait here for poll to complete */
-> >  	napi_disable(&nic->napi);
-> > @@ -2245,6 +2245,15 @@ static void e100_down(struct nic *nic)
-> >  	e100_rx_clean_list(nic);
-> >  }
-> >  
-> > +/* For the non TX timeout case we want to kill the tx timeout before
-> > +   we do this otherwise a parallel tx timeout will make a nasty mess. */
-> > +
-> > +static void e100_down(struct nic *nic)
-> > +{
-> > +	cancel_work_sync(&nic->tx_timeout_task);
+> > sounds good, but why using a socket option and not allowing to just
+> > use bind(). Maybe it is just my personal preference, because I am
+> > used to do it like this for TCP and Bluetooth.  
 > 
-> Can't tx_timeout_task be triggered just between these two calls here?
+> We actually considered this when designing the interface,
+> but I don't feel bind() fits in this case. bind() would normally bind
+> an address to the client socket. An interface did not seem
+> like a client socket address to us, so we decided to use sockopt instead.
+> Conceptually I don't think CAIF has a client address at all, it only
+> connects to a server side address.
 
-More exactly: except when this is called from dev_close(), where it
-should work OK. (At least until tx_timeout_task doesn't take any lock
-held here - especially rtnl_lock.)
+seems fair enough to me. My personal preference would just be bind, but
+I can follow your argumentation. I just wanted to make sure that we have
+that option before setting CAIF socket address in stone.
 
-Jarek P.
+Any reason why not just supporting SO_PRIORITY and SO_BINDTODEVICE on
+CAIF sockets then?
 
-> 
-> > +	e100_do_down(nic);
-> > +}
-> > +
-> >  static void e100_tx_timeout(struct net_device *netdev)
-> >  {
-> >  	struct nic *nic = netdev_priv(netdev);
-> > @@ -2261,7 +2270,7 @@ static void e100_tx_timeout_task(struct work_struct *work)
-> >  
-> >  	DPRINTK(TX_ERR, DEBUG, "scb.status=0x%02X\n",
-> >  		ioread8(&nic->csr->scb.status));
-> > -	e100_down(netdev_priv(netdev));
-> > +	e100_do_down(netdev_priv(netdev));
-> >  	e100_up(netdev_priv(netdev));
-> >  }
-> >  
-> > --
+Regards
+
+Marcel
+
+
