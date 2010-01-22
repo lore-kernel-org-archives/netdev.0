@@ -1,77 +1,102 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: Re: [PATCH] sky2: Fix WARNING: at lib/dma-debug.c:902 check_sync
-Date: Fri, 22 Jan 2010 14:11:29 +0900
-Message-ID: <20100122141018D.fujita.tomonori@lab.ntt.co.jp>
-References: <20100120225322.GC3072@del.dom.local>
-	<20100122002053X.fujita.tomonori@lab.ntt.co.jp>
-	<20100121184158.GA3085@del.dom.local>
+From: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Subject: [PATCH v2 0/3] e1000e,igb,ixgbe: add registers etc. printout code
+ just before resetting adapters
+Date: Fri, 22 Jan 2010 14:45:24 +0900
+Message-ID: <4B593B74.2020601@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: fujita.tomonori@lab.ntt.co.jp, alan@lxorguk.ukuu.org.uk,
-	davem@davemloft.net, shemminger@linux-foundation.org,
-	mbreuer@majjas.com, akpm@linux-foundation.org, flyboy@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	mchan@broadcom.com, pcnet32@verizon.net, romieu@fr.zoreil.com,
-	mcarlson@broadcom.com, James.Bottomley@suse.de
-To: jarkao2@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751778Ab0AVFMj@vger.kernel.org>
-In-Reply-To: <20100121184158.GA3085@del.dom.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Koki Sanagi <sanagi.koki@jp.fujitsu.com>,
+	Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
+	chavey@google.com
+To: netdev@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Ronciak <john.ronciak@intel
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:51324 "EHLO
+	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750742Ab0AVFpq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 00:45:46 -0500
+Received: from m3.gw.fujitsu.co.jp ([10.0.50.73])
+	by fgwmail5.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o0M5jibu022076
+	for <netdev@vger.kernel.org> (envelope-from izumi.taku@jp.fujitsu.com);
+	Fri, 22 Jan 2010 14:45:44 +0900
+Received: from smail (m3 [127.0.0.1])
+	by outgoing.m3.gw.fujitsu.co.jp (Postfix) with ESMTP id 1EE5C45DE51
+	for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 14:45:44 +0900 (JST)
+Received: from s3.gw.fujitsu.co.jp (s3.gw.fujitsu.co.jp [10.0.50.93])
+	by m3.gw.fujitsu.co.jp (Postfix) with ESMTP id D4F7145DE4D
+	for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 14:45:43 +0900 (JST)
+Received: from s3.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s3.gw.fujitsu.co.jp (Postfix) with ESMTP id BBAB31DB8045
+	for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 14:45:43 +0900 (JST)
+Received: from m106.s.css.fujitsu.com (m106.s.css.fujitsu.com [10.249.87.106])
+	by s3.gw.fujitsu.co.jp (Postfix) with ESMTP id 59C951DB8041
+	for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 14:45:43 +0900 (JST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 21 Jan 2010 19:41:58 +0100
-Jarek Poplawski <jarkao2@gmail.com> wrote:
+Hi Jeff,
 
-> On Fri, Jan 22, 2010 at 12:22:10AM +0900, FUJITA Tomonori wrote:
-> > On Wed, 20 Jan 2010 23:53:22 +0100
-> > Jarek Poplawski <jarkao2@gmail.com> wrote:
-> > 
-> > > On Wed, Jan 20, 2010 at 10:24:14PM +0000, Alan Cox wrote:
-> > > > > > Seems like an underlying bug in the DMA api. Maybe it just can't
-> > > > > > handle operations on partial mapping.
-> > > > > > 
-> > > > > > Other drivers with same problem:
-> > > > > >   bnx2, cassini, pcnet32, r8169, rrunner, skge, sungem, tg3, 
-> > > > > 
-> > > > > It seems using the same length (even without pci_unmap_len()) is
-> > > > > crucial here, but I hope maintainers (added to CC) will take care.
-> > > > 
-> > > > The API needs fixing - if you've got a large mapping and you want to sync
-> > > > part of it then we need to support that. Now it might well be that the
-> > > > implementation on some braindead platform has to sync the entire thing,
-> > > > and some implementations entire pages or cache lines.
-> > > > 
-> > > > You can't fix this in the drivers, they requested a service and they
-> > > > don't have enough information nor is it their job to know about all the
-> > > > platform specific rules.
-> > > 
-> > > Yes, the need to repeat some other values if there is a dedicated
-> > > structure/pointer could be misleading. Btw, it seems to be a trivial
-> > > overlooking since there is dma_sync_single_range() ready to use.
-> > 
-> > Yeah, dma_sync_single_range() enables you to do a partial sync. But
-> > you must be really careful with a partial sync (as DMA-API.txt says).
-> 
-> Actually, we are trying to establish here (and a few more netdev@
-> threads) what exactly the author was worried about. After looking at
+This patchset is the update version of "register etc. printout code" patch. (sorry
+for late reply)
+The old one is http://marc.info/?l=linux-netdev&m=126286127208276&w=2
 
-James added to Cc,
+v1 -> v2:
+ - replaced hexdump() with print_hex_dump()
+ - changed the register printout inplementation (for-switch-case -> data-driven-table)
+
+However the default value of "dump_flag" is not changed (still 1).
+The reason I didn't change is
+ - I think HW index (TDH,TDT..) and SW index (NTC,NTU) are at least necessary
+ - the amount of default output is not so large (see bellow)
+ - the adapter resetting problem doesn't happen frequently
 
 
-> some implementations it seems to me this carefullness in observing
-> the cache alignment and width is needed only wrt. the 'offset'. But
-> then, the way the 'size' is used (or rather not used for anything
-> crucial) suggests dma_sync_single_range() with zero offset seems
-> completely safe. But then it's equivalent to dma_sync_single() with
+The default output sample (NOT the actual hangup case) is as follows:
 
-Even if 'offset' is zero, 'size' still matters, I think. If 'size' is
-not a multiple of the cache line size, it's possible that driver
-writers who aren't familiar with cache would be surprised (it depends
-on the way their drivers use buffers though).
+Jan 22 14:17:14 fedora11 kernel: igb 0000:03:00.0: Net device Info
+Jan 22 14:17:14 fedora11 kernel: Device Name     state            trans_start
+last_rx
+Jan 22 14:17:14 fedora11 kernel: eth1            0000000000000003 00000000FFFB922A
+0000000000000000
+Jan 22 14:17:14 fedora11 kernel: igb 0000:03:00.0: Register Dump
+Jan 22 14:17:14 fedora11 kernel: Register Name   [value ]
+Jan 22 14:17:14 fedora11 kernel: CTRL            18c00241
+Jan 22 14:17:14 fedora11 kernel: STATUS          00080783
+Jan 22 14:17:14 fedora11 kernel: CTRL_EXT        10180c00
+Jan 22 14:17:14 fedora11 kernel: ICR             00000081
+Jan 22 14:17:14 fedora11 kernel: RCTL            0400803a
+Jan 22 14:17:14 fedora11 kernel: RDLEN[0-3]      00001000 00001000 00000000 00000000
+Jan 22 14:17:14 fedora11 kernel: RDH[0-3]        000000bc 00000000 00000000 00000000
+Jan 22 14:17:14 fedora11 kernel: RDT[0-3]        000000ba 000000fe 00000000 00000000
+Jan 22 14:17:14 fedora11 kernel: RXDCTL[0-3]     02010810 02010810 00010000 00010000
+Jan 22 14:17:14 fedora11 kernel: RDBAL[0-3]      35e48000 35f68000 00000000 00000000
+Jan 22 14:17:14 fedora11 kernel: RDBAH[0-3]      00000000 00000000 00000000 00000000
+Jan 22 14:17:14 fedora11 kernel: TCTL            a503f0fa
+Jan 22 14:17:14 fedora11 kernel: TDBAL[0-3]      35e4c000 35ef1000 00000000 00000000
+Jan 22 14:17:14 fedora11 kernel: TDBAH[0-3]      00000000 00000000 00000000 00000000
+Jan 22 14:17:14 fedora11 kernel: TDLEN[0-3]      00001000 00001000 00000000 00000000
+Jan 22 14:17:14 fedora11 kernel: TDH[0-3]        00000000 0000001e 00000000 00000000
+Jan 22 14:17:14 fedora11 kernel: TDT[0-3]        00000000 0000001e 00000000 00000000
+Jan 22 14:17:14 fedora11 kernel: TXDCTL[0-3]     02000108 02000108 00000000 00000000
+Jan 22 14:17:14 fedora11 kernel: TDFH            40020272
+Jan 22 14:17:14 fedora11 kernel: TDFT            00000270
+Jan 22 14:17:14 fedora11 kernel: TDFHS           00000272
+Jan 22 14:17:14 fedora11 kernel: TDFPC           00000000
+Jan 22 14:17:14 fedora11 kernel: igb 0000:03:00.0: TX Rings Summary
+Jan 22 14:17:14 fedora11 kernel: Queue [NTU] [NTC] [bi(ntc)->dma  ] leng ntw timestamp
+Jan 22 14:17:14 fedora11 kernel:     0     0     0 0000000000000000 0000   0
+0000000000000000
+Jan 22 14:17:14 fedora11 kernel:     1    1E    1E 0000000000000000 0000   0
+0000000000000000
+Jan 22 14:17:14 fedora11 kernel: igb 0000:03:00.0: RX Rings Summary
+Jan 22 14:17:14 fedora11 kernel: Queue [NTU] [NTC]
+Jan 22 14:17:14 fedora11 kernel:     0    BB    BC
+Jan 22 14:17:14 fedora11 kernel:     1    FF     0
 
-The easiest way for 'completely safe sync for any driver writers' is
-asking for all the sync parameters must be the same as those passed
-into the single mapping API. If writes knows what they do, they can do
-a partial sync with sync_range API. That's the author intention, I
-guess.
+
+Best regards,
+Taku Izumi
+
