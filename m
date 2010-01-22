@@ -1,48 +1,41 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 06/11] de2104x: fix DMA sync_single length error
-Date: Thu, 21 Jan 2010 17:12:09 -0800
-Message-ID: <20100121171209.1e8eb864@nehalam>
-References: <20100120204459.820265084@vyatta.com>
-	<20100120204559.177544514@vyatta.com>
-	<20100122010244.GA27529@lackof.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH 2/3] fs_enet: Add support for MPC512x to
+ fs_enet driver
+Date: Thu, 21 Jan 2010 18:03:11 -0800 (PST)
+Message-ID: <20100121.180311.228791894.davem@davemloft.net>
+References: <1264039999-25731-3-git-send-email-agust@denx.de>
+	<20100121.012235.161201297.davem@davemloft.net>
+	<4B5871F2.9090005@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	Grant Grundler <grundler@parisc-linux.org>,
-	netdev@vger.kernel.org
-To: Grant Grundler <grundler@parisc-linux.org>
+Cc: agust@denx.de, netdev@vger.kernel.org, dzu@denx.de, wd@denx.de,
+	jcrigby@gmail.com, kosmo@semihalf.com, linuxppc-dev@ozlabs.org,
+	grant.likely@secretlab.ca
+To: wg@grandegger.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:38313 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754962Ab0AVBMV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jan 2010 20:12:21 -0500
-In-Reply-To: <20100122010244.GA27529@lackof.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60124
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751969Ab0AVCDA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 21:03:00 -0500
+In-Reply-To: <4B5871F2.9090005@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 21 Jan 2010 18:02:44 -0700
-Grant Grundler <grundler@parisc-linux.org> wrote:
+From: Wolfgang Grandegger <wg@grandegger.com>
+Date: Thu, 21 Jan 2010 16:25:38 +0100
 
-> On Wed, Jan 20, 2010 at 12:45:05PM -0800, Stephen Hemminger wrote:
-> > The DMA api requires that the full mapping be sync'd when
-> > copying frame. First found by Jarek on sky2.
-> 
-> Are you referring to the example code in Documentation/PCI/PCI-DMA-mapping.txt?
-> 
-> I don't see any "Use the full mapping" statement otherwise.
-> 
-> Is there a DMA HW implementation that requires the syncing full buffer?
-> 
-> I think it would be interesting to point that out in the commit comments
-> since other NIC drivers are likely to also have this issue as well.
-> 
-> I have no objection to this patch. Just want to be clear why
-> it's being pushed.
-> 
-> Please added Acked-by: Grant Grundler <grundler@parisc-linux.org>
+> Do you see a more clever solution to this problem?
 
-The documentation was in DMA-API.txt and it was wrong.
-The DMA debug library was enforcing a bogus restriction.
-Dave correctly dropped the patch.
+See how we handle this in the ESP scsi driver.  We have a set of
+defines for the register offsets, and a set of methods a chip driver
+implements for register accesses.
+
+If the offsets differ, the register access method can translate the
+generic register offsets into whatever layout their implementation
+actually uses.
+
+> Nevertheless, the code could be improved by using "offsetof", I
+> think.
+
+At a minimum :-)
