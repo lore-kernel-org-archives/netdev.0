@@ -1,75 +1,55 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH v2 0/3] e1000e, igb,
- ixgbe: add registers etc. printout code just before resetting
- adapters
-Date: Fri, 22 Jan 2010 13:54:11 -0800 (Pacific Standard Time)
-Message-ID: <alpine.WNT.2.00.1001221345580.6104@jbrandeb-desk1.amr.corp.intel.com>
-References: <4B593B74.2020601@jp.fujitsu.com>
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Subject: [PATCH  kernel 2.6.33-rc5] fmvj18x_cs: add new id (Panasonic lan &
+ modem card)
+Date: Sat, 23 Jan 2010 06:56:25 +0900
+Message-ID: <20100123065625.db751a12.ken_kawasaki@spring.nifty.jp>
+References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
+	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
+	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
+	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
+	<20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
+	<20091221205849.dae4e929.ken_kawasaki@spring.nifty.jp>
+	<20091223171004.77316fa5.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Koki Sanagi <sanagi.koki@jp.fujitsu.com>, e1000-devel@lists.sourceforge.net,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Allan,
-	Bruce W" <bruce.w.allan@intel.com>,
-	"chavey@google.com" <chavey@google.com>, "Ronciak,
-	John" <john.ronciak@intel.com>, "Kirsher,
-	Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <4B593B74.2020601@jp.fujitsu.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: ken_kawasaki@spring.nifty.jp
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userg507.nifty.com ([202.248.238.87]:32416 "EHLO
+	userg507.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754363Ab0AVV5L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 16:57:11 -0500
+In-Reply-To: <20091223171004.77316fa5.ken_kawasaki@spring.nifty.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 21 Jan 2010, Taku Izumi wrote:
-> This patchset is the update version of "register etc. printout code" patch. (sorry
-> for late reply)
-> The old one is http://marc.info/?l=linux-netdev&m=126286127208276&w=2
-> 
-> v1 -> v2:
->  - replaced hexdump() with print_hex_dump()
->  - changed the register printout inplementation (for-switch-case -> data-driven-table)
-> 
-> However the default value of "dump_flag" is not changed (still 1).
-> The reason I didn't change is
->  - I think HW index (TDH,TDT..) and SW index (NTC,NTU) are at least necessary
->  - the amount of default output is not so large (see bellow)
->  - the adapter resetting problem doesn't happen frequently
 
-Taku, thanks for these, we are talking the patches over and reviewing 
-them.  While I agree with the idea of these patches is good, I still don't 
-agree with the default being enabled.  Usually if someone is getting tx 
-hangs they are repeatable and we can work with them to get the debug 
-turned on.  I DO think it is useful to have the feature available by 
-default but NOT enabled.
+fmvj18x_cs, serial_cs:
+ add new id
+ Panasonic lan & modem card (model name:AL-VML101)
 
-If we wanted to enable something by default it might be useful to print 
-something that actually draws some conclusions from known failure modes, 
-like if TDH!=TDT after some amount of time.  I think one or two lines 
-maximum for default printing.
+Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
 
-If you're working in this area I had an idea.  I had wanted to be able to 
-print the large amount of ring information (especially in the ixgbe case 
-with many rings) to the ftrace buffers in order to not overrun the syslog 
-daemon.  Not sure if you're interested in more new features, it certainly 
-is separate but related to this patch. 
+---
 
-------------------------------------------------------------------------------
-Throughout its 18-year history, RSA Conference consistently attracts the
-world's best and brightest in the field, creating opportunities for Conference
-attendees to learn about information security's most important issues through
-interactions with peers, luminaries and emerging and established companies.
-http://p.sf.net/sfu/rsaconf-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+--- linux-2.6.33-rc5/drivers/net/pcmcia/fmvj18x_cs.c.orig	2010-01-22 21:59:25.000000000 +0900
++++ linux-2.6.33-rc5/drivers/net/pcmcia/fmvj18x_cs.c	2010-01-22 21:59:44.000000000 +0900
+@@ -717,6 +717,7 @@ static struct pcmcia_device_id fmvj18x_i
+ 	PCMCIA_PFC_DEVICE_PROD_ID12(0, "NEC", "PK-UG-J001" ,0x18df0ba0 ,0x831b1064),
+ 	PCMCIA_PFC_DEVICE_MANF_CARD(0, 0x0105, 0x0d0a),
+ 	PCMCIA_PFC_DEVICE_MANF_CARD(0, 0x0105, 0x0e0a),
++	PCMCIA_PFC_DEVICE_MANF_CARD(0, 0x0032, 0x0e01),
+ 	PCMCIA_PFC_DEVICE_MANF_CARD(0, 0x0032, 0x0a05),
+ 	PCMCIA_PFC_DEVICE_MANF_CARD(0, 0x0032, 0x1101),
+ 	PCMCIA_DEVICE_NULL,
+--- linux-2.6.33-rc5/drivers/serial/serial_cs.c.orig	2010-01-22 22:00:00.000000000 +0900
++++ linux-2.6.33-rc5/drivers/serial/serial_cs.c	2010-01-22 22:00:21.000000000 +0900
+@@ -758,6 +758,7 @@ static struct pcmcia_device_id serial_id
+ 	PCMCIA_PFC_DEVICE_PROD_ID12(1, "PCMCIAs", "LanModem", 0xdcfe12d3, 0xc67c648f),
+ 	PCMCIA_PFC_DEVICE_PROD_ID12(1, "TDK", "GlobalNetworker 3410/3412", 0x1eae9475, 0xd9a93bed),
+ 	PCMCIA_PFC_DEVICE_PROD_ID12(1, "Xircom", "CreditCard Ethernet+Modem II", 0x2e3ee845, 0xeca401bf),
++	PCMCIA_PFC_DEVICE_MANF_CARD(1, 0x0032, 0x0e01),
+ 	PCMCIA_PFC_DEVICE_MANF_CARD(1, 0x0032, 0x0a05),
+ 	PCMCIA_PFC_DEVICE_MANF_CARD(1, 0x0032, 0x1101),
+ 	PCMCIA_MFC_DEVICE_MANF_CARD(0, 0x0104, 0x0070),
