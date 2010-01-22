@@ -1,66 +1,103 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Hang: 2.6.32.4 sky2/DMAR (was [PATCH] sky2: Fix WARNING: at
- lib/dma-debug.c:902 check_sync)
-Date: Sat, 23 Jan 2010 00:06:05 +0100
-Message-ID: <20100122230605.GB3105@del.dom.local>
-References: <20100120094103.GA6225@ff.dom.local>
- <4B58B217.8030001@majjas.com>
- <20100121204133.GB3085@del.dom.local>
- <4B59E7EB.3050605@majjas.com>
- <20100122215304.GA3105@del.dom.local>
- <4B5A2362.6000306@majjas.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	akpm@linux-foundation.org, flyboy@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Michael Chan <mchan@broadcom.com>,
-	Don Fry <pcnet32@verizon.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Matt Carlson <mcarlson@broadcom.com>
-To: Michael Breuer <mbreuer@majjas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755411Ab0AVXGO@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B5A2362.6000306@majjas.com>
+From: Jan Kiszka <jan.kiszka@web.de>
+Subject: [PATCH 00/31] CAPI: Major rework, tons of bug fixes
+Date: Sat, 23 Jan 2010 00:03:26 +0100
+Message-ID: <cover.1264201406.git.jan.kiszka@web.de>
+Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
+	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Karsten Keil <isdn@linux-pingi.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755397Ab0AVXNW@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 22, 2010 at 05:14:58PM -0500, Michael Breuer wrote:
-> On 1/22/2010 4:53 PM, Jarek Poplawski wrote:
-> >On Fri, Jan 22, 2010 at 01:01:15PM -0500, Michael Breuer wrote:
-> >>Kernel 2.6.32.4 (git) with the following patches applied:
-> >>
-> >>af_packet.c (tpacket_snd version 3)
-> >>sky2.c pskb_may_pull
-> >>sky2 fix WARNING at lib/dma-debug.c check_sync
-> >I guess, you meant the "sky2.c receive_copy" patch which you tested
-> >earlier, or at least you managed to crash DMAR with that patch
-> >before crashing it with Stephen's "lib/dma-debug.c check_sync" patch,
-> >right?
-> >
-> Yes - sorry, correct - all three patches were in the last run.
-> Previously, I've encountered the crash without these patches.
+First of all sorry if I'm breaking the correct flow of ISDN patches, but
+I'm under the impression that things currently get merged directly via
+Dave, right?
 
-OK, thanks for testing - it's really very helpful, and supports
-David's opinion that dmar is a different problem.
-...
-> Not sure I can do that. Note that based on the log messages, there
-> were no errors/dropped packets involving dhcp. Moving the dhcp
-> server off of the affected machine is not trivial. The dhcp
-> correlation is based on logged messages preceding each crash. I
-> cannot confirm that they're related, however it's really suspicious.
-> If it helps, HP replaced my unmanaged switch with a managed one so I
-> can see whether there were any switch events logged the next time I
-> have a crash.
-> 
-> At this point, it seems the following is required to trigger the crash:
-> 1) Uptime of 24-36 hours
-> 2) High RX load on server (cifs traffic is what I've triggered it with).
-> 3) Normal DHCP traffic.
+This series can also be pulled from
 
-Do you mean you got these crashes with the new switch too, and this
-switch doesn't drop DHCP at all? (Otherwise, let's try this switch
-first.)
+	git://git.kiszka.org/linux-2.6.git capi
 
-Jarek P.
+As one of the (presumably) few remaining users of an AVM FRITZ!Card DSL
+v2.0, I originally just wanted to finally get that broken proprietary
+driver into a more reliable state. But I actually ended up fixing also
+wide parts of the in-kernel CAPI stack - a job that turned out to be
+almost as "interesting" as hacking on that driver.
+
+The major issue of the CAPI stack were incomplete or broken locking
+schemes. That caused sporadic crashes, specifically during
+setup/shutdown phases of connections, devices, or whatever dynamic
+objects. But it also affected some code that was executed during normal
+operation. I think I fixed most of those issue, at least all I found via
+code inspection, lockdep runs, and testing. This series in production
+use on my home gateway for two weeks now (under CONFIG_PREEMPT - the
+original stack and driver code only worked acceptably under
+CONFIG_PREEMPT_NONE). I also applied some cleanups, and polished the old
+capifs a bit.
+
+So the series concludes with removing the experimental tag from the CAPI
+middleware, primarily the kernel's CAPI-speaking gate to user space
+(eg. for use with Asterisk). There also patch to officially claim the
+char major number 191 that CAPI (and likely only CAPI) used in the past
+decade.
+
+Note that, although I touched some small parts of it, I did _not_ fix
+any locking issue of the capidrv, the interface to the legacy ISDN
+stack. It is _surely_ broken in similar ways. But while it may also be
+fixable, I rather decided that I'm going to invest a bit time in a
+replacement of the last local user, isdnlog.
+
+Looking forward to feedback,
+Jan
+
+
+PS: If anyone is interested in the fcdsl2 FRITZ!Card driver rework, you
+can find the current version at
+
+	git://git.kiszka.org/fcdsl2.git
+
+Jan Kiszka (31):
+  CAPI: Fix leaks in capifs_new_ncci
+  CAPI: Sanitize capifs API
+  CAPI: Eliminate capifs_root variable
+  CAPI: Pin capifs instead of mounting it
+  CAPI: Reduce chattiness during module loading/removal
+  CAPI: Call a controller 'controller', not 'card'
+  CAPI: Convert capi drivers rwlock into mutex
+  CAPI: Rework capi_ctr_ready/down
+  CAPI: Rework controller state notifier
+  CAPI: Rework locking of controller data structures
+  CAPI: Rework application locking
+  CAPI: Reduce #ifdef mess around CONFIG_ISDN_CAPI_MIDDLEWARE
+  CAPI: Convert capidev_list_lock into a mutex
+  CAPI: Clean up capi_open/release
+  CAPI: Rework locking of capidev members
+  CAPI: Use non-atomic allocation during NCCI setup
+  CAPI: Fix racy capi_read
+  CAPI: Switch NCCI list to standard doubly linked list
+  CAPI: Fix locking around glueing capiminor and capidev
+  CAPI: Drop atomic ttyopencount
+  CAPI: Remove useless checks for tty->driver_data or hung up state
+  CAPI: Rework tty locking in RX and TX path of capiminor
+  CAPI: Rename datahandle_queue -> ackqueue_entry
+  CAPI: Use atomics for capiminor's datahandle and msgid
+  CAPI: Drop capiminor's unused inbytes counter
+  CAPI: Fix locking around capiminor's output queue
+  CAPI: Clean up capiminor_*_ack
+  CAPI: Drop handle_minor_send return value
+  CAPI: Drop special controller lookup from capi20_put_message
+  CAPI: Remove experimental tag from middleware feature
+  CAPI: Officially claim char major 191
+
+ Documentation/devices.txt      |    7 +-
+ drivers/isdn/capi/Kconfig      |    3 +-
+ drivers/isdn/capi/capi.c       |  937 ++++++++++++++++++----------------------
+ drivers/isdn/capi/capidrv.c    |   48 +--
+ drivers/isdn/capi/capifs.c     |  126 +++---
+ drivers/isdn/capi/capifs.h     |   21 +-
+ drivers/isdn/capi/kcapi.c      |  797 ++++++++++++++++++----------------
+ drivers/isdn/capi/kcapi.h      |   12 +-
+ drivers/isdn/capi/kcapi_proc.c |   41 +-
+ include/linux/isdn/capilli.h   |    2 +-
+ include/linux/kernelcapi.h     |   17 +-
+ 11 files changed, 1005 insertions(+), 1006 deletions(-)
