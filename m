@@ -1,66 +1,88 @@
-From: Rainer Koenig <Rainer.Koenig@ts.fujitsu.com>
-Subject: e1000e and  Intel 82578DM, 10 Mbit/s only
-Date: Fri, 22 Jan 2010 14:39:33 +0100
-Message-ID: <4B59AA95.4050207@ts.fujitsu.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [RFC, PATCH net-next-2.6] net: introduce a macro to traverse through
+ uc_list easily
+Date: Fri, 22 Jan 2010 16:13:02 +0100
+Message-ID: <20100122151301.GC2609@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dgate10.ts.fujitsu.com ([80.70.172.49]:12628 "EHLO
-	dgate10.ts.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750840Ab0AVNtX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 08:49:23 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755122Ab0AVPNQ@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+I'm thinking how to convert mc_list into list_head in the smoothest way.
+It's almost impossible to convert it at once in all drivers (It's used in almost
+all of them). From the mc_list of structures (either old or new list), only one
+member is needed in drivers' code - addr.
 
-I'm currently facing a problem on Intel Ibexpeak mainboards that have
-the Intel 82578DM chip for LAN. Device ID is 8086:10ef.
+Therefore that would be good to introduce a macro that can be used to traverse
+through addresses in the list without caller knowing anything about the type of
+the list. I think this kind of an abstraction is appropriate on this place.
+Also during the phase of changing, the macro can use the original list and once
+all drivers are using this macro, the list itself (so as the macro) can be
+converted into list_head.
 
-When using the e1000e driver that comes with distributions like
-- Fedora 12
-- RHEL 5.4
-- openSUSE 11.2
+This patch shows the macro on uc_list (previously converted into list_head).
 
-then I only get the link up with 10 Mbit/s instead of 1000 Mbit/s.
+What do you think about this? Please comment.
 
-Driver version is 1.0.2-k2 (according to modinfo)
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-If I use the e1000e from Sourceforge (Version 1.0.15 or 1.1.2) then
-the machine gets the correct Gigabit link.
-
-So some questions on the e1000e kernel driver:
-
-- will the necessary patches be merged from the sourceforge driver to
-  the vanilla driver?
-
-- why is the modinfo version so "static" on this driver? I've seen lots
-  of patches on the list archives and in git, but modversion seems to b=
-e
-  an universal constant at "1.0.2-k2"?
-
-The bad impact of this problem is that with this bug of the kernel
-driver systems affected by this will not pass trough a Red Hat hardware
-certification network test. So guess what my current problem is: yeah,
-right I should do hardware certification with this LAN.
-
-Thanks for your attention & regards
-Rainer
---=20
-Dipl.-Inf. (FH) Rainer Koenig
-Project Manager Linux Business Clients
-Dept. TSP CLI R&D SW OSE
-
-=46ujitsu Technology Solutions
-B=FCrgermeister-Ullrich-Str. 100
-86199 Augsburg
-Germany
-
-Telephone: +49-821-804-3321
-Telefax:   +49-821-804-2131
-Mail:      mailto:Rainer.Koenig@ts.fujitsu.com
-
-Internet         ts.fujtsu.com
-Company Details  ts.fujitsu.com/imprint.html
+diff --git a/drivers/net/niu.c b/drivers/net/niu.c
+index 0e260cf..85d490b 100644
+--- a/drivers/net/niu.c
++++ b/drivers/net/niu.c
+@@ -22,7 +22,6 @@
+ #include <linux/log2.h>
+ #include <linux/jiffies.h>
+ #include <linux/crc32.h>
+-#include <linux/list.h>
+ 
+ #include <linux/io.h>
+ 
+@@ -6359,7 +6358,7 @@ static void niu_set_rx_mode(struct net_device *dev)
+ 	struct niu *np = netdev_priv(dev);
+ 	int i, alt_cnt, err;
+ 	struct dev_addr_list *addr;
+-	struct netdev_hw_addr *ha;
++	unsigned char *ha;
+ 	unsigned long flags;
+ 	u16 hash[16] = { 0, };
+ 
+@@ -6381,8 +6380,8 @@ static void niu_set_rx_mode(struct net_device *dev)
+ 	if (alt_cnt) {
+ 		int index = 0;
+ 
+-		list_for_each_entry(ha, &dev->uc.list, list) {
+-			err = niu_set_alt_mac(np, index, ha->addr);
++		netdev_for_each_uc_addr(ha, dev) {
++			err = niu_set_alt_mac(np, index, ha);
+ 			if (err)
+ 				printk(KERN_WARNING PFX "%s: Error %d "
+ 				       "adding alt mac %d\n",
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 727d265..c11d117 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -263,6 +263,19 @@ struct netdev_hw_addr_list {
+ 	int			count;
+ };
+ 
++#define netdev_hw_addr_get_by_addr(a) \
++	container_of((void *) a, struct netdev_hw_addr, addr)
++
++#define netdev_for_each_addr(a, head)						\
++	for (a = list_entry((head)->next, struct netdev_hw_addr, list)->addr;	\
++	     prefetch(netdev_hw_addr_get_by_addr(a)->list.next),		\
++	     &netdev_hw_addr_get_by_addr(a)->list != (head);			\
++	     a = list_entry(netdev_hw_addr_get_by_addr(a)->list.next,		\
++			    struct netdev_hw_addr, list)->addr)
++
++#define netdev_for_each_uc_addr(a, dev)	\
++	netdev_for_each_addr(a, &dev->uc.list)
++
+ struct hh_cache {
+ 	struct hh_cache *hh_next;	/* Next entry			     */
+ 	atomic_t	hh_refcnt;	/* number of users                   */
