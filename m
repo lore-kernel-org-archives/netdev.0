@@ -1,33 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] be2net: fix bug in rx page posting
-Date: Thu, 21 Jan 2010 22:52:16 -0800 (PST)
-Message-ID: <20100121.225216.145277811.davem@davemloft.net>
-References: <20100121115617.GA29213@serverengines.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH net-next-2.6 02/13] net-caif: add CAIF header files
+Date: Fri, 22 Jan 2010 08:51:59 +0100
+Message-ID: <1264146719.3469.5.camel@violet>
+References: <1264028130-14364-1-git-send-email-sjur.brandeland@stericsson.com>
+	 <1264028130-14364-3-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathyap@serverengines.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	stefano.babic@babic.homelinux.org, randy.dunlap@oracle.com
+To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46866
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751564Ab0AVGwF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 01:52:05 -0500
-In-Reply-To: <20100121115617.GA29213@serverengines.com>
+Received: from senator.holtmann.net ([87.106.208.187]:41709 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752027Ab0AVHu6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 02:50:58 -0500
+In-Reply-To: <1264028130-14364-3-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathyap@serverengines.com>
-Date: Thu, 21 Jan 2010 17:26:17 +0530
+Hi Sjur,
 
-> Pages are posted to the rxq in such a way that more than one frag
-> can share the page. The last frag that uses the page unmaps the
-> page.  In the case when a page is not fully used (due to lack of space in rxq)
-> the last frag that uses the page is not being set as a "last_page_user";
-> instead, the next frag in the rxq is incorrectly being set.
-> 
-> The fix has also been tested on ppc64 with 64k pages...
-> 
-> Signed-off-by: Sathya Perla <sathyap@serverengines.com>
+> +/**
+> + * struct sockaddr_caif - the sockaddr structure for CAIF sockets.
+> + * @u:			     Union of address data 'switched' by familty.
+> + * @at:			     Applies when family = CAIFPROTO_AT.
+> + * @at.type:		     Type of AT link to set up (enum caif_at_type).
+> + * @util:		     Applies when family = CAIFPROTO_UTIL
+> + * @util.service:	     Service name.
+> + * @dgm:		     Applies when family = CAIFPROTO_DATAGRAM
+> + * @dgm.connection_id:	     Datagram connection id.
+> + * @dgm.nsapi:		     NSAPI of the PDP-Context.
+> + * @rfm:		     Applies when family = CAIFPROTO_RFM
+> + * @rfm.connection_id:       Connection ID for RFM.
+> + * @rfm.volume:	     	     Volume to mount.
+> + */
+> +struct sockaddr_caif {
+> +	sa_family_t  family;
+> +	union {
+> +		struct {
+> +			u_int8_t  type;		/* type: enum caif_at_type */
+> +		} at;				/* CAIFPROTO_AT */
+> +		struct {
+> +			char	  service[16];
+> +		} util;				/* CAIFPROTO_UTIL */
+> +		union {
+> +			u_int32_t connection_id;
+> +			u_int8_t  nsapi;
+> +		} dgm;				/* CAIFPROTO_DATAGRAM(_LOOP)*/
+> +		struct {
+> +			u_int32_t connection_id;
+> +			char	  volume[16];
+> +		} rfm;				/* CAIFPROTO_RFM */
+> +	} u;
+> +};
 
-Applied to net-2.6
+as mentioned on the oFono mailing list, what is the right procedure to
+select a local CAIF device for usage with doing bing(). The use case I
+am thinking of is that you have multiple CAIF device attached to the
+same system. Think of desktops with USB or even Dual-SIM phones. Before
+we set the API in stone, we need to have a way o bind the socket to a
+specific device. Maybe it is possible, but I am missing it.
+
+Regards
+
+Marcel
+
+
