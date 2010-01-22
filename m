@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sky2: Enable/disable WOL per hardware device
-Date: Thu, 21 Jan 2010 22:50:17 -0800 (PST)
-Message-ID: <20100121.225017.200501123.davem@davemloft.net>
-References: <4B55BD8E.2040705@ring3k.org>
+Subject: Re: [PATCH] be2net: fix bug in rx page posting
+Date: Thu, 21 Jan 2010 22:52:16 -0800 (PST)
+Message-ID: <20100121.225216.145277811.davem@davemloft.net>
+References: <20100121115617.GA29213@serverengines.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: mikem@ring3k.org
+Cc: netdev@vger.kernel.org
+To: sathyap@serverengines.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46861
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46866
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751868Ab0AVGuG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 01:50:06 -0500
-In-Reply-To: <4B55BD8E.2040705@ring3k.org>
+	by vger.kernel.org with ESMTP id S1751564Ab0AVGwF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 01:52:05 -0500
+In-Reply-To: <20100121115617.GA29213@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mike McCormack <mikem@ring3k.org>
-Date: Tue, 19 Jan 2010 23:11:26 +0900
+From: Sathya Perla <sathyap@serverengines.com>
+Date: Thu, 21 Jan 2010 17:26:17 +0530
 
-> Y2_HW_WOL_ON/Y2_HW_WOL_OFF should be set and cleared per chip,
-> not per port.  On dual port cards, Y2_HW_WOL_ON should be
-> enabled if either sky2 port has WOL enabled.
+> Pages are posted to the rxq in such a way that more than one frag
+> can share the page. The last frag that uses the page unmaps the
+> page.  In the case when a page is not fully used (due to lack of space in rxq)
+> the last frag that uses the page is not being set as a "last_page_user";
+> instead, the next frag in the rxq is incorrectly being set.
 > 
-> Found while reviewing code for a WOL regression, though this is
-> probably not the cause of the regression.
+> The fix has also been tested on ppc64 with 64k pages...
 > 
-> Signed-off-by: Mike McCormack <mikem@ring3k.org>
+> Signed-off-by: Sathya Perla <sathyap@serverengines.com>
 
-Stephen?  ACK?
+Applied to net-2.6
