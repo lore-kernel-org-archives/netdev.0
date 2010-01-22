@@ -1,196 +1,67 @@
-From: "Luis R. Rodriguez" <mcgrof@bombadil.infradead.org>
-Subject: [RFC/RFT v2]: compat-wireless for 2.6.32.4 - multiqueue backport
-	support
-Date: Thu, 21 Jan 2010 18:06:00 -0500
-Message-ID: <20100121230600.GC8069@bombadil.infradead.org>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: [PATCH 06/11] de2104x: fix DMA sync_single length error
+Date: Thu, 21 Jan 2010 18:02:44 -0700
+Message-ID: <20100122010244.GA27529@lackof.org>
+References: <20100120204459.820265084@vyatta.com> <20100120204559.177544514@vyatta.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, lrodriguez@atheros.com
-To: linux-wireless <linux-wireless@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Grant Grundler <grundler@parisc-linux.org>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:59822 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755136Ab0AUXGI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 18:06:08 -0500
+Received: from complete.lackof.org ([198.49.126.79]:60379 "EHLO
+	complete.lackof.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752408Ab0AVBCp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jan 2010 20:02:45 -0500
 Content-Disposition: inline
+In-Reply-To: <20100120204559.177544514@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The 2.6.32.4 kernel got added MQ support back. I've tried to backport
-this and this is what I have so far:
+On Wed, Jan 20, 2010 at 12:45:05PM -0800, Stephen Hemminger wrote:
+> The DMA api requires that the full mapping be sync'd when
+> copying frame. First found by Jarek on sky2.
 
-http://bombadil.infradead.org/~mcgrof/tmp/compat-wireless-2.6.32.4-rc2.tar.bz2
+Are you referring to the example code in Documentation/PCI/PCI-DMA-mapping.txt?
 
-sha1sum: 
-6d5dac4fd7d6c1a065d6e83bdfa75df2ca34fa39  compat-wireless-2.6.32.4-rc2.tar.bz2
+I don't see any "Use the full mapping" statement otherwise.
 
-I've made some more changes based on comments from Johannes and some more
-reading and review of select_queue stuff, and net_device_ops changes. Only
-thing I did not add was the ndev->features |= NETIF_F_MULTI_QUEUE because
-I just see that used by netif_is_multiqueue() and that in turn by
-net/sched/sch_prio.c which I do not think we would ever use, not sure
-qdisc stuff confuses me.
+Is there a DMA HW implementation that requires the syncing full buffer?
 
-I appreciate your review. I only compile tested it against
-the 2.6.23..2.6.26 releases.
+I think it would be interesting to point that out in the commit comments
+since other NIC drivers are likely to also have this issue as well.
 
-=== compat/patches/18-multiqueue.patch ====
+I have no objection to this patch. Just want to be clear why
+it's being pushed.
 
-Backport multiqueue support for kernels < 2.6.27
+Please added Acked-by: Grant Grundler <grundler@parisc-linux.org>
 
-The 2.6.23 kernel added some initial multiqueue support.
-That release relied on the on the notion of struct
-net_device_subqueue attached to the netdevice struct
-as an array. The 2.6.27 renamed these to struct netdev_queue,
-and enhanced MQ support by providing locks separately onto
-each queue. MQ support on 2.6.27 also extended each netdev
-to be able to assign a select_queue callback to be used by
-core networking for prior to pushing the skb out to the device
-driver so that queue selection can be dealt with and
-customized internally on the driver.
+thanks,
+grant
 
-For kernels 2.6.23..2.6.26 then we backport MQ support by
-using the equivalent calls on the struct netdev_queue to
-the struct net_device_subqueue.
 
-For older kernels than 2.6.23 we can only stop all the
-queues then and wake them up only if no other queue had
-been stopped previously. This means for kernels older
-than 2.6.23 there is a performance penalty and congestion
-on one queue would imply propagating the same congestion
-impact on all the other queues.
-
-The select_queue callback was only added as of 2.6.27 via
-commit eae792b7 so for kernels older than 2.6.23 and up
-to 2.6.27 we must ensure we do the selection of the queue
-once the core networking calls mac80211's dev_hard_start_xmit()
-(ndo_start_xmit() callback on newer kernels).
-
-This patch then consists of three parts:
-
-  1) Addresses the lack of select_queue on older kernels than 2.6.27
-  2) Extends the backport of net_device_ops for select_queue for kernels >= 2.6.27
-  3) Backporting wake/stop queue for older kernels:
-	- Handle with net_device_subqueue for >= 2.6.23
-	- Treat each queue operation as an aggregate for all queues
-
-Monitor interfaces have their own select_queue -- monitor interfaces
-are used for injecting frames so they have their own respective queue
-handling, but mac80211 just always sends management frames on VO
-queue by using skb_set_queue_mapping(skb, 0) through ieee80211_tx_skb()
-
---- a/net/mac80211/util.c	2010-01-21 11:22:36.000000000 -0800
-+++ b/net/mac80211/util.c	2010-01-21 11:34:13.000000000 -0800
-@@ -267,6 +267,18 @@ __le16 ieee80211_ctstoself_duration(stru
- }
- EXPORT_SYMBOL(ieee80211_ctstoself_duration);
- 
-+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23))
-+static bool ieee80211_all_queues_stopped(struct ieee80211_hw *hw)
-+{
-+	unsigned int queue;
-+
-+	for (queue = 0; queue < hw->queues; queue++)
-+		if (!ieee80211_queue_stopped(hw, queue))
-+			return false;
-+	return true;
-+}
-+#endif
-+
- static void __ieee80211_wake_queue(struct ieee80211_hw *hw, int queue,
- 				   enum queue_stop_reason reason)
- {
-@@ -287,7 +299,14 @@ static void __ieee80211_wake_queue(struc
- 
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(sdata, &local->interfaces, list)
-+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27))
- 		netif_tx_wake_queue(netdev_get_tx_queue(sdata->dev, queue));
-+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23))
-+		netif_start_subqueue(sdata->dev, queue);
-+#else
-+		if (ieee80211_all_queues_stopped(hw))
-+			netif_wake_queue(sdata->dev);
-+#endif
- 	rcu_read_unlock();
- }
- 
-@@ -322,7 +341,13 @@ static void __ieee80211_stop_queue(struc
- 
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(sdata, &local->interfaces, list)
-+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27))
- 		netif_tx_stop_queue(netdev_get_tx_queue(sdata->dev, queue));
-+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23))
-+		netif_stop_subqueue(sdata->dev, queue);
-+#else
-+		netif_stop_queue(sdata->dev);
-+#endif
- 	rcu_read_unlock();
- }
- 
---- a/net/mac80211/tx.c	2010-01-21 12:13:24.000000000 -0800
-+++ b/net/mac80211/tx.c	2010-01-21 12:22:54.000000000 -0800
-@@ -1484,6 +1484,10 @@ static void ieee80211_xmit(struct ieee80
- 				return;
- 			}
- 
-+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27))
-+	/* Older kernels do not have the select_queue callback */
-+	skb_set_queue_mapping(skb, ieee80211_select_queue(sdata, skb));
-+#endif
- 	ieee80211_set_qos_hdr(local, skb);
- 	ieee80211_tx(sdata, skb, false);
- 	dev_put(sdata->dev);
---- a/net/mac80211/iface.c	2010-01-21 12:26:53.000000000 -0800
-+++ b/net/mac80211/iface.c	2010-01-21 12:34:40.000000000 -0800
-@@ -644,11 +644,13 @@ static void ieee80211_teardown_sdata(str
- 	WARN_ON(flushed);
- }
- 
-+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27))
- static u16 ieee80211_netdev_select_queue(struct net_device *dev,
- 					 struct sk_buff *skb)
- {
- 	return ieee80211_select_queue(IEEE80211_DEV_TO_SUB_IF(dev), skb);
- }
-+#endif
- 
- #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29))
- static const struct net_device_ops ieee80211_dataif_ops = {
-@@ -662,6 +664,7 @@ static const struct net_device_ops ieee8
- 	.ndo_select_queue	= ieee80211_netdev_select_queue,
- };
- 
-+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27))
- static u16 ieee80211_monitor_select_queue(struct net_device *dev,
- 					  struct sk_buff *skb)
- {
-@@ -687,6 +690,7 @@ static u16 ieee80211_monitor_select_queu
- 	skb->priority = 0;
- 	return ieee80211_downgrade_queue(local, skb);
- }
-+#endif
- 
- static const struct net_device_ops ieee80211_monitorif_ops = {
- 	.ndo_open		= ieee80211_open,
-@@ -715,6 +719,9 @@ static void ieee80211_if_setup(struct ne
- 	/* we will validate the address ourselves in ->open */
- 	dev->validate_addr = NULL;
- #endif
-+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27))
-+	dev->select_queue = ieee80211_netdev_select_queue;
-+#endif
- #endif
- 	dev->destructor = free_netdev;
- }
-@@ -761,6 +768,9 @@ static void ieee80211_setup_sdata(struct
- 		sdata->dev->netdev_ops = &ieee80211_monitorif_ops;
- #else
- 		sdata->dev->hard_start_xmit = ieee80211_monitor_start_xmit;
-+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27))
-+		sdata->dev->select_queue = ieee80211_monitor_select_queue;
-+#endif
- #endif
- 		sdata->u.mntr_flags = MONITOR_FLAG_CONTROL |
- 				      MONITOR_FLAG_OTHER_BSS;
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> --- a/drivers/net/tulip/de2104x.c	2010-01-20 11:41:20.878138314 -0800
+> +++ b/drivers/net/tulip/de2104x.c	2010-01-20 11:41:59.858847380 -0800
+> @@ -456,11 +456,13 @@ static void de_rx (struct de_private *de
+>  					       buflen, PCI_DMA_FROMDEVICE);
+>  			de->rx_skb[rx_tail].skb = copy_skb;
+>  		} else {
+> -			pci_dma_sync_single_for_cpu(de->pdev, mapping, len, PCI_DMA_FROMDEVICE);
+> +			pci_dma_sync_single_for_cpu(de->pdev, mapping,
+> +						    buflen, PCI_DMA_FROMDEVICE);
+>  			skb_reserve(copy_skb, RX_OFFSET);
+>  			skb_copy_from_linear_data(skb, skb_put(copy_skb, len),
+>  						  len);
+> -			pci_dma_sync_single_for_device(de->pdev, mapping, len, PCI_DMA_FROMDEVICE);
+> +			pci_dma_sync_single_for_device(de->pdev, mapping,
+> +						       buflen, PCI_DMA_FROMDEVICE);
+>  
+>  			/* We'll reuse the original ring buffer. */
+>  			skb = copy_skb;
+> 
+> -- 
