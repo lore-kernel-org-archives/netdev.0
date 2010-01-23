@@ -1,57 +1,46 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [net-next-2.6 PATCH 2/3] fs_enet: Add support for MPC512x to fs_enet driver
-Date: Sat, 23 Jan 2010 10:23:14 +0100
-Message-ID: <201001231023.14372.arnd@arndb.de>
-References: <1264039999-25731-1-git-send-email-agust@denx.de> <20100121.012235.161201297.davem@davemloft.net> <4B5871F2.9090005@grandegger.com>
+From: Samir Bellabes <sam@synack.fr>
+Subject: Re: [RFC 7/9] snet: introduce snet_netlink.c and snet_netlink.h
+Date: Sat, 23 Jan 2010 20:33:56 +0100
+Message-ID: <m2my04d3a3.fsf@ssh.synack.fr>
+References: <1262437456-24476-1-git-send-email-sam@synack.fr>
+	<1262437456-24476-8-git-send-email-sam@synack.fr>
+	<4B420464.3040301@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	David Miller <davem@davemloft.net>, wd@denx.de, dzu@denx.de,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, agust@denx.de,
-	kosmo@semihalf.com
-To: linuxppc-dev@lists.ozlabs.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-security-module@vger.kernel.org, jamal <hadi@cyberus.ca>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:59075 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752457Ab0AWSws (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 13:52:48 -0500
-In-Reply-To: <4B5871F2.9090005@grandegger.com>
+Received: from bob75-7-88-160-5-175.fbx.proxad.net ([88.160.5.175]:43980 "EHLO
+	cerbere.dyndns.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752887Ab0AWTd6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 14:33:58 -0500
+In-Reply-To: <4B420464.3040301@trash.net> (Patrick McHardy's message of "Mon,
+	04 Jan 2010 16:08:20 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 21 January 2010, Wolfgang Grandegger wrote:
-> The major problem that Anatolij tries to solve are the different
-> register layouts of the supported SOCs, MPC52xx and MPC8xx. They use the
-> same registers but at different offsets. Therefore we cannot handle
-> this with a single "fec_t" struct to allow building a single kernel
-> image. Instead it's handled by filling a table with register addresses:
-> 
->         if (of_device_is_compatible(ofdev->node, "fsl,mpc5121-fec")) {
->                 fep->fec.fec_id = FS_ENET_MPC5121_FEC;
->                 fec_reg_mpc5121(ievent);
->                 fec_reg_mpc5121(imask);
->                 ...
->         } else {
->                 fec_reg_mpc8xx(ievent);
->                 fec_reg_mpc8xx(imask);
->                 ...
->         }
-> 
-> Do you see a more clever solution to this problem? Nevertheless, the
-> code could be improved by using "offsetof", I think.
+Patrick McHardy <kaber@trash.net> writes:
 
-Is there any chance of building a kernel that runs on both mpc8xx and
-mpc5121? AFAIK, the 5121 is built on a 6xx core which is fundamentally
-incompatible with 8xx due to different memory management etc.
+> Samir Bellabes wrote:
+>> +++ b/security/snet/include/snet_netlink.h
+>> @@ -0,0 +1,201 @@
+>> +#ifndef _SNET_NETLINK_H
+>> +#define _SNET_NETLINK_H
+>> +
+>> +#include <linux/in6.h>
+>> +#include "snet_hooks.h"
+>> +
+>> +extern unsigned int snet_verdict_delay;
+>
+> As this file defines the userspace interface, it probably shouldn't
+> contain declarations of kernel-internal variables (same for
+> snet_hooks.h). It would also be better placed in include/linux as
+> the other netlink API definitions.
 
-Since this makes it all a compile-time decision, it should be solvable
-with a very small number of carefully placed #ifdef in the header files
-an no runtime detection at all.
+sorry the the delay on this.
+indeed, this is fixed now, thanks Patrick
 
-Obviously this approach would not work for drivers that want to be portable
-across different register layouts on otherwise compatible platforms.
-
-	Arnd
-
+sam
