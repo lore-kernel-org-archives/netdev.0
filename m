@@ -1,21 +1,21 @@
 From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: [PATCH v4 7/7] TCPCT part 2g: parse cookie pair and 64-bit timestamp
-Date: Sat, 23 Jan 2010 01:28:15 -0500
-Message-ID: <4B5A96FF.9050803@gmail.com>
+Subject: Re: [PATCH v5 7/7] TCPCT part 2g: parse cookie pair and 64-bit timestamp
+Date: Sat, 23 Jan 2010 01:49:56 -0500
+Message-ID: <4B5A9C14.70704@gmail.com>
 References: <4B5A88C4.7050205@gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------020800050700070205090004"
+ boundary="------------020001070402070100060000"
 Cc: Andrew Morton <akpm@linux-foundation.org>
 To: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754468Ab0AWG2X@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754534Ab0AWGuE@vger.kernel.org>
 In-Reply-To: <4B5A88C4.7050205@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------020800050700070205090004
+--------------020001070402070100060000
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
@@ -26,6 +26,8 @@ However, only 32-bits are used at this time (permitted by specification).
 
 Every bit is sacred.  Use as few bits as possible in the tcp_sock
 structure, at the expense of performance.
+
+[v5 fixed trivial error]
 
 Requires:
    net: tcp_header_len_th and tcp_option_len_th
@@ -38,14 +40,13 @@ Signed-off-by: William.Allen.Simpson@gmail.com
   net/ipv4/tcp_input.c |  119 ++++++++++++++++++++++++++++++++++++++++++++++----
   3 files changed, 142 insertions(+), 32 deletions(-)
 
---------------020800050700070205090004
+--------------020001070402070100060000
 Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
- name="TCPCT+2g4+2.6.33-rc5.patch"
+ name="TCPCT+2g5+2.6.33-rc5.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="TCPCT+2g4+2.6.33-rc5.patch"
+ filename="TCPCT+2g5+2.6.33-rc5.patch"
 
->From bf57376550e7d5ae3d2342a619fdfc8ae2162e3b Mon Sep 17 00:00:00 2001
 diff --git a/include/linux/tcp.h b/include/linux/tcp.h
 index 2987ee8..b71be6c 100644
 --- a/include/linux/tcp.h
@@ -142,7 +143,7 @@ index 420e872..157c97b 100644
  /* Flags in tp->nonagle */
  #define TCP_NAGLE_OFF		1	/* Nagle's algo is disabled */
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index d3c6c7a..86c49a4 100644
+index d3c6c7a..df38cef 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -3722,9 +3722,71 @@ old_ack:
@@ -258,7 +259,7 @@ index d3c6c7a..86c49a4 100644
 +				    (opt_rx->extended == 0 ||
 +				     (opt_rx->extended == (TCPOEXT_TSTAMP64 / 4) &&
 +				      opt_rx->saw_tstamp64))) {
-+					opt_rx->cookie_plus = opsize + *ptr;
++					opt_rx->cookie_plus = opsize + *ptr * 4;
 +				}
 +				opt_rx->extended += *ptr;
  				break;
@@ -357,4 +358,4 @@ index d3c6c7a..86c49a4 100644
 1.6.3.3
 
 
---------------020800050700070205090004--
+--------------020001070402070100060000--
