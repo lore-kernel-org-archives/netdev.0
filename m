@@ -1,48 +1,126 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 7/7] ixgbevf: Tell network stack to stop tx when
-	the VF detects PF reset
-Date: Sat, 23 Jan 2010 00:47:37 -0800
-Message-ID: <20100123084736.9865.42744.stgit@localhost.localdomain>
-References: <20100123084457.9865.51853.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH] e1000/e1000e: don't use small hardware rx buffers
+Date: Sat, 23 Jan 2010 00:56:16 -0800
+Message-ID: <20100123085550.10383.68204.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Greg Rose <gregory.v.rose@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta01.emeryville.ca.mail.comcast.net ([76.96.30.16]:53862 "EHLO
-	qmta01.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754100Ab0AWIry (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 03:47:54 -0500
-In-Reply-To: <20100123084457.9865.51853.stgit@localhost.localdomain>
+Received: from qmta03.emeryville.ca.mail.comcast.net ([76.96.30.32]:50341 "EHLO
+	qmta03.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750749Ab0AWI4e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 03:56:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-When the VF detects that the PF has reset turn off carrier and stop all
-tx queues.
+When testing the "e1000: enhance frame fragment detection" (and e1000e)
+patches we found some bugs with reducing the MTU size.  The 1024 byte
+descriptor used with the 1000 mtu test also (re) introduced the
+(originally) reported bug, and causes us to need the e1000_clean_tx_irq
+"enhance frame fragment detection" fix.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+So what has occured here is that 2.6.32 is only vulnerable for mtu <
+1500 due to the jumbo specific routines in both e1000 and e1000e.
+So, 2.6.32 needs the 2kB buffer len fix for those smaller MTUs, but
+is not vulnerable to the original issue reported.  It has been pointed
+out that this vulnerability needs to be patched in older kernels that
+don't have the e1000 jumbo routine.  Without the jumbo routines, we
+need the "enhance frame fragment detection" fix the e1000, old
+e1000e is only vulnerable for < 1500 mtu, and needs a similar
+fix.  We split the patches up to provide easy backport paths.
+
+There is only a slight bit of extra code when this fix and the
+original "enhance frame fragment detection" fixes are applied, so
+please apply both, even though it is a bit of overkill.
+
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbevf/ixgbevf_main.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ drivers/net/e1000/e1000_main.c |   20 +-------------------
+ drivers/net/e1000e/netdev.c    |   20 +-------------------
+ 2 files changed, 2 insertions(+), 38 deletions(-)
 
-diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
-index 0a27fa1..623353d 100644
---- a/drivers/net/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ixgbevf/ixgbevf_main.c
-@@ -2381,6 +2381,8 @@ static void ixgbevf_watchdog_task(struct work_struct *work)
- 					    &link_up, false)) != 0) {
- 			adapter->link_up = link_up;
- 			adapter->link_speed = link_speed;
-+			netif_carrier_off(netdev);
-+			netif_tx_stop_all_queues(netdev);
- 			schedule_work(&adapter->reset_task);
- 			goto pf_has_reset;
- 		}
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index a53a201..d29bb53 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -1698,18 +1698,6 @@ static void e1000_setup_rctl(struct e1000_adapter *adapter)
+ 	rctl &= ~E1000_RCTL_SZ_4096;
+ 	rctl |= E1000_RCTL_BSEX;
+ 	switch (adapter->rx_buffer_len) {
+-		case E1000_RXBUFFER_256:
+-			rctl |= E1000_RCTL_SZ_256;
+-			rctl &= ~E1000_RCTL_BSEX;
+-			break;
+-		case E1000_RXBUFFER_512:
+-			rctl |= E1000_RCTL_SZ_512;
+-			rctl &= ~E1000_RCTL_BSEX;
+-			break;
+-		case E1000_RXBUFFER_1024:
+-			rctl |= E1000_RCTL_SZ_1024;
+-			rctl &= ~E1000_RCTL_BSEX;
+-			break;
+ 		case E1000_RXBUFFER_2048:
+ 		default:
+ 			rctl |= E1000_RCTL_SZ_2048;
+@@ -3176,13 +3164,7 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
+ 	 *  however with the new *_jumbo_rx* routines, jumbo receives will use
+ 	 *  fragmented skbs */
+ 
+-	if (max_frame <= E1000_RXBUFFER_256)
+-		adapter->rx_buffer_len = E1000_RXBUFFER_256;
+-	else if (max_frame <= E1000_RXBUFFER_512)
+-		adapter->rx_buffer_len = E1000_RXBUFFER_512;
+-	else if (max_frame <= E1000_RXBUFFER_1024)
+-		adapter->rx_buffer_len = E1000_RXBUFFER_1024;
+-	else if (max_frame <= E1000_RXBUFFER_2048)
++	if (max_frame <= E1000_RXBUFFER_2048)
+ 		adapter->rx_buffer_len = E1000_RXBUFFER_2048;
+ 	else
+ #if (PAGE_SIZE >= E1000_RXBUFFER_16384)
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 1ea395b..3d88710 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -2350,18 +2350,6 @@ static void e1000_setup_rctl(struct e1000_adapter *adapter)
+ 	rctl &= ~E1000_RCTL_SZ_4096;
+ 	rctl |= E1000_RCTL_BSEX;
+ 	switch (adapter->rx_buffer_len) {
+-	case 256:
+-		rctl |= E1000_RCTL_SZ_256;
+-		rctl &= ~E1000_RCTL_BSEX;
+-		break;
+-	case 512:
+-		rctl |= E1000_RCTL_SZ_512;
+-		rctl &= ~E1000_RCTL_BSEX;
+-		break;
+-	case 1024:
+-		rctl |= E1000_RCTL_SZ_1024;
+-		rctl &= ~E1000_RCTL_BSEX;
+-		break;
+ 	case 2048:
+ 	default:
+ 		rctl |= E1000_RCTL_SZ_2048;
+@@ -4334,13 +4322,7 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
+ 	 * fragmented skbs
+ 	 */
+ 
+-	if (max_frame <= 256)
+-		adapter->rx_buffer_len = 256;
+-	else if (max_frame <= 512)
+-		adapter->rx_buffer_len = 512;
+-	else if (max_frame <= 1024)
+-		adapter->rx_buffer_len = 1024;
+-	else if (max_frame <= 2048)
++	if (max_frame <= 2048)
+ 		adapter->rx_buffer_len = 2048;
+ 	else
+ 		adapter->rx_buffer_len = 4096;
 
