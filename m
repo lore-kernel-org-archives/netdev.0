@@ -1,33 +1,90 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2]IP: Send an ICMP "Fragment Reassembly Timeout"
- message when enabling connection track
-Date: Sat, 23 Jan 2010 01:58:08 -0800 (PST)
-Message-ID: <20100123.015808.196441033.davem@davemloft.net>
-References: <4B5844F2.30104@trash.net>
-	<4B590BE3.40509@cn.fujitsu.com>
-	<4B599084.1060406@trash.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH] Fix IPv6 GSO type checks in Intel ethernet drivers
+Date: Sat, 23 Jan 2010 02:00:43 -0800
+Message-ID: <20100123100042.11995.20915.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: shanwei@cn.fujitsu.com, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, eric.dumazet@gmail.com,
-	david@blue-labs.org, jorge@dti2.net, opurdila@ixiacom.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B599084.1060406@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:41613 "EHLO
+	qmta07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752151Ab0AWKBA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 05:01:00 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Fri, 22 Jan 2010 12:48:20 +0100
+From: Sridhar Samudrala <sri@us.ibm.com>
 
-> Shan Wei wrote:
->> [PATCH v2]IP: Send an ICMP "Fragment Reassembly Timeout" message when enabling connection track
- ...
->> The patch has been tested on both host type and route type.
-> 
-> Looks good to me. Would you mind adding a similar change to IPv6
-> (net/ipv6/netfilter/nf_conntrack_reasm.c)?
+Found this problem when testing IPv6 from a KVM guest to a remote
+host via e1000e device on the host.
+The following patch fixes the check for IPv6 GSO packet in Intel
+ethernet drivers to use skb_is_gso_v6(). SKB_GSO_DODGY is also set
+when packets are forwarded from a guest.
 
-Applied to net-next-2.6, thanks.
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/e1000e/netdev.c    |    2 +-
+ drivers/net/igb/igb_main.c     |    2 +-
+ drivers/net/igbvf/netdev.c     |    2 +-
+ drivers/net/ixgbe/ixgbe_main.c |    2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 3d88710..57f149b 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -3786,7 +3786,7 @@ static int e1000_tso(struct e1000_adapter *adapter,
+ 		                                         0, IPPROTO_TCP, 0);
+ 		cmd_length = E1000_TXD_CMD_IP;
+ 		ipcse = skb_transport_offset(skb) - 1;
+-	} else if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6) {
++	} else if (skb_is_gso_v6(skb)) {
+ 		ipv6_hdr(skb)->payload_len = 0;
+ 		tcp_hdr(skb)->check = ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+ 		                                       &ipv6_hdr(skb)->daddr,
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 933c64f..f7370bc 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -3422,7 +3422,7 @@ static inline int igb_tso_adv(struct igb_ring *tx_ring,
+ 							 iph->daddr, 0,
+ 							 IPPROTO_TCP,
+ 							 0);
+-	} else if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6) {
++	} else if (skb_is_gso_v6(skb)) {
+ 		ipv6_hdr(skb)->payload_len = 0;
+ 		tcp_hdr(skb)->check = ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+ 						       &ipv6_hdr(skb)->daddr,
+diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
+index 10e038a..a37fcb8 100644
+--- a/drivers/net/igbvf/netdev.c
++++ b/drivers/net/igbvf/netdev.c
+@@ -1963,7 +1963,7 @@ static int igbvf_tso(struct igbvf_adapter *adapter,
+ 		                                         iph->daddr, 0,
+ 		                                         IPPROTO_TCP,
+ 		                                         0);
+-	} else if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6) {
++	} else if (skb_is_gso_v6(skb)) {
+ 		ipv6_hdr(skb)->payload_len = 0;
+ 		tcp_hdr(skb)->check = ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+ 		                                       &ipv6_hdr(skb)->daddr,
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 6d61add..b5f64ad 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -4928,7 +4928,7 @@ static int ixgbe_tso(struct ixgbe_adapter *adapter,
+ 			                                         iph->daddr, 0,
+ 			                                         IPPROTO_TCP,
+ 			                                         0);
+-		} else if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6) {
++		} else if (skb_is_gso_v6(skb)) {
+ 			ipv6_hdr(skb)->payload_len = 0;
+ 			tcp_hdr(skb)->check =
+ 			    ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+
