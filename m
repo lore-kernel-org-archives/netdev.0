@@ -1,47 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPv6: fix rt_lookup in pmtu_discovery
-Date: Sat, 23 Jan 2010 02:20:55 -0800 (PST)
-Message-ID: <20100123.022055.258206634.davem@davemloft.net>
-References: <b91784ff1001081612g7c15e968u5e77931289af25c@mail.gmail.com>
-	<20100110.131524.241344047.davem@davemloft.net>
-	<55a4f86e1001131651j102b600fm1552a42866c3c671@mail.gmail.com>
+Subject: Re: Deadlock in IPv6 code while garbage collection on the rwlock
+ protecting the routing tree.
+Date: Sat, 23 Jan 2010 02:22:10 -0800 (PST)
+Message-ID: <20100123.022210.56302976.davem@davemloft.net>
+References: <20091222143638.37513a94@nehalam>
+	<19250.22271.876068.511246@zeus.eng.starentnetworks.com>
+	<20091223101309.08974d02@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lorenzo@google.com, therbert@google.com, netdev@vger.kernel.org
-To: zenczykowski@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: djohnson@starentnetworks.com, sakkiped@starentnetworks.com,
+	netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39778
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39784
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754748Ab0AWKUn convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jan 2010 05:20:43 -0500
-In-Reply-To: <55a4f86e1001131651j102b600fm1552a42866c3c671@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1752151Ab0AWKV6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 05:21:58 -0500
+In-Reply-To: <20091223101309.08974d02@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Maciej =AFenczykowski <zenczykowski@gmail.com>
-Date: Wed, 13 Jan 2010 16:51:30 -0800
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 23 Dec 2009 10:13:09 -0800
 
-> I believe you are looking for the following patch.
->=20
-> I don't think it solves the problem of source based routing to any
-> (significantly) greater extent than the previous patch.
-> That would actually require iterating over all IPs assigned to any
-> interface on our machine.
->=20
-> However, I really don't understand the code (nor the precise issues
-> involved) sufficiently well to be certain of that.
->=20
-> I actually think the ipv4 code path suffers from a very similar probl=
-em.
->=20
-> Mind you - I don't think these issues are really significant problems=
-,
-> because they just mean we do PMTU once per (dest ip, src ip) instead
-> of once per (dest ip).
+> With RCU, you can safely acquire a spinlock inside rcu_read_lock
+> section.  The only issue is that the entry being modified might already
+> be in process of being deleted (ie. modifying a dead route).
+> 
+> Probably simpler to just get rid of rwlock entirely, go with a spinlock
+> for now.  Reader/writer locks are slower than spin locks and even if
+> lock is highly read contended, it is not held for long.
+> 
+> IPV6 routing table is using much simpler algorithms on the assumption
+> that IPV6 was going to solve the CIDR address explosion problem. That
+> assumption will probably not hold up, and having a trie (TRASH) version
+> of IPV6 routing table with RCU would be a good research project for
+> some graduate student.
 
-Yes, this is about right.
-
-Please resubmit with a proper Signed-off-by: tag so I can apply
-this, thanks.
+This is all well and good, but meanwhile someone does need to
+fix the deadlock originally reported here :-)
