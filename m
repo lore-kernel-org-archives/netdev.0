@@ -1,53 +1,64 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH 30/31] CAPI: Remove experimental tag from middleware
- feature
-Date: Sat, 23 Jan 2010 13:56:27 +0000
-Message-ID: <20100123135627.23b2f9e0@lxorguk.ukuu.org.uk>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH 31/31] CAPI: Officially claim char major 191
+Date: Sat, 23 Jan 2010 15:25:53 +0100
+Message-ID: <1264256753.3469.55.camel@violet>
 References: <cover.1264201406.git.jan.kiszka@web.de>
-	<9dd553d458def04edc7790f0320ffdf1f8909aa5.1264201408.git.jan.kiszka@web.de>
-	<20100123122327.7d2622f4@lxorguk.ukuu.org.uk>
-	<4B5AF60B.3070100@web.de>
+	 <445e1bf881b6f8b6a5886d6eee70f6435a5619d6.1264201408.git.jan.kiszka@web.de>
+	 <20100123122430.5a078b4a@lxorguk.ukuu.org.uk>
+	 <1264250892.3469.52.camel@violet>  <4B5AF5FF.6050702@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	David Miller <davem@davemloft.net>,
 	Karsten Keil <isdn@linux-pingi.de>,
 	linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
-	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org
+	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	Alan Cox <alan@linux.intel.com>
 To: Jan Kiszka <jan.kiszka@web.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:59630 "EHLO
-	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755295Ab0AWNyY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 08:54:24 -0500
-In-Reply-To: <4B5AF60B.3070100@web.de>
+Received: from senator.holtmann.net ([87.106.208.187]:44242 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751470Ab0AWOY5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 09:24:57 -0500
+In-Reply-To: <4B5AF5FF.6050702@web.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 23 Jan 2010 14:13:47 +0100
-Jan Kiszka <jan.kiszka@web.de> wrote:
+Hi Jan,
 
-> Alan Cox wrote:
-> > On Sun, 10 Jan 2010 14:12:41 +0100
-> > Jan Kiszka <jan.kiszka@web.de> wrote:
+> >>> I found no trace of this mysterious "pcl181" device, neither in-tree nor
+> >>> out there in the wild. At the same time, the in-tree CAPI middleware is
+> >>> using major 191 for many years now and obviously without any conflict.
+> >>> Let's officially claim this major number.
+> >> This is not the way it should have been done but whoever needs spanking
+> >> got away with it years ago. Given that this seems the best way forward.
+> >>
+> >> With LANANA hat on
 > > 
-> >> Despite all its bugs, the middleware support of our CAPI stack was
-> >> already in use for many, many moons. And after going through its code,
-> >> fixing all issues I found, I feel it deserves to officially become a
-> >> non-experimental feature.
-> > 
-> > Slightly NAK this - I'm really glad to see the work getting done, but
-> > until it uses krefs properly for the tty references I'd say it is
-> > experimental still.
-> > 
-> > I'd like to help you sort out the tty krefs stuff, using tty_port and so
-> > on and get that wart fixed too.
+> > actually in the days of udev, the capifs is not really needed anymore.
+> > The right choice would be to remove it. I haven't been enabling it since
+> > years.
 > 
-> Will look into to this. Some good starting point or reference driver for me?
+> First of all, the capifs story is orthogonal to the major claim.
 
-Most of the drivers at least use tty_port and the tty_port ref counting
-helpers. The most full use of the new interfaces is probably the latest
-USB serial code and the drivers/mmc/card/sdio_uart.c code, which uses all
-the new facilities to the full to kick all the nasty open/close/hangup
-locking and logic out of the low level drivers.
+my point here is merely that when using udev, you need to fixed assigned
+major number. Dynamic major numbers will just work fine.
+
+> But basically you are right, capifs is likely not needed anymore. The
+> only user visible change - and that was holding me back to suggest its
+> removal - is the time when the NCCI minor ttys show up under /dev/capi/
+> (or wherever you direct them to). If I didn't miss something about udev,
+> it will make all possible minors pop up once the major is registered.
+> However, I'm not sure if there is some userland actually relying on this.
+
+That is just an issue with the current code. There is no requirement to
+create all minors are at the same. You can create/remove minors on
+demand as you please. And udev will take care of the device nodes for
+you.
+
+Regards
+
+Marcel
+
 
