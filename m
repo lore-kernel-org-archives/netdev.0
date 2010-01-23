@@ -1,90 +1,33 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH] Fix IPv6 GSO type checks in Intel ethernet drivers
-Date: Sat, 23 Jan 2010 02:00:43 -0800
-Message-ID: <20100123100042.11995.20915.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC, PATCH net-next-2.6] net: introduce a macro to traverse
+ through uc_list easily
+Date: Sat, 23 Jan 2010 02:01:40 -0800 (PST)
+Message-ID: <20100123.020140.231150448.davem@davemloft.net>
+References: <20100122151301.GC2609@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:41613 "EHLO
-	qmta07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752151Ab0AWKBA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 05:01:00 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jpirko@redhat.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754706Ab0AWKBb@vger.kernel.org>
+In-Reply-To: <20100122151301.GC2609@psychotron.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sridhar Samudrala <sri@us.ibm.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Fri, 22 Jan 2010 16:13:02 +0100
 
-Found this problem when testing IPv6 from a KVM guest to a remote
-host via e1000e device on the host.
-The following patch fixes the check for IPv6 GSO packet in Intel
-ethernet drivers to use skb_is_gso_v6(). SKB_GSO_DODGY is also set
-when packets are forwarded from a guest.
+> Therefore that would be good to introduce a macro that can be used to traverse
+> through addresses in the list without caller knowing anything about the type of
+> the list. I think this kind of an abstraction is appropriate on this place.
+> Also during the phase of changing, the macro can use the original list and onc ...
+> What do you think about this? Please comment.
 
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Yes this is the way to do it, three steps:
 
- drivers/net/e1000e/netdev.c    |    2 +-
- drivers/net/igb/igb_main.c     |    2 +-
- drivers/net/igbvf/netdev.c     |    2 +-
- drivers/net/ixgbe/ixgbe_main.c |    2 +-
- 4 files changed, 4 insertions(+), 4 deletions(-)
+1) Add interface macros that iterate using the existing
+   datastructure
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 3d88710..57f149b 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -3786,7 +3786,7 @@ static int e1000_tso(struct e1000_adapter *adapter,
- 		                                         0, IPPROTO_TCP, 0);
- 		cmd_length = E1000_TXD_CMD_IP;
- 		ipcse = skb_transport_offset(skb) - 1;
--	} else if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6) {
-+	} else if (skb_is_gso_v6(skb)) {
- 		ipv6_hdr(skb)->payload_len = 0;
- 		tcp_hdr(skb)->check = ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
- 		                                       &ipv6_hdr(skb)->daddr,
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 933c64f..f7370bc 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -3422,7 +3422,7 @@ static inline int igb_tso_adv(struct igb_ring *tx_ring,
- 							 iph->daddr, 0,
- 							 IPPROTO_TCP,
- 							 0);
--	} else if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6) {
-+	} else if (skb_is_gso_v6(skb)) {
- 		ipv6_hdr(skb)->payload_len = 0;
- 		tcp_hdr(skb)->check = ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
- 						       &ipv6_hdr(skb)->daddr,
-diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
-index 10e038a..a37fcb8 100644
---- a/drivers/net/igbvf/netdev.c
-+++ b/drivers/net/igbvf/netdev.c
-@@ -1963,7 +1963,7 @@ static int igbvf_tso(struct igbvf_adapter *adapter,
- 		                                         iph->daddr, 0,
- 		                                         IPPROTO_TCP,
- 		                                         0);
--	} else if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6) {
-+	} else if (skb_is_gso_v6(skb)) {
- 		ipv6_hdr(skb)->payload_len = 0;
- 		tcp_hdr(skb)->check = ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
- 		                                       &ipv6_hdr(skb)->daddr,
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 6d61add..b5f64ad 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -4928,7 +4928,7 @@ static int ixgbe_tso(struct ixgbe_adapter *adapter,
- 			                                         iph->daddr, 0,
- 			                                         IPPROTO_TCP,
- 			                                         0);
--		} else if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6) {
-+		} else if (skb_is_gso_v6(skb)) {
- 			ipv6_hdr(skb)->payload_len = 0;
- 			tcp_hdr(skb)->check =
- 			    ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+2) Convert drivers to use #1
 
+3) Convert to list_head
