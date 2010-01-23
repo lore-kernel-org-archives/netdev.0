@@ -1,61 +1,30 @@
-From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: [PATCH 02/29] move am79c961's probe function to .devinit.text
-Date: Sat, 23 Jan 2010 21:35:10 +0100
-Message-ID: <1264278937-19675-2-git-send-email-u.kleine-koenig@pengutronix.de>
-References: <1264189758-7197-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: Bruno =?UTF-8?B?UHLDqW1vbnQ=?= <bonbons@linux-vserver.org>
+Subject: Re: [2.6.33-rc5 regression] NULL pointer dereference in
+ vlan_skb_recv - probably introduced by commit
+ 9793241fe92f7d9303fb221e43fc598eb065f267
+Date: Sat, 23 Jan 2010 22:31:32 +0100
+Message-ID: <20100123223132.0e62d8cb@neptune.home>
+References: <20100123165657.187c11e4@neptune.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, Roel Kluin <12o3l@tiscali.nl>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
-To: Greg KH <gregkh@suse.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:50628 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752153Ab0AWUgJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 15:36:09 -0500
-In-Reply-To: <1264189758-7197-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Received: from ppp-157-144.adsl.restena.lu ([158.64.157.144]:42379 "EHLO
+	bonbons.gotdns.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751660Ab0AWVcB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 16:32:01 -0500
+In-Reply-To: <20100123165657.187c11e4@neptune.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A pointer to am79c961_probe is passed to the core via
-platform_driver_register and so the function must not disappear when th=
-e
-=2Einit sections are discarded.  Otherwise (if also having HOTPLUG=3Dy)
-unbinding and binding a device to the driver via sysfs will result in a=
-n
-oops as does a device being registered late.
+> Above part of code did change between 2.6.32 and 2.6.33-rc5 with
+> commit 9793241fe92f7d9303fb221e43fc598eb065f267 (vlan: Precise RX
+> stats accounting)
+> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=9793241fe92f7d9303fb221e43fc598eb065f267
 
-An alternative to this patch is using platform_driver_probe instead of
-platform_driver_register plus removing the pointer to the probe functio=
-n
-from the struct platform_driver.
+Reverting just that commit gets the system running correctly.
 
-Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
-Cc: Roel Kluin <12o3l@tiscali.nl>
-Cc: Russell King <rmk+kernel@arm.linux.org.uk>
-Cc: netdev@vger.kernel.org
-Cc: Andrew Morton <akpm@linux-foundation.org>
----
- drivers/net/arm/am79c961a.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/arm/am79c961a.c b/drivers/net/arm/am79c961a.c
-index 164b37e..1c3c1f9 100644
---- a/drivers/net/arm/am79c961a.c
-+++ b/drivers/net/arm/am79c961a.c
-@@ -680,7 +680,7 @@ static const struct net_device_ops am79c961_netdev_=
-ops =3D {
- #endif
- };
-=20
--static int __init am79c961_probe(struct platform_device *pdev)
-+static int __devinit am79c961_probe(struct platform_device *pdev)
- {
- 	struct resource *res;
- 	struct net_device *dev;
---=20
-1.6.6
-
+Bruno
