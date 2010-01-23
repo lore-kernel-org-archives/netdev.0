@@ -1,331 +1,388 @@
 From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: [PATCH v5 3/7] tcp: harmonize tcp_vx_rcv header length assumptions
-Date: Sat, 23 Jan 2010 00:56:16 -0500
-Message-ID: <4B5A8F80.6050108@gmail.com>
+Subject: [PATCH v4 4/7] tcp: input header length, prediction, and timestamp
+ bugs
+Date: Sat, 23 Jan 2010 01:02:06 -0500
+Message-ID: <4B5A90DE.5030708@gmail.com>
 References: <4B5A88C4.7050205@gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------040905040300050607030100"
+ boundary="------------080302080607070006070604"
 Cc: Andrew Morton <akpm@linux-foundation.org>,
 	Andi Kleen <andi@firstfloor.org>
 To: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f197.google.com ([209.85.223.197]:46686 "EHLO
-	mail-iw0-f197.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750789Ab0AWF4U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 00:56:20 -0500
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753794Ab0AWGCO@vger.kernel.org>
 In-Reply-To: <4B5A88C4.7050205@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------040905040300050607030100
+--------------080302080607070006070604
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Harmonize tcp_v4_rcv() and tcp_v6_rcv() -- better document tcp doff
-and header length assumptions, and carefully compare implementations.
+Fix incorrect header prediction flags documentation.
 
-Reduces multiply/shifts, marginally improving speed.
+Relieve register pressure in (the i386) fast path by accessing skb->len
+directly, instead of carrying a rarely used len parameter.
 
-Removes redundant tcp header length checks before checksumming.
+Eliminate unused len parameters in two other functions.
 
-Instead, assumes (and documents) that any backlog processing and
-transform policies will carefully preserve the header, and will
-ensure the socket buffer length remains >= the header size.
+Don't use output calculated tp->tcp_header_len for input decisions.
+While the output header is usually the same as the input (same options
+in both directions), that's a poor assumption. In particular, Sack will
+be different. Newer options are not guaranteed.
+
+Moreover, in the fast path, that only saved a shift or two. The other
+efficiencies in this patch more than make up the difference.
+
+Instead, use tp->rx_opt.tstamp_ok to accurately predict header length.
+
+Likewise, use tp->rx_opt.tstamp_ok for received MSS calculations.
+
+Don't use "sizeof(struct tcphdr) + TCPOLEN_TSTAMP_ALIGNED" to guess that
+the timestamp is present. This may have been OK in the days with fewer
+possible options, but various combinations of newer options may yield
+the same header length. (This bug is in 3 places.)
+
+Instead, use tp->rx_opt.saw_tstamp to determine a timestamp is present.
+
+There's no need to test buffer length against header length, already
+checked by tcp_v[4,6]_rcv(). Straighten code for minor efficiency gain.
 
 Stand-alone patch, originally developed for TCPCT.
+
+Requires:
+   net: tcp_header_len_th and tcp_option_len_th
+   tcp: harmonize tcp_vx_rcv header length assumptions
 
 Signed-off-by: William.Allen.Simpson@gmail.com
 CC: Andi Kleen <andi@firstfloor.org>
 ---
-  include/net/xfrm.h  |    7 ++++++
-  net/ipv4/tcp_ipv4.c |   45 +++++++++++++++++++++-----------------
-  net/ipv6/tcp_ipv6.c |   59 ++++++++++++++++++++++++++++----------------------
-  3 files changed, 65 insertions(+), 46 deletions(-)
+  include/linux/tcp.h      |    6 ++-
+  include/net/tcp.h        |   15 +++++--
+  net/ipv4/tcp_input.c     |   94 ++++++++++++++++++----------------------------
+  net/ipv4/tcp_ipv4.c      |    4 +-
+  net/ipv4/tcp_minisocks.c |    3 +-
+  net/ipv4/tcp_probe.c     |    2 +-
+  net/ipv6/tcp_ipv6.c      |    4 +-
+  7 files changed, 58 insertions(+), 70 deletions(-)
 
---------------040905040300050607030100
+--------------080302080607070006070604
 Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
- name="len_th+2c5+2.6.33-rc5.patch"
+ name="len_th+2d4+2.6.33-rc5.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="len_th+2c5+2.6.33-rc5.patch"
+ filename="len_th+2d4+2.6.33-rc5.patch"
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 6d85861..89c5465 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -975,6 +975,13 @@ xfrm_state_addr_cmp(struct xfrm_tmpl *tmpl, struct xfrm_state *x, unsigned short
- }
- 
- #ifdef CONFIG_XFRM
-+/*
-+ * For transport, the policy is checked before the presumed more expensive
-+ * checksum. The transport header has already been checked for size, and is
-+ * guaranteed to be contiguous. These policies must not alter the header or
-+ * its position in the buffer, and should not shorten the buffer length
-+ * without ensuring the length remains >= the header size.
-+ */
- extern int __xfrm_policy_check(struct sock *, int dir, struct sk_buff *skb, unsigned short family);
- 
- static inline int __xfrm_policy_check2(struct sock *sk, int dir,
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 65b8ebf..0a76e41 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1559,7 +1559,8 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
- 		return 0;
- 	}
- 
--	if (skb->len < tcp_hdrlen(skb) || tcp_checksum_complete(skb))
-+	/* Assumes header and options unchanged since checksum_init() */
-+	if (tcp_checksum_complete(skb))
- 		goto csum_err;
- 
- 	if (sk->sk_state == TCP_LISTEN) {
-@@ -1601,14 +1602,13 @@ csum_err:
- }
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 74728f7..2987ee8 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -301,7 +301,11 @@ struct tcp_sock {
  
  /*
-- *	From tcp_input.c
-+ *	Called by ip_input.c: ip_local_deliver_finish()
+  *	Header prediction flags
+- *	0x5?10 << 16 + snd_wnd in net byte order
++ *	S << 28 + TCP_FLAG_ACK + snd_wnd, in net byte order
++ *		(PSH flag is ignored)
++ *		S is 5 (no options), or 8 (timestamp aligned)
++ *	otherwise, 0 to turn it off -- for instance, when there are
++ *	holes in receive space.
   */
--
- int tcp_v4_rcv(struct sk_buff *skb)
- {
--	const struct iphdr *iph;
- 	struct tcphdr *th;
- 	struct sock *sk;
-+	int tcp_header_len;
- 	int ret;
- 	struct net *net = dev_net(skb->dev);
+ 	__be32	pred_flags;
  
-@@ -1618,31 +1618,33 @@ int tcp_v4_rcv(struct sk_buff *skb)
- 	/* Count it even if it's bad */
- 	TCP_INC_STATS_BH(net, TCP_MIB_INSEGS);
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 34f5cc2..6b0d7e9 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -310,13 +310,11 @@ extern int			tcp_ioctl(struct sock *sk,
  
-+	/* Check too short header */
- 	if (!pskb_may_pull(skb, sizeof(struct tcphdr)))
- 		goto discard_it;
+ extern int			tcp_rcv_state_process(struct sock *sk, 
+ 						      struct sk_buff *skb,
+-						      struct tcphdr *th,
+-						      unsigned len);
++						      struct tcphdr *th);
  
--	th = tcp_hdr(skb);
--
--	if (th->doff < sizeof(struct tcphdr) / 4)
-+	/* Check bad doff, compare doff directly to constant value */
-+	tcp_header_len = tcp_hdr(skb)->doff;
-+	if (tcp_header_len < (sizeof(struct tcphdr) / 4))
- 		goto bad_packet;
--	if (!pskb_may_pull(skb, th->doff * 4))
-+
-+	/* Check too short header and options */
-+	tcp_header_len *= 4;
-+	if (!pskb_may_pull(skb, tcp_header_len))
- 		goto discard_it;
+ extern int			tcp_rcv_established(struct sock *sk, 
+ 						    struct sk_buff *skb,
+-						    struct tcphdr *th, 
+-						    unsigned len);
++						    struct tcphdr *th);
  
--	/* An explanation is required here, I think.
--	 * Packet length and doff are validated by header prediction,
--	 * provided case of th->doff==0 is eliminated.
--	 * So, we defer the checks. */
-+	/* Packet length and doff are validated by header prediction,
-+	 * provided case of th->doff == 0 is eliminated (above).
-+	 */
- 	if (!skb_csum_unnecessary(skb) && tcp_v4_checksum_init(skb))
- 		goto bad_packet;
+ extern void			tcp_rcv_space_adjust(struct sock *sk);
  
- 	th = tcp_hdr(skb);
--	iph = ip_hdr(skb);
- 	TCP_SKB_CB(skb)->seq = ntohl(th->seq);
- 	TCP_SKB_CB(skb)->end_seq = (TCP_SKB_CB(skb)->seq + th->syn + th->fin +
--				    skb->len - th->doff * 4);
-+				    skb->len - tcp_header_len);
- 	TCP_SKB_CB(skb)->ack_seq = ntohl(th->ack_seq);
- 	TCP_SKB_CB(skb)->when	 = 0;
--	TCP_SKB_CB(skb)->flags	 = iph->tos;
-+	TCP_SKB_CB(skb)->flags	 = ip_hdr(skb)->tos;
- 	TCP_SKB_CB(skb)->sacked	 = 0;
- 
- 	sk = __inet_lookup_skb(&tcp_hashinfo, skb, th->source, th->dest);
-@@ -1682,14 +1684,14 @@ process:
- 	bh_unlock_sock(sk);
- 
- 	sock_put(sk);
--
- 	return ret;
- 
- no_tcp_socket:
- 	if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
- 		goto discard_it;
- 
--	if (skb->len < (th->doff << 2) || tcp_checksum_complete(skb)) {
-+	/* Assumes header and options unchanged since checksum_init() */
-+	if (tcp_checksum_complete(skb)) {
- bad_packet:
- 		TCP_INC_STATS_BH(net, TCP_MIB_INERRS);
- 	} else {
-@@ -1711,18 +1713,21 @@ do_time_wait:
- 		goto discard_it;
- 	}
- 
--	if (skb->len < (th->doff << 2) || tcp_checksum_complete(skb)) {
-+	/* Assumes header and options unchanged since checksum_init() */
-+	if (tcp_checksum_complete(skb)) {
- 		TCP_INC_STATS_BH(net, TCP_MIB_INERRS);
- 		inet_twsk_put(inet_twsk(sk));
- 		goto discard_it;
- 	}
-+
- 	switch (tcp_timewait_state_process(inet_twsk(sk), skb, th)) {
- 	case TCP_TW_SYN: {
- 		struct sock *sk2 = inet_lookup_listener(dev_net(skb->dev),
- 							&tcp_hashinfo,
--							iph->daddr, th->dest,
-+							ip_hdr(skb)->daddr,
-+							th->dest,
- 							inet_iif(skb));
--		if (sk2) {
-+		if (sk2 != NULL) {
- 			inet_twsk_deschedule(inet_twsk(sk), &tcp_death_row);
- 			inet_twsk_put(inet_twsk(sk));
- 			sk = sk2;
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index febfd59..b76939a 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1594,7 +1594,8 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
- 		return 0;
- 	}
- 
--	if (skb->len < tcp_hdrlen(skb) || tcp_checksum_complete(skb))
-+	/* Assumes header and options unchanged since checksum_init() */
-+	if (tcp_checksum_complete(skb))
- 		goto csum_err;
- 
- 	if (sk->sk_state == TCP_LISTEN) {
-@@ -1664,38 +1665,47 @@ ipv6_pktoptions:
- 	return 0;
+@@ -533,9 +531,16 @@ static inline u32 __tcp_set_rto(const struct tcp_sock *tp)
+ 	return (tp->srtt >> 3) + tp->rttvar;
  }
  
-+/*
-+ *	Called by ip6_input.c: ip6_input_finish()
-+ */
- static int tcp_v6_rcv(struct sk_buff *skb)
- {
- 	struct tcphdr *th;
- 	struct sock *sk;
-+	int tcp_header_len;
- 	int ret;
- 	struct net *net = dev_net(skb->dev);
- 
- 	if (skb->pkt_type != PACKET_HOST)
- 		goto discard_it;
- 
--	/*
--	 *	Count it even if it's bad.
--	 */
-+	/* Count it even if it's bad */
- 	TCP_INC_STATS_BH(net, TCP_MIB_INSEGS);
- 
-+	/* Check too short header */
- 	if (!pskb_may_pull(skb, sizeof(struct tcphdr)))
- 		goto discard_it;
- 
--	th = tcp_hdr(skb);
--
--	if (th->doff < sizeof(struct tcphdr)/4)
-+	/* Check bad doff, compare doff directly to constant value */
-+	tcp_header_len = tcp_hdr(skb)->doff;
-+	if (tcp_header_len < (sizeof(struct tcphdr) / 4))
- 		goto bad_packet;
--	if (!pskb_may_pull(skb, th->doff*4))
++static inline u16 __tcp_fast_path_header_length(const struct tcp_sock *tp)
++{
++	return tp->rx_opt.tstamp_ok
++		? sizeof(struct tcphdr) + TCPOLEN_TSTAMP_ALIGNED
++		: sizeof(struct tcphdr);
++}
 +
-+	/* Check too short header and options */
-+	tcp_header_len *= 4;
-+	if (!pskb_may_pull(skb, tcp_header_len))
- 		goto discard_it;
- 
-+	/* Packet length and doff are validated by header prediction,
-+	 * provided case of th->doff == 0 is eliminated (above).
-+	 */
- 	if (!skb_csum_unnecessary(skb) && tcp_v6_checksum_init(skb))
- 		goto bad_packet;
- 
- 	th = tcp_hdr(skb);
- 	TCP_SKB_CB(skb)->seq = ntohl(th->seq);
- 	TCP_SKB_CB(skb)->end_seq = (TCP_SKB_CB(skb)->seq + th->syn + th->fin +
--				    skb->len - th->doff*4);
-+				    skb->len - tcp_header_len);
- 	TCP_SKB_CB(skb)->ack_seq = ntohl(th->ack_seq);
- 	TCP_SKB_CB(skb)->when = 0;
- 	TCP_SKB_CB(skb)->flags = ipv6_get_dsfield(ipv6_hdr(skb));
-@@ -1711,6 +1721,7 @@ process:
- 
- 	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb))
- 		goto discard_and_relse;
-+	/* nf_reset(skb); in ip6_input.c ip6_input_finish() */
- 
- 	if (sk_filter(sk, skb))
- 		goto discard_and_relse;
-@@ -1743,7 +1754,8 @@ no_tcp_socket:
- 	if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
- 		goto discard_it;
- 
--	if (skb->len < (th->doff<<2) || tcp_checksum_complete(skb)) {
-+	/* Assumes header and options unchanged since checksum_init() */
-+	if (tcp_checksum_complete(skb)) {
- bad_packet:
- 		TCP_INC_STATS_BH(net, TCP_MIB_INERRS);
- 	} else {
-@@ -1751,11 +1763,7 @@ bad_packet:
- 	}
- 
- discard_it:
+ static inline void __tcp_fast_path_on(struct tcp_sock *tp, u32 snd_wnd)
+ {
+-	tp->pred_flags = htonl((tp->tcp_header_len << 26) |
++	tp->pred_flags = htonl((__tcp_fast_path_header_length(tp) << (28 - 2)) |
+ 			       ntohl(TCP_FLAG_ACK) |
+ 			       snd_wnd);
+ }
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 28e0296..8e0f6ae 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -152,7 +152,7 @@ static void tcp_measure_rcv_mss(struct sock *sk, const struct sk_buff *skb)
+ 			 * tcp header plus fixed timestamp option length.
+ 			 * Resulting "len" is MSS free of SACK jitter.
+ 			 */
+-			len -= tcp_sk(sk)->tcp_header_len;
++			len -= __tcp_fast_path_header_length(tcp_sk(sk));
+ 			icsk->icsk_ack.last_seg_size = len;
+ 			if (len == lss) {
+ 				icsk->icsk_ack.rcv_mss = len;
+@@ -5206,7 +5206,7 @@ discard:
+  *	tcp_data_queue when everything is OK.
+  */
+ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
+-			struct tcphdr *th, unsigned len)
++			struct tcphdr *th)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	int res;
+@@ -5225,31 +5225,15 @@ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
+ 	 *	extra cost of the net_bh soft interrupt processing...
+ 	 *	We do checksum and copy also but from device to kernel.
+ 	 */
 -
--	/*
--	 *	Discard frame
+-	tp->rx_opt.saw_tstamp = 0;
+-
+-	/*	pred_flags is 0xS?10 << 16 + snd_wnd
+-	 *	if header_prediction is to be made
+-	 *	'S' will always be tp->tcp_header_len >> 2
+-	 *	'?' will be 0 for the fast path, otherwise pred_flags is 0 to
+-	 *  turn it off	(when there are holes in the receive
+-	 *	 space for instance)
+-	 *	PSH flag is ignored.
 -	 */
 -
-+	/* Discard frame. */
- 	kfree_skb(skb);
- 	return 0;
- 
-@@ -1769,24 +1777,23 @@ do_time_wait:
- 		goto discard_it;
- 	}
- 
--	if (skb->len < (th->doff<<2) || tcp_checksum_complete(skb)) {
-+	/* Assumes header and options unchanged since checksum_init() */
-+	if (tcp_checksum_complete(skb)) {
- 		TCP_INC_STATS_BH(net, TCP_MIB_INERRS);
- 		inet_twsk_put(inet_twsk(sk));
- 		goto discard_it;
- 	}
- 
- 	switch (tcp_timewait_state_process(inet_twsk(sk), skb, th)) {
--	case TCP_TW_SYN:
--	{
--		struct sock *sk2;
+ 	if ((tcp_flag_word(th) & TCP_HP_BITS) == tp->pred_flags &&
+ 	    TCP_SKB_CB(skb)->seq == tp->rcv_nxt &&
+ 	    !after(TCP_SKB_CB(skb)->ack_seq, tp->snd_nxt)) {
+-		int tcp_header_len = tp->tcp_header_len;
 -
--		sk2 = inet6_lookup_listener(dev_net(skb->dev), &tcp_hashinfo,
--					    &ipv6_hdr(skb)->daddr,
--					    ntohs(th->dest), inet6_iif(skb));
-+	case TCP_TW_SYN: {
-+		struct sock *sk2 = inet6_lookup_listener(dev_net(skb->dev),
-+							 &tcp_hashinfo,
-+							 &ipv6_hdr(skb)->daddr,
-+							 ntohs(th->dest),
-+							 inet6_iif(skb));
- 		if (sk2 != NULL) {
--			struct inet_timewait_sock *tw = inet_twsk(sk);
--			inet_twsk_deschedule(tw, &tcp_death_row);
--			inet_twsk_put(tw);
-+			inet_twsk_deschedule(inet_twsk(sk), &tcp_death_row);
-+			inet_twsk_put(inet_twsk(sk));
- 			sk = sk2;
- 			goto process;
+-		/* Timestamp header prediction: tcp_header_len
+-		 * is automatically equal to th->doff*4 due to pred_flags
+-		 * match.
+-		 */
++		int tcp_header_len = tcp_header_len_th(th);
+ 
+-		/* Check timestamp */
+-		if (tcp_header_len == sizeof(struct tcphdr) + TCPOLEN_TSTAMP_ALIGNED) {
+-			/* No? Slow path! */
++		/* Timestamp header prediction */
++		if (tcp_header_len != sizeof(*th) + TCPOLEN_TSTAMP_ALIGNED) {
++			tp->rx_opt.saw_tstamp = 0; /* false */
++		} else {
+ 			if (!tcp_parse_aligned_timestamp(tp, th))
+ 				goto slow_path;
+ 
+@@ -5264,35 +5248,12 @@ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
+ 			 */
  		}
+ 
+-		if (len <= tcp_header_len) {
+-			/* Bulk data transfer: sender */
+-			if (len == tcp_header_len) {
+-				/* Predicted packet is in window by definition.
+-				 * seq == rcv_nxt and rcv_wup <= rcv_nxt.
+-				 * Hence, check seq<=rcv_wup reduces to:
+-				 */
+-				if (tcp_header_len ==
+-				    (sizeof(struct tcphdr) + TCPOLEN_TSTAMP_ALIGNED) &&
+-				    tp->rcv_nxt == tp->rcv_wup)
+-					tcp_store_ts_recent(tp);
+-
+-				/* We know that such packets are checksummed
+-				 * on entry.
+-				 */
+-				tcp_ack(sk, skb, 0);
+-				__kfree_skb(skb);
+-				tcp_data_snd_check(sk);
+-				return 0;
+-			} else { /* Header too small */
+-				TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_INERRS);
+-				goto discard;
+-			}
+-		} else {
++		if (tcp_header_len < skb->len) {
+ 			int eaten = 0;
+ 			int copied_early = 0;
+ 
+ 			if (tp->copied_seq == tp->rcv_nxt &&
+-			    len - tcp_header_len <= tp->ucopy.len) {
++			    skb->len - tcp_header_len <= tp->ucopy.len) {
+ #ifdef CONFIG_NET_DMA
+ 				if (tcp_dma_try_early_copy(sk, skb, tcp_header_len)) {
+ 					copied_early = 1;
+@@ -5311,9 +5272,7 @@ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
+ 					 * seq == rcv_nxt and rcv_wup <= rcv_nxt.
+ 					 * Hence, check seq<=rcv_wup reduces to:
+ 					 */
+-					if (tcp_header_len ==
+-					    (sizeof(struct tcphdr) +
+-					     TCPOLEN_TSTAMP_ALIGNED) &&
++					if (tp->rx_opt.saw_tstamp &&
+ 					    tp->rcv_nxt == tp->rcv_wup)
+ 						tcp_store_ts_recent(tp);
+ 
+@@ -5334,8 +5293,7 @@ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
+ 				 * seq == rcv_nxt and rcv_wup <= rcv_nxt.
+ 				 * Hence, check seq<=rcv_wup reduces to:
+ 				 */
+-				if (tcp_header_len ==
+-				    (sizeof(struct tcphdr) + TCPOLEN_TSTAMP_ALIGNED) &&
++				if (tp->rx_opt.saw_tstamp &&
+ 				    tp->rcv_nxt == tp->rcv_wup)
+ 					tcp_store_ts_recent(tp);
+ 
+@@ -5376,11 +5334,33 @@ no_ack:
+ 			else
+ 				sk->sk_data_ready(sk, 0);
+ 			return 0;
++		} else {
++			/* Bulk data transfer: sender
++			 *
++			 * tcp_header_len > skb->len never happens,
++			 * already checked by tcp_v[4,6]_rcv()
++			 *
++			 * Predicted packet is in window by definition.
++			 * seq == rcv_nxt and rcv_wup <= rcv_nxt.
++			 * Hence, check seq<=rcv_wup reduces to:
++			 */
++			if (tp->rx_opt.saw_tstamp &&
++			    tp->rcv_nxt == tp->rcv_wup)
++				tcp_store_ts_recent(tp);
++
++			/* We know that such packets are checksummed
++			 * on entry.
++			 */
++			tcp_ack(sk, skb, 0);
++			__kfree_skb(skb);
++			tcp_data_snd_check(sk);
++			return 0;
+ 		}
+ 	}
+ 
+ slow_path:
+-	if (len < (th->doff << 2) || tcp_checksum_complete_user(sk, skb))
++	/* Assumes header and options unchanged since checksum_init() */
++	if (tcp_checksum_complete_user(sk, skb))
+ 		goto csum_error;
+ 
+ 	/*
+@@ -5416,7 +5396,7 @@ discard:
+ }
+ 
+ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+-					 struct tcphdr *th, unsigned len)
++					 struct tcphdr *th)
+ {
+ 	u8 *hash_location;
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+@@ -5693,7 +5673,7 @@ reset_and_undo:
+  */
+ 
+ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+-			  struct tcphdr *th, unsigned len)
++			  struct tcphdr *th)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+@@ -5740,7 +5720,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 		goto discard;
+ 
+ 	case TCP_SYN_SENT:
+-		queued = tcp_rcv_synsent_state_process(sk, skb, th, len);
++		queued = tcp_rcv_synsent_state_process(sk, skb, th);
+ 		if (queued >= 0)
+ 			return queued;
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 0a76e41..f999e06 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1551,7 +1551,7 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 
+ 	if (sk->sk_state == TCP_ESTABLISHED) { /* Fast path */
+ 		TCP_CHECK_TIMER(sk);
+-		if (tcp_rcv_established(sk, skb, tcp_hdr(skb), skb->len)) {
++		if (tcp_rcv_established(sk, skb, tcp_hdr(skb))) {
+ 			rsk = sk;
+ 			goto reset;
+ 		}
+@@ -1578,7 +1578,7 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 	}
+ 
+ 	TCP_CHECK_TIMER(sk);
+-	if (tcp_rcv_state_process(sk, skb, tcp_hdr(skb), skb->len)) {
++	if (tcp_rcv_state_process(sk, skb, tcp_hdr(skb))) {
+ 		rsk = sk;
+ 		goto reset;
+ 	}
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index f206ee5..37b7536 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -718,8 +718,7 @@ int tcp_child_process(struct sock *parent, struct sock *child,
+ 	int state = child->sk_state;
+ 
+ 	if (!sock_owned_by_user(child)) {
+-		ret = tcp_rcv_state_process(child, skb, tcp_hdr(skb),
+-					    skb->len);
++		ret = tcp_rcv_state_process(child, skb, tcp_hdr(skb));
+ 		/* Wakeup parent, send SIGIO */
+ 		if (state == TCP_SYN_RECV && child->sk_state != state)
+ 			parent->sk_data_ready(parent, 0);
+diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
+index bb110c5..7bcd3ba 100644
+--- a/net/ipv4/tcp_probe.c
++++ b/net/ipv4/tcp_probe.c
+@@ -88,7 +88,7 @@ static inline int tcp_probe_avail(void)
+  * Note: arguments must match tcp_rcv_established()!
+  */
+ static int jtcp_rcv_established(struct sock *sk, struct sk_buff *skb,
+-			       struct tcphdr *th, unsigned len)
++			       struct tcphdr *th)
+ {
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+ 	const struct inet_sock *inet = inet_sk(sk);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index b76939a..3d08a4d 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1586,7 +1586,7 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 
+ 	if (sk->sk_state == TCP_ESTABLISHED) { /* Fast path */
+ 		TCP_CHECK_TIMER(sk);
+-		if (tcp_rcv_established(sk, skb, tcp_hdr(skb), skb->len))
++		if (tcp_rcv_established(sk, skb, tcp_hdr(skb)))
+ 			goto reset;
+ 		TCP_CHECK_TIMER(sk);
+ 		if (opt_skb)
+@@ -1618,7 +1618,7 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 	}
+ 
+ 	TCP_CHECK_TIMER(sk);
+-	if (tcp_rcv_state_process(sk, skb, tcp_hdr(skb), skb->len))
++	if (tcp_rcv_state_process(sk, skb, tcp_hdr(skb)))
+ 		goto reset;
+ 	TCP_CHECK_TIMER(sk);
+ 	if (opt_skb)
 -- 
 1.6.3.3
 
 
---------------040905040300050607030100--
+--------------080302080607070006070604--
