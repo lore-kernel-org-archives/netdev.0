@@ -1,25 +1,43 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [RFC 4/9] snet: introduce snet_core.c and snet.h
-Date: Sat, 23 Jan 2010 05:18:05 +0300
-Message-ID: <20100123021805.GA28179@ioremap.net>
-References: <1262437456-24476-1-git-send-email-sam@synack.fr> <1262437456-24476-5-git-send-email-sam@synack.fr> <4B41FE9D.2070708@trash.net> <m2y6kbm2xw.fsf@ssh.synack.fr> <20100106195830.GA17510@ioremap.net> <m21vhhefpz.fsf@ssh.synack.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] IPv6: Update documentation for better built-in help
+ with params
+Date: Fri, 22 Jan 2010 18:32:23 -0800 (PST)
+Message-ID: <20100122.183223.197255353.davem@davemloft.net>
+References: <201001221901.o0MJ1oLk016090@wind.enjellic.com>
+	<4B5A0991.9080701@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	linux-security-module@vger.kernel.org, jamal <hadi@cyberus.ca>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Samir Bellabes <sam@synack.fr>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <m21vhhefpz.fsf@ssh.synack.fr>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: greg@enjellic.com, nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: brian.haley@hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48678
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751628Ab0AWCcM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 21:32:12 -0500
+In-Reply-To: <4B5A0991.9080701@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 23, 2010 at 03:07:36AM +0100, Samir Bellabes (sam@synack.fr) wrote:
-> I'm sorry for the delay I missed this one.
+From: Brian Haley <brian.haley@hp.com>
+Date: Fri, 22 Jan 2010 15:24:49 -0500
 
-:)
+> Update IPv6 documentation to describe how to set parameters when it's
+> built-into the kernel.  Reported by <greg@enjellic.com>.
+> 
+> Signed-off-by: Brian Haley <brian.haley@hp.com>
 
--- 
-	Evgeniy Polyakov
+So are you going to also add a mention of this fact to every single
+place in the documentation that talks about some arbitrary module
+option?
+
+That doesn't make any sense, and neither does this patch.
+
+It's better to make it more apparent that module options can
+be set on the kernel command line when something is compiled
+statically into the kernel.
+
+That way it only needs to be explained in one place, not in
+several.
+
+I'm not applying this.
