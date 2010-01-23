@@ -1,61 +1,105 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] C/R: Basic support for network namespaces and
- devices (v2)
-Date: Sat, 23 Jan 2010 01:25:37 -0800 (PST)
-Message-ID: <20100123.012537.99190542.davem@davemloft.net>
-References: <1264194592-7529-1-git-send-email-danms@us.ibm.com>
-	<1264194592-7529-4-git-send-email-danms@us.ibm.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH] Fix IPv6 GSO type checks in Intel ethernet
+	drivers
+Date: Sat, 23 Jan 2010 01:24:45 -0800
+Message-ID: <20100123092430.11188.13968.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org,
-	orenl@librato.com
-To: danms@us.ibm.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46595
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752731Ab0AWJZZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 04:25:25 -0500
-In-Reply-To: <1264194592-7529-4-git-send-email-danms@us.ibm.com>
+Received: from qmta14.emeryville.ca.mail.comcast.net ([76.96.27.212]:47549
+	"EHLO qmta14.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752318Ab0AWJZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 04:25:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Smith <danms@us.ibm.com>
-Date: Fri, 22 Jan 2010 13:09:52 -0800
+From: Sridhar Samudrala <sri@us.ibm.com>
 
-> +	if (strcmp(dev->name, "sit0") == 0) {
-> +		return 0;                                    /* Skip sit0 */
-> +	} else if (dev->ethtool_ops && dev->ethtool_ops->get_drvinfo) {
-> +		dev->ethtool_ops->get_drvinfo(dev, &drvinfo);
-> +		if (strcmp(drvinfo.driver, "veth") == 0)
-> +			return 1;                            /* vethX is okay */
-> +	} else if (strcmp(dev->name, "lo") == 0)
-> +		return 1;                                    /* lo is okay */
- ...
-> +	if (strcmp(dev->name, "lo") == 0)
-> +		h->type = CKPT_NETDEV_LO;
-> +	else if (strncmp(dev->name, "veth", 4) == 0) {
-> +		h->type = CKPT_NETDEV_VETH;
-> +		peer = veth_get_peer(dev);
-> +	} else {
+Found this problem when testing IPv6 from a KVM guest to a remote
+host via e1000e device on the host.
+The following patch fixes the check for IPv6 GSO packet in Intel
+ethernet drivers to use skb_is_gso_v6(). SKB_GSO_DODGY is also set
+when packets are forwarded from a guest.
 
-This is gross.  You can't do things this way.
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-First of all, devices can get whatever name the user wants
-to assign to them.  If they want to rename the loopback
-device to something other than "lo" they can.
+ drivers/net/e1000e/netdev.c        |    2 +-
+ drivers/net/igb/igb_main.c         |    2 +-
+ drivers/net/igbvf/netdev.c         |    2 +-
+ drivers/net/ixgbe/ixgbe_main.c     |    2 +-
+ drivers/net/ixgbevf/ixgbevf_main.c |    2 +-
+ 5 files changed, 5 insertions(+), 5 deletions(-)
 
-You need another way.  Is it such a stretch of ingenuity to
-simply add an attribute flag to struct netdev that you can test
-here and perhaps a callback for what you need?
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 3d57ca5..2353e95 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -3771,7 +3771,7 @@ static int e1000_tso(struct e1000_adapter *adapter,
+ 		                                         0, IPPROTO_TCP, 0);
+ 		cmd_length = E1000_TXD_CMD_IP;
+ 		ipcse = skb_transport_offset(skb) - 1;
+-	} else if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6) {
++	} else if (skb_is_gso_v6(skb)) {
+ 		ipv6_hdr(skb)->payload_len = 0;
+ 		tcp_hdr(skb)->check = ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+ 		                                       &ipv6_hdr(skb)->daddr,
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index d967949..d4bbdf0 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -3422,7 +3422,7 @@ static inline int igb_tso_adv(struct igb_ring *tx_ring,
+ 							 iph->daddr, 0,
+ 							 IPPROTO_TCP,
+ 							 0);
+-	} else if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6) {
++	} else if (skb_is_gso_v6(skb)) {
+ 		ipv6_hdr(skb)->payload_len = 0;
+ 		tcp_hdr(skb)->check = ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+ 						       &ipv6_hdr(skb)->daddr,
+diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
+index a6c3920..ce33671 100644
+--- a/drivers/net/igbvf/netdev.c
++++ b/drivers/net/igbvf/netdev.c
+@@ -1963,7 +1963,7 @@ static int igbvf_tso(struct igbvf_adapter *adapter,
+ 		                                         iph->daddr, 0,
+ 		                                         IPPROTO_TCP,
+ 		                                         0);
+-	} else if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6) {
++	} else if (skb_is_gso_v6(skb)) {
+ 		ipv6_hdr(skb)->payload_len = 0;
+ 		tcp_hdr(skb)->check = ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+ 		                                       &ipv6_hdr(skb)->daddr,
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 81971ed..b2c0025 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -5113,7 +5113,7 @@ static int ixgbe_tso(struct ixgbe_adapter *adapter,
+ 			                                         iph->daddr, 0,
+ 			                                         IPPROTO_TCP,
+ 			                                         0);
+-		} else if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6) {
++		} else if (skb_is_gso_v6(skb)) {
+ 			ipv6_hdr(skb)->payload_len = 0;
+ 			tcp_hdr(skb)->check =
+ 			    ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
+index 39544af..652b6f4 100644
+--- a/drivers/net/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ixgbevf/ixgbevf_main.c
+@@ -2756,7 +2756,7 @@ static int ixgbevf_tso(struct ixgbevf_adapter *adapter,
+ 								 IPPROTO_TCP,
+ 								 0);
+ 			adapter->hw_tso_ctxt++;
+-		} else if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6) {
++		} else if (skb_is_gso_v6(skb)) {
+ 			ipv6_hdr(skb)->payload_len = 0;
+ 			tcp_hdr(skb)->check =
+ 			    ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
 
-Your direct calls into these drivers, like the veth bits, will not
-work if the driver is built modular.  It's one of several reasons
-why doing things this way isn't going to work.
-
-This misdesign is also why you find a need to get at the RTNL link ops
-too.  You have no infrastructure for doing what you need to do
-generically, so instead you are forced to directly call into drivers
-and export RTNL internals needlessly.
-
-This needs a lot of work, sorry.
