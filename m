@@ -1,8 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 1/7] ixgbe: Set the correct pool when VLANs are
-	added in SR-IOV mode.
-Date: Sat, 23 Jan 2010 00:45:43 -0800
-Message-ID: <20100123084457.9865.51853.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 2/7] ixgbe: Remove unused emulation MAC storage
+	from the per VF data structure.
+Date: Sat, 23 Jan 2010 00:46:02 -0800
+Message-ID: <20100123084601.9865.89876.stgit@localhost.localdomain>
+References: <20100123084457.9865.51853.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,60 +12,36 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.emeryville.ca.mail.comcast.net ([76.96.30.48]:34083 "EHLO
-	qmta05.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752011Ab0AWIqB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 03:46:01 -0500
+Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:54755
+	"EHLO qmta11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753986Ab0AWIqU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 03:46:20 -0500
+In-Reply-To: <20100123084457.9865.51853.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Greg Rose <gregory.v.rose@intel.com>
 
-When VFs are allocated (as indicated by adapter->num_vfs is non-zero) then
-the PF pool is no longer zero.  Instead it will be the same as the number
-of VFs allocated.  When setting the VLVF entry for the PF we need to use
-the correct pool otherwise the PF will get VLAN packets from the wire
-because the packet will pass VFTA filtering and the PF has the default
-pool, but it will not get VLAN packets from the VFs because it has
-not set the correct pool bit in the VLVF entry.
+This data storage for SW emulated MAC addresses is unlikely to ever be used
+so pull it.
 
 Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ixgbe/ixgbe.h |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 81971ed..2091658 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2432,15 +2432,17 @@ static void ixgbe_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
-+	int pool_ndx = adapter->num_vfs;
- 
- 	/* add VID to filter table */
--	hw->mac.ops.set_vfta(&adapter->hw, vid, 0, true);
-+	hw->mac.ops.set_vfta(&adapter->hw, vid, pool_ndx, true);
- }
- 
- static void ixgbe_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
-+	int pool_ndx = adapter->num_vfs;
- 
- 	if (!test_bit(__IXGBE_DOWN, &adapter->state))
- 		ixgbe_irq_disable(adapter);
-@@ -2451,7 +2453,7 @@ static void ixgbe_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
- 		ixgbe_irq_enable(adapter);
- 
- 	/* remove VID from filter table */
--	hw->mac.ops.set_vfta(&adapter->hw, vid, 0, false);
-+	hw->mac.ops.set_vfta(&adapter->hw, vid, pool_ndx, false);
- }
- 
- static void ixgbe_vlan_rx_register(struct net_device *netdev,
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index ed73585..e3909d3 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -110,7 +110,6 @@ struct vf_data_storage {
+ 	u16 num_vf_mc_hashes;
+ 	u16 default_vf_vlan_id;
+ 	u16 vlans_enabled;
+-	unsigned char em_mac_addresses[MAX_EMULATION_MAC_ADDRS * ETH_ALEN];
+ 	bool clear_to_send;
+ 	int rar;
+ };
 
