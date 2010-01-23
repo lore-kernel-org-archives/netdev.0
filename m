@@ -1,32 +1,34 @@
-From: jidanni@jidanni.org
-Subject: man ip grammar
-Date: Sat, 23 Jan 2010 13:22:49 +0800
-Message-ID: <878wbp75ue.fsf@jidanni.org>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: [PATCH 0/7] tcp: bugs and cleanup updated to 2.6.33-rc5
+Date: Sat, 23 Jan 2010 00:27:32 -0500
+Message-ID: <4B5A88C4.7050205@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>
+To: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hapkido.dreamhost.com ([66.33.216.122]:39650 "EHLO
-	hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750853Ab0AWFXl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 00:23:41 -0500
-Received: from homiemail-a10.g.dreamhost.com (caiajhbdccah.dreamhost.com [208.97.132.207])
-	by hapkido.dreamhost.com (Postfix) with ESMTP id DE5FE178E46
-	for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 21:23:41 -0800 (PST)
-Received: from jidanni.org (218-163-3-125.dynamic.hinet.net [218.163.3.125])
-	(using TLSv1 with cipher AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by homiemail-a10.g.dreamhost.com (Postfix) with ESMTPSA id C6E67280065
-	for <netdev@vger.kernel.org>; Fri, 22 Jan 2010 21:22:51 -0800 (PST)
+Received: from mail-iw0-f186.google.com ([209.85.223.186]:61746 "EHLO
+	mail-iw0-f186.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750734Ab0AWF1f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 00:27:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-man ip has grammar problems:
+Combination of patches reported in October, November, December, and
+January.  These patches fix perceived bugs, and other cleanup.
 
-       Manipulate route entries in the kernel routing tables keep
-       information about paths to other networked nodes.
+This code has had previous review and several months of limited testing.
 
-Also "f.e." is uncommon usage.
+Some portions were removed during the various TCPCT part 1 patch splits,
+then were cut off by the sudden unexpected end of that merge window.
+[03 Dec 2009]  I've restarted the sub-numbering (again).
 
-       The names of all objects may be written in full or abbreviated
-       form, f.e.
+Of particular interest are the TCPCT header extensions that already
+appear in the next phase of testing with other platforms.  These patches
+allow correct reception without data corruption.
+
+The remainder of the original TCPCT part 2 will be merged with part 3.
+
+These patches are against the current linux-2.6 tree.
