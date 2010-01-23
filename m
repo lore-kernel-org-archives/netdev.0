@@ -1,33 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 7/7] ixgbevf: Tell network stack to stop
- tx when the VF detects PF reset
-Date: Sat, 23 Jan 2010 01:14:48 -0800 (PST)
-Message-ID: <20100123.011448.89064924.davem@davemloft.net>
-References: <20100123084457.9865.51853.stgit@localhost.localdomain>
-	<20100123084736.9865.42744.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, gregory.v.rose@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51071
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753164Ab0AWJOg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 04:14:36 -0500
-In-Reply-To: <20100123084736.9865.42744.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sat, 23 Jan 2010 00:47:37 -0800
+Subject: [net-2.6 PATCH] MAINTAINERS: Add Intel igbvf maintainer
+Date: Sat, 23 Jan 2010 01:15:26 -0800
+Message-ID: <20100123091502.10912.25678.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	linux-kernel@vger.kernel.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753318Ab0AWJPp@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: Greg Rose <gregory.v.rose@intel.com>
-> 
-> When the VF detects that the PF has reset turn off carrier and stop all
-> tx queues.
-> 
-> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Add igbvf to the list of supported Intel drivers and Alex to the list of
+maintainers.
 
-Applied.
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ MAINTAINERS |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index ef40d2c..1f0ba17 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2803,10 +2803,11 @@ L:	netdev@vger.kernel.org
+ S:	Maintained
+ F:	drivers/net/ixp2000/
+ 
+-INTEL ETHERNET DRIVERS (e100/e1000/e1000e/igb/ixgb/ixgbe)
++INTEL ETHERNET DRIVERS (e100/e1000/e1000e/igb/igbvf/ixgb/ixgbe)
+ M:	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+ M:	Jesse Brandeburg <jesse.brandeburg@intel.com>
+ M:	Bruce Allan <bruce.w.allan@intel.com>
++M:	Alex Duyck <alexander.h.duyck@intel.com>
+ M:	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+ M:	John Ronciak <john.ronciak@intel.com>
+ L:	e1000-devel@lists.sourceforge.net
+@@ -2816,6 +2817,7 @@ F:	drivers/net/e100.c
+ F:	drivers/net/e1000/
+ F:	drivers/net/e1000e/
+ F:	drivers/net/igb/
++F:	drivers/net/igbvf/
+ F:	drivers/net/ixgb/
+ F:	drivers/net/ixgbe/
+ 
