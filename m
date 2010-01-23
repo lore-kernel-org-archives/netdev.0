@@ -1,34 +1,34 @@
-From: "Luis R. Rodriguez" <lrodriguez@atheros.com>
-Subject: Re: [RFC/RFT v2]: compat-wireless for 2.6.32.4 - multiqueue backport
-	support
-Date: Fri, 22 Jan 2010 16:09:27 -0800
-Message-ID: <43e72e891001221609jd2fcb90q1ee46d266d9227f1@mail.gmail.com>
-References: <20100121230600.GC8069@bombadil.infradead.org>
-	<1264152878.11396.82.camel@johannes.local>
+From: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [RFC/RFT v3]: compat-wireless for 2.6.32.5 - multiqueue
+ backport support
+Date: Fri, 22 Jan 2010 16:19:36 -0800
+Message-ID: <20100123001936.GM2283@tux>
+References: <20100123001847.GD8069@bombadil.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Luis R. Rodriguez" <mcgrof@bombadil.infradead.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.24]:54185 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753073Ab0AWAJs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jan 2010 19:09:48 -0500
-In-Reply-To: <1264152878.11396.82.camel@johannes.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Luis Rodriguez <Luis.Rodriguez-R2DSYHpuZhhBDgjK7y7TUQ@public.gmane.org>
+To: "Luis R. Rodriguez" <mcgrof-PfSpb0PWhxZc2C7mugBRk2EX/6BAtgUQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20100123001847.GD8069-PfSpb0PWhxZc2C7mugBRk2EX/6BAtgUQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 22, 2010 at 1:34 AM, Johannes Berg
-<johannes@sipsolutions.net> wrote:
-> On Thu, 2010-01-21 at 18:06 -0500, Luis R. Rodriguez wrote:
->
->> +#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23))
->> +static bool ieee80211_all_queues_stopped(struct ieee80211_hw *hw)
->
-> You want "all queues started" :)
+On Fri, Jan 22, 2010 at 04:18:47PM -0800, Luis R. Rodriguez wrote:
+> I've updated the tarball now for 2.6.32.5 along with the issue
+> Johannes spotted. The 2.6.32.5 kernel release has no wireless
+> driver updates though so just pegging this as 2.6.32.5-rc5.
 
-Whoops, yeah thanks, will fix.
+I meant 2.6.32.5-rc3 :)
 
   Luis
+
+> http://bombadil.infradead.org/~mcgrof/tmp/compat-wireless-2.6.32.5-rc3.tar.bz2
+
+  Luis
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
