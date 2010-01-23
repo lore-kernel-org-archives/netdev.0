@@ -1,65 +1,57 @@
 From: Jan Kiszka <jan.kiszka@web.de>
-Subject: Re: [PATCH 31/31] CAPI: Officially claim char major 191
-Date: Sat, 23 Jan 2010 14:13:35 +0100
-Message-ID: <4B5AF5FF.6050702@web.de>
-References: <cover.1264201406.git.jan.kiszka@web.de>	 <445e1bf881b6f8b6a5886d6eee70f6435a5619d6.1264201408.git.jan.kiszka@web.de>	 <20100123122430.5a078b4a@lxorguk.ukuu.org.uk> <1264250892.3469.52.camel@violet>
+Subject: Re: [PATCH 30/31] CAPI: Remove experimental tag from middleware feature
+Date: Sat, 23 Jan 2010 14:13:47 +0100
+Message-ID: <4B5AF60B.3070100@web.de>
+References: <cover.1264201406.git.jan.kiszka@web.de>	<9dd553d458def04edc7790f0320ffdf1f8909aa5.1264201408.git.jan.kiszka@web.de> <20100123122327.7d2622f4@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
  protocol="application/pgp-signature";
- boundary="------------enig64C0F6C8F6B9EEC14775D2D7"
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	David Miller <davem@davemloft.net>,
+ boundary="------------enig80C66DB2AAC9C886D9C69426"
+Cc: David Miller <davem@davemloft.net>,
 	Karsten Keil <isdn@linux-pingi.de>,
 	linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
-	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	Alan Cox <alan@linux.intel.com>
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755480Ab0AWNNr@vger.kernel.org>
-In-Reply-To: <1264250892.3469.52.camel@violet>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fmmailgate03.web.de ([217.72.192.234]:60406 "EHLO
+	fmmailgate03.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755204Ab0AWNNt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 08:13:49 -0500
+In-Reply-To: <20100123122327.7d2622f4@lxorguk.ukuu.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig64C0F6C8F6B9EEC14775D2D7
-Content-Type: text/plain; charset=UTF-8
+--------------enig80C66DB2AAC9C886D9C69426
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: quoted-printable
 
-Marcel Holtmann wrote:
-> Hi Alan,
+Alan Cox wrote:
+> On Sun, 10 Jan 2010 14:12:41 +0100
+> Jan Kiszka <jan.kiszka@web.de> wrote:
 >=20
->>> I found no trace of this mysterious "pcl181" device, neither in-tree =
-nor
->>> out there in the wild. At the same time, the in-tree CAPI middleware =
-is
->>> using major 191 for many years now and obviously without any conflict=
-=2E
->>> Let's officially claim this major number.
->> This is not the way it should have been done but whoever needs spankin=
-g
->> got away with it years ago. Given that this seems the best way forward=
-=2E
->>
->> With LANANA hat on
+>> Despite all its bugs, the middleware support of our CAPI stack was
+>> already in use for many, many moons. And after going through its code,=
+
+>> fixing all issues I found, I feel it deserves to officially become a
+>> non-experimental feature.
 >=20
-> actually in the days of udev, the capifs is not really needed anymore.
-> The right choice would be to remove it. I haven't been enabling it sinc=
-e
-> years.
+> Slightly NAK this - I'm really glad to see the work getting done, but
+> until it uses krefs properly for the tty references I'd say it is
+> experimental still.
+>=20
+> I'd like to help you sort out the tty krefs stuff, using tty_port and s=
+o
+> on and get that wart fixed too.
 
-First of all, the capifs story is orthogonal to the major claim.
+Will look into to this. Some good starting point or reference driver for =
+me?
 
-But basically you are right, capifs is likely not needed anymore. The
-only user visible change - and that was holding me back to suggest its
-removal - is the time when the NCCI minor ttys show up under /dev/capi/
-(or wherever you direct them to). If I didn't miss something about udev,
-it will make all possible minors pop up once the major is registered.
-However, I'm not sure if there is some userland actually relying on this.=
-
-
+Thanks,
 Jan
 
 
---------------enig64C0F6C8F6B9EEC14775D2D7
+--------------enig80C66DB2AAC9C886D9C69426
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -68,9 +60,9 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG v2.0.9 (GNU/Linux)
 Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
 
-iEUEARECAAYFAkta9gMACgkQitSsb3rl5xQJzwCg5XSeY79DUfnbksivaf+P11oV
-VLIAmKF9AZx5eLoFAW8ztsiUpiiQwvE=
-=XSl9
+iEYEARECAAYFAkta9gsACgkQitSsb3rl5xQqLwCg1zvCDMWoH8LFHgi0znBYjujS
+guAAmgNAu0qQlTCXsggmv6whJBn2zXxT
+=7QLn
 -----END PGP SIGNATURE-----
 
---------------enig64C0F6C8F6B9EEC14775D2D7--
+--------------enig80C66DB2AAC9C886D9C69426--
