@@ -1,116 +1,116 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: Bug#565404: linux-image-2.6.26-2-amd64: atl1e: TSO is broken
-Date: Sat, 23 Jan 2010 15:29:40 +0000
-Message-ID: <1264260580.373.77.camel@localhost>
-References: <CDAFEDABF718A54BABD0DA5476695307443F1E8D@SHEXMB-01.global.atheros.com>
-	 <20100120.102704.295948365864962720.anders@netinsight.net>
-	 <CDAFEDABF718A54BABD0DA5476695307455062E7@SHEXMB-01.global.atheros.com>
-	 <20100121.174247.769487074466946522.anders@netinsight.net>
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: 2.6.33-rc5: (e1000): transmit queue 0 timed out
+Date: Sat, 23 Jan 2010 18:37:12 +0300
+Message-ID: <a4423d671001230737i3b3c7da1q6cd4ce615888b36e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-bCg7B8Yy9SXTnyrfOHb5"
-Cc: Jie.Yang@Atheros.com, netdev@vger.kernel.org,
-	565404@bugs.debian.org, Xiong.Huang@Atheros.com
-To: Anders =?ISO-8859-1?Q?Bostr=F6m?= <anders@netinsight.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:39664 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755839Ab0AWP3q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 10:29:46 -0500
-In-Reply-To: <20100121.174247.769487074466946522.anders@netinsight.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>
+To: netdev <netdev@vger.kernel.org>, e1000-devel@lists.sourceforge.net
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
+Hi
 
---=-bCg7B8Yy9SXTnyrfOHb5
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+It is x86_32, UP
 
-On Thu, 2010-01-21 at 17:42 +0100, Anders Bostr=C3=B6m wrote:
-> >>>>> "JY" =3D=3D Jie Yang <Jie.Yang@Atheros.com> writes:
->=20
->  >> Have you tested NFS over TCP? The block-size the application
->  >> uses can have an effect on this. What application did you
->  >> use? Block-size?
->  >>=20
->  JY> yes, I tested NFS over TCP.
->=20
-> One strange observation is that I can only reproduce this problem when
-> transmitting data from a NFS-server using TCP with Atheros
-> AR8121/AR8113/AR8114.
->=20
-> I've tried to reproduce the problem using test-programs, like nttcp
-> and netpipe, without any success. One observation is that the
-> test-programs *only* generates 1500 bytes IP-packets. When
-> the NFS-server sends data, a sequence of 1500 bytes IP-packets are
-> generated, ending with a shorter packet. And this last packet in the
-> sequence has 1500 in the IP-header length field, but is shorter.
+e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+  Tx Queue             <0>
+  TDH                  <0>
+  TDT                  <1f>
+  next_to_use          <1f>
+  next_to_clean        <30>
+buffer_info[next_to_clean]
+  time_stamp           <12d519>
+  next_to_watch        <30>
+  jiffies              <12da92>
+  next_to_watch.status <0>
+WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x1c5/0x1d0()
+Hardware name:
+NETDEV WATCHDOG: eth0 (e1000): transmit queue 0 timed out
+Modules linked in: hwmon_vid sata_sil i2c_nforce2
+Pid: 0, comm: swapper Not tainted 2.6.33-rc5 #1
+Call Trace:
+ [<c102a49d>] warn_slowpath_common+0x6d/0xa0
+ [<c12ea885>] ? dev_watchdog+0x1c5/0x1d0
+ [<c12ea885>] ? dev_watchdog+0x1c5/0x1d0
+ [<c102a516>] warn_slowpath_fmt+0x26/0x30
+ [<c12ea885>] dev_watchdog+0x1c5/0x1d0
+ [<c1033bb7>] ? run_timer_softirq+0xd7/0x240
+ [<c1033c31>] run_timer_softirq+0x151/0x240
+ [<c1033bb7>] ? run_timer_softirq+0xd7/0x240
+ [<c12ea6c0>] ? dev_watchdog+0x0/0x1d0
+ [<c102f40a>] __do_softirq+0x7a/0x110
+ [<c102f4ed>] do_softirq+0x4d/0x60
+ [<c102f625>] irq_exit+0x65/0x70
+ [<c1015fe7>] smp_apic_timer_interrupt+0x47/0x80
+ [<c11d6904>] ? trace_hardirqs_off_thunk+0xc/0x18
+ [<c1350e63>] apic_timer_interrupt+0x2f/0x34
+ [<c10088fd>] ? default_idle+0x2d/0x60
+ [<c1001b19>] cpu_idle+0x39/0x60
+ [<c13451e8>] rest_init+0x48/0x50
+ [<c16196b4>] start_kernel+0x26d/0x274
+ [<c1619275>] ? unknown_bootoption+0x0/0x19c
+ [<c1619068>] i386_start_kernel+0x68/0x6e
+---[ end trace 828c510cca9472df ]---
+BUG: unable to handle kernel paging request at 2e8ca4f3
+IP: [<c1071c51>] put_page+0x11/0x120
+*pde = 00000000
+Oops: 0000 [#1]
+last sysfs file: /sys/devices/system/cpu/cpu0/cpufreq/scaling_setspeed
+Modules linked in: hwmon_vid sata_sil i2c_nforce2
 
-I ran tcpdump over your packet capture and saw:
+Pid: 5, comm: events/0 Tainted: G        W  2.6.33-rc5 #1
+NF7-S/NF7,NF7-V (nVidia-nForce2)/
+EIP: 0060:[<c1071c51>] EFLAGS: 00010282 CPU: 0
+EIP is at put_page+0x11/0x120
+EAX: 2e8ca4f3 EBX: 2e8ca4f3 ECX: 00000000 EDX: ee960640
+ESI: f6482620 EDI: 000016b0 EBP: f7065ea8 ESP: f7065e98
+ DS: 007b ES: 007b FS: 0000 GS: 0000 SS: 0068
+Process events/0 (pid: 5, ti=f7064000 task=f70553c0 task.ti=f7064000)
+Stack:
+ 00000206 00000001 f6482620 000016b0 f7065eb8 c12d3100 f6482620 f71d9f50
+<0> f7065ec4 c12d2e32 f80376b0 f7065ecc c12d2ec5 f7065f00 c1276970 cccccccd
+<0> f7065f00 f711fafc f711fafc f711faa0 00000000 f702b440 000000f2 f702b440
+Call Trace:
+ [<c12d3100>] ? skb_release_data+0x90/0xa0
+ [<c12d2e32>] ? __kfree_skb+0x12/0x90
+ [<c12d2ec5>] ? consume_skb+0x15/0x30
+ [<c1276970>] ? e1000_clean_rx_ring+0x80/0x150
+ [<c127c743>] ? e1000_down+0x1b3/0x1d0
+ [<c127cf60>] ? e1000_reset_task+0x0/0x10
+ [<c127cd3b>] ? e1000_reinit_locked+0x4b/0x70
+ [<c127cf6d>] ? e1000_reset_task+0xd/0x10
+ [<c103a9ea>] ? worker_thread+0x14a/0x230
+ [<c103a989>] ? worker_thread+0xe9/0x230
+ [<c103e160>] ? autoremove_wake_function+0x0/0x40
+ [<c103a8a0>] ? worker_thread+0x0/0x230
+ [<c103de6c>] ? kthread+0x6c/0x80
+ [<c103de00>] ? kthread+0x0/0x80
+ [<c100303a>] ? kernel_thread_helper+0x6/0x1c
+Code: 00 00 00 8d bc 27 00 00 00 00 55 b8 e0 1f 07 c1 89 e5 e8 83 93
+fc ff c9 c3 90 55 89 e5 83 ec 10 89 5d f4 89 75 f8 89 c3 89 7d fc <66>
+f7 00 00 c0 0f 85 e4 00 00 00 8b 40 04 85 c0 0f 84 e3 00 00
+EIP: [<c1071c51>] put_page+0x11/0x120 SS:ESP 0068:f7065e98
+CR2: 000000002e8ca4f3
+---[ end trace 828c510cca9472e0 ]---
 
-13:48:39.122723 00:26:18:ae:69:6d > 00:18:f3:52:22:3f, ethertype IPv4 (0x08=
-00), length 1514: (tos 0x0, ttl 64, id 32664, offset 0, flags [DF], proto T=
-CP (6), length 1500)
-    10.100.0.88.2049 > 10.100.1.25.888: Flags [.], cksum 0x3ebd (correct), =
-seq 21720:23168, ack 157, win 501, options [nop,nop,TS val 152460082 ecr 12=
-12787170], length 1448
-13:48:39.122733 00:18:f3:52:22:3f > 00:26:18:ae:69:6d, ethertype IPv4 (0x08=
-00), length 66: (tos 0x0, ttl 64, id 39773, offset 0, flags [DF], proto TCP=
- (6), length 52)
-    10.100.1.25.888 > 10.100.0.88.2049: Flags [.], cksum 0x5cfc (correct), =
-ack 23168, win 58293, options [nop,nop,TS val 1212787170 ecr 152460082], le=
-ngth 0
-13:48:39.122742 00:26:18:ae:69:6d > 00:18:f3:52:22:3f, ethertype IPv4 (0x08=
-00), length 1462: truncated-ip - 52 bytes missing! (tos 0x0, ttl 64, id 326=
-64, offset 0, flags [DF], proto TCP (6), length 1500)
-    10.100.0.88.2049 > 10.100.1.25.888: Flags [.], seq 23168:24616, ack 157=
-, win 501, options [nop,nop,TS val 152460082 ecr 1212787170], length 1448
-13:48:39.122747 00:26:18:ae:69:6d > 00:18:f3:52:22:3f, ethertype IPv4 (0x08=
-00), length 1514: (tos 0x0, ttl 64, id 32666, offset 0, flags [DF], proto T=
-CP (6), length 1500)
-    10.100.0.88.2049 > 10.100.1.25.888: Flags [.], cksum 0x33a1 (correct), =
-seq 24564:26012, ack 157, win 501, options [nop,nop,TS val 152460082 ecr 12=
-12787170], length 1448
-
-Based on the TCP sequence numbers, it seems that the length of the
-broken packet is correct but its IP header is wrong.
-
-My understanding is that the length of the TCP payload in a GSO skb must
-always be a multiple of the gso_size, so that hardware is not required
-to adjust length fields.  So I see several possible explanations:
-
-1. Something generated invalid GSO skbs (unlikely; other hardware should
-show the same problem)
-2. The driver constructed TSO DMA descriptors for a non-GSO skb
-3. The hardware is continuing to apply TSO to packets with non-TSO DMA
-descriptors
-
-Ben.
-
---=20
-Ben Hutchings
-Any smoothly functioning technology is indistinguishable from a rigged demo=
-.
-
---=-bCg7B8Yy9SXTnyrfOHb5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIVAwUAS1sV4Oe/yOyVhhEJAQK2gBAAnVnFXSQKGtomySTNU3bY112yis8rVsVY
-S8MfLnMK6prHayC0paKJ4gfnvv7ZSMYIL9hfgUi88iaIFU3D93OlOchRtpzpygxn
-VtUTEMtY8eY2cQhPI2L2sA9iic1H1EqXXjuZKiL2nnR3y3Te6g3vnNtxoLKFABJY
-FwDgWQRMVcPm7Q8PdgLN1PT/3VaJmqBlMeTqWsOccqTqqJ1TUTfIAJxsupRarKxm
-fHpn4lrgCcv5TvYVsvYv9q5s1CGd/Hz4ayze/wWXrxBIHMVpEaBNtu4dsrFAHGDe
-jEbGcw3mPeIZyjcIhWy2vadi7aZ06Wnw8HOR7Smkeb48FUjo2sxTWU6dHqKqL5Xp
-MqkXKtI1+jS7Fn9qPQzz2EL8lnoKzMIC0MG/8r/eOjNZIaod1wNfnGQxb/GsNRCe
-loNgPD7M2W102iXLT+nJtYm3tn+PCFPnqvnXwareeSDpAhaSMuM6MOpuatAExVsf
-ovRrJzb3nfD8KSKlfY34TG1Q6HS/DEJOSMXmoGIK4wOYoS5vJ1DoRwalA6Gfvz5s
-cZfLnEUMU+CaJk25Se3YwzKLIVT28gjT/BWWQ8jZ1vXSySNFUnqjLdszRNbmRohL
-wbmCSQMRgw7nAxtvzwBIJHon9zdqdcegYfE3+cm96kuAhshxuL5kal9o7MGfxryw
-FfJPsm9NVl4=
-=w9HR
------END PGP SIGNATURE-----
-
---=-bCg7B8Yy9SXTnyrfOHb5--
+------------------------------------------------------------------------------
+Throughout its 18-year history, RSA Conference consistently attracts the
+world's best and brightest in the field, creating opportunities for Conference
+attendees to learn about information security's most important issues through
+interactions with peers, luminaries and emerging and established companies.
+http://p.sf.net/sfu/rsaconf-dev2dev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
