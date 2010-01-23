@@ -1,48 +1,57 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [RFC, PATCH net-next-2.6] net: introduce a macro to traverse
- through uc_list easily
-Date: Sat, 23 Jan 2010 19:28:15 +0100
-Message-ID: <20100123182814.GA2613@psychotron.redhat.com>
-References: <20100122151301.GC2609@psychotron.redhat.com>
- <20100123.020140.231150448.davem@davemloft.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [net-next-2.6 PATCH 2/3] fs_enet: Add support for MPC512x to fs_enet driver
+Date: Sat, 23 Jan 2010 10:23:14 +0100
+Message-ID: <201001231023.14372.arnd@arndb.de>
+References: <1264039999-25731-1-git-send-email-agust@denx.de> <20100121.012235.161201297.davem@davemloft.net> <4B5871F2.9090005@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	David Miller <davem@davemloft.net>, wd@denx.de, dzu@denx.de,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, agust@denx.de,
+	kosmo@semihalf.com
+To: linuxppc-dev@lists.ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12094 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752103Ab0AWS2V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jan 2010 13:28:21 -0500
-Content-Disposition: inline
-In-Reply-To: <20100123.020140.231150448.davem@davemloft.net>
+Received: from moutng.kundenserver.de ([212.227.126.171]:59075 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752457Ab0AWSws (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 13:52:48 -0500
+In-Reply-To: <4B5871F2.9090005@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Jan 23, 2010 at 11:01:40AM CET, davem@davemloft.net wrote:
->From: Jiri Pirko <jpirko@redhat.com>
->Date: Fri, 22 Jan 2010 16:13:02 +0100
->
->> Therefore that would be good to introduce a macro that can be used to traverse
->> through addresses in the list without caller knowing anything about the type of
->> the list. I think this kind of an abstraction is appropriate on this place.
->> Also during the phase of changing, the macro can use the original list and onc ...
->> What do you think about this? Please comment.
->
->Yes this is the way to do it, three steps:
->
->1) Add interface macros that iterate using the existing
->   datastructure
->
->2) Convert drivers to use #1
->
->3) Convert to list_head
->
+On Thursday 21 January 2010, Wolfgang Grandegger wrote:
+> The major problem that Anatolij tries to solve are the different
+> register layouts of the supported SOCs, MPC52xx and MPC8xx. They use the
+> same registers but at different offsets. Therefore we cannot handle
+> this with a single "fec_t" struct to allow building a single kernel
+> image. Instead it's handled by filling a table with register addresses:
+> 
+>         if (of_device_is_compatible(ofdev->node, "fsl,mpc5121-fec")) {
+>                 fep->fec.fec_id = FS_ENET_MPC5121_FEC;
+>                 fec_reg_mpc5121(ievent);
+>                 fec_reg_mpc5121(imask);
+>                 ...
+>         } else {
+>                 fec_reg_mpc8xx(ievent);
+>                 fec_reg_mpc8xx(imask);
+>                 ...
+>         }
+> 
+> Do you see a more clever solution to this problem? Nevertheless, the
+> code could be improved by using "offsetof", I think.
 
-Yes, I know the drill. I just wanted to be sure that final macro (kinda ugly)
-will be accepted... I'll first make uc_list part (and that's how mc_list part
-will lool like finally). Will post soon.
+Is there any chance of building a kernel that runs on both mpc8xx and
+mpc5121? AFAIK, the 5121 is built on a 6xx core which is fundamentally
+incompatible with 8xx due to different memory management etc.
 
-Thanks
+Since this makes it all a compile-time decision, it should be solvable
+with a very small number of carefully placed #ifdef in the header files
+an no runtime detection at all.
 
-Jirka
+Obviously this approach would not work for drivers that want to be portable
+across different register layouts on otherwise compatible platforms.
+
+	Arnd
+
