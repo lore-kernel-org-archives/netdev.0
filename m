@@ -1,35 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] Fix IPv6 GSO type checks in Intel ethernet
- drivers
-Date: Sat, 23 Jan 2010 02:02:28 -0800 (PST)
-Message-ID: <20100123.020228.149341658.davem@davemloft.net>
-References: <20100123100042.11995.20915.stgit@localhost.localdomain>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH] ixgbevf: Fix IPv6 GSO type checks
+Date: Sat, 23 Jan 2010 02:02:22 -0800
+Message-ID: <20100123100140.12032.63705.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sri@us.ibm.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40211
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752151Ab0AWKCR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 05:02:17 -0500
-In-Reply-To: <20100123100042.11995.20915.stgit@localhost.localdomain>
+Received: from qmta14.westchester.pa.mail.comcast.net ([76.96.59.212]:45748
+	"EHLO qmta14.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752151Ab0AWKCk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 05:02:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sat, 23 Jan 2010 02:00:43 -0800
+Based on patch from Sridhar Samudrala
 
-> From: Sridhar Samudrala <sri@us.ibm.com>
-> 
-> Found this problem when testing IPv6 from a KVM guest to a remote
-> host via e1000e device on the host.
-> The following patch fixes the check for IPv6 GSO packet in Intel
-> ethernet drivers to use skb_is_gso_v6(). SKB_GSO_DODGY is also set
-> when packets are forwarded from a guest.
-> 
-> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+The following patch fixes the check for IPv6 GSO packet in ixgbevf
+driver to use skb_is_gso_v6(). SKB_GSO_DODGY is also set
+when packets are forwarded from a guest.
 
-Applied, thanks.
+CC: Sridhar Samudrala <sri@us.ibm.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/ixgbevf/ixgbevf_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
+index 623353d..7b3af10 100644
+--- a/drivers/net/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ixgbevf/ixgbevf_main.c
+@@ -2781,7 +2781,7 @@ static int ixgbevf_tso(struct ixgbevf_adapter *adapter,
+ 								 IPPROTO_TCP,
+ 								 0);
+ 			adapter->hw_tso_ctxt++;
+-		} else if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6) {
++		} else if (skb_is_gso_v6(skb)) {
+ 			ipv6_hdr(skb)->payload_len = 0;
+ 			tcp_hdr(skb)->check =
+ 			    ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+
