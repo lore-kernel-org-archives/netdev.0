@@ -1,42 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] l2tp: Fix a UDP socket reference count bug in the
- pppol2tp driver
-Date: Sat, 23 Jan 2010 01:55:11 -0800 (PST)
-Message-ID: <20100123.015511.83860202.davem@davemloft.net>
-References: <20100121161009.5223.34288.stgit@bert.katalix.com>
+Subject: Re: [PATCH v2]IP: Send an ICMP "Fragment Reassembly Timeout"
+ message when enabling connection track
+Date: Sat, 23 Jan 2010 01:58:08 -0800 (PST)
+Message-ID: <20100123.015808.196441033.davem@davemloft.net>
+References: <4B5844F2.30104@trash.net>
+	<4B590BE3.40509@cn.fujitsu.com>
+	<4B599084.1060406@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jchapman@katalix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49422
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752506Ab0AWJzA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 04:55:00 -0500
-In-Reply-To: <20100121161009.5223.34288.stgit@bert.katalix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: shanwei@cn.fujitsu.com, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, eric.dumazet@gmail.com,
+	david@blue-labs.org, jorge@dti2.net, opurdila@ixiacom.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4B599084.1060406@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: James Chapman <jchapman@katalix.com>
-Date: Thu, 21 Jan 2010 16:10:09 +0000
+From: Patrick McHardy <kaber@trash.net>
+Date: Fri, 22 Jan 2010 12:48:20 +0100
 
-> The bug can cause a kernel stack trace when a tunnel socket is closed.
+> Shan Wei wrote:
+>> [PATCH v2]IP: Send an ICMP "Fragment Reassembly Timeout" message when enabling connection track
+ ...
+>> The patch has been tested on both host type and route type.
 > 
-> WARNING: at include/net/sock.h:435 udp_lib_unhash+0x117/0x120()
-> Pid: 1086, comm: openl2tpd Not tainted 2.6.33-rc1 #8
-> Call Trace:
+> Looks good to me. Would you mind adding a similar change to IPv6
+> (net/ipv6/netfilter/nf_conntrack_reasm.c)?
 
-This fix doesn't look right at all.
-
-You grab one reference in connect() and then drop a reference
-every single recvmsg() call.
-
-recvmsg() calls to connect() would be many to one, so I can't
-see how this reference counting scheme could possibly work.
-
-Why don't you describe the exact sequence of events that lead
-to the trace, so we can figure out how to correct this
-properly?
-
-Thanks.
+Applied to net-next-2.6, thanks.
