@@ -1,75 +1,56 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH] net: NETDEV WATCHDOG should print something every
- time
-Date: Sat, 23 Jan 2010 01:51:32 +0000
-Message-ID: <1264211492.373.16.camel@localhost>
-References: <20100122214333.14389.86017.stgit@jbrandeb-ich9b.jf.intel.com>
+From: Samir Bellabes <sam@synack.fr>
+Subject: Re: [RFC 4/9] snet: introduce snet_core.c and snet.h
+Date: Sat, 23 Jan 2010 03:07:36 +0100
+Message-ID: <m21vhhefpz.fsf@ssh.synack.fr>
+References: <1262437456-24476-1-git-send-email-sam@synack.fr>
+	<1262437456-24476-5-git-send-email-sam@synack.fr>
+	<4B41FE9D.2070708@trash.net> <m2y6kbm2xw.fsf@ssh.synack.fr>
+	<20100106195830.GA17510@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755663Ab0AWBvk@vger.kernel.org>
-In-Reply-To: <20100122214333.14389.86017.stgit@jbrandeb-ich9b.jf.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	linux-security-module@vger.kernel.org, jamal <hadi@cyberus.ca>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20100106195830.GA17510@ioremap.net> (Evgeniy Polyakov's message
+	of "Wed, 6 Jan 2010 22:58:30 +0300")
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2010-01-22 at 13:43 -0800, Jesse Brandeburg wrote:
-> commit 5337407c changed NETDEV WATCHDOG messages into a message
-> that will only print once per driver load.  This removed a significant amount
-> of information from an admin who might be missing that his system was having
-> NETDEV WATCHDOGs, esp since there is no other global counter available to
-> count these events.
-> 
-> simply check the __warned flag and print a simple version of the message
-> without the full stack dump if the (kerneloops related) WARN_ON_ONCE has
-> already logged the hardware type and one hang.
-[...]
-> diff --git a/include/asm-generic/bug.h b/include/asm-generic/bug.h
-> index 18c435d..ad810a0 100644
-> --- a/include/asm-generic/bug.h
-> +++ b/include/asm-generic/bug.h
-> @@ -132,6 +132,11 @@ extern void warn_slowpath_null(const char *file, const int line);
->  	unlikely(__ret_warn_once);				\
->  })
->  
-> +#define WARNED_ALREADY() ({					\
-> +	static bool __warned;					\
-> +	unlikely(__warned);					\
-> +})
+I'm sorry for the delay I missed this one.
 
-It is indeed unlikely that __warned will be true, given there is no
-statement to set it...
+Evgeniy Polyakov <zbr@ioremap.net> writes:
+> On Wed, Jan 06, 2010 at 08:46:35PM +0100, Samir Bellabes (sam@synack.fr) wrote:
+>> Patrick McHardy <kaber@trash.net> writes:
+>> 
+>> >> +struct snet_event {
+>> >> +	enum snet_syscall syscall;
+>> >> +	u8 protocol;
+>> >> +} __attribute__ ((packed));
+>> >
+>> > Does this really need to be packed? You're using it in a
+>> > struct snet_event_entry, which is padded anyways.
+>> 
+>> I think that that members needs to be aligned, because this struct is
+>> used for the jhash() computation.
+>> when testing on x86_64, I discovered that jhash value wasn't the same,
+>> for a same struct snet_event. Then I thougth about misaligned data, and
+>> possible 'hole' between syscall and protocol.
+>
+> Without padding it will eat additional bytes after 'protocol' field,
+> since enum is 32-bit long.
 
-I think this could be a generic macro:
+thanks for this help.
 
-#define first_time() ({						\
-	static bool __been_here;				\
-	__been_here++;						\
-})
 
->  #define WARN_ON_RATELIMIT(condition, state)			\
->  		WARN_ON((condition) && __ratelimit(state))
->  
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index 5173c1e..28fb14f 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -251,8 +251,13 @@ static void dev_watchdog(unsigned long arg)
->  
->  			if (some_queue_timedout) {
->  				char drivername[64];
-> -				WARN_ONCE(1, KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit queue %u timed out\n",
-> -				       dev->name, netdev_drivername(dev, drivername, 64), i);
-> +				/* FIXME: is there a way to const char string[] = "NETDEV WATCHDOG..." */
-[...]
+>> anyway, I patched the code to use jhash_2words() or jhash_1word().
+>> here is a patch, which apply on top of initial serie
+>
+> What's the purpose of hashing verdict_id?
 
-Maybe you could, you know, just write that declaration... though a
-'static' in front wouldn't hurt.
+indeed, there is no specific purpose, I will fix this now.
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+thanks, and again sorry for the delay.
+sam
