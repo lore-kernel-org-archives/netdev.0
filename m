@@ -1,28 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Please add support for Microsoft MN-120 PCMCIA network
- card
-Date: Sat, 23 Jan 2010 01:09:41 -0800 (PST)
-Message-ID: <20100123.010941.186975038.davem@davemloft.net>
-References: <87r5pmt1kn.wl%rjmx@rjmx.net>
+Subject: Re: [PATCH] be2net: swap only first 2 fields of mcc_wrb
+Date: Sat, 23 Jan 2010 01:09:50 -0800 (PST)
+Message-ID: <20100123.010950.263690634.davem@davemloft.net>
+References: <20100122085136.GA19742@serverengines.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: rjmx@rjmx.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752535Ab0AWJJc@vger.kernel.org>
-In-Reply-To: <87r5pmt1kn.wl%rjmx@rjmx.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: sathyap@serverengines.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51328
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752570Ab0AWJJi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 04:09:38 -0500
+In-Reply-To: <20100122085136.GA19742@serverengines.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ron Murray <rjmx@rjmx.net>
-Date: Tue, 19 Jan 2010 13:02:48 -0500
+From: Sathya Perla <sathyap@serverengines.com>
+Date: Fri, 22 Jan 2010 14:21:36 +0530
 
-> Please add support for Microsoft MN-120 PCMCIA network card. It's an
-> old card, I know, but adding support is very easy. You just need to
-> get tulip_core.c to recognise its vendor/device ID.
+> Only the first two fields of mcc wrb - embedded, payload_len
+> need to be cpu_to_le32() swapped while issuing a cmd to the hw.
+> The fields tag0, tag1 are opaque and returned back to cpu as is...
 > 
-> Patch for kernel 2.6.32.4 (and many previous) attached.
- ...
-> Signed-off-by: Ron Murray <rjmx@rjmx.net>
+> Signed-off-by: Sathya Perla <sathyap@serverengines.com>
 
-Applied, thanks.
+Applied.
