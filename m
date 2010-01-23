@@ -1,56 +1,53 @@
-From: Karsten Keil <isdn@linux-pingi.de>
-Subject: Re: [PATCH 31/31] CAPI: Officially claim char major 191
-Date: Sat, 23 Jan 2010 14:32:09 +0100
-Message-ID: <201001231432.09918.isdn@linux-pingi.de>
-References: <cover.1264201406.git.jan.kiszka@web.de> <20100123122430.5a078b4a@lxorguk.ukuu.org.uk> <1264250892.3469.52.camel@violet>
-Reply-To: isdn@linux-pingi.de
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH 30/31] CAPI: Remove experimental tag from middleware
+ feature
+Date: Sat, 23 Jan 2010 13:56:27 +0000
+Message-ID: <20100123135627.23b2f9e0@lxorguk.ukuu.org.uk>
+References: <cover.1264201406.git.jan.kiszka@web.de>
+	<9dd553d458def04edc7790f0320ffdf1f8909aa5.1264201408.git.jan.kiszka@web.de>
+	<20100123122327.7d2622f4@lxorguk.ukuu.org.uk>
+	<4B5AF60B.3070100@web.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-3"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Jan Kiszka <jan.kiszka@web.de>,
-	David Miller <davem@davemloft.net>,
+Cc: David Miller <davem@davemloft.net>,
+	Karsten Keil <isdn@linux-pingi.de>,
 	linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
-	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	Alan Cox <alan@linux.intel.com>
-To: Marcel Holtmann <marcel@holtmann.org>
+	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org
+To: Jan Kiszka <jan.kiszka@web.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.9]:58055 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751649Ab0AWNcW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 08:32:22 -0500
-In-Reply-To: <1264250892.3469.52.camel@violet>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:59630 "EHLO
+	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755295Ab0AWNyY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 08:54:24 -0500
+In-Reply-To: <4B5AF60B.3070100@web.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Samstag, 23. Januar 2010 13:48:12 Marcel Holtmann wrote:
-> Hi Alan,
-> 
-> > > I found no trace of this mysterious "pcl181" device, neither in-tree
-> > > nor out there in the wild. At the same time, the in-tree CAPI
-> > > middleware is using major 191 for many years now and obviously without
-> > > any conflict. Let's officially claim this major number.
-> >
-> > This is not the way it should have been done but whoever needs spanking
-> > got away with it years ago. Given that this seems the best way forward.
-> >
-> > With LANANA hat on
-> 
-> actually in the days of udev, the capifs is not really needed anymore.
-> The right choice would be to remove it. I haven't been enabling it since
-> years.
-> 
-So far I understand, the pppd capiplugin is the only user of it, so it could 
-be disabled for most users without any problems, as long they are not using
-PPP connections via CAPI.
+On Sat, 23 Jan 2010 14:13:47 +0100
+Jan Kiszka <jan.kiszka@web.de> wrote:
 
-I never understand capifs very well, I think that it can be dropped because of 
-udev, but maybe need some adjustment in user space as well (make sure that
-udev did create the node before  open it).
+> Alan Cox wrote:
+> > On Sun, 10 Jan 2010 14:12:41 +0100
+> > Jan Kiszka <jan.kiszka@web.de> wrote:
+> > 
+> >> Despite all its bugs, the middleware support of our CAPI stack was
+> >> already in use for many, many moons. And after going through its code,
+> >> fixing all issues I found, I feel it deserves to officially become a
+> >> non-experimental feature.
+> > 
+> > Slightly NAK this - I'm really glad to see the work getting done, but
+> > until it uses krefs properly for the tty references I'd say it is
+> > experimental still.
+> > 
+> > I'd like to help you sort out the tty krefs stuff, using tty_port and so
+> > on and get that wart fixed too.
+> 
+> Will look into to this. Some good starting point or reference driver for me?
 
-I f I remember correctly, here was some proposal  to replace the /dev/capi/ 
-nodes with  devpts, this would remove the complete capi_tty device major
-as well.
+Most of the drivers at least use tty_port and the tty_port ref counting
+helpers. The most full use of the new interfaces is probably the latest
+USB serial code and the drivers/mmc/card/sdio_uart.c code, which uses all
+the new facilities to the full to kick all the nasty open/close/hangup
+locking and logic out of the low level drivers.
 
-Karsten
