@@ -1,66 +1,61 @@
-From: Wolfgang Denk <wd@denx.de>
-Subject: Re: [net-next-2.6 PATCH 2/3] fs_enet: Add support for MPC512x to fs_enet driver
-Date: Sun, 24 Jan 2010 17:41:17 +0100
-Message-ID: <20100124164117.DCB483F6C0@gemini.denx.de>
-References: <1264039999-25731-1-git-send-email-agust@denx.de> <20100121.012235.161201297.davem@davemloft.net> <4B5871F2.9090005@grandegger.com> <201001231023.14372.arnd@arndb.de> <4B5C5BDF.6020001@grandegger.com>
+From: Bruno =?UTF-8?B?UHLDqW1vbnQ=?= <bonbons@linux-vserver.org>
+Subject: Re: [2.6.33-rc5 regression] NULL pointer dereference in
+ vlan_skb_recv - probably introduced by commit
+ 9793241fe92f7d9303fb221e43fc598eb065f267
+Date: Sun, 24 Jan 2010 20:18:08 +0100
+Message-ID: <20100124201808.2bbbf0b0@neptune.home>
+References: <20100123165657.187c11e4@neptune.home>
+	<20100123223132.0e62d8cb@neptune.home>
+	<4B5C4E5E.2010507@gmail.com>
+	<20100124160228.366f4e72@neptune.home>
+	<20100124162549.2b39b222@neptune.home>
+	<4B5C74BF.5060604@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Arnd Bergmann <arnd@arndb.de>, linuxppc-dev@lists.ozlabs.org,
-	David Miller <davem@davemloft.net>, dzu@denx.de,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, agust@denx.de,
-	kosmo@semihalf.com
-To: Wolfgang Grandegger <wg@grandegger.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?QW3DqXJpY28=?= Wang <xiyou.wangcong@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:57082 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753656Ab0AXQlW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2010 11:41:22 -0500
-In-reply-to: <4B5C5BDF.6020001@grandegger.com>
+Received: from ppp-156-220.adsl.restena.lu ([158.64.156.220]:46354 "EHLO
+	bonbons.gotdns.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752187Ab0AXTSi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2010 14:18:38 -0500
+In-Reply-To: <4B5C74BF.5060604@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Wolfgang & Arnd,
+Yep, works fine and RX stats look right as well.
 
-In message <4B5C5BDF.6020001@grandegger.com> you wrote:
->
-> Arnd Bergmann wrote:
-...
-> > Is there any chance of building a kernel that runs on both mpc8xx and
-> > mpc5121? AFAIK, the 5121 is built on a 6xx core which is fundamentally
-> > incompatible with 8xx due to different memory management etc.
+So
+Reported-By: Bruno Pr=C3=A9mont <bonbons@linux-vserver.org>
+Tested-By: Bruno Pr=C3=A9mont <bonbons@linux-vserver.org>
 
-It is my understanding as well that you cannot have a single image
-that boots both on 8xx and on 6xx cores. The focus was more on things
-like supporting MPC5200 and MPC512x with the same image.
+Thanks,
+Bruno
 
-> > Since this makes it all a compile-time decision, it should be solvable
-> > with a very small number of carefully placed #ifdef in the header files
-> > an no runtime detection at all.
-> > 
-> > Obviously this approach would not work for drivers that want to be portable
-> > across different register layouts on otherwise compatible platforms.
-> 
-> You are probably right and your proposal would likely result in more
-> transparent (less ugly) code. There has been some discussion about
-> unifying FEC drivers when the patches (with the same subject) have been
-> submitted for the first time in May last year, but it was not about 512x
-> and 8xx, IIRC.
 
-You can re-read this discussion here:
-
-http://patchwork.ozlabs.org/patch/26927/
-
-ee especiall Grant's note of 2009-05-21 15:36:11: "If it looks too
-ugly, then just fork the driver."
-
-Best regards,
-
-Wolfgang Denk
-
--- 
-DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
-HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
-Phone: (+49)-8142-66989-10 Fax: (+49)-8142-66989-80 Email: wd@denx.de
-Immortality consists largely of boredom.
-	-- Zefrem Cochrane, "Metamorphosis", stardate 3219.8
+On Sun, 24 January 2010 Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Ok, I believe I found the problem :)
+>=20
+> Please try following patch, if it works I'll submit with appropriate
+> Changelog and signatures
+>=20
+> Thanks
+>=20
+>=20
+> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+> index b788978..c1b92ca 100644
+> --- a/net/8021q/vlan_dev.c
+> +++ b/net/8021q/vlan_dev.c
+> @@ -163,7 +163,7 @@ int vlan_skb_recv(struct sk_buff *skb, struct net=
+_device *dev,
+>               goto err_unlock;
+>  	}
+> =20
+> -	rx_stats =3D per_cpu_ptr(vlan_dev_info(dev)->vlan_rx_stats,
+> +	rx_stats =3D per_cpu_ptr(vlan_dev_info(skb->dev)->vlan_rx_stats,
+>                              smp_processor_id());
+>       rx_stats->rx_packets++;
+>  	rx_stats->rx_bytes +=3D skb->len;
