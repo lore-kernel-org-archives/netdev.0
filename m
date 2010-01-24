@@ -1,62 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] vlan: fix vlan_skb_recv()
-Date: Sun, 24 Jan 2010 20:43:06 +0100
-Message-ID: <4B5CA2CA.4040307@gmail.com>
-References: <20100123165657.187c11e4@neptune.home>	<20100123223132.0e62d8cb@neptune.home>	<4B5C4E5E.2010507@gmail.com>	<20100124160228.366f4e72@neptune.home>	<20100124162549.2b39b222@neptune.home>	<4B5C74BF.5060604@gmail.com> <20100124201808.2bbbf0b0@neptune.home>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: Regression: Wake on LAN doesn't work in sky2 with 2.6.33-rc4-git2
+Date: Sun, 24 Jan 2010 21:35:29 +0100
+Message-ID: <201001242135.29309.rjw@sisk.pl>
+References: <20100115091053.GA5477@mac.home> <20100119105105.184c3f01@nehalam> <20100119193745.GA5797@x61.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?QW3DqXJpY28gV2FuZw==?= <xiyou.wangcong@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: =?UTF-8?B?QnJ1bm8gUHLDqW1vbnQ=?= <bonbons@linux-vserver.org>,
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Tino Keitel <tino.keitel@gmx.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753456Ab0AXTnO@vger.kernel.org>
-In-Reply-To: <20100124201808.2bbbf0b0@neptune.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ogre.sisk.pl ([217.79.144.158]:45244 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752652Ab0AXUfG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Jan 2010 15:35:06 -0500
+In-Reply-To: <20100119193745.GA5797@x61.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 24/01/2010 20:18, Bruno Pr=C3=A9mont a =C3=A9crit :
-> Yep, works fine and RX stats look right as well.
->=20
-> So
-> Reported-By: Bruno Pr=C3=A9mont <bonbons@linux-vserver.org>
-> Tested-By: Bruno Pr=C3=A9mont <bonbons@linux-vserver.org>
->=20
-> Thanks,
+On Tuesday 19 January 2010, Tino Keitel wrote:
+> On Tue, Jan 19, 2010 at 10:51:05 -0800, Stephen Hemminger wrote:
+> > Is this better worse or the same? It make sure that some
+> > registers are set on resume that might matter.
+> 
+> I see not difference.
 
-Thanks very much Bruno, here is the official patch submission then.
+Hmm.  Perhaps it's better to revert commit 166a0fd4c788ec7f10ca8194ec6d526afa12db75
+for now, so that 2.6.33 works on the Tino's machine, and figure out why it
+broke the WoL before (eventually) re-applying it?
 
-[PATCH] vlan: fix vlan_skb_recv()
-
-Bruno Pr=C3=A9mont found commit 9793241fe92f7d930
-(vlan: Precise RX stats accounting) added a regression for non
-hw accelerated vlans.
-
-[   26.390576] BUG: unable to handle kernel NULL pointer dereference at=
- (null)
-[   26.396369] IP: [<df856b89>] vlan_skb_recv+0x89/0x280 [8021q]
-
-vlan_dev_info() was used with original device, instead of
-skb->dev. Also spotted by Am=C3=A9rico Wang.
-
-Reported-By: Bruno Pr=C3=A9mont <bonbons@linux-vserver.org>
-Tested-By: Bruno Pr=C3=A9mont <bonbons@linux-vserver.org>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/8021q/vlan_dev.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index b788978..c1b92ca 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -163,7 +163,7 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_d=
-evice *dev,
- 		goto err_unlock;
- 	}
-=20
--	rx_stats =3D per_cpu_ptr(vlan_dev_info(dev)->vlan_rx_stats,
-+	rx_stats =3D per_cpu_ptr(vlan_dev_info(skb->dev)->vlan_rx_stats,
- 			       smp_processor_id());
- 	rx_stats->rx_packets++;
- 	rx_stats->rx_bytes +=3D skb->len;
+Rafael
