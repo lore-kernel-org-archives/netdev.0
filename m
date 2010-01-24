@@ -1,36 +1,76 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] netns xfrm: fix "ip xfrm state|policy count" misreport
-Date: Sun, 24 Jan 2010 13:12:52 +1300
-Message-ID: <20100124001252.GA11585@gondor.apana.org.au>
-References: <20100123233709.GA4157@x200>
+From: Anton Blanchard <anton@samba.org>
+Subject: Re: [PATCH 1/2] e1000: Fix DMA mapping error handling
+	on TX
+Date: Sun, 24 Jan 2010 11:47:53 +1100
+Message-ID: <20100124004753.GB2996@kryten>
+References: <20100121114244.GC32259@kryten>
+	<9929d2391001221940r4482dde4k8e5409bc7933bc21@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:47201 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750773Ab0AXAM7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jan 2010 19:12:59 -0500
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Yi Zou <yi.zou@intel.com>, e1000-devel@lists.sourceforge.net,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Ronciak <john.ronciak@intel.com>, netdev@vger.kernel.org,
+	Roel Kluin <roel.kluin@gmail.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-In-Reply-To: <20100123233709.GA4157@x200>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <9929d2391001221940r4482dde4k8e5409bc7933bc21@mail.gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 24, 2010 at 01:37:10AM +0200, Alexey Dobriyan wrote:
-> "ip xfrm state|policy count" report SA/SP count from init_net,
-> not from netns of caller process.
-> 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+ 
+Hi,
 
-Looks good to me.
+> This patch does not apply to the current e1000 driver in net-2.6, much
+> of this patch has already been corrected (applied) by Roel Kluin
+> recent patch.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Sorry I was basing off net-next. I just compared it to my fix and looks like
+the patch in net-2.6 has an off by one error doesn't it?
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Anton
+
+--
+
+Subject: [PATCH] e1000: Fix DMA mapping error handling on TX
+
+e1000_tx_map has an off by one error in the dma mapping error cleanup path.
+We decrement count and never clean the first successfully mapped descriptor.
+
+Signed-off-by: Anton Blanchard <anton@samba.org>
+---
+
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index d29bb53..427cedd 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -2790,8 +2790,6 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
+ dma_error:
+ 	dev_err(&pdev->dev, "TX DMA map failed\n");
+ 	buffer_info->dma = 0;
+-	if (count)
+-		count--;
+ 
+ 	while (count--) {
+ 		if (i==0)
+
+------------------------------------------------------------------------------
+Throughout its 18-year history, RSA Conference consistently attracts the
+world's best and brightest in the field, creating opportunities for Conference
+attendees to learn about information security's most important issues through
+interactions with peers, luminaries and emerging and established companies.
+http://p.sf.net/sfu/rsaconf-dev2dev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
