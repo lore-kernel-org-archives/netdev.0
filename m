@@ -1,139 +1,62 @@
 From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: [PATCH] sched: add head drop fifo queue
-Date: Sun, 24 Jan 2010 23:30:59 +0100
-Message-ID: <1264372259-31357-1-git-send-email-hagen@jauu.net>
-Cc: kaber@trash.net, davem@davemloft.net
+Subject: [PATCH] tc: add new queue discipline: head drop fifo
+Date: Sun, 24 Jan 2010 23:31:05 +0100
+Message-ID: <1264372265-31442-1-git-send-email-hagen@jauu.net>
+Cc: shemminger@vyatta.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:42913 "EHLO
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:59730 "EHLO
 	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752497Ab0AXWbF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2010 17:31:05 -0500
+	by vger.kernel.org with ESMTP id S1753246Ab0AXWbH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2010 17:31:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds an additional queuing strategy, called pfifo_head_drop,
-to remove the oldest skb in the case of an overflow within the queue -
-the head element - instead of the last skb (tail). To remove the oldest
-skb in congested situations is useful for sensor network environments
-where newer packets reflect the superior information.
+This adds the required changes to gain access to
+the head drop classfull queuing discipline named
+pfifo_head_drop. In difference to pfifo or pfifo_fast
+this queuing discipline will drop the first packet
+in the case of queue congestion. As a result the queue
+contain always the freshest packets.
 
-Reviewed-by: Florian Westphal <fw@strlen.de>
-Acked-by: Patrick McHardy <kaber@trash.net>
+To replace the current a root queueing discipline
+for eth0:
+$ tc qdisc replace dev eth0 root pfifo_head_drop
+
+And show statistics:
+$ tc -s qdisc show dev eth0
+
 Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
 ---
- include/net/pkt_sched.h   |    1 +
- include/net/sch_generic.h |   19 +++++++++++++++++++
- net/sched/sch_api.c       |    1 +
- net/sched/sch_fifo.c      |   34 ++++++++++++++++++++++++++++++++++
- 4 files changed, 55 insertions(+), 0 deletions(-)
+ tc/q_fifo.c |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletions(-)
 
-diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
-index 2d56726..b6cdc33 100644
---- a/include/net/pkt_sched.h
-+++ b/include/net/pkt_sched.h
-@@ -71,6 +71,7 @@ extern void qdisc_watchdog_cancel(struct qdisc_watchdog *wd);
+diff --git a/tc/q_fifo.c b/tc/q_fifo.c
+index f561752..6242a98 100644
+--- a/tc/q_fifo.c
++++ b/tc/q_fifo.c
+@@ -25,7 +25,7 @@
  
- extern struct Qdisc_ops pfifo_qdisc_ops;
- extern struct Qdisc_ops bfifo_qdisc_ops;
-+extern struct Qdisc_ops pfifo_head_drop_qdisc_ops;
- 
- extern int fifo_set_limit(struct Qdisc *q, unsigned int limit);
- extern struct Qdisc *fifo_create_dflt(struct Qdisc *sch, struct Qdisc_ops *ops,
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index dad558b..67dc08e 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -427,6 +427,25 @@ static inline struct sk_buff *qdisc_dequeue_head(struct Qdisc *sch)
- 	return __qdisc_dequeue_head(sch, &sch->q);
+ static void explain(void)
+ {
+-	fprintf(stderr, "Usage: ... [p|b]fifo [ limit NUMBER ]\n");
++	fprintf(stderr, "Usage: ... <[p|b]fifo | pfifo_head_drop> [ limit NUMBER ]\n");
  }
  
-+static inline unsigned int __qdisc_queue_drop_head(struct Qdisc *sch,
-+					      struct sk_buff_head *list)
-+{
-+	struct sk_buff *skb = __qdisc_dequeue_head(sch, list);
-+
-+	if (likely(skb != NULL)) {
-+		unsigned int len = qdisc_pkt_len(skb);
-+		kfree_skb(skb);
-+		return len;
-+	}
-+
-+	return 0;
-+}
-+
-+static inline unsigned int qdisc_queue_drop_head(struct Qdisc *sch)
-+{
-+	return __qdisc_queue_drop_head(sch, &sch->q);
-+}
-+
- static inline struct sk_buff *__qdisc_dequeue_tail(struct Qdisc *sch,
- 						   struct sk_buff_head *list)
- {
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 75fd1c6..6cd4910 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -1707,6 +1707,7 @@ static int __init pktsched_init(void)
- {
- 	register_qdisc(&pfifo_qdisc_ops);
- 	register_qdisc(&bfifo_qdisc_ops);
-+	register_qdisc(&pfifo_head_drop_qdisc_ops);
- 	register_qdisc(&mq_qdisc_ops);
- 	proc_net_fops_create(&init_net, "psched", 0, &psched_fops);
- 
-diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
-index 69188e8..4b0a6cc 100644
---- a/net/sched/sch_fifo.c
-+++ b/net/sched/sch_fifo.c
-@@ -43,6 +43,26 @@ static int pfifo_enqueue(struct sk_buff *skb, struct Qdisc* sch)
- 	return qdisc_reshape_fail(skb, sch);
- }
- 
-+static int pfifo_tail_enqueue(struct sk_buff *skb, struct Qdisc* sch)
-+{
-+	struct sk_buff *skb_head;
-+	struct fifo_sched_data *q = qdisc_priv(sch);
-+
-+	if (likely(skb_queue_len(&sch->q) < q->limit))
-+		return qdisc_enqueue_tail(skb, sch);
-+
-+	/* queue full, remove one skb to fulfill the limit */
-+	skb_head = qdisc_dequeue_head(sch);
-+	sch->bstats.bytes -= qdisc_pkt_len(skb_head);
-+	sch->bstats.packets--;
-+	sch->qstats.drops++;
-+	kfree_skb(skb_head);
-+
-+	qdisc_enqueue_tail(skb, sch);
-+
-+	return NET_XMIT_CN;
-+}
-+
- static int fifo_init(struct Qdisc *sch, struct nlattr *opt)
- {
- 	struct fifo_sched_data *q = qdisc_priv(sch);
-@@ -108,6 +128,20 @@ struct Qdisc_ops bfifo_qdisc_ops __read_mostly = {
+ static int fifo_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nlmsghdr *n)
+@@ -89,6 +89,12 @@ struct qdisc_util pfifo_qdisc_util = {
+ 	.print_qopt = fifo_print_opt,
  };
- EXPORT_SYMBOL(bfifo_qdisc_ops);
  
-+struct Qdisc_ops pfifo_head_drop_qdisc_ops __read_mostly = {
-+	.id		=	"pfifo_head_drop",
-+	.priv_size	=	sizeof(struct fifo_sched_data),
-+	.enqueue	=	pfifo_tail_enqueue,
-+	.dequeue	=	qdisc_dequeue_head,
-+	.peek		=	qdisc_peek_head,
-+	.drop		=	qdisc_queue_drop_head,
-+	.init		=	fifo_init,
-+	.reset		=	qdisc_reset_queue,
-+	.change		=	fifo_init,
-+	.dump		=	fifo_dump,
-+	.owner		=	THIS_MODULE,
++struct qdisc_util pfifo_head_drop_qdisc_util = {
++	.id = "pfifo_head_drop",
++	.parse_qopt = fifo_parse_opt,
++	.print_qopt = fifo_print_opt,
 +};
 +
- /* Pass size change message down to embedded FIFO */
- int fifo_set_limit(struct Qdisc *q, unsigned int limit)
- {
+ extern int prio_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt);
+ struct qdisc_util pfifo_fast_qdisc_util = {
+ 	.id = "pfifo_fast",
 -- 
 1.6.6.196.g1f735.dirty
 
