@@ -1,115 +1,290 @@
-From: Bruno =?UTF-8?B?UHLDqW1vbnQ=?= <bonbons@linux-vserver.org>
-Subject: Re: [2.6.33-rc5 regression] NULL pointer dereference in
- vlan_skb_recv - probably introduced by commit
- 9793241fe92f7d9303fb221e43fc598eb065f267
-Date: Sun, 24 Jan 2010 16:25:49 +0100
-Message-ID: <20100124162549.2b39b222@neptune.home>
-References: <20100123165657.187c11e4@neptune.home>
-	<20100123223132.0e62d8cb@neptune.home>
-	<4B5C4E5E.2010507@gmail.com>
-	<20100124160228.366f4e72@neptune.home>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] netns xfrm: deal with dst entries in netns
+Date: Sun, 24 Jan 2010 17:40:14 +0200
+Message-ID: <20100124154014.GA6124@x200>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ppp-156-220.adsl.restena.lu ([158.64.156.220]:43477 "EHLO
-	bonbons.gotdns.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751296Ab0AXP0O convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2010 10:26:14 -0500
-In-Reply-To: <20100124160228.366f4e72@neptune.home>
+Received: from mail-fx0-f215.google.com ([209.85.220.215]:59876 "EHLO
+	mail-fx0-f215.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753386Ab0AXPkQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2010 10:40:16 -0500
+Received: by fxm7 with SMTP id 7so1118413fxm.28
+        for <netdev@vger.kernel.org>; Sun, 24 Jan 2010 07:40:12 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 24 January 2010 Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Le 23/01/2010 22:31, Bruno Pr=C3=A9mont a =C3=A9crit :
-> >> Above part of code did change between 2.6.32 and 2.6.33-rc5 with
-> >> commit 9793241fe92f7d9303fb221e43fc598eb065f267 (vlan: Precise RX
-> >> stats accounting)
-> >> http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git=
-;a=3Dcommitdiff;h=3D9793241fe92f7d9303fb221e43fc598eb065f267
-> >=20
-> > Reverting just that commit gets the system running correctly.
-> >=20
-> > Bruno
->=20
-> I have no idea how this patch can break vlan networking.
->=20
-> Your disassembly and .config seems to show your machine is not SMP
+GC is non-existent in netns, so after you hit GC threshold, no new
+dst entries will be created until someone triggers cleanup in init_net.
 
-Exact
+Make xfrm4_dst_ops and xfrm6_dst_ops per-netns.
+This is not done in a generic way, because it woule waste
+(AF_MAX - 2) * sizeof(struct dst_ops) bytes per-netns.
 
-> Maybe something is broken on UP and alloc_percpu() ?
+Reorder GC threshold initialization so it'd be done before registering
+XFRM policies.
 
-Apparently not, see below and previous mail
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-> Could you add a debug in vlan_dev_init()
+ include/net/netns/xfrm.h |    6 ++++
+ net/ipv4/xfrm4_policy.c  |   14 ++++++-----
+ net/ipv6/xfrm6_policy.c  |   25 +++++++++++--------
+ net/xfrm/xfrm_policy.c   |   59 ++++++++++++++++++++++++++++++++++++++++++++---
+ 4 files changed, 84 insertions(+), 20 deletions(-)
 
-In addition to previous mail, I'm also dumping the result of
-vlan_dev_info(dev) shows that the returned pointer is not the same
-during vlan_dev_init() and vlan_skb_recv() ...
-
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index b788978..f370ce1 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -165,8 +165,11 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_=
-device *dev,
-=20
-        rx_stats =3D per_cpu_ptr(vlan_dev_info(dev)->vlan_rx_stats,
-                               smp_processor_id());
--       rx_stats->rx_packets++;
--       rx_stats->rx_bytes +=3D skb->len;
-+       if (rx_stats) {
-+               rx_stats->rx_packets++;
-+               rx_stats->rx_bytes +=3D skb->len;
-+       } else
-+               pr_err("vlan_skb_recv() %p->rx_stats=3D%p -> %p\n", vla=
-n_dev_info(dev), vlan_dev_info(dev)->vlan_rx_stats, rx_stats);
-=20
-        skb_pull_rcsum(skb, VLAN_HLEN);
-=20
-@@ -738,6 +741,7 @@ static int vlan_dev_init(struct net_device *dev)
-        vlan_dev_info(dev)->vlan_rx_stats =3D alloc_percpu(struct vlan_=
-rx_stats);
-        if (!vlan_dev_info(dev)->vlan_rx_stats)
-                return -ENOMEM;
-+       pr_err("vlan_dev_init() %p->rx_stats=3D%p\n", vlan_dev_info(dev=
-), vlan_dev_info(dev)->vlan_rx_stats);
-=20
-        return 0;
+--- a/include/net/netns/xfrm.h
++++ b/include/net/netns/xfrm.h
+@@ -5,6 +5,7 @@
+ #include <linux/wait.h>
+ #include <linux/workqueue.h>
+ #include <linux/xfrm.h>
++#include <net/dst_ops.h>
+ 
+ struct ctl_table_header;
+ 
+@@ -42,6 +43,11 @@ struct netns_xfrm {
+ 	unsigned int		policy_count[XFRM_POLICY_MAX * 2];
+ 	struct work_struct	policy_hash_work;
+ 
++	struct dst_ops		xfrm4_dst_ops;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	struct dst_ops		xfrm6_dst_ops;
++#endif
++
+ 	struct sock		*nlsk;
+ 	struct sock		*nlsk_stash;
+ 
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -15,7 +15,6 @@
+ #include <net/xfrm.h>
+ #include <net/ip.h>
+ 
+-static struct dst_ops xfrm4_dst_ops;
+ static struct xfrm_policy_afinfo xfrm4_policy_afinfo;
+ 
+ static struct dst_entry *xfrm4_dst_lookup(struct net *net, int tos,
+@@ -190,8 +189,10 @@ _decode_session4(struct sk_buff *skb, struct flowi *fl, int reverse)
+ 
+ static inline int xfrm4_garbage_collect(struct dst_ops *ops)
+ {
+-	xfrm4_policy_afinfo.garbage_collect(&init_net);
+-	return (atomic_read(&xfrm4_dst_ops.entries) > xfrm4_dst_ops.gc_thresh*2);
++	struct net *net = container_of(ops, struct net, xfrm.xfrm4_dst_ops);
++
++	xfrm4_policy_afinfo.garbage_collect(net);
++	return (atomic_read(&ops->entries) > ops->gc_thresh * 2);
  }
-
-This slightly adjusted change produces the following output:
-=2E..
-[ 1192.257978] ADDRCONF(NETDEV_UP): lan: link is not ready
-[ 1192.399059] 802.1Q VLAN Support v1.8 Ben Greear <greearb@candelatech=
-=2Ecom>
-[ 1192.399063] All bugs added by David S. Miller <davem@redhat.com>
-[ 1192.404475] vlan_dev_init() da4ff360->rx_stats=3Ddbd5a340
-                               ^^^^^^^^
-[ 1196.000225] b44: lan: Link is up at 100 Mbps, full duplex.
-[ 1196.000234] b44: lan: Flow control is off for TX and off for RX.
-[ 1196.000379] ADDRCONF(NETDEV_CHANGE): lan: link becomes ready
-[ 1203.160226] lan.658: no IPv6 routers present
-[ 1212.760561] vlan_skb_recv() ddbb8b60->rx_stats=3D(null) -> (null)
-                               ^^^^^^^^
-[ 1212.794961] vlan_skb_recv() ddbb8b60->rx_stats=3D(null) -> (null)
-[ 1219.247018] svc: failed to register lockdv1 RPC service (errno 97).
-[ 1219.249919] mount.nfs used greatest stack depth: 1008 bytes left
-[ 1221.388602] vlan_skb_recv() ddbb8b60->rx_stats=3D(null) -> (null)
-[ 1221.388690] vlan_skb_recv() ddbb8b60->rx_stats=3D(null) -> (null)
-[ 1278.793350] vlan_skb_recv() ddbb8b60->rx_stats=3D(null) -> (null)
-[ 1283.750363] vlan_skb_recv() ddbb8b60->rx_stats=3D(null) -> (null)
-=2E..
-
-This might explain the NULL rx_stats pointer, but why do there exist
-two distinct vlan_dev_info(dev)? (unless in one case dev would be
-the physical network device and in the other case it would be vlan devi=
-ce?
-that is lan versus lan.658 in my case...)
-
-Thanks,
-Bruno
+ 
+ static void xfrm4_update_pmtu(struct dst_entry *dst, u32 mtu)
+@@ -268,7 +269,7 @@ static struct xfrm_policy_afinfo xfrm4_policy_afinfo = {
+ static struct ctl_table xfrm4_policy_table[] = {
+ 	{
+ 		.procname       = "xfrm4_gc_thresh",
+-		.data           = &xfrm4_dst_ops.gc_thresh,
++		.data           = &init_net.xfrm.xfrm4_dst_ops.gc_thresh,
+ 		.maxlen         = sizeof(int),
+ 		.mode           = 0644,
+ 		.proc_handler   = proc_dointvec,
+@@ -295,8 +296,6 @@ static void __exit xfrm4_policy_fini(void)
+ 
+ void __init xfrm4_init(int rt_max_size)
+ {
+-	xfrm4_state_init();
+-	xfrm4_policy_init();
+ 	/*
+ 	 * Select a default value for the gc_thresh based on the main route
+ 	 * table hash size.  It seems to me the worst case scenario is when
+@@ -308,6 +307,9 @@ void __init xfrm4_init(int rt_max_size)
+ 	 * and start cleaning when were 1/2 full
+ 	 */
+ 	xfrm4_dst_ops.gc_thresh = rt_max_size/2;
++
++	xfrm4_state_init();
++	xfrm4_policy_init();
+ #ifdef CONFIG_SYSCTL
+ 	sysctl_hdr = register_net_sysctl_table(&init_net, net_ipv4_ctl_path,
+ 						xfrm4_policy_table);
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -24,7 +24,6 @@
+ #include <net/mip6.h>
+ #endif
+ 
+-static struct dst_ops xfrm6_dst_ops;
+ static struct xfrm_policy_afinfo xfrm6_policy_afinfo;
+ 
+ static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos,
+@@ -224,8 +223,10 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
+ 
+ static inline int xfrm6_garbage_collect(struct dst_ops *ops)
+ {
+-	xfrm6_policy_afinfo.garbage_collect(&init_net);
+-	return (atomic_read(&xfrm6_dst_ops.entries) > xfrm6_dst_ops.gc_thresh*2);
++	struct net *net = container_of(ops, struct net, xfrm.xfrm6_dst_ops);
++
++	xfrm6_policy_afinfo.garbage_collect(net);
++	return (atomic_read(&ops->entries) > ops->gc_thresh * 2);
+ }
+ 
+ static void xfrm6_update_pmtu(struct dst_entry *dst, u32 mtu)
+@@ -310,7 +311,7 @@ static void xfrm6_policy_fini(void)
+ static struct ctl_table xfrm6_policy_table[] = {
+ 	{
+ 		.procname       = "xfrm6_gc_thresh",
+-		.data	   	= &xfrm6_dst_ops.gc_thresh,
++		.data	   	= &init_net.xfrm.xfrm6_dst_ops.gc_thresh,
+ 		.maxlen	 	= sizeof(int),
+ 		.mode	   	= 0644,
+ 		.proc_handler   = proc_dointvec,
+@@ -326,13 +327,6 @@ int __init xfrm6_init(void)
+ 	int ret;
+ 	unsigned int gc_thresh;
+ 
+-	ret = xfrm6_policy_init();
+-	if (ret)
+-		goto out;
+-
+-	ret = xfrm6_state_init();
+-	if (ret)
+-		goto out_policy;
+ 	/*
+ 	 * We need a good default value for the xfrm6 gc threshold.
+ 	 * In ipv4 we set it to the route hash table size * 8, which
+@@ -346,6 +340,15 @@ int __init xfrm6_init(void)
+ 	 */
+ 	gc_thresh = FIB6_TABLE_HASHSZ * 8;
+ 	xfrm6_dst_ops.gc_thresh = (gc_thresh < 1024) ? 1024 : gc_thresh;
++
++	ret = xfrm6_policy_init();
++	if (ret)
++		goto out;
++
++	ret = xfrm6_state_init();
++	if (ret)
++		goto out_policy;
++
+ #ifdef CONFIG_SYSCTL
+ 	sysctl_hdr = register_net_sysctl_table(&init_net, net_ipv6_ctl_path,
+ 						xfrm6_policy_table);
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1309,15 +1309,28 @@ static inline int xfrm_get_tos(struct flowi *fl, int family)
+ 	return tos;
+ }
+ 
+-static inline struct xfrm_dst *xfrm_alloc_dst(int family)
++static inline struct xfrm_dst *xfrm_alloc_dst(struct net *net, int family)
+ {
+ 	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
++	struct dst_ops *dst_ops;
+ 	struct xfrm_dst *xdst;
+ 
+ 	if (!afinfo)
+ 		return ERR_PTR(-EINVAL);
+ 
+-	xdst = dst_alloc(afinfo->dst_ops) ?: ERR_PTR(-ENOBUFS);
++	switch (family) {
++	case AF_INET:
++		dst_ops = &net->xfrm.xfrm4_dst_ops;
++		break;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	case AF_INET6:
++		dst_ops = &net->xfrm.xfrm6_dst_ops;
++		break;
++#endif
++	default:
++		BUG();
++	}
++	xdst = dst_alloc(dst_ops) ?: ERR_PTR(-ENOBUFS);
+ 
+ 	xfrm_policy_put_afinfo(afinfo);
+ 
+@@ -1366,6 +1379,7 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
+ 					    struct flowi *fl,
+ 					    struct dst_entry *dst)
+ {
++	struct net *net = xp_net(policy);
+ 	unsigned long now = jiffies;
+ 	struct net_device *dev;
+ 	struct dst_entry *dst_prev = NULL;
+@@ -1389,7 +1403,7 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
+ 	dst_hold(dst);
+ 
+ 	for (; i < nx; i++) {
+-		struct xfrm_dst *xdst = xfrm_alloc_dst(family);
++		struct xfrm_dst *xdst = xfrm_alloc_dst(net, family);
+ 		struct dst_entry *dst1 = &xdst->u.dst;
+ 
+ 		err = PTR_ERR(xdst);
+@@ -2279,6 +2293,7 @@ EXPORT_SYMBOL(xfrm_bundle_ok);
+ 
+ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
+ {
++	struct net *net;
+ 	int err = 0;
+ 	if (unlikely(afinfo == NULL))
+ 		return -EINVAL;
+@@ -2302,6 +2317,27 @@ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
+ 		xfrm_policy_afinfo[afinfo->family] = afinfo;
+ 	}
+ 	write_unlock_bh(&xfrm_policy_afinfo_lock);
++
++	rtnl_lock();
++	for_each_net(net) {
++		struct dst_ops *xfrm_dst_ops;
++
++		switch (afinfo->family) {
++		case AF_INET:
++			xfrm_dst_ops = &net->xfrm.xfrm4_dst_ops;
++			break;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++		case AF_INET6:
++			xfrm_dst_ops = &net->xfrm.xfrm6_dst_ops;
++			break;
++#endif
++		default:
++			BUG();
++		}
++		*xfrm_dst_ops = *afinfo->dst_ops;
++	}
++	rtnl_unlock();
++
+ 	return err;
+ }
+ EXPORT_SYMBOL(xfrm_policy_register_afinfo);
+@@ -2332,6 +2368,22 @@ int xfrm_policy_unregister_afinfo(struct xfrm_policy_afinfo *afinfo)
+ }
+ EXPORT_SYMBOL(xfrm_policy_unregister_afinfo);
+ 
++static void __net_init xfrm_dst_ops_init(struct net *net)
++{
++	struct xfrm_policy_afinfo *afinfo;
++
++	read_lock_bh(&xfrm_policy_afinfo_lock);
++	afinfo = xfrm_policy_afinfo[AF_INET];
++	if (afinfo)
++		net->xfrm.xfrm4_dst_ops = *afinfo->dst_ops;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	afinfo = xfrm_policy_afinfo[AF_INET6];
++	if (afinfo)
++		net->xfrm.xfrm6_dst_ops = *afinfo->dst_ops;
++#endif
++	read_unlock_bh(&xfrm_policy_afinfo_lock);
++}
++
+ static struct xfrm_policy_afinfo *xfrm_policy_get_afinfo(unsigned short family)
+ {
+ 	struct xfrm_policy_afinfo *afinfo;
+@@ -2494,6 +2546,7 @@ static int __net_init xfrm_net_init(struct net *net)
+ 	rv = xfrm_policy_init(net);
+ 	if (rv < 0)
+ 		goto out_policy;
++	xfrm_dst_ops_init(net);
+ 	rv = xfrm_sysctl_init(net);
+ 	if (rv < 0)
+ 		goto out_sysctl;
