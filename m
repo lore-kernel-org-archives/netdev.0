@@ -1,121 +1,165 @@
 From: Tejun Heo <tj@kernel.org>
-Subject: [PATCHSET] percpu: add __percpu sparse annotations
-Date: Tue, 26 Jan 2010 00:22:07 +0900
-Message-ID: <1264432935-10453-1-git-send-email-tj__30395.4371637248$1264432803$gmane$org@kernel.org>
+Subject: [PATCH 7/8] percpu: add __percpu sparse annotations to hw_breakpoint
+Date: Tue, 26 Jan 2010 00:22:14 +0900
+Message-ID: <1264432935-10453-8-git-send-email-tj@kernel.org>
+References: <1264432935-10453-1-git-send-email-tj@kernel.org>
+Cc: Tejun Heo <tj@kernel.org>
 To: linux-kernel@vger.kernel.org, axboe@kernel.dk,
 	rusty@rustcorp.com.au, akpm@linux-foundation.org,
 	ebiederm@xmission.com, tytso@mit.edu, Trond.Myklebust@netapp.com,
 	aelder@sgi.com, hch@
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:42938 "EHLO hera.kernel.org"
+Received: from hera.kernel.org ([140.211.167.34]:42986 "EHLO hera.kernel.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753392Ab0AYPTC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jan 2010 10:19:02 -0500
+	id S1753848Ab0AYPTL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jan 2010 10:19:11 -0500
+In-Reply-To: <1264432935-10453-1-git-send-email-tj@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset adds __percpu sparse annotations to all percpu users
-covered by x86_64 allmodconfig.  __percpu annotation teaches sparse
-that percpu variables live in a separate address space and can't be
-accessed directly without going through percpu accessors.  This allows
-detection of most percpu access mistakes involving both static and
-dyanmic percpu variables.
+Add __percpu sparse annotations to hw_breakpoint.
 
-This patchset contains the following eight patches.
+These annotations are to make sparse consider percpu variables to be
+in a different address space and warn if accessed without going
+through percpu accessors.  This patch doesn't affect normal builds.
 
- 0001-percpu-add-__percpu-sparse-annotations-to-core-kerne.patch
- 0002-percpu-add-__percpu-sparse-annotations-to-fs.patch
- 0003-percpu-add-__percpu-sparse-annotations-to-net.patch
- 0004-percpu-add-__percpu-sparse-annotations-to-net-driver.patch
- 0005-percpu-add-__percpu-sparse-annotations-to-x86.patch
- 0006-percpu-add-__percpu-sparse-annotations-to-trace.patch
- 0007-percpu-add-__percpu-sparse-annotations-to-hw_breakpo.patch
- 0008-percpu-add-__percpu-sparse-annotations-to-what-s-lef.patch
+per_cpu(nr_task_bp_pinned, cpu) is replaced with
+&per_cpu(nr_task_bp_pinned[0], cpu).  This is the same to the compiler
+but allows per_cpu() macro to correctly drop __percpu designation for
+the returned pointer.
 
-As these annotations are for sparse, none of the above patches affects
-normal kernel build and most of the conversions are straight-forward
-and trivial.  There are a few places where the conversion isn't
-completely straight-forward (but still fairly trivial).  Those are
-mentioned in each patch description.
+Signed-off-by: Tejun Heo <tj@kernel.org>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+---
+ include/linux/hw_breakpoint.h           |    8 ++++----
+ kernel/hw_breakpoint.c                  |   14 +++++++-------
+ samples/hw_breakpoint/data_breakpoint.c |    6 +++---
+ 3 files changed, 14 insertions(+), 14 deletions(-)
 
-I can route the patch through percpu and conflict resolution, if
-necessary, wouldn't be difficult at all for these changes.  If anyone
-wants to route one of these patches through a different tree, please
-let me know.  All that's necessary would be adding dummy __percpu
-definition to the patch.
+diff --git a/include/linux/hw_breakpoint.h b/include/linux/hw_breakpoint.h
+index 41235c9..f462d3d 100644
+--- a/include/linux/hw_breakpoint.h
++++ b/include/linux/hw_breakpoint.h
+@@ -66,14 +66,14 @@ register_wide_hw_breakpoint_cpu(struct perf_event_attr *attr,
+ 				perf_overflow_handler_t	triggered,
+ 				int cpu);
+ 
+-extern struct perf_event **
++extern struct perf_event * __percpu *
+ register_wide_hw_breakpoint(struct perf_event_attr *attr,
+ 			    perf_overflow_handler_t triggered);
+ 
+ extern int register_perf_hw_breakpoint(struct perf_event *bp);
+ extern int __register_perf_hw_breakpoint(struct perf_event *bp);
+ extern void unregister_hw_breakpoint(struct perf_event *bp);
+-extern void unregister_wide_hw_breakpoint(struct perf_event **cpu_events);
++extern void unregister_wide_hw_breakpoint(struct perf_event * __percpu *cpu_events);
+ 
+ extern int reserve_bp_slot(struct perf_event *bp);
+ extern void release_bp_slot(struct perf_event *bp);
+@@ -98,7 +98,7 @@ static inline struct perf_event *
+ register_wide_hw_breakpoint_cpu(struct perf_event_attr *attr,
+ 				perf_overflow_handler_t	 triggered,
+ 				int cpu)		{ return NULL; }
+-static inline struct perf_event **
++static inline struct perf_event * __percpu *
+ register_wide_hw_breakpoint(struct perf_event_attr *attr,
+ 			    perf_overflow_handler_t triggered)	{ return NULL; }
+ static inline int
+@@ -107,7 +107,7 @@ static inline int
+ __register_perf_hw_breakpoint(struct perf_event *bp) 	{ return -ENOSYS; }
+ static inline void unregister_hw_breakpoint(struct perf_event *bp)	{ }
+ static inline void
+-unregister_wide_hw_breakpoint(struct perf_event **cpu_events)		{ }
++unregister_wide_hw_breakpoint(struct perf_event * __percpu *cpu_events)	{ }
+ static inline int
+ reserve_bp_slot(struct perf_event *bp)			{return -ENOSYS; }
+ static inline void release_bp_slot(struct perf_event *bp) 		{ }
+diff --git a/kernel/hw_breakpoint.c b/kernel/hw_breakpoint.c
+index 50dbd59..11dae6d 100644
+--- a/kernel/hw_breakpoint.c
++++ b/kernel/hw_breakpoint.c
+@@ -74,7 +74,7 @@ static DEFINE_MUTEX(nr_bp_mutex);
+ static unsigned int max_task_bp_pinned(int cpu)
+ {
+ 	int i;
+-	unsigned int *tsk_pinned = per_cpu(nr_task_bp_pinned, cpu);
++	unsigned int *tsk_pinned = &per_cpu(nr_task_bp_pinned[0], cpu);
+ 
+ 	for (i = HBP_NUM -1; i >= 0; i--) {
+ 		if (tsk_pinned[i] > 0)
+@@ -163,7 +163,7 @@ static void toggle_bp_task_slot(struct task_struct *tsk, int cpu, bool enable)
+ 
+ 	count = task_bp_pinned(tsk);
+ 
+-	tsk_pinned = per_cpu(nr_task_bp_pinned, cpu);
++	tsk_pinned = &per_cpu(nr_task_bp_pinned[0], cpu);
+ 	if (enable) {
+ 		tsk_pinned[count]++;
+ 		if (count > 0)
+@@ -377,17 +377,17 @@ EXPORT_SYMBOL_GPL(unregister_hw_breakpoint);
+  *
+  * @return a set of per_cpu pointers to perf events
+  */
+-struct perf_event **
++struct perf_event * __percpu *
+ register_wide_hw_breakpoint(struct perf_event_attr *attr,
+ 			    perf_overflow_handler_t triggered)
+ {
+-	struct perf_event **cpu_events, **pevent, *bp;
++	struct perf_event * __percpu *cpu_events, **pevent, *bp;
+ 	long err;
+ 	int cpu;
+ 
+ 	cpu_events = alloc_percpu(typeof(*cpu_events));
+ 	if (!cpu_events)
+-		return ERR_PTR(-ENOMEM);
++		return (void __percpu __force *)ERR_PTR(-ENOMEM);
+ 
+ 	get_online_cpus();
+ 	for_each_online_cpu(cpu) {
+@@ -415,7 +415,7 @@ fail:
+ 	put_online_cpus();
+ 
+ 	free_percpu(cpu_events);
+-	return ERR_PTR(err);
++	return (void __percpu __force *)ERR_PTR(err);
+ }
+ EXPORT_SYMBOL_GPL(register_wide_hw_breakpoint);
+ 
+@@ -423,7 +423,7 @@ EXPORT_SYMBOL_GPL(register_wide_hw_breakpoint);
+  * unregister_wide_hw_breakpoint - unregister a wide breakpoint in the kernel
+  * @cpu_events: the per cpu set of events to unregister
+  */
+-void unregister_wide_hw_breakpoint(struct perf_event **cpu_events)
++void unregister_wide_hw_breakpoint(struct perf_event * __percpu *cpu_events)
+ {
+ 	int cpu;
+ 	struct perf_event **pevent;
+diff --git a/samples/hw_breakpoint/data_breakpoint.c b/samples/hw_breakpoint/data_breakpoint.c
+index c69cbe9..bd0f337 100644
+--- a/samples/hw_breakpoint/data_breakpoint.c
++++ b/samples/hw_breakpoint/data_breakpoint.c
+@@ -34,7 +34,7 @@
+ #include <linux/perf_event.h>
+ #include <linux/hw_breakpoint.h>
+ 
+-struct perf_event **sample_hbp;
++struct perf_event * __percpu *sample_hbp;
+ 
+ static char ksym_name[KSYM_NAME_LEN] = "pid_max";
+ module_param_string(ksym, ksym_name, KSYM_NAME_LEN, S_IRUGO);
+@@ -61,8 +61,8 @@ static int __init hw_break_module_init(void)
+ 	attr.bp_type = HW_BREAKPOINT_W | HW_BREAKPOINT_R;
+ 
+ 	sample_hbp = register_wide_hw_breakpoint(&attr, sample_hbp_handler);
+-	if (IS_ERR(sample_hbp)) {
+-		ret = PTR_ERR(sample_hbp);
++	if (IS_ERR((void __force *)sample_hbp)) {
++		ret = PTR_ERR((void __force *)sample_hbp);
+ 		goto fail;
+ 	}
+ 
+-- 
+1.6.4.2
 
-If nobody objects, I'll push these into percpu tree in three or four
-days.
-
-Thanks.
-
- arch/x86/include/asm/msr.h                 |   12 ++++---
- arch/x86/kernel/acpi/cstate.c              |    2 -
- arch/x86/kernel/cpu/common.c               |    2 -
- arch/x86/kernel/cpu/cpufreq/acpi-cpufreq.c |    2 -
- arch/x86/lib/msr-smp.c                     |    8 +++--
- arch/x86/lib/msr.c                         |    6 +--
- crypto/cryptd.c                            |    2 -
- drivers/acpi/processor_perflib.c           |    2 -
- drivers/dma/dmaengine.c                    |    2 -
- drivers/edac/amd64_edac.c                  |    2 -
- drivers/md/raid5.c                         |    2 -
- drivers/md/raid5.h                         |    2 -
- drivers/net/chelsio/sge.c                  |    2 -
- drivers/net/loopback.c                     |   16 +++++-----
- drivers/net/macvlan.c                      |    2 -
- drivers/net/veth.c                         |    4 +-
- fs/ext4/ext4.h                             |    2 -
- fs/nfs/iostat.h                            |    4 +-
- fs/xfs/xfs_mount.h                         |    2 -
- include/acpi/processor.h                   |    2 -
- include/linux/blktrace_api.h               |    4 +-
- include/linux/dmaengine.h                  |    2 -
- include/linux/ftrace_event.h               |    4 +-
- include/linux/genhd.h                      |    2 -
- include/linux/hw_breakpoint.h              |    8 ++---
- include/linux/kexec.h                      |    2 -
- include/linux/mmzone.h                     |    2 -
- include/linux/module.h                     |    2 -
- include/linux/mount.h                      |    2 -
- include/linux/nfs_fs_sb.h                  |    2 -
- include/linux/percpu_counter.h             |    2 -
- include/linux/srcu.h                       |    2 -
- include/net/ip.h                           |    6 +--
- include/net/ipcomp.h                       |    2 -
- include/net/neighbour.h                    |    2 -
- include/net/netns/conntrack.h              |    2 -
- include/net/netns/core.h                   |    2 -
- include/net/route.h                        |    2 -
- include/net/snmp.h                         |   12 +++++--
- include/net/tcp.h                          |    2 -
- include/trace/ftrace.h                     |    4 +-
- kernel/hw_breakpoint.c                     |   14 ++++----
- kernel/kexec.c                             |    2 -
- kernel/sched.c                             |    4 +-
- kernel/stop_machine.c                      |    2 -
- kernel/trace/trace_event_profile.c         |   16 +++++-----
- kernel/trace/trace_functions_graph.c       |    2 -
- kernel/trace/trace_kprobe.c                |    4 +-
- kernel/trace/trace_ksym.c                  |   10 +++---
- kernel/trace/trace_syscalls.c              |    4 +-
- mm/percpu.c                                |   18 ++++++-----
- net/8021q/vlan.h                           |    2 -
- net/dccp/proto.c                           |    5 +--
- net/ipv4/af_inet.c                         |   46 ++++++++++++++---------------
- net/ipv4/proc.c                            |   28 ++++++++---------
- net/ipv4/route.c                           |    2 -
- net/ipv4/tcp.c                             |   21 +++++++------
- net/ipv6/addrconf.c                        |   24 +++++++--------
- net/ipv6/af_inet6.c                        |   28 ++++++++---------
- net/ipv6/proc.c                            |   24 ++++++++-------
- net/sctp/proc.c                            |    2 -
- net/sctp/protocol.c                        |    5 +--
- net/xfrm/xfrm_ipcomp.c                     |   16 +++++-----
- net/xfrm/xfrm_policy.c                     |    6 +--
- net/xfrm/xfrm_proc.c                       |    3 +
- samples/hw_breakpoint/data_breakpoint.c    |    6 +--
- 66 files changed, 231 insertions(+), 209 deletions(-)
-
---
-tejun
