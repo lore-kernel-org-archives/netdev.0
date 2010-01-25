@@ -1,62 +1,70 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: [PATCH] tc: add new queue discipline: head drop fifo
-Date: Sun, 24 Jan 2010 23:31:05 +0100
-Message-ID: <1264372265-31442-1-git-send-email-hagen@jauu.net>
-Cc: shemminger@vyatta.com
-To: netdev@vger.kernel.org
+From: Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>
+Subject: Re: [PATCH v2]IP: Send an ICMP "Fragment Reassembly Timeout"
+ message when enabling connection track
+Date: Mon, 25 Jan 2010 09:57:06 +0900 (JST)
+Message-ID: <201001250057.o0P0v8E7021320@toshiba.co.jp>
+References: <4B5844F2.30104@trash.net>
+	<4B590BE3.40509@cn.fujitsu.com>
+	<4B599084.1060406@trash.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shanwei@cn.fujitsu.com, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	eric.dumazet@gmail.com, david@blue-labs.org, jorge@dti2.net,
+	opurdila@ixiacom.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:59730 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753246Ab0AXWbH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2010 17:31:07 -0500
+Received: from imx9.toshiba.co.jp ([202.33.96.51]:60155 "EHLO
+	imx9.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751229Ab0AYBDQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jan 2010 20:03:16 -0500
+In-Reply-To: <4B599084.1060406@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds the required changes to gain access to
-the head drop classfull queuing discipline named
-pfifo_head_drop. In difference to pfifo or pfifo_fast
-this queuing discipline will drop the first packet
-in the case of queue congestion. As a result the queue
-contain always the freshest packets.
 
-To replace the current a root queueing discipline
-for eth0:
-$ tc qdisc replace dev eth0 root pfifo_head_drop
+Hi,
 
-And show statistics:
-$ tc -s qdisc show dev eth0
+From: Patrick McHardy <kaber@trash.net>
+Date: Fri, 22 Jan 2010 12:48:20 +0100
 
-Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
----
- tc/q_fifo.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
+> Shan Wei wrote:
+> > [PATCH v2]IP: Send an ICMP "Fragment Reassembly Timeout" message when enabling connection track
+> > 
+> > No matter whether connection track is enabled, an end host should send 
+> > an ICMPv4 "Fragment Reassembly Timeout" message when defrag timeout. 
+> > The reasons are following two points:  
+> > 
+> > 1. RFC 792 says:
+> >    >>>> >> > >   If a host reassembling a fragmented datagram cannot complete the
+> >    >>>> >> > >   reassembly due to missing fragments within its time limit it
+> >    >>>> >> > >   discards the datagram, and it may send a time exceeded message.
+> >    >>>> >> > > 
+> >    >>>> >> > >   If fragment zero is not available then no time exceeded need be
+> >    >>>> >> > >   sent at all.
+> >    >>>> >> > > 
+> >    >>>> >> > > Read more: http://www.faqs.org/rfcs/rfc792.html#ixzz0aOXRD7Wp
+> > 
+> > 2. Patrick McHardy also agrees with this opinion.   :-)   
+> >    About the discussion of this opinion, refer to http://patchwork.ozlabs.org/patch/41649
+> > 
+> > The patch fixed the problem like this:
+> > When enabling connection track, fragments are received at PRE_ROUTING HOOK.
+> > If they are failed to reassemble, ip_expire() will be called. 
+> > Before sending an ICMP "Fragment Reassembly Timeout" message, 
+> > the patch searches router table to get the destination entry only for host type.
+> > 
+> > The patch has been tested on both host type and route type.
+> 
+> Looks good to me. Would you mind adding a similar change to IPv6
+> (net/ipv6/netfilter/nf_conntrack_reasm.c)?
 
-diff --git a/tc/q_fifo.c b/tc/q_fifo.c
-index f561752..6242a98 100644
---- a/tc/q_fifo.c
-+++ b/tc/q_fifo.c
-@@ -25,7 +25,7 @@
- 
- static void explain(void)
- {
--	fprintf(stderr, "Usage: ... [p|b]fifo [ limit NUMBER ]\n");
-+	fprintf(stderr, "Usage: ... <[p|b]fifo | pfifo_head_drop> [ limit NUMBER ]\n");
- }
- 
- static int fifo_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nlmsghdr *n)
-@@ -89,6 +89,12 @@ struct qdisc_util pfifo_qdisc_util = {
- 	.print_qopt = fifo_print_opt,
- };
- 
-+struct qdisc_util pfifo_head_drop_qdisc_util = {
-+	.id = "pfifo_head_drop",
-+	.parse_qopt = fifo_parse_opt,
-+	.print_qopt = fifo_print_opt,
-+};
-+
- extern int prio_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt);
- struct qdisc_util pfifo_fast_qdisc_util = {
- 	.id = "pfifo_fast",
--- 
-1.6.6.196.g1f735.dirty
+It sounds good. Please take care that IPv6 router does not reassemble
+fragmented packets. IIRC the current nf_conntrack_{ipv6,reasm}.c
+reassembles the cloned skbs for tracking, discard the cloned skbs after
+tracking and forward the original skbs to IPv6 stack to keep the size of
+fragmented packets.
 
+-- Yasuyuki Kozakai
