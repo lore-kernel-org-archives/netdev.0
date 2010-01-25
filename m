@@ -1,55 +1,63 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH 6/8] percpu: add __percpu sparse annotations to trace
-Date: Mon, 25 Jan 2010 10:35:36 -0500
-Message-ID: <1264433736.31321.413.camel@gandalf.stny.rr.com>
-References: <1264432935-10453-1-git-send-email-tj@kernel.org>
-	 <1264432935-10453-7-git-send-email-tj@kernel.org>
-Reply-To: rostedt@goodmis.org
+From: Anders =?iso-8859-1?Q?Bostr=F6m?= <anders@netinsight.net>
+Subject: Re: Bug#565404: linux-image-2.6.26-2-amd64: atl1e: TSO is broken
+Date: Mon, 25 Jan 2010 16:36:12 +0100 (CET)
+Message-ID: <20100125.163612.582489483209420341.anders@netinsight.net>
+References: <CDAFEDABF718A54BABD0DA5476695307455062E7@SHEXMB-01.global.atheros.com>
+	<20100121.174247.769487074466946522.anders@netinsight.net>
+	<CDAFEDABF718A54BABD0DA5476695307475CCD42@SHEXMB-01.global.atheros.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, axboe@kernel.dk,
-	rusty@rustcorp.com.au, akpm@linux-foundation.org,
-	ebiederm@xmission.com, tytso@mit.edu, Trond.Myklebust@netapp.com,
-	aelder@sgi.com, hch@infradead.org, viro@zeniv.linux.org.uk,
-	davem@davemloft.net, netdev@vger.kernel.org, x86@kernel.org,
-	mingo@redhat.com, fweisbec@gmail.com, dan.j.williams@intel.com,
-	borislav.petkov@amd.com, ying.huang@intel.com, lenb@kernel.org,
-	neilb@suse.de, cl@linux-foundation.org
-To: Tejun Heo <tj@kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ben@decadent.org.uk, netdev@vger.kernel.org,
+	565404@bugs.debian.org, Xiong.Huang@Atheros.com
+To: Jie.Yang@Atheros.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-omtalb.mail.rr.com ([71.74.56.123]:41865 "EHLO
-	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932131Ab0AYPfl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2010 10:35:41 -0500
-In-Reply-To: <1264432935-10453-7-git-send-email-tj@kernel.org>
+Received: from ernst.netinsight.se ([194.16.221.21]:21422 "HELO
+	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752421Ab0AYPgV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2010 10:36:21 -0500
+In-Reply-To: <CDAFEDABF718A54BABD0DA5476695307475CCD42@SHEXMB-01.global.atheros.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-01-26 at 00:22 +0900, Tejun Heo wrote:
-> Add __percpu sparse annotations to trace.
-> 
-> These annotations are to make sparse consider percpu variables to be
-> in a different address space and warn if accessed without going
-> through percpu accessors.  This patch doesn't affect normal builds.
-> 
-> Signed-off-by: Tejun Heo <tj@kernel.org>
+>>>>> "JY" =3D=3D Jie Yang <Jie.Yang@Atheros.com> writes:
 
-Acked-by: Steven Rostedt <rostedt@goodmis.org>
+ JY> Anders Bostr=F6m <anders@netinsight.net> wrote:
+ >> Cc: ben@decadent.org.uk; netdev@vger.kernel.org;
+ >> 565404@bugs.debian.org; Xiong Huang
+ >> Subject: Re: Bug#565404: linux-image-2.6.26-2-amd64: atl1e:
+ >> TSO is broken
 
--- Steve
+ >> One strange observation is that I can only reproduce this
+ >> problem when transmitting data from a NFS-server using TCP
+ >> with Atheros AR8121/AR8113/AR8114.
+ >>=20
+ >> I've tried to reproduce the problem using test-programs, like
+ >> nttcp and netpipe, without any success. One observation is
+ >> that the test-programs *only* generates 1500 bytes
+ >> IP-packets. When the NFS-server sends data, a sequence of
+ >> 1500 bytes IP-packets are generated, ending with a shorter
+ >> packet. And this last packet in the sequence has 1500 in the
+ >> IP-header length field, but is shorter.
+ >>=20
+ JY> following is my test cese,
 
-> Cc: Frederic Weisbecker <fweisbec@gmail.com>
-> Cc: Ingo Molnar <mingo@redhat.com>
-> ---
->  include/linux/ftrace_event.h         |    4 ++--
->  include/trace/ftrace.h               |    4 ++--
->  kernel/trace/trace_event_profile.c   |   16 ++++++++--------
->  kernel/trace/trace_functions_graph.c |    2 +-
->  kernel/trace/trace_kprobe.c          |    4 ++--
->  kernel/trace/trace_ksym.c            |   10 +++++-----
->  kernel/trace/trace_syscalls.c        |    4 ++--
->  7 files changed, 22 insertions(+), 22 deletions(-)
-> 
+ JY> a nfs server server with ar8131chip, device id 1063. export /tmp/ =
+dir as the nfs share directory,
+ JY> the client, mount the server_ip:/tmp to local dir /mnt/nfs, ust a =
+python script to write and read data on the
+ JY> /mnt/nfs/testnfs.log. it works fine.
 
+OK, the device-ID in our NFS-server is 1026, rev. b0. So it is
+possible that the problem is specific to that chip/version.
 
+ JY> Can you give me some advice on how to reproduce this bug??
+
+The only suggestion I have is to try to find a board with a 1026-chip
+on it.
+
+My test-case is just copy of a 1 Gbyte file from the
+NFS-server to /dev/null , after making sure that the file isn't cached
+on the client by reading huge amounts of other data.
+
+/ Anders
