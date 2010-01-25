@@ -1,39 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vlan: fix vlan_skb_recv()
-Date: Sun, 24 Jan 2010 19:52:36 -0800 (PST)
-Message-ID: <20100124.195236.40118964.davem@davemloft.net>
-References: <4B5C74BF.5060604@gmail.com>
-	<20100124201808.2bbbf0b0@neptune.home>
-	<4B5CA2CA.4040307@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Regression: Wake on LAN doesn't work in sky2 with
+ 2.6.33-rc4-git2
+Date: Sun, 24 Jan 2010 20:42:23 -0800
+Message-ID: <20100124204223.3439e297@nehalam>
+References: <20100115091053.GA5477@mac.home>
+	<20100119105105.184c3f01@nehalam>
+	<20100119193745.GA5797@x61.home>
+	<201001242135.29309.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bonbons@linux-vserver.org, xiyou.wangcong@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753282Ab0AYDw1@vger.kernel.org>
-In-Reply-To: <4B5CA2CA.4040307@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Tino Keitel <tino.keitel@gmx.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:35074 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751466Ab0AYEmp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Jan 2010 23:42:45 -0500
+In-Reply-To: <201001242135.29309.rjw@sisk.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 24 Jan 2010 20:43:06 +0100
+On Sun, 24 Jan 2010 21:35:29 +0100
+"Rafael J. Wysocki" <rjw@sisk.pl> wrote:
 
-> [PATCH] vlan: fix vlan_skb_recv()
->=20
-> Bruno Pr=E9mont found commit 9793241fe92f7d930
-> (vlan: Precise RX stats accounting) added a regression for non
-> hw accelerated vlans.
->=20
-> [   26.390576] BUG: unable to handle kernel NULL pointer dereference =
-at (null)
-> [   26.396369] IP: [<df856b89>] vlan_skb_recv+0x89/0x280 [8021q]
->=20
-> vlan_dev_info() was used with original device, instead of
-> skb->dev. Also spotted by Am=E9rico Wang.
->=20
-> Reported-By: Bruno Pr=E9mont <bonbons@linux-vserver.org>
-> Tested-By: Bruno Pr=E9mont <bonbons@linux-vserver.org>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> On Tuesday 19 January 2010, Tino Keitel wrote:
+> > On Tue, Jan 19, 2010 at 10:51:05 -0800, Stephen Hemminger wrote:
+> > > Is this better worse or the same? It make sure that some
+> > > registers are set on resume that might matter.
+> > 
+> > I see not difference.
+> 
+> Hmm.  Perhaps it's better to revert commit 166a0fd4c788ec7f10ca8194ec6d526afa12db75
+> for now, so that 2.6.33 works on the Tino's machine, and figure out why it
+> broke the WoL before (eventually) re-applying it?
+> 
+> Rafael
 
-Applied, thanks everyone.
+Agreed
+
+-- 
