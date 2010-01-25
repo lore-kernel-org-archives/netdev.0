@@ -1,150 +1,152 @@
 From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 8/8] percpu: add __percpu sparse annotations to what's left
-Date: Tue, 26 Jan 2010 00:22:15 +0900
-Message-ID: <1264432935-10453-9-git-send-email-tj__9905.536103952$1264432895$gmane$org@kernel.org>
+Subject: [PATCH 4/8] percpu: add __percpu sparse annotations to net drivers
+Date: Tue, 26 Jan 2010 00:22:11 +0900
+Message-ID: <1264432935-10453-5-git-send-email-tj__32644.4030892619$1264432897$gmane$org@kernel.org>
 References: <1264432935-10453-1-git-send-email-tj@kernel.org>
-Cc: Tejun Heo <tj@kernel.org>
+Cc: Tejun Heo <tj@kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>
 To: linux-kernel@vger.kernel.org, axboe@kernel.dk,
 	rusty@rustcorp.com.au, akpm@linux-foundation.org,
 	ebiederm@xmission.com, tytso@mit.edu, Trond.Myklebust@netapp.com,
 	aelder@sgi.com, hch@
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:42975 "EHLO hera.kernel.org"
+Received: from hera.kernel.org ([140.211.167.34]:42974 "EHLO hera.kernel.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753855Ab0AYPTK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jan 2010 10:19:10 -0500
+	id S1752908Ab0AYPTJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jan 2010 10:19:09 -0500
 In-Reply-To: <1264432935-10453-1-git-send-email-tj@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add __percpu sparse annotations to places which didn't make it in one
-of the previous patches.  All converions are trivial.
+Add __percpu sparse annotations to net drivers.
 
 These annotations are to make sparse consider percpu variables to be
 in a different address space and warn if accessed without going
 through percpu accessors.  This patch doesn't affect normal builds.
 
 Signed-off-by: Tejun Heo <tj@kernel.org>
-Cc: Dan Williams <dan.j.williams@intel.com>
-Cc: Borislav Petkov <borislav.petkov@amd.com>
-Cc: Huang Ying <ying.huang@intel.com>
-Cc: Len Brown <lenb@kernel.org>
-Cc: Neil Brown <neilb@suse.de>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Arnd Bergmann <arnd@arndb.de>
 ---
- crypto/cryptd.c                  |    2 +-
- drivers/acpi/processor_perflib.c |    2 +-
- drivers/dma/dmaengine.c          |    2 +-
- drivers/edac/amd64_edac.c        |    2 +-
- drivers/md/raid5.c               |    2 +-
- drivers/md/raid5.h               |    2 +-
- include/acpi/processor.h         |    2 +-
- include/linux/dmaengine.h        |    2 +-
- 8 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/chelsio/sge.c |    2 +-
+ drivers/net/loopback.c    |   16 +++++++++-------
+ drivers/net/macvlan.c     |    2 +-
+ drivers/net/veth.c        |    4 ++--
+ 4 files changed, 13 insertions(+), 11 deletions(-)
 
-diff --git a/crypto/cryptd.c b/crypto/cryptd.c
-index 704c141..ef71318 100644
---- a/crypto/cryptd.c
-+++ b/crypto/cryptd.c
-@@ -31,7 +31,7 @@ struct cryptd_cpu_queue {
+diff --git a/drivers/net/chelsio/sge.c b/drivers/net/chelsio/sge.c
+index 109d278..8e12505 100644
+--- a/drivers/net/chelsio/sge.c
++++ b/drivers/net/chelsio/sge.c
+@@ -267,7 +267,7 @@ struct sge {
+ 	struct sk_buff	*espibug_skb[MAX_NPORTS];
+ 	u32		sge_control;	/* shadow value of sge control reg */
+ 	struct sge_intr_counts stats;
+-	struct sge_port_stats *port_stats[MAX_NPORTS];
++	struct sge_port_stats __percpu *port_stats[MAX_NPORTS];
+ 	struct sched	*tx_sched;
+ 	struct cmdQ cmdQ[SGE_CMDQ_N] ____cacheline_aligned_in_smp;
  };
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index b9fcc98..72b7949 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -72,7 +72,8 @@ struct pcpu_lstats {
+ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
+ 				 struct net_device *dev)
+ {
+-	struct pcpu_lstats *pcpu_lstats, *lb_stats;
++	struct pcpu_lstats __percpu *pcpu_lstats;
++	struct pcpu_lstats *lb_stats;
+ 	int len;
  
- struct cryptd_queue {
--	struct cryptd_cpu_queue *cpu_queue;
-+	struct cryptd_cpu_queue __percpu *cpu_queue;
- };
+ 	skb_orphan(skb);
+@@ -80,7 +81,7 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
+ 	skb->protocol = eth_type_trans(skb, dev);
  
- struct cryptd_instance_ctx {
-diff --git a/drivers/acpi/processor_perflib.c b/drivers/acpi/processor_perflib.c
-index 2cabadc..8c6a649 100644
---- a/drivers/acpi/processor_perflib.c
-+++ b/drivers/acpi/processor_perflib.c
-@@ -557,7 +557,7 @@ end:
+ 	/* it's OK to use per_cpu_ptr() because BHs are off */
+-	pcpu_lstats = dev->ml_priv;
++	pcpu_lstats = (void __percpu __force *)dev->ml_priv;
+ 	lb_stats = this_cpu_ptr(pcpu_lstats);
+ 
+ 	len = skb->len;
+@@ -95,14 +96,14 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
+ 
+ static struct net_device_stats *loopback_get_stats(struct net_device *dev)
+ {
+-	const struct pcpu_lstats *pcpu_lstats;
++	const struct pcpu_lstats __percpu *pcpu_lstats;
+ 	struct net_device_stats *stats = &dev->stats;
+ 	unsigned long bytes = 0;
+ 	unsigned long packets = 0;
+ 	unsigned long drops = 0;
+ 	int i;
+ 
+-	pcpu_lstats = dev->ml_priv;
++	pcpu_lstats = (void __percpu __force *)dev->ml_priv;
+ 	for_each_possible_cpu(i) {
+ 		const struct pcpu_lstats *lb_stats;
+ 
+@@ -135,19 +136,20 @@ static const struct ethtool_ops loopback_ethtool_ops = {
+ 
+ static int loopback_dev_init(struct net_device *dev)
+ {
+-	struct pcpu_lstats *lstats;
++	struct pcpu_lstats __percpu *lstats;
+ 
+ 	lstats = alloc_percpu(struct pcpu_lstats);
+ 	if (!lstats)
+ 		return -ENOMEM;
+ 
+-	dev->ml_priv = lstats;
++	dev->ml_priv = (void __force *)lstats;
+ 	return 0;
  }
  
- int acpi_processor_preregister_performance(
--		struct acpi_processor_performance *performance)
-+		struct acpi_processor_performance __percpu *performance)
+ static void loopback_dev_free(struct net_device *dev)
  {
- 	int count, count_target;
- 	int retval = 0;
-diff --git a/drivers/dma/dmaengine.c b/drivers/dma/dmaengine.c
-index 6f51a0a..4eadd98 100644
---- a/drivers/dma/dmaengine.c
-+++ b/drivers/dma/dmaengine.c
-@@ -284,7 +284,7 @@ struct dma_chan_tbl_ent {
- /**
-  * channel_table - percpu lookup table for memory-to-memory offload providers
-  */
--static struct dma_chan_tbl_ent *channel_table[DMA_TX_TYPE_END];
-+static struct dma_chan_tbl_ent __percpu *channel_table[DMA_TX_TYPE_END];
+-	struct pcpu_lstats *lstats = dev->ml_priv;
++	struct pcpu_lstats __percpu *lstats =
++		(void __percpu __force *)dev->ml_priv;
  
- static int __init dma_channel_table_init(void)
+ 	free_percpu(lstats);
+ 	free_netdev(dev);
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 21a9c9a..4d2040c 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -59,7 +59,7 @@ struct macvlan_dev {
+ 	struct hlist_node	hlist;
+ 	struct macvlan_port	*port;
+ 	struct net_device	*lowerdev;
+-	struct macvlan_rx_stats *rx_stats;
++	struct macvlan_rx_stats __percpu *rx_stats;
+ 	enum macvlan_mode	mode;
+ };
+ 
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 3a15de5..35609e6 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -34,7 +34,7 @@ struct veth_net_stats {
+ 
+ struct veth_priv {
+ 	struct net_device *peer;
+-	struct veth_net_stats *stats;
++	struct veth_net_stats __percpu *stats;
+ 	unsigned ip_summed;
+ };
+ 
+@@ -263,7 +263,7 @@ static int veth_change_mtu(struct net_device *dev, int new_mtu)
+ 
+ static int veth_dev_init(struct net_device *dev)
  {
-diff --git a/drivers/edac/amd64_edac.c b/drivers/edac/amd64_edac.c
-index 000dc67..7b36c88 100644
---- a/drivers/edac/amd64_edac.c
-+++ b/drivers/edac/amd64_edac.c
-@@ -13,7 +13,7 @@ module_param(report_gart_errors, int, 0644);
- static int ecc_enable_override;
- module_param(ecc_enable_override, int, 0644);
+-	struct veth_net_stats *stats;
++	struct veth_net_stats __percpu *stats;
+ 	struct veth_priv *priv;
  
--static struct msr *msrs;
-+static struct msr __percpu *msrs;
- 
- /* Lookup table for all possible MC control instances */
- struct amd64_pvt;
-diff --git a/drivers/md/raid5.c b/drivers/md/raid5.c
-index e84204e..77cb3ab 100644
---- a/drivers/md/raid5.c
-+++ b/drivers/md/raid5.c
-@@ -4680,7 +4680,7 @@ static int raid5_alloc_percpu(raid5_conf_t *conf)
- {
- 	unsigned long cpu;
- 	struct page *spare_page;
--	struct raid5_percpu *allcpus;
-+	struct raid5_percpu __percpu *allcpus;
- 	void *scribble;
- 	int err;
- 
-diff --git a/drivers/md/raid5.h b/drivers/md/raid5.h
-index dd70835..0f86f5e 100644
---- a/drivers/md/raid5.h
-+++ b/drivers/md/raid5.h
-@@ -405,7 +405,7 @@ struct raid5_private_data {
- 					      * lists and performing address
- 					      * conversions
- 					      */
--	} *percpu;
-+	} __percpu *percpu;
- 	size_t			scribble_len; /* size of scribble region must be
- 					       * associated with conf to handle
- 					       * cpu hotplug while reshaping
-diff --git a/include/acpi/processor.h b/include/acpi/processor.h
-index 0ea5ef4..477544f 100644
---- a/include/acpi/processor.h
-+++ b/include/acpi/processor.h
-@@ -238,7 +238,7 @@ struct acpi_processor_errata {
- 
- extern int acpi_processor_preregister_performance(struct
- 						  acpi_processor_performance
--						  *performance);
-+						  __percpu *performance);
- 
- extern int acpi_processor_register_performance(struct acpi_processor_performance
- 					       *performance, unsigned int cpu);
-diff --git a/include/linux/dmaengine.h b/include/linux/dmaengine.h
-index 7878498..21fd9b7 100644
---- a/include/linux/dmaengine.h
-+++ b/include/linux/dmaengine.h
-@@ -162,7 +162,7 @@ struct dma_chan {
- 	struct dma_chan_dev *dev;
- 
- 	struct list_head device_node;
--	struct dma_chan_percpu *local;
-+	struct dma_chan_percpu __percpu *local;
- 	int client_count;
- 	int table_count;
- 	void *private;
+ 	stats = alloc_percpu(struct veth_net_stats);
 -- 
 1.6.4.2
 
