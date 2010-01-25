@@ -1,131 +1,57 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] sky2: revert config space change
-Date: Sun, 24 Jan 2010 20:46:06 -0800
-Message-ID: <20100124204606.2760d34e@nehalam>
-References: <20100115091053.GA5477@mac.home>
-	<20100119105105.184c3f01@nehalam>
-	<20100119193745.GA5797@x61.home>
-	<201001242135.29309.rjw@sisk.pl>
+From: Jie Yang <Jie.Yang@Atheros.com>
+Subject: RE: Bug#565404: linux-image-2.6.26-2-amd64: atl1e: TSO is broken
+Date: Mon, 25 Jan 2010 13:41:19 +0800
+Message-ID: <CDAFEDABF718A54BABD0DA5476695307475CCD42@SHEXMB-01.global.atheros.com>
+References: <CDAFEDABF718A54BABD0DA5476695307443F1E8D@SHEXMB-01.global.atheros.com>
+	<20100120.102704.295948365864962720.anders@netinsight.net>
+	<CDAFEDABF718A54BABD0DA5476695307455062E7@SHEXMB-01.global.atheros.com>
+ <20100121.174247.769487074466946522.anders@netinsight.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Tino Keitel <tino.keitel@gmx.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753240Ab0AYEqf@vger.kernel.org>
-In-Reply-To: <201001242135.29309.rjw@sisk.pl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"565404@bugs.debian.org" <565404@bugs.debian.org>,
+	Xiong Huang <Xiong.Huang@Atheros.com>
+To: =?iso-8859-1?Q?Anders_Bostr=F6m?= <anders@netinsight.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 175.210.DSNET ([203.110.175.210]:48092 "EHLO mail.atheros.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750918Ab0AYFlX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2010 00:41:23 -0500
+In-Reply-To: <20100121.174247.769487074466946522.anders@netinsight.net>
+Content-Language: zh-CN
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Obviously, this register had some other impact that is causing
-the regression.  Either it is masking some other access or needs
-to be reset in some path.
+Anders Bostr=F6m <anders@netinsight.net> wrote:
 
-Either, way it is best to just revert the change for 2.6.33
+> Cc: ben@decadent.org.uk; netdev@vger.kernel.org;
+> 565404@bugs.debian.org; Xiong Huang
+> Subject: Re: Bug#565404: linux-image-2.6.26-2-amd64: atl1e:
+> TSO is broken
 
+> One strange observation is that I can only reproduce this
+> problem when transmitting data from a NFS-server using TCP
+> with Atheros AR8121/AR8113/AR8114.
+>
+> I've tried to reproduce the problem using test-programs, like
+> nttcp and netpipe, without any success. One observation is
+> that the test-programs *only* generates 1500 bytes
+> IP-packets. When the NFS-server sends data, a sequence of
+> 1500 bytes IP-packets are generated, ending with a shorter
+> packet. And this last packet in the sequence has 1500 in the
+> IP-header length field, but is shorter.
+>
+following is my test cese,
 
-This reverts commit 166a0fd4c788ec7f10ca8194ec6d526afa12db75.
----
- drivers/net/sky2.c |   13 +++++++++++++
- 1 files changed, 13 insertions(+), 0 deletions(-)
+a nfs server server with ar8131chip, device id 1063. export /tmp/ dir a=
+s the nfs share directory,
+the client, mount the server_ip:/tmp to local dir /mnt/nfs, ust a pytho=
+n script to write and read data on the
+/mnt/nfs/testnfs.log. it works fine.
 
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index f8f50f7..64b441c 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -644,6 +644,7 @@ static void sky2_phy_power_up(struct sky2_hw *hw, unsigned port)
- {
- 	u32 reg1;
- 
-+	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
- 	reg1 = sky2_pci_read32(hw, PCI_DEV_REG1);
- 	reg1 &= ~phy_power[port];
- 
-@@ -651,6 +652,7 @@ static void sky2_phy_power_up(struct sky2_hw *hw, unsigned port)
- 		reg1 |= coma_mode[port];
- 
- 	sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
-+	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
- 	sky2_pci_read32(hw, PCI_DEV_REG1);
- 
- 	if (hw->chip_id == CHIP_ID_YUKON_FE)
-@@ -707,9 +709,11 @@ static void sky2_phy_power_down(struct sky2_hw *hw, unsigned port)
- 		gm_phy_write(hw, port, PHY_MARV_CTRL, PHY_CT_PDOWN);
- 	}
- 
-+	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
- 	reg1 = sky2_pci_read32(hw, PCI_DEV_REG1);
- 	reg1 |= phy_power[port];		/* set PHY to PowerDown/COMA Mode */
- 	sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
-+	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
- }
- 
- /* Force a renegotiation */
-@@ -2149,7 +2153,9 @@ static void sky2_qlink_intr(struct sky2_hw *hw)
- 
- 	/* reset PHY Link Detect */
- 	phy = sky2_pci_read16(hw, PSM_CONFIG_REG4);
-+	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
- 	sky2_pci_write16(hw, PSM_CONFIG_REG4, phy | 1);
-+	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
- 
- 	sky2_link_up(sky2);
- }
-@@ -2640,6 +2646,7 @@ static void sky2_hw_intr(struct sky2_hw *hw)
- 	if (status & (Y2_IS_MST_ERR | Y2_IS_IRQ_STAT)) {
- 		u16 pci_err;
- 
-+		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
- 		pci_err = sky2_pci_read16(hw, PCI_STATUS);
- 		if (net_ratelimit())
- 			dev_err(&pdev->dev, "PCI hardware error (0x%x)\n",
-@@ -2647,12 +2654,14 @@ static void sky2_hw_intr(struct sky2_hw *hw)
- 
- 		sky2_pci_write16(hw, PCI_STATUS,
- 				      pci_err | PCI_STATUS_ERROR_BITS);
-+		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
- 	}
- 
- 	if (status & Y2_IS_PCI_EXP) {
- 		/* PCI-Express uncorrectable Error occurred */
- 		u32 err;
- 
-+		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
- 		err = sky2_read32(hw, Y2_CFG_AER + PCI_ERR_UNCOR_STATUS);
- 		sky2_write32(hw, Y2_CFG_AER + PCI_ERR_UNCOR_STATUS,
- 			     0xfffffffful);
-@@ -2660,6 +2669,7 @@ static void sky2_hw_intr(struct sky2_hw *hw)
- 			dev_err(&pdev->dev, "PCI Express error (0x%x)\n", err);
- 
- 		sky2_read32(hw, Y2_CFG_AER + PCI_ERR_UNCOR_STATUS);
-+		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
- 	}
- 
- 	if (status & Y2_HWE_L1_MASK)
-@@ -3038,6 +3048,7 @@ static void sky2_reset(struct sky2_hw *hw)
- 	}
- 
- 	sky2_power_on(hw);
-+	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
- 
- 	for (i = 0; i < hw->ports; i++) {
- 		sky2_write8(hw, SK_REG(i, GMAC_LINK_CTRL), GMLC_RST_SET);
-@@ -3074,6 +3085,7 @@ static void sky2_reset(struct sky2_hw *hw)
- 		reg <<= PSM_CONFIG_REG4_TIMER_PHY_LINK_DETECT_BASE;
- 
- 		/* reset PHY Link Detect */
-+		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
- 		sky2_pci_write16(hw, PSM_CONFIG_REG4,
- 				 reg | PSM_CONFIG_REG4_RST_PHY_LINK_DETECT);
- 		sky2_pci_write16(hw, PSM_CONFIG_REG4, reg);
-@@ -3091,6 +3103,7 @@ static void sky2_reset(struct sky2_hw *hw)
- 			/* restore the PCIe Link Control register */
- 			sky2_pci_write16(hw, cap + PCI_EXP_LNKCTL, reg);
- 		}
-+		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
- 
- 		/* re-enable PEX PM in PEX PHY debug reg. 8 (clear bit 12) */
- 		sky2_write32(hw, Y2_PEX_PHY_DATA, PEX_DB_ACCESS | (0x08UL << 16));
--- 
-1.6.3.3
+Can you give me some advice on how to reproduce this bug??
+
+Best wishes
+jie
