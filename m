@@ -1,194 +1,110 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: Re: [PATCH 3/4] fec: add support for Freescale i.MX25 PDK (3DS)
-Date: Mon, 25 Jan 2010 13:21:16 +0200
-Message-ID: <20100125112116.GF6724@jasper.tkos.co.il>
-References: <cover.1260785451.git.baruch@tkos.co.il>
- <fb518184b206ec2727deda111cc5364134ace69a.1260785451.git.baruch@tkos.co.il>
- <20091214103348.GV15126@pengutronix.de>
- <20091215083142.GB18290@jasper.tkos.co.il>
- <4B277878.1050804@snapgear.com>
- <20091215201109.GA2621@tarshish>
- <4B282644.8030104@snapgear.com>
- <20091216063402.GA13160@jasper.tkos.co.il>
+From: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Subject: Re: [PATCH] tcp: fix ICMP-RTO war
+Date: Mon, 25 Jan 2010 13:12:43 +0100
+Message-ID: <4B5D8ABB.8030906@tvk.rwth-aachen.de>
+References: <200912261703.49067.denys@visp.net.lb>
+ <201001191309.03927.denys@visp.net.lb>
+ <alpine.DEB.2.00.1001191308490.14108@wel-95.cs.helsinki.fi>
+ <201001232337.19122.denys@visp.net.lb>
+ <alpine.DEB.2.00.1001240007530.16552@melkinpaasi.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Sascha Hauer <s.hauer@pengutronix.de>,
-	linux-arm-kernel@lists.infradead.org
-To: Greg Ungerer <gerg@snapgear.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7BIT
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: =?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tango.tkos.co.il ([62.219.50.35]:40761 "EHLO tango.tkos.co.il"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751022Ab0AYLVu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jan 2010 06:21:50 -0500
-Content-Disposition: inline
-In-Reply-To: <20091216063402.GA13160@jasper.tkos.co.il>
+Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:50049 "EHLO
+	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751976Ab0AYMMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2010 07:12:44 -0500
+Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
+ by mta-1.ms.rz.RWTH-Aachen.de
+ (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
+ with ESMTP id <0KWS00EL4XX76W90@mta-1.ms.rz.RWTH-Aachen.de> for
+ netdev@vger.kernel.org; Mon, 25 Jan 2010 13:12:43 +0100 (CET)
+In-reply-to: <alpine.DEB.2.00.1001240007530.16552@melkinpaasi.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Greg, netdev,
+Hi,
+considering Denys' latest tests, I think we should bound
+at TCP_RTO_MIN inside __tcp_set_rto().
+Look at the following piece:
+> [  604.193389] rto: 200 (0 >> 3 + 0, 32) time: 304193 sent: 304091 pen: 1 307291 rem: 98                                                                                         
+> [  604.193518] lower bound violation: 0 code 1 sk_state 1                                                                                                                        
+> [  604.193589] rto: 200 (0 >> 3 + 0, 31) time: 304193 sent: 304091 pen: 1 304291 rem: 98                                                                                         
+> [  604.193706] lower bound violation: 0 code 1 sk_state 1                                                                                                                        
+> [  604.193776] rto: 200 (0 >> 3 + 0, 30) time: 304193 sent: 304091 pen: 1 304291 rem: 98                                                                                         
+> [  607.341327] lower bound violation: 0 code 1 sk_state 1                                                                                                                        
+> [  607.341412] rto: 200 (0 >> 3 + 0, 33) time: 307341 sent: 307091 pen: 1 310291 rem: 0  
 
-On Wed, Dec 16, 2009 at 08:34:06AM +0200, Baruch Siach wrote:
-> On Wed, Dec 16, 2009 at 10:13:56AM +1000, Greg Ungerer wrote:
-> > Baruch Siach wrote:
-> > >On Tue, Dec 15, 2009 at 09:52:24PM +1000, Greg Ungerer wrote:
-> > >>On 12/15/2009 06:31 PM, Baruch Siach wrote:
-> > >>>+#ifndef CONFIG_M5272
-> > >>I would suggest making this conditional on FEC_MIIGSK_ENR.
-> > >>Although the CONFIG_M5272 is the only case here currently,
-> > >>that may change over the years. And using this here may not
-> > >>be obvious to the causual code reader, since the register
-> > >>offset definitions don't explicitly key on CONFIG_M5272.
-> > >
-> > >OK, I'll change this conditional.
-> > >
-> > >Can I take this as an Ack from you?
-> > 
-> > With that conditional check changed, sure:
-> > 
-> > Acked-by:  Greg Ungerer <gerg@uclinux.org>
-> 
-> Thanks. The updated patch below.
+We have a burst of three incoming ICMPs, not triggering retransmissions because
+of rem > 0. Nevertheless, there is an increase of icsk_backoff by four
+within 3100ms, with no ICMPs in between.
+For me, this is explainable by the broken mdev/rtt issue together with
+bursty ICMP replies.
 
-I'm really sorry to bug on this again, but since the platform code is already 
-upstream the i.MX25 code doesn't build without this patch (include/linux/fec.h 
-missing). So, someone please pick up this patch, preferably prior to .33.
+- At t=0, RTT is at 0.2 seconds when connectivity breaks
+- At t=3, TCP has emitted 4 eponentially backed-off retransmits,
+  and icsk_rto is at 3.2s.
+- At t=3+eps, three of four ICMPs arrive in one burst.
+- Due to broken mdev, rto is reset to 0.2s inside tcp_v4_err(),
+  independent of icsk_backoff.
 
-baruch
+Damian
 
-> From 2d0751f868519978603b16baa197bfb9f9ec9e2e Mon Sep 17 00:00:00 2001
-> Message-Id: <2d0751f868519978603b16baa197bfb9f9ec9e2e.1260945080.git.baruch@tkos.co.il>
-> From: Baruch Siach <baruch@tkos.co.il>
-> Date: Mon, 14 Dec 2009 10:36:50 +0200
-> Subject: [PATCH] fec: add support for PHY interface platform data
+> Restored Damian cc, please keep them.
 > 
-> The i.MX25 PDK uses RMII to communicate with its PHY. This patch adds the
-> ability to configure RMII, based on platform data.
+> On Sat, 23 Jan 2010, Denys Fedoryshchenko wrote:
+>> On Tuesday 19 January 2010 13:17:51 you wrote:
+>>> On Tue, 19 Jan 2010, Denys Fedoryshchenko wrote:
+>>>> On Tuesday 19 January 2010 11:10:12 you wrote:
+>>>>> Hi,
+>>>>> thank you for testing. So srtt and rttvar is zero in any of those
+>>>>> cases. Ilpo, it is a bug in tcp_rtt_estimator then, I suppose?
+>>>>>
+>>>>> There is also a code comment in tcp_input.c, saying:
+>>>>>> * NOTE: clamping at TCP_RTO_MIN is not required, current algo
+>>>>>> * guarantees that rto is higher.
+>>>>> So we either fix tcp_rtt_estimator or simply clamp at TCP_RTO_MIN?
+>>>>>
+>>>>> Damian
+>>>>>
+>>>>>> On Monday 11 January 2010 15:02:34 you wrote:
+>>>>>>> On Sat, 26 Dec 2009, Denys Fedoryshchenko wrote:
+>>>>>>>> Few more dumps. I notice:
+>>>>>>>> 1)Ack always equal 1
+>>>>>>>> 2)It is usually first segment of data sent (?)
+>>>>>>>>
+>>>>>>>> Maybe some value not initialised properly?
+>>>>>>> Can you see if the RTO lower bound is violated (I added some
+>>>>>>> printing of vars there too already now if it turns out to be
+>>>>>>> something):
+>>>>>>>
+>>>>>>> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+>>>>>>> index 65b8ebf..d84469f 100644
+>>>>>>> --- a/net/ipv4/tcp_ipv4.c
+>>>>>>> +++ b/net/ipv4/tcp_ipv4.c
+>>>> As i see in code it is rounding RTO to minimum value.
+>>>> It fixes my problem seems.
+>>>>
+>>>> Btw just a bit about my environment - wireless networks (sometimes
+>>>> lossy!) with low speed (128-512Kbps) customers working over pppoe. Maybe
+>>>> it will give a tip why rtt value is too low.
+>>> What I find most strange in it is the fact that when it triggers for the
+>>> first time, the srtt and mdev are zero, not some value in between 0 and
+>>> 200ms. Therefore I suspect that this case might be something that we've
+>>> overlooked where srtt/mdev are not valid at all.
+>>>
+>>> Maybe the patch below helps...
+>>>
+>> Seems after this patch (and debug patch with warnings) my dmesg is clean.
 > 
-> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
-> Acked-by:  Greg Ungerer <gerg@uclinux.org>
-> ---
->  drivers/net/fec.c   |   22 ++++++++++++++++++++++
->  drivers/net/fec.h   |    2 ++
->  include/linux/fec.h |   21 +++++++++++++++++++++
->  3 files changed, 45 insertions(+), 0 deletions(-)
->  create mode 100644 include/linux/fec.h
+> Cool, thanks for testing.
 > 
-> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-> index 16a1d58..a7cfe0d 100644
-> --- a/drivers/net/fec.c
-> +++ b/drivers/net/fec.c
-> @@ -40,6 +40,7 @@
->  #include <linux/irq.h>
->  #include <linux/clk.h>
->  #include <linux/platform_device.h>
-> +#include <linux/fec.h>
->  
->  #include <asm/cacheflush.h>
->  
-> @@ -198,6 +199,7 @@ struct fec_enet_private {
->  	uint	phy_speed;
->  	phy_info_t const	*phy;
->  	struct work_struct phy_task;
-> +	phy_interface_t	phy_interface;
->  
->  	uint	sequence_done;
->  	uint	mii_phy_task_queued;
-> @@ -1810,6 +1812,21 @@ fec_restart(struct net_device *dev, int duplex)
->  	/* Set MII speed */
->  	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
->  
-> +#ifdef FEC_MIIGSK_ENR
-> +	if (fep->phy_interface == PHY_INTERFACE_MODE_RMII) {
-> +		/* disable the gasket and wait */
-> +		writel(0, fep->hwp + FEC_MIIGSK_ENR);
-> +		while (readl(fep->hwp + FEC_MIIGSK_ENR) & 4)
-> +			udelay(1);
-> +
-> +		/* configure the gasket: RMII, 50 MHz, no loopback, no echo */
-> +		writel(1, fep->hwp + FEC_MIIGSK_CFGR);
-> +
-> +		/* re-enable the gasket */
-> +		writel(2, fep->hwp + FEC_MIIGSK_ENR);
-> +	}
-> +#endif
-> +
->  	/* And last, enable the transmit and receive processing */
->  	writel(2, fep->hwp + FEC_ECNTRL);
->  	writel(0, fep->hwp + FEC_R_DES_ACTIVE);
-> @@ -1847,6 +1864,7 @@ static int __devinit
->  fec_probe(struct platform_device *pdev)
->  {
->  	struct fec_enet_private *fep;
-> +	struct fec_platform_data *pdata;
->  	struct net_device *ndev;
->  	int i, irq, ret = 0;
->  	struct resource *r;
-> @@ -1879,6 +1897,10 @@ fec_probe(struct platform_device *pdev)
->  
->  	platform_set_drvdata(pdev, ndev);
->  
-> +	pdata = pdev->dev.platform_data;
-> +	if (pdata)
-> +		fep->phy_interface = pdata->phy;
-> +
->  	/* This device has up to three irqs on some platforms */
->  	for (i = 0; i < 3; i++) {
->  		irq = platform_get_irq(pdev, i);
-> diff --git a/drivers/net/fec.h b/drivers/net/fec.h
-> index cc47f3f..2c48b25 100644
-> --- a/drivers/net/fec.h
-> +++ b/drivers/net/fec.h
-> @@ -43,6 +43,8 @@
->  #define FEC_R_DES_START		0x180 /* Receive descriptor ring */
->  #define FEC_X_DES_START		0x184 /* Transmit descriptor ring */
->  #define FEC_R_BUFF_SIZE		0x188 /* Maximum receive buff size */
-> +#define FEC_MIIGSK_CFGR		0x300 /* MIIGSK Configuration reg */
-> +#define FEC_MIIGSK_ENR		0x308 /* MIIGSK Enable reg */
->  
->  #else
->  
-> diff --git a/include/linux/fec.h b/include/linux/fec.h
-> new file mode 100644
-> index 0000000..5d3523d
-> --- /dev/null
-> +++ b/include/linux/fec.h
-> @@ -0,0 +1,21 @@
-> +/* include/linux/fec.h
-> + *
-> + * Copyright (c) 2009 Orex Computed Radiography
-> + *   Baruch Siach <baruch@tkos.co.il>
-> + *
-> + * Header file for the FEC platform data
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License version 2 as
-> + * published by the Free Software Foundation.
-> + */
-> +#ifndef __LINUX_FEC_H__
-> +#define __LINUX_FEC_H__
-> +
-> +#include <linux/phy.h>
-> +
-> +struct fec_platform_data {
-> +	phy_interface_t phy;
-> +};
-> +
-> +#endif
-> -- 
-> 1.6.5
+> Dave, please send into stable too (besides net-2.6). If we want less strict 
+> state check we can continue playing with that in net-next, IMHO.
 > 
-> 
-> -- 
->                                                      ~. .~   Tk Open Systems
-> =}------------------------------------------------ooO--U--Ooo------------{=
->    - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
-> 
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
 
--- 
-                                                     ~. .~   Tk Open Systems
-=}------------------------------------------------ooO--U--Ooo------------{=
-   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
