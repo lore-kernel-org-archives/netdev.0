@@ -1,165 +1,224 @@
 From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 7/8] percpu: add __percpu sparse annotations to hw_breakpoint
-Date: Tue, 26 Jan 2010 00:22:14 +0900
-Message-ID: <1264432935-10453-8-git-send-email-tj@kernel.org>
+Subject: [PATCH 6/8] percpu: add __percpu sparse annotations to trace
+Date: Tue, 26 Jan 2010 00:22:13 +0900
+Message-ID: <1264432935-10453-7-git-send-email-tj@kernel.org>
 References: <1264432935-10453-1-git-send-email-tj@kernel.org>
-Cc: Tejun Heo <tj@kernel.org>
+Cc: Tejun Heo <tj@kernel.org>, Steven Rostedt <rostedt@goodmis.org>
 To: linux-kernel@vger.kernel.org, axboe@kernel.dk,
 	rusty@rustcorp.com.au, akpm@linux-foundation.org,
 	ebiederm@xmission.com, tytso@mit.edu, Trond.Myklebust@netapp.com,
 	aelder@sgi.com, hch@
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:42986 "EHLO hera.kernel.org"
+Received: from hera.kernel.org ([140.211.167.34]:42976 "EHLO hera.kernel.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753848Ab0AYPTL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jan 2010 10:19:11 -0500
+	id S1753860Ab0AYPTK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jan 2010 10:19:10 -0500
 In-Reply-To: <1264432935-10453-1-git-send-email-tj@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add __percpu sparse annotations to hw_breakpoint.
+Add __percpu sparse annotations to trace.
 
 These annotations are to make sparse consider percpu variables to be
 in a different address space and warn if accessed without going
 through percpu accessors.  This patch doesn't affect normal builds.
 
-per_cpu(nr_task_bp_pinned, cpu) is replaced with
-&per_cpu(nr_task_bp_pinned[0], cpu).  This is the same to the compiler
-but allows per_cpu() macro to correctly drop __percpu designation for
-the returned pointer.
-
 Signed-off-by: Tejun Heo <tj@kernel.org>
+Cc: Steven Rostedt <rostedt@goodmis.org>
 Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@redhat.com>
 ---
- include/linux/hw_breakpoint.h           |    8 ++++----
- kernel/hw_breakpoint.c                  |   14 +++++++-------
- samples/hw_breakpoint/data_breakpoint.c |    6 +++---
- 3 files changed, 14 insertions(+), 14 deletions(-)
+ include/linux/ftrace_event.h         |    4 ++--
+ include/trace/ftrace.h               |    4 ++--
+ kernel/trace/trace_event_profile.c   |   16 ++++++++--------
+ kernel/trace/trace_functions_graph.c |    2 +-
+ kernel/trace/trace_kprobe.c          |    4 ++--
+ kernel/trace/trace_ksym.c            |   10 +++++-----
+ kernel/trace/trace_syscalls.c        |    4 ++--
+ 7 files changed, 22 insertions(+), 22 deletions(-)
 
-diff --git a/include/linux/hw_breakpoint.h b/include/linux/hw_breakpoint.h
-index 41235c9..f462d3d 100644
---- a/include/linux/hw_breakpoint.h
-+++ b/include/linux/hw_breakpoint.h
-@@ -66,14 +66,14 @@ register_wide_hw_breakpoint_cpu(struct perf_event_attr *attr,
- 				perf_overflow_handler_t	triggered,
- 				int cpu);
+diff --git a/include/linux/ftrace_event.h b/include/linux/ftrace_event.h
+index 2233c98..72fccdd 100644
+--- a/include/linux/ftrace_event.h
++++ b/include/linux/ftrace_event.h
+@@ -138,8 +138,8 @@ struct ftrace_event_call {
  
--extern struct perf_event **
-+extern struct perf_event * __percpu *
- register_wide_hw_breakpoint(struct perf_event_attr *attr,
- 			    perf_overflow_handler_t triggered);
+ #define FTRACE_MAX_PROFILE_SIZE	2048
  
- extern int register_perf_hw_breakpoint(struct perf_event *bp);
- extern int __register_perf_hw_breakpoint(struct perf_event *bp);
- extern void unregister_hw_breakpoint(struct perf_event *bp);
--extern void unregister_wide_hw_breakpoint(struct perf_event **cpu_events);
-+extern void unregister_wide_hw_breakpoint(struct perf_event * __percpu *cpu_events);
+-extern char *perf_trace_buf;
+-extern char *perf_trace_buf_nmi;
++extern char __percpu *perf_trace_buf;
++extern char __percpu *perf_trace_buf_nmi;
  
- extern int reserve_bp_slot(struct perf_event *bp);
- extern void release_bp_slot(struct perf_event *bp);
-@@ -98,7 +98,7 @@ static inline struct perf_event *
- register_wide_hw_breakpoint_cpu(struct perf_event_attr *attr,
- 				perf_overflow_handler_t	 triggered,
- 				int cpu)		{ return NULL; }
--static inline struct perf_event **
-+static inline struct perf_event * __percpu *
- register_wide_hw_breakpoint(struct perf_event_attr *attr,
- 			    perf_overflow_handler_t triggered)	{ return NULL; }
- static inline int
-@@ -107,7 +107,7 @@ static inline int
- __register_perf_hw_breakpoint(struct perf_event *bp) 	{ return -ENOSYS; }
- static inline void unregister_hw_breakpoint(struct perf_event *bp)	{ }
- static inline void
--unregister_wide_hw_breakpoint(struct perf_event **cpu_events)		{ }
-+unregister_wide_hw_breakpoint(struct perf_event * __percpu *cpu_events)	{ }
- static inline int
- reserve_bp_slot(struct perf_event *bp)			{return -ENOSYS; }
- static inline void release_bp_slot(struct perf_event *bp) 		{ }
-diff --git a/kernel/hw_breakpoint.c b/kernel/hw_breakpoint.c
-index 50dbd59..11dae6d 100644
---- a/kernel/hw_breakpoint.c
-+++ b/kernel/hw_breakpoint.c
-@@ -74,7 +74,7 @@ static DEFINE_MUTEX(nr_bp_mutex);
- static unsigned int max_task_bp_pinned(int cpu)
+ #define MAX_FILTER_PRED		32
+ #define MAX_FILTER_STR_VAL	256	/* Should handle KSYM_SYMBOL_LEN */
+diff --git a/include/trace/ftrace.h b/include/trace/ftrace.h
+index c6fe03e..210d421 100644
+--- a/include/trace/ftrace.h
++++ b/include/trace/ftrace.h
+@@ -773,7 +773,7 @@ __attribute__((section("_ftrace_events"))) event_##call = {		\
+  *	struct ftrace_event_call *event_call = &event_<call>;
+  *	extern void perf_tp_event(int, u64, u64, void *, int);
+  *	struct ftrace_raw_##call *entry;
+- *	struct perf_trace_buf *trace_buf;
++ *	struct perf_trace_buf __percpu *trace_buf;
+  *	u64 __addr = 0, __count = 1;
+  *	unsigned long irq_flags;
+  *	struct trace_entry *ent;
+@@ -859,7 +859,7 @@ ftrace_profile_templ_##call(struct ftrace_event_call *event_call,	\
+ 	struct trace_entry *ent;					\
+ 	int __entry_size;						\
+ 	int __data_size;						\
+-	char *trace_buf;						\
++	char __percpu *trace_buf;					\
+ 	char *raw_data;							\
+ 	int __cpu;							\
+ 	int rctx;							\
+diff --git a/kernel/trace/trace_event_profile.c b/kernel/trace/trace_event_profile.c
+index 9e25573..4b16312 100644
+--- a/kernel/trace/trace_event_profile.c
++++ b/kernel/trace/trace_event_profile.c
+@@ -9,11 +9,11 @@
+ #include "trace.h"
+ 
+ 
+-char *perf_trace_buf;
+-EXPORT_SYMBOL_GPL(perf_trace_buf);
++char __percpu *perf_trace_buf;
++EXPORT_PER_CPU_SYMBOL_GPL(perf_trace_buf);
+ 
+-char *perf_trace_buf_nmi;
+-EXPORT_SYMBOL_GPL(perf_trace_buf_nmi);
++char __percpu *perf_trace_buf_nmi;
++EXPORT_PER_CPU_SYMBOL_GPL(perf_trace_buf_nmi);
+ 
+ typedef typeof(char [FTRACE_MAX_PROFILE_SIZE]) perf_trace_t ;
+ 
+@@ -22,20 +22,20 @@ static int	total_profile_count;
+ 
+ static int ftrace_profile_enable_event(struct ftrace_event_call *event)
  {
- 	int i;
--	unsigned int *tsk_pinned = per_cpu(nr_task_bp_pinned, cpu);
-+	unsigned int *tsk_pinned = &per_cpu(nr_task_bp_pinned[0], cpu);
+-	char *buf;
++	char __percpu *buf;
+ 	int ret = -ENOMEM;
  
- 	for (i = HBP_NUM -1; i >= 0; i--) {
- 		if (tsk_pinned[i] > 0)
-@@ -163,7 +163,7 @@ static void toggle_bp_task_slot(struct task_struct *tsk, int cpu, bool enable)
+ 	if (event->profile_count++ > 0)
+ 		return 0;
  
- 	count = task_bp_pinned(tsk);
+ 	if (!total_profile_count) {
+-		buf = (char *)alloc_percpu(perf_trace_t);
++		buf = (char __percpu *)alloc_percpu(perf_trace_t);
+ 		if (!buf)
+ 			goto fail_buf;
  
--	tsk_pinned = per_cpu(nr_task_bp_pinned, cpu);
-+	tsk_pinned = &per_cpu(nr_task_bp_pinned[0], cpu);
- 	if (enable) {
- 		tsk_pinned[count]++;
- 		if (count > 0)
-@@ -377,17 +377,17 @@ EXPORT_SYMBOL_GPL(unregister_hw_breakpoint);
-  *
-  * @return a set of per_cpu pointers to perf events
-  */
--struct perf_event **
-+struct perf_event * __percpu *
- register_wide_hw_breakpoint(struct perf_event_attr *attr,
- 			    perf_overflow_handler_t triggered)
+ 		rcu_assign_pointer(perf_trace_buf, buf);
+ 
+-		buf = (char *)alloc_percpu(perf_trace_t);
++		buf = (char __percpu *)alloc_percpu(perf_trace_t);
+ 		if (!buf)
+ 			goto fail_buf_nmi;
+ 
+@@ -81,7 +81,7 @@ int ftrace_profile_enable(int event_id)
+ 
+ static void ftrace_profile_disable_event(struct ftrace_event_call *event)
  {
--	struct perf_event **cpu_events, **pevent, *bp;
-+	struct perf_event * __percpu *cpu_events, **pevent, *bp;
- 	long err;
- 	int cpu;
+-	char *buf, *nmi_buf;
++	char __percpu *buf, *nmi_buf;
  
- 	cpu_events = alloc_percpu(typeof(*cpu_events));
- 	if (!cpu_events)
--		return ERR_PTR(-ENOMEM);
-+		return (void __percpu __force *)ERR_PTR(-ENOMEM);
+ 	if (--event->profile_count > 0)
+ 		return;
+diff --git a/kernel/trace/trace_functions_graph.c b/kernel/trace/trace_functions_graph.c
+index 9d976f3..2144178 100644
+--- a/kernel/trace/trace_functions_graph.c
++++ b/kernel/trace/trace_functions_graph.c
+@@ -21,7 +21,7 @@ struct fgraph_cpu_data {
+ };
  
- 	get_online_cpus();
- 	for_each_online_cpu(cpu) {
-@@ -415,7 +415,7 @@ fail:
- 	put_online_cpus();
+ struct fgraph_data {
+-	struct fgraph_cpu_data		*cpu_data;
++	struct fgraph_cpu_data __percpu *cpu_data;
  
- 	free_percpu(cpu_events);
--	return ERR_PTR(err);
-+	return (void __percpu __force *)ERR_PTR(err);
- }
- EXPORT_SYMBOL_GPL(register_wide_hw_breakpoint);
+ 	/* Place to preserve last processed entry. */
+ 	struct ftrace_graph_ent_entry	ent;
+diff --git a/kernel/trace/trace_kprobe.c b/kernel/trace/trace_kprobe.c
+index 6ea90c0..4567950 100644
+--- a/kernel/trace/trace_kprobe.c
++++ b/kernel/trace/trace_kprobe.c
+@@ -1262,7 +1262,7 @@ static __kprobes int kprobe_profile_func(struct kprobe *kp,
+ 	struct trace_entry *ent;
+ 	int size, __size, i, pc, __cpu;
+ 	unsigned long irq_flags;
+-	char *trace_buf;
++	char __percpu *trace_buf;
+ 	char *raw_data;
+ 	int rctx;
  
-@@ -423,7 +423,7 @@ EXPORT_SYMBOL_GPL(register_wide_hw_breakpoint);
-  * unregister_wide_hw_breakpoint - unregister a wide breakpoint in the kernel
-  * @cpu_events: the per cpu set of events to unregister
-  */
--void unregister_wide_hw_breakpoint(struct perf_event **cpu_events)
-+void unregister_wide_hw_breakpoint(struct perf_event * __percpu *cpu_events)
- {
- 	int cpu;
- 	struct perf_event **pevent;
-diff --git a/samples/hw_breakpoint/data_breakpoint.c b/samples/hw_breakpoint/data_breakpoint.c
-index c69cbe9..bd0f337 100644
---- a/samples/hw_breakpoint/data_breakpoint.c
-+++ b/samples/hw_breakpoint/data_breakpoint.c
-@@ -34,7 +34,7 @@
- #include <linux/perf_event.h>
- #include <linux/hw_breakpoint.h>
+@@ -1327,7 +1327,7 @@ static __kprobes int kretprobe_profile_func(struct kretprobe_instance *ri,
+ 	struct trace_entry *ent;
+ 	int size, __size, i, pc, __cpu;
+ 	unsigned long irq_flags;
+-	char *trace_buf;
++	char __percpu *trace_buf;
+ 	char *raw_data;
+ 	int rctx;
  
--struct perf_event **sample_hbp;
-+struct perf_event * __percpu *sample_hbp;
+diff --git a/kernel/trace/trace_ksym.c b/kernel/trace/trace_ksym.c
+index 94103cd..7e5c483 100644
+--- a/kernel/trace/trace_ksym.c
++++ b/kernel/trace/trace_ksym.c
+@@ -42,7 +42,7 @@
+ #define KSYM_TRACER_OP_LEN 3 /* rw- */
  
- static char ksym_name[KSYM_NAME_LEN] = "pid_max";
- module_param_string(ksym, ksym_name, KSYM_NAME_LEN, S_IRUGO);
-@@ -61,8 +61,8 @@ static int __init hw_break_module_init(void)
- 	attr.bp_type = HW_BREAKPOINT_W | HW_BREAKPOINT_R;
+ struct trace_ksym {
+-	struct perf_event	**ksym_hbp;
++	struct perf_event	* __percpu *ksym_hbp;
+ 	struct perf_event_attr	attr;
+ #ifdef CONFIG_PROFILE_KSYM_TRACER
+ 	atomic64_t		counter;
+@@ -200,8 +200,8 @@ int process_new_ksym_entry(char *ksymname, int op, unsigned long addr)
+ 	entry->ksym_hbp = register_wide_hw_breakpoint(&entry->attr,
+ 					ksym_hbp_handler);
  
- 	sample_hbp = register_wide_hw_breakpoint(&attr, sample_hbp_handler);
--	if (IS_ERR(sample_hbp)) {
--		ret = PTR_ERR(sample_hbp);
-+	if (IS_ERR((void __force *)sample_hbp)) {
-+		ret = PTR_ERR((void __force *)sample_hbp);
- 		goto fail;
- 	}
- 
+-	if (IS_ERR(entry->ksym_hbp)) {
+-		ret = PTR_ERR(entry->ksym_hbp);
++	if (IS_ERR((void __force *)entry->ksym_hbp)) {
++		ret = PTR_ERR((void __force *)entry->ksym_hbp);
+ 		printk(KERN_INFO "ksym_tracer request failed. Try again"
+ 					" later!!\n");
+ 		goto err;
+@@ -331,8 +331,8 @@ static ssize_t ksym_trace_filter_write(struct file *file,
+ 			entry->ksym_hbp =
+ 				register_wide_hw_breakpoint(&entry->attr,
+ 					ksym_hbp_handler);
+-			if (IS_ERR(entry->ksym_hbp))
+-				ret = PTR_ERR(entry->ksym_hbp);
++			if (IS_ERR((void __force *)entry->ksym_hbp))
++				ret = PTR_ERR((void __force *)entry->ksym_hbp);
+ 			else
+ 				goto out_unlock;
+ 		}
+diff --git a/kernel/trace/trace_syscalls.c b/kernel/trace/trace_syscalls.c
+index 75289f3..9f7de51 100644
+--- a/kernel/trace/trace_syscalls.c
++++ b/kernel/trace/trace_syscalls.c
+@@ -433,7 +433,7 @@ static void prof_syscall_enter(struct pt_regs *regs, long id)
+ 	struct syscall_metadata *sys_data;
+ 	struct syscall_trace_enter *rec;
+ 	unsigned long flags;
+-	char *trace_buf;
++	char __percpu *trace_buf;
+ 	char *raw_data;
+ 	int syscall_nr;
+ 	int rctx;
+@@ -531,7 +531,7 @@ static void prof_syscall_exit(struct pt_regs *regs, long ret)
+ 	struct syscall_trace_exit *rec;
+ 	unsigned long flags;
+ 	int syscall_nr;
+-	char *trace_buf;
++	char __percpu *trace_buf;
+ 	char *raw_data;
+ 	int rctx;
+ 	int size;
 -- 
 1.6.4.2
 
