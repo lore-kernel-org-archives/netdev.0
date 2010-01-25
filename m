@@ -1,33 +1,47 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/1 V4] net: Add Aeroflex Gaisler 10/100/1G Ethernet MAC
- driver
-Date: Mon, 25 Jan 2010 08:39:30 -0800
-Message-ID: <20100125083930.0b52182b@nehalam>
-References: <1264417272-3800-1-git-send-email-kristoffer@gaisler.com>
-	<1264417272-3800-2-git-send-email-kristoffer@gaisler.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH] IPv6: Update documentation for better built-in help with
+ params
+Date: Mon, 25 Jan 2010 12:28:15 -0500
+Message-ID: <4B5DD4AF.8050800@hp.com>
+References: <201001221901.o0MJ1oLk016090@wind.enjellic.com>	<4B5A0991.9080701@hp.com> <20100122.183223.197255353.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Kristoffer Glembo <kristoffer@gaisler.com>
-To: Kristoffer Glembo <kristoffer@gaisler.com>
+Cc: greg@enjellic.com, nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34297 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753771Ab0AYQjl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jan 2010 11:39:41 -0500
-In-Reply-To: <1264417272-3800-2-git-send-email-kristoffer@gaisler.com>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:6013 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752226Ab0AYR2Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2010 12:28:24 -0500
+In-Reply-To: <20100122.183223.197255353.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 25 Jan 2010 12:01:12 +0100
-Kristoffer Glembo <kristoffer@gaisler.com> wrote:
-
-> Adds device driver for Aeroflex Gaisler 10/100 and 10/100/1G Ethernet MAC IP cores.
+David Miller wrote:
+> From: Brian Haley <brian.haley@hp.com>
+> Date: Fri, 22 Jan 2010 15:24:49 -0500
 > 
-> Signed-off-by: Kristoffer Glembo <kristoffer@gaisler.com>
+>> Update IPv6 documentation to describe how to set parameters when it's
+>> built-into the kernel.  Reported by <greg@enjellic.com>.
+>>
+>> Signed-off-by: Brian Haley <brian.haley@hp.com>
+> 
+> So are you going to also add a mention of this fact to every single
+> place in the documentation that talks about some arbitrary module
+> option?
+> 
+> That doesn't make any sense, and neither does this patch.
+> 
+> It's better to make it more apparent that module options can
+> be set on the kernel command line when something is compiled
+> statically into the kernel.
+> 
+> That way it only needs to be explained in one place, not in
+> several.
 
-Please consider adding ethtool support for things like settings (speed, duplex);
-info, get_link, and checksum offload control
+I guess Documentation/kernel-parameters.txt is where such things
+live, can I send you a patch for that or does it need to go
+through someone else?
 
--- 
+-Brian
