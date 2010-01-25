@@ -1,63 +1,55 @@
-From: Anders =?iso-8859-1?Q?Bostr=F6m?= <anders@netinsight.net>
-Subject: Re: Bug#565404: linux-image-2.6.26-2-amd64: atl1e: TSO is broken
-Date: Mon, 25 Jan 2010 16:36:12 +0100 (CET)
-Message-ID: <20100125.163612.582489483209420341.anders@netinsight.net>
-References: <CDAFEDABF718A54BABD0DA5476695307455062E7@SHEXMB-01.global.atheros.com>
-	<20100121.174247.769487074466946522.anders@netinsight.net>
-	<CDAFEDABF718A54BABD0DA5476695307475CCD42@SHEXMB-01.global.atheros.com>
+From: Borislav Petkov <borislav.petkov@amd.com>
+Subject: Re: [PATCH 8/8] percpu: add __percpu sparse annotations to what's
+ left
+Date: Mon, 25 Jan 2010 16:54:08 +0100
+Message-ID: <20100125155408.GF14274@aftab>
+References: <1264432935-10453-1-git-send-email-tj@kernel.org>
+ <1264432935-10453-9-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ben@decadent.org.uk, netdev@vger.kernel.org,
-	565404@bugs.debian.org, Xiong.Huang@Atheros.com
-To: Jie.Yang@Atheros.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ernst.netinsight.se ([194.16.221.21]:21422 "HELO
-	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752421Ab0AYPgV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2010 10:36:21 -0500
-In-Reply-To: <CDAFEDABF718A54BABD0DA5476695307475CCD42@SHEXMB-01.global.atheros.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: linux-kernel@vger.kernel.org, axboe@kernel.dk,
+	rusty@rustcorp.com.au, akpm@linux-foundation.org,
+	ebiederm@xmission.com, tytso@mit.edu, Trond.Myklebust@netapp.com,
+	aelder@sgi.com, hch@infradead.org, viro@zeniv.linux.org.uk,
+	davem@davemloft.net, netdev@vger.kernel.org, x86@kernel.org,
+	mingo@redhat.com, fweisbec@gmail.com, dan.j.williams@intel.com,
+	ying.huang@intel.com, lenb@kernel.org, neilb@suse.de,
+	cl@linux-foundation.org
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753993Ab0AYPyY@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1264432935-10453-9-git-send-email-tj@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->>>>> "JY" =3D=3D Jie Yang <Jie.Yang@Atheros.com> writes:
+On Tue, Jan 26, 2010 at 12:22:15AM +0900, Tejun Heo wrote:
+> Add __percpu sparse annotations to places which didn't make it in one
+> of the previous patches.  All converions are trivial.
+> 
+> These annotations are to make sparse consider percpu variables to be
+> in a different address space and warn if accessed without going
+> through percpu accessors.  This patch doesn't affect normal builds.
+> 
+> Signed-off-by: Tejun Heo <tj@kernel.org>
+> Cc: Dan Williams <dan.j.williams@intel.com>
+> Cc: Borislav Petkov <borislav.petkov@amd.com>
+> Cc: Huang Ying <ying.huang@intel.com>
+> Cc: Len Brown <lenb@kernel.org>
+> Cc: Neil Brown <neilb@suse.de>
+> ---
+>  crypto/cryptd.c                  |    2 +-
+>  drivers/acpi/processor_perflib.c |    2 +-
+>  drivers/dma/dmaengine.c          |    2 +-
+>  drivers/edac/amd64_edac.c        |    2 +-
 
- JY> Anders Bostr=F6m <anders@netinsight.net> wrote:
- >> Cc: ben@decadent.org.uk; netdev@vger.kernel.org;
- >> 565404@bugs.debian.org; Xiong Huang
- >> Subject: Re: Bug#565404: linux-image-2.6.26-2-amd64: atl1e:
- >> TSO is broken
+For the edac bits:
 
- >> One strange observation is that I can only reproduce this
- >> problem when transmitting data from a NFS-server using TCP
- >> with Atheros AR8121/AR8113/AR8114.
- >>=20
- >> I've tried to reproduce the problem using test-programs, like
- >> nttcp and netpipe, without any success. One observation is
- >> that the test-programs *only* generates 1500 bytes
- >> IP-packets. When the NFS-server sends data, a sequence of
- >> 1500 bytes IP-packets are generated, ending with a shorter
- >> packet. And this last packet in the sequence has 1500 in the
- >> IP-header length field, but is shorter.
- >>=20
- JY> following is my test cese,
+Acked-by: Borislav Petkov <borislav.petkov@amd.com>
 
- JY> a nfs server server with ar8131chip, device id 1063. export /tmp/ =
-dir as the nfs share directory,
- JY> the client, mount the server_ip:/tmp to local dir /mnt/nfs, ust a =
-python script to write and read data on the
- JY> /mnt/nfs/testnfs.log. it works fine.
+-- 
+Regards/Gruss,
+Boris.
 
-OK, the device-ID in our NFS-server is 1026, rev. b0. So it is
-possible that the problem is specific to that chip/version.
-
- JY> Can you give me some advice on how to reproduce this bug??
-
-The only suggestion I have is to try to find a board with a 1026-chip
-on it.
-
-My test-case is just copy of a 1 Gbyte file from the
-NFS-server to /dev/null , after making sure that the file isn't cached
-on the client by reading huge amounts of other data.
-
-/ Anders
+--
+Advanced Micro Devices, Inc.
+Operating Systems Research Center
