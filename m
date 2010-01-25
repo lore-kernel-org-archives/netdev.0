@@ -1,42 +1,42 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH] IPv6: Update documentation for better built-in help
- with params
-Date: Mon, 25 Jan 2010 13:31:33 -0800
-Message-ID: <20100125133133.aa2b86a2.rdunlap@xenotime.net>
-References: <4B5A0991.9080701@hp.com>
-	<20100122.183223.197255353.davem@davemloft.net>
-	<4B5DD4AF.8050800@hp.com>
-	<20100125.132142.144428296.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/8] percpu: add __percpu sparse annotations to net
+Date: Mon, 25 Jan 2010 13:32:47 -0800 (PST)
+Message-ID: <20100125.133247.212571046.davem@davemloft.net>
+References: <1264432935-10453-1-git-send-email-tj@kernel.org>
+	<1264432935-10453-4-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: brian.haley@hp.com, greg@enjellic.com, nhorman@tuxdriver.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([72.52.64.118]:59640 "HELO xenotime.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753129Ab0AYVbg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jan 2010 16:31:36 -0500
-Received: from chimera.site ([96.253.169.185]) by xenotime.net for <netdev@vger.kernel.org>; Mon, 25 Jan 2010 13:31:34 -0800
-In-Reply-To: <20100125.132142.144428296.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, axboe@kernel.dk,
+	rusty@rustcorp.com.au, akpm@linux-foundation.org,
+	ebiederm@xmission.com, tytso@mit.edu, Trond.Myklebust@netapp.com,
+	aelder@sgi.com, hch@infradead.org, viro@zeniv.linux.org.uk,
+	netdev@vger.kernel.org, x86@kernel.org, mingo@redhat.com,
+	fweisbec@gmail.com, dan.j.williams@intel.com,
+	borislav.petkov@amd.com, ying.huang@intel.com, lenb@kernel.org,
+	neilb@suse.de, cl@linux-foundation.org, kaber@trash.net,
+	acme@ghostprotocols.net, vladislav.yasevich@hp.com
+To: tj@kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753370Ab0AYVcl@vger.kernel.org>
+In-Reply-To: <1264432935-10453-4-git-send-email-tj@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 25 Jan 2010 13:21:42 -0800 (PST) David Miller wrote:
+From: Tejun Heo <tj@kernel.org>
+Date: Tue, 26 Jan 2010 00:22:10 +0900
 
-> From: Brian Haley <brian.haley@hp.com>
-> Date: Mon, 25 Jan 2010 12:28:15 -0500
+> Add __percpu sparse annotations to net.
 > 
-> > I guess Documentation/kernel-parameters.txt is where such things
-> > live, can I send you a patch for that or does it need to go
-> > through someone else?
+> These annotations are to make sparse consider percpu variables to be
+> in a different address space and warn if accessed without going
+> through percpu accessors.  This patch doesn't affect normal builds.
 > 
-> I think lkml is a suitable place to submit something like
-> that.
-> --
+> The macro and type tricks around snmp stats make things a bit
+> interesting.  DEFINE/DECLARE_SNMP_STAT() macros mark the target field
+> as __percpu and SNMP_UPD_PO_STATS() macro is updated accordingly.  All
+> snmp_mib_*() users which used to cast the argument to (void **) are
+> updated to cast it to (void __percpu **).
+> 
+> Signed-off-by: Tejun Heo <tj@kernel.org>
 
-Sure, but if it's networking parameters, you (David) could still merge it...
-
----
-~Randy
+Acked-by: David S. Miller <davem@davemloft.net>
