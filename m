@@ -1,52 +1,64 @@
-From: Dunc <dunc@lemonia.org>
+From: Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>
 Subject: Re: Network QoS support in applications
-Date: Tue, 26 Jan 2010 14:02:07 +0000
-Message-ID: <4B5EF5DF.2070005@lemonia.org>
-References: <877hr5nkx0.fsf@purkki.valot.fi>	<20100126.041610.226004766.davem@davemloft.net>	<87wrz5m3cd.fsf@purkki.valot.fi>	<20100126.050645.184040277.davem@davemloft.net> <87my01m0zm.fsf@purkki.valot.fi>
+Date: Tue, 26 Jan 2010 16:27:29 +0200
+Message-ID: <87iqaplz5a.fsf@purkki.valot.fi>
+References: <877hr5nkx0.fsf@purkki.valot.fi>
+	<20100126.041610.226004766.davem@davemloft.net>
+	<87wrz5m3cd.fsf@purkki.valot.fi>
+	<20100126.050645.184040277.davem@davemloft.net>
+	<87my01m0zm.fsf@purkki.valot.fi> <4B5EF5DF.2070005@lemonia.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: Kalle Valo <kalle.valo@iki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tang.lemonia.org ([88.208.192.38]:56502 "EHLO tang.lemonia.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753982Ab0AZOWe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jan 2010 09:22:34 -0500
-In-Reply-To: <87my01m0zm.fsf@purkki.valot.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Dunc <dunc-9b9L1Hpe0sBAfugRpC6u6w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4B5EF5DF.2070005-9b9L1Hpe0sBAfugRpC6u6w@public.gmane.org> (dunc-9b9L1Hpe0sBAfugRpC6u6w@public.gmane.org's message of "Tue\, 26 Jan 2010 14\:02\:07 +0000")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+Dunc <dunc-9b9L1Hpe0sBAfugRpC6u6w@public.gmane.org> writes:
 
-> And you are perfectly right, as always. My choise of using the word
-> "universal" was bad. With word "universal" I meant to use same network
-> QoS API with different network technologies: ethernet, wi-fi,
-> bluetooth etc.
-> 
-> But we don't need to solve everything in one go, instead we can make
-> small steps. The first step is to start pushing applications to
-> classify their streams. That's the enabler to get some sort of QoS
-> support, at least to inside kernel and to the next hop. With luck, in
-> future it might get more widely used.
-> 
-> I was hoping to base the classification on some standard, but there
-> doesn't really seem to be one which would specify a complete solution.
-> But that's ok, we can always create a de facto standard :)
-> 
-> I'm curious how other operation systems handle this? Or is it a
-> similar situation, nobody just doesn't use QoS for anything?
-> 
+> If applications set the QoS values, the who's to stop someone (for
+> example) writing a bittorrent client that marks all packets for the
+> highest priority as if they were VoIP or something?
 
-If applications set the QoS values, the who's to stop someone (for
-example) writing a bittorrent client that marks all packets for the
-highest priority as if they were VoIP or something? At this point all
-the good work done in the applications is useless and the network admin
-is going to have to not trust the QoS values and then attempt to
-classify traffic by themselves, so it was all a waste of time.
+Nobody. That would a bug in the application which should be fixed.
+Badly behaving applications can disrupt the network, with or without
+QoS support. So no need to blame QoS for this.
 
-It's probably better to just always leave it up to the network devices IMHO.
+And if the network doesn't want to trust applications, it's free to do
+so. Nothing prevents that. And based on the discussion so far, the
+networks already ignore QoS classifations coming from other network
+realms.
 
-Cheers,
+> At this point all the good work done in the applications is useless
+> and the network admin is going to have to not trust the QoS values
+> and then attempt to classify traffic by themselves, so it was all a
+> waste of time.
 
-Dunc
+Because of one badly behaving application? I think that's a bit
+extreme. If QoS API brings benefits to the user (for example in this
+case bittorrent giving bandwith to more important streams), most
+probably applications try to get it right.
+
+> It's probably better to just always leave it up to the network devices IMHO.
+
+If we are happy with the current situation, sure, no need to do
+anything. But if we want to improve network services, we need to start
+to do something about this.
+
+I want to emphasise that we shouldn't look at this just from the core
+network point of view, but with a broader look. We have now different
+network technologies and devices where Linux is used. We should not
+just look at this from a point where a Linux workstation (or router)
+is connected with a fast access to Internet. For example, I want to
+have my ssh terminal connection higher priority compared to emails
+downloading background on a slow cellular network.
+
+-- 
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
