@@ -1,82 +1,60 @@
-From: Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>
-Subject: Re: [PATCH v2]IP: Send an ICMP "Fragment Reassembly Timeout"
- message when enabling connection track
-Date: Tue, 26 Jan 2010 11:34:44 +0900 (JST)
-Message-ID: <201001260234.o0Q2YjZk007947@toshiba.co.jp>
-References: <4B599084.1060406@trash.net>
-	<201001250057.o0P0v76J005243@toshiba.co.jp>
-	<4B5E44A2.2080006@cn.fujitsu.com>
+From: Frederic Weisbecker <fweisbec@gmail.com>
+Subject: Re: [PATCH 7/8] percpu: add __percpu sparse annotations to
+	hw_breakpoint
+Date: Tue, 26 Jan 2010 03:35:43 +0100
+Message-ID: <20100126023542.GQ5087@nowhere>
+References: <1264432935-10453-8-git-send-email-tj@kernel.org> <20100126001901.GI5087@nowhere> <4B5E3BED.6030705@kernel.org> <20100126010239.GK5087@nowhere> <4B5E4308.8020105@kernel.org> <20100126020113.GM5087@nowhere> <4B5E4FE7.30700@kernel.org> <20100126021846.GO5087@nowhere> <20100126022211.GP5087@nowhere> <4B5E54C0.2040709@kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yasuyuki.kozakai@toshiba.co.jp, kaber@trash.net,
-	davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, eric.dumazet@gmail.com,
-	david@blue-labs.org, jorge@dti2.net, opurdila@ixiacom.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: shanwei@cn.fujitsu.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B5E44A2.2080006@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, axboe@kernel.dk,
+	rusty@rustcorp.com.au, akpm@linux-foundation.org,
+	ebiederm@xmission.com, tytso@mit.edu, Trond.Myklebust@netapp.com,
+	aelder@sgi.com, hch@infradead.org, viro@zeniv.linux.org.uk,
+	davem@davemloft.net, netdev@vger.kernel.org, x86@kernel.org,
+	mingo@redhat.com, dan.j.williams@intel.com,
+	borislav.petkov@amd.com, ying.huang@intel.com, lenb@kernel.org,
+	neilb@suse.de, cl@linux-foundation.org
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753716Ab0AZCfu@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4B5E54C0.2040709@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-Hi,
-
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Date: Tue, 26 Jan 2010 09:25:54 +0800
-
-> Yasuyuki KOZAKAI wrote, at 01/25/2010 08:57 AM:
-> > It sounds good. Please take care that IPv6 router does not reassemble
-> > fragmented packets. 
+On Tue, Jan 26, 2010 at 11:34:40AM +0900, Tejun Heo wrote:
+> On 01/26/2010 11:22 AM, Frederic Weisbecker wrote:
+> >> What about this? It doesn't use direct cast to scalar but should
+> >> create a pointer type to kernel space datas:
+> >>
+> >>
+> >> #define kernel_space_t(var)	\
+> >> 	(typeof(var)	__kernel __force)
+> > 
+> > 
+> > Should be typeof(*var)
+> > 
+> >>
+> >> #define SHIFT_PERCPU_PTR(__p, __offset) ({                              \
+> >>         __verify_pcpu_ptr((__p));                                       \
+> >>         RELOC_HIDE((typeof(*(kernel_space_t(var)) __kernel __force *)(__p), (__offset)); \
+> >> })
 > 
-> I don't know the details about IPv6 router implement.
-> Did you mean that we can not directly use ip6_route_input(skb) to find
-> Routing type(host/router)? 
-
-I just talked about RFC2460.
-
-4.5  Fragment Header
-
-   The Fragment header is used by an IPv6 source to send a packet larger
-   than would fit in the path MTU to its destination.  (Note: unlike
-   IPv4, fragmentation in IPv6 is performed only by source nodes, not by
-   routers along a packet's delivery path -- see section 5.) 
+> Can you balance ()'s here too?
 
 
-> > IIRC the current nf_conntrack_{ipv6,reasm}.c
-> > reassembles the cloned skbs for tracking, discard the cloned skbs after
-> > tracking and forward the original skbs to IPv6 stack to keep the size of
-> > fragmented packets.
-> 
-> Indeed, after assembling fragments successfully in IPv6 connection track,
-> original fragments are forwarded to IPv6 stack. And then IPv6 stack
-> also assembles those received fragments again.
-> Thus fragments are assembled twice. 
-
-Yes, in the case that Linux is IPv6 host.
+#define kernel_space_t(var)        \
+    (typeof(*(var))    __kernel __force)
 
 
-> But IPv4 only assembly once. IPv4 connection track assembles fragments
-> > successfully and then just forwards assembled intact packet to IPv4
-> > stack. 
-> Do you know why is IPv6 designed like that?
+/* Weird cast keeps both GCC and sparse happy. */
+#define SHIFT_PERCPU_PTR(__p, __offset) ({                              \
+        __verify_pcpu_ptr((__p));                                       \
+        RELOC_HIDE((typeof(*(kernel_space_t(__p))) __kernel __force *)(__p), (__offset)); \
+})
 
-General speaking, IPv6 router just forwards the fragmented packets and
-it's up to IPv6 host to handle them. And nf_conntrack is not packet filter,
-but it just tracks packets. So I designed that nf_contrack_ipv6 forwards
-fragments to IPv6 stack even if nf_conntrack detects missing piece
-of fragments. This resulted in twice reassembly in the case that
-Linux is IPv6 host, but I tolerated that.
+#define per_cpu(var, cpu) \
+        (*SHIFT_PERCPU_PTR(&(var), per_cpu_offset(cpu)));
 
-I think that your improvement can remove such inefficient processing.
 
-BTW, I explained the reason why nf_conntrack does not re-fragment
-the reassembled skb like nf_conntrack_ipv4 and forwards the original
-fragments to IPv6 stack in
-
-	http://conferences.sigcomm.org/sigcomm/2007/ipv6/1569042997.pdf
-
-Regards,
-
--- Yasuyuki Kozakai
+No guarantee that will build. I should pull your tree and install
+sparse (yeah, shame on me, I've never installed it).
