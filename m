@@ -1,13 +1,13 @@
-From: Tejun Heo <tj@kernel.org>
+From: "H. Peter Anvin" <hpa@zytor.com>
 Subject: Re: [PATCH 7/8] percpu: add __percpu sparse annotations to	hw_breakpoint
-Date: Tue, 26 Jan 2010 10:19:04 +0900
-Message-ID: <4B5E4308.8020105@kernel.org>
-References: <1264432935-10453-1-git-send-email-tj@kernel.org> <1264432935-10453-8-git-send-email-tj@kernel.org> <20100126001901.GI5087@nowhere> <4B5E3BED.6030705@kernel.org> <20100126010239.GK5087@nowhere>
+Date: Mon, 25 Jan 2010 17:02:36 -0800
+Message-ID: <4B5E3F2C.2010702@zytor.com>
+References: <1264432935-10453-1-git-send-email-tj@kernel.org> <1264432935-10453-8-git-send-email-tj@kernel.org> <20100126001901.GI5087@nowhere>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, axboe@kernel.dk,
-	rusty@rustcorp.com.au, akpm@linux-foundation.org,
+Cc: Tejun Heo <tj@kernel.org>, linux-kernel@vger.kernel.org,
+	axboe@kernel.dk, rusty@rustcorp.com.au, akpm@linux-foundation.org,
 	ebiederm@xmission.com, tytso@mit.edu, Trond.Myklebust@netapp.com,
 	aelder@sgi.com, hch@infradead.org, viro@zeniv.linux.org.uk,
 	davem@davemloft.net, netdev@vger.kernel.org, x86@kernel.org,
@@ -15,50 +15,32 @@ Cc: linux-kernel@vger.kernel.org, axboe@kernel.dk,
 	borislav.petkov@amd.com, ying.huang@intel.com, lenb@kernel.org,
 	neilb@suse.de, cl@linux-foundation.org
 To: Frederic Weisbecker <fweisbec@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:57367 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752039Ab0AZBOu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jan 2010 20:14:50 -0500
-In-Reply-To: <20100126010239.GK5087@nowhere>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752719Ab0AZBQZ@vger.kernel.org>
+In-Reply-To: <20100126001901.GI5087@nowhere>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
-
-On 01/26/2010 10:02 AM, Frederic Weisbecker wrote:
-> Well, sorry I must be missing something obvious, but is it impossible
-> to make per_cpu(var, cpu) returning something cast in:
+On 01/25/2010 04:19 PM, Frederic Weisbecker wrote:
+> On Tue, Jan 26, 2010 at 12:22:14AM +0900, Tejun Heo wrote:
+>> Add __percpu sparse annotations to hw_breakpoint.
+>>
+>> These annotations are to make sparse consider percpu variables to be
+>> in a different address space and warn if accessed without going
+>> through percpu accessors.  This patch doesn't affect normal builds.
+>>
+>> per_cpu(nr_task_bp_pinned, cpu) is replaced with
+>> &per_cpu(nr_task_bp_pinned[0], cpu).  This is the same to the compiler
+>> but allows per_cpu() macro to correctly drop __percpu designation for
+>> the returned pointer.
 > 
-> 	(typeof(var) __force)
+> Ouch... It's unpleasant to see such workaround that messes up the
+> code just to make sparse happy.
 > 
-> Or I guess you did that already and it is not working with static
-> arrays, or?
+> I guess __percpu is an address_space attribute? Is there no
+> way to force the address space change directly from the
+> per_cpu() macro?
+> 
 
-Yeap, the definition looks like
+A cast (using __typeof__) combined with an address space override?
 
- #define SHIFT_PERCPU_PTR(__p, __offset)	({			\
-	__verify_pcpu_ptr((__p));					\
-	RELOC_HIDE((typeof(*(__p)) __kernel __force *)(__p), (__offset)); \
- })
-
- #define per_cpu(var, cpu) \
-	(*SHIFT_PERCPU_PTR(&(var), per_cpu_offset(cpu)))
-
-but it just ends up putting the __force at the wrong layer.  It seems
-that (typeof(var) __kernel __force) tell sparse var is in the kernel
-address space but not its members.
-
-> Is there a patch that shows per_cpu() macro changes in the batch?
-
-Sorry I forgot to write about this.  It's in the percpu tree.
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/tj/percpu.git for-next
-
-The related commits are 545695fb41da117928ab946067a42d9e15fd009d and
-e0fdb0e050eae331046385643618f12452aa7e73.
-
-Thanks.
-
--- 
-tejun
+	-hpa
