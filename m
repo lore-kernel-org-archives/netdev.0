@@ -1,47 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] starfire: Clean up properly if firmware loading fails
-Date: Tue, 26 Jan 2010 14:40:28 +0000
-Message-ID: <1264516828.2782.6.camel@achroite.uk.solarflarecom.com>
-References: <bug-15091-10286@http.bugzilla.kernel.org/>
-	 <20100125170816.db9435ed.akpm@linux-foundation.org>
-	 <1264471333.373.349.camel@localhost>
-	 <20100125181508.790010cb.akpm@linux-foundation.org>
-	 <1264473168.373.354.camel@localhost> <4B5E5A5F.90608@moffatt.org.nz>
-	 <20100125192839.7eaceb2b.akpm@linux-foundation.org>
-	 <4B5E82CB.6040001@moffatt.org.nz>
+From: =?UTF-8?Q?R=C3=A9mi_Denis-Courmont?= <remi@remlab.net>
+Subject: Re: Network QoS support in applications
+Date: Tue, 26 Jan 2010 15:43:01 +0100
+Message-ID: <39575e70388bb2ea58dd36b9061d5055@chewa.net>
+References: <877hr5nkx0.fsf@purkki.valot.fi> <20100126.041610.226004766.davem@davemloft.net> <87wrz5m3cd.fsf@purkki.valot.fi> <20100126.050645.184040277.davem@davemloft.net> <87my01m0zm.fsf@purkki.valot.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>, stable@kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Michael <michael@moffatt.org.nz>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:32629 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753840Ab0AZOke (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2010 09:40:34 -0500
-In-Reply-To: <4B5E82CB.6040001@moffatt.org.nz>
+Received: from yop.chewa.net ([91.121.105.214]:41258 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751544Ab0AZOnF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jan 2010 09:43:05 -0500
+In-Reply-To: <87my01m0zm.fsf@purkki.valot.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-01-26 at 18:51 +1300, Michael wrote:
-[...]
-> I will have to find a cleverer way to copy over the new firmware libs 
-> for future compiles. The 'make install' seems to copy firmware objects 
-> into the compiling system's /lib/firmware/ directory without 
-> distinguishing the kernel version. So I can't easily tell which ones I'm 
-> supposed to be copying into the nfs export.
-[...]
 
-You should be setting INSTALL_MOD_PATH.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+On Tue, 26 Jan 2010 15:47:41 +0200, Kalle Valo <kalle.valo@iki.fi> wrot=
+e:=0D
+> But that's just because of mistakes with DiffServ and other QoS=0D
+> "frameworks". They didn't bother to specify how applications should=0D
+> use these. And what matters here IMHO.=0D
+=0D
+TOS lets the application specify whether they want low-delay (interacti=
+ve=0D
+low bandwidth traffic), high bandwidth (bulk traffic), high reliability=
+ or=0D
+low cost. It's surely vague, but anything "uniform" solution is bound t=
+o be=0D
+vague. Some applications *do* set those fields, or provide options to s=
+et=0D
+them up. And contrary to SO_PRIORITY, it *can* be made to work for=0D
+non-local queues, if the applications are trusted.=0D
+=0D
+I am afraid it's too late for anything more uniform at the socket API=0D
+level. Even fewer developers would bother to support Linux>=3D2.6.3x-sp=
+ecific=0D
+options, than TOS/TCLASS.=0D
+=0D
+-- =0D
+R=C3=A9mi Denis-Courmont=0D
+http://www.remlab.net=0D
+http://fi.linkedin.com/in/remidenis
 
