@@ -1,56 +1,52 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: [PATCH net-next-2.6] can: deny filterlist access on non-CAN interfaces
-Date: Tue, 26 Jan 2010 14:51:59 +0100
-Message-ID: <4B5EF37F.7070906@hartkopp.net>
+From: Dunc <dunc@lemonia.org>
+Subject: Re: Network QoS support in applications
+Date: Tue, 26 Jan 2010 14:02:07 +0000
+Message-ID: <4B5EF5DF.2070005@lemonia.org>
+References: <877hr5nkx0.fsf@purkki.valot.fi>	<20100126.041610.226004766.davem@davemloft.net>	<87wrz5m3cd.fsf@purkki.valot.fi>	<20100126.050645.184040277.davem@davemloft.net> <87my01m0zm.fsf@purkki.valot.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: Kalle Valo <kalle.valo@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:38926 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751305Ab0AZNwH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2010 08:52:07 -0500
+Received: from tang.lemonia.org ([88.208.192.38]:56502 "EHLO tang.lemonia.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753982Ab0AZOWe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jan 2010 09:22:34 -0500
+In-Reply-To: <87my01m0zm.fsf@purkki.valot.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit 20dd3850bcf860561496827b711fa10fecf6e787 "can: Speed up CAN frame
-receiption by using ml_priv" the formerly used hlist of receiver lists for
-each CAN netdevice has been replaced. 
 
-The hlist content ensured only CAN netdevices to be accessed by the
-can_rx_(un)register() functions which accidently dropped away together with
-the hlist receiver implementation.
+> And you are perfectly right, as always. My choise of using the word
+> "universal" was bad. With word "universal" I meant to use same network
+> QoS API with different network technologies: ethernet, wi-fi,
+> bluetooth etc.
+> 
+> But we don't need to solve everything in one go, instead we can make
+> small steps. The first step is to start pushing applications to
+> classify their streams. That's the enabler to get some sort of QoS
+> support, at least to inside kernel and to the next hop. With luck, in
+> future it might get more widely used.
+> 
+> I was hoping to base the classification on some standard, but there
+> doesn't really seem to be one which would specify a complete solution.
+> But that's ok, we can always create a de facto standard :)
+> 
+> I'm curious how other operation systems handle this? Or is it a
+> similar situation, nobody just doesn't use QoS for anything?
+> 
 
-This patch re-introduces the check for CAN netdevices in can_rx_(un)register().
+If applications set the QoS values, the who's to stop someone (for
+example) writing a bittorrent client that marks all packets for the
+highest priority as if they were VoIP or something? At this point all
+the good work done in the applications is useless and the network admin
+is going to have to not trust the QoS values and then attempt to
+classify traffic by themselves, so it was all a waste of time.
 
-Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
+It's probably better to just always leave it up to the network devices IMHO.
 
----
+Cheers,
 
-diff --git a/net/can/af_can.c b/net/can/af_can.c
-index bc18b08..702be5a 100644
---- a/net/can/af_can.c
-+++ b/net/can/af_can.c
-@@ -415,6 +415,9 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
- 
- 	/* insert new receiver  (dev,canid,mask) -> (func,data) */
- 
-+	if (dev && dev->type != ARPHRD_CAN)
-+		return -ENODEV;
-+
- 	r = kmem_cache_alloc(rcv_cache, GFP_KERNEL);
- 	if (!r)
- 		return -ENOMEM;
-@@ -478,6 +481,9 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
- 	struct hlist_node *next;
- 	struct dev_rcv_lists *d;
- 
-+	if (dev && dev->type != ARPHRD_CAN)
-+		return;
-+
- 	spin_lock(&can_rcvlists_lock);
- 
- 	d = find_dev_rcv_lists(dev);
-
+Dunc
