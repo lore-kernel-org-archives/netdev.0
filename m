@@ -1,34 +1,32 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] bonding: bond_open error return value
-Date: Tue, 26 Jan 2010 01:34:15 -0800
-Message-ID: <20100126013415.0120d6a9@nehalam>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Deadlock in IPv6 code while garbage collection on the rwlock
+	protecting the routing tree.
+Date: Tue, 26 Jan 2010 09:48:17 +0000
+Message-ID: <20100126094817.GA7780@ff.dom.local>
+References: <20100123.022210.56302976.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@vyatta.com, djohnson@starentnetworks.com,
+	sakkiped@starentnetworks.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49980 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751913Ab0AZJe2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jan 2010 04:34:28 -0500
+Received: from mail-fx0-f220.google.com ([209.85.220.220]:44504 "EHLO
+	mail-fx0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751323Ab0AZJsW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2010 04:48:22 -0500
+Received: by fxm20 with SMTP id 20so134914fxm.21
+        for <netdev@vger.kernel.org>; Tue, 26 Jan 2010 01:48:21 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20100123.022210.56302976.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The convention for API functions in kernel is to return errno value;
-bond_open would return -1 if alb setup failed. The only reason that
-could happen is if kmalloc() failed.
+On 23-01-2010 11:22, David Miller wrote:
+> This is all well and good, but meanwhile someone does need to
+> fix the deadlock originally reported here :-)
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+I hope I miss something ;-) but I can't see this deadlock; the
+write_lock_bh(&table->tb6_lock) is taken from a timer in this case,
+not from the thread holding read_lock_bh(&table->tb6_lock).
 
---- a/drivers/net/bonding/bond_main.c	2010-01-26 01:28:18.281568331 -0800
-+++ b/drivers/net/bonding/bond_main.c	2010-01-26 01:29:58.101099312 -0800
-@@ -3650,7 +3650,7 @@ static int bond_open(struct net_device *
- 		 */
- 		if (bond_alb_initialize(bond, (bond->params.mode == BOND_MODE_ALB))) {
- 			/* something went wrong - fail the open operation */
--			return -1;
-+			return -ENOMEM;
- 		}
- 
- 		INIT_DELAYED_WORK(&bond->alb_work, bond_alb_monitor);
+Jarek P.
