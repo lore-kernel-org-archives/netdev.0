@@ -1,77 +1,56 @@
-From: Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>
-Subject: Re: Network QoS support in applications
-Date: Tue, 26 Jan 2010 15:47:41 +0200
-Message-ID: <87my01m0zm.fsf@purkki.valot.fi>
-References: <877hr5nkx0.fsf@purkki.valot.fi>
-	<20100126.041610.226004766.davem@davemloft.net>
-	<87wrz5m3cd.fsf@purkki.valot.fi>
-	<20100126.050645.184040277.davem@davemloft.net>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [PATCH net-next-2.6] can: deny filterlist access on non-CAN interfaces
+Date: Tue, 26 Jan 2010 14:51:59 +0100
+Message-ID: <4B5EF37F.7070906@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100126.050645.184040277.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (David Miller's message of "Tue\, 26 Jan 2010 05\:06\:45 -0800 \(PST\)")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:38926 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751305Ab0AZNwH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2010 08:52:07 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
+In commit 20dd3850bcf860561496827b711fa10fecf6e787 "can: Speed up CAN frame
+receiption by using ml_priv" the formerly used hlist of receiver lists for
+each CAN netdevice has been replaced. 
 
-> From: Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>
-> Date: Tue, 26 Jan 2010 14:56:50 +0200
->
->> In my opinion we already now need a universal solution for the user
->> space applications to classify their streams. Having a local solution
->> doesn't get us far, people don't want to configure their laptops or
->> phones, they just want to use them :)
->
-> And similarly your organization's administartion doesn't want to
-> prioritize bittorrent traffic a specific fixed way just because your
-> application sets some bits in the TOS field of it's packets.
->
-> Prioritization policies have no meaning outside of your local realm,
-> and that's just a fact of life.
+The hlist content ensured only CAN netdevices to be accessed by the
+can_rx_(un)register() functions which accidently dropped away together with
+the hlist receiver implementation.
 
-Yes, that's what I have understood.
+This patch re-introduces the check for CAN netdevices in can_rx_(un)register().
 
-> So what typically happens is that applications do nothing.
+Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
 
-But that's just because of mistakes with DiffServ and other QoS
-"frameworks". They didn't bother to specify how applications should
-use these. And what matters here IMHO.
+---
 
-> And machines on the ingress to a network realm change the TOS based
-> field upon classification decisions made by parsing the packet by the
-> router/firewall/whatever.
->
-> The packet gets QoS treatment within the realm, but completely
-> determined by local policy within that realm.
->
-> And then on egress from the realm the TOS field has absolutely
-> no meaning at all to the next network segment.
+diff --git a/net/can/af_can.c b/net/can/af_can.c
+index bc18b08..702be5a 100644
+--- a/net/can/af_can.c
++++ b/net/can/af_can.c
+@@ -415,6 +415,9 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
+ 
+ 	/* insert new receiver  (dev,canid,mask) -> (func,data) */
+ 
++	if (dev && dev->type != ARPHRD_CAN)
++		return -ENODEV;
++
+ 	r = kmem_cache_alloc(rcv_cache, GFP_KERNEL);
+ 	if (!r)
+ 		return -ENOMEM;
+@@ -478,6 +481,9 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+ 	struct hlist_node *next;
+ 	struct dev_rcv_lists *d;
+ 
++	if (dev && dev->type != ARPHRD_CAN)
++		return;
++
+ 	spin_lock(&can_rcvlists_lock);
+ 
+ 	d = find_dev_rcv_lists(dev);
 
-And you are perfectly right, as always. My choise of using the word
-"universal" was bad. With word "universal" I meant to use same network
-QoS API with different network technologies: ethernet, wi-fi,
-bluetooth etc.
-
-But we don't need to solve everything in one go, instead we can make
-small steps. The first step is to start pushing applications to
-classify their streams. That's the enabler to get some sort of QoS
-support, at least to inside kernel and to the next hop. With luck, in
-future it might get more widely used.
-
-I was hoping to base the classification on some standard, but there
-doesn't really seem to be one which would specify a complete solution.
-But that's ok, we can always create a de facto standard :)
-
-I'm curious how other operation systems handle this? Or is it a
-similar situation, nobody just doesn't use QoS for anything?
-
--- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
