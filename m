@@ -1,83 +1,71 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Netlink usage question (for bonding comm with userspace)
-Date: Tue, 26 Jan 2010 12:25:55 +0100
-Message-ID: <4B5ED143.6000903@trash.net>
-References: <15914.1264466901@death.nxdomain.ibm.com>
+From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Subject: Re: Network QoS support in applications
+Date: Tue, 26 Jan 2010 12:30:28 +0100
+Message-ID: <4B5ED254.7010104@trash.net>
+References: <87k4v5nuej.fsf@purkki.valot.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:65037 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752207Ab0AZL0A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2010 06:26:00 -0500
-In-Reply-To: <15914.1264466901@death.nxdomain.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87k4v5nuej.fsf-ySPBbPOLdCfMApvqMRVM/A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
-> 	Could any netlink gurus comment on my questions?  I'm hoping to
-> figure out the right way to do what I need without working up patches
-> that end up being excellent examples of the wrong way.  I've looked
-> through the kernel, and it's almost a cases of too many choices (private
-> netlink, rtnetlink, connector, genetlink) to sort through.
+Kalle Valo wrote:
+> Hello,
 > 
-> 	Background: I'm working on a bonding mode that involves two-way
-> communication between bonding itself and a user-space daemon, and I'm
-> trying to determine the best way to utilize netlink for this project
-> with an eye towards forwards compatibility with future expansion (e.g.,
-> general bonding setup via netlink).  For purposes of discussion, the
-> communication requires that bonding-specific requests, responses and
-> asynchronous events flow in both directions.
+> I have been trying to understand how applications should use network
+> QoS. My interest have been mostly from wireless perspective,
+> especially how to utilise WMM and U-APSD properly, but naturally this
+> applicable to all networks.
 > 
-> 	I could, for this project, use a netlink_kernel_create and
-> socket(AF_NETLINK) pair to perform the communication (presumably adding
-> a NETLINK_BONDING or the like to <linux/netlink.h>).
+> I have done some research about this, but I haven't managed to get
+> anywhere. For example, from my point of view DiffServ is just one big
+> mess and I can't see how in practise it can help applications.
 > 
-> 	That, however, wouldn't dovetail with moving control of bonding
-> into iproute2 ("ip link add link bond0 type bond mode whatever"), and it
-> seems suboptimal to have two independent netlink gizmos in bonding.  I'm
-> not planning to implement full bonding control via netlink at this time,
-> but I don't want to do anything that would cause difficulty for doing so
-> in the future.
+> I wrote a small wiki page to sum up my findings:
+> 
+> http://wireless.kernel.org/en/developers/Documentation/qos
+> 
+> I would like to clear up all this by and I'm willing to write a
+> document for application developers about network QoS. But I need help
+> to understand what's the proper way to mark different QoS
+> prioritities.
+> 
+> In the wiki page I have tried to come up with different possible
+> solutions (copied below), but I'm sure there are even more ways.
+> 
+> Please comment. I would like to get some understanding about this.
+> 
+> 
+> ----------------------------------------------------------------------
+> Solution 1: SO_PRIORITY with values 0-7
+> 
+> Easy, applications need to just use setsockopt() and be done with it.
+> It's unknown how widely supported values 0-7 are and the exact meaning
+> of them, but at least they make sense (0 default, 1 lowest priority
+> and 7 highest priority). The problem is that the priority is used only
+> in the first link, rest of the route is not able to benefit from the
+> classification.
+> 
+> Pros:
+> 
+>     * easy for applications
+>     * works with both IPv4 and IPv6 
+> 
+> Cons:
+> 
+>     * only visible in in the first L2 link, not visible to upper
+>       layers (IP)
+>     * no well defined meaning for the priority values 
+> 
+> Solution 2: SO_PRIORITY with values 256-263
 
-I actually have an 75% finished patchset for rtnl_link support.
-
-> 	I've done some prototyping with working through the existing
-> rtnetlink infrastructure, adding an RTNLGRP_BONDING, AF_BONDING, etc,
-> vaguely paralleling how the bridge code is architected.  What's unclear
-> to me is how to insert the bonding-specific request / response message
-> types into the rtnetlink infrastructure, or, indeed, if this is simply
-> not the right way to go about this.
-> 
-> 	So, in summary:
-> 
-> 	For user / kernel communications via netlink: private socket,
-> add to rtnetlink API, or something else (connector, genetlink, ...)?
-> 
-> 	Is having private socket netlink and rtnetlink in the same
-> module a reasonable methodology?
-
-It depends. If your requests and responses can be expressed as
-device configuration and state changes then you could include them
-in the bonding specific part of an rtnetlink message. Otherwise
-you should use a private netlink family or genetlink.
-
-> 	If rtnetlink is suitable, basic "do this" or "don't do this"
-> thoughts?  The various HOWTOs google finds for me concentrate on the
-> mechanisms, less so on interface selection / design.
-> 
-> 	Thoughts?
-> 
-> 	-J
-> 
-> ---
-> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
+You can actually encode any class handle in SO_PRIORITY, all classful
+qdiscs support classification based on this.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
