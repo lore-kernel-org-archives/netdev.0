@@ -1,95 +1,54 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: Re: [PATCH 1/2] e1000: Fix DMA mapping error handling
-	on TX
-Date: Tue, 26 Jan 2010 16:59:32 +0100
-Message-ID: <4B5F1164.8030102@gmail.com>
-References: <20100121114244.GC32259@kryten>	
-	<9929d2391001221940r4482dde4k8e5409bc7933bc21@mail.gmail.com>	
-	<20100124004753.GB2996@kryten>
-	<9929d2391001231958n3f8d5165yaeed9ec1e0d7121a@mail.gmail.com>
+From: cold cold <nedkonedev@gmail.com>
+Subject: 0% cpu usasge after fresh boot or net restart but 10% CPU if kernel
+	flush route cache
+Date: Tue, 26 Jan 2010 18:58:31 +0200
+Message-ID: <41ac0f9e1001260858o7d2a6a6dgb37ecfba5c325932@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Yi Zou <yi.zou@intel.com>, e1000-devel@lists.sourceforge.net,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Anton Blanchard <anton@samba.org>, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <9929d2391001231958n3f8d5165yaeed9ec1e0d7121a@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.154]:18251 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752460Ab0AZQ6c convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2010 11:58:32 -0500
+Received: by fg-out-1718.google.com with SMTP id 22so102770fge.1
+        for <netdev@vger.kernel.org>; Tue, 26 Jan 2010 08:58:31 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+HI,
 
 
->>> This patch does not apply to the current e1000 driver in net-2.6, much
->>> of this patch has already been corrected (applied) by Roel Kluin
->>> recent patch.
->>
->> Sorry I was basing off net-next. I just compared it to my fix and looks like
->> the patch in net-2.6 has an off by one error doesn't it?
-> 
-> This was discussed during our code review of Roel's patch, and it was
-> found that there was not an issue.  But I will review the code again
-> to ensure that there is not "an off by one error".  Thanks for looking
-> at this.
+i have expiriance some CPU usage spikes=A0up to 10% on=A0each four cpus
+after the=A0first kernel route cache flush.
+After mashine start first 20 min CPU is 0%si=A0=A0300Mbits/s full duple=
+x
+and arount 100k pps forwarded traffic, without any firewall, just
+plain routing.
 
-He is right, as also reported by Juha Leppanen:
+route -n |wc -l
+34
 
-> Before your patch I suppose the logic disregarding the signed/unsigned error was :
-> 1) if count==0, no unmapping/freeing inside while loop
-> 2) if count>0, do 'count' loops unmapping/freeing
-> 
-> After your patch the logic is :
-> 1) if count==0, no unmapping/freeing inside while loop
-> 1) if count==1, no unmapping/freeing inside while loop
-> 2) if count>1, do 'count-1' loops unmapping/freeing
+ip route show cache | wc -l
+2140842
 
-> Can tx_ring->count be zero? I hope not.
+cat /proc/sys/net/ipv4/route/secret_interval
+600
+cat /proc/sys/net/ipv4/route/max_size
+33554432
 
-His suggested fix works:
+after kernel=A0 flush i got 10% on all CPUs for 5-6 mins.=A0 It's not f=
+rom
+rebuilding route cashe becouse=A0after
+fresh boot or network restrat there is no=A0CPU usage until kernel flus=
+h
+route cache.
+I try to play with rhash_entries=3D 300000=A0to 2000000 same result.
 
-> dma_error:
-> 	dev_err(&pdev->dev, "TX DMA map failed\n");
-> 	buffer_info->dma = 0;
-> -	if (count)
-> -		count--;
-> 
-> 	while (count--) {
-> 		if (i==0)
-> -			i += tx_ring->count;
-> +			i = tx_ring->count;
-> 		i--;
-> 		buffer_info = &tx_ring->buffer_info[i];
-> 		e1000_unmap_and_free_tx_resource(adapter, buffer_info);
-> 	}
-> 
-> 	return 0;
-> }
-
-This affects the patches:
-[PATCH] e1000: Fix tests of unsigned in e1000_tx_map()
-and the other patch in the same thread.
-
-Do you want me to send a delta patch?
-
-Roel
-
-------------------------------------------------------------------------------
-The Planet: dedicated and managed hosting, cloud storage, colocation
-Stay online with enterprise data centers and the best network in the business
-Choose flexible plans and management services without long-term contracts
-Personal 24x7 support from experience hosting pros just a phone call away.
-http://p.sf.net/sfu/theplanet-com
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Network Card: Ethernet controller: Intel Corporation 82576 Gigabit
+Network Connection
+CPU: Intel(R) Xeon(R) CPU=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 E5420=A0 @ 2.50=
+GHz
+RAM: 4G
+Kernel: vanilla=A02.6.32.4
