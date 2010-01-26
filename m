@@ -1,33 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] sfc: Use fixed-size buffers for MCDI NVRAM requests
-Date: Mon, 25 Jan 2010 15:50:13 -0800 (PST)
-Message-ID: <20100125.155013.244358929.davem@davemloft.net>
-References: <1264447852.2793.4.camel@achroite.uk.solarflarecom.com>
+From: Frederic Weisbecker <fweisbec@gmail.com>
+Subject: Re: [PATCH 7/8] percpu: add __percpu sparse annotations to
+	hw_breakpoint
+Date: Tue, 26 Jan 2010 01:19:03 +0100
+Message-ID: <20100126001901.GI5087@nowhere>
+References: <1264432935-10453-1-git-send-email-tj@kernel.org> <1264432935-10453-8-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, axboe@kernel.dk,
+	rusty@rustcorp.com.au, akpm@linux-foundation.org,
+	ebiederm@xmission.com, tytso@mit.edu, Trond.Myklebust@netapp.com,
+	aelder@sgi.com, hch@infradead.org, viro@zeniv.linux.org.uk,
+	davem@davemloft.net, netdev@vger.kernel.org, x86@kernel.org,
+	mingo@redhat.com, dan.j.williams@intel.com,
+	borislav.petkov@amd.com, ying.huang@intel.com, lenb@kernel.org,
+	neilb@suse.de, cl@linux-foundation.org
+To: Tejun Heo <tj@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33579
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751466Ab0AYXuB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2010 18:50:01 -0500
-In-Reply-To: <1264447852.2793.4.camel@achroite.uk.solarflarecom.com>
+Received: from fg-out-1718.google.com ([72.14.220.154]:19578 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751450Ab0AZATK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2010 19:19:10 -0500
+Content-Disposition: inline
+In-Reply-To: <1264432935-10453-8-git-send-email-tj@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 25 Jan 2010 19:30:52 +0000
-
-> The low-level MCDI code always uses 32-bit MMIO operations, and
-> callers must pad input and output buffers to multiples of 4 bytes.
-> The MCDI NVRAM functions are not doing this.  Also, their buffers are
-> declared as variable-length arrays with no explicit maximum length.
+On Tue, Jan 26, 2010 at 12:22:14AM +0900, Tejun Heo wrote:
+> Add __percpu sparse annotations to hw_breakpoint.
 > 
-> Switch to a fixed buffer size based on the chunk size used by the
-> MTD driver (which is a multiple of 4).
+> These annotations are to make sparse consider percpu variables to be
+> in a different address space and warn if accessed without going
+> through percpu accessors.  This patch doesn't affect normal builds.
 > 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> per_cpu(nr_task_bp_pinned, cpu) is replaced with
+> &per_cpu(nr_task_bp_pinned[0], cpu).  This is the same to the compiler
+> but allows per_cpu() macro to correctly drop __percpu designation for
+> the returned pointer.
 
-Applied.
+
+
+Ouch... It's unpleasant to see such workaround that messes up the
+code just to make sparse happy.
+
+I guess __percpu is an address_space attribute? Is there no
+way to force the address space change directly from the
+per_cpu() macro?
+
+Thanks.
+
