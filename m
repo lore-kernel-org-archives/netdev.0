@@ -1,42 +1,66 @@
 From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 5/8] percpu: add __percpu sparse annotations to x86
-Date: Tue, 26 Jan 2010 11:17:52 +0900
-Message-ID: <4B5E50D0.8050705@kernel.org>
-References: <1264432935-10453-1-git-send-email-tj@kernel.org> <1264432935-10453-6-git-send-email-tj@kernel.org> <4B5E401C.1050605@zytor.com>
+Subject: Re: [PATCH 7/8] percpu: add __percpu sparse annotations to	hw_breakpoint
+Date: Tue, 26 Jan 2010 11:16:42 +0900
+Message-ID: <4B5E508A.1030305@kernel.org>
+References: <1264432935-10453-1-git-send-email-tj@kernel.org> <1264432935-10453-8-git-send-email-tj@kernel.org> <20100126001901.GI5087@nowhere> <4B5E3F2C.2010702@zytor.com> <4B5E4E12.7060900@kernel.org> <20100126020452.GB19799@ZenIV.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, axboe@kernel.dk,
+Cc: "H. Peter Anvin" <hpa@zytor.com>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	linux-kernel@vger.kernel.org, axboe@kernel.dk,
 	rusty@rustcorp.com.au, akpm@linux-foundation.org,
 	ebiederm@xmission.com, tytso@mit.edu, Trond.Myklebust@netapp.com,
-	aelder@sgi.com, hch@infradead.org, viro@zeniv.linux.org.uk,
-	davem@davemloft.net, netdev@vger.kernel.org, x86@kernel.org,
-	mingo@redhat.com, fweisbec@gmail.com, dan.j.williams@intel.com,
-	borislav.petkov@amd.com, ying.huang@intel.com, lenb@kernel.org,
-	neilb@suse.de, cl@linux-foundation.org,
-	Thomas Gleixner <tglx@linutronix.de>
-To: "H. Peter Anvin" <hpa@zytor.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753537Ab0AZCMV@vger.kernel.org>
-In-Reply-To: <4B5E401C.1050605@zytor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	aelder@sgi.com, hch@infradead.org, davem@davemloft.net,
+	netdev@vger.kernel.org, x86@kernel.org, mingo@redhat.com,
+	dan.j.williams@intel.com, borislav.petkov@amd.com,
+	ying.huang@intel.com, lenb@kernel.org, neilb@suse.de,
+	cl@linux-foundation.org
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hera.kernel.org ([140.211.167.34]:53659 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753545Ab0AZCMe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jan 2010 21:12:34 -0500
+In-Reply-To: <20100126020452.GB19799@ZenIV.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/26/2010 10:06 AM, H. Peter Anvin wrote:
-> On 01/25/2010 07:22 AM, Tejun Heo wrote:
+On 01/26/2010 11:04 AM, Al Viro wrote:
+> On Tue, Jan 26, 2010 at 11:06:10AM +0900, Tejun Heo wrote:
+>> Hello,
 >>
->> In arch/x86/kernel/cpu/common.c, per_cpu(exception_stacks, cpu) is
->> replaced with &per_cpu(exception_stacks[0], cpu) which is equivalent
->> except that it allows per_cpu() macro to correctly drop percpu
->> designation during sparse pass.
+>> On 01/26/2010 10:02 AM, H. Peter Anvin wrote:
+>>> A cast (using __typeof__) combined with an address space override?
 >>
+>> That still puts the address specification at the wrong level.  The
+>> problem is that the __typeof__ would be an array type which itself
+>> doesn't have address space set but its members are in address space 3.
+>> So, you need to get *inside* the array type def to change that.  :-(
 > 
-> Same comment as Frederic's about this... this kind of uglification
-> really is unacceptable and needs to be addressed.
+> Could you post the actual definitions in one piece?  Would be easier to
+> discuss what's going on...
 
-Hmm... I don't think it's too bad but if you don't like it that much,
-probably the right thing to do is just leave it there and let sparse
-whine about it.  There are only three in-kernel instances at this
-point, so it's not that big a deal.
+Here it is.
+
+# define RELOC_HIDE(ptr, off)					\
+  ({ unsigned long __ptr;					\
+     __ptr = (unsigned long) (ptr);				\
+    (typeof(ptr)) (__ptr + (off)); })
+
+#define __verify_pcpu_ptr(ptr)	do {					\
+	const void __percpu *__vpp_verify = (typeof(ptr))NULL;		\
+	(void)__vpp_verify;						\
+} while (0)
+
+/* Weird cast keeps both GCC and sparse happy. */
+#define SHIFT_PERCPU_PTR(__p, __offset)	({				\
+	__verify_pcpu_ptr((__p));					\
+	RELOC_HIDE((typeof(*(__p)) __kernel __force *)(__p), (__offset)); \
+})
+
+#define per_cpu(var, cpu) \
+	(*SHIFT_PERCPU_PTR(&(var), per_cpu_offset(cpu)))
 
 Thanks.
 
