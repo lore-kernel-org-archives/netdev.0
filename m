@@ -1,19 +1,20 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 18/21] net/atm/signaling.c: checkpatch cleanups
-Date: Tue, 26 Jan 2010 13:40:17 -0800
-Message-ID: <362a61d9ee60b67f13e99c9d8de57bc466e608c7.1264541550.git.joe@perches.com>
+Subject: [PATCH 17/21] net/atm/resources.c: checkpatch cleanups
+Date: Tue, 26 Jan 2010 13:40:16 -0800
+Message-ID: <745f0887979376f95f1aca85ac1fc460a0941218.1264541549.git.joe@perches.com>
 References: <cover.1264541547.git.joe@perches.com>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1490 "EHLO mail.perches.com"
+Received: from mail.perches.com ([173.55.12.10]:1479 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753982Ab0AZVkY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753980Ab0AZVkY (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 26 Jan 2010 16:40:24 -0500
 In-Reply-To: <cover.1264541547.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Spacing cleanups
 Mostly 80 column wrapped.
 Move embedded assigns out of tests
 Move trailing statements to new lines
@@ -21,343 +22,497 @@ switch/case cleanups
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/atm/signaling.c |  202 +++++++++++++++++++++++++-------------------------
- 1 files changed, 101 insertions(+), 101 deletions(-)
+ net/atm/resources.c |  390 +++++++++++++++++++++++++--------------------------
+ 1 files changed, 192 insertions(+), 198 deletions(-)
 
-diff --git a/net/atm/signaling.c b/net/atm/signaling.c
-index 28df4ed..ad1d28a 100644
---- a/net/atm/signaling.c
-+++ b/net/atm/signaling.c
-@@ -18,7 +18,6 @@
- #include "resources.h"
- #include "signaling.h"
- 
+diff --git a/net/atm/resources.c b/net/atm/resources.c
+index 0d4c0ee..447ed89 100644
+--- a/net/atm/resources.c
++++ b/net/atm/resources.c
+@@ -71,7 +71,7 @@ struct atm_dev *atm_dev_lookup(int number)
+ 	mutex_unlock(&atm_dev_mutex);
+ 	return dev;
+ }
 -
- #undef WAIT_FOR_DEMON		/* #define this if system calls on SVC sockets
- 				   should block until the demon runs.
- 				   Danger: may cause nasty hangs if the demon
-@@ -29,20 +28,19 @@ struct atm_vcc *sigd = NULL;
- static DECLARE_WAIT_QUEUE_HEAD(sigd_sleep);
- #endif
++EXPORT_SYMBOL(atm_dev_lookup);
  
+ struct atm_dev *atm_dev_register(const char *type, const struct atmdev_ops *ops,
+ 				 int number, unsigned long *flags)
+@@ -85,7 +85,8 @@ struct atm_dev *atm_dev_register(const char *type, const struct atmdev_ops *ops,
+ 	}
+ 	mutex_lock(&atm_dev_mutex);
+ 	if (number != -1) {
+-		if ((inuse = __atm_dev_lookup(number))) {
++		inuse = __atm_dev_lookup(number);
++		if (inuse) {
+ 			atm_dev_put(inuse);
+ 			mutex_unlock(&atm_dev_mutex);
+ 			kfree(dev);
+@@ -130,7 +131,7 @@ out_fail:
+ 	dev = NULL;
+ 	goto out;
+ }
 -
- static void sigd_put_skb(struct sk_buff *skb)
++EXPORT_SYMBOL(atm_dev_register);
+ 
+ void atm_dev_deregister(struct atm_dev *dev)
  {
- #ifdef WAIT_FOR_DEMON
--	DECLARE_WAITQUEUE(wait,current);
-+	DECLARE_WAITQUEUE(wait, current);
+@@ -152,7 +153,7 @@ void atm_dev_deregister(struct atm_dev *dev)
  
--	add_wait_queue(&sigd_sleep,&wait);
-+	add_wait_queue(&sigd_sleep, &wait);
- 	while (!sigd) {
- 		set_current_state(TASK_UNINTERRUPTIBLE);
- 		pr_debug("atmsvc: waiting for signaling daemon...\n");
- 		schedule();
- 	}
- 	current->state = TASK_RUNNING;
--	remove_wait_queue(&sigd_sleep,&wait);
-+	remove_wait_queue(&sigd_sleep, &wait);
- #else
- 	if (!sigd) {
- 		pr_debug("atmsvc: no signaling daemon\n");
-@@ -50,39 +48,39 @@ static void sigd_put_skb(struct sk_buff *skb)
- 		return;
- 	}
- #endif
--	atm_force_charge(sigd,skb->truesize);
--	skb_queue_tail(&sk_atm(sigd)->sk_receive_queue,skb);
-+	atm_force_charge(sigd, skb->truesize);
-+	skb_queue_tail(&sk_atm(sigd)->sk_receive_queue, skb);
- 	sk_atm(sigd)->sk_data_ready(sk_atm(sigd), skb->len);
+ 	atm_dev_put(dev);
+ }
+-
++EXPORT_SYMBOL(atm_dev_deregister);
+ 
+ static void copy_aal_stats(struct k_atm_aal_stats *from,
+     struct atm_aal_stats *to)
+@@ -162,7 +163,6 @@ static void copy_aal_stats(struct k_atm_aal_stats *from,
+ #undef __HANDLE_ITEM
  }
  
 -
--static void modify_qos(struct atm_vcc *vcc,struct atmsvc_msg *msg)
-+static void modify_qos(struct atm_vcc *vcc, struct atmsvc_msg *msg)
+ static void subtract_aal_stats(struct k_atm_aal_stats *from,
+     struct atm_aal_stats *to)
  {
- 	struct sk_buff *skb;
- 
--	if (test_bit(ATM_VF_RELEASED,&vcc->flags) ||
--	    !test_bit(ATM_VF_READY,&vcc->flags))
-+	if (test_bit(ATM_VF_RELEASED, &vcc->flags) ||
-+	    !test_bit(ATM_VF_READY, &vcc->flags))
- 		return;
- 	msg->type = as_error;
--	if (!vcc->dev->ops->change_qos) msg->reply = -EOPNOTSUPP;
-+	if (!vcc->dev->ops->change_qos)
-+		msg->reply = -EOPNOTSUPP;
- 	else {
- 		/* should lock VCC */
--		msg->reply = vcc->dev->ops->change_qos(vcc,&msg->qos,
--		    msg->reply);
--		if (!msg->reply) msg->type = as_okay;
-+		msg->reply = vcc->dev->ops->change_qos(vcc, &msg->qos,
-+						       msg->reply);
-+		if (!msg->reply)
-+			msg->type = as_okay;
- 	}
- 	/*
- 	 * Should probably just turn around the old skb. But the, the buffer
- 	 * space accounting needs to follow the change too. Maybe later.
- 	 */
--	while (!(skb = alloc_skb(sizeof(struct atmsvc_msg),GFP_KERNEL)))
-+	while (!(skb = alloc_skb(sizeof(struct atmsvc_msg), GFP_KERNEL)))
- 		schedule();
--	*(struct atmsvc_msg *) skb_put(skb,sizeof(struct atmsvc_msg)) = *msg;
-+	*(struct atmsvc_msg *)skb_put(skb, sizeof(struct atmsvc_msg)) = *msg;
- 	sigd_put_skb(skb);
+@@ -171,8 +171,8 @@ static void subtract_aal_stats(struct k_atm_aal_stats *from,
+ #undef __HANDLE_ITEM
  }
  
 -
--static int sigd_send(struct atm_vcc *vcc,struct sk_buff *skb)
-+static int sigd_send(struct atm_vcc *vcc, struct sk_buff *skb)
+-static int fetch_stats(struct atm_dev *dev, struct atm_dev_stats __user *arg, int zero)
++static int fetch_stats(struct atm_dev *dev, struct atm_dev_stats __user *arg,
++		       int zero)
  {
- 	struct atmsvc_msg *msg;
- 	struct atm_vcc *session_vcc;
-@@ -95,63 +93,64 @@ static int sigd_send(struct atm_vcc *vcc,struct sk_buff *skb)
- 	sk = sk_atm(vcc);
+ 	struct atm_dev_stats tmp;
+ 	int error = 0;
+@@ -190,7 +190,6 @@ static int fetch_stats(struct atm_dev *dev, struct atm_dev_stats __user *arg, in
+ 	return error ? -EFAULT : 0;
+ }
  
- 	switch (msg->type) {
--		case as_okay:
--			sk->sk_err = -msg->reply;
--			clear_bit(ATM_VF_WAITING, &vcc->flags);
--			if (!*vcc->local.sas_addr.prv &&
--			    !*vcc->local.sas_addr.pub) {
--				vcc->local.sas_family = AF_ATMSVC;
--				memcpy(vcc->local.sas_addr.prv,
--				    msg->local.sas_addr.prv,ATM_ESA_LEN);
--				memcpy(vcc->local.sas_addr.pub,
--				    msg->local.sas_addr.pub,ATM_E164_LEN+1);
+-
+ int atm_dev_ioctl(unsigned int cmd, void __user *arg, int compat)
+ {
+ 	void __user *buf;
+@@ -206,50 +205,49 @@ int atm_dev_ioctl(unsigned int cmd, void __user *arg, int compat)
+ #endif
+ 
+ 	switch (cmd) {
+-		case ATM_GETNAMES:
+-
+-			if (compat) {
++	case ATM_GETNAMES:
++		if (compat) {
+ #ifdef CONFIG_COMPAT
+-				struct compat_atm_iobuf __user *ciobuf = arg;
+-				compat_uptr_t cbuf;
+-				iobuf_len = &ciobuf->length;
+-				if (get_user(cbuf, &ciobuf->buffer))
+-					return -EFAULT;
+-				buf = compat_ptr(cbuf);
++			struct compat_atm_iobuf __user *ciobuf = arg;
++			compat_uptr_t cbuf;
++			iobuf_len = &ciobuf->length;
++			if (get_user(cbuf, &ciobuf->buffer))
++				return -EFAULT;
++			buf = compat_ptr(cbuf);
+ #endif
+-			} else {
+-				struct atm_iobuf __user *iobuf = arg;
+-				iobuf_len = &iobuf->length;
+-				if (get_user(buf, &iobuf->buffer))
+-					return -EFAULT;
 -			}
--			session_vcc = vcc->session ? vcc->session : vcc;
--			if (session_vcc->vpi || session_vcc->vci) break;
--			session_vcc->itf = msg->pvc.sap_addr.itf;
--			session_vcc->vpi = msg->pvc.sap_addr.vpi;
--			session_vcc->vci = msg->pvc.sap_addr.vci;
--			if (session_vcc->vpi || session_vcc->vci)
--				session_vcc->qos = msg->qos;
--			break;
--		case as_error:
--			clear_bit(ATM_VF_REGIS,&vcc->flags);
--			clear_bit(ATM_VF_READY,&vcc->flags);
--			sk->sk_err = -msg->reply;
--			clear_bit(ATM_VF_WAITING, &vcc->flags);
-+	case as_okay:
-+		sk->sk_err = -msg->reply;
-+		clear_bit(ATM_VF_WAITING, &vcc->flags);
-+		if (!*vcc->local.sas_addr.prv && !*vcc->local.sas_addr.pub) {
-+			vcc->local.sas_family = AF_ATMSVC;
-+			memcpy(vcc->local.sas_addr.prv,
-+			       msg->local.sas_addr.prv, ATM_ESA_LEN);
-+			memcpy(vcc->local.sas_addr.pub,
-+			       msg->local.sas_addr.pub, ATM_E164_LEN + 1);
-+		}
-+		session_vcc = vcc->session ? vcc->session : vcc;
-+		if (session_vcc->vpi || session_vcc->vci)
- 			break;
--		case as_indicate:
--			vcc = *(struct atm_vcc **) &msg->listen_vcc;
--			sk = sk_atm(vcc);
--			pr_debug("as_indicate!!!\n");
--			lock_sock(sk);
--			if (sk_acceptq_is_full(sk)) {
--				sigd_enq(NULL,as_reject,vcc,NULL,NULL);
--				dev_kfree_skb(skb);
--				goto as_indicate_complete;
+-			if (get_user(len, iobuf_len))
++		} else {
++			struct atm_iobuf __user *iobuf = arg;
++			iobuf_len = &iobuf->length;
++			if (get_user(buf, &iobuf->buffer))
+ 				return -EFAULT;
+-			mutex_lock(&atm_dev_mutex);
+-			list_for_each(p, &atm_devs)
+-				size += sizeof(int);
+-			if (size > len) {
+-				mutex_unlock(&atm_dev_mutex);
+-				return -E2BIG;
 -			}
--			sk->sk_ack_backlog++;
--			skb_queue_tail(&sk->sk_receive_queue, skb);
--			pr_debug("waking sk->sk_sleep 0x%p\n", sk->sk_sleep);
--			sk->sk_state_change(sk);
-+		session_vcc->itf = msg->pvc.sap_addr.itf;
-+		session_vcc->vpi = msg->pvc.sap_addr.vpi;
-+		session_vcc->vci = msg->pvc.sap_addr.vci;
-+		if (session_vcc->vpi || session_vcc->vci)
-+			session_vcc->qos = msg->qos;
-+		break;
-+	case as_error:
-+		clear_bit(ATM_VF_REGIS, &vcc->flags);
-+		clear_bit(ATM_VF_READY, &vcc->flags);
-+		sk->sk_err = -msg->reply;
-+		clear_bit(ATM_VF_WAITING, &vcc->flags);
-+		break;
-+	case as_indicate:
-+		vcc = *(struct atm_vcc **)&msg->listen_vcc;
-+		sk = sk_atm(vcc);
-+		pr_debug("as_indicate!!!\n");
-+		lock_sock(sk);
-+		if (sk_acceptq_is_full(sk)) {
-+			sigd_enq(NULL, as_reject, vcc, NULL, NULL);
-+			dev_kfree_skb(skb);
-+			goto as_indicate_complete;
+-			tmp_buf = kmalloc(size, GFP_ATOMIC);
+-			if (!tmp_buf) {
+-				mutex_unlock(&atm_dev_mutex);
+-				return -ENOMEM;
+-			}
+-			tmp_p = tmp_buf;
+-			list_for_each(p, &atm_devs) {
+-				dev = list_entry(p, struct atm_dev, dev_list);
+-				*tmp_p++ = dev->number;
+-			}
 +		}
-+		sk->sk_ack_backlog++;
-+		skb_queue_tail(&sk->sk_receive_queue, skb);
-+		pr_debug("waking sk->sk_sleep 0x%p\n", sk->sk_sleep);
-+		sk->sk_state_change(sk);
- as_indicate_complete:
--			release_sock(sk);
--			return 0;
--		case as_close:
--			set_bit(ATM_VF_RELEASED,&vcc->flags);
--			vcc_release_async(vcc, msg->reply);
--			goto out;
--		case as_modify:
--			modify_qos(vcc,msg);
--			break;
--		case as_addparty:
--		case as_dropparty:
--			sk->sk_err_soft = msg->reply;	/* < 0 failure, otherwise ep_ref */
--			clear_bit(ATM_VF_WAITING, &vcc->flags);
--			break;
++		if (get_user(len, iobuf_len))
++			return -EFAULT;
++		mutex_lock(&atm_dev_mutex);
++		list_for_each(p, &atm_devs)
++			size += sizeof(int);
++		if (size > len) {
+ 			mutex_unlock(&atm_dev_mutex);
+-			error = ((copy_to_user(buf, tmp_buf, size)) ||
+-					put_user(size, iobuf_len))
+-						? -EFAULT : 0;
+-			kfree(tmp_buf);
+-			return error;
 -		default:
--			pr_alert("bad message type %d\n", (int)msg->type);
--			return -EINVAL;
-+		release_sock(sk);
-+		return 0;
-+	case as_close:
-+		set_bit(ATM_VF_RELEASED, &vcc->flags);
-+		vcc_release_async(vcc, msg->reply);
-+		goto out;
-+	case as_modify:
-+		modify_qos(vcc, msg);
-+		break;
-+	case as_addparty:
-+	case as_dropparty:
-+		sk->sk_err_soft = msg->reply;
-+					/* < 0 failure, otherwise ep_ref */
-+		clear_bit(ATM_VF_WAITING, &vcc->flags);
-+		break;
+-			break;
++			return -E2BIG;
++		}
++		tmp_buf = kmalloc(size, GFP_ATOMIC);
++		if (!tmp_buf) {
++			mutex_unlock(&atm_dev_mutex);
++			return -ENOMEM;
++		}
++		tmp_p = tmp_buf;
++		list_for_each(p, &atm_devs) {
++			dev = list_entry(p, struct atm_dev, dev_list);
++			*tmp_p++ = dev->number;
++		}
++		mutex_unlock(&atm_dev_mutex);
++		error = ((copy_to_user(buf, tmp_buf, size)) ||
++			 put_user(size, iobuf_len))
++			? -EFAULT : 0;
++		kfree(tmp_buf);
++		return error;
 +	default:
-+		pr_alert("bad message type %d\n", (int)msg->type);
-+		return -EINVAL;
++		break;
  	}
- 	sk->sk_state_change(sk);
- out:
-@@ -159,48 +158,52 @@ out:
- 	return 0;
- }
  
--
--void sigd_enq2(struct atm_vcc *vcc,enum atmsvc_msg_type type,
--    struct atm_vcc *listen_vcc,const struct sockaddr_atmpvc *pvc,
--    const struct sockaddr_atmsvc *svc,const struct atm_qos *qos,int reply)
-+void sigd_enq2(struct atm_vcc *vcc, enum atmsvc_msg_type type,
-+	       struct atm_vcc *listen_vcc, const struct sockaddr_atmpvc *pvc,
-+	       const struct sockaddr_atmsvc *svc, const struct atm_qos *qos,
-+	       int reply)
- {
- 	struct sk_buff *skb;
- 	struct atmsvc_msg *msg;
- 	static unsigned session = 0;
- 
- 	pr_debug("%d (0x%p)\n", (int)type, vcc);
--	while (!(skb = alloc_skb(sizeof(struct atmsvc_msg),GFP_KERNEL)))
-+	while (!(skb = alloc_skb(sizeof(struct atmsvc_msg), GFP_KERNEL)))
- 		schedule();
--	msg = (struct atmsvc_msg *) skb_put(skb,sizeof(struct atmsvc_msg));
--	memset(msg,0,sizeof(*msg));
-+	msg = (struct atmsvc_msg *)skb_put(skb, sizeof(struct atmsvc_msg));
-+	memset(msg, 0, sizeof(*msg));
- 	msg->type = type;
- 	*(struct atm_vcc **) &msg->vcc = vcc;
- 	*(struct atm_vcc **) &msg->listen_vcc = listen_vcc;
- 	msg->reply = reply;
--	if (qos) msg->qos = *qos;
--	if (vcc) msg->sap = vcc->sap;
--	if (svc) msg->svc = *svc;
--	if (vcc) msg->local = vcc->local;
--	if (pvc) msg->pvc = *pvc;
-+	if (qos)
-+		msg->qos = *qos;
-+	if (vcc)
-+		msg->sap = vcc->sap;
-+	if (svc)
-+		msg->svc = *svc;
-+	if (vcc)
-+		msg->local = vcc->local;
-+	if (pvc)
-+		msg->pvc = *pvc;
- 	if (vcc) {
- 		if (type == as_connect && test_bit(ATM_VF_SESSION, &vcc->flags))
- 			msg->session = ++session;
- 			/* every new pmp connect gets the next session number */
+ 	if (compat) {
+@@ -278,166 +276,167 @@ int atm_dev_ioctl(unsigned int cmd, void __user *arg, int compat)
+ 		if (get_user(number, &sioc->number))
+ 			return -EFAULT;
  	}
- 	sigd_put_skb(skb);
--	if (vcc) set_bit(ATM_VF_REGIS,&vcc->flags);
-+	if (vcc)
-+		set_bit(ATM_VF_REGIS, &vcc->flags);
- }
+-	if (!(dev = try_then_request_module(atm_dev_lookup(number),
+-					    "atm-device-%d", number)))
++
++	dev = try_then_request_module(atm_dev_lookup(number), "atm-device-%d",
++				      number);
++	if (!dev)
+ 		return -ENODEV;
  
+ 	switch (cmd) {
+-		case ATM_GETTYPE:
+-			size = strlen(dev->type) + 1;
+-			if (copy_to_user(buf, dev->type, size)) {
+-				error = -EFAULT;
+-				goto done;
+-			}
+-			break;
+-		case ATM_GETESI:
+-			size = ESI_LEN;
+-			if (copy_to_user(buf, dev->esi, size)) {
+-				error = -EFAULT;
+-				goto done;
+-			}
+-			break;
+-		case ATM_SETESI:
+-			{
+-				int i;
 -
--void sigd_enq(struct atm_vcc *vcc,enum atmsvc_msg_type type,
--    struct atm_vcc *listen_vcc,const struct sockaddr_atmpvc *pvc,
--    const struct sockaddr_atmsvc *svc)
-+void sigd_enq(struct atm_vcc *vcc, enum atmsvc_msg_type type,
-+	      struct atm_vcc *listen_vcc, const struct sockaddr_atmpvc *pvc,
-+	      const struct sockaddr_atmsvc *svc)
- {
--	sigd_enq2(vcc,type,listen_vcc,pvc,svc,vcc ? &vcc->qos : NULL,0);
-+	sigd_enq2(vcc, type, listen_vcc, pvc, svc, vcc ? &vcc->qos : NULL, 0);
- 	/* other ISP applications may use "reply" */
- }
- 
+-				for (i = 0; i < ESI_LEN; i++)
+-					if (dev->esi[i]) {
+-						error = -EEXIST;
+-						goto done;
+-					}
+-			}
+-			/* fall through */
+-		case ATM_SETESIF:
+-			{
+-				unsigned char esi[ESI_LEN];
 -
- static void purge_vcc(struct atm_vcc *vcc)
- {
- 	if (sk_atm(vcc)->sk_family == PF_ATMSVC &&
-@@ -211,7 +214,6 @@ static void purge_vcc(struct atm_vcc *vcc)
- 	}
- }
- 
+-				if (!capable(CAP_NET_ADMIN)) {
+-					error = -EPERM;
+-					goto done;
+-				}
+-				if (copy_from_user(esi, buf, ESI_LEN)) {
+-					error = -EFAULT;
+-					goto done;
+-				}
+-				memcpy(dev->esi, esi, ESI_LEN);
+-				error =  ESI_LEN;
+-				goto done;
+-			}
+-		case ATM_GETSTATZ:
+-			if (!capable(CAP_NET_ADMIN)) {
+-				error = -EPERM;
+-				goto done;
+-			}
+-			/* fall through */
+-		case ATM_GETSTAT:
+-			size = sizeof(struct atm_dev_stats);
+-			error = fetch_stats(dev, buf, cmd == ATM_GETSTATZ);
+-			if (error)
+-				goto done;
+-			break;
+-		case ATM_GETCIRANGE:
+-			size = sizeof(struct atm_cirange);
+-			if (copy_to_user(buf, &dev->ci_range, size)) {
+-				error = -EFAULT;
+-				goto done;
+-			}
+-			break;
+-		case ATM_GETLINKRATE:
+-			size = sizeof(int);
+-			if (copy_to_user(buf, &dev->link_rate, size)) {
+-				error = -EFAULT;
+-				goto done;
+-			}
+-			break;
+-		case ATM_RSTADDR:
+-			if (!capable(CAP_NET_ADMIN)) {
+-				error = -EPERM;
+-				goto done;
+-			}
+-			atm_reset_addr(dev, ATM_ADDR_LOCAL);
+-			break;
+-		case ATM_ADDADDR:
+-		case ATM_DELADDR:
+-		case ATM_ADDLECSADDR:
+-		case ATM_DELLECSADDR:
+-			if (!capable(CAP_NET_ADMIN)) {
+-				error = -EPERM;
+-				goto done;
+-			}
+-			{
+-				struct sockaddr_atmsvc addr;
 -
- static void sigd_close(struct atm_vcc *vcc)
- {
- 	struct hlist_node *node;
-@@ -225,7 +227,7 @@ static void sigd_close(struct atm_vcc *vcc)
- 	skb_queue_purge(&sk_atm(vcc)->sk_receive_queue);
- 
- 	read_lock(&vcc_sklist_lock);
--	for(i = 0; i < VCC_HTABLE_SIZE; ++i) {
-+	for (i = 0; i < VCC_HTABLE_SIZE; ++i) {
- 		struct hlist_head *head = &vcc_hash[i];
- 
- 		sk_for_each(s, node, head) {
-@@ -237,13 +239,11 @@ static void sigd_close(struct atm_vcc *vcc)
- 	read_unlock(&vcc_sklist_lock);
- }
- 
--
- static struct atmdev_ops sigd_dev_ops = {
- 	.close = sigd_close,
- 	.send =	sigd_send
- };
- 
--
- static struct atm_dev sigd_dev = {
- 	.ops =		&sigd_dev_ops,
- 	.type =		"sig",
-@@ -251,16 +251,16 @@ static struct atm_dev sigd_dev = {
- 	.lock =		__SPIN_LOCK_UNLOCKED(sigd_dev.lock)
- };
- 
--
- int sigd_attach(struct atm_vcc *vcc)
- {
--	if (sigd) return -EADDRINUSE;
-+	if (sigd)
-+		return -EADDRINUSE;
- 	pr_debug("\n");
- 	sigd = vcc;
- 	vcc->dev = &sigd_dev;
- 	vcc_insert_socket(sk_atm(vcc));
--	set_bit(ATM_VF_META,&vcc->flags);
--	set_bit(ATM_VF_READY,&vcc->flags);
-+	set_bit(ATM_VF_META, &vcc->flags);
-+	set_bit(ATM_VF_READY, &vcc->flags);
- #ifdef WAIT_FOR_DEMON
- 	wake_up(&sigd_sleep);
+-				if (copy_from_user(&addr, buf, sizeof(addr))) {
+-					error = -EFAULT;
+-					goto done;
+-				}
+-				if (cmd == ATM_ADDADDR || cmd == ATM_ADDLECSADDR)
+-					error = atm_add_addr(dev, &addr,
+-							     (cmd == ATM_ADDADDR ?
+-							      ATM_ADDR_LOCAL : ATM_ADDR_LECS));
+-				else
+-					error = atm_del_addr(dev, &addr,
+-							     (cmd == ATM_DELADDR ?
+-							      ATM_ADDR_LOCAL : ATM_ADDR_LECS));
++	case ATM_GETTYPE:
++		size = strlen(dev->type) + 1;
++		if (copy_to_user(buf, dev->type, size)) {
++			error = -EFAULT;
++			goto done;
++		}
++		break;
++	case ATM_GETESI:
++		size = ESI_LEN;
++		if (copy_to_user(buf, dev->esi, size)) {
++			error = -EFAULT;
++			goto done;
++		}
++		break;
++	case ATM_SETESI:
++	{
++		int i;
++
++		for (i = 0; i < ESI_LEN; i++)
++			if (dev->esi[i]) {
++				error = -EEXIST;
+ 				goto done;
+ 			}
+-		case ATM_GETADDR:
+-		case ATM_GETLECSADDR:
+-			error = atm_get_addr(dev, buf, len,
+-					     (cmd == ATM_GETADDR ?
++	}
++	/* fall through */
++	case ATM_SETESIF:
++	{
++		unsigned char esi[ESI_LEN];
++
++		if (!capable(CAP_NET_ADMIN)) {
++			error = -EPERM;
++			goto done;
++		}
++		if (copy_from_user(esi, buf, ESI_LEN)) {
++			error = -EFAULT;
++			goto done;
++		}
++		memcpy(dev->esi, esi, ESI_LEN);
++		error =  ESI_LEN;
++		goto done;
++	}
++	case ATM_GETSTATZ:
++		if (!capable(CAP_NET_ADMIN)) {
++			error = -EPERM;
++			goto done;
++		}
++		/* fall through */
++	case ATM_GETSTAT:
++		size = sizeof(struct atm_dev_stats);
++		error = fetch_stats(dev, buf, cmd == ATM_GETSTATZ);
++		if (error)
++			goto done;
++		break;
++	case ATM_GETCIRANGE:
++		size = sizeof(struct atm_cirange);
++		if (copy_to_user(buf, &dev->ci_range, size)) {
++			error = -EFAULT;
++			goto done;
++		}
++		break;
++	case ATM_GETLINKRATE:
++		size = sizeof(int);
++		if (copy_to_user(buf, &dev->link_rate, size)) {
++			error = -EFAULT;
++			goto done;
++		}
++		break;
++	case ATM_RSTADDR:
++		if (!capable(CAP_NET_ADMIN)) {
++			error = -EPERM;
++			goto done;
++		}
++		atm_reset_addr(dev, ATM_ADDR_LOCAL);
++		break;
++	case ATM_ADDADDR:
++	case ATM_DELADDR:
++	case ATM_ADDLECSADDR:
++	case ATM_DELLECSADDR:
++	{
++		struct sockaddr_atmsvc addr;
++
++		if (!capable(CAP_NET_ADMIN)) {
++			error = -EPERM;
++			goto done;
++		}
++
++		if (copy_from_user(&addr, buf, sizeof(addr))) {
++			error = -EFAULT;
++			goto done;
++		}
++		if (cmd == ATM_ADDADDR || cmd == ATM_ADDLECSADDR)
++			error = atm_add_addr(dev, &addr,
++					     (cmd == ATM_ADDADDR ?
+ 					      ATM_ADDR_LOCAL : ATM_ADDR_LECS));
+-			if (error < 0)
+-				goto done;
+-			size = error;
+-			/* may return 0, but later on size == 0 means "don't
+-			   write the length" */
+-			error = put_user(size, sioc_len)
+-				? -EFAULT : 0;
++		else
++			error = atm_del_addr(dev, &addr,
++					     (cmd == ATM_DELADDR ?
++					      ATM_ADDR_LOCAL : ATM_ADDR_LECS));
++		goto done;
++	}
++	case ATM_GETADDR:
++	case ATM_GETLECSADDR:
++		error = atm_get_addr(dev, buf, len,
++				     (cmd == ATM_GETADDR ?
++				      ATM_ADDR_LOCAL : ATM_ADDR_LECS));
++		if (error < 0)
++			goto done;
++		size = error;
++		/* may return 0, but later on size == 0 means "don't
++		   write the length" */
++		error = put_user(size, sioc_len) ? -EFAULT : 0;
++		goto done;
++	case ATM_SETLOOP:
++		if (__ATM_LM_XTRMT((int) (unsigned long) buf) &&
++		    __ATM_LM_XTLOC((int) (unsigned long) buf) >
++		    __ATM_LM_XTRMT((int) (unsigned long) buf)) {
++			error = -EINVAL;
+ 			goto done;
+-		case ATM_SETLOOP:
+-			if (__ATM_LM_XTRMT((int) (unsigned long) buf) &&
+-			    __ATM_LM_XTLOC((int) (unsigned long) buf) >
+-			    __ATM_LM_XTRMT((int) (unsigned long) buf)) {
++		}
++		/* fall through */
++	case ATM_SETCIRANGE:
++	case SONET_GETSTATZ:
++	case SONET_SETDIAG:
++	case SONET_CLRDIAG:
++	case SONET_SETFRAMING:
++		if (!capable(CAP_NET_ADMIN)) {
++			error = -EPERM;
++			goto done;
++		}
++		/* fall through */
++	default:
++		if (compat) {
++#ifdef CONFIG_COMPAT
++			if (!dev->ops->compat_ioctl) {
+ 				error = -EINVAL;
+ 				goto done;
+ 			}
+-			/* fall through */
+-		case ATM_SETCIRANGE:
+-		case SONET_GETSTATZ:
+-		case SONET_SETDIAG:
+-		case SONET_CLRDIAG:
+-		case SONET_SETFRAMING:
+-			if (!capable(CAP_NET_ADMIN)) {
+-				error = -EPERM;
+-				goto done;
+-			}
+-			/* fall through */
+-		default:
+-			if (compat) {
+-#ifdef CONFIG_COMPAT
+-				if (!dev->ops->compat_ioctl) {
+-					error = -EINVAL;
+-					goto done;
+-				}
+-				size = dev->ops->compat_ioctl(dev, cmd, buf);
++			size = dev->ops->compat_ioctl(dev, cmd, buf);
  #endif
+-			} else {
+-				if (!dev->ops->ioctl) {
+-					error = -EINVAL;
+-					goto done;
+-				}
+-				size = dev->ops->ioctl(dev, cmd, buf);
+-			}
+-			if (size < 0) {
+-				error = (size == -ENOIOCTLCMD ? -EINVAL : size);
++		} else {
++			if (!dev->ops->ioctl) {
++				error = -EINVAL;
+ 				goto done;
+ 			}
++			size = dev->ops->ioctl(dev, cmd, buf);
++		}
++		if (size < 0) {
++			error = (size == -ENOIOCTLCMD ? -EINVAL : size);
++			goto done;
++		}
+ 	}
+ 
+ 	if (size)
+-		error = put_user(size, sioc_len)
+-			? -EFAULT : 0;
++		error = put_user(size, sioc_len) ? -EFAULT : 0;
+ 	else
+ 		error = 0;
+ done:
+@@ -445,7 +444,7 @@ done:
+ 	return error;
+ }
+ 
+-static __inline__ void *dev_get_idx(loff_t left)
++static inline void *dev_get_idx(loff_t left)
+ {
+ 	struct list_head *p;
+ 
+@@ -474,8 +473,3 @@ void *atm_dev_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ 		? atm_devs.next : ((struct list_head *)v)->next;
+ 	return (v == &atm_devs) ? NULL : v;
+ }
+-
+-
+-EXPORT_SYMBOL(atm_dev_register);
+-EXPORT_SYMBOL(atm_dev_deregister);
+-EXPORT_SYMBOL(atm_dev_lookup);
 -- 
 1.6.6.rc0.57.gad7a
 
