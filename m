@@ -1,57 +1,44 @@
-From: Anders =?iso-8859-1?Q?Bostr=F6m?= <anders@netinsight.net>
-Subject: Re: Bug#565404: linux-image-2.6.26-2-amd64: atl1e: TSO is broken
-Date: Tue, 26 Jan 2010 09:34:39 +0100 (CET)
-Message-ID: <20100126.093439.651115405791675606.anders@netinsight.net>
-References: <CDAFEDABF718A54BABD0DA5476695307475CCD42@SHEXMB-01.global.atheros.com>
-	<20100125.163612.582489483209420341.anders@netinsight.net>
-	<CDAFEDABF718A54BABD0DA5476695307475CCFF8@SHEXMB-01.global.atheros.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: drivers/net/ariadne.c:165: error: 'set_multicast_list' undeclared
+	here (not in a function)
+Date: Tue, 26 Jan 2010 09:57:05 +0100
+Message-ID: <10f740e81001260057h37f3494dvefa3a37b2e1453a5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ben@decadent.org.uk, netdev@vger.kernel.org,
-	565404@bugs.debian.org, Xiong.Huang@Atheros.com
-To: Jie.Yang@Atheros.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ernst.netinsight.se ([194.16.221.21]:8452 "HELO
-	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751864Ab0AZIet convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2010 03:34:49 -0500
-In-Reply-To: <CDAFEDABF718A54BABD0DA5476695307475CCFF8@SHEXMB-01.global.atheros.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux-Next <linux-next@vger.kernel.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752740Ab0AZI5Q@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->>>>> "JY" =3D=3D Jie Yang <Jie.Yang@Atheros.com> writes:
+http://kisskb.ellerman.id.au/kisskb/buildresult/2076964/
 
- JY> Anders Bostr=F6m <anders@netinsight.net> wrote:
+drivers/net/ariadne.c:165: error: 'set_multicast_list' undeclared here
+(not in a function)
 
- JY> following is my test cese,
- >>=20
- JY> a nfs server server with ar8131chip, device id 1063.
- >> export /tmp/ dir as the nfs share directory,  JY> the client,
- >> mount the server_ip:/tmp to local dir /mnt/nfs, ust a python
- >> script to write and read data on the  JY>
- >> /mnt/nfs/testnfs.log. it works fine.
- >>=20
- >> OK, the device-ID in our NFS-server is 1026, rev. b0. So it
- >> is possible that the problem is specific to that chip/version.
- JY> oops, its my mistake in writing, my case is 1026 device ID
+Seems to be broken by:
 
- >>=20
- JY> Can you give me some advice on how to reproduce this bug??
- >>=20
- >> The only suggestion I have is to try to find a board with a
- >> 1026-chip on it.
- >>=20
- >> My test-case is just copy of a 1 Gbyte file from the
- >> NFS-server to /dev/null , after making sure that the file
- >> isn't cached on the client by reading huge amounts of other data.
- >>=20
- JY> just to check, if the kernel version is 2.6.26-2 ??
+commit a271623f871dda970319ca15dfad3a8c8c36249f
+Author: Alexey Dobriyan <adobriyan@gmail.com>
+Date:   Fri Jan 22 10:13:10 2010 +0000
 
-I've tested with
-Debian linux-image-2.6.26-2-amd64 version 2.6.26-19lenny2,
-Debian linux-image-2.6.30-bpo.2-amd64 version 2.6.30-8~bpo50+2 and
-kernel.org 2.6.30.10 amd64 with ethtool patch for setting of tso. Same
-result.
+    netdev: remove certain HAVE_ macros
 
-/ Anders
+    After netdev_ops compat code HAVE_* macros aren't needed, in fact
+    they _will_ result in compile breakage for out of tree drivers.
+
+    Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
