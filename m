@@ -1,54 +1,97 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH 7/8] percpu: add __percpu sparse annotations to
-	hw_breakpoint
-Date: Tue, 26 Jan 2010 03:56:58 +0000
-Message-ID: <20100126035658.GE19799@ZenIV.linux.org.uk>
-References: <1264432935-10453-8-git-send-email-tj@kernel.org> <20100126001901.GI5087@nowhere> <4B5E3F2C.2010702@zytor.com> <4B5E4E12.7060900@kernel.org> <20100126020452.GB19799@ZenIV.linux.org.uk> <4B5E508A.1030305@kernel.org> <20100126023238.GC19799@ZenIV.linux.org.uk> <4B5E56EC.2090600@kernel.org> <20100126024857.GD19799@ZenIV.linux.org.uk> <4B5E5D3B.7040102@kernel.org>
+From: Michael <michael@moffatt.org.nz>
+Subject: Re: [PATCH] starfire: Clean up properly if firmware loading fails
+Date: Tue, 26 Jan 2010 18:51:07 +1300
+Message-ID: <4B5E82CB.6040001@moffatt.org.nz>
+References: <bug-15091-10286@http.bugzilla.kernel.org/>
+ <20100125170816.db9435ed.akpm@linux-foundation.org>
+ <1264471333.373.349.camel@localhost>
+ <20100125181508.790010cb.akpm@linux-foundation.org>
+ <1264473168.373.354.camel@localhost> <4B5E5A5F.90608@moffatt.org.nz>
+ <20100125192839.7eaceb2b.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "H. Peter Anvin" <hpa@zytor.com>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	linux-kernel@vger.kernel.org, axboe@kernel.dk,
-	rusty@rustcorp.com.au, akpm@linux-foundation.org,
-	ebiederm@xmission.com, tytso@mit.edu, Trond.Myklebust@netapp.com,
-	aelder@sgi.com, hch@infradead.org, davem@davemloft.net,
-	netdev@vger.kernel.org, x86@kernel.org, mingo@redhat.com,
-	dan.j.williams@intel.com, borislav.petkov@amd.com,
-	ying.huang@intel.com, lenb@kernel.org, neilb@suse.de,
-	cl@linux-foundation.org
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753181Ab0AZD5w@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B5E5D3B.7040102@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>, stable@kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4.clear.net.nz ([203.97.37.64]:35082 "EHLO
+	smtp4.clear.net.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751368Ab0AZFvL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2010 00:51:11 -0500
+Received: from zurvan.moffatt.org.nz
+ (203-79-69-250.cable.telstraclear.net [203.79.69.250])
+ by smtp4.clear.net.nz (CLEAR Net Mail)
+ with ESMTP id <0KWU00FEUAX93H00@smtp4.clear.net.nz> for
+ netdev@vger.kernel.org; Tue, 26 Jan 2010 18:51:10 +1300 (NZDT)
+In-reply-to: <20100125192839.7eaceb2b.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 26, 2010 at 12:10:51PM +0900, Tejun Heo wrote:
-> Hello,
-> 
-> On 01/26/2010 11:48 AM, Al Viro wrote:
-> > On Tue, Jan 26, 2010 at 11:43:56AM +0900, Tejun Heo wrote:
-> > 
-> >>> Eh...  You are leaving that noderef in place in case of array.  And _that_
-> >>> is not an address space, so casts to AS 0 won't do you any good.
-> >>
-> >> Any ideas on how to fix it?
-> > 
-> > BTW, before we go any further, which warnings are you getting from sparse
-> > and which version of sparse are you using?
-> > 
-> > noderef is one thing; address_space mess is a different story.  The version
-> > I have here steps into the former, but not the latter; what are you seeing?
-> 
-> Oops, I too am seeing the noderef thing not the address space warning.
+Hi Andrew,
 
-OK...  So all messing around __kernel __force is actually a red herring.
+Yep, OK, I hadn't seen that log in dmesg.
 
-Frankly, for now I'd keep it as in your patch.  Yes, including workarounds
-in these few places.  Longer term...  We probably want to implement
-__attribute__((qualify(...)))/__attribute__((unqualify(...))), revert
-__typeof__ for AS/noderef to what gcc is doing for normal qualifiers
-(i.e. "if p is int const *, typeof(*p) v gives const int") go for explicit
-__unqualify((address_space,noderef)) in there.  Playing interesting games
-with arrays for unqualify (i.e. creating parallel chains of type nodes
-all way down to the place where original qualifier had been applied).
+That driver is new to me, it's never turned up (or been required) before 
+so that must be new between 2.6.24 and 2.6.32.
+
+As this is a root over nfs system, the kernel is compiled elsewhere and 
+then installed manually. What I was missing was that there is a new 
+adaptec directory that needed to be copied from 
+/usr/src/linux-2.6.32/firmware/ to /lib/2.6.32. Actually, I am not sure 
+that this is the right place for it (rather than say 
+/lib/firmware/2.6.32|, but it seems to work anyway.
+
+Quite a gotchya. After compiling a kernel on a separate compiling 
+system, I don't actually run the 'make install' on the nfs system. 
+Previously I used to run the 'make install' on a dedicated compiling 
+server and then just copy the modules from that system into the root 
+over nfs exported /lib/modules directory. That'd worked fine up until now.
+
+I will have to find a cleverer way to copy over the new firmware libs 
+for future compiles. The 'make install' seems to copy firmware objects 
+into the compiling system's /lib/firmware/ directory without 
+distinguishing the kernel version. So I can't easily tell which ones I'm 
+supposed to be copying into the nfs export.
+
+Many thanks for all your help. The interfaces are up and apparently you 
+understand where the kernel BUG came from.
+
+So does that complete the story now? In other words, is there anything 
+further you need from me.
+
+Many thanks,
+Michael.
+|
+
+Andrew Morton wrote:
+> On Tue, 26 Jan 2010 15:58:39 +1300 Michael <michael@moffatt.org.nz> wrote:
+>
+>   
+>> Hi guys,
+>>
+>> I think I'm the submitter that Ben is referring to.
+>>
+>> So that could be the answer to the kernel BUG I have reported, but I 
+>> don't think that it will answer why the interface doesn't come up... or 
+>> does it?
+>>     
+>
+> >From this:
+>
+> Jan 21 05:08:26 172 kernel: starfire: Failed to load firmware "adaptec/starfire_rx.bin"
+> Jan 21 05:08:26 172 kernel: device eth4 entered promiscuous mode
+> Jan 21 05:08:26 172 kernel: starfire 0000:03:06.0: firmware: requesting adaptec/starfire_rx.bin
+> Jan 21 05:08:26 172 kernel: starfire: Failed to load firmware "adaptec/starfire_rx.bin"
+> Jan 21 05:08:26 172 kernel: device eth5 entered promiscuous mode
+> Jan 21 05:08:26 172 kernel: starfire 0000:03:07.0: firmware: requesting adaptec/starfire_rx.bin
+> Jan 21 05:08:26 172 kernel: starfire: Failed to load firmware "adaptec/starfire_rx.bin"
+> Jan 21 05:08:26 172 kernel: device eth6 entered promiscuous mode
+> Jan 21 05:08:26 172 kernel: starfire 0000:04:04.0: firmware: requesting adaptec/starfire_rx.bin
+>
+> I assume that it can't find the firmware?
+>   
+
