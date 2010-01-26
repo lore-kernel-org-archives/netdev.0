@@ -1,48 +1,49 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [PATCH 7/8] percpu: add __percpu sparse annotations to	hw_breakpoint
-Date: Mon, 25 Jan 2010 17:06:37 -0800
-Message-ID: <4B5E401D.2020809@zytor.com>
-References: <1264432935-10453-1-git-send-email-tj@kernel.org> <1264432935-10453-8-git-send-email-tj@kernel.org> <20100126001901.GI5087@nowhere>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: [PATCH v2]IP: Send an ICMP "Fragment Reassembly Timeout" message
+ when enabling connection track
+Date: Tue, 26 Jan 2010 09:25:54 +0800
+Message-ID: <4B5E44A2.2080006@cn.fujitsu.com>
+References: <4B5844F2.30104@trash.net>	<4B590BE3.40509@cn.fujitsu.com>	<4B599084.1060406@trash.net> <201001250057.o0P0v76J005243@toshiba.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Tejun Heo <tj@kernel.org>, linux-kernel@vger.kernel.org,
-	axboe@kernel.dk, rusty@rustcorp.com.au, akpm@linux-foundation.org,
-	ebiederm@xmission.com, tytso@mit.edu, Trond.Myklebust@netapp.com,
-	aelder@sgi.com, hch@infradead.org, viro@zeniv.linux.org.uk,
-	davem@davemloft.net, netdev@vger.kernel.org, x86@kernel.org,
-	mingo@redhat.com, dan.j.williams@intel.com,
-	borislav.petkov@amd.com, ying.huang@intel.com, lenb@kernel.org,
-	neilb@suse.de, cl@linux-foundation.org
-To: Frederic Weisbecker <fweisbec@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751404Ab0AZBTf@vger.kernel.org>
-In-Reply-To: <20100126001901.GI5087@nowhere>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kaber@trash.net, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	eric.dumazet@gmail.com, david@blue-labs.org, jorge@dti2.net,
+	opurdila@ixiacom.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:61198 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752666Ab0AZB1M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jan 2010 20:27:12 -0500
+In-Reply-To: <201001250057.o0P0v76J005243@toshiba.co.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/25/2010 04:19 PM, Frederic Weisbecker wrote:
-> On Tue, Jan 26, 2010 at 12:22:14AM +0900, Tejun Heo wrote:
->> Add __percpu sparse annotations to hw_breakpoint.
->>
->> These annotations are to make sparse consider percpu variables to be
->> in a different address space and warn if accessed without going
->> through percpu accessors.  This patch doesn't affect normal builds.
->>
->> per_cpu(nr_task_bp_pinned, cpu) is replaced with
->> &per_cpu(nr_task_bp_pinned[0], cpu).  This is the same to the compiler
->> but allows per_cpu() macro to correctly drop __percpu designation for
->> the returned pointer.
-> 
-> Ouch... It's unpleasant to see such workaround that messes up the
-> code just to make sparse happy.
-> 
-> I guess __percpu is an address_space attribute? Is there no
-> way to force the address space change directly from the
-> per_cpu() macro?
-> 
+Yasuyuki KOZAKAI wrote, at 01/25/2010 08:57 AM:
+> It sounds good. Please take care that IPv6 router does not reassemble
+> fragmented packets. 
 
-Hmm... thinking more about it, we should be able to just move the & and
-[0] into the per_cpu() macro, addressing the situation, or does that
-cause problems elsewhere?
+I don't know the details about IPv6 router implement.
+Did you mean that we can not directly use ip6_route_input(skb) to find Routing type(host/router)? 
 
-	-hpa
+> IIRC the current nf_conntrack_{ipv6,reasm}.c
+> reassembles the cloned skbs for tracking, discard the cloned skbs after
+> tracking and forward the original skbs to IPv6 stack to keep the size of
+> fragmented packets.
+
+Indeed, after assembling fragments successfully in IPv6 connection track, original fragments are forwarded to IPv6 stack. And then IPv6 stack also assembles those received fragments again.
+Thus fragments are assembled twice. 
+
+But IPv4 only assembly once. IPv4 connection track assembles fragments successfully and then just forwards assembled intact packet to IPv4 stack. 
+Do you know why is IPv6 designed like that?
+
+
+-- 
+Best Regards
+-----
+Shan Wei
+
+
