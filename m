@@ -1,44 +1,34 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: drivers/net/ariadne.c:165: error: 'set_multicast_list' undeclared
-	here (not in a function)
-Date: Tue, 26 Jan 2010 09:57:05 +0100
-Message-ID: <10f740e81001260057h37f3494dvefa3a37b2e1453a5@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] bonding: bond_open error return value
+Date: Tue, 26 Jan 2010 01:34:15 -0800
+Message-ID: <20100126013415.0120d6a9@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux-Next <linux-next@vger.kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752740Ab0AZI5Q@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:49980 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751913Ab0AZJe2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jan 2010 04:34:28 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-http://kisskb.ellerman.id.au/kisskb/buildresult/2076964/
+The convention for API functions in kernel is to return errno value;
+bond_open would return -1 if alb setup failed. The only reason that
+could happen is if kmalloc() failed.
 
-drivers/net/ariadne.c:165: error: 'set_multicast_list' undeclared here
-(not in a function)
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Seems to be broken by:
-
-commit a271623f871dda970319ca15dfad3a8c8c36249f
-Author: Alexey Dobriyan <adobriyan@gmail.com>
-Date:   Fri Jan 22 10:13:10 2010 +0000
-
-    netdev: remove certain HAVE_ macros
-
-    After netdev_ops compat code HAVE_* macros aren't needed, in fact
-    they _will_ result in compile breakage for out of tree drivers.
-
-    Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-Gr{oetje,eeting}s,
-
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+--- a/drivers/net/bonding/bond_main.c	2010-01-26 01:28:18.281568331 -0800
++++ b/drivers/net/bonding/bond_main.c	2010-01-26 01:29:58.101099312 -0800
+@@ -3650,7 +3650,7 @@ static int bond_open(struct net_device *
+ 		 */
+ 		if (bond_alb_initialize(bond, (bond->params.mode == BOND_MODE_ALB))) {
+ 			/* something went wrong - fail the open operation */
+-			return -1;
++			return -ENOMEM;
+ 		}
+ 
+ 		INIT_DELAYED_WORK(&bond->alb_work, bond_alb_monitor);
