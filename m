@@ -1,46 +1,83 @@
-From: =?UTF-8?Q?R=C3=A9mi_Denis-Courmont?= <remi@remlab.net>
-Subject: Re: Network QoS support in applications
-Date: Tue, 26 Jan 2010 15:43:01 +0100
-Message-ID: <39575e70388bb2ea58dd36b9061d5055@chewa.net>
-References: <877hr5nkx0.fsf@purkki.valot.fi> <20100126.041610.226004766.davem@davemloft.net> <87wrz5m3cd.fsf@purkki.valot.fi> <20100126.050645.184040277.davem@davemloft.net> <87my01m0zm.fsf@purkki.valot.fi>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next-2.6] net: use helpers to access mc list
+Date: Tue, 26 Jan 2010 15:57:39 +0100
+Message-ID: <20100126145738.GA2537@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:41258 "EHLO yop.chewa.net"
+Received: from mx1.redhat.com ([209.132.183.28]:18166 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751544Ab0AZOnF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jan 2010 09:43:05 -0500
-In-Reply-To: <87my01m0zm.fsf@purkki.valot.fi>
+	id S1751441Ab0AZO5m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jan 2010 09:57:42 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch introduces the similar helpers as those already done for uc list.
+However multicast lists are no list_head lists but "mademanually". The three
+macros added by this patch will make the transition of mc_list to list_head
+smooth.
 
-On Tue, 26 Jan 2010 15:47:41 +0200, Kalle Valo <kalle.valo@iki.fi> wrot=
-e:=0D
-> But that's just because of mistakes with DiffServ and other QoS=0D
-> "frameworks". They didn't bother to specify how applications should=0D
-> use these. And what matters here IMHO.=0D
-=0D
-TOS lets the application specify whether they want low-delay (interacti=
-ve=0D
-low bandwidth traffic), high bandwidth (bulk traffic), high reliability=
- or=0D
-low cost. It's surely vague, but anything "uniform" solution is bound t=
-o be=0D
-vague. Some applications *do* set those fields, or provide options to s=
-et=0D
-them up. And contrary to SO_PRIORITY, it *can* be made to work for=0D
-non-local queues, if the applications are trusted.=0D
-=0D
-I am afraid it's too late for anything more uniform at the socket API=0D
-level. Even fewer developers would bother to support Linux>=3D2.6.3x-sp=
-ecific=0D
-options, than TOS/TCLASS.=0D
-=0D
--- =0D
-R=C3=A9mi Denis-Courmont=0D
-http://www.remlab.net=0D
-http://fi.linkedin.com/in/remidenis
+>From now on, drivers can (and should) use "netdev_for_each_mc_addr" to iterate
+over the addresses with iterator of type "struct netdev_hw_addr". Also macros
+"netdev_mc_count" and "netdev_mc_empty" to read list's length. This is the state
+which should be reached in all drivers.
 
+Temporary macro "netdev_for_each_mc_addr" works in the ugly way, I'm aware, but
+it will be replaced. It uses iterator stored in "struct net_device". In every
+iteration, it copies addr from the list to "struct netdev_hw_addr" instance
+(also stored in "struct net_device"). Driver reads address stored in this
+structure. All is protected by addr_list_lock held by a caller.
+
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 93a32a5..e470b22 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -268,6 +268,18 @@ struct netdev_hw_addr_list {
+ #define netdev_for_each_uc_addr(ha, dev) \
+ 	list_for_each_entry(ha, &dev->uc.list, list)
+ 
++#define netdev_mc_count(dev) ((dev)->mc_count)
++#define netdev_mc_empty(dev) (netdev_mc_count(dev) == 0)
++
++/* This is ugly, but only temporary. */
++#define netdev_for_each_mc_addr(ha, dev)			\
++	for ((dev)->tmp_mc_iter = (dev)->mc_list,		\
++	     netdev_tmp_mc_addr_cpy(dev),			\
++	     ha = &dev->tmp_mc_ha;				\
++	     (dev)->tmp_mc_iter;				\
++	     (dev)->tmp_mc_iter = (dev)->tmp_mc_iter->next,	\
++	     netdev_tmp_mc_addr_cpy(dev))
++
+ struct hh_cache {
+ 	struct hh_cache *hh_next;	/* Next entry			     */
+ 	atomic_t	hh_refcnt;	/* number of users                   */
+@@ -820,6 +832,8 @@ struct net_device {
+ 						   mac addresses */
+ 	int			uc_promisc;
+ 	spinlock_t		addr_list_lock;
++	struct netdev_hw_addr	tmp_mc_ha;
++	struct dev_addr_list	*tmp_mc_iter;
+ 	struct dev_addr_list	*mc_list;	/* Multicast mac addresses	*/
+ 	int			mc_count;	/* Number of installed mcasts	*/
+ 	unsigned int		promiscuity;
+@@ -953,6 +967,15 @@ struct net_device {
+ 
+ #define	NETDEV_ALIGN		32
+ 
++/* Used and to be used by netdev_for_each_mc_addr. This will disappear. */
++static inline void netdev_tmp_mc_addr_cpy(struct net_device *dev)
++{
++	if (dev->tmp_mc_iter)
++		memcpy(dev->tmp_mc_ha.addr,
++		       dev->tmp_mc_iter->da_addr,
++		       MAX_ADDR_LEN);
++}
++
+ static inline
+ struct netdev_queue *netdev_get_tx_queue(const struct net_device *dev,
+ 					 unsigned int index)
