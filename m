@@ -1,14 +1,14 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 16/21] net/atm/raw.c: checkpatch cleanups
-Date: Tue, 26 Jan 2010 13:40:15 -0800
-Message-ID: <7697319aba708ed88197d597123ee415e5bcc9ca.1264541549.git.joe@perches.com>
+Subject: [PATCH 15/21] net/atm/pvc.c: checkpatch cleanups
+Date: Tue, 26 Jan 2010 13:40:14 -0800
+Message-ID: <2a6b96da4394e0b4c80fe7dc741bc48f15d90850.1264541549.git.joe@perches.com>
 References: <cover.1264541547.git.joe@perches.com>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1489 "EHLO mail.perches.com"
+Received: from mail.perches.com ([173.55.12.10]:1488 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753976Ab0AZVkY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753974Ab0AZVkY (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 26 Jan 2010 16:40:24 -0500
 In-Reply-To: <cover.1264541547.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
@@ -16,88 +16,124 @@ List-ID: <netdev.vger.kernel.org>
 
 Spacing cleanups
 Mostly 80 column wrapped.
+Move trailing statements to new lines
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/atm/raw.c |   21 +++++++--------------
- 1 files changed, 7 insertions(+), 14 deletions(-)
+ net/atm/pvc.c |   43 +++++++++++++++++++++----------------------
+ 1 files changed, 21 insertions(+), 22 deletions(-)
 
-diff --git a/net/atm/raw.c b/net/atm/raw.c
-index fb8a949..d0c4bd0 100644
---- a/net/atm/raw.c
-+++ b/net/atm/raw.c
-@@ -18,7 +18,7 @@
-  * SKB == NULL indicates that the link is being closed
-  */
+diff --git a/net/atm/pvc.c b/net/atm/pvc.c
+index 8d74e62..437ee70 100644
+--- a/net/atm/pvc.c
++++ b/net/atm/pvc.c
+@@ -17,32 +17,35 @@
+ #include "common.h"		/* common for PVCs and SVCs */
  
--static void atm_push_raw(struct atm_vcc *vcc,struct sk_buff *skb)
-+static void atm_push_raw(struct atm_vcc *vcc, struct sk_buff *skb)
+ 
+-static int pvc_shutdown(struct socket *sock,int how)
++static int pvc_shutdown(struct socket *sock, int how)
  {
- 	if (skb) {
- 		struct sock *sk = sk_atm(vcc);
-@@ -28,8 +28,7 @@ static void atm_push_raw(struct atm_vcc *vcc,struct sk_buff *skb)
+ 	return 0;
+ }
+ 
+-
+-static int pvc_bind(struct socket *sock,struct sockaddr *sockaddr,
+-    int sockaddr_len)
++static int pvc_bind(struct socket *sock, struct sockaddr *sockaddr,
++		    int sockaddr_len)
+ {
+ 	struct sock *sk = sock->sk;
+ 	struct sockaddr_atmpvc *addr;
+ 	struct atm_vcc *vcc;
+ 	int error;
+ 
+-	if (sockaddr_len != sizeof(struct sockaddr_atmpvc)) return -EINVAL;
+-	addr = (struct sockaddr_atmpvc *) sockaddr;
+-	if (addr->sap_family != AF_ATMPVC) return -EAFNOSUPPORT;
++	if (sockaddr_len != sizeof(struct sockaddr_atmpvc))
++		return -EINVAL;
++	addr = (struct sockaddr_atmpvc *)sockaddr;
++	if (addr->sap_family != AF_ATMPVC)
++		return -EAFNOSUPPORT;
+ 	lock_sock(sk);
+ 	vcc = ATM_SD(sock);
+ 	if (!test_bit(ATM_VF_HASQOS, &vcc->flags)) {
+ 		error = -EBADFD;
+ 		goto out;
  	}
- }
- 
--
--static void atm_pop_raw(struct atm_vcc *vcc,struct sk_buff *skb)
-+static void atm_pop_raw(struct atm_vcc *vcc, struct sk_buff *skb)
- {
- 	struct sock *sk = sk_atm(vcc);
- 
-@@ -40,24 +39,22 @@ static void atm_pop_raw(struct atm_vcc *vcc,struct sk_buff *skb)
- 	sk->sk_write_space(sk);
- }
- 
--
--static int atm_send_aal0(struct atm_vcc *vcc,struct sk_buff *skb)
-+static int atm_send_aal0(struct atm_vcc *vcc, struct sk_buff *skb)
- {
- 	/*
- 	 * Note that if vpi/vci are _ANY or _UNSPEC the below will
- 	 * still work
- 	 */
- 	if (!capable(CAP_NET_ADMIN) &&
--	    (((u32 *) skb->data)[0] & (ATM_HDR_VPI_MASK | ATM_HDR_VCI_MASK)) !=
--	    ((vcc->vpi << ATM_HDR_VPI_SHIFT) | (vcc->vci << ATM_HDR_VCI_SHIFT)))
--	    {
-+	    (((u32 *)skb->data)[0] & (ATM_HDR_VPI_MASK | ATM_HDR_VCI_MASK)) !=
-+	    ((vcc->vpi << ATM_HDR_VPI_SHIFT) |
-+	     (vcc->vci << ATM_HDR_VCI_SHIFT))) {
- 		kfree_skb(skb);
- 		return -EADDRNOTAVAIL;
+-	if (test_bit(ATM_VF_PARTIAL,&vcc->flags)) {
+-		if (vcc->vpi != ATM_VPI_UNSPEC) addr->sap_addr.vpi = vcc->vpi;
+-		if (vcc->vci != ATM_VCI_UNSPEC) addr->sap_addr.vci = vcc->vci;
++	if (test_bit(ATM_VF_PARTIAL, &vcc->flags)) {
++		if (vcc->vpi != ATM_VPI_UNSPEC)
++			addr->sap_addr.vpi = vcc->vpi;
++		if (vcc->vci != ATM_VCI_UNSPEC)
++			addr->sap_addr.vci = vcc->vci;
  	}
--	return vcc->dev->ops->send(vcc,skb);
-+	return vcc->dev->ops->send(vcc, skb);
+ 	error = vcc_connect(sock, addr->sap_addr.itf, addr->sap_addr.vpi,
+ 			    addr->sap_addr.vci);
+@@ -51,11 +54,10 @@ out:
+ 	return error;
  }
  
 -
- int atm_init_aal0(struct atm_vcc *vcc)
+-static int pvc_connect(struct socket *sock,struct sockaddr *sockaddr,
+-    int sockaddr_len,int flags)
++static int pvc_connect(struct socket *sock, struct sockaddr *sockaddr,
++		       int sockaddr_len, int flags)
  {
- 	vcc->push = atm_push_raw;
-@@ -67,7 +64,6 @@ int atm_init_aal0(struct atm_vcc *vcc)
+-	return pvc_bind(sock,sockaddr,sockaddr_len);
++	return pvc_bind(sock, sockaddr, sockaddr_len);
+ }
+ 
+ static int pvc_setsockopt(struct socket *sock, int level, int optname,
+@@ -70,7 +72,6 @@ static int pvc_setsockopt(struct socket *sock, int level, int optname,
+ 	return error;
+ }
+ 
+-
+ static int pvc_getsockopt(struct socket *sock, int level, int optname,
+ 			  char __user *optval, int __user *optlen)
+ {
+@@ -83,16 +84,16 @@ static int pvc_getsockopt(struct socket *sock, int level, int optname,
+ 	return error;
+ }
+ 
+-
+-static int pvc_getname(struct socket *sock,struct sockaddr *sockaddr,
+-    int *sockaddr_len,int peer)
++static int pvc_getname(struct socket *sock, struct sockaddr *sockaddr,
++		       int *sockaddr_len, int peer)
+ {
+ 	struct sockaddr_atmpvc *addr;
+ 	struct atm_vcc *vcc = ATM_SD(sock);
+ 
+-	if (!vcc->dev || !test_bit(ATM_VF_ADDR,&vcc->flags)) return -ENOTCONN;
++	if (!vcc->dev || !test_bit(ATM_VF_ADDR, &vcc->flags))
++		return -ENOTCONN;
+ 	*sockaddr_len = sizeof(struct sockaddr_atmpvc);
+-	addr = (struct sockaddr_atmpvc *) sockaddr;
++	addr = (struct sockaddr_atmpvc *)sockaddr;
+ 	addr->sap_family = AF_ATMPVC;
+ 	addr->sap_addr.itf = vcc->dev->number;
+ 	addr->sap_addr.vpi = vcc->vpi;
+@@ -100,7 +101,6 @@ static int pvc_getname(struct socket *sock,struct sockaddr *sockaddr,
  	return 0;
  }
  
 -
- int atm_init_aal34(struct atm_vcc *vcc)
- {
- 	vcc->push = atm_push_raw;
-@@ -77,7 +73,6 @@ int atm_init_aal34(struct atm_vcc *vcc)
- 	return 0;
+ static const struct proto_ops pvc_proto_ops = {
+ 	.family =	PF_ATMPVC,
+ 	.owner =	THIS_MODULE,
+@@ -137,7 +137,6 @@ static int pvc_create(struct net *net, struct socket *sock, int protocol,
+ 	return vcc_create(net, sock, protocol, PF_ATMPVC);
  }
  
 -
- int atm_init_aal5(struct atm_vcc *vcc)
- {
- 	vcc->push = atm_push_raw;
-@@ -86,6 +81,4 @@ int atm_init_aal5(struct atm_vcc *vcc)
- 	vcc->send = vcc->dev->ops->send;
- 	return 0;
- }
--
--
- EXPORT_SYMBOL(atm_init_aal5);
+ static const struct net_proto_family pvc_family_ops = {
+ 	.family = PF_ATMPVC,
+ 	.create = pvc_create,
 -- 
 1.6.6.rc0.57.gad7a
 
