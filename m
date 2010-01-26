@@ -1,14 +1,14 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 17/21] net/atm/resources.c: checkpatch cleanups
-Date: Tue, 26 Jan 2010 13:40:16 -0800
-Message-ID: <745f0887979376f95f1aca85ac1fc460a0941218.1264541549.git.joe@perches.com>
+Subject: [PATCH 16/21] net/atm/raw.c: checkpatch cleanups
+Date: Tue, 26 Jan 2010 13:40:15 -0800
+Message-ID: <7697319aba708ed88197d597123ee415e5bcc9ca.1264541549.git.joe@perches.com>
 References: <cover.1264541547.git.joe@perches.com>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1479 "EHLO mail.perches.com"
+Received: from mail.perches.com ([173.55.12.10]:1489 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753980Ab0AZVkY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753976Ab0AZVkY (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 26 Jan 2010 16:40:24 -0500
 In-Reply-To: <cover.1264541547.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
@@ -16,503 +16,88 @@ List-ID: <netdev.vger.kernel.org>
 
 Spacing cleanups
 Mostly 80 column wrapped.
-Move embedded assigns out of tests
-Move trailing statements to new lines
-switch/case cleanups
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/atm/resources.c |  390 +++++++++++++++++++++++++--------------------------
- 1 files changed, 192 insertions(+), 198 deletions(-)
+ net/atm/raw.c |   21 +++++++--------------
+ 1 files changed, 7 insertions(+), 14 deletions(-)
 
-diff --git a/net/atm/resources.c b/net/atm/resources.c
-index 0d4c0ee..447ed89 100644
---- a/net/atm/resources.c
-+++ b/net/atm/resources.c
-@@ -71,7 +71,7 @@ struct atm_dev *atm_dev_lookup(int number)
- 	mutex_unlock(&atm_dev_mutex);
- 	return dev;
- }
--
-+EXPORT_SYMBOL(atm_dev_lookup);
+diff --git a/net/atm/raw.c b/net/atm/raw.c
+index fb8a949..d0c4bd0 100644
+--- a/net/atm/raw.c
++++ b/net/atm/raw.c
+@@ -18,7 +18,7 @@
+  * SKB == NULL indicates that the link is being closed
+  */
  
- struct atm_dev *atm_dev_register(const char *type, const struct atmdev_ops *ops,
- 				 int number, unsigned long *flags)
-@@ -85,7 +85,8 @@ struct atm_dev *atm_dev_register(const char *type, const struct atmdev_ops *ops,
+-static void atm_push_raw(struct atm_vcc *vcc,struct sk_buff *skb)
++static void atm_push_raw(struct atm_vcc *vcc, struct sk_buff *skb)
+ {
+ 	if (skb) {
+ 		struct sock *sk = sk_atm(vcc);
+@@ -28,8 +28,7 @@ static void atm_push_raw(struct atm_vcc *vcc,struct sk_buff *skb)
  	}
- 	mutex_lock(&atm_dev_mutex);
- 	if (number != -1) {
--		if ((inuse = __atm_dev_lookup(number))) {
-+		inuse = __atm_dev_lookup(number);
-+		if (inuse) {
- 			atm_dev_put(inuse);
- 			mutex_unlock(&atm_dev_mutex);
- 			kfree(dev);
-@@ -130,7 +131,7 @@ out_fail:
- 	dev = NULL;
- 	goto out;
  }
--
-+EXPORT_SYMBOL(atm_dev_register);
  
- void atm_dev_deregister(struct atm_dev *dev)
+-
+-static void atm_pop_raw(struct atm_vcc *vcc,struct sk_buff *skb)
++static void atm_pop_raw(struct atm_vcc *vcc, struct sk_buff *skb)
  {
-@@ -152,7 +153,7 @@ void atm_dev_deregister(struct atm_dev *dev)
+ 	struct sock *sk = sk_atm(vcc);
  
- 	atm_dev_put(dev);
- }
--
-+EXPORT_SYMBOL(atm_dev_deregister);
- 
- static void copy_aal_stats(struct k_atm_aal_stats *from,
-     struct atm_aal_stats *to)
-@@ -162,7 +163,6 @@ static void copy_aal_stats(struct k_atm_aal_stats *from,
- #undef __HANDLE_ITEM
+@@ -40,24 +39,22 @@ static void atm_pop_raw(struct atm_vcc *vcc,struct sk_buff *skb)
+ 	sk->sk_write_space(sk);
  }
  
 -
- static void subtract_aal_stats(struct k_atm_aal_stats *from,
-     struct atm_aal_stats *to)
+-static int atm_send_aal0(struct atm_vcc *vcc,struct sk_buff *skb)
++static int atm_send_aal0(struct atm_vcc *vcc, struct sk_buff *skb)
  {
-@@ -171,8 +171,8 @@ static void subtract_aal_stats(struct k_atm_aal_stats *from,
- #undef __HANDLE_ITEM
- }
- 
--
--static int fetch_stats(struct atm_dev *dev, struct atm_dev_stats __user *arg, int zero)
-+static int fetch_stats(struct atm_dev *dev, struct atm_dev_stats __user *arg,
-+		       int zero)
- {
- 	struct atm_dev_stats tmp;
- 	int error = 0;
-@@ -190,7 +190,6 @@ static int fetch_stats(struct atm_dev *dev, struct atm_dev_stats __user *arg, in
- 	return error ? -EFAULT : 0;
- }
- 
--
- int atm_dev_ioctl(unsigned int cmd, void __user *arg, int compat)
- {
- 	void __user *buf;
-@@ -206,50 +205,49 @@ int atm_dev_ioctl(unsigned int cmd, void __user *arg, int compat)
- #endif
- 
- 	switch (cmd) {
--		case ATM_GETNAMES:
--
--			if (compat) {
-+	case ATM_GETNAMES:
-+		if (compat) {
- #ifdef CONFIG_COMPAT
--				struct compat_atm_iobuf __user *ciobuf = arg;
--				compat_uptr_t cbuf;
--				iobuf_len = &ciobuf->length;
--				if (get_user(cbuf, &ciobuf->buffer))
--					return -EFAULT;
--				buf = compat_ptr(cbuf);
-+			struct compat_atm_iobuf __user *ciobuf = arg;
-+			compat_uptr_t cbuf;
-+			iobuf_len = &ciobuf->length;
-+			if (get_user(cbuf, &ciobuf->buffer))
-+				return -EFAULT;
-+			buf = compat_ptr(cbuf);
- #endif
--			} else {
--				struct atm_iobuf __user *iobuf = arg;
--				iobuf_len = &iobuf->length;
--				if (get_user(buf, &iobuf->buffer))
--					return -EFAULT;
--			}
--			if (get_user(len, iobuf_len))
-+		} else {
-+			struct atm_iobuf __user *iobuf = arg;
-+			iobuf_len = &iobuf->length;
-+			if (get_user(buf, &iobuf->buffer))
- 				return -EFAULT;
--			mutex_lock(&atm_dev_mutex);
--			list_for_each(p, &atm_devs)
--				size += sizeof(int);
--			if (size > len) {
--				mutex_unlock(&atm_dev_mutex);
--				return -E2BIG;
--			}
--			tmp_buf = kmalloc(size, GFP_ATOMIC);
--			if (!tmp_buf) {
--				mutex_unlock(&atm_dev_mutex);
--				return -ENOMEM;
--			}
--			tmp_p = tmp_buf;
--			list_for_each(p, &atm_devs) {
--				dev = list_entry(p, struct atm_dev, dev_list);
--				*tmp_p++ = dev->number;
--			}
-+		}
-+		if (get_user(len, iobuf_len))
-+			return -EFAULT;
-+		mutex_lock(&atm_dev_mutex);
-+		list_for_each(p, &atm_devs)
-+			size += sizeof(int);
-+		if (size > len) {
- 			mutex_unlock(&atm_dev_mutex);
--			error = ((copy_to_user(buf, tmp_buf, size)) ||
--					put_user(size, iobuf_len))
--						? -EFAULT : 0;
--			kfree(tmp_buf);
--			return error;
--		default:
--			break;
-+			return -E2BIG;
-+		}
-+		tmp_buf = kmalloc(size, GFP_ATOMIC);
-+		if (!tmp_buf) {
-+			mutex_unlock(&atm_dev_mutex);
-+			return -ENOMEM;
-+		}
-+		tmp_p = tmp_buf;
-+		list_for_each(p, &atm_devs) {
-+			dev = list_entry(p, struct atm_dev, dev_list);
-+			*tmp_p++ = dev->number;
-+		}
-+		mutex_unlock(&atm_dev_mutex);
-+		error = ((copy_to_user(buf, tmp_buf, size)) ||
-+			 put_user(size, iobuf_len))
-+			? -EFAULT : 0;
-+		kfree(tmp_buf);
-+		return error;
-+	default:
-+		break;
+ 	/*
+ 	 * Note that if vpi/vci are _ANY or _UNSPEC the below will
+ 	 * still work
+ 	 */
+ 	if (!capable(CAP_NET_ADMIN) &&
+-	    (((u32 *) skb->data)[0] & (ATM_HDR_VPI_MASK | ATM_HDR_VCI_MASK)) !=
+-	    ((vcc->vpi << ATM_HDR_VPI_SHIFT) | (vcc->vci << ATM_HDR_VCI_SHIFT)))
+-	    {
++	    (((u32 *)skb->data)[0] & (ATM_HDR_VPI_MASK | ATM_HDR_VCI_MASK)) !=
++	    ((vcc->vpi << ATM_HDR_VPI_SHIFT) |
++	     (vcc->vci << ATM_HDR_VCI_SHIFT))) {
+ 		kfree_skb(skb);
+ 		return -EADDRNOTAVAIL;
  	}
- 
- 	if (compat) {
-@@ -278,166 +276,167 @@ int atm_dev_ioctl(unsigned int cmd, void __user *arg, int compat)
- 		if (get_user(number, &sioc->number))
- 			return -EFAULT;
- 	}
--	if (!(dev = try_then_request_module(atm_dev_lookup(number),
--					    "atm-device-%d", number)))
-+
-+	dev = try_then_request_module(atm_dev_lookup(number), "atm-device-%d",
-+				      number);
-+	if (!dev)
- 		return -ENODEV;
- 
- 	switch (cmd) {
--		case ATM_GETTYPE:
--			size = strlen(dev->type) + 1;
--			if (copy_to_user(buf, dev->type, size)) {
--				error = -EFAULT;
--				goto done;
--			}
--			break;
--		case ATM_GETESI:
--			size = ESI_LEN;
--			if (copy_to_user(buf, dev->esi, size)) {
--				error = -EFAULT;
--				goto done;
--			}
--			break;
--		case ATM_SETESI:
--			{
--				int i;
--
--				for (i = 0; i < ESI_LEN; i++)
--					if (dev->esi[i]) {
--						error = -EEXIST;
--						goto done;
--					}
--			}
--			/* fall through */
--		case ATM_SETESIF:
--			{
--				unsigned char esi[ESI_LEN];
--
--				if (!capable(CAP_NET_ADMIN)) {
--					error = -EPERM;
--					goto done;
--				}
--				if (copy_from_user(esi, buf, ESI_LEN)) {
--					error = -EFAULT;
--					goto done;
--				}
--				memcpy(dev->esi, esi, ESI_LEN);
--				error =  ESI_LEN;
--				goto done;
--			}
--		case ATM_GETSTATZ:
--			if (!capable(CAP_NET_ADMIN)) {
--				error = -EPERM;
--				goto done;
--			}
--			/* fall through */
--		case ATM_GETSTAT:
--			size = sizeof(struct atm_dev_stats);
--			error = fetch_stats(dev, buf, cmd == ATM_GETSTATZ);
--			if (error)
--				goto done;
--			break;
--		case ATM_GETCIRANGE:
--			size = sizeof(struct atm_cirange);
--			if (copy_to_user(buf, &dev->ci_range, size)) {
--				error = -EFAULT;
--				goto done;
--			}
--			break;
--		case ATM_GETLINKRATE:
--			size = sizeof(int);
--			if (copy_to_user(buf, &dev->link_rate, size)) {
--				error = -EFAULT;
--				goto done;
--			}
--			break;
--		case ATM_RSTADDR:
--			if (!capable(CAP_NET_ADMIN)) {
--				error = -EPERM;
--				goto done;
--			}
--			atm_reset_addr(dev, ATM_ADDR_LOCAL);
--			break;
--		case ATM_ADDADDR:
--		case ATM_DELADDR:
--		case ATM_ADDLECSADDR:
--		case ATM_DELLECSADDR:
--			if (!capable(CAP_NET_ADMIN)) {
--				error = -EPERM;
--				goto done;
--			}
--			{
--				struct sockaddr_atmsvc addr;
--
--				if (copy_from_user(&addr, buf, sizeof(addr))) {
--					error = -EFAULT;
--					goto done;
--				}
--				if (cmd == ATM_ADDADDR || cmd == ATM_ADDLECSADDR)
--					error = atm_add_addr(dev, &addr,
--							     (cmd == ATM_ADDADDR ?
--							      ATM_ADDR_LOCAL : ATM_ADDR_LECS));
--				else
--					error = atm_del_addr(dev, &addr,
--							     (cmd == ATM_DELADDR ?
--							      ATM_ADDR_LOCAL : ATM_ADDR_LECS));
-+	case ATM_GETTYPE:
-+		size = strlen(dev->type) + 1;
-+		if (copy_to_user(buf, dev->type, size)) {
-+			error = -EFAULT;
-+			goto done;
-+		}
-+		break;
-+	case ATM_GETESI:
-+		size = ESI_LEN;
-+		if (copy_to_user(buf, dev->esi, size)) {
-+			error = -EFAULT;
-+			goto done;
-+		}
-+		break;
-+	case ATM_SETESI:
-+	{
-+		int i;
-+
-+		for (i = 0; i < ESI_LEN; i++)
-+			if (dev->esi[i]) {
-+				error = -EEXIST;
- 				goto done;
- 			}
--		case ATM_GETADDR:
--		case ATM_GETLECSADDR:
--			error = atm_get_addr(dev, buf, len,
--					     (cmd == ATM_GETADDR ?
-+	}
-+	/* fall through */
-+	case ATM_SETESIF:
-+	{
-+		unsigned char esi[ESI_LEN];
-+
-+		if (!capable(CAP_NET_ADMIN)) {
-+			error = -EPERM;
-+			goto done;
-+		}
-+		if (copy_from_user(esi, buf, ESI_LEN)) {
-+			error = -EFAULT;
-+			goto done;
-+		}
-+		memcpy(dev->esi, esi, ESI_LEN);
-+		error =  ESI_LEN;
-+		goto done;
-+	}
-+	case ATM_GETSTATZ:
-+		if (!capable(CAP_NET_ADMIN)) {
-+			error = -EPERM;
-+			goto done;
-+		}
-+		/* fall through */
-+	case ATM_GETSTAT:
-+		size = sizeof(struct atm_dev_stats);
-+		error = fetch_stats(dev, buf, cmd == ATM_GETSTATZ);
-+		if (error)
-+			goto done;
-+		break;
-+	case ATM_GETCIRANGE:
-+		size = sizeof(struct atm_cirange);
-+		if (copy_to_user(buf, &dev->ci_range, size)) {
-+			error = -EFAULT;
-+			goto done;
-+		}
-+		break;
-+	case ATM_GETLINKRATE:
-+		size = sizeof(int);
-+		if (copy_to_user(buf, &dev->link_rate, size)) {
-+			error = -EFAULT;
-+			goto done;
-+		}
-+		break;
-+	case ATM_RSTADDR:
-+		if (!capable(CAP_NET_ADMIN)) {
-+			error = -EPERM;
-+			goto done;
-+		}
-+		atm_reset_addr(dev, ATM_ADDR_LOCAL);
-+		break;
-+	case ATM_ADDADDR:
-+	case ATM_DELADDR:
-+	case ATM_ADDLECSADDR:
-+	case ATM_DELLECSADDR:
-+	{
-+		struct sockaddr_atmsvc addr;
-+
-+		if (!capable(CAP_NET_ADMIN)) {
-+			error = -EPERM;
-+			goto done;
-+		}
-+
-+		if (copy_from_user(&addr, buf, sizeof(addr))) {
-+			error = -EFAULT;
-+			goto done;
-+		}
-+		if (cmd == ATM_ADDADDR || cmd == ATM_ADDLECSADDR)
-+			error = atm_add_addr(dev, &addr,
-+					     (cmd == ATM_ADDADDR ?
- 					      ATM_ADDR_LOCAL : ATM_ADDR_LECS));
--			if (error < 0)
--				goto done;
--			size = error;
--			/* may return 0, but later on size == 0 means "don't
--			   write the length" */
--			error = put_user(size, sioc_len)
--				? -EFAULT : 0;
-+		else
-+			error = atm_del_addr(dev, &addr,
-+					     (cmd == ATM_DELADDR ?
-+					      ATM_ADDR_LOCAL : ATM_ADDR_LECS));
-+		goto done;
-+	}
-+	case ATM_GETADDR:
-+	case ATM_GETLECSADDR:
-+		error = atm_get_addr(dev, buf, len,
-+				     (cmd == ATM_GETADDR ?
-+				      ATM_ADDR_LOCAL : ATM_ADDR_LECS));
-+		if (error < 0)
-+			goto done;
-+		size = error;
-+		/* may return 0, but later on size == 0 means "don't
-+		   write the length" */
-+		error = put_user(size, sioc_len) ? -EFAULT : 0;
-+		goto done;
-+	case ATM_SETLOOP:
-+		if (__ATM_LM_XTRMT((int) (unsigned long) buf) &&
-+		    __ATM_LM_XTLOC((int) (unsigned long) buf) >
-+		    __ATM_LM_XTRMT((int) (unsigned long) buf)) {
-+			error = -EINVAL;
- 			goto done;
--		case ATM_SETLOOP:
--			if (__ATM_LM_XTRMT((int) (unsigned long) buf) &&
--			    __ATM_LM_XTLOC((int) (unsigned long) buf) >
--			    __ATM_LM_XTRMT((int) (unsigned long) buf)) {
-+		}
-+		/* fall through */
-+	case ATM_SETCIRANGE:
-+	case SONET_GETSTATZ:
-+	case SONET_SETDIAG:
-+	case SONET_CLRDIAG:
-+	case SONET_SETFRAMING:
-+		if (!capable(CAP_NET_ADMIN)) {
-+			error = -EPERM;
-+			goto done;
-+		}
-+		/* fall through */
-+	default:
-+		if (compat) {
-+#ifdef CONFIG_COMPAT
-+			if (!dev->ops->compat_ioctl) {
- 				error = -EINVAL;
- 				goto done;
- 			}
--			/* fall through */
--		case ATM_SETCIRANGE:
--		case SONET_GETSTATZ:
--		case SONET_SETDIAG:
--		case SONET_CLRDIAG:
--		case SONET_SETFRAMING:
--			if (!capable(CAP_NET_ADMIN)) {
--				error = -EPERM;
--				goto done;
--			}
--			/* fall through */
--		default:
--			if (compat) {
--#ifdef CONFIG_COMPAT
--				if (!dev->ops->compat_ioctl) {
--					error = -EINVAL;
--					goto done;
--				}
--				size = dev->ops->compat_ioctl(dev, cmd, buf);
-+			size = dev->ops->compat_ioctl(dev, cmd, buf);
- #endif
--			} else {
--				if (!dev->ops->ioctl) {
--					error = -EINVAL;
--					goto done;
--				}
--				size = dev->ops->ioctl(dev, cmd, buf);
--			}
--			if (size < 0) {
--				error = (size == -ENOIOCTLCMD ? -EINVAL : size);
-+		} else {
-+			if (!dev->ops->ioctl) {
-+				error = -EINVAL;
- 				goto done;
- 			}
-+			size = dev->ops->ioctl(dev, cmd, buf);
-+		}
-+		if (size < 0) {
-+			error = (size == -ENOIOCTLCMD ? -EINVAL : size);
-+			goto done;
-+		}
- 	}
- 
- 	if (size)
--		error = put_user(size, sioc_len)
--			? -EFAULT : 0;
-+		error = put_user(size, sioc_len) ? -EFAULT : 0;
- 	else
- 		error = 0;
- done:
-@@ -445,7 +444,7 @@ done:
- 	return error;
+-	return vcc->dev->ops->send(vcc,skb);
++	return vcc->dev->ops->send(vcc, skb);
  }
  
--static __inline__ void *dev_get_idx(loff_t left)
-+static inline void *dev_get_idx(loff_t left)
+-
+ int atm_init_aal0(struct atm_vcc *vcc)
  {
- 	struct list_head *p;
+ 	vcc->push = atm_push_raw;
+@@ -67,7 +64,6 @@ int atm_init_aal0(struct atm_vcc *vcc)
+ 	return 0;
+ }
  
-@@ -474,8 +473,3 @@ void *atm_dev_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- 		? atm_devs.next : ((struct list_head *)v)->next;
- 	return (v == &atm_devs) ? NULL : v;
+-
+ int atm_init_aal34(struct atm_vcc *vcc)
+ {
+ 	vcc->push = atm_push_raw;
+@@ -77,7 +73,6 @@ int atm_init_aal34(struct atm_vcc *vcc)
+ 	return 0;
+ }
+ 
+-
+ int atm_init_aal5(struct atm_vcc *vcc)
+ {
+ 	vcc->push = atm_push_raw;
+@@ -86,6 +81,4 @@ int atm_init_aal5(struct atm_vcc *vcc)
+ 	vcc->send = vcc->dev->ops->send;
+ 	return 0;
  }
 -
 -
--EXPORT_SYMBOL(atm_dev_register);
--EXPORT_SYMBOL(atm_dev_deregister);
--EXPORT_SYMBOL(atm_dev_lookup);
+ EXPORT_SYMBOL(atm_init_aal5);
 -- 
 1.6.6.rc0.57.gad7a
 
