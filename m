@@ -1,75 +1,56 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 15091] New: starfire causes kernel BUG when
- interface goes up
-Date: Mon, 25 Jan 2010 17:08:16 -0800
-Message-ID: <20100125170816.db9435ed.akpm@linux-foundation.org>
-References: <bug-15091-10286@http.bugzilla.kernel.org/>
+From: Frederic Weisbecker <fweisbec@gmail.com>
+Subject: Re: [PATCH 7/8] percpu: add __percpu sparse annotations to
+	hw_breakpoint
+Date: Tue, 26 Jan 2010 02:12:36 +0100
+Message-ID: <20100126011234.GL5087@nowhere>
+References: <1264432935-10453-1-git-send-email-tj@kernel.org> <1264432935-10453-8-git-send-email-tj@kernel.org> <20100126001901.GI5087@nowhere> <4B5E401D.2020809@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, michael@moffatt.org.nz,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:45362 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751396Ab0AZBJY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2010 20:09:24 -0500
-In-Reply-To: <bug-15091-10286@http.bugzilla.kernel.org/>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <tj@kernel.org>, linux-kernel@vger.kernel.org,
+	axboe@kernel.dk, rusty@rustcorp.com.au, akpm@linux-foundation.org,
+	ebiederm@xmission.com, tytso@mit.edu, Trond.Myklebust@netapp.com,
+	aelder@sgi.com, hch@infradead.org, viro@zeniv.linux.org.uk,
+	davem@davemloft.net, netdev@vger.kernel.org, x86@kernel.org,
+	mingo@redhat.com, dan.j.williams@intel.com,
+	borislav.petkov@amd.com, ying.huang@intel.com, lenb@kernel.org,
+	neilb@suse.de, cl@linux-foundation.org
+To: "H. Peter Anvin" <hpa@zytor.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752522Ab0AZBMn@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4B5E401D.2020809@zytor.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Mon, Jan 25, 2010 at 05:06:37PM -0800, H. Peter Anvin wrote:
+> On 01/25/2010 04:19 PM, Frederic Weisbecker wrote:
+> > On Tue, Jan 26, 2010 at 12:22:14AM +0900, Tejun Heo wrote:
+> >> Add __percpu sparse annotations to hw_breakpoint.
+> >>
+> >> These annotations are to make sparse consider percpu variables to be
+> >> in a different address space and warn if accessed without going
+> >> through percpu accessors.  This patch doesn't affect normal builds.
+> >>
+> >> per_cpu(nr_task_bp_pinned, cpu) is replaced with
+> >> &per_cpu(nr_task_bp_pinned[0], cpu).  This is the same to the compiler
+> >> but allows per_cpu() macro to correctly drop __percpu designation for
+> >> the returned pointer.
+> > 
+> > Ouch... It's unpleasant to see such workaround that messes up the
+> > code just to make sparse happy.
+> > 
+> > I guess __percpu is an address_space attribute? Is there no
+> > way to force the address space change directly from the
+> > per_cpu() macro?
+> > 
+> 
+> Hmm... thinking more about it, we should be able to just move the & and
+> [0] into the per_cpu() macro, addressing the situation, or does that
+> cause problems elsewhere?
+> 
+> 	-hpa
 
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
-
-On Wed, 20 Jan 2010 04:29:20 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
-
-> http://bugzilla.kernel.org/show_bug.cgi?id=15091
-> 
->            Summary: starfire causes kernel BUG when interface goes up
->            Product: Drivers
->            Version: 2.5
->     Kernel Version: 2.6.32
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Network
->         AssignedTo: drivers_network@kernel-bugs.osdl.org
->         ReportedBy: michael@moffatt.org.nz
->         Regression: No
-> 
-> 
-> Created an attachment (id=24651)
->  --> (http://bugzilla.kernel.org/attachment.cgi?id=24651)
-> ls -l /dev (before crash)
-> 
-> I formerly used 2.6.20 and 2.6.24 with a couple of starfire 4 port ethernet
-> cards. On 2.6.32 the interfaces don't start on boot and when I issue "ifconfig
-> ethX up" (where X is a starfire port).
-> 
-> Sometimes the exception causes the whole kernel to freeze. Sometimes the kernel
-> keeps going. On the occasion that the kernel kept going I was able to retrieve
-> syslog, which has the full kernel information.
-> 
-> Note that in syslog, you can see that I inserted a USB memory stick in order to
-> copy off the attached files. The kernel oops happens without the USB memory
-> stick inserted.
-> 
-> I can reproduce this at will. At the moment I simply can't use my two four port
-> starfire network cards.
-> 
-> This PC is a root-over-NFS system.
-> 
-
-Starfire is triggering the BUG_ON(!test_bit(NAPI_STATE_SCHED,
-&n->state)); in napi_enable().
-
-This is a regression somewhere between 2.6.24 and 2.6.32(!).
-
-
+That would work only with arrays. per_cpu() can access either pointers
+or direct values. Well that can be worked around with fake casts, but
+I would except the (typeof(x) __force) to work and then offer a more
+elegant solution.
