@@ -1,62 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: drivers/net/ariadne.c:165: error: 'set_multicast_list'
- undeclared here (not in a function)
-Date: Tue, 26 Jan 2010 05:18:17 -0800 (PST)
-Message-ID: <20100126.051817.215651254.davem@davemloft.net>
-References: <10f740e81001260057h37f3494dvefa3a37b2e1453a5@mail.gmail.com>
+From: Henning Rogge <henning.rogge-FCsFpRLaMoKatNDF+KUbs4QuADTiUCJX@public.gmane.org>
+Subject: Re: Network QoS support in applications
+Date: Tue, 26 Jan 2010 14:06:59 +0100
+Message-ID: <201001261407.04947.henning.rogge@fkie.fraunhofer.de>
+References: <87k4v5nuej.fsf@purkki.valot.fi> <20100126.041610.226004766.davem@davemloft.net> <87wrz5m3cd.fsf@purkki.valot.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed;
+  boundary="nextPart4303306.S5F0AqoMOV";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: adobriyan@gmail.com, linux-next@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: geert@linux-m68k.org
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <10f740e81001260057h37f3494dvefa3a37b2e1453a5@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87wrz5m3cd.fsf-ySPBbPOLdCfMApvqMRVM/A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Tue, 26 Jan 2010 09:57:05 +0100
+--nextPart4303306.S5F0AqoMOV
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-> http://kisskb.ellerman.id.au/kisskb/buildresult/2076964/
-> 
-> drivers/net/ariadne.c:165: error: 'set_multicast_list' undeclared here
-> (not in a function)
-> 
-> Seems to be broken by:
+On Tue January 26 2010 13:56:50 Kalle Valo wrote:
+> So the idea is that the three left most bits (Class Selector
+> Codepoints from DiffServ RFC 2474) would contain these values from
+> IEEE 802.1d-2004 Annex G:
+>=20
+> 0 best effort
+> 1 background
+> 2 (spare)
+> 3 excellent effort
+> 4 controlled load
+> 5 video
+> 6 voice
+> 7 network control
+>=20
+> What do people think of this?
+The IETF is discussing about a traffic priority below "best effort" for bul=
+k=20
+traffic at the moment. Something you use to fill up links if your can but d=
+rop it=20
+if you are not sure. So it might be a good idea to make "best efford" not z=
+ero.
 
-I'll fix this with the patch below.
+Henning Rogge
+=2D-=20
+Diplom-Informatiker Henning Rogge , Fraunhofer-Institut f=FCr
+Kommunikation, Informationsverarbeitung und Ergonomie FKIE
+Kommunikationssysteme (KOM)
+Neuenahrer Stra=DFe 20, 53343 Wachtberg, Germany
+Telefon +49 228 9435-263,   Fax +49 228 9435 685
+mailto:henning.rogge-FCsFpRLaMoKatNDF+KUbs4QuADTiUCJX@public.gmane.org http://www.fkie.fraunhofer.de
+GPG: E1C6 0914 490B 3909 D944 F80D 4487 C67C 55EC CFE0
 
-Alexey, please go through at least drivers/net and look at the
-other stale references to these HAVE_* macros.
+--nextPart4303306.S5F0AqoMOV
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
-For example I still see a bunch of HAVE_POLL_CONTROLLER stuff.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
 
-Thanks.
+iEYEABECAAYFAkte6PMACgkQRIfGfFXsz+C3owCgqAiF1R5lHUH0jHj48EwGUkN4
+v6AAn23wy074YEgEveL/oLG8Lj+DGiuj
+=+63I
+-----END PGP SIGNATURE-----
 
-ariadne: Fix build.
-
-References removed HAVE_MULTICAST.
-
-Reporeted-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/ariadne.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ariadne.c b/drivers/net/ariadne.c
-index c35af3e..e2c2024 100644
---- a/drivers/net/ariadne.c
-+++ b/drivers/net/ariadne.c
-@@ -123,9 +123,7 @@ static void ariadne_reset(struct net_device *dev);
- static irqreturn_t ariadne_interrupt(int irq, void *data);
- static int ariadne_close(struct net_device *dev);
- static struct net_device_stats *ariadne_get_stats(struct net_device *dev);
--#ifdef HAVE_MULTICAST
- static void set_multicast_list(struct net_device *dev);
--#endif
- 
- 
- static void memcpyw(volatile u_short *dest, u_short *src, int len)
--- 
-1.6.6.1
+--nextPart4303306.S5F0AqoMOV--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
