@@ -1,94 +1,66 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] netdev: remove HAVE_ leftovers
-Date: Tue, 26 Jan 2010 21:17:27 +0200
-Message-ID: <20100126191727.GA5454@x200>
-References: <10f740e81001260057h37f3494dvefa3a37b2e1453a5@mail.gmail.com>
- <20100126.051817.215651254.davem@davemloft.net>
+From: =?iso-8859-1?Q?Sjur_Br=E6ndeland?= <sjur.brandeland@stericsson.com>
+Subject: RE: [PATCH net-next-2.6 10/13] net-caif: add kernel-client API for CAIF
+Date: Tue, 26 Jan 2010 20:56:09 +0100
+Message-ID: <61D8D34BB13CFE408D154529C120E0790326AE5F@eseldmw101.eemea.ericsson.se>
+References: <1264028130-14364-1-git-send-email-sjur.brandeland@stericsson.com><1264028130-14364-11-git-send-email-sjur.brandeland@stericsson.com> <20100126095054.bd20673a.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: geert@linux-m68k.org, linux-next@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100126.051817.215651254.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<marcel@holtmann.org>, <stefano.babic@babic.homelinux.org>
+To: "Randy Dunlap" <randy.dunlap@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw-virt-test.ericsson.se ([193.180.251.35]:55060 "EHLO
+	mailgw-virt-test.ericsson.se" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750799Ab0AZULO convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jan 2010 15:11:14 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20100126095054.bd20673a.randy.dunlap@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 26, 2010 at 05:18:17AM -0800, David Miller wrote:
-> Alexey, please go through at least drivers/net and look at the
-> other stale references to these HAVE_* macros.
+Hi Randy,
 
-My apologies.
+Randy Dunlap wrote:
+> On Wed, 20 Jan 2010 23:55:27 +0100 sjur.brandeland@stericsson.com
+> 
+> Hi,
+> 
+> I'm probably repeating myself here, but this function documentation
+> is not formatted in the way which the Linux kernel expects/wants. 
+> 
+> Some of the others (after this one) use "/**" to begin the comment
+> block. 
+> In kernel-land, that is used only for kernel-doc formatted notation.
 
+Thanks for feedback, it is rather my fault letting this slip through.
+As you probably have figured CAIF was originally documented using
+doxygen for formatting. Unfortunately I have not yet managed to get rid of this.
 
-[PATCH] netdev: remove HAVE_ leftovers
+> 
+> 
+>> +/*!\page  caif_kernel.h
+>> + * This is the specification of the CAIF kernel internal interface
+>> to + * CAIF Channels. + * This interface follows the pattern used in
+>> Linux device drivers +with a + *  struct \ref caif_device
+>> + * holding control data handling each device instance. + *
+>> + * The functional interface consists of a few basic functions:
+>> + *  - \ref caif_add_device             Configure and connect the
+>> CAIF + *               channel to the remote end. Configuration is
+>> described in + *               \ref caif_channel_config.
+>> + *  - \ref caif_remove_device          Disconnect and remove the
+>> channel. + *  - \ref caif_transmit               Sends a CAIF
+>> message on the link. + *  - \ref caif_device.receive_cb      Receive
+>> callback function for + *                receiving packets.
+>> + *  - \ref caif_device.control_cb      Control information from the
+>> CAIF stack. + *  - \ref caif_flow_control           Send flow
+>> control message to remote end. + * + *
+>> + * Details:
+>> + * \see { caif_kernel }
+>> + *
+>> + * \code
+>> + *
+>> +#include <net/caif/caif_kernel.h>"
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
-
- drivers/net/cassini.c                  |    2 +-
- drivers/net/meth.c                     |    3 ---
- drivers/staging/wlags49_h2/wl_netdev.c |    6 ------
- 3 files changed, 1 insertion(+), 10 deletions(-)
-
---- a/drivers/net/cassini.c
-+++ b/drivers/net/cassini.c
-@@ -106,7 +106,7 @@
- #define cas_page_unmap(x)    kunmap_atomic((x), KM_SKB_DATA_SOFTIRQ)
- #define CAS_NCPUS            num_online_cpus()
- 
--#if defined(CONFIG_CASSINI_NAPI) && defined(HAVE_NETDEV_POLL)
-+#ifdef CONFIG_CASSINI_NAPI
- #define USE_NAPI
- #define cas_skb_release(x)  netif_receive_skb(x)
- #else
---- a/drivers/net/meth.c
-+++ b/drivers/net/meth.c
-@@ -51,14 +51,11 @@
- 
- static const char *meth_str="SGI O2 Fast Ethernet";
- 
--#define HAVE_TX_TIMEOUT
- /* The maximum time waited (in jiffies) before assuming a Tx failed. (400ms) */
- #define TX_TIMEOUT (400*HZ/1000)
- 
--#ifdef HAVE_TX_TIMEOUT
- static int timeout = TX_TIMEOUT;
- module_param(timeout, int, 0);
--#endif
- 
- /*
-  * This structure is private to each device. It is used to pass
---- a/drivers/staging/wlags49_h2/wl_netdev.c
-+++ b/drivers/staging/wlags49_h2/wl_netdev.c
-@@ -1194,9 +1194,7 @@ static const struct net_device_ops wl_netdev_ops =
-     .ndo_stop               = &wl_adapter_close,
-     .ndo_do_ioctl           = &wl_ioctl,
- 
--#ifdef HAVE_TX_TIMEOUT
-     .ndo_tx_timeout         = &wl_tx_timeout,
--#endif
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
-     .ndo_poll_controller    = wl_poll,
-@@ -1270,9 +1268,7 @@ struct net_device * wl_device_alloc( void )
-     dev->stop               = &wl_adapter_close;
-     dev->do_ioctl           = &wl_ioctl;
- 
--#ifdef HAVE_TX_TIMEOUT
-     dev->tx_timeout         = &wl_tx_timeout;
--#endif
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
-     dev->poll_controller = wl_poll;
-@@ -1280,9 +1276,7 @@ struct net_device * wl_device_alloc( void )
- 
- #endif // (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,30))
- 
--#ifdef HAVE_TX_TIMEOUT
-     dev->watchdog_timeo     = TX_TIMEOUT;
--#endif
- 
-     dev->ethtool_ops	    = &wl_ethtool_ops;
- 
+BR/Sjur
