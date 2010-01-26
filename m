@@ -1,94 +1,32 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH] starfire: Clean up properly if firmware loading fails
-Date: Tue, 26 Jan 2010 02:02:12 +0000
-Message-ID: <1264471333.373.349.camel@localhost>
-References: <bug-15091-10286@http.bugzilla.kernel.org/>
-	 <20100125170816.db9435ed.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Netlink usage question (for bonding comm with userspace)
+Date: Mon, 25 Jan 2010 18:03:57 -0800 (PST)
+Message-ID: <20100125.180357.109302552.davem@davemloft.net>
+References: <15914.1264466901@death.nxdomain.ibm.com>
+	<20100125.165152.132891922.davem@davemloft.net>
+	<19462.1264468440@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, michael@moffatt.org.nz,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:9363 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753252Ab0AZCCS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2010 21:02:18 -0500
-In-Reply-To: <20100125170816.db9435ed.akpm@linux-foundation.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36223
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751396Ab0AZCDq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2010 21:03:46 -0500
+In-Reply-To: <19462.1264468440@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netdev_open() will return without cleaning up net device or hardware
-state if firmware loading fails.  This results in a BUG() on a second
-attempt to bring the interface up, reported in
-<http://bugzilla.kernel.org/show_bug.cgi?id=15117>, and probably has
-even worse effects if the driver is removed afterwards.
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Mon, 25 Jan 2010 17:14:00 -0800
 
-Call netdev_close() to clean up on failure.
----
-On Mon, 2010-01-25 at 17:08 -0800, Andrew Morton wrote: 
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
-> 
-> On Wed, 20 Jan 2010 04:29:20 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
-> 
-> > http://bugzilla.kernel.org/show_bug.cgi?id=15091
-> > 
-> >            Summary: starfire causes kernel BUG when interface goes up
-[...] 
-> > I formerly used 2.6.20 and 2.6.24 with a couple of starfire 4 port ethernet
-> > cards. On 2.6.32 the interfaces don't start on boot and when I issue "ifconfig
-> > ethX up" (where X is a starfire port).
-[...] 
-> Starfire is triggering the BUG_ON(!test_bit(NAPI_STATE_SCHED,
-> &n->state)); in napi_enable().
-> 
-> This is a regression somewhere between 2.6.24 and 2.6.32(!).
+> 	Just so I'm clear, though: use generic netlink for the needs of
+> this particular project, and then later it's acceptable to have both
+> generic and rtnetlink co-existing for their respective uses?
 
-This driver now attempts to load firmware when an interface is brought
-up, *after* calling napi_enable().  If that fails, it will return
-without calling napi_disable().  On the second attempt to bring the
-interface it calls napi_enable() a second time and triggers this
-assertion.
+Use generic netlink for everything.
 
-As a workaround, try installing the necessary firmware. :-)
-
-Ben.
-
- drivers/net/starfire.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/starfire.c b/drivers/net/starfire.c
-index 95db60a..f952113 100644
---- a/drivers/net/starfire.c
-+++ b/drivers/net/starfire.c
-@@ -1063,7 +1063,7 @@ static int netdev_open(struct net_device *dev)
- 	if (retval) {
- 		printk(KERN_ERR "starfire: Failed to load firmware \"%s\"\n",
- 		       FIRMWARE_RX);
--		return retval;
-+		goto out_init;
- 	}
- 	if (fw_rx->size % 4) {
- 		printk(KERN_ERR "starfire: bogus length %zu in \"%s\"\n",
-@@ -1108,6 +1108,9 @@ out_tx:
- 	release_firmware(fw_tx);
- out_rx:
- 	release_firmware(fw_rx);
-+out_init:
-+	if (retval)
-+		netdev_close(dev);
- 	return retval;
- }
- 
--- 
-1.6.6
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+It's just a different namespace ("text strings", vs. fixed integer
+IDs) for netlink sockets, nothing more really.
