@@ -1,11 +1,11 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 7/8] percpu: add __percpu sparse annotations to	hw_breakpoint
-Date: Tue, 26 Jan 2010 11:13:59 +0900
-Message-ID: <4B5E4FE7.30700@kernel.org>
+From: Frederic Weisbecker <fweisbec@gmail.com>
+Subject: Re: [PATCH 7/8] percpu: add __percpu sparse annotations to
+	hw_breakpoint
+Date: Tue, 26 Jan 2010 03:10:42 +0100
+Message-ID: <20100126021041.GN5087@nowhere>
 References: <1264432935-10453-1-git-send-email-tj@kernel.org> <1264432935-10453-8-git-send-email-tj@kernel.org> <20100126001901.GI5087@nowhere> <4B5E3BED.6030705@kernel.org> <20100126010239.GK5087@nowhere> <4B5E4308.8020105@kernel.org> <20100126020113.GM5087@nowhere>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, axboe@kernel.dk,
 	rusty@rustcorp.com.au, akpm@linux-foundation.org,
 	ebiederm@xmission.com, tytso@mit.edu, Trond.Myklebust@netapp.com,
@@ -14,15 +14,41 @@ Cc: linux-kernel@vger.kernel.org, axboe@kernel.dk,
 	mingo@redhat.com, dan.j.williams@intel.com,
 	borislav.petkov@amd.com, ying.huang@intel.com, lenb@kernel.org,
 	neilb@suse.de, cl@linux-foundation.org
-To: Frederic Weisbecker <fweisbec@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753341Ab0AZCIe@vger.kernel.org>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753477Ab0AZCKt@vger.kernel.org>
+Content-Disposition: inline
 In-Reply-To: <20100126020113.GM5087@nowhere>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
-
-On 01/26/2010 11:01 AM, Frederic Weisbecker wrote:
+On Tue, Jan 26, 2010 at 03:01:14AM +0100, Frederic Weisbecker wrote:
+> On Tue, Jan 26, 2010 at 10:19:04AM +0900, Tejun Heo wrote:
+> > Hello,
+> > 
+> > On 01/26/2010 10:02 AM, Frederic Weisbecker wrote:
+> > > Well, sorry I must be missing something obvious, but is it impossible
+> > > to make per_cpu(var, cpu) returning something cast in:
+> > > 
+> > > 	(typeof(var) __force)
+> > > 
+> > > Or I guess you did that already and it is not working with static
+> > > arrays, or?
+> > 
+> > Yeap, the definition looks like
+> > 
+> >  #define SHIFT_PERCPU_PTR(__p, __offset)	({			\
+> > 	__verify_pcpu_ptr((__p));					\
+> > 	RELOC_HIDE((typeof(*(__p)) __kernel __force *)(__p), (__offset)); \
+> >  })
+> > 
+> >  #define per_cpu(var, cpu) \
+> > 	(*SHIFT_PERCPU_PTR(&(var), per_cpu_offset(cpu)))
+> > 
+> > but it just ends up putting the __force at the wrong layer.  It seems
+> > that (typeof(var) __kernel __force) tell sparse var is in the kernel
+> > address space but not its members.
+> 
+> 
 > So, may be it considers you are applying the address space overriding
 > to the pointer to the type and not to the type itself.
 > 
@@ -48,14 +74,21 @@ On 01/26/2010 11:01 AM, Frederic Weisbecker wrote:
 > 
 > #define per_cpu(var, cpu) \
 >       (typeof(var) __kernel __force)(*SHIFT_PERCPU_PTR(&(var), per_cpu_offset(cpu)))
+> 
+> This should work because &(var) should be dereferencable directly, since
+> it is not of type "__force t" but of type "*__force t"
+> 
+> And you're not doing anymore this:
+> 
+> 	*(int * __kernel __force) i;
+> but
+> 	*(int __kernel __force *) i;
 
-arch/x86/kernel/cpu/common.c:1149:20: warning: cast to non-scalar
-arch/x86/kernel/cpu/common.c:1149:20: error: strange non-value function or array
-  CC      arch/x86/kernel/cpu/common.o
-arch/x86/kernel/cpu/common.c: In function 'cpu_init':
-arch/x86/kernel/cpu/common.c:1149: error: cast specifies array type
 
-Can't cast that way.  :-(
 
--- 
-tejun
+The above is perhaps a bit confusing.
+To be more clear, in the first case you only cast the pointer
+to the type, which gives you a pointer valid in kernel space
+to data valid in percpu space.
+
+The second case gives you something valid in kernel space for both.
