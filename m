@@ -1,48 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Network QoS support in applications
-Date: Tue, 26 Jan 2010 05:06:45 -0800 (PST)
-Message-ID: <20100126.050645.184040277.davem@davemloft.net>
-References: <877hr5nkx0.fsf@purkki.valot.fi>
-	<20100126.041610.226004766.davem@davemloft.net>
-	<87wrz5m3cd.fsf@purkki.valot.fi>
+Subject: Re: [PATCH 1/2] IPv6: conntrack: Use protocol-related
+ initialization routine to initial queues of IPv6 connection track
+Date: Tue, 26 Jan 2010 05:11:47 -0800 (PST)
+Message-ID: <20100126.051147.256313206.davem@davemloft.net>
+References: <20100125.233254.35824860.davem@davemloft.net>
+	<4B5EE2C6.6010802@cn.fujitsu.com>
+	<4B5EE436.3040204@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: kalle.valo@iki.fi
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33768
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753327Ab0AZNGd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2010 08:06:33 -0500
-In-Reply-To: <87wrz5m3cd.fsf@purkki.valot.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: shanwei@cn.fujitsu.com, yasuyuki.kozakai@toshiba.co.jp,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4B5EE436.3040204@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kalle Valo <kalle.valo@iki.fi>
-Date: Tue, 26 Jan 2010 14:56:50 +0200
+From: Patrick McHardy <kaber@trash.net>
+Date: Tue, 26 Jan 2010 13:46:46 +0100
 
-> In my opinion we already now need a universal solution for the user
-> space applications to classify their streams. Having a local solution
-> doesn't get us far, people don't want to configure their laptops or
-> phones, they just want to use them :)
+> Oops, sorry. Not sure why I missed this, I've successfully
+> tested that change multiple times.
 
-And similarly your organization's administartion doesn't want to
-prioritize bittorrent traffic a specific fixed way just because your
-application sets some bits in the TOS field of it's packets.
+This situation is error prone, and I don't blame you for not catching
+it, because these common ipv6 fragmentation functions are assuming
+things about the layout of the first few struct members of the
+container in which the top level data structure lives.
 
-Prioritization policies have no meaning outside of your local realm,
-and that's just a fact of life.
+What should happen is that when such an assumption exists, it should
+be explicitly codified.
 
-So what typically happens is that applications do nothing.
+Just like how we embed struct sock_common in both struct socket
+and in the TCP time-wait minisockets.
 
-And machines on the ingress to a network realm change the TOS based
-field upon classification decisions made by parsing the packet by the
-router/firewall/whatever.
+Anyways, meanwhile I'll apply the fix.  And yes I know it needs
+to go to stable too... :-)
 
-The packet gets QoS treatment within the realm, but completely
-determined by local policy within that realm.
-
-And then on egress from the realm the TOS field has absolutely
-no meaning at all to the next network segment.
