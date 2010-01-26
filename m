@@ -1,299 +1,94 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH net-next-2.6 12/13] net-caif: add CAIF documentation
-Date: Tue, 26 Jan 2010 10:00:07 -0800
-Message-ID: <20100126100007.c828d2af.randy.dunlap@oracle.com>
-References: <1264028130-14364-1-git-send-email-sjur.brandeland@stericsson.com>
-	<1264028130-14364-13-git-send-email-sjur.brandeland@stericsson.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] netdev: remove HAVE_ leftovers
+Date: Tue, 26 Jan 2010 21:17:27 +0200
+Message-ID: <20100126191727.GA5454@x200>
+References: <10f740e81001260057h37f3494dvefa3a37b2e1453a5@mail.gmail.com>
+ <20100126.051817.215651254.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, marcel@holtmann.org,
-	stefano.babic@babic.homelinux.org
-To: sjur.brandeland@stericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet12.oracle.com ([141.146.126.234]:54533 "EHLO
-	acsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753350Ab0AZSAf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2010 13:00:35 -0500
-In-Reply-To: <1264028130-14364-13-git-send-email-sjur.brandeland@stericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: geert@linux-m68k.org, linux-next@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100126.051817.215651254.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Jan 2010 23:55:29 +0100 sjur.brandeland@stericsson.com wrote:
+On Tue, Jan 26, 2010 at 05:18:17AM -0800, David Miller wrote:
+> Alexey, please go through at least drivers/net and look at the
+> other stale references to these HAVE_* macros.
 
-> From: Sjur Braendeland <sjur.brandeland@stericsson.com>
-> 
-> Documentation of the CAIF Protocol.
-> 
-> Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
-> ---
->  Documentation/networking/caif/Linux-CAIF.txt |  235 ++++++++++++++++++++++++++
->  Documentation/networking/caif/README         |   27 +++
->  2 files changed, 262 insertions(+), 0 deletions(-)
-> 
-> diff --git a/Documentation/networking/caif/Linux-CAIF.txt b/Documentation/networking/caif/Linux-CAIF.txt
-> new file mode 100644
-> index 0000000..5576e42
-> --- /dev/null
-> +++ b/Documentation/networking/caif/Linux-CAIF.txt
-> @@ -0,0 +1,235 @@
-> +Linux CAIF
-> +===========
-> +copyright (C) ST-Ericsson AB 2010
-> +Author: Sjur Brendeland/ sjur.brandeland@stericsson.com
-> +License terms: GNU General Public License (GPL) version 2
-> +
-> +
-> +Introduction
-> +------------
-> +CAIF is a MUX protocol used by ST-Ericsson cellular modems for
-> +communication between Modem and host. The host processes can open virtual AT
-> +channels, initiate GPRS Data connections, Video channels and Utility Channels.
-> +The Utility Channels are general purpose pipes between modem and host.
-> +
-> +ST-Ericsson modems support a number of transports between modem
-> +and host. Currently, UART and Loopback are available for Linux.
-> +
-> +
-> +Architecture:
-> +------------
-> +The implementation of CAIF is divided into:
-> +* CAIF Socket Layer, Kernel API, and  Net Device.
-> +* CAIF Generic Protocol Implementation
-> +* CAIF Link Layer, implemented as NET devices.
-> +
-> +
-> +  RTNL/IOCTL
-> +   !
-> +   !	 +------+   +------+   +------+
-> +   !	+------+!  +------+!  +------+!
-> +   !	! Sock !!  !Kernel!!  ! Net  !!
-> +   !	! API  !+  ! API  !+  ! Dev  !+	  <- CAIF Client APIs
-> +   !	+------+   +------!   +------+
-> +   !	   !	      !		 !
-> +   !	   +----------!----------+
-> +   !		   +------+		  <- CAIF Protocol Implementation
-> +   +------->	   ! CAIF !
-> +		   +------+
-> +	     +--------!--------+
-> +	     !		       !
-> +	  +------+	    +-----+
-> +	  !Loop	 !	    ! TTY !	  <- Link Layer (Net Devices)
-> +	  +------+	    +-----+
-> +
-> +
-> +Using CAIF (IP) Net Device
-> +----------------------
-> +CAIF Net device can be created by use of Socket IOCTLs,
-> +or RT Netlink.
-> +
-> +  static struct ifcaif_param param = {
-> +    .ipv4_connid = 1,
-> +    .loop = 0
-> +  };
-> +  static struct ifreq ifr = {
-> +    .ifr_name = "caif%d",
-> +    .ifr_ifru.ifru_data = &param
-> +
-> +  };
-> +  s = socket(AF_CAIF, SOCK_SEQPACKET, CAIFPROTO_AT);
-> +  ioctl(s, SIOCCAIFNETNEW, &ifr);
-> +
-> +
-> +Using the Kernel API
-> +----------------------
-> +The Kernel API is used for accessing CAIF channels from the
-> +kernel.
-> +The user of the API has to implement two callbacks for receive
-> +and control.
-> +The receive callback gives a CAIF packet as a SKB. The control
-> +callback will
-> +notify of channel initialization complete, and flow-on/flow-
-> +off.
-> +
-> +
-> +  struct caif_device caif_dev = {
-> +    .caif_config = {
-> +     .name = "MYDEV"
-> +     .type = CAIF_CHTY_AT
-> +    }
-> +   .receive_cb = my_receive,
-> +   .control_cb = my_control,
-> +  };
-> +  caif_add_device(&caif_dev);
-> +  caif_transmit(&caif_dev, skb);
-> +
-> +See the caif_kernel.h for details about the CAIF kernel API.
-> +
-> +
-> +I M P L E M E N T A T I O N
-> +===========================
-> +===========================
-> +
-> +Generic CAIF Protocol Layer
-> +=========================================
-> +
-> +caif/generic is a generic CAIF protocol implementation. It implements the CAIF
-> +protocol as defined by ST-Ericsson.
-> +It implements the CAIF protocol stack in a layered approach, where
-> +each layer described in the specification is implemented as a separate layer.
-> +The architecture is inspired by the design patterns "Protocol Layer" and
-> +"Protocol Packet".
-> +
-> +== CAIF structure ==
-> +
-> +The goal is to have generic CAIF as OS and system independent as possible.
-> +All generic CAIF code can be found under net/caif/generic and
-> +include/net/caif/generic.
-> +
-> +The generic CAIF implementation is:
-> +      -	Simple implementation of CAIF.
-> +      -	Layered architecture (a la Streams), each layer in the CAIF
-> +	specification is implemented in a separate c-file.
-> +      -	Clients must implement PHY layer to access physical HW
-> +	with receive and transmit functions.
-> +      -	Clients must call configuration function to add PHY layer.
-> +      -	Clients must implement adaptation layer to consume/produce
-> +	CAIF payload with receive and transmit functions.
-> +      -	Clients must call configuration function to add adaptation
-> +	layer.
-> +      - When receiving / transmitting CAIF Packets (cfpkt), ownership is passed
-> +	to the called function (except for framing layers' receive functions
-> +	or if a transmit function returns an error, in which case the caller
-> +	must free the packet).
-> +
-> +Layered Architecture
-> +--------------------
-> +The CAIF protocol can be divided into two parts: Support functions and Protocol
-> +Implementation. The support functions include:
-> +
-> +      - CFPKT CAIF Packet. Implementation of CAIF Protocol Packet. The
-> +	CAIF Packet has functions for creating, destroying and adding content
-> +	and for adding/extracting header and trailers to protocol packets.
-> +
-> +      - CFLST CAIF list implementation.
-> +
-> +      - CFGLUE CAIF Glue. Contains OS Specifics, such as memory
-> +	allocation, endianness, etc.
-> +
-> +The CAIF Protocol implementation contains:
-> +
-> +      - CFCNFG CAIF Configuration layer. Configures the CAIF Protocol
-> +	Stack and has a Client interface for adding Link-Layer and
-> +	Driver interfaces on top of the CAIF Stack.
-> +
-> +      - CFCTRL CAIF Control layer. Encodes and Decodes control messages
-> +	such as enumeration and channel setup. Also matches request and
-> +	response messages.
-> +
-> +      - CFSERVL General CAIF Service Layer functionality; handles flow
-> +	control and remote shutdown requests.
-> +
-> +      - CFVEI CAIF VEI layer. Handles CAIF VEI layer (AT-Channel),
-> +	encodes/decodes VEI frames.
-> +
-
-What is VEI?
-
-> +      - CFDGML CAIF Data-gram layer. Handles CAIF Data-gram layer (IP
-> +	traffic), encodes/decodes Datagram frames.
-
-Drop the '-' in data-gram.  Just use "datagram".
-
-> +
-> +      - CFMUX CAIF Mux layer. Handles multiplexing between multiple
-> +	physical bearers and multiple channels such as VEI, Datagram, etc.
-> +	The MUX keeps track of the existing CAIF Channels and
-> +	Physical Instances and selects the apropriate instance based
-> +	on Channel-Id and Physical-ID.
-> +
-> +      - CFFRML CAIF Framing layer. Handles Framing i.e. Frame length
-> +	and frame checksum.
-> +
-> +      - CFSERL CAIF Serial layer. Handles concatenation/split of frames
-> +	into CAIF Frames with correct length.
-> +
-> +
-> +
-> +		    +---------+
-> +		    | Config  |
-> +		    | CFCNFG  |
-> +		    +---------+
-> +			 !
-> +    +---------+	    +---------+	    +---------+
-> +    |	AT    |	    | Control |	    | Datagram|
-> +    | CFVEIL  |	    | CFCTRL  |	    | CFDGML  |
-> +    +---------+	    +---------+	    +---------+
-> +	   \_____________!______________/
-> +			 !
-> +		    +---------+
-> +		    |	MUX   |
-> +		    |	      |
-> +		    +---------+
-> +		    _____!_____
-> +		   /	       \
-> +	    +---------+	    +---------+
-> +	    | CFFRML  |	    | CFFRML  |
-> +	    | Framing |	    | Framing |
-> +	    +---------+	    +---------+
-> +		 !		!
-> +	    +---------+	    +---------+
-> +	    |         |	    | Serial  |
-> +	    |	      |	    | CFSERL  |
-> +	    +---------+	    +---------+
-> +
-> +
-> +In this layered approach the following "rules" applies.
-
-                                                  apply:
-
-> +      - All layers embedd the same structure "struct layer"
-
-	              embed
-
-> +      - A layer does not depend on any other layer's private data.
-> +      - Layers are stacked by setting the pointers
-> +		  layer->up , layer->dn
-> +      -	In order to send data upwards, each layer should do
-> +		 layer->up->receive(layer->up, packet);
-> +      - In order to send data downwards, each layer should do
-> +		 layer->dn->transmit(layer->dn, packet);
-> +
-> +
-> +Linux Driver Implementation
-> +===========================
-> +
-> +Linux GPRS Net Device and CAIF socket are implemented on top of the
-> +Generic CAIF protocol. The Net device and CAIF socket have an instance of
-> +'struct layer', just like the generic CAIF protocol stack.
-> +Net device and Socket implement the 'receive()' function defined by
-> +'struct layer', just like the rest of the CAIF stack. In this way, transmit and
-> +receive of packets is handled as by the rest of the layers: the 'dn->transmit()'
-> +function is called in order to transmit data.
-> +
-> +The layer on top of the generic CAIF implementation is
-> +sometimes refered to as the "adaptation layer".
-
-             referred
-
-> +
-> +
-> +Configuration of Link Layer
-> +---------------------------
-> +The Link Layer is implemented as Linux net devices (struct net_device).
-> +Payload handling and registration is done using standard Linux mecanisms.
-
-                                                                  mechanisms.
-
-> +
-> +The CAIF Protocol relies on a lossless link layer without implementing
-> +retransmission. This implies that packet drops must not happen.
-> +Therefor a flow-control mecanism is implemented where the physical
-
-   Therefore a flow-control mechanism
-
-> +interface can initiate flow stop for all CAIF Channels.
+My apologies.
 
 
+[PATCH] netdev: remove HAVE_ leftovers
+
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
-~Randy
+
+ drivers/net/cassini.c                  |    2 +-
+ drivers/net/meth.c                     |    3 ---
+ drivers/staging/wlags49_h2/wl_netdev.c |    6 ------
+ 3 files changed, 1 insertion(+), 10 deletions(-)
+
+--- a/drivers/net/cassini.c
++++ b/drivers/net/cassini.c
+@@ -106,7 +106,7 @@
+ #define cas_page_unmap(x)    kunmap_atomic((x), KM_SKB_DATA_SOFTIRQ)
+ #define CAS_NCPUS            num_online_cpus()
+ 
+-#if defined(CONFIG_CASSINI_NAPI) && defined(HAVE_NETDEV_POLL)
++#ifdef CONFIG_CASSINI_NAPI
+ #define USE_NAPI
+ #define cas_skb_release(x)  netif_receive_skb(x)
+ #else
+--- a/drivers/net/meth.c
++++ b/drivers/net/meth.c
+@@ -51,14 +51,11 @@
+ 
+ static const char *meth_str="SGI O2 Fast Ethernet";
+ 
+-#define HAVE_TX_TIMEOUT
+ /* The maximum time waited (in jiffies) before assuming a Tx failed. (400ms) */
+ #define TX_TIMEOUT (400*HZ/1000)
+ 
+-#ifdef HAVE_TX_TIMEOUT
+ static int timeout = TX_TIMEOUT;
+ module_param(timeout, int, 0);
+-#endif
+ 
+ /*
+  * This structure is private to each device. It is used to pass
+--- a/drivers/staging/wlags49_h2/wl_netdev.c
++++ b/drivers/staging/wlags49_h2/wl_netdev.c
+@@ -1194,9 +1194,7 @@ static const struct net_device_ops wl_netdev_ops =
+     .ndo_stop               = &wl_adapter_close,
+     .ndo_do_ioctl           = &wl_ioctl,
+ 
+-#ifdef HAVE_TX_TIMEOUT
+     .ndo_tx_timeout         = &wl_tx_timeout,
+-#endif
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+     .ndo_poll_controller    = wl_poll,
+@@ -1270,9 +1268,7 @@ struct net_device * wl_device_alloc( void )
+     dev->stop               = &wl_adapter_close;
+     dev->do_ioctl           = &wl_ioctl;
+ 
+-#ifdef HAVE_TX_TIMEOUT
+     dev->tx_timeout         = &wl_tx_timeout;
+-#endif
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+     dev->poll_controller = wl_poll;
+@@ -1280,9 +1276,7 @@ struct net_device * wl_device_alloc( void )
+ 
+ #endif // (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,30))
+ 
+-#ifdef HAVE_TX_TIMEOUT
+     dev->watchdog_timeo     = TX_TIMEOUT;
+-#endif
+ 
+     dev->ethtool_ops	    = &wl_ethtool_ops;
+ 
