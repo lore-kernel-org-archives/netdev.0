@@ -1,56 +1,48 @@
-From: Frederic Weisbecker <fweisbec@gmail.com>
-Subject: Re: [PATCH 7/8] percpu: add __percpu sparse annotations to
-	hw_breakpoint
-Date: Tue, 26 Jan 2010 02:12:36 +0100
-Message-ID: <20100126011234.GL5087@nowhere>
-References: <1264432935-10453-1-git-send-email-tj@kernel.org> <1264432935-10453-8-git-send-email-tj@kernel.org> <20100126001901.GI5087@nowhere> <4B5E401D.2020809@zytor.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <tj@kernel.org>, linux-kernel@vger.kernel.org,
-	axboe@kernel.dk, rusty@rustcorp.com.au, akpm@linux-foundation.org,
-	ebiederm@xmission.com, tytso@mit.edu, Trond.Myklebust@netapp.com,
-	aelder@sgi.com, hch@infradead.org, viro@zeniv.linux.org.uk,
-	davem@davemloft.net, netdev@vger.kernel.org, x86@kernel.org,
-	mingo@redhat.com, dan.j.williams@intel.com,
-	borislav.petkov@amd.com, ying.huang@intel.com, lenb@kernel.org,
-	neilb@suse.de, cl@linux-foundation.org
-To: "H. Peter Anvin" <hpa@zytor.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752522Ab0AZBMn@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B5E401D.2020809@zytor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: Netlink usage question (for bonding comm with userspace)
+Date: Mon, 25 Jan 2010 17:14:00 -0800
+Message-ID: <19462.1264468440@death.nxdomain.ibm.com>
+References: <15914.1264466901@death.nxdomain.ibm.com> <20100125.165152.132891922.davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:34372 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751012Ab0AZBOK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jan 2010 20:14:10 -0500
+Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
+	by e34.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id o0Q184ox020041
+	for <netdev@vger.kernel.org>; Mon, 25 Jan 2010 18:08:04 -0700
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o0Q1E3RL092222
+	for <netdev@vger.kernel.org>; Mon, 25 Jan 2010 18:14:03 -0700
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o0Q1E2DO028213
+	for <netdev@vger.kernel.org>; Mon, 25 Jan 2010 18:14:02 -0700
+In-reply-to: <20100125.165152.132891922.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 25, 2010 at 05:06:37PM -0800, H. Peter Anvin wrote:
-> On 01/25/2010 04:19 PM, Frederic Weisbecker wrote:
-> > On Tue, Jan 26, 2010 at 12:22:14AM +0900, Tejun Heo wrote:
-> >> Add __percpu sparse annotations to hw_breakpoint.
-> >>
-> >> These annotations are to make sparse consider percpu variables to be
-> >> in a different address space and warn if accessed without going
-> >> through percpu accessors.  This patch doesn't affect normal builds.
-> >>
-> >> per_cpu(nr_task_bp_pinned, cpu) is replaced with
-> >> &per_cpu(nr_task_bp_pinned[0], cpu).  This is the same to the compiler
-> >> but allows per_cpu() macro to correctly drop __percpu designation for
-> >> the returned pointer.
-> > 
-> > Ouch... It's unpleasant to see such workaround that messes up the
-> > code just to make sparse happy.
-> > 
-> > I guess __percpu is an address_space attribute? Is there no
-> > way to force the address space change directly from the
-> > per_cpu() macro?
-> > 
-> 
-> Hmm... thinking more about it, we should be able to just move the & and
-> [0] into the per_cpu() macro, addressing the situation, or does that
-> cause problems elsewhere?
-> 
-> 	-hpa
+David Miller <davem@davemloft.net> wrote:
+[...]
+>> 	I could, for this project, use a netlink_kernel_create and
+>> socket(AF_NETLINK) pair to perform the communication (presumably adding
+>> a NETLINK_BONDING or the like to <linux/netlink.h>).
+>
+>This is no longer done, so that we don't have an issue with
+>running out of netlink sub-protocol numbers.
+>
+>Instead use generic netlink, the IDs are allocated dynamically
+>and looked up via text strings which provides a better scheme
+>for namespace allocation.
 
+	Thanks for the response.
 
-That would work only with arrays. per_cpu() can access either pointers
-or direct values. Well that can be worked around with fake casts, but
-I would except the (typeof(x) __force) to work and then offer a more
-elegant solution.
+	Just so I'm clear, though: use generic netlink for the needs of
+this particular project, and then later it's acceptable to have both
+generic and rtnetlink co-existing for their respective uses?
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
