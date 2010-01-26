@@ -1,116 +1,78 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 06/21] net/atm/clip.c: checkpatch cleanups
-Date: Tue, 26 Jan 2010 13:40:05 -0800
-Message-ID: <53855e91770da2eabcda05d1194dedb006ff61e0.1264541549.git.joe@perches.com>
+Subject: [PATCH 04/21] net/atm/atm_sysfs.c: checkpatch cleanups
+Date: Tue, 26 Jan 2010 13:40:03 -0800
+Message-ID: <a1d8d28603edc1ec4284d9c2eaa86fa6311db8bf.1264541548.git.joe@perches.com>
 References: <cover.1264541547.git.joe@perches.com>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1479 "EHLO mail.perches.com"
+Received: from mail.perches.com ([173.55.12.10]:1477 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753888Ab0AZVkX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jan 2010 16:40:23 -0500
+	id S1753724Ab0AZVkW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jan 2010 16:40:22 -0500
 In-Reply-To: <cover.1264541547.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert #include <asm... to #include <linux...
-Spacing cleanups
-Move labels to column 1
-Move logical continuation tests to end of previous line
+Add space after for
+Indent switch/case statements
+80 column wrapping
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/atm/clip.c |   26 ++++++++++++--------------
- 1 files changed, 12 insertions(+), 14 deletions(-)
+ net/atm/atm_sysfs.c |   27 ++++++++++++++-------------
+ 1 files changed, 14 insertions(+), 13 deletions(-)
 
-diff --git a/net/atm/clip.c b/net/atm/clip.c
-index d7939fd..ebfa022 100644
---- a/net/atm/clip.c
-+++ b/net/atm/clip.c
-@@ -32,10 +32,10 @@
- #include <linux/jhash.h>
- #include <net/route.h> /* for struct rtable and routing */
- #include <net/icmp.h> /* icmp_send */
--#include <asm/param.h> /* for HZ */
-+#include <linux/param.h> /* for HZ */
-+#include <linux/uaccess.h>
- #include <asm/byteorder.h> /* for htons etc. */
- #include <asm/system.h> /* save/restore_flags */
--#include <asm/uaccess.h>
- #include <asm/atomic.h>
+diff --git a/net/atm/atm_sysfs.c b/net/atm/atm_sysfs.c
+index b5674dc..f693b78 100644
+--- a/net/atm/atm_sysfs.c
++++ b/net/atm/atm_sysfs.c
+@@ -42,13 +42,14 @@ static ssize_t show_atmaddress(struct device *cdev,
  
- #include "common.h"
-@@ -56,10 +56,10 @@ static int to_atmarpd(enum atmarp_ctrl_type type, int itf, __be32 ip)
- 	pr_debug("(%d)\n", type);
- 	if (!atmarpd)
- 		return -EUNATCH;
--	skb = alloc_skb(sizeof(struct atmarp_ctrl),GFP_ATOMIC);
-+	skb = alloc_skb(sizeof(struct atmarp_ctrl), GFP_ATOMIC);
- 	if (!skb)
- 		return -ENOMEM;
--	ctrl = (struct atmarp_ctrl *) skb_put(skb,sizeof(struct atmarp_ctrl));
-+	ctrl = (struct atmarp_ctrl *)skb_put(skb, sizeof(struct atmarp_ctrl));
- 	ctrl->type = type;
- 	ctrl->itf_num = itf;
- 	ctrl->ip = ip;
-@@ -111,7 +111,7 @@ static void unlink_clip_vcc(struct clip_vcc *clip_vcc)
- 			goto out;
+ 	spin_lock_irqsave(&adev->lock, flags);
+ 	list_for_each_entry(aaddr, &adev->local, entry) {
+-		for(i = 0, j = 0; i < ATM_ESA_LEN; ++i, ++j) {
++		for (i = 0, j = 0; i < ATM_ESA_LEN; ++i, ++j) {
+ 			if (j == *fmt) {
+ 				pos += sprintf(pos, ".");
+ 				++fmt;
+ 				j = 0;
+ 			}
+-			pos += sprintf(pos, "%02x", aaddr->addr.sas_addr.prv[i]);
++			pos += sprintf(pos, "%02x",
++				       aaddr->addr.sas_addr.prv[i]);
  		}
- 	pr_crit("ATMARP: failed (entry %p, vcc 0x%p)\n", entry, clip_vcc);
--      out:
-+out:
- 	netif_tx_unlock_bh(entry->neigh->dev);
- }
- 
-@@ -205,12 +205,12 @@ static void clip_push(struct atm_vcc *vcc, struct sk_buff *skb)
+ 		pos += sprintf(pos, "\n");
  	}
- 	ATM_SKB(skb)->vcc = vcc;
- 	skb_reset_mac_header(skb);
--	if (!clip_vcc->encap
--	    || skb->len < RFC1483LLC_LEN
--	    || memcmp(skb->data, llc_oui, sizeof (llc_oui)))
-+	if (!clip_vcc->encap ||
-+	    skb->len < RFC1483LLC_LEN ||
-+	    memcmp(skb->data, llc_oui, sizeof(llc_oui)))
- 		skb->protocol = htons(ETH_P_IP);
- 	else {
--		skb->protocol = ((__be16 *) skb->data)[3];
-+		skb->protocol = ((__be16 *)skb->data)[3];
- 		skb_pull(skb, RFC1483LLC_LEN);
- 		if (skb->protocol == htons(ETH_P_ARP)) {
- 			skb->dev->stats.rx_packets++;
-@@ -644,7 +644,6 @@ static int clip_inet_event(struct notifier_block *this, unsigned long event,
- 	return clip_device_event(this, NETDEV_CHANGE, in_dev->dev);
- }
+@@ -78,17 +79,17 @@ static ssize_t show_link_rate(struct device *cdev,
  
--
- static struct notifier_block clip_dev_notifier = {
- 	.notifier_call = clip_device_event,
- };
-@@ -670,7 +669,6 @@ static void atmarpd_close(struct atm_vcc *vcc)
- 	module_put(THIS_MODULE);
- }
- 
--
- static struct atmdev_ops atmarpd_dev_ops = {
- 	.close = atmarpd_close
- };
-@@ -692,11 +690,11 @@ static int atm_init_atmarp(struct atm_vcc *vcc)
- 		return -EADDRINUSE;
+ 	/* show the link rate, not the data rate */
+ 	switch (adev->link_rate) {
+-		case ATM_OC3_PCR:
+-			link_rate = 155520000;
+-			break;
+-		case ATM_OC12_PCR:
+-			link_rate = 622080000;
+-			break;
+-		case ATM_25_PCR:
+-			link_rate = 25600000;
+-			break;
+-		default:
+-			link_rate = adev->link_rate * 8 * 53;
++	case ATM_OC3_PCR:
++		link_rate = 155520000;
++		break;
++	case ATM_OC12_PCR:
++		link_rate = 622080000;
++		break;
++	case ATM_25_PCR:
++		link_rate = 25600000;
++		break;
++	default:
++		link_rate = adev->link_rate * 8 * 53;
  	}
+ 	pos += sprintf(pos, "%d\n", link_rate);
  
--	mod_timer(&idle_timer, jiffies+CLIP_CHECK_INTERVAL*HZ);
-+	mod_timer(&idle_timer, jiffies + CLIP_CHECK_INTERVAL * HZ);
- 
- 	atmarpd = vcc;
--	set_bit(ATM_VF_META,&vcc->flags);
--	set_bit(ATM_VF_READY,&vcc->flags);
-+	set_bit(ATM_VF_META, &vcc->flags);
-+	set_bit(ATM_VF_READY, &vcc->flags);
- 	    /* allow replies and avoid getting closed if signaling dies */
- 	vcc->dev = &atmarpd_dev;
- 	vcc_insert_socket(sk_atm(vcc));
 -- 
 1.6.6.rc0.57.gad7a
 
