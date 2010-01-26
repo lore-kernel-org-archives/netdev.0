@@ -1,99 +1,57 @@
-From: Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>
-Subject: Network QoS support in applications
-Date: Tue, 26 Jan 2010 10:27:00 +0200
-Message-ID: <87k4v5nuej.fsf@purkki.valot.fi>
+From: Anders =?iso-8859-1?Q?Bostr=F6m?= <anders@netinsight.net>
+Subject: Re: Bug#565404: linux-image-2.6.26-2-amd64: atl1e: TSO is broken
+Date: Tue, 26 Jan 2010 09:34:39 +0100 (CET)
+Message-ID: <20100126.093439.651115405791675606.anders@netinsight.net>
+References: <CDAFEDABF718A54BABD0DA5476695307475CCD42@SHEXMB-01.global.atheros.com>
+	<20100125.163612.582489483209420341.anders@netinsight.net>
+	<CDAFEDABF718A54BABD0DA5476695307475CCFF8@SHEXMB-01.global.atheros.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ben@decadent.org.uk, netdev@vger.kernel.org,
+	565404@bugs.debian.org, Xiong.Huang@Atheros.com
+To: Jie.Yang@Atheros.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ernst.netinsight.se ([194.16.221.21]:8452 "HELO
+	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751864Ab0AZIet convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2010 03:34:49 -0500
+In-Reply-To: <CDAFEDABF718A54BABD0DA5476695307475CCFF8@SHEXMB-01.global.atheros.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+>>>>> "JY" =3D=3D Jie Yang <Jie.Yang@Atheros.com> writes:
 
-I have been trying to understand how applications should use network
-QoS. My interest have been mostly from wireless perspective,
-especially how to utilise WMM and U-APSD properly, but naturally this
-applicable to all networks.
+ JY> Anders Bostr=F6m <anders@netinsight.net> wrote:
 
-I have done some research about this, but I haven't managed to get
-anywhere. For example, from my point of view DiffServ is just one big
-mess and I can't see how in practise it can help applications.
+ JY> following is my test cese,
+ >>=20
+ JY> a nfs server server with ar8131chip, device id 1063.
+ >> export /tmp/ dir as the nfs share directory,  JY> the client,
+ >> mount the server_ip:/tmp to local dir /mnt/nfs, ust a python
+ >> script to write and read data on the  JY>
+ >> /mnt/nfs/testnfs.log. it works fine.
+ >>=20
+ >> OK, the device-ID in our NFS-server is 1026, rev. b0. So it
+ >> is possible that the problem is specific to that chip/version.
+ JY> oops, its my mistake in writing, my case is 1026 device ID
 
-I wrote a small wiki page to sum up my findings:
+ >>=20
+ JY> Can you give me some advice on how to reproduce this bug??
+ >>=20
+ >> The only suggestion I have is to try to find a board with a
+ >> 1026-chip on it.
+ >>=20
+ >> My test-case is just copy of a 1 Gbyte file from the
+ >> NFS-server to /dev/null , after making sure that the file
+ >> isn't cached on the client by reading huge amounts of other data.
+ >>=20
+ JY> just to check, if the kernel version is 2.6.26-2 ??
 
-http://wireless.kernel.org/en/developers/Documentation/qos
+I've tested with
+Debian linux-image-2.6.26-2-amd64 version 2.6.26-19lenny2,
+Debian linux-image-2.6.30-bpo.2-amd64 version 2.6.30-8~bpo50+2 and
+kernel.org 2.6.30.10 amd64 with ethtool patch for setting of tso. Same
+result.
 
-I would like to clear up all this by and I'm willing to write a
-document for application developers about network QoS. But I need help
-to understand what's the proper way to mark different QoS
-prioritities.
-
-In the wiki page I have tried to come up with different possible
-solutions (copied below), but I'm sure there are even more ways.
-
-Please comment. I would like to get some understanding about this.
-
-
-----------------------------------------------------------------------
-Solution 1: SO_PRIORITY with values 0-7
-
-Easy, applications need to just use setsockopt() and be done with it.
-It's unknown how widely supported values 0-7 are and the exact meaning
-of them, but at least they make sense (0 default, 1 lowest priority
-and 7 highest priority). The problem is that the priority is used only
-in the first link, rest of the route is not able to benefit from the
-classification.
-
-Pros:
-
-    * easy for applications
-    * works with both IPv4 and IPv6 
-
-Cons:
-
-    * only visible in in the first L2 link, not visible to upper
-      layers (IP)
-    * no well defined meaning for the priority values 
-
-Solution 2: SO_PRIORITY with values 256-263
-
-mac80211 uses these values to map the packets to DSCP classes. Most
-probably non other stack or driver (even non-wifi ones) use these
-values. Otherwise similar as Solution 1.
-
-Pros:
-
-    * easy for applications
-    * works with both IPv4 and IPv6 
-
-Cons:
-
-    * only visible in in the first L2 link, not visible to upper
-      layers (IP)
-    * no well defined meaning for the priority values
-    * using values over 256 is not intuitive 
-
-Solution 3: IPv4 DSCP field with values 0-7
-
-Most, if not all, wifi drivers should use it. And, in theory, the
-receiver should also benefit from the classification, unless ISPs
-modify it of course. But the standardisation for IPv4 QoS bits is a
-mess.
-
-Pros:
-
-    * visible in IP layer (but ISPs change the value often?) 
-
-Cons:
-
-    * applications need to handle IPv4 and IPv6 separately 
-----------------------------------------------------------------------
-
--- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+/ Anders
