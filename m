@@ -1,34 +1,68 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: Network QoS support in applications
-Date: Tue, 26 Jan 2010 04:16:10 -0800 (PST)
-Message-ID: <20100126.041610.226004766.davem@davemloft.net>
-References: <87k4v5nuej.fsf@purkki.valot.fi>
-	<4B5ED254.7010104@trash.net>
-	<877hr5nkx0.fsf@purkki.valot.fi>
+From: Wolfram Sang <w.sang@pengutronix.de>
+Subject: Re: [PATCH 0/11] Update support for MPC512x
+Date: Tue, 26 Jan 2010 13:16:21 +0100
+Message-ID: <20100126121621.GA4431@pengutronix.de>
+References: <1263932653-3634-1-git-send-email-agust@denx.de> <20100120112232.GD5041@pengutronix.de> <20100126090633.74257b1a@wker>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kalle.valo-X3B1VOXEql0@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <877hr5nkx0.fsf-ySPBbPOLdCfMApvqMRVM/A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="HcAYCG3uE/tztfnV"
+Cc: John Rigby <jcrigby@gmail.com>, dzu@denx.de,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Grant Likely <grant.likely@secretlab.ca>,
+	linuxppc-dev@ozlabs.org, linux-mtd@lists.infradead.org,
+	linux-i2c@vger.kernel.org, rtc-linux@googlegroups.com,
+	Dan Williams <dan.j.williams@intel.com>
+To: Anatolij Gustschin <agust@denx.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:47282 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752229Ab0AZMQ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2010 07:16:29 -0500
+Content-Disposition: inline
+In-Reply-To: <20100126090633.74257b1a@wker>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>
-Date: Tue, 26 Jan 2010 13:51:55 +0200
 
-> Let's take a bittorrent client as an example. The traffic it generates
-> is not important and it doesn't matter if bittorrent packets have
-> lower priority compared to other streams. What SO_PRIORITY value
-> should all bittorrent clients to use to mark their packets as low
-> priority (for example background class from IEEE 802.1d Annex G).
+--HcAYCG3uE/tztfnV
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-This is a local policy decision.
+> No, I don't have a git tree for this now, sorry.
 
-There is no universal way of doing any of this, really.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+No problem, I set one up at:
+
+	git://git.pengutronix.de/git/wsa/linux-2.6.git
+
+It is based on 2.6.33-rc5 and contains the newest patches for FEC and I2C. =
+(I
+will pick up the patches as they show up on the lists, so this tree will be
+rebased!)
+
+This tree includes all MPC5121-patches and the two USB-patches from Anton. I
+haven't actually tested them yet, but they all applied cleanly, at least.
+Testing will come soon...
+
+Regards,
+
+   Wolfram
+
+--=20
+Pengutronix e.K.                           | Wolfram Sang                |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+
+--HcAYCG3uE/tztfnV
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkte3RUACgkQD27XaX1/VRueqACgzELpbWZLj3PaSUx0F9SZp7FX
+PbQAnjyi1ZRptgosw9GUBZlgJzczKcNh
+=/8WQ
+-----END PGP SIGNATURE-----
+
+--HcAYCG3uE/tztfnV--
