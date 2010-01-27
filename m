@@ -1,34 +1,32 @@
-From: Mike McCormack <mikem@ring3k.org>
-Subject: Re: [PATCH 3/3] sky2: Remove failure cases for sky2_rx_start
-Date: Thu, 28 Jan 2010 07:30:56 +0900
-Message-ID: <392fb48f1001271430w4abef167o550f86f853bf31cd@mail.gmail.com>
-References: <4B605652.6020400@ring3k.org> <20100127091024.2ac97d81@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Hang: 2.6.32.4 sky2/DMAR
+Date: Wed, 27 Jan 2010 15:54:23 -0800 (PST)
+Message-ID: <20100127.155423.169231741.davem@davemloft.net>
+References: <20100127085049.5b5048e9@nehalam>
+	<4B60707F.1000608@majjas.com>
+	<20100127094531.53c85aa7@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f198.google.com ([209.85.211.198]:55834 "EHLO
-	mail-yw0-f198.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756287Ab0A0Wa5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2010 17:30:57 -0500
-Received: by ywh36 with SMTP id 36so66646ywh.15
-        for <netdev@vger.kernel.org>; Wed, 27 Jan 2010 14:30:56 -0800 (PST)
-In-Reply-To: <20100127091024.2ac97d81@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mbreuer@majjas.com, jarkao2@gmail.com, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, mchan@broadcom.com, pcnet32@verizon.net,
+	romieu@fr.zoreil.com, mcarlson@broadcom.com
+To: shemminger@vyatta.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754800Ab0A0XyS@vger.kernel.org>
+In-Reply-To: <20100127094531.53c85aa7@nehalam>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2010/1/28 Stephen Hemminger <shemminger@vyatta.com>:
-> On Thu, 28 Jan 2010 00:05:54 +0900
-> Mike McCormack <mikem@ring3k.org> wrote:
->
->> sky2_rx_start() can no longer fail, so remove redundant code pathes.
->>
->> Signed-off-by: Mike McCormack <mikem@ring3k.org>
->
-> This can't work right if MTU is increased. The buffers need to be reallocated
-> in change_mtu(); and yes it could fail when getting the new buffers.
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 27 Jan 2010 09:45:31 -0800
 
-Thanks for the feedback.  I will rework the patches.
+> Setting it to 1 causes driver to never go through the dma_sync_single/memcpy
+> path.  Perhaps the code for DMAR doesn't do dma_sync_single_for_cpu
+> properly, or the value passed to sync_single_for_cpu doesn't account for
+> all the overhead of padding and/or ether header.
 
-Mike
+For the millionth time...
+
+DMAR does not implement any of the DMA SYNC operations, they are set
+to NULL in the dma ops vector, and thus are NOPs.
