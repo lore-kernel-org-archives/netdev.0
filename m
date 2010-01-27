@@ -1,38 +1,33 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Hang: 2.6.32.4 sky2/DMAR (was [PATCH] sky2: Fix WARNING: at
- lib/dma-debug.c:902 check_sync)
-Date: Wed, 27 Jan 2010 20:32:20 +0100
-Message-ID: <20100127193220.GB3135@del.dom.local>
-References: <20100122234656.GC3105@del.dom.local>
- <4B5A39BD.8020305@majjas.com>
- <20100123232133.GA3487@del.dom.local>
- <4B605D1B.60402@majjas.com>
- <20100127085049.5b5048e9@nehalam>
- <4B60707F.1000608@majjas.com>
- <20100127095614.14313677@nehalam>
- <4B608128.7090607@majjas.com>
- <4B6089C7.4010803@majjas.com>
- <20100127192312.GA3135@del.dom.local>
+From: Divy Le Ray <divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH] cxgb3/iw_cxgb3: doorbell overflow avoidance and recovery.
+Date: Wed, 27 Jan 2010 11:46:20 -0800
+Message-ID: <4B60980C.1020005@chelsio.com>
+References: <20100127170333.19854.40039.stgit@build.ogc.int> <adavdenmjkh.fsf@roland-alpha.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
-	Don Fry <pcnet32@verizon.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Matt Carlson <mcarlson@broadcom.com>
-To: Michael Breuer <mbreuer@majjas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754248Ab0A0Tc3@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100127192312.GA3135@del.dom.local>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <adavdenmjkh.fsf-BjVyx320WGW9gfZ95n9DRSW4+XlvGpQz@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 27, 2010 at 08:23:12PM +0100, Jarek Poplawski wrote:
-> Stephen, I'm not sure this patch can show much after the patch with
-> "legal" dma_size == re->data_addr didn't help. It looks like David
+Roland Dreier wrote:
+>
+> Looks reasonable at first reading.  I can take this through my tree,
+> assuming it's OK with you, Divy?
+>
+Hi Roland,
 
-Of course: "dma_size == re->data_size".
+it is okay with me.
 
-Jarek P.
+Cheers,
+Divy
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
