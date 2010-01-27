@@ -1,46 +1,48 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: Network QoS support in applications
-Date: Wed, 27 Jan 2010 09:57:51 +0800
-Message-ID: <1264557471.5282.24.camel@debian>
-References: <877hr5nkx0.fsf@purkki.valot.fi>
-	 <20100126.041610.226004766.davem@davemloft.net>
-	 <87wrz5m3cd.fsf@purkki.valot.fi>
-	 <20100126.050645.184040277.davem@davemloft.net>
-	 <87my01m0zm.fsf@purkki.valot.fi>  <4B5EF5DF.2070005@lemonia.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [net-next-2.6 PATCH 2/3] fs_enet: Add support for MPC512x to fs_enet driver
+Date: Wed, 27 Jan 2010 03:06:21 +0100
+Message-ID: <201001270306.22089.arnd@arndb.de>
+References: <1264039999-25731-1-git-send-email-agust@denx.de> <4B5C5BDF.6020001@grandegger.com> <20100124164117.DCB483F6C0@gemini.denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kalle.valo@iki.fi>, David Miller <davem@davemloft.net>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
-To: Dunc <dunc@lemonia.org>
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>,
+	dzu@denx.de, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	agust@denx.de, kosmo@semihalf.com,
+	Grant Likely <grant.likely@secretlab.ca>
+To: Wolfgang Denk <wd@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:18962 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754445Ab0A0B5p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jan 2010 20:57:45 -0500
-In-Reply-To: <4B5EF5DF.2070005@lemonia.org>
+Received: from moutng.kundenserver.de ([212.227.17.10]:61680 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750900Ab0A0CGg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2010 21:06:36 -0500
+In-Reply-To: <20100124164117.DCB483F6C0@gemini.denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-01-26 at 22:02 +0800, Dunc wrote:
-> If applications set the QoS values, the who's to stop someone (for
-> example) writing a bittorrent client that marks all packets for the
-> highest priority as if they were VoIP or something? At this point all
-> the good work done in the applications is useless and the network
-> admin is going to have to not trust the QoS values and then attempt to
-> classify traffic by themselves, so it was all a waste of time.
+On Sunday 24 January 2010, Wolfgang Denk wrote:
+> In message <4B5C5BDF.6020001@grandegger.com> you wrote:
+> > 
+> > You are probably right and your proposal would likely result in more
+> > transparent (less ugly) code. There has been some discussion about
+> > unifying FEC drivers when the patches (with the same subject) have been
+> > submitted for the first time in May last year, but it was not about 512x
+> > and 8xx, IIRC.
+> 
+> You can re-read this discussion here:
+> 
+> http://patchwork.ozlabs.org/patch/26927/
+> 
+> ee especiall Grant's note of 2009-05-21 15:36:11: "If it looks too
+> ugly, then just fork the driver."
 
-The QoS values an application sets can be viewed as "hints". It is still
-the network admin's choice to use it or not. For example, as a network
-admin for an Internet router, you don't want to trust any QoS values
-from ingress. But as a smart phone owner, you probably want to trust the
-applications running on it. For end users on noncritical devices,
-requiring them to do traffic mapping themselves is too much. IMO, having
-a way for the applications to specify the traffic priority they _wish_
-to have is useful.
+Ok. I fully agree with what Grant said in that thread, especially the
+way the files could be split. Forking the entire driver would work
+as an easy way to get it running at first, and we still have the option
+of reorganizing the duplicate parts later in a saner way if that's seen
+as helpful. I'd assume that at least some parts of it could become a
+lib_fs_enet module that can be shared by all of them.
 
-Thanks,
--yi
-
+	Arnd
