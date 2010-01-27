@@ -1,98 +1,54 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [RFC] [PATCH] Optimize TCP sendmsg in favour of fast devices?
-Date: Wed, 27 Jan 2010 15:12:48 +0530
-Message-ID: <OFC641141C.812873FC-ON652576B8.003216B6-652576B8.003440CC@in.ibm.com>
-References: <20100121.012520.254679483.davem@davemloft.net> <20100121094157.GA15262@gondor.apana.org.au> <OF7EA723DA.DC2FF4FC-ON652576B8.002064CB-652576B8.00267739@LocalDomain>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH] ipv6: Fix possible NULL dereference in icmp6_dst_alloc
+Date: Wed, 27 Jan 2010 09:59:52 +0000
+Message-ID: <20100127095952.GA11635@ff.dom.local>
+References: <20100123.022210.56302976.davem@davemloft.net> <20100126094817.GA7780@ff.dom.local> <20100126103524.GB7780@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@vyatta.com, djohnson@starentnetworks.com,
+	sakkiped@starentnetworks.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp05.in.ibm.com ([122.248.162.5]:53585 "EHLO
-	e28smtp05.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752182Ab0A0JbN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2010 04:31:13 -0500
-Received: from d28relay03.in.ibm.com (d28relay03.in.ibm.com [9.184.220.60])
-	by e28smtp05.in.ibm.com (8.14.3/8.13.1) with ESMTP id o0R9V99b026831
-	for <netdev@vger.kernel.org>; Wed, 27 Jan 2010 15:01:09 +0530
-Received: from d28av04.in.ibm.com (d28av04.in.ibm.com [9.184.220.66])
-	by d28relay03.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o0R9V9Pp2334914
-	for <netdev@vger.kernel.org>; Wed, 27 Jan 2010 15:01:09 +0530
-Received: from d28av04.in.ibm.com (loopback [127.0.0.1])
-	by d28av04.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o0R9V8eu028109
-	for <netdev@vger.kernel.org>; Wed, 27 Jan 2010 20:31:09 +1100
-In-Reply-To: <OF7EA723DA.DC2FF4FC-ON652576B8.002064CB-652576B8.00267739@LocalDomain>
+Received: from mail-fx0-f220.google.com ([209.85.220.220]:38712 "EHLO
+	mail-fx0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752900Ab0A0KAA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2010 05:00:00 -0500
+Received: by fxm20 with SMTP id 20so1356555fxm.21
+        for <netdev@vger.kernel.org>; Wed, 27 Jan 2010 01:59:59 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20100126103524.GB7780@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Krishna Kumar2/India/IBM wrote on 01/27/2010 12:42 PM
->
-> > Herbert Xu <herbert@gondor.apana.org.au> wrote on 01/21/2010 03:11 PM
->
-> Sorry for the late response.
->
-> > >> I had to remove the F_SG flag from cxgb3 driver (using ethtool
-> > >> didn't show any difference in performance since GSO was enabled
-> > >> on the device due to register_netdev setting it). Testing show a
-> > >> drop of 25% in performance with this patch for non-SG device,
-> > >> the extra alloc/memcpy is showing up.
-> > >>
-> > >> For the SG driver, I get a good performace gain (not anywhere
-> > >> close to 25% though). What do you suggest?
-> > >
-> > > I don't think we can add your change if it hurts non-SG
-> > > devices that much.
-> >
-> > Wait, we need to be careful when testing this.  Non-SG devices
-> > do actually benefit from TSO which they otherwise cannot access.
-> >
-> > If you unset the F_SG bit, then that would disable TSO too.  So
-> > you need to enable GSO to compensate.  So Krishna, did you check
-> > with tcpdump to see if GSO was really enabled with SG off?
->
-> OK, I unset F_SG and set F_GSO (in driver). With this, tcpdump shows
-> GSO is enabled - the tcp packet sizes builds up to 65160 bytes.
+While looking at the "Deadlock in IPv6 code while garbage collection
+on the rwlock protecting the routing tree" reported by Srinivas
+Akkipeddi I found there is possible a NULL pointer dereference in
+icmp6_dst_alloc().
 
-I should have mentioned this too - if I unset F_SG in the
-cxgb3 driver and nothing else, ethtool -k still shows GSO
-is set, and tcpdump shows max packet size is 1448. If I
-additionally set GSO in driver, then ethtool still has the
-same output, but tcpdump shows max packet size of 65160.
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
 
-Thanks,
+ net/ipv6/route.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-- KK
-
-> I ran 5 serial netperf's with 16K and another 5 serial netperfs
-> with 64K I/O sizes, and the aggregate result is:
->
-> 0. Driver unsets F_SG but sets F_GSO:
->  Original code with 16K: 19471.65
->  New code with 16K:      19409.70
->  Original code with 64K: 21357.23
->  New code with 64K:      22050.42
->
-> To recap the other tests I did today:
->
-> 1. Driver unsets F_SG, and with GSO off
->  Original code with 16K: 10123.56
->  New code with 16K:      7111.12
->  Original code with 64K: 11568.99
->  New code with 64K:      7611.37
->
-> 2. Driver unsets F_SG and uses ethtool to set GSO:
->  Original code with 16K: 18864.38
->  New code with 16K:      18465.54
->  Original code with 64K: 21005.43
->  New code with 64K:      22529.24
->
-> Thanks,
->
-> - KK
->
-> > IIRC when I did a similar test with e1000 back when I wrote this
-> > the performance of GSO with SG off was pretty much the same as
-> > no GSO with SG off.
-
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index c2bd74c..93c3b20 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -973,7 +973,7 @@ struct dst_entry *icmp6_dst_alloc(struct net_device *dev,
+ 	rt = ip6_dst_alloc(&net->ipv6.ip6_dst_ops);
+ 	if (unlikely(rt == NULL)) {
+ 		in6_dev_put(idev);
+-		goto out;
++		return NULL;
+ 	}
+ 
+ 	dev_hold(dev);
+@@ -1009,7 +1009,6 @@ struct dst_entry *icmp6_dst_alloc(struct net_device *dev,
+ 
+ 	fib6_force_start_gc(net);
+ 
+-out:
+ 	return &rt->u.dst;
+ }
+ 
