@@ -1,80 +1,199 @@
-From: cold cold <nedkonedev@gmail.com>
-Subject: Re: 0% cpu usasge after fresh boot or net restart but 10% CPU if
-	kernel flush route cache
-Date: Wed, 27 Jan 2010 21:53:11 +0200
-Message-ID: <41ac0f9e1001271153u333a5e2aq6f473ccc6e6d1e23@mail.gmail.com>
-References: <41ac0f9e1001260858o7d2a6a6dgb37ecfba5c325932@mail.gmail.com>
-	 <1264605976.3197.8.camel@edumazet-laptop>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] netdev: remove more HAVE_ leftovers
+Date: Wed, 27 Jan 2010 22:17:41 +0200
+Message-ID: <20100127201741.GA4855@x200>
+References: <10f740e81001260057h37f3494dvefa3a37b2e1453a5@mail.gmail.com>
+ <20100126.051817.215651254.davem@davemloft.net>
+ <20100126191727.GA5454@x200>
+ <20100126.163256.196562963.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f219.google.com ([209.85.219.219]:37477 "EHLO
-	mail-ew0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751741Ab0A0TxM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2010 14:53:12 -0500
-Received: by ewy19 with SMTP id 19so842460ewy.21
-        for <netdev@vger.kernel.org>; Wed, 27 Jan 2010 11:53:11 -0800 (PST)
-In-Reply-To: <1264605976.3197.8.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: geert@linux-m68k.org, linux-next@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100126.163256.196562963.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 27, 2010 at 5:26 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le mardi 26 janvier 2010 =E0 18:58 +0200, cold cold a =E9crit :
->> HI,
->>
->>
->> i have expiriance some CPU usage spikes up to 10% on each four cpus
->> after the first kernel route cache flush.
->> After mashine start first 20 min CPU is 0%si =A0300Mbits/s full dupl=
-ex
->> and arount 100k pps forwarded traffic, without any firewall, just
->> plain routing.
->>
->> route -n |wc -l
->> 34
->>
->> ip route show cache | wc -l
->> 2140842
->>
->> cat /proc/sys/net/ipv4/route/secret_interval
->> 600
->> cat /proc/sys/net/ipv4/route/max_size
->> 33554432
->>
->> after kernel =A0flush i got 10% on all CPUs for 5-6 mins. =A0It's no=
-t from
->> rebuilding route cashe becouse after
->> fresh boot or network restrat there is no CPU usage until kernel flu=
-sh
->> route cache.
->> I try to play with rhash_entries=3D 300000 to 2000000 same result.
->
-> If you have one million dst entries to flush, it takes some time.
->
-> You could try to not increase the rhash_entries
-> (or keep it low, say 131072)
-> but tune /proc/sys/net/ipv4/route settings.
->
-> Try to reduce gc_elasticity from 8 to 2
-> Try to reduce gc_interval from 60 to 1
->
-> Important thing to consider is to irq affinities (so that one cpu
-> handles network interrupts, to minimize cache ping poings )
->
+On Tue, Jan 26, 2010 at 04:32:56PM -0800, David Miller wrote:
+> From: Alexey Dobriyan <adobriyan@gmail.com>
+> Date: Tue, 26 Jan 2010 21:17:27 +0200
+> 
+> > On Tue, Jan 26, 2010 at 05:18:17AM -0800, David Miller wrote:
+> >> Alexey, please go through at least drivers/net and look at the
+> >> other stale references to these HAVE_* macros.
+> > 
+> > My apologies.
+> > 
+> > 
+> > [PATCH] netdev: remove HAVE_ leftovers
+> > 
+> > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> 
+> What about HAVE_POLL_CONTROLLER and some other remaining stuff?
 
+Ick, I thought I left some compile breakage :^)
 
-btw atm i have 1k ip on that router but plan to put 10k so route cache
-will grow 10 time fast.
-i try to keep low  rhash_entries but garbage collector  is non stop
-running and eat CPU
-atm i have around 7k  entries per second for second for first minute.
+> drivers/net/bnx2.c:#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
+> drivers/net/bnx2x_main.c:#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
+> drivers/net/ixgbevf/ixgbevf_main.c:#ifdef HAVE_TX_MQ
+> drivers/net/ixgbevf/ixgbevf_main.c:#ifndef HAVE_NETDEV_NAPI_LIST
+> drivers/net/ixgbevf/ixgbevf_main.c:#ifdef HAVE_NET_DEVICE_OPS
 
-i think it will be better if i flush cache on secret interval instead
-of giving work to gc.
-i test with 512MB cache and CPU is 0% and flushing entire hash dont tak=
-e a lot,
-I'm not sure is there some side effects from flushing.
+As for HAVE_TX_MQ and HAVE_NETDEV_NAPI_LIST, I have no clue what's going on.
+
+[PATCH] netdev: remove more HAVE_ leftovers 
+
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
+
+ drivers/net/bnx2.c                     |    4 ++--
+ drivers/net/bnx2x_main.c               |    4 ++--
+ drivers/net/cassini.c                  |    2 +-
+ drivers/net/ixgbevf/ixgbevf_main.c     |   18 ------------------
+ drivers/net/meth.c                     |    3 ---
+ drivers/staging/wlags49_h2/wl_netdev.c |    6 ------
+ 6 files changed, 5 insertions(+), 32 deletions(-)
+
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -7668,7 +7668,7 @@ bnx2_change_mtu(struct net_device *dev, int new_mtu)
+ 	return (bnx2_change_ring_size(bp, bp->rx_ring_size, bp->tx_ring_size));
+ }
+ 
+-#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
++#ifdef CONFIG_NET_POLL_CONTROLLER
+ static void
+ poll_bnx2(struct net_device *dev)
+ {
+@@ -8280,7 +8280,7 @@ static const struct net_device_ops bnx2_netdev_ops = {
+ #ifdef BCM_VLAN
+ 	.ndo_vlan_rx_register	= bnx2_vlan_rx_register,
+ #endif
+-#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
++#ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= poll_bnx2,
+ #endif
+ };
+--- a/drivers/net/bnx2x_main.c
++++ b/drivers/net/bnx2x_main.c
+@@ -11731,7 +11731,7 @@ static void bnx2x_vlan_rx_register(struct net_device *dev,
+ 
+ #endif
+ 
+-#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
++#ifdef CONFIG_NET_POLL_CONTROLLER
+ static void poll_bnx2x(struct net_device *dev)
+ {
+ 	struct bnx2x *bp = netdev_priv(dev);
+@@ -11755,7 +11755,7 @@ static const struct net_device_ops bnx2x_netdev_ops = {
+ #ifdef BCM_VLAN
+ 	.ndo_vlan_rx_register	= bnx2x_vlan_rx_register,
+ #endif
+-#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
++#ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= poll_bnx2x,
+ #endif
+ };
+--- a/drivers/net/cassini.c
++++ b/drivers/net/cassini.c
+@@ -106,7 +106,7 @@
+ #define cas_page_unmap(x)    kunmap_atomic((x), KM_SKB_DATA_SOFTIRQ)
+ #define CAS_NCPUS            num_online_cpus()
+ 
+-#if defined(CONFIG_CASSINI_NAPI) && defined(HAVE_NETDEV_POLL)
++#ifdef CONFIG_CASSINI_NAPI
+ #define USE_NAPI
+ #define cas_skb_release(x)  netif_receive_skb(x)
+ #else
+--- a/drivers/net/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ixgbevf/ixgbevf_main.c
+@@ -3262,7 +3262,6 @@ static void ixgbevf_shutdown(struct pci_dev *pdev)
+ 	pci_disable_device(pdev);
+ }
+ 
+-#ifdef HAVE_NET_DEVICE_OPS
+ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_open		= &ixgbevf_open,
+ 	.ndo_stop		= &ixgbevf_close,
+@@ -3278,29 +3277,12 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_vlan_rx_add_vid	= &ixgbevf_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= &ixgbevf_vlan_rx_kill_vid,
+ };
+-#endif /* HAVE_NET_DEVICE_OPS */
+ 
+ static void ixgbevf_assign_netdev_ops(struct net_device *dev)
+ {
+ 	struct ixgbevf_adapter *adapter;
+ 	adapter = netdev_priv(dev);
+-#ifdef HAVE_NET_DEVICE_OPS
+ 	dev->netdev_ops = &ixgbe_netdev_ops;
+-#else /* HAVE_NET_DEVICE_OPS */
+-	dev->open = &ixgbevf_open;
+-	dev->stop = &ixgbevf_close;
+-
+-	dev->hard_start_xmit = &ixgbevf_xmit_frame;
+-
+-	dev->get_stats = &ixgbevf_get_stats;
+-	dev->set_multicast_list = &ixgbevf_set_rx_mode;
+-	dev->set_mac_address = &ixgbevf_set_mac;
+-	dev->change_mtu = &ixgbevf_change_mtu;
+-	dev->tx_timeout = &ixgbevf_tx_timeout;
+-	dev->vlan_rx_register = &ixgbevf_vlan_rx_register;
+-	dev->vlan_rx_add_vid = &ixgbevf_vlan_rx_add_vid;
+-	dev->vlan_rx_kill_vid = &ixgbevf_vlan_rx_kill_vid;
+-#endif /* HAVE_NET_DEVICE_OPS */
+ 	ixgbevf_set_ethtool_ops(dev);
+ 	dev->watchdog_timeo = 5 * HZ;
+ }
+--- a/drivers/net/meth.c
++++ b/drivers/net/meth.c
+@@ -51,14 +51,11 @@
+ 
+ static const char *meth_str="SGI O2 Fast Ethernet";
+ 
+-#define HAVE_TX_TIMEOUT
+ /* The maximum time waited (in jiffies) before assuming a Tx failed. (400ms) */
+ #define TX_TIMEOUT (400*HZ/1000)
+ 
+-#ifdef HAVE_TX_TIMEOUT
+ static int timeout = TX_TIMEOUT;
+ module_param(timeout, int, 0);
+-#endif
+ 
+ /*
+  * This structure is private to each device. It is used to pass
+--- a/drivers/staging/wlags49_h2/wl_netdev.c
++++ b/drivers/staging/wlags49_h2/wl_netdev.c
+@@ -1194,9 +1194,7 @@ static const struct net_device_ops wl_netdev_ops =
+     .ndo_stop               = &wl_adapter_close,
+     .ndo_do_ioctl           = &wl_ioctl,
+ 
+-#ifdef HAVE_TX_TIMEOUT
+     .ndo_tx_timeout         = &wl_tx_timeout,
+-#endif
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+     .ndo_poll_controller    = wl_poll,
+@@ -1270,9 +1268,7 @@ struct net_device * wl_device_alloc( void )
+     dev->stop               = &wl_adapter_close;
+     dev->do_ioctl           = &wl_ioctl;
+ 
+-#ifdef HAVE_TX_TIMEOUT
+     dev->tx_timeout         = &wl_tx_timeout;
+-#endif
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+     dev->poll_controller = wl_poll;
+@@ -1280,9 +1276,7 @@ struct net_device * wl_device_alloc( void )
+ 
+ #endif // (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,30))
+ 
+-#ifdef HAVE_TX_TIMEOUT
+     dev->watchdog_timeo     = TX_TIMEOUT;
+-#endif
+ 
+     dev->ethtool_ops	    = &wl_ethtool_ops;
+ 
