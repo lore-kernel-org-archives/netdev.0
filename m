@@ -1,48 +1,38 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] ipv6: Fix possible NULL dereference in icmp6_dst_alloc
-Date: Wed, 27 Jan 2010 13:28:52 +0000
-Message-ID: <20100127132852.GC15611@ff.dom.local>
-References: <20100127121746.GA15611@ff.dom.local> <20100127.042336.52877358.davem@davemloft.net> <20100127124331.GB15611@ff.dom.local> <20100127.051410.74328462.davem@davemloft.net>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH 2/4] ar7: implement clock API
+Date: Wed, 27 Jan 2010 14:54:06 +0100
+Message-ID: <20100127135405.GB18247@linux-mips.org>
+References: <201001032117.07022.florian@openwrt.org>
+ <201001121015.27867.florian@openwrt.org>
+ <201001270910.06224.florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com, djohnson@starentnetworks.com,
-	sakkiped@starentnetworks.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: linux-mips@linux-mips.org, Wim Van Sebroeck <wim@iguana.be>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Florian Fainelli <florian@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f220.google.com ([209.85.220.220]:60196 "EHLO
-	mail-fx0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752088Ab0A0N26 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2010 08:28:58 -0500
-Received: by fxm20 with SMTP id 20so1563895fxm.21
-        for <netdev@vger.kernel.org>; Wed, 27 Jan 2010 05:28:57 -0800 (PST)
+Received: from eddie.linux-mips.org ([78.24.191.182]:44311 "EHLO
+	eddie.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754842Ab0A0NyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2010 08:54:04 -0500
+Received: from localhost.localdomain ([127.0.0.1]:49897 "EHLO h5.dl5rb.org.uk"
+        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
+        id S1493545Ab0A0NyC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 27 Jan 2010 14:54:02 +0100
 Content-Disposition: inline
-In-Reply-To: <20100127.051410.74328462.davem@davemloft.net>
+In-Reply-To: <201001270910.06224.florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 27, 2010 at 05:14:10AM -0800, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Wed, 27 Jan 2010 12:43:31 +0000
-> 
-> > I'm only not sure there is a better way (comments?) to make this
-> > code readable.
-> 
-> You can make it more readable and even validate the invariant at the
-> same time by adding some kind of inline function if you wish.
-> 
-> static inline struct dst_entry *rtable_to_dst_entry(struct rtable *rt)
-> {
-> 	BUILD_BUG_ON(rt != &rt->u.dst);
-> 
-> 	/* Because "->u.dst" is the first member of struct rtable,
-> 	 * this dereference is safe even when rt is NULL.
-> 	 */
-> 	return &rt->u.dst;
-> }
-> 
-> Something like that.
+On Wed, Jan 27, 2010 at 09:10:06AM +0100, Florian Fainelli wrote:
 
-Yes, it looks the most readable to me.
+> This patch makes the ar7 clock code implement the
+> Linux clk API. Drivers using the various clocks
+> available in the SoC are updated accordingly.
+> 
+> Signed-off-by: Florian Fainelli <florian@openwrt.org>
+> Acked-by: Wim Van Sebroeck <wim@iguana.be>
 
-Thanks,
-Jarek P.
+Thanks; queued for 2.6.34.
+
+  Ralf
