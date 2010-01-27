@@ -1,68 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: CBQ broken in 2.6
-Date: Wed, 27 Jan 2010 03:56:35 -0800 (PST)
-Message-ID: <20100127.035635.173712880.davem@davemloft.net>
-References: <1264590347.29501.11.camel@tranquility.sigsegv.cx>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] ipv6: Fix possible NULL dereference in icmp6_dst_alloc
+Date: Wed, 27 Jan 2010 12:17:46 +0000
+Message-ID: <20100127121746.GA15611@ff.dom.local>
+References: <20100127095952.GA11635@ff.dom.local> <20100127.021424.263649631.davem@davemloft.net> <20100127103417.GA15206@ff.dom.local> <20100127.030416.179345234.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: anton.ivanov@kot-begemot.co.uk
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754253Ab0A0L4Z@vger.kernel.org>
-In-Reply-To: <1264590347.29501.11.camel@tranquility.sigsegv.cx>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@vyatta.com, djohnson@starentnetworks.com,
+	sakkiped@starentnetworks.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f220.google.com ([209.85.220.220]:55546 "EHLO
+	mail-fx0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752056Ab0A0MRx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2010 07:17:53 -0500
+Received: by fxm20 with SMTP id 20so1487820fxm.21
+        for <netdev@vger.kernel.org>; Wed, 27 Jan 2010 04:17:51 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20100127.030416.179345234.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Anton Ivanov <anton.ivanov@kot-begemot.co.uk>
-Date: Wed, 27 Jan 2010 11:05:47 +0000
+On Wed, Jan 27, 2010 at 03:04:16AM -0800, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Wed, 27 Jan 2010 10:34:17 +0000
+> 
+> > (Btw, maybe it's a sign this might be more readable?)
+> 
+> I welcome suggests that, tree wide, would make this harder
+> to misinterpret.
 
-> I have been looking at CBQ being broken in 2.6 (Debian BUG 534430).
+If there is nothing better I still think this patch is right, except
+better subject (Fix impossible NULL dereference in ... ;-).
 
-Please direct your question to netdev@vger.kernel.org which is
-where the networking experts hang out.
-
-Added to CC:
-
-> The bug is very simple and it makes it unusable for all practical
-> purposes - BOUNDED classes always borrow from their parent. As a result
-> it impossible to:
-> 
-> 1. Set and enforce a bandwidth limit to a class with a CBQ tree
-> 2. Use CBQ to do QoS at any place but the actual link. For example - put
-> a linux box after behind a DSL modem and tell it to QoS at the bandwidth
-> at which the modem is configured.
-> 
-> I have now looked through the code of cbq_sched.c (in 2.6.33-rc5 and
-> 2.6.26 as shipped by Debian).
-
-I think you mean net/sched/sch_cbq.c, there is no cbq_sched.c
-anywhere in the source tree.
-
-> In both pieces of code the variable in the class structure for CBQ
-> cl->borrow is used to signal if borrowing is allowed. If borrowing is
-> not allowed (BOUNDED class) it is set to NULL.
-> 
-> However the routine which parses the class options and defines the class
-> cbq_change_class() sets it to the parent class and never resets it to
-> NULL for bounded classes.
-> 
-> Am I missing something here? 
-> 
-> Please cc me as I am not subscribed to the list.
-> 
-> Best Regards,
-> 
-> -- 
->    Understanding is a three-edged sword:
->             your side, their side, and the truth. --Kosh Naranek
-> 
-> A. R. Ivanov
-> E-mail:  anton.ivanov@kot-begemot.co.uk
-> WWW:     http://www.kot-begemot.co.uk/
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Jarek P.
