@@ -1,38 +1,43 @@
-From: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 01/25 v2] mlx4_core: identify function as pf or vf
-Date: Tue, 26 Jan 2010 15:49:19 -0800
-Message-ID: <ada3a1spgu8.fsf@roland-alpha.cisco.com>
-References: <4AF3930E.90904@mellanox.co.il>
-	<adar5peouu3.fsf@roland-alpha.cisco.com>
-	<E113D394D7C5DB4F8FF691FA7EE9DB44384E3CAC3F@MTLMAIL.mtl.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netdev: remove HAVE_ leftovers
+Date: Tue, 26 Jan 2010 16:32:56 -0800 (PST)
+Message-ID: <20100126.163256.196562963.davem@davemloft.net>
+References: <10f740e81001260057h37f3494dvefa3a37b2e1453a5@mail.gmail.com>
+	<20100126.051817.215651254.davem@davemloft.net>
+	<20100126191727.GA5454@x200>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-rdma\@vger.kernel.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Liran Liss <liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
-	Tziporet Koren <tziporet-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-To: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <E113D394D7C5DB4F8FF691FA7EE9DB44384E3CAC3F-WQlSmcKwN8Te+A/uUDamNg@public.gmane.org>
-	(Yevgeny Petrilin's message of "Tue, 26 Jan 2010 10:21:30 +0200")
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: geert@linux-m68k.org, linux-next@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: adobriyan@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57632
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753705Ab0A0Acr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2010 19:32:47 -0500
+In-Reply-To: <20100126191727.GA5454@x200>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Tue, 26 Jan 2010 21:17:27 +0200
 
- > > I'm a bit confused by these flags.  As far as I can tell, the SRIOV flag will be set if and > only if MASTER is set too... so in other words we might as well just have the MASTER and > > SLAVE flags and not have the SRIOV flag at all.
+> On Tue, Jan 26, 2010 at 05:18:17AM -0800, David Miller wrote:
+>> Alexey, please go through at least drivers/net and look at the
+>> other stale references to these HAVE_* macros.
+> 
+> My apologies.
+> 
+> 
+> [PATCH] netdev: remove HAVE_ leftovers
+> 
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
- > We could have a situation where we have multiple physical functions, without SRIOV.
- > In this case one of the functions would be MASTER, but not SRIOV
+What about HAVE_POLL_CONTROLLER and some other remaining stuff?
 
-Where in the code could that happen?  The only place I see the SRIOV or
-MASTER flag get set is a line like:
-
-	dev->flags |= MLX4_FLAG_SRIOV | MLX4_FLAG_MASTER;
-
-so they are never used separately.
-
- - R.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+drivers/net/bnx2.c:#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
+drivers/net/bnx2x_main.c:#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
+drivers/net/ixgbevf/ixgbevf_main.c:#ifdef HAVE_TX_MQ
+drivers/net/ixgbevf/ixgbevf_main.c:#ifndef HAVE_NETDEV_NAPI_LIST
+drivers/net/ixgbevf/ixgbevf_main.c:#ifdef HAVE_NET_DEVICE_OPS
