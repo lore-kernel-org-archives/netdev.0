@@ -1,46 +1,65 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH] tcp: fix ICMP-RTO war
-Date: Wed, 27 Jan 2010 17:14:58 +0300
-Message-ID: <20100127141457.GB1418@ms2.inr.ac.ru>
-References: <alpine.DEB.2.00.1001240007530.16552@melkinpaasi.cs.helsinki.fi> <201001240045.52846.denys@visp.net.lb> <4B5DB3BF.1080409@tvk.rwth-aachen.de> <20100125.234557.00486980.davem@davemloft.net> <alpine.DEB.2.00.1001260957540.17103@melkinpaasi.cs.helsinki.fi>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 0% cpu usasge after fresh boot or net restart but 10% CPU if
+ kernel  flush route cache
+Date: Wed, 27 Jan 2010 16:26:16 +0100
+Message-ID: <1264605976.3197.8.camel@edumazet-laptop>
+References: <41ac0f9e1001260858o7d2a6a6dgb37ecfba5c325932@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, damian@tvk.rwth-aachen.de,
-	denys@visp.net.lb, Netdev <netdev@vger.kernel.org>
-To: Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: cold cold <nedkonedev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:57463 "HELO ms2.inr.ac.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754554Ab0A0PPN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jan 2010 10:15:13 -0500
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.1001260957540.17103@melkinpaasi.cs.helsinki.fi>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:44631 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753762Ab0A0P13 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2010 10:27:29 -0500
+Received: by bwz19 with SMTP id 19so4770723bwz.28
+        for <netdev@vger.kernel.org>; Wed, 27 Jan 2010 07:27:26 -0800 (PST)
+In-Reply-To: <41ac0f9e1001260858o7d2a6a6dgb37ecfba5c325932@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+Le mardi 26 janvier 2010 =C3=A0 18:58 +0200, cold cold a =C3=A9crit :
+> HI,
+>=20
+>=20
+> i have expiriance some CPU usage spikes up to 10% on each four cpus
+> after the first kernel route cache flush.
+> After mashine start first 20 min CPU is 0%si  300Mbits/s full duplex
+> and arount 100k pps forwarded traffic, without any firewall, just
+> plain routing.
+>=20
+> route -n |wc -l
+> 34
+>=20
+> ip route show cache | wc -l
+> 2140842
+>=20
+> cat /proc/sys/net/ipv4/route/secret_interval
+> 600
+> cat /proc/sys/net/ipv4/route/max_size
+> 33554432
+>=20
+> after kernel  flush i got 10% on all CPUs for 5-6 mins.  It's not fro=
+m
+> rebuilding route cashe becouse after
+> fresh boot or network restrat there is no CPU usage until kernel flus=
+h
+> route cache.
+> I try to play with rhash_entries=3D 300000 to 2000000 same result.
 
-> I went through some history, it seems that this comment about the lower 
-> bound originates from Alexey [1]:
+If you have one million dst entries to flush, it takes some time.
 
-Yes, I even remember why it was done.
+You could try to not increase the rhash_entries=20
+(or keep it low, say 131072)
+but tune /proc/sys/net/ipv4/route settings.
 
-Actual comment starts with "If rtt variance happened to be less 50msec...".
+Try to reduce gc_elasticity from 8 to 2
+Try to reduce gc_interval from 60 to 1
 
-It was observed that sometimes due to high burstiness of ACKs
-(found originally when linux commuinitected to solaris tcp stack,
-which issued huge burst of acks each 50msec. I think he data can be found
-in netdev archives), rtt deviation tends to collapse to 0 during such burst,
-rto was calculated as plain rtt and obviously we falled to retransmit.
+Important thing to consider is to irq affinities (so that one cpu
+handles network interrupts, to minimize cache ping poings )
 
-So, the algorithm was repaired. First, to avoid glitches in the future
-mdev was clamped to 50ms (rttvar, contribution to rto, is 200msec).
-That's what the comment is about.
 
-Second, Linux used to sample rtt each ack, not each rtt (which is technically
-main source of the problem). Instead of decreasing sampling rate
-I used different sampling rates for growing and dropping rtt:
-it grows with rate of arriving acks and drops each rtt i.e. rto grows
-quickly, but drops slowly.
 
-Alexey
