@@ -1,46 +1,48 @@
-From: Benny Amorsen <benny+usenet@amorsen.dk>
-Subject: Re: Network QoS support in applications
-Date: Wed, 27 Jan 2010 14:24:28 +0100
-Message-ID: <m3636nd6k3.fsf@ursa.amorsen.dk>
-References: <877hr5nkx0.fsf@purkki.valot.fi>
-	<20100126.041610.226004766.davem@davemloft.net>
-	<87wrz5m3cd.fsf@purkki.valot.fi>
-	<20100126.050645.184040277.davem@davemloft.net>
-	<87my01m0zm.fsf@purkki.valot.fi> <4B5EF5DF.2070005@lemonia.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] ipv6: Fix possible NULL dereference in icmp6_dst_alloc
+Date: Wed, 27 Jan 2010 13:28:52 +0000
+Message-ID: <20100127132852.GC15611@ff.dom.local>
+References: <20100127121746.GA15611@ff.dom.local> <20100127.042336.52877358.davem@davemloft.net> <20100127124331.GB15611@ff.dom.local> <20100127.051410.74328462.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Kalle Valo <kalle.valo@iki.fi>, David Miller <davem@davemloft.net>,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: Dunc <dunc@lemonia.org>
+Cc: shemminger@vyatta.com, djohnson@starentnetworks.com,
+	sakkiped@starentnetworks.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate1.ipvision.dk ([94.127.49.2]:34546 "EHLO gate1.ipvision.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754348Ab0A0NZH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jan 2010 08:25:07 -0500
-In-Reply-To: <4B5EF5DF.2070005@lemonia.org> (dunc@lemonia.org's message of
-	"Tue, 26 Jan 2010 14:02:07 +0000")
+Received: from mail-fx0-f220.google.com ([209.85.220.220]:60196 "EHLO
+	mail-fx0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752088Ab0A0N26 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2010 08:28:58 -0500
+Received: by fxm20 with SMTP id 20so1563895fxm.21
+        for <netdev@vger.kernel.org>; Wed, 27 Jan 2010 05:28:57 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20100127.051410.74328462.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dunc <dunc@lemonia.org> writes:
+On Wed, Jan 27, 2010 at 05:14:10AM -0800, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Wed, 27 Jan 2010 12:43:31 +0000
+> 
+> > I'm only not sure there is a better way (comments?) to make this
+> > code readable.
+> 
+> You can make it more readable and even validate the invariant at the
+> same time by adding some kind of inline function if you wish.
+> 
+> static inline struct dst_entry *rtable_to_dst_entry(struct rtable *rt)
+> {
+> 	BUILD_BUG_ON(rt != &rt->u.dst);
+> 
+> 	/* Because "->u.dst" is the first member of struct rtable,
+> 	 * this dereference is safe even when rt is NULL.
+> 	 */
+> 	return &rt->u.dst;
+> }
+> 
+> Something like that.
 
-> If applications set the QoS values, the who's to stop someone (for
-> example) writing a bittorrent client that marks all packets for the
-> highest priority as if they were VoIP or something?
+Yes, it looks the most readable to me.
 
-Nothing, but nothing stops them from writing a bittorrent client which
-does "optimistic ACK" either. Yet noone seems to bother.
-
-Also, bittorrent marked as EF could easily get hit by a "don't queue
-voice packets, just drop instead" policy. Late voice packets are useless
-and might as well be dropped, but TCP streams like bittorrent react
-badly to packet loss.
-
-All in all there is little incentive for people to game the system.
-Should it happen anyway, network administrators have plentiful tools for
-fixing it, up to and including ip link set dev whatever down.
-
-
-/Benny
-
+Thanks,
+Jarek P.
