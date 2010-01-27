@@ -1,60 +1,42 @@
-From: Anton Ivanov <anton.ivanov@kot-begemot.co.uk>
-Subject: Re: CBQ broken in 2.6
-Date: Wed, 27 Jan 2010 12:28:28 +0000
-Message-ID: <1264595308.29501.30.camel@tranquility.sigsegv.cx>
-References: <1264590347.29501.11.camel@tranquility.sigsegv.cx>
-	 <20100127.035635.173712880.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: Fix possible NULL dereference in icmp6_dst_alloc
+Date: Wed, 27 Jan 2010 05:14:10 -0800 (PST)
+Message-ID: <20100127.051410.74328462.davem@davemloft.net>
+References: <20100127121746.GA15611@ff.dom.local>
+	<20100127.042336.52877358.davem@davemloft.net>
+	<20100127124331.GB15611@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: shemminger@vyatta.com, djohnson@starentnetworks.com,
+	sakkiped@starentnetworks.com, netdev@vger.kernel.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ivanoab2.miniserver.com ([89.200.136.192]:42991 "EHLO
-	www.sigsegv.cx" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751202Ab0A0Myo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jan 2010 07:54:44 -0500
-In-Reply-To: <20100127.035635.173712880.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33942
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752658Ab0A0NN6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2010 08:13:58 -0500
+In-Reply-To: <20100127124331.GB15611@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks it is indeed sch_cbq.c,
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Wed, 27 Jan 2010 12:43:31 +0000
 
-I have been going through the code in the meantime and found a place
-where cl->tparent can be modified further down in the routine in
-question. There is an invocation of cbq_set_lss() around the end of
-cbq_change_class() which can do that.
+> I'm only not sure there is a better way (comments?) to make this
+> code readable.
 
-I am rebuilding the kernel for my CBQ box with a few printks at the
-moment to see if it modified there or not.
+You can make it more readable and even validate the invariant at the
+same time by adding some kind of inline function if you wish.
 
-In any case here is the tell-tale symptom:
+static inline struct dst_entry *rtable_to_dst_entry(struct rtable *rt)
+{
+	BUILD_BUG_ON(rt != &rt->u.dst);
 
-class cbq 1:16 parent 1: leaf 76: rate 5600Kbit (bounded,isolated) prio
-2
- Sent 162051 bytes 925 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
-  borrowed 201 overactions 0 avgidle 78 undertime 0
+	/* Because "->u.dst" is the first member of struct rtable,
+	 * this dereference is safe even when rt is NULL.
+	 */
+	return &rt->u.dst;
+}
 
-That is a bounded class. Its borrowed should be always 0 no matter what.
-That is basically a broken CBQ implementation.
-
-An elementary network test suite shows the same result - it is being
-allowed to borrow.
-
-I am happy to send the whole config if necessary if someone wants to
-look at it.
-
-Brgds,
-
-[snip]
-
--- 
-   Understanding is a three-edged sword:
-            your side, their side, and the truth. --Kosh Naranek
-
-A. R. Ivanov
-E-mail:  anton.ivanov@kot-begemot.co.uk
-WWW:     http://www.kot-begemot.co.uk/
-
-
+Something like that.
