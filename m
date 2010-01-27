@@ -1,77 +1,36 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] tcp: fix ICMP-RTO war
-Date: Wed, 27 Jan 2010 14:41:56 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.1001260957540.17103@melkinpaasi.cs.helsinki.fi>
-References: <alpine.DEB.2.00.1001240007530.16552@melkinpaasi.cs.helsinki.fi> <201001240045.52846.denys@visp.net.lb> <4B5DB3BF.1080409@tvk.rwth-aachen.de> <20100125.234557.00486980.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] ipv6: Fix possible NULL dereference in icmp6_dst_alloc
+Date: Wed, 27 Jan 2010 12:43:31 +0000
+Message-ID: <20100127124331.GB15611@ff.dom.local>
+References: <20100127103417.GA15206@ff.dom.local> <20100127.030416.179345234.davem@davemloft.net> <20100127121746.GA15611@ff.dom.local> <20100127.042336.52877358.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: damian@tvk.rwth-aachen.de, denys@visp.net.lb,
-	Netdev <netdev@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: shemminger@vyatta.com, djohnson@starentnetworks.com,
+	sakkiped@starentnetworks.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:52812 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753936Ab0A0Ml5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2010 07:41:57 -0500
-In-Reply-To: <20100125.234557.00486980.davem@davemloft.net>
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:35173 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754015Ab0A0Mni (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2010 07:43:38 -0500
+Received: by bwz27 with SMTP id 27so4459880bwz.21
+        for <netdev@vger.kernel.org>; Wed, 27 Jan 2010 04:43:35 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20100127.042336.52877358.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 25 Jan 2010, David Miller wrote:
-
-> From: Damian Lukowski <damian@tvk.rwth-aachen.de>
-> Date: Mon, 25 Jan 2010 16:07:43 +0100
+On Wed, Jan 27, 2010 at 04:23:36AM -0800, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Wed, 27 Jan 2010 12:17:46 +0000
 > 
-> > @@ -530,7 +530,11 @@ static inline void tcp_bound_rto(const struct sock *sk)
-> >  
-> >  static inline u32 __tcp_set_rto(const struct tcp_sock *tp)
-> >  {
-> > -	return (tp->srtt >> 3) + tp->rttvar;
-> > +	u32 rto = (tp->srtt >> 3) + tp->rttvar;
-> > +	if (unlikely(rto < TCP_RTO_MIN))
-> > +		return TCP_RTO_MIN;
-> > +	else
-> > +		return rto;
-> >  }
+> > If there is nothing better I still think this patch is right, except
+> > better subject (Fix impossible NULL dereference in ... ;-).
 > 
-> The min RTO is now a runtime variable, TCP_RTO_MIN is merely the
-> default, so we should use tcp_rto_min() for obtaining that value.
-> 
-> And if we make this change, we might want to delete the comment in
-> tcp_set_rto() which claims:
-> 
-> 	/* NOTE: clamping at TCP_RTO_MIN is not required, current algo
-> 	 * guarantees that rto is higher.
-> 	 */
-> 	tcp_bound_rto(sk);
-> 
-> And we have shown here at least one case where that is not true.
-> :-)
+> Sorry, I'm not applying it, just like I didn't apply Krishna's similar
+> patch he posted earlier today.
 
-I went through some history, it seems that this comment about the lower 
-bound originates from Alexey [1]:
+I've understood your decision and I'm OK with that; I'm only not sure
+there is a better way (comments?) to make this code readable.
 
-commit 893e1302654a9bcdc0e7d9ac95159657a8f5e0e8
-Author: davem <davem>
-Date:   Wed Dec 13 04:10:12 2000 +0000
-
-    Fix numerous RTO bugs.
-    Withdraw CWR when DSACKs are seen.
-    Do not allow recvmsg on unbound socket, it is
-    senseless.
-
-    All from Alexey.
-
-
-> I've looked at Denys's traces and your analysis, and I still
-> can't figure out who the true culprit is that lets us get into
-> such a state that RTO is evaluated so low...
-
-
-
--- 
- i.
-
-[1] http://git.kernel.org/?p=linux/kernel/git/davem/netdev-vger-cvs.git;a=commit;h=893e1302654a9bcdc0e7d9ac95159657a8f5e0e8
+Jarek P. 
