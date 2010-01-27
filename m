@@ -1,8 +1,8 @@
 From: Michael Breuer <mbreuer@majjas.com>
 Subject: Re: Hang: 2.6.32.4 sky2/DMAR (was [PATCH] sky2: Fix WARNING: at
  lib/dma-debug.c:902 check_sync)
-Date: Wed, 27 Jan 2010 12:57:04 -0500
-Message-ID: <4B607E70.4060402@majjas.com>
+Date: Wed, 27 Jan 2010 12:58:59 -0500
+Message-ID: <4B607EE3.9010403@majjas.com>
 References: <20100120094103.GA6225@ff.dom.local> <4B58B217.8030001@majjas.com>
  <20100121204133.GB3085@del.dom.local> <4B59E7EB.3050605@majjas.com>
  <20100122215304.GA3105@del.dom.local> <4B5A2362.6000306@majjas.com>
@@ -10,7 +10,7 @@ References: <20100120094103.GA6225@ff.dom.local> <4B58B217.8030001@majjas.com>
  <20100122234656.GC3105@del.dom.local> <4B5A39BD.8020305@majjas.com>
  <20100123232133.GA3487@del.dom.local> <4B605D1B.60402@majjas.com>
  <20100127085049.5b5048e9@nehalam> <4B60707F.1000608@majjas.com>
- <20100127094531.53c85aa7@nehalam>
+ <20100127095614.14313677@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7BIT
@@ -21,13 +21,13 @@ Cc: Jarek Poplawski <jarkao2@gmail.com>,
 	Don Fry <pcnet32@verizon.net>,
 	Francois Romieu <romieu@fr.zoreil.com>,
 	Matt Carlson <mcarlson@broadcom.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755894Ab0A0R5M@vger.kernel.org>
-In-reply-to: <20100127094531.53c85aa7@nehalam>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755925Ab0A0R7L@vger.kernel.org>
+In-reply-to: <20100127095614.14313677@nehalam>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/27/2010 12:45 PM, Stephen Hemminger wrote:
+On 1/27/2010 12:56 PM, Stephen Hemminger wrote:
 > On Wed, 27 Jan 2010 11:57:35 -0500
 > Michael Breuer<mbreuer@majjas.com>  wrote:
 >
@@ -120,20 +120,31 @@ On 1/27/2010 12:45 PM, Stephen Hemminger wrote:
 >> of copybreak. I don't think the other use (skb reuse) is the issue (but
 >> hey, I could have missed something). The crash occurs when copybreak is
 >> the default of 128, didn't happen when I set copybreak to 1.
->>
 >>      
-> Setting it to 1 causes driver to never go through the dma_sync_single/memcpy
-> path.  Perhaps the code for DMAR doesn't do dma_sync_single_for_cpu
-> properly, or the value passed to sync_single_for_cpu doesn't account for
-> all the overhead of padding and/or ether header.
+> Does this change it? If so the dma code is (not sky2) is buggy and not
+> rounding up properly.
 >
+> --- a/drivers/net/sky2.c	2010-01-27 09:46:10.940005248 -0800
+> +++ b/drivers/net/sky2.c	2010-01-27 09:53:47.141267850 -0800
+> @@ -2257,13 +2257,16 @@ static struct sk_buff *receive_copy(stru
+>
+>   	skb = netdev_alloc_skb_ip_align(sky2->netdev, length);
+>   	if (likely(skb)) {
+> +		unsigned dma_align = dma_get_cache_alignment();
+> +		unsigned dma_size = ALIGN(length+1, dma_align);
+> +
+>   		pci_dma_sync_single_for_cpu(sky2->hw->pdev, re->data_addr,
+> -					    length, PCI_DMA_FROMDEVICE);
+> +					    dma_size, PCI_DMA_FROMDEVICE);
+>   		skb_copy_from_linear_data(re->skb, skb->data, length);
+>   		skb->ip_summed = re->skb->ip_summed;
+>   		skb->csum = re->skb->csum;
+>   		pci_dma_sync_single_for_device(sky2->hw->pdev, re->data_addr,
+> -					       length, PCI_DMA_FROMDEVICE);
+> +					       dma_size, PCI_DMA_FROMDEVICE);
+>   		re->skb->ip_summed = CHECKSUM_NONE;
+>   		skb_put(skb, length);
+>   	}
 >    
-Ah - ok... will poke around there... if you have any suggestions, 
-diagnostics, whatever, let me know. Also, just an FYI - before rebooting 
-with copybreak back to defaults, I tried mtu=9000 again. That hung the 
-server immediately - no diagnostic output - system froze until watchdog 
-rebooted. Don't know right now if the copybreak had anything to do with 
-this, but when I've tried in the past I've had errors on sky2, but never 
-crashed the system like this. Only two things different were copybreak 
-and the length of time the system had been up. I'll try later with 
-copybreak default and copybreak=1 to see if that affects mtu behavior.
+Ok - will queue this - want to reconfirm that the system still crashes 
+w/o this (or copybreak). That should take a few days.
