@@ -1,8 +1,8 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
 Subject: Re: Hang: 2.6.32.4 sky2/DMAR (was [PATCH] sky2: Fix WARNING: at
  lib/dma-debug.c:902 check_sync)
-Date: Wed, 27 Jan 2010 09:45:31 -0800
-Message-ID: <20100127094531.53c85aa7@nehalam>
+Date: Wed, 27 Jan 2010 09:56:14 -0800
+Message-ID: <20100127095614.14313677@nehalam>
 References: <20100120094103.GA6225@ff.dom.local>
 	<4B58B217.8030001@majjas.com>
 	<20100121204133.GB3085@del.dom.local>
@@ -28,7 +28,7 @@ Cc: Jarek Poplawski <jarkao2@gmail.com>,
 	Francois Romieu <romieu@fr.zoreil.com>,
 	Matt Carlson <mcarlson@broadcom.com>
 To: Michael Breuer <mbreuer@majjas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755430Ab0A0Rpu@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755849Ab0A0R4s@vger.kernel.org>
 In-Reply-To: <4B60707F.1000608@majjas.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -116,11 +116,28 @@ Michael Breuer <mbreuer@majjas.com> wrote:
 > of copybreak. I don't think the other use (skb reuse) is the issue (but 
 > hey, I could have missed something). The crash occurs when copybreak is 
 > the default of 128, didn't happen when I set copybreak to 1.
-> 
 
-Setting it to 1 causes driver to never go through the dma_sync_single/memcpy
-path.  Perhaps the code for DMAR doesn't do dma_sync_single_for_cpu
-properly, or the value passed to sync_single_for_cpu doesn't account for
-all the overhead of padding and/or ether header.
+Does this change it? If so the dma code is (not sky2) is buggy and not
+rounding up properly.
 
--- 
+--- a/drivers/net/sky2.c	2010-01-27 09:46:10.940005248 -0800
++++ b/drivers/net/sky2.c	2010-01-27 09:53:47.141267850 -0800
+@@ -2257,13 +2257,16 @@ static struct sk_buff *receive_copy(stru
+ 
+ 	skb = netdev_alloc_skb_ip_align(sky2->netdev, length);
+ 	if (likely(skb)) {
++		unsigned dma_align = dma_get_cache_alignment();
++		unsigned dma_size = ALIGN(length+1, dma_align);
++
+ 		pci_dma_sync_single_for_cpu(sky2->hw->pdev, re->data_addr,
+-					    length, PCI_DMA_FROMDEVICE);
++					    dma_size, PCI_DMA_FROMDEVICE);
+ 		skb_copy_from_linear_data(re->skb, skb->data, length);
+ 		skb->ip_summed = re->skb->ip_summed;
+ 		skb->csum = re->skb->csum;
+ 		pci_dma_sync_single_for_device(sky2->hw->pdev, re->data_addr,
+-					       length, PCI_DMA_FROMDEVICE);
++					       dma_size, PCI_DMA_FROMDEVICE);
+ 		re->skb->ip_summed = CHECKSUM_NONE;
+ 		skb_put(skb, length);
+ 	}
