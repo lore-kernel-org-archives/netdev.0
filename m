@@ -1,38 +1,50 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH 2/4] ar7: implement clock API
-Date: Wed, 27 Jan 2010 14:54:06 +0100
-Message-ID: <20100127135405.GB18247@linux-mips.org>
-References: <201001032117.07022.florian@openwrt.org>
- <201001121015.27867.florian@openwrt.org>
- <201001270910.06224.florian@openwrt.org>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: [PATCH] tcp: fix ICMP-RTO war
+Date: Wed, 27 Jan 2010 15:56:16 +0200
+Message-ID: <201001271556.16156.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mips@linux-mips.org, Wim Van Sebroeck <wim@iguana.be>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Florian Fainelli <florian@openwrt.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "Ilpo =?iso-8859-1?q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>,
+	Netdev <netdev@vger.kernel.org>,
+	Damian Lukowski <damian@tvk.rwth-aachen.de>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([78.24.191.182]:44311 "EHLO
-	eddie.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754842Ab0A0NyE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2010 08:54:04 -0500
-Received: from localhost.localdomain ([127.0.0.1]:49897 "EHLO h5.dl5rb.org.uk"
-        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
-        id S1493545Ab0A0NyC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 27 Jan 2010 14:54:02 +0100
-Content-Disposition: inline
-In-Reply-To: <201001270910.06224.florian@openwrt.org>
+Received: from hosting.visp.net.lb ([194.146.153.11]:41549 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754912Ab0A0N5B convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2010 08:57:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 27, 2010 at 09:10:06AM +0100, Florian Fainelli wrote:
+On Wednesday 27 January 2010 14:36:18 you wrote:
+> Unless they are for a different connection? We might have to print sk=
+ (%p)
+> in all those printouts to be sure which maps to which. If a peer beco=
+mes
+> unreachable, it may well have multiple connections open (this was a
+> proxy, iirc?).
+>=20
+Ok i will try to do that today.
 
-> This patch makes the ar7 clock code implement the
-> Linux clk API. Drivers using the various clocks
-> available in the SoC are updated accordingly.
-> 
-> Signed-off-by: Florian Fainelli <florian@openwrt.org>
-> Acked-by: Wim Van Sebroeck <wim@iguana.be>
+Most probably different connections, on this proxy i have 10-15k establ=
+ished=20
+connections at peak time.
 
-Thanks; queued for 2.6.34.
+Also about estimating rtt, maybe there is something wrong in idea. Just=
+ what=20
+will happen if ip visible for proxy have multiple people behind? It can=
+ be=20
+small router for hotspot and 10-20 people behind it,  some with very la=
+rge=20
+rtt, some with very small.=20
 
-  Ralf
+And some of them getting disconnected (out of range from wireless, for=20
+example), and thats most probably why host unreachable sent... at same =
+time=20
+proxy have established and running tcp connections with other people on=
+ same=20
+router (means for proxy same ip).
+
+Sorry, again to Ilpo J=E4rvinen, by default i have reply, instead of re=
+ply all.
