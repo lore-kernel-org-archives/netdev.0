@@ -1,43 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netdev: remove HAVE_ leftovers
-Date: Tue, 26 Jan 2010 16:32:56 -0800 (PST)
-Message-ID: <20100126.163256.196562963.davem@davemloft.net>
-References: <10f740e81001260057h37f3494dvefa3a37b2e1453a5@mail.gmail.com>
-	<20100126.051817.215651254.davem@davemloft.net>
-	<20100126191727.GA5454@x200>
+From: Curt Sampson <cjs@starling-software.com>
+Subject: Re: Problems Receiving UDP Broadcasts on Some Versions of Linux
+Date: Wed, 27 Jan 2010 09:37:46 +0900
+Message-ID: <20100127003744.GA16322@analytic.cynic.net>
+References: <20100125072749.GG21419@analytic.cynic.net> <4B5D51E6.5090601@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: geert@linux-m68k.org, linux-next@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: adobriyan@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57632
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753705Ab0A0Acr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jan 2010 19:32:47 -0500
-In-Reply-To: <20100126191727.GA5454@x200>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754221Ab0A0Ahz@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4B5D51E6.5090601@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Tue, 26 Jan 2010 21:17:27 +0200
+On 2010-01-25 09:10 +0100 (Mon), Eric Dumazet wrote:
 
-> On Tue, Jan 26, 2010 at 05:18:17AM -0800, David Miller wrote:
->> Alexey, please go through at least drivers/net and look at the
->> other stale references to these HAVE_* macros.
-> 
-> My apologies.
-> 
-> 
-> [PATCH] netdev: remove HAVE_ leftovers
-> 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> > The short summary is that on two very similar servers on the same
+> > network, an application that listens for broadcast UDP packets on a
+> > given port works fine on the Ubuntu 8.04/Linux 2.6.24-26-server box but
+> > does not receive the packets on the Ubuntu 9.04/Linux 2.6.28-17-server
+> > box.
+>
+> Could you post a sample of tcpdump trafic you receive on the 9.04
+> host, and your network config ? "ifconfig -a"
 
-What about HAVE_POLL_CONTROLLER and some other remaining stuff?
+I've added both to the end of the StackOverflow entry:
 
-drivers/net/bnx2.c:#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
-drivers/net/bnx2x_main.c:#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
-drivers/net/ixgbevf/ixgbevf_main.c:#ifdef HAVE_TX_MQ
-drivers/net/ixgbevf/ixgbevf_main.c:#ifndef HAVE_NETDEV_NAPI_LIST
-drivers/net/ixgbevf/ixgbevf_main.c:#ifdef HAVE_NET_DEVICE_OPS
+  http://stackoverflow.com/questions/2130563/udp-broadcast-reception-problems-with-ubuntu-9-04-but-not-8-04
+
+Again, please cc me on any responses; I'm on neither the linux-kernel
+nor netdev lists.
+
+cjs
+-- 
+Curt Sampson         <cjs@cynic.net>         +81 90 7737 2974
+             http://www.starling-software.com
+The power of accurate observation is commonly called cynicism
+by those who have not got it.    --George Bernard Shaw
