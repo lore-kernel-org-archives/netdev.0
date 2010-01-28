@@ -1,52 +1,80 @@
-From: Jon Masters <jonathan@jonmasters.org>
-Subject: Re: PROBLEM: reproducible crash KVM+nf_conntrack all recent 2.6
- kernels
-Date: Thu, 28 Jan 2010 03:07:11 -0500
-Message-ID: <1264666031.2793.117.camel@tonnant>
-References: <1264657559.2793.103.camel@tonnant>
-	 <1264663210.2793.110.camel@tonnant>
+From: Danny Baumann <dannybaumann@web.de>
+Subject: Re: [Bugme-new] [Bug 15147] New: phylib: no re-negotiation after
+ link partner abilities changed
+Date: Thu, 28 Jan 2010 08:40:58 +0100
+Message-ID: <1264664458.24038.26.camel@rechenknecht.peppercon.de>
+References: <bug-15147-10286@http.bugzilla.kernel.org/>
+	 <20100127164833.f0c96ded.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
-To: linux-kernel <linux-kernel@vger.kernel.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1264663210.2793.110.camel@tonnant>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Haavard Skinnemoen <hskinnemoen@atmel.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from jack.hrz.tu-chemnitz.de ([134.109.132.46]:50795 "EHLO
+	jack.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752293Ab0A1IJe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2010 03:09:34 -0500
+In-Reply-To: <20100127164833.f0c96ded.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-01-28 at 02:20 -0500, Jon Masters wrote:
-> On Thu, 2010-01-28 at 00:46 -0500, Jon Masters wrote:
-> 
-> > A number of people seem to have reported this crash in various forms,
-> > but I have yet to see a solution, and can reproduce on 2.6.33-rc5 this
-> > evening so I know it's still present in the latest upstream kernels too.
-> > Userspace is Fedora 12, and this happens on both all recent F12 kernels
-> > (sporadic in 2.6.31 until recently, solidly reproducible on 2.6.32) and
-> > upstream 2.6.32, and 2.6.33-rc5 also - hard to find a "known good".
+Hi,
+
+> >            Summary: phylib: no re-negotiation after link partner abilities
+> >                     changed
+
+[...]
+
+> >          Component: Network
+> >         AssignedTo: drivers_network@kernel-bugs.osdl.org
+> >         ReportedBy: dannybaumann@web.de
+> >         Regression: No
+            ^^^^^^^^^^^^^^
+
+;-)
+
+> > E.g. with the macb driver, which uses phylib, there is no link anymore when the
+> > link partner changes its abilities. This is because no autonegotiation is done
+> > again on link changes and hence the LPA register is not updated.
 > > 
-> > The problem happens when using netfilter with KVM (problem does not
-> > occur without the firewall loaded, for example) and will occur within a
-> > few minutes of attempting to start or stop a guest that is connecting to
-> > the network - the easiest way to reproduce so far is simply to start up
-> > a bunch of Fedora guests and have them do a "yum update" cycle.
+> > Steps for reproduction:
+> > - Connect a 10/100 device to a 10/100 switch, configure switch port to 100Full
+> > - Enable interface, link will be present
+> > - Configure device to 10Full, link will be lost
+> > - Configure switch to 10Full
 > > 
-> > All of the crashes appear similar to the following (2.6.33-rc5):
+> > Result:
+> > Link should be present at that point, but isn't ... debug messages in
+> > genphy_read_status show that lpa is still at 0x4101 (100Full).
+> > 
+> > Note that all that is on an AT91SAM9G20 board (hence macb driver) with a
+> > Dawicom 9161 PHY connected to its Ethernet port, but AFAICT all phylib enabled
+> > drivers should suffer from this.
+> > 
 > 
-> Rebuilt the kernel with all debug options turned on, got some lockdep
-> warnings (haven't looked further yet). Here's the output (attached full
-> boot log also):
+> From the above it appears that this is a regression.
+> 
+> Can you tell us which kernel version(s) were OK and which are not?
 
-> [  339.730086] RIP: 0010:[<ffffffff813e5f3e>]  [<ffffffff813e5f3e>]
-> nf_ct_remove_expectations+0x49/0x5c
+As far as I am aware of, this is not a regression, at least not in
+phylib (if any, it's a regression for drivers that were converted to
+phylib). A code part that does re-negotiation when link is down after
+link was up for some time has never been present in the state machine.
+In the PHY_NOLINK state, all that has ever been done is doing
+phy_read_status and checking the new link state calculated from there.
 
-This appears to be in the hlist_for_each_entry_safe iteration within
-nf_ct_remove_expectations, iterating over the list of nf_conn_help(ers)
-returned by nfct_help. I don't know what that code does (I have an idea
-but only at a high level at this stage), though I'm poking a little here
-to see if I can understand enough of netfilter to be useful. Feel free
-to give me some pointers to help you guys debug this faster.
+Unfortunately, I don't have a good idea what would be the best thing to
+do there. As far as I can tell from the basic MII PHY registers, there
+is no way to distinct the "no link and no carrier = no cable connected"
+and the "no link, but carrier = negotiation failed" states. If there was
+such a way, the fix probably would involve re-negotiating when going
+from state 1 to state 2 (or regularly using a timer when staying in
+state 2). But maybe I am missing something.
 
-Jon.
+Regards,
 
+Danny
 
