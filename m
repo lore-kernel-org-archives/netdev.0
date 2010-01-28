@@ -1,119 +1,52 @@
-From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: [PATCH] be2net: Bug fix to support newer generation of BE ASIC
-Date: Thu, 28 Jan 2010 13:26:44 +0530
-Message-ID: <20100128075633.GA4785@serverengines.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: Jon Masters <jonathan@jonmasters.org>
+Subject: Re: PROBLEM: reproducible crash KVM+nf_conntrack all recent 2.6
+ kernels
+Date: Thu, 28 Jan 2010 03:07:11 -0500
+Message-ID: <1264666031.2793.117.camel@tonnant>
+References: <1264657559.2793.103.camel@tonnant>
+	 <1264663210.2793.110.camel@tonnant>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:28583 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754726Ab0A1H4f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2010 02:56:35 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
+To: linux-kernel <linux-kernel@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1264663210.2793.110.camel@tonnant>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Bug fix in be2net for newer generation of BladeEngine ASIC.
+On Thu, 2010-01-28 at 02:20 -0500, Jon Masters wrote:
+> On Thu, 2010-01-28 at 00:46 -0500, Jon Masters wrote:
+> 
+> > A number of people seem to have reported this crash in various forms,
+> > but I have yet to see a solution, and can reproduce on 2.6.33-rc5 this
+> > evening so I know it's still present in the latest upstream kernels too.
+> > Userspace is Fedora 12, and this happens on both all recent F12 kernels
+> > (sporadic in 2.6.31 until recently, solidly reproducible on 2.6.32) and
+> > upstream 2.6.32, and 2.6.33-rc5 also - hard to find a "known good".
+> > 
+> > The problem happens when using netfilter with KVM (problem does not
+> > occur without the firewall loaded, for example) and will occur within a
+> > few minutes of attempting to start or stop a guest that is connecting to
+> > the network - the easiest way to reproduce so far is simply to start up
+> > a bunch of Fedora guests and have them do a "yum update" cycle.
+> > 
+> > All of the crashes appear similar to the following (2.6.33-rc5):
+> 
+> Rebuilt the kernel with all debug options turned on, got some lockdep
+> warnings (haven't looked further yet). Here's the output (attached full
+> boot log also):
 
-Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
----
- drivers/net/benet/be.h      |    5 +++++
- drivers/net/benet/be_cmds.h |    3 ++-
- drivers/net/benet/be_main.c |   25 +++++++++++++++++++++++--
- 3 files changed, 30 insertions(+), 3 deletions(-)
+> [  339.730086] RIP: 0010:[<ffffffff813e5f3e>]  [<ffffffff813e5f3e>]
+> nf_ct_remove_expectations+0x49/0x5c
 
-diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
-index 9fd8e5e..5bc7459 100644
---- a/drivers/net/benet/be.h
-+++ b/drivers/net/benet/be.h
-@@ -276,8 +276,13 @@ struct be_adapter {
- 	int link_speed;
- 	u8 port_type;
- 	u8 transceiver;
-+	u8 generation;		/* BladeEngine ASIC generation */
- };
- 
-+/* BladeEngine Generation numbers */
-+#define BE_GEN2 2
-+#define BE_GEN3 3
-+
- extern const struct ethtool_ops be_ethtool_ops;
- 
- #define drvr_stats(adapter)		(&adapter->stats.drvr_stats)
-diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
-index c002b83..13b33c8 100644
---- a/drivers/net/benet/be_cmds.h
-+++ b/drivers/net/benet/be_cmds.h
-@@ -164,7 +164,8 @@ struct be_cmd_req_hdr {
- 	u8 domain;		/* dword 0 */
- 	u32 timeout;		/* dword 1 */
- 	u32 request_length;	/* dword 2 */
--	u32 rsvd;		/* dword 3 */
-+	u8 version;		/* dword 3 */
-+	u8 rsvd[3];		/* dword 3 */
- };
- 
- #define RESP_HDR_INFO_OPCODE_SHIFT	0	/* bits 0 - 7 */
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 33ab8c7..90c5661 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -2051,6 +2051,7 @@ static void be_unmap_pci_bars(struct be_adapter *adapter)
- static int be_map_pci_bars(struct be_adapter *adapter)
- {
- 	u8 __iomem *addr;
-+	int pcicfg_reg;
- 
- 	addr = ioremap_nocache(pci_resource_start(adapter->pdev, 2),
- 			pci_resource_len(adapter->pdev, 2));
-@@ -2064,8 +2065,13 @@ static int be_map_pci_bars(struct be_adapter *adapter)
- 		goto pci_map_err;
- 	adapter->db = addr;
- 
--	addr = ioremap_nocache(pci_resource_start(adapter->pdev, 1),
--			pci_resource_len(adapter->pdev, 1));
-+	if (adapter->generation == BE_GEN2)
-+		pcicfg_reg = 1;
-+	else
-+		pcicfg_reg = 0;
-+
-+	addr = ioremap_nocache(pci_resource_start(adapter->pdev, pcicfg_reg),
-+			pci_resource_len(adapter->pdev, pcicfg_reg));
- 	if (addr == NULL)
- 		goto pci_map_err;
- 	adapter->pcicfg = addr;
-@@ -2162,6 +2168,7 @@ static int be_stats_init(struct be_adapter *adapter)
- 	cmd->va = pci_alloc_consistent(adapter->pdev, cmd->size, &cmd->dma);
- 	if (cmd->va == NULL)
- 		return -1;
-+	memset(cmd->va, cmd->size, 0);
- 	return 0;
- }
- 
-@@ -2240,6 +2247,20 @@ static int __devinit be_probe(struct pci_dev *pdev,
- 		goto rel_reg;
- 	}
- 	adapter = netdev_priv(netdev);
-+
-+	switch (pdev->device) {
-+	case BE_DEVICE_ID1:
-+	case OC_DEVICE_ID1:
-+		adapter->generation = BE_GEN2;
-+		break;
-+	case BE_DEVICE_ID2:
-+	case OC_DEVICE_ID2:
-+		adapter->generation = BE_GEN3;
-+		break;
-+	default:
-+		adapter->generation = 0;
-+	}
-+
- 	adapter->pdev = pdev;
- 	pci_set_drvdata(pdev, adapter);
- 	adapter->netdev = netdev;
--- 
-1.6.3.3
+This appears to be in the hlist_for_each_entry_safe iteration within
+nf_ct_remove_expectations, iterating over the list of nf_conn_help(ers)
+returned by nfct_help. I don't know what that code does (I have an idea
+but only at a high level at this stage), though I'm poking a little here
+to see if I can understand enough of netfilter to be useful. Feel free
+to give me some pointers to help you guys debug this faster.
+
+Jon.
+
 
