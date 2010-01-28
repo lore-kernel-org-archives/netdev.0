@@ -1,113 +1,70 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [RFC] [PATCH] net: Add support for ndo_select_queue()	functions to
- cache the queue mapping
-Date: Fri, 29 Jan 2010 00:11:42 +0530
-Message-ID: <OFC8D29372.BEB60058-ON652576B9.00642767-652576B9.00659789@in.ibm.com>
-References: <1264700317.2783.15.camel@achroite.uk.solarflarecom.com>	 <OF2C36A392.08814AE1-ON652576B9.00617C98-652576B9.0062AE8B@in.ibm.com> <1264702224.2783.18.camel@achroite.uk.solarflarecom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC] [PATCH] net: Add support for ndo_select_queue()
+	functions to cache the queue mapping
+Date: Thu, 28 Jan 2010 18:34:34 +0000
+Message-ID: <1264703676.2783.44.camel@achroite.uk.solarflarecom.com>
+References: <1264700317.2783.15.camel@achroite.uk.solarflarecom.com>
+	 <20100128100011.2b624a9e@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp06.in.ibm.com ([122.248.162.6]:34514 "EHLO
-	e28smtp06.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755570Ab0A1S3n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2010 13:29:43 -0500
-Received: from d28relay05.in.ibm.com (d28relay05.in.ibm.com [9.184.220.62])
-	by e28smtp06.in.ibm.com (8.14.3/8.13.1) with ESMTP id o0SITffK017182
-	for <netdev@vger.kernel.org>; Thu, 28 Jan 2010 23:59:41 +0530
-Received: from d28av01.in.ibm.com (d28av01.in.ibm.com [9.184.220.63])
-	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o0SITfaK2838602
-	for <netdev@vger.kernel.org>; Thu, 28 Jan 2010 23:59:41 +0530
-Received: from d28av01.in.ibm.com (loopback [127.0.0.1])
-	by d28av01.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o0SITe3Q013290
-	for <netdev@vger.kernel.org>; Thu, 28 Jan 2010 23:59:41 +0530
-In-Reply-To: <1264702224.2783.18.camel@achroite.uk.solarflarecom.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:51868 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754152Ab0A1Sej convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2010 13:34:39 -0500
+In-Reply-To: <20100128100011.2b624a9e@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Ben Hutchings <bhutchings@solarflare.com>
->
-> On Thu, 2010-01-28 at 23:39 +0530, Krishna Kumar2 wrote:
-> > > Ben Hutchings <bhutchings@solarflare.com>
-> > >
-> > > We think it's worth matching up RX and TX queue selection for a
-socket
-> > > when the queues share an interrupt.  Currently the default TX queue
-> > > selection is unlikely to match RX queue selection.  TX queue
-selectionc
-> > > can be overridden by the driver to match RX queue selection, but at
-the
-> > > expense of caching.  We found that without caching the cost of
-> > > recalculating the the hash in software for each packet outweighed the
-> > > benefit of good queue selection.
-> > >
-> > > This adds two simple helper functions: sk_may_set_tx_queue() reports
-> > > whether the queue mapping should be cacheable for a socket, and
-> > > netif_sk_tx_queue_set() sets it after validating the queue index.
-This
-> > > will allow drivers to evalulate expensive queue selection functions
-> > > (such as Toeplitz hash functions) only once for connected sockets,
-and
-> > > to avoid doing so for other skbs.
-> [...]
-> > I am confused about this - isn't the txq# and rxq# already
-> > matched due to the check for skb_rx_queue_recorded?
->
-> When forwarding, yes.
->
-> > sk_dst_cache is also not set for these routing/forwarding
-> > workloads, this can be relied only for locally connected
-> > xmits.
->
-> Correct, that's exactly what it's for.
->
-> > Other than that, I saw netif_sk_tx_queue_set is not called.
-> > And dev_pick_tx has already capped automatically, you probably
-> > don't need another here?
->
-> Only the return value of ndo_select_queue() is capped; the cached value
-> is assumed to be valid.
+On Thu, 2010-01-28 at 10:00 -0800, Stephen Hemminger wrote:
+> On Thu, 28 Jan 2010 17:38:37 +0000
+> Ben Hutchings <bhutchings@solarflare.com> wrote:
+>=20
+> > =EF=BB=BFWe think it's worth matching up RX and TX queue selection =
+for a socket
+> > when the queues share an interrupt.  Currently the default TX queue
+> > selection is unlikely to match RX queue selection.  TX queue select=
+ionc
+> > can be overridden by the driver to match RX queue selection, but at=
+ the
+> > expense of caching.  We found that without caching the cost of
+> > recalculating the the hash in software for each packet outweighed t=
+he
+> > benefit of good queue selection.
+>=20
+> Will this work with RPS and device driver hashing?
 
-+void netif_sk_tx_queue_set(struct net_device *dev, struct sock *sk,
-+                             u16 queue_index)
-+{
-+     sk_tx_queue_set(sk, dev_cap_txqueue(dev, queue_index));
-+}
+=EF=BB=BFIf the device only has a single TX queue this can't possibly h=
+elp it.
 
-I guess I didn't understand this then, who calls this function? Is
-it after getting the txq from the driver? In which case, are you
-planning to do something like:
+In the case where a device has multiple RX and TX queues, I think it is
+preferable that contention for TX queues is likely to be among cores
+that are close together, not spread over the whole system.  I assume
+that RPS will normally be configured to spread traffic from each
+hardware RX queue to a group of cores that are close together (same NUM=
+A
+mode, maybe sharing some caches).  In that case it would also be
+desirable to limit contention for a TX queue to within these same group=
+s
+of cores, so TX queue selection ought to match hardware RX queue
+selection.  So I don't think this should conflict with RPS.
 
-static struct netdev_queue *dev_pick_tx(struct net_device *dev,
-                                        struct sk_buff *skb)
-{
-      u16 queue_index;
-      struct sock *sk = skb->sk;
+> I am thinking of the problem where the hardware hash function is
+> Toeplitz (per NDIS spec), and the software hash function is Jhash
+> (what kernel uses because it is cheaper).
+>=20
+> Therefore the transmit hash and receiver hash will be different.
 
-      if (sk_tx_queue_recorded(sk)) {
-            queue_index = sk_tx_queue_get(sk);
-      } else {
-            const struct net_device_ops *ops = dev->netdev_ops;
+The intent here is to make it worthwhile to calculate that expensive
+hash on the TX side.
 
-            if (ops->ndo_select_queue) {
-                  queue_index = ops->ndo_select_queue(dev, skb);
-                  queue_index = dev_cap_txqueue(dev, queue_index);
-            } else {
-                  queue_index = 0;
-                  if (dev->real_num_tx_queues > 1)
-                        queue_index = skb_tx_hash(dev, skb); /*already
-capped */
-            }
+Ben.
 
-            if (sk_may_set_tx_queue(sk))
-                  sk_tx_queue_set(sk, queue_index);
-        }
-        skb_set_queue_mapping(skb, queue_index);
-        return netdev_get_tx_queue(dev, queue_index);
-}
-
-Thanks,
-
-- KK
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
