@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2010-01-27
-Date: Thu, 28 Jan 2010 05:43:55 -0800 (PST)
-Message-ID: <20100128.054355.206229204.davem@davemloft.net>
-References: <20100127213511.GK2962@tuxdriver.com>
+Subject: Re: [PATCH] sctp: IPsec rules are ineffective with ipv6
+Date: Thu, 28 Jan 2010 05:51:48 -0800 (PST)
+Message-ID: <20100128.055148.127214200.davem@davemloft.net>
+References: <4B6049EB.8030803@dev.6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756171Ab0A1Nnp@vger.kernel.org>
-In-Reply-To: <20100127213511.GK2962@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, vladislav.yasevich@hp.com,
+	linux-sctp@vger.kernel.org
+To: nicolas.dichtel@dev.6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48588
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932208Ab0A1Nvg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2010 08:51:36 -0500
+In-Reply-To: <4B6049EB.8030803@dev.6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 27 Jan 2010 16:35:12 -0500
+From: Nicolas Dichtel <nicolas.dichtel@dev.6wind.com>
+Date: Wed, 27 Jan 2010 15:12:59 +0100
 
-> Dave,
+> xfrm_lookup() is missing in sctp_v6_xmit(), add it.
 > 
-> Here is another small collections of fixes intended for 2.6.33.
-> Included are a NULL pointer dereference fix, a buffer leak fix,
-> a warning fix, and a correction of an ath9k initialization change
-> that was improperly limited to only dual-band hardware.
-> 
-> Please let me know if there are problems!
+> Signed-off-by: Junwei Zhang <junwei.zhang@6wind.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Pulled, thanks a lot John.
+Doing this every transmit packet is overkill.
+
+Whatever calculates the route that ends up in skb_dst(skb)
+should be making this xfrm_lookup() call, not here.
