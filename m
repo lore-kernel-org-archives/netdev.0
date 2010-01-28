@@ -1,112 +1,109 @@
-From: Andrew Dickinson <andrew@whydna.net>
-Subject: receive-side performance issue (ixgbe, core-i7, softirq cpu%)
-Date: Thu, 28 Jan 2010 00:23:21 -0800
-Message-ID: <606676311001280023j77b8b96aj556706f3e49bcc13@mail.gmail.com>
+From: cold cold <nedkonedev@gmail.com>
+Subject: Re: 0% cpu usasge after fresh boot or net restart but 10% CPU if
+	kernel flush route cache
+Date: Thu, 28 Jan 2010 11:14:27 +0200
+Message-ID: <41ac0f9e1001280114x17951046oda3fddcae4b8b9d3@mail.gmail.com>
+References: <41ac0f9e1001260858o7d2a6a6dgb37ecfba5c325932@mail.gmail.com>
+	 <1264605976.3197.8.camel@edumazet-laptop>
+	 <41ac0f9e1001271153u333a5e2aq6f473ccc6e6d1e23@mail.gmail.com>
+	 <1264627088.2892.7.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f182.google.com ([209.85.216.182]:47792 "EHLO
-	mail-px0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754333Ab0A1IXV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2010 03:23:21 -0500
-Received: by pxi12 with SMTP id 12so370577pxi.33
-        for <netdev@vger.kernel.org>; Thu, 28 Jan 2010 00:23:21 -0800 (PST)
+Received: from mail-ew0-f219.google.com ([209.85.219.219]:42452 "EHLO
+	mail-ew0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754950Ab0A1JO3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2010 04:14:29 -0500
+Received: by ewy19 with SMTP id 19so495933ewy.21
+        for <netdev@vger.kernel.org>; Thu, 28 Jan 2010 01:14:27 -0800 (PST)
+In-Reply-To: <1264627088.2892.7.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, Jan 27, 2010 at 11:18 PM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> Le mercredi 27 janvier 2010 =E0 21:53 +0200, cold cold a =E9crit :
+>
+>>
+>> btw atm i have 1k ip on that router but plan to put 10k so route cac=
+he
+>> will grow 10 time fast.
+>> i try to keep low =A0rhash_entries but garbage collector =A0is non s=
+top
+>> running and eat CPU
+>> atm i have around 7k =A0entries per second for second for first minu=
+te.
+>>
+>> i think it will be better if i flush cache on secret interval instea=
+d
+>> of giving work to gc.
+>> i test with 512MB cache and CPU is 0% and flushing entire hash dont =
+take a lot,
+>> I'm not sure is there some side effects from flushing.
+>
+> Flush is immediate, it only marks entries as invalid and they are
+> cleaned up later.
+>
+> 512 MB cache is quite small for your needs, each entry uses 384 bytes
+> (assuming you use a 64bit kernel)
+>
+> In my experiments, I found using gc (and no flushing) was the most
+> reliable way to have an equilibrium.
+>
+> WHen setting gc_interval to 1, =A0the garbage collector is fired ever=
+y
+> second and handles 1/300 of entries, from a work queue (thus doesnt s=
+top
+> packets to be handled by irqs), in a smooth way.
+>
+> You can post "perf top" results to check where cpu is consumed.
+>
+>
+>
 
-I'm running into some unexpected performance issues.  I say
-"unexpected" because I was running the same tests on this same box 5
-months ago and getting very different (and much better) results.
-
-
-=== Background ===
-
-The box is a dual Core i7 box with a pair of Intel 82598EB's.  I'm
-running 2.6.30 with the in-kernel ixgbe driver.  My tests 5 months ago
-were using 2.6.30-rc3 (with a tiny patch from David Miller as seen
-here: http://kerneltrap.org/mailarchive/linux-netdev/2009/4/30/5605924).
- The box is configured with both NICs in a bridge; normally I'm doing
-some packet processing using ebtables, but for the sake of keeping
-things simple, I'm not doing anything special.. just straight bridging
-(no ebtables rules, etc).  I'm not running irqbalance and instead
-pinning my interrupts, one per core.  I've re-read and double checked
-various settings based on Intel's README (i.e. gso off, tso off, etc).
-
-In my previous tests, i was able to pass 3+Mpps regardless of how that
-was divided across the two NICS (i.e. 3Mpps all in one direction,
-1.5Mpps in each direction simultaneously, etc).  Now, I'm hardly able
-to exceed about 750kpps x 2 (i.e. 750k in both directions), and I
-can't do more than 750kpps in one direction even with the other
-direction having no traffic).
-
-Unfortunately, I didn't take very good notes when I did this last time
-so I don't have my previous .config and I'm not 100% positive I've got
-identical ethtool settings, etc.  That being said, I've worked through
-seemingly every combination of factors that I can think of and I'm
-still unable to see the old performance (NUMA on/off, Hyperthreading
-on/off, various irq coelescing settings, etc).
-
-I have two identical boxes, they both see the same thing; so a
-hardware issue seems unlikely.  My next step is to grab 2.6.30-rc3 and
-see if I can repro the good performance with that kernel again and
-determine if there was a regression between 2.6.30-rc3 and 2.6.30...
-but I'm skeptical that that's the issue since I'm sure other people
-would have noticed this as well.
-
-
-=== What I'm seeing ===
-
-CPU% (almost entirely softirq time, which is expected) ramps extremely
-quickly as packet rate increases.  The following table show the packet
-rate ("150 x 2" means 150kpps in each direction simultaneously), the
-right side is the cpu utilization (as measured by %si in top).
-
-150 x 2:   4%
-300 x 2:   8%
-450 x 2:  18%
-483 x 2:  50%
-525 x 2:  66%
-600 x 2:  85%
-750 x 2: 100% (and dropping frames)
-
-I _am_ seeing interrupts getting spread nicely across cores, so in the
-"150 x 2" case, that's about 4% soft-interrupt time per each of the 16
-cores.   The CPUs are otherwise idle bar a small amount of hardware
-interrupt time (less than 1%).
+RX Kpps : 57 TX Kpps : 53  RX Kbits : 331184 TX Kbits : 306213
+RX Kpps : 59 TX Kpps : 54  RX Kbits : 345517 TX Kbits : 304323
+RX Kpps : 56 TX Kpps : 52  RX Kbits : 331418 TX Kbits : 296032
+RX Kpps : 60 TX Kpps : 54  RX Kbits : 362007 TX Kbits : 297371
+RX Kpps : 59 TX Kpps : 52  RX Kbits : 360455 TX Kbits : 280603
 
 
-=== Where it gets weird... ===
+ON  one cpu, gc_interval to 1, gc_elasticity 2
 
-Trying to isolate the problem, I added an ebtables rule to drop
-everything on the forward chain.  I was expecting to see the CPU
-utilization drop since I'd no longer be dealing with the TX-side... no
-change.
+Cpu0  :  0.0%us,  0.0%sy,  0.0%ni, 72.0%id,  0.0%wa,  8.3%hi, 19.7%si, =
+ 0.0%st
+Cpu1  :  0.0%us,  0.0%sy,  0.0%ni,100.0%id,  0.0%wa,  0.0%hi,  0.0%si, =
+ 0.0%st
+Cpu2  :  0.0%us,  0.3%sy,  0.0%ni, 99.7%id,  0.0%wa,  0.0%hi,  0.0%si, =
+ 0.0%st
+Cpu3  :  0.0%us,  0.0%sy,  0.0%ni,100.0%id,  0.0%wa,  0.0%hi,  0.0%si, =
+ 0.0%st
 
-I then decided to switch from a bridge to a route-based solution.  I
-tore down the bridge, enabled ip_forward, setup some IPs and route
-entries, etc.  Nothing changes.  CPU performance is identical to
-what's shown above.  Additionally, if I add an iptables drop on
-FORWARD, the CPU utilization remains unchanged (just like in the
-bridging case above).
+-----------------------------------------------------------------------=
+-------
+   PerfTop:   17064 irqs/sec  kernel:98.0% [100000 cycles],  (all, 4 CP=
+Us)
+-----------------------------------------------------------------------=
+-------
 
-The point that [I think] I'm driving to is that there's something
-fishy going on with the receive-side of the packets.  I wish I could
-point to something more specific or a section of code, but I haven't
-been able to par this down to anything more granular in my testing.
+             samples    pcnt   kernel function
+             _______   _____   _______________
 
-
-=== Questions ===
-
-Has anybody seen this before?  If so, what was wrong?
-Do you have any recommendations on things to try (either as guesses
-or, even better, to help eliminate possibilities)
-And along those lines... can anybody think of any possible reasons for this?
-
-This is so frustrating since I _know_ this hardware is capable of so
-much more.  It's relatively painless for me to re-run tests in my lab,
-so feel free to throw something at me that you think will stick :D
-
--Andrew
+            40388.00 - 27.8% : acpi_idle_do_entry
+            24651.00 - 17.0% : read_hpet
+             4271.00 -  2.9% : _spin_lock
+             3388.00 -  2.3% : pskb_expand_head
+             3288.00 -  2.3% : igb_poll [igb]
+             3246.00 -  2.2% : irq_entries_start
+             2868.00 -  2.0% : dev_gro_receive
+             2665.00 -  1.8% : igb_xmit_frame_adv       [igb]
+             2513.00 -  1.7% : ip_route_input
+             2144.00 -  1.5% : igb_clean_tx_irq [igb]
+             1842.00 -  1.3% : __slab_free
+             1544.00 -  1.1% : dev_queue_xmit
+             1423.00 -  1.0% : igb_msix_rx      [igb]
+             1353.00 -  0.9% : __alloc_skb
+             1285.00 -  0.9% : eth_type_trans
