@@ -1,71 +1,46 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 15147] New: phylib: no re-negotiation after
- link partner abilities changed
-Date: Wed, 27 Jan 2010 16:48:33 -0800
-Message-ID: <20100127164833.f0c96ded.akpm@linux-foundation.org>
-References: <bug-15147-10286@http.bugzilla.kernel.org/>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH] igbvf: fix issue w/ mapped_as_page being left set
+	after unmap
+Date: Wed, 27 Jan 2010 17:30:39 -0800
+Message-ID: <20100128013012.18801.97398.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Haavard Skinnemoen <hskinnemoen@atmel.com>, dannybaumann@web.de
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:39284 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751610Ab0A1Asi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2010 19:48:38 -0500
-In-Reply-To: <bug-15147-10286@http.bugzilla.kernel.org/>
+Received: from qmta12.emeryville.ca.mail.comcast.net ([76.96.27.227]:51972
+	"EHLO qmta12.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752291Ab0A1BbX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jan 2010 20:31:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+This change fixes an issue in igbvf with mapped_as_page being left set
+after a page is unmapped which results in buffers which are mapped via map
+single being unmapped as page.
 
-On Tue, 26 Jan 2010 16:24:35 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=15147
-> 
->            Summary: phylib: no re-negotiation after link partner abilities
->                     changed
->            Product: Drivers
->            Version: 2.5
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Network
->         AssignedTo: drivers_network@kernel-bugs.osdl.org
->         ReportedBy: dannybaumann@web.de
->         Regression: No
-> 
-> 
-> E.g. with the macb driver, which uses phylib, there is no link anymore when the
-> link partner changes its abilities. This is because no autonegotiation is done
-> again on link changes and hence the LPA register is not updated.
-> 
-> Steps for reproduction:
-> - Connect a 10/100 device to a 10/100 switch, configure switch port to 100Full
-> - Enable interface, link will be present
-> - Configure device to 10Full, link will be lost
-> - Configure switch to 10Full
-> 
-> Result:
-> Link should be present at that point, but isn't ... debug messages in
-> genphy_read_status show that lpa is still at 0x4101 (100Full).
-> 
-> Note that all that is on an AT91SAM9G20 board (hence macb driver) with a
-> Dawicom 9161 PHY connected to its Ethernet port, but AFAICT all phylib enabled
-> drivers should suffer from this.
-> 
+ drivers/net/igbvf/netdev.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
->From the above it appears that this is a regression.
+diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
+index 297a5dd..2aa71a7 100644
+--- a/drivers/net/igbvf/netdev.c
++++ b/drivers/net/igbvf/netdev.c
+@@ -2117,6 +2117,7 @@ static inline int igbvf_tx_map_adv(struct igbvf_adapter *adapter,
+ 	/* set time_stamp *before* dma to help avoid a possible race */
+ 	buffer_info->time_stamp = jiffies;
+ 	buffer_info->next_to_watch = i;
++	buffer_info->mapped_as_page = false;
+ 	buffer_info->dma = pci_map_single(pdev, skb->data, len,
+ 					  PCI_DMA_TODEVICE);
+ 	if (pci_dma_mapping_error(pdev, buffer_info->dma))
 
-Can you tell us which kernel version(s) were OK and which are not?
-
-Thanks.
