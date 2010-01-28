@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: IPsec rules are ineffective with ipv6
-Date: Thu, 28 Jan 2010 05:51:48 -0800 (PST)
-Message-ID: <20100128.055148.127214200.davem@davemloft.net>
-References: <4B6049EB.8030803@dev.6wind.com>
+Subject: Re: [net-2.6 PATCH] igbvf: fix issue w/ mapped_as_page being left
+ set after unmap
+Date: Thu, 28 Jan 2010 05:56:51 -0800 (PST)
+Message-ID: <20100128.055651.191151827.davem@davemloft.net>
+References: <20100128013012.18801.97398.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vladislav.yasevich@hp.com,
-	linux-sctp@vger.kernel.org
-To: nicolas.dichtel@dev.6wind.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	alexander.h.duyck@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48588
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56893
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932208Ab0A1Nvg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2010 08:51:36 -0500
-In-Reply-To: <4B6049EB.8030803@dev.6wind.com>
+	by vger.kernel.org with ESMTP id S1752182Ab0A1N4j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2010 08:56:39 -0500
+In-Reply-To: <20100128013012.18801.97398.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@dev.6wind.com>
-Date: Wed, 27 Jan 2010 15:12:59 +0100
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 27 Jan 2010 17:30:39 -0800
 
-> xfrm_lookup() is missing in sctp_v6_xmit(), add it.
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
-> Signed-off-by: Junwei Zhang <junwei.zhang@6wind.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> This change fixes an issue in igbvf with mapped_as_page being left set
+> after a page is unmapped which results in buffers which are mapped via map
+> single being unmapped as page.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Doing this every transmit packet is overkill.
-
-Whatever calculates the route that ends up in skb_dst(skb)
-should be making this xfrm_lookup() call, not here.
+Applied.
