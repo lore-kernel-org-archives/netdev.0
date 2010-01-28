@@ -1,43 +1,51 @@
-From: Michael Breuer <mbreuer@majjas.com>
-Subject: Re: Hang: 2.6.32.4 sky2/DMAR (was [PATCH] sky2: Fix WARNING: at
- lib/dma-debug.c:902 check_sync)
-Date: Thu, 28 Jan 2010 17:59:05 -0500
-Message-ID: <4B6216B9.1010802@majjas.com>
-References: <4B60707F.1000608@majjas.com> <20100127095614.14313677@nehalam>
- <4B608128.7090607@majjas.com> <4B6089C7.4010803@majjas.com>
- <4B61ADF1.7060705@majjas.com> <4B61BEA4.1030905@majjas.com>
- <20100128090835.0d93e53a@nehalam> <4B61DB79.4080703@majjas.com>
- <20100128223447.GC3109@del.dom.local> <4B621316.8070308@majjas.com>
- <20100128225621.GD3109@del.dom.local>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH net-2.6] cdc_ether: Partially revert "usbnet: Set link down
+ initially ..."
+Date: Thu, 28 Jan 2010 23:18:44 +0000
+Message-ID: <1264720725.373.550.camel@localhost>
+References: <wnS54-l8PVO.A.TlF.oMlSLB@chimera>
+	 <omZ8aBZReyD.A.rz.COlSLB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
-	Don Fry <pcnet32@verizon.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Matt Carlson <mcarlson@broadcom.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755436Ab0A1W66@vger.kernel.org>
-In-reply-to: <20100128225621.GD3109@del.dom.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>, avi.rozen@gmail.com
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:41430 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753820Ab0A1XSu convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jan 2010 18:18:50 -0500
+In-Reply-To: <omZ8aBZReyD.A.rz.COlSLB@chimera>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 1/28/2010 5:56 PM, Jarek Poplawski wrote:
-> On Thu, Jan 28, 2010 at 05:43:34PM -0500, Michael Breuer wrote:
->    
->> This is with the pci_unmap_len patch as well as the dma-debug patch.
->> I'm not getting any warnings - but dma-debug num-free-entries drops
->> until zero and then debugging is disabled. I started with 8,000,000
->> about three hours ago - without load I'm already down to less than
->> half that. Again - only looking at sky2. Looks like the dma-debug
->> hash table is reducing one entry for every packet, but never
->> increasing the num_entries (no unmap perhaps).
->>      
-> OK, then, until there is some new fix you better turn it off.
->
-> Jarek P.
->    
-:( any further suggestions for helping track this down?
+Commit 37e8273cd30592d3a82bcb70cbb1bdc4eaeb6b71 ("usbnet: Set link down
+initially for drivers that update link state") changed the initial link
+state in cdc_ether and other drivers based on the understanding that the
+devices they support generate link change interrupts.  However, this is
+optional in the CDC Ethernet protocol, and two users have reported in
+<http://bugzilla.kernel.org/show_bug.cgi?id=14791> that the link state
+for their devices remains down.  Therefore, revert the change in
+cdc_ether.
+
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+Tested-by: Avi Rozen <avi.rozen@gmail.com>
+---
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -419,7 +419,7 @@
+ 
+ static const struct driver_info	cdc_info = {
+ 	.description =	"CDC Ethernet Device",
+-	.flags =	FLAG_ETHER | FLAG_LINK_INTR,
++	.flags =	FLAG_ETHER,
+ 	// .check_connect = cdc_check_connect,
+ 	.bind =		cdc_bind,
+ 	.unbind =	usbnet_cdc_unbind,
+
+-- 
+Ben Hutchings
+The generation of random numbers is too important to be left to chance.
+                                                            - Robert Coveyou
+
