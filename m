@@ -1,26 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netdev: remove more HAVE_ leftovers
-Date: Thu, 28 Jan 2010 06:01:59 -0800 (PST)
-Message-ID: <20100128.060159.182910438.davem@davemloft.net>
-References: <20100126191727.GA5454@x200>
-	<20100126.163256.196562963.davem@davemloft.net>
-	<20100127201741.GA4855@x200>
+Subject: Re: [PATCH] l2tp: Fix a UDP socket reference count bug in the
+ pppol2tp driver
+Date: Thu, 28 Jan 2010 06:07:17 -0800 (PST)
+Message-ID: <20100128.060717.99647383.davem@davemloft.net>
+References: <20100121161009.5223.34288.stgit@bert.katalix.com>
+	<20100123.015511.83860202.davem@davemloft.net>
+	<4B603C50.20406@katalix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: geert@linux-m68k.org, linux-next@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: adobriyan@gmail.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100127201741.GA4855@x200>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: jchapman@katalix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39350
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753420Ab0A1OHF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2010 09:07:05 -0500
+In-Reply-To: <4B603C50.20406@katalix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Wed, 27 Jan 2010 22:17:41 +0200
+From: James Chapman <jchapman@katalix.com>
+Date: Wed, 27 Jan 2010 13:14:56 +0000
 
-> [PATCH] netdev: remove more HAVE_ leftovers 
-> 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> Does the above help?
 
-Applied, thanks Alexey.
+Thanks for the detailed explanation, I'll take another look
+at this.
