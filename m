@@ -1,108 +1,66 @@
-From: cold cold <nedkonedev@gmail.com>
-Subject: Re: 0% cpu usasge after fresh boot or net restart but 10% CPU if
-	kernel flush route cache
-Date: Thu, 28 Jan 2010 18:26:50 +0200
-Message-ID: <41ac0f9e1001280826j1a4e6caar47ccfd357b6feb37@mail.gmail.com>
-References: <41ac0f9e1001260858o7d2a6a6dgb37ecfba5c325932@mail.gmail.com>
-	 <1264605976.3197.8.camel@edumazet-laptop>
-	 <41ac0f9e1001271153u333a5e2aq6f473ccc6e6d1e23@mail.gmail.com>
-	 <1264627088.2892.7.camel@edumazet-laptop>
-	 <41ac0f9e1001280114x17951046oda3fddcae4b8b9d3@mail.gmail.com>
-	 <1264694957.2930.15.camel@edumazet-laptop>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] sctp: IPsec rules are ineffective with ipv6
+Date: Thu, 28 Jan 2010 11:36:33 -0500
+Message-ID: <4B61BD11.5020303@hp.com>
+References: <4B6049EB.8030803@dev.6wind.com> <20100128.055148.127214200.davem@davemloft.net> <4B61AC22.2050907@hp.com> <4B61B047.10908@dev.6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: nicolas.dichtel@dev.6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f219.google.com ([209.85.219.219]:42457 "EHLO
-	mail-ew0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755475Ab0A1Q0w convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2010 11:26:52 -0500
-Received: by ewy19 with SMTP id 19so928758ewy.21
-        for <netdev@vger.kernel.org>; Thu, 28 Jan 2010 08:26:50 -0800 (PST)
-In-Reply-To: <1264694957.2930.15.camel@edumazet-laptop>
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:38301 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755812Ab0A1Qgi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2010 11:36:38 -0500
+In-Reply-To: <4B61B047.10908@dev.6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 28, 2010 at 6:09 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le jeudi 28 janvier 2010 =E0 11:14 +0200, cold cold a =E9crit :
->
->>
->> RX Kpps : 57 TX Kpps : 53 =A0RX Kbits : 331184 TX Kbits : 306213
->> RX Kpps : 59 TX Kpps : 54 =A0RX Kbits : 345517 TX Kbits : 304323
->> RX Kpps : 56 TX Kpps : 52 =A0RX Kbits : 331418 TX Kbits : 296032
->> RX Kpps : 60 TX Kpps : 54 =A0RX Kbits : 362007 TX Kbits : 297371
->> RX Kpps : 59 TX Kpps : 52 =A0RX Kbits : 360455 TX Kbits : 280603
->>
->>
->> ON =A0one cpu, gc_interval to 1, gc_elasticity 2
->>
->> Cpu0 =A0: =A00.0%us, =A00.0%sy, =A00.0%ni, 72.0%id, =A00.0%wa, =A08.=
-3%hi, 19.7%si, =A00.0%st
->> Cpu1 =A0: =A00.0%us, =A00.0%sy, =A00.0%ni,100.0%id, =A00.0%wa, =A00.=
-0%hi, =A00.0%si, =A00.0%st
->> Cpu2 =A0: =A00.0%us, =A00.3%sy, =A00.0%ni, 99.7%id, =A00.0%wa, =A00.=
-0%hi, =A00.0%si, =A00.0%st
->> Cpu3 =A0: =A00.0%us, =A00.0%sy, =A00.0%ni,100.0%id, =A00.0%wa, =A00.=
-0%hi, =A00.0%si, =A00.0%st
->>
->> --------------------------------------------------------------------=
-----------
->> =A0 =A0PerfTop: =A0 17064 irqs/sec =A0kernel:98.0% [100000 cycles], =
-=A0(all, 4 CPUs)
->> --------------------------------------------------------------------=
-----------
->>
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0samples =A0 =A0pcnt =A0 kernel function
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0_______ =A0 _____ =A0 _______________
->>
->> =A0 =A0 =A0 =A0 =A0 =A0 40388.00 - 27.8% : acpi_idle_do_entry
->> =A0 =A0 =A0 =A0 =A0 =A0 24651.00 - 17.0% : read_hpet
->> =A0 =A0 =A0 =A0 =A0 =A0 =A04271.00 - =A02.9% : _spin_lock
->> =A0 =A0 =A0 =A0 =A0 =A0 =A03388.00 - =A02.3% : pskb_expand_head
->> =A0 =A0 =A0 =A0 =A0 =A0 =A03288.00 - =A02.3% : igb_poll [igb]
->> =A0 =A0 =A0 =A0 =A0 =A0 =A03246.00 - =A02.2% : irq_entries_start
->> =A0 =A0 =A0 =A0 =A0 =A0 =A02868.00 - =A02.0% : dev_gro_receive
->> =A0 =A0 =A0 =A0 =A0 =A0 =A02665.00 - =A01.8% : igb_xmit_frame_adv =A0=
- =A0 =A0 [igb]
->> =A0 =A0 =A0 =A0 =A0 =A0 =A02513.00 - =A01.7% : ip_route_input
->> =A0 =A0 =A0 =A0 =A0 =A0 =A02144.00 - =A01.5% : igb_clean_tx_irq [igb=
-]
->> =A0 =A0 =A0 =A0 =A0 =A0 =A01842.00 - =A01.3% : __slab_free
->> =A0 =A0 =A0 =A0 =A0 =A0 =A01544.00 - =A01.1% : dev_queue_xmit
->> =A0 =A0 =A0 =A0 =A0 =A0 =A01423.00 - =A01.0% : igb_msix_rx =A0 =A0 =A0=
-[igb]
->> =A0 =A0 =A0 =A0 =A0 =A0 =A01353.00 - =A00.9% : __alloc_skb
->> =A0 =A0 =A0 =A0 =A0 =A0 =A01285.00 - =A00.9% : eth_type_trans
->> --
->
-> All this seems pretty normal profile (regarding networking functions)=
-,
-> your machine should scale without problem.
->
-> Of course, the two first functions (acpi_idle_do_entry() & read_hpet(=
-))
-> look suspicious but I have no idea why.
->
-
-i make with flushing without gc on 2 cpu  2 time more traffic  and CPU
-usage about 5 times less
-
-top - 11:22:04 up  6:45,  5 users,  load average: 0.00, 0.10, 0.25
-Tasks:  84 total,   1 running,  83 sleeping,   0 stopped,   0 zombie
-Cpu0  :  0.0%us,  0.3%sy,  0.0%ni, 94.0%id,  0.0%wa,  1.7%hi,  4.0%si, =
- 0.0%st
-Cpu1  :  0.3%us,  0.0%sy,  0.0%ni, 97.7%id,  0.0%wa,  0.7%hi,  1.3%si, =
- 0.0%st
-Cpu2  :  0.0%us,  0.0%sy,  0.0%ni,100.0%id,  0.0%wa,  0.0%hi,  0.0%si, =
- 0.0%st
-Cpu3  :  0.0%us,  0.0%sy,  0.0%ni,100.0%id,  0.0%wa,  0.0%hi,  0.0%si, =
- 0.0%st
 
 
-RX Kpps : 90 TX Kpps : 75  RX Kbits : 582791 TX Kbits : 413873
-RX Kpps : 87 TX Kpps : 74  RX Kbits : 546327 TX Kbits : 415852
-RX Kpps : 87 TX Kpps : 74  RX Kbits : 544820 TX Kbits : 418339
-RX Kpps : 88 TX Kpps : 73  RX Kbits : 569143 TX Kbits : 406438
+Nicolas Dichtel wrote:
+> What about this one?
+>=20
+> Only compilation tested.
+>=20
+> xfrm_lookup() is missing in IPv6 output path. Call it when dst is bui=
+ld.
+> Initial patch was written by Junwei Zhang <junwei.zhang@6wind.com>
+>=20
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+
+Looks like it might do the right thing.  Please run your tests
+on this an let me.
+
+Thanks
+-vlad
+
+>=20
+> Le 28.01.2010 16:24, Vlad Yasevich a =E9crit :
+>>
+>> David Miller wrote:
+>>> From: Nicolas Dichtel <nicolas.dichtel@dev.6wind.com>
+>>> Date: Wed, 27 Jan 2010 15:12:59 +0100
+>>>
+>>>> xfrm_lookup() is missing in sctp_v6_xmit(), add it.
+>>>>
+>>>> Signed-off-by: Junwei Zhang <junwei.zhang@6wind.com>
+>>>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>>> Doing this every transmit packet is overkill.
+>>>
+>>> Whatever calculates the route that ends up in skb_dst(skb)
+>>> should be making this xfrm_lookup() call, not here.
+>>>
+>>
+>>
+>> Hmm.. Interesting.  Looks like ip_route_output_key() will
+>> do xfrm_lookup for you, but there is no ipv6 route lookup call
+>> that will do the same thing.
+>>
+>> I guess we'll need to add an xfrm_lookup call in sctp_v6_get_dst().
+>>
+>> -vlad
+
+
