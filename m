@@ -1,96 +1,126 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: Hang: 2.6.32.4 sky2/DMAR (was [PATCH] sky2: Fix WARNING: at
- lib/dma-debug.c:902 check_sync)
-Date: Thu, 28 Jan 2010 09:08:35 -0800
-Message-ID: <20100128090835.0d93e53a@nehalam>
-References: <20100120094103.GA6225@ff.dom.local>
-	<4B58B217.8030001@majjas.com>
-	<20100121204133.GB3085@del.dom.local>
-	<4B59E7EB.3050605@majjas.com>
-	<20100122215304.GA3105@del.dom.local>
-	<4B5A2362.6000306@majjas.com>
-	<20100122230605.GB3105@del.dom.local>
-	<4B5A33D8.90501@majjas.com>
-	<20100122234656.GC3105@del.dom.local>
-	<4B5A39BD.8020305@majjas.com>
-	<20100123232133.GA3487@del.dom.local>
-	<4B605D1B.60402@majjas.com>
-	<20100127085049.5b5048e9@nehalam>
-	<4B60707F.1000608@majjas.com>
-	<20100127095614.14313677@nehalam>
-	<4B608128.7090607@majjas.com>
-	<4B6089C7.4010803@majjas.com>
-	<4B61ADF1.7060705@majjas.com>
-	<4B61BEA4.1030905@majjas.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 0% cpu usasge after fresh boot or net restart but 10% CPU if
+ kernel flush route cache
+Date: Thu, 28 Jan 2010 18:06:20 +0100
+Message-ID: <1264698380.2930.20.camel@edumazet-laptop>
+References: <41ac0f9e1001260858o7d2a6a6dgb37ecfba5c325932@mail.gmail.com>
+	 <1264605976.3197.8.camel@edumazet-laptop>
+	 <41ac0f9e1001271153u333a5e2aq6f473ccc6e6d1e23@mail.gmail.com>
+	 <1264627088.2892.7.camel@edumazet-laptop>
+	 <41ac0f9e1001280114x17951046oda3fddcae4b8b9d3@mail.gmail.com>
+	 <1264694957.2930.15.camel@edumazet-laptop>
+	 <41ac0f9e1001280826j1a4e6caar47ccfd357b6feb37@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
-	Don Fry <pcnet32@verizon.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Matt Carlson <mcarlson@broadcom.com>
-To: Michael Breuer <mbreuer@majjas.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756252Ab0A1RJs@vger.kernel.org>
-In-Reply-To: <4B61BEA4.1030905@majjas.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: cold cold <nedkonedev@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:34609 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755995Ab0A1RG2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2010 12:06:28 -0500
+Received: by bwz27 with SMTP id 27so685944bwz.21
+        for <netdev@vger.kernel.org>; Thu, 28 Jan 2010 09:06:27 -0800 (PST)
+In-Reply-To: <41ac0f9e1001280826j1a4e6caar47ccfd357b6feb37@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 28 Jan 2010 11:43:16 -0500
-Michael Breuer <mbreuer@majjas.com> wrote:
+Le jeudi 28 janvier 2010 =C3=A0 18:26 +0200, cold cold a =C3=A9crit :
+> On Thu, Jan 28, 2010 at 6:09 PM, Eric Dumazet <eric.dumazet@gmail.com=
+> wrote:
+> > Le jeudi 28 janvier 2010 =C3=A0 11:14 +0200, cold cold a =C3=A9crit=
+ :
+> >
+> >>
+> >> RX Kpps : 57 TX Kpps : 53  RX Kbits : 331184 TX Kbits : 306213
+> >> RX Kpps : 59 TX Kpps : 54  RX Kbits : 345517 TX Kbits : 304323
+> >> RX Kpps : 56 TX Kpps : 52  RX Kbits : 331418 TX Kbits : 296032
+> >> RX Kpps : 60 TX Kpps : 54  RX Kbits : 362007 TX Kbits : 297371
+> >> RX Kpps : 59 TX Kpps : 52  RX Kbits : 360455 TX Kbits : 280603
+> >>
+> >>
+> >> ON  one cpu, gc_interval to 1, gc_elasticity 2
+> >>
+> >> Cpu0  :  0.0%us,  0.0%sy,  0.0%ni, 72.0%id,  0.0%wa,  8.3%hi, 19.7=
+%si,  0.0%st
+> >> Cpu1  :  0.0%us,  0.0%sy,  0.0%ni,100.0%id,  0.0%wa,  0.0%hi,  0.0=
+%si,  0.0%st
+> >> Cpu2  :  0.0%us,  0.3%sy,  0.0%ni, 99.7%id,  0.0%wa,  0.0%hi,  0.0=
+%si,  0.0%st
+> >> Cpu3  :  0.0%us,  0.0%sy,  0.0%ni,100.0%id,  0.0%wa,  0.0%hi,  0.0=
+%si,  0.0%st
+> >>
+> >> ------------------------------------------------------------------=
+------------
+> >>    PerfTop:   17064 irqs/sec  kernel:98.0% [100000 cycles],  (all,=
+ 4 CPUs)
+> >> ------------------------------------------------------------------=
+------------
+> >>
+> >>              samples    pcnt   kernel function
+> >>              _______   _____   _______________
+> >>
+> >>             40388.00 - 27.8% : acpi_idle_do_entry
+> >>             24651.00 - 17.0% : read_hpet
+> >>              4271.00 -  2.9% : _spin_lock
+> >>              3388.00 -  2.3% : pskb_expand_head
+> >>              3288.00 -  2.3% : igb_poll [igb]
+> >>              3246.00 -  2.2% : irq_entries_start
+> >>              2868.00 -  2.0% : dev_gro_receive
+> >>              2665.00 -  1.8% : igb_xmit_frame_adv       [igb]
+> >>              2513.00 -  1.7% : ip_route_input
+> >>              2144.00 -  1.5% : igb_clean_tx_irq [igb]
+> >>              1842.00 -  1.3% : __slab_free
+> >>              1544.00 -  1.1% : dev_queue_xmit
+> >>              1423.00 -  1.0% : igb_msix_rx      [igb]
+> >>              1353.00 -  0.9% : __alloc_skb
+> >>              1285.00 -  0.9% : eth_type_trans
+> >> --
+> >
+> > All this seems pretty normal profile (regarding networking function=
+s),
+> > your machine should scale without problem.
+> >
+> > Of course, the two first functions (acpi_idle_do_entry() & read_hpe=
+t())
+> > look suspicious but I have no idea why.
+> >
+>=20
+> i make with flushing without gc on 2 cpu  2 time more traffic  and CP=
+U
+> usage about 5 times less
+>=20
+> top - 11:22:04 up  6:45,  5 users,  load average: 0.00, 0.10, 0.25
+> Tasks:  84 total,   1 running,  83 sleeping,   0 stopped,   0 zombie
+> Cpu0  :  0.0%us,  0.3%sy,  0.0%ni, 94.0%id,  0.0%wa,  1.7%hi,  4.0%si=
+,  0.0%st
+> Cpu1  :  0.3%us,  0.0%sy,  0.0%ni, 97.7%id,  0.0%wa,  0.7%hi,  1.3%si=
+,  0.0%st
+> Cpu2  :  0.0%us,  0.0%sy,  0.0%ni,100.0%id,  0.0%wa,  0.0%hi,  0.0%si=
+,  0.0%st
+> Cpu3  :  0.0%us,  0.0%sy,  0.0%ni,100.0%id,  0.0%wa,  0.0%hi,  0.0%si=
+,  0.0%st
+>=20
 
-> Update: I played with dma-debug. Was being disabled due to lack of 
-> memory. I forced it back on while pumping traffic through and got this:
-> Jan 28 11:39:30 mail kernel: ------------[ cut here ]------------
-> Jan 28 11:39:30 mail kernel: WARNING: at lib/dma-debug.c:902 
-> check_sync+0xc1/0x43f()
-> Jan 28 11:39:30 mail kernel: Hardware name: System Product Name
-> Jan 28 11:39:30 mail kernel: sky2 0000:06:00.0: DMA-API: device driver 
-> tries to sync DMA memory it has not allocated [device 
+pure luck I guess, since you use two cpus here instead of one, but
+nothing guarantee this.
 
-This test in dma-debug is bogus. Because the debug code matches
-dma based on address and size; and is perfectly valid to sync a value
-less than size. This is the patch I sent earlier, it isn't 100%
-correct but it will let you keep testing
-....................................
+>=20
+> RX Kpps : 90 TX Kpps : 75  RX Kbits : 582791 TX Kbits : 413873
+> RX Kpps : 87 TX Kpps : 74  RX Kbits : 546327 TX Kbits : 415852
+> RX Kpps : 87 TX Kpps : 74  RX Kbits : 544820 TX Kbits : 418339
+> RX Kpps : 88 TX Kpps : 73  RX Kbits : 569143 TX Kbits : 406438
+> --
+
+Not sure I understand your goals. Previous numbers were with less
+trafic ?
+
+What do you want ? your cpus being idle, or your router being able to
+forward packets without drops ?
+
+Good, but if you drop packets when real garbage collection is done, you
+loose. Make your choice :)
 
 
-This should fix the dma-debug API code (and documentation), to
-avoid false positives when sync is done on a partial map.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
---- a/Documentation/DMA-API.txt	2010-01-20 15:17:01.390143729 -0800
-+++ b/Documentation/DMA-API.txt	2010-01-20 15:18:48.967875255 -0800
-@@ -377,9 +377,10 @@ void
- pci_dma_sync_sg(struct pci_dev *hwdev, struct scatterlist *sg,
- 		       int nelems, int direction)
- 
--Synchronise a single contiguous or scatter/gather mapping.  All the
--parameters must be the same as those passed into the single mapping
--API.
-+Synchronise a single contiguous or scatter/gather mapping.  The
-+device and handle must be the same as those passed into the single mapping
-+API. The size can be less than the original mapping if only part
-+of the mapping needs to be accessed.
- 
- Notes:  You must do this:
- 
---- a/lib/dma-debug.c	2010-01-20 15:22:55.919519883 -0800
-+++ b/lib/dma-debug.c	2010-01-20 15:26:31.648895638 -0800
-@@ -285,11 +285,9 @@ static struct dma_debug_entry *hash_buck
- 	}
- 
- 	/*
--	 * If we have multiple matches but no perfect-fit, just return
--	 * NULL.
-+	 * If we have multiple matches but no perfect-fit
-+	 * return best value and let caller deal with it.
- 	 */
--	ret = (matches == 1) ? ret : NULL;
--
- 	return ret;
- }
- 
