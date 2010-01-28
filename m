@@ -1,64 +1,43 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: Which tool to use?
-Date: Thu, 28 Jan 2010 09:59:59 -0800
-Message-ID: <43F901BD926A4E43B106BF17856F07559D2D5EF6@orsmsx508.amr.corp.intel.com>
-References: <EA929A9653AAE14F841771FB1DE5A1365FDD386A6A@rrsmsx501.amr.corp.intel.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] [PATCH] net: Add support for ndo_select_queue() functions
+ to cache the queue mapping
+Date: Thu, 28 Jan 2010 10:00:11 -0800
+Message-ID: <20100128100011.2b624a9e@nehalam>
+References: <1264700317.2783.15.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:8507 "EHLO mga01.intel.com"
+Received: from mail.vyatta.com ([76.74.103.46]:47042 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753682Ab0A1SAG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2010 13:00:06 -0500
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FDD386A6A@rrsmsx501.amr.corp.intel.com>
-Content-Language: en-US
+	id S1754082Ab0A1SAd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2010 13:00:33 -0500
+In-Reply-To: <1264700317.2783.15.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
->On Behalf Of Williams, Mitch A
->Sent: Wednesday, January 27, 2010 10:10 PM
->To: netdev@vger.kernel.org; davem@davemloft.net; Stephen Hemminger
->Subject: Which tool to use?
->
->Which tool to use?
->
->Just looking for a bit of direction before I go off and start coding...
->
->Our SR-IOV capable parts (like everybody else's) include simple built-in
->Layer 2 switch, to allow packets to be switched between the various VF
->devices.
->
->We need the capability of configuring this switch from userspace. There
->are a few features we'd like to control, like anti-spoofing, and
->storm control, as well as being able to completely disable the internal
->switch for external loopback.  Mostly, however, we want to be able to
->add
->new MAC address filters to the switch.
->
->This is actually a pressing need, for SR-IOV to be really usable in
->a virtualized environment. In most use cases, along with VMs that are
->assigned VF devices, there will be a bunch of VMs talking through the PF
->device via a bridge.  We need to add the MAC addresses of these VMs to
->the on-board switch, or other VMs using the VF devices won't be able to
->talk to them - the packets will go out on the wire instead.
->
->So, which tool do I modify to make this happen? Ethtool, or ip?  I can
->think of convincing arguments for either, so I want to double-check with
->the maintainers before I dive in.
->
->Thanks,
->Mitch
->
+On Thu, 28 Jan 2010 17:38:37 +0000
+Ben Hutchings <bhutchings@solarflare.com> wrote:
 
-The folks working on the Open vSwitch project are addressing some of these issues also.  You might want to check them out at openvswitch.org, although I have no idea what sort of view the Linux networking community has towards their work.
+> =EF=BB=BFWe think it's worth matching up RX and TX queue selection fo=
+r a socket
+> when the queues share an interrupt.  Currently the default TX queue
+> selection is unlikely to match RX queue selection.  TX queue selectio=
+nc
+> can be overridden by the driver to match RX queue selection, but at t=
+he
+> expense of caching.  We found that without caching the cost of
+> recalculating the the hash in software for each packet outweighed the
+> benefit of good queue selection.
 
-- Greg
+Will this work with RPS and device driver hashing?
+I am thinking of the problem where the hardware hash function is
+Toeplitz (per NDIS spec), and the software hash function is Jhash
+(what kernel uses because it is cheaper).
+
+Therefore the transmit hash and receiver hash will be different.
 
 
+--=20
