@@ -1,82 +1,96 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC] [PATCH] net: Add support for
-	ndo_select_queue()	functions to cache the queue mapping
-Date: Thu, 28 Jan 2010 18:40:59 +0000
-Message-ID: <1264704059.2783.50.camel@achroite.uk.solarflarecom.com>
-References: <1264700317.2783.15.camel@achroite.uk.solarflarecom.com>
-	 <OF2C36A392.08814AE1-ON652576B9.00617C98-652576B9.0062AE8B@in.ibm.com>
-	 <1264702224.2783.18.camel@achroite.uk.solarflarecom.com>
-	 <OFC8D29372.BEB60058-ON652576B9.00642767-652576B9.00659789@in.ibm.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: CBQ broken in 2.6
+Date: Thu, 28 Jan 2010 19:45:20 +0100
+Message-ID: <20100128184519.GA3109@del.dom.local>
+References: <20100128125317.GA8931@ff.dom.local>
+ <1264685696.4038.14.camel@mare-infinitum.sigsegv.cx>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Anton Ivanov <anton.ivanov@kot-begemot.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:52333 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753575Ab0A1SlE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2010 13:41:04 -0500
-In-Reply-To: <OFC8D29372.BEB60058-ON652576B9.00642767-652576B9.00659789@in.ibm.com>
+Received: from mail-fx0-f215.google.com ([209.85.220.215]:39102 "EHLO
+	mail-fx0-f215.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753274Ab0A1Sp0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2010 13:45:26 -0500
+Received: by fxm7 with SMTP id 7so1197432fxm.28
+        for <netdev@vger.kernel.org>; Thu, 28 Jan 2010 10:45:25 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1264685696.4038.14.camel@mare-infinitum.sigsegv.cx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-01-29 at 00:11 +0530, Krishna Kumar2 wrote:
-> > Ben Hutchings <bhutchings@solarflare.com>
-> >
-> > On Thu, 2010-01-28 at 23:39 +0530, Krishna Kumar2 wrote:
-[...]
-> > > Other than that, I saw netif_sk_tx_queue_set is not called.
-> > > And dev_pick_tx has already capped automatically, you probably
-> > > don't need another here?
-> >
-> > Only the return value of ndo_select_queue() is capped; the cached value
-> > is assumed to be valid.
+On Thu, Jan 28, 2010 at 01:34:56PM +0000, Anton Ivanov wrote:
+> Hi Jarek,
+Hi Anton,
+
 > 
-> +void netif_sk_tx_queue_set(struct net_device *dev, struct sock *sk,
-> +                             u16 queue_index)
-> +{
-> +     sk_tx_queue_set(sk, dev_cap_txqueue(dev, queue_index));
-> +}
+> The class was created as bounded and never changed. I do a full reload
+> of the hierarchy including a root qdisc delete via a script instead of
+> trying to adjust it. 
 > 
-> I guess I didn't understand this then, who calls this function?
-[...]
+> It has 7 or so children and one sibling. It is parented to root.
+> 
+> I have recompiled sch_cbq.c with a number of printks in strategic
+> places. I have also added some debug output to tc. I have also rewritten
+> my test suite.
+> 
+> The results are as follows
+> 
+> Based on the printks cbq_set_lss and the cbq_change_class functions
+> correctly.
+> 
+> It indeed sets cl->borrow and cl->share to NULL as expected.
+> 
+> Based on results from the fixed test suite it also works as expected,
+> just with much lower precision than what I used to get from 2.6.9 and
+> 2.6.18.
+> 
+> However, it still returns complete bonkers for stats. 
+> 
+> Example (same class, I just moved the hierarchy around a bit trying to
+> get a better fix on this so it is now 1:15).
+> 
+> class cbq 1:15 parent 1: leaf 76: rate 5600Kbit (bounded) prio 1
+>  Sent 10920592 bytes 14420 pkt (dropped 0, overlimits 0 requeues 0)
+>  rate 0bit 0pps backlog 0b 0p requeues 0
+>   borrowed 8311 overactions 0 avgidle 78 undertime 0
+> 
+> It is bounded, but according to stats it has borrowed and has no
+> overactions. 
+> 
+> If the stats are to be believed it is a bug somewhere which is eluding
+> me (and my test suite and printks are wrong somehow). 
+> 
+> Alternatively, it may be a bug with the stats themselves which once
+> again I do not see in the actual sch_cbq.c file.
 
-The driver's ndo_select_queue() implementation calls it before
-returning, if and only if sk_may_set_tx_queue() is true and its
-selection is dependent only on the flow id.
+For now I could only find some explanation in this place:
 
-As an example, ixgbe's selection function:
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=blob;f=net/sched/sch_cbq.c;h=3846d65bc03ec7a7de7e6ca674dc6c2b255dc570;hb=HEAD
 
-        static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb)
-        {
-        	struct ixgbe_adapter *adapter = netdev_priv(dev);
-        	int txq = smp_processor_id();
-        
-        	if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE)
-        		return txq;
-        
-        #ifdef IXGBE_FCOE
-        	if ((adapter->flags & IXGBE_FLAG_FCOE_ENABLED) &&
-        	    (skb->protocol == htons(ETH_P_FCOE))) {
-        		txq &= (adapter->ring_feature[RING_F_FCOE].indices - 1);
-        		txq += adapter->ring_feature[RING_F_FCOE].mask;
-        		return txq;
-        	}
-        #endif
-        	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED)
-        		return (skb->vlan_tci & IXGBE_TX_FLAGS_VLAN_PRIO_MASK) >> 13;
-        
-        	return skb_tx_hash(dev, skb);
-        }
-        
-would not call netif_sk_tx_queue_set() in the first two cases, but could
-do so in the last two cases if sk_may_set_tx_queue(skb->sk) is true.
+820 static __inline__ struct sk_buff *
+821 cbq_dequeue_prio(struct Qdisc *sch, int prio)
+822 {
+...
+863                         if (borrow != cl) {
+864 #ifndef CBQ_XSTATS_BORROWS_BYTES
+865                                 borrow->xstats.borrows++;
+866                                 cl->xstats.borrows++;
+867 #else
+868                                 borrow->xstats.borrows += qdisc_pkt_len(skb);
+869                                 cl->xstats.borrows += qdisc_pkt_len(skb);
+870 #endif
 
-Ben.
+So, xstats.borrows is updated for lender as well, which might look
+wrong/right/funny (depending on your political principles ;-).
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+It could be your case if the class above has an unbounded child class.
+Otherwise, it needs more searching. Btw, I'm not the CBQ expert to
+verify (without learning the specs) these borrowing relations. (As a
+matter of fact, within a few years I didn't find here many traces of
+such (active) experts, so my recommendation would be HTB or HFSC
+unless you really know what you're doing ;-)
 
+Regards,
+Jarek P.
