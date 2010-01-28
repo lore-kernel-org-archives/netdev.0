@@ -1,96 +1,96 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: CBQ broken in 2.6
-Date: Thu, 28 Jan 2010 19:45:20 +0100
-Message-ID: <20100128184519.GA3109@del.dom.local>
-References: <20100128125317.GA8931@ff.dom.local>
- <1264685696.4038.14.camel@mare-infinitum.sigsegv.cx>
+From: Michael Breuer <mbreuer@majjas.com>
+Subject: Re: Hang: 2.6.32.4 sky2/DMAR (was [PATCH] sky2: Fix WARNING: at
+ lib/dma-debug.c:902 check_sync)
+Date: Thu, 28 Jan 2010 13:46:17 -0500
+Message-ID: <4B61DB79.4080703@majjas.com>
+References: <20100120094103.GA6225@ff.dom.local> <4B58B217.8030001@majjas.com>
+ <20100121204133.GB3085@del.dom.local> <4B59E7EB.3050605@majjas.com>
+ <20100122215304.GA3105@del.dom.local> <4B5A2362.6000306@majjas.com>
+ <20100122230605.GB3105@del.dom.local> <4B5A33D8.90501@majjas.com>
+ <20100122234656.GC3105@del.dom.local> <4B5A39BD.8020305@majjas.com>
+ <20100123232133.GA3487@del.dom.local> <4B605D1B.60402@majjas.com>
+ <20100127085049.5b5048e9@nehalam> <4B60707F.1000608@majjas.com>
+ <20100127095614.14313677@nehalam> <4B608128.7090607@majjas.com>
+ <4B6089C7.4010803@majjas.com> <4B61ADF1.7060705@majjas.com>
+ <4B61BEA4.1030905@majjas.com> <20100128090835.0d93e53a@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Anton Ivanov <anton.ivanov@kot-begemot.co.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f215.google.com ([209.85.220.215]:39102 "EHLO
-	mail-fx0-f215.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753274Ab0A1Sp0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jan 2010 13:45:26 -0500
-Received: by fxm7 with SMTP id 7so1197432fxm.28
-        for <netdev@vger.kernel.org>; Thu, 28 Jan 2010 10:45:25 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1264685696.4038.14.camel@mare-infinitum.sigsegv.cx>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
+	Don Fry <pcnet32@verizon.net>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Matt Carlson <mcarlson@broadcom.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756405Ab0A1SqS@vger.kernel.org>
+In-reply-to: <20100128090835.0d93e53a@nehalam>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 28, 2010 at 01:34:56PM +0000, Anton Ivanov wrote:
-> Hi Jarek,
-Hi Anton,
-
-> 
-> The class was created as bounded and never changed. I do a full reload
-> of the hierarchy including a root qdisc delete via a script instead of
-> trying to adjust it. 
-> 
-> It has 7 or so children and one sibling. It is parented to root.
-> 
-> I have recompiled sch_cbq.c with a number of printks in strategic
-> places. I have also added some debug output to tc. I have also rewritten
-> my test suite.
-> 
-> The results are as follows
-> 
-> Based on the printks cbq_set_lss and the cbq_change_class functions
-> correctly.
-> 
-> It indeed sets cl->borrow and cl->share to NULL as expected.
-> 
-> Based on results from the fixed test suite it also works as expected,
-> just with much lower precision than what I used to get from 2.6.9 and
-> 2.6.18.
-> 
-> However, it still returns complete bonkers for stats. 
-> 
-> Example (same class, I just moved the hierarchy around a bit trying to
-> get a better fix on this so it is now 1:15).
-> 
-> class cbq 1:15 parent 1: leaf 76: rate 5600Kbit (bounded) prio 1
->  Sent 10920592 bytes 14420 pkt (dropped 0, overlimits 0 requeues 0)
->  rate 0bit 0pps backlog 0b 0p requeues 0
->   borrowed 8311 overactions 0 avgidle 78 undertime 0
-> 
-> It is bounded, but according to stats it has borrowed and has no
-> overactions. 
-> 
-> If the stats are to be believed it is a bug somewhere which is eluding
-> me (and my test suite and printks are wrong somehow). 
-> 
-> Alternatively, it may be a bug with the stats themselves which once
-> again I do not see in the actual sch_cbq.c file.
-
-For now I could only find some explanation in this place:
-
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=blob;f=net/sched/sch_cbq.c;h=3846d65bc03ec7a7de7e6ca674dc6c2b255dc570;hb=HEAD
-
-820 static __inline__ struct sk_buff *
-821 cbq_dequeue_prio(struct Qdisc *sch, int prio)
-822 {
-...
-863                         if (borrow != cl) {
-864 #ifndef CBQ_XSTATS_BORROWS_BYTES
-865                                 borrow->xstats.borrows++;
-866                                 cl->xstats.borrows++;
-867 #else
-868                                 borrow->xstats.borrows += qdisc_pkt_len(skb);
-869                                 cl->xstats.borrows += qdisc_pkt_len(skb);
-870 #endif
-
-So, xstats.borrows is updated for lender as well, which might look
-wrong/right/funny (depending on your political principles ;-).
-
-It could be your case if the class above has an unbounded child class.
-Otherwise, it needs more searching. Btw, I'm not the CBQ expert to
-verify (without learning the specs) these borrowing relations. (As a
-matter of fact, within a few years I didn't find here many traces of
-such (active) experts, so my recommendation would be HTB or HFSC
-unless you really know what you're doing ;-)
-
-Regards,
-Jarek P.
+On 1/28/2010 12:08 PM, Stephen Hemminger wrote:
+> On Thu, 28 Jan 2010 11:43:16 -0500
+> Michael Breuer<mbreuer@majjas.com>  wrote:
+>
+>    
+>> Update: I played with dma-debug. Was being disabled due to lack of
+>> memory. I forced it back on while pumping traffic through and got this:
+>> Jan 28 11:39:30 mail kernel: ------------[ cut here ]------------
+>> Jan 28 11:39:30 mail kernel: WARNING: at lib/dma-debug.c:902
+>> check_sync+0xc1/0x43f()
+>> Jan 28 11:39:30 mail kernel: Hardware name: System Product Name
+>> Jan 28 11:39:30 mail kernel: sky2 0000:06:00.0: DMA-API: device driver
+>> tries to sync DMA memory it has not allocated [device
+>>      
+> This test in dma-debug is bogus. Because the debug code matches
+> dma based on address and size; and is perfectly valid to sync a value
+> less than size. This is the patch I sent earlier, it isn't 100%
+> correct but it will let you keep testing
+> ....................................
+>
+>
+> This should fix the dma-debug API code (and documentation), to
+> avoid false positives when sync is done on a partial map.
+>
+> Signed-off-by: Stephen Hemminger<shemminger@vyatta.com>
+>
+> --- a/Documentation/DMA-API.txt	2010-01-20 15:17:01.390143729 -0800
+> +++ b/Documentation/DMA-API.txt	2010-01-20 15:18:48.967875255 -0800
+> @@ -377,9 +377,10 @@ void
+>   pci_dma_sync_sg(struct pci_dev *hwdev, struct scatterlist *sg,
+>   		       int nelems, int direction)
+>
+> -Synchronise a single contiguous or scatter/gather mapping.  All the
+> -parameters must be the same as those passed into the single mapping
+> -API.
+> +Synchronise a single contiguous or scatter/gather mapping.  The
+> +device and handle must be the same as those passed into the single mapping
+> +API. The size can be less than the original mapping if only part
+> +of the mapping needs to be accessed.
+>
+>   Notes:  You must do this:
+>
+> --- a/lib/dma-debug.c	2010-01-20 15:22:55.919519883 -0800
+> +++ b/lib/dma-debug.c	2010-01-20 15:26:31.648895638 -0800
+> @@ -285,11 +285,9 @@ static struct dma_debug_entry *hash_buck
+>   	}
+>
+>   	/*
+> -	 * If we have multiple matches but no perfect-fit, just return
+> -	 * NULL.
+> +	 * If we have multiple matches but no perfect-fit
+> +	 * return best value and let caller deal with it.
+>   	 */
+> -	ret = (matches == 1) ? ret : NULL;
+> -
+>   	return ret;
+>   }
+>
+>    
+Ok - applied. Noise gone... however I'm not sure whether I'll be able to 
+keep dma-debug going long enough to catch anything. num_free_entries 
+keeps dropping... looks like entries are not freed. I'm running with a 
+huge number for now & sky2 as the driver filter. Is there a reason that 
+entries wouldn't be unmapped, or is dma-debug.c just not processing the 
+unmap correctly?
