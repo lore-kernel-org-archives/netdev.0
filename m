@@ -1,26 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] can: deny filterlist access on non-CAN
- interfaces
-Date: Fri, 29 Jan 2010 00:09:53 -0800 (PST)
-Message-ID: <20100129.000953.240651994.davem@davemloft.net>
-References: <4B629143.6080402@hartkopp.net>
+From: Jon Masters <jonathan@jonmasters.org>
+Subject: Re: PROBLEM: reproducible crash KVM+nf_conntrack all recent 2.6
+ kernels
+Date: Fri, 29 Jan 2010 03:42:45 -0500
+Message-ID: <1264754565.2793.405.camel@tonnant>
+References: <1264657559.2793.103.camel@tonnant>
+	 <1264658364.2793.105.camel@tonnant>  <4B6180D1.6050609@trash.net>
+	 <1264720891.2793.205.camel@tonnant>  <1264727492.2793.207.camel@tonnant>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: socketcan@hartkopp.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46959
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751345Ab0A2IJm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2010 03:09:42 -0500
-In-Reply-To: <4B629143.6080402@hartkopp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1264727492.2793.207.camel@tonnant>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Date: Fri, 29 Jan 2010 08:41:55 +0100
+Hi,
 
-> are you fine with this fix or are you just waiting for Wolfgangs ACK?
+So I did some poking (still trying to figure out netfilter a little
+internally) and looked over the handling of connection tracking. The
+oops reports I have been getting generally lie in __nf_conntrack_find,
+specifically within a hlist iterator that looks up the information for
+the current connection in a per-net namespace hashtable (under RCU, it's
+been locked already by the time we get in here). Here's the piece:
 
-It's simply in my backlog, I'll get to it soon.
+        hlist_nulls_for_each_entry_rcu(h, n, &net->ct.hash[hash],
+hnnode) {
+                if (nf_ct_tuple_equal(tuple, &h->tuple)) {
+                        NF_CT_STAT_INC(net, found);
+                        local_bh_enable();
+                        return h;
+                }
+                NF_CT_STAT_INC(net, searched);
+        }
+
+Instrumenting the kernel at the moment and then setting up more of a
+debugging environment to poke at what goes wrong here. Perhaps there's
+some broken RCU assumption - I just spent the last few hours reading
+over netfilter source and Paul's RCU docs again to brush up.
+
+Perhaps you netdev folks can let me know if there's a handy netfilter
+debugging guide somewhere.
+
+Jon.
+
+
