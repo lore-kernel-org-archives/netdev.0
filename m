@@ -1,69 +1,45 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] [PATCH] Optimize TCP sendmsg in favour of fast devices?
-Date: Fri, 29 Jan 2010 11:56:04 -0800
-Message-ID: <4B633D54.7030200@hp.com>
-References: <20100121.012520.254679483.davem@davemloft.net>	<20100121094157.GA15262@gondor.apana.org.au>	<OF7EA723DA.DC2FF4FC-ON652576B8.002064CB-652576B8.00267739@in.ibm.com>	<20100129090625.GD23140@gondor.apana.org.au> <OFA813CB35.7FC6144E-ON652576BA.003C3B2C-652576BA.003CB215@in.ibm.com>
+From: Joe Perches <joe@perches.com>
+Subject: RFC: Convert printks with net_device to dev_<level>
+Date: Fri, 29 Jan 2010 12:01:26 -0800
+Message-ID: <1264795286.25140.72.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Cc: David Miller <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@suse.de>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:24019 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754534Ab0A2T4I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2010 14:56:08 -0500
-In-Reply-To: <OFA813CB35.7FC6144E-ON652576BA.003C3B2C-652576BA.003CB215@in.ibm.com>
+Received: from mail.perches.com ([173.55.12.10]:1605 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754676Ab0A2UB2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jan 2010 15:01:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Krishna Kumar2 wrote:
->>Herbert Xu <herbert@gondor.apana.org.au> wrote on 01/29/2010 02:36:25 PM:
->>
->>
->>>I ran 5 serial netperf's with 16K and another 5 serial netperfs
->>>with 64K I/O sizes, and the aggregate result is:
->>>
->>>0. Driver unsets F_SG but sets F_GSO:
->>>      Original code with 16K: 19471.65
->>>      New code with 16K:      19409.70
->>>      Original code with 64K: 21357.23
->>>      New code with 64K:      22050.42
->>
->>OK this is more in line with what I was expecting, namely that
->>enabling GSO is actually beneficial even without SG.
->>
->>It would be good to get the CPU utilisation figures so we can
->>see the complete picture.
-> 
-> 
-> Same 5 runs of single netperf's:
-> 
-> 0. Driver unsets F_SG but sets F_GSO:
->         Org (16K):      BW: 18180.71    SD: 13.485
->         New (16K):      BW: 18113.15    SD: 13.551
->         Org (64K):      BW: 21980.28    SD: 10.306
->         New (64K):      BW: 21386.59    SD: 10.447
-> 
-> 1. Driver unsets F_SG, and with GSO off
->         Org (16K):      BW: 10894.62    SD: 26.591
->         New (16K):      BW: 7262.10     SD: 35.340
->         Org (64K):      BW: 12396.41    SD: 23.357
->         New (64K):      BW: 7853.02     SD: 32.405
-> 
-> 
-> 2. Driver unsets F_SG and uses ethtool to set GSO:
->         Org (16K):      BW: 18094.11    SD: 13.603
->         New (16K):      BW: 17952.38    SD: 13.743
->         Org (64K):      BW: 21540.78    SD: 10.771
->         New (64K):      BW: 21818.35    SD: 10.598
+I've been playing with a cocci script and some additional
+scripts to automate a conversion of printk and pr_<level>
+logging messages with a reference to a struct net_device
+to dev_<level>(&net_device->dev, ...)
 
-Just a slight change in service demand there...  For those unfamiliar, 
-service demand in netperf is the microseconds of non-idle CPU time per 
-KB of data transferred.  Smaller is better.
+A sample conversion:
 
-happy benchmarking,
+-	printk(KERN_INFO "%s: Using MII transceiver %d, status %4.4x.\n",
+-	       dev->name, tp->phys[0], tulip_mdio_read(dev, tp->phys[0], 1));
++	dev_info(&dev->dev, "Using MII transceiver %d, status %04x\n",
++		 tp->phys[0], tulip_mdio_read(dev, tp->phys[0], 1));
 
-rick jones
+I submitted conversions for drivers/net/tulip/.
+I did not convert any calls with KERN_DEBUG.
+http://patchwork.ozlabs.org/patch/43889/
+
+The logging messages are a bit more verbose/complete.
+Code size increases a small amount.
+
+Is this sort of conversion useful?
+Should more conversions be submitted?
+Would it be useful to convert the KERN_DEBUG calls?
+Any automated conversion could use:
+
+	printk(KERN_DEBUG "%s: ...", dev->name
+	dev_printk(KERN_DEBUG, &dev->dev, "...
+
