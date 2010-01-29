@@ -1,75 +1,66 @@
-From: Damian Lukowski <damian@tvk.rwth-aachen.de>
-Subject: [PATCH 3/3][v2] tcp: fix ICMP-RTO war: Code beautification
-Date: Fri, 29 Jan 2010 23:16:05 +0100
-Message-ID: <4B635E25.8080502@tvk.rwth-aachen.de>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [PATCH net-next-2.6] packet: Add GSO/checksum offload support
+ to af_packet sockets
+Date: Fri, 29 Jan 2010 14:30:49 -0800
+Message-ID: <4B636199.7080708@us.ibm.com>
+References: <1264537819.24933.122.camel@w-sridhar.beaverton.ibm.com> <20100129085343.GB23140@gondor.apana.org.au> <1264800308.15980.395.camel@w-sridhar.beaverton.ibm.com> <20100129213619.GA6404@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7BIT
-To: Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	netdev <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:54557 "EHLO
-	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755703Ab0A2WQG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2010 17:16:06 -0500
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
- by mta-2.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0KX10023L4ITPJE0@mta-2.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Fri, 29 Jan 2010 23:16:05 +0100 (CET)
-Received: from [137.226.143.131] (nexus.tvk.RWTH-Aachen.DE [137.226.143.131])
-	by relay.rwth-aachen.de (8.13.8+Sun/8.13.8/1) with ESMTP id o0TMG5jl019970	for
- <netdev@vger.kernel.org>; Fri, 29 Jan 2010 23:16:05 +0100 (CET)
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:48301 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750919Ab0A2Wb2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jan 2010 17:31:28 -0500
+Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
+	by e7.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o0TMOaw7022502
+	for <netdev@vger.kernel.org>; Fri, 29 Jan 2010 17:24:36 -0500
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o0TMVIGJ054348
+	for <netdev@vger.kernel.org>; Fri, 29 Jan 2010 17:31:18 -0500
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o0TMVHZd000940
+	for <netdev@vger.kernel.org>; Fri, 29 Jan 2010 17:31:17 -0500
+In-Reply-To: <20100129213619.GA6404@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rearranged functions and removed function prototype.
+On 1/29/2010 1:36 PM, Herbert Xu wrote:
+> On Fri, Jan 29, 2010 at 01:25:08PM -0800, Sridhar Samudrala wrote:
+>    
+>> This check is to dis-allow processing of packets with virtio_net_hdr
+>> destined for non-ethernet devices.
+>> Is it OK if i add a check in packet_bind() to not allow binding to
+>> a non-ethernet device when PACKET_VNET_HDR option is set?
+>>
+>> I need to figure out a way to set the skb protocol correctly based
+>> on the packet. Any clues?
+>>      
+> IMHO the skb protocol should be set by whatever is invoking the
+> sendmsg call.  After all they would know what the L2 header is
+> and should be able to deduce the protocol correctly.
+>    
+In this use-case, the component that is calling sendmsg() can be either 
+the vhost-net in host kernel
+or qemu. They get the buffer including the L2 header from the guest. 
+They too need to parse the L2
+header to find the protocol.
+The packet itself originates from the guest virtio-net driver. but when 
+it converts the skb to a virtio-ring
+buffer, some of the information in the skb(including protocol and vlan 
+info etc) is lost. I guess if we could
+re-design, virtio_net_hdr would include this info too. But i think it is 
+too late to make any such changes.
+So either the callers of sendmsg() or packet_snd() need to parse the L2 
+header to get the protocol and
+vlan info etc. sendmsg() caller could fill in the protocol, but not the 
+vlan info.
 
-Signed-off-by: Damian Lukowski <damian@tvk.rwth-aachen.de>
----
- include/net/tcp.h |   23 +++++++++++------------
- 1 files changed, 11 insertions(+), 12 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index ff6cbaa..2a9ced8 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -528,7 +528,17 @@ static inline void tcp_bound_rto(const struct sock *sk)
- 		inet_csk(sk)->icsk_rto = TCP_RTO_MAX;
- }
- 
--static inline u32 tcp_rto_min(struct sock *sk);
-+/* Compute the actual rto_min value */
-+static inline u32 tcp_rto_min(struct sock *sk)
-+{
-+	struct dst_entry *dst = __sk_dst_get(sk);
-+	u32 rto_min = TCP_RTO_MIN;
-+
-+	if (dst && dst_metric_locked(dst, RTAX_RTO_MIN))
-+		rto_min = dst_metric_rtt(dst, RTAX_RTO_MIN);
-+	return rto_min;
-+}
-+
- static inline u32 __tcp_set_rto(const struct tcp_sock *tp)
- {
- 	u32 rto = (tp->srtt >> 3) + tp->rttvar;
-@@ -559,17 +569,6 @@ static inline void tcp_fast_path_check(struct sock *sk)
- 		tcp_fast_path_on(tp);
- }
- 
--/* Compute the actual rto_min value */
--static inline u32 tcp_rto_min(struct sock *sk)
--{
--	struct dst_entry *dst = __sk_dst_get(sk);
--	u32 rto_min = TCP_RTO_MIN;
--
--	if (dst && dst_metric_locked(dst, RTAX_RTO_MIN))
--		rto_min = dst_metric_rtt(dst, RTAX_RTO_MIN);
--	return rto_min;
--}
--
- /* Compute the actual receive window we are currently advertising.
-  * Rcv_nxt can be after the window if our peer push more data
-  * than the offered window.
--- 
-1.6.4.4
+Thanks
+Sridhar
 
