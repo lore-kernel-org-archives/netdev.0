@@ -1,14 +1,14 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 11/13] tulip/uli526x.c: Use dev_<level> and pr_<level>
-Date: Thu, 28 Jan 2010 22:59:27 -0800
-Message-ID: <c0233ff5b830b0b050529dd1a750fad6154d0fe5.1264747118.git.joe@perches.com>
+Subject: [PATCH 09/13] tulip/pnic2.c: Use dev_<level> and pr_<level>
+Date: Thu, 28 Jan 2010 22:59:25 -0800
+Message-ID: <678a58c1602c2ab4a9955092cd1d7c61afa32d76.1264747118.git.joe@perches.com>
 References: <cover.1264747118.git.joe@perches.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1596 "EHLO mail.perches.com"
+Received: from mail.perches.com ([173.55.12.10]:1594 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754274Ab0A2G7c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754115Ab0A2G7c (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 29 Jan 2010 01:59:32 -0500
 In-Reply-To: <cover.1264747118.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,171 +18,152 @@ Convert printks to dev_<level> where a dev is available
 Convert printks to pr_<level> where not
 Coalesce format strings
 Change print formats with %d.dx to %0dx
-Add #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-Remove DRV_NAME from logging messages
-Add do {} while(0) to ULI526X_DBUG macro
-Make SHOW_MEDIA_TYPE macro more readable
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/tulip/uli526x.c |   46 +++++++++++++++++++++++++-----------------
- 1 files changed, 27 insertions(+), 19 deletions(-)
+ drivers/net/tulip/pnic2.c |   59 +++++++++++++++++++++++----------------------
+ 1 files changed, 30 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/tulip/uli526x.c b/drivers/net/tulip/uli526x.c
-index d549042..dc3335d 100644
---- a/drivers/net/tulip/uli526x.c
-+++ b/drivers/net/tulip/uli526x.c
-@@ -12,6 +12,8 @@
+diff --git a/drivers/net/tulip/pnic2.c b/drivers/net/tulip/pnic2.c
+index d841869..b819766 100644
+--- a/drivers/net/tulip/pnic2.c
++++ b/drivers/net/tulip/pnic2.c
+@@ -87,8 +87,8 @@ void pnic2_timer(unsigned long data)
+ 	int next_tick = 60*HZ;
  
- */
+ 	if (tulip_debug > 3)
+-		printk(KERN_INFO"%s: PNIC2 negotiation status %8.8x.\n",
+-                    dev->name,ioread32(ioaddr + CSR12));
++		dev_info(&dev->dev, "PNIC2 negotiation status %08x\n",
++			 ioread32(ioaddr + CSR12));
  
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #define DRV_NAME	"uli526x"
- #define DRV_VERSION	"0.9.3"
- #define DRV_RELDATE	"2005-7-29"
-@@ -82,9 +84,16 @@
- #define ULI526X_TX_TIMEOUT ((16*HZ)/2)	/* tx packet time-out time 8 s" */
- #define ULI526X_TX_KICK 	(4*HZ/2)	/* tx packet Kick-out time 2 s" */
+ 	if (next_tick) {
+ 		mod_timer(&tp->timer, RUN_AT(next_tick));
+@@ -125,8 +125,8 @@ void pnic2_start_nway(struct net_device *dev)
+         csr14 |= 0x00001184;
  
--#define ULI526X_DBUG(dbug_now, msg, value) if (uli526x_debug || (dbug_now)) printk(KERN_ERR DRV_NAME ": %s %lx\n", (msg), (long) (value))
-+#define ULI526X_DBUG(dbug_now, msg, value)			\
-+do {								\
-+	if (uli526x_debug || (dbug_now))			\
-+		pr_err("%s %lx\n", (msg), (long) (value));	\
-+} while (0)
+ 	if (tulip_debug > 1)
+-		printk(KERN_DEBUG "%s: Restarting PNIC2 autonegotiation, "
+-                      "csr14=%8.8x.\n", dev->name, csr14);
++		printk(KERN_DEBUG "%s: Restarting PNIC2 autonegotiation, csr14=%08x\n",
++		       dev->name, csr14);
  
--#define SHOW_MEDIA_TYPE(mode) printk(KERN_ERR DRV_NAME ": Change Speed to %sMhz %s duplex\n",mode & 1 ?"100":"10", mode & 4 ? "full":"half");
-+#define SHOW_MEDIA_TYPE(mode)					\
-+	pr_err("Change Speed to %sMhz %s duplex\n",		\
-+	       mode & 1 ? "100" : "10",				\
-+	       mode & 4 ? "full" : "half");
+         /* tell pnic2_lnk_change we are doing an nway negotiation */
+ 	dev->if_port = 0;
+@@ -137,8 +137,8 @@ void pnic2_start_nway(struct net_device *dev)
  
+ 	tp->csr6 = ioread32(ioaddr + CSR6);
+ 	if (tulip_debug > 1)
+-		printk(KERN_DEBUG "%s: On Entry to Nway, "
+-                      "csr6=%8.8x.\n", dev->name, tp->csr6);
++		printk(KERN_DEBUG "%s: On Entry to Nway, csr6=%08x\n",
++		       dev->name, tp->csr6);
  
- /* CR9 definition: SROM/MII */
-@@ -284,7 +293,7 @@ static int __devinit uli526x_init_one (struct pci_dev *pdev,
- 	SET_NETDEV_DEV(dev, &pdev->dev);
+         /* mask off any bits not to touch
+          * comment at top of file explains mask value
+@@ -181,9 +181,9 @@ void pnic2_lnk_change(struct net_device *dev, int csr5)
+ 	int csr12 = ioread32(ioaddr + CSR12);
  
- 	if (pci_set_dma_mask(pdev, DMA_BIT_MASK(32))) {
--		printk(KERN_WARNING DRV_NAME ": 32-bit PCI DMA not available.\n");
-+		pr_warning("32-bit PCI DMA not available\n");
- 		err = -ENODEV;
- 		goto err_out_free;
- 	}
-@@ -295,19 +304,19 @@ static int __devinit uli526x_init_one (struct pci_dev *pdev,
- 		goto err_out_free;
+ 	if (tulip_debug > 1)
+-		printk(KERN_INFO"%s: PNIC2 link status interrupt %8.8x, "
+-                       " CSR5 %x, %8.8x.\n", dev->name, csr12,
+-                       csr5, ioread32(ioaddr + CSR14));
++		dev_info(&dev->dev,
++			 "PNIC2 link status interrupt %08x,  CSR5 %x, %08x\n",
++			 csr12, csr5, ioread32(ioaddr + CSR14));
  
- 	if (!pci_resource_start(pdev, 0)) {
--		printk(KERN_ERR DRV_NAME ": I/O base is zero\n");
-+		pr_err("I/O base is zero\n");
- 		err = -ENODEV;
- 		goto err_out_disable;
- 	}
+ 	/* If NWay finished and we have a negotiated partner capability.
+          * check bits 14:12 for bit pattern 101 - all is good
+@@ -215,9 +215,9 @@ void pnic2_lnk_change(struct net_device *dev, int csr5)
+ 			else if (negotiated & 0x0020)	dev->if_port = 0;
+ 			else {
+ 			     if (tulip_debug > 1)
+-		                   printk(KERN_INFO "%s: funny autonegotiate result "
+-                                        "csr12 %8.8x advertising %4.4x\n",
+-			                 dev->name, csr12, tp->sym_advertise);
++				     dev_info(&dev->dev,
++					      "funny autonegotiate result csr12 %08x advertising %04x\n",
++					      csr12, tp->sym_advertise);
+ 			     tp->nwayset = 0;
+ 			     /* so check  if 100baseTx link state is okay */
+ 			     if ((csr12 & 2) == 0  &&  (tp->sym_advertise & 0x0180))
+@@ -231,10 +231,11 @@ void pnic2_lnk_change(struct net_device *dev, int csr5)
  
- 	if (pci_resource_len(pdev, 0) < (ULI526X_IO_SIZE) ) {
--		printk(KERN_ERR DRV_NAME ": Allocated I/O size too small\n");
-+		pr_err("Allocated I/O size too small\n");
- 		err = -ENODEV;
- 		goto err_out_disable;
- 	}
- 
- 	if (pci_request_regions(pdev, DRV_NAME)) {
--		printk(KERN_ERR DRV_NAME ": Failed to request PCI regions\n");
-+		pr_err("Failed to request PCI regions\n");
- 		err = -ENODEV;
- 		goto err_out_disable;
- 	}
-@@ -382,9 +391,9 @@ static int __devinit uli526x_init_one (struct pci_dev *pdev,
- 	if (err)
- 		goto err_out_res;
- 
--	printk(KERN_INFO "%s: ULi M%04lx at pci%s, %pM, irq %d.\n",
--	       dev->name,ent->driver_data >> 16,pci_name(pdev),
--	       dev->dev_addr, dev->irq);
-+	dev_info(&dev->dev, "ULi M%04lx at pci%s, %pM, irq %d\n",
-+		 ent->driver_data >> 16, pci_name(pdev),
-+		 dev->dev_addr, dev->irq);
- 
- 	pci_set_master(pdev);
- 
-@@ -516,7 +525,7 @@ static void uli526x_init(struct net_device *dev)
- 		}
- 	}
- 	if(phy_tmp == 32)
--		printk(KERN_WARNING "Can not find the phy address!!!");
-+		pr_warning("Can not find the phy address!!!");
- 	/* Parser SROM and media mode */
- 	db->media_mode = uli526x_media_mode;
- 
-@@ -582,7 +591,7 @@ static netdev_tx_t uli526x_start_xmit(struct sk_buff *skb,
- 
- 	/* Too large packet check */
- 	if (skb->len > MAX_PACKET_SIZE) {
--		printk(KERN_ERR DRV_NAME ": big packet = %d\n", (u16)skb->len);
-+		pr_err("big packet = %d\n", (u16)skb->len);
- 		dev_kfree_skb(skb);
- 		return NETDEV_TX_OK;
- 	}
-@@ -592,7 +601,7 @@ static netdev_tx_t uli526x_start_xmit(struct sk_buff *skb,
- 	/* No Tx resource check, it never happen nromally */
- 	if (db->tx_packet_cnt >= TX_FREE_DESC_CNT) {
- 		spin_unlock_irqrestore(&db->lock, flags);
--		printk(KERN_ERR DRV_NAME ": No Tx resource %ld\n", db->tx_packet_cnt);
-+		pr_err("No Tx resource %ld\n", db->tx_packet_cnt);
- 		return NETDEV_TX_BUSY;
- 	}
- 
-@@ -1058,7 +1067,7 @@ static void uli526x_timer(unsigned long data)
- 		/* Link Failed */
- 		ULI526X_DBUG(0, "Link Failed", tmp_cr12);
- 		netif_carrier_off(dev);
--		printk(KERN_INFO "uli526x: %s NIC Link is Down\n",dev->name);
-+		pr_info("%s NIC Link is Down\n",dev->name);
- 		db->link_failed = 1;
- 
- 		/* For Force 10/100M Half/Full mode: Enable Auto-Nego mode */
-@@ -1090,11 +1099,11 @@ static void uli526x_timer(unsigned long data)
- 				}
- 				if(db->op_mode==ULI526X_10MFD || db->op_mode==ULI526X_100MFD)
- 				{
--					printk(KERN_INFO "uli526x: %s NIC Link is Up %d Mbps Full duplex\n",dev->name,TmpSpeed);
-+					pr_info("%s NIC Link is Up %d Mbps Full duplex\n",dev->name,TmpSpeed);
- 				}
- 				else
- 				{
--					printk(KERN_INFO "uli526x: %s NIC Link is Up %d Mbps Half duplex\n",dev->name,TmpSpeed);
-+					pr_info("%s NIC Link is Up %d Mbps Half duplex\n",dev->name,TmpSpeed);
- 				}
- 				netif_carrier_on(dev);
+ 			if (tulip_debug > 1) {
+ 			       if (tp->nwayset)
+-			             printk(KERN_INFO "%s: Switching to %s based on link "
+-				    "negotiation %4.4x & %4.4x = %4.4x.\n",
+-				     dev->name, medianame[dev->if_port],
+-                                     tp->sym_advertise, tp->lpar, negotiated);
++				       dev_info(&dev->dev,
++						"Switching to %s based on link negotiation %04x & %04x = %04x\n",
++						medianame[dev->if_port],
++						tp->sym_advertise, tp->lpar,
++						negotiated);
  			}
-@@ -1104,7 +1113,7 @@ static void uli526x_timer(unsigned long data)
- 		{
- 			if(db->init==1)
- 			{
--				printk(KERN_INFO "uli526x: %s NIC Link is Down\n",dev->name);
-+				pr_info("%s NIC Link is Down\n",dev->name);
- 				netif_carrier_off(dev);
- 			}
- 		}
-@@ -1230,8 +1239,7 @@ static int uli526x_resume(struct pci_dev *pdev)
  
- 	err = pci_set_power_state(pdev, PCI_D0);
- 	if (err) {
--		printk(KERN_WARNING "%s: Could not put device into D0\n",
--			dev->name);
-+		dev_warn(&dev->dev, "Could not put device into D0\n");
- 		return err;
- 	}
+                         /* remember to turn off bit 7 - autonegotiate
+@@ -270,9 +271,9 @@ void pnic2_lnk_change(struct net_device *dev, int csr5)
+ 			iowrite32(1, ioaddr + CSR13);
  
-@@ -1432,7 +1440,7 @@ static void send_filter_frame(struct net_device *dev, int mc_cnt)
- 		update_cr6(db->cr6_data, dev->base_addr);
- 		dev->trans_start = jiffies;
- 	} else
--		printk(KERN_ERR DRV_NAME ": No Tx resource - Send_filter_frame!\n");
-+		pr_err("No Tx resource - Send_filter_frame!\n");
- }
+ 			if (tulip_debug > 2)
+-			        printk(KERN_DEBUG "%s:  Setting CSR6 %8.8x/%x CSR12 "
+-                                      "%8.8x.\n", dev->name, tp->csr6,
+-                                      ioread32(ioaddr + CSR6), ioread32(ioaddr + CSR12));
++			        printk(KERN_DEBUG "%s: Setting CSR6 %08x/%x CSR12 %08x\n",
++				       dev->name, tp->csr6,
++				       ioread32(ioaddr + CSR6), ioread32(ioaddr + CSR12));
+ 
+ 			/* now the following actually writes out the
+ 			 * new csr6 values
+@@ -282,9 +283,9 @@ void pnic2_lnk_change(struct net_device *dev, int csr5)
+                         return;
+ 
+ 	        } else {
+-	                printk(KERN_INFO "%s: Autonegotiation failed, "
+-                                    "using %s, link beat status %4.4x.\n",
+-				     dev->name, medianame[dev->if_port], csr12);
++	                dev_info(&dev->dev,
++				 "Autonegotiation failed, using %s, link beat status %04x\n",
++				 medianame[dev->if_port], csr12);
+ 
+                         /* remember to turn off bit 7 - autonegotiate
+                          * enable so we don't forget
+@@ -339,9 +340,9 @@ void pnic2_lnk_change(struct net_device *dev, int csr5)
+ 	        /* we are at 100mb and a potential link change occurred */
+ 
+ 		if (tulip_debug > 1)
+-			printk(KERN_INFO"%s: PNIC2 %s link beat %s.\n",
+-				   dev->name, medianame[dev->if_port],
+-				   (csr12 & 2) ? "failed" : "good");
++			dev_info(&dev->dev, "PNIC2 %s link beat %s\n",
++				 medianame[dev->if_port],
++				 (csr12 & 2) ? "failed" : "good");
+ 
+                 /* check 100 link beat */
+ 
+@@ -364,9 +365,9 @@ void pnic2_lnk_change(struct net_device *dev, int csr5)
+ 	        /* we are at 10mb and a potential link change occurred */
+ 
+ 		if (tulip_debug > 1)
+-			printk(KERN_INFO"%s: PNIC2 %s link beat %s.\n",
+-				   dev->name, medianame[dev->if_port],
+-				   (csr12 & 4) ? "failed" : "good");
++			dev_info(&dev->dev, "PNIC2 %s link beat %s\n",
++				 medianame[dev->if_port],
++				 (csr12 & 4) ? "failed" : "good");
  
  
+                 tp->nway = 0;
+@@ -385,7 +386,7 @@ void pnic2_lnk_change(struct net_device *dev, int csr5)
+ 
+ 
+ 	if (tulip_debug > 1)
+-		printk(KERN_INFO"%s: PNIC2 Link Change Default?\n",dev->name);
++		dev_info(&dev->dev, "PNIC2 Link Change Default?\n");
+ 
+         /* if all else fails default to trying 10baseT-HD */
+ 	dev->if_port = 0;
 -- 
 1.6.6.rc0.57.gad7a
 
