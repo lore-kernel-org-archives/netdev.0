@@ -1,370 +1,194 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 01/13] tulip_core: Use dev_<level> and pr_<level>
-Date: Thu, 28 Jan 2010 22:59:17 -0800
-Message-ID: <877c95d546d20450e77b5dc3a4f6191a87c676c7.1264747118.git.joe@perches.com>
+Subject: [PATCH 02/13] tulip/21142.c: Use dev_<level> and pr_<level>
+Date: Thu, 28 Jan 2010 22:59:18 -0800
+Message-ID: <069e40cd1c8f458b2ff056530a5e85ef688b350e.1264747118.git.joe@perches.com>
 References: <cover.1264747118.git.joe@perches.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1578 "EHLO mail.perches.com"
+Received: from mail.perches.com ([173.55.12.10]:1580 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753872Ab0A2G7a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753942Ab0A2G7a (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 29 Jan 2010 01:59:30 -0500
 In-Reply-To: <cover.1264747118.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert printks to dev_<level> where appropriate
-Convert printks to pr_<level>
+Convert printks to dev_<level> where a dev is available
+Convert printks to pr_<level> where not
+Coalesce format strings
 Change print formats with %d.dx to %0dx
-Coalesce long formats
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/tulip/tulip_core.c |  162 ++++++++++++++++++++--------------------
- 1 files changed, 82 insertions(+), 80 deletions(-)
+ drivers/net/tulip/21142.c |   76 +++++++++++++++++++++++----------------------
+ 1 files changed, 39 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
-index da4fc45..e1a5f03 100644
---- a/drivers/net/tulip/tulip_core.c
-+++ b/drivers/net/tulip/tulip_core.c
-@@ -41,7 +41,6 @@
- static char version[] __devinitdata =
- 	"Linux Tulip driver version " DRV_VERSION " (" DRV_RELDATE ")\n";
- 
--
- /* A few user-configurable values. */
- 
- /* Maximum events (Rx packets, etc.) to handle at each interrupt. */
-@@ -326,7 +325,8 @@ static void tulip_up(struct net_device *dev)
- 	udelay(100);
- 
- 	if (tulip_debug > 1)
--		printk(KERN_DEBUG "%s: tulip_up(), irq==%d.\n", dev->name, dev->irq);
-+		printk(KERN_DEBUG "%s: tulip_up(), irq==%d\n",
-+		       dev->name, dev->irq);
- 
- 	iowrite32(tp->rx_ring_dma, ioaddr + CSR3);
- 	iowrite32(tp->tx_ring_dma, ioaddr + CSR4);
-@@ -387,8 +387,9 @@ static void tulip_up(struct net_device *dev)
- 			(dev->if_port == 12 ? 0 : dev->if_port);
- 		for (i = 0; i < tp->mtable->leafcount; i++)
- 			if (tp->mtable->mleaf[i].media == looking_for) {
--				printk(KERN_INFO "%s: Using user-specified media %s.\n",
--					   dev->name, medianame[dev->if_port]);
-+				dev_info(&dev->dev,
-+					 "Using user-specified media %s\n",
-+					 medianame[dev->if_port]);
- 				goto media_picked;
- 			}
- 	}
-@@ -396,8 +397,9 @@ static void tulip_up(struct net_device *dev)
- 		int looking_for = tp->mtable->defaultmedia & MEDIA_MASK;
- 		for (i = 0; i < tp->mtable->leafcount; i++)
- 			if (tp->mtable->mleaf[i].media == looking_for) {
--				printk(KERN_INFO "%s: Using EEPROM-set media %s.\n",
--					   dev->name, medianame[looking_for]);
-+				dev_info(&dev->dev,
-+					 "Using EEPROM-set media %s\n",
-+					 medianame[looking_for]);
- 				goto media_picked;
- 			}
- 	}
-@@ -424,9 +426,10 @@ media_picked:
- 		if (tp->mii_cnt) {
- 			tulip_select_media(dev, 1);
- 			if (tulip_debug > 1)
--				printk(KERN_INFO "%s: Using MII transceiver %d, status "
--					   "%4.4x.\n",
--					   dev->name, tp->phys[0], tulip_mdio_read(dev, tp->phys[0], 1));
-+				dev_info(&dev->dev,
-+					 "Using MII transceiver %d, status %04x\n",
-+					 tp->phys[0],
-+					 tulip_mdio_read(dev, tp->phys[0], 1));
- 			iowrite32(csr6_mask_defstate, ioaddr + CSR6);
- 			tp->csr6 = csr6_mask_hdcap;
- 			dev->if_port = 11;
-@@ -490,9 +493,10 @@ media_picked:
- 	iowrite32(0, ioaddr + CSR2);		/* Rx poll demand */
- 
- 	if (tulip_debug > 2) {
--		printk(KERN_DEBUG "%s: Done tulip_up(), CSR0 %8.8x, CSR5 %8.8x CSR6 %8.8x.\n",
--			   dev->name, ioread32(ioaddr + CSR0), ioread32(ioaddr + CSR5),
--			   ioread32(ioaddr + CSR6));
-+		printk(KERN_DEBUG "%s: Done tulip_up(), CSR0 %08x, CSR5 %08x CSR6 %08x\n",
-+		       dev->name, ioread32(ioaddr + CSR0),
-+		       ioread32(ioaddr + CSR5),
-+		       ioread32(ioaddr + CSR6));
- 	}
- 
- 	/* Set the timer to switch to check for link beat and perhaps switch
-@@ -540,27 +544,30 @@ static void tulip_tx_timeout(struct net_device *dev)
+diff --git a/drivers/net/tulip/21142.c b/drivers/net/tulip/21142.c
+index 9f6742f..007d8e7 100644
+--- a/drivers/net/tulip/21142.c
++++ b/drivers/net/tulip/21142.c
+@@ -43,8 +43,8 @@ void t21142_media_task(struct work_struct *work)
+ 	if ((csr14 & 0x80) && (csr12 & 0x7000) != 0x5000)
+ 		csr12 |= 6;
+ 	if (tulip_debug > 2)
+-		printk(KERN_INFO"%s: 21143 negotiation status %8.8x, %s.\n",
+-			   dev->name, csr12, medianame[dev->if_port]);
++		dev_info(&dev->dev, "21143 negotiation status %08x, %s\n",
++			 csr12, medianame[dev->if_port]);
  	if (tulip_media_cap[dev->if_port] & MediaIsMII) {
- 		/* Do nothing -- the media monitor should handle this. */
+ 		if (tulip_check_duplex(dev) < 0) {
+ 			netif_carrier_off(dev);
+@@ -56,23 +56,26 @@ void t21142_media_task(struct work_struct *work)
+ 	} else if (tp->nwayset) {
+ 		/* Don't screw up a negotiated session! */
  		if (tulip_debug > 1)
--			printk(KERN_WARNING "%s: Transmit timeout using MII device.\n",
--				   dev->name);
-+			dev_warn(&dev->dev,
-+				 "Transmit timeout using MII device\n");
- 	} else if (tp->chip_id == DC21140 || tp->chip_id == DC21142 ||
- 		   tp->chip_id == MX98713 || tp->chip_id == COMPEX9881 ||
- 		   tp->chip_id == DM910X) {
--		printk(KERN_WARNING "%s: 21140 transmit timed out, status %8.8x, "
--			   "SIA %8.8x %8.8x %8.8x %8.8x, resetting...\n",
--			   dev->name, ioread32(ioaddr + CSR5), ioread32(ioaddr + CSR12),
--			   ioread32(ioaddr + CSR13), ioread32(ioaddr + CSR14), ioread32(ioaddr + CSR15));
-+		dev_warn(&dev->dev,
-+			 "21140 transmit timed out, status %08x, SIA %08x %08x %08x %08x, resetting...\n",
-+			 ioread32(ioaddr + CSR5), ioread32(ioaddr + CSR12),
-+			 ioread32(ioaddr + CSR13), ioread32(ioaddr + CSR14),
-+			 ioread32(ioaddr + CSR15));
- 		tp->timeout_recovery = 1;
- 		schedule_work(&tp->media_work);
- 		goto out_unlock;
- 	} else if (tp->chip_id == PNIC2) {
--		printk(KERN_WARNING "%s: PNIC2 transmit timed out, status %8.8x, "
--		       "CSR6/7 %8.8x / %8.8x CSR12 %8.8x, resetting...\n",
--		       dev->name, (int)ioread32(ioaddr + CSR5), (int)ioread32(ioaddr + CSR6),
--		       (int)ioread32(ioaddr + CSR7), (int)ioread32(ioaddr + CSR12));
-+		dev_warn(&dev->dev,
-+			 "PNIC2 transmit timed out, status %08x, CSR6/7 %08x / %08x CSR12 %08x, resetting...\n",
-+			 (int)ioread32(ioaddr + CSR5),
-+			 (int)ioread32(ioaddr + CSR6),
-+			 (int)ioread32(ioaddr + CSR7),
-+			 (int)ioread32(ioaddr + CSR12));
- 	} else {
--		printk(KERN_WARNING "%s: Transmit timed out, status %8.8x, CSR12 "
--			   "%8.8x, resetting...\n",
--			   dev->name, ioread32(ioaddr + CSR5), ioread32(ioaddr + CSR12));
-+		dev_warn(&dev->dev,
-+			 "Transmit timed out, status %08x, CSR12 %08x, resetting...\n",
-+			 ioread32(ioaddr + CSR5), ioread32(ioaddr + CSR12));
- 		dev->if_port = 0;
- 	}
- 
-@@ -570,26 +577,26 @@ static void tulip_tx_timeout(struct net_device *dev)
- 		for (i = 0; i < RX_RING_SIZE; i++) {
- 			u8 *buf = (u8 *)(tp->rx_ring[i].buffer1);
- 			int j;
--			printk(KERN_DEBUG "%2d: %8.8x %8.8x %8.8x %8.8x  "
--				   "%2.2x %2.2x %2.2x.\n",
--				   i, (unsigned int)tp->rx_ring[i].status,
--				   (unsigned int)tp->rx_ring[i].length,
--				   (unsigned int)tp->rx_ring[i].buffer1,
--				   (unsigned int)tp->rx_ring[i].buffer2,
--				   buf[0], buf[1], buf[2]);
-+			printk(KERN_DEBUG
-+			       "%2d: %08x %08x %08x %08x  %02x %02x %02x\n",
-+			       i,
-+			       (unsigned int)tp->rx_ring[i].status,
-+			       (unsigned int)tp->rx_ring[i].length,
-+			       (unsigned int)tp->rx_ring[i].buffer1,
-+			       (unsigned int)tp->rx_ring[i].buffer2,
-+			       buf[0], buf[1], buf[2]);
- 			for (j = 0; buf[j] != 0xee && j < 1600; j++)
- 				if (j < 100)
--					printk(KERN_CONT " %2.2x", buf[j]);
--			printk(KERN_CONT " j=%d.\n", j);
-+					pr_cont(" %02x", buf[j]);
-+			pr_cont(" j=%d\n", j);
+-			printk(KERN_INFO"%s: Using NWay-set %s media, csr12 %8.8x.\n",
+-				   dev->name, medianame[dev->if_port], csr12);
++			dev_info(&dev->dev,
++				 "Using NWay-set %s media, csr12 %08x\n",
++				 medianame[dev->if_port], csr12);
+ 	} else if (tp->medialock) {
+ 			;
+ 	} else if (dev->if_port == 3) {
+ 		if (csr12 & 2) {	/* No 100mbps link beat, revert to 10mbps. */
+ 			if (tulip_debug > 1)
+-				printk(KERN_INFO"%s: No 21143 100baseTx link beat, %8.8x, "
+-					   "trying NWay.\n", dev->name, csr12);
++				dev_info(&dev->dev,
++					 "No 21143 100baseTx link beat, %08x, trying NWay\n",
++					 csr12);
+ 			t21142_start_nway(dev);
+ 			next_tick = 3*HZ;
  		}
--		printk(KERN_DEBUG "  Rx ring %8.8x: ", (int)tp->rx_ring);
-+		printk(KERN_DEBUG "  Rx ring %08x: ", (int)tp->rx_ring);
- 		for (i = 0; i < RX_RING_SIZE; i++)
--			printk(KERN_CONT " %8.8x",
--			       (unsigned int)tp->rx_ring[i].status);
--		printk(KERN_DEBUG "  Tx ring %8.8x: ", (int)tp->tx_ring);
-+			pr_cont(" %08x", (unsigned int)tp->rx_ring[i].status);
-+		printk(KERN_DEBUG "  Tx ring %08x: ", (int)tp->tx_ring);
- 		for (i = 0; i < TX_RING_SIZE; i++)
--			printk(KERN_CONT " %8.8x", (unsigned int)tp->tx_ring[i].status);
--		printk(KERN_CONT "\n");
-+			pr_cont(" %08x", (unsigned int)tp->tx_ring[i].status);
-+		pr_cont("\n");
- 	}
- #endif
- 
-@@ -832,8 +839,9 @@ static int tulip_close (struct net_device *dev)
- 	tulip_down (dev);
- 
+ 	} else if ((csr12 & 0x7000) != 0x5000) {
+ 		/* Negotiation failed.  Search media types. */
+ 		if (tulip_debug > 1)
+-			printk(KERN_INFO"%s: 21143 negotiation failed, status %8.8x.\n",
+-				   dev->name, csr12);
++			dev_info(&dev->dev,
++				 "21143 negotiation failed, status %08x\n",
++				 csr12);
+ 		if (!(csr12 & 4)) {		/* 10mbps link beat good. */
+ 			new_csr6 = 0x82420000;
+ 			dev->if_port = 0;
+@@ -90,8 +93,8 @@ void t21142_media_task(struct work_struct *work)
+ 			iowrite32(1, ioaddr + CSR13);
+ 		}
+ 		if (tulip_debug > 1)
+-			printk(KERN_INFO"%s: Testing new 21143 media %s.\n",
+-				   dev->name, medianame[dev->if_port]);
++			dev_info(&dev->dev, "Testing new 21143 media %s\n",
++				 medianame[dev->if_port]);
+ 		if (new_csr6 != (tp->csr6 & ~0x00D5)) {
+ 			tp->csr6 &= 0x00D5;
+ 			tp->csr6 |= new_csr6;
+@@ -119,8 +122,8 @@ void t21142_start_nway(struct net_device *dev)
+ 	tp->nway = tp->mediasense = 1;
+ 	tp->nwayset = tp->lpar = 0;
  	if (tulip_debug > 1)
--		printk (KERN_DEBUG "%s: Shutting down ethercard, status was %2.2x.\n",
--			dev->name, ioread32 (ioaddr + CSR5));
-+		dev_printk(KERN_DEBUG, &dev->dev,
-+			   "Shutting down ethercard, status was %02x\n",
-+			   ioread32 (ioaddr + CSR5));
+-		printk(KERN_DEBUG "%s: Restarting 21143 autonegotiation, csr14=%8.8x.\n",
+-			   dev->name, csr14);
++		printk(KERN_DEBUG "%s: Restarting 21143 autonegotiation, csr14=%08x\n",
++		       dev->name, csr14);
+ 	iowrite32(0x0001, ioaddr + CSR13);
+ 	udelay(100);
+ 	iowrite32(csr14, ioaddr + CSR14);
+@@ -147,8 +150,9 @@ void t21142_lnk_change(struct net_device *dev, int csr5)
+ 	if ((csr14 & 0x80) && (csr12 & 0x7000) != 0x5000)
+ 		csr12 |= 6;
+ 	if (tulip_debug > 1)
+-		printk(KERN_INFO"%s: 21143 link status interrupt %8.8x, CSR5 %x, "
+-			   "%8.8x.\n", dev->name, csr12, csr5, csr14);
++		dev_info(&dev->dev,
++			 "21143 link status interrupt %08x, CSR5 %x, %08x\n",
++			 csr12, csr5, csr14);
  
- 	free_irq (dev->irq, dev);
+ 	/* If NWay finished and we have a negotiated partner capability. */
+ 	if (tp->nway  &&  !tp->nwayset  &&  (csr12 & 0x7000) == 0x5000) {
+@@ -171,14 +175,15 @@ void t21142_lnk_change(struct net_device *dev, int csr5)
  
-@@ -1073,10 +1081,10 @@ static void set_rx_mode(struct net_device *dev)
- 				filterbit &= 0x3f;
- 				mc_filter[filterbit >> 5] |= 1 << (filterbit & 31);
- 				if (tulip_debug > 2)
--					printk(KERN_INFO "%s: Added filter for %pM"
--					       "  %8.8x bit %d.\n",
--					       dev->name, mclist->dmi_addr,
--					       ether_crc(ETH_ALEN, mclist->dmi_addr), filterbit);
-+					dev_info(&dev->dev,
-+						 "Added filter for %pM  %08x bit %d\n",
-+						 mclist->dmi_addr,
-+						 ether_crc(ETH_ALEN, mclist->dmi_addr), filterbit);
- 			}
- 			if (mc_filter[0] == tp->mc_filter[0]  &&
- 				mc_filter[1] == tp->mc_filter[1])
-@@ -1288,9 +1296,8 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
- 	unsigned int force_csr0 = 0;
- 
- #ifndef MODULE
--	static int did_version;		/* Already printed version info. */
--	if (tulip_debug > 0  &&  did_version++ == 0)
--		printk (KERN_INFO "%s", version);
-+	if (tulip_debug > 0)
-+		printk_once(KERN_INFO "%s", version);
- #endif
- 
- 	board_idx++;
-@@ -1301,7 +1308,7 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
- 	 */
- 
-         if (pdev->subsystem_vendor == PCI_VENDOR_ID_LMC) {
--		printk (KERN_ERR PFX "skipping LMC card.\n");
-+		pr_err(PFX "skipping LMC card\n");
- 		return -ENODEV;
- 	}
- 
-@@ -1317,15 +1324,13 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
- 
- 		if (pdev->vendor == 0x1282 && pdev->device == 0x9100 &&
- 		    pdev->revision < 0x30) {
--			printk(KERN_INFO PFX
--			       "skipping early DM9100 with Crc bug (use dmfe)\n");
-+			pr_info(PFX "skipping early DM9100 with Crc bug (use dmfe)\n");
- 			return -ENODEV;
+ 		if (tulip_debug > 1) {
+ 			if (tp->nwayset)
+-				printk(KERN_INFO "%s: Switching to %s based on link "
+-					   "negotiation %4.4x & %4.4x = %4.4x.\n",
+-					   dev->name, medianame[dev->if_port], tp->sym_advertise,
+-					   tp->lpar, negotiated);
++				dev_info(&dev->dev,
++					 "Switching to %s based on link negotiation %04x & %04x = %04x\n",
++					 medianame[dev->if_port],
++					 tp->sym_advertise, tp->lpar,
++					 negotiated);
+ 			else
+-				printk(KERN_INFO "%s: Autonegotiation failed, using %s,"
+-					   " link beat status %4.4x.\n",
+-					   dev->name, medianame[dev->if_port], csr12);
++				dev_info(&dev->dev,
++					 "Autonegotiation failed, using %s, link beat status %04x\n",
++					 medianame[dev->if_port], csr12);
  		}
  
- 		dp = pci_device_to_OF_node(pdev);
- 		if (!(dp && of_get_property(dp, "local-mac-address", NULL))) {
--			printk(KERN_INFO PFX
--			       "skipping DM910x expansion card (use dmfe)\n");
-+			pr_info(PFX "skipping DM910x expansion card (use dmfe)\n");
- 			return -ENODEV;
- 		}
- 	}
-@@ -1372,9 +1377,8 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
- 
- 	i = pci_enable_device(pdev);
- 	if (i) {
--		printk (KERN_ERR PFX
--			"Cannot enable tulip board #%d, aborting\n",
--			board_idx);
-+		pr_err(PFX "Cannot enable tulip board #%d, aborting\n",
-+		       board_idx);
- 		return i;
- 	}
- 
-@@ -1383,22 +1387,22 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
- 	/* alloc_etherdev ensures aligned and zeroed private structures */
- 	dev = alloc_etherdev (sizeof (*tp));
- 	if (!dev) {
--		printk (KERN_ERR PFX "ether device alloc failed, aborting\n");
-+		pr_err(PFX "ether device alloc failed, aborting\n");
- 		return -ENOMEM;
- 	}
- 
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 	if (pci_resource_len (pdev, 0) < tulip_tbl[chip_idx].io_size) {
--		printk (KERN_ERR PFX "%s: I/O region (0x%llx@0x%llx) too small, "
--			"aborting\n", pci_name(pdev),
--			(unsigned long long)pci_resource_len (pdev, 0),
--			(unsigned long long)pci_resource_start (pdev, 0));
-+		pr_err(PFX "%s: I/O region (0x%llx@0x%llx) too small, aborting\n",
-+		       pci_name(pdev),
-+		       (unsigned long long)pci_resource_len (pdev, 0),
-+		       (unsigned long long)pci_resource_start (pdev, 0));
- 		goto err_out_free_netdev;
- 	}
- 
- 	/* grab all resources from both PIO and MMIO regions, as we
- 	 * don't want anyone else messing around with our hardware */
--	if (pci_request_regions (pdev, "tulip"))
-+	if (pci_request_regions (pdev, DRV_NAME))
- 		goto err_out_free_netdev;
- 
- 	ioaddr =  pci_iomap(pdev, TULIP_BAR, tulip_tbl[chip_idx].io_size);
-@@ -1611,8 +1615,8 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
- 	if (dev->mem_start & MEDIA_MASK)
- 		tp->default_port = dev->mem_start & MEDIA_MASK;
- 	if (tp->default_port) {
--		printk(KERN_INFO "tulip%d: Transceiver selection forced to %s.\n",
--		       board_idx, medianame[tp->default_port & MEDIA_MASK]);
-+		pr_info(DRV_NAME "%d: Transceiver selection forced to %s\n",
-+			board_idx, medianame[tp->default_port & MEDIA_MASK]);
- 		tp->medialock = 1;
- 		if (tulip_media_cap[tp->default_port] & MediaAlwaysFD)
- 			tp->full_duplex = 1;
-@@ -1627,7 +1631,7 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
- 	}
- 
- 	if (tp->flags & HAS_MEDIA_TABLE) {
--		sprintf(dev->name, "tulip%d", board_idx);	/* hack */
-+		sprintf(dev->name, DRV_NAME "%d", board_idx);	/* hack */
- 		tulip_parse_eeprom(dev);
- 		strcpy(dev->name, "eth%d");			/* un-hack */
- 	}
-@@ -1663,20 +1667,18 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
- 	if (register_netdev(dev))
- 		goto err_out_free_ring;
- 
--	printk(KERN_INFO "%s: %s rev %d at "
-+	pci_set_drvdata(pdev, dev);
-+
-+	dev_info(&dev->dev,
- #ifdef CONFIG_TULIP_MMIO
--		"MMIO"
-+		 "%s rev %d at MMIO %#llx,%s %pM, IRQ %d\n",
- #else
--		"Port"
-+		 "%s rev %d at Port %#llx,%s %pM, IRQ %d\n",
+ 		if (tp->mtable) {
+@@ -201,14 +206,14 @@ void t21142_lnk_change(struct net_device *dev, int csr5)
+ #if 0							/* Restart shouldn't be needed. */
+ 		iowrite32(tp->csr6 | RxOn, ioaddr + CSR6);
+ 		if (tulip_debug > 2)
+-			printk(KERN_DEBUG "%s:  Restarting Tx and Rx, CSR5 is %8.8x.\n",
+-				   dev->name, ioread32(ioaddr + CSR5));
++			printk(KERN_DEBUG "%s:  Restarting Tx and Rx, CSR5 is %08x\n",
++			       dev->name, ioread32(ioaddr + CSR5));
  #endif
--		" %#llx,", dev->name, chip_name, pdev->revision,
--		(unsigned long long) pci_resource_start(pdev, TULIP_BAR));
--	pci_set_drvdata(pdev, dev);
--
--	if (eeprom_missing)
--		printk(" EEPROM not present,");
--	printk(" %pM", dev->dev_addr);
--	printk(", IRQ %d.\n", irq);
-+		 chip_name, pdev->revision,
-+		 (unsigned long long)pci_resource_start(pdev, TULIP_BAR),
-+		 eeprom_missing ? " EEPROM not present," : "",
-+		 dev->dev_addr, irq);
- 
-         if (tp->chip_id == PNIC2)
- 		tp->link_change = pnic2_lnk_change;
-@@ -1799,12 +1801,12 @@ static int tulip_resume(struct pci_dev *pdev)
- 		return 0;
- 
- 	if ((retval = pci_enable_device(pdev))) {
--		printk (KERN_ERR "tulip: pci_enable_device failed in resume\n");
-+		pr_err(PFX "pci_enable_device failed in resume\n");
- 		return retval;
- 	}
- 
- 	if ((retval = request_irq(dev->irq, tulip_interrupt, IRQF_SHARED, dev->name, dev))) {
--		printk (KERN_ERR "tulip: request_irq failed in resume\n");
-+		pr_err(PFX "request_irq failed in resume\n");
- 		return retval;
- 	}
- 
-@@ -1874,7 +1876,7 @@ static struct pci_driver tulip_driver = {
- static int __init tulip_init (void)
- {
- #ifdef MODULE
--	printk (KERN_INFO "%s", version);
-+	pr_info("%s", version);
- #endif
- 
- 	/* copy module parms into globals */
+ 		tulip_start_rxtx(tp);
+ 		if (tulip_debug > 2)
+-			printk(KERN_DEBUG "%s:  Setting CSR6 %8.8x/%x CSR12 %8.8x.\n",
+-				   dev->name, tp->csr6, ioread32(ioaddr + CSR6),
+-				   ioread32(ioaddr + CSR12));
++			printk(KERN_DEBUG "%s:  Setting CSR6 %08x/%x CSR12 %08x\n",
++			       dev->name, tp->csr6, ioread32(ioaddr + CSR6),
++			       ioread32(ioaddr + CSR12));
+ 	} else if ((tp->nwayset  &&  (csr5 & 0x08000000) &&
+ 		    (dev->if_port == 3  ||  dev->if_port == 5) &&
+ 		    (csr12 & 2) == 2) ||
+@@ -220,9 +225,9 @@ void t21142_lnk_change(struct net_device *dev, int csr5)
+ 		add_timer(&tp->timer);
+ 	} else if (dev->if_port == 3  ||  dev->if_port == 5) {
+ 		if (tulip_debug > 1)
+-			printk(KERN_INFO"%s: 21143 %s link beat %s.\n",
+-				   dev->name, medianame[dev->if_port],
+-				   (csr12 & 2) ? "failed" : "good");
++			dev_info(&dev->dev, "21143 %s link beat %s\n",
++				 medianame[dev->if_port],
++				 (csr12 & 2) ? "failed" : "good");
+ 		if ((csr12 & 2)  &&  ! tp->medialock) {
+ 			del_timer_sync(&tp->timer);
+ 			t21142_start_nway(dev);
+@@ -232,21 +237,18 @@ void t21142_lnk_change(struct net_device *dev, int csr5)
+ 			iowrite32(csr14 & ~0x080, ioaddr + CSR14);
+ 	} else if (dev->if_port == 0  ||  dev->if_port == 4) {
+ 		if ((csr12 & 4) == 0)
+-			printk(KERN_INFO"%s: 21143 10baseT link beat good.\n",
+-				   dev->name);
++			dev_info(&dev->dev, "21143 10baseT link beat good\n");
+ 	} else if (!(csr12 & 4)) {		/* 10mbps link beat good. */
+ 		if (tulip_debug)
+-			printk(KERN_INFO"%s: 21143 10mbps sensed media.\n",
+-				   dev->name);
++			dev_info(&dev->dev, "21143 10mbps sensed media\n");
+ 		dev->if_port = 0;
+ 	} else if (tp->nwayset) {
+ 		if (tulip_debug)
+-			printk(KERN_INFO"%s: 21143 using NWay-set %s, csr6 %8.8x.\n",
+-				   dev->name, medianame[dev->if_port], tp->csr6);
++			dev_info(&dev->dev, "21143 using NWay-set %s, csr6 %08x\n",
++				 medianame[dev->if_port], tp->csr6);
+ 	} else {		/* 100mbps link beat good. */
+ 		if (tulip_debug)
+-			printk(KERN_INFO"%s: 21143 100baseTx sensed media.\n",
+-				   dev->name);
++			dev_info(&dev->dev, "21143 100baseTx sensed media\n");
+ 		dev->if_port = 3;
+ 		tp->csr6 = 0x838E0000 | (tp->csr6 & 0x20ff);
+ 		iowrite32(0x0003FF7F, ioaddr + CSR14);
 -- 
 1.6.6.rc0.57.gad7a
 
