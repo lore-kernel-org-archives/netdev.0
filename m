@@ -1,52 +1,54 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [PATCH] skbuff: align sk_buff::cb to 64 bit
-Date: Fri, 29 Jan 2010 14:42:03 -0800
-Message-ID: <4B63643B.3070400@caviumnetworks.com>
-References: <4B635CA1.8070803@openwrt.org>
+From: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
+Subject: [PATCH 2.6.33 2/4] net: Kconfig change for KSZ884X driver
+Date: Fri, 29 Jan 2010 14:40:34 -0800
+Message-ID: <14385191E87B904DBD836449AA30269D021A4E@MORGANITE.micrel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Lennert Buytenhek <buytenh@wantstofly.org>
-To: Felix Fietkau <nbd@openwrt.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.caviumnetworks.com ([12.108.191.235]:13661 "EHLO
-	mail3.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752339Ab0A2Wml (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2010 17:42:41 -0500
-In-Reply-To: <4B635CA1.8070803@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: "Dave Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755962Ab0A2Wn0@vger.kernel.org>
+Content-class: urn:content-classes:message
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Felix Fietkau wrote:
-> The alignment requirement for 64-bit load/store instructions on ARM is
-> implementation defined. Some CPUs (such as Marvell Feroceon) do not
-> generate an exception, if such an instruction is executed with an
-> address that is not 64 bit aligned. 
-> In such a case, the Feroceon corrupts adjacent memory, which showed up
-> in my tests as a crash in the rx path of ath9k that only occured with
-> CONFIG_XFRM set. This crash happened, because the first field of the
-> mac80211 rx status info in the cb is an u64, and changing it corrupted
-> the skb->sp field.
-> 
-> Signed-off-by: Felix Fietkau <nbd@openwrt.org>
-> Cc: stable@kernel.org
-> ---
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -329,7 +329,7 @@ struct sk_buff {
->  	 * want to keep them across layers you have to do a skb_clone()
->  	 * first. This is owned by whoever has the skb queued ATM.
->  	 */
-> -	char			cb[48];
-> +	char			cb[48] __attribute__((aligned(8)));
->  
+From: Tristram Ha <Tristram.Ha@micrel.com>
 
+Add Micrel KSZ8841/KSZ8842 PCI Ethernet chip support.
 
-s/__attribute__((aligned(8)))/__aligned(8)/
+Some users like to use KSZ8842 switch to run Spanning Tree Protocol.  As a result a hardware STP support was implemented so that the host does not waste CPU time forwarding each and every packet.
 
-Could the same thing be achieved by swapping the order of the dev and 
-tstamp fields instead of adding the alignment attribute?
+Signed-off-by: Tristram Ha <Tristram.Ha@micrel.com>
+---
+This is a resubmission of the Micrel KSZ8841/2 PCI Ethernet driver.
 
-What is the sizeof(void *) on this thing?
-
-David Daney
+--- linux-2.6.33-rc3.old/drivers/net/Kconfig	2010-01-05 16:02:46.000000000 -0800
++++ linux-2.6.33-rc3.new/drivers/net/Kconfig	2010-01-13 12:17:42.000000000 -0800
+@@ -1368,6 +1368,27 @@ config AC3200
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called ac3200.
+ 
++config KSZ884X_PCI
++	tristate "Micrel KSZ8841/2 PCI"
++	depends on NET_PCI && PCI
++	select MII
++	select CRC32
++	help
++	  This PCI driver is for Micrel KSZ8841/KSZ8842 PCI Ethernet chip.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called ksz884x.
++
++config KSZ8842_STP
++	bool "STP support (EXPERIMENTAL)"
++	depends on KSZ884X_PCI && EXPERIMENTAL
++	help
++	  This enables a feature to aid KSZ8842 running Spanning Tree Protocol.
++	  To actually use it pass the stp=1 parameter to the driver.
++
++	  This feature is experimental and may not work correctly compared to
++	  the Linux bridge using STP.
++
+ config APRICOT
+ 	tristate "Apricot Xen-II on board Ethernet"
+ 	depends on NET_PCI && ISA
