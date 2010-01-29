@@ -1,15 +1,15 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 09/13] tulip/pnic2.c: Use dev_<level> and pr_<level>
-Date: Thu, 28 Jan 2010 22:59:25 -0800
-Message-ID: <678a58c1602c2ab4a9955092cd1d7c61afa32d76.1264747118.git.joe@perches.com>
+Subject: [PATCH 07/13] tulip/media.c: Use dev_<level> and pr_<level>
+Date: Thu, 28 Jan 2010 22:59:23 -0800
+Message-ID: <aab6c11897296a3f92adb95b8fa10741698cce3d.1264747118.git.joe@perches.com>
 References: <cover.1264747118.git.joe@perches.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1594 "EHLO mail.perches.com"
+Received: from mail.perches.com ([173.55.12.10]:1592 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754115Ab0A2G7c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jan 2010 01:59:32 -0500
+	id S1754022Ab0A2G7b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jan 2010 01:59:31 -0500
 In-Reply-To: <cover.1264747118.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,149 +21,186 @@ Change print formats with %d.dx to %0dx
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/tulip/pnic2.c |   59 +++++++++++++++++++++++----------------------
- 1 files changed, 30 insertions(+), 29 deletions(-)
+ drivers/net/tulip/media.c |   74 ++++++++++++++++++++++-----------------------
+ 1 files changed, 36 insertions(+), 38 deletions(-)
 
-diff --git a/drivers/net/tulip/pnic2.c b/drivers/net/tulip/pnic2.c
-index d841869..b819766 100644
---- a/drivers/net/tulip/pnic2.c
-+++ b/drivers/net/tulip/pnic2.c
-@@ -87,8 +87,8 @@ void pnic2_timer(unsigned long data)
- 	int next_tick = 60*HZ;
- 
- 	if (tulip_debug > 3)
--		printk(KERN_INFO"%s: PNIC2 negotiation status %8.8x.\n",
--                    dev->name,ioread32(ioaddr + CSR12));
-+		dev_info(&dev->dev, "PNIC2 negotiation status %08x\n",
-+			 ioread32(ioaddr + CSR12));
- 
- 	if (next_tick) {
- 		mod_timer(&tp->timer, RUN_AT(next_tick));
-@@ -125,8 +125,8 @@ void pnic2_start_nway(struct net_device *dev)
-         csr14 |= 0x00001184;
- 
- 	if (tulip_debug > 1)
--		printk(KERN_DEBUG "%s: Restarting PNIC2 autonegotiation, "
--                      "csr14=%8.8x.\n", dev->name, csr14);
-+		printk(KERN_DEBUG "%s: Restarting PNIC2 autonegotiation, csr14=%08x\n",
-+		       dev->name, csr14);
- 
-         /* tell pnic2_lnk_change we are doing an nway negotiation */
- 	dev->if_port = 0;
-@@ -137,8 +137,8 @@ void pnic2_start_nway(struct net_device *dev)
- 
- 	tp->csr6 = ioread32(ioaddr + CSR6);
- 	if (tulip_debug > 1)
--		printk(KERN_DEBUG "%s: On Entry to Nway, "
--                      "csr6=%8.8x.\n", dev->name, tp->csr6);
-+		printk(KERN_DEBUG "%s: On Entry to Nway, csr6=%08x\n",
-+		       dev->name, tp->csr6);
- 
-         /* mask off any bits not to touch
-          * comment at top of file explains mask value
-@@ -181,9 +181,9 @@ void pnic2_lnk_change(struct net_device *dev, int csr5)
- 	int csr12 = ioread32(ioaddr + CSR12);
- 
- 	if (tulip_debug > 1)
--		printk(KERN_INFO"%s: PNIC2 link status interrupt %8.8x, "
--                       " CSR5 %x, %8.8x.\n", dev->name, csr12,
--                       csr5, ioread32(ioaddr + CSR14));
-+		dev_info(&dev->dev,
-+			 "PNIC2 link status interrupt %08x,  CSR5 %x, %08x\n",
-+			 csr12, csr5, ioread32(ioaddr + CSR14));
- 
- 	/* If NWay finished and we have a negotiated partner capability.
-          * check bits 14:12 for bit pattern 101 - all is good
-@@ -215,9 +215,9 @@ void pnic2_lnk_change(struct net_device *dev, int csr5)
- 			else if (negotiated & 0x0020)	dev->if_port = 0;
- 			else {
- 			     if (tulip_debug > 1)
--		                   printk(KERN_INFO "%s: funny autonegotiate result "
--                                        "csr12 %8.8x advertising %4.4x\n",
--			                 dev->name, csr12, tp->sym_advertise);
-+				     dev_info(&dev->dev,
-+					      "funny autonegotiate result csr12 %08x advertising %04x\n",
-+					      csr12, tp->sym_advertise);
- 			     tp->nwayset = 0;
- 			     /* so check  if 100baseTx link state is okay */
- 			     if ((csr12 & 2) == 0  &&  (tp->sym_advertise & 0x0180))
-@@ -231,10 +231,11 @@ void pnic2_lnk_change(struct net_device *dev, int csr5)
- 
- 			if (tulip_debug > 1) {
- 			       if (tp->nwayset)
--			             printk(KERN_INFO "%s: Switching to %s based on link "
--				    "negotiation %4.4x & %4.4x = %4.4x.\n",
--				     dev->name, medianame[dev->if_port],
--                                     tp->sym_advertise, tp->lpar, negotiated);
-+				       dev_info(&dev->dev,
-+						"Switching to %s based on link negotiation %04x & %04x = %04x\n",
-+						medianame[dev->if_port],
-+						tp->sym_advertise, tp->lpar,
-+						negotiated);
+diff --git a/drivers/net/tulip/media.c b/drivers/net/tulip/media.c
+index d8fda83..68b170a 100644
+--- a/drivers/net/tulip/media.c
++++ b/drivers/net/tulip/media.c
+@@ -182,9 +182,8 @@ void tulip_select_media(struct net_device *dev, int startup)
+ 		switch (mleaf->type) {
+ 		case 0:					/* 21140 non-MII xcvr. */
+ 			if (tulip_debug > 1)
+-				printk(KERN_DEBUG "%s: Using a 21140 non-MII transceiver"
+-					   " with control setting %2.2x.\n",
+-					   dev->name, p[1]);
++				printk(KERN_DEBUG "%s: Using a 21140 non-MII transceiver with control setting %02x\n",
++				       dev->name, p[1]);
+ 			dev->if_port = p[0];
+ 			if (startup)
+ 				iowrite32(mtable->csr12dir | 0x100, ioaddr + CSR12);
+@@ -205,15 +204,15 @@ void tulip_select_media(struct net_device *dev, int startup)
+ 				struct medialeaf *rleaf = &mtable->mleaf[mtable->has_reset];
+ 				unsigned char *rst = rleaf->leafdata;
+ 				if (tulip_debug > 1)
+-					printk(KERN_DEBUG "%s: Resetting the transceiver.\n",
+-						   dev->name);
++					printk(KERN_DEBUG "%s: Resetting the transceiver\n",
++					       dev->name);
+ 				for (i = 0; i < rst[0]; i++)
+ 					iowrite32(get_u16(rst + 1 + (i<<1)) << 16, ioaddr + CSR15);
  			}
- 
-                         /* remember to turn off bit 7 - autonegotiate
-@@ -270,9 +271,9 @@ void pnic2_lnk_change(struct net_device *dev, int csr5)
- 			iowrite32(1, ioaddr + CSR13);
- 
- 			if (tulip_debug > 2)
--			        printk(KERN_DEBUG "%s:  Setting CSR6 %8.8x/%x CSR12 "
--                                      "%8.8x.\n", dev->name, tp->csr6,
--                                      ioread32(ioaddr + CSR6), ioread32(ioaddr + CSR12));
-+			        printk(KERN_DEBUG "%s: Setting CSR6 %08x/%x CSR12 %08x\n",
-+				       dev->name, tp->csr6,
-+				       ioread32(ioaddr + CSR6), ioread32(ioaddr + CSR12));
- 
- 			/* now the following actually writes out the
- 			 * new csr6 values
-@@ -282,9 +283,9 @@ void pnic2_lnk_change(struct net_device *dev, int csr5)
-                         return;
- 
- 	        } else {
--	                printk(KERN_INFO "%s: Autonegotiation failed, "
--                                    "using %s, link beat status %4.4x.\n",
--				     dev->name, medianame[dev->if_port], csr12);
-+	                dev_info(&dev->dev,
-+				 "Autonegotiation failed, using %s, link beat status %04x\n",
-+				 medianame[dev->if_port], csr12);
- 
-                         /* remember to turn off bit 7 - autonegotiate
-                          * enable so we don't forget
-@@ -339,9 +340,9 @@ void pnic2_lnk_change(struct net_device *dev, int csr5)
- 	        /* we are at 100mb and a potential link change occurred */
- 
+ 			if (tulip_debug > 1)
+-				printk(KERN_DEBUG "%s: 21143 non-MII %s transceiver control "
+-					   "%4.4x/%4.4x.\n",
+-					   dev->name, medianame[dev->if_port], setup[0], setup[1]);
++				printk(KERN_DEBUG "%s: 21143 non-MII %s transceiver control %04x/%04x\n",
++				       dev->name, medianame[dev->if_port],
++				       setup[0], setup[1]);
+ 			if (p[0] & 0x40) {	/* SIA (CSR13-15) setup values are provided. */
+ 				csr13val = setup[0];
+ 				csr14val = setup[1];
+@@ -240,8 +239,8 @@ void tulip_select_media(struct net_device *dev, int startup)
+ 				if (startup) iowrite32(csr13val, ioaddr + CSR13);
+ 			}
+ 			if (tulip_debug > 1)
+-				printk(KERN_DEBUG "%s:  Setting CSR15 to %8.8x/%8.8x.\n",
+-					   dev->name, csr15dir, csr15val);
++				printk(KERN_DEBUG "%s:  Setting CSR15 to %08x/%08x\n",
++				       dev->name, csr15dir, csr15val);
+ 			if (mleaf->type == 4)
+ 				new_csr6 = 0x82020000 | ((setup[2] & 0x71) << 18);
+ 			else
+@@ -317,8 +316,9 @@ void tulip_select_media(struct net_device *dev, int startup)
+ 				if (tp->mii_advertise == 0)
+ 					tp->mii_advertise = tp->advertising[phy_num];
+ 				if (tulip_debug > 1)
+-					printk(KERN_DEBUG "%s:  Advertising %4.4x on MII %d.\n",
+-					       dev->name, tp->mii_advertise, tp->phys[phy_num]);
++					printk(KERN_DEBUG "%s:  Advertising %04x on MII %d\n",
++					       dev->name, tp->mii_advertise,
++					       tp->phys[phy_num]);
+ 				tulip_mdio_write(dev, tp->phys[phy_num], 4, tp->mii_advertise);
+ 			}
+ 			break;
+@@ -335,8 +335,8 @@ void tulip_select_media(struct net_device *dev, int startup)
+ 				struct medialeaf *rleaf = &mtable->mleaf[mtable->has_reset];
+ 				unsigned char *rst = rleaf->leafdata;
+ 				if (tulip_debug > 1)
+-					printk(KERN_DEBUG "%s: Resetting the transceiver.\n",
+-						   dev->name);
++					printk(KERN_DEBUG "%s: Resetting the transceiver\n",
++					       dev->name);
+ 				for (i = 0; i < rst[0]; i++)
+ 					iowrite32(get_u16(rst + 1 + (i<<1)) << 16, ioaddr + CSR15);
+ 			}
+@@ -344,20 +344,20 @@ void tulip_select_media(struct net_device *dev, int startup)
+ 			break;
+ 		}
+ 		default:
+-			printk(KERN_DEBUG "%s:  Invalid media table selection %d.\n",
+-					   dev->name, mleaf->type);
++			printk(KERN_DEBUG "%s:  Invalid media table selection %d\n",
++			       dev->name, mleaf->type);
+ 			new_csr6 = 0x020E0000;
+ 		}
  		if (tulip_debug > 1)
--			printk(KERN_INFO"%s: PNIC2 %s link beat %s.\n",
+-			printk(KERN_DEBUG "%s: Using media type %s, CSR12 is %2.2x.\n",
 -				   dev->name, medianame[dev->if_port],
--				   (csr12 & 2) ? "failed" : "good");
-+			dev_info(&dev->dev, "PNIC2 %s link beat %s\n",
-+				 medianame[dev->if_port],
-+				 (csr12 & 2) ? "failed" : "good");
- 
-                 /* check 100 link beat */
- 
-@@ -364,9 +365,9 @@ void pnic2_lnk_change(struct net_device *dev, int csr5)
- 	        /* we are at 10mb and a potential link change occurred */
- 
++			printk(KERN_DEBUG "%s: Using media type %s, CSR12 is %02x\n",
++			       dev->name, medianame[dev->if_port],
+ 				   ioread32(ioaddr + CSR12) & 0xff);
+ 	} else if (tp->chip_id == LC82C168) {
+ 		if (startup && ! tp->medialock)
+ 			dev->if_port = tp->mii_cnt ? 11 : 0;
  		if (tulip_debug > 1)
--			printk(KERN_INFO"%s: PNIC2 %s link beat %s.\n",
+-			printk(KERN_DEBUG "%s: PNIC PHY status is %3.3x, media %s.\n",
+-				   dev->name, ioread32(ioaddr + 0xB8), medianame[dev->if_port]);
++			printk(KERN_DEBUG "%s: PNIC PHY status is %3.3x, media %s\n",
++			       dev->name, ioread32(ioaddr + 0xB8), medianame[dev->if_port]);
+ 		if (tp->mii_cnt) {
+ 			new_csr6 = 0x810C0000;
+ 			iowrite32(0x0001, ioaddr + CSR15);
+@@ -388,10 +388,9 @@ void tulip_select_media(struct net_device *dev, int startup)
+ 		} else
+ 			new_csr6 = 0x03860000;
+ 		if (tulip_debug > 1)
+-			printk(KERN_DEBUG "%s: No media description table, assuming "
+-				   "%s transceiver, CSR12 %2.2x.\n",
 -				   dev->name, medianame[dev->if_port],
--				   (csr12 & 4) ? "failed" : "good");
-+			dev_info(&dev->dev, "PNIC2 %s link beat %s\n",
-+				 medianame[dev->if_port],
-+				 (csr12 & 4) ? "failed" : "good");
+-				   ioread32(ioaddr + CSR12));
++			printk(KERN_DEBUG "%s: No media description table, assuming %s transceiver, CSR12 %02x\n",
++			       dev->name, medianame[dev->if_port],
++			       ioread32(ioaddr + CSR12));
+ 	}
  
- 
-                 tp->nway = 0;
-@@ -385,7 +386,7 @@ void pnic2_lnk_change(struct net_device *dev, int csr5)
- 
- 
+ 	tp->csr6 = new_csr6 | (tp->csr6 & 0xfdff) | (tp->full_duplex ? 0x0200 : 0);
+@@ -415,16 +414,17 @@ int tulip_check_duplex(struct net_device *dev)
+ 	bmsr = tulip_mdio_read(dev, tp->phys[0], MII_BMSR);
+ 	lpa = tulip_mdio_read(dev, tp->phys[0], MII_LPA);
  	if (tulip_debug > 1)
--		printk(KERN_INFO"%s: PNIC2 Link Change Default?\n",dev->name);
-+		dev_info(&dev->dev, "PNIC2 Link Change Default?\n");
+-		printk(KERN_INFO "%s: MII status %4.4x, Link partner report "
+-			   "%4.4x.\n", dev->name, bmsr, lpa);
++		dev_info(&dev->dev, "MII status %04x, Link partner report %04x\n",
++			 bmsr, lpa);
+ 	if (bmsr == 0xffff)
+ 		return -2;
+ 	if ((bmsr & BMSR_LSTATUS) == 0) {
+ 		int new_bmsr = tulip_mdio_read(dev, tp->phys[0], MII_BMSR);
+ 		if ((new_bmsr & BMSR_LSTATUS) == 0) {
+ 			if (tulip_debug  > 1)
+-				printk(KERN_INFO "%s: No link beat on the MII interface,"
+-					   " status %4.4x.\n", dev->name, new_bmsr);
++				dev_info(&dev->dev,
++					 "No link beat on the MII interface, status %04x\n",
++					 new_bmsr);
+ 			return -1;
+ 		}
+ 	}
+@@ -443,10 +443,10 @@ int tulip_check_duplex(struct net_device *dev)
+ 		tulip_restart_rxtx(tp);
  
-         /* if all else fails default to trying 10baseT-HD */
- 	dev->if_port = 0;
+ 		if (tulip_debug > 0)
+-			printk(KERN_INFO "%s: Setting %s-duplex based on MII"
+-				   "#%d link partner capability of %4.4x.\n",
+-				   dev->name, tp->full_duplex ? "full" : "half",
+-				   tp->phys[0], lpa);
++			dev_info(&dev->dev,
++				 "Setting %s-duplex based on MII#%d link partner capability of %04x\n",
++				 tp->full_duplex ? "full" : "half",
++				 tp->phys[0], lpa);
+ 		return 1;
+ 	}
+ 
+@@ -501,15 +501,13 @@ void __devinit tulip_find_mii (struct net_device *dev, int board_idx)
+ 
+ 		tp->phys[phy_idx++] = phy;
+ 
+-		printk (KERN_INFO "tulip%d:  MII transceiver #%d "
+-			"config %4.4x status %4.4x advertising %4.4x.\n",
++		pr_info("tulip%d:  MII transceiver #%d config %04x status %04x advertising %04x\n",
+ 			board_idx, phy, mii_reg0, mii_status, mii_advert);
+ 
+ 		/* Fixup for DLink with miswired PHY. */
+ 		if (mii_advert != to_advert) {
+-			printk (KERN_DEBUG "tulip%d:  Advertising %4.4x on PHY %d,"
+-				" previously advertising %4.4x.\n",
+-				board_idx, to_advert, phy, mii_advert);
++			printk(KERN_DEBUG "tulip%d:  Advertising %04x on PHY %d, previously advertising %04x\n",
++			       board_idx, to_advert, phy, mii_advert);
+ 			tulip_mdio_write (dev, phy, 4, to_advert);
+ 		}
+ 
+@@ -554,7 +552,7 @@ void __devinit tulip_find_mii (struct net_device *dev, int board_idx)
+ 	}
+ 	tp->mii_cnt = phy_idx;
+ 	if (tp->mtable && tp->mtable->has_mii && phy_idx == 0) {
+-		printk (KERN_INFO "tulip%d: ***WARNING***: No MII transceiver found!\n",
++		pr_info("tulip%d: ***WARNING***: No MII transceiver found!\n",
+ 			board_idx);
+ 		tp->phys[0] = 1;
+ 	}
 -- 
 1.6.6.rc0.57.gad7a
 
