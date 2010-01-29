@@ -1,69 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: PROBLEM: reproducible crash KVM+nf_conntrack all recent 2.6
- kernels
-Date: Fri, 29 Jan 2010 10:10:32 +0100
-Message-ID: <1264756232.3184.10.camel@edumazet-laptop>
-References: <1264657559.2793.103.camel@tonnant>
-	 <1264658364.2793.105.camel@tonnant>  <4B6180D1.6050609@trash.net>
-	 <1264720891.2793.205.camel@tonnant>  <1264727492.2793.207.camel@tonnant>
-	 <1264754565.2793.405.camel@tonnant>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC] [PATCH] Optimize TCP sendmsg in favour of fast devices?
+Date: Fri, 29 Jan 2010 22:07:20 +1300
+Message-ID: <20100129090720.GE23140@gondor.apana.org.au>
+References: <20100121.012520.254679483.davem@davemloft.net> <20100121094157.GA15262@gondor.apana.org.au> <OF7EA723DA.DC2FF4FC-ON652576B8.002064CB-652576B8.00267739@LocalDomain> <OFC641141C.812873FC-ON652576B8.003216B6-652576B8.003440CC@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
-To: Jon Masters <jonathan@jonmasters.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1264754565.2793.405.camel@tonnant>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:47723 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752151Ab0A2JRU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2010 04:17:20 -0500
+Content-Disposition: inline
+In-Reply-To: <OFC641141C.812873FC-ON652576B8.003216B6-652576B8.003440CC@in.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 29 janvier 2010 =C3=A0 03:42 -0500, Jon Masters a =C3=A9cri=
-t :
-> Hi,
->=20
-> So I did some poking (still trying to figure out netfilter a little
-> internally) and looked over the handling of connection tracking. The
-> oops reports I have been getting generally lie in __nf_conntrack_find=
-,
-> specifically within a hlist iterator that looks up the information fo=
-r
-> the current connection in a per-net namespace hashtable (under RCU, i=
-t's
-> been locked already by the time we get in here). Here's the piece:
->=20
->         hlist_nulls_for_each_entry_rcu(h, n, &net->ct.hash[hash],
-> hnnode) {
->                 if (nf_ct_tuple_equal(tuple, &h->tuple)) {
->                         NF_CT_STAT_INC(net, found);
->                         local_bh_enable();
->                         return h;
->                 }
->                 NF_CT_STAT_INC(net, searched);
->         }
->=20
-> Instrumenting the kernel at the moment and then setting up more of a
-> debugging environment to poke at what goes wrong here. Perhaps there'=
-s
-> some broken RCU assumption - I just spent the last few hours reading
-> over netfilter source and Paul's RCU docs again to brush up.
->=20
-> Perhaps you netdev folks can let me know if there's a handy netfilter
-> debugging guide somewhere.
->=20
-> Jon.
->=20
->=20
+On Wed, Jan 27, 2010 at 03:12:48PM +0530, Krishna Kumar2 wrote:
+> 
+> I should have mentioned this too - if I unset F_SG in the
+> cxgb3 driver and nothing else, ethtool -k still shows GSO
+> is set, and tcpdump shows max packet size is 1448. If I
+> additionally set GSO in driver, then ethtool still has the
+> same output, but tcpdump shows max packet size of 65160.
 
-Jon, do you have multiple network namespace active on your machine, whe=
-n
-crash occurs ?
+This sounds like a bug.
 
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
