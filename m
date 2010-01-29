@@ -1,65 +1,27 @@
-From: Anton Ivanov <anton.ivanov@kot-begemot.co.uk>
-Subject: Re: CBQ broken in 2.6
-Date: Fri, 29 Jan 2010 12:25:31 +0000
-Message-ID: <1264767932.4412.7.camel@mare-infinitum.sigsegv.cx>
-References: <20100128125317.GA8931@ff.dom.local>
-	 <1264685696.4038.14.camel@mare-infinitum.sigsegv.cx>
-	 <20100128184519.GA3109@del.dom.local>
-	 <1264708135.22027.13.camel@magrat.sigsegv.cx>
-	 <1264714062.3380.20.camel@edumazet-laptop>
+From: Susant Sahani <ssahani@gmail.com>
+Subject: NF_STOLEN and reinsert in to IP stack
+Date: Fri, 29 Jan 2010 18:08:55 +0530
+Message-ID: <d81115a61001290438t3cc3f657le11b68a9786090be@mail.gmail.com>
+References: <d81115a61001290434x740c7381v6929d6aea1d354dd@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ivanoab2.miniserver.com ([89.200.136.192]:39842 "EHLO
-	www.sigsegv.cx" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751579Ab0A2MZi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jan 2010 07:25:38 -0500
-In-Reply-To: <1264714062.3380.20.camel@edumazet-laptop>
+Received: from mail-pw0-f42.google.com ([209.85.160.42]:62274 "EHLO
+	mail-pw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752853Ab0A2MjP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2010 07:39:15 -0500
+Received: by pwi21 with SMTP id 21so1316623pwi.21
+        for <netdev@vger.kernel.org>; Fri, 29 Jan 2010 04:39:15 -0800 (PST)
+In-Reply-To: <d81115a61001290434x740c7381v6929d6aea1d354dd@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[snip]
+ Hi,
+ =A0=A0=A0=A0=A0=A0=A0 How to reinsert a packet into IP stack after usi=
+ng NF_STOLEN. If I
+ do a nf_reinject it crashes .
 
-> > Thanks for all the help. 
-> 
-> I am using CBQ myself with recent kernels and never found it
-> 'borrowing', could you post a copy of your rules, or better, a subset of
-> them desmonstrating the problem ?
-
-Actually after going through it several times and looking at the code
-Jarek pointed out it doesn't. 
-
-Just the stats are very confusing and precision is not particularly
-great.
-
-It says "borrowed" while actually it is the child which has borrowed
-from this class, not the class itself borrowing. The class has been
-borrowed from, not it itself borrowed. 
-
-As nobody else has complained about the stats they should be probably
-left as is according to the "least surprise" principle.
-
-As far as the precision becoming worse over the last 15 or so minor
-revision 2.6.9 to 2.6.26 that cannot be helped. On my hardware it was so
-bad that I had it confused with not working at all at some point. I
-ended up sticking aggressive RED leafs on the biggest "offenders" and
-this has gotten my config to a working state for now. I am not happy
-with it, but it is better than no QoS at all.
-
-> 
-> 
-> 
-> 
--- 
-   Understanding is a three-edged sword:
-            your side, their side, and the truth. --Kosh Naranek
-
-A. R. Ivanov
-E-mail:  anton.ivanov@kot-begemot.co.uk
-WWW:     http://www.kot-begemot.co.uk/
-
-
+ Thanks,
+ Susant
