@@ -1,608 +1,207 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH 2/2] virtio_net: Defer skb allocation in receive path Date: Wed, 13 Jan 2010 12:53:38 -0800
-Date: Fri, 29 Jan 2010 23:50:04 +1030
-Message-ID: <201001292350.04544.rusty@rustcorp.com.au>
-References: <201001292346.43675.rusty@rustcorp.com.au> <201001292349.05360.rusty@rustcorp.com.au>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: fwmark based routing stopped working in 2.6.32
+Date: Fri, 29 Jan 2010 14:21:23 +0100
+Message-ID: <4B62E0D3.8040207@trash.net>
+References: <4B62DF02.4010405@trpkovic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	virtualization@lists.linux-foundation.org,
-	Shirley Ma <mashirle@us.ibm.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------090301010806080804030209"
+Cc: linux-net@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Nebojsa Trpkovic <nebojsa@trpkovic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:41865 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754199Ab0A2NUI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jan 2010 08:20:08 -0500
-In-Reply-To: <201001292349.05360.rusty@rustcorp.com.au>
+Received: from stinky.trash.net ([213.144.137.162]:39771 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752060Ab0A2NV3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2010 08:21:29 -0500
+In-Reply-To: <4B62DF02.4010405@trpkovic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shirley Ma <mashirle@us.ibm.com>
+This is a multi-part message in MIME format.
+--------------090301010806080804030209
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-virtio_net receives packets from its pre-allocated vring buffers, then it 
-delivers these packets to upper layer protocols as skb buffs. So it's not
-necessary to pre-allocate skb for each mergable buffer, then frees extra 
-skbs when buffers are merged into a large packet. This patch has deferred 
-skb allocation in receiving packets for both big packets and mergeable buffers
-to reduce skb pre-allocations and skb frees. It frees unused buffers by calling 
-detach_unused_buf in vring, so recv skb queue is not needed.
+Nebojsa Trpkovic wrote:
+> hello.
+> 
+> I have two ADSL links on eth2 and eth3.
+> 
+> ADSL1 (eth2) with IP 10.5.18.18 is default gateway in main routing table.
+> 
+> ADSL2 (eth3) with IP 10.5.18.22 is used just for marked packets:
+> ###################################################
+> #!/bin/bash
+> ip route add default via 10.5.18.22 dev eth3 table 20
+> ip rule add fwmark 0x351 table 20
+> ip rule add fwmark 0x352 table 20
+> ip rule add fwmark 0x353 table 20
+> ip route flush cache
+> ###################################################
+> 
+> everything worked fine for years using kernels 2.6.24 and 2.6.29.
+> recently I upgraded to 2.6.32-r2 and traffic through ADSL2 stopped.
+> 
+> the moment I delete table 20 and ip rules, everything works fine:
+> I can set both ADSL1 or ADSL2 as default gateway and they will work.
+> 
+> again, the moment I start making routing decision considering firewall
+> marks, I get traffic only on ADSL1 (main table default gw) interface.
+> 
+> I've found out that when I mark ICMP protocol with 0x351 fwmark and try
+> too ping something, ping packets are sent via eth3 indeed:
+> iptraf detailed eth3 statistics shows that there are constatnly outgoing
+> ICMP packages.
+> 
+> even more interesting is fact that there is exactly the same number of
+> incoming ICMP packages, but my ping output is empty:
+> there is no "Destination Host Unreachable" or similar - nothing.
+> 
+> this leeds me to believe that ICMP packages are routed right, I receive
+> some answer, but those answer packages are discarded.
+> 
+> so, I've flushed all firewall rules except marking for ICMP, and added
+> explicit
+> ###################################################
+> iptables -t mangle -A OUTPUT -p ICMP -j MARK --set-mark 0x351
+> ###################################################
+> that didn't help.
+> 
+> I've added explicit rule
+> ###################################################
+> iptables -I INPUT -i eth3 -j ACCEPT
+> ###################################################
+> that didn't help.
+> 
+> I've checked, and my source route verification is turned off for these
+> ifaces:
+> ###################################################
+> etc # sysctl net.ipv4.conf.default.rp_filter
+> net.ipv4.conf.default.rp_filter = 1
+> etc # sysctl net.ipv4.conf.eth2.rp_filter
+> net.ipv4.conf.eth2.rp_filter = 0
+> etc # sysctl net.ipv4.conf.eth3.rp_filter
+> net.ipv4.conf.eth3.rp_filter = 0
+> ###################################################
+> changing that to "=1" doesn't solve the problem.
+> 
+> tcpdump on eth3 after 3 pings to 216.239.34.10
+> ###################################################
+> ping -I eth3 -c3 216.239.34.10
+> PING 216.239.34.10 (216.239.34.10) from 10.5.18.21 eth3: 56(84) bytes of
+> data.
+> 
+> --- 216.239.34.10 ping statistics ---
+> 3 packets transmitted, 0 received, 100% packet loss, time 2006ms
+> ###################################################
+> ###################################################
+> 13:24:23.556436 00:23:54:07:e9:6a > 00:90:d0:da:d2:06, ethertype IPv4
+> (0x0800), length 98: 10.5.18.21 > 216.239.34.10: ICMP echo request, id
+> 51300, seq 1, length 64
+> 13:24:23.605304 00:90:d0:da:d2:06 > 00:23:54:07:e9:6a, ethertype IPv4
+> (0x0800), length 98: 216.239.34.10 > 10.5.18.21: ICMP echo reply, id
+> 51300, seq 1, length 64
+> 13:24:24.555536 00:23:54:07:e9:6a > 00:90:d0:da:d2:06, ethertype IPv4
+> (0x0800), length 98: 10.5.18.21 > 216.239.34.10: ICMP echo request, id
+> 51300, seq 2, length 64
+> 13:24:24.603520 00:90:d0:da:d2:06 > 00:23:54:07:e9:6a, ethertype IPv4
+> (0x0800), length 98: 216.239.34.10 > 10.5.18.21: ICMP echo reply, id
+> 51300, seq 2, length 64
+> 13:24:25.563105 00:23:54:07:e9:6a > 00:90:d0:da:d2:06, ethertype IPv4
+> (0x0800), length 98: 10.5.18.21 > 216.239.34.10: ICMP echo request, id
+> 51300, seq 3, length 64
+> 13:24:25.610497 00:90:d0:da:d2:06 > 00:23:54:07:e9:6a, ethertype IPv4
+> (0x0800), length 98: 216.239.34.10 > 10.5.18.21: ICMP echo reply, id
+> 51300, seq 3, length 64
+> ###################################################
+> 
+> so, I'm definitely getting those packets back, but system ignoress them.
+> 
+> any idea what could go wrong and why does my system discard packages
+> from eth3 if they are not routed by main ruting table?
+> 
+> any info on what could be changed between kernels 2.6.29 and 2.6.32
+> regarding this issue?
 
-Signed-off-by: Shirley Ma <xma@us.ibm.com>
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
----
- drivers/net/virtio_net.c |  427 +++++++++++++++++++++++++++--------------------
- 1 file changed, 248 insertions(+), 179 deletions(-)
+Please try this patch. It might need a few minor changes to apply
+cleanly.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index c708ecc..72b3f21 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -56,8 +56,7 @@ struct virtnet_info
- 	/* Host will merge rx buffers for big packets (shake it! shake it!) */
- 	bool mergeable_rx_bufs;
- 
--	/* Receive & send queues. */
--	struct sk_buff_head recv;
-+	/* Send queue. */
- 	struct sk_buff_head send;
- 
- 	/* Work struct for refilling if we run low on memory. */
-@@ -75,34 +74,44 @@ struct skb_vnet_hdr {
- 	unsigned int num_sg;
+--------------090301010806080804030209
+Content-Type: text/x-patch;
+ name="01.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="01.diff"
+
+commit 28f6aeea3f12d37bd258b2c0d5ba891bff4ec479
+Author: Jamal Hadi Salim <hadi@cyberus.ca>
+Date:   Fri Dec 25 17:30:22 2009 -0800
+
+    net: restore ip source validation
+    
+    when using policy routing and the skb mark:
+    there are cases where a back path validation requires us
+    to use a different routing table for src ip validation than
+    the one used for mapping ingress dst ip.
+    One such a case is transparent proxying where we pretend to be
+    the destination system and therefore the local table
+    is used for incoming packets but possibly a main table would
+    be used on outbound.
+    Make the default behavior to allow the above and if users
+    need to turn on the symmetry via sysctl src_valid_mark
+    
+    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index 699e85c..b230492 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -81,6 +81,7 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
+ #define IN_DEV_FORWARD(in_dev)		IN_DEV_CONF_GET((in_dev), FORWARDING)
+ #define IN_DEV_MFORWARD(in_dev)		IN_DEV_ANDCONF((in_dev), MC_FORWARDING)
+ #define IN_DEV_RPFILTER(in_dev)		IN_DEV_MAXCONF((in_dev), RP_FILTER)
++#define IN_DEV_SRC_VMARK(in_dev)    	IN_DEV_ORCONF((in_dev), SRC_VMARK)
+ #define IN_DEV_SOURCE_ROUTE(in_dev)	IN_DEV_ANDCONF((in_dev), \
+ 						       ACCEPT_SOURCE_ROUTE)
+ #define IN_DEV_ACCEPT_LOCAL(in_dev)	IN_DEV_ORCONF((in_dev), ACCEPT_LOCAL)
+diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+index 877ba03..bd27fbc 100644
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
+@@ -482,6 +482,7 @@ enum
+ 	NET_IPV4_CONF_ARP_ACCEPT=21,
+ 	NET_IPV4_CONF_ARP_NOTIFY=22,
+ 	NET_IPV4_CONF_ACCEPT_LOCAL=23,
++	NET_IPV4_CONF_SRC_VMARK=24,
+ 	__NET_IPV4_CONF_MAX
  };
  
-+struct padded_vnet_hdr {
-+	struct virtio_net_hdr hdr;
-+	/*
-+	 * virtio_net_hdr should be in a separated sg buffer because of a
-+	 * QEMU bug, and data sg buffer shares same page with this header sg.
-+	 * This padding makes next sg 16 byte aligned after virtio_net_hdr.
-+	 */
-+	char padding[6];
-+};
-+
- static inline struct skb_vnet_hdr *skb_vnet_hdr(struct sk_buff *skb)
- {
- 	return (struct skb_vnet_hdr *)skb->cb;
- }
- 
--static void give_a_page(struct virtnet_info *vi, struct page *page)
--{
--	page->private = (unsigned long)vi->pages;
--	vi->pages = page;
--}
--
--static void trim_pages(struct virtnet_info *vi, struct sk_buff *skb)
-+/*
-+ * private is used to chain pages for big packets, put the whole
-+ * most recent used list in the beginning for reuse
-+ */
-+static void give_pages(struct virtnet_info *vi, struct page *page)
- {
--	unsigned int i;
-+	struct page *end;
- 
--	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
--		give_a_page(vi, skb_shinfo(skb)->frags[i].page);
--	skb_shinfo(skb)->nr_frags = 0;
--	skb->data_len = 0;
-+	/* Find end of list, sew whole thing into vi->pages. */
-+	for (end = page; end->private; end = (struct page *)end->private);
-+	end->private = (unsigned long)vi->pages;
-+	vi->pages = page;
- }
- 
- static struct page *get_a_page(struct virtnet_info *vi, gfp_t gfp_mask)
- {
- 	struct page *p = vi->pages;
- 
--	if (p)
-+	if (p) {
- 		vi->pages = (struct page *)p->private;
--	else
-+		/* clear private here, it is used to chain pages */
-+		p->private = 0;
-+	} else
- 		p = alloc_page(gfp_mask);
- 	return p;
- }
-@@ -118,99 +127,142 @@ static void skb_xmit_done(struct virtqueue *svq)
- 	netif_wake_queue(vi->dev);
- }
- 
--static void receive_skb(struct net_device *dev, struct sk_buff *skb,
--			unsigned len)
-+static void set_skb_frag(struct sk_buff *skb, struct page *page,
-+			 unsigned int offset, unsigned int *len)
- {
--	struct virtnet_info *vi = netdev_priv(dev);
--	struct skb_vnet_hdr *hdr = skb_vnet_hdr(skb);
--	int err;
--	int i;
--
--	if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
--		pr_debug("%s: short packet %i\n", dev->name, len);
--		dev->stats.rx_length_errors++;
--		goto drop;
--	}
-+	int i = skb_shinfo(skb)->nr_frags;
-+	skb_frag_t *f;
-+
-+	f = &skb_shinfo(skb)->frags[i];
-+	f->size = min((unsigned)PAGE_SIZE - offset, *len);
-+	f->page_offset = offset;
-+	f->page = page;
-+
-+	skb->data_len += f->size;
-+	skb->len += f->size;
-+	skb_shinfo(skb)->nr_frags++;
-+	*len -= f->size;
-+}
- 
--	if (vi->mergeable_rx_bufs) {
--		unsigned int copy;
--		char *p = page_address(skb_shinfo(skb)->frags[0].page);
-+static struct sk_buff *page_to_skb(struct virtnet_info *vi,
-+				   struct page *page, unsigned int len)
-+{
-+	struct sk_buff *skb;
-+	struct skb_vnet_hdr *hdr;
-+	unsigned int copy, hdr_len, offset;
-+	char *p;
- 
--		if (len > PAGE_SIZE)
--			len = PAGE_SIZE;
--		len -= sizeof(struct virtio_net_hdr_mrg_rxbuf);
-+	p = page_address(page);
- 
--		memcpy(&hdr->mhdr, p, sizeof(hdr->mhdr));
--		p += sizeof(hdr->mhdr);
-+	/* copy small packet so we can reuse these pages for small data */
-+	skb = netdev_alloc_skb_ip_align(vi->dev, GOOD_COPY_LEN);
-+	if (unlikely(!skb))
-+		return NULL;
- 
--		copy = len;
--		if (copy > skb_tailroom(skb))
--			copy = skb_tailroom(skb);
-+	hdr = skb_vnet_hdr(skb);
- 
--		memcpy(skb_put(skb, copy), p, copy);
-+	if (vi->mergeable_rx_bufs) {
-+		hdr_len = sizeof hdr->mhdr;
-+		offset = hdr_len;
-+	} else {
-+		hdr_len = sizeof hdr->hdr;
-+		offset = sizeof(struct padded_vnet_hdr);
-+	}
- 
--		len -= copy;
-+	memcpy(hdr, p, hdr_len);
- 
--		if (!len) {
--			give_a_page(vi, skb_shinfo(skb)->frags[0].page);
--			skb_shinfo(skb)->nr_frags--;
--		} else {
--			skb_shinfo(skb)->frags[0].page_offset +=
--				sizeof(hdr->mhdr) + copy;
--			skb_shinfo(skb)->frags[0].size = len;
--			skb->data_len += len;
--			skb->len += len;
--		}
-+	len -= hdr_len;
-+	p += offset;
- 
--		while (--hdr->mhdr.num_buffers) {
--			struct sk_buff *nskb;
-+	copy = len;
-+	if (copy > skb_tailroom(skb))
-+		copy = skb_tailroom(skb);
-+	memcpy(skb_put(skb, copy), p, copy);
- 
--			i = skb_shinfo(skb)->nr_frags;
--			if (i >= MAX_SKB_FRAGS) {
--				pr_debug("%s: packet too long %d\n", dev->name,
--					 len);
--				dev->stats.rx_length_errors++;
--				goto drop;
--			}
-+	len -= copy;
-+	offset += copy;
- 
--			nskb = vi->rvq->vq_ops->get_buf(vi->rvq, &len);
--			if (!nskb) {
--				pr_debug("%s: rx error: %d buffers missing\n",
--					 dev->name, hdr->mhdr.num_buffers);
--				dev->stats.rx_length_errors++;
--				goto drop;
--			}
-+	while (len) {
-+		set_skb_frag(skb, page, offset, &len);
-+		page = (struct page *)page->private;
-+		offset = 0;
-+	}
- 
--			__skb_unlink(nskb, &vi->recv);
--			vi->num--;
-+	if (page)
-+		give_pages(vi, page);
- 
--			skb_shinfo(skb)->frags[i] = skb_shinfo(nskb)->frags[0];
--			skb_shinfo(nskb)->nr_frags = 0;
--			kfree_skb(nskb);
-+	return skb;
-+}
- 
--			if (len > PAGE_SIZE)
--				len = PAGE_SIZE;
-+static int receive_mergeable(struct virtnet_info *vi, struct sk_buff *skb)
-+{
-+	struct skb_vnet_hdr *hdr = skb_vnet_hdr(skb);
-+	struct page *page;
-+	int num_buf, i, len;
-+
-+	num_buf = hdr->mhdr.num_buffers;
-+	while (--num_buf) {
-+		i = skb_shinfo(skb)->nr_frags;
-+		if (i >= MAX_SKB_FRAGS) {
-+			pr_debug("%s: packet too long\n", skb->dev->name);
-+			skb->dev->stats.rx_length_errors++;
-+			return -EINVAL;
-+		}
- 
--			skb_shinfo(skb)->frags[i].size = len;
--			skb_shinfo(skb)->nr_frags++;
--			skb->data_len += len;
--			skb->len += len;
-+		page = vi->rvq->vq_ops->get_buf(vi->rvq, &len);
-+		if (!page) {
-+			pr_debug("%s: rx error: %d buffers missing\n",
-+				 skb->dev->name, hdr->mhdr.num_buffers);
-+			skb->dev->stats.rx_length_errors++;
-+			return -EINVAL;
- 		}
--	} else {
--		len -= sizeof(hdr->hdr);
-+		if (len > PAGE_SIZE)
-+			len = PAGE_SIZE;
-+
-+		set_skb_frag(skb, page, 0, &len);
-+
-+		--vi->num;
-+	}
-+	return 0;
-+}
-+
-+static void receive_buf(struct net_device *dev, void *buf, unsigned int len)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+	struct sk_buff *skb;
-+	struct page *page;
-+	struct skb_vnet_hdr *hdr;
- 
--		if (len <= MAX_PACKET_LEN)
--			trim_pages(vi, skb);
-+	if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
-+		pr_debug("%s: short packet %i\n", dev->name, len);
-+		dev->stats.rx_length_errors++;
-+		if (vi->mergeable_rx_bufs || vi->big_packets)
-+			give_pages(vi, buf);
-+		else
-+			dev_kfree_skb(buf);
-+		return;
-+	}
- 
--		err = pskb_trim(skb, len);
--		if (err) {
--			pr_debug("%s: pskb_trim failed %i %d\n", dev->name,
--				 len, err);
-+	if (!vi->mergeable_rx_bufs && !vi->big_packets) {
-+		skb = buf;
-+		len -= sizeof(struct virtio_net_hdr);
-+		skb_trim(skb, len);
-+	} else {
-+		page = buf;
-+		skb = page_to_skb(vi, page, len);
-+		if (unlikely(!skb)) {
- 			dev->stats.rx_dropped++;
--			goto drop;
-+			give_pages(vi, page);
-+			return;
- 		}
-+		if (vi->mergeable_rx_bufs)
-+			if (receive_mergeable(vi, skb)) {
-+				dev_kfree_skb(skb);
-+				return;
-+			}
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 5cdbc10..040c4f0 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1397,6 +1397,7 @@ static struct devinet_sysctl_table {
+ 		DEVINET_SYSCTL_RW_ENTRY(ACCEPT_SOURCE_ROUTE,
+ 					"accept_source_route"),
+ 		DEVINET_SYSCTL_RW_ENTRY(ACCEPT_LOCAL, "accept_local"),
++		DEVINET_SYSCTL_RW_ENTRY(SRC_VMARK, "src_valid_mark"),
+ 		DEVINET_SYSCTL_RW_ENTRY(PROXY_ARP, "proxy_arp"),
+ 		DEVINET_SYSCTL_RW_ENTRY(MEDIUM_ID, "medium_id"),
+ 		DEVINET_SYSCTL_RW_ENTRY(BOOTP_RELAY, "bootp_relay"),
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 3323168..82dbf71 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -252,6 +252,8 @@ int fib_validate_source(__be32 src, __be32 dst, u8 tos, int oif,
+ 		no_addr = in_dev->ifa_list == NULL;
+ 		rpf = IN_DEV_RPFILTER(in_dev);
+ 		accept_local = IN_DEV_ACCEPT_LOCAL(in_dev);
++		if (mark && !IN_DEV_SRC_VMARK(in_dev))
++			fl.mark = 0;
  	}
- 
-+	hdr = skb_vnet_hdr(skb);
- 	skb->truesize += skb->data_len;
- 	dev->stats.rx_bytes += skb->len;
- 	dev->stats.rx_packets++;
-@@ -267,110 +319,119 @@ static void receive_skb(struct net_device *dev, struct sk_buff *skb,
- 
- frame_err:
- 	dev->stats.rx_frame_errors++;
--drop:
- 	dev_kfree_skb(skb);
- }
- 
--static bool try_fill_recv_maxbufs(struct virtnet_info *vi, gfp_t gfp)
-+static int add_recvbuf_small(struct virtnet_info *vi, gfp_t gfp)
- {
- 	struct sk_buff *skb;
--	struct scatterlist sg[2+MAX_SKB_FRAGS];
--	int num, err, i;
--	bool oom = false;
--
--	sg_init_table(sg, 2+MAX_SKB_FRAGS);
--	do {
--		struct skb_vnet_hdr *hdr;
-+	struct skb_vnet_hdr *hdr;
-+	struct scatterlist sg[2];
-+	int err;
- 
--		skb = netdev_alloc_skb_ip_align(vi->dev, MAX_PACKET_LEN);
--		if (unlikely(!skb)) {
--			oom = true;
--			break;
--		}
-+	skb = netdev_alloc_skb_ip_align(vi->dev, MAX_PACKET_LEN);
-+	if (unlikely(!skb))
-+		return -ENOMEM;
- 
--		skb_put(skb, MAX_PACKET_LEN);
-+	skb_put(skb, MAX_PACKET_LEN);
- 
--		hdr = skb_vnet_hdr(skb);
--		sg_set_buf(sg, &hdr->hdr, sizeof(hdr->hdr));
-+	hdr = skb_vnet_hdr(skb);
-+	sg_set_buf(sg, &hdr->hdr, sizeof hdr->hdr);
- 
--		if (vi->big_packets) {
--			for (i = 0; i < MAX_SKB_FRAGS; i++) {
--				skb_frag_t *f = &skb_shinfo(skb)->frags[i];
--				f->page = get_a_page(vi, gfp);
--				if (!f->page)
--					break;
-+	skb_to_sgvec(skb, sg + 1, 0, skb->len);
- 
--				f->page_offset = 0;
--				f->size = PAGE_SIZE;
-+	err = vi->rvq->vq_ops->add_buf(vi->rvq, sg, 0, 2, skb);
-+	if (err < 0)
-+		dev_kfree_skb(skb);
- 
--				skb->data_len += PAGE_SIZE;
--				skb->len += PAGE_SIZE;
-+	return err;
-+}
- 
--				skb_shinfo(skb)->nr_frags++;
--			}
-+static int add_recvbuf_big(struct virtnet_info *vi, gfp_t gfp)
-+{
-+	struct scatterlist sg[MAX_SKB_FRAGS + 2];
-+	struct page *first, *list = NULL;
-+	char *p;
-+	int i, err, offset;
-+
-+	/* page in sg[MAX_SKB_FRAGS + 1] is list tail */
-+	for (i = MAX_SKB_FRAGS + 1; i > 1; --i) {
-+		first = get_a_page(vi, gfp);
-+		if (!first) {
-+			if (list)
-+				give_pages(vi, list);
-+			return -ENOMEM;
- 		}
-+		sg_set_buf(&sg[i], page_address(first), PAGE_SIZE);
- 
--		num = skb_to_sgvec(skb, sg+1, 0, skb->len) + 1;
--		skb_queue_head(&vi->recv, skb);
-+		/* chain new page in list head to match sg */
-+		first->private = (unsigned long)list;
-+		list = first;
-+	}
- 
--		err = vi->rvq->vq_ops->add_buf(vi->rvq, sg, 0, num, skb);
--		if (err < 0) {
--			skb_unlink(skb, &vi->recv);
--			trim_pages(vi, skb);
--			kfree_skb(skb);
--			break;
--		}
--		vi->num++;
--	} while (err >= num);
--	if (unlikely(vi->num > vi->max))
--		vi->max = vi->num;
--	vi->rvq->vq_ops->kick(vi->rvq);
--	return !oom;
-+	first = get_a_page(vi, gfp);
-+	if (!first) {
-+		give_pages(vi, list);
-+		return -ENOMEM;
-+	}
-+	p = page_address(first);
-+
-+	/* sg[0], sg[1] share the same page */
-+	/* a separated sg[0] for  virtio_net_hdr only during to QEMU bug*/
-+	sg_set_buf(&sg[0], p, sizeof(struct virtio_net_hdr));
-+
-+	/* sg[1] for data packet, from offset */
-+	offset = sizeof(struct padded_vnet_hdr);
-+	sg_set_buf(&sg[1], p + offset, PAGE_SIZE - offset);
-+
-+	/* chain first in list head */
-+	first->private = (unsigned long)list;
-+	err = vi->rvq->vq_ops->add_buf(vi->rvq, sg, 0, MAX_SKB_FRAGS + 2,
-+				       first);
-+	if (err < 0)
-+		give_pages(vi, first);
-+
-+	return err;
- }
- 
--/* Returns false if we couldn't fill entirely (OOM). */
--static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
-+static int add_recvbuf_mergeable(struct virtnet_info *vi, gfp_t gfp)
- {
--	struct sk_buff *skb;
--	struct scatterlist sg[1];
-+	struct page *page;
-+	struct scatterlist sg;
- 	int err;
--	bool oom = false;
--
--	if (!vi->mergeable_rx_bufs)
--		return try_fill_recv_maxbufs(vi, gfp);
- 
--	do {
--		skb_frag_t *f;
-+	page = get_a_page(vi, gfp);
-+	if (!page)
-+		return -ENOMEM;
- 
--		skb = netdev_alloc_skb_ip_align(vi->dev, GOOD_COPY_LEN);
--		if (unlikely(!skb)) {
--			oom = true;
--			break;
--		}
-+	sg_init_one(&sg, page_address(page), PAGE_SIZE);
- 
--		f = &skb_shinfo(skb)->frags[0];
--		f->page = get_a_page(vi, gfp);
--		if (!f->page) {
--			oom = true;
--			kfree_skb(skb);
--			break;
--		}
-+	err = vi->rvq->vq_ops->add_buf(vi->rvq, &sg, 0, 1, page);
-+	if (err < 0)
-+		give_pages(vi, page);
- 
--		f->page_offset = 0;
--		f->size = PAGE_SIZE;
-+	return err;
-+}
- 
--		skb_shinfo(skb)->nr_frags++;
-+/* Returns false if we couldn't fill entirely (OOM). */
-+static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
-+{
-+	int err;
-+	bool oom = false;
- 
--		sg_init_one(sg, page_address(f->page), PAGE_SIZE);
--		skb_queue_head(&vi->recv, skb);
-+	do {
-+		if (vi->mergeable_rx_bufs)
-+			err = add_recvbuf_mergeable(vi, gfp);
-+		else if (vi->big_packets)
-+			err = add_recvbuf_big(vi, gfp);
-+		else
-+			err = add_recvbuf_small(vi, gfp);
- 
--		err = vi->rvq->vq_ops->add_buf(vi->rvq, sg, 0, 1, skb);
- 		if (err < 0) {
--			skb_unlink(skb, &vi->recv);
--			kfree_skb(skb);
-+			oom = true;
- 			break;
- 		}
--		vi->num++;
-+		++vi->num;
- 	} while (err > 0);
- 	if (unlikely(vi->num > vi->max))
- 		vi->max = vi->num;
-@@ -408,15 +469,14 @@ static void refill_work(struct work_struct *work)
- static int virtnet_poll(struct napi_struct *napi, int budget)
- {
- 	struct virtnet_info *vi = container_of(napi, struct virtnet_info, napi);
--	struct sk_buff *skb = NULL;
-+	void *buf;
- 	unsigned int len, received = 0;
- 
- again:
- 	while (received < budget &&
--	       (skb = vi->rvq->vq_ops->get_buf(vi->rvq, &len)) != NULL) {
--		__skb_unlink(skb, &vi->recv);
--		receive_skb(vi->dev, skb, len);
--		vi->num--;
-+	       (buf = vi->rvq->vq_ops->get_buf(vi->rvq, &len)) != NULL) {
-+		receive_buf(vi->dev, buf, len);
-+		--vi->num;
- 		received++;
- 	}
- 
-@@ -496,9 +556,9 @@ static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
- 
- 	/* Encode metadata header at front. */
- 	if (vi->mergeable_rx_bufs)
--		sg_set_buf(sg, &hdr->mhdr, sizeof(hdr->mhdr));
-+		sg_set_buf(sg, &hdr->mhdr, sizeof hdr->mhdr);
- 	else
--		sg_set_buf(sg, &hdr->hdr, sizeof(hdr->hdr));
-+		sg_set_buf(sg, &hdr->hdr, sizeof hdr->hdr);
- 
- 	hdr->num_sg = skb_to_sgvec(skb, sg+1, 0, skb->len) + 1;
- 	return vi->svq->vq_ops->add_buf(vi->svq, sg, hdr->num_sg, 0, skb);
-@@ -916,8 +976,7 @@ static int virtnet_probe(struct virtio_device *vdev)
- 			dev->features |= NETIF_F_HW_VLAN_FILTER;
- 	}
- 
--	/* Initialize our empty receive and send queues. */
--	skb_queue_head_init(&vi->recv);
-+	/* Initialize our empty send queue. */
- 	skb_queue_head_init(&vi->send);
- 
- 	err = register_netdev(dev);
-@@ -952,25 +1011,35 @@ free:
- 	return err;
- }
- 
-+static void free_unused_bufs(struct virtnet_info *vi)
-+{
-+	void *buf;
-+	while (1) {
-+		buf = vi->rvq->vq_ops->detach_unused_buf(vi->rvq);
-+		if (!buf)
-+			break;
-+		if (vi->mergeable_rx_bufs || vi->big_packets)
-+			give_pages(vi, buf);
-+		else
-+			dev_kfree_skb(buf);
-+		--vi->num;
-+	}
-+	BUG_ON(vi->num != 0);
-+}
-+
- static void __devexit virtnet_remove(struct virtio_device *vdev)
- {
- 	struct virtnet_info *vi = vdev->priv;
--	struct sk_buff *skb;
- 
- 	/* Stop all the virtqueues. */
- 	vdev->config->reset(vdev);
- 
--	/* Free our skbs in send and recv queues, if any. */
--	while ((skb = __skb_dequeue(&vi->recv)) != NULL) {
--		kfree_skb(skb);
--		vi->num--;
--	}
-+	/* Free our skbs in send queue, if any. */
- 	__skb_queue_purge(&vi->send);
- 
--	BUG_ON(vi->num != 0);
--
- 	unregister_netdev(vi->dev);
- 	cancel_delayed_work_sync(&vi->refill);
-+	free_unused_bufs(vi);
- 
- 	vdev->config->del_vqs(vi->vdev);
+ 	rcu_read_unlock();
  
 
+--------------090301010806080804030209--
