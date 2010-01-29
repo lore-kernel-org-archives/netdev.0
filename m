@@ -1,44 +1,34 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [2.6.33-rc5] kernel BUG at include/net/netns/generic.h:41!
-Date: Fri, 29 Jan 2010 12:17:26 +0200
-Message-ID: <b6fcc0a1001290217l4edb0a0btbafa0c26b6f14ad5@mail.gmail.com>
-References: <20100129094822.GA8294@nb-core2.darkstar.lan>
+From: Jon Masters <jonathan@jonmasters.org>
+Subject: Re: PROBLEM: reproducible crash KVM+nf_conntrack all recent 2.6
+ kernels
+Date: Fri, 29 Jan 2010 05:57:35 -0500
+Message-ID: <1264762655.2793.409.camel@tonnant>
+References: <1264657559.2793.103.camel@tonnant>
+	 <1264658364.2793.105.camel@tonnant>  <4B6180D1.6050609@trash.net>
+	 <1264720891.2793.205.camel@tonnant>  <1264727492.2793.207.camel@tonnant>
+	 <1264754565.2793.405.camel@tonnant>
+	 <1264756232.3184.10.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Luca Tettamanti <kronos.it@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f186.google.com ([209.85.223.186]:49201 "EHLO
-	mail-iw0-f186.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756893Ab0A2KR1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2010 05:17:27 -0500
-In-Reply-To: <20100129094822.GA8294@nb-core2.darkstar.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1264756232.3184.10.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 29, 2010 at 11:48 AM, Luca Tettamanti <kronos.it@gmail.com>=
- wrote:
-> with recent kernels I'm seeing this BUG - triggered by racoon - at bo=
-ot:
->
-> NET: Registered protocol family 15
-> ------------[ cut here ]------------
-> kernel BUG at /home/kronos/src/linux-2.6.git/include/net/netns/generi=
-c.h:43!
-> invalid opcode: 0000 [#1] PREEMPT SMP
-> last sysfs file: /sys/kernel/uevent_seqnum
-> CPU 1
-> Pid: 1941, comm: racoon Not tainted 2.6.33-rc5-00271-gbe8cde8-dirty #=
-238 F3Sa =A0 =A0 =A0/F3Sa
-> RIP: 0010:[<ffffffffa03035be>] =A0[<ffffffffa03035be>] pfkey_create+0=
-x36/0x18b [af_key]
+On Fri, 2010-01-29 at 10:10 +0100, Eric Dumazet wrote:
 
-Does it triggers after succesfull boot if you do
+> Jon, do you have multiple network namespace active on your machine, when
+> crash occurs ?
 
-    rmmod af_key; modprobe af_key
+I don't believe so. I just built in Jason's latest kgdb/kdb patches and
+am going to give them a whirl to see if I can get anything more out of
+this panic than I currently have.
 
-a couple of times?
+Jon.
 
-Post .config, just in case.
+
