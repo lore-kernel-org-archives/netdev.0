@@ -1,45 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next-2.6] packet: Add GSO/checksum offload support
-	to af_packet sockets
-Date: Sat, 30 Jan 2010 08:36:19 +1100
-Message-ID: <20100129213619.GA6404@gondor.apana.org.au>
-References: <1264537819.24933.122.camel@w-sridhar.beaverton.ibm.com> <20100129085343.GB23140@gondor.apana.org.au> <1264800308.15980.395.camel@w-sridhar.beaverton.ibm.com>
+From: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Subject: Re: [PATCH] tcp: fix ICMP-RTO war
+Date: Fri, 29 Jan 2010 22:45:35 +0100
+Message-ID: <4B6356FF.7070504@tvk.rwth-aachen.de>
+References: <201001271556.16156.denys@visp.net.lb>
+ <4B62D0DE.9050706@tvk.rwth-aachen.de> <201001291715.57557.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	netdev <netdev@vger.kernel.org>
-To: Sridhar Samudrala <sri@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7BIT
+Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33728 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752554Ab0A2Vge (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2010 16:36:34 -0500
-Content-Disposition: inline
-In-Reply-To: <1264800308.15980.395.camel@w-sridhar.beaverton.ibm.com>
+Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:42281 "EHLO
+	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755112Ab0A2Vpg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2010 16:45:36 -0500
+Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
+ by mta-2.ms.rz.RWTH-Aachen.de
+ (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
+ with ESMTP id <0KX1002JB33ZPJC0@mta-2.ms.rz.RWTH-Aachen.de> for
+ netdev@vger.kernel.org; Fri, 29 Jan 2010 22:45:35 +0100 (CET)
+In-reply-to: <201001291715.57557.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 29, 2010 at 01:25:08PM -0800, Sridhar Samudrala wrote:
+Denys Fedoryshchenko schrieb:
+> On Friday 29 January 2010 14:13:18 Damian Lukowski wrote:
+>> Denys Fedoryshchenko schrieb:
+>>> On Wednesday 27 January 2010 14:36:18 you wrote:
+>>>> Unless they are for a different connection? We might have to print sk
+>>>> (%p) in all those printouts to be sure which maps to which. If a peer
+>>>> becomes unreachable, it may well have multiple connections open (this
+>>>> was a proxy, iirc?).
+>>> Ok i will try to do that today.
+>>>
+>>> Most probably different connections, on this proxy i have 10-15k
+>>> established connections at peak time.
+> http://www.nuclearcat.com/files/report1.txt
+> http://www.nuclearcat.com/files/report2.txt
 > 
-> This check is to dis-allow processing of packets with virtio_net_hdr
-> destined for non-ethernet devices.
-> Is it OK if i add a check in packet_bind() to not allow binding to
-> a non-ethernet device when PACKET_VNET_HDR option is set?
-> 
-> I need to figure out a way to set the skb protocol correctly based
-> on the packet. Any clues?
+> Here with %p and sk.
 
-IMHO the skb protocol should be set by whatever is invoking the
-sendmsg call.  After all they would know what the L2 header is
-and should be able to deduce the protocol correctly.
+Ok, thanks for testing.
+So it is ec0f3440 causing the trouble. Are there still objections
+on the lower bound check in __tcp_set_rto()? Well, I will submit
+an updated patch and you can make comments there.
 
-Adding all this logic into AF_PACKET is just a hack.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Regards
+ Damian
