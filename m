@@ -1,55 +1,44 @@
-From: Felix Fietkau <nbd@openwrt.org>
-Subject: Re: [PATCH] skbuff: align sk_buff::cb to 64 bit
-Date: Sat, 30 Jan 2010 00:14:02 +0100
-Message-ID: <4B636BBA.8050300@openwrt.org>
-References: <4B635CA1.8070803@openwrt.org> <4B63643B.3070400@caviumnetworks.com> <20100129225404.GA12440@laped.iglesias.mooo.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next-2.6] packet: Add GSO/checksum offload support
+	to af_packet sockets
+Date: Sat, 30 Jan 2010 10:22:12 +1100
+Message-ID: <20100129232212.GA7333@gondor.apana.org.au>
+References: <1264537819.24933.122.camel@w-sridhar.beaverton.ibm.com> <20100129085343.GB23140@gondor.apana.org.au> <1264800308.15980.395.camel@w-sridhar.beaverton.ibm.com> <20100129213619.GA6404@gondor.apana.org.au> <4B636199.7080708@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Daney <ddaney@caviumnetworks.com>, netdev@vger.kernel.org,
-	Lennert Buytenhek <buytenh@wantstofly.org>
-To: "Edgar E. Iglesias" <edgar.iglesias@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	netdev <netdev@vger.kernel.org>
+To: Sridhar Samudrala <sri@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([88.198.39.176]:39288 "EHLO ds10.nbd.name"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752903Ab0A2XOG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jan 2010 18:14:06 -0500
-In-Reply-To: <20100129225404.GA12440@laped.iglesias.mooo.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:34325 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752339Ab0A2XW1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2010 18:22:27 -0500
+Content-Disposition: inline
+In-Reply-To: <4B636199.7080708@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2010-01-29 11:54 PM, Edgar E. Iglesias wrote:
-> On Fri, Jan 29, 2010 at 02:42:03PM -0800, David Daney wrote:
->> Felix Fietkau wrote:
->> > The alignment requirement for 64-bit load/store instructions on ARM is
->> > implementation defined. Some CPUs (such as Marvell Feroceon) do not
->> > generate an exception, if such an instruction is executed with an
->> > address that is not 64 bit aligned. 
->> > In such a case, the Feroceon corrupts adjacent memory, which showed up
->> > in my tests as a crash in the rx path of ath9k that only occured with
->> > CONFIG_XFRM set. This crash happened, because the first field of the
->> > mac80211 rx status info in the cb is an u64, and changing it corrupted
->> > the skb->sp field.
->> > 
->> > Signed-off-by: Felix Fietkau <nbd@openwrt.org>
->> > Cc: stable@kernel.org
->> > ---
->> > --- a/include/linux/skbuff.h
->> > +++ b/include/linux/skbuff.h
->> > @@ -329,7 +329,7 @@ struct sk_buff {
->> >  	 * want to keep them across layers you have to do a skb_clone()
->> >  	 * first. This is owned by whoever has the skb queued ATM.
->> >  	 */
->> > -	char			cb[48];
->> > +	char			cb[48] __attribute__((aligned(8)));
->> >  
-> I'd guess the problem is with the accessor to the thing.
-> something in the opaque cb ptr its beeing accessed wroingly causing
-> overwrites.
-Nope, the problem is not with the accessor, I verified that. The start
-address of the datastructure that gets put into skb->cb correctly points
-at the start of the cb, and it is only aligned to 4 byte, not 8. Also,
-this issue only happens on CPUs that do not throw an unaligned exception
-for this instruction.
+On Fri, Jan 29, 2010 at 02:30:49PM -0800, Sridhar Samudrala wrote:
+>
+> In this use-case, the component that is calling sendmsg() can be either  
+> the vhost-net in host kernel
+> or qemu. They get the buffer including the L2 header from the guest.  
+> They too need to parse the L2
+> header to find the protocol.
 
-- Felix
+So have them parse the L2 header to get the protocol.  They know
+that the packet should contain an Ethernet header, while this
+knowledge would be inappropriate for af_packet in general.
+
+This is also why we call eth_type_trans in network drivers as
+opposed to the core.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
