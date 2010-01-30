@@ -1,7 +1,7 @@
 From: Michael Breuer <mbreuer@majjas.com>
 Subject: Re: [PATCH] sky2:  receive dma mapping error handling
-Date: Sat, 30 Jan 2010 11:30:22 -0500
-Message-ID: <4B645E9E.10605@majjas.com>
+Date: Sat, 30 Jan 2010 11:31:48 -0500
+Message-ID: <4B645EF4.4050701@majjas.com>
 References: <4B60707F.1000608@majjas.com> <20100127095614.14313677@nehalam>
  <4B608128.7090607@majjas.com> <4B6089C7.4010803@majjas.com>
  <4B61ADF1.7060705@majjas.com> <4B61BEA4.1030905@majjas.com>
@@ -10,7 +10,7 @@ References: <4B60707F.1000608@majjas.com> <20100127095614.14313677@nehalam>
  <20100128225621.GD3109@del.dom.local> <4B6216B9.1010802@majjas.com>
  <20100128153643.0fca3c51@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7BIT
 Cc: Jarek Poplawski <jarkao2@gmail.com>,
 	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
@@ -20,12 +20,12 @@ Cc: Jarek Poplawski <jarkao2@gmail.com>,
 	Francois Romieu <romieu@fr.zoreil.com>,
 	Matt Carlson <mcarlson@broadcom.com>
 To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754151Ab0A3QaO@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754196Ab0A3Qbn@vger.kernel.org>
 In-reply-to: <20100128153643.0fca3c51@nehalam>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/28/2010 6:36 PM, Stephen Hemminger wrote:
+On 01/28/2010 06:36 PM, Stephen Hemminger wrote:
 > Please try this patch (and only this patch), on 2.6.33-rc5[*];
 > none of the other patches that did not make it upstream because that
 > confuses things too much.
@@ -37,9 +37,12 @@ On 1/28/2010 6:36 PM, Stephen Hemminger wrote:
 > that way if new mapping fails, the old one can be reused.
 >
 > If it works for you, I will resubmit with signed-off.
->    
+>
+> -
+>
 Nope - tx crash again. This time the system stayed up (but hosed) for a 
-few hours. When I tried to recover eth0, the system crashed.
+few hours. When I tried to recover eth0 the system then crashed.
+
 Brief summary of events (log extract below):
 
 System start Jan 28 19:29
@@ -101,7 +104,7 @@ raid6_pq async_xor xor async_memcpy async_tx raid1 ata_generic pata_acpi
 pata_marvell nouveau ttm drm_kms_helper drm agpgart fb i2c_algo_bit 
 cfbcopyarea i2c_core cf
 Jan 30 05:45:01 mail kernel: bimgblt cfbfillrect [last unloaded: nf_nat]
-Jan 30 05:45:01 mail kernel: Pid: 0, comm: swapper Tainted: G        W  
+Jan 30 05:45:01 mail kernel: Pid: 0, comm: swapper Tainted: G        W 
 2.6.33-rc5WITHMMAPNODMARFORKTIPSKY2DMAMAP-00283-gd4d37bd-dirty #1
 Jan 30 05:45:01 mail kernel: Call Trace:
 Jan 30 05:45:01 mail kernel: <IRQ>  [<ffffffff8104a03d>] 
