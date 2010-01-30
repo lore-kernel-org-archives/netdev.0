@@ -1,113 +1,132 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [iproute2 PATCH 4/4] ip: Update man page to indicate current options.
-Date: Sat, 30 Jan 2010 02:43:27 -0800
-Message-ID: <20100130104326.26719.71154.stgit@localhost.localdomain>
-References: <20100130104226.26719.21774.stgit@localhost.localdomain>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] af_key: fix netns ops ordering on module load/unload
+Date: Sat, 30 Jan 2010 14:53:27 +0200
+Message-ID: <20100130125327.GA4258@x200>
+References: <20100129094822.GA8294@nb-core2.darkstar.lan>
+ <b6fcc0a1001290217l4edb0a0btbafa0c26b6f14ad5@mail.gmail.com>
+ <1264778549.3184.28.camel@edumazet-laptop>
+ <1264782806.3184.42.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net, shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta12.emeryville.ca.mail.comcast.net ([76.96.27.227]:35615
-	"EHLO qmta12.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751265Ab0A3Knq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2010 05:43:46 -0500
-In-Reply-To: <20100130104226.26719.21774.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Luca Tettamanti <kronos.it@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753424Ab0A3M6j@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1264782806.3184.42.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Williams, Mitch A <mitch.a.williams@intel.com>
+On Fri, Jan 29, 2010 at 05:33:26PM +0100, Eric Dumazet wrote:
+> @@ -3807,21 +3807,24 @@ static int __init ipsec_pfkey_init(void)
+>  	if (err != 0)
+>  		goto out;
+>  
+> -	err = sock_register(&pfkey_family_ops);
+> -	if (err != 0)
+> -		goto out_unregister_key_proto;
+>  	err = xfrm_register_km(&pfkeyv2_mgr);
+>  	if (err != 0)
+> -		goto out_sock_unregister;
+> +		goto out_unregister_key_proto;
+> +
+>  	err = register_pernet_subsys(&pfkey_net_ops);
+>  	if (err != 0)
+>  		goto out_xfrm_unregister_km;
+> +
+> +	err = sock_register(&pfkey_family_ops);
+> +	if (err != 0)
+> +		goto out_unregister_pernet;
+>  out:
+>  	return err;
+> +
+> +out_unregister_pernet:
+> +	unregister_pernet_subsys(&pfkey_net_ops);
+>  out_xfrm_unregister_km:
+>  	xfrm_unregister_km(&pfkeyv2_mgr);
+> -out_sock_unregister:
+> -	sock_unregister(PF_KEY);
+>  out_unregister_key_proto:
+>  	proto_unregister(&key_proto);
+>  	goto out;
 
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+ACK analysis, except this is not enough.
+
+Here is patch which survived netns start/stop/modprobe/rmmod cycles.
+
+	Alexey, who still doesn't get why bug reproduces so easily for bug reporter.
+
+Luca, please confirm.
+
+Audit for the rest of the modules pending.
+
+[PATCH] af_key: fix netns ops ordering on module load/unload
+
+1. After sock_register() returns, it's possible to create sockets,
+   even if module still not initialized fully (blame generic module code
+   for that!)
+2. Consequently, pfkey_create() can be called with pfkey_net_id still not
+   initialized which will BUG_ON in net_generic():
+	kernel BUG at include/net/netns/generic.h:43!
+3. During netns shutdown, netns ops should be unregistered after
+   key manager unregistered because key manager calls can be triggered
+   from xfrm_user module:
+
+   	general protection fault: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
+	pfkey_broadcast+0x111/0x210 [af_key]
+	pfkey_send_notify+0x16a/0x300 [af_key]
+	km_state_notify+0x41/0x70
+	xfrm_flush_sa+0x75/0x90 [xfrm_user]
+4. Unregister netns ops after socket ops just in case and for symmetry.
+
+Reported by Luca Tettamanti.
+
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
- man/man8/ip.8 |   57 ++++++++++++++++++++++++++++++++++++++++++++++++++++++---
- 1 files changed, 54 insertions(+), 3 deletions(-)
+ net/key/af_key.c |   15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/man/man8/ip.8 b/man/man8/ip.8
-index 273be92..dd323a4 100644
---- a/man/man8/ip.8
-+++ b/man/man8/ip.8
-@@ -53,7 +53,21 @@ ip \- show / manipulate routing, devices, policy routing and tunnels
- .IR MTU " |"
- .br
- .B  netns
--.IR PID " }"
-+.IR PID " |"
-+.br
-+.B alias
-+.IR NAME  " |"
-+.br
-+.B vf
-+.IR NUM " ["
-+.B  mac
-+.IR LLADDR " ] ["
-+.B vlan
-+.IR VLANID " ] ["
-+.B rate
-+.IR TXRATE " ]"
-+.BR " }"
-+
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -3794,9 +3794,9 @@ static struct pernet_operations pfkey_net_ops = {
  
- .ti -8
- .B ip link show
-@@ -826,7 +840,9 @@ display and change the state of devices.
- .TP
- .BI dev " NAME " (default)
- .I NAME
--specifies network device to operate on.
-+specifies network device to operate on. When configuring SR-IOV Virtual Fuction
-+(VF) devices, this keyword should specify the associated Physical Function (PF)
-+device.
+ static void __exit ipsec_pfkey_exit(void)
+ {
+-	unregister_pernet_subsys(&pfkey_net_ops);
+ 	xfrm_unregister_km(&pfkeyv2_mgr);
+ 	sock_unregister(PF_KEY);
++	unregister_pernet_subsys(&pfkey_net_ops);
+ 	proto_unregister(&key_proto);
+ }
  
- .TP
- .BR up " and " down
-@@ -888,7 +904,42 @@ the interface is
- .TP
- .BI netns " PID"
- move the device to the network namespace associated with the process
--.IR "PID" .
-+.IR "PID".
-+
-+.TP
-+.BI alias " NAME"
-+give the device a symbolic name for easy reference.
-+
-+.TP
-+.BI vf " NUM"
-+specify a Virtual Function device to be configured. The associated PF device
-+must be specified using the
-+.B dev
-+parameter.
-+
-+.in +8
-+.BI mac " LLADDRESS"
-+- change the station address for the specified VF. The
-+.B vf
-+parameter must be specified.
-+
-+.sp
-+.BI vlan " VLANID"
-+- change the assigned VLAN for the specified VF. When specified, all traffic
-+sent from the VF will be tagged with the specified VLAN ID. Incoming traffic
-+will be filtered for the specified VLAN ID, and will have all VLAN tags
-+stripped before being passed to the VF. Setting this parameter to 0 disables
-+VLAN tagging and filtering. The
-+.B vf
-+parameter must be specified.
-+
-+.sp
-+.BI rate " TXRATE"
-+- change the allowed transmit bandwidth, in Mbps, for the specified VF.
-+Setting this parameter to 0 disables rate limiting. The
-+.B vf
-+parameter must be specified.
-+.in -8
+@@ -3807,21 +3807,22 @@ static int __init ipsec_pfkey_init(void)
+ 	if (err != 0)
+ 		goto out;
  
- .PP
- .B Warning:
-
+-	err = sock_register(&pfkey_family_ops);
++	err = register_pernet_subsys(&pfkey_net_ops);
+ 	if (err != 0)
+ 		goto out_unregister_key_proto;
++	err = sock_register(&pfkey_family_ops);
++	if (err != 0)
++		goto out_unregister_pernet;
+ 	err = xfrm_register_km(&pfkeyv2_mgr);
+ 	if (err != 0)
+ 		goto out_sock_unregister;
+-	err = register_pernet_subsys(&pfkey_net_ops);
+-	if (err != 0)
+-		goto out_xfrm_unregister_km;
+ out:
+ 	return err;
+-out_xfrm_unregister_km:
+-	xfrm_unregister_km(&pfkeyv2_mgr);
++
+ out_sock_unregister:
+ 	sock_unregister(PF_KEY);
++out_unregister_pernet:
++	unregister_pernet_subsys(&pfkey_net_ops);
+ out_unregister_key_proto:
+ 	proto_unregister(&key_proto);
+ 	goto out;
