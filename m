@@ -1,31 +1,82 @@
-From: Susant Sahani <ssahani@gmail.com>
-Subject: nf_reinject crashes after NF_STOLEN
-Date: Sat, 30 Jan 2010 12:39:16 +0530
-Message-ID: <d81115a61001292309y48cfa9c9u34455269f9597d37@mail.gmail.com>
+From: Jon Masters <jonathan@jonmasters.org>
+Subject: Re: debug: nt_conntrack and KVM crash
+Date: Sat, 30 Jan 2010 02:36:11 -0500
+Message-ID: <1264836971.7499.4.camel@tonnant>
+References: <1264813832.2793.446.camel@tonnant>
+	 <1264816634.2793.505.camel@tonnant>  <1264816777.2793.510.camel@tonnant>
+	 <1264834704.2919.3.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netfilter@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f182.google.com ([209.85.216.182]:62560 "EHLO
-	mail-px0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751181Ab0A3HJh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2010 02:09:37 -0500
+Received: from dallas.jonmasters.org ([72.29.103.172]:48643 "EHLO
+	dallas.jonmasters.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752110Ab0A3HgV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2010 02:36:21 -0500
+In-Reply-To: <1264834704.2919.3.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-       If NF_STOLEN is done then how to reinsert the packet after sometime.
+On Sat, 2010-01-30 at 07:58 +0100, Eric Dumazet wrote:
+> Le vendredi 29 janvier 2010 =C3=A0 20:59 -0500, Jon Masters a =C3=A9c=
+rit :
+> > On Fri, 2010-01-29 at 20:57 -0500, Jon Masters wrote:
+> >=20
+> > > Ah so I should have realized before but I wasn't looking at valid=
+ values
+> > > for the range of the hashtable yet, nf_conntrack_htable_size is g=
+etting
+> > > wildly out of whack. It goes from:
+> > >=20
+> > > (gdb) print nf_conntrack_hash_rnd
+> > > $1 =3D 2688505299
+> > > (gdb) print nf_conntrack_htable_size
+> > > $2 =3D 16384
+> > >=20
+> > > nf_conntrack_events: 1
+> > > nf_conntrack_max: 65536
+> > >=20
+> > > Shortly after booting, before being NULLed shortly after starting=
+ some
+> > > virtual machines (the hash isn't reset, whereas it is recomputed =
+if the
+> > > hashtable is re-initialized after an intentional resizing operati=
+on):
+> >=20
+> > I mean the *seed* isn't changed, so I don't think it was resized
+> > intentionally. I wonder where else htable_size is fiddled with.
 
-Here is the scenario.
+> This rings a bell here, since another crash analysis on another probl=
+em
+> suggested to me a potential problem with read_mostly and modules, but=
+ I
+> had no time to confirm the thing yet.
+>=20
+> Could you try changing
+>=20
+>=20
+> net/netfilter/nf_conntrack_core.c:57:unsigned int nf_conntrack_htable=
+_size __read_mostly;
+> to
+> net/netfilter/nf_conntrack_core.c:57:unsigned int nf_conntrack_htable=
+_size ;
 
-packet1 comes in store return NF_STOLEN
-packet2 comes in store return NF_STOLEN
-packet3 comes in store return NF_STOLEN
-packet4 comes in reinsert All the packets (packet1, packet2, packet3,
-packet4) to IP stack so that it can continue the journey.
+I'll play later. Right now, I'm looking over every iptables/ip call
+libvirt makes - it explicitly plays with the netns for the loopback,
+which looks interesting. Supposing it does cause the hashtables to get
+unintentionally zereod or the sizing to get wiped out, we should also
+nonetheless catch the case that the hash function generates a whacko
+number or that the hash size is set to zero when we want to use it.
 
-But if I do nf_reinject it crashes.
+Amazing more people aren't talking about this, happens on several Fedor=
+a
+boxes that I know of, and I'm sure many more too using KVM+nf.
 
-Please let me know how to do it.
+Jon.
 
-susant
+
