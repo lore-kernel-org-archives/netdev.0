@@ -1,41 +1,70 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.32: padlock_sha1 and hmac broken?
-Date: Sat, 30 Jan 2010 13:27:21 +1100
-Message-ID: <20100130022721.GA8324@gondor.apana.org.au>
-References: <201001300044.15769.wolfgang.walter@stwm.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: debug: nt_conntrack and KVM crash
+Date: Sat, 30 Jan 2010 07:58:24 +0100
+Message-ID: <1264834704.2919.3.camel@edumazet-laptop>
+References: <1264813832.2793.446.camel@tonnant>
+	 <1264816634.2793.505.camel@tonnant>  <1264816777.2793.510.camel@tonnant>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Wolfgang Walter <wolfgang.walter@stwm.de>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Jon Masters <jonathan@jonmasters.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:46039 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752639Ab0A3C1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jan 2010 21:27:23 -0500
-Content-Disposition: inline
-In-Reply-To: <201001300044.15769.wolfgang.walter@stwm.de>
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:47764 "EHLO
+	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751617Ab0A3G62 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2010 01:58:28 -0500
+In-Reply-To: <1264816777.2793.510.camel@tonnant>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 30, 2010 at 12:44:15AM +0100, Wolfgang Walter wrote:
-> Hello,
-> 
-> I upgraded some machines with VIA processors from (vanilla) 2.6.31 to 
-> 2.6.32.7.
-> 
-> If I build the kernel 2.6.32.7 with CONFIG_CRYPTO_DEV_PADLOCK_SHA=y and 
-> padlock supports sha, hmac(sha1) is missing and IPSEC with hmac(sha1) no 
-> longer is possible.
+Le vendredi 29 janvier 2010 =C3=A0 20:59 -0500, Jon Masters a =C3=A9cri=
+t :
+> On Fri, 2010-01-29 at 20:57 -0500, Jon Masters wrote:
+>=20
+> > Ah so I should have realized before but I wasn't looking at valid v=
+alues
+> > for the range of the hashtable yet, nf_conntrack_htable_size is get=
+ting
+> > wildly out of whack. It goes from:
+> >=20
+> > (gdb) print nf_conntrack_hash_rnd
+> > $1 =3D 2688505299
+> > (gdb) print nf_conntrack_htable_size
+> > $2 =3D 16384
+> >=20
+> > nf_conntrack_events: 1
+> > nf_conntrack_max: 65536
+> >=20
+> > Shortly after booting, before being NULLed shortly after starting s=
+ome
+> > virtual machines (the hash isn't reset, whereas it is recomputed if=
+ the
+> > hashtable is re-initialized after an intentional resizing operation=
+):
+>=20
+> I mean the *seed* isn't changed, so I don't think it was resized
+> intentionally. I wonder where else htable_size is fiddled with.
+>=20
+> Jon.
+>=20
+>=20
 
-Can you please attach the dmesg output so we can see if there
-were any error messages?
+This rings a bell here, since another crash analysis on another problem
+suggested to me a potential problem with read_mostly and modules, but I
+had no time to confirm the thing yet.
 
-Please also try "modprobe tcrypt mode=101".
+Could you try changing
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+net/netfilter/nf_conntrack_core.c:57:unsigned int nf_conntrack_htable_s=
+ize __read_mostly;
+to
+net/netfilter/nf_conntrack_core.c:57:unsigned int nf_conntrack_htable_s=
+ize ;
+
+
+
