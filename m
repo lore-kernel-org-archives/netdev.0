@@ -1,728 +1,349 @@
-From: Christian Pellegrin <chripell@fsfe.org>
-Subject: [PATCH net-next-2.6] can: mcp251x: Move to threaded interrupts instead of workqueues.
-Date: Sat, 30 Jan 2010 14:19:24 +0100
-Message-ID: <1264857564-3917-1-git-send-email-chripell@fsfe.org>
-Cc: Christian Pellegrin <chripell@fsfe.org>
-To: socketcan-core@lists.berlios.de, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f228.google.com ([209.85.219.228]:42893 "EHLO
-	mail-ew0-f228.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752219Ab0A3NU6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2010 08:20:58 -0500
-Received: by ewy28 with SMTP id 28so418981ewy.28
-        for <netdev@vger.kernel.org>; Sat, 30 Jan 2010 05:20:56 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Luca Tettamanti <kronos.it@gmail.com>
+Subject: Re: [2.6.33-rc5] kernel BUG at include/net/netns/generic.h:41!
+Date: Sat, 30 Jan 2010 14:23:42 +0100
+Message-ID: <68676e01001300523u276c4054w9371d96447860ffe@mail.gmail.com>
+References: <20100129094822.GA8294@nb-core2.darkstar.lan>
+	 <b6fcc0a1001290217l4edb0a0btbafa0c26b6f14ad5@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary=001485f871062f20ac047e61a912
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753529Ab0A3NXq@vger.kernel.org>
+In-Reply-To: <b6fcc0a1001290217l4edb0a0btbafa0c26b6f14ad5@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch addresses concerns about efficiency of handling incoming packets. Handling of
-interrupts is done in a threaded interrupt handler which has a smaller latency than workqueues.
-This change needed a rework of the locking scheme that was much simplified. Some other
-(more or less longstanding) bugs are fixed: utilization of just half of the RX buffers,
-useless wait for interrupt on open, more reliable reset sequence. The MERR interrupt is
-not used anymore: it overloads the CPU in bus-off state without any additional information.
+--001485f871062f20ac047e61a912
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Christian Pellegrin <chripell@fsfe.org>
----
- drivers/net/can/mcp251x.c |  353 +++++++++++++++++++++++----------------------
- 1 files changed, 179 insertions(+), 174 deletions(-)
+On Fri, Jan 29, 2010 at 11:17 AM, Alexey Dobriyan <adobriyan@gmail.com> wro=
+te:
+> On Fri, Jan 29, 2010 at 11:48 AM, Luca Tettamanti <kronos.it@gmail.com> w=
+rote:
+>> with recent kernels I'm seeing this BUG - triggered by racoon - at boot:
+>>
+>> NET: Registered protocol family 15
+>> ------------[ cut here ]------------
+>> kernel BUG at /home/kronos/src/linux-2.6.git/include/net/netns/generic.h=
+:43!
+>> invalid opcode: 0000 [#1] PREEMPT SMP
+>> last sysfs file: /sys/kernel/uevent_seqnum
+>> CPU 1
+>> Pid: 1941, comm: racoon Not tainted 2.6.33-rc5-00271-gbe8cde8-dirty #238=
+ F3Sa =C2=A0 =C2=A0 =C2=A0/F3Sa
+>> RIP: 0010:[<ffffffffa03035be>] =C2=A0[<ffffffffa03035be>] pfkey_create+0=
+x36/0x18b [af_key]
+>
+> Does it triggers after succesfull boot if you do
+>
+> =C2=A0 =C2=A0rmmod af_key; modprobe af_key
+>
+> a couple of times?
 
-diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
-index bbe186b..03a20c3 100644
---- a/drivers/net/can/mcp251x.c
-+++ b/drivers/net/can/mcp251x.c
-@@ -180,6 +180,14 @@
- #define RXBEID0_OFF 4
- #define RXBDLC_OFF  5
- #define RXBDAT_OFF  6
-+#define RXFSIDH(n) ((n) * 4)
-+#define RXFSIDL(n) ((n) * 4 + 1)
-+#define RXFEID8(n) ((n) * 4 + 2)
-+#define RXFEID0(n) ((n) * 4 + 3)
-+#define RXMSIDH(n) ((n) * 4 + 0x20)
-+#define RXMSIDL(n) ((n) * 4 + 0x21)
-+#define RXMEID8(n) ((n) * 4 + 0x22)
-+#define RXMEID0(n) ((n) * 4 + 0x23)
- 
- #define GET_BYTE(val, byte)			\
- 	(((val) >> ((byte) * 8)) & 0xff)
-@@ -219,7 +227,8 @@ struct mcp251x_priv {
- 	struct net_device *net;
- 	struct spi_device *spi;
- 
--	struct mutex spi_lock; /* SPI buffer lock */
-+	struct mutex mcp_lock; /* SPI device lock */
-+
- 	u8 *spi_tx_buf;
- 	u8 *spi_rx_buf;
- 	dma_addr_t spi_tx_dma;
-@@ -227,11 +236,11 @@ struct mcp251x_priv {
- 
- 	struct sk_buff *tx_skb;
- 	int tx_len;
-+
- 	struct workqueue_struct *wq;
- 	struct work_struct tx_work;
--	struct work_struct irq_work;
--	struct completion awake;
--	int wake;
-+	struct work_struct restart_work;
-+
- 	int force_quit;
- 	int after_suspend;
- #define AFTER_SUSPEND_UP 1
-@@ -241,11 +250,17 @@ struct mcp251x_priv {
- 	int restart_tx;
- };
- 
-+/* Delayed work functions */
-+static irqreturn_t mcp251x_can_ist(int irq, void *dev_id);
-+static void mcp251x_restart_work_handler(struct work_struct *ws);
-+static void mcp251x_tx_work_handler(struct work_struct *ws);
-+
- static void mcp251x_clean(struct net_device *net)
- {
- 	struct mcp251x_priv *priv = netdev_priv(net);
- 
--	net->stats.tx_errors++;
-+	if (priv->tx_skb || priv->tx_len)
-+		net->stats.tx_errors++;
- 	if (priv->tx_skb)
- 		dev_kfree_skb(priv->tx_skb);
- 	if (priv->tx_len)
-@@ -300,16 +315,12 @@ static u8 mcp251x_read_reg(struct spi_device *spi, uint8_t reg)
- 	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
- 	u8 val = 0;
- 
--	mutex_lock(&priv->spi_lock);
--
- 	priv->spi_tx_buf[0] = INSTRUCTION_READ;
- 	priv->spi_tx_buf[1] = reg;
- 
- 	mcp251x_spi_trans(spi, 3);
- 	val = priv->spi_rx_buf[2];
- 
--	mutex_unlock(&priv->spi_lock);
--
- 	return val;
- }
- 
-@@ -317,15 +328,11 @@ static void mcp251x_write_reg(struct spi_device *spi, u8 reg, uint8_t val)
- {
- 	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
- 
--	mutex_lock(&priv->spi_lock);
--
- 	priv->spi_tx_buf[0] = INSTRUCTION_WRITE;
- 	priv->spi_tx_buf[1] = reg;
- 	priv->spi_tx_buf[2] = val;
- 
- 	mcp251x_spi_trans(spi, 3);
--
--	mutex_unlock(&priv->spi_lock);
- }
- 
- static void mcp251x_write_bits(struct spi_device *spi, u8 reg,
-@@ -333,16 +340,12 @@ static void mcp251x_write_bits(struct spi_device *spi, u8 reg,
- {
- 	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
- 
--	mutex_lock(&priv->spi_lock);
--
- 	priv->spi_tx_buf[0] = INSTRUCTION_BIT_MODIFY;
- 	priv->spi_tx_buf[1] = reg;
- 	priv->spi_tx_buf[2] = mask;
- 	priv->spi_tx_buf[3] = val;
- 
- 	mcp251x_spi_trans(spi, 4);
--
--	mutex_unlock(&priv->spi_lock);
- }
- 
- static void mcp251x_hw_tx_frame(struct spi_device *spi, u8 *buf,
-@@ -358,10 +361,8 @@ static void mcp251x_hw_tx_frame(struct spi_device *spi, u8 *buf,
- 			mcp251x_write_reg(spi, TXBCTRL(tx_buf_idx) + i,
- 					  buf[i]);
- 	} else {
--		mutex_lock(&priv->spi_lock);
- 		memcpy(priv->spi_tx_buf, buf, TXBDAT_OFF + len);
- 		mcp251x_spi_trans(spi, TXBDAT_OFF + len);
--		mutex_unlock(&priv->spi_lock);
- 	}
- }
- 
-@@ -408,13 +409,9 @@ static void mcp251x_hw_rx_frame(struct spi_device *spi, u8 *buf,
- 		for (; i < (RXBDAT_OFF + len); i++)
- 			buf[i] = mcp251x_read_reg(spi, RXBCTRL(buf_idx) + i);
- 	} else {
--		mutex_lock(&priv->spi_lock);
--
- 		priv->spi_tx_buf[RXBCTRL_OFF] = INSTRUCTION_READ_RXB(buf_idx);
- 		mcp251x_spi_trans(spi, SPI_TRANSFER_BUF_LEN);
- 		memcpy(buf, priv->spi_rx_buf, SPI_TRANSFER_BUF_LEN);
--
--		mutex_unlock(&priv->spi_lock);
- 	}
- }
- 
-@@ -467,21 +464,6 @@ static void mcp251x_hw_sleep(struct spi_device *spi)
- 	mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_SLEEP);
- }
- 
--static void mcp251x_hw_wakeup(struct spi_device *spi)
--{
--	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
--
--	priv->wake = 1;
--
--	/* Can only wake up by generating a wake-up interrupt. */
--	mcp251x_write_bits(spi, CANINTE, CANINTE_WAKIE, CANINTE_WAKIE);
--	mcp251x_write_bits(spi, CANINTF, CANINTF_WAKIF, CANINTF_WAKIF);
--
--	/* Wait until the device is awake */
--	if (!wait_for_completion_timeout(&priv->awake, HZ))
--		dev_err(&spi->dev, "MCP251x didn't wake-up\n");
--}
--
- static netdev_tx_t mcp251x_hard_start_xmit(struct sk_buff *skb,
- 					   struct net_device *net)
- {
-@@ -490,7 +472,15 @@ static netdev_tx_t mcp251x_hard_start_xmit(struct sk_buff *skb,
- 
- 	if (priv->tx_skb || priv->tx_len) {
- 		dev_warn(&spi->dev, "hard_xmit called while tx busy\n");
--		netif_stop_queue(net);
-+		/*
-+		 * Note: we may see this message on recovery from bus-off.
-+		 * This happens because can_restart calls netif_carrier_on
-+		 * before the restart worqueue has had a chance to run and
-+		 * clear the TX logic.
-+		 * This message is worrisome (because it points out
-+		 * something wrong with locking logic) if seen when
-+		 * there is no bus-off recovery going on.
-+		 */
- 		return NETDEV_TX_BUSY;
- 	}
- 
-@@ -516,7 +506,7 @@ static int mcp251x_do_set_mode(struct net_device *net, enum can_mode mode)
- 		priv->restart_tx = 1;
- 		if (priv->can.restart_ms == 0)
- 			priv->after_suspend = AFTER_SUSPEND_RESTART;
--		queue_work(priv->wq, &priv->irq_work);
-+		queue_work(priv->wq, &priv->restart_work);
- 		break;
- 	default:
- 		return -EOPNOTSUPP;
-@@ -525,7 +515,7 @@ static int mcp251x_do_set_mode(struct net_device *net, enum can_mode mode)
- 	return 0;
- }
- 
--static void mcp251x_set_normal_mode(struct spi_device *spi)
-+static int mcp251x_set_normal_mode(struct spi_device *spi)
- {
- 	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
- 	unsigned long timeout;
-@@ -533,8 +523,7 @@ static void mcp251x_set_normal_mode(struct spi_device *spi)
- 	/* Enable interrupts */
- 	mcp251x_write_reg(spi, CANINTE,
- 			  CANINTE_ERRIE | CANINTE_TX2IE | CANINTE_TX1IE |
--			  CANINTE_TX0IE | CANINTE_RX1IE | CANINTE_RX0IE |
--			  CANINTF_MERRF);
-+			  CANINTE_TX0IE | CANINTE_RX1IE | CANINTE_RX0IE);
- 
- 	if (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) {
- 		/* Put device into loopback mode */
-@@ -555,11 +544,12 @@ static void mcp251x_set_normal_mode(struct spi_device *spi)
- 			if (time_after(jiffies, timeout)) {
- 				dev_err(&spi->dev, "MCP251x didn't"
- 					" enter in normal mode\n");
--				return;
-+				return -EBUSY;
- 			}
- 		}
- 	}
- 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
-+	return 0;
- }
- 
- static int mcp251x_do_set_bittiming(struct net_device *net)
-@@ -590,33 +580,39 @@ static int mcp251x_setup(struct net_device *net, struct mcp251x_priv *priv,
- {
- 	mcp251x_do_set_bittiming(net);
- 
--	/* Enable RX0->RX1 buffer roll over and disable filters */
--	mcp251x_write_bits(spi, RXBCTRL(0),
--			   RXBCTRL_BUKT | RXBCTRL_RXM0 | RXBCTRL_RXM1,
--			   RXBCTRL_BUKT | RXBCTRL_RXM0 | RXBCTRL_RXM1);
--	mcp251x_write_bits(spi, RXBCTRL(1),
--			   RXBCTRL_RXM0 | RXBCTRL_RXM1,
--			   RXBCTRL_RXM0 | RXBCTRL_RXM1);
-+	mcp251x_write_reg(spi, RXBCTRL(0),
-+			  RXBCTRL_BUKT | RXBCTRL_RXM0 | RXBCTRL_RXM1);
-+	mcp251x_write_reg(spi, RXBCTRL(1),
-+			  RXBCTRL_RXM0 | RXBCTRL_RXM1);
- 	return 0;
- }
- 
--static void mcp251x_hw_reset(struct spi_device *spi)
-+static int mcp251x_hw_reset(struct spi_device *spi)
- {
- 	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
- 	int ret;
--
--	mutex_lock(&priv->spi_lock);
-+	unsigned long timeout;
- 
- 	priv->spi_tx_buf[0] = INSTRUCTION_RESET;
--
- 	ret = spi_write(spi, priv->spi_tx_buf, 1);
--
--	mutex_unlock(&priv->spi_lock);
--
--	if (ret)
-+	if (ret) {
- 		dev_err(&spi->dev, "reset failed: ret = %d\n", ret);
-+		return -EIO;
-+	}
-+
- 	/* Wait for reset to finish */
-+	timeout = jiffies + HZ;
- 	mdelay(10);
-+	while ((mcp251x_read_reg(spi, CANSTAT) & CANCTRL_REQOP_MASK)
-+	       != CANCTRL_REQOP_CONF) {
-+		schedule();
-+		if (time_after(jiffies, timeout)) {
-+			dev_err(&spi->dev, "MCP251x didn't"
-+				" enter in conf mode after reset\n");
-+			return -EBUSY;
-+		}
-+	}
-+	return 0;
- }
- 
- static int mcp251x_hw_probe(struct spi_device *spi)
-@@ -640,16 +636,17 @@ static int mcp251x_hw_probe(struct spi_device *spi)
- 	return (st1 == 0x80 && st2 == 0x07) ? 1 : 0;
- }
- 
--static irqreturn_t mcp251x_can_isr(int irq, void *dev_id)
-+static void mcp251x_open_clean(struct net_device *net)
- {
--	struct net_device *net = (struct net_device *)dev_id;
- 	struct mcp251x_priv *priv = netdev_priv(net);
-+	struct spi_device *spi = priv->spi;
-+	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
- 
--	/* Schedule bottom half */
--	if (!work_pending(&priv->irq_work))
--		queue_work(priv->wq, &priv->irq_work);
--
--	return IRQ_HANDLED;
-+	free_irq(spi->irq, priv);
-+	mcp251x_hw_sleep(spi);
-+	if (pdata->transceiver_enable)
-+		pdata->transceiver_enable(0);
-+	close_candev(net);
- }
- 
- static int mcp251x_open(struct net_device *net)
-@@ -665,6 +662,7 @@ static int mcp251x_open(struct net_device *net)
- 		return ret;
- 	}
- 
-+	mutex_lock(&priv->mcp_lock);
- 	if (pdata->transceiver_enable)
- 		pdata->transceiver_enable(1);
- 
-@@ -672,31 +670,40 @@ static int mcp251x_open(struct net_device *net)
- 	priv->tx_skb = NULL;
- 	priv->tx_len = 0;
- 
--	ret = request_irq(spi->irq, mcp251x_can_isr,
--			  IRQF_TRIGGER_FALLING, DEVICE_NAME, net);
-+	ret = request_threaded_irq(spi->irq, NULL, mcp251x_can_ist,
-+			  IRQF_TRIGGER_FALLING, DEVICE_NAME, priv);
- 	if (ret) {
- 		dev_err(&spi->dev, "failed to acquire irq %d\n", spi->irq);
- 		if (pdata->transceiver_enable)
- 			pdata->transceiver_enable(0);
- 		close_candev(net);
--		return ret;
-+		goto open_unlock;
- 	}
- 
--	mcp251x_hw_wakeup(spi);
--	mcp251x_hw_reset(spi);
-+	priv->wq = create_freezeable_workqueue("mcp251x_wq");
-+	INIT_WORK(&priv->tx_work, mcp251x_tx_work_handler);
-+	INIT_WORK(&priv->restart_work, mcp251x_restart_work_handler);
-+
-+	ret = mcp251x_hw_reset(spi);
-+	if (ret) {
-+		mcp251x_open_clean(net);
-+		goto open_unlock;
-+	}
- 	ret = mcp251x_setup(net, priv, spi);
- 	if (ret) {
--		free_irq(spi->irq, net);
--		mcp251x_hw_sleep(spi);
--		if (pdata->transceiver_enable)
--			pdata->transceiver_enable(0);
--		close_candev(net);
--		return ret;
-+		mcp251x_open_clean(net);
-+		goto open_unlock;
-+	}
-+	ret = mcp251x_set_normal_mode(spi);
-+	if (ret) {
-+		mcp251x_open_clean(net);
-+		goto open_unlock;
- 	}
--	mcp251x_set_normal_mode(spi);
- 	netif_wake_queue(net);
- 
--	return 0;
-+open_unlock:
-+	mutex_unlock(&priv->mcp_lock);
-+	return ret;
- }
- 
- static int mcp251x_stop(struct net_device *net)
-@@ -707,17 +714,19 @@ static int mcp251x_stop(struct net_device *net)
- 
- 	close_candev(net);
- 
-+	priv->force_quit = 1;
-+	free_irq(spi->irq, priv);
-+	destroy_workqueue(priv->wq);
-+	priv->wq = NULL;
-+
-+	mutex_lock(&priv->mcp_lock);
-+
- 	/* Disable and clear pending interrupts */
- 	mcp251x_write_reg(spi, CANINTE, 0x00);
- 	mcp251x_write_reg(spi, CANINTF, 0x00);
- 
--	priv->force_quit = 1;
--	free_irq(spi->irq, net);
--	flush_workqueue(priv->wq);
--
- 	mcp251x_write_reg(spi, TXBCTRL(0), 0);
--	if (priv->tx_skb || priv->tx_len)
--		mcp251x_clean(net);
-+	mcp251x_clean(net);
- 
- 	mcp251x_hw_sleep(spi);
- 
-@@ -726,9 +735,27 @@ static int mcp251x_stop(struct net_device *net)
- 
- 	priv->can.state = CAN_STATE_STOPPED;
- 
-+	mutex_unlock(&priv->mcp_lock);
-+
- 	return 0;
- }
- 
-+static void mcp251x_error_skb(struct net_device *net, int can_id, int data1)
-+{
-+	struct sk_buff *skb;
-+	struct can_frame *frame;
-+
-+	skb = alloc_can_err_skb(net, &frame);
-+	if (skb) {
-+		frame->can_id = can_id;
-+		frame->data[1] = data1;
-+		netif_rx(skb);
-+	} else {
-+		dev_info(&net->dev,
-+			 "cannot allocate error skb\n");
-+	}
-+}
-+
- static void mcp251x_tx_work_handler(struct work_struct *ws)
- {
- 	struct mcp251x_priv *priv = container_of(ws, struct mcp251x_priv,
-@@ -737,14 +764,16 @@ static void mcp251x_tx_work_handler(struct work_struct *ws)
- 	struct net_device *net = priv->net;
- 	struct can_frame *frame;
- 
-+	mutex_lock(&priv->mcp_lock);
- 	if (priv->tx_skb) {
- 		frame = (struct can_frame *)priv->tx_skb->data;
- 
- 		if (priv->can.state == CAN_STATE_BUS_OFF) {
- 			mcp251x_clean(net);
- 			netif_wake_queue(net);
--			return;
-+			goto restart_work_unlock;
- 		}
-+
- 		if (frame->can_dlc > CAN_FRAME_MAX_DATA_LEN)
- 			frame->can_dlc = CAN_FRAME_MAX_DATA_LEN;
- 		mcp251x_hw_tx(spi, frame, 0);
-@@ -752,18 +781,18 @@ static void mcp251x_tx_work_handler(struct work_struct *ws)
- 		can_put_echo_skb(priv->tx_skb, net, 0);
- 		priv->tx_skb = NULL;
- 	}
-+restart_work_unlock:
-+	mutex_unlock(&priv->mcp_lock);
- }
- 
--static void mcp251x_irq_work_handler(struct work_struct *ws)
-+static void mcp251x_restart_work_handler(struct work_struct *ws)
- {
- 	struct mcp251x_priv *priv = container_of(ws, struct mcp251x_priv,
--						 irq_work);
-+						 restart_work);
- 	struct spi_device *spi = priv->spi;
- 	struct net_device *net = priv->net;
--	u8 txbnctrl;
--	u8 intf;
--	enum can_state new_state;
- 
-+	mutex_lock(&priv->mcp_lock);
- 	if (priv->after_suspend) {
- 		mdelay(10);
- 		mcp251x_hw_reset(spi);
-@@ -772,45 +801,54 @@ static void mcp251x_irq_work_handler(struct work_struct *ws)
- 			mcp251x_set_normal_mode(spi);
- 		} else if (priv->after_suspend & AFTER_SUSPEND_UP) {
- 			netif_device_attach(net);
--			/* Clean since we lost tx buffer */
--			if (priv->tx_skb || priv->tx_len) {
--				mcp251x_clean(net);
--				netif_wake_queue(net);
--			}
-+			mcp251x_clean(net);
- 			mcp251x_set_normal_mode(spi);
-+			netif_wake_queue(net);
- 		} else {
- 			mcp251x_hw_sleep(spi);
- 		}
- 		priv->after_suspend = 0;
-+		priv->force_quit = 0;
- 	}
- 
--	if (priv->can.restart_ms == 0 && priv->can.state == CAN_STATE_BUS_OFF)
--		return;
-+	if (priv->restart_tx) {
-+		priv->restart_tx = 0;
-+		mcp251x_write_reg(spi, TXBCTRL(0), 0);
-+		mcp251x_clean(net);
-+		netif_wake_queue(net);
-+		mcp251x_error_skb(net, CAN_ERR_RESTARTED, 0);
-+	}
-+	mutex_unlock(&priv->mcp_lock);
-+}
- 
--	while (!priv->force_quit && !freezing(current)) {
--		u8 eflag = mcp251x_read_reg(spi, EFLG);
--		int can_id = 0, data1 = 0;
-+static irqreturn_t mcp251x_can_ist(int irq, void *dev_id)
-+{
-+	struct mcp251x_priv *priv = dev_id;
-+	struct spi_device *spi = priv->spi;
-+	struct net_device *net = priv->net;
- 
--		mcp251x_write_reg(spi, EFLG, 0x00);
-+	mutex_lock(&priv->mcp_lock);
-+	while (!priv->force_quit) {
-+		enum can_state new_state;
-+		u8 intf = mcp251x_read_reg(spi, CANINTF);
-+		u8 eflag;
-+		int can_id = 0, data1 = 0;
- 
--		if (priv->restart_tx) {
--			priv->restart_tx = 0;
--			mcp251x_write_reg(spi, TXBCTRL(0), 0);
--			if (priv->tx_skb || priv->tx_len)
--				mcp251x_clean(net);
--			netif_wake_queue(net);
--			can_id |= CAN_ERR_RESTARTED;
-+		if (intf & CANINTF_RX0IF) {
-+			mcp251x_hw_rx(spi, 0);
-+			/* Free one buffer ASAP */
-+			mcp251x_write_bits(spi, CANINTF, intf & CANINTF_RX0IF,
-+			0x00);
- 		}
- 
--		if (priv->wake) {
--			/* Wait whilst the device wakes up */
--			mdelay(10);
--			priv->wake = 0;
--		}
-+		if (intf & CANINTF_RX1IF)
-+			mcp251x_hw_rx(spi, 1);
- 
--		intf = mcp251x_read_reg(spi, CANINTF);
- 		mcp251x_write_bits(spi, CANINTF, intf, 0x00);
- 
-+		eflag = mcp251x_read_reg(spi, EFLG);
-+		mcp251x_write_reg(spi, EFLG, 0x00);
-+
- 		/* Update can state */
- 		if (eflag & EFLG_TXBO) {
- 			new_state = CAN_STATE_BUS_OFF;
-@@ -851,59 +889,31 @@ static void mcp251x_irq_work_handler(struct work_struct *ws)
- 		}
- 		priv->can.state = new_state;
- 
--		if ((intf & CANINTF_ERRIF) || (can_id & CAN_ERR_RESTARTED)) {
--			struct sk_buff *skb;
--			struct can_frame *frame;
--
--			/* Create error frame */
--			skb = alloc_can_err_skb(net, &frame);
--			if (skb) {
--				/* Set error frame flags based on bus state */
--				frame->can_id = can_id;
--				frame->data[1] = data1;
--
--				/* Update net stats for overflows */
--				if (eflag & (EFLG_RX0OVR | EFLG_RX1OVR)) {
--					if (eflag & EFLG_RX0OVR)
--						net->stats.rx_over_errors++;
--					if (eflag & EFLG_RX1OVR)
--						net->stats.rx_over_errors++;
--					frame->can_id |= CAN_ERR_CRTL;
--					frame->data[1] |=
--						CAN_ERR_CRTL_RX_OVERFLOW;
--				}
--
--				netif_rx(skb);
--			} else {
--				dev_info(&spi->dev,
--					 "cannot allocate error skb\n");
-+		if (intf & CANINTF_ERRIF) {
-+			/* Handle overflow counters */
-+			if (eflag & (EFLG_RX0OVR | EFLG_RX1OVR)) {
-+				if (eflag & EFLG_RX0OVR)
-+					net->stats.rx_over_errors++;
-+				if (eflag & EFLG_RX1OVR)
-+					net->stats.rx_over_errors++;
-+				can_id |= CAN_ERR_CRTL;
-+				data1 |= CAN_ERR_CRTL_RX_OVERFLOW;
- 			}
-+			mcp251x_error_skb(net, can_id, data1);
- 		}
- 
- 		if (priv->can.state == CAN_STATE_BUS_OFF) {
- 			if (priv->can.restart_ms == 0) {
-+				priv->force_quit = 1;
- 				can_bus_off(net);
- 				mcp251x_hw_sleep(spi);
--				return;
-+				break;
- 			}
- 		}
- 
- 		if (intf == 0)
- 			break;
- 
--		if (intf & CANINTF_WAKIF)
--			complete(&priv->awake);
--
--		if (intf & CANINTF_MERRF) {
--			/* If there are pending Tx buffers, restart queue */
--			txbnctrl = mcp251x_read_reg(spi, TXBCTRL(0));
--			if (!(txbnctrl & TXBCTRL_TXREQ)) {
--				if (priv->tx_skb || priv->tx_len)
--					mcp251x_clean(net);
--				netif_wake_queue(net);
--			}
--		}
--
- 		if (intf & (CANINTF_TX2IF | CANINTF_TX1IF | CANINTF_TX0IF)) {
- 			net->stats.tx_packets++;
- 			net->stats.tx_bytes += priv->tx_len - 1;
-@@ -914,12 +924,9 @@ static void mcp251x_irq_work_handler(struct work_struct *ws)
- 			netif_wake_queue(net);
- 		}
- 
--		if (intf & CANINTF_RX0IF)
--			mcp251x_hw_rx(spi, 0);
--
--		if (intf & CANINTF_RX1IF)
--			mcp251x_hw_rx(spi, 1);
- 	}
-+	mutex_unlock(&priv->mcp_lock);
-+	return IRQ_HANDLED;
- }
- 
- static const struct net_device_ops mcp251x_netdev_ops = {
-@@ -961,7 +968,7 @@ static int __devinit mcp251x_can_probe(struct spi_device *spi)
- 	dev_set_drvdata(&spi->dev, priv);
- 
- 	priv->spi = spi;
--	mutex_init(&priv->spi_lock);
-+	mutex_init(&priv->mcp_lock);
- 
- 	/* If requested, allocate DMA buffers */
- 	if (mcp251x_enable_dma) {
-@@ -1010,18 +1017,12 @@ static int __devinit mcp251x_can_probe(struct spi_device *spi)
- 
- 	SET_NETDEV_DEV(net, &spi->dev);
- 
--	priv->wq = create_freezeable_workqueue("mcp251x_wq");
--
--	INIT_WORK(&priv->tx_work, mcp251x_tx_work_handler);
--	INIT_WORK(&priv->irq_work, mcp251x_irq_work_handler);
--
--	init_completion(&priv->awake);
--
- 	/* Configure the SPI bus */
- 	spi->mode = SPI_MODE_0;
- 	spi->bits_per_word = 8;
- 	spi_setup(spi);
- 
-+	/* Here is OK to not lock the MCP, no one knows about it yet */
- 	if (!mcp251x_hw_probe(spi)) {
- 		dev_info(&spi->dev, "Probe failed\n");
- 		goto error_probe;
-@@ -1064,10 +1065,6 @@ static int __devexit mcp251x_can_remove(struct spi_device *spi)
- 	unregister_candev(net);
- 	free_candev(net);
- 
--	priv->force_quit = 1;
--	flush_workqueue(priv->wq);
--	destroy_workqueue(priv->wq);
--
- 	if (mcp251x_enable_dma) {
- 		dma_free_coherent(&spi->dev, PAGE_SIZE,
- 				  priv->spi_tx_buf, priv->spi_tx_dma);
-@@ -1089,6 +1086,12 @@ static int mcp251x_can_suspend(struct spi_device *spi, pm_message_t state)
- 	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
- 	struct net_device *net = priv->net;
- 
-+	priv->force_quit = 1;
-+	disable_irq(spi->irq);
-+	/*
-+	 * Note: at this point neither IST nor workqueues are running.
-+	 * open/stop cannot be called anyway so locking is not needed
-+	 */
- 	if (netif_running(net)) {
- 		netif_device_detach(net);
- 
-@@ -1115,16 +1118,18 @@ static int mcp251x_can_resume(struct spi_device *spi)
- 
- 	if (priv->after_suspend & AFTER_SUSPEND_POWER) {
- 		pdata->power_enable(1);
--		queue_work(priv->wq, &priv->irq_work);
-+		queue_work(priv->wq, &priv->restart_work);
- 	} else {
- 		if (priv->after_suspend & AFTER_SUSPEND_UP) {
- 			if (pdata->transceiver_enable)
- 				pdata->transceiver_enable(1);
--			queue_work(priv->wq, &priv->irq_work);
-+			queue_work(priv->wq, &priv->restart_work);
- 		} else {
- 			priv->after_suspend = 0;
- 		}
- 	}
-+	priv->force_quit = 0;
-+	enable_irq(spi->irq);
- 	return 0;
- }
- #else
--- 
-1.5.6.5
+No. Neither does:
+racoon stop; rmmod af_key; racoon start
 
+It might be connected to the fact that I'm using Debian startpar to
+run multiple init scripts in parallel.
+I'm now testing Eric's patch and I haven't seen the BUG after a few reboots=
+.
+
+> Post .config, just in case.
+
+Attached.
+
+Luca
+
+--001485f871062f20ac047e61a912
+Content-Type: application/x-gzip; name="config.gz"
+Content-Disposition: attachment; filename="config.gz"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_g52foitq0
+
+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
+FmmBXl4S1S9z/g+3qhTqGA0BAA==
+--001485f871062f20ac047e61a912--
