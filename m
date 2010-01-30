@@ -1,59 +1,96 @@
-From: Jon Masters <jonathan@jonmasters.org>
-Subject: Re: debug: nt_conntrack and KVM crash
-Date: Sat, 30 Jan 2010 05:03:14 -0500
-Message-ID: <1264845794.7499.10.camel@tonnant>
-References: <1264813832.2793.446.camel@tonnant>
-	 <1264816634.2793.505.camel@tonnant>  <1264816777.2793.510.camel@tonnant>
-	 <1264834704.2919.3.camel@edumazet-laptop> <1264836971.7499.4.camel@tonnant>
-	 <1264840415.2919.19.camel@edumazet-laptop>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH 1/5] pci: Add SR-IOV convenience functions and
+	macros
+Date: Sat, 30 Jan 2010 02:39:28 -0800
+Message-ID: <20100130103842.26633.73429.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1264840415.2919.19.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta14.westchester.pa.mail.comcast.net ([76.96.59.212]:38572
+	"EHLO qmta14.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751256Ab0A3Kjr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2010 05:39:47 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2010-01-30 at 09:33 +0100, Eric Dumazet wrote:
-> Le samedi 30 janvier 2010 =C3=A0 02:36 -0500, Jon Masters a =C3=A9cri=
-t :
->=20
-> > I'll play later. Right now, I'm looking over every iptables/ip call
-> > libvirt makes - it explicitly plays with the netns for the loopback=
-,
-> > which looks interesting. Supposing it does cause the hashtables to =
-get
-> > unintentionally zereod or the sizing to get wiped out, we should al=
-so
-> > nonetheless catch the case that the hash function generates a whack=
-o
-> > number or that the hash size is set to zero when we want to use it.
+From: Williams, Mitch A <mitch.a.williams@intel.com>
 
-> I asked you if you had multiple namespaces, because I was not sure
-> conntracking hash was global (shared by all namespaces), or local.
+Add and export pci_num_vf to allow other subsystems to determine how many
+virtual function devices are associated with an SR-IOV physical function
+device.
+Add macros dev_is_pci, dev_is_ps, and dev_num_vf to make it easier for
+non-PCI specific code to determine SR-IOV capabilities.
 
-Well, I didn't think I had multiple namespaces, and in fact I don't see
-more than one in gdb when I poke at the net struct. What I see libvirt
-doing (very oddly indeed - looking at the source now) is calling ip and
-asking for the lo device to be moved into the netns for pid "-1", which
-isn't valid AFAIK (should be a valid pid, unless "-1" is supposed to be
-"this process" or something, haven't played with multiple namespaces).
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-I'll do some more digging (network stuff isn't my area) now and come
-back. It only reproduces if multiple VMs start at once (hence a race,
-perhaps as you describe) whereas if I disable autostart and let them
-come up one at a time, the box doesn't roll over.
+ drivers/pci/iov.c   |   15 +++++++++++++++
+ include/linux/pci.h |    8 ++++++++
+ 2 files changed, 23 insertions(+), 0 deletions(-)
 
-Jon.
+diff --git a/drivers/pci/iov.c b/drivers/pci/iov.c
+index b2a448e..3e5ab2b 100644
+--- a/drivers/pci/iov.c
++++ b/drivers/pci/iov.c
+@@ -706,6 +706,21 @@ irqreturn_t pci_sriov_migration(struct pci_dev *dev)
+ }
+ EXPORT_SYMBOL_GPL(pci_sriov_migration);
+ 
++/**
++ * pci_num_vf - return number of VFs associated with a PF device_release_driver
++ * @dev: the PCI device
++ *
++ * Returns number of VFs, or 0 if SR-IOV is not enabled.
++ */
++int pci_num_vf(struct pci_dev *dev)
++{
++	if (!dev || !dev->is_physfn)
++		return 0;
++	else
++		return dev->sriov->nr_virtfn;
++}
++EXPORT_SYMBOL_GPL(pci_num_vf);
++
+ static int ats_alloc_one(struct pci_dev *dev, int ps)
+ {
+ 	int pos;
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 174e539..db7706d 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -310,6 +310,9 @@ extern struct pci_dev *alloc_pci_dev(void);
+ #define pci_dev_b(n) list_entry(n, struct pci_dev, bus_list)
+ #define	to_pci_dev(n) container_of(n, struct pci_dev, dev)
+ #define for_each_pci_dev(d) while ((d = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, d)) != NULL)
++#define dev_is_pci(d) ((d)->bus == &pci_bus_type)
++#define dev_is_pf(d) ((dev_is_pci(d) ? to_pci_dev(d)->is_physfn : false))
++#define dev_num_vf(d) ((dev_is_pci(d) ? pci_num_vf(to_pci_dev(d)) : 0))
+ 
+ static inline int pci_channel_offline(struct pci_dev *pdev)
+ {
+@@ -1286,6 +1289,7 @@ void __iomem *pci_ioremap_bar(struct pci_dev *pdev, int bar);
+ extern int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn);
+ extern void pci_disable_sriov(struct pci_dev *dev);
+ extern irqreturn_t pci_sriov_migration(struct pci_dev *dev);
++extern int pci_num_vf(struct pci_dev *dev);
+ #else
+ static inline int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn)
+ {
+@@ -1298,6 +1302,10 @@ static inline irqreturn_t pci_sriov_migration(struct pci_dev *dev)
+ {
+ 	return IRQ_NONE;
+ }
++static inline int pci_num_vf(struct pci_dev *dev)
++{
++	return 0;
++}
+ #endif
+ 
+ #if defined(CONFIG_HOTPLUG_PCI) || defined(CONFIG_HOTPLUG_PCI_MODULE)
 
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
