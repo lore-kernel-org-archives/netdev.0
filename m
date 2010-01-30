@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 4/5] rtnetlink: Add VF config code to rtnetlink
-Date: Sat, 30 Jan 2010 02:40:29 -0800
-Message-ID: <20100130104028.26633.39261.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 5/5] igb: support for VF configuration tools
+Date: Sat, 30 Jan 2010 02:40:49 -0800
+Message-ID: <20100130104047.26633.72481.stgit@localhost.localdomain>
 References: <20100130103842.26633.73429.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,134 +11,273 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta07.westchester.pa.mail.comcast.net ([76.96.62.64]:34178
-	"EHLO qmta07.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751928Ab0A3Kkr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2010 05:40:47 -0500
+Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:42696
+	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752310Ab0A3KlH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2010 05:41:07 -0500
 In-Reply-To: <20100130103842.26633.73429.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Williams, Mitch A <mitch.a.williams@intel.com>
 
-Add code to allow rtnetlink clients to query and set VF information through
-the PF driver.
+Add support to the igb driver for VF configuration mechanisms through the
+PF interface.
+
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- net/core/rtnetlink.c |   65 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 65 insertions(+), 0 deletions(-)
+ drivers/net/igb/e1000_82575.h |    3 +
+ drivers/net/igb/e1000_regs.h  |    1 
+ drivers/net/igb/igb.h         |    2 +
+ drivers/net/igb/igb_main.c    |  122 ++++++++++++++++++++++++++++++++++++++---
+ 4 files changed, 119 insertions(+), 9 deletions(-)
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 62f3878..10c0d87 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -35,6 +35,7 @@
- #include <linux/security.h>
- #include <linux/mutex.h>
- #include <linux/if_addr.h>
-+#include <linux/pci.h>
+diff --git a/drivers/net/igb/e1000_82575.h b/drivers/net/igb/e1000_82575.h
+index d51c992..bb53083 100644
+--- a/drivers/net/igb/e1000_82575.h
++++ b/drivers/net/igb/e1000_82575.h
+@@ -219,6 +219,9 @@ struct e1000_adv_tx_context_desc {
+ #define E1000_VLVF_LVLAN          0x00100000
+ #define E1000_VLVF_VLANID_ENABLE  0x80000000
  
- #include <asm/uaccess.h>
- #include <asm/system.h>
-@@ -580,6 +581,15 @@ static void copy_rtnl_link_stats(struct rtnl_link_stats *a,
- 	a->tx_compressed = b->tx_compressed;
++#define E1000_VMVIR_VLANA_DEFAULT      0x40000000 /* Always use default VLAN */
++#define E1000_VMVIR_VLANA_NEVER        0x80000000 /* Never insert VLAN tag */
++
+ #define E1000_IOVCTL 0x05BBC
+ #define E1000_IOVCTL_REUSE_VFQ 0x00000001
+ 
+diff --git a/drivers/net/igb/e1000_regs.h b/drivers/net/igb/e1000_regs.h
+index dd4e6ff..abb7333 100644
+--- a/drivers/net/igb/e1000_regs.h
++++ b/drivers/net/igb/e1000_regs.h
+@@ -310,6 +310,7 @@
+ #define E1000_VMOLR(_n)        (0x05AD0 + (4 * (_n)))
+ #define E1000_VLVF(_n)         (0x05D00 + (4 * (_n))) /* VLAN Virtual Machine
+                                                        * Filter - RW */
++#define E1000_VMVIR(_n)        (0x03700 + (4 * (_n)))
+ 
+ #define wr32(reg, value) (writel(value, hw->hw_addr + reg))
+ #define rd32(reg) (readl(hw->hw_addr + reg))
+diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
+index b1c1eb8..92ca69c 100644
+--- a/drivers/net/igb/igb.h
++++ b/drivers/net/igb/igb.h
+@@ -75,11 +75,13 @@ struct vf_data_storage {
+ 	u16 vlans_enabled;
+ 	u32 flags;
+ 	unsigned long last_nack;
++	u16 pf_vlan; /* When set, guest VLAN config not allowed. */
  };
  
-+static inline int rtnl_vfinfo_size(const struct net_device *dev)
-+{
-+	if (dev->dev.parent && dev_is_pci(dev->dev.parent))
-+		return dev_num_vf(dev->dev.parent) *
-+			sizeof(struct ifla_vf_info);
-+	else
-+		return 0;
-+}
-+
- static inline size_t if_nlmsg_size(const struct net_device *dev)
- {
- 	return NLMSG_ALIGN(sizeof(struct ifinfomsg))
-@@ -597,6 +607,8 @@ static inline size_t if_nlmsg_size(const struct net_device *dev)
- 	       + nla_total_size(4) /* IFLA_MASTER */
- 	       + nla_total_size(1) /* IFLA_OPERSTATE */
- 	       + nla_total_size(1) /* IFLA_LINKMODE */
-+	       + nla_total_size(4) /* IFLA_NUM_VF */
-+	       + nla_total_size(rtnl_vfinfo_size(dev)) /* IFLA_VFINFO */
- 	       + rtnl_link_get_size(dev); /* IFLA_LINKINFO */
+ #define IGB_VF_FLAG_CTS            0x00000001 /* VF is clear to send data */
+ #define IGB_VF_FLAG_UNI_PROMISC    0x00000002 /* VF has unicast promisc */
+ #define IGB_VF_FLAG_MULTI_PROMISC  0x00000004 /* VF has multicast promisc */
++#define IGB_VF_FLAG_PF_SET_MAC     0x00000008 /* PF has set MAC address */
+ 
+ /* RX descriptor control thresholds.
+  * PTHRESH - MAC will consider prefetch if it has fewer than this number of
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 0a064ce..09309aa 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -133,6 +133,11 @@ static void igb_msg_task(struct igb_adapter *);
+ static void igb_vmm_control(struct igb_adapter *);
+ static int igb_set_vf_mac(struct igb_adapter *, int, unsigned char *);
+ static void igb_restore_vf_multicasts(struct igb_adapter *adapter);
++static int igb_ndo_set_vf_mac(struct net_device *netdev, int vf, u8 *mac);
++static int igb_ndo_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan);
++static int igb_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate);
++static int igb_ndo_get_vf_config(struct net_device *netdev, int vf,
++				 struct ifla_vf_info *ivi);
+ 
+ #ifdef CONFIG_PM
+ static int igb_suspend(struct pci_dev *, pm_message_t);
+@@ -1362,6 +1367,10 @@ static const struct net_device_ops igb_netdev_ops = {
+ 	.ndo_vlan_rx_register	= igb_vlan_rx_register,
+ 	.ndo_vlan_rx_add_vid	= igb_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= igb_vlan_rx_kill_vid,
++	.ndo_set_vf_mac		= igb_ndo_set_vf_mac,
++	.ndo_set_vf_vlan	= igb_ndo_set_vf_vlan,
++	.ndo_set_vf_tx_rate	= igb_ndo_set_vf_bw,
++	.ndo_get_vf_config	= igb_ndo_get_vf_config,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= igb_netpoll,
+ #endif
+@@ -2489,7 +2498,8 @@ static void igb_rlpml_set(struct igb_adapter *adapter)
+ 	wr32(E1000_RLPML, max_frame_size);
  }
  
-@@ -665,6 +677,17 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	stats = dev_get_stats(dev);
- 	copy_rtnl_link_stats(nla_data(attr), stats);
+-static inline void igb_set_vmolr(struct igb_adapter *adapter, int vfn)
++static inline void igb_set_vmolr(struct igb_adapter *adapter,
++				 int vfn, bool aupe)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 vmolr;
+@@ -2502,8 +2512,11 @@ static inline void igb_set_vmolr(struct igb_adapter *adapter, int vfn)
+ 		return;
  
-+	if (dev->netdev_ops->ndo_get_vf_config && dev->dev.parent) {
-+		int i;
-+		struct ifla_vf_info ivi;
+ 	vmolr = rd32(E1000_VMOLR(vfn));
+-	vmolr |= E1000_VMOLR_AUPE |        /* Accept untagged packets */
+-	         E1000_VMOLR_STRVLAN;      /* Strip vlan tags */
++	vmolr |= E1000_VMOLR_STRVLAN;      /* Strip vlan tags */
++	if (aupe)
++		vmolr |= E1000_VMOLR_AUPE;        /* Accept untagged packets */
++	else
++		vmolr &= ~(E1000_VMOLR_AUPE); /* Tagged packets ONLY */
+ 
+ 	/* clear all bits that might not be set */
+ 	vmolr &= ~(E1000_VMOLR_BAM | E1000_VMOLR_RSSE);
+@@ -2574,7 +2587,7 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
+ 	wr32(E1000_SRRCTL(reg_idx), srrctl);
+ 
+ 	/* set filtering for VMDQ pools */
+-	igb_set_vmolr(adapter, reg_idx & 0x7);
++	igb_set_vmolr(adapter, reg_idx & 0x7, true);
+ 
+ 	/* enable receive descriptor fetching */
+ 	rxdctl = rd32(E1000_RXDCTL(reg_idx));
+@@ -4506,6 +4519,54 @@ static s32 igb_vlvf_set(struct igb_adapter *adapter, u32 vid, bool add, u32 vf)
+ 	return -1;
+ }
+ 
++static void igb_set_vmvir(struct igb_adapter *adapter, u32 vid, u32 vf)
++{
++	struct e1000_hw *hw = &adapter->hw;
 +
-+		NLA_PUT_U32(skb, IFLA_NUM_VF, dev_num_vf(dev->dev.parent));
-+		for (i = 0; i < dev_num_vf(dev->dev.parent); i++) {
-+			if (dev->netdev_ops->ndo_get_vf_config(dev, i, &ivi))
-+				break;
-+			NLA_PUT(skb, IFLA_VFINFO, sizeof(ivi), &ivi);
++	if (vid)
++		wr32(E1000_VMVIR(vf), (vid | E1000_VMVIR_VLANA_DEFAULT));
++	else
++		wr32(E1000_VMVIR(vf), 0);
++}
++
++static int igb_ndo_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan)
++{
++	int err = 0;
++	struct igb_adapter *adapter = netdev_priv(netdev);
++
++	if ((vf >= adapter->vfs_allocated_count) || (vlan > 4095))
++		return -EINVAL;
++
++	if (vlan) {
++		err = igb_vlvf_set(adapter, vlan, true, vf);
++		if (err)
++			goto out;
++		igb_set_vmvir(adapter, vlan, vf);
++		igb_set_vmolr(adapter, vf, false);
++		adapter->vf_data[vf].pf_vlan = vlan;
++		dev_info(&adapter->pdev->dev,
++			 "Setting VLAN %d on VF %d\n", vlan, vf);
++		if (test_bit(__IGB_DOWN, &adapter->state)) {
++			dev_warn(&adapter->pdev->dev,
++				 "The VF VLAN has been set,"
++				 " but the PF device is not up.\n");
++			dev_warn(&adapter->pdev->dev,
++				 "Bring the PF device up before"
++				 " attempting to use the VF device.\n");
 +		}
-+	}
- 	if (dev->rtnl_link_ops) {
- 		if (rtnl_link_fill(skb, dev) < 0)
- 			goto nla_put_failure;
-@@ -725,6 +748,12 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_LINKINFO]		= { .type = NLA_NESTED },
- 	[IFLA_NET_NS_PID]	= { .type = NLA_U32 },
- 	[IFLA_IFALIAS]	        = { .type = NLA_STRING, .len = IFALIASZ-1 },
-+	[IFLA_VF_MAC]		= { .type = NLA_BINARY,
-+				    .len = sizeof(struct ifla_vf_mac) },
-+	[IFLA_VF_VLAN]		= { .type = NLA_BINARY,
-+				    .len = sizeof(struct ifla_vf_vlan) },
-+	[IFLA_VF_TX_RATE]	= { .type = NLA_BINARY,
-+				    .len = sizeof(struct ifla_vf_tx_rate) },
- };
- EXPORT_SYMBOL(ifla_policy);
- 
-@@ -898,6 +927,42 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
- 		write_unlock_bh(&dev_base_lock);
- 	}
- 
-+	if (tb[IFLA_VF_MAC]) {
-+		struct ifla_vf_mac *ivm;
-+		ivm = nla_data(tb[IFLA_VF_MAC]);
-+		write_lock_bh(&dev_base_lock);
-+		if (ops->ndo_set_vf_mac)
-+			err = ops->ndo_set_vf_mac(dev, ivm->vf, ivm->mac);
-+		write_unlock_bh(&dev_base_lock);
-+		if (err < 0)
-+			goto errout;
-+		modified = 1;
-+	}
++	} else if (adapter->vf_data[vf].pf_vlan) {
++		err = igb_vlvf_set(adapter, adapter->vf_data[vf].pf_vlan,
++				   false, vf);
++		if (err)
++			goto out;
++		igb_set_vmvir(adapter, vlan, vf);
++		igb_set_vmolr(adapter, vf, true);
++		adapter->vf_data[vf].pf_vlan = 0;
++       }
++out:
++       return err;
++}
 +
-+	if (tb[IFLA_VF_VLAN]) {
-+		struct ifla_vf_vlan *ivv;
-+		ivv = nla_data(tb[IFLA_VF_VLAN]);
-+		write_lock_bh(&dev_base_lock);
-+		if (ops->ndo_set_vf_vlan)
-+			err = ops->ndo_set_vf_vlan(dev, ivv->vf, ivv->vlan);
-+		write_unlock_bh(&dev_base_lock);
-+		if (err < 0)
-+			goto errout;
-+		modified = 1;
-+	}
-+	err = 0;
-+
-+	if (tb[IFLA_VF_TX_RATE]) {
-+		struct ifla_vf_tx_rate *ivt;
-+		ivt = nla_data(tb[IFLA_VF_TX_RATE]);
-+		write_lock_bh(&dev_base_lock);
-+		if (ops->ndo_set_vf_tx_rate)
-+			err = ops->ndo_set_vf_tx_rate(dev, ivt->vf, ivt->rate);
-+		write_unlock_bh(&dev_base_lock);
-+		if (err < 0)
-+			goto errout;
-+		modified = 1;
-+	}
- 	err = 0;
+ static int igb_set_vf_vlan(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
+ {
+ 	int add = (msgbuf[0] & E1000_VT_MSGINFO_MASK) >> E1000_VT_MSGINFO_SHIFT;
+@@ -4516,15 +4577,20 @@ static int igb_set_vf_vlan(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
  
- errout:
+ static inline void igb_vf_reset(struct igb_adapter *adapter, u32 vf)
+ {
+-	/* clear all flags */
+-	adapter->vf_data[vf].flags = 0;
++	/* clear flags */
++	adapter->vf_data[vf].flags &= ~(IGB_VF_FLAG_PF_SET_MAC);
+ 	adapter->vf_data[vf].last_nack = jiffies;
+ 
+ 	/* reset offloads to defaults */
+-	igb_set_vmolr(adapter, vf);
++	igb_set_vmolr(adapter, vf, true);
+ 
+ 	/* reset vlans for device */
+ 	igb_clear_vf_vfta(adapter, vf);
++	if (adapter->vf_data[vf].pf_vlan)
++		igb_ndo_set_vf_vlan(adapter->netdev,
++				    adapter->vf_data[vf].pf_vlan, vf);
++	else
++		igb_clear_vf_vfta(adapter, vf);
+ 
+ 	/* reset multicast table array for vf */
+ 	adapter->vf_data[vf].num_vf_mc_hashes = 0;
+@@ -4538,7 +4604,8 @@ static void igb_vf_reset_event(struct igb_adapter *adapter, u32 vf)
+ 	unsigned char *vf_mac = adapter->vf_data[vf].vf_mac_addresses;
+ 
+ 	/* generate a new mac address as we were hotplug removed/added */
+-	random_ether_addr(vf_mac);
++	if (!(adapter->vf_data[vf].flags & IGB_VF_FLAG_PF_SET_MAC))
++		random_ether_addr(vf_mac);
+ 
+ 	/* process remaining reset events */
+ 	igb_vf_reset(adapter, vf);
+@@ -4651,7 +4718,10 @@ static void igb_rcv_msg_from_vf(struct igb_adapter *adapter, u32 vf)
+ 		retval = igb_set_vf_rlpml(adapter, msgbuf[1], vf);
+ 		break;
+ 	case E1000_VF_SET_VLAN:
+-		retval = igb_set_vf_vlan(adapter, msgbuf, vf);
++		if (adapter->vf_data[vf].pf_vlan)
++			retval = -1;
++		else
++			retval = igb_set_vf_vlan(adapter, msgbuf, vf);
+ 		break;
+ 	default:
+ 		dev_err(&pdev->dev, "Unhandled Msg %08x\n", msgbuf[0]);
+@@ -6013,6 +6083,40 @@ static int igb_set_vf_mac(struct igb_adapter *adapter,
+ 	return 0;
+ }
+ 
++static int igb_ndo_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
++{
++	struct igb_adapter *adapter = netdev_priv(netdev);
++	if (!is_valid_ether_addr(mac) || (vf >= adapter->vfs_allocated_count))
++		return -EINVAL;
++	adapter->vf_data[vf].flags |= IGB_VF_FLAG_PF_SET_MAC;
++	dev_info(&adapter->pdev->dev, "setting MAC %pM on VF %d\n", mac, vf);
++	if (test_bit(__IGB_DOWN, &adapter->state)) {
++		dev_warn(&adapter->pdev->dev, "The VF MAC address has been set,"
++			 " but the PF device is not up.\n");
++		dev_warn(&adapter->pdev->dev, "Bring the PF device up before"
++			 " attempting to use the VF device.\n");
++	}
++	return igb_set_vf_mac(adapter, vf, mac);
++}
++
++static int igb_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate)
++{
++	return -EOPNOTSUPP;
++}
++
++static int igb_ndo_get_vf_config(struct net_device *netdev,
++				 int vf, struct ifla_vf_info *ivi)
++{
++	struct igb_adapter *adapter = netdev_priv(netdev);
++	if (vf >= adapter->vfs_allocated_count)
++		return -EINVAL;
++	ivi->vf = vf;
++	memcpy(&ivi->mac, adapter->vf_data[vf].vf_mac_addresses, ETH_ALEN);
++	ivi->tx_rate = 0;
++	ivi->vlan = adapter->vf_data[vf].pf_vlan;
++	return 0;
++}
++
+ static void igb_vmm_control(struct igb_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
 
