@@ -1,70 +1,61 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: debug: nt_conntrack and KVM crash
-Date: Sat, 30 Jan 2010 07:58:24 +0100
-Message-ID: <1264834704.2919.3.camel@edumazet-laptop>
-References: <1264813832.2793.446.camel@tonnant>
-	 <1264816634.2793.505.camel@tonnant>  <1264816777.2793.510.camel@tonnant>
+Subject: Re: [PATCH v2] skbuff: align sk_buff::cb to 64 bit
+Date: Sat, 30 Jan 2010 08:07:00 +0100
+Message-ID: <1264835220.2919.10.camel@edumazet-laptop>
+References: <4B637F85.8080809@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Jon Masters <jonathan@jonmasters.org>
+Cc: netdev@vger.kernel.org, Lennert Buytenhek <buytenh@wantstofly.org>,
+	David Daney <ddaney@caviumnetworks.com>
+To: Felix Fietkau <nbd@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f227.google.com ([209.85.218.227]:47764 "EHLO
+Received: from mail-bw0-f227.google.com ([209.85.218.227]:60594 "EHLO
 	mail-bw0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751617Ab0A3G62 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2010 01:58:28 -0500
-In-Reply-To: <1264816777.2793.510.camel@tonnant>
+	with ESMTP id S1751245Ab0A3HHE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2010 02:07:04 -0500
+Received: by bwz27 with SMTP id 27so1969386bwz.21
+        for <netdev@vger.kernel.org>; Fri, 29 Jan 2010 23:07:02 -0800 (PST)
+In-Reply-To: <4B637F85.8080809@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 29 janvier 2010 =C3=A0 20:59 -0500, Jon Masters a =C3=A9cri=
+Le samedi 30 janvier 2010 =C3=A0 01:38 +0100, Felix Fietkau a =C3=A9cri=
 t :
-> On Fri, 2010-01-29 at 20:57 -0500, Jon Masters wrote:
+> The alignment requirement for 64-bit load/store instructions on ARM i=
+s
+> implementation defined. Some CPUs (such as Marvell Feroceon) do not
+> generate an exception, if such an instruction is executed with an
+> address that is not 64 bit aligned. In such a case, the Feroceon
+> corrupts adjacent memory, which showed up
+> in my tests as a crash in the rx path of ath9k that only occured with
+> CONFIG_XFRM set. This crash happened, because the first field of the
+> mac80211 rx status info in the cb is an u64, and changing it corrupte=
+d
+> the skb->sp field.
 >=20
-> > Ah so I should have realized before but I wasn't looking at valid v=
-alues
-> > for the range of the hashtable yet, nf_conntrack_htable_size is get=
-ting
-> > wildly out of whack. It goes from:
-> >=20
-> > (gdb) print nf_conntrack_hash_rnd
-> > $1 =3D 2688505299
-> > (gdb) print nf_conntrack_htable_size
-> > $2 =3D 16384
-> >=20
-> > nf_conntrack_events: 1
-> > nf_conntrack_max: 65536
-> >=20
-> > Shortly after booting, before being NULLed shortly after starting s=
-ome
-> > virtual machines (the hash isn't reset, whereas it is recomputed if=
- the
-> > hashtable is re-initialized after an intentional resizing operation=
-):
+> Signed-off-by: Felix Fietkau <nbd@openwrt.org>
+> Cc: stable@kernel.org
+> ---
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -329,7 +329,7 @@ struct sk_buff {
+>  	 * want to keep them across layers you have to do a skb_clone()
+>  	 * first. This is owned by whoever has the skb queued ATM.
+>  	 */
+> -	char			cb[48];
+> +	char			cb[48] __aligned(8);
+>   	unsigned int		len,
+>  				data_len;
 >=20
-> I mean the *seed* isn't changed, so I don't think it was resized
-> intentionally. I wonder where else htable_size is fiddled with.
->=20
-> Jon.
->=20
->=20
+> --
 
-This rings a bell here, since another crash analysis on another problem
-suggested to me a potential problem with read_mostly and modules, but I
-had no time to confirm the thing yet.
+Without a detailed analysis of holes added on x86_32 and/or x86_64, I
+guess this patch is not acceptable as is.
 
-Could you try changing
+You certainly can find a better way to do this, without adding holes in
+sk_buff structure. Size matters a lot :)
 
-
-net/netfilter/nf_conntrack_core.c:57:unsigned int nf_conntrack_htable_s=
-ize __read_mostly;
-to
-net/netfilter/nf_conntrack_core.c:57:unsigned int nf_conntrack_htable_s=
-ize ;
-
+Thanks
 
 
