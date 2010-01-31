@@ -1,52 +1,62 @@
-From: Michael Breuer <mbreuer@majjas.com>
-Subject: Re: [PATCH] sky2:  receive dma mapping error handling
-Date: Sun, 31 Jan 2010 13:50:33 -0500
-Message-ID: <4B65D0F9.2020602@majjas.com>
-References: <4B61ADF1.7060705@majjas.com> <4B61BEA4.1030905@majjas.com>
- <20100128090835.0d93e53a@nehalam> <4B61DB79.4080703@majjas.com>
- <20100128223447.GC3109@del.dom.local> <4B621316.8070308@majjas.com>
- <20100128225621.GD3109@del.dom.local> <4B6216B9.1010802@majjas.com>
- <20100128153643.0fca3c51@nehalam> <4B645EF4.4050701@majjas.com>
- <20100131003449.GA11935@del.dom.local> <4B650D53.2010607@majjas.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
-	Don Fry <pcnet32@verizon.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Matt Carlson <mcarlson@broadcom.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753197Ab0AaSuo@vger.kernel.org>
-In-reply-to: <4B650D53.2010607@majjas.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 00/10] treewide: Fix format strings that misuse continuations
+Date: Sun, 31 Jan 2010 12:02:02 -0800
+Message-ID: <cover.1264967493.git.joe@perches.com>
+Cc: Mike Frysinger <vapier@gentoo.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"James E.J. Bottomley" <James.Bottomley@suse.de>,
+	Sonic Zhang <sonic.zhang@analog.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Matt Mackall <mpm@selenic.com>,
+	Liam Girdwood <lrg@slimlogic.co.uk>,
+	Mark Brown <broonie@opensource.wolfsonmicro.com>,
+	Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.de>,
+	uclinux-dist-devel@blackfin.uclinux.org, linuxppc-dev@ozlabs.org,
+	linux-ide@vger.kernel.org, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org, devel@driverdev.osuosl.org,
+	linux-mm@kvack.org, alsa-devel@alsa-project.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-ide-owner@vger.kernel.org>
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/30/2010 11:55 PM, Michael Breuer wrote:
-> On 01/30/2010 07:34 PM, Jarek Poplawski wrote:
->>
->> Could you try the patch below to show maybe some other users of
->> dma-debug entries?
->>
->> Jarek P.
->> ---
->>
-> With the default # entries & dma_debug_driver=sky2:
->
-> 6:00 is eth0 & 4:00 is eth1.
->
-> Jan 30 23:53:14 mail kernel: DMA-API: 0000:06:00.0: entries: 31961
-> ...
->
-I put a printk as a third else case in sky2_tx_unmap. Looks like the 
-issue is that a large number (perhaps all) calls to sky2_tx_unmap have 
-re->flags set to neither TX_MAP_SINGLE or TX_MAP_PAGE. Thus the elements 
-are never being unmapped.
+Format strings that are continued with \ are frequently misused.
+Change them to use mostly single line formats, some longer than 80 chars.
+Fix a few miscellaneous typos at the same time.
 
-I suspect that the system collapses when using DMAR sooner than if not 
-using DMAR. Probably some hardware limitation on the number of mapped 
-elements that is less than the software limitation. I don't see at 
-present how a ring element can ever get to this code without re->flags 
-being set to one or the other.
+Joe Perches (10):
+  arch/powerpc: Fix continuation line formats
+  arch/blackfin: Fix continuation line formats
+  drivers/ide: Fix continuation line formats
+  drivers/serial/bfin_5xx.c: Fix continuation line formats
+  drivers/scsi/arcmsr: Fix continuation line formats
+  drivers/staging: Fix continuation line formats
+  drivers/net/amd8111e.c: Fix continuation line formats
+  fs/proc/array.c: Fix continuation line formats
+  mm/slab.c: Fix continuation line formats
+  sound/soc/blackfin: Fix continuation line formats
+
+ arch/blackfin/mach-common/smp.c                    |    4 +-
+ arch/powerpc/kernel/nvram_64.c                     |    6 +-
+ arch/powerpc/platforms/pseries/hotplug-cpu.c       |    8 ++--
+ arch/powerpc/platforms/pseries/smp.c               |    4 +-
+ drivers/ide/au1xxx-ide.c                           |    4 +-
+ drivers/ide/pmac.c                                 |    4 +-
+ drivers/net/amd8111e.c                             |    3 +-
+ drivers/scsi/arcmsr/arcmsr_hba.c                   |   49 +++++++++----------
+ drivers/serial/bfin_5xx.c                          |    6 +--
+ drivers/staging/dream/qdsp5/audio_mp3.c            |    3 +-
+ .../rtl8187se/ieee80211/ieee80211_softmac_wx.c     |    3 +-
+ drivers/staging/rtl8187se/r8180_core.c             |    3 +-
+ drivers/staging/sep/sep_driver.c                   |    3 +-
+ fs/proc/array.c                                    |    7 ++-
+ mm/slab.c                                          |    4 +-
+ sound/soc/blackfin/bf5xx-ac97-pcm.c                |    8 +--
+ sound/soc/blackfin/bf5xx-i2s-pcm.c                 |    3 +-
+ sound/soc/blackfin/bf5xx-tdm-pcm.c                 |    3 +-
+ 18 files changed, 55 insertions(+), 70 deletions(-)
+
