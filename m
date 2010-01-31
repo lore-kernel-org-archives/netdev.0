@@ -1,7 +1,7 @@
 From: Andreas Mohr <andi@lisas.de>
-Subject: [PATCH 2/4] MCS7830 USB-Ether: Spelling corrections
-Date: Sun, 31 Jan 2010 13:58:26 +0100
-Message-ID: <20100131125826.GB13435@rhlx01.hs-esslingen.de>
+Subject: [PATCH 1/4] MCS7830 USB-Ether: add Rx error support
+Date: Sun, 31 Jan 2010 13:58:19 +0100
+Message-ID: <20100131125819.GA13435@rhlx01.hs-esslingen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
@@ -9,73 +9,98 @@ To: David Miller <davem@davemloft.net>, Arnd Bergmann <arnd@arndb.de>,
 	David Hollis <dhollis@davehollis.com>,
 	Phil Chang <pchang23@sbcglobal.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:60157 "EHLO
+Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:60145 "EHLO
 	rhlx01.hs-esslingen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752955Ab0AaM61 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jan 2010 07:58:27 -0500
+	with ESMTP id S1751115Ab0AaM6V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jan 2010 07:58:21 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 ChangeLog:
-- spelling corrections / whitespace
+- evaluate Rx error statistics from trailing Rx status byte
+- add driver TODO list
+- add myself to authors
+
+
+Quilt series run-tested, based on 2.6.33-rc4 (net-2.6.git mcs7830 has idle history,
+should be good to go).
 
 Signed-off-by: Andreas Mohr <andi@lisas.de>
 
 
 Index: linux-2.6.33-rc4/drivers/net/usb/mcs7830.c
 ===================================================================
---- linux-2.6.33-rc4.orig/drivers/net/usb/mcs7830.c	2010-01-31 12:34:39.000000000 +0100
-+++ linux-2.6.33-rc4/drivers/net/usb/mcs7830.c	2010-01-31 12:34:45.000000000 +0100
-@@ -1,5 +1,5 @@
- /*
-- * MosChips MCS7830 based USB 2.0 Ethernet Devices
-+ * MOSCHIP MCS7830 based USB 2.0 Ethernet Devices
+--- linux-2.6.33-rc4.orig/drivers/net/usb/mcs7830.c	2010-01-31 07:29:11.000000000 +0100
++++ linux-2.6.33-rc4/drivers/net/usb/mcs7830.c	2010-01-31 12:59:56.000000000 +0100
+@@ -3,11 +3,27 @@
   *
   * based on usbnet.c, asix.c and the vendor provided mcs7830 driver
   *
-@@ -71,7 +71,7 @@
- 				 ADVERTISE_100HALF | ADVERTISE_10FULL | \
- 				 ADVERTISE_10HALF | ADVERTISE_CSMA)
- 
--/* HIF_REG_XX coressponding index value */
-+/* HIF_REG_XX corresponding index value */
- enum {
- 	HIF_REG_MULTICAST_HASH			= 0x00,
- 	HIF_REG_PACKET_GAP1			= 0x08,
-@@ -92,7 +92,7 @@
- 	   HIF_REG_CONFIG_TXENABLE		= 0x08,
- 	   HIF_REG_CONFIG_SLEEPMODE		= 0x04,
- 	   HIF_REG_CONFIG_ALLMULTICAST		= 0x02,
--	   HIF_REG_CONFIG_PROMISCIOUS		= 0x01,
-+	   HIF_REG_CONFIG_PROMISCUOUS		= 0x01,
- 	HIF_REG_ETHERNET_ADDR			= 0x0f,
- 	HIF_REG_22				= 0x15,
- 	HIF_REG_PAUSE_THRESHOLD			= 0x16,
-@@ -417,7 +417,7 @@
- 	data->config |= HIF_REG_CONFIG_ALLMULTICAST;
- 
- 	if (net->flags & IFF_PROMISC) {
--		data->config |= HIF_REG_CONFIG_PROMISCIOUS;
-+		data->config |= HIF_REG_CONFIG_PROMISCUOUS;
- 	} else if (net->flags & IFF_ALLMULTI ||
- 		   net->mc_count > MCS7830_MAX_MCAST) {
- 		data->config |= HIF_REG_CONFIG_ALLMULTICAST;
-@@ -522,7 +522,7 @@
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_do_ioctl 		= mcs7830_ioctl,
- 	.ndo_set_multicast_list = mcs7830_set_multicast,
--	.ndo_set_mac_address	 = mcs7830_set_mac_address,
-+	.ndo_set_mac_address	= mcs7830_set_mac_address,
++ * Copyright (C) 2010 Andreas Mohr <andi@lisas.de>
+  * Copyright (C) 2006 Arnd Bergmann <arnd@arndb.de>
+  * Copyright (C) 2003-2005 David Hollis <dhollis@davehollis.com>
+  * Copyright (C) 2005 Phil Chang <pchang23@sbcglobal.net>
+  * Copyright (c) 2002-2003 TiVo Inc.
+  *
++ * Definitions gathered from MOSCHIP, Data Sheet_7830DA.pdf (thanks!).
++ *
++ * TODO:
++ * - add .reset_resume support (iface is _gone_ after resume w/ power loss)
++ * - verify that mcs7830_get_regs() does have same output pre-/post-suspend
++ * - support HIF_REG_CONFIG_SLEEPMODE/HIF_REG_CONFIG_TXENABLE (via autopm?)
++ * - implement ethtool_ops get_pauseparam/set_pauseparam
++ *   via HIF_REG_PAUSE_THRESHOLD (>= revision C only!)
++ * - implement get_eeprom/[set_eeprom]
++ * - switch PHY on/off on ifup/ifdown (perhaps in usbnet.c, via MII)
++ * - mcs7830_get_regs() handling is weird: for rev 2 we return 32 regs,
++ *   can access only ~ 24, remaining user buffer is uninitialized garbage
++ * - anything else?
++ *
++ *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation; either version 2 of the License, or
+@@ -83,6 +99,17 @@
+ 	   HIF_REG_PAUSE_THRESHOLD_DEFAULT	= 0,
  };
  
- static int mcs7830_bind(struct usbnet *dev, struct usb_interface *udev)
-@@ -553,7 +553,7 @@
- 	return ret;
++/* Trailing status byte in Ethernet Rx frame */
++enum {
++	MCS7830_RX_SHORT_FRAME		= 0x01, /* < 64 bytes */
++	MCS7830_RX_LENGTH_ERROR		= 0x02, /* framelen != Ethernet length field */
++	MCS7830_RX_ALIGNMENT_ERROR	= 0x04, /* non-even number of nibbles */
++	MCS7830_RX_CRC_ERROR		= 0x08,
++	MCS7830_RX_LARGE_FRAME		= 0x10, /* > 1518 bytes */
++	MCS7830_RX_FRAME_CORRECT	= 0x20, /* frame is correct */
++	/* [7:6] reserved */
++};
++
+ struct mcs7830_data {
+ 	u8 multi_filter[8];
+ 	u8 config;
+@@ -539,9 +566,23 @@
+ 	skb_trim(skb, skb->len - 1);
+ 	status = skb->data[skb->len];
+ 
+-	if (status != 0x20)
++	if (status != MCS7830_RX_FRAME_CORRECT) {
+ 		dev_dbg(&dev->udev->dev, "rx fixup status %x\n", status);
+ 
++		/* hmm, perhaps usbnet.c already sees a globally visible
++		   frame error and increments rx_errors on its own already? */
++		dev->net->stats.rx_errors++;
++
++		if (status &	(MCS7830_RX_SHORT_FRAME
++				|MCS7830_RX_LENGTH_ERROR
++				|MCS7830_RX_LARGE_FRAME))
++			dev->net->stats.rx_length_errors++;
++		if (status & MCS7830_RX_ALIGNMENT_ERROR)
++			dev->net->stats.rx_frame_errors++;
++		if (status & MCS7830_RX_CRC_ERROR)
++			dev->net->stats.rx_crc_errors++;
++	}
++
+ 	return skb->len > 0;
  }
  
--/* The chip always appends a status bytes that we need to strip */
-+/* The chip always appends a status byte that we need to strip */
- static int mcs7830_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- {
- 	u8 status;
