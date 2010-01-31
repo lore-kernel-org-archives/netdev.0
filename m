@@ -1,61 +1,86 @@
-From: Michael Breuer <mbreuer@majjas.com>
-Subject: Re: [PATCH] sky2:  receive dma mapping error handling
-Date: Sat, 30 Jan 2010 23:55:47 -0500
-Message-ID: <4B650D53.2010607@majjas.com>
-References: <4B61ADF1.7060705@majjas.com> <4B61BEA4.1030905@majjas.com>
- <20100128090835.0d93e53a@nehalam> <4B61DB79.4080703@majjas.com>
- <20100128223447.GC3109@del.dom.local> <4B621316.8070308@majjas.com>
- <20100128225621.GD3109@del.dom.local> <4B6216B9.1010802@majjas.com>
- <20100128153643.0fca3c51@nehalam> <4B645EF4.4050701@majjas.com>
- <20100131003449.GA11935@del.dom.local>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.32: padlock_sha1 and hmac broken?
+Date: Sun, 31 Jan 2010 20:22:22 +1100
+Message-ID: <20100131092222.GA22508@gondor.apana.org.au>
+References: <201001300044.15769.wolfgang.walter@stwm.de> <201001301734.46003.wolfgang.walter@stwm.de> <20100130221731.GA18982@gondor.apana.org.au> <201001310311.23116.wolfgang.walter@stwm.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
-	Don Fry <pcnet32@verizon.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Matt Carlson <mcarlson@broadcom.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta3.srv.hcvlny.cv.net ([167.206.4.198]:45225 "EHLO
-	mta3.srv.hcvlny.cv.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751628Ab0AaEz6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jan 2010 23:55:58 -0500
-In-reply-to: <20100131003449.GA11935@del.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
+To: Wolfgang Walter <wolfgang.walter@stwm.de>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201001310311.23116.wolfgang.walter@stwm.de>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/30/2010 07:34 PM, Jarek Poplawski wrote:
->
-> Could you try the patch below to show maybe some other users of
-> dma-debug entries?
->
-> Jarek P.
-> ---
->
->    
-With the default # entries & dma_debug_driver=sky2:
+On Sun, Jan 31, 2010 at 03:11:22AM +0100, Wolfgang Walter wrote:
+> 
+> Not sure.
+> 
+> When I do
+> 
+> modprobe tcrypt mode=101
+> 
+> I get a kernel oops:
 
-6:00 is eth0 & 4:00 is eth1.
+Sorry, this one should have a better chance at working.
 
-Jan 30 23:53:14 mail kernel: DMA-API: 0000:06:00.0: entries: 31961
-Jan 30 23:53:14 mail kernel: DMA-API: 0000:00:1b.0: entries: 15
-Jan 30 23:53:14 mail kernel: DMA-API: 0000:04:00.0: entries: 744
-Jan 30 23:53:14 mail kernel: DMA-API: 0000:00:1f.2: entries: 6
-Jan 30 23:53:14 mail kernel: DMA-API: 0000:08:01.0: entries: 3
-Jan 30 23:53:14 mail kernel: DMA-API: 0000:00:1d.1: entries: 6
-Jan 30 23:53:14 mail kernel: DMA-API: 0000:08:02.0: entries: 8
-Jan 30 23:53:14 mail kernel: DMA-API: 0000:00:1a.7: entries: 3
-Jan 30 23:53:14 mail kernel: DMA-API: 0000:00:1d.7: entries: 3
-Jan 30 23:53:14 mail kernel: DMA-API: 0000:00:1a.0: entries: 3
-Jan 30 23:53:14 mail kernel: DMA-API: 0000:00:1a.1: entries: 3
-Jan 30 23:53:14 mail kernel: DMA-API: 0000:00:1a.2: entries: 3
-Jan 30 23:53:14 mail kernel: DMA-API: 0000:00:1d.0: entries: 3
-Jan 30 23:53:14 mail kernel: DMA-API: 0000:00:1d.2: entries: 3
-Jan 30 23:53:14 mail kernel: DMA-API: 0000:02:00.0: entries: 1
-Jan 30 23:53:14 mail kernel: DMA-API: 0000:05:00.0: entries: 2
-Jan 30 23:53:14 mail kernel: DMA-API: debugging out of memory - disabling
+diff --git a/drivers/crypto/padlock-sha.c b/drivers/crypto/padlock-sha.c
+index 0af8057..d3a27e0 100644
+--- a/drivers/crypto/padlock-sha.c
++++ b/drivers/crypto/padlock-sha.c
+@@ -57,6 +57,23 @@ static int padlock_sha_update(struct shash_desc *desc,
+ 	return crypto_shash_update(&dctx->fallback, data, length);
+ }
+ 
++static int padlock_sha_export(struct shash_desc *desc, void *out)
++{
++	struct padlock_sha_desc *dctx = shash_desc_ctx(desc);
++
++	return crypto_shash_export(&dctx->fallback, out);
++}
++
++static int padlock_sha_import(struct shash_desc *desc, const void *in)
++{
++	struct padlock_sha_desc *dctx = shash_desc_ctx(desc);
++	struct padlock_sha_ctx *ctx = crypto_shash_ctx(desc->tfm);
++
++	dctx->fallback.tfm = ctx->fallback;
++	dctx->fallback.flags = desc->flags & CRYPTO_TFM_REQ_MAY_SLEEP;
++	return crypto_shash_import(&dctx->fallback, in);
++}
++
+ static inline void padlock_output_block(uint32_t *src,
+ 		 	uint32_t *dst, size_t count)
+ {
+@@ -235,7 +252,10 @@ static struct shash_alg sha1_alg = {
+ 	.update 	=	padlock_sha_update,
+ 	.finup  	=	padlock_sha1_finup,
+ 	.final  	=	padlock_sha1_final,
++	.export		=	padlock_sha_export,
++	.import		=	padlock_sha_import,
+ 	.descsize	=	sizeof(struct padlock_sha_desc),
++	.statesize	=	sizeof(struct sha1_state),
+ 	.base		=	{
+ 		.cra_name		=	"sha1",
+ 		.cra_driver_name	=	"sha1-padlock",
+@@ -256,7 +276,10 @@ static struct shash_alg sha256_alg = {
+ 	.update 	=	padlock_sha_update,
+ 	.finup  	=	padlock_sha256_finup,
+ 	.final  	=	padlock_sha256_final,
++	.export		=	padlock_sha_export,
++	.import		=	padlock_sha_import,
+ 	.descsize	=	sizeof(struct padlock_sha_desc),
++	.statesize	=	sizeof(struct sha256_state),
+ 	.base		=	{
+ 		.cra_name		=	"sha256",
+ 		.cra_driver_name	=	"sha256-padlock",
 
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
