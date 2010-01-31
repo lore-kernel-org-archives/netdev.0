@@ -1,59 +1,81 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH] iplink_can: add support to set one-shot mode
-Date: Sun, 31 Jan 2010 13:22:07 +0100
-Message-ID: <4B6575EF.3030001@hartkopp.net>
-References: <1261569778-23669-1-git-send-email-mkl@pengutronix.de>
-	<4B4CE6D0.1030803@grandegger.com>
+From: Andreas Mohr <andi@lisas.de>
+Subject: [PATCH 2/4] MCS7830 USB-Ether: Spelling corrections
+Date: Sun, 31 Jan 2010 13:58:26 +0100
+Message-ID: <20100131125826.GB13435@rhlx01.hs-esslingen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4B4CE6D0.1030803-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: David Miller <davem@davemloft.net>, Arnd Bergmann <arnd@arndb.de>,
+	David Hollis <dhollis@davehollis.com>,
+	Phil Chang <pchang23@sbcglobal.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:60157 "EHLO
+	rhlx01.hs-esslingen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752955Ab0AaM61 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jan 2010 07:58:27 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wolfgang Grandegger wrote:
-> Marc Kleine-Budde wrote:
->> This patch adds the flag CAN_CTRLMODE_ONE_SHOT. It is used as mask
->> or flag in the "struct can_ctrlmode".
->>
->> It also adds to "ip" the option to set a CAN controller into the special
->> "one-shot" mode. In this mode, if supported by the CAN controller,
->> tries only once to deliver a CAN frame and aborts it if an error
->> (e.g.: arbitration lost) happens.
->>
->> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
->> Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-> 
-> Could this patch be considered for iproute2 inclusion? The corresponding
-> kernel patch has been accepted in the meantime.
-> 
-> Thanks,
-> 
-> Wolfgang.
+ChangeLog:
+- spelling corrections / whitespace
 
-Hello Stephen,
+Signed-off-by: Andreas Mohr <andi@lisas.de>
 
-this patch sits in patchwork with the state "Changes Requested"
 
-http://patchwork.ozlabs.org/patch/41660/
-
-which is obviously wrong.
-
-It would by nice if this change could get into iproute2 until 2.6.33 hits the
-ground.
-
-Thanks,
-Oliver
+Index: linux-2.6.33-rc4/drivers/net/usb/mcs7830.c
+===================================================================
+--- linux-2.6.33-rc4.orig/drivers/net/usb/mcs7830.c	2010-01-31 12:34:39.000000000 +0100
++++ linux-2.6.33-rc4/drivers/net/usb/mcs7830.c	2010-01-31 12:34:45.000000000 +0100
+@@ -1,5 +1,5 @@
+ /*
+- * MosChips MCS7830 based USB 2.0 Ethernet Devices
++ * MOSCHIP MCS7830 based USB 2.0 Ethernet Devices
+  *
+  * based on usbnet.c, asix.c and the vendor provided mcs7830 driver
+  *
+@@ -71,7 +71,7 @@
+ 				 ADVERTISE_100HALF | ADVERTISE_10FULL | \
+ 				 ADVERTISE_10HALF | ADVERTISE_CSMA)
+ 
+-/* HIF_REG_XX coressponding index value */
++/* HIF_REG_XX corresponding index value */
+ enum {
+ 	HIF_REG_MULTICAST_HASH			= 0x00,
+ 	HIF_REG_PACKET_GAP1			= 0x08,
+@@ -92,7 +92,7 @@
+ 	   HIF_REG_CONFIG_TXENABLE		= 0x08,
+ 	   HIF_REG_CONFIG_SLEEPMODE		= 0x04,
+ 	   HIF_REG_CONFIG_ALLMULTICAST		= 0x02,
+-	   HIF_REG_CONFIG_PROMISCIOUS		= 0x01,
++	   HIF_REG_CONFIG_PROMISCUOUS		= 0x01,
+ 	HIF_REG_ETHERNET_ADDR			= 0x0f,
+ 	HIF_REG_22				= 0x15,
+ 	HIF_REG_PAUSE_THRESHOLD			= 0x16,
+@@ -417,7 +417,7 @@
+ 	data->config |= HIF_REG_CONFIG_ALLMULTICAST;
+ 
+ 	if (net->flags & IFF_PROMISC) {
+-		data->config |= HIF_REG_CONFIG_PROMISCIOUS;
++		data->config |= HIF_REG_CONFIG_PROMISCUOUS;
+ 	} else if (net->flags & IFF_ALLMULTI ||
+ 		   net->mc_count > MCS7830_MAX_MCAST) {
+ 		data->config |= HIF_REG_CONFIG_ALLMULTICAST;
+@@ -522,7 +522,7 @@
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_do_ioctl 		= mcs7830_ioctl,
+ 	.ndo_set_multicast_list = mcs7830_set_multicast,
+-	.ndo_set_mac_address	 = mcs7830_set_mac_address,
++	.ndo_set_mac_address	= mcs7830_set_mac_address,
+ };
+ 
+ static int mcs7830_bind(struct usbnet *dev, struct usb_interface *udev)
+@@ -553,7 +553,7 @@
+ 	return ret;
+ }
+ 
+-/* The chip always appends a status bytes that we need to strip */
++/* The chip always appends a status byte that we need to strip */
+ static int mcs7830_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+ {
+ 	u8 status;
