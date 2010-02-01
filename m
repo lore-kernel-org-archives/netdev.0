@@ -1,76 +1,57 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH net-next-2.6] cxgb3: add memory barriers
-Date: Mon, 01 Feb 2010 12:29:29 -0800
-Message-ID: <20100201202929.23037.68116.stgit@speedy5.asicdesigners.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [net-next-2.6 v2] can: add support for CAN interface cards	based
+	on the PLX90xx PCI bridge
+Date: Mon, 01 Feb 2010 21:31:06 +0100
+Message-ID: <4B673A0A.5080504@grandegger.com>
+References: <1265053364-24099-1-git-send-email-chebl@star.inp.nsk.su>
+	<20100201195611.GB32624@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com, wenxiong@us.ibm.com
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Ira W. Snyder" <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20100201195611.GB32624-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Divy Le Ray <divy@chelsio.com>
+Ira W. Snyder wrote:
+> On Tue, Feb 02, 2010 at 01:42:44AM +0600, Pavel B. Cheblakov wrote:
+>> From: Pavel Cheblakov <P.B.Cheblakov-tHBF8D5G73F4OK5fxMSSsQ@public.gmane.org>
+>>
+>> This driver is for CAN interface cards based on the PLX90xx PCI bridge.
+>> Driver supports now:
+>>  - Adlink PCI-7841/cPCI-7841 card (http://www.adlinktech.com/)
+>>  - Adlink PCI-7841/cPCI-7841 SE card
+>>  - Marathon CAN-bus-PCI card (http://www.marathon.ru/)
+>>  - TEWS TECHNOLOGIES TPMC810 card (http://www.tews.com/)
+>>
+>> Changes since v1:
+>>  - Added some defines for static inline int plx_pci_check_sja1000(...)
+>>  - static struct pci_device_id plx_pci_tbl[] replaced by
+>>    static DEFINE_PCI_DEVICE_TABLE(plx_pci_tbl)
+>>  - Typo fixed
+>>
+> 
+> Hello,
+> 
+> Any ideas if this driver could support the Janz PCI CAN cards as well? I
+> don't have any documentation for the cards, and I'd love to get away
+> from their closed-source drivers.
 
-Add memory barriers to fix crashes observed on newest PowerPC platforms.
-The HW and driver state of the receive rings were getting out of sync.
+Is it a passive or and intelligent CAN PCI card? What is the name of the
+card? A intelligent card will run its own firmware and you do not have
+direct access to the SJA1000. Pavel plx_pci driver is quite generic and
+it should not be a big deal to support a PLX90xx based passive card.
 
-Signed-off-by: Divy Le Ray <divy@chelsio.com>
----
+Wolfgang.
 
- drivers/net/cxgb3/sge.c |   16 ++++++++++++----
- 1 files changed, 12 insertions(+), 4 deletions(-)
-
-
-diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
-index bdbd147..4cf9b79 100644
---- a/drivers/net/cxgb3/sge.c
-+++ b/drivers/net/cxgb3/sge.c
-@@ -480,6 +480,7 @@ static inline void ring_fl_db(struct adapter *adap, struct sge_fl *q)
- {
- 	if (q->pend_cred >= q->credits / 4) {
- 		q->pend_cred = 0;
-+		wmb();
- 		t3_write_reg(adap, A_SG_KDOORBELL, V_EGRCNTX(q->cntxt_id));
- 	}
- }
-@@ -2282,11 +2283,14 @@ static int process_responses(struct adapter *adap, struct sge_qset *qs,
- 	while (likely(budget_left && is_new_response(r, q))) {
- 		int packet_complete, eth, ethpad = 2, lro = qs->lro_enabled;
- 		struct sk_buff *skb = NULL;
--		u32 len, flags = ntohl(r->flags);
--		__be32 rss_hi = *(const __be32 *)r,
--		       rss_lo = r->rss_hdr.rss_hash_val;
-+		u32 len, flags;
-+		__be32 rss_hi, rss_lo;
- 
-+		rmb();
- 		eth = r->rss_hdr.opcode == CPL_RX_PKT;
-+		rss_hi = *(const __be32 *)r;
-+		rss_lo = r->rss_hdr.rss_hash_val;
-+		flags = ntohl(r->flags);
- 
- 		if (unlikely(flags & F_RSPD_ASYNC_NOTIF)) {
- 			skb = alloc_skb(AN_PKT_SIZE, GFP_ATOMIC);
-@@ -2497,7 +2501,10 @@ static int process_pure_responses(struct adapter *adap, struct sge_qset *qs,
- 			refill_rspq(adap, q, q->credits);
- 			q->credits = 0;
- 		}
--	} while (is_new_response(r, q) && is_pure_response(r));
-+		if (!is_new_response(r, q))
-+			break;
-+		rmb();
-+	} while (is_pure_response(r));
- 
- 	if (sleeping)
- 		check_ring_db(adap, qs, sleeping);
-@@ -2531,6 +2538,7 @@ static inline int handle_responses(struct adapter *adap, struct sge_rspq *q)
- 
- 	if (!is_new_response(r, q))
- 		return -1;
-+	rmb();
- 	if (is_pure_response(r) && process_pure_responses(adap, qs, r) == 0) {
- 		t3_write_reg(adap, A_SG_GTS, V_RSPQ(q->cntxt_id) |
- 			     V_NEWTIMER(q->holdoff_tmr) | V_NEWINDEX(q->cidx));
+Wolfgang.
