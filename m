@@ -1,42 +1,32 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 01/86] dccp: fix bug in cache allocation
-Date: Mon, 1 Feb 2010 06:56:38 -0500
-Message-ID: <20100201115638.GB25094@hmsreliant.think-freely.org>
-References: <recent-dccp-bug-fixes-jan-2010>
- <1265005087-5549-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1265005087-5549-2-git-send-email-gerrit@erg.abdn.ac.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [BUG-FIX v2][PATCH 0/2]: recent dccp fixes
+Date: Mon,  1 Feb 2010 13:12:18 +0100
+Message-ID: <1265026340-5282-1-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <20100201120815.GA4424@gerrit.erg.abdn.ac.uk>
+Cc: nhorman@tuxdriver.com, dccp@vger.kernel.org,
+	netdev@vger.kernel.org, --cc@laptev.erg.abdn.ac.uk
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:36424 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752300Ab0BAL4m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2010 06:56:42 -0500
-Content-Disposition: inline
-In-Reply-To: <1265005087-5549-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:35231 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752863Ab0BAMMe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Feb 2010 07:12:34 -0500
+In-Reply-To: <20100201120815.GA4424@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 01, 2010 at 07:18:06AM +0100, Gerrit Renker wrote:
-> This fixes a bug introduced in commit de4ef86cfce60d2250111f34f8a084e769f23b16
-> ("dccp: fix dccp rmmod when kernel configured to use slub", 17 Jan): the
-> vsnprintf used sizeof(slab_name_fmt), which became truncated to 4 bytes, since
-> slab_name_fmt is now a 4-byte pointer and no longer a 32-character array.
-> 
-> This lead to error messages such as
->  FATAL: Error inserting dccp: No buffer space available
-> 
->  >> kernel: [ 1456.341501] kmem_cache_create: duplicate cache cci
-> generated due to the truncation after the 3rrdc character.
-> 
-> Fixed for the moment by introducing a symbolic constant. Tested to fix the bug.
-> 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Hi Dave,
 
-These changes make sense, sorry for not seeing that earlier.  Thanks!
+as per your request, I am resending this CC:-ed to Neil (who already acked
+the first patch), and also adding Arnaldo.
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+These are two fixes for recent dccp commits which addressed issues, but
+introduced bugs which I discovered when rebasing the test tree last week.
 
-> 
+Patch #1: fixes a bug resulting from truncating cache name length.
+Patch #2: reverts a commit which introduced a module-loading bug.
+
+This being bugs, would you please consider this for stable too.
+
+The test-tree also has been fixed accordingly,
+http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=shortlog;h=ready    
