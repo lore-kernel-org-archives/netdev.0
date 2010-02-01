@@ -1,49 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3][v2] tcp: fix ICMP-RTO war: Check lower bound
-Date: Sun, 31 Jan 2010 23:32:28 -0800 (PST)
-Message-ID: <20100131.233228.48469829.davem@davemloft.net>
-References: <4B635E1A.7040100@tvk.rwth-aachen.de>
+Subject: Re: [PATCH 0/3][v2] tcp: fix ICMP-RTO war
+Date: Sun, 31 Jan 2010 23:33:38 -0800 (PST)
+Message-ID: <20100131.233338.254690877.davem@davemloft.net>
+References: <4B635E17.406@tvk.rwth-aachen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: damian@tvk.rwth-aachen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52374
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52377
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754112Ab0BAHcQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2010 02:32:16 -0500
-In-Reply-To: <4B635E1A.7040100@tvk.rwth-aachen.de>
+	by vger.kernel.org with ESMTP id S1752703Ab0BAHdZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2010 02:33:25 -0500
+In-Reply-To: <4B635E17.406@tvk.rwth-aachen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Damian Lukowski <damian@tvk.rwth-aachen.de>
-Date: Fri, 29 Jan 2010 23:15:54 +0100
+Date: Fri, 29 Jan 2010 23:15:51 +0100
 
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 34f5cc2..ff6cbaa 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -528,9 +528,12 @@ static inline void tcp_bound_rto(const struct sock *sk)
->  		inet_csk(sk)->icsk_rto = TCP_RTO_MAX;
->  }
->  
-> +static inline u32 tcp_rto_min(struct sock *sk);
->  static inline u32 __tcp_set_rto(const struct tcp_sock *tp)
->  {
-> -	return (tp->srtt >> 3) + tp->rttvar;
-> +	u32 rto = (tp->srtt >> 3) + tp->rttvar;
-> +	u32 min = tcp_rto_min((struct sock *)tp);
-> +	return unlikely(rto < min) ? min : rto;
->  }
->  
->  static inline void __tcp_fast_path_on(struct tcp_sock *tp, u32 snd_wnd)
+> This patches fix the current RTO calculation routine, when
+> srtt and rttvar are zero, yielding an RTO of zero 
+> Under some circumstances, TCPs srtt and rttvar are zero,
+> yielding a calculated RTO of zero.
+> This is particularly unfortunate for ICMP based RTO recalculation
+> as introduced in f1ecd5d9e736660 (Revert Backoff [v3]: Revert RTO
+> on ICMP destination unreachable), as it results in RTO retransmission
+> flooding.
+> 
+> Thanks to Ilpo Jarvinen for providing debug patches and to
+> Denys Fedoryshchenko for reporting and testing.
+> 
+> Signed-off-by: Damian Lukowski <damian@tvk.rwth-aachen.de>
 
-Don't make assumptions about the layout and relationships
-between struct sock and struct tcp_sock without using
-the interfaces create for this purpose.
+I still haven't seen a detailed enough analysis of why these
+tiny RTOs can come to exist in the first place.
 
-For this case, simply add a "struct sock *" first argument to
-__tcp_set_rto() and update the callers.
+Please show me a list of events, function by function, the value of
+relevant variables and per-socket TCP state, in the TCP stack, that
+show how this ends up happening.
 
-Thanks.
+Thanks for all of your work on this so far.
