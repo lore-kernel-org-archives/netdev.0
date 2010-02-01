@@ -1,65 +1,41 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: Re: [PATCH ver2] Avoid enqueuing skb for default qdiscs
-Date: Mon, 01 Feb 2010 15:16:34 +0100
-Message-ID: <1265033794.32192.54.camel@sakura.staff.proxad.net>
-References: <20090806114421.19208.39374.sendpatchset@localhost.localdomain>
-	 <1265017940.32192.23.camel@sakura.staff.proxad.net>
-	 <OF6B2AD304.3AD05621-ON652576BD.0047556A-652576BD.004B1F23@in.ibm.com>
-Reply-To: mbizon@freebox.fr
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ANSI_X3.4-1968"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
-	Jarek Poplawski <jarkao2@gmail.com>, kaber@trash.net,
-	netdev@vger.kernel.org
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 1/7] qlcnic: use DEFINE_PCI_DEVICE_TABLE
+Date: Mon,  1 Feb 2010 06:30:38 -0800
+Message-ID: <1265034644-19461-2-git-send-email-amit.salecha@qlogic.com>
+References: <1265034644-19461-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com,
+	ameen.rahman@qlogic.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:46793 "EHLO smtp6-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753297Ab0BAOQo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Feb 2010 09:16:44 -0500
-In-Reply-To: <OF6B2AD304.3AD05621-ON652576BD.0047556A-652576BD.004B1F23@in.ibm.com>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:9781 "HELO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1754576Ab0BAOaq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Feb 2010 09:30:46 -0500
+In-Reply-To: <1265034644-19461-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Use DEFINE_PCI_DEVICE_TABLE() so we get place PCI ids table into
+correct section in every case.
 
-On Mon, 2010-02-01 at 19:12 +0530, Krishna Kumar2 wrote:
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+---
+ drivers/net/qlcnic/qlcnic_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Hi,
-
-> sch_direct_xmit can be called from dev_queue_xmit for a
-> stopped device only if the device had xmit the previous
-> skb, stopped the device and returned OK. Then the next
-
-Yes, that's what happen in my case.
-
-> BTW, I don't think this patch would change the earlier
-> behavior. The old code would have done the same thing.
-
-Oh, my mistake then. I always thought the requeue counter was indicating
-the driver returned TX_BUSY (and failed to stop the queue before), which
-is not polite.
-
-If the current behavior is the expected one, then there is no problem
-here.
-
-> As I explained, this should happen only once per stop event.
-> Could you tell which driver is having this problem? Is it
-> waking up too early, eg, it might be stopping when the hw tx
-> descriptor is full but waking up when a few slots open up,
-> and those will get filled up immediately on fast systems.
-> Then you will see a lot of requeue's.
-
-This is an atm driver which is not mainlined. The system is not that
-fast, but the link is (very) slow (< 1 Mbit/s).
-
-The driver is waking up the queue once the hardware queue is not full
-anymore (at least one free tx desc), and the free slot gets filled
-immediately since the link is slow.
-
-Thanks for explaining !
-
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index 1698b6a..05275f2 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -102,7 +102,7 @@ static void qlcnic_config_indev_addr(struct net_device *dev, unsigned long);
+ 
+ #define PCI_DEVICE_ID_QLOGIC_QLE824X  0x8020
+ 
+-static const struct pci_device_id qlcnic_pci_tbl[] __devinitdata = {
++static DEFINE_PCI_DEVICE_TABLE(qlcnic_pci_tbl) = {
+ 	ENTRY(PCI_DEVICE_ID_QLOGIC_QLE824X),
+ 	{0,}
+ };
 -- 
-Maxime
-
+1.6.0.2
 
