@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [Patch v2] net: export TCP send buffer size via netlink
-Date: Mon, 01 Feb 2010 02:00:55 -0800 (PST)
-Message-ID: <20100201.020055.57470143.davem@davemloft.net>
+Date: Mon, 01 Feb 2010 02:06:22 -0800 (PST)
+Message-ID: <20100201.020622.91421099.davem@davemloft.net>
 References: <20100201092153.4194.91507.sendpatchset@localhost.localdomain>
+	<20100201.020055.57470143.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	eric.dumazet@gmail.com
 To: amwang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100201092153.4194.91507.sendpatchset@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38689
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750910Ab0BAKGJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2010 05:06:09 -0500
+In-Reply-To: <20100201.020055.57470143.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Amerigo Wang <amwang@redhat.com>
-Date: Mon, 1 Feb 2010 04:18:28 -0500
 
-> V1 -> V2:
-> Keep ABI compatiblity of struct tcp_info.
-> 
-> Currently, we can only get TCP send buffer size by
-> getsockopt (SO_SNDBUF or TCP_INFO), this is not enough
-> for the tools like netstat or ss to read.
-> 
-> Show TCP send buffer size via netlink NETLINK_INET_DIAG.
-> 
-> Signed-off-by: WANG Cong <amwang@redhat.com>
+Before you spend the next couple hours trying to figure out what to
+do...
 
-If the user has a "struct tcp_info info" on it's stack,
-and it's compiled against the header file before your
-changes, guess what the kernel is going to do?
+We already provide the information you're trying to export via
+linux/inet_diag.h:inet_diag_meminfo
 
-It's going to write past the end of the user's variable
-into random stack locations.
+I hope the light goes on now :-)
 
-You can't change the layout, at all.
+
+
