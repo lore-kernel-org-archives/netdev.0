@@ -1,68 +1,41 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCHv2 NEXT 3/7] qlcnic: clear device reset state after fw recovery
-Date: Mon,  1 Feb 2010 07:24:56 -0800
-Message-ID: <1265037900-20403-4-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCHv2 NEXT 1/7] qlcnic: use DEFINE_PCI_DEVICE_TABLE
+Date: Mon,  1 Feb 2010 07:24:54 -0800
+Message-ID: <1265037900-20403-2-git-send-email-amit.salecha@qlogic.com>
 References: <1265037900-20403-1-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com,
 	ameen.rahman@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:11614 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:11617 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1755097Ab0BAPZD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755085Ab0BAPZD (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 1 Feb 2010 10:25:03 -0500
 In-Reply-To: <1265037900-20403-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o After firmware recovery, clear device reset state transition register.
-  Otherwise firmware reload can occur unnecessary.
+Use DEFINE_PCI_DEVICE_TABLE() so we get place PCI ids table into
+correct section in every case.
 
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic_main.c |   22 +++++++++++++++++++++-
- 1 files changed, 21 insertions(+), 1 deletions(-)
+ drivers/net/qlcnic/qlcnic_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 05275f2..9a98285 100644
+index 1698b6a..05275f2 100644
 --- a/drivers/net/qlcnic/qlcnic_main.c
 +++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -1866,6 +1866,23 @@ qlcnic_set_drv_state(struct qlcnic_adapter *adapter, int state)
- 	qlcnic_api_unlock(adapter);
- }
+@@ -102,7 +102,7 @@ static void qlcnic_config_indev_addr(struct net_device *dev, unsigned long);
  
-+static int
-+qlcnic_clr_drv_state(struct qlcnic_adapter *adapter)
-+{
-+	u32  val;
-+
-+	if (qlcnic_api_lock(adapter))
-+		return -EBUSY;
-+
-+	val = QLCRD32(adapter, QLCNIC_CRB_DRV_STATE);
-+	val &= ~((u32)0x3 << (adapter->portnum * 4));
-+	QLCWR32(adapter, QLCNIC_CRB_DRV_STATE, val);
-+
-+	qlcnic_api_unlock(adapter);
-+
-+	return 0;
-+}
-+
- static void
- qlcnic_clr_all_drv_state(struct qlcnic_adapter *adapter)
- {
-@@ -2119,7 +2136,10 @@ qlcnic_attach_work(struct work_struct *work)
- done:
- 	adapter->fw_fail_cnt = 0;
- 	clear_bit(__QLCNIC_RESETTING, &adapter->state);
--	qlcnic_schedule_work(adapter, qlcnic_fw_poll_work, FW_POLL_DELAY);
-+
-+	if (!qlcnic_clr_drv_state(adapter))
-+		qlcnic_schedule_work(adapter, qlcnic_fw_poll_work,
-+							FW_POLL_DELAY);
- }
+ #define PCI_DEVICE_ID_QLOGIC_QLE824X  0x8020
  
- static int
+-static const struct pci_device_id qlcnic_pci_tbl[] __devinitdata = {
++static DEFINE_PCI_DEVICE_TABLE(qlcnic_pci_tbl) = {
+ 	ENTRY(PCI_DEVICE_ID_QLOGIC_QLE824X),
+ 	{0,}
+ };
 -- 
 1.6.0.2
 
