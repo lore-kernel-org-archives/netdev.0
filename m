@@ -1,88 +1,27 @@
-From: "Lv Zheng" <lv.zheng@soliton.com.cn>
-Subject: socket layer incorrectness
-Date: Mon, 1 Feb 2010 13:05:45 +0800
-Message-ID: <1C8BCB3F488645A99B76E803ED3BD094@lzheng>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="iso-8859-1";
-	reply-type=original
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [BUG-FIX][PATCH 0/2]: recent dccp fixes
+Date: Mon,  1 Feb 2010 07:18:05 +0100
+Message-ID: <1265005087-5549-1-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <recent-dccp-bug-fixes-jan-2010>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [203.94.1.90] ([203.94.1.90]:14179 "EHLO C150.SPAMMAIL.COM"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751092Ab0BAFRI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Feb 2010 00:17:08 -0500
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:59435 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754329Ab0BAG35 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Feb 2010 01:29:57 -0500
+In-Reply-To: <recent-dccp-bug-fixes-jan-2010>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, all
+In January there were two dccp commits introducing bugs. Having
+been guilty of ack-ing them, please find below patches to fix
+them.
 
-I'm new to this mailing list. Please forgive me if this mail is
-interrupting you.
+Patch #1: fixes a bug resulting from truncating cache name length.
+Patch #2: reverts a commit which introduced a module-loading bug.
 
-I read the kernel socket layer implementation recently.
-Wondering whether one can kindly make some detailed explaination
-for me, I sent this email to the netdev mailing list. 
+This being bugs, would you please consider this for stable too.
 
-==================================================
-
-I noted BSD had presented socket API as follows:
-
-socket(family, type, protocol)
-
-Which means there should be sth. like:
-sock_register_family
-sock_register_type
-sock_register_protocol
-in the world.
-
-As far as these abstractions are concerned, struct sock should be:
-struct sock {
-    struct family_ops *family_ops;
-    struct sock_type_ops *type_ops;
-    struct proto_ops *proto_ops;
-};
-
-==================================================
-
-A. family abstaction
-For family, I think it looks like a protocol factory, and owns
-create/release ops might be enough for family_ops just like current
-kernel does.
-
-B. type abstaction
-For type, we have SOCK_STREAM, SOCK_DGRAM, SOCK_RAW
-for INET:
-1. SOCK_STREAM: buffer requeued orderly for the upper level
-   protocol layer without lower level protocol's head/tail.
-2. SOCK_DGRAM: buffer defrag/fraged aligning lower level
-   protocol's content due to lower level's MTU without lower level
-   protocol's head/tail.
-3. SOCK_RAW: buffer is copied directly from lower level queue.
-   If socket is implemented in this way, defrag/frag/streaming can go
-   into the socket layer and we can involve hardware as much as it
-   could to accelarate fragmentation and streaming.
-
-But currently we do not have type abstraction in the Linux kernel.
-
-C. protocol abstaction
-For protocol, we have proto_register in the kernel, but it does not
-affect sock_create. In the socket layer, only /proc/net/protocols is
-affected by such registration, proto_ops is mostly a family specific
-implementation.
-
-proto_ops should not related to the socket operations which should
-be type_ops' responsibility while current kernel takes proto_ops as
-type_ops.
-
-IMO, proto_ops should contain operations as head/tail analysis,
-buffer ordering determination and so on.
-
-==================================================
-
-Can someone tell me why current Linux kernel is not implemented in
-the way that BSD socket abstraction tells us to do?
-
-Best regards/Lv Zheng
+The test-tree also has been fixed accordingly,
+http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=shortlog;h=ready    
