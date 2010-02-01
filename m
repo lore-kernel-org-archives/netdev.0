@@ -1,116 +1,81 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 02/86] dccp: revert buggy auto-loading of dccp module
-Date: Mon, 1 Feb 2010 13:38:40 -0500
-Message-ID: <20100201183840.GF25094@hmsreliant.think-freely.org>
-References: <recent-dccp-bug-fixes-jan-2010>
- <1265005087-5549-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1265005087-5549-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1265005087-5549-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <20100201122119.GC25094@hmsreliant.think-freely.org>
+From: Michael Breuer <mbreuer@majjas.com>
+Subject: Re: [PATCH] sky2:  receive dma mapping error handling
+Date: Mon, 01 Feb 2010 13:44:12 -0500
+Message-ID: <4B6720FC.7070105@majjas.com>
+References: <20100128223447.GC3109@del.dom.local> <4B621316.8070308@majjas.com>
+ <20100128225621.GD3109@del.dom.local> <4B6216B9.1010802@majjas.com>
+ <20100128153643.0fca3c51@nehalam> <4B645EF4.4050701@majjas.com>
+ <20100131003449.GA11935@del.dom.local> <4B650D53.2010607@majjas.com>
+ <4B65D0F9.2020602@majjas.com> <4B65FD12.7090101@majjas.com>
+ <20100131221835.GA3317@del.dom.local> <20100201102018.7b597992@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
+	Don Fry <pcnet32@verizon.net>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Matt Carlson <mcarlson@broadcom.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:52246 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755549Ab0BASit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2010 13:38:49 -0500
-Content-Disposition: inline
-In-Reply-To: <20100201122119.GC25094@hmsreliant.think-freely.org>
+Received: from mta3.srv.hcvlny.cv.net ([167.206.4.198]:55332 "EHLO
+	mta3.srv.hcvlny.cv.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752500Ab0BASoU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2010 13:44:20 -0500
+In-reply-to: <20100201102018.7b597992@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 01, 2010 at 07:21:19AM -0500, Neil Horman wrote:
-> On Mon, Feb 01, 2010 at 07:18:07AM +0100, Gerrit Renker wrote:
-> > This reverts commit (38ff3e6bb987ec583268da8eb22628293095d43b) ("dccp_probe:
-> > Fix module load dependencies between dccp and dccp_probe", from 15 Jan). Not
-> > only does it not work:
-> > 
-> > % modprobe -v dccp_probe
-> > kernel: [ 1431.442912] sys_init_module: 'dccp_probe'->init suspiciously \
-> >  		      returned 1, it should follow 0/-E convention
-> > kernel: [ 1431.442915] sys_init_module: loading module anyway...
-> > 
-> > 
-> > ... but it also causes a crash:
-> > 
-> > % rmmod dccp_probe
-> > kernel: [ 1777.305846] kernel BUG at /usr/src/davem-2.6/mm/slab.c:521!
-> > kernel: [ 1777.305852] invalid opcode: 0000 [#1] SMP
-> > kernel: [ 1777.305861] last sysfs file: /sys/class/power_supply/BAT0/energy_full
-> > kernel: [ 1777.305867] Modules linked in: dccp_probe(-) iwl3945 iwlcore [last unloaded: dccp]
-> > kernel: [ 1777.305883]
-> > kernel: [ 1777.305891] Pid: 12912, comm: rmmod Tainted: G  R        2.6.33-rc5 #6 2008URG/2008URG
-> > kernel: [ 1777.305899] EIP: 0060:[<c01d5e43>] EFLAGS: 00010046 CPU: 1
-> > kernel: [ 1777.305910] EIP is at kfree+0x73/0x150
-> > kernel: [ 1777.305916] EAX: c1678c00 EBX: 00000000 ECX: c01d5e15 EDX: 40080000
-> > kernel: [ 1777.305922] ESI: c015cb9a EDI: 080488a0 EBP: f4ffbf34 ESP: f4ffbf10
-> > kernel: [ 1777.305929]  DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
-> > kernel: [ 1777.305936] Process rmmod (pid: 12912, ti=f4ffb000 task=f61e8620 task.ti=f4ffb000)
-> > 
-> > ==> After reverting the commit:
-> > 
-> > % modprobe -v dccp_probe
-> > insmod /lib/modules/2.6.33-rc5/kernel/net/dccp/dccp.ko
-> > insmod /lib/modules/2.6.33-rc5/kernel/net/dccp/dccp_probe.ko
-> > 
-> > % lsmod
-> > Module                  Size  Used by
-> > dccp_probe              2345  0
-> > dccp                  120233  1 dccp_probe
-> > 
-> > Previously (during about 4 years of this module's history) there had never
-> > been a problem with the 'silent dependency' that the commit tried to fix:
-> > this dependency is deliberate and required, since dccp_probe performs probing
-> > of dccp connections and hence needs to know about dccp internals.
-> > 
-> > Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-> 
-> This doesn't make any sense.  Gerrit, you don't understand what the patch was
-> trying to do.  There is a silent dependency, in that this module requires the
-> dccp module to be loaded, but the reference to the dccp_send_probe symbol isn't
-> one that depmod can see.  If you don't load dccp first, dccp_probe fails, why
-> bother to allow that when try_then_request_module can avoid it?
-> 
-> The problem here is the construction of the first argument,
-> try_then_request_module should only return valid return codes from the first
-> argument, and my first argument is malformed.  register_jprobe returns zero on
-> success, so I need to check its return in the call for 0, in case we need to
-> trigger the request_module action, but in so doing ret gets the value of
-> (register_jprobe(&dccp_send_probe) == 0), which will always be 0 or 1.  What we
-> actually need to do is assign the result of register_jprobe to ret, without the
-> side effect of the comparison.  I've not tested it, but this should do it,
-> without re-breaking the silent dependency.
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> 
-> 
->  
->  probe.c |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> 
-> diff --git a/net/dccp/probe.c b/net/dccp/probe.c
-> index bace1d8..a8f5fdf 100644
-> --- a/net/dccp/probe.c
-> +++ b/net/dccp/probe.c
-> @@ -161,7 +161,8 @@ static __init int dccpprobe_init(void)
->  	if (!proc_net_fops_create(&init_net, procname, S_IRUSR, &dccpprobe_fops))
->  		goto err0;
->  
-> -	ret = try_then_request_module((register_jprobe(&dccp_send_probe) == 0),
-> +	try_then_request_module(
-> +		((ret = register_jprobe(&dccp_send_probe)) == 0),
->  					"dccp");
->  	if (ret)
->  		goto err1;
+On 2/1/2010 1:20 PM, Stephen Hemminger wrote:
+> This fixes the fact that re->flags is always zero without causing
+> other confusion.
+>
+> --- a/drivers/net/sky2.c	2010-02-01 10:07:42.676296236 -0800
+> +++ b/drivers/net/sky2.c	2010-02-01 10:18:12.575044064 -0800
+> @@ -1025,11 +1025,8 @@ static void sky2_prefetch_init(struct sk
+>   static inline struct sky2_tx_le *get_tx_le(struct sky2_port *sky2, u16 *slot)
+>   {
+>   	struct sky2_tx_le *le = sky2->tx_le + *slot;
+> -	struct tx_ring_info *re = sky2->tx_ring + *slot;
+>
+>   	*slot = RING_NEXT(*slot, sky2->tx_ring_size);
+> -	re->flags = 0;
+> -	re->skb = NULL;
+>   	le->ctrl = 0;
+>   	return le;
+>   }
+> @@ -1622,8 +1619,7 @@ static unsigned tx_le_req(const struct s
+>   	return count;
+>   }
+>
+> -static void sky2_tx_unmap(struct pci_dev *pdev,
+> -			  const struct tx_ring_info *re)
+> +static void sky2_tx_unmap(struct pci_dev *pdev, struct tx_ring_info *re)
+>   {
+>   	if (re->flags&  TX_MAP_SINGLE)
+>   		pci_unmap_single(pdev, pci_unmap_addr(re, mapaddr),
+> @@ -1633,6 +1629,7 @@ static void sky2_tx_unmap(struct pci_dev
+>   		pci_unmap_page(pdev, pci_unmap_addr(re, mapaddr),
+>   			       pci_unmap_len(re, maplen),
+>   			       PCI_DMA_TODEVICE);
+> +	re->flags = 0;
+>   }
+>
+>   /*
+> @@ -1839,6 +1836,7 @@ static void sky2_tx_complete(struct sky2
+>   			dev->stats.tx_packets++;
+>   			dev->stats.tx_bytes += skb->len;
+>
+> +			re->skb = NULL;
+>   			dev_kfree_skb_any(skb);
+>
+>   			sky2->tx_next = RING_NEXT(idx, sky2->tx_ring_size);
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Gerrit, any thoughts here?
-Thanks & Regards
-Neil
-
+>    
+Running with this patch now - dma debug num_free_entries stable - so 
+far, so good.
