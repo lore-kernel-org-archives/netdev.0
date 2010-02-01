@@ -1,58 +1,79 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCHv2 NEXT 2/7] qlcnic: add ethernet identifier in board info
-Date: Mon,  1 Feb 2010 07:24:55 -0800
-Message-ID: <1265037900-20403-3-git-send-email-amit.salecha@qlogic.com>
-References: <1265037900-20403-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com,
-	ameen.rahman@qlogic.com,
-	Rajesh K Borundia <rajesh.borundia@qlogic.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:11615 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1755042Ab0BAPZD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Feb 2010 10:25:03 -0500
-In-Reply-To: <1265037900-20403-1-git-send-email-amit.salecha@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH] vhost-net: switch to smp barriers
+Date: Mon, 1 Feb 2010 19:21:02 +0200
+Message-ID: <20100201172101.GA10900@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Added missing identifier that distinguishes between
-FCOE/ISCSI/ETHERNET functions.
+vhost-net only uses memory barriers to control SMP effects
+(communication with userspace potentially running on a different CPU),
+so it should use SMP barriers and not mandatory barriers for memory
+access ordering, as suggested by Documentation/memory-barriers.txt
 
-Signed-off-by: Rajesh K Borundia <rajesh.borundia@qlogic.com>
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/net/qlcnic/qlcnic.h |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
+ drivers/vhost/vhost.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index abec468..9662a37 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -1068,7 +1068,7 @@ int qlcnic_reset_context(struct qlcnic_adapter *);
-  * QLOGIC Board information
-  */
+The above applies on top of net-next-2.6. Does not seem to give any
+measureable performance gain, but seems to generate less code
+and I think it's better to use correct APIs.
+
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index c8c25db..6eb1525 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -685,7 +685,7 @@ int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
+ 	int i, r;
  
--#define QLCNIC_MAX_BOARD_NAME_LEN 64
-+#define QLCNIC_MAX_BOARD_NAME_LEN 100
- struct qlcnic_brdinfo {
- 	unsigned short  vendor;
- 	unsigned short  device;
-@@ -1078,8 +1078,12 @@ struct qlcnic_brdinfo {
- };
+ 	/* Make sure data written is seen before log. */
+-	wmb();
++	smp_wmb();
+ 	for (i = 0; i < log_num; ++i) {
+ 		u64 l = min(log[i].len, len);
+ 		r = log_write(vq->log_base, log[i].addr, l);
+@@ -884,7 +884,7 @@ unsigned vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+ 		return vq->num;
  
- static const struct qlcnic_brdinfo qlcnic_boards[] = {
--	{0x1077, 0x8020, 0x1077, 0x203, "8200 Series Single Port 10GbE CNA"},
--	{0x1077, 0x8020, 0x1077, 0x207, "8200 Series Dual Port 10GbE CNA"},
-+	{0x1077, 0x8020, 0x1077, 0x203,
-+		"8200 Series Single Port 10GbE Converged Network Adapter \
-+		(TCP/IP Networking)"},
-+	{0x1077, 0x8020, 0x1077, 0x207,
-+		"8200 Series Dual Port 10GbE Converged Network Adapter \
-+		(TCP/IP Networking)"},
- 	{0x1077, 0x8020, 0x1077, 0x20b,
- 		"3200 Series Dual Port 10Gb Intelligent Ethernet Adapter"},
- 	{0x1077, 0x8020, 0x1077, 0x20c,
+ 	/* Only get avail ring entries after they have been exposed by guest. */
+-	rmb();
++	smp_rmb();
+ 
+ 	/* Grab the next descriptor number they're advertising, and increment
+ 	 * the index we've seen. */
+@@ -996,14 +996,14 @@ int vhost_add_used(struct vhost_virtqueue *vq, unsigned int head, int len)
+ 		return -EFAULT;
+ 	}
+ 	/* Make sure buffer is written before we update index. */
+-	wmb();
++	smp_wmb();
+ 	if (put_user(vq->last_used_idx + 1, &vq->used->idx)) {
+ 		vq_err(vq, "Failed to increment used idx");
+ 		return -EFAULT;
+ 	}
+ 	if (unlikely(vq->log_used)) {
+ 		/* Make sure data is seen before log. */
+-		wmb();
++		smp_wmb();
+ 		log_write(vq->log_base, vq->log_addr + sizeof *vq->used->ring *
+ 			  (vq->last_used_idx % vq->num),
+ 			  sizeof *vq->used->ring);
+@@ -1060,7 +1060,7 @@ bool vhost_enable_notify(struct vhost_virtqueue *vq)
+ 	}
+ 	/* They could have slipped one in as we were doing that: make
+ 	 * sure it's written, then check again. */
+-	mb();
++	smp_mb();
+ 	r = get_user(avail_idx, &vq->avail->idx);
+ 	if (r) {
+ 		vq_err(vq, "Failed to check avail idx at %p: %d\n",
 -- 
-1.6.0.2
-
+1.6.6.144.g5c3af
