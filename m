@@ -1,67 +1,58 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 4/7] qlcnic: protect resoruce cleanup by rtnl lock
-Date: Mon,  1 Feb 2010 06:30:41 -0800
-Message-ID: <1265034644-19461-5-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 2/7] qlcnic: add ethernet identifier in board info
+Date: Mon,  1 Feb 2010 06:30:39 -0800
+Message-ID: <1265034644-19461-3-git-send-email-amit.salecha@qlogic.com>
 References: <1265034644-19461-1-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com,
-	ameen.rahman@qlogic.com
+	ameen.rahman@qlogic.com,
+	Rajesh K Borundia <rajesh.borundia@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:9775 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:9779 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1753897Ab0BAOap (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754253Ab0BAOap (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 1 Feb 2010 09:30:45 -0500
 In-Reply-To: <1265034644-19461-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o context resources can be in used, while resoruce cleanup is in progress,
-  during fw recover.
-o Null pointer execption can occur in send_cmd_desc, if fw recovery
-  module frees tx ring without rtnl lock.
-o Same applies to ethtool register dump and FW health registers should be dump
-  in any case.
+Added missing identifier that distinguishes between
+FCOE/ISCSI/ETHERNET functions.
 
+Signed-off-by: Rajesh K Borundia <rajesh.borundia@qlogic.com>
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic_ethtool.c |    6 +++---
- drivers/net/qlcnic/qlcnic_main.c    |    2 ++
- 2 files changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/qlcnic/qlcnic.h |   10 +++++++---
+ 1 files changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
-index 65e9620..37df5f6 100644
---- a/drivers/net/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/qlcnic/qlcnic_ethtool.c
-@@ -326,12 +326,12 @@ qlcnic_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *p)
- 	regs->version = (1 << 24) | (adapter->ahw.revision_id << 16) |
- 	    (adapter->pdev)->device;
+diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
+index abec468..9662a37 100644
+--- a/drivers/net/qlcnic/qlcnic.h
++++ b/drivers/net/qlcnic/qlcnic.h
+@@ -1068,7 +1068,7 @@ int qlcnic_reset_context(struct qlcnic_adapter *);
+  * QLOGIC Board information
+  */
  
--	if (adapter->is_up != QLCNIC_ADAPTER_UP_MAGIC)
--		return;
--
- 	for (i = 0; diag_registers[i] != -1; i++)
- 		regs_buff[i] = QLCRD32(adapter, diag_registers[i]);
+-#define QLCNIC_MAX_BOARD_NAME_LEN 64
++#define QLCNIC_MAX_BOARD_NAME_LEN 100
+ struct qlcnic_brdinfo {
+ 	unsigned short  vendor;
+ 	unsigned short  device;
+@@ -1078,8 +1078,12 @@ struct qlcnic_brdinfo {
+ };
  
-+	if (adapter->is_up != QLCNIC_ADAPTER_UP_MAGIC)
-+		return;
-+
- 	regs_buff[i++] = 0xFFEFCDAB; /* Marker btw regs and ring count*/
- 
- 	regs_buff[i++] = 1; /* No. of tx ring */
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 9a98285..7259adc 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -2051,7 +2051,9 @@ qlcnic_detach_work(struct work_struct *work)
- 
- 	qlcnic_down(adapter, netdev);
- 
-+	rtnl_lock();
- 	qlcnic_detach(adapter);
-+	rtnl_unlock();
- 
- 	status = QLCRD32(adapter, QLCNIC_PEG_HALT_STATUS1);
- 
+ static const struct qlcnic_brdinfo qlcnic_boards[] = {
+-	{0x1077, 0x8020, 0x1077, 0x203, "8200 Series Single Port 10GbE CNA"},
+-	{0x1077, 0x8020, 0x1077, 0x207, "8200 Series Dual Port 10GbE CNA"},
++	{0x1077, 0x8020, 0x1077, 0x203,
++		"8200 Series Single Port 10GbE Converged Network Adapter \
++		(TCP/IP Networking)"},
++	{0x1077, 0x8020, 0x1077, 0x207,
++		"8200 Series Dual Port 10GbE Converged Network Adapter \
++		(TCP/IP Networking)"},
+ 	{0x1077, 0x8020, 0x1077, 0x20b,
+ 		"3200 Series Dual Port 10Gb Intelligent Ethernet Adapter"},
+ 	{0x1077, 0x8020, 0x1077, 0x20c,
 -- 
 1.6.0.2
 
