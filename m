@@ -1,76 +1,81 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [PATCH 0/3] vbus: venet macvlan rt netlink changes
-Date: Mon, 01 Feb 2010 07:53:04 -0500
-Message-ID: <4B66CEB0.2050806@gmail.com>
-References: <20100114215058.4958.87746.stgit@mimic.site>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH ver2] Avoid enqueuing skb for default qdiscs
+Date: Mon, 1 Feb 2010 19:12:06 +0530
+Message-ID: <OF6B2AD304.3AD05621-ON652576BD.0047556A-652576BD.004B1F23@in.ibm.com>
+References: <20090806114421.19208.39374.sendpatchset@localhost.localdomain> <1265017940.32192.23.camel@sakura.staff.proxad.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig01EC002098C79086720765C9"
-Cc: alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, kaber@trash.net, arnd@arndb.de,
+Content-Type: text/plain; charset=US-ASCII
+Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
+	Jarek Poplawski <jarkao2@gmail.com>, kaber@trash.net,
 	netdev@vger.kernel.org
-To: Patrick Mullaney <pmullaney@novell.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100114215058.4958.87746.stgit@mimic.site>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: mbizon@freebox.fr
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e28smtp09.in.ibm.com ([122.248.162.9]:47172 "EHLO
+	e28smtp09.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753149Ab0BANkh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2010 08:40:37 -0500
+Received: from d28relay01.in.ibm.com (d28relay01.in.ibm.com [9.184.220.58])
+	by e28smtp09.in.ibm.com (8.14.3/8.13.1) with ESMTP id o11D6UIN008345
+	for <netdev@vger.kernel.org>; Mon, 1 Feb 2010 18:36:30 +0530
+Received: from d28av06.in.ibm.com (d28av06.in.ibm.com [9.184.220.48])
+	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o11DeYqA1208522
+	for <netdev@vger.kernel.org>; Mon, 1 Feb 2010 19:10:34 +0530
+Received: from d28av06.in.ibm.com (loopback [127.0.0.1])
+	by d28av06.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o11DeYHn020944
+	for <netdev@vger.kernel.org>; Mon, 1 Feb 2010 19:10:34 +0530
+In-Reply-To: <1265017940.32192.23.camel@sakura.staff.proxad.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig01EC002098C79086720765C9
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Hi Maxime,
 
-On 1/14/10 4:52 PM, Patrick Mullaney wrote:
-> (Applies to alacrityvm.git/master:a725f9950)
->=20
-> This series changes the venet macvlan device such that it can
-> be created via rt netlink and no longer requires any extensive
-> changes to the macvlan device itself. The first patch removes
-> prior changes to the macvlan device introduced in the alacrityvm
-> tree and also implements the changes needed for creation and
-> management via rt netlink. The subsequent patches(2 and 3) are
-> changes to the macvlan device for GRO support and for type
-> specific release. These 2 patches don't appear to be upstream.
-> If desired and approved, I'll regenerate these last 2 for
-> net-next.
+Maxime Bizon <mbizon@freebox.fr> wrote on 02/01/2010 03:22:20 PM:
 
-Applied to alacrityvm.git/master.  Thanks Pat!
+> Sorry old stuff, but I just noticed this.
+>
+> One side effect of this patch is that tc now shows a lot of requeue for
+> slow interfaces (slow dsl link in my case), because sch_direct_xmit is
+> called even if device stopped its queue.
 
->=20
-> ---
->=20
-> Patrick Mullaney (3):
->       macvlan: use rtnl_link_ops->dellink during unregister notications=
+sch_direct_xmit can be called from dev_queue_xmit for a
+stopped device only if the device had xmit the previous
+skb, stopped the device and returned OK. Then the next
+sch_d_x will dequeue and requeue the new skb. But from
+now on, sch_d_x is never called from dev_queue_xmit
+since qdisc_qlen(q) > 0. Instead dev_queue_xmit enqueue's
+the skb and calls qdisc_restart, which calls dequeue_skb.
+dequeue_skb finds there is an earlier gso_skb but since
+the device is stopped, it returns NULL. Hence there
+should be only one requeue (and dequeue) for every stop.
 
->       macvlan: add GRO bit to features mask
->       venet-macvlan: allow rt netlink to create venet macvlan devices
->=20
->=20
->  drivers/net/macvlan.c                   |   72 ++----
->  include/linux/macvlan.h                 |    6 -
->  kernel/vbus/devices/venet/device.c      |    8 +
->  kernel/vbus/devices/venet/macvlan.c     |  360 ++++++++++++++++++++---=
---------
->  kernel/vbus/devices/venet/tap.c         |    3=20
->  kernel/vbus/devices/venet/venetdevice.h |    3=20
->  6 files changed, 265 insertions(+), 187 deletions(-)
->=20
+BTW, I don't think this patch would change the earlier
+behavior. The old code would have done the same thing.
 
+> My first reflex was too investigate for a misbehaving driver (returning
+> TX_BUSY), but start_xmit is not even called, sch_direct_xmit notices
+> that queue is stopped, and just does a dequeue/requeue.
 
+As I explained, this should happen only once per stop event.
+Could you tell which driver is having this problem? Is it
+waking up too early, eg, it might be stopping when the hw tx
+descriptor is full but waking up when a few slots open up,
+and those will get filled up immediately on fast systems.
+Then you will see a lot of requeue's.
 
---------------enig01EC002098C79086720765C9
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+> Since we're talking about slow interfaces, this has no impact on
+> performance, the requeue counter incrementing is just a bit scary.
+>
+> Shouldn't we check for stopped queue earlier to avoid this ?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+dev_queue_xmit is checking for qdisc_qlen == 0 before calling
+sch_direct_xmit, which is enough for all stopped queue except
+the first time. Also, it's not possible to check for stopped
+Q earlier in qdisc_restart() due to multiqueue implementation.
 
-iEYEARECAAYFAktmzrAACgkQP5K2CMvXmqGP0gCfd8f04M8xSxKJdQ5dSKexNR8b
-kPIAn3E8C+rHpDEs15tNAhi5GHCx7Rwn
-=oF+7
------END PGP SIGNATURE-----
+Please let me know if you find something different from what
+I have described.
 
---------------enig01EC002098C79086720765C9--
+thanks,
+
+- KK
+
