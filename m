@@ -1,51 +1,85 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [PATCH 5/8] percpu: add __percpu sparse annotations to x86
-Date: Sun, 31 Jan 2010 19:30:45 -0800
-Message-ID: <4B664AE5.2020306@zytor.com>
-References: <1264432935-10453-1-git-send-email-tj@kernel.org> <1264432935-10453-6-git-send-email-tj@kernel.org> <4B5E401C.1050605@zytor.com> <4B5E50D0.8050705@kernel.org>
+From: Michael Breuer <mbreuer@majjas.com>
+Subject: Re: [PATCH] sky2:  receive dma mapping error handling
+Date: Sun, 31 Jan 2010 23:26:03 -0500
+Message-ID: <4B6657DB.3010008@majjas.com>
+References: <20100128223447.GC3109@del.dom.local> <4B621316.8070308@majjas.com>
+ <20100128225621.GD3109@del.dom.local> <4B6216B9.1010802@majjas.com>
+ <20100128153643.0fca3c51@nehalam> <4B645EF4.4050701@majjas.com>
+ <20100131003449.GA11935@del.dom.local> <4B650D53.2010607@majjas.com>
+ <4B65D0F9.2020602@majjas.com> <4B65FD12.7090101@majjas.com>
+ <20100131221835.GA3317@del.dom.local> <4B661E22.8090907@majjas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, axboe@kernel.dk,
-	rusty@rustcorp.com.au, akpm@linux-foundation.org,
-	ebiederm@xmission.com, tytso@mit.edu, Trond.Myklebust@netapp.com,
-	aelder@sgi.com, hch@infradead.org, viro@zeniv.linux.org.uk,
-	davem@davemloft.net, netdev@vger.kernel.org, x86@kernel.org,
-	mingo@redhat.com, fweisbec@gmail.com, dan.j.williams@intel.com,
-	borislav.petkov@amd.com, ying.huang@intel.com, lenb@kernel.org,
-	neilb@suse.de, cl@linux-foundation.org,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Tejun Heo <tj@kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
+	Don Fry <pcnet32@verizon.net>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Matt Carlson <mcarlson@broadcom.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B5E50D0.8050705@kernel.org>
+In-reply-to: <4B661E22.8090907@majjas.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/25/2010 06:17 PM, Tejun Heo wrote:
-> On 01/26/2010 10:06 AM, H. Peter Anvin wrote:
->> On 01/25/2010 07:22 AM, Tejun Heo wrote:
->>>
->>> In arch/x86/kernel/cpu/common.c, per_cpu(exception_stacks, cpu) is
->>> replaced with &per_cpu(exception_stacks[0], cpu) which is equivalent
->>> except that it allows per_cpu() macro to correctly drop percpu
->>> designation during sparse pass.
->>>
->>
->> Same comment as Frederic's about this... this kind of uglification
->> really is unacceptable and needs to be addressed.
-> 
-> Hmm... I don't think it's too bad but if you don't like it that much,
-> probably the right thing to do is just leave it there and let sparse
-> whine about it.  There are only three in-kernel instances at this
-> point, so it's not that big a deal.
-> 
+On 1/31/2010 7:19 PM, Michael Breuer wrote:
+> On 1/31/2010 5:18 PM, Jarek Poplawski wrote:
+> solves the dma-debug issue - i.e., elements are now being unmapped.
+>
+> Will leave up and hit with traffic unless a crash occurs. If I hit 
+> something unrelated I'll backport to 2.6.32.7 and try that for a 
+> while. I do think it's plausible that the dma errors after (during) 
+> load were due to hardware limitations on the number of mapped entries 
+> (haven't researched what that limit was). I would also assume that the 
+> sw map would also have failed eventually.
+>
+> I'd suggest that regardless of whether this patch solves my crash that 
+> it ought to be backported as it seems unlikely that any machine would 
+> be able to survive for long without the tx entries being unmapped.
+>
+FYI - tried generating lots of extra tx traffic... found a way to 
+generate the rx status messages on demand:
+     ping -i .0000001 -s 8000 -t 2 <host> >/dev/null
 
-That would probably be my preference until it can be fixed in a better
-way.  If we paper it over now, it will be forgotten -- and then someone
-will come along and cargo cult it for no good reason.
+Yields:
+Jan 31 23:08:07 mail kernel: sky2 eth0: rx error, status 0x1f6a0010 
+length 1518
+Jan 31 23:08:07 mail kernel: sky2 eth0: rx error, status 0x1f6a0010 
+length 1518
+Jan 31 23:08:07 mail kernel: sky2 eth0: rx error, status 0x1f6a0010 
+length 1518
+Jan 31 23:08:07 mail kernel: sky2 eth0: rx error, status 0x1f6a0010 
+length 1518
+Jan 31 23:08:07 mail kernel: sky2 eth0: rx error, status 0x1f6a0010 
+length 1518
+Jan 31 23:08:07 mail kernel: sky2 eth0: rx error, status 0x1f6a0010 
+length 1518
+Jan 31 23:08:07 mail kernel: sky2 eth0: rx error, status 0x1f6a0010 
+length 1518
+Jan 31 23:08:07 mail kernel: sky2 eth0: rx error, status 0x1f6a0010 
+length 1518
+Jan 31 23:08:07 mail kernel: sky2 eth0: rx error, status 0x1f6a0010 
+length 1518
+Jan 31 23:08:07 mail kernel: sky2 eth0: rx error, status 0x1f6a0010 
+length 1518
+Jan 31 23:08:12 mail kernel: net_ratelimit: 316 callbacks suppressed
+etc.
+Looking at the packet trace, it seems that my Windows7 box is under 
+*some* circumstances not observing the MTU. In this case, the ICMP reply 
+is going back with the 8000 byte jumbo frame unfragmented. It seems that 
+the reverse is also true. I don't know why sometimes win7 does this, and 
+at other times properly fragments.
 
-	-hpa
+Oddly, prior to this attempt if I set no fragment on a ping from the 
+windows box back to the linux box and a size of > mtu (like 8000), the 
+ping failed. Absent the no-fragment flag, the ping properly fragmented. 
+I am not sure why Windows now thinks the MTU is > 1500. I'll look into 
+that when I have some time. It's possible that with 2.6.33-rc5 & the 
+patches I've got that somehow path mtu discovery is broken as nothing 
+changed on the windows side.
 
--- 
-H. Peter Anvin, Intel Open Source Technology Center
-I work for Intel.  I don't speak on their behalf.
+Understanding that the other side is out of spec, I'd still wonder why 
+the sky2 driver generates rx errors. Perhaps overruns should be tossed 
+silently... by the hardware if possible.
