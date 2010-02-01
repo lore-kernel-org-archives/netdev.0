@@ -1,81 +1,105 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [PATCH ver2] Avoid enqueuing skb for default qdiscs
-Date: Mon, 1 Feb 2010 19:12:06 +0530
-Message-ID: <OF6B2AD304.3AD05621-ON652576BD.0047556A-652576BD.004B1F23@in.ibm.com>
-References: <20090806114421.19208.39374.sendpatchset@localhost.localdomain> <1265017940.32192.23.camel@sakura.staff.proxad.net>
+From: Luca Tettamanti <kronos.it@gmail.com>
+Subject: Re: [PATCH] af_key: fix netns ops ordering on module load/unload
+Date: Mon, 1 Feb 2010 14:50:02 +0100
+Message-ID: <68676e01002010550l2654208dged864973a996c381@mail.gmail.com>
+References: <20100129094822.GA8294@nb-core2.darkstar.lan>
+	 <b6fcc0a1001290217l4edb0a0btbafa0c26b6f14ad5@mail.gmail.com>
+	 <1264778549.3184.28.camel@edumazet-laptop>
+	 <1264782806.3184.42.camel@edumazet-laptop>
+	 <20100130125327.GA4258@x200>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
-	Jarek Poplawski <jarkao2@gmail.com>, kaber@trash.net,
-	netdev@vger.kernel.org
-To: mbizon@freebox.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp09.in.ibm.com ([122.248.162.9]:47172 "EHLO
-	e28smtp09.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753149Ab0BANkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2010 08:40:37 -0500
-Received: from d28relay01.in.ibm.com (d28relay01.in.ibm.com [9.184.220.58])
-	by e28smtp09.in.ibm.com (8.14.3/8.13.1) with ESMTP id o11D6UIN008345
-	for <netdev@vger.kernel.org>; Mon, 1 Feb 2010 18:36:30 +0530
-Received: from d28av06.in.ibm.com (d28av06.in.ibm.com [9.184.220.48])
-	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o11DeYqA1208522
-	for <netdev@vger.kernel.org>; Mon, 1 Feb 2010 19:10:34 +0530
-Received: from d28av06.in.ibm.com (loopback [127.0.0.1])
-	by d28av06.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o11DeYHn020944
-	for <netdev@vger.kernel.org>; Mon, 1 Feb 2010 19:10:34 +0530
-In-Reply-To: <1265017940.32192.23.camel@sakura.staff.proxad.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100130125327.GA4258@x200>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Maxime,
-
-Maxime Bizon <mbizon@freebox.fr> wrote on 02/01/2010 03:22:20 PM:
-
-> Sorry old stuff, but I just noticed this.
+On Sat, Jan 30, 2010 at 1:53 PM, Alexey Dobriyan <adobriyan@gmail.com> =
+wrote:
+> On Fri, Jan 29, 2010 at 05:33:26PM +0100, Eric Dumazet wrote:
+>> @@ -3807,21 +3807,24 @@ static int __init ipsec_pfkey_init(void)
+>> =C2=A0 =C2=A0 =C2=A0 if (err !=3D 0)
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto out;
+>>
+>> - =C2=A0 =C2=A0 err =3D sock_register(&pfkey_family_ops);
+>> - =C2=A0 =C2=A0 if (err !=3D 0)
+>> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto out_unregister_key_=
+proto;
+>> =C2=A0 =C2=A0 =C2=A0 err =3D xfrm_register_km(&pfkeyv2_mgr);
+>> =C2=A0 =C2=A0 =C2=A0 if (err !=3D 0)
+>> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto out_sock_unregister=
+;
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto out_unregister_key_=
+proto;
+>> +
+>> =C2=A0 =C2=A0 =C2=A0 err =3D register_pernet_subsys(&pfkey_net_ops);
+>> =C2=A0 =C2=A0 =C2=A0 if (err !=3D 0)
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto out_xfrm_unreg=
+ister_km;
+>> +
+>> + =C2=A0 =C2=A0 err =3D sock_register(&pfkey_family_ops);
+>> + =C2=A0 =C2=A0 if (err !=3D 0)
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto out_unregister_pern=
+et;
+>> =C2=A0out:
+>> =C2=A0 =C2=A0 =C2=A0 return err;
+>> +
+>> +out_unregister_pernet:
+>> + =C2=A0 =C2=A0 unregister_pernet_subsys(&pfkey_net_ops);
+>> =C2=A0out_xfrm_unregister_km:
+>> =C2=A0 =C2=A0 =C2=A0 xfrm_unregister_km(&pfkeyv2_mgr);
+>> -out_sock_unregister:
+>> - =C2=A0 =C2=A0 sock_unregister(PF_KEY);
+>> =C2=A0out_unregister_key_proto:
+>> =C2=A0 =C2=A0 =C2=A0 proto_unregister(&key_proto);
+>> =C2=A0 =C2=A0 =C2=A0 goto out;
 >
-> One side effect of this patch is that tc now shows a lot of requeue for
-> slow interfaces (slow dsl link in my case), because sch_direct_xmit is
-> called even if device stopped its queue.
-
-sch_direct_xmit can be called from dev_queue_xmit for a
-stopped device only if the device had xmit the previous
-skb, stopped the device and returned OK. Then the next
-sch_d_x will dequeue and requeue the new skb. But from
-now on, sch_d_x is never called from dev_queue_xmit
-since qdisc_qlen(q) > 0. Instead dev_queue_xmit enqueue's
-the skb and calls qdisc_restart, which calls dequeue_skb.
-dequeue_skb finds there is an earlier gso_skb but since
-the device is stopped, it returns NULL. Hence there
-should be only one requeue (and dequeue) for every stop.
-
-BTW, I don't think this patch would change the earlier
-behavior. The old code would have done the same thing.
-
-> My first reflex was too investigate for a misbehaving driver (returning
-> TX_BUSY), but start_xmit is not even called, sch_direct_xmit notices
-> that queue is stopped, and just does a dequeue/requeue.
-
-As I explained, this should happen only once per stop event.
-Could you tell which driver is having this problem? Is it
-waking up too early, eg, it might be stopping when the hw tx
-descriptor is full but waking up when a few slots open up,
-and those will get filled up immediately on fast systems.
-Then you will see a lot of requeue's.
-
-> Since we're talking about slow interfaces, this has no impact on
-> performance, the requeue counter incrementing is just a bit scary.
+> ACK analysis, except this is not enough.
 >
-> Shouldn't we check for stopped queue earlier to avoid this ?
+> Here is patch which survived netns start/stop/modprobe/rmmod cycles.
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0Alexey, who still doesn't get why bug repr=
+oduces so easily for bug reporter.
+>
+> Luca, please confirm.
 
-dev_queue_xmit is checking for qdisc_qlen == 0 before calling
-sch_direct_xmit, which is enough for all stopped queue except
-the first time. Also, it's not possible to check for stopped
-Q earlier in qdisc_restart() due to multiqueue implementation.
+Seems to work fine.
 
-Please let me know if you find something different from what
-I have described.
+> [PATCH] af_key: fix netns ops ordering on module load/unload
+>
+> 1. After sock_register() returns, it's possible to create sockets,
+> =C2=A0 even if module still not initialized fully (blame generic modu=
+le code
+> =C2=A0 for that!)
+> 2. Consequently, pfkey_create() can be called with pfkey_net_id still=
+ not
+> =C2=A0 initialized which will BUG_ON in net_generic():
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0kernel BUG at include/net/netns/generic.h:=
+43!
+> 3. During netns shutdown, netns ops should be unregistered after
+> =C2=A0 key manager unregistered because key manager calls can be trig=
+gered
+> =C2=A0 from xfrm_user module:
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0general protection fault: 0000 [#1] PREEMP=
+T SMP DEBUG_PAGEALLOC
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pfkey_broadcast+0x111/0x210 [af_key]
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pfkey_send_notify+0x16a/0x300 [af_key]
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0km_state_notify+0x41/0x70
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0xfrm_flush_sa+0x75/0x90 [xfrm_user]
+> 4. Unregister netns ops after socket ops just in case and for symmetr=
+y.
+>
+> Reported by Luca Tettamanti.
+>
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+
+Tested-by: Luca Tettamanti <kronos.it@gmail.com>
 
 thanks,
-
-- KK
-
+Luca
