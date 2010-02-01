@@ -1,73 +1,56 @@
-From: "Ira W. Snyder" <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
-Subject: Re: [net-next-2.6 v2] can: add support for CAN interface cards
-	based on the PLX90xx PCI bridge
-Date: Mon, 1 Feb 2010 13:05:07 -0800
-Message-ID: <20100201210507.GD32624@ovro.caltech.edu>
-References: <1265053364-24099-1-git-send-email-chebl@star.inp.nsk.su>
-	<20100201195611.GB32624@ovro.caltech.edu>
-	<4B673A0A.5080504@grandegger.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] irda: remove BKL from irnet open function
+Date: Mon, 1 Feb 2010 22:20:30 +0100
+Message-ID: <201002012220.30887.arnd@arndb.de>
+References: <1265048321-8097-1-git-send-email-cascardo@holoscopio.com> <520f0cf11002011232u415146a9md3afe65af4d810a6@mail.gmail.com> <20100201203616.GJ1414@holoscopio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4B673A0A.5080504-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: John Kacur <jkacur@gmail.com>, Samuel Ortiz <samuel@sortiz.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100201203616.GJ1414@holoscopio.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 01, 2010 at 09:31:06PM +0100, Wolfgang Grandegger wrote:
-> Ira W. Snyder wrote:
-> > On Tue, Feb 02, 2010 at 01:42:44AM +0600, Pavel B. Cheblakov wrote:
-> >> From: Pavel Cheblakov <P.B.Cheblakov-tHBF8D5G73F4OK5fxMSSsQ@public.gmane.org>
-> >>
-> >> This driver is for CAN interface cards based on the PLX90xx PCI bridge.
-> >> Driver supports now:
-> >>  - Adlink PCI-7841/cPCI-7841 card (http://www.adlinktech.com/)
-> >>  - Adlink PCI-7841/cPCI-7841 SE card
-> >>  - Marathon CAN-bus-PCI card (http://www.marathon.ru/)
-> >>  - TEWS TECHNOLOGIES TPMC810 card (http://www.tews.com/)
-> >>
-> >> Changes since v1:
-> >>  - Added some defines for static inline int plx_pci_check_sja1000(...)
-> >>  - static struct pci_device_id plx_pci_tbl[] replaced by
-> >>    static DEFINE_PCI_DEVICE_TABLE(plx_pci_tbl)
-> >>  - Typo fixed
-> >>
-> > 
-> > Hello,
-> > 
-> > Any ideas if this driver could support the Janz PCI CAN cards as well? I
-> > don't have any documentation for the cards, and I'd love to get away
-> > from their closed-source drivers.
-> 
-> Is it a passive or and intelligent CAN PCI card? What is the name of the
-> card? A intelligent card will run its own firmware and you do not have
-> direct access to the SJA1000. Pavel plx_pci driver is quite generic and
-> it should not be a big deal to support a PLX90xx based passive card.
-> 
+On Monday 01 February 2010, Thadeu Lima de Souza Cascardo wrote:
+> On Mon, Feb 01, 2010 at 09:32:30PM +0100, John Kacur wrote:
+> > On Mon, Feb 1, 2010 at 7:18 PM, Thadeu Lima de Souza Cascardo
+> > <cascardo@holoscopio.com> wrote:
+> And is it possible that ioctl will be called before open returns? If it
+> is, then, yes, this is not safe. But I don't really believe the case. Or
+> is it?
 
-It is an intelligent CAN PCI card. I'm pretty sure they're the card
-described here: http://www.janz.de/as/en/can-cp6/k2.html
+ioctl may be called on an open file descriptor while open is called
+by another thread to open a second file descriptor for the same device.
 
-Since this driver is for passive cards, it clearly won't work. Are there
-any examples of drivers written for intelligent CAN cards? Until I found
-the website above, I'd never seen any data sheets for this card. They
-look like they may have enough information to write a driver to
-interface with the new Linux CAN layer.
+> Or is it only possible to happen with different struct file*? In that
+> case, open is only allocating and initializing the irnet_socket *ap.
+> Then, ioctl uses it. There is some race between the different ioctls,
+> but no race between open/ioctl for different opened devices. That is, a
+> process may open /dev/irnet while another process is issuing ioctls to
+> its own opened /dev/irnet.
 
-We should probably start a new thread about this, it is getting
-off-topic for Pavel's CAN driver. Is the socketcan mailing list ok for
-this kind of discussion?
+right.
+ 
+> Besides, dev_irnet_ioctl uses the file private_data to get to the
+> irnet_socket, which is the last thing the open call does. I assume doing
+> an attribution to a pointer is atomic in all architectures supported by
+> Linux currently, isn't it?
 
-Thanks,
-Ira
+The pointer assignment is atomic, but it may not be synchronized to data
+pointed to it. On Alpha (probably no others so far), this would result
+in irnet_socket seen as uninitialized after the pointer to is can be
+seen as valid if there was no locking. No architecture would read an
+invalid pointer though.
+
+I guess that what John was trying to point out actually is the fact that
+you shouldn't really do the BKL removal in one function only but rather
+do it for the whole driver at once. The irnet driver uses the BKL in
+open, ioctl and llseek, so if you want to clean up that driver, please
+introduce proper locking in the driver and do all of the three.
+
+	Arnd
