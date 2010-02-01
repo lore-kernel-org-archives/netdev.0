@@ -1,57 +1,70 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [net-next-2.6 v2] can: add support for CAN interface cards	based
-	on the PLX90xx PCI bridge
-Date: Mon, 01 Feb 2010 21:31:06 +0100
-Message-ID: <4B673A0A.5080504@grandegger.com>
-References: <1265053364-24099-1-git-send-email-chebl@star.inp.nsk.su>
-	<20100201195611.GB32624@ovro.caltech.edu>
+From: John Kacur <jkacur@gmail.com>
+Subject: Re: [PATCH] irda: remove BKL from irnet open function
+Date: Mon, 1 Feb 2010 21:32:30 +0100
+Message-ID: <520f0cf11002011232u415146a9md3afe65af4d810a6@mail.gmail.com>
+References: <1265048321-8097-1-git-send-email-cascardo@holoscopio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Ira W. Snyder" <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20100201195611.GB32624-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arnd Bergmann <arnd@arndb.de>, Samuel Ortiz <samuel@sortiz.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f228.google.com ([209.85.219.228]:44461 "EHLO
+	mail-ew0-f228.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756158Ab0BAUcb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2010 15:32:31 -0500
+In-Reply-To: <1265048321-8097-1-git-send-email-cascardo@holoscopio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ira W. Snyder wrote:
-> On Tue, Feb 02, 2010 at 01:42:44AM +0600, Pavel B. Cheblakov wrote:
->> From: Pavel Cheblakov <P.B.Cheblakov-tHBF8D5G73F4OK5fxMSSsQ@public.gmane.org>
->>
->> This driver is for CAN interface cards based on the PLX90xx PCI bridge.
->> Driver supports now:
->>  - Adlink PCI-7841/cPCI-7841 card (http://www.adlinktech.com/)
->>  - Adlink PCI-7841/cPCI-7841 SE card
->>  - Marathon CAN-bus-PCI card (http://www.marathon.ru/)
->>  - TEWS TECHNOLOGIES TPMC810 card (http://www.tews.com/)
->>
->> Changes since v1:
->>  - Added some defines for static inline int plx_pci_check_sja1000(...)
->>  - static struct pci_device_id plx_pci_tbl[] replaced by
->>    static DEFINE_PCI_DEVICE_TABLE(plx_pci_tbl)
->>  - Typo fixed
->>
-> 
-> Hello,
-> 
-> Any ideas if this driver could support the Janz PCI CAN cards as well? I
-> don't have any documentation for the cards, and I'd love to get away
-> from their closed-source drivers.
+On Mon, Feb 1, 2010 at 7:18 PM, Thadeu Lima de Souza Cascardo
+<cascardo@holoscopio.com> wrote:
+> Commit cddf63d99d0d145f18b293c3d0de4af7dab2a922 has push down the BKL
+> into irnet open function. However, there's nothing that needs locking=
+ in
+> there.
+>
+> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com=
+>
+> ---
+> =A0net/irda/irnet/irnet_ppp.c | =A0 =A03 ---
+> =A01 files changed, 0 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/irda/irnet/irnet_ppp.c b/net/irda/irnet/irnet_ppp.c
+> index 156020d..d6b502c 100644
+> --- a/net/irda/irnet/irnet_ppp.c
+> +++ b/net/irda/irnet/irnet_ppp.c
+> @@ -479,7 +479,6 @@ dev_irnet_open(struct inode * =A0 =A0 =A0 inode,
+> =A0 ap =3D kzalloc(sizeof(*ap), GFP_KERNEL);
+> =A0 DABORT(ap =3D=3D NULL, -ENOMEM, FS_ERROR, "Can't allocate struct =
+irnet...\n");
+>
+> - =A0lock_kernel();
+> =A0 /* initialize the irnet structure */
+> =A0 ap->file =3D file;
+>
+> @@ -501,7 +500,6 @@ dev_irnet_open(struct inode * =A0 =A0 =A0 inode,
+> =A0 =A0 {
+> =A0 =A0 =A0 DERROR(FS_ERROR, "Can't setup IrDA link...\n");
+> =A0 =A0 =A0 kfree(ap);
+> - =A0 =A0 =A0unlock_kernel();
+> =A0 =A0 =A0 return err;
+> =A0 =A0 }
+>
+> @@ -512,7 +510,6 @@ dev_irnet_open(struct inode * =A0 =A0 =A0 inode,
+> =A0 file->private_data =3D ap;
+>
+> =A0 DEXIT(FS_TRACE, " - ap=3D0x%p\n", ap);
+> - =A0unlock_kernel();
+> =A0 return 0;
+> =A0}
+>
+> --
+> 1.6.6.1
 
-Is it a passive or and intelligent CAN PCI card? What is the name of the
-card? A intelligent card will run its own firmware and you do not have
-direct access to the SJA1000. Pavel plx_pci driver is quite generic and
-it should not be a big deal to support a PLX90xx based passive card.
+This is probably NOT safe to do, because the BKL is synchronizing the
+ioctl code.
 
-Wolfgang.
-
-Wolfgang.
+Thanks
