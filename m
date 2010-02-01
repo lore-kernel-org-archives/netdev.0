@@ -1,44 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3][v2] tcp: fix ICMP-RTO war
-Date: Sun, 31 Jan 2010 23:33:38 -0800 (PST)
-Message-ID: <20100131.233338.254690877.davem@davemloft.net>
-References: <4B635E17.406@tvk.rwth-aachen.de>
+Subject: Re: Pull request: bluetooth-2.6 2010-01-30
+Date: Sun, 31 Jan 2010 23:35:38 -0800 (PST)
+Message-ID: <20100131.233538.125549914.davem@davemloft.net>
+References: <cover.1264859950.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: damian@tvk.rwth-aachen.de
+To: marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52377
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52382
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752703Ab0BAHdZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2010 02:33:25 -0500
-In-Reply-To: <4B635E17.406@tvk.rwth-aachen.de>
+	by vger.kernel.org with ESMTP id S1752703Ab0BAHfY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2010 02:35:24 -0500
+In-Reply-To: <cover.1264859950.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Damian Lukowski <damian@tvk.rwth-aachen.de>
-Date: Fri, 29 Jan 2010 23:15:51 +0100
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Sat, 30 Jan 2010 06:08:43 -0800
 
-> This patches fix the current RTO calculation routine, when
-> srtt and rttvar are zero, yielding an RTO of zero 
-> Under some circumstances, TCPs srtt and rttvar are zero,
-> yielding a calculated RTO of zero.
-> This is particularly unfortunate for ICMP based RTO recalculation
-> as introduced in f1ecd5d9e736660 (Revert Backoff [v3]: Revert RTO
-> on ICMP destination unreachable), as it results in RTO retransmission
-> flooding.
+> this includes two L2CAP fixes. One for a memory leak and another one for
+> a double free.
 > 
-> Thanks to Ilpo Jarvinen for providing debug patches and to
-> Denys Fedoryshchenko for reporting and testing.
+> For Bluetooth PCMCIA cards a BUG_ON caused a few issues when we have
+> shared interrupts. So revert this and put a clear comment in the source
+> that this is what we actually want.
 > 
-> Signed-off-by: Damian Lukowski <damian@tvk.rwth-aachen.de>
+> The Bluetooth HID fix for raw reports has a big diffstat, but the logical
+> change is small. By accident we send the reports on the interrupt channel
+> and the original test device seems to cope with that. Devices that follow
+> the specification more closer will break. The right thing is to use the
+> control channel. This is similar to what is done via USB.
+> 
+> And by request from Luis, include the driver for Atheros Bluetooth chipset
+> AR3011. It is a new driver and by itself small and self contained. If you
+> feel that it should not be merged, then let me know and I redo this
+> patchset.
 
-I still haven't seen a detailed enough analysis of why these
-tiny RTOs can come to exist in the first place.
-
-Please show me a list of events, function by function, the value of
-relevant variables and per-socket TCP state, in the TCP stack, that
-show how this ends up happening.
-
-Thanks for all of your work on this so far.
+Pulled, thanks Marcel.
