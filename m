@@ -1,83 +1,76 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] sky2:  receive dma mapping error handling
-Date: Mon, 1 Feb 2010 21:13:24 +0100
-Message-ID: <20100201201323.GA3096@del.dom.local>
-References: <20100128225621.GD3109@del.dom.local>
- <4B6216B9.1010802@majjas.com>
- <20100128153643.0fca3c51@nehalam>
- <4B645EF4.4050701@majjas.com>
- <20100131003449.GA11935@del.dom.local>
- <4B650D53.2010607@majjas.com>
- <4B65D0F9.2020602@majjas.com>
- <4B65FD12.7090101@majjas.com>
- <20100131221835.GA3317@del.dom.local>
- <20100201102018.7b597992@nehalam>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: [PATCH net-next-2.6] cxgb3: add memory barriers
+Date: Mon, 01 Feb 2010 12:29:29 -0800
+Message-ID: <20100201202929.23037.68116.stgit@speedy5.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Breuer <mbreuer@majjas.com>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
-	Don Fry <pcnet32@verizon.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Matt Carlson <mcarlson@broadcom.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com, wenxiong@us.ibm.com
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100201102018.7b597992@nehalam>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 01, 2010 at 10:20:18AM -0800, Stephen Hemminger wrote:
-> This fixes the fact that re->flags is always zero without causing
-> other confusion.
+From: Divy Le Ray <divy@chelsio.com>
 
-Actually, there is a slight confusion: after tx_init() slots #0 are
-skipped and waiting for tx_complete. Of course, no big deal, but no
-problem with fixing it too, so there is the main difference between
-these two patches. (Moving re->flags and re->skb initializations is
-an optimization, but I tried to change only the buggy parts.)
+Add memory barriers to fix crashes observed on newest PowerPC platforms.
+The HW and driver state of the receive rings were getting out of sync.
 
-Jarek P.
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
 
-> 
-> --- a/drivers/net/sky2.c	2010-02-01 10:07:42.676296236 -0800
-> +++ b/drivers/net/sky2.c	2010-02-01 10:18:12.575044064 -0800
-> @@ -1025,11 +1025,8 @@ static void sky2_prefetch_init(struct sk
->  static inline struct sky2_tx_le *get_tx_le(struct sky2_port *sky2, u16 *slot)
->  {
->  	struct sky2_tx_le *le = sky2->tx_le + *slot;
-> -	struct tx_ring_info *re = sky2->tx_ring + *slot;
->  
->  	*slot = RING_NEXT(*slot, sky2->tx_ring_size);
-> -	re->flags = 0;
-> -	re->skb = NULL;
->  	le->ctrl = 0;
->  	return le;
->  }
-> @@ -1622,8 +1619,7 @@ static unsigned tx_le_req(const struct s
->  	return count;
->  }
->  
-> -static void sky2_tx_unmap(struct pci_dev *pdev,
-> -			  const struct tx_ring_info *re)
-> +static void sky2_tx_unmap(struct pci_dev *pdev, struct tx_ring_info *re)
->  {
->  	if (re->flags & TX_MAP_SINGLE)
->  		pci_unmap_single(pdev, pci_unmap_addr(re, mapaddr),
-> @@ -1633,6 +1629,7 @@ static void sky2_tx_unmap(struct pci_dev
->  		pci_unmap_page(pdev, pci_unmap_addr(re, mapaddr),
->  			       pci_unmap_len(re, maplen),
->  			       PCI_DMA_TODEVICE);
-> +	re->flags = 0;
->  }
->  
->  /*
-> @@ -1839,6 +1836,7 @@ static void sky2_tx_complete(struct sky2
->  			dev->stats.tx_packets++;
->  			dev->stats.tx_bytes += skb->len;
->  
-> +			re->skb = NULL;
->  			dev_kfree_skb_any(skb);
->  
->  			sky2->tx_next = RING_NEXT(idx, sky2->tx_ring_size);
+ drivers/net/cxgb3/sge.c |   16 ++++++++++++----
+ 1 files changed, 12 insertions(+), 4 deletions(-)
+
+
+diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
+index bdbd147..4cf9b79 100644
+--- a/drivers/net/cxgb3/sge.c
++++ b/drivers/net/cxgb3/sge.c
+@@ -480,6 +480,7 @@ static inline void ring_fl_db(struct adapter *adap, struct sge_fl *q)
+ {
+ 	if (q->pend_cred >= q->credits / 4) {
+ 		q->pend_cred = 0;
++		wmb();
+ 		t3_write_reg(adap, A_SG_KDOORBELL, V_EGRCNTX(q->cntxt_id));
+ 	}
+ }
+@@ -2282,11 +2283,14 @@ static int process_responses(struct adapter *adap, struct sge_qset *qs,
+ 	while (likely(budget_left && is_new_response(r, q))) {
+ 		int packet_complete, eth, ethpad = 2, lro = qs->lro_enabled;
+ 		struct sk_buff *skb = NULL;
+-		u32 len, flags = ntohl(r->flags);
+-		__be32 rss_hi = *(const __be32 *)r,
+-		       rss_lo = r->rss_hdr.rss_hash_val;
++		u32 len, flags;
++		__be32 rss_hi, rss_lo;
+ 
++		rmb();
+ 		eth = r->rss_hdr.opcode == CPL_RX_PKT;
++		rss_hi = *(const __be32 *)r;
++		rss_lo = r->rss_hdr.rss_hash_val;
++		flags = ntohl(r->flags);
+ 
+ 		if (unlikely(flags & F_RSPD_ASYNC_NOTIF)) {
+ 			skb = alloc_skb(AN_PKT_SIZE, GFP_ATOMIC);
+@@ -2497,7 +2501,10 @@ static int process_pure_responses(struct adapter *adap, struct sge_qset *qs,
+ 			refill_rspq(adap, q, q->credits);
+ 			q->credits = 0;
+ 		}
+-	} while (is_new_response(r, q) && is_pure_response(r));
++		if (!is_new_response(r, q))
++			break;
++		rmb();
++	} while (is_pure_response(r));
+ 
+ 	if (sleeping)
+ 		check_ring_db(adap, qs, sleeping);
+@@ -2531,6 +2538,7 @@ static inline int handle_responses(struct adapter *adap, struct sge_rspq *q)
+ 
+ 	if (!is_new_response(r, q))
+ 		return -1;
++	rmb();
+ 	if (is_pure_response(r) && process_pure_responses(adap, qs, r) == 0) {
+ 		t3_write_reg(adap, A_SG_GTS, V_RSPQ(q->cntxt_id) |
+ 			     V_NEWTIMER(q->holdoff_tmr) | V_NEWINDEX(q->cidx));
