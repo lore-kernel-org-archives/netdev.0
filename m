@@ -1,7 +1,7 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH v3] sky2:  receive dma mapping error handling
-Date: Mon, 1 Feb 2010 22:27:41 +0100
-Message-ID: <20100201212740.GA3289@del.dom.local>
+Subject: [PATCH v3b resent] sky2: Fix transmit dma mapping handling
+Date: Mon, 1 Feb 2010 22:42:54 +0100
+Message-ID: <20100201214254.GB3289@del.dom.local>
 References: <20100128225621.GD3109@del.dom.local>
  <4B6216B9.1010802@majjas.com>
  <20100128153643.0fca3c51@nehalam>
@@ -28,6 +28,8 @@ In-Reply-To: <20100201102018.7b597992@nehalam>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+[ Subject was wrong, sorry! ]
+
 On Mon, Feb 01, 2010 at 10:20:18AM -0800, Stephen Hemminger wrote:
 > This fixes the fact that re->flags is always zero without causing
 > other confusion.
@@ -36,7 +38,7 @@ Here it is, with only sky2->tx_cons update in tx_init().
 
 Thanks,
 Jarek P.
----------------> (take 3)
+---------------> (take 3b)
 Michael Breuer reported that dma-debug entries added by sky2 driver
 weren't unmapped, and found out "re->flags is always NULL upon entry
 to sky2_tx_unmap". It is overwritten by get_tx_le() after changes
