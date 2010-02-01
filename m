@@ -1,79 +1,163 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] vhost-net: switch to smp barriers
-Date: Mon, 1 Feb 2010 19:21:02 +0200
-Message-ID: <20100201172101.GA10900@redhat.com>
+From: Michael Breuer <mbreuer@majjas.com>
+Subject: Re: [PATCH v2] sky2: Fix transmit dma mapping handling
+Date: Mon, 01 Feb 2010 12:52:12 -0500
+Message-ID: <4B6714CC.8020607@majjas.com>
+References: <20100128225621.GD3109@del.dom.local> <4B6216B9.1010802@majjas.com>
+ <20100128153643.0fca3c51@nehalam> <4B645EF4.4050701@majjas.com>
+ <20100131003449.GA11935@del.dom.local> <4B650D53.2010607@majjas.com>
+ <4B65D0F9.2020602@majjas.com> <4B65FD12.7090101@majjas.com>
+ <20100131221835.GA3317@del.dom.local> <4B661E22.8090907@majjas.com>
+ <20100201091718.GA9849@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-	Rusty Russell <rusty@rustcorp.com.au>, kvm@vger.kernel.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	akpm@linux-foundation.org, flyboy@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Michael Chan <mchan@broadcom.com>,
+	Don Fry <pcnet32@verizon.net>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Matt Carlson <mcarlson@broadcom.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-reply-to: <20100201091718.GA9849@ff.dom.local>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-vhost-net only uses memory barriers to control SMP effects
-(communication with userspace potentially running on a different CPU),
-so it should use SMP barriers and not mandatory barriers for memory
-access ordering, as suggested by Documentation/memory-barriers.txt
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/vhost/vhost.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
-
-The above applies on top of net-next-2.6. Does not seem to give any
-measureable performance gain, but seems to generate less code
-and I think it's better to use correct APIs.
-
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index c8c25db..6eb1525 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -685,7 +685,7 @@ int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
- 	int i, r;
- 
- 	/* Make sure data written is seen before log. */
--	wmb();
-+	smp_wmb();
- 	for (i = 0; i < log_num; ++i) {
- 		u64 l = min(log[i].len, len);
- 		r = log_write(vq->log_base, log[i].addr, l);
-@@ -884,7 +884,7 @@ unsigned vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
- 		return vq->num;
- 
- 	/* Only get avail ring entries after they have been exposed by guest. */
--	rmb();
-+	smp_rmb();
- 
- 	/* Grab the next descriptor number they're advertising, and increment
- 	 * the index we've seen. */
-@@ -996,14 +996,14 @@ int vhost_add_used(struct vhost_virtqueue *vq, unsigned int head, int len)
- 		return -EFAULT;
- 	}
- 	/* Make sure buffer is written before we update index. */
--	wmb();
-+	smp_wmb();
- 	if (put_user(vq->last_used_idx + 1, &vq->used->idx)) {
- 		vq_err(vq, "Failed to increment used idx");
- 		return -EFAULT;
- 	}
- 	if (unlikely(vq->log_used)) {
- 		/* Make sure data is seen before log. */
--		wmb();
-+		smp_wmb();
- 		log_write(vq->log_base, vq->log_addr + sizeof *vq->used->ring *
- 			  (vq->last_used_idx % vq->num),
- 			  sizeof *vq->used->ring);
-@@ -1060,7 +1060,7 @@ bool vhost_enable_notify(struct vhost_virtqueue *vq)
- 	}
- 	/* They could have slipped one in as we were doing that: make
- 	 * sure it's written, then check again. */
--	mb();
-+	smp_mb();
- 	r = get_user(avail_idx, &vq->avail->idx);
- 	if (r) {
- 		vq_err(vq, "Failed to check avail idx at %p: %d\n",
--- 
-1.6.6.144.g5c3af
+On 2/1/2010 4:17 AM, Jarek Poplawski wrote:
+> On Sun, Jan 31, 2010 at 07:19:46PM -0500, Michael Breuer wrote:
+>    
+>> On 1/31/2010 5:18 PM, Jarek Poplawski wrote:
+>>      
+>>> On Sun, Jan 31, 2010 at 04:58:42PM -0500, Michael Breuer wrote:
+>>>
+>>>        
+>>>> On 1/31/2010 1:50 PM, Michael Breuer wrote:
+>>>>          
+>>>>> I put a printk as a third else case in sky2_tx_unmap. Looks like
+>>>>> the issue is that a large number (perhaps all) calls to
+>>>>> sky2_tx_unmap have re->flags set to neither TX_MAP_SINGLE or
+>>>>> TX_MAP_PAGE. Thus the elements are never being unmapped.
+>>>>>
+>>>>> I suspect that the system collapses when using DMAR sooner than if
+>>>>> not using DMAR. Probably some hardware limitation on the number of
+>>>>> mapped elements that is less than the software limitation. I don't
+>>>>> see at present how a ring element can ever get to this code
+>>>>> without re->flags being set to one or the other.
+>>>>>
+>>>>>
+>>>>>
+>>>>>            
+>>>> Put some more debugging code in... re->flags is always NULL upon
+>>>> entry to sky2_tx_unmap.
+>>>>
+>>>>
+>>>>          
+>>> Yes, good point! Could you try if this patch can fix it. (not compiled)
+>>>        
+> ...
+>    
+>> Ok- solves the dma-debug issue - i.e., elements are now being unmapped.
+>>
+>> Will leave up and hit with traffic unless a crash occurs. If I hit
+>> something unrelated I'll backport to 2.6.32.7 and try that for a while.
+>> I do think it's plausible that the dma errors after (during) load were
+>> due to hardware limitations on the number of mapped entries (haven't
+>> researched what that limit was). I would also assume that the sw map
+>> would also have failed eventually.
+>>
+>> I'd suggest that regardless of whether this patch solves my crash that
+>> it ought to be backported as it seems unlikely that any machine would be
+>> able to survive for long without the tx entries being unmapped.
+>>      
+> Here is a bit improved version (re->flags = 0 in sky2_tx_unmap()) for
+> merging, or additional testing if David wishes.
+>
+> Thanks,
+> Jarek P.
+> --------------->
+> Michael Breuer reported that dma-debug entries added by sky2 driver
+> weren't unmapped, and found out "re->flags is always NULL upon entry
+> to sky2_tx_unmap". It is overwritten by get_tx_le() after changes
+> introduced by commit 6b84dacadbdc3dab6a5b313d20d5a93b0d998641.
+>
+> This patch reorders initializations in get_tx_le() and tx_init(), and
+> additionally does re->flags zeroing in sky2_tx_unmap() to prevent
+> possible double unmapping.
+>
+> With debugging by: Michael Breuer<mbreuer@majjas.com>
+>
+> Reported-by: Michael Breuer<mbreuer@majjas.com>
+> Tested-by: Michael Breuer<mbreuer@majjas.com>
+> Signed-off-by: Jarek Poplawski<jarkao2@gmail.com>
+> ---
+>
+>   drivers/net/sky2.c |   20 +++++++++++++-------
+>   1 files changed, 13 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+> index d760650..21bb00a 100644
+> --- a/drivers/net/sky2.c
+> +++ b/drivers/net/sky2.c
+> @@ -1025,9 +1025,10 @@ static void sky2_prefetch_init(struct sky2_hw *hw, u32 qaddr,
+>   static inline struct sky2_tx_le *get_tx_le(struct sky2_port *sky2, u16 *slot)
+>   {
+>   	struct sky2_tx_le *le = sky2->tx_le + *slot;
+> -	struct tx_ring_info *re = sky2->tx_ring + *slot;
+> +	struct tx_ring_info *re;
+>
+>   	*slot = RING_NEXT(*slot, sky2->tx_ring_size);
+> +	re = sky2->tx_ring + *slot;
+>   	re->flags = 0;
+>   	re->skb = NULL;
+>   	le->ctrl = 0;
+> @@ -1036,13 +1037,16 @@ static inline struct sky2_tx_le *get_tx_le(struct sky2_port *sky2, u16 *slot)
+>
+>   static void tx_init(struct sky2_port *sky2)
+>   {
+> -	struct sky2_tx_le *le;
+> +	struct sky2_tx_le *le = sky2->tx_le;
+> +	struct tx_ring_info *re = sky2->tx_ring;
+>
+>   	sky2->tx_prod = sky2->tx_cons = 0;
+>   	sky2->tx_tcpsum = 0;
+>   	sky2->tx_last_mss = 0;
+>
+> -	le = get_tx_le(sky2,&sky2->tx_prod);
+> +	re->flags = 0;
+> +	re->skb = NULL;
+> +	le->ctrl = 0;
+>   	le->addr = 0;
+>   	le->opcode = OP_ADDR64 | HW_OWNER;
+>   	sky2->tx_last_upper = 0;
+> @@ -1622,17 +1626,19 @@ static unsigned tx_le_req(const struct sk_buff *skb)
+>   	return count;
+>   }
+>
+> -static void sky2_tx_unmap(struct pci_dev *pdev,
+> -			  const struct tx_ring_info *re)
+> +static void sky2_tx_unmap(struct pci_dev *pdev, struct tx_ring_info *re)
+>   {
+> -	if (re->flags&  TX_MAP_SINGLE)
+> +	if (re->flags&  TX_MAP_SINGLE) {
+>   		pci_unmap_single(pdev, pci_unmap_addr(re, mapaddr),
+>   				 pci_unmap_len(re, maplen),
+>   				 PCI_DMA_TODEVICE);
+> -	else if (re->flags&  TX_MAP_PAGE)
+> +		re->flags = 0;
+> +	} else if (re->flags&  TX_MAP_PAGE) {
+>   		pci_unmap_page(pdev, pci_unmap_addr(re, mapaddr),
+>   			       pci_unmap_len(re, maplen),
+>   			       PCI_DMA_TODEVICE);
+> +		re->flags = 0;
+> +	}
+>   }
+>
+>   /*
+>    
+Running with v2 now. v1 patch significantly improved things. I cannot 
+state for certain that the original issue is resolved (crash under 
+load), however so far it appears so. Additionally, some performance 
+issues (raid rebuild times, etc.) seem drastically improved. I'm 
+guessing that this might have to do with the excess mapped sky2 tx buffers.
