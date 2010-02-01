@@ -1,58 +1,30 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: Re: [PATCH ver2] Avoid enqueuing skb for default qdiscs
-Date: Mon, 01 Feb 2010 10:52:20 +0100
-Message-ID: <1265017940.32192.23.camel@sakura.staff.proxad.net>
-References: <20090806114421.19208.39374.sendpatchset@localhost.localdomain>
-Reply-To: mbizon@freebox.fr
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch] net: export TCP send buffer size via netlink
+Date: Mon, 01 Feb 2010 01:58:12 -0800 (PST)
+Message-ID: <20100201.015812.21220633.davem@davemloft.net>
+References: <20100201080256.4084.30962.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ANSI_X3.4-1968"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Jarek Poplawski <jarkao2@gmail.com>,
-	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	kaber@trash.net
-To: Krishna Kumar <krkumar2@in.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:45740 "EHLO smtp6-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750902Ab0BAJwd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Feb 2010 04:52:33 -0500
-In-Reply-To: <20090806114421.19208.39374.sendpatchset@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: amwang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100201080256.4084.30962.sendpatchset@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Amerigo Wang <amwang@redhat.com>
+Date: Mon, 1 Feb 2010 02:59:32 -0500
 
-On Thu, 2009-08-06 at 17:14 +0530, Krishna Kumar wrote:
-
-Hello,
-
-> From: Krishna Kumar <krkumar2@in.ibm.com>
 > 
-> dev_queue_xmit enqueue's a skb and calls qdisc_run which
-> dequeue's the skb and xmits it. In most cases, the skb that
-> is enqueue'd is the same one that is dequeue'd (unless the
-> queue gets stopped or multiple cpu's write to the same queue
-> and ends in a race with qdisc_run). For default qdiscs, we
-> can remove the redundant enqueue/dequeue and simply xmit the
-> skb since the default qdisc is work-conserving.
+> Currently, we can only get TCP send buffer size by
+> getsockopt (SO_SNDBUF or TCP_INFO), this is not enough
+> for the tools like netstat or ss to read.
+> 
+> Show TCP send buffer size via netlink NETLINK_INET_DIAG.
+> 
+> Signed-off-by: WANG Cong <amwang@redhat.com>
+> Cc: David Miller <davem@davemloft.net>
 
-Sorry old stuff, but I just noticed this.
-
-One side effect of this patch is that tc now shows a lot of requeue for
-slow interfaces (slow dsl link in my case), because sch_direct_xmit is
-called even if device stopped its queue.
-
-My first reflex was too investigate for a misbehaving driver (returning
-TX_BUSY), but start_xmit is not even called, sch_direct_xmit notices
-that queue is stopped, and just does a dequeue/requeue.
-
-Since we're talking about slow interfaces, this has no impact on
-performance, the requeue counter incrementing is just a bit scary.
-
-Shouldn't we check for stopped queue earlier to avoid this ?
-
-Regards,
-
--- 
-Maxime
-
-
+You can't change the layout of struct tcp_info, it's
+hard coded into applications.
