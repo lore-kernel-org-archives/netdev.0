@@ -1,48 +1,49 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] sky2:  receive dma mapping error handling
-Date: Mon, 1 Feb 2010 21:41:22 +0100
-Message-ID: <20100201204122.GB3096@del.dom.local>
-References: <4B6216B9.1010802@majjas.com>
- <20100128153643.0fca3c51@nehalam>
- <4B645EF4.4050701@majjas.com>
- <20100131003449.GA11935@del.dom.local>
- <4B650D53.2010607@majjas.com>
- <4B65D0F9.2020602@majjas.com>
- <4B65FD12.7090101@majjas.com>
- <20100131221835.GA3317@del.dom.local>
- <20100201102018.7b597992@nehalam>
- <20100201201323.GA3096@del.dom.local>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [net-next-2.6 v2] can: add support for CAN interface cards based
+	on	the PLX90xx PCI bridge
+Date: Mon, 01 Feb 2010 21:48:25 +0100
+Message-ID: <4B673E19.40904@grandegger.com>
+References: <1265053364-24099-1-git-send-email-chebl@star.inp.nsk.su>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Breuer <mbreuer@majjas.com>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
-	Don Fry <pcnet32@verizon.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Matt Carlson <mcarlson@broadcom.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.159]:49490 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754821Ab0BAUl3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2010 15:41:29 -0500
-Content-Disposition: inline
-In-Reply-To: <20100201201323.GA3096@del.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Pavel B. Cheblakov" <P.B.Cheblakov-tHBF8D5G73F4OK5fxMSSsQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1265053364-24099-1-git-send-email-chebl-LmX6Lu7C9G7nhuLbLO4Grw@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 01, 2010 at 09:13:23PM +0100, Jarek Poplawski wrote:
-> On Mon, Feb 01, 2010 at 10:20:18AM -0800, Stephen Hemminger wrote:
-> > This fixes the fact that re->flags is always zero without causing
-> > other confusion.
+Pavel B. Cheblakov wrote:
+> From: Pavel Cheblakov <P.B.Cheblakov-tHBF8D5G73F4OK5fxMSSsQ@public.gmane.org>
 > 
-> Actually, there is a slight confusion: after tx_init() slots #0 are
-> skipped and waiting for tx_complete. Of course, no big deal, but no
-> problem with fixing it too, so there is the main difference between
+> This driver is for CAN interface cards based on the PLX90xx PCI bridge.
+> Driver supports now:
+>  - Adlink PCI-7841/cPCI-7841 card (http://www.adlinktech.com/)
+>  - Adlink PCI-7841/cPCI-7841 SE card
+>  - Marathon CAN-bus-PCI card (http://www.marathon.ru/)
+>  - TEWS TECHNOLOGIES TPMC810 card (http://www.tews.com/)
+> 
+> Changes since v1:
+>  - Added some defines for static inline int plx_pci_check_sja1000(...)
+>  - static struct pci_device_id plx_pci_tbl[] replaced by
+>    static DEFINE_PCI_DEVICE_TABLE(plx_pci_tbl)
+>  - Typo fixed
+> 
+> Signed-off-by: Pavel Cheblakov <P.B.Cheblakov-tHBF8D5G73F4OK5fxMSSsQ@public.gmane.org>
+> Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 
-Hmm... On the other hand it could be fixed simpler by moving
-sky2->tx_cons. I'll send v3.
+Looks good now. The interface seems now generic enough to support other
+PLX09xx based CAN cards as well.
 
-Thanks,
-Jarek P.
+Thanks for your contribution.
+
+Wolfgang.
