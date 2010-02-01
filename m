@@ -1,27 +1,58 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: debug: nt_conntrack and KVM crash
-Date: Mon, 1 Feb 2010 11:36:42 +0200
-Message-ID: <b6fcc0a1002010136k7e78a998p31a9e7464c2e8d44@mail.gmail.com>
-References: <1264813832.2793.446.camel@tonnant>
-	 <1264816634.2793.505.camel@tonnant>
-	 <1264816777.2793.510.camel@tonnant>
-	 <1264834704.2919.3.camel@edumazet-laptop>
-	 <1265016745.7499.144.camel@tonnant>
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: Re: [PATCH ver2] Avoid enqueuing skb for default qdiscs
+Date: Mon, 01 Feb 2010 10:52:20 +0100
+Message-ID: <1265017940.32192.23.camel@sakura.staff.proxad.net>
+References: <20090806114421.19208.39374.sendpatchset@localhost.localdomain>
+Reply-To: mbizon@freebox.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Jon Masters <jonathan@jonmasters.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1265016745.7499.144.camel@tonnant>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ANSI_X3.4-1968"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Jarek Poplawski <jarkao2@gmail.com>,
+	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	kaber@trash.net
+To: Krishna Kumar <krkumar2@in.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp6-g21.free.fr ([212.27.42.6]:45740 "EHLO smtp6-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750902Ab0BAJwd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Feb 2010 04:52:33 -0500
+In-Reply-To: <20090806114421.19208.39374.sendpatchset@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 1, 2010 at 11:32 AM, Jon Masters <jonathan@jonmasters.org> wrote:
-> I hacked up a per-namespace version of hashtables (this needs doing
-> anyway, since the global stuff is just waiting to break)
 
-Which ones? Conntrack hashtables are per-netns.
+On Thu, 2009-08-06 at 17:14 +0530, Krishna Kumar wrote:
+
+Hello,
+
+> From: Krishna Kumar <krkumar2@in.ibm.com>
+> 
+> dev_queue_xmit enqueue's a skb and calls qdisc_run which
+> dequeue's the skb and xmits it. In most cases, the skb that
+> is enqueue'd is the same one that is dequeue'd (unless the
+> queue gets stopped or multiple cpu's write to the same queue
+> and ends in a race with qdisc_run). For default qdiscs, we
+> can remove the redundant enqueue/dequeue and simply xmit the
+> skb since the default qdisc is work-conserving.
+
+Sorry old stuff, but I just noticed this.
+
+One side effect of this patch is that tc now shows a lot of requeue for
+slow interfaces (slow dsl link in my case), because sch_direct_xmit is
+called even if device stopped its queue.
+
+My first reflex was too investigate for a misbehaving driver (returning
+TX_BUSY), but start_xmit is not even called, sch_direct_xmit notices
+that queue is stopped, and just does a dequeue/requeue.
+
+Since we're talking about slow interfaces, this has no impact on
+performance, the requeue counter incrementing is just a bit scary.
+
+Shouldn't we check for stopped queue earlier to avoid this ?
+
+Regards,
+
+-- 
+Maxime
+
+
