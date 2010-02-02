@@ -1,279 +1,104 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: [PATCH 2/7] net: remove old tcp_optlen function
-Date: Tue, 02 Feb 2010 11:17:53 -0500
-Message-ID: <4B685031.1060100@gmail.com>
-References: <4B684DE7.3020601@gmail.com>
+From: Meelis Roos <mroos@linux.ee>
+Subject: transmit timed out with tulip on sparc64
+Date: Tue, 2 Feb 2010 17:51:48 +0200 (EET)
+Message-ID: <alpine.SOC.1.00.0910081022270.16430@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080609080404090407060700"
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Michael Chan <mchan@broadcom.com>
-To: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B684DE7.3020601@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org, sparclinux@cger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.it.da.ut.ee ([193.40.5.67]:34360 "EHLO smtp2.it.da.ut.ee"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751103Ab0BBQXQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Feb 2010 11:23:16 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------080609080404090407060700
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+(Found a postponed mesasage from some time ago and restested - still a 
+problem with 2.6.33-rc6)
 
-The tcp_optlen() function returns a potential *negative* unsigned.
+I have a Sun Fire V100 running bleeding-edge kernels.
 
-In the only two existing files using the old tcp_optlen() function,
-clean up confusing and inconsistent mixing of both byte and word
-offsets, and other coding style issues.  Document assumptions.
+I usually do not transfer large amounts of data - updating debian 
+unstable is the most stressing one. However, today I tried to copy 
+gigabytes of data over scp to this machine and it dropped out of the 
+network. Reson unknown, attaching serial console after that gave the 
+following transmit timeout message that may or may not be the primary 
+reason.
 
-Quoth David Miller:
-    This is transmit, and the packets can only come from the Linux
-    TCP stack, not some external entity.
+2.6.32-rc3-00052-g0eca52a:
 
-    You're being way too anal here, and adding these checks to
-    drivers would be just a lot of rediculious bloat. [sic]
+[130930.573930] ------------[ cut here ]------------
+[130930.635834] WARNING: at net/sched/sch_generic.c:261 dev_watchdog+0x258/0x280()
+[130930.731919] NETDEV WATCHDOG: eth0 (tulip): transmit queue 0 timed out
+[130930.817722] Modules linked in: ipv6 fuse loop usbhid ohci_hcd sg sr_mod usbcore cdrom
+[130930.921905] Call Trace:
+[130930.955091]  [0000000000454230] warn_slowpath_common+0x50/0xa0
+[130931.032922]  [00000000004542f4] warn_slowpath_fmt+0x34/0x60
+[130931.107316]  [000000000064a658] dev_watchdog+0x258/0x280
+[130931.178289]  [000000000045f6f4] run_timer_softirq+0x1b4/0x240
+[130931.254975]  [000000000045a484] __do_softirq+0xa4/0x140
+[130931.324798]  [000000000042a93c] do_softirq+0x7c/0xa0
+[130931.391189]  [000000000045a0cc] irq_exit+0x8c/0xc0
+[130931.455303]  [000000000042fcc4] timer_interrupt+0x64/0xa0
+[130931.527412]  [00000000004209d4] tl0_irq14+0x14/0x20
+[130931.592671]  [000000000043af60] touch_nmi_watchdog+0x0/0x60
+[130931.667064]  [00000000006b59a8] rest_init+0x68/0x80
+[130931.732321]  [00000000008247c4] start_kernel+0x2ac/0x2e8
+[130931.803280]  [00000000006b5924] tlb_fixup_done+0x80/0x9c
+[130931.874243]  [0000000000000000] (null)
+[130931.924635] ---[ end trace 70d1b6d12c0cb235 ]---
 
-Therefore, there are *no* checks for bad TCP and IP header sizes, nor
-any semantic changes.  The drivers should function exactly as existing.
+I restared the computer and reran the test to see whether something 
+appears on the console before - no, it doesn't, this is the first log 
+snippet and is basically the same.
 
-Untested.  No response from testers in 15+ weeks.
+[  105.701102] eth0: no IPv6 routers present
+[  473.311090] ------------[ cut here ]------------
+[  473.371799] WARNING: at net/sched/sch_generic.c:261 dev_watchdog+0x258/0x280()
+[  473.466747] NETDEV WATCHDOG: eth0 (tulip): transmit queue 0 timed out
+[  473.551407] Modules linked in: ipv6 fuse loop usbhid ohci_hcd sg sr_mod cdrom usbcore
+[  473.654446] Call Trace:
+[  473.686491]  [0000000000454230] warn_slowpath_common+0x50/0xa0
+[  473.763176]  [00000000004542f4] warn_slowpath_fmt+0x34/0x60
+[  473.836430]  [000000000064a658] dev_watchdog+0x258/0x280
+[  473.906265]  [000000000045f6f4] run_timer_softirq+0x1b4/0x240
+[  473.981806]  [000000000045a484] __do_softirq+0xa4/0x140
+[  474.050479]  [000000000042a93c] do_softirq+0x7c/0xa0
+[  474.115728]  [000000000045a0cc] irq_exit+0x8c/0xc0
+[  474.178699]  [000000000042fcc4] timer_interrupt+0x64/0xa0
+[  474.249666]  [00000000004209d4] tl0_irq14+0x14/0x20
+[  474.313784]  [0000000000590c80] mcount+0xc0/0xe0
+[  474.374457]  [000000000042c94c] cpu_idle+0x4c/0x100
+[  474.438568]  [00000000006b59a8] rest_init+0x68/0x80
+[  474.502683]  [00000000008247c4] start_kernel+0x2ac/0x2e8
+[  474.572503]  [00000000006b5924] tlb_fixup_done+0x80/0x9c
+[  474.642320]  [0000000000000000] (null)
 
-Requires:
-   net: tcp_header_len_th and tcp_option_len_th
+Now verified that the same happens with selfcompiled 2.6.31.
 
-Signed-off-by: William.Allen.Simpson@gmail.com
-CC: Michael Chan <mchan@broadcom.com>
----
-  drivers/net/bnx2.c  |   29 +++++++++++++-----------
-  drivers/net/tg3.c   |   60 +++++++++++++++++++++++---------------------------
-  include/linux/tcp.h |    5 ----
-  3 files changed, 44 insertions(+), 50 deletions(-)
+Freshly tested that it also happens with 2.6.33-rc6:
 
---------------080609080404090407060700
-Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
- name="len_th+2b3+2.6.33-rc6.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="len_th+2b3+2.6.33-rc6.patch"
+[247694.931852] ------------[ cut here ]------------
+[247694.993771] WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x240/0x260()
+[247695.089865] NETDEV WATCHDOG: eth0 (tulip): transmit queue 0 timed out
+[247695.175667] Modules linked in: ipv6 fuse loop ohci_hcd sg sr_mod usbcore cdrom
+[247695.271857] Call Trace:
+[247695.305135]  [0000000000454aac] warn_slowpath_common+0x4c/0x80
+[247695.382967]  [0000000000454b4c] warn_slowpath_fmt+0x2c/0x40
+[247695.457360]  [0000000000645160] dev_watchdog+0x240/0x260
+[247695.528334]  [000000000046008c] run_timer_softirq+0x18c/0x240
+[247695.605020]  [000000000045abb8] __do_softirq+0x98/0x140
+[247695.674842]  [000000000042a758] do_softirq+0x78/0xa0
+[247695.741234]  [000000000045a830] irq_exit+0x90/0xa0
+[247695.805347]  [000000000042f860] timer_interrupt+0x60/0xa0
+[247695.877460]  [00000000004209d4] tl0_irq14+0x14/0x20
+[247695.942710]  [000000000058b944] mcount+0x4/0xe0
+[247696.003387]  [000000000042c764] cpu_idle+0x44/0xe0
+[247696.067502]  [00000000006b025c] rest_init+0x5c/0x80
+[247696.132758]  [0000000000810794] start_kernel+0x2d4/0x2e4
+[247696.203720]  [00000000006b01e4] tlb_fixup_done+0x80/0x9c
+[247696.274682]  [0000000000000000] (null)
+[247696.325070] ---[ end trace 27a08f024f3aa132 ]---
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 65df1de..45452c5 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -6352,6 +6352,8 @@ bnx2_vlan_rx_register(struct net_device *dev, struct vlan_group *vlgrp)
- /* Called with netif_tx_lock.
-  * bnx2_tx_int() runs without netif_tx_lock unless it needs to call
-  * netif_wake_queue().
-+ *
-+ * No TCP or IP length checking, per David Miller (see commit log).
-  */
- static netdev_tx_t
- bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
-@@ -6396,19 +6398,19 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			(TX_BD_FLAGS_VLAN_TAG | (vlan_tx_tag_get(skb) << 16));
- 	}
- #endif
--	if ((mss = skb_shinfo(skb)->gso_size)) {
--		u32 tcp_opt_len;
--		struct iphdr *iph;
-+	mss = skb_shinfo(skb)->gso_size;
-+	if (mss != 0) {
-+		struct tcphdr *th = tcp_hdr(skb);
-+		int tcp_opt_words = th->doff - (sizeof(*th) >> 2);
-+		/* assumes positive tcp_opt_words without checking */
- 
- 		vlan_tag_flags |= TX_BD_FLAGS_SW_LSO;
- 
--		tcp_opt_len = tcp_optlen(skb);
--
- 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
- 			u32 tcp_off = skb_transport_offset(skb) -
- 				      sizeof(struct ipv6hdr) - ETH_HLEN;
- 
--			vlan_tag_flags |= ((tcp_opt_len >> 2) << 8) |
-+			vlan_tag_flags |= (tcp_opt_words << 8) |
- 					  TX_BD_FLAGS_SW_FLAGS;
- 			if (likely(tcp_off == 0))
- 				vlan_tag_flags &= ~TX_BD_FLAGS_TCP6_OFF0_MSK;
-@@ -6421,14 +6423,15 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 				mss |= (tcp_off & 0xc) << TX_BD_TCP6_OFF2_SHL;
- 			}
- 		} else {
--			iph = ip_hdr(skb);
--			if (tcp_opt_len || (iph->ihl > 5)) {
--				vlan_tag_flags |= ((iph->ihl - 5) +
--						   (tcp_opt_len >> 2)) << 8;
--			}
-+			struct iphdr *iph = ip_hdr(skb);
-+			int ip_opt_words = iph->ihl - (sizeof(*iph) >> 2);
-+			/* assumes positive ip_opt_words without checking */
-+			int opt_words = ip_opt_words + tcp_opt_words;
-+
-+			if (opt_words > 0)
-+				vlan_tag_flags |= opt_words << 8;
- 		}
--	} else
--		mss = 0;
-+	}
- 
- 	mapping = pci_map_single(bp->pdev, skb->data, len, PCI_DMA_TODEVICE);
- 	if (pci_dma_mapping_error(bp->pdev, mapping)) {
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 7f82b02..c20c800 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -5426,6 +5426,8 @@ static void tg3_set_txd(struct tg3_napi *tnapi, int entry,
- 
- /* hard_start_xmit for devices that don't have any bugs and
-  * support TG3_FLG2_HW_TSO_2 and TG3_FLG2_HW_TSO_3 only.
-+ *
-+ * No TCP or IP length checking, per David Miller (see commit log).
-  */
- static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
- 				  struct net_device *dev)
-@@ -5461,9 +5463,9 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
- 
- 	entry = tnapi->tx_prod;
- 	base_flags = 0;
--	mss = 0;
--	if ((mss = skb_shinfo(skb)->gso_size) != 0) {
--		int tcp_opt_len, ip_tcp_len;
-+	mss = skb_shinfo(skb)->gso_size;
-+	if (mss != 0) {
-+		struct tcphdr *th;
- 		u32 hdrlen;
- 
- 		if (skb_header_cloned(skb) &&
-@@ -5471,18 +5473,16 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
- 			dev_kfree_skb(skb);
- 			goto out_unlock;
- 		}
-+		th = tcp_hdr(skb);
- 
- 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
- 			hdrlen = skb_headlen(skb) - ETH_HLEN;
- 		else {
- 			struct iphdr *iph = ip_hdr(skb);
- 
--			tcp_opt_len = tcp_optlen(skb);
--			ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
--
-+			hdrlen = ip_hdrlen(skb) + tcp_header_len_th(th);
-+			iph->tot_len = htons(mss + hdrlen);
- 			iph->check = 0;
--			iph->tot_len = htons(mss + ip_tcp_len + tcp_opt_len);
--			hdrlen = ip_tcp_len + tcp_opt_len;
- 		}
- 
- 		if (tp->tg3_flags2 & TG3_FLG2_HW_TSO_3) {
-@@ -5496,7 +5496,7 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
- 		base_flags |= (TXD_FLAG_CPU_PRE_DMA |
- 			       TXD_FLAG_CPU_POST_DMA);
- 
--		tcp_hdr(skb)->check = 0;
-+		th->check = 0;
- 
- 	}
- 	else if (skb->ip_summed == CHECKSUM_PARTIAL)
-@@ -5629,6 +5629,8 @@ tg3_tso_bug_end:
- 
- /* hard_start_xmit for devices that have the 4G bug and/or 40-bit bug and
-  * support TG3_FLG2_HW_TSO_1 or firmware TSO only.
-+ *
-+ * No TCP or IP length checking, per David Miller (see commit log).
-  */
- static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 					  struct net_device *dev)
-@@ -5668,20 +5670,21 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 	if (skb->ip_summed == CHECKSUM_PARTIAL)
- 		base_flags |= TXD_FLAG_TCPUDP_CSUM;
- 
--	if ((mss = skb_shinfo(skb)->gso_size) != 0) {
-+	mss = skb_shinfo(skb)->gso_size;
-+	if (mss != 0) {
- 		struct iphdr *iph;
--		u32 tcp_opt_len, ip_tcp_len, hdr_len;
-+		struct tcphdr *th;
-+		u32 hdr_len;
-+		int opt_bytes;
- 
- 		if (skb_header_cloned(skb) &&
- 		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
- 			dev_kfree_skb(skb);
- 			goto out_unlock;
- 		}
-+		th = tcp_hdr(skb);
-+		hdr_len = ip_hdrlen(skb) + tcp_header_len_th(th);
- 
--		tcp_opt_len = tcp_optlen(skb);
--		ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
--
--		hdr_len = ip_tcp_len + tcp_opt_len;
- 		if (unlikely((ETH_HLEN + hdr_len) > 80) &&
- 			     (tp->tg3_flags2 & TG3_FLG2_TSO_BUG))
- 			return (tg3_tso_bug(tp, skb));
-@@ -5693,13 +5696,14 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 		iph->check = 0;
- 		iph->tot_len = htons(mss + hdr_len);
- 		if (tp->tg3_flags2 & TG3_FLG2_HW_TSO) {
--			tcp_hdr(skb)->check = 0;
-+			th->check = 0;
- 			base_flags &= ~TXD_FLAG_TCPUDP_CSUM;
- 		} else
--			tcp_hdr(skb)->check = ~csum_tcpudp_magic(iph->saddr,
--								 iph->daddr, 0,
--								 IPPROTO_TCP,
--								 0);
-+			th->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
-+						       0, IPPROTO_TCP, 0);
-+
-+		opt_bytes = hdr_len - sizeof(*iph) - sizeof(*th);
-+		/* assumes positive opt_bytes without checking */
- 
- 		if (tp->tg3_flags2 & TG3_FLG2_HW_TSO_3) {
- 			mss |= (hdr_len & 0xc) << 12;
-@@ -5710,19 +5714,11 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 			mss |= hdr_len << 9;
- 		else if ((tp->tg3_flags2 & TG3_FLG2_HW_TSO_1) ||
- 			 GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705) {
--			if (tcp_opt_len || iph->ihl > 5) {
--				int tsflags;
--
--				tsflags = (iph->ihl - 5) + (tcp_opt_len >> 2);
--				mss |= (tsflags << 11);
--			}
-+			if (opt_bytes > 0)
-+				mss |= opt_bytes << (11 - 2);
- 		} else {
--			if (tcp_opt_len || iph->ihl > 5) {
--				int tsflags;
--
--				tsflags = (iph->ihl - 5) + (tcp_opt_len >> 2);
--				base_flags |= tsflags << 12;
--			}
-+			if (opt_bytes > 0)
-+				base_flags |= opt_bytes << (12 - 2);
- 		}
- 	}
- #if TG3_VLAN_TAG_USED
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index d0133cf..74728f7 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -218,11 +218,6 @@ static inline unsigned int tcp_hdrlen(const struct sk_buff *skb)
- 	return tcp_hdr(skb)->doff * 4;
- }
- 
--static inline unsigned int tcp_optlen(const struct sk_buff *skb)
--{
--	return (tcp_hdr(skb)->doff - 5) * 4;
--}
--
- /* Length of fixed header plus standard options. */
- static inline unsigned int tcp_header_len_th(const struct tcphdr *th)
- {
 -- 
-1.6.3.3
-
-
---------------080609080404090407060700--
+Meelis Roos (mroos@linux.ee)
