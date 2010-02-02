@@ -1,28 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net/irda: sh_sir: Add SuperH IrDA driver
-Date: Tue, 02 Feb 2010 07:48:07 -0800 (PST)
-Message-ID: <20100202.074807.76766797.davem@davemloft.net>
-References: <uwrz1vjg3.wl%morimoto.kuninori@renesas.com>
+Subject: Re: [PATCH] be2net: use eq-id to calculate cev-isr reg offset
+Date: Tue, 02 Feb 2010 07:48:48 -0800 (PST)
+Message-ID: <20100202.074848.225652873.davem@davemloft.net>
+References: <20100129070836.GA21744@serverengines.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, samuel@sortiz.org
-To: morimoto.kuninori@renesas.com
+Cc: netdev@vger.kernel.org
+To: sathyap@serverengines.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40756
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40760
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752220Ab0BBPry (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 10:47:54 -0500
-In-Reply-To: <uwrz1vjg3.wl%morimoto.kuninori@renesas.com>
+	by vger.kernel.org with ESMTP id S1751445Ab0BBPsf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 10:48:35 -0500
+In-Reply-To: <20100129070836.GA21744@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kuninori Morimoto <morimoto.kuninori@renesas.com>
-Date: Thu, 28 Jan 2010 17:06:49 +0900
+From: Sathya Perla <sathyap@serverengines.com>
+Date: Fri, 29 Jan 2010 12:38:36 +0530
 
-> This is very simple IrDA SIR driver for SuperH.
-> This driver was tested by irdaping/ircp on SH7724 EcoVec24 board
+> cev-isr reg offset for each function is better calculated using (any) eq-id
+> alloted to that function instead of using pci-func number(which
+> does not work in some configurations...)
 > 
-> Signed-off-by: Kuninori Morimoto <morimoto.kuninori@renesas.com>
+> Signed-off-by: Sathya Perla <sathyap@serverengines.com>
 
-Applied to net-next-2.6, thank you.
+Applied to net-2.6, thanks.
