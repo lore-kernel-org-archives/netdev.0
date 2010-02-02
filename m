@@ -1,7 +1,7 @@
 From: Jon Masters <jonathan@jonmasters.org>
 Subject: Re: [PATCH] netfilter: per netns nf_conntrack_cachep
-Date: Tue, 02 Feb 2010 13:39:42 -0500
-Message-ID: <1265135982.2861.199.camel@tonnant>
+Date: Tue, 02 Feb 2010 13:42:03 -0500
+Message-ID: <1265136123.2861.200.camel@tonnant>
 References: <1264813832.2793.446.camel@tonnant>
 	 <1265023437.2848.30.camel@edumazet-laptop>
 	 <1265035970.2848.50.camel@edumazet-laptop>
@@ -12,6 +12,7 @@ References: <1264813832.2793.446.camel@tonnant>
 	 <1265130426.2861.158.camel@tonnant>
 	 <b6fcc0a1002020958u17315624u4d54d06a413be6bb@mail.gmail.com>
 	 <1265134598.2861.191.camel@tonnant>  <4B6870AF.6060109@trash.net>
+	 <1265135982.2861.199.camel@tonnant>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -22,36 +23,37 @@ Cc: Alexey Dobriyan <adobriyan@gmail.com>,
 	netfilter-devel <netfilter-devel@vger.kernel.org>,
 	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dallas.jonmasters.org ([72.29.103.172]:40300 "EHLO
-	dallas.jonmasters.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756651Ab0BBSkA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 13:40:00 -0500
-In-Reply-To: <4B6870AF.6060109@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1265135982.2861.199.camel@tonnant>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2010-02-02 at 19:36 +0100, Patrick McHardy wrote:
-> Jon Masters wrote:
-> > On Tue, 2010-02-02 at 19:58 +0200, Alexey Dobriyan wrote:
+On Tue, 2010-02-02 at 13:39 -0500, Jon Masters wrote:
+> On Tue, 2010-02-02 at 19:36 +0100, Patrick McHardy wrote:
+> > Jon Masters wrote:
+> > > On Tue, 2010-02-02 at 19:58 +0200, Alexey Dobriyan wrote:
+> > > 
+> > >> Yes, moving to init_net-only function is fine.
+> > > 
+> > > So moving the "setup up fake conntrack" bits to init_init_net from
+> > > init_net still results in the panic, which means that the use count
+> > > really is dropping to zero and we really are trying to free it when
+> > > using multiple namespaces. Per ns is probably an easier way to go.
 > > 
-> >> Yes, moving to init_net-only function is fine.
-> > 
-> > So moving the "setup up fake conntrack" bits to init_init_net from
-> > init_net still results in the panic, which means that the use count
-> > really is dropping to zero and we really are trying to free it when
-> > using multiple namespaces. Per ns is probably an easier way to go.
+> > Agreed, that will also avoid problems in the future with the
+> > ct_net pointer pointing to &init_net. I'll take care of this
+> > tommorrow.
 > 
-> Agreed, that will also avoid problems in the future with the
-> ct_net pointer pointing to &init_net. I'll take care of this
-> tommorrow.
+> Ok. I'll leave this box running with the hack. I think at the very least
+> that this specific issue needs to get fixed and in the stable tree, then
+> the other bits (per namespace cachep...) are probably a good idea at the
+> same time but that's up to you.
 
-Ok. I'll leave this box running with the hack. I think at the very least
-that this specific issue needs to get fixed and in the stable tree, then
-the other bits (per namespace cachep...) are probably a good idea at the
-same time but that's up to you.
+FYI, my box has the quick don't free untracked hack *and* per-ns cachep.
+I don't think the latter has anything specific to do with this (though
+it needs fixing also), but worth knowing my test is using both.
 
-Thanks for your help!
+Back to the podcasts tonight instead of this ;)
 
 Jon.
 
