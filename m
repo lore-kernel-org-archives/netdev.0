@@ -1,44 +1,65 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH 2/2] netxen: protect resource cleanup by rtnl lock
-Date: Tue,  2 Feb 2010 06:16:21 -0800
-Message-ID: <1265120181-1671-3-git-send-email-amit.salecha@qlogic.com>
-References: <1265120181-1671-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com
-To: davem@davemloft.net
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH net-next-2.6 09/13] net-caif: add CAIF netdevice
+Date: Tue, 02 Feb 2010 15:17:57 +0100
+Message-ID: <4B683415.9030708@trash.net>
+References: <1264028130-14364-1-git-send-email-sjur.brandeland@stericsson.com> <1264028130-14364-10-git-send-email-sjur.brandeland@stericsson.com> <4B580A39.3000805@trash.net> <61D8D34BB13CFE408D154529C120E079032A2145@eseldmw101.eemea.ericsson.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, marcel@holtmann.org,
+	stefano.babic@babic.homelinux.org, randy.dunlap@oracle.com
+To: =?ISO-8859-15?Q?Sjur_Br=E6ndeland?=
+	<sjur.brandeland@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:52384 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1755943Ab0BBOQW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2010 09:16:22 -0500
-In-Reply-To: <1265120181-1671-1-git-send-email-amit.salecha@qlogic.com>
+Received: from stinky.trash.net ([213.144.137.162]:63416 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755943Ab0BBOR7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 09:17:59 -0500
+In-Reply-To: <61D8D34BB13CFE408D154529C120E079032A2145@eseldmw101.eemea.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o context resources can be in used, while resource cleanup is in progress,
-  during fw recover.
-o Null pointer execption can occur in send_cmd_desc, if fw recovery
-  module frees tx ring without rtnl lock.
-o Same applies to ethtool register dump.
+Sjur Br=E6ndeland wrote:
+>>> +	if (priv->config.type =3D=3D CAIF_CHTY_DATAGRAM_LOOP) { +		struct
+>>> iphdr *hdr; +		__be32 swap;
+>>> +		/* Retrieve IP header. */
+>>> +		hdr =3D ip_hdr(skb);
+>>> +		/* Change source and destination address. */
+>>> +		swap =3D hdr->saddr;
+>>> +		hdr->saddr =3D hdr->daddr;
+>>> +		hdr->daddr =3D swap;
+>> swap()?
+>=20
+>=20
+> The modem provides a loopback function for the CAIF link type (CAIF_C=
+HTY_DATAGRAM_LOOP).
+> This is useful for testing the physical link between modem and host.
+> In this scenario we need to swap src and destination ip address.
+> I'll move this to a separate function in next patch set.
 
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/netxen/netxen_nic_main.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+There is already a swap() function which you can use.
 
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 5209095..24279e6 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -2240,7 +2240,9 @@ netxen_detach_work(struct work_struct *work)
- 
- 	netxen_nic_down(adapter, netdev);
- 
-+	rtnl_lock();
- 	netxen_nic_detach(adapter);
-+	rtnl_unlock();
- 
- 	status = NXRD32(adapter, NETXEN_PEG_HALT_STATUS1);
- 
--- 
-1.5.6.1
+>>> +static int ipcaif_newlink(struct net *src_net, struct net_device
+>>> *dev, +			  struct nlattr *tb[], struct nlattr *data[]) { +	int err=
+;
+>>> +	struct chnl_net *caifdev;
+>>> +	ASSERT_RTNL();
+>>> +	caifdev =3D netdev_priv(dev);
+>>> +	caif_netlink_parms(data, &caifdev->config);
+>>> +	err =3D register_netdevice(dev);
+>>> +	if (err) {
+>>> +		pr_warning("CAIF: %s(): device rtml registration failed\n", +			=
+=20
+>>> __func__); +		goto out;
+>>> +	}
+>>> +	dev_hold(dev);
+>> What is this reference used for? You don't have a dellink function,
+>> so this looks like a leak.=20
+>=20
+> I don't think it leaks because I do dev_put in chnl_net_uninit,
+> but you're right - I don't really need this. I'll remove the=20
+> dev_hold and dev_put completely in next patch-set.
 
+But it wouldn't get released when deleting a link using netlink
+I think since without a dellink function I don't see what would
+invoke chnl_net_uninit(). Anyways, removing it will fix this :)
