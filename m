@@ -1,202 +1,89 @@
-From: =?iso-8859-1?Q?Sjur_Br=E6ndeland?= <sjur.brandeland@stericsson.com>
-Subject: RE: [PATCH net-next-2.6 09/13] net-caif: add CAIF netdevice
-Date: Tue, 2 Feb 2010 13:37:19 +0100
-Message-ID: <61D8D34BB13CFE408D154529C120E079032A2145@eseldmw101.eemea.ericsson.se>
-References: <1264028130-14364-1-git-send-email-sjur.brandeland@stericsson.com> <1264028130-14364-10-git-send-email-sjur.brandeland@stericsson.com> <4B580A39.3000805@trash.net>
+From: Yury Polyanskiy <ypolyans@princeton.edu>
+Subject: Re: [BUG]? xfrm: INFO: inconsistent lock state
+Date: Tue, 2 Feb 2010 08:51:17 -0500
+Message-ID: <20100202085117.7a5c3530@penta.localdomain>
+References: <4B66A670.70503@cn.fujitsu.com>
+	<20100202074914.GD11081@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<marcel@holtmann.org>, <stefano.babic@babic.homelinux.org>,
-	<randy.dunlap@oracle.com>
-To: "Patrick McHardy" <kaber@trash.net>
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/1GKAPjUtZCYOkGDprOEtjiv"; protocol="application/pgp-signature"
+Cc: Wei Yongjun <yjwei@cn.fujitsu.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, peterz@infradead.org,
+	polyanskiy@gmail.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw9.ericsson.se ([193.180.251.57]:61127 "EHLO
-	mailgw9.se.ericsson.net" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751968Ab0BBMhX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 07:37:23 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <4B580A39.3000805@trash.net>
+Received: from ppa02.Princeton.EDU ([128.112.128.216]:48487 "EHLO
+	ppa02.Princeton.EDU" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755974Ab0BBOAs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 09:00:48 -0500
+In-Reply-To: <20100202074914.GD11081@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Patrick.
-Sorry for late response.
+--Sig_/1GKAPjUtZCYOkGDprOEtjiv
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Patrick McHardy wrote:
-> sjur.brandeland@stericsson.com wrote:
->> +static void ipcaif_net_init(struct net_device *dev) { +	struct
->> chnl_net *priv; +	dev->netdev_ops = &netdev_ops;
->> +	dev->destructor = free_netdev;
-> 
-> These (especially ->destructor) should be set in the setup function.
+On Tue, 2 Feb 2010 18:49:14 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-The ipcaif_net_init is actually the setup function, but it is badly named.
-I'll rename it to ipcaif_net_setup, sorry for the confusion.
+> On Mon, Feb 01, 2010 at 06:01:20PM +0800, Wei Yongjun wrote:
+> > I got following lock INFO in my Fedora12 box uner 2.6.33-rc6.
+> > Is this a BUG?
+>=20
+> Apparently.
+>=20
+> This is introduced by
+>=20
+> commit 9e0d57fd6dad37d72a3ca6db00ca8c76f2215454
+> Author: Yury Polyanskiy <polyanskiy@gmail.com>
+> Date:   Sun Nov 8 20:58:41 2009 -0800
+>=20
+>     xfrm: SAD entries do not expire correctly after suspend-resume
+> =20
+> Whether this is a real dead-lock depends on whether hrtimers
+> behave as real hard IRQs.  If they do then yes it can deadlock.
 
-> 
->> +	dev->flags |= IFF_NOARP;
->> +	dev->flags |= IFF_POINTOPOINT;
->> +	dev->needed_headroom = CAIF_NEEDED_HEADROOM;
->> +	dev->needed_tailroom = CAIF_NEEDED_TAILROOM;
->> +	dev->mtu = SIZE_MTU;
->> +	dev->tx_queue_len = CAIF_NET_DEFAULT_QUEUE_LEN;
-> 
-> These too I guess, its uncommon to reinitialize mtu and tx_queue_len
-> when setting a device down and up again. 
-> 
->> +
->> +	priv = (struct chnl_net *)netdev_priv(dev);
->> +	priv->chnl.receive = chnl_recv_cb;
->> +	priv->chnl.ctrlcmd = chnl_flowctrl_cb;
->> +	priv->netdev = dev;
->> +	priv->config.type = CAIF_CHTY_DATAGRAM;
->> +	priv->config.phy_pref = CFPHYPREF_HIGH_BW;
->> +	priv->config.priority = CAIF_PRIO_LOW;
->> +	priv->config.u.dgm.connection_id = -1; /* Insert illegal value */
->> +	priv->flowenabled = false; +
->> +	ASSERT_RTNL();
->> +	init_waitqueue_head(&priv->netmgmt_wq);
->> +	list_add(&priv->list_field, &chnl_net_list); }
-> 
->> +static int chnl_net_hard_start_xmit(struct sk_buff *skb, struct
->> +net_device *dev)
-> 
-> static netdev_tx_t
-> 
->> +{
->> +	struct chnl_net *priv;
->> +	struct cfpkt *pkt = NULL;
->> +	int len;
->> +	int result = -1;
->> +
->> +	/* Get our private data. */
->> +	priv = (struct chnl_net *)netdev_priv(dev);
->> +	if (!priv)
->> +		return -ENOSPC;
-> 
-> This is an impossible condition, netdev_priv() will never return NULL.
-> The cast is also unnecessary.
+If hrtimer_tasklet interface functions properly, the
+xfrm_timer_handler should be called in softirq context (and thus is
+never in parallel with xfrm_input()). The deadlock isn't possible then.
 
-Thanks, I'll fix this.
+In this case it seems that for some reason xfrm_timer_handler() is
+called in the hardirq context. The relevant code in hrtimer_tasklet:
 
->> +
->> +
->> +	if (skb->len > priv->netdev->mtu) {
->> +		pr_warning("CAIF: %s(): Size of skb exceeded MTU\n", __func__);
->> +		return -ENOSPC; +	}
->> +
->> +	if (!priv->flowenabled) {
->> +		pr_debug("CAIF: %s(): dropping packets flow off\n", __func__);
->> +		return NETDEV_TX_BUSY; +	}
->> +
->> +	if (priv->config.type == CAIF_CHTY_DATAGRAM_LOOP) { +		struct
->> iphdr *hdr; +		__be32 swap;
->> +		/* Retrieve IP header. */
->> +		hdr = ip_hdr(skb);
->> +		/* Change source and destination address. */
->> +		swap = hdr->saddr;
->> +		hdr->saddr = hdr->daddr;
->> +		hdr->daddr = swap;
-> 
-> swap()?
+static enum hrtimer_restart __hrtimer_tasklet_trampoline(struct hrtimer *ti=
+mer)
+{
+	struct tasklet_hrtimer *ttimer =3D
+		container_of(timer, struct tasklet_hrtimer, timer);
 
+	if (hrtimer_is_hres_active(timer)) {
+		tasklet_hi_schedule(&ttimer->tasklet);
+		return HRTIMER_NORESTART;
+	}
+	return ttimer->function(timer);
+}
 
-The modem provides a loopback function for the CAIF link type (CAIF_CHTY_DATAGRAM_LOOP).
-This is useful for testing the physical link between modem and host.
-In this scenario we need to swap src and destination ip address.
-I'll move this to a separate function in next patch set.
+I am copying Peter on this. Peter, how is it possible that
+ttimer->function() is called in hardirq?
 
-> 
-> 
->> +
->> +static int ipcaif_newlink(struct net *src_net, struct net_device
->> *dev, +			  struct nlattr *tb[], struct nlattr *data[]) { +	int err;
->> +	struct chnl_net *caifdev;
->> +	ASSERT_RTNL();
->> +	caifdev = netdev_priv(dev);
->> +	caif_netlink_parms(data, &caifdev->config);
->> +	err = register_netdevice(dev);
->> +	if (err) {
->> +		pr_warning("CAIF: %s(): device rtml registration failed\n", +			 
->> __func__); +		goto out;
->> +	}
->> +	dev_hold(dev);
-> 
-> What is this reference used for? You don't have a dellink function,
-> so this looks like a leak. 
+Could it be that switch from hres_active happened after the call to
+trampoline and before the if() above?
 
-I don't think it leaks because I do dev_put in chnl_net_uninit,
-but you're right - I don't really need this. I'll remove the 
-dev_hold and dev_put completely in next patch-set.
+Best,
+Yury
 
+--Sig_/1GKAPjUtZCYOkGDprOEtjiv
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
 
->> +static struct rtnl_link_ops ipcaif_link_ops __read_mostly = {
->> +	.kind		= "caif", +	.priv_size	= (size_t)sizeof(struct chnl_net),
-> 
-> Unnecessary cast.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
-OK, Thanks.
+iEYEARECAAYFAktoLdUACgkQemuRe3zuqORBbwCeI3RPpDPpnpCnQdZYbi9MDH8L
+DOgAn0FJ8N6JZ9H5DhKoAyzhY/kcD1AW
+=K3SY
+-----END PGP SIGNATURE-----
 
-> 
->> +	.setup		= ipcaif_net_init,
->> +	.maxtype	= IFLA_CAIF_MAX,
->> +	.policy		= ipcaif_policy,
->> +	.newlink	= ipcaif_newlink,
->> +	.changelink	= ipcaif_changelink,
->> +	.get_size	= ipcaif_get_size,
->> +	.fill_info	= ipcaif_fill_info,
->> +
->> +};
->> +
->> +int chnl_net_ioctl(unsigned int cmd, unsigned long arg, bool
->> +from_user_land) { +	struct chnl_net *priv;
->> +	int result = -1;
->> +	struct chnl_net *dev;
->> +	struct net_device *netdevptr;
->> +	int ret;
->> +	struct ifreq ifreq;
->> +	struct ifcaif_param param;
->> +	rtnl_lock();
->> +	if (from_user_land) {
->> +		if (copy_from_user(&ifreq, (const void *)arg, sizeof(ifreq)))
->> +			return -EFAULT; +	} else
->> +		memcpy(&ifreq, (void *)arg, sizeof(ifreq));
-> 
-> Why do you need both an ioctl and a netlink interface?
-
-Well, I would like to keep support for both netlink and ioctl.
-Internally we are using a netlink interface, and oFono is using ioctl to create interfaces.
-
->> +static int __init chnl_init_module(void) {
->> +	int err = -1;
->> +	caif_register_ioctl(chnl_net_ioctl);
->> +	err = rtnl_link_register(&ipcaif_link_ops);
->> +	if (err < 0) {
->> +		rtnl_link_unregister(&ipcaif_link_ops);
-> 
-> You don't need to unregister on error. The ioctl should be
-> unregistered I guess. 
-
-Very well spotted, thanks. This could leave wild pointers. 
-
-
->> +static void __exit chnl_exit_module(void) {
->> +	struct chnl_net *dev = NULL;
->> +	struct list_head *list_node;
->> +	struct list_head *_tmp;
->> +	rtnl_lock();
->> +	list_for_each_safe(list_node, _tmp, &chnl_net_list) {
->> +		dev = list_entry(list_node, struct chnl_net, list_field);
->> +		delete_device(dev); +	}
->> +	rtnl_unlock();
->> +	rtnl_link_unregister(&ipcaif_link_ops);
->> +	caif_register_ioctl(NULL);
-> 
-> This is racy, rtnl_link_unregister() will clean up all CAIF devices,
-> but the ioctl handler might register new ones after that. I'd suggest
-> to drop the ioctl interface completely.  
-
-You're right thank you, I'll fix this.
-
-BR/Sjur
+--Sig_/1GKAPjUtZCYOkGDprOEtjiv--
