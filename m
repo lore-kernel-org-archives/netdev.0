@@ -1,32 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: use helpers to access mc list
-Date: Tue, 02 Feb 2010 08:06:01 -0800 (PST)
-Message-ID: <20100202.080601.255528829.davem@davemloft.net>
-References: <20100126145738.GA2537@psychotron.lab.eng.brq.redhat.com>
-	<20100202.072533.52179643.davem@davemloft.net>
-	<20100202160347.GB2601@psychotron.lab.eng.brq.redhat.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: [PATCH 0/7] tcp: bugs and cleanup updated to 2.6.33-rc6
+Date: Tue, 02 Feb 2010 11:08:07 -0500
+Message-ID: <4B684DE7.3020601@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jpirko@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56908
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754120Ab0BBQFs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 11:05:48 -0500
-In-Reply-To: <20100202160347.GB2601@psychotron.lab.eng.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+To: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Tue, 2 Feb 2010 17:03:48 +0100
+Combination of patches reported in October, November, December, and
+January.  These patches fix perceived bugs, and other cleanup.
 
-> You mean "struct dev_mc_list"? But that would solve nothing. If I would still
-> use current structure in drivers, then still the migration to struct_hw_addr
-> would be all-at-once for all drivers :( This patch was exacly made to avoid
-> this.
+This code has had previous review and several months of limited testing.
 
-I think changing the iterator type will have to be done
-wholesale in one changeset, there is no reasonable way
-to avoid it.
+Some portions were removed during the various TCPCT part 1 patch splits,
+then were cut off by the sudden unexpected end of that merge window.
+[03 Dec 2009]  I've restarted the sub-numbering (again).
+
+Of particular interest are the TCPCT header extensions that already
+appear in the next phase of testing with other platforms.  These patches
+allow correct reception without data corruption.
+
+The remainder of the original TCPCT part 2 will be merged with part 3.
+
+These patches are against the current linux-2.6 tree.
+
+[No substantive changes from previous submission of January 23rd.]
