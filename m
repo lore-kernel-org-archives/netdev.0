@@ -1,68 +1,59 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/2] sky2: fix transmit DMA map leakage
-Date: Mon, 1 Feb 2010 15:41:47 -0800
-Message-ID: <20100201154147.5bb0b2c7@nehalam>
+From: Ajit Khaparde <ajitkhaparde@gmail.com>
+Subject: [PATCH net-next-2.6] bonding: Remove net_device_stats from bonding
+ struct
+Date: Tue, 2 Feb 2010 05:36:52 +0530
+Message-ID: <20100202000648.GA30286@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Michael Breuer <mbreuer@majjas.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	Ajit Khaparde <ajitk@serverengines.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:48849 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753918Ab0BAXqQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Feb 2010 18:46:16 -0500
+Received: from mail-yw0-f173.google.com ([209.85.211.173]:34478 "EHLO
+	mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752218Ab0BBAGo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Feb 2010 19:06:44 -0500
+Received: by ywh3 with SMTP id 3so2164533ywh.22
+        for <netdev@vger.kernel.org>; Mon, 01 Feb 2010 16:06:43 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The book keeping structure for transmit always had the flags value
-cleared so transmit DMA maps were never released correctly.
-Based on patch by Jarek Poplawski, problem observed by Michael Breuer.
+There is no need to maintain stats in the bonding structure.
+Use the instance of net_device_stats in netdevice.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+---
+ drivers/net/bonding/bond_main.c |    2 +-
+ drivers/net/bonding/bonding.h   |    1 -
+ 2 files changed, 1 insertions(+), 2 deletions(-)
 
---
-This patch is against net-next but it should go to 2.6.33 and stable
-as well.
-
---- a/drivers/net/sky2.c	2010-02-01 10:07:42.676296236 -0800
-+++ b/drivers/net/sky2.c	2010-02-01 10:18:12.575044064 -0800
-@@ -1025,11 +1025,8 @@ static void sky2_prefetch_init(struct sk
- static inline struct sky2_tx_le *get_tx_le(struct sky2_port *sky2, u16 *slot)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 6221936..1787e3c 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3742,7 +3742,7 @@ static int bond_close(struct net_device *bond_dev)
+ static struct net_device_stats *bond_get_stats(struct net_device *bond_dev)
  {
- 	struct sky2_tx_le *le = sky2->tx_le + *slot;
--	struct tx_ring_info *re = sky2->tx_ring + *slot;
- 
- 	*slot = RING_NEXT(*slot, sky2->tx_ring_size);
--	re->flags = 0;
--	re->skb = NULL;
- 	le->ctrl = 0;
- 	return le;
- }
-@@ -1622,8 +1619,7 @@ static unsigned tx_le_req(const struct s
- 	return count;
- }
- 
--static void sky2_tx_unmap(struct pci_dev *pdev,
--			  const struct tx_ring_info *re)
-+static void sky2_tx_unmap(struct pci_dev *pdev, struct tx_ring_info *re)
- {
- 	if (re->flags & TX_MAP_SINGLE)
- 		pci_unmap_single(pdev, pci_unmap_addr(re, mapaddr),
-@@ -1633,6 +1629,7 @@ static void sky2_tx_unmap(struct pci_dev
- 		pci_unmap_page(pdev, pci_unmap_addr(re, mapaddr),
- 			       pci_unmap_len(re, maplen),
- 			       PCI_DMA_TODEVICE);
-+	re->flags = 0;
- }
- 
- /*
-@@ -1839,6 +1836,7 @@ static void sky2_tx_complete(struct sky2
- 			dev->stats.tx_packets++;
- 			dev->stats.tx_bytes += skb->len;
- 
-+			re->skb = NULL;
- 			dev_kfree_skb_any(skb);
- 
- 			sky2->tx_next = RING_NEXT(idx, sky2->tx_ring_size);
+ 	struct bonding *bond = netdev_priv(bond_dev);
+-	struct net_device_stats *stats = &bond->stats;
++	struct net_device_stats *stats = &bond_dev->stats;
+ 	struct net_device_stats local_stats;
+ 	struct slave *slave;
+ 	int i;
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 558ec13..257a7a4 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -197,7 +197,6 @@ struct bonding {
+ 	s8	 send_grat_arp;
+ 	s8	 send_unsol_na;
+ 	s8	 setup_by_slave;
+-	struct   net_device_stats stats;
+ #ifdef CONFIG_PROC_FS
+ 	struct   proc_dir_entry *proc_entry;
+ 	char     proc_file_name[IFNAMSIZ];
+-- 
+1.6.3.3
+
