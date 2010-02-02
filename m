@@ -1,57 +1,50 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] sky2:  receive dma mapping error handling
-Date: Tue, 02 Feb 2010 23:44:37 +0100
-Message-ID: <87aavrdzqi.fsf@basil.nowhere.org>
-References: <4B60707F.1000608@majjas.com> <20100127095614.14313677@nehalam>
-	<4B608128.7090607@majjas.com> <4B6089C7.4010803@majjas.com>
-	<4B61ADF1.7060705@majjas.com> <4B61BEA4.1030905@majjas.com>
-	<20100128090835.0d93e53a@nehalam> <4B61DB79.4080703@majjas.com>
-	<20100128223447.GC3109@del.dom.local> <4B621316.8070308@majjas.com>
-	<20100128225621.GD3109@del.dom.local> <4B6216B9.1010802@majjas.com>
-	<20100128153643.0fca3c51@nehalam>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 0/2] virtio net improvements
+Date: Wed, 3 Feb 2010 09:57:06 +1030
+Message-ID: <201002030957.06307.rusty@rustcorp.com.au>
+References: <201001292346.43675.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Breuer <mbreuer@majjas.com>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	flyboy@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
-	Don Fry <pcnet32@verizon.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Matt Carlson <mcarlson@broadcom.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	virtualization@lists.linux-foundation.org,
+	Shirley Ma <mashirle@us.ibm.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:35878 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757113Ab0BBWom (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 17:44:42 -0500
-In-Reply-To: <20100128153643.0fca3c51@nehalam> (Stephen Hemminger's message of "Thu, 28 Jan 2010 15:36:43 -0800")
+Received: from ozlabs.org ([203.10.76.45]:49485 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755180Ab0BBX1R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Feb 2010 18:27:17 -0500
+In-Reply-To: <201001292346.43675.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@linux-foundation.org> writes:
+On Fri, 29 Jan 2010 11:46:43 pm Rusty Russell wrote:
+> Hi Dave,
+> 
+>    Nice driver optimization from Shirley, but requires a new virtio hook.
+> Do you want to take both?  I have nothing else overlapping it.
 
-> -	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
-> -		re->frag_addr[i] = pci_map_page(pdev,
-> +
-> +map_page_error:
-> +	while (--i >= 0) {
-> +		pci_unmap_page(pdev, re->frag_addr[i],
-> +			       skb_shinfo(skb)->frags[i].size,
-> +			       PCI_DMA_FROMDEVICE);
-> +	}
-> +
-> +	pci_unmap_single(pdev, re->data_addr, pci_unmap_len(re, data_size),
-> +			 PCI_DMA_FROMDEVICE);
+Dave, any news on this?  Shirley, I note that your final commit message did
+not contain this information from your original version:
 
-Better add a helper somewhere to do this, doesn't make sense
-to duplicate this in all drivers (lots of drivers have similar
-problems)
+	Tests have been done for small packets, big packets and
+	mergeable buffers.
 
-I remember looking at this some time ago but for some reason
-the patches never made it out.
+	The single netperf TCP_STREAM performance improved for host to guest. 
+	It also reduces UDP packets drop rate.
 
--Andi
+	The netperf laptop results were:
 
--- 
-ak@linux.intel.com -- Speaking for myself only.
+	mtu=1500
+	netperf -H xxx -l 120
+
+	                w/o patch       w/i patch (two runs)    
+	guest to host:  3336.84Mb/s   3730.14Mb/s ~ 3582.88Mb/s
+
+	host to guest:  3165.10Mb/s   3370.39Mb/s ~ 3407.96Mb/s
+
+Thanks,
+Rusty.
