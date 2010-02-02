@@ -1,70 +1,56 @@
-From: Karsten =?iso-8859-1?q?K=F6nig?= <remur@gmx.net>
-Subject: Re: [Bugme-new] [Bug 14711] New: usbnet ax88172 mac address change broken
-Date: Tue, 2 Feb 2010 23:21:00 +0100
-Message-ID: <201002022321.00177.remur@gmx.net>
-References: <bug-14711-10286@http.bugzilla.kernel.org/> <20091203133845.4977551c.akpm@linux-foundation.org>
-Reply-To: remur@gmx.net
+From: akpm@linux-foundation.org
+Subject: [patch 3/4] isdn: mISDN, don't compile unused stuff
+Date: Tue, 02 Feb 2010 14:43:46 -0800
+Message-ID: <201002022243.o12MhkQJ019221@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, linux-usb@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=ANSI_X3.4-1968
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	jirislaby@gmail.com
+To: isdn@linux-pingi.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:60113 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1756861Ab0BBW1i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2010 17:27:38 -0500
-In-Reply-To: <20091203133845.4977551c.akpm@linux-foundation.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:43754 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756894Ab0BBWoH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 17:44:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No one around to tackle this?
-In any case it should reject the MAC adress change as unsupported
+From: Jiri Slaby <jirislaby@gmail.com>
 
-Thanks,
-Karsten
+Remove these compiler warnings:
 
-Am Donnerstag, 3. Dezember 2009 22:38:45 schrieb Andrew Morton:
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
-> 
-> On Tue, 1 Dec 2009 15:41:10 GMT
-> 
-> bugzilla-daemon@bugzilla.kernel.org wrote:
-> > http://bugzilla.kernel.org/show_bug.cgi?id=14711
-> >
-> >            Summary: usbnet ax88172 mac address change broken
-> >            Product: Drivers
-> >            Version: 2.5
-> >     Kernel Version: 2.6.31rc8
-> >           Platform: All
-> >         OS/Version: Linux
-> >               Tree: Mainline
-> >             Status: NEW
-> >           Severity: normal
-> >           Priority: P1
-> >          Component: Network
-> >         AssignedTo: drivers_network@kernel-bugs.osdl.org
-> >         ReportedBy: remur@gmx.net
-> >         Regression: No
-> >
-> >
-> > When changing the MAC address on a NETGEAR FA120 (because an old one is
-> > registered with my provider) the replies to the traffic don't reach the
-> > system anymore, the NIC is dropping them, putting the NIC into promiscous
-> > mode will show they are properly replied to.
-> >
-> > Searching around I found this patch from the openBSD folks
-> > http://www.mail-archive.com/misc@openbsd.org/msg76418.html
-> > http://www.openbsd.org/cgi-bin/cvsweb/src/sys/dev/usb/if_axe.c.diff?r1=1.
-> >91;r2=1.92
-> >
-> > Looks like it is not working with the ax88172, but only with newer
-> > models. Still an error message would be nice when setting another
-> > physical address
-> 
-> It would be nice if some asix-competent person could take a look at porting
-> that openbsd patch across, see if it fixes Karsten's hardware.
-> 
+drivers/isdn/hardware/mISDN/w6692.c:534: warning: `setvolume' defined but not used
+drivers/isdn/hardware/mISDN/w6692.c:561: warning: `enable_pots' defined but not used
+
+by moving the functions inside #if 0 ...  #endif.  And an alternative is
+to remove them completely if nobody has plans to use them.
+
+Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+Cc: Karsten Keil <isdn@linux-pingi.de>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ drivers/isdn/hardware/mISDN/w6692.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff -puN drivers/isdn/hardware/mISDN/w6692.c~isdn-misdn-dont-compile-unused-stuff drivers/isdn/hardware/mISDN/w6692.c
+--- a/drivers/isdn/hardware/mISDN/w6692.c~isdn-misdn-dont-compile-unused-stuff
++++ a/drivers/isdn/hardware/mISDN/w6692.c
+@@ -529,6 +529,7 @@ W6692_fill_Bfifo(struct w6692_ch *wch)
+ 	}
+ }
+ 
++#if 0
+ static int
+ setvolume(struct w6692_ch *wch, int mic, struct sk_buff *skb)
+ {
+@@ -571,6 +572,7 @@ enable_pots(struct w6692_ch *wch)
+ 	WriteW6692(card, W_PCTL, card->pctl);
+ 	return 0;
+ }
++#endif
+ 
+ static int
+ disable_pots(struct w6692_ch *wch)
+_
