@@ -1,127 +1,78 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: [PATCH v3 5/7] TCPCT part 2e: accept SYNACK data
-Date: Tue, 02 Feb 2010 11:33:23 -0500
-Message-ID: <4B6853D3.9080300@gmail.com>
-References: <4B684DE7.3020601@gmail.com>
+From: Jamie Iles <jamie.iles@picochip.com>
+Subject: IP: Send an ICMP "Fragment Reassembly Timeout" message when
+	enabling connection track
+Date: Tue, 2 Feb 2010 16:22:28 +0000
+Message-ID: <20100202162228.GC4305@wear.picochip.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050400060201060406050200"
-Cc: Andrew Morton <akpm@linux-foundation.org>
-To: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, shanwei@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f171.google.com ([209.85.223.171]:44449 "EHLO
-	mail-iw0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752024Ab0BBQd3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 11:33:29 -0500
-In-Reply-To: <4B684DE7.3020601@gmail.com>
+Received: from mail2.picochip.com ([82.111.145.34]:47038 "EHLO
+	thurne.picochip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756371Ab0BBQkL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 11:40:11 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------050400060201060406050200
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Hi,
 
-When accompanied by cookie option, Initiator (client) queues incoming
-SYNACK transaction data.
+I have an ARM based board that I'm running off of today's next tree. When
+booting with a rootfs over NFS I regularly see a crash with the following log:
 
-This is a straightforward re-implementation of an earlier (year-old)
-patch that no longer applies cleanly, with permission of the original
-author (Adam Langley).  The patch was previously reviewed:
+huh, entered c0237b8c with preempt_count 00000103, exited with 00000102?
+kernel BUG at kernel/timer.c:1035!
+Unable to handle kernel NULL pointer dereference at virtual address 00000000
+pgd = c0004000
+[00000000] *pgd=00000000
+Internal error: Oops: 817 [#1] PREEMPT
+last sysfs file: /sys/class/mtd/mtd6ro/dev
+Modules linked in:
+CPU: 0    Not tainted  (2.6.33-rc6-next-20100202-picochip-arm2009q3+ #46)
+PC is at __bug+0x18/0x24
+LR is at __bug+0x14/0x24
+pc : [<c0024240>]    lr : [<c002423c>]    psr: 60000113
+sp : c03a3ec8  ip : c03cb880  fp : c03ef9c8
+r10: c03efdc8  r9 : c03efbc8  r8 : c03effc8
+r7 : c7e171b4  r6 : c03ef1a0  r5 : c03a2000  r4 : 00000000
+r3 : 00000000  r2 : c03a3ebc  r1 : c033ae76  r0 : 00000029
+Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment kernel
+Control: 00c5387d  Table: 07e58008  DAC: 00000017
+Process swapper (pid: 0, stack limit = 0xc03a2268)
+Stack: (0xc03a3ec8 to 0xc03a4000)
+3ec0:                   00000000 c0046a54 00000002 00000000 c00468d8 00000000
+3ee0: 00000000 00000103 c7e17180 c0237b8c 00000002 c095601c 00000000 c036c3df
+3f00: c03a3f00 c03a3f00 00000000 00000000 c03a2000 00000004 c03ef004 00000103
+3f20: 0000000a 00000101 00000001 c003fdf4 c03ad92c 00000000 c03a73c0 00000000
+3f40: 00000024 c03a2000 00000000 00000010 00000002 00000001 c03a2000 0001bf40
+3f60: 00000000 c003ff64 00000024 c0020070 ffffffff fe060000 00000010 c02a6170
+3f80: c0021a70 00000000 00000000 c03a2000 c03a2000 c001d3bc c001d3b8 c03a6a18
+3fa0: 0001bfa8 410fb767 0001bf40 00000000 c03a73e8 c03a3fc8 c0021a70 c0021a74
+3fc0: 60000013 ffffffff c03a2000 c0021f40 c094b0e8 c0008920 c0008490 00000000
+3fe0: 00000000 c001d3bc 00000000 00c5387d c03ce470 00008034 00000000 00000000
+[<c0024240>] (__bug+0x18/0x24) from [<c0046a54>] (run_timer_softirq+0x308/0x36c)
+[<c0046a54>] (run_timer_softirq+0x308/0x36c) from [<c003fdf4>] (__do_softirq+0x1
+08/0x220)
+[<c003fdf4>] (__do_softirq+0x108/0x220) from [<c003ff64>] (irq_exit+0x58/0xb0)
+[<c003ff64>] (irq_exit+0x58/0xb0) from [<c0020070>] (asm_do_IRQ+0x70/0x8c)
+[<c0020070>] (asm_do_IRQ+0x70/0x8c) from [<c02a6170>] (__irq_svc+0x50/0xd4)
+Exception stack(0xc03a3f80 to 0xc03a3fc8)
+3f80: c0021a70 00000000 00000000 c03a2000 c03a2000 c001d3bc c001d3b8 c03a6a18
+3fa0: 0001bfa8 410fb767 0001bf40 00000000 c03a73e8 c03a3fc8 c0021a70 c0021a74
+3fc0: 60000013 ffffffff
+[<c02a6170>] (__irq_svc+0x50/0xd4) from [<c0021a74>] (default_idle+0x28/0x2c)
+[<c0021a74>] (default_idle+0x28/0x2c) from [<c0021f40>] (cpu_idle+0x50/0xa4)
+[<c0021f40>] (cpu_idle+0x50/0xa4) from [<c0008920>] (start_kernel+0x248/0x29c)
+[<c0008920>] (start_kernel+0x248/0x29c) from [<00008034>] (0x8034)
+Code: e1a01000 e59f000c eb09f9bf e3a03000 (e5833000)
 
-    http://thread.gmane.org/gmane.linux.network/102586
+The function the timer called was ip_expire():
 
-This function will also be used in subsequent patches that implement
-additional features.
+[jamiei@wear linux-2.6]$ arm-none-linux-gnueabi-addr2line -e vmlinux c0237b8c
+/home/jamiei/linux-2.6/net/ipv4/ip_fragment.c:190
 
-Requires:
-   TCPCT part 1g: Responder Cookie => Initiator
-   net: tcp_header_len_th and tcp_option_len_th
+Reverting the commit (e9017b55189355e9e6569990a18919e83f35bccb) makes this
+crash go away. The kernel is built with preempt debugging but I don't get any
+other warnings.
 
-Signed-off-by: William.Allen.Simpson@gmail.com
----
-  net/ipv4/tcp_input.c |   26 +++++++++++++++++++++++++-
-  1 files changed, 25 insertions(+), 1 deletions(-)
-
---------------050400060201060406050200
-Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
- name="TCPCT+2e3+2.6.33-rc6.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="TCPCT+2e3+2.6.33-rc6.patch"
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 8e0f6ae..165040e 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5395,6 +5395,12 @@ discard:
- 	return 0;
- }
- 
-+/*
-+ * Returns:
-+ *	+1 on reset,
-+ *	0 success and/or SYNACK data,
-+ *	-1 on discard.
-+ */
- static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 					 struct tcphdr *th)
- {
-@@ -5403,6 +5409,7 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct tcp_cookie_values *cvp = tp->cookie_values;
- 	int saved_clamp = tp->rx_opt.mss_clamp;
-+	int queued = 0;
- 
- 	tcp_parse_options(skb, &tp->rx_opt, &hash_location, 0);
- 
-@@ -5509,6 +5516,7 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 					- TCPOLEN_COOKIE_BASE;
- 			int cookie_pair_size = cookie_size
- 					     + cvp->cookie_desired;
-+			int tcp_header_len = tcp_header_len_th(th);
- 
- 			/* A cookie extension option was sent and returned.
- 			 * Note that each incoming SYNACK replaces the
-@@ -5524,6 +5532,19 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 				       hash_location, cookie_size);
- 				cvp->cookie_pair_size = cookie_pair_size;
- 			}
-+
-+			queued = skb->len - tcp_header_len;
-+			if (queued > 0) {
-+				/* Queue incoming transaction data. */
-+				__skb_pull(skb, tcp_header_len);
-+				__skb_queue_tail(&sk->sk_receive_queue, skb);
-+				skb_set_owner_r(skb, sk);
-+				sk->sk_data_ready(sk, 0);
-+				cvp->s_data_in = 1; /* true */
-+				tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
-+				tp->rcv_wup = TCP_SKB_CB(skb)->end_seq;
-+				tp->copied_seq = TCP_SKB_CB(skb)->seq + 1;
-+			}
- 		}
- 
- 		smp_mb();
-@@ -5577,11 +5598,14 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 						  TCP_DELACK_MAX, TCP_RTO_MAX);
- 
- discard:
--			__kfree_skb(skb);
-+			if (queued <= 0)
-+				__kfree_skb(skb);
- 			return 0;
- 		} else {
- 			tcp_send_ack(sk);
- 		}
-+		if (queued > 0)
-+			return 0;
- 		return -1;
- 	}
- 
--- 
-1.6.3.3
-
-
---------------050400060201060406050200--
+Jamie
