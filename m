@@ -1,42 +1,72 @@
-From: Li Zefan <lizf@cn.fujitsu.com>
-Subject: [PATCH] sunrpc/cache: fix module refcnt leak in a failure path
-Date: Tue, 02 Feb 2010 14:48:09 +0800
-Message-ID: <4B67CAA9.4070108@cn.fujitsu.com>
+From: Jon Masters <jonathan@jonmasters.org>
+Subject: Re: [PATCH] netfilter: per netns nf_conntrack_cachep
+Date: Tue, 02 Feb 2010 02:02:07 -0500
+Message-ID: <1265094127.2861.112.camel@tonnant>
+References: <1264813832.2793.446.camel@tonnant>
+	 <1264816634.2793.505.camel@tonnant> <1264816777.2793.510.camel@tonnant>
+	 <1264834704.2919.3.camel@edumazet-laptop>
+	 <1265016745.7499.144.camel@tonnant>
+	 <b6fcc0a1002010136k7e78a998p31a9e7464c2e8d44@mail.gmail.com>
+	 <1265019160.2848.14.camel@edumazet-laptop>
+	 <b6fcc0a1002010225u4e74f9f0q633d73038234dc37@mail.gmail.com>
+	 <1265023437.2848.30.camel@edumazet-laptop>
+	 <1265035970.2848.50.camel@edumazet-laptop>
+	 <1265085391.2861.106.camel@tonnant>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: NeilBrown <neilb@suse.de>,
-	"J. Bruce Fields" <bfields@citi.umich.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Alexey Dobriyan <adobriyan@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1265085391.2861.106.camel@tonnant>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Don't forget to release the module refcnt if seq_open()
-returns failure.
+On Mon, 2010-02-01 at 23:36 -0500, Jon Masters wrote:
+> On Mon, 2010-02-01 at 15:52 +0100, Eric Dumazet wrote:
+> 
+> > [PATCH] netfilter: per netns nf_conntrack_cachep
+> > 
+> > nf_conntrack_cachep is currently shared by all netns instances, but
+> > because of SLAB_DESTROY_BY_RCU special semantics, this is wrong.
+> > 
+> > If we use a shared slab cache, one object can instantly flight between
+> > one hash table (netns ONE) to another one (netns TWO), and concurrent
+> > reader (doing a lookup in netns ONE, 'finding' an object of netns TWO)
+> > can be fooled without notice, because no RCU grace period has to be
+> > observed between object freeing and its reuse.
+> > 
+> > We dont have this problem with UDP/TCP slab caches because TCP/UDP
+> > hashtables are global to the machine (and each object has a pointer to
+> > its netns).
+> > 
+> > If we use per netns conntrack hash tables, we also *must* use per netns
+> > conntrack slab caches, to guarantee an object can not escape from one
+> > namespace to another one.
+> > 
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> 
+> You're totally right, I'd missed this (RCU behavior wrt SLAB caches was
+> one of these black magic voodoo things until Peter Z. set me straight
+> with his explanation that it only applies to the freeing of the cache
+> itself, not the objects - that makes sense in the grand scheme of what
+> RCU is trying to achieve, and so in theory, yeah we could just verify
+> the ct object we get back out of the cache is from the same ns, should
+> work just as well as doing per-ns caches, but not as clean IMO). I'm
+> still not sure it explains the specific corruption I'm seeing, but I
+> just made some coffee and put on some T. Rex to help me think.
 
-Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
----
- net/sunrpc/cache.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+It happens in the kmem_cache_free in nf_conntrack_free (as I can
+trivially confirm with printk), so you're almost certainly right, but I
+am just shoving in a bunch of debug code equivalent to the logic in SLUB
+kmem cache freeing to see precisely how that pointer corruption occurs,
+mostly for curiosity, and to confirm for sure what happens.
 
-diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
-index 39bddba..b7af6b2 100644
---- a/net/sunrpc/cache.c
-+++ b/net/sunrpc/cache.c
-@@ -1233,8 +1233,10 @@ static int content_open(struct inode *inode, struct file *file,
- 	if (!cd || !try_module_get(cd->owner))
- 		return -EACCES;
- 	han = __seq_open_private(file, &cache_content_op, sizeof(*han));
--	if (han == NULL)
-+	if (han == NULL) {
-+		module_put(cd->owner);
- 		return -ENOMEM;
-+	}
- 
- 	han->cd = cd;
- 	return 0;
--- 
-1.6.3
+Jon.
+
+
