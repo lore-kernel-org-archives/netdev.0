@@ -1,66 +1,32 @@
-From: Yury Polyanskiy <ypolyans@princeton.edu>
-Subject: Re: [PATCH]  hrtimer, softirq: Fix hrtimer->softirq trampoline
-Date: Tue, 2 Feb 2010 09:28:14 -0500
-Message-ID: <20100202092814.064a89c0@penta.localdomain>
-References: <4B66A670.70503@cn.fujitsu.com>
-	<20100202074914.GD11081@gondor.apana.org.au>
-	<20100202085117.7a5c3530@penta.localdomain>
-	<1265120401.24455.306.camel@laptop>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] xt_TCPMSS: SYN packets are allowed to contain data
+Date: Tue, 02 Feb 2010 15:34:19 +0100
+Message-ID: <4B6837EB.3030902@trash.net>
+References: <4B54CDE5.3070100@simon.arlott.org.uk> <4B5578A5.50705@gmail.com>    <dad314e12c5750b1b5d70c3ea3c6f6134b8fa0f3@8b5064a13e22126c1b9329f0dc35b8915774b7c3.invalid>    <4B55D372.4020807@gmail.com>    <710ab0ca79305c82013982d43250b0a1fd45824d@8b5064a13e22126c1b9329f0dc35b8915774b7c3.invalid>    <4B5773C2.2010000@simon.arlott.org.uk>    <alpine.LSU.2.01.1001202238400.18680@obet.zrqbmnf.qr>    <alpine.LSU.2.01.1001202240350.18680@obet.zrqbmnf.qr>    <4B578E59.8090203@trash.net> <0b01c450344abffd72a5b1b037ee6584e6db6b82@8b5064a13e22126c1b9329f0dc35b8915774b7c3.invalid> <4B585079.1070904@trash.net> <4B58B578.9080505@simon.arlott.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1;
- boundary="Sig_/V7LzS+8Min1qOl9EyBP8I=H"; protocol="application/pgp-signature"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, polyanskiy@gmail.com,
-	Thomas Gleixner <tglx@linutronix.de>,
-	lkml <linux-kernel@vger.kernel.org>
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ppa02.Princeton.EDU ([128.112.128.216]:35068 "EHLO
-	ppa02.Princeton.EDU" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754203Ab0BBO2n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 09:28:43 -0500
-In-Reply-To: <1265120401.24455.306.camel@laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Jan Engelhardt <jengelh@medozas.de>,
+	William Allen Simpson <william.allen.simpson@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: Simon Arlott <simon@fire.lp0.eu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4B58B578.9080505@simon.arlott.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---Sig_/V7LzS+8Min1qOl9EyBP8I=H
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Simon Arlott wrote:
+> The TCPMSS target is dropping SYN packets where:
+>   1) There is data, or
+>   2) The data offset makes the TCP header larger than the packet.
+> 
+> Both of these result in an error level printk. This printk has been
+> removed.
+> 
+> This change avoids dropping SYN packets containing data. If there
+> is also no MSS option (as well as data), one will not be added
+> because of possible complications due to the increased packet size.
 
-On Tue, 02 Feb 2010 15:20:01 +0100
-Peter Zijlstra <peterz@infradead.org> wrote:
->  static enum hrtimer_restart __hrtimer_tasklet_trampoline(struct hrtimer =
-*timer)
->  {
->  	struct tasklet_hrtimer *ttimer =3D
->  		container_of(timer, struct tasklet_hrtimer, timer);
-> =20
-> -	if (hrtimer_is_hres_active(timer)) {
-> -		tasklet_hi_schedule(&ttimer->tasklet);
-> -		return HRTIMER_NORESTART;
-> -	}
-> -	return ttimer->function(timer);
-> +	tasklet_hi_schedule(&ttimer->tasklet);
-> +	return HRTIMER_NORESTART;
->  }
-> =20
-
-Are you totally against if(in_irq())?
-
-Yury
-
---Sig_/V7LzS+8Min1qOl9EyBP8I=H
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAktoNn4ACgkQemuRe3zuqOSzZQCfbxHjBimZg9hUOXh1lpEfNAXV
-y98Anje4TDRX1F5NKK8dm2B8wJ2yi364
-=CsGx
------END PGP SIGNATURE-----
-
---Sig_/V7LzS+8Min1qOl9EyBP8I=H--
+Applied, thanks Simon.
