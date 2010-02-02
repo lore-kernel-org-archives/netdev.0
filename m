@@ -1,57 +1,49 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [net-next-2.6 PATCH 2/5] if_link: Add SR-IOV configuration
- 	methods
-Date: Tue, 2 Feb 2010 09:45:41 -0700
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FDD55CC06@rrsmsx501.amr.corp.intel.com>
-References: <20100130103842.26633.73429.stgit@localhost.localdomain>
-	 <20100130103947.26633.78452.stgit@localhost.localdomain>
-	 <15ddcffd1001310625k3a1c1010w57e7cf62986c56ef@mail.gmail.com>
-	 <EA929A9653AAE14F841771FB1DE5A1365FDD55C136@rrsmsx501.amr.corp.intel.com>
- <15ddcffd1002012116la5ae23ct7754e4e9287a1a1f@mail.gmail.com>
+From: Jon Masters <jonathan@jonmasters.org>
+Subject: Re: [PATCH] netfilter: per netns nf_conntrack_cachep
+Date: Tue, 02 Feb 2010 11:46:32 -0500
+Message-ID: <1265129192.2861.141.camel@tonnant>
+References: <1264813832.2793.446.camel@tonnant>
+	 <1264816634.2793.505.camel@tonnant> <1264816777.2793.510.camel@tonnant>
+	 <1264834704.2919.3.camel@edumazet-laptop>
+	 <1265016745.7499.144.camel@tonnant>
+	 <b6fcc0a1002010136k7e78a998p31a9e7464c2e8d44@mail.gmail.com>
+	 <1265019160.2848.14.camel@edumazet-laptop>
+	 <b6fcc0a1002010225u4e74f9f0q633d73038234dc37@mail.gmail.com>
+	 <1265023437.2848.30.camel@edumazet-laptop>
+	 <1265035970.2848.50.camel@edumazet-laptop>
+	 <b6fcc0a1002010658j4f52a9b8kf10e4bb07a2f1075@mail.gmail.com>
+	 <1265036548.2848.55.camel@edumazet-laptop>
+	 <1265108690.2861.118.camel@tonnant>  <1265110504.2861.135.camel@tonnant>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:31594 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756527Ab0BBQqp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 11:46:45 -0500
-In-Reply-To: <15ddcffd1002012116la5ae23ct7754e4e9287a1a1f@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Alexey Dobriyan <adobriyan@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1265110504.2861.135.camel@tonnant>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->From: Or Gerlitz [mailto:or.gerlitz@gmail.com]
->
->Williams, Mitch A <mitch.a.williams@intel.com> wrote:
->
->> To be honest, Or, this completely slipped my mind. I'll add it to my
->to-do list.
->> If it's OK with you, I'd prefer to get this set of patches in as-is and
->> add the egress qos stuff later. A lot of people have been asking for
->> these patches, so I'd rather not delay for this feature.
->
->Mitch, looking on the patch series I see that except for two patches
->([PATCH 1/5] pci: Add SR-IOV convenience functions and macros and
->[PATCH 2/4] libnetlink: Modify parser to track the first duplicated
->attributes) seven other patches have to be changed/enhanced to
->incorporate the egress qos mapping. If you prefer to do that later
->rather then now I am fine with that, but lets not leave that a side.
->
->Or.
+On Tue, 2010-02-02 at 06:35 -0500, Jon Masters wrote:
 
-Yeah, now that I've had a while to think about it, I agree. It's much
-less painful to make the change now.
+> I think there's something more fundamental going on here.
 
-Dave and Stephen, please drop these patches. I'll update with the priority
-stuff and resubmit.
+What happens is the conntrack code attempts to free
+nf_conntrack_untracked back into the SL[U]B cache from which it
+allocates other ct's. There's just one problem...that's a static struct
+not from the cache. So, this is why we end up with the SLAB being
+corrupted and the address immediately following the
+nf_conntrack_untracked being corrupted.
 
-Thanks for your help, Or.
+I shoved some debug comments into the destroy code to see if we were
+trying to free nf_conntrack_untracked, and bingo. I have shoved a panic
+in there now, will send you a backtrace.
 
--Mitch
+Jon.
+
+
