@@ -1,36 +1,47 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH v2 2/2] virtio_net: Defer skb allocation in receive path
-Date: Tue, 02 Feb 2010 10:07:57 -0800
-Message-ID: <1265134077.672.0.camel@localhost.localdomain>
-References: <1262640344.18773.2.camel@localhost.localdomain>
-	 <20100104211454.GB21488@redhat.com>
-	 <1263236965.11949.1.camel@localhost.localdomain>
-	 <1263416018.29594.1.camel@localhost.localdomain>
-	 <20100113205750.GD21445@redhat.com>
-	 <1263418421.29594.3.camel@localhost.localdomain>
-	 <20100113213736.GF21445@redhat.com>
-	 <1263421428.29594.5.camel@localhost.localdomain>
-	 <20100113224804.GD21686@redhat.com>
-	 <1263429475.29594.8.camel@localhost.localdomain>
-	 <20100129140553.GA4413@redhat.com>
+From: Jon Masters <jonathan@jonmasters.org>
+Subject: Re: [PATCH] netfilter: per netns nf_conntrack_cachep
+Date: Tue, 02 Feb 2010 13:16:38 -0500
+Message-ID: <1265134598.2861.191.camel@tonnant>
+References: <1264813832.2793.446.camel@tonnant>
+	 <1265023437.2848.30.camel@edumazet-laptop>
+	 <1265035970.2848.50.camel@edumazet-laptop>
+	 <b6fcc0a1002010658j4f52a9b8kf10e4bb07a2f1075@mail.gmail.com>
+	 <1265036548.2848.55.camel@edumazet-laptop>
+	 <1265108690.2861.118.camel@tonnant> <1265110504.2861.135.camel@tonnant>
+	 <1265129192.2861.141.camel@tonnant> <4B685756.8010107@trash.net>
+	 <1265130426.2861.158.camel@tonnant>
+	 <b6fcc0a1002020958u17315624u4d54d06a413be6bb@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Amit Shah <amit.shah@redhat.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20100129140553.GA4413@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dallas.jonmasters.org ([72.29.103.172]:49552 "EHLO
+	dallas.jonmasters.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754272Ab0BBSRE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 13:17:04 -0500
+In-Reply-To: <b6fcc0a1002020958u17315624u4d54d06a413be6bb@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-01-29 at 16:05 +0200, Michael S. Tsirkin wrote:
-> 
-> Now that's in, how does the send patch look? 
+On Tue, 2010-02-02 at 19:58 +0200, Alexey Dobriyan wrote:
 
-Thanks. I will submit it today. It's a simple patch.
+> Yes, moving to init_net-only function is fine.
 
-Shirley
+So moving the "setup up fake conntrack" bits to init_init_net from
+init_net still results in the panic, which means that the use count
+really is dropping to zero and we really are trying to free it when
+using multiple namespaces. Per ns is probably an easier way to go.
+
+Just for kicks, I'll have it error out on attempting to free to see if I
+can get this box to stay up for a while.
+
+Jon.
+
 
