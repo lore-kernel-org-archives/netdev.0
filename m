@@ -1,65 +1,47 @@
 From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [PATCH net-next-2.6 09/13] net-caif: add CAIF netdevice
-Date: Tue, 02 Feb 2010 15:17:57 +0100
-Message-ID: <4B683415.9030708@trash.net>
-References: <1264028130-14364-1-git-send-email-sjur.brandeland@stericsson.com> <1264028130-14364-10-git-send-email-sjur.brandeland@stericsson.com> <4B580A39.3000805@trash.net> <61D8D34BB13CFE408D154529C120E079032A2145@eseldmw101.eemea.ericsson.se>
+Date: Tue, 02 Feb 2010 15:19:44 +0100
+Message-ID: <4B683480.8010100@trash.net>
+References: <1264028130-14364-1-git-send-email-sjur.brandeland@stericsson.com>	 <1264028130-14364-10-git-send-email-sjur.brandeland@stericsson.com>	 <4B580A39.3000805@trash.net>	 <61D8D34BB13CFE408D154529C120E079032A2145@eseldmw101.eemea.ericsson.se> <1265120080.31341.87.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, marcel@holtmann.org,
-	stefano.babic@babic.homelinux.org, randy.dunlap@oracle.com
-To: =?ISO-8859-15?Q?Sjur_Br=E6ndeland?=
-	<sjur.brandeland@stericsson.com>
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-8859-15?Q?Sjur_Br=E6ndeland?=
+	<sjur.brandeland@stericsson.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, stefano.babic@babic.homelinux.org,
+	randy.dunlap@oracle.com
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:63416 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:63442 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755943Ab0BBOR7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 09:17:59 -0500
-In-Reply-To: <61D8D34BB13CFE408D154529C120E079032A2145@eseldmw101.eemea.ericsson.se>
+	with ESMTP id S1756084Ab0BBOTq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 09:19:46 -0500
+In-Reply-To: <1265120080.31341.87.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sjur Br=E6ndeland wrote:
->>> +	if (priv->config.type =3D=3D CAIF_CHTY_DATAGRAM_LOOP) { +		struct
->>> iphdr *hdr; +		__be32 swap;
->>> +		/* Retrieve IP header. */
->>> +		hdr =3D ip_hdr(skb);
->>> +		/* Change source and destination address. */
->>> +		swap =3D hdr->saddr;
->>> +		hdr->saddr =3D hdr->daddr;
->>> +		hdr->daddr =3D swap;
->> swap()?
->=20
->=20
-> The modem provides a loopback function for the CAIF link type (CAIF_C=
-HTY_DATAGRAM_LOOP).
-> This is useful for testing the physical link between modem and host.
-> In this scenario we need to swap src and destination ip address.
-> I'll move this to a separate function in next patch set.
+Marcel Holtmann wrote:
+> Hi Sjur,
+> 
+>>>> +int chnl_net_ioctl(unsigned int cmd, unsigned long arg, bool
+>>>> +from_user_land) { +	struct chnl_net *priv;
+>>>> +	int result = -1;
+>>>> +	struct chnl_net *dev;
+>>>> +	struct net_device *netdevptr;
+>>>> +	int ret;
+>>>> +	struct ifreq ifreq;
+>>>> +	struct ifcaif_param param;
+>>>> +	rtnl_lock();
+>>>> +	if (from_user_land) {
+>>>> +		if (copy_from_user(&ifreq, (const void *)arg, sizeof(ifreq)))
+>>>> +			return -EFAULT; +	} else
+>>>> +		memcpy(&ifreq, (void *)arg, sizeof(ifreq));
+>>> Why do you need both an ioctl and a netlink interface?
+>> Well, I would like to keep support for both netlink and ioctl.
+>> Internally we are using a netlink interface, and oFono is using ioctl to create interfaces.
+> 
+> we could try to convert oFono in using netlink. Shouldn't be that hard
+> as long as it is RTNL. Only the generic netlink is painful in userspace
+> applications with a mainloop.
 
-There is already a swap() function which you can use.
-
->>> +static int ipcaif_newlink(struct net *src_net, struct net_device
->>> *dev, +			  struct nlattr *tb[], struct nlattr *data[]) { +	int err=
-;
->>> +	struct chnl_net *caifdev;
->>> +	ASSERT_RTNL();
->>> +	caifdev =3D netdev_priv(dev);
->>> +	caif_netlink_parms(data, &caifdev->config);
->>> +	err =3D register_netdevice(dev);
->>> +	if (err) {
->>> +		pr_warning("CAIF: %s(): device rtml registration failed\n", +			=
-=20
->>> __func__); +		goto out;
->>> +	}
->>> +	dev_hold(dev);
->> What is this reference used for? You don't have a dellink function,
->> so this looks like a leak.=20
->=20
-> I don't think it leaks because I do dev_put in chnl_net_uninit,
-> but you're right - I don't really need this. I'll remove the=20
-> dev_hold and dev_put completely in next patch-set.
-
-But it wouldn't get released when deleting a link using netlink
-I think since without a dellink function I don't see what would
-invoke chnl_net_uninit(). Anyways, removing it will fix this :)
+I would prefer that too.
