@@ -1,86 +1,57 @@
-From: akpm@linux-foundation.org
-Subject: [patch 1/1] net/rds: remove uses of NIPQUAD, use %pI4
-Date: Tue, 02 Feb 2010 14:43:59 -0800
-Message-ID: <201002022244.o12Mhx7D019239@imap1.linux-foundation.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] sky2:  receive dma mapping error handling
+Date: Tue, 02 Feb 2010 23:44:37 +0100
+Message-ID: <87aavrdzqi.fsf@basil.nowhere.org>
+References: <4B60707F.1000608@majjas.com> <20100127095614.14313677@nehalam>
+	<4B608128.7090607@majjas.com> <4B6089C7.4010803@majjas.com>
+	<4B61ADF1.7060705@majjas.com> <4B61BEA4.1030905@majjas.com>
+	<20100128090835.0d93e53a@nehalam> <4B61DB79.4080703@majjas.com>
+	<20100128223447.GC3109@del.dom.local> <4B621316.8070308@majjas.com>
+	<20100128225621.GD3109@del.dom.local> <4B6216B9.1010802@majjas.com>
+	<20100128153643.0fca3c51@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, joe@perches.com,
-	andy.grover@oracle.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Breuer <mbreuer@majjas.com>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
+	Don Fry <pcnet32@verizon.net>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Matt Carlson <mcarlson@broadcom.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:54408 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754630Ab0BBWof (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 17:44:35 -0500
+Received: from one.firstfloor.org ([213.235.205.2]:35878 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757113Ab0BBWom (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 17:44:42 -0500
+In-Reply-To: <20100128153643.0fca3c51@nehalam> (Stephen Hemminger's message of "Thu, 28 Jan 2010 15:36:43 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
+Stephen Hemminger <shemminger@linux-foundation.org> writes:
 
-Signed-off-by: Joe Perches <joe@perches.com>
-Cc: Andy Grover <andy.grover@oracle.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
+> -	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
+> -		re->frag_addr[i] = pci_map_page(pdev,
+> +
+> +map_page_error:
+> +	while (--i >= 0) {
+> +		pci_unmap_page(pdev, re->frag_addr[i],
+> +			       skb_shinfo(skb)->frags[i].size,
+> +			       PCI_DMA_FROMDEVICE);
+> +	}
+> +
+> +	pci_unmap_single(pdev, re->data_addr, pci_unmap_len(re, data_size),
+> +			 PCI_DMA_FROMDEVICE);
 
- net/rds/tcp_connect.c |    7 +++----
- net/rds/tcp_listen.c  |    6 +++---
- net/rds/tcp_send.c    |    4 ++--
- 3 files changed, 8 insertions(+), 9 deletions(-)
+Better add a helper somewhere to do this, doesn't make sense
+to duplicate this in all drivers (lots of drivers have similar
+problems)
 
-diff -puN net/rds/tcp_connect.c~net-rds-remove-uses-of-nipquad-use-%pi4 net/rds/tcp_connect.c
---- a/net/rds/tcp_connect.c~net-rds-remove-uses-of-nipquad-use-%pi4
-+++ a/net/rds/tcp_connect.c
-@@ -90,8 +90,8 @@ int rds_tcp_conn_connect(struct rds_conn
- 
- 	ret = sock->ops->bind(sock, (struct sockaddr *)&src, sizeof(src));
- 	if (ret) {
--		rdsdebug("bind failed with %d at address %u.%u.%u.%u\n",
--		     ret, NIPQUAD(conn->c_laddr));
-+		rdsdebug("bind failed with %d at address %pI4\n",
-+			 ret, &conn->c_laddr);
- 		goto out;
- 	}
- 
-@@ -108,8 +108,7 @@ int rds_tcp_conn_connect(struct rds_conn
- 				 O_NONBLOCK);
- 	sock = NULL;
- 
--	rdsdebug("connect to address %u.%u.%u.%u returned %d\n",
--		 NIPQUAD(conn->c_faddr), ret);
-+	rdsdebug("connect to address %pI4 returned %d\n", &conn->c_faddr, ret);
- 	if (ret == -EINPROGRESS)
- 		ret = 0;
- 
-diff -puN net/rds/tcp_listen.c~net-rds-remove-uses-of-nipquad-use-%pi4 net/rds/tcp_listen.c
---- a/net/rds/tcp_listen.c~net-rds-remove-uses-of-nipquad-use-%pi4
-+++ a/net/rds/tcp_listen.c
-@@ -66,9 +66,9 @@ static int rds_tcp_accept_one(struct soc
- 
- 	inet = inet_sk(new_sock->sk);
- 
--	rdsdebug("accepted tcp %u.%u.%u.%u:%u -> %u.%u.%u.%u:%u\n",
--		  NIPQUAD(inet->inet_saddr), ntohs(inet->inet_sport),
--		  NIPQUAD(inet->inet_daddr), ntohs(inet->inet_dport));
-+	rdsdebug("accepted tcp %pI4:%u -> %pI4:%u\n",
-+		 &inet->inet_saddr, ntohs(inet->inet_sport),
-+		 &inet->inet_daddr, ntohs(inet->inet_dport));
- 
- 	conn = rds_conn_create(inet->inet_saddr, inet->inet_daddr,
- 			       &rds_tcp_transport, GFP_KERNEL);
-diff -puN net/rds/tcp_send.c~net-rds-remove-uses-of-nipquad-use-%pi4 net/rds/tcp_send.c
---- a/net/rds/tcp_send.c~net-rds-remove-uses-of-nipquad-use-%pi4
-+++ a/net/rds/tcp_send.c
-@@ -193,9 +193,9 @@ out:
- 			rds_tcp_stats_inc(s_tcp_sndbuf_full);
- 			ret = 0;
- 		} else {
--			printk(KERN_WARNING "RDS/tcp: send to %u.%u.%u.%u "
-+			printk(KERN_WARNING "RDS/tcp: send to %pI4 "
- 			       "returned %d, disconnecting and reconnecting\n",
--			       NIPQUAD(conn->c_faddr), ret);
-+			       &conn->c_faddr, ret);
- 			rds_conn_drop(conn);
- 		}
- 	}
-_
+I remember looking at this some time ago but for some reason
+the patches never made it out.
+
+-Andi
+
+-- 
+ak@linux.intel.com -- Speaking for myself only.
