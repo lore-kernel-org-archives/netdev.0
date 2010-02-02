@@ -1,49 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1 V5] net: Add Aeroflex Gaisler 10/100/1G Ethernet
- MAC driver
-Date: Tue, 02 Feb 2010 07:31:22 -0800 (PST)
-Message-ID: <20100202.073122.120457083.davem@davemloft.net>
-References: <1264664629-25128-1-git-send-email-kristoffer@gaisler.com>
-	<1264664629-25128-2-git-send-email-kristoffer@gaisler.com>
+Subject: Re: [PATCH] igmp: fix ip_mc_sf_allow race [v5]
+Date: Tue, 02 Feb 2010 07:32:39 -0800 (PST)
+Message-ID: <20100202.073239.209986619.davem@davemloft.net>
+References: <4B42E252.1080405@gmail.com>
+	<1262724742-5232-1-git-send-email-fleitner@redhat.com>
+	<20100128161338.GB3544@sysclose.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: kristoffer@gaisler.com
+Cc: netdev@vger.kernel.org, dlstevens@us.ibm.com,
+	eric.dumazet@gmail.com
+To: fbl@sysclose.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45602
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45609
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756010Ab0BBPbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 10:31:09 -0500
-In-Reply-To: <1264664629-25128-2-git-send-email-kristoffer@gaisler.com>
+	by vger.kernel.org with ESMTP id S1756359Ab0BBPc1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 10:32:27 -0500
+In-Reply-To: <20100128161338.GB3544@sysclose.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kristoffer Glembo <kristoffer@gaisler.com>
-Date: Thu, 28 Jan 2010 08:43:49 +0100
+From: Flavio Leitner <fbl@sysclose.org>
+Date: Thu, 28 Jan 2010 14:13:38 -0200
 
-> +	struct amba_prom_registers *prom_regs;
-> +	unsigned int addr;
- ...
-> +	irqs = (int *) of_get_property(ofdev->node, "interrupts", NULL);
-> +	prom_regs = (struct amba_prom_registers *) of_get_property(ofdev->node, "reg", NULL);
- ...
-> +	addr = prom_regs->phys_addr;
- ...
-> +struct amba_prom_registers {
-> +	unsigned int phys_addr;
-> +	unsigned int reg_size;
-> +};
+> Hello,
+> 
+> This is another version considering the suggestions. Thanks!
+> I didn't convert to list_head yet because a lot more code needs
+> to be changed so I'd rather leave that to another patch.
+> 8<---------
+> 
+> Almost all igmp functions accessing inet->mc_list are protected by
+> rtnl_lock(), but there is one exception which is ip_mc_sf_allow(),
+> so there is a chance of either ip_mc_drop_socket or ip_mc_leave_group
+> remove an entry while ip_mc_sf_allow is running causing a crash.
+> 
+> Signed-off-by: Flavio Leitner <fleitner@redhat.com>
 
-These kinds of constructs should never be necessary in an OF driver.
-
-The device probing layer calculates OF device resources that you can
-use to obtain the register (op->resource[]) and IRQ (op->irq[])
-mappings portably.
-
-And you use of_ioremap() on the resource object to map the register
-I/O space properly, and of_iounmap() it on unload.
-
-See drivers/net/niu.c:niu_of_probe() for an example.
-
-Please fix this up, thank you.
+Applied to net-next-2.6, thanks.
