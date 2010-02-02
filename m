@@ -1,77 +1,105 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net-next-2.6] bonding: Remove net_device_stats from bonding struct
-Date: Tue, 02 Feb 2010 13:40:06 -0800
-Message-ID: <16493.1265146806@death.nxdomain.ibm.com>
-References: <20100202000648.GA30286@serverengines.com>
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Ajit Khaparde <ajitk@serverengines.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:59461 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753104Ab0BBVkL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Feb 2010 16:40:11 -0500
-Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
-	by e1.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o12Lac1q032082
-	for <netdev@vger.kernel.org>; Tue, 2 Feb 2010 16:36:38 -0500
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o12LeAVt095394
-	for <netdev@vger.kernel.org>; Tue, 2 Feb 2010 16:40:10 -0500
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o12Le91r019094
-	for <netdev@vger.kernel.org>; Tue, 2 Feb 2010 19:40:10 -0200
-In-reply-to: <20100202000648.GA30286@serverengines.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] seastar - SeaStar Ethernet driver
+Date: Tue, 02 Feb 2010 13:42:51 -0800 (PST)
+Message-ID: <20100202.134251.15604523.davem@davemloft.net>
+References: <20100202205845.GE5246@hawkeye.sandia.gov>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ktpedre@sandia.gov
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100202205845.GE5246@hawkeye.sandia.gov>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ajit Khaparde <ajitkhaparde@gmail.com> wrote:
+From: "Kevin Pedretti" <ktpedre@sandia.gov>
+Date: Tue, 2 Feb 2010 13:58:45 -0700
 
->There is no need to maintain stats in the bonding structure.
->Use the instance of net_device_stats in netdevice.
->
->Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+> +void seastar_setup_htb_bi(uint32_t idr)
 
-	Note that the accumulation of stats across the slaves is done
-into a separate local instance of net_device_stats, so partial results
-shouldn't be visible.
+Please use the in-kernel sized types "u32", "u16", etc.
+instead of "uint32_t" et al.
 
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> +extern void
+> +seastar_ip_tx_cmd(
+> +	struct ss_priv		*ssp,
+> +	uint16_t		nid,
+> +	uint16_t		length,
+> +	uint64_t		address,
+> +	uint16_t		pending_index
+> +);
+> +
+> +
+> +void
+> +seastar_setup_htb_bi(
+> +	uint32_t		idr
+> +);
+> +
+> +
+> +extern int
+> +seastar_hw_init(
+> +	struct ss_priv		*ssp
+> +);
 
-	-J
+Please fix the formatting of these function declarations,
+something like:
 
->---
-> drivers/net/bonding/bond_main.c |    2 +-
-> drivers/net/bonding/bonding.h   |    1 -
-> 2 files changed, 1 insertions(+), 2 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 6221936..1787e3c 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -3742,7 +3742,7 @@ static int bond_close(struct net_device *bond_dev)
-> static struct net_device_stats *bond_get_stats(struct net_device *bond_dev)
-> {
-> 	struct bonding *bond = netdev_priv(bond_dev);
->-	struct net_device_stats *stats = &bond->stats;
->+	struct net_device_stats *stats = &bond_dev->stats;
-> 	struct net_device_stats local_stats;
-> 	struct slave *slave;
-> 	int i;
->diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->index 558ec13..257a7a4 100644
->--- a/drivers/net/bonding/bonding.h
->+++ b/drivers/net/bonding/bonding.h
->@@ -197,7 +197,6 @@ struct bonding {
-> 	s8	 send_grat_arp;
-> 	s8	 send_unsol_na;
-> 	s8	 setup_by_slave;
->-	struct   net_device_stats stats;
-> #ifdef CONFIG_PROC_FS
-> 	struct   proc_dir_entry *proc_entry;
-> 	char     proc_file_name[IFNAMSIZ];
->-- 
->1.6.3.3
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+extern void seastar_ip_tx_cmd(struct ss_priv *ssp,
+			      uint16_t nid,
+			      uint16_t length,
+			      uint64_t address,
+			      uint16_t pending_index);
+
+extern void seastar_setup_htb_bi(uint32_t idr);
+
+extern int seastar_hw_init(struct ss_priv *ssp);
+
+And again use "u16" instead of "uint16_t" etc.
+
+There are many bad code formatting cases like this in your
+driver, lease fix them all up.
+
+> +static int ss_open(struct net_device *netdev)
+> +{
+> +	struct ss_priv *ssp = netdev_priv(netdev);
+> +	int i;
+> +
+> +	netif_start_queue(netdev);
+> +
+> +	for (i = 0; i < NUM_SKBS; i++) {
+> +		ssp->skb_table_phys[i] = 0;
+> +		ssp->skb_table_virt[i] = 0;
+> +		refill_skb(netdev, i);
+> +	}
+> +
+> +	return 0;
+> +}
+
+You shouldn't call netif_start_queue() until you are completely
+done initializing the chip.  Packets can start being transmitted
+to the driver the exact moment that function returns.
+
+> +static int eth2ss(struct ss_priv *ssp, struct sk_buff *skb)
+ ...
+> +static int ss2eth(struct sk_buff *skb)
+
+This device can only transmit IPv4 packets and can only receive IPv4
+packets?
+
+> +#ifdef CONFIG_PM
+> +static int ss_suspend(struct pci_dev *pdev, pm_message_t state)
+> +{
+> +	return -ENOSYS;
+> +}
+> +
+> +
+> +static int ss_resume(struct pci_dev *pdev)
+> +{
+> +	return -ENOSYS;
+> +}
+> +#endif
+
+If you don't support suspend and resume, simply leave the
+method pointers unassigned, there is no need to provide
+NOP routines like this.
