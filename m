@@ -1,64 +1,49 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 02/86] dccp: revert buggy auto-loading of dccp module
-Date: Tue, 2 Feb 2010 10:39:29 -0500
-Message-ID: <20100202153929.GA12697@hmsreliant.think-freely.org>
-References: <recent-dccp-bug-fixes-jan-2010>
- <1265005087-5549-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1265005087-5549-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1265005087-5549-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <20100201122119.GC25094@hmsreliant.think-freely.org>
- <53767.148.187.160.35.1265123175.squirrel@148.187.160.35>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] net: Handle vlan packets in
+ skb_gso_segment()
+Date: Tue, 02 Feb 2010 07:45:34 -0800 (PST)
+Message-ID: <20100202.074534.109997141.davem@davemloft.net>
+References: <1264454194.28852.130.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: sri@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46545 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756448Ab0BBPje (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 10:39:34 -0500
-Content-Disposition: inline
-In-Reply-To: <53767.148.187.160.35.1265123175.squirrel@148.187.160.35>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39077
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751790Ab0BBPpW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 10:45:22 -0500
+In-Reply-To: <1264454194.28852.130.camel@w-sridhar.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 02, 2010 at 03:06:15PM -0000, gerrit@erg.abdn.ac.uk wrote:
-> > --- a/net/dccp/probe.c
-> > +++ b/net/dccp/probe.c
-> > @@ -161,7 +161,8 @@ static __init int dccpprobe_init(void)
-> >  	if (!proc_net_fops_create(&init_net, procname, S_IRUSR,
-> > &dccpprobe_fops))
-> >  		goto err0;
-> >
-> > -	ret = try_then_request_module((register_jprobe(&dccp_send_probe) == 0),
-> > +	try_then_request_module(
-> > +		((ret = register_jprobe(&dccp_send_probe)) == 0),
-> >  					"dccp");
-> >  	if (ret)
-> >  		goto err1;
-> 
-> Apologies for the late response -- delays are sometimes possible due to
-> day job. The only problem that I had with this patch was that it was
-> apparently not tested, causing the described problems.
-> 
-> 
-> > I've not tested it, but this should do it,
-> > without re-breaking the silent dependency.
-> 
-> I will test it and get back to you until tomorrow morning (GMT),
-> if it works I'll also push it out in the test tree.
-> 
-> Thanks a lot for getting back and devising a different route.
-> 
-Thanks, and apologies for being brusque.  I just didn't want to fix what is
-clearly a problem in what you describe by rebreaking a previously seen problem.
-I expect this should work just fine.  Let me know if it doesn't and I'll
-resurrect my test bed here and take a look
-Neil
+From: Sridhar Samudrala <sri@us.ibm.com>
+Date: Mon, 25 Jan 2010 13:16:34 -0800
 
+> Handle VLAN packets in skb_gso_segment(). Currently, when large
+> VLAN packets are sent via virtio_net on guest and tun on host, 
+> skb_gso_segment() fails with EPROTONOSUPPORT.
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+ ...
+> @@ -1672,6 +1672,12 @@ struct sk_buff *skb_gso_segment(struct sk_buff *skb, int features)
+>  
+> 	skb_reset_mac_header(skb);
+> 	skb->mac_len = skb->network_header - skb->mac_header;
+> +	if (ntohs(type) == ETH_P_8021Q) {
+> +		skb->protocol = vlan_eth_hdr(skb)->h_vlan_encapsulated_proto;
+> +		type = skb->protocol;
+> +		skb->mac_len += VLAN_HLEN;
+> +		skb_set_network_header(skb, skb->mac_len);
+> +	}
+> 	__skb_pull(skb, skb->mac_len);
+>  
+
+You can't do this.
+
+Now, VLAN packets that are GSO handled will show up differently to
+sniffers than those which do not get GSO handling.
+
+You really can't pop the MAC header and modify the skb->protocol
+here.
