@@ -1,72 +1,36 @@
-From: Jon Masters <jonathan@jonmasters.org>
-Subject: Re: [PATCH] netfilter: per netns nf_conntrack_cachep
-Date: Tue, 02 Feb 2010 02:02:07 -0500
-Message-ID: <1265094127.2861.112.camel@tonnant>
-References: <1264813832.2793.446.camel@tonnant>
-	 <1264816634.2793.505.camel@tonnant> <1264816777.2793.510.camel@tonnant>
-	 <1264834704.2919.3.camel@edumazet-laptop>
-	 <1265016745.7499.144.camel@tonnant>
-	 <b6fcc0a1002010136k7e78a998p31a9e7464c2e8d44@mail.gmail.com>
-	 <1265019160.2848.14.camel@edumazet-laptop>
-	 <b6fcc0a1002010225u4e74f9f0q633d73038234dc37@mail.gmail.com>
-	 <1265023437.2848.30.camel@edumazet-laptop>
-	 <1265035970.2848.50.camel@edumazet-laptop>
-	 <1265085391.2861.106.camel@tonnant>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1265085391.2861.106.camel@tonnant>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 05/10] drivers/net/davinci_emac.c: Fix continuation line formats
+Date: Mon,  1 Feb 2010 23:22:11 -0800
+Message-ID: <0bcecb6f7b478b564d700dbb7f4344616fcb6bec.1265095094.git.joe@perches.com>
+References: <cover.1265095093.git.joe@perches.com>
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1265095093.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-02-01 at 23:36 -0500, Jon Masters wrote:
-> On Mon, 2010-02-01 at 15:52 +0100, Eric Dumazet wrote:
-> 
-> > [PATCH] netfilter: per netns nf_conntrack_cachep
-> > 
-> > nf_conntrack_cachep is currently shared by all netns instances, but
-> > because of SLAB_DESTROY_BY_RCU special semantics, this is wrong.
-> > 
-> > If we use a shared slab cache, one object can instantly flight between
-> > one hash table (netns ONE) to another one (netns TWO), and concurrent
-> > reader (doing a lookup in netns ONE, 'finding' an object of netns TWO)
-> > can be fooled without notice, because no RCU grace period has to be
-> > observed between object freeing and its reuse.
-> > 
-> > We dont have this problem with UDP/TCP slab caches because TCP/UDP
-> > hashtables are global to the machine (and each object has a pointer to
-> > its netns).
-> > 
-> > If we use per netns conntrack hash tables, we also *must* use per netns
-> > conntrack slab caches, to guarantee an object can not escape from one
-> > namespace to another one.
-> > 
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> 
-> You're totally right, I'd missed this (RCU behavior wrt SLAB caches was
-> one of these black magic voodoo things until Peter Z. set me straight
-> with his explanation that it only applies to the freeing of the cache
-> itself, not the objects - that makes sense in the grand scheme of what
-> RCU is trying to achieve, and so in theory, yeah we could just verify
-> the ct object we get back out of the cache is from the same ns, should
-> work just as well as doing per-ns caches, but not as clean IMO). I'm
-> still not sure it explains the specific corruption I'm seeing, but I
-> just made some coffee and put on some T. Rex to help me think.
+String constants that are continued on subsequent lines with \
+are not good.
 
-It happens in the kmem_cache_free in nf_conntrack_free (as I can
-trivially confirm with printk), so you're almost certainly right, but I
-am just shoving in a bunch of debug code equivalent to the logic in SLUB
-kmem cache freeing to see precisely how that pointer corruption occurs,
-mostly for curiosity, and to confirm for sure what happens.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/davinci_emac.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-Jon.
-
-
+diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+index 33c4fe2..faffad4 100644
+--- a/drivers/net/davinci_emac.c
++++ b/drivers/net/davinci_emac.c
+@@ -2672,8 +2672,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 	priv->emac_base_phys = res->start + pdata->ctrl_reg_offset;
+ 	size = res->end - res->start + 1;
+ 	if (!request_mem_region(res->start, size, ndev->name)) {
+-		dev_err(emac_dev, "DaVinci EMAC: failed request_mem_region() \
+-					 for regs\n");
++		dev_err(emac_dev, "DaVinci EMAC: failed request_mem_region() for regs\n");
+ 		rc = -ENXIO;
+ 		goto probe_quit;
+ 	}
+-- 
+1.6.6.rc0.57.gad7a
