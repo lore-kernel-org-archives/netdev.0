@@ -1,139 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Tue, 02 Feb 2010 17:41:46 -0800 (PST)
-Message-ID: <20100202.174146.268117027.davem@davemloft.net>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: Re: [PATCH]  hrtimer, softirq: Fix hrtimer->softirq trampoline
+Date: Wed, 03 Feb 2010 09:47:38 +0800
+Message-ID: <4B68D5BA.5030707@cn.fujitsu.com>
+References: <4B66A670.70503@cn.fujitsu.com>	 <20100202074914.GD11081@gondor.apana.org.au>	 <20100202085117.7a5c3530@penta.localdomain> <1265120401.24455.306.camel@laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Yury Polyanskiy <ypolyans@princeton.edu>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, polyanskiy@gmail.com,
+	Thomas Gleixner <tglx@linutronix.de>,
+	lkml <linux-kernel@vger.kernel.org>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:56505 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S932219Ab0BCBqJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Feb 2010 20:46:09 -0500
+In-Reply-To: <1265120401.24455.306.camel@laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Peter Zijlstra wrote:
+> On Tue, 2010-02-02 at 08:51 -0500, Yury Polyanskiy wrote:
+>
+> The original email had more information:
+>
+>   
+>> {IN-HARDIRQ-W} state was registered at:
+>>   [<c04718dc>] __lock_acquire+0xa9c/0x1890
+>>   [<c047274f>] lock_acquire+0x7f/0xf0
+>>   [<c0762958>] _raw_spin_lock+0x38/0x50
+>>   [<c072b5ca>] xfrm_timer_handler+0x3a/0x260
+>>   [<c0447d9d>] __hrtimer_tasklet_trampoline+0xd/0x10
+>>   [<c04634ce>] hrtimer_run_queues+0x15e/0x2a0
+>>   [<c045146d>] run_local_timers+0xd/0x20
+>>   [<c04514b4>] update_process_times+0x34/0x70
+>>   [<c046ce8a>] tick_periodic+0x2a/0x80
+>>   [<c046cefe>] tick_handle_periodic+0x1e/0x90
+>>   [<c0768377>] smp_apic_timer_interrupt+0x57/0x8b
+>>   [<c076382f>] apic_timer_interrupt+0x2f/0x34
+>>   [<c0401d3b>] cpu_idle+0x4b/0x80
+>>   [<c074e0d7>] rest_init+0x67/0x70
+>>   [<c0956874>] start_kernel+0x30e/0x314
+>>   [<c095609e>] i386_start_kernel+0x9e/0xa5
+>>     
+>
+> Which indicates we were called from hardirq context, it appears that
+> that hrtimer_is_hres_active() case is indeed faulty. Not sure if I made
+> a mistake when I wrote that or if we changed hrtimer behaviour
+> afterwards, but the hrtimer fallback is still from hardirq context.
+>
+> Which would seem to suggest the following patch:
+>
+> ---
+> Subject: hrtimer, softirq: Fix hrtimer->softirq trampoline
+>
+> hrtimers callbacks are always done from hardirq context, either the
+> jiffy tick interrupt or the hrtimer device interrupt.
+>
+> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+>
+>   
 
-Besides the usual trickle of wired and wireless driver fixes.
-we have:
+With this patch, the inconsistent lock state INFO is gone. Thanks.
 
-1) bond_open() doesn't return sane error return values, from Stephem
-   Hemminger.
+Wei Yongjun
 
-2) Off-by-one and expectation masking netfilter fixes from
-   Patrick McHardy.
-
-3) The connector's notification code was buggy, it's hard to fix
-   but since nobody uses it simply kill it off.  Fix from Evgeniy Polyakov.
-
-I anticipate two more bug fixes coming my way which we really should
-get into 2.6.33-final:
-
-1) netfilter conntrack namespace handling is bugged and this
-   kills KVM folks using libvirt, problem is fully diagnosed and
-   patch should be in the works as I type this
-
-2) sky2 transmit DMA mapping bug causes IOMMU mapping exhaustion
-   and other nasties, fix posted I just want it to cook for
-   another day or two
-
-Please pull, thanks a lot!
-
-The following changes since commit ab658321f32770b903a4426e2a6fae0392757755:
-  Linus Torvalds (1):
-        Merge branch 'for-linus' of git://git.kernel.org/.../tiwai/sound-2.6
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Ajit Khaparde (1):
-      be2net: Bug fix to support newer generation of BE ASIC
-
-Alexander Duyck (1):
-      igbvf: fix issue w/ mapped_as_page being left set after unmap
-
-Andrei Emeltchenko (2):
-      Bluetooth: Remove double free of SKB pointer in L2CAP
-      Bluetooth: Fix memory leak in L2CAP
-
-Bastien Nocera (1):
-      Bluetooth: Use the control channel for raw HID reports
-
-Ben Hutchings (2):
-      starfire: clean up properly if firmware loading fails
-      cdc_ether: Partially revert "usbnet: Set link down initially ..."
-
-Choi, David (1):
-      drivers/net: ks8851_mll ethernet network driver
-
-David S. Miller (4):
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
-      be2net: Fix memset() arg ordering.
-      Merge branch 'master' of git://git.kernel.org/.../holtmann/bluetooth-2.6
-      Merge branch 'master' of git://git.kernel.org/.../kaber/nf-2.6
-
-Evgeniy Polyakov (1):
-      connector: Delete buggy notification code.
-
-Felix Fietkau (2):
-      ath9k: fix beacon slot/buffer leak
-      ath9k: fix eeprom INI values override for 2GHz-only cards
-
-Johannes Berg (1):
-      iwlwifi: fix pointer signedness warning
-
-John Fastabend (2):
-      ixgbe: set the correct DCB bit for pg tx settings
-      ixgbe: if ixgbe_copy_dcb_cfg is going to fail learn about it early
-
-Mike Frysinger (1):
-      Bluetooth: Redo checks in IRQ handler for shared IRQ support
-
-Patrick McHardy (2):
-      netfilter: nf_conntrack_sip: fix off-by-one in compact header parsing
-      netfilter: ctnetlink: fix expectation mask dump
-
-Sathya Perla (1):
-      be2net: use eq-id to calculate cev-isr reg offset
-
-Shan Wei (1):
-      ipv6: conntrack: Add member of user to nf_ct_frag6_queue structure
-
-Vikram Kandukuri (1):
-      Bluetooth: Add DFU driver for Atheros Bluetooth chipset AR3011
-
-Zhu Yi (1):
-      mac80211: fix NULL pointer dereference when ftrace is enabled
-
-stephen hemminger (1):
-      bonding: bond_open error return value
-
- drivers/bluetooth/Kconfig               |   13 ++-
- drivers/bluetooth/Makefile              |    1 +
- drivers/bluetooth/ath3k.c               |  187 +++++++++++++++++++++++++++++++
- drivers/bluetooth/bluecard_cs.c         |    4 +-
- drivers/bluetooth/bt3c_cs.c             |    4 +-
- drivers/bluetooth/btuart_cs.c           |    4 +-
- drivers/bluetooth/dtl1_cs.c             |    4 +-
- drivers/connector/connector.c           |  175 -----------------------------
- drivers/net/benet/be.h                  |    5 +
- drivers/net/benet/be_cmds.h             |    3 +-
- drivers/net/benet/be_main.c             |   27 ++++-
- drivers/net/bonding/bond_main.c         |    2 +-
- drivers/net/igbvf/netdev.c              |    1 +
- drivers/net/ixgbe/ixgbe_dcb_nl.c        |   16 +--
- drivers/net/ks8851_mll.c                |    4 +-
- drivers/net/starfire.c                  |    5 +-
- drivers/net/usb/cdc_ether.c             |    2 +-
- drivers/net/wireless/ath/ath9k/hw.c     |    7 +-
- drivers/net/wireless/ath/ath9k/main.c   |    2 +-
- drivers/net/wireless/iwlwifi/iwl-sta.c  |    4 +-
- include/linux/connector.h               |   32 ------
- net/bluetooth/hidp/core.c               |   70 ++++++------
- net/bluetooth/l2cap.c                   |   14 +--
- net/ipv6/netfilter/nf_conntrack_reasm.c |    1 +
- net/mac80211/driver-trace.h             |    2 +-
- net/netfilter/nf_conntrack_netlink.c    |    3 +-
- net/netfilter/nf_conntrack_sip.c        |    2 +-
- 27 files changed, 312 insertions(+), 282 deletions(-)
- create mode 100644 drivers/bluetooth/ath3k.c
