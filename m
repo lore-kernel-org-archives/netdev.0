@@ -1,44 +1,43 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v3] can: mcp251x: Move to threaded interrupts
-	instead of workqueues.
-Date: Wed, 03 Feb 2010 21:14:23 +0100
-Message-ID: <4B69D91F.20809@grandegger.com>
-References: <cabda6421002030939w3788a40en38955d31dd765583@mail.gmail.com>
-	<1265218794-25808-1-git-send-email-chripell@fsfe.org>
+From: Jon Masters <jonathan@jonmasters.org>
+Subject: Re: [PATCH] netfilter: per netns nf_conntrack_cachep
+Date: Wed, 03 Feb 2010 15:21:19 -0500
+Message-ID: <1265228479.2861.312.camel@tonnant>
+References: <1264813832.2793.446.camel@tonnant>
+	 <1265023437.2848.30.camel@edumazet-laptop>
+	 <1265035970.2848.50.camel@edumazet-laptop>
+	 <b6fcc0a1002010658j4f52a9b8kf10e4bb07a2f1075@mail.gmail.com>
+	 <1265036548.2848.55.camel@edumazet-laptop>
+	 <1265108690.2861.118.camel@tonnant> <1265110504.2861.135.camel@tonnant>
+	 <1265129192.2861.141.camel@tonnant> <4B685756.8010107@trash.net>
+	 <1265130426.2861.158.camel@tonnant>
+	 <b6fcc0a1002020958u17315624u4d54d06a413be6bb@mail.gmail.com>
+	 <1265134598.2861.191.camel@tonnant> <4B6870AF.6060109@trash.net>
+	 <4B6967BC.600@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1265218794-25808-1-git-send-email-chripell-VaTbYqLCNhc@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: Alexey Dobriyan <adobriyan@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4B6967BC.600@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Christian Pellegrin wrote:
-> This patch addresses concerns about efficiency of handling incoming
-> packets. Handling of interrupts is done in a threaded interrupt handler
-> which has a smaller latency than workqueues. This change needed a rework
-> of the locking scheme that was much simplified. Some other (more or less
-> longstanding) bugs are fixed: utilization of just half of the RX
-> buffers, useless wait for interrupt on open, more reliable reset
-> sequence. The MERR interrupt is not used anymore: it overloads the CPU
-> in error-passive state without any additional information. One shot mode
-> is disabled because it's not clear if it can be handled efficiently on
-> this CAN controller.
-> 
-> Signed-off-by: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
+On Wed, 2010-02-03 at 13:10 +0100, Patrick McHardy wrote:
 
-Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+> Jon, could you give this patch a try please?
+> plain text document attachment (x)
+> commit 056ff3e3bd1563969a311697323ff929df94415c
+> Author: Patrick McHardy <kaber@trash.net>
+> Date:   Wed Feb 3 12:58:06 2010 +0100
 
-Thanks.
+Patrick, can I regard this as the official fix for 2.6.33?
 
-Wolfgang
+Jon.
+
+
