@@ -1,35 +1,51 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH] seastar - SeaStar Ethernet driver
-Date: Wed, 03 Feb 2010 08:12:00 -0800
-Message-ID: <4B69A050.20103@xenotime.net>
-References: <20100202205845.GE5246@hawkeye.sandia.gov> <20100202.134251.15604523.davem@davemloft.net> <1265160242.15726.20.camel@hawkeye.sandia.gov>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] IPv6:Send an ICMPv6 "Fragment Reassembly Timeout" message
+ when enabling connection track
+Date: Wed, 03 Feb 2010 17:42:02 +0100
+Message-ID: <4B69A75A.2020908@trash.net>
+References: <4B62A338.6020106@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Kevin Pedretti <ktpedre@sandia.gov>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([72.52.64.118]:50297 "HELO xenotime.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1757358Ab0BCQMD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Feb 2010 11:12:03 -0500
-Received: from chimera.site ([71.245.98.113]) by xenotime.net for <netdev@vger.kernel.org>; Wed, 3 Feb 2010 08:12:00 -0800
-In-Reply-To: <1265160242.15726.20.camel@hawkeye.sandia.gov>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>,
+	eric.dumazet@gmail.com, randy.dunlap@oracle.com, mst@redhat.com,
+	johannes@sipsolutions.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, pablo@netfilter.org,
+	ebiederm@xmission.com, adobriyan@gmail.com, brian.haley@hp.com,
+	shemminger@vyatta.com, akpm@linux-foundation.org,
+	netfilter-devel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Shan Wei <shanwei@cn.fujitsu.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4B62A338.6020106@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/02/10 17:24, Kevin Pedretti wrote:
-> Thank you all for the review comments.  I believe most of the issues
-> have been addressed in the patch just posted.  I apologize if there are
-> still issues, and certainly appreciate further comments.
->
->
-> Randy Dunlap's comments:
-> 2. Odd spacing ->  I'm not seeing this. Spacing looks correct to me.
+Shan Wei wrote:
+> @@ -349,17 +378,20 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
+>  	else
+>  		fq->q.fragments = skb;
+>  
+> -	skb->dev = NULL;
+>  	fq->q.stamp = skb->tstamp;
+>  	fq->q.meat += skb->len;
+>  	atomic_add(skb->truesize, &nf_init_frags.mem);
+>  
+>  	/* The first fragment.
+>  	 * nhoffset is obtained from the first fragment, of course.
+> +	 * Reserve dev for sending an ICMP "Fragment Reassembly Timeout"
+> +	 * message.
+>  	 */
+>  	if (offset == 0) {
+>  		fq->nhoffset = nhoff;
+>  		fq->q.last_in |= INET_FRAG_FIRST_IN;
+> +	} else {
+> +		skb->dev = NULL;
+>  	}
 
-Thanks.  Seems to be something that Thunderbird 3.0 is doing for me.  :(
+We need to store the iif and perform a lookup later just as in IPv4
+because the device is not reference counted and might disappear while
+the fragments are queued.
 
--- 
-~Randy
+Besides this, the patch looks good.
