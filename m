@@ -1,53 +1,63 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
+From: David Daney <ddaney@caviumnetworks.com>
 Subject: Re: [RFC] NAPI as kobject proposal
-Date: Wed, 3 Feb 2010 13:41:56 -0800
-Message-ID: <20100203134156.086e3e70@nehalam>
-References: <20100129101839.36944ba5@nehalam>
-	<1265232216.2116.46.camel@achroite.uk.solarflarecom.com>
-	<20100203212641.GB30031@ZenIV.linux.org.uk>
+Date: Wed, 03 Feb 2010 13:38:45 -0800
+Message-ID: <4B69ECE5.7060803@caviumnetworks.com>
+References: <20100129101839.36944ba5@nehalam> <1265232216.2116.46.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
 	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49149 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932777Ab0BCVmJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Feb 2010 16:42:09 -0500
-In-Reply-To: <20100203212641.GB30031@ZenIV.linux.org.uk>
+Received: from smtp2.caviumnetworks.com ([209.113.159.134]:17683 "EHLO
+	smtp2.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932657Ab0BCVy2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 16:54:28 -0500
+In-Reply-To: <1265232216.2116.46.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 3 Feb 2010 21:26:41 +0000
-Al Viro <viro@ZenIV.linux.org.uk> wrote:
-
-> On Wed, Feb 03, 2010 at 09:23:36PM +0000, Ben Hutchings wrote:
-> > On Fri, 2010-01-29 at 10:18 -0800, Stephen Hemminger wrote:
-> > > The NAPI interface structure in current kernels is managed by the driver.
-> > > As part of receive packet steering there is a requirement to add an
-> > > additional parameter to this for the CPU map. And this map needs to
-> > > have an API to set it.
-> > > 
-> > > The right way to do this in the kernel model is to make NAPI into
-> > > a kobject and associate it back with the network device (parent).
-> > > This isn't wildly difficult but does change some of the API for
-> > > network device drivers because:
-> > >   1. They need to handle another possible error on setup
-> > >   2. NAPI object needs to be dynamically allocated
-> > >      separately (not as part of netdev_priv)
-> > >   3. Driver should pass index that can be uses as part of
-> > >      name (easier than scanning)
+Ben Hutchings wrote:
+> On Fri, 2010-01-29 at 10:18 -0800, Stephen Hemminger wrote:
+>> The NAPI interface structure in current kernels is managed by the driver.
+>> As part of receive packet steering there is a requirement to add an
+>> additional parameter to this for the CPU map. And this map needs to
+>> have an API to set it.
+>>
+>> The right way to do this in the kernel model is to make NAPI into
+>> a kobject and associate it back with the network device (parent).
+>> This isn't wildly difficult but does change some of the API for
+>> network device drivers because:
+>>   1. They need to handle another possible error on setup
+>>   2. NAPI object needs to be dynamically allocated
+>>      separately (not as part of netdev_priv)
+>>   3. Driver should pass index that can be uses as part of
+>>      name (easier than scanning)
+>>
+>> Eventually, there will be:
+>>   /sys/class/net/eth0/napi0/
+>>                             weight
+>>                             cpumap
 > 
-> 4. Lifetime rules become oh-so-fscking-interesting?
+> I think the NAPI objects should be created as children of a bus device
+> and then linked from the net device directories, e.g.
+> 
+> /sys/devices/.../ net/eth0/
+>                            napi0 -> ../../napi/napi0
+>                       eth1/
+>                            napi0 -> ../../napi/napi0
+>                   napi/napi0/
+>                              weight
+>                              cpumap
+> 
 
-My original proposal doesn't go far enough. I am doing a bigger
-version that changes API to:
-   napi_alloc / napi_release
+This seems right.
 
-The lifetime problem isn't that bad because the napi is a child
-of network device object.  Make it a child bus object is a bigger
-problem because then network device can come and go.
+Some drivers have a single napi object logically associated with 
+multiple interfaces.  Although the current architecture forces us to 
+associate the napi object with a single net_device, it would be nice to 
+move towards something that allows sharing a napi object between 
+multiple devices.
 
--- 
+David Daney
