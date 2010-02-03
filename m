@@ -1,116 +1,87 @@
 From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-next PATCH 3/3] qlge: Add watchdog timer.
-Date: Wed,  3 Feb 2010 09:24:13 -0800
-Message-ID: <1265217853-26959-4-git-send-email-ron.mercer@qlogic.com>
+Subject: [net-next PATCH 2/3] qlge: Add check for eeh failure when closing device.
+Date: Wed,  3 Feb 2010 09:24:12 -0800
+Message-ID: <1265217853-26959-3-git-send-email-ron.mercer@qlogic.com>
 References: <1265217853-26959-1-git-send-email-ron.mercer@qlogic.com>
 Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from avexch1.qlogic.com ([198.70.193.115]:1451 "EHLO
 	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932706Ab0BCRbJ (ORCPT
+	with ESMTP id S932719Ab0BCRbJ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 12:31:09 -0500
 In-Reply-To: <1265217853-26959-1-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add periodic heartbeat register read to trigger the eeh
-recovery process.
-We see cases where an eeh error was injected and the slot was
-suspended.  An asic access attempt is required to flush the recovery process,
-but without interrupts the process can stall.
-Adding this periodic register read causes the recovery process to begin.
+Fix crash where resources are freed twice on an eeh recovery failure.
+If eeh recovery fails we set a flag to indicate to close() that
+resources have been freed.
 
 Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 ---
  drivers/net/qlge/qlge.h      |    1 +
- drivers/net/qlge/qlge_main.c |   26 ++++++++++++++++++++++++++
- 2 files changed, 27 insertions(+), 0 deletions(-)
+ drivers/net/qlge/qlge_main.c |   14 ++++++++++++++
+ 2 files changed, 15 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
-index 780a387..ebfd177 100644
+index 9169c4c..780a387 100644
 --- a/drivers/net/qlge/qlge.h
 +++ b/drivers/net/qlge/qlge.h
-@@ -2145,6 +2145,7 @@ struct ql_adapter {
- 	struct completion ide_completion;
- 	struct nic_operations *nic_ops;
- 	u16 device_id;
-+	struct timer_list timer;
- 	atomic_t lb_count;
+@@ -2005,6 +2005,7 @@ enum {
+ 	QL_SELFTEST = 9,
+ 	QL_LB_LINK_UP = 10,
+ 	QL_FRC_COREDUMP = 11,
++	QL_EEH_FATAL = 12,
  };
  
+ /* link_status bit definitions */
 diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index 7e00029..8f2a5ae 100644
+index 87ec720..7e00029 100644
 --- a/drivers/net/qlge/qlge_main.c
 +++ b/drivers/net/qlge/qlge_main.c
-@@ -4574,6 +4574,20 @@ static const struct net_device_ops qlge_netdev_ops = {
- 	.ndo_vlan_rx_kill_vid	= qlge_vlan_rx_kill_vid,
- };
+@@ -3929,6 +3929,16 @@ static int qlge_close(struct net_device *ndev)
+ {
+ 	struct ql_adapter *qdev = netdev_priv(ndev);
  
-+static void ql_timer(unsigned long data)
-+{
-+	struct ql_adapter *qdev = (struct ql_adapter *)data;
-+	u32 var = 0;
-+
-+	var = ql_read32(qdev, STS);
-+	if (pci_channel_offline(qdev->pdev)) {
-+		QPRINTK(qdev, IFUP, ERR, "EEH STS = 0x%.08x.\n", var);
-+		return;
++	/* If we hit pci_channel_io_perm_failure
++	 * failure condition, then we already
++	 * brought the adapter down.
++	 */
++	if (test_bit(QL_EEH_FATAL, &qdev->flags)) {
++		QPRINTK(qdev, DRV, ERR, "EEH fatal did unload.\n");
++		clear_bit(QL_EEH_FATAL, &qdev->flags);
++		return 0;
 +	}
 +
-+	mod_timer(&qdev->timer, jiffies + HZ);
-+}
-+
- static int __devinit qlge_probe(struct pci_dev *pdev,
- 				const struct pci_device_id *pci_entry)
- {
-@@ -4625,6 +4639,13 @@ static int __devinit qlge_probe(struct pci_dev *pdev,
- 		pci_disable_device(pdev);
- 		return err;
- 	}
-+	/* Start up the timer to trigger EEH if
-+	 * the bus goes dead
-+	 */
-+	init_timer(&qdev->timer);
-+	qdev->timer.data = (unsigned long)qdev;
-+	qdev->timer.function = ql_timer;
-+	mod_timer(&qdev->timer, jiffies + HZ);
- 	ql_link_off(qdev);
- 	ql_display_dev_info(ndev);
- 	atomic_set(&qdev->lb_count, 0);
-@@ -4645,6 +4666,8 @@ int ql_clean_lb_rx_ring(struct rx_ring *rx_ring, int budget)
- static void __devexit qlge_remove(struct pci_dev *pdev)
+ 	/*
+ 	 * Wait for device to recover from a reset.
+ 	 * (Rarely happens, but possible.)
+@@ -4677,6 +4687,7 @@ static pci_ers_result_t qlge_io_error_detected(struct pci_dev *pdev,
+ 					       enum pci_channel_state state)
  {
  	struct net_device *ndev = pci_get_drvdata(pdev);
 +	struct ql_adapter *qdev = netdev_priv(ndev);
-+	del_timer_sync(&qdev->timer);
- 	unregister_netdev(ndev);
- 	ql_release_all(pdev);
- 	pci_disable_device(pdev);
-@@ -4757,6 +4780,7 @@ static void qlge_io_resume(struct pci_dev *pdev)
- 		QPRINTK(qdev, IFUP, ERR,
- 			"Device was not running prior to EEH.\n");
- 	}
-+	mod_timer(&qdev->timer, jiffies + HZ);
- 	netif_device_attach(ndev);
- }
  
-@@ -4773,6 +4797,7 @@ static int qlge_suspend(struct pci_dev *pdev, pm_message_t state)
- 	int err;
- 
- 	netif_device_detach(ndev);
-+	del_timer_sync(&qdev->timer);
- 
- 	if (netif_running(ndev)) {
- 		err = ql_adapter_down(qdev);
-@@ -4817,6 +4842,7 @@ static int qlge_resume(struct pci_dev *pdev)
- 			return err;
+ 	switch (state) {
+ 	case pci_channel_io_normal:
+@@ -4690,6 +4701,8 @@ static pci_ers_result_t qlge_io_error_detected(struct pci_dev *pdev,
+ 	case pci_channel_io_perm_failure:
+ 		dev_err(&pdev->dev,
+ 			"%s: pci_channel_io_perm_failure.\n", __func__);
++		ql_eeh_close(ndev);
++		set_bit(QL_EEH_FATAL, &qdev->flags);
+ 		return PCI_ERS_RESULT_DISCONNECT;
  	}
  
-+	mod_timer(&qdev->timer, jiffies + HZ);
- 	netif_device_attach(ndev);
+@@ -4720,6 +4733,7 @@ static pci_ers_result_t qlge_io_slot_reset(struct pci_dev *pdev)
  
- 	return 0;
+ 	if (ql_adapter_reset(qdev)) {
+ 		QPRINTK(qdev, DRV, ERR, "reset FAILED!\n");
++		set_bit(QL_EEH_FATAL, &qdev->flags);
+ 		return PCI_ERS_RESULT_DISCONNECT;
+ 	}
+ 
 -- 
 1.6.0.2
 
