@@ -1,55 +1,104 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCHv2 08/11] fec: fix uninitialized rx buffer usage
-Date: Wed, 3 Feb 2010 11:38:32 -0700
-Message-ID: <fa686aa41002031038i6b058c92g39bcf948cc9cb3ce@mail.gmail.com>
-References: <cover.1265173246.git.amit.kucheria@verdurent.com>
-	<ccc89dd7a6035abf5a78680404a2b30b9e025353.1265173480.git.amit.kucheria@canonical.com>
-	<ec63e5978fd5ac5d308ede5916e648ba925818eb.1265173480.git.amit.kucheria@canonical.com>
-	<f10f79e7313ecdeeb59ab881795baedf2430c636.1265173480.git.amit.kucheria@canonical.com>
-	<240f12ca87d7666f31263aabc620a9ec197cd8ff.1265173480.git.amit.kucheria@canonical.com>
-	<cover.1265173480.git.amit.kucheria@canonical.com> <752ae69adb57d4f73fa011ba380cea1b927b9c8b.1265173480.git.amit.kucheria@canonical.com>
-	<e46b06510f7eb6ca51ea8b96335b2d32ec8bf6f8.1265173480.git.amit.kucheria@canonical.com>
-	<fa686aa41002030846v5044d585w7f4291f89c4b7ad@mail.gmail.com>
-	<37786d4b1002031033s15d0b24et82c3f0e45112ae65@mail.gmail.com>
+From: "Justin P. Mattock" <justinmattock@gmail.com>
+Subject: Re: [PATCH] sky2:  receive dma mapping error handling
+Date: Wed, 03 Feb 2010 10:48:36 -0800
+Message-ID: <4B69C504.5010602@gmail.com>
+References: <20100128223447.GC3109@del.dom.local>	<4B621316.8070308@majjas.com>	<20100128225621.GD3109@del.dom.local>	<4B6216B9.1010802@majjas.com>	<20100128153643.0fca3c51@nehalam>	<4B645EF4.4050701@majjas.com>	<20100131003449.GA11935@del.dom.local>	<4B650D53.2010607@majjas.com>	<4B65D0F9.2020602@majjas.com>	<4B65FD12.7090101@majjas.com>	<20100131221835.GA3317@del.dom.local>	<20100201102018.7b597992@nehalam>	<4B68F664.6050007@majjas.com>	<4B69A897.7030408@majjas.com>	<20100203085618.6662cc6f@nehalam>	<4B69AD5C.5030601@majjas.com>	<4B69BF05.6020802@gmail.com> <20100203102558.75d7a919@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: List Linux Kernel <linux-kernel@vger.kernel.org>,
-	Rob Herring <r.herring@freescale.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux@arm.linux.org.uk,
-	s.hauer@pengutronix.de, valentin.longchamp@epfl.ch,
-	daniel@caiaq.de, Dinh.Nguyen@freescale.com, bryan.wu@canonical.com
-To: Amit Kucheria <amit.kucheria@canonical.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Michael Breuer <mbreuer@majjas.com>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
+	Don Fry <pcnet32@verizon.net>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Matt Carlson <mcarlson@broadcom.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <37786d4b1002031033s15d0b24et82c3f0e45112ae65@mail.gmail.com>
+In-Reply-To: <20100203102558.75d7a919@nehalam>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 3, 2010 at 11:33 AM, Amit Kucheria
-<amit.kucheria@canonical.com> wrote:
-> On Wed, Feb 3, 2010 at 8:46 AM, Grant Likely <grant.likely@secretlab.ca> wrote:
->> On Tue, Feb 2, 2010 at 10:16 PM, Amit Kucheria
->> <amit.kucheria@canonical.com> wrote:
->>> From: Rob Herring <r.herring@freescale.com>
->>>
->>> The fec driver was enabling receive buffer descriptor without allocating
->>> the buffers. Make sure the buffer descriptors are initialized to not
->>> start receiving packets.
->>>
->>> Open also calls fec_restart after the rx buffers are allocated. With the code
->>> in fec_restart, it zeroes out the buffer descriptors that have just been
->>> setup.
->>
->> fec related patches 8 & 9 look okay to me.
->>
->> g.
->>
->> --
->> Grant Likely, B.Sc., P.Eng.
->> Secret Lab Technologies Ltd.
+On 02/03/10 10:25, Stephen Hemminger wrote:
+> On Wed, 03 Feb 2010 10:23:01 -0800
+> "Justin P. Mattock"<justinmattock@gmail.com>  wrote:
 >
-> Can I take that as an Acked-by?
+>> On 02/03/10 09:07, Michael Breuer wrote:
+>>> On 02/03/2010 11:56 AM, Stephen Hemminger wrote:
+>>>> On Wed, 03 Feb 2010 11:47:19 -0500
+>>>> Michael Breuer<mbreuer@majjas.com>  wrote:
+>>>>
+>>>>> Tracked this down. The status being returned is 0x3c0080 - good flow
+>>>>> control packets. Nothing is actually being dropped (confirmed by packet
+>>>>> trace on switch compared with packet trace on server).
+>>>>>
+>>>>> I whipped up a trivial patch to not count these as dropped packets and
+>>>>> will post to netdev.
+>>>>>
+>>>>> I'm not really sure what the driver should be doing in this case, but
+>>>>> resubmit seems to work.
+>>>> Looks like a flow control negotiation issue. You probably turned off
+>>>> flow control on the Linux side, but the switch is still doing flow
+>>>> control.
+>>>>
+>>> According to the driver:
+>>> Feb 3 12:03:02 mail kernel: sky2 eth0: Link is up at 1000 Mbps, full
+>>> duplex, flow control both
+>>>
+>>> So if the rx flow control packet status is due to flow control being
+>>> disabled, then there's a different issue.
+>>>
+>>>
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at http://vger.kernel.org/majordomo-info.html
+>>> Please read the FAQ at http://www.tux.org/lkml/
+>>>
+>>
+>>
+>> hmm.. after an hour or so I'm not seeing anything.
+>> from what I remember I turned the machine on in the
+>> hotel, then left the system there as I went out for a few hours
+>> (so maybe I need to wait).
+>>
+>> Anyways I did keep dmesg of when this occurred, basically
+>> the log was spammed with these:
+>>
+>> [  863.294057] sky2 eth0: rx error, status 0x580002 length 88
+>> [  865.646645] sky2 eth0: rx error, status 0x600002 length 96
+>> [ 1286.420471] sky2 eth0: rx error, status 0x600002 length 96
+>> [ 1286.499459] sky2 eth0: rx error, status 0x600002 length 96
+>> [ 1746.903826] sky2 eth0: rx error, status 0x600002 length 96
+>> [ 1754.263692] sky2 eth0: rx error, status 0x600002 length 96
+>> [ 1755.309360] sky2 eth0: rx error, status 0x680002 length 104
+>> [ 2213.256294] sky2 eth0: rx error, status 0x600002 length 96
+>> [ 2219.653342] sky2 eth0: rx error, status 0x580002 length 88
+>> [ 2221.673601] sky2 eth0: rx error, status 0x600002 length 96
+>> [ 2679.654655] sky2 eth0: rx error, status 0x680002 length 104
+>> [ 2692.315058] sky2 eth0: rx error, status 0x500002 length 80
+>> [ 2694.349612] sky2 eth0: rx error, status 0x580002 length 88
+>> [ 2703.676717] sky2 eth0: rx error, status 0x700002 length 112
+>> [ 2703.826375] sky2 eth0: rx error, status 0x600002 length 96
+>> [ 3187.504843] sky2 eth0: rx error, status 0x600002 length 96
+>> [ 3189.560744] sky2 eth0: rx error, status 0x600002 length 96
+>> [ 3672.475719] sky2 eth0: rx error, status 0x680002 length 104
+>> [ 3676.696959] sky2 eth0: rx error, status 0x680002 length 104
+>>
+>> but while using the system with this, I didn't notice anything
+>> out of the ordinary.
+>> (if this fires off I can try a bisect for you guys, but right now
+>> since I'm not seeing anything, might be a different story);
+>>
+>
+> You were on a crappy hotel switch. Those are all CRC errors.
+>
+>
+>
 
-of course.
 
-g.
+alright.. makes sense cause I'm not getting
+any of this now at home.
+
+Justin P. Mattock
