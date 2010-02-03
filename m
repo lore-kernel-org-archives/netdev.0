@@ -1,100 +1,187 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: bad unlock balance detected during stress
-Date: Wed, 3 Feb 2010 13:05:44 -0700
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FDD5CAF52@rrsmsx501.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [RFC] bonding: better transmit hash
+Date: Wed, 03 Feb 2010 12:09:53 -0800
+Message-ID: <27487.1265227793@death.nxdomain.ibm.com>
+References: <20100203111337.1085b772@nehalam>
+Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jpirko@redhat.com>,
+	bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:62804 "EHLO mga03.intel.com"
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:56151 "EHLO e1.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757770Ab0BCUFq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 15:05:46 -0500
-Content-Language: en-US
+	id S1757770Ab0BCUKS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Feb 2010 15:10:18 -0500
+Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
+	by e1.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o13K6ftC009294
+	for <netdev@vger.kernel.org>; Wed, 3 Feb 2010 15:06:41 -0500
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o13KAF5T127682
+	for <netdev@vger.kernel.org>; Wed, 3 Feb 2010 15:10:15 -0500
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o13KAE2M031842
+	for <netdev@vger.kernel.org>; Wed, 3 Feb 2010 18:10:15 -0200
+In-reply-to: <20100203111337.1085b772@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I got this panic while running netperf stress test using recent pull from net-next:
+Stephen Hemminger <shemminger@vyatta.com> wrote:
 
-=====================================
-[ BUG: bad unlock balance detected! ]
--------------------------------------
-netperf/25568 is trying to release lock (rcu_read_lock) at:
-[<ffffffff8133078c>] rcu_read_unlock+0x0/0x23
-but there are no more locks to release!
+>This is a prototype of improved bonding link hashing. It adds a couple
+>of things:
+>   * support IPV6 addresses for L3/L4
+>   * support other protocols beside TCP/UDP
+>   * use all of mac address (not just last byte)
+>   * use jhash for better mixing
+>   * use skb header field access to handle vlan's etc properly
+>
+>It no longer is a pure xor, does that matter?
 
-other info that might help us debug this:
-2 locks held by netperf/25568:
- #0:  (&q->timer){......}, at: [<ffffffff810500fe>] __run_timers+0xb6/0x1c8
- #1:  (&(&q->lock)->rlock){......}, at: [<ffffffff813a26cb>] _raw_spin_lock+0x9/0xb
+	Maybe.  
 
-stack backtrace:
-Pid: 25568, comm: netperf Not tainted 2.6.33-rc5-net-next-igb-tag020210 #29
-Call Trace:
- <IRQ>  [<ffffffff8106e251>] print_unlock_inbalance_bug+0xca/0xd5
- [<ffffffff8106e31a>] lock_release_non_nested+0xbe/0x200
- [<ffffffff8133078c>] ? rcu_read_unlock+0x0/0x23
- [<ffffffff813a270d>] ? _raw_write_unlock+0x9/0xb
- [<ffffffff8133078c>] ? rcu_read_unlock+0x0/0x23
- [<ffffffff8106e48d>] lock_release_nested+0x31/0x87
- [<ffffffff8106e7b1>] __lock_release+0x3f/0x58
- [<ffffffff8133078c>] ? rcu_read_unlock+0x0/0x23
- [<ffffffff8106eba4>] lock_release+0x50/0x6a
- [<ffffffff813307a8>] rcu_read_unlock+0x1c/0x23
- [<ffffffff8133136c>] ip_expire+0xfa/0x116
- [<ffffffff8105017f>] __run_timers+0x137/0x1c8
- [<ffffffff810500fe>] ? __run_timers+0xb6/0x1c8
- [<ffffffff81331272>] ? ip_expire+0x0/0x116
- [<ffffffff8105024d>] run_timer_softirq+0x3d/0x42
- [<ffffffff810488ed>] __do_softirq+0x96/0x132
- [<ffffffff81003c4c>] call_softirq+0x1c/0x28
- [<ffffffff8100553e>] do_softirq+0x33/0x69
- [<ffffffff810489bf>] irq_exit+0x36/0x7e
- [<ffffffff8101a47d>] smp_apic_timer_interrupt+0x34/0x43
- [<ffffffff81003713>] apic_timer_interrupt+0x13/0x20
- <EOI> 
-huh, entered ffffffff81331272 with preempt_count 00000101, exited with 00000100?
-------------[ cut here ]------------
-kernel BUG at kernel/timer.c:1035!
-invalid opcode: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
-last sysfs file: /sys/devices/pci0000:00/0000:00:03.0/0000:02:00.1/irq
-CPU 7 
-Pid: 25568, comm: netperf Not tainted 2.6.33-rc5-net-next-igb-tag020210 #29 S5520HC/S5520HC
-RIP: 0010:[<ffffffff810501c0>]  [<ffffffff810501c0>] __run_timers+0x178/0x1c8
-RSP: 0000:ffff8801f58c3e50  EFLAGS: 00010282
-RAX: 0000000000000057 RBX: ffff8801f58c3e70 RCX: 0000000000000000
-RDX: 0000000000004847 RSI: 0000000000000003 RDI: ffff8801e5120000
-RBP: ffff8801f58c3ed0 R08: 0000000000000001 R09: 00000000fffff8d4
-R10: 00000000fffff8d4 R11: ffffffff81625b18 R12: 0000000000000101
-R13: ffff880367f0f460 R14: ffff880369078000 R15: ffff8801e5121fd8
-FS:  00007f98cb24f6e0(0000) GS:ffff8801f58c0000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-CR2: 00007f98cb268000 CR3: 00000001e791e000 CR4: 00000000000006e0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process netperf (pid: 25568, threadinfo ffff8801e5120000, task ffff8801e7be8000)
-Stack:
- ffffffff810500fe 0000000000000000 ffffffff81331272 ffff880367f0f400
-<0> ffffffff81f541a8 0000000000000000 ffffffff815c4474 ffff8801e5121fd8
-<0> ffff880367f0dc60 ffff880367f0fa60 ffff8801f58c3ec0 ffff880369078000
-Call Trace:
- <IRQ> 
- [<ffffffff810500fe>] ? __run_timers+0xb6/0x1c8
- [<ffffffff81331272>] ? ip_expire+0x0/0x116
- [<ffffffff8105024d>] run_timer_softirq+0x3d/0x42
- [<ffffffff810488ed>] __do_softirq+0x96/0x132
- [<ffffffff81003c4c>] call_softirq+0x1c/0x28
- [<ffffffff8100553e>] do_softirq+0x33/0x69
- [<ffffffff810489bf>] irq_exit+0x36/0x7e
- [<ffffffff8101a47d>] smp_apic_timer_interrupt+0x34/0x43
- [<ffffffff81003713>] apic_timer_interrupt+0x13/0x20
- <EOI> 
-Code: df e8 b9 e9 01 00 45 3b a7 44 e0 ff ff 74 20 41 8b 8f 44 e0 ff ff 44 89 e2 48 8b 75 90 48 c7 c7 0e fe 56 81 31 c0 e8 34 2b ff ff <0f> 0b eb fe 4c 89 f7 e8 d9 fd ff ff 4c 8b 6d c0 48 8d 45 c0 49 
-RIP  [<ffffffff810501c0>] __run_timers+0x178/0x1c8
- RSP <ffff8801f58c3e50>
----[ end trace e94a4fa06a0233c4 ]---
+	The layer3+4 algorithm in particular was set up to purposely
+mimic the algorithm on specific switches.  I'm not sure if there are
+users who have dependencies on any of the algorithms being a precise
+match for a switch's algorithm (in order to have both directions of a
+given flow end up on the same slave).
 
-Thanks,
-Emil
+	Will the jhash preserve 802.3ad packet ordering requirements for
+the layer2 and layer2+3 options (this is the property that all packets
+for a given flow will be sent over the same slave)?
+
+	How does the computational expense for the jhash compare to the
+existing XOR stuff?
+
+	I also noted one line, below, that removes whitespace.
+
+	-J
+
+
+>--- a/drivers/net/bonding/bond_main.c	2010-02-03 10:42:50.998328499 -0800
+>+++ b/drivers/net/bonding/bond_main.c	2010-02-03 11:08:35.034851960 -0800
+>@@ -3587,17 +3587,28 @@ void bond_unregister_arp(struct bonding 
+>  * Hash for the output device based upon layer 2 and layer 3 data. If
+>  * the packet is not IP mimic bond_xmit_hash_policy_l2()
+>  */
+>-static int bond_xmit_hash_policy_l23(struct sk_buff *skb, int count)
+>+static int bond_xmit_hash_policy_l23(const struct sk_buff *skb, int count)
+> {
+>-	struct ethhdr *data = (struct ethhdr *)skb->data;
+>-	struct iphdr *iph = ip_hdr(skb);
+>+	u32 h;
+>
+>-	if (skb->protocol == htons(ETH_P_IP)) {
+>-		return ((ntohl(iph->saddr ^ iph->daddr) & 0xffff) ^
+>-			(data->h_dest[5] ^ data->h_source[5])) % count;
+>+	switch (skb->protocol) {
+>+	case htons(ETH_P_IP):
+>+	{
+>+		const struct iphdr *iph = ip_hdr(skb);
+>+		h = iph->daddr ^ iph->saddr ^ iph->protocol;
+>+		break;
+>+	}
+>+	case htons(ETH_P_IPV6):
+>+	{
+>+		const struct ipv6hdr *iph = ipv6_hdr(skb);
+>+		h = iph->saddr.s6_addr32[3] ^ iph->daddr.s6_addr32[3];
+>+		break;
+>+	}
+>+	default:
+>+		h = skb->protocol;
+> 	}
+>
+>-	return (data->h_dest[5] ^ data->h_source[5]) % count;
+>+	return jhash(eth_hdr(skb), 2*ETH_ALEN, h) % count;
+> }
+>
+> /*
+>@@ -3605,35 +3616,55 @@ static int bond_xmit_hash_policy_l23(str
+>  * the packet is a frag or not TCP or UDP, just use layer 3 data.  If it is
+>  * altogether not IP, mimic bond_xmit_hash_policy_l2()
+>  */
+>-static int bond_xmit_hash_policy_l34(struct sk_buff *skb, int count)
+>+static int bond_xmit_hash_policy_l34(const struct sk_buff *skb, int count)
+> {
+>-	struct ethhdr *data = (struct ethhdr *)skb->data;
+>-	struct iphdr *iph = ip_hdr(skb);
+>-	__be16 *layer4hdr = (__be16 *)((u32 *)iph + iph->ihl);
+>-	int layer4_xor = 0;
+>+	u32 h;
+>+
+>+	switch (skb->protocol) {
+>+	case htons(ETH_P_IP):
+>+	{
+>+		const struct iphdr *iph = ip_hdr(skb);
+>+		h = iph->saddr ^ iph->daddr;
+>
+>-	if (skb->protocol == htons(ETH_P_IP)) {
+>-		if (!(iph->frag_off & htons(IP_MF|IP_OFFSET)) &&
+>+		if (!(iph->frag_off&htons(IP_MF|IP_OFFSET)) &&
+
+	Why squeeze out the spaces here?
+
+> 		    (iph->protocol == IPPROTO_TCP ||
+>-		     iph->protocol == IPPROTO_UDP)) {
+>-			layer4_xor = ntohs((*layer4hdr ^ *(layer4hdr + 1)));
+>-		}
+>-		return (layer4_xor ^
+>-			((ntohl(iph->saddr ^ iph->daddr)) & 0xffff)) % count;
+>+		     iph->protocol == IPPROTO_UDP ||
+>+		     iph->protocol == IPPROTO_UDPLITE ||
+>+		     iph->protocol == IPPROTO_SCTP ||
+>+		     iph->protocol == IPPROTO_DCCP ||
+>+		     iph->protocol == IPPROTO_ESP))
+>+			h ^= *(((u32*)iph) + iph->ihl);
+>
+>+		break;
+>+	}
+>+	case htons(ETH_P_IPV6):
+>+	{
+>+		const struct ipv6hdr *iph = ipv6_hdr(skb);
+>+		h = iph->daddr.s6_addr32[3] ^
+>+		        iph->saddr.s6_addr32[3] ^ iph->nexthdr;
+>+		if (iph->nexthdr == IPPROTO_TCP ||
+>+		    iph->nexthdr == IPPROTO_UDP ||
+>+		    iph->nexthdr == IPPROTO_UDPLITE ||
+>+		    iph->nexthdr == IPPROTO_SCTP ||
+>+		    iph->nexthdr == IPPROTO_DCCP ||
+>+		    iph->nexthdr == IPPROTO_ESP)
+>+			h ^= *(u32*)&iph[1];
+>+		break;
+>+	}
+>+	default:
+>+		h = ntohs(skb->protocol);
+> 	}
+>
+>-	return (data->h_dest[5] ^ data->h_source[5]) % count;
+>+	return jhash(eth_hdr(skb), 2*ETH_ALEN, h) % count;
+> }
+>
+> /*
+>  * Hash for the output device based upon layer 2 data
+>  */
+>-static int bond_xmit_hash_policy_l2(struct sk_buff *skb, int count)
+>+static int bond_xmit_hash_policy_l2(const struct sk_buff *skb, int count)
+> {
+>-	struct ethhdr *data = (struct ethhdr *)skb->data;
+>-
+>-	return (data->h_dest[5] ^ data->h_source[5]) % count;
+>+	return jhash(eth_hdr(skb), 2*ETH_ALEN,
+>+		     ntohs(skb->protocol)) % count;
+> }
+>
+> /*-------------------------- Device entry points ----------------------------*/
+>--- a/drivers/net/bonding/bonding.h	2010-02-03 11:07:43.694540137 -0800
+>+++ b/drivers/net/bonding/bonding.h	2010-02-03 11:07:59.294853950 -0800
+>@@ -204,7 +204,7 @@ struct bonding {
+> #endif /* CONFIG_PROC_FS */
+> 	struct   list_head bond_list;
+> 	struct   dev_mc_list *mc_list;
+>-	int      (*xmit_hash_policy)(struct sk_buff *, int);
+>+	int      (*xmit_hash_policy)(const struct sk_buff *, int);
+> 	__be32   master_ip;
+> 	u16      flags;
+> 	u16      rr_tx_counter;
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
