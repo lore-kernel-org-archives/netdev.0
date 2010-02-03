@@ -1,224 +1,268 @@
-From: "john ye" <johny@asimco.com.cn>
-Subject: [PATCH 2.6.27.7-9-pae #7 SMP 1/1] networking tcp: Writing tcp socket be atomic
-Date: Wed, 3 Feb 2010 17:12:33 +0800
-Message-ID: <474C17045AA24E3F8519EE76BAB47439@JOHNYE1>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: linux-next: manual merge of the trivial tree with the net tree
+Date: Wed, 3 Feb 2010 11:39:47 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1002031136560.15395@pobox.suse.cz>
+References: <20100203133011.75aef1d3.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=gb2312;
-	format=flowed	reply-type=original
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-kernel@vger.kernel.org>
-To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>,
-	<netdev@vger.kernel.org>, <jmorris@namei.org>, <kaber@coreworks.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
+	netdev@vger.kernel.org, Daniel Mack <daniel@caiaq.de>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100203133011.75aef1d3.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 3 Feb 2010, Stephen Rothwell wrote:
+
+> Today's linux-next merge of the trivial tree got a conflict in
+> drivers/net/ppp_generic.c between commit
+> fa44a73cc766c7f3bac71a66d564e0049b800325 ("ppp_generic.c severly
+> whitespace damanged by 9c705260feea6ae329bc6b6d5f6d2ef0227eda0a") from
+> the net tree and commit 09e1aa00f106a476f5b90d94fc0139544bbded75
+> ("tree-wide: fix 'lenght' typo in comments and code") from the trivial
+> tree.
+> 
+> I fixed it up (by using the trivial tree version) and can carry the fix
+> as necessary.
+
+Hi,
+
+I think the best thing is me dropping the net/ and drivers/net hunks of 
+this patch and taking it through Davem's tree ... I have already dropped 
+those hunks from my tree. Dave, the patch is below, please consider 
+applying.
 
 
-Subject: [PATCH 2.6.27.7-9-pae #7 SMP 1/1] networking tcp: Writing tcp =
-socket be atomic
-from: John Ye <johny@asimco.com.cn>
 
-Writing tcp socket is not atomic in current kernel. When a socket is wr=
-itten by
-multi-processes or threads,the other end will read interleaved garbage =
-data.
+From: Daniel Mack <daniel@caiaq.de>
+Subject: [PATCH] net: fix 'lenght' typo in comments and code
 
-This simple patch is to resolve this issue, to make the stream socket w=
-riting
-be atomic under certain data size limit.
+Some misspelled occurences of 'octet' and some comments were also fixed
+as I was on it.
 
-Similar to file system pipe ( with a max atomic write limit ), an atomi=
-c
-socket can be written by multi processes or threads.
+Signed-off-by: Daniel Mack <daniel@caiaq.de>
+Cc: Jiri Kosina <trivial@kernel.org>
+Cc: Joe Perches <joe@perches.com>
+Cc: Junio C Hamano <gitster@pobox.com>
+Signed-off-by: Jiri Kosina <jkosina@suse.cz>
 
-But it=A1=AFs more than pipe. The pipe can only be used by multi proces=
-ses in a
-local system, the atomic stream socket can be used remotely to send dat=
-a
-among machines without user level locking involved.
-
-How to test this patch:
-1) apply the patch to kernel and modules, reboot from the new patched k=
-ernel
-2) #define TCP_ATOMIC 20 in your test.c (TCP_ATOMIC is defined as 20 in=
- kernel)
-3) create a tcp socket, set the atomic option.
-for example:
-        int val =3D 512;
-        int len =3D 4;
-        if(setsockopt(s, IPPROTO_TCP, TCP_ATOMIC, &val, len) =3D=3D -1)=
+diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
+index 2282e72..16cb124 100644
+--- a/drivers/net/ppp_generic.c
++++ b/drivers/net/ppp_generic.c
+@@ -1436,17 +1436,16 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ 		}
+ 
+ 		/*
+-		 *check	if we are on the last channel or
+-		 *we exceded the lenght	of the data	to
+-		 *fragment
++		 * check if we are on the last channel or we exceeded the length
++		 * of the data to fragment
+ 		 */
+ 		if ((nfree <= 0) || (flen > len))
+ 			flen = len;
+ 		/*
+-		 *it is not worth to tx on slow channels:
+-		 *in that case from the resulting flen according to the
+-		 *above formula will be equal or less than zero.
+-		 *Skip the channel in this case
++		 * it is not worth to tx on slow channels:
++		 * in that case from the resulting flen according to the above
++		 * formula will be equal or less than zero.
++		 * skip the channel in this case.
+ 		 */
+ 		if (flen <=	0) {
+ 			pch->avail = 2;
+@@ -1466,7 +1465,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ 			goto noskb;
+ 		q =	skb_put(frag, flen + hdrlen);
+ 
+-		/* make	the	MP header */
++		/* make	the MP header */
+ 		q[0] = PPP_MP >> 8;
+ 		q[1] = PPP_MP;
+ 		if (ppp->flags & SC_MP_XSHORTSEQ) {
+diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
+index f03e2e4..a3f9c3f 100644
+--- a/drivers/net/r6040.c
++++ b/drivers/net/r6040.c
+@@ -578,7 +578,7 @@ static int r6040_rx(struct net_device *dev, int limit)
+ 			/* RX dribble */
+ 			if (err & DSC_RX_ERR_DRI)
+ 				dev->stats.rx_frame_errors++;
+-			/* Buffer lenght exceeded */
++			/* Buffer length exceeded */
+ 			if (err & DSC_RX_ERR_BUF)
+ 				dev->stats.rx_length_errors++;
+ 			/* Packet too long */
+diff --git a/drivers/net/sb1000.c b/drivers/net/sb1000.c
+index 9f83a11..dab3ac7 100644
+--- a/drivers/net/sb1000.c
++++ b/drivers/net/sb1000.c
+@@ -65,7 +65,7 @@ static const int sb1000_debug = 1;
+ 
+ static const int SB1000_IO_EXTENT = 8;
+ /* SB1000 Maximum Receive Unit */
+-static const int SB1000_MRU = 1500; /* octects */
++static const int SB1000_MRU = 1500; /* octets */
+ 
+ #define NPIDS 4
+ struct sb1000_private {
+diff --git a/drivers/net/stmmac/common.h b/drivers/net/stmmac/common.h
+index e49e518..81e5def 100644
+--- a/drivers/net/stmmac/common.h
++++ b/drivers/net/stmmac/common.h
+@@ -169,7 +169,7 @@ struct stmmac_extra_stats {
+ 	unsigned long rx_toolong;
+ 	unsigned long rx_collision;
+ 	unsigned long rx_crc;
+-	unsigned long rx_lenght;
++	unsigned long rx_length;
+ 	unsigned long rx_mii;
+ 	unsigned long rx_multicast;
+ 	unsigned long rx_gmac_overflow;
+diff --git a/drivers/net/stmmac/gmac.c b/drivers/net/stmmac/gmac.c
+index 52586ee..620b204 100644
+--- a/drivers/net/stmmac/gmac.c
++++ b/drivers/net/stmmac/gmac.c
+@@ -257,7 +257,7 @@ static int gmac_coe_rdes0(int ipc_err, int type, int payload_err)
+ 
+ 	/* bits 5 7 0 | Frame status
+ 	 * ----------------------------------------------------------
+-	 *      0 0 0 | IEEE 802.3 Type frame (lenght < 1536 octects)
++	 *      0 0 0 | IEEE 802.3 Type frame (length < 1536 octets)
+ 	 *      1 0 0 | IPv4/6 No CSUM errorS.
+ 	 *      1 0 1 | IPv4/6 CSUM PAYLOAD error
+ 	 *      1 1 0 | IPv4/6 CSUM IP HR error
+@@ -358,7 +358,7 @@ static int gmac_get_rx_frame_status(void *data, struct stmmac_extra_stats *x,
+ 	}
+ 	if (unlikely(p->des01.erx.length_error)) {
+ 		DBG(KERN_ERR "GMAC RX: length_error error\n");
+-		x->rx_lenght++;
++		x->rx_length++;
+ 		ret = discard_frame;
+ 	}
+ #ifdef STMMAC_VLAN_TAG_USED
+diff --git a/drivers/net/stmmac/mac100.c b/drivers/net/stmmac/mac100.c
+index 625171b..1f6b608 100644
+--- a/drivers/net/stmmac/mac100.c
++++ b/drivers/net/stmmac/mac100.c
+@@ -262,7 +262,7 @@ static int mac100_get_rx_frame_status(void *data, struct stmmac_extra_stats *x,
+ 		ret = discard_frame;
+ 
+ 	if (unlikely(p->des01.rx.length_error)) {
+-		x->rx_lenght++;
++		x->rx_length++;
+ 		ret = discard_frame;
+ 	}
+ 	if (unlikely(p->des01.rx.mii_error)) {
+diff --git a/drivers/net/stmmac/stmmac_ethtool.c b/drivers/net/stmmac/stmmac_ethtool.c
+index 694ebe6..9edda5d 100644
+--- a/drivers/net/stmmac/stmmac_ethtool.c
++++ b/drivers/net/stmmac/stmmac_ethtool.c
+@@ -61,7 +61,7 @@ static const struct  stmmac_stats stmmac_gstrings_stats[] = {
+ 	STMMAC_STAT(rx_toolong),
+ 	STMMAC_STAT(rx_collision),
+ 	STMMAC_STAT(rx_crc),
+-	STMMAC_STAT(rx_lenght),
++	STMMAC_STAT(rx_length),
+ 	STMMAC_STAT(rx_mii),
+ 	STMMAC_STAT(rx_multicast),
+ 	STMMAC_STAT(rx_gmac_overflow),
+diff --git a/drivers/net/wimax/i2400m/i2400m-usb.h b/drivers/net/wimax/i2400m/i2400m-usb.h
+index 5cc0f27..9c61e5f 100644
+--- a/drivers/net/wimax/i2400m/i2400m-usb.h
++++ b/drivers/net/wimax/i2400m/i2400m-usb.h
+@@ -105,7 +105,7 @@ static inline void edc_init(struct edc *edc)
+  *
+  * @edc: pointer to error density counter.
+  * @max_err: maximum number of errors we can accept over the timeframe
+- * @timeframe: lenght of the timeframe (in jiffies).
++ * @timeframe: length of the timeframe (in jiffies).
+  *
+  * Returns: !0 1 if maximum acceptable errors per timeframe has been
+  *     exceeded. 0 otherwise.
+diff --git a/drivers/net/wireless/p54/p54spi.c b/drivers/net/wireless/p54/p54spi.c
+index afd26bf..c4e4121 100644
+--- a/drivers/net/wireless/p54/p54spi.c
++++ b/drivers/net/wireless/p54/p54spi.c
+@@ -279,7 +279,7 @@ static void p54spi_power_on(struct p54s_priv *priv)
+ 	enable_irq(gpio_to_irq(p54spi_gpio_irq));
+ 
+ 	/*
+-	 * need to wait a while before device can be accessed, the lenght
++	 * need to wait a while before device can be accessed, the length
+ 	 * is just a guess
+ 	 */
+ 	msleep(10);
+diff --git a/drivers/net/wireless/wl12xx/wl1251_cmd.c b/drivers/net/wireless/wl12xx/wl1251_cmd.c
+index 770f260..ff446a0 100644
+--- a/drivers/net/wireless/wl12xx/wl1251_cmd.c
++++ b/drivers/net/wireless/wl12xx/wl1251_cmd.c
+@@ -103,7 +103,7 @@ int wl1251_cmd_test(struct wl1251 *wl, void *buf, size_t buf_len, u8 answer)
+  * @wl: wl struct
+  * @id: acx id
+  * @buf: buffer for the response, including all headers, must work with dma
+- * @len: lenght of buf
++ * @len: length of buf
+  */
+ int wl1251_cmd_interrogate(struct wl1251 *wl, u16 id, void *buf, size_t len)
  {
-                perror("setsockopt");
-                return -1 ;
-        }
-will set the atomic max data size to 512 bytes
-
-to get the current atomic size for socket s,
-        val =3D 0;
-        len =3D 4;
-        if(getsockopt(s, IPPROTO_TCP, TCP_ATOMIC, &val, &len) =3D=3D -1=
-) {
-                perror("setsockopt");
-                return -1 ;
-        }
-
-
-4) Then, connect to a tcp server, fork a child process.
-let both main process and child process write() or send() its own data =
-block to the server.
-=46rom the server, the received data bytes will be interleaved if no TC=
-P_ATOMIC is set.
-(I have a testing c code ready)
-
-Signed-off-by: John Ye (Seeker) johny@asimco.com.cn
-
----
-
-
---- linux/net/ipv4/tcp.c        2008-12-05 09:48:57.000000000 +0800
-+++ linux/net/ipv4/tcp.c        2010-02-03 15:15:11.000000000 +0800
-@@ -822,6 +822,7 @@
-        int mss_now, size_goal;
-        int err, copied;
-        long timeo;
-+       int atomic;     /* is atomic write? johnye. Feb 2, 2010 */
-
-        lock_sock(sk);
-        TCP_CHECK_TIMER(sk);
-@@ -849,6 +850,11 @@
-        if (sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN))
-                goto do_error;
-
-+
-+        /* for multi-seg data or too big chunk, no atomic. johnye. */
-+       atomic =3D tp->atomic_size;
-+        if(iovlen > 1 || iov->iov_len > atomic) atomic =3D 0;
-+
-        while (--iovlen >=3D 0) {
-                int seglen =3D iov->iov_len;
-                unsigned char __user *from =3D iov->iov_base;
-@@ -889,14 +895,28 @@
-                        if (copy > seglen)
-                                copy =3D seglen;
-
-+                       /* if atomic write. johnye */
-+                       if (atomic)
-+                               copy =3D seglen;
-+
-                        /* Where to copy to? */
-                        if (skb_tailroom(skb) > 0) {
-                                /* We have some space in skb head. Supe=
-rb! */
--                               if (copy > skb_tailroom(skb))
-+                               /* consider atomic write, johnye */
-+                               if (copy > skb_tailroom(skb)) {
-+                                       if(atomic)
-+                                           goto skb_page_start;       =
- /* q mark yet, johnye */
-+
-                                        copy =3D skb_tailroom(skb);
-+                               }
-                                if ((err =3D skb_add_data(skb, from, co=
-py)) !=3D 0)
-                                        goto do_fault;
--                       } else {
-+
-+                               goto skb_page_done;
-+                       //} else {
-+                       }
-+                       skb_page_start:
-+                       {
-                                int merge =3D 0;
-                                int i =3D skb_shinfo(skb)->nr_frags;
-                                struct page *page =3D TCP_PAGE(sk);
-@@ -925,8 +945,17 @@
-                                } else
-                                        off =3D 0;
-
--                               if (copy > PAGE_SIZE - off)
--                                       copy =3D PAGE_SIZE - off;
-+                               /* consider atomic write, johnye */
-+                               if (copy > PAGE_SIZE - off) {
-+                                       if (atomic && page) {
-+                                                put_page(page);
-+                                                TCP_PAGE(sk) =3D page =
-=3D NULL;
-+                                                off =3D 0;
-+                                               merge =3D 0;
-+                                       } else {
-+                                               copy =3D PAGE_SIZE - of=
-f;
-+                                       }
-+                               }
-
-                                if (!sk_wmem_schedule(sk, copy))
-                                        goto wait_for_memory;
-@@ -968,6 +997,7 @@
-
-                                TCP_OFF(sk) =3D off + copy;
-                        }
-+                       skb_page_done:
-
-                        if (!copied)
-                                TCP_SKB_CB(skb)->flags &=3D ~TCPCB_FLAG=
-_PSH;
-@@ -2019,6 +2049,16 @@
-        lock_sock(sk);
-
-        switch (optname) {
-+
-+       /* set the atomic write max size. johnye */
-+        case TCP_ATOMIC:
-+               if(val > 1024) {
-+                       err =3D -EINVAL;
-+                       break;
-+               }
-+               tp->atomic_size =3D val;
-+               break;
-+
-        case TCP_MAXSEG:
-                /* Values greater than interface MTU won't take effect.=
- However
-                 * at the point when this call is done we typically don=
-'t yet
-@@ -2276,6 +2316,12 @@
-                return -EINVAL;
-
-        switch (optname) {
-+
-+       /* get the atomic write max size. johnye */
-+       case TCP_ATOMIC:
-+               val =3D tp->atomic_size;
-+               break;
-+
-        case TCP_MAXSEG:
-                val =3D tp->mss_cache;
-                if (!val && ((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_L=
-ISTEN)))
---- linux/include/linux/tcp.h   2008-10-10 06:13:53.000000000 +0800
-+++ linux/include/linux/tcp.h   2010-02-03 13:54:55.000000000 +0800
-@@ -97,6 +97,8 @@
- #define TCP_CONGESTION         13      /* Congestion control algorithm=
- */
- #define TCP_MD5SIG             14      /* TCP MD5 Signature (RFC2385) =
-*/
-
-+#define        TCP_ATOMIC              20      /* atomic TCP socket wr=
-itting */
-+
- #define TCPI_OPT_TIMESTAMPS    1
- #define TCPI_OPT_SACK          2
- #define TCPI_OPT_WSCALE                4
-@@ -411,6 +413,7 @@
- #endif
-
-        int                     linger2;
-+       u32                     atomic_size;    /* for atomic tcp socke=
-t write, johnye. Feb 2, 2010 */
- };
-
- static inline struct tcp_sock *tcp_sk(const struct sock *sk)
-
-
----=20
+diff --git a/drivers/net/wireless/wl12xx/wl1251_rx.c b/drivers/net/wireless/wl12xx/wl1251_rx.c
+index f84cc89..0a45528 100644
+--- a/drivers/net/wireless/wl12xx/wl1251_rx.c
++++ b/drivers/net/wireless/wl12xx/wl1251_rx.c
+@@ -135,7 +135,7 @@ static void wl1251_rx_body(struct wl1251 *wl,
+ 	rx_buffer = skb_put(skb, length);
+ 	wl1251_mem_read(wl, rx_packet_ring_addr, rx_buffer, length);
+ 
+-	/* The actual lenght doesn't include the target's alignment */
++	/* The actual length doesn't include the target's alignment */
+ 	skb->len = desc->length  - PLCP_HEADER_LENGTH;
+ 
+ 	fc = (u16 *)skb->data;
+diff --git a/drivers/net/wireless/wl12xx/wl1271_cmd.c b/drivers/net/wireless/wl12xx/wl1271_cmd.c
+index c3385b3..1e3d4b0 100644
+--- a/drivers/net/wireless/wl12xx/wl1271_cmd.c
++++ b/drivers/net/wireless/wl12xx/wl1271_cmd.c
+@@ -437,7 +437,7 @@ int wl1271_cmd_test(struct wl1271 *wl, void *buf, size_t buf_len, u8 answer)
+  * @wl: wl struct
+  * @id: acx id
+  * @buf: buffer for the response, including all headers, must work with dma
+- * @len: lenght of buf
++ * @len: length of buf
+  */
+ int wl1271_cmd_interrogate(struct wl1271 *wl, u16 id, void *buf, size_t len)
+ {
+diff --git a/net/dccp/ackvec.h b/net/dccp/ackvec.h
+index 7ea557b..fd278d8 100644
+--- a/net/dccp/ackvec.h
++++ b/net/dccp/ackvec.h
+@@ -73,7 +73,7 @@ struct dccp_ackvec {
+  * @avr_ack_ackno - sequence number being acknowledged
+  * @avr_ack_ptr - pointer into av_buf where this record starts
+  * @avr_ack_nonce - av_ack_nonce at the time this record was sent
+- * @avr_sent_len - lenght of the record in av_buf
++ * @avr_sent_len - length of the record in av_buf
+  */
+ struct dccp_ackvec_record {
+ 	struct list_head avr_node;
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index eb6d097..cb4c91d 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1206,7 +1206,7 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
+ 	 * Let's try using as much space as possible.
+ 	 * Use MTU if total length of the message fits into the MTU.
+ 	 * Otherwise, we need to reserve fragment header and
+-	 * fragment alignment (= 8-15 octects, in total).
++	 * fragment alignment (= 8-15 octets, in total).
+ 	 *
+ 	 * Note that we may need to "move" the data from the tail of
+ 	 * of the buffer to the new fragment when we split
+-- 
+1.6.4.2
