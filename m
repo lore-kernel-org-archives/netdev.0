@@ -1,56 +1,88 @@
-From: Jochen Friedrich <jochen@scram.de>
-Subject: [PATCH] ssb: fix interrupt assignment
-Date: Wed,  3 Feb 2010 21:28:11 +0100
-Message-ID: <1265228891-3066-1-git-send-email-jochen@scram.de>
-Reply-To: OpenWrt Development List <openwrt-devel@lists.openwrt.org>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH for 2.6.33] conntrack: restrict runtime hashsize
+ modifications
+Date: Wed, 3 Feb 2010 22:39:29 +0200
+Message-ID: <20100203203929.GA6168@x200>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, openwrt-devel@lists.openwrt.org
-To: Michael Buesch <mb@bu3sch.de>
-Return-path: <openwrt-devel-bounces@lists.openwrt.org>
-List-Unsubscribe: <https://lists.openwrt.org/mailman/options/openwrt-devel>,
-	<mailto:openwrt-devel-request@lists.openwrt.org?subject=unsubscribe>
-List-Archive: <http://lists.openwrt.org/pipermail/openwrt-devel>
-List-Post: <mailto:openwrt-devel@lists.openwrt.org>
-List-Help: <mailto:openwrt-devel-request@lists.openwrt.org?subject=help>
-List-Subscribe: <https://lists.openwrt.org/mailman/listinfo/openwrt-devel>,
-	<mailto:openwrt-devel-request@lists.openwrt.org?subject=subscribe>
-Sender: openwrt-devel-bounces@lists.openwrt.org
-Errors-To: openwrt-devel-bounces@lists.openwrt.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jonathan@jonmasters.org, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: davem@davemloft.net, kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Explicitely enable shared interrupt 2 for any core that didn't get a dedicated IRQ
-anymore (fallthrough case) and for EXTIF cores to make gpio interrupts work.
-Also remove a bogus comment.
+Jon Masters correctly points out that conntrack hash sizes
+(nf_conntrack_htable_size) are global (not per-netns) and
+modifiable at runtime via /sys/module/nf_conntrack/hashsize .
 
-Signed-off-by: Jochen Friedrich <jochen@scram.de>
+Steps to reproduce:
+	clone(CLONE_NEWNET)
+	[grow /sys/module/nf_conntrack/hashsize]
+	exit()
+
+At netns exit we are going to scan random memory for conntracks to be killed.
+
+Apparently there is a code which deals with hashtable resize for
+init_net (and it was there befode netns conntrack code), so prohibit
+hashsize modification if there is more than one netns exists.
+
+To change hashtable sizes, you need to reload module.
+
+Expectation hashtable size was simply glued to a variable with no code
+to rehash expectations, so it was a bug to allow writing to it.
+Make "expect_hashsize" readonly.
+
+This is temporarily until we figure out what to do.
+
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: stable@kernel.org
 ---
- drivers/ssb/driver_mipscore.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/ssb/driver_mipscore.c b/drivers/ssb/driver_mipscore.c
-index 3c6feed..97efce1 100644
---- a/drivers/ssb/driver_mipscore.c
-+++ b/drivers/ssb/driver_mipscore.c
-@@ -270,7 +270,6 @@ void ssb_mipscore_init(struct ssb_mipscore *mcore)
- 				set_irq(dev, irq++);
- 			}
- 			break;
--			/* fallthrough */
- 		case SSB_DEV_PCI:
- 		case SSB_DEV_ETHERNET:
- 		case SSB_DEV_ETHERNET_GBIT:
-@@ -281,6 +280,10 @@ void ssb_mipscore_init(struct ssb_mipscore *mcore)
- 				set_irq(dev, irq++);
- 				break;
- 			}
-+			/* fallthrough */
-+		case SSB_DEV_EXTIF:
-+			set_irq(dev, 0);
-+			break;
- 		}
- 	}
- 	ssb_dprintk(KERN_INFO PFX "after irq reconfiguration\n");
--- 
-1.6.6
+ net/netfilter/nf_conntrack_core.c   |   15 +++++++++++++++
+ net/netfilter/nf_conntrack_expect.c |    2 +-
+ 2 files changed, 16 insertions(+), 1 deletion(-)
+
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -21,6 +21,7 @@
+ #include <linux/stddef.h>
+ #include <linux/slab.h>
+ #include <linux/random.h>
++#include <linux/rtnetlink.h>
+ #include <linux/jhash.h>
+ #include <linux/err.h>
+ #include <linux/percpu.h>
+@@ -1198,6 +1199,20 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
+ 	if (!nf_conntrack_htable_size)
+ 		return param_set_uint(val, kp);
+ 
++	{
++		struct net *net;
++		unsigned int nr;
++
++		nr = 0;
++		rtnl_lock();
++		for_each_net(net)
++			nr++;
++		rtnl_unlock();
++		/* init_net always exists */
++		if (nr != 1)
++			return -EINVAL;
++	}
++
+ 	hashsize = simple_strtoul(val, NULL, 0);
+ 	if (!hashsize)
+ 		return -EINVAL;
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -569,7 +569,7 @@ static void exp_proc_remove(struct net *net)
+ #endif /* CONFIG_PROC_FS */
+ }
+ 
+-module_param_named(expect_hashsize, nf_ct_expect_hsize, uint, 0600);
++module_param_named(expect_hashsize, nf_ct_expect_hsize, uint, 0400);
+ 
+ int nf_conntrack_expect_init(struct net *net)
+ {
