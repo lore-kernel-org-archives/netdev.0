@@ -1,45 +1,52 @@
-From: Michael Breuer <mbreuer@majjas.com>
-Subject: [PATCH] sky2: Flow control frames recorded as dropped packets
-Date: Wed, 03 Feb 2010 11:56:09 -0500
-Message-ID: <4B69AAA9.20505@majjas.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] sky2:  receive dma mapping error handling
+Date: Wed, 3 Feb 2010 08:56:18 -0800
+Message-ID: <20100203085618.6662cc6f@nehalam>
+References: <20100128223447.GC3109@del.dom.local>
+	<4B621316.8070308@majjas.com>
+	<20100128225621.GD3109@del.dom.local>
+	<4B6216B9.1010802@majjas.com>
+	<20100128153643.0fca3c51@nehalam>
+	<4B645EF4.4050701@majjas.com>
+	<20100131003449.GA11935@del.dom.local>
+	<4B650D53.2010607@majjas.com>
+	<4B65D0F9.2020602@majjas.com>
+	<4B65FD12.7090101@majjas.com>
+	<20100131221835.GA3317@del.dom.local>
+	<20100201102018.7b597992@nehalam>
+	<4B68F664.6050007@majjas.com>
+	<4B69A897.7030408@majjas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta4.srv.hcvlny.cv.net ([167.206.4.199]:40973 "EHLO
-	mta4.srv.hcvlny.cv.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757457Ab0BCQ4Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 11:56:25 -0500
-Received: from mail.majjas.com (ool-44c00dc8.dyn.optonline.net [68.192.13.200])
- by mta4.srv.hcvlny.cv.net
- (Sun Java System Messaging Server 6.2-8.04 (built Feb 28 2007))
- with ESMTP id <0KX900GHBZ1OPNJ0@mta4.srv.hcvlny.cv.net> for
- netdev@vger.kernel.org; Wed, 03 Feb 2010 11:56:13 -0500 (EST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
+	Don Fry <pcnet32@verizon.net>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Matt Carlson <mcarlson@broadcom.com>
+To: Michael Breuer <mbreuer@majjas.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4B69A897.7030408@majjas.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When a flow control packet is received, sky2_receive resubmits the i/o. 
-Upon exit, sky2_status_intr counts these as dropped packets.
+On Wed, 03 Feb 2010 11:47:19 -0500
+Michael Breuer <mbreuer@majjas.com> wrote:
 
-This fix just skips the rx_dropped accounting in this one case. It 
-didn't seem worthwhile to change sky2_receive to deal differently.
+> Tracked this down. The status being returned is 0x3c0080 - good flow 
+> control packets. Nothing is actually being dropped (confirmed by packet 
+> trace on switch compared with packet trace on server).
+> 
+> I whipped up a trivial patch to not count these as dropped packets and 
+> will post to netdev.
+> 
+> I'm not really sure what the driver should be doing in this case, but 
+> resubmit seems to work.
 
-This is my first patch submission - comments more than welcome.
+Looks like a flow control negotiation issue. You probably turned off
+flow control on the Linux side, but the switch is still doing flow
+control.
 
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 95fd10f..bcb035c 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -2525,7 +2517,8 @@ static int sky2_status_intr(struct sky2_hw *hw, 
-int to_do, u16 idx)
-                         total_bytes[port] += length;
-                         skb = sky2_receive(dev, length, status);
-                         if (unlikely(!skb)) {
--                               dev->stats.rx_dropped++;
-+                               if (!(status & GMR_FS_GOOD_FC) )
-+                                       dev->stats.rx_dropped++;
-                                 break;
-                         }
-
+-- 
