@@ -1,48 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sky2: Fix WARNING: at lib/dma-debug.c:902 check_sync
-Date: Tue, 02 Feb 2010 17:27:10 -0800 (PST)
-Message-ID: <20100202.172710.24662176.davem@davemloft.net>
-References: <20100122141018D.fujita.tomonori@lab.ntt.co.jp>
-	<20100121.223841.145479578.davem@davemloft.net>
-	<20100203101817Z.fujita.tomonori@lab.ntt.co.jp>
+From: "Kevin Pedretti" <ktpedre@sandia.gov>
+Subject: Re: [PATCH] seastar - SeaStar Ethernet driver
+Date: Tue, 2 Feb 2010 18:24:02 -0700
+Message-ID: <1265160242.15726.20.camel@hawkeye.sandia.gov>
+References: <20100202205845.GE5246@hawkeye.sandia.gov>
+ <20100202.134251.15604523.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, alan@lxorguk.ukuu.org.uk,
-	shemminger@linux-foundation.org, mbreuer@majjas.com,
-	akpm@linux-foundation.org, flyboy@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	mchan@broadcom.com, pcnet32@verizon.net, romieu@fr.zoreil.com,
-	mcarlson@broadcom.com, James.Bottomley@suse.de
-To: fujita.tomonori@lab.ntt.co.jp
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51098
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753211Ab0BCB05 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 20:26:57 -0500
-In-Reply-To: <20100203101817Z.fujita.tomonori@lab.ntt.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100202.134251.15604523.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Wed, 3 Feb 2010 10:18:39 +0900
+Thank you all for the review comments.  I believe most of the issues
+have been addressed in the patch just posted.  I apologize if there are
+still issues, and certainly appreciate further comments.
 
-> Can we safely assume that the arch implementations already round
-> up/down to the safe boundary internally in this API (they should
-> already)?
+David Miller's comments:
+1. Use u32, u16, etc.  -> Done.
+2. Bad code formating -> Fixed, I believe. Went through everything.
+3. Call netif_start_queue() after hw init -> Done.
+4. Device only supports IPv4? -> Yes, that's correct. No IPv6 support.
+The driver squashes everything but IPv4 in eth2ss().
+5. No need for suspend/resume NOPs -> Done.  functions removed.
 
-I can only speak for sparc64 and x86 directly and those are fine.
+Randy Dunlap's comments:
+1. Remove /** comments -> Done.
+2. Odd spacing -> I'm not seeing this. Spacing looks correct to me.
+3. Limit while (1) loops somehow -> Done. 
+4. Limit while (1) in intr handler -> In practice we've never seen more
+than a few packets processed per interrupt.
 
-Any such improper implementations would fail with many common
-ethernet drivers already.
+Ben Hutching's comments:
+1. Spacing looks correct -> Thanks. 
 
-> I don't like two DMA docs. I like to make pci_dma_* API obsolete. We
-> have the generic DMA API with generic devices so we are always able to
-> use the API (as you did with sbus_map_*). The majority arch
-> implementations safely call the bus specific DMA functions via the
-> generic DMA API. So there are not many things to do. We can just
-> convert pci_dma_* to dma_* API slowly.
-> 
-> Opinions?
+Stephen Hemminger's comments:
+1. Add ndo_validate_address -> Done
+2. May want to use alloc_netdev() -> Didn't do this. Would there be a
+substantial advantage to doing this?
+3. memset() unnecessary -> removed
 
-I have no problem with this.
+Kevin
