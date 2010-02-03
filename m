@@ -1,88 +1,31 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH for 2.6.33] conntrack: restrict runtime hashsize
+From: Jon Masters <jonathan@jonmasters.org>
+Subject: Re: [PATCH for 2.6.33] conntrack: restrict runtime hashsize
  modifications
-Date: Wed, 3 Feb 2010 22:39:29 +0200
-Message-ID: <20100203203929.GA6168@x200>
+Date: Wed, 03 Feb 2010 15:50:52 -0500
+Message-ID: <1265230252.2861.321.camel@tonnant>
+References: <20100203203929.GA6168@x200>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jonathan@jonmasters.org, eric.dumazet@gmail.com,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, kaber@trash.net, eric.dumazet@gmail.com,
 	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: davem@davemloft.net, kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dallas.jonmasters.org ([72.29.103.172]:46778 "EHLO
+	dallas.jonmasters.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932791Ab0BCUvO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 15:51:14 -0500
+In-Reply-To: <20100203203929.GA6168@x200>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jon Masters correctly points out that conntrack hash sizes
-(nf_conntrack_htable_size) are global (not per-netns) and
-modifiable at runtime via /sys/module/nf_conntrack/hashsize .
+On Wed, 2010-02-03 at 22:39 +0200, Alexey Dobriyan wrote:
+> Jon Masters correctly points out that conntrack hash sizes
+> (nf_conntrack_htable_size) are global (not per-netns) and
+> modifiable at runtime via /sys/module/nf_conntrack/hashsize .
 
-Steps to reproduce:
-	clone(CLONE_NEWNET)
-	[grow /sys/module/nf_conntrack/hashsize]
-	exit()
+Thanks.
 
-At netns exit we are going to scan random memory for conntracks to be killed.
+Jon.
 
-Apparently there is a code which deals with hashtable resize for
-init_net (and it was there befode netns conntrack code), so prohibit
-hashsize modification if there is more than one netns exists.
 
-To change hashtable sizes, you need to reload module.
-
-Expectation hashtable size was simply glued to a variable with no code
-to rehash expectations, so it was a bug to allow writing to it.
-Make "expect_hashsize" readonly.
-
-This is temporarily until we figure out what to do.
-
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-Cc: stable@kernel.org
----
-
- net/netfilter/nf_conntrack_core.c   |   15 +++++++++++++++
- net/netfilter/nf_conntrack_expect.c |    2 +-
- 2 files changed, 16 insertions(+), 1 deletion(-)
-
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -21,6 +21,7 @@
- #include <linux/stddef.h>
- #include <linux/slab.h>
- #include <linux/random.h>
-+#include <linux/rtnetlink.h>
- #include <linux/jhash.h>
- #include <linux/err.h>
- #include <linux/percpu.h>
-@@ -1198,6 +1199,20 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
- 	if (!nf_conntrack_htable_size)
- 		return param_set_uint(val, kp);
- 
-+	{
-+		struct net *net;
-+		unsigned int nr;
-+
-+		nr = 0;
-+		rtnl_lock();
-+		for_each_net(net)
-+			nr++;
-+		rtnl_unlock();
-+		/* init_net always exists */
-+		if (nr != 1)
-+			return -EINVAL;
-+	}
-+
- 	hashsize = simple_strtoul(val, NULL, 0);
- 	if (!hashsize)
- 		return -EINVAL;
---- a/net/netfilter/nf_conntrack_expect.c
-+++ b/net/netfilter/nf_conntrack_expect.c
-@@ -569,7 +569,7 @@ static void exp_proc_remove(struct net *net)
- #endif /* CONFIG_PROC_FS */
- }
- 
--module_param_named(expect_hashsize, nf_ct_expect_hsize, uint, 0600);
-+module_param_named(expect_hashsize, nf_ct_expect_hsize, uint, 0400);
- 
- int nf_conntrack_expect_init(struct net *net)
- {
