@@ -1,57 +1,60 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH net-next-2.6] net: use helpers to access mc list V2
-Date: Wed, 3 Feb 2010 13:59:43 +0100
-Message-ID: <20100203125942.GA9266@psychotron.lab.eng.brq.redhat.com>
+Subject: [PATCH net-next-2.6] libphy: add phy_find_first function
+Date: Wed, 3 Feb 2010 16:34:31 +0100
+Message-ID: <20100203153430.GB9266@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46380 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:47015 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757257Ab0BCM7p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Feb 2010 07:59:45 -0500
+	id S1757219Ab0BCPee (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Feb 2010 10:34:34 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch introduces the similar helpers as those already done for uc list.
-However multicast lists are no list_head lists but "mademanually". The three
-macros added by this patch will make the transition of mc_list to list_head
-smooth in two steps:
-
-1) convert all drivers to use these macros (with the original iterator of type
-   "struct dev_mc_list")
-2) once all drivers are converted, convert list type and iterators to "struct
-   netdev_hw_addr" in one patch.
-
->From now on, drivers can (and should) use "netdev_for_each_mc_addr" to iterate
-over the addresses with iterator of type "struct netdev_hw_addr". Also macros
-"netdev_mc_count" and "netdev_mc_empty" to read list's length. This is the state
-which should be reached in all drivers.
+Many drivers do this in them manually. Now they can use this function.
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- include/linux/netdevice.h |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 93a32a5..3f1c4a8 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -268,6 +268,12 @@ struct netdev_hw_addr_list {
- #define netdev_for_each_uc_addr(ha, dev) \
- 	list_for_each_entry(ha, &dev->uc.list, list)
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index adbc0fd..db17945 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -277,6 +277,22 @@ int phy_device_register(struct phy_device *phydev)
+ EXPORT_SYMBOL(phy_device_register);
  
-+#define netdev_mc_count(dev) ((dev)->mc_count)
-+#define netdev_mc_empty(dev) (netdev_mc_count(dev) == 0)
+ /**
++ * phy_find_first - finds the first PHY device on the bus
++ * @bus: the target MII bus
++ */
++struct phy_device *phy_find_first(struct mii_bus *bus)
++{
++	int addr;
 +
-+#define netdev_for_each_mc_addr(mclist, dev) \
-+	for (mclist = dev->mc_list; mclist; mclist = mclist->next)
++	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
++		if (bus->phy_map[addr])
++			return bus->phy_map[addr];
++	}
++	return NULL;
++}
++EXPORT_SYMBOL(phy_find_first);
 +
- struct hh_cache {
- 	struct hh_cache *hh_next;	/* Next entry			     */
- 	atomic_t	hh_refcnt;	/* number of users                   */
--- 
-1.6.6
-
++/**
+  * phy_prepare_link - prepares the PHY layer to monitor link status
+  * @phydev: target phy_device struct
+  * @handler: callback function for link status change notifications
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 6a7eb40..14d7fdf 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -452,6 +452,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 		u32 flags, phy_interface_t interface);
+ struct phy_device * phy_attach(struct net_device *dev,
+ 		const char *bus_id, u32 flags, phy_interface_t interface);
++struct phy_device *phy_find_first(struct mii_bus *bus);
+ int phy_connect_direct(struct net_device *dev, struct phy_device *phydev,
+ 		void (*handler)(struct net_device *), u32 flags,
+ 		phy_interface_t interface);
