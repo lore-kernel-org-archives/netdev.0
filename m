@@ -1,77 +1,53 @@
-From: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC Patch] net: reserve ports for applications using fixed port
- numbers
-Date: Wed, 03 Feb 2010 13:15:45 +0800
-Message-ID: <4B690681.6070908@redhat.com>
-References: <20100203043332.3817.27932.sendpatchset@localhost.localdomain> <1265171993.3274.3.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1265171993.3274.3.camel@edumazet-laptop>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Amit Kucheria <amit.kucheria@canonical.com>
+Subject: [PATCHv2 10/11] fec: Add ARCH_MX5 as a dependency
+Date: Tue,  2 Feb 2010 21:16:32 -0800
+Message-ID: <74c9d000b6fae28d34c5c93116e807c32f49326e.1265173480.git.amit.kucheria@canonical.com>
+References: <cover.1265173246.git.amit.kucheria@verdurent.com>
+ <0511204199ab83aed2340e70a4639500c0528dab.1265173480.git.amit.kucheria@canonical.com>
+ <9fa7a3c70c46a1f776c6520051481cff6525ef02.1265173480.git.amit.kucheria@canonical.com>
+ <ccc89dd7a6035abf5a78680404a2b30b9e025353.1265173480.git.amit.kucheria@canonical.com>
+ <ec63e5978fd5ac5d308ede5916e648ba925818eb.1265173480.git.amit.kucheria@canonical.com>
+ <f10f79e7313ecdeeb59ab881795baedf2430c636.1265173480.git.amit.kucheria@canonical.com>
+ <240f12ca87d7666f31263aabc620a9ec197cd8ff.1265173480.git.amit.kucheria@canonical.com>
+ <752ae69adb57d4f73fa011ba380cea1b927b9c8b.1265173480.git.amit.kucheria@canonical.com>
+ <e46b06510f7eb6ca51ea8b96335b2d32ec8bf6f8.1265173480.git.amit.kucheria@canonical.com>
+ <a91f26ae7fc58ea0f88c82f1501e2905fc0f2ab1.1265173480.git.amit.kucheria@canonical.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux@arm.linux.org.uk,
+	s.hauer@pengutronix.de, valentin.longchamp@epfl.ch,
+	daniel@caiaq.de, grant.likely@secretlab.ca,
+	Dinh.Nguyen@freescale.com, r.herring@freescale.com,
+	bryan.wu@canonical.com
+To: List Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <a91f26ae7fc58ea0f88c82f1501e2905fc0f2ab1.1265173480.git.amit.kucheria@canonical.com>
+In-Reply-To: <cover.1265173480.git.amit.kucheria@canonical.com>
+References: <cover.1265173480.git.amit.kucheria@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> Le mardi 02 f=C3=A9vrier 2010 =C3=A0 23:30 -0500, Amerigo Wang a =C3=A9=
-crit :
->> This patch introduces /proc/sys/net/ipv4/ip_local_reserved_ports,
->> it can be used like ip_local_port_range, but this is used to
->> reserve ports for third-party applications which use fixed
->> port numbers within ip_local_port_range.
->>
->> This only affects the applications which call socket functions
->> like bind(2) with port number 0, to prevent the kernel getting the p=
-orts
->> within the specified range for them. For applications which use fixe=
-d
->> port number, it will have no effects.
->>
->> Any comments are welcome.
->>
->> Signed-off-by: WANG Cong <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->> Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
->> Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
->> Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->=20
->>  		.procname	=3D "igmp_max_memberships",
->> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
->> index f0126fd..83045ca 100644
->> --- a/net/ipv4/udp.c
->> +++ b/net/ipv4/udp.c
->> @@ -210,8 +210,11 @@ int udp_lib_get_port(struct sock *sk, unsigned =
-short snum,
->>  		inet_get_local_port_range(&low, &high);
->>  		remaining =3D (high - low) + 1;
->> =20
->> +again:
->>  		rand =3D net_random();
->>  		first =3D (((u64)rand * remaining) >> 32) + low;
->> +		if (inet_is_reserved_local_port(first))
->> +			goto again;
->>  		/*
->>  		 * force rand to be an odd multiple of UDP_HTABLE_SIZE
->>  		 */
->=20
-> Unless I misread the patch, you are checking only the 'first' port th=
-at
-> udp_lib_get_port() chose.
->=20
-> I would use inet_get_local_reserved_ports(&min_res, &max_res);
-> and check every port that we chose in the loop to avoid it if necessa=
-ry.
->=20
+i.MX51 babbage board has a FEC ethernet controller
 
-Hmm, right, 'first' is used to do iteration, but I did missed 'last'.
-Thanks! I will fix this in the next update.
+Signed-off-by: Amit Kucheria <amit.kucheria@canonical.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/Kconfig |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index dd9a09c..515658e 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -1883,7 +1883,8 @@ config 68360_ENET
+ 
+ config FEC
+ 	bool "FEC ethernet controller (of ColdFire and some i.MX CPUs)"
+-	depends on M523x || M527x || M5272 || M528x || M520x || M532x || MACH_MX27 || ARCH_MX35 || ARCH_MX25
++	depends on M523x || M527x || M5272 || M528x || M520x || M532x || \
++		MACH_MX27 || ARCH_MX35 || ARCH_MX25 || ARCH_MX5
+ 	help
+ 	  Say Y here if you want to use the built-in 10/100 Fast ethernet
+ 	  controller on some Motorola ColdFire and Freescale i.MX processors.
+-- 
+1.6.3.3
