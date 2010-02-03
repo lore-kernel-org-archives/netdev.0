@@ -1,72 +1,90 @@
-From: Michael Chan <mchan.dev@gmail.com>
-Subject: [RFC] Connection-Oriented Multicasting
-Date: Wed, 3 Feb 2010 09:55:41 -0800
-Message-ID: <944511571002030955s734d3e6al7555b9259a0bada@mail.gmail.com>
+From: "Justin P. Mattock" <justinmattock@gmail.com>
+Subject: Re: [PATCH] sky2:  receive dma mapping error handling
+Date: Wed, 03 Feb 2010 10:23:01 -0800
+Message-ID: <4B69BF05.6020802@gmail.com>
+References: <20100128223447.GC3109@del.dom.local> <4B621316.8070308@majjas.com> <20100128225621.GD3109@del.dom.local> <4B6216B9.1010802@majjas.com> <20100128153643.0fca3c51@nehalam> <4B645EF4.4050701@majjas.com> <20100131003449.GA11935@del.dom.local> <4B650D53.2010607@majjas.com> <4B65D0F9.2020602@majjas.com> <4B65FD12.7090101@majjas.com> <20100131221835.GA3317@del.dom.local> <20100201102018.7b597992@nehalam> <4B68F664.6050007@majjas.com> <4B69A897.7030408@majjas.com> <20100203085618.6662cc6f@nehalam> <4B69AD5C.5030601@majjas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f224.google.com ([209.85.217.224]:60442 "EHLO
-	mail-gx0-f224.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932778Ab0BCRzm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 12:55:42 -0500
-Received: by gxk24 with SMTP id 24so2065228gxk.1
-        for <netdev@vger.kernel.org>; Wed, 03 Feb 2010 09:55:41 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
+	Don Fry <pcnet32@verizon.net>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Matt Carlson <mcarlson@broadcom.com>
+To: Michael Breuer <mbreuer@majjas.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4B69AD5C.5030601@majjas.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This RFC is for transport layer people:
+On 02/03/10 09:07, Michael Breuer wrote:
+> On 02/03/2010 11:56 AM, Stephen Hemminger wrote:
+>> On Wed, 03 Feb 2010 11:47:19 -0500
+>> Michael Breuer<mbreuer@majjas.com> wrote:
+>>
+>>> Tracked this down. The status being returned is 0x3c0080 - good flow
+>>> control packets. Nothing is actually being dropped (confirmed by packet
+>>> trace on switch compared with packet trace on server).
+>>>
+>>> I whipped up a trivial patch to not count these as dropped packets and
+>>> will post to netdev.
+>>>
+>>> I'm not really sure what the driver should be doing in this case, but
+>>> resubmit seems to work.
+>> Looks like a flow control negotiation issue. You probably turned off
+>> flow control on the Linux side, but the switch is still doing flow
+>> control.
+>>
+> According to the driver:
+> Feb 3 12:03:02 mail kernel: sky2 eth0: Link is up at 1000 Mbps, full
+> duplex, flow control both
+>
+> So if the rx flow control packet status is due to flow control being
+> disabled, then there's a different issue.
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at http://www.tux.org/lkml/
+>
 
-I am implementing a TCP single-source multicast optimization (SMO):
 
-Ref: http://www-dsg.stanford.edu/sliang/tcpm_infocom.pdf
+hmm.. after an hour or so I'm not seeing anything.
+from what I remember I turned the machine on in the
+hotel, then left the system there as I went out for a few hours
+(so maybe I need to wait).
 
-In a nutshell, a source server enables the "SMO" mode of a TCP
-listener socket, which creates a master socket through which multicast
-data is sent. The server still maintains a connection with each client.
-These individual sockets are responsible for retransmissions to
-clients. They use the master socket's retransmission queue and
-snd_nxt. The multicast clients enables "SMO" mode of its TCP
-socket and joins a multicast group.
+Anyways I did keep dmesg of when this occurred, basically
+the log was spammed with these:
 
-While coding the client side, I discovered that since 2007 multicast
-joins are not allowed for connection-oriented sockets.There isn't any
-explanation for the change in the commit that effected the change:
+[  863.294057] sky2 eth0: rx error, status 0x580002 length 88
+[  865.646645] sky2 eth0: rx error, status 0x600002 length 96
+[ 1286.420471] sky2 eth0: rx error, status 0x600002 length 96
+[ 1286.499459] sky2 eth0: rx error, status 0x600002 length 96
+[ 1746.903826] sky2 eth0: rx error, status 0x600002 length 96
+[ 1754.263692] sky2 eth0: rx error, status 0x600002 length 96
+[ 1755.309360] sky2 eth0: rx error, status 0x680002 length 104
+[ 2213.256294] sky2 eth0: rx error, status 0x600002 length 96
+[ 2219.653342] sky2 eth0: rx error, status 0x580002 length 88
+[ 2221.673601] sky2 eth0: rx error, status 0x600002 length 96
+[ 2679.654655] sky2 eth0: rx error, status 0x680002 length 104
+[ 2692.315058] sky2 eth0: rx error, status 0x500002 length 80
+[ 2694.349612] sky2 eth0: rx error, status 0x580002 length 88
+[ 2703.676717] sky2 eth0: rx error, status 0x700002 length 112
+[ 2703.826375] sky2 eth0: rx error, status 0x600002 length 96
+[ 3187.504843] sky2 eth0: rx error, status 0x600002 length 96
+[ 3189.560744] sky2 eth0: rx error, status 0x600002 length 96
+[ 3672.475719] sky2 eth0: rx error, status 0x680002 length 104
+[ 3676.696959] sky2 eth0: rx error, status 0x680002 length 104
 
-http://www.mail-archive.com/git-commits-head@vger.kernel.org/msg21013.html
+but while using the system with this, I didn't notice anything
+out of the ordinary.
+(if this fires off I can try a bisect for you guys, but right now
+since I'm not seeing anything, might be a different story);
 
-Is it a policy to forbid any connection-oriented protocol from
-participating in multicast?
-
-Conventional wisdom is against such an optimization due to the
-complexity in handling multiple clients from a TCP perspective, but
-I don't see what is wrong with a connection-oriented protocol departing
-from the well-established point-to-point abstraction given by TCP.
-After all, tons of application-level protocols are built to provide
-connection services on top of (UDP) multicast.
-
-I believe it is worth optimizing that by putting connection services
-in the transport level, given that:
-
-1. There are already in-order delivery, retransmission and connection
-management mechanisms in TCP.
-
-2. There are performance benefits in a kernel-mode implementation.
-such as timing precision, over using either select() or threads
-for individual connections.
-
-3. The additions to TCP are modest and may be enabled /
-disabled via kernel configurations. An application that wants
-to use reliable single-source multicast needs only add two
-setsockopt() calls to the code. Further customization may
-be provided with additional socket options, but the benefits
-of reliable multicast is available with minimal
-application-level changes.
-
-I understand this is a rather intrusive modification to the
-existing TCP implementation, since it adds to
-struct tcp_sock and modifies the segment processing routines.
-Is it a fool's errand to even attempt to get this accepted?
-
-Thanks,
-Michael
+Justin P. Mattock
