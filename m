@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sky2: Fix TX_MAP_PAGE misspelling
-Date: Tue, 02 Feb 2010 16:00:16 -0800 (PST)
-Message-ID: <20100202.160016.267972431.davem@davemloft.net>
-References: <20100201101907.GA12132@ff.dom.local>
+Subject: Re: [PATCHv2 NEXT 0/7]qlcnic: add diagnostic tests
+Date: Tue, 02 Feb 2010 16:00:33 -0800 (PST)
+Message-ID: <20100202.160033.22029033.davem@davemloft.net>
+References: <1265037900-20403-1-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mbreuer@majjas.com, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: netdev@vger.kernel.org, dhananjay.phadke@qlogic.com,
+	ameen.rahman@qlogic.com
+To: amit.salecha@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45576
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45582
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755660Ab0BCAAD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 19:00:03 -0500
-In-Reply-To: <20100201101907.GA12132@ff.dom.local>
+	by vger.kernel.org with ESMTP id S1755828Ab0BCAAU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 19:00:20 -0500
+In-Reply-To: <1265037900-20403-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Mon, 1 Feb 2010 10:19:07 +0000
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Date: Mon,  1 Feb 2010 07:24:53 -0800
 
-> Btw of the dma-debug problem reported by Michael Breuer I spotted
-> a tiny misspelling in TX_MAP_PAGE definition introduced by commit
-> 6b84dacadbdc3.
-> 
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> Hi
+>   Series of 7 patches to add diagnostic test, device identification support and bug fixes.
+>   These are v2 patches, please ignore previous patches.
+>   Apply them in net-next-2.6 tree.
 
-Applied.
-
-Thank goodness hex and octal 2 are the same :-)
+All applied, thank you.
