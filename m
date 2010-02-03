@@ -1,46 +1,69 @@
-From: Octavian Purdila <opurdila-+zzKsuq53OdBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [RFC Patch] net: reserve ports for applications using fixed port numbers
-Date: Wed, 3 Feb 2010 13:12:48 +0200
-Message-ID: <201002031312.48531.opurdila@ixiacom.com>
-References: <20100203043332.3817.27932.sendpatchset@localhost.localdomain>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2 1/1] dccp: fix auto-loading of dccp(_probe)
+Date: Wed, 3 Feb 2010 06:58:40 -0500
+Message-ID: <20100203115840.GA651@hmsreliant.think-freely.org>
+References: <1265005087-5549-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1265005087-5549-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1265005087-5549-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <20100201122119.GC25094@hmsreliant.think-freely.org>
+ <53767.148.187.160.35.1265123175.squirrel@148.187.160.35>
+ <20100202153929.GA12697@hmsreliant.think-freely.org>
+ <20100203061656.GA5415@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Amerigo Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100203043332.3817.27932.sendpatchset-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>, davem@davemloft.net,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36396 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755367Ab0BCL6q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 06:58:46 -0500
+Content-Disposition: inline
+In-Reply-To: <20100203061656.GA5415@gerrit.erg.abdn.ac.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 03 February 2010 06:30:07 you wrote:
-
-> This patch introduces /proc/sys/net/ipv4/ip_local_reserved_ports,
-> it can be used like ip_local_port_range, but this is used to
-> reserve ports for third-party applications which use fixed
-> port numbers within ip_local_port_range.
+On Wed, Feb 03, 2010 at 07:16:56AM +0100, Gerrit Renker wrote:
+> Hi Neil,
 > 
-> This only affects the applications which call socket functions
-> like bind(2) with port number 0, to prevent the kernel getting the ports
-> within the specified range for them. For applications which use fixed
-> port number, it will have no effects.
-
-It also affects the case where applications do connect, without previously 
-doing bind, right?
-
+> I have tested your patch, it works fine thanks to the repeated execution of the macro
+> argument. I have reformatted it, removing the inner parentheses, which I think is
+> justified since macros copy their arguments in full. Also converted your email to a
+> drafted commit message. Due to this, have not copied your signed-off -- if you are
+> ok, please add, this should be submitted asap.
 > 
-> Any comments are welcome.
+Understood, and thank you.  This looks fine to me
 
-I think it might be useful to allow setting individual ports as reserved, not 
-only ranges, for example by using a bitmap. 
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >>>>>>>>>>>>>>>>>>>>>>>>>>> Patch v2 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+> dccp: fix loading of dccp_probe
+> 
+> This fixes commit (38ff3e6bb987ec583268da8eb22628293095d43b) ("dccp_probe:
+> Fix module load dependencies between dccp and dccp_probe", from 15 Jan).
+> 
+> It fixes the construction of the first argument of try_then_request_module(),
+> where only valid return codes from the first argument should be returned.
+> 
+> What we do now is assign the result of register_jprobe() to ret, without
+> the side effect of the comparison.
+> 
+> Acked-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> ---
+>  net/dccp/probe.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> --- a/net/dccp/probe.c
+> +++ b/net/dccp/probe.c
+> @@ -161,8 +161,8 @@ static __init int dccpprobe_init(void)
+>  	if (!proc_net_fops_create(&init_net, procname, S_IRUSR, &dccpprobe_fops))
+>  		goto err0;
+>  
+> -	ret = try_then_request_module((register_jprobe(&dccp_send_probe) == 0),
+> -					"dccp");
+> +	try_then_request_module((ret = register_jprobe(&dccp_send_probe)) == 0,
+> +				"dccp");
+>  	if (ret)
+>  		goto err1;
+>  
+> 
