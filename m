@@ -1,35 +1,51 @@
-From: Abraham Arce <abraham.arce.moreno@gmail.com>
-Subject: KS8851: Performance Improvement
-Date: Tue, 2 Feb 2010 20:25:12 -0600
-Message-ID: <cb8016981002021825i5d1ad8b0o35db3c86e046aa83@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the trivial tree with the net tree
+Date: Wed, 3 Feb 2010 13:30:11 +1100
+Message-ID: <20100203133011.75aef1d3.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:35491 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756312Ab0BCCZN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Feb 2010 21:25:13 -0500
-Received: by vws20 with SMTP id 20so258234vws.19
-        for <netdev@vger.kernel.org>; Tue, 02 Feb 2010 18:25:12 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__3_Feb_2010_13_30_11_+1100_lIVWeu2jSe7VAYf5"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Daniel Mack <daniel@caiaq.de>
+To: Jiri Kosina <jkosina@suse.cz>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+--Signature=_Wed__3_Feb_2010_13_30_11_+1100_lIVWeu2jSe7VAYf5
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I am working with ks8851 snl ethernet controller attached to a OMAP4
-board and did a nuttcp benchmark, the result is
+Hi Jiri,
 
-12.9375 MB /  10.49 sec =   10.3491 Mbps 1 %TX 0 %RX
+Today's linux-next merge of the trivial tree got a conflict in
+drivers/net/ppp_generic.c between commit
+fa44a73cc766c7f3bac71a66d564e0049b800325 ("ppp_generic.c severly
+whitespace damanged by 9c705260feea6ae329bc6b6d5f6d2ef0227eda0a") from
+the net tree and commit 09e1aa00f106a476f5b90d94fc0139544bbded75
+("tree-wide: fix 'lenght' typo in comments and code") from the trivial
+tree.
 
-According to a previous post from Ha, Tristram he did get ~11 Mbps
-with a Beagle Zippy combo board.
+I fixed it up (by using the trivial tree version) and can carry the fix
+as necessary.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-Are there any pending changes at the driver level so performance can
-be increased ~100 Mbps? do we have any hardware limitation? any extra
-SPI specifications?
+--Signature=_Wed__3_Feb_2010_13_30_11_+1100_lIVWeu2jSe7VAYf5
+Content-Type: application/pgp-signature
 
-Thanks for your comments...
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
-Best Regards
-Abraham
+iEUEARECAAYFAkto37MACgkQjjKRsyhoI8yWZwCWJMtR11j7PMNbRc1ldjzdmq/Z
+dQCfcjCwywcKvRPISQARfJCB+YrIetU=
+=HoeT
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__3_Feb_2010_13_30_11_+1100_lIVWeu2jSe7VAYf5--
