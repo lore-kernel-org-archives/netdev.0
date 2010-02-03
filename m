@@ -1,60 +1,87 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH net-next-2.6] libphy: add phy_find_first function
-Date: Wed, 3 Feb 2010 16:34:31 +0100
-Message-ID: <20100203153430.GB9266@psychotron.lab.eng.brq.redhat.com>
+From: Christoph Egger <siccegge@stud.informatik.uni-erlangen.de>
+Subject: [PATCH] obsolete config in kernel source (IP_ROUTE_PERVASIVE)
+Date: Wed, 3 Feb 2010 17:05:54 +0100
+Message-ID: <20100203160553.GA7461@faui49.informatik.uni-erlangen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary="zhXaljGHf11kAtnf"
+Cc: siccegge@stud.informatik.uni-erlangen.de,
+	vamos@i4.informatik.uni-erlangen.de
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, kuznet@ms2.inr.ac.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47015 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757219Ab0BCPee (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Feb 2010 10:34:34 -0500
+Received: from faui40.informatik.uni-erlangen.de ([131.188.34.40]:47870 "EHLO
+	faui40.informatik.uni-erlangen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756747Ab0BCQFn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 11:05:43 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Many drivers do this in them manually. Now they can use this function.
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+--zhXaljGHf11kAtnf
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index adbc0fd..db17945 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -277,6 +277,22 @@ int phy_device_register(struct phy_device *phydev)
- EXPORT_SYMBOL(phy_device_register);
+Hi all!
+
+	As part of the VAMOS[0] research project at the University of
+Erlangen we're checking referential integrity between kernel KConfig
+options and in-code Conditional blocks.
+
+	According to my search CONFIG_IP_ROUTE_PERVASIVE is not
+defined in any 2.4-2.6 kernel (not #define d and not in
+KConfig). However some tiny piece of code still checks it. If this is
+really a leftover (as I expect) it might be a good idea to actually
+remove that unreachable bit of code.
+
+	Please keep me informed of this patch getting confirmed /
+merged so we can keep track of it.
+
+Regards
+
+	Christoph Egger
+
+[0] http://vamos1.informatik.uni-erlangen.de/
+
+
+--zhXaljGHf11kAtnf
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="0001-Get-rid-of-CONFIG_IP_ROUTE_PERVASIVE.patch"
+
+>From 3c33c76fba95a529b67799cefbddbb688807c0fa Mon Sep 17 00:00:00 2001
+From: Christoph Egger <siccegge@stud.informatik.uni-erlangen.de>
+Date: Wed, 3 Feb 2010 16:37:43 +0100
+Subject: [PATCH] Get rid of CONFIG_IP_ROUTE_PERVASIVE
+
+CONFIG_IP_ROUTE_PERVASIVE is missing a corresponding config
+IP_ROUTE_PERVASIVE somewhere in KConfig (and missing it for ages
+already) so it looks like some aging artefact no longer needed.
+
+Therefor this patch kills of the only remaining reference to that
+config Item removing the already unrechable code snipet.
+
+Signed-off-by: Christoph Egger <siccegge@stud.informatik.uni-erlangen.de>
+---
+ net/ipv4/fib_semantics.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index ed19aa6..235c1ac 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -527,10 +527,6 @@ static int fib_check_nh(struct fib_config *cfg, struct fib_info *fi,
+ 	if (nh->nh_gw) {
+ 		struct fib_result res;
  
- /**
-+ * phy_find_first - finds the first PHY device on the bus
-+ * @bus: the target MII bus
-+ */
-+struct phy_device *phy_find_first(struct mii_bus *bus)
-+{
-+	int addr;
-+
-+	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
-+		if (bus->phy_map[addr])
-+			return bus->phy_map[addr];
-+	}
-+	return NULL;
-+}
-+EXPORT_SYMBOL(phy_find_first);
-+
-+/**
-  * phy_prepare_link - prepares the PHY layer to monitor link status
-  * @phydev: target phy_device struct
-  * @handler: callback function for link status change notifications
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 6a7eb40..14d7fdf 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -452,6 +452,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 		u32 flags, phy_interface_t interface);
- struct phy_device * phy_attach(struct net_device *dev,
- 		const char *bus_id, u32 flags, phy_interface_t interface);
-+struct phy_device *phy_find_first(struct mii_bus *bus);
- int phy_connect_direct(struct net_device *dev, struct phy_device *phydev,
- 		void (*handler)(struct net_device *), u32 flags,
- 		phy_interface_t interface);
+-#ifdef CONFIG_IP_ROUTE_PERVASIVE
+-		if (nh->nh_flags&RTNH_F_PERVASIVE)
+-			return 0;
+-#endif
+ 		if (nh->nh_flags&RTNH_F_ONLINK) {
+ 			struct net_device *dev;
+ 
+-- 
+1.6.3.3
+
+
+--zhXaljGHf11kAtnf--
