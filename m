@@ -1,50 +1,64 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCHv2 08/11] fec: fix uninitialized rx buffer usage
-Date: Wed, 3 Feb 2010 09:46:24 -0700
-Message-ID: <fa686aa41002030846v5044d585w7f4291f89c4b7ad@mail.gmail.com>
-References: <cover.1265173246.git.amit.kucheria@verdurent.com>
-	<0511204199ab83aed2340e70a4639500c0528dab.1265173480.git.amit.kucheria@canonical.com>
-	<9fa7a3c70c46a1f776c6520051481cff6525ef02.1265173480.git.amit.kucheria@canonical.com>
-	<ccc89dd7a6035abf5a78680404a2b30b9e025353.1265173480.git.amit.kucheria@canonical.com>
-	<ec63e5978fd5ac5d308ede5916e648ba925818eb.1265173480.git.amit.kucheria@canonical.com>
-	<f10f79e7313ecdeeb59ab881795baedf2430c636.1265173480.git.amit.kucheria@canonical.com>
-	<240f12ca87d7666f31263aabc620a9ec197cd8ff.1265173480.git.amit.kucheria@canonical.com>
-	<cover.1265173480.git.amit.kucheria@canonical.com> <752ae69adb57d4f73fa011ba380cea1b927b9c8b.1265173480.git.amit.kucheria@canonical.com>
-	<e46b06510f7eb6ca51ea8b96335b2d32ec8bf6f8.1265173480.git.amit.kucheria@canonical.com>
+From: Michael Breuer <mbreuer@majjas.com>
+Subject: Re: [PATCH] sky2:  receive dma mapping error handling
+Date: Wed, 03 Feb 2010 11:47:19 -0500
+Message-ID: <4B69A897.7030408@majjas.com>
+References: <20100128223447.GC3109@del.dom.local> <4B621316.8070308@majjas.com>
+ <20100128225621.GD3109@del.dom.local> <4B6216B9.1010802@majjas.com>
+ <20100128153643.0fca3c51@nehalam> <4B645EF4.4050701@majjas.com>
+ <20100131003449.GA11935@del.dom.local> <4B650D53.2010607@majjas.com>
+ <4B65D0F9.2020602@majjas.com> <4B65FD12.7090101@majjas.com>
+ <20100131221835.GA3317@del.dom.local> <20100201102018.7b597992@nehalam>
+ <4B68F664.6050007@majjas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: List Linux Kernel <linux-kernel@vger.kernel.org>,
-	Rob Herring <r.herring@freescale.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux@arm.linux.org.uk,
-	s.hauer@pengutronix.de, valentin.longchamp@epfl.ch,
-	daniel@caiaq.de, Dinh.Nguyen@freescale.com, bryan.wu@canonical.com
-To: Amit Kucheria <amit.kucheria@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f224.google.com ([209.85.217.224]:64525 "EHLO
-	mail-gx0-f224.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932512Ab0BCQqp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 11:46:45 -0500
-In-Reply-To: <e46b06510f7eb6ca51ea8b96335b2d32ec8bf6f8.1265173480.git.amit.kucheria@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	flyboy@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>,
+	Don Fry <pcnet32@verizon.net>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Matt Carlson <mcarlson@broadcom.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <4B68F664.6050007@majjas.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 2, 2010 at 10:16 PM, Amit Kucheria
-<amit.kucheria@canonical.com> wrote:
-> From: Rob Herring <r.herring@freescale.com>
+On 02/02/2010 11:07 PM, Michael Breuer wrote:
+> Just a brief update - this has been up and stable for about 32 hours - 
+> I've been periodically generating load on the system. No kernel errors 
+> of any sort so far. Actually, in retrospect, I believe the dma issue 
+> was triggering other bad things - including an rcu lockup (patched in 
+> tip - sched.c).
 >
-> The fec driver was enabling receive buffer descriptor without allocating
-> the buffers. Make sure the buffer descriptors are initialized to not
-> start receiving packets.
+> Just as an FYI - (and this should probably be in a new thread) I am 
+> seeing an large number (>9,000,000) of dropped rx packets, however at 
+> this time I see no errors resulting from that (on this or client 
+> machines). As the # of dropped packets hasn't incremented at any time 
+> I was observing things, I can't say what this is about. Probably 
+> nothing, but I'll see if I can track down what is going on. I did see 
+> some of this earlier on while troubleshooting the sky2 issues that now 
+> seem resolved.  Quick crosschecking of other machines do not show high 
+> error or retransmission rates. I'm also not seeing any evidence of 
+> other errors (no errors reported by ifconfig, or ethtool, or printk 
+> (debug is enabled).
 >
-> Open also calls fec_restart after the rx buffers are allocated. With the code
-> in fec_restart, it zeroes out the buffer descriptors that have just been
-> setup.
+> I'm wondering whether these dropped packets are due mostly to hitting 
+> GMR_FS_RX_OK in sky2_receive. I'm also guessing that the high numbers 
+> of this that I'm seeing is an artifact of being able to pump more 
+> traffic through with the above patch. Given the description of the 
+> status code in sky2.h (receive ok) I'm wondering whether a) this 
+> should be reported as dropped, b) whether resubmit is necessary, c) 
+> whether it's possible that eth1 events coinciding with eth0 events are 
+> the cause and d) whether or not there's another issue entirely.
+>
+Tracked this down. The status being returned is 0x3c0080 - good flow 
+control packets. Nothing is actually being dropped (confirmed by packet 
+trace on switch compared with packet trace on server).
 
-fec related patches 8 & 9 look okay to me.
+I whipped up a trivial patch to not count these as dropped packets and 
+will post to netdev.
 
-g.
-
--- 
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+I'm not really sure what the driver should be doing in this case, but 
+resubmit seems to work.
