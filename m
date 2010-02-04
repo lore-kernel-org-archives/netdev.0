@@ -1,27 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] libphy: add phy_find_first function
-Date: Thu, 04 Feb 2010 10:23:08 -0800 (PST)
-Message-ID: <20100204.102308.191462432.davem@davemloft.net>
-References: <20100203153430.GB9266@psychotron.lab.eng.brq.redhat.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: netfilter/iptables and network interface names
+Date: Thu, 4 Feb 2010 19:44:38 +0100 (CET)
+Message-ID: <alpine.LSU.2.01.1002041944120.30159@obet.zrqbmnf.qr>
+References: <4B6AC467.7020209@redhat.com> <alpine.LSU.2.01.1002041528300.13435@obet.zrqbmnf.qr> <4B6ADA3A.7040201@trash.net> <alpine.LSU.2.01.1002041542150.13435@obet.zrqbmnf.qr> <4B6ADFFB.4050407@trash.net> <alpine.LSU.2.01.1002041743360.21982@obet.zrqbmnf.qr>
+ <4B6AFAA1.5080703@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jpirko@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36209
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757112Ab0BDSWz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 13:22:55 -0500
-In-Reply-To: <20100203153430.GB9266@psychotron.lab.eng.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Thomas Woerner <twoerner@redhat.com>, netdev@vger.kernel.org,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4B6AFAA1.5080703@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Wed, 3 Feb 2010 16:34:31 +0100
 
-> Many drivers do this in them manually. Now they can use this function.
-> 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+On Thursday 2010-02-04 17:49, Patrick McHardy wrote:
+>Jan Engelhardt wrote:
+>>> The kernel also forbids ".".
+>> 
+>> My first thought was the same, but:
+>> 
+>> a) Interestingly, it does not prohibit '.'
+>> 
+>> 	ip tunnel add foo0.3 mode sit local 1.2.3.4 remote 5.6.7.8
+>> 
+>> b) The '.' is to be seen as valid as far as xtables.c goes, so
+>>    as to match VLAN interfaces.
+>
+>Ah of course, its only invalid at the beginning of the name.
+>
+Nope:
 
-Applied, thanks.
+19:44 borg:/home/jengelh # ip tunnel add .3 mode sit local 1.2.3.6 remote
+5.6.7.7
+19:44 borg:/home/jengelh # ip a
+17: .3: <POINTOPOINT,NOARP> mtu 1480 qdisc noop state DOWN 
+    link/sit 1.2.3.6 peer 5.6.7.7
