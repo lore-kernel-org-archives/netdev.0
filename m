@@ -1,41 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] NAPI as kobject proposal
-Date: Wed, 03 Feb 2010 18:17:16 -0800 (PST)
-Message-ID: <20100203.181716.29531795.davem@davemloft.net>
-References: <20100129101839.36944ba5@nehalam>
-	<20100203.173305.196876047.davem@davemloft.net>
-	<20100203175846.545d7e56@nehalam>
+Subject: Re: [PATCH 2.6.27.7-9-pae #7 SMP 1/1] networking tcp: Writing tcp
+ socket be atomic
+Date: Wed, 03 Feb 2010 18:19:31 -0800 (PST)
+Message-ID: <20100203.181931.39810642.davem@davemloft.net>
+References: <474C17045AA24E3F8519EE76BAB47439@JOHNYE1>
+	<20100203.085249.98326242.davem@davemloft.net>
+	<DB4F116661E3B0428456BB7E379EF4BB3C5F57@MX.asimcotech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52326
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756072Ab0BDCRC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 21:17:02 -0500
-In-Reply-To: <20100203175846.545d7e56@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org, jmorris@namei.org,
+	kaber@coreworks.de, linux-kernel@vger.kernel.org
+To: johny@asimco.com.cn
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <DB4F116661E3B0428456BB7E379EF4BB3C5F57@MX.asimcotech.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 3 Feb 2010 17:58:46 -0800
+From: "John Ye" <johny@asimco.com.cn>
+Date: Thu, 4 Feb 2010 10:03:44 +0800
 
-> The usage model I see is wanting to have:
->   1. only some cores being used for receive traffic
->      on single Rx devices (NAPI)
->   2. only some cores being used for receive traffic
->      on legacy devices (non-NAPI)
->   3. being able to configure a set of cpus with same   
->      IRQ/cache when doing Rx multi-queue.  Assign MSI-X
->      IRQ per core and allow both HT on core to split
->      that RX traffic.
-> 
-> All this should be manageable by some user utility like irqbalance.
-> 
-> #1 and #2 argue for a per device map (like irq_affinity) but
-> #3 is harder; not sure the right API for that.
+> The option TCP_ATOMIC is not a must.  We can make atomic be default
+> if the data size is less than a fixed size, just the same as pipe.
+> For example, if the data size is less than 512, we don't split the
+> data so it goes atomically.
 
-Do you think the people setting RPS maps aren't capable of
-configuring IRQ affinities? :-)
+This completely ignores the core issue.
+
+And that is, for the second time, that the application is where such
+atomicity guarentees should be implemented.
+
+And because of that any implementation of your kernel changes are
+inappropriate, TCP_ATOMIC socket option or not.
