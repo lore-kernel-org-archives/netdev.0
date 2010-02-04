@@ -1,72 +1,46 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] NAPI as kobject proposal
-Date: Wed, 3 Feb 2010 17:58:46 -0800
-Message-ID: <20100203175846.545d7e56@nehalam>
-References: <20100129101839.36944ba5@nehalam>
-	<20100203.173305.196876047.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.33 1/4] net: Micrel KSZ8841/2 PCI Ethernet driver
+Date: Wed, 03 Feb 2010 18:00:56 -0800 (PST)
+Message-ID: <20100203.180056.206222084.davem@davemloft.net>
+References: <14385191E87B904DBD836449AA30269D021A4D@MORGANITE.micrel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: alan@lxorguk.ukuu.org.uk, shemminger@vyatta.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Tristram.Ha@Micrel.Com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60265 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752198Ab0BDB6x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Feb 2010 20:58:53 -0500
-In-Reply-To: <20100203.173305.196876047.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46710
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754532Ab0BDCAm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 21:00:42 -0500
+In-Reply-To: <14385191E87B904DBD836449AA30269D021A4D@MORGANITE.micrel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 03 Feb 2010 17:33:05 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+From: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
+Date: Fri, 29 Jan 2010 14:37:22 -0800
 
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Fri, 29 Jan 2010 10:18:39 -0800
-> 
-> > As part of receive packet steering there is a requirement to add an
-> > additional parameter to this for the CPU map.
-> 
-> Hmmm, where did this come from?
-> 
-> The RPS maps are per-device.
-> 
-> I think I vaguely recall you "suggesting" that the RPS maps become
-> per-NAPI.
-> 
-> But, firstly, I didn't see any movement in that part of the
-> discussion.
-> 
-> And, secondly, I don't think this makes any sense at all.
-> 
-> Things are already overly complicated as it is.  Having the user know
-> what traffic goes to a particular RX queue (ie. NAPI instance) and set
-> the RPS map in some way specific to that RX queue is over the top.
-> 
-> If the issue is the case of sharing a NAPI instance between two
-> devices, there are a few other ways to deal with this.
-> 
-> One I would suggest is to simply clone the RPS map amongst the
-> devices sharing a NAPI instance.
-> 
-> I currently see NAPI kobjects is just an over-abstraction for a
-> perceived need rather than a real one.
+> This is a resubmission of the Micrel KSZ8841/2 PCI Ethernet driver.
 
-It started with doing RPS, and not wanting to implement the proposed
-sysfs interface (anything doing get_token is misuse of sysfs).
+The procfs stuff is a non-starter.
 
-The usage model I see is wanting to have:
-  1. only some cores being used for receive traffic
-     on single Rx devices (NAPI)
-  2. only some cores being used for receive traffic
-     on legacy devices (non-NAPI)
-  3. being able to configure a set of cpus with same   
-     IRQ/cache when doing Rx multi-queue.  Assign MSI-X
-     IRQ per core and allow both HT on core to split
-     that RX traffic.
+There will undoubtedly be other devices that have switch-like
+facilities that we'd like to export configuration support for.
 
-All this should be manageable by some user utility like irqbalance.
+The last thing we want is a bunch of procfs files that each
+driver decides the layout and behavior of.
 
-#1 and #2 argue for a per device map (like irq_affinity) but
-#3 is harder; not sure the right API for that.
+We need a centralized way to config such things, and probably
+the best is to have a rtnl_link_ops facility to get at the
+ports and configure them with attribute blobs or similar.
 
+We also said in your first submission that the way you're
+getting at the bridge STP stuff with things like:
+
++/* Needed for STP support. */
++#ifdef CONFIG_KSZ8842_STP
++#include <../net/bridge/br_private.h>
++#endif
+
+Yet you left all of this stuff in there.
