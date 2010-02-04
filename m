@@ -1,52 +1,291 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: linux-next: manual merge of the trivial tree with the net tree
-Date: Thu, 4 Feb 2010 10:52:34 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1002041052020.15395@pobox.suse.cz>
-References: <20100203133011.75aef1d3.sfr@canb.auug.org.au> <alpine.LNX.2.00.1002031136560.15395@pobox.suse.cz> <20100203.200402.17600564.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, lsorense@csclub.uwaterloo.ca,
-	netdev@vger.kernel.org, daniel@caiaq.de
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100203.200402.17600564.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
+From: Amerigo Wang <amwang@redhat.com>
+Subject: [RFC Patch v2] net: reserve ports for applications using fixed port numbers
+Date: Thu, 4 Feb 2010 05:12:08 -0500
+Message-ID: <20100204101533.4619.34599.sendpatchset@localhost.localdomain>
+Cc: Octavian Purdila <opurdila@ixiacom.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-sctp@vger.kernel.org, Amerigo Wang <amwang@redhat.com>,
+	David Miller <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 3 Feb 2010, David Miller wrote:
+V2:
+update the documentation
+update the changelog
+fix the checking code in udp
 
-> > I think the best thing is me dropping the net/ and drivers/net hunks of 
-> > this patch and taking it through Davem's tree ... I have already dropped 
-> > those hunks from my tree. Dave, the patch is below, please consider 
-> > applying.
->  ...
-> > From: Daniel Mack <daniel@caiaq.de>
-> > Subject: [PATCH] net: fix 'lenght' typo in comments and code
-> > 
-> > Some misspelled occurences of 'octet' and some comments were also fixed
-> > as I was on it.
-> > 
-> > Signed-off-by: Daniel Mack <daniel@caiaq.de>
-> > Cc: Jiri Kosina <trivial@kernel.org>
-> > Cc: Joe Perches <joe@perches.com>
-> > Cc: Junio C Hamano <gitster@pobox.com>
-> > Signed-off-by: Jiri Kosina <jkosina@suse.cz>
-> 
-> This doesn't apply to net-next-2.6 at all:
-> 
-> error: patch failed: drivers/net/ppp_generic.c:1436
-> error: drivers/net/ppp_generic.c: patch does not apply
-> error: drivers/net/stmmac/gmac.c: does not exist in index
-> error: drivers/net/stmmac/mac100.c: does not exist in index
+This patch introduces /proc/sys/net/ipv4/ip_local_reserved_ports,
+it can be used like ip_local_port_range, but this is used to
+reserve ports for third-party applications which use fixed
+port numbers within ip_local_port_range.
 
-Daniel, could you please refresh the drivers/net/ and net/ bits of your 
-patch and resent it to netdev/Dave?
+This only affects the applications which call socket functions
+like bind(2) with port number 0, or connect() etc., to prevent the kernel
+getting the ports within the specified range for them. For applications
+which use fixed port number, it will have no effects.
 
-I have already dropped it from my queue.
+Any comments are welcome.
 
-Thanks,
+Signed-off-by: WANG Cong <amwang@redhat.com>
+Cc: Octavian Purdila <opurdila@ixiacom.com>
+Cc: David Miller <davem@davemloft.net>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
 
--- 
-Jiri Kosina
-SUSE Labs, Novell Inc.
+---
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 006b39d..0795ac3 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -564,6 +564,14 @@ ip_local_port_range - 2 INTEGERS
+ 	(i.e. by default) range 1024-4999 is enough to issue up to
+ 	2000 connections per second to systems supporting timestamps.
+ 
++ip_local_reserved_ports - 2 INTEGERS
++	Specify the port range which is reserved for known third-party
++	applications, in case the kernel picks those ports for other
++	applications, e.g. when calling connect() or bind() with port
++	number 0. The range shall not go beyond the range specifed in
++	ip_local_port_range. "0 0" means no ports are reserved.
++	Default: 0 0
++
+ ip_nonlocal_bind - BOOLEAN
+ 	If set, allows processes to bind() to non-local IP addresses,
+ 	which can be quite useful - but may break some applications.
+diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
+index cc9b594..8248fc6 100644
+--- a/drivers/infiniband/core/cma.c
++++ b/drivers/infiniband/core/cma.c
+@@ -1979,6 +1979,8 @@ retry:
+ 	/* FIXME: add proper port randomization per like inet_csk_get_port */
+ 	do {
+ 		ret = idr_get_new_above(ps, bind_list, next_port, &port);
++		if (inet_is_reserved_local_port(port))
++			ret = -EAGAIN;
+ 	} while ((ret == -EAGAIN) && idr_pre_get(ps, GFP_KERNEL));
+ 
+ 	if (ret)
+@@ -2997,10 +2999,13 @@ static int __init cma_init(void)
+ {
+ 	int ret, low, high, remaining;
+ 
+-	get_random_bytes(&next_port, sizeof next_port);
+ 	inet_get_local_port_range(&low, &high);
++again:
++	get_random_bytes(&next_port, sizeof next_port);
+ 	remaining = (high - low) + 1;
+ 	next_port = ((unsigned int) next_port % remaining) + low;
++	if (inet_is_reserved_local_port(next_port))
++		goto again;
+ 
+ 	cma_wq = create_singlethread_workqueue("rdma_cm");
+ 	if (!cma_wq)
+diff --git a/include/net/ip.h b/include/net/ip.h
+index fb63371..f70acad 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -181,8 +181,10 @@ extern void snmp_mib_free(void *ptr[2]);
+ extern struct local_ports {
+ 	seqlock_t	lock;
+ 	int		range[2];
+-} sysctl_local_ports;
++} sysctl_local_ports, sysctl_local_reserved_ports;
+ extern void inet_get_local_port_range(int *low, int *high);
++extern void inet_get_local_reserved_ports(int *from, int *to);
++extern int inet_is_reserved_local_port(int port);
+ 
+ extern int sysctl_ip_default_ttl;
+ extern int sysctl_ip_nonlocal_bind;
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index ee16475..ee13e48 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -37,6 +37,11 @@ struct local_ports sysctl_local_ports __read_mostly = {
+ 	.range = { 32768, 61000 },
+ };
+ 
++struct local_ports sysctl_local_reserved_ports __read_mostly = {
++	.lock = SEQLOCK_UNLOCKED,
++	.range = { 0, 0 },
++};
++
+ void inet_get_local_port_range(int *low, int *high)
+ {
+ 	unsigned seq;
+@@ -49,6 +54,28 @@ void inet_get_local_port_range(int *low, int *high)
+ }
+ EXPORT_SYMBOL(inet_get_local_port_range);
+ 
++void inet_get_local_reserved_ports(int *from, int *to)
++{
++	unsigned int seq;
++	do {
++		seq = read_seqbegin(&sysctl_local_reserved_ports.lock);
++
++		*from = sysctl_local_reserved_ports.range[0];
++		*to = sysctl_local_reserved_ports.range[1];
++	} while (read_seqretry(&sysctl_local_reserved_ports.lock, seq));
++}
++
++int inet_is_reserved_local_port(int port)
++{
++	int min, max;
++
++	inet_get_local_reserved_ports(&min, &max);
++	if (min && max)
++		return (port >= min && port <= max);
++	return 0;
++}
++EXPORT_SYMBOL(inet_is_reserved_local_port);
++
+ int inet_csk_bind_conflict(const struct sock *sk,
+ 			   const struct inet_bind_bucket *tb)
+ {
+@@ -105,6 +132,8 @@ again:
+ 		inet_get_local_port_range(&low, &high);
+ 		remaining = (high - low) + 1;
+ 		smallest_rover = rover = net_random() % remaining + low;
++		if (inet_is_reserved_local_port(rover))
++			goto again;
+ 
+ 		smallest_size = -1;
+ 		do {
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index 2b79377..d3e160a 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -456,6 +456,8 @@ int __inet_hash_connect(struct inet_timewait_death_row *death_row,
+ 		local_bh_disable();
+ 		for (i = 1; i <= remaining; i++) {
+ 			port = low + (i + offset) % remaining;
++			if (inet_is_reserved_local_port(port))
++				continue;
+ 			head = &hinfo->bhash[inet_bhashfn(net, port,
+ 					hinfo->bhash_size)];
+ 			spin_lock(&head->lock);
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 7e3712c..0791010 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -23,6 +23,7 @@
+ 
+ static int zero;
+ static int tcp_retr1_max = 255;
++static int ip_local_reserved_ports_min[] = { 0, 0 };
+ static int ip_local_port_range_min[] = { 1, 1 };
+ static int ip_local_port_range_max[] = { 65535, 65535 };
+ 
+@@ -63,6 +64,51 @@ static int ipv4_local_port_range(ctl_table *table, int write,
+ 	return ret;
+ }
+ 
++static void set_reserved_port_range(int range[2])
++{
++	write_seqlock(&sysctl_local_reserved_ports.lock);
++	sysctl_local_reserved_ports.range[0] = range[0];
++	sysctl_local_reserved_ports.range[1] = range[1];
++	write_sequnlock(&sysctl_local_reserved_ports.lock);
++}
++
++static int ipv4_local_reserved_ports(ctl_table *table, int write,
++				     void __user *buffer,
++				     size_t *lenp, loff_t *ppos)
++{
++	int ret;
++	int range[2];
++	int reserved_range[2];
++	ctl_table tmp = {
++		.data = &reserved_range,
++		.maxlen = sizeof(reserved_range),
++		.mode = table->mode,
++		.extra1 = &ip_local_reserved_ports_min,
++		.extra2 = &ip_local_port_range_max,
++	};
++
++	inet_get_local_reserved_ports(reserved_range, reserved_range+1);
++	ret = proc_dointvec_minmax(&tmp, write, buffer, lenp, ppos);
++
++	if (write && ret == 0) {
++		inet_get_local_port_range(range, range + 1);
++		if (!reserved_range[0] && !reserved_range[1]) {
++			set_reserved_port_range(reserved_range);
++		} else {
++			if (reserved_range[1] < reserved_range[0])
++				ret = -EINVAL;
++			else if (reserved_range[0] < range[0])
++				ret = -EINVAL;
++			else if (reserved_range[1] > range[1])
++				ret = -EINVAL;
++			else
++				set_reserved_port_range(reserved_range);
++		}
++	}
++
++	return ret;
++}
++
+ static int proc_tcp_congestion_control(ctl_table *ctl, int write,
+ 				       void __user *buffer, size_t *lenp, loff_t *ppos)
+ {
+@@ -298,6 +344,13 @@ static struct ctl_table ipv4_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= ipv4_local_port_range,
+ 	},
++	{
++		.procname	= "ip_local_reserved_ports",
++		.data		= &sysctl_local_reserved_ports.range,
++		.maxlen		= sizeof(sysctl_local_reserved_ports.range),
++		.mode		= 0644,
++		.proc_handler	= ipv4_local_reserved_ports,
++	},
+ #ifdef CONFIG_IP_MULTICAST
+ 	{
+ 		.procname	= "igmp_max_memberships",
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index f0126fd..4bb825e 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -203,6 +203,7 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
+ 
+ 	if (!snum) {
+ 		int low, high, remaining;
++		int min, max;
+ 		unsigned rand;
+ 		unsigned short first, last;
+ 		DECLARE_BITMAP(bitmap, PORTS_PER_CHAIN);
+@@ -210,6 +211,7 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
+ 		inet_get_local_port_range(&low, &high);
+ 		remaining = (high - low) + 1;
+ 
++again:
+ 		rand = net_random();
+ 		first = (((u64)rand * remaining) >> 32) + low;
+ 		/*
+@@ -217,6 +219,9 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
+ 		 */
+ 		rand = (rand | 1) * (udptable->mask + 1);
+ 		last = first + udptable->mask + 1;
++		inet_get_local_reserved_ports(&min, &max);
++		if (!(first > max || last < min))
++			goto again;
+ 		do {
+ 			hslot = udp_hashslot(udptable, net, first);
+ 			bitmap_zero(bitmap, PORTS_PER_CHAIN);
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 67fdac9..d685141 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -5432,6 +5432,8 @@ static long sctp_get_port_local(struct sock *sk, union sctp_addr *addr)
+ 			rover++;
+ 			if ((rover < low) || (rover > high))
+ 				rover = low;
++			if (inet_is_reserved_local_port(rover))
++				continue;
+ 			index = sctp_phashfn(rover);
+ 			head = &sctp_port_hashtable[index];
+ 			sctp_spin_lock(&head->lock);
