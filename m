@@ -1,39 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 3/3] qlge: Add watchdog timer.
-Date: Thu, 04 Feb 2010 13:32:17 -0800 (PST)
-Message-ID: <20100204.133217.265071373.davem@davemloft.net>
-References: <20100204200603.GB9938@linux-ox1b.qlogic.org>
-	<20100204.122931.189315763.davem@davemloft.net>
-	<20100204211929.GC9938@linux-ox1b.qlogic.org>
+Subject: Re: [PATCH] doc: document IPv6 parameters
+Date: Thu, 04 Feb 2010 13:37:00 -0800 (PST)
+Message-ID: <20100204.133700.134213328.davem@davemloft.net>
+References: <4B6B32E8.6070408@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ron.mercer@qlogic.com
+Cc: netdev@vger.kernel.org, greg@enjellic.com
+To: brian.haley@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41342
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41760
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756267Ab0BDVcF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 16:32:05 -0500
-In-Reply-To: <20100204211929.GC9938@linux-ox1b.qlogic.org>
+	by vger.kernel.org with ESMTP id S1753413Ab0BDVgr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 16:36:47 -0500
+In-Reply-To: <4B6B32E8.6070408@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Thu, 4 Feb 2010 13:19:29 -0800
+From: Brian Haley <brian.haley@hp.com>
+Date: Thu, 04 Feb 2010 15:49:44 -0500
 
->> Did the timer every fire more than once in your testing?
->> 
->> Don't you need to re-setup the expiration period before
->> adding it again?
-> 
-> It does fire repeatedly but I should have put in the new expiration
-> period.  I added some prints to the timer and without resetting the
-> expiration the timer would pop faster, but still less than 5 seconds.
-> I've added the expiration here and see very even pops on 5 second
-> intervals.
+> Can you take these in net-next-2.6?  I haven't heard boo from anyone
+> on linux-doc or lkml.
 
-Of course it pops faster, if you don't reset the expiration
-period it is "right now". :-)
-
-I'll apply this new version, thanks.
+Sure, applied, thanks Brian.
