@@ -1,40 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH v2 1/2] ixgbe: Allocate driver resources
- per NUMA node
-Date: Wed, 03 Feb 2010 19:49:01 -0800 (PST)
-Message-ID: <20100203.194901.263092541.davem@davemloft.net>
-References: <20100204001804.15798.98344.stgit@localhost.localdomain>
+Subject: Re: linux-next: manual merge of the trivial tree with the net tree
+Date: Wed, 03 Feb 2010 20:04:02 -0800 (PST)
+Message-ID: <20100203.200402.17600564.davem@davemloft.net>
+References: <20100203133011.75aef1d3.sfr@canb.auug.org.au>
+	<alpine.LNX.2.00.1002031136560.15395@pobox.suse.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	jesse.brandeburg@intel.com, peter.p.waskiewicz.jr@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43961
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755976Ab0BDDss (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 22:48:48 -0500
-In-Reply-To: <20100204001804.15798.98344.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, lsorense@csclub.uwaterloo.ca,
+	netdev@vger.kernel.org, daniel@caiaq.de
+To: jkosina@suse.cz
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1002031136560.15395@pobox.suse.cz>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 03 Feb 2010 16:18:50 -0800
+From: Jiri Kosina <jkosina@suse.cz>
+Date: Wed, 3 Feb 2010 11:39:47 +0100 (CET)
 
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> I think the best thing is me dropping the net/ and drivers/net hunks of 
+> this patch and taking it through Davem's tree ... I have already dropped 
+> those hunks from my tree. Dave, the patch is below, please consider 
+> applying.
+ ...
+> From: Daniel Mack <daniel@caiaq.de>
+> Subject: [PATCH] net: fix 'lenght' typo in comments and code
 > 
-> The default policy for the current driver is to do all its memory
-> allocation on whatever processor is running insmod/modprobe.  This
-> is less than optimal.
+> Some misspelled occurences of 'octet' and some comments were also fixed
+> as I was on it.
 > 
-> This driver's default mode of operation will be to use each node for each
-> subsequent transmit/receive queue.  The most efficient allocation will be
-> to then have the interrupts bound in such a way as to match up the
-> interrupt of the queue to the cpu where its memory was allocated.
-> 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Daniel Mack <daniel@caiaq.de>
+> Cc: Jiri Kosina <trivial@kernel.org>
+> Cc: Joe Perches <joe@perches.com>
+> Cc: Junio C Hamano <gitster@pobox.com>
+> Signed-off-by: Jiri Kosina <jkosina@suse.cz>
 
-Applied.
+This doesn't apply to net-next-2.6 at all:
+
+error: patch failed: drivers/net/ppp_generic.c:1436
+error: drivers/net/ppp_generic.c: patch does not apply
+error: drivers/net/stmmac/gmac.c: does not exist in index
+error: drivers/net/stmmac/mac100.c: does not exist in index
