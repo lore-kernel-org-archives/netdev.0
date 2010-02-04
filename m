@@ -1,45 +1,29 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 4/4] MCS7830 USB-Ether: resume _with_ working link, via
- .reset_resume support
-Date: Wed, 03 Feb 2010 18:29:47 -0800 (PST)
-Message-ID: <20100203.182947.188290610.davem@davemloft.net>
-References: <20100131125842.GD13435@rhlx01.hs-esslingen.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] sky2: fix transmit DMA map leakage
+Date: Wed, 03 Feb 2010 18:34:43 -0800 (PST)
+Message-ID: <20100203.183443.101658649.davem@davemloft.net>
+References: <20100201154147.5bb0b2c7@nehalam>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: arnd-r2nGTMty4D4@public.gmane.org, dhollis-yI4QWewtAp2DvotElmWtJA@public.gmane.org, pchang23-rphTv4pjVZMJGwgDXS7ZQA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: andi-5+Cda9B46AM@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100131125842.GD13435-p/qQFhXj4MHA4IYVXhSI5GHfThorsUsI@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: jarkao2@gmail.com, mbreuer@majjas.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53548
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751477Ab0BDCe3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 21:34:29 -0500
+In-Reply-To: <20100201154147.5bb0b2c7@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Mohr <andi-5+Cda9B46AM@public.gmane.org>
-Date: Sun, 31 Jan 2010 13:58:42 +0100
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Mon, 1 Feb 2010 15:41:47 -0800
 
-> ChangeLog:
-> Implement .reset_resume support to retain a live network connection
-> during suspend despite USB power loss.
-> - rework operation to reference cached data in mcs7830_data and
->   netdev->dev_addr 
-> - update netdev->dev_addr only in case new MAC was set successfully
-> . Tests done:
->   . ethtool -d pre-/post-suspend: register values match
->   . running ssh session suspend, resume: works
->   . ifdown device, suspend, resume: works
->   . ifup, suspend, unplug, resume: WORKS (eth1 is removed, re-ifup of eth1
->     after card replug works)
->   . verified identical MAC in ifconfig post-resume
->     (ok, should be verified on network side to be fully certain...)
+> The book keeping structure for transmit always had the flags value
+> cleared so transmit DMA maps were never released correctly.
+> Based on patch by Jarek Poplawski, problem observed by Michael Breuer.
 > 
-> 
-> Keywords: suspend resume network connection dead interface down
-> 
-> Signed-off-by: Andreas Mohr <andi-5+Cda9B46AM@public.gmane.org>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Applied net-next-2.6
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied to net-2.6, and queued for -stable, thanks.
