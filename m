@@ -1,100 +1,180 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH] netfilter: Fix a unregister_netdevice hang
-Date: Thu, 04 Feb 2010 14:44:47 +0530
-Message-ID: <20100204091447.710.97148.sendpatchset@krkumar2.in.ibm.com>
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Krishna Kumar <krkumar2@in.ibm.com>, sri@us.ibm.com
-To: davem@davemloft.net, kaber@trash.net
+From: Jasper Spaans <spaans@fox-it.com>
+Subject: Re: [RFC] bonding: better transmit hash
+Date: Thu, 4 Feb 2010 09:26:16 +0000
+Message-ID: <4B6A92B8.8070806@fox-it.com>
+References: <20100203111337.1085b772@nehalam>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	"bonding-devel@lists.sourceforge.net"
+	<bonding-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp02.au.ibm.com ([202.81.31.144]:33749 "EHLO
-	e23smtp02.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751567Ab0BDJOx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 04:14:53 -0500
+Received: from ns2.fox-it.com ([82.94.91.210]:37621 "EHLO mail2.fox-it.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754136Ab0BDJre convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 04:47:34 -0500
+In-Reply-To: <20100203111337.1085b772@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krishna Kumar <krkumar2@in.ibm.com>
+On 03/02/10 19:13, Stephen Hemminger wrote:
+> This is a prototype of improved bonding link hashing. It adds a couple
+> of things:
+>    * support IPV6 addresses for L3/L4
+>    * support other protocols beside TCP/UDP
+>    * use all of mac address (not just last byte)
+>    * use jhash for better mixing
+>    * use skb header field access to handle vlan's etc properly
+>
+> It no longer is a pure xor, does that matter?
+>   
+The goal is to distribute packets when load is high - so a bit of
+efficiency would be nice. Looking at jhash, it seems to use ~60
+operations per round of hashing instead of just 1 xor.
+Besides, it seems jhash (the generic function) hashes your data in
+chunks of 12 bytes, and finishes of with another round hashing. You
+might want to use the specialized jhash_3words function in those cases,
+which only does one round.
+> --- a/drivers/net/bonding/bond_main.c	2010-02-03 10:42:50.998328499 -0800
+> +++ b/drivers/net/bonding/bond_main.c	2010-02-03 11:08:35.034851960 -0800
+> @@ -3587,17 +3587,28 @@ void bond_unregister_arp(struct bonding 
+>   * Hash for the output device based upon layer 2 and layer 3 data. If
+>   * the packet is not IP mimic bond_xmit_hash_policy_l2()
+>   */
+> -static int bond_xmit_hash_policy_l23(struct sk_buff *skb, int count)
+> +static int bond_xmit_hash_policy_l23(const struct sk_buff *skb, int count)
+>  {
+> -	struct ethhdr *data = (struct ethhdr *)skb->data;
+> -	struct iphdr *iph = ip_hdr(skb);
+> +	u32 h;
+>  
+> -	if (skb->protocol == htons(ETH_P_IP)) {
+> -		return ((ntohl(iph->saddr ^ iph->daddr) & 0xffff) ^
+> -			(data->h_dest[5] ^ data->h_source[5])) % count;
+> +	switch (skb->protocol) {
+> +	case htons(ETH_P_IP):
+> +	{
+> +		const struct iphdr *iph = ip_hdr(skb);
+> +		h = iph->daddr ^ iph->saddr ^ iph->protocol;
+> +		break;
+> +	}
+> +	case htons(ETH_P_IPV6):
+> +	{
+> +		const struct ipv6hdr *iph = ipv6_hdr(skb);
+> +		h = iph->saddr.s6_addr32[3] ^ iph->daddr.s6_addr32[3];
+> +		break;
+> +	}
+> +	default:
+> +		h = skb->protocol;
+>  	}
+>  
+> -	return (data->h_dest[5] ^ data->h_source[5]) % count;
+> +	return jhash(eth_hdr(skb), 2*ETH_ALEN, h) % count;
+>  }
+>   
+This breaks stuff - in the layer 3 case, you're suddenly putting layer 2
+data into the hash, and in the layer 2 case, you're putting the protocol
+into the hash. Especially the first case has the potential to break our
+setup, in which related traffic might end up at different interfaces.
 
-When using ipv6+netfilter on vlan devices, we were getting
-this hang consistantly in an internal distribution:
+>  /*
+> @@ -3605,35 +3616,55 @@ static int bond_xmit_hash_policy_l23(str
+>   * the packet is a frag or not TCP or UDP, just use layer 3 data.  If it is
+>   * altogether not IP, mimic bond_xmit_hash_policy_l2()
+>   */
+> -static int bond_xmit_hash_policy_l34(struct sk_buff *skb, int count)
+> +static int bond_xmit_hash_policy_l34(const struct sk_buff *skb, int count)
+>  {
+> -	struct ethhdr *data = (struct ethhdr *)skb->data;
+> -	struct iphdr *iph = ip_hdr(skb);
+> -	__be16 *layer4hdr = (__be16 *)((u32 *)iph + iph->ihl);
+> -	int layer4_xor = 0;
+> +	u32 h;
+> +
+> +	switch (skb->protocol) {
+> +	case htons(ETH_P_IP):
+> +	{
+> +		const struct iphdr *iph = ip_hdr(skb);
+> +		h = iph->saddr ^ iph->daddr;
+>  
+> -	if (skb->protocol == htons(ETH_P_IP)) {
+> -		if (!(iph->frag_off & htons(IP_MF|IP_OFFSET)) &&
+> +		if (!(iph->frag_off&htons(IP_MF|IP_OFFSET)) &&
+>  		    (iph->protocol == IPPROTO_TCP ||
+> -		     iph->protocol == IPPROTO_UDP)) {
+> -			layer4_xor = ntohs((*layer4hdr ^ *(layer4hdr + 1)));
+> -		}
+> -		return (layer4_xor ^
+> -			((ntohl(iph->saddr ^ iph->daddr)) & 0xffff)) % count;
+> +		     iph->protocol == IPPROTO_UDP ||
+> +		     iph->protocol == IPPROTO_UDPLITE ||
+> +		     iph->protocol == IPPROTO_SCTP ||
+> +		     iph->protocol == IPPROTO_DCCP ||
+> +		     iph->protocol == IPPROTO_ESP))
+> +			h ^= *(((u32*)iph) + iph->ihl);
+>  
+> +		break;
+> +	}
+> +	case htons(ETH_P_IPV6):
+> +	{
+> +		const struct ipv6hdr *iph = ipv6_hdr(skb);
+> +		h = iph->daddr.s6_addr32[3] ^
+> +		        iph->saddr.s6_addr32[3] ^ iph->nexthdr;
+> +		if (iph->nexthdr == IPPROTO_TCP ||
+> +		    iph->nexthdr == IPPROTO_UDP ||
+> +		    iph->nexthdr == IPPROTO_UDPLITE ||
+> +		    iph->nexthdr == IPPROTO_SCTP ||
+> +		    iph->nexthdr == IPPROTO_DCCP ||
+> +		    iph->nexthdr == IPPROTO_ESP)
+> +			h ^= *(u32*)&iph[1];
+> +		break;
+> +	}
+> +	default:
+> +		h = ntohs(skb->protocol);
+>  	}
+>  
+> -	return (data->h_dest[5] ^ data->h_source[5]) % count;
+> +	return jhash(eth_hdr(skb), 2*ETH_ALEN, h) % count;
+>  }
+>   
+I like the support for ipv6 and more protocols - but again, why the
+skb->protocol as initializer? Also, why mix in iph->nexthdr into h in
+the ipv6 case?
 
-"unregister_netdevice: waiting for eth0.103 to become free. Usage count = 9"
+>  
+>  /*
+>   * Hash for the output device based upon layer 2 data
+>   */
+> -static int bond_xmit_hash_policy_l2(struct sk_buff *skb, int count)
+> +static int bond_xmit_hash_policy_l2(const struct sk_buff *skb, int count)
+>  {
+> -	struct ethhdr *data = (struct ethhdr *)skb->data;
+> -
+> -	return (data->h_dest[5] ^ data->h_source[5]) % count;
+> +	return jhash(eth_hdr(skb), 2*ETH_ALEN,
+> +		     ntohs(skb->protocol)) % count;
+>  } 
+>   
+This one also needlessly incorporates the protocol into the hash.
 
-Sometimes the hang is temporary lasting ~45 secs, and at
-other times it is permanent. While fixing the internal bug,
-I found the same bug exists in the current kernel.
+On a meta-level, do you have any measurements showing biased output for
+real traffic? My experience is that the normal xor code just works fine,
+except for one specific setup in which the traffic itself is rather
+biased (tons of ipsec between just two hosts + less normal traffic
+between the rest of the network). In that case, it will also be
+difficult to distribute this load even using the above changes.
 
-In ip6_route_me_harder, besides dropping dst, I also moved
-the check for dst->error up instead of waiting for the
-xfrm_lookup result.
+Jasper
 
-(untested since this bug was not reproducible on my system,
- but this patch fixes the hang on the internal distro bits)
+-- 
+Ir. Jasper Spaans
+Fox-IT Experts in IT Security!
+T: +31 (0) 15 284 79 99
+KvK Haaglanden 27301624
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
----
- net/ipv6/netfilter.c             |   13 +++++++------
- net/ipv6/netfilter/ip6t_REJECT.c |    6 ++++--
- 2 files changed, 11 insertions(+), 8 deletions(-)
 
-diff -ruNp org/net/ipv6/netfilter/ip6t_REJECT.c new/net/ipv6/netfilter/ip6t_REJECT.c
---- org/net/ipv6/netfilter/ip6t_REJECT.c	2010-02-04 14:05:26.000000000 +0530
-+++ new/net/ipv6/netfilter/ip6t_REJECT.c	2010-02-04 14:23:23.000000000 +0530
-@@ -43,7 +43,7 @@ static void send_reset(struct net *net, 
- 	int tcphoff, needs_ack;
- 	const struct ipv6hdr *oip6h = ipv6_hdr(oldskb);
- 	struct ipv6hdr *ip6h;
--	struct dst_entry *dst = NULL;
-+	struct dst_entry *dst;
- 	u8 proto;
- 	struct flowi fl;
- 
-@@ -97,8 +97,10 @@ static void send_reset(struct net *net, 
- 	dst = ip6_route_output(net, NULL, &fl);
- 	if (dst == NULL)
- 		return;
--	if (dst->error || xfrm_lookup(net, &dst, &fl, NULL, 0))
-+	if (dst->error || xfrm_lookup(net, &dst, &fl, NULL, 0)) {
-+		dst_release(dst);
- 		return;
-+	}
- 
- 	hh_len = (dst->dev->hard_header_len + 15)&~15;
- 	nskb = alloc_skb(hh_len + 15 + dst->header_len + sizeof(struct ipv6hdr)
-diff -ruNp org/net/ipv6/netfilter.c new/net/ipv6/netfilter.c
---- org/net/ipv6/netfilter.c	2010-02-04 14:05:16.000000000 +0530
-+++ new/net/ipv6/netfilter.c	2010-02-04 14:07:16.000000000 +0530
-@@ -25,6 +25,12 @@ int ip6_route_me_harder(struct sk_buff *
- 	};
- 
- 	dst = ip6_route_output(net, skb->sk, &fl);
-+	if (dst->error) {
-+		IP6_INC_STATS(net, ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
-+		LIMIT_NETDEBUG(KERN_DEBUG "ip6_route_me_harder: No more route.\n");
-+		dst_release(dst);
-+		return -EINVAL;
-+	}
- 
- #ifdef CONFIG_XFRM
- 	if (!(IP6CB(skb)->flags & IP6SKB_XFRM_TRANSFORMED) &&
-@@ -32,6 +38,7 @@ int ip6_route_me_harder(struct sk_buff *
- 		struct dst_entry *dst2 = skb_dst(skb);
- 
- 		if (xfrm_lookup(net, &dst2, &fl, skb->sk, 0)) {
-+			dst_release(dst);
- 			skb_dst_set(skb, NULL);
- 			return -1;
- 		}
-@@ -39,12 +46,6 @@ int ip6_route_me_harder(struct sk_buff *
- 	}
- #endif
- 
--	if (dst->error) {
--		IP6_INC_STATS(net, ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
--		LIMIT_NETDEBUG(KERN_DEBUG "ip6_route_me_harder: No more route.\n");
--		dst_release(dst);
--		return -EINVAL;
--	}
- 
- 	/* Drop old route. */
- 	skb_dst_drop(skb);
