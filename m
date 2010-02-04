@@ -1,125 +1,57 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: Re: [net-next PATCH 3/3] qlge: Add watchdog timer.
-Date: Thu, 4 Feb 2010 12:06:03 -0800
-Message-ID: <20100204200603.GB9938@linux-ox1b.qlogic.org>
-References: <1265217853-26959-1-git-send-email-ron.mercer@qlogic.com> <1265217853-26959-4-git-send-email-ron.mercer@qlogic.com> <20100203.193222.64773800.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: leitao@linux.vnet.ibm.com
+Subject: [PATCH 2/2] qlge: Code clean up
+Date: Thu,  4 Feb 2010 14:11:19 -0600
+Message-ID: <5283aff9bf39e3e4282575f27a51b711f7e69010.1265314112.git.root@sanx1002.austin.ibm.com>
+References: <48284d15bf68cb154cf3948f3fd0b8ea11981ff3.1265314112.git.root@sanx1002.austin.ibm.com>
+Cc: netdev@vger.kernel.org, Breno Leitao <leitao@linux.vnet.ibm.com>
+To: ron.mercer@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:23219 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753865Ab0BDUM6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 15:12:58 -0500
-Content-Disposition: inline
-In-Reply-To: <20100203.193222.64773800.davem@davemloft.net>
+Received: from e24smtp03.br.ibm.com ([32.104.18.24]:60068 "EHLO
+	e24smtp03.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753865Ab0BDUNB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 15:13:01 -0500
+Received: from mailhub3.br.ibm.com (mailhub3.br.ibm.com [9.18.232.110])
+	by e24smtp03.br.ibm.com (8.14.3/8.13.1) with ESMTP id o14K9a5Y003327
+	for <netdev@vger.kernel.org>; Thu, 4 Feb 2010 18:09:36 -0200
+Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
+	by mailhub3.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o14KFUTL2306104
+	for <netdev@vger.kernel.org>; Thu, 4 Feb 2010 18:15:32 -0200
+Received: from d24av04.br.ibm.com (loopback [127.0.0.1])
+	by d24av04.br.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o14KCunM030940
+	for <netdev@vger.kernel.org>; Thu, 4 Feb 2010 18:12:56 -0200
+In-Reply-To: <48284d15bf68cb154cf3948f3fd0b8ea11981ff3.1265314112.git.root@sanx1002.austin.ibm.com>
+In-Reply-To: <48284d15bf68cb154cf3948f3fd0b8ea11981ff3.1265314112.git.root@sanx1002.austin.ibm.com>
+References: <48284d15bf68cb154cf3948f3fd0b8ea11981ff3.1265314112.git.root@sanx1002.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From 81cc7ea1ce2b906a29ad250daeb120101b70f4f1 Mon Sep 17 00:00:00 2001
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Thu, 4 Feb 2010 11:54:37 -0800
-Subject: [net-next PATCH 1/1] qlge: Add watchdog timer.
+Just reordering this assignment that doesn't depend on any
+condition.
 
-Add deferred timer for 5-second periodic heartbeat register read to
-trigger the eeh recovery process.
-We see cases where an eeh error was injected and the slot was
-suspended.  An asic access attempt is required to flush the recovery process,
-but without interrupts the process can stall.
-Adding this periodic register read causes the recovery process to begin.
-
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
 ---
- drivers/net/qlge/qlge.h      |    1 +
- drivers/net/qlge/qlge_main.c |   27 +++++++++++++++++++++++++++
- 2 files changed, 28 insertions(+), 0 deletions(-)
+ drivers/net/qlge/qlge_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
-index 780a387..ebfd177 100644
---- a/drivers/net/qlge/qlge.h
-+++ b/drivers/net/qlge/qlge.h
-@@ -2145,6 +2145,7 @@ struct ql_adapter {
- 	struct completion ide_completion;
- 	struct nic_operations *nic_ops;
- 	u16 device_id;
-+	struct timer_list timer;
- 	atomic_t lb_count;
- };
- 
 diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index 7e00029..f1fc3a8 100644
+index c583fb5..0d6e6f8 100644
 --- a/drivers/net/qlge/qlge_main.c
 +++ b/drivers/net/qlge/qlge_main.c
-@@ -4574,6 +4574,20 @@ static const struct net_device_ops qlge_netdev_ops = {
- 	.ndo_vlan_rx_kill_vid	= qlge_vlan_rx_kill_vid,
- };
+@@ -4129,12 +4129,12 @@ static int qlge_change_mtu(struct net_device *ndev, int new_mtu)
+ 	queue_delayed_work(qdev->workqueue,
+ 			&qdev->mpi_port_cfg_work, 3*HZ);
  
-+static void ql_timer(unsigned long data)
-+{
-+	struct ql_adapter *qdev = (struct ql_adapter *)data;
-+	u32 var = 0;
++	ndev->mtu = new_mtu;
 +
-+	var = ql_read32(qdev, STS);
-+	if (pci_channel_offline(qdev->pdev)) {
-+		QPRINTK(qdev, IFUP, ERR, "EEH STS = 0x%.08x.\n", var);
-+		return;
-+	}
-+
-+	add_timer(&qdev->timer);
-+}
-+
- static int __devinit qlge_probe(struct pci_dev *pdev,
- 				const struct pci_device_id *pci_entry)
- {
-@@ -4625,6 +4639,14 @@ static int __devinit qlge_probe(struct pci_dev *pdev,
- 		pci_disable_device(pdev);
- 		return err;
+ 	if (!netif_running(qdev->ndev)) {
+-		ndev->mtu = new_mtu;
+ 		return 0;
  	}
-+	/* Start up the timer to trigger EEH if
-+	 * the bus goes dead
-+	 */
-+	init_timer_deferrable(&qdev->timer);
-+	qdev->timer.data = (unsigned long)qdev;
-+	qdev->timer.function = ql_timer;
-+	qdev->timer.expires = jiffies + (5*HZ);
-+	add_timer(&qdev->timer);
- 	ql_link_off(qdev);
- 	ql_display_dev_info(ndev);
- 	atomic_set(&qdev->lb_count, 0);
-@@ -4645,6 +4667,8 @@ int ql_clean_lb_rx_ring(struct rx_ring *rx_ring, int budget)
- static void __devexit qlge_remove(struct pci_dev *pdev)
- {
- 	struct net_device *ndev = pci_get_drvdata(pdev);
-+	struct ql_adapter *qdev = netdev_priv(ndev);
-+	del_timer_sync(&qdev->timer);
- 	unregister_netdev(ndev);
- 	ql_release_all(pdev);
- 	pci_disable_device(pdev);
-@@ -4757,6 +4781,7 @@ static void qlge_io_resume(struct pci_dev *pdev)
+ 
+-	ndev->mtu = new_mtu;
+ 	status = ql_change_rx_buffers(qdev);
+ 	if (status) {
  		QPRINTK(qdev, IFUP, ERR,
- 			"Device was not running prior to EEH.\n");
- 	}
-+	add_timer(&qdev->timer);
- 	netif_device_attach(ndev);
- }
- 
-@@ -4773,6 +4798,7 @@ static int qlge_suspend(struct pci_dev *pdev, pm_message_t state)
- 	int err;
- 
- 	netif_device_detach(ndev);
-+	del_timer_sync(&qdev->timer);
- 
- 	if (netif_running(ndev)) {
- 		err = ql_adapter_down(qdev);
-@@ -4817,6 +4843,7 @@ static int qlge_resume(struct pci_dev *pdev)
- 			return err;
- 	}
- 
-+	add_timer(&qdev->timer);
- 	netif_device_attach(ndev);
- 
- 	return 0;
 -- 
 1.6.0.2
 
