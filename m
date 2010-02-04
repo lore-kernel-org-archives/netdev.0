@@ -1,34 +1,44 @@
-From: Tetsuo Handa <penguin-kernel-JPay3/Yim36HaxMnTkn67Xf5DAMn2ifp@public.gmane.org>
-Subject: Re: [RFC Patch] net: reserve ports for applications using fixed port numbers
-Date: Fri, 5 Feb 2010 06:45:28 +0900
-Message-ID: <201002050645.CEC95380.MLOtOVFFHSFOQJ@I-love.SAKURA.ne.jp>
-References: <201002031312.48531.opurdila@ixiacom.com>
-	<201002041444.01897.opurdila@ixiacom.com>
-	<20100204.094110.64247447.davem@davemloft.net>
-	<201002042015.51092.opurdila@ixiacom.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: [PATCH] Net / pktgen: Fix freezing problem
+Date: Thu, 4 Feb 2010 22:50:58 +0100
+Message-ID: <201002042250.58944.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: opurdila-+zzKsuq53OdBDgjK7y7TUQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201002042015.51092.opurdila-+zzKsuq53OdBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: NetDev <netdev@vger.kernel.org>,
+	pm list <linux-pm@lists.linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Ciprian Dorin Craciun <ciprian.craciun@gmail.com>
+To: LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Octavian Purdila wrote:
-> 
-> int inet_is_reserved_local_port(int port)
-> {
-> 	if (test_bit(port, reserved_ports))
-> 		return 1;
-> 	return 0;
-> }
-> 
-Above check is exactly what I'm doing in the LSM hook.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+From: Rafael J. Wysocki <rjw@sisk.pl>
+Subject: Net / pktgen: Fix freezing problem
+
+Add missing try_to_freeze() to one of the pktgen_thread_worker() code
+paths so that it doesn't block suspend/hibernation.
+
+Fixes http://bugzilla.kernel.org/show_bug.cgi?id=15006
+
+Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+Reported-and-tested-by: Ciprian Dorin Craciun <ciprian.craciun@gmail.com>
+---
+ net/core/pktgen.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+Index: linux-2.6/net/core/pktgen.c
+===================================================================
+--- linux-2.6.orig/net/core/pktgen.c
++++ linux-2.6/net/core/pktgen.c
+@@ -3524,6 +3524,7 @@ static int pktgen_thread_worker(void *ar
+ 			wait_event_interruptible_timeout(t->queue,
+ 							 t->control != 0,
+ 							 HZ/10);
++			try_to_freeze();
+ 			continue;
+ 		}
+ 
