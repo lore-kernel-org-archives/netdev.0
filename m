@@ -1,50 +1,75 @@
-From: cascardo@holoscopio.com
-Subject: Re: [PATCH] can: ems_usb: removed duplicated code setting local
- echo support
-Date: Thu, 4 Feb 2010 13:34:46 -0200
-Message-ID: <20100204153444.GF1445@holoscopio.com>
-References: <1265047326-7493-1-git-send-email-cascardo@holoscopio.com>
- <20100203.203256.227182356.davem@davemloft.net>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH 01/23 v3] mlx4_core: identify function as pf or vf
+Date: Thu, 04 Feb 2010 17:54:24 +0200
+Message-ID: <4B6AEDB0.2030105@mellanox.co.il>
+References: <49BFC313.1030901@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="cYtjc4pxslFTELvY"
-Cc: trivial@kernel.org, urs.thuermann@volkswagen.de,
-	oliver.hartkopp@volkswagen.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100203.203256.227182356.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: general@lists.openfabrics.org, netdev@vger.kernel.org,
+	liranl@mellanox.co.il, tziporet@mellanox.co.il
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.mellanox.co.il ([194.90.237.43]:46821 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933060Ab0BDPy1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Feb 2010 10:54:27 -0500
+In-Reply-To: <49BFC313.1030901@mellanox.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---cYtjc4pxslFTELvY
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Liran Liss <liranl@mellanox.co.il>
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+ include/linux/mlx4/device.h |   19 +++++++++++++++++++
+ 1 files changed, 19 insertions(+), 0 deletions(-)
 
-On Wed, Feb 03, 2010 at 08:32:56PM -0800, David Miller wrote:
-> From: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
-> Date: Mon,  1 Feb 2010 16:02:06 -0200
->=20
-> > Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
->=20
-> This doesn't apply to net-next-2.6
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index e92d1bf..f7f0508 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -42,6 +42,9 @@
+ enum {
+ 	MLX4_FLAG_MSI_X		= 1 << 0,
+ 	MLX4_FLAG_OLD_PORT_CMDS	= 1 << 1,
++	MLX4_FLAG_MASTER	= 1 << 2,
++	MLX4_FLAG_SLAVE		= 1 << 3,
++	MLX4_FLAG_SRIOV		= 1 << 4,
+ };
+ 
+ enum {
+@@ -376,6 +379,7 @@ struct mlx4_av {
+ struct mlx4_dev {
+ 	struct pci_dev	       *pdev;
+ 	unsigned long		flags;
++	unsigned long		num_slaves;
+ 	struct mlx4_caps	caps;
+ 	struct radix_tree_root	qp_table_tree;
+ 	u32			rev_id;
+@@ -401,6 +405,21 @@ struct mlx4_init_port_param {
+ 		if (((type) == MLX4_PORT_TYPE_IB ? (dev)->caps.port_mask : \
+ 		     ~(dev)->caps.port_mask) & 1 << ((port) - 1))
+ 
++static inline int mlx4_is_slave(struct mlx4_dev *dev)
++{
++	return dev->flags & MLX4_FLAG_SLAVE;
++}
++
++static inline int mlx4_is_master(struct mlx4_dev *dev)
++{
++	return dev->flags & MLX4_FLAG_MASTER;
++}
++
++static inline int mlx4_is_mfunc(struct mlx4_dev *dev)
++{
++	return dev->flags & (MLX4_FLAG_MASTER | MLX4_FLAG_SLAVE);
++}
++
+ int mlx4_buf_alloc(struct mlx4_dev *dev, int size, int max_direct,
+ 		   struct mlx4_buf *buf);
+ void mlx4_buf_free(struct mlx4_dev *dev, int size, struct mlx4_buf *buf);
+-- 
+1.6.1.3
 
-I have just resent a version cherry-picked on top of its master branch.
 
---cYtjc4pxslFTELvY
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAktq6RQACgkQyTpryRcqtS24rQCfY1cN3yoOmILbgDLKDWmM9exd
-EswAoIiovoEChwTRjRlydTVOnHNKKqPq
-=8AAz
------END PGP SIGNATURE-----
-
---cYtjc4pxslFTELvY--
