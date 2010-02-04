@@ -1,8 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH v2 1/3] ethtool: Introduce n-tuple filter
-	programming support
-Date: Wed, 03 Feb 2010 23:48:13 -0800
-Message-ID: <20100204074811.16559.84676.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH v2 2/3] ixgbe: Add support for the new ethtool
+	n-tuple programming interface
+Date: Wed, 03 Feb 2010 23:48:32 -0800
+Message-ID: <20100204074831.16559.58911.stgit@localhost.localdomain>
+References: <20100204074811.16559.84676.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,568 +12,459 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.emeryville.ca.mail.comcast.net ([76.96.30.80]:54275 "EHLO
-	qmta08.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754651Ab0BDHsa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 02:48:30 -0500
+Received: from qmta05.emeryville.ca.mail.comcast.net ([76.96.30.48]:55502 "EHLO
+	qmta05.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756670Ab0BDHst (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 02:48:49 -0500
+In-Reply-To: <20100204074811.16559.84676.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-This patchset enables the ethtool layer to program n-tuple
-filters to an underlying device.  The idea is to allow capable
-hardware to have static rules applied that can assist steering
-flows into appropriate queues.
-
-Hardware that is known to support these types of filters today
-are ixgbe and niu.
+This patch adds n-tuple filter programming to 82599.
 
 Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- include/linux/ethtool.h   |   45 ++++++
- include/linux/netdevice.h |    3 
- net/core/dev.c            |    9 +
- net/core/ethtool.c        |  335 +++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 391 insertions(+), 1 deletions(-)
+ drivers/net/ixgbe/ixgbe.h         |    4 +
+ drivers/net/ixgbe/ixgbe_82599.c   |  106 +++++++++++++++++++++++++++++++----
+ drivers/net/ixgbe/ixgbe_ethtool.c |  111 ++++++++++++++++++++++++++++++++++++-
+ drivers/net/ixgbe/ixgbe_main.c    |   13 ++++
+ drivers/net/ixgbe/ixgbe_type.h    |    9 +++
+ 5 files changed, 225 insertions(+), 18 deletions(-)
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index ef4a2d8..3e20dee 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -14,6 +14,7 @@
- #define _LINUX_ETHTOOL_H
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index bffbe0d..19e94ee 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -453,6 +453,10 @@ extern s32 ixgbe_init_fdir_perfect_82599(struct ixgbe_hw *hw, u32 pballoc);
+ extern s32 ixgbe_fdir_add_signature_filter_82599(struct ixgbe_hw *hw,
+                                                  struct ixgbe_atr_input *input,
+                                                  u8 queue);
++extern s32 ixgbe_fdir_add_perfect_filter_82599(struct ixgbe_hw *hw,
++                                      struct ixgbe_atr_input *input,
++                                      struct ixgbe_atr_input_masks *input_masks,
++                                      u16 soft_id, u8 queue);
+ extern s32 ixgbe_atr_set_vlan_id_82599(struct ixgbe_atr_input *input,
+                                        u16 vlan_id);
+ extern s32 ixgbe_atr_set_src_ipv4_82599(struct ixgbe_atr_input *input,
+diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
+index d4ed6ad..4fa8633 100644
+--- a/drivers/net/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ixgbe/ixgbe_82599.c
+@@ -1439,6 +1439,9 @@ s32 ixgbe_init_fdir_perfect_82599(struct ixgbe_hw *hw, u32 pballoc)
+ 	/* Send interrupt when 64 filters are left */
+ 	fdirctrl |= 4 << IXGBE_FDIRCTRL_FULL_THRESH_SHIFT;
  
- #include <linux/types.h>
-+#include <linux/rculist.h>
- 
- /* This should work for both 32 and 64 bit userland. */
- struct ethtool_cmd {
-@@ -242,6 +243,7 @@ enum ethtool_stringset {
- 	ETH_SS_TEST		= 0,
- 	ETH_SS_STATS,
- 	ETH_SS_PRIV_FLAGS,
-+	ETH_SS_NTUPLE_FILTERS,
- };
- 
- /* for passing string sets for data tagging */
-@@ -290,6 +292,7 @@ struct ethtool_perm_addr {
-  */
- enum ethtool_flags {
- 	ETH_FLAG_LRO		= (1 << 15),	/* LRO is enabled */
-+	ETH_FLAG_NTUPLE		= (1 << 27),	/* N-tuple filters enabled */
- };
- 
- /* The following structures are for supporting RX network flow
-@@ -363,6 +366,43 @@ struct ethtool_rxnfc {
- 	__u32				rule_locs[0];
- };
- 
-+struct ethtool_rx_ntuple_flow_spec {
-+	__u32		 flow_type;
-+	union {
-+		struct ethtool_tcpip4_spec		tcp_ip4_spec;
-+		struct ethtool_tcpip4_spec		udp_ip4_spec;
-+		struct ethtool_tcpip4_spec		sctp_ip4_spec;
-+		struct ethtool_ah_espip4_spec		ah_ip4_spec;
-+		struct ethtool_ah_espip4_spec		esp_ip4_spec;
-+		struct ethtool_rawip4_spec		raw_ip4_spec;
-+		struct ethtool_ether_spec		ether_spec;
-+		struct ethtool_usrip4_spec		usr_ip4_spec;
-+		__u8					hdata[64];
-+	} h_u, m_u; /* entry, mask */
++	/* Initialize the drop queue to Rx queue 127 */
++	fdirctrl |= (127 << IXGBE_FDIRCTRL_DROP_Q_SHIFT);
 +
-+	__u16	        vlan_tag;
-+	__u16	        vlan_tag_mask;
-+	__u64		data;      /* user-defined flow spec data */
-+	__u64		data_mask; /* user-defined flow spec mask */
-+
-+	/* signed to distinguish between queue and actions (DROP) */
-+	__s32		action;
-+#define ETHTOOL_RXNTUPLE_ACTION_DROP -1
-+	struct list_head list;
-+};
-+
-+struct ethtool_rx_ntuple_list {
-+#define ETHTOOL_MAX_NTUPLE_LIST_ENTRY 1024
-+#define ETHTOOL_MAX_NTUPLE_STRING_PER_ENTRY 14
-+	struct list_head	list;
-+	int			count;
-+};
-+
-+struct ethtool_rx_ntuple {
-+	__u32					cmd;
-+	struct ethtool_rx_ntuple_flow_spec	fs;
-+};
-+
- #define ETHTOOL_FLASH_MAX_FILENAME	128
- enum ethtool_flash_op_type {
- 	ETHTOOL_FLASH_ALL_REGIONS	= 0,
-@@ -500,6 +540,8 @@ struct ethtool_ops {
- 	int	(*set_rxnfc)(struct net_device *, struct ethtool_rxnfc *);
- 	int     (*flash_device)(struct net_device *, struct ethtool_flash *);
- 	int	(*reset)(struct net_device *, u32 *);
-+	int	(*set_rx_ntuple)(struct net_device *, struct ethtool_rx_ntuple *);
-+	int	(*get_rx_ntuple)(struct net_device *, u32 stringset, void *);
- };
- #endif /* __KERNEL__ */
- 
-@@ -559,6 +601,9 @@ struct ethtool_ops {
- #define	ETHTOOL_FLASHDEV	0x00000033 /* Flash firmware to device */
- #define	ETHTOOL_RESET		0x00000034 /* Reset hardware */
- 
-+#define ETHTOOL_SRXNTUPLE	0x00000035 /* Add an n-tuple filter to device */
-+#define ETHTOOL_GRXNTUPLE	0x00000036 /* Get n-tuple filters from device */
-+
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
- #define SPARC_ETH_SSET		ETHTOOL_SSET
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 93a32a5..34edf5e 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -740,6 +740,7 @@ struct net_device {
- #define NETIF_F_FCOE_CRC	(1 << 24) /* FCoE CRC32 */
- #define NETIF_F_SCTP_CSUM	(1 << 25) /* SCTP checksum offload */
- #define NETIF_F_FCOE_MTU	(1 << 26) /* Supports max FCoE MTU, 2158 bytes*/
-+#define NETIF_F_NTUPLE		(1 << 27) /* N-tuple filters supported */
- 
- 	/* Segmentation offload features */
- #define NETIF_F_GSO_SHIFT	16
-@@ -948,6 +949,8 @@ struct net_device {
- 	/* max exchange id for FCoE LRO by ddp */
- 	unsigned int		fcoe_ddp_xid;
- #endif
-+	/* n-tuple filter list attached to this device */
-+	struct ethtool_rx_ntuple_list ethtool_ntuple_list;
- };
- #define to_net_dev(d) container_of(d, struct net_device, dev)
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 2cba5c5..0b0f241 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5392,6 +5392,8 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- 
- 	netdev_init_queues(dev);
- 
-+	INIT_LIST_HEAD(&dev->ethtool_ntuple_list.list);
-+	dev->ethtool_ntuple_list.count = 0;
- 	INIT_LIST_HEAD(&dev->napi_list);
- 	INIT_LIST_HEAD(&dev->unreg_list);
- 	INIT_LIST_HEAD(&dev->link_watch_list);
-@@ -5420,6 +5422,7 @@ EXPORT_SYMBOL(alloc_netdev_mq);
- void free_netdev(struct net_device *dev)
+ 	switch (pballoc) {
+ 	case IXGBE_FDIR_PBALLOC_64K:
+ 		/* 2k - 1 perfect filters */
+@@ -1628,6 +1631,7 @@ static u16 ixgbe_atr_compute_hash_82599(struct ixgbe_atr_input *atr_input,
+  *  ixgbe_atr_set_vlan_id_82599 - Sets the VLAN id in the ATR input stream
+  *  @input: input stream to modify
+  *  @vlan: the VLAN id to load
++ *  @vlan_mask: bitwise mask for the VLAN
+  **/
+ s32 ixgbe_atr_set_vlan_id_82599(struct ixgbe_atr_input *input, u16 vlan)
  {
- 	struct napi_struct *p, *n;
-+	struct ethtool_rx_ntuple_flow_spec *fs, *f;
- 
- 	release_net(dev_net(dev));
- 
-@@ -5428,6 +5431,12 @@ void free_netdev(struct net_device *dev)
- 	/* Flush device addresses */
- 	dev_addr_flush(dev);
- 
-+	/* Clear ethtool n-tuple list */
-+	list_for_each_entry_safe(fs, f, &dev->ethtool_ntuple_list.list, list) {
-+		list_del(&fs->list);
-+	}
-+	dev->ethtool_ntuple_list.count = 0;
-+
- 	list_for_each_entry_safe(p, n, &dev->napi_list, dev_list)
- 		netif_napi_del(p);
- 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index d8aee58..7992865 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -120,7 +120,7 @@ int ethtool_op_set_ufo(struct net_device *dev, u32 data)
-  * NETIF_F_xxx values in include/linux/netdevice.h
-  */
- static const u32 flags_dup_features =
--	ETH_FLAG_LRO;
-+	(ETH_FLAG_LRO | ETH_FLAG_NTUPLE);
- 
- u32 ethtool_op_get_flags(struct net_device *dev)
+@@ -1641,6 +1645,7 @@ s32 ixgbe_atr_set_vlan_id_82599(struct ixgbe_atr_input *input, u16 vlan)
+  *  ixgbe_atr_set_src_ipv4_82599 - Sets the source IPv4 address
+  *  @input: input stream to modify
+  *  @src_addr: the IP address to load
++ *  @src_addr_mask: bitwise mask for the source IP address
+  **/
+ s32 ixgbe_atr_set_src_ipv4_82599(struct ixgbe_atr_input *input, u32 src_addr)
  {
-@@ -139,6 +139,11 @@ int ethtool_op_set_flags(struct net_device *dev, u32 data)
- 	else
- 		dev->features &= ~NETIF_F_LRO;
+@@ -1658,6 +1663,7 @@ s32 ixgbe_atr_set_src_ipv4_82599(struct ixgbe_atr_input *input, u32 src_addr)
+  *  ixgbe_atr_set_dst_ipv4_82599 - Sets the destination IPv4 address
+  *  @input: input stream to modify
+  *  @dst_addr: the IP address to load
++ *  @dst_addr_mask: bitwise mask for the destination IP address
+  **/
+ s32 ixgbe_atr_set_dst_ipv4_82599(struct ixgbe_atr_input *input, u32 dst_addr)
+ {
+@@ -1680,8 +1686,8 @@ s32 ixgbe_atr_set_dst_ipv4_82599(struct ixgbe_atr_input *input, u32 dst_addr)
+  *  @src_addr_4: the fourth 4 bytes of the IP address to load
+  **/
+ s32 ixgbe_atr_set_src_ipv6_82599(struct ixgbe_atr_input *input,
+-                                        u32 src_addr_1, u32 src_addr_2,
+-                                        u32 src_addr_3, u32 src_addr_4)
++                                 u32 src_addr_1, u32 src_addr_2,
++                                 u32 src_addr_3, u32 src_addr_4)
+ {
+ 	input->byte_stream[IXGBE_ATR_SRC_IPV6_OFFSET] = src_addr_4 & 0xff;
+ 	input->byte_stream[IXGBE_ATR_SRC_IPV6_OFFSET + 1] =
+@@ -1723,8 +1729,8 @@ s32 ixgbe_atr_set_src_ipv6_82599(struct ixgbe_atr_input *input,
+  *  @dst_addr_4: the fourth 4 bytes of the IP address to load
+  **/
+ s32 ixgbe_atr_set_dst_ipv6_82599(struct ixgbe_atr_input *input,
+-                                        u32 dst_addr_1, u32 dst_addr_2,
+-                                        u32 dst_addr_3, u32 dst_addr_4)
++                                 u32 dst_addr_1, u32 dst_addr_2,
++                                 u32 dst_addr_3, u32 dst_addr_4)
+ {
+ 	input->byte_stream[IXGBE_ATR_DST_IPV6_OFFSET] = dst_addr_4 & 0xff;
+ 	input->byte_stream[IXGBE_ATR_DST_IPV6_OFFSET + 1] =
+@@ -1761,6 +1767,7 @@ s32 ixgbe_atr_set_dst_ipv6_82599(struct ixgbe_atr_input *input,
+  *  ixgbe_atr_set_src_port_82599 - Sets the source port
+  *  @input: input stream to modify
+  *  @src_port: the source port to load
++ *  @src_port_mask: bitwise mask for the source port
+  **/
+ s32 ixgbe_atr_set_src_port_82599(struct ixgbe_atr_input *input, u16 src_port)
+ {
+@@ -1774,6 +1781,7 @@ s32 ixgbe_atr_set_src_port_82599(struct ixgbe_atr_input *input, u16 src_port)
+  *  ixgbe_atr_set_dst_port_82599 - Sets the destination port
+  *  @input: input stream to modify
+  *  @dst_port: the destination port to load
++ *  @dst_port_mask: bitwise mask for the destination port
+  **/
+ s32 ixgbe_atr_set_dst_port_82599(struct ixgbe_atr_input *input, u16 dst_port)
+ {
+@@ -1802,7 +1810,7 @@ s32 ixgbe_atr_set_flex_byte_82599(struct ixgbe_atr_input *input, u16 flex_byte)
+  *  @vm_pool: the Virtual Machine pool to load
+  **/
+ s32 ixgbe_atr_set_vm_pool_82599(struct ixgbe_atr_input *input,
+-                                       u8 vm_pool)
++                                u8 vm_pool)
+ {
+ 	input->byte_stream[IXGBE_ATR_VM_POOL_OFFSET] = vm_pool;
  
-+	if (data & ETH_FLAG_NTUPLE)
-+		dev->features |= NETIF_F_NTUPLE;
-+	else
-+		dev->features &= ~NETIF_F_NTUPLE;
-+
- 	return 0;
- }
+@@ -1826,8 +1834,7 @@ s32 ixgbe_atr_set_l4type_82599(struct ixgbe_atr_input *input, u8 l4type)
+  *  @input: input stream to search
+  *  @vlan: the VLAN id to load
+  **/
+-static s32 ixgbe_atr_get_vlan_id_82599(struct ixgbe_atr_input *input,
+-                                       u16 *vlan)
++static s32 ixgbe_atr_get_vlan_id_82599(struct ixgbe_atr_input *input, u16 *vlan)
+ {
+ 	*vlan = input->byte_stream[IXGBE_ATR_VLAN_OFFSET];
+ 	*vlan |= input->byte_stream[IXGBE_ATR_VLAN_OFFSET + 1] << 8;
+@@ -2083,23 +2090,26 @@ s32 ixgbe_fdir_add_signature_filter_82599(struct ixgbe_hw *hw,
+  *  ixgbe_fdir_add_perfect_filter_82599 - Adds a perfect filter
+  *  @hw: pointer to hardware structure
+  *  @input: input bitstream
++ *  @input_masks: bitwise masks for relevant fields
++ *  @soft_id: software index into the silicon hash tables for filter storage
+  *  @queue: queue index to direct traffic to
+  *
+  *  Note that the caller to this function must lock before calling, since the
+  *  hardware writes must be protected from one another.
+  **/
+ s32 ixgbe_fdir_add_perfect_filter_82599(struct ixgbe_hw *hw,
+-                                               struct ixgbe_atr_input *input,
+-                                               u16 soft_id,
+-                                               u8 queue)
++                                      struct ixgbe_atr_input *input,
++                                      struct ixgbe_atr_input_masks *input_masks,
++                                      u16 soft_id, u8 queue)
+ {
+ 	u32 fdircmd = 0;
+ 	u32 fdirhash;
+-	u32 src_ipv4, dst_ipv4;
++	u32 src_ipv4 = 0, dst_ipv4 = 0;
+ 	u32 src_ipv6_1, src_ipv6_2, src_ipv6_3, src_ipv6_4;
+ 	u16 src_port, dst_port, vlan_id, flex_bytes;
+ 	u16 bucket_hash;
+ 	u8  l4type;
++	u8  fdirm = 0;
  
-@@ -266,6 +271,313 @@ err_out:
- 	return ret;
- }
+ 	/* Get our input values */
+ 	ixgbe_atr_get_l4type_82599(input, &l4type);
+@@ -2154,7 +2164,6 @@ s32 ixgbe_fdir_add_perfect_filter_82599(struct ixgbe_hw *hw,
+ 		/* IPv4 */
+ 		ixgbe_atr_get_src_ipv4_82599(input, &src_ipv4);
+ 		IXGBE_WRITE_REG(hw, IXGBE_FDIRIPSA, src_ipv4);
+-
+ 	}
  
-+static int __rx_ntuple_filter_add(struct ethtool_rx_ntuple_list *list,
-+                                   struct ethtool_rx_ntuple_flow_spec *spec)
-+{
-+	struct ethtool_rx_ntuple_flow_spec *fs;
-+	int alloc_size;
-+
-+	/* don't add filters forever */
-+	if (list->count >= ETHTOOL_MAX_NTUPLE_LIST_ENTRY)
-+		return 0;
-+
-+	list_for_each_entry(fs, &list->list, list) { /* run to end */ }
-+
-+	alloc_size = sizeof(*fs);
-+	if (alloc_size < L1_CACHE_BYTES)
-+		alloc_size = L1_CACHE_BYTES;
-+	fs = kmalloc(alloc_size, GFP_ATOMIC);
-+	if (!fs)
-+		return -ENOMEM;
-+
-+	/* Copy the whole filter over */
-+	fs->flow_type = spec->flow_type;
-+	memcpy(&fs->h_u, &spec->h_u, sizeof(spec->h_u));
-+	memcpy(&fs->m_u, &spec->m_u, sizeof(spec->m_u));
-+
-+	fs->vlan_tag = spec->vlan_tag;
-+	fs->vlan_tag_mask = spec->vlan_tag_mask;
-+	fs->data = spec->data;
-+	fs->data_mask = spec->data_mask;
-+	fs->action = spec->action;
-+
-+	/* add to the list */
-+	list_add_tail_rcu(&fs->list, &list->list);
-+	list->count++;
-+
-+	return 0;
-+}
-+
-+static int ethtool_set_rx_ntuple(struct net_device *dev, void __user *useraddr)
-+{
-+	struct ethtool_rx_ntuple cmd;
-+	const struct ethtool_ops *ops = dev->ethtool_ops;
-+	int ret;
-+
-+	if (!ops->set_rx_ntuple)
-+		return -EOPNOTSUPP;
-+
-+	if (!(dev->features & NETIF_F_NTUPLE))
-+		return -EINVAL;
-+
-+	if (copy_from_user(&cmd, useraddr, sizeof(cmd)))
-+		return -EFAULT;
-+
-+	ret = ops->set_rx_ntuple(dev, &cmd);
+ 	ixgbe_atr_get_dst_ipv4_82599(input, &dst_ipv4);
+@@ -2163,7 +2172,78 @@ s32 ixgbe_fdir_add_perfect_filter_82599(struct ixgbe_hw *hw,
+ 	IXGBE_WRITE_REG(hw, IXGBE_FDIRVLAN, (vlan_id |
+ 	                            (flex_bytes << IXGBE_FDIRVLAN_FLEX_SHIFT)));
+ 	IXGBE_WRITE_REG(hw, IXGBE_FDIRPORT, (src_port |
+-	                       (dst_port << IXGBE_FDIRPORT_DESTINATION_SHIFT)));
++	              (dst_port << IXGBE_FDIRPORT_DESTINATION_SHIFT)));
 +
 +	/*
-+	 * Cache filter in dev struct for GET operation only if
-+	 * the underlying driver doesn't have its own GET operation, and
-+	 * only if the filter was added successfully.
++	 * Program the relevant mask registers.  If src/dst_port or src/dst_addr
++	 * are zero, then assume a full mask for that field.  Also assume that
++	 * a VLAN of 0 is unspecified, so mask that out as well.  L4type
++	 * cannot be masked out in this implementation.
++	 *
++	 * This also assumes IPv4 only.  IPv6 masking isn't supported at this
++	 * point in time.
 +	 */
-+	if (!ops->get_rx_ntuple && !ret)
-+		if (__rx_ntuple_filter_add(&dev->ethtool_ntuple_list, &cmd.fs))
-+			return -ENOMEM;
++	if (src_ipv4 == 0)
++		IXGBE_WRITE_REG(hw, IXGBE_FDIRSIP4M, 0xffffffff);
++	else
++		IXGBE_WRITE_REG(hw, IXGBE_FDIRSIP4M, input_masks->src_ip_mask);
 +
-+	return ret;
++	if (dst_ipv4 == 0)
++		IXGBE_WRITE_REG(hw, IXGBE_FDIRDIP4M, 0xffffffff);
++	else
++		IXGBE_WRITE_REG(hw, IXGBE_FDIRDIP4M, input_masks->dst_ip_mask);
++
++	switch (l4type & IXGBE_ATR_L4TYPE_MASK) {
++	case IXGBE_ATR_L4TYPE_TCP:
++		if (src_port == 0)
++			IXGBE_WRITE_REG(hw, IXGBE_FDIRTCPM, 0xffff);
++		else
++			IXGBE_WRITE_REG(hw, IXGBE_FDIRTCPM,
++			                input_masks->src_port_mask);
++
++		if (dst_port == 0)
++			IXGBE_WRITE_REG(hw, IXGBE_FDIRTCPM,
++			               (IXGBE_READ_REG(hw, IXGBE_FDIRTCPM) |
++			                (0xffff << 16)));
++		else
++			IXGBE_WRITE_REG(hw, IXGBE_FDIRTCPM,
++			               (IXGBE_READ_REG(hw, IXGBE_FDIRTCPM) |
++			                (input_masks->dst_port_mask << 16)));
++		break;
++	case IXGBE_ATR_L4TYPE_UDP:
++		if (src_port == 0)
++			IXGBE_WRITE_REG(hw, IXGBE_FDIRUDPM, 0xffff);
++		else
++			IXGBE_WRITE_REG(hw, IXGBE_FDIRUDPM,
++			                input_masks->src_port_mask);
++
++		if (dst_port == 0)
++			IXGBE_WRITE_REG(hw, IXGBE_FDIRUDPM,
++			               (IXGBE_READ_REG(hw, IXGBE_FDIRUDPM) |
++			                (0xffff << 16)));
++		else
++			IXGBE_WRITE_REG(hw, IXGBE_FDIRUDPM,
++			               (IXGBE_READ_REG(hw, IXGBE_FDIRUDPM) |
++			                (input_masks->src_port_mask << 16)));
++		break;
++	default:
++		/* this already would have failed above */
++		break;
++	}
++
++	/* Program the last mask register, FDIRM */
++	if (input_masks->vlan_id_mask || !vlan_id)
++		/* Mask both VLAN and VLANP - bits 0 and 1 */
++		fdirm |= 0x3;
++
++	if (input_masks->data_mask || !flex_bytes)
++		/* Flex bytes need masking, so mask the whole thing - bit 4 */
++		fdirm |= 0x10;
++
++	/* Now mask VM pool and destination IPv6 - bits 5 and 2 */
++	fdirm |= 0x24;
++
++	IXGBE_WRITE_REG(hw, IXGBE_FDIRM, fdirm);
+ 
+ 	fdircmd |= IXGBE_FDIRCMD_CMD_ADD_FLOW;
+ 	fdircmd |= IXGBE_FDIRCMD_FILTER_UPDATE;
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index 07a9410..0d23434 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -979,6 +979,9 @@ static int ixgbe_get_sset_count(struct net_device *netdev, int sset)
+ 		return IXGBE_TEST_LEN;
+ 	case ETH_SS_STATS:
+ 		return IXGBE_STATS_LEN;
++	case ETH_SS_NTUPLE_FILTERS:
++		return (ETHTOOL_MAX_NTUPLE_LIST_ENTRY *
++		        ETHTOOL_MAX_NTUPLE_STRING_PER_ENTRY);
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
+@@ -2150,23 +2153,124 @@ static int ixgbe_set_coalesce(struct net_device *netdev,
+ static int ixgbe_set_flags(struct net_device *netdev, u32 data)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	bool need_reset = false;
+ 
+ 	ethtool_op_set_flags(netdev, data);
+ 
+-	if (!(adapter->flags2 & IXGBE_FLAG2_RSC_CAPABLE))
+-		return 0;
+-
+ 	/* if state changes we need to update adapter->flags and reset */
+ 	if ((!!(data & ETH_FLAG_LRO)) != 
+ 	    (!!(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED))) {
+ 		adapter->flags2 ^= IXGBE_FLAG2_RSC_ENABLED;
++		need_reset = true;
++	}
++
++	/*
++	 * Check if Flow Director n-tuple support was enabled or disabled.  If
++	 * the state changed, we need to reset.
++	 */
++	if ((adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE) &&
++	    (!(data & ETH_FLAG_NTUPLE))) {
++		/* turn off Flow Director perfect, set hash and reset */
++		adapter->flags &= ~IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
++		adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
++		need_reset = true;
++	} else if ((!(adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE)) &&
++	           (data & ETH_FLAG_NTUPLE)) {
++		/* turn off Flow Director hash, enable perfect and reset */
++		adapter->flags &= ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
++		adapter->flags |= IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
++		need_reset = true;
++	} else {
++		/* no state change */
++	}
++
++	if (need_reset) {
+ 		if (netif_running(netdev))
+ 			ixgbe_reinit_locked(adapter);
+ 		else
+ 			ixgbe_reset(adapter);
+ 	}
++
+ 	return 0;
 +}
 +
-+static int ethtool_get_rx_ntuple(struct net_device *dev, void __user *useraddr)
++static int ixgbe_set_rx_ntuple(struct net_device *dev,
++                               struct ethtool_rx_ntuple *cmd)
 +{
-+	struct ethtool_gstrings gstrings;
-+	const struct ethtool_ops *ops = dev->ethtool_ops;
-+	struct ethtool_rx_ntuple_flow_spec *fs;
-+	u8 *data;
-+	char *p;
-+	int ret, i, num_strings = 0;
++	struct ixgbe_adapter *adapter = netdev_priv(dev);
++	struct ethtool_rx_ntuple_flow_spec fs = cmd->fs;
++	struct ixgbe_atr_input input_struct;
++	struct ixgbe_atr_input_masks input_masks;
++	int target_queue;
 +
-+	if (!ops->get_sset_count)
++	if (adapter->hw.mac.type == ixgbe_mac_82598EB)
 +		return -EOPNOTSUPP;
 +
-+	if (copy_from_user(&gstrings, useraddr, sizeof(gstrings)))
-+		return -EFAULT;
++	/*
++	 * Don't allow programming if the action is a queue greater than
++	 * the number of online Tx queues.
++	 */
++	if ((fs.action >= adapter->num_tx_queues) ||
++	    (fs.action < ETHTOOL_RXNTUPLE_ACTION_DROP))
++		return -EINVAL;
 +
-+	ret = ops->get_sset_count(dev, gstrings.string_set);
-+	if (ret < 0)
-+		return ret;
++	memset(&input_struct, 0, sizeof(struct ixgbe_atr_input));
++	memset(&input_masks, 0, sizeof(struct ixgbe_atr_input_masks));
 +
-+	gstrings.len = ret;
++	input_masks.src_ip_mask = fs.m_u.tcp_ip4_spec.ip4src;
++	input_masks.dst_ip_mask = fs.m_u.tcp_ip4_spec.ip4dst;
++	input_masks.src_port_mask = fs.m_u.tcp_ip4_spec.psrc;
++	input_masks.dst_port_mask = fs.m_u.tcp_ip4_spec.pdst;
++	input_masks.vlan_id_mask = fs.vlan_tag_mask;
++	/* only use the lowest 2 bytes for flex bytes */
++	input_masks.data_mask = (fs.data_mask & 0xffff);
 +
-+	data = kmalloc(gstrings.len * ETH_GSTRING_LEN, GFP_USER);
-+	if (!data)
-+		return -ENOMEM;
-+
-+	if (ops->get_rx_ntuple) {
-+		/* driver-specific filter grab */
-+		ret = ops->get_rx_ntuple(dev, gstrings.string_set, data);
-+		goto copy;
++	switch (fs.flow_type) {
++	case TCP_V4_FLOW:
++		ixgbe_atr_set_l4type_82599(&input_struct, IXGBE_ATR_L4TYPE_TCP);
++		break;
++	case UDP_V4_FLOW:
++		ixgbe_atr_set_l4type_82599(&input_struct, IXGBE_ATR_L4TYPE_UDP);
++		break;
++	case SCTP_V4_FLOW:
++		ixgbe_atr_set_l4type_82599(&input_struct, IXGBE_ATR_L4TYPE_SCTP);
++		break;
++	default:
++		return -1;
 +	}
-+
-+	/* default ethtool filter grab */
-+	i = 0;
-+	p = (char *)data;
-+	list_for_each_entry(fs, &dev->ethtool_ntuple_list.list, list) {
-+		sprintf(p, "Filter %d:\n", i);
-+		p += ETH_GSTRING_LEN;
-+		num_strings++;
-+
-+		switch (fs->flow_type) {
-+		case TCP_V4_FLOW:
-+			sprintf(p, "\tFlow Type: TCP\n");
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			break;
-+		case UDP_V4_FLOW:
-+			sprintf(p, "\tFlow Type: UDP\n");
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			break;
-+		case SCTP_V4_FLOW:
-+			sprintf(p, "\tFlow Type: SCTP\n");
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			break;
-+		case AH_ESP_V4_FLOW:
-+			sprintf(p, "\tFlow Type: AH ESP\n");
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			break;
-+		case ESP_V4_FLOW:
-+			sprintf(p, "\tFlow Type: ESP\n");
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			break;
-+		case IP_USER_FLOW:
-+			sprintf(p, "\tFlow Type: Raw IP\n");
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			break;
-+		case IPV4_FLOW:
-+			sprintf(p, "\tFlow Type: IPv4\n");
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			break;
-+		default:
-+			sprintf(p, "\tFlow Type: Unknown\n");
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			goto unknown_filter;
-+		};
-+
-+		/* now the rest of the filters */
-+		switch (fs->flow_type) {
-+		case TCP_V4_FLOW:
-+		case UDP_V4_FLOW:
-+		case SCTP_V4_FLOW:
-+			sprintf(p, "\tSrc IP addr: 0x%x\n",
-+			        fs->h_u.tcp_ip4_spec.ip4src);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tSrc IP mask: 0x%x\n",
-+			        fs->m_u.tcp_ip4_spec.ip4src);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tDest IP addr: 0x%x\n",
-+			        fs->h_u.tcp_ip4_spec.ip4dst);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tDest IP mask: 0x%x\n",
-+			        fs->m_u.tcp_ip4_spec.ip4dst);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tSrc Port: %d, mask: 0x%x\n",
-+			        fs->h_u.tcp_ip4_spec.psrc,
-+			        fs->m_u.tcp_ip4_spec.psrc);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tDest Port: %d, mask: 0x%x\n",
-+			        fs->h_u.tcp_ip4_spec.pdst,
-+			        fs->m_u.tcp_ip4_spec.pdst);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tTOS: %d, mask: 0x%x\n",
-+			        fs->h_u.tcp_ip4_spec.tos,
-+			        fs->m_u.tcp_ip4_spec.tos);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			break;
-+		case AH_ESP_V4_FLOW:
-+		case ESP_V4_FLOW:
-+			sprintf(p, "\tSrc IP addr: 0x%x\n",
-+			        fs->h_u.ah_ip4_spec.ip4src);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tSrc IP mask: 0x%x\n",
-+			        fs->m_u.ah_ip4_spec.ip4src);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tDest IP addr: 0x%x\n",
-+			        fs->h_u.ah_ip4_spec.ip4dst);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tDest IP mask: 0x%x\n",
-+			        fs->m_u.ah_ip4_spec.ip4dst);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tSPI: %d, mask: 0x%x\n",
-+			        fs->h_u.ah_ip4_spec.spi,
-+			        fs->m_u.ah_ip4_spec.spi);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tTOS: %d, mask: 0x%x\n",
-+			        fs->h_u.ah_ip4_spec.tos,
-+			        fs->m_u.ah_ip4_spec.tos);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			break;
-+		case IP_USER_FLOW:
-+			sprintf(p, "\tSrc IP addr: 0x%x\n",
-+			        fs->h_u.raw_ip4_spec.ip4src);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tSrc IP mask: 0x%x\n",
-+			        fs->m_u.raw_ip4_spec.ip4src);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tDest IP addr: 0x%x\n",
-+			        fs->h_u.raw_ip4_spec.ip4dst);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tDest IP mask: 0x%x\n",
-+			        fs->m_u.raw_ip4_spec.ip4dst);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			break;
-+		case IPV4_FLOW:
-+			sprintf(p, "\tSrc IP addr: 0x%x\n",
-+			        fs->h_u.usr_ip4_spec.ip4src);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tSrc IP mask: 0x%x\n",
-+			        fs->m_u.usr_ip4_spec.ip4src);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tDest IP addr: 0x%x\n",
-+			        fs->h_u.usr_ip4_spec.ip4dst);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tDest IP mask: 0x%x\n",
-+			        fs->m_u.usr_ip4_spec.ip4dst);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tL4 bytes: 0x%x, mask: 0x%x\n",
-+			        fs->h_u.usr_ip4_spec.l4_4_bytes,
-+			        fs->m_u.usr_ip4_spec.l4_4_bytes);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tTOS: %d, mask: 0x%x\n",
-+			        fs->h_u.usr_ip4_spec.tos,
-+			        fs->m_u.usr_ip4_spec.tos);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tIP Version: %d, mask: 0x%x\n",
-+			        fs->h_u.usr_ip4_spec.ip_ver,
-+			        fs->m_u.usr_ip4_spec.ip_ver);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			sprintf(p, "\tProtocol: %d, mask: 0x%x\n",
-+			        fs->h_u.usr_ip4_spec.proto,
-+			        fs->m_u.usr_ip4_spec.proto);
-+			p += ETH_GSTRING_LEN;
-+			num_strings++;
-+			break;
-+		};
-+		sprintf(p, "\tVLAN: %d, mask: 0x%x\n",
-+		        fs->vlan_tag, fs->vlan_tag_mask);
-+		p += ETH_GSTRING_LEN;
-+		num_strings++;
-+		sprintf(p, "\tUser-defined: 0x%Lx\n", fs->data);
-+		p += ETH_GSTRING_LEN;
-+		num_strings++;
-+		sprintf(p, "\tUser-defined mask: 0x%Lx\n", fs->data_mask);
-+		p += ETH_GSTRING_LEN;
-+		num_strings++;
-+		if (fs->action == ETHTOOL_RXNTUPLE_ACTION_DROP)
-+			sprintf(p, "\tAction: Drop\n");
-+		else
-+			sprintf(p, "\tAction: Direct to queue %d\n",
-+			        fs->action);
-+		p += ETH_GSTRING_LEN;
-+		num_strings++;
-+unknown_filter:
-+		i++;
-+	}
-+copy:
-+	/* indicate to userspace how many strings we actually have */
-+	gstrings.len = num_strings;
-+	ret = -EFAULT;
-+	if (copy_to_user(useraddr, &gstrings, sizeof(gstrings)))
-+		goto out;
-+	useraddr += sizeof(gstrings);
-+	if (copy_to_user(useraddr, data, gstrings.len * ETH_GSTRING_LEN))
-+		goto out;
-+	ret = 0;
-+
-+out:
-+	kfree(data);
-+	return ret;
-+}
-+
- static int ethtool_get_regs(struct net_device *dev, char __user *useraddr)
- {
- 	struct ethtool_regs regs;
-@@ -305,6 +617,7 @@ static int ethtool_get_regs(struct net_device *dev, char __user *useraddr)
- static int ethtool_reset(struct net_device *dev, char __user *useraddr)
- {
- 	struct ethtool_value reset;
-+	struct ethtool_rx_ntuple_flow_spec *fs, *f;
- 	int ret;
  
- 	if (!dev->ethtool_ops->reset)
-@@ -313,6 +626,12 @@ static int ethtool_reset(struct net_device *dev, char __user *useraddr)
- 	if (copy_from_user(&reset, useraddr, sizeof(reset)))
- 		return -EFAULT;
- 
-+	/* Clear ethtool n-tuple list */
-+	list_for_each_entry_safe(fs, f, &dev->ethtool_ntuple_list.list, list) {
-+		list_del(&fs->list);
-+	}
-+	dev->ethtool_ntuple_list.count = 0;
++	/* Mask bits from the inputs based on user-supplied mask */
++	ixgbe_atr_set_src_ipv4_82599(&input_struct,
++	            (fs.h_u.tcp_ip4_spec.ip4src & ~fs.m_u.tcp_ip4_spec.ip4src));
++	ixgbe_atr_set_dst_ipv4_82599(&input_struct,
++	            (fs.h_u.tcp_ip4_spec.ip4dst & ~fs.m_u.tcp_ip4_spec.ip4dst));
++	/* 82599 expects these to be byte-swapped for perfect filtering */
++	ixgbe_atr_set_src_port_82599(&input_struct,
++	       ((ntohs(fs.h_u.tcp_ip4_spec.psrc)) & ~fs.m_u.tcp_ip4_spec.psrc));
++	ixgbe_atr_set_dst_port_82599(&input_struct,
++	       ((ntohs(fs.h_u.tcp_ip4_spec.pdst)) & ~fs.m_u.tcp_ip4_spec.pdst));
 +
- 	ret = dev->ethtool_ops->reset(dev, &reset.data);
- 	if (ret)
- 		return ret;
-@@ -351,9 +670,17 @@ static int ethtool_set_wol(struct net_device *dev, char __user *useraddr)
- 
- static int ethtool_nway_reset(struct net_device *dev)
- {
-+	struct ethtool_rx_ntuple_flow_spec *fs, *f;
++	/* VLAN and Flex bytes are either completely masked or not */
++	if (!fs.vlan_tag_mask)
++		ixgbe_atr_set_vlan_id_82599(&input_struct, fs.vlan_tag);
 +
- 	if (!dev->ethtool_ops->nway_reset)
- 		return -EOPNOTSUPP;
- 
-+	/* Clear ethtool n-tuple list */
-+	list_for_each_entry_safe(fs, f, &dev->ethtool_ntuple_list.list, list) {
-+		list_del(&fs->list);
-+	}
-+	dev->ethtool_ntuple_list.count = 0;
++	if (!input_masks.data_mask)
++		/* make sure we only use the first 2 bytes of user data */
++		ixgbe_atr_set_flex_byte_82599(&input_struct,
++		                              (fs.data & 0xffff));
 +
- 	return dev->ethtool_ops->nway_reset(dev);
++	/* determine if we need to drop or route the packet */
++	if (fs.action == ETHTOOL_RXNTUPLE_ACTION_DROP)
++		target_queue = MAX_RX_QUEUES - 1;
++	else
++		target_queue = fs.action;
++
++	spin_lock(&adapter->fdir_perfect_lock);
++	ixgbe_fdir_add_perfect_filter_82599(&adapter->hw, &input_struct,
++	                                    &input_masks, 0, target_queue);
++	spin_unlock(&adapter->fdir_perfect_lock);
++
++	return 0;
  }
  
-@@ -1112,6 +1439,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_RESET:
- 		rc = ethtool_reset(dev, useraddr);
- 		break;
-+	case ETHTOOL_SRXNTUPLE:
-+		rc = ethtool_set_rx_ntuple(dev, useraddr);
-+		break;
-+	case ETHTOOL_GRXNTUPLE:
-+		rc = ethtool_get_rx_ntuple(dev, useraddr);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
- 	}
+ static const struct ethtool_ops ixgbe_ethtool_ops = {
+@@ -2204,6 +2308,7 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
+ 	.set_coalesce           = ixgbe_set_coalesce,
+ 	.get_flags              = ethtool_op_get_flags,
+ 	.set_flags              = ixgbe_set_flags,
++	.set_rx_ntuple          = ixgbe_set_rx_ntuple,
+ };
+ 
+ void ixgbe_set_ethtool_ops(struct net_device *netdev)
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 2a3c831..ca57e74 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -4187,6 +4187,7 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	struct pci_dev *pdev = adapter->pdev;
++	struct net_device *dev = adapter->netdev;
+ 	unsigned int rss;
+ #ifdef CONFIG_IXGBE_DCB
+ 	int j;
+@@ -4214,10 +4215,18 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 		adapter->max_msix_q_vectors = MAX_MSIX_Q_VECTORS_82599;
+ 		adapter->flags2 |= IXGBE_FLAG2_RSC_CAPABLE;
+ 		adapter->flags2 |= IXGBE_FLAG2_RSC_ENABLED;
+-		adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
++		if (dev->features & NETIF_F_NTUPLE) {
++			/* Flow Director perfect filter enabled */
++			adapter->flags |= IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
++			adapter->atr_sample_rate = 0;
++			spin_lock_init(&adapter->fdir_perfect_lock);
++		} else {
++			/* Flow Director hash filters enabled */
++			adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
++			adapter->atr_sample_rate = 20;
++		}
+ 		adapter->ring_feature[RING_F_FDIR].indices =
+ 		                                         IXGBE_MAX_FDIR_INDICES;
+-		adapter->atr_sample_rate = 20;
+ 		adapter->fdir_pballoc = 0;
+ #ifdef IXGBE_FCOE
+ 		adapter->flags |= IXGBE_FLAG_FCOE_CAPABLE;
+diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
+index 0db67c1..2be9074 100644
+--- a/drivers/net/ixgbe/ixgbe_type.h
++++ b/drivers/net/ixgbe/ixgbe_type.h
+@@ -2129,6 +2129,15 @@ struct ixgbe_atr_input {
+ 	u8 byte_stream[42];
+ };
+ 
++struct ixgbe_atr_input_masks {
++	u32 src_ip_mask;
++	u32 dst_ip_mask;
++	u16 src_port_mask;
++	u16 dst_port_mask;
++	u16 vlan_id_mask;
++	u16 data_mask;
++};
++
+ enum ixgbe_eeprom_type {
+ 	ixgbe_eeprom_uninitialized = 0,
+ 	ixgbe_eeprom_spi,
 
