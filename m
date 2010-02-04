@@ -1,80 +1,32 @@
-From: Tetsuo Handa <penguin-kernel-JPay3/Yim36HaxMnTkn67Xf5DAMn2ifp@public.gmane.org>
-Subject: Re: [RFC Patch v2] net: reserve ports for applications using fixed port numbers
-Date: Thu, 4 Feb 2010 19:59:00 +0900
-Message-ID: <201002041959.JEG43202.JQOFHFOVSFMtLO@I-love.SAKURA.ne.jp>
-References: <20100204101533.4619.34599.sendpatchset@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter: per netns nf_conntrack_cachep
+Date: Thu, 04 Feb 2010 13:24:49 +0100
+Message-ID: <4B6ABC91.6010209@trash.net>
+References: <1264813832.2793.446.camel@tonnant>	 <1265023437.2848.30.camel@edumazet-laptop>	 <1265035970.2848.50.camel@edumazet-laptop>	 <b6fcc0a1002010658j4f52a9b8kf10e4bb07a2f1075@mail.gmail.com>	 <1265036548.2848.55.camel@edumazet-laptop>	 <1265108690.2861.118.camel@tonnant> <1265110504.2861.135.camel@tonnant>	 <1265129192.2861.141.camel@tonnant> <4B685756.8010107@trash.net>	 <1265130426.2861.158.camel@tonnant>	 <b6fcc0a1002020958u17315624u4d54d06a413be6bb@mail.gmail.com>	 <1265134598.2861.191.camel@tonnant> <4B6870AF.6060109@trash.net>	 <4B6967BC.600@trash.net> <1265228479.2861.312.camel@tonnant>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: opurdila-+zzKsuq53OdBDgjK7y7TUQ@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100204101533.4619.34599.sendpatchset-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Alexey Dobriyan <adobriyan@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Jon Masters <jonathan@jonmasters.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1265228479.2861.312.camel@tonnant>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Jon Masters wrote:
+> On Wed, 2010-02-03 at 13:10 +0100, Patrick McHardy wrote:
+> 
+>> Jon, could you give this patch a try please?
+>> plain text document attachment (x)
+>> commit 056ff3e3bd1563969a311697323ff929df94415c
+>> Author: Patrick McHardy <kaber@trash.net>
+>> Date:   Wed Feb 3 12:58:06 2010 +0100
+> 
+> Patrick, can I regard this as the official fix for 2.6.33?
 
-Amerigo Wang wrote:
-> diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-> index 2b79377..d3e160a 100644
-> --- a/net/ipv4/inet_hashtables.c
-> +++ b/net/ipv4/inet_hashtables.c
-> @@ -456,6 +456,8 @@ int __inet_hash_connect(struct inet_timewait_death_row *death_row,
->  		local_bh_disable();
->  		for (i = 1; i <= remaining; i++) {
->  			port = low + (i + offset) % remaining;
-> +			if (inet_is_reserved_local_port(port))
-> +				continue;
->  			head = &hinfo->bhash[inet_bhashfn(net, port,
->  					hinfo->bhash_size)];
->  			spin_lock(&head->lock);
-
-I'm planning to add a LSM hook here.
-
-If root user sets min port value less than 1024 to
-/proc/sys/net/ipv4/ip_local_port_range , a process without CAP_NET_BIND_SERVICE
-capability can bind to privileged port by "bind() with port == 0" or "connect()
-without bind()" because the condition is
-
-	err = -EACCES;
-	if (snum && snum < PROT_SOCK && !capable(CAP_NET_BIND_SERVICE))
-		goto out;
-
-I consider this is a security problem if MAC is enabled. MAC is used for
-dividing root user's privilege. With MAC, somebody doing some part of root
-user's jobs may set min port value to less than 1024.
-
-Also, some applications needs fixed local port numbers (e.g. 3128 for Squid,
-8080 for Tomcat). The port numbers I want to reserve are more complex than
-simple min-max range like /proc/sys/net/ipv4/ip_local_reserved_ports .
-
-Therefore, TOMOYO wants to insert a LSM hook (
-http://tomoyo.sourceforge.jp/cgi-bin/lxr/source/net/ipv4/udp.c#L235
-http://tomoyo.sourceforge.jp/cgi-bin/lxr/source/net/ipv4/inet_connection_sock.c#L114
-http://tomoyo.sourceforge.jp/cgi-bin/lxr/source/net/ipv4/inet_hashtables.c#L459
-) and allow reserving local ports like
-
-  deny_autobind 0-1023
-  deny_autobind 3128
-  deny_autobind 8080
-
-so that
-
-  applications which need such ports won't be unexpectedly blocked by
-  other application's temporary port usage (i.e. "bind() with port == 0" or
-  "connect() without bind()")
-
-and
-
-  MAC guarantees that processes without CAP_NET_BIND_SERVICE can never bind
-  to privileged port
-
-.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yes, I'll send it upstream today. Thanks for your help.
