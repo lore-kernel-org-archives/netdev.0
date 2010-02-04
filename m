@@ -1,46 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.33 1/4] net: Micrel KSZ8841/2 PCI Ethernet driver
-Date: Wed, 03 Feb 2010 18:00:56 -0800 (PST)
-Message-ID: <20100203.180056.206222084.davem@davemloft.net>
-References: <14385191E87B904DBD836449AA30269D021A4D@MORGANITE.micrel.com>
+From: "John Ye" <johny@asimco.com.cn>
+Subject: RE: [PATCH 2.6.27.7-9-pae #7 SMP 1/1] networking tcp: Writing tcp socket be atomic
+Date: Thu, 4 Feb 2010 10:03:44 +0800
+Message-ID: <DB4F116661E3B0428456BB7E379EF4BB3C5F57@MX.asimcotech.com>
+References: <474C17045AA24E3F8519EE76BAB47439@JOHNYE1> <20100203.085249.98326242.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alan@lxorguk.ukuu.org.uk, shemminger@vyatta.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Tristram.Ha@Micrel.Com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46710
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754532Ab0BDCAm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 21:00:42 -0500
-In-Reply-To: <14385191E87B904DBD836449AA30269D021A4D@MORGANITE.micrel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=gb2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <kuznet@ms2.inr.ac.ru>, <netdev@vger.kernel.org>,
+	<jmorris@namei.org>, <kaber@coreworks.de>,
+	<linux-kernel@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
-Date: Fri, 29 Jan 2010 14:37:22 -0800
+David,
 
-> This is a resubmission of the Micrel KSZ8841/2 PCI Ethernet driver.
+Thanks.
+The option TCP_ATOMIC is not a must.
+We can make atomic be default if the data size is less than a fixed siz=
+e, just the same as pipe.
+=46or example, if the data size is less than 512, we don't split the da=
+ta so it goes atomically.
 
-The procfs stuff is a non-starter.
+John Ye
 
-There will undoubtedly be other devices that have switch-like
-facilities that we'd like to export configuration support for.
 
-The last thing we want is a bunch of procfs files that each
-driver decides the layout and behavior of.
+-----Original Message-----
+=46rom: David Miller [mailto:davem@davemloft.net]=20
+Sent: 2010=C4=EA2=D4=C24=C8=D5 0:53
+To: John Ye
+Cc: kuznet@ms2.inr.ac.ru; netdev@vger.kernel.org; jmorris@namei.org; ka=
+ber@coreworks.de; linux-kernel@vger.kernel.org
+Subject: Re: [PATCH 2.6.27.7-9-pae #7 SMP 1/1] networking tcp: Writing =
+tcp socket be atomic
 
-We need a centralized way to config such things, and probably
-the best is to have a rtnl_link_ops facility to get at the
-ports and configure them with attribute blobs or similar.
 
-We also said in your first submission that the way you're
-getting at the bridge STP stuff with things like:
+Locking belongs inside of the application, not in the kernel.
 
-+/* Needed for STP support. */
-+#ifdef CONFIG_KSZ8842_STP
-+#include <../net/bridge/br_private.h>
-+#endif
+As evidenced by the fact that you had to add new socket options, the
+application needs to be modified anyways.
 
-Yet you left all of this stuff in there.
+It's therefore just as easy to add the appropriate locking to the
+sequences where the application writes over the TCP socket.  And
+it avoids having to modify the kernel at all.
