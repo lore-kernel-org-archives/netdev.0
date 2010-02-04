@@ -1,67 +1,45 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: [PATCH] doc: document IPv6 parameters
-Date: Thu, 04 Feb 2010 15:49:44 -0500
-Message-ID: <4B6B32E8.6070408@hp.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [net-next-2.6 PATCH v2 1/3] ethtool: Introduce n-tuple filter
+ programming support
+Date: Thu, 4 Feb 2010 13:26:11 -0800 (Pacific Standard Time)
+Message-ID: <Pine.WNT.4.64.1002041325210.27432@ppwaskie-MOBL2.amr.corp.intel.com>
+References: <20100204074811.16559.84676.stgit@localhost.localdomain>
+ <20100204.091854.24215476.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	greg@enjellic.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:5644 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756653Ab0BDUts (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 15:49:48 -0500
+Received: from mga09.intel.com ([134.134.136.24]:10996 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750979Ab0BDV0M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Feb 2010 16:26:12 -0500
+In-Reply-To: <20100204.091854.24215476.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+On Thu, 4 Feb 2010, David Miller wrote:
 
-Can you take these in net-next-2.6?  I haven't heard boo from anyone on linux-doc or lkml.
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Wed, 03 Feb 2010 23:48:13 -0800
+> 
+> > +#define ETHTOOL_RXNTUPLE_ACTION_DROP -1
+> > +	struct list_head list;
+> > +};
+> 
+> You can't do this.
+> 
+> You put the list_head here in the kernel header, which BTW can
+> be used by userspace too, and then you elide it in the
+> ethtool utility copy of the header.
+> 
+> Use an encapsulator if you must inside of the kernel, but keep the
+> userspace visible data structure clean of RCU and list_head
+> kernel datastructures.
 
--Brian
+Ok.  I'll respin this asap.  Thanks for the quick review Dave.
 
-
-Update documentation to describe IPv6 parameters.
-Reported by <greg@enjellic.com>.
-
-Signed-off-by: Brian Haley <brian.haley@hp.com>
----
-
-diff --git a/Documentation/kernel-parameters.txt b/Documentation/kernel-parameters.txt
-index 736d456..3ca7f8f 100644
---- a/Documentation/kernel-parameters.txt
-+++ b/Documentation/kernel-parameters.txt
-@@ -54,6 +54,7 @@ parameter is applicable:
- 	IMA     Integrity measurement architecture is enabled.
- 	IOSCHED	More than one I/O scheduler is enabled.
- 	IP_PNP	IP DHCP, BOOTP, or RARP is enabled.
-+	IPV6	IPv6 support is enabled.
- 	ISAPNP	ISA PnP code is enabled.
- 	ISDN	Appropriate ISDN support is enabled.
- 	JOY	Appropriate joystick support is enabled.
-@@ -347,6 +348,9 @@ and is between 256 and 4096 characters. It is defined in the file
- 			Change the amount of debugging information output
- 			when initialising the APIC and IO-APIC components.
- 
-+	autoconf=	[IPV6]
-+			See Documentation/networking/ipv6.txt.
-+
- 	show_lapic=	[APIC,X86] Advanced Programmable Interrupt Controller
- 			Limit apic dumping. The parameter defines the maximal
- 			number of local apics being dumped. Also it is possible
-@@ -629,6 +633,12 @@ and is between 256 and 4096 characters. It is defined in the file
- 			See drivers/char/README.epca and
- 			Documentation/serial/digiepca.txt.
- 
-+	disable=	[IPV6]
-+			See Documentation/networking/ipv6.txt.
-+
-+	disable_ipv6=	[IPV6]
-+			See Documentation/networking/ipv6.txt.
-+
- 	disable_mtrr_cleanup [X86]
- 			The kernel tries to adjust MTRR layout from continuous
- 			to discrete, to make X server driver able to add WB
-
+-PJ
