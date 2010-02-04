@@ -1,65 +1,64 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH for 2.6.33] conntrack: restrict runtime hashsize
- modifications
-Date: Thu, 4 Feb 2010 21:47:44 +0200
-Message-ID: <20100204194744.GA4185@x200>
-References: <20100203203929.GA6168@x200>
- <4B6AF36A.3050402@trash.net>
- <4B6AFE22.20304@trash.net>
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: [PATCH 9/9] net: move am79c961's probe function to .devinit.text
+Date: Thu,  4 Feb 2010 20:56:57 +0100
+Message-ID: <1265313417-5568-9-git-send-email-u.kleine-koenig@pengutronix.de>
+References: <20100203150850.GA28815@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, jonathan@jonmasters.org,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B6AFE22.20304@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Roel Kluin <12o3l@tiscali.nl>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
+To: Greg KH <gregkh@suse.de>, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100203150850.GA28815@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 04, 2010 at 06:04:34PM +0100, Patrick McHardy wrote:
-> Patrick McHardy wrote:
-> > Alexey Dobriyan wrote:
-> >> Jon Masters correctly points out that conntrack hash sizes
-> >> (nf_conntrack_htable_size) are global (not per-netns) and
-> >> modifiable at runtime via /sys/module/nf_conntrack/hashsize .
-> >>
-> >> Steps to reproduce:
-> >> 	clone(CLONE_NEWNET)
-> >> 	[grow /sys/module/nf_conntrack/hashsize]
-> >> 	exit()
-> >>
-> >> At netns exit we are going to scan random memory for conntracks to be killed.
-> >>
-> >> Apparently there is a code which deals with hashtable resize for
-> >> init_net (and it was there befode netns conntrack code), so prohibit
-> >> hashsize modification if there is more than one netns exists.
-> >>
-> >> To change hashtable sizes, you need to reload module.
-> >>
-> >> Expectation hashtable size was simply glued to a variable with no code
-> >> to rehash expectations, so it was a bug to allow writing to it.
-> >> Make "expect_hashsize" readonly.
-> >>
-> >> This is temporarily until we figure out what to do.
-> > 
-> > How about alternatively moving nf_conntrack_hsize into the
-> > per-namespace struct? It doesn't look more complicated or
-> > intrusive and would allow to still change the init_net
-> > hashsize. Also seems less hackish :)
-> 
-> How about this (so far untested) patch? The htable_size is moved into
-> the per-namespace struct and initialized from the current (global)
-> value of nf_conntrack_htable_size. Changes through sysfs are still
-> permitted, but only affect the init namespace and newly created ones.
+A pointer to am79c961_probe is passed to the core via
+platform_driver_register and so the function must not disappear when th=
+e
+=2Einit sections are discarded.  Otherwise (if also having HOTPLUG=3Dy)
+unbinding and binding a device to the driver via sysfs will result in a=
+n
+oops as does a device being registered late.
 
-No matter what we do, it's a hack!
+An alternative to this patch is using platform_driver_probe instead of
+platform_driver_register plus removing the pointer to the probe functio=
+n
+from the struct platform_driver.
 
-> Additionally I removed reinitializing the hash random value when
-> changing the hash size since that also requires to rehash in all
-> namespaces.
+Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+Cc: Roel Kluin <12o3l@tiscali.nl>
+Cc: Russell King <rmk+kernel@arm.linux.org.uk>
+Cc: netdev@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>
+---
+Hello,
 
-I'm not fond of this, because we're not even closely going to allow changing
-hashtable size per-netns. As such having actual per-netns hashtable size
-just slows down everything.
+@David Miller: this patch is in patchwork with State: Not Applicable.
+Does that mean that netdev isn't the right tree for this patch?
+
+Best regards
+Uwe
+
+ drivers/net/arm/am79c961a.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/arm/am79c961a.c b/drivers/net/arm/am79c961a.c
+index 164b37e..1c3c1f9 100644
+--- a/drivers/net/arm/am79c961a.c
++++ b/drivers/net/arm/am79c961a.c
+@@ -680,7 +680,7 @@ static const struct net_device_ops am79c961_netdev_=
+ops =3D {
+ #endif
+ };
+=20
+-static int __init am79c961_probe(struct platform_device *pdev)
++static int __devinit am79c961_probe(struct platform_device *pdev)
+ {
+ 	struct resource *res;
+ 	struct net_device *dev;
+--=20
+1.6.6
