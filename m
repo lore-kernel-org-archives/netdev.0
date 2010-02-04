@@ -1,55 +1,39 @@
-From: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC Patch] net: reserve ports for applications using fixed port
- numbers
-Date: Thu, 04 Feb 2010 11:23:38 +0800
-Message-ID: <4B6A3DBA.1000706@redhat.com>
-References: <20100203043332.3817.27932.sendpatchset@localhost.localdomain> <201002031312.48531.opurdila@ixiacom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 3/3] qlge: Add watchdog timer.
+Date: Wed, 03 Feb 2010 19:32:22 -0800 (PST)
+Message-ID: <20100203.193222.64773800.davem@davemloft.net>
+References: <1265217853-26959-1-git-send-email-ron.mercer@qlogic.com>
+	<1265217853-26959-4-git-send-email-ron.mercer@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Octavian Purdila <opurdila-+zzKsuq53OdBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201002031312.48531.opurdila-+zzKsuq53OdBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ron.mercer@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56006
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756108Ab0BDDcI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 22:32:08 -0500
+In-Reply-To: <1265217853-26959-4-git-send-email-ron.mercer@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Octavian Purdila wrote:
-> On Wednesday 03 February 2010 06:30:07 you wrote:
+From: Ron Mercer <ron.mercer@qlogic.com>
+Date: Wed,  3 Feb 2010 09:24:13 -0800
+
+> Add periodic heartbeat register read to trigger the eeh
+> recovery process.
+> We see cases where an eeh error was injected and the slot was
+> suspended.  An asic access attempt is required to flush the recovery process,
+> but without interrupts the process can stall.
+> Adding this periodic register read causes the recovery process to begin.
 > 
->> This patch introduces /proc/sys/net/ipv4/ip_local_reserved_ports,
->> it can be used like ip_local_port_range, but this is used to
->> reserve ports for third-party applications which use fixed
->> port numbers within ip_local_port_range.
->>
->> This only affects the applications which call socket functions
->> like bind(2) with port number 0, to prevent the kernel getting the ports
->> within the specified range for them. For applications which use fixed
->> port number, it will have no effects.
-> 
-> It also affects the case where applications do connect, without previously 
-> doing bind, right?
+> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 
+This does a PIO to the chip every single second?
 
-Yeah, I forgot to mention this, sorry.
+How about something like 5 or 10 seconds, and use the
+deferrable interfaces so that it's more friendly to
+power management on an otherwise idle system?
 
-> 
->> Any comments are welcome.
-> 
-> I think it might be useful to allow setting individual ports as reserved, not 
-> only ranges, for example by using a bitmap. 
-> 
-
-This is a good idea, but I am not sure if this will be overkill? :-/
-Also, using bitmap is not friendly to sysctl interface, I am afraid.
-
-
-Thanks!
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks.
