@@ -1,52 +1,27 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] seastar - SeaStar Ethernet driver
-Date: Thu, 4 Feb 2010 23:16:21 +0000
-Message-ID: <20100204231621.7a13695a@lxorguk.ukuu.org.uk>
-References: <20100202205845.GE5246@hawkeye.sandia.gov>
-	<20100202.134251.15604523.davem@davemloft.net>
-	<1265160242.15726.20.camel@hawkeye.sandia.gov>
-	<20100202.174045.135005544.davem@davemloft.net>
-	<1265324464.23523.51.camel@hawkeye.sandia.gov>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: Re: [PATCH 1/2] qlge: removing unreachable block of code
+Date: Thu, 4 Feb 2010 15:11:30 -0800
+Message-ID: <20100204231130.GD9938@linux-ox1b.qlogic.org>
+References: <48284d15bf68cb154cf3948f3fd0b8ea11981ff3.1265314112.git.root@sanx1002.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Kevin Pedretti" <ktpedre@sandia.gov>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1265324464.23523.51.camel@hawkeye.sandia.gov>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "leitao@linux.vnet.ibm.com" <leitao@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from avexch1.qlogic.com ([198.70.193.115]:32954 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758082Ab0BDXSZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 18:18:25 -0500
+Content-Disposition: inline
+In-Reply-To: <48284d15bf68cb154cf3948f3fd0b8ea11981ff3.1265314112.git.root@sanx1002.austin.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Ethernet Frame:     [6 bytes h_dest][6 bytes h_source][2 bytes h_proto][data...]
-> SeaStar DG Message: [2 bytes length][1 byte MBZ][1 byte msg type (2 << 5) for IP)][data...]
-> 
-> I think it would be possible to re-factor it so that the Ethernet frame
-> is encapsulated in its entirety within a seastar message, rather than
-> the current scheme of jamming the critical info from the Ethernet header
-> into the seastar datagram header.  I will pursue that if you want... the
-> drawback is that it would break compatibility with Cray's existing
-> proprietary IP over SeaStar driver, making this driver pretty much
-> useless for the kinds of things us and others would like to do (e.g.,
-> leave service nodes booted with Cray's proprietary software stack and
-> talking to compute nodes running this driver).
+On Thu, Feb 04, 2010 at 12:11:18PM -0800, leitao@linux.vnet.ibm.com wrote:
+> Currently the qlge_change_mtu() is never called if the new_mtu is
+> equal current MTU, due this condition on dev_set_mtu():
 
-Perhaps it shouldn't be pretending to be an ethernet driver - that is
-sort of the root cause of all the confusion and the fact things like the
-bridging layer will try and grab it etc ? If it claimed to be a new
-hardware type you'd take a brief hit on getting the new hw type into the
-tools but it would mean
+Both look good.  Thanks
 
-- tcpdump etc once coaxed would display seastar frames not fake ethernet
-- the config tools would actually report what it really was
-- non IP layers and userspace won't keep trying to do things you don't
-  want (what does it do right now with vlans I wonder 8))
-- there will be no ARP confusion
 
-If it wants to stay compatible and pretend to be ethernet you probably
-need a message type for "encapsulated ethernet", you can then encapsulate
-anything not IP and stay compatible by keeping IP sent the way it is
-now ? Thats if it wants to in the first place.
-
-Alan
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
