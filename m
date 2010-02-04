@@ -1,30 +1,32 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: netfilter/iptables and network interface names
-Date: Thu, 04 Feb 2010 17:49:37 +0100
-Message-ID: <4B6AFAA1.5080703@trash.net>
-References: <4B6AC467.7020209@redhat.com> <alpine.LSU.2.01.1002041528300.13435@obet.zrqbmnf.qr> <4B6ADA3A.7040201@trash.net> <alpine.LSU.2.01.1002041542150.13435@obet.zrqbmnf.qr> <4B6ADFFB.4050407@trash.net> <alpine.LSU.2.01.1002041743360.21982@obet.zrqbmnf.qr>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2010-02-03
+Date: Thu, 04 Feb 2010 09:00:45 -0800 (PST)
+Message-ID: <20100204.090045.154996331.davem@davemloft.net>
+References: <20100203211900.GJ2882@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Woerner <twoerner@redhat.com>, netdev@vger.kernel.org,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.01.1002041743360.21982@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100203211900.GJ2882-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Jan Engelhardt wrote:
->> The kernel also forbids ".".
-> 
-> My first thought was the same, but:
-> 
-> a) Interestingly, it does not prohibit '.'
-> 
-> 	ip tunnel add foo0.3 mode sit local 1.2.3.4 remote 5.6.7.8
-> 
-> b) The '.' is to be seen as valid as far as xtables.c goes, so
->    as to match VLAN interfaces.
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Wed, 3 Feb 2010 16:19:01 -0500
 
-Ah of course, its only invalid at the beginning of the name.
+> Another huge batch of updates intended for 2.6.34, mostly the usual bits
+> by the usual suspects.  This batch does contain a number of mac80211
+> fixes that (presumably) originated in OpenWRT and a number of steps
+> toward N-phy support in b43, along with the usual driver updates from
+> Intel, Atheros, and many others.  And, of course, Johannes makes his
+> usual strong showing. :-)
+> 
+> Please let me know if there are problems!
+
+Pulled, thanks a lot John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
