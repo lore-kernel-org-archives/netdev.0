@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.27.7-9-pae #7 SMP 1/1] networking tcp: Writing tcp
- socket be atomic
-Date: Wed, 03 Feb 2010 18:19:31 -0800 (PST)
-Message-ID: <20100203.181931.39810642.davem@davemloft.net>
-References: <474C17045AA24E3F8519EE76BAB47439@JOHNYE1>
-	<20100203.085249.98326242.davem@davemloft.net>
-	<DB4F116661E3B0428456BB7E379EF4BB3C5F57@MX.asimcotech.com>
+Subject: Re: [PATCH 1/4] MCS7830 USB-Ether: add Rx error support
+Date: Wed, 03 Feb 2010 18:29:28 -0800 (PST)
+Message-ID: <20100203.182928.161624514.davem@davemloft.net>
+References: <20100131125819.GA13435@rhlx01.hs-esslingen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org, jmorris@namei.org,
-	kaber@coreworks.de, linux-kernel@vger.kernel.org
-To: johny@asimco.com.cn
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <DB4F116661E3B0428456BB7E379EF4BB3C5F57@MX.asimcotech.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: arnd@arndb.de, dhollis@davehollis.com, pchang23@sbcglobal.net,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: andi@lisas.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59434
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756044Ab0BDC3P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 21:29:15 -0500
+In-Reply-To: <20100131125819.GA13435@rhlx01.hs-esslingen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John Ye" <johny@asimco.com.cn>
-Date: Thu, 4 Feb 2010 10:03:44 +0800
+From: Andreas Mohr <andi@lisas.de>
+Date: Sun, 31 Jan 2010 13:58:19 +0100
 
-> The option TCP_ATOMIC is not a must.  We can make atomic be default
-> if the data size is less than a fixed size, just the same as pipe.
-> For example, if the data size is less than 512, we don't split the
-> data so it goes atomically.
+> ChangeLog:
+> - evaluate Rx error statistics from trailing Rx status byte
+> - add driver TODO list
+> - add myself to authors
+> 
+> 
+> Quilt series run-tested, based on 2.6.33-rc4 (net-2.6.git mcs7830 has idle history,
+> should be good to go).
+> 
+> Signed-off-by: Andreas Mohr <andi@lisas.de>
 
-This completely ignores the core issue.
-
-And that is, for the second time, that the application is where such
-atomicity guarentees should be implemented.
-
-And because of that any implementation of your kernel changes are
-inappropriate, TCP_ATOMIC socket option or not.
+Applied to net-next-2.6
