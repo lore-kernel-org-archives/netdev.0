@@ -1,55 +1,37 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 2.6.33 1/4] net: Micrel KSZ8841/2 PCI Ethernet driver
-Date: Thu, 4 Feb 2010 15:38:07 -0800
-Message-ID: <20100204153807.69d9037a@nehalam>
-References: <14385191E87B904DBD836449AA30269D021A51@MORGANITE.micrel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.33 4/4] net: Add PCI vendor and device ids for
+ Micrel KSZ8841/2 PCI devices
+Date: Thu, 04 Feb 2010 15:40:31 -0800 (PST)
+Message-ID: <20100204.154031.124668996.davem@davemloft.net>
+References: <14385191E87B904DBD836449AA30269D021A55@MORGANITE.micrel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Dave Miller" <davem@davemloft.net>,
-	"Alan Cox" <alan@lxorguk.ukuu.org.uk>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Tristram.Ha@Micrel.Com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <14385191E87B904DBD836449AA30269D021A51@MORGANITE.micrel.com>
+In-Reply-To: <14385191E87B904DBD836449AA30269D021A55@MORGANITE.micrel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 4 Feb 2010 15:18:54 -0800
-"Ha, Tristram" <Tristram.Ha@Micrel.Com> wrote:
+From: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
+Date: Thu, 4 Feb 2010 15:28:29 -0800
 
-> Dave Miller wrote:
-> >> This is a resubmission of the Micrel KSZ8841/2 PCI Ethernet driver.
-> >
-> > The procfs stuff is a non-starter.
-> >
-> > There will undoubtedly be other devices that have switch-like
-> > facilities that we'd like to export configuration support for.
-> >
-> > The last thing we want is a bunch of procfs files that each
-> > driver decides the layout and behavior of.
-> >
-> > We need a centralized way to config such things, and probably
-> > the best is to have a rtnl_link_ops facility to get at the
-> > ports and configure them with attribute blobs or similar.
-> >
-> > We also said in your first submission that the way you're
-> > getting at the bridge STP stuff with things like:
-> >
-> > +/* Needed for STP support. */
-> > +#ifdef CONFIG_KSZ8842_STP
-> > +#include <../net/bridge/br_private.h>
-> > +#endif
-> > Yet you left all of this stuff in there.
+> From: Tristram Ha <Tristram.Ha@micrel.com>
 > 
-> In my discussions with Alan Cox and Stephen Hemminger, I thought they kind of agree to the code's inclusion in the driver.  Sorry for my misunderstanding.  I will submit another one with those code removed.
+> Add PCI vendor and device ids for Micrel KSZ8841/2 PCI devices.
 > 
-> P.S. I did not actually receive your response from my company's e-mail server.  I copied it from LKML.
+> Signed-off-by: Tristram Ha <Tristram.Ha@micrel.com>
 
-I would rather move any defines needed by driver to
-new file: include/net/bridge.h
-and include it in br_private.h
+We no longer add device ID defines to the linux/pci_ids.h
+file, in fact it's been this way for several years.
 
-Don't want device dumpster diving into bridge control structures.
+Just use constants or local devices in your driver.
 
--- 
+Furthermore, because you made this the last patch, the
+tree would fail to build at the point where the first
+three of your patches are applied.
+
+This breaks GIT bisection, and is severely frowned upon.  The tree
+must build with all available kernel config options enabled at every
+step of applying your set of patches.
