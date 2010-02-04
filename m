@@ -1,53 +1,58 @@
-From: leitao@linux.vnet.ibm.com
-Subject: [PATCH 1/2] qlge: removing unreachable block of code
-Date: Thu,  4 Feb 2010 14:11:18 -0600
-Message-ID: <48284d15bf68cb154cf3948f3fd0b8ea11981ff3.1265314112.git.root@sanx1002.austin.ibm.com>
-Cc: netdev@vger.kernel.org, Breno Leitao <leitao@linux.vnet.ibm.com>
-To: ron.mercer@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp01.br.ibm.com ([32.104.18.85]:55733 "EHLO
-	e24smtp01.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753803Ab0BDUM6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 15:12:58 -0500
-Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-	by e24smtp01.br.ibm.com (8.14.3/8.13.1) with ESMTP id o14KL2CC021172
-	for <netdev@vger.kernel.org>; Thu, 4 Feb 2010 18:21:02 -0200
-Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
-	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o14KCuUU3768568
-	for <netdev@vger.kernel.org>; Thu, 4 Feb 2010 17:12:56 -0300
-Received: from d24av04.br.ibm.com (loopback [127.0.0.1])
-	by d24av04.br.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o14KCtah030916
-	for <netdev@vger.kernel.org>; Thu, 4 Feb 2010 18:12:55 -0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jon Masters <jonathan@jonmasters.org>
+Subject: Re: [PATCH for 2.6.33] conntrack: restrict runtime hashsize
+ modifications
+Date: Thu, 04 Feb 2010 15:18:54 -0500
+Message-ID: <1265314734.2861.521.camel@tonnant>
+References: <20100203203929.GA6168@x200> <4B6AF36A.3050402@trash.net>
+	 <4B6AF58A.202@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Alexey Dobriyan <adobriyan@gmail.com>, davem@davemloft.net,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4B6AF58A.202@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently the qlge_change_mtu() is never called if the new_mtu is
-equal current MTU, due this condition on dev_set_mtu():
+On Thu, 2010-02-04 at 17:27 +0100, Patrick McHardy wrote:
+> Patrick McHardy wrote:
+> > Alexey Dobriyan wrote:
+> >> Jon Masters correctly points out that conntrack hash sizes
+> >> (nf_conntrack_htable_size) are global (not per-netns) and
+> >> modifiable at runtime via /sys/module/nf_conntrack/hashsize .
+> >>
+> >> Steps to reproduce:
+> >> 	clone(CLONE_NEWNET)
+> >> 	[grow /sys/module/nf_conntrack/hashsize]
+> >> 	exit()
+> >>
+> >> At netns exit we are going to scan random memory for conntracks to be killed.
+> >>
+> >> Apparently there is a code which deals with hashtable resize for
+> >> init_net (and it was there befode netns conntrack code), so prohibit
+> >> hashsize modification if there is more than one netns exists.
+> >>
+> >> To change hashtable sizes, you need to reload module.
+> >>
+> >> Expectation hashtable size was simply glued to a variable with no code
+> >> to rehash expectations, so it was a bug to allow writing to it.
+> >> Make "expect_hashsize" readonly.
+> >>
+> >> This is temporarily until we figure out what to do.
+> > 
+> > How about alternatively moving nf_conntrack_hsize into the
+> > per-namespace struct? It doesn't look more complicated or
+> > intrusive and would allow to still change the init_net
+> > hashsize. Also seems less hackish :)
+> 
+> Just to avoid duplicate work, I'm currently trying that.
 
-        if (new_mtu == dev->mtu)
-                return 0;
+Bah. I already worked a set of patches to do that as I mentioned, but
+you've probably done it by now - can clean up and post if not :)
 
-So, this block of code is never reached and is being removed.
+Jon.
 
-Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
----
- drivers/net/qlge/qlge_main.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index 7e00029..c583fb5 100644
---- a/drivers/net/qlge/qlge_main.c
-+++ b/drivers/net/qlge/qlge_main.c
-@@ -4123,9 +4123,6 @@ static int qlge_change_mtu(struct net_device *ndev, int new_mtu)
- 		QPRINTK(qdev, IFUP, ERR, "Changing to jumbo MTU.\n");
- 	} else if (ndev->mtu == 9000 && new_mtu == 1500) {
- 		QPRINTK(qdev, IFUP, ERR, "Changing to normal MTU.\n");
--	} else if ((ndev->mtu == 1500 && new_mtu == 1500) ||
--		   (ndev->mtu == 9000 && new_mtu == 9000)) {
--		return 0;
- 	} else
- 		return -EINVAL;
- 
--- 
-1.6.0.2
 
