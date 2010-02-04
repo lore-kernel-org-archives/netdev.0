@@ -1,44 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the trivial tree with the net tree
-Date: Wed, 03 Feb 2010 20:04:02 -0800 (PST)
-Message-ID: <20100203.200402.17600564.davem@davemloft.net>
-References: <20100203133011.75aef1d3.sfr@canb.auug.org.au>
-	<alpine.LNX.2.00.1002031136560.15395@pobox.suse.cz>
+Subject: Re: [net-next PATCH 1/3] qlge: Move reset from eeh io_resume to
+ slot_reset.
+Date: Wed, 03 Feb 2010 20:06:10 -0800 (PST)
+Message-ID: <20100203.200610.201810517.davem@davemloft.net>
+References: <1265217853-26959-1-git-send-email-ron.mercer@qlogic.com>
+	<1265217853-26959-2-git-send-email-ron.mercer@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, lsorense@csclub.uwaterloo.ca,
-	netdev@vger.kernel.org, daniel@caiaq.de
-To: jkosina@suse.cz
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1002031136560.15395@pobox.suse.cz>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ron.mercer@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56866
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756271Ab0BDEF5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 23:05:57 -0500
+In-Reply-To: <1265217853-26959-2-git-send-email-ron.mercer@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Kosina <jkosina@suse.cz>
-Date: Wed, 3 Feb 2010 11:39:47 +0100 (CET)
+From: Ron Mercer <ron.mercer@qlogic.com>
+Date: Wed,  3 Feb 2010 09:24:11 -0800
 
-> I think the best thing is me dropping the net/ and drivers/net hunks of 
-> this patch and taking it through Davem's tree ... I have already dropped 
-> those hunks from my tree. Dave, the patch is below, please consider 
-> applying.
- ...
-> From: Daniel Mack <daniel@caiaq.de>
-> Subject: [PATCH] net: fix 'lenght' typo in comments and code
+> Issue asic reset and verify functionality before continuing to the
+> resume call.  This allows proper error code to be returned in the case
+> the asic does not recover.
 > 
-> Some misspelled occurences of 'octet' and some comments were also fixed
-> as I was on it.
-> 
-> Signed-off-by: Daniel Mack <daniel@caiaq.de>
-> Cc: Jiri Kosina <trivial@kernel.org>
-> Cc: Joe Perches <joe@perches.com>
-> Cc: Junio C Hamano <gitster@pobox.com>
-> Signed-off-by: Jiri Kosina <jkosina@suse.cz>
+> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 
-This doesn't apply to net-next-2.6 at all:
-
-error: patch failed: drivers/net/ppp_generic.c:1436
-error: drivers/net/ppp_generic.c: patch does not apply
-error: drivers/net/stmmac/gmac.c: does not exist in index
-error: drivers/net/stmmac/mac100.c: does not exist in index
+Applied.
