@@ -1,58 +1,39 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH] Net / pktgen: Fix freezing problem
-Date: Thu, 4 Feb 2010 23:19:22 +0100
-Message-ID: <201002042319.22226.rjw@sisk.pl>
-References: <201002042250.58944.rjw@sisk.pl> <20100204141239.aa94e75c.akpm@linux-foundation.org>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 14/23 v3] mlx4_core: Determine primary physical function
+Date: Thu, 04 Feb 2010 14:30:41 -0800
+Message-ID: <ada3a1gfxbi.fsf@roland-alpha.cisco.com>
+References: <49BFC313.1030901@mellanox.co.il>
+	<4B6AEE1F.5050506@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	pm list <linux-pm@lists.linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Ciprian Dorin Craciun <ciprian.craciun@gmail.com>,
-	Greg KH <gregkh@suse.de>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: general@lists.openfabrics.org, netdev@vger.kernel.org,
+	liranl@mellanox.co.il, tziporet@mellanox.co.il
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:46177 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757441Ab0BDWSe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Feb 2010 17:18:34 -0500
-In-Reply-To: <20100204141239.aa94e75c.akpm@linux-foundation.org>
+Received: from sj-iport-1.cisco.com ([171.71.176.70]:43904 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758373Ab0BDWau (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 17:30:50 -0500
+In-Reply-To: <4B6AEE1F.5050506@mellanox.co.il> (Yevgeny Petrilin's message of
+	"Thu, 04 Feb 2010 17:56:15 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 04 February 2010, Andrew Morton wrote:
-> On Thu, 4 Feb 2010 22:50:58 +0100 "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> 
-> > From: Rafael J. Wysocki <rjw@sisk.pl>
-> > Subject: Net / pktgen: Fix freezing problem
-> > 
-> > Add missing try_to_freeze() to one of the pktgen_thread_worker() code
-> > paths so that it doesn't block suspend/hibernation.
-> > 
-> > Fixes http://bugzilla.kernel.org/show_bug.cgi?id=15006
-> > 
-> > Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
-> > Reported-and-tested-by: Ciprian Dorin Craciun <ciprian.craciun@gmail.com>
-> > ---
-> >  net/core/pktgen.c |    1 +
-> >  1 file changed, 1 insertion(+)
-> > 
-> > Index: linux-2.6/net/core/pktgen.c
-> > ===================================================================
-> > --- linux-2.6.orig/net/core/pktgen.c
-> > +++ linux-2.6/net/core/pktgen.c
-> > @@ -3524,6 +3524,7 @@ static int pktgen_thread_worker(void *ar
-> >  			wait_event_interruptible_timeout(t->queue,
-> >  							 t->control != 0,
-> >  							 HZ/10);
-> > +			try_to_freeze();
-> >  			continue;
-> >  		}
-> >  
-> 
-> Also needed in -stable, IMO.
+ > +	MLX4_FLAG_PF		= 1 << 5,
 
-Indeed.
+Am I mistaken, or is this the only place this flag appears anywhere in
+the patch set?  In other words it is never set and never tested -- so
+probably we don't need it?
+
+ > +	dev_cap->pf_num = field;
+ > +	if (dev_cap->pf_num > 1)
+ > +		dev->flags |= MLX4_FLAG_MASTER;
+
+Is this correct?  All PFs > 1 are masters?  Or should the test be "== 1"
+rather than "> 1" instead?
+-- 
+Roland Dreier <rolandd@cisco.com>
+Cisco.com - http://www.cisco.com
+
+For corporate legal information go to:
+http://www.cisco.com/web/about/doing_business/legal/cri/index.html
