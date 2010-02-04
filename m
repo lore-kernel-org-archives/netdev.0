@@ -1,33 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] qlge: removing unreachable block of code
-Date: Thu, 04 Feb 2010 15:42:52 -0800 (PST)
-Message-ID: <20100204.154252.21126918.davem@davemloft.net>
-References: <48284d15bf68cb154cf3948f3fd0b8ea11981ff3.1265314112.git.root@sanx1002.austin.ibm.com>
-	<20100204231130.GD9938@linux-ox1b.qlogic.org>
+Subject: Re: [PATCH v2 net-next-2.6] packet: Add GSO/csum offload support.
+Date: Thu, 04 Feb 2010 15:49:01 -0800 (PST)
+Message-ID: <20100204.154901.232299310.davem@davemloft.net>
+References: <1265239340.5600.21.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: leitao@linux.vnet.ibm.com, netdev@vger.kernel.org
-To: ron.mercer@qlogic.com
+Cc: herbert@gondor.apana.org.au, mst@redhat.com, netdev@vger.kernel.org
+To: sri@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46786
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47178
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932660Ab0BDXmj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 18:42:39 -0500
-In-Reply-To: <20100204231130.GD9938@linux-ox1b.qlogic.org>
+	by vger.kernel.org with ESMTP id S932660Ab0BDXss (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 18:48:48 -0500
+In-Reply-To: <1265239340.5600.21.camel@w-sridhar.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Thu, 4 Feb 2010 15:11:30 -0800
+From: Sridhar Samudrala <sri@us.ibm.com>
+Date: Wed, 03 Feb 2010 15:22:20 -0800
 
-> On Thu, Feb 04, 2010 at 12:11:18PM -0800, leitao@linux.vnet.ibm.com wrote:
->> Currently the qlge_change_mtu() is never called if the new_mtu is
->> equal current MTU, due this condition on dev_set_mtu():
+> This patch adds GSO/checksum offload to af_packet sockets using
+> virtio_net_hdr. Based on Rusty's patch to add this support to tun.
+> It allows GSO/checksum offload to be enabled when using raw socket
+> backend with virtio_net.
+> Adds PACKET_VNET_HDR socket option to prepend virtio_net_hdr in the
+> receive path and process/skip virtio_net_hdr in the send path. This
+> option is only allowed with SOCK_RAW sockets attached to ethernet
+> type devices.
 > 
-> Both look good.  Thanks
+> v2 updates
+> ----------
+> Michael's Comments
+> - Perform length check in packet_snd() when GSO is off even when
+>   vnet_hdr is present.
+> - Check for SKB_GSO_FCOE type and return -EINVAL
+> - don't allow tx/rx ring when vnet_hdr is enabled.
+> Herbert's Comments
+> - Removed ethernet specific code.
+> - protocol value is assumed to be passed in by the caller.
 > 
-> 
-> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
-Both patches applied, thanks everyone.
+Herbert et al. could you guys review this?
+
+Thanks.
