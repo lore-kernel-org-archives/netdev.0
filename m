@@ -1,43 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3 v4] macvtap driver
-Date: Wed, 03 Feb 2010 20:21:04 -0800 (PST)
-Message-ID: <20100203.202104.151098461.davem@davemloft.net>
-References: <201001271104.20607.arnd@arndb.de>
-	<201001302322.15237.arnd@arndb.de>
+Subject: Re: [PATCH] net: CONFIG_COMPAT redux
+Date: Wed, 03 Feb 2010 20:32:43 -0800 (PST)
+Message-ID: <20100203.203243.257874267.davem@davemloft.net>
+References: <20100201194418.GB21315@x200>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, kaber@trash.net, mst@redhat.com,
-	herbert@gondor.apana.org.au, ogerlitz@voltaire.com,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: arnd@arndb.de
+Cc: netdev@vger.kernel.org
+To: adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52314
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33130
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757067Ab0BDEUv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 23:20:51 -0500
-In-Reply-To: <201001302322.15237.arnd@arndb.de>
+	by vger.kernel.org with ESMTP id S1757033Ab0BDEca (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Feb 2010 23:32:30 -0500
+In-Reply-To: <20100201194418.GB21315@x200>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Sat, 30 Jan 2010 23:22:15 +0100
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Mon, 1 Feb 2010 21:44:19 +0200
 
-> This is the fourth version of the macvtap driver,
-> based on the comments I got for the last version
-> I got a few days ago. Very few changes:
+> Ifdef out
+> 	struct proto_ops::compat_ioctl
+> 	struct proto_ops::compat_setsockopt
+> 	struct proto_ops::compat_getsockopt
+> to make structures smaller on COMPAT=n kernels.
 > 
-> * release netdev in chardev open function so
->   we can destroy it properly.
-> * Implement TUNSETSNDBUF
-> * fix sleeping call in rcu_read_lock
-> * Fix comment in namespace isolation patch
-> * Fix small context difference to make it apply
->   to net-next
-> 
-> I can't really test here while travelling, so please
-> give it a go if you're interested in this driver.
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-All applied to net-next-2.6, thanks!
+Applied.
