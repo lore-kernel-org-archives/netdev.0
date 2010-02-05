@@ -1,54 +1,70 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the trivial tree with the net tree
-Date: Fri, 5 Feb 2010 13:37:47 +1100
-Message-ID: <20100205133747.14ca83f2.sfr@canb.auug.org.au>
+From: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
+Subject: RE: [PATCH 2.6.33 4/4] net: Add PCI vendor and device ids for Micrel KSZ8841/2 PCI devices
+Date: Thu, 4 Feb 2010 18:55:31 -0800
+Message-ID: <14385191E87B904DBD836449AA30269D5CC333@MORGANITE.micrel.com>
+References: <14385191E87B904DBD836449AA30269D021A55@MORGANITE.micrel.com> <20100204154004.44e3d607@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Adam Buchbinder <adam.buchbinder@gmail.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Jiri Kosina <jkosina@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Dave Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: "Stephen Hemminger" <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from p01c11o144.mxlogic.net ([208.65.144.67]:53442 "EHLO
+	p01c11o144.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933238Ab0BEC5s convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 21:57:48 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20100204154004.44e3d607@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jiri,
+Stephen Hemminger wrote:
+> On Thu, 4 Feb 2010 15:28:29 -0800
+> "Ha, Tristram" <Tristram.Ha@Micrel.Com> wrote:
+> 
+>> From: Tristram Ha <Tristram.Ha@micrel.com>
+>> 
+>> Add PCI vendor and device ids for Micrel KSZ8841/2 PCI devices.
+>> 
+>> Signed-off-by: Tristram Ha <Tristram.Ha@micrel.com> ---
+>> This is a resubmission of the Micrel KSZ8841/2 PCI Ethernet driver.
+>> 
+>> --- linux-2.6.33-rc5.old/include/linux/pci_ids.h	2010-01-21
+15:31:35.000000000 -0800
+>> +++ linux-2.6.33-rc5.new/include/linux/pci_ids.h	2010-01-29
+10:38:53.000000000 -0800 @@ -2199,6
+>>  +2199,12 @@ #define PCI_VENDOR_ID_NETCELL		0x169c
+>>  #define PCI_DEVICE_ID_REVOLUTION	0x0044
+>> 
+>> +#define PCI_VENDOR_ID_MICREL_KS		0x16c6
+>> +#define PCI_DEVICE_ID_MICREL_KS8692	0x8692
+>> +#define PCI_DEVICE_ID_MICREL_KS8695	0x8695
+>> +#define PCI_DEVICE_ID_MICREL_KS8841	0x8841
+>> +#define PCI_DEVICE_ID_MICREL_KS8842	0x8842
+>> +
+>>  #define PCI_VENDOR_ID_CENATEK		0x16CA
+>>  #define PCI_DEVICE_ID_CENATEK_IDE	0x0001
+>> 
+> 
+> Current practice is to NOT update this file and instead keep constants
+in the individual driver.
 
-Today's linux-next merge of the trivial tree got a conflict in
-drivers/net/sfc/mcdi_pcol.h between commit
-5297a98d5dd6de86fe1e2ffc9ea60cdf59b71443 ("sfc: Update MCDI protocol
-definitions") from the net tree and commit
-4887b438e6880c73c4b44d868211e70c1f3deaec ("Fix misspelling of
-"successful" and variants in comments") from the trivial tree.
+It seems I received conflicted recommendation from Alan Cox:
 
-I fixed it up (see below) and can carry the fix as necessary.
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+>> >> +#define PCI_VENDOR_ID_KS884X		0x16C6
+>> >> +#define PCI_DEVICE_ID_KS8841		0x8841
+>> >> +#define PCI_DEVICE_ID_KS8842		0x8842
+>> > 
+>> > Those belong in the pci device id header.
+>> > 
+>> > 
+>> 
+>> I do not quite understand your suggestion.  Do I need to put those
+IDs 
+>> in one of the kernel headers?
+> 
+> Into include/linux/pci_ids.h
 
-diff --cc drivers/net/sfc/mcdi_pcol.h
-index bd59302,f61e1de..0000000
---- a/drivers/net/sfc/mcdi_pcol.h
-+++ b/drivers/net/sfc/mcdi_pcol.h
-@@@ -859,14 -852,11 +859,14 @@@
-  /* MC_CMD_POLL_PHY_BIST: (variadic output)
-   * Poll for BIST completion
-   *
- - * Returns a single status code, and a binary blob of phy-specific
- - * bist output. If the driver can't successfully parse the BIST output,
- - * it should still respect the Pass/Fail in OUT.RESULT.
- + * Returns a single status code, and optionally some PHY specific
- + * bist output. The driver should only consume the BIST output
- + * after validating OUTLEN and PHY_CFG.PHY_TYPE.
-   *
--  * If a driver can't succesfully parse the BIST output, it should
- - * Locks required: PHY_LOCK  if doing a  PHY BIST
-++ * If a driver can't successfully parse the BIST output, it should
- + * still respect the pass/Fail in OUT.RESULT
- + *
- + * Locks required: PHY_LOCK if doing a  PHY BIST
-   * Return code: 0, EACCES (if PHY_LOCK is not held)
-   */
-  #define MC_CMD_POLL_BIST 0x26
+So I do not need to update pci_ids.h with even the PCI vendor ID?
