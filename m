@@ -1,46 +1,31 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH v2 net-next-2.6] packet: Add GSO/csum offload support.
-Date: Thu, 04 Feb 2010 17:02:10 -0800
-Message-ID: <1265331730.31059.22.camel@w-sridhar.beaverton.ibm.com>
-References: <1265239340.5600.21.camel@w-sridhar.beaverton.ibm.com>
-	 <20100205005256.GA9969@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] seastar - SeaStar Ethernet driver
+Date: Thu, 04 Feb 2010 17:04:48 -0800 (PST)
+Message-ID: <20100204.170448.149507765.davem@davemloft.net>
+References: <1265324464.23523.51.camel@hawkeye.sandia.gov>
+	<20100204.151357.18104114.davem@davemloft.net>
+	<1265330214.23523.78.camel@hawkeye.sandia.gov>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:52434 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754892Ab0BEBCR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 20:02:17 -0500
-Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
-	by e38.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id o150unHg024354
-	for <netdev@vger.kernel.org>; Thu, 4 Feb 2010 17:56:49 -0700
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o1512CgX088900
-	for <netdev@vger.kernel.org>; Thu, 4 Feb 2010 18:02:12 -0700
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o1512BKe016671
-	for <netdev@vger.kernel.org>; Thu, 4 Feb 2010 18:02:11 -0700
-In-Reply-To: <20100205005256.GA9969@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ktpedre@sandia.gov
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1265330214.23523.78.camel@hawkeye.sandia.gov>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2010-02-05 at 11:52 +1100, Herbert Xu wrote:
-> On Wed, Feb 03, 2010 at 03:22:20PM -0800, Sridhar Samudrala wrote:
-> >
-> > -	skb_reserve(skb, LL_RESERVED_SPACE(dev));
-> > -	skb_reset_network_header(skb);
-> > +	skb_set_network_header(skb, reserve);
-> 
-> Is this going to produce the right network header for the SOCK_DGRAM
-> case?	
+From: "Kevin Pedretti" <ktpedre@sandia.gov>
+Date: Thu, 4 Feb 2010 17:36:54 -0700
 
-In the case of SOCK_DGRAM reserve is not set and will be 0 and hence
-it is same as calling skb_reset_network_header(skb)
+> Sure, I'm open to doing this and would appreciate any example drivers
+> you could point me at.
 
-Thanks
-Sridhar
+I can't think of any sorry.
 
+> We do need to keep the capability though of talking to Cray's
+> existing proprietary "ethernet" over seastar driver, which the
+> existing driver does.  If we go this route of being a non-Ethernet
+> device, do you think it would still be possible to support this?
+
+I don't think it will break communication with Cray's stuff.
