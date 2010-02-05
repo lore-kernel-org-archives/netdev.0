@@ -1,35 +1,45 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH for 2.6.33] conntrack: restrict runtime hashsize modifications
-Date: Fri, 05 Feb 2010 11:21:37 +0100
-Message-ID: <4B6BF131.7010808@trash.net>
-References: <20100203203929.GA6168@x200> <4B6AF36A.3050402@trash.net>	 <4B6AF58A.202@trash.net> <1265314734.2861.521.camel@tonnant>	 <4B6BEC44.5000101@trash.net> <1265364850.2861.759.camel@tonnant>
+Subject: Re: netfilter/iptables and network interface names
+Date: Fri, 05 Feb 2010 11:27:32 +0100
+Message-ID: <4B6BF294.3020501@trash.net>
+References: <4B6AC467.7020209@redhat.com> <alpine.LSU.2.01.1002041528300.13435@obet.zrqbmnf.qr> <4B6ADA3A.7040201@trash.net> <alpine.LSU.2.01.1002041542150.13435@obet.zrqbmnf.qr> <4B6ADFFB.4050407@trash.net> <alpine.LSU.2.01.1002041743360.21982@obet.zrqbmnf.qr> <4B6AFAA1.5080703@trash.net> <alpine.LSU.2.01.1002041944120.30159@obet.zrqbmnf.qr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>, davem@davemloft.net,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Jon Masters <jonathan@jonmasters.org>
+Cc: Thomas Woerner <twoerner@redhat.com>, netdev@vger.kernel.org,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33201 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:33306 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752793Ab0BEKVk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2010 05:21:40 -0500
-In-Reply-To: <1265364850.2861.759.camel@tonnant>
+	with ESMTP id S1750798Ab0BEK1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2010 05:27:36 -0500
+In-Reply-To: <alpine.LSU.2.01.1002041944120.30159@obet.zrqbmnf.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jon Masters wrote:
-> On Fri, 2010-02-05 at 11:00 +0100, Patrick McHardy wrote:
->>>> Just to avoid duplicate work, I'm currently trying that.
->>> Bah. I already worked a set of patches to do that as I mentioned, but
->>> you've probably done it by now - can clean up and post if not :)
->> Sorry, I missed that in your mail. I'm pretty much done, will finish
->> testing shortly.
+Jan Engelhardt wrote:
+> On Thursday 2010-02-04 17:49, Patrick McHardy wrote:
+>> Jan Engelhardt wrote:
+>>>> The kernel also forbids ".".
+>>> My first thought was the same, but:
+>>>
+>>> a) Interestingly, it does not prohibit '.'
+>>>
+>>> 	ip tunnel add foo0.3 mode sit local 1.2.3.4 remote 5.6.7.8
+>>>
+>>> b) The '.' is to be seen as valid as far as xtables.c goes, so
+>>>    as to match VLAN interfaces.
+>> Ah of course, its only invalid at the beginning of the name.
+>>
+> Nope:
 > 
-> Oh, it's cool. I hacked it together on my test box but I'm happy to go
-> with whatever you post later, I will just try to be forthcoming next
-> time with my bits first to save you hassle. Please do keep CCing me on
-> these things and I'll try to test over the weekend as time permits.
+> 19:44 borg:/home/jengelh # ip tunnel add .3 mode sit local 1.2.3.6 remote
+> 5.6.7.7
+> 19:44 borg:/home/jengelh # ip a
+> 17: .3: <POINTOPOINT,NOARP> mtu 1480 qdisc noop state DOWN 
+>     link/sit 1.2.3.6 peer 5.6.7.7
 
-Will do, thanks for all your help Jon.
+OK you're right, but this seems to be an oversight. The names
+are checked during rename, but not on device registration.
