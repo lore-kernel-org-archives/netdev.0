@@ -1,17 +1,17 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH net-next-2.6 2/4] net: 8139too: convert to use mc helpers
-Date: Fri, 5 Feb 2010 13:48:11 +0100
-Message-ID: <20100205124810.GF2650@psychotron.redhat.com>
+Subject: [PATCH net-next-2.6 3/4] net: dm9601: convert to use mc helpers
+Date: Fri, 5 Feb 2010 13:51:24 +0100
+Message-ID: <20100205125124.GA7968@psychotron.redhat.com>
 References: <20100205124623.GD2650@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36186 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:39231 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753019Ab0BEMsN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Feb 2010 07:48:13 -0500
+	id S1755748Ab0BEMv1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Feb 2010 07:51:27 -0500
 Content-Disposition: inline
 In-Reply-To: <20100205124623.GD2650@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,41 +20,32 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/8139too.c |    7 +++----
- 1 files changed, 3 insertions(+), 4 deletions(-)
+ drivers/net/usb/dm9601.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
-index 321e73a..c7d6f09 100644
---- a/drivers/net/8139too.c
-+++ b/drivers/net/8139too.c
-@@ -2509,7 +2509,7 @@ static void __set_rx_mode (struct net_device *dev)
- 	struct rtl8139_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->mmio_addr;
- 	u32 mc_filter[2];	/* Multicast hash filter */
--	int i, rx_mode;
-+	int rx_mode;
- 	u32 tmp;
+diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
+index 3d406f9..c820fec 100644
+--- a/drivers/net/usb/dm9601.c
++++ b/drivers/net/usb/dm9601.c
+@@ -381,13 +381,13 @@ static void dm9601_set_multicast(struct net_device *net)
  
- 	pr_debug("%s:   rtl8139_set_rx_mode(%4.4x) done -- Rx config %8.8lx.\n",
-@@ -2521,7 +2521,7 @@ static void __set_rx_mode (struct net_device *dev)
- 		    AcceptBroadcast | AcceptMulticast | AcceptMyPhys |
- 		    AcceptAllPhys;
- 		mc_filter[1] = mc_filter[0] = 0xffffffff;
--	} else if ((dev->mc_count > multicast_filter_limit) ||
-+	} else if ((netdev_mc_count(dev) > multicast_filter_limit) ||
- 		   (dev->flags & IFF_ALLMULTI)) {
- 		/* Too many to filter perfectly -- accept all multicasts. */
- 		rx_mode = AcceptBroadcast | AcceptMulticast | AcceptMyPhys;
-@@ -2530,8 +2530,7 @@ static void __set_rx_mode (struct net_device *dev)
- 		struct dev_mc_list *mclist;
- 		rx_mode = AcceptBroadcast | AcceptMyPhys;
- 		mc_filter[1] = mc_filter[0] = 0;
--		for (i = 0, mclist = dev->mc_list; mclist && i < dev->mc_count;
--		     i++, mclist = mclist->next) {
-+		netdev_for_each_mc_addr(mclist, dev) {
- 			int bit_nr = ether_crc(ETH_ALEN, mclist->dmi_addr) >> 26;
+ 	if (net->flags & IFF_PROMISC) {
+ 		rx_ctl |= 0x02;
+-	} else if (net->flags & IFF_ALLMULTI || net->mc_count > DM_MAX_MCAST) {
++	} else if (net->flags & IFF_ALLMULTI ||
++		   netdev_mc_count(net) > DM_MAX_MCAST) {
+ 		rx_ctl |= 0x04;
+-	} else if (net->mc_count) {
+-		struct dev_mc_list *mc_list = net->mc_list;
+-		int i;
++	} else if (!netdev_mc_empty(net)) {
++		struct dev_mc_list *mc_list;
  
- 			mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
+-		for (i = 0; i < net->mc_count; i++, mc_list = mc_list->next) {
++		netdev_for_each_mc_addr(mc_list, net) {
+ 			u32 crc = ether_crc(ETH_ALEN, mc_list->dmi_addr) >> 26;
+ 			hashes[crc >> 3] |= 1 << (crc & 0x7);
+ 		}
 -- 
 1.6.6
 
