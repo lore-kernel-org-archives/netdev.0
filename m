@@ -1,7 +1,7 @@
 From: Li Zefan <lizf@cn.fujitsu.com>
-Subject: [PATCH 04/13] net: rose: use seq_hlist_foo() helpers
-Date: Fri, 05 Feb 2010 09:45:41 +0800
-Message-ID: <4B6B7845.8070507@cn.fujitsu.com>
+Subject: [PATCH 05/13] net: packet: use seq_hlist_foo() helpers
+Date: Fri, 05 Feb 2010 09:45:56 +0800
+Message-ID: <4B6B7854.3080803@cn.fujitsu.com>
 References: <4B6B77FE.5000104@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -10,62 +10,71 @@ Cc: Andrew Morton <akpm@linux-foundation.org>,
 	LKML <linux-kernel@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:59720 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1757452Ab0BEBpl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Feb 2010 20:45:41 -0500
 In-Reply-To: <4B6B77FE.5000104@cn.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Simplify seq_file code.
 
 Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
 ---
- net/rose/af_rose.c |   22 +++-------------------
- 1 files changed, 3 insertions(+), 19 deletions(-)
+ net/packet/af_packet.c |   20 +++-----------------
+ 1 files changed, 3 insertions(+), 17 deletions(-)
 
-diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
-index 8feb9e5..e90b9b6 100644
---- a/net/rose/af_rose.c
-+++ b/net/rose/af_rose.c
-@@ -1404,29 +1404,13 @@ static int rose_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
- static void *rose_info_start(struct seq_file *seq, loff_t *pos)
- 	__acquires(rose_list_lock)
- {
--	int i;
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 0f6bf59..256de26 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2374,33 +2374,19 @@ static struct notifier_block packet_netdev_notifier = {
+ };
+ 
+ #ifdef CONFIG_PROC_FS
+-static inline struct sock *packet_seq_idx(struct net *net, loff_t off)
+-{
 -	struct sock *s;
 -	struct hlist_node *node;
 -
- 	spin_lock_bh(&rose_list_lock);
--	if (*pos == 0)
--		return SEQ_START_TOKEN;
--
--	i = 1;
--	sk_for_each(s, node, &rose_list) {
--		if (i == *pos)
+-	sk_for_each(s, node, &net->packet.sklist) {
+-		if (!off--)
 -			return s;
--		++i;
 -	}
 -	return NULL;
-+	return seq_hlist_start_head(&rose_list, *pos);
- }
+-}
  
- static void *rose_info_next(struct seq_file *seq, void *v, loff_t *pos)
+ static void *packet_seq_start(struct seq_file *seq, loff_t *pos)
+ 	__acquires(seq_file_net(seq)->packet.sklist_lock)
  {
--	++*pos;
--
--	return (v == SEQ_START_TOKEN) ? sk_head(&rose_list)
--		: sk_next((struct sock *)v);
-+	return seq_hlist_next(v, &rose_list, pos);
+ 	struct net *net = seq_file_net(seq);
+ 	read_lock(&net->packet.sklist_lock);
+-	return *pos ? packet_seq_idx(net, *pos - 1) : SEQ_START_TOKEN;
++	return seq_hlist_start_head(&net->packet.sklist, *pos);
  }
  
- static void rose_info_stop(struct seq_file *seq, void *v)
-@@ -1444,7 +1428,7 @@ static int rose_info_show(struct seq_file *seq, void *v)
- 			 "dest_addr  dest_call src_addr   src_call  dev   lci neigh st vs vr va   t  t1  t2  t3  hb    idle Snd-Q Rcv-Q inode\n");
+ static void *packet_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+ 	struct net *net = seq_file_net(seq);
+-	++*pos;
+-	return  (v == SEQ_START_TOKEN)
+-		? sk_head(&net->packet.sklist)
+-		: sk_next((struct sock *)v) ;
++	return seq_hlist_next(v, &net->packet.sklist, pos);
+ }
  
+ static void packet_seq_stop(struct seq_file *seq, void *v)
+@@ -2415,7 +2401,7 @@ static int packet_seq_show(struct seq_file *seq, void *v)
+ 	if (v == SEQ_START_TOKEN)
+ 		seq_puts(seq, "sk       RefCnt Type Proto  Iface R Rmem   User   Inode\n");
  	else {
 -		struct sock *s = v;
 +		struct sock *s = sk_entry(v);
- 		struct rose_sock *rose = rose_sk(s);
- 		const char *devname, *callsign;
- 		const struct net_device *dev = rose->device;
+ 		const struct packet_sock *po = pkt_sk(s);
+ 
+ 		seq_printf(seq,
 -- 
 1.6.3
+
