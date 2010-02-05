@@ -1,38 +1,54 @@
-From: Paulius Zaleckas <paulius.zaleckas@gmail.com>
-Subject: Re: [PATCH 11/13] net: irda: use seq_list_foo() helpers
-Date: Fri, 05 Feb 2010 13:46:39 +0200
-Message-ID: <4B6C051F.3080702@gmail.com>
-References: <4B6B77FE.5000104@cn.fujitsu.com> <4B6B78AD.1030809@cn.fujitsu.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Fri, 5 Feb 2010 22:49:11 +1100
+Message-ID: <20100205224911.d6b089e5.sfr@canb.auug.org.au>
+References: <20100205165059.0b5d5363.sfr@canb.auug.org.au>
+	<20100204.223255.146893399.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Li Zefan <lizf@cn.fujitsu.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B6B78AD.1030809@cn.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__5_Feb_2010_22_49_11_+1100_KU75_Hlq_bBdonsn"
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, nicholasx.d.nunley@intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100204.223255.146893399.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/05/2010 03:47 AM, Li Zefan wrote:
-[...]
->   /* Return entry after v, and increment pos */
-> @@ -1148,14 +1137,7 @@ static void *irlan_seq_next(struct seq_file *seq, void *v, loff_t *pos)
->   {
->   	struct list_head *nxt;
+--Signature=_Fri__5_Feb_2010_22_49_11_+1100_KU75_Hlq_bBdonsn
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-you should remove nxt declaration.
+Hi Dave,
 
-> -	++*pos;
-> -	if (v == SEQ_START_TOKEN)
-> -		nxt = irlans.next;
-> -	else
-> -		nxt = ((struct irlan_cb *)v)->dev_list.next;
-> -
-> -	return (nxt ==&irlans) ? NULL
-> -		: list_entry(nxt, struct irlan_cb, dev_list);
-> +	return seq_list_next(v,&irlans, pos);
->   }
-[...]
+On Thu, 04 Feb 2010 22:32:55 -0800 (PST) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> Damn namespace pollution, this is one of a zillion reasons
+> I prefer drivers are written in one sorce file, then people
+> can name their functions however they like and they're all
+> marked static so it doesn't cause problems like this.
+>=20
+> I've fixed it up as follows in net-next-2.6
+
+Looks good, thanks.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Fri__5_Feb_2010_22_49_11_+1100_KU75_Hlq_bBdonsn
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAktsBbcACgkQjjKRsyhoI8yI6ACdEU60Y5WDizRAvjbVKhHGw6Vv
+gCcAnRephHf7qNNaGiLGakB2s2KGKRTu
+=qRnG
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__5_Feb_2010_22_49_11_+1100_KU75_Hlq_bBdonsn--
