@@ -1,17 +1,17 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH net-next-2.6 1/4] net: 8139cp: convert to use mc helpers
-Date: Fri, 5 Feb 2010 13:47:28 +0100
-Message-ID: <20100205124728.GE2650@psychotron.redhat.com>
+Subject: [PATCH net-next-2.6 2/4] net: 8139too: convert to use mc helpers
+Date: Fri, 5 Feb 2010 13:48:11 +0100
+Message-ID: <20100205124810.GF2650@psychotron.redhat.com>
 References: <20100205124623.GD2650@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35376 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:36186 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751899Ab0BEMrb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Feb 2010 07:47:31 -0500
+	id S1753019Ab0BEMsN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Feb 2010 07:48:13 -0500
 Content-Disposition: inline
 In-Reply-To: <20100205124623.GD2650@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,23 +20,23 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/8139cp.c |    7 +++----
+ drivers/net/8139too.c |    7 +++----
  1 files changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
-index 9d59654..60bc0b0 100644
---- a/drivers/net/8139cp.c
-+++ b/drivers/net/8139cp.c
-@@ -899,7 +899,7 @@ static void __cp_set_rx_mode (struct net_device *dev)
- {
- 	struct cp_private *cp = netdev_priv(dev);
+diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
+index 321e73a..c7d6f09 100644
+--- a/drivers/net/8139too.c
++++ b/drivers/net/8139too.c
+@@ -2509,7 +2509,7 @@ static void __set_rx_mode (struct net_device *dev)
+ 	struct rtl8139_private *tp = netdev_priv(dev);
+ 	void __iomem *ioaddr = tp->mmio_addr;
  	u32 mc_filter[2];	/* Multicast hash filter */
 -	int i, rx_mode;
 +	int rx_mode;
  	u32 tmp;
  
- 	/* Note: do not reorder, GCC is clever about common statements. */
-@@ -909,7 +909,7 @@ static void __cp_set_rx_mode (struct net_device *dev)
+ 	pr_debug("%s:   rtl8139_set_rx_mode(%4.4x) done -- Rx config %8.8lx.\n",
+@@ -2521,7 +2521,7 @@ static void __set_rx_mode (struct net_device *dev)
  		    AcceptBroadcast | AcceptMulticast | AcceptMyPhys |
  		    AcceptAllPhys;
  		mc_filter[1] = mc_filter[0] = 0xffffffff;
@@ -45,7 +45,7 @@ index 9d59654..60bc0b0 100644
  		   (dev->flags & IFF_ALLMULTI)) {
  		/* Too many to filter perfectly -- accept all multicasts. */
  		rx_mode = AcceptBroadcast | AcceptMulticast | AcceptMyPhys;
-@@ -918,8 +918,7 @@ static void __cp_set_rx_mode (struct net_device *dev)
+@@ -2530,8 +2530,7 @@ static void __set_rx_mode (struct net_device *dev)
  		struct dev_mc_list *mclist;
  		rx_mode = AcceptBroadcast | AcceptMyPhys;
  		mc_filter[1] = mc_filter[0] = 0;
