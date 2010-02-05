@@ -1,185 +1,179 @@
-From: Li Zefan <lizf@cn.fujitsu.com>
-Subject: [PATCH 12/13] net: ipx: use seq_list_foo() helpers
-Date: Fri, 05 Feb 2010 09:47:40 +0800
-Message-ID: <4B6B78BC.80103@cn.fujitsu.com>
-References: <4B6B77FE.5000104@cn.fujitsu.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [RFC] xfrm: x86_64 CONFIG_COMPAT support
+Date: Fri, 5 Feb 2010 02:47:44 +0100
+Message-ID: <20100205014744.GD28659@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:51120 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S932877Ab0BEBrZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Feb 2010 20:47:25 -0500
-In-Reply-To: <4B6B77FE.5000104@cn.fujitsu.com>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:59380 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932877Ab0BEBrp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 20:47:45 -0500
+Received: id: fw by Chamillionaire.breakpoint.cc with local
+	(easymta 1.00 BETA 1)
+	id 1NdDIO-00056O-Ch
+	for netdev@vger.kernel.org; Fri, 05 Feb 2010 02:47:44 +0100
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Simplify seq_file code.
+At the moment, it is not possible to use the xfrm netlink interface on
+x86_64 with a 32bit userland.
 
-Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
----
- net/ipx/ipx_proc.c |   89 +++++++---------------------------------------------
- 1 files changed, 12 insertions(+), 77 deletions(-)
+The problem is due to a few structures, notably struct xfrm_usersa_info,
+which have different sizes in user/kernelspace (3 byte padding on x86, 7
+byte on x86_64). Thus, when the kernel skips the family specific header,
+it skips 4 additional bytes; netlink verification thus fails.
 
-diff --git a/net/ipx/ipx_proc.c b/net/ipx/ipx_proc.c
-index 5761784..cd44358 100644
---- a/net/ipx/ipx_proc.c
-+++ b/net/ipx/ipx_proc.c
-@@ -13,45 +13,15 @@
- #include <net/tcp_states.h>
- #include <net/ipx.h>
+What follows is a (incomplete, untested) draft patch that tries
+to solve this by introducing a delta table.  With the changes in place
+so far its possible to run
+"ip xfrm state add ..." with a 32bit ip binary.
+
+Unfortunately, the MSG_COMPAT flag seems to get lost along
+the way, so this uses x86_64 is_compat_task() for now.
+
+The delta table is not sufficient, as struct xfrm_usersa_info
+can be embedded inside other structs, so when accessing data
+after xfrm_usersa_info, one has to use an appropriate compat
+structure definition.
+
+Before I spend any more time on this, my questions are:
+
+- does this approach look somewhat sane to you?
+- do you have any suggestions how xfrm CONFIG_COMPAT support should
+  look like?
+- are you aware of pitfalls other than xfrm structure padding?
+- are there platforms other than x86_64 that have this problem?
+
+Thanks in advance, Florian
+
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index d5a7129..e8747fb 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -11,6 +11,7 @@
+  */
  
--static __inline__ struct ipx_interface *ipx_get_interface_idx(loff_t pos)
--{
--	struct ipx_interface *i;
--
--	list_for_each_entry(i, &ipx_interfaces, node)
--		if (!pos--)
--			goto out;
--	i = NULL;
--out:
--	return i;
--}
--
--static struct ipx_interface *ipx_interfaces_next(struct ipx_interface *i)
--{
--	struct ipx_interface *rc = NULL;
--
--	if (i->node.next != &ipx_interfaces)
--		rc = list_entry(i->node.next, struct ipx_interface, node);
--	return rc;
--}
--
- static void *ipx_seq_interface_start(struct seq_file *seq, loff_t *pos)
+ #include <linux/crypto.h>
++#include <linux/compat.h>
+ #include <linux/module.h>
+ #include <linux/kernel.h>
+ #include <linux/types.h>
+@@ -31,6 +32,35 @@
+ #include <linux/in6.h>
+ #endif
+ 
++#if defined(CONFIG_X86_64) && defined(CONFIG_COMPAT)
++#define XFRM_COMPAT_TEST is_compat_task()
++/* userspace size decreases by this amount due to padding */
++static const u8 xfrm_msg_min_compat_pad[XFRM_NR_MSGTYPES] = {
++	[XFRM_MSG_NEWSA       - XFRM_MSG_BASE] = 4,
++	[XFRM_MSG_NEWPOLICY   - XFRM_MSG_BASE] = 4,
++
++	[XFRM_MSG_ALLOCSPI    - XFRM_MSG_BASE] = 4, /* need converter */
++	[XFRM_MSG_ACQUIRE     - XFRM_MSG_BASE] = 4, /* need converter */
++	[XFRM_MSG_EXPIRE      - XFRM_MSG_BASE] = 4, /* need converter */
++	[XFRM_MSG_UPDPOLICY   - XFRM_MSG_BASE] = 4,
++	[XFRM_MSG_UPDSA       - XFRM_MSG_BASE] = 4,
++	[XFRM_MSG_POLEXPIRE   - XFRM_MSG_BASE] = 4, /* need converter */
++
++	[XFRM_MSG_NEWAE       - XFRM_MSG_BASE] = 4,
++	[XFRM_MSG_GETAE       - XFRM_MSG_BASE] = 4,
++};
++
++#else
++#define XFRM_COMPAT_TEST 0
++#endif	/* defined(CONFIG_X86_64) && defined(CONFIG_COMPAT) */
++
++struct xfrm_compat_userspi_info {
++	__u32 xfrm_usersa_info[55];
++	__u32 min, max;
++};
++
++static int xfrm_msg_hdrlen(int type);
++
+ static inline int aead_len(struct xfrm_algo_aead *alg)
  {
--	loff_t l = *pos;
--
- 	spin_lock_bh(&ipx_interfaces_lock);
--	return l ? ipx_get_interface_idx(--l) : SEQ_START_TOKEN;
-+	return seq_list_start_head(&ipx_interfaces, *pos);
- }
+ 	return sizeof(*alg) + ((alg->alg_key_len + 7) / 8);
+@@ -700,9 +730,10 @@ static int dump_one_state(struct xfrm_state *x, int count, void *ptr)
+ 	struct xfrm_usersa_info *p;
+ 	struct nlmsghdr *nlh;
+ 	int err;
++	int type = XFRM_MSG_NEWSA - XFRM_MSG_BASE;
  
- static void *ipx_seq_interface_next(struct seq_file *seq, void *v, loff_t *pos)
+ 	nlh = nlmsg_put(skb, NETLINK_CB(in_skb).pid, sp->nlmsg_seq,
+-			XFRM_MSG_NEWSA, sizeof(*p), sp->nlmsg_flags);
++			XFRM_MSG_NEWSA, xfrm_msg_hdrlen(type), sp->nlmsg_flags);
+ 	if (nlh == NULL)
+ 		return -EMSGSIZE;
+ 
+@@ -916,6 +947,30 @@ out_noput:
+ 
+ static int verify_userspi_info(struct xfrm_userspi_info *p)
  {
--	struct ipx_interface *i;
--
--	++*pos;
--	if (v == SEQ_START_TOKEN)
--		i = ipx_interfaces_head();
--	else
--		i = ipx_interfaces_next(v);
--	return i;
-+	return seq_list_next(v, &ipx_interfaces, pos);
- }
++	if (XFRM_COMPAT_TEST) {
++		struct xfrm_compat_userspi_info *compat = (struct xfrm_compat_userspi_info  *) p;
++
++		switch (p->info.id.proto) {
++		case IPPROTO_AH:
++		case IPPROTO_ESP:
++			break;
++
++		case IPPROTO_COMP:
++			/* IPCOMP spi is 16-bits. */
++			if (compat->max >= 0x10000)
++				return -EINVAL;
++		break;
++
++		default:
++			return -EINVAL;
++		}
++
++		if (compat->min > compat->max)
++			return -EINVAL;
++
++		return 0;
++	}
++
+ 	switch (p->info.id.proto) {
+ 	case IPPROTO_AH:
+ 	case IPPROTO_ESP:
+@@ -974,7 +1029,12 @@ static int xfrm_alloc_userspi(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (x == NULL)
+ 		goto out_noput;
  
- static void ipx_seq_interface_stop(struct seq_file *seq, void *v)
-@@ -63,7 +33,7 @@ static int ipx_seq_interface_show(struct seq_file *seq, void *v)
- {
- 	struct ipx_interface *i;
- 
--	if (v == SEQ_START_TOKEN) {
-+	if (v == &ipx_interfaces) {
- 		seq_puts(seq, "Network    Node_Address   Primary  Device     "
- 			      "Frame_Type");
- #ifdef IPX_REFCNT_DEBUG
-@@ -73,7 +43,7 @@ static int ipx_seq_interface_show(struct seq_file *seq, void *v)
+-	err = xfrm_alloc_spi(x, p->min, p->max);
++	if (XFRM_COMPAT_TEST) {
++		struct xfrm_compat_userspi_info *compat = (struct xfrm_compat_userspi_info  *) p;
++		err = xfrm_alloc_spi(x, compat->min, compat->max);
++	} else {
++		err = xfrm_alloc_spi(x, p->min, p->max);
++	}
+ 	if (err)
  		goto out;
+ 
+@@ -2102,6 +2162,13 @@ static struct xfrm_link {
+ 	[XFRM_MSG_GETSPDINFO  - XFRM_MSG_BASE] = { .doit = xfrm_get_spdinfo   },
+ };
+ 
++static int xfrm_msg_hdrlen(int type)
++{
++	if (unlikely(XFRM_COMPAT_TEST))
++		return xfrm_msg_min[type] - xfrm_msg_min_compat_pad[type];
++	return xfrm_msg_min[type];
++}
++
+ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+@@ -2129,7 +2196,7 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		return netlink_dump_start(net->xfrm.nlsk, skb, nlh, link->dump, link->done);
  	}
  
--	i = v;
-+	i = list_entry(v, struct ipx_interface, node);
- 	seq_printf(seq, "%08lX   ", (unsigned long int)ntohl(i->if_netnum));
- 	seq_printf(seq, "%02X%02X%02X%02X%02X%02X   ",
- 			i->if_node[0], i->if_node[1], i->if_node[2],
-@@ -89,53 +59,16 @@ out:
- 	return 0;
- }
- 
--static struct ipx_route *ipx_routes_head(void)
--{
--	struct ipx_route *rc = NULL;
--
--	if (!list_empty(&ipx_routes))
--		rc = list_entry(ipx_routes.next, struct ipx_route, node);
--	return rc;
--}
--
--static struct ipx_route *ipx_routes_next(struct ipx_route *r)
--{
--	struct ipx_route *rc = NULL;
--
--	if (r->node.next != &ipx_routes)
--		rc = list_entry(r->node.next, struct ipx_route, node);
--	return rc;
--}
--
--static __inline__ struct ipx_route *ipx_get_route_idx(loff_t pos)
--{
--	struct ipx_route *r;
--
--	list_for_each_entry(r, &ipx_routes, node)
--		if (!pos--)
--			goto out;
--	r = NULL;
--out:
--	return r;
--}
--
- static void *ipx_seq_route_start(struct seq_file *seq, loff_t *pos)
- {
--	loff_t l = *pos;
- 	read_lock_bh(&ipx_routes_lock);
--	return l ? ipx_get_route_idx(--l) : SEQ_START_TOKEN;
-+	return seq_list_start_head(&ipx_routes, *pos);
- }
- 
- static void *ipx_seq_route_next(struct seq_file *seq, void *v, loff_t *pos)
- {
--	struct ipx_route *r;
--
- 	++*pos;
--	if (v == SEQ_START_TOKEN)
--		r = ipx_routes_head();
--	else
--		r = ipx_routes_next(v);
--	return r;
-+	return seq_list_next(v, &ipx_routes, pos);
- }
- 
- static void ipx_seq_route_stop(struct seq_file *seq, void *v)
-@@ -147,11 +80,13 @@ static int ipx_seq_route_show(struct seq_file *seq, void *v)
- {
- 	struct ipx_route *rt;
- 
--	if (v == SEQ_START_TOKEN) {
-+	if (v == &ipx_routes) {
- 		seq_puts(seq, "Network    Router_Net   Router_Node\n");
- 		goto out;
- 	}
--	rt = v;
-+
-+	rt = list_entry(v, struct ipx_route, node);
-+
- 	seq_printf(seq, "%08lX   ", (unsigned long int)ntohl(rt->ir_net));
- 	if (rt->ir_routed)
- 		seq_printf(seq, "%08lX     %02X%02X%02X%02X%02X%02X\n",
-@@ -226,9 +161,9 @@ static void *ipx_seq_socket_next(struct seq_file *seq, void *v, loff_t *pos)
- 	spin_unlock_bh(&i->if_sklist_lock);
- 	sk = NULL;
- 	for (;;) {
--		i = ipx_interfaces_next(i);
--		if (!i)
-+		if (i->node.next == &ipx_interfaces)
- 			break;
-+		i = list_entry(i->node.next, struct ipx_interface, node);
- 		spin_lock_bh(&i->if_sklist_lock);
- 		if (!hlist_empty(&i->if_sklist)) {
- 			sk = sk_head(&i->if_sklist);
--- 
-1.6.3
-
+-	err = nlmsg_parse(nlh, xfrm_msg_min[type], attrs, XFRMA_MAX,
++	err = nlmsg_parse(nlh, xfrm_msg_hdrlen(type), attrs, XFRMA_MAX,
+ 			  xfrma_policy);
+ 	if (err < 0)
+ 		return err;
