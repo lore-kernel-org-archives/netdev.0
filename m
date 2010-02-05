@@ -1,54 +1,49 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Fri, 5 Feb 2010 22:49:11 +1100
-Message-ID: <20100205224911.d6b089e5.sfr@canb.auug.org.au>
-References: <20100205165059.0b5d5363.sfr@canb.auug.org.au>
-	<20100204.223255.146893399.davem@davemloft.net>
+From: Jon Masters <jonathan@jonmasters.org>
+Subject: Re: [PATCH for 2.6.33] conntrack: restrict runtime hashsize
+ modifications
+Date: Fri, 05 Feb 2010 06:51:02 -0500
+Message-ID: <1265370662.2861.769.camel@tonnant>
+References: <20100203203929.GA6168@x200> <4B6AF36A.3050402@trash.net>
+	 <4B6AFE22.20304@trash.net> <20100204194744.GA4185@x200>
+	 <4B6BEC23.8020101@trash.net> <4B6BFE29.1040204@trash.net>
+	 <b6fcc0a1002050319p2ba0ff30y4bc8bdba08ff65d9@mail.gmail.com>
+	 <4B6BFF69.6050503@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Fri__5_Feb_2010_22_49_11_+1100_KU75_Hlq_bBdonsn"
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, nicholasx.d.nunley@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100204.223255.146893399.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Alexey Dobriyan <adobriyan@gmail.com>, davem@davemloft.net,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4B6BFF69.6050503@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Fri__5_Feb_2010_22_49_11_+1100_KU75_Hlq_bBdonsn
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Fri, 2010-02-05 at 12:22 +0100, Patrick McHardy wrote:
+> Alexey Dobriyan wrote:
+> > On Fri, Feb 5, 2010 at 1:16 PM, Patrick McHardy <kaber@trash.net> wrote:
+> >> OK testing looks fine, although I'm quite surprised that its actually
+> >> possible to change module parameters from within non-init namespaces.
+> >> How is this supposed to work at all? I don't see how sysfs could
+> >> possibly provide a network namespace context ...
+> > 
+> > 
+> > You can do in write hook
+> > 
+> >     if (!net_eq(current->nsproxy->net_ns, &init_net))
+> >             return -EINVAL;
+> 
+> Right, I see. So we could actually make resizing work for all
+> namespaces quite easily. Is there any reason not to do this?
 
-Hi Dave,
+Yes, but I think (2.6.34) there also needs to be a better way to expose
+netns topology and visualize all the hashtables on a system - if you're
+the admin you really want to be able to see all of them, not just for a
+particular namespace you might be in, in addition to the perns views.
 
-On Thu, 04 Feb 2010 22:32:55 -0800 (PST) David Miller <davem@davemloft.net>=
- wrote:
->
-> Damn namespace pollution, this is one of a zillion reasons
-> I prefer drivers are written in one sorce file, then people
-> can name their functions however they like and they're all
-> marked static so it doesn't cause problems like this.
->=20
-> I've fixed it up as follows in net-next-2.6
+We already discussed 2.6.34, I'm only mentioning this "for the record".
 
-Looks good, thanks.
+Jon.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
 
---Signature=_Fri__5_Feb_2010_22_49_11_+1100_KU75_Hlq_bBdonsn
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAktsBbcACgkQjjKRsyhoI8yI6ACdEU60Y5WDizRAvjbVKhHGw6Vv
-gCcAnRephHf7qNNaGiLGakB2s2KGKRTu
-=qRnG
------END PGP SIGNATURE-----
-
---Signature=_Fri__5_Feb_2010_22_49_11_+1100_KU75_Hlq_bBdonsn--
