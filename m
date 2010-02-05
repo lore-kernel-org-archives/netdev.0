@@ -1,66 +1,67 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: bridge: Remove unused age_list
-Date: Fri, 5 Feb 2010 14:31:03 +1100
-Message-ID: <20100205033103.GA11224@gondor.apana.org.au>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [RFC Patch] net: reserve ports for applications using fixed port
+ numbers
+Date: Fri, 05 Feb 2010 14:01:43 +0800
+Message-ID: <4B6BB447.8080806@redhat.com>
+References: <20100204.094110.64247447.davem@davemloft.net> <20100204.135639.69720709.davem@davemloft.net> <201002050041.o150fCO8081208@www262.sakura.ne.jp> <201002050305.22227.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	davem@davemloft.net, linux-kernel@vger.kernel.org,
+	eric.dumazet@gmail.com, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, nhorman@tuxdriver.com,
+	linux-sctp@vger.kernel.org
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:47848 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754180Ab0BEEk6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 23:40:58 -0500
-Received: from gondolin.me.apana.org.au ([192.168.0.6])
-	by arnor.apana.org.au with esmtp (Exim 4.63 #1 (Debian))
-	id 1NdG00-0002Az-If
-	for <netdev@vger.kernel.org>; Fri, 05 Feb 2010 15:40:56 +1100
-Received: from herbert by gondolin.me.apana.org.au with local (Exim 4.69)
-	(envelope-from <herbert@gondor.apana.org.au>)
-	id 1NdG00-00034V-A2
-	for netdev@vger.kernel.org; Fri, 05 Feb 2010 15:40:56 +1100
-Content-Disposition: inline
+Received: from mx1.redhat.com ([209.132.183.28]:8091 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751918Ab0BEF6e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Feb 2010 00:58:34 -0500
+In-Reply-To: <201002050305.22227.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
+Octavian Purdila wrote:
+> On Friday 05 February 2010 02:41:12 you wrote:
+>> David Miller wrote:
+>>>> Octavian Purdila wrote:
+>>>>> int inet_is_reserved_local_port(int port)
+>>>>> {
+>>>>> 	if (test_bit(port, reserved_ports))
+>>>>> 		return 1;
+>>>>> 	return 0;
+>>>>> }
+>>>> Above check is exactly what I'm doing in the LSM hook.
+>>> But his version can be done inline in 2 or 3 instructions.
+>>>
+>>> An LSM hook will result in an indirect function call,
+>>> all live registers spilled to the stack, then all of
+>>> those reloaded when the function returns.
+>>>
+>>> It will be much more expensive.
+>> If you can accept his version, I want to use his version (with an interface
+>>  for updating above "reserved_ports" by not only root user's sysctl() but
+>>  also MAC's policy configuration).
+>>
+> 
+> I think that simply using an interface to update the reserved_ports from MAC 
+> policy configuration module wouldn't work, as root will be able to modify the 
+> policy via sysctl.
+> 
+> I think that we might need to:
+> 
+> a) have a reserved_port updater
+> 
+> b) put a LSM hook into that
+> 
+> c) use the reserved_port updater from sysctl
+> 
+> 
 
-bridge: Remove unused age_list
+Ideally, you'd provide an interface for port allocator to use, so
+doing port reservation will be easier.
 
-This patch removes the unused age_list member from the net_bridge
-structure.
+Thanks.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index a2cbe61..35e80e9 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -206,8 +206,6 @@ static struct net_device *new_bridge_dev(struct net *net, const char *name)
- 
- 	br_netfilter_rtable_init(br);
- 
--	INIT_LIST_HEAD(&br->age_list);
--
- 	br_stp_timer_init(br);
- 
- 	return dev;
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 2114e45..1f0c4f4 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -93,7 +93,6 @@ struct net_bridge
- 	struct net_device		*dev;
- 	spinlock_t			hash_lock;
- 	struct hlist_head		hash[BR_HASH_SIZE];
--	struct list_head		age_list;
- 	unsigned long			feature_mask;
- #ifdef CONFIG_BRIDGE_NETFILTER
- 	struct rtable 			fake_rtable;
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
