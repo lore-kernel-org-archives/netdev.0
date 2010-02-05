@@ -1,41 +1,43 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [RFC Patch] net: reserve ports for applications using fixed port numbers
-Date: Fri, 05 Feb 2010 09:41:12 +0900
-Message-ID: <201002050041.o150fCO8081208@www262.sakura.ne.jp>
-References: <20100204.094110.64247447.davem@davemloft.net> <201002042015.51092.opurdila@ixiacom.com> <201002050645.CEC95380.MLOtOVFFHSFOQJ@I-love.SAKURA.ne.jp> <20100204.135639.69720709.davem@davemloft.net>
+From: "Kevin Pedretti" <ktpedre@sandia.gov>
+Subject: Re: [PATCH] seastar - SeaStar Ethernet driver
+Date: Thu, 4 Feb 2010 17:36:54 -0700
+Message-ID: <1265330214.23523.78.camel@hawkeye.sandia.gov>
+References: <1265160242.15726.20.camel@hawkeye.sandia.gov>
+ <20100202.174045.135005544.davem@davemloft.net>
+ <1265324464.23523.51.camel@hawkeye.sandia.gov>
+ <20100204.151357.18104114.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: opurdila@ixiacom.com, amwang@redhat.com,
-	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
-	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	nhorman@tuxdriver.com, linux-sctp@vger.kernel.org
-To: davem@davemloft.net
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100204.135639.69720709.davem@davemloft.net>
+In-Reply-To: <20100204.151357.18104114.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> > Octavian Purdila wrote:
-> >> 
-> >> int inet_is_reserved_local_port(int port)
-> >> {
-> >> 	if (test_bit(port, reserved_ports))
-> >> 		return 1;
-> >> 	return 0;
-> >> }
-> >> 
-> > Above check is exactly what I'm doing in the LSM hook.
+On Thu, 2010-02-04 at 16:13 -0700, David Miller wrote:
+> From: "Kevin Pedretti" <ktpedre@sandia.gov>
+> Date: Thu, 4 Feb 2010 16:01:04 -0700
 > 
-> But his version can be done inline in 2 or 3 instructions.
+> > Please let me know if these issues are show-stoppers as far as inclusion
+> > goes.  We would like to get this open-source driver into the kernel so
+> > us and others with Cray XT systems can start to benefit from it, and
+> > continue to automatically track kernel API changes. 
 > 
-> An LSM hook will result in an indirect function call,
-> all live registers spilled to the stack, then all of
-> those reloaded when the function returns.
+> I may let it in as-is, thanks for the explanations.
 > 
-> It will be much more expensive.
+> Could you at least consider perhaps that since it isn't
+> really ethernet, not pretending that it is may be something
+> to look at?
 
-If you can accept his version, I want to use his version (with an interface for
-updating above "reserved_ports" by not only root user's sysctl() but also MAC's
-policy configuration).
+Sure, I'm open to doing this and would appreciate any example drivers
+you could point me at.  We do need to keep the capability though of
+talking to Cray's existing proprietary "ethernet" over seastar driver,
+which the existing driver does.  If we go this route of being a
+non-Ethernet device, do you think it would still be possible to support
+this?
+
+Kevin
