@@ -1,18 +1,20 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 3/6] Bluetooth: Do not call rfcomm_session_put() for RFCOMM UA on closed socket
-Date: Fri,  5 Feb 2010 12:05:36 -0800
-Message-ID: <6c2718da59613d76013b501bf0f8bcf9d7794b2d.1265399549.git.marcel@holtmann.org>
+Subject: [PATCH 5/6] Bluetooth: Enter active mode before establishing a SCO link.
+Date: Fri,  5 Feb 2010 12:05:38 -0800
+Message-ID: <c390216b3e868b16d8154939f4b6f8c16dbd9a9f.1265399549.git.marcel@holtmann.org>
 References: <cover.1265399549.git.marcel@holtmann.org>
  <1038a00b458997661bcd0e780a24dc280a8841fc.1265399549.git.marcel@holtmann.org>
  <485f1eff73a7b932fd3abb0dfcf804e1a1f59025.1265399549.git.marcel@holtmann.org>
+ <6c2718da59613d76013b501bf0f8bcf9d7794b2d.1265399549.git.marcel@holtmann.org>
+ <88d1a0cf659438a66135661538ae332b23f8635a.1265399549.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:54203 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:54207 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755962Ab0BEUGp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2010 15:06:45 -0500
-In-Reply-To: <485f1eff73a7b932fd3abb0dfcf804e1a1f59025.1265399549.git.marcel@holtmann.org>
+	with ESMTP id S1755901Ab0BEUGr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2010 15:06:47 -0500
+In-Reply-To: <88d1a0cf659438a66135661538ae332b23f8635a.1265399549.git.marcel@holtmann.org>
 In-Reply-To: <cover.1265399549.git.marcel@holtmann.org>
 References: <cover.1265399549.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -20,60 +22,48 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Nick Pelly <npelly@google.com>
 
-When processing a RFCOMM UA frame when the socket is closed and we were
-not the RFCOMM initiator would cause rfcomm_session_put() to be called
-twice during rfcomm_process_rx(). This would cause a kernel panic in
-rfcomm_session_close() then.
+When in sniff mode with a long interval time (1.28s) it can take 4+ seconds
+to establish a SCO link. Fix by requesting active mode before requesting
+SCO connection. This improves SCO setup time to ~500ms.
 
-This could be easily reproduced during disconnect with devices such as
-Motorola H270 that send RFCOMM UA followed quickly by L2CAP disconnect
-request. This trace for this looks like:
+Bluetooth headsets that use a long interval time, and exhibit the long
+SCO connection time include Motorola H790, HX1 and H17. They have a
+CSR 2.1 chipset.
 
-2009-09-21 17:22:37.788895 < ACL data: handle 1 flags 0x02 dlen 8
-   L2CAP(d): cid 0x0041 len 4 [psm 3]
-     RFCOMM(s): DISC: cr 0 dlci 20 pf 1 ilen 0 fcs 0x7d
-2009-09-21 17:22:37.906204 > HCI Event: Number of Completed Packets (0x13) plen 5
-   handle 1 packets 1
-2009-09-21 17:22:37.933090 > ACL data: handle 1 flags 0x02 dlen 8
-   L2CAP(d): cid 0x0040 len 4 [psm 3]
-     RFCOMM(s): UA: cr 0 dlci 20 pf 1 ilen 0 fcs 0x57
-2009-09-21 17:22:38.636764 < ACL data: handle 1 flags 0x02 dlen 8
-   L2CAP(d): cid 0x0041 len 4 [psm 3]
-     RFCOMM(s): DISC: cr 0 dlci 0 pf 1 ilen 0 fcs 0x9c
-2009-09-21 17:22:38.744125 > HCI Event: Number of Completed Packets (0x13) plen 5
-   handle 1 packets 1
-2009-09-21 17:22:38.763687 > ACL data: handle 1 flags 0x02 dlen 8
-   L2CAP(d): cid 0x0040 len 4 [psm 3]
-     RFCOMM(s): UA: cr 0 dlci 0 pf 1 ilen 0 fcs 0xb6
-2009-09-21 17:22:38.783554 > ACL data: handle 1 flags 0x02 dlen 12
-   L2CAP(s): Disconn req: dcid 0x0040 scid 0x0041
+Verified this behavior and fix with host Bluetooth chipsets: BCM4329 and
+TI1271.
 
-Avoid calling rfcomm_session_put() twice by skipping this call
-in rfcomm_recv_ua() if the socket is closed.
+2009-10-13 14:17:46.183722 > HCI Event: Mode Change (0x14) plen 6
+    status 0x00 handle 1 mode 0x02 interval 2048
+    Mode: Sniff
+2009-10-13 14:17:53.436285 < HCI Command: Setup Synchronous Connection (0x01|0x0028) plen 17
+    handle 1 voice setting 0x0060
+2009-10-13 14:17:53.445593 > HCI Event: Command Status (0x0f) plen 4
+    Setup Synchronous Connection (0x01|0x0028) status 0x00 ncmd 1
+2009-10-13 14:17:57.788855 > HCI Event: Synchronous Connect Complete 0x2c) plen 17
+    status 0x00 handle 257 bdaddr 00:1A:0E:F1:A4:7F type eSCO
+    Air mode: CVSD
 
 Signed-off-by: Nick Pelly <npelly@google.com>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/rfcomm/core.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+ net/bluetooth/hci_conn.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/net/bluetooth/rfcomm/core.c b/net/bluetooth/rfcomm/core.c
-index 2b50637..89f4a59 100644
---- a/net/bluetooth/rfcomm/core.c
-+++ b/net/bluetooth/rfcomm/core.c
-@@ -1150,7 +1150,11 @@ static int rfcomm_recv_ua(struct rfcomm_session *s, u8 dlci)
- 			break;
+diff --git a/net/bluetooth/hci_conn.c b/net/bluetooth/hci_conn.c
+index b7c4224..b10e3cd 100644
+--- a/net/bluetooth/hci_conn.c
++++ b/net/bluetooth/hci_conn.c
+@@ -377,6 +377,9 @@ struct hci_conn *hci_connect(struct hci_dev *hdev, int type, bdaddr_t *dst, __u8
  
- 		case BT_DISCONN:
--			rfcomm_session_put(s);
-+			/* When socket is closed and we are not RFCOMM
-+			 * initiator rfcomm_process_rx already calls
-+			 * rfcomm_session_put() */
-+			if (s->sock->sk->sk_state != BT_CLOSED)
-+				rfcomm_session_put(s);
- 			break;
- 		}
- 	}
+ 	if (acl->state == BT_CONNECTED &&
+ 			(sco->state == BT_OPEN || sco->state == BT_CLOSED)) {
++		acl->power_save = 1;
++		hci_conn_enter_active_mode(acl);
++
+ 		if (lmp_esco_capable(hdev))
+ 			hci_setup_sync(sco, acl->handle);
+ 		else
 -- 
 1.6.6
 
