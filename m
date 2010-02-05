@@ -1,74 +1,62 @@
-From: Christoph Egger <siccegge@stud.informatik.uni-erlangen.de>
-Subject: [PATCH] obsolete config in kernel source (HSO_AUTOPM)
-Date: Fri, 5 Feb 2010 14:39:19 +0100
-Message-ID: <20100205133918.GA7077__48535.5327524759$1265377184$gmane$org@faui49.informatik.uni-erlangen.de>
+From: Martyn Welch <martyn.welch@ge.com>
+Subject: Gianfar driver failing on MPC8641D based board
+Date: Fri, 05 Feb 2010 14:00:40 +0000
+Message-ID: <4B6C2488.3060403@ge.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vamos@i4.informatik.uni-erlangen.de
-To: Jan Dumon <j.dumon@option.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Paulius Zaleckas <paulius.zal
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from faui40.informatik.uni-erlangen.de ([131.188.34.40]:58218 "EHLO
-	faui40.informatik.uni-erlangen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756001Ab0BENjG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2010 08:39:06 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Anton Vorontsov <avorontsov@ru.mvista.com>,
+	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>, davem@davemloft.net
+To: linuxppc-dev list <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Hi all!
+I have recently attempted to boot an 8641D based board from an NFS root.
+The boot process grinds to a halt not long after the first access of the
+NFS root and I receive multiple "nfs: server 192.168.0.1 not responding,
+still trying" messages. Wireshark suggests that there is no further
+traffic from this board at this point on. The NFS server seems to
+eventually try sending duplicate packets it's already sent, which
+results in "nfs: server 192.168.0.1 OK" messages, but the "not
+responding" messages resume with no further traffic from the board.
 
-	As part of the VAMOS[0] research project at the University of
-Erlangen we're checking referential integrity between kernel KConfig
-options and in-code Conditional blocks.
+I am able to boot to a ramdisk fine and the network seems to work -
+though I haven't really pushed the interface from it.
 
-	This is just a one-liner commented out unconditionally (due to
-the config not existing) and being like this for virtually ever so I'm
-suggesting to remove it from the kernel tree.
+I have attempted to git bisect, though I wasn't able to get much further
+than discovering the problem was introduced in the 2.6.33 merge window -
+at which point the gianfar network driver fails to compile (I have tried
+to git bisect skip many, many times to no avail).
 
-	Please keep me informed of this patch getting confirmed /
-merged so we can keep track of it.
+NFS booting fails for this board on todays linux-next, the master branch
+of Kumar's PPC tree and the head of the main tree. I have also been able
+to NFS boot from a random x86 based board that I have, using the head of
+the main tree and the linux-next tree.
 
-Regards
+Copying the gianfar drivers from 2.6.32 into the head of the main tree
+restores the correct behaviour and I'm able to NFS boot. I have heard
+from others that the latest drivers work on 83xx and 85xx based boards,
+but it seems to be broken on at least the 8641D.
 
-	Christoph Egger
+I can see there has been a fair amount of work done on the gianfar
+driver, I assume that this is a bug introduced by the multiple queue
+support, but I'm way out of my depth on this.
 
-[0] http://vamos1.informatik.uni-erlangen.de/
+I'm also off for the next week - so if I'm quiet, it'll be because of that.
 
-----
->From 4d76c063b34cffd7b0f175e328f0878f262e6af2 Mon Sep 17 00:00:00 2001
-From: Christoph Egger <siccegge@stud.informatik.uni-erlangen.de>
-Date: Fri, 5 Feb 2010 13:46:21 +0100
-Subject: [PATCH] Remove unreferenced HSO_AUTOPM
+Martyn
 
-CONFIG_HSO_AUTOPM is set by KConfig / set in the Kernel source,
-makefiles and won't be ever set this way, therefor simply removing the
-protected code.
-
-Signed-off-by: Christoph Egger <siccegge@stud.informatik.uni-erlangen.de>
----
- drivers/net/usb/hso.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index 6895f15..be0cc99 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -1155,9 +1155,6 @@ static void _hso_serial_set_termios(struct tty_struct *tty,
- static void hso_resubmit_rx_bulk_urb(struct hso_serial *serial, struct urb *urb)
- {
- 	int result;
--#ifdef CONFIG_HSO_AUTOPM
--	usb_mark_last_busy(urb->dev);
--#endif
- 	/* We are done with this URB, resubmit it. Prep the USB to wait for
- 	 * another frame */
- 	usb_fill_bulk_urb(urb, serial->parent->usb,
 -- 
-1.6.3.3
-
-
-
+Martyn Welch (Principal Software Engineer)   |   Registered in England and
+GE Intelligent Platforms                     |   Wales (3828642) at 100
+T +44(0)127322748                            |   Barbirolli Square, Manchester,
+E martyn.welch@ge.com                        |   M2 3AB  VAT:GB 927559189
