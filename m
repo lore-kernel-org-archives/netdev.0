@@ -1,91 +1,67 @@
-From: Christoph Egger <siccegge@stud.informatik.uni-erlangen.de>
-Subject: Re: [PATCH] obsolete config in kernel source (HSO_AUTOPM)
-Date: Fri, 5 Feb 2010 16:14:02 +0100
-Message-ID: <20100205151402.GB7299@faui49.informatik.uni-erlangen.de>
-References: <20100205133918.GA7077__48535.5327524759$1265377184$gmane$org@faui49.informatik.uni-erlangen.de>
- <4B6C2D78.20603@gmail.com>
+From: Simon Kagstrom <simon.kagstrom@netinsight.net>
+Subject: [PATCH 0/3]: via-velocity: Fixes for locking issues
+Date: Fri, 5 Feb 2010 16:52:53 +0100
+Message-ID: <20100205165253.3f316b98@marrow.netinsight.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jan Dumon <j.dumon@option.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org
-To: Paulius Zaleckas <paulius.zaleckas@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, davem@davemloft.net, davej@redhat.com,
+	ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from faui40.informatik.uni-erlangen.de ([131.188.34.40]:62975 "EHLO
-	faui40.informatik.uni-erlangen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932309Ab0BEPNs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2010 10:13:48 -0500
-Content-Disposition: inline
-In-Reply-To: <4B6C2D78.20603@gmail.com>
+Received: from ernst.netinsight.se ([194.16.221.21]:43814 "HELO
+	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754078Ab0BEPw7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2010 10:52:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 05, 2010 at 04:38:48PM +0200, Paulius Zaleckas wrote:
-> On 02/05/2010 03:39 PM, Christoph Egger wrote:
-> >Hi all!
-> >
-> >	As part of the VAMOS[0] research project at the University of
-> >Erlangen we're checking referential integrity between kernel KConfig
-> >options and in-code Conditional blocks.
-> >
-> >	This is just a one-liner commented out unconditionally (due to
-> >the config not existing) and being like this for virtually ever so I'm
-> >suggesting to remove it from the kernel tree.
-> >
-> >	Please keep me informed of this patch getting confirmed /
-> >merged so we can keep track of it.
-> >
-> >diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> >index 6895f15..be0cc99 100644
-> >--- a/drivers/net/usb/hso.c
-> >+++ b/drivers/net/usb/hso.c
-> >@@ -1155,9 +1155,6 @@ static void _hso_serial_set_termios(struct tty_struct *tty,
-> >  static void hso_resubmit_rx_bulk_urb(struct hso_serial *serial, struct urb *urb)
-> >  {
-> >  	int result;
-> >-#ifdef CONFIG_HSO_AUTOPM
-> >-	usb_mark_last_busy(urb->dev);
-> >-#endif
-> 
-> Acctually this is bug. usb_mark_last_busy() should be called here.
-> Can you resend this patch by just removing #ifdef and #endif and
-> leaving usb_mark_last_busy()?
+Hi!
 
-OK here comes the updated patch
+This series of patches fixes a set of locking issues in the
+via-velocity driver. Since some of the problems were introduced in
+2.6.33-rc1 (with my patches, sorry!), it would be good if they could
+get in before the final 2.6.33 release.
 
------
->From f9797bb502566cd9e4db8b1bb7bb213f7f1d64ed Mon Sep 17 00:00:00 2001
-From: Christoph Egger <siccegge@stud.informatik.uni-erlangen.de>
-Date: Fri, 5 Feb 2010 16:10:29 +0100
-Subject: [PATCH] Remove unreferenced HSO_AUTOPM
+The patches are (the third one is the complex one):
 
-CONFIG_HSO_AUTOPM is not set by KConfig / set in the Kernel source,
-makefiles and won't be ever set this way. However the unreachable code
-is actually needed as reported by Paulius Zaleckas so just removing
-the checks.
+  * A small cleanup to remove unused parameters for rx_srv and tx_srv
 
-Signed-off-by: Christoph Egger <siccegge@stud.informatik.uni-erlangen.de>
----
- drivers/net/usb/hso.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+  * Take the spinlock from set_coalesce
 
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index 6895f15..de466ee 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -1155,9 +1155,7 @@ static void _hso_serial_set_termios(struct tty_struct *tty,
- static void hso_resubmit_rx_bulk_urb(struct hso_serial *serial, struct urb *urb)
- {
- 	int result;
--#ifdef CONFIG_HSO_AUTOPM
- 	usb_mark_last_busy(urb->dev);
--#endif
- 	/* We are done with this URB, resubmit it. Prep the USB to wait for
- 	 * another frame */
- 	usb_fill_bulk_urb(urb, serial->parent->usb,
--- 
-1.6.3.3
+  * Fix races that occur with shared interrupts
+
+We have a system where the interrupt for the VIA card is shared with a
+USB controller. The last patch fixes a deadlock situation, which we can
+trigger on our UP with spinlock debugging, where the VIA driver is
+executing in velocity_poll (the NAPI poll callback) when the USB
+controller interrupts the CPU. Since the interrupt controller takes the
+(already held) lock, it will deadlock.
 
 
+Some questions about the implementation though:
+
+The patch uses spin_trylock in the interrupt handler, and returns
+IRQ_NONE if it's already held. Here is a place where I'm unsure about
+the right way though. Another alternative is to use spin_lock_irqsave
+in velocity_poll(), but I'd like to avoid turning the interrupts off
+for "long" periods of time when the actual velocity interrupt can't
+happen anyway (since it is turned off while executing velocity_poll().
+
+With spin_trylock and spinlock debugging on our UP, we get a bug from
+the debugging code:
+
+  BUG: spinlock trylock failure on UP on CPU#0, swapper/0
+
+which looking at the debug code isn't unexpected since spin_trylock is
+called from an interrupt handler. In this case though, I don't think
+this is an actual error.
+
+
+We don't have access to any multiprocessor machine with a VIA NIC (I
+guess they are not very common), so I haven't been able to test these
+patches on actual SMP hardware.
+
+The locking in via-velocity in general would be good to look over, I
+think.
+
+// Simon
