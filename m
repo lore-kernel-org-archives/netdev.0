@@ -1,54 +1,47 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: [PATCH] mlx4: replace the dma_sync_single_range_for_cpu/device API
-Date: Fri, 5 Feb 2010 13:57:42 +0900
-Message-ID: <20100205135626G.fujita.tomonori@lab.ntt.co.jp>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH 3/3] ixgbe: Bump driver version up
+Date: Thu, 04 Feb 2010 22:22:28 -0800
+Message-ID: <20100205062227.20910.5719.stgit@localhost.localdomain>
+References: <20100205062131.20910.10580.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, rolandd@cisco.com, eli@mellanox.co.il,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sh.osrg.net ([192.16.179.4]:44887 "EHLO sh.osrg.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932382Ab0BEE7K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Feb 2010 23:59:10 -0500
+Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:57051
+	"EHLO qmta11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932119Ab0BEGWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2010 01:22:46 -0500
+In-Reply-To: <20100205062131.20910.10580.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are only two users of the dma_sync_single_range_for_cpu/device
-API in mainline (mlx4 and ssb). The
-dma_sync_single_range_for_cpu/device API has never been documented and
-the dma_sync_single_for_cpu/device API also support a partial sync.
+From: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-This converts mlx4 to use the dma_sync_single_for_cpu/device API
-(preparations for the removal of the dma_sync_single_range_for_cpu/device API).
+Driver has gone under significant changes, the version should
+reflect that.
 
-Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/mlx4/en_rx.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/mlx4/en_rx.c b/drivers/net/mlx4/en_rx.c
-index 829b9ec..6439464 100644
---- a/drivers/net/mlx4/en_rx.c
-+++ b/drivers/net/mlx4/en_rx.c
-@@ -508,11 +508,11 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
- 		/* We are copying all relevant data to the skb - temporarily
- 		 * synch buffers for the copy */
- 		dma = be64_to_cpu(rx_desc->data[0].addr);
--		dma_sync_single_range_for_cpu(&mdev->pdev->dev, dma, 0,
--					      length, DMA_FROM_DEVICE);
-+		dma_sync_single_for_cpu(&mdev->pdev->dev, dma, length,
-+					DMA_FROM_DEVICE);
- 		skb_copy_to_linear_data(skb, va, length);
--		dma_sync_single_range_for_device(&mdev->pdev->dev, dma, 0,
--						 length, DMA_FROM_DEVICE);
-+		dma_sync_single_for_device(&mdev->pdev->dev, dma, length,
-+					   DMA_FROM_DEVICE);
- 		skb->tail += length;
- 	} else {
+ drivers/net/ixgbe/ixgbe_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index ca57e74..c308b59 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -51,7 +51,7 @@ char ixgbe_driver_name[] = "ixgbe";
+ static const char ixgbe_driver_string[] =
+                               "Intel(R) 10 Gigabit PCI Express Network Driver";
  
--- 
-1.5.6.5
+-#define DRV_VERSION "2.0.44-k2"
++#define DRV_VERSION "2.0.62-k2"
+ const char ixgbe_driver_version[] = DRV_VERSION;
+ static char ixgbe_copyright[] = "Copyright (c) 1999-2010 Intel Corporation.";
+ 
 
