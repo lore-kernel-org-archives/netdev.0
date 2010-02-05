@@ -1,48 +1,42 @@
-From: =?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>
-Subject: Re: 2.6.32.8-stable review : kernel crashed asap
-Date: Fri, 5 Feb 2010 23:57:01 +0800
-Message-ID: <20100205155701.GC9690@hack>
-References: <201002042129.41462.toralf.foerster@gmx.de> <20100205151021.GB9690@hack> <201002051622.02980.toralf.foerster@gmx.de>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC 3/4] bond: support more Layer 4 protocols
+Date: Fri, 5 Feb 2010 08:42:40 -0800
+Message-ID: <20100205084240.0bd895ab@s6510>
+References: <20100204171118.917737392@vyatta.com>
+	<20100204171241.393163298@vyatta.com>
+	<4B6BF50D.9060603@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Toralf =?utf-8?Q?F=C3=B6rster?= <toralf.foerster@gmx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201002051622.02980.toralf.foerster@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:41061 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752343Ab0BEQmw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Feb 2010 11:42:52 -0500
+In-Reply-To: <4B6BF50D.9060603@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 05, 2010 at 04:22:02PM +0100, Toralf F=C3=B6rster wrote:
->
->Am=C3=A9rico Wang wrote at 16:10:21
->> On Thu, Feb 04, 2010 at 09:29:41PM +0100, Toralf F=C3=B6rster wrote:
->> >Immediately during boot it crashed w/ the attached config - no line=
-s
->> > within syslog  to post.
->>=20
->> What error messages did you see on your screen?
->>=20
->
->I attached a screen shot.
->
+On Fri, 05 Feb 2010 11:38:05 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-Thanks! It's better that if you can capture these info via netconsole
-or something like that, so that you copy and paste them into email.
+> Stephen Hemminger wrote:
+> > +/* Map of protocols with standard ports available to include in hash */
+> > +static const bool has_layer4[256] = {
+> > +	[IPPROTO_TCP] = 1,
+> > +	[IPPROTO_UDP] = 1,
+> > +	[IPPROTO_UDPLITE] = 1,
+> > +	[IPPROTO_SCTP] = 1,
+> > +	[IPPROTO_DCCP] = 1,
+> > +	[IPPROTO_ESP] = 1,
+> > +};
+> > +
+> 
+> How about using a bitmap or u8s to keep this more compact?
 
-Hmm, it seems that a null pointer deref happened in
-net/ipv4/devinet.c::inetdev_init(), so Cc'ing netdev guys....
-
-Could you please run the command:
-
-  addr2line -e your_2.6.32.8_vmlinux 0xc11fea28
-
-to check in which line we dereferenced a null pointer?
-
-Thank you!
-
---=20
-Live like a child, think like the god.
-=20
+I thought about that, but couldn't find a clever way to initialize at
+compile time other than hardcoding constants?
