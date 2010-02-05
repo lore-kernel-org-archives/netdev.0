@@ -1,58 +1,90 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 8/11] drivers/net: Correct NULL test
-Date: Sat, 6 Feb 2010 09:44:15 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.1002060943580.8092@ask.diku.dk>
+From: Paulius Zaleckas <paulius.zaleckas@gmail.com>
+Subject: Re: [PATCH] obsolete config in kernel source (HSO_AUTOPM)
+Date: Fri, 05 Feb 2010 16:37:01 +0200
+Message-ID: <4B6C2D0D.6020608@gmail.com>
+References: <20100205133918.GA7077__48535.5327524759$1265377184$gmane$org@faui49.informatik.uni-erlangen.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Paul Gortmaker <p_gortmaker@yahoo.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jan Dumon <j.dumon@option.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"Paulius Zaleckas"@ger.gmane.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:35801 "EHLO mgw2.diku.dk"
+Received: from lo.gmane.org ([80.91.229.12]:41218 "EHLO lo.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754149Ab0BFIoS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Feb 2010 03:44:18 -0500
+	id S1751369Ab0BFOkL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Feb 2010 09:40:11 -0500
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1NdlpN-00018z-Dg
+	for netdev@vger.kernel.org; Sat, 06 Feb 2010 15:40:05 +0100
+Received: from 89.249.92.238 ([89.249.92.238])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 06 Feb 2010 15:40:05 +0100
+Received: from paulius.zaleckas by 89.249.92.238 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 06 Feb 2010 15:40:05 +0100
+In-Reply-To: <20100205133918.GA7077__48535.5327524759$1265377184$gmane$org@faui49.informatik.uni-erlangen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+On 02/05/2010 03:39 PM, Christoph Egger wrote:
+> Hi all!
+>
+> 	As part of the VAMOS[0] research project at the University of
+> Erlangen we're checking referential integrity between kernel KConfig
+> options and in-code Conditional blocks.
+>
+> 	This is just a one-liner commented out unconditionally (due to
+> the config not existing) and being like this for virtually ever so I'm
+> suggesting to remove it from the kernel tree.
+>
+> 	Please keep me informed of this patch getting confirmed /
+> merged so we can keep track of it.
+>
+> Regards
+>
+> 	Christoph Egger
+>
+> [0] http://vamos1.informatik.uni-erlangen.de/
+>
+> ----
+>  From 4d76c063b34cffd7b0f175e328f0878f262e6af2 Mon Sep 17 00:00:00 2001
+> From: Christoph Egger<siccegge@stud.informatik.uni-erlangen.de>
+> Date: Fri, 5 Feb 2010 13:46:21 +0100
+> Subject: [PATCH] Remove unreferenced HSO_AUTOPM
+>
+> CONFIG_HSO_AUTOPM is set by KConfig / set in the Kernel source,
+> makefiles and won't be ever set this way, therefor simply removing the
+> protected code.
+>
+> Signed-off-by: Christoph Egger<siccegge@stud.informatik.uni-erlangen.de>
+> ---
+>   drivers/net/usb/hso.c |    3 ---
+>   1 files changed, 0 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+> index 6895f15..be0cc99 100644
+> --- a/drivers/net/usb/hso.c
+> +++ b/drivers/net/usb/hso.c
+> @@ -1155,9 +1155,6 @@ static void _hso_serial_set_termios(struct tty_struct *tty,
+>   static void hso_resubmit_rx_bulk_urb(struct hso_serial *serial, struct urb *urb)
+>   {
+>   	int result;
+> -#ifdef CONFIG_HSO_AUTOPM
+> -	usb_mark_last_busy(urb->dev);
+> -#endif
 
-Test the value that was just allocated rather than the previously tested one.
+Acctually this is bug. usb_mark_last_busy() should be called here.
+Can you resend this patch by just removing #ifdef and #endif and
+leaving usb_mark_last_busy()?
 
-A simplified version of the semantic match that finds this problem is as
-follows: (http://coccinelle.lip6.fr/)
+>   	/* We are done with this URB, resubmit it. Prep the USB to wait for
+>   	 * another frame */
+>   	usb_fill_bulk_urb(urb, serial->parent->usb,
 
-// <smpl>
-@r@
-expression *x;
-expression e;
-identifier l;
-@@
 
-if (x == NULL || ...) {
-    ... when forall
-    return ...; }
-... when != goto l;
-    when != x = e
-    when != &x
-*x == NULL
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
- drivers/net/ax88796.c               |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ax88796.c b/drivers/net/ax88796.c
-index 62d9c9c..1dd4403 100644
---- a/drivers/net/ax88796.c
-+++ b/drivers/net/ax88796.c
-@@ -921,7 +921,7 @@ static int ax_probe(struct platform_device *pdev)
-  		size = (res->end - res->start) + 1;
- 
- 		ax->mem2 = request_mem_region(res->start, size, pdev->name);
--		if (ax->mem == NULL) {
-+		if (ax->mem2 == NULL) {
- 			dev_err(&pdev->dev, "cannot reserve registers\n");
- 			ret = -ENXIO;
- 			goto exit_mem1;
