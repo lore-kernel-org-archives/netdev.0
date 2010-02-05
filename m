@@ -1,43 +1,35 @@
-From: "Kevin Pedretti" <ktpedre@sandia.gov>
-Subject: Re: [PATCH] seastar - SeaStar Ethernet driver
-Date: Thu, 4 Feb 2010 17:36:54 -0700
-Message-ID: <1265330214.23523.78.camel@hawkeye.sandia.gov>
-References: <1265160242.15726.20.camel@hawkeye.sandia.gov>
- <20100202.174045.135005544.davem@davemloft.net>
- <1265324464.23523.51.camel@hawkeye.sandia.gov>
- <20100204.151357.18104114.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH v2 net-next-2.6] packet: Add GSO/csum offload support.
+Date: Fri, 5 Feb 2010 11:52:56 +1100
+Message-ID: <20100205005256.GA9969@gondor.apana.org.au>
+References: <1265239340.5600.21.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100204.151357.18104114.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev <netdev@vger.kernel.org>
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:44143 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757503Ab0BEAxD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 19:53:03 -0500
+Content-Disposition: inline
+In-Reply-To: <1265239340.5600.21.camel@w-sridhar.beaverton.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-02-04 at 16:13 -0700, David Miller wrote:
-> From: "Kevin Pedretti" <ktpedre@sandia.gov>
-> Date: Thu, 4 Feb 2010 16:01:04 -0700
-> 
-> > Please let me know if these issues are show-stoppers as far as inclusion
-> > goes.  We would like to get this open-source driver into the kernel so
-> > us and others with Cray XT systems can start to benefit from it, and
-> > continue to automatically track kernel API changes. 
-> 
-> I may let it in as-is, thanks for the explanations.
-> 
-> Could you at least consider perhaps that since it isn't
-> really ethernet, not pretending that it is may be something
-> to look at?
+On Wed, Feb 03, 2010 at 03:22:20PM -0800, Sridhar Samudrala wrote:
+>
+> -	skb_reserve(skb, LL_RESERVED_SPACE(dev));
+> -	skb_reset_network_header(skb);
+> +	skb_set_network_header(skb, reserve);
 
-Sure, I'm open to doing this and would appreciate any example drivers
-you could point me at.  We do need to keep the capability though of
-talking to Cray's existing proprietary "ethernet" over seastar driver,
-which the existing driver does.  If we go this route of being a
-non-Ethernet device, do you think it would still be possible to support
-this?
+Is this going to produce the right network header for the SOCK_DGRAM
+case?
 
-Kevin
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
