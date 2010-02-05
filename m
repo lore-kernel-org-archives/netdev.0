@@ -1,60 +1,34 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [RFC Patch] net: reserve ports for applications using fixed port
- 	numbers
-Date: Fri, 05 Feb 2010 15:25:24 +0800
-Message-ID: <4B6BC7E4.5070909@redhat.com>
-References: <20100203043332.3817.27932.sendpatchset@localhost.localdomain> <e2e108261002042311w59ba1372ld9f8fb2f369ca434@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] xfrm: x86_64 CONFIG_COMPAT support
+Date: Thu, 04 Feb 2010 20:22:35 -0800 (PST)
+Message-ID: <20100204.202235.186522102.davem@davemloft.net>
+References: <20100205014744.GD28659@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	Neil Horman <nhorman@tuxdriver.com>,
-	linux-sctp@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Bart Van Assche <bvanassche@acm.org>
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59545 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932913Ab0BEHWJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Feb 2010 02:22:09 -0500
-In-Reply-To: <e2e108261002042311w59ba1372ld9f8fb2f369ca434@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45253
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751477Ab0BEEWW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 23:22:22 -0500
+In-Reply-To: <20100205014744.GD28659@Chamillionaire.breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bart Van Assche wrote:
-> On Wed, Feb 3, 2010 at 5:30 AM, Amerigo Wang <amwang@redhat.com> wrote:
->> This patch introduces /proc/sys/net/ipv4/ip_local_reserved_ports,
->> it can be used like ip_local_port_range, but this is used to
->> reserve ports for third-party applications which use fixed
->> port numbers within ip_local_port_range.
->>
->> This only affects the applications which call socket functions
->> like bind(2) with port number 0, to prevent the kernel getting the ports
->> within the specified range for them. For applications which use fixed
->> port number, it will have no effects.
->>
->> Any comments are welcome.
-> 
-> Relying on fixed port numbers is generally considered as a shortcoming
-> in the application. It would be helpful if you could explain more in
-> detail why port number reservation is necessary. Maybe there exists
-> another solution that does not require modifying the bind() system
-> call.
-> 
+From: Florian Westphal <fw@strlen.de>
+Date: Fri, 5 Feb 2010 02:47:44 +0100
 
-The problem is that there are some existing applications which use
-fixed port number, we don't have chances to change this for them,
-thus making them working is desired, so they want to reserve these
-port for those applications.
+> Unfortunately, the MSG_COMPAT flag seems to get lost along
+> the way, so this uses x86_64 is_compat_task() for now.
 
-For example, if I have an appliction which uses port 40000, but
-before this application starts, another application gets this port
-number by bind() with port 0 (i.e. chosen by kernel), in this case,
-that application will fail to start. Again, we don't have any chance
-to change the source code of that application.
+You can't use is_compat_task() for this.  The current
+execution context is not always the same as who is
+going to get the message.
 
-Hope this can make the problem clear.
+This is particularly the case for broadcast events, and
+key manager event sending.
 
-Thanks.
-
+The wireless folks have their netlink bits working with
+compat programs, you should go see how it works there.
