@@ -1,62 +1,41 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [RFC Patch] net: reserve ports for applications using fixed port numbers
-Date: Fri, 5 Feb 2010 03:05:22 +0200
-Message-ID: <201002050305.22227.opurdila@ixiacom.com>
-References: <20100204.094110.64247447.davem@davemloft.net> <20100204.135639.69720709.davem@davemloft.net> <201002050041.o150fCO8081208@www262.sakura.ne.jp>
+From: Li Zefan <lizf@cn.fujitsu.com>
+Subject: [PATCH 00/13] net: simplify seq_file code
+Date: Fri, 05 Feb 2010 09:44:30 +0800
+Message-ID: <4B6B77FE.5000104@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, amwang@redhat.com,
-	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
-	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	nhorman@tuxdriver.com, linux-sctp@vger.kernel.org
-To: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:30064 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933649Ab0BEBIq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 20:08:46 -0500
-In-Reply-To: <201002050041.o150fCO8081208@www262.sakura.ne.jp>
+Received: from cn.fujitsu.com ([222.73.24.84]:49731 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1756771Ab0BEBoQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Feb 2010 20:44:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 05 February 2010 02:41:12 you wrote:
-> David Miller wrote:
-> > > Octavian Purdila wrote:
-> > >> int inet_is_reserved_local_port(int port)
-> > >> {
-> > >> 	if (test_bit(port, reserved_ports))
-> > >> 		return 1;
-> > >> 	return 0;
-> > >> }
-> > >
-> > > Above check is exactly what I'm doing in the LSM hook.
-> >
-> > But his version can be done inline in 2 or 3 instructions.
-> >
-> > An LSM hook will result in an indirect function call,
-> > all live registers spilled to the stack, then all of
-> > those reloaded when the function returns.
-> >
-> > It will be much more expensive.
-> 
-> If you can accept his version, I want to use his version (with an interface
->  for updating above "reserved_ports" by not only root user's sysctl() but
->  also MAC's policy configuration).
-> 
+This patchset introduces seq_hlist_foo() helpers, and convert
+net/* to seq_hlist_foo() and seq_list_foo().
 
-I think that simply using an interface to update the reserved_ports from MAC 
-policy configuration module wouldn't work, as root will be able to modify the 
-policy via sysctl.
-
-I think that we might need to:
-
-a) have a reserved_port updater
-
-b) put a LSM hook into that
-
-c) use the reserved_port updater from sysctl
-
-
+---
+ fs/seq_file.c                 |   37 ++++++++++++-
+ include/linux/seq_file.h      |   11 ++++
+ include/net/sock.h            |    5 ++
+ net/appletalk/atalk_proc.c    |   30 +----------
+ net/atm/proc.c                |    2 +-
+ net/atm/resources.c           |   28 +++--------
+ net/ax25/af_ax25.c            |   18 +-----
+ net/ax25/ax25_uid.c           |   25 ++--------
+ net/ipx/ipx_proc.c            |   89 ++++---------------------------
+ net/irda/irlan/irlan_common.c |   26 ++--------
+ net/key/af_key.c              |   20 +------
+ net/netrom/af_netrom.c        |   21 +-------
+ net/netrom/nr_route.c         |   53 +++----------------
+ net/packet/af_packet.c        |   20 +------
+ net/rose/af_rose.c            |   22 +-------
+ net/x25/x25_proc.c            |  114 ++++-------------------------------------
+ 16 files changed, 116 insertions(+), 405 deletions(-)
 
