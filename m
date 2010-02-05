@@ -1,39 +1,41 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC 0/4] bond hashing revised
-Date: Fri, 5 Feb 2010 13:04:33 -0800
-Message-ID: <20100205130433.16fc307f@nehalam>
-References: <20100204171118.917737392@vyatta.com>
-	<4B6BE781.7070107@fox-it.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [RFC] xfrm: x86_64 CONFIG_COMPAT support
+Date: Fri, 5 Feb 2010 22:13:28 +0100
+Message-ID: <20100205211328.GC23792@Chamillionaire.breakpoint.cc>
+References: <20100205014744.GD28659@Chamillionaire.breakpoint.cc>
+ <20100204.202235.186522102.davem@davemloft.net>
+ <20100205195409.GB23792@Chamillionaire.breakpoint.cc>
+ <20100205.115913.103119415.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bonding-devel@lists.sourceforge.net"
-	<bonding-devel@lists.sourceforge.net>
-To: Jasper Spaans <spaans@fox-it.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:53911 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757504Ab0BEVEu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Feb 2010 16:04:50 -0500
-In-Reply-To: <4B6BE781.7070107@fox-it.com>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:58766 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751546Ab0BEVN3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2010 16:13:29 -0500
+Content-Disposition: inline
+In-Reply-To: <20100205.115913.103119415.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 5 Feb 2010 09:40:17 +0000
-Jasper Spaans <spaans@fox-it.com> wrote:
-
-> On 04/02/10 17:11, Stephen Hemminger wrote:
-> > These have not been tested yet. I need to try them with some
-> > different flows/hardware to validate.
-> >   
-> Glancing over these patches, all four of them look fine to me.
+David Miller <davem@davemloft.net> wrote:
+> From: Florian Westphal <fw@strlen.de>
+> Date: Fri, 5 Feb 2010 20:54:09 +0100
 > 
-> The only thing missing is some documentation in
-> Documentation/networking/bonding.txt (I have no idea what multiqueue is
-> supposed to do, but if you tell me I'll volunteer).
+> > However, I believe I can use is_compat_task() on
+> > the userspace -> kernel side to figure out how to interpret
+> > the incoming data.
+> > 
+> > Is that correct or did I misunderstand?
 > 
+> Again, you can't use is_compat_task().
 
-Did you look at kernel Documentation/networking/multiqueue.txt?
+Okay, understood. Thanks for clarifying.
+
+> Just like netlink_recvmsg() you should use MSG_CMSG_COMPAT.
+> 
+> If it isn't be set correctly, you need to find out why.
+
+Will do, thanks.
