@@ -1,40 +1,48 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [RFC Patch] net: reserve ports for applications using fixed portnumbers
-Date: Fri, 5 Feb 2010 18:08:15 +0900
-Message-ID: <201002051808.BFJ51557.SLQFtJVMOOFFOH@I-love.SAKURA.ne.jp>
-References: <20100203043332.3817.27932.sendpatchset@localhost.localdomain>
-	<e2e108261002042311w59ba1372ld9f8fb2f369ca434@mail.gmail.com>
-	<4B6BC7E4.5070909@redhat.com>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: linux-next: manual merge of the trivial tree with the net tree
+Date: Fri, 5 Feb 2010 09:39:05 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1002050935470.15395@pobox.suse.cz>
+References: <20100205133747.14ca83f2.sfr@canb.auug.org.au> <20100204.202645.18974249.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: amwang@redhat.com, linux-kernel@vger.kernel.org,
-	eric.dumazet@gmail.com, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, nhorman@tuxdriver.com,
-	linux-sctp@vger.kernel.org, davem@davemloft.net
-To: bvanassche@acm.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, adam.buchbinder@gmail.com,
+	netdev@vger.kernel.org, bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B6BC7E4.5070909@redhat.com>
+In-Reply-To: <20100204.202645.18974249.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cong Wang wrote:
-> The problem is that there are some existing applications which use
-> fixed port number, we don't have chances to change this for them,
-> thus making them working is desired, so they want to reserve these
-> port for those applications.
-> 
-> For example, if I have an appliction which uses port 40000, but
-> before this application starts, another application gets this port
-> number by bind() with port 0 (i.e. chosen by kernel), in this case,
-> that application will fail to start. Again, we don't have any chance
-> to change the source code of that application.
-> 
-And there is a utility called "portreserved" (port reserve daemon).
-http://fedoraproject.org/wiki/Features/Portreserve
+On Thu, 4 Feb 2010, David Miller wrote:
 
-But that utility cannot close the race window between "portreserved stops
-reserving local port numbers" and "applications starts using local port
-numbers which portreserved was reserving".
+> > Today's linux-next merge of the trivial tree got a conflict in 
+> > drivers/net/sfc/mcdi_pcol.h between commit 
+> > 5297a98d5dd6de86fe1e2ffc9ea60cdf59b71443 ("sfc: Update MCDI protocol 
+> > definitions") from the net tree and commit 
+> > 4887b438e6880c73c4b44d868211e70c1f3deaec ("Fix misspelling of 
+> > "successful" and variants in comments") from the trivial tree.
+> > 
+> > I fixed it up (see below) and can carry the fix as necessary.
+> 
+> Ugh, this is the second spelling fix that's hit a conflict
+> in the same exact tree.
+> 
+> Please, submit these things to the subsystem maintainers instead
+> of keeping them together in a totally seperate tree.  That way
+> we won't have to keep fighting these things.
 
-Thus, I think people want to have port reservation mechanism inside kernel
-(if it has little impact).
+Well, no problem with that. 
+
+Some maintainers just don't want to be buggered with such patches though, 
+and I always take care of sending this queue to Linus only when all the 
+trees which had conflict in linux-next are already in (and I do the 
+conflict resolution myself), so this should be exactly zero additional 
+work for subsystem maintainers.
+
+But if you don't like this, I'll just start refusing all the trivial 
+patches touching net/ and drivers/net/ and will redirect them your way.
+
+-- 
+Jiri Kosina
+SUSE Labs, Novell Inc.
