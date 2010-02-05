@@ -1,62 +1,60 @@
-From: Martyn Welch <martyn.welch@ge.com>
-Subject: Gianfar driver failing on MPC8641D based board
-Date: Fri, 05 Feb 2010 14:00:40 +0000
-Message-ID: <4B6C2488.3060403@ge.com>
+From: roel kluin <roel.kluin@gmail.com>
+Subject: Re: [PATCH] obsolete config in kernel source (USE_INTERNAL_TIMER)
+Date: Fri, 5 Feb 2010 15:16:25 +0100
+Message-ID: <25e057c01002050616x59c927fbpaf13f477ec012ec5@mail.gmail.com>
+References: <20100205132219.GA6874@faui49.informatik.uni-erlangen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Anton Vorontsov <avorontsov@ru.mvista.com>,
-	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>, davem@davemloft.net
-To: linuxppc-dev list <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Samuel Ortiz <samuel@sortiz.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, vamos@i4.informatik.uni-erlangen.de
+To: Christoph Egger <siccegge@stud.informatik.uni-erlangen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100205132219.GA6874@faui49.informatik.uni-erlangen.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I have recently attempted to boot an 8641D based board from an NFS root.
-The boot process grinds to a halt not long after the first access of the
-NFS root and I receive multiple "nfs: server 192.168.0.1 not responding,
-still trying" messages. Wireshark suggests that there is no further
-traffic from this board at this point on. The NFS server seems to
-eventually try sending duplicate packets it's already sent, which
-results in "nfs: server 192.168.0.1 OK" messages, but the "not
-responding" messages resume with no further traffic from the board.
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0As part of the VAMOS[0] research project a=
+t the University of
+> Erlangen we're checking referential integrity between kernel KConfig
+> options and in-code Conditional blocks.
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0USE_INTERNAL_TIMER is another candidate. A=
+s can be seen on the
+> comment of the #undef instruction this part was quite likely never
+> working and safeguards were added si it is never enabled.
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0Please keep me informed of this patch gett=
+ing confirmed /
+> merged so we can keep track of it.
+>
+> Regards
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0Christoph Egger
+>
+> [0] http://vamos1.informatik.uni-erlangen.de/
+>
+> ----
+> From f027b61661aaac1fd58536e17894e486d5fb3d3f Mon Sep 17 00:00:00 200=
+1
+> From: Christoph Egger <siccegge@stud.informatik.uni-erlangen.de>
+> Date: Fri, 5 Feb 2010 13:11:16 +0100
+> Subject: [PATCH] USE_INTERNAL_TIMER explicitely #undef-ed and not in =
+kconfig
+>
+> CONFIG_USE_INTERNAL_TIMER seems to be the remainings of some
+> experiment. It is explicitely #undef-ed as not working, only
+> referenced from one source file and rather aged.
+>
+> Hereby cleaning it from the kernel tree.
+>
+> Signed-off-by: Christoph Egger <siccegge@stud.informatik.uni-erlangen=
+=2Ede>
 
-I am able to boot to a ramdisk fine and the network seems to work -
-though I haven't really pushed the interface from it.
+Looks correct to me,
 
-I have attempted to git bisect, though I wasn't able to get much further
-than discovering the problem was introduced in the 2.6.33 merge window -
-at which point the gianfar network driver fails to compile (I have tried
-to git bisect skip many, many times to no avail).
-
-NFS booting fails for this board on todays linux-next, the master branch
-of Kumar's PPC tree and the head of the main tree. I have also been able
-to NFS boot from a random x86 based board that I have, using the head of
-the main tree and the linux-next tree.
-
-Copying the gianfar drivers from 2.6.32 into the head of the main tree
-restores the correct behaviour and I'm able to NFS boot. I have heard
-from others that the latest drivers work on 83xx and 85xx based boards,
-but it seems to be broken on at least the 8641D.
-
-I can see there has been a fair amount of work done on the gianfar
-driver, I assume that this is a bug introduced by the multiple queue
-support, but I'm way out of my depth on this.
-
-I'm also off for the next week - so if I'm quiet, it'll be because of that.
-
-Martyn
-
--- 
-Martyn Welch (Principal Software Engineer)   |   Registered in England and
-GE Intelligent Platforms                     |   Wales (3828642) at 100
-T +44(0)127322748                            |   Barbirolli Square, Manchester,
-E martyn.welch@ge.com                        |   M2 3AB  VAT:GB 927559189
+Acked-by: Roel Kluin <roel.kluin@gmail.com>
