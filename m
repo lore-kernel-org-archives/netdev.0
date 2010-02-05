@@ -1,47 +1,66 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 3/3] ixgbe: Bump driver version up
-Date: Thu, 04 Feb 2010 22:22:28 -0800
-Message-ID: <20100205062227.20910.5719.stgit@localhost.localdomain>
-References: <20100205062131.20910.10580.stgit@localhost.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: bridge: Remove unused age_list
+Date: Fri, 5 Feb 2010 14:31:03 +1100
+Message-ID: <20100205033103.GA11224@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:57051
-	"EHLO qmta11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932119Ab0BEGWq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2010 01:22:46 -0500
-In-Reply-To: <20100205062131.20910.10580.stgit@localhost.localdomain>
+Received: from rhun.apana.org.au ([64.62.148.172]:47848 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754180Ab0BEEk6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 23:40:58 -0500
+Received: from gondolin.me.apana.org.au ([192.168.0.6])
+	by arnor.apana.org.au with esmtp (Exim 4.63 #1 (Debian))
+	id 1NdG00-0002Az-If
+	for <netdev@vger.kernel.org>; Fri, 05 Feb 2010 15:40:56 +1100
+Received: from herbert by gondolin.me.apana.org.au with local (Exim 4.69)
+	(envelope-from <herbert@gondor.apana.org.au>)
+	id 1NdG00-00034V-A2
+	for netdev@vger.kernel.org; Fri, 05 Feb 2010 15:40:56 +1100
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+Hi:
 
-Driver has gone under significant changes, the version should
-reflect that.
+bridge: Remove unused age_list
 
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+This patch removes the unused age_list member from the net_bridge
+structure.
 
- drivers/net/ixgbe/ixgbe_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index ca57e74..c308b59 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -51,7 +51,7 @@ char ixgbe_driver_name[] = "ixgbe";
- static const char ixgbe_driver_string[] =
-                               "Intel(R) 10 Gigabit PCI Express Network Driver";
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index a2cbe61..35e80e9 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -206,8 +206,6 @@ static struct net_device *new_bridge_dev(struct net *net, const char *name)
  
--#define DRV_VERSION "2.0.44-k2"
-+#define DRV_VERSION "2.0.62-k2"
- const char ixgbe_driver_version[] = DRV_VERSION;
- static char ixgbe_copyright[] = "Copyright (c) 1999-2010 Intel Corporation.";
+ 	br_netfilter_rtable_init(br);
  
+-	INIT_LIST_HEAD(&br->age_list);
+-
+ 	br_stp_timer_init(br);
+ 
+ 	return dev;
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 2114e45..1f0c4f4 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -93,7 +93,6 @@ struct net_bridge
+ 	struct net_device		*dev;
+ 	spinlock_t			hash_lock;
+ 	struct hlist_head		hash[BR_HASH_SIZE];
+-	struct list_head		age_list;
+ 	unsigned long			feature_mask;
+ #ifdef CONFIG_BRIDGE_NETFILTER
+ 	struct rtable 			fake_rtable;
 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
