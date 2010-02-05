@@ -1,60 +1,78 @@
-From: roel kluin <roel.kluin@gmail.com>
-Subject: Re: [PATCH] obsolete config in kernel source (USE_INTERNAL_TIMER)
-Date: Fri, 5 Feb 2010 15:16:25 +0100
-Message-ID: <25e057c01002050616x59c927fbpaf13f477ec012ec5@mail.gmail.com>
-References: <20100205132219.GA6874@faui49.informatik.uni-erlangen.de>
+From: Paulius Zaleckas <paulius.zaleckas@gmail.com>
+Subject: Re: [PATCH] obsolete config in kernel source (HSO_AUTOPM)
+Date: Fri, 05 Feb 2010 16:38:48 +0200
+Message-ID: <4B6C2D78.20603@gmail.com>
+References: <20100205133918.GA7077__48535.5327524759$1265377184$gmane$org@faui49.informatik.uni-erlangen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Samuel Ortiz <samuel@sortiz.org>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jan Dumon <j.dumon@option.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
 	"David S. Miller" <davem@davemloft.net>,
 	Stephen Hemminger <shemminger@vyatta.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vamos@i4.informatik.uni-erlangen.de
+	netdev@vger.kernel.org
 To: Christoph Egger <siccegge@stud.informatik.uni-erlangen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100205132219.GA6874@faui49.informatik.uni-erlangen.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from darkstar.wilibox.com ([195.14.175.138]:39468 "EHLO
+	darkstar.wilibox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933193Ab0BEOix (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2010 09:38:53 -0500
+In-Reply-To: <20100205133918.GA7077__48535.5327524759$1265377184$gmane$org@faui49.informatik.uni-erlangen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0As part of the VAMOS[0] research project a=
-t the University of
+On 02/05/2010 03:39 PM, Christoph Egger wrote:
+> Hi all!
+>
+> 	As part of the VAMOS[0] research project at the University of
 > Erlangen we're checking referential integrity between kernel KConfig
 > options and in-code Conditional blocks.
 >
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0USE_INTERNAL_TIMER is another candidate. A=
-s can be seen on the
-> comment of the #undef instruction this part was quite likely never
-> working and safeguards were added si it is never enabled.
+> 	This is just a one-liner commented out unconditionally (due to
+> the config not existing) and being like this for virtually ever so I'm
+> suggesting to remove it from the kernel tree.
 >
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0Please keep me informed of this patch gett=
-ing confirmed /
+> 	Please keep me informed of this patch getting confirmed /
 > merged so we can keep track of it.
 >
 > Regards
 >
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0Christoph Egger
+> 	Christoph Egger
 >
 > [0] http://vamos1.informatik.uni-erlangen.de/
 >
 > ----
-> From f027b61661aaac1fd58536e17894e486d5fb3d3f Mon Sep 17 00:00:00 200=
-1
-> From: Christoph Egger <siccegge@stud.informatik.uni-erlangen.de>
-> Date: Fri, 5 Feb 2010 13:11:16 +0100
-> Subject: [PATCH] USE_INTERNAL_TIMER explicitely #undef-ed and not in =
-kconfig
+>  From 4d76c063b34cffd7b0f175e328f0878f262e6af2 Mon Sep 17 00:00:00 2001
+> From: Christoph Egger<siccegge@stud.informatik.uni-erlangen.de>
+> Date: Fri, 5 Feb 2010 13:46:21 +0100
+> Subject: [PATCH] Remove unreferenced HSO_AUTOPM
 >
-> CONFIG_USE_INTERNAL_TIMER seems to be the remainings of some
-> experiment. It is explicitely #undef-ed as not working, only
-> referenced from one source file and rather aged.
+> CONFIG_HSO_AUTOPM is set by KConfig / set in the Kernel source,
+> makefiles and won't be ever set this way, therefor simply removing the
+> protected code.
 >
-> Hereby cleaning it from the kernel tree.
+> Signed-off-by: Christoph Egger<siccegge@stud.informatik.uni-erlangen.de>
+> ---
+>   drivers/net/usb/hso.c |    3 ---
+>   1 files changed, 0 insertions(+), 3 deletions(-)
 >
-> Signed-off-by: Christoph Egger <siccegge@stud.informatik.uni-erlangen=
-=2Ede>
+> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+> index 6895f15..be0cc99 100644
+> --- a/drivers/net/usb/hso.c
+> +++ b/drivers/net/usb/hso.c
+> @@ -1155,9 +1155,6 @@ static void _hso_serial_set_termios(struct tty_struct *tty,
+>   static void hso_resubmit_rx_bulk_urb(struct hso_serial *serial, struct urb *urb)
+>   {
+>   	int result;
+> -#ifdef CONFIG_HSO_AUTOPM
+> -	usb_mark_last_busy(urb->dev);
+> -#endif
 
-Looks correct to me,
+Acctually this is bug. usb_mark_last_busy() should be called here.
+Can you resend this patch by just removing #ifdef and #endif and
+leaving usb_mark_last_busy()?
 
-Acked-by: Roel Kluin <roel.kluin@gmail.com>
+>   	/* We are done with this URB, resubmit it. Prep the USB to wait for
+>   	 * another frame */
+>   	usb_fill_bulk_urb(urb, serial->parent->usb,
+
