@@ -1,43 +1,41 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH v2 net-next-2.6] packet: Add GSO/csum offload support.
-Date: Thu, 04 Feb 2010 16:17:00 -0800
-Message-ID: <1265329020.31059.18.camel@w-sridhar.beaverton.ibm.com>
-References: <1265239340.5600.21.camel@w-sridhar.beaverton.ibm.com>
-	 <20100205000816.GA9575@gondor.apana.org.au>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [RFC Patch] net: reserve ports for applications using fixed port numbers
+Date: Fri, 05 Feb 2010 09:41:12 +0900
+Message-ID: <201002050041.o150fCO8081208@www262.sakura.ne.jp>
+References: <20100204.094110.64247447.davem@davemloft.net> <201002042015.51092.opurdila@ixiacom.com> <201002050645.CEC95380.MLOtOVFFHSFOQJ@I-love.SAKURA.ne.jp> <20100204.135639.69720709.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="ISO-2022-JP"
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:58670 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933503Ab0BEARD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Feb 2010 19:17:03 -0500
-Received: from d01relay07.pok.ibm.com (d01relay07.pok.ibm.com [9.56.227.147])
-	by e4.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o1506pQU029863
-	for <netdev@vger.kernel.org>; Thu, 4 Feb 2010 19:06:51 -0500
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay07.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o150H2GH2048066
-	for <netdev@vger.kernel.org>; Thu, 4 Feb 2010 19:17:02 -0500
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o150H2Y2005442
-	for <netdev@vger.kernel.org>; Thu, 4 Feb 2010 19:17:02 -0500
-In-Reply-To: <20100205000816.GA9575@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: opurdila@ixiacom.com, amwang@redhat.com,
+	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
+	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+	nhorman@tuxdriver.com, linux-sctp@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100204.135639.69720709.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2010-02-05 at 11:08 +1100, Herbert Xu wrote:
-> On Wed, Feb 03, 2010 at 03:22:20PM -0800, Sridhar Samudrala wrote:
-> >
-> > - protocol value is assumed to be passed in by the caller.
+David Miller wrote:
+> > Octavian Purdila wrote:
+> >> 
+> >> int inet_is_reserved_local_port(int port)
+> >> {
+> >> 	if (test_bit(port, reserved_ports))
+> >> 		return 1;
+> >> 	return 0;
+> >> }
+> >> 
+> > Above check is exactly what I'm doing in the LSM hook.
 > 
-> So how is the caller going to pass the protocol value through?
+> But his version can be done inline in 2 or 3 instructions.
+> 
+> An LSM hook will result in an indirect function call,
+> all live registers spilled to the stack, then all of
+> those reloaded when the function returns.
+> 
+> It will be much more expensive.
 
-via sockaddr_ll->sll_protocol in msg->msg_name.
-
-Thanks
-Sridhar
-
-
+If you can accept his version, I want to use his version (with an interface for
+updating above "reserved_ports" by not only root user's sysctl() but also MAC's
+policy configuration).
