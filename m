@@ -1,67 +1,54 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [RFC Patch] net: reserve ports for applications using fixed port
- numbers
-Date: Fri, 05 Feb 2010 14:01:43 +0800
-Message-ID: <4B6BB447.8080806@redhat.com>
-References: <20100204.094110.64247447.davem@davemloft.net> <20100204.135639.69720709.davem@davemloft.net> <201002050041.o150fCO8081208@www262.sakura.ne.jp> <201002050305.22227.opurdila@ixiacom.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net tree
+Date: Fri, 5 Feb 2010 16:50:59 +1100
+Message-ID: <20100205165059.0b5d5363.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	eric.dumazet@gmail.com, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, nhorman@tuxdriver.com,
-	linux-sctp@vger.kernel.org
-To: Octavian Purdila <opurdila@ixiacom.com>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__5_Feb_2010_16_50_59_+1100_b8V.lbLiILDVfOYJ"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nick Nunley <nicholasx.d.nunley@intel.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8091 "EHLO mx1.redhat.com"
+Received: from chilli.pcug.org.au ([203.10.76.44]:49697 "EHLO smtps.tip.net.au"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751918Ab0BEF6e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Feb 2010 00:58:34 -0500
-In-Reply-To: <201002050305.22227.opurdila@ixiacom.com>
+	id S1752204Ab0BEFvG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Feb 2010 00:51:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Octavian Purdila wrote:
-> On Friday 05 February 2010 02:41:12 you wrote:
->> David Miller wrote:
->>>> Octavian Purdila wrote:
->>>>> int inet_is_reserved_local_port(int port)
->>>>> {
->>>>> 	if (test_bit(port, reserved_ports))
->>>>> 		return 1;
->>>>> 	return 0;
->>>>> }
->>>> Above check is exactly what I'm doing in the LSM hook.
->>> But his version can be done inline in 2 or 3 instructions.
->>>
->>> An LSM hook will result in an indirect function call,
->>> all live registers spilled to the stack, then all of
->>> those reloaded when the function returns.
->>>
->>> It will be much more expensive.
->> If you can accept his version, I want to use his version (with an interface
->>  for updating above "reserved_ports" by not only root user's sysctl() but
->>  also MAC's policy configuration).
->>
-> 
-> I think that simply using an interface to update the reserved_ports from MAC 
-> policy configuration module wouldn't work, as root will be able to modify the 
-> policy via sysctl.
-> 
-> I think that we might need to:
-> 
-> a) have a reserved_port updater
-> 
-> b) put a LSM hook into that
-> 
-> c) use the reserved_port updater from sysctl
-> 
-> 
+--Signature=_Fri__5_Feb_2010_16_50_59_+1100_b8V.lbLiILDVfOYJ
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Ideally, you'd provide an interface for port allocator to use, so
-doing port reservation will be easier.
+Hi Dave,
 
-Thanks.
+After merging the scsi-post-merge tree, today's linux-next build (powerpc
+allyesconfig and i386 defconfig) failed like this:
 
+drivers/net/e1000e/built-in.o: In function `e1000_has_link':
+(.opd+0x1d58): multiple definition of `e1000_has_link'
+drivers/net/e1000/built-in.o:(.opd+0x588): first defined here
 
+Caused by commit b548192acaebcb05d6a87d1e94f19835b1a18a8b ("e1000: Report
+link status in ethtool when interface is down").
+
+I have reverted that commit for today.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Fri__5_Feb_2010_16_50_59_+1100_b8V.lbLiILDVfOYJ
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAktrscMACgkQjjKRsyhoI8x6hACbBLrjSzG6pb8CdOzoEyvDgLwE
+IO0An1FaPxClHjS/3D0zWdarMYLtL/N+
+=tScb
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__5_Feb_2010_16_50_59_+1100_b8V.lbLiILDVfOYJ--
