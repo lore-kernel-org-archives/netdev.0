@@ -1,41 +1,44 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [RFC] xfrm: x86_64 CONFIG_COMPAT support
-Date: Fri, 5 Feb 2010 22:13:28 +0100
-Message-ID: <20100205211328.GC23792@Chamillionaire.breakpoint.cc>
-References: <20100205014744.GD28659@Chamillionaire.breakpoint.cc>
- <20100204.202235.186522102.davem@davemloft.net>
- <20100205195409.GB23792@Chamillionaire.breakpoint.cc>
- <20100205.115913.103119415.davem@davemloft.net>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH for 2.6.33] conntrack: restrict runtime hashsize
+ modifications
+Date: Sat, 6 Feb 2010 00:04:07 +0200
+Message-ID: <20100205220407.GA27953@x200>
+References: <20100203203929.GA6168@x200>
+ <4B6AF36A.3050402@trash.net>
+ <4B6AFE22.20304@trash.net>
+ <20100204194744.GA4185@x200>
+ <4B6BEC23.8020101@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:58766 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751546Ab0BEVN3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2010 16:13:29 -0500
+Cc: davem@davemloft.net, jonathan@jonmasters.org,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20100205.115913.103119415.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4B6BEC23.8020101@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
-> From: Florian Westphal <fw@strlen.de>
-> Date: Fri, 5 Feb 2010 20:54:09 +0100
-> 
-> > However, I believe I can use is_compat_task() on
-> > the userspace -> kernel side to figure out how to interpret
-> > the incoming data.
-> > 
-> > Is that correct or did I misunderstand?
-> 
-> Again, you can't use is_compat_task().
+On Fri, Feb 05, 2010 at 11:00:03AM +0100, Patrick McHardy wrote:
+> Actually it doesn't seem like much more work to allow changing
+> table size, the main problem is that sysfs module parameters
+> don't seem to fit into the network namespace model at all.
 
-Okay, understood. Thanks for clarifying.
+Well, they "fit" as they're global because modules are global.
+So we can make every netns hashtable size equals to module param,
+or make it bounded by module param
+or make initial hashtable size and not bounded
+or million other things.
 
-> Just like netlink_recvmsg() you should use MSG_CMSG_COMPAT.
-> 
-> If it isn't be set correctly, you need to find out why.
+> Please be more specific about your suspected slowdowns.
 
-Will do, thanks.
+I meant net->ct.htable_size in hash functions _if_ you're not allowing
+changing it from inside netns.
+
+> What's "everything"? What's different about the hashsize
+> compared to the many members we already moved to per-netns
+> structs?
+
+But whatever. I think per-netns hashtable size shouldn't be done
+that late.
