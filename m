@@ -1,42 +1,32 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC 3/4] bond: support more Layer 4 protocols
-Date: Fri, 5 Feb 2010 08:42:40 -0800
-Message-ID: <20100205084240.0bd895ab@s6510>
-References: <20100204171118.917737392@vyatta.com>
-	<20100204171241.393163298@vyatta.com>
-	<4B6BF50D.9060603@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: manual merge of the trivial tree with the net tree
+Date: Fri, 05 Feb 2010 08:55:16 -0800 (PST)
+Message-ID: <20100205.085516.66180257.davem@davemloft.net>
+References: <20100204.202645.18974249.davem@davemloft.net>
+	<alpine.LNX.2.00.1002050935470.15395@pobox.suse.cz>
+	<alpine.LNX.2.00.1002051216460.15395@pobox.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:41061 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752343Ab0BEQmw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Feb 2010 11:42:52 -0500
-In-Reply-To: <4B6BF50D.9060603@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, adam.buchbinder@gmail.com,
+	netdev@vger.kernel.org, bhutchings@solarflare.com
+To: jkosina@suse.cz
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1002051216460.15395@pobox.suse.cz>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 05 Feb 2010 11:38:05 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+From: Jiri Kosina <jkosina@suse.cz>
+Date: Fri, 5 Feb 2010 12:23:06 +0100 (CET)
 
-> Stephen Hemminger wrote:
-> > +/* Map of protocols with standard ports available to include in hash */
-> > +static const bool has_layer4[256] = {
-> > +	[IPPROTO_TCP] = 1,
-> > +	[IPPROTO_UDP] = 1,
-> > +	[IPPROTO_UDPLITE] = 1,
-> > +	[IPPROTO_SCTP] = 1,
-> > +	[IPPROTO_DCCP] = 1,
-> > +	[IPPROTO_ESP] = 1,
-> > +};
-> > +
-> 
-> How about using a bitmap or u8s to keep this more compact?
+> Ayway, below is the hunk that I have already dropped from my tree (so that 
+> conflict in linux-next is gone), please feel free to apply it to your 
+> tree, and let me known whether you want me to reject all furutre patches 
 
-I thought about that, but couldn't find a clever way to initialize at
-compile time other than hardcoding constants?
+I can't apply it to my tree, that's why we had the conflict
+in the first place.
+
+Please submit this to me so that it applies cleanly to net-next-2.6
+
+Thanks.
