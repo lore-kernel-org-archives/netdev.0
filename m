@@ -1,61 +1,62 @@
-From: "Kevin Pedretti" <ktpedre@sandia.gov>
-Subject: Re: [PATCH] seastar - SeaStar Ethernet driver
-Date: Thu, 4 Feb 2010 17:59:23 -0700
-Message-ID: <1265331563.23523.100.camel@hawkeye.sandia.gov>
-References: <20100202205845.GE5246@hawkeye.sandia.gov>
- <20100202.134251.15604523.davem@davemloft.net>
- <1265160242.15726.20.camel@hawkeye.sandia.gov>
- <20100202.174045.135005544.davem@davemloft.net>
- <1265324464.23523.51.camel@hawkeye.sandia.gov>
- <20100204231621.7a13695a@lxorguk.ukuu.org.uk>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [RFC Patch] net: reserve ports for applications using fixed port numbers
+Date: Fri, 5 Feb 2010 03:05:22 +0200
+Message-ID: <201002050305.22227.opurdila@ixiacom.com>
+References: <20100204.094110.64247447.davem@davemloft.net> <20100204.135639.69720709.davem@davemloft.net> <201002050041.o150fCO8081208@www262.sakura.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Alan Cox" <alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100204231621.7a13695a@lxorguk.ukuu.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, amwang@redhat.com,
+	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
+	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+	nhorman@tuxdriver.com, linux-sctp@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:30064 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933649Ab0BEBIq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Feb 2010 20:08:46 -0500
+In-Reply-To: <201002050041.o150fCO8081208@www262.sakura.ne.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-02-04 at 16:16 -0700, Alan Cox wrote:
-> - tcpdump etc once coaxed would display seastar frames not fake ethernet
-> - the config tools would actually report what it really was
-> - non IP layers and userspace won't keep trying to do things you don't
->   want (what does it do right now with vlans I wonder 8))
-> - there will be no ARP confusion
+On Friday 05 February 2010 02:41:12 you wrote:
+> David Miller wrote:
+> > > Octavian Purdila wrote:
+> > >> int inet_is_reserved_local_port(int port)
+> > >> {
+> > >> 	if (test_bit(port, reserved_ports))
+> > >> 		return 1;
+> > >> 	return 0;
+> > >> }
+> > >
+> > > Above check is exactly what I'm doing in the LSM hook.
+> >
+> > But his version can be done inline in 2 or 3 instructions.
+> >
+> > An LSM hook will result in an indirect function call,
+> > all live registers spilled to the stack, then all of
+> > those reloaded when the function returns.
+> >
+> > It will be much more expensive.
 > 
-> If it wants to stay compatible and pretend to be ethernet you probably
-> need a message type for "encapsulated ethernet", you can then encapsulate
-> anything not IP and stay compatible by keeping IP sent the way it is
-> now ? Thats if it wants to in the first place.
+> If you can accept his version, I want to use his version (with an interface
+>  for updating above "reserved_ports" by not only root user's sysctl() but
+>  also MAC's policy configuration).
+> 
 
-I agree the current situation is rather confusing and a lot or most of
-the standard tools will break.  I have used tcpdump with some success,
-but I'm sure there's lots of stuff broken.
+I think that simply using an interface to update the reserved_ports from MAC 
+policy configuration module wouldn't work, as root will be able to modify the 
+policy via sysctl.
 
-We do need to stay compatible with the existing proprietary driver.  The
-usage model we're after is leaving all of the service nodes (nodes users
-login to, serve I/O, etc.) booted with the existing proprietary software
-and rebooting the compute nodes (99% of the nodes) with a modern Linux
-kernel running this open-source seastar driver.  The compute nodes need
-to be able to communicate with each other and with the service nodes
-using IP (point-to-point).  Users login to the service nodes and then,
-for example, can ssh to compute nodes, scp files to compute nodes,
-etc.  
+I think that we might need to:
 
-Probably critical background: each service node and each compute node
-has a seastar NIC that directly connects to nearest neighbors, forming a
-3-D torus.  The only way for the nodes to communicate is via this
-network. 
+a) have a reserved_port updater
 
-I like the idea of encapsulating whole ethernet frames in a new message
-type.  But won't the lack of broadcast (and multi-cast) still be an
-issue for most protocols?  I also don't have much control over the
-seastar header, but can probably find an ignored bit somewhere to mark
-the new message type.
+b) put a LSM hook into that
 
-Kevin
+c) use the reserved_port updater from sysctl
+
+
+
