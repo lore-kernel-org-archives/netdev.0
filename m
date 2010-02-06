@@ -1,38 +1,43 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 2/2] sky2: Allocate initial skbs in sky2_alloc_buffers
-Date: Fri, 5 Feb 2010 22:12:46 -0800
-Message-ID: <20100205221246.6fdb3632@s6510>
-References: <4B6CC473.4090008@ring3k.org>
-	<20100205181045.42908795@nehalam>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: RE: [PATCH 14/23 v3] mlx4_core: Determine primary physical function
+Date: Sat, 6 Feb 2010 08:26:33 +0200
+Message-ID: <E113D394D7C5DB4F8FF691FA7EE9DB44388066F0D2@MTLMAIL.mtl.com>
+References: <49BFC313.1030901@mellanox.co.il>
+	<4B6AEE1F.5050506@mellanox.co.il> <ada3a1gfxbi.fsf@roland-alpha.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Mike McCormack <mikem@ring3k.org>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "general@lists.openfabrics.org" <general@lists.openfabrics.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Liran Liss <liranl@mellanox.co.il>,
+	Tziporet Koren <tziporet@mellanox.co.il>
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:47329 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751522Ab0BFGNJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Feb 2010 01:13:09 -0500
-In-Reply-To: <20100205181045.42908795@nehalam>
+Received: from mail.mellanox.co.il ([194.90.237.43]:46995 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751522Ab0BFGZW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Feb 2010 01:25:22 -0500
+In-Reply-To: <ada3a1gfxbi.fsf@roland-alpha.cisco.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 5 Feb 2010 18:10:45 -0800
-Stephen Hemminger <shemminger@vyatta.com> wrote:
+ 
 
-> On Sat, 06 Feb 2010 10:22:59 +0900
-> Mike McCormack <mikem@ring3k.org> wrote:
-> 
-> > Allocating everything in one place means there's a single point
-> > of failure in sky2_up, and sky2_rx_start can no longer fail.
-> 
-> If ring is never allocated, how then it must fail in up.
-> Plus if the initial ring allocation is partial it should fail.
+>> +	MLX4_FLAG_PF		= 1 << 5,
+>
+> Am I mistaken, or is this the only place this flag appears anywhere in the patch set?  In other words it is never set and never tested -- so probably we > don't need it?
 
-Let me put that clearer...
-When dev_open is called, the system might be very short of memory
-and unable to allocate the number of receive buffers; in that case,
-I would prefer that an error was returned to the application.
-Yes, this is a corner case; but it is better to fail with a noisy
-error than limp along with a dead device.
+That is correct
+
+>> +	dev_cap->pf_num = field;
+>> +	if (dev_cap->pf_num > 1)
+>> +		dev->flags |= MLX4_FLAG_MASTER;
+>
+> Is this correct?  All PFs > 1 are masters?  Or should the test be "== 1"
+> rather than "> 1" instead?
+
+No, It means that if some function get notified that there are more then 1 physical functions on the device, it should act as master.
+
+Thanks,
+Yevgeny
