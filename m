@@ -1,29 +1,67 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 2/2] sky2: Allocate initial skbs in sky2_alloc_buffers
-Date: Fri, 5 Feb 2010 18:10:45 -0800
-Message-ID: <20100205181045.42908795@nehalam>
-References: <4B6CC473.4090008@ring3k.org>
+From: =?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>
+Subject: Re: 2.6.32.8-stable review : kernel crashed asap
+Date: Sat, 6 Feb 2010 12:19:26 +0800
+Message-ID: <20100206041926.GA4529@hack>
+References: <201002042129.41462.toralf.foerster@gmx.de> <201002051622.02980.toralf.foerster@gmx.de> <20100205155701.GC9690@hack> <201002051730.39578.toralf.foerster@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Mike McCormack <mikem@ring3k.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Toralf =?utf-8?Q?F=C3=B6rster?= <toralf.foerster@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:39432 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933202Ab0BFCK5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Feb 2010 21:10:57 -0500
-In-Reply-To: <4B6CC473.4090008@ring3k.org>
+Received: from mail-iw0-f185.google.com ([209.85.223.185]:53148 "EHLO
+	mail-iw0-f185.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753867Ab0BFEZQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Feb 2010 23:25:16 -0500
+Content-Disposition: inline
+In-Reply-To: <201002051730.39578.toralf.foerster@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 06 Feb 2010 10:22:59 +0900
-Mike McCormack <mikem@ring3k.org> wrote:
+On Fri, Feb 05, 2010 at 05:30:39PM +0100, Toralf F=C3=B6rster wrote:
+>
+>Am=C3=A9rico Wang wrote at 16:57:01
+>> On Fri, Feb 05, 2010 at 04:22:02PM +0100, Toralf F=C3=B6rster wrote:
+>> >Am=C3=A9rico Wang wrote at 16:10:21
+>> >
+>> >> On Thu, Feb 04, 2010 at 09:29:41PM +0100, Toralf F=C3=B6rster wro=
+te:
+>> >> >Immediately during boot it crashed w/ the attached config - no l=
+ines
+>> >> > within syslog  to post.
+>> >>
+>> >> What error messages did you see on your screen?
+>> >
+>> >I attached a screen shot.
+>>=20
+>> Thanks! It's better that if you can capture these info via netconsol=
+e
+>> or something like that, so that you copy and paste them into email.
+>I know - but I'm at home where I've only this ThinkPad ...
+>
+>> Hmm, it seems that a null pointer deref happened in
+>> net/ipv4/devinet.c::inetdev_init(), so Cc'ing netdev guys....
+>>=20
+>> Could you please run the command:
+>>=20
+>>   addr2line -e your_2.6.32.8_vmlinux 0xc11fea28
+>>=20
+>> to check in which line we dereferenced a null pointer?
+>
+>Here's the information :
+>
+>n22 /usr/src/linux-2.6.32.8 # addr2line -e vmlinux 0xc11fea28
+>devinet.c:0
+>
 
-> Allocating everything in one place means there's a single point
-> of failure in sky2_up, and sky2_rx_start can no longer fail.
+Hmm, thanks, we already found the problem, I think the patch here:
 
-If ring is never allocated, how then it must fail in up.
-Plus if the initial ring allocation is partial it should fail.
+http://patchwork.kernel.org/patch/77357/
 
--- 
+should be able to fix this problem.
+
+Thanks for reporting!
+
+--=20
+Live like a child, think like the god.
+=20
