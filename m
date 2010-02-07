@@ -1,50 +1,37 @@
 From: jamal <hadi@cyberus.ca>
-Subject: [RFC]: xfrm by mark
-Date: Sun, 07 Feb 2010 13:32:02 -0500
-Message-ID: <1265567522.3688.27.camel@bigi>
+Subject: rps: question
+Date: Sun, 07 Feb 2010 13:42:02 -0500
+Message-ID: <1265568122.3688.36.camel@bigi>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Timo =?ISO-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	robert@herjulf.net, David Miller <davem@davemloft.net>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f191.google.com ([209.85.221.191]:52357 "EHLO
+Received: from mail-qy0-f191.google.com ([209.85.221.191]:40614 "EHLO
 	mail-qy0-f191.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932378Ab0BGSjE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2010 13:39:04 -0500
-Received: by qyk29 with SMTP id 29so2774783qyk.23
-        for <netdev@vger.kernel.org>; Sun, 07 Feb 2010 10:39:03 -0800 (PST)
+	with ESMTP id S1755973Ab0BGSmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Feb 2010 13:42:07 -0500
+Received: by qyk29 with SMTP id 29so2775638qyk.23
+        for <netdev@vger.kernel.org>; Sun, 07 Feb 2010 10:42:04 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi Tom,
 
-While catching up with old netdev threads I noticed this one:
-http://marc.info/?l=linux-netdev&m=125621829709171&w=2
-I had a chat with Timo and he is too busy on other things at
-the moment. I have some cycles to burn and would like to pursue
-this unless there is objection to the general idea. I am interested
-because I would like to see most of the net stack capable of 
-reference by mark. I am posting this so i can get a general
-pulse before i go off coding.
+First off: Kudos on the numbers you are seeing; they are
+impressive. Do you have any numbers on a forwarding path test?
 
-Approach:
-- introduce attribute XFRMA_MARK
-- both SPD and SAD will have new entries ->mark
-- by default mark is 0, so backward compat for 
-control add/get/del as well as fast path lookup continues.
-I dont plan to touch pfkey i.e anything injected by pfkey
-will use default mark of 0.
-- a sysctl to turn off this feature doesnt seem necessary
-since the cycles added by the fast path lookup dont seem
-to be much more..
-
-Timo, please chime in with anything i may have missed.
-
+My first impression when i saw the numbers was one of suprise.
+Back in the days when we tried to split stack processing the way
+you did(it was one of the experiments on early NAPI), IPIs were 
+_damn_ expensive. What changed in current architecture that makes
+this more palatable? IPIs are still synchronous AFAIK (and the more
+IPI receiver there are, the worse the ACK latency). Did you test this
+across other archs or say 3-4 year old machines?
 
 cheers,
-jamal
+jamal 
 
