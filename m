@@ -1,8 +1,7 @@
 From: Jan Kiszka <jan.kiszka@web.de>
-Subject: [PATCH v2 11/41] CAPI: Rework application locking
-Date: Mon,  8 Feb 2010 21:12:15 +0100
-Message-ID: <6910ecb2ed7918dcb79d22c7c1545d2fcdaa8473.1265659934.git.jan.kiszka@web.de>
-References: <cover.1265659933.git.jan.kiszka@web.de>
+Subject: [PATCH v2 00/41] CAPI: Major rework, tons of bug fixes
+Date: Mon,  8 Feb 2010 21:12:04 +0100
+Message-ID: <cover.1265659933.git.jan.kiszka@web.de>
 Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
 	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org,
 	Alan Cox <alan@lxorguk.ukuu.org.uk>,
@@ -10,210 +9,84 @@ Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
 To: David Miller <davem@davemloft.net>,
 	Karsten Keil <isdn@linux-pingi.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1265659933.git.jan.kiszka@web.de>
-In-Reply-To: <cover.1265659933.git.jan.kiszka@web.de>
-References: <cover.1265659933.git.jan.kiszka@web.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Drop the application rw-lock in favour of RCU. This synchronizes
-capi20_release against capi_ctr_handle_message which may dereference an
-application from (soft-)IRQ context. Any other access to the application
-list is now protected by the capi_controller_lock as well. This also
-allows to safely inspect applications for /proc dumping by holding
-capi_controller_lock.
+Here is the second take of my CAPI rework. I tried to address all
+feedback on v1, so this one comes with the following changes:
 
-At this chance, drop some useless release_in_progress checks where we
-obtained the application pointer from the list (which becomes NULL on
-release_in_progress).
+ o rebased over net-next
+ o reworked locking of the NCCI TTY using latest and greatest tty_port
+   features and kref, hopefully in the right way
+ o more fine-grained patch steps for the tricky TTY rework
+ o dynamic major for NCCI TTYs, ie. CAPI no longer claims 191
+ o dynamic TTY minor registrations, completely obsoleting capifs
+ o schedule capifs for removal
+ o some small additional cleanups
 
-Signed-off-by: Jan Kiszka <jan.kiszka@web.de>
----
- drivers/isdn/capi/kcapi.c      |   52 +++++++++++++++++-----------------------
- drivers/isdn/capi/kcapi_proc.c |   11 +++++---
- 2 files changed, 29 insertions(+), 34 deletions(-)
+I kept my capifs fixes though this thing should die in the future. The
+work is done, and people may still use it due to their distro
+configuration (and the hard-wired loading by capiinit - needs fixing).
 
-diff --git a/drivers/isdn/capi/kcapi.c b/drivers/isdn/capi/kcapi.c
-index a99f7e3..0b4c8a7 100644
---- a/drivers/isdn/capi/kcapi.c
-+++ b/drivers/isdn/capi/kcapi.c
-@@ -34,6 +34,7 @@
- #include <linux/b1lli.h>
- #endif
- #include <linux/mutex.h>
-+#include <linux/rcupdate.h>
- 
- static int showcapimsgs = 0;
- 
-@@ -64,8 +65,6 @@ DEFINE_MUTEX(capi_drivers_lock);
- struct capi_ctr *capi_controller[CAPI_MAXCONTR];
- DEFINE_MUTEX(capi_controller_lock);
- 
--static DEFINE_RWLOCK(application_lock);
--
- struct capi20_appl *capi_applications[CAPI_MAXAPPL];
- 
- static int ncontrollers;
-@@ -103,7 +102,7 @@ static inline struct capi20_appl *get_capi_appl_by_nr(u16 applid)
- 	if (applid - 1 >= CAPI_MAXAPPL)
- 		return NULL;
- 
--	return capi_applications[applid - 1];
-+	return rcu_dereference(capi_applications[applid - 1]);
- }
- 
- /* -------- util functions ------------------------------------ */
-@@ -186,7 +185,7 @@ static void notify_up(u32 contr)
- 
- 		for (applid = 1; applid <= CAPI_MAXAPPL; applid++) {
- 			ap = get_capi_appl_by_nr(applid);
--			if (!ap || ap->release_in_progress)
-+			if (!ap)
- 				continue;
- 			register_appl(ctr, applid, &ap->rparam);
- 		}
-@@ -216,7 +215,7 @@ static void ctr_down(struct capi_ctr *ctr, int new_state)
- 
- 	for (applid = 1; applid <= CAPI_MAXAPPL; applid++) {
- 		ap = get_capi_appl_by_nr(applid);
--		if (ap && !ap->release_in_progress)
-+		if (ap)
- 			capi_ctr_put(ctr);
- 	}
- 
-@@ -336,7 +335,6 @@ void capi_ctr_handle_message(struct capi_ctr *ctr, u16 appl,
- 	struct capi20_appl *ap;
- 	int showctl = 0;
- 	u8 cmd, subcmd;
--	unsigned long flags;
- 	_cdebbuf *cdb;
- 
- 	if (ctr->state != CAPI_CTR_RUNNING) {
-@@ -384,10 +382,10 @@ void capi_ctr_handle_message(struct capi_ctr *ctr, u16 appl,
- 
- 	}
- 
--	read_lock_irqsave(&application_lock, flags);
-+	rcu_read_lock();
- 	ap = get_capi_appl_by_nr(CAPIMSG_APPID(skb->data));
--	if ((!ap) || (ap->release_in_progress)) {
--		read_unlock_irqrestore(&application_lock, flags);
-+	if (!ap) {
-+		rcu_read_unlock();
- 		cdb = capi_message2str(skb->data);
- 		if (cdb) {
- 			printk(KERN_ERR "kcapi: handle_message: applid %d state released (%s)\n",
-@@ -401,7 +399,7 @@ void capi_ctr_handle_message(struct capi_ctr *ctr, u16 appl,
- 	}
- 	skb_queue_tail(&ap->recv_queue, skb);
- 	schedule_work(&ap->recv_work);
--	read_unlock_irqrestore(&application_lock, flags);
-+	rcu_read_unlock();
- 
- 	return;
- 
-@@ -656,40 +654,35 @@ u16 capi20_register(struct capi20_appl *ap)
- {
- 	int i;
- 	u16 applid;
--	unsigned long flags;
- 
- 	DBG("");
- 
- 	if (ap->rparam.datablklen < 128)
- 		return CAPI_LOGBLKSIZETOSMALL;
- 
--	write_lock_irqsave(&application_lock, flags);
-+	ap->nrecvctlpkt = 0;
-+	ap->nrecvdatapkt = 0;
-+	ap->nsentctlpkt = 0;
-+	ap->nsentdatapkt = 0;
-+	mutex_init(&ap->recv_mtx);
-+	skb_queue_head_init(&ap->recv_queue);
-+	INIT_WORK(&ap->recv_work, recv_handler);
-+	ap->release_in_progress = 0;
-+
-+	mutex_lock(&capi_controller_lock);
- 
- 	for (applid = 1; applid <= CAPI_MAXAPPL; applid++) {
- 		if (capi_applications[applid - 1] == NULL)
- 			break;
- 	}
- 	if (applid > CAPI_MAXAPPL) {
--		write_unlock_irqrestore(&application_lock, flags);
-+		mutex_unlock(&capi_controller_lock);
- 		return CAPI_TOOMANYAPPLS;
- 	}
- 
- 	ap->applid = applid;
- 	capi_applications[applid - 1] = ap;
- 
--	ap->nrecvctlpkt = 0;
--	ap->nrecvdatapkt = 0;
--	ap->nsentctlpkt = 0;
--	ap->nsentdatapkt = 0;
--	mutex_init(&ap->recv_mtx);
--	skb_queue_head_init(&ap->recv_queue);
--	INIT_WORK(&ap->recv_work, recv_handler);
--	ap->release_in_progress = 0;
--
--	write_unlock_irqrestore(&application_lock, flags);
--	
--	mutex_lock(&capi_controller_lock);
--
- 	for (i = 0; i < CAPI_MAXCONTR; i++) {
- 		if (!capi_controller[i] ||
- 		    capi_controller[i]->state != CAPI_CTR_RUNNING)
-@@ -721,16 +714,15 @@ EXPORT_SYMBOL(capi20_register);
- u16 capi20_release(struct capi20_appl *ap)
- {
- 	int i;
--	unsigned long flags;
- 
- 	DBG("applid %#x", ap->applid);
- 
--	write_lock_irqsave(&application_lock, flags);
-+	mutex_lock(&capi_controller_lock);
-+
- 	ap->release_in_progress = 1;
- 	capi_applications[ap->applid - 1] = NULL;
--	write_unlock_irqrestore(&application_lock, flags);
- 
--	mutex_lock(&capi_controller_lock);
-+	synchronize_rcu();
- 
- 	for (i = 0; i < CAPI_MAXCONTR; i++) {
- 		if (!capi_controller[i] ||
-diff --git a/drivers/isdn/capi/kcapi_proc.c b/drivers/isdn/capi/kcapi_proc.c
-index 3e6e17a..ea2dff6 100644
---- a/drivers/isdn/capi/kcapi_proc.c
-+++ b/drivers/isdn/capi/kcapi_proc.c
-@@ -139,9 +139,11 @@ static const struct file_operations proc_contrstats_ops = {
- //      applid nrecvctlpkt nrecvdatapkt nsentctlpkt nsentdatapkt
- // ---------------------------------------------------------------------------
- 
--static void *
--applications_start(struct seq_file *seq, loff_t *pos)
-+static void *applications_start(struct seq_file *seq, loff_t *pos)
-+	__acquires(capi_controller_lock)
- {
-+	mutex_lock(&capi_controller_lock);
-+
- 	if (*pos < CAPI_MAXAPPL)
- 		return &capi_applications[*pos];
- 
-@@ -158,9 +160,10 @@ applications_next(struct seq_file *seq, void *v, loff_t *pos)
- 	return NULL;
- }
- 
--static void
--applications_stop(struct seq_file *seq, void *v)
-+static void applications_stop(struct seq_file *seq, void *v)
-+	__releases(capi_controller_lock)
- {
-+	mutex_unlock(&capi_controller_lock);
- }
- 
- static int
--- 
-1.6.0.2
+You can pull this series from
+
+	git://git.kiszka.org/linux-2.6.git capi
+
+Jan
+
+Jan Kiszka (41):
+  CAPI: Fix leaks in capifs_new_ncci
+  CAPI: Sanitize capifs API
+  CAPI: Eliminate capifs_root variable
+  CAPI: Pin capifs instead of mounting it
+  CAPI: Reduce chattiness during module loading/removal
+  CAPI: Call a controller 'controller', not 'card'
+  CAPI: Convert capi drivers rwlock into mutex
+  CAPI: Rework capi_ctr_ready/down
+  CAPI: Rework controller state notifier
+  CAPI: Rework locking of controller data structures
+  CAPI: Rework application locking
+  CAPI: Reduce #ifdef mess around CONFIG_ISDN_CAPI_MIDDLEWARE
+  CAPI: Convert capidev_list_lock into a mutex
+  CAPI: Clean up capi_open/release
+  CAPI: Rework locking of capidev members
+  CAPI: Use non-atomic allocation during NCCI setup
+  CAPI: Fix racy capi_read
+  CAPI: Switch NCCI list to standard doubly linked list
+  CAPI: Switch capiminor list to array
+  CAPI: Clean up capinc_tty_init/exit
+  CAPI: Dynamically register minor devices
+  CAPI: Use dynamic major for NCCI TTYs by default
+  CAPI: Use kref on capiminor
+  CAPI: Establish install/cleanup handlers for capiminor TTYs
+  CAPI: Use tty_port to keep track of capiminor's tty
+  CAPI: Drop remaining NULL checks on tty->driver_data
+  CAPI: Issue synchronous hangup on capincci_free_minor
+  CAPI: Drop obsolete nccip from capiminor struct
+  CAPI: Clean up capiminors_lock
+  CAPI: Drop atomic ttyopencount
+  CAPI: Drop handle_minor_recv from capinc_tty_write
+  CAPI: Rework capiminor RX handler
+  CAPI: Rename datahandle_queue -> ackqueue_entry
+  CAPI: Use atomics for capiminor's datahandle and msgid
+  CAPI: Drop capiminor's unused inbytes counter
+  CAPI: Fix locking around capiminor's output queue and drop
+    workaround_lock
+  CAPI: Clean up capiminor_*_ack
+  CAPI: Drop return value of handle_minor_send
+  CAPI: Drop special controller lookup from capi20_put_message
+  CAPI: Schedule capifs for removal
+  CAPI: Remove experimental tag from middleware feature
+
+ Documentation/feature-removal-schedule.txt |   10 +
+ drivers/isdn/capi/Kconfig                  |   16 +-
+ drivers/isdn/capi/capi.c                   | 1108 ++++++++++++++--------------
+ drivers/isdn/capi/capidrv.c                |   48 +-
+ drivers/isdn/capi/capifs.c                 |  126 ++--
+ drivers/isdn/capi/capifs.h                 |   21 +-
+ drivers/isdn/capi/kcapi.c                  |  805 +++++++++++---------
+ drivers/isdn/capi/kcapi.h                  |   13 +-
+ drivers/isdn/capi/kcapi_proc.c             |   41 +-
+ include/linux/isdn/capilli.h               |    5 +-
+ include/linux/kernelcapi.h                 |   17 +-
+ 11 files changed, 1151 insertions(+), 1059 deletions(-)
