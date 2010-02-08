@@ -1,41 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 15239] New: Problem with network performance
- after a while.
-Date: Mon, 08 Feb 2010 15:14:22 -0800 (PST)
-Message-ID: <20100208.151422.144771179.davem@davemloft.net>
-References: <bug-15239-10286@http.bugzilla.kernel.org/>
-	<20100208141513.b5d0be56.akpm@linux-foundation.org>
-	<alpine.WNT.2.00.1002081432390.6892@jbrandeb-desk1.amr.corp.intel.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [Bugme-new] [Bug 15239] New: Problem with network performance after a while.
+Date: Tue, 9 Feb 2010 00:04:38 +0100
+Message-ID: <201002090004.38332.rjw@sisk.pl>
+References: <bug-15239-10286@http.bugzilla.kernel.org/> <201002082351.30629.rjw@sisk.pl> <20100208.145857.27251976.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, jeffrey.t.kirsher@intel.com,
-	bruce.w.allan@intel.com, alexander.h.duyck@intel.com,
-	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com,
-	pstaszewski@artcom.pl, stable@kernel.org
-To: jesse.brandeburg@intel.com
+	maciej.rutecki@gmail.com,
+	Kernel Bugzilla <bugzilla-daemon@bugzilla.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59474
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751812Ab0BHXOJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 18:14:09 -0500
-In-Reply-To: <alpine.WNT.2.00.1002081432390.6892@jbrandeb-desk1.amr.corp.intel.com>
+Received: from ogre.sisk.pl ([217.79.144.158]:60551 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751715Ab0BHXYn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Feb 2010 18:24:43 -0500
+In-Reply-To: <20100208.145857.27251976.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Date: Mon, 8 Feb 2010 15:06:24 -0800 (Pacific Standard Time)
-
->> > on 2.6.33-rc6-git5 i have this info:
+On Monday 08 February 2010, David Miller wrote:
+> From: "Rafael J. Wysocki" <rjw@sisk.pl>
+> Date: Mon, 8 Feb 2010 23:51:30 +0100
 > 
->> > BUG: soft lockup - CPU#1 stuck for 61s!
->> > [events/1:28]
+> > On Monday 08 February 2010, Andrew Morton wrote:
+> >> On Sat, 6 Feb 2010 14:39:46 GMT
+> >> bugzilla-daemon@bugzilla.kernel.org wrote:
+> >> 
+> >> > http://bugzilla.kernel.org/show_bug.cgi?id=15239
+> >> 
+> >> post-2.6.32 regression, backported into -stable :(
+> > 
+> > Added, CCing netdev.
 > 
-> so why is this events/1 thing here?
+> No need, we already worked on this and have a fix,
+> see:
+> 
+> http://marc.info/?l=linux-netdev&m=126565759512718&w=2
 
-Jesse, this is taken care of already, see:
-
-http://marc.info/?l=linux-netdev&m=126565759512718&w=2
+Great, thanks!
