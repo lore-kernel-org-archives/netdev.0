@@ -1,43 +1,48 @@
-From: Daniel Mack <daniel@caiaq.de>
-Subject: Re: smsc911x suspend/resume
-Date: Mon, 8 Feb 2010 11:11:23 +0100
-Message-ID: <20100208101123.GW28972@buzzloop.caiaq.de>
-References: <4B6FDC83.9090205@compulab.co.il>
+From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Subject: Re: [Bug #15196] kmem_cache_create: duplicate cache ccid2_h
+Date: Mon, 8 Feb 2010 12:04:27 +0100
+Message-ID: <201002081204.28039.rjw@sisk.pl>
+References: <4Ht3jFrT7uE.A.JI.-nzbLB@chimera> <445R0ey9hAI.A.tNB.XozbLB@chimera> <20100208071515.GA6473@fancy-poultry.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steve Glendinning <steve.glendinning@smsc.com>,
-	netdev@vger.kernel.org,
-	LAKML <linux-arm-kernel@lists.infradead.org>
-To: Mike Rapoport <mike@compulab.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from buzzloop.caiaq.de ([212.112.241.133]:40828 "EHLO
-	buzzloop.caiaq.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754748Ab0BHKL2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 05:11:28 -0500
-Content-Disposition: inline
-In-Reply-To: <4B6FDC83.9090205@compulab.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Heinz Diehl <htd-HjJ2MNWy62to6+H+lsi3Gti2O/JbrIOy@public.gmane.org>,
+	Xiaotian Feng <xtfeng-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100208071515.GA6473-HjJ2MNWy62to6+H+lsi3Gti2O/JbrIOy@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 08, 2010 at 11:42:27AM +0200, Mike Rapoport wrote:
-> I'm trying to make suspend/resume work on OMAP3-based system and I'm
-> encountering issues with resume of SMSC 9220 chip.
-> After resume the interface is unusable unless I do 'ifconfig eth0 down'
-> and 'ifconfig eth0 up'.
-> I would expect that 'ping <some host>' would work right after resume
-> without need to bring the interface down and up, but probably I miss
-> something.
-> Any help would be appreciated.
+On Monday 08 February 2010, Heinz Diehl wrote:
+> On 08.02.2010, Rafael J. Wysocki wrote: 
+> 
+> > This message has been generated automatically as a part of a summary report
+> > of recent regressions.
+> > 
+> > The following bug entry is on the current list of known regressions
+> > from 2.6.32.  Please verify if it still should be listed and let the tracking team
+> > know (either way).
+> > 
+> > 
+> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=15196
+> > Subject		: kmem_cache_create: duplicate cache ccid2_h
+> > Submitter	: Heinz Diehl <htd-HjJ2MNWy62to6+H+lsi3Gti2O/JbrIOy@public.gmane.org>
+> > Date		: 2010-01-30 18:33 (9 days old)
+> > References	: http://marc.info/?l=linux-kernel&m=126487640324942&w=4
+> > Handled-By	: Xiaotian Feng <xtfeng-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > Patch		: http://patchwork.kernel.org/patch/77601/
+> 
+> Yes, it's still present in -rc7.
 
-What happens to your supply voltages when going to suspend? When I
-implemented the code for the smsc driver, I could only test scenarios
-where AVDD remains stable during suspend. So the driver might need some
-tweaks if that assumption is not true in your case. The SMSC datasheet
-is quite comprehensive about this topic IIRC.
+Hmm.  The bug is in net/dccp/ccid.c, so it looks like something for the
+networking guys to merge.
 
-Also have a look at the Raumfeld device patches which use exactly this
-chip and which can suspend and resume just fine. You'll need to check
-out Eric's devel branch for that.
+Any chance to send a singed-off version of the patch do David?
 
-Daniel
-
+Rafael
