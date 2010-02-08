@@ -1,7 +1,7 @@
 From: Jan Kiszka <jan.kiszka@web.de>
-Subject: [PATCH v2 21/41] CAPI: Dynamically register minor devices
-Date: Mon,  8 Feb 2010 21:12:25 +0100
-Message-ID: <f3f9552b2ecafdc240cf951a06c2bf83f5e6a1c4.1265659935.git.jan.kiszka@web.de>
+Subject: [PATCH v2 18/41] CAPI: Switch NCCI list to standard doubly linked list
+Date: Mon,  8 Feb 2010 21:12:22 +0100
+Message-ID: <bae65a3aaf3ce9922f63145ffd0fc46768aac147.1265659935.git.jan.kiszka@web.de>
 References: <cover.1265659933.git.jan.kiszka@web.de>
 Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
 	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org,
@@ -9,126 +9,139 @@ Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
 	Marcel Holtmann <marcel@holtmann.org>
 To: David Miller <davem@davemloft.net>,
 	Karsten Keil <isdn@linux-pingi.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fmmailgate03.web.de ([217.72.192.234]:53702 "EHLO
+	fmmailgate03.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754856Ab0BHUNG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 15:13:06 -0500
 In-Reply-To: <cover.1265659933.git.jan.kiszka@web.de>
 In-Reply-To: <cover.1265659933.git.jan.kiszka@web.de>
 References: <cover.1265659933.git.jan.kiszka@web.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Register capiminors dynamically with the TTY core so that udev can make
-them show up as the NCCIs appear or disappear. This removes the need to
-check if the capiminor requested in capinc_tty_open actually exists.
-
-And this completely obsoletes capifs which will be scheduled for removal
-in a later patch.
+Replace open-coded NCCI list management with standard mechanisms.
 
 Signed-off-by: Jan Kiszka <jan.kiszka@web.de>
 ---
- drivers/isdn/capi/capi.c |   35 ++++++++++++++++++++++++-----------
- 1 files changed, 24 insertions(+), 11 deletions(-)
+ drivers/isdn/capi/capi.c |   52 +++++++++++++++++----------------------------
+ 1 files changed, 20 insertions(+), 32 deletions(-)
 
 diff --git a/drivers/isdn/capi/capi.c b/drivers/isdn/capi/capi.c
-index c22b349..901b79b 100644
+index 8abec96..6704b2b 100644
 --- a/drivers/isdn/capi/capi.c
 +++ b/drivers/isdn/capi/capi.c
-@@ -153,6 +153,8 @@ static LIST_HEAD(capidev_list);
- static DEFINE_RWLOCK(capiminors_lock);
- static struct capiminor **capiminors;
+@@ -122,7 +122,7 @@ struct capiminor {
+ static DEFINE_SPINLOCK(workaround_lock);
  
-+static struct tty_driver *capinc_tty_driver;
-+
- /* -------- datahandles --------------------------------------------- */
+ struct capincci {
+-	struct capincci *next;
++	struct list_head list;
+ 	u32		 ncci;
+ 	struct capidev	*cdev;
+ #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
+@@ -139,7 +139,7 @@ struct capidev {
+ 	struct sk_buff_head recvqueue;
+ 	wait_queue_head_t recvwait;
  
- static int capiminor_add_ack(struct capiminor *mp, u16 datahandle)
-@@ -213,6 +215,7 @@ static void capiminor_del_all_ack(struct capiminor *mp)
- static struct capiminor *capiminor_alloc(struct capi20_appl *ap, u32 ncci)
+-	struct capincci *nccis;
++	struct list_head nccis;
+ 
+ 	struct mutex lock;
+ };
+@@ -356,7 +356,7 @@ static inline unsigned int capincci_minor_opencount(struct capincci *np)
+ 
+ static struct capincci *capincci_alloc(struct capidev *cdev, u32 ncci)
  {
- 	struct capiminor *mp;
-+	struct device *dev;
- 	unsigned int minor;
- 	unsigned long flags;
+-	struct capincci *np, **pp;
++	struct capincci *np;
  
-@@ -243,19 +246,33 @@ static struct capiminor *capiminor_alloc(struct capi20_appl *ap, u32 ncci)
+ 	np = kzalloc(sizeof(*np), GFP_KERNEL);
+ 	if (!np)
+@@ -366,39 +366,31 @@ static struct capincci *capincci_alloc(struct capidev *cdev, u32 ncci)
  
- 	if (minor == capi_ttyminors) {
- 		printk(KERN_NOTICE "capi: out of minors\n");
--		kfree(mp);
--		return NULL;
-+		goto err_out1;
- 	}
+ 	capincci_alloc_minor(cdev, np);
  
- 	mp->minor = minor;
- 
-+	dev = tty_register_device(capinc_tty_driver, minor, NULL);
-+	if (IS_ERR(dev))
-+		goto err_out2;
+-	for (pp=&cdev->nccis; *pp; pp = &(*pp)->next)
+-		;
+-	*pp = np;
+-        return np;
++	list_add_tail(&np->list, &cdev->nccis);
 +
- 	return mp;
-+
-+err_out2:
-+	write_lock_irqsave(&capiminors_lock, flags);
-+	capiminors[minor] = NULL;
-+	write_unlock_irqrestore(&capiminors_lock, flags);
-+
-+err_out1:
-+	kfree(mp);
++	return np;
+ }
+ 
+ static void capincci_free(struct capidev *cdev, u32 ncci)
+ {
+-	struct capincci *np, **pp;
++	struct capincci *np, *tmp;
+ 
+-	pp=&cdev->nccis;
+-	while (*pp) {
+-		np = *pp;
++	list_for_each_entry_safe(np, tmp, &cdev->nccis, list)
+ 		if (ncci == 0xffffffff || np->ncci == ncci) {
+-			*pp = (*pp)->next;
+ 			capincci_free_minor(np);
++			list_del(&np->list);
+ 			kfree(np);
+-			if (*pp == NULL) return;
+-		} else {
+-			pp = &(*pp)->next;
+ 		}
+-	}
+ }
+ 
+ static struct capincci *capincci_find(struct capidev *cdev, u32 ncci)
+ {
+-	struct capincci *p;
++	struct capincci *np;
+ 
+-	for (p=cdev->nccis; p ; p = p->next) {
+-		if (p->ncci == ncci)
+-			break;
+-	}
+-	return p;
++	list_for_each_entry(np, &cdev->nccis, list)
++		if (np->ncci == ncci)
++			return np;
 +	return NULL;
  }
  
- static void capiminor_free(struct capiminor *mp)
+ #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
+@@ -955,6 +947,7 @@ static int capi_open(struct inode *inode, struct file *file)
+ 	mutex_init(&cdev->lock);
+ 	skb_queue_head_init(&cdev->recvqueue);
+ 	init_waitqueue_head(&cdev->recvwait);
++	INIT_LIST_HEAD(&cdev->nccis);
+ 	file->private_data = cdev;
+ 
+ 	mutex_lock(&capidev_list_lock);
+@@ -1427,19 +1420,14 @@ static const struct file_operations capi20_proc_fops = {
+  */
+ static int capi20ncci_proc_show(struct seq_file *m, void *v)
  {
- 	unsigned long flags;
+-        struct capidev *cdev;
+-        struct capincci *np;
+-	struct list_head *l;
++	struct capidev *cdev;
++	struct capincci *np;
  
-+	tty_unregister_device(capinc_tty_driver, mp->minor);
-+
- 	write_lock_irqsave(&capiminors_lock, flags);
- 	capiminors[mp->minor] = NULL;
- 	write_unlock_irqrestore(&capiminors_lock, flags);
-@@ -268,13 +285,10 @@ static void capiminor_free(struct capiminor *mp)
- 	kfree(mp);
- }
- 
--static struct capiminor *capiminor_find(unsigned int minor)
-+static struct capiminor *capiminor_get(unsigned int minor)
- {
- 	struct capiminor *mp;
- 
--	if (minor >= capi_ttyminors)
--		return NULL;
--
- 	read_lock(&capiminors_lock);
- 	mp = capiminors[minor];
- 	read_unlock(&capiminors_lock);
-@@ -981,8 +995,7 @@ static int capinc_tty_open(struct tty_struct * tty, struct file * file)
- 	struct capiminor *mp;
- 	unsigned long flags;
- 
--	if ((mp = capiminor_find(iminor(file->f_path.dentry->d_inode))) == NULL)
--		return -ENXIO;
-+	mp = capiminor_get(iminor(file->f_path.dentry->d_inode));
- 	if (mp->nccip == NULL)
- 		return -ENXIO;
- 
-@@ -1284,8 +1297,6 @@ static void capinc_tty_send_xchar(struct tty_struct *tty, char ch)
- #endif
- }
- 
--static struct tty_driver *capinc_tty_driver;
--
- static const struct tty_operations capinc_ops = {
- 	.open = capinc_tty_open,
- 	.close = capinc_tty_close,
-@@ -1339,7 +1350,9 @@ static int __init capinc_tty_init(void)
- 	drv->init_termios.c_oflag = OPOST | ONLCR;
- 	drv->init_termios.c_cflag = B9600 | CS8 | CREAD | HUPCL | CLOCAL;
- 	drv->init_termios.c_lflag = 0;
--	drv->flags = TTY_DRIVER_REAL_RAW|TTY_DRIVER_RESET_TERMIOS;
-+	drv->flags =
-+		TTY_DRIVER_REAL_RAW | TTY_DRIVER_RESET_TERMIOS |
-+		TTY_DRIVER_DYNAMIC_DEV;
- 	tty_set_operations(drv, &capinc_ops);
- 
- 	err = tty_register_driver(drv);
+ 	mutex_lock(&capidev_list_lock);
+-	list_for_each(l, &capidev_list) {
+-		cdev = list_entry(l, struct capidev, list);
++	list_for_each_entry(cdev, &capidev_list, list) {
+ 		mutex_lock(&cdev->lock);
+-		for (np=cdev->nccis; np; np = np->next) {
+-			seq_printf(m, "%d 0x%x\n",
+-				       cdev->ap.applid,
+-				       np->ncci);
+-		}
++		list_for_each_entry(np, &cdev->nccis, list)
++			seq_printf(m, "%d 0x%x\n", cdev->ap.applid, np->ncci);
+ 		mutex_unlock(&cdev->lock);
+ 	}
+ 	mutex_unlock(&capidev_list_lock);
 -- 
 1.6.0.2
+
