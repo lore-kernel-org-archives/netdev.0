@@ -1,74 +1,75 @@
-From: Damian Lukowski <damian@tvk.rwth-aachen.de>
-Subject: Re: [PATCH 0/3][v2] tcp: fix ICMP-RTO war
-Date: Mon, 08 Feb 2010 13:34:38 +0100
-Message-ID: <op.u7s6j0qup498uc@nexus>
-References: <4B635E17.406@tvk.rwth-aachen.de>
- <20100131.233338.254690877.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: MAX_SKB_FRAGS and GRO
+Date: Mon, 8 Feb 2010 23:47:04 +1100
+Message-ID: <20100208124704.GA8538@gondor.apana.org.au>
+References: <20100208100306.GQ32246@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	John Ronciak <john.ronciak@intel.com>, divy@chelsio.com,
+	netdev@vger.kernel.org
+To: Anton Blanchard <anton@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:55994 "EHLO
-	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751032Ab0BHMem (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 07:34:42 -0500
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
- by mta-2.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0KXI0034IW9T4R90@mta-2.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Mon, 08 Feb 2010 13:34:41 +0100 (CET)
-In-reply-to: <20100131.233338.254690877.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:49855 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751300Ab0BHMrT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 07:47:19 -0500
+Content-Disposition: inline
+In-Reply-To: <20100208100306.GQ32246@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 01.02.2010, 08:33 Uhr, schrieb David Miller <davem@davemloft.net>:
+On Mon, Feb 08, 2010 at 09:03:07PM +1100, Anton Blanchard wrote:
+> 
+> I was looking through the hardware GRO support in various drivers and I think
+> we have a couple of issues with PAGE_SIZE > 4k. For example, if we have a 64kB
+> page size then MAX_SKB_FRAGS ends up as 3:
+> 
+> #define MAX_SKB_FRAGS (65536/PAGE_SIZE + 2)
+> 
+> This should be fine for hardware and software GSO, but we encounter issues
+> with hardware GRO (not sure about software GRO).
+> 
+> In the ixgbe case we use MAX_SKB_FRAGS to program the max number of GRO
+> descriptors, even though we assemble GRO packets using ->frag_list:
+> 
+> #if (MAX_SKB_FRAGS > 16)
+>                 rscctrl |= IXGBE_RSCCTL_MAXDESC_16;
+> #elif (MAX_SKB_FRAGS > 8)
+>                 rscctrl |= IXGBE_RSCCTL_MAXDESC_8;
+> #elif (MAX_SKB_FRAGS > 4)
+>                 rscctrl |= IXGBE_RSCCTL_MAXDESC_4;
+> #else
+>                 rscctrl |= IXGBE_RSCCTL_MAXDESC_1;
+> #endif
 
-> From: Damian Lukowski <damian@tvk.rwth-aachen.de>
-> Date: Fri, 29 Jan 2010 23:15:51 +0100
->
->> This patches fix the current RTO calculation routine, when
->> srtt and rttvar are zero, yielding an RTO of zero
->> Under some circumstances, TCPs srtt and rttvar are zero,
->> yielding a calculated RTO of zero.
->> This is particularly unfortunate for ICMP based RTO recalculation
->> as introduced in f1ecd5d9e736660 (Revert Backoff [v3]: Revert RTO
->> on ICMP destination unreachable), as it results in RTO retransmission
->> flooding.
->>
->> Thanks to Ilpo Jarvinen for providing debug patches and to
->> Denys Fedoryshchenko for reporting and testing.
->>
->> Signed-off-by: Damian Lukowski <damian@tvk.rwth-aachen.de>
->
-> I still haven't seen a detailed enough analysis of why these
-> tiny RTOs can come to exist in the first place.
->
-> Please show me a list of events, function by function, the value of
-> relevant variables and per-socket TCP state, in the TCP stack, that
-> show how this ends up happening.
->
-> Thanks for all of your work on this so far.
+First of all this isn't GRO, but RSC.  With GRO we impose extra
+restrictions on what packets can be merged while RSC is more
+permissive.
 
-I might have figured it out, but could not verify it, so maybe you can
-comment my thought.
+In fact I think the ixgbe code may be broken as it is since it's
+not marking RSC packets in any way to prevent them from being
+forwarded through another interface.
 
-When a listening TCP receives a SYN, it will send a SYN+ACK
-and wait for an ACK to complete the handshake.
-Look at tcp_rcv_state_process::step 5::case SYN_RECV::acceptable
-and the code after the comment "tcp_ack considers this ACK as duplicate
-and does not calculate rtt".
+As to your problem with RSC on a 64K page system, I'm sure one
+of the Intel developers would be able to help you out.
+ 
+> Thinking out aloud, would setting a pessimistic value for MAX_SKB_FRAGS
+> be one way to fix this? ie:
+> 
+> #define MAX_SKB_FRAGS (65536/4096 + 2)
 
-If the connecting client has disabled timestamps, the rtt statistics
-won't be updated here, while the state is changed above.
-I printk'ed at the very end of TCP_SYN_RECV and got the following:
-state 1 (ESTABLISHED), srtt 0, rttvar 0.
+While I can't think of any serious issues with this, as this is
+an entirely ixgbe-specific problem, the fix should probably stay
+there.
 
-So my suspicion is: If connectivity breaks right after a listening TCP
-has completed the handshake without timestamps, and the listening TCP
-sends data after establishing the connection, we will get the observed
-behaviour.
-
-Regards
-  Damian
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
