@@ -1,7 +1,7 @@
 From: Jan Kiszka <jan.kiszka@web.de>
-Subject: [PATCH v2 38/41] CAPI: Drop return value of handle_minor_send
-Date: Mon,  8 Feb 2010 21:12:42 +0100
-Message-ID: <ae256c0384e050532e4a0bd134115cef180dd1eb.1265659937.git.jan.kiszka@web.de>
+Subject: [PATCH v2 40/41] CAPI: Schedule capifs for removal
+Date: Mon,  8 Feb 2010 21:12:44 +0100
+Message-ID: <1e58c360417093e6ee2f45b7d97865f3d3812dd3.1265659937.git.jan.kiszka@web.de>
 References: <cover.1265659933.git.jan.kiszka@web.de>
 Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
 	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org,
@@ -16,113 +16,65 @@ References: <cover.1265659933.git.jan.kiszka@web.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We did not evaluate handle_minor_send's return value, just (void)'ed it
-away. Time for a cleanup.
+With dynamic TTY nodes and the help of udev, we no longer need this
+special filesystem. Schedule it for removal in one year from now.
+
+As a last duty to this feature, move its help to right option so that
+users can read the rationale.
 
 Signed-off-by: Jan Kiszka <jan.kiszka@web.de>
 ---
- drivers/isdn/capi/capi.c |   22 +++++++++-------------
- 1 files changed, 9 insertions(+), 13 deletions(-)
+ Documentation/feature-removal-schedule.txt |   10 ++++++++++
+ drivers/isdn/capi/Kconfig                  |   13 +++++++------
+ 2 files changed, 17 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/isdn/capi/capi.c b/drivers/isdn/capi/capi.c
-index 40b81b4..ee58375 100644
---- a/drivers/isdn/capi/capi.c
-+++ b/drivers/isdn/capi/capi.c
-@@ -516,25 +516,24 @@ static void handle_minor_recv(struct capiminor *mp)
- 		}
- }
+diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
+index 2f93ac0..721a2aa 100644
+--- a/Documentation/feature-removal-schedule.txt
++++ b/Documentation/feature-removal-schedule.txt
+@@ -521,3 +521,13 @@ Why:	Duplicate functionality with the gspca_zc3xx driver, zc0301 only
+ 	sensors) wich are also supported by the gspca_zc3xx driver
+ 	(which supports 53 USB-ID's in total)
+ Who:	Hans de Goede <hdegoede@redhat.com>
++
++----------------------------
++
++What:	capifs
++When:	February 2011
++Files:	drivers/isdn/capi/capifs.*
++Why:	udev fully replaces this special file system that only contains CAPI
++	NCCI TTY device nodes. User space (pppdcapiplugin) works without
++	noticing the difference.
++Who:	Jan Kiszka <jan.kiszka@web.de>
+diff --git a/drivers/isdn/capi/Kconfig b/drivers/isdn/capi/Kconfig
+index b2a0475..d607d46 100644
+--- a/drivers/isdn/capi/Kconfig
++++ b/drivers/isdn/capi/Kconfig
+@@ -35,18 +35,19 @@ config ISDN_CAPI_CAPI20
+ 	  Y/M here.
  
--static int handle_minor_send(struct capiminor *mp)
-+static void handle_minor_send(struct capiminor *mp)
- {
- 	struct tty_struct *tty;
- 	struct sk_buff *skb;
- 	u16 len;
--	int count = 0;
- 	u16 errcode;
- 	u16 datahandle;
+ config ISDN_CAPI_CAPIFS_BOOL
+-	bool "CAPI2.0 filesystem support"
++	bool "CAPI2.0 filesystem support (DEPRECATED)"
+ 	depends on ISDN_CAPI_MIDDLEWARE && ISDN_CAPI_CAPI20
++	help
++	  This option provides a special file system, similar to /dev/pts with
++	  device nodes for the special ttys established by using the
++	  middleware extension above.
++	  You no longer need this, udev fully replaces it. This feature is
++	  scheduled for removal.
  
- 	tty = tty_port_tty_get(&mp->port);
- 	if (!tty)
--		return 0;
-+		return;
+ config ISDN_CAPI_CAPIFS
+ 	tristate
+ 	depends on ISDN_CAPI_CAPIFS_BOOL
+ 	default ISDN_CAPI_CAPI20
+-	help
+-	  This option provides a special file system, similar to /dev/pts with
+-	  device nodes for the special ttys established by using the
+-	  middleware extension above. If you want to use pppd with
+-	  pppdcapiplugin to dial up to your ISP, say Y here.
  
- 	if (mp->ttyoutstop) {
- #if defined(_DEBUG_DATAFLOW) || defined(_DEBUG_TTYFUNCS)
- 		printk(KERN_DEBUG "capi: send: tty stopped\n");
- #endif
- 		tty_kref_put(tty);
--		return 0;
-+		return;
- 	}
- 
- 	while (1) {
-@@ -570,12 +569,10 @@ static int handle_minor_send(struct capiminor *mp)
- 			mp->outbytes += len;
- 			spin_unlock_bh(&mp->outlock);
- 
--			tty_kref_put(tty);
--			return count;
-+			break;
- 		}
- 		errcode = capi20_put_message(mp->ap, skb);
- 		if (errcode == CAPI_NOERROR) {
--			count++;
- #ifdef _DEBUG_DATAFLOW
- 			printk(KERN_DEBUG "capi: DATA_B3_REQ %u len=%u\n",
- 							datahandle, len);
-@@ -600,7 +597,6 @@ static int handle_minor_send(struct capiminor *mp)
- 		kfree_skb(skb);
- 	}
- 	tty_kref_put(tty);
--	return count;
- }
- 
- #endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
-@@ -677,7 +673,7 @@ static void capi_recv_message(struct capi20_appl *ap, struct sk_buff *skb)
- 			tty_wakeup(tty);
- 			tty_kref_put(tty);
- 		}
--		(void)handle_minor_send(mp);
-+		handle_minor_send(mp);
- 
- 	} else {
- 		/* ups, let capi application handle it :-) */
-@@ -1114,7 +1110,7 @@ static int capinc_tty_write(struct tty_struct *tty,
- 	mp->outbytes += skb->len;
- 	spin_unlock_bh(&mp->outlock);
- 
--	(void)handle_minor_send(mp);
-+	handle_minor_send(mp);
- 
- 	return count;
- }
-@@ -1157,7 +1153,7 @@ unlock_out:
- 	spin_unlock_bh(&mp->outlock);
- 
- 	if (invoke_send)
--		(void)handle_minor_send(mp);
-+		handle_minor_send(mp);
- 
- 	return ret;
- }
-@@ -1179,7 +1175,7 @@ static void capinc_tty_flush_chars(struct tty_struct *tty)
- 		mp->outbytes += skb->len;
- 		spin_unlock_bh(&mp->outlock);
- 
--		(void)handle_minor_send(mp);
-+		handle_minor_send(mp);
- 	} else
- 		spin_unlock_bh(&mp->outlock);
- 
-@@ -1269,7 +1265,7 @@ static void capinc_tty_start(struct tty_struct *tty)
- 	printk(KERN_DEBUG "capinc_tty_start\n");
- #endif
- 	mp->ttyoutstop = 0;
--	(void)handle_minor_send(mp);
-+	handle_minor_send(mp);
- }
- 
- static void capinc_tty_hangup(struct tty_struct *tty)
+ config ISDN_CAPI_CAPIDRV
+ 	tristate "CAPI2.0 capidrv interface support"
 -- 
 1.6.0.2
