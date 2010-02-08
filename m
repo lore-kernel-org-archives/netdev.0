@@ -1,73 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Problem wit route cache
-Date: Mon, 08 Feb 2010 14:28:10 +0100
-Message-ID: <1265635690.3048.8.camel@edumazet-laptop>
-References: <4B700EC2.5090207@itcare.pl>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC]: xfrm by mark
+Date: Mon, 08 Feb 2010 14:30:44 +0100
+Message-ID: <4B701204.6000106@trash.net>
+References: <1265567522.3688.27.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>,
+	=?ISO-8859-15?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>,
+	netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f223.google.com ([209.85.218.223]:43426 "EHLO
-	mail-bw0-f223.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751744Ab0BHN2O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 08:28:14 -0500
-Received: by bwz23 with SMTP id 23so1088446bwz.1
-        for <netdev@vger.kernel.org>; Mon, 08 Feb 2010 05:28:13 -0800 (PST)
-In-Reply-To: <4B700EC2.5090207@itcare.pl>
+Received: from stinky.trash.net ([213.144.137.162]:34418 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751700Ab0BHNar (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 08:30:47 -0500
+In-Reply-To: <1265567522.3688.27.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 08 f=C3=A9vrier 2010 =C3=A0 14:16 +0100, Pawe=C5=82 Staszewski=
- a =C3=A9crit :
-> Hello
->=20
->  From some time i have problem with route cache in linux
-> this is an info that i have in dmesg:
->=20
-> Route hash chain too long!
-> Adjust your secret_interval!
-> Route hash chain too long!
-> Adjust your secret_interval!
-> Route hash chain too long!
-> Adjust your secret_interval!
-> Route hash chain too long!
-> Adjust your secret_interval!
-> Route hash chain too long!
-> Adjust your secret_interval!
-> Route hash chain too long!
-> Adjust your secret_interval!
-> Route hash chain too long!
-> Adjust your secret_interval!
-> Route hash chain too long!
-> Adjust your secret_interval!
-> vlan0811: 9 rebuilds is over limit, route caching disabled
-> Route hash chain too long!
-> Adjust your secret_interval!
->=20
-> The problem is that change of  net.ipv4.route.secret_interval is chan=
-ge=20
-> nothing -- no matter that i set secret_interval from dfault 3600 to 2=
- or=20
-> 10000 i have always the same info about route cahce is disabled.
-> Also i change this parameter net.ipv4.rt_cache_rebuild_count from=20
-> default 4 to 9 and the same info - i try also change this to 12 but a=
-lso=20
-> this change nothing.
->=20
-> The machine that have this info is:
-> 2x Intel(R) Xeon(R) CPU           X5450  @ 3.00GHz
-> 12GB of RAM
->=20
+jamal wrote:
+> Hi,
+> 
+> While catching up with old netdev threads I noticed this one:
+> http://marc.info/?l=linux-netdev&m=125621829709171&w=2
+> I had a chat with Timo and he is too busy on other things at
+> the moment. I have some cycles to burn and would like to pursue
+> this unless there is objection to the general idea. I am interested
+> because I would like to see most of the net stack capable of 
+> reference by mark. I am posting this so i can get a general
+> pulse before i go off coding.
+> 
+> Approach:
+> - introduce attribute XFRMA_MARK
+> - both SPD and SAD will have new entries ->mark
+> - by default mark is 0, so backward compat for 
+> control add/get/del as well as fast path lookup continues.
 
-Are you running a 64bit kernel ?
-What is your kernel version ?
-
-Please send :
-
-# grep . /proc/sys/net/ipv4/route/*
-#rtstat -c10 -i1
-
-
-
+If you simply add the mark to the lookup key, it will break
+existing setups already using marks. I'd suggest to also add
+a mask which is initialized to 0 when no mark attribute is
+present.
