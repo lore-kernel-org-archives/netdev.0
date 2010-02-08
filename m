@@ -1,152 +1,75 @@
-From: Ferenc Wagner <wferi@niif.hu>
-Subject: Flooded with bonding: bond0: doing slave updates when interface is down.
-Date: Mon, 08 Feb 2010 14:20:54 +0100
-Message-ID: <87mxzj6eyx.fsf@tac.ki.iif.hu>
+From: Mike Rapoport <mike@compulab.co.il>
+Subject: Re: smsc911x suspend/resume
+Date: Mon, 08 Feb 2010 15:55:59 +0200
+Message-ID: <4B7017EF.4080909@compulab.co.il>
+References: <OFE2B2FE18.A8D1D506-ON802576C4.003FCA39-802576C4.0040B683@smsc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Mack <daniel@caiaq.de>,
+	LAKML <linux-arm-kernel@lists.infradead.org>,
+	netdev@vger.kernel.org, Ian.Saturley@smsc.com,
+	Vlad.Lyalikov@smsc.com, davem@davemloft.net
+To: Steve.Glendinning@smsc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tac.ki.iif.hu ([193.6.222.43]:48810 "EHLO tac.ki.iif.hu"
+Received: from compulab.co.il ([67.18.134.219]:33621 "EHLO compulab.co.il"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752331Ab0BHN4o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Feb 2010 08:56:44 -0500
-Received: from wferi by tac.ki.iif.hu with local (Exim 4.69)
-	(envelope-from <wferi@tac.ki.iif.hu>)
-	id 1NeTXq-00041s-5u
-	for netdev@vger.kernel.org; Mon, 08 Feb 2010 14:20:54 +0100
+	id S1751792Ab0BHN5A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Feb 2010 08:57:00 -0500
+In-Reply-To: <OFE2B2FE18.A8D1D506-ON802576C4.003FCA39-802576C4.0040B683@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Steve.Glendinning@smsc.com wrote:
+> Hi Mike,
+> 
+>>>> I'm trying to make suspend/resume work on OMAP3-based system and I'm
+>>>> encountering issues with resume of SMSC 9220 chip.
+>>>> After resume the interface is unusable unless I do 'ifconfig eth0 
+> down'
+>>>> and 'ifconfig eth0 up'.
+>>>> I would expect that 'ping <some host>' would work right after resume
+>>>> without need to bring the interface down and up, but probably I miss
+>>>> something.
+>>>> Any help would be appreciated.
+>>> What happens to your supply voltages when going to suspend? When I
+>>> implemented the code for the smsc driver, I could only test scenarios
+>>> where AVDD remains stable during suspend. So the driver might need 
+> some
+>>> tweaks if that assumption is not true in your case. The SMSC datasheet
+>>> is quite comprehensive about this topic IIRC.
+>> By AVDD you mean VDD33A?
+>> Anyway, I have all the supplies except VDDVARIO shut down...
+>> And the datasheet is indeed comprehensively describes chip power states
+>> but I haven't found there anything about supplies required to stay on
+>> during suspend...
+> 
+> I don't have the code in front of me (I'm travelling today) but IIRC
+> the driver doesn't place the LAN9220 in a specific power saving state,
+> so as far as the LAN9220 is concerned it's not actually suspended.
+> 
+> It's hard to do this in a "generic" way: some people expect their link
+> to stay up during suspend, some want suspend to completely power down
+> the ethernet chip, and some want to use one of several WoL modes. 
 
-On a system running Linux 2.6.32.7 I use the following initramfs script
-to bring up some interfaces before mounting the root filesystem:
+Indeed a "generic" implementation may be tough task... Probably we can
+add some platform_data flags for suspend modes and use them to decide
+what low power mode should be selected?
 
----------- /etc/initramfs-tools/scripts/init-premount/net_up ----------
-#!/bin/sh
+> David: What's the "done thing" here for similar non-pci drivers?
+> Obviously "doesn't work after suspend" isn't the intended behaviour, so
+> there's definitely room for improvement!
+> 
+>>> Also have a look at the Raumfeld device patches which use exactly this
+>>> chip and which can suspend and resume just fine. You'll need to check
+>>> out Eric's devel branch for that.
+> 
+> Daniel: I haven't seen this, do you have a location for the git tree?
+> 
+> Thanks,
+> Steve
 
-PREREQ="udev"
-prereqs()
-{
-        echo "$PREREQ"
-}
 
-case $1 in
-prereqs)
-        prereqs
-        exit 0
-        ;;
-esac
-
-. /scripts/functions
-
-maybe_break pre-netup
-
-# Arguments: DEV IP/MASKLEN
-ifup()
-{
-    ip addr add $2 dev $1
-    ip link set up dev $1
-    echo "Configured $1 with address $2"
-}
-
-BOND=bond0
-
-modprobe bonding
-cd /sys/class/net/$BOND/bonding
-
-echo active-backup >mode
-echo +eth0 >slaves
-echo +eth1 >slaves
-echo eth0 >primary
-echo +10.0.0.1 >arp_ip_target
-echo +10.0.0.2 >arp_ip_target
-echo 1000 >arp_interval
-
-vconfig set_name_type VLAN_PLUS_VID_NO_PAD
-vconfig add $BOND 39
-
-eval $(getprops) || { panic "MAC of eth0 unknown, aborting."; halt; }
-
-ifup $BOND $MYVLAN2
-ifup vlan39 $MYVLAN39
-
-ip addr
-
-maybe_break post-netup
------------------------------------------------------------------------
-
-The eval $(getprops) command sets the MYVLANx variables depending on the
-MAC address of eth0.  This stuff mostly works as expected, but sometimes
-I get this on the console:
-
-[   27.792746] Ethernet Channel Bonding Driver: v3.5.0 (November 4, 2008)
-[   27.831788] bonding: Warning: either miimon or arp_interval and arp_ip_target module parameters must be specified, otherwise bonding will not detect link failures! see bonding.txt for details.
-[   27.935640] bonding: bond0: setting mode to active-backup (1).
-[   27.970565] bonding: bond0: doing slave updates when interface is down.
-[   28.010110] bonding: bond0: Adding slave eth0.
-[   28.036651] bonding bond0: master_dev is not up in bond_enslave
-[   28.137410] bonding: bond0: Warning: failed to get speed and duplex from eth0, assumed to be 100Mb/sec and Full.
-[   28.198298] bonding: bond0: making interface eth0 the new active one.
-[   28.236806] bonding: bond0: first active interface up!
-[   28.267515] bonding: bond0: enslaving eth0 as an active interface with an up link.
-[   28.312847] bonding: bond0: doing slave updates when interface is down.
-[   28.352397] bonding: bond0: doing slave updates when interface is down.
-[   28.391941] bonding: bond0: doing slave updates when interface is down.
-[   28.431482] bonding: bond0: doing slave updates when interface is down.
-[   28.471023] bonding: bond0: doing slave updates when interface is down.
-[   28.510566] bonding: bond0: doing slave updates when interface is down.
-[   28.550111] bonding: bond0: doing slave updates when interface is down.
-[   28.589652] bonding: bond0: doing slave updates when interface is down.
-[   28.629197] bonding: bond0: doing slave updates when interface is down.
-[   28.668740] bonding: bond0: doing slave updates when interface is down.
-[   28.708282] bonding: bond0: doing slave updates when interface is down.
-[   28.749653] bonding: bond0: doing slave updates when interface is down.
-[   28.789195] bonding: bond0: doing slave updates when interface is down.
-[   28.828738] bonding: bond0: doing slave updates when interface is down.
-[   28.868280] bonding: bond0: doing slave updates when interface is down.
-[   28.907823] bonding: bond0: doing slave updates when interface is down.
-[   28.947364] bonding: bond0: doing slave updates when interface is down.
-[   28.986907] bonding: bond0: doing slave updates when interface is down.
-[   29.026450] bonding: bond0: doing slave updates when interface is down.
-[   29.065994] bonding: bond0: doing slave updates when interface is down.
-[   29.105535] bonding: bond0: doing slave updates when interface is down.
-[   29.145172] tg3: eth0: Link is up at 1000 Mbps, full duplex.
-[   29.178990] tg3: eth0: Flow control is off for TX and off for RX.
-[   29.215415] bonding: bond0: doing slave updates when interface is down.
-[   29.254956] bonding: bond0: doing slave updates when interface is down.
-[   29.294496] bonding: bond0: doing slave updates when interface is down.
-[   29.334038] bonding: bond0: doing slave updates when interface is down.
-[   29.373581] bonding: bond0: doing slave updates when interface is down.
-[   29.413122] bonding: bond0: doing slave updates when interface is down.
-[   29.452663] bonding: bond0: doing slave updates when interface is down.
-[   29.492205] bonding: bond0: doing slave updates when interface is down.
-[   29.531748] bonding: bond0: doing slave updates when interface is down.
-[...]
-[   78.580920] bonding: bond0: doing slave updates when interface is down.
-[   78.620463] bonding: bond0: doing slave updates when interface is down.
-[   78.660009] bonding: bond0: doing slave updates when interface is down.
-[   78.699825] bonding: bond0: doing slave updates when interface is down.
-[   78.739373] bonding: bond0: Adding slave eth1.
-[   78.765914] bonding bond0: master_dev is not up in bond_enslave
-[   78.817517] tg3 0000:05:01.1: firmware: requesting tigon/tg3_tso.bin
-[   78.919759] bonding: bond0: Warning: failed to get speed and duplex from eth1, assumed to be 100Mb/sec and Full.
-[   78.980658] bonding: bond0: enslaving eth1 as a backup interface with an up link.
-[   79.025492] bonding: bond0: Setting eth0 as primary slave.
-[   79.058351] bonding: bond0: adding ARP target 10.0.0.1.
-[   79.089601] bonding: bond0: adding ARP target 10.0.0.2.
-[   79.120855] bonding: bond0: Setting ARP monitoring interval to 1000.
-[   79.167280] 802.1Q VLAN Support v1.8 Ben Greear <greearb@candelatech.com>
-[   79.208621] All bugs added by David S. Miller <davem@redhat.com>
-[   79.259000] bonding: bond0: no route to arp_ip_target 10.0.0.1
-
-In the end, everything seems to be all right, but this occasional
-interlude is disturbing and seems to indicate that something isn't quite
-right.  Which may well be my abuse of the bonding driver, but then
-please enlighten me, as I'd like to eliminate this 50-second delay from
-the boot procedure.  I don't mind the couple of "doing slave updates
-when interface is down" warnings which appear during the normal course
-of actions, but the above is way too much in my opinion.
 -- 
-Thanks,
-Feri.
+Sincerely yours,
+Mike.
