@@ -1,106 +1,72 @@
-From: Jan Kiszka <jan.kiszka@web.de>
-Subject: [PATCH v2 04/41] CAPI: Pin capifs instead of mounting it
-Date: Mon,  8 Feb 2010 21:12:08 +0100
-Message-ID: <225c4c6dbff38f6f8fa780ca91dcffd81b139bb0.1265659933.git.jan.kiszka@web.de>
-References: <cover.1265659933.git.jan.kiszka@web.de>
-Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
-	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Marcel Holtmann <marcel@holtmann.org>
-To: David Miller <davem@davemloft.net>,
-	Karsten Keil <isdn@linux-pingi.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate03.web.de ([217.72.192.234]:53527 "EHLO
-	fmmailgate03.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754293Ab0BHUNA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 15:13:00 -0500
-In-Reply-To: <cover.1265659933.git.jan.kiszka@web.de>
-In-Reply-To: <cover.1265659933.git.jan.kiszka@web.de>
-References: <cover.1265659933.git.jan.kiszka@web.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [Bug #15196] kmem_cache_create: duplicate cache ccid2_h
+Date: Mon, 08 Feb 2010 12:34:54 -0800 (PST)
+Message-ID: <20100208.123454.38911094.davem@davemloft.net>
+References: <445R0ey9hAI.A.tNB.XozbLB@chimera>
+	<20100208071515.GA6473@fancy-poultry.org>
+	<201002081204.28039.rjw@sisk.pl>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: htd-HjJ2MNWy62to6+H+lsi3Gti2O/JbrIOy@public.gmane.org, xtfeng-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: rjw-KKrjLPT3xs0@public.gmane.org
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201002081204.28039.rjw-KKrjLPT3xs0@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Auto-mounting the capifs during module init prevents unloading its
-module. Instead, pin the filesystem as long as some NCCI node exists.
+From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Date: Mon, 8 Feb 2010 12:04:27 +0100
 
-Signed-off-by: Jan Kiszka <jan.kiszka@web.de>
----
- drivers/isdn/capi/capifs.c |   27 ++++++++++++++++++---------
- 1 files changed, 18 insertions(+), 9 deletions(-)
+> Hmm.  The bug is in net/dccp/ccid.c, so it looks like something for the
+> networking guys to merge.
+> 
+> Any chance to send a singed-off version of the patch do David?
 
-diff --git a/drivers/isdn/capi/capifs.c b/drivers/isdn/capi/capifs.c
-index 6ae0edf..51c01ef 100644
---- a/drivers/isdn/capi/capifs.c
-+++ b/drivers/isdn/capi/capifs.c
-@@ -32,6 +32,7 @@ static char *revision = "$Revision: 1.1.2.3 $";
- #define CAPIFS_SUPER_MAGIC (('C'<<8)|'N')
- 
- static struct vfsmount *capifs_mnt;
-+static int capifs_mnt_count;
- 
- static struct {
- 	int setuid;
-@@ -140,7 +141,7 @@ static struct file_system_type capifs_fs_type = {
- 	.kill_sb	= kill_anon_super,
- };
- 
--struct dentry *capifs_new_ncci(unsigned int number, dev_t device)
-+static struct dentry *new_ncci(unsigned int number, dev_t device)
- {
- 	struct super_block *s = capifs_mnt->mnt_sb;
- 	struct dentry *root = s->s_root;
-@@ -187,6 +188,20 @@ unlock_out:
- 	return dentry;
- }
- 
-+struct dentry *capifs_new_ncci(unsigned int number, dev_t device)
-+{
-+	struct dentry *dentry;
-+
-+	if (simple_pin_fs(&capifs_fs_type, &capifs_mnt, &capifs_mnt_count) < 0)
-+		return NULL;
-+
-+	dentry = new_ncci(number, device);
-+	if (!dentry)
-+		simple_release_fs(&capifs_mnt, &capifs_mnt_count);
-+
-+	return dentry;
-+}
-+
- void capifs_free_ncci(struct dentry *dentry)
- {
- 	struct dentry *root = capifs_mnt->mnt_sb->s_root;
-@@ -206,6 +221,8 @@ void capifs_free_ncci(struct dentry *dentry)
- 	dput(dentry);
- 
- 	mutex_unlock(&root->d_inode->i_mutex);
-+
-+	simple_release_fs(&capifs_mnt, &capifs_mnt_count);
- }
- 
- static int __init capifs_init(void)
-@@ -222,13 +239,6 @@ static int __init capifs_init(void)
- 		strcpy(rev, "1.0");
- 
- 	err = register_filesystem(&capifs_fs_type);
--	if (!err) {
--		capifs_mnt = kern_mount(&capifs_fs_type);
--		if (IS_ERR(capifs_mnt)) {
--			err = PTR_ERR(capifs_mnt);
--			unregister_filesystem(&capifs_fs_type);
--		}
--	}
- 	if (!err)
- 		printk(KERN_NOTICE "capifs: Rev %s\n", rev);
- 	return err;
-@@ -237,7 +247,6 @@ static int __init capifs_init(void)
- static void __exit capifs_exit(void)
- {
- 	unregister_filesystem(&capifs_fs_type);
--	mntput(capifs_mnt);
- }
- 
- EXPORT_SYMBOL(capifs_new_ncci);
--- 
-1.6.0.2
+Fixes for this are already in my net-2.6 tree, will send them
+off to Linus later today, I was waiting for some netfilter
+fixes which I just received:
 
+commit 1386be55e32a3c5d8ef4a2b243c530a7b664c02c
+Author: Gerrit Renker <gerrit-VsoRXqaLlyfQzY9nttDBhA@public.gmane.org>
+Date:   Tue Feb 2 20:16:56 2010 +0000
+
+    dccp: fix auto-loading of dccp(_probe)
+    
+    This fixes commit (38ff3e6bb987ec583268da8eb22628293095d43b) ("dccp_probe:
+    Fix module load dependencies between dccp and dccp_probe", from 15 Jan).
+    
+    It fixes the construction of the first argument of try_then_request_module(),
+    where only valid return codes from the first argument should be returned.
+    
+    What we do now is assign the result of register_jprobe() to ret, without
+    the side effect of the comparison.
+    
+    Acked-by: Gerrit Renker <gerrit-VsoRXqaLlyfQzY9nttDBhA@public.gmane.org>
+    Signed-off-by: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+    Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+
+commit 8ed030dd0aa400d18c63861c2c6deb7c38f4edde
+Author: Gerrit Renker <gerrit-VsoRXqaLlyfQzY9nttDBhA@public.gmane.org>
+Date:   Mon Feb 1 02:12:19 2010 +0000
+
+    dccp: fix bug in cache allocation
+    
+    This fixes a bug introduced in commit de4ef86cfce60d2250111f34f8a084e769f23b16
+    ("dccp: fix dccp rmmod when kernel configured to use slub", 17 Jan): the
+    vsnprintf used sizeof(slab_name_fmt), which became truncated to 4 bytes, since
+    slab_name_fmt is now a 4-byte pointer and no longer a 32-character array.
+    
+    This lead to error messages such as
+     FATAL: Error inserting dccp: No buffer space available
+    
+     >> kernel: [ 1456.341501] kmem_cache_create: duplicate cache cci
+    generated due to the truncation after the 3rd character.
+    
+    Fixed for the moment by introducing a symbolic constant. Tested to fix the bug.
+    
+    Signed-off-by: Gerrit Renker <gerrit-VsoRXqaLlyfQzY9nttDBhA@public.gmane.org>
+    Acked-by: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+    Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
