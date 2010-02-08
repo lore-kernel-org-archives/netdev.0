@@ -1,72 +1,41 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/1] dccp: allow probing of CCID-array length
-Date: Mon, 8 Feb 2010 07:20:28 +0100
-Message-ID: <20100208062028.GA5478@gerrit.erg.abdn.ac.uk>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] vhost-net: switch to smp barriers
+Date: Mon, 8 Feb 2010 18:49:39 +1030
+Message-ID: <201002081849.39512.rusty@rustcorp.com.au>
+References: <20100201172101.GA10900@redhat.com> <20100207090749.GA12968@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: dccp@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40349 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751235Ab0BHGUg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Feb 2010 01:20:36 -0500
-Content-Disposition: inline
+Received: from ozlabs.org ([203.10.76.45]:38592 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754332Ab0BHITo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Feb 2010 03:19:44 -0500
+In-Reply-To: <20100207090749.GA12968@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes a problem in the DCCP getsockopt() API: currently there is no way
-for a user to a priori know the number of built-in CCIDs, other than trying
-DCCP_SOCKOPT_AVAILABLE_CCIDS in a loop, incrementing the option length until
-EINVAL is no longer returned.
+On Sun, 7 Feb 2010 07:37:49 pm Michael S. Tsirkin wrote:
+> On Mon, Feb 01, 2010 at 07:21:02PM +0200, Michael S. Tsirkin wrote:
+> > vhost-net only uses memory barriers to control SMP effects
+> > (communication with userspace potentially running on a different CPU),
+> > so it should use SMP barriers and not mandatory barriers for memory
+> > access ordering, as suggested by Documentation/memory-barriers.txt
+> > 
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> 
+> 
+> Rusty, any feedback on this one?
+> Thanks!
 
-This patch truncates the array to the user-provided length. No copy is made
-when the length is <= 0.
+Yep.  barrier() is correct on UP to guard against preemption.
 
-Due to the length restriction in do_dccp_getsockopt() to sizeof(int), the
-minimum array length remains 4, which is a reasonable default (only 3
-CCIDs, CCID-2..4, are currently defined).
+Acked-by: Rusty Russell <rusty@rustcorp.com.au>
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- Documentation/networking/dccp.txt |    6 ++++--
- net/dccp/ccid.c                   |    9 ++++-----
- 2 files changed, 8 insertions(+), 7 deletions(-)
-
---- a/Documentation/networking/dccp.txt
-+++ b/Documentation/networking/dccp.txt
-@@ -58,8 +58,10 @@ DCCP_SOCKOPT_GET_CUR_MPS is read-only and retrieves the current maximum packet
- size (application payload size) in bytes, see RFC 4340, section 14.
- 
- DCCP_SOCKOPT_AVAILABLE_CCIDS is also read-only and returns the list of CCIDs
--supported by the endpoint (see include/linux/dccp.h for symbolic constants).
--The caller needs to provide a sufficiently large (> 2) array of type uint8_t.
-+supported by the endpoint. The option value is an array of type uint8_t whose
-+size is passed as option length. The minimum array size is 4 elements, the
-+value returned in the optlen argument always reflects the true number of
-+built-in CCIDs.
- 
- DCCP_SOCKOPT_CCID is write-only and sets both the TX and RX CCIDs at the same
- time, combining the operation of the next two socket options. This option is
---- a/net/dccp/ccid.c
-+++ b/net/dccp/ccid.c
-@@ -63,14 +63,13 @@ int ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
- 	u8 *ccid_array, array_len;
- 	int err = 0;
- 
--	if (len < ARRAY_SIZE(ccids))
--		return -EINVAL;
--
- 	if (ccid_get_builtin_ccids(&ccid_array, &array_len))
- 		return -ENOBUFS;
- 
--	if (put_user(array_len, optlen) ||
--	    copy_to_user(optval, ccid_array, array_len))
-+	if (put_user(array_len, optlen))
-+		err = -EFAULT;
-+	else if (len > 0 && copy_to_user(optval, ccid_array,
-+					 len > array_len ? array_len : len))
- 		err = -EFAULT;
- 
- 	kfree(ccid_array);
-
+Thanks,
+Rusty.
