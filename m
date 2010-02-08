@@ -1,7 +1,7 @@
 From: Jan Kiszka <jan.kiszka@web.de>
-Subject: [PATCH v2 23/41] CAPI: Use kref on capiminor
-Date: Mon,  8 Feb 2010 21:12:27 +0100
-Message-ID: <dd97f250aec5139ce55bb88f41822f2fe76ee4e9.1265659935.git.jan.kiszka@web.de>
+Subject: [PATCH v2 24/41] CAPI: Establish install/cleanup handlers for capiminor TTYs
+Date: Mon,  8 Feb 2010 21:12:28 +0100
+Message-ID: <292702a39a9383fcd6f98ff594415da35c1b7680.1265659935.git.jan.kiszka@web.de>
 References: <cover.1265659933.git.jan.kiszka@web.de>
 Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
 	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org,
@@ -10,110 +10,107 @@ Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
 To: David Miller <davem@davemloft.net>,
 	Karsten Keil <isdn@linux-pingi.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate02.web.de ([217.72.192.227]:43278 "EHLO
-	fmmailgate02.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754914Ab0BHUNJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 15:13:09 -0500
+Received: from fmmailgate03.web.de ([217.72.192.234]:53809 "EHLO
+	fmmailgate03.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754916Ab0BHUNK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 15:13:10 -0500
 In-Reply-To: <cover.1265659933.git.jan.kiszka@web.de>
 In-Reply-To: <cover.1265659933.git.jan.kiszka@web.de>
 References: <cover.1265659933.git.jan.kiszka@web.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Install a reference counter for capiminor objects. Acquire it when
-obtaining a capiminor from the array during capinc_tty_open, drop it
-when closing the tty again. Another reference is held for the hook-up
-with capincci.
+Properly associate/disassociate a capiminor object with its TTY via the
+install/cleanup handlers instead of trying to guess first open and last
+close.
 
 Signed-off-by: Jan Kiszka <jan.kiszka@web.de>
 ---
- drivers/isdn/capi/capi.c |   37 ++++++++++++++++++++++++++++---------
- 1 files changed, 28 insertions(+), 9 deletions(-)
+ drivers/isdn/capi/capi.c |   42 ++++++++++++++++++++++++++++--------------
+ 1 files changed, 28 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/isdn/capi/capi.c b/drivers/isdn/capi/capi.c
-index b1de0cb..732cdb5 100644
+index 732cdb5..3e4997a 100644
 --- a/drivers/isdn/capi/capi.c
 +++ b/drivers/isdn/capi/capi.c
-@@ -83,6 +83,8 @@ struct datahandle_queue {
- };
+@@ -1005,16 +1005,34 @@ static const struct file_operations capi_fops =
+ #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
+ /* -------- tty_operations for capincci ----------------------------- */
  
- struct capiminor {
-+	struct kref kref;
-+
- 	struct capincci  *nccip;
- 	unsigned int      minor;
- 	struct dentry *capifs_dentry;
-@@ -223,6 +225,8 @@ static struct capiminor *capiminor_alloc(struct capi20_appl *ap, u32 ncci)
- 		return NULL;
- 	}
- 
-+	kref_init(&mp->kref);
-+
- 	mp->ap = ap;
- 	mp->ncci = ncci;
- 	mp->msgid = 0;
-@@ -265,18 +269,11 @@ err_out1:
- 	return NULL;
- }
- 
--static void capiminor_free(struct capiminor *mp)
-+static void capiminor_destroy(struct kref *kref)
+-static int capinc_tty_open(struct tty_struct * tty, struct file * file)
++static int
++capinc_tty_install(struct tty_driver *driver, struct tty_struct *tty)
  {
+-	struct capiminor *mp;
 -	unsigned long flags;
--
--	tty_unregister_device(capinc_tty_driver, mp->minor);
--
--	write_lock_irqsave(&capiminors_lock, flags);
--	capiminors[mp->minor] = NULL;
--	write_unlock_irqrestore(&capiminors_lock, flags);
-+	struct capiminor *mp = container_of(kref, struct capiminor, kref);
- 
- 	kfree_skb(mp->ttyskb);
--	mp->ttyskb = NULL;
- 	skb_queue_purge(&mp->inqueue);
- 	skb_queue_purge(&mp->outqueue);
- 	capiminor_del_all_ack(mp);
-@@ -289,11 +286,31 @@ static struct capiminor *capiminor_get(unsigned int minor)
- 
- 	read_lock(&capiminors_lock);
- 	mp = capiminors[minor];
-+	if (mp)
-+		kref_get(&mp->kref);
- 	read_unlock(&capiminors_lock);
- 
- 	return mp;
- }
- 
-+static inline void capiminor_put(struct capiminor *mp)
-+{
-+	kref_put(&mp->kref, capiminor_destroy);
++	int idx = tty->index;
++	struct capiminor *mp = capiminor_get(idx);
++	int ret = tty_init_termios(tty);
++
++	if (ret == 0) {
++		tty_driver_kref_get(driver);
++		tty->count++;
++		tty->driver_data = mp;
++		driver->ttys[idx] = tty;
++	} else
++		capiminor_put(mp);
++	return ret;
 +}
-+
-+static void capiminor_free(struct capiminor *mp)
+ 
+-	mp = capiminor_get(iminor(file->f_path.dentry->d_inode));
+-	if (mp->nccip == NULL)
+-		return -ENXIO;
++static void capinc_tty_cleanup(struct tty_struct *tty)
 +{
-+	unsigned long flags;
-+
-+	tty_unregister_device(capinc_tty_driver, mp->minor);
-+
-+	write_lock_irqsave(&capiminors_lock, flags);
-+	capiminors[mp->minor] = NULL;
-+	write_unlock_irqrestore(&capiminors_lock, flags);
-+
++	struct capiminor *mp = tty->driver_data;
++	tty->driver_data = NULL;
 +	capiminor_put(mp);
 +}
-+
- /* -------- struct capincci ----------------------------------------- */
  
- static void capincci_alloc_minor(struct capidev *cdev, struct capincci *np)
-@@ -1029,6 +1046,8 @@ static void capinc_tty_close(struct tty_struct * tty, struct file * file)
+-	tty->driver_data = (void *)mp;
++static int capinc_tty_open(struct tty_struct * tty, struct file * file)
++{
++	struct capiminor *mp = tty->driver_data;
++	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&workaround_lock, flags);
+ 	if (atomic_read(&mp->ttyopencount) == 0)
+@@ -1030,15 +1048,12 @@ static int capinc_tty_open(struct tty_struct * tty, struct file * file)
+ 
+ static void capinc_tty_close(struct tty_struct * tty, struct file * file)
+ {
+-	struct capiminor *mp;
++	struct capiminor *mp = tty->driver_data;
+ 
+-	mp = (struct capiminor *)tty->driver_data;
+-	if (mp)	{
+ 		if (atomic_dec_and_test(&mp->ttyopencount)) {
+ #ifdef _DEBUG_REFCOUNT
+ 			printk(KERN_DEBUG "capinc_tty_close lastclose\n");
  #endif
+-			tty->driver_data = NULL;
+ 			mp->tty = NULL;
+ 		}
+ #ifdef _DEBUG_REFCOUNT
+@@ -1047,9 +1062,6 @@ static void capinc_tty_close(struct tty_struct * tty, struct file * file)
  		if (mp->nccip == NULL)
  			capiminor_free(mp);
-+
-+		capiminor_put(mp);
- 	}
  
+-		capiminor_put(mp);
+-	}
+-
  #ifdef _DEBUG_REFCOUNT
+ 	printk(KERN_DEBUG "capinc_tty_close\n");
+ #endif
+@@ -1333,6 +1345,8 @@ static const struct tty_operations capinc_ops = {
+ 	.flush_buffer = capinc_tty_flush_buffer,
+ 	.set_ldisc = capinc_tty_set_ldisc,
+ 	.send_xchar = capinc_tty_send_xchar,
++	.install = capinc_tty_install,
++	.cleanup = capinc_tty_cleanup,
+ };
+ 
+ static int __init capinc_tty_init(void)
 -- 
 1.6.0.2
 
