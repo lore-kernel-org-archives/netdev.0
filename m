@@ -1,328 +1,489 @@
-From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
-Subject: Re: Problem wit route cache
-Date: Mon, 08 Feb 2010 15:32:54 +0100
-Message-ID: <4B702096.7030101@itcare.pl>
-References: <4B700EC2.5090207@itcare.pl>	 <1265635690.3048.8.camel@edumazet-laptop>  <4B7012BC.9000702@itcare.pl>	 <1265637067.3048.14.camel@edumazet-laptop>  <4B7018DF.8060600@itcare.pl> <1265638014.3048.20.camel@edumazet-laptop> <4B701CA8.7050205@itcare.pl>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH for 2.6.33] conntrack: restrict runtime hashsize modifications
+Date: Mon, 08 Feb 2010 15:35:12 +0100
+Message-ID: <4B702120.4090104@trash.net>
+References: <20100203203929.GA6168@x200> <4B6AF36A.3050402@trash.net> <4B6AFE22.20304@trash.net> <20100204194744.GA4185@x200> <4B6BEC23.8020101@trash.net> <20100205220407.GA27953@x200> <4B7012CD.8030108@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from r242-20.iq.pl ([86.111.242.20]:54764 "EHLO smtp.iq.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752599Ab0BHOcy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Feb 2010 09:32:54 -0500
-In-Reply-To: <4B701CA8.7050205@itcare.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------020402090802050103010300"
+Cc: davem@davemloft.net, jonathan@jonmasters.org,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4B7012CD.8030108@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-W dniu 2010-02-08 15:16, Pawe=C5=82 Staszewski pisze:
-> W dniu 2010-02-08 15:06, Eric Dumazet pisze:
->> Le lundi 08 f=C3=A9vrier 2010 =C3=A0 14:59 +0100, Pawe=C5=82 Staszew=
-ski a =C3=A9crit :
->>> W dniu 2010-02-08 14:51, Eric Dumazet pisze:
->>>> Le lundi 08 f=C3=A9vrier 2010 =C3=A0 14:33 +0100, Pawe=C5=82 Stasz=
-ewski a =C3=A9crit :
->>>>
->>>>
->>>>>>
->>>>> Yes this is x86_64 kernel
->>>>> i kernels  2.6.32.2 /  2.6.32.7 and now 2.6.33-rc6-git5 and on al=
-l
->>>>> kernels the same thing happens.
->>>>> grep . /proc/sys/net/ipv4/route/*
->>>>> /proc/sys/net/ipv4/route/error_burst:1250
->>>>> /proc/sys/net/ipv4/route/error_cost:250
->>>>> grep: /proc/sys/net/ipv4/route/flush: Permission denied
->>>>> /proc/sys/net/ipv4/route/gc_elasticity:2
->>>>> /proc/sys/net/ipv4/route/gc_interval:2
->>>>> /proc/sys/net/ipv4/route/gc_min_interval:0
->>>>> /proc/sys/net/ipv4/route/gc_min_interval_ms:500
->>>>> /proc/sys/net/ipv4/route/gc_thresh:65535
->>>>> /proc/sys/net/ipv4/route/gc_timeout:300
->>>>> /proc/sys/net/ipv4/route/max_size:524288
->>>>> /proc/sys/net/ipv4/route/min_adv_mss:256
->>>>> /proc/sys/net/ipv4/route/min_pmtu:552
->>>>> /proc/sys/net/ipv4/route/mtu_expires:600
->>>>> /proc/sys/net/ipv4/route/redirect_load:5
->>>>> /proc/sys/net/ipv4/route/redirect_number:9
->>>>> /proc/sys/net/ipv4/route/redirect_silence:5120
->>>>> /proc/sys/net/ipv4/route/secret_interval:2
->>>>>
->>>>> This happens not all the time.
->>>>> I have this info only when there are "internet rush hours" - thn=20
->>>>> there
->>>>> is about 700Mbit/s TX + 700Mbit/s RX forwarded traffic
->>>>>
->>>>>
->>>> I dont understand your settings, they are very very small for your
->>>> setup. You want to flush cache every 2 seconds...
->>>>
->>>> With 12GB of ram, you could have
->>>>
->>>> /proc/sys/net/ipv4/route/gc_thresh:524288
->>>> /proc/sys/net/ipv4/route/max_size:8388608
->>>> /proc/sys/net/ipv4/route/secret_interval:3600
->>>> /proc/sys/net/ipv4/route/gc_elasticity:4
->>>> /proc/sys/net/ipv4/route/gc_interval:1
->>>>
->>>> That would allow about 2 million entries in your route cache, usin=
-g=20
->>>> 768
->>>> Mbytes of ram, and a good cache hit ratio.
->>>>
->>>>
->>>>
->>> Yes as i write i change this settings after i see first info
->>> "secret_interval" - from 3600 to 2
->>> To check if this resolve the problem.
->>> Also my normal settings are:
->>>
->>> /proc/sys/net/ipv4/route/gc_thresh:256000
->>> /proc/sys/net/ipv4/route/max_size:1048576
->>> /proc/sys/net/ipv4/route/secret_interval:3600
->>> /proc/sys/net/ipv4/route/gc_interval:2
->>> /proc/sys/net/ipv4/route/gc_elasticity:2
->>>
->>> And with this setting i was have this info:
->>> Route hash chain too long!
->>> Adjust your secret_interval!
->>>
->>>
->>>
->>> Now i put Your settings as You suggest ... and we will see but i=20
->>> dont know it will help.
->>> Because i try many of different settings.
->>>
->> One important point is the size of hash table, you want something bi=
-g
->> for your router.
->>
->> # dmesg | grep 'IP route'
->>   ... IP route cache hash table entries: 524288 (order: 10, 4194304
->> bytes)
->>
->
-> On my machine it is also the same:
-> dmesg | grep 'IP route'
-> IP route cache hash table entries: 524288 (order: 10, 4194304 bytes)
->
->
->> Then if it is correctly sized, dont change gc_thresh or max_size, as
->> defaults are good.
->>
->> I would only change gc_interval to 1, to perform a smooth gc
->>
->> And eventually gc_elasticity to 4, 5 or 6 if I had less ram than you=
-r
->> machine.
->>
-> Some day ago after info about route cache i was have  also this info:
-> Feb  4 13:12:40 TM_01_C1 ------------[ cut here ]------------
-> Feb  4 13:12:40 TM_01_C1 WARNING: at net/sched/sch_generic.c:261=20
-> dev_watchdog+0x130/0x1d6()
-> Feb  4 13:12:40 TM_01_C1 Hardware name: X7DCT
-> Feb  4 13:12:40 TM_01_C1 NETDEV WATCHDOG: eth0 (e1000e): transmit=20
-> queue 0 timed out
-> Feb  4 13:12:40 TM_01_C1 Modules linked in: oprofile
-> Feb  4 13:12:40 TM_01_C1 Pid: 0, comm: swapper Not tainted 2.6.32 #1
-> Feb  4 13:12:40 TM_01_C1 Call Trace:
-> Feb  4 13:12:40 TM_01_C1 <IRQ>  [<ffffffff812fcaf7>] ?=20
-> dev_watchdog+0x130/0x1d6
-> Feb  4 13:12:40 TM_01_C1 [<ffffffff812fcaf7>] ? dev_watchdog+0x130/0x=
-1d6
-> Feb  4 13:12:40 TM_01_C1 [<ffffffff81038811>] ?=20
-> warn_slowpath_common+0x77/0xa3
-> Feb  4 13:12:40 TM_01_C1 [<ffffffff81038899>] ?=20
-> warn_slowpath_fmt+0x51/0x59
-> Feb  4 13:12:40 TM_01_C1 [<ffffffff8102897e>] ? activate_task+0x3f/0x=
-4e
-> Feb  4 13:12:40 TM_01_C1 [<ffffffff81034fe5>] ?=20
-> try_to_wake_up+0x1eb/0x1f8
-> Feb  4 13:12:40 TM_01_C1 [<ffffffff812eb768>] ?=20
-> netdev_drivername+0x3b/0x40
-> Feb  4 13:12:40 TM_01_C1 [<ffffffff812fcaf7>] ? dev_watchdog+0x130/0x=
-1d6
-> Feb  4 13:12:40 TM_01_C1 [<ffffffff8102d1e3>] ? __wake_up+0x30/0x44
-> Feb  4 13:12:40 TM_01_C1 [<ffffffff812fc9c7>] ? dev_watchdog+0x0/0x1d=
-6
-> Feb  4 13:12:40 TM_01_C1 [<ffffffff810448c4>] ?=20
-> run_timer_softirq+0x1ff/0x29d
-> Feb  4 13:12:40 TM_01_C1 [<ffffffff810556ab>] ? ktime_get+0x5f/0xb7
-> Feb  4 13:12:40 TM_01_C1 [<ffffffff8103e0fd>] ? __do_softirq+0xd7/0x1=
-96
-> Feb  4 13:12:40 TM_01_C1 [<ffffffff8100be7c>] ? call_softirq+0x1c/0x2=
-8
-> Feb  4 13:12:40 TM_01_C1 [<ffffffff8100d645>] ? do_softirq+0x31/0x66
-> Feb  4 13:12:40 TM_01_C1 [<ffffffff8101b148>] ?=20
-> smp_apic_timer_interrupt+0x87/0x95
-> Feb  4 13:12:40 TM_01_C1 [<ffffffff8100b873>] ?=20
-> apic_timer_interrupt+0x13/0x20
-> Feb  4 13:12:40 TM_01_C1 <EOI>  [<ffffffff810111f5>] ?=20
-> mwait_idle+0x9b/0xa0
-> Feb  4 13:12:40 TM_01_C1 [<ffffffff8100a236>] ? cpu_idle+0x49/0x7c
-> Feb  4 13:12:40 TM_01_C1 ---[ end trace c670a6a17be040e5 ]---
->
-> And after change kernel to 2.6.33-rc6 another different inf:
->
-> BUG: soft lockup - CPU#1 stuck for 61s!
-> [events/1:28]
-> Modules linked in:
-> CPU 1
-> Pid: 28, comm: events/1 Not tainted 2.6.33-rc6-git5 #1 X7DCT/X7DCT
-> RIP: 0010:[<ffffffff810a3d89>]  [<ffffffff810a3d89>]
-> kmem_cache_free+0x11b/0x11c
-> RSP: 0018:ffff880028243e50  EFLAGS: 00000292
-> RAX: 0000000000000032 RBX: 000000000000007d RCX: ffff8803190683c0
-> RDX: 0000000000000031 RSI: ffff8803190683c0 RDI: ffff88031f83e680
-> RBP: ffffffff81002893 R08: 0000000000000000 R09: 000000000000007c
-> R10: ffff88030d776800 R11: ffff88030d7768a0 R12: ffff880028243dd0
-> R13: ffffc900008b2f80 R14: ffff88031fa7c800 R15: ffffffff81012da7
-> FS:  0000000000000000(0000) GS:ffff880028240000(0000)=20
-> knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> CR2: 00007fd61d5bd000 CR3: 000000031e55c000 CR4: 00000000000006a0
-> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> Process events/1 (pid: 28, threadinfo ffff88031f9c8000, task=20
-> ffff88031f9a4f80)
-> Stack:
->  ffffffff8126826f ffff88031faa4600 ffffffff8126834a 000096ba00000023
-> <0>  01ffc90000000024 ffff88031fbb4000 ffff88031faa4600 0000000000000=
-040
-> <0>  0000000000000040 ffff88031faa4788 ffff88031faa4600 0000000000000=
-740
-> Call Trace:
-> <IRQ>
->  [<ffffffff8126826f>] ? e1000_put_txbuf+0x62/0x74
->  [<ffffffff8126834a>] ? e1000_clean_tx_irq+0xc9/0x235
->  [<ffffffff8126b71b>] ? e1000_clean+0x5c/0x21c
->  [<ffffffff812f29a3>] ? net_rx_action+0x71/0x15d
->  [<ffffffff81035311>] ? __do_softirq+0xd7/0x196
->  [<ffffffff81002dac>] ? call_softirq+0x1c/0x28
->  [<ffffffff812f768f>] ? dst_gc_task+0x0/0x1a7
->  [<ffffffff81002dac>] ? call_softirq+0x1c/0x28
-> <EOI>
->  [<ffffffff81004599>] ? do_softirq+0x31/0x63
->  [<ffffffff81034ec1>] ? local_bh_enable_ip+0x75/0x86
->  [<ffffffff812f768f>] ? dst_gc_task+0x0/0x1a7
->  [<ffffffff812f775d>] ? dst_gc_task+0xce/0x1a7
->  [<ffffffff8136b08c>] ? schedule+0x82c/0x906
->  [<ffffffff8103c44f>] ? lock_timer_base+0x26/0x4b
->  [<ffffffff810a41d6>] ? cache_reap+0x0/0x11d
->  [<ffffffff81044c38>] ? worker_thread+0x14c/0x1dc
->  [<ffffffff81047dcd>] ? autoremove_wake_function+0x0/0x2e
->  [<ffffffff81044aec>] ? worker_thread+0x0/0x1dc
->  [<ffffffff810479bd>] ? kthread+0x79/0x81
->  [<ffffffff81002cb4>] ? kernel_thread_helper+0x4/0x10
->  [<ffffffff81047944>] ? kthread+0x0/0x81
->  [<ffffffff81002cb0>] ? kernel_thread_helper+0x0/0x10
-> Code: fe 79 4c 00 48 85 db 74 14 48 8b 74 24 10 48 89 ef ff 13 48 83=20
-> c3 08 48
-> 83 3b 00 eb ea 48 83 c4 18 5b 5d 41 5c 41 5d 41 5e 41 5f<c3>  55 48 8=
-9=20
-> f5 53 48
-> 89 fb 48 83 ec 08 48 8b 76 18 48 2b 75 10
-> Call Trace:
-> <IRQ>   [<ffffffff8126826f>] ? e1000_put_txbuf+0x62/0x74
->  [<ffffffff8126834a>] ? e1000_clean_tx_irq+0xc9/0x235
->  [<ffffffff8126b71b>] ? e1000_clean+0x5c/0x21c
->  [<ffffffff812f29a3>] ? net_rx_action+0x71/0x15d
->  [<ffffffff81035311>] ? __do_softirq+0xd7/0x196
->  [<ffffffff81002dac>] ? call_softirq+0x1c/0x28
->  [<ffffffff812f768f>] ? dst_gc_task+0x0/0x1a7
->  [<ffffffff81002dac>] ? call_softirq+0x1c/0x28
-> <EOI>   [<ffffffff81004599>] ? do_softirq+0x31/0x63
->  [<ffffffff81034ec1>] ? local_bh_enable_ip+0x75/0x86
->  [<ffffffff812f768f>] ? dst_gc_task+0x0/0x1a7
->  [<ffffffff812f775d>] ? dst_gc_task+0xce/0x1a7
->  [<ffffffff8136b08c>] ? schedule+0x82c/0x906
->  [<ffffffff8103c44f>] ? lock_timer_base+0x26/0x4b
->  [<ffffffff810a41d6>] ? cache_reap+0x0/0x11d
->  [<ffffffff81044c38>] ? worker_thread+0x14c/0x1dc
->  [<ffffffff81047dcd>] ? autoremove_wake_function+0x0/0x2e
->  [<ffffffff81044aec>] ? worker_thread+0x0/0x1dc
->  [<ffffffff810479bd>] ? kthread+0x79/0x81
->  [<ffffffff81002cb4>] ? kernel_thread_helper+0x4/0x10
->  [<ffffffff81047944>] ? kthread+0x0/0x81
->
->
->  [<ffffffff81002cb0>] ? kernel_thread_helper+0x0/0x10
->
->
->
-And other weird thing is that when i make affinity for nics and i bind=20
-eth0 to cpu0 and eth1 to cpu2 i think i have too much cpu load:
-mpstat -P ALL 1 10
-Average:     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-Average:     all    0.00    0.00    0.00    0.10    1.63   16.71   =20
-0.00    0.00   81.56
-Average:       0    0.00    0.00    0.00    0.00    5.10   72.80   =20
-0.00    0.00   22.10
-Average:       1    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-Average:       2    0.00    0.00    0.00    0.00    8.00   61.00   =20
-0.00    0.00   31.00
-Average:       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-Average:       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-Average:       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-Average:       6    0.00    0.00    0.00    0.70    0.00    0.00   =20
-0.00    0.00   99.30
-Average:       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+This is a multi-part message in MIME format.
+--------------020402090802050103010300
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-As You see there is only 22% and 31% cpu idle
-With forwarded traffic like here:
-  bwm-ng v0.6 (probing every 3.000s), press 'h' for help
-   input: /proc/net/dev type: rate
-   -         iface                   Rx                  =20
-Tx                Total
-  =20
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D
-                lo:           0.00  b/s            0.00  b/s           =
-=20
-0.00  b/s
-              eth0:         346.64 Mb/s          487.24 Mb/s         =20
-833.88 Mb/s
-              eth1:         487.48 Mb/s          344.14 Mb/s         =20
-831.61 Mb/s
-          vlan0811:         273.29 Mb/s          381.71 Mb/s         =20
-655.01 Mb/s
-          vlan0508:          64.62 Mb/s          105.54 Mb/s         =20
-170.15 Mb/s
-  =20
------------------------------------------------------------------------=
--------
-             total:           1.14 Gb/s            1.29 Gb/s           =
-=20
-2.43 Gb/s
+Patrick McHardy wrote:
+> Alexey Dobriyan wrote:
+>> On Fri, Feb 05, 2010 at 11:00:03AM +0100, Patrick McHardy wrote:
+>>> Actually it doesn't seem like much more work to allow changing
+>>> table size, the main problem is that sysfs module parameters
+>>> don't seem to fit into the network namespace model at all.
+>> Well, they "fit" as they're global because modules are global.
+>> So we can make every netns hashtable size equals to module param,
+>> or make it bounded by module param
+>> or make initial hashtable size and not bounded
+>> or million other things.
+> 
+> Feel free to suggest your preferred method.
+> 
+>>> Please be more specific about your suspected slowdowns.
+>> I meant net->ct.htable_size in hash functions _if_ you're not allowing
+>> changing it from inside netns.
+>>
+>>> What's "everything"? What's different about the hashsize
+>>> compared to the many members we already moved to per-netns
+>>> structs?
+>> But whatever. I think per-netns hashtable size shouldn't be done
+>> that late.
+> 
+> This is a regression. You can not simply disable resizing and call
+> it a bugfix.
+
+This is what I'm going to commit unless someone spots any problems.
+Resizing of non-init-namespaces is not supported, so its not necessary
+to decide the questions you raised above at this time.
 
 
 
+--------------020402090802050103010300
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
->
->>
->>
->> --=20
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->>
->
-> --=20
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+commit 6521ddb0811ffb4fbfdf48d2c85024bd8f51aadf
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Mon Feb 8 15:32:18 2010 +0100
 
+    netfilter: nf_conntrack: fix hash resizing with namespaces
+    
+    As noticed by Jon Masters <jonathan@jonmasters.org>, the conntrack hash
+    size is global and not per namespace, but modifiable at runtime through
+    /sys/module/nf_conntrack/hashsize. Changing the hash size will only
+    resize the hash in the current namespace however, so other namespaces
+    will use an invalid hash size. This can cause crashes when enlarging
+    the hashsize, or false negative lookups when shrinking it.
+    
+    Move the hash size into the per-namespace data and only use the global
+    hash size to initialize the per-namespace value when instanciating a
+    new namespace. Additionally restrict hash resizing to init_net for
+    now as other namespaces are not handled currently.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
+index aed23b6..63d4498 100644
+--- a/include/net/netns/conntrack.h
++++ b/include/net/netns/conntrack.h
+@@ -11,6 +11,7 @@ struct nf_conntrack_ecache;
+ struct netns_ct {
+ 	atomic_t		count;
+ 	unsigned int		expect_count;
++	unsigned int		htable_size;
+ 	struct kmem_cache	*nf_conntrack_cachep;
+ 	struct hlist_nulls_head	*hash;
+ 	struct hlist_head	*expect_hash;
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index 2eb3814..9a4b8b7 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -40,6 +40,7 @@ struct netns_ipv4 {
+ 	struct xt_table		*iptable_security;
+ 	struct xt_table		*nat_table;
+ 	struct hlist_head	*nat_bysource;
++	unsigned int		nat_htable_size;
+ 	int			nat_vmalloced;
+ #endif
+ 
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index d171b12..d1ea38a 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -210,7 +210,7 @@ static ctl_table ip_ct_sysctl_table[] = {
+ 	},
+ 	{
+ 		.procname	= "ip_conntrack_buckets",
+-		.data		= &nf_conntrack_htable_size,
++		.data		= &init_net.ct.htable_size,
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0444,
+ 		.proc_handler	= proc_dointvec,
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+index 8668a3d..2fb7b76 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+@@ -32,7 +32,7 @@ static struct hlist_nulls_node *ct_get_first(struct seq_file *seq)
+ 	struct hlist_nulls_node *n;
+ 
+ 	for (st->bucket = 0;
+-	     st->bucket < nf_conntrack_htable_size;
++	     st->bucket < net->ct.htable_size;
+ 	     st->bucket++) {
+ 		n = rcu_dereference(net->ct.hash[st->bucket].first);
+ 		if (!is_a_nulls(n))
+@@ -50,7 +50,7 @@ static struct hlist_nulls_node *ct_get_next(struct seq_file *seq,
+ 	head = rcu_dereference(head->next);
+ 	while (is_a_nulls(head)) {
+ 		if (likely(get_nulls_value(head) == st->bucket)) {
+-			if (++st->bucket >= nf_conntrack_htable_size)
++			if (++st->bucket >= net->ct.htable_size)
+ 				return NULL;
+ 		}
+ 		head = rcu_dereference(net->ct.hash[st->bucket].first);
+diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
+index fe1a644..26066a2 100644
+--- a/net/ipv4/netfilter/nf_nat_core.c
++++ b/net/ipv4/netfilter/nf_nat_core.c
+@@ -35,9 +35,6 @@ static DEFINE_SPINLOCK(nf_nat_lock);
+ 
+ static struct nf_conntrack_l3proto *l3proto __read_mostly;
+ 
+-/* Calculated at init based on memory size */
+-static unsigned int nf_nat_htable_size __read_mostly;
+-
+ #define MAX_IP_NAT_PROTO 256
+ static const struct nf_nat_protocol *nf_nat_protos[MAX_IP_NAT_PROTO]
+ 						__read_mostly;
+@@ -72,7 +69,7 @@ EXPORT_SYMBOL_GPL(nf_nat_proto_put);
+ 
+ /* We keep an extra hash for each conntrack, for fast searching. */
+ static inline unsigned int
+-hash_by_src(const struct nf_conntrack_tuple *tuple)
++hash_by_src(const struct net *net, const struct nf_conntrack_tuple *tuple)
+ {
+ 	unsigned int hash;
+ 
+@@ -80,7 +77,7 @@ hash_by_src(const struct nf_conntrack_tuple *tuple)
+ 	hash = jhash_3words((__force u32)tuple->src.u3.ip,
+ 			    (__force u32)tuple->src.u.all,
+ 			    tuple->dst.protonum, 0);
+-	return ((u64)hash * nf_nat_htable_size) >> 32;
++	return ((u64)hash * net->ipv4.nat_htable_size) >> 32;
+ }
+ 
+ /* Is this tuple already taken? (not by us) */
+@@ -147,7 +144,7 @@ find_appropriate_src(struct net *net,
+ 		     struct nf_conntrack_tuple *result,
+ 		     const struct nf_nat_range *range)
+ {
+-	unsigned int h = hash_by_src(tuple);
++	unsigned int h = hash_by_src(net, tuple);
+ 	const struct nf_conn_nat *nat;
+ 	const struct nf_conn *ct;
+ 	const struct hlist_node *n;
+@@ -330,7 +327,7 @@ nf_nat_setup_info(struct nf_conn *ct,
+ 	if (have_to_hash) {
+ 		unsigned int srchash;
+ 
+-		srchash = hash_by_src(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
++		srchash = hash_by_src(net, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
+ 		spin_lock_bh(&nf_nat_lock);
+ 		/* nf_conntrack_alter_reply might re-allocate exntension aera */
+ 		nat = nfct_nat(ct);
+@@ -679,8 +676,10 @@ nfnetlink_parse_nat_setup(struct nf_conn *ct,
+ 
+ static int __net_init nf_nat_net_init(struct net *net)
+ {
+-	net->ipv4.nat_bysource = nf_ct_alloc_hashtable(&nf_nat_htable_size,
+-						      &net->ipv4.nat_vmalloced, 0);
++	/* Leave them the same for the moment. */
++	net->ipv4.nat_htable_size = net->ct.htable_size;
++	net->ipv4.nat_bysource = nf_ct_alloc_hashtable(&net->ipv4.nat_htable_size,
++						       &net->ipv4.nat_vmalloced, 0);
+ 	if (!net->ipv4.nat_bysource)
+ 		return -ENOMEM;
+ 	return 0;
+@@ -703,7 +702,7 @@ static void __net_exit nf_nat_net_exit(struct net *net)
+ 	nf_ct_iterate_cleanup(net, &clean_nat, NULL);
+ 	synchronize_rcu();
+ 	nf_ct_free_hashtable(net->ipv4.nat_bysource, net->ipv4.nat_vmalloced,
+-			     nf_nat_htable_size);
++			     net->ipv4.nat_htable_size);
+ }
+ 
+ static struct pernet_operations nf_nat_net_ops = {
+@@ -724,9 +723,6 @@ static int __init nf_nat_init(void)
+ 		return ret;
+ 	}
+ 
+-	/* Leave them the same for the moment. */
+-	nf_nat_htable_size = nf_conntrack_htable_size;
+-
+ 	ret = register_pernet_subsys(&nf_nat_net_ops);
+ 	if (ret < 0)
+ 		goto cleanup_extend;
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 9de4bd4..4d79e3c 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -30,6 +30,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/socket.h>
+ #include <linux/mm.h>
++#include <linux/nsproxy.h>
+ #include <linux/rculist_nulls.h>
+ 
+ #include <net/netfilter/nf_conntrack.h>
+@@ -84,9 +85,10 @@ static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple *tuple,
+ 	return ((u64)h * size) >> 32;
+ }
+ 
+-static inline u_int32_t hash_conntrack(const struct nf_conntrack_tuple *tuple)
++static inline u_int32_t hash_conntrack(const struct net *net,
++				       const struct nf_conntrack_tuple *tuple)
+ {
+-	return __hash_conntrack(tuple, nf_conntrack_htable_size,
++	return __hash_conntrack(tuple, net->ct.htable_size,
+ 				nf_conntrack_hash_rnd);
+ }
+ 
+@@ -294,7 +296,7 @@ __nf_conntrack_find(struct net *net, const struct nf_conntrack_tuple *tuple)
+ {
+ 	struct nf_conntrack_tuple_hash *h;
+ 	struct hlist_nulls_node *n;
+-	unsigned int hash = hash_conntrack(tuple);
++	unsigned int hash = hash_conntrack(net, tuple);
+ 
+ 	/* Disable BHs the entire time since we normally need to disable them
+ 	 * at least once for the stats anyway.
+@@ -364,10 +366,11 @@ static void __nf_conntrack_hash_insert(struct nf_conn *ct,
+ 
+ void nf_conntrack_hash_insert(struct nf_conn *ct)
+ {
++	struct net *net = nf_ct_net(ct);
+ 	unsigned int hash, repl_hash;
+ 
+-	hash = hash_conntrack(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
+-	repl_hash = hash_conntrack(&ct->tuplehash[IP_CT_DIR_REPLY].tuple);
++	hash = hash_conntrack(net, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
++	repl_hash = hash_conntrack(net, &ct->tuplehash[IP_CT_DIR_REPLY].tuple);
+ 
+ 	__nf_conntrack_hash_insert(ct, hash, repl_hash);
+ }
+@@ -395,8 +398,8 @@ __nf_conntrack_confirm(struct sk_buff *skb)
+ 	if (CTINFO2DIR(ctinfo) != IP_CT_DIR_ORIGINAL)
+ 		return NF_ACCEPT;
+ 
+-	hash = hash_conntrack(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
+-	repl_hash = hash_conntrack(&ct->tuplehash[IP_CT_DIR_REPLY].tuple);
++	hash = hash_conntrack(net, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
++	repl_hash = hash_conntrack(net, &ct->tuplehash[IP_CT_DIR_REPLY].tuple);
+ 
+ 	/* We're not in hash table, and we refuse to set up related
+ 	   connections for unconfirmed conns.  But packet copies and
+@@ -466,7 +469,7 @@ nf_conntrack_tuple_taken(const struct nf_conntrack_tuple *tuple,
+ 	struct net *net = nf_ct_net(ignored_conntrack);
+ 	struct nf_conntrack_tuple_hash *h;
+ 	struct hlist_nulls_node *n;
+-	unsigned int hash = hash_conntrack(tuple);
++	unsigned int hash = hash_conntrack(net, tuple);
+ 
+ 	/* Disable BHs the entire time since we need to disable them at
+ 	 * least once for the stats anyway.
+@@ -501,7 +504,7 @@ static noinline int early_drop(struct net *net, unsigned int hash)
+ 	int dropped = 0;
+ 
+ 	rcu_read_lock();
+-	for (i = 0; i < nf_conntrack_htable_size; i++) {
++	for (i = 0; i < net->ct.htable_size; i++) {
+ 		hlist_nulls_for_each_entry_rcu(h, n, &net->ct.hash[hash],
+ 					 hnnode) {
+ 			tmp = nf_ct_tuplehash_to_ctrack(h);
+@@ -521,7 +524,7 @@ static noinline int early_drop(struct net *net, unsigned int hash)
+ 		if (cnt >= NF_CT_EVICTION_RANGE)
+ 			break;
+ 
+-		hash = (hash + 1) % nf_conntrack_htable_size;
++		hash = (hash + 1) % net->ct.htable_size;
+ 	}
+ 	rcu_read_unlock();
+ 
+@@ -555,7 +558,7 @@ struct nf_conn *nf_conntrack_alloc(struct net *net,
+ 
+ 	if (nf_conntrack_max &&
+ 	    unlikely(atomic_read(&net->ct.count) > nf_conntrack_max)) {
+-		unsigned int hash = hash_conntrack(orig);
++		unsigned int hash = hash_conntrack(net, orig);
+ 		if (!early_drop(net, hash)) {
+ 			atomic_dec(&net->ct.count);
+ 			if (net_ratelimit())
+@@ -1012,7 +1015,7 @@ get_next_corpse(struct net *net, int (*iter)(struct nf_conn *i, void *data),
+ 	struct hlist_nulls_node *n;
+ 
+ 	spin_lock_bh(&nf_conntrack_lock);
+-	for (; *bucket < nf_conntrack_htable_size; (*bucket)++) {
++	for (; *bucket < net->ct.htable_size; (*bucket)++) {
+ 		hlist_nulls_for_each_entry(h, n, &net->ct.hash[*bucket], hnnode) {
+ 			ct = nf_ct_tuplehash_to_ctrack(h);
+ 			if (iter(ct, data))
+@@ -1130,7 +1133,7 @@ static void nf_conntrack_cleanup_net(struct net *net)
+ 	}
+ 
+ 	nf_ct_free_hashtable(net->ct.hash, net->ct.hash_vmalloc,
+-			     nf_conntrack_htable_size);
++			     net->ct.htable_size);
+ 	nf_conntrack_ecache_fini(net);
+ 	nf_conntrack_acct_fini(net);
+ 	nf_conntrack_expect_fini(net);
+@@ -1190,10 +1193,12 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
+ {
+ 	int i, bucket, vmalloced, old_vmalloced;
+ 	unsigned int hashsize, old_size;
+-	int rnd;
+ 	struct hlist_nulls_head *hash, *old_hash;
+ 	struct nf_conntrack_tuple_hash *h;
+ 
++	if (current->nsproxy->net_ns != &init_net)
++		return -EOPNOTSUPP;
++
+ 	/* On boot, we can set this without any fancy locking. */
+ 	if (!nf_conntrack_htable_size)
+ 		return param_set_uint(val, kp);
+@@ -1206,33 +1211,29 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
+ 	if (!hash)
+ 		return -ENOMEM;
+ 
+-	/* We have to rehahs for the new table anyway, so we also can
+-	 * use a newrandom seed */
+-	get_random_bytes(&rnd, sizeof(rnd));
+-
+ 	/* Lookups in the old hash might happen in parallel, which means we
+ 	 * might get false negatives during connection lookup. New connections
+ 	 * created because of a false negative won't make it into the hash
+ 	 * though since that required taking the lock.
+ 	 */
+ 	spin_lock_bh(&nf_conntrack_lock);
+-	for (i = 0; i < nf_conntrack_htable_size; i++) {
++	for (i = 0; i < init_net.ct.htable_size; i++) {
+ 		while (!hlist_nulls_empty(&init_net.ct.hash[i])) {
+ 			h = hlist_nulls_entry(init_net.ct.hash[i].first,
+ 					struct nf_conntrack_tuple_hash, hnnode);
+ 			hlist_nulls_del_rcu(&h->hnnode);
+-			bucket = __hash_conntrack(&h->tuple, hashsize, rnd);
++			bucket = __hash_conntrack(&h->tuple, hashsize,
++						  nf_conntrack_hash_rnd);
+ 			hlist_nulls_add_head_rcu(&h->hnnode, &hash[bucket]);
+ 		}
+ 	}
+-	old_size = nf_conntrack_htable_size;
++	old_size = init_net.ct.htable_size;
+ 	old_vmalloced = init_net.ct.hash_vmalloc;
+ 	old_hash = init_net.ct.hash;
+ 
+-	nf_conntrack_htable_size = hashsize;
++	init_net.ct.htable_size = nf_conntrack_htable_size = hashsize;
+ 	init_net.ct.hash_vmalloc = vmalloced;
+ 	init_net.ct.hash = hash;
+-	nf_conntrack_hash_rnd = rnd;
+ 	spin_unlock_bh(&nf_conntrack_lock);
+ 
+ 	nf_ct_free_hashtable(old_hash, old_vmalloced, old_size);
+@@ -1328,7 +1329,9 @@ static int nf_conntrack_init_net(struct net *net)
+ 		ret = -ENOMEM;
+ 		goto err_cache;
+ 	}
+-	net->ct.hash = nf_ct_alloc_hashtable(&nf_conntrack_htable_size,
++
++	net->ct.htable_size = nf_conntrack_htable_size;
++	net->ct.hash = nf_ct_alloc_hashtable(&net->ct.htable_size,
+ 					     &net->ct.hash_vmalloc, 1);
+ 	if (!net->ct.hash) {
+ 		ret = -ENOMEM;
+@@ -1353,7 +1356,7 @@ err_acct:
+ 	nf_conntrack_expect_fini(net);
+ err_expect:
+ 	nf_ct_free_hashtable(net->ct.hash, net->ct.hash_vmalloc,
+-			     nf_conntrack_htable_size);
++			     net->ct.htable_size);
+ err_hash:
+ 	kmem_cache_destroy(net->ct.nf_conntrack_cachep);
+ err_cache:
+diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+index 4ad7d1d..2f25ff6 100644
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -577,7 +577,7 @@ int nf_conntrack_expect_init(struct net *net)
+ 
+ 	if (net_eq(net, &init_net)) {
+ 		if (!nf_ct_expect_hsize) {
+-			nf_ct_expect_hsize = nf_conntrack_htable_size / 256;
++			nf_ct_expect_hsize = net->ct.htable_size / 256;
+ 			if (!nf_ct_expect_hsize)
+ 				nf_ct_expect_hsize = 1;
+ 		}
+diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
+index 65c2a7b..4b1a56b 100644
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -192,7 +192,7 @@ static void __nf_conntrack_helper_unregister(struct nf_conntrack_helper *me,
+ 	/* Get rid of expecteds, set helpers to NULL. */
+ 	hlist_nulls_for_each_entry(h, nn, &net->ct.unconfirmed, hnnode)
+ 		unhelp(h, me);
+-	for (i = 0; i < nf_conntrack_htable_size; i++) {
++	for (i = 0; i < net->ct.htable_size; i++) {
+ 		hlist_nulls_for_each_entry(h, nn, &net->ct.hash[i], hnnode)
+ 			unhelp(h, me);
+ 	}
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 42f21c0..0ffe689 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -594,7 +594,7 @@ ctnetlink_dump_table(struct sk_buff *skb, struct netlink_callback *cb)
+ 
+ 	rcu_read_lock();
+ 	last = (struct nf_conn *)cb->args[1];
+-	for (; cb->args[0] < nf_conntrack_htable_size; cb->args[0]++) {
++	for (; cb->args[0] < init_net.ct.htable_size; cb->args[0]++) {
+ restart:
+ 		hlist_nulls_for_each_entry_rcu(h, n, &init_net.ct.hash[cb->args[0]],
+ 					 hnnode) {
+diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
+index 028aba6..e310f15 100644
+--- a/net/netfilter/nf_conntrack_standalone.c
++++ b/net/netfilter/nf_conntrack_standalone.c
+@@ -51,7 +51,7 @@ static struct hlist_nulls_node *ct_get_first(struct seq_file *seq)
+ 	struct hlist_nulls_node *n;
+ 
+ 	for (st->bucket = 0;
+-	     st->bucket < nf_conntrack_htable_size;
++	     st->bucket < net->ct.htable_size;
+ 	     st->bucket++) {
+ 		n = rcu_dereference(net->ct.hash[st->bucket].first);
+ 		if (!is_a_nulls(n))
+@@ -69,7 +69,7 @@ static struct hlist_nulls_node *ct_get_next(struct seq_file *seq,
+ 	head = rcu_dereference(head->next);
+ 	while (is_a_nulls(head)) {
+ 		if (likely(get_nulls_value(head) == st->bucket)) {
+-			if (++st->bucket >= nf_conntrack_htable_size)
++			if (++st->bucket >= net->ct.htable_size)
+ 				return NULL;
+ 		}
+ 		head = rcu_dereference(net->ct.hash[st->bucket].first);
+@@ -355,7 +355,7 @@ static ctl_table nf_ct_sysctl_table[] = {
+ 	},
+ 	{
+ 		.procname       = "nf_conntrack_buckets",
+-		.data           = &nf_conntrack_htable_size,
++		.data           = &init_net.ct.htable_size,
+ 		.maxlen         = sizeof(unsigned int),
+ 		.mode           = 0444,
+ 		.proc_handler   = proc_dointvec,
+@@ -421,6 +421,7 @@ static int nf_conntrack_standalone_init_sysctl(struct net *net)
+ 		goto out_kmemdup;
+ 
+ 	table[1].data = &net->ct.count;
++	table[2].data = &net->ct.htable_size;
+ 	table[3].data = &net->ct.sysctl_checksum;
+ 	table[4].data = &net->ct.sysctl_log_invalid;
+ 
+
+--------------020402090802050103010300--
