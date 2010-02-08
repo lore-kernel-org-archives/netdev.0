@@ -1,7 +1,7 @@
 From: Jan Kiszka <jan.kiszka@web.de>
-Subject: [PATCH v2 07/41] CAPI: Convert capi drivers rwlock into mutex
-Date: Mon,  8 Feb 2010 21:12:11 +0100
-Message-ID: <afc5cefa3ba6770536b9dea473f8c39320802995.1265659934.git.jan.kiszka@web.de>
+Subject: [PATCH v2 03/41] CAPI: Eliminate capifs_root variable
+Date: Mon,  8 Feb 2010 21:12:07 +0100
+Message-ID: <312f5b205960b57aee9b0745db20eb1d15d52bf7.1265659933.git.jan.kiszka@web.de>
 References: <cover.1265659933.git.jan.kiszka@web.de>
 Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
 	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org,
@@ -9,179 +9,106 @@ Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
 	Marcel Holtmann <marcel@holtmann.org>
 To: David Miller <davem@davemloft.net>,
 	Karsten Keil <isdn@linux-pingi.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fmmailgate02.web.de ([217.72.192.227]:43075 "EHLO
+	fmmailgate02.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753574Ab0BHUNA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 15:13:00 -0500
 In-Reply-To: <cover.1265659933.git.jan.kiszka@web.de>
 In-Reply-To: <cover.1265659933.git.jan.kiszka@web.de>
 References: <cover.1265659933.git.jan.kiszka@web.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Turn the lock protecting registered capi drivers into a mutex and apply
-it consistently.
+capifs_mnt->mnt_sb->s_root already contains what we need.
 
 Signed-off-by: Jan Kiszka <jan.kiszka@web.de>
 ---
- drivers/isdn/capi/kcapi.c      |   49 ++++++++++++++++++----------------------
- drivers/isdn/capi/kcapi.h      |    2 +-
- drivers/isdn/capi/kcapi_proc.c |    8 +++---
- 3 files changed, 27 insertions(+), 32 deletions(-)
+ drivers/isdn/capi/capifs.c |   18 ++++++++++--------
+ 1 files changed, 10 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/isdn/capi/kcapi.c b/drivers/isdn/capi/kcapi.c
-index f37c13b..c46964f 100644
---- a/drivers/isdn/capi/kcapi.c
-+++ b/drivers/isdn/capi/kcapi.c
-@@ -61,7 +61,7 @@ static char capi_manufakturer[64] = "AVM Berlin";
- #define NCCI2CTRL(ncci)    (((ncci) >> 24) & 0x7f)
+diff --git a/drivers/isdn/capi/capifs.c b/drivers/isdn/capi/capifs.c
+index 91aafad..6ae0edf 100644
+--- a/drivers/isdn/capi/capifs.c
++++ b/drivers/isdn/capi/capifs.c
+@@ -32,7 +32,6 @@ static char *revision = "$Revision: 1.1.2.3 $";
+ #define CAPIFS_SUPER_MAGIC (('C'<<8)|'N')
  
- LIST_HEAD(capi_drivers);
--DEFINE_RWLOCK(capi_drivers_list_lock);
-+DEFINE_MUTEX(capi_drivers_lock);
+ static struct vfsmount *capifs_mnt;
+-static struct dentry *capifs_root;
  
- static DEFINE_RWLOCK(application_lock);
- static DEFINE_MUTEX(controller_mutex);
-@@ -540,11 +540,9 @@ EXPORT_SYMBOL(detach_capi_ctr);
+ static struct {
+ 	int setuid;
+@@ -118,7 +117,7 @@ capifs_fill_super(struct super_block *s, void *data, int silent)
+ 	inode->i_fop = &simple_dir_operations;
+ 	inode->i_nlink = 2;
  
- void register_capi_driver(struct capi_driver *driver)
+-	capifs_root = s->s_root = d_alloc_root(inode);
++	s->s_root = d_alloc_root(inode);
+ 	if (s->s_root)
+ 		return 0;
+ 	
+@@ -143,15 +142,17 @@ static struct file_system_type capifs_fs_type = {
+ 
+ struct dentry *capifs_new_ncci(unsigned int number, dev_t device)
  {
--	unsigned long flags;
--
--	write_lock_irqsave(&capi_drivers_list_lock, flags);
-+	mutex_lock(&capi_drivers_lock);
- 	list_add_tail(&driver->list, &capi_drivers);
--	write_unlock_irqrestore(&capi_drivers_list_lock, flags);
-+	mutex_unlock(&capi_drivers_lock);
- }
++	struct super_block *s = capifs_mnt->mnt_sb;
++	struct dentry *root = s->s_root;
+ 	struct dentry *dentry;
+ 	struct inode *inode;
+ 	char name[10];
+ 	int namelen;
  
- EXPORT_SYMBOL(register_capi_driver);
-@@ -558,11 +556,9 @@ EXPORT_SYMBOL(register_capi_driver);
+-	mutex_lock(&capifs_root->d_inode->i_mutex);
++	mutex_lock(&root->d_inode->i_mutex);
  
- void unregister_capi_driver(struct capi_driver *driver)
- {
--	unsigned long flags;
--
--	write_lock_irqsave(&capi_drivers_list_lock, flags);
-+	mutex_lock(&capi_drivers_lock);
- 	list_del(&driver->list);
--	write_unlock_irqrestore(&capi_drivers_list_lock, flags);
-+	mutex_unlock(&capi_drivers_lock);
- }
- 
- EXPORT_SYMBOL(unregister_capi_driver);
-@@ -899,7 +895,6 @@ static int old_capi_manufacturer(unsigned int cmd, void __user *data)
- 	struct capi_driver *driver = NULL;
- 	capiloaddata ldata;
- 	struct list_head *l;
--	unsigned long flags;
- 	int retval;
- 
- 	switch (cmd) {
-@@ -919,7 +914,8 @@ static int old_capi_manufacturer(unsigned int cmd, void __user *data)
- 		cparams.irq = cdef.irq;
- 		cparams.cardnr = cdef.cardnr;
- 
--		read_lock_irqsave(&capi_drivers_list_lock, flags);
-+		mutex_lock(&capi_drivers_lock);
-+
-                 switch (cdef.cardtype) {
- 			case AVM_CARDTYPE_B1:
- 				list_for_each(l, &capi_drivers) {
-@@ -940,18 +936,15 @@ static int old_capi_manufacturer(unsigned int cmd, void __user *data)
- 				break;
- 		}
- 		if (!driver) {
--			read_unlock_irqrestore(&capi_drivers_list_lock, flags);
- 			printk(KERN_ERR "kcapi: driver not loaded.\n");
--			return -EIO;
--		}
--		if (!driver->add_card) {
--			read_unlock_irqrestore(&capi_drivers_list_lock, flags);
-+			retval = -EIO;
-+		} else if (!driver->add_card) {
- 			printk(KERN_ERR "kcapi: driver has no add card function.\n");
--			return -EIO;
--		}
-+			retval = -EIO;
-+		} else
-+			retval = driver->add_card(driver, &cparams);
- 
--		retval = driver->add_card(driver, &cparams);
--		read_unlock_irqrestore(&capi_drivers_list_lock, flags);
-+		mutex_unlock(&capi_drivers_lock);
- 		return retval;
- 
- 	case AVMB1_LOAD:
-@@ -1107,6 +1100,8 @@ int capi20_manufacturer(unsigned int cmd, void __user *data)
- 		cparams.cardtype = 0;
- 		cdef.driver[sizeof(cdef.driver)-1] = 0;
- 
-+		mutex_lock(&capi_drivers_lock);
-+
- 		list_for_each(l, &capi_drivers) {
- 			driver = list_entry(l, struct capi_driver, list);
- 			if (strcmp(driver->name, cdef.driver) == 0)
-@@ -1115,15 +1110,15 @@ int capi20_manufacturer(unsigned int cmd, void __user *data)
- 		if (driver == NULL) {
- 			printk(KERN_ERR "kcapi: driver \"%s\" not loaded.\n",
- 					cdef.driver);
--			return -ESRCH;
--		}
--
--		if (!driver->add_card) {
-+			retval = -ESRCH;
-+		} else if (!driver->add_card) {
- 			printk(KERN_ERR "kcapi: driver \"%s\" has no add card function.\n", cdef.driver);
--			return -EIO;
--		}
-+			retval = -EIO;
-+		} else
-+			retval = driver->add_card(driver, &cparams);
- 
--		return driver->add_card(driver, &cparams);
-+		mutex_unlock(&capi_drivers_lock);
-+		return retval;
+ 	namelen = sprintf(name, "%d", number);
+-	dentry = lookup_one_len(name, capifs_root, namelen);
++	dentry = lookup_one_len(name, root, namelen);
+ 	if (IS_ERR(dentry)) {
+ 		dentry = NULL;
+ 		goto unlock_out;
+@@ -163,7 +164,7 @@ struct dentry *capifs_new_ncci(unsigned int number, dev_t device)
+ 		goto unlock_out;
  	}
  
- 	default:
-diff --git a/drivers/isdn/capi/kcapi.h b/drivers/isdn/capi/kcapi.h
-index f62c53b..07c5850 100644
---- a/drivers/isdn/capi/kcapi.h
-+++ b/drivers/isdn/capi/kcapi.h
-@@ -30,7 +30,7 @@ enum {
- };
+-	inode = new_inode(capifs_mnt->mnt_sb);
++	inode = new_inode(s);
+ 	if (!inode) {
+ 		dput(dentry);
+ 		dentry = NULL;
+@@ -181,19 +182,20 @@ struct dentry *capifs_new_ncci(unsigned int number, dev_t device)
+ 	dget(dentry);
  
- extern struct list_head capi_drivers;
--extern rwlock_t capi_drivers_list_lock;
-+extern struct mutex capi_drivers_lock;
+ unlock_out:
+-	mutex_unlock(&capifs_root->d_inode->i_mutex);
++	mutex_unlock(&root->d_inode->i_mutex);
  
- extern struct capi20_appl *capi_applications[CAPI_MAXAPPL];
- extern struct capi_ctr *capi_controller[CAPI_MAXCONTR];
-diff --git a/drivers/isdn/capi/kcapi_proc.c b/drivers/isdn/capi/kcapi_proc.c
-index 59fd16a..71b0761 100644
---- a/drivers/isdn/capi/kcapi_proc.c
-+++ b/drivers/isdn/capi/kcapi_proc.c
-@@ -238,9 +238,9 @@ static const struct file_operations proc_applstats_ops = {
- // ---------------------------------------------------------------------------
+ 	return dentry;
+ }
  
- static void *capi_driver_start(struct seq_file *seq, loff_t *pos)
--	__acquires(&capi_drivers_list_lock)
-+	__acquires(&capi_drivers_lock)
+ void capifs_free_ncci(struct dentry *dentry)
  {
--	read_lock(&capi_drivers_list_lock);
-+	mutex_lock(&capi_drivers_lock);
- 	return seq_list_start(&capi_drivers, *pos);
++	struct dentry *root = capifs_mnt->mnt_sb->s_root;
+ 	struct inode *inode;
+ 
+ 	if (!dentry)
+ 		return;
+ 
+-	mutex_lock(&capifs_root->d_inode->i_mutex);
++	mutex_lock(&root->d_inode->i_mutex);
+ 
+ 	inode = dentry->d_inode;
+ 	if (inode) {
+@@ -203,7 +205,7 @@ void capifs_free_ncci(struct dentry *dentry)
+ 	}
+ 	dput(dentry);
+ 
+-	mutex_unlock(&capifs_root->d_inode->i_mutex);
++	mutex_unlock(&root->d_inode->i_mutex);
  }
  
-@@ -250,9 +250,9 @@ static void *capi_driver_next(struct seq_file *seq, void *v, loff_t *pos)
- }
- 
- static void capi_driver_stop(struct seq_file *seq, void *v)
--	__releases(&capi_drivers_list_lock)
-+	__releases(&capi_drivers_lock)
- {
--	read_unlock(&capi_drivers_list_lock);
-+	mutex_unlock(&capi_drivers_lock);
- }
- 
- static int capi_driver_show(struct seq_file *seq, void *v)
+ static int __init capifs_init(void)
 -- 
 1.6.0.2
+
