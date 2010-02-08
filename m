@@ -1,32 +1,78 @@
-From: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
-Subject: [PATCH 2.6.33 3/3] net: Makefile change for KSZ884X driver
-Date: Mon, 8 Feb 2010 13:40:04 -0800
-Message-ID: <14385191E87B904DBD836449AA30269D021A58@MORGANITE.micrel.com>
+From: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Subject: Re: [PATCH 0/3][v2] tcp: fix ICMP-RTO war
+Date: Mon, 08 Feb 2010 22:58:43 +0100
+Message-ID: <4B708913.906@tvk.rwth-aachen.de>
+References: <4B635E17.406@tvk.rwth-aachen.de>
+ <20100131.233338.254690877.davem@davemloft.net> <op.u7s6j0qup498uc@nexus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7BIT
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: "Dave Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:61580 "EHLO
+	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751374Ab0BHV6o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 16:58:44 -0500
+Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
+ by mta-1.ms.rz.RWTH-Aachen.de
+ (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
+ with ESMTP id <0KXJ00BG9MDVUI50@mta-1.ms.rz.RWTH-Aachen.de> for
+ netdev@vger.kernel.org; Mon, 08 Feb 2010 22:58:43 +0100 (CET)
+In-reply-to: <op.u7s6j0qup498uc@nexus>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tristram Ha <Tristram.Ha@micrel.com>
+Damian Lukowski schrieb:
+> Am 01.02.2010, 08:33 Uhr, schrieb David Miller <davem@davemloft.net>:
+> 
+>> From: Damian Lukowski <damian@tvk.rwth-aachen.de>
+>> Date: Fri, 29 Jan 2010 23:15:51 +0100
+>>
+>>> This patches fix the current RTO calculation routine, when
+>>> srtt and rttvar are zero, yielding an RTO of zero
+>>> Under some circumstances, TCPs srtt and rttvar are zero,
+>>> yielding a calculated RTO of zero.
+>>> This is particularly unfortunate for ICMP based RTO recalculation
+>>> as introduced in f1ecd5d9e736660 (Revert Backoff [v3]: Revert RTO
+>>> on ICMP destination unreachable), as it results in RTO retransmission
+>>> flooding.
+>>>
+>>> Thanks to Ilpo Jarvinen for providing debug patches and to
+>>> Denys Fedoryshchenko for reporting and testing.
+>>>
+>>> Signed-off-by: Damian Lukowski <damian@tvk.rwth-aachen.de>
+>>
+>> I still haven't seen a detailed enough analysis of why these
+>> tiny RTOs can come to exist in the first place.
+>>
+>> Please show me a list of events, function by function, the value of
+>> relevant variables and per-socket TCP state, in the TCP stack, that
+>> show how this ends up happening.
+>>
+>> Thanks for all of your work on this so far.
+> 
+> I might have figured it out, but could not verify it, so maybe you can
+> comment my thought.
+> 
+> When a listening TCP receives a SYN, it will send a SYN+ACK
+> and wait for an ACK to complete the handshake.
+> Look at tcp_rcv_state_process::step 5::case SYN_RECV::acceptable
+> and the code after the comment "tcp_ack considers this ACK as duplicate
+> and does not calculate rtt".
+> 
+> If the connecting client has disabled timestamps, the rtt statistics
+> won't be updated here, while the state is changed above.
+> I printk'ed at the very end of TCP_SYN_RECV and got the following:
+> state 1 (ESTABLISHED), srtt 0, rttvar 0.
+> 
+> So my suspicion is: If connectivity breaks right after a listening TCP
+> has completed the handshake without timestamps, and the listening TCP
+> sends data after establishing the connection, we will get the observed
+> behaviour.
 
-Add Micrel KSZ884X network driver for KSZ8841/KSZ8842 PCI Ethernet chips.
+Just verified that by dropping pure ACKs coming from the originally
+listening TCP using iptables.
 
-Signed-off-by: Tristram Ha <Tristram.Ha@micrel.com>
----
-This is a resubmission of the Micrel KSZ8841/2 PCI Ethernet driver.
-
---- linux-2.6.33-rc3.old/drivers/net/Makefile	2010-01-05 16:02:46.000000000 -0800
-+++ linux-2.6.33-rc3.new/drivers/net/Makefile	2010-01-12 18:56:37.000000000 -0800
-@@ -95,6 +95,7 @@ obj-$(CONFIG_SKFP) += skfp/
- obj-$(CONFIG_KS8842)	+= ks8842.o
- obj-$(CONFIG_KS8851)	+= ks8851.o
- obj-$(CONFIG_KS8851_MLL)	+= ks8851_mll.o
-+obj-$(CONFIG_KSZ884X_PCI)	+= ksz884x.o
- obj-$(CONFIG_VIA_RHINE) += via-rhine.o
- obj-$(CONFIG_VIA_VELOCITY) += via-velocity.o
- obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
+Regards
+ Damian
