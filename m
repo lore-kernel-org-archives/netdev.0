@@ -1,71 +1,66 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: rps: question
-Date: Mon, 08 Feb 2010 10:09:08 -0500
-Message-ID: <1265641748.3688.56.camel@bigi>
-References: <1265568122.3688.36.camel@bigi>
-	 <65634d661002072158r48ec15cag1ca58e704114a358@mail.gmail.com>
-Reply-To: hadi@cyberus.ca
+From: Mike Rapoport <mike@compulab.co.il>
+Subject: Re: smsc911x suspend/resume
+Date: Mon, 08 Feb 2010 17:10:16 +0200
+Message-ID: <4B702958.5020806@compulab.co.il>
+References: <4B6FDC83.9090205@compulab.co.il> <20100208101123.GW28972@buzzloop.caiaq.de> <4B6FF5E2.6060304@compulab.co.il> <20100208114638.GO9007@buzzloop.caiaq.de> <4B7022D1.5030408@compulab.co.il> <20100208144951.GF28972@buzzloop.caiaq.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	robert@herjulf.net, David Miller <davem@davemloft.net>
-To: Tom Herbert <therbert@google.com>
+Cc: Steve Glendinning <steve.glendinning@smsc.com>,
+	netdev@vger.kernel.org,
+	LAKML <linux-arm-kernel@lists.infradead.org>
+To: Daniel Mack <daniel@caiaq.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f223.google.com ([209.85.218.223]:56856 "EHLO
-	mail-bw0-f223.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752120Ab0BHPJO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 10:09:14 -0500
-Received: by bwz23 with SMTP id 23so1203719bwz.1
-        for <netdev@vger.kernel.org>; Mon, 08 Feb 2010 07:09:11 -0800 (PST)
-In-Reply-To: <65634d661002072158r48ec15cag1ca58e704114a358@mail.gmail.com>
+Received: from compulab.co.il ([67.18.134.219]:34132 "EHLO compulab.co.il"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752499Ab0BHPLO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Feb 2010 10:11:14 -0500
+In-Reply-To: <20100208144951.GF28972@buzzloop.caiaq.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2010-02-07 at 21:58 -0800, Tom Herbert wrote:
-
-> I don't have specific numbers, although we are using this on
-> application doing forwarding and numbers seem in line with what we see
-> for an end host.
+Daniel Mack wrote:
+> On Mon, Feb 08, 2010 at 04:42:25PM +0200, Mike Rapoport wrote:
+>> Daniel Mack wrote:
+>>> In fact the datasheet doesn't really state that, and the chip seems
+>>> to expect the power domains to remain switched on during suspend, and
+>>> all power switching is done internally. Also the table in "7.4 Power
+>>> Consumption (Device and System Components)" describes it like that.
+>>>
+>>> So it all comes down to the question of how low-power you need to be,
+>>> and whether you need wake-on-lan or not. What's currently implemented is
+>>> D1, but adding support for D2 should be easy.
+>> I did some brute force save/restore of smsc9220 registers and it seems
+>> to wake up now.
+>> The question now is how to make it in a "generic" way ...
+>> Thanks for the help anyway :)
 > 
+> Hmm, be careful about switching off power supplies that aren't supposed
+> to be switched off while others are still powered. You can easily
+> destroy hardware with that. Depending on how things are wired up
+> internally, voltages can leak from one unit block to the other. Maybe
+> Steve can can give a statement from official SMSC source about whether
+> it is safe to switch off VDD33A in this case.
+> 
+> Anyway, from what's written in the datasheet, I wouldn't dare just
+> blindly doing it.
 
-When i get the chance i will give it a run. I have access to an i7
-somewhere. It seems like i need some specific nics?
+I haven't dig too much in the datasheet, but I cannot remember anything
+about keeping certain power supplies on during suspend. The only clue is
+your comment in the driver that states
+"/* This implementation assumes the devices remains powered on its VDDVARIO
+  * pins during suspend. */"
+And the platform I have either disables all supplies but VDDVARIO or keeps them
+all up.
+Anyway, I'll leave it running sleep/resume/ping cycle overnight to see in the
+morning what have burned :)
 
-> No, the cost of the IPIs hasn't been an issue for us performance-wise.
->  We are using them extensively-- up to one per core per device
-> interrupt.
 
-Ok, so you are not going across cores then? I wonder if there's
-some new optimization to reduce IPI latency  when both sender/receiver
-reside on the same core? 
 
-> We're calling __smp_call_function_single which is asynchronous in that
-> the caller provides the call structure and there is not waiting for
-> the IPI to complete.  A flag is used with each call structure that is
-> set when the IPI is in progress, this prevents simultaneous use of a
-> call structure.
+> Daniel
 
-It is possible that is just an abstraction hiding the details..
-AFAIK, IPIs are synchronous. Remote has to ack with another IPI 
-while the issuing cpu waits for ack IPI and then returns.
 
-> I haven't seen any architectural specific issues with the IPIs, I
-> believe they are completing in < 2 usecs on platforms we're running
-> (some opteron systems that are over 3yrs old).
-
-2 usecs aint bad (at 10G you only accumulate a few packets while
-stalled). I think we saw much higher values.
-I was asking on different architectures because I have tried something
-equivalent as recent as 2 years back on a MIPS multicore and the
-forwarding results were horrible. 
-IPIs flush the processor pipeline so they aint cheap - but that may
-vary depending on the architecture. Someone more knowledgeable should
-be able to give better insights.
-My suspicion is that with low transaction rate (with appropriate traffic
-patterns) you will see a very much increased latency since you will 
-be sending more IPIs..
-
-cheers,
-jamal
+-- 
+Sincerely yours,
+Mike.
 
