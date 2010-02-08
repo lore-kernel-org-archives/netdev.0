@@ -1,7 +1,7 @@
 From: Jan Kiszka <jan.kiszka@web.de>
-Subject: [PATCH v2 35/41] CAPI: Drop capiminor's unused inbytes counter
-Date: Mon,  8 Feb 2010 21:12:39 +0100
-Message-ID: <c2381f3c677d3c9b632e87d62e7963d0f62c7ba4.1265659936.git.jan.kiszka@web.de>
+Subject: [PATCH v2 33/41] CAPI: Rename datahandle_queue -> ackqueue_entry
+Date: Mon,  8 Feb 2010 21:12:37 +0100
+Message-ID: <88d410350e34403b4ea8650de90a524b3995690a.1265659936.git.jan.kiszka@web.de>
 References: <cover.1265659933.git.jan.kiszka@web.de>
 Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
 	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org,
@@ -10,62 +10,63 @@ Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
 To: David Miller <davem@davemloft.net>,
 	Karsten Keil <isdn@linux-pingi.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate02.web.de ([217.72.192.227]:43445 "EHLO
+Received: from fmmailgate02.web.de ([217.72.192.227]:43412 "EHLO
 	fmmailgate02.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754977Ab0BHUNP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 15:13:15 -0500
+	with ESMTP id S1754708Ab0BHUNO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 15:13:14 -0500
 In-Reply-To: <cover.1265659933.git.jan.kiszka@web.de>
 In-Reply-To: <cover.1265659933.git.jan.kiszka@web.de>
 References: <cover.1265659933.git.jan.kiszka@web.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The inbytes counter was only updated but never read.
+This struct is describing a queue entry, not the queue itself.
 
 Signed-off-by: Jan Kiszka <jan.kiszka@web.de>
 ---
- drivers/isdn/capi/capi.c |   10 +++-------
- 1 files changed, 3 insertions(+), 7 deletions(-)
+ drivers/isdn/capi/capi.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/isdn/capi/capi.c b/drivers/isdn/capi/capi.c
-index 08d5a8a..be85c8c 100644
+index c5c54fa..9d4750a 100644
 --- a/drivers/isdn/capi/capi.c
 +++ b/drivers/isdn/capi/capi.c
-@@ -98,7 +98,6 @@ struct capiminor {
- 	struct sk_buff    *ttyskb;
+@@ -76,7 +76,7 @@ struct capidev;
+ struct capincci;
+ struct capiminor;
  
- 	struct sk_buff_head inqueue;
--	int                 inbytes;
- 	struct sk_buff_head outqueue;
- 	int                 outbytes;
+-struct datahandle_queue {
++struct ackqueue_entry {
+ 	struct list_head	list;
+ 	u16			datahandle;
+ };
+@@ -156,7 +156,7 @@ static struct tty_driver *capinc_tty_driver;
  
-@@ -520,15 +519,12 @@ deref_tty:
- static void handle_minor_recv(struct capiminor *mp)
+ static int capiminor_add_ack(struct capiminor *mp, u16 datahandle)
  {
- 	struct sk_buff *skb;
--	while ((skb = skb_dequeue(&mp->inqueue)) != NULL) {
--		unsigned int len = skb->len;
--		mp->inbytes -= len;
-+
-+	while ((skb = skb_dequeue(&mp->inqueue)) != NULL)
- 		if (handle_recv_skb(mp, skb) < 0) {
- 			skb_queue_head(&mp->inqueue, skb);
--			mp->inbytes += len;
- 			return;
- 		}
--	}
- }
+-	struct datahandle_queue *n;
++	struct ackqueue_entry *n;
+ 	unsigned long flags;
  
- static int handle_minor_send(struct capiminor *mp)
-@@ -659,7 +655,7 @@ static void capi_recv_message(struct capi20_appl *ap, struct sk_buff *skb)
- 				datahandle, skb->len-CAPIMSG_LEN(skb->data));
- #endif
- 		skb_queue_tail(&mp->inqueue, skb);
--		mp->inbytes += skb->len;
-+
- 		handle_minor_recv(mp);
+ 	n = kmalloc(sizeof(*n), GFP_ATOMIC);
+@@ -175,7 +175,7 @@ static int capiminor_add_ack(struct capiminor *mp, u16 datahandle)
  
- 	} else if (CAPIMSG_SUBCOMMAND(skb->data) == CAPI_CONF) {
+ static int capiminor_del_ack(struct capiminor *mp, u16 datahandle)
+ {
+-	struct datahandle_queue *p, *tmp;
++	struct ackqueue_entry *p, *tmp;
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&mp->ackqlock, flags);
+@@ -194,7 +194,7 @@ static int capiminor_del_ack(struct capiminor *mp, u16 datahandle)
+ 
+ static void capiminor_del_all_ack(struct capiminor *mp)
+ {
+-	struct datahandle_queue *p, *tmp;
++	struct ackqueue_entry *p, *tmp;
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&mp->ackqlock, flags);
 -- 
 1.6.0.2
 
