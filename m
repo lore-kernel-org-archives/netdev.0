@@ -1,75 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: MAX_SKB_FRAGS and GRO
-Date: Mon, 8 Feb 2010 23:47:04 +1100
-Message-ID: <20100208124704.GA8538@gondor.apana.org.au>
-References: <20100208100306.GQ32246@kryten>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC 3/4] bond: support more Layer 4 protocols
+Date: Mon, 08 Feb 2010 14:11:37 +0100
+Message-ID: <4B700D89.2080303@trash.net>
+References: <20100204171118.917737392@vyatta.com>	<20100204171241.393163298@vyatta.com>	<4B6BF50D.9060603@trash.net> <20100205084240.0bd895ab@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	John Ronciak <john.ronciak@intel.com>, divy@chelsio.com,
-	netdev@vger.kernel.org
-To: Anton Blanchard <anton@samba.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:49855 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751300Ab0BHMrT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 07:47:19 -0500
-Content-Disposition: inline
-In-Reply-To: <20100208100306.GQ32246@kryten>
+Received: from stinky.trash.net ([213.144.137.162]:33966 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751364Ab0BHNLl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 08:11:41 -0500
+In-Reply-To: <20100205084240.0bd895ab@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 08, 2010 at 09:03:07PM +1100, Anton Blanchard wrote:
+Stephen Hemminger wrote:
+> On Fri, 05 Feb 2010 11:38:05 +0100
+> Patrick McHardy <kaber@trash.net> wrote:
 > 
-> I was looking through the hardware GRO support in various drivers and I think
-> we have a couple of issues with PAGE_SIZE > 4k. For example, if we have a 64kB
-> page size then MAX_SKB_FRAGS ends up as 3:
+>> Stephen Hemminger wrote:
+>>> +/* Map of protocols with standard ports available to include in hash */
+>>> +static const bool has_layer4[256] = {
+>>> +	[IPPROTO_TCP] = 1,
+>>> +	[IPPROTO_UDP] = 1,
+>>> +	[IPPROTO_UDPLITE] = 1,
+>>> +	[IPPROTO_SCTP] = 1,
+>>> +	[IPPROTO_DCCP] = 1,
+>>> +	[IPPROTO_ESP] = 1,
+>>> +};
+>>> +
+>> How about using a bitmap or u8s to keep this more compact?
 > 
-> #define MAX_SKB_FRAGS (65536/PAGE_SIZE + 2)
-> 
-> This should be fine for hardware and software GSO, but we encounter issues
-> with hardware GRO (not sure about software GRO).
-> 
-> In the ixgbe case we use MAX_SKB_FRAGS to program the max number of GRO
-> descriptors, even though we assemble GRO packets using ->frag_list:
-> 
-> #if (MAX_SKB_FRAGS > 16)
->                 rscctrl |= IXGBE_RSCCTL_MAXDESC_16;
-> #elif (MAX_SKB_FRAGS > 8)
->                 rscctrl |= IXGBE_RSCCTL_MAXDESC_8;
-> #elif (MAX_SKB_FRAGS > 4)
->                 rscctrl |= IXGBE_RSCCTL_MAXDESC_4;
-> #else
->                 rscctrl |= IXGBE_RSCCTL_MAXDESC_1;
-> #endif
+> I thought about that, but couldn't find a clever way to initialize at
+> compile time other than hardcoding constants?
 
-First of all this isn't GRO, but RSC.  With GRO we impose extra
-restrictions on what packets can be merged while RSC is more
-permissive.
+Maybe an __init function with a couple of set_bit() calls?
+Otherwise I'd suggest to simply use u8.
 
-In fact I think the ixgbe code may be broken as it is since it's
-not marking RSC packets in any way to prevent them from being
-forwarded through another interface.
-
-As to your problem with RSC on a 64K page system, I'm sure one
-of the Intel developers would be able to help you out.
- 
-> Thinking out aloud, would setting a pessimistic value for MAX_SKB_FRAGS
-> be one way to fix this? ie:
-> 
-> #define MAX_SKB_FRAGS (65536/4096 + 2)
-
-While I can't think of any serious issues with this, as this is
-an entirely ixgbe-specific problem, the fix should probably stay
-there.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
