@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 03/05: nf_conntrack: restrict runtime expect hashsize modifications
-Date: Mon,  8 Feb 2010 18:10:29 +0100 (MET)
-Message-ID: <20100208171028.15522.50410.sendpatchset@x2.localnet>
+Subject: netfilter 04/05: xtables: compat out of scope fix
+Date: Mon,  8 Feb 2010 18:10:31 +0100 (MET)
+Message-ID: <20100208171029.15522.33495.sendpatchset@x2.localnet>
 References: <20100208171024.15522.8136.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
@@ -11,30 +11,74 @@ In-Reply-To: <20100208171024.15522.8136.sendpatchset@x2.localnet>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-commit 38c7233b287481dfb3327dde136801ce500aba58
+commit dab1531a07ad7c5be4ebe715a3d08742f0c638e3
 Author: Alexey Dobriyan <adobriyan@gmail.com>
-Date:   Thu Feb 4 18:24:06 2010 +0100
+Date:   Mon Feb 8 15:44:07 2010 +0100
 
-    netfilter: nf_conntrack: restrict runtime expect hashsize modifications
+    netfilter: xtables: compat out of scope fix
     
-    Expectation hashtable size was simply glued to a variable with no code
-    to rehash expectations, so it was a bug to allow writing to it.
-    Make "expect_hashsize" readonly.
+    As per C99 6.2.4(2) when temporary table data goes out of scope,
+    the behaviour is undefined:
+    
+    	if (compat) {
+    		struct foo tmp;
+    		...
+    		private = &tmp;
+    	}
+    	[dereference private]
     
     Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
     Cc: stable@kernel.org
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
-index fdf5d2a..4ad7d1d 100644
---- a/net/netfilter/nf_conntrack_expect.c
-+++ b/net/netfilter/nf_conntrack_expect.c
-@@ -569,7 +569,7 @@ static void exp_proc_remove(struct net *net)
- #endif /* CONFIG_PROC_FS */
- }
- 
--module_param_named(expect_hashsize, nf_ct_expect_hsize, uint, 0600);
-+module_param_named(expect_hashsize, nf_ct_expect_hsize, uint, 0400);
- 
- int nf_conntrack_expect_init(struct net *net)
- {
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index 0663276..90203e1 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -925,10 +925,10 @@ static int get_info(struct net *net, void __user *user, int *len, int compat)
+ 	if (t && !IS_ERR(t)) {
+ 		struct arpt_getinfo info;
+ 		const struct xt_table_info *private = t->private;
+-
+ #ifdef CONFIG_COMPAT
++		struct xt_table_info tmp;
++
+ 		if (compat) {
+-			struct xt_table_info tmp;
+ 			ret = compat_table_info(private, &tmp);
+ 			xt_compat_flush_offsets(NFPROTO_ARP);
+ 			private = &tmp;
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 572330a..3ce53cf 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -1132,10 +1132,10 @@ static int get_info(struct net *net, void __user *user, int *len, int compat)
+ 	if (t && !IS_ERR(t)) {
+ 		struct ipt_getinfo info;
+ 		const struct xt_table_info *private = t->private;
+-
+ #ifdef CONFIG_COMPAT
++		struct xt_table_info tmp;
++
+ 		if (compat) {
+-			struct xt_table_info tmp;
+ 			ret = compat_table_info(private, &tmp);
+ 			xt_compat_flush_offsets(AF_INET);
+ 			private = &tmp;
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 480d7f8..8a7e0f5 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -1164,10 +1164,10 @@ static int get_info(struct net *net, void __user *user, int *len, int compat)
+ 	if (t && !IS_ERR(t)) {
+ 		struct ip6t_getinfo info;
+ 		const struct xt_table_info *private = t->private;
+-
+ #ifdef CONFIG_COMPAT
++		struct xt_table_info tmp;
++
+ 		if (compat) {
+-			struct xt_table_info tmp;
+ 			ret = compat_table_info(private, &tmp);
+ 			xt_compat_flush_offsets(AF_INET6);
+ 			private = &tmp;
