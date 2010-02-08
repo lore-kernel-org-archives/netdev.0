@@ -1,65 +1,32 @@
-From: Mattias =?utf-8?Q?R=C3=B6nnblom?= <hofors@lysator.liu.se>
-Subject: VLAN egress performance
-Date: Mon, 08 Feb 2010 13:24:44 +0100
-Message-ID: <87wrynrk37.fsf@isengard.friendlyfire.se>
+From: Steve.Glendinning@smsc.com
+Subject: Re: smsc911x suspend/resume
+Date: Mon, 8 Feb 2010 12:27:50 +0000
+Message-ID: <OFF34C9E86.0CCFA0E8-ON802576C4.0041FE48-802576C4.00447BBD@smsc.com>
+References: <20100208115316.GA28972@buzzloop.caiaq.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: davem@davemloft.net, Ian.Saturley@smsc.com,
+	LAKML <linux-arm-kernel@lists.infradead.org>,
+	Mike Rapoport <mike@compulab.co.il>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, Vlad.Lyalikov@smsc.com
+To: Daniel Mack <daniel@caiaq.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.lysator.liu.se ([130.236.254.3]:37542 "EHLO
-	mail.lysator.liu.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750956Ab0BHMYp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 07:24:45 -0500
-Received: from mail.lysator.liu.se (localhost [127.0.0.1])
-	by mail.lysator.liu.se (Postfix) with ESMTP id 79CA340016
-	for <netdev@vger.kernel.org>; Mon,  8 Feb 2010 13:22:59 +0100 (CET)
-Received: from fritz.lysator.liu.se (fritz.lysator.liu.se [130.236.254.179])
-	by mail.lysator.liu.se (Postfix) with ESMTP id 35E2E40016
-	for <netdev@vger.kernel.org>; Mon,  8 Feb 2010 13:22:59 +0100 (CET)
+Received: from mail.smsc.com ([170.129.50.11]:57377 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750780Ab0BHM2M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Feb 2010 07:28:12 -0500
+In-Reply-To: <20100208115316.GA28972@buzzloop.caiaq.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+> > I don't have the code in front of me (I'm travelling today) but IIRC
+> > the driver doesn't place the LAN9220 in a specific power saving state,
+> > so as far as the LAN9220 is concerned it's not actually suspended.
+> 
+> It does, I added that awhile back in b6907b0c7. But as I say, this is
+> currently hard-coded to D1, and if support for D2 is desired, we would
+> need to make that a platform data option.
 
-I'm running Linux on PC w/ a Core i7 CPU and two Intel 82598 NICs, and
-I see some anomalies when it comes to egress VLAN performance. I
-thought maybe someone on this list was interested in my results.
+You're right, and I should remember as I reviewed it!
 
-I'm running the stock Ubuntu 2.6.31 kernel, but with a newer ixgbe
-driver (2.0.44.14).
-
-The benchmark is IP forwarding with unidirectional UDP flows @ 64 byte
-packets, and I get:
-
-Ingress VLAN  Egress VLAN  Packet Rate    CPU utilization (all cores)
-No            No           5.0 Mpacket/s  ~70%
-Yes           No           5.0 Mpacket/s  ~75%
-No            Yes          1.4 Mpacket/s  ~26%
-Yes           Yes          1.3 Mpacket/s  ~26%
-
-"VLAN" here mean I've put a VLAN device on top of the real ixgbe
-device.
-
-As you can see, if the egress i/f is a VLAN i/f, the performance is
-reduced to less than a third. And in the case of egress VLAN, the
-systems basically only uses one HW thread (with a softirqd process
-taking up all the time).
-
-Enabling lockdep, it looks like execution is serialized to a large
-extent by contention around the "vlan_netdev_xmit_lock_key" lock.
-
-I call this anomaly because I was surprised to see it (as oppose to
-other performance degradations/scalability issues in the area of
-multicore and IP traffic handling performance).
-
-Does anyone know how difficult it would be to resolve this?  There's
-not actually any synchronization needed between the different cores in
-the case of VLAN. Correct? This is just an artefact of how the
-implementation is done?
-
-I looked briefly at the code, and I must admit I had some trouble
-understanding where the flow in terms of locking.
-
-Best regards,
-     Mattias
+Steve
