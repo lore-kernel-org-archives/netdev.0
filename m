@@ -1,96 +1,110 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 01/05: nf_conntrack: fix memory corruption with multiple namespaces
-Date: Mon,  8 Feb 2010 18:10:27 +0100 (MET)
-Message-ID: <20100208171025.15522.74.sendpatchset@x2.localnet>
-References: <20100208171024.15522.8136.sendpatchset@x2.localnet>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org
-To: davem@davemloft.net
+From: Ed Swierk <eswierk@aristanetworks.com>
+Subject: Re: [PATCH 0/3 v4] macvtap driver
+Date: Mon, 8 Feb 2010 09:14:50 -0800
+Message-ID: <9ae48b021002080914j2811e7cejd1c29aa3653ba8de@mail.gmail.com>
+References: <201001271104.20607.arnd@arndb.de>
+	 <201001302322.15237.arnd@arndb.de>
+	 <20100203.202104.151098461.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:38900 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754021Ab0BHRK2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 12:10:28 -0500
-In-Reply-To: <20100208171024.15522.8136.sendpatchset@x2.localnet>
+Received: from mail-ew0-f228.google.com ([209.85.219.228]:35318 "EHLO
+	mail-ew0-f228.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753574Ab0BHROz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 12:14:55 -0500
+Received: by ewy28 with SMTP id 28so2753018ewy.28
+        for <netdev@vger.kernel.org>; Mon, 08 Feb 2010 09:14:53 -0800 (PST)
+In-Reply-To: <20100203.202104.151098461.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 056ff3e3bd1563969a311697323ff929df94415c
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed Feb 3 12:58:06 2010 +0100
+> From: Arnd Bergmann <arnd@arndb.de>
+> Date: Sat, 30 Jan 2010 23:22:15 +0100
+>
+>> This is the fourth version of the macvtap driver,
+>> based on the comments I got for the last version
+>> I got a few days ago. Very few changes:
+>>
+>> * release netdev in chardev open function so
+>> =A0 we can destroy it properly.
+>> * Implement TUNSETSNDBUF
+>> * fix sleeping call in rcu_read_lock
+>> * Fix comment in namespace isolation patch
+>> * Fix small context difference to make it apply
+>> =A0 to net-next
+>>
+>> I can't really test here while travelling, so please
+>> give it a go if you're interested in this driver.
 
-    netfilter: nf_conntrack: fix memory corruption with multiple namespaces
-    
-    As discovered by Jon Masters <jonathan@jonmasters.org>, the "untracked"
-    conntrack, which is located in the data section, might be accidentally
-    freed when a new namespace is instantiated while the untracked conntrack
-    is attached to a skb because the reference count it re-initialized.
-    
-    The best fix would be to use a seperate untracked conntrack per
-    namespace since it includes a namespace pointer. Unfortunately this is
-    not possible without larger changes since the namespace is not easily
-    available everywhere we need it. For now move the untracked conntrack
-    initialization to the init_net setup function to make sure the reference
-    count is not re-initialized and handle cleanup in the init_net cleanup
-    function to make sure namespaces can exit properly while the untracked
-    conntrack is in use in other namespaces.
-    
-    Cc: stable@kernel.org
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+I'm seeing complaints from might_sleep():
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 0e98c32..37e2b88 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1113,6 +1113,10 @@ static void nf_ct_release_dying_list(struct net *net)
- 
- static void nf_conntrack_cleanup_init_net(void)
- {
-+	/* wait until all references to nf_conntrack_untracked are dropped */
-+	while (atomic_read(&nf_conntrack_untracked.ct_general.use) > 1)
-+		schedule();
-+
- 	nf_conntrack_helper_fini();
- 	nf_conntrack_proto_fini();
- 	kmem_cache_destroy(nf_conntrack_cachep);
-@@ -1127,9 +1131,6 @@ static void nf_conntrack_cleanup_net(struct net *net)
- 		schedule();
- 		goto i_see_dead_people;
- 	}
--	/* wait until all references to nf_conntrack_untracked are dropped */
--	while (atomic_read(&nf_conntrack_untracked.ct_general.use) > 1)
--		schedule();
- 
- 	nf_ct_free_hashtable(net->ct.hash, net->ct.hash_vmalloc,
- 			     nf_conntrack_htable_size);
-@@ -1288,6 +1289,14 @@ static int nf_conntrack_init_init_net(void)
- 	if (ret < 0)
- 		goto err_helper;
- 
-+	/* Set up fake conntrack: to never be deleted, not in any hashes */
-+#ifdef CONFIG_NET_NS
-+	nf_conntrack_untracked.ct_net = &init_net;
-+#endif
-+	atomic_set(&nf_conntrack_untracked.ct_general.use, 1);
-+	/*  - and look it like as a confirmed connection */
-+	set_bit(IPS_CONFIRMED_BIT, &nf_conntrack_untracked.status);
-+
- 	return 0;
- 
- err_helper:
-@@ -1333,15 +1342,6 @@ static int nf_conntrack_init_net(struct net *net)
- 	if (ret < 0)
- 		goto err_ecache;
- 
--	/* Set up fake conntrack:
--	    - to never be deleted, not in any hashes */
--#ifdef CONFIG_NET_NS
--	nf_conntrack_untracked.ct_net = &init_net;
--#endif
--	atomic_set(&nf_conntrack_untracked.ct_general.use, 1);
--	/*  - and look it like as a confirmed connection */
--	set_bit(IPS_CONFIRMED_BIT, &nf_conntrack_untracked.status);
--
- 	return 0;
- 
- err_ecache:
+=46eb  8 16:21:06 ti102 kernel: BUG: sleeping function called from
+invalid context at include/linux/kernel.h:155
+=46eb  8 16:21:06 ti102 kernel: in_atomic(): 1, irqs_disabled(): 0, pid=
+:
+2881, name: qemu-kvm
+=46eb  8 16:21:06 ti102 kernel: Pid: 2881, comm: qemu-kvm Not tainted
+2.6.29.6.Ar-224527.2009eswierk8 #1
+=46eb  8 16:21:06 ti102 kernel: Call Trace:
+=46eb  8 16:21:06 ti102 kernel: [<c0119250>] __might_sleep+0xdc/0xe3
+=46eb  8 16:21:06 ti102 kernel: [<c0210f7c>] copy_to_user+0x36/0x106
+=46eb  8 16:21:06 ti102 kernel: [<c02af568>] memcpy_toiovec+0x2c/0x50
+=46eb  8 16:21:06 ti102 kernel: [<c02afbb3>] skb_copy_datagram_iovec+0x=
+47/0x184
+=46eb  8 16:21:06 ti102 kernel: [<c034bd07>] ? _spin_unlock_irqrestore+=
+0x17/0x2c
+=46eb  8 16:21:06 ti102 kernel: [<f829a776>]
+macvtap_aio_read+0x102/0x158 [macvtap]
+=46eb  8 16:21:06 ti102 kernel: [<c011eaf7>] ? default_wake_function+0x=
+0/0xd
+=46eb  8 16:21:06 ti102 kernel: [<c016c75f>] do_sync_read+0xab/0xe9
+=46eb  8 16:21:06 ti102 kernel: [<c0133933>] ? autoremove_wake_function=
++0x0/0x33
+=46eb  8 16:21:06 ti102 kernel: [<c019211f>] ? eventfd_read+0x121/0x156
+=46eb  8 16:21:06 ti102 kernel: [<c011eaf7>] ? default_wake_function+0x=
+0/0xd
+=46eb  8 16:21:06 ti102 kernel: [<c016d101>] vfs_read+0xb5/0x129
+=46eb  8 16:21:06 ti102 kernel: [<c016d20e>] sys_read+0x3b/0x60
+=46eb  8 16:21:06 ti102 kernel: [<c0102e71>] sysenter_do_call+0x12/0x25
+
+=46eb  8 16:21:08 ti102 kernel: BUG: sleeping function called from
+invalid context at include/linux/kernel.h:155
+=46eb  8 16:21:08 ti102 kernel: in_atomic(): 1, irqs_disabled(): 0, pid=
+:
+2882, name: qemu-kvm
+=46eb  8 16:21:08 ti102 kernel: Pid: 2882, comm: qemu-kvm Not tainted
+2.6.29.6.Ar-224527.2009eswierk8 #1
+=46eb  8 16:21:08 ti102 kernel: Call Trace:
+=46eb  8 16:21:08 ti102 kernel: [<c0119250>] __might_sleep+0xdc/0xe3
+=46eb  8 16:21:08 ti102 kernel: [<c0210e5f>] copy_from_user+0x34/0x11b
+=46eb  8 16:21:08 ti102 kernel: [<c02af388>] memcpy_fromiovec+0x2c/0x50
+=46eb  8 16:21:08 ti102 kernel: [<c02afa30>]
+skb_copy_datagram_from_iovec+0x47/0x183
+=46eb  8 16:21:08 ti102 kernel: [<f829a618>]
+macvtap_aio_write+0xaa/0x106 [macvtap]
+=46eb  8 16:21:08 ti102 kernel: [<c034a553>] ? mutex_unlock+0x8/0xa
+=46eb  8 16:21:08 ti102 kernel: [<c016c58d>] do_sync_readv_writev+0xa1/=
+0xdf
+=46eb  8 16:21:08 ti102 kernel: [<c0133933>] ? autoremove_wake_function=
++0x0/0x33
+=46eb  8 16:21:08 ti102 kernel: [<c016c44f>] ? rw_copy_check_uvector+0x=
+5b/0xc3
+=46eb  8 16:21:08 ti102 kernel: [<c016cbec>] do_readv_writev+0x82/0x165
+=46eb  8 16:21:08 ti102 kernel: [<f829a56e>] ?
+macvtap_aio_write+0x0/0x106 [macvtap]
+=46eb  8 16:21:08 ti102 kernel: [<c0177461>] ? do_vfs_ioctl+0x4a3/0x4dc
+=46eb  8 16:21:08 ti102 kernel: [<c0112d83>] ? read_hpet+0xf/0x13
+=46eb  8 16:21:08 ti102 kernel: [<c016cd1e>] vfs_writev+0x4f/0x6b
+=46eb  8 16:21:08 ti102 kernel: [<c016cd75>] sys_writev+0x3b/0x60
+=46eb  8 16:21:08 ti102 kernel: [<c0102e71>] sysenter_do_call+0x12/0x25
+
+I backported your patch to kernel 2.6.29.6, an i386 kernel with
+CONFIG_PREEMPT=3Dy and CONFIG_CLASSIC_RCU=3Dy. It's entirely possible t=
+hat
+I screwed something up in the backport; I can post my modified patch
+if it would help.
+
+--Ed
