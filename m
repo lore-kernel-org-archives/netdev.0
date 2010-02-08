@@ -1,41 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC]: xfrm by mark
-Date: Mon, 08 Feb 2010 16:00:33 +0100
-Message-ID: <4B702711.6080800@trash.net>
-References: <1265567522.3688.27.camel@bigi>  <4B701204.6000106@trash.net> <1265641110.3688.45.camel@bigi>
+From: Andreas Petlund <apetlund@simula.no>
+Subject: [net-next PATCH v2 1/3] net: TCP thin-stream detection
+Date: Mon, 08 Feb 2010 15:25:32 +0100
+Message-ID: <4B701EDC.7040109@simula.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
+	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
 	David Miller <davem@davemloft.net>,
-	=?ISO-8859-15?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>,
-	netdev@vger.kernel.org
-To: hadi@cyberus.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36431 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752389Ab0BHPAj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 10:00:39 -0500
-In-Reply-To: <1265641110.3688.45.camel@bigi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	william.allen.simpson@gmail.com
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Mon, 2010-02-08 at 14:30 +0100, Patrick McHardy wrote:
-> 
->> If you simply add the mark to the lookup key, it will break
->> existing setups already using marks. I'd suggest to also add
->> a mask which is initialized to 0 when no mark attribute is
->> present.
-> 
-> Good point - better safe than sorry (especially after the havoc
-> that ingress mark caused;->)
-> 
-> Would it be easier to just add a global sysctl with default being
-> "dont use marks"? It will be less memory use than a 32-bit mask per
-> mark..
+Major change: Stopped stream from being detected as thin if in initial slow-start
 
-I'd prefer masks since the mark size is pretty small and its already
-quite complicated to fit everything in 32 bit in complex setups.
-We also support masks everywhere else (I believe) for mark values
-nowadays.
+>From 1c448f7c65a016ded7eedd44fe74874e5b3cdbc0 Mon Sep 17 00:00:00 2001
+From: Andreas Petlund <apetlund@simula.no>
+Date: Mon, 8 Feb 2010 14:05:24 +0100
+Subject: [PATCH 1/3] net: TCP thin-stream detection
+
+
+Signed-off-by: Andreas Petlund <apetlund@simula.no>
+---
+ include/net/tcp.h |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 87d164b..e5e2056 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1386,6 +1386,13 @@ static inline void tcp_highest_sack_combine(struct sock *sk,
+ 		tcp_sk(sk)->highest_sack = new;
+ }
+ 
++/* Determines whether this is a thin stream (which may suffer from
++ * increased latency). Used to trigger latency-reducing mechanisms.*/
++static inline unsigned int tcp_stream_is_thin(struct tcp_sock *tp)
++{
++	return tp->packets_out < 4 && !tcp_in_initial_slowstart(tp);
++}
++
+ /* /proc */
+ enum tcp_seq_states {
+ 	TCP_SEQ_STATE_LISTENING,
+-- 
+1.6.3.3
