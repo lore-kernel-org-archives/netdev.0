@@ -1,7 +1,7 @@
 From: Jan Kiszka <jan.kiszka@web.de>
-Subject: [PATCH v2 33/41] CAPI: Rename datahandle_queue -> ackqueue_entry
-Date: Mon,  8 Feb 2010 21:12:37 +0100
-Message-ID: <88d410350e34403b4ea8650de90a524b3995690a.1265659936.git.jan.kiszka@web.de>
+Subject: [PATCH v2 32/41] CAPI: Rework capiminor RX handler
+Date: Mon,  8 Feb 2010 21:12:36 +0100
+Message-ID: <986a5c803a1c55bd0d7d721024a471fbe43953c9.1265659936.git.jan.kiszka@web.de>
 References: <cover.1265659933.git.jan.kiszka@web.de>
 Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
 	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org,
@@ -10,9 +10,9 @@ Cc: linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
 To: David Miller <davem@davemloft.net>,
 	Karsten Keil <isdn@linux-pingi.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate02.web.de ([217.72.192.227]:43412 "EHLO
+Received: from fmmailgate02.web.de ([217.72.192.227]:43397 "EHLO
 	fmmailgate02.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754708Ab0BHUNO (ORCPT
+	with ESMTP id S1754333Ab0BHUNO (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 15:13:14 -0500
 In-Reply-To: <cover.1265659933.git.jan.kiszka@web.de>
 In-Reply-To: <cover.1265659933.git.jan.kiszka@web.de>
@@ -20,53 +20,124 @@ References: <cover.1265659933.git.jan.kiszka@web.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This struct is describing a queue entry, not the queue itself.
+Avoid re-queuing skbs unless the error detected in handle_recv_skb is
+expected to be recoverable such as lacking memory, a full CAPI queue, a
+full TTY input buffer, or a not yet existing TTY.
 
 Signed-off-by: Jan Kiszka <jan.kiszka@web.de>
 ---
- drivers/isdn/capi/capi.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/isdn/capi/capi.c |   60 +++++++++++++++++++++++++++++-----------------
+ 1 files changed, 38 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/isdn/capi/capi.c b/drivers/isdn/capi/capi.c
-index c5c54fa..9d4750a 100644
+index 554fa1b..c5c54fa 100644
 --- a/drivers/isdn/capi/capi.c
 +++ b/drivers/isdn/capi/capi.c
-@@ -76,7 +76,7 @@ struct capidev;
- struct capincci;
- struct capiminor;
+@@ -436,15 +436,13 @@ gen_data_b3_resp_for(struct capiminor *mp, struct sk_buff *skb)
  
--struct datahandle_queue {
-+struct ackqueue_entry {
- 	struct list_head	list;
- 	u16			datahandle;
- };
-@@ -156,7 +156,7 @@ static struct tty_driver *capinc_tty_driver;
- 
- static int capiminor_add_ack(struct capiminor *mp, u16 datahandle)
+ static int handle_recv_skb(struct capiminor *mp, struct sk_buff *skb)
  {
--	struct datahandle_queue *n;
-+	struct ackqueue_entry *n;
- 	unsigned long flags;
++	unsigned int datalen = skb->len - CAPIMSG_LEN(skb->data);
+ 	struct tty_struct *tty;
+ 	struct sk_buff *nskb;
+-	int datalen;
+ 	u16 errcode, datahandle;
+ 	struct tty_ldisc *ld;
+ 	int ret = -1;
  
- 	n = kmalloc(sizeof(*n), GFP_ATOMIC);
-@@ -175,7 +175,7 @@ static int capiminor_add_ack(struct capiminor *mp, u16 datahandle)
+-	datalen = skb->len - CAPIMSG_LEN(skb->data);
+-
+ 	tty = tty_port_tty_get(&mp->port);
+ 	if (!tty) {
+ #ifdef _DEBUG_DATAFLOW
+@@ -454,50 +452,68 @@ static int handle_recv_skb(struct capiminor *mp, struct sk_buff *skb)
+ 	}
+ 	
+ 	ld = tty_ldisc_ref(tty);
+-	if (!ld)
+-		goto out1;
++	if (!ld) {
++		/* fatal error, do not requeue */
++		ret = 0;
++		kfree_skb(skb);
++		goto deref_tty;
++	}
  
- static int capiminor_del_ack(struct capiminor *mp, u16 datahandle)
- {
--	struct datahandle_queue *p, *tmp;
-+	struct ackqueue_entry *p, *tmp;
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&mp->ackqlock, flags);
-@@ -194,7 +194,7 @@ static int capiminor_del_ack(struct capiminor *mp, u16 datahandle)
- 
- static void capiminor_del_all_ack(struct capiminor *mp)
- {
--	struct datahandle_queue *p, *tmp;
-+	struct ackqueue_entry *p, *tmp;
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&mp->ackqlock, flags);
+ 	if (ld->ops->receive_buf == NULL) {
+ #if defined(_DEBUG_DATAFLOW) || defined(_DEBUG_TTYFUNCS)
+ 		printk(KERN_DEBUG "capi: ldisc has no receive_buf function\n");
+ #endif
+-		goto out2;
++		/* fatal error, do not requeue */
++		goto free_skb;
+ 	}
+ 	if (mp->ttyinstop) {
+ #if defined(_DEBUG_DATAFLOW) || defined(_DEBUG_TTYFUNCS)
+ 		printk(KERN_DEBUG "capi: recv tty throttled\n");
+ #endif
+-		goto out2;
++		goto deref_ldisc;
+ 	}
++
+ 	if (tty->receive_room < datalen) {
+ #if defined(_DEBUG_DATAFLOW) || defined(_DEBUG_TTYFUNCS)
+ 		printk(KERN_DEBUG "capi: no room in tty\n");
+ #endif
+-		goto out2;
++		goto deref_ldisc;
+ 	}
+-	if ((nskb = gen_data_b3_resp_for(mp, skb)) == NULL) {
++
++	nskb = gen_data_b3_resp_for(mp, skb);
++	if (!nskb) {
+ 		printk(KERN_ERR "capi: gen_data_b3_resp failed\n");
+-		goto out2;
++		goto deref_ldisc;
+ 	}
+-	datahandle = CAPIMSG_U16(skb->data,CAPIMSG_BASELEN+4);
++
++	datahandle = CAPIMSG_U16(skb->data, CAPIMSG_BASELEN + 4);
++
+ 	errcode = capi20_put_message(mp->ap, nskb);
+-	if (errcode != CAPI_NOERROR) {
++
++	if (errcode == CAPI_NOERROR) {
++		skb_pull(skb, CAPIMSG_LEN(skb->data));
++#ifdef _DEBUG_DATAFLOW
++		printk(KERN_DEBUG "capi: DATA_B3_RESP %u len=%d => ldisc\n",
++					datahandle, skb->len);
++#endif
++		ld->ops->receive_buf(tty, skb->data, NULL, skb->len);
++	} else {
+ 		printk(KERN_ERR "capi: send DATA_B3_RESP failed=%x\n",
+ 				errcode);
+ 		kfree_skb(nskb);
+-		goto out2;
++
++		if (errcode == CAPI_SENDQUEUEFULL)
++			goto deref_ldisc;
+ 	}
+-	(void)skb_pull(skb, CAPIMSG_LEN(skb->data));
+-#ifdef _DEBUG_DATAFLOW
+-	printk(KERN_DEBUG "capi: DATA_B3_RESP %u len=%d => ldisc\n",
+-				datahandle, skb->len);
+-#endif
+-	ld->ops->receive_buf(tty, skb->data, NULL, skb->len);
+-	kfree_skb(skb);
++
++free_skb:
+ 	ret = 0;
+-out2:
++	kfree_skb(skb);
++
++deref_ldisc:
+ 	tty_ldisc_deref(ld);
+-out1:
++
++deref_tty:
+ 	tty_kref_put(tty);
+ 	return ret;
+ }
 -- 
 1.6.0.2
 
