@@ -1,70 +1,100 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-2.6] sfc: Fix SFE4002 initialisation
-Date: Tue, 09 Feb 2010 15:52:57 +0000
-Message-ID: <1265730777.2126.110.camel@achroite.uk.solarflarecom.com>
+From: John Linn <John.Linn@xilinx.com>
+Subject: RE: [PATCH] [V2] net: emaclite: adding MDIO and phy lib support
+Date: Tue, 9 Feb 2010 08:57:10 -0700
+Message-ID: <7a99fdf2-8fd0-4fd0-9cbb-fe6c87d5f50e@SG2EHSMHS015.ehs.local>
+References: <1265409646-11882-1-git-send-email-john.linn@xilinx.com> <260b8801-53bd-44fe-a6b8-7d1d0f56fef5@SG2EHSMHS011.ehs.local> <fa686aa41002090745x19d569acx3b50e8078ebb16f7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
+	<jgarzik@pobox.com>, <jwboyer@linux.vnet.ibm.com>,
+	<john.williams@petalogix.com>,
+	"Sadanand Mutyala" <sadanan@xilinx.com>
+To: "Grant Likely" <grant.likely@secretlab.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:52334 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754411Ab0BIPxG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 10:53:06 -0500
+Received: from sg2ehsobe002.messaging.microsoft.com ([207.46.51.76]:11473 "EHLO
+	SG2EHSOBE002.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754531Ab0BIP54 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Feb 2010 10:57:56 -0500
+Content-Class: urn:content-classes:message
+In-Reply-To: <fa686aa41002090745x19d569acx3b50e8078ebb16f7@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Hodgson <shodgson@solarflare.com>
+> -----Original Message-----
+> From: glikely@secretlab.ca [mailto:glikely@secretlab.ca] On Behalf Of=
+ Grant Likely
+> Sent: Tuesday, February 09, 2010 8:45 AM
+> To: John Linn
+> Cc: netdev@vger.kernel.org; linuxppc-dev@ozlabs.org; jgarzik@pobox.co=
+m; jwboyer@linux.vnet.ibm.com;
+> john.williams@petalogix.com; Sadanand Mutyala
+> Subject: Re: [PATCH] [V2] net: emaclite: adding MDIO and phy lib supp=
+ort
+>=20
+> On Mon, Feb 8, 2010 at 7:09 AM, John Linn <John.Linn@xilinx.com> wrot=
+e:
+> >> -----Original Message-----
+> >> From: John Linn [mailto:john.linn@xilinx.com]
+> >> Sent: Friday, February 05, 2010 3:41 PM
+> >> To: netdev@vger.kernel.org; linuxppc-dev@ozlabs.org;
+> > jgarzik@pobox.com; grant.likely@secretlab.ca;
+> >> jwboyer@linux.vnet.ibm.com
+> >> Cc: john.williams@petalogix.com; John Linn; Sadanand Mutyala
+> >> Subject: [PATCH] [V2] net: emaclite: adding MDIO and phy lib suppo=
+rt
+> >>
+> >> These changes add MDIO and phy lib support to the driver as the
+> >> IP core now supports the MDIO bus.
+> >>
+> >> The MDIO bus and phy are added as a child to the emaclite in the
+> > device
+> >> tree as illustrated below.
+> >>
+> >> mdio {
+> >> =A0 =A0 =A0 #address-cells =3D <1>;
+> >> =A0 =A0 =A0 #size-cells =3D <0>;
+> >> =A0 =A0 =A0 compatible =3D "xlnx,emaclite-mdio";
+> >> =A0 =A0 =A0 phy0: phy@7 {
+> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 reg =3D <7>;
+> >> =A0 =A0 =A0 } ;
+> >> }
+>=20
+> You misunderstood me about the compatible property.  You don't need a
+> compatible prop in the mdio node because it is *alwasy* a child of th=
+e
+> emaclite node, and the emaclite driver knows to go looking for it (ie=
+=2E
+> it is a part of the device).
 
-Commit 357d46a17e54c9a87e0e6ef3930ff4ab2d232b81 "sfc: QT202x: Remove
-unreliable MMD check at initialisation" broke initialisation of the
-SFE4002.  efx_mdio_reset_mmd() returns a positive value rather than 0
-on success.  The above commit causes this value to be propagated up
-by qt202x_reset_phy(), which is treated as a failure by its callers.
-Change qt202x_reset_phy() to return 0 if successful.
+OK, now I see, sorry for my denseness there.
 
-The PCI layer treats >0 as "fail, but please call remove() anyway",
-which means that unloading the driver would cause a crash.  Add a
-WARN_ON() on the failure path of efx_pci_probe() to provide early
-warning if there are any other cases where we do this.
+>=20
+> What I want to see is a compatible value in the phy@7 node for the
+> make & model of the phy.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/sfc/efx.c        |    1 +
- drivers/net/sfc/qt202x_phy.c |    2 +-
- 2 files changed, 2 insertions(+), 1 deletions(-)
+Makes more sense.
 
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 103e8b0..46997e1 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -2284,6 +2284,7 @@ static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
-  fail2:
- 	efx_fini_struct(efx);
-  fail1:
-+	WARN_ON(rc > 0);
- 	EFX_LOG(efx, "initialisation failed. rc=%d\n", rc);
- 	free_netdev(net_dev);
- 	return rc;
-diff --git a/drivers/net/sfc/qt202x_phy.c b/drivers/net/sfc/qt202x_phy.c
-index e0d13a4..67eec7a 100644
---- a/drivers/net/sfc/qt202x_phy.c
-+++ b/drivers/net/sfc/qt202x_phy.c
-@@ -320,7 +320,7 @@ static int qt202x_reset_phy(struct efx_nic *efx)
- 
- 	falcon_board(efx)->type->init_phy(efx);
- 
--	return rc;
-+	return 0;
- 
-  fail:
- 	EFX_ERR(efx, "PHY reset timed out\n");
--- 
-1.6.2.5
+>=20
+> Otherwise, looks good to me.  Fix the mutex timeout problem and then
+> you can add my acked-by line to the patch.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Will spin V3 patch with fixes and add your ack, appreciate the help and=
+ your patience.
+
+- John
+
+>=20
+> Cheers,
+> g.
+
+
+This email and any attachments are intended for the sole use of the nam=
+ed recipient(s) and contain(s) confidential information that may be pro=
+prietary, privileged or copyrighted under applicable law. If you are no=
+t the intended recipient, do not read, copy, or forward this email mess=
+age or any attachments. Delete this email message and any attachments i=
+mmediately.
+
 
