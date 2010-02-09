@@ -1,7 +1,7 @@
 From: John Linn <John.Linn@xilinx.com>
 Subject: RE: [PATCH] [V3] net: emaclite: adding MDIO and phy lib support
-Date: Tue, 9 Feb 2010 15:38:14 -0700
-Message-ID: <b0b2b534-8219-46a5-b76e-196836d0d195@SG2EHSMHS004.ehs.local>
+Date: Tue, 9 Feb 2010 16:00:04 -0700
+Message-ID: <ad1b9321-b7ad-47a6-93ca-ca260ff2a66d@SG2EHSMHS011.ehs.local>
 References: <2ea396ca-3014-40f4-86ac-0e9f1aa82b5b@SG2EHSMHS005.ehs.local> <1d3f23371002091430hb550153u602c8e7c010381b9@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
@@ -12,11 +12,11 @@ Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
 	"Sadanand Mutyala" <sadanan@xilinx.com>
 To: "John Williams" <john.williams@petalogix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sg2ehsobe005.messaging.microsoft.com ([207.46.51.79]:41828 "EHLO
-	SG2EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751539Ab0BIWjA convert rfc822-to-8bit
+Received: from sg2ehsobe001.messaging.microsoft.com ([207.46.51.75]:38625 "EHLO
+	SG2EHSOBE001.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752320Ab0BIXBB convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Feb 2010 17:39:00 -0500
+	Tue, 9 Feb 2010 18:01:01 -0500
 Content-Class: urn:content-classes:message
 In-Reply-To: <1d3f23371002091430hb550153u602c8e7c010381b9@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
@@ -37,10 +37,6 @@ ort
 > Sorry If I'm painting bike-sheds here, just one tiny tweak might be i=
 n
 > order to standardise your mutex_unlock exit path:
-
-Hey John, I prefer burning down bike-sheds myself, fire and explosions =
-are always more fun than painting :)
-
 >=20
 > > +static int xemaclite_mdio_read(struct mii_bus *bus, int phy_id, in=
 t reg)
@@ -97,15 +93,43 @@ t reg)
 >=20
 > Is this style still favoured in driver exit paths?
 
-I considered that and then blew it off (maybe shouldn't have). =20
+It looks to me like the mutex is not needed in the driver mdio function=
+s as there's a mutex in the mdiobus functions already.
 
-If we think it's a more std way to do it then no big deal.  I'll see if=
- there are any other comments before spinning another maybe final patch=
-=2E
+Am I wrong about that?
 
-Thanks for the input,
+Thanks,
 John
 
+=46rom phy/mdio_bus.c
+
+int mdiobus_read(struct mii_bus *bus, int addr, u16 regnum)
+{
+	int retval;
+
+	BUG_ON(in_interrupt());
+
+	mutex_lock(&bus->mdio_lock);
+	retval =3D bus->read(bus, addr, regnum);
+	mutex_unlock(&bus->mdio_lock);
+
+	return retval;
+}
+EXPORT_SYMBOL(mdiobus_read);
+
+int mdiobus_write(struct mii_bus *bus, int addr, u16 regnum, u16 val)
+{
+	int err;
+
+	BUG_ON(in_interrupt());
+
+	mutex_lock(&bus->mdio_lock);
+	err =3D bus->write(bus, addr, regnum, val);
+	mutex_unlock(&bus->mdio_lock);
+
+	return err;
+}
+EXPORT_SYMBOL(mdiobus_write);
 
 >=20
 > Thanks,
