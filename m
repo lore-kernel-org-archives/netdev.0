@@ -1,32 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/sched: Fix module name in Kconfig
-Date: Mon, 08 Feb 2010 22:41:51 -0800 (PST)
-Message-ID: <20100208.224151.60712062.davem@davemloft.net>
-References: <1265478049-29736-1-git-send-email-jluebbe@debian.org>
-	<1265574348.3688.37.camel@bigi>
+Subject: Re: [PATCH] MAINTAINERS: networking drivers - Add git net-next tree
+Date: Mon, 08 Feb 2010 22:42:49 -0800 (PST)
+Message-ID: <20100208.224249.60152045.davem@davemloft.net>
+References: <1265489035.2063.35.camel@Joe-Laptop.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jluebbe@debian.org, netdev@vger.kernel.org
-To: hadi@cyberus.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59481
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751999Ab0BIGlh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 01:41:37 -0500
-In-Reply-To: <1265574348.3688.37.camel@bigi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org, maximlevitsky@gmail.com
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1265489035.2063.35.camel@Joe-Laptop.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Sun, 07 Feb 2010 15:25:48 -0500
+From: Joe Perches <joe@perches.com>
+Date: Sat, 06 Feb 2010 12:43:55 -0800
 
-> On Sat, 2010-02-06 at 18:40 +0100, Jan Luebbe wrote:
->> The action modules have been prefixed with 'act_', but the Kconfig
->> description was not changed.
->> 
->> Signed-off-by: Jan Luebbe <jluebbe@debian.org>
+> During the rc period, patches that are not bugfixes
+> should be done using the net-next tree.
 > 
-> Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
 Applied, thanks.
