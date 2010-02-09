@@ -1,74 +1,65 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 17/23 v3] mlx4_core: Randomize Mac addresses for slaves
-Date: Tue, 09 Feb 2010 17:22:17 +0000
-Message-ID: <1265736137.2126.121.camel@achroite.uk.solarflarecom.com>
+Subject: Re: [PATCH 04/23 v3] mlx4_core: add slave resource allocation
+Date: Tue, 09 Feb 2010 17:32:28 +0000
+Message-ID: <1265736748.2126.123.camel@achroite.uk.solarflarecom.com>
 References: <49BFC313.1030901@mellanox.co.il>
-	 <4B6AEE38.4010207@mellanox.co.il>
+	 <4B6AEDCC.8020503@mellanox.co.il>
+	 <1265726692.2126.80.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <rdreier@cisco.com>, general@lists.openfabrics.org,
-	netdev@vger.kernel.org, liranl@mellanox.co.il,
-	tziporet@mellanox.co.il
+Cc: Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
+	liranl@mellanox.co.il, tziporet@mellanox.co.il
 To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:58533 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:59426 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754837Ab0BIRWV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 12:22:21 -0500
-In-Reply-To: <4B6AEE38.4010207@mellanox.co.il>
+	with ESMTP id S1755124Ab0BIRcc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 12:32:32 -0500
+In-Reply-To: <1265726692.2126.80.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-02-04 at 17:56 +0200, Yevgeny Petrilin wrote:
-> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-> ---
->  drivers/net/mlx4/fw.c |    9 +++++++++
->  1 files changed, 9 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/mlx4/fw.c b/drivers/net/mlx4/fw.c
-> index 6e3e1d1..202a256 100644
-> --- a/drivers/net/mlx4/fw.c
-> +++ b/drivers/net/mlx4/fw.c
-> @@ -32,6 +32,7 @@
->   * SOFTWARE.
->   */
->  
-> +#include <linux/etherdevice.h>
->  #include <linux/mlx4/cmd.h>
->  #include <linux/cache.h>
->  
-> @@ -149,11 +150,19 @@ int mlx4_QUERY_SLAVE_CAP_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vh
->  						       struct mlx4_cmd_mailbox *outbox)
->  {
->  	struct mlx4_caps *caps = outbox->buf;
-> +	u8 rand_mac[6];
-> +	int i, j;
->  
->  	memcpy(caps, &dev->caps, sizeof *caps);
->  
->  	/* The Master function is in charge for qp1 of al slaves */
->  	caps->sqp_demux = 0;
-> +	for (i = 1; i <= dev->caps.num_ports; ++i) {
-> +		random_ether_addr(rand_mac);
-> +		caps->def_mac[i] = 0;
-> +		for (j = 0; j < ETH_ALEN - 1; j++)
-> +			caps->def_mac[i] |= ((u64)(rand_mac[j]) << 8 * j);
+On Tue, 2010-02-09 at 14:44 +0000, Ben Hutchings wrote:
+> On Thu, 2010-02-04 at 17:54 +0200, Yevgeny Petrilin wrote:
+> > All QPs/CQs/SRQs/MPTs/MTTs are allocated from shared pools, which are owned by
+> > the master. In addition, all backing ICM memory for these objects is managed by
+> > the master.
+> > To allow slaves to allocate resources, ICM allocation is separated from the rest
+> > of the object state, which is held at the slave.
+> > Slaves can then reserve resource ranges and allocate ICM over the comm channel.
+> > 
+> > Signed-off-by: Liran Liss <liranl@mellanox.co.il>
+> > Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+> > ---
+> >  drivers/net/mlx4/cmd.c   |  110 +++++++++++++++++++++++++++++++++
+> >  drivers/net/mlx4/cq.c    |   91 +++++++++++++++++++++-------
+> >  drivers/net/mlx4/mlx4.h  |   27 ++++++++
+> >  drivers/net/mlx4/mr.c    |  125 ++++++++++++++++++++++++++++++++++----
+> >  drivers/net/mlx4/qp.c    |  151 +++++++++++++++++++++++++++++++++-------------
+> >  drivers/net/mlx4/srq.c   |   88 ++++++++++++++++++++-------
+> >  include/linux/mlx4/cmd.h |    2 +
+> >  7 files changed, 496 insertions(+), 98 deletions(-)
+> > 
+> > diff --git a/drivers/net/mlx4/cmd.c b/drivers/net/mlx4/cmd.c
+> > index 9e85330..533ce77 100644
+> > --- a/drivers/net/mlx4/cmd.c
+> > +++ b/drivers/net/mlx4/cmd.c
+> > @@ -417,6 +417,100 @@ static int mlx4_ACCESS_MEM(struct mlx4_dev *dev, u64 master_addr,
+> >  					   MLX4_CMD_TIME_CLASS_A);
+> >  }
+> >  
+> > +static int mlx4_RESOURCE_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vhcr *vhcr,
+> > +						       struct mlx4_cmd_mailbox *inbox,
+> > +						       struct mlx4_cmd_mailbox *outbox)
+> > +{
+> > +	u32 param1 = *((u32 *) &vhcr->in_param);
+> > +	u32 param2 = *(((u32 *) &vhcr->in_param) + 1);
 [...]
 
-Do you really want the last byte to be 0 always?
-
-Assuming you don't, you can avoid the inner loop by writing:
-
-	union {
-		u8 bytes[ETH_ALEN];
-		__le64 qword;
-	} rand_mac = {
-		.qword = 0
-	};
-	...
-		random_ether_addr(rand_mac.bytes);
-		caps->def_mac[i] = le64_to_cpup(&rand_mac.qword);
+I failed to spot this in the first pass.  Really, this is ridiculous.
+If you are going to make a habit of passing around pairs of 32-bit
+values, declare in_param as a union.
 
 Ben.
 
