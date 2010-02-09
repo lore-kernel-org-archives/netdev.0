@@ -1,7 +1,7 @@
 From: Li Zefan <lizf@cn.fujitsu.com>
-Subject: [PATCH 12/13] net: ipx: use seq_list_foo() helpers
-Date: Tue, 09 Feb 2010 17:21:22 +0800
-Message-ID: <4B712912.80202@cn.fujitsu.com>
+Subject: [PATCH 10/13] net: x25: use seq_list_foo() helpers
+Date: Tue, 09 Feb 2010 17:20:42 +0800
+Message-ID: <4B7128EA.4030006@cn.fujitsu.com>
 References: <4B712849.9040400@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -10,171 +10,164 @@ Cc: Andrew Morton <akpm@linux-foundation.org>,
 	LKML <linux-kernel@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:49287 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754152Ab0BILTB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Feb 2010 06:19:01 -0500
 In-Reply-To: <4B712849.9040400@cn.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Simplify seq_file code.
 
 Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
 ---
- net/ipx/ipx_proc.c |   90 +++++++---------------------------------------------
- 1 files changed, 12 insertions(+), 78 deletions(-)
+ net/x25/x25_proc.c |   84 +++++-----------------------------------------------
+ 1 files changed, 8 insertions(+), 76 deletions(-)
 
-diff --git a/net/ipx/ipx_proc.c b/net/ipx/ipx_proc.c
-index 5761784..26b5bfc 100644
---- a/net/ipx/ipx_proc.c
-+++ b/net/ipx/ipx_proc.c
-@@ -13,45 +13,15 @@
- #include <net/tcp_states.h>
- #include <net/ipx.h>
+diff --git a/net/x25/x25_proc.c b/net/x25/x25_proc.c
+index c4cd322..7ff3737 100644
+--- a/net/x25/x25_proc.c
++++ b/net/x25/x25_proc.c
+@@ -25,49 +25,17 @@
+ #include <net/x25.h>
  
--static __inline__ struct ipx_interface *ipx_get_interface_idx(loff_t pos)
+ #ifdef CONFIG_PROC_FS
+-static __inline__ struct x25_route *x25_get_route_idx(loff_t pos)
 -{
--	struct ipx_interface *i;
+-	struct list_head *route_entry;
+-	struct x25_route *rt = NULL;
 -
--	list_for_each_entry(i, &ipx_interfaces, node)
+-	list_for_each(route_entry, &x25_route_list) {
+-		rt = list_entry(route_entry, struct x25_route, node);
 -		if (!pos--)
--			goto out;
--	i = NULL;
--out:
--	return i;
+-			goto found;
+-	}
+-	rt = NULL;
+-found:
+-	return rt;
 -}
--
--static struct ipx_interface *ipx_interfaces_next(struct ipx_interface *i)
--{
--	struct ipx_interface *rc = NULL;
--
--	if (i->node.next != &ipx_interfaces)
--		rc = list_entry(i->node.next, struct ipx_interface, node);
--	return rc;
--}
--
- static void *ipx_seq_interface_start(struct seq_file *seq, loff_t *pos)
+ 
+ static void *x25_seq_route_start(struct seq_file *seq, loff_t *pos)
+ 	__acquires(x25_route_list_lock)
  {
 -	loff_t l = *pos;
 -
- 	spin_lock_bh(&ipx_interfaces_lock);
--	return l ? ipx_get_interface_idx(--l) : SEQ_START_TOKEN;
-+	return seq_list_start_head(&ipx_interfaces, *pos);
+ 	read_lock_bh(&x25_route_list_lock);
+-	return l ? x25_get_route_idx(--l) : SEQ_START_TOKEN;
++	return seq_list_start_head(&x25_route_list, *pos);
  }
  
- static void *ipx_seq_interface_next(struct seq_file *seq, void *v, loff_t *pos)
+ static void *x25_seq_route_next(struct seq_file *seq, void *v, loff_t *pos)
  {
--	struct ipx_interface *i;
+-	struct x25_route *rt;
 -
 -	++*pos;
--	if (v == SEQ_START_TOKEN)
--		i = ipx_interfaces_head();
+-	if (v == SEQ_START_TOKEN) {
+-		rt = NULL;
+-		if (!list_empty(&x25_route_list))
+-			rt = list_entry(x25_route_list.next,
+-					struct x25_route, node);
+-		goto out;
+-	}
+-	rt = v;
+-	if (rt->node.next != &x25_route_list)
+-		rt = list_entry(rt->node.next, struct x25_route, node);
 -	else
--		i = ipx_interfaces_next(v);
--	return i;
-+	return seq_list_next(v, &ipx_interfaces, pos);
+-		rt = NULL;
+-out:
+-	return rt;
++	return seq_list_next(v, &x25_route_list, pos);
  }
  
- static void ipx_seq_interface_stop(struct seq_file *seq, void *v)
-@@ -63,7 +33,7 @@ static int ipx_seq_interface_show(struct seq_file *seq, void *v)
+ static void x25_seq_route_stop(struct seq_file *seq, void *v)
+@@ -78,9 +46,9 @@ static void x25_seq_route_stop(struct seq_file *seq, void *v)
+ 
+ static int x25_seq_route_show(struct seq_file *seq, void *v)
  {
- 	struct ipx_interface *i;
+-	struct x25_route *rt;
++	struct x25_route *rt = list_entry(v, struct x25_route, node);
  
 -	if (v == SEQ_START_TOKEN) {
-+	if (v == &ipx_interfaces) {
- 		seq_puts(seq, "Network    Node_Address   Primary  Device     "
- 			      "Frame_Type");
- #ifdef IPX_REFCNT_DEBUG
-@@ -73,7 +43,7 @@ static int ipx_seq_interface_show(struct seq_file *seq, void *v)
++	if (v == &x25_route_list) {
+ 		seq_puts(seq, "Address          Digits  Device\n");
  		goto out;
  	}
- 
--	i = v;
-+	i = list_entry(v, struct ipx_interface, node);
- 	seq_printf(seq, "%08lX   ", (unsigned long int)ntohl(i->if_netnum));
- 	seq_printf(seq, "%02X%02X%02X%02X%02X%02X   ",
- 			i->if_node[0], i->if_node[1], i->if_node[2],
-@@ -89,53 +59,15 @@ out:
+@@ -146,51 +114,16 @@ out:
  	return 0;
  }
  
--static struct ipx_route *ipx_routes_head(void)
+-static __inline__ struct x25_forward *x25_get_forward_idx(loff_t pos)
 -{
--	struct ipx_route *rc = NULL;
+-	struct x25_forward *f;
+-	struct list_head *entry;
 -
--	if (!list_empty(&ipx_routes))
--		rc = list_entry(ipx_routes.next, struct ipx_route, node);
--	return rc;
--}
--
--static struct ipx_route *ipx_routes_next(struct ipx_route *r)
--{
--	struct ipx_route *rc = NULL;
--
--	if (r->node.next != &ipx_routes)
--		rc = list_entry(r->node.next, struct ipx_route, node);
--	return rc;
--}
--
--static __inline__ struct ipx_route *ipx_get_route_idx(loff_t pos)
--{
--	struct ipx_route *r;
--
--	list_for_each_entry(r, &ipx_routes, node)
+-	list_for_each(entry, &x25_forward_list) {
+-		f = list_entry(entry, struct x25_forward, node);
 -		if (!pos--)
--			goto out;
--	r = NULL;
--out:
--	return r;
+-			goto found;
+-	}
+-
+-	f = NULL;
+-found:
+-	return f;
 -}
 -
- static void *ipx_seq_route_start(struct seq_file *seq, loff_t *pos)
+ static void *x25_seq_forward_start(struct seq_file *seq, loff_t *pos)
+ 	__acquires(x25_forward_list_lock)
  {
 -	loff_t l = *pos;
- 	read_lock_bh(&ipx_routes_lock);
--	return l ? ipx_get_route_idx(--l) : SEQ_START_TOKEN;
-+	return seq_list_start_head(&ipx_routes, *pos);
+-
+ 	read_lock_bh(&x25_forward_list_lock);
+-	return l ? x25_get_forward_idx(--l) : SEQ_START_TOKEN;
++	return seq_list_start_head(&x25_forward_list, *pos);
  }
  
- static void *ipx_seq_route_next(struct seq_file *seq, void *v, loff_t *pos)
+ static void *x25_seq_forward_next(struct seq_file *seq, void *v, loff_t *pos)
  {
--	struct ipx_route *r;
+-	struct x25_forward *f;
 -
 -	++*pos;
--	if (v == SEQ_START_TOKEN)
--		r = ipx_routes_head();
+-	if (v == SEQ_START_TOKEN) {
+-		f = NULL;
+-		if (!list_empty(&x25_forward_list))
+-			f = list_entry(x25_forward_list.next,
+-					struct x25_forward, node);
+-		goto out;
+-	}
+-	f = v;
+-	if (f->node.next != &x25_forward_list)
+-		f = list_entry(f->node.next, struct x25_forward, node);
 -	else
--		r = ipx_routes_next(v);
--	return r;
-+	return seq_list_next(v, &ipx_routes, pos);
+-		f = NULL;
+-out:
+-	return f;
+-
++	return seq_list_next(v, &x25_forward_list, pos);
  }
  
- static void ipx_seq_route_stop(struct seq_file *seq, void *v)
-@@ -147,11 +79,13 @@ static int ipx_seq_route_show(struct seq_file *seq, void *v)
+ static void x25_seq_forward_stop(struct seq_file *seq, void *v)
+@@ -201,9 +134,9 @@ static void x25_seq_forward_stop(struct seq_file *seq, void *v)
+ 
+ static int x25_seq_forward_show(struct seq_file *seq, void *v)
  {
- 	struct ipx_route *rt;
+-	struct x25_forward *f;
++	struct x25_forward *f = list_entry(v, struct x25_forward, node);
  
 -	if (v == SEQ_START_TOKEN) {
-+	if (v == &ipx_routes) {
- 		seq_puts(seq, "Network    Router_Net   Router_Node\n");
++	if (v == &x25_forward_list) {
+ 		seq_printf(seq, "lci dev1       dev2\n");
  		goto out;
  	}
--	rt = v;
-+
-+	rt = list_entry(v, struct ipx_route, node);
-+
- 	seq_printf(seq, "%08lX   ", (unsigned long int)ntohl(rt->ir_net));
- 	if (rt->ir_routed)
- 		seq_printf(seq, "%08lX     %02X%02X%02X%02X%02X%02X\n",
-@@ -226,9 +160,9 @@ static void *ipx_seq_socket_next(struct seq_file *seq, void *v, loff_t *pos)
- 	spin_unlock_bh(&i->if_sklist_lock);
- 	sk = NULL;
- 	for (;;) {
--		i = ipx_interfaces_next(i);
--		if (!i)
-+		if (i->node.next == &ipx_interfaces)
- 			break;
-+		i = list_entry(i->node.next, struct ipx_interface, node);
- 		spin_lock_bh(&i->if_sklist_lock);
- 		if (!hlist_empty(&i->if_sklist)) {
- 			sk = sk_head(&i->if_sklist);
+@@ -212,7 +145,6 @@ static int x25_seq_forward_show(struct seq_file *seq, void *v)
+ 
+ 	seq_printf(seq, "%d %-10s %-10s\n",
+ 			f->lci, f->dev1->name, f->dev2->name);
+-
+ out:
+ 	return 0;
+ }
 -- 
 1.6.3
+
