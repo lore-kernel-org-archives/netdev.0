@@ -1,173 +1,35 @@
-From: Li Zefan <lizf@cn.fujitsu.com>
-Subject: [PATCH 10/13] net: x25: use seq_list_foo() helpers
-Date: Tue, 09 Feb 2010 17:20:42 +0800
-Message-ID: <4B7128EA.4030006@cn.fujitsu.com>
-References: <4B712849.9040400@cn.fujitsu.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: e1000e-1.1.2 Compile errors with 2.4.37 and gcc 2.95.3
+Date: Tue, 09 Feb 2010 11:21:49 +0000
+Message-ID: <1265714509.2671.134.camel@localhost>
+References: <20100209095803.236980@gmx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Marco Schwarz <marco.schwarz@gmx.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:49287 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754152Ab0BILTB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Feb 2010 06:19:01 -0500
-In-Reply-To: <4B712849.9040400@cn.fujitsu.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:41705 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754063Ab0BILV5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 06:21:57 -0500
+In-Reply-To: <20100209095803.236980@gmx.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Simplify seq_file code.
+On Tue, 2010-02-09 at 10:58 +0100, Marco Schwarz wrote:
+> Hi,
+> 
+> I get the following output when trying to compile e1000e-1.1.2 with Linux Kernel 2.4.37 and gcc 2.95.3 (e1000-8.0.16 compiles fine):
+[...]
 
-Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
----
- net/x25/x25_proc.c |   84 +++++-----------------------------------------------
- 1 files changed, 8 insertions(+), 76 deletions(-)
+netdev only deals with recent 2.6 kernels.  I'm amazed that Intel still
+wastes time on 2.4.
 
-diff --git a/net/x25/x25_proc.c b/net/x25/x25_proc.c
-index c4cd322..7ff3737 100644
---- a/net/x25/x25_proc.c
-+++ b/net/x25/x25_proc.c
-@@ -25,49 +25,17 @@
- #include <net/x25.h>
- 
- #ifdef CONFIG_PROC_FS
--static __inline__ struct x25_route *x25_get_route_idx(loff_t pos)
--{
--	struct list_head *route_entry;
--	struct x25_route *rt = NULL;
--
--	list_for_each(route_entry, &x25_route_list) {
--		rt = list_entry(route_entry, struct x25_route, node);
--		if (!pos--)
--			goto found;
--	}
--	rt = NULL;
--found:
--	return rt;
--}
- 
- static void *x25_seq_route_start(struct seq_file *seq, loff_t *pos)
- 	__acquires(x25_route_list_lock)
- {
--	loff_t l = *pos;
--
- 	read_lock_bh(&x25_route_list_lock);
--	return l ? x25_get_route_idx(--l) : SEQ_START_TOKEN;
-+	return seq_list_start_head(&x25_route_list, *pos);
- }
- 
- static void *x25_seq_route_next(struct seq_file *seq, void *v, loff_t *pos)
- {
--	struct x25_route *rt;
--
--	++*pos;
--	if (v == SEQ_START_TOKEN) {
--		rt = NULL;
--		if (!list_empty(&x25_route_list))
--			rt = list_entry(x25_route_list.next,
--					struct x25_route, node);
--		goto out;
--	}
--	rt = v;
--	if (rt->node.next != &x25_route_list)
--		rt = list_entry(rt->node.next, struct x25_route, node);
--	else
--		rt = NULL;
--out:
--	return rt;
-+	return seq_list_next(v, &x25_route_list, pos);
- }
- 
- static void x25_seq_route_stop(struct seq_file *seq, void *v)
-@@ -78,9 +46,9 @@ static void x25_seq_route_stop(struct seq_file *seq, void *v)
- 
- static int x25_seq_route_show(struct seq_file *seq, void *v)
- {
--	struct x25_route *rt;
-+	struct x25_route *rt = list_entry(v, struct x25_route, node);
- 
--	if (v == SEQ_START_TOKEN) {
-+	if (v == &x25_route_list) {
- 		seq_puts(seq, "Address          Digits  Device\n");
- 		goto out;
- 	}
-@@ -146,51 +114,16 @@ out:
- 	return 0;
- }
- 
--static __inline__ struct x25_forward *x25_get_forward_idx(loff_t pos)
--{
--	struct x25_forward *f;
--	struct list_head *entry;
--
--	list_for_each(entry, &x25_forward_list) {
--		f = list_entry(entry, struct x25_forward, node);
--		if (!pos--)
--			goto found;
--	}
--
--	f = NULL;
--found:
--	return f;
--}
--
- static void *x25_seq_forward_start(struct seq_file *seq, loff_t *pos)
- 	__acquires(x25_forward_list_lock)
- {
--	loff_t l = *pos;
--
- 	read_lock_bh(&x25_forward_list_lock);
--	return l ? x25_get_forward_idx(--l) : SEQ_START_TOKEN;
-+	return seq_list_start_head(&x25_forward_list, *pos);
- }
- 
- static void *x25_seq_forward_next(struct seq_file *seq, void *v, loff_t *pos)
- {
--	struct x25_forward *f;
--
--	++*pos;
--	if (v == SEQ_START_TOKEN) {
--		f = NULL;
--		if (!list_empty(&x25_forward_list))
--			f = list_entry(x25_forward_list.next,
--					struct x25_forward, node);
--		goto out;
--	}
--	f = v;
--	if (f->node.next != &x25_forward_list)
--		f = list_entry(f->node.next, struct x25_forward, node);
--	else
--		f = NULL;
--out:
--	return f;
--
-+	return seq_list_next(v, &x25_forward_list, pos);
- }
- 
- static void x25_seq_forward_stop(struct seq_file *seq, void *v)
-@@ -201,9 +134,9 @@ static void x25_seq_forward_stop(struct seq_file *seq, void *v)
- 
- static int x25_seq_forward_show(struct seq_file *seq, void *v)
- {
--	struct x25_forward *f;
-+	struct x25_forward *f = list_entry(v, struct x25_forward, node);
- 
--	if (v == SEQ_START_TOKEN) {
-+	if (v == &x25_forward_list) {
- 		seq_printf(seq, "lci dev1       dev2\n");
- 		goto out;
- 	}
-@@ -212,7 +145,6 @@ static int x25_seq_forward_show(struct seq_file *seq, void *v)
- 
- 	seq_printf(seq, "%d %-10s %-10s\n",
- 			f->lci, f->dev1->name, f->dev2->name);
--
- out:
- 	return 0;
- }
+Ben.
+
 -- 
-1.6.3
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
