@@ -1,34 +1,41 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: netfilter/iptables and network interface names
-Date: Tue, 9 Feb 2010 12:44:23 +0100 (CET)
-Message-ID: <alpine.LSU.2.01.1002091244050.12343@obet.zrqbmnf.qr>
-References: <4B6AC467.7020209@redhat.com> <alpine.LSU.2.01.1002041528300.13435@obet.zrqbmnf.qr> <4B6ADA3A.7040201@trash.net> <alpine.LSU.2.01.1002041542150.13435@obet.zrqbmnf.qr> <4B6ADFFB.4050407@trash.net> <alpine.LSU.2.01.1002041743360.21982@obet.zrqbmnf.qr>
- <4B6AFAA1.5080703@trash.net> <alpine.LSU.2.01.1002041944120.30159@obet.zrqbmnf.qr> <4B6BF294.3020501@trash.net>
+From: Mihamina Rakotomandimby <mihamina@gulfsat.mg>
+Subject: place for discussion about 'tc'
+Date: Tue, 9 Feb 2010 14:35:15 +0300
+Message-ID: <20100209143515.3251ae7c@pbmiha.malagasy.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Thomas Woerner <twoerner@redhat.com>, netdev@vger.kernel.org,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B6BF294.3020501@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static-104-36.blueline.mg ([41.204.104.36]:59314 "EHLO
+	mail.blueline.mg" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754088Ab0BIMCG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 07:02:06 -0500
+Received: from localhost (static-104-53.blueline.mg [41.204.104.53])
+	by mail.blueline.mg (Postfix) with ESMTP id E91E2F835
+	for <netdev@vger.kernel.org>; Tue,  9 Feb 2010 14:40:03 +0300 (EAT)
+Received: from mail.blueline.mg ([41.204.104.38])
+	by localhost (antivirus2.malagasy.com [41.204.104.53]) (amavisd-new, port 10024)
+	with ESMTP id DZdo5yK7RwIJ for <netdev@vger.kernel.org>;
+	Tue,  9 Feb 2010 14:35:14 +0300 (EAT)
+Received: from pbmiha.malagasy.com (sysadmin-cnc.malagasy.com [41.204.104.9])
+	by mail.blueline.mg (Postfix) with ESMTP id 8A4EEF825
+	for <netdev@vger.kernel.org>; Tue,  9 Feb 2010 14:39:58 +0300 (EAT)
+Received: from localhost ([127.0.0.1] helo=pbmiha.malagasy.com)
+	by pbmiha.malagasy.com with esmtp (Exim 4.69)
+	(envelope-from <mihamina@gulfsat.mg>)
+	id 1NeoN9-0001VR-67
+	for netdev@vger.kernel.org; Tue, 09 Feb 2010 14:35:15 +0300
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Manao ahoana, Hello, Bonjour,
 
-On Friday 2010-02-05 11:27, Patrick McHardy wrote:
->Jan Engelhardt wrote:
->> On Thursday 2010-02-04 17:49, Patrick McHardy wrote:
->>> Jan Engelhardt wrote:
->>>>> The kernel also forbids ".".
->> 19:44 borg:/home/jengelh # ip tunnel add .3 mode sit local 1.2.3.6 remote
->> 5.6.7.7
->> 19:44 borg:/home/jengelh # ip a
->> 17: .3: <POINTOPOINT,NOARP> mtu 1480 qdisc noop state DOWN 
->>     link/sit 1.2.3.6 peer 5.6.7.7
->
->OK you're right, but this seems to be an oversight. The names
->are checked during rename, but not on device registration.
->
+Where is the right mailing list for discussing 'tc' usage?
 
-So, what about the patch(es)? :-)
+Misaotra, Thanks, Merci.
+
+-- 
+       Architecte Informatique chez Blueline/Gulfsat:
+    Administration Systeme, Recherche & Developpement
+                +261 34 29 155 34 / +261 33 11 207 36
