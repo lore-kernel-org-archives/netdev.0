@@ -1,60 +1,50 @@
-From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
-Subject: Re: [Bugme-new] [Bug 15239] New: Problem with network performance
- after a while.
-Date: Tue, 09 Feb 2010 08:19:47 +0100
-Message-ID: <4B710C93.9010603@itcare.pl>
-References: <bug-15239-10286@http.bugzilla.kernel.org/>	<20100208141513.b5d0be56.akpm@linux-foundation.org> <20100208.145531.143618406.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] dst: call cond_resched() in dst_gc_task()
+Date: Tue, 09 Feb 2010 08:20:36 +0100
+Message-ID: <1265700036.4236.120.camel@edumazet-laptop>
+References: <1265639549.3048.33.camel@edumazet-laptop>
+	 <1265657560.4236.80.camel@edumazet-laptop>
+	 <20100208152606.91c55722.akpm@linux-foundation.org>
+	 <20100208.153406.123254133.davem@davemloft.net>
+	 <20100208153744.236158aa.akpm@linux-foundation.org>
+	 <20100208155053.4ad68484@nehalam>
+	 <1265695598.4236.95.camel@edumazet-laptop>
+	 <20100208223540.3cdabe44.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	alexander.h.duyck@intel.com, peter.p.waskiewicz.jr@intel.com,
-	john.ronciak@intel.com, pstaszewski@artcom.pl, stable@kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, pstaszewski@itcare.pl,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from r242-20.iq.pl ([86.111.242.20]:33294 "EHLO smtp.iq.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751241Ab0BIHTr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Feb 2010 02:19:47 -0500
-In-Reply-To: <20100208.145531.143618406.davem@davemloft.net>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:57827 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752517Ab0BIHUn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 02:20:43 -0500
+Received: by bwz19 with SMTP id 19so522515bwz.28
+        for <netdev@vger.kernel.org>; Mon, 08 Feb 2010 23:20:40 -0800 (PST)
+In-Reply-To: <20100208223540.3cdabe44.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 2010-02-08 23:55, David Miller pisze:
-> From: Andrew Morton<akpm@linux-foundation.org>
-> Date: Mon, 8 Feb 2010 14:15:13 -0800
->
->    
->> That would be bad.  That's a regression in 2.6.33-rc, and we've
->> backported that regression into 2.6.32.x -stable.
->>      
-> Luckily we have a fix already. :-)
->    
+Le lundi 08 f=C3=A9vrier 2010 =C3=A0 22:35 -0800, Andrew Morton a =C3=A9=
+crit :
+> On Tue, 09 Feb 2010 07:06:38 +0100 Eric Dumazet <eric.dumazet@gmail.c=
+om> wrote:
+>=20
+> > After this patch, I believe that scheduler is allowed to migrate
+> > dst_gc_task() to an idle cpu.
+>=20
+> No, keventd threads are each pinned to a single CPU (kthread_bind() i=
+n
+> start_workqueue_thread()), so dst_gc_task() gets run on the CPU which
+> ran schedule_delayed_work() and no other.
+>=20
 
-Yes - i make bugreport and after i write also here on the list
+Ah OK, thanks Andrew for this clarification.
 
-And Eric Dumazet help to solve problem with "route cache" - and locking 
-load on one cpu after information about "route cache disabled".
-
-After his patch i don't see any errors in dmesg.
-
-
-But i think there is a little more in my bugreport on bugzilla.
+I suppose offlining a cpu migrates its works to another (online) cpu ?
 
 
-
-Regards
-Pawel
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
->    
 
