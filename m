@@ -1,26 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] cxgb3: fix GRO checksum check
-Date: Mon, 08 Feb 2010 22:37:31 -0800 (PST)
-Message-ID: <20100208.223731.192859791.davem@davemloft.net>
-References: <20100209005544.12679.3987.stgit@speedy5.asicdesigners.com>
+Subject: Re: [PATCH] net/sched: Fix module name in Kconfig
+Date: Mon, 08 Feb 2010 22:41:51 -0800 (PST)
+Message-ID: <20100208.224151.60712062.davem@davemloft.net>
+References: <1265478049-29736-1-git-send-email-jluebbe@debian.org>
+	<1265574348.3688.37.camel@bigi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: divy@chelsio.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100209005544.12679.3987.stgit@speedy5.asicdesigners.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jluebbe@debian.org, netdev@vger.kernel.org
+To: hadi@cyberus.ca
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59481
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751999Ab0BIGlh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 01:41:37 -0500
+In-Reply-To: <1265574348.3688.37.camel@bigi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Divy Le Ray <divy@chelsio.com>
-Date: Mon, 08 Feb 2010 16:55:44 -0800
+From: jamal <hadi@cyberus.ca>
+Date: Sun, 07 Feb 2010 15:25:48 -0500
 
-> From: Divy Le Ray <divy@chelsio.com>
+> On Sat, 2010-02-06 at 18:40 +0100, Jan Luebbe wrote:
+>> The action modules have been prefixed with 'act_', but the Kconfig
+>> description was not changed.
+>> 
+>> Signed-off-by: Jan Luebbe <jluebbe@debian.org>
 > 
-> Verify the HW checksum state for frames handed to GRO processing.
-> 
-> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+> Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
 Applied, thanks.
