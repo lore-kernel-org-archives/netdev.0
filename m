@@ -1,80 +1,107 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 0/3][v2] tcp: fix ICMP-RTO war
-Date: Tue, 9 Feb 2010 14:37:38 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.1002091433230.7063@wel-95.cs.helsinki.fi>
-References: <4B635E17.406@tvk.rwth-aachen.de> <20100131.233338.254690877.davem@davemloft.net> <op.u7s6j0qup498uc@nexus> <4B708913.906@tvk.rwth-aachen.de>
+From: Karsten Keil <isdn@linux-pingi.de>
+Subject: Re: [PATCH v2 00/41] CAPI: Major rework, tons of bug fixes
+Date: Tue, 9 Feb 2010 13:54:23 +0100
+Message-ID: <201002091354.23389.isdn@linux-pingi.de>
+References: <cover.1265659933.git.jan.kiszka@web.de>
+Reply-To: isdn@linux-pingi.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-6"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: Damian Lukowski <damian@tvk.rwth-aachen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:54446 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754063Ab0BIMhj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 07:37:39 -0500
-In-Reply-To: <4B708913.906@tvk.rwth-aachen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	i4ldeveloper@listserv.isdn4linux.de,
+	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Marcel Holtmann <marcel@holtmann.org>
+To: Jan Kiszka <jan.kiszka@web.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1265659933.git.jan.kiszka@web.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 8 Feb 2010, Damian Lukowski wrote:
-
-> Damian Lukowski schrieb:
-> > Am 01.02.2010, 08:33 Uhr, schrieb David Miller <davem@davemloft.net>:
-> > 
-> >> From: Damian Lukowski <damian@tvk.rwth-aachen.de>
-> >> Date: Fri, 29 Jan 2010 23:15:51 +0100
-> >>
-> >>> This patches fix the current RTO calculation routine, when
-> >>> srtt and rttvar are zero, yielding an RTO of zero
-> >>> Under some circumstances, TCPs srtt and rttvar are zero,
-> >>> yielding a calculated RTO of zero.
-> >>> This is particularly unfortunate for ICMP based RTO recalculation
-> >>> as introduced in f1ecd5d9e736660 (Revert Backoff [v3]: Revert RTO
-> >>> on ICMP destination unreachable), as it results in RTO retransmission
-> >>> flooding.
-> >>>
-> >>> Thanks to Ilpo Jarvinen for providing debug patches and to
-> >>> Denys Fedoryshchenko for reporting and testing.
-> >>>
-> >>> Signed-off-by: Damian Lukowski <damian@tvk.rwth-aachen.de>
-> >>
-> >> I still haven't seen a detailed enough analysis of why these
-> >> tiny RTOs can come to exist in the first place.
-> >>
-> >> Please show me a list of events, function by function, the value of
-> >> relevant variables and per-socket TCP state, in the TCP stack, that
-> >> show how this ends up happening.
-> >>
-> >> Thanks for all of your work on this so far.
-> > 
-> > I might have figured it out, but could not verify it, so maybe you can
-> > comment my thought.
-> > 
-> > When a listening TCP receives a SYN, it will send a SYN+ACK
-> > and wait for an ACK to complete the handshake.
-> > Look at tcp_rcv_state_process::step 5::case SYN_RECV::acceptable
-> > and the code after the comment "tcp_ack considers this ACK as duplicate
-> > and does not calculate rtt".
-> > 
-> > If the connecting client has disabled timestamps, the rtt statistics
-> > won't be updated here, while the state is changed above.
-> > I printk'ed at the very end of TCP_SYN_RECV and got the following:
-> > state 1 (ESTABLISHED), srtt 0, rttvar 0.
-> > 
-> > So my suspicion is: If connectivity breaks right after a listening TCP
-> > has completed the handshake without timestamps, and the listening TCP
-> > sends data after establishing the connection, we will get the observed
-> > behaviour.
+On Montag, 8. Februar 2010 21:12:04 Jan Kiszka wrote:
+> Here is the second take of my CAPI rework. I tried to address all
+> feedback on v1, so this one comes with the following changes:
 > 
-> Just verified that by dropping pure ACKs coming from the originally
-> listening TCP using iptables.
+>  o rebased over net-next
+>  o reworked locking of the NCCI TTY using latest and greatest tty_port
+>    features and kref, hopefully in the right way
+>  o more fine-grained patch steps for the tricky TTY rework
+>  o dynamic major for NCCI TTYs, ie. CAPI no longer claims 191
+>  o dynamic TTY minor registrations, completely obsoleting capifs
+>  o schedule capifs for removal
+>  o some small additional cleanups
+> 
+> I kept my capifs fixes though this thing should die in the future. The
+> work is done, and people may still use it due to their distro
+> configuration (and the hard-wired loading by capiinit - needs fixing).
+> 
+> You can pull this series from
+> 
+> 	git://git.kiszka.org/linux-2.6.git capi
+> 
+Thank you for that effort, it looks very good for me.
 
-Isn't that "tcp_ack considers" comment like this: we have bug elsewhere in 
-the code but workaround it here, at least for some of the cases? (I'd put 
-it other way around: but alas, only for part of the cases.) ...It sound 
-like that to me. What exactly is the reason why rtt shouldn't be 
-calculated/initialized on such ACK, anything I'm missing?
+I will acknowlegde them, after a few tests.
 
--- 
- i.
+
+> Jan
+> 
+> Jan Kiszka (41):
+>   CAPI: Fix leaks in capifs_new_ncci
+>   CAPI: Sanitize capifs API
+>   CAPI: Eliminate capifs_root variable
+>   CAPI: Pin capifs instead of mounting it
+>   CAPI: Reduce chattiness during module loading/removal
+>   CAPI: Call a controller 'controller', not 'card'
+>   CAPI: Convert capi drivers rwlock into mutex
+>   CAPI: Rework capi_ctr_ready/down
+>   CAPI: Rework controller state notifier
+>   CAPI: Rework locking of controller data structures
+>   CAPI: Rework application locking
+>   CAPI: Reduce #ifdef mess around CONFIG_ISDN_CAPI_MIDDLEWARE
+>   CAPI: Convert capidev_list_lock into a mutex
+>   CAPI: Clean up capi_open/release
+>   CAPI: Rework locking of capidev members
+>   CAPI: Use non-atomic allocation during NCCI setup
+>   CAPI: Fix racy capi_read
+>   CAPI: Switch NCCI list to standard doubly linked list
+>   CAPI: Switch capiminor list to array
+>   CAPI: Clean up capinc_tty_init/exit
+>   CAPI: Dynamically register minor devices
+>   CAPI: Use dynamic major for NCCI TTYs by default
+>   CAPI: Use kref on capiminor
+>   CAPI: Establish install/cleanup handlers for capiminor TTYs
+>   CAPI: Use tty_port to keep track of capiminor's tty
+>   CAPI: Drop remaining NULL checks on tty->driver_data
+>   CAPI: Issue synchronous hangup on capincci_free_minor
+>   CAPI: Drop obsolete nccip from capiminor struct
+>   CAPI: Clean up capiminors_lock
+>   CAPI: Drop atomic ttyopencount
+>   CAPI: Drop handle_minor_recv from capinc_tty_write
+>   CAPI: Rework capiminor RX handler
+>   CAPI: Rename datahandle_queue -> ackqueue_entry
+>   CAPI: Use atomics for capiminor's datahandle and msgid
+>   CAPI: Drop capiminor's unused inbytes counter
+>   CAPI: Fix locking around capiminor's output queue and drop
+>     workaround_lock
+>   CAPI: Clean up capiminor_*_ack
+>   CAPI: Drop return value of handle_minor_send
+>   CAPI: Drop special controller lookup from capi20_put_message
+>   CAPI: Schedule capifs for removal
+>   CAPI: Remove experimental tag from middleware feature
+> 
+>  Documentation/feature-removal-schedule.txt |   10 +
+>  drivers/isdn/capi/Kconfig                  |   16 +-
+>  drivers/isdn/capi/capi.c                   | 1108
+>  ++++++++++++++-------------- drivers/isdn/capi/capidrv.c                | 
+>   48 +-
+>  drivers/isdn/capi/capifs.c                 |  126 ++--
+>  drivers/isdn/capi/capifs.h                 |   21 +-
+>  drivers/isdn/capi/kcapi.c                  |  805 +++++++++++---------
+>  drivers/isdn/capi/kcapi.h                  |   13 +-
+>  drivers/isdn/capi/kcapi_proc.c             |   41 +-
+>  include/linux/isdn/capilli.h               |    5 +-
+>  include/linux/kernelcapi.h                 |   17 +-
+>  11 files changed, 1151 insertions(+), 1059 deletions(-)
+> 
