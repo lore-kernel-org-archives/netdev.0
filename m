@@ -1,81 +1,172 @@
 From: Li Zefan <lizf@cn.fujitsu.com>
-Subject: [PATCH 11/13] net: irda: use seq_list_foo() helpers
-Date: Tue, 09 Feb 2010 17:21:05 +0800
-Message-ID: <4B712901.1030802@cn.fujitsu.com>
+Subject: [PATCH 06/13] net: netrom: use seq_hlist_foo() helpers
+Date: Tue, 09 Feb 2010 17:19:42 +0800
+Message-ID: <4B7128AE.2060902@cn.fujitsu.com>
 References: <4B712849.9040400@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
 Cc: Andrew Morton <akpm@linux-foundation.org>,
 	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Paulius Zaleckas <paulius.zaleckas@gmail.com>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:50259 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754100Ab0BIJUV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Feb 2010 04:20:21 -0500
 In-Reply-To: <4B712849.9040400@cn.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Simplify seq_file code.
 
 Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
 ---
- net/irda/irlan/irlan_common.c |   28 ++++------------------------
- 1 files changed, 4 insertions(+), 24 deletions(-)
+ net/netrom/af_netrom.c |   21 ++----------------
+ net/netrom/nr_route.c  |   53 ++++++++---------------------------------------
+ 2 files changed, 12 insertions(+), 62 deletions(-)
 
-diff --git a/net/irda/irlan/irlan_common.c b/net/irda/irlan/irlan_common.c
-index 315ead3..98911c4 100644
---- a/net/irda/irlan/irlan_common.c
-+++ b/net/irda/irlan/irlan_common.c
-@@ -1128,34 +1128,14 @@ int irlan_extract_param(__u8 *buf, char *name, char *value, __u16 *len)
-  */
- static void *irlan_seq_start(struct seq_file *seq, loff_t *pos)
+diff --git a/net/netrom/af_netrom.c b/net/netrom/af_netrom.c
+index 71604c6..a249127 100644
+--- a/net/netrom/af_netrom.c
++++ b/net/netrom/af_netrom.c
+@@ -1267,28 +1267,13 @@ static int nr_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 
+ static void *nr_info_start(struct seq_file *seq, loff_t *pos)
  {
+-	struct sock *s;
+-	struct hlist_node *node;
 -	int i = 1;
--	struct irlan_cb *self;
 -
- 	rcu_read_lock();
+ 	spin_lock_bh(&nr_list_lock);
 -	if (*pos == 0)
 -		return SEQ_START_TOKEN;
 -
--	list_for_each_entry(self, &irlans, dev_list) {
--		if (*pos == i)
--			return self;
+-	sk_for_each(s, node, &nr_list) {
+-		if (i == *pos)
+-			return s;
 -		++i;
 -	}
 -	return NULL;
-+	return seq_list_start_head(&irlans, *pos);
++	return seq_hlist_start_head(&nr_list, *pos);
  }
  
- /* Return entry after v, and increment pos */
- static void *irlan_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ static void *nr_info_next(struct seq_file *seq, void *v, loff_t *pos)
  {
--	struct list_head *nxt;
--
 -	++*pos;
--	if (v == SEQ_START_TOKEN)
--		nxt = irlans.next;
--	else
--		nxt = ((struct irlan_cb *)v)->dev_list.next;
 -
--	return (nxt == &irlans) ? NULL
--		: list_entry(nxt, struct irlan_cb, dev_list);
-+	return seq_list_next(v, &irlans, pos);
+-	return (v == SEQ_START_TOKEN) ? sk_head(&nr_list)
+-		: sk_next((struct sock *)v);
++	return seq_hlist_next(v, &nr_list, pos);
  }
  
- /* End of reading /proc file */
-@@ -1170,10 +1150,10 @@ static void irlan_seq_stop(struct seq_file *seq, void *v)
-  */
- static int irlan_seq_show(struct seq_file *seq, void *v)
- {
--	if (v == SEQ_START_TOKEN)
-+	if (v == &irlans)
- 		seq_puts(seq, "IrLAN instances:\n");
- 	else {
--		struct irlan_cb *self = v;
-+		struct irlan_cb *self = list_entry(v, struct irlan_cb, list);
+ static void nr_info_stop(struct seq_file *seq, void *v)
+@@ -1298,7 +1283,7 @@ static void nr_info_stop(struct seq_file *seq, void *v)
  
- 		IRDA_ASSERT(self != NULL, return -1;);
- 		IRDA_ASSERT(self->magic == IRLAN_MAGIC, return -1;);
+ static int nr_info_show(struct seq_file *seq, void *v)
+ {
+-	struct sock *s = v;
++	struct sock *s = sk_entry(v);
+ 	struct net_device *dev;
+ 	struct nr_sock *nr;
+ 	const char *devname;
+diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
+index e2e2d33..5cc6480 100644
+--- a/net/netrom/nr_route.c
++++ b/net/netrom/nr_route.c
+@@ -863,33 +863,13 @@ int nr_route_frame(struct sk_buff *skb, ax25_cb *ax25)
+ 
+ static void *nr_node_start(struct seq_file *seq, loff_t *pos)
+ {
+-	struct nr_node *nr_node;
+-	struct hlist_node *node;
+-	int i = 1;
+-
+ 	spin_lock_bh(&nr_node_list_lock);
+-	if (*pos == 0)
+-		return SEQ_START_TOKEN;
+-
+-	nr_node_for_each(nr_node, node, &nr_node_list) {
+-		if (i == *pos)
+-			return nr_node;
+-		++i;
+-	}
+-
+-	return NULL;
++	return seq_hlist_start_head(&nr_node_list, *pos);
+ }
+ 
+ static void *nr_node_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+-	struct hlist_node *node;
+-	++*pos;
+-
+-	node = (v == SEQ_START_TOKEN)
+-		? nr_node_list.first
+-		: ((struct nr_node *)v)->node_node.next;
+-
+-	return hlist_entry(node, struct nr_node, node_node);
++	return seq_hlist_next(v, &nr_node_list, pos);
+ }
+ 
+ static void nr_node_stop(struct seq_file *seq, void *v)
+@@ -906,7 +886,9 @@ static int nr_node_show(struct seq_file *seq, void *v)
+ 		seq_puts(seq,
+ 			 "callsign  mnemonic w n qual obs neigh qual obs neigh qual obs neigh\n");
+ 	else {
+-		struct nr_node *nr_node = v;
++		struct nr_node *nr_node = hlist_entry(v, struct nr_node,
++						      node_node);
++
+ 		nr_node_lock(nr_node);
+ 		seq_printf(seq, "%-9s %-7s  %d %d",
+ 			ax2asc(buf, &nr_node->callsign),
+@@ -949,31 +931,13 @@ const struct file_operations nr_nodes_fops = {
+ 
+ static void *nr_neigh_start(struct seq_file *seq, loff_t *pos)
+ {
+-	struct nr_neigh *nr_neigh;
+-	struct hlist_node *node;
+-	int i = 1;
+-
+ 	spin_lock_bh(&nr_neigh_list_lock);
+-	if (*pos == 0)
+-		return SEQ_START_TOKEN;
+-
+-	nr_neigh_for_each(nr_neigh, node, &nr_neigh_list) {
+-		if (i == *pos)
+-			return nr_neigh;
+-	}
+-	return NULL;
++	return seq_hlist_start_head(&nr_neigh_list, *pos);
+ }
+ 
+ static void *nr_neigh_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+-	struct hlist_node *node;
+-	++*pos;
+-
+-	node = (v == SEQ_START_TOKEN)
+-		? nr_neigh_list.first
+-		: ((struct nr_neigh *)v)->neigh_node.next;
+-
+-	return hlist_entry(node, struct nr_neigh, neigh_node);
++	return seq_hlist_next(v, &nr_neigh_list, pos);
+ }
+ 
+ static void nr_neigh_stop(struct seq_file *seq, void *v)
+@@ -989,8 +953,9 @@ static int nr_neigh_show(struct seq_file *seq, void *v)
+ 	if (v == SEQ_START_TOKEN)
+ 		seq_puts(seq, "addr  callsign  dev  qual lock count failed digipeaters\n");
+ 	else {
+-		struct nr_neigh *nr_neigh = v;
++		struct nr_neigh *nr_neigh;
+ 
++		nr_neigh = hlist_entry(v, struct nr_neigh, neigh_node);
+ 		seq_printf(seq, "%05d %-9s %-4s  %3d    %d   %3d    %3d",
+ 			nr_neigh->number,
+ 			ax2asc(buf, &nr_neigh->callsign),
 -- 
 1.6.3
+
