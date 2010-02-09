@@ -1,62 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 2/3] fs_enet: Add support for MPC512x to
- fs_enet driver
-Date: Tue, 09 Feb 2010 12:13:56 -0800 (PST)
-Message-ID: <20100209.121356.216640014.davem@davemloft.net>
-References: <4B5871F2.9090005@grandegger.com>
-	<20100121.180311.228791894.davem@davemloft.net>
-	<20100209152317.5303b1b3@wker>
+Subject: Re: Pull request: bluetooth-2.6 2010-02-05
+Date: Tue, 09 Feb 2010 12:15:59 -0800 (PST)
+Message-ID: <20100209.121559.172222952.davem@davemloft.net>
+References: <cover.1265399549.git.marcel@holtmann.org>
+	<20100208.225011.23377444.davem@davemloft.net>
+	<1265730724.31341.381.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wg@grandegger.com, netdev@vger.kernel.org, dzu@denx.de, wd@denx.de,
-	jcrigby@gmail.com, kosmo@semihalf.com, linuxppc-dev@ozlabs.org,
-	grant.likely@secretlab.ca
-To: agust@denx.de
+Cc: netdev@vger.kernel.org
+To: marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60751
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60756
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751198Ab0BIUNm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 15:13:42 -0500
-In-Reply-To: <20100209152317.5303b1b3@wker>
+	by vger.kernel.org with ESMTP id S1751851Ab0BIUPo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 15:15:44 -0500
+In-Reply-To: <1265730724.31341.381.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anatolij Gustschin <agust@denx.de>
-Date: Tue, 9 Feb 2010 15:23:17 +0100
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Tue, 09 Feb 2010 16:52:04 +0100
 
-> In my understanding, in the ESP scsi driver the set of defines for
-> the register offsets is common for all chip drivers. The chip driver
-> methods for register access translate the offsets because the
-> registers on some chips are at different intervals (4-byte, 1-byte,
-> 16-byte for mac_esp.c). But the register order is the same for
-> different chips.
+> Hi Dave,
 > 
-> In our case non only the register order is not the same for 8xx
-> FEC and 5121 FEC, but there are also other differences, different
-> reserved areas between several registers, some registers are
-> available only on 8xx and some only on 5121.
+>> > here are a few more fixes that are mostly a result from the Bluetooth
+>> > UnPlugFest testing in Seattle during this week.
+>> 
+>> Man, I live in Seattle and I still never get invited to these
+>> cool events ;-)
+> 
+> I wouldn't call them cool actually. It is a stressful week of non-stop
+> testing against other Bluetooth stacks and products. Also they are
+> covered under an NDA since some companies are testing with prototypes.
 
-That only means you would need to use a table based register address
-translation scheme, rather than a simple calculation.  Something
-like:
-
-static unsigned int chip_xxx_table[] =
-{
-	[GENERIC_REG_FOO]	 = CHIP_XXX_FOO,
-	...
-};
-
-static u32 chip_xxx_read_reg(struct chip *p, unsigned int reg)
-{
-	unsigned int reg_off = chip_xxx_table[reg];
-
-	return readl(p->regs + reg_off);
-}
-
-And this table can have special tokens in entries for
-registers which do not exist on a chip, so you can trap
-attempted access to them in these read/write handlers.
-
-Please stop looking for excuses to fork this driver, a
-unified driver I think can be done cleanly.
+I guess I need to find a better emoticon to use for sarcasm.
