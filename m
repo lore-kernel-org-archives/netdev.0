@@ -1,73 +1,79 @@
-From: Andreas Petlund <apetlund@simula.no>
-Subject: Re: [net-next PATCH v2 2/3] net: TCP thin linear timeouts
-Date: Tue, 09 Feb 2010 17:40:20 +0100
-Message-ID: <4B718FF4.6040906@simula.no>
-References: <4B701EE2.1000006@simula.no> <4B707901.50905@tvk.rwth-aachen.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 17/23 v3] mlx4_core: Randomize Mac addresses for slaves
+Date: Tue, 09 Feb 2010 17:22:17 +0000
+Message-ID: <1265736137.2126.121.camel@achroite.uk.solarflarecom.com>
+References: <49BFC313.1030901@mellanox.co.il>
+	 <4B6AEE38.4010207@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
-	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
-	David Miller <davem@davemloft.net>,
-	william.allen.simpson@gmail.com
-To: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Cc: Roland Dreier <rdreier@cisco.com>, general@lists.openfabrics.org,
+	netdev@vger.kernel.org, liranl@mellanox.co.il,
+	tziporet@mellanox.co.il
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-forward2.uio.no ([129.240.10.71]:47195 "EHLO
-	mail-forward2.uio.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754950Ab0BIQjy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 11:39:54 -0500
-Received: from exim by mail-out2.uio.no with local-bsmtp (Exim 4.69)
-	(envelope-from <apetlund@simula.no>)
-	id 1Net7w-0006RT-TN
-	for netdev@vger.kernel.org; Tue, 09 Feb 2010 17:39:52 +0100
-In-Reply-To: <4B707901.50905@tvk.rwth-aachen.de>
+Received: from exchange.solarflare.com ([216.237.3.220]:58533 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754837Ab0BIRWV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 12:22:21 -0500
+In-Reply-To: <4B6AEE38.4010207@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/08/2010 09:50 PM, Damian Lukowski wrote:
->>  out_reset_timer:
->> -	icsk->icsk_rto = min(icsk->icsk_rto << 1, TCP_RTO_MAX);
->> +	/* If stream is thin, use linear timeouts. Since 'icsk_backoff' is
->> +	 * used to reset timer, set to 0. Recalculate 'icsk_rto' as this
->> +	 * might be increased if the stream oscillates between thin and thick,
->> +	 * thus the old value might already be too high compared to the value
->> +	 * set by 'tcp_set_rto' in tcp_input.c which resets the rto without
->> +	 * backoff. Limit to TCP_THIN_LT_RETRIES before initiating exponential
->> +	 * backoff behaviour to avoid continue hammering linear-timeout 
->> +	 * retransmissions into a black hole*/
->> +	if ((tp->thin_lt || sysctl_tcp_force_thin_linear_timeouts) &&
->> +	    tcp_stream_is_thin(sk) && sk->sk_state == TCP_ESTABLISHED &&
->> +	    icsk->icsk_retransmits <= TCP_THIN_LT_RETRIES) {
->> +		icsk->icsk_backoff = 0;
+On Thu, 2010-02-04 at 17:56 +0200, Yevgeny Petrilin wrote:
+> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+> ---
+>  drivers/net/mlx4/fw.c |    9 +++++++++
+>  1 files changed, 9 insertions(+), 0 deletions(-)
 > 
-> Hi,
-> I think, this value should be at least 1, as icsk_backoff
-> might be decreased to -1 and used for bit-shifting in tcp_v4_err().
-> A lower boundary check might be even better.
+> diff --git a/drivers/net/mlx4/fw.c b/drivers/net/mlx4/fw.c
+> index 6e3e1d1..202a256 100644
+> --- a/drivers/net/mlx4/fw.c
+> +++ b/drivers/net/mlx4/fw.c
+> @@ -32,6 +32,7 @@
+>   * SOFTWARE.
+>   */
+>  
+> +#include <linux/etherdevice.h>
+>  #include <linux/mlx4/cmd.h>
+>  #include <linux/cache.h>
+>  
+> @@ -149,11 +150,19 @@ int mlx4_QUERY_SLAVE_CAP_wrapper(struct mlx4_dev *dev, int slave, struct mlx4_vh
+>  						       struct mlx4_cmd_mailbox *outbox)
+>  {
+>  	struct mlx4_caps *caps = outbox->buf;
+> +	u8 rand_mac[6];
+> +	int i, j;
+>  
+>  	memcpy(caps, &dev->caps, sizeof *caps);
+>  
+>  	/* The Master function is in charge for qp1 of al slaves */
+>  	caps->sqp_demux = 0;
+> +	for (i = 1; i <= dev->caps.num_ports; ++i) {
+> +		random_ether_addr(rand_mac);
+> +		caps->def_mac[i] = 0;
+> +		for (j = 0; j < ETH_ALEN - 1; j++)
+> +			caps->def_mac[i] |= ((u64)(rand_mac[j]) << 8 * j);
+[...]
 
-Hi
+Do you really want the last byte to be 0 always?
 
-Thanks for the feedback.
+Assuming you don't, you can avoid the inner loop by writing:
 
-As far as I can see, the check a couple of lines above the decrementation
-stops the icsk->icsk_backoff from being decremented if already zero.
-Beyond that I cannot find any more places where this situation may arise.
-Please correct me if I'm wrong and a boundary check is indeed warranted.
+	union {
+		u8 bytes[ETH_ALEN];
+		__le64 qword;
+	} rand_mac = {
+		.qword = 0
+	};
+	...
+		random_ether_addr(rand_mac.bytes);
+		caps->def_mac[i] = le64_to_cpup(&rand_mac.qword);
 
+Ben.
 
-Excerpt from tcp_ipv4.c
-------------------
-                if (seq != tp->snd_una  || !icsk->icsk_retransmits ||
-                    !icsk->icsk_backoff)
-                        break;
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-                icsk->icsk_backoff--;
-                inet_csk(sk)->icsk_rto = __tcp_set_rto(tp) <<
-                                         icsk->icsk_backoff;
-------------------
-
-Best regards,
-Andreas
