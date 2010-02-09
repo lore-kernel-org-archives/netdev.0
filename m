@@ -1,45 +1,111 @@
-From: Ajit Khaparde <ajitkhaparde@gmail.com>
-Subject: [PATCH net-next-2.6] be2net: bug fix in be_read_eeprom
-Date: Tue, 9 Feb 2010 09:21:26 +0530
-Message-ID: <20100209035115.GA6577@serverengines.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 2/2] IPv6: remove trivial nested _bh suffix
+Date: Mon, 8 Feb 2010 21:48:52 -0800
+Message-ID: <20100208214852.017349dd@nehalam>
+References: <20100208214805.1f8f2c6d@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	YOSHIFUJI Hideaki / =?UTF-8?B?5ZCJ?=
+	 =?UTF-8?B?6Jek6Iux5piO?= <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f193.google.com ([209.85.210.193]:58839 "EHLO
-	mail-yx0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753217Ab0BIDvd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Feb 2010 22:51:33 -0500
-Received: by yxe31 with SMTP id 31so6405568yxe.21
-        for <netdev@vger.kernel.org>; Mon, 08 Feb 2010 19:51:33 -0800 (PST)
-Content-Disposition: inline
+Received: from mail.vyatta.com ([76.74.103.46]:35815 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751297Ab0BIFtF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Feb 2010 00:49:05 -0500
+In-Reply-To: <20100208214805.1f8f2c6d@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The offset to read the eeprom data was missing and
-wrong eeprom data was being dumped. This patch fixes this.
+Don't need to disable bottom half it is already down in the
+previous lock. Move some blank lines to group locking in same
+context.
 
->From Suresh R <sureshr@serverengines.com>
-Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
----
- drivers/net/benet/be_ethtool.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
-index 09d8899..dcc7f37 100644
---- a/drivers/net/benet/be_ethtool.c
-+++ b/drivers/net/benet/be_ethtool.c
-@@ -614,7 +614,7 @@ be_read_eeprom(struct net_device *netdev, struct ethtool_eeprom *eeprom,
+--- a/net/ipv6/addrconf.c	2010-02-08 21:37:31.589584963 -0800
++++ b/net/ipv6/addrconf.c	2010-02-08 21:37:41.114027790 -0800
+@@ -2802,14 +2802,14 @@ static void addrconf_dad_start(struct in
+ 	read_lock_bh(&idev->lock);
+ 	if (ifp->dead)
+ 		goto out;
+-	spin_lock_bh(&ifp->lock);
  
- 	if (!status) {
- 		resp = (struct be_cmd_resp_seeprom_read *) eeprom_cmd.va;
--		memcpy(data, resp->seeprom_data, eeprom->len);
-+		memcpy(data, resp->seeprom_data + eeprom->offset, eeprom->len);
++	spin_lock(&ifp->lock);
+ 	if (dev->flags&(IFF_NOARP|IFF_LOOPBACK) ||
+ 	    idev->cnf.accept_dad < 1 ||
+ 	    !(ifp->flags&IFA_F_TENTATIVE) ||
+ 	    ifp->flags & IFA_F_NODAD) {
+ 		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC|IFA_F_DADFAILED);
+-		spin_unlock_bh(&ifp->lock);
++		spin_unlock(&ifp->lock);
+ 		read_unlock_bh(&idev->lock);
+ 
+ 		addrconf_dad_completed(ifp);
+@@ -2817,7 +2817,7 @@ static void addrconf_dad_start(struct in
  	}
- 	pci_free_consistent(adapter->pdev, eeprom_cmd.size, eeprom_cmd.va,
- 			eeprom_cmd.dma);
--- 
-1.6.3.3
+ 
+ 	if (!(idev->if_flags & IF_READY)) {
+-		spin_unlock_bh(&ifp->lock);
++		spin_unlock(&ifp->lock);
+ 		read_unlock_bh(&idev->lock);
+ 		/*
+ 		 * If the device is not ready:
+@@ -2837,7 +2837,7 @@ static void addrconf_dad_start(struct in
+ 		ip6_ins_rt(ifp->rt);
+ 
+ 	addrconf_dad_kick(ifp);
+-	spin_unlock_bh(&ifp->lock);
++	spin_unlock(&ifp->lock);
+ out:
+ 	read_unlock_bh(&idev->lock);
+ }
+@@ -2853,14 +2853,15 @@ static void addrconf_dad_timer(unsigned 
+ 		read_unlock_bh(&idev->lock);
+ 		goto out;
+ 	}
+-	spin_lock_bh(&ifp->lock);
++
++	spin_lock(&ifp->lock);
+ 	if (ifp->probes == 0) {
+ 		/*
+ 		 * DAD was successful
+ 		 */
+ 
+ 		ifp->flags &= ~(IFA_F_TENTATIVE|IFA_F_OPTIMISTIC|IFA_F_DADFAILED);
+-		spin_unlock_bh(&ifp->lock);
++		spin_unlock(&ifp->lock);
+ 		read_unlock_bh(&idev->lock);
+ 
+ 		addrconf_dad_completed(ifp);
+@@ -2870,7 +2871,7 @@ static void addrconf_dad_timer(unsigned 
+ 
+ 	ifp->probes--;
+ 	addrconf_mod_timer(ifp, AC_DAD, ifp->idev->nd_parms->retrans_time);
+-	spin_unlock_bh(&ifp->lock);
++	spin_unlock(&ifp->lock);
+ 	read_unlock_bh(&idev->lock);
+ 
+ 	/* send a neighbour solicitation for our addr */
+@@ -2918,12 +2919,12 @@ static void addrconf_dad_run(struct inet
+ 
+ 	read_lock_bh(&idev->lock);
+ 	for (ifp = idev->addr_list; ifp; ifp = ifp->if_next) {
+-		spin_lock_bh(&ifp->lock);
++		spin_lock(&ifp->lock);
+ 		if (!(ifp->flags & IFA_F_TENTATIVE)) {
+-			spin_unlock_bh(&ifp->lock);
++			spin_unlock(&ifp->lock);
+ 			continue;
+ 		}
+-		spin_unlock_bh(&ifp->lock);
++		spin_unlock(&ifp->lock);
+ 		addrconf_dad_kick(ifp);
+ 	}
+ 	read_unlock_bh(&idev->lock);
 
+
+-- 
