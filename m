@@ -1,117 +1,90 @@
-From: Damian Lukowski <damian@tvk.rwth-aachen.de>
-Subject: Re: [PATCH 0/3][v2] tcp: fix ICMP-RTO war
-Date: Tue, 09 Feb 2010 23:29:08 +0100
-Message-ID: <op.u7vsquqxp498uc@nexus>
-References: <4B635E17.406@tvk.rwth-aachen.de>
- <20100131.233338.254690877.davem@davemloft.net> <op.u7s6j0qup498uc@nexus>
- <4B708913.906@tvk.rwth-aachen.de>
- <alpine.DEB.2.00.1002091433230.7063@wel-95.cs.helsinki.fi>
+From: John Williams <john.williams@petalogix.com>
+Subject: Re: [PATCH] [V3] net: emaclite: adding MDIO and phy lib support
+Date: Wed, 10 Feb 2010 08:30:24 +1000
+Message-ID: <1d3f23371002091430hb550153u602c8e7c010381b9@mail.gmail.com>
+References: <2ea396ca-3014-40f4-86ac-0e9f1aa82b5b@SG2EHSMHS005.ehs.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed	delsp=yes
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: =?utf-8?Q?Ilpo_J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, jgarzik@pobox.com,
+	grant.likely@secretlab.ca, jwboyer@linux.vnet.ibm.com,
+	Sadanand Mutyala <Sadanand.Mutyala@xilinx.com>
+To: John Linn <john.linn@xilinx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:64779 "EHLO
-	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754373Ab0BIW3N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 17:29:13 -0500
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
- by mta-1.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0KXL002VDIGOKW60@mta-1.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Tue, 09 Feb 2010 23:29:12 +0100 (CET)
-In-reply-to: <alpine.DEB.2.00.1002091433230.7063@wel-95.cs.helsinki.fi>
+Received: from mail-px0-f202.google.com ([209.85.216.202]:36189 "EHLO
+	mail-px0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754540Ab0BIWaY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 17:30:24 -0500
+Received: by pxi40 with SMTP id 40so44094pxi.21
+        for <netdev@vger.kernel.org>; Tue, 09 Feb 2010 14:30:24 -0800 (PST)
+In-Reply-To: <2ea396ca-3014-40f4-86ac-0e9f1aa82b5b@SG2EHSMHS005.ehs.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 09.02.2010, 13:37 Uhr, schrieb Ilpo J=C3=A4rvinen =20
-<ilpo.jarvinen@helsinki.fi>:
+Hi John,
 
-> On Mon, 8 Feb 2010, Damian Lukowski wrote:
->
->> Damian Lukowski schrieb:
->> > Am 01.02.2010, 08:33 Uhr, schrieb David Miller <davem@davemloft.ne=
-t>:
->> >
->> >> From: Damian Lukowski <damian@tvk.rwth-aachen.de>
->> >> Date: Fri, 29 Jan 2010 23:15:51 +0100
->> >>
->> >>> This patches fix the current RTO calculation routine, when
->> >>> srtt and rttvar are zero, yielding an RTO of zero
->> >>> Under some circumstances, TCPs srtt and rttvar are zero,
->> >>> yielding a calculated RTO of zero.
->> >>> This is particularly unfortunate for ICMP based RTO recalculatio=
-n
->> >>> as introduced in f1ecd5d9e736660 (Revert Backoff [v3]: Revert RT=
-O
->> >>> on ICMP destination unreachable), as it results in RTO =20
->> retransmission
->> >>> flooding.
->> >>>
->> >>> Thanks to Ilpo Jarvinen for providing debug patches and to
->> >>> Denys Fedoryshchenko for reporting and testing.
->> >>>
->> >>> Signed-off-by: Damian Lukowski <damian@tvk.rwth-aachen.de>
->> >>
->> >> I still haven't seen a detailed enough analysis of why these
->> >> tiny RTOs can come to exist in the first place.
->> >>
->> >> Please show me a list of events, function by function, the value =
-of
->> >> relevant variables and per-socket TCP state, in the TCP stack, th=
-at
->> >> show how this ends up happening.
->> >>
->> >> Thanks for all of your work on this so far.
->> >
->> > I might have figured it out, but could not verify it, so maybe you=
- can
->> > comment my thought.
->> >
->> > When a listening TCP receives a SYN, it will send a SYN+ACK
->> > and wait for an ACK to complete the handshake.
->> > Look at tcp_rcv_state_process::step 5::case SYN_RECV::acceptable
->> > and the code after the comment "tcp_ack considers this ACK as =20
->> duplicate
->> > and does not calculate rtt".
->> >
->> > If the connecting client has disabled timestamps, the rtt statisti=
-cs
->> > won't be updated here, while the state is changed above.
->> > I printk'ed at the very end of TCP_SYN_RECV and got the following:
->> > state 1 (ESTABLISHED), srtt 0, rttvar 0.
->> >
->> > So my suspicion is: If connectivity breaks right after a listening=
- TCP
->> > has completed the handshake without timestamps, and the listening =
-TCP
->> > sends data after establishing the connection, we will get the obse=
-rved
->> > behaviour.
->>
->> Just verified that by dropping pure ACKs coming from the originally
->> listening TCP using iptables.
->
-> Isn't that "tcp_ack considers" comment like this: we have bug elsewhe=
-re =20
-> in
-> the code but workaround it here, at least for some of the cases? (I'd=
- put
-> it other way around: but alas, only for part of the cases.) ...It sou=
-nd
-> like that to me. What exactly is the reason why rtt shouldn't be
-> calculated/initialized on such ACK, anything I'm missing?
+Sorry If I'm painting bike-sheds here, just one tiny tweak might be in
+order to standardise your mutex_unlock exit path:
+
+> +static int xemaclite_mdio_read(struct mii_bus *bus, int phy_id, int =
+reg)
+> +{
+> + =A0 =A0 =A0 struct net_local *lp =3D bus->priv;
+> + =A0 =A0 =A0 u32 ctrl_reg;
+> + =A0 =A0 =A0 u32 rc;
+> +
+> + =A0 =A0 =A0 mutex_lock(&lp->mdio_mutex);
+> +
+> + =A0 =A0 =A0 if (xemaclite_mdio_wait(lp)) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 mutex_unlock(&lp->mdio_mutex);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ETIMEDOUT;
+> + =A0 =A0 =A0 }
+
+[snip]
 
 
-The RTT is extracted when traversing tcp_write_queue_head() in
-tcp_clean_rtx_queue() but is null when the SYNACK is acknowledged,
-so it may have seemed to be a harder issue for the commentator.
-I also have been thinking a while how to obtain the timestamp of the
-sent SYNACK, but there is no need for it.
-We just need to call tcp_ack_no_tstamp(), which will set the
-RTO to 3 seconds as defined in RFC 2988.
+> + =A0 =A0 =A0 if (xemaclite_mdio_wait(lp)) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 mutex_unlock(&lp->mdio_mutex);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ETIMEDOUT;
+> + =A0 =A0 =A0 }
 
-Regards
-   Damian
+[snip]
+
+
+> + =A0 =A0 =A0 dev_dbg(&lp->ndev->dev,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 "xemaclite_mdio_read(phy_id=3D%i, reg=3D=
+%x) =3D=3D %x\n",
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 phy_id, reg, rc);
+> +
+> + =A0 =A0 =A0 return rc;
+
+Can this be better expressed like this:
+
+my_func() {
+  mutex_lock()
+=2E.
+
+  if(some error) {
+    rc=3D-ETIMEDOUT;
+    goto out_unlock;
+  }
+  ...
+
+  /* success path */
+  rc=3D0;
+=2E.
+out_unlock:
+  mutex_unlock()
+  return rc;
+}
+
+
+Is this style still favoured in driver exit paths?
+
+Thanks,
+
+John
+--=20
+John Williams, PhD, B.Eng, B.IT
+PetaLogix - Linux Solutions for a Reconfigurable World
+w: www.petalogix.com  p: +61-7-30090663  f: +61-7-30090663
