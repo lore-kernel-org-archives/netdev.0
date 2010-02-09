@@ -1,65 +1,66 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [PATCH] xfrm: validate attributes
-Date: Tue, 09 Feb 2010 08:59:38 -0500
-Message-ID: <1265723978.3688.82.camel@bigi>
-Reply-To: hadi@cyberus.ca
+From: Anatolij Gustschin <agust@denx.de>
+Subject: Re: [net-next-2.6 PATCH 2/3] fs_enet: Add support for MPC512x to
+ fs_enet driver
+Date: Tue, 9 Feb 2010 15:23:17 +0100
+Message-ID: <20100209152317.5303b1b3@wker>
+References: <1264039999-25731-3-git-send-email-agust@denx.de>
+	<20100121.012235.161201297.davem@davemloft.net>
+	<4B5871F2.9090005@grandegger.com>
+	<20100121.180311.228791894.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-RCW07ZrwQ2NcAOKZtti5"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: wg@grandegger.com, netdev@vger.kernel.org, dzu@denx.de, wd@denx.de,
+	jcrigby@gmail.com, kosmo@semihalf.com, linuxppc-dev@ozlabs.org,
+	grant.likely@secretlab.ca
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.27]:55126 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754239Ab0BIN7m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 08:59:42 -0500
-Received: by qw-out-2122.google.com with SMTP id 9so857423qwb.37
-        for <netdev@vger.kernel.org>; Tue, 09 Feb 2010 05:59:41 -0800 (PST)
+Received: from mail-out.m-online.net ([212.18.0.9]:56665 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753361Ab0BIOXk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 09:23:40 -0500
+In-Reply-To: <20100121.180311.228791894.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 21 Jan 2010 18:03:11 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
---=-RCW07ZrwQ2NcAOKZtti5
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+> From: Wolfgang Grandegger <wg@grandegger.com>
+> Date: Thu, 21 Jan 2010 16:25:38 +0100
+> 
+> > Do you see a more clever solution to this problem?
+> 
+> See how we handle this in the ESP scsi driver.  We have a set of
+> defines for the register offsets, and a set of methods a chip driver
+> implements for register accesses.
+> 
+> If the offsets differ, the register access method can translate the
+> generic register offsets into whatever layout their implementation
+> actually uses.
 
+First of all thanks for your suggestion. I have seen how you
+handle register access in the ESP scsi driver. The reason I didn't
+try to implement register access using similar approach is that
+we have different sort of problem.
 
-make sure all XFRMAs go through validation in case wrong
-content is passed
+In my understanding, in the ESP scsi driver the set of defines for
+the register offsets is common for all chip drivers. The chip driver
+methods for register access translate the offsets because the
+registers on some chips are at different intervals (4-byte, 1-byte,
+16-byte for mac_esp.c). But the register order is the same for
+different chips.
 
-cheers,
-jamal
+In our case non only the register order is not the same for 8xx
+FEC and 5121 FEC, but there are also other differences, different
+reserved areas between several registers, some registers are
+available only on 8xx and some only on 5121.
 
---=-RCW07ZrwQ2NcAOKZtti5
-Content-Disposition: attachment; filename="xfrma-vald"
-Content-Type: text/plain; name="xfrma-vald"; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-
-commit 979fef2abd38392e28c851215c59d1128fe0f776
-Author: Jamal Hadi Salim <hadi@cyberus.ca>
-Date:   Tue Feb 9 08:47:57 2010 -0500
-
-    xfrm: validate attributes
-    
-    Some XFRM attributes were not going through basic validation.
-    
-    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
-
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index d5a7129..943c871 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -2054,6 +2054,10 @@ static const int xfrm_msg_min[XFRM_NR_MSGTYPES] = {
- #undef XMSGSIZE
+Now at least tree people suggested to fork the driver. My question
+is if you would accept a forked 5121 FEC specific driver realised
+similar to drivers/net/fs_enet/mac-fec.c and
+drivers/net/fs_enet/mii-fec.c drivers?
  
- static const struct nla_policy xfrma_policy[XFRMA_MAX+1] = {
-+	[XFRMA_SA]		= { .len = sizeof(struct xfrm_usersa_info)},
-+	[XFRMA_POLICY]		= { .len = sizeof(struct xfrm_userpolicy_info)},
-+	[XFRMA_LASTUSED]	= { .type = NLA_U64},
-+	[XFRMA_ALG_AUTH_TRUNC]	= { .len = sizeof(struct xfrm_algo_auth)},
- 	[XFRMA_ALG_AEAD]	= { .len = sizeof(struct xfrm_algo_aead) },
- 	[XFRMA_ALG_AUTH]	= { .len = sizeof(struct xfrm_algo) },
- 	[XFRMA_ALG_CRYPT]	= { .len = sizeof(struct xfrm_algo) },
+Thanks,
 
---=-RCW07ZrwQ2NcAOKZtti5--
-
+Anatolij
