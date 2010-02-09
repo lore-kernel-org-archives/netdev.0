@@ -1,31 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 8/11] drivers/net: Correct NULL test
-Date: Mon, 08 Feb 2010 22:44:59 -0800 (PST)
-Message-ID: <20100208.224459.02579519.davem@davemloft.net>
-References: <Pine.LNX.4.64.1002060943580.8092@ask.diku.dk>
+Subject: Re: Pull request: bluetooth-2.6 2010-02-05
+Date: Mon, 08 Feb 2010 22:50:11 -0800 (PST)
+Message-ID: <20100208.225011.23377444.davem@davemloft.net>
+References: <cover.1265399549.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: p_gortmaker@yahoo.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: julia@diku.dk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.1002060943580.8092@ask.diku.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: marcel@holtmann.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59810
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751457Ab0BIGt5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 01:49:57 -0500
+In-Reply-To: <cover.1265399549.git.marcel@holtmann.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
-Date: Sat, 6 Feb 2010 09:44:15 +0100 (CET)
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Fri,  5 Feb 2010 12:05:33 -0800
 
-> From: Julia Lawall <julia@diku.dk>
+> here are a few more fixes that are mostly a result from the Bluetooth
+> UnPlugFest testing in Seattle during this week.
+
+Man, I live in Seattle and I still never get invited to these
+cool events ;-)
+
+> The important one are the fix for the sleeping function call in the
+> RFCOMM timer that show up with certain hardware (not all of them) and
+> also the fix for double release of the underlaying L2CAP session.
 > 
-> Test the value that was just allocated rather than the previously tested one.
+> With the HID subsystem changes that turns it into a proper bus, the
+> HIDP code ended up with a potential case where we access userspace
+> memory out of the scop of its ioctl() command. Fix this by just keeping
+> a copy of the HID report descriptor around. The HID subsystem will need
+> that anyway.
 > 
-> A simplified version of the semantic match that finds this problem is as
-> follows: (http://coccinelle.lip6.fr/)
+> The rest are some SCO/eSCO audio setup fixes with broken hardware and
+> closing a memory leak in the Marvell driver.
+ ...
+> Please pull from
+> 
+>     git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git master
 
-Hehe, every time I read that tool name I hear "Coco Channel" :-)
-
-> Signed-off-by: Julia Lawall <julia@diku.dk>
-
-Applied, thanks!
+Pulled, thanks!
