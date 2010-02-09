@@ -1,89 +1,63 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/2] IPv6: keep permanent addresses on admin down
-Date: Mon, 8 Feb 2010 21:48:05 -0800
-Message-ID: <20100208214805.1f8f2c6d@nehalam>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] dst: call cond_resched() in dst_gc_task()
+Date: Tue, 09 Feb 2010 07:06:38 +0100
+Message-ID: <1265695598.4236.95.camel@edumazet-laptop>
+References: <1265639549.3048.33.camel@edumazet-laptop>
+	 <1265657560.4236.80.camel@edumazet-laptop>
+	 <20100208152606.91c55722.akpm@linux-foundation.org>
+	 <20100208.153406.123254133.davem@davemloft.net>
+	 <20100208153744.236158aa.akpm@linux-foundation.org>
+	 <20100208155053.4ad68484@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	YOSHIFUJI Hideaki / =?UTF-8?B?5ZCJ?=
-	 =?UTF-8?B?6Jek6Iux5piO?= <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, pstaszewski@itcare.pl,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35820 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751692Ab0BIFtO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Feb 2010 00:49:14 -0500
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:36152 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753010Ab0BIGGq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 01:06:46 -0500
+Received: by bwz19 with SMTP id 19so490080bwz.28
+        for <netdev@vger.kernel.org>; Mon, 08 Feb 2010 22:06:44 -0800 (PST)
+In-Reply-To: <20100208155053.4ad68484@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Permanent IPV6 addresses should not be removed when the link is
-set to admin down, only when device is removed. 
+Le lundi 08 f=C3=A9vrier 2010 =C3=A0 15:50 -0800, Stephen Hemminger a =C3=
+=A9crit :
 
-When link is lost permanent addresses should be marked as tentative
-so that when link comes back they are subject to duplicate address
-detection (if DAD was enabled for that address).
+> No, cache doesn't help.
+>=20
+> Robert who is the expert in this area, runs with FIB TRIE and
+> no routing cache.
 
-Other routing systems keep manually configured IPv6 addresses
-when link is set down.
+Who knows, it probably depends on many factors. I always run with cache
+enabled, because it saves cycles on moderate load.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+=46IB_TRIE is unrelated here, if routing table is very small, it fits H=
+ASH
+or TRIE.
 
----
-The logic here is getting long and twisted, doing some work
-to use RCU here and refactor.
+Pawel hit the bug with tunables that basically enabled the cache but in
+a non helpful way (filling the list of busy dst). User error combined
+with a lazy kernel function :)
 
---- a/net/ipv6/addrconf.c	2010-02-08 21:05:04.798785751 -0800
-+++ b/net/ipv6/addrconf.c	2010-02-08 21:38:58.734340743 -0800
-@@ -2646,7 +2646,8 @@ static int addrconf_ifdown(struct net_de
- 
- 		write_lock_bh(&addrconf_hash_lock);
- 		while ((ifa = *bifa) != NULL) {
--			if (ifa->idev == idev) {
-+			if (ifa->idev == idev &&
-+			    (how || !(ifa->flags&IFA_F_PERMANENT))) {
- 				*bifa = ifa->lst_next;
- 				ifa->lst_next = NULL;
- 				addrconf_del_timer(ifa);
-@@ -2686,18 +2687,30 @@ static int addrconf_ifdown(struct net_de
- 		write_lock_bh(&idev->lock);
- 	}
- #endif
--	while ((ifa = idev->addr_list) != NULL) {
--		idev->addr_list = ifa->if_next;
--		ifa->if_next = NULL;
--		ifa->dead = 1;
--		addrconf_del_timer(ifa);
--		write_unlock_bh(&idev->lock);
--
--		__ipv6_ifa_notify(RTM_DELADDR, ifa);
--		atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
--		in6_ifa_put(ifa);
-+	bifa = &idev->addr_list;
-+	while ((ifa = *bifa) != NULL) {
-+		if (how == 0 && (ifa->flags&IFA_F_PERMANENT)) {
-+			/* Retain permanent address on admin down */
-+			bifa = &ifa->if_next;
-+
-+			/* Restart DAD if needed when link comes back up */
-+			if ( !((dev->flags&(IFF_NOARP|IFF_LOOPBACK)) ||
-+			       idev->cnf.accept_dad <= 0 ||
-+			       (ifa->flags & IFA_F_NODAD)))
-+				ifa->flags |= IFA_F_TENTATIVE;
-+		} else {
-+			*bifa = ifa->if_next;
-+			ifa->if_next = NULL;
-+
-+			ifa->dead = 1;
-+			write_unlock_bh(&idev->lock);
-+
-+			__ipv6_ifa_notify(RTM_DELADDR, ifa);
-+			atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
-+			in6_ifa_put(ifa);
- 
--		write_lock_bh(&idev->lock);
-+			write_lock_bh(&idev->lock);
-+		}
- 	}
- 	write_unlock_bh(&idev->lock);
- 
+Please note that conversion from softirq to workqueue, without
+scheduling point, might/probably use same cpu for handling network irqs
+and running dst_gc_task() :
+
+On big routers, admins usually use irq affinities, so we can have very
+litle cpu time available to run other tasks on those cpus.
+
+After this patch, I believe that scheduler is allowed to migrate
+dst_gc_task() to an idle cpu.
+
+Another point (for 2.6.34) to address is the dst_gc_mutex that can dela=
+y
+NETDEV_UNREGISTER/NETDEV_DOWN events for a long period.
+
+
+
