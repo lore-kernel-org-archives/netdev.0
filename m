@@ -1,7 +1,7 @@
 From: Li Zefan <lizf@cn.fujitsu.com>
-Subject: [PATCH 05/13] net: packet: use seq_hlist_foo() helpers
-Date: Tue, 09 Feb 2010 17:19:29 +0800
-Message-ID: <4B7128A1.9030906@cn.fujitsu.com>
+Subject: [PATCH 04/13] net: rose: use seq_hlist_foo() helpers
+Date: Tue, 09 Feb 2010 17:19:17 +0800
+Message-ID: <4B712895.6050300@cn.fujitsu.com>
 References: <4B712849.9040400@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -19,57 +19,53 @@ Simplify seq_file code.
 
 Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
 ---
- net/packet/af_packet.c |   20 +++-----------------
- 1 files changed, 3 insertions(+), 17 deletions(-)
+ net/rose/af_rose.c |   22 +++-------------------
+ 1 files changed, 3 insertions(+), 19 deletions(-)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 0f6bf59..256de26 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2374,33 +2374,19 @@ static struct notifier_block packet_netdev_notifier = {
- };
- 
- #ifdef CONFIG_PROC_FS
--static inline struct sock *packet_seq_idx(struct net *net, loff_t off)
--{
+diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
+index 8feb9e5..e90b9b6 100644
+--- a/net/rose/af_rose.c
++++ b/net/rose/af_rose.c
+@@ -1404,29 +1404,13 @@ static int rose_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ static void *rose_info_start(struct seq_file *seq, loff_t *pos)
+ 	__acquires(rose_list_lock)
+ {
+-	int i;
 -	struct sock *s;
 -	struct hlist_node *node;
 -
--	sk_for_each(s, node, &net->packet.sklist) {
--		if (!off--)
+ 	spin_lock_bh(&rose_list_lock);
+-	if (*pos == 0)
+-		return SEQ_START_TOKEN;
+-
+-	i = 1;
+-	sk_for_each(s, node, &rose_list) {
+-		if (i == *pos)
 -			return s;
+-		++i;
 -	}
 -	return NULL;
--}
- 
- static void *packet_seq_start(struct seq_file *seq, loff_t *pos)
- 	__acquires(seq_file_net(seq)->packet.sklist_lock)
- {
- 	struct net *net = seq_file_net(seq);
- 	read_lock(&net->packet.sklist_lock);
--	return *pos ? packet_seq_idx(net, *pos - 1) : SEQ_START_TOKEN;
-+	return seq_hlist_start_head(&net->packet.sklist, *pos);
++	return seq_hlist_start_head(&rose_list, *pos);
  }
  
- static void *packet_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ static void *rose_info_next(struct seq_file *seq, void *v, loff_t *pos)
  {
- 	struct net *net = seq_file_net(seq);
 -	++*pos;
--	return  (v == SEQ_START_TOKEN)
--		? sk_head(&net->packet.sklist)
--		: sk_next((struct sock *)v) ;
-+	return seq_hlist_next(v, &net->packet.sklist, pos);
+-
+-	return (v == SEQ_START_TOKEN) ? sk_head(&rose_list)
+-		: sk_next((struct sock *)v);
++	return seq_hlist_next(v, &rose_list, pos);
  }
  
- static void packet_seq_stop(struct seq_file *seq, void *v)
-@@ -2415,7 +2401,7 @@ static int packet_seq_show(struct seq_file *seq, void *v)
- 	if (v == SEQ_START_TOKEN)
- 		seq_puts(seq, "sk       RefCnt Type Proto  Iface R Rmem   User   Inode\n");
+ static void rose_info_stop(struct seq_file *seq, void *v)
+@@ -1444,7 +1428,7 @@ static int rose_info_show(struct seq_file *seq, void *v)
+ 			 "dest_addr  dest_call src_addr   src_call  dev   lci neigh st vs vr va   t  t1  t2  t3  hb    idle Snd-Q Rcv-Q inode\n");
+ 
  	else {
 -		struct sock *s = v;
 +		struct sock *s = sk_entry(v);
- 		const struct packet_sock *po = pkt_sk(s);
- 
- 		seq_printf(seq,
+ 		struct rose_sock *rose = rose_sk(s);
+ 		const char *devname, *callsign;
+ 		const struct net_device *dev = rose->device;
 -- 
 1.6.3
