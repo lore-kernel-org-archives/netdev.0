@@ -1,100 +1,76 @@
-From: John Linn <John.Linn@xilinx.com>
-Subject: RE: [PATCH] [V2] net: emaclite: adding MDIO and phy lib support
-Date: Tue, 9 Feb 2010 08:57:10 -0700
-Message-ID: <7a99fdf2-8fd0-4fd0-9cbb-fe6c87d5f50e@SG2EHSMHS015.ehs.local>
-References: <1265409646-11882-1-git-send-email-john.linn@xilinx.com> <260b8801-53bd-44fe-a6b8-7d1d0f56fef5@SG2EHSMHS011.ehs.local> <fa686aa41002090745x19d569acx3b50e8078ebb16f7@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/2] IPv6: keep permanent addresses on admin down
+Date: Tue, 9 Feb 2010 08:36:59 -0800
+Message-ID: <20100209083659.16b0961a@nehalam>
+References: <20100208214805.1f8f2c6d@nehalam>
+	<4B7173CB.3020506@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
-	<jgarzik@pobox.com>, <jwboyer@linux.vnet.ibm.com>,
-	<john.williams@petalogix.com>,
-	"Sadanand Mutyala" <sadanan@xilinx.com>
-To: "Grant Likely" <grant.likely@secretlab.ca>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	YOSHIFUJI Hideaki / =?UTF-8?B?5ZCJ?=
+	 =?UTF-8?B?6Jek6Iux5piO?= <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sg2ehsobe002.messaging.microsoft.com ([207.46.51.76]:11473 "EHLO
-	SG2EHSOBE002.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754531Ab0BIP54 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Feb 2010 10:57:56 -0500
-Content-Class: urn:content-classes:message
-In-Reply-To: <fa686aa41002090745x19d569acx3b50e8078ebb16f7@mail.gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:60880 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754063Ab0BIQhf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Feb 2010 11:37:35 -0500
+In-Reply-To: <4B7173CB.3020506@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: glikely@secretlab.ca [mailto:glikely@secretlab.ca] On Behalf Of=
- Grant Likely
-> Sent: Tuesday, February 09, 2010 8:45 AM
-> To: John Linn
-> Cc: netdev@vger.kernel.org; linuxppc-dev@ozlabs.org; jgarzik@pobox.co=
-m; jwboyer@linux.vnet.ibm.com;
-> john.williams@petalogix.com; Sadanand Mutyala
-> Subject: Re: [PATCH] [V2] net: emaclite: adding MDIO and phy lib supp=
-ort
->=20
-> On Mon, Feb 8, 2010 at 7:09 AM, John Linn <John.Linn@xilinx.com> wrot=
-e:
-> >> -----Original Message-----
-> >> From: John Linn [mailto:john.linn@xilinx.com]
-> >> Sent: Friday, February 05, 2010 3:41 PM
-> >> To: netdev@vger.kernel.org; linuxppc-dev@ozlabs.org;
-> > jgarzik@pobox.com; grant.likely@secretlab.ca;
-> >> jwboyer@linux.vnet.ibm.com
-> >> Cc: john.williams@petalogix.com; John Linn; Sadanand Mutyala
-> >> Subject: [PATCH] [V2] net: emaclite: adding MDIO and phy lib suppo=
-rt
-> >>
-> >> These changes add MDIO and phy lib support to the driver as the
-> >> IP core now supports the MDIO bus.
-> >>
-> >> The MDIO bus and phy are added as a child to the emaclite in the
-> > device
-> >> tree as illustrated below.
-> >>
-> >> mdio {
-> >> =A0 =A0 =A0 #address-cells =3D <1>;
-> >> =A0 =A0 =A0 #size-cells =3D <0>;
-> >> =A0 =A0 =A0 compatible =3D "xlnx,emaclite-mdio";
-> >> =A0 =A0 =A0 phy0: phy@7 {
-> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 reg =3D <7>;
-> >> =A0 =A0 =A0 } ;
-> >> }
->=20
-> You misunderstood me about the compatible property.  You don't need a
-> compatible prop in the mdio node because it is *alwasy* a child of th=
-e
-> emaclite node, and the emaclite driver knows to go looking for it (ie=
-=2E
-> it is a part of the device).
+On Tue, 09 Feb 2010 09:40:11 -0500
+Brian Haley <brian.haley@hp.com> wrote:
 
-OK, now I see, sorry for my denseness there.
+> Stephen Hemminger wrote:
+> > @@ -2686,18 +2687,30 @@ static int addrconf_ifdown(struct net_de
+> >  		write_lock_bh(&idev->lock);
+> >  	}
+> >  #endif
+> > -	while ((ifa = idev->addr_list) != NULL) {
+> > -		idev->addr_list = ifa->if_next;
+> > -		ifa->if_next = NULL;
+> > -		ifa->dead = 1;
+> > -		addrconf_del_timer(ifa);
+> > -		write_unlock_bh(&idev->lock);
+> > -
+> > -		__ipv6_ifa_notify(RTM_DELADDR, ifa);
+> > -		atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
+> > -		in6_ifa_put(ifa);
+> > +	bifa = &idev->addr_list;
+> > +	while ((ifa = *bifa) != NULL) {
+> > +		if (how == 0 && (ifa->flags&IFA_F_PERMANENT)) {
+> > +			/* Retain permanent address on admin down */
+> > +			bifa = &ifa->if_next;
+> > +
+> > +			/* Restart DAD if needed when link comes back up */
+> > +			if ( !((dev->flags&(IFF_NOARP|IFF_LOOPBACK)) ||
+> > +			       idev->cnf.accept_dad <= 0 ||
+> > +			       (ifa->flags & IFA_F_NODAD)))
+> > +				ifa->flags |= IFA_F_TENTATIVE;
+> > +		} else {
+> > +			*bifa = ifa->if_next;
+> > +			ifa->if_next = NULL;
+> > +
+> > +			ifa->dead = 1;
+> > +			write_unlock_bh(&idev->lock);
+> > +
+> > +			__ipv6_ifa_notify(RTM_DELADDR, ifa);
+> > +			atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
+> > +			in6_ifa_put(ifa);
+> >  
+> > -		write_lock_bh(&idev->lock);
+> > +			write_lock_bh(&idev->lock);
+> > +		}
+> 
+> What about addrconf_del_timer()?  It didn't seem to make it to this else{} from
+> the original.
+> 
+> -Brian
 
->=20
-> What I want to see is a compatible value in the phy@7 node for the
-> make & model of the phy.
+addrconf_del_timer is already being done earlier in same code
+no need to do it twice.
 
-Makes more sense.
-
->=20
-> Otherwise, looks good to me.  Fix the mutex timeout problem and then
-> you can add my acked-by line to the patch.
-
-Will spin V3 patch with fixes and add your ack, appreciate the help and=
- your patience.
-
-- John
-
->=20
-> Cheers,
-> g.
-
-
-This email and any attachments are intended for the sole use of the nam=
-ed recipient(s) and contain(s) confidential information that may be pro=
-prietary, privileged or copyrighted under applicable law. If you are no=
-t the intended recipient, do not read, copy, or forward this email mess=
-age or any attachments. Delete this email message and any attachments i=
-mmediately.
-
-
+-- 
