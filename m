@@ -1,7 +1,7 @@
 From: Li Zefan <lizf@cn.fujitsu.com>
-Subject: [PATCH 02/13] net: add a wrapper sk_entry()
-Date: Tue, 09 Feb 2010 17:18:45 +0800
-Message-ID: <4B712875.2080309@cn.fujitsu.com>
+Subject: [PATCH 05/13] net: packet: use seq_hlist_foo() helpers
+Date: Tue, 09 Feb 2010 17:19:29 +0800
+Message-ID: <4B7128A1.9030906@cn.fujitsu.com>
 References: <4B712849.9040400@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -15,27 +15,61 @@ In-Reply-To: <4B712849.9040400@cn.fujitsu.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Simplify seq_file code.
 
 Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
 ---
- include/net/sock.h |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+ net/packet/af_packet.c |   20 +++-----------------
+ 1 files changed, 3 insertions(+), 17 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 3f1a480..c8d4000 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -317,6 +317,11 @@ struct sock {
- /*
-  * Hashed lists helper routines
-  */
-+static inline struct sock *sk_entry(const struct hlist_node *node)
-+{
-+	return hlist_entry(node, struct sock, sk_node);
-+}
-+
- static inline struct sock *__sk_head(const struct hlist_head *head)
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 0f6bf59..256de26 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2374,33 +2374,19 @@ static struct notifier_block packet_netdev_notifier = {
+ };
+ 
+ #ifdef CONFIG_PROC_FS
+-static inline struct sock *packet_seq_idx(struct net *net, loff_t off)
+-{
+-	struct sock *s;
+-	struct hlist_node *node;
+-
+-	sk_for_each(s, node, &net->packet.sklist) {
+-		if (!off--)
+-			return s;
+-	}
+-	return NULL;
+-}
+ 
+ static void *packet_seq_start(struct seq_file *seq, loff_t *pos)
+ 	__acquires(seq_file_net(seq)->packet.sklist_lock)
  {
- 	return hlist_entry(head->first, struct sock, sk_node);
+ 	struct net *net = seq_file_net(seq);
+ 	read_lock(&net->packet.sklist_lock);
+-	return *pos ? packet_seq_idx(net, *pos - 1) : SEQ_START_TOKEN;
++	return seq_hlist_start_head(&net->packet.sklist, *pos);
+ }
+ 
+ static void *packet_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+ 	struct net *net = seq_file_net(seq);
+-	++*pos;
+-	return  (v == SEQ_START_TOKEN)
+-		? sk_head(&net->packet.sklist)
+-		: sk_next((struct sock *)v) ;
++	return seq_hlist_next(v, &net->packet.sklist, pos);
+ }
+ 
+ static void packet_seq_stop(struct seq_file *seq, void *v)
+@@ -2415,7 +2401,7 @@ static int packet_seq_show(struct seq_file *seq, void *v)
+ 	if (v == SEQ_START_TOKEN)
+ 		seq_puts(seq, "sk       RefCnt Type Proto  Iface R Rmem   User   Inode\n");
+ 	else {
+-		struct sock *s = v;
++		struct sock *s = sk_entry(v);
+ 		const struct packet_sock *po = pkt_sk(s);
+ 
+ 		seq_printf(seq,
 -- 
 1.6.3
