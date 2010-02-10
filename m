@@ -1,49 +1,43 @@
-From: Kelvin Ku <kelvin@telemetry-investments.com>
-Subject: Re: RX performance degradation with e1000e in Linux 2.6.31 / F12
-Date: Wed, 10 Feb 2010 17:13:20 -0500
-Message-ID: <20100210221320.GA7373@ti94.telemetry-investments.com>
-References: <20100210182404.GB6160@ti94.telemetry-investments.com> <4B73016F.5050106@cchtml.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: bnx2 limits user-specified advertised speeds to one
+Date: Wed, 10 Feb 2010 14:11:27 -0800
+Message-ID: <1265839887.8125.39.camel@nseg_linux_HP1.broadcom.com>
+References: <4B731F8A.20508@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Community support for Fedora users <users@lists.fedoraproject.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: "Vlad Yasevich" <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1a.telemetry-investments.com ([64.20.161.180]:48684 "EHLO
-	sv1.telemetry-investments.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756586Ab0BJWNV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 17:13:21 -0500
-Content-Disposition: inline
-In-Reply-To: <4B73016F.5050106@cchtml.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:4766 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751452Ab0BJWWi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Feb 2010 17:22:38 -0500
+In-Reply-To: <4B731F8A.20508@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 10, 2010 at 12:56:47PM -0600, Michael Cronenworth wrote:
-> Kelvin Ku wrote:
-> > After upgrading from Linux 2.6.30 (Fedora Core 11) to 2.6.31 (F12), I am
-> > experiencing significant packet loss on an Intel 82574L NIC running on the
-> > e1000e driver. I was not experiencing this with kernel 2.6.30. I notice 2.6.30
-> > uses e1000e version 0.3.3.4-k4 whereas 2.6.31 uses version 1.0.2-k2.
+
+On Wed, 2010-02-10 at 13:05 -0800, Vlad Yasevich wrote:
+> Hi
 > 
-> And the driver version would be the significance. It appears there are 
-> (very) serious issues with the e1000e driver and the 82574L chip. I'm 
-> having to use 2.6.30 on a F12 server with an 82574L to have network 
-> connectivity at all. The issue has been reported[1] and it is being 
-> investigated. We had a hard time convincing Intel it wasn't a 
-> motherboard manufacturer problem.
+> A customer has noted that when attempting to change the advertised speeds
+> setting on card using a bnx2 driver, the driver advertises either all available
+> speeds or just one.  In other words, if a user attempts to set multiple
+> advertised speeds,  the settings will not be honored.
 > 
-> [1] 
-> http://sourceforge.net/tracker/?func=detail&aid=2908463&group_id=42302&atid=447449
-> -- 
-> users mailing list
-> users@lists.fedoraproject.org
-> To unsubscribe or change subscription options:
-> https://admin.fedoraproject.org/mailman/listinfo/users
-> Guidelines: http://fedoraproject.org/wiki/Communicate/MailingListGuidelines
+> Looking at the code in bnx2_set_settings, the checks for 10baseT and 100baseT
+> make an assumption that the user provided only 1 speed setting.
+> 
+> e1000 and e1000e work correctly when the user specifies multiple advertised
+> speeds.
+> 
+> Before attempting to fix this, I wanted to ask if there was a reason for the
+> current functionality.
 > 
 
-Note that my RX performance issue arises with the latest Intel e1000e driver,
-1.1.2-NAPI, and an older Intel driver, 0.5.18.3-NAPI, as well. I can't get an
-even older version of the driver, 0.4.1.7, to compile on Linux 2.6.31, probably
-because the kernel API has changed since that driver was released.
+Probably code to handle limitations in older versions of the ethtool
+program.  There is no reason for it to be like this anymore.  I'll fix
+this in my next patch set.  Thanks for reporting this.
 
-- Kelvin
+
