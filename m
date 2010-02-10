@@ -1,68 +1,47 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] usbnet: convert dev(dbg|err|warn|info) macros to
- usbnet_(dbg|err|warn|info)
-Date: Tue, 09 Feb 2010 22:16:18 -0800
-Message-ID: <1265782578.20626.17.camel@Joe-Laptop.home>
-References: <3d8577211d88cce1fb6f4c1b54c5aa413a1f325a.1265765892.git.joe@perches.com>
-	 <201002092153.22322.david-b@pacbell.net>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: Subject: [PATCH 0/6] bna: Brocade 10Gb Ethernet device driver
+Date: Tue, 9 Feb 2010 22:29:15 -0800
+Message-ID: <201002100629.o1A6TFjv026359@blc-10-10.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@suse.de>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Oliver Neukum <oliver@neukum.name>,
-	Peter Korsgaard <jacmet@sunsite.dk>,
-	Steve Glendinning <steve.glendinning@smsc.com>
-To: David Brownell <david-b@pacbell.net>
+Content-Type: text/plain
+Cc: adapter_linux_open_src_team@brocade.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1942 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751141Ab0BJGQU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Feb 2010 01:16:20 -0500
-In-Reply-To: <201002092153.22322.david-b@pacbell.net>
+Received: from hq-exedge.brocade.com ([66.243.153.83]:53612 "EHLO
+	hq-exedge.brocade.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751449Ab0BJGeZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 01:34:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-02-09 at 21:53 -0800, David Brownell wrote: 
-> On Tuesday 09 February 2010, Joe Perches wrote:
-> > These macros are too similar to the dev_<level> equivalents
-> > but take a usbnet * argument.
-> 
-> FYI the history behind that, as I recall, was that the names
-> were part of the effort to get rid of kernel 2.4 USB-specific
-> macros like err() and info(), or maybe uppercased versions of
-> them ... where the dev_err() style messaging wasn't so helpful,
-> since it didn't say which network device was involved.
+From: Rasesh Mody <rmody@brocade.com>
 
-Maybe these usbnet_printk macros could use the proposed
-netdev_printk macros instead.
+This is patch 0/6 which contains the summary of changes we've
+done in this particular submission for Brocade's BR1010/BR1020
+10Gb CEE capable ethernet adapter. Source is based against
+net-next-2.6.
 
-http://patchwork.ozlabs.org/patch/44955/
+The changes are as follows:
 
-Maybe:
+1) Frimware changes:
+	Releasing the firmware buffer
+	Using global mutex for synchronizing firmware read
+	Using MODULE_FIRMWARE for firmware dependencies
 
-#define usbnet_dbg(usbnet, fmt, arg...)		\
-	netdev_dbg((usbnet)->net, fmt, ##arg)
-#define usbnet_err(usbnet, fmt, arg...)		\
-	netdev_err((usbnet)->net, fmt, ##arg)
-#define usbnet_warn(usbnet, fmt, arg...)	\
-	netdev_err((usbnet)->net, fmt, ##arg)
-#define usbnet_info(usbnet, fmt, arg...)	\
-	netdev_info((usbnet)->net, fmt, ##arg)
+2) Got rid of extra message buffers
 
-or just use netdev_printks directly.
+3) Using kernel Timers 
 
-> Good point that this should be improved.
+4) Removed perm_addr from bnad structure
 
-I neglected to mention that to make the use
-style more like the rest of kernel source, this
-patch also changes the macro definitions by
-removing the \n added to the format and adds the
-trailing "\n" to the callers.
+5) Using roundup in place of DIV_ROUND_UP
 
-Except for the first one. (oops)
+6) Miscellaneous cleanup
 
-> Acked-by: David Brownell <dbrownell@users.sourceforge.net>
-> ... should merge via netdev.
+We wish this patch to be considered for inclusion in net-next-2.6.
+
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
+---
+ 0 files changed
 
 
