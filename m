@@ -1,41 +1,46 @@
-From: Dan Smith <danms@us.ibm.com>
-Subject: Re: [PATCH 2/4] C/R: Basic support for network namespaces and devices (v3)
-Date: Wed, 10 Feb 2010 12:31:02 -0800
-Message-ID: <87d40chlyx.fsf@caffeine.danplanet.com>
-References: <1265750713-15749-1-git-send-email-danms@us.ibm.com>
-	<1265750713-15749-3-git-send-email-danms@us.ibm.com>
-	<87ljf1gemh.fsf@caffeine.danplanet.com>
-	<20100210192019.GA18879@us.ibm.com>
-	<87hbpohor5.fsf@caffeine.danplanet.com>
-	<20100210202509.GA23301@us.ibm.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: pull request: wireless-2.6 2010-02-10
+Date: Wed, 10 Feb 2010 15:32:28 -0500
+Message-ID: <20100210203227.GD3286@tuxdriver.com>
+References: <1265829337.19075.0.camel@jlt3.sipsolutions.net> <20100210.113658.137273026.davem@davemloft.net> <20100210201953.GC3286@tuxdriver.com> <20100210.122540.149553948.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org
-To: "Serge E. Hallyn" <serue@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw0.danplanet.com ([71.245.107.82]:52911 "EHLO
-	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755493Ab0BJUbF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 15:31:05 -0500
-In-Reply-To: <20100210202509.GA23301@us.ibm.com> (Serge E. Hallyn's message of "Wed\, 10 Feb 2010 14\:25\:09 -0600")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: johannes@sipsolutions.net, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, mb@bu3sch.de
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100210.122540.149553948.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SH> I think that's be better.  Right now if we checkpoint a container
-SH> with macvlan restart will be bogus, right?  We're trying to avoid
-SH> any cases where we can't tell, at checkpoint, that restart won't
-SH> be right.
+On Wed, Feb 10, 2010 at 12:25:40PM -0800, David Miller wrote:
+> From: "John W. Linville" <linville@tuxdriver.com>
+> Date: Wed, 10 Feb 2010 15:19:54 -0500
+> 
+> > On Wed, Feb 10, 2010 at 11:36:58AM -0800, David Miller wrote:
+> >> From: Johannes Berg <johannes@sipsolutions.net>
+> >> Date: Wed, 10 Feb 2010 20:15:37 +0100
+> >> 
+> >> > It was intentional -- that sdev doesn't even have an irq member, but
+> >> > nobody ever noticed because of the wrong ifdef.
+> >> 
+> >> Ok, then this needs to be explained in the commit message.
+> > 
+> > OK...mind if I just revert the current version and ask Michael to
+> > resubmit with an appropriate changelog entry?
+> 
+> Have you pulled this tree into others already?  Why not
+> just pop out the commit and fix it's commit message, then
+> reapply?
+> 
+> Having the revert commit in there is really stupid just for this.
 
-Depends on your definition of bogus, and the situation, but okay.
+I have it pulled into wireless-next-2.6 to fix a merge conflict (from
+a latter commit).  It is also pulled into wireless-testing but that
+is obviously less of an issue.
 
-SH> What I was asking is should do_veth_message() be in drivers/net/veth.c?
-
-Well, we could add another ndo_* function to the net device, I guess,
-but I'd be afraid we'd hit some cases where that wasn't sufficient.
-Maybe it would be best to generalize that bit after I've added macvlan
-(,etc) support so we have a good idea of what else would be needed?
-
+John
 -- 
-Dan Smith
-IBM Linux Technology Center
-email: danms@us.ibm.com
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
