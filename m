@@ -1,52 +1,71 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH 18/23 v3] mlx4_core: Managing common port filters by
-	master function
-Date: Wed, 10 Feb 2010 10:47:06 +0200
-Message-ID: <15ddcffd1002100047q2904a8b5j2e09748c1a0f0a2e@mail.gmail.com>
-References: <49BFC313.1030901@mellanox.co.il> <4B6AEE42.3080900@mellanox.co.il>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [net-next-2.6 PATCH 2/3] fs_enet: Add support for MPC512x to
+ fs_enet driver
+Date: Wed, 10 Feb 2010 10:15:54 +0100
+Message-ID: <4B72794A.9010805@grandegger.com>
+References: <4B5871F2.9090005@grandegger.com>	<20100121.180311.228791894.davem@davemloft.net>	<20100209152317.5303b1b3@wker> <20100209.121356.216640014.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
-	liranl@mellanox.co.il, tziporet@mellanox.co.il,
-	Or Gerlitz <ogerlitz@voltaire.com>
-To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Content-Transfer-Encoding: 7bit
+Cc: agust@denx.de, netdev@vger.kernel.org, dzu@denx.de, wd@denx.de,
+	jcrigby@gmail.com, kosmo@semihalf.com, linuxppc-dev@ozlabs.org,
+	grant.likely@secretlab.ca
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:65324 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750892Ab0BJIrK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 03:47:10 -0500
-Received: by bwz19 with SMTP id 19so1670255bwz.28
-        for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 00:47:07 -0800 (PST)
-In-Reply-To: <4B6AEE42.3080900@mellanox.co.il>
+Received: from mail-out.m-online.net ([212.18.0.10]:46664 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752130Ab0BJJRO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 04:17:14 -0500
+In-Reply-To: <20100209.121356.216640014.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yevgeny Petrilin <yevgenyp@mellanox.co.il> wrote:
-> The Multicast filter configuration is done by the master,
-> that manages the filter which is common for all the functions.
-> The VLAN filter is a bitwise OR of all the VLAN filters for all functions,
-> the result is a false-positive filter.
+Hi David,
 
-Reading through patches "18/23 v3 mlx4_core: Managing common port
-filters..." &&
-"16/23 v3 mlx4_core: Multi-Function MCG support" I have difficulties
-to follow on the
-vlan and multicast filtering related changes and proposed architecture.
+David Miller wrote:
+> From: Anatolij Gustschin <agust@denx.de>
+> Date: Tue, 9 Feb 2010 15:23:17 +0100
+> 
+>> In my understanding, in the ESP scsi driver the set of defines for
+>> the register offsets is common for all chip drivers. The chip driver
+>> methods for register access translate the offsets because the
+>> registers on some chips are at different intervals (4-byte, 1-byte,
+>> 16-byte for mac_esp.c). But the register order is the same for
+>> different chips.
+>>
+>> In our case non only the register order is not the same for 8xx
+>> FEC and 5121 FEC, but there are also other differences, different
+>> reserved areas between several registers, some registers are
+>> available only on 8xx and some only on 5121.
+> 
+> That only means you would need to use a table based register address
+> translation scheme, rather than a simple calculation.  Something
+> like:
+> 
+> static unsigned int chip_xxx_table[] =
+> {
+> 	[GENERIC_REG_FOO]	 = CHIP_XXX_FOO,
+> 	...
+> };
+> 
+> static u32 chip_xxx_read_reg(struct chip *p, unsigned int reg)
+> {
+> 	unsigned int reg_off = chip_xxx_table[reg];
+> 
+> 	return readl(p->regs + reg_off);
+> }
+> 
+> And this table can have special tokens in entries for
+> registers which do not exist on a chip, so you can trap
+> attempted access to them in these read/write handlers.
 
-Can you explain them in a bit more detailed fashion? For example, in
-the multicast case I
-believe that currently a bloom filter is applied  at the port level
-and each packet which
-pass the filter and has no registered QP is consumed by the EN driver.
-At some point
-my understanding was that everyone (all PFs, all VFs, etc) move to
-exact match, is it correct?
+Yes, that could be done, but to honest, I do not see any improvement in
+respect to the previous patch where the register offset were defined via
+pointers within a structure.
 
-As for the false-positive vlan filter, I understand that this means
-further filtering has to
-be applied by some driver. Where you thinking on the 802q driver? what
-about the case
-where a VF driver is assigned a vlan, does the mlx4 VF code does such filtering?
+> Please stop looking for excuses to fork this driver, a
+> unified driver I think can be done cleanly.
 
+Other people suggested to fork the driver because it's getting too ugly.
 
-Or.
+Wolfgang.
