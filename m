@@ -1,73 +1,162 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Problem with VLANs and via-velocity driver
-Date: Wed, 10 Feb 2010 17:46:52 +0100
-Message-ID: <4B72E2FC.1060003@trash.net>
-References: <20091113033217.GQ838@cubit> <4AFCFF67.3060802@trash.net> <20091116005750.GR838@cubit> <loom.20100210T171704-457@post.gmane.org>
+From: John Linn <John.Linn@xilinx.com>
+Subject: RE: phy address in the device tree, vs auto probing
+Date: Wed, 10 Feb 2010 09:52:21 -0700
+Message-ID: <7d35ae9a-9ac0-46e6-8817-15315e0dcc07@SG2EHSMHS004.ehs.local>
+References: <Acqp3tpO+gBYUakZQ7SaeBzVIkh6WA==> <4dfe033d-c308-45e0-9c7e-9fc60c6cad8f@SG2EHSMHS013.ehs.local> <fa686aa41002100843o7a1d4160q8fb01768ad48dcf4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Tiago Pierezan Camargo <tcamargo@gmail.com>
+To: "Grant Likely" <grant.likely@secretlab.ca>,
+	"devicetree-discuss" <devicetree-discuss@lists.ozlabs.org>,
+	"netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54665 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755084Ab0BJQq6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 11:46:58 -0500
-In-Reply-To: <loom.20100210T171704-457@post.gmane.org>
+Received: from sg2ehsobe005.messaging.microsoft.com ([207.46.51.79]:7784 "EHLO
+	SG2EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754820Ab0BJQw5 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Feb 2010 11:52:57 -0500
+Content-Class: urn:content-classes:message
+In-Reply-To: <fa686aa41002100843o7a1d4160q8fb01768ad48dcf4@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tiago Pierezan Camargo wrote:
->> Kevin Shanahan <kmshanah <at> disenchant.net> writes:
+> -----Original Message-----
+> From: glikely@secretlab.ca [mailto:glikely@secretlab.ca] On Behalf Of=
+ Grant Likely
+> Sent: Wednesday, February 10, 2010 9:44 AM
+> To: John Linn; devicetree-discuss; netdev
+> Subject: Re: phy address in the device tree, vs auto probing
 >=20
-> Hi
-> Sorry for resurrecting an old thread, but I'm having the same problem=
- here.
+> (cc'ing devicetree-discuss and netdev mailing lists)
 >=20
->> On Fri, Nov 13, 2009 at 07:40:39AM +0100, Patrick McHardy wrote:
->>> Kevin Shanahan wrote:
->>>> Hi,
->>>>
->>>> I've had some problems with getting a fairly simple (I thought) VL=
-AN
->>>> configuration working with the on board Via NICs on my Via M700
->>>> board. Looks like as soon as a tagged VLAN interface is added, the
->>>> underlying "raw" (untagged) interface stops responding.
+> On Tue, Feb 9, 2010 at 4:23 PM, John Linn <John.Linn@xilinx.com> wrot=
+e:
+> > Hi Grant,
+> >
+> > I notice that the OF driver for the mdio bus is not doing auto prob=
+ing.
+> >
+> > As we start putting in the phy layer in the emac drivers, the devic=
+e
+> > trees tend to have the phy address in them, but we're not sure we r=
+eally
+> > like that.
+> >
+> > We really think that being able to let the kernel find the phy addr=
+ess
+> > is a big benefit, otherwise this is one other piece of info the use=
+r has
+> > to know and get right.
+> >
+> > Am I missing something here?
 >=20
-> My setup is a bit different: I want to sniff all network activity, in=
-cluding
-> possible tagged traffic. No tagged interfaces are created.
+> No, you're not really missing something, but there is an inherent
+> complexity in what you're wanting to do.  Like i2c, MDIO is one of
+> those busses that is hard to probe reliable.  Some PHYs respond on
+> more than one address, and there is no way to determine which MAC a
+> PHY is wired up to.  Many PHYs can live on a single MDIO bus.  MACs
+> with their own MDIO busses may still get wired to a PHY on a differen=
+t
+> bus.
 >=20
->>>> A bit of searching found a few references to similar problems goin=
-g
->>>> back a few years (2005, 2007). Sounded like there were some driver
->>>> issues, but it wasn't clear from the messages I found whether they
->>>> were believed to be fixed or not. I tried the same test using a
->>>> differnt NIC with the tg3 driver and there were no problems, so it
->>>> looks to me like it's still a via-velocity issue. Unfortunately I
->>>> don't have room to add NICs to this machine and need to use the on
->>>> board Via hardware.
->>> There's some special-casing for VID 0 in velocity_init_cam_filter()=
-=2E
->>> Does "ip link add link eth0 type vlan id 0" make any difference?
->> Thanks Patrick, this command got the untagged interface working agai=
-n
->> (eth1 in my case). I can use this as a work around.
+> In the simple case where there is a one:one:one relationship between
+> MAC, MDIO bus and PHY, then it should be okay to probe the PHY,
+> correct?  The question then must be asked; how does the kernel
+> determine that it can use the simple case?  Nobody has yet defined a
+> way to describe that in the device tree; mostly because nobody has
+> needed to yet.
 >=20
-> Unfortunately, Patrick's workaround doesn't work for me. To see any t=
-agged
-> packet I need to create a vlan that matches the packet vlan (same id)=
-=2E
->=20
-> R=E9gis' promiscous mode patch (http://lists.openwall.net/netdev/2008=
-/10/08/106)
-> does not work either. I tried to completely disable hw vlan filtering=
- without
-> success. It seems my board uses a different register/offset to disabl=
-e filtering.
->=20
-> ...
->=20
-> Any suggestions?
+> So, it is possible to do what you want, but you need a way to
+> *explicitly* ask for that behaviour.  ie, some way to indicate in a
+> MAC node which MDIO bus the phy is on, and that the phy needs to be
+> probed for.  I think this should only be an option when the MDIO bus
+> has only one PHY.  Come up with a proposal and post it to the
+> devicetree-discuss mailing list.
 
-This should be fixed in the driver as discussed previously.
+Here's a couple ideas. See what everyone thinks as I'm not stuck on eit=
+her.
+
+Thanks,
+John
+
+1. What if we just don't specific a phy address with a reg property whi=
+ch would specify to auto probe it and find the phy as illustrated below=
+?
+
+
+		Ethernet_MAC: ethernet@81000000 {
+			#address-cells =3D <1>;
+			#size-cells =3D <1>;
+			phy-handle =3D <&phy0>;=20
+			mdio {
+				#address-cells =3D <1>;
+				#size-cells =3D <0>;
+				phy0: phy@7 {
+				} ;=20
+			} ;
+
+2. Or a special value (-1 or something not 0 - 31) in the phy address t=
+hat specifies to auto probe as illustrated below.
+
+		Ethernet_MAC: ethernet@81000000 {
+			#address-cells =3D <1>;
+			#size-cells =3D <1>;
+			phy-handle =3D <&phy0>;=20
+			mdio {
+				#address-cells =3D <1>;
+				#size-cells =3D <0>;
+				phy0: phy@7 {
+					reg =3D <-1>;
+				} ;=20
+			} ;
+
+>=20
+> g.
+>=20
+> >
+> > Thanks,
+> > John
+> >
+> >
+> > int of_mdiobus_register(struct mii_bus *mdio, struct device_node *n=
+p)
+> > {
+> > =A0 =A0 =A0 =A0struct phy_device *phy;
+> > =A0 =A0 =A0 =A0struct device_node *child;
+> > =A0 =A0 =A0 =A0int rc, i;
+> >
+> > =A0 =A0 =A0 =A0/* Mask out all PHYs from auto probing. =A0Instead t=
+he PHYs listed
+> > in
+> > =A0 =A0 =A0 =A0 * the device tree are populated after the bus has b=
+een
+> > registered */
+> > =A0 =A0 =A0 =A0mdio->phy_mask =3D ~0;
+> >
+> > This email and any attachments are intended for the sole use of the=
+ named recipient(s) and
+> contain(s) confidential information that may be proprietary, privileg=
+ed or copyrighted under
+> applicable law. If you are not the intended recipient, do not read, c=
+opy, or forward this email
+> message or any attachments. Delete this email message and any attachm=
+ents immediately.
+> >
+> >
+> >
+>=20
+>=20
+>=20
+> --
+> Grant Likely, B.Sc., P.Eng.
+> Secret Lab Technologies Ltd.
+
+
+This email and any attachments are intended for the sole use of the nam=
+ed recipient(s) and contain(s) confidential information that may be pro=
+prietary, privileged or copyrighted under applicable law. If you are no=
+t the intended recipient, do not read, copy, or forward this email mess=
+age or any attachments. Delete this email message and any attachments i=
+mmediately.
+
+
