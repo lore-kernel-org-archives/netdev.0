@@ -1,157 +1,69 @@
-From: "Serge E. Hallyn" <serue-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2/4] C/R: Basic support for network namespaces and
-	devices (v3)
-Date: Wed, 10 Feb 2010 11:24:05 -0600
-Message-ID: <20100210172405.GB12251@us.ibm.com>
-References: <1265750713-15749-1-git-send-email-danms@us.ibm.com>
-	<1265750713-15749-3-git-send-email-danms@us.ibm.com>
+From: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Subject: Re: [net-next PATCH v2 2/3] net: TCP thin linear timeouts
+Date: Wed, 10 Feb 2010 18:33:28 +0100
+Message-ID: <op.u7w9p2qdp498uc@nexus>
+References: <4B701EE2.1000006@simula.no> <4B707901.50905@tvk.rwth-aachen.de>
+ <4B718FF4.6040906@simula.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1265750713-15749-3-git-send-email-danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset=utf-8; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	=?utf-8?Q?Ilpo_J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
+	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
+	David Miller <davem@davemloft.net>,
+	william.allen.simpson@gmail.com
+To: Andreas Petlund <apetlund@simula.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <4B718FF4.6040906@simula.no>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Dan Smith (danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org):
-> +struct ckpt_netdev_addr {
-> +	__u16 type;
+Am 09.02.2010, 17:40 Uhr, schrieb Andreas Petlund <apetlund@simula.no>:
 
-Pretty sure this will have to come after the union to get the
-same sized struct on 32- and 64-bit.
+> On 02/08/2010 09:50 PM, Damian Lukowski wrote:
+>>>  out_reset_timer:
+>>> -	icsk->icsk_rto = min(icsk->icsk_rto << 1, TCP_RTO_MAX);
+>>> +	/* If stream is thin, use linear timeouts. Since 'icsk_backoff' is
+>>> +	 * used to reset timer, set to 0. Recalculate 'icsk_rto' as this
+>>> +	 * might be increased if the stream oscillates between thin and  
+>>> thick,
+>>> +	 * thus the old value might already be too high compared to the value
+>>> +	 * set by 'tcp_set_rto' in tcp_input.c which resets the rto without
+>>> +	 * backoff. Limit to TCP_THIN_LT_RETRIES before initiating  
+>>> exponential
+>>> +	 * backoff behaviour to avoid continue hammering linear-timeout
+>>> +	 * retransmissions into a black hole*/
+>>> +	if ((tp->thin_lt || sysctl_tcp_force_thin_linear_timeouts) &&
+>>> +	    tcp_stream_is_thin(sk) && sk->sk_state == TCP_ESTABLISHED &&
+>>> +	    icsk->icsk_retransmits <= TCP_THIN_LT_RETRIES) {
+>>> +		icsk->icsk_backoff = 0;
+>>
+>> Hi,
+>> I think, this value should be at least 1, as icsk_backoff
+>> might be decreased to -1 and used for bit-shifting in tcp_v4_err().
+>> A lower boundary check might be even better.
+>
+> Hi
+>
+> Thanks for the feedback.
+>
+> As far as I can see, the check a couple of lines above the decrementation
+> stops the icsk->icsk_backoff from being decremented if already zero.
+> Beyond that I cannot find any more places where this situation may arise.
+> Please correct me if I'm wrong and a boundary check is indeed warranted.
 
-> +	union {
-> +		struct {
-> +			__u32 inet4_local;
-> +			__u32 inet4_address;
-> +			__u32 inet4_mask;
-> +			__u32 inet4_broadcast;
-> +		};
-> +	};
-> +} __attribute__((aligned(8)));
-> +
->  struct ckpt_hdr_eventpoll_items {
->  	struct ckpt_hdr h;
->  	__s32  epfile_objref;
-> diff --git a/include/linux/checkpoint_types.h b/include/linux/checkpoint_types.h
-> index 51efd5a..e646ec6 100644
-> --- a/include/linux/checkpoint_types.h
-> +++ b/include/linux/checkpoint_types.h
-> @@ -86,6 +86,7 @@ struct ckpt_ctx {
->  	wait_queue_head_t ghostq;	/* waitqueue for ghost tasks */
->  	struct cred *realcred, *ecred;	/* tmp storage for cred at restart */
->  	struct list_head listen_sockets;/* listening parent sockets */
-> +	int init_netns_ref;             /* Objref of root net namespace */
-> 
->  	struct ckpt_stats stats;	/* statistics */
-> 
-> diff --git a/kernel/nsproxy.c b/kernel/nsproxy.c
-> index b0e71f2..78f5615 100644
-> --- a/kernel/nsproxy.c
-> +++ b/kernel/nsproxy.c
-> @@ -248,6 +248,11 @@ int ckpt_collect_ns(struct ckpt_ctx *ctx, struct task_struct *t)
->  	ret = ckpt_obj_collect(ctx, nsproxy->uts_ns, CKPT_OBJ_UTS_NS);
->  	if (ret < 0)
->  		goto out;
-> +#ifdef CONFIG_CHECKPOINT_NETNS
-> +	ret = ckpt_obj_collect(ctx, nsproxy->net_ns, CKPT_OBJ_NET_NS);
-> +	if (ret < 0)
-> +		goto out;
-> +#endif
->  	ret = ckpt_obj_collect(ctx, nsproxy->ipc_ns, CKPT_OBJ_IPC_NS);
->  	if (ret < 0)
->  		goto out;
-> @@ -288,6 +293,12 @@ static int do_checkpoint_ns(struct ckpt_ctx *ctx, struct nsproxy *nsproxy)
->  	if (ret < 0)
->  		goto out;
->  	h->ipc_objref = ret;
-> +#ifdef CONFIG_CHECKPOINT_NETNS
-> +	ret = checkpoint_obj(ctx, nsproxy->net_ns, CKPT_OBJ_NET_NS);
-> +	if (ret < 0)
-> +		goto out;
-> +	h->net_objref = ret;
-> +#endif
-> 
->  	/* FIXME: for now, only marked visited to pacify leaks */
->  	ret = ckpt_obj_visit(ctx, nsproxy->mnt_ns, CKPT_OBJ_MNT_NS);
-> @@ -306,6 +317,34 @@ int checkpoint_ns(struct ckpt_ctx *ctx, void *ptr)
->  	return do_checkpoint_ns(ctx, (struct nsproxy *) ptr);
->  }
-> 
-> +static int do_restore_netns(struct ckpt_ctx *ctx,
-> +			    struct ckpt_hdr_ns *h,
-> +			    struct nsproxy *nsproxy)
-> +{
-> +#ifdef CONFIG_CHECKPOINT_NETNS
-> +	struct net *net_ns;
-> +
-> +	if (h->net_objref < 0)
-> +		return -EINVAL;
-> +	else if (h->net_objref == 0)
-> +		return 0;
+Oops, you are right, of course ...
+I just had in mind, that a thin stream might also be a candidate for
+backoff reversion when connectivity breaks down, that's why I said
+"at least 1". And I really have forgotten the already existing check,  
+sorry.
+So, setting icsk_backoff = 0 will prevent a backoff reversion, but that's
+ok, as the RTO is not doubled in the first place.
 
-What exactly is this == 0 case?  Does it mean 'use inherited netns'?
+It might have been an issue, if you had not used __tcp_set_rto() but left
+the value unchanged *and* a non-thin stream became thin at some point in
+the RTO retransmission phase (if that is even possible).
 
-Don't you then still need to 
-
-	get_net(current->nsproxy->net_ns);
-	nsproxy->net_ns = current->nsproxy->net_ns;
-
-as below?
-
-> +	net_ns = ckpt_obj_fetch(ctx, h->net_objref, CKPT_OBJ_NET_NS);
-> +	if (IS_ERR(net_ns))
-> +		return PTR_ERR(net_ns);
-> +
-> +	get_net(net_ns);
-> +	nsproxy->net_ns = net_ns;
-> +#else
-> +	if (h->net_objref > 0)
-> +		return -EINVAL;
-> +	get_net(current->nsproxy->net_ns);
-> +	nsproxy->net_ns = current->nsproxy->net_ns;
-
-> +#endif
-> +
-> +	return 0;
-> +}
-> +
->  static struct nsproxy *do_restore_ns(struct ckpt_ctx *ctx)
->  {
->  	struct ckpt_hdr_ns *h;
-> @@ -349,8 +388,6 @@ static struct nsproxy *do_restore_ns(struct ckpt_ctx *ctx)
->  	nsproxy->pid_ns = current->nsproxy->pid_ns;
->  	get_mnt_ns(current->nsproxy->mnt_ns);
->  	nsproxy->mnt_ns = current->nsproxy->mnt_ns;
-> -	get_net(current->nsproxy->net_ns);
-> -	nsproxy->net_ns = current->nsproxy->net_ns;
->  #else
->  	nsproxy = current->nsproxy;
->  	get_nsproxy(nsproxy);
-> @@ -359,6 +396,10 @@ static struct nsproxy *do_restore_ns(struct ckpt_ctx *ctx)
->  	BUG_ON(nsproxy->ipc_ns != ipc_ns);
->  #endif
-> 
-> +	ret = do_restore_netns(ctx, h, nsproxy);
-> +	if (ret < 0)
-> +		goto out;
-> +
->  	/* TODO: add more namespaces here */
->  	ret = 0;
->   out:
-
-Otherwise, looks good.
-
-thanks,
--serge
+Damian
