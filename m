@@ -1,110 +1,591 @@
-From: Simon Kagstrom <simon.kagstrom@netinsight.net>
-Subject: [PATCH v2 3/3] via-velocity: Fix races on shared interrupts
-Date: Wed, 10 Feb 2010 10:38:25 +0100
-Message-ID: <20100210103825.6e9f6e09@marrow.netinsight.se>
-References: <20100205165253.3f316b98@marrow.netinsight.se>
-	<20100209.163133.38216503.davem@davemloft.net>
-	<20100210103358.41a45851@marrow.netinsight.se>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6,
+	v4 1/3] ethtool: Introduce n-tuple filter programming support
+Date: Wed, 10 Feb 2010 02:10:46 -0800
+Message-ID: <20100210100718.10855.96567.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davej@redhat.com, ben@decadent.org.uk
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ernst.netinsight.se ([194.16.221.21]:57937 "HELO
-	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753739Ab0BJJid (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 04:38:33 -0500
-In-Reply-To: <20100210103358.41a45851@marrow.netinsight.se>
+Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:58944
+	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754612Ab0BJKLI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 05:11:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes two potential races in the velocity driver:
+From: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-* Move the ACK and error handler to the interrupt handler. This fixes a
-  potential race with shared interrupts when the other device interrupts
-  before the NAPI poll handler has finished. As the velocity driver hasn't
-  acked it's own interrupt, it will then steal the interrupt from the
-  other device.
+This patchset enables the ethtool layer to program n-tuple
+filters to an underlying device.  The idea is to allow capable
+hardware to have static rules applied that can assist steering
+flows into appropriate queues.
 
-* Use spin_lock_irqsave in velocity_poll. In the current code, the
-  interrupt handler will deadlock if e.g., the NAPI poll handler is
-  executing when an interrupt (for another device) comes in since it
-  tries to take the already held lock.
+Hardware that is known to support these types of filters today
+are ixgbe and niu.
 
-  Also unlock the spinlock only after enabling the interrupt in
-  velocity_poll.
+Updated with suggested changes from David Miller.
 
-The error path is moved to the interrupt handler since this is where the
-ISR is checked now.
-
-Signed-off-by: Simon Kagstrom <simon.kagstrom@netinsight.net>
-Signed-off-by: Anders Grafstrom <anders.grafstrom@netinsight.net>
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
-ChangeLog:
-	* (David Miller): Remove spin_trylock from the interrupt handler
-	* (David Miller): Use spin_lock_irqsave in velocity_poll
-	* Move spin_unlock_irqrestore below mac_enable_int in velocity_poll
 
- drivers/net/via-velocity.c |   21 ++++++++++-----------
- 1 files changed, 10 insertions(+), 11 deletions(-)
+ include/linux/ethtool.h   |   49 +++++++
+ include/linux/netdevice.h |    3 
+ net/core/dev.c            |    9 +
+ net/core/ethtool.c        |  335 +++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 395 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-index 5e213f7..18770ac 100644
---- a/drivers/net/via-velocity.c
-+++ b/drivers/net/via-velocity.c
-@@ -2148,16 +2148,9 @@ static int velocity_poll(struct napi_struct *napi, int budget)
- 	struct velocity_info *vptr = container_of(napi,
- 			struct velocity_info, napi);
- 	unsigned int rx_done;
--	u32 isr_status;
--
--	spin_lock(&vptr->lock);
--	isr_status = mac_read_isr(vptr->mac_regs);
--
--	/* Ack the interrupt */
--	mac_write_isr(vptr->mac_regs, isr_status);
--	if (isr_status & (~(ISR_PRXI | ISR_PPRXI | ISR_PTXI | ISR_PPTXI)))
--		velocity_error(vptr, isr_status);
-+	unsigned long flags;
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index ef4a2d8..4e9ef85 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -14,6 +14,7 @@
+ #define _LINUX_ETHTOOL_H
  
-+	spin_lock_irqsave(&vptr->lock, flags);
- 	/*
- 	 * Do rx and tx twice for performance (taken from the VIA
- 	 * out-of-tree driver).
-@@ -2167,13 +2160,12 @@ static int velocity_poll(struct napi_struct *napi, int budget)
- 	rx_done += velocity_rx_srv(vptr, budget - rx_done);
- 	velocity_tx_srv(vptr);
+ #include <linux/types.h>
++#include <linux/rculist.h>
  
--	spin_unlock(&vptr->lock);
--
- 	/* If budget not fully consumed, exit the polling mode */
- 	if (rx_done < budget) {
- 		napi_complete(napi);
- 		mac_enable_int(vptr->mac_regs);
- 	}
-+	spin_unlock_irqrestore(&vptr->lock, flags);
+ /* This should work for both 32 and 64 bit userland. */
+ struct ethtool_cmd {
+@@ -242,6 +243,7 @@ enum ethtool_stringset {
+ 	ETH_SS_TEST		= 0,
+ 	ETH_SS_STATS,
+ 	ETH_SS_PRIV_FLAGS,
++	ETH_SS_NTUPLE_FILTERS,
+ };
  
- 	return rx_done;
+ /* for passing string sets for data tagging */
+@@ -290,6 +292,7 @@ struct ethtool_perm_addr {
+  */
+ enum ethtool_flags {
+ 	ETH_FLAG_LRO		= (1 << 15),	/* LRO is enabled */
++	ETH_FLAG_NTUPLE		= (1 << 27),	/* N-tuple filters enabled */
+ };
+ 
+ /* The following structures are for supporting RX network flow
+@@ -363,6 +366,35 @@ struct ethtool_rxnfc {
+ 	__u32				rule_locs[0];
+ };
+ 
++struct ethtool_rx_ntuple_flow_spec {
++	__u32		 flow_type;
++	union {
++		struct ethtool_tcpip4_spec		tcp_ip4_spec;
++		struct ethtool_tcpip4_spec		udp_ip4_spec;
++		struct ethtool_tcpip4_spec		sctp_ip4_spec;
++		struct ethtool_ah_espip4_spec		ah_ip4_spec;
++		struct ethtool_ah_espip4_spec		esp_ip4_spec;
++		struct ethtool_rawip4_spec		raw_ip4_spec;
++		struct ethtool_ether_spec		ether_spec;
++		struct ethtool_usrip4_spec		usr_ip4_spec;
++		__u8					hdata[64];
++	} h_u, m_u; /* entry, mask */
++
++	__u16	        vlan_tag;
++	__u16	        vlan_tag_mask;
++	__u64		data;      /* user-defined flow spec data */
++	__u64		data_mask; /* user-defined flow spec mask */
++
++	/* signed to distinguish between queue and actions (DROP) */
++	__s32		action;
++#define ETHTOOL_RXNTUPLE_ACTION_DROP -1
++};
++
++struct ethtool_rx_ntuple {
++	__u32					cmd;
++	struct ethtool_rx_ntuple_flow_spec	fs;
++};
++
+ #define ETHTOOL_FLASH_MAX_FILENAME	128
+ enum ethtool_flash_op_type {
+ 	ETHTOOL_FLASH_ALL_REGIONS	= 0,
+@@ -377,6 +409,18 @@ struct ethtool_flash {
+ 
+ #ifdef __KERNEL__
+ 
++struct ethtool_rx_ntuple_flow_spec_container {
++	struct ethtool_rx_ntuple_flow_spec fs;
++	struct list_head list;
++};
++
++struct ethtool_rx_ntuple_list {
++#define ETHTOOL_MAX_NTUPLE_LIST_ENTRY 1024
++#define ETHTOOL_MAX_NTUPLE_STRING_PER_ENTRY 14
++	struct list_head	list;
++	int			count;
++};
++
+ struct net_device;
+ 
+ /* Some generic methods drivers may use in their ethtool_ops */
+@@ -500,6 +544,8 @@ struct ethtool_ops {
+ 	int	(*set_rxnfc)(struct net_device *, struct ethtool_rxnfc *);
+ 	int     (*flash_device)(struct net_device *, struct ethtool_flash *);
+ 	int	(*reset)(struct net_device *, u32 *);
++	int	(*set_rx_ntuple)(struct net_device *, struct ethtool_rx_ntuple *);
++	int	(*get_rx_ntuple)(struct net_device *, u32 stringset, void *);
+ };
+ #endif /* __KERNEL__ */
+ 
+@@ -559,6 +605,9 @@ struct ethtool_ops {
+ #define	ETHTOOL_FLASHDEV	0x00000033 /* Flash firmware to device */
+ #define	ETHTOOL_RESET		0x00000034 /* Reset hardware */
+ 
++#define ETHTOOL_SRXNTUPLE	0x00000035 /* Add an n-tuple filter to device */
++#define ETHTOOL_GRXNTUPLE	0x00000036 /* Get n-tuple filters from device */
++
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+ #define SPARC_ETH_SSET		ETHTOOL_SSET
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e535700..cdf53a8 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -746,6 +746,7 @@ struct net_device {
+ #define NETIF_F_FCOE_CRC	(1 << 24) /* FCoE CRC32 */
+ #define NETIF_F_SCTP_CSUM	(1 << 25) /* SCTP checksum offload */
+ #define NETIF_F_FCOE_MTU	(1 << 26) /* Supports max FCoE MTU, 2158 bytes*/
++#define NETIF_F_NTUPLE		(1 << 27) /* N-tuple filters supported */
+ 
+ 	/* Segmentation offload features */
+ #define NETIF_F_GSO_SHIFT	16
+@@ -954,6 +955,8 @@ struct net_device {
+ 	/* max exchange id for FCoE LRO by ddp */
+ 	unsigned int		fcoe_ddp_xid;
+ #endif
++	/* n-tuple filter list attached to this device */
++	struct ethtool_rx_ntuple_list ethtool_ntuple_list;
+ };
+ #define to_net_dev(d) container_of(d, struct net_device, dev)
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 94c1eee..4593abe 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5419,6 +5419,8 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 
+ 	netdev_init_queues(dev);
+ 
++	INIT_LIST_HEAD(&dev->ethtool_ntuple_list.list);
++	dev->ethtool_ntuple_list.count = 0;
+ 	INIT_LIST_HEAD(&dev->napi_list);
+ 	INIT_LIST_HEAD(&dev->unreg_list);
+ 	INIT_LIST_HEAD(&dev->link_watch_list);
+@@ -5447,6 +5449,7 @@ EXPORT_SYMBOL(alloc_netdev_mq);
+ void free_netdev(struct net_device *dev)
+ {
+ 	struct napi_struct *p, *n;
++	struct ethtool_rx_ntuple_flow_spec_container *fsc, *f;
+ 
+ 	release_net(dev_net(dev));
+ 
+@@ -5455,6 +5458,12 @@ void free_netdev(struct net_device *dev)
+ 	/* Flush device addresses */
+ 	dev_addr_flush(dev);
+ 
++	/* Clear ethtool n-tuple list */
++	list_for_each_entry_safe(fsc, f, &dev->ethtool_ntuple_list.list, list) {
++		list_del(&fsc->list);
++	}
++	dev->ethtool_ntuple_list.count = 0;
++
+ 	list_for_each_entry_safe(p, n, &dev->napi_list, dev_list)
+ 		netif_napi_del(p);
+ 
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index d8aee58..fa703c6 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -120,7 +120,7 @@ int ethtool_op_set_ufo(struct net_device *dev, u32 data)
+  * NETIF_F_xxx values in include/linux/netdevice.h
+  */
+ static const u32 flags_dup_features =
+-	ETH_FLAG_LRO;
++	(ETH_FLAG_LRO | ETH_FLAG_NTUPLE);
+ 
+ u32 ethtool_op_get_flags(struct net_device *dev)
+ {
+@@ -139,6 +139,11 @@ int ethtool_op_set_flags(struct net_device *dev, u32 data)
+ 	else
+ 		dev->features &= ~NETIF_F_LRO;
+ 
++	if (data & ETH_FLAG_NTUPLE)
++		dev->features |= NETIF_F_NTUPLE;
++	else
++		dev->features &= ~NETIF_F_NTUPLE;
++
+ 	return 0;
  }
-@@ -2203,10 +2195,17 @@ static irqreturn_t velocity_intr(int irq, void *dev_instance)
- 		return IRQ_NONE;
- 	}
  
-+	/* Ack the interrupt */
-+	mac_write_isr(vptr->mac_regs, isr_status);
-+
- 	if (likely(napi_schedule_prep(&vptr->napi))) {
- 		mac_disable_int(vptr->mac_regs);
- 		__napi_schedule(&vptr->napi);
- 	}
-+
-+	if (isr_status & (~(ISR_PRXI | ISR_PPRXI | ISR_PTXI | ISR_PPTXI)))
-+		velocity_error(vptr, isr_status);
-+
- 	spin_unlock(&vptr->lock);
+@@ -266,6 +271,313 @@ err_out:
+ 	return ret;
+ }
  
- 	return IRQ_HANDLED;
--- 
-1.6.0.4
++static int __rx_ntuple_filter_add(struct ethtool_rx_ntuple_list *list,
++                                  struct ethtool_rx_ntuple_flow_spec *spec)
++{
++	struct ethtool_rx_ntuple_flow_spec_container *fsc;
++	int alloc_size;
++
++	/* don't add filters forever */
++	if (list->count >= ETHTOOL_MAX_NTUPLE_LIST_ENTRY)
++		return 0;
++
++	list_for_each_entry(fsc, &list->list, list) { /* run to end */ }
++
++	alloc_size = sizeof(*fsc);
++	if (alloc_size < L1_CACHE_BYTES)
++		alloc_size = L1_CACHE_BYTES;
++	fsc = kmalloc(alloc_size, GFP_ATOMIC);
++	if (!fsc)
++		return -ENOMEM;
++
++	/* Copy the whole filter over */
++	fsc->fs.flow_type = spec->flow_type;
++	memcpy(&fsc->fs.h_u, &spec->h_u, sizeof(spec->h_u));
++	memcpy(&fsc->fs.m_u, &spec->m_u, sizeof(spec->m_u));
++
++	fsc->fs.vlan_tag = spec->vlan_tag;
++	fsc->fs.vlan_tag_mask = spec->vlan_tag_mask;
++	fsc->fs.data = spec->data;
++	fsc->fs.data_mask = spec->data_mask;
++	fsc->fs.action = spec->action;
++
++	/* add to the list */
++	list_add_tail_rcu(&fsc->list, &list->list);
++	list->count++;
++
++	return 0;
++}
++
++static int ethtool_set_rx_ntuple(struct net_device *dev, void __user *useraddr)
++{
++	struct ethtool_rx_ntuple cmd;
++	const struct ethtool_ops *ops = dev->ethtool_ops;
++	int ret;
++
++	if (!ops->set_rx_ntuple)
++		return -EOPNOTSUPP;
++
++	if (!(dev->features & NETIF_F_NTUPLE))
++		return -EINVAL;
++
++	if (copy_from_user(&cmd, useraddr, sizeof(cmd)))
++		return -EFAULT;
++
++	ret = ops->set_rx_ntuple(dev, &cmd);
++
++	/*
++	 * Cache filter in dev struct for GET operation only if
++	 * the underlying driver doesn't have its own GET operation, and
++	 * only if the filter was added successfully.
++	 */
++	if (!ops->get_rx_ntuple && !ret)
++		if (__rx_ntuple_filter_add(&dev->ethtool_ntuple_list, &cmd.fs))
++			return -ENOMEM;
++
++	return ret;
++}
++
++static int ethtool_get_rx_ntuple(struct net_device *dev, void __user *useraddr)
++{
++	struct ethtool_gstrings gstrings;
++	const struct ethtool_ops *ops = dev->ethtool_ops;
++	struct ethtool_rx_ntuple_flow_spec_container *fsc;
++	u8 *data;
++	char *p;
++	int ret, i, num_strings = 0;
++
++	if (!ops->get_sset_count)
++		return -EOPNOTSUPP;
++
++	if (copy_from_user(&gstrings, useraddr, sizeof(gstrings)))
++		return -EFAULT;
++
++	ret = ops->get_sset_count(dev, gstrings.string_set);
++	if (ret < 0)
++		return ret;
++
++	gstrings.len = ret;
++
++	data = kmalloc(gstrings.len * ETH_GSTRING_LEN, GFP_USER);
++	if (!data)
++		return -ENOMEM;
++
++	if (ops->get_rx_ntuple) {
++		/* driver-specific filter grab */
++		ret = ops->get_rx_ntuple(dev, gstrings.string_set, data);
++		goto copy;
++	}
++
++	/* default ethtool filter grab */
++	i = 0;
++	p = (char *)data;
++	list_for_each_entry(fsc, &dev->ethtool_ntuple_list.list, list) {
++		sprintf(p, "Filter %d:\n", i);
++		p += ETH_GSTRING_LEN;
++		num_strings++;
++
++		switch (fsc->fs.flow_type) {
++		case TCP_V4_FLOW:
++			sprintf(p, "\tFlow Type: TCP\n");
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			break;
++		case UDP_V4_FLOW:
++			sprintf(p, "\tFlow Type: UDP\n");
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			break;
++		case SCTP_V4_FLOW:
++			sprintf(p, "\tFlow Type: SCTP\n");
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			break;
++		case AH_ESP_V4_FLOW:
++			sprintf(p, "\tFlow Type: AH ESP\n");
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			break;
++		case ESP_V4_FLOW:
++			sprintf(p, "\tFlow Type: ESP\n");
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			break;
++		case IP_USER_FLOW:
++			sprintf(p, "\tFlow Type: Raw IP\n");
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			break;
++		case IPV4_FLOW:
++			sprintf(p, "\tFlow Type: IPv4\n");
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			break;
++		default:
++			sprintf(p, "\tFlow Type: Unknown\n");
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			goto unknown_filter;
++		};
++
++		/* now the rest of the filters */
++		switch (fsc->fs.flow_type) {
++		case TCP_V4_FLOW:
++		case UDP_V4_FLOW:
++		case SCTP_V4_FLOW:
++			sprintf(p, "\tSrc IP addr: 0x%x\n",
++			        fsc->fs.h_u.tcp_ip4_spec.ip4src);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tSrc IP mask: 0x%x\n",
++			        fsc->fs.m_u.tcp_ip4_spec.ip4src);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tDest IP addr: 0x%x\n",
++			        fsc->fs.h_u.tcp_ip4_spec.ip4dst);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tDest IP mask: 0x%x\n",
++			        fsc->fs.m_u.tcp_ip4_spec.ip4dst);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tSrc Port: %d, mask: 0x%x\n",
++			        fsc->fs.h_u.tcp_ip4_spec.psrc,
++			        fsc->fs.m_u.tcp_ip4_spec.psrc);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tDest Port: %d, mask: 0x%x\n",
++			        fsc->fs.h_u.tcp_ip4_spec.pdst,
++			        fsc->fs.m_u.tcp_ip4_spec.pdst);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tTOS: %d, mask: 0x%x\n",
++			        fsc->fs.h_u.tcp_ip4_spec.tos,
++			        fsc->fs.m_u.tcp_ip4_spec.tos);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			break;
++		case AH_ESP_V4_FLOW:
++		case ESP_V4_FLOW:
++			sprintf(p, "\tSrc IP addr: 0x%x\n",
++			        fsc->fs.h_u.ah_ip4_spec.ip4src);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tSrc IP mask: 0x%x\n",
++			        fsc->fs.m_u.ah_ip4_spec.ip4src);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tDest IP addr: 0x%x\n",
++			        fsc->fs.h_u.ah_ip4_spec.ip4dst);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tDest IP mask: 0x%x\n",
++			        fsc->fs.m_u.ah_ip4_spec.ip4dst);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tSPI: %d, mask: 0x%x\n",
++			        fsc->fs.h_u.ah_ip4_spec.spi,
++			        fsc->fs.m_u.ah_ip4_spec.spi);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tTOS: %d, mask: 0x%x\n",
++			        fsc->fs.h_u.ah_ip4_spec.tos,
++			        fsc->fs.m_u.ah_ip4_spec.tos);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			break;
++		case IP_USER_FLOW:
++			sprintf(p, "\tSrc IP addr: 0x%x\n",
++			        fsc->fs.h_u.raw_ip4_spec.ip4src);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tSrc IP mask: 0x%x\n",
++			        fsc->fs.m_u.raw_ip4_spec.ip4src);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tDest IP addr: 0x%x\n",
++			        fsc->fs.h_u.raw_ip4_spec.ip4dst);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tDest IP mask: 0x%x\n",
++			        fsc->fs.m_u.raw_ip4_spec.ip4dst);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			break;
++		case IPV4_FLOW:
++			sprintf(p, "\tSrc IP addr: 0x%x\n",
++			        fsc->fs.h_u.usr_ip4_spec.ip4src);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tSrc IP mask: 0x%x\n",
++			        fsc->fs.m_u.usr_ip4_spec.ip4src);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tDest IP addr: 0x%x\n",
++			        fsc->fs.h_u.usr_ip4_spec.ip4dst);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tDest IP mask: 0x%x\n",
++			        fsc->fs.m_u.usr_ip4_spec.ip4dst);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tL4 bytes: 0x%x, mask: 0x%x\n",
++			        fsc->fs.h_u.usr_ip4_spec.l4_4_bytes,
++			        fsc->fs.m_u.usr_ip4_spec.l4_4_bytes);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tTOS: %d, mask: 0x%x\n",
++			        fsc->fs.h_u.usr_ip4_spec.tos,
++			        fsc->fs.m_u.usr_ip4_spec.tos);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tIP Version: %d, mask: 0x%x\n",
++			        fsc->fs.h_u.usr_ip4_spec.ip_ver,
++			        fsc->fs.m_u.usr_ip4_spec.ip_ver);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			sprintf(p, "\tProtocol: %d, mask: 0x%x\n",
++			        fsc->fs.h_u.usr_ip4_spec.proto,
++			        fsc->fs.m_u.usr_ip4_spec.proto);
++			p += ETH_GSTRING_LEN;
++			num_strings++;
++			break;
++		};
++		sprintf(p, "\tVLAN: %d, mask: 0x%x\n",
++		        fsc->fs.vlan_tag, fsc->fs.vlan_tag_mask);
++		p += ETH_GSTRING_LEN;
++		num_strings++;
++		sprintf(p, "\tUser-defined: 0x%Lx\n", fsc->fs.data);
++		p += ETH_GSTRING_LEN;
++		num_strings++;
++		sprintf(p, "\tUser-defined mask: 0x%Lx\n", fsc->fs.data_mask);
++		p += ETH_GSTRING_LEN;
++		num_strings++;
++		if (fsc->fs.action == ETHTOOL_RXNTUPLE_ACTION_DROP)
++			sprintf(p, "\tAction: Drop\n");
++		else
++			sprintf(p, "\tAction: Direct to queue %d\n",
++			        fsc->fs.action);
++		p += ETH_GSTRING_LEN;
++		num_strings++;
++unknown_filter:
++		i++;
++	}
++copy:
++	/* indicate to userspace how many strings we actually have */
++	gstrings.len = num_strings;
++	ret = -EFAULT;
++	if (copy_to_user(useraddr, &gstrings, sizeof(gstrings)))
++		goto out;
++	useraddr += sizeof(gstrings);
++	if (copy_to_user(useraddr, data, gstrings.len * ETH_GSTRING_LEN))
++		goto out;
++	ret = 0;
++
++out:
++	kfree(data);
++	return ret;
++}
++
+ static int ethtool_get_regs(struct net_device *dev, char __user *useraddr)
+ {
+ 	struct ethtool_regs regs;
+@@ -305,6 +617,7 @@ static int ethtool_get_regs(struct net_device *dev, char __user *useraddr)
+ static int ethtool_reset(struct net_device *dev, char __user *useraddr)
+ {
+ 	struct ethtool_value reset;
++	struct ethtool_rx_ntuple_flow_spec_container *fsc, *f;
+ 	int ret;
+ 
+ 	if (!dev->ethtool_ops->reset)
+@@ -313,6 +626,12 @@ static int ethtool_reset(struct net_device *dev, char __user *useraddr)
+ 	if (copy_from_user(&reset, useraddr, sizeof(reset)))
+ 		return -EFAULT;
+ 
++	/* Clear ethtool n-tuple list */
++	list_for_each_entry_safe(fsc, f, &dev->ethtool_ntuple_list.list, list) {
++		list_del(&fsc->list);
++	}
++	dev->ethtool_ntuple_list.count = 0;
++
+ 	ret = dev->ethtool_ops->reset(dev, &reset.data);
+ 	if (ret)
+ 		return ret;
+@@ -351,9 +670,17 @@ static int ethtool_set_wol(struct net_device *dev, char __user *useraddr)
+ 
+ static int ethtool_nway_reset(struct net_device *dev)
+ {
++	struct ethtool_rx_ntuple_flow_spec_container *fsc, *f;
++
+ 	if (!dev->ethtool_ops->nway_reset)
+ 		return -EOPNOTSUPP;
+ 
++	/* Clear ethtool n-tuple list */
++	list_for_each_entry_safe(fsc, f, &dev->ethtool_ntuple_list.list, list) {
++		list_del(&fsc->list);
++	}
++	dev->ethtool_ntuple_list.count = 0;
++
+ 	return dev->ethtool_ops->nway_reset(dev);
+ }
+ 
+@@ -1112,6 +1439,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_RESET:
+ 		rc = ethtool_reset(dev, useraddr);
+ 		break;
++	case ETHTOOL_SRXNTUPLE:
++		rc = ethtool_set_rx_ntuple(dev, useraddr);
++		break;
++	case ETHTOOL_GRXNTUPLE:
++		rc = ethtool_get_rx_ntuple(dev, useraddr);
++		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
 
