@@ -1,37 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH] Allow change timing values to wait slow devices
- bring up before try register an interface to IP-Config
-Date: Tue, 09 Feb 2010 23:04:26 -0800 (PST)
-Message-ID: <20100209.230426.65176612.davem@davemloft.net>
-References: <600adaf51002091947ta095cc5g7174684f57488e94@mail.gmail.com>
-	<20100209215120.ac46ff7c.akpm@linux-foundation.org>
+From: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 16/23 v3] mlx4_core: Multi-Function MCG support
+Date: Wed, 10 Feb 2010 09:35:48 +0200
+Message-ID: <15ddcffd1002092335t55b0f7c2g1e3e9d75cdb9541d@mail.gmail.com>
+References: <49BFC313.1030901@mellanox.co.il> <4B6AEE30.30202@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tiago.maluta@gmail.com, linux-net@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: akpm@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100209215120.ac46ff7c.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	liranl-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, tziporet-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org,
+	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4B6AEE30.30202-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Tue, 9 Feb 2010 21:51:20 -0800
+Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org> wrote:
+> The multicast attachment mechanism is used both by IB and Ethernet,
+> so we need to specify for each multicast address (whether it is gid or mac) its protocol.
+> For Ethernet addresses, their VEP number should be specified [...] A Ethernet ports now need to [...]
 
-> Using delays was dumb of us, but I guess the problem is difficult.
-> 
-> It would be much better to configure this delay at runtime rather than
-> at compile time.  Perhaps with new kernel boot parameters, perhaps by
-> extending the ip= argument.
+With this patch touching a mechanism which is used by both IB and EN,
+I believe it need to be separated into two patches, the 1st changing only
+the core/common logic and the 2nd the EN one. Looking on V2, I see that you
+did have there two patches: "[21/25 v2] mlx4: Adding protocol fields
+to multicast group"
+and  "[22/25 v2] mlx4_en: Attaching Multicast addresses"
 
-Old topic, see the thread at:
-
-http://marc.info/?l=linux-netdev&m=126311212608318&w=2
-
-I would prefer to just jack up the defaults a bit.
-
-My opinion is that just about any larger default value is reasonable,
-because if you enable IP autoconfig on the command line, you expect
-the link and device to be there and waiting a few extra seconds won't
-bother you.
+Or.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
