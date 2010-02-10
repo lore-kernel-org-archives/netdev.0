@@ -1,56 +1,41 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [PATCH 2/4] C/R: Basic support for network namespaces and
- devices (v3)
-Date: Wed, 10 Feb 2010 14:30:01 -0600
-Message-ID: <20100210203001.GB23301@us.ibm.com>
+From: Dan Smith <danms@us.ibm.com>
+Subject: Re: [PATCH 2/4] C/R: Basic support for network namespaces and devices (v3)
+Date: Wed, 10 Feb 2010 12:31:02 -0800
+Message-ID: <87d40chlyx.fsf@caffeine.danplanet.com>
 References: <1265750713-15749-1-git-send-email-danms@us.ibm.com>
- <1265750713-15749-3-git-send-email-danms@us.ibm.com>
- <20100210172405.GB12251@us.ibm.com>
- <87pr4dgfdz.fsf@caffeine.danplanet.com>
- <4B7310AA.3090708@cs.columbia.edu>
+	<1265750713-15749-3-git-send-email-danms@us.ibm.com>
+	<87ljf1gemh.fsf@caffeine.danplanet.com>
+	<20100210192019.GA18879@us.ibm.com>
+	<87hbpohor5.fsf@caffeine.danplanet.com>
+	<20100210202509.GA23301@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dan Smith <danms@us.ibm.com>, containers@lists.osdl.org,
-	netdev@vger.kernel.org
-To: Oren Laadan <orenl@cs.columbia.edu>
+Cc: containers@lists.osdl.org, netdev@vger.kernel.org
+To: "Serge E. Hallyn" <serue@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:55671 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755892Ab0BJUaY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 15:30:24 -0500
-Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
-	by e37.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id o1AKSuph011787
-	for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 13:28:57 -0700
-Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
-	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o1AKU9YH100192
-	for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 13:30:10 -0700
-Received: from d03av05.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av05.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o1AKU71h006862
-	for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 13:30:08 -0700
-Content-Disposition: inline
-In-Reply-To: <4B7310AA.3090708@cs.columbia.edu>
+Received: from gw0.danplanet.com ([71.245.107.82]:52911 "EHLO
+	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755493Ab0BJUbF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 15:31:05 -0500
+In-Reply-To: <20100210202509.GA23301@us.ibm.com> (Serge E. Hallyn's message of "Wed\, 10 Feb 2010 14\:25\:09 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting Oren Laadan (orenl@cs.columbia.edu):
-> 
-> 
-> Dan Smith wrote:
-> >SH> What exactly is this == 0 case?  Does it mean 'use inherited
-> >SH> netns'?
-> >
-> >It means it wasn't in the checkpoint image to begin with, so yeah,
-> >kinda.
-> 
-> Maybe it's time to define CKPT_OBJREF_NULL for that ?
-> (to make it easy to fold, in a separate patch please)
+SH> I think that's be better.  Right now if we checkpoint a container
+SH> with macvlan restart will be bogus, right?  We're trying to avoid
+SH> any cases where we can't tell, at checkpoint, that restart won't
+SH> be right.
 
-Honestly that wouldn't be any more helpful.  Just a comment.  The
-problem is with 0 having a different meaning for each type of
-object, so 0 or CKPT_OBJREF_NULL is equally unhelpful imo :)
+Depends on your definition of bogus, and the situation, but okay.
 
-/* wasn't in the checkpoint image, use the netns of restarting task */
+SH> What I was asking is should do_veth_message() be in drivers/net/veth.c?
 
-or somesuch
+Well, we could add another ndo_* function to the net device, I guess,
+but I'd be afraid we'd hit some cases where that wasn't sufficient.
+Maybe it would be best to generalize that bit after I've added macvlan
+(,etc) support so we have a good idea of what else would be needed?
 
--serge
+-- 
+Dan Smith
+IBM Linux Technology Center
+email: danms@us.ibm.com
