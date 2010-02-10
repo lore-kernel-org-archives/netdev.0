@@ -1,68 +1,46 @@
-From: Damian Lukowski <damian@tvk.rwth-aachen.de>
-Subject: [PATCH][v4] tcp: fix ICMP-RTO war
-Date: Wed, 10 Feb 2010 20:06:42 +0100
-Message-ID: <4B7303C2.5000703@tvk.rwth-aachen.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-2.6 2010-02-10
+Date: Wed, 10 Feb 2010 11:07:56 -0800 (PST)
+Message-ID: <20100210.110756.201335073.davem@davemloft.net>
+References: <20100210185816.GB3286@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>,
-	=?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-To: Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:32931 "EHLO
-	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755678Ab0BJTGn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 14:06:43 -0500
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
- by mta-2.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0KXN004DL3R7SNC0@mta-2.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Wed, 10 Feb 2010 20:06:43 +0100 (CET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100210185816.GB3286@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Make sure, that TCP has a nonzero RTT estimation after three-way
-handshake. Currently, a listening TCP has a value of 0 for srtt,
-rttvar and rto right after the three-way handshake is completed
-with TCP timestamps disabled.
-This will lead to corrupt RTO recalculation and retransmission
-flood when RTO is recalculated on backoff reversion as introduced
-in "Revert RTO on ICMP destination unreachable"
-(f1ecd5d9e7366609d640ff4040304ea197fbc618).
-This behaviour can be provoked by connecting to a server which
-"responds first" (like SMTP) and rejecting every packet after
-the handshake with dest-unreachable, which will lead to softirq
-load on the server (up to 30% per socket in some tests).
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 10 Feb 2010 13:58:16 -0500
 
-Thanks to Ilpo Jarvinen for providing debug patches and to
-Denys Fedoryshchenko for reporting and testing.
+> Please let me know if there are problems!
 
-Changes since v3: Removed bad characters in patchfile.
+I see one:
 
-Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
-Signed-off-by: Damian Lukowski <damian@tvk.rwth-aachen.de>
----
- net/ipv4/tcp_input.c |    8 +++-----
- 1 files changed, 3 insertions(+), 5 deletions(-)
+> diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
+> index 5681ebe..03dfd27 100644
+> --- a/drivers/ssb/main.c
+> +++ b/drivers/ssb/main.c
+> @@ -494,8 +494,7 @@ static int ssb_devices_register(struct ssb_bus *bus)
+>  #endif
+>  			break;
+>  		case SSB_BUSTYPE_SDIO:
+> -#ifdef CONFIG_SSB_SDIO
+> -			sdev->irq = bus->host_sdio->dev.irq;
+> +#ifdef CONFIG_SSB_SDIOHOST
+>  			dev->parent = &bus->host_sdio->dev;
+>  #endif
+>  			break;
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 28e0296..da7173b 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5783,12 +5783,10 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
- 
- 				/* tcp_ack considers this ACK as duplicate
- 				 * and does not calculate rtt.
--				 * Fix it at least with timestamps.
-+				 * Force it here.
- 				 */
--				if (tp->rx_opt.saw_tstamp &&
--				    tp->rx_opt.rcv_tsecr && !tp->srtt)
--					tcp_ack_saw_tstamp(sk, 0);
--
-+				tcp_ack_update_rtt(sk, 0, 0);
-+
- 				if (tp->rx_opt.tstamp_ok)
- 					tp->advmss -= TCPOLEN_TSTAMP_ALIGNED;
- 
--- 1.6.4.4 
+The commit message says "fix a typo" but it's also removing
+the assignment of sdev->irq
+
+All the bus types assign the sdev->irq, so it looks like
+this was removed unintentionally.
+
+If it was intentional, it needs to be explained in the
+commit message or a code comment.
