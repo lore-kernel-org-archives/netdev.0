@@ -1,54 +1,34 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: [PATCH v3 1/6] net: tcp_header_len_th and tcp_option_len_th
-Date: Wed, 10 Feb 2010 16:00:53 -0500
-Message-ID: <4B731E85.3090302@gmail.com>
-References: <4B731D61.2080603@gmail.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: bnx2 limits user-specified advertised speeds to one
+Date: Wed, 10 Feb 2010 16:05:14 -0500
+Message-ID: <4B731F8A.20508@hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030200090206020606020508"
-Cc: Andrew Morton <akpm@linux-foundation.org>
-To: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B731D61.2080603@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------030200090206020606020508
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:8786 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755987Ab0BJVFQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 16:05:16 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Redefine two TCP header functions to accept TCP header pointer.
-When subtracting, return signed int to allow error checking.
+Hi
 
-These functions will be used in subsequent patches that implement
-additional features.
+A customer has noted that when attempting to change the advertised speeds
+setting on card using a bnx2 driver, the driver advertises either all available
+speeds or just one.  In other words, if a user attempts to set multiple
+advertised speeds,  the settings will not be honored.
 
-Signed-off-by: William.Allen.Simpson@gmail.com
----
-  include/linux/tcp.h |   12 ++++++++++++
-  1 files changed, 12 insertions(+), 0 deletions(-)
+Looking at the code in bnx2_set_settings, the checks for 10baseT and 100baseT
+make an assumption that the user provided only 1 speed setting.
 
---------------030200090206020606020508
-Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
- name="len_th+2a3+2.6.33-rc7.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="len_th+2a3+2.6.33-rc7.patch"
+e1000 and e1000e work correctly when the user specifies multiple advertised
+speeds.
 
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvdGNwLmggYi9pbmNsdWRlL2xpbnV4L3RjcC5o
-CmluZGV4IDdmZWU4YTQuLmQwMTMzY2YgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbGludXgvdGNw
-LmgKKysrIGIvaW5jbHVkZS9saW51eC90Y3AuaApAQCAtMjIzLDYgKzIyMywxOCBAQCBzdGF0
-aWMgaW5saW5lIHVuc2lnbmVkIGludCB0Y3Bfb3B0bGVuKGNvbnN0IHN0cnVjdCBza19idWZm
-ICpza2IpCiAJcmV0dXJuICh0Y3BfaGRyKHNrYiktPmRvZmYgLSA1KSAqIDQ7CiB9CiAKKy8q
-IExlbmd0aCBvZiBmaXhlZCBoZWFkZXIgcGx1cyBzdGFuZGFyZCBvcHRpb25zLiAqLworc3Rh
-dGljIGlubGluZSB1bnNpZ25lZCBpbnQgdGNwX2hlYWRlcl9sZW5fdGgoY29uc3Qgc3RydWN0
-IHRjcGhkciAqdGgpCit7CisJcmV0dXJuIHRoLT5kb2ZmICogNDsKK30KKworLyogTGVuZ3Ro
-IG9mIHN0YW5kYXJkIG9wdGlvbnMgb25seS4gIFRoaXMgY291bGQgYmUgbmVnYXRpdmUuICov
-CitzdGF0aWMgaW5saW5lIGludCB0Y3Bfb3B0aW9uX2xlbl90aChjb25zdCBzdHJ1Y3QgdGNw
-aGRyICp0aCkKK3sKKwlyZXR1cm4gKGludCkodGgtPmRvZmYgKiA0KSAtIHNpemVvZigqdGgp
-OworfQorCiAvKiBUaGlzIGRlZmluZXMgYSBzZWxlY3RpdmUgYWNrbm93bGVkZ2VtZW50IGJs
-b2NrLiAqLwogc3RydWN0IHRjcF9zYWNrX2Jsb2NrX3dpcmUgewogCV9fYmUzMglzdGFydF9z
-ZXE7Ci0tIAoxLjYuMy4zCgo=
---------------030200090206020606020508--
+Before attempting to fix this, I wanted to ask if there was a reason for the
+current functionality.
+
+Thanks
+-vlad
