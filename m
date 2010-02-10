@@ -1,44 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/13] net: simplify seq_file code, revised
-Date: Wed, 10 Feb 2010 12:29:47 -0800 (PST)
-Message-ID: <20100210.122947.171052717.davem@davemloft.net>
-References: <4B712849.9040400@cn.fujitsu.com>
-	<20100210.113115.28754681.davem@davemloft.net>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH 2/4] C/R: Basic support for network namespaces and
+ devices (v3)
+Date: Wed, 10 Feb 2010 14:30:01 -0600
+Message-ID: <20100210203001.GB23301@us.ibm.com>
+References: <1265750713-15749-1-git-send-email-danms@us.ibm.com>
+ <1265750713-15749-3-git-send-email-danms@us.ibm.com>
+ <20100210172405.GB12251@us.ibm.com>
+ <87pr4dgfdz.fsf@caffeine.danplanet.com>
+ <4B7310AA.3090708@cs.columbia.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Smith <danms@us.ibm.com>, containers@lists.osdl.org,
 	netdev@vger.kernel.org
-To: lizf@cn.fujitsu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100210.113115.28754681.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Oren Laadan <orenl@cs.columbia.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e37.co.us.ibm.com ([32.97.110.158]:55671 "EHLO
+	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755892Ab0BJUaY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 15:30:24 -0500
+Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
+	by e37.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id o1AKSuph011787
+	for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 13:28:57 -0700
+Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
+	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o1AKU9YH100192
+	for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 13:30:10 -0700
+Received: from d03av05.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av05.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o1AKU71h006862
+	for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 13:30:08 -0700
+Content-Disposition: inline
+In-Reply-To: <4B7310AA.3090708@cs.columbia.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 10 Feb 2010 11:31:15 -0800 (PST)
-
-> From: Li Zefan <lizf@cn.fujitsu.com>
-> Date: Tue, 09 Feb 2010 17:18:01 +0800
+Quoting Oren Laadan (orenl@cs.columbia.edu):
 > 
->> This patchset introduces seq_hlist_foo() helpers, and convert
->> net/* to seq_hlist_foo() and seq_list_foo().
->> 
->> Changelog:
->> 
->> - Add kerneldoc in patch 1/13
->> - Fix compile warning in patch 11/13
->> - Fix a bug in patch 12/13
 > 
-> All applied to net-next-2.6, thanks!
+> Dan Smith wrote:
+> >SH> What exactly is this == 0 case?  Does it mean 'use inherited
+> >SH> netns'?
+> >
+> >It means it wasn't in the checkpoint image to begin with, so yeah,
+> >kinda.
+> 
+> Maybe it's time to define CKPT_OBJREF_NULL for that ?
+> (to make it easy to fold, in a separate patch please)
 
-You did not build test your changes.
+Honestly that wouldn't be any more helpful.  Just a comment.  The
+problem is with 0 having a different meaning for each type of
+object, so 0 or CKPT_OBJREF_NULL is equally unhelpful imo :)
 
-net/irda/irlan/irlan_common.c:1156: error: 'struct irlan_cb' has no member named 'list'
-net/irda/irlan/irlan_common.c:1156: warning: type defaults to 'int' in declaration of '__mptr'
-net/irda/irlan/irlan_common.c:1156: error: 'struct irlan_cb' has no member named 'list'
+/* wasn't in the checkpoint image, use the netns of restarting task */
 
-I'll fix this, but I will not next time.  Instead, I'll revert all of
-your changes and push it back to you.
+or somesuch
 
-Thanks.
+-serge
