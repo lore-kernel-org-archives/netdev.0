@@ -1,29 +1,36 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: netfilter 00/05: netfilter fixes
-Date: Wed, 10 Feb 2010 14:52:09 +0100
-Message-ID: <4B72BA09.8000602@trash.net>
-References: <20100208171024.15522.8136.sendpatchset@x2.localnet> <20100208.111517.197143656.davem@davemloft.net> <4B719C5D.9060402@trash.net> <alpine.LSU.2.01.1002091918310.10859@obet.zrqbmnf.qr>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: [PATCH 0/5] sky2: Avoid down and up during sky2_reset
+Date: Wed, 10 Feb 2010 23:11:43 +0900
+Message-ID: <4B72BE9F.2000602@ring3k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.01.1002091918310.10859@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f187.google.com ([209.85.222.187]:55858 "EHLO
+	mail-pz0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750914Ab0BJORA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 09:17:00 -0500
+Received: by pzk17 with SMTP id 17so24824pzk.4
+        for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 06:16:59 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jan Engelhardt wrote:
-> On Tuesday 2010-02-09 18:33, Patrick McHardy wrote:
-> 
->> Thanks Dave. I plan to submit a first batch of patches queued for
->> net-next-2.6 soon, however these fixes introduced a large number
->> of conflicts. If you could merge net-2.6 into net-next-2.6 I'll
->> resolve them and send a pull request.
-> 
-> Ah that is a good opportunity then to rebase my pending -next patches, 
-> to reduce conflicts you would have to solve when merging things after 
-> the conflict resolution.
 
-I've merged the current net-next tree and pushed it out.
+Hi Stephen,
+
+This patch set reimplements sky2_reset so that 
+
+ * interrupts are disabled during reset
+ * memory is not free'd and reallocated
+ * tx queues are stopped during reset, but the device is not brought down
+
+Additionally, it avoids partial initialization of the hardware when ring buffer allocation fails.
+
+The rx ring still needs to be fully allocated for sky2_up to succeed.
+
+thanks,
+
+Mike
+
