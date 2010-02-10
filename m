@@ -1,78 +1,418 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [net-next-2.6 PATCH 2/3] fs_enet: Add support for MPC512x to
- fs_enet driver
-Date: Wed, 10 Feb 2010 11:20:25 +0100
-Message-ID: <4B728869.1090404@grandegger.com>
-References: <4B5871F2.9090005@grandegger.com>	<20100121.180311.228791894.davem@davemloft.net>	<20100209152317.5303b1b3@wker> <20100209.121356.216640014.davem@davemloft.net> <4B72794A.9010805@grandegger.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [net-next-2.6,	v4 1/3] ethtool: Introduce n-tuple filter programming
+ support
+Date: Wed, 10 Feb 2010 12:21:15 +0100
+Message-ID: <4B7296AB.6020004@trash.net>
+References: <20100210100718.10855.96567.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: agust@denx.de, netdev@vger.kernel.org, dzu@denx.de, wd@denx.de,
-	jcrigby@gmail.com, kosmo@semihalf.com, linuxppc-dev@ozlabs.org,
-	grant.likely@secretlab.ca
-To: David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:53116 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752657Ab0BJKVn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 05:21:43 -0500
-In-Reply-To: <4B72794A.9010805@grandegger.com>
+Received: from stinky.trash.net ([213.144.137.162]:48152 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754242Ab0BJLVY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 06:21:24 -0500
+In-Reply-To: <20100210100718.10855.96567.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wolfgang Grandegger wrote:
-> Hi David,
-> 
-> David Miller wrote:
->> From: Anatolij Gustschin <agust@denx.de>
->> Date: Tue, 9 Feb 2010 15:23:17 +0100
->>
->>> In my understanding, in the ESP scsi driver the set of defines for
->>> the register offsets is common for all chip drivers. The chip driver
->>> methods for register access translate the offsets because the
->>> registers on some chips are at different intervals (4-byte, 1-byte,
->>> 16-byte for mac_esp.c). But the register order is the same for
->>> different chips.
->>>
->>> In our case non only the register order is not the same for 8xx
->>> FEC and 5121 FEC, but there are also other differences, different
->>> reserved areas between several registers, some registers are
->>> available only on 8xx and some only on 5121.
->> That only means you would need to use a table based register address
->> translation scheme, rather than a simple calculation.  Something
->> like:
->>
->> static unsigned int chip_xxx_table[] =
->> {
->> 	[GENERIC_REG_FOO]	 = CHIP_XXX_FOO,
->> 	...
->> };
->>
->> static u32 chip_xxx_read_reg(struct chip *p, unsigned int reg)
->> {
->> 	unsigned int reg_off = chip_xxx_table[reg];
->>
->> 	return readl(p->regs + reg_off);
->> }
->>
->> And this table can have special tokens in entries for
->> registers which do not exist on a chip, so you can trap
->> attempted access to them in these read/write handlers.
-> 
-> Yes, that could be done, but to honest, I do not see any improvement in
-> respect to the previous patch where the register offset were defined via
-> pointers within a structure.
-> 
->> Please stop looking for excuses to fork this driver, a
->> unified driver I think can be done cleanly.
-> 
-> Other people suggested to fork the driver because it's getting too ugly.
+Jeff Kirsher wrote:
+> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+> index ef4a2d8..4e9ef85 100644
+> --- a/include/linux/ethtool.h
+> +++ b/include/linux/ethtool.h
+> +struct ethtool_rx_ntuple_list {
+> +#define ETHTOOL_MAX_NTUPLE_LIST_ENTRY 1024
+> +#define ETHTOOL_MAX_NTUPLE_STRING_PER_ENTRY 14
+> +	struct list_head	list;
+> +	int			count;
 
-That said, I think there is consensus that it does not make sense, and
-it's even not possible, to provide a kernel image which runs on both,
-the 8xx and the mpc512x. Therefore, there is also no need for sharing
-this driver at run time. Compile time selection would allow a more
-elegant and transparent implementation. Would that be an acceptable
-solution?
+unsigned int seems more appropriate.
 
-Wolfgang.
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 94c1eee..4593abe 100644
+> @@ -5447,6 +5449,7 @@ EXPORT_SYMBOL(alloc_netdev_mq);
+>  void free_netdev(struct net_device *dev)
+>  {
+>  	struct napi_struct *p, *n;
+> +	struct ethtool_rx_ntuple_flow_spec_container *fsc, *f;
+>  
+>  	release_net(dev_net(dev));
+>  
+> @@ -5455,6 +5458,12 @@ void free_netdev(struct net_device *dev)
+>  	/* Flush device addresses */
+>  	dev_addr_flush(dev);
+>  
+> +	/* Clear ethtool n-tuple list */
+> +	list_for_each_entry_safe(fsc, f, &dev->ethtool_ntuple_list.list, list) {
+> +		list_del(&fsc->list);
+
+Shouldn't the filters be freed here?
+
+> +	}
+> +	dev->ethtool_ntuple_list.count = 0;
+> +
+>  	list_for_each_entry_safe(p, n, &dev->napi_list, dev_list)
+>  		netif_napi_del(p);
+>  
+> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+> index d8aee58..fa703c6 100644
+> --- a/net/core/ethtool.c
+> +++ b/net/core/ethtool.c
+> @@ -120,7 +120,7 @@ int ethtool_op_set_ufo(struct net_device *dev, u32 data)
+>   * NETIF_F_xxx values in include/linux/netdevice.h
+>   */
+>  static const u32 flags_dup_features =
+> -	ETH_FLAG_LRO;
+> +	(ETH_FLAG_LRO | ETH_FLAG_NTUPLE);
+>  
+>  u32 ethtool_op_get_flags(struct net_device *dev)
+>  {
+> @@ -139,6 +139,11 @@ int ethtool_op_set_flags(struct net_device *dev, u32 data)
+>  	else
+>  		dev->features &= ~NETIF_F_LRO;
+>  
+> +	if (data & ETH_FLAG_NTUPLE)
+> +		dev->features |= NETIF_F_NTUPLE;
+> +	else
+> +		dev->features &= ~NETIF_F_NTUPLE;
+
+Shouldn't this check for the real capabilities of the device first?
+
+> +static int __rx_ntuple_filter_add(struct ethtool_rx_ntuple_list *list,
+> +                                  struct ethtool_rx_ntuple_flow_spec *spec)
+> +{
+> +	struct ethtool_rx_ntuple_flow_spec_container *fsc;
+> +	int alloc_size;
+> +
+> +	/* don't add filters forever */
+> +	if (list->count >= ETHTOOL_MAX_NTUPLE_LIST_ENTRY)
+> +		return 0;
+> +
+> +	list_for_each_entry(fsc, &list->list, list) { /* run to end */ }
+
+What does this do? fsc is allocated below, so it seems useless.
+
+> +
+> +	alloc_size = sizeof(*fsc);
+> +	if (alloc_size < L1_CACHE_BYTES)
+> +		alloc_size = L1_CACHE_BYTES;
+
+Is that really necessary? I thought the filters would be offloaded
+to hardware, so I'd expect aligning them to the cache line size
+shouldn't make any difference.
+
+> +	fsc = kmalloc(alloc_size, GFP_ATOMIC);
+> +	if (!fsc)
+> +		return -ENOMEM;
+> +
+> +	/* Copy the whole filter over */
+> +	fsc->fs.flow_type = spec->flow_type;
+> +	memcpy(&fsc->fs.h_u, &spec->h_u, sizeof(spec->h_u));
+> +	memcpy(&fsc->fs.m_u, &spec->m_u, sizeof(spec->m_u));
+> +
+> +	fsc->fs.vlan_tag = spec->vlan_tag;
+> +	fsc->fs.vlan_tag_mask = spec->vlan_tag_mask;
+> +	fsc->fs.data = spec->data;
+> +	fsc->fs.data_mask = spec->data_mask;
+> +	fsc->fs.action = spec->action;
+> +
+> +	/* add to the list */
+> +	list_add_tail_rcu(&fsc->list, &list->list);
+> +	list->count++;
+> +
+> +	return 0;
+> +}
+> +
+> +static int ethtool_get_rx_ntuple(struct net_device *dev, void __user *useraddr)
+> +{
+> +	struct ethtool_gstrings gstrings;
+> +	const struct ethtool_ops *ops = dev->ethtool_ops;
+> +	struct ethtool_rx_ntuple_flow_spec_container *fsc;
+> +	u8 *data;
+> +	char *p;
+> +	int ret, i, num_strings = 0;
+> +
+> +	if (!ops->get_sset_count)
+> +		return -EOPNOTSUPP;
+> +
+> +	if (copy_from_user(&gstrings, useraddr, sizeof(gstrings)))
+> +		return -EFAULT;
+> +
+> +	ret = ops->get_sset_count(dev, gstrings.string_set);
+> +	if (ret < 0)
+> +		return ret;
+> +
+> +	gstrings.len = ret;
+> +
+> +	data = kmalloc(gstrings.len * ETH_GSTRING_LEN, GFP_USER);
+> +	if (!data)
+> +		return -ENOMEM;
+> +
+> +	if (ops->get_rx_ntuple) {
+> +		/* driver-specific filter grab */
+> +		ret = ops->get_rx_ntuple(dev, gstrings.string_set, data);
+> +		goto copy;
+> +	}
+> +
+> +	/* default ethtool filter grab */
+> +	i = 0;
+> +	p = (char *)data;
+> +	list_for_each_entry(fsc, &dev->ethtool_ntuple_list.list, list) {
+> +		sprintf(p, "Filter %d:\n", i);
+
+Providing a textual representation from within the kernel doesn't
+seem like a good interface to me. If userspace wants to do anything
+but simply display them, it will have to parse them again. Additionally
+it seems a driver providing a ->get_rx_ntuple() callback would have
+to duplicate the entire conversion code, which is error prone.
+
+> +		p += ETH_GSTRING_LEN;
+> +		num_strings++;
+> +
+> +		switch (fsc->fs.flow_type) {
+> +		case TCP_V4_FLOW:
+> +			sprintf(p, "\tFlow Type: TCP\n");
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			break;
+> +		case UDP_V4_FLOW:
+> +			sprintf(p, "\tFlow Type: UDP\n");
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			break;
+> +		case SCTP_V4_FLOW:
+> +			sprintf(p, "\tFlow Type: SCTP\n");
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			break;
+> +		case AH_ESP_V4_FLOW:
+> +			sprintf(p, "\tFlow Type: AH ESP\n");
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			break;
+> +		case ESP_V4_FLOW:
+> +			sprintf(p, "\tFlow Type: ESP\n");
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			break;
+> +		case IP_USER_FLOW:
+> +			sprintf(p, "\tFlow Type: Raw IP\n");
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			break;
+> +		case IPV4_FLOW:
+> +			sprintf(p, "\tFlow Type: IPv4\n");
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			break;
+> +		default:
+> +			sprintf(p, "\tFlow Type: Unknown\n");
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			goto unknown_filter;
+> +		};
+> +
+> +		/* now the rest of the filters */
+> +		switch (fsc->fs.flow_type) {
+> +		case TCP_V4_FLOW:
+> +		case UDP_V4_FLOW:
+> +		case SCTP_V4_FLOW:
+> +			sprintf(p, "\tSrc IP addr: 0x%x\n",
+> +			        fsc->fs.h_u.tcp_ip4_spec.ip4src);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tSrc IP mask: 0x%x\n",
+> +			        fsc->fs.m_u.tcp_ip4_spec.ip4src);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tDest IP addr: 0x%x\n",
+> +			        fsc->fs.h_u.tcp_ip4_spec.ip4dst);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tDest IP mask: 0x%x\n",
+> +			        fsc->fs.m_u.tcp_ip4_spec.ip4dst);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tSrc Port: %d, mask: 0x%x\n",
+> +			        fsc->fs.h_u.tcp_ip4_spec.psrc,
+> +			        fsc->fs.m_u.tcp_ip4_spec.psrc);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tDest Port: %d, mask: 0x%x\n",
+> +			        fsc->fs.h_u.tcp_ip4_spec.pdst,
+> +			        fsc->fs.m_u.tcp_ip4_spec.pdst);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tTOS: %d, mask: 0x%x\n",
+> +			        fsc->fs.h_u.tcp_ip4_spec.tos,
+> +			        fsc->fs.m_u.tcp_ip4_spec.tos);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			break;
+> +		case AH_ESP_V4_FLOW:
+> +		case ESP_V4_FLOW:
+> +			sprintf(p, "\tSrc IP addr: 0x%x\n",
+> +			        fsc->fs.h_u.ah_ip4_spec.ip4src);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tSrc IP mask: 0x%x\n",
+> +			        fsc->fs.m_u.ah_ip4_spec.ip4src);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tDest IP addr: 0x%x\n",
+> +			        fsc->fs.h_u.ah_ip4_spec.ip4dst);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tDest IP mask: 0x%x\n",
+> +			        fsc->fs.m_u.ah_ip4_spec.ip4dst);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tSPI: %d, mask: 0x%x\n",
+> +			        fsc->fs.h_u.ah_ip4_spec.spi,
+> +			        fsc->fs.m_u.ah_ip4_spec.spi);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tTOS: %d, mask: 0x%x\n",
+> +			        fsc->fs.h_u.ah_ip4_spec.tos,
+> +			        fsc->fs.m_u.ah_ip4_spec.tos);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			break;
+> +		case IP_USER_FLOW:
+> +			sprintf(p, "\tSrc IP addr: 0x%x\n",
+> +			        fsc->fs.h_u.raw_ip4_spec.ip4src);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tSrc IP mask: 0x%x\n",
+> +			        fsc->fs.m_u.raw_ip4_spec.ip4src);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tDest IP addr: 0x%x\n",
+> +			        fsc->fs.h_u.raw_ip4_spec.ip4dst);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tDest IP mask: 0x%x\n",
+> +			        fsc->fs.m_u.raw_ip4_spec.ip4dst);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			break;
+> +		case IPV4_FLOW:
+> +			sprintf(p, "\tSrc IP addr: 0x%x\n",
+> +			        fsc->fs.h_u.usr_ip4_spec.ip4src);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tSrc IP mask: 0x%x\n",
+> +			        fsc->fs.m_u.usr_ip4_spec.ip4src);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tDest IP addr: 0x%x\n",
+> +			        fsc->fs.h_u.usr_ip4_spec.ip4dst);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tDest IP mask: 0x%x\n",
+> +			        fsc->fs.m_u.usr_ip4_spec.ip4dst);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tL4 bytes: 0x%x, mask: 0x%x\n",
+> +			        fsc->fs.h_u.usr_ip4_spec.l4_4_bytes,
+> +			        fsc->fs.m_u.usr_ip4_spec.l4_4_bytes);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tTOS: %d, mask: 0x%x\n",
+> +			        fsc->fs.h_u.usr_ip4_spec.tos,
+> +			        fsc->fs.m_u.usr_ip4_spec.tos);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tIP Version: %d, mask: 0x%x\n",
+> +			        fsc->fs.h_u.usr_ip4_spec.ip_ver,
+> +			        fsc->fs.m_u.usr_ip4_spec.ip_ver);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			sprintf(p, "\tProtocol: %d, mask: 0x%x\n",
+> +			        fsc->fs.h_u.usr_ip4_spec.proto,
+> +			        fsc->fs.m_u.usr_ip4_spec.proto);
+> +			p += ETH_GSTRING_LEN;
+> +			num_strings++;
+> +			break;
+> +		};
+> +		sprintf(p, "\tVLAN: %d, mask: 0x%x\n",
+> +		        fsc->fs.vlan_tag, fsc->fs.vlan_tag_mask);
+> +		p += ETH_GSTRING_LEN;
+> +		num_strings++;
+> +		sprintf(p, "\tUser-defined: 0x%Lx\n", fsc->fs.data);
+> +		p += ETH_GSTRING_LEN;
+> +		num_strings++;
+> +		sprintf(p, "\tUser-defined mask: 0x%Lx\n", fsc->fs.data_mask);
+> +		p += ETH_GSTRING_LEN;
+> +		num_strings++;
+> +		if (fsc->fs.action == ETHTOOL_RXNTUPLE_ACTION_DROP)
+> +			sprintf(p, "\tAction: Drop\n");
+> +		else
+> +			sprintf(p, "\tAction: Direct to queue %d\n",
+> +			        fsc->fs.action);
+> +		p += ETH_GSTRING_LEN;
+> +		num_strings++;
+> +unknown_filter:
+> +		i++;
+> +	}
+> +copy:
+> +	/* indicate to userspace how many strings we actually have */
+> +	gstrings.len = num_strings;
+> +	ret = -EFAULT;
+> +	if (copy_to_user(useraddr, &gstrings, sizeof(gstrings)))
+> +		goto out;
+> +	useraddr += sizeof(gstrings);
+> +	if (copy_to_user(useraddr, data, gstrings.len * ETH_GSTRING_LEN))
+> +		goto out;
+> +	ret = 0;
+> +
+> +out:
+> +	kfree(data);
+> +	return ret;
+> +}
+> +
+>  static int ethtool_get_regs(struct net_device *dev, char __user *useraddr)
+>  {
+>  	struct ethtool_regs regs;
+> @@ -313,6 +626,12 @@ static int ethtool_reset(struct net_device *dev, char __user *useraddr)
+>  	if (copy_from_user(&reset, useraddr, sizeof(reset)))
+>  		return -EFAULT;
+>  
+> +	/* Clear ethtool n-tuple list */
+> +	list_for_each_entry_safe(fsc, f, &dev->ethtool_ntuple_list.list, list) {
+> +		list_del(&fsc->list);
+
+This should also free the filters if I'm not mistaken.
+
+> +	}
+> +	dev->ethtool_ntuple_list.count = 0;
+> +
+>  	ret = dev->ethtool_ops->reset(dev, &reset.data);
+>  	if (ret)
+>  		return ret;
+> @@ -351,9 +670,17 @@ static int ethtool_set_wol(struct net_device *dev, char __user *useraddr)
+>  
+>  static int ethtool_nway_reset(struct net_device *dev)
+>  {
+> +	struct ethtool_rx_ntuple_flow_spec_container *fsc, *f;
+> +
+>  	if (!dev->ethtool_ops->nway_reset)
+>  		return -EOPNOTSUPP;
+>  
+> +	/* Clear ethtool n-tuple list */
+> +	list_for_each_entry_safe(fsc, f, &dev->ethtool_ntuple_list.list, list) {
+> +		list_del(&fsc->list);
+
+Same here. But why are they cleared here at all? It doesn't
+seem very intuitive that filters are lost when restarting
+auto-negotiation.
+
+> +	}
+> +	dev->ethtool_ntuple_list.count = 0;
+> +
+>  	return dev->ethtool_ops->nway_reset(dev);
+>  }
