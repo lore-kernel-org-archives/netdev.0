@@ -1,79 +1,107 @@
 From: Mike McCormack <mikem@ring3k.org>
-Subject: [PATCH 4/5] sky2: Refactor sky2_down into two functions
-Date: Wed, 10 Feb 2010 23:12:16 +0900
-Message-ID: <4B72BEC0.7090200@ring3k.org>
+Subject: [PATCH 3/5] sky2: Refactor sky2_up into two functions
+Date: Wed, 10 Feb 2010 23:12:11 +0900
+Message-ID: <4B72BEBB.2000402@ring3k.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f202.google.com ([209.85.216.202]:46984 "EHLO
-	mail-px0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754424Ab0BJOR3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 09:17:29 -0500
-Received: by pxi40 with SMTP id 40so12303pxi.21
-        for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 06:17:28 -0800 (PST)
+Received: from mail-pz0-f187.google.com ([209.85.222.187]:55858 "EHLO
+	mail-pz0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754038Ab0BJORU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 09:17:20 -0500
+Received: by mail-pz0-f187.google.com with SMTP id 17so24824pzk.4
+        for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 06:17:20 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Create a sky2_hw_down that brings the hardware down.
+Move hardware initialization into sky2_hw_up.
 
 Signed-off-by: Mike McCormack <mikem@ring3k.org>
 ---
- drivers/net/sky2.c |   28 +++++++++++++++++-----------
- 1 files changed, 17 insertions(+), 11 deletions(-)
+ drivers/net/sky2.c |   41 +++++++++++++++++++++++++----------------
+ 1 files changed, 25 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index c41a2ed..9ecc129 100644
+index ee091d1..c41a2ed 100644
 --- a/drivers/net/sky2.c
 +++ b/drivers/net/sky2.c
-@@ -1926,21 +1926,12 @@ static void sky2_tx_reset(struct sky2_hw *hw, unsigned port)
- 	sky2_write8(hw, SK_REG(port, TX_GMF_CTRL_T), GMF_RST_SET);
+@@ -1543,16 +1543,16 @@ static void sky2_free_buffers(struct sky2_port *sky2)
+ 	sky2->rx_ring = NULL;
  }
  
--/* Network shutdown */
--static int sky2_down(struct net_device *dev)
-+static void sky2_hw_down(struct sky2_port *sky2)
+-/* Bring up network interface. */
+-static int sky2_up(struct net_device *dev)
++static void sky2_hw_up(struct sky2_port *sky2)
  {
 -	struct sky2_port *sky2 = netdev_priv(dev);
  	struct sky2_hw *hw = sky2->hw;
  	unsigned port = sky2->port;
--	u16 ctrl;
- 	u32 imask;
--
--	/* Never really got started! */
--	if (!sky2->tx_le)
--		return 0;
--
--	if (netif_msg_ifdown(sky2))
--		printk(KERN_INFO PFX "%s: disabling interface\n", dev->name);
-+	u16 ctrl;
+-	u32 imask, ramsize;
+-	int cap, err;
++	u32 ramsize;
++	int cap;
+ 	struct net_device *otherdev = hw->dev[sky2->port^1];
  
- 	/* Force flow control off */
- 	sky2_write8(hw, SK_REG(port, GMAC_CTRL), GMC_PAUSE_OFF);
-@@ -1990,6 +1981,21 @@ static int sky2_down(struct net_device *dev)
++	tx_init(sky2);
++
+ 	/*
+  	 * On dual port PCI-X card, there is an problem where status
+ 	 * can be received out of order due to split transactions
+@@ -1564,16 +1564,7 @@ static int sky2_up(struct net_device *dev)
+ 		cmd = sky2_pci_read16(hw, cap + PCI_X_CMD);
+  		cmd &= ~PCI_X_CMD_MAX_SPLIT;
+  		sky2_pci_write16(hw, cap + PCI_X_CMD, cmd);
+-
+- 	}
+-
+-	netif_carrier_off(dev);
+-
+-	err = sky2_alloc_buffers(sky2);
+-	if (err)
+-		goto err_out;
+-
+-	tx_init(sky2);
++	}
  
- 	/* Free any pending frames stuck in HW queue */
- 	sky2_tx_complete(sky2, sky2->tx_prod);
+ 	sky2_mac_init(hw, port);
+ 
+@@ -1582,7 +1573,7 @@ static int sky2_up(struct net_device *dev)
+ 	if (ramsize > 0) {
+ 		u32 rxspace;
+ 
+-		pr_debug(PFX "%s: ram buffer %dK\n", dev->name, ramsize);
++		pr_debug(PFX "%s: ram buffer %dK\n", sky2->netdev->name, ramsize);
+ 		if (ramsize < 16)
+ 			rxspace = ramsize / 2;
+ 		else
+@@ -1615,6 +1606,24 @@ static int sky2_up(struct net_device *dev)
+ #endif
+ 
+ 	sky2_rx_start(sky2);
 +}
 +
-+/* Network shutdown */
-+static int sky2_down(struct net_device *dev)
++/* Bring up network interface. */
++static int sky2_up(struct net_device *dev)
 +{
 +	struct sky2_port *sky2 = netdev_priv(dev);
++	struct sky2_hw *hw = sky2->hw;
++	unsigned port = sky2->port;
++	u32 imask;
++	int err;
 +
-+	/* Never really got started! */
-+	if (!sky2->tx_le)
-+		return 0;
++	netif_carrier_off(dev);
 +
-+	if (netif_msg_ifdown(sky2))
-+		printk(KERN_INFO PFX "%s: disabling interface\n", dev->name);
++	err = sky2_alloc_buffers(sky2);
++	if (err)
++		goto err_out;
 +
-+	sky2_hw_down(sky2);
++	sky2_hw_up(sky2);
  
- 	sky2_free_buffers(sky2);
- 
+ 	/* Enable interrupts from phy/mac for port */
+ 	imask = sky2_read32(hw, B0_IMSK);
 -- 
 1.5.6.5
 
