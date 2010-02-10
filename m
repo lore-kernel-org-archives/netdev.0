@@ -1,71 +1,67 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [net-next-2.6 PATCH 2/3] fs_enet: Add support for MPC512x to
- fs_enet driver
-Date: Wed, 10 Feb 2010 10:15:54 +0100
-Message-ID: <4B72794A.9010805@grandegger.com>
-References: <4B5871F2.9090005@grandegger.com>	<20100121.180311.228791894.davem@davemloft.net>	<20100209152317.5303b1b3@wker> <20100209.121356.216640014.davem@davemloft.net>
+From: Simon Kagstrom <simon.kagstrom@netinsight.net>
+Subject: Re: [PATCH 0/3]: via-velocity: Fixes for locking issues
+Date: Wed, 10 Feb 2010 10:33:58 +0100
+Message-ID: <20100210103358.41a45851@marrow.netinsight.se>
+References: <20100205165253.3f316b98@marrow.netinsight.se>
+	<20100209.163133.38216503.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: agust@denx.de, netdev@vger.kernel.org, dzu@denx.de, wd@denx.de,
-	jcrigby@gmail.com, kosmo@semihalf.com, linuxppc-dev@ozlabs.org,
-	grant.likely@secretlab.ca
+Cc: netdev@vger.kernel.org, davej@redhat.com, ben@decadent.org.uk
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:46664 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752130Ab0BJJRO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 04:17:14 -0500
-In-Reply-To: <20100209.121356.216640014.davem@davemloft.net>
+Received: from ernst.netinsight.se ([194.16.221.21]:45470 "HELO
+	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752911Ab0BJJeK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 04:34:10 -0500
+In-Reply-To: <20100209.163133.38216503.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Hi David!
 
-David Miller wrote:
-> From: Anatolij Gustschin <agust@denx.de>
-> Date: Tue, 9 Feb 2010 15:23:17 +0100
-> 
->> In my understanding, in the ESP scsi driver the set of defines for
->> the register offsets is common for all chip drivers. The chip driver
->> methods for register access translate the offsets because the
->> registers on some chips are at different intervals (4-byte, 1-byte,
->> 16-byte for mac_esp.c). But the register order is the same for
->> different chips.
->>
->> In our case non only the register order is not the same for 8xx
->> FEC and 5121 FEC, but there are also other differences, different
->> reserved areas between several registers, some registers are
->> available only on 8xx and some only on 5121.
-> 
-> That only means you would need to use a table based register address
-> translation scheme, rather than a simple calculation.  Something
-> like:
-> 
-> static unsigned int chip_xxx_table[] =
-> {
-> 	[GENERIC_REG_FOO]	 = CHIP_XXX_FOO,
-> 	...
-> };
-> 
-> static u32 chip_xxx_read_reg(struct chip *p, unsigned int reg)
-> {
-> 	unsigned int reg_off = chip_xxx_table[reg];
-> 
-> 	return readl(p->regs + reg_off);
-> }
-> 
-> And this table can have special tokens in entries for
-> registers which do not exist on a chip, so you can trap
-> attempted access to them in these read/write handlers.
+Thanks for the comments, I understand the problem more clearly now.
 
-Yes, that could be done, but to honest, I do not see any improvement in
-respect to the previous patch where the register offset were defined via
-pointers within a structure.
+On Tue, 09 Feb 2010 16:31:33 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-> Please stop looking for excuses to fork this driver, a
-> unified driver I think can be done cleanly.
+> The proper thing to do is make the ->poll() handler use the lock
+> correctly by disabling interrupts.
 
-Other people suggested to fork the driver because it's getting too ugly.
+In reply to this message is an updated patch series which uses
+spin_lock_irqsave/restore in velocity_poll instead.
 
-Wolfgang.
+> If the VIA driver wants to avoid holding interrupts disabled for long
+> periods of time in ->poll(), it's locking mechanisms will need to be
+> rewritten completely.  The only safe way to do this is to do something
+> like how the tg3 driver works, wherein the interrupt handler runs
+> lockless, there is a special IRQ quiesce sequence when shutting down
+> the chip, and the ->poll() handler et al. use softirq safe locks
+> instead of hardirq safe ones.
+
+Yes, I guess that would be the long-term solution for this driver. The
+main problem with running the interrupt handler unlocked now is the
+error handler, which is executed directly from the interrupt handler.
+
+
+Anyway, when you are happy with the patch series, I think it is 2.6.33
+material as the velocity driver would otherwise contain a regression
+compared to 2.6.32.
+
+Changes in the patch series:
+
+* Patch 1: Unchanged
+
+* Patch 2: Unchanged
+
+* Patch 3: Use spin_lock_irqsave in velocity_poll and remove
+  spin_trylock from the interrupt handler.
+
+
+As before, I'm only able to test it on a uniprocessor with spinlock
+debugging turned on. With the patch set, I can no longer get it to
+lockup when running heavy traffic for both interrupt sources (which was
+easy without the patches).
+
+Thanks,
+// Simon
