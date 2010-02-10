@@ -1,35 +1,37 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 5/5] sky2: Avoid down and up during sky2_reset
-Date: Wed, 10 Feb 2010 09:34:08 -0800
-Message-ID: <20100210093408.38a7f817@nehalam>
-References: <4B72BEC9.4000004@ring3k.org>
+From: Dan Smith <danms@us.ibm.com>
+Subject: Re: [PATCH 2/4] C/R: Basic support for network namespaces and devices (v3)
+Date: Wed, 10 Feb 2010 09:38:32 -0800
+Message-ID: <87pr4dgfdz.fsf@caffeine.danplanet.com>
+References: <1265750713-15749-1-git-send-email-danms@us.ibm.com>
+	<1265750713-15749-3-git-send-email-danms@us.ibm.com>
+	<20100210172405.GB12251@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Mike McCormack <mikem@ring3k.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: containers@lists.osdl.org, netdev@vger.kernel.org
+To: "Serge E. Hallyn" <serue@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37389 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755028Ab0BJReO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Feb 2010 12:34:14 -0500
-In-Reply-To: <4B72BEC9.4000004@ring3k.org>
+Received: from gw0.danplanet.com ([71.245.107.82]:52555 "EHLO
+	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755894Ab0BJRig (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 12:38:36 -0500
+In-Reply-To: <20100210172405.GB12251@us.ibm.com> (Serge E. Hallyn's message of "Wed\, 10 Feb 2010 11\:24\:05 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 10 Feb 2010 23:12:25 +0900
-Mike McCormack <mikem@ring3k.org> wrote:
+SH> What exactly is this == 0 case?  Does it mean 'use inherited
+SH> netns'?
 
-> +	if (!interrupts_disabled) {
-> +		/* Disable port IRQ */
-> +		u32 imask = sky2_read32(hw, B0_IMSK);
-> +		imask &= ~portirq_msk[port];
-> +		sky2_write32(hw, B0_IMSK, imask);
-> +		sky2_read32(hw, B0_IMSK);
->  
+It means it wasn't in the checkpoint image to begin with, so yeah,
+kinda.
 
-I don't like conditional context like this. It makes code
-hard to debug, etc. Could you change sky2_down to do the irq
-cleanup before calling hw_down?
+SH> Don't you then still need to 
+
+SH> 	get_net(current->nsproxy->net_ns);
+SH>     nsproxy-> net_ns = current->nsproxy->net_ns;
+
+Yes, I'll unify that path a bit.  Thanks.
 
 -- 
+Dan Smith
+IBM Linux Technology Center
+email: danms@us.ibm.com
