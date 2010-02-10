@@ -1,129 +1,30 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [iproute2 PATCH v2 4/4] Update man page to indicate current options
-Date: Wed, 10 Feb 2010 03:47:29 -0800
-Message-ID: <20100210114729.14570.6713.stgit@localhost.localdomain>
-References: <20100210114617.14570.87620.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net, shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:54317
-	"EHLO qmta10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754695Ab0BJLrt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 06:47:49 -0500
-In-Reply-To: <20100210114617.14570.87620.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Xin Xiaohui <xiaohui.xin@intel.com>
+Subject: [PATCH 0/3] Provide a zero-copy method on KVM virtio-net.
+Date: Wed, 10 Feb 2010 19:48:57 +0800
+Message-ID: <1265802540-6122-1-git-send-email-xiaohui.xin@intel.com>
+To: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@elte.hu, mst@redhat.com,
+	jdike@c2.user-mode-linux.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Williams, Mitch A <mitch.a.williams@intel.com>
+The idea is simple, just to pin the guest VM user space and then
+let host NIC driver has the chance to directly DMA to it. 
+The patches are based on vhost-net backend driver. We add a device
+which provides proto_ops as sendmsg/recvmsg to vhost-net to
+send/recv directly to/from the NIC driver. KVM guest who use the
+vhost-net backend may bind any ethX interface in the host side to
+get copyless data transfer thru guest virtio-net frontend.
 
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+We provide multiple submits and asynchronous notifiicaton to 
+vhost-net too.
 
- man/man8/ip.8 |   73 +++++++++++++++++++++++++++++++++++++++++++++++++++++++--
- 1 files changed, 70 insertions(+), 3 deletions(-)
+Our goal is to improve the bandwidth and reduce the CPU usage.
+Exact performance data will be provided later. But for simple
+test with netperf, we found bindwidth up and CPU % up too,
+but the bindwidth up ratio is much more than CPU % up ratio.
 
-diff --git a/man/man8/ip.8 b/man/man8/ip.8
-index ccc800f..3efa045 100644
---- a/man/man8/ip.8
-+++ b/man/man8/ip.8
-@@ -53,7 +53,23 @@ ip \- show / manipulate routing, devices, policy routing and tunnels
- .IR MTU " |"
- .br
- .B  netns
--.IR PID " }"
-+.IR PID " |"
-+.br
-+.B alias
-+.IR NAME  " |"
-+.br
-+.B vf
-+.IR NUM " ["
-+.B  mac
-+.IR LLADDR " ] ["
-+.B vlan
-+.IR VLANID " [ "
-+.B qos
-+.IR VLAN-QOS " ] ] ["
-+.B rate
-+.IR TXRATE " ]"
-+.BR " }"
-+
- 
- .ti -8
- .B ip link show
-@@ -822,7 +838,9 @@ display and change the state of devices.
- .TP
- .BI dev " NAME " (default)
- .I NAME
--specifies network device to operate on.
-+specifies network device to operate on. When configuring SR-IOV Virtual Fuction
-+(VF) devices, this keyword should specify the associated Physical Function (PF)
-+device.
- 
- .TP
- .BR up " and " down
-@@ -884,7 +902,56 @@ the interface is
- .TP
- .BI netns " PID"
- move the device to the network namespace associated with the process
--.IR "PID" .
-+.IR "PID".
-+
-+.TP
-+.BI alias " NAME"
-+give the device a symbolic name for easy reference.
-+
-+.TP
-+.BI vf " NUM"
-+specify a Virtual Function device to be configured. The associated PF device
-+must be specified using the
-+.B dev
-+parameter.
-+
-+.in +8
-+.BI mac " LLADDRESS"
-+- change the station address for the specified VF. The
-+.B vf
-+parameter must be specified.
-+
-+.sp
-+.BI vlan " VLANID"
-+- change the assigned VLAN for the specified VF. When specified, all traffic
-+sent from the VF will be tagged with the specified VLAN ID. Incoming traffic
-+will be filtered for the specified VLAN ID, and will have all VLAN tags
-+stripped before being passed to the VF. Setting this parameter to 0 disables
-+VLAN tagging and filtering. The
-+.B vf
-+parameter must be specified.
-+
-+.sp
-+.BI qos " VLAN-QOS"
-+- assign VLAN QOS (priority) bits for the VLAN tag. When specified, all VLAN
-+tags transmitted by the VF will include the specified priority bits in the
-+VLAN tag. If not specified, the value is assumed to be 0. Both the
-+.B vf
-+and
-+.B vlan
-+parameters must be specified. Setting both
-+.B vlan
-+and
-+.B qos
-+as 0 disables VLAN tagging and filtering for the VF.
-+
-+.sp
-+.BI rate " TXRATE"
-+- change the allowed transmit bandwidth, in Mbps, for the specified VF.
-+Setting this parameter to 0 disables rate limiting. The
-+.B vf
-+parameter must be specified.
-+.in -8
- 
- .PP
- .B Warning:
-
+What we have not done yet:
+	To support GRO
+	Performance tuning
