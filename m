@@ -1,99 +1,107 @@
-From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Subject: Re: phy address in the device tree, vs auto probing
-Date: Wed, 10 Feb 2010 09:43:42 -0700
-Message-ID: <fa686aa41002100843o7a1d4160q8fb01768ad48dcf4@mail.gmail.com>
-References: <Acqp3tpO+gBYUakZQ7SaeBzVIkh6WA==>
-	<4dfe033d-c308-45e0-9c7e-9fc60c6cad8f@SG2EHSMHS013.ehs.local>
+From: Tiago Pierezan Camargo <tcamargo@gmail.com>
+Subject: Re: Problem with VLANs and via-velocity driver
+Date: Wed, 10 Feb 2010 16:43:37 +0000 (UTC)
+Message-ID: <loom.20100210T171704-457@post.gmane.org>
+References: <20091113033217.GQ838@cubit> <4AFCFF67.3060802@trash.net> <20091116005750.GR838@cubit>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: John Linn <John.Linn-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	devicetree-discuss <devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <4dfe033d-c308-45e0-9c7e-9fc60c6cad8f-RaUQJvECHivT7m58JnLnSLjjLBE8jN/0@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lo.gmane.org ([80.91.229.12]:45372 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754943Ab0BJQpI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Feb 2010 11:45:08 -0500
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1NfFgX-0007US-8b
+	for netdev@vger.kernel.org; Wed, 10 Feb 2010 17:45:05 +0100
+Received: from 189-74-249-213.paemt702.e.brasiltelecom.net.br ([189-74-249-213.paemt702.e.brasiltelecom.net.br])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 17:45:05 +0100
+Received: from tcamargo by 189-74-249-213.paemt702.e.brasiltelecom.net.br with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 17:45:05 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(cc'ing devicetree-discuss and netdev mailing lists)
+> Kevin Shanahan <kmshanah <at> disenchant.net> writes:
 
-On Tue, Feb 9, 2010 at 4:23 PM, John Linn <John.Linn-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org> wrote:
-> Hi Grant,
->
-> I notice that the OF driver for the mdio bus is not doing auto probing.
->
-> As we start putting in the phy layer in the emac drivers, the device
-> trees tend to have the phy address in them, but we're not sure we really
-> like that.
->
-> We really think that being able to let the kernel find the phy address
-> is a big benefit, otherwise this is one other piece of info the user has
-> to know and get right.
->
-> Am I missing something here?
+Hi
+Sorry for resurrecting an old thread, but I'm having the same problem h=
+ere.
 
-No, you're not really missing something, but there is an inherent
-complexity in what you're wanting to do.  Like i2c, MDIO is one of
-those busses that is hard to probe reliable.  Some PHYs respond on
-more than one address, and there is no way to determine which MAC a
-PHY is wired up to.  Many PHYs can live on a single MDIO bus.  MACs
-with their own MDIO busses may still get wired to a PHY on a different
-bus.
+> On Fri, Nov 13, 2009 at 07:40:39AM +0100, Patrick McHardy wrote:
+> > Kevin Shanahan wrote:
+> > > Hi,
+> > >=20
+> > > I've had some problems with getting a fairly simple (I thought) V=
+LAN
+> > > configuration working with the on board Via NICs on my Via M700
+> > > board. Looks like as soon as a tagged VLAN interface is added, th=
+e
+> > > underlying "raw" (untagged) interface stops responding.
 
-In the simple case where there is a one:one:one relationship between
-MAC, MDIO bus and PHY, then it should be okay to probe the PHY,
-correct?  The question then must be asked; how does the kernel
-determine that it can use the simple case?  Nobody has yet defined a
-way to describe that in the device tree; mostly because nobody has
-needed to yet.
+My setup is a bit different: I want to sniff all network activity, incl=
+uding
+possible tagged traffic. No tagged interfaces are created.
 
-So, it is possible to do what you want, but you need a way to
-*explicitly* ask for that behaviour.  ie, some way to indicate in a
-MAC node which MDIO bus the phy is on, and that the phy needs to be
-probed for.  I think this should only be an option when the MDIO bus
-has only one PHY.  Come up with a proposal and post it to the
-devicetree-discuss mailing list.
+> > > A bit of searching found a few references to similar problems goi=
+ng
+> > > back a few years (2005, 2007). Sounded like there were some drive=
+r
+> > > issues, but it wasn't clear from the messages I found whether the=
+y
+> > > were believed to be fixed or not. I tried the same test using a
+> > > differnt NIC with the tg3 driver and there were no problems, so i=
+t
+> > > looks to me like it's still a via-velocity issue. Unfortunately I
+> > > don't have room to add NICs to this machine and need to use the o=
+n
+> > > board Via hardware.
+> >=20
+> > There's some special-casing for VID 0 in velocity_init_cam_filter()=
+=2E
+> > Does "ip link add link eth0 type vlan id 0" make any difference?
+>=20
+> Thanks Patrick, this command got the untagged interface working again
+> (eth1 in my case). I can use this as a work around.
 
-g.
+Unfortunately, Patrick's workaround doesn't work for me. To see any tag=
+ged
+packet I need to create a vlan that matches the packet vlan (same id).
 
->
-> Thanks,
-> John
->
->
-> int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
-> {
-> =A0 =A0 =A0 =A0struct phy_device *phy;
-> =A0 =A0 =A0 =A0struct device_node *child;
-> =A0 =A0 =A0 =A0int rc, i;
->
-> =A0 =A0 =A0 =A0/* Mask out all PHYs from auto probing. =A0Instead the PHY=
-s listed
-> in
-> =A0 =A0 =A0 =A0 * the device tree are populated after the bus has been
-> registered */
-> =A0 =A0 =A0 =A0mdio->phy_mask =3D ~0;
->
-> This email and any attachments are intended for the sole use of the named=
- recipient(s) and contain(s) confidential information that may be proprieta=
-ry, privileged or copyrighted under applicable law. If you are not the inte=
-nded recipient, do not read, copy, or forward this email message or any att=
-achments. Delete this email message and any attachments immediately.
->
->
->
+R=C3=A9gis' promiscous mode patch (http://lists.openwall.net/netdev/200=
+8/10/08/106)
+does not work either. I tried to completely disable hw vlan filtering w=
+ithout
+success. It seems my board uses a different register/offset to disable =
+filtering.
 
+06:0a.0 0200: 1106:3119 (rev 11)
+        Subsystem: 1106:0110
+        Control: I/O+ Mem+ BusMaster- SpecCycle- MemWINV+ VGASnoop- Par=
+Err-
+Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=3Dmedium >TAbo=
+rt-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+        Interrupt: pin A routed to IRQ 16
+        Region 0: I/O ports at e000 [size=3D256]
+        Region 1: Memory at fbfff400 (32-bit, non-prefetchable) [size=3D=
+256]
+        Capabilities: [50] Power Management version 2
+                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=3D0mA
+PME(D0+,D1+,D2+,D3hot+,D3cold+)
+                Status: D3 NoSoftRst- PME-Enable- DSel=3D0 DScale=3D0 P=
+ME-
+        Kernel driver in use: via-velocity
+        Kernel modules: via-velocity
 
+Any suggestions?
 
--- =
+Thanks!
 
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+- Tiago
+
