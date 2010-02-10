@@ -1,105 +1,79 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] [V3] net: emaclite: adding MDIO and phy lib support
-Date: Tue, 9 Feb 2010 18:53:01 -0700
-Message-ID: <fa686aa41002091753n36c59e3brd2b2174035e4933d@mail.gmail.com>
-References: <2ea396ca-3014-40f4-86ac-0e9f1aa82b5b@SG2EHSMHS005.ehs.local>
-	<1d3f23371002091430hb550153u602c8e7c010381b9@mail.gmail.com>
-	<ad1b9321-b7ad-47a6-93ca-ca260ff2a66d@SG2EHSMHS011.ehs.local>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [RFC][PATCH] Allow change timing values to wait slow devices
+ bring up  before try register an interface to IP-Config
+Date: Tue, 9 Feb 2010 21:51:20 -0800
+Message-ID: <20100209215120.ac46ff7c.akpm@linux-foundation.org>
+References: <600adaf51002091947ta095cc5g7174684f57488e94@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: John Williams <john.williams@petalogix.com>,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, jgarzik@pobox.com,
-	jwboyer@linux.vnet.ibm.com, Sadanand Mutyala <sadanan@xilinx.com>
-To: John Linn <John.Linn@xilinx.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f224.google.com ([209.85.217.224]:56791 "EHLO
-	mail-gx0-f224.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753660Ab0BJBxX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Feb 2010 20:53:23 -0500
-Received: by gxk24 with SMTP id 24so2406086gxk.1
-        for <netdev@vger.kernel.org>; Tue, 09 Feb 2010 17:53:22 -0800 (PST)
-In-Reply-To: <ad1b9321-b7ad-47a6-93ca-ca260ff2a66d@SG2EHSMHS011.ehs.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Tiago Maluta <tiago.maluta@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <600adaf51002091947ta095cc5g7174684f57488e94@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 9, 2010 at 4:00 PM, John Linn <John.Linn@xilinx.com> wrote:
->> -----Original Message-----
->> From: John Williams [mailto:john.williams@petalogix.com]
->> Sent: Tuesday, February 09, 2010 3:30 PM
->> To: John Linn
->> Cc: netdev@vger.kernel.org; linuxppc-dev@ozlabs.org; jgarzik@pobox.c=
-om; grant.likely@secretlab.ca;
->> jwboyer@linux.vnet.ibm.com; Sadanand Mutyala
->> Subject: Re: [PATCH] [V3] net: emaclite: adding MDIO and phy lib sup=
-port
->>
->> Hi John,
->>
->> Sorry If I'm painting bike-sheds here, just one tiny tweak might be =
-in
->> order to standardise your mutex_unlock exit path:
->>
->> > +static int xemaclite_mdio_read(struct mii_bus *bus, int phy_id, i=
-nt reg)
->> > +{
->> > + =A0 =A0 =A0 struct net_local *lp =3D bus->priv;
->> > + =A0 =A0 =A0 u32 ctrl_reg;
->> > + =A0 =A0 =A0 u32 rc;
->> > +
->> > + =A0 =A0 =A0 mutex_lock(&lp->mdio_mutex);
->> > +
->> > + =A0 =A0 =A0 if (xemaclite_mdio_wait(lp)) {
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 mutex_unlock(&lp->mdio_mutex);
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ETIMEDOUT;
->> > + =A0 =A0 =A0 }
->>
->> [snip]
->>
->>
->> > + =A0 =A0 =A0 if (xemaclite_mdio_wait(lp)) {
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 mutex_unlock(&lp->mdio_mutex);
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ETIMEDOUT;
->> > + =A0 =A0 =A0 }
->>
->> [snip]
->>
->>
->> > + =A0 =A0 =A0 dev_dbg(&lp->ndev->dev,
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 "xemaclite_mdio_read(phy_id=3D%i, re=
-g=3D%x) =3D=3D %x\n",
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 phy_id, reg, rc);
->> > +
->> > + =A0 =A0 =A0 return rc;
->>
->> Can this be better expressed like this:
->>
->> my_func() {
->> =A0 mutex_lock()
->> ..
->>
->> =A0 if(some error) {
->> =A0 =A0 rc=3D-ETIMEDOUT;
->> =A0 =A0 goto out_unlock;
->> =A0 }
->> =A0 ...
->>
->> =A0 /* success path */
->> =A0 rc=3D0;
->> ..
->> out_unlock:
->> =A0 mutex_unlock()
->> =A0 return rc;
->> }
->>
->>
->> Is this style still favoured in driver exit paths?
+
+On Wed, 10 Feb 2010 03:47:59 +0000 Tiago Maluta <tiago.maluta@gmail.com> wrote:
 >
-> It looks to me like the mutex is not needed in the driver mdio functi=
-ons as there's a mutex in the mdiobus functions already.
+> 
 
-Yes, you're correct, but you still need to protect against direct
-calls to the read/write routines from within the driver.  But you can
-probably use the mdio_lock mutex for this.
+Please cc netdev@vger.kernel.org on net patches - linux-net@vger is not
+used for development.
 
-g.
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index dd9a09c..12fbe4a 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -38,6 +38,24 @@ config IFB
+>  	  'ifb1' etc.
+>  	  Look at the iproute2 documentation directory for usage etc
+> 
+> +config NETDEVICES_DELAY_PRE_OPEN
+> +	int "Define the delay before opening net devices (ms)"
+> +	depends on NETDEVICES
+> +	default 500
+> +	help
+> +	    Some devices may not work properly due to a delay from hardware bring
+> +	    the interface up. This value add a delay, in miilliseconds, before
+
+typo.
+
+> +	    kernel search and register the interface. Default value is 500ms.
+> +
+> +config NETDEVICES_DELAY_POST_OPEN
+> +	int "Define the delay after opening net devices (s)"
+> +	depends on NETDEVICES
+> +	default 1
+> +	help
+> +	    Some devices may not work properly due to a delay from hardware bring
+> +	    the interface up. This value add a delay, in seconds, after
+> +	    kernel search and register the interface. Default value is 1s.
+> +
+>  config DUMMY
+>  	tristate "Dummy net driver support"
+>  	---help---
+> diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+> index 10a6a60..2530126 100644
+> --- a/net/ipv4/ipconfig.c
+> +++ b/net/ipv4/ipconfig.c
+> @@ -86,8 +86,8 @@
+>  #endif
+> 
+>  /* Define the friendly delay before and after opening net devices */
+> -#define CONF_PRE_OPEN		500	/* Before opening: 1/2 second */
+> -#define CONF_POST_OPEN		1	/* After opening: 1 second */
+> +#define CONF_PRE_OPEN		CONFIG_NETDEVICES_DELAY_PRE_OPEN	/* Before
+> opening. Default is 1/2 second */
+> +#define CONF_POST_OPEN		CONFIG_NETDEVICES_DELAY_POST_OPEN	/* After
+> opening. Default is 1 second */
+
+Your email client wordwrapped this.
+
+Using delays was dumb of us, but I guess the problem is difficult.
+
+It would be much better to configure this delay at runtime rather than
+at compile time.  Perhaps with new kernel boot parameters, perhaps by
+extending the ip= argument.
