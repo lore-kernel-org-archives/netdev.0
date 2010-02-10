@@ -1,67 +1,89 @@
 From: Simon Kagstrom <simon.kagstrom@netinsight.net>
-Subject: Re: [PATCH 0/3]: via-velocity: Fixes for locking issues
-Date: Wed, 10 Feb 2010 10:33:58 +0100
-Message-ID: <20100210103358.41a45851@marrow.netinsight.se>
+Subject: [PATCH v2 1/3] via-velocity: Remove unused IRQ status parameter
+ from rx_srv and tx_srv
+Date: Wed, 10 Feb 2010 10:37:54 +0100
+Message-ID: <20100210103754.3829ee3a@marrow.netinsight.se>
 References: <20100205165253.3f316b98@marrow.netinsight.se>
 	<20100209.163133.38216503.davem@davemloft.net>
+	<20100210103358.41a45851@marrow.netinsight.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davej@redhat.com, ben@decadent.org.uk
-To: David Miller <davem@davemloft.net>
+Cc: davej@redhat.com, ben@decadent.org.uk
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ernst.netinsight.se ([194.16.221.21]:45470 "HELO
+Received: from ernst.netinsight.se ([194.16.221.21]:1976 "HELO
 	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752911Ab0BJJeK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 04:34:10 -0500
-In-Reply-To: <20100209.163133.38216503.davem@davemloft.net>
+	with SMTP id S1753409Ab0BJJiB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 04:38:01 -0500
+In-Reply-To: <20100210103358.41a45851@marrow.netinsight.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David!
+Signed-off-by: Simon Kagstrom <simon.kagstrom@netinsight.net>
+---
+ drivers/net/via-velocity.c |   17 +++++++----------
+ 1 files changed, 7 insertions(+), 10 deletions(-)
 
-Thanks for the comments, I understand the problem more clearly now.
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index c963277..5c73673 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -1877,13 +1877,12 @@ static void velocity_error(struct velocity_info *vptr, int status)
+ /**
+  *	tx_srv		-	transmit interrupt service
+  *	@vptr; Velocity
+- *	@status:
+  *
+  *	Scan the queues looking for transmitted packets that
+  *	we can complete and clean up. Update any statistics as
+  *	necessary/
+  */
+-static int velocity_tx_srv(struct velocity_info *vptr, u32 status)
++static int velocity_tx_srv(struct velocity_info *vptr)
+ {
+ 	struct tx_desc *td;
+ 	int qnum;
+@@ -2090,14 +2089,12 @@ static int velocity_receive_frame(struct velocity_info *vptr, int idx)
+ /**
+  *	velocity_rx_srv		-	service RX interrupt
+  *	@vptr: velocity
+- *	@status: adapter status (unused)
+  *
+  *	Walk the receive ring of the velocity adapter and remove
+  *	any received packets from the receive queue. Hand the ring
+  *	slots back to the adapter for reuse.
+  */
+-static int velocity_rx_srv(struct velocity_info *vptr, int status,
+-		int budget_left)
++static int velocity_rx_srv(struct velocity_info *vptr, int budget_left)
+ {
+ 	struct net_device_stats *stats = &vptr->dev->stats;
+ 	int rd_curr = vptr->rx.curr;
+@@ -2165,10 +2162,10 @@ static int velocity_poll(struct napi_struct *napi, int budget)
+ 	 * Do rx and tx twice for performance (taken from the VIA
+ 	 * out-of-tree driver).
+ 	 */
+-	rx_done = velocity_rx_srv(vptr, isr_status, budget / 2);
+-	velocity_tx_srv(vptr, isr_status);
+-	rx_done += velocity_rx_srv(vptr, isr_status, budget - rx_done);
+-	velocity_tx_srv(vptr, isr_status);
++	rx_done = velocity_rx_srv(vptr, budget / 2);
++	velocity_tx_srv(vptr);
++	rx_done += velocity_rx_srv(vptr, budget - rx_done);
++	velocity_tx_srv(vptr);
+ 
+ 	spin_unlock(&vptr->lock);
+ 
+@@ -3100,7 +3097,7 @@ static int velocity_resume(struct pci_dev *pdev)
+ 	velocity_init_registers(vptr, VELOCITY_INIT_WOL);
+ 	mac_disable_int(vptr->mac_regs);
+ 
+-	velocity_tx_srv(vptr, 0);
++	velocity_tx_srv(vptr);
+ 
+ 	for (i = 0; i < vptr->tx.numq; i++) {
+ 		if (vptr->tx.used[i])
+-- 
+1.6.0.4
 
-On Tue, 09 Feb 2010 16:31:33 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
-
-> The proper thing to do is make the ->poll() handler use the lock
-> correctly by disabling interrupts.
-
-In reply to this message is an updated patch series which uses
-spin_lock_irqsave/restore in velocity_poll instead.
-
-> If the VIA driver wants to avoid holding interrupts disabled for long
-> periods of time in ->poll(), it's locking mechanisms will need to be
-> rewritten completely.  The only safe way to do this is to do something
-> like how the tg3 driver works, wherein the interrupt handler runs
-> lockless, there is a special IRQ quiesce sequence when shutting down
-> the chip, and the ->poll() handler et al. use softirq safe locks
-> instead of hardirq safe ones.
-
-Yes, I guess that would be the long-term solution for this driver. The
-main problem with running the interrupt handler unlocked now is the
-error handler, which is executed directly from the interrupt handler.
-
-
-Anyway, when you are happy with the patch series, I think it is 2.6.33
-material as the velocity driver would otherwise contain a regression
-compared to 2.6.32.
-
-Changes in the patch series:
-
-* Patch 1: Unchanged
-
-* Patch 2: Unchanged
-
-* Patch 3: Use spin_lock_irqsave in velocity_poll and remove
-  spin_trylock from the interrupt handler.
-
-
-As before, I'm only able to test it on a uniprocessor with spinlock
-debugging turned on. With the patch set, I can no longer get it to
-lockup when running heavy traffic for both interrupt sources (which was
-easy without the patches).
-
-Thanks,
-// Simon
