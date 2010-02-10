@@ -1,38 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3]: via-velocity: Fixes for locking issues
-Date: Wed, 10 Feb 2010 10:55:49 -0800 (PST)
-Message-ID: <20100210.105549.02581254.davem@davemloft.net>
-References: <20100205165253.3f316b98@marrow.netinsight.se>
-	<20100209.163133.38216503.davem@davemloft.net>
-	<20100210103358.41a45851@marrow.netinsight.se>
+From: "M. Warner Losh" <imp-uzTCJ5RojNnQT0dZR+AlfA@public.gmane.org>
+Subject: Re: phy address in the device tree, vs auto probing
+Date: Wed, 10 Feb 2010 11:37:20 -0700 (MST)
+Message-ID: <20100210.113720.1026572228166328165.imp@bsdimp.com>
+References: <7d35ae9a-9ac0-46e6-8817-15315e0dcc07@SG2EHSMHS004.ehs.local>
+	<fa686aa41002101014s43682e3cra55854b82a40bb5f@mail.gmail.com>
+	<4B72FAB2.5000804@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davej@redhat.com, ben@decadent.org.uk
-To: simon.kagstrom@netinsight.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45886
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756408Ab0BJSzh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 13:55:37 -0500
-In-Reply-To: <20100210103358.41a45851@marrow.netinsight.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	afleming-KZfg59tc24xl57MIdRCFDg@public.gmane.org
+To: scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <4B72FAB2.5000804-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Simon Kagstrom <simon.kagstrom@netinsight.net>
-Date: Wed, 10 Feb 2010 10:33:58 +0100
+In message: <4B72FAB2.5000804-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+            Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org> writes:
+: Grant Likely wrote:
+: >> 1. What if we just don't specific a phy address with a reg property
+: >> which would specify to auto probe it and find the phy as illustrated
+: >> below?
+: >>
+: >>
+: >>                Ethernet_MAC: ethernet@81000000 {
+: >>                        #address-cells = <1>;
+: >>                        #size-cells = <1>;
+: >>                        phy-handle = <&phy0>;
+: >>                        mdio {
+: >>                                #address-cells = <1>;
+: >>                                #size-cells = <0>;
+: >>                                phy0: phy@7 {
+: >>                                } ;
+: >>                        } ;
+: >>
+: >> 2. Or a special value (-1 or something not 0 - 31) in the phy address
+: >> that specifies to auto probe as illustrated below.
+: >>                                phy0: phy@7 {
+: >>                                        reg = <-1>;
+: >>                                } ;
+: > I don't like abusing the reg property in this way.  I wonder if a new
+: > empty property would be a better way to indicate this.  Maybe
+: > "phy-probe-address;"?  It would also be important to specify in the
+: > binding that only one phy node is allowed when phy-probe-address is
+: > used.
+: > Also, without a known reg the 'phy@7' name is inaccurate.  Drop the
+: > @7.
+: > Scott, Andy: any thoughts?
+: 
+: I'm not fond of the -1.  I'd prefer the explicit phy-probe-address
+: property, though I don't mind too much using the absence of reg.
 
-> Anyway, when you are happy with the patch series, I think it is 2.6.33
-> material as the velocity driver would otherwise contain a regression
-> compared to 2.6.32.
-> 
-> Changes in the patch series:
-> 
-> * Patch 1: Unchanged
-> 
-> * Patch 2: Unchanged
-> 
-> * Patch 3: Use spin_lock_irqsave in velocity_poll and remove
->   spin_trylock from the interrupt handler.
+There are times that you'd want a list of PHY addresses to use.  This
+suggests a bitmask, but I don't know if they are common enough to
+warrant the extra burden on the usual case...
 
-Looks good, all applied to net-2.6, thanks!
+Warner
