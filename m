@@ -1,90 +1,44 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [PATCH 2/4] C/R: Basic support for network namespaces and
- devices (v3)
-Date: Wed, 10 Feb 2010 14:25:09 -0600
-Message-ID: <20100210202509.GA23301@us.ibm.com>
-References: <1265750713-15749-1-git-send-email-danms@us.ibm.com>
- <1265750713-15749-3-git-send-email-danms@us.ibm.com>
- <87ljf1gemh.fsf@caffeine.danplanet.com>
- <20100210192019.GA18879@us.ibm.com>
- <87hbpohor5.fsf@caffeine.danplanet.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/13] net: simplify seq_file code, revised
+Date: Wed, 10 Feb 2010 12:29:47 -0800 (PST)
+Message-ID: <20100210.122947.171052717.davem@davemloft.net>
+References: <4B712849.9040400@cn.fujitsu.com>
+	<20100210.113115.28754681.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org
-To: Dan Smith <danms@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:38519 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755518Ab0BJUZT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Feb 2010 15:25:19 -0500
-Received: from d01relay07.pok.ibm.com (d01relay07.pok.ibm.com [9.56.227.147])
-	by e3.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o1AKEdWg007376
-	for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 15:14:39 -0500
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay07.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o1AKPEtN2125906
-	for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 15:25:14 -0500
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o1AKPDtw008807
-	for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 15:25:14 -0500
-Content-Disposition: inline
-In-Reply-To: <87hbpohor5.fsf@caffeine.danplanet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: lizf@cn.fujitsu.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100210.113115.28754681.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Quoting Dan Smith (danms@us.ibm.com):
-> SH> rw_lockt is effectively a spinlock, so I don't think you can sleep
-> SH> here.
-> 
-> Yep, thanks.
-> 
-> >> +	for_each_netdev(net, dev) {
-> >> +		if (!dev->netdev_ops->ndo_checkpoint)
-> >> +			continue;
-> 
-> SH> Won't the checkpoint_obj() call checkpoint_netdev(), which will return
-> SH> -EINVAL if ndo_checkpoint is not defined? 
-> 
-> Yes, but this isn't the only place that checkpoint_netdev() could be
-> called (dev->peer in the veth example) so I figured that it would be
-> best to test it there too before I blindly call a NULL function
-> pointer.  It should never happen, but seemed prudent.
-> 
-> SH> But here you skip the checkpoint_obj() call (which seems wrong to
-> SH> me).  Which do you want to have happen?
-> 
-> What the code is doing is "skipping any interfaces in a netns that
-> don't have a checkpoint operation" but would fail if you called
-> checkpoint_obj() on a veth peer that happened to be missing that
-> operation for some reason.
-> 
-> I suppose you could argue that we should fail in the netns case
-> instead, which will make this a bit messier for things we get for
-> "free" in a new netns, like sit0.  If preferable, I can just add an
-> ndo_checkpoint() to sit0 as well and simply checkpoint the presence of
-> it until later when we decide if we care about it.
+From: David Miller <davem@davemloft.net>
+Date: Wed, 10 Feb 2010 11:31:15 -0800 (PST)
 
-I think that's be better.  Right now if we checkpoint a container with
-macvlan restart will be bogus, right?  We're trying to avoid any cases
-where we can't tell, at checkpoint, that restart won't be right.
-
-> SH> By hard-coding veth stuff into generic-sounding functions in
-> SH> net/checkpoint_dev.c you seem to be assuming that only veth will
-> SH> ever be supported for checkpoint/restart?  what about macvlan?
-> SH> (Not to mention that eventually we intend to support moving
-> SH> physical nics into containers)
+> From: Li Zefan <lizf@cn.fujitsu.com>
+> Date: Tue, 09 Feb 2010 17:18:01 +0800
 > 
-> No, that's not what I'm assuming.  The only interface type I need to
-> control with RTNL is veth right now.  So, if you'd prefer a
-> single-case of:
+>> This patchset introduces seq_hlist_foo() helpers, and convert
+>> net/* to seq_hlist_foo() and seq_list_foo().
+>> 
+>> Changelog:
+>> 
+>> - Add kerneldoc in patch 1/13
+>> - Fix compile warning in patch 11/13
+>> - Fix a bug in patch 12/13
 > 
->   if (type == veth)
->     do_veth_message();
->   else
->     fail();
-> 
-> to record the goal of having more types later I'll happily add that
-> unreachable code to the patch :)
+> All applied to net-next-2.6, thanks!
 
-What I was asking is should do_veth_message() be in drivers/net/veth.c?
+You did not build test your changes.
 
--serge
+net/irda/irlan/irlan_common.c:1156: error: 'struct irlan_cb' has no member named 'list'
+net/irda/irlan/irlan_common.c:1156: warning: type defaults to 'int' in declaration of '__mptr'
+net/irda/irlan/irlan_common.c:1156: error: 'struct irlan_cb' has no member named 'list'
+
+I'll fix this, but I will not next time.  Instead, I'll revert all of
+your changes and push it back to you.
+
+Thanks.
