@@ -1,300 +1,195 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [PATCH 2/4] C/R: Basic support for network namespaces and
- devices (v3)
-Date: Wed, 10 Feb 2010 13:20:19 -0600
-Message-ID: <20100210192019.GA18879@us.ibm.com>
-References: <1265750713-15749-1-git-send-email-danms@us.ibm.com>
- <1265750713-15749-3-git-send-email-danms@us.ibm.com>
- <87ljf1gemh.fsf@caffeine.danplanet.com>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: phy address in the device tree, vs auto probing
+Date: Wed, 10 Feb 2010 12:20:14 -0700
+Message-ID: <fa686aa41002101120v56ef5e7cm64e5505cc7bedc1d@mail.gmail.com>
+References: <4dfe033d-c308-45e0-9c7e-9fc60c6cad8f@SG2EHSMHS013.ehs.local>
+	<fa686aa41002100843o7a1d4160q8fb01768ad48dcf4@mail.gmail.com>
+	<7d35ae9a-9ac0-46e6-8817-15315e0dcc07@SG2EHSMHS004.ehs.local>
+	<fa686aa41002101014s43682e3cra55854b82a40bb5f@mail.gmail.com>
+	<AE7D03BA-0763-42F3-A27B-A6214CE7249E@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org
-To: Dan Smith <danms@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: John Linn <John.Linn@xilinx.com>,
+	devicetree-discuss <devicetree-discuss@lists.ozlabs.org>,
+	netdev <netdev@vger.kernel.org>,
+	Scott Wood <scottwood@freescale.com>
+To: Fleming Andy-AFLEMING <afleming@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:40428 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751804Ab0BJTU1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Feb 2010 14:20:27 -0500
-Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
-	by e1.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o1AJGdPM009197
-	for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 14:16:39 -0500
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o1AJKLEP137114
-	for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 14:20:21 -0500
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o1AJKKQ8010040
-	for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 17:20:21 -0200
-Content-Disposition: inline
-In-Reply-To: <87ljf1gemh.fsf@caffeine.danplanet.com>
+Received: from mail-yx0-f204.google.com ([209.85.210.204]:59925 "EHLO
+	mail-yx0-f204.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751965Ab0BJTUg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 14:20:36 -0500
+Received: by yxe42 with SMTP id 42so364833yxe.22
+        for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 11:20:35 -0800 (PST)
+In-Reply-To: <AE7D03BA-0763-42F3-A27B-A6214CE7249E@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting Dan Smith (danms@us.ibm.com):
-> Guilt dropped the new checkpoint_dev.c file when I switched to the
-> newer branch.  Sorry about that.  Updated patch included below.
+On Wed, Feb 10, 2010 at 11:40 AM, Fleming Andy-AFLEMING
+<afleming@freescale.com> wrote:
+>
+>
+> On Feb 10, 2010, at 12:15, "Grant Likely" <grant.likely@secretlab.ca>=
+ wrote:
+>
+>> On Wed, Feb 10, 2010 at 9:52 AM, John Linn <John.Linn@xilinx.com> wr=
+ote:
+>>>>
+>>>> -----Original Message-----
+>>>> From: glikely@secretlab.ca [mailto:glikely@secretlab.ca] On Behalf=
+ Of
+>>>> Grant Likely
+>>>> Sent: Wednesday, February 10, 2010 9:44 AM
+>>>> To: John Linn; devicetree-discuss; netdev
+>>>> Subject: Re: phy address in the device tree, vs auto probing
+>>>>
+>>>> (cc'ing devicetree-discuss and netdev mailing lists)
+>>>>
+>>>> On Tue, Feb 9, 2010 at 4:23 PM, John Linn <John.Linn@xilinx.com> w=
+rote:
+>>>>>
+>>>>> Hi Grant,
+>>>>>
+>>>>> I notice that the OF driver for the mdio bus is not doing auto pr=
+obing.
+>>>>>
+>>>>> As we start putting in the phy layer in the emac drivers, the dev=
+ice
+>>>>> trees tend to have the phy address in them, but we're not sure we
+>>>>> really
+>>>>> like that.
+>>>>>
+>>>>> We really think that being able to let the kernel find the phy ad=
+dress
+>>>>> is a big benefit, otherwise this is one other piece of info the u=
+ser
+>>>>> has
+>>>>> to know and get right.
+>>>>>
+>>>>> Am I missing something here?
+>>>>
+>>>> No, you're not really missing something, but there is an inherent
+>>>> complexity in what you're wanting to do. =A0Like i2c, MDIO is one =
+of
+>>>> those busses that is hard to probe reliable. =A0Some PHYs respond =
+on
+>>>> more than one address, and there is no way to determine which MAC =
+a
+>>>> PHY is wired up to. =A0Many PHYs can live on a single MDIO bus. =A0=
+MACs
+>>>> with their own MDIO busses may still get wired to a PHY on a diffe=
+rent
+>>>> bus.
+>>>>
+>>>> In the simple case where there is a one:one:one relationship betwe=
+en
+>>>> MAC, MDIO bus and PHY, then it should be okay to probe the PHY,
+>>>> correct? =A0The question then must be asked; how does the kernel
+>>>> determine that it can use the simple case? =A0Nobody has yet defin=
+ed a
+>>>> way to describe that in the device tree; mostly because nobody has
+>>>> needed to yet.
+>>>>
+>>>> So, it is possible to do what you want, but you need a way to
+>>>> *explicitly* ask for that behaviour. =A0ie, some way to indicate i=
+n a
+>>>> MAC node which MDIO bus the phy is on, and that the phy needs to b=
+e
+>>>> probed for. =A0I think this should only be an option when the MDIO=
+ bus
+>>>> has only one PHY. =A0Come up with a proposal and post it to the
+>>>> devicetree-discuss mailing list.
+>>>
+>>> Here's a couple ideas. See what everyone thinks as I'm not stuck on
+>>> either.
+>>>
+>>> Thanks,
+>>> John
+>>>
+>>> 1. What if we just don't specific a phy address with a reg property=
+ which
+>>> would specify to auto probe it and find the phy as illustrated belo=
+w?
+>>>
+>>>
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 Ethernet_MAC: ethernet@81000000 {
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 #address-cells =3D <1>;
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 #size-cells =3D <1>;
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 phy-handle =3D <&phy0>;
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 mdio {
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 #addres=
+s-cells =3D <1>;
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 #size-c=
+ells =3D <0>;
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 phy0: p=
+hy@7 {
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 } ;
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 } ;
+>>>
+>>> 2. Or a special value (-1 or something not 0 - 31) in the phy addre=
+ss
+>>> that specifies to auto probe as illustrated below.
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 phy0: p=
+hy@7 {
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 reg =3D <-1>;
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 } ;
+>>
+>> I don't like abusing the reg property in this way. =A0I wonder if a =
+new
+>> empty property would be a better way to indicate this. =A0Maybe
+>> "phy-probe-address;"? =A0It would also be important to specify in th=
+e
+>> binding that only one phy node is allowed when phy-probe-address is
+>> used.
+>
+> I don't think it's necessary that only one phy node is there. =A0I do=
+n't think
+> the of mdio layer should set policy, here. =A0Some drivers hard code =
+their
+> addresses. =A0Some drivers assume (foolishly, I think) that the PHYs =
+are in
+> order. =A0Many assume there's only one PHY. =A0I think the mdio drive=
+r should
+> set policy, so of_mdio should just allow for PHYs to be probed. =A0I'=
+m
+> actually not sure that requires any changes. =A0Quite possibly this j=
+ust means
+> that of_mdio is not appropriate for such a driver. =A0 The standard P=
+HY code
+> supports this sort of thing.
 
-(Just a few comments on a cursory look.  Will take a closer look
-later)
+That still doesn't solve the problem of matching PHYs to MACs.
 
-> +int ckpt_netdev_inet_addrs(struct in_device *indev,
-> +			   struct ckpt_netdev_addr *_abuf[])
-> +{
-> +	struct ckpt_netdev_addr *abuf = NULL;
-> +	struct in_ifaddr *addr = indev->ifa_list;
-> +	int pages = 0;
-> +	int addrs = 0;
-> +	int max;
-> +
-> +	read_lock(&dev_base_lock);
-> + retry:
-> +	if (++pages > 4) {
-> +		addrs = -ENOMEM;
-> +		goto out;
-> +	}
-> +
-> +	*_abuf = krealloc(abuf, PAGE_SIZE * pages, GFP_KERNEL);
+Consider this example:  2 MACs, 2 PHYs.  mac_a--> phy_a and mac_b -->
+phy_b.  Both phys on the same mdio bus, described thus:
 
-rw_lockt is effectively a spinlock, so I don't think you can sleep
-here.
+               eth_a: ethernet@81000000 {
+                       #address-cells =3D <1>;
+                       #size-cells =3D <1>;
+                       phy-handle =3D <&phy_a>;
+                       mdio {
+                               #address-cells =3D <1>;
+                               #size-cells =3D <0>;
+                               phy_a: phy_a {
+                               } ;
+                               phy_b: phy_b {
+                               } ;
+                       } ;
+               } ;
+               eth_b: ethernet@82000000 {
+                       #address-cells =3D <1>;
+                       #size-cells =3D <1>;
+                       phy-handle =3D <&phy_b>;
+               } ;
 
-> +	if (*_abuf == NULL) {
-> +		addrs = -ENOMEM;
-> +		goto out;
-> +	}
-> +	abuf = *_abuf;
-> +
-> +	max = (pages * PAGE_SIZE) / sizeof(*abuf);
-> +	while (addr) {
-> +		abuf[addrs].type = CKPT_NETDEV_ADDR_IPV4; /* Only IPv4 now */
-> +		abuf[addrs].inet4_local = addr->ifa_local;
-> +		abuf[addrs].inet4_address = addr->ifa_address;
-> +		abuf[addrs].inet4_mask = addr->ifa_mask;
-> +		abuf[addrs].inet4_broadcast = addr->ifa_broadcast;
-> +
-> +		addr = addr->ifa_next;
-> +		if (++addrs >= max)
-> +			goto retry;
-> +	}
-> +
-> + out:
-> +	read_unlock(&dev_base_lock);
-> +
-> +	if (addrs < 0) {
-> +		kfree(abuf);
-> +		*_abuf = NULL;
-> +	}
-> +
-> +	return addrs;
-> +}
-> +
-> +struct ckpt_hdr_netdev *ckpt_netdev_base(struct ckpt_ctx *ctx,
-> +					 struct net_device *dev,
-> +					 struct ckpt_netdev_addr *addrs[])
-> +{
-> +	struct ckpt_hdr_netdev *h;
-> +	int ret;
-> +
-> +	h = ckpt_hdr_get_type(ctx, sizeof(*h), CKPT_HDR_NETDEV);
-> +	if (!h)
-> +		return ERR_PTR(-ENOMEM);
-> +
-> +	ret = ckpt_netdev_hwaddr(dev, h);
-> +	if (ret < 0)
-> +		goto out;
-> +
-> +	*addrs = NULL;
-> +	ret = h->inet_addrs = ckpt_netdev_inet_addrs(dev->ip_ptr, addrs);
-> +	if (ret < 0)
-> +		goto out;
-> +
-> +	ret = h->netns_ref = checkpoint_obj(ctx, dev->nd_net, CKPT_OBJ_NET_NS);
-> + out:
-> +	if (ret < 0) {
-> +		ckpt_hdr_put(ctx, h);
-> +		h = ERR_PTR(ret);
-> +		if (*addrs)
-> +			kfree(*addrs);
-> +	}
-> +
-> +	return h;
-> +}
-> +
-> +int checkpoint_netdev(struct ckpt_ctx *ctx, void *ptr)
-> +{
-> +	struct net_device *dev = (struct net_device *)ptr;
-> +
-> +	if (!dev->netdev_ops->ndo_checkpoint)
-> +		return -EINVAL;
-> +
-> +	ckpt_debug("checkpointing netdev %s\n", dev->name);
-> +
-> +	return dev->netdev_ops->ndo_checkpoint(ctx, dev);
-> +}
-> +
-> +int checkpoint_netns(struct ckpt_ctx *ctx, void *ptr)
-> +{
-> +	struct net *net = ptr;
-> +	struct net_device *dev;
-> +	struct ckpt_hdr_netns *h;
-> +	int ret;
-> +
-> +	h = ckpt_hdr_get_type(ctx, sizeof(*h), CKPT_HDR_NET_NS);
-> +	if (!h)
-> +		return -ENOMEM;
-> +
-> +	h->this_ref = ckpt_obj_lookup(ctx, net, CKPT_OBJ_NET_NS);
-> +	BUG_ON(h->this_ref == 0);
-> +
-> +	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *) h);
-> +	if (ret < 0)
-> +		goto out;
-> +
-> +	for_each_netdev(net, dev) {
-> +		if (!dev->netdev_ops->ndo_checkpoint)
-> +			continue;
+In this example, the kernel knows it has two phys, and probing
+confirms this (say at phy addresses 3 and 7).  How does the kernel
+know which address phy_a responds to?
 
-Won't the checkpoint_obj() call checkpoint_netdev(), which will return
--EINVAL if ndo_checkpoint is not defined?  But here you skip the
-checkpoint_obj() call (which seems wrong to me).  Which do you want to
-have happen?
+g.
 
-> +		ret = checkpoint_obj(ctx, dev, CKPT_OBJ_NETDEV);
-> +		if (ret < 0)
-> +			break;
-> +	}
-> + out:
-> +	ckpt_hdr_put(ctx, h);
-> +
-> +	return ret;
-> +}
-> +
-> +static int restore_in_addrs(struct ckpt_ctx *ctx,
-> +			    __u32 naddrs,
-> +			    struct net *net,
-> +			    struct net_device *dev)
-> +{
-> +	__u32 i;
-> +	int ret = 0;
-> +	int len = naddrs * sizeof(struct ckpt_netdev_addr);
-> +	struct ckpt_netdev_addr *addrs = NULL;
-> +
-> +	addrs = kmalloc(len, GFP_KERNEL);
-> +	if (!addrs)
-> +		return -ENOMEM;
-> +
-> +	ret = _ckpt_read_buffer(ctx, addrs, len);
-> +	if (ret < 0)
-> +		goto out;
-> +
-> +	for (i = 0; i < naddrs; i++) {
-> +		struct ckpt_netdev_addr *addr = &addrs[i];
-> +		struct ifreq req;
-> +		struct sockaddr_in *inaddr;
-> +
-> +		if (addr->type != CKPT_NETDEV_ADDR_IPV4) {
-> +			ret = -EINVAL;
-> +			ckpt_err(ctx, ret, "Unsupported netdev addr type %i\n",
-> +				 addr->type);
-> +			break;
-> +		}
-> +
-> +		ckpt_debug("restoring %s: %x/%x/%x\n", dev->name,
-> +			   addr->inet4_address,
-> +			   addr->inet4_mask,
-> +			   addr->inet4_broadcast);
-> +
-> +		memcpy(req.ifr_name, dev->name, IFNAMSIZ);
-> +
-> +		inaddr = (struct sockaddr_in *)&req.ifr_addr;
-> +		inaddr->sin_addr.s_addr = addr->inet4_address;
-> +		inaddr->sin_family = AF_INET;
-> +		ret = __kern_devinet_ioctl(net, SIOCSIFADDR, &req);
-> +		if (ret < 0) {
-> +			ckpt_err(ctx, ret, "Failed to set address\n");
-> +			break;
-> +		}
-> +
-> +		inaddr = (struct sockaddr_in *)&req.ifr_addr;
-> +		inaddr->sin_addr.s_addr = addr->inet4_mask;
-> +		inaddr->sin_family = AF_INET;
-> +		ret = __kern_devinet_ioctl(net, SIOCSIFNETMASK, &req);
-> +		if (ret < 0) {
-> +			ckpt_err(ctx, ret, "Failed to set netmask\n");
-> +			break;
-> +		}
-> +
-> +		inaddr = (struct sockaddr_in *)&req.ifr_addr;
-> +		inaddr->sin_addr.s_addr = addr->inet4_broadcast;
-> +		inaddr->sin_family = AF_INET;
-> +		ret = __kern_devinet_ioctl(net, SIOCSIFBRDADDR, &req);
-> +		if (ret < 0) {
-> +			ckpt_err(ctx, ret, "Failed to set broadcast\n");
-> +			break;
-> +		}
-> +	}
-> +
-> + out:
-> +	kfree(addrs);
-> +
-> +	return ret;
-> +}
-> +
-> +static int veth_peer_data(struct sk_buff *skb, char *peer_name)
-> +{
-> +	struct nlattr *linkdata;
-> +	struct ifinfomsg ifm;
-> +
-> +	linkdata = nla_nest_start(skb, IFLA_INFO_DATA);
-> +	if (!linkdata)
-> +		return -ENOMEM;
-> +
-> +	nla_put(skb, VETH_INFO_PEER, sizeof(ifm), &ifm);
-> +	nla_put_string(skb, IFLA_IFNAME, peer_name);
-> +
-> +	nla_nest_end(skb, linkdata);
-> +
-> +	return 0;
-> +}
-> +
-> +static struct sk_buff *new_link_message(char *this_name, char *peer_name)
-> +{
-> +	int ret = -ENOMEM;
-> +	int flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK;
-> +	struct nlmsghdr *nlh;
-> +	struct sk_buff *skb;
-> +	struct ifinfomsg *ifm;
-> +	struct nlattr *linkinfo;
-> +
-> +	skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-> +	if (!skb)
-> +		goto out;
-> +
-> +	nlh = nlmsg_put(skb, 0, 0, RTM_NEWLINK, sizeof(*ifm), flags);
-> +	if (!nlh)
-> +		goto out;
-> +
-> +	ifm = nlmsg_data(nlh);
-> +	memset(ifm, 0, sizeof(*ifm));
-> +
-> +	ret = nla_put_string(skb, IFLA_IFNAME, this_name);
-> +	if (ret)
-> +		goto out;
-> +
-> +	ret = -ENOMEM;
-> +
-> +	linkinfo = nla_nest_start(skb, IFLA_LINKINFO);
-> +	if (!linkinfo)
-> +		goto out;
-> +
-> +	if (nla_put_string(skb, IFLA_INFO_KIND, "veth") < 0)
-> +		goto out;
-> +
-> +	ret = veth_peer_data(skb, peer_name);
-
-By hard-coding veth stuff into generic-sounding functions in
-net/checkpoint_dev.c you seem to be assuming that only veth will
-ever be supported for checkpoint/restart?  what about macvlan?
-(Not to mention that eventually we intend to support moving
-physical nics into containers)
-
--serge
+--=20
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
