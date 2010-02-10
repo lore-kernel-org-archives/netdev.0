@@ -1,135 +1,67 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: phy address in the device tree, vs auto probing
-Date: Wed, 10 Feb 2010 11:14:47 -0700
-Message-ID: <fa686aa41002101014s43682e3cra55854b82a40bb5f@mail.gmail.com>
-References: <4dfe033d-c308-45e0-9c7e-9fc60c6cad8f@SG2EHSMHS013.ehs.local>
-	<fa686aa41002100843o7a1d4160q8fb01768ad48dcf4@mail.gmail.com>
-	<7d35ae9a-9ac0-46e6-8817-15315e0dcc07@SG2EHSMHS004.ehs.local>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: Note: Atheros ethernet part of compat-wireless too
+Date: Wed, 10 Feb 2010 10:16:41 -0800
+Message-ID: <43e72e891002101016r754b7504vdb94c110a3c0b608@mail.gmail.com>
+References: <43e72e891002020915x572a11fcg57f0b9caf7ed08ea@mail.gmail.com>
+	<4B686056.7090405@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: devicetree-discuss <devicetree-discuss@lists.ozlabs.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andy Fleming <afleming@freescale.com>,
-	Scott Wood <scottwood@freescale.com>
-To: John Linn <John.Linn@xilinx.com>
+Cc: Ubuntu Kernel Team <kernel-team@lists.ubuntu.com>,
+	netdev@vger.kernel.org
+To: Tony Espy <espy@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f224.google.com ([209.85.217.224]:42167 "EHLO
-	mail-gx0-f224.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753069Ab0BJSPJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 13:15:09 -0500
-Received: by gxk24 with SMTP id 24so292726gxk.1
-        for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 10:15:07 -0800 (PST)
-In-Reply-To: <7d35ae9a-9ac0-46e6-8817-15315e0dcc07@SG2EHSMHS004.ehs.local>
+Received: from mail-pz0-f187.google.com ([209.85.222.187]:54939 "EHLO
+	mail-pz0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755565Ab0BJSRC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 13:17:02 -0500
+Received: by pzk17 with SMTP id 17so275474pzk.4
+        for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 10:17:01 -0800 (PST)
+In-Reply-To: <4B686056.7090405@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 10, 2010 at 9:52 AM, John Linn <John.Linn@xilinx.com> wrote=
-:
->> -----Original Message-----
->> From: glikely@secretlab.ca [mailto:glikely@secretlab.ca] On Behalf O=
-f Grant Likely
->> Sent: Wednesday, February 10, 2010 9:44 AM
->> To: John Linn; devicetree-discuss; netdev
->> Subject: Re: phy address in the device tree, vs auto probing
+On Tue, Feb 2, 2010 at 9:26 AM, Tony Espy <espy@canonical.com> wrote:
+> Luis R. Rodriguez wrote:
 >>
->> (cc'ing devicetree-discuss and netdev mailing lists)
->>
->> On Tue, Feb 9, 2010 at 4:23 PM, John Linn <John.Linn@xilinx.com> wro=
-te:
->> > Hi Grant,
->> >
->> > I notice that the OF driver for the mdio bus is not doing auto pro=
-bing.
->> >
->> > As we start putting in the phy layer in the emac drivers, the devi=
-ce
->> > trees tend to have the phy address in them, but we're not sure we =
-really
->> > like that.
->> >
->> > We really think that being able to let the kernel find the phy add=
-ress
->> > is a big benefit, otherwise this is one other piece of info the us=
-er has
->> > to know and get right.
->> >
->> > Am I missing something here?
->>
->> No, you're not really missing something, but there is an inherent
->> complexity in what you're wanting to do. =A0Like i2c, MDIO is one of
->> those busses that is hard to probe reliable. =A0Some PHYs respond on
->> more than one address, and there is no way to determine which MAC a
->> PHY is wired up to. =A0Many PHYs can live on a single MDIO bus. =A0M=
-ACs
->> with their own MDIO busses may still get wired to a PHY on a differe=
-nt
->> bus.
->>
->> In the simple case where there is a one:one:one relationship between
->> MAC, MDIO bus and PHY, then it should be okay to probe the PHY,
->> correct? =A0The question then must be asked; how does the kernel
->> determine that it can use the simple case? =A0Nobody has yet defined=
- a
->> way to describe that in the device tree; mostly because nobody has
->> needed to yet.
->>
->> So, it is possible to do what you want, but you need a way to
->> *explicitly* ask for that behaviour. =A0ie, some way to indicate in =
-a
->> MAC node which MDIO bus the phy is on, and that the phy needs to be
->> probed for. =A0I think this should only be an option when the MDIO b=
-us
->> has only one PHY. =A0Come up with a proposal and post it to the
->> devicetree-discuss mailing list.
+>> I wanted to let you know I threw in the Atheros ethernet drivers as
+>> part of compat-wireless.
 >
-> Here's a couple ideas. See what everyone thinks as I'm not stuck on e=
-ither.
+> Luis --
 >
-> Thanks,
-> John
->
-> 1. What if we just don't specific a phy address with a reg property w=
-hich would specify to auto probe it and find the phy as illustrated bel=
-ow?
->
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Ethernet_MAC: ethernet@81000000 {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0#address-cells =3D <1>=
-;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0#size-cells =3D <1>;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0phy-handle =3D <&phy0>=
-;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0mdio {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0#addre=
-ss-cells =3D <1>;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0#size-=
-cells =3D <0>;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0phy0: =
-phy@7 {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0} ;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0} ;
->
-> 2. Or a special value (-1 or something not 0 - 31) in the phy address=
- that specifies to auto probe as illustrated below.
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0phy0: =
-phy@7 {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0reg =3D <-1>;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0} ;
+> Does this include support for the Atheros AR8152 PCI-E fast ethernet
+> adapter? =C2=A0Also, what's the lead time for this to land in a "stab=
+le" release?
 
-I don't like abusing the reg property in this way.  I wonder if a new
-empty property would be a better way to indicate this.  Maybe
-"phy-probe-address;"?  It would also be important to specify in the
-binding that only one phy node is allowed when phy-probe-address is
-used.
+=46igured I'd give you the heads up that the AR8152 is not supported
+upstream yet. I just got a tarball of the driver that supports this
+and AR8151. Here's our current upstream support status table:
 
-Also, without a known reg the 'phy@7' name is inaccurate.  Drop the @7.
+Driver Model-name             vendor:device    Type
+atl1c  AR8131                 1969:1063        Gigabit Ethernet
+atl1c  AR8132                 1969:1062        Fast Ethernet
+atl1   L1                     1969:1048        Gigabit Ethernet
+atl2   L2                     1969:2048        Fast Ethernet
+atl1e  AR8121/AR8113/AR8114   1969:1026        Gigabit/Fast Ethernet(dr=
+iver
+                                               check one internal regis=
+ter to
+                                               see if support gigabit)
+atl1c  AR8151(v1.0)           1969:1073        Gigabit Ethernet(not sup=
+port
+                                               in kernel yet)
+atl1c  AR8152(v1.1)           1969:2060        Fast Ethernet(not suppor=
+t
+                                               in kernel yet)
+atl1c  AR8152(v2.0)           1969:2062        Fast Ethernet(not suppor=
+t
+                                               in kernel yet)
 
-Scott, Andy: any thoughts?
+I just updated the PCI ID database accordingly. The driver patches for
+atl1c might be easy, will take a quick look. FWIW the tarball I will
+be looking at in a few moments is
 
-g.
+http://kernel.org/pub/linux/kernel/people/mcgrof/ethernet/AR81Family-li=
+nux-v1.0.1.6.tar.bz2
 
---=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+  Luis
