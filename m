@@ -1,33 +1,54 @@
 From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: [PATCH 0/6] tcp: bugs and cleanup updated to 2.6.33-rc7
-Date: Wed, 10 Feb 2010 15:56:01 -0500
-Message-ID: <4B731D61.2080603@gmail.com>
+Subject: [PATCH v3 1/6] net: tcp_header_len_th and tcp_option_len_th
+Date: Wed, 10 Feb 2010 16:00:53 -0500
+Message-ID: <4B731E85.3090302@gmail.com>
+References: <4B731D61.2080603@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed;
+ boundary="------------030200090206020606020508"
 Cc: Andrew Morton <akpm@linux-foundation.org>
 To: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4B731D61.2080603@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Combination of patches reported in October, November, December, and
-January.  These patches fix perceived bugs, and other cleanup.
+This is a multi-part message in MIME format.
+--------------030200090206020606020508
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-This code has had previous review and several months of limited testing.
+Redefine two TCP header functions to accept TCP header pointer.
+When subtracting, return signed int to allow error checking.
 
-Some portions were removed during the various TCPCT part 1 patch splits,
-then were cut off by the sudden unexpected end of that merge window.
-[03 Dec 2009]  I've restarted the sub-numbering (again).
+These functions will be used in subsequent patches that implement
+additional features.
 
-Of particular interest are the TCPCT header extensions that already
-appear in the next phase of testing with other platforms.  These patches
-allow correct reception without data corruption.
+Signed-off-by: William.Allen.Simpson@gmail.com
+---
+  include/linux/tcp.h |   12 ++++++++++++
+  1 files changed, 12 insertions(+), 0 deletions(-)
 
-The remainder of the original TCPCT part 2 will be merged with part 3.
+--------------030200090206020606020508
+Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
+ name="len_th+2a3+2.6.33-rc7.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="len_th+2a3+2.6.33-rc7.patch"
 
-These patches are against the current linux-2.6 tree.
-
-[Since Feb 2nd, Part 2g temporarily removed from this series; possible
-insufficient resistance to very rare option re-ordering by middleware.]
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvdGNwLmggYi9pbmNsdWRlL2xpbnV4L3RjcC5o
+CmluZGV4IDdmZWU4YTQuLmQwMTMzY2YgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbGludXgvdGNw
+LmgKKysrIGIvaW5jbHVkZS9saW51eC90Y3AuaApAQCAtMjIzLDYgKzIyMywxOCBAQCBzdGF0
+aWMgaW5saW5lIHVuc2lnbmVkIGludCB0Y3Bfb3B0bGVuKGNvbnN0IHN0cnVjdCBza19idWZm
+ICpza2IpCiAJcmV0dXJuICh0Y3BfaGRyKHNrYiktPmRvZmYgLSA1KSAqIDQ7CiB9CiAKKy8q
+IExlbmd0aCBvZiBmaXhlZCBoZWFkZXIgcGx1cyBzdGFuZGFyZCBvcHRpb25zLiAqLworc3Rh
+dGljIGlubGluZSB1bnNpZ25lZCBpbnQgdGNwX2hlYWRlcl9sZW5fdGgoY29uc3Qgc3RydWN0
+IHRjcGhkciAqdGgpCit7CisJcmV0dXJuIHRoLT5kb2ZmICogNDsKK30KKworLyogTGVuZ3Ro
+IG9mIHN0YW5kYXJkIG9wdGlvbnMgb25seS4gIFRoaXMgY291bGQgYmUgbmVnYXRpdmUuICov
+CitzdGF0aWMgaW5saW5lIGludCB0Y3Bfb3B0aW9uX2xlbl90aChjb25zdCBzdHJ1Y3QgdGNw
+aGRyICp0aCkKK3sKKwlyZXR1cm4gKGludCkodGgtPmRvZmYgKiA0KSAtIHNpemVvZigqdGgp
+OworfQorCiAvKiBUaGlzIGRlZmluZXMgYSBzZWxlY3RpdmUgYWNrbm93bGVkZ2VtZW50IGJs
+b2NrLiAqLwogc3RydWN0IHRjcF9zYWNrX2Jsb2NrX3dpcmUgewogCV9fYmUzMglzdGFydF9z
+ZXE7Ci0tIAoxLjYuMy4zCgo=
+--------------030200090206020606020508--
