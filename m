@@ -1,49 +1,66 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: [net-next PATCH v3 0/3] net: reserve ports for applications using fixed port numbers
-Date: Thu, 11 Feb 2010 04:55:33 +0200
-Message-ID: <201002110455.33545.opurdila@ixiacom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH v5 0/3] Introduce n-tuple ethtool support
+Date: Wed, 10 Feb 2010 19:54:45 -0800 (PST)
+Message-ID: <20100210.195445.190157100.davem@davemloft.net>
+References: <20100211020310.23436.85885.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	peter.p.waskiewicz.jr@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:27874 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755263Ab0BKDAy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 22:00:54 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42182
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752327Ab0BKDye (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 22:54:34 -0500
+In-Reply-To: <20100211020310.23436.85885.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 10 Feb 2010 18:07:18 -0800
 
-(Resending to netdev since I've misspelled the email address. Apologies if you receive multiple copies)
+> One more round of fixes, based on feedback from Patrick McHardy
+> 
+> 1) Change the list count to an unsigned value
+> 2) Fix a memory leak
+> 3) Removed an unnecessary list traversal in the ethtool core
+> 4) Moved all list destruction to a helper function, allowing the driver
+> to control when it clears the list (aside from when free_netdev() kills
+> the cached list).
 
-This patch series is based on Amerigo's v2 but it now uses a bitmap
-for port reservation.
+All applied, thanks.
 
-I've ran a while (1) { bind(0) } test (with ip_local_port_range
-1024 65000) to see if there is any performance difference between the
-two approaches (ranges vs bitmap). I could not detect any significant
-difference, both cases scored in 2.76s +/- 0.01 on my setup.
+Pj, can you look a shoring up the behavior of one more thing for me?
 
-I've based this patch series on current net-next, but it contains a
-significant non networking part. Please let me know if I should handle
-this differently.
+When rules get added, it first installs the filter by calling into
+the driver.
 
-Octavian Purdila (3):
-  sysctl: refactor integer handling proc code
-  sysctl: add proc_dobitmap
-  net: reserve ports for applications using fixed port numbers
+_Then_ is tries to add the software copy of the rule to the device
+list.  This does an allocation which may fail.
 
- Documentation/networking/ip-sysctl.txt |   12 +
- drivers/infiniband/core/cma.c          |    7 +-
- include/linux/sysctl.h                 |    2 +
- include/net/ip.h                       |    6 +
- kernel/sysctl.c                        |  374 +++++++++++++++++++-------------
- net/ipv4/inet_connection_sock.c        |    5 +
- net/ipv4/inet_hashtables.c             |    2 +
- net/ipv4/sysctl_net_ipv4.c             |    7 +
- net/ipv4/udp.c                         |    3 +-
- net/sctp/socket.c                      |    2 +
- 10 files changed, 264 insertions(+), 156 deletions(-)
+If it does fail, we return -ENOMEM but we left the device configured
+with the new rule.
+
+Probably better to do it something like:
+
+	p = NULL;
+	if (need_sw_rule_list)
+		p = alloc_rule();
+		if (!p)
+			return -ENOMEM;
+	}
+
+	ret = op->install_rule();
+	if (ret) {
+		kfree(p);
+		return ret;
+	}
+	
+	if (need_sw_rule_list)
+		sw_rule_insert(dev, p);
+
+You get the idea, we can do the kfree() unconditonally because kfree(NULL)
+is OK, etc.
 
