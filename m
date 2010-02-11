@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 1/2] ixgbe: Fix - Do not allow Rx FC on 82598 at 1G
-	due to errata
-Date: Thu, 11 Feb 2010 06:13:49 -0800
-Message-ID: <20100211141319.25672.3041.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH 2/2] ixgbe: fix WOL register setup for 82599
+Date: Thu, 11 Feb 2010 06:14:08 -0800
+Message-ID: <20100211141407.25672.80739.stgit@localhost.localdomain>
+References: <20100211141319.25672.3041.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,63 +11,39 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta14.emeryville.ca.mail.comcast.net ([76.96.27.212]:56620
-	"EHLO qmta14.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753054Ab0BKOOI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 09:14:08 -0500
+Received: from qmta05.emeryville.ca.mail.comcast.net ([76.96.30.48]:44070 "EHLO
+	qmta05.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752381Ab0BKOO0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 09:14:26 -0500
+In-Reply-To: <20100211141319.25672.3041.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Don Skidmore <donald.c.skidmore@intel.com>
 
-The 82598 has an erratum that receipt of pause frames at 1G
-could lead to a Tx Hang.  To avoid this this patch disables
-Rx FC while at 1G speed for all 82598 parts.
+We need to have the WUS register set to all 1's in order for the hardware
+to be capable of ever waking up.  Set it here in the ixgbe_probe().
 
 Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_82598.c |   22 ++++++++++++++++++++++
- 1 files changed, 22 insertions(+), 0 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
-index 3103f41..35a06b4 100644
---- a/drivers/net/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ixgbe/ixgbe_82598.c
-@@ -357,12 +357,34 @@ static s32 ixgbe_fc_enable_82598(struct ixgbe_hw *hw, s32 packetbuf_num)
- 	u32 fctrl_reg;
- 	u32 rmcs_reg;
- 	u32 reg;
-+	u32 link_speed = 0;
-+	bool link_up;
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 7b7c848..951b73c 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -5763,6 +5763,10 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 	if (err)
+ 		goto err_sw_init;
  
- #ifdef CONFIG_DCB
- 	if (hw->fc.requested_mode == ixgbe_fc_pfc)
- 		goto out;
- 
- #endif /* CONFIG_DCB */
-+	/*
-+	 * On 82598 having Rx FC on causes resets while doing 1G
-+	 * so if it's on turn it off once we know link_speed. For
-+	 * more details see 82598 Specification update.
-+	 */
-+	hw->mac.ops.check_link(hw, &link_speed, &link_up, false);
-+	if (link_up && link_speed == IXGBE_LINK_SPEED_1GB_FULL) {
-+		switch (hw->fc.requested_mode) {
-+		case ixgbe_fc_full:
-+			hw->fc.requested_mode = ixgbe_fc_tx_pause;
-+			break;
-+		case ixgbe_fc_rx_pause:
-+			hw->fc.requested_mode = ixgbe_fc_none;
-+			break;
-+		default:
-+			/* no change */
-+			break;
-+		}
-+	}
++	/* Make it possible the adapter to be woken up via WOL */
++	if (adapter->hw.mac.type == ixgbe_mac_82599EB)
++		IXGBE_WRITE_REG(&adapter->hw, IXGBE_WUS, ~0);
 +
- 	/* Negotiate the fc mode to use */
- 	ret_val = ixgbe_fc_autoneg(hw);
- 	if (ret_val)
+ 	/*
+ 	 * If there is a fan on this device and it has failed log the
+ 	 * failure.
 
