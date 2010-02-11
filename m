@@ -1,146 +1,62 @@
-From: Andreas Petlund <apetlund@simula.no>
-Subject: [net-next PATCH v3 3/3] net: TCP thin dupack
-Date: Thu, 11 Feb 2010 13:07:59 +0100
-Message-ID: <4B73F31F.9000204@simula.no>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 0/3] Provide a zero-copy method on KVM virtio-net.
+Date: Thu, 11 Feb 2010 14:25:01 +0100
+Message-ID: <201002111425.01720.arnd@arndb.de>
+References: <1265802540-6122-1-git-send-email-xiaohui.xin@intel.com> <201002101440.05063.arnd@arndb.de> <97F6D3BD476C464182C1B7BABF0B0AF5C11F641A@shzsmsx502.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
-	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
-	David Miller <davem@davemloft.net>,
-	william.allen.simpson@gmail.com, damian@tvk.rwth-aachen.de
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mingo@elte.hu" <mingo@elte.hu>, "mst@redhat.com" <mst@redhat.com>,
+	"jdike@c2.user-mode-linux.org" <jdike@c2.user-mode-linux.org>
+To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <97F6D3BD476C464182C1B7BABF0B0AF5C11F641A@shzsmsx502.ccr.corp.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Major changes:
-      -Possible to disable mechanisms by socket option
-      -Socket option value boundary check
+On Thursday 11 February 2010, Xin, Xiaohui wrote:
+> >This does a lot of things that I had planned for macvtap. It's
+> >great to hear that you have made this much progress.
+> >
+> >However, I'd hope that we could combine this with the macvtap driver,
+> >which would give us zero-copy transfer capability both with and
+> >without vhost, as well as (tx at least) when using multiple guests
+> >on a macvlan setup.
+> 
+> You mean the zero-copy can work with macvtap driver without vhost.
+> May you give me some detailed info about your macvtap driver and the
+> relationship between vhost and macvtap to make me have a clear picture then?
 
+macvtap provides a user interface that is largely compatible with
+the tun/tap driver, and can be used in place of that from qemu.
+Vhost-net currently interfaces with tun/tap, but not yet with macvtap,
+which is easy enough to add and already on my list.
 
-Signed-off-by: Andreas Petlund <apetlund@simula.no>
----
- include/linux/sysctl.h     |    1 +
- include/linux/tcp.h        |    4 +++-
- include/net/tcp.h          |    1 +
- net/ipv4/sysctl_net_ipv4.c |    7 +++++++
- net/ipv4/tcp.c             |    7 +++++++
- net/ipv4/tcp_input.c       |   11 +++++++++++
- 6 files changed, 30 insertions(+), 1 deletions(-)
+The underlying code is macvlan, which is a driver that virtualizes
+network adapters in software, giving you multiple net_device instances
+for a real NIC, each of them with their own MAC address.
 
-diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
-index d840d75..ded3f20 100644
---- a/include/linux/sysctl.h
-+++ b/include/linux/sysctl.h
-@@ -426,6 +426,7 @@ enum
- 	NET_TCP_MAX_SSTHRESH=124,
- 	NET_TCP_FRTO_RESPONSE=125,
- 	NET_TCP_FORCE_THIN_LINEAR_TIMEOUTS=126,
-+	NET_TCP_FORCE_THIN_LINEAR_DUPACK=127,
- };
- 
- enum {
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 67da706..c30ed17 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -104,6 +104,7 @@ enum {
- #define TCP_MD5SIG		14	/* TCP MD5 Signature (RFC2385) */
- #define TCP_COOKIE_TRANSACTIONS	15	/* TCP Cookie Transactions */
- #define TCP_THIN_LT             16      /* Use linear timeouts for thin streams*/
-+#define TCP_THIN_DUPACK         17      /* Fast retrans. after 1 dupack */
- 
- /* for TCP_INFO socket option */
- #define TCPI_OPT_TIMESTAMPS	1
-@@ -343,7 +344,8 @@ struct tcp_sock {
- 	u8	frto_counter;	/* Number of new acks after RTO */
- 	u8	nonagle;	/* Disable Nagle algorithm?             */
- 	u8      thin_lt     : 1,/* Use linear timeouts for thin streams */
--		thin_undef  : 7;
-+		thin_dupack : 1,/* Fast retransmit on first dupack      */
-+		thin_undef  : 6;
- 
- /* RTT measurement */
- 	u32	srtt;		/* smoothed round trip time << 3	*/
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index bc5856a..af1253c 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -245,6 +245,7 @@ extern int sysctl_tcp_slow_start_after_idle;
- extern int sysctl_tcp_max_ssthresh;
- extern int sysctl_tcp_cookie_size;
- extern int sysctl_tcp_force_thin_linear_timeouts;
-+extern int sysctl_tcp_force_thin_dupack;
- 
- extern atomic_t tcp_memory_allocated;
- extern struct percpu_counter tcp_sockets_allocated;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index cb2ed35..b097a58 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -582,6 +582,13 @@ static struct ctl_table ipv4_table[] = {
- 		.mode           = 0644,
- 		.proc_handler   = proc_dointvec
- 	},
-+        {
-+		.procname       = "tcp_force_thin_dupack",
-+		.data           = &sysctl_tcp_force_thin_dupack,
-+		.maxlen         = sizeof(int),
-+		.mode           = 0644,
-+		.proc_handler   = proc_dointvec
-+	},
- 	{
- 		.procname	= "udp_mem",
- 		.data		= &sysctl_udp_mem,
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index ce9aeb0..6d7cb9c 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2236,6 +2236,13 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 			tp->thin_lt = val;
- 		break;
- 
-+	case TCP_THIN_DUPACK:
-+		if (val < 0 || val > 1)
-+			err = -EINVAL;
-+		else
-+			tp->thin_dupack = val;
-+		break;
-+
- 	case TCP_CORK:
- 		/* When set indicates to always queue non-full frames.
- 		 * Later the user clears this option and we transmit
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 28e0296..c5a73ab 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -89,6 +89,8 @@ int sysctl_tcp_frto __read_mostly = 2;
- int sysctl_tcp_frto_response __read_mostly;
- int sysctl_tcp_nometrics_save __read_mostly;
- 
-+int sysctl_tcp_force_thin_dupack __read_mostly;
-+
- int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
- int sysctl_tcp_abc __read_mostly;
- 
-@@ -2447,6 +2449,15 @@ static int tcp_time_to_recover(struct sock *sk)
- 		return 1;
- 	}
- 
-+	/* If a thin stream is detected, retransmit after first
-+	 * received dupack. Employ only if SACK is supported in order
-+	 * to avoid possible corner-case series of spurious retransmissions
-+	 * Use only if there are no unsent data. */
-+	if ((tp->thin_dupack || sysctl_tcp_force_thin_dupack) &&
-+	    tcp_stream_is_thin(tp) && tcp_dupack_heuristics(tp) > 1 &&
-+	    tcp_is_sack(tp) && sk->sk_send_head == NULL)
-+		return 1;
-+
- 	return 0;
- }
- 
--- 
-1.6.3.3
+In order to do zero-copy transmit with macvtap, the idea is to
+add a nonblocking version of the aio_write() function that works
+a lot like your transmit function.
+
+For receive, the hardware does not currently know which guest
+is supposed to get any frame coming in from the outside. Adding
+zero-copy receive requires interaction with the device driver
+and hardware capabilities to separate traffic by inbound MAC
+address into separate buffers per VM.
+
+> >I'm assuming that the idea is to allow VMDq adapters to simply
+> >show up as separate adapters and have the driver handle this
+> >in a hardware specific way.
+> 
+> Does the VMDq driver do so now?
+
+I don't think anyone has published a VMDq capable driver so far.
+I was just assuming that you were working on one.
+
+	Arnd
