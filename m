@@ -1,131 +1,61 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: [net-next PATCH v3 2/3] sysctl: add proc_dobitmap
-Date: Thu, 11 Feb 2010 04:09:19 +0200
-Message-ID: <1265854160-11763-3-git-send-email-opurdila@ixiacom.com>
-References: <1265854160-11763-1-git-send-email-opurdila@ixiacom.com>
-Cc: Octavian Purdila <opurdila@ixiacom.com>, netdev@vget.kernel.org,
-	linux-kernel@vger.kernel.org, WANG Cong <amwang@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1265854160-11763-1-git-send-email-opurdila@ixiacom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: Note: Atheros ethernet part of compat-wireless too
+Date: Wed, 10 Feb 2010 18:22:27 -0800
+Message-ID: <43e72e891002101822h562fc25h996bafdfd87c50c5@mail.gmail.com>
+References: <43e72e891002020915x572a11fcg57f0b9caf7ed08ea@mail.gmail.com>
+	<4B686056.7090405@canonical.com> <43e72e891002101016r754b7504vdb94c110a3c0b608@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: Ubuntu Kernel Team <kernel-team@lists.ubuntu.com>,
+	netdev@vger.kernel.org
+To: Tony Espy <espy@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f172.google.com ([209.85.222.172]:51872 "EHLO
+	mail-pz0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750819Ab0BKCWs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 21:22:48 -0500
+Received: by pzk2 with SMTP id 2so507328pzk.21
+        for <netdev@vger.kernel.org>; Wed, 10 Feb 2010 18:22:47 -0800 (PST)
+In-Reply-To: <43e72e891002101016r754b7504vdb94c110a3c0b608@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The new function can be used to update bitmaps via /proc. Bits can be
-set by writing positive values in the file and cleared by writing
-negative values (e.g. 0 2 will set bits 1 and 3, -0 -2 will clear
-them). Reading will show only the set bits.
-
-Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
-Cc: WANG Cong <amwang@redhat.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/linux/sysctl.h |    2 +
- kernel/sysctl.c        |   76 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 78 insertions(+), 0 deletions(-)
-
-diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
-index 9f236cd..ba89bf2 100644
---- a/include/linux/sysctl.h
-+++ b/include/linux/sysctl.h
-@@ -985,6 +985,8 @@ extern int proc_doulongvec_minmax(struct ctl_table *, int,
- 				  void __user *, size_t *, loff_t *);
- extern int proc_doulongvec_ms_jiffies_minmax(struct ctl_table *table, int,
- 				      void __user *, size_t *, loff_t *);
-+extern int proc_dobitmap(struct ctl_table *, int,
-+			 void __user *, size_t *, loff_t *);
- 
- /*
-  * Register a set of sysctl names by calling register_sysctl_table
-diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index b0f9618..b8959f4 100644
---- a/kernel/sysctl.c
-+++ b/kernel/sysctl.c
-@@ -2596,6 +2596,82 @@ static int proc_do_cad_pid(struct ctl_table *table, int write,
- 	return 0;
- }
- 
-+/**
-+ * proc_dobitmap - read/write from/to a bitmap
-+ * @table: the sysctl table
-+ * @write: %TRUE if this is a write to the sysctl file
-+ * @buffer: the user buffer
-+ * @lenp: the size of the user buffer
-+ * @ppos: file position
-+ * @ppos: the current position in the file
-+ *
-+ * The bitmap is stored at table->data and the bitmap length (in bits)
-+ * in table->maxlen. Reading from the proc file will show the set bits.
-+ * Writing positive values sets the bits, negative values clears them
-+ * (e.g. 0 2 sets the first and 3rd bit, -0 -2 clears them).
-+ *
-+ * Returns 0 on success.
-+ */
-+int proc_dobitmap(struct ctl_table *table, int write,
-+		  void __user *_buffer, size_t *lenp, loff_t *ppos)
-+{
-+	bool first = 1;
-+	unsigned long *bitmap = (unsigned long *) table->data;
-+	unsigned long bitmap_len = table->maxlen;
-+	int left = *lenp, err = 0;
-+	char __user *buffer = (char __user *) _buffer;
-+
-+	if (!bitmap_len || !left || (*ppos && !write)) {
-+		*lenp = 0;
-+		return 0;
-+	}
-+
-+	if (write) {
-+		while (left) {
-+			unsigned long val;
-+			bool neg;
-+
-+			err = proc_get_next_ulong(&buffer, &left, &val, &neg);
-+			if (err)
-+				break;
-+			if (val >= bitmap_len) {
-+				err = -EINVAL;
-+				break;
-+			}
-+			if (neg)
-+				clear_bit(val, bitmap);
-+			else
-+				set_bit(val, bitmap);
-+			first = 0;
-+		}
-+		if (!err)
-+			err = proc_skip_wspace(&buffer, &left);
-+	} else {
-+		unsigned long bit = 0;
-+
-+		while (left) {
-+			bit = find_next_bit(bitmap, bitmap_len, bit);
-+			if (bit >= bitmap_len)
-+				break;
-+			err = proc_put_ulong(&buffer, &left, bit, 0, first);
-+			if (err)
-+				break;
-+			first = 0; bit++;
-+		}
-+		if (!err)
-+			err = proc_put_newline(&buffer, &left);
-+	}
-+
-+	if (first && write && !err)
-+		err = -EINVAL;
-+	if (err == -EFAULT /* do we really need to check for -EFAULT? */ ||
-+	    (write && first))
-+		return err ? : -EINVAL;
-+	*lenp -= left;
-+	*ppos += *lenp;
-+	return 0;
-+}
-+
- #else /* CONFIG_PROC_FS */
- 
- int proc_dostring(struct ctl_table *table, int write,
--- 
-1.5.6.5
+T24gV2VkLCBGZWIgMTAsIDIwMTAgYXQgMTA6MTYgQU0sIEx1aXMgUi4gUm9kcmlndWV6IDxtY2dy
+b2ZAZ21haWwuY29tPiB3cm90ZToKPiBPbiBUdWUsIEZlYiAyLCAyMDEwIGF0IDk6MjYgQU0sIFRv
+bnkgRXNweSA8ZXNweUBjYW5vbmljYWwuY29tPiB3cm90ZToKPj4gTHVpcyBSLiBSb2RyaWd1ZXog
+d3JvdGU6Cj4+Pgo+Pj4gSSB3YW50ZWQgdG8gbGV0IHlvdSBrbm93IEkgdGhyZXcgaW4gdGhlIEF0
+aGVyb3MgZXRoZXJuZXQgZHJpdmVycyBhcwo+Pj4gcGFydCBvZiBjb21wYXQtd2lyZWxlc3MuCj4+
+Cj4+IEx1aXMgLS0KPj4KPj4gRG9lcyB0aGlzIGluY2x1ZGUgc3VwcG9ydCBmb3IgdGhlIEF0aGVy
+b3MgQVI4MTUyIFBDSS1FIGZhc3QgZXRoZXJuZXQKPj4gYWRhcHRlcj8gwqBBbHNvLCB3aGF0J3Mg
+dGhlIGxlYWQgdGltZSBmb3IgdGhpcyB0byBsYW5kIGluIGEgInN0YWJsZSIgcmVsZWFzZT8KPgo+
+IEZpZ3VyZWQgSSdkIGdpdmUgeW91IHRoZSBoZWFkcyB1cCB0aGF0IHRoZSBBUjgxNTIgaXMgbm90
+IHN1cHBvcnRlZAo+IHVwc3RyZWFtIHlldC4gSSBqdXN0IGdvdCBhIHRhcmJhbGwgb2YgdGhlIGRy
+aXZlciB0aGF0IHN1cHBvcnRzIHRoaXMKPiBhbmQgQVI4MTUxLiBIZXJlJ3Mgb3VyIGN1cnJlbnQg
+dXBzdHJlYW0gc3VwcG9ydCBzdGF0dXMgdGFibGU6Cj4KPiBEcml2ZXIgTW9kZWwtbmFtZSDCoCDC
+oCDCoCDCoCDCoCDCoCB2ZW5kb3I6ZGV2aWNlIMKgIMKgVHlwZQo+IGF0bDFjIMKgQVI4MTMxIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIDE5Njk6MTA2MyDCoCDCoCDCoCDCoEdpZ2FiaXQgRXRoZXJu
+ZXQKPiBhdGwxYyDCoEFSODEzMiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCAxOTY5OjEwNjIgwqAg
+wqAgwqAgwqBGYXN0IEV0aGVybmV0Cj4gYXRsMSDCoCBMMSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCAxOTY5OjEwNDggwqAgwqAgwqAgwqBHaWdhYml0IEV0aGVybmV0Cj4gYXRsMiDCoCBM
+MiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCAxOTY5OjIwNDggwqAgwqAgwqAgwqBGYXN0
+IEV0aGVybmV0Cj4gYXRsMWUgwqBBUjgxMjEvQVI4MTEzL0FSODExNCDCoCAxOTY5OjEwMjYgwqAg
+wqAgwqAgwqBHaWdhYml0L0Zhc3QgRXRoZXJuZXQoZHJpdmVyCj4gwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgY2hlY2sg
+b25lIGludGVybmFsIHJlZ2lzdGVyIHRvCj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgc2VlIGlmIHN1cHBvcnQgZ2ln
+YWJpdCkKPiBhdGwxYyDCoEFSODE1MSh2MS4wKSDCoCDCoCDCoCDCoCDCoCAxOTY5OjEwNzMgwqAg
+wqAgwqAgwqBHaWdhYml0IEV0aGVybmV0KG5vdCBzdXBwb3J0Cj4gwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgaW4ga2Vy
+bmVsIHlldCkKPiBhdGwxYyDCoEFSODE1Mih2MS4xKSDCoCDCoCDCoCDCoCDCoCAxOTY5OjIwNjAg
+wqAgwqAgwqAgwqBGYXN0IEV0aGVybmV0KG5vdCBzdXBwb3J0Cj4gwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgaW4ga2Vy
+bmVsIHlldCkKPiBhdGwxYyDCoEFSODE1Mih2Mi4wKSDCoCDCoCDCoCDCoCDCoCAxOTY5OjIwNjIg
+wqAgwqAgwqAgwqBGYXN0IEV0aGVybmV0KG5vdCBzdXBwb3J0Cj4gwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgaW4ga2Vy
+bmVsIHlldCkKPgo+IEkganVzdCB1cGRhdGVkIHRoZSBQQ0kgSUQgZGF0YWJhc2UgYWNjb3JkaW5n
+bHkuIFRoZSBkcml2ZXIgcGF0Y2hlcyBmb3IKPiBhdGwxYyBtaWdodCBiZSBlYXN5LCB3aWxsIHRh
+a2UgYSBxdWljayBsb29rLiBGV0lXIHRoZSB0YXJiYWxsIEkgd2lsbAo+IGJlIGxvb2tpbmcgYXQg
+aW4gYSBmZXcgbW9tZW50cyBpcwo+Cj4gaHR0cDovL2tlcm5lbC5vcmcvcHViL2xpbnV4L2tlcm5l
+bC9wZW9wbGUvbWNncm9mL2V0aGVybmV0L0FSODFGYW1pbHktbGludXgtdjEuMC4xLjYudGFyLmJ6
+MgoKT0sgSSBnb3Qgc29tZSBwYXRjaCBub3csIHdpbGwgc2VuZCBhbiBSRlQuCgogIEx1aXMK
