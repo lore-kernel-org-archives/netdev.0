@@ -1,77 +1,125 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: [PATCH]IPv6: Delete redundant counter of IPSTATS_MIB_REASMFAILS
-Date: Thu, 11 Feb 2010 18:12:45 +0800
-Message-ID: <4B73D81D.1000601@cn.fujitsu.com>
+From: jamal <hadi@cyberus.ca>
+Subject: [PATCH]xfrm: Flushing empty SPD generates false events
+Date: Thu, 11 Feb 2010 05:53:13 -0500
+Message-ID: <1265885593.3988.6.camel@bigi>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	Patrick McHardy <kaber@trash.net>, eric.dumazet@gmail.com,
-	ado
+Content-Type: multipart/mixed; boundary="=-NBkn3IT5jPpF1y8l1tj9"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:64370 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750857Ab0BKKMt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Feb 2010 05:12:49 -0500
+Received: from qw-out-2122.google.com ([74.125.92.24]:49965 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752223Ab0BKKxR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 05:53:17 -0500
+Received: by qw-out-2122.google.com with SMTP id 9so214632qwb.37
+        for <netdev@vger.kernel.org>; Thu, 11 Feb 2010 02:53:16 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-When no more memory can be allocated, fq_find() will return NULL and 
-increase the value of IPSTATS_MIB_REASMFAILS. In this case,
-ipv6_frag_rcv() also increase the value of IPSTATS_MIB_REASMFAILS.
+--=-NBkn3IT5jPpF1y8l1tj9
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-So, the patch deletes redundant counter of IPSTATS_MIB_REASMFAILS in fq_find().
-and deletes the unused parameter of idev.
+Observed similar behavior on SPD as previouly seen on SAD flushing..
+This fixes it.
 
+cheers,
+jamal
 
-Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
----
- net/ipv6/reassembly.c |   13 ++++---------
- 1 files changed, 4 insertions(+), 9 deletions(-)
+--=-NBkn3IT5jPpF1y8l1tj9
+Content-Disposition: attachment; filename="SPD-flush-ev"
+Content-Type: text/plain; name="SPD-flush-ev"; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index 2cddea3..01a996f 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -237,8 +237,7 @@ out:
- }
+commit 428b20432dc31bc2e01a94cd451cf5a2c00d2bf4
+Author: Jamal Hadi Salim <hadi@cyberus.ca>
+Date:   Thu Feb 11 05:49:38 2010 -0500
+
+    xfrm: Flushing empty SPD generates false events
+    
+    To see the effect make sure you have an empty SPD.
+    On window1 "ip xfrm mon" and on window2 issue "ip xfrm policy flush"
+    You get prompt back in window1 and you see the flush event on window2.
+    With this fix, you still get prompt on window1 but no event on window2.
+    
+    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 0f53e60..978f78b 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -2713,7 +2713,7 @@ static int pfkey_spdflush(struct sock *sk, struct sk_buff *skb, struct sadb_msg
+ 	audit_info.secid = 0;
+ 	err = xfrm_policy_flush(net, XFRM_POLICY_TYPE_MAIN, &audit_info);
+ 	if (err)
+-		return err;
++		return 0;
+ 	c.data.type = XFRM_POLICY_TYPE_MAIN;
+ 	c.event = XFRM_MSG_FLUSHPOLICY;
+ 	c.pid = hdr->sadb_msg_pid;
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 0ecb16a..eb870fc 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -771,7 +771,8 @@ xfrm_policy_flush_secctx_check(struct net *net, u8 type, struct xfrm_audit *audi
  
- static __inline__ struct frag_queue *
--fq_find(struct net *net, __be32 id, struct in6_addr *src, struct in6_addr *dst,
--	struct inet6_dev *idev)
-+fq_find(struct net *net, __be32 id, struct in6_addr *src, struct in6_addr *dst)
+ int xfrm_policy_flush(struct net *net, u8 type, struct xfrm_audit *audit_info)
  {
- 	struct inet_frag_queue *q;
- 	struct ip6_create_arg arg;
-@@ -254,13 +253,9 @@ fq_find(struct net *net, __be32 id, struct in6_addr *src, struct in6_addr *dst,
+-	int dir, err = 0;
++	int dir, err = 0, cnt = 0;
++	struct xfrm_policy *dp;
  
- 	q = inet_frag_find(&net->ipv6.frags, &ip6_frags, &arg, hash);
- 	if (q == NULL)
--		goto oom;
-+		return NULL;
+ 	write_lock_bh(&xfrm_policy_lock);
  
- 	return container_of(q, struct frag_queue, q);
--
--oom:
--	IP6_INC_STATS_BH(net, idev, IPSTATS_MIB_REASMFAILS);
--	return NULL;
- }
+@@ -789,8 +790,10 @@ int xfrm_policy_flush(struct net *net, u8 type, struct xfrm_audit *audit_info)
+ 				     &net->xfrm.policy_inexact[dir], bydst) {
+ 			if (pol->type != type)
+ 				continue;
+-			__xfrm_policy_unlink(pol, dir);
++			dp = __xfrm_policy_unlink(pol, dir);
+ 			write_unlock_bh(&xfrm_policy_lock);
++			if (dp)
++				cnt++;
  
- static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
-@@ -606,8 +601,8 @@ static int ipv6_frag_rcv(struct sk_buff *skb)
- 	if (atomic_read(&net->ipv6.frags.mem) > net->ipv6.frags.high_thresh)
- 		ip6_evictor(net, ip6_dst_idev(skb_dst(skb)));
+ 			xfrm_audit_policy_delete(pol, 1, audit_info->loginuid,
+ 						 audit_info->sessionid,
+@@ -809,8 +812,10 @@ int xfrm_policy_flush(struct net *net, u8 type, struct xfrm_audit *audit_info)
+ 					     bydst) {
+ 				if (pol->type != type)
+ 					continue;
+-				__xfrm_policy_unlink(pol, dir);
++				dp = __xfrm_policy_unlink(pol, dir);
+ 				write_unlock_bh(&xfrm_policy_lock);
++				if (dp)
++					cnt++;
  
--	if ((fq = fq_find(net, fhdr->identification, &hdr->saddr, &hdr->daddr,
--			  ip6_dst_idev(skb_dst(skb)))) != NULL) {
-+	fq = fq_find(net, fhdr->identification, &hdr->saddr, &hdr->daddr);
-+	if (fq != NULL) {
- 		int ret;
+ 				xfrm_audit_policy_delete(pol, 1,
+ 							 audit_info->loginuid,
+@@ -824,6 +829,8 @@ int xfrm_policy_flush(struct net *net, u8 type, struct xfrm_audit *audit_info)
+ 		}
  
- 		spin_lock(&fq->q.lock);
--- 
-1.6.3.3
+ 	}
++	if (!cnt)
++		err = -ESRCH;
+ 	atomic_inc(&flow_cache_genid);
+ out:
+ 	write_unlock_bh(&xfrm_policy_lock);
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 7c87004..b0fb7d3 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -1677,7 +1677,7 @@ static int xfrm_flush_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	audit_info.secid = NETLINK_CB(skb).sid;
+ 	err = xfrm_policy_flush(net, type, &audit_info);
+ 	if (err)
+-		return err;
++		return 0;
+ 	c.data.type = type;
+ 	c.event = nlh->nlmsg_type;
+ 	c.seq = nlh->nlmsg_seq;
+
+--=-NBkn3IT5jPpF1y8l1tj9--
 
