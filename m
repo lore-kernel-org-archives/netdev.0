@@ -1,76 +1,330 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [net-next-2.6 PATCH v5 0/3] Introduce n-tuple ethtool support
-Date: Wed, 10 Feb 2010 20:18:33 -0800
-Message-ID: <1265861913.4501.6.camel@localhost>
-References: <20100211020310.23436.85885.stgit@localhost.localdomain>
-	 <20100210.195445.190157100.davem@davemloft.net>
+From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Subject: RE: [PATCH 1/3] A device for zero-copy based on KVM virtio-net.
+Date: Thu, 11 Feb 2010 13:33:37 +0800
+Message-ID: <97F6D3BD476C464182C1B7BABF0B0AF5C11F6393@shzsmsx502.ccr.corp.intel.com>
+References: <1265802540-6122-1-git-send-email-xiaohui.xin@intel.com>
+	 <1265802540-6122-2-git-send-email-xiaohui.xin@intel.com>
+ <1265815071.3047.96.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:60326 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755724Ab0BKESc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Feb 2010 23:18:32 -0500
-In-Reply-To: <20100210.195445.190157100.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mingo@elte.hu" <mingo@elte.hu>, "mst@redhat.com" <mst@redhat.com>,
+	"jdike@c2.user-mode-linux.org" <jdike@c2.user-mode-linux.org>,
+	Zhao Yu <yzhao81@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1265815071.3047.96.camel@edumazet-laptop>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2010-02-10 at 19:54 -0800, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Wed, 10 Feb 2010 18:07:18 -0800
-> 
-> > One more round of fixes, based on feedback from Patrick McHardy
-> > 
-> > 1) Change the list count to an unsigned value
-> > 2) Fix a memory leak
-> > 3) Removed an unnecessary list traversal in the ethtool core
-> > 4) Moved all list destruction to a helper function, allowing the driver
-> > to control when it clears the list (aside from when free_netdev() kills
-> > the cached list).
-> 
-> All applied, thanks.
-> 
-> Pj, can you look a shoring up the behavior of one more thing for me?
-> 
-> When rules get added, it first installs the filter by calling into
-> the driver.
-> 
-> _Then_ is tries to add the software copy of the rule to the device
-> list.  This does an allocation which may fail.
-> 
-> If it does fail, we return -ENOMEM but we left the device configured
-> with the new rule.
-> 
-> Probably better to do it something like:
-> 
-> 	p = NULL;
-> 	if (need_sw_rule_list)
-> 		p = alloc_rule();
-> 		if (!p)
-> 			return -ENOMEM;
-> 	}
-> 
-> 	ret = op->install_rule();
-> 	if (ret) {
-> 		kfree(p);
-> 		return ret;
-> 	}
-> 	
-> 	if (need_sw_rule_list)
-> 		sw_rule_insert(dev, p);
-> 
-> You get the idea, we can do the kfree() unconditonally because kfree(NULL)
-> is OK, etc.
+Eric,
+Thanks. I will look into that. But don't stop there.=20
+Please comments more. :-)
 
-No problem.  I'll get a patch together asap for 2.6.34.
+Thanks
+Xiaohui
 
-Also, probably for 2.6.35, I'm going to try and add a remove capability.
+-----Original Message-----
+=46rom: Eric Dumazet [mailto:eric.dumazet@gmail.com]=20
+Sent: Wednesday, February 10, 2010 11:18 PM
+To: Xin, Xiaohui
+Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kern=
+el.org; mingo@elte.hu; mst@redhat.com; jdike@c2.user-mode-linux.org; Zh=
+ao Yu
+Subject: Re: [PATCH 1/3] A device for zero-copy based on KVM virtio-net=
+=2E
 
-Cheers,
--PJ
+Le mercredi 10 f=E9vrier 2010 =E0 19:48 +0800, Xin Xiaohui a =E9crit :
+> Add a device to utilize the vhost-net backend driver for
+> copy-less data transfer between guest FE and host NIC.
+> It pins the guest user space to the host memory and
+> provides proto_ops as sendmsg/recvmsg to vhost-net.
+>=20
+> Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+> Signed-off-by: Zhao Yu <yzhao81@gmail.com>
+> Sigend-off-by: Jeff Dike <jdike@c2.user-mode-linux.org>
 
+
+> +static int page_ctor_attach(struct mp_struct *mp)
+> +{
+> +	int rc;
+> +	struct page_ctor *ctor;
+> +	struct net_device *dev =3D mp->dev;
+> +
+> +	rcu_read_lock();
+> +	if (rcu_dereference(mp->ctor)) {
+> +		rcu_read_unlock();
+> +		return -EBUSY;
+> +	}
+> +	rcu_read_unlock();
+
+Strange read locking here, for an obvious writer role.
+What do you really want to do ?
+If writer are serialized by mp_mutex, you dont need this
+recu_read_lock()/rcu_read_unlock() stuff.
+
+> +
+> +	ctor =3D kzalloc(sizeof(*ctor), GFP_KERNEL);
+> +	if (!ctor)
+> +		return -ENOMEM;
+> +	rc =3D netdev_page_ctor_prep(dev, &ctor->ctor);
+> +	if (rc)
+> +		goto fail;
+> +
+> +	ctor->cache =3D kmem_cache_create("skb_page_info",
+> +			sizeof(struct page_info), 0,
+> +			SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+
+
+SLAB_PANIC here means : crash whole system in case of error.
+This is not what you want in a driver.
+
+> +
+> +	if (!ctor->cache)
+> +		goto cache_fail;
+> +
+> +	INIT_LIST_HEAD(&ctor->readq);
+> +	spin_lock_init(&ctor->read_lock);
+> +
+> +	ctor->w_len =3D 0;
+> +	ctor->r_len =3D 0;
+> +
+> +	dev_hold(dev);
+> +	ctor->dev =3D dev;
+> +	ctor->ctor.ctor =3D page_ctor;
+> +	ctor->ctor.sock =3D &mp->socket;
+> +	atomic_set(&ctor->refcnt, 1);
+> +
+> +	rc =3D netdev_page_ctor_attach(dev, &ctor->ctor);
+> +	if (rc)
+> +		goto fail;
+> +
+> +	/* locked by mp_mutex */
+> +	rcu_assign_pointer(mp->ctor, ctor);
+> +
+> +	/* XXX:Need we do set_offload here ? */
+> +
+> +	return 0;
+> +
+> +fail:
+> +	kmem_cache_destroy(ctor->cache);
+> +cache_fail:
+> +	kfree(ctor);
+> +	dev_put(dev);
+> +
+> +	return rc;
+> +}
+> +
+> +
+> +static inline void get_page_ctor(struct page_ctor *ctor)
+> +{
+> +       atomic_inc(&ctor->refcnt);
+> +}
+> +
+> +static inline void put_page_ctor(struct page_ctor *ctor)
+> +{
+> +	if (atomic_dec_and_test(&ctor->refcnt))
+> +		kfree(ctor);
+
+Are you sure a RCU grace period is not needed before freeing ?
+
+
+> +
+> +static int page_ctor_detach(struct mp_struct *mp)
+> +{
+> +	struct page_ctor *ctor;
+> +	struct page_info *info;
+> +	int i;
+> +
+> +	rcu_read_lock();
+> +	ctor =3D rcu_dereference(mp->ctor);
+> +	rcu_read_unlock();
+
+Strange locking again here
+
+
+> +
+> +	if (!ctor)
+> +		return -ENODEV;
+> +
+> +	while ((info =3D info_dequeue(ctor))) {
+> +		for (i =3D 0; i < info->pnum; i++)
+> +			if (info->pages[i])
+> +				put_page(info->pages[i]);
+> +		kmem_cache_free(ctor->cache, info);
+> +	}
+> +	kmem_cache_destroy(ctor->cache);
+> +	netdev_page_ctor_detach(ctor->dev);
+> +	dev_put(ctor->dev);
+> +
+> +	/* locked by mp_mutex */
+> +	rcu_assign_pointer(mp->ctor, NULL);
+> +	synchronize_rcu();
+> +
+> +	put_page_ctor(ctor);
+> +
+> +	return 0;
+> +}
+> +
+> +/* For small user space buffers transmit, we don't need to call
+> + * get_user_pages().
+> + */
+> +static struct page_info *alloc_small_page_info(struct page_ctor *cto=
+r,
+> +		int total)
+> +{
+> +	struct page_info *info =3D kmem_cache_alloc(ctor->cache, GFP_KERNEL=
+);
+kmem_cache_zalloc() ?
+> +
+> +	if (!info)
+> +		return NULL;
+> +	memset(info, 0, sizeof(struct page_info));
+> +	memset(info->pages, 0, sizeof(info->pages));
+
+redundant memset() whole structure already cleared one line above
+
+> +
+> +	info->header =3D 0;
+already cleared
+> +	info->total =3D total;
+> +	info->skb =3D NULL;
+already cleared=20
+>=20
+> +	info->user.dtor =3D page_dtor;
+> +	info->ctor =3D ctor;
+> +	info->flags =3D INFO_WRITE;
+> +	info->pnum =3D 0;
+already cleared=20
+>=20
+> +	return info;
+> +}
+> +
+> +/* The main function to transform the guest user space address
+> + * to host kernel address via get_user_pages(). Thus the hardware
+> + * can do DMA directly to the user space address.
+> + */
+> +static struct page_info *alloc_page_info(struct page_ctor *ctor,
+> +			struct iovec *iov, int count, struct frag *frags,
+> +			int npages, int total)
+> +{
+> +	int rc;
+> +	int i, j, n =3D 0;
+> +	int len;
+> +	unsigned long base;
+> +	struct page_info *info =3D kmem_cache_alloc(ctor->cache, GFP_KERNEL=
+);
+kmem_cache_zalloc() ?=20
+>=20
+> +
+> +	if (!info)
+> +		return NULL;
+> +	memset(info, 0, sizeof(struct page_info));
+kmem_cache_zalloc() ?
+> +	memset(info->pages, 0, sizeof(info->pages));
+already cleared=20
+>=20
+> +
+> +	down_read(&current->mm->mmap_sem);
+> +	for (i =3D j =3D 0; i < count; i++) {
+> +		base =3D (unsigned long)iov[i].iov_base;
+> +		len =3D iov[i].iov_len;
+> +
+> +		if (!len)
+> +			continue;
+> +		n =3D ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
+> +
+> +		rc =3D get_user_pages(current, current->mm, base, n,
+> +				npages ? 1 : 0, 0, &info->pages[j], NULL);
+> +		if (rc !=3D n) {
+> +			up_read(&current->mm->mmap_sem);
+> +			goto failed;
+> +		}
+> +
+> +		while (n--) {
+> +			frags[j].offset =3D base & ~PAGE_MASK;
+> +			frags[j].size =3D min_t(int, len,
+> +					PAGE_SIZE - frags[j].offset);
+> +			len -=3D frags[j].size;
+> +			base +=3D frags[j].size;
+> +			j++;
+> +		}
+> +	}
+> +	up_read(&current->mm->mmap_sem);
+> +
+> +#ifdef CONFIG_HIGHMEM
+> +	if (npages && !(dev->features & NETIF_F_HIGHDMA)) {
+> +		for (i =3D 0; i < j; i++) {
+> +			if (PageHighMem(info->pages[i]))
+> +				goto failed;
+> +		}
+> +	}
+> +#endif
+> +
+> +	info->header =3D 0;
+> +	info->total =3D total;
+> +	info->skb =3D NULL;
+> +	info->user.dtor =3D page_dtor;
+> +	info->ctor =3D ctor;
+> +	info->pnum =3D j;
+> +
+> +	if (!npages)
+> +		info->flags =3D INFO_WRITE;
+> +	if (info->flags =3D=3D INFO_READ) {
+> +		info->user.start =3D (u8 *)(((unsigned long)
+> +				(pfn_to_kaddr(page_to_pfn(info->pages[0]))) +
+> +				frags[0].offset) - NET_IP_ALIGN - NET_SKB_PAD);
+> +		info->user.size =3D iov[0].iov_len + NET_IP_ALIGN + NET_SKB_PAD;
+> +	}
+> +	return info;
+> +
+> +failed:
+> +	for (i =3D 0; i < j; i++)
+> +		put_page(info->pages[i]);
+> +
+> +	kmem_cache_free(ctor->cache, info);
+> +
+> +	return NULL;
+> +}
+> +
+> +struct page_ctor *mp_rcu_get_ctor(struct page_ctor *ctor)
+> +{
+> +	struct page_ctor *_ctor =3D NULL;
+> +
+> +	rcu_read_lock();
+> +	_ctor =3D rcu_dereference(ctor);
+> +	rcu_read_unlock();
+strange locking. After rcu_read_unlock() you have no guarantee _ctor
+points to something not freed.
+> +
+> +	if (!_ctor) {
+> +		DBG(KERN_INFO "Device %s cannot do mediate passthru.\n",
+> +				ctor->dev->name);
+> +		return NULL;
+> +	}
+> +	if (_ctor)
+redundant test
+> +		get_page_ctor(_ctor);
+> +	return _ctor;
+> +}
+> +
+
+I stopped my review at this point. Please check your RCU usages. It is
+not sufficient to hold rcu read lock just to fetch the pointer, you als=
+o
+must hold the lock while using the object itself, or get a reference on
+object before release RCU lock, to make sure object wont disappear unde=
+r
+you...
+
+for example :
+
+rcu_read_lock();
+ptr =3D rcu_dereference(...);
+if (ptr)
+	atomic_inc(&ptr->refcnt);
+rcu_read_unlock();
