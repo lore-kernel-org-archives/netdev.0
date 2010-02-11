@@ -1,8 +1,8 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net/macvtap: fix reference counting
-Date: Thu, 11 Feb 2010 16:45:02 +0100
-Message-ID: <201002111645.02770.arnd@arndb.de>
-References: <201001271104.20607.arnd@arndb.de> <1265825143.30414.81.camel@w-sridhar.beaverton.ibm.com> <4B72F67F.1040008@trash.net>
+Subject: [PATCH v2] net/macvtap: fix reference counting
+Date: Thu, 11 Feb 2010 16:55:39 +0100
+Message-ID: <201002111655.40349.arnd@arndb.de>
+References: <201001271104.20607.arnd@arndb.de> <4B72F67F.1040008@trash.net> <201002111645.02770.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-15"
@@ -11,11 +11,11 @@ Cc: Sridhar Samudrala <sri@us.ibm.com>,
 	Ed Swierk <eswierk@aristanetworks.com>, netdev@vger.kernel.org
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:63327 "EHLO
+Received: from moutng.kundenserver.de ([212.227.17.10]:60205 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750804Ab0BKPpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 10:45:15 -0500
-In-Reply-To: <4B72F67F.1040008@trash.net>
+	with ESMTP id S1755183Ab0BKPzr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 10:55:47 -0500
+In-Reply-To: <201002111645.02770.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -33,18 +33,27 @@ Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 Cc: Ed Swierk <eswierk@aristanetworks.com>
 Cc: Sridhar Samudrala <sri@us.ibm.com>
 ---
- drivers/net/macvtap.c |   57 +++++++++++++++++++++++++++++++-----------------
- 1 files changed, 37 insertions(+), 20 deletions(-)
+ drivers/net/macvtap.c |   35 ++++++++++++++++++++++-------------
+ 1 files changed, 22 insertions(+), 13 deletions(-)
 
-Sridhar, Ed: Does this look ok to you? I'm still working
-on restoring my test setup, but I'd like you to take a
-look at this version.
+Please disregard v1 of this patch, I accidentally sent Sridhar's
+patch...
 
 diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index ad1f6ef..5954324 100644
+index ad1f6ef..fe7656b 100644
 --- a/drivers/net/macvtap.c
 +++ b/drivers/net/macvtap.c
-@@ -159,8 +159,12 @@ static void macvtap_del_queues(struct net_device *dev)
+@@ -70,7 +70,8 @@ static struct cdev macvtap_cdev;
+  * exists.
+  *
+  * The callbacks from macvlan are always done with rcu_read_lock held
+- * already, while in the file_operations, we get it ourselves.
++ * already. For calls from file_operations, we use the rcu_read_lock_bh
++ * to get a reference count on the socket and the device.
+  *
+  * When destroying a queue, we remove the pointers from the file and
+  * from the dev and then synchronize_rcu to make sure no thread is
+@@ -159,13 +160,21 @@ static void macvtap_del_queues(struct net_device *dev)
  
  static inline struct macvtap_queue *macvtap_file_get_queue(struct file *file)
  {
@@ -52,100 +61,44 @@ index ad1f6ef..5954324 100644
  	rcu_read_lock_bh();
 -	return rcu_dereference(file->private_data);
 +	q = rcu_dereference(file->private_data);
-+	if (!q)
-+		rcu_read_unlock_bh();
++	if (q) {
++		sock_hold(&q->sk);
++		dev_hold(q->vlan->dev);
++	}
++	rcu_read_unlock_bh();
 +	return q;
  }
  
- static inline void macvtap_file_put_queue(void)
-@@ -314,13 +318,13 @@ static unsigned int macvtap_poll(struct file *file, poll_table * wait)
+-static inline void macvtap_file_put_queue(void)
++static inline void macvtap_file_put_queue(struct macvtap_queue *q)
+ {
+-	rcu_read_unlock_bh();
++	sock_put(&q->sk);
++	dev_put(q->vlan->dev);
+ }
+ 
+ /*
+@@ -314,8 +323,8 @@ static unsigned int macvtap_poll(struct file *file, poll_table * wait)
  	     sock_writeable(&q->sk)))
  		mask |= POLLOUT | POLLWRNORM;
  
--out:
- 	macvtap_file_put_queue();
-+out:
++	macvtap_file_put_queue(q);
+ out:
+-	macvtap_file_put_queue();
  	return mask;
  }
  
- /* Get packet from user space buffer */
--static ssize_t macvtap_get_user(struct macvtap_queue *q,
-+static ssize_t macvtap_get_user(struct macvlan_dev *vlan, struct sock *sk,
- 				const struct iovec *iv, size_t count,
- 				int noblock)
- {
-@@ -331,10 +335,10 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q,
- 	if (unlikely(len < ETH_HLEN))
- 		return -EINVAL;
+@@ -366,8 +375,8 @@ static ssize_t macvtap_aio_write(struct kiocb *iocb, const struct iovec *iv,
  
--	skb = sock_alloc_send_skb(&q->sk, NET_IP_ALIGN + len, noblock, &err);
-+	skb = sock_alloc_send_skb(sk, NET_IP_ALIGN + len, noblock, &err);
- 
- 	if (!skb) {
--		macvlan_count_rx(q->vlan, 0, false, false);
-+		macvlan_count_rx(vlan, 0, false, false);
- 		return err;
- 	}
- 
-@@ -342,14 +346,14 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q,
- 	skb_put(skb, count);
- 
- 	if (skb_copy_datagram_from_iovec(skb, 0, iv, 0, len)) {
--		macvlan_count_rx(q->vlan, 0, false, false);
-+		macvlan_count_rx(vlan, 0, false, false);
- 		kfree_skb(skb);
- 		return -EFAULT;
- 	}
- 
- 	skb_set_network_header(skb, ETH_HLEN);
- 
--	macvlan_start_xmit(skb, q->vlan->dev);
-+	macvlan_start_xmit(skb, vlan->dev);
- 
- 	return count;
- }
-@@ -360,23 +364,29 @@ static ssize_t macvtap_aio_write(struct kiocb *iocb, const struct iovec *iv,
- 	struct file *file = iocb->ki_filp;
- 	ssize_t result = -ENOLINK;
- 	struct macvtap_queue *q = macvtap_file_get_queue(file);
-+	struct macvlan_dev *vlan;
-+	struct sock *sk;
- 
- 	if (!q)
- 		goto out;
- 
--	result = macvtap_get_user(q, iv, iov_length(iv, count),
-+	vlan = q->vlan;
-+	sk = &q->sk;
-+	sock_hold(sk);
-+	macvtap_file_put_queue();
-+
-+	result = macvtap_get_user(vlan, sk, iv, iov_length(iv, count),
+ 	result = macvtap_get_user(q, iv, iov_length(iv, count),
  			      file->f_flags & O_NONBLOCK);
-+	sock_put(sk);
++	macvtap_file_put_queue(q);
  out:
 -	macvtap_file_put_queue();
  	return result;
  }
  
- /* Put packet to the user space buffer */
--static ssize_t macvtap_put_user(struct macvtap_queue *q,
-+static ssize_t macvtap_put_user(struct macvlan_dev *vlan,
- 				const struct sk_buff *skb,
- 				const struct iovec *iv, int len)
- {
--	struct macvlan_dev *vlan = q->vlan;
- 	int ret;
- 
- 	len = min_t(int, skb->len, len);
-@@ -393,15 +403,20 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
- {
- 	struct file *file = iocb->ki_filp;
- 	struct macvtap_queue *q = macvtap_file_get_queue(file);
-+	struct macvlan_dev *vlan;
-+	struct sock *sk;
- 
- 	DECLARE_WAITQUEUE(wait, current);
+@@ -398,10 +407,8 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
  	struct sk_buff *skb;
  	ssize_t len, ret = 0;
  
@@ -155,57 +108,40 @@ index ad1f6ef..5954324 100644
 -	}
 +	if (!q)
 +		return -ENOLINK;
-+
-+	vlan = q->vlan;
-+	sk = &q->sk;
-+	sock_hold(sk);
-+	macvtap_file_put_queue();
  
  	len = iov_length(iv, count);
  	if (len < 0) {
-@@ -409,12 +424,12 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
- 		goto out;
- 	}
- 
--	add_wait_queue(q->sk.sk_sleep, &wait);
-+	add_wait_queue(sk->sk_sleep, &wait);
- 	while (len) {
- 		current->state = TASK_INTERRUPTIBLE;
- 
- 		/* Read frames from the queue */
--		skb = skb_dequeue(&q->sk.sk_receive_queue);
-+		skb = skb_dequeue(&sk->sk_receive_queue);
- 		if (!skb) {
- 			if (file->f_flags & O_NONBLOCK) {
- 				ret = -EAGAIN;
-@@ -428,16 +443,16 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
- 			schedule();
- 			continue;
- 		}
--		ret = macvtap_put_user(q, skb, iv, len);
-+		ret = macvtap_put_user(vlan, skb, iv, len);
- 		kfree_skb(skb);
- 		break;
- 	}
- 
- 	current->state = TASK_RUNNING;
--	remove_wait_queue(q->sk.sk_sleep, &wait);
-+	remove_wait_queue(sk->sk_sleep, &wait);
+@@ -437,7 +444,7 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
+ 	remove_wait_queue(q->sk.sk_sleep, &wait);
  
  out:
 -	macvtap_file_put_queue();
-+	sock_put(sk);
++	macvtap_file_put_queue(q);
  	return ret;
  }
  
-@@ -485,6 +500,8 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+@@ -468,7 +475,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 		if (!q)
+ 			return -ENOLINK;
+ 		memcpy(devname, q->vlan->dev->name, sizeof(devname));
+-		macvtap_file_put_queue();
++		macvtap_file_put_queue(q);
+ 
+ 		if (copy_to_user(&ifr->ifr_name, q->vlan->dev->name, IFNAMSIZ) ||
+ 		    put_user((TUN_TAP_DEV | TUN_NO_PI), &ifr->ifr_flags))
+@@ -485,8 +492,10 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
  			return -EFAULT;
  
  		q = macvtap_file_get_queue(file);
 +		if (!q)
 +			return -ENOLINK;
  		q->sk.sk_sndbuf = u;
- 		macvtap_file_put_queue();
+-		macvtap_file_put_queue();
++		macvtap_file_put_queue(q);
  		return 0;
+ 
+ 	case TUNSETOFFLOAD:
 -- 
 1.6.3.3
+
+
