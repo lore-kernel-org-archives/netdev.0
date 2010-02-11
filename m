@@ -1,126 +1,77 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [PATCH]xfrm: Flushing empty SAD generates false events
-Date: Thu, 11 Feb 2010 04:51:27 -0500
-Message-ID: <1265881887.3988.4.camel@bigi>
-Reply-To: hadi@cyberus.ca
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: [PATCH]IPv6: Delete redundant counter of IPSTATS_MIB_REASMFAILS
+Date: Thu, 11 Feb 2010 18:12:45 +0800
+Message-ID: <4B73D81D.1000601@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-pm3YtRNEGEGftKycmwz5"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	Patrick McHardy <kaber@trash.net>, eric.dumazet@gmail.com,
+	ado
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f190.google.com ([209.85.221.190]:47943 "EHLO
-	mail-qy0-f190.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753073Ab0BKJvb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 04:51:31 -0500
-Received: by qyk28 with SMTP id 28so645061qyk.25
-        for <netdev@vger.kernel.org>; Thu, 11 Feb 2010 01:51:30 -0800 (PST)
+Received: from cn.fujitsu.com ([222.73.24.84]:64370 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750857Ab0BKKMt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Feb 2010 05:12:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-pm3YtRNEGEGftKycmwz5
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+When no more memory can be allocated, fq_find() will return NULL and 
+increase the value of IPSTATS_MIB_REASMFAILS. In this case,
+ipv6_frag_rcv() also increase the value of IPSTATS_MIB_REASMFAILS.
+
+So, the patch deletes redundant counter of IPSTATS_MIB_REASMFAILS in fq_find().
+and deletes the unused parameter of idev.
 
 
-To see the effect make sure you have an empty SAD.
--On window1 "ip xfrm mon" 
--on window2 issue "ip xfrm state flush"
-You get prompt back in window1 
-and you see the flush event on window2.
-With this fix, you still get prompt on window1 but no 
-event on window2.
+Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+---
+ net/ipv6/reassembly.c |   13 ++++---------
+ 1 files changed, 4 insertions(+), 9 deletions(-)
 
-I was tempted to return -ESRCH on window1 (which would
-show "RTNETLINK answers: No such process") but didnt want 
-to change current behavior.
-
-cheers,
-jamal
-
---=-pm3YtRNEGEGftKycmwz5
-Content-Disposition: attachment; filename="SAD-flush-ev"
-Content-Type: text/plain; name="SAD-flush-ev"; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-
-commit 5f3dd4a772326166e1bcf54acc2391df00dc7ab5
-Author: Jamal Hadi Salim <hadi@cyberus.ca>
-Date:   Thu Feb 11 04:41:36 2010 -0500
-
-    xfrm: Flushing empty SAD generates false events
-    
-    To see the effect make sure you have an empty SAD.
-    On window1 "ip xfrm mon" and on window2 issue "ip xfrm state flush"
-    You get prompt back in window1 and you see the flush event on window2.
-    With this fix, you still get prompt on window1 but no event on window2.
-    
-    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
-
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 76fa6fe..0f53e60 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -1751,7 +1751,7 @@ static int pfkey_flush(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hd
- 	audit_info.secid = 0;
- 	err = xfrm_state_flush(net, proto, &audit_info);
- 	if (err)
--		return err;
-+		return 0;
- 	c.data.proto = proto;
- 	c.seq = hdr->sadb_msg_seq;
- 	c.pid = hdr->sadb_msg_pid;
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index b36cc34..f50ee9b 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -603,13 +603,14 @@ xfrm_state_flush_secctx_check(struct net *net, u8 proto, struct xfrm_audit *audi
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index 2cddea3..01a996f 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -237,8 +237,7 @@ out:
+ }
  
- int xfrm_state_flush(struct net *net, u8 proto, struct xfrm_audit *audit_info)
+ static __inline__ struct frag_queue *
+-fq_find(struct net *net, __be32 id, struct in6_addr *src, struct in6_addr *dst,
+-	struct inet6_dev *idev)
++fq_find(struct net *net, __be32 id, struct in6_addr *src, struct in6_addr *dst)
  {
--	int i, err = 0;
-+	int i, err = 0, cnt = 0;
+ 	struct inet_frag_queue *q;
+ 	struct ip6_create_arg arg;
+@@ -254,13 +253,9 @@ fq_find(struct net *net, __be32 id, struct in6_addr *src, struct in6_addr *dst,
  
- 	spin_lock_bh(&xfrm_state_lock);
- 	err = xfrm_state_flush_secctx_check(net, proto, audit_info);
- 	if (err)
- 		goto out;
+ 	q = inet_frag_find(&net->ipv6.frags, &ip6_frags, &arg, hash);
+ 	if (q == NULL)
+-		goto oom;
++		return NULL;
  
-+	err = -ESRCH;
- 	for (i = 0; i <= net->xfrm.state_hmask; i++) {
- 		struct hlist_node *entry;
- 		struct xfrm_state *x;
-@@ -626,13 +627,16 @@ restart:
- 							audit_info->sessionid,
- 							audit_info->secid);
- 				xfrm_state_put(x);
-+				if (!err)
-+					cnt++;
+ 	return container_of(q, struct frag_queue, q);
+-
+-oom:
+-	IP6_INC_STATS_BH(net, idev, IPSTATS_MIB_REASMFAILS);
+-	return NULL;
+ }
  
- 				spin_lock_bh(&xfrm_state_lock);
- 				goto restart;
- 			}
- 		}
- 	}
--	err = 0;
-+	if (cnt)
-+		err = 0;
+ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
+@@ -606,8 +601,8 @@ static int ipv6_frag_rcv(struct sk_buff *skb)
+ 	if (atomic_read(&net->ipv6.frags.mem) > net->ipv6.frags.high_thresh)
+ 		ip6_evictor(net, ip6_dst_idev(skb_dst(skb)));
  
- out:
- 	spin_unlock_bh(&xfrm_state_lock);
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 943c871..7c87004 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -1525,7 +1525,7 @@ static int xfrm_flush_sa(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	audit_info.secid = NETLINK_CB(skb).sid;
- 	err = xfrm_state_flush(net, p->proto, &audit_info);
- 	if (err)
--		return err;
-+		return 0;
- 	c.data.proto = p->proto;
- 	c.event = nlh->nlmsg_type;
- 	c.seq = nlh->nlmsg_seq;
-
---=-pm3YtRNEGEGftKycmwz5--
+-	if ((fq = fq_find(net, fhdr->identification, &hdr->saddr, &hdr->daddr,
+-			  ip6_dst_idev(skb_dst(skb)))) != NULL) {
++	fq = fq_find(net, fhdr->identification, &hdr->saddr, &hdr->daddr);
++	if (fq != NULL) {
+ 		int ret;
+ 
+ 		spin_lock(&fq->q.lock);
+-- 
+1.6.3.3
 
