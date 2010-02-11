@@ -1,49 +1,46 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 2/2] ixgbe: fix WOL register setup for 82599
-Date: Thu, 11 Feb 2010 06:14:08 -0800
-Message-ID: <20100211141407.25672.80739.stgit@localhost.localdomain>
-References: <20100211141319.25672.3041.stgit@localhost.localdomain>
+From: Simon Kagstrom <simon.kagstrom@netinsight.net>
+Subject: [net-next PATCH] via-velocity: Enable scatter/gather IO by default
+Date: Thu, 11 Feb 2010 16:39:55 +0100
+Message-ID: <20100211163955.1b1dbe2c@marrow.netinsight.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: Krishna Kumar <krkumar2@in.ibm.com>
+To: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.emeryville.ca.mail.comcast.net ([76.96.30.48]:44070 "EHLO
-	qmta05.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752381Ab0BKOO0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 09:14:26 -0500
-In-Reply-To: <20100211141319.25672.3041.stgit@localhost.localdomain>
+Received: from ernst.netinsight.se ([194.16.221.21]:30027 "HELO
+	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754928Ab0BKPkB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 10:40:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+Reduces CPU utilization significantly with sendfile for example.
 
-We need to have the WUS register set to all 1's in order for the hardware
-to be capable of ever waking up.  Set it here in the ixgbe_probe().
-
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Simon Kagstrom <simon.kagstrom@netinsight.net>
 ---
+Also good to have if Krishnas tcp_sendmsg optimizations,
 
- drivers/net/ixgbe/ixgbe_main.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+  http://patchwork.ozlabs.org/patch/42944/
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 7b7c848..951b73c 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -5763,6 +5763,10 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_sw_init;
+get merged.
+
+ drivers/net/via-velocity.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index 317aa34..18770ac 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -2825,7 +2825,7 @@ static int __devinit velocity_found1(struct pci_dev *pdev, const struct pci_devi
+ 	netif_napi_add(dev, &vptr->napi, velocity_poll, VELOCITY_NAPI_WEIGHT);
  
-+	/* Make it possible the adapter to be woken up via WOL */
-+	if (adapter->hw.mac.type == ixgbe_mac_82599EB)
-+		IXGBE_WRITE_REG(&adapter->hw, IXGBE_WUS, ~0);
-+
- 	/*
- 	 * If there is a fan on this device and it has failed log the
- 	 * failure.
+ 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER |
+-		NETIF_F_HW_VLAN_RX | NETIF_F_IP_CSUM;
++		NETIF_F_HW_VLAN_RX | NETIF_F_IP_CSUM | NETIF_F_SG;
+ 
+ 	ret = register_netdev(dev);
+ 	if (ret < 0)
+-- 
+1.6.0.4
 
