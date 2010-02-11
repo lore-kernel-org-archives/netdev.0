@@ -1,62 +1,73 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 0/3] Provide a zero-copy method on KVM virtio-net.
-Date: Thu, 11 Feb 2010 14:25:01 +0100
-Message-ID: <201002111425.01720.arnd@arndb.de>
-References: <1265802540-6122-1-git-send-email-xiaohui.xin@intel.com> <201002101440.05063.arnd@arndb.de> <97F6D3BD476C464182C1B7BABF0B0AF5C11F641A@shzsmsx502.ccr.corp.intel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH 1/2] ixgbe: Fix - Do not allow Rx FC on 82598 at 1G
+	due to errata
+Date: Thu, 11 Feb 2010 06:13:49 -0800
+Message-ID: <20100211141319.25672.3041.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mingo@elte.hu" <mingo@elte.hu>, "mst@redhat.com" <mst@redhat.com>,
-	"jdike@c2.user-mode-linux.org" <jdike@c2.user-mode-linux.org>
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <97F6D3BD476C464182C1B7BABF0B0AF5C11F641A@shzsmsx502.ccr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta14.emeryville.ca.mail.comcast.net ([76.96.27.212]:56620
+	"EHLO qmta14.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753054Ab0BKOOI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 09:14:08 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 11 February 2010, Xin, Xiaohui wrote:
-> >This does a lot of things that I had planned for macvtap. It's
-> >great to hear that you have made this much progress.
-> >
-> >However, I'd hope that we could combine this with the macvtap driver,
-> >which would give us zero-copy transfer capability both with and
-> >without vhost, as well as (tx at least) when using multiple guests
-> >on a macvlan setup.
-> 
-> You mean the zero-copy can work with macvtap driver without vhost.
-> May you give me some detailed info about your macvtap driver and the
-> relationship between vhost and macvtap to make me have a clear picture then?
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-macvtap provides a user interface that is largely compatible with
-the tun/tap driver, and can be used in place of that from qemu.
-Vhost-net currently interfaces with tun/tap, but not yet with macvtap,
-which is easy enough to add and already on my list.
+The 82598 has an erratum that receipt of pause frames at 1G
+could lead to a Tx Hang.  To avoid this this patch disables
+Rx FC while at 1G speed for all 82598 parts.
 
-The underlying code is macvlan, which is a driver that virtualizes
-network adapters in software, giving you multiple net_device instances
-for a real NIC, each of them with their own MAC address.
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-In order to do zero-copy transmit with macvtap, the idea is to
-add a nonblocking version of the aio_write() function that works
-a lot like your transmit function.
+ drivers/net/ixgbe/ixgbe_82598.c |   22 ++++++++++++++++++++++
+ 1 files changed, 22 insertions(+), 0 deletions(-)
 
-For receive, the hardware does not currently know which guest
-is supposed to get any frame coming in from the outside. Adding
-zero-copy receive requires interaction with the device driver
-and hardware capabilities to separate traffic by inbound MAC
-address into separate buffers per VM.
+diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
+index 3103f41..35a06b4 100644
+--- a/drivers/net/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ixgbe/ixgbe_82598.c
+@@ -357,12 +357,34 @@ static s32 ixgbe_fc_enable_82598(struct ixgbe_hw *hw, s32 packetbuf_num)
+ 	u32 fctrl_reg;
+ 	u32 rmcs_reg;
+ 	u32 reg;
++	u32 link_speed = 0;
++	bool link_up;
+ 
+ #ifdef CONFIG_DCB
+ 	if (hw->fc.requested_mode == ixgbe_fc_pfc)
+ 		goto out;
+ 
+ #endif /* CONFIG_DCB */
++	/*
++	 * On 82598 having Rx FC on causes resets while doing 1G
++	 * so if it's on turn it off once we know link_speed. For
++	 * more details see 82598 Specification update.
++	 */
++	hw->mac.ops.check_link(hw, &link_speed, &link_up, false);
++	if (link_up && link_speed == IXGBE_LINK_SPEED_1GB_FULL) {
++		switch (hw->fc.requested_mode) {
++		case ixgbe_fc_full:
++			hw->fc.requested_mode = ixgbe_fc_tx_pause;
++			break;
++		case ixgbe_fc_rx_pause:
++			hw->fc.requested_mode = ixgbe_fc_none;
++			break;
++		default:
++			/* no change */
++			break;
++		}
++	}
++
+ 	/* Negotiate the fc mode to use */
+ 	ret_val = ixgbe_fc_autoneg(hw);
+ 	if (ret_val)
 
-> >I'm assuming that the idea is to allow VMDq adapters to simply
-> >show up as separate adapters and have the driver handle this
-> >in a hardware specific way.
-> 
-> Does the VMDq driver do so now?
-
-I don't think anyone has published a VMDq capable driver so far.
-I was just assuming that you were working on one.
-
-	Arnd
