@@ -1,41 +1,47 @@
-From: Yegor Yefremov <yegor_sub1@visionsystems.de>
-Subject: [PATCH][KS8695] Mark network interface as running on ifconfig up
-Date: Thu, 11 Feb 2010 12:12:43 +0100
-Message-ID: <4B73E62B.3030305@visionsystems.de>
-Reply-To: yegor_sub1@visionsystems.de
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH] l2tp: Fix a UDP socket reference count bug in the pppol2tp
+ driver
+Date: Thu, 11 Feb 2010 11:32:12 +0000
+Message-ID: <4B73EABC.5000707@katalix.com>
+References: <20100121161009.5223.34288.stgit@bert.katalix.com>	<20100123.015511.83860202.davem@davemloft.net>	<4B603C50.20406@katalix.com> <20100128.060717.99647383.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Victor <avictor.za@gmail.com>
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from katalix.com ([82.103.140.233]:47543 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751699Ab0BKLcY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Feb 2010 06:32:24 -0500
+In-Reply-To: <20100128.060717.99647383.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[KS8695] Mark network interface as running on ifconfig up
+David Miller wrote:
+> From: James Chapman <jchapman@katalix.com>
+> Date: Wed, 27 Jan 2010 13:14:56 +0000
+> 
+>> Does the above help?
+> 
+> Thanks for the detailed explanation, I'll take another look
+> at this.
 
-Without netif_carrier_on() network interface will not transmit any packets
-after ifconfig down and subsequent ifconfig up.
+Did you get a chance to look at this?
 
-Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
+fyi - I'm getting ready to submit a patch series that adds L2TPv3
+support. I've been sitting on these for too long and have finally found
+time to prep them for review. Previous version was posted as RFC a year
+ago, archived here: http://marc.info/?l=linux-netdev&m=123532490429538&w=2
 
-Index: linux-2.6.33-rc7/drivers/net/arm/ks8695net.c
-===================================================================
---- linux-2.6.33-rc7.orig/drivers/net/arm/ks8695net.c
-+++ linux-2.6.33-rc7/drivers/net/arm/ks8695net.c
-@@ -1371,6 +1371,7 @@ ks8695_open(struct net_device *ndev)
- 
- 	napi_enable(&ksp->napi);
- 	netif_start_queue(ndev);
-+	netif_carrier_on(ndev);
- 
- 	return 0;
- }
+Should I wait for my previous fix to be reviewed before posting the new
+code? Or I could bundle that patch in the series - whichever works for you.
+
+Thanks
+
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
+
