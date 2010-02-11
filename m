@@ -1,147 +1,30 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH v2] net/macvtap: fix reference counting
-Date: Thu, 11 Feb 2010 16:55:39 +0100
-Message-ID: <201002111655.40349.arnd@arndb.de>
-References: <201001271104.20607.arnd@arndb.de> <4B72F67F.1040008@trash.net> <201002111645.02770.arnd@arndb.de>
+From: Dan Smith <danms@us.ibm.com>
+Subject: Re: [PATCH 2/4] C/R: Basic support for network namespaces and	devices (v3)
+Date: Thu, 11 Feb 2010 07:59:43 -0800
+Message-ID: <873a17226o.fsf@caffeine.danplanet.com>
+References: <1265750713-15749-1-git-send-email-danms@us.ibm.com>
+	<1265750713-15749-3-git-send-email-danms@us.ibm.com>
+	<87ljf1gemh.fsf@caffeine.danplanet.com>
+	<20100211110234.GA14481@hawkmoon.kerlabs.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Sridhar Samudrala <sri@us.ibm.com>,
-	Ed Swierk <eswierk@aristanetworks.com>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: containers@lists.osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.10]:60205 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755183Ab0BKPzr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 10:55:47 -0500
-In-Reply-To: <201002111645.02770.arnd@arndb.de>
+Received: from gw0.danplanet.com ([71.245.107.82]:54242 "EHLO
+	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754852Ab0BKP7s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 10:59:48 -0500
+In-Reply-To: <20100211110234.GA14481@hawkmoon.kerlabs.com> (Louis Rilling's message of "Thu\, 11 Feb 2010 12\:02\:35 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The RCU usage in the original code was broken because
-there are cases where we possibly sleep with rcu_read_lock
-held. As a fix, change the macvtap_file_get_queue to
-get a reference on the socket and the netdev instead of
-taking the full rcu_read_lock.
+LR> I'm definitely not a network expert, but this kfree(skb) should probably be
+LR> replaced by kfree_skb(skb).
 
-Also, change macvtap_file_get_queue failure case to
-not require a subsequent macvtap_file_put_queue, as
-pointed out by Ed Swierk.
+Eesh, yep.  Thanks :)
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Ed Swierk <eswierk@aristanetworks.com>
-Cc: Sridhar Samudrala <sri@us.ibm.com>
----
- drivers/net/macvtap.c |   35 ++++++++++++++++++++++-------------
- 1 files changed, 22 insertions(+), 13 deletions(-)
-
-Please disregard v1 of this patch, I accidentally sent Sridhar's
-patch...
-
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index ad1f6ef..fe7656b 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -70,7 +70,8 @@ static struct cdev macvtap_cdev;
-  * exists.
-  *
-  * The callbacks from macvlan are always done with rcu_read_lock held
-- * already, while in the file_operations, we get it ourselves.
-+ * already. For calls from file_operations, we use the rcu_read_lock_bh
-+ * to get a reference count on the socket and the device.
-  *
-  * When destroying a queue, we remove the pointers from the file and
-  * from the dev and then synchronize_rcu to make sure no thread is
-@@ -159,13 +160,21 @@ static void macvtap_del_queues(struct net_device *dev)
- 
- static inline struct macvtap_queue *macvtap_file_get_queue(struct file *file)
- {
-+	struct macvtap_queue *q;
- 	rcu_read_lock_bh();
--	return rcu_dereference(file->private_data);
-+	q = rcu_dereference(file->private_data);
-+	if (q) {
-+		sock_hold(&q->sk);
-+		dev_hold(q->vlan->dev);
-+	}
-+	rcu_read_unlock_bh();
-+	return q;
- }
- 
--static inline void macvtap_file_put_queue(void)
-+static inline void macvtap_file_put_queue(struct macvtap_queue *q)
- {
--	rcu_read_unlock_bh();
-+	sock_put(&q->sk);
-+	dev_put(q->vlan->dev);
- }
- 
- /*
-@@ -314,8 +323,8 @@ static unsigned int macvtap_poll(struct file *file, poll_table * wait)
- 	     sock_writeable(&q->sk)))
- 		mask |= POLLOUT | POLLWRNORM;
- 
-+	macvtap_file_put_queue(q);
- out:
--	macvtap_file_put_queue();
- 	return mask;
- }
- 
-@@ -366,8 +375,8 @@ static ssize_t macvtap_aio_write(struct kiocb *iocb, const struct iovec *iv,
- 
- 	result = macvtap_get_user(q, iv, iov_length(iv, count),
- 			      file->f_flags & O_NONBLOCK);
-+	macvtap_file_put_queue(q);
- out:
--	macvtap_file_put_queue();
- 	return result;
- }
- 
-@@ -398,10 +407,8 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
- 	struct sk_buff *skb;
- 	ssize_t len, ret = 0;
- 
--	if (!q) {
--		ret = -ENOLINK;
--		goto out;
--	}
-+	if (!q)
-+		return -ENOLINK;
- 
- 	len = iov_length(iv, count);
- 	if (len < 0) {
-@@ -437,7 +444,7 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
- 	remove_wait_queue(q->sk.sk_sleep, &wait);
- 
- out:
--	macvtap_file_put_queue();
-+	macvtap_file_put_queue(q);
- 	return ret;
- }
- 
-@@ -468,7 +475,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
- 		if (!q)
- 			return -ENOLINK;
- 		memcpy(devname, q->vlan->dev->name, sizeof(devname));
--		macvtap_file_put_queue();
-+		macvtap_file_put_queue(q);
- 
- 		if (copy_to_user(&ifr->ifr_name, q->vlan->dev->name, IFNAMSIZ) ||
- 		    put_user((TUN_TAP_DEV | TUN_NO_PI), &ifr->ifr_flags))
-@@ -485,8 +492,10 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
- 			return -EFAULT;
- 
- 		q = macvtap_file_get_queue(file);
-+		if (!q)
-+			return -ENOLINK;
- 		q->sk.sk_sndbuf = u;
--		macvtap_file_put_queue();
-+		macvtap_file_put_queue(q);
- 		return 0;
- 
- 	case TUNSETOFFLOAD:
 -- 
-1.6.3.3
-
-
+Dan Smith
+IBM Linux Technology Center
+email: danms@us.ibm.com
