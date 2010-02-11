@@ -1,53 +1,67 @@
-From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Subject: RE: [PATCH 0/3] Provide a zero-copy method on KVM virtio-net.
-Date: Thu, 11 Feb 2010 16:54:41 +0800
-Message-ID: <97F6D3BD476C464182C1B7BABF0B0AF5C11F646E@shzsmsx502.ccr.corp.intel.com>
-References: <1265802540-6122-1-git-send-email-xiaohui.xin@intel.com>
+From: robert@herjulf.net
+Subject: [net-next-2.6 PATCH v5 0/3] Introduce n-tuple ethtool support
+Date: Thu, 11 Feb 2010 09:02:23 +0100
+Message-ID: <19315.47503.661788.785038@gargle.gargle.HOWL>
+References: <20100211020310.23436.85885.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vg
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1265802540-6122-1-git-send-email-xiaohui.xin@intel.com>
-Content-Language: en-US
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from av6-1-sn3.vrr.skanova.net ([81.228.9.179]:48945 "EHLO
+	av6-1-sn3.vrr.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751259Ab0BKJFX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 04:05:23 -0500
+In-Reply-To: <20100211020310.23436.85885.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Will be in a vacation during 2/13~2/20, so email may be very slow or no replied
-for your comments. But please don't hesitate to comment more, and I will address 
-them after the vacation. :-)
 
-Thanks
-Xiaohui
------Original Message-----
-From: kvm-owner@vger.kernel.org [mailto:kvm-owner@vger.kernel.org] On Behalf Of Xin Xiaohui
-Sent: Wednesday, February 10, 2010 7:49 PM
-To: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org; mingo@elte.hu; mst@redhat.com; jdike@c2.user-mode-linux.org
-Subject: [PATCH 0/3] Provide a zero-copy method on KVM virtio-net.
 
-The idea is simple, just to pin the guest VM user space and then
-let host NIC driver has the chance to directly DMA to it. 
-The patches are based on vhost-net backend driver. We add a device
-which provides proto_ops as sendmsg/recvmsg to vhost-net to
-send/recv directly to/from the NIC driver. KVM guest who use the
-vhost-net backend may bind any ethX interface in the host side to
-get copyless data transfer thru guest virtio-net frontend.
+Nice. Next step would be to control the RSS-traffic. Doing this we 
+can easily get total separation between "control" and "data" plane.
+We did a dirty hack to separate out bgp/ssh to one queue/cpu. 
+I think just a RSS_mask would be a good start - each bit controlling 
+if queue should receive RSS traffic or not.
 
-We provide multiple submits and asynchronous notifiicaton to 
-vhost-net too.
+Cheers
+				--ro
 
-Our goal is to improve the bandwidth and reduce the CPU usage.
-Exact performance data will be provided later. But for simple
-test with netperf, we found bindwidth up and CPU % up too,
-but the bindwidth up ratio is much more than CPU % up ratio.
 
-What we have not done yet:
-	To support GRO
-	Performance tuning
---
-To unsubscribe from this list: send the line "unsubscribe kvm" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Jeff Kirsher writes:
+ > One more round of fixes, based on feedback from Patrick McHardy
+ > 
+ > 1) Change the list count to an unsigned value
+ > 2) Fix a memory leak
+ > 3) Removed an unnecessary list traversal in the ethtool core
+ > 4) Moved all list destruction to a helper function, allowing the driver
+ > to control when it clears the list (aside from when free_netdev() kills
+ > the cached list).
+ > 
+ > ---
+ > 
+ > Peter Waskiewicz (3):
+ >       ixgbe: Bump driver version up
+ >       ixgbe: Add support for the new ethtool n-tuple programming interface
+ >       ethtool: Introduce n-tuple filter programming support
+ > 
+ > 
+ >  drivers/net/ixgbe/ixgbe.h         |    4 
+ >  drivers/net/ixgbe/ixgbe_82599.c   |  106 ++++++++++--
+ >  drivers/net/ixgbe/ixgbe_ethtool.c |  111 ++++++++++++
+ >  drivers/net/ixgbe/ixgbe_main.c    |   18 ++
+ >  drivers/net/ixgbe/ixgbe_type.h    |    9 +
+ >  include/linux/ethtool.h           |   50 ++++++
+ >  include/linux/netdevice.h         |    3 
+ >  net/core/dev.c                    |    6 +
+ >  net/core/ethtool.c                |  332 +++++++++++++++++++++++++++++++++++++
+ >  9 files changed, 619 insertions(+), 20 deletions(-)
+ > 
+ > -- 
+ > Cheers,
+ > Jeff
+ > --
+ > To unsubscribe from this list: send the line "unsubscribe netdev" in
+ > the body of a message to majordomo@vger.kernel.org
+ > More majordomo info at  http://vger.kernel.org/majordomo-info.html
