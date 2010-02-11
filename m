@@ -1,47 +1,42 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH v5 3/3] ixgbe: Bump driver version up
-Date: Wed, 10 Feb 2010 18:08:13 -0800
-Message-ID: <20100211020812.23436.56264.stgit@localhost.localdomain>
-References: <20100211020310.23436.85885.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.emeryville.ca.mail.comcast.net ([76.96.30.24]:41585 "EHLO
-	qmta02.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750819Ab0BKCIh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 21:08:37 -0500
-In-Reply-To: <20100211020310.23436.85885.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: [net-next PATCH v3 0/3] net: reserve ports for applications using fixed port numbers
+Date: Thu, 11 Feb 2010 04:09:17 +0200
+Message-ID: <1265854160-11763-1-git-send-email-opurdila@ixiacom.com>
+Cc: Octavian Purdila <opurdila@ixiacom.com>, netdev@vget.kernel.org,
+	linux-kernel@vger.kernel.org, WANG Cong <amwang@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-Driver has gone under significant changes, the version should
-reflect that.
+This patch series is based on Amerigo's v2 but it now uses a bitmap
+for port reservation.
 
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+I've ran a while (1) { bind(0) } test (with ip_local_port_range
+1024 65000) to see if there is any performance difference between the
+two approaches (ranges vs bitmap). I could not detect any significant
+difference, both cases scored in 2.76s +/- 0.01 on my setup.
 
- drivers/net/ixgbe/ixgbe_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+I've based this patch series on current net-next, but it contains a
+significant non networking part. Please let me know if I should handle
+this differently.
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index f04b539..382bf89 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -51,7 +51,7 @@ char ixgbe_driver_name[] = "ixgbe";
- static const char ixgbe_driver_string[] =
-                               "Intel(R) 10 Gigabit PCI Express Network Driver";
- 
--#define DRV_VERSION "2.0.44-k2"
-+#define DRV_VERSION "2.0.62-k2"
- const char ixgbe_driver_version[] = DRV_VERSION;
- static char ixgbe_copyright[] = "Copyright (c) 1999-2010 Intel Corporation.";
- 
+Octavian Purdila (3):
+  sysctl: refactor integer handling proc code
+  sysctl: add proc_dobitmap
+  net: reserve ports for applications using fixed port numbers
 
+ Documentation/networking/ip-sysctl.txt |   12 +
+ drivers/infiniband/core/cma.c          |    7 +-
+ include/linux/sysctl.h                 |    2 +
+ include/net/ip.h                       |    6 +
+ kernel/sysctl.c                        |  374 +++++++++++++++++++-------------
+ net/ipv4/inet_connection_sock.c        |    5 +
+ net/ipv4/inet_hashtables.c             |    2 +
+ net/ipv4/sysctl_net_ipv4.c             |    7 +
+ net/ipv4/udp.c                         |    3 +-
+ net/sctp/socket.c                      |    2 +
+ 10 files changed, 264 insertions(+), 156 deletions(-)
