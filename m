@@ -1,38 +1,159 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] l2tp: Fix a UDP socket reference count bug in the
- pppol2tp driver
-Date: Thu, 11 Feb 2010 13:00:51 -0800 (PST)
-Message-ID: <20100211.130051.198184056.davem@davemloft.net>
-References: <4B603C50.20406@katalix.com>
-	<20100128.060717.99647383.davem@davemloft.net>
-	<4B73EABC.5000707@katalix.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [PATCH v2] net/macvtap: fix reference counting
+Date: Thu, 11 Feb 2010 13:09:37 -0800
+Message-ID: <1265922577.28768.6.camel@w-sridhar.beaverton.ibm.com>
+References: <201001271104.20607.arnd@arndb.de> <4B72F67F.1040008@trash.net>
+	 <201002111645.02770.arnd@arndb.de>  <201002111655.40349.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jchapman@katalix.com
+Cc: Patrick McHardy <kaber@trash.net>,
+	Ed Swierk <eswierk@aristanetworks.com>, netdev@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34653
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757062Ab0BKVAk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 16:00:40 -0500
-In-Reply-To: <4B73EABC.5000707@katalix.com>
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:50281 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756986Ab0BKVJn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Feb 2010 16:09:43 -0500
+Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
+	by e7.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o1BL2VIt025804
+	for <netdev@vger.kernel.org>; Thu, 11 Feb 2010 16:02:31 -0500
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o1BL9eIR131296
+	for <netdev@vger.kernel.org>; Thu, 11 Feb 2010 16:09:40 -0500
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o1BL9diK002287
+	for <netdev@vger.kernel.org>; Thu, 11 Feb 2010 19:09:40 -0200
+In-Reply-To: <201002111655.40349.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: James Chapman <jchapman@katalix.com>
-Date: Thu, 11 Feb 2010 11:32:12 +0000
-
-> David Miller wrote:
->> From: James Chapman <jchapman@katalix.com>
->> Date: Wed, 27 Jan 2010 13:14:56 +0000
->> 
->>> Does the above help?
->> 
->> Thanks for the detailed explanation, I'll take another look
->> at this.
+On Thu, 2010-02-11 at 16:55 +0100, Arnd Bergmann wrote:
+> The RCU usage in the original code was broken because
+> there are cases where we possibly sleep with rcu_read_lock
+> held. As a fix, change the macvtap_file_get_queue to
+> get a reference on the socket and the netdev instead of
+> taking the full rcu_read_lock.
 > 
-> Did you get a chance to look at this?
+> Also, change macvtap_file_get_queue failure case to
+> not require a subsequent macvtap_file_put_queue, as
+> pointed out by Ed Swierk.
 
-Not yet, sorry.  Too many other things are preempting this
-at the moment.
+Looks good.
+
+Acked-by: Sridhar Samudrala <sri@us.ibm.com>
+
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Cc: Ed Swierk <eswierk@aristanetworks.com>
+> Cc: Sridhar Samudrala <sri@us.ibm.com>
+> ---
+>  drivers/net/macvtap.c |   35 ++++++++++++++++++++++-------------
+>  1 files changed, 22 insertions(+), 13 deletions(-)
+> 
+> Please disregard v1 of this patch, I accidentally sent Sridhar's
+> patch...
+> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index ad1f6ef..fe7656b 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -70,7 +70,8 @@ static struct cdev macvtap_cdev;
+>   * exists.
+>   *
+>   * The callbacks from macvlan are always done with rcu_read_lock held
+> - * already, while in the file_operations, we get it ourselves.
+> + * already. For calls from file_operations, we use the rcu_read_lock_bh
+> + * to get a reference count on the socket and the device.
+>   *
+>   * When destroying a queue, we remove the pointers from the file and
+>   * from the dev and then synchronize_rcu to make sure no thread is
+> @@ -159,13 +160,21 @@ static void macvtap_del_queues(struct net_device *dev)
+> 
+>  static inline struct macvtap_queue *macvtap_file_get_queue(struct file *file)
+>  {
+> +	struct macvtap_queue *q;
+>  	rcu_read_lock_bh();
+> -	return rcu_dereference(file->private_data);
+> +	q = rcu_dereference(file->private_data);
+> +	if (q) {
+> +		sock_hold(&q->sk);
+> +		dev_hold(q->vlan->dev);
+> +	}
+> +	rcu_read_unlock_bh();
+> +	return q;
+>  }
+> 
+> -static inline void macvtap_file_put_queue(void)
+> +static inline void macvtap_file_put_queue(struct macvtap_queue *q)
+>  {
+> -	rcu_read_unlock_bh();
+> +	sock_put(&q->sk);
+> +	dev_put(q->vlan->dev);
+>  }
+> 
+>  /*
+> @@ -314,8 +323,8 @@ static unsigned int macvtap_poll(struct file *file, poll_table * wait)
+>  	     sock_writeable(&q->sk)))
+>  		mask |= POLLOUT | POLLWRNORM;
+> 
+> +	macvtap_file_put_queue(q);
+>  out:
+> -	macvtap_file_put_queue();
+>  	return mask;
+>  }
+> 
+> @@ -366,8 +375,8 @@ static ssize_t macvtap_aio_write(struct kiocb *iocb, const struct iovec *iv,
+> 
+>  	result = macvtap_get_user(q, iv, iov_length(iv, count),
+>  			      file->f_flags & O_NONBLOCK);
+> +	macvtap_file_put_queue(q);
+>  out:
+> -	macvtap_file_put_queue();
+>  	return result;
+>  }
+> 
+> @@ -398,10 +407,8 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
+>  	struct sk_buff *skb;
+>  	ssize_t len, ret = 0;
+> 
+> -	if (!q) {
+> -		ret = -ENOLINK;
+> -		goto out;
+> -	}
+> +	if (!q)
+> +		return -ENOLINK;
+> 
+>  	len = iov_length(iv, count);
+>  	if (len < 0) {
+> @@ -437,7 +444,7 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
+>  	remove_wait_queue(q->sk.sk_sleep, &wait);
+> 
+>  out:
+> -	macvtap_file_put_queue();
+> +	macvtap_file_put_queue(q);
+>  	return ret;
+>  }
+> 
+> @@ -468,7 +475,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+>  		if (!q)
+>  			return -ENOLINK;
+>  		memcpy(devname, q->vlan->dev->name, sizeof(devname));
+> -		macvtap_file_put_queue();
+> +		macvtap_file_put_queue(q);
+> 
+>  		if (copy_to_user(&ifr->ifr_name, q->vlan->dev->name, IFNAMSIZ) ||
+>  		    put_user((TUN_TAP_DEV | TUN_NO_PI), &ifr->ifr_flags))
+> @@ -485,8 +492,10 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+>  			return -EFAULT;
+> 
+>  		q = macvtap_file_get_queue(file);
+> +		if (!q)
+> +			return -ENOLINK;
+>  		q->sk.sk_sndbuf = u;
+> -		macvtap_file_put_queue();
+> +		macvtap_file_put_queue(q);
+>  		return 0;
+> 
+>  	case TUNSETOFFLOAD:
+
