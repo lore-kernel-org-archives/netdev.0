@@ -1,41 +1,34 @@
-From: Matthew Garrett <mjg@redhat.com>
-Subject: [PATCH v2 1/2] e1000e: Only disable ASPM on 82573L devices
-Date: Thu, 11 Feb 2010 11:29:26 -0500
-Message-ID: <1265905767-3884-1-git-send-email-mjg@redhat.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Matthew Garrett <mjg@redhat.com>
-To: e1000-devel@lists.sourceforge.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cavan.codon.org.uk ([93.93.128.6]:46201 "EHLO
-	cavan.codon.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756374Ab0BKQ3f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 11:29:35 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bernard Pidoux <bpidoux@free.fr>
+Subject: [PATCH 07/13] net: ax25: use seq_hlist_foo() helpers
+Date: Thu, 11 Feb 2010 17:34:48 +0100
+Message-ID: <4B7431A8.9010902@free.fr>
+References: <4B2E6729.1090102@free.fr>	<4B507FAA.8010007@free.fr>	<20100115203654.GA3084@del.dom.local> <20100116.010435.55169828.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Li Zefan <lizf@cn.fujitsu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100116.010435.55169828.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The 82537 errata and comment in e1000e_disable_l1aspm both agree that
-only 82537L devices are affected. Limit the L1 disable to them.
+Hi Li Zefan,
 
-Signed-off-by: Matthew Garrett <mjg@redhat.com>
+Your patches 1, 2, 3, 4, 6, 7, 9, 10/13 applied.
+kernel and modules compiled ok.
+AX25 and ROSE are working fine.
+
+Thanks.
+
+Bernard
+
+
+Simplify seq_file code.
+
+Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
 ---
- drivers/net/e1000e/netdev.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 57f149b..27eed81 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -4642,6 +4642,10 @@ static void e1000e_disable_l1aspm(struct pci_dev *pdev)
- 	 * Unfortunately this feature saves about 1W power consumption when
- 	 * active.
- 	 */
-+
-+	if (pdev->device != E1000_DEV_ID_82573L)
-+		return;
-+
- 	pos = pci_find_capability(pdev, PCI_CAP_ID_EXP);
- 	pci_read_config_word(pdev, pos + PCI_EXP_LNKCTL, &val);
- 	if (val & 0x2) {
--- 
-1.6.6.1
-
+ net/ax25/af_ax25.c  |   18 +++---------------
+ net/ax25/ax25_uid.c |   25 ++++---------------------
+ 2 files changed, 7 insertions(+), 36 deletions(-)
