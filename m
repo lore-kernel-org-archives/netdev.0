@@ -1,55 +1,74 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [net-next-2.6,	v4 1/3] ethtool: Introduce n-tuple filter programming
- support
-Date: Thu, 11 Feb 2010 08:53:11 +0100
-Message-ID: <4B73B767.2030308@trash.net>
-References: <20100210100718.10855.96567.stgit@localhost.localdomain>	 <4B7296AB.6020004@trash.net>	 <Pine.WNT.4.64.1002101533340.58956@ppwaskie-MOBL2.amr.corp.intel.com>	 <4B73A0BE.1060407@trash.net> <1265872027.4501.97.camel@localhost>
+From: Simon Kagstrom <simon.kagstrom@netinsight.net>
+Subject: Re: [PATCH 3/3] via-velocity: Fix races on shared interrupts
+Date: Thu, 11 Feb 2010 09:05:49 +0100
+Message-ID: <20100211090549.2b23a6f8@marrow.netinsight.se>
+References: <20100205165253.3f316b98@marrow.netinsight.se>
+	<20100205165545.28832c53@marrow.netinsight.se>
+	<97949e3e1002100941s34010bdfu1a52f95693d3a9e9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, davej@redhat.com,
+	ben@decadent.org.uk
+To: Laurent Chavey <chavey@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35675 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751259Ab0BKHxX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 02:53:23 -0500
-In-Reply-To: <1265872027.4501.97.camel@localhost>
+Received: from ernst.netinsight.se ([194.16.221.21]:15129 "HELO
+	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751259Ab0BKIF7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 03:05:59 -0500
+In-Reply-To: <97949e3e1002100941s34010bdfu1a52f95693d3a9e9@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Peter P Waskiewicz Jr wrote:
-> On Wed, 2010-02-10 at 22:16 -0800, Patrick McHardy wrote:
->>> I agree that an underlying driver will have much of the same in terms of 
->>> what it generates, but it will not be restricted to how it stores the 
->>> items.  In other words, if ixgbe wanted to retrieve all 8192 filters, we 
->>> could avoid the caching altogether, and pull directly from HW when the 
->>> call is made from ethtool.  One way or another, there's going to be a big 
->>> amount of copied data from kernel space to user space.  This was the 
->>> approach I thougt would be the most useful without defining a kernel to 
->>> userspace chain of flow spec structs.
->> My main concern is that its hard for userspace to do anything with
->> this data except print it. By using a binary representation the
->> kernel code should get simpler and less prone to potential
->> inconsistencies within drivers and make it more useful to userspace
->> at the same time.
-> 
-> It would be easier to change ethtool in userspace to reformat data.
+Hi Laurent!
 
-I'm thinking more about other potential users of this interface.
+On Wed, 10 Feb 2010 09:41:59 -0800
+Laurent Chavey <chavey@google.com> wrote:
 
-> However, some drivers/hardware may represent data in a different way for
-> their filters, much like the ethtool stats (ethtool -S).  I see this as
-> a hardware-specific thing, so letting the kernel provide the strings is
-> the most flexible, since it's the most representative of the hardware.
+> > - =A0 =A0 =A0 spin_lock(&vptr->lock);
+> > + =A0 =A0 =A0 /* Check if the lock is taken, and if so ignore the i=
+nterrupt. This
+> > + =A0 =A0 =A0 =A0* can happen with shared interrupts, where the oth=
+er device can
+> > + =A0 =A0 =A0 =A0* interrupt during velocity_poll (where the lock i=
+s held).
+> > + =A0 =A0 =A0 =A0*
+> > + =A0 =A0 =A0 =A0* With spinlock debugging active on a uniprocessor=
+, this will give
+> > + =A0 =A0 =A0 =A0* a warning which can safely be ignored.
+> > + =A0 =A0 =A0 =A0*/
+> > + =A0 =A0 =A0 if (!spin_trylock(&vptr->lock))
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return IRQ_NONE;
+>=20
+> does the thread handling the interrupts check that an new
+> interrupts was received while it was servicing a previous one ?
+> wondering if there is a potential for an event that generates the int=
+errupt
+> to be missed.
 
-I think there's a difference between stats and filters. In case of
-filters, userspace already needs to know the representation without
-knowing the specific driver in order to send them to the kernel, so
-it needs to use a common representation unless I'm missing something.
+I should say that this particular part of the patch was reworked in
+version 2, which David took in here:
+ =20
+  http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.git;a=3Dcom=
+mitdiff;h=3D3f2e8d9f13246382fbda6f03178eef867a9bfbe2
 
-But fair enough, I just wanted to state my concerns, which might of
-course be wrong.
+Anyway, velocity_poll will try to empty all events within it's budget
+from the device and is executing with the device interrupt turned off
+(and now also with the local processor interrupts off). If something
+would be posted when it's exiting, that's fine since it either
+
+  1) Consumed it's entire budget, in which case it will stay in the
+  polling mode anyway
+
+or,
+
+  2) Didn't consume the budget and will then turn on the interrupt
+  again and get the new event promptly.
+
+
+You are right about the code above though, that one is racy as David
+explained here:
+
+  http://permalink.gmane.org/gmane.linux.network/151578
+
+// Simon
