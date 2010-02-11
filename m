@@ -1,52 +1,28 @@
-From: Matthew Garrett <mjg59@srcf.ucam.org>
-Subject: Re: [PATCH v2 1/2] e1000e: Only disable ASPM on
-	82573L devices
-Date: Thu, 11 Feb 2010 17:44:06 +0000
-Message-ID: <20100211174406.GB32319@srcf.ucam.org>
-References: <1265905767-3884-1-git-send-email-mjg@redhat.com>
-	<alpine.WNT.2.00.1002110916130.6892@jbrandeb-desk1.amr.corp.intel.com>
+From: Oren Laadan <orenl@cs.columbia.edu>
+Subject: Re: [PATCH 2/4] C/R: Basic support for network namespaces and devices
+ (v3)
+Date: Thu, 11 Feb 2010 12:51:27 -0500
+Message-ID: <4B74439F.20703@cs.columbia.edu>
+References: <1265750713-15749-1-git-send-email-danms@us.ibm.com> <1265750713-15749-3-git-send-email-danms@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <alpine.WNT.2.00.1002110916130.6892@jbrandeb-desk1.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: containers@lists.osdl.org, netdev@vger.kernel.org
+To: Dan Smith <danms@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from brinza.cc.columbia.edu ([128.59.29.8]:39346 "EHLO
+	brinza.cc.columbia.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754864Ab0BKRvm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 12:51:42 -0500
+In-Reply-To: <1265750713-15749-3-git-send-email-danms@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 11, 2010 at 09:17:12AM -0800, Brandeburg, Jesse wrote:
-> 
-> 
-> On Thu, 11 Feb 2010, Matthew Garrett wrote:
-> 
-> > The 82537 errata and comment in e1000e_disable_l1aspm both agree that
-> > only 82537L devices are affected. Limit the L1 disable to them.
-> 
-> Hi Matthew, its a nitpick, but can you please change the part number to 
-> the correct one?  it should be s/82537/82573
+Dan,
 
-Whoops! Sorry, I'll do that.
+You may also want to remove the limit of a single private
+net-ns which is enforced in checkpoint.c:may_checkpoint_task().
 
--- 
-Matthew Garrett | mjg59@srcf.ucam.org
+Oren.
 
-------------------------------------------------------------------------------
-SOLARIS 10 is the OS for Data Centers - provides features such as DTrace,
-Predictive Self Healing and Award Winning ZFS. Get Solaris 10 NOW
-http://p.sf.net/sfu/solaris-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
