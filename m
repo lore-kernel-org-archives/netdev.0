@@ -1,73 +1,54 @@
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Subject: Re: [PATCH 2/6] DMFE: move pci ID definitions into pci_ids.h and
- clean up the code
-Date: Thu, 11 Feb 2010 19:25:22 +0200
-Message-ID: <1265909122.9788.5.camel@maxim-laptop>
-References: <1265487542-4447-1-git-send-email-maximlevitsky@gmail.com>
-	 <1265487542-4447-3-git-send-email-maximlevitsky@gmail.com>
-	 <20100210.131849.237007566.davem@davemloft.net>
-	 <20100210.132201.21689811.davem@davemloft.net>
+From: Oren Laadan <orenl@cs.columbia.edu>
+Subject: Re: Network device and namespace checkpoint/restart (v2)
+Date: Thu, 11 Feb 2010 12:26:42 -0500
+Message-ID: <4B743DD2.5020304@cs.columbia.edu>
+References: <1265750713-15749-1-git-send-email-danms@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	maxim-levitsky@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: containers@lists.osdl.org, netdev@vger.kernel.org
+To: Dan Smith <danms@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.156]:21633 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752094Ab0BKR0a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 12:26:30 -0500
-In-Reply-To: <20100210.132201.21689811.davem@davemloft.net>
+Received: from tarap.cc.columbia.edu ([128.59.29.7]:64729 "EHLO
+	tarap.cc.columbia.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755882Ab0BKR1W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 12:27:22 -0500
+In-Reply-To: <1265750713-15749-1-git-send-email-danms@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-02-10 at 13:22 -0800, David Miller wrote: 
-> From: David Miller <davem@davemloft.net>
-> Date: Wed, 10 Feb 2010 13:18:49 -0800 (PST)
+Hi,
+
+This is cool.
+I commented on patch 2.
+The others (1,3,4) look good to me.
+
+Oren.
+
+
+Dan Smith wrote:
+> This patch set adds checkpoint/restart support for network namespaces,
+> as well as the network devices within.  Currently supports veth and loopback
+> device types.
 > 
-> > From: Maxim Levitsky <maximlevitsky@gmail.com>
-> > Date: Sat,  6 Feb 2010 22:18:58 +0200
-> > 
-> >> Signed-off-by: Maxim Levitsky <maxim-levitsky@gmail.com>
-> > 
-> > We don't add new definitions to pci_ids.h that will only
-> > be used in a single driver.
-No problem!
-Didn't know about that.
-
-> > 
-> > Instead, we just use the raw constants (if it's only referenced once,
-> > say in the PCI ID table for the driver) or using local definitions
-> > (if used multiple times in the driver).
+> Major changes from last time[1] are:
 > 
-> BTW, the rest of your patch set is likely to not apply
-> correctly after you fix this patch up.  So at a minimum
-> you'll need to resubmit this whole set after fixing
-> patch #2.
-I agree with that completely.
-
-
-
+>  - Add a per-device ndo_checkpoint() operation which simultaneously
+>    isolates the checkpoint layer from the network device's checkpoint
+>    function and internal data, and also provides a better way to
+>    determine checkpointability of a given interface.
+>  - Use RTNL to create the veth pair as userspace would, to avoid the
+>    need to call directly into RTNL and veth internals
 > 
-> In fact I would recommend that you seperate the bug
-> fixes from all of the massive cleanups.
+> With this set, I'm able to checkpoint and restart a running sendmail
+> instance that is inside a private network namespace with a veth tunnel
+> to the outside world.  Applies on top of -rc3 with my other two patches
+> from earlier today.
 > 
-> Get the bug fixes, especially the PCI READ MULTIPLE
-> disable one, into net-2.6
+> 1: https://lists.linux-foundation.org/pipermail/containers/2010-January/022549.html
 > 
-> Then afterwards you can do all of the cleanups against
-> net-next-2.6 when the bug fixes propagate there.
-This is good idea too.
-I also will split the cleanups, because looking back at massive patch I
-understand that it is not good for review.
-
-
+> _______________________________________________
+> Containers mailing list
+> Containers@lists.linux-foundation.org
+> https://lists.linux-foundation.org/mailman/listinfo/containers
 > 
-> Thank you!
-
-Thanks too.
-
-Best regards,
-Maxim Levitsky
-
