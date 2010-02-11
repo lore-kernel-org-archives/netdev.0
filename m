@@ -1,159 +1,131 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH v2] net/macvtap: fix reference counting
-Date: Thu, 11 Feb 2010 13:09:37 -0800
-Message-ID: <1265922577.28768.6.camel@w-sridhar.beaverton.ibm.com>
-References: <201001271104.20607.arnd@arndb.de> <4B72F67F.1040008@trash.net>
-	 <201002111645.02770.arnd@arndb.de>  <201002111655.40349.arnd@arndb.de>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH] [V4] net: emaclite: adding MDIO and phy lib support
+Date: Thu, 11 Feb 2010 14:16:07 -0700
+Message-ID: <fa686aa41002111316n13ce32bcyc8e5186c4776e1b4@mail.gmail.com>
+References: <e9ea9b59-9435-4712-a854-2c46046eb08e@SG2EHSMHS005.ehs.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Ed Swierk <eswierk@aristanetworks.com>, netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, jgarzik@pobox.com,
+	jwboyer@linux.vnet.ibm.com, john.williams@petalogix.com,
+	Sadanand Mutyala <Sadanand.Mutyala@xilinx.com>
+To: John Linn <john.linn@xilinx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:50281 "EHLO e7.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756986Ab0BKVJn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Feb 2010 16:09:43 -0500
-Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
-	by e7.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o1BL2VIt025804
-	for <netdev@vger.kernel.org>; Thu, 11 Feb 2010 16:02:31 -0500
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o1BL9eIR131296
-	for <netdev@vger.kernel.org>; Thu, 11 Feb 2010 16:09:40 -0500
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o1BL9diK002287
-	for <netdev@vger.kernel.org>; Thu, 11 Feb 2010 19:09:40 -0200
-In-Reply-To: <201002111655.40349.arnd@arndb.de>
+Received: from mail-yw0-f189.google.com ([209.85.211.189]:51483 "EHLO
+	mail-yw0-f189.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756986Ab0BKVQ1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 16:16:27 -0500
+Received: by ywh27 with SMTP id 27so1524591ywh.1
+        for <netdev@vger.kernel.org>; Thu, 11 Feb 2010 13:16:27 -0800 (PST)
+In-Reply-To: <e9ea9b59-9435-4712-a854-2c46046eb08e@SG2EHSMHS005.ehs.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-02-11 at 16:55 +0100, Arnd Bergmann wrote:
-> The RCU usage in the original code was broken because
-> there are cases where we possibly sleep with rcu_read_lock
-> held. As a fix, change the macvtap_file_get_queue to
-> get a reference on the socket and the netdev instead of
-> taking the full rcu_read_lock.
-> 
-> Also, change macvtap_file_get_queue failure case to
-> not require a subsequent macvtap_file_put_queue, as
-> pointed out by Ed Swierk.
-
-Looks good.
-
-Acked-by: Sridhar Samudrala <sri@us.ibm.com>
-
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Cc: Ed Swierk <eswierk@aristanetworks.com>
-> Cc: Sridhar Samudrala <sri@us.ibm.com>
+On Thu, Feb 11, 2010 at 1:52 PM, John Linn <john.linn@xilinx.com> wrote=
+:
+> These changes add MDIO and phy lib support to the driver as the
+> IP core now supports the MDIO bus.
+>
+> The MDIO bus and phy are added as a child to the emaclite in the devi=
+ce
+> tree as illustrated below.
+>
+> mdio {
+> =A0 =A0 =A0 =A0#address-cells =3D <1>;
+> =A0 =A0 =A0 =A0#size-cells =3D <0>;
+> =A0 =A0 =A0 =A0phy0: phy@7 {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0compatible =3D "marvell,88e1111";
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0reg =3D <7>;
+> =A0 =A0 =A0 =A0} ;
+> }
+>
+> Signed-off-by: Sadanand Mutyala <Sadanand.Mutyala@xilinx.com>
+> Signed-off-by: John Linn <john.linn@xilinx.com>
+>
 > ---
->  drivers/net/macvtap.c |   35 ++++++++++++++++++++++-------------
->  1 files changed, 22 insertions(+), 13 deletions(-)
-> 
-> Please disregard v1 of this patch, I accidentally sent Sridhar's
-> patch...
-> 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index ad1f6ef..fe7656b 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -70,7 +70,8 @@ static struct cdev macvtap_cdev;
->   * exists.
->   *
->   * The callbacks from macvlan are always done with rcu_read_lock held
-> - * already, while in the file_operations, we get it ourselves.
-> + * already. For calls from file_operations, we use the rcu_read_lock_bh
-> + * to get a reference count on the socket and the device.
->   *
->   * When destroying a queue, we remove the pointers from the file and
->   * from the dev and then synchronize_rcu to make sure no thread is
-> @@ -159,13 +160,21 @@ static void macvtap_del_queues(struct net_device *dev)
-> 
->  static inline struct macvtap_queue *macvtap_file_get_queue(struct file *file)
->  {
-> +	struct macvtap_queue *q;
->  	rcu_read_lock_bh();
-> -	return rcu_dereference(file->private_data);
-> +	q = rcu_dereference(file->private_data);
-> +	if (q) {
-> +		sock_hold(&q->sk);
-> +		dev_hold(q->vlan->dev);
-> +	}
-> +	rcu_read_unlock_bh();
-> +	return q;
->  }
-> 
-> -static inline void macvtap_file_put_queue(void)
-> +static inline void macvtap_file_put_queue(struct macvtap_queue *q)
->  {
-> -	rcu_read_unlock_bh();
-> +	sock_put(&q->sk);
-> +	dev_put(q->vlan->dev);
->  }
-> 
->  /*
-> @@ -314,8 +323,8 @@ static unsigned int macvtap_poll(struct file *file, poll_table * wait)
->  	     sock_writeable(&q->sk)))
->  		mask |= POLLOUT | POLLWRNORM;
-> 
-> +	macvtap_file_put_queue(q);
->  out:
-> -	macvtap_file_put_queue();
->  	return mask;
->  }
-> 
-> @@ -366,8 +375,8 @@ static ssize_t macvtap_aio_write(struct kiocb *iocb, const struct iovec *iv,
-> 
->  	result = macvtap_get_user(q, iv, iov_length(iv, count),
->  			      file->f_flags & O_NONBLOCK);
-> +	macvtap_file_put_queue(q);
->  out:
-> -	macvtap_file_put_queue();
->  	return result;
->  }
-> 
-> @@ -398,10 +407,8 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
->  	struct sk_buff *skb;
->  	ssize_t len, ret = 0;
-> 
-> -	if (!q) {
-> -		ret = -ENOLINK;
-> -		goto out;
-> -	}
-> +	if (!q)
-> +		return -ENOLINK;
-> 
->  	len = iov_length(iv, count);
->  	if (len < 0) {
-> @@ -437,7 +444,7 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
->  	remove_wait_queue(q->sk.sk_sleep, &wait);
-> 
->  out:
-> -	macvtap_file_put_queue();
-> +	macvtap_file_put_queue(q);
->  	return ret;
->  }
-> 
-> @@ -468,7 +475,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
->  		if (!q)
->  			return -ENOLINK;
->  		memcpy(devname, q->vlan->dev->name, sizeof(devname));
-> -		macvtap_file_put_queue();
-> +		macvtap_file_put_queue(q);
-> 
->  		if (copy_to_user(&ifr->ifr_name, q->vlan->dev->name, IFNAMSIZ) ||
->  		    put_user((TUN_TAP_DEV | TUN_NO_PI), &ifr->ifr_flags))
-> @@ -485,8 +492,10 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
->  			return -EFAULT;
-> 
->  		q = macvtap_file_get_queue(file);
-> +		if (!q)
-> +			return -ENOLINK;
->  		q->sk.sk_sndbuf = u;
-> -		macvtap_file_put_queue();
-> +		macvtap_file_put_queue(q);
->  		return 0;
-> 
->  	case TUNSETOFFLOAD:
+>
+> V2 - updated it for Grant's comments, except I couldn't find any tabs
+> converted to white space issue, let's see if V2 has it also
+>
+> V3 - updated it for Grant's comments, aded mutex release when a timeo=
+ut
+> happens, and added Grant's acked by.
+>
+> V4 - removed the mutex as I realized the higher layer mdio calls alre=
+ady
+> use a mutex and there are no internal calls to the driver except in o=
+pen.
+> Didn't integrate John W comments since releasing mutex wasn't needed.
+> ---
+> =A0drivers/net/Kconfig =A0 =A0 =A0 =A0 =A0 | =A0 =A01 +
+> =A0drivers/net/xilinx_emaclite.c | =A0381 +++++++++++++++++++++++++++=
++++++++++-----
+> =A02 files changed, 339 insertions(+), 43 deletions(-)
+[...]
+> =A0/**
+> =A0* xemaclite_open - Open the network device
+> =A0* @dev: =A0 =A0 =A0 Pointer to the network device
+> =A0*
+> =A0* This function sets the MAC address, requests an IRQ and enables =
+interrupts
+> =A0* for the Emaclite device and starts the Tx queue.
+> + * It also connects to the phy device, if MDIO is included in Emacli=
+te device.
+> =A0*/
+> =A0static int xemaclite_open(struct net_device *dev)
+> =A0{
+> @@ -656,14 +924,50 @@ static int xemaclite_open(struct net_device *de=
+v)
+> =A0 =A0 =A0 =A0/* Just to be safe, stop the device first */
+> =A0 =A0 =A0 =A0xemaclite_disable_interrupts(lp);
+>
+> + =A0 =A0 =A0 if (lp->phy_node) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 u32 bmcr;
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->phy_dev =3D of_phy_connect(lp->ndev=
+, lp->phy_node,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0xemaclite_adjust_link, 0,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0PHY_INTERFACE_MODE_MII);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!lp->phy_dev) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_err(&lp->ndev->dev,=
+ "of_phy_connect() failed\n");
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENODEV;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* EmacLite doesn't support giga-bit sp=
+eeds */
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->phy_dev->supported &=3D (PHY_BASIC_=
+=46EATURES);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->phy_dev->advertising =3D lp->phy_de=
+v->supported;
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* Don't advertise 1000BASE-T Full/Half=
+ duplex speeds */
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 xemaclite_mdio_write(lp->mii_bus, lp->p=
+hy_dev->addr,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0MII_CTRL1000, 0x00);
 
+Wait!  No.  This is wrong.  Sorry, I was all ready to ack this patch,
+but I just realized what was bothering me (and I should have clued
+into it earlier).  The driver cannot assume that the PHY is on an
+xemaclite MDIO bus.  It might be on a GPIO driven MDIO bus.  Or
+something else.  Calling xemaclite_mdio_{write,read} is not the right
+thing to do here.
+
+Instead, the driver should call the phy library function
+phy_write(lp->phy_dev, MII_CTRL1000, 0);  The phylib code will route
+it to the correct mdio bus.  It also takes care of grabbing the mutex
+lock.
+
+Make this fix, and then I can ack the driver.
+
+Cheers,
+g.
+
+
+--=20
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
