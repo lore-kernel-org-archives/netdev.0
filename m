@@ -1,47 +1,36 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH] l2tp: Fix a UDP socket reference count bug in the pppol2tp
- driver
-Date: Thu, 11 Feb 2010 11:32:12 +0000
-Message-ID: <4B73EABC.5000707@katalix.com>
-References: <20100121161009.5223.34288.stgit@bert.katalix.com>	<20100123.015511.83860202.davem@davemloft.net>	<4B603C50.20406@katalix.com> <20100128.060717.99647383.davem@davemloft.net>
+From: Andreas Petlund <apetlund@simula.no>
+Subject: [net-next PATCH v3 0/3] net: TCP thin-stream latency-improving modifications
+Date: Thu, 11 Feb 2010 13:07:05 +0100
+Message-ID: <4B73F2E9.3080306@simula.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
+	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
+	David Miller <davem@davemloft.net>,
+	william.allen.simpson@gmail.com, damian@tvk.rwth-aachen.de
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:47543 "EHLO mail.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751699Ab0BKLcY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Feb 2010 06:32:24 -0500
-In-Reply-To: <20100128.060717.99647383.davem@davemloft.net>
+Received: from mail-forward1.uio.no ([129.240.10.70]:33265 "EHLO
+	mail-forward1.uio.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753151Ab0BKMHE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 07:07:04 -0500
+Received: from exim by mail-out1.uio.no with local-bsmtp (Exim 4.69)
+	(envelope-from <apetlund@simula.no>)
+	id 1NfXp1-0006kk-3a
+	for netdev@vger.kernel.org; Thu, 11 Feb 2010 13:07:03 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: James Chapman <jchapman@katalix.com>
-> Date: Wed, 27 Jan 2010 13:14:56 +0000
-> 
->> Does the above help?
-> 
-> Thanks for the detailed explanation, I'll take another look
-> at this.
+This is a series of patches enabling non-intrusive, dynamically triggered modifications that improve retransmission latencies for thin streams.
 
-Did you get a chance to look at this?
+The patches have been modified according to the feedback from the last round of discussions.
 
-fyi - I'm getting ready to submit a patch series that adds L2TPv3
-support. I've been sitting on these for too long and have finally found
-time to prep them for review. Previous version was posted as RFC a year
-ago, archived here: http://marc.info/?l=linux-netdev&m=123532490429538&w=2
+Major changes:
+      -Possible to disable mechanisms by socket option
+      -Socket option value boundary check
 
-Should I wait for my previous fix to be reviewed before posting the new
-code? Or I could bundle that patch in the series - whichever works for you.
-
-Thanks
-
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
-
+Cheers,
+Andreas Petlund
