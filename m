@@ -1,35 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] sky2: receive checksum refactoring
-Date: Wed, 10 Feb 2010 17:57:55 -0800 (PST)
-Message-ID: <20100210.175755.120225353.davem@davemloft.net>
-References: <20100207082353.2d0c6a93@nehalam>
-	<20100207082836.22a7b296@nehalam>
+Subject: Re: [PATCH][v4] tcp: fix ICMP-RTO war
+Date: Wed, 10 Feb 2010 18:04:20 -0800 (PST)
+Message-ID: <20100210.180420.149959191.davem@davemloft.net>
+References: <4B7303C2.5000703@tvk.rwth-aachen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi
+To: damian@tvk.rwth-aachen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51345
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36408
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755547Ab0BKB5l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 20:57:41 -0500
-In-Reply-To: <20100207082836.22a7b296@nehalam>
+	by vger.kernel.org with ESMTP id S1753702Ab0BKCEF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Feb 2010 21:04:05 -0500
+In-Reply-To: <4B7303C2.5000703@tvk.rwth-aachen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Sun, 7 Feb 2010 08:28:36 -0800
+From: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Date: Wed, 10 Feb 2010 20:06:42 +0100
 
-> Break the largish case for handling receive checksum into a separate
-> function, and if there is a problem use dev_XXX routines to
-> show which hardware is the problem.
+> Make sure, that TCP has a nonzero RTT estimation after three-way
+> handshake. Currently, a listening TCP has a value of 0 for srtt,
+> rttvar and rto right after the three-way handshake is completed
+> with TCP timestamps disabled.
+> This will lead to corrupt RTO recalculation and retransmission
+> flood when RTO is recalculated on backoff reversion as introduced
+> in "Revert RTO on ICMP destination unreachable"
+> (f1ecd5d9e7366609d640ff4040304ea197fbc618).
+> This behaviour can be provoked by connecting to a server which
+> "responds first" (like SMTP) and rejecting every packet after
+> the handshake with dest-unreachable, which will lead to softirq
+> load on the server (up to 30% per socket in some tests).
 > 
-> Turn one corner case into a BUG().  This only happens if the driver
-> is expecting one behavior but the chip does the old behavior;
-> only ever saw this when bringing up a new chip type and driver
-> was buggy.
+> Thanks to Ilpo Jarvinen for providing debug patches and to
+> Denys Fedoryshchenko for reporting and testing.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Changes since v3: Removed bad characters in patchfile.
+> 
+> Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
+> Signed-off-by: Damian Lukowski <damian@tvk.rwth-aachen.de>
 
-Applied to net-next-2.6
+Applied, thank you very much for fixing this bug.
