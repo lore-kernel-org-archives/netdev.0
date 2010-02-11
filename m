@@ -1,59 +1,66 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 0/3 v4] macvtap driver
-Date: Thu, 11 Feb 2010 08:12:54 +0100
-Message-ID: <201002110812.54224.arnd@arndb.de>
-References: <201001271104.20607.arnd@arndb.de> <201002101550.14690.arnd@arndb.de> <9ae48b021002101642w752bbc93vbdcd71151dfb8cb7@mail.gmail.com>
+From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Subject: RE: [PATCH 0/3] Provide a zero-copy method on KVM virtio-net.
+Date: Thu, 11 Feb 2010 15:40:08 +0800
+Message-ID: <97F6D3BD476C464182C1B7BABF0B0AF5C11F641A@shzsmsx502.ccr.corp.intel.com>
+References: <1265802540-6122-1-git-send-email-xiaohui.xin@intel.com>
+ <201002101440.05063.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org
-To: Ed Swierk <eswierk@aristanetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:50801 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751300Ab0BKHNR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Feb 2010 02:13:17 -0500
-In-Reply-To: <9ae48b021002101642w752bbc93vbdcd71151dfb8cb7@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mingo@elte.hu" <mingo@elte.hu>, "mst@redhat.com" <mst@redhat.com>,
+	"jdike@c2.user-mode-linux.org" <jdike@c2.user-mode-linux.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <201002101440.05063.arnd@arndb.de>
+Content-Language: en-US
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday 11 February 2010 01:42:04 Ed Swierk wrote:
-> On Wed, Feb 10, 2010 at 6:50 AM, Arnd Bergmann <arnd@arndb.de> wrote:
-> > I think we also need to ensure the device doesn't go away, which
-> > was one of the reasons for the rcu_read_lock_bh() earlier.
-> 
-> This may be veering far off into the weeds, but I'm wondering if you
-> considered making macvtap devices behave more like tap devices.
-> Specifically, the application would open /dev/net/macvtap and send it
-> an ioctl with the name of the macvtap interface, the name of the lower
-> interface to attach to, the MAC address, etc; this would cause the
-> macvtap interface to spring into existence. The macvtap interface
-> would go away when the application exits or closes the file.
+>>On Wednesday 10 February 2010, Xin Xiaohui wrote:
+> >The idea is simple, just to pin the guest VM user space and then
+> >let host NIC driver has the chance to directly DMA to it. 
+> >The patches are based on vhost-net backend driver. We add a device
+> >which provides proto_ops as sendmsg/recvmsg to vhost-net to
+> >send/recv directly to/from the NIC driver. KVM guest who use the
+> >vhost-net backend may bind any ethX interface in the host side to
+> >get copyless data transfer thru guest virtio-net frontend.
+>> 
+>> We provide multiple submits and asynchronous notifiicaton to 
+> >vhost-net too.
 
-No, I never considered this. In fact, this behavior of tun/tap
-is what makes that driver have really complex lifetime rules (more
-so than macvtap) and causes all sorts of problems if you want to
-manage unprivileged users accessing different outgoing interfaces.
+>This does a lot of things that I had planned for macvtap. It's
+>great to hear that you have made this much progress.
+>
+>However, I'd hope that we could combine this with the macvtap driver,
+>which would give us zero-copy transfer capability both with and
+>without vhost, as well as (tx at least) when using multiple guests
+>on a macvlan setup.
 
-> The tricky part here would be noticing when the lower interface goes
-> away, and (ideally) reattaching when an interface with the same name
-> reappears.
+You mean the zero-copy can work with macvtap driver without vhost.
+May you give me some detailed info about your macvtap driver and the
+relationship between vhost and macvtap to make me have a clear picture then?
 
-The first part is not so hard, the second part I'd rather not do.
- 
-> I think the advantage of this approach is that it better fits the way
-> applications like qemu and libvirt use tap interfaces. Unlike the
-> current approach, however, this wouldn't allow creating a macvtap
-> interface and keep it around independently of the application using
-> it. Is it desirable to support this use case?
+>For transmit, it should be fairly straightforward to hook up
+>your zero-copy method and the vhost-net interface into the
+>macvtap driver.
+>
+>You have simplified the receiv path significantly by assuming
+>that the entire netdev can receive into a single guest, right?
 
-I think it's very useful that you can set up static interfaces and give
-them to a user (or group) that are then able to use these interfaces
-without getting any network privileges beyond that.
+Yes.
 
-Another reason for having one chardev per interface is to support
-multiple open files for the same interface. I want to use that as
-an easy way to support multi-queue NICs.
+>I'm assuming that the idea is to allow VMDq adapters to simply
+>show up as separate adapters and have the driver handle this
+>in a hardware specific way.
+
+Does the VMDq driver do so now?
+
+>My plan for this was to instead move support for VMDq into the
+>macvlan driver so we can transparently use VMDq on hardware where
+>available, including zero-copy receives, but fall back to software
+>operation on non-VMDq hardware.
 
 	Arnd
