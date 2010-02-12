@@ -1,433 +1,71 @@
-From: "Luis R. Rodriguez" <lrodriguez@atheros.com>
-Subject: [PATCH] atl1c: Add support for Atheros AR8152 and AR8152
-Date: Thu, 11 Feb 2010 19:33:32 -0500
-Message-ID: <1265934812-14157-1-git-send-email-lrodriguez@atheros.com>
-Cc: linux-kernel@vger.kernel.org, espy@canonical.com,
-	ken.wu@atheros.com, graham.richards@atheros.com,
-	scott.tan@atheros.com, mcgrof@gmail.com, chris.snook@gmail.com,
-	"Luis R. Rodriguez" <lrodriguez@atheros.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: Note: Atheros ethernet part of compat-wireless too
+Date: Thu, 11 Feb 2010 17:09:39 -0800
+Message-ID: <43e72e891002111709l63d6da5dxfd40ec640a3128fc@mail.gmail.com>
+References: <43e72e891002020915x572a11fcg57f0b9caf7ed08ea@mail.gmail.com>
+	<4B686056.7090405@canonical.com>
+	<43e72e891002101016r754b7504vdb94c110a3c0b608@mail.gmail.com>
+	<43e72e891002101822h562fc25h996bafdfd87c50c5@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, Ubuntu Kernel Team <kernel-team@lists.ubuntu.com>
+To: Tony Espy <espy@canonical.com>
+Return-path: <kernel-team-bounces@lists.ubuntu.com>
+In-Reply-To: <43e72e891002101822h562fc25h996bafdfd87c50c5@mail.gmail.com>
+List-Unsubscribe: <https://lists.ubuntu.com/mailman/listinfo/kernel-team>,
+	<mailto:kernel-team-request@lists.ubuntu.com?subject=unsubscribe>
+List-Archive: <https://lists.ubuntu.com/archives/kernel-team>
+List-Post: <mailto:kernel-team@lists.ubuntu.com>
+List-Help: <mailto:kernel-team-request@lists.ubuntu.com?subject=help>
+List-Subscribe: <https://lists.ubuntu.com/mailman/listinfo/kernel-team>,
+	<mailto:kernel-team-request@lists.ubuntu.com?subject=subscribe>
+Sender: kernel-team-bounces@lists.ubuntu.com
+Errors-To: kernel-team-bounces@lists.ubuntu.com
 List-Id: netdev.vger.kernel.org
 
-AR8151 is a Gigabit Ethernet device. AR8152 devices are
-Fast Ethernet devices, there are two revisions, a 1.0
-and a 2.0 revision.
-
-This has been tested against these devices:
-
-Driver	Model-name	vendor:device	Type
-atl1c 	AR8131		1969:1063	Gigabit Ethernet
-atl1c	AR8132		1969:1062	Fast Ethernet
-atl1c	AR8151(v1.0)	1969:1073	Gigabit Ethernet
-atl1c	AR8152(v1.1)	1969:2060	Fast Ethernet
-
-This device has no hardware available yet so it goes untested,
-but it should work:
-
-atl1c	AR8152(v2.0)	1969:2062	Fast Ethernet
-
-Signed-off-by: Luis R. Rodriguez <lrodriguez@atheros.com>
----
-
-If you are a distribution looking to just suck this patch
-into your tree you can wget this:
-
-http://kernel.org/pub/linux/kernel/people/mcgrof/ethernet/AR8152-AR8152.patch
-
- drivers/net/atl1c/atl1c.h         |   11 +++-
- drivers/net/atl1c/atl1c_ethtool.c |    2 +-
- drivers/net/atl1c/atl1c_hw.c      |   83 +++++++++++++++++++++++----
- drivers/net/atl1c/atl1c_hw.h      |    5 ++
- drivers/net/atl1c/atl1c_main.c    |  115 +++++++++++++++++++++++++++++++++---
- 5 files changed, 191 insertions(+), 25 deletions(-)
-
-diff --git a/drivers/net/atl1c/atl1c.h b/drivers/net/atl1c/atl1c.h
-index efe5435..84ae905 100644
---- a/drivers/net/atl1c/atl1c.h
-+++ b/drivers/net/atl1c/atl1c.h
-@@ -313,6 +313,9 @@ enum atl1c_rss_type {
- enum atl1c_nic_type {
- 	athr_l1c = 0,
- 	athr_l2c = 1,
-+	athr_l2c_b,
-+	athr_l2c_b2,
-+	athr_l1d,
- };
- 
- enum atl1c_trans_queue {
-@@ -426,8 +429,12 @@ struct atl1c_hw {
- #define ATL1C_ASPM_L1_SUPPORT		0x0100
- #define ATL1C_ASPM_CTRL_MON		0x0200
- #define ATL1C_HIB_DISABLE		0x0400
--#define ATL1C_LINK_CAP_1000M		0x0800
--#define ATL1C_FPGA_VERSION		0x8000
-+#define ATL1C_APS_MODE_ENABLE           0x0800
-+#define ATL1C_LINK_EXT_SYNC             0x1000
-+#define ATL1C_CLK_GATING_EN             0x2000
-+#define ATL1C_FPGA_VERSION              0x8000
-+	u16 link_cap_flags;
-+#define ATL1C_LINK_CAP_1000M		0x0001
- 	u16 cmb_tpd;
- 	u16 cmb_rrd;
- 	u16 cmb_rx_timer; /* 2us resolution */
-diff --git a/drivers/net/atl1c/atl1c_ethtool.c b/drivers/net/atl1c/atl1c_ethtool.c
-index 9b1e0ea..61a0f2f 100644
---- a/drivers/net/atl1c/atl1c_ethtool.c
-+++ b/drivers/net/atl1c/atl1c_ethtool.c
-@@ -37,7 +37,7 @@ static int atl1c_get_settings(struct net_device *netdev,
- 			   SUPPORTED_100baseT_Full |
- 			   SUPPORTED_Autoneg       |
- 			   SUPPORTED_TP);
--	if (hw->ctrl_flags & ATL1C_LINK_CAP_1000M)
-+	if (hw->link_cap_flags & ATL1C_LINK_CAP_1000M)
- 		ecmd->supported |= SUPPORTED_1000baseT_Full;
- 
- 	ecmd->advertising = ADVERTISED_TP;
-diff --git a/drivers/net/atl1c/atl1c_hw.c b/drivers/net/atl1c/atl1c_hw.c
-index 3e69b94..f1389d6 100644
---- a/drivers/net/atl1c/atl1c_hw.c
-+++ b/drivers/net/atl1c/atl1c_hw.c
-@@ -70,17 +70,39 @@ static int atl1c_get_permanent_address(struct atl1c_hw *hw)
- 	u32 otp_ctrl_data;
- 	u32 twsi_ctrl_data;
- 	u8  eth_addr[ETH_ALEN];
-+	u16 phy_data;
-+	bool raise_vol = false;
- 
- 	/* init */
- 	addr[0] = addr[1] = 0;
- 	AT_READ_REG(hw, REG_OTP_CTRL, &otp_ctrl_data);
- 	if (atl1c_check_eeprom_exist(hw)) {
--		/* Enable OTP CLK */
--		if (!(otp_ctrl_data & OTP_CTRL_CLK_EN)) {
--			otp_ctrl_data |= OTP_CTRL_CLK_EN;
--			AT_WRITE_REG(hw, REG_OTP_CTRL, otp_ctrl_data);
--			AT_WRITE_FLUSH(hw);
--			msleep(1);
-+		if (hw->nic_type == athr_l1c || hw->nic_type == athr_l2c_b) {
-+			/* Enable OTP CLK */
-+			if (!(otp_ctrl_data & OTP_CTRL_CLK_EN)) {
-+				otp_ctrl_data |= OTP_CTRL_CLK_EN;
-+				AT_WRITE_REG(hw, REG_OTP_CTRL, otp_ctrl_data);
-+				AT_WRITE_FLUSH(hw);
-+				msleep(1);
-+			}
-+		}
-+
-+		if (hw->nic_type == athr_l2c_b ||
-+		    hw->nic_type == athr_l2c_b2 ||
-+		    hw->nic_type == athr_l1d) {
-+			atl1c_write_phy_reg(hw, MII_DBG_ADDR, 0x00);
-+			if (atl1c_read_phy_reg(hw, MII_DBG_DATA, &phy_data))
-+				goto out;
-+			phy_data &= 0xFF7F;
-+			atl1c_write_phy_reg(hw, MII_DBG_DATA, phy_data);
-+
-+			atl1c_write_phy_reg(hw, MII_DBG_ADDR, 0x3B);
-+			if (atl1c_read_phy_reg(hw, MII_DBG_DATA, &phy_data))
-+				goto out;
-+			phy_data |= 0x8;
-+			atl1c_write_phy_reg(hw, MII_DBG_DATA, phy_data);
-+			udelay(20);
-+			raise_vol = true;
- 		}
- 
- 		AT_READ_REG(hw, REG_TWSI_CTRL, &twsi_ctrl_data);
-@@ -96,11 +118,31 @@ static int atl1c_get_permanent_address(struct atl1c_hw *hw)
- 			return -1;
- 	}
- 	/* Disable OTP_CLK */
--	if (otp_ctrl_data & OTP_CTRL_CLK_EN) {
--		otp_ctrl_data &= ~OTP_CTRL_CLK_EN;
--		AT_WRITE_REG(hw, REG_OTP_CTRL, otp_ctrl_data);
--		AT_WRITE_FLUSH(hw);
--		msleep(1);
-+	if ((hw->nic_type == athr_l1c || hw->nic_type == athr_l2c)) {
-+		if (otp_ctrl_data & OTP_CTRL_CLK_EN) {
-+			otp_ctrl_data &= ~OTP_CTRL_CLK_EN;
-+			AT_WRITE_REG(hw, REG_OTP_CTRL, otp_ctrl_data);
-+			AT_WRITE_FLUSH(hw);
-+			msleep(1);
-+		}
-+	}
-+	if (raise_vol) {
-+		if (hw->nic_type == athr_l2c_b ||
-+		    hw->nic_type == athr_l2c_b2 ||
-+		    hw->nic_type == athr_l1d) {
-+			atl1c_write_phy_reg(hw, MII_DBG_ADDR, 0x00);
-+			if (atl1c_read_phy_reg(hw, MII_DBG_DATA, &phy_data))
-+				goto out;
-+			phy_data |= 0x80;
-+			atl1c_write_phy_reg(hw, MII_DBG_DATA, phy_data);
-+
-+			atl1c_write_phy_reg(hw, MII_DBG_ADDR, 0x3B);
-+			if (atl1c_read_phy_reg(hw, MII_DBG_DATA, &phy_data))
-+				goto out;
-+			phy_data &= 0xFFF7;
-+			atl1c_write_phy_reg(hw, MII_DBG_DATA, phy_data);
-+			udelay(20);
-+		}
- 	}
- 
- 	/* maybe MAC-address is from BIOS */
-@@ -114,6 +156,7 @@ static int atl1c_get_permanent_address(struct atl1c_hw *hw)
- 		return 0;
- 	}
- 
-+out:
- 	return -1;
- }
- 
-@@ -307,7 +350,7 @@ static int atl1c_phy_setup_adv(struct atl1c_hw *hw)
- 		mii_adv_data |= ADVERTISE_10HALF  | ADVERTISE_10FULL |
- 				ADVERTISE_100HALF | ADVERTISE_100FULL;
- 
--	if (hw->ctrl_flags & ATL1C_LINK_CAP_1000M) {
-+	if (hw->link_cap_flags & ATL1C_LINK_CAP_1000M) {
- 		if (hw->autoneg_advertised & ADVERTISED_1000baseT_Half)
- 			mii_giga_ctrl_data |= ADVERTISE_1000HALF;
- 		if (hw->autoneg_advertised & ADVERTISED_1000baseT_Full)
-@@ -389,6 +432,7 @@ int atl1c_phy_reset(struct atl1c_hw *hw)
- {
- 	struct atl1c_adapter *adapter = hw->adapter;
- 	struct pci_dev *pdev = adapter->pdev;
-+	u16 phy_data;
- 	u32 phy_ctrl_data = GPHY_CTRL_DEFAULT;
- 	u32 mii_ier_data = IER_LINK_UP | IER_LINK_DOWN;
- 	int err;
-@@ -404,6 +448,21 @@ int atl1c_phy_reset(struct atl1c_hw *hw)
- 	AT_WRITE_FLUSH(hw);
- 	msleep(10);
- 
-+	if (hw->nic_type == athr_l2c_b) {
-+		atl1c_write_phy_reg(hw, MII_DBG_ADDR, 0x0A);
-+		atl1c_read_phy_reg(hw, MII_DBG_DATA, &phy_data);
-+		atl1c_write_phy_reg(hw, MII_DBG_DATA, phy_data & 0xDFFF);
-+	}
-+
-+	if (hw->nic_type == athr_l2c_b ||
-+	    hw->nic_type == athr_l2c_b2 ||
-+	    hw->nic_type == athr_l1d) {
-+		atl1c_write_phy_reg(hw, MII_DBG_ADDR, 0x3B);
-+		atl1c_read_phy_reg(hw, MII_DBG_DATA, &phy_data);
-+		atl1c_write_phy_reg(hw, MII_DBG_DATA, phy_data & 0xFFF7);
-+		msleep(20);
-+	}
-+
- 	/*Enable PHY LinkChange Interrupt */
- 	err = atl1c_write_phy_reg(hw, MII_IER, mii_ier_data);
- 	if (err) {
-diff --git a/drivers/net/atl1c/atl1c_hw.h b/drivers/net/atl1c/atl1c_hw.h
-index c2c738d..1eeb3ed 100644
---- a/drivers/net/atl1c/atl1c_hw.h
-+++ b/drivers/net/atl1c/atl1c_hw.h
-@@ -57,6 +57,7 @@ int atl1c_restart_autoneg(struct atl1c_hw *hw);
- #define REG_LINK_CTRL			0x68
- #define LINK_CTRL_L0S_EN		0x01
- #define LINK_CTRL_L1_EN			0x02
-+#define LINK_CTRL_EXT_SYNC		0x80
- 
- #define REG_VPD_CAP			0x6C
- #define VPD_CAP_ID_MASK                 0xff
-@@ -156,6 +157,8 @@ int atl1c_restart_autoneg(struct atl1c_hw *hw);
- #define PM_CTRL_PM_REQ_TIMER_SHIFT	20
- #define PM_CTRL_LCKDET_TIMER_MASK	0x3F
- #define PM_CTRL_LCKDET_TIMER_SHIFT	24
-+#define PM_CTRL_EN_BUFS_RX_L0S		0x10000000
-+#define PM_CTRL_SA_DLY_EN		0x20000000
- #define PM_CTRL_MAC_ASPM_CHK		0x40000000
- #define PM_CTRL_HOTRST			0x80000000
- 
-@@ -314,6 +317,8 @@ int atl1c_restart_autoneg(struct atl1c_hw *hw);
- #define MAC_CTRL_BC_EN              	0x4000000
- #define MAC_CTRL_DBG                	0x8000000
- #define MAC_CTRL_SINGLE_PAUSE_EN	0x10000000
-+#define MAC_CTRL_HASH_ALG_CRC32		0x20000000
-+#define MAC_CTRL_SPEED_MODE_SW		0x40000000
- 
- /* MAC IPG/IFG Control Register  */
- #define REG_MAC_IPG_IFG             	0x1484
-diff --git a/drivers/net/atl1c/atl1c_main.c b/drivers/net/atl1c/atl1c_main.c
-index 2f4be59..1fd2f3e 100644
---- a/drivers/net/atl1c/atl1c_main.c
-+++ b/drivers/net/atl1c/atl1c_main.c
-@@ -21,11 +21,18 @@
- 
- #include "atl1c.h"
- 
--#define ATL1C_DRV_VERSION "1.0.0.1-NAPI"
-+#define ATL1C_DRV_VERSION "1.0.0.2-NAPI"
- char atl1c_driver_name[] = "atl1c";
- char atl1c_driver_version[] = ATL1C_DRV_VERSION;
- #define PCI_DEVICE_ID_ATTANSIC_L2C      0x1062
- #define PCI_DEVICE_ID_ATTANSIC_L1C      0x1063
-+#define PCI_DEVICE_ID_ATHEROS_L2C_B	0x2060 /* AR8152 v1.1 Fast 10/100 */
-+#define PCI_DEVICE_ID_ATHEROS_L2C_B2	0x2062 /* AR8152 v2.0 Fast 10/100 */
-+#define PCI_DEVICE_ID_ATHEROS_L1D	0x1073 /* AR8151 v1.0 Gigabit 1000 */
-+
-+#define L2CB_V10			0xc0
-+#define L2CB_V11			0xc1
-+
- /*
-  * atl1c_pci_tbl - PCI Device ID Table
-  *
-@@ -38,6 +45,9 @@ char atl1c_driver_version[] = ATL1C_DRV_VERSION;
- static struct pci_device_id atl1c_pci_tbl[] = {
- 	{PCI_DEVICE(PCI_VENDOR_ID_ATTANSIC, PCI_DEVICE_ID_ATTANSIC_L1C)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_ATTANSIC, PCI_DEVICE_ID_ATTANSIC_L2C)},
-+	{PCI_DEVICE(PCI_VENDOR_ID_ATTANSIC, PCI_DEVICE_ID_ATHEROS_L2C_B)},
-+	{PCI_DEVICE(PCI_VENDOR_ID_ATTANSIC, PCI_DEVICE_ID_ATHEROS_L2C_B2)},
-+	{PCI_DEVICE(PCI_VENDOR_ID_ATTANSIC, PCI_DEVICE_ID_ATHEROS_L1D)},
- 	/* required last entry */
- 	{ 0 }
- };
-@@ -593,11 +603,18 @@ static void atl1c_set_mac_type(struct atl1c_hw *hw)
- 	case PCI_DEVICE_ID_ATTANSIC_L2C:
- 		hw->nic_type = athr_l2c;
- 		break;
--
- 	case PCI_DEVICE_ID_ATTANSIC_L1C:
- 		hw->nic_type = athr_l1c;
- 		break;
--
-+	case PCI_DEVICE_ID_ATHEROS_L2C_B:
-+		hw->nic_type = athr_l2c_b;
-+		break;
-+	case PCI_DEVICE_ID_ATHEROS_L2C_B2:
-+		hw->nic_type = athr_l2c_b2;
-+		break;
-+	case PCI_DEVICE_ID_ATHEROS_L1D:
-+		hw->nic_type = athr_l1d;
-+		break;
- 	default:
- 		break;
- 	}
-@@ -620,10 +637,13 @@ static int atl1c_setup_mac_funcs(struct atl1c_hw *hw)
- 		hw->ctrl_flags |= ATL1C_ASPM_L0S_SUPPORT;
- 	if (link_ctrl_data & LINK_CTRL_L1_EN)
- 		hw->ctrl_flags |= ATL1C_ASPM_L1_SUPPORT;
-+	if (link_ctrl_data & LINK_CTRL_EXT_SYNC)
-+		hw->ctrl_flags |= ATL1C_LINK_EXT_SYNC;
- 
--	if (hw->nic_type == athr_l1c) {
-+	if (hw->nic_type == athr_l1c ||
-+	    hw->nic_type == athr_l1d) {
- 		hw->ctrl_flags |= ATL1C_ASPM_CTRL_MON;
--		hw->ctrl_flags |= ATL1C_LINK_CAP_1000M;
-+		hw->link_cap_flags |= ATL1C_LINK_CAP_1000M;
- 	}
- 	return 0;
- }
-@@ -1234,21 +1254,92 @@ static void atl1c_disable_l0s_l1(struct atl1c_hw *hw)
- static void atl1c_set_aspm(struct atl1c_hw *hw, bool linkup)
- {
- 	u32 pm_ctrl_data;
-+	u32 link_ctrl_data;
- 
- 	AT_READ_REG(hw, REG_PM_CTRL, &pm_ctrl_data);
--
-+	AT_READ_REG(hw, REG_LINK_CTRL, &link_ctrl_data);
- 	pm_ctrl_data &= ~PM_CTRL_SERDES_PD_EX_L1;
-+
- 	pm_ctrl_data &=  ~(PM_CTRL_L1_ENTRY_TIMER_MASK <<
- 			PM_CTRL_L1_ENTRY_TIMER_SHIFT);
-+	pm_ctrl_data &= ~(PM_CTRL_LCKDET_TIMER_MASK <<
-+			  PM_CTRL_LCKDET_TIMER_SHIFT);
- 
- 	pm_ctrl_data |= PM_CTRL_MAC_ASPM_CHK;
-+	pm_ctrl_data &= ~PM_CTRL_ASPM_L1_EN;
-+	pm_ctrl_data |= PM_CTRL_RBER_EN;
-+	pm_ctrl_data |= PM_CTRL_SDES_EN;
-+
-+	if (hw->nic_type == athr_l2c_b ||
-+	    hw->nic_type == athr_l1d ||
-+	    hw->nic_type == athr_l2c_b2) {
-+		link_ctrl_data &= ~LINK_CTRL_EXT_SYNC;
-+		if (!(hw->ctrl_flags & ATL1C_APS_MODE_ENABLE)) {
-+			if (hw->nic_type == athr_l2c_b &&
-+			    hw->revision_id == L2CB_V10)
-+				link_ctrl_data |= LINK_CTRL_EXT_SYNC;
-+		}
-+
-+		AT_WRITE_REG(hw, REG_LINK_CTRL, link_ctrl_data);
-+
-+		pm_ctrl_data |= PM_CTRL_PCIE_RECV;
-+		pm_ctrl_data |= AT_ASPM_L1_TIMER << PM_CTRL_PM_REQ_TIMER_SHIFT;
-+		pm_ctrl_data &= ~PM_CTRL_EN_BUFS_RX_L0S;
-+		pm_ctrl_data &= ~PM_CTRL_SA_DLY_EN;
-+		pm_ctrl_data &= ~PM_CTRL_HOTRST;
-+		pm_ctrl_data |= 1 << PM_CTRL_L1_ENTRY_TIMER_SHIFT;
-+		pm_ctrl_data |= PM_CTRL_SERDES_PD_EX_L1;
-+	}
- 
- 	if (linkup) {
--		pm_ctrl_data |= PM_CTRL_SERDES_PLL_L1_EN;
--		pm_ctrl_data &= ~PM_CTRL_CLK_SWH_L1;
-+		pm_ctrl_data &= ~PM_CTRL_ASPM_L1_EN;
-+		pm_ctrl_data &= ~PM_CTRL_ASPM_L0S_EN;
-+		if (hw->ctrl_flags & ATL1C_ASPM_L1_SUPPORT)
-+			pm_ctrl_data |= PM_CTRL_ASPM_L1_EN;
-+		if (hw->ctrl_flags & ATL1C_ASPM_L0S_SUPPORT)
-+			pm_ctrl_data |= PM_CTRL_ASPM_L0S_EN;
-+
-+		if (hw->nic_type == athr_l2c_b ||
-+		    hw->nic_type == athr_l1d ||
-+		    hw->nic_type == athr_l2c_b2) {
-+			if (hw->nic_type == athr_l2c_b)
-+				if (!(hw->ctrl_flags & ATL1C_APS_MODE_ENABLE))
-+					pm_ctrl_data &= PM_CTRL_ASPM_L0S_EN;
-+			pm_ctrl_data &= ~PM_CTRL_SERDES_L1_EN;
-+			pm_ctrl_data &= ~PM_CTRL_SERDES_PLL_L1_EN;
-+			pm_ctrl_data &= ~PM_CTRL_SERDES_BUDS_RX_L1_EN;
-+			pm_ctrl_data |= PM_CTRL_CLK_SWH_L1;
-+			if (hw->adapter->link_speed == SPEED_100 ||
-+			    hw->adapter->link_speed == SPEED_1000) {
-+				pm_ctrl_data &=
-+					~(PM_CTRL_L1_ENTRY_TIMER_MASK <<
-+					  PM_CTRL_L1_ENTRY_TIMER_SHIFT);
-+				if (hw->nic_type == athr_l1d)
-+					pm_ctrl_data |= 0xF <<
-+						PM_CTRL_L1_ENTRY_TIMER_SHIFT;
-+				else
-+					pm_ctrl_data |= 7 <<
-+						PM_CTRL_L1_ENTRY_TIMER_SHIFT;
-+			}
-+		} else {
-+			pm_ctrl_data |= PM_CTRL_SERDES_L1_EN;
-+			pm_ctrl_data |= PM_CTRL_SERDES_PLL_L1_EN;
-+			pm_ctrl_data |= PM_CTRL_SERDES_BUDS_RX_L1_EN;
-+			pm_ctrl_data &= ~PM_CTRL_CLK_SWH_L1;
-+			pm_ctrl_data &= ~PM_CTRL_ASPM_L0S_EN;
-+			pm_ctrl_data &= ~PM_CTRL_ASPM_L1_EN;
-+		}
-+		atl1c_write_phy_reg(hw, MII_DBG_ADDR, 0x29);
-+		if (hw->adapter->link_speed == SPEED_10)
-+			if (hw->nic_type == athr_l1d)
-+				atl1c_write_phy_reg(hw, MII_DBG_ADDR, 0xB69D);
-+			else
-+				atl1c_write_phy_reg(hw, MII_DBG_DATA, 0xB6DD);
-+		else if (hw->adapter->link_speed == SPEED_100)
-+			atl1c_write_phy_reg(hw, MII_DBG_DATA, 0xB2DD);
-+		else
-+			atl1c_write_phy_reg(hw, MII_DBG_DATA, 0x96DD);
- 
--		pm_ctrl_data |= PM_CTRL_SERDES_BUDS_RX_L1_EN;
--		pm_ctrl_data |= PM_CTRL_SERDES_L1_EN;
- 	} else {
- 		pm_ctrl_data &= ~PM_CTRL_SERDES_BUDS_RX_L1_EN;
- 		pm_ctrl_data &= ~PM_CTRL_SERDES_L1_EN;
-@@ -1302,6 +1393,10 @@ static void atl1c_setup_mac_ctrl(struct atl1c_adapter *adapter)
- 		mac_ctrl_data |= MAC_CTRL_MC_ALL_EN;
- 
- 	mac_ctrl_data |= MAC_CTRL_SINGLE_PAUSE_EN;
-+	if (hw->nic_type == athr_l1d || hw->nic_type == athr_l2c_b2) {
-+		mac_ctrl_data |= MAC_CTRL_SPEED_MODE_SW;
-+		mac_ctrl_data |= MAC_CTRL_HASH_ALG_CRC32;
-+	}
- 	AT_WRITE_REG(hw, REG_MAC_CTRL, mac_ctrl_data);
- }
- 
--- 
-1.6.3.3
+T24gV2VkLCBGZWIgMTAsIDIwMTAgYXQgNjoyMiBQTSwgTHVpcyBSLiBSb2RyaWd1ZXogPG1jZ3Jv
+ZkBnbWFpbC5jb20+IHdyb3RlOgo+IE9uIFdlZCwgRmViIDEwLCAyMDEwIGF0IDEwOjE2IEFNLCBM
+dWlzIFIuIFJvZHJpZ3VleiA8bWNncm9mQGdtYWlsLmNvbT4gd3JvdGU6Cj4+IE9uIFR1ZSwgRmVi
+IDIsIDIwMTAgYXQgOToyNiBBTSwgVG9ueSBFc3B5IDxlc3B5QGNhbm9uaWNhbC5jb20+IHdyb3Rl
+Ogo+Pj4gTHVpcyBSLiBSb2RyaWd1ZXogd3JvdGU6Cj4+Pj4KPj4+PiBJIHdhbnRlZCB0byBsZXQg
+eW91IGtub3cgSSB0aHJldyBpbiB0aGUgQXRoZXJvcyBldGhlcm5ldCBkcml2ZXJzIGFzCj4+Pj4g
+cGFydCBvZiBjb21wYXQtd2lyZWxlc3MuCj4+Pgo+Pj4gTHVpcyAtLQo+Pj4KPj4+IERvZXMgdGhp
+cyBpbmNsdWRlIHN1cHBvcnQgZm9yIHRoZSBBdGhlcm9zIEFSODE1MiBQQ0ktRSBmYXN0IGV0aGVy
+bmV0Cj4+PiBhZGFwdGVyPyDCoEFsc28sIHdoYXQncyB0aGUgbGVhZCB0aW1lIGZvciB0aGlzIHRv
+IGxhbmQgaW4gYSAic3RhYmxlIiByZWxlYXNlPwo+Pgo+PiBGaWd1cmVkIEknZCBnaXZlIHlvdSB0
+aGUgaGVhZHMgdXAgdGhhdCB0aGUgQVI4MTUyIGlzIG5vdCBzdXBwb3J0ZWQKPj4gdXBzdHJlYW0g
+eWV0LiBJIGp1c3QgZ290IGEgdGFyYmFsbCBvZiB0aGUgZHJpdmVyIHRoYXQgc3VwcG9ydHMgdGhp
+cwo+PiBhbmQgQVI4MTUxLiBIZXJlJ3Mgb3VyIGN1cnJlbnQgdXBzdHJlYW0gc3VwcG9ydCBzdGF0
+dXMgdGFibGU6Cj4+Cj4+IERyaXZlciBNb2RlbC1uYW1lIMKgIMKgIMKgIMKgIMKgIMKgIHZlbmRv
+cjpkZXZpY2UgwqAgwqBUeXBlCj4+IGF0bDFjIMKgQVI4MTMxIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIDE5Njk6MTA2MyDCoCDCoCDCoCDCoEdpZ2FiaXQgRXRoZXJuZXQKPj4gYXRsMWMgwqBBUjgx
+MzIgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgMTk2OToxMDYyIMKgIMKgIMKgIMKgRmFzdCBFdGhl
+cm5ldAo+PiBhdGwxIMKgIEwxIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIDE5Njk6MTA0
+OCDCoCDCoCDCoCDCoEdpZ2FiaXQgRXRoZXJuZXQKPj4gYXRsMiDCoCBMMiDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCAxOTY5OjIwNDggwqAgwqAgwqAgwqBGYXN0IEV0aGVybmV0Cj4+IGF0
+bDFlIMKgQVI4MTIxL0FSODExMy9BUjgxMTQgwqAgMTk2OToxMDI2IMKgIMKgIMKgIMKgR2lnYWJp
+dC9GYXN0IEV0aGVybmV0KGRyaXZlcgo+PiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBjaGVjayBvbmUgaW50ZXJuYWwg
+cmVnaXN0ZXIgdG8KPj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgc2VlIGlmIHN1cHBvcnQgZ2lnYWJpdCkKPj4gYXRs
+MWMgwqBBUjgxNTEodjEuMCkgwqAgwqAgwqAgwqAgwqAgMTk2OToxMDczIMKgIMKgIMKgIMKgR2ln
+YWJpdCBFdGhlcm5ldChub3Qgc3VwcG9ydAo+PiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBpbiBrZXJuZWwgeWV0KQo+
+PiBhdGwxYyDCoEFSODE1Mih2MS4xKSDCoCDCoCDCoCDCoCDCoCAxOTY5OjIwNjAgwqAgwqAgwqAg
+wqBGYXN0IEV0aGVybmV0KG5vdCBzdXBwb3J0Cj4+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGluIGtlcm5lbCB5ZXQp
+Cj4+IGF0bDFjIMKgQVI4MTUyKHYyLjApIMKgIMKgIMKgIMKgIMKgIDE5Njk6MjA2MiDCoCDCoCDC
+oCDCoEZhc3QgRXRoZXJuZXQobm90IHN1cHBvcnQKPj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgaW4ga2VybmVsIHll
+dCkKPj4KPj4gSSBqdXN0IHVwZGF0ZWQgdGhlIFBDSSBJRCBkYXRhYmFzZSBhY2NvcmRpbmdseS4g
+VGhlIGRyaXZlciBwYXRjaGVzIGZvcgo+PiBhdGwxYyBtaWdodCBiZSBlYXN5LCB3aWxsIHRha2Ug
+YSBxdWljayBsb29rLiBGV0lXIHRoZSB0YXJiYWxsIEkgd2lsbAo+PiBiZSBsb29raW5nIGF0IGlu
+IGEgZmV3IG1vbWVudHMgaXMKPj4KPj4gaHR0cDovL2tlcm5lbC5vcmcvcHViL2xpbnV4L2tlcm5l
+bC9wZW9wbGUvbWNncm9mL2V0aGVybmV0L0FSODFGYW1pbHktbGludXgtdjEuMC4xLjYudGFyLmJ6
+Mgo+Cj4gT0sgSSBnb3Qgc29tZSBwYXRjaCBub3csIHdpbGwgc2VuZCBhbiBSRlQuCgpUaGlzIHdv
+cmtlZCBmb3IgbWUsIHNvIGNvbXBhdC13aXJlbGVzcy0yLjYuMzQgc2hvdWxkIGdldCBBUjgxNTIg
+UENJLUUKZmFzdCBldGhlcm5ldCBzdXBwb3J0IGFzIHdlbGwsIGFzc3VtaW5nIG9mIGNvdXJzZSBt
+eSBwYXRjaCBnZXRzIGludG8KMi42LjM0LgoKICBMdWlzCgotLSAKa2VybmVsLXRlYW0gbWFpbGlu
+ZyBsaXN0Cmtlcm5lbC10ZWFtQGxpc3RzLnVidW50dS5jb20KaHR0cHM6Ly9saXN0cy51YnVudHUu
+Y29tL21haWxtYW4vbGlzdGluZm8va2VybmVsLXRlYW0K
