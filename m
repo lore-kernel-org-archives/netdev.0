@@ -1,61 +1,65 @@
-From: Ajit Khaparde <ajitkhaparde@gmail.com>
-Subject: [PATCH net-2.6] net: bug fix for vlan + gro issue
-Date: Fri, 12 Feb 2010 11:04:53 +0530
-Message-ID: <20100212053451.GA23351@serverengines.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [net-next PATCH v3 2/3] net: TCP thin linear timeouts
+Date: Fri, 12 Feb 2010 06:19:13 -0500
+Message-ID: <4B753931.30405@gmail.com>
+References: <4B73F30D.6040205@simula.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ajit Khaparde <ajitk@serverengines.com>,
-	netdev <netdev@vger.kernel.org>
-To: davem@davemloft.net, kaber@trash.net, herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	=?UTF-8?B?SWxwbyBK?= =?UTF-8?B?w6RydmluZW4=?=
+	<ilpo.jarvinen@helsinki.fi>, Eric Dumazet <eric.dumazet@gmail.com>,
+	Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
+	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
+	David Miller <davem@davemloft.net>, damian@tvk.rwth-aachen.de
+To: Andreas Petlund <apetlund@simula.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f224.google.com ([209.85.217.224]:41092 "EHLO
-	mail-gx0-f224.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750797Ab0BLFfG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 00:35:06 -0500
-Received: by gxk24 with SMTP id 24so2005039gxk.1
-        for <netdev@vger.kernel.org>; Thu, 11 Feb 2010 21:35:03 -0800 (PST)
-Content-Disposition: inline
+Received: from mail-iw0-f201.google.com ([209.85.223.201]:58540 "EHLO
+	mail-iw0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754687Ab0BLLTS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 06:19:18 -0500
+In-Reply-To: <4B73F30D.6040205@simula.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Traffic doesn't start on a vlan interface when gro is enabled.
-Even the tcp handshake was not taking place.
-This is because, the eth_type_trans() call before the netif_receive_skb()
-in napi_frags_finish() resets the skb->dev to napi->dev from the previously
-set vlan netdev interface. This causes the ip_route_input() to drop the
-incoming packet considering it as a packet coming from a martian source.
+Last year, I'm pretty sure I was on record as thinking this is only a
+marginally good idea, that would be better at the application layer.
 
-I could repro this on 2.6.32.7 (stable) and 2.6.33-rc7.
-With this fix, the traffic starts and the test runs fine. Please review.
+Also that naming was a bit dicey.  Now the names are more descriptive,
+but the "force" is a bit overkill.
 
-Alternatively:
-Previously the skb->dev was updated by the driver and I don't know
-why it has to be set in eth_type_trans. May be removing that from
-eth_type_trans() and expecting the caller to set the skb->dev could be
-an alternative fix.
+How about?
+   NET_TCP_FORCE_THIN_LINEAR_TIMEOUTS    -> NET_TCP_THIN_LINEAR_TIMEOUTS
+   TCP_THIN_LT                           -> TCP_THIN_LINEAR_TIMEOUTS
+   TCP_THIN_LT_RETRIES                   -> TCP_THIN_LINEAR_RETRIES
+   tcp_force_thin_linear_timeouts        -> tcp_thin_linear_timeouts
+   sysctl_tcp_force_thin_linear_timeouts -> sysctl_tcp_thin_linear_timeouts
+   tp->thin_lt                           -> tp->thin_lto
 
-Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
----
- net/core/dev.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+The latter mostly traditional "to" for "timeout", as used most everywhere.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index be9924f..16aac06 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2761,7 +2761,10 @@ gro_result_t napi_frags_finish(struct napi_struct *napi, struct sk_buff *skb,
- 	switch (ret) {
- 	case GRO_NORMAL:
- 	case GRO_HELD:
--		skb->protocol = eth_type_trans(skb, napi->dev);
-+		if (skb->vlan_tci)
-+			skb->protocol = eth_type_trans(skb, skb->dev);
-+		else
-+			skb->protocol = eth_type_trans(skb, napi->dev);
- 
- 		if (ret == GRO_HELD)
- 			skb_gro_pull(skb, -ETH_HLEN);
--- 
-1.6.3.3
+
+Andreas Petlund wrote:
+> diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+> index de7d1bf..a682479 100644
+> --- a/net/ipv4/tcp_timer.c
+> +++ b/net/ipv4/tcp_timer.c
+> @@ -29,6 +29,7 @@ int sysctl_tcp_keepalive_intvl __read_mostly = TCP_KEEPALIVE_INTVL;
+>  int sysctl_tcp_retries1 __read_mostly = TCP_RETR1;
+>  int sysctl_tcp_retries2 __read_mostly = TCP_RETR2;
+>  int sysctl_tcp_orphan_retries __read_mostly;
+> +int sysctl_tcp_force_thin_linear_timeouts __read_mostly;
+>  
+Where is the sysctl initialized?
+
+
+> +	if ((tp->thin_lt || sysctl_tcp_force_thin_linear_timeouts) &&
+> +	    tcp_stream_is_thin(sk) && sk->sk_state == TCP_ESTABLISHED &&
+> +	    icsk->icsk_retransmits <= TCP_THIN_LT_RETRIES) {
+
+Just for efficiency, I'd reorder this
+   +	if (sk->sk_state == TCP_ESTABLISHED &&
+   +	    (tp->thin_lt || sysctl_tcp_force_thin_linear_timeouts) &&
+   +	    tcp_stream_is_thin(sk) &&
+   +	    icsk->icsk_retransmits <= TCP_THIN_LT_RETRIES) {
 
