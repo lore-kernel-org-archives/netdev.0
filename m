@@ -1,71 +1,188 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: Note: Atheros ethernet part of compat-wireless too
-Date: Thu, 11 Feb 2010 17:09:39 -0800
-Message-ID: <43e72e891002111709l63d6da5dxfd40ec640a3128fc@mail.gmail.com>
-References: <43e72e891002020915x572a11fcg57f0b9caf7ed08ea@mail.gmail.com>
-	<4B686056.7090405@canonical.com>
-	<43e72e891002101016r754b7504vdb94c110a3c0b608@mail.gmail.com>
-	<43e72e891002101822h562fc25h996bafdfd87c50c5@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH v3 2/3] net: TCP thin linear timeouts
+Date: Fri, 12 Feb 2010 04:52:13 +0100
+Message-ID: <1265946733.2891.10.camel@edumazet-laptop>
+References: <4B73F30D.6040205@simula.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, Ubuntu Kernel Team <kernel-team@lists.ubuntu.com>
-To: Tony Espy <espy@canonical.com>
-Return-path: <kernel-team-bounces@lists.ubuntu.com>
-In-Reply-To: <43e72e891002101822h562fc25h996bafdfd87c50c5@mail.gmail.com>
-List-Unsubscribe: <https://lists.ubuntu.com/mailman/listinfo/kernel-team>,
-	<mailto:kernel-team-request@lists.ubuntu.com?subject=unsubscribe>
-List-Archive: <https://lists.ubuntu.com/archives/kernel-team>
-List-Post: <mailto:kernel-team@lists.ubuntu.com>
-List-Help: <mailto:kernel-team-request@lists.ubuntu.com?subject=help>
-List-Subscribe: <https://lists.ubuntu.com/mailman/listinfo/kernel-team>,
-	<mailto:kernel-team-request@lists.ubuntu.com?subject=subscribe>
-Sender: kernel-team-bounces@lists.ubuntu.com
-Errors-To: kernel-team-bounces@lists.ubuntu.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
+	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
+	David Miller <davem@davemloft.net>,
+	william.allen.simpson@gmail.com, damian@tvk.rwth-aachen.de
+To: Andreas Petlund <apetlund@simula.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4B73F30D.6040205@simula.no>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCBGZWIgMTAsIDIwMTAgYXQgNjoyMiBQTSwgTHVpcyBSLiBSb2RyaWd1ZXogPG1jZ3Jv
-ZkBnbWFpbC5jb20+IHdyb3RlOgo+IE9uIFdlZCwgRmViIDEwLCAyMDEwIGF0IDEwOjE2IEFNLCBM
-dWlzIFIuIFJvZHJpZ3VleiA8bWNncm9mQGdtYWlsLmNvbT4gd3JvdGU6Cj4+IE9uIFR1ZSwgRmVi
-IDIsIDIwMTAgYXQgOToyNiBBTSwgVG9ueSBFc3B5IDxlc3B5QGNhbm9uaWNhbC5jb20+IHdyb3Rl
-Ogo+Pj4gTHVpcyBSLiBSb2RyaWd1ZXogd3JvdGU6Cj4+Pj4KPj4+PiBJIHdhbnRlZCB0byBsZXQg
-eW91IGtub3cgSSB0aHJldyBpbiB0aGUgQXRoZXJvcyBldGhlcm5ldCBkcml2ZXJzIGFzCj4+Pj4g
-cGFydCBvZiBjb21wYXQtd2lyZWxlc3MuCj4+Pgo+Pj4gTHVpcyAtLQo+Pj4KPj4+IERvZXMgdGhp
-cyBpbmNsdWRlIHN1cHBvcnQgZm9yIHRoZSBBdGhlcm9zIEFSODE1MiBQQ0ktRSBmYXN0IGV0aGVy
-bmV0Cj4+PiBhZGFwdGVyPyDCoEFsc28sIHdoYXQncyB0aGUgbGVhZCB0aW1lIGZvciB0aGlzIHRv
-IGxhbmQgaW4gYSAic3RhYmxlIiByZWxlYXNlPwo+Pgo+PiBGaWd1cmVkIEknZCBnaXZlIHlvdSB0
-aGUgaGVhZHMgdXAgdGhhdCB0aGUgQVI4MTUyIGlzIG5vdCBzdXBwb3J0ZWQKPj4gdXBzdHJlYW0g
-eWV0LiBJIGp1c3QgZ290IGEgdGFyYmFsbCBvZiB0aGUgZHJpdmVyIHRoYXQgc3VwcG9ydHMgdGhp
-cwo+PiBhbmQgQVI4MTUxLiBIZXJlJ3Mgb3VyIGN1cnJlbnQgdXBzdHJlYW0gc3VwcG9ydCBzdGF0
-dXMgdGFibGU6Cj4+Cj4+IERyaXZlciBNb2RlbC1uYW1lIMKgIMKgIMKgIMKgIMKgIMKgIHZlbmRv
-cjpkZXZpY2UgwqAgwqBUeXBlCj4+IGF0bDFjIMKgQVI4MTMxIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIDE5Njk6MTA2MyDCoCDCoCDCoCDCoEdpZ2FiaXQgRXRoZXJuZXQKPj4gYXRsMWMgwqBBUjgx
-MzIgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgMTk2OToxMDYyIMKgIMKgIMKgIMKgRmFzdCBFdGhl
-cm5ldAo+PiBhdGwxIMKgIEwxIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIDE5Njk6MTA0
-OCDCoCDCoCDCoCDCoEdpZ2FiaXQgRXRoZXJuZXQKPj4gYXRsMiDCoCBMMiDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCAxOTY5OjIwNDggwqAgwqAgwqAgwqBGYXN0IEV0aGVybmV0Cj4+IGF0
-bDFlIMKgQVI4MTIxL0FSODExMy9BUjgxMTQgwqAgMTk2OToxMDI2IMKgIMKgIMKgIMKgR2lnYWJp
-dC9GYXN0IEV0aGVybmV0KGRyaXZlcgo+PiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBjaGVjayBvbmUgaW50ZXJuYWwg
-cmVnaXN0ZXIgdG8KPj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgc2VlIGlmIHN1cHBvcnQgZ2lnYWJpdCkKPj4gYXRs
-MWMgwqBBUjgxNTEodjEuMCkgwqAgwqAgwqAgwqAgwqAgMTk2OToxMDczIMKgIMKgIMKgIMKgR2ln
-YWJpdCBFdGhlcm5ldChub3Qgc3VwcG9ydAo+PiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBpbiBrZXJuZWwgeWV0KQo+
-PiBhdGwxYyDCoEFSODE1Mih2MS4xKSDCoCDCoCDCoCDCoCDCoCAxOTY5OjIwNjAgwqAgwqAgwqAg
-wqBGYXN0IEV0aGVybmV0KG5vdCBzdXBwb3J0Cj4+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGluIGtlcm5lbCB5ZXQp
-Cj4+IGF0bDFjIMKgQVI4MTUyKHYyLjApIMKgIMKgIMKgIMKgIMKgIDE5Njk6MjA2MiDCoCDCoCDC
-oCDCoEZhc3QgRXRoZXJuZXQobm90IHN1cHBvcnQKPj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgaW4ga2VybmVsIHll
-dCkKPj4KPj4gSSBqdXN0IHVwZGF0ZWQgdGhlIFBDSSBJRCBkYXRhYmFzZSBhY2NvcmRpbmdseS4g
-VGhlIGRyaXZlciBwYXRjaGVzIGZvcgo+PiBhdGwxYyBtaWdodCBiZSBlYXN5LCB3aWxsIHRha2Ug
-YSBxdWljayBsb29rLiBGV0lXIHRoZSB0YXJiYWxsIEkgd2lsbAo+PiBiZSBsb29raW5nIGF0IGlu
-IGEgZmV3IG1vbWVudHMgaXMKPj4KPj4gaHR0cDovL2tlcm5lbC5vcmcvcHViL2xpbnV4L2tlcm5l
-bC9wZW9wbGUvbWNncm9mL2V0aGVybmV0L0FSODFGYW1pbHktbGludXgtdjEuMC4xLjYudGFyLmJ6
-Mgo+Cj4gT0sgSSBnb3Qgc29tZSBwYXRjaCBub3csIHdpbGwgc2VuZCBhbiBSRlQuCgpUaGlzIHdv
-cmtlZCBmb3IgbWUsIHNvIGNvbXBhdC13aXJlbGVzcy0yLjYuMzQgc2hvdWxkIGdldCBBUjgxNTIg
-UENJLUUKZmFzdCBldGhlcm5ldCBzdXBwb3J0IGFzIHdlbGwsIGFzc3VtaW5nIG9mIGNvdXJzZSBt
-eSBwYXRjaCBnZXRzIGludG8KMi42LjM0LgoKICBMdWlzCgotLSAKa2VybmVsLXRlYW0gbWFpbGlu
-ZyBsaXN0Cmtlcm5lbC10ZWFtQGxpc3RzLnVidW50dS5jb20KaHR0cHM6Ly9saXN0cy51YnVudHUu
-Y29tL21haWxtYW4vbGlzdGluZm8va2VybmVsLXRlYW0K
+Le jeudi 11 f=C3=A9vrier 2010 =C3=A0 13:07 +0100, Andreas Petlund a =C3=
+=A9crit :
+> Major changes:
+>       -Possible to disable mechanisms by socket option
+>       -Socket option value boundary check
+>=20
+>=20
+> Signed-off-by: Andreas Petlund <apetlund@simula.no>
+> ---
+>  include/linux/sysctl.h     |    1 +
+>  include/linux/tcp.h        |    3 +++
+>  include/net/tcp.h          |    4 ++++
+>  net/ipv4/sysctl_net_ipv4.c |    7 +++++++
+>  net/ipv4/tcp.c             |    7 +++++++
+>  net/ipv4/tcp_timer.c       |   19 ++++++++++++++++++-
+>  6 files changed, 40 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+> index 9f236cd..d840d75 100644
+> --- a/include/linux/sysctl.h
+> +++ b/include/linux/sysctl.h
+> @@ -425,6 +425,7 @@ enum
+>  	NET_TCP_ALLOWED_CONG_CONTROL=3D123,
+>  	NET_TCP_MAX_SSTHRESH=3D124,
+>  	NET_TCP_FRTO_RESPONSE=3D125,
+> +	NET_TCP_FORCE_THIN_LINEAR_TIMEOUTS=3D126,
+>  };
+> =20
+>  enum {
+> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+> index 7fee8a4..67da706 100644
+> --- a/include/linux/tcp.h
+> +++ b/include/linux/tcp.h
+> @@ -103,6 +103,7 @@ enum {
+>  #define TCP_CONGESTION		13	/* Congestion control algorithm */
+>  #define TCP_MD5SIG		14	/* TCP MD5 Signature (RFC2385) */
+>  #define TCP_COOKIE_TRANSACTIONS	15	/* TCP Cookie Transactions */
+> +#define TCP_THIN_LT             16      /* Use linear timeouts for t=
+hin streams*/
+> =20
+>  /* for TCP_INFO socket option */
+>  #define TCPI_OPT_TIMESTAMPS	1
+> @@ -341,6 +342,8 @@ struct tcp_sock {
+>  	u16	advmss;		/* Advertised MSS			*/
+>  	u8	frto_counter;	/* Number of new acks after RTO */
+>  	u8	nonagle;	/* Disable Nagle algorithm?             */
+> +	u8      thin_lt     : 1,/* Use linear timeouts for thin streams */
+> +		thin_undef  : 7;
+> =20
+>  /* RTT measurement */
+>  	u32	srtt;		/* smoothed round trip time << 3	*/
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index e5e2056..bc5856a 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -196,6 +196,9 @@ extern void tcp_time_wait(struct sock *sk, int st=
+ate, int timeo);
+>  #define TCP_NAGLE_CORK		2	/* Socket is corked	    */
+>  #define TCP_NAGLE_PUSH		4	/* Cork is overridden for already queued d=
+ata */
+> =20
+> +/* TCP thin-stream limits */
+> +#define TCP_THIN_LT_RETRIES     6       /* After 6 linear retries, d=
+o exp. backoff */
+> +
+>  extern struct inet_timewait_death_row tcp_death_row;
+> =20
+>  /* sysctl variables for tcp */
+> @@ -241,6 +244,7 @@ extern int sysctl_tcp_workaround_signed_windows;
+>  extern int sysctl_tcp_slow_start_after_idle;
+>  extern int sysctl_tcp_max_ssthresh;
+>  extern int sysctl_tcp_cookie_size;
+> +extern int sysctl_tcp_force_thin_linear_timeouts;
+> =20
+>  extern atomic_t tcp_memory_allocated;
+>  extern struct percpu_counter tcp_sockets_allocated;
+> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+> index 7e3712c..cb2ed35 100644
+> --- a/net/ipv4/sysctl_net_ipv4.c
+> +++ b/net/ipv4/sysctl_net_ipv4.c
+> @@ -576,6 +576,13 @@ static struct ctl_table ipv4_table[] =3D {
+>  		.proc_handler	=3D proc_dointvec
+>  	},
+>  	{
+> +		.procname       =3D "tcp_force_thin_linear_timeouts",
+> +		.data           =3D &sysctl_tcp_force_thin_linear_timeouts,
+> +		.maxlen         =3D sizeof(int),
+> +		.mode           =3D 0644,
+> +		.proc_handler   =3D proc_dointvec
+> +	},
+> +	{
+>  		.procname	=3D "udp_mem",
+>  		.data		=3D &sysctl_udp_mem,
+>  		.maxlen		=3D sizeof(sysctl_udp_mem),
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index d5d69ea..ce9aeb0 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -2229,6 +2229,13 @@ static int do_tcp_setsockopt(struct sock *sk, =
+int level,
+>  		}
+>  		break;
+> =20
+> +	case TCP_THIN_LT:
+> +		if (val < 0 || val > 1)
+> +			err =3D -EINVAL;
+> +		else
+> +			tp->thin_lt =3D val;
+> +		break;
+> +
+>  	case TCP_CORK:
+>  		/* When set indicates to always queue non-full frames.
+>  		 * Later the user clears this option and we transmit
+> diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+> index de7d1bf..a682479 100644
+> --- a/net/ipv4/tcp_timer.c
+> +++ b/net/ipv4/tcp_timer.c
+> @@ -29,6 +29,7 @@ int sysctl_tcp_keepalive_intvl __read_mostly =3D TC=
+P_KEEPALIVE_INTVL;
+>  int sysctl_tcp_retries1 __read_mostly =3D TCP_RETR1;
+>  int sysctl_tcp_retries2 __read_mostly =3D TCP_RETR2;
+>  int sysctl_tcp_orphan_retries __read_mostly;
+> +int sysctl_tcp_force_thin_linear_timeouts __read_mostly;
+> =20
+>  static void tcp_write_timer(unsigned long);
+>  static void tcp_delack_timer(unsigned long);
+> @@ -415,7 +416,23 @@ void tcp_retransmit_timer(struct sock *sk)
+>  	icsk->icsk_retransmits++;
+> =20
+>  out_reset_timer:
+> -	icsk->icsk_rto =3D min(icsk->icsk_rto << 1, TCP_RTO_MAX);
+> +	/* If stream is thin, use linear timeouts. Since 'icsk_backoff' is
+> +	 * used to reset timer, set to 0. Recalculate 'icsk_rto' as this
+> +	 * might be increased if the stream oscillates between thin and thi=
+ck,
+> +	 * thus the old value might already be too high compared to the val=
+ue
+> +	 * set by 'tcp_set_rto' in tcp_input.c which resets the rto without
+> +	 * backoff. Limit to TCP_THIN_LT_RETRIES before initiating exponent=
+ial
+> +	 * backoff behaviour to avoid continue hammering linear-timeout
+> +	 * retransmissions into a black hole*/
+> +	if ((tp->thin_lt || sysctl_tcp_force_thin_linear_timeouts) &&
+> +	    tcp_stream_is_thin(sk) && sk->sk_state =3D=3D TCP_ESTABLISHED &=
+&
+> +	    icsk->icsk_retransmits <=3D TCP_THIN_LT_RETRIES) {
+> +		icsk->icsk_backoff =3D 0;
+> +		icsk->icsk_rto =3D min(__tcp_set_rto(tp), TCP_RTO_MAX);
+> +	} else {
+> +		/* Use normal (exponential) backoff */
+> +		icsk->icsk_rto =3D min(icsk->icsk_rto << 1, TCP_RTO_MAX);
+> +	}
+>  	inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, icsk->icsk_rto, TC=
+P_RTO_MAX);
+>  	if (retransmits_timed_out(sk, sysctl_tcp_retries1 + 1))
+>  		__sk_dst_reset(sk);
+
+Hi Anreas
+
+Could you include a section in Documentation/networking/ip-sysctl.txt
+about tcp_force_thin_linear_timeouts setting ?
+
+Also, you should provide some documentation to be included in man pages
+(man 7 tcp), to Michael Kerrisk ( <mtk.manpages@gmail.com> ), both for
+tcp_force_thin_linear_timeouts and TCP_THIN_LT
+
+(Same applies for patch 3/3 and tcp_force_thin_dupack /
+TCP_THIN_DUPACK )
