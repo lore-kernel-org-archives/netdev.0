@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: ixgbe: [RFC] [PATCH] Fix return of invalid txq
-Date: Fri, 12 Feb 2010 11:55:52 -0800 (PST)
-Message-ID: <20100212.115552.166740353.davem@davemloft.net>
-References: <1263546020.2038.7.camel@localhost>
-	<20100115.010628.67106329.davem@davemloft.net>
-	<F86E8680A7D9D74A99DC6345E35A6929501BA2CA@orsmsx503.amr.corp.intel.com>
+Subject: Re: ipv6: fib: fix crash when changing large fib while dumping it
+Date: Fri, 12 Feb 2010 12:07:11 -0800 (PST)
+Message-ID: <20100212.120711.111422105.davem@davemloft.net>
+References: <4B702B67.4000900@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: peter.p.waskiewicz.jr@intel.com
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37007
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48014
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753062Ab0BLTzh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 14:55:37 -0500
-In-Reply-To: <F86E8680A7D9D74A99DC6345E35A6929501BA2CA@orsmsx503.amr.corp.intel.com>
+	by vger.kernel.org with ESMTP id S1755971Ab0BLUG5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 15:06:57 -0500
+In-Reply-To: <4B702B67.4000900@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Date: Sat, 16 Jan 2010 02:53:15 -0800
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 08 Feb 2010 16:19:03 +0100
 
-> Either way works though.  I still think the table is the better way
-> to go, because of the determinism for any system and NIC
-> configuration/layout.  The overhead of configuring the table is
-> taken during open(), so it's not in the hotpath at all.
+> Please review carefully, I'm not too familiar with this code.
 
-How many minus operations can your cpu perform in the same amount
-of time it takes to access memory? :-)
+It looks OK to me, I've applied this to net-next-2.6.  We can backport
+or submit to -stable if needed after it cooks for a while in
+net-next-2.6.
