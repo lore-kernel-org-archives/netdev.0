@@ -1,326 +1,354 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: bnx2 receive ring crash
-Date: Fri, 12 Feb 2010 16:50:20 -0500
-Message-ID: <4B75CD1C.7090808@hp.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH net-next-2.6] macvtap: Add GSO/csum offload support
+Date: Fri, 12 Feb 2010 14:27:47 -0800
+Message-ID: <1266013667.6105.18.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Montgomery, Bob" <bob.montgomery@hp.com>
-To: mchan@broadcom.com
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, Arnd Bergmann <arnd@arndb.de>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:30098 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755803Ab0BLWHO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 17:07:14 -0500
+Received: from e36.co.us.ibm.com ([32.97.110.154]:57867 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754581Ab0BLW2A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 17:28:00 -0500
+Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
+	by e36.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id o1CMP8pm001475
+	for <netdev@vger.kernel.org>; Fri, 12 Feb 2010 15:25:08 -0700
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o1CMRrNi059640
+	for <netdev@vger.kernel.org>; Fri, 12 Feb 2010 15:27:54 -0700
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o1CMRrG3027825
+	for <netdev@vger.kernel.org>; Fri, 12 Feb 2010 15:27:53 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Michael,
+This patch adds GSO/checksum offload support to macvtap driver and applies
+on top of Arnd's refcnt bugfix.
+	http://patchwork.ozlabs.org/patch/45136/
 
-We've been seeing some crashes in the bnx2 driver lately in the 2.6.32.x stable
-series kernels, v2.0.2 of the driver.  One of our engineers has gone through
-the dumps and found some inconsistencies in the receive ring, but we don't know
-how it happened.  I was hoping someone from Broadcom might be able to take a
-look and help point us in the right direction so we can track this down, since
-it's most likely broken upstream as well.  We'll be running tests against
-the latest net-next kernel next week.  Hopefully there is enough information
-below.
+Added flags field to macvtap_queue to enable/disable processing of
+virtio_net_hdr via IFF_VNET_HDR. This flag is checked to prepend virtio_net_hdr
+in the receive path and process/skip virtio_net_hdr in the send path.
 
-Thanks for any help,
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
--Brian
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index fe7656b..5f70f13 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -17,6 +17,7 @@
+ #include <net/net_namespace.h>
+ #include <net/rtnetlink.h>
+ #include <net/sock.h>
++#include <linux/virtio_net.h>
+ 
+ /*
+  * A macvtap queue is the central object of this driver, it connects
+@@ -37,6 +38,7 @@ struct macvtap_queue {
+ 	struct socket sock;
+ 	struct macvlan_dev *vlan;
+ 	struct file *file;
++	unsigned int flags;
+ };
+ 
+ static struct proto macvtap_proto = {
+@@ -286,6 +288,7 @@ static int macvtap_open(struct inode *inode, struct file *file)
+ 	sock_init_data(&q->sock, &q->sk);
+ 	q->sk.sk_allocation = GFP_ATOMIC; /* for now */
+ 	q->sk.sk_write_space = macvtap_sock_write_space;
++	q->flags = IFF_VNET_HDR;
+ 
+ 	err = macvtap_set_queue(dev, file, q);
+ 	if (err)
+@@ -328,6 +331,29 @@ out:
+ 	return mask;
+ }
+ 
++static inline struct sk_buff *macvtap_alloc_skb(struct sock *sk, size_t prepad,
++						size_t len, size_t linear,
++						int noblock, int *err)
++{
++	struct sk_buff *skb;
++
++	/* Under a page?  Don't bother with paged skb. */
++	if (prepad + len < PAGE_SIZE || !linear)
++		linear = len;
++
++	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
++				   err);
++	if (!skb)
++		return NULL;
++
++	skb_reserve(skb, prepad);
++	skb_put(skb, linear);
++	skb->data_len = len - linear;
++	skb->len += len - linear;
++
++	return skb;
++}
++
+ /* Get packet from user space buffer */
+ static ssize_t macvtap_get_user(struct macvtap_queue *q,
+ 				const struct iovec *iv, size_t count,
+@@ -336,31 +362,99 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q,
+ 	struct sk_buff *skb;
+ 	size_t len = count;
+ 	int err;
++	struct virtio_net_hdr vnet_hdr = { 0 };
++	int vnet_hdr_len = 0;
++	unsigned short gso_type = 0;
++
++	if (q->flags & IFF_VNET_HDR) {
++		vnet_hdr_len = sizeof(vnet_hdr); 
++
++		err = -EINVAL;
++		if ((len -= vnet_hdr_len) < 0)
++			goto out;
++
++		err = (memcpy_fromiovecend((void *)&vnet_hdr, iv, 0,
++					   vnet_hdr_len));
++		if (err < 0)
++			goto out;			
++
++		if ((vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
++		     vnet_hdr.csum_start + vnet_hdr.csum_offset + 2 > 
++							vnet_hdr.hdr_len)
++			vnet_hdr.hdr_len = vnet_hdr.csum_start +
++						vnet_hdr.csum_offset + 2;
++
++		err = -EINVAL;
++		if (vnet_hdr.hdr_len > len)
++			goto out;
++
++		if (vnet_hdr.gso_type != VIRTIO_NET_HDR_GSO_NONE) {
++			switch (vnet_hdr.gso_type & ~VIRTIO_NET_HDR_GSO_ECN) {
++			case VIRTIO_NET_HDR_GSO_TCPV4:
++				gso_type = SKB_GSO_TCPV4;
++				break;
++			case VIRTIO_NET_HDR_GSO_TCPV6:
++				gso_type = SKB_GSO_TCPV6;
++				break;
++			case VIRTIO_NET_HDR_GSO_UDP:
++				gso_type = SKB_GSO_UDP;
++				break;
++			default:
++				goto out;
++			}
++
++			if (vnet_hdr.gso_type & VIRTIO_NET_HDR_GSO_ECN)
++				gso_type |= SKB_GSO_TCP_ECN;
++               
++			if (vnet_hdr.gso_size == 0)
++				goto out;
++		}
++	}
+ 
+ 	if (unlikely(len < ETH_HLEN))
+-		return -EINVAL;
++		goto out;
+ 
+-	skb = sock_alloc_send_skb(&q->sk, NET_IP_ALIGN + len, noblock, &err);
++	skb = macvtap_alloc_skb(&q->sk, NET_IP_ALIGN, len, vnet_hdr.hdr_len,
++				noblock, &err);
++	if (!skb)
++		goto out;
+ 
+-	if (!skb) {
+-		macvlan_count_rx(q->vlan, 0, false, false);
+-		return err;
+-	}
++	err = -EFAULT;
++	if (skb_copy_datagram_from_iovec(skb, 0, iv, vnet_hdr_len, len))
++		goto out_free;
+ 
+-	skb_reserve(skb, NET_IP_ALIGN);
+-	skb_put(skb, count);
++	skb_set_network_header(skb, ETH_HLEN);
++	skb_reset_mac_header(skb);
++	skb->protocol = eth_hdr(skb)->h_proto;
++
++	if (vnet_hdr_len) {
++		if (vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
++			err = -EINVAL;
++			if (!skb_partial_csum_set(skb, vnet_hdr.csum_start,
++						  vnet_hdr.csum_offset))
++				goto out_free;
++		}
+ 
+-	if (skb_copy_datagram_from_iovec(skb, 0, iv, 0, len)) {
+-		macvlan_count_rx(q->vlan, 0, false, false);
+-		kfree_skb(skb);
+-		return -EFAULT;
+-	}
++		if (vnet_hdr.gso_type != VIRTIO_NET_HDR_GSO_NONE) {
++			skb_shinfo(skb)->gso_size = vnet_hdr.gso_size;
++			skb_shinfo(skb)->gso_type = gso_type;
+ 
+-	skb_set_network_header(skb, ETH_HLEN);
++			/* Header must be checked, and gso_segs computed. */
++			skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
++			skb_shinfo(skb)->gso_segs = 0;
++		}
++	}
+ 
+ 	macvlan_start_xmit(skb, q->vlan->dev);
+ 
++	macvlan_count_rx(q->vlan, skb->len, 1, 0);
+ 	return count;
++
++out_free:
++	kfree_skb(skb);
++out:
++	macvlan_count_rx(q->vlan, 0, false, false);
++	return -EINVAL;
+ }
+ 
+ static ssize_t macvtap_aio_write(struct kiocb *iocb, const struct iovec *iv,
+@@ -387,14 +481,54 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+ {
+ 	struct macvlan_dev *vlan = q->vlan;
+ 	int ret;
++	int vnet_hdr_len = 0;
++
++	if (q->flags & IFF_VNET_HDR) {
++		struct virtio_net_hdr vnet_hdr = { 0 };
++
++		vnet_hdr_len = sizeof(vnet_hdr);
++		if ((len -= vnet_hdr_len) < 0)
++			return -EINVAL;
++
++		if (skb_is_gso(skb)) {
++			struct skb_shared_info *sinfo = skb_shinfo(skb);
++
++			/* This is a hint as to how much should be linear. */
++			vnet_hdr.hdr_len = skb_headlen(skb);
++			vnet_hdr.gso_size = sinfo->gso_size;
++			if (sinfo->gso_type & SKB_GSO_TCPV4)
++				vnet_hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
++			else if (sinfo->gso_type & SKB_GSO_TCPV6)
++				vnet_hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
++			else if (sinfo->gso_type & SKB_GSO_UDP)
++				vnet_hdr.gso_type = VIRTIO_NET_HDR_GSO_UDP;
++			else
++				BUG();
++			if (sinfo->gso_type & SKB_GSO_TCP_ECN)
++				vnet_hdr.gso_type |= VIRTIO_NET_HDR_GSO_ECN;
++		} else
++			vnet_hdr.gso_type = VIRTIO_NET_HDR_GSO_NONE;
++
++		if (skb->ip_summed == CHECKSUM_PARTIAL) {
++			vnet_hdr.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
++			vnet_hdr.csum_start = skb->csum_start -
++						skb_headroom(skb);
++			vnet_hdr.csum_offset = skb->csum_offset;
++		} /* else everything is zero */
++
++		if (unlikely(memcpy_toiovecend(iv, (void *)&vnet_hdr, 0,
++								vnet_hdr_len)))
++			return -EFAULT;
++	}
++
+ 
+ 	len = min_t(int, skb->len, len);
+ 
+-	ret = skb_copy_datagram_const_iovec(skb, 0, iv, 0, len);
++	ret = skb_copy_datagram_const_iovec(skb, 0, iv, vnet_hdr_len, len);
+ 
+ 	macvlan_count_rx(vlan, len, ret == 0, 0);
+ 
+-	return ret ? ret : len;
++	return ret ? ret : (len + vnet_hdr_len);
+ }
+ 
+ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
+@@ -460,14 +594,23 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 	unsigned int __user *up = argp;
+ 	unsigned int u;
+ 	char devname[IFNAMSIZ];
++	int ret;
+ 
+ 	switch (cmd) {
+ 	case TUNSETIFF:
+ 		/* ignore the name, just look at flags */
+ 		if (get_user(u, &ifr->ifr_flags))
+ 			return -EFAULT;
+-		if (u != (IFF_TAP | IFF_NO_PI))
+-			return -EINVAL;
++		q = macvtap_file_get_queue(file);
++		if (!q)
++			return -ENOLINK;
++
++		if (u & IFF_VNET_HDR)
++			q->flags |= IFF_VNET_HDR;
++		else
++			q->flags &= ~IFF_VNET_HDR;
++
++		macvtap_file_put_queue(q);
+ 		return 0;
+ 
+ 	case TUNGETIFF:
+@@ -475,17 +618,23 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 		if (!q)
+ 			return -ENOLINK;
+ 		memcpy(devname, q->vlan->dev->name, sizeof(devname));
+-		macvtap_file_put_queue(q);
+ 
++		ret = 0;
+ 		if (copy_to_user(&ifr->ifr_name, q->vlan->dev->name, IFNAMSIZ) ||
+-		    put_user((TUN_TAP_DEV | TUN_NO_PI), &ifr->ifr_flags))
+-			return -EFAULT;
+-		return 0;
++		    put_user(q->flags, &ifr->ifr_flags))
++			ret =  -EFAULT;
++		macvtap_file_put_queue(q);
++		return ret;
+ 
+ 	case TUNGETFEATURES:
+-		if (put_user((IFF_TAP | IFF_NO_PI), up))
+-			return -EFAULT;
+-		return 0;
++		q = macvtap_file_get_queue(file);
++		if (!q)
++			return -ENOLINK;
++		ret = 0;
++		if (put_user(q->flags, up))
++			ret = -EFAULT;
++		macvtap_file_put_queue(q);
++		return ret;
+ 
+ 	case TUNSETSNDBUF:
+ 		if (get_user(u, up))
+@@ -499,18 +648,14 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 		return 0;
+ 
+ 	case TUNSETOFFLOAD:
+-		/* let the user check for future flags */
+-		if (arg & ~(TUN_F_CSUM | TUN_F_TSO4 | TUN_F_TSO6 |
+-			  TUN_F_TSO_ECN | TUN_F_UFO))
+-			return -EINVAL;
+-
+-		/* TODO: add support for these, so far we don't
+-			 support any offload */
+-		if (arg & (TUN_F_CSUM | TUN_F_TSO4 | TUN_F_TSO6 |
+-			 TUN_F_TSO_ECN | TUN_F_UFO))
+-			return -EINVAL;
+-
+-		return 0;
++		q = macvtap_file_get_queue(file);
++		if (!q)
++			return -ENOLINK;
++		ret = 0;
++		if (!(q->flags & IFF_VNET_HDR))
++			ret =  -EINVAL;
++		macvtap_file_put_queue(q);
++		return ret;
+ 
+ 	default:
+ 		return -EINVAL;
 
 
-# ethtool -i eth4
-driver: bnx2
-version: 2.0.2
-firmware-version: 5.0.6
-bus-info: 0000:07:00.0
 
-07:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5709 Gigabit Ethernet (rev 20)
-        Subsystem: Hewlett-Packard Company NC382T PCI Express Dual Port Multifunction Gigabit Server Adapter
-        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr+ Stepping- SERR- FastB2B- DisINTx+
-        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
-        Latency: 0, Cache Line Size: 64 bytes
-        Interrupt: pin A routed to IRQ 32
-        Region 0: Memory at f8000000 (64-bit, non-prefetchable) [size=32M]
-        [virtual] Expansion ROM at dc100000 [disabled] [size=128K]
-        Capabilities: [48] Power Management version 3
-                Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
-                Status: D0 PME-Enable- DSel=0 DScale=1 PME-
-        Capabilities: [50] Vital Product Data <?>
-        Capabilities: [58] Message Signalled Interrupts: Mask- 64bit+ Queue=0/4 Enable-
-                Address: 0000000000000000  Data: 0000
-        Capabilities: [a0] MSI-X: Enable+ Mask- TabSize=9
-                Vector table: BAR=0 offset=0000c000
-                PBA: BAR=0 offset=0000e000
-        Capabilities: [ac] Express (v2) Endpoint, MSI 00
-                DevCap: MaxPayload 512 bytes, PhantFunc 0, Latency L0s <4us, L1 <64us
-                        ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
-                DevCtl: Report errors: Correctable- Non-Fatal+ Fatal+ Unsupported-
-                        RlxdOrd+ ExtTag- PhantFunc- AuxPwr+ NoSnoop+
-                        MaxPayload 256 bytes, MaxReadReq 4096 bytes
-                DevSta: CorrErr+ UncorrErr- FatalErr- UnsuppReq+ AuxPwr+ TransPend-
-                LnkCap: Port #0, Speed 5GT/s, Width x4, ASPM L0s L1, Latency L0 <4us, L1 <4us
-                        ClockPM- Suprise- LLActRep- BwNot-
-                LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain- CommClk-
-                        ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-                LnkSta: Speed 5GT/s, Width x4, TrErr- Train- SlotClk+ DLActive- BWMgmt- ABWMgmt-
-        Capabilities: [100] Device Serial Number 04-21-af-fe-ff-81-24-00
-        Capabilities: [110] Advanced Error Reporting <?>
-        Capabilities: [150] Power Budgeting <?>
-        Capabilities: [160] Virtual Channel <?>
-        Kernel driver in use: bnx2
-        Kernel modules: bnx2
-
-
-Kernel Crash dump info:
-
-crash-5.0.fix> sys
-      KERNEL: kernel_link
-    DUMPFILE: dump.201001241024  [PARTIAL DUMP]
-        CPUS: 16
-        DATE: Sun Jan 24 10:23:20 2010
-      UPTIME: 1 days, 11:27:27
-LOAD AVERAGE: 11.16, 11.47, 10.71
-       TASKS: 360
-    NODENAME: dl380g6-6.ned.telco
-     RELEASE: 2.6.32-clim-3-amd64
-     VERSION: #1 SMP Wed Jan 6 22:06:39 UTC 2010
-     MACHINE: x86_64  (2267 Mhz)
-      MEMORY: 12 GB
-       PANIC: "[127452.588891] Oops: 0000 [#1] SMP " (check log for details)
-
-This is a 2.6.32.2 stable kernel with a few backports, but the network drivers haven't
-been touched.
-
->From dmesg:
-[127452.577999] BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
-[127452.582207] IP: [<ffffffffa00539b7>] bnx2_poll_work+0xc16/0x1111 [bnx2]
-
->From dis -l bnx2_poll_work:
-/build/buildd/linux-2.6-clim-2.6.32-clim/debian/build/build_amd64_none_amd64/drivers/net/bnx2.c: 3007
-0xffffffffa00539b7 <bnx2_poll_work+0xc16>:      mov    0x8(%rsi),%rax
-0xffffffffa00539bb <bnx2_poll_work+0xc1a>:      mov    %rax,-0x98(%rbp)
-
-Line 3007 is in inlined routine bnx2_rx_skb.
-
-3002		rx_pg = &rxr->rx_pg_ring[pg_cons];
-3003
-3004		/* Don't unmap yet.  If we're unable to allocate a new
-3005		 * page, we need to recycle the page and the DMA addr.
-3006		 */
-3007		mapping_old = pci_unmap_addr(rx_pg, mapping);
-3008		if (i == pages - 1)
-3009			frag_len -= 4;
-
-But the rx_pg_ring isn't set up, and we are only here because the l2_fhdr
-struct is full of garbage:
-
-3094		rx_hdr = (struct l2_fhdr *) skb->data;
-3095		len = rx_hdr->l2_fhdr_pkt_len;
-
-/build/buildd/linux-2.6-clim-2.6.32-clim/debian/build/build_amd64_none_amd64/drivers/net/bnx2.c: 3094
-0xffffffffa00531a7 <bnx2_poll_work+0x406>:      mov    0xd8(%r12),%rax
-0xffffffffa00531af <bnx2_poll_work+0x40e>:      mov    %rax,-0x160(%rbp)
-
-(0xd8 is offset of unsigned char *data in struct sk_buff.)
-
-rx_hdr is 0xffff88018ddcd020
-
-crash-5.0.fix> struct l2_fhdr 0xffff88018ddcd020
-struct l2_fhdr {
-  l2_fhdr_status = 0x28000000,
-  l2_fhdr_hash = 0x3a7,
-  l2_fhdr_vlan_tag = 0x0,
-  l2_fhdr_pkt_len = 0x3000,   <<<<<<<<<<<<<<<<< NOT
-  l2_fhdr_tcp_udp_xsum = 0x3a7,
-  l2_fhdr_ip_xsum = 0x0
-}
-
-The l2_fhdr_pkt_len isn't really 0x3000.  The whole data area of this
-skb is a page of test data from our networking test:
-
-crash-5.0.fix> x/512xg 0xffff88018ddcd000
-0xffff88018ddcd000:     0x000003a708000000      0x000003a710000000
-0xffff88018ddcd010:     0x000003a718000000      0x000003a720000000
-0xffff88018ddcd020:     0x000003a728000000      0x000003a730000000
-0xffff88018ddcd030:     0x000003a738000000      0x000003a740000000
-0xffff88018ddcd040:     0x000003a748000000      0x000003a750000000
-0xffff88018ddcd050:     0x000003a758000000      0x000003a760000000
-0xffff88018ddcd060:     0x000003a768000000      0x000003a770000000
-...
-
-That test pattern consists of an unaligned array of 8-byte integers that
-increment by 8.   (0x3a708, 0x3a710, 0x3a718, 0x3a720, ...)
-
-I spent a lot of time trying to show that some other part of the kernel
-had trashed our ring of sk_buff data, but have concluded that this is
-just an uninitialized "size-4096" allocation from a bnx2_alloc_rx_skb
-that has not been filled in by the card yet.  So why are we trying to
-process it in bnx2_rx_int?
-
-Getting the ring info:
-
-struct bnx2_napi is 0xffff8801a420cf00  
---------------------------------------
-
-   Got this from the saved 2nd param to bnx2_poll_work:
-   0xffffffffa0052db8 <bnx2_poll_work+0x17>:  mov %rsi,-0x1a0(%rbp)
-
-   From oops tombstone in dmesg: RBP: ffff880028203e30
-   crash-5.0.fix> x/xg 0xffff880028203e30-0x1a0
-   0xffff880028203c90:     0xffff8801a420cf00
-
-struct bnx2 is 0xffff8801a420c5c0
----------------------------------
-
-   Got this from struct bnx2_napi:
-   crash-5.0.fix> struct bnx2_napi.bp 0xffff8801a420cf00
-   bp = 0xffff8801a420c5c0,
-
-The 9 receive (rx) rings associated with this bnx2 struct:
-
-crash-5.0.fix> struct bnx2 0xffff8801a420c5c0 | grep -e "rx_prod =" -e rx_cons -e hw_rx_cons_ptr -e rx_buf_ring
-
-      hw_rx_cons_ptr = 0xffff8801a4de6012,  *hw_rx_cons_ptr in dump: 0x0001
-        rx_prod = 0x101,
-        rx_cons = 0x1,
-        rx_buf_ring = 0xffffc900067bd000,
-
-      hw_rx_cons_ptr = 0xffff8801a4de6080,  *hw_rx_cons_ptr in dump: 0xcac7
-        rx_prod = 0xcbc7,
-        rx_cons = 0xcac7,
-        rx_buf_ring = 0xffffc900067e2000,
-
-      hw_rx_cons_ptr = 0xffff8801a4de6100,  *hw_rx_cons_ptr in dump: 0x2cbd
-        rx_prod = 0x2d90,
-        rx_cons = 0x2c90,
-        rx_buf_ring = 0xffffc900067e5000,
-
-      hw_rx_cons_ptr = 0xffff8801a4de6180,  *hw_rx_cons_ptr in dump: 0x3f3f
-        rx_prod = 0x403f,
-        rx_cons = 0x3f3f,
-        rx_buf_ring = 0xffffc900067e8000,
-
-/* This is the ring that we're on when we fail: */
-/* The value of hw_cons left on the stack when we entered bnx2_rx_int: 0xcac8
-      hw_rx_cons_ptr = 0xffff8801a4de6200,  *hw_rx_cons_ptr in dump: 0xcb48
-        rx_prod = 0x6cce,
-        rx_cons = 0x6bce,
-        rx_buf_ring = 0xffffc900067eb000,
-
-      hw_rx_cons_ptr = 0xffff8801a4de6280,  *hw_rx_cons_ptr in dump: 0x2af9
-        rx_prod = 0x2bf0,
-        rx_cons = 0x2af0,
-        rx_buf_ring = 0xffffc900067ee000,
-
-      hw_rx_cons_ptr = 0xffff8801a4de6300,  *hw_rx_cons_ptr in dump: 0x5763
-        rx_prod = 0x57f4,
-        rx_cons = 0x56f4,
-        rx_buf_ring = 0xffffc900067f1000,
-
-      hw_rx_cons_ptr = 0xffff8801a4de6380,  *hw_rx_cons_ptr in dump: 0x9a2b
-        rx_prod = 0x9b0f,
-        rx_cons = 0x9a0f,
-        rx_buf_ring = 0xffffc900067f4000,
-
-      hw_rx_cons_ptr = 0xffff8801a4de6400,  *hw_rx_cons_ptr in dump: 0x0000
-        rx_prod = 0x0,
-        rx_cons = 0x0,
-        rx_buf_ring = 0x0,
-
-      hw_rx_cons_ptr = 0xffff8801a4de6400,
-        rx_prod = 0x0,
-        rx_cons = 0x0,
-        rx_buf_ring = 0x0,
-
-Notes:
-   1) The first (0) ring has seen no action.
-   2) The last (8) ring isn't initialized.
-   3) All other rings have the hw_rx_cons_ptr within the limits
-      shown for rx_cons and rx_prod, except for the ring we're on
-      when we die.
-   4) The bad ring's bnx2_napi info is shown again here:
-
-      hw_rx_cons_ptr = 0xffff8801a4de6200,  *hw_rx_cons_ptr in dump: 0xcb48
-        rx_prod = 0x6cce,
-        rx_cons = 0x6bce,
-        rx_buf_ring = 0xffffc900067eb000,
-
-      The hw_cons left on the stack from the first part of bnx2_rx_int
-      is 0xcac8.
-
-	3063         hw_cons = bnx2_get_hw_rx_cons(bnapi);
-	3064         sw_cons = rxr->rx_cons;
-	3065         sw_prod = rxr->rx_prod;
-	...
-	3071         while (sw_cons != hw_cons) {
-
-      That value (0xcac8) is way outside of the rx_cons (0x6bce) and
-      rx_prod (0x6cce) for this loop.  By the time the dump was captured,
-      the memory value of *hw_rx_cons_ptr had increased to 0xcb48.
-
-      Since sw_cons can only catch hw_cons by going around the loop
-      about 95 more times, this loop isn't going to terminate without 
-      passing through uninitialized skb's.
-
-      The values of sw_cons and sw_prod on the stack at the time of 
-      the crash are:
-	crash-5.0.fix> x/xh 0xffff880028203e30-0x130
-	0xffff880028203d00:     0x6bcf   (sw_cons)
-	crash-5.0.fix> x/xh 0xffff880028203e30-0x150
-	0xffff880028203ce0:     0x6ccf   (sw_prod)
-
-      The hw_cons left on the stack (0xcac8) is suspiciously similar to
-      the value in the apparently well-behaved 2nd rx_loop shown here:
-
-      hw_rx_cons_ptr = 0xffff8801a4de6080,  *hw_rx_cons_ptr in dump: 0xcac7
-        rx_prod = 0xcbc7,
-        rx_cons = 0xcac7,
-        rx_buf_ring = 0xffffc900067e2000,
-
-So I think the crash was caused by some corruption of the hw_rx_cons
-index to take it way out of the range of rx_prod and rx_cons on this ring,
-and that corruption is suspiciously similar to the hw_rx_cons value of
-another ring in the set.
-
-      hw_rx_cons_ptr = 0xffff8801a4de6200,  *hw_rx_cons_ptr in dump: 0xcb48
-        rx_prod = 0x6cce,
-        rx_cons = 0x6bce,
-        rx_buf_ring = 0xffffc900067eb000,
-
-	(hw_cons on stack: 0xcac8)
-
-======================================
-
-To test the theory that skb->data on an rx ring could (at times) look like
-a whole page of test pattern, I looked through the uninitialized parts of
-the other rings (between hw_cons and rx_prod).  Two of the other rings
-also had data buffers that looked like test patterns.  Here is one of them:
-
-rx_buf_ring: 0xffffc900067e5000
-        rx_prod = 0x2d90,
-        rx_cons = 0x2c90,
-	*hw_rx_cons_ptr = 0x2cbd
-
-At index 0x20:  (outside of the range of 0x2c90...0x2cbd)
-
-crash-5.0.fix> p ((struct sw_bd *)0xffffc900067e5000)[0x20]
-$5 = {
-  skb = 0xffff8801a185b180,
-  mapping = 0x194886020
-}
-
-crash-5.0.fix> struct sk_buff.data 0xffff8801a185b180
-  data = 0xffff880194886020 "",
-
-crash-5.0.fix>   x/512xg 0xffff880194886000
-0xffff880194886000:     0x02c6280000000000      0x02c6300000000000
-0xffff880194886010:     0x02c6380000000000      0x02c6400000000000
-0xffff880194886020:     0x02c6480000000000      0x02c6500000000000
-0xffff880194886030:     0x02c6580000000000      0x02c6600000000000
-0xffff880194886040:     0x02c6680000000000      0x02c6700000000000
-...
 
