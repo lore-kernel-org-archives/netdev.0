@@ -1,36 +1,52 @@
-From: Ed Swierk <eswierk@aristanetworks.com>
-Subject: Re: [PATCH v2] net/macvtap: fix reference counting
-Date: Fri, 12 Feb 2010 12:58:08 -0800
-Message-ID: <9ae48b021002121258l6f0849c6w51886bd2b2893c1c@mail.gmail.com>
-References: <201001271104.20607.arnd@arndb.de> <4B72F67F.1040008@trash.net>
-	 <201002111645.02770.arnd@arndb.de> <201002111655.40349.arnd@arndb.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH net-next 0/7] Add netdev_printk and netif_printk
+ macros
+Date: Fri, 12 Feb 2010 13:10:04 -0800 (PST)
+Message-ID: <20100212.131004.197405614.davem@davemloft.net>
+References: <cover.1265751023.git.joe@perches.com>
+	<20100212.123129.163263355.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Patrick McHardy <kaber@trash.net>,
-	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:8355 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753613Ab0BLU6K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 15:58:10 -0500
-Received: by ey-out-2122.google.com with SMTP id d26so714757eyd.19
-        for <netdev@vger.kernel.org>; Fri, 12 Feb 2010 12:58:08 -0800 (PST)
-In-Reply-To: <201002111655.40349.arnd@arndb.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40016
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752032Ab0BLVJw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 16:09:52 -0500
+In-Reply-To: <20100212.123129.163263355.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 11, 2010 at 7:55 AM, Arnd Bergmann <arnd@arndb.de> wrote:
-> The RCU usage in the original code was broken because
-> there are cases where we possibly sleep with rcu_read_lock
-> held. As a fix, change the macvtap_file_get_queue to
-> get a reference on the socket and the netdev instead of
-> taking the full rcu_read_lock.
->
-> Also, change macvtap_file_get_queue failure case to
-> not require a subsequent macvtap_file_put_queue, as
-> pointed out by Ed Swierk.
+From: David Miller <davem@davemloft.net>
+Date: Fri, 12 Feb 2010 12:31:29 -0800 (PST)
 
-Works for me. Thanks.
+> All applied to net-next-2.6, thanks!
 
-Acked-by: Ed Swierk <eswierk@aristanetworks.com>
+Hmmm, some build problems:
+
+drivers/net/atl1e/atl1e_main.c: In function 'atl1e_vlan_rx_register':
+drivers/net/atl1e/atl1e_main.c:322: error: 'struct net_device' has no member named 'adapter'
+drivers/net/atl1e/atl1e_main.c:322: error: 'struct net_device' has no member named 'adapter'
+drivers/net/atl1e/atl1e_main.c: In function 'atl1e_restore_vlan':
+drivers/net/atl1e/atl1e_main.c:343: error: 'struct net_device' has no member named 'adapter'
+drivers/net/atl1e/atl1e_main.c:343: error: 'struct net_device' has no member named 'adapter'
+...
+
+Passing in a derference like "adapter->netdev" as an argument doesn't work with these macros
+end up giving us things like:
+
+	dev_driver_string((adapter->netdev)->adapter->netdev.parent)
+
+and
+
+	dev_name((adapter->netdev)->adapter->netdev.parent)
+
+The issue seems to be the netdev_dbg() define when DEBUG is not set and
+CONFIG_DYNAMIC_DEBUG is set.
+
+It goes "(dev)->dev.parent" and CPP has fun with that.
+
+I'll use a different name for the first macro argument to netdev_dbg() and see
+if that's enough to fix this.
