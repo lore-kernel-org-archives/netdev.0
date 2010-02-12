@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] macb: straighten out macb_mii_probe
- function
-Date: Fri, 12 Feb 2010 11:39:25 -0800 (PST)
-Message-ID: <20100212.113925.249605315.davem@davemloft.net>
-References: <20100208151207.GE2601@psychotron.lab.eng.brq.redhat.com>
-	<20100210151706.6f12d431@hskinnemoen-d830>
+Subject: Re: inet: Remove bogus IGMPv3 report handling
+Date: Fri, 12 Feb 2010 11:42:56 -0800 (PST)
+Message-ID: <20100212.114256.226910552.davem@davemloft.net>
+References: <20100208032630.GA4369@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jpirko@redhat.com, netdev@vger.kernel.org, hskinnemoen@atmel.com
-To: haavard.skinnemoen@atmel.com
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57011
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42223
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756568Ab0BLTjL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 14:39:11 -0500
-In-Reply-To: <20100210151706.6f12d431@hskinnemoen-d830>
+	by vger.kernel.org with ESMTP id S1756865Ab0BLTml (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 14:42:41 -0500
+In-Reply-To: <20100208032630.GA4369@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
-Date: Wed, 10 Feb 2010 15:17:06 +0530
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Mon, 8 Feb 2010 14:26:30 +1100
 
-> Jiri Pirko <jpirko@redhat.com> wrote:
->> Use "phy_find_first" instead of manual lookup. Also use "phy_connect_direct"
->> instead of "phy_connect" since we already have phy_device pointer here.
->> 
->> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> inet: Remove bogus IGMPv3 report handling
 > 
-> Looks reasonable as far as I can see.
+> Currently we treat IGMPv3 reports as if it were an IGMPv2/v1 report.
+> This is broken as IGMPv3 reports are formatted differently.  So we
+> end up suppressing a bogus multicast group (which should be harmless
+> as long as the leading reserved field is zero).
 > 
-> Acked-by: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
+> In fact, IGMPv3 does not allow membership report suppression so
+> we should simply ignore IGMPv3 membership reports as a host.
+> 
+> This patch does exactly that.  I kept the case statement for it
+> so people won't accidentally add it back thinking that we overlooked
+> this case.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied, thanks guys.
+Applied to net-2.6 and queued up for -stable, thanks!
