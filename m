@@ -1,62 +1,116 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: rtl8180 driver in master/ad-hoc mode
-Date: Fri, 12 Feb 2010 10:08:53 -0500
-Message-ID: <20100212150853.GA4983@tuxdriver.com>
-References: <4B756B4C.2090204@gmail.com>
+From: Ferenc Wagner <wferi@niif.hu>
+Subject: Re: Flooded with bonding: bond0: doing slave updates when interface is down.
+Date: Fri, 12 Feb 2010 17:19:50 +0100
+Message-ID: <87bpfufmu1.fsf@tac.ki.iif.hu>
+References: <87mxzj6eyx.fsf@tac.ki.iif.hu>
+	<16013.1265836537@death.nxdomain.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Radu Potop <wooptoo@gmail.com>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:35611 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756405Ab0BLPPv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 10:15:51 -0500
-Content-Disposition: inline
-In-Reply-To: <4B756B4C.2090204@gmail.com>
+Received: from tac.ki.iif.hu ([193.6.222.43]:55185 "EHLO tac.ki.iif.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757088Ab0BLQT4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Feb 2010 11:19:56 -0500
+In-Reply-To: <16013.1265836537@death.nxdomain.ibm.com> (Jay Vosburgh's message
+	of "Wed, 10 Feb 2010 13:15:37 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 12, 2010 at 04:53:00PM +0200, Radu Potop wrote:
+Jay Vosburgh <fubar@us.ibm.com> writes:
 
-> 	I noticed that the rtl8180 (Realtek wireless PCI adapter) driver for 
-> Linux doesn't support master or ad-hoc mode. However the rtl-wifi driver 
-> from http://rtl-wifi.sourceforge.net does support these modes.
-> 	After a bit of investigation, I found out that the driver from the 
-> kernel is not maintained by its original author anymore (no changes since 
-> 2007), while rtl-wifi development is active.
+> Ferenc Wagner <wferi@niif.hu> wrote:
+>
+>> On a system running Linux 2.6.32.7 I use the following initramfs script
+>> to bring up some interfaces before mounting the root filesystem:
+>>
+>> [...]
+>> modprobe bonding
+>> cd /sys/class/net/$BOND/bonding
+>> echo active-backup >mode
+>> echo +eth0 >slaves
+>> echo +eth1 >slaves
+>> echo eth0 >primary
+>> echo +10.0.0.1 >arp_ip_target
+>> echo +10.0.0.2 >arp_ip_target
+>> echo 1000 >arp_interval
+>> [...]
+>>
+>> This stuff mostly works as expected, but sometimes I get this on the
+>> console:
+>>
+>> [   27.792746] Ethernet Channel Bonding Driver: v3.5.0 (November 4, 2008)
+>> [   27.831788] bonding: Warning: either miimon or arp_interval and arp_ip_target module parameters must be specified, otherwise bonding will not detect link failures! see bonding.txt for details.
+>> [   27.935640] bonding: bond0: setting mode to active-backup (1).
+>> [   27.970565] bonding: bond0: doing slave updates when interface is down.
+>> [   28.010110] bonding: bond0: Adding slave eth0.
+>> [   28.036651] bonding bond0: master_dev is not up in bond_enslave
+>> [   28.137410] bonding: bond0: Warning: failed to get speed and duplex from eth0, assumed to be 100Mb/sec and Full.
+>> [   28.198298] bonding: bond0: making interface eth0 the new active one.
+>> [   28.236806] bonding: bond0: first active interface up!
+>> [   28.267515] bonding: bond0: enslaving eth0 as an active interface with an up link.
+>> [   28.312847] bonding: bond0: doing slave updates when interface is down.
+>> [   28.352397] bonding: bond0: doing slave updates when interface is down.
+>> [...]
+>> [   29.065994] bonding: bond0: doing slave updates when interface is down.
+>> [   29.105535] bonding: bond0: doing slave updates when interface is down.
+>> [   29.145172] tg3: eth0: Link is up at 1000 Mbps, full duplex.
+>> [   29.178990] tg3: eth0: Flow control is off for TX and off for RX.
+>> [   29.215415] bonding: bond0: doing slave updates when interface is down.
+>> [   29.254956] bonding: bond0: doing slave updates when interface is down.
+>> [...]
+>> [   78.660009] bonding: bond0: doing slave updates when interface is down.
+>> [   78.699825] bonding: bond0: doing slave updates when interface is down.
+>> [   78.739373] bonding: bond0: Adding slave eth1.
+>> [   78.765914] bonding bond0: master_dev is not up in bond_enslave
+>> [   78.817517] tg3 0000:05:01.1: firmware: requesting tigon/tg3_tso.bin
+>> [   78.919759] bonding: bond0: Warning: failed to get speed and duplex from eth1, assumed to be 100Mb/sec and Full.
+>> [   78.980658] bonding: bond0: enslaving eth1 as a backup interface with an up link.
+>> [   79.025492] bonding: bond0: Setting eth0 as primary slave.
+>> [   79.058351] bonding: bond0: adding ARP target 10.0.0.1.
+>> [   79.089601] bonding: bond0: adding ARP target 10.0.0.2.
+>> [   79.120855] bonding: bond0: Setting ARP monitoring interval to 1000.
+>>
+>> In the end, everything seems to be all right, but this occasional
+>> interlude is disturbing and seems to indicate that something isn't quite
+>> right.  Which may well be my abuse of the bonding driver, but then
+>> please enlighten me, as I'd like to eliminate this 50-second delay from
+>> the boot procedure.  I don't mind the couple of "doing slave updates
+>> when interface is down" warnings which appear during the normal course
+>> of actions, but the above is way too much in my opinion.
+>
+> The message itself means that you're adding a slave to bonding while
+> the bond itself is down.  It's a warning only; the path through the
+> function doesn't change when the warning is printed.
 
-A bit too little investigation, it seems.  The rtl8180 driver doesn't
-get lots of attention, but it has been hit several times since 2007.
-As for master and ad-hoc modes, I've recently taken interest there
-and expect to be adding patches shortly.
+Why is the warning printed, btw?  What's wrong with adding a slave to a
+bond which is down?
 
-> 	My question is if rtl-wifi will make it into the kernel? rtl-wifi is 
-> actually a fork of the old driver, but with a lot of added functionality. 
-> I'm sure that a lot of folks would like to use their hardware to its full 
-> potential.
+> I would hazard to guess that you're getting zillions of them because
+> something is holding rtnl, and the bonding sysfs store function
+> conditionally acquires rtnl after printing the warning.  If the rtnl
+> acquisition fails, the system call is restarted, and you'll see the
+> warning message again.  This rtnl_trylock/restart business is to
+> prevent a deadlock during unregister.
 
-No it will not.  For one, svn indicates rtl-wifi is nowhere near as
-active as you indicate:
+Thanks for the explanation.  Is rtnl the shorthand of route netlink?
 
-	/home/linville/svn/rtl-wifi
-	[linville-t400.local]:> svn log
-	------------------------------------------------------------------------
-	r83 | falmouth | 2008-07-09 08:52:33 -0400 (Wed, 09 Jul 2008) | 1 line
+> I don't know why this repeats for 50-odd seconds, though.  Nothing
+> should be holding rtnl for that long.
 
-	our CCMP, TKIP and WEP modules names end in -rtl
+Forgive me a wild guess: what about the firmware loader?  That uses
+sysfs at least, and maybe udev misses the request somehow...
 
-Beyond that, no one from there is posting any patches and in any case
-it is rather rare to simply drop one more-or-less working driver in
-favor of another one simply because it appears from nowhere.
+> Do you still get the long delay if you set the bond up prior to adding
+> the slaves?  Not necessarily assign an address, just set it
+> administratively up (ip link set up dev bond0).
 
-Anyway, as I indicated I have been taking more interest in rtl8180
-lately and I expect it to be greatly improved at least in time for
-2.6.35 (since the 2.6.34 development cycle will be ending soon).
-
-Hth!
-
-John
+I rebooted a couple of times with this change, and had no problem at
+all: no messages, no delay.  However, this issue wasn't reproducible, so
+it does not mean too much.  I'll be running with this and yell if I
+encounter any delay.  Meanwhile I also upgraded to 2.6.32.8, which I
+forgot before running the tests.  I'll recheck with 2.6.32.7 as well.
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Thanks,
+Feri.
