@@ -1,26 +1,39 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: tunctl issues with FC 12 and 2.6.33-rc5
-Date: Fri, 12 Feb 2010 12:32:09 -0800
-Message-ID: <43F901BD926A4E43B106BF17856F07559FB80A86@orsmsx508.amr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6] sfc: Fix SFE4002 initialisation
+Date: Fri, 12 Feb 2010 12:32:36 -0800 (PST)
+Message-ID: <20100212.123236.90513347.davem@davemloft.net>
+References: <1265730777.2126.110.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:38495 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753446Ab0BLUcJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 15:32:09 -0500
-Content-Language: en-US
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35845
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756252Ab0BLUcV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 15:32:21 -0500
+In-Reply-To: <1265730777.2126.110.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have built and installed the 2.6.33-rc5 kernel on a machine in which the original distro was Fedora Core 12.  I have a script set up to create a tap device using tunctl but when I boot to the 2.6.33-rc5 kernel I get TUNSETIFF:  Permission Denied.  If I boot to the 2.6.31 based kernel that came with FC 12 the tunctl command works fine and create the tap device.  The problem I need a tap device added to my bridge so I can pass a network interface into one of my KVM virtual machines.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 09 Feb 2010 15:52:57 +0000
 
-Has anyone seen this problem or might understand why it is occurring?  I checked the netdev archives and found nothing about it there.  Several hours of googling about the internet hasn't provided any insight either.
+> From: Steve Hodgson <shodgson@solarflare.com>
+> 
+> Commit 357d46a17e54c9a87e0e6ef3930ff4ab2d232b81 "sfc: QT202x: Remove
+> unreliable MMD check at initialisation" broke initialisation of the
+> SFE4002.  efx_mdio_reset_mmd() returns a positive value rather than 0
+> on success.  The above commit causes this value to be propagated up
+> by qt202x_reset_phy(), which is treated as a failure by its callers.
+> Change qt202x_reset_phy() to return 0 if successful.
+> 
+> The PCI layer treats >0 as "fail, but please call remove() anyway",
+> which means that unloading the driver would cause a crash.  Add a
+> WARN_ON() on the failure path of efx_pci_probe() to provide early
+> warning if there are any other cases where we do this.
+> 
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Thanks,
-
-- Greg Rose
-LAD
-Intel Corp.
+Applied to net-2.6, thanks.
