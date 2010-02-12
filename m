@@ -1,68 +1,61 @@
-From: Radu Potop <wooptoo@gmail.com>
-Subject: Re: rtl8180 driver in master/ad-hoc mode
-Date: Fri, 12 Feb 2010 19:53:22 +0200
-Message-ID: <4B759592.5040807@gmail.com>
-References: <4B756B4C.2090204@gmail.com> <20100212150853.GA4983@tuxdriver.com>
+From: Eldon Koyle <esk-netdev@esk.cs.usu.edu>
+Subject: Re: ixgbe RSS not working as expected with 8021q and bridging
+Date: Fri, 12 Feb 2010 12:03:40 -0700
+Message-ID: <20100212190340.GB20231@esk.cs.usu.edu>
+References: <20091210231103.GA20231@esk.cs.usu.edu>
+ <4B218E36.4030808@gmail.com>
+ <20091215172119.GF20231@esk.cs.usu.edu>
+ <4B27E4A1.4050802@gmail.com>
+ <20100210205048.GT20231@esk.cs.usu.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f220.google.com ([209.85.220.220]:63870 "EHLO
-	mail-fx0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752978Ab0BLRx0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 12:53:26 -0500
-Received: by fxm20 with SMTP id 20so2597272fxm.1
-        for <netdev@vger.kernel.org>; Fri, 12 Feb 2010 09:53:25 -0800 (PST)
-In-Reply-To: <20100212150853.GA4983@tuxdriver.com>
+Received: from esk.cs.usu.edu ([129.123.28.15]:42876 "EHLO esk.cs.usu.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751829Ab0BLTDl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Feb 2010 14:03:41 -0500
+Content-Disposition: inline
+In-Reply-To: <20100210205048.GT20231@esk.cs.usu.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	I contacted Markus Gothe from rtl-wifi and he was interested in updating the 
-driver/providing patches. It would be nice to collaborate with him on this one.
-	I'll keep you updated if he posts anything on the rtl-wifi mailing list.
+On  Feb 10 13:50-0700, Eldon Koyle wrote:
+<snip>
+> I am now trying 2.6.32.7 with the in-tree ixgbe driver.  I am still
+> seeing some unusual behavior when bridging VLAN interfaces.  It looks
+> like there is an off-by-one error in the mapping from rx queue to tx
+> queue (ie. packets are sent on <rx queue number>-1 instead of using the
+> same rx and tx queue number).
+> 
+> Any idea what might cause this?
 
--Radu
+Looking at the code, we are having difficulty finding the problem.  I
+think we did find an accounting error in the vlan code, though.
 
-On 02/12/2010 05:08 PM, John W. Linville wrote:
-> On Fri, Feb 12, 2010 at 04:53:00PM +0200, Radu Potop wrote:
->
->> 	I noticed that the rtl8180 (Realtek wireless PCI adapter) driver for
->> Linux doesn't support master or ad-hoc mode. However the rtl-wifi driver
->> from http://rtl-wifi.sourceforge.net does support these modes.
->> 	After a bit of investigation, I found out that the driver from the
->> kernel is not maintained by its original author anymore (no changes since
->> 2007), while rtl-wifi development is active.
->
-> A bit too little investigation, it seems.  The rtl8180 driver doesn't
-> get lots of attention, but it has been hit several times since 2007.
-> As for master and ad-hoc modes, I've recently taken interest there
-> and expect to be adding patches shortly.
->
->> 	My question is if rtl-wifi will make it into the kernel? rtl-wifi is
->> actually a fork of the old driver, but with a lot of added functionality.
->> I'm sure that a lot of folks would like to use their hardware to its full
->> potential.
->
-> No it will not.  For one, svn indicates rtl-wifi is nowhere near as
-> active as you indicate:
->
-> 	/home/linville/svn/rtl-wifi
-> 	[linville-t400.local]:>  svn log
-> 	------------------------------------------------------------------------
-> 	r83 | falmouth | 2008-07-09 08:52:33 -0400 (Wed, 09 Jul 2008) | 1 line
->
-> 	our CCMP, TKIP and WEP modules names end in -rtl
->
-> Beyond that, no one from there is posting any patches and in any case
-> it is rather rare to simply drop one more-or-less working driver in
-> favor of another one simply because it appears from nowhere.
->
-> Anyway, as I indicated I have been taking more interest in rtl8180
-> lately and I expect it to be greatly improved at least in time for
-> 2.6.35 (since the 2.6.34 development cycle will be ending soon).
->
-> Hth!
->
-> John
+In net/8021q/vlan_dev.c:
+
+static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
+                                            struct net_device *dev)
+{
+        int i = skb_get_queue_mapping(skb);
+        struct netdev_queue *txq = netdev_get_tx_queue(dev, i);      
+...
+        if (likely(ret == NET_XMIT_SUCCESS)) {
+                txq->tx_packets++;
+                txq->tx_bytes += len;
+        } else
+                txq->tx_dropped++;
+...
+}
+
+skb_get_queue_mapping returns skb->queue_mapping, which is rx_queue + 1
+or 0 for unset.
+
+Does dev->_tx[0] have some special meaning, or is this wrong?
+
+-- 
+Eldon Koyle
+-- 
+I have a theory that it's impossible to prove anything, but I can't prove it.
