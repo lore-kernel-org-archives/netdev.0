@@ -1,33 +1,36 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH 1/2] e1000e: Only disable ASPM on 82573L devices
-Date: Fri, 12 Feb 2010 12:54:23 -0800 (Pacific Standard Time)
-Message-ID: <alpine.WNT.2.00.1002121249480.5328@jbrandeb-desk1.amr.corp.intel.com>
-References: <1265756630-8093-1-git-send-email-mjg@redhat.com> <20100212.123917.109973609.davem@davemloft.net>
+From: Ed Swierk <eswierk@aristanetworks.com>
+Subject: Re: [PATCH v2] net/macvtap: fix reference counting
+Date: Fri, 12 Feb 2010 12:58:08 -0800
+Message-ID: <9ae48b021002121258l6f0849c6w51886bd2b2893c1c@mail.gmail.com>
+References: <201001271104.20607.arnd@arndb.de> <4B72F67F.1040008@trash.net>
+	 <201002111645.02770.arnd@arndb.de> <201002111655.40349.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "mjg@redhat.com" <mjg@redhat.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	bruce.w.allan@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100212.123917.109973609.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Patrick McHardy <kaber@trash.net>,
+	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ey-out-2122.google.com ([74.125.78.24]:8355 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753613Ab0BLU6K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 15:58:10 -0500
+Received: by ey-out-2122.google.com with SMTP id d26so714757eyd.19
+        for <netdev@vger.kernel.org>; Fri, 12 Feb 2010 12:58:08 -0800 (PST)
+In-Reply-To: <201002111655.40349.arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Feb 11, 2010 at 7:55 AM, Arnd Bergmann <arnd@arndb.de> wrote:
+> The RCU usage in the original code was broken because
+> there are cases where we possibly sleep with rcu_read_lock
+> held. As a fix, change the macvtap_file_get_queue to
+> get a reference on the socket and the netdev instead of
+> taking the full rcu_read_lock.
+>
+> Also, change macvtap_file_get_queue failure case to
+> not require a subsequent macvtap_file_put_queue, as
+> pointed out by Ed Swierk.
 
+Works for me. Thanks.
 
-On Fri, 12 Feb 2010, David Miller wrote:
-> Intel folks, are you looking at these patches?
-
-Hi Dave, yes we're looking at them but due to Bruce being out, we need to 
-wait until next week to reply.  If you can wait, we'll make sure they come 
-through Jeff or receive comments after full review.
-
-It's a bit of a scary area to mess with as there were lots of ASPM related 
-bugs in the hardware in this hardware generation (system chipsets and 
-82573).
+Acked-by: Ed Swierk <eswierk@aristanetworks.com>
