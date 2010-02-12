@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: ixgbe RSS not working as expected with 8021q and bridging
-Date: Fri, 12 Feb 2010 11:52:20 -0800 (PST)
-Message-ID: <20100212.115220.206892220.davem@davemloft.net>
-References: <20100210205048.GT20231@esk.cs.usu.edu>
-	<20100212190340.GB20231@esk.cs.usu.edu>
-	<1266004097.2939.4.camel@edumazet-laptop>
+Subject: Re: ixgbe: [RFC] [PATCH] Fix return of invalid txq
+Date: Fri, 12 Feb 2010 11:55:52 -0800 (PST)
+Message-ID: <20100212.115552.166740353.davem@davemloft.net>
+References: <1263546020.2038.7.camel@localhost>
+	<20100115.010628.67106329.davem@davemloft.net>
+	<F86E8680A7D9D74A99DC6345E35A6929501BA2CA@orsmsx503.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: esk-netdev@esk.cs.usu.edu, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: krkumar2@in.ibm.com, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com
+To: peter.p.waskiewicz.jr@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37004
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37007
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757093Ab0BLTwH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 14:52:07 -0500
-In-Reply-To: <1266004097.2939.4.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1753062Ab0BLTzh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 14:55:37 -0500
+In-Reply-To: <F86E8680A7D9D74A99DC6345E35A6929501BA2CA@orsmsx503.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 12 Feb 2010 20:48:17 +0100
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Date: Sat, 16 Jan 2010 02:53:15 -0800
 
-> TX path is supposed to go through dev_pick_tx() & skb_tx_hash(), maybe
-> bridging has a shortcut and need a fix, like we also do in pktgen (sorry
-> I wont be able to check this before few days)
+> Either way works though.  I still think the table is the better way
+> to go, because of the determinism for any system and NIC
+> configuration/layout.  The overhead of configuring the table is
+> taken during open(), so it's not in the hotpath at all.
 
-I just made a quick check and bridging seems lack any such shortcuts
-and is a good citizen. :-)
-
-It transmits packets using dev_queue_xmit().
+How many minus operations can your cpu perform in the same amount
+of time it takes to access memory? :-)
