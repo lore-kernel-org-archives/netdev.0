@@ -1,188 +1,292 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH v3 2/3] net: TCP thin linear timeouts
-Date: Fri, 12 Feb 2010 04:52:13 +0100
-Message-ID: <1265946733.2891.10.camel@edumazet-laptop>
-References: <4B73F30D.6040205@simula.no>
+Subject: Re: [PATCH tip/core/rcu 05/13] net: add checking to
+ rcu_dereference() primitives
+Date: Fri, 12 Feb 2010 05:15:52 +0100
+Message-ID: <1265948152.2891.25.camel@edumazet-laptop>
+References: <20100212000016.GA25781@linux.vnet.ibm.com>
+	 <1265932839-25899-5-git-send-email-paulmck@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
-	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
-	David Miller <davem@davemloft.net>,
-	william.allen.simpson@gmail.com, damian@tvk.rwth-aachen.de
-To: Andreas Petlund <apetlund@simula.no>
+Cc: linux-kernel@vger.kernel.org, mingo@elte.hu, laijs@cn.fujitsu.com,
+	dipankar@in.ibm.com, akpm@linux-foundation.org,
+	mathieu.desnoyers@polymtl.ca, josh@joshtriplett.org,
+	dvhltc@us.ibm.com, niv@us.ibm.com, tglx@linutronix.de,
+	peterz@infradead.org, rostedt@goodmis.org, Valdis.Kletnieks@vt.edu,
+	dhowells@redhat.com, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B73F30D.6040205@simula.no>
+In-Reply-To: <1265932839-25899-5-git-send-email-paulmck@linux.vnet.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le jeudi 11 f=C3=A9vrier 2010 =C3=A0 13:07 +0100, Andreas Petlund a =C3=
+Le jeudi 11 f=C3=A9vrier 2010 =C3=A0 16:00 -0800, Paul E. McKenney a =C3=
 =A9crit :
-> Major changes:
->       -Possible to disable mechanisms by socket option
->       -Socket option value boundary check
+> Update rcu_dereference() primitives to use new lockdep-based checking=
+=2E
+> The rcu_dereference() in __in6_dev_get() may be protected either by
+> rcu_read_lock() or RTNL, per Eric Dumazet.  The rcu_dereference()
+> in __sk_free() is protected by the fact that it is never reached if a=
+n
+> update could change it.  Check for this by using rcu_dereference_chec=
+k()
+> to verify that the struct sock's ->sk_wmem_alloc counter is zero.
 >=20
->=20
-> Signed-off-by: Andreas Petlund <apetlund@simula.no>
+> Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+
+CC to netdev and David Miller, network maintainer.
+
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+Thanks Paul, great work !
+
 > ---
->  include/linux/sysctl.h     |    1 +
->  include/linux/tcp.h        |    3 +++
->  include/net/tcp.h          |    4 ++++
->  net/ipv4/sysctl_net_ipv4.c |    7 +++++++
->  net/ipv4/tcp.c             |    7 +++++++
->  net/ipv4/tcp_timer.c       |   19 ++++++++++++++++++-
->  6 files changed, 40 insertions(+), 1 deletions(-)
+>  include/linux/rtnetlink.h |    3 +++
+>  include/net/addrconf.h    |    4 +++-
+>  net/core/dev.c            |    2 +-
+>  net/core/filter.c         |    6 +++---
+>  net/core/rtnetlink.c      |    8 ++++++++
+>  net/core/sock.c           |    3 ++-
+>  net/decnet/dn_route.c     |   14 +++++++-------
+>  net/ipv4/route.c          |   14 +++++++-------
+>  net/packet/af_packet.c    |    2 +-
+>  9 files changed, 35 insertions(+), 21 deletions(-)
 >=20
-> diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
-> index 9f236cd..d840d75 100644
-> --- a/include/linux/sysctl.h
-> +++ b/include/linux/sysctl.h
-> @@ -425,6 +425,7 @@ enum
->  	NET_TCP_ALLOWED_CONG_CONTROL=3D123,
->  	NET_TCP_MAX_SSTHRESH=3D124,
->  	NET_TCP_FRTO_RESPONSE=3D125,
-> +	NET_TCP_FORCE_THIN_LINEAR_TIMEOUTS=3D126,
->  };
+> diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+> index 05330fc..5c52fa4 100644
+> --- a/include/linux/rtnetlink.h
+> +++ b/include/linux/rtnetlink.h
+> @@ -735,6 +735,9 @@ extern void rtnl_lock(void);
+>  extern void rtnl_unlock(void);
+>  extern int rtnl_trylock(void);
+>  extern int rtnl_is_locked(void);
+> +#ifdef CONFIG_PROVE_LOCKING
+> +extern int lockdep_rtnl_is_held(void);
+> +#endif /* #ifdef CONFIG_PROVE_LOCKING */
 > =20
->  enum {
-> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-> index 7fee8a4..67da706 100644
-> --- a/include/linux/tcp.h
-> +++ b/include/linux/tcp.h
-> @@ -103,6 +103,7 @@ enum {
->  #define TCP_CONGESTION		13	/* Congestion control algorithm */
->  #define TCP_MD5SIG		14	/* TCP MD5 Signature (RFC2385) */
->  #define TCP_COOKIE_TRANSACTIONS	15	/* TCP Cookie Transactions */
-> +#define TCP_THIN_LT             16      /* Use linear timeouts for t=
-hin streams*/
+>  extern void rtnetlink_init(void);
+>  extern void __rtnl_unlock(void);
+> diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+> index 0f7c378..45375b4 100644
+> --- a/include/net/addrconf.h
+> +++ b/include/net/addrconf.h
+> @@ -177,7 +177,9 @@ extern int unregister_inet6addr_notifier(struct n=
+otifier_block *nb);
+>  static inline struct inet6_dev *
+>  __in6_dev_get(struct net_device *dev)
+>  {
+> -	return rcu_dereference(dev->ip6_ptr);
+> +	return rcu_dereference_check(dev->ip6_ptr,
+> +				     rcu_read_lock_held() ||
+> +				     lockdep_rtnl_is_held());
+>  }
 > =20
->  /* for TCP_INFO socket option */
->  #define TCPI_OPT_TIMESTAMPS	1
-> @@ -341,6 +342,8 @@ struct tcp_sock {
->  	u16	advmss;		/* Advertised MSS			*/
->  	u8	frto_counter;	/* Number of new acks after RTO */
->  	u8	nonagle;	/* Disable Nagle algorithm?             */
-> +	u8      thin_lt     : 1,/* Use linear timeouts for thin streams */
-> +		thin_undef  : 7;
+>  static inline struct inet6_dev *
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index be9924f..0d0ff82 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2041,7 +2041,7 @@ gso:
+>  	rcu_read_lock_bh();
 > =20
->  /* RTT measurement */
->  	u32	srtt;		/* smoothed round trip time << 3	*/
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index e5e2056..bc5856a 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -196,6 +196,9 @@ extern void tcp_time_wait(struct sock *sk, int st=
-ate, int timeo);
->  #define TCP_NAGLE_CORK		2	/* Socket is corked	    */
->  #define TCP_NAGLE_PUSH		4	/* Cork is overridden for already queued d=
-ata */
+>  	txq =3D dev_pick_tx(dev, skb);
+> -	q =3D rcu_dereference(txq->qdisc);
+> +	q =3D rcu_dereference_bh(txq->qdisc);
 > =20
-> +/* TCP thin-stream limits */
-> +#define TCP_THIN_LT_RETRIES     6       /* After 6 linear retries, d=
-o exp. backoff */
+>  #ifdef CONFIG_NET_CLS_ACT
+>  	skb->tc_verd =3D SET_TC_AT(skb->tc_verd, AT_EGRESS);
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index 08db7b9..3541aa4 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -86,7 +86,7 @@ int sk_filter(struct sock *sk, struct sk_buff *skb)
+>  		return err;
+> =20
+>  	rcu_read_lock_bh();
+> -	filter =3D rcu_dereference(sk->sk_filter);
+> +	filter =3D rcu_dereference_bh(sk->sk_filter);
+>  	if (filter) {
+>  		unsigned int pkt_len =3D sk_run_filter(skb, filter->insns,
+>  				filter->len);
+> @@ -521,7 +521,7 @@ int sk_attach_filter(struct sock_fprog *fprog, st=
+ruct sock *sk)
+>  	}
+> =20
+>  	rcu_read_lock_bh();
+> -	old_fp =3D rcu_dereference(sk->sk_filter);
+> +	old_fp =3D rcu_dereference_bh(sk->sk_filter);
+>  	rcu_assign_pointer(sk->sk_filter, fp);
+>  	rcu_read_unlock_bh();
+> =20
+> @@ -536,7 +536,7 @@ int sk_detach_filter(struct sock *sk)
+>  	struct sk_filter *filter;
+> =20
+>  	rcu_read_lock_bh();
+> -	filter =3D rcu_dereference(sk->sk_filter);
+> +	filter =3D rcu_dereference_bh(sk->sk_filter);
+>  	if (filter) {
+>  		rcu_assign_pointer(sk->sk_filter, NULL);
+>  		sk_filter_delayed_uncharge(sk, filter);
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 794bcb8..4c7d3f6 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -89,6 +89,14 @@ int rtnl_is_locked(void)
+>  }
+>  EXPORT_SYMBOL(rtnl_is_locked);
+> =20
+> +#ifdef CONFIG_PROVE_LOCKING
+> +int lockdep_rtnl_is_held(void)
+> +{
+> +	return lockdep_is_held(&rtnl_mutex);
+> +}
+> +EXPORT_SYMBOL(lockdep_rtnl_is_held);
+> +#endif /* #ifdef CONFIG_PROVE_LOCKING */
 > +
->  extern struct inet_timewait_death_row tcp_death_row;
+>  static struct rtnl_link *rtnl_msg_handlers[NPROTO];
 > =20
->  /* sysctl variables for tcp */
-> @@ -241,6 +244,7 @@ extern int sysctl_tcp_workaround_signed_windows;
->  extern int sysctl_tcp_slow_start_after_idle;
->  extern int sysctl_tcp_max_ssthresh;
->  extern int sysctl_tcp_cookie_size;
-> +extern int sysctl_tcp_force_thin_linear_timeouts;
+>  static inline int rtm_msgindex(int msgtype)
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index e1f6f22..305cba4 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -1073,7 +1073,8 @@ static void __sk_free(struct sock *sk)
+>  	if (sk->sk_destruct)
+>  		sk->sk_destruct(sk);
 > =20
->  extern atomic_t tcp_memory_allocated;
->  extern struct percpu_counter tcp_sockets_allocated;
-> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-> index 7e3712c..cb2ed35 100644
-> --- a/net/ipv4/sysctl_net_ipv4.c
-> +++ b/net/ipv4/sysctl_net_ipv4.c
-> @@ -576,6 +576,13 @@ static struct ctl_table ipv4_table[] =3D {
->  		.proc_handler	=3D proc_dointvec
->  	},
->  	{
-> +		.procname       =3D "tcp_force_thin_linear_timeouts",
-> +		.data           =3D &sysctl_tcp_force_thin_linear_timeouts,
-> +		.maxlen         =3D sizeof(int),
-> +		.mode           =3D 0644,
-> +		.proc_handler   =3D proc_dointvec
-> +	},
-> +	{
->  		.procname	=3D "udp_mem",
->  		.data		=3D &sysctl_udp_mem,
->  		.maxlen		=3D sizeof(sysctl_udp_mem),
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index d5d69ea..ce9aeb0 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -2229,6 +2229,13 @@ static int do_tcp_setsockopt(struct sock *sk, =
-int level,
+> -	filter =3D rcu_dereference(sk->sk_filter);
+> +	filter =3D rcu_dereference_check(sk->sk_filter,
+> +				       atomic_read(&sk->sk_wmem_alloc) =3D=3D 0);
+>  	if (filter) {
+>  		sk_filter_uncharge(sk, filter);
+>  		rcu_assign_pointer(sk->sk_filter, NULL);
+> diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+> index a032840..a7bf03c 100644
+> --- a/net/decnet/dn_route.c
+> +++ b/net/decnet/dn_route.c
+> @@ -1155,8 +1155,8 @@ static int __dn_route_output_key(struct dst_ent=
+ry **pprt, const struct flowi *fl
+> =20
+>  	if (!(flags & MSG_TRYHARD)) {
+>  		rcu_read_lock_bh();
+> -		for(rt =3D rcu_dereference(dn_rt_hash_table[hash].chain); rt;
+> -			rt =3D rcu_dereference(rt->u.dst.dn_next)) {
+> +		for (rt =3D rcu_dereference_bh(dn_rt_hash_table[hash].chain); rt;
+> +			rt =3D rcu_dereference_bh(rt->u.dst.dn_next)) {
+>  			if ((flp->fld_dst =3D=3D rt->fl.fld_dst) &&
+>  			    (flp->fld_src =3D=3D rt->fl.fld_src) &&
+>  			    (flp->mark =3D=3D rt->fl.mark) &&
+> @@ -1618,9 +1618,9 @@ int dn_cache_dump(struct sk_buff *skb, struct n=
+etlink_callback *cb)
+>  		if (h > s_h)
+>  			s_idx =3D 0;
+>  		rcu_read_lock_bh();
+> -		for(rt =3D rcu_dereference(dn_rt_hash_table[h].chain), idx =3D 0;
+> +		for(rt =3D rcu_dereference_bh(dn_rt_hash_table[h].chain), idx =3D =
+0;
+>  			rt;
+> -			rt =3D rcu_dereference(rt->u.dst.dn_next), idx++) {
+> +			rt =3D rcu_dereference_bh(rt->u.dst.dn_next), idx++) {
+>  			if (idx < s_idx)
+>  				continue;
+>  			skb_dst_set(skb, dst_clone(&rt->u.dst));
+> @@ -1654,12 +1654,12 @@ static struct dn_route *dn_rt_cache_get_first=
+(struct seq_file *seq)
+> =20
+>  	for(s->bucket =3D dn_rt_hash_mask; s->bucket >=3D 0; --s->bucket) {
+>  		rcu_read_lock_bh();
+> -		rt =3D dn_rt_hash_table[s->bucket].chain;
+> +		rt =3D rcu_dereference_bh(dn_rt_hash_table[s->bucket].chain);
+>  		if (rt)
+>  			break;
+>  		rcu_read_unlock_bh();
+>  	}
+> -	return rcu_dereference(rt);
+> +	return rt;
+>  }
+> =20
+>  static struct dn_route *dn_rt_cache_get_next(struct seq_file *seq, s=
+truct dn_route *rt)
+> @@ -1674,7 +1674,7 @@ static struct dn_route *dn_rt_cache_get_next(st=
+ruct seq_file *seq, struct dn_rou
+>  		rcu_read_lock_bh();
+>  		rt =3D dn_rt_hash_table[s->bucket].chain;
+>  	}
+> -	return rcu_dereference(rt);
+> +	return rcu_dereference_bh(rt);
+>  }
+> =20
+>  static void *dn_rt_cache_seq_start(struct seq_file *seq, loff_t *pos=
+)
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index e446496..3476b3b 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -287,12 +287,12 @@ static struct rtable *rt_cache_get_first(struct=
+ seq_file *seq)
+>  		if (!rt_hash_table[st->bucket].chain)
+>  			continue;
+>  		rcu_read_lock_bh();
+> -		r =3D rcu_dereference(rt_hash_table[st->bucket].chain);
+> +		r =3D rcu_dereference_bh(rt_hash_table[st->bucket].chain);
+>  		while (r) {
+>  			if (dev_net(r->u.dst.dev) =3D=3D seq_file_net(seq) &&
+>  			    r->rt_genid =3D=3D st->genid)
+>  				return r;
+> -			r =3D rcu_dereference(r->u.dst.rt_next);
+> +			r =3D rcu_dereference_bh(r->u.dst.rt_next);
 >  		}
->  		break;
+>  		rcu_read_unlock_bh();
+>  	}
+> @@ -314,7 +314,7 @@ static struct rtable *__rt_cache_get_next(struct =
+seq_file *seq,
+>  		rcu_read_lock_bh();
+>  		r =3D rt_hash_table[st->bucket].chain;
+>  	}
+> -	return rcu_dereference(r);
+> +	return rcu_dereference_bh(r);
+>  }
 > =20
-> +	case TCP_THIN_LT:
-> +		if (val < 0 || val > 1)
-> +			err =3D -EINVAL;
-> +		else
-> +			tp->thin_lt =3D val;
-> +		break;
-> +
->  	case TCP_CORK:
->  		/* When set indicates to always queue non-full frames.
->  		 * Later the user clears this option and we transmit
-> diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-> index de7d1bf..a682479 100644
-> --- a/net/ipv4/tcp_timer.c
-> +++ b/net/ipv4/tcp_timer.c
-> @@ -29,6 +29,7 @@ int sysctl_tcp_keepalive_intvl __read_mostly =3D TC=
-P_KEEPALIVE_INTVL;
->  int sysctl_tcp_retries1 __read_mostly =3D TCP_RETR1;
->  int sysctl_tcp_retries2 __read_mostly =3D TCP_RETR2;
->  int sysctl_tcp_orphan_retries __read_mostly;
-> +int sysctl_tcp_force_thin_linear_timeouts __read_mostly;
+>  static struct rtable *rt_cache_get_next(struct seq_file *seq,
+> @@ -2687,8 +2687,8 @@ int __ip_route_output_key(struct net *net, stru=
+ct rtable **rp,
+>  	hash =3D rt_hash(flp->fl4_dst, flp->fl4_src, flp->oif, rt_genid(net=
+));
 > =20
->  static void tcp_write_timer(unsigned long);
->  static void tcp_delack_timer(unsigned long);
-> @@ -415,7 +416,23 @@ void tcp_retransmit_timer(struct sock *sk)
->  	icsk->icsk_retransmits++;
+>  	rcu_read_lock_bh();
+> -	for (rth =3D rcu_dereference(rt_hash_table[hash].chain); rth;
+> -		rth =3D rcu_dereference(rth->u.dst.rt_next)) {
+> +	for (rth =3D rcu_dereference_bh(rt_hash_table[hash].chain); rth;
+> +		rth =3D rcu_dereference_bh(rth->u.dst.rt_next)) {
+>  		if (rth->fl.fl4_dst =3D=3D flp->fl4_dst &&
+>  		    rth->fl.fl4_src =3D=3D flp->fl4_src &&
+>  		    rth->fl.iif =3D=3D 0 &&
+> @@ -3006,8 +3006,8 @@ int ip_rt_dump(struct sk_buff *skb,  struct net=
+link_callback *cb)
+>  		if (!rt_hash_table[h].chain)
+>  			continue;
+>  		rcu_read_lock_bh();
+> -		for (rt =3D rcu_dereference(rt_hash_table[h].chain), idx =3D 0; rt=
+;
+> -		     rt =3D rcu_dereference(rt->u.dst.rt_next), idx++) {
+> +		for (rt =3D rcu_dereference_bh(rt_hash_table[h].chain), idx =3D 0;=
+ rt;
+> +		     rt =3D rcu_dereference_bh(rt->u.dst.rt_next), idx++) {
+>  			if (!net_eq(dev_net(rt->u.dst.dev), net) || idx < s_idx)
+>  				continue;
+>  			if (rt_is_expired(rt))
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index f126d18..939471e 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -508,7 +508,7 @@ static inline unsigned int run_filter(struct sk_b=
+uff *skb, struct sock *sk,
+>  	struct sk_filter *filter;
 > =20
->  out_reset_timer:
-> -	icsk->icsk_rto =3D min(icsk->icsk_rto << 1, TCP_RTO_MAX);
-> +	/* If stream is thin, use linear timeouts. Since 'icsk_backoff' is
-> +	 * used to reset timer, set to 0. Recalculate 'icsk_rto' as this
-> +	 * might be increased if the stream oscillates between thin and thi=
-ck,
-> +	 * thus the old value might already be too high compared to the val=
-ue
-> +	 * set by 'tcp_set_rto' in tcp_input.c which resets the rto without
-> +	 * backoff. Limit to TCP_THIN_LT_RETRIES before initiating exponent=
-ial
-> +	 * backoff behaviour to avoid continue hammering linear-timeout
-> +	 * retransmissions into a black hole*/
-> +	if ((tp->thin_lt || sysctl_tcp_force_thin_linear_timeouts) &&
-> +	    tcp_stream_is_thin(sk) && sk->sk_state =3D=3D TCP_ESTABLISHED &=
-&
-> +	    icsk->icsk_retransmits <=3D TCP_THIN_LT_RETRIES) {
-> +		icsk->icsk_backoff =3D 0;
-> +		icsk->icsk_rto =3D min(__tcp_set_rto(tp), TCP_RTO_MAX);
-> +	} else {
-> +		/* Use normal (exponential) backoff */
-> +		icsk->icsk_rto =3D min(icsk->icsk_rto << 1, TCP_RTO_MAX);
-> +	}
->  	inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, icsk->icsk_rto, TC=
-P_RTO_MAX);
->  	if (retransmits_timed_out(sk, sysctl_tcp_retries1 + 1))
->  		__sk_dst_reset(sk);
-
-Hi Anreas
-
-Could you include a section in Documentation/networking/ip-sysctl.txt
-about tcp_force_thin_linear_timeouts setting ?
-
-Also, you should provide some documentation to be included in man pages
-(man 7 tcp), to Michael Kerrisk ( <mtk.manpages@gmail.com> ), both for
-tcp_force_thin_linear_timeouts and TCP_THIN_LT
-
-(Same applies for patch 3/3 and tcp_force_thin_dupack /
-TCP_THIN_DUPACK )
+>  	rcu_read_lock_bh();
+> -	filter =3D rcu_dereference(sk->sk_filter);
+> +	filter =3D rcu_dereference_bh(sk->sk_filter);
+>  	if (filter !=3D NULL)
+>  		res =3D sk_run_filter(skb, filter->insns, filter->len);
+>  	rcu_read_unlock_bh();
