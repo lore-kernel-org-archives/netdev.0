@@ -1,41 +1,85 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [net-next PATCH v3 3/3] net: TCP thin dupack
-Date: Fri, 12 Feb 2010 13:43:09 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.1002121342150.18408@melkinpaasi.cs.helsinki.fi>
-References: <4B73F31F.9000204@simula.no> <4B753943.2080800@gmail.com>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: Subject: [PATCH 6/6] bna: Brocade 10Gb Ethernet device driver
+Date: Fri, 12 Feb 2010 06:00:58 -0800
+Message-ID: <201002121400.o1CE0v6W031920@blc-10-10.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Andreas Petlund <apetlund@simula.no>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
-	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
-	David Miller <davem@davemloft.net>, damian@tvk.rwth-aachen.de
-To: William Allen Simpson <william.allen.simpson@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B753943.2080800@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <adapter_linux_open_src_team@brocade.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hq-exedge.brocade.com ([66.243.153.82]:48121 "EHLO
+	hq-exedge.brocade.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753500Ab0BLOA7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 09:00:59 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 12 Feb 2010, William Allen Simpson wrote:
+From: Rasesh Mody <rmody@brocade.com>
 
-> Andreas Petlund wrote:
-> > diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> > index 28e0296..c5a73ab 100644
-> > --- a/net/ipv4/tcp_input.c
-> > +++ b/net/ipv4/tcp_input.c
-> > @@ -89,6 +89,8 @@ int sysctl_tcp_frto __read_mostly = 2;
-> >  int sysctl_tcp_frto_response __read_mostly;
-> >  int sysctl_tcp_nometrics_save __read_mostly;
-> >  +int sysctl_tcp_force_thin_dupack __read_mostly;
-> > +
-> >  int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
-> 
-> Where is the sysctl initialized?
+This is patch 6/6 which contains linux driver source for
+Brocade's BR1010/BR1020 10Gb CEE capable ethernet adapter.
+Source is based against net-next-2.6.
 
-...That's offloaded to the compiler, like is done with some of the above 
-ones too. There's nothing to worry in that.
+We wish this patch to be considered for inclusion in net-next-2.6
 
--- 
- i.
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
+---
+ Kconfig      |   15 +++++++++++++++
+ Makefile     |    1 +
+ bna/Makefile |   14 ++++++++++++++
+ 3 files changed, 30 insertions(+)
+
+diff -ruP net-next-2.6.33-rc5-orig/drivers/net/Kconfig net-next-2.6.33-rc5-mod/drivers/net/Kconfig
+--- net-next-2.6.33-rc5-orig/drivers/net/Kconfig	2010-02-05 20:04:14.000000000 -0800
++++ net-next-2.6.33-rc5-mod/drivers/net/Kconfig	2010-02-12 02:02:46.390419000 -0800
+@@ -2792,6 +2792,21 @@
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called qlge.
+ 
++config BNA
++        tristate "Brocade 1010/1020 10Gb Ethernet Driver support"
++        depends on PCI
++        ---help---
++          This driver supports Brocade 1010/1020 10Gb CEE capable Ethernet
++          cards.
++
++          To compile this driver as a module, choose M here: the module
++          will be called bna.
++
++          For general information and support, go to the Brocade support
++          website at:
++
++          <http://support.brocade.com>
++
+ source "drivers/net/sfc/Kconfig"
+ 
+ source "drivers/net/benet/Kconfig"
+diff -ruP net-next-2.6.33-rc5-orig/drivers/net/Makefile net-next-2.6.33-rc5-mod/drivers/net/Makefile
+--- net-next-2.6.33-rc5-orig/drivers/net/Makefile	2010-02-05 20:04:14.000000000 -0800
++++ net-next-2.6.33-rc5-mod/drivers/net/Makefile	2010-02-12 02:02:46.431414000 -0800
+@@ -32,6 +32,7 @@
+ obj-$(CONFIG_JME) += jme.o
+ obj-$(CONFIG_BE2NET) += benet/
+ obj-$(CONFIG_VMXNET3) += vmxnet3/
++obj-$(CONFIG_BNA) += bna/
+ 
+ gianfar_driver-objs := gianfar.o \
+ 		gianfar_ethtool.o \
+diff -ruP net-next-2.6.33-rc5-orig/drivers/net/bna/Makefile net-next-2.6.33-rc5-mod/drivers/net/bna/Makefile
+--- net-next-2.6.33-rc5-orig/drivers/net/bna/Makefile	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6.33-rc5-mod/drivers/net/bna/Makefile	2010-02-12 02:02:46.567416000 -0800
+@@ -0,0 +1,14 @@
++#
++# Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
++# All rights reserved.
++#
++
++obj-$(CONFIG_BNA) += bna.o
++
++bna-objs := bnad.o bnad_ethtool.o bna_fn.o bna_if.o bna_queue.o
++bna-objs += bfad_fwimg.o bfa_csdebug.o bfa_sm.o bfa_ioc.o bfa_ioc_ct.o
++bna-objs += bfa_cee.o
++
++EXTRA_CFLAGS := -Idrivers/net/bna -Idrivers/net/bna/include/cee
++EXTRA_CFLAGS +=	-Idrivers/net/bna/include -Idrivers/net/bna/include/cs
++EXTRA_CFLAGS +=	-Idrivers/net/bna/include/cna/pstats
