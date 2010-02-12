@@ -1,56 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next 0/7] Add netdev_printk and netif_printk
- macros
-Date: Fri, 12 Feb 2010 12:31:29 -0800 (PST)
-Message-ID: <20100212.123129.163263355.davem@davemloft.net>
-References: <cover.1265751023.git.joe@perches.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: tunctl issues with FC 12 and 2.6.33-rc5
+Date: Fri, 12 Feb 2010 12:32:09 -0800
+Message-ID: <43F901BD926A4E43B106BF17856F07559FB80A86@orsmsx508.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
-To: joe@perches.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35840
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757722Ab0BLUbO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 15:31:14 -0500
-In-Reply-To: <cover.1265751023.git.joe@perches.com>
+Received: from mga11.intel.com ([192.55.52.93]:38495 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753446Ab0BLUcJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 15:32:09 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue,  9 Feb 2010 13:49:46 -0800
+I have built and installed the 2.6.33-rc5 kernel on a machine in which the original distro was Fedora Core 12.  I have a script set up to create a tap device using tunctl but when I boot to the 2.6.33-rc5 kernel I get TUNSETIFF:  Permission Denied.  If I boot to the 2.6.31 based kernel that came with FC 12 the tunctl command works fine and create the tap device.  The problem I need a tap device added to my bridge so I can pass a network interface into one of my KVM virtual machines.
 
-> Some logging messages duplicate the driver name with the device name like:
-> 
-> ATL1E 0000:03:00.0: ATL1E: eth0 NIC Link is Up<100 Mbps Full Duplex>
->  
-> Some drivers/net/... have created netif_ macros like:
-> 
-> drivers/net/sis190.c:#define net_drv(p, arg...)		if (netif_msg_drv(p)) \
-> drivers/net/sis190.c-					printk(arg)
-> drivers/net/sis190.c:#define net_probe(p, arg...)	if (netif_msg_probe(p)) \
-> drivers/net/sis190.c-					printk(arg)
-> drivers/net/sis190.c:#define net_link(p, arg...)	if (netif_msg_link(p)) \
-> drivers/net/sis190.c-					printk(arg)
-> drivers/net/sis190.c:#define net_intr(p, arg...)	if (netif_msg_intr(p)) \
-> drivers/net/sis190.c-					printk(arg)
-> drivers/net/sis190.c:#define net_tx_err(p, arg...)	if (netif_msg_tx_err(p)) \
-> drivers/net/sis190.c-					printk(arg)
-> 
-> This RFC patch creates a set of these macros to standardize
-> the coding and logging style of struct net_device and netif_msg macros
-> 
-> I think they're useful, might be mindless churn to others.
-> 
-> The atl1e change reduces log duplicate names.
-> 
-> The qlge change is an example of what be mindless churn for standardization
-> sake, the r8169, jme, and skge are more reasonable.
-> 
-> Comments?
+Has anyone seen this problem or might understand why it is occurring?  I checked the netdev archives and found nothing about it there.  Several hours of googling about the internet hasn't provided any insight either.
 
-I really like these changes, feel free to make a pass of niu.[ch] making it
-use these things :-)
+Thanks,
 
-All applied to net-next-2.6, thanks!
+- Greg Rose
+LAD
+Intel Corp.
