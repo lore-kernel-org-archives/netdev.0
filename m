@@ -1,39 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 9/9] net: move am79c961's probe function to
- .devinit.text
-Date: Fri, 12 Feb 2010 12:11:10 -0800 (PST)
-Message-ID: <20100212.121110.181928763.davem@davemloft.net>
-References: <1265313417-5568-9-git-send-email-u.kleine-koenig@pengutronix.de>
-	<20100204.120501.110961896.davem@davemloft.net>
-	<20100204200638.GA3035@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: gregkh@suse.de, linux-kernel@vger.kernel.org, 12o3l@tiscali.nl,
-	rmk+kernel@arm.linux.org.uk, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: u.kleine-koenig@pengutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100204200638.GA3035@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jochen Friedrich <jochen@scram.de>
+Subject: [PATCH] b44: Ratelimit timeout error message.
+Date: Fri, 12 Feb 2010 21:11:54 +0100
+Message-ID: <1266005514-2731-1-git-send-email-jochen@scram.de>
+Cc: netdev@vger.kernel.org, Jochen Friedrich <jochen@scram.de>
+To: Gary Zambrano <zambrano@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail0.scram.de ([78.47.204.202]:42161 "EHLO mail.scram.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753446Ab0BLUMU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Feb 2010 15:12:20 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-Date: Thu, 4 Feb 2010 21:06:38 +0100
+Signed-off-by: Jochen Friedrich <jochen@scram.de>
+---
+ drivers/net/b44.c |   12 +++++++-----
+ 1 files changed, 7 insertions(+), 5 deletions(-)
 
-> On Thu, Feb 04, 2010 at 12:05:01PM -0800, David Miller wrote:
->> From: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
->> Date: Thu,  4 Feb 2010 20:56:57 +0100
->>=20
->> > @David Miller: this patch is in patchwork with State: Not Applicab=
-le.
->> > Does that mean that netdev isn't the right tree for this patch?
->>=20
->> I was under the impression that someone would pick up the
->> whole set as a unit.
-> Ah, OK.  I hope Greg does exactly that now.
+diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+index 4869adb..499212e 100644
+--- a/drivers/net/b44.c
++++ b/drivers/net/b44.c
+@@ -189,11 +189,13 @@ static int b44_wait_bit(struct b44 *bp, unsigned long reg,
+ 		udelay(10);
+ 	}
+ 	if (i == timeout) {
+-		printk(KERN_ERR PFX "%s: BUG!  Timeout waiting for bit %08x of register "
+-		       "%lx to %s.\n",
+-		       bp->dev->name,
+-		       bit, reg,
+-		       (clear ? "clear" : "set"));
++		if (net_ratelimit()) 
++			printk(KERN_ERR PFX "%s: BUG!  Timeout waiting for bit "
++			       "%08x of register "
++			       "%lx to %s.\n",
++			       bp->dev->name,
++			       bit, reg,
++			       (clear ? "clear" : "set"));
+ 		return -ENODEV;
+ 	}
+ 	return 0;
+-- 
+1.6.6
 
-I've tossed this into my net-next-2.6 tree anyways to make sure it
-doesn't get lost.
-
-Thanks.
