@@ -1,37 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] dccp: allow probing of CCID-array length
-Date: Fri, 12 Feb 2010 12:07:38 -0800 (PST)
-Message-ID: <20100212.120738.189368103.davem@davemloft.net>
-References: <20100208062028.GA5478@gerrit.erg.abdn.ac.uk>
+Subject: Re: [PATCH 9/9] net: move am79c961's probe function to
+ .devinit.text
+Date: Fri, 12 Feb 2010 12:11:10 -0800 (PST)
+Message-ID: <20100212.121110.181928763.davem@davemloft.net>
+References: <1265313417-5568-9-git-send-email-u.kleine-koenig@pengutronix.de>
+	<20100204.120501.110961896.davem@davemloft.net>
+	<20100204200638.GA3035@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48019
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756746Ab0BLUHY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 15:07:24 -0500
-In-Reply-To: <20100208062028.GA5478@gerrit.erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: gregkh@suse.de, linux-kernel@vger.kernel.org, 12o3l@tiscali.nl,
+	rmk+kernel@arm.linux.org.uk, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: u.kleine-koenig@pengutronix.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100204200638.GA3035@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Mon, 8 Feb 2010 07:20:28 +0100
+=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+Date: Thu, 4 Feb 2010 21:06:38 +0100
 
-> This fixes a problem in the DCCP getsockopt() API: currently there is no way
-> for a user to a priori know the number of built-in CCIDs, other than trying
-> DCCP_SOCKOPT_AVAILABLE_CCIDS in a loop, incrementing the option length until
-> EINVAL is no longer returned.
-> 
-> This patch truncates the array to the user-provided length. No copy is made
-> when the length is <= 0.
-> 
-> Due to the length restriction in do_dccp_getsockopt() to sizeof(int), the
-> minimum array length remains 4, which is a reasonable default (only 3
-> CCIDs, CCID-2..4, are currently defined).
-> 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> On Thu, Feb 04, 2010 at 12:05:01PM -0800, David Miller wrote:
+>> From: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+>> Date: Thu,  4 Feb 2010 20:56:57 +0100
+>>=20
+>> > @David Miller: this patch is in patchwork with State: Not Applicab=
+le.
+>> > Does that mean that netdev isn't the right tree for this patch?
+>>=20
+>> I was under the impression that someone would pick up the
+>> whole set as a unit.
+> Ah, OK.  I hope Greg does exactly that now.
 
-Applied to net-next-2.6, thanks Gerrit.
+I've tossed this into my net-next-2.6 tree anyways to make sure it
+doesn't get lost.
+
+Thanks.
