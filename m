@@ -1,28 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1 net-next] virtio_net: remove send queue
-Date: Fri, 12 Feb 2010 12:28:23 -0800 (PST)
-Message-ID: <20100212.122823.149317307.davem@davemloft.net>
-References: <1265674482.4484.10.camel@localhost.localdomain>
+Subject: Re: [PATCH net-next-2.6] be2net: bug fix in be_read_eeprom
+Date: Fri, 12 Feb 2010 12:28:52 -0800 (PST)
+Message-ID: <20100212.122852.174797808.davem@davemloft.net>
+References: <20100209035115.GA6577@serverengines.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org, rusty@rustcorp.com.au,
-	mst@redhat.com, linux-kernel@vger.kernel.org
-To: mashirle@us.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1265674482.4484.10.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ajitk@serverengines.com, ajitkhaparde@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52512
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757470Ab0BLU2h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 15:28:37 -0500
+In-Reply-To: <20100209035115.GA6577@serverengines.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Shirley Ma <mashirle@us.ibm.com>
-Date: Mon, 08 Feb 2010 16:14:42 -0800
+From: Ajit Khaparde <ajitkhaparde@gmail.com>
+Date: Tue, 9 Feb 2010 09:21:26 +0530
 
-> Now we have a virtio detach API (in commit
-> f9bfbebf34eab707b065116cdc9699d25ba4252a), we don't need to track xmit
-> skbs in the virio_net driver, which improves transmission performance.
+> The offset to read the eeprom data was missing and
+> wrong eeprom data was being dumped. This patch fixes this.
 > 
-> Signed-off-by: Shirley Ma <xma@us.ibm.com>
-> Acked-by: Rusty Russell <rusty@rustcorp.com.au>
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+>>From Suresh R <sureshr@serverengines.com>
+> Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
 
-Applied to net-next-2.6, thanks everyone.
+Applied.
