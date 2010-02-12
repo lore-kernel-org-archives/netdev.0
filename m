@@ -1,38 +1,28 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: ixgbe: [RFC] [PATCH] Fix return of invalid txq
-Date: Fri, 12 Feb 2010 12:12:55 -0800
-Message-ID: <1266005575.2167.43.camel@localhost>
-References: <1263546020.2038.7.camel@localhost>
-	 <20100115.010628.67106329.davem@davemloft.net>
-	 <F86E8680A7D9D74A99DC6345E35A6929501BA2CA@orsmsx503.amr.corp.intel.com>
-	 <20100212.115552.166740353.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1 net-next] virtio_net: remove send queue
+Date: Fri, 12 Feb 2010 12:28:23 -0800 (PST)
+Message-ID: <20100212.122823.149317307.davem@davemloft.net>
+References: <1265674482.4484.10.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "krkumar2@in.ibm.com" <krkumar2@in.ibm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:15961 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755960Ab0BLUMy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Feb 2010 15:12:54 -0500
-In-Reply-To: <20100212.115552.166740353.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org, rusty@rustcorp.com.au,
+	mst@redhat.com, linux-kernel@vger.kernel.org
+To: mashirle@us.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1265674482.4484.10.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2010-02-12 at 12:55 -0700, David Miller wrote:
-> From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-> Date: Sat, 16 Jan 2010 02:53:15 -0800
+From: Shirley Ma <mashirle@us.ibm.com>
+Date: Mon, 08 Feb 2010 16:14:42 -0800
+
+> Now we have a virtio detach API (in commit
+> f9bfbebf34eab707b065116cdc9699d25ba4252a), we don't need to track xmit
+> skbs in the virio_net driver, which improves transmission performance.
 > 
-> > Either way works though.  I still think the table is the better way
-> > to go, because of the determinism for any system and NIC
-> > configuration/layout.  The overhead of configuring the table is
-> > taken during open(), so it's not in the hotpath at all.
-> 
-> How many minus operations can your cpu perform in the same amount
-> of time it takes to access memory? :-)
+> Signed-off-by: Shirley Ma <xma@us.ibm.com>
+> Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-Touche. :)
-
+Applied to net-next-2.6, thanks everyone.
