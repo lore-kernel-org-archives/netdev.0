@@ -1,35 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-2.6 [PATCH 0/2] udp/dccp: MSG_TRUNC
-Date: Fri, 12 Feb 2010 16:51:35 -0800 (PST)
-Message-ID: <20100212.165135.76878917.davem@davemloft.net>
-References: <udp_dccp_msg_trunc>
-	<1265869579-5829-1-git-send-email-gerrit@erg.abdn.ac.uk>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [PATCH 0/9] tg3: Bugfixes
+Date: Fri, 12 Feb 2010 16:51:52 -0800
+Message-ID: <20100213005152.GA3454@xw6200.broadcom.net>
+References: <1266022033-3546-1-git-send-email-mcarlson@broadcom.com>
+ <20100212.165033.23809145.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"andy@greyhouse.net" <andy@greyhouse.net>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60965
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757320Ab0BMAvW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 19:51:22 -0500
-In-Reply-To: <1265869579-5829-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from mms1.broadcom.com ([216.31.210.17]:4873 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757449Ab0BMAwF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Feb 2010 19:52:05 -0500
+In-Reply-To: <20100212.165033.23809145.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Thu, 11 Feb 2010 07:26:17 +0100
-
-> I have here two datagram-API patches, both submitted for net-2.6:
-
-These are not appropriate for net-2.6, so I will apply them to
-net-next-2.6
-
-> Patch #1: Resolves missing MSG_TRUNC support. Since DCCP is datagram-based,
->           the user-space API is broken/incomplete without.
+On Fri, Feb 12, 2010 at 04:50:33PM -0800, David Miller wrote:
+> From: "Matt Carlson" <mcarlson@broadcom.com>
+> Date: Fri, 12 Feb 2010 16:47:04 -0800
 > 
-> Patch #2: UDP recvmsg() cleanup, remove redundant variable. 	  
+> > This patchset implements some critical bugfixes for the tg3 driver.
+> 
+> These are way too late for net-2.6, these are going to have to go into
+> net-next-2.6
 
+That was my intent.  I should have labelled it as such.  Sorry.
 
-Applied, thanks.
