@@ -1,44 +1,83 @@
-From: Andreas Petlund <apetlund@simula.no>
-Subject: Re: [net-next PATCH v3 3/3] net: TCP thin dupack
-Date: Sat, 13 Feb 2010 16:50:19 +0100
-Message-ID: <4B76CA3B.4010206@simula.no>
-References: <4B73F31F.9000204@simula.no> <4B753943.2080800@gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] iputils: ping by mark
+Date: Sat, 13 Feb 2010 11:21:16 -0500
+Message-ID: <1266078076.6776.40.camel@bigi>
+References: <1266074714.6776.28.camel@bigi>
+	 <4B76C976.2060708@linux-ipv6.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	=?UTF-8?B?SWxwbyBK?= =?UTF-8?B?w6RydmluZW4=?=
-	<ilpo.jarvinen@helsinki.fi>, Eric Dumazet <eric.dumazet@gmail.com>,
-	Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
-	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
-	David Miller <davem@davemloft.net>, damian@tvk.rwth-aachen.de
-To: William Allen Simpson <william.allen.simpson@gmail.com>
+Content-Type: multipart/mixed; boundary="=-/KG3sQOTYMKaPvPEwzLY"
+Cc: netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.2750.no ([62.101.244.198]:59382 "EHLO mail.2750.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757261Ab0BMP6M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Feb 2010 10:58:12 -0500
-In-Reply-To: <4B753943.2080800@gmail.com>
+Received: from mail-qy0-f200.google.com ([209.85.221.200]:41532 "EHLO
+	mail-qy0-f200.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754753Ab0BMQVU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2010 11:21:20 -0500
+Received: by qyk38 with SMTP id 38so1249344qyk.1
+        for <netdev@vger.kernel.org>; Sat, 13 Feb 2010 08:21:19 -0800 (PST)
+In-Reply-To: <4B76C976.2060708@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12. feb. 2010 12:19, William Allen Simpson wrote:
-> Last year, I'm pretty sure I was on record as thinking this is *not* a
-> good idea.  But at least it now requires a sysctl to turn on, and
-> should default to off.
-> 
-> Also that naming was a bit dicey.  Now the names are more descriptive,
-> but the "force" is a bit overkill.
-> 
-> How about:
->   NET_TCP_FORCE_THIN_LINEAR_DUPACK -> NET_TCP_THIN_LINEAR_DUPACK
->   tcp_force_thin_dupack            -> tcp_thin_linear_dupack
->   sysctl_tcp_force_thin_dupack     -> sysctl_tcp_thin_linear_dupack
 
-You uncovered a copy/paste/edit-typo there. The term "linear" had snuck
-in even though it does not make sense for this patch. I think that
-NET_TCP_THIN_DUPACK, tcp_thin_dupack and sysctl_tcp_thin_dupack will
-be better.
+--=-/KG3sQOTYMKaPvPEwzLY
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Best regards,
-Andreas
+On Sun, 2010-02-14 at 00:47 +0900, YOSHIFUJI Hideaki wrote:
+> Hello.
+> 
+> Okay, applied. Thank you.
+> Could you give me patch for doc/ping.sgml as well, please?
+
+Ok, here it is..
+
+cheers,
+jamal
+
+--=-/KG3sQOTYMKaPvPEwzLY
+Content-Disposition: attachment; filename="ping.sgml-mark"
+Content-Type: text/plain; name="ping.sgml-mark"; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+commit 6e063d914a97c4b8160cb43a3129ea368b2a3fbb
+Author: Jamal Hadi Salim <hadi@cyberus.ca>
+Date:   Sat Feb 13 11:19:13 2010 -0500
+
+    iputils: ping by mark doc update
+    
+    Update documentation for ping by-mark
+    
+    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+diff --git a/doc/ping.sgml b/doc/ping.sgml
+index 5995ea9..c895d7d 100644
+--- a/doc/ping.sgml
++++ b/doc/ping.sgml
+@@ -16,6 +16,7 @@
+ <command>ping</command>
+ <arg choice="opt"><option>-LRUbdfnqrvVaAB</option></arg>
+ <arg choice="opt">-c <replaceable/count/</arg>
++<arg choice="opt">-m <replaceable/mark/</arg>
+ <arg choice="opt">-i <replaceable/interval/</arg>
+ <arg choice="opt">-l <replaceable/preload/</arg>
+ <arg choice="opt">-p <replaceable/pattern/</arg>
+@@ -76,6 +77,14 @@ The address is bound to one selected when <command/ping/ starts.
+   </para></listitem>
+  </varlistentry>
+  <varlistentry>
++  <term><option>-m <replaceable/mark/</option></term>
++  <listitem><para>
++use <replaceable/mark/ to tag the packets going out. This is useful
++for variety of reasons within the kernel such as using policy
++routing to select specific outbound processing.
++  </para></listitem>
++ </varlistentry>
++ <varlistentry>
+   <term><option><anchor id="ping.count">-c <replaceable/count/</option></term>
+   <listitem><para>
+ Stop after sending <replaceable/count/ ECHO_REQUEST
+
+--=-/KG3sQOTYMKaPvPEwzLY--
+
