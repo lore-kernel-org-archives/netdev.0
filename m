@@ -1,26 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/9] tg3: Bugfixes
-Date: Fri, 12 Feb 2010 16:50:33 -0800 (PST)
-Message-ID: <20100212.165033.23809145.davem@davemloft.net>
-References: <1266022033-3546-1-git-send-email-mcarlson@broadcom.com>
+Subject: Re: net-2.6 [PATCH 0/2] udp/dccp: MSG_TRUNC
+Date: Fri, 12 Feb 2010 16:51:35 -0800 (PST)
+Message-ID: <20100212.165135.76878917.davem@davemloft.net>
+References: <udp_dccp_msg_trunc>
+	<1265869579-5829-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net
-To: mcarlson@broadcom.com
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50414
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60965
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757320Ab0BMAuT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 19:50:19 -0500
-In-Reply-To: <1266022033-3546-1-git-send-email-mcarlson@broadcom.com>
+	by vger.kernel.org with ESMTP id S1757320Ab0BMAvW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 19:51:22 -0500
+In-Reply-To: <1265869579-5829-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Fri, 12 Feb 2010 16:47:04 -0800
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Thu, 11 Feb 2010 07:26:17 +0100
 
-> This patchset implements some critical bugfixes for the tg3 driver.
+> I have here two datagram-API patches, both submitted for net-2.6:
 
-These are way too late for net-2.6, these are going to have to go into
+These are not appropriate for net-2.6, so I will apply them to
 net-next-2.6
+
+> Patch #1: Resolves missing MSG_TRUNC support. Since DCCP is datagram-based,
+>           the user-space API is broken/incomplete without.
+> 
+> Patch #2: UDP recvmsg() cleanup, remove redundant variable. 	  
+
+
+Applied, thanks.
