@@ -1,85 +1,34 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next-2.6] macvtap: Add GSO/csum offload support
-Date: Sat, 13 Feb 2010 18:34:00 +0100
-Message-ID: <201002131834.00612.arnd@arndb.de>
-References: <1266013667.6105.18.camel@w-sridhar.beaverton.ibm.com> <1266044316.10419.3.camel@w-sridhar.beaverton.ibm.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] iputils: ping by mark
+Date: Sun, 14 Feb 2010 02:35:42 +0900
+Message-ID: <4B76E2EE.7020109@linux-ipv6.org>
+References: <1266074714.6776.28.camel@bigi>	 <4B76C976.2060708@linux-ipv6.org> <1266078076.6776.40.camel@bigi>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev <netdev@vger.kernel.org>
-To: Sridhar Samudrala <sri@us.ibm.com>
+Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:56723 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754175Ab0BMReJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2010 12:34:09 -0500
-In-Reply-To: <1266044316.10419.3.camel@w-sridhar.beaverton.ibm.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:48711 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757524Ab0BMRfp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2010 12:35:45 -0500
+In-Reply-To: <1266078076.6776.40.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Sridhar,
+Applied. Thanks.
 
-On Saturday 13 February 2010, Sridhar Samudrala wrote:
+jamal wrote:
+> On Sun, 2010-02-14 at 00:47 +0900, YOSHIFUJI Hideaki wrote:
+>> Hello.
+>>
+>> Okay, applied. Thank you.
+>> Could you give me patch for doc/ping.sgml as well, please?
+> 
+> Ok, here it is..
+> 
+> cheers,
+> jamal
+> 
 
-> This patch adds GSO/checksum offload support to macvtap driver and applies
-> on top of Arnd's refcnt bugfix.
-> 	http://patchwork.ozlabs.org/patch/45136/
-
-Sorry for messing this up by replacing that patch with a different one.
-It shouldn't be hard to rebase this one though, which I'll probably do on Monday.
-Please tell me if you want to do it yourself instead.
-
-> @@ -286,6 +288,7 @@ static int macvtap_open(struct inode *inode, struct file *file)
->  	sock_init_data(&q->sock, &q->sk);
->  	q->sk.sk_allocation = GFP_ATOMIC; /* for now */
->  	q->sk.sk_write_space = macvtap_sock_write_space;
-> +	q->flags = IFF_VNET_HDR;
->  
->  	err = macvtap_set_queue(dev, file, q);
->  	if (err)
-
-Making IFF_VNET_HDR the default probably prevents the driver from working
-with applications that don't known about VNET_HDR, e.g. anything other
-than qemu. I believe qemu always tries setting it though, which would make
-a default value of !IFF_NET_HDR fine.
-
-Also, what about IFF_TAP and IFF_NO_PI, should those be always set?
-
-> @@ -499,18 +648,14 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
->  		return 0;
->  
->  	case TUNSETOFFLOAD:
-> -		/* let the user check for future flags */
-> -		if (arg & ~(TUN_F_CSUM | TUN_F_TSO4 | TUN_F_TSO6 |
-> -			  TUN_F_TSO_ECN | TUN_F_UFO))
-> -			return -EINVAL;
-> -
-> -		/* TODO: add support for these, so far we don't
-> -			 support any offload */
-> -		if (arg & (TUN_F_CSUM | TUN_F_TSO4 | TUN_F_TSO6 |
-> -			 TUN_F_TSO_ECN | TUN_F_UFO))
-> -			return -EINVAL;
-> -
-> -		return 0;
-> +		q = macvtap_file_get_queue(file);
-> +		if (!q)
-> +			return -ENOLINK;
-> +		ret = 0;
-> +		if (!(q->flags & IFF_VNET_HDR))
-> +			ret =  -EINVAL;
-> +		macvtap_file_put_queue(q);
-> +		return ret;
->  
->  	default:
->  		return -EINVAL;
-
-At least the first check needs to be in there, in case we are running with
-new user space that knows additional flags. Moreover, shouldn't we check
-the flags against the capabilities of vlan->lowerdev? I though it would be
-best to report the capabilities of the real hardware to the guest kernel
-so it can do the right thing.
-
-	Arnd
