@@ -1,166 +1,66 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 1/9] tg3: Give MSI-X vec 1 rx backlog space
-Date: Fri, 12 Feb 2010 16:47:05 -0800
-Message-ID: <1266022033-3546-2-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH 4/9] tg3: Fix 57765 A0 bootcode race condition
+Date: Fri, 12 Feb 2010 16:47:08 -0800
+Message-ID: <1266022033-3546-5-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com,
-	"Michael Chan" <mchan@broadcom.com>
+	"Benjamin Li" <benli@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1328 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1322 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757231Ab0BMArk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757221Ab0BMArk (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 12 Feb 2010 19:47:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RSS ring 1 is responsible for submitting new rx buffers to the
-hardware on behalf of all the other RSS rx return rings.  Up until now
-this ring submitted its new rx buffers to the producer ring directly.
-The following patch will require that this ring have a place to put
-backlogged rx packets.  As a consequence, it can no longer submit new
-buffers to the producer ring.
-
-This patch adds code to allocate an extra shadow producer ring for this
-RSS ring and adds RSS ring 1 to the list of rings needing buffer
-transfers.
+On A0 revision of 57765 asic rev devices, the bootcode will perform some
+hardware operations, after the magic signature is presented, that will
+collide with setup operations performed by the driver.  The best way to
+avoid the contention is to have the driver delay an additional 10
+milliseconds.  B0 revisions of the chip will make this workaround
+unnecessary.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Reviewed-by: Benjamin Li <benli@broadcom.com>
+Signed-off-by: Benjamin Li <benli@broadcom.com>
+Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   46 +++++++++++++++++++++-------------------------
- drivers/net/tg3.h |    2 +-
- 2 files changed, 22 insertions(+), 26 deletions(-)
+ drivers/net/tg3.c |    7 +++++++
+ drivers/net/tg3.h |    1 +
+ 2 files changed, 8 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 7195bde..6874ce5 100644
+index e6ee291..d1452d3 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -4733,7 +4733,7 @@ next_pkt_nopost:
- 	tw32_rx_mbox(tnapi->consmbox, sw_idx);
- 
- 	/* Refill RX ring(s). */
--	if (!(tp->tg3_flags3 & TG3_FLG3_ENABLE_RSS) || tnapi == &tp->napi[1]) {
-+	if (!(tp->tg3_flags3 & TG3_FLG3_ENABLE_RSS)) {
- 		if (work_mask & RXD_OPAQUE_RING_STD) {
- 			tpr->rx_std_prod_idx = std_prod_idx % TG3_RX_RING_SIZE;
- 			tw32_rx_mbox(TG3_RX_STD_PROD_IDX_REG,
-@@ -4755,7 +4755,8 @@ next_pkt_nopost:
- 		tpr->rx_std_prod_idx = std_prod_idx % TG3_RX_RING_SIZE;
- 		tpr->rx_jmb_prod_idx = jmb_prod_idx % TG3_RX_JUMBO_RING_SIZE;
- 
--		napi_schedule(&tp->napi[1].napi);
-+		if (tnapi != &tp->napi[1])
-+			napi_schedule(&tp->napi[1].napi);
+@@ -6721,6 +6721,13 @@ static int tg3_poll_fw(struct tg3 *tp)
+ 		       tp->dev->name);
  	}
  
- 	return received;
-@@ -4893,25 +4894,23 @@ static int tg3_poll_work(struct tg3_napi *tnapi, int work_done, int budget)
- 		work_done += tg3_rx(tnapi, budget - work_done);
- 
- 	if ((tp->tg3_flags3 & TG3_FLG3_ENABLE_RSS) && tnapi == &tp->napi[1]) {
-+		struct tg3_rx_prodring_set *dpr = &tp->prodring[0];
- 		int i;
--		u32 std_prod_idx = tp->prodring[0].rx_std_prod_idx;
--		u32 jmb_prod_idx = tp->prodring[0].rx_jmb_prod_idx;
-+		u32 std_prod_idx = dpr->rx_std_prod_idx;
-+		u32 jmb_prod_idx = dpr->rx_jmb_prod_idx;
- 
--		for (i = 2; i < tp->irq_cnt; i++)
--			tg3_rx_prodring_xfer(tp, tnapi->prodring,
--					     tp->napi[i].prodring);
-+		for (i = 1; i < tp->irq_cnt; i++)
-+			tg3_rx_prodring_xfer(tp, dpr, tp->napi[i].prodring);
- 
- 		wmb();
- 
--		if (std_prod_idx != tp->prodring[0].rx_std_prod_idx) {
--			u32 mbox = TG3_RX_STD_PROD_IDX_REG;
--			tw32_rx_mbox(mbox, tp->prodring[0].rx_std_prod_idx);
--		}
-+		if (std_prod_idx != dpr->rx_std_prod_idx)
-+			tw32_rx_mbox(TG3_RX_STD_PROD_IDX_REG,
-+				     dpr->rx_std_prod_idx);
- 
--		if (jmb_prod_idx != tp->prodring[0].rx_jmb_prod_idx) {
--			u32 mbox = TG3_RX_JMB_PROD_IDX_REG;
--			tw32_rx_mbox(mbox, tp->prodring[0].rx_jmb_prod_idx);
--		}
-+		if (jmb_prod_idx != dpr->rx_jmb_prod_idx)
-+			tw32_rx_mbox(TG3_RX_JMB_PROD_IDX_REG,
-+				     dpr->rx_jmb_prod_idx);
- 
- 		mmiowb();
- 	}
-@@ -6173,8 +6172,7 @@ static void tg3_free_rings(struct tg3 *tp)
- 			dev_kfree_skb_any(skb);
- 		}
- 
--		if (tp->irq_cnt == 1 || j != tp->irq_cnt - 1)
--			tg3_rx_prodring_free(tp, &tp->prodring[j]);
-+		tg3_rx_prodring_free(tp, &tp->prodring[j]);
- 	}
- }
- 
-@@ -6210,9 +6208,10 @@ static int tg3_init_rings(struct tg3 *tp)
- 		if (tnapi->rx_rcb)
- 			memset(tnapi->rx_rcb, 0, TG3_RX_RCB_RING_BYTES(tp));
- 
--		if ((tp->irq_cnt == 1 || i != tp->irq_cnt - 1) &&
--			tg3_rx_prodring_alloc(tp, &tp->prodring[i]))
-+		if (tg3_rx_prodring_alloc(tp, &tp->prodring[i])) {
-+			tg3_free_rings(tp);
- 			return -ENOMEM;
-+		}
- 	}
- 
++	if (tp->pci_chip_rev_id == CHIPREV_ID_57765_A0) {
++		/* The 57765 A0 needs a little more
++		 * time to do some important work.
++		 */
++		mdelay(10);
++	}
++
  	return 0;
-@@ -6259,7 +6258,7 @@ static void tg3_free_consistent(struct tg3 *tp)
- 		tp->hw_stats = NULL;
- 	}
- 
--	for (i = 0; i < (tp->irq_cnt == 1 ? 1 : tp->irq_cnt - 1); i++)
-+	for (i = 0; i < tp->irq_cnt; i++)
- 		tg3_rx_prodring_fini(tp, &tp->prodring[i]);
  }
  
-@@ -6271,7 +6270,7 @@ static int tg3_alloc_consistent(struct tg3 *tp)
- {
- 	int i;
- 
--	for (i = 0; i < (tp->irq_cnt == 1 ? 1 : tp->irq_cnt - 1); i++) {
-+	for (i = 0; i < tp->irq_cnt; i++) {
- 		if (tg3_rx_prodring_init(tp, &tp->prodring[i]))
- 			goto err_out;
- 	}
-@@ -6336,10 +6335,7 @@ static int tg3_alloc_consistent(struct tg3 *tp)
- 			break;
- 		}
- 
--		if (tp->irq_cnt == 1)
--			tnapi->prodring = &tp->prodring[0];
--		else if (i)
--			tnapi->prodring = &tp->prodring[i - 1];
-+		tnapi->prodring = &tp->prodring[i];
- 
- 		/*
- 		 * If multivector RSS is enabled, vector 0 does not handle
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index e7f6214..88a87bb 100644
+index cc8bf7d..46db4ad 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -2717,7 +2717,7 @@ struct tg3 {
- 	struct vlan_group		*vlgrp;
- #endif
- 
--	struct tg3_rx_prodring_set	prodring[TG3_IRQ_MAX_VECS - 1];
-+	struct tg3_rx_prodring_set	prodring[TG3_IRQ_MAX_VECS];
- 
- 
- 	/* begin "everything else" cacheline(s) section */
+@@ -110,6 +110,7 @@
+ #define  CHIPREV_ID_57780_A0		 0x57780000
+ #define  CHIPREV_ID_57780_A1		 0x57780001
+ #define  CHIPREV_ID_5717_A0		 0x05717000
++#define  CHIPREV_ID_57765_A0		 0x57785000
+ #define  GET_ASIC_REV(CHIP_REV_ID)	((CHIP_REV_ID) >> 12)
+ #define   ASIC_REV_5700			 0x07
+ #define   ASIC_REV_5701			 0x00
 -- 
 1.6.4.4
 
