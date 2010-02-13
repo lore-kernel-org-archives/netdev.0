@@ -1,40 +1,42 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] p54usb: Add usbid for Corega CG-WLUSB2GT.
-Date: Sun, 14 Feb 2010 04:16:16 +0900
-Message-ID: <4B76FA80.5070607@linux-ipv6.org>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: [PATCH net-next-2.6 1/2] cxgb3: FIx VLAN over Jumbo frames
+Date: Sat, 13 Feb 2010 11:44:30 -0800
+Message-ID: <20100213194429.27297.99280.stgit@speedy5.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, hirofumi@flycat.org
-To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linville@tuxdriver.com, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:43473 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753166Ab0BMTQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2010 14:16:28 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shimada Hirofumi <hirofumi@flycat.org>
+From: Divy Le Ray <divy@chelsio.com>
 
-p54usb: Add usbid for Corega CG-WLUSB2GT.
+The mac is expected to auto-inflate the Maximum Frame size for VLAN
+tagged frames. It however does not work with jumbo frames.
+Work around the bug adding 4 to the Maximum Frame for MTUs
+greater than 1536.
 
-Signed-off-by: Shimada Hirofumi <hirofumi@flycat.org>
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
- drivers/net/wireless/p54/p54usb.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/wireless/p54/p54usb.c b/drivers/net/wireless/p54/p54usb.c
-index 92af9b9..dcb484b 100644
---- a/drivers/net/wireless/p54/p54usb.c
-+++ b/drivers/net/wireless/p54/p54usb.c
-@@ -36,6 +36,7 @@ static struct usb_device_id p54u_table[] __devinitdata = {
- 	/* Version 1 devices (pci chip + net2280) */
- 	{USB_DEVICE(0x0506, 0x0a11)},	/* 3COM 3CRWE254G72 */
- 	{USB_DEVICE(0x0707, 0xee06)},	/* SMC 2862W-G */
-+	{USB_DEVICE(0x07aa, 0x001c)},	/* Corega CG-WLUSB2GT */
- 	{USB_DEVICE(0x083a, 0x4501)},	/* Accton 802.11g WN4501 USB */
- 	{USB_DEVICE(0x083a, 0x4502)},	/* Siemens Gigaset USB Adapter */
- 	{USB_DEVICE(0x083a, 0x5501)},	/* Phillips CPWUA054 */
+ drivers/net/cxgb3/xgmac.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+
+diff --git a/drivers/net/cxgb3/xgmac.c b/drivers/net/cxgb3/xgmac.c
+index 0109ee4..0c08de5 100644
+--- a/drivers/net/cxgb3/xgmac.c
++++ b/drivers/net/cxgb3/xgmac.c
+@@ -353,6 +353,9 @@ int t3_mac_set_mtu(struct cmac *mac, unsigned int mtu)
+ 	 * packet size register includes header, but not FCS.
+ 	 */
+ 	mtu += 14;
++	if (mtu > 1536)
++		mtu += 4;
++
+ 	if (mtu > MAX_FRAME_SIZE - 4)
+ 		return -EINVAL;
+ 	t3_write_reg(adap, A_XGM_RX_MAX_PKT_SIZE + mac->offset, mtu);
