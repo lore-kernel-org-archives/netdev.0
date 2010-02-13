@@ -1,34 +1,49 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] iputils: ping by mark
-Date: Sun, 14 Feb 2010 02:35:42 +0900
-Message-ID: <4B76E2EE.7020109@linux-ipv6.org>
-References: <1266074714.6776.28.camel@bigi>	 <4B76C976.2060708@linux-ipv6.org> <1266078076.6776.40.camel@bigi>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] vhost-net: switch to smp barriers
+Date: Sat, 13 Feb 2010 19:39:11 +0200
+Message-ID: <20100213173911.GA5040@redhat.com>
+References: <20100201172101.GA10900@redhat.com> <20100207090749.GA12968@redhat.com> <201002081849.39512.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: hadi@cyberus.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:48711 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757524Ab0BMRfp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2010 12:35:45 -0500
-In-Reply-To: <1266078076.6776.40.camel@bigi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201002081849.39512.rusty@rustcorp.com.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Applied. Thanks.
+On Mon, Feb 08, 2010 at 06:49:39PM +1030, Rusty Russell wrote:
+> On Sun, 7 Feb 2010 07:37:49 pm Michael S. Tsirkin wrote:
+> > On Mon, Feb 01, 2010 at 07:21:02PM +0200, Michael S. Tsirkin wrote:
+> > > vhost-net only uses memory barriers to control SMP effects
+> > > (communication with userspace potentially running on a different CPU),
+> > > so it should use SMP barriers and not mandatory barriers for memory
+> > > access ordering, as suggested by Documentation/memory-barriers.txt
+> > > 
+> > > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > 
+> > 
+> > Rusty, any feedback on this one?
+> > Thanks!
+> 
+> Yep.  barrier() is correct on UP to guard against preemption.
+> 
+> Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+> 
+> Thanks,
+> Rusty.
 
-jamal wrote:
-> On Sun, 2010-02-14 at 00:47 +0900, YOSHIFUJI Hideaki wrote:
->> Hello.
->>
->> Okay, applied. Thank you.
->> Could you give me patch for doc/ping.sgml as well, please?
-> 
-> Ok, here it is..
-> 
-> cheers,
-> jamal
-> 
+Dave, I see it's marked "not applicable":
+http://patchwork.ozlabs.org/patch/44207/
+the patch applies to net-next as of
+b3b3f04fb587ecb61b5baa6c1c5f0e666fd12d73.
+Can this be queued up please?
+Should I resubmit with Rusty's ack?
 
+Thanks!
+
+-- 
+MST
