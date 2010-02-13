@@ -1,44 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Subject: [PATCH 0/6] bna: Brocade 10Gb Ethernet device driver
-Date: Fri, 12 Feb 2010 16:41:06 -0800 (PST)
-Message-ID: <20100212.164106.82030168.davem@davemloft.net>
-References: <201002121400.o1CE0v9w031867@blc-10-10.brocade.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH 5/9] tg3: Turn off multiple DMA reads for 5717
+Date: Fri, 12 Feb 2010 16:47:09 -0800
+Message-ID: <1266022033-3546-6-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@brocade.com
-To: rmody@brocade.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56400
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755249Ab0BMAkx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Feb 2010 19:40:53 -0500
-In-Reply-To: <201002121400.o1CE0v9w031867@blc-10-10.brocade.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:2535 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756654Ab0BMArd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Feb 2010 19:47:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogUmFzZXNoIE1vZHkgPHJtb2R5QGJyb2NhZGUuY29tPg0KRGF0ZTogRnJpLCAxMiBGZWIg
-MjAxMCAwNjowMDo1NyAtMDgwMA0KDQo+IEZyb206IFJhc2VzaCBNb2R5IDxybW9keUBicm9jYWRl
-LmNvbT4NCj4gDQo+IFRoaXMgaXMgcGF0Y2ggMC82IHdoaWNoIGNvbnRhaW5zIHRoZSBzdW1tYXJ5
-IG9mIGNoYW5nZXMgd2UndmUNCj4gZG9uZSBpbiB0aGlzIHBhcnRpY3VsYXIgc3VibWlzc2lvbiBm
-b3IgQnJvY2FkZSdzIEJSMTAxMC9CUjEwMjANCj4gMTBHYiBDRUUgY2FwYWJsZSBldGhlcm5ldCBh
-ZGFwdGVyLiBTb3VyY2UgaXMgYmFzZWQgYWdhaW5zdA0KPiBuZXQtbmV4dC0yLjYuDQo+IA0KPiBU
-aGUgY2hhbmdlcyBhcmUgYXMgZm9sbG93czoNCj4gDQo+IDEpIENsZWFuZWQgdXAgZXh0cmEgQlVH
-X09OKCkNCj4gDQo+IDIpIFVzaW5nIG11dGV4IHdoZXJldmVyIGFwcHJvcHJpYXRlDQo+IA0KPiAz
-KSBVc2luZyBQQ0lfREVWSUNFX1RBQkxFDQo+IA0KPiBXZSB3aXNoIHRoaXMgcGF0Y2ggdG8gYmUg
-Y29uc2lkZXJlZCBmb3IgaW5jbHVzaW9uIGluIG5ldC1uZXh0LTIuNi4NCj4gDQo+IFNpZ25lZC1v
-ZmYtYnk6IFJhc2VzaCBNb2R5IDxybW9keUBicm9jYWRlLmNvbT4NCg0KVGhlIGRyaXZlciBkb2Vz
-bid0IGJ1aWxkOg0KDQpkcml2ZXJzL25ldC9ibmEvYm5hZC5jOiBJbiBmdW5jdGlvbiChYm5hZF9h
-bGxvY191bm1hcF9xojoNCmRyaXZlcnMvbmV0L2JuYS9ibmFkLmM6ODUwOiBlcnJvcjogaW1wbGlj
-aXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24goXZtYWxsb2OiDQpkcml2ZXJzL25ldC9ibmEvYm5h
-ZC5jOjg1MDogd2FybmluZzogYXNzaWdubWVudCBtYWtlcyBwb2ludGVyIGZyb20gaW50ZWdlciB3
-aXRob3V0IGEgY2FzdA0KZHJpdmVycy9uZXQvYm5hL2JuYWQuYzogSW4gZnVuY3Rpb24goWJuYWRf
-ZnJlZV90eHGiOg0KZHJpdmVycy9uZXQvYm5hL2JuYWQuYzoxMzE5OiBlcnJvcjogaW1wbGljaXQg
-ZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24goXZmcmVlog0KZHJpdmVycy9uZXQvYm5hL2JuYWQuYzog
-SW4gZnVuY3Rpb24goWJuYWRfcHJpdl9pbml0ojoNCmRyaXZlcnMvbmV0L2JuYS9ibmFkLmM6MzE2
-Mzogd2FybmluZzogYXNzaWdubWVudCBtYWtlcyBwb2ludGVyIGZyb20gaW50ZWdlciB3aXRob3V0
-IGEgY2FzdA0KDQpTZWNvbmQsIHRoZSBkcml2ZXIgaGVhZGVyIGZpbGVzIG1ha2UgcmVmZXJlbmNl
-IHRvIGdsb2JhbCBmdW5jdGlvbnMgd2hpY2ggZG8NCm5vdCBleGlzdCwgc3VjaCBhcyBibmFfaW9j
-dGxfaW5pdCgpIGFuZCBmcmllbmRzLiAgUGxlYXNlIHJlbW92ZSB0aG9zZS4NCg0KTGFzdGx5LCBz
-b21lIG9mIHRoZSBmaWxlcyBhZGRlZCBoYXZlIGV4dHJhIHRyYWlsaW5nIGVtcHR5IGxpbmVzLCBw
-bGVhc2UgcmVtb3ZlDQp0aGVtLg0KDQpUaGFua3MuDQoNCg==
+The 5717's DMA read engine has a bug when initiating multiple DMA reads
+across the PCIe bus.  This patch disables the feature.
+
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Reviewed-by: Michael Chan <mchan@broadcom.com>
+Reviewed-by: Benjamin Li <benli@broadcom.com>
+---
+ drivers/net/tg3.c |    3 +++
+ drivers/net/tg3.h |    1 +
+ 2 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index d1452d3..1c545a8 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -7915,6 +7915,9 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 		      RDMAC_MODE_FIFOURUN_ENAB | RDMAC_MODE_FIFOOREAD_ENAB |
+ 		      RDMAC_MODE_LNGREAD_ENAB);
+ 
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717)
++		rdmac_mode |= RDMAC_MODE_MULT_DMA_RD_DIS;
++
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5784 ||
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5785 ||
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780)
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 46db4ad..a8fb53a 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -1258,6 +1258,7 @@
+ #define  RDMAC_MODE_MBUF_SBD_CRPT_ENAB	 0x00002000
+ #define  RDMAC_MODE_FIFO_SIZE_128	 0x00020000
+ #define  RDMAC_MODE_FIFO_LONG_BURST	 0x00030000
++#define  RDMAC_MODE_MULT_DMA_RD_DIS	 0x01000000
+ #define  RDMAC_MODE_IPV4_LSO_EN		 0x08000000
+ #define  RDMAC_MODE_IPV6_LSO_EN		 0x10000000
+ #define RDMAC_STATUS			0x00004804
+-- 
+1.6.4.4
+
+
