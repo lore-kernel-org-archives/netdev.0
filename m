@@ -1,98 +1,101 @@
 From: jamal <hadi@cyberus.ca>
-Subject: [net-next-2.6 PATCH 0/7] xfrm by MARK
-Date: Sun, 14 Feb 2010 10:18:45 -0500
-Message-ID: <1266160732-946-1-git-send-email-hadi@cyberus.ca>
+Subject: [net-next-2.6 PATCH 5/7] xfrm: SP lookups with mark
+Date: Sun, 14 Feb 2010 10:18:50 -0500
+Message-ID: <1266160732-946-6-git-send-email-hadi@cyberus.ca>
 References: <xfrm-mark-net-next>
+ <1266160732-946-1-git-send-email-hadi@cyberus.ca>
+ <1266160732-946-2-git-send-email-hadi@cyberus.ca>
+ <1266160732-946-3-git-send-email-hadi@cyberus.ca>
+ <1266160732-946-4-git-send-email-hadi@cyberus.ca>
+ <1266160732-946-5-git-send-email-hadi@cyberus.ca>
 Cc: netdev@vger.kernel.org, Jamal Hadi Salim <hadi@cyberus.ca>
 To: timo.teras@iki.fi, kaber@trash.net, herbert@gondor.apana.org.au,
 	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.26]:54675 "EHLO
+Received: from qw-out-2122.google.com ([74.125.92.24]:64587 "EHLO
 	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751088Ab0BNPTE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Feb 2010 10:19:04 -0500
-Received: by qw-out-2122.google.com with SMTP id 5so313013qwi.37
-        for <netdev@vger.kernel.org>; Sun, 14 Feb 2010 07:19:02 -0800 (PST)
-In-Reply-To: <xfrm-mark-net-next>
+	with ESMTP id S1751323Ab0BNPTK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Feb 2010 10:19:10 -0500
+Received: by qw-out-2122.google.com with SMTP id 5so313015qwi.37
+        for <netdev@vger.kernel.org>; Sun, 14 Feb 2010 07:19:10 -0800 (PST)
+In-Reply-To: <1266160732-946-5-git-send-email-hadi@cyberus.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jamal Hadi Salim <hadi@cyberus.ca>
 
-This patchset implements manipulation of ipsec tables with the
-"mark" tag. You can config the SAD and SPD from user space
-with a specified mark. 
+Allow mark to be used when doing SP lookup
 
-Example:
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
 ---
-#ip xfrm state add src 192.168.2.100 dst 192.168.1.10 proto esp spi 0x00000301 mode tunnel mark 7 auth md5 0x96358c90783bbfa3d7b196ceabe0536b enc des3_ede 0xf6ddb555acfd9d77b03ea3843f2653255afe8eb5573965df
+ net/xfrm/xfrm_policy.c |   12 +++++++++++-
+ 1 files changed, 11 insertions(+), 1 deletions(-)
 
-#ip xfrm state get mark 7 src 192.168.2.100 dst 192.168.1.10 proto esp spi 0x00000301
-src 192.168.2.100 dst 192.168.1.10
-        proto esp spi 0x00000301 reqid 0 mode tunnel
-        replay-window 0 
-        mark 7/0xffffffff
-        auth hmac(md5) 0x96358c90783bbfa3d7b196ceabe0536b
-        enc cbc(des3_ede) 0xf6ddb555acfd9d77b03ea3843f2653255afe8eb5573965df
-        sel src 0.0.0.0/0 dst 0.0.0.0/0 
-#
-#
-#ip xfrm policy add src 172.16.2.0/24 dst 172.16.1.0/24 \
-        dir fwd ptype main \
-        tmpl src 192.168.2.100 dst 192.168.1.100 \
-        proto esp mode tunnel mark 7 mask 0xffffffff
-#
-#ip xfrm policy ls
-src 172.16.2.0/24 dst 172.16.1.0/24 
-        dir fwd priority 0 ptype main 
-        mark 7/0xffffffff
-        tmpl src 192.168.2.100 dst 192.168.1.100
-                proto esp reqid 0 mode tunnel
------
-
-A mark-configured SAD/SPD entry will use the mark as part of the 
-lookup key (both in data and control path).
-Example:
-
----
-# ip xfrm pol get src 172.16.2.0/24 dst 172.16.1.0/24 dir fwd
-RTNETLINK answers: No such file or directory
-# ip xfrm pol get src 172.16.2.0/24 dst 172.16.1.0/24 dir fwd mark 7
-src 172.16.2.0/24 dst 172.16.1.0/24 
-        dir fwd priority 0 ptype main 
-        mark 7/0xffffffff
-        tmpl src 192.168.2.100 dst 192.168.1.100
-                proto esp reqid 0 mode tunnel
----
-I could probably have broken down the last two patches into more
-than one, but it was easier to do it this way. If there is strong
-feeling to do that let me know.
-Oh, and this is an attempt to use git-send-mail - so i would appreciate
-any feedback on what i can do better next time..
-
-Jamal Hadi Salim (7):
-  xfrm: introduce basic mark infrastructure
-  xfrm: SA lookups signature with mark
-  xfrm: SA lookups with mark
-  xfrm: SP lookups signature with mark
-  xfrm: SP lookups with mark
-  xfrm: Allow user space config of SAD mark
-  xfrm: Allow user space manipulation of SPD mark
-
- include/linux/xfrm.h   |   12 ++++-
- include/net/xfrm.h     |   56 +++++++++++++++++++++++----
- net/core/pktgen.c      |    3 +-
- net/ipv4/ah4.c         |    2 +-
- net/ipv4/esp4.c        |    2 +-
- net/ipv4/ipcomp.c      |    6 ++-
- net/ipv6/ah6.c         |    2 +-
- net/ipv6/esp6.c        |    2 +-
- net/ipv6/ipcomp6.c     |    6 ++-
- net/ipv6/xfrm6_input.c |    2 +-
- net/key/af_key.c       |   16 ++++---
- net/xfrm/xfrm_input.c  |    2 +-
- net/xfrm/xfrm_policy.c |   20 +++++++--
- net/xfrm/xfrm_state.c  |   70 +++++++++++++++++++++++------------
- net/xfrm/xfrm_user.c   |   96 ++++++++++++++++++++++++++++++++++++++++--------
- 15 files changed, 222 insertions(+), 75 deletions(-)
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index e804aa5..38f40c4 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -556,6 +556,7 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
+ 	struct hlist_head *chain;
+ 	struct hlist_node *entry, *newpos;
+ 	struct dst_entry *gc_list;
++	u32 mark = policy->mark.v & policy->mark.m;
+ 
+ 	write_lock_bh(&xfrm_policy_lock);
+ 	chain = policy_hash_bysel(net, &policy->selector, policy->family, dir);
+@@ -564,6 +565,7 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
+ 	hlist_for_each_entry(pol, entry, chain, bydst) {
+ 		if (pol->type == policy->type &&
+ 		    !selector_cmp(&pol->selector, &policy->selector) &&
++		    (mark & pol->mark.m) == pol->mark.v &&
+ 		    xfrm_sec_ctx_match(pol->security, policy->security) &&
+ 		    !WARN_ON(delpol)) {
+ 			if (excl) {
+@@ -650,6 +652,7 @@ struct xfrm_policy *xfrm_policy_bysel_ctx(struct net *net, u32 mark, u8 type,
+ 	ret = NULL;
+ 	hlist_for_each_entry(pol, entry, chain, bydst) {
+ 		if (pol->type == type &&
++		    (mark & pol->mark.m) == pol->mark.v &&
+ 		    !selector_cmp(sel, &pol->selector) &&
+ 		    xfrm_sec_ctx_match(ctx, pol->security)) {
+ 			xfrm_pol_hold(pol);
+@@ -692,7 +695,8 @@ struct xfrm_policy *xfrm_policy_byid(struct net *net, u32 mark, u8 type,
+ 	chain = net->xfrm.policy_byidx + idx_hash(net, id);
+ 	ret = NULL;
+ 	hlist_for_each_entry(pol, entry, chain, byidx) {
+-		if (pol->type == type && pol->index == id) {
++		if (pol->type == type && pol->index == id &&
++		    (mark & pol->mark.m) == pol->mark.v) {
+ 			xfrm_pol_hold(pol);
+ 			if (delete) {
+ 				*err = security_xfrm_policy_delete(
+@@ -909,6 +913,7 @@ static int xfrm_policy_match(struct xfrm_policy *pol, struct flowi *fl,
+ 	int match, ret = -ESRCH;
+ 
+ 	if (pol->family != family ||
++	    (fl->mark & pol->mark.m) != pol->mark.v ||
+ 	    pol->type != type)
+ 		return ret;
+ 
+@@ -1033,6 +1038,10 @@ static struct xfrm_policy *xfrm_sk_policy_lookup(struct sock *sk, int dir, struc
+ 		int err = 0;
+ 
+ 		if (match) {
++			if ((sk->sk_mark & pol->mark.m) != pol->mark.v) {
++				pol = NULL;
++				goto out;
++			}
+ 			err = security_xfrm_policy_lookup(pol->security,
+ 						      fl->secid,
+ 						      policy_to_flow_dir(dir));
+@@ -1045,6 +1054,7 @@ static struct xfrm_policy *xfrm_sk_policy_lookup(struct sock *sk, int dir, struc
+ 		} else
+ 			pol = NULL;
+ 	}
++out:
+ 	read_unlock_bh(&xfrm_policy_lock);
+ 	return pol;
+ }
+-- 
+1.6.0.4
 
