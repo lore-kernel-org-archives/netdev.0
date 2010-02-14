@@ -1,71 +1,107 @@
-From: Philippe De Muyter <phdm@macqel.be>
-Subject: Re: [PATCH] atm : fix
-	/sys/devices/virtual/atm/X/carrier(ATM_PHY_SIG_UNKNOWN)
-Date: Sun, 14 Feb 2010 18:51:36 +0100
-Message-ID: <20100214175136.GA15891@frolo.macqel>
-References: <20100213215633.GA4345@frolo.macqel> <201002132324.o1DNOY0F030510@thirdoffive.cmf.nrl.navy.mil>
+From: Thomas Backlund <tmb-4qZELD6Fgxhg9hUCZPvPmw@public.gmane.org>
+Subject: Re: linux-2..6.33-rc7 and b43
+Date: Sun, 14 Feb 2010 20:44:40 +0200
+Message-ID: <4B784498.8030509@mandriva.org>
+References: <4B77C819.9050602@mandriva.org> <4B782670.9080001@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: chas3@users.sourceforge.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay007.isp.belgacom.be ([195.238.6.173]:24894 "EHLO
-	mailrelay007.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752489Ab0BNRvw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Feb 2010 12:51:52 -0500
-Content-Disposition: inline
-In-Reply-To: <201002132324.o1DNOY0F030510@thirdoffive.cmf.nrl.navy.mil>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4B782670.9080001-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Chas,
+Larry Finger skrev 14.2.2010 18:36:
+> On 02/14/2010 03:53 AM, Thomas Backlund wrote:
+>> Hi,
+>> (please cc me on replies)
+>>
+>> We have a user that tried out b43, but got this in the logs:
+>>
+>> --- cut ---
+>> 65858:Feb  9 22:05:16 elmo kernel: b43-phy2 ERROR: This device does not
+>> support DMA on your system. Please use PIO instead. 65859:Feb  9
+>> 22:05:16 elmo kernel: b43-phy2 ERROR: CONFIG_B43_FORCE_PIO must
+>> be set in your kernel configuration.
+>> 65860:Feb  9 22:05:16 elmo kernel: b43-phy2 debug: Adding Interface type 2
+>> 65861:Feb  9 22:05:16 elmo kernel: b43-phy2 ERROR: Fatal DMA error:
+>> 0x00000400, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+>>
+>> 65862:Feb  9 22:05:16 elmo kernel: b43-phy2 ERROR: This device does not
+>> support DMA on your system. Please use PIO instead.
+>> 65863:Feb  9 22:05:16 elmo kernel: b43-phy2 ERROR: CONFIG_B43_FORCE_PIO
+>> must be set in your kernel configuration.
+>> --- cut ---
+>>
+>>
+>>
+>> But reading the Kconfig help, it states:
+>> --- cut ---
+>> config B43_FORCE_PIO
+>>          bool "Force usage of PIO instead of DMA"
+>>          depends on B43&&  B43_DEBUG
+>>          ---help---
+>>            This will disable DMA and always enable PIO instead.
+>>
+>>            Say N!
+>>            This is only for debugging the PIO engine code. You do
+>>            _NOT_ want to enable this.
+>> --- cut ---
+>>
+>>
+>> So,
+>> wich one is it ?
+>>
+>> Do I belive the dmesg output, or the Kconfig ?
+>>
+>> Note,
+>> the b43 works for the user if he enable the CONFIG_B43_FORCE_PIO.
+>>
+>> But I'm thinking of this problem from a distro point of view.
+>> Will it break for others if I enable it ?
+>
+>> From a distro point of view, you would not want to set FORCE_PIO as the
+> performance penalty would be very large.
+>
 
-On Sat, Feb 13, 2010 at 06:24:34PM -0500, Chas Williams (CONTRACTOR) wrote:
-> In message <20100213215633.GA4345@frolo.macqel>,Philippe De Muyter writes:
-> >value '1' while actually carrier was not yet established and real carrier
-> >state was not yet known to linux.  I propose to fix that by using '?' as the
-> >/sys/devices/virtual/atm/cxacru0/carrier value when carrier state is not yet
-> >known to linux.  Any other value except '1' would also be OK for me.
-> 
-> this is sort of intentional because some drivers dont actually implement
-> atm_dev->signal.  ATM_PHY_SIG_UNKNOWN and ATM_PHY_SIG_LOST should
-> likely be carrier = 0.  if the driver doesnt isnt going to handle
-> changing the state of atm_dev->signal it should just set the value to
-> ATM_PHY_SIG_FOUND.
-> 
-> i dont like the idea of carrier being '?' -- carrier is either true or false.
-> you have it or you dont.
+As I suspected.
+Thanks for confirming it.
 
-OK for me.  I would agree with
+> You do not give the specific details on the problem system; however, it is
+> probably a BCM4312 802.11 b/g device with PCI ID 14e4:4315 being used with an
+> Atom processor in a netbook. We have no fix.
+>
 
-	carrier = 0 when signal == ATM_PHY_SIG_UNKNOWN,
+Sorry about the missing info...
+I asked a few times from the user, and got no reponse until today a few 
+hours after your response...
 
-but currently we have
+It is indeed a BCM4312 802.11 b/g device with PCI ID 14e4:4315 on a Dell 
+laptop with a Intel ICH9M series chipset and a Intel Core(TM)2 Duo CPU 
+T7250 @ 2.00GHz.
 
-	carrier = 1 when signal == ATM_PHY_SIG_UNKNOWN
+> In the 2.6.34 code, b43 will be changed to allow the selection of PIO mode at
+> run time rather than compile time. For a distro, this method is clearly
+> superior. Those users that need PIO can select it without forcing the
+> performance penalty on everyone. The patch was too late for the 2.6.33 merge,
+> and too intrusive to be applied to 2.6.33-rcX. It has been present in the
+> wireless-testing code base for 2 months with no trouble reported, thus it should
+> be safe for inclusion in your kernels. The relevant patch is attached.
+>
 
-cxacru itself does the right thing : as soon as carrier state is known,
-signal is set to ATM_PHY_SIG_LOST or ATM_PHY_SIG_FOUND, but
-atm_sysfs.c::show_carrier is wrong.
+Nice solution.
 
-So here is a revised patch :
+What about making it autodetected ?
+Or is it only a "last resort" with the hopes of getting the issue fixed?
+
+Anyway, thanks for the patch.
 
 --
-
-The carrier field of /sys/devices/virtual/atm/cxacru0 shows 1 when carrier
-is actually down (but unknown to linux).  Make it show 0 instead in that case.
-
-Signed-off-by: Philippe De Muyter <phdm@macqel.be>
-
---- a/net/atm/atm_sysfs.c	2010-02-14 18:17:05.604508129 +0100
-+++ b/net/atm/atm_sysfs.c	2010-02-14 18:15:08.316917041 +0100
-@@ -63,8 +63,7 @@ static ssize_t show_carrier(struct devic
- 	char *pos = buf;
- 	struct atm_dev *adev = to_atm_dev(cdev);
- 
--	pos += sprintf(pos, "%d\n",
--		       adev->signal == ATM_PHY_SIG_LOST ? 0 : 1);
-+	pos += sprintf(pos, "%d\n", adev->signal == ATM_PHY_SIG_FOUND);
- 
- 	return pos - buf;
- }
+Thomas
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
