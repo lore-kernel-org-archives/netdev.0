@@ -1,37 +1,38 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: linux-2..6.33-rc7 and b43
-Date: Sun, 14 Feb 2010 16:38:33 -0600
-Message-ID: <4B787B69.7040307@lwfinger.net>
-References: <4B77C819.9050602@mandriva.org> <4B782670.9080001@lwfinger.net> 	<4B784498.8030509@mandriva.org> <69e28c911002141059y57fb2097x5613c25ad1c616da@mail.gmail.com> 	<4B784C68.8020402@mandriva.org> <69e28c911002141353x7805033fl2e68ae56f3dabf40@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Backlund <tmb@mandriva.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?G=E1bor_Stefanik?= <netrolller.3d@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f201.google.com ([209.85.223.201]:62222 "EHLO
-	mail-iw0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751382Ab0BNWig (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Feb 2010 17:38:36 -0500
-In-Reply-To: <69e28c911002141353x7805033fl2e68ae56f3dabf40@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: [net-next PATCH 0/2] usbnet: convert dev(dbg|err|warn|info) macros to netdev_<>
+Date: Sun, 14 Feb 2010 15:01:45 -0800
+Message-ID: <cover.1266187669.git.joe@perches.com>
+References: <20100212.123837.56526847.davem@davemloft.net>
+Cc: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100212.123837.56526847.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 02/14/2010 03:53 PM, G=E1bor Stefanik wrote:
->=20
-> Looks like the trigger is not Intel Atom, but PhoenixBIOS after all -
-> a quick analysis of bios v. A15 for this machine shows it to be a
-> highly cloaked/rebranded PhoenixBIOS.
->=20
-> Core 2 T7250 is a regular Merom/Santa Rosa CPU, almost the same as my
-> T7100 (only the clock multiplier is different), and is not a ULV CPU,
-> the trigger we previously suspected.
->=20
-> PhoenixBIOS (and its rebrands) appears to be the common trigger.
+Add some consistency to log messages
+Use the net netif_<> macros
 
-It also requires an Intel CPU. My AMD is fine with a Phoenix BIOS.
+Joe Perches (2):
+  usbnet: Convert dev(dbg|err|warn|info) macros to netdev_<level>
+  drivers/net/usb: Use netif_<level> logging facilities
 
-Larry
+ drivers/net/usb/asix.c       |   97 +++++++++--------
+ drivers/net/usb/cdc_eem.c    |   10 +-
+ drivers/net/usb/cdc_ether.c  |   22 ++--
+ drivers/net/usb/dm9601.c     |   49 +++++----
+ drivers/net/usb/int51x1.c    |   15 ++--
+ drivers/net/usb/net1080.c    |  109 +++++++++-----------
+ drivers/net/usb/pegasus.c    |  170 +++++++++++++-----------------
+ drivers/net/usb/rndis_host.c |   24 ++---
+ drivers/net/usb/smsc95xx.c   |  221 ++++++++++++++++++---------------------
+ drivers/net/usb/usbnet.c     |  238 +++++++++++++++++++-----------------------
+ include/linux/usb/usbnet.h   |   21 ----
+ 11 files changed, 448 insertions(+), 528 deletions(-)
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
