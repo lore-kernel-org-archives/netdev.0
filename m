@@ -1,359 +1,295 @@
 From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: 2.6.33-rc8: Reported regressions from 2.6.32
-Date: Mon, 15 Feb 2010 00:31:51 +0100 (CET)
-Message-ID: <Z5cmiqDComP.A.gyF.OiIeLB@chimera>
+Subject: 2.6.33-rc8: Reported regressions 2.6.31 -> 2.6.32
+Date: Mon, 15 Feb 2010 00:46:39 +0100 (CET)
+Message-ID: <fQEllunEdO.A.-LB.HyIeLB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Maciej Rutecki <maciej.rutecki@gmail.com>,
-	Andrew Morton <akpmuinux-foundation.org@ogre.sisk.pl>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: DRI <dri-devel@lists.sourceforge.net>,
 	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
 	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.sourceforge.net>
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>
 To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <dri-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/dri-devel>,
+	<mailto:dri-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=dri-devel>
+List-Post: <mailto:dri-devel@lists.sourceforge.net>
+List-Help: <mailto:dri-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/dri-devel>,
+	<mailto:dri-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-This message contains a list of some regressions from 2.6.32,
-for which there are no fixes in the mainline known to the tracking team=
-=2E
-If any of them have been fixed already, please let us know.
-
-If you know of any other unresolved regressions from 2.6.32, please let=
- us
-know either and we'll add them to the list.  Also, please let us know
-if any of the entries below are invalid.
-
-Each entry from the list will be sent additionally in an automatic repl=
-y
-to this message with CCs to the people involved in reporting and handli=
-ng
-the issue.
-
-
-Listed regressions statistics:
-
-  Date          Total  Pending  Unresolved
-  ----------------------------------------
-  2010-02-15      112       34          31
-  2010-02-07       97       27          20
-  2010-02-01       85       26          21
-  2010-01-24       75       29          23
-  2010-01-10       55       33          21
-  2009-12-29       36       34          27
-
-
-Unresolved regressions
-----------------------
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15308
-Subject		: 2.6.33-rc8 breaks UML with Restrict initial stack space expa=
-nsion to rlimit
-Submitter	: Jouni Malinen <j@w1.fi>
-Date		: 2010-02-14 16:40 (1 days old)
-=46irst-Bad-Commit: http://git.kernel.org/git/linus/803bf5ec25994193626=
-2d10ecc84511b76a20921
-Message-ID	: <20100214164023.GA2726@jm.kir.nu>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126616751807902&w=3D=
-4
-Handled-By	: Michael Neuling <mikey@neuling.org>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15307
-Subject		: irq11: nobody cared, during yenta registration
-Submitter	: Meelis Roos <mroos@ut.ee>
-Date		: 2010-02-14 15:32 (1 days old)
-Message-ID	: <alpine.SOC.1.00.1002141720120.679@math.ut.ee>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126616327302771&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15306
-Subject		: Filesystem I/O is CPU-bound
-Submitter	: James Cloos <cloos@jhcloos.com>
-Date		: 2010-02-14 3:11 (1 days old)
-Message-ID	: <m3pr48bjfg.fsf@lugabout.jhcloos.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126611738629349&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15305
-Subject		: Dell video dies when booting
-Submitter	: David Ronis <ronis@ronispc.chem.mcgill.ca>
-Date		: 2010-02-14 1:07 (1 days old)
-Message-ID	: <1266109622.11290.10.camel@montroll.chem.mcgill.ca>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126611098225127&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15292
-Subject		: Laptop reboots instead of resume from suspend with any kerne=
-l after 2.6.31
-Submitter	: Dave Morgan <davemorgan353@btinternet.com>
-Date		: 2010-02-13 13:11 (2 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15289
-Subject		: Regression 2.6.32 -> 2.6.33, Kernel needs a helping key to b=
-oot :)
-Submitter	: Asbj=C3=B8rn Sannes <kernelbugzilla@sannes.org>
-Date		: 2010-02-12 19:47 (3 days old)
-=46irst-Bad-Commit: http://git.kernel.org/git/linus/73472a46b5b28116b14=
-5fb5fc05242c1aa8e1461
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15287
-Subject		: RadeonKMS segfaults kdm on mobility radeon x700 pcie
-Submitter	: Jan Kreuzer <kontrollator@gmx.de>
-Date		: 2010-02-12 17:58 (3 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15278
-Subject		: lockdep warning for iscsi in 2.6.33-rc6
-Submitter	: Tao Ma <tao.ma@oracle.com>
-Date		: 2010-02-09 6:59 (6 days old)
-Message-ID	: <4B7107CF.3060703@oracle.com>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126569884330200&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15277
-Subject		: 2.6.33-rc6 crashes on resume
-Submitter	: Bill Davidsen <davidsen@roadwarrior3.tmr.com>
-Date		: 2010-02-08 23:03 (7 days old)
-Message-ID	: <4B70982F.8090208@roadwarrior3.tmr.com>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126567021801935&w=3D=
-2
-Handled-By	: Rafael J. Wysocki <rjw@sisk.pl>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15276
-Subject		: latest git kernel: general protection fault: 0000 [#1]
-Submitter	: Markus Trippelsdorf <markus@trippelsdorf.de>
-Date		: 2010-02-09 8:36 (6 days old)
-Message-ID	: <20100209083605.GA1766@arch.tripp.de>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126570498804223&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15273
-Subject		: Regression in ptrace (Wine) starting with 2.6.33-rc1
-Submitter	: Michael Stefaniuc <mstefani@redhat.com>
-Date		: 2010-02-11 16:21 (4 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15259
-Subject		: Corruption with OpenGL since Intel's big DRM push on i945
-Submitter	: Alexandre <papouta@hotmail.com>
-Date		: 2010-02-08 13:19 (7 days old)
-=46irst-Bad-Commit: http://git.kernel.org/git/linus/76446cac68568fc7f51=
-68a27deaf803ed22a4360
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15246
-Subject		: BUG: Bad page state in process portageq
-Submitter	: Johannes Hirte <johannes.hirte@fem.tu-ilmenau.de>
-Date		: 2010-02-07 0:45 (8 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126550356515887&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15245
-Subject		: [2.6.33-rc6 Weird JCPU times?
-Submitter	: Shawn Starr <shawn.starr@rogers.com>
-Date		: 2010-02-06 7:24 (9 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126544107816889&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15244
-Subject		: PROBLEM: hda-intel divide by zero kernel crash in azx_positi=
-on_ok()
-Submitter	: Jody Bruchon <jody@nctritech.com>
-Date		: 2010-02-06 0:32 (9 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126541276028173&w=3D=
-2
-Handled-By	: Takashi Iwai <tiwai@suse.de>
-		  Jody Bruchon <jody@nctritech.com>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15207
-Subject		: Pineview - only cursor on black screen visible, "GPU hung" i=
-n dmesg
-Submitter	: Christian Friedemann <dawn2k@gmail.com>
-Date		: 2010-02-01 20:15 (14 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15202
-Subject		: lockdep warning during elevator_switch
-Submitter	: Hugh Dickins <hugh.dickins@tiscali.co.uk>
-Date		: 2010-01-31 23:55 (15 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126498212613051&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15200
-Subject		: NFS problems in 2.6.33-rc6: Unknown error 526
-Submitter	: J.A. Magall=C3=B3n <jamagallon@ono.com>
-Date		: 2010-01-31 22:46 (15 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126497800408928&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15192
-Subject		: netperf ~50% regression with 2.6.33-rc1, bisect to 1b9508f
-Submitter	: Lin Ming <ming.m.lin@intel.com>
-Date		: 2010-01-25 10:03 (21 days old)
-=46irst-Bad-Commit: http://git.kernel.org/git/linus/1b9508f6831e10d5325=
-6825de8904caa22d1ca2c
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126441481427331&w=3D=
-4
-Handled-By	: Mike Galbraith <efault@gmx.de>
-		  Peter Zijlstra <peterz@infradead.org>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15177
-Subject		: Asynchronous writes up to 30% slower than in previous kernel=
- versions
-Submitter	: Bart Van Assche <bart.vanassche@gmail.com>
-Date		: 2010-01-30 16:38 (16 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15142
-Subject		: sysfs-related lockdep warning in __blkdev_get
-Submitter	: Matti Aarnio <matti.aarnio--kernel-bugzilla@zmailer.org>
-Date		: 2010-01-25 13:38 (21 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15139
-Subject		: e1000: transmit queue 0 timed out
-Submitter	: Alexander Beregalov <a.beregalov@gmail.com>
-Date		: 2010-01-23 15:37 (23 days old)
-References	: http://marc.info/?l=3Dlinux-netdev&m=3D126426149306083&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15114
-Subject		: X.org hang with [drm:i915_gem_do_execbuffer] *ERROR* in dmes=
-g
-Submitter	: Matej Laitl <strohel@gmail.com>
-Date		: 2010-01-23 19:54 (23 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15076
-Subject		: System panic under load with clockevents_program_event
-Submitter	: okias <d.okias@gmail.com>
-Date		: 2010-01-17 13:03 (29 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15044
-Subject		: Much higher wakeups for "<kernel IPI> : Rescheduling interru=
-pts" since 2.6.32.2
-Submitter	: Roman Mamedov <roman@rm.pp.ru>
-Date		: 2010-01-11 02:58 (35 days old)
-=46irst-Bad-Commit: http://git.kernel.org/git/linus/a1f84a3ab8e00215949=
-8814eaa7e48c33752b04b
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15036
-Subject		: soft lockup in dmesg after suspend/resume
-Submitter	: ykzhao <yakui.zhao@intel.com>
-Date		: 2010-01-04 5:36 (42 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126258356202722&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15025
-Subject		: Oops in ext4 driver
-Submitter	: Steinar H. Gunderson <sgunderson@bigfoot.com>
-Date		: 2010-01-10 13:09 (36 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14999
-Subject		: possible circular locking dependency detected in rfkill at s=
-uspend
-Submitter	: Christian Casteyde <casteyde.christian@free.fr>
-Date		: 2010-01-06 21:52 (40 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14950
-Subject		: tbench regression with 2.6.33-rc1
-Submitter	: Lin Ming <ming.m.lin@intel.com>
-Date		: 2009-12-25 11:11 (52 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126174044213172&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14937
-Subject		: WARNING: at kernel/lockdep.c:2830
-Submitter	: Grant Wilson <grant.wilson@zen.co.uk>
-Date		: 2009-12-27 13:35 (50 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126192220404829&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14792
-Subject		: Misdetection of the TV output
-Submitter	: Santi <santi@agolina.net>
-Date		: 2009-12-12 13:28 (65 days old)
-=46irst-Bad-Commit: http://git.kernel.org/git/linus/27dfaf4f5825a119305=
-db1bc63bef30ed400e376
-Handled-By	: Zhao Yakui <yakui.zhao@intel.com>
-
-
-Regressions with patches
-------------------------
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15248
-Subject		: KMS broken on Intel 855GM broken with 2.6.32/33
-Submitter	: Michal Nowak <mnowak@redhat.com>
-Date		: 2010-02-07 09:59 (8 days old)
-Handled-By	: Jesse Barnes <jbarnes@virtuousgeek.org>
-Patch		: http://patchwork.kernel.org/patch/78947/
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15039
-Subject		: leds_alix2: can't allocate I/O for GPIO
-Submitter	: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
-Date		: 2010-01-07 10:26 (39 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126286001106257&w=3D=
-4
-Handled-By	: Daniel Mack <daniel@caiaq.de>
-Patch		: http://patchwork.kernel.org/patch/72006/
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D14949
-Subject		: drm_vm.c:drm_mmap: possible circular locking dependency dete=
-cted
-Submitter	: Borislav Petkov <petkovbb@googlemail.com>
-Date		: 2009-12-26 9:45 (51 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126182073616279&w=3D=
-4
-Handled-By	: Eric W. Biederman <ebiederm@aristanetworks.com>
-Patch		: http://patchwork.kernel.org/patch/70461/
-
-
-=46or details, please visit the bug entries and follow the links given =
-in
-references.
-
-As you can see, there is a Bugzilla entry for each of the listed regres=
-sions.
-There also is a Bugzilla entry used for tracking the regressions from 2=
-=2E6.32,
-unresolved as well as resolved, at:
-
-http://bugzilla.kernel.org/show_bug.cgi?id=3D14885
-
-Please let the tracking team know if there are any Bugzilla entries tha=
-t
-should be added to the list in there.
-
-Thanks!
+VGhpcyBtZXNzYWdlIGNvbnRhaW5zIGEgbGlzdCBvZiBzb21lIHBvc3QtMi42LjMxIHJlZ3Jlc3Np
+b25zIGludHJvZHVjZWQgYmVmb3JlCjIuNi4zMiwgZm9yIHdoaWNoIHRoZXJlIGFyZSBubyBmaXhl
+cyBpbiB0aGUgbWFpbmxpbmUga25vd24gdG8gdGhlIHRyYWNraW5nIHRlYW0uCklmIGFueSBvZiB0
+aGVtIGhhdmUgYmVlbiBmaXhlZCBhbHJlYWR5LCBwbGVhc2UgbGV0IHVzIGtub3cuCgpJZiB5b3Ug
+a25vdyBvZiBhbnkgb3RoZXIgdW5yZXNvbHZlZCBwb3N0LTIuNi4zMSByZWdyZXNzaW9ucywgcGxl
+YXNlIGxldCB1cyBrbm93CmVpdGhlciBhbmQgd2UnbGwgYWRkIHRoZW0gdG8gdGhlIGxpc3QuICBB
+bHNvLCBwbGVhc2UgbGV0IHVzIGtub3cgaWYgYW55Cm9mIHRoZSBlbnRyaWVzIGJlbG93IGFyZSBp
+bnZhbGlkLgoKRWFjaCBlbnRyeSBmcm9tIHRoZSBsaXN0IHdpbGwgYmUgc2VudCBhZGRpdGlvbmFs
+bHkgaW4gYW4gYXV0b21hdGljIHJlcGx5IHRvCnRoaXMgbWVzc2FnZSB3aXRoIENDcyB0byB0aGUg
+cGVvcGxlIGludm9sdmVkIGluIHJlcG9ydGluZyBhbmQgaGFuZGxpbmcgdGhlCmlzc3VlLgoKCkxp
+c3RlZCByZWdyZXNzaW9ucyBzdGF0aXN0aWNzOgoKICBEYXRlICAgICAgICAgIFRvdGFsICBQZW5k
+aW5nICBVbnJlc29sdmVkCiAgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LQogIDIwMTAtMDItMTUgICAgICAxNTcgICAgICAgNDUgICAgICAgICAgMzcKICAyMDEwLTAyLTA4
+ICAgICAgMTU1ICAgICAgIDQ3ICAgICAgICAgIDM3CiAgMjAxMC0wMi0wMSAgICAgIDE0OSAgICAg
+ICA1MCAgICAgICAgICA0NQogIDIwMTAtMDEtMjQgICAgICAxNDAgICAgICAgNDUgICAgICAgICAg
+NDMKICAyMDEwLTAxLTEwICAgICAgMTMwICAgICAgIDQ0ICAgICAgICAgIDQwCiAgMjAwOS0xMi0y
+OSAgICAgIDEyNCAgICAgICA2MCAgICAgICAgICA1NwogIDIwMDktMTEtMjEgICAgICAgODYgICAg
+ICAgMjkgICAgICAgICAgMjUKICAyMDA5LTExLTE2ICAgICAgIDg0ICAgICAgIDQ2ICAgICAgICAg
+IDQxCiAgMjAwOS0xMC0yNiAgICAgICA2NiAgICAgICA0MiAgICAgICAgICAzNwogIDIwMDktMTAt
+MTIgICAgICAgNDggICAgICAgMzEgICAgICAgICAgMjcKICAyMDA5LTEwLTAyICAgICAgIDIyICAg
+ICAgIDE1ICAgICAgICAgICA5CgoKVW5yZXNvbHZlZCByZWdyZXNzaW9ucwotLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tCgpCdWctRW50cnkJOiBodHRwOi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1
+Zy5jZ2k/aWQ9MTUzMDkKU3ViamVjdAkJOiByZWlzZXJmcyBpc3N1ZSB3aXRoIDIuNi4zMi44ClN1
+Ym1pdHRlcgk6IEJyZXQgVG93ZSA8bWFnbmFkZUBnbWFpbC5jb20+CkRhdGUJCTogMjAxMC0wMi0x
+NCAxODoyMyAoMSBkYXlzIG9sZCkKTWVzc2FnZS1JRAk6IDxkZGE4M2U3ODEwMDIxNDEwMjN0MmFi
+ZTk1Yjh3ODNmNTlkNmY0MTFmNjhhMkBtYWlsLmdtYWlsLmNvbT4KUmVmZXJlbmNlcwk6IGh0dHA6
+Ly9tYXJjLmluZm8vP2w9bGludXgta2VybmVsJm09MTI2NjE3MTg1NTEyNzA3Jnc9NAoKCkJ1Zy1F
+bnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD0xNTIyMApT
+dWJqZWN0CQk6IEtlcm5lbCBmcmVlemVzIHdoZW4gcGxheWluZyBEVkIgc3RyZWFtIGFuZCBoYXZp
+bmcgM0QgYWNjZWxlcmF0aW9uIGluIHRoZSBzYW1lIHRpbWUKU3VibWl0dGVyCTogQ2lqb21sIENp
+am9tbG92aWMgQ2lqb21sb3YgPGNpam9tbEB2b2xueS5jej4KRGF0ZQkJOiAyMDEwLTAyLTAzIDIw
+OjM0ICgxMiBkYXlzIG9sZCkKCgpCdWctRW50cnkJOiBodHRwOi8vYnVnemlsbGEua2VybmVsLm9y
+Zy9zaG93X2J1Zy5jZ2k/aWQ9MTUyMDYKU3ViamVjdAkJOiB1dmN2aWRlbyBmYWlscyB0byB3b3Jr
+IHNpbmNlIDIuNi4zMgpTdWJtaXR0ZXIJOiBSaWNoIEVyY29sYW5pIDxyZXJjb2xhQGFjbS5qaHUu
+ZWR1PgpEYXRlCQk6IDIwMTAtMDItMDEgMTI6NTEgKDE0IGRheXMgb2xkKQoKCkJ1Zy1FbnRyeQk6
+IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD0xNTIwNQpTdWJqZWN0
+CQk6IGJsYW5rIHNjcmVlbiB3aXRoIEtNUyBpZiBsaWQgaXMgY2xvc2VkIGJlZm9yZSBrZXJuZWwg
+Ym9vdHMKU3VibWl0dGVyCTogU3ZlbiBKb2FjaGltIDxzdmVuam9hY0BnbXguZGU+CkRhdGUJCTog
+MjAxMC0wMi0wMSAwOTowOCAoMTQgZGF5cyBvbGQpCkZpcnN0LUJhZC1Db21taXQ6IGh0dHA6Ly9n
+aXQua2VybmVsLm9yZy9naXQvbGludXMvYjQyZDRjNWM2YTg3MjgxNWQ3MTFlNWQ1MWE2MDBmNTEy
+MmMzOGVlZQoKCkJ1Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVn
+LmNnaT9pZD0xNTE5MApTdWJqZWN0CQk6IHNlY29uZCBzdXNwZW5kIGZhaWxzIGFuZCBzeXN0ZW0g
+ZnJlZXplcyBpbiBocCA2OTEwUCBsYXB0b3AKU3VibWl0dGVyCTogSml0aGluIEVtbWFudWVsIDxq
+aXRoaW4xOTg3QGdtYWlsLmNvbT4KRGF0ZQkJOiAyMDEwLTAxLTMxIDE1OjUzICgxNSBkYXlzIG9s
+ZCkKCgpCdWctRW50cnkJOiBodHRwOi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/
+aWQ9MTUxODgKU3ViamVjdAkJOiBHcmFwaGljIHN1YnN5c3RlbSBmcmVlemUKU3VibWl0dGVyCTog
+YWl4MjcyNDkgPGkyNzI0OUBnbWFpbC5jb20+CkRhdGUJCTogMjAxMC0wMS0zMSAxMjoxMyAoMTUg
+ZGF5cyBvbGQpCgoKQnVnLUVudHJ5CTogaHR0cDovL2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hvd19i
+dWcuY2dpP2lkPTE1MTU4ClN1YmplY3QJCTogb29wcyByZWxhdGVkIHRvIGk5MTVfZ2VtX29iamVj
+dF9zYXZlX2JpdF8xN19zd2l6emxlClN1Ym1pdHRlcgk6IFdlcm5lciBMZW1iZXJnIDx3bEBnbnUu
+b3JnPgpEYXRlCQk6IDIwMTAtMDEtMjggMDg6MjYgKDE4IGRheXMgb2xkKQoKCkJ1Zy1FbnRyeQk6
+IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD0xNTE1NgpTdWJqZWN0
+CQk6IDIuNi4zMi42IGhhbmcgYXQgYm9vdCB3aXRoIGF0aSB4MTYwMApTdWJtaXR0ZXIJOiBBbGV4
+ZXkgS3V6bmV0c292IDxha0BheGV0LnJ1PgpEYXRlCQk6IDIwMTAtMDEtMjggMDU6MDIgKDE4IGRh
+eXMgb2xkKQoKCkJ1Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVn
+LmNnaT9pZD0xNTEzNApTdWJqZWN0CQk6IGdvYmlfbG9hZGVyIGhhbmdzIGFmdGVyIGNvbW1pdCA4
+ZThkY2UwNjUwODgKU3VibWl0dGVyCTogTWF0dGhldyBHYXJyZXR0IDxtamc1OUBzcmNmLnVjYW0u
+b3JnPgpEYXRlCQk6IDIwMTAtMDEtMTcgMjo1NSAoMjkgZGF5cyBvbGQpClJlZmVyZW5jZXMJOiBo
+dHRwOi8vbWFyYy5pbmZvLz9sPWxpbnV4LWtlcm5lbCZtPTEyNjM2OTY5NjUwOTUwMiZ3PTQKSGFu
+ZGxlZC1CeQk6IE9saXZlciBOZXVrdW0gPG9saXZlckBuZXVrdW0ub3JnPgoJCSAgQWxhbiBDb3gg
+PGFsYW5AbHhvcmd1ay51a3V1Lm9yZy51az4KCgpCdWctRW50cnkJOiBodHRwOi8vYnVnemlsbGEu
+a2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9MTUxMDAKU3ViamVjdAkJOiBYMTEgaXMgYmxhY2sg
+YWZ0ZXIgcmVzdW1lIGZyb20gczJyYW0gaWYgbXkgVDQwMCB3YXMgcHJldmlvdXMgaW4gZG9ja2lu
+ZyBzdGF0aW9uIGJlZm9yZQpTdWJtaXR0ZXIJOiBUb3JhbGYgRsO2cnN0ZXIgPHRvcmFsZi5mb2Vy
+c3RlckBnbXguZGU+CkRhdGUJCTogMjAxMC0wMS0yMSAwODo1NiAoMjUgZGF5cyBvbGQpCkZpcnN0
+LUJhZC1Db21taXQ6IGh0dHA6Ly9naXQua2VybmVsLm9yZy9naXQvbGludXMvYzFjN2FmNjA4OTIw
+NzBlNGI4MmFkNjNiYmZiOTVhZTc0NTA1NmRlMAoKCkJ1Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxs
+YS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD0xNTA5NgpTdWJqZWN0CQk6IFJlc3VtZSBsb2Nr
+IHVwIC0tIGJpc2VjdGVkLCBjb21taXQgM2ExMTUxZTNmMTI0ZmQxYTJjNTRiODE1M2Y1MTBmMWE3
+YzcxNTM2OQpTdWJtaXR0ZXIJOiBSYWZhxYIgTWnFgmVja2kgPHphamVjNUBnbWFpbC5jb20+CkRh
+dGUJCTogMjAxMC0wMS0yMCAyMzoxNSAoMjYgZGF5cyBvbGQpCkZpcnN0LUJhZC1Db21taXQ6IGh0
+dHA6Ly9naXQua2VybmVsLm9yZy9naXQvbGludXMvM2ExMTUxZTNmMTI0ZmQxYTJjNTRiODE1M2Y1
+MTBmMWE3YzcxNTM2OQoKCkJ1Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3No
+b3dfYnVnLmNnaT9pZD0xNTA0MgpTdWJqZWN0CQk6IHNvY2tldChQRl9JTkVUNiBoYW5ncyB3aGVu
+IGlwdjYgbm90IHlldCBpbml0aWFsaXplZApTdWJtaXR0ZXIJOiBNYXJjIEhhYmVyIDxtaCtsaW51
+eC1rZXJuZWxAenVnc2NobHVzLmRlPgpEYXRlCQk6IDIwMTAtMDEtMTAgMTQ6MjggKDM2IGRheXMg
+b2xkKQpSZWZlcmVuY2VzCTogaHR0cDovL21hcmMuaW5mby8/bD1saW51eC1rZXJuZWwmbT0xMjYz
+MTM1NTMwMjkyODAmdz00CgoKQnVnLUVudHJ5CTogaHR0cDovL2J1Z3ppbGxhLmtlcm5lbC5vcmcv
+c2hvd19idWcuY2dpP2lkPTE1MDIxClN1YmplY3QJCTogYWdwZ2FydCBzb21ldGltZXMgZmFpbHMg
+dG8gaW5pdGlhbGl6ZSBzb21ldGltZXMKU3VibWl0dGVyCTogTWFjaWVqIFBpZWNob3RrYSA8dXp5
+dGtvd25pazJAZ21haWwuY29tPgpEYXRlCQk6IDIwMTAtMDEtMDkgMjM6MzEgKDM3IGRheXMgb2xk
+KQoKCkJ1Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9p
+ZD0xNTAxNQpTdWJqZWN0CQk6IGJsYW5rIHNjcmVlbiBhdCByYW5kb20gdGltZXMgaW4gbGFwdG9w
+IHdoZW4gc2l0dGluZyBpZGxlClN1Ym1pdHRlcgk6IEppdGhpbiBFbW1hbnVlbCA8aml0aGluMTk4
+N0BnbWFpbC5jb20+CkRhdGUJCTogMjAxMC0wMS0wOSAxNjo0OCAoMzcgZGF5cyBvbGQpCgoKQnVn
+LUVudHJ5CTogaHR0cDovL2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hvd19idWcuY2dpP2lkPTE0OTk4
+ClN1YmplY3QJCTogQ2F1Z2h0IDMyLWJpdCByZWFkIGZyb20gdW5pbml0aWFsaXplZCBtZW1vcnkg
+aW4gYWNwaV9zeXN0ZW1fcmVhZF9ldmVudCAtLSAyLjYuMzEgcmVncmVzc2lvbgpTdWJtaXR0ZXIJ
+OiBDaHJpc3RpYW4gQ2FzdGV5ZGUgPGNhc3RleWRlLmNocmlzdGlhbkBmcmVlLmZyPgpEYXRlCQk6
+IDIwMTAtMDEtMDYgMjE6NDAgKDQwIGRheXMgb2xkKQpGaXJzdC1CYWQtQ29tbWl0OiBodHRwOi8v
+Z2l0Lmtlcm5lbC5vcmcvZ2l0L2xpbnVzL2VjYTZmNTM0ZTYxOTE5YjI4ZmIyMWFhZmJkMWMyOTgz
+ZGVhZTc1YmUKCgpCdWctRW50cnkJOiBodHRwOi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1
+Zy5jZ2k/aWQ9MTQ5OTcKU3ViamVjdAkJOiBDbG9zaW5nIGFuZCByZS1vcGVuaW5nIHRoZSBsaWQg
+ZG9lcyBub3QgcmVhY3RpdmF0ZSB0aGUgYmFja2xpZ2h0ClN1Ym1pdHRlcgk6IG8uIG1laWplciA8
+bWVpamVyLm9AZ21haWwuY29tPgpEYXRlCQk6IDIwMTAtMDEtMDYgMTU6MzggKDQwIGRheXMgb2xk
+KQoKCkJ1Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9p
+ZD0xNDk0MwpTdWJqZWN0CQk6IG5mcyByZWdyZXNzaW9uPwpTdWJtaXR0ZXIJOiBOaWtvbGEgQ2lw
+cmljaCA8ZXh0bWFpbGxpc3RAbGludXhib3guY3o+CkRhdGUJCTogMjAwOS0xMi0yOCAxMjoxMCAo
+NDkgZGF5cyBvbGQpClJlZmVyZW5jZXMJOiBodHRwOi8vbWFyYy5pbmZvLz9sPWxpbnV4LWtlcm5l
+bCZtPTEyNjIwMDI3NjIyMzUyNCZ3PTQKCgpCdWctRW50cnkJOiBodHRwOi8vYnVnemlsbGEua2Vy
+bmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9MTQ5MjIKU3ViamVjdAkJOiAyLjYuMzIgc2VlbWVkIHRv
+IGhhdmUgYnJva2VuIG5WaWRpYSBNQ1A3QSBzYXRhIGNvbnRyb2xsZXIKU3VibWl0dGVyCTogTWlr
+ZSBDdWkgPGN1aWN1aUBnbWFpbC5jb20+CkRhdGUJCTogMjAwOS0xMi0xOSA2OjEzICg1OCBkYXlz
+IG9sZCkKUmVmZXJlbmNlcwk6IGh0dHA6Ly9tYXJjLmluZm8vP2w9bGludXgtaWRlJm09MTI2MTIw
+MzIzNDA3NzQyJnc9NApIYW5kbGVkLUJ5CTogSmVmZiBHYXJ6aWsgPGplZmZAZ2FyemlrLm9yZz4K
+CQkgIFJvYmVydCBIYW5jb2NrIDxoYW5jb2NrcndkQGdtYWlsLmNvbT4KCgpCdWctRW50cnkJOiBo
+dHRwOi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9MTQ4OTgKU3ViamVjdAkJ
+OiBrc29mdGlycWQgcHJvYmxlbQpTdWJtaXR0ZXIJOiBOaWNvIDxzZWdmYXVsdDJAaG90bWFpbC5j
+b20+CkRhdGUJCTogMjAwOS0xMi0xMyAxOTowNSAoNjQgZGF5cyBvbGQpClJlZmVyZW5jZXMJOiBo
+dHRwOi8vbWFyYy5pbmZvLz9sPWxpbnV4LWtlcm5lbCZtPTEyNjA3MzExNDMyNTY5MCZ3PTQKCgpC
+dWctRW50cnkJOiBodHRwOi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9MTQ4
+OTUKU3ViamVjdAkJOiBCVUcgaW4ga2VybmVsIDIuNi4zMiB3aGVuIHVzaW5nIGx1a3MgZW5jcnlw
+dGVkIHJvb3QgYW5kIFJBSUQwLi4KU3VibWl0dGVyCTogcjQgPG1rXzRAY2VudHJ1bS5jej4KRGF0
+ZQkJOiAyMDA5LTEyLTAzIDE4OjI0ICg3NCBkYXlzIG9sZCkKUmVmZXJlbmNlcwk6IGh0dHA6Ly9t
+YXJjLmluZm8vP2w9bGludXgta2VybmVsJm09MTI1OTg2NjY0OTA0NzUxJnc9NAoKCkJ1Zy1FbnRy
+eQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD0xNDg5MQpTdWJq
+ZWN0CQk6IERlYWRsb2NrIHJlZ3Jlc3Npb24gcmVsYXRlZCB0byBORlMgcm9vdApTdWJtaXR0ZXIJ
+OiBTdGVwaGVuIFIuIHZhbiBkZW4gQmVyZyA8c3JiQGN1Y2kubmw+CkRhdGUJCTogMjAwOS0xMS0y
+NCAwOjI0ICg4MyBkYXlzIG9sZCkKUmVmZXJlbmNlcwk6IGh0dHA6Ly9tYXJjLmluZm8vP2w9bGlu
+dXgta2VybmVsJm09MTI1OTAyMjc5OTA5NDUyJnc9NApIYW5kbGVkLUJ5CTogVHJvbmQgTXlrbGVi
+dXN0IDxUcm9uZC5NeWtsZWJ1c3RAbmV0YXBwLmNvbT4KCgpCdWctRW50cnkJOiBodHRwOi8vYnVn
+emlsbGEua2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9MTQ4NjgKU3ViamVjdAkJOiBmbG9vZCBv
+ZiAiZG9uJ3QgdHJ5IHRvIHJlZ2lzdGVyIHRoaW5ncyB3aXRoIHRoZSBzYW1lIG5hbWUgaW4gdGhl
+IHNhbWUgZGlyZWN0b3J5LiIgb24gdXBncmFkZSB0byAyLjYuMzIKU3VibWl0dGVyCTogUmljaCBF
+cmNvbGFuaSA8cmVyY29sYUBhY20uamh1LmVkdT4KRGF0ZQkJOiAyMDA5LTEyLTI0IDAyOjQ0ICg1
+MyBkYXlzIG9sZCkKCgpCdWctRW50cnkJOiBodHRwOi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93
+X2J1Zy5jZ2k/aWQ9MTQ4MTcKU3ViamVjdAkJOiBXaGVuIGlzIHN5c3RlbSB1bmRlciBsb2FkLCB0
+aGVuIGZyZWV6ZS9IRCBmYWlsClN1Ym1pdHRlcgk6IG9raWFzIDxkLm9raWFzQGdtYWlsLmNvbT4K
+RGF0ZQkJOiAyMDA5LTEyLTE1IDExOjEyICg2MiBkYXlzIG9sZCkKCgpCdWctRW50cnkJOiBodHRw
+Oi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9MTQ3ODIKU3ViamVjdAkJOiBT
+dXNwZW5kIGhhbmdzIExlbm92byBTTDMwMCBhZnRlciBnZG0gbG9naW4KU3VibWl0dGVyCTogR2Fy
+eSBUcmFraG1hbiA8Z2FyeS50cmFraG1hbkBnbWFpbC5jb20+CkRhdGUJCTogMjAwOS0xMi0xMCAx
+ODo1MyAoNjcgZGF5cyBvbGQpCkZpcnN0LUJhZC1Db21taXQ6IGh0dHA6Ly9naXQua2VybmVsLm9y
+Zy9naXQvbGludXMvMDNiYTM3ODJlOGRjYzViMGUxZWZlNDQwZDMzMDg0ZjA2NmUzOGNhZQoKCkJ1
+Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD0xNDc0
+OApTdWJqZWN0CQk6IGUxMDAwZSBOSUMgbm90IHdvcmtpbmcgYWZ0ZXIgcmVib290ClN1Ym1pdHRl
+cgk6IE1hY2llayBTaXRhcnogPG1hY2lla3NAZnJlZXNjby5wbD4KRGF0ZQkJOiAyMDA5LTEyLTA2
+IDEzOjA0ICg3MSBkYXlzIG9sZCkKCgpCdWctRW50cnkJOiBodHRwOi8vYnVnemlsbGEua2VybmVs
+Lm9yZy9zaG93X2J1Zy5jZ2k/aWQ9MTQ2OTUKU3ViamVjdAkJOiByZWdyZXNzaW9uIGluIGthcm1p
+YyB0aGVybWFsIGNvbnRyb2wKU3VibWl0dGVyCTogQnVnaWUgPHB1YmxpY0BidWdpZS5kZT4KRGF0
+ZQkJOiAyMDA5LTExLTI2IDA4OjQ1ICg4MSBkYXlzIG9sZCkKCgpCdWctRW50cnkJOiBodHRwOi8v
+YnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9MTQ2NjcKU3ViamVjdAkJOiBiaXNl
+Y3RlZCAyLjYuMzIgRUMgcmVncmVzc2lvbiAtIFRlbXBlcmF0dXJlcyBub3QgY29ycmVjdGx5IGRl
+dGVjdGVkIGFmdGVyIHN1c3BlbmQKU3VibWl0dGVyCTogRmVkZXJpY28gQ2hpYWNjaGlhcmV0dGEg
+PGZlZGVyaWNvLmNoaWFAZ21haWwuY29tPgpEYXRlCQk6IDIwMDktMTEtMjIgMjA6NDIgKDg1IGRh
+eXMgb2xkKQpGaXJzdC1CYWQtQ29tbWl0OiBodHRwOi8vZ2l0Lmtlcm5lbC5vcmcvZ2l0L2xpbnVz
+LzZhNjNiMDZmM2M0OTRjYzg3ZWFkZTk3ZjA4MTMwMGJkYTYwYWNlYzcKCgpCdWctRW50cnkJOiBo
+dHRwOi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9MTQ2NTcKU3ViamVjdAkJ
+OiBwZXJmIHN1YnN5c3RlbSBicmVha2FnZSBpbiAyLjYuMzItcmM3ClN1Ym1pdHRlcgk6IEFyamFu
+IHZhbiBkZSBWZW4gPGFyamFuQGluZnJhZGVhZC5vcmc+CkRhdGUJCTogMjAwOS0xMS0xOSAxOTo1
+MCAoODggZGF5cyBvbGQpClJlZmVyZW5jZXMJOiBodHRwOi8vbWFyYy5pbmZvLz9sPWxpbnV4LWtl
+cm5lbCZtPTEyNTg2NjAxMzQxOTczOCZ3PTQKCgpCdWctRW50cnkJOiBodHRwOi8vYnVnemlsbGEu
+a2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9MTQ2NTYKU3ViamVjdAkJOiBPb3BzIGF0IF9fcm1x
+dWV1ZSsweDk4IHdpdGggMi42LjMyLXJjNgpTdWJtaXR0ZXIJOiBMdWNhcyBDLiBWaWxsYSBSZWFs
+IDxsdWNhc3ZyQGdvYm9saW51eC5vcmc+CkRhdGUJCTogMjAwOS0xMS0xOSAzOjQ4ICg4OCBkYXlz
+IG9sZCkKUmVmZXJlbmNlcwk6IGh0dHA6Ly9tYXJjLmluZm8vP2w9bGludXgta2VybmVsJm09MTI1
+ODYwMjU1MjI5MDkyJnc9NAoKCkJ1Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3Jn
+L3Nob3dfYnVnLmNnaT9pZD0xNDYyNApTdWJqZWN0CQk6IGF0aDlrOiBCVUcga21hbGxvYy04MTky
+OiBQb2lzb24gb3ZlcndyaXR0ZW4KU3VibWl0dGVyCTogTWlsZXMgTGFuZSA8bWlsZXMubGFuZUBn
+bWFpbC5jb20+CkRhdGUJCTogMjAwOS0xMS0xMiA0OjU4ICg5NSBkYXlzIG9sZCkKUmVmZXJlbmNl
+cwk6IGh0dHA6Ly9tYXJjLmluZm8vP2w9bGludXgta2VybmVsJm09MTI1ODAwMTk2NTIwMzk2Jnc9
+NAoKCkJ1Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9p
+ZD0xNDYyMQpTdWJqZWN0CQk6IHNwZWNqYmIyMDA1IGFuZCBhaW03IHJlZ3Jlc3Npb24gd2l0aCAy
+LjYuMzItcmMga2VybmVscwpTdWJtaXR0ZXIJOiBaaGFuZywgWWFubWluIDx5YW5taW5femhhbmdA
+bGludXguaW50ZWwuY29tPgpEYXRlCQk6IDIwMDktMTEtMDYgNzozOCAoMTAxIGRheXMgb2xkKQpS
+ZWZlcmVuY2VzCTogaHR0cDovL21hcmMuaW5mby8/bD1saW51eC1rZXJuZWwmbT0xMjU3NDkzMTA0
+MTMxNzQmdz00CgoKQnVnLUVudHJ5CTogaHR0cDovL2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hvd19i
+dWcuY2dpP2lkPTE0NTA0ClN1YmplY3QJCTogaW50ZXJtaXR0ZW50IGhpYmVybmF0aW9uIHByb2Js
+ZW0gYWdhaW4KU3VibWl0dGVyCTogRmVyZW5jIFfDoWduZXIgPHdmZXJpQG5paWYuaHU+CkRhdGUJ
+CTogMjAwOS0xMC0yOCAyMzo0OSAoMTEwIGRheXMgb2xkKQoKCkJ1Zy1FbnRyeQk6IGh0dHA6Ly9i
+dWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD0xNDQ4NwpTdWJqZWN0CQk6IFBBTklD
+OiBlYXJseSBleGNlcHRpb24gMDggcmlwIDI0NjoxMCBlcnJvciBmZmZmZmZmZjgxMDI1MWI1IGNy
+MiAwClN1Ym1pdHRlcgk6IEp1c3RpbiBQLiBNYXR0b2NrIDxqdXN0aW5tYXR0b2NrQGdtYWlsLmNv
+bT4KRGF0ZQkJOiAyMDA5LTEwLTIzIDE2OjQ1ICgxMTUgZGF5cyBvbGQpClJlZmVyZW5jZXMJOiBo
+dHRwOi8vbGttbC5vcmcvbGttbC8yMDA5LzEwLzIzLzI1MgpIYW5kbGVkLUJ5CTogSmFuIEJldWxp
+Y2ggPGpiZXVsaWNoQG5vdmVsbC5jb20+CgoKQnVnLUVudHJ5CTogaHR0cDovL2J1Z3ppbGxhLmtl
+cm5lbC5vcmcvc2hvd19idWcuY2dpP2lkPTE0NDQyClN1YmplY3QJCTogcmVzdW1lIGFmdGVyIGhp
+YmVybmF0ZTogL2Rldi9zZGIgZHJvcHMgYW5kIHJldHVybnMgYXMgL2Rldi9zZGUKU3VibWl0dGVy
+CTogRHVuY2FuIDwxaTV0NS5kdW5jYW5AY294Lm5ldD4KRGF0ZQkJOiAyMDA5LTEwLTIwIDAxOjUy
+ICgxMTggZGF5cyBvbGQpCgoKQnVnLUVudHJ5CTogaHR0cDovL2J1Z3ppbGxhLmtlcm5lbC5vcmcv
+c2hvd19idWcuY2dpP2lkPTE0NDI2ClN1YmplY3QJCTogQ0U6IGhwZXQgaW5jcmVhc2luZyBtaW5f
+ZGVsdGFfbnMgZmxvb2QKU3VibWl0dGVyCTogVGhpYmF1bHQgTW9uZGFyeSA8dGhpYm1AZnJlZS5m
+cj4KRGF0ZQkJOiAyMDA5LTEwLTE3IDA5OjI5ICgxMjEgZGF5cyBvbGQpCgoKQnVnLUVudHJ5CTog
+aHR0cDovL2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hvd19idWcuY2dpP2lkPTE0Mjk4ClN1YmplY3QJ
+CTogd2FybmluZyBhdCBtYW5hZ2UuYzozNjEgKHNldF9pcnFfd2FrZSksIG1hdHJpeC1rZXlwYWQg
+cmVsYXRlZD8KU3VibWl0dGVyCTogUGF2ZWwgTWFjaGVrIDxwYXZlbEB1Y3cuY3o+CkRhdGUJCTog
+MjAwOS0wOS0zMCAyMDowNyAoMTM4IGRheXMgb2xkKQpSZWZlcmVuY2VzCTogaHR0cDovL21hcmMu
+aW5mby8/bD1saW51eC1rZXJuZWwmbT0xMjU0MzQxMzA3MDM1Mzgmdz00CgoKQnVnLUVudHJ5CTog
+aHR0cDovL2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hvd19idWcuY2dpP2lkPTE0Mjk3ClN1YmplY3QJ
+CTogY29uc29sZSByZXN1bWUgYnJva2VuIHNpbmNlIGJhMTVhYjBlOGQKU3VibWl0dGVyCTogU2Fz
+Y2hhIEhhdWVyIDxzLmhhdWVyQHBlbmd1dHJvbml4LmRlPgpEYXRlCQk6IDIwMDktMDktMzAgMTU6
+MTEgKDEzOCBkYXlzIG9sZCkKRmlyc3QtQmFkLUNvbW1pdDogaHR0cDovL2dpdC5rZXJuZWwub3Jn
+L2dpdC9saW51cy9iYTE1YWIwZThkZTBkNDQzOWE5MTM0MmFkNTJkNTVjYTllMzEzZjNkClJlZmVy
+ZW5jZXMJOiBodHRwOi8vbWFyYy5pbmZvLz9sPWxpbnV4LWtlcm5lbCZtPTEyNTQzMjM0OTQwNDA2
+MCZ3PTQKCgpSZWdyZXNzaW9ucyB3aXRoIHBhdGNoZXMKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+CgpCdWctRW50cnkJOiBodHRwOi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9
+MTUzMDQKU3ViamVjdAkJOiBTTVQgc2NoZWR1bGVyIHJlZ3Jlc3Npb24gaW4gZmluZF9idXNpZXN0
+X3F1ZXVlKCkKU3VibWl0dGVyCTogU3VyZXNoIFNpZGRoYSA8c3VyZXNoLmIuc2lkZGhhQGludGVs
+LmNvbT4KRGF0ZQkJOiAyMDEwLTAyLTEzIDE6MTQgKDIgZGF5cyBvbGQpCkZpcnN0LUJhZC1Db21t
+aXQ6IGh0dHA6Ly9naXQua2VybmVsLm9yZy9naXQvbGludXMvYmRiOTRhYTVkYmQ4YjU1ZTc1ZjVh
+NTBiNjEzMTJmZTU4OWUyYzJkMQpNZXNzYWdlLUlECTogPDEyNjYwMjM2NjIuMjgwOC4xMTguY2Ft
+ZWxAc2JzLXQ2MS5zYy5pbnRlbC5jb20+ClJlZmVyZW5jZXMJOiBodHRwOi8vbWFyYy5pbmZvLz9s
+PWxpbnV4LWtlcm5lbCZtPTEyNjYwMjM3NDUxMTgzMSZ3PTQKSGFuZGxlZC1CeQk6IFN1cmVzaCBT
+aWRkaGEgPHN1cmVzaC5iLnNpZGRoYUBpbnRlbC5jb20+ClBhdGNoCQk6IGh0dHA6Ly9wYXRjaHdv
+cmsua2VybmVsLm9yZy9wYXRjaC83OTAzOS8KCgpCdWctRW50cnkJOiBodHRwOi8vYnVnemlsbGEu
+a2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9MTUxOTMKU3ViamVjdAkJOiBrc3dhcGQgY29udGlu
+dW91c2x5IGFjdGl2ZQpTdWJtaXR0ZXIJOiBKYW4gRW5nZWxoYXJkdCA8amVuZ2VsaEBtZWRvemFz
+LmRlPgpEYXRlCQk6IDIwMTAtMDEtMjIgMjMgKDI0IGRheXMgb2xkKQpSZWZlcmVuY2VzCTogaHR0
+cDovL21hcmMuaW5mby8/bD1saW51eC1rZXJuZWwmbT0xMjY0MjA0MzQ1MTkwMzkmdz00CkhhbmRs
+ZWQtQnkJOiBKZW5zIEF4Ym9lIDxqZW5zLmF4Ym9lQG9yYWNsZS5jb20+CgkJICBKZW5zIEF4Ym9l
+IDxqZW5zLmF4Ym9lQG9yYWNsZS5jb20+ClBhdGNoCQk6IGh0dHA6Ly9wYXRjaHdvcmsua2VybmVs
+Lm9yZy9wYXRjaC83ODg1Ni8KCgpCdWctRW50cnkJOiBodHRwOi8vYnVnemlsbGEua2VybmVsLm9y
+Zy9zaG93X2J1Zy5jZ2k/aWQ9MTUxMDgKU3ViamVjdAkJOiBCbGFuayBzY3JlZW4gd2l0aCBLTVMg
+ZW5hYmxlZCAob24gY2xldm8gTTV4TiBsYXB0b3ApClN1Ym1pdHRlcgk6IErDqXLDqW15IExhbCA8
+a2Fwb3VlckBtZWxpeC5vcmc+CkRhdGUJCTogMjAxMC0wMS0yMiAyMDozMCAoMjQgZGF5cyBvbGQp
+CkhhbmRsZWQtQnkJOiBaaGFuZyBSdWkgPHJ1aS56aGFuZ0BpbnRlbC5jb20+ClBhdGNoCQk6IGh0
+dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL2F0dGFjaG1lbnQuY2dpP2lkPTI0NzQwCgoKQnVnLUVu
+dHJ5CTogaHR0cDovL2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hvd19idWcuY2dpP2lkPTE1MDQwClN1
+YmplY3QJCTogSGlnaCBjcHUgdGVtcGVyYXR1cmUgd2l0aCAyLjYuMzIgLSBiaXNlY3RlZCB0byBj
+cHVpZGxlIG1lbnUgdXBkYXRlClN1Ym1pdHRlcgk6IERpbWl0cmlvcyBBcG9zdG9sb3UgPGppbWlz
+QGdteC5uZXQ+CkRhdGUJCTogMjAxMC0wMS0wNiAxNzozOSAoNDAgZGF5cyBvbGQpClJlZmVyZW5j
+ZXMJOiBodHRwOi8vbWFyYy5pbmZvLz9sPWxpbnV4LWtlcm5lbCZtPTEyNjI3OTk1MjcyMzAzNiZ3
+PTQKSGFuZGxlZC1CeQk6IEFyamFuIHZhbiBkZSBWZW4gPGFyamFuQGluZnJhZGVhZC5vcmc+ClBh
+dGNoCQk6IGh0dHA6Ly9wYXRjaHdvcmsua2VybmVsLm9yZy9wYXRjaC83MTk2Mi8KCgpCdWctRW50
+cnkJOiBodHRwOi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9MTUwMDAKU3Vi
+amVjdAkJOiBUaGlua3BhZCBkb2NrIGJ1dHRvbiBubyBsb25nZXIgd29ya3MKU3VibWl0dGVyCTog
+UGF1bCBNYXJ0aW4gPHBtQGRlYmlhbi5vcmc+CkRhdGUJCTogMjAxMC0wMS0wNyAwMjoxMSAoMzkg
+ZGF5cyBvbGQpCkhhbmRsZWQtQnkJOiBDaHJpcyBNYXNvbiA8Y2hyaXMubWFzb25Ab3JhY2xlLmNv
+bT4KUGF0Y2gJCTogaHR0cDovL3BhdGNod29yay5rZXJuZWwub3JnL3BhdGNoLzc2MTEwLwoKCkJ1
+Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD0xNDg5
+NApTdWJqZWN0CQk6IHBvaG1lbGZzOiBOVUxMIHBvaW50ZXIgZGVyZWZlcmVuY2UKU3VibWl0dGVy
+CTogQWxleGFuZGVyIEJlcmVnYWxvdiA8YS5iZXJlZ2Fsb3ZAZ21haWwuY29tPgpEYXRlCQk6IDIw
+MDktMTItMDIgMToxMSAoNzUgZGF5cyBvbGQpClJlZmVyZW5jZXMJOiBodHRwOi8vbWFyYy5pbmZv
+Lz9sPWxpbnV4LWtlcm5lbCZtPTEyNTk3MTYzMzEwNzk0MCZ3PTQKSGFuZGxlZC1CeQk6IEV2Z2Vu
+aXkgUG9seWFrb3YgPHpickBpb3JlbWFwLm5ldD4KCQkgIEplbnMgQXhib2UgPGplbnMuYXhib2VA
+b3JhY2xlLmNvbT4KUGF0Y2gJCTogaHR0cDovL3BhdGNod29yay5rZXJuZWwub3JnL3BhdGNoLzcw
+MjExLwoKCkJ1Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNn
+aT9pZD0xNDg4NgpTdWJqZWN0CQk6IEFzdXMgUDJCLURTIG5vdCBkZXRlY3RlZCBhcyBTTVAgbW90
+ZXJib2FyZApTdWJtaXR0ZXIJOiBMb3JlbnpvIEJ1enppIDxmbGluY29AbGliZXJvLml0PgpEYXRl
+CQk6IDIwMDktMTItMjcgMTc6MjAgKDUwIGRheXMgb2xkKQpGaXJzdC1CYWQtQ29tbWl0OiBodHRw
+Oi8vZ2l0Lmtlcm5lbC5vcmcvZ2l0L2xpbnVzL2U1YjhmYzZhYzE1OGY2NTU5OGY1OGRiYTJjMGQ1
+MmJhM2I0MTJmNTIKSGFuZGxlZC1CeQk6IE1hdHRoZXcgR2FycmV0dCA8bWpnNTlAc3JjZi51Y2Ft
+Lm9yZz4KUGF0Y2gJCTogaHR0cDovL3BhdGNod29yay5rZXJuZWwub3JnL3BhdGNoLzc2MDg5LwoK
+CkJ1Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD0x
+NDc0MgpTdWJqZWN0CQk6IDIuNi4zMiBuZXcgbWVudSBpZGxlIGdvdmVybm9yIGNhdXNlcyB2ZXJ5
+IGhpZ2ggQ1BVIHRlbXAKU3VibWl0dGVyCTogIDxha3dhdHRzQHltYWlsLmNvbT4KRGF0ZQkJOiAy
+MDA5LTEyLTA1IDE3OjI0ICg3MiBkYXlzIG9sZCkKSGFuZGxlZC1CeQk6IEFyamFuIHZhbiBkZSBW
+ZW4gPGFyamFuQGxpbnV4LmludGVsLmNvbT4KUGF0Y2gJCTogaHR0cDovL2J1Z3ppbGxhLmtlcm5l
+bC5vcmcvc2hvd19idWcuY2dpP2lkPTE0NzQyI2M3CgoKRm9yIGRldGFpbHMsIHBsZWFzZSB2aXNp
+dCB0aGUgYnVnIGVudHJpZXMgYW5kIGZvbGxvdyB0aGUgbGlua3MgZ2l2ZW4gaW4KcmVmZXJlbmNl
+cy4KCkFzIHlvdSBjYW4gc2VlLCB0aGVyZSBpcyBhIEJ1Z3ppbGxhIGVudHJ5IGZvciBlYWNoIG9m
+IHRoZSBsaXN0ZWQgcmVncmVzc2lvbnMuClRoZXJlIGFsc28gaXMgYSBCdWd6aWxsYSBlbnRyeSB1
+c2VkIGZvciB0cmFja2luZyB0aGUgcmVncmVzc2lvbnMgaW50cm9kdWNlZApiZXR3ZWVuIDIuNi4z
+MSBhbmQgMi42LjMyLCB1bnJlc29sdmVkIGFzIHdlbGwgYXMgcmVzb2x2ZWQsIGF0OgoKaHR0cDov
+L2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hvd19idWcuY2dpP2lkPTE0MjMwCgpQbGVhc2UgbGV0IHRo
+ZSB0cmFja2luZyB0ZWFrIGtub3cgaWYgdGhlcmUgYXJlIGFueSBCdWd6aWxsYSBlbnRyaWVzIHRo
+YXQKc2hvdWxkIGJlIGFkZGVkIHRvIHRoZSBsaXN0IGluIHRoZXJlLgoKVGhhbmtzIQoKCi0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLQpTT0xBUklTIDEwIGlzIHRoZSBPUyBmb3IgRGF0YSBDZW50ZXJzIC0g
+cHJvdmlkZXMgZmVhdHVyZXMgc3VjaCBhcyBEVHJhY2UsClByZWRpY3RpdmUgU2VsZiBIZWFsaW5n
+IGFuZCBBd2FyZCBXaW5uaW5nIFpGUy4gR2V0IFNvbGFyaXMgMTAgTk9XCmh0dHA6Ly9wLnNmLm5l
+dC9zZnUvc29sYXJpcy1kZXYyZGV2Ci0tCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fCkRyaS1kZXZlbCBtYWlsaW5nIGxpc3QKRHJpLWRldmVsQGxpc3RzLnNv
+dXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5m
+by9kcmktZGV2ZWwK
