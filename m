@@ -1,149 +1,273 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [net-next-2.6 PATCH 2/2] net neigh: Decouple per interface neighbour table controls from binary sysctls
-Date: Sun, 14 Feb 2010 05:27:03 -0800
-Message-ID: <m1bpfskkwo.fsf@fess.ebiederm.org>
-References: <m1fx54kkyo.fsf@fess.ebiederm.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 2/2] net/macvtap: add vhost support
+Date: Sun, 14 Feb 2010 15:27:32 +0200
+Message-ID: <20100214132732.GB31180@redhat.com>
+References: <201002131133.43028.arnd@arndb.de> <201002131135.08477.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:41453 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754381Ab0BNN1I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Feb 2010 08:27:08 -0500
-In-Reply-To: <m1fx54kkyo.fsf@fess.ebiederm.org> (Eric W. Biederman's message of "Sun\, 14 Feb 2010 05\:25\:51 -0800")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ed Swierk <eswierk@aristanetworks.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Sridhar Samudrala <sri@us.ibm.com>, qemu-devel@nongnu.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201002131135.08477.arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Sat, Feb 13, 2010 at 11:35:08AM +0100, Arnd Bergmann wrote:
+> This adds support for passing a macvtap file descriptor into
+> vhost-net, much like we already do for tun/tap.
+> 
+> Most of the new code is taken from the respective patch
+> in the tun driver and may get consolidated in the future.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> ---
+>  drivers/net/macvtap.c      |   98 ++++++++++++++++++++++++++++++++++---------
+>  drivers/vhost/net.c        |    8 +++-
+>  include/linux/if_macvlan.h |   13 ++++++
+>  3 files changed, 96 insertions(+), 23 deletions(-)
+> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index 7050997..e354501 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -58,6 +58,8 @@ static unsigned int macvtap_major;
+>  static struct class *macvtap_class;
+>  static struct cdev macvtap_cdev;
+>  
+> +static const struct proto_ops macvtap_socket_ops;
+> +
+>  /*
+>   * RCU usage:
+>   * The macvtap_queue and the macvlan_dev are loosely coupled, the
+> @@ -176,7 +178,7 @@ static int macvtap_forward(struct net_device *dev, struct sk_buff *skb)
+>  		return -ENOLINK;
+>  
+>  	skb_queue_tail(&q->sk.sk_receive_queue, skb);
+> -	wake_up(q->sk.sk_sleep);
+> +	wake_up_interruptible_poll(q->sk.sk_sleep, POLLIN | POLLRDNORM | POLLRDBAND);
+>  	return 0;
+>  }
+>  
+> @@ -242,7 +244,7 @@ static void macvtap_sock_write_space(struct sock *sk)
+>  		return;
+>  
+>  	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+> -		wake_up_interruptible_sync(sk->sk_sleep);
+> +		wake_up_interruptible_poll(sk->sk_sleep, POLLOUT | POLLWRNORM | POLLWRBAND);
+>  }
+>  
+>  static int macvtap_open(struct inode *inode, struct file *file)
+> @@ -270,6 +272,8 @@ static int macvtap_open(struct inode *inode, struct file *file)
+>  	init_waitqueue_head(&q->sock.wait);
+>  	q->sock.type = SOCK_RAW;
+>  	q->sock.state = SS_CONNECTED;
+> +	q->sock.file = file;
+> +	q->sock.ops = &macvtap_socket_ops;
+>  	sock_init_data(&q->sock, &q->sk);
+>  	q->sk.sk_write_space = macvtap_sock_write_space;
+>  
+> @@ -387,32 +391,20 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+>  
+>  	rcu_read_lock_bh();
+>  	vlan = rcu_dereference(q->vlan);
+> -	macvlan_count_rx(vlan, len, ret == 0, 0);
+> +	if (vlan)
+> +		macvlan_count_rx(vlan, len, ret == 0, 0);
+>  	rcu_read_unlock_bh();
+>  
+>  	return ret ? ret : len;
+>  }
+>  
+> -static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
+> -				unsigned long count, loff_t pos)
+> +static ssize_t macvtap_do_read(struct macvtap_queue *q, struct kiocb *iocb,
+> +			       const struct iovec *iv, unsigned long len,
+> +			       int noblock)
+>  {
+> -	struct file *file = iocb->ki_filp;
+> -	struct macvtap_queue *q = file->private_data;
+> -
+>  	DECLARE_WAITQUEUE(wait, current);
+>  	struct sk_buff *skb;
+> -	ssize_t len, ret = 0;
+> -
+> -	if (!q) {
+> -		ret = -ENOLINK;
+> -		goto out;
+> -	}
+> -
+> -	len = iov_length(iv, count);
+> -	if (len < 0) {
+> -		ret = -EINVAL;
+> -		goto out;
+> -	}
+> +	ssize_t ret = 0;
+>  
+>  	add_wait_queue(q->sk.sk_sleep, &wait);
+>  	while (len) {
+> @@ -421,7 +413,7 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
+>  		/* Read frames from the queue */
+>  		skb = skb_dequeue(&q->sk.sk_receive_queue);
+>  		if (!skb) {
+> -			if (file->f_flags & O_NONBLOCK) {
+> +			if (noblock) {
+>  				ret = -EAGAIN;
+>  				break;
+>  			}
+> @@ -440,7 +432,24 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
+>  
+>  	current->state = TASK_RUNNING;
+>  	remove_wait_queue(q->sk.sk_sleep, &wait);
+> +	return ret;
+> +}
+> +
+> +static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
+> +				unsigned long count, loff_t pos)
+> +{
+> +	struct file *file = iocb->ki_filp;
+> +	struct macvtap_queue *q = file->private_data;
+> +	ssize_t len, ret = 0;
+>  
+> +	len = iov_length(iv, count);
+> +	if (len < 0) {
+> +		ret = -EINVAL;
+> +		goto out;
+> +	}
+> +
+> +	ret = macvtap_do_read(q, iocb, iv, len, file->f_flags & O_NONBLOCK);
+> +	ret = min_t(ssize_t, ret, len); /* XXX copied from tun.c. Why? */
+>  out:
+>  	return ret;
+>  }
+> @@ -538,6 +547,53 @@ static const struct file_operations macvtap_fops = {
+>  #endif
+>  };
+>  
+> +static int macvtap_sendmsg(struct kiocb *iocb, struct socket *sock,
+> +			   struct msghdr *m, size_t total_len)
+> +{
+> +	struct macvtap_queue *q = container_of(sock, struct macvtap_queue, sock);
+> +	return macvtap_get_user(q, m->msg_iov, total_len,
+> +			    m->msg_flags & MSG_DONTWAIT);
+> +}
+> +
+> +static int macvtap_recvmsg(struct kiocb *iocb, struct socket *sock,
+> +			   struct msghdr *m, size_t total_len,
+> +			   int flags)
+> +{
+> +	struct macvtap_queue *q = container_of(sock, struct macvtap_queue, sock);
+> +	int ret;
+> +	if (flags & ~(MSG_DONTWAIT|MSG_TRUNC))
+> +		return -EINVAL;
+> +	ret = macvtap_do_read(q, iocb, m->msg_iov, total_len,
+> +			  flags & MSG_DONTWAIT);
+> +	if (ret > total_len) {
+> +		m->msg_flags |= MSG_TRUNC;
+> +		ret = flags & MSG_TRUNC ? ret : total_len;
+> +	}
+> +	return ret;
+> +}
+> +
+> +/* Ops structure to mimic raw sockets with tun */
+> +static const struct proto_ops macvtap_socket_ops = {
+> +	.sendmsg = macvtap_sendmsg,
+> +	.recvmsg = macvtap_recvmsg,
+> +};
+> +
+> +/* Get an underlying socket object from tun file.  Returns error unless file is
+> + * attached to a device.  The returned object works like a packet socket, it
+> + * can be used for sock_sendmsg/sock_recvmsg.  The caller is responsible for
+> + * holding a reference to the file for as long as the socket is in use. */
+> +struct socket *macvtap_get_socket(struct file *file)
+> +{
+> +	struct macvtap_queue *q;
+> +	if (file->f_op != &macvtap_fops)
+> +		return ERR_PTR(-EINVAL);
+> +	q = file->private_data;
+> +	if (!q)
+> +		return ERR_PTR(-EBADFD);
+> +	return &q->sock;
+> +}
+> +EXPORT_SYMBOL_GPL(macvtap_get_socket);
+> +
+>  static int macvtap_init(void)
+>  {
+>  	int err;
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 4c89283..91a324c 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -22,6 +22,7 @@
+>  #include <linux/if_packet.h>
+>  #include <linux/if_arp.h>
+>  #include <linux/if_tun.h>
+> +#include <linux/if_macvlan.h>
+>  
+>  #include <net/sock.h>
+>  
+> @@ -452,13 +453,16 @@ err:
+>  	return ERR_PTR(r);
+>  }
+>  
+> -static struct socket *get_tun_socket(int fd)
+> +static struct socket *get_tap_socket(int fd)
+>  {
+>  	struct file *file = fget(fd);
+>  	struct socket *sock;
+>  	if (!file)
+>  		return ERR_PTR(-EBADF);
+>  	sock = tun_get_socket(file);
+> +	if (!IS_ERR(sock))
+> +		return sock;
+> +	sock = macvtap_get_socket(file);
+>  	if (IS_ERR(sock))
+>  		fput(file);
+>  	return sock;
+> @@ -473,7 +477,7 @@ static struct socket *get_socket(int fd)
+>  	sock = get_raw_socket(fd);
+>  	if (!IS_ERR(sock))
+>  		return sock;
+> -	sock = get_tun_socket(fd);
+> +	sock = get_tap_socket(fd);
+>  	if (!IS_ERR(sock))
+>  		return sock;
+>  	return ERR_PTR(-ENOTSOCK);
 
-Stop computing the number of neighbour table settings we have by
-counting the number of binary sysctls.  This behaviour was silly
-and meant that we could not add another neighbour table setting
-without also adding another binary sysctl.
+This will also need a dependency on macvtap in Kconfig.
+See how it's done for tun.
 
-Don't pass the binary sysctl path for neighour table entries
-into neigh_sysctl_register.  These parameters are no longer
-used and so are just dead code.
-
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
----
- include/linux/sysctl.h  |    1 -
- include/net/neighbour.h |    1 -
- net/core/neighbour.c    |    7 ++++---
- net/ipv4/arp.c          |    3 +--
- net/ipv4/devinet.c      |    3 +--
- net/ipv6/addrconf.c     |    3 +--
- net/ipv6/ndisc.c        |    3 +--
- 7 files changed, 8 insertions(+), 13 deletions(-)
-
-diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
-index 7c74e91..f66014c 100644
---- a/include/linux/sysctl.h
-+++ b/include/linux/sysctl.h
-@@ -596,7 +596,6 @@ enum {
- 	NET_NEIGH_GC_THRESH3=16,
- 	NET_NEIGH_RETRANS_TIME_MS=17,
- 	NET_NEIGH_REACHABLE_TIME_MS=18,
--	__NET_NEIGH_MAX
- };
- 
- /* /proc/sys/net/dccp */
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index b017320..7834f47 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -251,7 +251,6 @@ extern void neigh_seq_stop(struct seq_file *, void *);
- 
- extern int			neigh_sysctl_register(struct net_device *dev, 
- 						      struct neigh_parms *p,
--						      int p_id, int pdev_id,
- 						      char *p_name,
- 						      proc_handler *proc_handler);
- extern void			neigh_sysctl_unregister(struct neigh_parms *p);
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index f2efd72..d102f6d 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -2556,9 +2556,11 @@ EXPORT_SYMBOL(neigh_app_ns);
- 
- #ifdef CONFIG_SYSCTL
- 
-+#define NEIGH_VARS_MAX 19
-+
- static struct neigh_sysctl_table {
- 	struct ctl_table_header *sysctl_header;
--	struct ctl_table neigh_vars[__NET_NEIGH_MAX];
-+	struct ctl_table neigh_vars[NEIGH_VARS_MAX];
- 	char *dev_name;
- } neigh_sysctl_template __read_mostly = {
- 	.neigh_vars = {
-@@ -2675,8 +2677,7 @@ static struct neigh_sysctl_table {
- };
- 
- int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
--			  int p_id, int pdev_id, char *p_name,
--			  proc_handler *handler)
-+			  char *p_name, proc_handler *handler)
- {
- 	struct neigh_sysctl_table *t;
- 	const char *dev_name_source = NULL;
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 1940b4d..c4dd135 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -1284,8 +1284,7 @@ void __init arp_init(void)
- 	dev_add_pack(&arp_packet_type);
- 	arp_proc_init();
- #ifdef CONFIG_SYSCTL
--	neigh_sysctl_register(NULL, &arp_tbl.parms, NET_IPV4,
--			      NET_IPV4_NEIGH, "ipv4", NULL);
-+	neigh_sysctl_register(NULL, &arp_tbl.parms, "ipv4", NULL);
- #endif
- 	register_netdevice_notifier(&arp_netdev_notifier);
- }
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index b1eddee..014982b 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1487,8 +1487,7 @@ static void __devinet_sysctl_unregister(struct ipv4_devconf *cnf)
- 
- static void devinet_sysctl_register(struct in_device *idev)
- {
--	neigh_sysctl_register(idev->dev, idev->arp_parms, NET_IPV4,
--			NET_IPV4_NEIGH, "ipv4", NULL);
-+	neigh_sysctl_register(idev->dev, idev->arp_parms, "ipv4", NULL);
- 	__devinet_sysctl_register(dev_net(idev->dev), idev->dev->name,
- 					&idev->cnf);
- }
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 764ad37..c79cbff 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4416,8 +4416,7 @@ static void __addrconf_sysctl_unregister(struct ipv6_devconf *p)
- 
- static void addrconf_sysctl_register(struct inet6_dev *idev)
- {
--	neigh_sysctl_register(idev->dev, idev->nd_parms, NET_IPV6,
--			      NET_IPV6_NEIGH, "ipv6",
-+	neigh_sysctl_register(idev->dev, idev->nd_parms, "ipv6",
- 			      &ndisc_ifinfo_sysctl_change);
- 	__addrconf_sysctl_register(dev_net(idev->dev), idev->dev->name,
- 					idev, &idev->cnf);
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 2dfec6b..8bcc4b7 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1820,8 +1820,7 @@ int __init ndisc_init(void)
- 	neigh_table_init(&nd_tbl);
- 
- #ifdef CONFIG_SYSCTL
--	err = neigh_sysctl_register(NULL, &nd_tbl.parms, NET_IPV6,
--				    NET_IPV6_NEIGH, "ipv6",
-+	err = neigh_sysctl_register(NULL, &nd_tbl.parms, "ipv6",
- 				    &ndisc_ifinfo_sysctl_change);
- 	if (err)
- 		goto out_unregister_pernet;
--- 
-1.6.5.2.143.g8cc62
-
+> diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
+> index 51f1512..7d7f1e3 100644
+> --- a/include/linux/if_macvlan.h
+> +++ b/include/linux/if_macvlan.h
+> @@ -7,6 +7,19 @@
+>  #include <linux/netlink.h>
+>  #include <net/netlink.h>
+>  
+> +#if defined(CONFIG_MACVTAP) || defined(CONFIG_MACVTAP_MODULE)
+> +struct socket *macvtap_get_socket(struct file *);
+> +#else
+> +#include <linux/err.h>
+> +#include <linux/errno.h>
+> +struct file;
+> +struct socket;
+> +static inline struct socket *macvtap_get_socket(struct file *f)
+> +{
+> +	return ERR_PTR(-EINVAL);
+> +}
+> +#endif /* CONFIG_MACVTAP */
+> +
+>  struct macvlan_port;
+>  struct macvtap_queue;
+>  
+> -- 
+> 1.6.3.3
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
