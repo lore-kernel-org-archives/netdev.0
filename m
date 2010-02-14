@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vhost-net: switch to smp barriers
-Date: Sun, 14 Feb 2010 11:55:30 -0800 (PST)
-Message-ID: <20100214.115530.216233071.davem@davemloft.net>
-References: <20100207090749.GA12968@redhat.com>
-	<201002081849.39512.rusty@rustcorp.com.au>
-	<20100213173911.GA5040@redhat.com>
+Subject: Re: pull request: wireless-2.6 2010-02-12
+Date: Sun, 14 Feb 2010 11:56:52 -0800 (PST)
+Message-ID: <20100214.115652.147969784.davem@davemloft.net>
+References: <20100212214550.GB16783@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, kvm@vger.kernel.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100213173911.GA5040@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60165
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753017Ab0BNT4i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Feb 2010 14:56:38 -0500
+In-Reply-To: <20100212214550.GB16783@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Sat, 13 Feb 2010 19:39:11 +0200
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Fri, 12 Feb 2010 16:45:50 -0500
 
-> Dave, I see it's marked "not applicable":
-> http://patchwork.ozlabs.org/patch/44207/
-> the patch applies to net-next as of
-> b3b3f04fb587ecb61b5baa6c1c5f0e666fd12d73.
-> Can this be queued up please?
-> Should I resubmit with Rusty's ack?
+> Here are a couple of stragglers for 2.6.33.  One purports to fix a
+> crash, the other avoids processing of uninitialized data when using
+> devices with rate control in hardware.
+> 
+> The latter patch will cause a merge issue in linux-next.  I'll be happy
+> to resolve that in wireless-next-2.6 once this merge request is
+> resolved.
 
-Sorry about that, I must have thought Rusty would queue
-it up.
-
-I'll fix the state to under-review and process it in my
-backlog.
-
-Thanks.
+Pulled, thanks John.
