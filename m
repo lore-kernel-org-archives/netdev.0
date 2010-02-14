@@ -1,37 +1,53 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH 0/2] tun: linux socket filter support
-Date: Sun, 14 Feb 2010 13:00:51 +0200
-Message-ID: <20100214110051.GA30182__23541.6444404565$1266145556$gmane$org@redhat.com>
+Subject: [PATCH 1/2] net: export attach/detach filter routines
+Date: Sun, 14 Feb 2010 13:01:00 +0200
+Message-ID: <20100214110100.GB30182@redhat.com>
+References: <cover.1266144917.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>,
+Cc: "David S. Miller" <davem@davemloft.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	"Michael S. Tsirkin" <mst@redhat.com>,
 	Paul Moore <paul.moore@hp.com>,
-	David Woodhouse <David.Woodh
+	David Woodhouse <David.Woodhouse@intel.com>,
+	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30684 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:36510 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754023Ab0BNLFX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Feb 2010 06:05:23 -0500
+	id S1758336Ab0BNLFc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 14 Feb 2010 06:05:32 -0500
 Content-Disposition: inline
+In-Reply-To: <cover.1266144917.git.mst@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tun module already support RX filtering, however,
-this is limited to filtering by mac address.
-For virtio host, we also need filtering by vlan.
+Export sk_attach_filter/sk_detach_filter routines,
+so that tun module can use them.
 
-Rather than adding this directly, it seems cleaner
-to add generic socket filter support.
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ net/core/filter.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 4e0712a..08e40f3 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -530,6 +530,7 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ 		sk_filter_delayed_uncharge(sk, old_fp);
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(sk_attach_filter);
+ 
+ int sk_detach_filter(struct sock *sk)
+ {
+@@ -546,3 +547,4 @@ int sk_detach_filter(struct sock *sk)
+ 	rcu_read_unlock_bh();
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(sk_detach_filter);
+-- 
+1.6.6.144.g5c3af
 
-
-Michael S. Tsirkin (2):
-  net: export attach/detach filter routines
-  tun: socket filter support
-
- drivers/net/tun.c      |   26 ++++++++++++++++++++++++++
- include/linux/if_tun.h |    3 +++
- net/core/filter.c      |    2 ++
- 3 files changed, 31 insertions(+), 0 deletions(-)
