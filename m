@@ -1,115 +1,70 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH 2/2] tun: socket filter support
-Date: Sun, 14 Feb 2010 13:01:10 +0200
-Message-ID: <20100214110110.GC30182@redhat.com>
-References: <cover.1266144917.git.mst@redhat.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: includes build break - was Re: [net-next-2.6 PATCH v5 0/3] Introduce
+ n-tuple ethtool support
+Date: Sun, 14 Feb 2010 12:56:28 +0100
+Message-ID: <4B77E4EC.30407@hartkopp.net>
+References: <20100211020310.23436.85885.stgit@localhost.localdomain> <20100210.195445.190157100.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Paul Moore <paul.moore@hp.com>,
-	David Woodhouse <David.Woodhouse@intel.com>,
-	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com
+To: David Miller <davem@davemloft.net>, peter.p.waskiewicz.jr@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44273 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758420Ab0BNLFw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Feb 2010 06:05:52 -0500
-Content-Disposition: inline
-In-Reply-To: <cover.1266144917.git.mst@redhat.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:53867 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754221Ab0BNL4u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Feb 2010 06:56:50 -0500
+In-Reply-To: <20100210.195445.190157100.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds Linux Socket Filter support to
-tun driver.
+David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Wed, 10 Feb 2010 18:07:18 -0800
+> 
+>> One more round of fixes, based on feedback from Patrick McHardy
+>>
+>> 1) Change the list count to an unsigned value
+>> 2) Fix a memory leak
+>> 3) Removed an unnecessary list traversal in the ethtool core
+>> 4) Moved all list destruction to a helper function, allowing the driver
+>> to control when it clears the list (aside from when free_netdev() kills
+>> the cached list).
+> 
+> All applied, thanks.
+> 
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Hi Peter,
+
+compiling the latest net-next-2.6 i got this problem:
+ 
+  CHECK   include/linux (358 files)
+/home/hartko/net-next-2.6/usr/include/linux/ethtool.h:17: included file 'linux/rculist.h' is not exported
+
+Which has been introduced by
+
+http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=15682bc488d4af8c9bb998844a94281025e0a333
+
+("ethtool: Introduce n-tuple filter programming support")
+
+The patch below fixes the issue.
+
+Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
+
 ---
- drivers/net/tun.c      |   26 ++++++++++++++++++++++++++
- include/linux/if_tun.h |    3 +++
- 2 files changed, 29 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 5adb3d1..ce1efa4 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -61,6 +61,7 @@
- #include <linux/crc32.h>
- #include <linux/nsproxy.h>
- #include <linux/virtio_net.h>
-+#include <linux/rcupdate.h>
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
- #include <net/rtnetlink.h>
-@@ -366,6 +367,10 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (!check_filter(&tun->txflt, skb))
- 		goto drop;
- 
-+	if (tun->socket.sk->sk_filter &&
-+	    sk_filter(tun->socket.sk, skb))
-+		goto drop;
-+
- 	if (skb_queue_len(&tun->socket.sk->sk_receive_queue) >= dev->tx_queue_len) {
- 		if (!(tun->flags & TUN_ONE_QUEUE)) {
- 			/* Normal queueing mode. */
-@@ -1162,6 +1167,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	struct tun_file *tfile = file->private_data;
- 	struct tun_struct *tun;
- 	void __user* argp = (void __user*)arg;
-+	struct sock_fprog fprog;
- 	struct ifreq ifr;
- 	int sndbuf;
- 	int ret;
-@@ -1309,6 +1315,26 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 		tun->socket.sk->sk_sndbuf = sndbuf;
- 		break;
- 
-+	case TUNATTACHFILTER:
-+		/* Can be set only for TAPs */
-+		ret = -EINVAL;
-+		if ((tun->flags & TUN_TYPE_MASK) != TUN_TAP_DEV)
-+			break;
-+		ret = -EFAULT;
-+		if (copy_from_user(&fprog, argp, sizeof(fprog)))
-+			break;
-+
-+		ret = sk_attach_filter(&fprog, tun->socket.sk);
-+		break;
-+
-+	case TUNDETACHFILTER:
-+		/* Can be set only for TAPs */
-+		ret = -EINVAL;
-+		if ((tun->flags & TUN_TYPE_MASK) != TUN_TAP_DEV)
-+			break;
-+		ret = sk_detach_filter(tun->socket.sk);
-+		break;
-+
- 	default:
- 		ret = -EINVAL;
- 		break;
-diff --git a/include/linux/if_tun.h b/include/linux/if_tun.h
-index 404abe0..1350a24 100644
---- a/include/linux/if_tun.h
-+++ b/include/linux/if_tun.h
-@@ -18,6 +18,7 @@
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index a3cac53..83a9a53 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -14,7 +14,9 @@
+ #define _LINUX_ETHTOOL_H
  
  #include <linux/types.h>
- #include <linux/if_ether.h>
-+#include <linux/filter.h>
++#ifdef __KERNEL__
+ #include <linux/rculist.h>
++#endif
  
- /* Read queue size */
- #define TUN_READQ_SIZE	500
-@@ -48,6 +49,8 @@
- #define TUNGETIFF      _IOR('T', 210, unsigned int)
- #define TUNGETSNDBUF   _IOR('T', 211, int)
- #define TUNSETSNDBUF   _IOW('T', 212, int)
-+#define TUNATTACHFILTER _IOW('T', 213, struct sock_fprog)
-+#define TUNDETACHFILTER _IOW('T', 214, struct sock_fprog)
- 
- /* TUNSETIFF ifr flags */
- #define IFF_TUN		0x0001
--- 
-1.6.6.144.g5c3af
+ /* This should work for both 32 and 64 bit userland. */
+ struct ethtool_cmd {
