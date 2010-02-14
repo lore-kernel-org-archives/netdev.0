@@ -1,31 +1,38 @@
-From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH] atm : fix /sys/devices/virtual/atm/X/carrier(ATM_PHY_SIG_UNKNOWN)
-Date: Sat, 13 Feb 2010 18:24:34 -0500
-Message-ID: <201002132324.o1DNOY0F030510@thirdoffive.cmf.nrl.navy.mil>
-References: <20100213215633.GA4345@frolo.macqel>
-Reply-To: chas3@users.sourceforge.net
-Cc: netdev@vger.kernel.org
-To: Philippe De Muyter <phdm@macqel.be>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: [PATCH 0/7] tcp: bugs and cleanup updated to 2.6.33-rc8
+Date: Sun, 14 Feb 2010 01:01:51 -0500
+Message-ID: <4B7791CF.9030201@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:42902 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758016Ab0BMXiX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Feb 2010 18:38:23 -0500
-In-reply-to: <20100213215633.GA4345@frolo.macqel>
+Received: from mail-iw0-f201.google.com ([209.85.223.201]:62037 "EHLO
+	mail-iw0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751102Ab0BNGBx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Feb 2010 01:01:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In message <20100213215633.GA4345@frolo.macqel>,Philippe De Muyter writes:
->value '1' while actually carrier was not yet established and real carrier
->state was not yet known to linux.  I propose to fix that by using '?' as the
->/sys/devices/virtual/atm/cxacru0/carrier value when carrier state is not yet
->known to linux.  Any other value except '1' would also be OK for me.
+Combination of patches reported in October, November, December, January
+and February.  These patches fix perceived bugs, and other cleanup.
 
-this is sort of intentional because some drivers dont actually implement
-atm_dev->signal.  ATM_PHY_SIG_UNKNOWN and ATM_PHY_SIG_LOST should
-likely be carrier = 0.  if the driver doesnt isnt going to handle
-changing the state of atm_dev->signal it should just set the value to
-ATM_PHY_SIG_FOUND.
+This code has had previous review and several months of limited testing.
 
-i dont like the idea of carrier being '?' -- carrier is either true or false.
-you have it or you dont.
+Some portions were removed during the various TCPCT part 1 patch splits,
+then were cut off by the sudden unexpected end of that merge window.
+[03 Dec 2009]  I've restarted the sub-numbering (again).
+
+Of particular interest are the TCPCT header extensions that already
+appear in the next phase of testing with other platforms.  These patches
+allow correct reception without data corruption.
+
+The remainder of the original TCPCT part 2 will be merged with part 3.
+
+These are patches against the current linux-2.6 tree.
+
+[Parts 2f and 2g updated, improving resistance to very rare option
+re-ordering by middleware.]
