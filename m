@@ -1,179 +1,184 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: [PATCH -mm] ssb: open-code dma_alloc_coherent
-Date: Mon, 15 Feb 2010 14:21:58 +0900
-Message-ID: <20100215142111R.fujita.tomonori@lab.ntt.co.jp>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: dccp-test-tree [Patch 1/1] "UDP-like" CCID sample kernel module
+Date: Mon, 15 Feb 2010 07:09:29 +0100
+Message-ID: <20100215060928.GA5350@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mb@bu3sch.de, davem@davemloft.net,
-	stefano.brivio@polimi.it, Larry.Finger@lwfinger.net,
-	akpm@linux-foundation.org
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sh.osrg.net ([192.16.179.4]:33804 "EHLO sh.osrg.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752268Ab0BOFW4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Feb 2010 00:22:56 -0500
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:35036 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753313Ab0BOGJh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Feb 2010 01:09:37 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is against -mm since it depends on the DMA API changes in
--mm.
+This patch is for the dccp test tree at 
+ git://eden-feed.erg.abdn.ac.uk/dccp_exp [subtree 'dccp']
 
-=
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: [PATCH -mm] ssb: open-code dma_alloc_coherent
+The actual 'module' is only 5 lines long.
+>>>>>>>>>>>>>>>>>>>>> Patch <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+dccp: sample kernel module, NULL-CCID ("UDP-like")
 
-This removes ssb_dma_alloc_consistent, a wrapper for
-dma_alloc_coherent and pci_alloc_consistent. dma_alloc_coherent
-internally calls pci_alloc_consistent against pci devices so we always
-use dma_alloc_coherent.
+This implements an experimental CCID which does not do any congestion control,
+i.e. "UDP-like".
 
-I prefer to use the DMA API directly instead of creating the ssb_dma_
-API. We have been removing any bus specific DMA APIs.
+This is an experimental CCID. It is not meant for actual deployment, but
+rather as sample kernel code, providing a worked example of how to add a
+new CCID module.
 
-One disadvantage of this approach that we lost the debugging ability
-of checking the buggy usage of the DMA API against non DMA-capable ssb
-buses. But I guess that the ssb drivers are mature enough and can cope
-with such change?
+Since CCID-0 is reserved (RFC 4340, table 5), this experimental NULL CCID uses
+the first available experimental CCID, CCID-248 (RFC 4340, 19.5).
 
-I plan to replace all the ssb_dma API if this approach is fine.
-
-Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Cc: Michael Buesch <mb@bu3sch.de>
-Cc: Gary Zambrano <zambrano@broadcom.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Stefano Brivio <stefano.brivio@polimi.it>
-Cc: Larry Finger <Larry.Finger@lwfinger.net>
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- drivers/net/b44.c                    |    4 ++--
- drivers/net/wireless/b43/dma.c       |    6 +++---
- drivers/net/wireless/b43legacy/dma.c |    8 ++++----
- drivers/ssb/main.c                   |   25 ++-----------------------
- include/linux/ssb/ssb.h              |    2 +-
- 5 files changed, 12 insertions(+), 33 deletions(-)
+ include/linux/dccp.h   |    7 +++++++
+ net/dccp/Makefile      |    1 +
+ net/dccp/ccid.c        |    3 +++
+ net/dccp/ccid.h        |    3 +++
+ net/dccp/ccids/Kconfig |   12 ++++++++++++
+ net/dccp/ccids/ccid0.c |   27 +++++++++++++++++++++++++++
+ net/dccp/feat.c        |   17 ++++++++++++++++-
+ 7 files changed, 69 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-index 16e760b..dbe7480 100644
---- a/drivers/net/b44.c
-+++ b/drivers/net/b44.c
-@@ -1182,7 +1182,7 @@ static int b44_alloc_consistent(struct b44 *bp, gfp_t gfp)
- 		goto out_err;
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -177,6 +177,13 @@ enum {
+ enum {
+ 	DCCPC_CCID2 = 2,
+ 	DCCPC_CCID3 = 3,
++	/*
++	 * CCIDs 248-255 below are permanently reserved for
++	 * experimental and testing use (RFC 4340, 19.5).
++	 */
++#define DCCPC_TESTING_MIN	248
++#define DCCPC_TESTING_MAX	255
++	DCCPC_CCID_ZERO = DCCPC_TESTING_MIN,
+ };
  
- 	size = DMA_TABLE_BYTES;
--	bp->rx_ring = ssb_dma_alloc_consistent(bp->sdev, size, &bp->rx_ring_dma, gfp);
-+	bp->rx_ring = dma_alloc_coherent(bp->sdev->dma_dev, size, &bp->rx_ring_dma, gfp);
- 	if (!bp->rx_ring) {
- 		/* Allocation may have failed due to pci_alloc_consistent
- 		   insisting on use of GFP_DMA, which is more restrictive
-@@ -1209,7 +1209,7 @@ static int b44_alloc_consistent(struct b44 *bp, gfp_t gfp)
- 		bp->flags |= B44_FLAG_RX_RING_HACK;
- 	}
- 
--	bp->tx_ring = ssb_dma_alloc_consistent(bp->sdev, size, &bp->tx_ring_dma, gfp);
-+	bp->tx_ring = dma_alloc_coherent(bp->sdev->dma_dev, size, &bp->tx_ring_dma, gfp);
- 	if (!bp->tx_ring) {
- 		/* Allocation may have failed due to ssb_dma_alloc_consistent
- 		   insisting on use of GFP_DMA, which is more restrictive
-diff --git a/drivers/net/wireless/b43/dma.c b/drivers/net/wireless/b43/dma.c
-index be7abf8..b5e00dd 100644
---- a/drivers/net/wireless/b43/dma.c
-+++ b/drivers/net/wireless/b43/dma.c
-@@ -400,9 +400,9 @@ static int alloc_ringmemory(struct b43_dmaring *ring)
- 	 */
- 	if (ring->type == B43_DMA_64BIT)
- 		flags |= GFP_DMA;
--	ring->descbase = ssb_dma_alloc_consistent(ring->dev->dev,
--						  B43_DMA_RINGMEMSIZE,
--						  &(ring->dmabase), flags);
-+	ring->descbase = dma_alloc_coherent(ring->dev->dev->dma_dev,
-+					      B43_DMA_RINGMEMSIZE,
-+					      &(ring->dmabase), flags);
- 	if (!ring->descbase) {
- 		b43err(ring->dev->wl, "DMA ringmemory allocation failed\n");
- 		return -ENOMEM;
-diff --git a/drivers/net/wireless/b43legacy/dma.c b/drivers/net/wireless/b43legacy/dma.c
-index 8b9387c..4942f10 100644
---- a/drivers/net/wireless/b43legacy/dma.c
-+++ b/drivers/net/wireless/b43legacy/dma.c
-@@ -459,10 +459,10 @@ void free_descriptor_buffer(struct b43legacy_dmaring *ring,
- static int alloc_ringmemory(struct b43legacy_dmaring *ring)
- {
- 	/* GFP flags must match the flags in free_ringmemory()! */
--	ring->descbase = ssb_dma_alloc_consistent(ring->dev->dev,
--						  B43legacy_DMA_RINGMEMSIZE,
--						  &(ring->dmabase),
--						  GFP_KERNEL);
-+	ring->descbase = dma_alloc_coherent(ring->dev->dev->dma_dev,
-+					    B43legacy_DMA_RINGMEMSIZE,
-+					    &(ring->dmabase),
-+					    GFP_KERNEL);
- 	if (!ring->descbase) {
- 		b43legacyerr(ring->dev->wl, "DMA ringmemory allocation"
- 			     " failed\n");
-diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
-index 03dfd27..d823041 100644
---- a/drivers/ssb/main.c
-+++ b/drivers/ssb/main.c
-@@ -485,6 +485,7 @@ static int ssb_devices_register(struct ssb_bus *bus)
- #ifdef CONFIG_SSB_PCIHOST
- 			sdev->irq = bus->host_pci->irq;
- 			dev->parent = &bus->host_pci->dev;
-+			sdev->dma_dev = dev->parent;
+ /* DCCP features (RFC 4340 section 6.4) */
+--- /dev/null
++++ b/net/dccp/ccids/ccid0.c
+@@ -0,0 +1,27 @@
++/*
++ *  CCID-ZERO - UDP-like congestion control
++ *
++ *  This is a sample kernel module, used for testing and development, but not
++ *  for actual deployment. The CCID number is taken from the range of CCIDs
++ *  set apart for testing and experimenting.
++ *
++ *  This program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2 of the License, or
++ *  (at your option) any later version.
++ *
++ *  This program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this program; if not, write to the Free Software
++ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++ */
++#include "../ccid.h"
++
++struct ccid_operations ccid0_ops = {
++	.ccid_id	= DCCPC_CCID_ZERO,
++	.ccid_name	= "UDP-like transport"
++};
+--- a/net/dccp/ccid.c
++++ b/net/dccp/ccid.c
+@@ -19,6 +19,9 @@ static struct ccid_operations *ccids[] =
+ #ifdef CONFIG_IP_DCCP_CCID3
+ 	&ccid3_ops,
  #endif
- 			break;
- 		case SSB_BUSTYPE_PCMCIA:
-@@ -500,6 +501,7 @@ static int ssb_devices_register(struct ssb_bus *bus)
- 			break;
- 		case SSB_BUSTYPE_SSB:
- 			dev->dma_mask = &dev->coherent_dma_mask;
-+			sdev->dma_dev = dev;
- 			break;
++#ifdef CONFIG_IP_DCCP_CCID0
++	&ccid0_ops,
++#endif
+ };
+ 
+ static struct ccid_operations *ccid_by_number(const u8 id)
+--- a/net/dccp/ccid.h
++++ b/net/dccp/ccid.h
+@@ -91,6 +91,9 @@ struct ccid_operations {
+ 						 int __user *optlen);
+ };
+ 
++#ifdef CONFIG_IP_DCCP_CCID0
++extern struct ccid_operations ccid0_ops;
++#endif
+ extern struct ccid_operations ccid2_ops;
+ #ifdef CONFIG_IP_DCCP_CCID3
+ extern struct ccid_operations ccid3_ops;
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -620,7 +620,8 @@ static u8 dccp_feat_is_valid_sp_val(u8 f
+ {
+ 	switch (feat_num) {
+ 	case DCCPF_CCID:
+-		return val == DCCPC_CCID2 || val == DCCPC_CCID3;
++		return	val == DCCPC_CCID2 || val == DCCPC_CCID3 ||
++			(val >= DCCPC_TESTING_MIN && val <= DCCPC_TESTING_MAX);
+ 	/* Type-check Boolean feature values: */
+ 	case DCCPF_SHORT_SEQNOS:
+ 	case DCCPF_ECN_INCAPABLE:
+@@ -831,6 +832,18 @@ EXPORT_SYMBOL_GPL(dccp_feat_signal_nn_ch
+  */
+ static const struct ccid_dependency *dccp_feat_ccid_deps(u8 ccid, bool is_local)
+ {
++	static const struct ccid_dependency ccid0_dependencies[2][2] = {
++		/*
++		 * The UDP-like CCID does not have special dependencies, but for
++		 * testing dependencies (e.g. Ack Vectors) can be defined below.
++		 */
++		{
++			{ 0, 0, 0, 0 }
++		},
++		{
++			{ 0, 0, 0, 0 }
++		}
++	};
+ 	static const struct ccid_dependency ccid2_dependencies[2][2] = {
+ 		/*
+ 		 * CCID2 mandates Ack Vectors (RFC 4341, 4.): as CCID is a TX
+@@ -916,6 +929,8 @@ static const struct ccid_dependency *dcc
  		}
+ 	};
+ 	switch (ccid) {
++	case DCCPC_CCID_ZERO:
++		return ccid0_dependencies[is_local];
+ 	case DCCPC_CCID2:
+ 		return ccid2_dependencies[is_local];
+ 	case DCCPC_CCID3:
+--- a/net/dccp/ccids/Kconfig
++++ b/net/dccp/ccids/Kconfig
+@@ -103,4 +103,16 @@ config IP_DCCP_TFRC_LIB
  
-@@ -1246,29 +1248,6 @@ int ssb_dma_set_mask(struct ssb_device *dev, u64 mask)
- }
- EXPORT_SYMBOL(ssb_dma_set_mask);
- 
--void * ssb_dma_alloc_consistent(struct ssb_device *dev, size_t size,
--				dma_addr_t *dma_handle, gfp_t gfp_flags)
--{
--	switch (dev->bus->bustype) {
--	case SSB_BUSTYPE_PCI:
--#ifdef CONFIG_SSB_PCIHOST
--		if (gfp_flags & GFP_DMA) {
--			/* Workaround: The PCI API does not support passing
--			 * a GFP flag. */
--			return dma_alloc_coherent(&dev->bus->host_pci->dev,
--						  size, dma_handle, gfp_flags);
--		}
--		return pci_alloc_consistent(dev->bus->host_pci, size, dma_handle);
--#endif
--	case SSB_BUSTYPE_SSB:
--		return dma_alloc_coherent(dev->dev, size, dma_handle, gfp_flags);
--	default:
--		__ssb_dma_not_implemented(dev);
--	}
--	return NULL;
--}
--EXPORT_SYMBOL(ssb_dma_alloc_consistent);
--
- void ssb_dma_free_consistent(struct ssb_device *dev, size_t size,
- 			     void *vaddr, dma_addr_t dma_handle,
- 			     gfp_t gfp_flags)
-diff --git a/include/linux/ssb/ssb.h b/include/linux/ssb/ssb.h
-index e99c5d3..4604ee5 100644
---- a/include/linux/ssb/ssb.h
-+++ b/include/linux/ssb/ssb.h
-@@ -167,7 +167,7 @@ struct ssb_device {
- 	 * is an optimization. */
- 	const struct ssb_bus_ops *ops;
- 
--	struct device *dev;
-+	struct device *dev, *dma_dev;
- 
- 	struct ssb_bus *bus;
- 	struct ssb_device_id id;
--- 
-1.6.5
-
+ config IP_DCCP_TFRC_DEBUG
+ 	def_bool y if IP_DCCP_CCID3_DEBUG
++
++config IP_DCCP_CCID0
++	bool "CCID-ZERO (UDP-Like) sample kernel module"
++	def_bool n
++	---help---
++	  This is a sample kernel module to illustrate the integration of new
++	  CCID kernel modules into CCID. It can also be used for performance
++	  testing, but is not meant for deployment since it operates without
++	  any congestion control. It is a NULL CCID, its identifier is 248.
++
++	  Say N.
++
+ endmenu
+--- a/net/dccp/Makefile
++++ b/net/dccp/Makefile
+@@ -7,6 +7,7 @@ dccp-y := ccid.o feat.o input.o minisock
+ #
+ # CCID-2 is default (RFC 4340, p. 77) and has Ack Vectors as dependency
+ dccp-y += ccids/ccid2.o ackvec.o
++dccp-$(CONFIG_IP_DCCP_CCID0)	+= ccids/ccid0.o
+ dccp-$(CONFIG_IP_DCCP_CCID3)	+= ccids/ccid3.o
+ dccp-$(CONFIG_IP_DCCP_TFRC_LIB) += ccids/lib/tfrc.o		\
+ 				   ccids/lib/tfrc_equation.o	\
