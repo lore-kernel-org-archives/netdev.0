@@ -1,38 +1,42 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/2] net/macvtap: add vhost suppor
-Date: Mon, 15 Feb 2010 10:20:30 +0100
-Message-ID: <201002151020.30127.arnd@arndb.de>
-References: <201002131133.43028.arnd@arndb.de> <201002131135.08477.arnd@arndb.de> <20100214132732.GB31180@redhat.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: 2.6.33-rc8: Reported regressions from 2.6.32
+Date: Mon, 15 Feb 2010 10:52:02 +0100
+Message-ID: <b170af451002150152r43d7d916kd3d2013b8990627d@mail.gmail.com>
+References: <Z5cmiqDComP.A.gyF.OiIeLB@chimera>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ed Swierk <eswierk@aristanetworks.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Sridhar Samudrala <sri@us.ibm.com>, qemu-devel@nongnu.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100214132732.GB31180@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Andrew Morton <akpmuinux-foundation.org@ogre.sisk.pl>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.sourceforge.net>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ey-out-2122.google.com ([74.125.78.26]:35844 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754640Ab0BOJwI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 04:52:08 -0500
+In-Reply-To: <Z5cmiqDComP.A.gyF.OiIeLB@chimera>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday 14 February 2010, Michael S. Tsirkin wrote:
-> > @@ -473,7 +477,7 @@ static struct socket *get_socket(int fd)
-> >       sock = get_raw_socket(fd);
-> >       if (!IS_ERR(sock))
-> >               return sock;
-> > -     sock = get_tun_socket(fd);
-> > +     sock = get_tap_socket(fd);
-> >       if (!IS_ERR(sock))
-> >               return sock;
-> >       return ERR_PTR(-ENOTSOCK);
-> 
-> This will also need a dependency on macvtap in Kconfig.
-> See how it's done for tun.
+2010/2/15 Rafael J. Wysocki <rjw@sisk.pl>:
+> Bug-Entry =C2=A0 =C2=A0 =C2=A0 : http://bugzilla.kernel.org/show_bug.=
+cgi?id=3D15287
+> Subject =C2=A0 =C2=A0 =C2=A0 =C2=A0 : RadeonKMS segfaults kdm on mobi=
+lity radeon x700 pcie
+> Submitter =C2=A0 =C2=A0 =C2=A0 : Jan Kreuzer <kontrollator@gmx.de>
+> Date =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0: 2010-02-12 17:58 (3 d=
+ays old)
 
-Ok, I'll add that.
+Can you reassign this according to last comments, please?
 
-Thanks,
-
-	Arnd
+--=20
+Rafa=C5=82
