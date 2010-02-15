@@ -1,47 +1,38 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next-2.6] macvtap: Add GSO/csum offload support
-Date: Mon, 15 Feb 2010 10:19:27 +0100
-Message-ID: <201002151019.27364.arnd@arndb.de>
-References: <1266013667.6105.18.camel@w-sridhar.beaverton.ibm.com> <201002142013.08745.arnd@arndb.de> <20100215002131.GC15437@gondor.apana.org.au>
+Subject: Re: [PATCH 2/2] net/macvtap: add vhost suppor
+Date: Mon, 15 Feb 2010 10:20:30 +0100
+Message-ID: <201002151020.30127.arnd@arndb.de>
+References: <201002131133.43028.arnd@arndb.de> <201002131135.08477.arnd@arndb.de> <20100214132732.GB31180@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Sridhar Samudrala <sri@us.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:53293 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753941Ab0BOJUJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 04:20:09 -0500
-In-Reply-To: <20100215002131.GC15437@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ed Swierk <eswierk@aristanetworks.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Sridhar Samudrala <sri@us.ibm.com>, qemu-devel@nongnu.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100214132732.GB31180@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Monday 15 February 2010, Herbert Xu wrote:
-> On Sun, Feb 14, 2010 at 08:13:08PM +0100, Arnd Bergmann wrote:
-> >
-> > Ah, good point. Will that also work for the checksumming? Also, should the
-> > host really be doing segmentation and checksumming for the guest if the
-> > hardware can't do it? So even if everything works correctly, we might
-> > want to let the guest do the work in order to get accounting of the CPU
-> > cycles right.
+On Sunday 14 February 2010, Michael S. Tsirkin wrote:
+> > @@ -473,7 +477,7 @@ static struct socket *get_socket(int fd)
+> >       sock = get_raw_socket(fd);
+> >       if (!IS_ERR(sock))
+> >               return sock;
+> > -     sock = get_tun_socket(fd);
+> > +     sock = get_tap_socket(fd);
+> >       if (!IS_ERR(sock))
+> >               return sock;
+> >       return ERR_PTR(-ENOTSOCK);
 > 
-> Yes the amount you save by ensuring we postpone the processing until
-> as last as possible is tremendous.
+> This will also need a dependency on macvtap in Kconfig.
+> See how it's done for tun.
 
-Ok. If the host actually saves more time than it spends on segmenting
-the data, the accounting problem doesn't exist.
+Ok, I'll add that.
 
-> As for accounting, it depends on how we structure the vhost backend.
-> If it could stay in the process context of the qemu process then all
-> should be fine.
-
-I believe the bulk of the work is currently done in a separate
-kernel thread that is shared by all users of vhost. We can probably
-try some measurements and see if any insane amounts of time are
-spent in that thread.
+Thanks,
 
 	Arnd
