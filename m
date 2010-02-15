@@ -1,54 +1,46 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH 2/5] netlink: store MSG_CMSG_COMPAT flag in netlink_skb_parms
-Date: Mon, 15 Feb 2010 17:46:30 +0100
-Message-ID: <1266252393-20911-3-git-send-email-fw@strlen.de>
-References: <1266252393-20911-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
+Subject: xfrm: add x86 CONFIG_COMPAT support
+Date: Mon, 15 Feb 2010 17:46:28 +0100
+Message-ID: <1266252393-20911-1-git-send-email-fw@strlen.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:40214 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:40211 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755119Ab0BOQqc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 11:46:32 -0500
-In-Reply-To: <1266252393-20911-1-git-send-email-fw@strlen.de>
+	by vger.kernel.org with ESMTP id S1751730Ab0BOQq3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 11:46:29 -0500
+Received: id: fw by Chamillionaire.breakpoint.cc authenticated by fw with local
+	(easymta 1.00 BETA 1)
+	id 1Nh45c-0006bm-Rp
+	for netdev@vger.kernel.org; Mon, 15 Feb 2010 17:46:28 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This allows the netlink processing context to determine if the data
-needs any 32 bit fixups.
+At the moment it is not possible to use the xfrm netlink interface on
+x86_64 with a 32bit userland.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- include/linux/netlink.h  |    1 +
- net/netlink/af_netlink.c |    3 +++
- 2 files changed, 4 insertions(+), 0 deletions(-)
+The problem exists because a few structures, e.g. struct xfrm_usersa_info,
+have different sizes in user/kernelspace (3 byte padding on x86, 7
+byte on x86_64) due to different alignment requirements of "u64".
 
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index fde27c0..8b30c01 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -164,6 +164,7 @@ struct netlink_skb_parms {
- 	__u32			loginuid;	/* Login (audit) uid */
- 	__u32			sessionid;	/* Session id (audit) */
- 	__u32			sid;		/* SELinux security id */
-+	__u8			msg_compat;	/* Message needs 32bit fixups */
- };
- 
- #define NETLINK_CB(skb)		(*(struct netlink_skb_parms*)&((skb)->cb))
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 4910031..5ff97cf 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1328,6 +1328,9 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	NETLINK_CB(skb).dst_group = dst_group;
- 	NETLINK_CB(skb).loginuid = audit_get_loginuid(current);
- 	NETLINK_CB(skb).sessionid = audit_get_sessionid(current);
-+#ifdef CONFIG_COMPAT_NETLINK_MESSAGES
-+	NETLINK_CB(skb).msg_compat = !!(msg->msg_flags & MSG_CMSG_COMPAT);
-+#endif
- 	security_task_getsecid(current, &(NETLINK_CB(skb).sid));
- 	memcpy(NETLINK_CREDS(skb), &siocb->scm->creds, sizeof(struct ucred));
- 
--- 
-1.6.3.3
+The following patch set aims to resolve this.
 
+The first two patches add necessary CONFIG_COMPAT_NETLINK_MESSAGES
+infrastructure to the netlink in/output path.
+
+Patch 3 is a refactoring patch to split functionality (especially
+nlmsg allocation and adding data to the nlmsg) in order to
+re-use code and ease review.
+
+Patch 4 adds CONFIG_COMPAT_FOR_U64_ALIGNMENT support to xfrm.
+
+Patch 5 sets CMSG_MSG_COMPAT in sock_aio_write(), depending on
+is_compat_task().  If patch 5 is deemed too ugly, just pretend it
+doesn't exist; userspace can be patched to use sendmsg instead of
+write() to avoid this problem.
+
+ include/linux/netlink.h  |    1
+ net/netlink/af_netlink.c |   11
+ net/socket.c             |    4
+ net/xfrm/Kconfig         |    1
+ net/xfrm/xfrm_user.c     |  524 ++++++++++++++++++++++++++++++++++++++++++-----
+ 5 files changed, 488 insertions(+), 53 deletions(-)
