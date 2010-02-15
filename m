@@ -1,188 +1,411 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 2/7] drivers/net/sky2: Convert to use netif_printk macros
-Date: Mon, 15 Feb 2010 10:34:21 -0800
-Message-ID: <da1b6188355eb489797927a64db283cdb03ef654.1266258417.git.joe@perches.com>
+Subject: [PATCH net-next 7/7] drivers/net/pcnet32.c: Checkpatch cleaning
+Date: Mon, 15 Feb 2010 10:34:26 -0800
+Message-ID: <a522406b98e927e6a12836405badc845b8c72ec6.1266258417.git.joe@perches.com>
 References: <cover.1266258417.git.joe@perches.com>
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	linux-kernel@vger.kernel.org
+Cc: Don Fry <pcnet32@verizon.net>, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1072 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756066Ab0BOSea (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Feb 2010 13:34:30 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1266258417.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Some unlikely(netif_msg_<foo>(sky2)) tests are also
-removed by this change.
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/sky2.c |   65 +++++++++++++++++++++------------------------------
- 1 files changed, 27 insertions(+), 38 deletions(-)
+ drivers/net/pcnet32.c |  153 +++++++++++++++++++++++-------------------------
+ 1 files changed, 73 insertions(+), 80 deletions(-)
 
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index dfff8e5..a1198f1 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -1613,8 +1613,7 @@ static int sky2_up(struct net_device *dev)
- 	sky2_write32(hw, B0_IMSK, imask);
- 	sky2_read32(hw, B0_IMSK);
+diff --git a/drivers/net/pcnet32.c b/drivers/net/pcnet32.c
+index 9194abc..63e0315 100644
+--- a/drivers/net/pcnet32.c
++++ b/drivers/net/pcnet32.c
+@@ -52,10 +52,10 @@ static const char *const version =
+ #include <linux/spinlock.h>
+ #include <linux/moduleparam.h>
+ #include <linux/bitops.h>
++#include <linux/io.h>
++#include <linux/uaccess.h>
  
--	if (netif_msg_ifup(sky2))
--		printk(KERN_INFO PFX "%s: enabling interface\n", dev->name);
-+	netif_info(sky2, ifup, dev, "enabling interface\n");
+ #include <asm/dma.h>
+-#include <asm/io.h>
+-#include <asm/uaccess.h>
+ #include <asm/irq.h>
  
- 	return 0;
+ /*
+@@ -85,7 +85,7 @@ static int cards_found;
+ static unsigned int pcnet32_portlist[] __initdata =
+     { 0x300, 0x320, 0x340, 0x360, 0 };
  
-@@ -1697,9 +1696,8 @@ static netdev_tx_t sky2_xmit_frame(struct sk_buff *skb,
- 		goto mapping_error;
+-static int pcnet32_debug = 0;
++static int pcnet32_debug;
+ static int tx_start = 1;	/* Mapping -- 0:20, 1:64, 2:128, 3:~220 (depends on chip vers) */
+ static int pcnet32vlb;		/* check for VLB cards ? */
  
- 	slot = sky2->tx_prod;
--	if (unlikely(netif_msg_tx_queued(sky2)))
--		printk(KERN_DEBUG "%s: tx queued, slot %u, len %d\n",
--		       dev->name, slot, skb->len);
-+	netif_printk(sky2, tx_queued, KERN_DEBUG, dev,
-+		     "tx queued, slot %u, len %d\n", slot, skb->len);
- 
- 	/* Send high bits if needed */
- 	upper = upper_32_bits(mapping);
-@@ -1864,9 +1862,8 @@ static void sky2_tx_complete(struct sky2_port *sky2, u16 done)
- 		sky2_tx_unmap(sky2->hw->pdev, re);
- 
- 		if (skb) {
--			if (unlikely(netif_msg_tx_done(sky2)))
--				printk(KERN_DEBUG "%s: tx done %u\n",
--				       dev->name, idx);
-+			netif_printk(sky2, tx_done, KERN_DEBUG, dev,
-+				     "tx done %u\n", idx);
- 
- 			dev->stats.tx_packets++;
- 			dev->stats.tx_bytes += skb->len;
-@@ -1961,8 +1958,7 @@ static int sky2_down(struct net_device *dev)
- 	if (!sky2->tx_le)
- 		return 0;
- 
--	if (netif_msg_ifdown(sky2))
--		printk(KERN_INFO PFX "%s: disabling interface\n", dev->name);
-+	netif_info(sky2, ifdown, dev, "disabling interface\n");
- 
- 	/* Disable port IRQ */
- 	sky2_write32(hw, B0_IMSK,
-@@ -2028,12 +2024,11 @@ static void sky2_link_up(struct sky2_port *sky2)
- 	sky2_write8(hw, SK_REG(port, LNK_LED_REG),
- 		    LINKLED_ON | LINKLED_BLINK_OFF | LINKLED_LINKSYNC_OFF);
- 
--	if (netif_msg_link(sky2))
--		printk(KERN_INFO PFX
--		       "%s: Link is up at %d Mbps, %s duplex, flow control %s\n",
--		       sky2->netdev->name, sky2->speed,
--		       sky2->duplex == DUPLEX_FULL ? "full" : "half",
--		       fc_name[sky2->flow_status]);
-+	netif_info(sky2, link, sky2->netdev,
-+		   "Link is up at %d Mbps, %s duplex, flow control %s\n",
-+		   sky2->speed,
-+		   sky2->duplex == DUPLEX_FULL ? "full" : "half",
-+		   fc_name[sky2->flow_status]);
+@@ -392,7 +392,7 @@ static struct pcnet32_access pcnet32_wio = {
+ static u16 pcnet32_dwio_read_csr(unsigned long addr, int index)
+ {
+ 	outl(index, addr + PCNET32_DWIO_RAP);
+-	return (inl(addr + PCNET32_DWIO_RDP) & 0xffff);
++	return inl(addr + PCNET32_DWIO_RDP) & 0xffff;
  }
  
- static void sky2_link_down(struct sky2_port *sky2)
-@@ -2053,8 +2048,7 @@ static void sky2_link_down(struct sky2_port *sky2)
- 	/* Turn off link LED */
- 	sky2_write8(hw, SK_REG(port, LNK_LED_REG), LINKLED_OFF);
- 
--	if (netif_msg_link(sky2))
--		printk(KERN_INFO PFX "%s: Link is down.\n", sky2->netdev->name);
-+	netif_info(sky2, link, sky2->netdev, "Link is down\n");
- 
- 	sky2_phy_init(hw, port);
+ static void pcnet32_dwio_write_csr(unsigned long addr, int index, u16 val)
+@@ -404,7 +404,7 @@ static void pcnet32_dwio_write_csr(unsigned long addr, int index, u16 val)
+ static u16 pcnet32_dwio_read_bcr(unsigned long addr, int index)
+ {
+ 	outl(index, addr + PCNET32_DWIO_RAP);
+-	return (inl(addr + PCNET32_DWIO_BDP) & 0xffff);
++	return inl(addr + PCNET32_DWIO_BDP) & 0xffff;
  }
-@@ -2144,9 +2138,8 @@ static void sky2_phy_intr(struct sky2_hw *hw, unsigned port)
- 	istatus = gm_phy_read(hw, port, PHY_MARV_INT_STAT);
- 	phystat = gm_phy_read(hw, port, PHY_MARV_PHY_STAT);
  
--	if (netif_msg_intr(sky2))
--		printk(KERN_INFO PFX "%s: phy interrupt status 0x%x 0x%x\n",
--		       sky2->netdev->name, istatus, phystat);
-+	netif_info(sky2, intr, sky2->netdev, "phy interrupt status 0x%x 0x%x\n",
-+		   istatus, phystat);
+ static void pcnet32_dwio_write_bcr(unsigned long addr, int index, u16 val)
+@@ -415,7 +415,7 @@ static void pcnet32_dwio_write_bcr(unsigned long addr, int index, u16 val)
  
- 	if (istatus & PHY_M_IS_AN_COMPL) {
- 		if (sky2_autoneg_done(sky2, phystat) == 0)
-@@ -2200,8 +2193,7 @@ static void sky2_tx_timeout(struct net_device *dev)
- 	struct sky2_port *sky2 = netdev_priv(dev);
- 	struct sky2_hw *hw = sky2->hw;
+ static u16 pcnet32_dwio_read_rap(unsigned long addr)
+ {
+-	return (inl(addr + PCNET32_DWIO_RAP) & 0xffff);
++	return inl(addr + PCNET32_DWIO_RAP) & 0xffff;
+ }
  
--	if (netif_msg_timer(sky2))
--		printk(KERN_ERR PFX "%s: tx timeout\n", dev->name);
-+	netif_err(sky2, timer, dev, "tx timeout\n");
+ static void pcnet32_dwio_write_rap(unsigned long addr, u16 val)
+@@ -524,15 +524,14 @@ static void pcnet32_realloc_tx_ring(struct net_device *dev,
+ 	lp->tx_skbuff = new_skb_list;
+ 	return;
  
- 	printk(KERN_DEBUG PFX "%s: transmit ring %u .. %u report=%u done=%u\n",
- 	       dev->name, sky2->tx_cons, sky2->tx_prod,
-@@ -2396,9 +2388,9 @@ static struct sk_buff *sky2_receive(struct net_device *dev,
- 		count -= VLAN_HLEN;
- #endif
+-    free_new_lists:
++free_new_lists:
+ 	kfree(new_dma_addr_list);
+-    free_new_tx_ring:
++free_new_tx_ring:
+ 	pci_free_consistent(lp->pci_dev,
+ 			    sizeof(struct pcnet32_tx_head) *
+ 			    (1 << size),
+ 			    new_tx_ring,
+ 			    new_ring_dma_addr);
+-	return;
+ }
  
--	if (unlikely(netif_msg_rx_status(sky2)))
--		printk(KERN_DEBUG PFX "%s: rx slot %u status 0x%x len %d\n",
--		       dev->name, sky2->rx_next, status, length);
-+	netif_printk(sky2, rx_status, KERN_DEBUG, dev,
-+		     "rx slot %u status 0x%x len %d\n",
-+		     sky2->rx_next, status, length);
+ /*
+@@ -587,10 +586,11 @@ static void pcnet32_realloc_rx_ring(struct net_device *dev,
+ 		new_skb_list[new] = lp->rx_skbuff[new];
+ 	}
+ 	/* now allocate any new buffers needed */
+-	for (; new < size; new++ ) {
++	for (; new < size; new++) {
+ 		struct sk_buff *rx_skbuff;
+ 		new_skb_list[new] = dev_alloc_skb(PKT_BUF_SKB);
+-		if (!(rx_skbuff = new_skb_list[new])) {
++		rx_skbuff = new_skb_list[new];
++		if (!rx_skbuff) {
+ 			/* keep the original lists and buffers */
+ 			netif_err(lp, drv, dev, "%s dev_alloc_skb failed\n",
+ 				  __func__);
+@@ -630,8 +630,8 @@ static void pcnet32_realloc_rx_ring(struct net_device *dev,
+ 	lp->rx_skbuff = new_skb_list;
+ 	return;
  
- 	sky2->rx_next = (sky2->rx_next + 1) % sky2->rx_pending;
- 	prefetch(sky2->rx_ring + sky2->rx_next);
-@@ -2439,9 +2431,10 @@ len_error:
- 	/* Truncation of overlength packets
- 	   causes PHY length to not match MAC length */
- 	++dev->stats.rx_length_errors;
--	if (netif_msg_rx_err(sky2) && net_ratelimit())
--		pr_info(PFX "%s: rx length error: status %#x length %d\n",
--			dev->name, status, length);
-+	if (net_ratelimit())
-+		netif_info(sky2, rx_err, dev,
-+			   "rx length error: status %#x length %d\n",
-+			   status, length);
- 	goto resubmit;
+-    free_all_new:
+-	for (; --new >= lp->rx_ring_size; ) {
++free_all_new:
++	while (--new >= lp->rx_ring_size) {
+ 		if (new_skb_list[new]) {
+ 			pci_unmap_single(lp->pci_dev, new_dma_addr_list[new],
+ 					 PKT_BUF_SIZE, PCI_DMA_FROMDEVICE);
+@@ -639,9 +639,9 @@ static void pcnet32_realloc_rx_ring(struct net_device *dev,
+ 		}
+ 	}
+ 	kfree(new_skb_list);
+-    free_new_lists:
++free_new_lists:
+ 	kfree(new_dma_addr_list);
+-    free_new_rx_ring:
++free_new_rx_ring:
+ 	pci_free_consistent(lp->pci_dev,
+ 			    sizeof(struct pcnet32_rx_head) *
+ 			    (1 << size),
+@@ -831,7 +831,7 @@ static int pcnet32_set_ringparam(struct net_device *dev,
+ }
  
- error:
-@@ -2451,9 +2444,9 @@ error:
- 		goto resubmit;
+ static void pcnet32_get_strings(struct net_device *dev, u32 stringset,
+-				u8 * data)
++				u8 *data)
+ {
+ 	memcpy(data, pcnet32_gstrings_test, sizeof(pcnet32_gstrings_test));
+ }
+@@ -908,39 +908,39 @@ static int pcnet32_loopback_test(struct net_device *dev, uint64_t * data1)
+ 	/* Initialize Transmit buffers. */
+ 	size = data_len + 15;
+ 	for (x = 0; x < numbuffs; x++) {
+-		if (!(skb = dev_alloc_skb(size))) {
++		skb = dev_alloc_skb(size);
++		if (!skb) {
+ 			netif_printk(lp, hw, KERN_DEBUG, dev,
+ 				     "Cannot allocate skb at line: %d!\n",
+ 				     __LINE__);
+ 			goto clean_up;
+-		} else {
+-			packet = skb->data;
+-			skb_put(skb, size);	/* create space for data */
+-			lp->tx_skbuff[x] = skb;
+-			lp->tx_ring[x].length = cpu_to_le16(-skb->len);
+-			lp->tx_ring[x].misc = 0;
+-
+-			/* put DA and SA into the skb */
+-			for (i = 0; i < 6; i++)
+-				*packet++ = dev->dev_addr[i];
+-			for (i = 0; i < 6; i++)
+-				*packet++ = dev->dev_addr[i];
+-			/* type */
+-			*packet++ = 0x08;
+-			*packet++ = 0x06;
+-			/* packet number */
+-			*packet++ = x;
+-			/* fill packet with data */
+-			for (i = 0; i < data_len; i++)
+-				*packet++ = i;
+-
+-			lp->tx_dma_addr[x] =
+-			    pci_map_single(lp->pci_dev, skb->data, skb->len,
+-					   PCI_DMA_TODEVICE);
+-			lp->tx_ring[x].base = cpu_to_le32(lp->tx_dma_addr[x]);
+-			wmb();	/* Make sure owner changes after all others are visible */
+-			lp->tx_ring[x].status = cpu_to_le16(status);
+ 		}
++		packet = skb->data;
++		skb_put(skb, size);	/* create space for data */
++		lp->tx_skbuff[x] = skb;
++		lp->tx_ring[x].length = cpu_to_le16(-skb->len);
++		lp->tx_ring[x].misc = 0;
++
++		/* put DA and SA into the skb */
++		for (i = 0; i < 6; i++)
++			*packet++ = dev->dev_addr[i];
++		for (i = 0; i < 6; i++)
++			*packet++ = dev->dev_addr[i];
++		/* type */
++		*packet++ = 0x08;
++		*packet++ = 0x06;
++		/* packet number */
++		*packet++ = x;
++		/* fill packet with data */
++		for (i = 0; i < data_len; i++)
++			*packet++ = i;
++
++		lp->tx_dma_addr[x] =
++			pci_map_single(lp->pci_dev, skb->data, skb->len,
++				       PCI_DMA_TODEVICE);
++		lp->tx_ring[x].base = cpu_to_le32(lp->tx_dma_addr[x]);
++		wmb();	/* Make sure owner changes after all others are visible */
++		lp->tx_ring[x].status = cpu_to_le16(status);
  	}
  
--	if (netif_msg_rx_err(sky2) && net_ratelimit())
--		printk(KERN_INFO PFX "%s: rx error, status 0x%x length %d\n",
--		       dev->name, status, length);
-+	if (net_ratelimit())
-+		netif_info(sky2, rx_err, dev,
-+			   "rx error, status 0x%x length %d\n", status, length);
+ 	x = a->read_bcr(ioaddr, 32);	/* set internal loopback in BCR32 */
+@@ -978,9 +978,8 @@ static int pcnet32_loopback_test(struct net_device *dev, uint64_t * data1)
+ 		for (x = 0; x < numbuffs; x++) {
+ 			netdev_printk(KERN_DEBUG, dev, "Packet %d: ", x);
+ 			skb = lp->rx_skbuff[x];
+-			for (i = 0; i < size; i++) {
++			for (i = 0; i < size; i++)
+ 				pr_cont(" %02x", *(skb->data + i));
+-			}
+ 			pr_cont("\n");
+ 		}
+ 	}
+@@ -1002,7 +1001,7 @@ static int pcnet32_loopback_test(struct net_device *dev, uint64_t * data1)
+ 		x++;
+ 	}
  
- 	if (status & (GMR_FS_LONG_ERR | GMR_FS_UN_SIZE))
- 		dev->stats.rx_length_errors++;
-@@ -2733,9 +2726,7 @@ static void sky2_mac_intr(struct sky2_hw *hw, unsigned port)
- 	struct sky2_port *sky2 = netdev_priv(dev);
- 	u8 status = sky2_read8(hw, SK_REG(port, GMAC_IRQ_SRC));
+-      clean_up:
++clean_up:
+ 	*data1 = rc;
+ 	pcnet32_purge_tx_ring(dev);
  
--	if (netif_msg_intr(sky2))
--		printk(KERN_INFO PFX "%s: mac interrupt status 0x%x\n",
--		       dev->name, status);
-+	netif_info(sky2, intr, dev, "mac interrupt status 0x%x\n", status);
+@@ -1021,7 +1020,7 @@ static int pcnet32_loopback_test(struct net_device *dev, uint64_t * data1)
+ 	}
+ 	spin_unlock_irqrestore(&lp->lock, flags);
  
- 	if (status & GM_IS_RX_CO_OV)
- 		gma_read16(hw, port, GM_RX_IRQ_SRC);
-@@ -4529,9 +4520,7 @@ static void __devinit sky2_show_addr(struct net_device *dev)
- {
- 	const struct sky2_port *sky2 = netdev_priv(dev);
+-	return (rc);
++	return rc;
+ }				/* end pcnet32_loopback_test  */
  
--	if (netif_msg_probe(sky2))
--		printk(KERN_INFO PFX "%s: addr %pM\n",
--		       dev->name, dev->dev_addr);
-+	netif_info(sky2, probe, dev, "addr %pM\n", dev->dev_addr);
+ static void pcnet32_led_blink_callback(struct net_device *dev)
+@@ -1033,9 +1032,8 @@ static void pcnet32_led_blink_callback(struct net_device *dev)
+ 	int i;
+ 
+ 	spin_lock_irqsave(&lp->lock, flags);
+-	for (i = 4; i < 8; i++) {
++	for (i = 4; i < 8; i++)
+ 		a->write_bcr(ioaddr, i, a->read_bcr(ioaddr, i) ^ 0x4000);
+-	}
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+ 
+ 	mod_timer(&lp->blink_timer, PCNET32_BLINK_TIMEOUT);
+@@ -1057,9 +1055,8 @@ static int pcnet32_phys_id(struct net_device *dev, u32 data)
+ 
+ 	/* Save the current value of the bcrs */
+ 	spin_lock_irqsave(&lp->lock, flags);
+-	for (i = 4; i < 8; i++) {
++	for (i = 4; i < 8; i++)
+ 		regs[i - 4] = a->read_bcr(ioaddr, i);
+-	}
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+ 
+ 	mod_timer(&lp->blink_timer, jiffies);
+@@ -1074,9 +1071,8 @@ static int pcnet32_phys_id(struct net_device *dev, u32 data)
+ 
+ 	/* Restore the original value of the bcrs */
+ 	spin_lock_irqsave(&lp->lock, flags);
+-	for (i = 4; i < 8; i++) {
++	for (i = 4; i < 8; i++)
+ 		a->write_bcr(ioaddr, i, regs[i - 4]);
+-	}
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+ 
+ 	return 0;
+@@ -1173,7 +1169,8 @@ static void pcnet32_rx_entry(struct net_device *dev,
+ 	if (pkt_len > rx_copybreak) {
+ 		struct sk_buff *newskb;
+ 
+-		if ((newskb = dev_alloc_skb(PKT_BUF_SKB))) {
++		newskb = dev_alloc_skb(PKT_BUF_SKB);
++		if (newskb) {
+ 			skb_reserve(newskb, NET_IP_ALIGN);
+ 			skb = lp->rx_skbuff[entry];
+ 			pci_unmap_single(lp->pci_dev,
+@@ -1191,9 +1188,8 @@ static void pcnet32_rx_entry(struct net_device *dev,
+ 			rx_in_place = 1;
+ 		} else
+ 			skb = NULL;
+-	} else {
++	} else
+ 		skb = dev_alloc_skb(pkt_len + NET_IP_ALIGN);
+-	}
+ 
+ 	if (skb == NULL) {
+ 		netif_err(lp, drv, dev, "Memory squeeze, dropping packet\n");
+@@ -1380,7 +1376,7 @@ static int pcnet32_get_regs_len(struct net_device *dev)
+ 	struct pcnet32_private *lp = netdev_priv(dev);
+ 	int j = lp->phycount * PCNET32_REGS_PER_PHY;
+ 
+-	return ((PCNET32_NUM_REGS + j) * sizeof(u16));
++	return (PCNET32_NUM_REGS + j) * sizeof(u16);
  }
  
- /* Handle software interrupt used during MSI test */
+ static void pcnet32_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+@@ -1404,21 +1400,20 @@ static void pcnet32_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+ 		*buff++ = inw(ioaddr + i);
+ 
+ 	/* read control and status registers */
+-	for (i = 0; i < 90; i++) {
++	for (i = 0; i < 90; i++)
+ 		*buff++ = a->read_csr(ioaddr, i);
+-	}
+ 
+ 	*buff++ = a->read_csr(ioaddr, 112);
+ 	*buff++ = a->read_csr(ioaddr, 114);
+ 
+ 	/* read bus configuration registers */
+-	for (i = 0; i < 30; i++) {
++	for (i = 0; i < 30; i++)
+ 		*buff++ = a->read_bcr(ioaddr, i);
+-	}
++
+ 	*buff++ = 0;		/* skip bcr30 so as not to hang 79C976 */
+-	for (i = 31; i < 36; i++) {
++
++	for (i = 31; i < 36; i++)
+ 		*buff++ = a->read_bcr(ioaddr, i);
+-	}
+ 
+ 	/* read mii phy registers */
+ 	if (lp->mii) {
+@@ -1511,17 +1506,16 @@ pcnet32_probe_pci(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 			pr_err("architecture does not support 32bit PCI busmaster DMA\n");
+ 		return -ENODEV;
+ 	}
+-	if (request_region(ioaddr, PCNET32_TOTAL_SIZE, "pcnet32_probe_pci") ==
+-	    NULL) {
++	if (!request_region(ioaddr, PCNET32_TOTAL_SIZE, "pcnet32_probe_pci")) {
+ 		if (pcnet32_debug & NETIF_MSG_PROBE)
+ 			pr_err("io address range already allocated\n");
+ 		return -EBUSY;
+ 	}
+ 
+ 	err = pcnet32_probe1(ioaddr, 1, pdev);
+-	if (err < 0) {
++	if (err < 0)
+ 		pci_disable_device(pdev);
+-	}
++
+ 	return err;
+ }
+ 
+@@ -1764,8 +1758,9 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ 	dev->base_addr = ioaddr;
+ 	lp = netdev_priv(dev);
+ 	/* pci_alloc_consistent returns page-aligned memory, so we do not have to check the alignment */
+-	if ((lp->init_block =
+-	     pci_alloc_consistent(pdev, sizeof(*lp->init_block), &lp->init_dma_addr)) == NULL) {
++	lp->init_block = pci_alloc_consistent(pdev, sizeof(*lp->init_block),
++					      &lp->init_dma_addr);
++	if (!lp->init_block) {
+ 		if (pcnet32_debug & NETIF_MSG_PROBE)
+ 			pr_err("Consistent memory allocation failed\n");
+ 		ret = -ENOMEM;
+@@ -1890,9 +1885,8 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ 					id1, id2, i);
+ 		}
+ 		lp->a.write_bcr(ioaddr, 33, (lp->mii_if.phy_id) << 5);
+-		if (lp->phycount > 1) {
++		if (lp->phycount > 1)
+ 			lp->options |= PCNET32_PORT_MII;
+-		}
+ 	}
+ 
+ 	init_timer(&lp->watchdog_timer);
+@@ -2236,7 +2230,7 @@ static int pcnet32_open(struct net_device *dev)
+ 
+ 	return 0;		/* Always succeed */
+ 
+-      err_free_ring:
++err_free_ring:
+ 	/* free any allocated skbuffs */
+ 	pcnet32_purge_rx_ring(dev);
+ 
+@@ -2246,7 +2240,7 @@ static int pcnet32_open(struct net_device *dev)
+ 	 */
+ 	lp->a.write_bcr(ioaddr, 20, 4);
+ 
+-      err_free_irq:
++err_free_irq:
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+ 	free_irq(dev->irq, dev);
+ 	return rc;
+@@ -2297,10 +2291,10 @@ static int pcnet32_init_ring(struct net_device *dev)
+ 	for (i = 0; i < lp->rx_ring_size; i++) {
+ 		struct sk_buff *rx_skbuff = lp->rx_skbuff[i];
+ 		if (rx_skbuff == NULL) {
+-			if (!
+-			    (rx_skbuff = lp->rx_skbuff[i] =
+-			     dev_alloc_skb(PKT_BUF_SKB))) {
+-				/* there is not much, we can do at this point */
++			lp->rx_skbuff[i] = dev_alloc_skb(PKT_BUF_SKB);
++			rx_skbuff = lp->rx_skbuff[i];
++			if (!rx_skbuff) {
++				/* there is not much we can do at this point */
+ 				netif_err(lp, drv, dev, "%s dev_alloc_skb failed\n",
+ 					  __func__);
+ 				return -1;
+@@ -2482,9 +2476,8 @@ pcnet32_interrupt(int irq, void *dev_id)
+ 
+ 	csr0 = lp->a.read_csr(ioaddr, CSR0);
+ 	while ((csr0 & 0x8f00) && --boguscnt >= 0) {
+-		if (csr0 == 0xffff) {
++		if (csr0 == 0xffff)
+ 			break;	/* PCMCIA remove happened */
+-		}
+ 		/* Acknowledge all of the current interrupt sources ASAP. */
+ 		lp->a.write_csr(ioaddr, CSR0, csr0 & ~0x004f);
+ 
 -- 
 1.7.0.14.g7e948
-
