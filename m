@@ -1,39 +1,168 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [PATCH v5 3/7] tcp: harmonize tcp_vx_rcv header length assumptions
-Date: Mon, 15 Feb 2010 07:59:55 -0500
-Message-ID: <4B79454B.1030805@gmail.com>
-References: <4B793CAA.2030902@gmail.com> <4B793DFC.8070306@gmail.com> <20100215124842.GF21783@one.firstfloor.org>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Panic at tcp_xmit_retransmit_queue
+Date: Mon, 15 Feb 2010 15:21:58 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.1002151520250.7063@wel-95.cs.helsinki.fi>
+References: <53cc795f1001190813m377c6c91l16b2dc04f63049e7@mail.gmail.com> <53cc795f1002010645w54b98b51s3dbdea18e5eb73f2@mail.gmail.com> <alpine.DEB.2.00.1002031258160.7063@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-1736692170-1266240118=:7063"
+Cc: Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: sbs <gexlie@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100215124842.GF21783@one.firstfloor.org>
+In-Reply-To: <alpine.DEB.2.00.1002031258160.7063@wel-95.cs.helsinki.fi>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen wrote:
-> On Mon, Feb 15, 2010 at 07:28:44AM -0500, William Allen Simpson wrote:
->> Harmonize tcp_v4_rcv() and tcp_v6_rcv() -- better document tcp doff
->> and header length assumptions, and carefully compare implementations.
-> 
-> I didn't fully understand that new comment:
-> 
-> /* nf_reset(skb); in ip6_input.c ip6_input_finish() */
-> 
-That's part of the harmonization.  IPv4 has a nf_reset() in this code
-position.  I asked on the list where IPv6 did the same thing, so that
-the difference could be documented.  The information was provided by
-Patrick McHardy.  If someday somebody actually finishes merging the
-two functions, that's the only actual difference.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
+--8323329-1736692170-1266240118=:7063
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
 
-> Overall you can add a 
+On Wed, 3 Feb 2010, Ilpo Järvinen wrote:
+
+> On Mon, 1 Feb 2010, sbs wrote:
 > 
-> Reviewed-by: Andi Kleen <andi@firstfloor.org>
+> > actually removing netconsole from kernel didnt help.
+> > i found many guys with the same problem but with different hardware
+> > configurations here:
+> > 
+> > freez in TCP stack :
+> > http://bugzilla.kernel.org/show_bug.cgi?id=14470
+> > 
+> > is there someone who can investigate it?
+> > 
+> > 
+> > On Tue, Jan 19, 2010 at 7:13 PM, sbs <gexlie@gmail.com> wrote:
+> > > We are hiting kernel panics on servers with nVidia MCP55 NICs once a day;
+> > > it appears usualy under a high network trafic ( around 10000Mbit/s) but
+> > > it is not a rule, it has happened even on low trafic.
+> > >
+> > > Servers are used as nginx+static content
+> > > On 2 equal servers this panic happens aprox 2 times a day depending on
+> > > network load. Machine completly freezes till the netconsole reboots.
+> > >
+> > > Kernel: 2.6.32.3
+> > >
+> > > what can it be? whats wrong with tcp_xmit_retransmit_queue() function ?
+> > > can anyone explain or fix?
 > 
-Thanks, hopefully as applied.
+> You might want to try with to debug patch below. It might even make the 
+> box to survive the event (if I got it coded right).
+
+Here should be a better version of the debug patch, hopefully the infinite 
+looping is now gone.
+
+-- 
+ i.
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 383ce23..4672a30 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2186,6 +2186,42 @@ static int tcp_can_forward_retransmit(struct sock *sk)
+ 	return 1;
+ }
+ 
++static void print_queue(struct sock *sk, struct sk_buff *old, struct sk_buff *hole)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct sk_buff *skb, *prev;
++
++	skb = tcp_write_queue_head(sk);
++	prev = (struct sk_buff *)(&sk->sk_write_queue);
++
++	if (skb == NULL) {
++		printk("NULL head, pkts %u\n", tp->packets_out);
++		return;
++	}
++	printk("head %p tail %p sendhead %p oldhint %p now %p hole %p high %u\n",
++	       tcp_write_queue_head(sk), tcp_write_queue_tail(sk),
++	       tcp_send_head(sk), old, tp->retransmit_skb_hint, hole,
++	       tp->retransmit_high);
++
++	while (skb) {
++		printk("skb %p (%u-%u) next %p prev %p sacked %u\n",
++		       skb, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq,
++		       skb->next, skb->prev, TCP_SKB_CB(skb)->sacked);
++		if (prev != skb->prev)
++			printk("Inconsistent prev\n");
++
++		if (skb == tcp_write_queue_tail(sk)) {
++			if (skb->next != (struct sk_buff *)(&sk->sk_write_queue))
++				printk("Improper next at tail\n");
++			return;
++		}
++
++		prev = skb;
++		skb = skb->next;
++	}
++	printk("Encountered unexpected NULL\n");
++}
++
+ /* This gets called after a retransmit timeout, and the initially
+  * retransmitted data is acknowledged.  It tries to continue
+  * resending the rest of the retransmit queue, until either
+@@ -2194,12 +2230,15 @@ static int tcp_can_forward_retransmit(struct sock *sk)
+  * based retransmit packet might feed us FACK information again.
+  * If so, we use it to avoid unnecessarily retransmissions.
+  */
++static int caught_it = 0;
++
+ void tcp_xmit_retransmit_queue(struct sock *sk)
+ {
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct sk_buff *skb;
+ 	struct sk_buff *hole = NULL;
++	struct sk_buff *old = tp->retransmit_skb_hint;
+ 	u32 last_lost;
+ 	int mib_idx;
+ 	int fwd_rexmitting = 0;
+@@ -2217,6 +2256,16 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
+ 		last_lost = tp->snd_una;
+ 	}
+ 
++checknull:
++	if (skb == NULL) {
++		if (!caught_it)
++			print_queue(sk, old, hole);
++		caught_it++;
++		if (net_ratelimit())
++			printk("Errors caught so far %u\n", caught_it);
++		return;
++	}
++
+ 	tcp_for_write_queue_from(skb, sk) {
+ 		__u8 sacked = TCP_SKB_CB(skb)->sacked;
+ 
+@@ -2257,7 +2306,7 @@ begin_fwd:
+ 		} else if (!(sacked & TCPCB_LOST)) {
+ 			if (hole == NULL && !(sacked & (TCPCB_SACKED_RETRANS|TCPCB_SACKED_ACKED)))
+ 				hole = skb;
+-			continue;
++			goto cont;
+ 
+ 		} else {
+ 			last_lost = TCP_SKB_CB(skb)->end_seq;
+@@ -2268,7 +2317,7 @@ begin_fwd:
+ 		}
+ 
+ 		if (sacked & (TCPCB_SACKED_ACKED|TCPCB_SACKED_RETRANS))
+-			continue;
++			goto cont;
+ 
+ 		if (tcp_retransmit_skb(sk, skb))
+ 			return;
+@@ -2278,6 +2327,9 @@ begin_fwd:
+ 			inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
+ 						  inet_csk(sk)->icsk_rto,
+ 						  TCP_RTO_MAX);
++cont:
++		skb = skb->next;
++		goto checknull;
+ 	}
+ }
+ 
+--8323329-1736692170-1266240118=:7063--
