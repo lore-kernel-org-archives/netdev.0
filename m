@@ -1,34 +1,80 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 0/2] tun: linux socket filter support
-Date: Mon, 15 Feb 2010 16:47:26 +0100
-Message-ID: <201002151647.26532.arnd@arndb.de>
-References: <20100214110051.GA30182@redhat.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH] ipcomp: double free at ipcomp_destroy()
+Date: Mon, 15 Feb 2010 17:50:49 +0200
+Message-ID: <20100215155049.GA4905@x200>
+References: <20100214144415.GA8115@x200>
+ <20100215001849.GB15437@gondor.apana.org.au>
+ <b6fcc0a1002142332r1542e04ex250fa238e4a3231a@mail.gmail.com>
+ <20100215080846.GA18446@gondor.apana.org.au>
+ <20100215081052.GA18516@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Paul Moore <paul.moore@hp.com>,
-	David Woodhouse <David.Woodhouse@intel.com>,
-	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100214110051.GA30182@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f220.google.com ([209.85.220.220]:64129 "EHLO
+	mail-fx0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755748Ab0BOPu4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 10:50:56 -0500
+Received: by fxm20 with SMTP id 20so5009073fxm.1
+        for <netdev@vger.kernel.org>; Mon, 15 Feb 2010 07:50:54 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20100215081052.GA18516@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday 14 February 2010, Michael S. Tsirkin wrote:
-> tun module already support RX filtering, however,
-> this is limited to filtering by mac address.
-> For virtio host, we also need filtering by vlan.
+On Mon, Feb 15, 2010 at 04:10:52PM +0800, Herbert Xu wrote:
+> On Mon, Feb 15, 2010 at 04:08:46PM +0800, Herbert Xu wrote:
+> > 
+> > How about just getting rid of the ipcomp_destroy call in ipcomp's
+> > init_state functions? Calling the destructor twice is a bit iffy
+> > even if we can make it work by setting various things to NULL and
+> > testing for it.
 > 
-> Rather than adding this directly, it seems cleaner
-> to add generic socket filter support.
+> Something like this (totally untested):
+> 
+> diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
+> index 38fbf04..544ce08 100644
+> --- a/net/ipv4/ipcomp.c
+> +++ b/net/ipv4/ipcomp.c
+> @@ -124,16 +124,12 @@ static int ipcomp4_init_state(struct xfrm_state *x)
+>  	if (x->props.mode == XFRM_MODE_TUNNEL) {
+>  		err = ipcomp_tunnel_attach(x);
+>  		if (err)
+> -			goto error_tunnel;
+> +			goto out;
+>  	}
+>  
+>  	err = 0;
+>  out:
+>  	return err;
+> -
+> -error_tunnel:
+> -	ipcomp_destroy(x);
+> -	goto out;
+>  }
+>  
+>  static const struct xfrm_type ipcomp_type = {
+> diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
+> index 2f2a5ca..002e6ee 100644
+> --- a/net/ipv6/ipcomp6.c
+> +++ b/net/ipv6/ipcomp6.c
+> @@ -154,16 +154,12 @@ static int ipcomp6_init_state(struct xfrm_state *x)
+>  	if (x->props.mode == XFRM_MODE_TUNNEL) {
+>  		err = ipcomp6_tunnel_attach(x);
+>  		if (err)
+> -			goto error_tunnel;
+> +			goto out;
+>  	}
+>  
+>  	err = 0;
+>  out:
+>  	return err;
+> -error_tunnel:
+> -	ipcomp_destroy(x);
+> -
+> -	goto out;
 
-Great idea, I was wondering how to do vlan filtering
-in macvtap with trunk mode. I guess it would be
-straightforward to do the same patch in macvtap, right?
-
-	Arnd
+Then checks for NULL ->tunnel, and NULL ->data should be removed.
+In fact, I don't quite understand why destruction was done this way,
+so simply cleared ->data pointer.
