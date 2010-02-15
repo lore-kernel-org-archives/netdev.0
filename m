@@ -1,77 +1,88 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: [PATCH -mm v2 1/5] ssb: add dma_dev to ssb_device structure
-Date: Tue, 16 Feb 2010 00:04:06 +0900
-Message-ID: <1266246250-5344-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-References: <1266246250-5344-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	fujita.tomonori@lab.ntt.co.jp, davem@davemloft.net,
-	Michael Buesch <mb@bu3sch.de>,
-	Gary Zambrano <zambrano@broadcom.com>,
-	Stefano Brivio <stefano.brivio@polimi.it>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: linux-kernel@vger.kernel.org
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH v4 4/7] tcp: input header length, prediction, and timestamp bugs
+Date: Mon, 15 Feb 2010 16:10:55 +0100
+Message-ID: <20100215151055.GG21783@one.firstfloor.org>
+References: <4B793CAA.2030902@gmail.com> <4B793E8F.30208@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Andi Kleen <andi@firstfloor.org>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sh.osrg.net ([192.16.179.4]:38258 "EHLO sh.osrg.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755288Ab0BOPK0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Feb 2010 10:10:26 -0500
-In-Reply-To: <1266246250-5344-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+Received: from one.firstfloor.org ([213.235.205.2]:46308 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755414Ab0BOPLA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 10:11:00 -0500
+Content-Disposition: inline
+In-Reply-To: <4B793E8F.30208@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-add dma_dev, a pointer to struct device, to struct ssb_device. We pass
-it to the generic DMA API with SSB_BUSTYPE_PCI and
-SSB_BUSTYPE_SSB. ssb_devices_register() sets up it properly.
+On Mon, Feb 15, 2010 at 07:31:11AM -0500, William Allen Simpson wrote:
+> Fix incorrect header prediction flags documentation.
+> 
+> Relieve register pressure in (the i386) fast path by accessing skb->len
+> directly, instead of carrying a rarely used len parameter.
+> 
+> Eliminate unused len parameters in two other functions.
+> 
+> Don't use output calculated tp->tcp_header_len for input decisions.
+> While the output header is usually the same as the input (same options
+> in both directions), that's a poor assumption. In particular, Sack will
+> be different. Newer options are not guaranteed.
 
-This is preparation for replacing the ssb bus specific DMA API
-(ssb_dma_*) with the generic DMA API.
+Is this a bug fix? 
 
-Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Cc: Michael Buesch <mb@bu3sch.de>
-Cc: Gary Zambrano <zambrano@broadcom.com>
-Cc: Stefano Brivio <stefano.brivio@polimi.it>
-Cc: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: John W. Linville <linville@tuxdriver.com>
-Cc: David S. Miller <davem@davemloft.net>
----
- drivers/ssb/main.c      |    2 ++
- include/linux/ssb/ssb.h |    2 +-
- 2 files changed, 3 insertions(+), 1 deletions(-)
+tcp_ack() is so bloated these days that I sometimes wonder
+if the fast path still makes sense. It would be probably
+an interesting study to actually count cycles for
+the common cases.
 
-diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
-index 5681ebe..1a41b3f 100644
---- a/drivers/ssb/main.c
-+++ b/drivers/ssb/main.c
-@@ -485,6 +485,7 @@ static int ssb_devices_register(struct ssb_bus *bus)
- #ifdef CONFIG_SSB_PCIHOST
- 			sdev->irq = bus->host_pci->irq;
- 			dev->parent = &bus->host_pci->dev;
-+			sdev->dma_dev = dev->parent;
- #endif
- 			break;
- 		case SSB_BUSTYPE_PCMCIA:
-@@ -501,6 +502,7 @@ static int ssb_devices_register(struct ssb_bus *bus)
- 			break;
- 		case SSB_BUSTYPE_SSB:
- 			dev->dma_mask = &dev->coherent_dma_mask;
-+			sdev->dma_dev = dev;
- 			break;
- 		}
- 
-diff --git a/include/linux/ssb/ssb.h b/include/linux/ssb/ssb.h
-index 24f9885..c5e00b2 100644
---- a/include/linux/ssb/ssb.h
-+++ b/include/linux/ssb/ssb.h
-@@ -167,7 +167,7 @@ struct ssb_device {
- 	 * is an optimization. */
- 	const struct ssb_bus_ops *ops;
- 
--	struct device *dev;
-+	struct device *dev, *dma_dev;
- 
- 	struct ssb_bus *bus;
- 	struct ssb_device_id id;
+On the other hand CPU cycles on modern systems are so cheap
+that it might be simpler to simply ignore them and only
+optimize for cache misses. I suppose a cache optimized
+tcp_rcv_establish() would look quite different.
+
+Anyways that's not directly related to the patch.
+
+> There's no need to test buffer length against header length, already
+> checked by tcp_v[4,6]_rcv(). Straighten code for minor efficiency gain.
+> 
+> Stand-alone patch, originally developed for TCPCT.
+
+Normally it would be better to split this into smaller patches
+that do one thing at a time (typically this requires getting
+used to patch stack tools like "quilt")
+
+But it's not too bad here.
+
+>  static inline void __tcp_fast_path_on(struct tcp_sock *tp, u32 snd_wnd)
+>  {
+> -	tp->pred_flags = htonl((tp->tcp_header_len << 26) |
+> +	tp->pred_flags = htonl((__tcp_fast_path_header_length(tp) << (28 - 2)) |
+
+It would be better to use defines or sizeof for the magic numbers.
+
+> -	tp->rx_opt.saw_tstamp = 0;
+> -
+> -	/*	pred_flags is 0xS?10 << 16 + snd_wnd
+> -	 *	if header_prediction is to be made
+> -	 *	'S' will always be tp->tcp_header_len >> 2
+> -	 *	'?' will be 0 for the fast path, otherwise pred_flags is 0 to
+> -	 *  turn it off	(when there are holes in the receive
+> -	 *	 space for instance)
+> -	 *	PSH flag is ignored.
+> -	 */
+
+I liked the comment at this place.
+
+
+I did a quick review of the rest and it seems ok to me.
+
+-Andi
+
 -- 
-1.6.5
-
+ak@linux.intel.com -- Speaking for myself only.
