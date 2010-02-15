@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Sun, 14 Feb 2010 22:22:11 -0800 (PST)
-Message-ID: <20100214.222211.91409708.davem@davemloft.net>
-References: <20100215152009.c8f9949c.sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the net tree with the
+ wireless-current tree
+Date: Sun, 14 Feb 2010 22:22:32 -0800 (PST)
+Message-ID: <20100214.222231.180659633.davem@davemloft.net>
+References: <20100215152023.0696878f.sfr@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, peter.p.waskiewicz.jr@intel.com,
-	jeffrey.t.kirsher@intel.com
+	linux-kernel@vger.kernel.org, jouni.malinen@atheros.com,
+	linville@tuxdriver.com
 To: sfr@canb.auug.org.au
 Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100215152009.c8f9949c.sfr@canb.auug.org.au>
+In-Reply-To: <20100215152023.0696878f.sfr@canb.auug.org.au>
 Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 15 Feb 2010 15:20:09 +1100
+Date: Mon, 15 Feb 2010 15:20:23 +1100
 
-> After merging the net tree, today's linux-next build (x86_64 allmodconfig)
-> failed like this:
+> Hi all,
 > 
-> usr/include/linux/ethtool.h:17: included file 'linux/rculist.h' is not exported
+> Today's linux-next merge of the net tree got a conflict in
+> net/mac80211/rate.c between commit
+> 5affcd6ba2036b59a4dee3f0576ae3584e92e4f1 ("mac80211: fix handling of
+> null-rate control in rate_control_get_rate") from the wireless-current
+> tree and commit 37eb0b164cf9fa9f70c8500926f5cde7c652f48e
+> ("cfg80211/mac80211: Use more generic bitrate mask for rate control")
+> from the net tree.
 > 
-> Caused by commit 15682bc488d4af8c9bb998844a94281025e0a333 ("ethtool:
-> Introduce n-tuple filter programming support").
+> John, I know you mentioned this, so I assume it will go away soon.
 > 
-> I have used the version of the net tree from next-20100212 for today.
+> I fixed it up (I think - see below).
 
-I have a fix for that in my queue, thanks for reporting.
+Right, I'll even try to take care of this myself later tonight.
