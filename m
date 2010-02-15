@@ -1,62 +1,127 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [net-next-2.6 PATCH 1/7] xfrm: introduce basic mark
- infrastructure
-Date: Mon, 15 Feb 2010 13:59:15 -0500
-Message-ID: <1266260355.6776.241.camel@bigi>
-References: <xfrm-mark-net-next>
-	 <1266160732-946-1-git-send-email-hadi@cyberus.ca>
-	 <1266160732-946-2-git-send-email-hadi@cyberus.ca>
-	 <4B796B70.2050102@trash.net> <1266253235.6776.90.camel@bigi>
-	 <4B797F09.5050207@trash.net> <1266254073.6776.109.camel@bigi>
-	 <4B7982AB.5060409@trash.net>
-Reply-To: hadi@cyberus.ca
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [PATCH v4 4/7] tcp: input header length, prediction, and timestamp
+ bugs
+Date: Mon, 15 Feb 2010 14:03:34 -0500
+Message-ID: <4B799A86.8040303@gmail.com>
+References: <4B793CAA.2030902@gmail.com> <4B793E8F.30208@gmail.com> <20100215151055.GG21783@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: timo.teras@iki.fi, herbert@gondor.apana.org.au,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f200.google.com ([209.85.210.200]:62059 "EHLO
-	mail-yx0-f200.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753255Ab0BOS7R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 13:59:17 -0500
-Received: by yxe38 with SMTP id 38so3585623yxe.4
-        for <netdev@vger.kernel.org>; Mon, 15 Feb 2010 10:59:16 -0800 (PST)
-In-Reply-To: <4B7982AB.5060409@trash.net>
+Received: from mail-iw0-f185.google.com ([209.85.223.185]:38936 "EHLO
+	mail-iw0-f185.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755867Ab0BOTDj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 14:03:39 -0500
+In-Reply-To: <20100215151055.GG21783@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-02-15 at 18:21 +0100, Patrick McHardy wrote:
+Andi Kleen wrote:
+> On Mon, Feb 15, 2010 at 07:31:11AM -0500, William Allen Simpson wrote:
+>> Don't use output calculated tp->tcp_header_len for input decisions.
+>> While the output header is usually the same as the input (same options
+>> in both directions), that's a poor assumption. In particular, Sack will
+>> be different. Newer options are not guaranteed.
+> 
+> Is this a bug fix? 
+> 
+Yes.  One of many, all inter-related.
 
-> The xfrm route lookup doesn't use the packet mark.
+I don't know how much description folks want in the patch "summary", so
+simply used declarative statements that are one-to-one with the order of
+the patch, but it took me a bit to grok this problem!
 
-I see.
-Is there a historical reason why it hasnt been used this way?
-Reminds me of the reverse path patch i sent a while back that
-caused havoc.. (mark wasnt being used in the reverse path either)
+1) unknown options can be stripped out of the header in middleware, see
+RFC 1122 section 4.2.2.5.
 
-> A couple of years ago I used this in a multipath setup, which
-> was using CONNMARK to persistently bind connections (tunnels
-> in this case) to a route after the first selection.
+2) new options Cookie Pair and 64-bit Timestamps (defined in patch 7).
 
-Sounds like a reasonable feature to me.
+3) stripping them leaves a Sack covering 1 segment, which has the exact
+same word count as 32-bit Timestamps.  Boom!  All the silly checks
+against the size of the options field (instead of the proper saw_tstamp)
+start setting fields based on completely useless data!
 
-> The problem with backwards compatibility is that people using
-> marks for multipath routing are most likely not expecting the
-> mark to suddenly take effect for IPsec tunnel routing.
+4) and of course, using the size of the previous output to predict the
+expected input header size is a poor assumption (to be generous).
 
-The main reason it works ok for ipsec/policy-routing is because
-user space essentially pins down the kernel path. Could you
-not solve it via some user space daemon? First packet/event
-to user space, download policies and wait until it expires or
-route/tunnel goes down to react..
+There are 29+ options these days, not 4 or 5.  There are options that
+are only sent one way.  There are options that have different data in
+different directions.
 
-One of the problems maybe the semantics of what a general purpose
-tag like mark being left to either the programmer (as in connmark)
-or the admin (tc) - so building a general purpose daemon would have
-to enforce some semantic to work ok.
+Yes, it was originally for TCPCT, but fixes a broad spectrum of bugs.
 
-cheers,
-jamal
 
+>> Stand-alone patch, originally developed for TCPCT.
+> 
+> Normally it would be better to split this into smaller patches
+> that do one thing at a time (typically this requires getting
+> used to patch stack tools like "quilt")
+> 
+> But it's not too bad here.
+> 
+There are small efficiency patches included, but it would be likely
+impossible to split them from the bug fixes without re-writing the same
+code over and over again.  And I'm doing these patch splits by hand....
+
+I did recently learn how to maintain branches that are branches on top of
+each other, so I've got tcpct1, tcpct2, and tcpct3 for the 3 parts.  But
+it's a pain to keep updated with git fetch, and checkout, and rebase,
+for each branch.
+
+At first, I was keeping a master patch set, and trying to maintain it
+over .31, .32, and net-next, and now .33 -- but I gave up.
+
+
+>>  static inline void __tcp_fast_path_on(struct tcp_sock *tp, u32 snd_wnd)
+>>  {
+>> -	tp->pred_flags = htonl((tp->tcp_header_len << 26) |
+>> +	tp->pred_flags = htonl((__tcp_fast_path_header_length(tp) << (28 - 2)) |
+> 
+> It would be better to use defines or sizeof for the magic numbers.
+> 
+I agree!  I was just following the existing coding style, trying to
+improve understanding by splitting it into 28 (matches the shift
+documented in the header file), and 2 (the doff field is actually the
+number of 32-bit words).
+
+These are field offsets in a 32-bit word, sizeof() wouldn't work.
+
+It might be even better to have pred_flags be a union, but I didn't do
+the original design for this code....
+
+I'll add a nice block comment explaining the shift value here.
+
+
+>> -	tp->rx_opt.saw_tstamp = 0;
+>> -
+>> -	/*	pred_flags is 0xS?10 << 16 + snd_wnd
+>> -	 *	if header_prediction is to be made
+>> -	 *	'S' will always be tp->tcp_header_len >> 2
+>> -	 *	'?' will be 0 for the fast path, otherwise pred_flags is 0 to
+>> -	 *  turn it off	(when there are holes in the receive
+>> -	 *	 space for instance)
+>> -	 *	PSH flag is ignored.
+>> -	 */
+> 
+> I liked the comment at this place.
+> 
+The existing comment here didn't match the comment in the header file,
+and both comments had errors.  Here, the 'S' is wrong.  Instead, it was
+only '5' in the header file, among other errors.
+
+It's easier to avoid bit-rot by defining in only one place, but I will
+add a comment here saying "See linux/tcp.h for pred_flags details."
+
+
+> 
+> I did a quick review of the rest and it seems ok to me.
+> 
+> -Andi
+> 
+Thank you again.  As the fixes requested are merely adding comments,
+I'll quickly re-spin this patch without reposting the entire patch set.
