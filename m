@@ -1,42 +1,50 @@
-From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
-Subject: Re: [PATCH 1/2] usbnet: Convert dev(dbg|err|warn|info) macros to netdev_<level>
-Date: Sun, 14 Feb 2010 19:09:06 -0800
-Message-ID: <201002141909.06541.david-b@pacbell.net>
-References: <20100212.123837.56526847.davem@davemloft.net> <4B7892AA.7000305@imap.cc> <1266195287.16721.953.camel@Joe-Laptop.home>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net tree
+Date: Mon, 15 Feb 2010 15:20:09 +1100
+Message-ID: <20100215152009.c8f9949c.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Greg Kroah-Hartman" <gregkh-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1266195287.16721.953.camel-AkRN8/LKpobuYGix6ZUp1Q@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Mon__15_Feb_2010_15_20_09_+1100_6koxfCKX=wbc9kxQ"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 14 February 2010, Joe Perches wrote:
-> I'll resend in a bit after David Brownell or
-> someone else answers the inverted question below.
->=20
-> > Btw, is it intentional that the _OTHER values are printed after the
-> > label "this", and the _THIS values after the label "other"?
->=20
-> Thanks again, I saw that, but neglected to mention it.
-> David Brownell? =A0Do you know if that is inverted?
+--Signature=_Mon__15_Feb_2010_15_20_09_+1100_6koxfCKX=wbc9kxQ
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I'd call that a bug.  Note that this is specific to the net1080
-chip, which hasn't been manufactured for quite a few years now
-and was never hugely popular ... so the significance of getting
-that rarely-seen diagnostic wrong was minor.
+Hi Dave,
 
-- Dave
+After merging the net tree, today's linux-next build (x86_64 allmodconfig)
+failed like this:
 
+usr/include/linux/ethtool.h:17: included file 'linux/rculist.h' is not expo=
+rted
 
+Caused by commit 15682bc488d4af8c9bb998844a94281025e0a333 ("ethtool:
+Introduce n-tuple filter programming support").
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I have used the version of the net tree from next-20100212 for today.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Mon__15_Feb_2010_15_20_09_+1100_6koxfCKX=wbc9kxQ
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAkt4y3kACgkQjjKRsyhoI8zX7ACeLoKbkpK8opy6QPyiOdx1cRU/
+HaQAoKHFNGT6hZsjJkaHaBsckHXXcTJr
+=fTdb
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__15_Feb_2010_15_20_09_+1100_6koxfCKX=wbc9kxQ--
