@@ -1,45 +1,95 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [net-next PATCH v3 0/3] net: reserve ports for applications using
- fixed port numbers
-Date: Mon, 15 Feb 2010 20:36:24 +0800
-Message-ID: <4B793FC8.1050905@redhat.com>
-References: <1265854160-11763-1-git-send-email-opurdila@ixiacom.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: [PATCH v3 5/7] TCPCT part 2e: accept SYNACK data
+Date: Mon, 15 Feb 2010 07:34:47 -0500
+Message-ID: <4B793F67.8090301@gmail.com>
+References: <4B793CAA.2030902@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: multipart/mixed;
+ boundary="------------030000020701070809010103"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Linux Kernel Developers <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f185.google.com ([209.85.223.185]:57992 "EHLO
+	mail-iw0-f185.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750774Ab0BOMew (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 07:34:52 -0500
+In-Reply-To: <4B793CAA.2030902@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------030000020701070809010103
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vget.kernel.org,
-	linux-kernel@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Octavian Purdila <opurdila@ixiacom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1265854160-11763-1-git-send-email-opurdila@ixiacom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-Octavian Purdila wrote:
-> This patch series is based on Amerigo's v2 but it now uses a bitmap
-> for port reservation.
-> 
-> I've ran a while (1) { bind(0) } test (with ip_local_port_range
-> 1024 65000) to see if there is any performance difference between the
-> two approaches (ranges vs bitmap). I could not detect any significant
-> difference, both cases scored in 2.76s +/- 0.01 on my setup.
-> 
-> I've based this patch series on current net-next, but it contains a
-> significant non networking part. Please let me know if I should handle
-> this differently.
-> 
-> Octavian Purdila (3):
->   sysctl: refactor integer handling proc code
->   sysctl: add proc_dobitmap
->   net: reserve ports for applications using fixed port numbers
-> 
+When accompanied by cookie option, Initiator (client) queues incoming
+SYNACK transaction data.
 
-(Sorry for the delay, we are having Chinese new year here.)
+This is a straightforward re-implementation of an earlier (year-old)
+patch that no longer applies cleanly, with permission of the original
+author (Adam Langley).  The patch was previously reviewed:
 
-Thanks for your work, Octavian!
+    http://thread.gmane.org/gmane.linux.network/102586
 
-Your patches look nice, but I don't have much time to review them today,
-I will have a detailed look tomorrow.
+This function will also be used in subsequent patches that implement
+additional features.
 
-Thanks.
+Requires:
+   TCPCT part 1g: Responder Cookie => Initiator
+   net: tcp_header_len_th and tcp_option_len_th
+
+Signed-off-by: William.Allen.Simpson@gmail.com
+---
+  net/ipv4/tcp_input.c |   26 +++++++++++++++++++++++++-
+  1 files changed, 25 insertions(+), 1 deletions(-)
+
+
+--------------030000020701070809010103
+Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
+ name="TCPCT+2e3+2.6.33-rc8.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="TCPCT+2e3+2.6.33-rc8.patch"
+
+ZGlmZiAtLWdpdCBhL25ldC9pcHY0L3RjcF9pbnB1dC5jIGIvbmV0L2lwdjQvdGNwX2lucHV0
+LmMKaW5kZXggOGUwZjZhZS4uMTY1MDQwZSAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvdGNwX2lu
+cHV0LmMKKysrIGIvbmV0L2lwdjQvdGNwX2lucHV0LmMKQEAgLTUzOTUsNiArNTM5NSwxMiBA
+QCBkaXNjYXJkOgogCXJldHVybiAwOwogfQogCisvKgorICogUmV0dXJuczoKKyAqCSsxIG9u
+IHJlc2V0LAorICoJMCBzdWNjZXNzIGFuZC9vciBTWU5BQ0sgZGF0YSwKKyAqCS0xIG9uIGRp
+c2NhcmQuCisgKi8KIHN0YXRpYyBpbnQgdGNwX3Jjdl9zeW5zZW50X3N0YXRlX3Byb2Nlc3Mo
+c3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCQkJCQkgc3RydWN0IHRj
+cGhkciAqdGgpCiB7CkBAIC01NDAzLDYgKzU0MDksNyBAQCBzdGF0aWMgaW50IHRjcF9yY3Zf
+c3luc2VudF9zdGF0ZV9wcm9jZXNzKHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYg
+KnNrYiwKIAlzdHJ1Y3QgdGNwX3NvY2sgKnRwID0gdGNwX3NrKHNrKTsKIAlzdHJ1Y3QgdGNw
+X2Nvb2tpZV92YWx1ZXMgKmN2cCA9IHRwLT5jb29raWVfdmFsdWVzOwogCWludCBzYXZlZF9j
+bGFtcCA9IHRwLT5yeF9vcHQubXNzX2NsYW1wOworCWludCBxdWV1ZWQgPSAwOwogCiAJdGNw
+X3BhcnNlX29wdGlvbnMoc2tiLCAmdHAtPnJ4X29wdCwgJmhhc2hfbG9jYXRpb24sIDApOwog
+CkBAIC01NTA5LDYgKzU1MTYsNyBAQCBzdGF0aWMgaW50IHRjcF9yY3Zfc3luc2VudF9zdGF0
+ZV9wcm9jZXNzKHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYiwKIAkJCQkJ
+LSBUQ1BPTEVOX0NPT0tJRV9CQVNFOwogCQkJaW50IGNvb2tpZV9wYWlyX3NpemUgPSBjb29r
+aWVfc2l6ZQogCQkJCQkgICAgICsgY3ZwLT5jb29raWVfZGVzaXJlZDsKKwkJCWludCB0Y3Bf
+aGVhZGVyX2xlbiA9IHRjcF9oZWFkZXJfbGVuX3RoKHRoKTsKIAogCQkJLyogQSBjb29raWUg
+ZXh0ZW5zaW9uIG9wdGlvbiB3YXMgc2VudCBhbmQgcmV0dXJuZWQuCiAJCQkgKiBOb3RlIHRo
+YXQgZWFjaCBpbmNvbWluZyBTWU5BQ0sgcmVwbGFjZXMgdGhlCkBAIC01NTI0LDYgKzU1MzIs
+MTkgQEAgc3RhdGljIGludCB0Y3BfcmN2X3N5bnNlbnRfc3RhdGVfcHJvY2VzcyhzdHJ1Y3Qg
+c29jayAqc2ssIHN0cnVjdCBza19idWZmICpza2IsCiAJCQkJICAgICAgIGhhc2hfbG9jYXRp
+b24sIGNvb2tpZV9zaXplKTsKIAkJCQljdnAtPmNvb2tpZV9wYWlyX3NpemUgPSBjb29raWVf
+cGFpcl9zaXplOwogCQkJfQorCisJCQlxdWV1ZWQgPSBza2ItPmxlbiAtIHRjcF9oZWFkZXJf
+bGVuOworCQkJaWYgKHF1ZXVlZCA+IDApIHsKKwkJCQkvKiBRdWV1ZSBpbmNvbWluZyB0cmFu
+c2FjdGlvbiBkYXRhLiAqLworCQkJCV9fc2tiX3B1bGwoc2tiLCB0Y3BfaGVhZGVyX2xlbik7
+CisJCQkJX19za2JfcXVldWVfdGFpbCgmc2stPnNrX3JlY2VpdmVfcXVldWUsIHNrYik7CisJ
+CQkJc2tiX3NldF9vd25lcl9yKHNrYiwgc2spOworCQkJCXNrLT5za19kYXRhX3JlYWR5KHNr
+LCAwKTsKKwkJCQljdnAtPnNfZGF0YV9pbiA9IDE7IC8qIHRydWUgKi8KKwkJCQl0cC0+cmN2
+X254dCA9IFRDUF9TS0JfQ0Ioc2tiKS0+ZW5kX3NlcTsKKwkJCQl0cC0+cmN2X3d1cCA9IFRD
+UF9TS0JfQ0Ioc2tiKS0+ZW5kX3NlcTsKKwkJCQl0cC0+Y29waWVkX3NlcSA9IFRDUF9TS0Jf
+Q0Ioc2tiKS0+c2VxICsgMTsKKwkJCX0KIAkJfQogCiAJCXNtcF9tYigpOwpAQCAtNTU3Nywx
+MSArNTU5OCwxNCBAQCBzdGF0aWMgaW50IHRjcF9yY3Zfc3luc2VudF9zdGF0ZV9wcm9jZXNz
+KHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYiwKIAkJCQkJCSAgVENQX0RF
+TEFDS19NQVgsIFRDUF9SVE9fTUFYKTsKIAogZGlzY2FyZDoKLQkJCV9fa2ZyZWVfc2tiKHNr
+Yik7CisJCQlpZiAocXVldWVkIDw9IDApCisJCQkJX19rZnJlZV9za2Ioc2tiKTsKIAkJCXJl
+dHVybiAwOwogCQl9IGVsc2UgewogCQkJdGNwX3NlbmRfYWNrKHNrKTsKIAkJfQorCQlpZiAo
+cXVldWVkID4gMCkKKwkJCXJldHVybiAwOwogCQlyZXR1cm4gLTE7CiAJfQogCi0tIAoxLjYu
+My4zCgo=
+--------------030000020701070809010103--
