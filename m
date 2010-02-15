@@ -1,80 +1,56 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH] ipcomp: double free at ipcomp_destroy()
-Date: Mon, 15 Feb 2010 17:50:49 +0200
-Message-ID: <20100215155049.GA4905@x200>
-References: <20100214144415.GA8115@x200>
- <20100215001849.GB15437@gondor.apana.org.au>
- <b6fcc0a1002142332r1542e04ex250fa238e4a3231a@mail.gmail.com>
- <20100215080846.GA18446@gondor.apana.org.au>
- <20100215081052.GA18516@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH 1/5] netlink: append NLMSG_DONE to compatskb, too
+Date: Mon, 15 Feb 2010 17:46:29 +0100
+Message-ID: <1266252393-20911-2-git-send-email-fw@strlen.de>
+References: <1266252393-20911-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fwestphal@astaro.com>,
+	Florian Westphal <fw@strlen.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f220.google.com ([209.85.220.220]:64129 "EHLO
-	mail-fx0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755748Ab0BOPu4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 10:50:56 -0500
-Received: by fxm20 with SMTP id 20so5009073fxm.1
-        for <netdev@vger.kernel.org>; Mon, 15 Feb 2010 07:50:54 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20100215081052.GA18516@gondor.apana.org.au>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:40212 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751730Ab0BOQqb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 11:46:31 -0500
+In-Reply-To: <1266252393-20911-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 15, 2010 at 04:10:52PM +0800, Herbert Xu wrote:
-> On Mon, Feb 15, 2010 at 04:08:46PM +0800, Herbert Xu wrote:
-> > 
-> > How about just getting rid of the ipcomp_destroy call in ipcomp's
-> > init_state functions? Calling the destructor twice is a bit iffy
-> > even if we can make it work by setting various things to NULL and
-> > testing for it.
-> 
-> Something like this (totally untested):
-> 
-> diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
-> index 38fbf04..544ce08 100644
-> --- a/net/ipv4/ipcomp.c
-> +++ b/net/ipv4/ipcomp.c
-> @@ -124,16 +124,12 @@ static int ipcomp4_init_state(struct xfrm_state *x)
->  	if (x->props.mode == XFRM_MODE_TUNNEL) {
->  		err = ipcomp_tunnel_attach(x);
->  		if (err)
-> -			goto error_tunnel;
-> +			goto out;
->  	}
->  
->  	err = 0;
->  out:
->  	return err;
-> -
-> -error_tunnel:
-> -	ipcomp_destroy(x);
-> -	goto out;
->  }
->  
->  static const struct xfrm_type ipcomp_type = {
-> diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
-> index 2f2a5ca..002e6ee 100644
-> --- a/net/ipv6/ipcomp6.c
-> +++ b/net/ipv6/ipcomp6.c
-> @@ -154,16 +154,12 @@ static int ipcomp6_init_state(struct xfrm_state *x)
->  	if (x->props.mode == XFRM_MODE_TUNNEL) {
->  		err = ipcomp6_tunnel_attach(x);
->  		if (err)
-> -			goto error_tunnel;
-> +			goto out;
->  	}
->  
->  	err = 0;
->  out:
->  	return err;
-> -error_tunnel:
-> -	ipcomp_destroy(x);
-> -
-> -	goto out;
+From: Florian Westphal <fwestphal@astaro.com>
 
-Then checks for NULL ->tunnel, and NULL ->data should be removed.
-In fact, I don't quite understand why destruction was done this way,
-so simply cleared ->data pointer.
+modules using netlink may supply a 2nd skb, (via frag_list)
+that contains an alternative data set meant for applications
+using 32bit compatibility mode.
+
+In such a case, netlink_recvmsg will use this 2nd skb instead of the
+original one.
+
+Without this patch, such compat applications will retrieve
+all netlink dump data, but will then get an unexpected EOF.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/netlink/af_netlink.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 4c5972b..4910031 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1698,6 +1698,14 @@ static int netlink_dump(struct sock *sk)
+ 
+ 	memcpy(nlmsg_data(nlh), &len, sizeof(len));
+ 
++#ifdef CONFIG_COMPAT_NETLINK_MESSAGES
++	if (unlikely(skb_shinfo(skb)->frag_list)) {
++		nlh = nlmsg_put_answer(skb_shinfo(skb)->frag_list, cb,
++					NLMSG_DONE, sizeof(len), NLM_F_MULTI);
++		if (nlh)
++			memcpy(nlmsg_data(nlh), &len, sizeof(len));
++	}
++#endif
+ 	if (sk_filter(sk, skb))
+ 		kfree_skb(skb);
+ 	else {
+-- 
+1.6.3.3
+
