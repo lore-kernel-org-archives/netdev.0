@@ -1,50 +1,41 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH 5/5] net: sock_aio_write: set CMSG_MSG_COMPAT flag if is_compat_task
-Date: Mon, 15 Feb 2010 17:46:33 +0100
-Message-ID: <1266252393-20911-6-git-send-email-fw@strlen.de>
-References: <1266252393-20911-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fwestphal@astaro.com>
-To: netdev@vger.kernel.org
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [net-next-2.6 PATCH 1/7] xfrm: introduce basic mark
+ infrastructure
+Date: Mon, 15 Feb 2010 12:00:35 -0500
+Message-ID: <1266253235.6776.90.camel@bigi>
+References: <xfrm-mark-net-next>
+	 <1266160732-946-1-git-send-email-hadi@cyberus.ca>
+	 <1266160732-946-2-git-send-email-hadi@cyberus.ca>
+	 <4B796B70.2050102@trash.net>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: timo.teras@iki.fi, herbert@gondor.apana.org.au,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:40217 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755497Ab0BOQqg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 11:46:36 -0500
-In-Reply-To: <1266252393-20911-1-git-send-email-fw@strlen.de>
+Received: from mail-gx0-f224.google.com ([209.85.217.224]:54607 "EHLO
+	mail-gx0-f224.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755774Ab0BORAh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 12:00:37 -0500
+Received: by gxk24 with SMTP id 24so5063401gxk.1
+        for <netdev@vger.kernel.org>; Mon, 15 Feb 2010 09:00:36 -0800 (PST)
+In-Reply-To: <4B796B70.2050102@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fwestphal@astaro.com>
+On Mon, 2010-02-15 at 16:42 +0100, Patrick McHardy wrote:
 
-some programs (e.g. pluto ike daemon), send netlink data to the
-kernel via write().
 
-So far, the CMSG_MSG_COMPAT flag is not set in this case, which
-results in the kernel interpreting the netlink data the wrong way.
+> This doesn't look right. A mark value of 0 with a mask of ~0 won't
+> be properly dumped. I think this should check for (m->m | m->v).
+> 
 
-An alternative solution is to switch userspace to sendmsg() when
-using netlink sockets.
+Good point, thanks. I will make that change;
 
-Signed-off-by: Florian Westphal <fwestphal@astaro.com>
----
- net/socket.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+Rest of patches look reasonable?
 
-diff --git a/net/socket.c b/net/socket.c
-index 769c386..e6a6a67 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -837,6 +837,10 @@ static ssize_t do_sock_write(struct msghdr *msg, struct kiocb *iocb,
- 	msg->msg_iov = (struct iovec *)iov;
- 	msg->msg_iovlen = nr_segs;
- 	msg->msg_flags = (file->f_flags & O_NONBLOCK) ? MSG_DONTWAIT : 0;
-+#ifdef CONFIG_COMPAT
-+	if (is_compat_task())
-+		msg->msg_flags |= MSG_CMSG_COMPAT;
-+#endif
- 	if (sock->type == SOCK_SEQPACKET)
- 		msg->msg_flags |= MSG_EOR;
- 
--- 
-1.6.3.3
+cheers,
+jamal
 
