@@ -1,30 +1,51 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH -mm] ssb: open-code dma_alloc_coherent
-Date: Mon, 15 Feb 2010 00:49:14 -0600
-Message-ID: <4B78EE6A.3010207@lwfinger.net>
-References: <20100215142111R.fujita.tomonori@lab.ntt.co.jp>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the net tree with the
+ wireless-current tree
+Date: Mon, 15 Feb 2010 18:16:46 +1100
+Message-ID: <20100215181646.0e9bdce6.sfr@canb.auug.org.au>
+References: <20100215152023.0696878f.sfr@canb.auug.org.au>
+	<20100214.222231.180659633.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org, mb@bu3sch.de,
-	davem@davemloft.net, stefano.brivio@polimi.it,
-	akpm@linux-foundation.org
-To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f196.google.com ([209.85.210.196]:48333 "EHLO
-	mail-yx0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752750Ab0BOGtT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 01:49:19 -0500
-In-Reply-To: <20100215142111R.fujita.tomonori@lab.ntt.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Mon__15_Feb_2010_18_16_46_+1100_+ueU5N_m/yz4u0pw"
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jouni.malinen@atheros.com,
+	linville@tuxdriver.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100214.222231.180659633.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/14/2010 11:21 PM, FUJITA Tomonori wrote:
-> This patch is against -mm since it depends on the DMA API changes in
-> -mm.
+--Signature=_Mon__15_Feb_2010_18_16_46_+1100_+ueU5N_m/yz4u0pw
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Are the patches that implement these DMA API changes available for testing? I
-don't keep an -mm tree.
+Hi Dave,
 
-Larry
+On Sun, 14 Feb 2010 22:22:32 -0800 (PST) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> Right, I'll even try to take care of this myself later tonight.
 
+OK, thanks.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Mon__15_Feb_2010_18_16_46_+1100_+ueU5N_m/yz4u0pw
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAkt49N4ACgkQjjKRsyhoI8za0wCdFHemNJWqldEFNW1HY3xkEaBP
+H3sAoIdOHc3/BkInWtulXQ+kLdGLJcqi
+=neRD
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__15_Feb_2010_18_16_46_+1100_+ueU5N_m/yz4u0pw--
