@@ -1,70 +1,65 @@
-From: Riccardo Ghetta <birrachiara@tin.it>
-Subject: [PATCH] SiS190/191 half-duplex initialization fix
-Date: Mon, 15 Feb 2010 21:19:00 +0100
-Message-ID: <1266265140-20196-1-git-send-email-birrachiara@tin.it>
-Cc: netdev@vger.kernel.org, Riccardo Ghetta <birrachiara@tin.it>
-To: romieu@fr.zoreil.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 4/4] Staging: Octeon:  Free transmit SKBs in a timely
+ manner.
+Date: Mon, 15 Feb 2010 21:27:53 +0100
+Message-ID: <1266265673.2859.5.camel@edumazet-laptop>
+References: <4B79AAA6.60005@caviumnetworks.com>
+	 <1266264799-3510-4-git-send-email-ddaney@caviumnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ralf@linux-mips.org, linux-mips@linux-mips.org,
+	netdev@vger.kernel.org, gregkh@suse.de
+To: David Daney <ddaney@caviumnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vsmtp3.tin.it ([212.216.176.223]:37326 "EHLO vsmtp3.tin.it"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756409Ab0BOUTQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Feb 2010 15:19:16 -0500
+Received: from mail-bw0-f213.google.com ([209.85.218.213]:37732 "EHLO
+	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756485Ab0BOU2A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 15:28:00 -0500
+Received: by bwz5 with SMTP id 5so1391630bwz.1
+        for <netdev@vger.kernel.org>; Mon, 15 Feb 2010 12:27:58 -0800 (PST)
+In-Reply-To: <1266264799-3510-4-git-send-email-ddaney@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds half-duplex specific setup code (taken from SiS own GPL driver).
-Without those, half-duplex connections are very unreliable, often
-working on small transfers and failing after a while.
+Le lundi 15 f=C3=A9vrier 2010 =C3=A0 12:13 -0800, David Daney a =C3=A9c=
+rit :
+> If we wait for the once-per-second cleanup to free transmit SKBs,
+> sockets with small transmit buffer sizes might spend most of their
+> time blocked waiting for the cleanup.
+>=20
+> Normally we do a cleanup for each transmitted packet.  We add a
+> watchdog type timer so that we also schedule a timeout for 150uS afte=
+r
+> a packet is transmitted.  The watchdog is reset for each transmitted
+> packet, so for high packet rates, it never expires.  At these high
+> rates, the cleanups are done for each packet so the extra watchdog
+> initiated cleanups are not needed.
 
-Signed-off-by: Riccardo Ghetta <birrachiara@tin.it>
----
- drivers/net/sis190.c |   12 +++++++++++-
- 1 files changed, 11 insertions(+), 1 deletions(-)
+s/needed/fired/
 
-diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
-index 626de76..6f581e7 100644
---- a/drivers/net/sis190.c
-+++ b/drivers/net/sis190.c
-@@ -47,7 +47,7 @@
- #define PHY_ID_ANY		0x1f
- #define MII_REG_ANY		0x1f
- 
--#define DRV_VERSION		"1.3"
-+#define DRV_VERSION		"1.4"
- #define DRV_NAME		"sis190"
- #define SIS190_DRIVER_NAME	DRV_NAME " Gigabit Ethernet driver " DRV_VERSION
- #define PFX DRV_NAME ": "
-@@ -294,6 +294,7 @@ struct sis190_private {
- 	struct mii_if_info mii_if;
- 	struct list_head first_phy;
- 	u32 features;
-+        u32 negotiated_lpa;
- };
- 
- struct sis190_phy {
-@@ -1004,6 +1005,8 @@ static void sis190_phy_task(struct work_struct *work)
- 			SIS_W32(RGDelay, 0x0440);
- 		}
- 
-+ 		tp->negotiated_lpa = p->val;
-+
- 		net_link(tp, KERN_INFO "%s: link on %s mode.\n", dev->name,
- 			 p->msg);
- 		netif_carrier_on(dev);
-@@ -1211,6 +1214,13 @@ static netdev_tx_t sis190_start_xmit(struct sk_buff *skb,
- 	wmb();
- 
- 	desc->status = cpu_to_le32(OWNbit | INTbit | DEFbit | CRCbit | PADbit);
-+	if (tp->negotiated_lpa & (LPA_1000HALF | LPA_100HALF | LPA_10HALF))
-+	{
-+		/* Half Duplex */
-+		desc->status |= cpu_to_le32(COLEN | CRSEN | BKFEN);
-+ 		if (tp->negotiated_lpa & (LPA_1000HALF | LPA_1000FULL))
-+			desc->status |= cpu_to_le32(EXTEN | BSTEN); /* gigabit HD */
-+	}
- 
- 	tp->cur_tx++;
- 
--- 
-1.6.4.4
+Hmm, but re-arming a timer for each transmited packet must have a cost =
+?
+
+>=20
+> Signed-off-by: David Daney <ddaney@caviumnetworks.com>
+
+Is there any particular reason periodic is spelled preiodic ?
+
+> ---
+>  }
+> =20
+> -static void cvm_oct_tx_clean_worker(struct work_struct *work)
+> +static void cvm_oct_preiodic_worker(struct work_struct *work)
+>  {
+
+
+
+> -			INIT_DELAYED_WORK(&priv->tx_clean_work,
+> -					  cvm_oct_tx_clean_worker);
+> -
+> +			INIT_DELAYED_WORK(&priv->port_periodic_work,
+> +					  cvm_oct_preiodic_worker);
+
+
 
