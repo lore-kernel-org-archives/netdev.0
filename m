@@ -1,40 +1,79 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: Re: 2.6.33-rc8: Reported regressions from 2.6.32
-Date: Mon, 15 Feb 2010 21:59:03 +0100
-Message-ID: <201002152159.03458.rjw@sisk.pl>
-References: <Z5cmiqDComP.A.gyF.OiIeLB@chimera> <b170af451002150152r43d7d916kd3d2013b8990627d@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 4/4] Staging: Octeon:  Free transmit SKBs in a timely
+ manner.
+Date: Mon, 15 Feb 2010 22:11:11 +0100
+Message-ID: <1266268271.2859.22.camel@edumazet-laptop>
+References: <4B79AAA6.60005@caviumnetworks.com>
+	 <1266264799-3510-4-git-send-email-ddaney@caviumnetworks.com>
+	 <1266265673.2859.5.camel@edumazet-laptop>
+	 <4B79B15F.7030506@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: =?utf-8?q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <b170af451002150152r43d7d916kd3d2013b8990627d-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: ralf@linux-mips.org, linux-mips@linux-mips.org,
+	netdev@vger.kernel.org, gregkh@suse.de
+To: David Daney <ddaney@caviumnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f213.google.com ([209.85.218.213]:40841 "EHLO
+	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932089Ab0BOVLQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 16:11:16 -0500
+Received: by bwz5 with SMTP id 5so1421293bwz.1
+        for <netdev@vger.kernel.org>; Mon, 15 Feb 2010 13:11:15 -0800 (PST)
+In-Reply-To: <4B79B15F.7030506@caviumnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 15 February 2010, Rafa=C5=82 Mi=C5=82ecki wrote:
-> 2010/2/15 Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org>:
-> > Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=3D1528=
-7
-> > Subject         : RadeonKMS segfaults kdm on mobility radeon x700 p=
-cie
-> > Submitter       : Jan Kreuzer <kontrollator-Mmb7MZpHnFY@public.gmane.org>
-> > Date            : 2010-02-12 17:58 (3 days old)
+Le lundi 15 f=C3=A9vrier 2010 =C3=A0 12:41 -0800, David Daney a =C3=A9c=
+rit :
+> On 02/15/2010 12:27 PM, Eric Dumazet wrote:
+> > Le lundi 15 f=C3=A9vrier 2010 =C3=A0 12:13 -0800, David Daney a =C3=
+=A9crit :
+> >> If we wait for the once-per-second cleanup to free transmit SKBs,
+> >> sockets with small transmit buffer sizes might spend most of their
+> >> time blocked waiting for the cleanup.
+> >>
+> >> Normally we do a cleanup for each transmitted packet.  We add a
+> >> watchdog type timer so that we also schedule a timeout for 150uS a=
+fter
+> >> a packet is transmitted.  The watchdog is reset for each transmitt=
+ed
+> >> packet, so for high packet rates, it never expires.  At these high
+> >> rates, the cleanups are done for each packet so the extra watchdog
+> >> initiated cleanups are not needed.
+> >
+> > s/needed/fired/
+> >
 >=20
-> Can you reassign this according to last comments, please?
+> or perhaps s/are not needed/are neither needed nor fired/
+>=20
+> > Hmm, but re-arming a timer for each transmited packet must have a c=
+ost ?
+> >
+>=20
+> The cost is fairly low (less than 10 processor clock cycles).  We did=
+n't=20
+> add this for amusement, people actually do things like only send UDP=20
+> packets from userspace.  Since we can fill the transmit queue faster=20
+> than it is emptied, the socket transmit buffer is quickly consumed.  =
+If=20
+> we don't free the SKBs in short order, the transmitting process get t=
+o=20
+> take a long sleep (until our previous once per second clean up task w=
+as=20
+> run).
 
-Reassigned to PCI.
+I understand this, but traditionaly, NIC drivers dont use a timer, but =
+a
+'TX complete' interrupt, that usually fires a few us after packet
+submission on Gigabit speed.
 
-Thanks,
-Rafael
+A fast program could try to send X small udp packets in less than 150
+us, X being greater than the size of your TX ring.
+
+So your patch makes the window smaller, but it still is there (at
+physical layer, we'll see a burst of packets, a ~100us delay, then a
+second burst)
+
+
+
