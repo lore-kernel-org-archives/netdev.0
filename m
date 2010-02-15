@@ -1,33 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2010-02-12
-Date: Sun, 14 Feb 2010 17:47:11 -0800 (PST)
-Message-ID: <20100214.174711.180120335.davem@davemloft.net>
-References: <20100212214505.GA16783@tuxdriver.com>
+From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
+Subject: Re: [PATCH 1/2] usbnet: Convert dev(dbg|err|warn|info) macros to netdev_<level>
+Date: Sun, 14 Feb 2010 19:09:06 -0800
+Message-ID: <201002141909.06541.david-b@pacbell.net>
+References: <20100212.123837.56526847.davem@davemloft.net> <4B7892AA.7000305@imap.cc> <1266195287.16721.953.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38499
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751908Ab0BOBq6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Feb 2010 20:46:58 -0500
-In-Reply-To: <20100212214505.GA16783@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Greg Kroah-Hartman" <gregkh-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1266195287.16721.953.camel-AkRN8/LKpobuYGix6ZUp1Q@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 12 Feb 2010 16:45:06 -0500
+On Sunday 14 February 2010, Joe Perches wrote:
+> I'll resend in a bit after David Brownell or
+> someone else answers the inverted question below.
+>=20
+> > Btw, is it intentional that the _OTHER values are printed after the
+> > label "this", and the _THIS values after the label "other"?
+>=20
+> Thanks again, I saw that, but neglected to mention it.
+> David Brownell? =A0Do you know if that is inverted?
 
-> Here is this weeks dump of wireless bits intended for 2.6.34.  It is the
-> usual variety of driver updates and fixes to problems introduced by
-> updates earlier in the cycle.  Also, more progress on N-phy support in
-> b43 and the removal of the unused mac80211 op get_tx_stats.
-> 
-> Please let me know if there are problems!
+I'd call that a bug.  Note that this is specific to the net1080
+chip, which hasn't been manufactured for quite a few years now
+and was never hugely popular ... so the significance of getting
+that rarely-seen diagnostic wrong was minor.
 
-Pulled, thanks John.
+- Dave
 
-I'm going to pull net-2.6 into net-next-2.6 and try to sort out
-the wireless merge issues myself.
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
