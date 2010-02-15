@@ -1,473 +1,103 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: [net-next PATCH v4 1/3] sysctl: refactor integer handling proc code
-Date: Tue, 16 Feb 2010 00:00:39 +0200
-Message-ID: <1266271241-6293-2-git-send-email-opurdila@ixiacom.com>
-References: <1266271241-6293-1-git-send-email-opurdila@ixiacom.com>
-Cc: Octavian Purdila <opurdila@ixiacom.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	WANG Cong <amwang@redhat.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1266271241-6293-1-git-send-email-opurdila@ixiacom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: [PATCH 4/4] Staging: Octeon:  Free transmit SKBs in a timely
+ manner.
+Date: Mon, 15 Feb 2010 14:05:22 -0800
+Message-ID: <4B79C522.4040405@caviumnetworks.com>
+References: <4B79AAA6.60005@caviumnetworks.com>	 <1266264799-3510-4-git-send-email-ddaney@caviumnetworks.com>	 <1266265673.2859.5.camel@edumazet-laptop>	 <4B79B15F.7030506@caviumnetworks.com> <1266268271.2859.22.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ralf@linux-mips.org, linux-mips@linux-mips.org,
+	netdev@vger.kernel.org, gregkh@suse.de
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail3.caviumnetworks.com ([12.108.191.235]:2444 "EHLO
+	mail3.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756067Ab0BOWF3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 17:05:29 -0500
+In-Reply-To: <1266268271.2859.22.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As we are about to add another integer handling proc function a little
-bit of cleanup is in order: add a few helper functions to improve code
-readability and decrease code duplication.
+On 02/15/2010 01:11 PM, Eric Dumazet wrote:
+> Le lundi 15 f=C3=A9vrier 2010 =C3=A0 12:41 -0800, David Daney a =C3=A9=
+crit :
+>> On 02/15/2010 12:27 PM, Eric Dumazet wrote:
+>>> Le lundi 15 f=C3=A9vrier 2010 =C3=A0 12:13 -0800, David Daney a =C3=
+=A9crit :
+>>>> If we wait for the once-per-second cleanup to free transmit SKBs,
+>>>> sockets with small transmit buffer sizes might spend most of their
+>>>> time blocked waiting for the cleanup.
+>>>>
+>>>> Normally we do a cleanup for each transmitted packet.  We add a
+>>>> watchdog type timer so that we also schedule a timeout for 150uS a=
+fter
+>>>> a packet is transmitted.  The watchdog is reset for each transmitt=
+ed
+>>>> packet, so for high packet rates, it never expires.  At these high
+>>>> rates, the cleanups are done for each packet so the extra watchdog
+>>>> initiated cleanups are not needed.
+>>>
+>>> s/needed/fired/
+>>>
+>>
+>> or perhaps s/are not needed/are neither needed nor fired/
+>>
+>>> Hmm, but re-arming a timer for each transmited packet must have a c=
+ost ?
+>>>
+>>
+>> The cost is fairly low (less than 10 processor clock cycles).  We di=
+dn't
+>> add this for amusement, people actually do things like only send UDP
+>> packets from userspace.  Since we can fill the transmit queue faster
+>> than it is emptied, the socket transmit buffer is quickly consumed. =
+ If
+>> we don't free the SKBs in short order, the transmitting process get =
+to
+>> take a long sleep (until our previous once per second clean up task =
+was
+>> run).
+>
+> I understand this, but traditionaly, NIC drivers dont use a timer, bu=
+t a
+> 'TX complete' interrupt, that usually fires a few us after packet
+> submission on Gigabit speed.
+>
 
-In the process a bug is fixed as well: if the user specifies a number
-with more then 20 digits it will be interpreted as two integers
-(e.g. 10000...13 will be interpreted as 100.... and 13).
+Indeed.  Lacking this type of interrupt, the watchdog seemed the best=20
+short term solution.
 
-Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
-Cc: WANG Cong <amwang@redhat.com>
-Cc: Eric W. Biederman <ebiederm@xmission.com>
----
- kernel/sysctl.c |  298 +++++++++++++++++++++++++++----------------------------
- 1 files changed, 144 insertions(+), 154 deletions(-)
+I am investigating the possibility of feeding TX complete notifications=
+=20
+back through the RX path where it is possible to generate interrupts.=20
+The drawback to this is that it takes a lot more CPU cycles as well as=20
+added cache pressure.
 
-diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index 8a68b24..b0f9618 100644
---- a/kernel/sysctl.c
-+++ b/kernel/sysctl.c
-@@ -2039,8 +2039,98 @@ int proc_dostring(struct ctl_table *table, int write,
- 			       buffer, lenp, ppos);
- }
- 
-+static int proc_skip_wspace(char __user **buf, size_t *size)
-+{
-+	char c;
-+
-+	while (*size) {
-+		if (get_user(c, *buf))
-+			return -EFAULT;
-+		if (!isspace(c))
-+			break;
-+		(*size)--; (*buf)++;
-+	}
-+
-+	return 0;
-+}
-+
-+#define TMPBUFLEN 22
-+static int proc_get_next_ulong(char __user **buf, size_t *size,
-+			       unsigned long *val, bool *neg)
-+{
-+	int len;
-+	char *p, tmp[TMPBUFLEN];
-+	int err;
-+
-+	err = proc_skip_wspace(buf, size);
-+	if (err)
-+		return err;
-+	if (!*size)
-+		return -EINVAL;
-+
-+	len = *size;
-+	if (len > TMPBUFLEN-1)
-+		len = TMPBUFLEN-1;
-+
-+	if (copy_from_user(tmp, *buf, len))
-+		return -EFAULT;
-+
-+	tmp[len] = 0;
-+	p = tmp;
-+	if (*p == '-' && *size > 1) {
-+		*neg = 1;
-+		p++;
-+	} else
-+		*neg = 0;
-+	if (*p < '0' || *p > '9')
-+		return -EINVAL;
-+
-+	*val = simple_strtoul(p, &p, 0);
-+
-+	len = p - tmp;
-+	if (((len < *size) && *p && !isspace(*p)) ||
-+	    /* We don't know if the next char is whitespace thus we may accept
-+	     * invalid integers (e.g. 1234...a) or two integers instead of one
-+	     * (e.g. 123...1). So lets not allow such large numbers. */
-+	    len == TMPBUFLEN - 1)
-+		return -EINVAL;
- 
--static int do_proc_dointvec_conv(int *negp, unsigned long *lvalp,
-+	*buf += len; *size -= len;
-+
-+	return 0;
-+}
-+
-+static int proc_put_ulong(char __user **buf, size_t *size, unsigned long val,
-+			  bool neg, bool first)
-+{
-+	int len;
-+	char tmp[TMPBUFLEN], *p = tmp;
-+
-+	if (!first)
-+		*p++ = '\t';
-+	sprintf(p, "%s%lu", neg ? "-" : "", val);
-+	len = strlen(tmp);
-+	if (len > *size)
-+		len = *size;
-+	if (copy_to_user(*buf, tmp, len))
-+		return -EFAULT;
-+	*size -= len;
-+	*buf += len;
-+	return 0;
-+}
-+#undef TMPBUFLEN
-+
-+static int proc_put_newline(char __user **buf, size_t *size)
-+{
-+	if (*size) {
-+		if (put_user('\n', *buf))
-+			return -EFAULT;
-+		(*size)--, (*buf)++;
-+	}
-+	return 0;
-+}
-+
-+static int do_proc_dointvec_conv(bool *negp, unsigned long *lvalp,
- 				 int *valp,
- 				 int write, void *data)
- {
-@@ -2049,7 +2139,7 @@ static int do_proc_dointvec_conv(int *negp, unsigned long *lvalp,
- 	} else {
- 		int val = *valp;
- 		if (val < 0) {
--			*negp = -1;
-+			*negp = 1;
- 			*lvalp = (unsigned long)-val;
- 		} else {
- 			*negp = 0;
-@@ -2060,19 +2150,15 @@ static int do_proc_dointvec_conv(int *negp, unsigned long *lvalp,
- }
- 
- static int __do_proc_dointvec(void *tbl_data, struct ctl_table *table,
--		  int write, void __user *buffer,
-+		  int write, void __user *_buffer,
- 		  size_t *lenp, loff_t *ppos,
--		  int (*conv)(int *negp, unsigned long *lvalp, int *valp,
-+		  int (*conv)(bool *negp, unsigned long *lvalp, int *valp,
- 			      int write, void *data),
- 		  void *data)
- {
--#define TMPBUFLEN 21
--	int *i, vleft, first = 1, neg;
--	unsigned long lval;
--	size_t left, len;
--	
--	char buf[TMPBUFLEN], *p;
--	char __user *s = buffer;
-+	int *i, vleft, first = 1, err = 0;
-+	size_t left;
-+	char __user *buffer = (char __user *) _buffer;
- 	
- 	if (!tbl_data || !table->maxlen || !*lenp ||
- 	    (*ppos && !write)) {
-@@ -2088,88 +2174,39 @@ static int __do_proc_dointvec(void *tbl_data, struct ctl_table *table,
- 		conv = do_proc_dointvec_conv;
- 
- 	for (; left && vleft--; i++, first=0) {
--		if (write) {
--			while (left) {
--				char c;
--				if (get_user(c, s))
--					return -EFAULT;
--				if (!isspace(c))
--					break;
--				left--;
--				s++;
--			}
--			if (!left)
--				break;
--			neg = 0;
--			len = left;
--			if (len > sizeof(buf) - 1)
--				len = sizeof(buf) - 1;
--			if (copy_from_user(buf, s, len))
--				return -EFAULT;
--			buf[len] = 0;
--			p = buf;
--			if (*p == '-' && left > 1) {
--				neg = 1;
--				p++;
--			}
--			if (*p < '0' || *p > '9')
--				break;
--
--			lval = simple_strtoul(p, &p, 0);
-+		unsigned long lval;
-+		bool neg;
- 
--			len = p-buf;
--			if ((len < left) && *p && !isspace(*p))
-+		if (write) {
-+			err = proc_get_next_ulong(&buffer, &left, &lval, &neg);
-+			if (err)
- 				break;
--			s += len;
--			left -= len;
--
- 			if (conv(&neg, &lval, i, 1, data))
- 				break;
- 		} else {
--			p = buf;
--			if (!first)
--				*p++ = '\t';
--	
- 			if (conv(&neg, &lval, i, 0, data))
- 				break;
--
--			sprintf(p, "%s%lu", neg ? "-" : "", lval);
--			len = strlen(buf);
--			if (len > left)
--				len = left;
--			if(copy_to_user(s, buf, len))
--				return -EFAULT;
--			left -= len;
--			s += len;
--		}
--	}
--
--	if (!write && !first && left) {
--		if(put_user('\n', s))
--			return -EFAULT;
--		left--, s++;
--	}
--	if (write) {
--		while (left) {
--			char c;
--			if (get_user(c, s++))
--				return -EFAULT;
--			if (!isspace(c))
-+			err = proc_put_ulong(&buffer, &left, lval, neg, first);
-+			if (err)
- 				break;
--			left--;
- 		}
- 	}
--	if (write && first)
--		return -EINVAL;
-+
-+	if (!write && !first && left && !err)
-+		err = proc_put_newline(&buffer, &left);
-+	if (write && !err)
-+		err = proc_skip_wspace(&buffer, &left);
-+	if (err == -EFAULT /* do we really need to check for -EFAULT? */ ||
-+	    (write && first))
-+		return err ? : -EINVAL;
- 	*lenp -= left;
- 	*ppos += *lenp;
- 	return 0;
--#undef TMPBUFLEN
- }
- 
- static int do_proc_dointvec(struct ctl_table *table, int write,
- 		  void __user *buffer, size_t *lenp, loff_t *ppos,
--		  int (*conv)(int *negp, unsigned long *lvalp, int *valp,
-+		  int (*conv)(bool *negp, unsigned long *lvalp, int *valp,
- 			      int write, void *data),
- 		  void *data)
- {
-@@ -2237,8 +2274,8 @@ struct do_proc_dointvec_minmax_conv_param {
- 	int *max;
- };
- 
--static int do_proc_dointvec_minmax_conv(int *negp, unsigned long *lvalp, 
--					int *valp, 
-+static int do_proc_dointvec_minmax_conv(bool *negp, unsigned long *lvalp,
-+					int *valp,
- 					int write, void *data)
- {
- 	struct do_proc_dointvec_minmax_conv_param *param = data;
-@@ -2251,7 +2288,7 @@ static int do_proc_dointvec_minmax_conv(int *negp, unsigned long *lvalp,
- 	} else {
- 		int val = *valp;
- 		if (val < 0) {
--			*negp = -1;
-+			*negp = 1;
- 			*lvalp = (unsigned long)-val;
- 		} else {
- 			*negp = 0;
-@@ -2289,17 +2326,15 @@ int proc_dointvec_minmax(struct ctl_table *table, int write,
- }
- 
- static int __do_proc_doulongvec_minmax(void *data, struct ctl_table *table, int write,
--				     void __user *buffer,
-+				     void __user *_buffer,
- 				     size_t *lenp, loff_t *ppos,
- 				     unsigned long convmul,
- 				     unsigned long convdiv)
- {
--#define TMPBUFLEN 21
--	unsigned long *i, *min, *max, val;
--	int vleft, first=1, neg;
--	size_t len, left;
--	char buf[TMPBUFLEN], *p;
--	char __user *s = buffer;
-+	unsigned long *i, *min, *max;
-+	int vleft, first = 1, err = 0;
-+	size_t left;
-+	char __user *buffer = (char __user *) _buffer;
- 	
- 	if (!data || !table->maxlen || !*lenp ||
- 	    (*ppos && !write)) {
-@@ -2314,82 +2349,37 @@ static int __do_proc_doulongvec_minmax(void *data, struct ctl_table *table, int
- 	left = *lenp;
- 	
- 	for (; left && vleft--; i++, min++, max++, first=0) {
-+		unsigned long val;
-+
- 		if (write) {
--			while (left) {
--				char c;
--				if (get_user(c, s))
--					return -EFAULT;
--				if (!isspace(c))
--					break;
--				left--;
--				s++;
--			}
--			if (!left)
--				break;
--			neg = 0;
--			len = left;
--			if (len > TMPBUFLEN-1)
--				len = TMPBUFLEN-1;
--			if (copy_from_user(buf, s, len))
--				return -EFAULT;
--			buf[len] = 0;
--			p = buf;
--			if (*p == '-' && left > 1) {
--				neg = 1;
--				p++;
--			}
--			if (*p < '0' || *p > '9')
--				break;
--			val = simple_strtoul(p, &p, 0) * convmul / convdiv ;
--			len = p-buf;
--			if ((len < left) && *p && !isspace(*p))
-+			bool neg;
-+
-+			err = proc_get_next_ulong(&buffer, &left, &val, &neg);
-+			if (err)
- 				break;
- 			if (neg)
--				val = -val;
--			s += len;
--			left -= len;
--
--			if(neg)
- 				continue;
- 			if ((min && val < *min) || (max && val > *max))
- 				continue;
- 			*i = val;
- 		} else {
--			p = buf;
--			if (!first)
--				*p++ = '\t';
--			sprintf(p, "%lu", convdiv * (*i) / convmul);
--			len = strlen(buf);
--			if (len > left)
--				len = left;
--			if(copy_to_user(s, buf, len))
--				return -EFAULT;
--			left -= len;
--			s += len;
--		}
--	}
--
--	if (!write && !first && left) {
--		if(put_user('\n', s))
--			return -EFAULT;
--		left--, s++;
--	}
--	if (write) {
--		while (left) {
--			char c;
--			if (get_user(c, s++))
--				return -EFAULT;
--			if (!isspace(c))
-+			val = convdiv * (*i) / convmul;
-+			err = proc_put_ulong(&buffer, &left, val, 0, first);
-+			if (err)
- 				break;
--			left--;
- 		}
- 	}
--	if (write && first)
--		return -EINVAL;
-+
-+	if (!write && !first && left && !err)
-+		err = proc_put_newline(&buffer, &left);
-+	if (write && !err)
-+		err = proc_skip_wspace(&buffer, &left);
-+	if (err == -EFAULT /* do we really need to check for -EFAULT? */ ||
-+	    (write && first))
-+		return err ? : -EINVAL;
- 	*lenp -= left;
- 	*ppos += *lenp;
- 	return 0;
--#undef TMPBUFLEN
- }
- 
- static int do_proc_doulongvec_minmax(struct ctl_table *table, int write,
-@@ -2450,7 +2440,7 @@ int proc_doulongvec_ms_jiffies_minmax(struct ctl_table *table, int write,
- }
- 
- 
--static int do_proc_dointvec_jiffies_conv(int *negp, unsigned long *lvalp,
-+static int do_proc_dointvec_jiffies_conv(bool *negp, unsigned long *lvalp,
- 					 int *valp,
- 					 int write, void *data)
- {
-@@ -2462,7 +2452,7 @@ static int do_proc_dointvec_jiffies_conv(int *negp, unsigned long *lvalp,
- 		int val = *valp;
- 		unsigned long lval;
- 		if (val < 0) {
--			*negp = -1;
-+			*negp = 1;
- 			lval = (unsigned long)-val;
- 		} else {
- 			*negp = 0;
-@@ -2473,7 +2463,7 @@ static int do_proc_dointvec_jiffies_conv(int *negp, unsigned long *lvalp,
- 	return 0;
- }
- 
--static int do_proc_dointvec_userhz_jiffies_conv(int *negp, unsigned long *lvalp,
-+static int do_proc_dointvec_userhz_jiffies_conv(bool *negp, unsigned long *lvalp,
- 						int *valp,
- 						int write, void *data)
- {
-@@ -2485,7 +2475,7 @@ static int do_proc_dointvec_userhz_jiffies_conv(int *negp, unsigned long *lvalp,
- 		int val = *valp;
- 		unsigned long lval;
- 		if (val < 0) {
--			*negp = -1;
-+			*negp = 1;
- 			lval = (unsigned long)-val;
- 		} else {
- 			*negp = 0;
-@@ -2496,7 +2486,7 @@ static int do_proc_dointvec_userhz_jiffies_conv(int *negp, unsigned long *lvalp,
- 	return 0;
- }
- 
--static int do_proc_dointvec_ms_jiffies_conv(int *negp, unsigned long *lvalp,
-+static int do_proc_dointvec_ms_jiffies_conv(bool *negp, unsigned long *lvalp,
- 					    int *valp,
- 					    int write, void *data)
- {
-@@ -2506,7 +2496,7 @@ static int do_proc_dointvec_ms_jiffies_conv(int *negp, unsigned long *lvalp,
- 		int val = *valp;
- 		unsigned long lval;
- 		if (val < 0) {
--			*negp = -1;
-+			*negp = 1;
- 			lval = (unsigned long)-val;
- 		} else {
- 			*negp = 0;
--- 
-1.5.6.5
+> A fast program could try to send X small udp packets in less than 150
+> us, X being greater than the size of your TX ring.
+
+My TX queue (it is not a ring) size can be made arbitrarily large=20
+(currently 1000).  64bytes * 1000 packets * 10 bits/packet / 10e9=20
+bits/sec  =3D=3D 640uS.  My watchdog will fire after less than 1/4 of t=
+he=20
+ring capacity is freed.
+
+>
+> So your patch makes the window smaller, but it still is there (at
+> physical layer, we'll see a burst of packets, a ~100us delay, then a
+> second burst)
+>
+
+With this patch, there will be no burstiness using default socket buffe=
+r=20
+sizes and packets of arbitrary size on a standard 1gig port.
+
+On the 10gig ports there is the possibility for burstiness as you aptly=
+=20
+explain.  However, in practice it would be difficult to arrange things=20
+to achieve sufficiently high packet rates, so we can live with it like =
+this.
+
+David Daney
