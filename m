@@ -1,47 +1,32 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [net-next-2.6 PATCH 1/7] xfrm: introduce basic mark infrastructure
-Date: Mon, 15 Feb 2010 16:42:40 +0100
-Message-ID: <4B796B70.2050102@trash.net>
-References: <xfrm-mark-net-next> <1266160732-946-1-git-send-email-hadi@cyberus.ca> <1266160732-946-2-git-send-email-hadi@cyberus.ca>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 2/2] tun: socket filter support
+Date: Mon, 15 Feb 2010 16:45:01 +0100
+Message-ID: <201002151645.01410.arnd@arndb.de>
+References: <cover.1266144917.git.mst@redhat.com> <20100214110110.GC30182@redhat.com> <4B79673B.7050908@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: timo.teras@iki.fi, herbert@gondor.apana.org.au,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:63265 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755689Ab0BOPmn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 10:42:43 -0500
-In-Reply-To: <1266160732-946-2-git-send-email-hadi@cyberus.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Paul Moore <paul.moore@hp.com>,
+	David Woodhouse <David.Woodhouse@intel.com>,
+	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4B79673B.7050908@trash.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> +static inline int xfrm_mark_get(struct nlattr **attrs, struct xfrm_kmark *m)
-> +{
-> +	if (attrs[XFRMA_MARK])
-> +		memcpy(m, nla_data(attrs[XFRMA_MARK]), sizeof(m));
-> +	else
-> +		m->v = m->m = 0;
-> +
-> +	return m->v & m->m;
-> +}
-> +
-> +static inline int xfrm_mark_put(struct sk_buff *skb, struct xfrm_kmark *m)
-> +{
-> +	if (m->m & m->v)
-> +		NLA_PUT(skb, XFRMA_MARK, sizeof(struct xfrm_kmark), m);
+On Monday 15 February 2010, Patrick McHardy wrote:
+> I'm not sure how the tun socket is exposed, but won't the regular
+> SO_ATTACH_FILTER/SO_DETACH_FILTER setsockopts already work for
+> tun sockets?
 
-This doesn't look right. A mark value of 0 with a mask of ~0 won't
-be properly dumped. I think this should check for (m->m | m->v).
+The tun socket is not exposed at all, it's an implementation detail
+of the tun/tap driver, which only has a chardev interface with
+ioctl methods.
 
-> +	return 0;
-> +
-> +nla_put_failure:
-> +	return -1;
-> +}
-> +
->  #endif	/* _NET_XFRM_H */
-
+	Arnd
