@@ -1,40 +1,47 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] niu.c: Use pr_<level>, netdev_<level> and
- netif_<level> macros
-Date: Mon, 15 Feb 2010 00:40:53 -0800
-Message-ID: <1266223253.16721.974.camel@Joe-Laptop.home>
-References: <20100214.224108.51485961.davem@davemloft.net>
-	 <20100215.001319.150697350.davem@davemloft.net>
-	 <1266222199.16721.967.camel@Joe-Laptop.home>
-	 <20100215.003009.124053644.davem@davemloft.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next-2.6] macvtap: Add GSO/csum offload support
+Date: Mon, 15 Feb 2010 10:19:27 +0100
+Message-ID: <201002151019.27364.arnd@arndb.de>
+References: <1266013667.6105.18.camel@w-sridhar.beaverton.ibm.com> <201002142013.08745.arnd@arndb.de> <20100215002131.GC15437@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
-To: David Miller <davem@davemloft.net>
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1060 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752186Ab0BOIkz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Feb 2010 03:40:55 -0500
-In-Reply-To: <20100215.003009.124053644.davem@davemloft.net>
+Received: from moutng.kundenserver.de ([212.227.126.186]:53293 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753941Ab0BOJUJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 04:20:09 -0500
+In-Reply-To: <20100215002131.GC15437@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-02-15 at 00:30 -0800, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Mon, 15 Feb 2010 00:23:19 -0800
+On Monday 15 February 2010, Herbert Xu wrote:
+> On Sun, Feb 14, 2010 at 08:13:08PM +0100, Arnd Bergmann wrote:
+> >
+> > Ah, good point. Will that also work for the checksumming? Also, should the
+> > host really be doing segmentation and checksumming for the guest if the
+> > hardware can't do it? So even if everything works correctly, we might
+> > want to let the guest do the work in order to get accounting of the CPU
+> > cycles right.
 > 
-> > This creates a logging message without trailing \n
-> > if netif_msg_intr is false.
-> 
-> How so?  The first message in this function is keyed
-> off of 'intr' message debugging flag.
+> Yes the amount you save by ensuring we postpone the processing until
+> as last as possible is tremendous.
 
-Quite right.  I misread it.
+Ok. If the host actually saves more time than it spends on segmenting
+the data, the accounting problem doesn't exist.
 
-It might be better to move/merge the two parts of
-the message.
+> As for accounting, it depends on how we structure the vhost backend.
+> If it could stay in the process context of the qemu process then all
+> should be fine.
 
-cheers, Joe
+I believe the bulk of the work is currently done in a separate
+kernel thread that is shared by all users of vhost. We can probably
+try some measurements and see if any insane amounts of time are
+spent in that thread.
 
+	Arnd
