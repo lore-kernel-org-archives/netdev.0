@@ -1,37 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: includes build break - was Re: [net-next-2.6 PATCH v5 0/3]
- Introduce n-tuple ethtool support
-Date: Sun, 14 Feb 2010 22:38:30 -0800 (PST)
-Message-ID: <20100214.223830.161700350.davem@davemloft.net>
-References: <20100211020310.23436.85885.stgit@localhost.localdomain>
-	<20100210.195445.190157100.davem@davemloft.net>
-	<4B77E4EC.30407@hartkopp.net>
+Subject: Re: [PATCH net-next] niu.c: Use pr_<level>, netdev_<level> and
+ netif_<level> macros
+Date: Sun, 14 Feb 2010 22:41:08 -0800 (PST)
+Message-ID: <20100214.224108.51485961.davem@davemloft.net>
+References: <cover.1265751023.git.joe@perches.com>
+	<20100212.123129.163263355.davem@davemloft.net>
+	<1266194829.16721.940.camel@Joe-Laptop.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peter.p.waskiewicz.jr@intel.com, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, gospo@redhat.com
-To: socketcan@hartkopp.net
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34686
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32994
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753404Ab0BOGiP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 01:38:15 -0500
-In-Reply-To: <4B77E4EC.30407@hartkopp.net>
+	by vger.kernel.org with ESMTP id S1752064Ab0BOGkx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Feb 2010 01:40:53 -0500
+In-Reply-To: <1266194829.16721.940.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Date: Sun, 14 Feb 2010 12:56:28 +0100
+From: Joe Perches <joe@perches.com>
+Date: Sun, 14 Feb 2010 16:47:09 -0800
 
-> The patch below fixes the issue.
+> OK David, here you go.
 > 
-> Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
+> I'm not sure of the conversions of:
+> 	dev_<level>(np->device,...
+> to
+> 	netdev_<level>(np->dev,...
+> 
+> It compiles, but dunno if it's correct (no hw to test)
+> 
+> Remove #define PFX
+> Add pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> Convert printks to pr_<level>
+> Convert printks without levels to pr_cont
+> Convert pr_<level> with np->dev to netdev_<level>
+> Convert dev_<level> to netdev_<level>
+> Convert niudbg to netif_printk
+> Convert niuinfo, niuwarn macros to netif_<level>(priv, type, dev...
+> Coalesce long formats
+> Convert embedded function names to "%s", __func__
+> Always use "%s()..." when __func__ is printed
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Oliver, thanks for your patch.
+Thanks Joe.
 
-I'm going to fix this slightly differently by moving
-the rculist.h include down into the existing __KERNEL__
-ifdef protected code block.
+It looks good here and I'll give it a quick test before
+doing a final push of this into net-next-2.6
 
 Thanks!
