@@ -1,191 +1,259 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 45/62: nf_nat_sip: add TCP support
-Date: Tue, 16 Feb 2010 15:56:21 +0100 (MET)
-Message-ID: <20100216145618.2796.93098.sendpatchset@x2.localnet>
+Subject: netfilter 61/62: ebtables: avoid explicit XT_ALIGN() in match/targets
+Date: Tue, 16 Feb 2010 15:56:42 +0100 (MET)
+Message-ID: <20100216145640.2796.35967.sendpatchset@x2.localnet>
 References: <20100216145517.2796.40634.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:52133 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932850Ab0BPO4n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 09:56:43 -0500
 In-Reply-To: <20100216145517.2796.40634.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 48f8ac26537c1b7b1a2422f5232f45d06c945348
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Thu Feb 11 12:29:38 2010 +0100
+commit fc0e3df4f00a5f62c2f2fce84bf496136b58c474
+Author: Florian Westphal <fwestphal@astaro.com>
+Date:   Mon Feb 15 18:16:26 2010 +0100
 
-    netfilter: nf_nat_sip: add TCP support
+    netfilter: ebtables: avoid explicit XT_ALIGN() in match/targets
     
-    Add support for mangling TCP SIP packets.
+    This will cause trouble once CONFIG_COMPAT support is added to ebtables.
+    xt_compat_*_offset() calculate the kernel/userland structure size delta
+    using:
     
+    XT_ALIGN(size) - COMPAT_XT_ALIGN(size)
+    
+    If the match/target sizes are aligned at registration time,
+    delta is always zero.
+    
+    Should have zero effect for existing systems: xtables uses
+    XT_ALIGN() whenever it deals with match/target sizes.
+    
+    Signed-off-by: Florian Westphal <fwestphal@astaro.com>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/linux/netfilter/nf_conntrack_sip.h b/include/linux/netfilter/nf_conntrack_sip.h
-index fa9bb89..cd84d6f 100644
---- a/include/linux/netfilter/nf_conntrack_sip.h
-+++ b/include/linux/netfilter/nf_conntrack_sip.h
-@@ -104,6 +104,7 @@ extern unsigned int (*nf_nat_sip_hook)(struct sk_buff *skb,
- 				       unsigned int dataoff,
- 				       const char **dptr,
- 				       unsigned int *datalen);
-+extern void (*nf_nat_sip_seq_adjust_hook)(struct sk_buff *skb, s16 off);
- extern unsigned int (*nf_nat_sip_expect_hook)(struct sk_buff *skb,
- 					      unsigned int dataoff,
- 					      const char **dptr,
-diff --git a/net/ipv4/netfilter/nf_nat_sip.c b/net/ipv4/netfilter/nf_nat_sip.c
-index b232e40..11b538d 100644
---- a/net/ipv4/netfilter/nf_nat_sip.c
-+++ b/net/ipv4/netfilter/nf_nat_sip.c
-@@ -1,4 +1,4 @@
--/* SIP extension for UDP NAT alteration.
-+/* SIP extension for NAT alteration.
-  *
-  * (C) 2005 by Christian Hentschel <chentschel@arnet.com.ar>
-  * based on RR's ip_nat_ftp.c and other modules.
-@@ -15,6 +15,7 @@
- #include <linux/ip.h>
- #include <net/ip.h>
- #include <linux/udp.h>
-+#include <linux/tcp.h>
+diff --git a/net/bridge/netfilter/ebt_802_3.c b/net/bridge/netfilter/ebt_802_3.c
+index bd91dc5..5d11767 100644
+--- a/net/bridge/netfilter/ebt_802_3.c
++++ b/net/bridge/netfilter/ebt_802_3.c
+@@ -52,7 +52,7 @@ static struct xt_match ebt_802_3_mt_reg __read_mostly = {
+ 	.family		= NFPROTO_BRIDGE,
+ 	.match		= ebt_802_3_mt,
+ 	.checkentry	= ebt_802_3_mt_check,
+-	.matchsize	= XT_ALIGN(sizeof(struct ebt_802_3_info)),
++	.matchsize	= sizeof(struct ebt_802_3_info),
+ 	.me		= THIS_MODULE,
+ };
  
- #include <net/netfilter/nf_nat.h>
- #include <net/netfilter/nf_nat_helper.h>
-@@ -36,10 +37,27 @@ static unsigned int mangle_packet(struct sk_buff *skb, unsigned int dataoff,
- {
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
--
--	if (!nf_nat_mangle_udp_packet(skb, ct, ctinfo, matchoff, matchlen,
--				      buffer, buflen))
--		return 0;
-+	struct tcphdr *th;
-+	unsigned int baseoff;
-+
-+	if (nf_ct_protonum(ct) == IPPROTO_TCP) {
-+		th = (struct tcphdr *)(skb->data + ip_hdrlen(skb));
-+		baseoff = ip_hdrlen(skb) + th->doff * 4;
-+		matchoff += dataoff - baseoff;
-+
-+		if (!__nf_nat_mangle_tcp_packet(skb, ct, ctinfo,
-+						matchoff, matchlen,
-+						buffer, buflen, false))
-+			return 0;
-+	} else {
-+		baseoff = ip_hdrlen(skb) + sizeof(struct udphdr);
-+		matchoff += dataoff - baseoff;
-+
-+		if (!nf_nat_mangle_udp_packet(skb, ct, ctinfo,
-+					      matchoff, matchlen,
-+					      buffer, buflen))
-+			return 0;
-+	}
+diff --git a/net/bridge/netfilter/ebt_arp.c b/net/bridge/netfilter/ebt_arp.c
+index b7ad604..e727697 100644
+--- a/net/bridge/netfilter/ebt_arp.c
++++ b/net/bridge/netfilter/ebt_arp.c
+@@ -120,7 +120,7 @@ static struct xt_match ebt_arp_mt_reg __read_mostly = {
+ 	.family		= NFPROTO_BRIDGE,
+ 	.match		= ebt_arp_mt,
+ 	.checkentry	= ebt_arp_mt_check,
+-	.matchsize	= XT_ALIGN(sizeof(struct ebt_arp_info)),
++	.matchsize	= sizeof(struct ebt_arp_info),
+ 	.me		= THIS_MODULE,
+ };
  
- 	/* Reload data pointer and adjust datalen value */
- 	*dptr = skb->data + dataoff;
-@@ -104,6 +122,7 @@ static unsigned int ip_nat_sip(struct sk_buff *skb, unsigned int dataoff,
- 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
- 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
- 	unsigned int coff, matchoff, matchlen;
-+	enum sip_header_types hdr;
- 	union nf_inet_addr addr;
- 	__be16 port;
- 	int request, in_header;
-@@ -120,9 +139,14 @@ static unsigned int ip_nat_sip(struct sk_buff *skb, unsigned int dataoff,
- 	} else
- 		request = 0;
+diff --git a/net/bridge/netfilter/ebt_arpreply.c b/net/bridge/netfilter/ebt_arpreply.c
+index 76584cd..f392e9d 100644
+--- a/net/bridge/netfilter/ebt_arpreply.c
++++ b/net/bridge/netfilter/ebt_arpreply.c
+@@ -78,7 +78,7 @@ static struct xt_target ebt_arpreply_tg_reg __read_mostly = {
+ 	.hooks		= (1 << NF_BR_NUMHOOKS) | (1 << NF_BR_PRE_ROUTING),
+ 	.target		= ebt_arpreply_tg,
+ 	.checkentry	= ebt_arpreply_tg_check,
+-	.targetsize	= XT_ALIGN(sizeof(struct ebt_arpreply_info)),
++	.targetsize	= sizeof(struct ebt_arpreply_info),
+ 	.me		= THIS_MODULE,
+ };
  
-+	if (nf_ct_protonum(ct) == IPPROTO_TCP)
-+		hdr = SIP_HDR_VIA_TCP;
-+	else
-+		hdr = SIP_HDR_VIA_UDP;
-+
- 	/* Translate topmost Via header and parameters */
- 	if (ct_sip_parse_header_uri(ct, *dptr, NULL, *datalen,
--				    SIP_HDR_VIA_UDP, NULL, &matchoff, &matchlen,
-+				    hdr, NULL, &matchoff, &matchlen,
- 				    &addr, &port) > 0) {
- 		unsigned int matchend, poff, plen, buflen, n;
- 		char buffer[sizeof("nnn.nnn.nnn.nnn:nnnnn")];
-@@ -204,9 +228,23 @@ next:
- 	if (!map_sip_addr(skb, dataoff, dptr, datalen, SIP_HDR_FROM) ||
- 	    !map_sip_addr(skb, dataoff, dptr, datalen, SIP_HDR_TO))
- 		return NF_DROP;
-+
- 	return NF_ACCEPT;
- }
+diff --git a/net/bridge/netfilter/ebt_dnat.c b/net/bridge/netfilter/ebt_dnat.c
+index 6b49ea9..2bb40d7 100644
+--- a/net/bridge/netfilter/ebt_dnat.c
++++ b/net/bridge/netfilter/ebt_dnat.c
+@@ -54,7 +54,7 @@ static struct xt_target ebt_dnat_tg_reg __read_mostly = {
+ 			  (1 << NF_BR_LOCAL_OUT) | (1 << NF_BR_BROUTING),
+ 	.target		= ebt_dnat_tg,
+ 	.checkentry	= ebt_dnat_tg_check,
+-	.targetsize	= XT_ALIGN(sizeof(struct ebt_nat_info)),
++	.targetsize	= sizeof(struct ebt_nat_info),
+ 	.me		= THIS_MODULE,
+ };
  
-+static void ip_nat_sip_seq_adjust(struct sk_buff *skb, s16 off)
-+{
-+	enum ip_conntrack_info ctinfo;
-+	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
-+	const struct tcphdr *th;
-+
-+	if (nf_ct_protonum(ct) != IPPROTO_TCP || off == 0)
-+		return;
-+
-+	th = (struct tcphdr *)(skb->data + ip_hdrlen(skb));
-+	nf_nat_set_seq_adjust(ct, ctinfo, th->seq, off);
-+}
-+
- /* Handles expected signalling connections and media streams */
- static void ip_nat_sip_expected(struct nf_conn *ct,
- 				struct nf_conntrack_expect *exp)
-@@ -472,6 +510,7 @@ err1:
- static void __exit nf_nat_sip_fini(void)
- {
- 	rcu_assign_pointer(nf_nat_sip_hook, NULL);
-+	rcu_assign_pointer(nf_nat_sip_seq_adjust_hook, NULL);
- 	rcu_assign_pointer(nf_nat_sip_expect_hook, NULL);
- 	rcu_assign_pointer(nf_nat_sdp_addr_hook, NULL);
- 	rcu_assign_pointer(nf_nat_sdp_port_hook, NULL);
-@@ -483,12 +522,14 @@ static void __exit nf_nat_sip_fini(void)
- static int __init nf_nat_sip_init(void)
- {
- 	BUG_ON(nf_nat_sip_hook != NULL);
-+	BUG_ON(nf_nat_sip_seq_adjust_hook != NULL);
- 	BUG_ON(nf_nat_sip_expect_hook != NULL);
- 	BUG_ON(nf_nat_sdp_addr_hook != NULL);
- 	BUG_ON(nf_nat_sdp_port_hook != NULL);
- 	BUG_ON(nf_nat_sdp_session_hook != NULL);
- 	BUG_ON(nf_nat_sdp_media_hook != NULL);
- 	rcu_assign_pointer(nf_nat_sip_hook, ip_nat_sip);
-+	rcu_assign_pointer(nf_nat_sip_seq_adjust_hook, ip_nat_sip_seq_adjust);
- 	rcu_assign_pointer(nf_nat_sip_expect_hook, ip_nat_sip_expect);
- 	rcu_assign_pointer(nf_nat_sdp_addr_hook, ip_nat_sdp_addr);
- 	rcu_assign_pointer(nf_nat_sdp_port_hook, ip_nat_sdp_port);
-diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
-index 1cc75c5..3bb3aaf 100644
---- a/net/netfilter/nf_conntrack_sip.c
-+++ b/net/netfilter/nf_conntrack_sip.c
-@@ -56,6 +56,9 @@ unsigned int (*nf_nat_sip_hook)(struct sk_buff *skb, unsigned int dataoff,
- 				unsigned int *datalen) __read_mostly;
- EXPORT_SYMBOL_GPL(nf_nat_sip_hook);
+diff --git a/net/bridge/netfilter/ebt_ip.c b/net/bridge/netfilter/ebt_ip.c
+index d771bbf..5de6df6 100644
+--- a/net/bridge/netfilter/ebt_ip.c
++++ b/net/bridge/netfilter/ebt_ip.c
+@@ -110,7 +110,7 @@ static struct xt_match ebt_ip_mt_reg __read_mostly = {
+ 	.family		= NFPROTO_BRIDGE,
+ 	.match		= ebt_ip_mt,
+ 	.checkentry	= ebt_ip_mt_check,
+-	.matchsize	= XT_ALIGN(sizeof(struct ebt_ip_info)),
++	.matchsize	= sizeof(struct ebt_ip_info),
+ 	.me		= THIS_MODULE,
+ };
  
-+void (*nf_nat_sip_seq_adjust_hook)(struct sk_buff *skb, s16 off) __read_mostly;
-+EXPORT_SYMBOL_GPL(nf_nat_sip_seq_adjust_hook);
-+
- unsigned int (*nf_nat_sip_expect_hook)(struct sk_buff *skb,
- 				       unsigned int dataoff,
- 				       const char **dptr,
-@@ -1360,6 +1363,7 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
- 	const char *dptr, *end;
- 	s16 diff, tdiff = 0;
- 	int ret;
-+	typeof(nf_nat_sip_seq_adjust_hook) nf_nat_sip_seq_adjust;
+diff --git a/net/bridge/netfilter/ebt_ip6.c b/net/bridge/netfilter/ebt_ip6.c
+index 784a657..bbf2534 100644
+--- a/net/bridge/netfilter/ebt_ip6.c
++++ b/net/bridge/netfilter/ebt_ip6.c
+@@ -122,7 +122,7 @@ static struct xt_match ebt_ip6_mt_reg __read_mostly = {
+ 	.family		= NFPROTO_BRIDGE,
+ 	.match		= ebt_ip6_mt,
+ 	.checkentry	= ebt_ip6_mt_check,
+-	.matchsize	= XT_ALIGN(sizeof(struct ebt_ip6_info)),
++	.matchsize	= sizeof(struct ebt_ip6_info),
+ 	.me		= THIS_MODULE,
+ };
  
- 	if (ctinfo != IP_CT_ESTABLISHED &&
- 	    ctinfo != IP_CT_ESTABLISHED + IP_CT_IS_REPLY)
-@@ -1415,6 +1419,12 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
- 		datalen  = datalen + diff - msglen;
- 	}
+diff --git a/net/bridge/netfilter/ebt_limit.c b/net/bridge/netfilter/ebt_limit.c
+index f7bd919..9dd16e6 100644
+--- a/net/bridge/netfilter/ebt_limit.c
++++ b/net/bridge/netfilter/ebt_limit.c
+@@ -90,7 +90,7 @@ static struct xt_match ebt_limit_mt_reg __read_mostly = {
+ 	.family		= NFPROTO_BRIDGE,
+ 	.match		= ebt_limit_mt,
+ 	.checkentry	= ebt_limit_mt_check,
+-	.matchsize	= XT_ALIGN(sizeof(struct ebt_limit_info)),
++	.matchsize	= sizeof(struct ebt_limit_info),
+ 	.me		= THIS_MODULE,
+ };
  
-+	if (ret == NF_ACCEPT && ct->status & IPS_NAT_MASK) {
-+		nf_nat_sip_seq_adjust = rcu_dereference(nf_nat_sip_seq_adjust_hook);
-+		if (nf_nat_sip_seq_adjust)
-+			nf_nat_sip_seq_adjust(skb, tdiff);
-+	}
-+
- 	return ret;
- }
+diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
+index e4ea3fd..e873924 100644
+--- a/net/bridge/netfilter/ebt_log.c
++++ b/net/bridge/netfilter/ebt_log.c
+@@ -195,7 +195,7 @@ static struct xt_target ebt_log_tg_reg __read_mostly = {
+ 	.family		= NFPROTO_BRIDGE,
+ 	.target		= ebt_log_tg,
+ 	.checkentry	= ebt_log_tg_check,
+-	.targetsize	= XT_ALIGN(sizeof(struct ebt_log_info)),
++	.targetsize	= sizeof(struct ebt_log_info),
+ 	.me		= THIS_MODULE,
+ };
+ 
+diff --git a/net/bridge/netfilter/ebt_mark.c b/net/bridge/netfilter/ebt_mark.c
+index 2fee7e8..153e167 100644
+--- a/net/bridge/netfilter/ebt_mark.c
++++ b/net/bridge/netfilter/ebt_mark.c
+@@ -59,7 +59,7 @@ static struct xt_target ebt_mark_tg_reg __read_mostly = {
+ 	.family		= NFPROTO_BRIDGE,
+ 	.target		= ebt_mark_tg,
+ 	.checkentry	= ebt_mark_tg_check,
+-	.targetsize	= XT_ALIGN(sizeof(struct ebt_mark_t_info)),
++	.targetsize	= sizeof(struct ebt_mark_t_info),
+ 	.me		= THIS_MODULE,
+ };
+ 
+diff --git a/net/bridge/netfilter/ebt_mark_m.c b/net/bridge/netfilter/ebt_mark_m.c
+index ea570f2..89abf40 100644
+--- a/net/bridge/netfilter/ebt_mark_m.c
++++ b/net/bridge/netfilter/ebt_mark_m.c
+@@ -41,7 +41,7 @@ static struct xt_match ebt_mark_mt_reg __read_mostly = {
+ 	.family		= NFPROTO_BRIDGE,
+ 	.match		= ebt_mark_mt,
+ 	.checkentry	= ebt_mark_mt_check,
+-	.matchsize	= XT_ALIGN(sizeof(struct ebt_mark_m_info)),
++	.matchsize	= sizeof(struct ebt_mark_m_info),
+ 	.me		= THIS_MODULE,
+ };
+ 
+diff --git a/net/bridge/netfilter/ebt_nflog.c b/net/bridge/netfilter/ebt_nflog.c
+index 2a63d99..40dbd24 100644
+--- a/net/bridge/netfilter/ebt_nflog.c
++++ b/net/bridge/netfilter/ebt_nflog.c
+@@ -51,7 +51,7 @@ static struct xt_target ebt_nflog_tg_reg __read_mostly = {
+ 	.family     = NFPROTO_BRIDGE,
+ 	.target     = ebt_nflog_tg,
+ 	.checkentry = ebt_nflog_tg_check,
+-	.targetsize = XT_ALIGN(sizeof(struct ebt_nflog_info)),
++	.targetsize = sizeof(struct ebt_nflog_info),
+ 	.me         = THIS_MODULE,
+ };
+ 
+diff --git a/net/bridge/netfilter/ebt_pkttype.c b/net/bridge/netfilter/ebt_pkttype.c
+index 883e96e..e2a07e6 100644
+--- a/net/bridge/netfilter/ebt_pkttype.c
++++ b/net/bridge/netfilter/ebt_pkttype.c
+@@ -36,7 +36,7 @@ static struct xt_match ebt_pkttype_mt_reg __read_mostly = {
+ 	.family		= NFPROTO_BRIDGE,
+ 	.match		= ebt_pkttype_mt,
+ 	.checkentry	= ebt_pkttype_mt_check,
+-	.matchsize	= XT_ALIGN(sizeof(struct ebt_pkttype_info)),
++	.matchsize	= sizeof(struct ebt_pkttype_info),
+ 	.me		= THIS_MODULE,
+ };
+ 
+diff --git a/net/bridge/netfilter/ebt_redirect.c b/net/bridge/netfilter/ebt_redirect.c
+index c8a49f7..9be8fbc 100644
+--- a/net/bridge/netfilter/ebt_redirect.c
++++ b/net/bridge/netfilter/ebt_redirect.c
+@@ -59,7 +59,7 @@ static struct xt_target ebt_redirect_tg_reg __read_mostly = {
+ 			  (1 << NF_BR_BROUTING),
+ 	.target		= ebt_redirect_tg,
+ 	.checkentry	= ebt_redirect_tg_check,
+-	.targetsize	= XT_ALIGN(sizeof(struct ebt_redirect_info)),
++	.targetsize	= sizeof(struct ebt_redirect_info),
+ 	.me		= THIS_MODULE,
+ };
+ 
+diff --git a/net/bridge/netfilter/ebt_snat.c b/net/bridge/netfilter/ebt_snat.c
+index 8d04d4c..9c7b520 100644
+--- a/net/bridge/netfilter/ebt_snat.c
++++ b/net/bridge/netfilter/ebt_snat.c
+@@ -67,7 +67,7 @@ static struct xt_target ebt_snat_tg_reg __read_mostly = {
+ 	.hooks		= (1 << NF_BR_NUMHOOKS) | (1 << NF_BR_POST_ROUTING),
+ 	.target		= ebt_snat_tg,
+ 	.checkentry	= ebt_snat_tg_check,
+-	.targetsize	= XT_ALIGN(sizeof(struct ebt_nat_info)),
++	.targetsize	= sizeof(struct ebt_nat_info),
+ 	.me		= THIS_MODULE,
+ };
+ 
+diff --git a/net/bridge/netfilter/ebt_stp.c b/net/bridge/netfilter/ebt_stp.c
+index 75e29a9..92a93d3 100644
+--- a/net/bridge/netfilter/ebt_stp.c
++++ b/net/bridge/netfilter/ebt_stp.c
+@@ -177,7 +177,7 @@ static struct xt_match ebt_stp_mt_reg __read_mostly = {
+ 	.family		= NFPROTO_BRIDGE,
+ 	.match		= ebt_stp_mt,
+ 	.checkentry	= ebt_stp_mt_check,
+-	.matchsize	= XT_ALIGN(sizeof(struct ebt_stp_info)),
++	.matchsize	= sizeof(struct ebt_stp_info),
+ 	.me		= THIS_MODULE,
+ };
+ 
+diff --git a/net/bridge/netfilter/ebt_ulog.c b/net/bridge/netfilter/ebt_ulog.c
+index ce50688..c6ac657 100644
+--- a/net/bridge/netfilter/ebt_ulog.c
++++ b/net/bridge/netfilter/ebt_ulog.c
+@@ -275,7 +275,7 @@ static struct xt_target ebt_ulog_tg_reg __read_mostly = {
+ 	.family		= NFPROTO_BRIDGE,
+ 	.target		= ebt_ulog_tg,
+ 	.checkentry	= ebt_ulog_tg_check,
+-	.targetsize	= XT_ALIGN(sizeof(struct ebt_ulog_info)),
++	.targetsize	= sizeof(struct ebt_ulog_info),
+ 	.me		= THIS_MODULE,
+ };
+ 
+diff --git a/net/bridge/netfilter/ebt_vlan.c b/net/bridge/netfilter/ebt_vlan.c
+index 3dddd48..be1dd2e 100644
+--- a/net/bridge/netfilter/ebt_vlan.c
++++ b/net/bridge/netfilter/ebt_vlan.c
+@@ -163,7 +163,7 @@ static struct xt_match ebt_vlan_mt_reg __read_mostly = {
+ 	.family		= NFPROTO_BRIDGE,
+ 	.match		= ebt_vlan_mt,
+ 	.checkentry	= ebt_vlan_mt_check,
+-	.matchsize	= XT_ALIGN(sizeof(struct ebt_vlan_info)),
++	.matchsize	= sizeof(struct ebt_vlan_info),
+ 	.me		= THIS_MODULE,
+ };
  
