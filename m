@@ -1,66 +1,266 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: Re: [net-next PATCH v4 2/3] sysctl: add proc_dobitmap
-Date: Tue, 16 Feb 2010 17:12:32 +0800
-Message-ID: <4B7A6180.8020306@redhat.com>
-References: <1266271241-6293-1-git-send-email-opurdila@ixiacom.com> <1266271241-6293-3-git-send-email-opurdila@ixiacom.com>
+Subject: Re: [net-next PATCH v4 3/3] net: reserve ports for applications using
+ fixed port numbers
+Date: Tue, 16 Feb 2010 17:37:04 +0800
+Message-ID: <4B7A6740.1000701@redhat.com>
+References: <1266271241-6293-1-git-send-email-opurdila@ixiacom.com> <1266271241-6293-4-git-send-email-opurdila@ixiacom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+	Neil Horman <nhorman@tuxdriver.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 To: Octavian Purdila <opurdila@ixiacom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1266271241-6293-3-git-send-email-opurdila@ixiacom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:12609 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752004Ab0BPJdp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2010 04:33:45 -0500
+In-Reply-To: <1266271241-6293-4-git-send-email-opurdila@ixiacom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Octavian Purdila wrote:
-> The new function can be used to update bitmaps via /proc. Bits can be
-> set by writing positive values in the file and cleared by writing
-> negative values (e.g. 0 2 will set bits 1 and 3, -0 -2 will clear
-> them). Reading will show only the set bits.
+> This patch introduces /proc/sys/net/ipv4/ip_local_reserved_ports
+> (bitmap type) which allows users to reserve ports for third-party
+> applications.
+> 
+> The reserved ports will not be used by automatic port assignments
+> (e.g. when calling connect() or bind() with port number 0). Explicit
+> port allocation behavior is unchanged.
 > 
 > Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
-> Cc: WANG Cong <amwang@redhat.com>
-> Cc: Eric W. Biederman <ebiederm@xmission.com>
+> Signed-off-by: WANG Cong <amwang@redhat.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
 > ---
->  include/linux/sysctl.h |    2 +
->  kernel/sysctl.c        |   76 ++++++++++++++++++++++++++++++++++++++++++++++++
->  2 files changed, 78 insertions(+), 0 deletions(-)
+>  Documentation/networking/ip-sysctl.txt |   12 ++++++++++++
+>  drivers/infiniband/core/cma.c          |    7 ++++++-
+>  include/net/ip.h                       |    6 ++++++
+>  net/ipv4/af_inet.c                     |    8 +++++++-
+>  net/ipv4/inet_connection_sock.c        |    6 ++++++
+>  net/ipv4/inet_hashtables.c             |    2 ++
+>  net/ipv4/sysctl_net_ipv4.c             |   17 +++++++++++++++++
+>  net/ipv4/udp.c                         |    3 ++-
+>  net/sctp/socket.c                      |    2 ++
+>  9 files changed, 60 insertions(+), 3 deletions(-)
 > 
-> diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
-> index 9f236cd..ba89bf2 100644
-> --- a/include/linux/sysctl.h
-> +++ b/include/linux/sysctl.h
-> @@ -985,6 +985,8 @@ extern int proc_doulongvec_minmax(struct ctl_table *, int,
->  				  void __user *, size_t *, loff_t *);
->  extern int proc_doulongvec_ms_jiffies_minmax(struct ctl_table *table, int,
->  				      void __user *, size_t *, loff_t *);
-> +extern int proc_dobitmap(struct ctl_table *, int,
-> +			 void __user *, size_t *, loff_t *);
+> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> index 2dc7a1d..23be7a4 100644
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -564,6 +564,18 @@ ip_local_port_range - 2 INTEGERS
+>  	(i.e. by default) range 1024-4999 is enough to issue up to
+>  	2000 connections per second to systems supporting timestamps.
 >  
->  /*
->   * Register a set of sysctl names by calling register_sysctl_table
-> diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-> index b0f9618..b8959f4 100644
-> --- a/kernel/sysctl.c
-> +++ b/kernel/sysctl.c
-> @@ -2596,6 +2596,82 @@ static int proc_do_cad_pid(struct ctl_table *table, int write,
->  	return 0;
+> +ip_local_reserved_ports - BITMAP of 65536 ports
+> +	Specify the ports which are reserved for known third-party
+> +	applications. These ports will not be used by automatic port assignments
+> +	(e.g. when calling connect() or bind() with port number 0). Explicit
+> +	port allocation behavior is unchanged.
+> +
+> +	Reserving ports is done by writing positive numbers in this proc entry,
+> +	clearing them is done by writing negative numbers (e.g. 8080 reserves
+> +	port number, -8080 makes it available for automatic assignment again).
+> +
+> +	Default: Empty
+> +
+>  ip_nonlocal_bind - BOOLEAN
+>  	If set, allows processes to bind() to non-local IP addresses,
+>  	which can be quite useful - but may break some applications.
+> diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
+> index cc9b594..8248fc6 100644
+> --- a/drivers/infiniband/core/cma.c
+> +++ b/drivers/infiniband/core/cma.c
+> @@ -1979,6 +1979,8 @@ retry:
+>  	/* FIXME: add proper port randomization per like inet_csk_get_port */
+>  	do {
+>  		ret = idr_get_new_above(ps, bind_list, next_port, &port);
+> +		if (inet_is_reserved_local_port(port))
+> +			ret = -EAGAIN;
+>  	} while ((ret == -EAGAIN) && idr_pre_get(ps, GFP_KERNEL));
+>  
+>  	if (ret)
+> @@ -2997,10 +2999,13 @@ static int __init cma_init(void)
+>  {
+>  	int ret, low, high, remaining;
+>  
+> -	get_random_bytes(&next_port, sizeof next_port);
+>  	inet_get_local_port_range(&low, &high);
+> +again:
+> +	get_random_bytes(&next_port, sizeof next_port);
+>  	remaining = (high - low) + 1;
+>  	next_port = ((unsigned int) next_port % remaining) + low;
+> +	if (inet_is_reserved_local_port(next_port))
+> +		goto again;
+>  
+>  	cma_wq = create_singlethread_workqueue("rdma_cm");
+>  	if (!cma_wq)
+> diff --git a/include/net/ip.h b/include/net/ip.h
+> index fb63371..2e24256 100644
+> --- a/include/net/ip.h
+> +++ b/include/net/ip.h
+> @@ -184,6 +184,12 @@ extern struct local_ports {
+>  } sysctl_local_ports;
+>  extern void inet_get_local_port_range(int *low, int *high);
+>  
+> +extern unsigned long *sysctl_local_reserved_ports;
+> +static inline int inet_is_reserved_local_port(int port)
+> +{
+> +	return test_bit(port, sysctl_local_reserved_ports);
+> +}
+> +
+>  extern int sysctl_ip_default_ttl;
+>  extern int sysctl_ip_nonlocal_bind;
+>  
+> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> index 7d12c6a..06810b0 100644
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -1546,9 +1546,13 @@ static int __init inet_init(void)
+>  
+>  	BUILD_BUG_ON(sizeof(struct inet_skb_parm) > sizeof(dummy_skb->cb));
+>  
+> +	sysctl_local_reserved_ports = kzalloc(65536 / 8, GFP_KERNEL);
+> +	if (!sysctl_local_reserved_ports)
+> +		goto out;
+> +
+
+
+I think we should also consider the ports in ip_local_port_range,
+since we can only reserve the ports in that range.
+
+
+>  	rc = proto_register(&tcp_prot, 1);
+>  	if (rc)
+> -		goto out;
+> +		goto out_free_reserved_ports;
+>  
+>  	rc = proto_register(&udp_prot, 1);
+>  	if (rc)
+> @@ -1647,6 +1651,8 @@ out_unregister_udp_proto:
+>  	proto_unregister(&udp_prot);
+>  out_unregister_tcp_proto:
+>  	proto_unregister(&tcp_prot);
+> +out_free_reserved_ports:
+> +	kfree(sysctl_local_reserved_ports);
+>  	goto out;
 >  }
 >  
-> +/**
-> + * proc_dobitmap - read/write from/to a bitmap
-> + * @table: the sysctl table
-> + * @write: %TRUE if this is a write to the sysctl file
-> + * @buffer: the user buffer
-> + * @lenp: the size of the user buffer
-> + * @ppos: file position
-> + * @ppos: the current position in the file
+> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+> index 8da6429..1acb462 100644
+> --- a/net/ipv4/inet_connection_sock.c
+> +++ b/net/ipv4/inet_connection_sock.c
+> @@ -37,6 +37,9 @@ struct local_ports sysctl_local_ports __read_mostly = {
+>  	.range = { 32768, 61000 },
+>  };
+>  
+> +unsigned long *sysctl_local_reserved_ports;
+> +EXPORT_SYMBOL(sysctl_local_reserved_ports);
+> +
+>  void inet_get_local_port_range(int *low, int *high)
+>  {
+>  	unsigned seq;
+> @@ -108,6 +111,8 @@ again:
+>  
+>  		smallest_size = -1;
+>  		do {
+> +			if (inet_is_reserved_local_port(rover))
+> +				goto next_nolock;
+>  			head = &hashinfo->bhash[inet_bhashfn(net, rover,
+>  					hashinfo->bhash_size)];
+>  			spin_lock(&head->lock);
+> @@ -130,6 +135,7 @@ again:
+>  			break;
+>  		next:
+>  			spin_unlock(&head->lock);
+> +		next_nolock:
+>  			if (++rover > high)
+>  				rover = low;
+>  		} while (--remaining > 0);
+> diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+> index 2b79377..d3e160a 100644
+> --- a/net/ipv4/inet_hashtables.c
+> +++ b/net/ipv4/inet_hashtables.c
+> @@ -456,6 +456,8 @@ int __inet_hash_connect(struct inet_timewait_death_row *death_row,
+>  		local_bh_disable();
+>  		for (i = 1; i <= remaining; i++) {
+>  			port = low + (i + offset) % remaining;
+> +			if (inet_is_reserved_local_port(port))
+> +				continue;
+>  			head = &hinfo->bhash[inet_bhashfn(net, port,
+>  					hinfo->bhash_size)];
+>  			spin_lock(&head->lock);
+> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+> index 7e3712c..ce3597a 100644
+> --- a/net/ipv4/sysctl_net_ipv4.c
+> +++ b/net/ipv4/sysctl_net_ipv4.c
+> @@ -298,6 +298,13 @@ static struct ctl_table ipv4_table[] = {
+>  		.mode		= 0644,
+>  		.proc_handler	= ipv4_local_port_range,
+>  	},
+> +	{
+> +		.procname	= "ip_local_reserved_ports",
+> +		.data		= NULL, /* initialized in sysctl_ipv4_init */
+> +		.maxlen		= 65536,
+> +		.mode		= 0644,
+> +		.proc_handler	= proc_dobitmap,
+> +	},
 
 
-Duplicated.
+Isn't there an off-by-one here?
 
-I hope Eric can also comment on these two patches.
+In patch 2/3, you use 0 to set the fist bit, then how about 65535 which
+writes 65536th bit? This is beyond the range of port number.
+
+
+>  #ifdef CONFIG_IP_MULTICAST
+>  	{
+>  		.procname	= "igmp_max_memberships",
+> @@ -721,6 +728,16 @@ static __net_initdata struct pernet_operations ipv4_sysctl_ops = {
+>  static __init int sysctl_ipv4_init(void)
+>  {
+>  	struct ctl_table_header *hdr;
+> +	struct ctl_table *i;
+> +
+> +	for (i = ipv4_table; i->procname; i++) {
+> +		if (strcmp(i->procname, "ip_local_reserved_ports") == 0) {
+> +			i->data = sysctl_local_reserved_ports;
+> +			break;
+> +		}
+> +	}
+> +	if (!i->procname[0])
+> +		return -EINVAL;
+>  
+>  	hdr = register_sysctl_paths(net_ipv4_ctl_path, ipv4_table);
+>  	if (hdr == NULL)
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index 608a544..bfd0a6a 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -232,7 +232,8 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
+>  			 */
+>  			do {
+>  				if (low <= snum && snum <= high &&
+> -				    !test_bit(snum >> udptable->log, bitmap))
+> +				    !test_bit(snum >> udptable->log, bitmap) &&
+> +				    !inet_is_reserved_local_port(snum))
+>  					goto found;
+>  				snum += rand;
+>  			} while (snum != first);
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index f6d1e59..1f839d0 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -5432,6 +5432,8 @@ static long sctp_get_port_local(struct sock *sk, union sctp_addr *addr)
+>  			rover++;
+>  			if ((rover < low) || (rover > high))
+>  				rover = low;
+> +			if (inet_is_reserved_local_port(rover))
+> +				continue;
+>  			index = sctp_phashfn(rover);
+>  			head = &sctp_port_hashtable[index];
+>  			sctp_spin_lock(&head->lock);
+
