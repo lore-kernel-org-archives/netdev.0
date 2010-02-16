@@ -1,41 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net/macvtap: fix reference counting
-Date: Mon, 15 Feb 2010 21:53:41 -0800 (PST)
-Message-ID: <20100215.215341.66627877.davem@davemloft.net>
-References: <201002111645.02770.arnd@arndb.de>
-	<201002111655.40349.arnd@arndb.de>
-	<1265922577.28768.6.camel@w-sridhar.beaverton.ibm.com>
+Subject: Re: [PATCH] [V5] net: emaclite: adding MDIO and phy lib support
+Date: Mon, 15 Feb 2010 21:53:26 -0800 (PST)
+Message-ID: <20100215.215326.250123543.davem@davemloft.net>
+References: <38677d6a-3f33-483c-8fbe-5f5c46d70140@VA3EHSMHS027.ehs.local>
+	<fa686aa41002111440x699b6b1ck97b14002ee9fe7b1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, kaber@trash.net, eswierk@aristanetworks.com,
-	netdev@vger.kernel.org
-To: sri@us.ibm.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: john.linn@xilinx.com, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, jgarzik@pobox.com,
+	jwboyer@linux.vnet.ibm.com, john.williams@petalogix.com,
+	Sadanand.Mutyala@xilinx.com
+To: grant.likely@secretlab.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41363
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41354
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752831Ab0BPFx0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 00:53:26 -0500
-In-Reply-To: <1265922577.28768.6.camel@w-sridhar.beaverton.ibm.com>
+	by vger.kernel.org with ESMTP id S1752947Ab0BPFxM convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2010 00:53:12 -0500
+In-Reply-To: <fa686aa41002111440x699b6b1ck97b14002ee9fe7b1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Thu, 11 Feb 2010 13:09:37 -0800
+=46rom: Grant Likely <grant.likely@secretlab.ca>
+Date: Thu, 11 Feb 2010 15:40:24 -0700
 
-> On Thu, 2010-02-11 at 16:55 +0100, Arnd Bergmann wrote:
->> The RCU usage in the original code was broken because
->> there are cases where we possibly sleep with rcu_read_lock
->> held. As a fix, change the macvtap_file_get_queue to
->> get a reference on the socket and the netdev instead of
->> taking the full rcu_read_lock.
->> 
->> Also, change macvtap_file_get_queue failure case to
->> not require a subsequent macvtap_file_put_queue, as
->> pointed out by Ed Swierk.
-> 
-> Looks good.
-> 
-> Acked-by: Sridhar Samudrala <sri@us.ibm.com>
+> On Thu, Feb 11, 2010 at 3:12 PM, John Linn <john.linn@xilinx.com> wro=
+te:
+>> These changes add MDIO and phy lib support to the driver as the
+>> IP core now supports the MDIO bus.
+>>
+>> The MDIO bus and phy are added as a child to the emaclite in the dev=
+ice
+>> tree as illustrated below.
+>>
+>> mdio {
+>> =A0 =A0 =A0 =A0#address-cells =3D <1>;
+>> =A0 =A0 =A0 =A0#size-cells =3D <0>;
+>> =A0 =A0 =A0 =A0phy0: phy@7 {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0compatible =3D "marvell,88e1111";
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0reg =3D <7>;
+>> =A0 =A0 =A0 =A0} ;
+>> }
+>>
+>> Signed-off-by: Sadanand Mutyala <Sadanand.Mutyala@xilinx.com>
+>> Signed-off-by: John Linn <john.linn@xilinx.com>
+>=20
+> Acked-by: Grant Likely <grant.likely@secretlab.ca>
 
 Applied.
