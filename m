@@ -1,716 +1,309 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 35/62: xtables: compact table hook functions (1/2)
-Date: Tue, 16 Feb 2010 15:56:07 +0100 (MET)
-Message-ID: <20100216145605.2796.48367.sendpatchset@x2.localnet>
+Subject: netfilter 30/62: xtables: add CT target
+Date: Tue, 16 Feb 2010 15:56:00 +0100 (MET)
+Message-ID: <20100216145558.2796.21343.sendpatchset@x2.localnet>
 References: <20100216145517.2796.40634.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52017 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:52006 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932564Ab0BPO4I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 09:56:08 -0500
+	with ESMTP id S932495Ab0BPO4B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 09:56:01 -0500
 In-Reply-To: <20100216145517.2796.40634.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 737535c5cf3524e4bfaa91e22edefd52eccabbce
-Author: Jan Engelhardt <jengelh@medozas.de>
-Date:   Sat Jun 13 06:46:36 2009 +0200
+commit 84f3bb9ae9db90f7fb15d98b55279a58ab1b2363
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Wed Feb 3 17:17:06 2010 +0100
 
-    netfilter: xtables: compact table hook functions (1/2)
+    netfilter: xtables: add CT target
     
-    This patch combines all the per-hook functions in a given table into
-    a single function. Together with the 2nd patch, further
-    simplifications are possible up to the point of output code reduction.
+    Add a new target for the raw table, which can be used to specify conntrack
+    parameters for specific connections, f.i. the conntrack helper.
     
-    Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+    The target attaches a "template" connection tracking entry to the skb, which
+    is used by the conntrack core when initializing a new conntrack.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/ipv4/netfilter/arptable_filter.c b/net/ipv4/netfilter/arptable_filter.c
-index 9733760..e9d823b 100644
---- a/net/ipv4/netfilter/arptable_filter.c
-+++ b/net/ipv4/netfilter/arptable_filter.c
-@@ -53,43 +53,37 @@ static const struct xt_table packet_filter = {
- };
- 
- /* The work comes in here from netfilter.c */
--static unsigned int arpt_in_hook(unsigned int hook,
--				 struct sk_buff *skb,
--				 const struct net_device *in,
--				 const struct net_device *out,
--				 int (*okfn)(struct sk_buff *))
-+static unsigned int
-+arptable_filter_hook(unsigned int hook, struct sk_buff *skb,
-+		     const struct net_device *in, const struct net_device *out,
-+		     int (*okfn)(struct sk_buff *))
- {
--	return arpt_do_table(skb, hook, in, out,
--			     dev_net(in)->ipv4.arptable_filter);
--}
-+	if (hook == NF_ARP_OUT)
-+		return arpt_do_table(skb, hook, in, out,
-+				     dev_net(out)->ipv4.arptable_filter);
- 
--static unsigned int arpt_out_hook(unsigned int hook,
--				  struct sk_buff *skb,
--				  const struct net_device *in,
--				  const struct net_device *out,
--				  int (*okfn)(struct sk_buff *))
--{
-+	/* INPUT/FORWARD: */
- 	return arpt_do_table(skb, hook, in, out,
--			     dev_net(out)->ipv4.arptable_filter);
-+			     dev_net(in)->ipv4.arptable_filter);
- }
- 
- static struct nf_hook_ops arpt_ops[] __read_mostly = {
- 	{
--		.hook		= arpt_in_hook,
-+		.hook		= arptable_filter_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_ARP,
- 		.hooknum	= NF_ARP_IN,
- 		.priority	= NF_IP_PRI_FILTER,
- 	},
- 	{
--		.hook		= arpt_out_hook,
-+		.hook		= arptable_filter_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_ARP,
- 		.hooknum	= NF_ARP_OUT,
- 		.priority	= NF_IP_PRI_FILTER,
- 	},
- 	{
--		.hook		= arpt_in_hook,
-+		.hook		= arptable_filter_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_ARP,
- 		.hooknum	= NF_ARP_FORWARD,
-diff --git a/net/ipv4/netfilter/iptable_filter.c b/net/ipv4/netfilter/iptable_filter.c
-index dee90eb..5369833 100644
---- a/net/ipv4/netfilter/iptable_filter.c
-+++ b/net/ipv4/netfilter/iptable_filter.c
-@@ -60,61 +60,43 @@ static const struct xt_table packet_filter = {
- 	.af		= NFPROTO_IPV4,
- };
- 
--/* The work comes in here from netfilter.c. */
- static unsigned int
--ipt_local_in_hook(unsigned int hook,
--		  struct sk_buff *skb,
--		  const struct net_device *in,
--		  const struct net_device *out,
--		  int (*okfn)(struct sk_buff *))
-+iptable_filter_hook(unsigned int hook, struct sk_buff *skb,
-+		    const struct net_device *in, const struct net_device *out,
-+		    int (*okfn)(struct sk_buff *))
- {
--	return ipt_do_table(skb, hook, in, out,
--			    dev_net(in)->ipv4.iptable_filter);
--}
-+	if (hook == NF_INET_LOCAL_OUT) {
-+		if (skb->len < sizeof(struct iphdr) ||
-+		    ip_hdrlen(skb) < sizeof(struct iphdr))
-+			/* root is playing with raw sockets. */
-+			return NF_ACCEPT;
+diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
+index 2aea503..a5a63e4 100644
+--- a/include/linux/netfilter/Kbuild
++++ b/include/linux/netfilter/Kbuild
+@@ -6,6 +6,7 @@ header-y += nfnetlink_queue.h
+ header-y += xt_CLASSIFY.h
+ header-y += xt_CONNMARK.h
+ header-y += xt_CONNSECMARK.h
++header-y += xt_CT.h
+ header-y += xt_DSCP.h
+ header-y += xt_LED.h
+ header-y += xt_MARK.h
+diff --git a/include/linux/netfilter/xt_CT.h b/include/linux/netfilter/xt_CT.h
+new file mode 100644
+index 0000000..7fd0eff
+--- /dev/null
++++ b/include/linux/netfilter/xt_CT.h
+@@ -0,0 +1,17 @@
++#ifndef _XT_CT_H
++#define _XT_CT_H
 +
-+		return ipt_do_table(skb, hook, in, out,
-+				    dev_net(out)->ipv4.iptable_filter);
-+	}
++#define XT_CT_NOTRACK	0x1
++
++struct xt_ct_target_info {
++	u_int16_t	flags;
++	u_int16_t	__unused;
++	u_int32_t	ct_events;
++	u_int32_t	exp_events;
++	char		helper[16];
++
++	/* Used internally by the kernel */
++	struct nf_conn	*ct __attribute__((aligned(8)));
++};
++
++#endif /* _XT_CT_H */
+diff --git a/include/net/netfilter/nf_conntrack_helper.h b/include/net/netfilter/nf_conntrack_helper.h
+index e17aaa3..32c305d 100644
+--- a/include/net/netfilter/nf_conntrack_helper.h
++++ b/include/net/netfilter/nf_conntrack_helper.h
+@@ -42,6 +42,9 @@ struct nf_conntrack_helper {
+ extern struct nf_conntrack_helper *
+ __nf_conntrack_helper_find(const char *name, u16 l3num, u8 protonum);
  
--static unsigned int
--ipt_hook(unsigned int hook,
--	 struct sk_buff *skb,
--	 const struct net_device *in,
--	 const struct net_device *out,
--	 int (*okfn)(struct sk_buff *))
--{
-+	/* LOCAL_IN/FORWARD: */
- 	return ipt_do_table(skb, hook, in, out,
- 			    dev_net(in)->ipv4.iptable_filter);
++extern struct nf_conntrack_helper *
++nf_conntrack_helper_try_module_get(const char *name, u16 l3num, u8 protonum);
++
+ extern int nf_conntrack_helper_register(struct nf_conntrack_helper *);
+ extern void nf_conntrack_helper_unregister(struct nf_conntrack_helper *);
+ 
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 634d14a..4469d45 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -341,6 +341,18 @@ config NETFILTER_XT_TARGET_CONNSECMARK
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
++config NETFILTER_XT_TARGET_CT
++	tristate '"CT" target support'
++	depends on NF_CONNTRACK
++	depends on IP_NF_RAW || IP6_NF_RAW
++	depends on NETFILTER_ADVANCED
++	help
++	  This options adds a `CT' target, which allows to specify initial
++	  connection tracking parameters like events to be delivered and
++	  the helper to be used.
++
++	  To compile it as a module, choose M here.  If unsure, say N.
++
+ config NETFILTER_XT_TARGET_DSCP
+ 	tristate '"DSCP" and "TOS" target support'
+ 	depends on IP_NF_MANGLE || IP6_NF_MANGLE
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 49f62ee..f873644 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -44,6 +44,7 @@ obj-$(CONFIG_NETFILTER_XTABLES) += x_tables.o xt_tcpudp.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_CLASSIFY) += xt_CLASSIFY.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_CONNMARK) += xt_CONNMARK.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_CONNSECMARK) += xt_CONNSECMARK.o
++obj-$(CONFIG_NETFILTER_XT_TARGET_CT) += xt_CT.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_DSCP) += xt_DSCP.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_HL) += xt_HL.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_LED) += xt_LED.o
+diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
+index 8144b0d..a74a576 100644
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -83,6 +83,25 @@ __nf_conntrack_helper_find(const char *name, u16 l3num, u8 protonum)
  }
+ EXPORT_SYMBOL_GPL(__nf_conntrack_helper_find);
  
--static unsigned int
--ipt_local_out_hook(unsigned int hook,
--		   struct sk_buff *skb,
--		   const struct net_device *in,
--		   const struct net_device *out,
--		   int (*okfn)(struct sk_buff *))
--{
--	/* root is playing with raw sockets. */
--	if (skb->len < sizeof(struct iphdr) ||
--	    ip_hdrlen(skb) < sizeof(struct iphdr))
--		return NF_ACCEPT;
--	return ipt_do_table(skb, hook, in, out,
--			    dev_net(out)->ipv4.iptable_filter);
--}
--
- static struct nf_hook_ops ipt_ops[] __read_mostly = {
- 	{
--		.hook		= ipt_local_in_hook,
-+		.hook		= iptable_filter_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV4,
- 		.hooknum	= NF_INET_LOCAL_IN,
- 		.priority	= NF_IP_PRI_FILTER,
- 	},
- 	{
--		.hook		= ipt_hook,
-+		.hook		= iptable_filter_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV4,
- 		.hooknum	= NF_INET_FORWARD,
- 		.priority	= NF_IP_PRI_FILTER,
- 	},
- 	{
--		.hook		= ipt_local_out_hook,
-+		.hook		= iptable_filter_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV4,
- 		.hooknum	= NF_INET_LOCAL_OUT,
-diff --git a/net/ipv4/netfilter/iptable_mangle.c b/net/ipv4/netfilter/iptable_mangle.c
-index e07bf24..4e699cd 100644
---- a/net/ipv4/netfilter/iptable_mangle.c
-+++ b/net/ipv4/netfilter/iptable_mangle.c
-@@ -71,51 +71,6 @@ static const struct xt_table packet_mangler = {
- 	.af		= NFPROTO_IPV4,
- };
- 
--/* The work comes in here from netfilter.c. */
--static unsigned int
--ipt_pre_routing_hook(unsigned int hook,
--		     struct sk_buff *skb,
--		     const struct net_device *in,
--		     const struct net_device *out,
--		     int (*okfn)(struct sk_buff *))
--{
--	return ipt_do_table(skb, hook, in, out,
--			    dev_net(in)->ipv4.iptable_mangle);
--}
--
--static unsigned int
--ipt_post_routing_hook(unsigned int hook,
--		      struct sk_buff *skb,
--		      const struct net_device *in,
--		      const struct net_device *out,
--		      int (*okfn)(struct sk_buff *))
--{
--	return ipt_do_table(skb, hook, in, out,
--			    dev_net(out)->ipv4.iptable_mangle);
--}
--
--static unsigned int
--ipt_local_in_hook(unsigned int hook,
--		  struct sk_buff *skb,
--		  const struct net_device *in,
--		  const struct net_device *out,
--		  int (*okfn)(struct sk_buff *))
--{
--	return ipt_do_table(skb, hook, in, out,
--			    dev_net(in)->ipv4.iptable_mangle);
--}
--
--static unsigned int
--ipt_forward_hook(unsigned int hook,
--	 struct sk_buff *skb,
--	 const struct net_device *in,
--	 const struct net_device *out,
--	 int (*okfn)(struct sk_buff *))
--{
--	return ipt_do_table(skb, hook, in, out,
--			    dev_net(in)->ipv4.iptable_mangle);
--}
--
- static unsigned int
- ipt_local_hook(unsigned int hook,
- 		   struct sk_buff *skb,
-@@ -158,37 +113,53 @@ ipt_local_hook(unsigned int hook,
- 	return ret;
- }
- 
-+/* The work comes in here from netfilter.c. */
-+static unsigned int
-+iptable_mangle_hook(unsigned int hook,
-+		     struct sk_buff *skb,
-+		     const struct net_device *in,
-+		     const struct net_device *out,
-+		     int (*okfn)(struct sk_buff *))
++struct nf_conntrack_helper *
++nf_conntrack_helper_try_module_get(const char *name, u16 l3num, u8 protonum)
 +{
-+	if (hook == NF_INET_LOCAL_OUT)
-+		return ipt_local_hook(hook, skb, in, out, okfn);
++	struct nf_conntrack_helper *h;
 +
-+	/* PREROUTING/INPUT/FORWARD: */
-+	return ipt_do_table(skb, hook, in, out,
-+			    dev_net(in)->ipv4.iptable_mangle);
++	h = __nf_conntrack_helper_find(name, l3num, protonum);
++#ifdef CONFIG_MODULES
++	if (h == NULL) {
++		if (request_module("nfct-helper-%s", name) == 0)
++			h = __nf_conntrack_helper_find(name, l3num, protonum);
++	}
++#endif
++	if (h != NULL && !try_module_get(h->me))
++		h = NULL;
++
++	return h;
++}
++EXPORT_SYMBOL_GPL(nf_conntrack_helper_try_module_get);
++
+ struct nf_conn_help *nf_ct_helper_ext_add(struct nf_conn *ct, gfp_t gfp)
+ {
+ 	struct nf_conn_help *help;
+diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
+new file mode 100644
+index 0000000..8183a05
+--- /dev/null
++++ b/net/netfilter/xt_CT.c
+@@ -0,0 +1,158 @@
++/*
++ * Copyright (c) 2010 Patrick McHardy <kaber@trash.net>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/selinux.h>
++#include <linux/netfilter_ipv4/ip_tables.h>
++#include <linux/netfilter_ipv6/ip6_tables.h>
++#include <linux/netfilter/x_tables.h>
++#include <linux/netfilter/xt_CT.h>
++#include <net/netfilter/nf_conntrack.h>
++#include <net/netfilter/nf_conntrack_helper.h>
++#include <net/netfilter/nf_conntrack_ecache.h>
++
++static unsigned int xt_ct_target(struct sk_buff *skb,
++				 const struct xt_target_param *par)
++{
++	const struct xt_ct_target_info *info = par->targinfo;
++	struct nf_conn *ct = info->ct;
++
++	/* Previously seen (loopback)? Ignore. */
++	if (skb->nfct != NULL)
++		return XT_CONTINUE;
++
++	atomic_inc(&ct->ct_general.use);
++	skb->nfct = &ct->ct_general;
++	skb->nfctinfo = IP_CT_NEW;
++
++	return XT_CONTINUE;
 +}
 +
- static struct nf_hook_ops ipt_ops[] __read_mostly = {
- 	{
--		.hook		= ipt_pre_routing_hook,
-+		.hook		= iptable_mangle_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV4,
- 		.hooknum	= NF_INET_PRE_ROUTING,
- 		.priority	= NF_IP_PRI_MANGLE,
- 	},
- 	{
--		.hook		= ipt_local_in_hook,
-+		.hook		= iptable_mangle_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV4,
- 		.hooknum	= NF_INET_LOCAL_IN,
- 		.priority	= NF_IP_PRI_MANGLE,
- 	},
- 	{
--		.hook		= ipt_forward_hook,
-+		.hook		= iptable_mangle_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV4,
- 		.hooknum	= NF_INET_FORWARD,
- 		.priority	= NF_IP_PRI_MANGLE,
- 	},
- 	{
--		.hook		= ipt_local_hook,
-+		.hook		= iptable_mangle_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV4,
- 		.hooknum	= NF_INET_LOCAL_OUT,
- 		.priority	= NF_IP_PRI_MANGLE,
- 	},
- 	{
--		.hook		= ipt_post_routing_hook,
-+		.hook		= iptable_mangle_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV4,
- 		.hooknum	= NF_INET_POST_ROUTING,
-diff --git a/net/ipv4/netfilter/iptable_raw.c b/net/ipv4/netfilter/iptable_raw.c
-index 40f2b9f..2c55575 100644
---- a/net/ipv4/netfilter/iptable_raw.c
-+++ b/net/ipv4/netfilter/iptable_raw.c
-@@ -45,23 +45,15 @@ static const struct xt_table packet_raw = {
- 
- /* The work comes in here from netfilter.c. */
- static unsigned int
--ipt_hook(unsigned int hook,
--	 struct sk_buff *skb,
--	 const struct net_device *in,
--	 const struct net_device *out,
--	 int (*okfn)(struct sk_buff *))
-+iptable_raw_hook(unsigned int hook, struct sk_buff *skb,
-+		 const struct net_device *in, const struct net_device *out,
-+		 int (*okfn)(struct sk_buff *))
- {
--	return ipt_do_table(skb, hook, in, out,
--			    dev_net(in)->ipv4.iptable_raw);
--}
-+	if (hook == NF_INET_PRE_ROUTING)
-+		return ipt_do_table(skb, hook, in, out,
-+				    dev_net(in)->ipv4.iptable_raw);
- 
--static unsigned int
--ipt_local_hook(unsigned int hook,
--	       struct sk_buff *skb,
--	       const struct net_device *in,
--	       const struct net_device *out,
--	       int (*okfn)(struct sk_buff *))
--{
-+	/* OUTPUT: */
- 	/* root is playing with raw sockets. */
- 	if (skb->len < sizeof(struct iphdr) ||
- 	    ip_hdrlen(skb) < sizeof(struct iphdr))
-@@ -73,14 +65,14 @@ ipt_local_hook(unsigned int hook,
- /* 'raw' is the very first table. */
- static struct nf_hook_ops ipt_ops[] __read_mostly = {
- 	{
--		.hook = ipt_hook,
-+		.hook = iptable_raw_hook,
- 		.pf = NFPROTO_IPV4,
- 		.hooknum = NF_INET_PRE_ROUTING,
- 		.priority = NF_IP_PRI_RAW,
- 		.owner = THIS_MODULE,
- 	},
- 	{
--		.hook = ipt_local_hook,
-+		.hook = iptable_raw_hook,
- 		.pf = NFPROTO_IPV4,
- 		.hooknum = NF_INET_LOCAL_OUT,
- 		.priority = NF_IP_PRI_RAW,
-diff --git a/net/ipv4/netfilter/iptable_security.c b/net/ipv4/netfilter/iptable_security.c
-index 7ce2366..1c666ba 100644
---- a/net/ipv4/netfilter/iptable_security.c
-+++ b/net/ipv4/netfilter/iptable_security.c
-@@ -65,59 +65,43 @@ static const struct xt_table security_table = {
- };
- 
- static unsigned int
--ipt_local_in_hook(unsigned int hook,
--		  struct sk_buff *skb,
--		  const struct net_device *in,
--		  const struct net_device *out,
--		  int (*okfn)(struct sk_buff *))
-+iptable_security_hook(unsigned int hook, struct sk_buff *skb,
-+		      const struct net_device *in,
-+		      const struct net_device *out,
-+		      int (*okfn)(struct sk_buff *))
- {
--	return ipt_do_table(skb, hook, in, out,
--			    dev_net(in)->ipv4.iptable_security);
--}
-+	if (hook == NF_INET_LOCAL_OUT) {
-+		if (skb->len < sizeof(struct iphdr) ||
-+		    ip_hdrlen(skb) < sizeof(struct iphdr))
-+			/* Somebody is playing with raw sockets. */
-+			return NF_ACCEPT;
- 
--static unsigned int
--ipt_forward_hook(unsigned int hook,
--		 struct sk_buff *skb,
--		 const struct net_device *in,
--		 const struct net_device *out,
--		 int (*okfn)(struct sk_buff *))
--{
--	return ipt_do_table(skb, hook, in, out,
--			    dev_net(in)->ipv4.iptable_security);
--}
-+		return ipt_do_table(skb, hook, in, out,
-+				    dev_net(out)->ipv4.iptable_security);
-+	}
- 
--static unsigned int
--ipt_local_out_hook(unsigned int hook,
--		   struct sk_buff *skb,
--		   const struct net_device *in,
--		   const struct net_device *out,
--		   int (*okfn)(struct sk_buff *))
--{
--	/* Somebody is playing with raw sockets. */
--	if (skb->len < sizeof(struct iphdr) ||
--	    ip_hdrlen(skb) < sizeof(struct iphdr))
--		return NF_ACCEPT;
-+	/* INPUT/FORWARD: */
- 	return ipt_do_table(skb, hook, in, out,
--			    dev_net(out)->ipv4.iptable_security);
-+			    dev_net(in)->ipv4.iptable_security);
- }
- 
- static struct nf_hook_ops ipt_ops[] __read_mostly = {
- 	{
--		.hook		= ipt_local_in_hook,
-+		.hook		= iptable_security_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV4,
- 		.hooknum	= NF_INET_LOCAL_IN,
- 		.priority	= NF_IP_PRI_SECURITY,
- 	},
- 	{
--		.hook		= ipt_forward_hook,
-+		.hook		= iptable_security_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV4,
- 		.hooknum	= NF_INET_FORWARD,
- 		.priority	= NF_IP_PRI_SECURITY,
- 	},
- 	{
--		.hook		= ipt_local_out_hook,
-+		.hook		= iptable_security_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV4,
- 		.hooknum	= NF_INET_LOCAL_OUT,
-diff --git a/net/ipv6/netfilter/ip6table_filter.c b/net/ipv6/netfilter/ip6table_filter.c
-index 33ddfe5..38074e9 100644
---- a/net/ipv6/netfilter/ip6table_filter.c
-+++ b/net/ipv6/netfilter/ip6table_filter.c
-@@ -60,54 +60,36 @@ static const struct xt_table packet_filter = {
- 
- /* The work comes in here from netfilter.c. */
- static unsigned int
--ip6t_in_hook(unsigned int hook,
--		   struct sk_buff *skb,
--		   const struct net_device *in,
--		   const struct net_device *out,
--		   int (*okfn)(struct sk_buff *))
-+ip6table_filter_hook(unsigned int hook, struct sk_buff *skb,
-+		     const struct net_device *in, const struct net_device *out,
-+		     int (*okfn)(struct sk_buff *))
- {
--	return ip6t_do_table(skb, hook, in, out,
--			     dev_net(in)->ipv6.ip6table_filter);
--}
--
--static unsigned int
--ip6t_local_out_hook(unsigned int hook,
--		   struct sk_buff *skb,
--		   const struct net_device *in,
--		   const struct net_device *out,
--		   int (*okfn)(struct sk_buff *))
--{
--#if 0
--	/* root is playing with raw sockets. */
--	if (skb->len < sizeof(struct iphdr) ||
--	    ip_hdrlen(skb) < sizeof(struct iphdr)) {
--		if (net_ratelimit())
--			printk("ip6t_hook: happy cracking.\n");
--		return NF_ACCEPT;
--	}
--#endif
-+	if (hook == NF_INET_LOCAL_OUT)
-+		return ip6t_do_table(skb, hook, in, out,
-+				     dev_net(out)->ipv6.ip6table_filter);
- 
-+	/* INPUT/FORWARD: */
- 	return ip6t_do_table(skb, hook, in, out,
--			     dev_net(out)->ipv6.ip6table_filter);
-+			     dev_net(in)->ipv6.ip6table_filter);
- }
- 
- static struct nf_hook_ops ip6t_ops[] __read_mostly = {
- 	{
--		.hook		= ip6t_in_hook,
-+		.hook		= ip6table_filter_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV6,
- 		.hooknum	= NF_INET_LOCAL_IN,
- 		.priority	= NF_IP6_PRI_FILTER,
- 	},
- 	{
--		.hook		= ip6t_in_hook,
-+		.hook		= ip6table_filter_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV6,
- 		.hooknum	= NF_INET_FORWARD,
- 		.priority	= NF_IP6_PRI_FILTER,
- 	},
- 	{
--		.hook		= ip6t_local_out_hook,
-+		.hook		= ip6table_filter_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV6,
- 		.hooknum	= NF_INET_LOCAL_OUT,
-diff --git a/net/ipv6/netfilter/ip6table_mangle.c b/net/ipv6/netfilter/ip6table_mangle.c
-index 9bc483f..405ac1f 100644
---- a/net/ipv6/netfilter/ip6table_mangle.c
-+++ b/net/ipv6/netfilter/ip6table_mangle.c
-@@ -64,33 +64,9 @@ static const struct xt_table packet_mangler = {
- 	.af		= NFPROTO_IPV6,
- };
- 
--/* The work comes in here from netfilter.c. */
--static unsigned int
--ip6t_in_hook(unsigned int hook,
--	 struct sk_buff *skb,
--	 const struct net_device *in,
--	 const struct net_device *out,
--	 int (*okfn)(struct sk_buff *))
--{
--	return ip6t_do_table(skb, hook, in, out,
--			     dev_net(in)->ipv6.ip6table_mangle);
--}
--
--static unsigned int
--ip6t_post_routing_hook(unsigned int hook,
--		struct sk_buff *skb,
--		const struct net_device *in,
--		const struct net_device *out,
--		int (*okfn)(struct sk_buff *))
--{
--	return ip6t_do_table(skb, hook, in, out,
--			     dev_net(out)->ipv6.ip6table_mangle);
--}
--
- static unsigned int
- ip6t_local_out_hook(unsigned int hook,
- 		   struct sk_buff *skb,
--		   const struct net_device *in,
- 		   const struct net_device *out,
- 		   int (*okfn)(struct sk_buff *))
- {
-@@ -119,7 +95,7 @@ ip6t_local_out_hook(unsigned int hook,
- 	/* flowlabel and prio (includes version, which shouldn't change either */
- 	flowlabel = *((u_int32_t *)ipv6_hdr(skb));
- 
--	ret = ip6t_do_table(skb, hook, in, out,
-+	ret = ip6t_do_table(skb, hook, NULL, out,
- 			    dev_net(out)->ipv6.ip6table_mangle);
- 
- 	if (ret != NF_DROP && ret != NF_STOLEN &&
-@@ -132,37 +108,51 @@ ip6t_local_out_hook(unsigned int hook,
- 	return ret;
- }
- 
-+/* The work comes in here from netfilter.c. */
-+static unsigned int
-+ip6table_mangle_hook(unsigned int hook, struct sk_buff *skb,
-+		     const struct net_device *in, const struct net_device *out,
-+		     int (*okfn)(struct sk_buff *))
++static u8 xt_ct_find_proto(const struct xt_tgchk_param *par)
 +{
-+	if (hook == NF_INET_LOCAL_OUT)
-+		return ip6t_local_out_hook(hook, skb, out, okfn);
++	if (par->family == AF_INET) {
++		const struct ipt_entry *e = par->entryinfo;
 +
-+	/* INPUT/FORWARD */
-+	return ip6t_do_table(skb, hook, in, out,
-+			     dev_net(in)->ipv6.ip6table_mangle);
++		if (e->ip.invflags & IPT_INV_PROTO)
++			return 0;
++		return e->ip.proto;
++	} else if (par->family == AF_INET6) {
++		const struct ip6t_entry *e = par->entryinfo;
++
++		if (e->ipv6.invflags & IP6T_INV_PROTO)
++			return 0;
++		return e->ipv6.proto;
++	} else
++		return 0;
 +}
 +
- static struct nf_hook_ops ip6t_ops[] __read_mostly = {
- 	{
--		.hook		= ip6t_in_hook,
-+		.hook		= ip6table_mangle_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV6,
- 		.hooknum	= NF_INET_PRE_ROUTING,
- 		.priority	= NF_IP6_PRI_MANGLE,
- 	},
- 	{
--		.hook		= ip6t_in_hook,
-+		.hook		= ip6table_mangle_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV6,
- 		.hooknum	= NF_INET_LOCAL_IN,
- 		.priority	= NF_IP6_PRI_MANGLE,
- 	},
- 	{
--		.hook		= ip6t_in_hook,
-+		.hook		= ip6table_mangle_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV6,
- 		.hooknum	= NF_INET_FORWARD,
- 		.priority	= NF_IP6_PRI_MANGLE,
- 	},
- 	{
--		.hook		= ip6t_local_out_hook,
-+		.hook		= ip6table_mangle_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV6,
- 		.hooknum	= NF_INET_LOCAL_OUT,
- 		.priority	= NF_IP6_PRI_MANGLE,
- 	},
- 	{
--		.hook		= ip6t_post_routing_hook,
-+		.hook		= ip6table_mangle_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV6,
- 		.hooknum	= NF_INET_POST_ROUTING,
-diff --git a/net/ipv6/netfilter/ip6table_raw.c b/net/ipv6/netfilter/ip6table_raw.c
-index 4c90b55..985e27c 100644
---- a/net/ipv6/netfilter/ip6table_raw.c
-+++ b/net/ipv6/netfilter/ip6table_raw.c
-@@ -44,37 +44,29 @@ static const struct xt_table packet_raw = {
- 
- /* The work comes in here from netfilter.c. */
- static unsigned int
--ip6t_pre_routing_hook(unsigned int hook,
--	 struct sk_buff *skb,
--	 const struct net_device *in,
--	 const struct net_device *out,
--	 int (*okfn)(struct sk_buff *))
-+ip6table_raw_hook(unsigned int hook, struct sk_buff *skb,
-+		  const struct net_device *in, const struct net_device *out,
-+		  int (*okfn)(struct sk_buff *))
- {
--	return ip6t_do_table(skb, hook, in, out,
--			     dev_net(in)->ipv6.ip6table_raw);
--}
-+	if (hook == NF_INET_PRE_ROUTING)
-+		return ip6t_do_table(skb, hook, in, out,
-+				     dev_net(in)->ipv6.ip6table_raw);
- 
--static unsigned int
--ip6t_local_out_hook(unsigned int hook,
--	 struct sk_buff *skb,
--	 const struct net_device *in,
--	 const struct net_device *out,
--	 int (*okfn)(struct sk_buff *))
--{
-+	/* OUTPUT: */
- 	return ip6t_do_table(skb, hook, in, out,
- 			     dev_net(out)->ipv6.ip6table_raw);
- }
- 
- static struct nf_hook_ops ip6t_ops[] __read_mostly = {
- 	{
--	  .hook = ip6t_pre_routing_hook,
-+	  .hook = ip6table_raw_hook,
- 	  .pf = NFPROTO_IPV6,
- 	  .hooknum = NF_INET_PRE_ROUTING,
- 	  .priority = NF_IP6_PRI_FIRST,
- 	  .owner = THIS_MODULE,
- 	},
- 	{
--	  .hook = ip6t_local_out_hook,
-+	  .hook = ip6table_raw_hook,
- 	  .pf = NFPROTO_IPV6,
- 	  .hooknum = NF_INET_LOCAL_OUT,
- 	  .priority = NF_IP6_PRI_FIRST,
-diff --git a/net/ipv6/netfilter/ip6table_security.c b/net/ipv6/netfilter/ip6table_security.c
-index baa8d4e..8358589 100644
---- a/net/ipv6/netfilter/ip6table_security.c
-+++ b/net/ipv6/netfilter/ip6table_security.c
-@@ -64,56 +64,37 @@ static const struct xt_table security_table = {
- };
- 
- static unsigned int
--ip6t_local_in_hook(unsigned int hook,
--		   struct sk_buff *skb,
--		   const struct net_device *in,
--		   const struct net_device *out,
--		   int (*okfn)(struct sk_buff *))
-+ip6table_security_hook(unsigned int hook, struct sk_buff *skb,
-+		       const struct net_device *in,
-+		       const struct net_device *out,
-+		       int (*okfn)(struct sk_buff *))
- {
--	return ip6t_do_table(skb, hook, in, out,
--			     dev_net(in)->ipv6.ip6table_security);
--}
-+	if (hook == NF_INET_LOCAL_OUT)
-+		return ip6t_do_table(skb, hook, in, out,
-+				     dev_net(out)->ipv6.ip6table_security);
- 
--static unsigned int
--ip6t_forward_hook(unsigned int hook,
--		  struct sk_buff *skb,
--		  const struct net_device *in,
--		  const struct net_device *out,
--		  int (*okfn)(struct sk_buff *))
--{
-+	/* INPUT/FORWARD: */
- 	return ip6t_do_table(skb, hook, in, out,
- 			     dev_net(in)->ipv6.ip6table_security);
- }
- 
--static unsigned int
--ip6t_local_out_hook(unsigned int hook,
--		    struct sk_buff *skb,
--		    const struct net_device *in,
--		    const struct net_device *out,
--		    int (*okfn)(struct sk_buff *))
--{
--	/* TBD: handle short packets via raw socket */
--	return ip6t_do_table(skb, hook, in, out,
--			     dev_net(out)->ipv6.ip6table_security);
--}
--
- static struct nf_hook_ops ip6t_ops[] __read_mostly = {
- 	{
--		.hook		= ip6t_local_in_hook,
-+		.hook		= ip6table_security_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV6,
- 		.hooknum	= NF_INET_LOCAL_IN,
- 		.priority	= NF_IP6_PRI_SECURITY,
- 	},
- 	{
--		.hook		= ip6t_forward_hook,
-+		.hook		= ip6table_security_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV6,
- 		.hooknum	= NF_INET_FORWARD,
- 		.priority	= NF_IP6_PRI_SECURITY,
- 	},
- 	{
--		.hook		= ip6t_local_out_hook,
-+		.hook		= ip6table_security_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= NFPROTO_IPV6,
- 		.hooknum	= NF_INET_LOCAL_OUT,
++static bool xt_ct_tg_check(const struct xt_tgchk_param *par)
++{
++	struct xt_ct_target_info *info = par->targinfo;
++	struct nf_conntrack_tuple t;
++	struct nf_conn_help *help;
++	struct nf_conn *ct;
++	u8 proto;
++
++	if (info->flags & ~XT_CT_NOTRACK)
++		return false;
++
++	if (info->flags & XT_CT_NOTRACK) {
++		ct = &nf_conntrack_untracked;
++		atomic_inc(&ct->ct_general.use);
++		goto out;
++	}
++
++	if (nf_ct_l3proto_try_module_get(par->family) < 0)
++		goto err1;
++
++	memset(&t, 0, sizeof(t));
++	ct = nf_conntrack_alloc(par->net, &t, &t, GFP_KERNEL);
++	if (IS_ERR(ct))
++		goto err2;
++
++	if ((info->ct_events || info->exp_events) &&
++	    !nf_ct_ecache_ext_add(ct, info->ct_events, info->exp_events,
++				  GFP_KERNEL))
++		goto err3;
++
++	if (info->helper[0]) {
++		proto = xt_ct_find_proto(par);
++		if (!proto)
++			goto err3;
++
++		help = nf_ct_helper_ext_add(ct, GFP_KERNEL);
++		if (help == NULL)
++			goto err3;
++
++		help->helper = nf_conntrack_helper_try_module_get(info->helper,
++								  par->family,
++								  proto);
++		if (help->helper == NULL)
++			goto err3;
++	}
++
++	__set_bit(IPS_TEMPLATE_BIT, &ct->status);
++	__set_bit(IPS_CONFIRMED_BIT, &ct->status);
++out:
++	info->ct = ct;
++	return true;
++
++err3:
++	nf_conntrack_free(ct);
++err2:
++	nf_ct_l3proto_module_put(par->family);
++err1:
++	return false;
++}
++
++static void xt_ct_tg_destroy(const struct xt_tgdtor_param *par)
++{
++	struct xt_ct_target_info *info = par->targinfo;
++	struct nf_conn *ct = info->ct;
++	struct nf_conn_help *help;
++
++	if (ct != &nf_conntrack_untracked) {
++		help = nfct_help(ct);
++		if (help)
++			module_put(help->helper->me);
++
++		nf_ct_l3proto_module_put(par->family);
++	}
++	nf_ct_put(info->ct);
++}
++
++static struct xt_target xt_ct_tg __read_mostly = {
++	.name		= "CT",
++	.family		= NFPROTO_UNSPEC,
++	.targetsize	= XT_ALIGN(sizeof(struct xt_ct_target_info)),
++	.checkentry	= xt_ct_tg_check,
++	.destroy	= xt_ct_tg_destroy,
++	.target		= xt_ct_target,
++	.table		= "raw",
++	.me		= THIS_MODULE,
++};
++
++static int __init xt_ct_tg_init(void)
++{
++	return xt_register_target(&xt_ct_tg);
++}
++
++static void __exit xt_ct_tg_exit(void)
++{
++	xt_unregister_target(&xt_ct_tg);
++}
++
++module_init(xt_ct_tg_init);
++module_exit(xt_ct_tg_exit);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Xtables: connection tracking target");
++MODULE_ALIAS("ipt_CT");
++MODULE_ALIAS("ip6t_CT");
