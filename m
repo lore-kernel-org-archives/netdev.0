@@ -1,40 +1,49 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH] netdev: bfin_mac: drop experimental markings on RMII support
-Date: Mon, 15 Feb 2010 19:32:50 -0500
-Message-ID: <1266280370-18670-1-git-send-email-vapier@gentoo.org>
-Cc: uclinux-dist-devel@blackfin.uclinux.org
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:46193 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932299Ab0BPAcu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Feb 2010 19:32:50 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the wireless tree with the net tree
+Date: Tue, 16 Feb 2010 12:01:03 +1100
+Message-ID: <20100216120103.7128b0f4.sfr@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Gertjan van Wingerde <gwingerde@gmail.com>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The code has been around for a long time now and is known to work on a
-bunch of different parts/boards.
+Hi John,
 
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
- drivers/net/Kconfig |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Today's linux-next merge of the wireless tree got a conflict in
+drivers/net/wireless/rt2x00/rt2800pci.c between commit
+a3aa18842a5303fc28fcc4d57dbd16618bd830a0 ("drivers/net/: use
+DEFINE_PCI_DEVICE_TABLE()") from the net tree and commit
+de1ebdceb6a4fe1b7073b81d273285b7c8bed312 ("rt2x00: rt2800 - Make rt30xx
+and rt35xx chipsets configurable") from the wireless tree.
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 746cd3a..03fec5e 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -868,8 +868,8 @@ config BFIN_RX_DESC_NUM
- 	  Set the number of buffer packets used in driver.
- 
- config BFIN_MAC_RMII
--	bool "RMII PHY Interface (EXPERIMENTAL)"
--	depends on BFIN_MAC && EXPERIMENTAL
-+	bool "RMII PHY Interface"
-+	depends on BFIN_MAC
- 	default y if BFIN527_EZKIT
- 	default n if BFIN537_STAMP
- 	help
+Just context changes.  I fixed it up (see below) and can carry the fix as
+necessary.
 -- 
-1.7.0
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
+diff --cc drivers/net/wireless/rt2x00/rt2800pci.c
+index d64181c,0e4c417..0000000
+--- a/drivers/net/wireless/rt2x00/rt2800pci.c
++++ b/drivers/net/wireless/rt2x00/rt2800pci.c
+@@@ -1190,8 -1184,11 +1184,11 @@@ static const struct rt2x00_ops rt2800pc
+  /*
+   * RT2800pci module information.
+   */
+ -static struct pci_device_id rt2800pci_device_table[] = {
+ +static DEFINE_PCI_DEVICE_TABLE(rt2800pci_device_table) = {
+- 	{ PCI_DEVICE(0x1462, 0x891a), PCI_DEVICE_DATA(&rt2800pci_ops) },
++ 	{ PCI_DEVICE(0x1814, 0x0601), PCI_DEVICE_DATA(&rt2800pci_ops) },
++ 	{ PCI_DEVICE(0x1814, 0x0681), PCI_DEVICE_DATA(&rt2800pci_ops) },
++ 	{ PCI_DEVICE(0x1814, 0x0701), PCI_DEVICE_DATA(&rt2800pci_ops) },
++ 	{ PCI_DEVICE(0x1814, 0x0781), PCI_DEVICE_DATA(&rt2800pci_ops) },
+  	{ PCI_DEVICE(0x1432, 0x7708), PCI_DEVICE_DATA(&rt2800pci_ops) },
+  	{ PCI_DEVICE(0x1432, 0x7727), PCI_DEVICE_DATA(&rt2800pci_ops) },
+  	{ PCI_DEVICE(0x1432, 0x7728), PCI_DEVICE_DATA(&rt2800pci_ops) },
