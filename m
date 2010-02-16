@@ -1,56 +1,68 @@
-From: Benny Amorsen <benny+usenet@amorsen.dk>
-Subject: Re: [net-next-2.6 PATCH 1/7] xfrm: introduce basic mark infrastructure
-Date: Tue, 16 Feb 2010 13:59:41 +0100
-Message-ID: <m3hbphxrnm.fsf@ursa.amorsen.dk>
-References: <1266160732-946-1-git-send-email-hadi@cyberus.ca>
-	<1266160732-946-2-git-send-email-hadi@cyberus.ca>
-	<4B796B70.2050102@trash.net> <1266253235.6776.90.camel@bigi>
-	<4B797F09.5050207@trash.net> <1266254073.6776.109.camel@bigi>
-	<m37hqdcvgm.fsf@ursa.amorsen.dk> <1266321437.6776.250.camel@bigi>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [net-next PATCH v4 3/3] net: reserve ports for applications using
+ fixed port numbers
+Date: Tue, 16 Feb 2010 21:06:26 +0800
+Message-ID: <4B7A9852.5020105@redhat.com>
+References: <1266271241-6293-1-git-send-email-opurdila@ixiacom.com> <1266271241-6293-4-git-send-email-opurdila@ixiacom.com> <4B7A6740.1000701@redhat.com> <201002161306.29708.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, timo.teras@iki.fi,
-	herbert@gondor.apana.org.au, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: hadi@cyberus.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate1.ipvision.dk ([94.127.49.2]:48080 "EHLO gate1.ipvision.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755635Ab0BPM74 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2010 07:59:56 -0500
-In-Reply-To: <1266321437.6776.250.camel@bigi> (jamal's message of "Tue, 16 Feb
-	2010 06:57:17 -0500")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Octavian Purdila <opurdila@ixiacom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201002161306.29708.opurdila@ixiacom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-jamal <hadi@cyberus.ca> writes:
+Octavian Purdila wrote:
+> On Tuesday 16 February 2010 11:37:04 you wrote:
+>>>  	BUILD_BUG_ON(sizeof(struct inet_skb_parm) > sizeof(dummy_skb->cb));
+>>>
+>>> +	sysctl_local_reserved_ports = kzalloc(65536 / 8, GFP_KERNEL);
+>>> +	if (!sysctl_local_reserved_ports)
+>>> +		goto out;
+>>> +
+>> I think we should also consider the ports in ip_local_port_range,
+>> since we can only reserve the ports in that range.
+>>
+> 
+> That is subject to changes at runtime, which means we will have to readjust 
+> the bitmap at runtime which introduces the need for additional synchronization 
+> operations which I would rather avoid. 
 
-> With these patches if you set policy routing mark, have the proper
-> setting in the skb or socket for the mark then the proper
-> route will be selected. If you have an SPD + SA added with the
-> same mark, those will be used right after the route is selected. 
-> So essentially you have the same mark across.
-> Does that solve or alleviate the problem?
+Why? As long as the bitmap is global, this will not be hard.
 
-I don't actually use marks at all, I do policy routing based on source
-address. Currently rules are based on source interface, but all IPSEC
-traffic comes from the same interface, unlike some tunnel-based
-solutions.
-
-Right now packets going out through an IPSEC tunnel do not hit the
-routing table at all -- they just get shunted into the tunnel. Anything
-that gives me the chance to run the packets through normal routing
-before the tunnel grabs them works for me.
-
->From your description, I would add the IPSEC SPD + SA with a specific
-mark. Then I would set the mark in the rule table if I want the packets
-to go through the tunnel, or clear the mark to have them go through
-normal routing. Not perfect, because I would have to replicate parts of
-the routing table in the rule table, but it could be made to work.
-
-Perfect would be if I could set mark in the routing table instead of the
-rule table, but sometimes perfect is the enemy of good...
+Consider that if one user writes a port number which is beyond
+the ip_local_port_range into ip_local_reserved_ports, we should
+not accept this, because it doesn't make any sense. But with your
+patch, we do.
 
 
-/Benny
+> 
+>>> +	{
+>>> +		.procname	= "ip_local_reserved_ports",
+>>> +		.data		= NULL, /* initialized in sysctl_ipv4_init */
+>>> +		.maxlen		= 65536,
+>>> +		.mode		= 0644,
+>>> +		.proc_handler	= proc_dobitmap,
+>>> +	},
+>> Isn't there an off-by-one here?
+>>
+>> In patch 2/3, you use 0 to set the fist bit, then how about 65535 which
+>> writes 65536th bit? This is beyond the range of port number.
+>>
+> 
+> This seems fine to me, 65535 is the value used by both the port checking 
+> function and the proc read/write function. And it translates indeed to  
+> 65536th bit, but that is also bit 65535 if you start counting bits from 0 
+> instead of 1. The usual computing/natural arithmetic confusion for the meaning 
+> of first :)
+> 
 
+Oh, I see.
+
+Thanks.
