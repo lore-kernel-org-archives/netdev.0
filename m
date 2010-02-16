@@ -1,41 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atl1c: Add support for Atheros AR8152 and AR8152
-Date: Tue, 16 Feb 2010 15:16:56 -0800 (PST)
-Message-ID: <20100216.151656.123276889.davem@davemloft.net>
-References: <1265934812-14157-1-git-send-email-lrodriguez@atheros.com>
+Subject: Re: [PATCH -next 1/6] bnx2: Check BNX2_FLAG_USING_MSIX flag when
+ setting up MSIX.
+Date: Tue, 16 Feb 2010 15:20:05 -0800 (PST)
+Message-ID: <20100216.152005.98313418.davem@davemloft.net>
+References: <1266298932-28129-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	espy@canonical.com, ken.wu@atheros.com,
-	graham.richards@atheros.com, scott.tan@atheros.com,
-	mcgrof@gmail.com, chris.snook@gmail.com
-To: lrodriguez@atheros.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1265934812-14157-1-git-send-email-lrodriguez@atheros.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32827
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933354Ab0BPXTu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 18:19:50 -0500
+In-Reply-To: <1266298932-28129-1-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Luis R. Rodriguez" <lrodriguez@atheros.com>
-Date: Thu, 11 Feb 2010 19:33:32 -0500
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Mon, 15 Feb 2010 21:42:07 -0800
 
-> AR8151 is a Gigabit Ethernet device. AR8152 devices are
-> Fast Ethernet devices, there are two revisions, a 1.0
-> and a 2.0 revision.
+> Checking the flag is more correct than checking bp->irq_nvecs. By
+> accident it is not a problem because we always have more than 1
+> vectors when using MSIX mode.
 > 
-> This has been tested against these devices:
-> 
-> Driver	Model-name	vendor:device	Type
-> atl1c 	AR8131		1969:1063	Gigabit Ethernet
-> atl1c	AR8132		1969:1062	Fast Ethernet
-> atl1c	AR8151(v1.0)	1969:1073	Gigabit Ethernet
-> atl1c	AR8152(v1.1)	1969:2060	Fast Ethernet
-> 
-> This device has no hardware available yet so it goes untested,
-> but it should work:
-> 
-> atl1c	AR8152(v2.0)	1969:2062	Fast Ethernet
-> 
-> Signed-off-by: Luis R. Rodriguez <lrodriguez@atheros.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Signed-off-by: Benjamin Li <benli@broadcom.com>
 
-Applied to net-next-2.6, thanks.
+Applied.
