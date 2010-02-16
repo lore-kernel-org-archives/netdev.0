@@ -1,66 +1,58 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 11/62: xt_connlimit: netns support
-Date: Tue, 16 Feb 2010 15:55:35 +0100 (MET)
-Message-ID: <20100216145532.2796.28088.sendpatchset@x2.localnet>
+Subject: netfilter 08/62: xt_osf: change %pi4 to %pI4
+Date: Tue, 16 Feb 2010 15:55:30 +0100 (MET)
+Message-ID: <20100216145528.2796.92232.sendpatchset@x2.localnet>
 References: <20100216145517.2796.40634.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51974 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:51963 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932264Ab0BPOzg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 09:55:36 -0500
+	with ESMTP id S932161Ab0BPOzb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 09:55:31 -0500
 In-Reply-To: <20100216145517.2796.40634.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 83fc81024bd8572f31db784f8c0079e999a4fa44
-Author: Alexey Dobriyan <adobriyan@gmail.com>
-Date:   Mon Jan 18 08:07:50 2010 +0100
+commit 7f635d0d1bf84ad7a0032cbce9d902b9384c48b7
+Author: Joe Perches <joe@perches.com>
+Date:   Mon Jan 11 11:55:36 2010 +0100
 
-    netfilter: xt_connlimit: netns support
+    netfilter: xt_osf: change %pi4 to %pI4
     
-    Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+    commit 8a27f7c90ffcb791eed7574922b51fb60b08fc89
+    changed the output style of %pi4 to use fixed
+    width leading zero IP addresses "001.002.003.004".
+    
+    It's useful when printing multiple lines of
+    addresses, but was a change in output style for
+    some existing uses.
+    
+    Using %pI4 restores the previous output style.
+    
+    Signed-off-by: Joe Perches <joe@perches.com>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
-index 8103bef..0d9d18e 100644
---- a/net/netfilter/xt_connlimit.c
-+++ b/net/netfilter/xt_connlimit.c
-@@ -90,7 +90,8 @@ same_source_net(const union nf_inet_addr *addr,
- 	}
- }
+diff --git a/net/netfilter/xt_osf.c b/net/netfilter/xt_osf.c
+index 4d1a41b..4169e20 100644
+--- a/net/netfilter/xt_osf.c
++++ b/net/netfilter/xt_osf.c
+@@ -334,7 +334,7 @@ static bool xt_osf_match_packet(const struct sk_buff *skb,
+ 			if (info->flags & XT_OSF_LOG)
+ 				nf_log_packet(p->family, p->hooknum, skb,
+ 					p->in, p->out, NULL,
+-					"%s [%s:%s] : %pi4:%d -> %pi4:%d hops=%d\n",
++					"%s [%s:%s] : %pI4:%d -> %pI4:%d hops=%d\n",
+ 					f->genre, f->version, f->subtype,
+ 					&ip->saddr, ntohs(tcp->source),
+ 					&ip->daddr, ntohs(tcp->dest),
+@@ -349,7 +349,7 @@ static bool xt_osf_match_packet(const struct sk_buff *skb,
  
--static int count_them(struct xt_connlimit_data *data,
-+static int count_them(struct net *net,
-+		      struct xt_connlimit_data *data,
- 		      const struct nf_conntrack_tuple *tuple,
- 		      const union nf_inet_addr *addr,
- 		      const union nf_inet_addr *mask,
-@@ -113,7 +114,7 @@ static int count_them(struct xt_connlimit_data *data,
- 
- 	/* check the saved connections */
- 	list_for_each_entry_safe(conn, tmp, hash, list) {
--		found    = nf_conntrack_find_get(&init_net, &conn->tuple);
-+		found    = nf_conntrack_find_get(net, &conn->tuple);
- 		found_ct = NULL;
- 
- 		if (found != NULL)
-@@ -171,6 +172,7 @@ static int count_them(struct xt_connlimit_data *data,
- static bool
- connlimit_mt(const struct sk_buff *skb, const struct xt_match_param *par)
- {
-+	struct net *net = dev_net(par->in ? par->in : par->out);
- 	const struct xt_connlimit_info *info = par->matchinfo;
- 	union nf_inet_addr addr;
- 	struct nf_conntrack_tuple tuple;
-@@ -195,7 +197,7 @@ connlimit_mt(const struct sk_buff *skb, const struct xt_match_param *par)
- 	}
- 
- 	spin_lock_bh(&info->data->lock);
--	connections = count_them(info->data, tuple_ptr, &addr,
-+	connections = count_them(net, info->data, tuple_ptr, &addr,
- 	                         &info->mask, par->family);
- 	spin_unlock_bh(&info->data->lock);
+ 	if (!fcount && (info->flags & XT_OSF_LOG))
+ 		nf_log_packet(p->family, p->hooknum, skb, p->in, p->out, NULL,
+-			"Remote OS is not known: %pi4:%u -> %pi4:%u\n",
++			"Remote OS is not known: %pI4:%u -> %pI4:%u\n",
+ 				&ip->saddr, ntohs(tcp->source),
+ 				&ip->daddr, ntohs(tcp->dest));
  
