@@ -1,79 +1,60 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] gre: fix netns vs proto registration ordering
-Date: Tue, 16 Feb 2010 19:57:44 +0200
-Message-ID: <20100216175744.GA4685@x200>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [net-next PATCH v4 0/3] net: reserve ports for applications using fixed port
+Date: Tue, 16 Feb 2010 20:04:33 +0200
+Message-ID: <201002162004.33533.opurdila@ixiacom.com>
+References: <1266271241-6293-1-git-send-email-opurdila@ixiacom.com> <m1sk916qkv.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, security@kernel.org
-To: davem@davemloft.net
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Amerigo Wang <amwang@redhat.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f215.google.com ([209.85.220.215]:57685 "EHLO
-	mail-fx0-f215.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933164Ab0BPR5q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 12:57:46 -0500
-Received: by fxm7 with SMTP id 7so7493795fxm.28
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2010 09:57:45 -0800 (PST)
-Content-Disposition: inline
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:29825 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933153Ab0BPSJB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 13:09:01 -0500
+In-Reply-To: <m1sk916qkv.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-GRE protocol receive hook can be called right after protocol addition is done.
-If netns stuff is not yet initialized, we're going to oops in
-net_generic().
 
-This is remotely oopsable if ip_gre is compiled as module and packet
-comes at unfortunate moment of module loading.
+On Tuesday 16 February 2010 19:25:04 you wrote:
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+> I don't like the /proc interface for this.  That is certainly not the
+> format I would choose for a bitmap.  The way you have described this
+> it looks like you are a set of different individual values instead of
+> one large value.  History says one value per file is the ideal in a
+> user space facing interface.  Intuitively I would not know how to
+> change your new proc interface after catting the file.  The classic
+> read the file tweak the value and write the new value back will not
+> work.
+> 
+> Also we already have a common function for dealing with bitmaps
+> in /proc.  bitmap_parse_user.  Used in /proc/irq/NNN/smp_affinity
+> among other places.
+> 
+> So can you please use bitmap_parse_user, or break this up into
+> 64k individual files that we can set individually?
+> 
 
- net/ipv4/ip_gre.c |   19 ++++++++++---------
- 1 file changed, 10 insertions(+), 9 deletions(-)
+Hi Eric, thanks for going over this.
 
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -1665,14 +1665,15 @@ static int __init ipgre_init(void)
- 
- 	printk(KERN_INFO "GRE over IPv4 tunneling driver\n");
- 
--	if (inet_add_protocol(&ipgre_protocol, IPPROTO_GRE) < 0) {
--		printk(KERN_INFO "ipgre init: can't add protocol\n");
--		return -EAGAIN;
--	}
--
- 	err = register_pernet_device(&ipgre_net_ops);
- 	if (err < 0)
--		goto gen_device_failed;
-+		return err;
-+
-+	err = inet_add_protocol(&ipgre_protocol, IPPROTO_GRE);
-+	if (err < 0) {
-+		printk(KERN_INFO "ipgre init: can't add protocol\n");
-+		goto add_proto_failed;
-+	}
- 
- 	err = rtnl_link_register(&ipgre_link_ops);
- 	if (err < 0)
-@@ -1688,9 +1689,9 @@ out:
- tap_ops_failed:
- 	rtnl_link_unregister(&ipgre_link_ops);
- rtnl_link_failed:
--	unregister_pernet_device(&ipgre_net_ops);
--gen_device_failed:
- 	inet_del_protocol(&ipgre_protocol, IPPROTO_GRE);
-+add_proto_failed:
-+	unregister_pernet_device(&ipgre_net_ops);
- 	goto out;
- }
- 
-@@ -1698,9 +1699,9 @@ static void __exit ipgre_fini(void)
- {
- 	rtnl_link_unregister(&ipgre_tap_ops);
- 	rtnl_link_unregister(&ipgre_link_ops);
--	unregister_pernet_device(&ipgre_net_ops);
- 	if (inet_del_protocol(&ipgre_protocol, IPPROTO_GRE) < 0)
- 		printk(KERN_INFO "ipgre close: can't remove protocol\n");
-+	unregister_pernet_device(&ipgre_net_ops);
- }
- 
- module_init(ipgre_init);
+The use case (large bitmaps/lists) is different enough from what we have today 
+(small bitmaps) and that is why I think that we need this new interface. 
+
+If I get bitmap_parse_user correctly, for a 64k bitmap it expects a 2K comma 
+separated values. That is not the most intuitively way for the user to set a 
+list of ports he wants to reserve. 
+
+Using 64K files has the same practical issues (the user would have to cat all 
+64K files to determine which ports are reserved) plus it has issues caused by 
+the large number of files: significant memory overhead and also significant time 
+for registering those files.
+
+If this new interface is unacceptable I would rather go with a setsockopt 
+approach, since either of the above approaches are more like machine friendly  
+instead of user friendly.
