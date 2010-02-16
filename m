@@ -1,120 +1,40 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 04/62: xtables: obtain random bytes earlier, in checkentry
-Date: Tue, 16 Feb 2010 15:55:24 +0100 (MET)
-Message-ID: <20100216145522.2796.77588.sendpatchset@x2.localnet>
-References: <20100216145517.2796.40634.sendpatchset@x2.localnet>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org
-To: davem@davemloft.net
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: Re: [PATCH 13/23 v3] mlx4: Unicast Loopback support
+Date: Tue, 16 Feb 2010 17:28:38 +0200
+Message-ID: <4B7AB9A6.1090209@mellanox.co.il>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Yevgeny Petrilin, Roland Dreier <rdreier@cisco.com>,
+	netdev@vger.kernel.org, liranl@mellanox.co.il,
+	tziporet@mellanox.co.il
+To: or.gerlitz@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51947 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755606Ab0BPOz0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 09:55:26 -0500
-In-Reply-To: <20100216145517.2796.40634.sendpatchset@x2.localnet>
+Received: from mail.mellanox.co.il ([194.90.237.43]:36828 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755447Ab0BPP2n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2010 10:28:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 294188ae32f984a072c64c959354b2f6f52f80a7
-Author: Jan Engelhardt <jengelh@medozas.de>
-Date:   Mon Jan 4 16:28:38 2010 +0100
+On Sunday -10,January,-28163 09:59 PM, Or Gerlitz [or.gerlitz@gmail.com] wrote:
+> Yevgeny Petrilin <yevgenyp@mellanox.co.il> wrote:
+>> Or Gerlitz [or.gerlitz@gmail.com] wrote:
+> 
+>>> I wasn't sure what is the use case here, isn't loopback handled by higher levels at the network stack?
+> 
+>> The use case is two VMs using the same physical adapter.
+> 
+> I am still not with you: are you referring to the case where each VM is being served by a different VF? in that case, the VF driver (mlx4_en) has no way to know its a "loopback" packet, and switching between VFs can be programmed to the PF by the PF driver (modified mlx4_core).
+> 
+> If you are talking to the case both VMs are being served by the same PCI function --> same NIC then again, loopback is handled in higher level.
+> 
+> Is there a 3rd use case?
+> 
+> Or.
 
-    netfilter: xtables: obtain random bytes earlier, in checkentry
-    
-    We can initialize the random hash bytes on checkentry. This is
-    preferable since it is outside the hot path.
-    
-    Reference: http://bugzilla.netfilter.org/show_bug.cgi?id=621
-    Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
-index 38f03f7..8103bef 100644
---- a/net/netfilter/xt_connlimit.c
-+++ b/net/netfilter/xt_connlimit.c
-@@ -40,15 +40,11 @@ struct xt_connlimit_data {
- 	spinlock_t lock;
- };
- 
--static u_int32_t connlimit_rnd;
--static bool connlimit_rnd_inited;
-+static u_int32_t connlimit_rnd __read_mostly;
-+static bool connlimit_rnd_inited __read_mostly;
- 
- static inline unsigned int connlimit_iphash(__be32 addr)
- {
--	if (unlikely(!connlimit_rnd_inited)) {
--		get_random_bytes(&connlimit_rnd, sizeof(connlimit_rnd));
--		connlimit_rnd_inited = true;
--	}
- 	return jhash_1word((__force __u32)addr, connlimit_rnd) & 0xFF;
- }
- 
-@@ -59,11 +55,6 @@ connlimit_iphash6(const union nf_inet_addr *addr,
- 	union nf_inet_addr res;
- 	unsigned int i;
- 
--	if (unlikely(!connlimit_rnd_inited)) {
--		get_random_bytes(&connlimit_rnd, sizeof(connlimit_rnd));
--		connlimit_rnd_inited = true;
--	}
--
- 	for (i = 0; i < ARRAY_SIZE(addr->ip6); ++i)
- 		res.ip6[i] = addr->ip6[i] & mask->ip6[i];
- 
-@@ -226,6 +217,10 @@ static bool connlimit_mt_check(const struct xt_mtchk_param *par)
- 	struct xt_connlimit_info *info = par->matchinfo;
- 	unsigned int i;
- 
-+	if (unlikely(!connlimit_rnd_inited)) {
-+		get_random_bytes(&connlimit_rnd, sizeof(connlimit_rnd));
-+		connlimit_rnd_inited = true;
-+	}
- 	if (nf_ct_l3proto_try_module_get(par->family) < 0) {
- 		printk(KERN_WARNING "cannot load conntrack support for "
- 		       "address family %u\n", par->family);
-diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
-index fc70a49..768d01f 100644
---- a/net/netfilter/xt_recent.c
-+++ b/net/netfilter/xt_recent.c
-@@ -90,25 +90,17 @@ static struct proc_dir_entry *recent_proc_dir;
- static const struct file_operations recent_old_fops, recent_mt_fops;
- #endif
- 
--static u_int32_t hash_rnd;
--static bool hash_rnd_initted;
-+static u_int32_t hash_rnd __read_mostly;
-+static bool hash_rnd_inited __read_mostly;
- 
--static unsigned int recent_entry_hash4(const union nf_inet_addr *addr)
-+static inline unsigned int recent_entry_hash4(const union nf_inet_addr *addr)
- {
--	if (!hash_rnd_initted) {
--		get_random_bytes(&hash_rnd, sizeof(hash_rnd));
--		hash_rnd_initted = true;
--	}
- 	return jhash_1word((__force u32)addr->ip, hash_rnd) &
- 	       (ip_list_hash_size - 1);
- }
- 
--static unsigned int recent_entry_hash6(const union nf_inet_addr *addr)
-+static inline unsigned int recent_entry_hash6(const union nf_inet_addr *addr)
- {
--	if (!hash_rnd_initted) {
--		get_random_bytes(&hash_rnd, sizeof(hash_rnd));
--		hash_rnd_initted = true;
--	}
- 	return jhash2((u32 *)addr->ip6, ARRAY_SIZE(addr->ip6), hash_rnd) &
- 	       (ip_list_hash_size - 1);
- }
-@@ -287,6 +279,10 @@ static bool recent_mt_check(const struct xt_mtchk_param *par)
- 	unsigned i;
- 	bool ret = false;
- 
-+	if (unlikely(!hash_rnd_inited)) {
-+		get_random_bytes(&hash_rnd, sizeof(hash_rnd));
-+		hash_rnd_inited = true;
-+	}
- 	if (hweight8(info->check_set &
- 		     (XT_RECENT_SET | XT_RECENT_REMOVE |
- 		      XT_RECENT_CHECK | XT_RECENT_UPDATE)) != 1)
+There is no third case. I am referring to the case where two VMs are served by two different VFs.
+The mlx4_en driver doesn't know whether a packet is loopback or not, it assumes that all packets can
+be loopbacks and writes the dmac to the control segment.
+The HW checks this field and decides whether the packet is loopback or not (by checking whether the written mac
+matches one of the registered macs on this device).
