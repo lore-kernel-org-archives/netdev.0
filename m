@@ -1,40 +1,60 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] ipcomp: double free at ipcomp_destroy()
-Date: Tue, 16 Feb 2010 13:29:01 +0800
-Message-ID: <20100216052901.GB27643@gondor.apana.org.au>
-References: <20100214144415.GA8115@x200> <20100215001849.GB15437@gondor.apana.org.au> <b6fcc0a1002142332r1542e04ex250fa238e4a3231a@mail.gmail.com> <20100215080846.GA18446@gondor.apana.org.au> <20100215081052.GA18516@gondor.apana.org.au> <20100215155049.GA4905@x200>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH -next 3/6] bnx2: Adjust flow control water marks.
+Date: Mon, 15 Feb 2010 21:42:09 -0800
+Message-ID: <1266298932-28129-3-git-send-email-mchan@broadcom.com>
+References: <1266298932-28129-1-git-send-email-mchan@broadcom.com>
+ <1266298932-28129-2-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:35218 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751105Ab0BPF3G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 00:29:06 -0500
-Content-Disposition: inline
-In-Reply-To: <20100215155049.GA4905@x200>
+Received: from mms1.broadcom.com ([216.31.210.17]:3644 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751308Ab0BPFdB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2010 00:33:01 -0500
+In-Reply-To: <1266298932-28129-2-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 15, 2010 at 05:50:49PM +0200, Alexey Dobriyan wrote:
->
-> Then checks for NULL ->tunnel, and NULL ->data should be removed.
-> In fact, I don't quite understand why destruction was done this way,
-> so simply cleared ->data pointer.
+The current water marks are too high and can cause unnecessary flow
+control frames.
 
-I had a look and I don't think we can do that (unless I misunderstood
-what you meant).
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Benjamin Li <benli@broadcom.com>
+---
+ drivers/net/bnx2.c |    2 +-
+ drivers/net/bnx2.h |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-The NULL ipcd check in ipcomp_destroy is to handle the case where
-ipcomp_init_state fails before it even gets to allocating ipcd.
-
-While the NULL tunnel check in xfrm_state_delete_tunnel is for the
-case where we failed before successfully attaching a tunnel.
-
-Cheers,
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 063f283..54d43d8 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -1277,7 +1277,7 @@ bnx2_init_rx_context(struct bnx2 *bp, u32 cid)
+ 		if (lo_water >= bp->rx_ring_size)
+ 			lo_water = 0;
+ 
+-		hi_water = bp->rx_ring_size / 4;
++		hi_water = min_t(int, bp->rx_ring_size / 4, lo_water + 16);
+ 
+ 		if (hi_water <= lo_water)
+ 			lo_water = 0;
+diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
+index b860fbb..cd4b0e4 100644
+--- a/drivers/net/bnx2.h
++++ b/drivers/net/bnx2.h
+@@ -349,7 +349,7 @@ struct l2_fhdr {
+ #define BNX2_L2CTX_BD_PRE_READ				0x00000000
+ #define BNX2_L2CTX_CTX_SIZE				0x00000000
+ #define BNX2_L2CTX_CTX_TYPE				0x00000000
+-#define BNX2_L2CTX_LO_WATER_MARK_DEFAULT		 32
++#define BNX2_L2CTX_LO_WATER_MARK_DEFAULT		 4
+ #define BNX2_L2CTX_LO_WATER_MARK_SCALE			 4
+ #define BNX2_L2CTX_LO_WATER_MARK_DIS			 0
+ #define BNX2_L2CTX_HI_WATER_MARK_SHIFT			 4
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.6.4.GIT
+
+
