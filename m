@@ -1,302 +1,142 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 29/62: nf_conntrack: support conntrack templates
-Date: Tue, 16 Feb 2010 15:55:59 +0100 (MET)
-Message-ID: <20100216145556.2796.23190.sendpatchset@x2.localnet>
+Subject: netfilter 34/62: ctnetlink: add missing netlink attribute policies
+Date: Tue, 16 Feb 2010 15:56:06 +0100 (MET)
+Message-ID: <20100216145603.2796.24043.sendpatchset@x2.localnet>
 References: <20100216145517.2796.40634.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52029 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:52026 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932486Ab0BPO4B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 09:56:01 -0500
+	with ESMTP id S932365Ab0BPO4G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 09:56:06 -0500
 In-Reply-To: <20100216145517.2796.40634.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit b2a15a604d379af323645e330638e2cfcc696aff
+commit d0b0268fddea3235a8df35e52167c3b206bf2f5a
 Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed Feb 3 14:13:03 2010 +0100
+Date:   Wed Feb 10 15:38:33 2010 +0100
 
-    netfilter: nf_conntrack: support conntrack templates
-    
-    Support initializing selected parameters of new conntrack entries from a
-    "conntrack template", which is a specially marked conntrack entry attached
-    to the skb.
-    
-    Currently the helper and the event delivery masks can be initialized this
-    way.
+    netfilter: ctnetlink: add missing netlink attribute policies
     
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/linux/netfilter/nf_conntrack_common.h b/include/linux/netfilter/nf_conntrack_common.h
-index ebfed90..c608677 100644
---- a/include/linux/netfilter/nf_conntrack_common.h
-+++ b/include/linux/netfilter/nf_conntrack_common.h
-@@ -72,6 +72,10 @@ enum ip_conntrack_status {
- 	/* Connection has fixed timeout. */
- 	IPS_FIXED_TIMEOUT_BIT = 10,
- 	IPS_FIXED_TIMEOUT = (1 << IPS_FIXED_TIMEOUT_BIT),
-+
-+	/* Conntrack is a template */
-+	IPS_TEMPLATE_BIT = 11,
-+	IPS_TEMPLATE = (1 << IPS_TEMPLATE_BIT),
- };
- 
- /* Connection tracking event types */
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index a0904ad..5043d61 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -272,6 +272,11 @@ nf_conntrack_alloc(struct net *net,
- 		   const struct nf_conntrack_tuple *repl,
- 		   gfp_t gfp);
- 
-+static inline int nf_ct_is_template(const struct nf_conn *ct)
-+{
-+	return test_bit(IPS_TEMPLATE_BIT, &ct->status);
-+}
-+
- /* It's confirmed if it is, or has been in the hash table. */
- static inline int nf_ct_is_confirmed(struct nf_conn *ct)
- {
-diff --git a/include/net/netfilter/nf_conntrack_helper.h b/include/net/netfilter/nf_conntrack_helper.h
-index 86be7c4..e17aaa3 100644
---- a/include/net/netfilter/nf_conntrack_helper.h
-+++ b/include/net/netfilter/nf_conntrack_helper.h
-@@ -47,7 +47,8 @@ extern void nf_conntrack_helper_unregister(struct nf_conntrack_helper *);
- 
- extern struct nf_conn_help *nf_ct_helper_ext_add(struct nf_conn *ct, gfp_t gfp);
- 
--extern int __nf_ct_try_assign_helper(struct nf_conn *ct, gfp_t flags);
-+extern int __nf_ct_try_assign_helper(struct nf_conn *ct, struct nf_conn *tmpl,
-+				     gfp_t flags);
- 
- extern void nf_ct_helper_destroy(struct nf_conn *ct);
- 
-diff --git a/net/ipv4/netfilter/nf_defrag_ipv4.c b/net/ipv4/netfilter/nf_defrag_ipv4.c
-index 331ead3..77627fa 100644
---- a/net/ipv4/netfilter/nf_defrag_ipv4.c
-+++ b/net/ipv4/netfilter/nf_defrag_ipv4.c
-@@ -59,7 +59,7 @@ static unsigned int ipv4_conntrack_defrag(unsigned int hooknum,
- #if !defined(CONFIG_NF_NAT) && !defined(CONFIG_NF_NAT_MODULE)
- 	/* Previously seen (loopback)?  Ignore.  Do this before
- 	   fragment check. */
--	if (skb->nfct)
-+	if (skb->nfct && !nf_ct_is_template((struct nf_conn *)skb->nfct))
- 		return NF_ACCEPT;
- #endif
- #endif
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index 0956eba..55ce22e 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -212,7 +212,7 @@ static unsigned int ipv6_defrag(unsigned int hooknum,
- 	struct sk_buff *reasm;
- 
- 	/* Previously seen (loopback)?  */
--	if (skb->nfct)
-+	if (skb->nfct && !nf_ct_is_template((struct nf_conn *)skb->nfct))
- 		return NF_ACCEPT;
- 
- 	reasm = nf_ct_frag6_gather(skb, nf_ct6_defrag_user(hooknum, skb));
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 53b8da6..471e2a7 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -618,7 +618,7 @@ EXPORT_SYMBOL_GPL(nf_conntrack_free);
- /* Allocate a new conntrack: we return -ENOMEM if classification
-    failed due to stress.  Otherwise it really is unclassifiable. */
- static struct nf_conntrack_tuple_hash *
--init_conntrack(struct net *net,
-+init_conntrack(struct net *net, struct nf_conn *tmpl,
- 	       const struct nf_conntrack_tuple *tuple,
- 	       struct nf_conntrack_l3proto *l3proto,
- 	       struct nf_conntrack_l4proto *l4proto,
-@@ -628,6 +628,7 @@ init_conntrack(struct net *net,
- 	struct nf_conn *ct;
- 	struct nf_conn_help *help;
- 	struct nf_conntrack_tuple repl_tuple;
-+	struct nf_conntrack_ecache *ecache;
- 	struct nf_conntrack_expect *exp;
- 
- 	if (!nf_ct_invert_tuple(&repl_tuple, tuple, l3proto, l4proto)) {
-@@ -648,7 +649,11 @@ init_conntrack(struct net *net,
- 	}
- 
- 	nf_ct_acct_ext_add(ct, GFP_ATOMIC);
--	nf_ct_ecache_ext_add(ct, 0, 0, GFP_ATOMIC);
-+
-+	ecache = tmpl ? nf_ct_ecache_find(tmpl) : NULL;
-+	nf_ct_ecache_ext_add(ct, ecache ? ecache->ctmask : 0,
-+				 ecache ? ecache->expmask : 0,
-+			     GFP_ATOMIC);
- 
- 	spin_lock_bh(&nf_conntrack_lock);
- 	exp = nf_ct_find_expectation(net, tuple);
-@@ -673,7 +678,7 @@ init_conntrack(struct net *net,
- 		nf_conntrack_get(&ct->master->ct_general);
- 		NF_CT_STAT_INC(net, expect_new);
- 	} else {
--		__nf_ct_try_assign_helper(ct, GFP_ATOMIC);
-+		__nf_ct_try_assign_helper(ct, tmpl, GFP_ATOMIC);
- 		NF_CT_STAT_INC(net, new);
- 	}
- 
-@@ -694,7 +699,7 @@ init_conntrack(struct net *net,
- 
- /* On success, returns conntrack ptr, sets skb->nfct and ctinfo */
- static inline struct nf_conn *
--resolve_normal_ct(struct net *net,
-+resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
- 		  struct sk_buff *skb,
- 		  unsigned int dataoff,
- 		  u_int16_t l3num,
-@@ -718,7 +723,8 @@ resolve_normal_ct(struct net *net,
- 	/* look for tuple match */
- 	h = nf_conntrack_find_get(net, &tuple);
- 	if (!h) {
--		h = init_conntrack(net, &tuple, l3proto, l4proto, skb, dataoff);
-+		h = init_conntrack(net, tmpl, &tuple, l3proto, l4proto,
-+				   skb, dataoff);
- 		if (!h)
- 			return NULL;
- 		if (IS_ERR(h))
-@@ -755,7 +761,7 @@ unsigned int
- nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
- 		struct sk_buff *skb)
- {
--	struct nf_conn *ct;
-+	struct nf_conn *ct, *tmpl = NULL;
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conntrack_l3proto *l3proto;
- 	struct nf_conntrack_l4proto *l4proto;
-@@ -764,10 +770,14 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
- 	int set_reply = 0;
- 	int ret;
- 
--	/* Previously seen (loopback or untracked)?  Ignore. */
- 	if (skb->nfct) {
--		NF_CT_STAT_INC_ATOMIC(net, ignore);
--		return NF_ACCEPT;
-+		/* Previously seen (loopback or untracked)?  Ignore. */
-+		tmpl = (struct nf_conn *)skb->nfct;
-+		if (!nf_ct_is_template(tmpl)) {
-+			NF_CT_STAT_INC_ATOMIC(net, ignore);
-+			return NF_ACCEPT;
-+		}
-+		skb->nfct = NULL;
- 	}
- 
- 	/* rcu_read_lock()ed by nf_hook_slow */
-@@ -778,7 +788,8 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
- 		pr_debug("not prepared to track yet or error occured\n");
- 		NF_CT_STAT_INC_ATOMIC(net, error);
- 		NF_CT_STAT_INC_ATOMIC(net, invalid);
--		return -ret;
-+		ret = -ret;
-+		goto out;
- 	}
- 
- 	l4proto = __nf_ct_l4proto_find(pf, protonum);
-@@ -791,22 +802,25 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
- 		if (ret <= 0) {
- 			NF_CT_STAT_INC_ATOMIC(net, error);
- 			NF_CT_STAT_INC_ATOMIC(net, invalid);
--			return -ret;
-+			ret = -ret;
-+			goto out;
- 		}
- 	}
- 
--	ct = resolve_normal_ct(net, skb, dataoff, pf, protonum,
-+	ct = resolve_normal_ct(net, tmpl, skb, dataoff, pf, protonum,
- 			       l3proto, l4proto, &set_reply, &ctinfo);
- 	if (!ct) {
- 		/* Not valid part of a connection */
- 		NF_CT_STAT_INC_ATOMIC(net, invalid);
--		return NF_ACCEPT;
-+		ret = NF_ACCEPT;
-+		goto out;
- 	}
- 
- 	if (IS_ERR(ct)) {
- 		/* Too stressed to deal. */
- 		NF_CT_STAT_INC_ATOMIC(net, drop);
--		return NF_DROP;
-+		ret = NF_DROP;
-+		goto out;
- 	}
- 
- 	NF_CT_ASSERT(skb->nfct);
-@@ -821,11 +835,15 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
- 		NF_CT_STAT_INC_ATOMIC(net, invalid);
- 		if (ret == -NF_DROP)
- 			NF_CT_STAT_INC_ATOMIC(net, drop);
--		return -ret;
-+		ret = -ret;
-+		goto out;
- 	}
- 
- 	if (set_reply && !test_and_set_bit(IPS_SEEN_REPLY_BIT, &ct->status))
- 		nf_conntrack_event_cache(IPCT_REPLY, ct);
-+out:
-+	if (tmpl)
-+		nf_ct_put(tmpl);
- 
- 	return ret;
- }
-@@ -864,7 +882,7 @@ void nf_conntrack_alter_reply(struct nf_conn *ct,
- 		return;
- 
- 	rcu_read_lock();
--	__nf_ct_try_assign_helper(ct, GFP_ATOMIC);
-+	__nf_ct_try_assign_helper(ct, NULL, GFP_ATOMIC);
- 	rcu_read_unlock();
- }
- EXPORT_SYMBOL_GPL(nf_conntrack_alter_reply);
-diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
-index c0e461f..8144b0d 100644
---- a/net/netfilter/nf_conntrack_helper.c
-+++ b/net/netfilter/nf_conntrack_helper.c
-@@ -96,13 +96,22 @@ struct nf_conn_help *nf_ct_helper_ext_add(struct nf_conn *ct, gfp_t gfp)
- }
- EXPORT_SYMBOL_GPL(nf_ct_helper_ext_add);
- 
--int __nf_ct_try_assign_helper(struct nf_conn *ct, gfp_t flags)
-+int __nf_ct_try_assign_helper(struct nf_conn *ct, struct nf_conn *tmpl,
-+			      gfp_t flags)
- {
-+	struct nf_conntrack_helper *helper = NULL;
-+	struct nf_conn_help *help;
- 	int ret = 0;
--	struct nf_conntrack_helper *helper;
--	struct nf_conn_help *help = nfct_help(ct);
- 
--	helper = __nf_ct_helper_find(&ct->tuplehash[IP_CT_DIR_REPLY].tuple);
-+	if (tmpl != NULL) {
-+		help = nfct_help(tmpl);
-+		if (help != NULL)
-+			helper = help->helper;
-+	}
-+
-+	help = nfct_help(ct);
-+	if (helper == NULL)
-+		helper = __nf_ct_helper_find(&ct->tuplehash[IP_CT_DIR_REPLY].tuple);
- 	if (helper == NULL) {
- 		if (help)
- 			rcu_assign_pointer(help->helper, NULL);
 diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index f5c0b09..09044f9 100644
+index 327c517..5c103b8 100644
 --- a/net/netfilter/nf_conntrack_netlink.c
 +++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -1249,7 +1249,7 @@ ctnetlink_create_conntrack(struct net *net,
- 		}
- 	} else {
- 		/* try an implicit helper assignation */
--		err = __nf_ct_try_assign_helper(ct, GFP_ATOMIC);
-+		err = __nf_ct_try_assign_helper(ct, NULL, GFP_ATOMIC);
- 		if (err < 0)
- 			goto err2;
- 	}
+@@ -708,6 +708,11 @@ ctnetlink_parse_tuple_proto(struct nlattr *attr,
+ 	return ret;
+ }
+ 
++static const struct nla_policy tuple_nla_policy[CTA_TUPLE_MAX+1] = {
++	[CTA_TUPLE_IP]		= { .type = NLA_NESTED },
++	[CTA_TUPLE_PROTO]	= { .type = NLA_NESTED },
++};
++
+ static int
+ ctnetlink_parse_tuple(const struct nlattr * const cda[],
+ 		      struct nf_conntrack_tuple *tuple,
+@@ -718,7 +723,7 @@ ctnetlink_parse_tuple(const struct nlattr * const cda[],
+ 
+ 	memset(tuple, 0, sizeof(*tuple));
+ 
+-	nla_parse_nested(tb, CTA_TUPLE_MAX, cda[type], NULL);
++	nla_parse_nested(tb, CTA_TUPLE_MAX, cda[type], tuple_nla_policy);
+ 
+ 	if (!tb[CTA_TUPLE_IP])
+ 		return -EINVAL;
+@@ -745,12 +750,16 @@ ctnetlink_parse_tuple(const struct nlattr * const cda[],
+ 	return 0;
+ }
+ 
++static const struct nla_policy help_nla_policy[CTA_HELP_MAX+1] = {
++	[CTA_HELP_NAME]		= { .type = NLA_NUL_STRING },
++};
++
+ static inline int
+ ctnetlink_parse_help(const struct nlattr *attr, char **helper_name)
+ {
+ 	struct nlattr *tb[CTA_HELP_MAX+1];
+ 
+-	nla_parse_nested(tb, CTA_HELP_MAX, attr, NULL);
++	nla_parse_nested(tb, CTA_HELP_MAX, attr, help_nla_policy);
+ 
+ 	if (!tb[CTA_HELP_NAME])
+ 		return -EINVAL;
+@@ -761,11 +770,17 @@ ctnetlink_parse_help(const struct nlattr *attr, char **helper_name)
+ }
+ 
+ static const struct nla_policy ct_nla_policy[CTA_MAX+1] = {
++	[CTA_TUPLE_ORIG]	= { .type = NLA_NESTED },
++	[CTA_TUPLE_REPLY]	= { .type = NLA_NESTED },
+ 	[CTA_STATUS] 		= { .type = NLA_U32 },
++	[CTA_PROTOINFO]		= { .type = NLA_NESTED },
++	[CTA_HELP]		= { .type = NLA_NESTED },
++	[CTA_NAT_SRC]		= { .type = NLA_NESTED },
+ 	[CTA_TIMEOUT] 		= { .type = NLA_U32 },
+ 	[CTA_MARK]		= { .type = NLA_U32 },
+-	[CTA_USE]		= { .type = NLA_U32 },
+ 	[CTA_ID]		= { .type = NLA_U32 },
++	[CTA_NAT_DST]		= { .type = NLA_NESTED },
++	[CTA_TUPLE_MASTER]	= { .type = NLA_NESTED },
+ };
+ 
+ static int
+@@ -1053,6 +1068,12 @@ ctnetlink_change_timeout(struct nf_conn *ct, const struct nlattr * const cda[])
+ 	return 0;
+ }
+ 
++static const struct nla_policy protoinfo_policy[CTA_PROTOINFO_MAX+1] = {
++	[CTA_PROTOINFO_TCP]	= { .type = NLA_NESTED },
++	[CTA_PROTOINFO_DCCP]	= { .type = NLA_NESTED },
++	[CTA_PROTOINFO_SCTP]	= { .type = NLA_NESTED },
++};
++
+ static inline int
+ ctnetlink_change_protoinfo(struct nf_conn *ct, const struct nlattr * const cda[])
+ {
+@@ -1061,7 +1082,7 @@ ctnetlink_change_protoinfo(struct nf_conn *ct, const struct nlattr * const cda[]
+ 	struct nf_conntrack_l4proto *l4proto;
+ 	int err = 0;
+ 
+-	nla_parse_nested(tb, CTA_PROTOINFO_MAX, attr, NULL);
++	nla_parse_nested(tb, CTA_PROTOINFO_MAX, attr, protoinfo_policy);
+ 
+ 	rcu_read_lock();
+ 	l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
+@@ -1073,12 +1094,18 @@ ctnetlink_change_protoinfo(struct nf_conn *ct, const struct nlattr * const cda[]
+ }
+ 
+ #ifdef CONFIG_NF_NAT_NEEDED
++static const struct nla_policy nat_seq_policy[CTA_NAT_SEQ_MAX+1] = {
++	[CTA_NAT_SEQ_CORRECTION_POS]	= { .type = NLA_U32 },
++	[CTA_NAT_SEQ_OFFSET_BEFORE]	= { .type = NLA_U32 },
++	[CTA_NAT_SEQ_OFFSET_AFTER]	= { .type = NLA_U32 },
++};
++
+ static inline int
+ change_nat_seq_adj(struct nf_nat_seq *natseq, const struct nlattr * const attr)
+ {
+ 	struct nlattr *cda[CTA_NAT_SEQ_MAX+1];
+ 
+-	nla_parse_nested(cda, CTA_NAT_SEQ_MAX, attr, NULL);
++	nla_parse_nested(cda, CTA_NAT_SEQ_MAX, attr, nat_seq_policy);
+ 
+ 	if (!cda[CTA_NAT_SEQ_CORRECTION_POS])
+ 		return -EINVAL;
+@@ -1648,8 +1675,12 @@ out:
+ }
+ 
+ static const struct nla_policy exp_nla_policy[CTA_EXPECT_MAX+1] = {
++	[CTA_EXPECT_MASTER]	= { .type = NLA_NESTED },
++	[CTA_EXPECT_TUPLE]	= { .type = NLA_NESTED },
++	[CTA_EXPECT_MASK]	= { .type = NLA_NESTED },
+ 	[CTA_EXPECT_TIMEOUT]	= { .type = NLA_U32 },
+ 	[CTA_EXPECT_ID]		= { .type = NLA_U32 },
++	[CTA_EXPECT_HELP_NAME]	= { .type = NLA_NUL_STRING },
+ };
+ 
+ static int
