@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 43/62: nf_conntrack_sip: add TCP support
-Date: Tue, 16 Feb 2010 15:56:18 +0100 (MET)
-Message-ID: <20100216145616.2796.45784.sendpatchset@x2.localnet>
+Subject: netfilter 38/62: xtables: generate initial table on-demand
+Date: Tue, 16 Feb 2010 15:56:11 +0100 (MET)
+Message-ID: <20100216145609.2796.96341.sendpatchset@x2.localnet>
 References: <20100216145517.2796.40634.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
@@ -11,386 +11,807 @@ In-Reply-To: <20100216145517.2796.40634.sendpatchset@x2.localnet>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-commit f5b321bd37fbec9188feb1f721ab46a5ac0b35da
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Thu Feb 11 12:26:19 2010 +0100
+commit e3eaa9910b380530cfd2c0670fcd3f627674da8a
+Author: Jan Engelhardt <jengelh@medozas.de>
+Date:   Wed Jun 17 22:14:54 2009 +0200
 
-    netfilter: nf_conntrack_sip: add TCP support
+    netfilter: xtables: generate initial table on-demand
     
-    Add TCP support, which is mandated by RFC3261 for all SIP elements.
+    The static initial tables are pretty large, and after the net
+    namespace has been instantiated, they just hang around for nothing.
+    This commit removes them and creates tables on-demand at runtime when
+    needed.
     
-    SIP over TCP is similar to UDP, except that messages are delimited
-    by Content-Length: headers and multiple messages may appear in one
-    packet.
+    Size shrinks by 7735 bytes (x86_64).
     
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+    Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 
-diff --git a/include/linux/netfilter/nf_conntrack_sip.h b/include/linux/netfilter/nf_conntrack_sip.h
-index 2c6950b..fa9bb89 100644
---- a/include/linux/netfilter/nf_conntrack_sip.h
-+++ b/include/linux/netfilter/nf_conntrack_sip.h
-@@ -84,7 +84,8 @@ enum sip_header_types {
- 	SIP_HDR_FROM,
- 	SIP_HDR_TO,
- 	SIP_HDR_CONTACT,
--	SIP_HDR_VIA,
-+	SIP_HDR_VIA_UDP,
-+	SIP_HDR_VIA_TCP,
- 	SIP_HDR_EXPIRES,
- 	SIP_HDR_CONTENT_LENGTH,
- };
-diff --git a/net/ipv4/netfilter/nf_nat_sip.c b/net/ipv4/netfilter/nf_nat_sip.c
-index 2454ea5..b232e40 100644
---- a/net/ipv4/netfilter/nf_nat_sip.c
-+++ b/net/ipv4/netfilter/nf_nat_sip.c
-@@ -122,7 +122,7 @@ static unsigned int ip_nat_sip(struct sk_buff *skb, unsigned int dataoff,
- 
- 	/* Translate topmost Via header and parameters */
- 	if (ct_sip_parse_header_uri(ct, *dptr, NULL, *datalen,
--				    SIP_HDR_VIA, NULL, &matchoff, &matchlen,
-+				    SIP_HDR_VIA_UDP, NULL, &matchoff, &matchlen,
- 				    &addr, &port) > 0) {
- 		unsigned int matchend, poff, plen, buflen, n;
- 		char buffer[sizeof("nnn.nnn.nnn.nnn:nnnnn")];
-diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
-index 0ec37d6..1cc75c5 100644
---- a/net/netfilter/nf_conntrack_sip.c
-+++ b/net/netfilter/nf_conntrack_sip.c
-@@ -16,6 +16,7 @@
- #include <linux/inet.h>
- #include <linux/in.h>
- #include <linux/udp.h>
-+#include <linux/tcp.h>
- #include <linux/netfilter.h>
- 
- #include <net/netfilter/nf_conntrack.h>
-@@ -287,7 +288,8 @@ static const struct sip_header ct_sip_hdrs[] = {
- 	[SIP_HDR_FROM]			= SIP_HDR("From", "f", "sip:", skp_epaddr_len),
- 	[SIP_HDR_TO]			= SIP_HDR("To", "t", "sip:", skp_epaddr_len),
- 	[SIP_HDR_CONTACT]		= SIP_HDR("Contact", "m", "sip:", skp_epaddr_len),
--	[SIP_HDR_VIA]			= SIP_HDR("Via", "v", "UDP ", epaddr_len),
-+	[SIP_HDR_VIA_UDP]		= SIP_HDR("Via", "v", "UDP ", epaddr_len),
-+	[SIP_HDR_VIA_TCP]		= SIP_HDR("Via", "v", "TCP ", epaddr_len),
- 	[SIP_HDR_EXPIRES]		= SIP_HDR("Expires", NULL, NULL, digits_len),
- 	[SIP_HDR_CONTENT_LENGTH]	= SIP_HDR("Content-Length", "l", NULL, digits_len),
- };
-@@ -519,6 +521,33 @@ int ct_sip_parse_header_uri(const struct nf_conn *ct, const char *dptr,
+diff --git a/include/linux/netfilter_arp/arp_tables.h b/include/linux/netfilter_arp/arp_tables.h
+index f233652..0b33980 100644
+--- a/include/linux/netfilter_arp/arp_tables.h
++++ b/include/linux/netfilter_arp/arp_tables.h
+@@ -258,6 +258,7 @@ struct arpt_error {
+ 	.target.errorname = "ERROR",					       \
  }
- EXPORT_SYMBOL_GPL(ct_sip_parse_header_uri);
  
-+static int ct_sip_parse_param(const struct nf_conn *ct, const char *dptr,
-+			      unsigned int dataoff, unsigned int datalen,
-+			      const char *name,
-+			      unsigned int *matchoff, unsigned int *matchlen)
-+{
-+	const char *limit = dptr + datalen;
-+	const char *start;
-+	const char *end;
-+
-+	limit = ct_sip_header_search(dptr + dataoff, limit, ",", strlen(","));
-+	if (!limit)
-+		limit = dptr + datalen;
-+
-+	start = ct_sip_header_search(dptr + dataoff, limit, name, strlen(name));
-+	if (!start)
-+		return 0;
-+	start += strlen(name);
-+
-+	end = ct_sip_header_search(start, limit, ";", strlen(";"));
-+	if (!end)
-+		end = limit;
-+
-+	*matchoff = start - dptr;
-+	*matchlen = end - start;
-+	return 1;
-+}
-+
- /* Parse address from header parameter and return address, offset and length */
- int ct_sip_parse_address_param(const struct nf_conn *ct, const char *dptr,
- 			       unsigned int dataoff, unsigned int datalen,
-@@ -577,6 +606,29 @@ int ct_sip_parse_numerical_param(const struct nf_conn *ct, const char *dptr,
++extern void *arpt_alloc_initial_table(const struct xt_table *);
+ extern struct xt_table *arpt_register_table(struct net *net,
+ 					    const struct xt_table *table,
+ 					    const struct arpt_replace *repl);
+diff --git a/include/linux/netfilter_ipv4/ip_tables.h b/include/linux/netfilter_ipv4/ip_tables.h
+index 8d1f273..364973b 100644
+--- a/include/linux/netfilter_ipv4/ip_tables.h
++++ b/include/linux/netfilter_ipv4/ip_tables.h
+@@ -282,6 +282,7 @@ struct ipt_error {
+ 	.target.errorname = "ERROR",					       \
  }
- EXPORT_SYMBOL_GPL(ct_sip_parse_numerical_param);
  
-+static int ct_sip_parse_transport(struct nf_conn *ct, const char *dptr,
-+				  unsigned int dataoff, unsigned int datalen,
-+				  u8 *proto)
++extern void *ipt_alloc_initial_table(const struct xt_table *);
+ extern unsigned int ipt_do_table(struct sk_buff *skb,
+ 				 unsigned int hook,
+ 				 const struct net_device *in,
+diff --git a/include/linux/netfilter_ipv6/ip6_tables.h b/include/linux/netfilter_ipv6/ip6_tables.h
+index d2952d2..8031eb4 100644
+--- a/include/linux/netfilter_ipv6/ip6_tables.h
++++ b/include/linux/netfilter_ipv6/ip6_tables.h
+@@ -297,6 +297,7 @@ ip6t_get_target(struct ip6t_entry *e)
+ #include <linux/init.h>
+ extern void ip6t_init(void) __init;
+ 
++extern void *ip6t_alloc_initial_table(const struct xt_table *);
+ extern struct xt_table *ip6t_register_table(struct net *net,
+ 					    const struct xt_table *table,
+ 					    const struct ip6t_replace *repl);
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index 90203e1..72723ea 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -27,6 +27,7 @@
+ 
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter_arp/arp_tables.h>
++#include "../../netfilter/xt_repldata.h"
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("David S. Miller <davem@redhat.com>");
+@@ -58,6 +59,12 @@ do {								\
+ #define ARP_NF_ASSERT(x)
+ #endif
+ 
++void *arpt_alloc_initial_table(const struct xt_table *info)
 +{
-+	unsigned int matchoff, matchlen;
-+
-+	if (ct_sip_parse_param(ct, dptr, dataoff, datalen, "transport=",
-+			       &matchoff, &matchlen)) {
-+		if (!strnicmp(dptr + matchoff, "TCP", strlen("TCP")))
-+			*proto = IPPROTO_TCP;
-+		else if (!strnicmp(dptr + matchoff, "UDP", strlen("UDP")))
-+			*proto = IPPROTO_UDP;
-+		else
-+			return 0;
-+
-+		if (*proto != nf_ct_protonum(ct))
-+			return 0;
-+	} else
-+		*proto = nf_ct_protonum(ct);
-+
-+	return 1;
++	return xt_alloc_initial_table(arpt, ARPT);
 +}
++EXPORT_SYMBOL_GPL(arpt_alloc_initial_table);
 +
- /* SDP header parsing: a SDP session description contains an ordered set of
-  * headers, starting with a section containing general session parameters,
-  * optionally followed by multiple media descriptions.
-@@ -685,7 +737,7 @@ static int ct_sip_parse_sdp_addr(const struct nf_conn *ct, const char *dptr,
- 
- static int refresh_signalling_expectation(struct nf_conn *ct,
- 					  union nf_inet_addr *addr,
--					  __be16 port,
-+					  u8 proto, __be16 port,
- 					  unsigned int expires)
+ static inline int arp_devaddr_compare(const struct arpt_devaddr_info *ap,
+ 				      const char *hdr_addr, int len)
  {
- 	struct nf_conn_help *help = nfct_help(ct);
-@@ -697,6 +749,7 @@ static int refresh_signalling_expectation(struct nf_conn *ct,
- 	hlist_for_each_entry_safe(exp, n, next, &help->expectations, lnode) {
- 		if (exp->class != SIP_EXPECT_SIGNALLING ||
- 		    !nf_inet_addr_cmp(&exp->tuple.dst.u3, addr) ||
-+		    exp->tuple.dst.protonum != proto ||
- 		    exp->tuple.dst.u.udp.port != port)
- 			continue;
- 		if (!del_timer(&exp->timeout))
-@@ -1048,6 +1101,7 @@ static int process_register_request(struct sk_buff *skb, unsigned int dataoff,
- 	struct nf_conntrack_expect *exp;
- 	union nf_inet_addr *saddr, daddr;
- 	__be16 port;
-+	u8 proto;
- 	unsigned int expires = 0;
- 	int ret;
- 	typeof(nf_nat_sip_expect_hook) nf_nat_sip_expect;
-@@ -1080,6 +1134,10 @@ static int process_register_request(struct sk_buff *skb, unsigned int dataoff,
- 	if (!nf_inet_addr_cmp(&ct->tuplehash[dir].tuple.src.u3, &daddr))
- 		return NF_ACCEPT;
+diff --git a/net/ipv4/netfilter/arptable_filter.c b/net/ipv4/netfilter/arptable_filter.c
+index b361de0..bfe26f3 100644
+--- a/net/ipv4/netfilter/arptable_filter.c
++++ b/net/ipv4/netfilter/arptable_filter.c
+@@ -6,6 +6,7 @@
+  */
  
-+	if (ct_sip_parse_transport(ct, *dptr, matchoff + matchlen, *datalen,
-+				   &proto) == 0)
-+		return NF_ACCEPT;
-+
- 	if (ct_sip_parse_numerical_param(ct, *dptr,
- 					 matchoff + matchlen, *datalen,
- 					 "expires=", NULL, NULL, &expires) < 0)
-@@ -1099,7 +1157,7 @@ static int process_register_request(struct sk_buff *skb, unsigned int dataoff,
- 		saddr = &ct->tuplehash[!dir].tuple.src.u3;
+ #include <linux/module.h>
++#include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter_arp/arp_tables.h>
  
- 	nf_ct_expect_init(exp, SIP_EXPECT_SIGNALLING, nf_ct_l3num(ct),
--			  saddr, &daddr, IPPROTO_UDP, NULL, &port);
-+			  saddr, &daddr, proto, NULL, &port);
- 	exp->timeout.expires = sip_timeout * HZ;
- 	exp->helper = nfct_help(ct)->helper;
- 	exp->flags = NF_CT_EXPECT_PERMANENT | NF_CT_EXPECT_INACTIVE;
-@@ -1132,6 +1190,7 @@ static int process_register_response(struct sk_buff *skb, unsigned int dataoff,
- 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
- 	union nf_inet_addr addr;
- 	__be16 port;
-+	u8 proto;
- 	unsigned int matchoff, matchlen, coff = 0;
- 	unsigned int expires = 0;
- 	int in_contact = 0, ret;
-@@ -1172,6 +1231,10 @@ static int process_register_response(struct sk_buff *skb, unsigned int dataoff,
- 		if (!nf_inet_addr_cmp(&ct->tuplehash[dir].tuple.dst.u3, &addr))
- 			continue;
+ MODULE_LICENSE("GPL");
+@@ -15,36 +16,6 @@ MODULE_DESCRIPTION("arptables filter table");
+ #define FILTER_VALID_HOOKS ((1 << NF_ARP_IN) | (1 << NF_ARP_OUT) | \
+ 			   (1 << NF_ARP_FORWARD))
  
-+		if (ct_sip_parse_transport(ct, *dptr, matchoff + matchlen,
-+					   *datalen, &proto) == 0)
-+			continue;
-+
- 		ret = ct_sip_parse_numerical_param(ct, *dptr,
- 						   matchoff + matchlen,
- 						   *datalen, "expires=",
-@@ -1180,7 +1243,8 @@ static int process_register_response(struct sk_buff *skb, unsigned int dataoff,
- 			return NF_DROP;
- 		if (c_expires == 0)
- 			break;
--		if (refresh_signalling_expectation(ct, &addr, port, c_expires))
-+		if (refresh_signalling_expectation(ct, &addr, proto, port,
-+						   c_expires))
- 			return NF_ACCEPT;
- 	}
+-static const struct
+-{
+-	struct arpt_replace repl;
+-	struct arpt_standard entries[3];
+-	struct arpt_error term;
+-} initial_table __net_initdata = {
+-	.repl = {
+-		.name = "filter",
+-		.valid_hooks = FILTER_VALID_HOOKS,
+-		.num_entries = 4,
+-		.size = sizeof(struct arpt_standard) * 3 + sizeof(struct arpt_error),
+-		.hook_entry = {
+-			[NF_ARP_IN] = 0,
+-			[NF_ARP_OUT] = sizeof(struct arpt_standard),
+-			[NF_ARP_FORWARD] = 2 * sizeof(struct arpt_standard),
+-		},
+-		.underflow = {
+-			[NF_ARP_IN] = 0,
+-			[NF_ARP_OUT] = sizeof(struct arpt_standard),
+-			[NF_ARP_FORWARD] = 2 * sizeof(struct arpt_standard),
+-		},
+-	},
+-	.entries = {
+-		ARPT_STANDARD_INIT(NF_ACCEPT),	/* ARP_IN */
+-		ARPT_STANDARD_INIT(NF_ACCEPT),	/* ARP_OUT */
+-		ARPT_STANDARD_INIT(NF_ACCEPT),	/* ARP_FORWARD */
+-	},
+-	.term = ARPT_ERROR_INIT,
+-};
+-
+ static const struct xt_table packet_filter = {
+ 	.name		= "filter",
+ 	.valid_hooks	= FILTER_VALID_HOOKS,
+@@ -68,9 +39,14 @@ static struct nf_hook_ops *arpfilter_ops __read_mostly;
  
-@@ -1265,50 +1329,123 @@ static int process_sip_request(struct sk_buff *skb, unsigned int dataoff,
- 	return NF_ACCEPT;
- }
- 
--static int sip_help(struct sk_buff *skb,
--		    unsigned int protoff,
--		    struct nf_conn *ct,
--		    enum ip_conntrack_info ctinfo)
-+static int process_sip_msg(struct sk_buff *skb, struct nf_conn *ct,
-+			   unsigned int dataoff, const char **dptr,
-+			   unsigned int *datalen)
-+{
-+	typeof(nf_nat_sip_hook) nf_nat_sip;
-+	int ret;
-+
-+	if (strnicmp(*dptr, "SIP/2.0 ", strlen("SIP/2.0 ")) != 0)
-+		ret = process_sip_request(skb, dataoff, dptr, datalen);
-+	else
-+		ret = process_sip_response(skb, dataoff, dptr, datalen);
-+
-+	if (ret == NF_ACCEPT && ct->status & IPS_NAT_MASK) {
-+		nf_nat_sip = rcu_dereference(nf_nat_sip_hook);
-+		if (nf_nat_sip && !nf_nat_sip(skb, dataoff, dptr, datalen))
-+			ret = NF_DROP;
-+	}
-+
-+	return ret;
-+}
-+
-+static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
-+			struct nf_conn *ct, enum ip_conntrack_info ctinfo)
+ static int __net_init arptable_filter_net_init(struct net *net)
  {
-+	struct tcphdr *th, _tcph;
- 	unsigned int dataoff, datalen;
--	const char *dptr;
-+	unsigned int matchoff, matchlen, clen;
-+	unsigned int msglen, origlen;
-+	const char *dptr, *end;
-+	s16 diff, tdiff = 0;
- 	int ret;
--	typeof(nf_nat_sip_hook) nf_nat_sip;
+-	/* Register table */
++	struct arpt_replace *repl;
 +
-+	if (ctinfo != IP_CT_ESTABLISHED &&
-+	    ctinfo != IP_CT_ESTABLISHED + IP_CT_IS_REPLY)
-+		return NF_ACCEPT;
++	repl = arpt_alloc_initial_table(&packet_filter);
++	if (repl == NULL)
++		return -ENOMEM;
+ 	net->ipv4.arptable_filter =
+-		arpt_register_table(net, &packet_filter, &initial_table.repl);
++		arpt_register_table(net, &packet_filter, repl);
++	kfree(repl);
+ 	if (IS_ERR(net->ipv4.arptable_filter))
+ 		return PTR_ERR(net->ipv4.arptable_filter);
+ 	return 0;
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 5bf7de1..2057b1b 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -28,6 +28,7 @@
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter_ipv4/ip_tables.h>
+ #include <net/netfilter/nf_log.h>
++#include "../../netfilter/xt_repldata.h"
  
- 	/* No Data ? */
--	dataoff = protoff + sizeof(struct udphdr);
-+	th = skb_header_pointer(skb, protoff, sizeof(_tcph), &_tcph);
-+	if (th == NULL)
-+		return NF_ACCEPT;
-+	dataoff = protoff + th->doff * 4;
- 	if (dataoff >= skb->len)
- 		return NF_ACCEPT;
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Netfilter Core Team <coreteam@netfilter.org>");
+@@ -66,6 +67,12 @@ do {								\
+ #define inline
+ #endif
  
- 	nf_ct_refresh(ct, skb, sip_timeout * HZ);
- 
--	if (!skb_is_nonlinear(skb))
--		dptr = skb->data + dataoff;
--	else {
-+	if (skb_is_nonlinear(skb)) {
- 		pr_debug("Copy of skbuff not supported yet.\n");
- 		return NF_ACCEPT;
- 	}
- 
-+	dptr = skb->data + dataoff;
- 	datalen = skb->len - dataoff;
- 	if (datalen < strlen("SIP/2.0 200"))
- 		return NF_ACCEPT;
- 
--	if (strnicmp(dptr, "SIP/2.0 ", strlen("SIP/2.0 ")) != 0)
--		ret = process_sip_request(skb, dataoff, &dptr, &datalen);
--	else
--		ret = process_sip_response(skb, dataoff, &dptr, &datalen);
-+	while (1) {
-+		if (ct_sip_get_header(ct, dptr, 0, datalen,
-+				      SIP_HDR_CONTENT_LENGTH,
-+				      &matchoff, &matchlen) <= 0)
-+			break;
- 
--	if (ret == NF_ACCEPT && ct->status & IPS_NAT_MASK) {
--		nf_nat_sip = rcu_dereference(nf_nat_sip_hook);
--		if (nf_nat_sip && !nf_nat_sip(skb, dataoff, &dptr, &datalen))
--			ret = NF_DROP;
-+		clen = simple_strtoul(dptr + matchoff, (char **)&end, 10);
-+		if (dptr + matchoff == end)
-+			break;
-+
-+		if (end + strlen("\r\n\r\n") > dptr + datalen)
-+			break;
-+		if (end[0] != '\r' || end[1] != '\n' ||
-+		    end[2] != '\r' || end[3] != '\n')
-+			break;
-+		end += strlen("\r\n\r\n") + clen;
-+
-+		msglen = origlen = end - dptr;
-+
-+		ret = process_sip_msg(skb, ct, dataoff, &dptr, &msglen);
-+		if (ret != NF_ACCEPT)
-+			break;
-+		diff     = msglen - origlen;
-+		tdiff   += diff;
-+
-+		dataoff += msglen;
-+		dptr    += msglen;
-+		datalen  = datalen + diff - msglen;
- 	}
- 
- 	return ret;
- }
- 
--static struct nf_conntrack_helper sip[MAX_PORTS][2] __read_mostly;
--static char sip_names[MAX_PORTS][2][sizeof("sip-65535")] __read_mostly;
-+static int sip_help_udp(struct sk_buff *skb, unsigned int protoff,
-+			struct nf_conn *ct, enum ip_conntrack_info ctinfo)
++void *ipt_alloc_initial_table(const struct xt_table *info)
 +{
-+	unsigned int dataoff, datalen;
-+	const char *dptr;
-+
-+	/* No Data ? */
-+	dataoff = protoff + sizeof(struct udphdr);
-+	if (dataoff >= skb->len)
-+		return NF_ACCEPT;
-+
-+	nf_ct_refresh(ct, skb, sip_timeout * HZ);
-+
-+	if (skb_is_nonlinear(skb)) {
-+		pr_debug("Copy of skbuff not supported yet.\n");
-+		return NF_ACCEPT;
-+	}
-+
-+	dptr = skb->data + dataoff;
-+	datalen = skb->len - dataoff;
-+	if (datalen < strlen("SIP/2.0 200"))
-+		return NF_ACCEPT;
-+
-+	return process_sip_msg(skb, ct, dataoff, &dptr, &datalen);
++	return xt_alloc_initial_table(ipt, IPT);
 +}
++EXPORT_SYMBOL_GPL(ipt_alloc_initial_table);
 +
-+static struct nf_conntrack_helper sip[MAX_PORTS][4] __read_mostly;
-+static char sip_names[MAX_PORTS][4][sizeof("sip-65535")] __read_mostly;
+ /*
+    We keep a set of rules for each CPU, so we can avoid write-locking
+    them in the softirq when updating the counters and therefore
+diff --git a/net/ipv4/netfilter/iptable_filter.c b/net/ipv4/netfilter/iptable_filter.c
+index c14bb85..c8dc980 100644
+--- a/net/ipv4/netfilter/iptable_filter.c
++++ b/net/ipv4/netfilter/iptable_filter.c
+@@ -23,36 +23,6 @@ MODULE_DESCRIPTION("iptables filter table");
+ 			    (1 << NF_INET_FORWARD) | \
+ 			    (1 << NF_INET_LOCAL_OUT))
  
- static const struct nf_conntrack_expect_policy sip_exp_policy[SIP_EXPECT_MAX + 1] = {
- 	[SIP_EXPECT_SIGNALLING] = {
-@@ -1333,7 +1470,7 @@ static void nf_conntrack_sip_fini(void)
- 	int i, j;
+-static struct
+-{
+-	struct ipt_replace repl;
+-	struct ipt_standard entries[3];
+-	struct ipt_error term;
+-} initial_table __net_initdata = {
+-	.repl = {
+-		.name = "filter",
+-		.valid_hooks = FILTER_VALID_HOOKS,
+-		.num_entries = 4,
+-		.size = sizeof(struct ipt_standard) * 3 + sizeof(struct ipt_error),
+-		.hook_entry = {
+-			[NF_INET_LOCAL_IN] = 0,
+-			[NF_INET_FORWARD] = sizeof(struct ipt_standard),
+-			[NF_INET_LOCAL_OUT] = sizeof(struct ipt_standard) * 2,
+-		},
+-		.underflow = {
+-			[NF_INET_LOCAL_IN] = 0,
+-			[NF_INET_FORWARD] = sizeof(struct ipt_standard),
+-			[NF_INET_LOCAL_OUT] = sizeof(struct ipt_standard) * 2,
+-		},
+-	},
+-	.entries = {
+-		IPT_STANDARD_INIT(NF_ACCEPT),	/* LOCAL_IN */
+-		IPT_STANDARD_INIT(NF_ACCEPT),	/* FORWARD */
+-		IPT_STANDARD_INIT(NF_ACCEPT),	/* LOCAL_OUT */
+-	},
+-	.term = IPT_ERROR_INIT,			/* ERROR */
+-};
+-
+ static const struct xt_table packet_filter = {
+ 	.name		= "filter",
+ 	.valid_hooks	= FILTER_VALID_HOOKS,
+@@ -86,9 +56,18 @@ module_param(forward, bool, 0000);
  
- 	for (i = 0; i < ports_c; i++) {
--		for (j = 0; j < 2; j++) {
-+		for (j = 0; j < ARRAY_SIZE(sip[i]); j++) {
- 			if (sip[i][j].me == NULL)
- 				continue;
- 			nf_conntrack_helper_unregister(&sip[i][j]);
-@@ -1353,14 +1490,24 @@ static int __init nf_conntrack_sip_init(void)
- 		memset(&sip[i], 0, sizeof(sip[i]));
- 
- 		sip[i][0].tuple.src.l3num = AF_INET;
--		sip[i][1].tuple.src.l3num = AF_INET6;
--		for (j = 0; j < 2; j++) {
--			sip[i][j].tuple.dst.protonum = IPPROTO_UDP;
-+		sip[i][0].tuple.dst.protonum = IPPROTO_UDP;
-+		sip[i][0].help = sip_help_udp;
-+		sip[i][1].tuple.src.l3num = AF_INET;
-+		sip[i][1].tuple.dst.protonum = IPPROTO_TCP;
-+		sip[i][1].help = sip_help_tcp;
+ static int __net_init iptable_filter_net_init(struct net *net)
+ {
+-	/* Register table */
++	struct ipt_replace *repl;
 +
-+		sip[i][2].tuple.src.l3num = AF_INET6;
-+		sip[i][2].tuple.dst.protonum = IPPROTO_UDP;
-+		sip[i][2].help = sip_help_udp;
-+		sip[i][3].tuple.src.l3num = AF_INET6;
-+		sip[i][3].tuple.dst.protonum = IPPROTO_TCP;
-+		sip[i][3].help = sip_help_tcp;
++	repl = ipt_alloc_initial_table(&packet_filter);
++	if (repl == NULL)
++		return -ENOMEM;
++	/* Entry 1 is the FORWARD hook */
++	((struct ipt_standard *)repl->entries)[1].target.verdict =
++		-forward - 1;
 +
-+		for (j = 0; j < ARRAY_SIZE(sip[i]); j++) {
- 			sip[i][j].tuple.src.u.udp.port = htons(ports[i]);
- 			sip[i][j].expect_policy = sip_exp_policy;
- 			sip[i][j].expect_class_max = SIP_EXPECT_MAX;
- 			sip[i][j].me = THIS_MODULE;
--			sip[i][j].help = sip_help;
+ 	net->ipv4.iptable_filter =
+-		ipt_register_table(net, &packet_filter, &initial_table.repl);
++		ipt_register_table(net, &packet_filter, repl);
++	kfree(repl);
+ 	if (IS_ERR(net->ipv4.iptable_filter))
+ 		return PTR_ERR(net->ipv4.iptable_filter);
+ 	return 0;
+@@ -113,9 +92,6 @@ static int __init iptable_filter_init(void)
+ 		return -EINVAL;
+ 	}
  
- 			tmpname = &sip_names[i][j][0];
- 			if (ports[i] == SIP_PORT)
+-	/* Entry 1 is the FORWARD hook */
+-	initial_table.entries[1].target.verdict = -forward - 1;
+-
+ 	ret = register_pernet_subsys(&iptable_filter_net_ops);
+ 	if (ret < 0)
+ 		return ret;
+diff --git a/net/ipv4/netfilter/iptable_mangle.c b/net/ipv4/netfilter/iptable_mangle.c
+index 2355a22..58d7097 100644
+--- a/net/ipv4/netfilter/iptable_mangle.c
++++ b/net/ipv4/netfilter/iptable_mangle.c
+@@ -27,43 +27,6 @@ MODULE_DESCRIPTION("iptables mangle table");
+ 			    (1 << NF_INET_LOCAL_OUT) | \
+ 			    (1 << NF_INET_POST_ROUTING))
+ 
+-/* Ouch - five different hooks? Maybe this should be a config option..... -- BC */
+-static const struct
+-{
+-	struct ipt_replace repl;
+-	struct ipt_standard entries[5];
+-	struct ipt_error term;
+-} initial_table __net_initdata = {
+-	.repl = {
+-		.name = "mangle",
+-		.valid_hooks = MANGLE_VALID_HOOKS,
+-		.num_entries = 6,
+-		.size = sizeof(struct ipt_standard) * 5 + sizeof(struct ipt_error),
+-		.hook_entry = {
+-			[NF_INET_PRE_ROUTING] 	= 0,
+-			[NF_INET_LOCAL_IN] 	= sizeof(struct ipt_standard),
+-			[NF_INET_FORWARD] 	= sizeof(struct ipt_standard) * 2,
+-			[NF_INET_LOCAL_OUT] 	= sizeof(struct ipt_standard) * 3,
+-			[NF_INET_POST_ROUTING] 	= sizeof(struct ipt_standard) * 4,
+-		},
+-		.underflow = {
+-			[NF_INET_PRE_ROUTING] 	= 0,
+-			[NF_INET_LOCAL_IN] 	= sizeof(struct ipt_standard),
+-			[NF_INET_FORWARD] 	= sizeof(struct ipt_standard) * 2,
+-			[NF_INET_LOCAL_OUT] 	= sizeof(struct ipt_standard) * 3,
+-			[NF_INET_POST_ROUTING]	= sizeof(struct ipt_standard) * 4,
+-		},
+-	},
+-	.entries = {
+-		IPT_STANDARD_INIT(NF_ACCEPT),	/* PRE_ROUTING */
+-		IPT_STANDARD_INIT(NF_ACCEPT),	/* LOCAL_IN */
+-		IPT_STANDARD_INIT(NF_ACCEPT),	/* FORWARD */
+-		IPT_STANDARD_INIT(NF_ACCEPT),	/* LOCAL_OUT */
+-		IPT_STANDARD_INIT(NF_ACCEPT),	/* POST_ROUTING */
+-	},
+-	.term = IPT_ERROR_INIT,			/* ERROR */
+-};
+-
+ static const struct xt_table packet_mangler = {
+ 	.name		= "mangle",
+ 	.valid_hooks	= MANGLE_VALID_HOOKS,
+@@ -134,9 +97,14 @@ static struct nf_hook_ops *mangle_ops __read_mostly;
+ 
+ static int __net_init iptable_mangle_net_init(struct net *net)
+ {
+-	/* Register table */
++	struct ipt_replace *repl;
++
++	repl = ipt_alloc_initial_table(&packet_mangler);
++	if (repl == NULL)
++		return -ENOMEM;
+ 	net->ipv4.iptable_mangle =
+-		ipt_register_table(net, &packet_mangler, &initial_table.repl);
++		ipt_register_table(net, &packet_mangler, repl);
++	kfree(repl);
+ 	if (IS_ERR(net->ipv4.iptable_mangle))
+ 		return PTR_ERR(net->ipv4.iptable_mangle);
+ 	return 0;
+diff --git a/net/ipv4/netfilter/iptable_raw.c b/net/ipv4/netfilter/iptable_raw.c
+index 62a9915..06fb9d1 100644
+--- a/net/ipv4/netfilter/iptable_raw.c
++++ b/net/ipv4/netfilter/iptable_raw.c
+@@ -9,33 +9,6 @@
+ 
+ #define RAW_VALID_HOOKS ((1 << NF_INET_PRE_ROUTING) | (1 << NF_INET_LOCAL_OUT))
+ 
+-static const struct
+-{
+-	struct ipt_replace repl;
+-	struct ipt_standard entries[2];
+-	struct ipt_error term;
+-} initial_table __net_initdata = {
+-	.repl = {
+-		.name = "raw",
+-		.valid_hooks = RAW_VALID_HOOKS,
+-		.num_entries = 3,
+-		.size = sizeof(struct ipt_standard) * 2 + sizeof(struct ipt_error),
+-		.hook_entry = {
+-			[NF_INET_PRE_ROUTING] = 0,
+-			[NF_INET_LOCAL_OUT] = sizeof(struct ipt_standard)
+-		},
+-		.underflow = {
+-			[NF_INET_PRE_ROUTING] = 0,
+-			[NF_INET_LOCAL_OUT]  = sizeof(struct ipt_standard)
+-		},
+-	},
+-	.entries = {
+-		IPT_STANDARD_INIT(NF_ACCEPT),	/* PRE_ROUTING */
+-		IPT_STANDARD_INIT(NF_ACCEPT),	/* LOCAL_OUT */
+-	},
+-	.term = IPT_ERROR_INIT,			/* ERROR */
+-};
+-
+ static const struct xt_table packet_raw = {
+ 	.name = "raw",
+ 	.valid_hooks =  RAW_VALID_HOOKS,
+@@ -66,9 +39,14 @@ static struct nf_hook_ops *rawtable_ops __read_mostly;
+ 
+ static int __net_init iptable_raw_net_init(struct net *net)
+ {
+-	/* Register table */
++	struct ipt_replace *repl;
++
++	repl = ipt_alloc_initial_table(&packet_raw);
++	if (repl == NULL)
++		return -ENOMEM;
+ 	net->ipv4.iptable_raw =
+-		ipt_register_table(net, &packet_raw, &initial_table.repl);
++		ipt_register_table(net, &packet_raw, repl);
++	kfree(repl);
+ 	if (IS_ERR(net->ipv4.iptable_raw))
+ 		return PTR_ERR(net->ipv4.iptable_raw);
+ 	return 0;
+diff --git a/net/ipv4/netfilter/iptable_security.c b/net/ipv4/netfilter/iptable_security.c
+index b1bf3ca..cce2f64 100644
+--- a/net/ipv4/netfilter/iptable_security.c
++++ b/net/ipv4/netfilter/iptable_security.c
+@@ -27,36 +27,6 @@ MODULE_DESCRIPTION("iptables security table, for MAC rules");
+ 				(1 << NF_INET_FORWARD) | \
+ 				(1 << NF_INET_LOCAL_OUT)
+ 
+-static const struct
+-{
+-	struct ipt_replace repl;
+-	struct ipt_standard entries[3];
+-	struct ipt_error term;
+-} initial_table __net_initdata = {
+-	.repl = {
+-		.name = "security",
+-		.valid_hooks = SECURITY_VALID_HOOKS,
+-		.num_entries = 4,
+-		.size = sizeof(struct ipt_standard) * 3 + sizeof(struct ipt_error),
+-		.hook_entry = {
+-			[NF_INET_LOCAL_IN] 	= 0,
+-			[NF_INET_FORWARD] 	= sizeof(struct ipt_standard),
+-			[NF_INET_LOCAL_OUT] 	= sizeof(struct ipt_standard) * 2,
+-		},
+-		.underflow = {
+-			[NF_INET_LOCAL_IN] 	= 0,
+-			[NF_INET_FORWARD] 	= sizeof(struct ipt_standard),
+-			[NF_INET_LOCAL_OUT] 	= sizeof(struct ipt_standard) * 2,
+-		},
+-	},
+-	.entries = {
+-		IPT_STANDARD_INIT(NF_ACCEPT),	/* LOCAL_IN */
+-		IPT_STANDARD_INIT(NF_ACCEPT),	/* FORWARD */
+-		IPT_STANDARD_INIT(NF_ACCEPT),	/* LOCAL_OUT */
+-	},
+-	.term = IPT_ERROR_INIT,			/* ERROR */
+-};
+-
+ static const struct xt_table security_table = {
+ 	.name		= "security",
+ 	.valid_hooks	= SECURITY_VALID_HOOKS,
+@@ -87,9 +57,14 @@ static struct nf_hook_ops *sectbl_ops __read_mostly;
+ 
+ static int __net_init iptable_security_net_init(struct net *net)
+ {
+-	net->ipv4.iptable_security =
+-		ipt_register_table(net, &security_table, &initial_table.repl);
++	struct ipt_replace *repl;
+ 
++	repl = ipt_alloc_initial_table(&security_table);
++	if (repl == NULL)
++		return -ENOMEM;
++	net->ipv4.iptable_security =
++		ipt_register_table(net, &security_table, repl);
++	kfree(repl);
+ 	if (IS_ERR(net->ipv4.iptable_security))
+ 		return PTR_ERR(net->ipv4.iptable_security);
+ 
+diff --git a/net/ipv4/netfilter/nf_nat_rule.c b/net/ipv4/netfilter/nf_nat_rule.c
+index 85da34f..ab74cc0 100644
+--- a/net/ipv4/netfilter/nf_nat_rule.c
++++ b/net/ipv4/netfilter/nf_nat_rule.c
+@@ -28,36 +28,6 @@
+ 			 (1 << NF_INET_POST_ROUTING) | \
+ 			 (1 << NF_INET_LOCAL_OUT))
+ 
+-static const struct
+-{
+-	struct ipt_replace repl;
+-	struct ipt_standard entries[3];
+-	struct ipt_error term;
+-} nat_initial_table __net_initdata = {
+-	.repl = {
+-		.name = "nat",
+-		.valid_hooks = NAT_VALID_HOOKS,
+-		.num_entries = 4,
+-		.size = sizeof(struct ipt_standard) * 3 + sizeof(struct ipt_error),
+-		.hook_entry = {
+-			[NF_INET_PRE_ROUTING] = 0,
+-			[NF_INET_POST_ROUTING] = sizeof(struct ipt_standard),
+-			[NF_INET_LOCAL_OUT] = sizeof(struct ipt_standard) * 2
+-		},
+-		.underflow = {
+-			[NF_INET_PRE_ROUTING] = 0,
+-			[NF_INET_POST_ROUTING] = sizeof(struct ipt_standard),
+-			[NF_INET_LOCAL_OUT] = sizeof(struct ipt_standard) * 2
+-		},
+-	},
+-	.entries = {
+-		IPT_STANDARD_INIT(NF_ACCEPT),	/* PRE_ROUTING */
+-		IPT_STANDARD_INIT(NF_ACCEPT),	/* POST_ROUTING */
+-		IPT_STANDARD_INIT(NF_ACCEPT),	/* LOCAL_OUT */
+-	},
+-	.term = IPT_ERROR_INIT,			/* ERROR */
+-};
+-
+ static const struct xt_table nat_table = {
+ 	.name		= "nat",
+ 	.valid_hooks	= NAT_VALID_HOOKS,
+@@ -186,8 +156,13 @@ static struct xt_target ipt_dnat_reg __read_mostly = {
+ 
+ static int __net_init nf_nat_rule_net_init(struct net *net)
+ {
+-	net->ipv4.nat_table = ipt_register_table(net, &nat_table,
+-						 &nat_initial_table.repl);
++	struct ipt_replace *repl;
++
++	repl = ipt_alloc_initial_table(&nat_table);
++	if (repl == NULL)
++		return -ENOMEM;
++	net->ipv4.nat_table = ipt_register_table(net, &nat_table, repl);
++	kfree(repl);
+ 	if (IS_ERR(net->ipv4.nat_table))
+ 		return PTR_ERR(net->ipv4.nat_table);
+ 	return 0;
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 4332f45..dcd7825 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -29,6 +29,7 @@
+ #include <linux/netfilter_ipv6/ip6_tables.h>
+ #include <linux/netfilter/x_tables.h>
+ #include <net/netfilter/nf_log.h>
++#include "../../netfilter/xt_repldata.h"
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Netfilter Core Team <coreteam@netfilter.org>");
+@@ -67,6 +68,12 @@ do {								\
+ #define inline
+ #endif
+ 
++void *ip6t_alloc_initial_table(const struct xt_table *info)
++{
++	return xt_alloc_initial_table(ip6t, IP6T);
++}
++EXPORT_SYMBOL_GPL(ip6t_alloc_initial_table);
++
+ /*
+    We keep a set of rules for each CPU, so we can avoid write-locking
+    them in the softirq when updating the counters and therefore
+diff --git a/net/ipv6/netfilter/ip6table_filter.c b/net/ipv6/netfilter/ip6table_filter.c
+index 6e95d06..36b72ca 100644
+--- a/net/ipv6/netfilter/ip6table_filter.c
++++ b/net/ipv6/netfilter/ip6table_filter.c
+@@ -21,36 +21,6 @@ MODULE_DESCRIPTION("ip6tables filter table");
+ 			    (1 << NF_INET_FORWARD) | \
+ 			    (1 << NF_INET_LOCAL_OUT))
+ 
+-static struct
+-{
+-	struct ip6t_replace repl;
+-	struct ip6t_standard entries[3];
+-	struct ip6t_error term;
+-} initial_table __net_initdata = {
+-	.repl = {
+-		.name = "filter",
+-		.valid_hooks = FILTER_VALID_HOOKS,
+-		.num_entries = 4,
+-		.size = sizeof(struct ip6t_standard) * 3 + sizeof(struct ip6t_error),
+-		.hook_entry = {
+-			[NF_INET_LOCAL_IN] = 0,
+-			[NF_INET_FORWARD] = sizeof(struct ip6t_standard),
+-			[NF_INET_LOCAL_OUT] = sizeof(struct ip6t_standard) * 2
+-		},
+-		.underflow = {
+-			[NF_INET_LOCAL_IN] = 0,
+-			[NF_INET_FORWARD] = sizeof(struct ip6t_standard),
+-			[NF_INET_LOCAL_OUT] = sizeof(struct ip6t_standard) * 2
+-		},
+-	},
+-	.entries = {
+-		IP6T_STANDARD_INIT(NF_ACCEPT),	/* LOCAL_IN */
+-		IP6T_STANDARD_INIT(NF_ACCEPT),	/* FORWARD */
+-		IP6T_STANDARD_INIT(NF_ACCEPT),	/* LOCAL_OUT */
+-	},
+-	.term = IP6T_ERROR_INIT,		/* ERROR */
+-};
+-
+ static const struct xt_table packet_filter = {
+ 	.name		= "filter",
+ 	.valid_hooks	= FILTER_VALID_HOOKS,
+@@ -78,9 +48,18 @@ module_param(forward, bool, 0000);
+ 
+ static int __net_init ip6table_filter_net_init(struct net *net)
+ {
+-	/* Register table */
++	struct ip6t_replace *repl;
++
++	repl = ip6t_alloc_initial_table(&packet_filter);
++	if (repl == NULL)
++		return -ENOMEM;
++	/* Entry 1 is the FORWARD hook */
++	((struct ip6t_standard *)repl->entries)[1].target.verdict =
++		-forward - 1;
++
+ 	net->ipv6.ip6table_filter =
+-		ip6t_register_table(net, &packet_filter, &initial_table.repl);
++		ip6t_register_table(net, &packet_filter, repl);
++	kfree(repl);
+ 	if (IS_ERR(net->ipv6.ip6table_filter))
+ 		return PTR_ERR(net->ipv6.ip6table_filter);
+ 	return 0;
+@@ -105,9 +84,6 @@ static int __init ip6table_filter_init(void)
+ 		return -EINVAL;
+ 	}
+ 
+-	/* Entry 1 is the FORWARD hook */
+-	initial_table.entries[1].target.verdict = -forward - 1;
+-
+ 	ret = register_pernet_subsys(&ip6table_filter_net_ops);
+ 	if (ret < 0)
+ 		return ret;
+diff --git a/net/ipv6/netfilter/ip6table_mangle.c b/net/ipv6/netfilter/ip6table_mangle.c
+index 5023ac5..dc803b7 100644
+--- a/net/ipv6/netfilter/ip6table_mangle.c
++++ b/net/ipv6/netfilter/ip6table_mangle.c
+@@ -21,42 +21,6 @@ MODULE_DESCRIPTION("ip6tables mangle table");
+ 			    (1 << NF_INET_LOCAL_OUT) | \
+ 			    (1 << NF_INET_POST_ROUTING))
+ 
+-static const struct
+-{
+-	struct ip6t_replace repl;
+-	struct ip6t_standard entries[5];
+-	struct ip6t_error term;
+-} initial_table __net_initdata = {
+-	.repl = {
+-		.name = "mangle",
+-		.valid_hooks = MANGLE_VALID_HOOKS,
+-		.num_entries = 6,
+-		.size = sizeof(struct ip6t_standard) * 5 + sizeof(struct ip6t_error),
+-		.hook_entry = {
+-			[NF_INET_PRE_ROUTING] 	= 0,
+-			[NF_INET_LOCAL_IN]	= sizeof(struct ip6t_standard),
+-			[NF_INET_FORWARD]	= sizeof(struct ip6t_standard) * 2,
+-			[NF_INET_LOCAL_OUT] 	= sizeof(struct ip6t_standard) * 3,
+-			[NF_INET_POST_ROUTING]	= sizeof(struct ip6t_standard) * 4,
+-		},
+-		.underflow = {
+-			[NF_INET_PRE_ROUTING] 	= 0,
+-			[NF_INET_LOCAL_IN]	= sizeof(struct ip6t_standard),
+-			[NF_INET_FORWARD]	= sizeof(struct ip6t_standard) * 2,
+-			[NF_INET_LOCAL_OUT] 	= sizeof(struct ip6t_standard) * 3,
+-			[NF_INET_POST_ROUTING]	= sizeof(struct ip6t_standard) * 4,
+-		},
+-	},
+-	.entries = {
+-		IP6T_STANDARD_INIT(NF_ACCEPT),	/* PRE_ROUTING */
+-		IP6T_STANDARD_INIT(NF_ACCEPT),	/* LOCAL_IN */
+-		IP6T_STANDARD_INIT(NF_ACCEPT),	/* FORWARD */
+-		IP6T_STANDARD_INIT(NF_ACCEPT),	/* LOCAL_OUT */
+-		IP6T_STANDARD_INIT(NF_ACCEPT),	/* POST_ROUTING */
+-	},
+-	.term = IP6T_ERROR_INIT,		/* ERROR */
+-};
+-
+ static const struct xt_table packet_mangler = {
+ 	.name		= "mangle",
+ 	.valid_hooks	= MANGLE_VALID_HOOKS,
+@@ -126,9 +90,14 @@ ip6table_mangle_hook(unsigned int hook, struct sk_buff *skb,
+ static struct nf_hook_ops *mangle_ops __read_mostly;
+ static int __net_init ip6table_mangle_net_init(struct net *net)
+ {
+-	/* Register table */
++	struct ip6t_replace *repl;
++
++	repl = ip6t_alloc_initial_table(&packet_mangler);
++	if (repl == NULL)
++		return -ENOMEM;
+ 	net->ipv6.ip6table_mangle =
+-		ip6t_register_table(net, &packet_mangler, &initial_table.repl);
++		ip6t_register_table(net, &packet_mangler, repl);
++	kfree(repl);
+ 	if (IS_ERR(net->ipv6.ip6table_mangle))
+ 		return PTR_ERR(net->ipv6.ip6table_mangle);
+ 	return 0;
+diff --git a/net/ipv6/netfilter/ip6table_raw.c b/net/ipv6/netfilter/ip6table_raw.c
+index 3bfa695..aef31a2 100644
+--- a/net/ipv6/netfilter/ip6table_raw.c
++++ b/net/ipv6/netfilter/ip6table_raw.c
+@@ -8,33 +8,6 @@
+ 
+ #define RAW_VALID_HOOKS ((1 << NF_INET_PRE_ROUTING) | (1 << NF_INET_LOCAL_OUT))
+ 
+-static const struct
+-{
+-	struct ip6t_replace repl;
+-	struct ip6t_standard entries[2];
+-	struct ip6t_error term;
+-} initial_table __net_initdata = {
+-	.repl = {
+-		.name = "raw",
+-		.valid_hooks = RAW_VALID_HOOKS,
+-		.num_entries = 3,
+-		.size = sizeof(struct ip6t_standard) * 2 + sizeof(struct ip6t_error),
+-		.hook_entry = {
+-			[NF_INET_PRE_ROUTING] = 0,
+-			[NF_INET_LOCAL_OUT] = sizeof(struct ip6t_standard)
+-		},
+-		.underflow = {
+-			[NF_INET_PRE_ROUTING] = 0,
+-			[NF_INET_LOCAL_OUT] = sizeof(struct ip6t_standard)
+-		},
+-	},
+-	.entries = {
+-		IP6T_STANDARD_INIT(NF_ACCEPT),	/* PRE_ROUTING */
+-		IP6T_STANDARD_INIT(NF_ACCEPT),	/* LOCAL_OUT */
+-	},
+-	.term = IP6T_ERROR_INIT,		/* ERROR */
+-};
+-
+ static const struct xt_table packet_raw = {
+ 	.name = "raw",
+ 	.valid_hooks = RAW_VALID_HOOKS,
+@@ -58,9 +31,14 @@ static struct nf_hook_ops *rawtable_ops __read_mostly;
+ 
+ static int __net_init ip6table_raw_net_init(struct net *net)
+ {
+-	/* Register table */
++	struct ip6t_replace *repl;
++
++	repl = ip6t_alloc_initial_table(&packet_raw);
++	if (repl == NULL)
++		return -ENOMEM;
+ 	net->ipv6.ip6table_raw =
+-		ip6t_register_table(net, &packet_raw, &initial_table.repl);
++		ip6t_register_table(net, &packet_raw, repl);
++	kfree(repl);
+ 	if (IS_ERR(net->ipv6.ip6table_raw))
+ 		return PTR_ERR(net->ipv6.ip6table_raw);
+ 	return 0;
+diff --git a/net/ipv6/netfilter/ip6table_security.c b/net/ipv6/netfilter/ip6table_security.c
+index dd2200f..0824d86 100644
+--- a/net/ipv6/netfilter/ip6table_security.c
++++ b/net/ipv6/netfilter/ip6table_security.c
+@@ -26,36 +26,6 @@ MODULE_DESCRIPTION("ip6tables security table, for MAC rules");
+ 				(1 << NF_INET_FORWARD) | \
+ 				(1 << NF_INET_LOCAL_OUT)
+ 
+-static const struct
+-{
+-	struct ip6t_replace repl;
+-	struct ip6t_standard entries[3];
+-	struct ip6t_error term;
+-} initial_table __net_initdata = {
+-	.repl = {
+-		.name = "security",
+-		.valid_hooks = SECURITY_VALID_HOOKS,
+-		.num_entries = 4,
+-		.size = sizeof(struct ip6t_standard) * 3 + sizeof(struct ip6t_error),
+-		.hook_entry = {
+-			[NF_INET_LOCAL_IN] 	= 0,
+-			[NF_INET_FORWARD] 	= sizeof(struct ip6t_standard),
+-			[NF_INET_LOCAL_OUT] 	= sizeof(struct ip6t_standard) * 2,
+-		},
+-		.underflow = {
+-			[NF_INET_LOCAL_IN] 	= 0,
+-			[NF_INET_FORWARD] 	= sizeof(struct ip6t_standard),
+-			[NF_INET_LOCAL_OUT] 	= sizeof(struct ip6t_standard) * 2,
+-		},
+-	},
+-	.entries = {
+-		IP6T_STANDARD_INIT(NF_ACCEPT),	/* LOCAL_IN */
+-		IP6T_STANDARD_INIT(NF_ACCEPT),	/* FORWARD */
+-		IP6T_STANDARD_INIT(NF_ACCEPT),	/* LOCAL_OUT */
+-	},
+-	.term = IP6T_ERROR_INIT,		/* ERROR */
+-};
+-
+ static const struct xt_table security_table = {
+ 	.name		= "security",
+ 	.valid_hooks	= SECURITY_VALID_HOOKS,
+@@ -79,9 +49,14 @@ static struct nf_hook_ops *sectbl_ops __read_mostly;
+ 
+ static int __net_init ip6table_security_net_init(struct net *net)
+ {
+-	net->ipv6.ip6table_security =
+-		ip6t_register_table(net, &security_table, &initial_table.repl);
++	struct ip6t_replace *repl;
+ 
++	repl = ip6t_alloc_initial_table(&security_table);
++	if (repl == NULL)
++		return -ENOMEM;
++	net->ipv6.ip6table_security =
++		ip6t_register_table(net, &security_table, repl);
++	kfree(repl);
+ 	if (IS_ERR(net->ipv6.ip6table_security))
+ 		return PTR_ERR(net->ipv6.ip6table_security);
+ 
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index b51cb0d..dc2e05c 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -26,7 +26,9 @@
+ 
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter_arp.h>
+-
++#include <linux/netfilter_ipv4/ip_tables.h>
++#include <linux/netfilter_ipv6/ip6_tables.h>
++#include <linux/netfilter_arp/arp_tables.h>
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
+diff --git a/net/netfilter/xt_repldata.h b/net/netfilter/xt_repldata.h
+new file mode 100644
+index 0000000..6efe4e5
+--- /dev/null
++++ b/net/netfilter/xt_repldata.h
+@@ -0,0 +1,35 @@
++/*
++ * Today's hack: quantum tunneling in structs
++ *
++ * 'entries' and 'term' are never anywhere referenced by word in code. In fact,
++ * they serve as the hanging-off data accessed through repl.data[].
++ */
++
++#define xt_alloc_initial_table(type, typ2) ({ \
++	unsigned int hook_mask = info->valid_hooks; \
++	unsigned int nhooks = hweight32(hook_mask); \
++	unsigned int bytes = 0, hooknum = 0, i = 0; \
++	struct { \
++		struct type##_replace repl; \
++		struct type##_standard entries[nhooks]; \
++		struct type##_error term; \
++	} *tbl = kzalloc(sizeof(*tbl), GFP_KERNEL); \
++	if (tbl == NULL) \
++		return NULL; \
++	strncpy(tbl->repl.name, info->name, sizeof(tbl->repl.name)); \
++	tbl->term = (struct type##_error)typ2##_ERROR_INIT;  \
++	tbl->repl.valid_hooks = hook_mask; \
++	tbl->repl.num_entries = nhooks + 1; \
++	tbl->repl.size = nhooks * sizeof(struct type##_standard) + \
++	                 sizeof(struct type##_error); \
++	for (; hook_mask != 0; hook_mask >>= 1, ++hooknum) { \
++		if (!(hook_mask & 1)) \
++			continue; \
++		tbl->repl.hook_entry[hooknum] = bytes; \
++		tbl->repl.underflow[hooknum]  = bytes; \
++		tbl->entries[i++] = (struct type##_standard) \
++			typ2##_STANDARD_INIT(NF_ACCEPT); \
++		bytes += sizeof(struct type##_standard); \
++	} \
++	tbl; \
++})
