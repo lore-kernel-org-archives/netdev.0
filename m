@@ -1,75 +1,79 @@
-From: jamal <hadi@cyberus.ca>
-Subject: xfrm: avoid spinlock in get_acqseq() used by xfrm user
-Date: Tue, 16 Feb 2010 07:01:22 -0500
-Message-ID: <1266321682.6776.254.camel@bigi>
-Reply-To: hadi@cyberus.ca
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH][v4] tcp: fix ICMP-RTO war
+Date: Tue, 16 Feb 2010 14:45:25 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.1002151535030.7063@wel-95.cs.helsinki.fi>
+References: <4B7303C2.5000703@tvk.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-Be5vrjv9C/OkRe8EAeza"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Damian Lukowski <damian@tvk.rwth-aachen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f178.google.com ([209.85.221.178]:56103 "EHLO
-	mail-qy0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754345Ab0BPMB0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 07:01:26 -0500
-Received: by qyk8 with SMTP id 8so859182qyk.24
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2010 04:01:25 -0800 (PST)
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:43706 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755786Ab0BPMp1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 07:45:27 -0500
+In-Reply-To: <4B7303C2.5000703@tvk.rwth-aachen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+First of all I want to let you know that I've no objection to this fix 
+itself (DaveM applied it already), it certainly does it's jobs in 
+preventing invalid < RTO_MIN state. However, I wonder if we could do 
+further improvements in this area...
 
---=-Be5vrjv9C/OkRe8EAeza
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+On Wed, 10 Feb 2010, Damian Lukowski wrote:
 
-Eric's version fixed it for pfkey. This one is for xfrm user.
-I thought about amortizing those two get_acqseq()s but it seems
-reasonable to have two of these sequence spaces for the two different
-interfaces.
+> Make sure, that TCP has a nonzero RTT estimation after three-way
+> handshake. Currently, a listening TCP has a value of 0 for srtt,
+> rttvar and rto right after the three-way handshake is completed
+> with TCP timestamps disabled.
+> This will lead to corrupt RTO recalculation and retransmission
+> flood when RTO is recalculated on backoff reversion as introduced
+> in "Revert RTO on ICMP destination unreachable"
+> (f1ecd5d9e7366609d640ff4040304ea197fbc618).
+> This behaviour can be provoked by connecting to a server which
+> "responds first" (like SMTP) and rejecting every packet after
+> the handshake with dest-unreachable, which will lead to softirq
+> load on the server (up to 30% per socket in some tests).
+> 
+> Thanks to Ilpo Jarvinen for providing debug patches and to
+> Denys Fedoryshchenko for reporting and testing.
+> 
+> Changes since v3: Removed bad characters in patchfile.
+> 
+> Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
+> Signed-off-by: Damian Lukowski <damian@tvk.rwth-aachen.de>
+> ---
+>  net/ipv4/tcp_input.c |    8 +++-----
+>  1 files changed, 3 insertions(+), 5 deletions(-)
+> 
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 28e0296..da7173b 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -5783,12 +5783,10 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+>  
+>  				/* tcp_ack considers this ACK as duplicate
+>  				 * and does not calculate rtt.
+> -				 * Fix it at least with timestamps.
+> +				 * Force it here.
+>  				 */
+> -				if (tp->rx_opt.saw_tstamp &&
+> -				    tp->rx_opt.rcv_tsecr && !tp->srtt)
+> -					tcp_ack_saw_tstamp(sk, 0);
+> -
+> +				tcp_ack_update_rtt(sk, 0, 0);
+> +
 
-cheers,
-jamal
+...Here a zero seq_rtt is given to RTT estimator (it will be effective 
+only in the case w/o timestamps, TS case recalculates it from the stored 
+timestamps). Maybe we could use some field (timestamp related one comes to 
+my mind) in request sock to get a real RTT estimate for non-timestamp case 
+too. ...It seems possible to me, though tricky because the request_sock is 
+no longer that easily available here so some parameter passing would be 
+needed.
 
 
---=-Be5vrjv9C/OkRe8EAeza
-Content-Disposition: attachment; filename="xfrmacqseq"
-Content-Type: text/plain; name="xfrmacqseq"; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-
-commit d5168d5addbc999c94aacda8f28a4a173756a72b
-Author: Jamal Hadi Salim <hadi@cyberus.ca>
-Date:   Tue Feb 16 06:51:22 2010 -0500
-
-    xfrm: avoid spinlock in get_acqseq() used by xfrm user
-    
-    This is in the same spirit as commit 28aecb9d7728dc26bf03ce7925fe622023a83a2a
-    by Eric Dumazet.
-    Use atomic_inc_return() in get_acqseq() to avoid taking a spinlock
-    
-    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
-
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index f50ee9b..96f2088 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1462,12 +1462,12 @@ EXPORT_SYMBOL(xfrm_find_acq_byseq);
- u32 xfrm_get_acqseq(void)
- {
- 	u32 res;
--	static u32 acqseq;
--	static DEFINE_SPINLOCK(acqseq_lock);
-+	static atomic_t acqseq;
-+
-+	do {
-+		res = atomic_inc_return(&acqseq);
-+	} while (!res);
- 
--	spin_lock_bh(&acqseq_lock);
--	res = (++acqseq ? : ++acqseq);
--	spin_unlock_bh(&acqseq_lock);
- 	return res;
- }
- EXPORT_SYMBOL(xfrm_get_acqseq);
-
---=-Be5vrjv9C/OkRe8EAeza--
-
+-- 
+ i.
