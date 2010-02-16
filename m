@@ -1,38 +1,30 @@
-From: Ed Swierk <eswierk@aristanetworks.com>
-Subject: Re: [PATCH 1/2] macvtap: rework object lifetime rules
-Date: Mon, 15 Feb 2010 15:48:40 -0800
-Message-ID: <9ae48b021002151548l79b8c5fdycc04a2f36fed1f09@mail.gmail.com>
-References: <201002131133.43028.arnd@arndb.de>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH -mm] ssb: open-code dma_alloc_coherent
+Date: Mon, 15 Feb 2010 18:09:53 -0600
+Message-ID: <4B79E251.3020005@lwfinger.net>
+References: <20100215142111R.fujita.tomonori@lab.ntt.co.jp>	<4B78EE6A.3010207@lwfinger.net> <20100215162426V.fujita.tomonori@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	Sridhar Samudrala <sri@us.ibm.com>, qemu-devel@nongnu.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org, mb@bu3sch.de,
+	davem@davemloft.net, stefano.brivio@polimi.it,
+	akpm@linux-foundation.org
+To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201002131133.43028.arnd@arndb.de>
+In-Reply-To: <20100215162426V.fujita.tomonori@lab.ntt.co.jp>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 13, 2010 at 2:33 AM, Arnd Bergmann <arnd@arndb.de> wrote:
-> The original macvtap code has a number of problems
-> resulting from the use of RCU for protecting the
-> access to struct macvtap_queue from open files.
->
-> This includes
-> - need for GFP_ATOMIC allocations for skbs
-> - potential deadlocks when copy_*_user sleeps
-> - inability to work with vhost-net
->
-> Changing the lifetime of macvtap_queue to always
-> depend on the open file solves all these. The
-> RCU reference simply moves one step down to
-> the reference on the macvlan_dev, which we
-> only need for nonblocking operations.
->
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+On 02/15/2010 01:25 AM, FUJITA Tomonori wrote:
+> 2.6.33-rc8:
+> 
+> git://git.kernel.org/pub/scm/linux/kernel/git/tomo/linux-2.6-misc.git pending
+> 
+> The ssb patch depends on the latest eight patches in the tree:
+> 
+> http://marc.info/?l=linux-kernel&m=126596737604808&w=2
 
-This works for me.
+The DMA changes work on i386 architecture with wireless devices in Cardbus (PCI)
+format. Both b43legacy and b43 were tested.
 
-Acked-by: Ed Swierk <eswierk@aristanetworks.com>
+Larry
