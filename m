@@ -1,40 +1,63 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: Re: [PATCH 13/23 v3] mlx4: Unicast Loopback support
-Date: Tue, 16 Feb 2010 17:28:38 +0200
-Message-ID: <4B7AB9A6.1090209@mellanox.co.il>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: ipv6: why disable ipv6 on last address removal?
+Date: Tue, 16 Feb 2010 16:28:59 +0100
+Message-ID: <20100216152859.GC29736@midget.suse.cz>
+References: <20091208192046.GA5649@midget.suse.cz>
+ <20091208.125611.135547597.davem@davemloft.net>
+ <4B1F5423.4070109@linux-ipv6.org>
+ <20100104.224436.107234750.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Yevgeny Petrilin, Roland Dreier <rdreier@cisco.com>,
-	netdev@vger.kernel.org, liranl@mellanox.co.il,
-	tziporet@mellanox.co.il
-To: or.gerlitz@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: yoshfuji@linux-ipv6.org, jbohac@suse.cz, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:36828 "EHLO mellanox.co.il"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755447Ab0BPP2n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2010 10:28:43 -0500
+Received: from cantor.suse.de ([195.135.220.2]:50976 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932265Ab0BPP3B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2010 10:29:01 -0500
+Content-Disposition: inline
+In-Reply-To: <20100104.224436.107234750.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday -10,January,-28163 09:59 PM, Or Gerlitz [or.gerlitz@gmail.com] wrote:
-> Yevgeny Petrilin <yevgenyp@mellanox.co.il> wrote:
->> Or Gerlitz [or.gerlitz@gmail.com] wrote:
+On Mon, Jan 04, 2010 at 10:44:36PM -0800, David Miller wrote:
+> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Date: Wed, 09 Dec 2009 16:39:15 +0900
 > 
->>> I wasn't sure what is the use case here, isn't loopback handled by higher levels at the network stack?
+> > Well, AFAIK, it is basically ancient thing.
+> > Some (rather new) paramters are exactly related bringing
+> > up each interface.
+> > 
+> > Such parameters should be set _before_ it is brought up.
+> > For now, people can do this using the "default" value.
 > 
->> The use case is two VMs using the same physical adapter.
-> 
-> I am still not with you: are you referring to the case where each VM is being served by a different VF? in that case, the VF driver (mlx4_en) has no way to know its a "loopback" packet, and switching between VFs can be programmed to the PF by the PF driver (modified mlx4_core).
-> 
-> If you are talking to the case both VMs are being served by the same PCI function --> same NIC then again, loopback is handled in higher level.
-> 
-> Is there a 3rd use case?
-> 
-> Or.
+> I think we should retain inet6 device private structure after
+> we allocate it the first time that an ipv6 action occurs for
+> the device, exactly so that settings made earlier can be
+> retained.
 
-There is no third case. I am referring to the case where two VMs are served by two different VFs.
-The mlx4_en driver doesn't know whether a packet is loopback or not, it assumes that all packets can
-be loopbacks and writes the dmac to the control segment.
-The HW checks this field and decides whether the packet is loopback or not (by checking whether the written mac
-matches one of the registered macs on this device).
+Good, this was what my patch is doing. I still think this is as
+simple as:
+
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2185,7 +2185,7 @@ static int inet6_addr_del(struct net *net, int ifindex, struct in6_addr *pfx,
+ 			   disable IPv6 on this interface.
+ 			 */
+ 			if (idev->addr_list == NULL)
+-				addrconf_ifdown(idev->dev, 1);
++				addrconf_ifdown(idev->dev, 0);
+ 			return 0;
+ 		}
+ 	}
+
+It does the same thing as NETDEV_DOWN down instead of the current
+NETDEV_UNREGISTER-like behaviour. Could this perhaps be tried in
+-next?
+
+Thanks,
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
+
