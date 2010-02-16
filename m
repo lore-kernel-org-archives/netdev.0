@@ -1,74 +1,324 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 23/62: xt_TCPMSS: SYN packets are allowed to contain data
-Date: Tue, 16 Feb 2010 15:55:51 +0100 (MET)
-Message-ID: <20100216145549.2796.91116.sendpatchset@x2.localnet>
+Subject: netfilter 17/62: xt_hashlimit: netns support
+Date: Tue, 16 Feb 2010 15:55:43 +0100 (MET)
+Message-ID: <20100216145541.2796.98553.sendpatchset@x2.localnet>
 References: <20100216145517.2796.40634.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52009 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932420Ab0BPOzw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 09:55:52 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <20100216145517.2796.40634.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit 10a199394b8f9b4c4e0be6e14a61109a7d891b1b
-Author: Simon Arlott <simon@fire.lp0.eu>
-Date:   Tue Feb 2 15:33:38 2010 +0100
+commit e89fc3f1b06d9241f65e580b002789abaa6d11ac
+Author: Alexey Dobriyan <adobriyan@gmail.com>
+Date:   Mon Jan 18 08:33:28 2010 +0100
 
-    netfilter: xt_TCPMSS: SYN packets are allowed to contain data
+    netfilter: xt_hashlimit: netns support
     
-    The TCPMSS target is dropping SYN packets where:
-      1) There is data, or
-      2) The data offset makes the TCP header larger than the packet.
+    Make hashtable per-netns.
+    Make proc files per-netns.
     
-    Both of these result in an error level printk. This printk has been
-    removed.
-    
-    This change avoids dropping SYN packets containing data. If there
-    is also no MSS option (as well as data), one will not be added
-    because of possible complications due to the increased packet size.
-    
-    Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
+    Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
-index eda64c1..6f21b43 100644
---- a/net/netfilter/xt_TCPMSS.c
-+++ b/net/netfilter/xt_TCPMSS.c
-@@ -60,17 +60,9 @@ tcpmss_mangle_packet(struct sk_buff *skb,
- 	tcplen = skb->len - tcphoff;
- 	tcph = (struct tcphdr *)(skb_network_header(skb) + tcphoff);
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index 944fd11..fb7fcb7 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -26,6 +26,7 @@
+ #endif
  
--	/* Since it passed flags test in tcp match, we know it is is
--	   not a fragment, and has data >= tcp header length.  SYN
--	   packets should not contain data: if they did, then we risk
--	   running over MTU, sending Frag Needed and breaking things
--	   badly. --RR */
--	if (tcplen != tcph->doff*4) {
--		if (net_ratelimit())
--			printk(KERN_ERR "xt_TCPMSS: bad length (%u bytes)\n",
--			       skb->len);
-+	/* Header cannot be larger than the packet */
-+	if (tcplen < tcph->doff*4)
- 		return -1;
--	}
+ #include <net/net_namespace.h>
++#include <net/netns/generic.h>
  
- 	if (info->mss == XT_TCPMSS_CLAMP_PMTU) {
- 		if (dst_mtu(skb_dst(skb)) <= minlen) {
-@@ -115,6 +107,12 @@ tcpmss_mangle_packet(struct sk_buff *skb,
- 		}
- 	}
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter_ipv4/ip_tables.h>
+@@ -40,9 +41,19 @@ MODULE_DESCRIPTION("Xtables: per hash-bucket rate-limit match");
+ MODULE_ALIAS("ipt_hashlimit");
+ MODULE_ALIAS("ip6t_hashlimit");
  
-+	/* There is data after the header so the option can't be added
-+	   without moving it, and doing so may make the SYN packet
-+	   itself too large. Accept the packet unmodified instead. */
-+	if (tcplen > tcph->doff*4)
-+		return 0;
++struct hashlimit_net {
++	struct hlist_head	htables;
++	struct proc_dir_entry	*ipt_hashlimit;
++	struct proc_dir_entry	*ip6t_hashlimit;
++};
 +
- 	/*
- 	 * MSS Option not found ?! add it..
- 	 */
++static int hashlimit_net_id;
++static inline struct hashlimit_net *hashlimit_pernet(struct net *net)
++{
++	return net_generic(net, hashlimit_net_id);
++}
++
+ /* need to declare this at the top */
+-static struct proc_dir_entry *hashlimit_procdir4;
+-static struct proc_dir_entry *hashlimit_procdir6;
+ static const struct file_operations dl_file_ops;
+ 
+ /* hash table crap */
+@@ -93,13 +104,13 @@ struct xt_hashlimit_htable {
+ 
+ 	/* seq_file stuff */
+ 	struct proc_dir_entry *pde;
++	struct net *net;
+ 
+ 	struct hlist_head hash[0];	/* hashtable itself */
+ };
+ 
+ static DEFINE_SPINLOCK(hashlimit_lock);	/* protects htables list */
+ static DEFINE_MUTEX(hlimit_mutex);	/* additional checkentry protection */
+-static HLIST_HEAD(hashlimit_htables);
+ static struct kmem_cache *hashlimit_cachep __read_mostly;
+ 
+ static inline bool dst_cmp(const struct dsthash_ent *ent,
+@@ -185,8 +196,9 @@ dsthash_free(struct xt_hashlimit_htable *ht, struct dsthash_ent *ent)
+ }
+ static void htable_gc(unsigned long htlong);
+ 
+-static int htable_create_v0(struct xt_hashlimit_info *minfo, u_int8_t family)
++static int htable_create_v0(struct net *net, struct xt_hashlimit_info *minfo, u_int8_t family)
+ {
++	struct hashlimit_net *hashlimit_net = hashlimit_pernet(net);
+ 	struct xt_hashlimit_htable *hinfo;
+ 	unsigned int size;
+ 	unsigned int i;
+@@ -239,26 +251,29 @@ static int htable_create_v0(struct xt_hashlimit_info *minfo, u_int8_t family)
+ 	spin_lock_init(&hinfo->lock);
+ 	hinfo->pde = proc_create_data(minfo->name, 0,
+ 		(family == NFPROTO_IPV4) ?
+-		hashlimit_procdir4 : hashlimit_procdir6,
++		hashlimit_net->ipt_hashlimit : hashlimit_net->ip6t_hashlimit,
+ 		&dl_file_ops, hinfo);
+ 	if (!hinfo->pde) {
+ 		vfree(hinfo);
+ 		return -1;
+ 	}
++	hinfo->net = net;
+ 
+ 	setup_timer(&hinfo->timer, htable_gc, (unsigned long )hinfo);
+ 	hinfo->timer.expires = jiffies + msecs_to_jiffies(hinfo->cfg.gc_interval);
+ 	add_timer(&hinfo->timer);
+ 
+ 	spin_lock_bh(&hashlimit_lock);
+-	hlist_add_head(&hinfo->node, &hashlimit_htables);
++	hlist_add_head(&hinfo->node, &hashlimit_net->htables);
+ 	spin_unlock_bh(&hashlimit_lock);
+ 
+ 	return 0;
+ }
+ 
+-static int htable_create(struct xt_hashlimit_mtinfo1 *minfo, u_int8_t family)
++static int htable_create(struct net *net, struct xt_hashlimit_mtinfo1 *minfo,
++			 u_int8_t family)
+ {
++	struct hashlimit_net *hashlimit_net = hashlimit_pernet(net);
+ 	struct xt_hashlimit_htable *hinfo;
+ 	unsigned int size;
+ 	unsigned int i;
+@@ -301,19 +316,20 @@ static int htable_create(struct xt_hashlimit_mtinfo1 *minfo, u_int8_t family)
+ 
+ 	hinfo->pde = proc_create_data(minfo->name, 0,
+ 		(family == NFPROTO_IPV4) ?
+-		hashlimit_procdir4 : hashlimit_procdir6,
++		hashlimit_net->ipt_hashlimit : hashlimit_net->ip6t_hashlimit,
+ 		&dl_file_ops, hinfo);
+ 	if (hinfo->pde == NULL) {
+ 		vfree(hinfo);
+ 		return -1;
+ 	}
++	hinfo->net = net;
+ 
+ 	setup_timer(&hinfo->timer, htable_gc, (unsigned long)hinfo);
+ 	hinfo->timer.expires = jiffies + msecs_to_jiffies(hinfo->cfg.gc_interval);
+ 	add_timer(&hinfo->timer);
+ 
+ 	spin_lock_bh(&hashlimit_lock);
+-	hlist_add_head(&hinfo->node, &hashlimit_htables);
++	hlist_add_head(&hinfo->node, &hashlimit_net->htables);
+ 	spin_unlock_bh(&hashlimit_lock);
+ 
+ 	return 0;
+@@ -364,24 +380,30 @@ static void htable_gc(unsigned long htlong)
+ 
+ static void htable_destroy(struct xt_hashlimit_htable *hinfo)
+ {
++	struct hashlimit_net *hashlimit_net = hashlimit_pernet(hinfo->net);
++	struct proc_dir_entry *parent;
++
+ 	del_timer_sync(&hinfo->timer);
+ 
+-	/* remove proc entry */
+-	remove_proc_entry(hinfo->pde->name,
+-			  hinfo->family == NFPROTO_IPV4 ? hashlimit_procdir4 :
+-						     hashlimit_procdir6);
++	if (hinfo->family == NFPROTO_IPV4)
++		parent = hashlimit_net->ipt_hashlimit;
++	else
++		parent = hashlimit_net->ip6t_hashlimit;
++	remove_proc_entry(hinfo->pde->name, parent);
+ 	htable_selective_cleanup(hinfo, select_all);
+ 	vfree(hinfo);
+ }
+ 
+-static struct xt_hashlimit_htable *htable_find_get(const char *name,
++static struct xt_hashlimit_htable *htable_find_get(struct net *net,
++						   const char *name,
+ 						   u_int8_t family)
+ {
++	struct hashlimit_net *hashlimit_net = hashlimit_pernet(net);
+ 	struct xt_hashlimit_htable *hinfo;
+ 	struct hlist_node *pos;
+ 
+ 	spin_lock_bh(&hashlimit_lock);
+-	hlist_for_each_entry(hinfo, pos, &hashlimit_htables, node) {
++	hlist_for_each_entry(hinfo, pos, &hashlimit_net->htables, node) {
+ 		if (!strcmp(name, hinfo->pde->name) &&
+ 		    hinfo->family == family) {
+ 			atomic_inc(&hinfo->use);
+@@ -665,6 +687,7 @@ hashlimit_mt(const struct sk_buff *skb, const struct xt_match_param *par)
+ 
+ static bool hashlimit_mt_check_v0(const struct xt_mtchk_param *par)
+ {
++	struct net *net = par->net;
+ 	struct xt_hashlimit_info *r = par->matchinfo;
+ 
+ 	/* Check for overflow. */
+@@ -694,8 +717,8 @@ static bool hashlimit_mt_check_v0(const struct xt_mtchk_param *par)
+ 	 * the list of htable's in htable_create(), since then we would
+ 	 * create duplicate proc files. -HW */
+ 	mutex_lock(&hlimit_mutex);
+-	r->hinfo = htable_find_get(r->name, par->match->family);
+-	if (!r->hinfo && htable_create_v0(r, par->match->family) != 0) {
++	r->hinfo = htable_find_get(net, r->name, par->match->family);
++	if (!r->hinfo && htable_create_v0(net, r, par->match->family) != 0) {
+ 		mutex_unlock(&hlimit_mutex);
+ 		return false;
+ 	}
+@@ -706,6 +729,7 @@ static bool hashlimit_mt_check_v0(const struct xt_mtchk_param *par)
+ 
+ static bool hashlimit_mt_check(const struct xt_mtchk_param *par)
+ {
++	struct net *net = par->net;
+ 	struct xt_hashlimit_mtinfo1 *info = par->matchinfo;
+ 
+ 	/* Check for overflow. */
+@@ -735,8 +759,8 @@ static bool hashlimit_mt_check(const struct xt_mtchk_param *par)
+ 	 * the list of htable's in htable_create(), since then we would
+ 	 * create duplicate proc files. -HW */
+ 	mutex_lock(&hlimit_mutex);
+-	info->hinfo = htable_find_get(info->name, par->match->family);
+-	if (!info->hinfo && htable_create(info, par->match->family) != 0) {
++	info->hinfo = htable_find_get(net, info->name, par->match->family);
++	if (!info->hinfo && htable_create(net, info, par->match->family) != 0) {
+ 		mutex_unlock(&hlimit_mutex);
+ 		return false;
+ 	}
+@@ -953,10 +977,61 @@ static const struct file_operations dl_file_ops = {
+ 	.release = seq_release
+ };
+ 
++static int __net_init hashlimit_proc_net_init(struct net *net)
++{
++	struct hashlimit_net *hashlimit_net = hashlimit_pernet(net);
++
++	hashlimit_net->ipt_hashlimit = proc_mkdir("ipt_hashlimit", net->proc_net);
++	if (!hashlimit_net->ipt_hashlimit)
++		return -ENOMEM;
++#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
++	hashlimit_net->ip6t_hashlimit = proc_mkdir("ip6t_hashlimit", net->proc_net);
++	if (!hashlimit_net->ip6t_hashlimit) {
++		proc_net_remove(net, "ipt_hashlimit");
++		return -ENOMEM;
++	}
++#endif
++	return 0;
++}
++
++static void __net_exit hashlimit_proc_net_exit(struct net *net)
++{
++	proc_net_remove(net, "ipt_hashlimit");
++#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
++	proc_net_remove(net, "ip6t_hashlimit");
++#endif
++}
++
++static int __net_init hashlimit_net_init(struct net *net)
++{
++	struct hashlimit_net *hashlimit_net = hashlimit_pernet(net);
++
++	INIT_HLIST_HEAD(&hashlimit_net->htables);
++	return hashlimit_proc_net_init(net);
++}
++
++static void __net_exit hashlimit_net_exit(struct net *net)
++{
++	struct hashlimit_net *hashlimit_net = hashlimit_pernet(net);
++
++	BUG_ON(!hlist_empty(&hashlimit_net->htables));
++	hashlimit_proc_net_exit(net);
++}
++
++static struct pernet_operations hashlimit_net_ops = {
++	.init	= hashlimit_net_init,
++	.exit	= hashlimit_net_exit,
++	.id	= &hashlimit_net_id,
++	.size	= sizeof(struct hashlimit_net),
++};
++
+ static int __init hashlimit_mt_init(void)
+ {
+ 	int err;
+ 
++	err = register_pernet_subsys(&hashlimit_net_ops);
++	if (err < 0)
++		return err;
+ 	err = xt_register_matches(hashlimit_mt_reg,
+ 	      ARRAY_SIZE(hashlimit_mt_reg));
+ 	if (err < 0)
+@@ -970,41 +1045,21 @@ static int __init hashlimit_mt_init(void)
+ 		printk(KERN_ERR "xt_hashlimit: unable to create slab cache\n");
+ 		goto err2;
+ 	}
+-	hashlimit_procdir4 = proc_mkdir("ipt_hashlimit", init_net.proc_net);
+-	if (!hashlimit_procdir4) {
+-		printk(KERN_ERR "xt_hashlimit: unable to create proc dir "
+-				"entry\n");
+-		goto err3;
+-	}
+-	err = 0;
+-#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
+-	hashlimit_procdir6 = proc_mkdir("ip6t_hashlimit", init_net.proc_net);
+-	if (!hashlimit_procdir6) {
+-		printk(KERN_ERR "xt_hashlimit: unable to create proc dir "
+-				"entry\n");
+-		err = -ENOMEM;
+-	}
+-#endif
+-	if (!err)
+-		return 0;
+-	remove_proc_entry("ipt_hashlimit", init_net.proc_net);
+-err3:
+-	kmem_cache_destroy(hashlimit_cachep);
++	return 0;
++
+ err2:
+ 	xt_unregister_matches(hashlimit_mt_reg, ARRAY_SIZE(hashlimit_mt_reg));
+ err1:
++	unregister_pernet_subsys(&hashlimit_net_ops);
+ 	return err;
+ 
+ }
+ 
+ static void __exit hashlimit_mt_exit(void)
+ {
+-	remove_proc_entry("ipt_hashlimit", init_net.proc_net);
+-#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
+-	remove_proc_entry("ip6t_hashlimit", init_net.proc_net);
+-#endif
+ 	kmem_cache_destroy(hashlimit_cachep);
+ 	xt_unregister_matches(hashlimit_mt_reg, ARRAY_SIZE(hashlimit_mt_reg));
++	unregister_pernet_subsys(&hashlimit_net_ops);
+ }
+ 
+ module_init(hashlimit_mt_init);
