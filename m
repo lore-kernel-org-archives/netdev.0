@@ -1,62 +1,74 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [net-next-2.6 PATCH 1/7] xfrm: introduce basic mark
- infrastructure
-Date: Tue, 16 Feb 2010 08:16:04 -0500
-Message-ID: <1266326164.6776.263.camel@bigi>
-References: <1266160732-946-1-git-send-email-hadi@cyberus.ca>
-	 <1266160732-946-2-git-send-email-hadi@cyberus.ca>
-	 <4B796B70.2050102@trash.net> <1266253235.6776.90.camel@bigi>
-	 <4B797F09.5050207@trash.net> <1266254073.6776.109.camel@bigi>
-	 <m37hqdcvgm.fsf@ursa.amorsen.dk> <1266321437.6776.250.camel@bigi>
-	 <m3hbphxrnm.fsf@ursa.amorsen.dk>
-Reply-To: hadi@cyberus.ca
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH v4 3/3] net: reserve ports for applications
+ using fixed port numbers
+Date: Tue, 16 Feb 2010 14:20:25 +0100
+Message-ID: <1266326425.3045.53.camel@edumazet-laptop>
+References: <1266271241-6293-1-git-send-email-opurdila@ixiacom.com>
+	 <1266271241-6293-4-git-send-email-opurdila@ixiacom.com>
+	 <4B7A6740.1000701@redhat.com> <201002161306.29708.opurdila@ixiacom.com>
+	 <4B7A9852.5020105@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, timo.teras@iki.fi,
-	herbert@gondor.apana.org.au, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Benny Amorsen <benny+usenet@amorsen.dk>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Octavian Purdila <opurdila@ixiacom.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.27]:18338 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753750Ab0BPNQH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 08:16:07 -0500
-Received: by qw-out-2122.google.com with SMTP id 5so697085qwi.37
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2010 05:16:05 -0800 (PST)
-In-Reply-To: <m3hbphxrnm.fsf@ursa.amorsen.dk>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:34351 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755936Ab0BPNUc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 08:20:32 -0500
+In-Reply-To: <4B7A9852.5020105@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-02-16 at 13:59 +0100, Benny Amorsen wrote:
+Le mardi 16 f=C3=A9vrier 2010 =C3=A0 21:06 +0800, Cong Wang a =C3=A9cri=
+t :
+> Octavian Purdila wrote:
+> > On Tuesday 16 February 2010 11:37:04 you wrote:
+> >>>  	BUILD_BUG_ON(sizeof(struct inet_skb_parm) > sizeof(dummy_skb->c=
+b));
+> >>>
+> >>> +	sysctl_local_reserved_ports =3D kzalloc(65536 / 8, GFP_KERNEL);
+> >>> +	if (!sysctl_local_reserved_ports)
+> >>> +		goto out;
+> >>> +
+> >> I think we should also consider the ports in ip_local_port_range,
+> >> since we can only reserve the ports in that range.
+> >>
+> >=20
+> > That is subject to changes at runtime, which means we will have to =
+readjust=20
+> > the bitmap at runtime which introduces the need for additional sync=
+hronization=20
+> > operations which I would rather avoid.=20
+>=20
+> Why? As long as the bitmap is global, this will not be hard.
+>=20
+> Consider that if one user writes a port number which is beyond
+> the ip_local_port_range into ip_local_reserved_ports, we should
+> not accept this, because it doesn't make any sense. But with your
+> patch, we do.
 
-> From your description, I would add the IPSEC SPD + SA with a specific
-> mark. Then I would set the mark in the rule table if I want the packets
-> to go through the tunnel, or clear the mark to have them go through
-> normal routing.
+I disagree with you. This is perfectly OK.
 
-yes.
+A port not being flagged in ip_local_reserved_ports doesnt mean it can
+be used for allocation.
 
-> Not perfect, because I would have to replicate parts of
-> the routing table in the rule table, but it could be made to work.
+If you want to really block ports from being used at boot, you could fo=
+r
+example :
 
-Agreed this is a problem and not a nice one (the counter arguement is
-at least theres a way for some users now..
-
-> Perfect would be if I could set mark in the routing table instead of the
-> rule table, but sometimes perfect is the enemy of good...
-
-This is actually an interesting idea and is not far-fetched (and would
-certainly get rid of the replication problem). If i understood
-correctly, you would have:
-ip route add blah blah mark 0x10
-
-and that the routing core will use the mark to (as it does for example
-with ifindex) to pick the route? I like the idea for the simple fact it
-will reduce immensely configuration in some cases..
-
-cheers,
-jamal
-
+# temporarly reduce the ip_local_port_range
+echo "61000 61001" >/proc/sys/net/ipv4/ip_local_port_range
+# Build our bitmap (could be slow, if a remote database is read)
+for port in $LIST_RESERVED_PORT
+do
+  echo $port >/proc/sys/net/ipv4/ip_local_reserved_ports
+done
+echo "10000 61000" >/proc/sys/net/ipv4/ip_local_port_range
 
 
