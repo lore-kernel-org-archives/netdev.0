@@ -1,122 +1,74 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 22/62: xtables: CONFIG_COMPAT redux
-Date: Tue, 16 Feb 2010 15:55:50 +0100 (MET)
-Message-ID: <20100216145547.2796.21728.sendpatchset@x2.localnet>
+Subject: netfilter 23/62: xt_TCPMSS: SYN packets are allowed to contain data
+Date: Tue, 16 Feb 2010 15:55:51 +0100 (MET)
+Message-ID: <20100216145549.2796.91116.sendpatchset@x2.localnet>
 References: <20100216145517.2796.40634.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52006 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:52009 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932417Ab0BPOzv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 09:55:51 -0500
+	with ESMTP id S932420Ab0BPOzw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 09:55:52 -0500
 In-Reply-To: <20100216145517.2796.40634.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit c30f540b63047437ffa894b5353216410c480d1a
-Author: Alexey Dobriyan <adobriyan@gmail.com>
-Date:   Tue Feb 2 15:03:24 2010 +0100
+commit 10a199394b8f9b4c4e0be6e14a61109a7d891b1b
+Author: Simon Arlott <simon@fire.lp0.eu>
+Date:   Tue Feb 2 15:33:38 2010 +0100
 
-    netfilter: xtables: CONFIG_COMPAT redux
+    netfilter: xt_TCPMSS: SYN packets are allowed to contain data
     
-    Ifdef out
-    	struct nf_sockopt_ops::compat_set
-    	struct nf_sockopt_ops::compat_get
-    	struct xt_match::compat_from_user
-    	struct xt_match::compat_to_user
-    	struct xt_match::compatsize
-    to make structures smaller on COMPAT=n kernels.
+    The TCPMSS target is dropping SYN packets where:
+      1) There is data, or
+      2) The data offset makes the TCP header larger than the packet.
     
-    Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+    Both of these result in an error level printk. This printk has been
+    removed.
+    
+    This change avoids dropping SYN packets containing data. If there
+    is also no MSS option (as well as data), one will not be added
+    because of possible complications due to the increased packet size.
+    
+    Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index 48c5496..78f33d2 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -114,15 +114,17 @@ struct nf_sockopt_ops {
- 	int set_optmin;
- 	int set_optmax;
- 	int (*set)(struct sock *sk, int optval, void __user *user, unsigned int len);
-+#ifdef CONFIG_COMPAT
- 	int (*compat_set)(struct sock *sk, int optval,
- 			void __user *user, unsigned int len);
--
-+#endif
- 	int get_optmin;
- 	int get_optmax;
- 	int (*get)(struct sock *sk, int optval, void __user *user, int *len);
-+#ifdef CONFIG_COMPAT
- 	int (*compat_get)(struct sock *sk, int optval,
- 			void __user *user, int *len);
--
-+#endif
- 	/* Use the module struct to lock set/get code in place */
- 	struct module *owner;
- };
-@@ -222,11 +224,12 @@ int nf_setsockopt(struct sock *sk, u_int8_t pf, int optval, char __user *opt,
- 		  unsigned int len);
- int nf_getsockopt(struct sock *sk, u_int8_t pf, int optval, char __user *opt,
- 		  int *len);
--
-+#ifdef CONFIG_COMPAT
- int compat_nf_setsockopt(struct sock *sk, u_int8_t pf, int optval,
- 		char __user *opt, unsigned int len);
- int compat_nf_getsockopt(struct sock *sk, u_int8_t pf, int optval,
- 		char __user *opt, int *len);
-+#endif
+diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
+index eda64c1..6f21b43 100644
+--- a/net/netfilter/xt_TCPMSS.c
++++ b/net/netfilter/xt_TCPMSS.c
+@@ -60,17 +60,9 @@ tcpmss_mangle_packet(struct sk_buff *skb,
+ 	tcplen = skb->len - tcphoff;
+ 	tcph = (struct tcphdr *)(skb_network_header(skb) + tcphoff);
  
- /* Call this before modifying an existing packet: ensures it is
-    modifiable and linear to the point you care about (writable_len).
-diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
-index 3caf5e1..026eb78 100644
---- a/include/linux/netfilter/x_tables.h
-+++ b/include/linux/netfilter/x_tables.h
-@@ -283,11 +283,11 @@ struct xt_match {
+-	/* Since it passed flags test in tcp match, we know it is is
+-	   not a fragment, and has data >= tcp header length.  SYN
+-	   packets should not contain data: if they did, then we risk
+-	   running over MTU, sending Frag Needed and breaking things
+-	   badly. --RR */
+-	if (tcplen != tcph->doff*4) {
+-		if (net_ratelimit())
+-			printk(KERN_ERR "xt_TCPMSS: bad length (%u bytes)\n",
+-			       skb->len);
++	/* Header cannot be larger than the packet */
++	if (tcplen < tcph->doff*4)
+ 		return -1;
+-	}
  
- 	/* Called when entry of this type deleted. */
- 	void (*destroy)(const struct xt_mtdtor_param *);
--
-+#ifdef CONFIG_COMPAT
- 	/* Called when userspace align differs from kernel space one */
- 	void (*compat_from_user)(void *dst, void *src);
- 	int (*compat_to_user)(void __user *dst, void *src);
--
-+#endif
- 	/* Set this to THIS_MODULE if you are a module, otherwise NULL */
- 	struct module *me;
+ 	if (info->mss == XT_TCPMSS_CLAMP_PMTU) {
+ 		if (dst_mtu(skb_dst(skb)) <= minlen) {
+@@ -115,6 +107,12 @@ tcpmss_mangle_packet(struct sk_buff *skb,
+ 		}
+ 	}
  
-@@ -296,7 +296,9 @@ struct xt_match {
- 
- 	const char *table;
- 	unsigned int matchsize;
-+#ifdef CONFIG_COMPAT
- 	unsigned int compatsize;
-+#endif
- 	unsigned int hooks;
- 	unsigned short proto;
- 
-@@ -323,17 +325,19 @@ struct xt_target {
- 
- 	/* Called when entry of this type deleted. */
- 	void (*destroy)(const struct xt_tgdtor_param *);
--
-+#ifdef CONFIG_COMPAT
- 	/* Called when userspace align differs from kernel space one */
- 	void (*compat_from_user)(void *dst, void *src);
- 	int (*compat_to_user)(void __user *dst, void *src);
--
-+#endif
- 	/* Set this to THIS_MODULE if you are a module, otherwise NULL */
- 	struct module *me;
- 
- 	const char *table;
- 	unsigned int targetsize;
-+#ifdef CONFIG_COMPAT
- 	unsigned int compatsize;
-+#endif
- 	unsigned int hooks;
- 	unsigned short proto;
- 
++	/* There is data after the header so the option can't be added
++	   without moving it, and doing so may make the SYN packet
++	   itself too large. Accept the packet unmodified instead. */
++	if (tcplen > tcph->doff*4)
++		return 0;
++
+ 	/*
+ 	 * MSS Option not found ?! add it..
+ 	 */
