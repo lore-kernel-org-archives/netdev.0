@@ -1,149 +1,89 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 44/62: nf_nat: support mangling a single TCP packet multiple times
-Date: Tue, 16 Feb 2010 15:56:19 +0100 (MET)
-Message-ID: <20100216145617.2796.93888.sendpatchset@x2.localnet>
+Subject: netfilter 40/62: nf_conntrack: show helper and class in /proc/net/nf_conntrack_expect
+Date: Tue, 16 Feb 2010 15:56:14 +0100 (MET)
+Message-ID: <20100216145612.2796.48771.sendpatchset@x2.localnet>
 References: <20100216145517.2796.40634.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52068 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:52061 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932709Ab0BPO4U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 09:56:20 -0500
+	with ESMTP id S932525Ab0BPO4Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 09:56:16 -0500
 In-Reply-To: <20100216145517.2796.40634.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 010c0b9f34a4c567b431f8b49a58b7332ed42e47
+commit b87921bdf25485afd8f5a5f25e86b5acef32a9cf
 Author: Patrick McHardy <kaber@trash.net>
-Date:   Thu Feb 11 12:27:09 2010 +0100
+Date:   Thu Feb 11 12:22:48 2010 +0100
 
-    netfilter: nf_nat: support mangling a single TCP packet multiple times
+    netfilter: nf_conntrack: show helper and class in /proc/net/nf_conntrack_expect
     
-    nf_nat_mangle_tcp_packet() can currently only handle a single mangling
-    per window because it only maintains two sequence adjustment positions:
-    the one before the last adjustment and the one after.
-    
-    This patch makes sequence number adjustment tracking in
-    nf_nat_mangle_tcp_packet() optional and allows a helper to manually
-    update the offsets after the packet has been fully handled.
+    Make the output a bit more informative by showing the helper an expectation
+    belongs to and the expectation class.
     
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/net/netfilter/nf_nat_helper.h b/include/net/netfilter/nf_nat_helper.h
-index 4222220..02bb6c2 100644
---- a/include/net/netfilter/nf_nat_helper.h
-+++ b/include/net/netfilter/nf_nat_helper.h
-@@ -7,13 +7,27 @@
- struct sk_buff;
+diff --git a/include/net/netfilter/nf_conntrack_expect.h b/include/net/netfilter/nf_conntrack_expect.h
+index 9a2b9cb..917e170 100644
+--- a/include/net/netfilter/nf_conntrack_expect.h
++++ b/include/net/netfilter/nf_conntrack_expect.h
+@@ -66,6 +66,7 @@ static inline struct net *nf_ct_exp_net(struct nf_conntrack_expect *exp)
+ struct nf_conntrack_expect_policy {
+ 	unsigned int	max_expected;
+ 	unsigned int	timeout;
++	const char	*name;
+ };
  
- /* These return true or false. */
--extern int nf_nat_mangle_tcp_packet(struct sk_buff *skb,
--				    struct nf_conn *ct,
--				    enum ip_conntrack_info ctinfo,
--				    unsigned int match_offset,
--				    unsigned int match_len,
--				    const char *rep_buffer,
--				    unsigned int rep_len);
-+extern int __nf_nat_mangle_tcp_packet(struct sk_buff *skb,
-+				      struct nf_conn *ct,
-+				      enum ip_conntrack_info ctinfo,
-+				      unsigned int match_offset,
-+				      unsigned int match_len,
-+				      const char *rep_buffer,
-+				      unsigned int rep_len, bool adjust);
-+
-+static inline int nf_nat_mangle_tcp_packet(struct sk_buff *skb,
-+					   struct nf_conn *ct,
-+					   enum ip_conntrack_info ctinfo,
-+					   unsigned int match_offset,
-+					   unsigned int match_len,
-+					   const char *rep_buffer,
-+					   unsigned int rep_len)
-+{
-+	return __nf_nat_mangle_tcp_packet(skb, ct, ctinfo,
-+					  match_offset, match_len,
-+					  rep_buffer, rep_len, true);
-+}
-+
- extern int nf_nat_mangle_udp_packet(struct sk_buff *skb,
- 				    struct nf_conn *ct,
- 				    enum ip_conntrack_info ctinfo,
-@@ -21,6 +35,10 @@ extern int nf_nat_mangle_udp_packet(struct sk_buff *skb,
- 				    unsigned int match_len,
- 				    const char *rep_buffer,
- 				    unsigned int rep_len);
-+
-+extern void nf_nat_set_seq_adjust(struct nf_conn *ct,
-+				  enum ip_conntrack_info ctinfo,
-+				  __be32 seq, s16 off);
- extern int nf_nat_seq_adjust(struct sk_buff *skb,
- 			     struct nf_conn *ct,
- 			     enum ip_conntrack_info ctinfo);
-diff --git a/net/ipv4/netfilter/nf_nat_helper.c b/net/ipv4/netfilter/nf_nat_helper.c
-index 7f10a6b..4b6af4b 100644
---- a/net/ipv4/netfilter/nf_nat_helper.c
-+++ b/net/ipv4/netfilter/nf_nat_helper.c
-@@ -141,6 +141,17 @@ static int enlarge_skb(struct sk_buff *skb, unsigned int extra)
- 	return 1;
- }
- 
-+void nf_nat_set_seq_adjust(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
-+			   __be32 seq, s16 off)
-+{
-+	if (!off)
-+		return;
-+	set_bit(IPS_SEQ_ADJUST_BIT, &ct->status);
-+	adjust_tcp_sequence(ntohl(seq), off, ct, ctinfo);
-+	nf_conntrack_event_cache(IPCT_NATSEQADJ, ct);
-+}
-+EXPORT_SYMBOL_GPL(nf_nat_set_seq_adjust);
-+
- /* Generic function for mangling variable-length address changes inside
-  * NATed TCP connections (like the PORT XXX,XXX,XXX,XXX,XXX,XXX
-  * command in FTP).
-@@ -149,14 +160,13 @@ static int enlarge_skb(struct sk_buff *skb, unsigned int extra)
-  * skb enlargement, ...
-  *
-  * */
--int
--nf_nat_mangle_tcp_packet(struct sk_buff *skb,
--			 struct nf_conn *ct,
--			 enum ip_conntrack_info ctinfo,
--			 unsigned int match_offset,
--			 unsigned int match_len,
--			 const char *rep_buffer,
--			 unsigned int rep_len)
-+int __nf_nat_mangle_tcp_packet(struct sk_buff *skb,
-+			       struct nf_conn *ct,
-+			       enum ip_conntrack_info ctinfo,
-+			       unsigned int match_offset,
-+			       unsigned int match_len,
-+			       const char *rep_buffer,
-+			       unsigned int rep_len, bool adjust)
+ #define NF_CT_EXPECT_CLASS_DEFAULT	0
+diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+index 2f25ff6..33b85f8 100644
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -500,6 +500,7 @@ static void exp_seq_stop(struct seq_file *seq, void *v)
+ static int exp_seq_show(struct seq_file *s, void *v)
  {
- 	struct rtable *rt = skb_rtable(skb);
- 	struct iphdr *iph;
-@@ -202,16 +212,13 @@ nf_nat_mangle_tcp_packet(struct sk_buff *skb,
- 		inet_proto_csum_replace2(&tcph->check, skb,
- 					 htons(oldlen), htons(datalen), 1);
+ 	struct nf_conntrack_expect *expect;
++	struct nf_conntrack_helper *helper;
+ 	struct hlist_node *n = v;
+ 	char *delim = "";
  
--	if (rep_len != match_len) {
--		set_bit(IPS_SEQ_ADJUST_BIT, &ct->status);
--		adjust_tcp_sequence(ntohl(tcph->seq),
--				    (int)rep_len - (int)match_len,
--				    ct, ctinfo);
--		nf_conntrack_event_cache(IPCT_NATSEQADJ, ct);
--	}
-+	if (adjust && rep_len != match_len)
-+		nf_nat_set_seq_adjust(ct, ctinfo, tcph->seq,
-+				      (int)rep_len - (int)match_len);
+@@ -525,6 +526,14 @@ static int exp_seq_show(struct seq_file *s, void *v)
+ 	if (expect->flags & NF_CT_EXPECT_INACTIVE)
+ 		seq_printf(s, "%sINACTIVE", delim);
+ 
++	helper = rcu_dereference(nfct_help(expect->master)->helper);
++	if (helper) {
++		seq_printf(s, "%s%s", expect->flags ? " " : "", helper->name);
++		if (helper->expect_policy[expect->class].name)
++			seq_printf(s, "/%s",
++				   helper->expect_policy[expect->class].name);
++	}
 +
- 	return 1;
+ 	return seq_putc(s, '\n');
  }
--EXPORT_SYMBOL(nf_nat_mangle_tcp_packet);
-+EXPORT_SYMBOL(__nf_nat_mangle_tcp_packet);
  
- /* Generic function for mangling variable-length address changes inside
-  * NATed UDP connections (like the CONNECT DATA XXXXX MESG XXXXX INDEX XXXXX
+diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+index 023966b..419c5ca 100644
+--- a/net/netfilter/nf_conntrack_sip.c
++++ b/net/netfilter/nf_conntrack_sip.c
+@@ -1305,14 +1305,17 @@ static char sip_names[MAX_PORTS][2][sizeof("sip-65535")] __read_mostly;
+ 
+ static const struct nf_conntrack_expect_policy sip_exp_policy[SIP_EXPECT_MAX + 1] = {
+ 	[SIP_EXPECT_SIGNALLING] = {
++		.name		= "signalling",
+ 		.max_expected	= 1,
+ 		.timeout	= 3 * 60,
+ 	},
+ 	[SIP_EXPECT_AUDIO] = {
++		.name		= "audio",
+ 		.max_expected	= 2 * IP_CT_DIR_MAX,
+ 		.timeout	= 3 * 60,
+ 	},
+ 	[SIP_EXPECT_VIDEO] = {
++		.name		= "video",
+ 		.max_expected	= 2 * IP_CT_DIR_MAX,
+ 		.timeout	= 3 * 60,
+ 	},
