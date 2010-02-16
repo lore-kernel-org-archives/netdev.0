@@ -1,35 +1,40 @@
-From: Benny Amorsen <benny+usenet@amorsen.dk>
-Subject: Re: [net-next-2.6 PATCH 1/7] xfrm: introduce basic mark infrastructure
-Date: Tue, 16 Feb 2010 11:43:05 +0100
-Message-ID: <m37hqdcvgm.fsf@ursa.amorsen.dk>
-References: <1266160732-946-1-git-send-email-hadi@cyberus.ca>
-	<1266160732-946-2-git-send-email-hadi@cyberus.ca>
-	<4B796B70.2050102@trash.net> <1266253235.6776.90.camel@bigi>
-	<4B797F09.5050207@trash.net> <1266254073.6776.109.camel@bigi>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [net-next PATCH v4 1/3] sysctl: refactor integer handling proc code
+Date: Tue, 16 Feb 2010 12:48:56 +0200
+Message-ID: <201002161248.56598.opurdila@ixiacom.com>
+References: <1266271241-6293-1-git-send-email-opurdila@ixiacom.com> <1266271241-6293-2-git-send-email-opurdila@ixiacom.com> <4B7A5A23.3080309@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, timo.teras@iki.fi,
-	herbert@gondor.apana.org.au, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate1.ipvision.dk ([94.127.49.2]:39394 "EHLO gate1.ipvision.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932799Ab0BPKnW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2010 05:43:22 -0500
-In-Reply-To: <1266254073.6776.109.camel@bigi> (jamal's message of "Mon, 15 Feb
-	2010 12:14:33 -0500")
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:9744 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752157Ab0BPKw2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 05:52:28 -0500
+In-Reply-To: <4B7A5A23.3080309@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-jamal <hadi@cyberus.ca> writes:
+On Tuesday 16 February 2010 10:41:07 you wrote:
 
-> I take it policy routing by mark is insufficient.
+> > +
+> > +     if (!write && !first && left && !err)
+> > +             err = proc_put_newline(&buffer, &left);
+> > +     if (write && !err)
+> > +             err = proc_skip_wspace(&buffer, &left);
+> > +     if (err == -EFAULT /* do we really need to check for -EFAULT? */ ||
+> > +         (write && first))
+> > +             return err ? : -EINVAL;
+> 
+> The logic here seems messy, adding one or two goto's may help?
+> 
 
-xfrm ignores policy routing. You can't route IPSEC in Linux. This is
-actually a fairly annoying limitation. The workaround is to do like
-Microsoft: Encapsulate everything in l2tp or gre.
+OK, I'll give it a try. 
 
-
-/Benny
-
+What about the EFAULT check, is that really required?
