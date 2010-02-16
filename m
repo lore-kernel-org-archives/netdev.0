@@ -1,115 +1,164 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel stack  trace using conntrack
-Date: Tue, 16 Feb 2010 14:45:17 +0100
-Message-ID: <1266327917.3045.55.camel@edumazet-laptop>
-References: <7EF5DBE4C76A7B4DA655334E9F2BFD26CED7BC8D04@FRSPX100.fr01.awl.atosorigin.net>
-	 <1266313889.3045.1.camel@edumazet-laptop>
-	 <7EF5DBE4C76A7B4DA655334E9F2BFD26CED7BC8D54@FRSPX100.fr01.awl.atosorigin.net>
-	 <1266318928.3045.38.camel@edumazet-laptop>  <4B7A9E95.103@netfilter.org>
+From: sjur.brandeland@stericsson.com
+Subject: [PATCH net-next-2.6 v2 00/12] net-caif: introducing CAIF protocol stack
+Date: Tue, 16 Feb 2010 14:46:45 +0100
+Message-ID: <1266328017-28406-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ramblewski David <David.Ramblewski@atosorigin.com>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B7A9E95.103@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN
+Content-Transfer-Encoding: 7BIT
+Cc: stefano.babic@babic.homelinux.org, randy.dunlap@oracle.com,
+	daniel.martensson@stericsson.com, kaber@trash.net,
+	marcel@holtmann.org,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bgo1smout1.broadpark.no ([217.13.4.94]:56525 "EHLO
+	bgo1smout1.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756332Ab0BPNrd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 08:47:33 -0500
+Received: from bgo1sminn1.broadpark.no ([217.13.4.93])
+ by bgo1smout1.broadpark.no
+ (Sun Java(tm) System Messaging Server 6.3-3.01 (built Jul 12 2007; 32bit))
+ with ESMTP id <0KXX00066SZ1VAD0@bgo1smout1.broadpark.no> for
+ netdev@vger.kernel.org; Tue, 16 Feb 2010 14:47:25 +0100 (CET)
+Received: from localhost.localdomain ([84.49.71.7]) by bgo1sminn1.broadpark.no
+ (Sun Java(tm) System Messaging Server 6.3-3.01 (built Jul 12 2007; 32bit))
+ with ESMTP id <0KXX00DUYSYQXZJ0@bgo1sminn1.broadpark.no> for
+ netdev@vger.kernel.org; Tue, 16 Feb 2010 14:47:15 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 16 f=C3=A9vrier 2010 =C3=A0 14:33 +0100, Pablo Neira Ayuso a =C3=
-=A9crit :
-> Eric Dumazet wrote:
-> > OK thanks David, I reproduced the problem on latest net-next-2.6 tr=
-ee
-> > too. I wonder why nobody hit this before.
->=20
-> Hmm, my config had not NETFILTER_DEBUG enabled, that's why I didn't h=
-it
-> that assertion.
->=20
-> > [352468.556484] ------------[ cut here ]------------
-> > [352468.556511] WARNING: at net/netfilter/nf_conntrack_extend.c:82
-> > __nf_ct_ext_add+0x1c2/0x1e0 [nf_conntrack]()
-> > [352468.556559] Hardware name: ProLiant BL460c G1
-> > [352468.556582] Modules linked in: nf_defrag_ipv4 nf_conntrack_netl=
-ink
-> > nf_conntrack sch_hfsc sch_sfq ipmi_devintf ipmi_si ipmi_msghandler =
-hpilo
-> > bonding [last unloaded: nf_conntrack_ipv4]
-> > [352468.556675] Pid: 18852, comm: conntrack Tainted: G        W
-> > 2.6.33-rc5-02754-g0ea034c-dirty #545
-> > [352468.556721] Call Trace:
-> > [352468.556742]  [<c054d45f>] ? printk+0x1d/0x26
-> > [352468.556767]  [<c023bbc2>] warn_slowpath_common+0x72/0xa0
-> > [352468.556795]  [<fee75e42>] ? __nf_ct_ext_add+0x1c2/0x1e0
-> > [nf_conntrack]
-> > [352468.556825]  [<fee75e42>] ? __nf_ct_ext_add+0x1c2/0x1e0
-> > [nf_conntrack]
-> > [352468.556854]  [<c023bc0a>] warn_slowpath_null+0x1a/0x20
-> > [352468.556882]  [<fee75e42>] __nf_ct_ext_add+0x1c2/0x1e0 [nf_connt=
-rack]
-> > [352468.556911]  [<fee70dcc>] ? nf_conntrack_alloc+0x10c/0x1a0
-> > [nf_conntrack]
-> > [352468.556940]  [<feecaf59>] ctnetlink_create_conntrack+0x339/0x36=
-0
-> > [nf_conntrack_netlink]
-> > [352468.556987]  [<feeca26b>] ? ctnetlink_parse_tuple+0x14b/0x1c0
-> > [nf_conntrack_netlink]
-> > [352468.557039]  [<fee6fd60>] ? __nf_conntrack_find+0x70/0x100
-> > [nf_conntrack]
-> > [352468.557068]  [<feecb090>] ctnetlink_new_conntrack+0x110/0x680
-> > [nf_conntrack_netlink]
-> > [352468.557113]  [<c04d93b5>] nfnetlink_rcv_msg+0x125/0x180
-> > [352468.557140]  [<c054ec57>] ? __mutex_lock_slowpath+0x197/0x230
-> > [352468.557167]  [<c04d9290>] ? nfnetlink_rcv_msg+0x0/0x180
-> > [352468.557194]  [<c04d5896>] netlink_rcv_skb+0x96/0xc0
-> > [352468.557219]  [<c04d927c>] nfnetlink_rcv+0x1c/0x30
-> > [352468.557245]  [<c04d5545>] netlink_unicast+0x255/0x2a0
-> > [352468.557274]  [<c04d5d3f>] netlink_sendmsg+0x1af/0x2b0
-> > [352468.557300]  [<c04a86ec>] sock_sendmsg+0xac/0xe0
-> > [352468.559358]  [<c029d042>] ? find_get_page+0x22/0xd0
-> > [352468.559385]  [<c029d9dc>] ? filemap_fault+0x8c/0x3c0
-> > [352468.559410]  [<c04a905a>] sys_sendto+0xaa/0xd0
-> > [352468.559436]  [<c02b3780>] ? __do_fault+0x370/0x470
-> > [352468.559462]  [<c02b54d9>] ? handle_mm_fault+0x1d9/0x7d0
-> > [352468.559488]  [<c04aa245>] sys_socketcall+0x195/0x280
-> > [352468.559514]  [<c0202c50>] sysenter_do_call+0x12/0x26
-> > [352468.559539] ---[ end trace 6ecb842e4e35a653 ]---
-> >=20
-> > Could you try following patch ?
-> >=20
-> > Thanks
-> >=20
-> > diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/n=
-f_conntrack_netlink.c
-> > index 0ffe689..d2657aa 100644
-> > --- a/net/netfilter/nf_conntrack_netlink.c
-> > +++ b/net/netfilter/nf_conntrack_netlink.c
-> > @@ -923,7 +923,7 @@ ctnetlink_change_status(struct nf_conn *ct, con=
-st struct nlattr * const cda[])
-> >  	unsigned int status =3D ntohl(nla_get_be32(cda[CTA_STATUS]));
-> >  	d =3D ct->status ^ status;
-> > =20
-> > -	if (d & (IPS_EXPECTED|IPS_CONFIRMED|IPS_DYING))
-> > +	if (d & (IPS_EXPECTED|IPS_DYING))
-> >  		/* unchangeable */
-> >  		return -EBUSY;
->=20
-> I think that we should explicitly report if the user unsets
-> IPS_CONFIRMED. Please, don't change this.
->=20
-> Apart from that, the patch seems fine to me. Thanks!
+From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-Problem is we now (I mean after my patch) enter
-ctnetlink_change_status() with ct->status being null (or at least,
-IPS_CONFIRMED not set)
+This patch-set introduces the CAIF protocol Stack.
+The "Communication CPU to Application CPU Interface" (CAIF) is a packet based
+connection-oriented MUX protocol developed by ST-Ericsson for use with its
+modems.
+
+
+CHANGE LOG:
+Based on review comment from Marcel Holtmann, Patrick McHardy, and Randy Dunlap
+on the previous patch set submitted the 20th Jan the following changes has
+been done:
+- Removed "CAIF Kernel Client API for CAIF".
+- In CAIF Net device: removed IOCTL management.
+- In Socket Interface, removed socket option CAIFSO_CHANNEL,
+  and replaced it with SO_PRIORITY, SO_BINDTODEVICE and CAIFSO_LINK_SELECT.
+- In caif_socket.c, implemented most of CAIF socket options.
+- Moved Caif Core protocol files out of directory 'generic'
+- Removed glue code cfglue.h, this causes lots of small changes in CAIF core.
+- Removed linked list code cflst.h, cflist.c this impacts caifmux.c.
+- Added CAIF debug service cfdbgl.c.
+- In CAIF Net device, fixed race condition with rtnl when unloading of module.
+- In Linux-CAIF.txt, minor updates including fixing some spelling mistakes.
+- In README, added more documentation on CAIF Serial debugging.
+- In caif_serial.c, the TTY is no longer opened from kernel, but
+  the line discipline must be installed from user space utility.
+- In caif_serial.c, added debugfs entries for last received and transmitted 
+  messages and status information.
+- Attempting to conform to kernel-doc formatting conventions.
+
+
+OVERVIEW:
+
+* CAIF provides a socket interface which can be used to open virtual AT
+  channels, create and configure GPRS Data connections.
+
+* A CAIF Network device is also provided for GPRS access.
+  This interface can be managed with RTNL.
+
+* A kernel interface is provided allowing Kernel modules to use CAIF.
+
+* A serial link layer layer implemented as a line discipline is currently 
+  implemented. Other link interfaces may be contributed at a later stage.
+
+  RTNL
+   !
+   !	 +------+   +------+   +------+
+   !	+------+!  +------+!  +------+!
+   !	! Sock !!  !Kernel!!  ! Net  !!
+   !	! API  !+  ! API  !+  ! Dev  !+	  <- CAIF "Client" APIs
+   !	+------+   +------!   +------+
+   !	   !	      !		 !
+   !	   +----------!----------+
+   !		   +------+		  <- CAIF Core Protocol Implementation
+   +------->	   ! CAIF !
+		   ! Core !
+		   +------+
+	     +--------!--------+
+	     !		       !
+	  +------+	    +-----+
+	  ! ldisc!	    ! ... !	  <- Link Layer (Net Devices)
+	  +------+	    +-----+
+	     !
+	  +------+
+	  ! tty	 !
+	  +------+
+
+Please see Documentation/networking/CAIF for more documentation.
+
+
+Based on net-next-2.6
 
 
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Sjur Braendeland (12):
+  net-caif: add CAIF protocol definitions
+  net-caif: add CAIF socket and configuration headers
+  net-caif: add CAIF core protocol stack header files
+  net-caif: add CAIF Link layer device header files
+  net-caif: add CAIF core protocol stack
+  net-caif: add CAIF generic caif support functions
+  net-caif: add CAIF device registration functionality
+  net-caif: add CAIF socket implementation
+  net-caif: add CAIF netdevice
+  net-caif: add CAIF Kconfig and Makefiles
+  net-caif: add CAIF documentation
+  net-caif-driver: add CAIF serial driver (ldisc)
+
+ Documentation/networking/caif/Linux-CAIF.txt |  212 ++++
+ Documentation/networking/caif/README         |  110 ++
+ drivers/net/Kconfig                          |    2 +
+ drivers/net/Makefile                         |    1 +
+ drivers/net/caif/Kconfig                     |   15 +
+ drivers/net/caif/Makefile                    |   14 +
+ drivers/net/caif/caif_serial.c               |  467 ++++++++
+ include/linux/caif/caif_config.h             |  163 +++
+ include/linux/caif/caif_socket.h             |  195 ++++
+ include/linux/caif/if_caif.h                 |   34 +
+ include/linux/if_arp.h                       |    1 +
+ include/linux/if_ether.h                     |    1 +
+ include/linux/socket.h                       |    5 +-
+ include/linux/tty.h                          |    4 +-
+ include/net/caif/caif_dev.h                  |   65 ++
+ include/net/caif/caif_device.h               |   57 +
+ include/net/caif/caif_layer.h                |  283 +++++
+ include/net/caif/cfcnfg.h                    |  134 +++
+ include/net/caif/cfctrl.h                    |  136 +++
+ include/net/caif/cffrml.h                    |   17 +
+ include/net/caif/cfmuxl.h                    |   22 +
+ include/net/caif/cfpkt.h                     |  274 +++++
+ include/net/caif/cfserl.h                    |   13 +
+ include/net/caif/cfsrvl.h                    |   34 +
+ net/Kconfig                                  |    2 +
+ net/Makefile                                 |    1 +
+ net/caif/Kconfig                             |   48 +
+ net/caif/Makefile                            |   28 +
+ net/caif/caif_config_util.c                  |  122 ++
+ net/caif/caif_dev.c                          |  398 +++++++
+ net/caif/caif_socket.c                       | 1526 ++++++++++++++++++++++++++
+ net/caif/cfcnfg.c                            |  531 +++++++++
+ net/caif/cfctrl.c                            |  701 ++++++++++++
+ net/caif/cfdbgl.c                            |   40 +
+ net/caif/cfdgml.c                            |  108 ++
+ net/caif/cffrml.c                            |  151 +++
+ net/caif/cfmuxl.c                            |  246 +++++
+ net/caif/cfpkt_skbuff.c                      |  595 ++++++++++
+ net/caif/cfrfml.c                            |  106 ++
+ net/caif/cfserl.c                            |  199 ++++
+ net/caif/cfsrvl.c                            |  185 ++++
+ net/caif/cfutill.c                           |  115 ++
+ net/caif/cfveil.c                            |  107 ++
+ net/caif/cfvidl.c                            |   65 ++
+ net/caif/chnl_net.c                          |  429 ++++++++
+ 45 files changed, 7959 insertions(+), 3 deletions(-)
+
