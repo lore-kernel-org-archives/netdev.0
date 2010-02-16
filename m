@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next 6/6] bnx2: Update firmwares and update version to
- 2.0.8.
-Date: Tue, 16 Feb 2010 15:20:49 -0800 (PST)
-Message-ID: <20100216.152049.01745813.davem@davemloft.net>
-References: <1266298932-28129-4-git-send-email-mchan@broadcom.com>
-	<1266298932-28129-5-git-send-email-mchan@broadcom.com>
-	<1266298932-28129-6-git-send-email-mchan@broadcom.com>
+Subject: [PATCH]: Sparc netfilter build fix
+Date: Tue, 16 Feb 2010 15:30:14 -0800 (PST)
+Message-ID: <20100216.153014.237194043.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32847
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933579Ab0BPXUe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 18:20:34 -0500
-In-Reply-To: <1266298932-28129-6-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Mon, 15 Feb 2010 21:42:12 -0800
-
-> - Increase FTQ depth to 256 to ehnabce performance.
-> - Fix RV2P context corruption on 5709 when flow control is enabled.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-
-Also applied, thanks!
+DQpJIGp1c3QgY2hlY2tlZCBpbiB0aGUgZm9sbG93aW5nIHBhdGNoIHRvIGZpeCB0aGUgYnVpbGQN
+CmFmdGVyIHRoaXMgbW9ybmluZydzIG5ldGZpbHRlciBtZXJnZSBpbnRvIG5ldC1uZXh0LTIuNg0K
+DQpKdXN0IEZZSS4uLg0KDQpzcGFyYzY0OiBLaWxsIGJvZ3VzIGlwX3RhYmxlcy5oIGluY2x1ZGUu
+DQoNCkZpeGVzIHRoZSBmb2xsb3dpbmcgYnVpbGQgZmFpbHVyZToNCg0KICBDQyAgICAgIGFyY2gv
+c3BhcmMva2VybmVsL3N5c19zcGFyYzMyLm8NCkluIGZpbGUgaW5jbHVkZWQgZnJvbSBpbmNsdWRl
+L2xpbnV4L25ldGZpbHRlcl9pcHY0L2lwX3RhYmxlcy5oOjI4LA0KICAgICAgICAgICAgICAgICBm
+cm9tIGFyY2gvc3BhcmMva2VybmVsL3N5c19zcGFyYzMyLmM6NDY6DQppbmNsdWRlL2xpbnV4L25l
+dGZpbHRlci94X3RhYmxlcy5oOjUyNTogZXJyb3I6IGV4cGVjdGVkIGRlY2xhcmF0aW9uIHNwZWNp
+ZmllcnMgb3IgoS4uLqIgYmVmb3JlIKFuZl9ob29rZm6iDQoNClNpZ25lZC1vZmYtYnk6IERhdmlk
+IFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCi0tLQ0KIGFyY2gvc3BhcmMva2VybmVs
+L3N5c19zcGFyYzMyLmMgfCAgICAxIC0NCiAxIGZpbGVzIGNoYW5nZWQsIDAgaW5zZXJ0aW9ucygr
+KSwgMSBkZWxldGlvbnMoLSkNCg0KZGlmZiAtLWdpdCBhL2FyY2gvc3BhcmMva2VybmVsL3N5c19z
+cGFyYzMyLmMgYi9hcmNoL3NwYXJjL2tlcm5lbC9zeXNfc3BhcmMzMi5jDQppbmRleCBkYzBhYzE5
+Li5kYWRlZDNiIDEwMDY0NA0KLS0tIGEvYXJjaC9zcGFyYy9rZXJuZWwvc3lzX3NwYXJjMzIuYw0K
+KysrIGIvYXJjaC9zcGFyYy9rZXJuZWwvc3lzX3NwYXJjMzIuYw0KQEAgLTQzLDcgKzQzLDYgQEAN
+CiAjaW5jbHVkZSA8bGludXgvc2VjdXJpdHkuaD4NCiAjaW5jbHVkZSA8bGludXgvY29tcGF0Lmg+
+DQogI2luY2x1ZGUgPGxpbnV4L3Zmcy5oPg0KLSNpbmNsdWRlIDxsaW51eC9uZXRmaWx0ZXJfaXB2
+NC9pcF90YWJsZXMuaD4NCiAjaW5jbHVkZSA8bGludXgvcHRyYWNlLmg+DQogDQogI2luY2x1ZGUg
+PGFzbS90eXBlcy5oPg0KLS0gDQoxLjYuNi4xDQoNCg==
