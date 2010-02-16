@@ -1,79 +1,56 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH][v4] tcp: fix ICMP-RTO war
-Date: Tue, 16 Feb 2010 14:45:25 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.1002151535030.7063@wel-95.cs.helsinki.fi>
-References: <4B7303C2.5000703@tvk.rwth-aachen.de>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Re: [net-next-2.6 PATCH 1/7] xfrm: introduce basic mark infrastructure
+Date: Tue, 16 Feb 2010 13:59:41 +0100
+Message-ID: <m3hbphxrnm.fsf@ursa.amorsen.dk>
+References: <1266160732-946-1-git-send-email-hadi@cyberus.ca>
+	<1266160732-946-2-git-send-email-hadi@cyberus.ca>
+	<4B796B70.2050102@trash.net> <1266253235.6776.90.camel@bigi>
+	<4B797F09.5050207@trash.net> <1266254073.6776.109.camel@bigi>
+	<m37hqdcvgm.fsf@ursa.amorsen.dk> <1266321437.6776.250.camel@bigi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Cc: Patrick McHardy <kaber@trash.net>, timo.teras@iki.fi,
+	herbert@gondor.apana.org.au, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:43706 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755786Ab0BPMp1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 07:45:27 -0500
-In-Reply-To: <4B7303C2.5000703@tvk.rwth-aachen.de>
+Received: from gate1.ipvision.dk ([94.127.49.2]:48080 "EHLO gate1.ipvision.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755635Ab0BPM74 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2010 07:59:56 -0500
+In-Reply-To: <1266321437.6776.250.camel@bigi> (jamal's message of "Tue, 16 Feb
+	2010 06:57:17 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-First of all I want to let you know that I've no objection to this fix 
-itself (DaveM applied it already), it certainly does it's jobs in 
-preventing invalid < RTO_MIN state. However, I wonder if we could do 
-further improvements in this area...
+jamal <hadi@cyberus.ca> writes:
 
-On Wed, 10 Feb 2010, Damian Lukowski wrote:
+> With these patches if you set policy routing mark, have the proper
+> setting in the skb or socket for the mark then the proper
+> route will be selected. If you have an SPD + SA added with the
+> same mark, those will be used right after the route is selected. 
+> So essentially you have the same mark across.
+> Does that solve or alleviate the problem?
 
-> Make sure, that TCP has a nonzero RTT estimation after three-way
-> handshake. Currently, a listening TCP has a value of 0 for srtt,
-> rttvar and rto right after the three-way handshake is completed
-> with TCP timestamps disabled.
-> This will lead to corrupt RTO recalculation and retransmission
-> flood when RTO is recalculated on backoff reversion as introduced
-> in "Revert RTO on ICMP destination unreachable"
-> (f1ecd5d9e7366609d640ff4040304ea197fbc618).
-> This behaviour can be provoked by connecting to a server which
-> "responds first" (like SMTP) and rejecting every packet after
-> the handshake with dest-unreachable, which will lead to softirq
-> load on the server (up to 30% per socket in some tests).
-> 
-> Thanks to Ilpo Jarvinen for providing debug patches and to
-> Denys Fedoryshchenko for reporting and testing.
-> 
-> Changes since v3: Removed bad characters in patchfile.
-> 
-> Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
-> Signed-off-by: Damian Lukowski <damian@tvk.rwth-aachen.de>
-> ---
->  net/ipv4/tcp_input.c |    8 +++-----
->  1 files changed, 3 insertions(+), 5 deletions(-)
-> 
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 28e0296..da7173b 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -5783,12 +5783,10 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
->  
->  				/* tcp_ack considers this ACK as duplicate
->  				 * and does not calculate rtt.
-> -				 * Fix it at least with timestamps.
-> +				 * Force it here.
->  				 */
-> -				if (tp->rx_opt.saw_tstamp &&
-> -				    tp->rx_opt.rcv_tsecr && !tp->srtt)
-> -					tcp_ack_saw_tstamp(sk, 0);
-> -
-> +				tcp_ack_update_rtt(sk, 0, 0);
-> +
+I don't actually use marks at all, I do policy routing based on source
+address. Currently rules are based on source interface, but all IPSEC
+traffic comes from the same interface, unlike some tunnel-based
+solutions.
 
-...Here a zero seq_rtt is given to RTT estimator (it will be effective 
-only in the case w/o timestamps, TS case recalculates it from the stored 
-timestamps). Maybe we could use some field (timestamp related one comes to 
-my mind) in request sock to get a real RTT estimate for non-timestamp case 
-too. ...It seems possible to me, though tricky because the request_sock is 
-no longer that easily available here so some parameter passing would be 
-needed.
+Right now packets going out through an IPSEC tunnel do not hit the
+routing table at all -- they just get shunted into the tunnel. Anything
+that gives me the chance to run the packets through normal routing
+before the tunnel grabs them works for me.
+
+>From your description, I would add the IPSEC SPD + SA with a specific
+mark. Then I would set the mark in the rule table if I want the packets
+to go through the tunnel, or clear the mark to have them go through
+normal routing. Not perfect, because I would have to replicate parts of
+the routing table in the rule table, but it could be made to work.
+
+Perfect would be if I could set mark in the routing table instead of the
+rule table, but sometimes perfect is the enemy of good...
 
 
--- 
- i.
+/Benny
+
