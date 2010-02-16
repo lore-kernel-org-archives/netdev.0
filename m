@@ -1,266 +1,45 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [net-next PATCH v4 3/3] net: reserve ports for applications using
- fixed port numbers
-Date: Tue, 16 Feb 2010 17:37:04 +0800
-Message-ID: <4B7A6740.1000701@redhat.com>
-References: <1266271241-6293-1-git-send-email-opurdila@ixiacom.com> <1266271241-6293-4-git-send-email-opurdila@ixiacom.com>
+From: Ajit Khaparde <ajitkhaparde@gmail.com>
+Subject: [PATCH net-2.6] be2net: set proper value to version field in req
+ hdr
+Date: Tue, 16 Feb 2010 15:48:46 +0530
+Message-ID: <20100216101749.GA9465@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Octavian Purdila <opurdila@ixiacom.com>
+Content-Type: text/plain; charset=us-ascii
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12609 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752004Ab0BPJdp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2010 04:33:45 -0500
-In-Reply-To: <1266271241-6293-4-git-send-email-opurdila@ixiacom.com>
+Received: from mail-iw0-f185.google.com ([209.85.223.185]:40472 "EHLO
+	mail-iw0-f185.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932603Ab0BPKSw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 05:18:52 -0500
+Received: by iwn15 with SMTP id 15so5646269iwn.19
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2010 02:18:50 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Octavian Purdila wrote:
-> This patch introduces /proc/sys/net/ipv4/ip_local_reserved_ports
-> (bitmap type) which allows users to reserve ports for third-party
-> applications.
-> 
-> The reserved ports will not be used by automatic port assignments
-> (e.g. when calling connect() or bind() with port number 0). Explicit
-> port allocation behavior is unchanged.
-> 
-> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
-> Signed-off-by: WANG Cong <amwang@redhat.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
->  Documentation/networking/ip-sysctl.txt |   12 ++++++++++++
->  drivers/infiniband/core/cma.c          |    7 ++++++-
->  include/net/ip.h                       |    6 ++++++
->  net/ipv4/af_inet.c                     |    8 +++++++-
->  net/ipv4/inet_connection_sock.c        |    6 ++++++
->  net/ipv4/inet_hashtables.c             |    2 ++
->  net/ipv4/sysctl_net_ipv4.c             |   17 +++++++++++++++++
->  net/ipv4/udp.c                         |    3 ++-
->  net/sctp/socket.c                      |    2 ++
->  9 files changed, 60 insertions(+), 3 deletions(-)
-> 
-> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-> index 2dc7a1d..23be7a4 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
-> @@ -564,6 +564,18 @@ ip_local_port_range - 2 INTEGERS
->  	(i.e. by default) range 1024-4999 is enough to issue up to
->  	2000 connections per second to systems supporting timestamps.
->  
-> +ip_local_reserved_ports - BITMAP of 65536 ports
-> +	Specify the ports which are reserved for known third-party
-> +	applications. These ports will not be used by automatic port assignments
-> +	(e.g. when calling connect() or bind() with port number 0). Explicit
-> +	port allocation behavior is unchanged.
-> +
-> +	Reserving ports is done by writing positive numbers in this proc entry,
-> +	clearing them is done by writing negative numbers (e.g. 8080 reserves
-> +	port number, -8080 makes it available for automatic assignment again).
-> +
-> +	Default: Empty
-> +
->  ip_nonlocal_bind - BOOLEAN
->  	If set, allows processes to bind() to non-local IP addresses,
->  	which can be quite useful - but may break some applications.
-> diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-> index cc9b594..8248fc6 100644
-> --- a/drivers/infiniband/core/cma.c
-> +++ b/drivers/infiniband/core/cma.c
-> @@ -1979,6 +1979,8 @@ retry:
->  	/* FIXME: add proper port randomization per like inet_csk_get_port */
->  	do {
->  		ret = idr_get_new_above(ps, bind_list, next_port, &port);
-> +		if (inet_is_reserved_local_port(port))
-> +			ret = -EAGAIN;
->  	} while ((ret == -EAGAIN) && idr_pre_get(ps, GFP_KERNEL));
->  
->  	if (ret)
-> @@ -2997,10 +2999,13 @@ static int __init cma_init(void)
->  {
->  	int ret, low, high, remaining;
->  
-> -	get_random_bytes(&next_port, sizeof next_port);
->  	inet_get_local_port_range(&low, &high);
-> +again:
-> +	get_random_bytes(&next_port, sizeof next_port);
->  	remaining = (high - low) + 1;
->  	next_port = ((unsigned int) next_port % remaining) + low;
-> +	if (inet_is_reserved_local_port(next_port))
-> +		goto again;
->  
->  	cma_wq = create_singlethread_workqueue("rdma_cm");
->  	if (!cma_wq)
-> diff --git a/include/net/ip.h b/include/net/ip.h
-> index fb63371..2e24256 100644
-> --- a/include/net/ip.h
-> +++ b/include/net/ip.h
-> @@ -184,6 +184,12 @@ extern struct local_ports {
->  } sysctl_local_ports;
->  extern void inet_get_local_port_range(int *low, int *high);
->  
-> +extern unsigned long *sysctl_local_reserved_ports;
-> +static inline int inet_is_reserved_local_port(int port)
-> +{
-> +	return test_bit(port, sysctl_local_reserved_ports);
-> +}
-> +
->  extern int sysctl_ip_default_ttl;
->  extern int sysctl_ip_nonlocal_bind;
->  
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index 7d12c6a..06810b0 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -1546,9 +1546,13 @@ static int __init inet_init(void)
->  
->  	BUILD_BUG_ON(sizeof(struct inet_skb_parm) > sizeof(dummy_skb->cb));
->  
-> +	sysctl_local_reserved_ports = kzalloc(65536 / 8, GFP_KERNEL);
-> +	if (!sysctl_local_reserved_ports)
-> +		goto out;
-> +
+Before sending a command to the ASIC, set version properly.
+This is necessary for the ARM firmware to send correct data to the driver.
+This also fixes a bug in certain skews of the ASIC where the statistics
+are misreported.
 
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+---
+ drivers/net/benet/be_cmds.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-I think we should also consider the ports in ip_local_port_range,
-since we can only reserve the ports in that range.
-
-
->  	rc = proto_register(&tcp_prot, 1);
->  	if (rc)
-> -		goto out;
-> +		goto out_free_reserved_ports;
->  
->  	rc = proto_register(&udp_prot, 1);
->  	if (rc)
-> @@ -1647,6 +1651,8 @@ out_unregister_udp_proto:
->  	proto_unregister(&udp_prot);
->  out_unregister_tcp_proto:
->  	proto_unregister(&tcp_prot);
-> +out_free_reserved_ports:
-> +	kfree(sysctl_local_reserved_ports);
->  	goto out;
->  }
->  
-> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-> index 8da6429..1acb462 100644
-> --- a/net/ipv4/inet_connection_sock.c
-> +++ b/net/ipv4/inet_connection_sock.c
-> @@ -37,6 +37,9 @@ struct local_ports sysctl_local_ports __read_mostly = {
->  	.range = { 32768, 61000 },
->  };
->  
-> +unsigned long *sysctl_local_reserved_ports;
-> +EXPORT_SYMBOL(sysctl_local_reserved_ports);
-> +
->  void inet_get_local_port_range(int *low, int *high)
->  {
->  	unsigned seq;
-> @@ -108,6 +111,8 @@ again:
->  
->  		smallest_size = -1;
->  		do {
-> +			if (inet_is_reserved_local_port(rover))
-> +				goto next_nolock;
->  			head = &hashinfo->bhash[inet_bhashfn(net, rover,
->  					hashinfo->bhash_size)];
->  			spin_lock(&head->lock);
-> @@ -130,6 +135,7 @@ again:
->  			break;
->  		next:
->  			spin_unlock(&head->lock);
-> +		next_nolock:
->  			if (++rover > high)
->  				rover = low;
->  		} while (--remaining > 0);
-> diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-> index 2b79377..d3e160a 100644
-> --- a/net/ipv4/inet_hashtables.c
-> +++ b/net/ipv4/inet_hashtables.c
-> @@ -456,6 +456,8 @@ int __inet_hash_connect(struct inet_timewait_death_row *death_row,
->  		local_bh_disable();
->  		for (i = 1; i <= remaining; i++) {
->  			port = low + (i + offset) % remaining;
-> +			if (inet_is_reserved_local_port(port))
-> +				continue;
->  			head = &hinfo->bhash[inet_bhashfn(net, port,
->  					hinfo->bhash_size)];
->  			spin_lock(&head->lock);
-> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-> index 7e3712c..ce3597a 100644
-> --- a/net/ipv4/sysctl_net_ipv4.c
-> +++ b/net/ipv4/sysctl_net_ipv4.c
-> @@ -298,6 +298,13 @@ static struct ctl_table ipv4_table[] = {
->  		.mode		= 0644,
->  		.proc_handler	= ipv4_local_port_range,
->  	},
-> +	{
-> +		.procname	= "ip_local_reserved_ports",
-> +		.data		= NULL, /* initialized in sysctl_ipv4_init */
-> +		.maxlen		= 65536,
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dobitmap,
-> +	},
-
-
-Isn't there an off-by-one here?
-
-In patch 2/3, you use 0 to set the fist bit, then how about 65535 which
-writes 65536th bit? This is beyond the range of port number.
-
-
->  #ifdef CONFIG_IP_MULTICAST
->  	{
->  		.procname	= "igmp_max_memberships",
-> @@ -721,6 +728,16 @@ static __net_initdata struct pernet_operations ipv4_sysctl_ops = {
->  static __init int sysctl_ipv4_init(void)
->  {
->  	struct ctl_table_header *hdr;
-> +	struct ctl_table *i;
-> +
-> +	for (i = ipv4_table; i->procname; i++) {
-> +		if (strcmp(i->procname, "ip_local_reserved_ports") == 0) {
-> +			i->data = sysctl_local_reserved_ports;
-> +			break;
-> +		}
-> +	}
-> +	if (!i->procname[0])
-> +		return -EINVAL;
->  
->  	hdr = register_sysctl_paths(net_ipv4_ctl_path, ipv4_table);
->  	if (hdr == NULL)
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index 608a544..bfd0a6a 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -232,7 +232,8 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
->  			 */
->  			do {
->  				if (low <= snum && snum <= high &&
-> -				    !test_bit(snum >> udptable->log, bitmap))
-> +				    !test_bit(snum >> udptable->log, bitmap) &&
-> +				    !inet_is_reserved_local_port(snum))
->  					goto found;
->  				snum += rand;
->  			} while (snum != first);
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index f6d1e59..1f839d0 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -5432,6 +5432,8 @@ static long sctp_get_port_local(struct sock *sk, union sctp_addr *addr)
->  			rover++;
->  			if ((rover < low) || (rover > high))
->  				rover = low;
-> +			if (inet_is_reserved_local_port(rover))
-> +				continue;
->  			index = sctp_phashfn(rover);
->  			head = &sctp_port_hashtable[index];
->  			sctp_spin_lock(&head->lock);
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index fee6eee..006cb2e 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -296,6 +296,7 @@ static void be_cmd_hdr_prepare(struct be_cmd_req_hdr *req_hdr,
+ 	req_hdr->opcode = opcode;
+ 	req_hdr->subsystem = subsystem;
+ 	req_hdr->request_length = cpu_to_le32(cmd_len - sizeof(*req_hdr));
++	req_hdr->version = 0;
+ }
+ 
+ static void be_cmd_page_addrs_prepare(struct phys_addr *pages, u32 max_pages,
+-- 
+1.6.3.3
 
