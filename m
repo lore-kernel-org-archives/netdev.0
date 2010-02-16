@@ -1,57 +1,41 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 12/62: netns:
-Date: Tue, 16 Feb 2010 15:55:36 +0100 (MET)
-Message-ID: <20100216145534.2796.32992.sendpatchset@x2.localnet>
+Subject: ipvs 07/62: use standardized format in sprintf
+Date: Tue, 16 Feb 2010 15:55:29 +0100 (MET)
+Message-ID: <20100216145526.2796.17000.sendpatchset@x2.localnet>
 References: <20100216145517.2796.40634.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51971 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932276Ab0BPOzh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 09:55:37 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <20100216145517.2796.40634.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit e9d3897cc2205eec8b7afcc022e4730914b4f48c
-Author: Alexey Dobriyan <adobriyan@gmail.com>
-Date:   Mon Jan 18 08:08:37 2010 +0100
+commit a79e7ac4ad77e1833e8f69e99113204d03018255
+Author: Joe Perches <joe@perches.com>
+Date:   Mon Jan 11 11:53:31 2010 +0100
 
-    netfilter: netns: #ifdef ->iptable_security, ->ip6table_security
+    ipvs: use standardized format in sprintf
     
-    'security' tables depend on SECURITY, so ifdef them.
+    Use the same format string as net/ipv4/netfilter/nf_nat_ftp.c
+    to encode an ipv4 address and port.
     
-    Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+    Both uses should be a single common function.
+    
+    Signed-off-by: Joe Perches <joe@perches.com>
+    Acked-by: Simon Horman <horms@verge.net.au>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 2eb3814..8098f6b 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -37,7 +37,9 @@ struct netns_ipv4 {
- 	struct xt_table		*iptable_mangle;
- 	struct xt_table		*iptable_raw;
- 	struct xt_table		*arptable_filter;
-+#ifdef CONFIG_SECURITY
- 	struct xt_table		*iptable_security;
-+#endif
- 	struct xt_table		*nat_table;
- 	struct hlist_head	*nat_bysource;
- 	int			nat_vmalloced;
-diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
-index dfeb2d7..1f11ebc 100644
---- a/include/net/netns/ipv6.h
-+++ b/include/net/netns/ipv6.h
-@@ -36,8 +36,10 @@ struct netns_ipv6 {
- 	struct xt_table		*ip6table_filter;
- 	struct xt_table		*ip6table_mangle;
- 	struct xt_table		*ip6table_raw;
-+#ifdef CONFIG_SECURITY
- 	struct xt_table		*ip6table_security;
- #endif
-+#endif
- 	struct rt6_info         *ip6_null_entry;
- 	struct rt6_statistics   *rt6_stats;
- 	struct timer_list       ip6_fib_timer;
+diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+index 33e2c79..73f38ea 100644
+--- a/net/netfilter/ipvs/ip_vs_ftp.c
++++ b/net/netfilter/ipvs/ip_vs_ftp.c
+@@ -208,7 +208,7 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 		 */
+ 		from.ip = n_cp->vaddr.ip;
+ 		port = n_cp->vport;
+-		sprintf(buf, "%d,%d,%d,%d,%d,%d", NIPQUAD(from.ip),
++		sprintf(buf, "%u,%u,%u,%u,%u,%u", NIPQUAD(from.ip),
+ 			(ntohs(port)>>8)&255, ntohs(port)&255);
+ 		buf_len = strlen(buf);
+ 
