@@ -1,59 +1,44 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [net-next PATCH v4 0/3] net: reserve ports for applications using fixed port
-Date: Tue, 16 Feb 2010 23:22:13 +0200
-Message-ID: <201002162322.13101.opurdila@ixiacom.com>
-References: <1266271241-6293-1-git-send-email-opurdila@ixiacom.com> <201002162151.04861.opurdila@ixiacom.com> <m1mxz93pw2.fsf@fess.ebiederm.org>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Re: [net-next-2.6 PATCH 1/7] xfrm: introduce basic mark infrastructure
+Date: Tue, 16 Feb 2010 22:56:31 +0100
+Message-ID: <m3635w4zg0.fsf@ursa.amorsen.dk>
+References: <1266160732-946-1-git-send-email-hadi@cyberus.ca>
+	<1266160732-946-2-git-send-email-hadi@cyberus.ca>
+	<4B796B70.2050102@trash.net> <1266253235.6776.90.camel@bigi>
+	<4B797F09.5050207@trash.net> <1266254073.6776.109.camel@bigi>
+	<m37hqdcvgm.fsf@ursa.amorsen.dk> <1266321437.6776.250.camel@bigi>
+	<m3hbphxrnm.fsf@ursa.amorsen.dk> <1266326164.6776.263.camel@bigi>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Amerigo Wang <amwang@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, timo.teras@iki.fi,
+	herbert@gondor.apana.org.au, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:2100 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933307Ab0BPV1J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 16:27:09 -0500
-In-Reply-To: <m1mxz93pw2.fsf@fess.ebiederm.org>
+Received: from gate1.ipvision.dk ([94.127.49.2]:44171 "EHLO gate1.ipvision.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933421Ab0BPV4q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2010 16:56:46 -0500
+In-Reply-To: <1266326164.6776.263.camel@bigi> (jamal's message of "Tue, 16 Feb
+	2010 08:16:04 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 16 February 2010 22:08:13 you wrote:
-> > Something like bellow?
-> >
-> > # set bits 8080 and 1666
-> > $echo 8080 1666-1666 > /proc
-> >
-> > #reset bit 1666
-> > $echo 8080 > /proc
-> >
-> > #reset whole bitmap
-> > $echo > /proc
-> 
-> Yes. So something like that.
-> 
-> I think I would use commas instead of spaces as that is more traditional.
-> 
+jamal <hadi@cyberus.ca> writes:
 
-OK, I was trying to reuse the existing skip whitespace code :) but if you 
-think its cleaner with commas I can do that.
+> This is actually an interesting idea and is not far-fetched (and would
+> certainly get rid of the replication problem). If i understood
+> correctly, you would have:
+> ip route add blah blah mark 0x10
 
-> > Note that this new proc entry will work in conjunction with the existing
-> > ip_local_port_range option, so the default bitmap can (and should be)
-> > empty.
-> 
-> Do we want userspace to see this implementation detail? Two data structures
->  doing the almost the same thing could get confusing in a hurry.  It feels
->  like a recipe for changing one and not the other and then running around
->  trying to figure out why the change did not work.
-> 
+Exactly.
 
-Yes, I believe we want to have reserved_ports contain just those special ports 
-that the user wants to reserve. After all we add this entry for this specific 
-purpose. 
+> and that the routing core will use the mark to (as it does for example
+> with ifindex) to pick the route? I like the idea for the simple fact it
+> will reduce immensely configuration in some cases..
 
+It would certainly be handy for me...
+
+
+/Benny
 
