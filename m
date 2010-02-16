@@ -1,221 +1,328 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 55/62: xtables: constify args in compat copying functions
-Date: Tue, 16 Feb 2010 15:56:34 +0100 (MET)
-Message-ID: <20100216145631.2796.36913.sendpatchset@x2.localnet>
+Subject: netfilter 59/62: ctnetlink: add zone support
+Date: Tue, 16 Feb 2010 15:56:40 +0100 (MET)
+Message-ID: <20100216145637.2796.18777.sendpatchset@x2.localnet>
 References: <20100216145517.2796.40634.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:52127 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932804Ab0BPO4l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 09:56:41 -0500
 In-Reply-To: <20100216145517.2796.40634.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 739674fb7febf116e7d647031fab16989a08a965
-Author: Jan Engelhardt <jengelh@medozas.de>
-Date:   Fri Jun 26 08:23:19 2009 +0200
+commit ef00f89f1eb7e056aab9dfe068521e6f2320c94a
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Mon Feb 15 18:14:57 2010 +0100
 
-    netfilter: xtables: constify args in compat copying functions
+    netfilter: ctnetlink: add zone support
     
-    Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+    Parse and dump the conntrack zone in ctnetlink.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
-index a0a144a..c61758f 100644
---- a/include/linux/netfilter/x_tables.h
-+++ b/include/linux/netfilter/x_tables.h
-@@ -286,8 +286,8 @@ struct xt_match {
- 	void (*destroy)(const struct xt_mtdtor_param *);
- #ifdef CONFIG_COMPAT
- 	/* Called when userspace align differs from kernel space one */
--	void (*compat_from_user)(void *dst, void *src);
--	int (*compat_to_user)(void __user *dst, void *src);
-+	void (*compat_from_user)(void *dst, const void *src);
-+	int (*compat_to_user)(void __user *dst, const void *src);
- #endif
- 	/* Set this to THIS_MODULE if you are a module, otherwise NULL */
- 	struct module *me;
-@@ -328,8 +328,8 @@ struct xt_target {
- 	void (*destroy)(const struct xt_tgdtor_param *);
- #ifdef CONFIG_COMPAT
- 	/* Called when userspace align differs from kernel space one */
--	void (*compat_from_user)(void *dst, void *src);
--	int (*compat_to_user)(void __user *dst, void *src);
-+	void (*compat_from_user)(void *dst, const void *src);
-+	int (*compat_to_user)(void __user *dst, const void *src);
- #endif
- 	/* Set this to THIS_MODULE if you are a module, otherwise NULL */
- 	struct module *me;
-@@ -593,13 +593,13 @@ extern short xt_compat_calc_jump(u_int8_t af, unsigned int offset);
- extern int xt_compat_match_offset(const struct xt_match *match);
- extern int xt_compat_match_from_user(struct xt_entry_match *m,
- 				     void **dstptr, unsigned int *size);
--extern int xt_compat_match_to_user(struct xt_entry_match *m,
-+extern int xt_compat_match_to_user(const struct xt_entry_match *m,
- 				   void __user **dstptr, unsigned int *size);
+diff --git a/include/linux/netfilter/nfnetlink_conntrack.h b/include/linux/netfilter/nfnetlink_conntrack.h
+index ed4ef8d..9ed534c 100644
+--- a/include/linux/netfilter/nfnetlink_conntrack.h
++++ b/include/linux/netfilter/nfnetlink_conntrack.h
+@@ -40,6 +40,7 @@ enum ctattr_type {
+ 	CTA_NAT_SEQ_ADJ_ORIG,
+ 	CTA_NAT_SEQ_ADJ_REPLY,
+ 	CTA_SECMARK,
++	CTA_ZONE,
+ 	__CTA_MAX
+ };
+ #define CTA_MAX (__CTA_MAX - 1)
+@@ -159,6 +160,7 @@ enum ctattr_expect {
+ 	CTA_EXPECT_TIMEOUT,
+ 	CTA_EXPECT_ID,
+ 	CTA_EXPECT_HELP_NAME,
++	CTA_EXPECT_ZONE,
+ 	__CTA_EXPECT_MAX
+ };
+ #define CTA_EXPECT_MAX (__CTA_EXPECT_MAX - 1)
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 51089cf..8b05f36 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -39,6 +39,7 @@
+ #include <net/netfilter/nf_conntrack_l4proto.h>
+ #include <net/netfilter/nf_conntrack_tuple.h>
+ #include <net/netfilter/nf_conntrack_acct.h>
++#include <net/netfilter/nf_conntrack_zones.h>
+ #ifdef CONFIG_NF_NAT_NEEDED
+ #include <net/netfilter/nf_nat_core.h>
+ #include <net/netfilter/nf_nat_protocol.h>
+@@ -379,6 +380,9 @@ ctnetlink_fill_info(struct sk_buff *skb, u32 pid, u32 seq,
+ 		goto nla_put_failure;
+ 	nla_nest_end(skb, nest_parms);
  
- extern int xt_compat_target_offset(const struct xt_target *target);
- extern void xt_compat_target_from_user(struct xt_entry_target *t,
- 				       void **dstptr, unsigned int *size);
--extern int xt_compat_target_to_user(struct xt_entry_target *t,
-+extern int xt_compat_target_to_user(const struct xt_entry_target *t,
- 				    void __user **dstptr, unsigned int *size);
++	if (nf_ct_zone(ct))
++		NLA_PUT_BE16(skb, CTA_ZONE, htons(nf_ct_zone(ct)));
++
+ 	if (ctnetlink_dump_status(skb, ct) < 0 ||
+ 	    ctnetlink_dump_timeout(skb, ct) < 0 ||
+ 	    ctnetlink_dump_counters(skb, ct, IP_CT_DIR_ORIGINAL) < 0 ||
+@@ -517,6 +521,9 @@ ctnetlink_conntrack_event(unsigned int events, struct nf_ct_event *item)
+ 		goto nla_put_failure;
+ 	nla_nest_end(skb, nest_parms);
  
- #endif /* CONFIG_COMPAT */
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index 72723ea..2303dc9 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -842,7 +842,7 @@ static int copy_entries_to_user(unsigned int total_size,
++	if (nf_ct_zone(ct))
++		NLA_PUT_BE16(skb, CTA_ZONE, htons(nf_ct_zone(ct)));
++
+ 	if (ctnetlink_dump_id(skb, ct) < 0)
+ 		goto nla_put_failure;
+ 
+@@ -750,6 +757,21 @@ ctnetlink_parse_tuple(const struct nlattr * const cda[],
+ 	return 0;
  }
  
- #ifdef CONFIG_COMPAT
--static void compat_standard_from_user(void *dst, void *src)
-+static void compat_standard_from_user(void *dst, const void *src)
- {
- 	int v = *(compat_int_t *)src;
- 
-@@ -851,7 +851,7 @@ static void compat_standard_from_user(void *dst, void *src)
- 	memcpy(dst, &v, sizeof(v));
- }
- 
--static int compat_standard_to_user(void __user *dst, void *src)
-+static int compat_standard_to_user(void __user *dst, const void *src)
- {
- 	compat_int_t cv = *(int *)src;
- 
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 2057b1b..2a4f745 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -1047,7 +1047,7 @@ copy_entries_to_user(unsigned int total_size,
- }
- 
- #ifdef CONFIG_COMPAT
--static void compat_standard_from_user(void *dst, void *src)
-+static void compat_standard_from_user(void *dst, const void *src)
- {
- 	int v = *(compat_int_t *)src;
- 
-@@ -1056,7 +1056,7 @@ static void compat_standard_from_user(void *dst, void *src)
- 	memcpy(dst, &v, sizeof(v));
- }
- 
--static int compat_standard_to_user(void __user *dst, void *src)
-+static int compat_standard_to_user(void __user *dst, const void *src)
- {
- 	compat_int_t cv = *(int *)src;
- 
-diff --git a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
-index 399061c..09a5d3f 100644
---- a/net/ipv4/netfilter/ipt_ULOG.c
-+++ b/net/ipv4/netfilter/ipt_ULOG.c
-@@ -338,7 +338,7 @@ struct compat_ipt_ulog_info {
- 	char		prefix[ULOG_PREFIX_LEN];
++static int
++ctnetlink_parse_zone(const struct nlattr *attr, u16 *zone)
++{
++	if (attr)
++#ifdef CONFIG_NF_CONNTRACK_ZONES
++		*zone = ntohs(nla_get_be16(attr));
++#else
++		return -EOPNOTSUPP;
++#endif
++	else
++		*zone = 0;
++
++	return 0;
++}
++
+ static const struct nla_policy help_nla_policy[CTA_HELP_MAX+1] = {
+ 	[CTA_HELP_NAME]		= { .type = NLA_NUL_STRING },
+ };
+@@ -781,6 +803,7 @@ static const struct nla_policy ct_nla_policy[CTA_MAX+1] = {
+ 	[CTA_ID]		= { .type = NLA_U32 },
+ 	[CTA_NAT_DST]		= { .type = NLA_NESTED },
+ 	[CTA_TUPLE_MASTER]	= { .type = NLA_NESTED },
++	[CTA_ZONE]		= { .type = NLA_U16 },
  };
  
--static void ulog_tg_compat_from_user(void *dst, void *src)
-+static void ulog_tg_compat_from_user(void *dst, const void *src)
- {
- 	const struct compat_ipt_ulog_info *cl = src;
- 	struct ipt_ulog_info l = {
-@@ -351,7 +351,7 @@ static void ulog_tg_compat_from_user(void *dst, void *src)
- 	memcpy(dst, &l, sizeof(l));
+ static int
+@@ -794,7 +817,12 @@ ctnetlink_del_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ 	struct nf_conn *ct;
+ 	struct nfgenmsg *nfmsg = nlmsg_data(nlh);
+ 	u_int8_t u3 = nfmsg->nfgen_family;
+-	int err = 0;
++	u16 zone;
++	int err;
++
++	err = ctnetlink_parse_zone(cda[CTA_ZONE], &zone);
++	if (err < 0)
++		return err;
+ 
+ 	if (cda[CTA_TUPLE_ORIG])
+ 		err = ctnetlink_parse_tuple(cda, &tuple, CTA_TUPLE_ORIG, u3);
+@@ -811,7 +839,7 @@ ctnetlink_del_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ 	if (err < 0)
+ 		return err;
+ 
+-	h = nf_conntrack_find_get(net, 0, &tuple);
++	h = nf_conntrack_find_get(net, zone, &tuple);
+ 	if (!h)
+ 		return -ENOENT;
+ 
+@@ -856,12 +884,17 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ 	struct sk_buff *skb2 = NULL;
+ 	struct nfgenmsg *nfmsg = nlmsg_data(nlh);
+ 	u_int8_t u3 = nfmsg->nfgen_family;
+-	int err = 0;
++	u16 zone;
++	int err;
+ 
+ 	if (nlh->nlmsg_flags & NLM_F_DUMP)
+ 		return netlink_dump_start(ctnl, skb, nlh, ctnetlink_dump_table,
+ 					  ctnetlink_done);
+ 
++	err = ctnetlink_parse_zone(cda[CTA_ZONE], &zone);
++	if (err < 0)
++		return err;
++
+ 	if (cda[CTA_TUPLE_ORIG])
+ 		err = ctnetlink_parse_tuple(cda, &tuple, CTA_TUPLE_ORIG, u3);
+ 	else if (cda[CTA_TUPLE_REPLY])
+@@ -872,7 +905,7 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ 	if (err < 0)
+ 		return err;
+ 
+-	h = nf_conntrack_find_get(net, 0, &tuple);
++	h = nf_conntrack_find_get(net, zone, &tuple);
+ 	if (!h)
+ 		return -ENOENT;
+ 
+@@ -1211,7 +1244,7 @@ ctnetlink_change_conntrack(struct nf_conn *ct,
  }
  
--static int ulog_tg_compat_to_user(void __user *dst, void *src)
-+static int ulog_tg_compat_to_user(void __user *dst, const void *src)
- {
- 	const struct ipt_ulog_info *l = src;
- 	struct compat_ipt_ulog_info cl = {
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index dcd7825..3ff4fd5 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -1079,7 +1079,7 @@ copy_entries_to_user(unsigned int total_size,
+ static struct nf_conn *
+-ctnetlink_create_conntrack(struct net *net,
++ctnetlink_create_conntrack(struct net *net, u16 zone,
+ 			   const struct nlattr * const cda[],
+ 			   struct nf_conntrack_tuple *otuple,
+ 			   struct nf_conntrack_tuple *rtuple,
+@@ -1221,7 +1254,7 @@ ctnetlink_create_conntrack(struct net *net,
+ 	int err = -EINVAL;
+ 	struct nf_conntrack_helper *helper;
+ 
+-	ct = nf_conntrack_alloc(net, 0, otuple, rtuple, GFP_ATOMIC);
++	ct = nf_conntrack_alloc(net, zone, otuple, rtuple, GFP_ATOMIC);
+ 	if (IS_ERR(ct))
+ 		return ERR_PTR(-ENOMEM);
+ 
+@@ -1325,7 +1358,7 @@ ctnetlink_create_conntrack(struct net *net,
+ 		if (err < 0)
+ 			goto err2;
+ 
+-		master_h = nf_conntrack_find_get(net, 0, &master);
++		master_h = nf_conntrack_find_get(net, zone, &master);
+ 		if (master_h == NULL) {
+ 			err = -ENOENT;
+ 			goto err2;
+@@ -1358,7 +1391,12 @@ ctnetlink_new_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ 	struct nf_conntrack_tuple_hash *h = NULL;
+ 	struct nfgenmsg *nfmsg = nlmsg_data(nlh);
+ 	u_int8_t u3 = nfmsg->nfgen_family;
+-	int err = 0;
++	u16 zone;
++	int err;
++
++	err = ctnetlink_parse_zone(cda[CTA_ZONE], &zone);
++	if (err < 0)
++		return err;
+ 
+ 	if (cda[CTA_TUPLE_ORIG]) {
+ 		err = ctnetlink_parse_tuple(cda, &otuple, CTA_TUPLE_ORIG, u3);
+@@ -1374,9 +1412,9 @@ ctnetlink_new_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ 
+ 	spin_lock_bh(&nf_conntrack_lock);
+ 	if (cda[CTA_TUPLE_ORIG])
+-		h = __nf_conntrack_find(net, 0, &otuple);
++		h = __nf_conntrack_find(net, zone, &otuple);
+ 	else if (cda[CTA_TUPLE_REPLY])
+-		h = __nf_conntrack_find(net, 0, &rtuple);
++		h = __nf_conntrack_find(net, zone, &rtuple);
+ 
+ 	if (h == NULL) {
+ 		err = -ENOENT;
+@@ -1384,7 +1422,7 @@ ctnetlink_new_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ 			struct nf_conn *ct;
+ 			enum ip_conntrack_events events;
+ 
+-			ct = ctnetlink_create_conntrack(net, cda, &otuple,
++			ct = ctnetlink_create_conntrack(net, zone, cda, &otuple,
+ 							&rtuple, u3);
+ 			if (IS_ERR(ct)) {
+ 				err = PTR_ERR(ct);
+@@ -1698,7 +1736,8 @@ ctnetlink_get_expect(struct sock *ctnl, struct sk_buff *skb,
+ 	struct sk_buff *skb2;
+ 	struct nfgenmsg *nfmsg = nlmsg_data(nlh);
+ 	u_int8_t u3 = nfmsg->nfgen_family;
+-	int err = 0;
++	u16 zone;
++	int err;
+ 
+ 	if (nlh->nlmsg_flags & NLM_F_DUMP) {
+ 		return netlink_dump_start(ctnl, skb, nlh,
+@@ -1706,6 +1745,10 @@ ctnetlink_get_expect(struct sock *ctnl, struct sk_buff *skb,
+ 					  ctnetlink_exp_done);
+ 	}
+ 
++	err = ctnetlink_parse_zone(cda[CTA_EXPECT_ZONE], &zone);
++	if (err < 0)
++		return err;
++
+ 	if (cda[CTA_EXPECT_MASTER])
+ 		err = ctnetlink_parse_tuple(cda, &tuple, CTA_EXPECT_MASTER, u3);
+ 	else
+@@ -1714,7 +1757,7 @@ ctnetlink_get_expect(struct sock *ctnl, struct sk_buff *skb,
+ 	if (err < 0)
+ 		return err;
+ 
+-	exp = nf_ct_expect_find_get(net, 0, &tuple);
++	exp = nf_ct_expect_find_get(net, zone, &tuple);
+ 	if (!exp)
+ 		return -ENOENT;
+ 
+@@ -1761,16 +1804,21 @@ ctnetlink_del_expect(struct sock *ctnl, struct sk_buff *skb,
+ 	struct hlist_node *n, *next;
+ 	u_int8_t u3 = nfmsg->nfgen_family;
+ 	unsigned int i;
++	u16 zone;
+ 	int err;
+ 
+ 	if (cda[CTA_EXPECT_TUPLE]) {
+ 		/* delete a single expect by tuple */
++		err = ctnetlink_parse_zone(cda[CTA_EXPECT_ZONE], &zone);
++		if (err < 0)
++			return err;
++
+ 		err = ctnetlink_parse_tuple(cda, &tuple, CTA_EXPECT_TUPLE, u3);
+ 		if (err < 0)
+ 			return err;
+ 
+ 		/* bump usage count to 2 */
+-		exp = nf_ct_expect_find_get(net, 0, &tuple);
++		exp = nf_ct_expect_find_get(net, zone, &tuple);
+ 		if (!exp)
+ 			return -ENOENT;
+ 
+@@ -1832,7 +1880,8 @@ ctnetlink_change_expect(struct nf_conntrack_expect *x,
  }
  
- #ifdef CONFIG_COMPAT
--static void compat_standard_from_user(void *dst, void *src)
-+static void compat_standard_from_user(void *dst, const void *src)
+ static int
+-ctnetlink_create_expect(struct net *net, const struct nlattr * const cda[],
++ctnetlink_create_expect(struct net *net, u16 zone,
++			const struct nlattr * const cda[],
+ 			u_int8_t u3,
+ 			u32 pid, int report)
  {
- 	int v = *(compat_int_t *)src;
+@@ -1855,7 +1904,7 @@ ctnetlink_create_expect(struct net *net, const struct nlattr * const cda[],
+ 		return err;
  
-@@ -1088,7 +1088,7 @@ static void compat_standard_from_user(void *dst, void *src)
- 	memcpy(dst, &v, sizeof(v));
- }
+ 	/* Look for master conntrack of this expectation */
+-	h = nf_conntrack_find_get(net, 0, &master_tuple);
++	h = nf_conntrack_find_get(net, zone, &master_tuple);
+ 	if (!h)
+ 		return -ENOENT;
+ 	ct = nf_ct_tuplehash_to_ctrack(h);
+@@ -1900,25 +1949,30 @@ ctnetlink_new_expect(struct sock *ctnl, struct sk_buff *skb,
+ 	struct nf_conntrack_expect *exp;
+ 	struct nfgenmsg *nfmsg = nlmsg_data(nlh);
+ 	u_int8_t u3 = nfmsg->nfgen_family;
+-	int err = 0;
++	u16 zone;
++	int err;
  
--static int compat_standard_to_user(void __user *dst, void *src)
-+static int compat_standard_to_user(void __user *dst, const void *src)
- {
- 	compat_int_t cv = *(int *)src;
+ 	if (!cda[CTA_EXPECT_TUPLE]
+ 	    || !cda[CTA_EXPECT_MASK]
+ 	    || !cda[CTA_EXPECT_MASTER])
+ 		return -EINVAL;
  
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index 1250319..69c5628 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -485,8 +485,8 @@ int xt_compat_match_from_user(struct xt_entry_match *m, void **dstptr,
- }
- EXPORT_SYMBOL_GPL(xt_compat_match_from_user);
++	err = ctnetlink_parse_zone(cda[CTA_EXPECT_ZONE], &zone);
++	if (err < 0)
++		return err;
++
+ 	err = ctnetlink_parse_tuple(cda, &tuple, CTA_EXPECT_TUPLE, u3);
+ 	if (err < 0)
+ 		return err;
  
--int xt_compat_match_to_user(struct xt_entry_match *m, void __user **dstptr,
--			    unsigned int *size)
-+int xt_compat_match_to_user(const struct xt_entry_match *m,
-+			    void __user **dstptr, unsigned int *size)
- {
- 	const struct xt_match *match = m->u.kernel.match;
- 	struct compat_xt_entry_match __user *cm = *dstptr;
-@@ -588,8 +588,8 @@ void xt_compat_target_from_user(struct xt_entry_target *t, void **dstptr,
- }
- EXPORT_SYMBOL_GPL(xt_compat_target_from_user);
+ 	spin_lock_bh(&nf_conntrack_lock);
+-	exp = __nf_ct_expect_find(net, 0, &tuple);
++	exp = __nf_ct_expect_find(net, zone, &tuple);
  
--int xt_compat_target_to_user(struct xt_entry_target *t, void __user **dstptr,
--			     unsigned int *size)
-+int xt_compat_target_to_user(const struct xt_entry_target *t,
-+			     void __user **dstptr, unsigned int *size)
- {
- 	const struct xt_target *target = t->u.kernel.target;
- 	struct compat_xt_entry_target __user *ct = *dstptr;
-diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-index 017c959..e47fb80 100644
---- a/net/netfilter/xt_hashlimit.c
-+++ b/net/netfilter/xt_hashlimit.c
-@@ -775,7 +775,7 @@ struct compat_xt_hashlimit_info {
- 	compat_uptr_t master;
- };
- 
--static void hashlimit_mt_compat_from_user(void *dst, void *src)
-+static void hashlimit_mt_compat_from_user(void *dst, const void *src)
- {
- 	int off = offsetof(struct compat_xt_hashlimit_info, hinfo);
- 
-@@ -783,7 +783,7 @@ static void hashlimit_mt_compat_from_user(void *dst, void *src)
- 	memset(dst + off, 0, sizeof(struct compat_xt_hashlimit_info) - off);
- }
- 
--static int hashlimit_mt_compat_to_user(void __user *dst, void *src)
-+static int hashlimit_mt_compat_to_user(void __user *dst, const void *src)
- {
- 	int off = offsetof(struct compat_xt_hashlimit_info, hinfo);
- 
-diff --git a/net/netfilter/xt_limit.c b/net/netfilter/xt_limit.c
-index 2773be6..a0ca533 100644
---- a/net/netfilter/xt_limit.c
-+++ b/net/netfilter/xt_limit.c
-@@ -148,7 +148,7 @@ struct compat_xt_rateinfo {
- 
- /* To keep the full "prev" timestamp, the upper 32 bits are stored in the
-  * master pointer, which does not need to be preserved. */
--static void limit_mt_compat_from_user(void *dst, void *src)
-+static void limit_mt_compat_from_user(void *dst, const void *src)
- {
- 	const struct compat_xt_rateinfo *cm = src;
- 	struct xt_rateinfo m = {
-@@ -162,7 +162,7 @@ static void limit_mt_compat_from_user(void *dst, void *src)
- 	memcpy(dst, &m, sizeof(m));
- }
- 
--static int limit_mt_compat_to_user(void __user *dst, void *src)
-+static int limit_mt_compat_to_user(void __user *dst, const void *src)
- {
- 	const struct xt_rateinfo *m = src;
- 	struct compat_xt_rateinfo cm = {
+ 	if (!exp) {
+ 		spin_unlock_bh(&nf_conntrack_lock);
+ 		err = -ENOENT;
+ 		if (nlh->nlmsg_flags & NLM_F_CREATE) {
+-			err = ctnetlink_create_expect(net, cda,
++			err = ctnetlink_create_expect(net, zone, cda,
+ 						      u3,
+ 						      NETLINK_CB(skb).pid,
+ 						      nlmsg_report(nlh));
