@@ -1,45 +1,34 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH -next 1/6] bnx2: Check BNX2_FLAG_USING_MSIX flag when
- setting up MSIX.
-Date: Mon, 15 Feb 2010 21:42:07 -0800
-Message-ID: <1266298932-28129-1-git-send-email-mchan@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-2.6 PATCH 1/2] ixgbe: Fix - Do not allow Rx FC on 82598
+ at 1G due to errata
+Date: Mon, 15 Feb 2010 21:52:09 -0800 (PST)
+Message-ID: <20100215.215209.110534825.davem@davemloft.net>
+References: <20100211141319.25672.3041.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	donald.c.skidmore@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2763 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751335Ab0BPFdE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2010 00:33:04 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41320
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750759Ab0BPFv4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 00:51:56 -0500
+In-Reply-To: <20100211141319.25672.3041.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Checking the flag is more correct than checking bp->irq_nvecs. By
-accident it is not a problem because we always have more than 1
-vectors when using MSIX mode.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 11 Feb 2010 06:13:49 -0800
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Benjamin Li <benli@broadcom.com>
----
- drivers/net/bnx2.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> From: Don Skidmore <donald.c.skidmore@intel.com>
+> 
+> The 82598 has an erratum that receipt of pause frames at 1G
+> could lead to a Tx Hang.  To avoid this this patch disables
+> Rx FC while at 1G speed for all 82598 parts.
+> 
+> Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index c7f5515..48bc578 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -4940,7 +4940,7 @@ bnx2_init_chip(struct bnx2 *bp)
- 		      BNX2_HC_CONFIG_COLLECT_STATS;
- 	}
- 
--	if (bp->irq_nvecs > 1) {
-+	if (bp->flags & BNX2_FLAG_USING_MSIX) {
- 		REG_WR(bp, BNX2_HC_MSIX_BIT_VECTOR,
- 		       BNX2_HC_MSIX_BIT_VECTOR_VAL);
- 
--- 
-1.6.4.GIT
-
-
+Applied.
