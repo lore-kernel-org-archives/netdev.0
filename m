@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 48/62: nf_conntrack: elegantly simplify nf_ct_exp_net()
-Date: Tue, 16 Feb 2010 15:56:25 +0100 (MET)
-Message-ID: <20100216145622.2796.37673.sendpatchset@x2.localnet>
+Subject: netfilter 60/62: ebtables: abort if next_offset is too small
+Date: Tue, 16 Feb 2010 15:56:41 +0100 (MET)
+Message-ID: <20100216145639.2796.91630.sendpatchset@x2.localnet>
 References: <20100216145517.2796.40634.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
@@ -11,31 +11,29 @@ In-Reply-To: <20100216145517.2796.40634.sendpatchset@x2.localnet>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-commit 857b409a48bdc33e824dff2d730e271b964e78bd
-Author: Alexey Dobriyan <adobriyan@gmail.com>
-Date:   Fri Feb 12 06:24:46 2010 +0100
+commit 1756de262e41112a8a8927808eb2f03d21fd4786
+Author: Florian Westphal <fwestphal@astaro.com>
+Date:   Mon Feb 15 18:15:55 2010 +0100
 
-    netfilter: nf_conntrack: elegantly simplify nf_ct_exp_net()
+    netfilter: ebtables: abort if next_offset is too small
     
-    Remove #ifdef at nf_ct_exp_net() by using nf_ct_net().
+    next_offset must be > 0, otherwise this loops forever.
+    The offset also contains the size of the ebt_entry structure
+    itself, so anything smaller is invalid.
     
-    Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+    Signed-off-by: Florian Westphal <fwestphal@astaro.com>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/net/netfilter/nf_conntrack_expect.h b/include/net/netfilter/nf_conntrack_expect.h
-index 917e170..4b47ec1 100644
---- a/include/net/netfilter/nf_conntrack_expect.h
-+++ b/include/net/netfilter/nf_conntrack_expect.h
-@@ -56,11 +56,7 @@ struct nf_conntrack_expect {
- 
- static inline struct net *nf_ct_exp_net(struct nf_conntrack_expect *exp)
- {
--#ifdef CONFIG_NET_NS
--	return exp->master->ct_net;	/* by definition */
--#else
--	return &init_net;
--#endif
-+	return nf_ct_net(exp->master);
- }
- 
- struct nf_conntrack_expect_policy {
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index bcdf02d..4370e96 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -444,6 +444,8 @@ static int ebt_verify_pointers(const struct ebt_replace *repl,
+ 				break;
+ 			if (left < e->next_offset)
+ 				break;
++			if (e->next_offset < sizeof(struct ebt_entry))
++				return -EINVAL;
+ 			offset += e->next_offset;
+ 		}
+ 	}
