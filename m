@@ -1,45 +1,61 @@
-From: "Tadepalli, Hari K" <hari.k.tadepalli@intel.com>
-Subject: IxGbE: Node Aware Descriptor (Ring) Allocation
-Date: Tue, 16 Feb 2010 21:28:03 -0700
-Message-ID: <41885A88D9043444B138491FB10E15420476DD180E@azsmsx506.amr.corp.intel.com>
-References: <41885A88D9043444B138491FB10E15420476DD1805@azsmsx506.amr.corp.intel.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] ipv6.h: reassembly: replace calculated magic number with
+ multiplication
+Date: Tue, 16 Feb 2010 20:40:04 -0800
+Message-ID: <1266381604.8446.17.camel@Joe-Laptop.home>
+References: <20100216145517.2796.40634.sendpatchset@x2.localnet>
+	 <20100216145545.2796.47717.sendpatchset@x2.localnet>
+	 <1266335018.29987.50.camel@Joe-Laptop.home>  <4B7ABDF8.8010004@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:17136 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934020Ab0BQE2I convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 23:28:08 -0500
-In-Reply-To: <41885A88D9043444B138491FB10E15420476DD1805@azsmsx506.amr.corp.intel.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Shan Wei <shanwei@cn.fujitsu.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4B7ABDF8.8010004@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Greetings! This is my first post to this list. So please bear with any protocol violations. 
+On Tue, 2010-02-16 at 16:47 +0100, Patrick McHardy wrote:
+> Joe Perches wrote:
+> >> @@ -246,6 +246,8 @@ extern int ipv6_opt_accepted(struct sock *sk, struct sk_buff *skb);
+> >>  int ip6_frag_nqueues(struct net *net);
+> >>  int ip6_frag_mem(struct net *net);
+> >>  
+> >> +#define IPV6_FRAG_HIGH_THRESH	262144		/* == 256*1024 */
+> >> +#define IPV6_FRAG_LOW_THRESH	196608		/* == 192*1024 */
+> >>  #define IPV6_FRAG_TIMEOUT	(60*HZ)		/* 60 seconds */
+> > 
+> > 196608 isn't a number I want to remember.
+> > Is this better as:
+> > 
+> > #define IPV6_FRAG_HIGH_THRESH	(256 * 1024)	/* 262144 */
+> > #define IPV6_FRAG_LOW_THRESH	(192 * 1024)	/* 196608 */
+> 
+> Please send a patch, I'll apply it once these patches are in Dave's
+> tree.
 
-I am looking for hints on NUMA node-aware packet descriptor ring allocation in the IxGbE driver for Intel 82599 (10Gb) NICs, with multi queue feature enabled. 
+Signed-off-by: Joe Perches <joe@perches.com>
 
-There are three places in the IxGbE source where we need node aware allocation (shown below for TX only; analogous code for RX assumed): 
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 639ec53..d067db1 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -246,9 +246,9 @@ extern int ipv6_opt_accepted(struct sock *sk, struct sk_buff *skb);
+ int ip6_frag_nqueues(struct net *net);
+ int ip6_frag_mem(struct net *net);
+ 
+-#define IPV6_FRAG_HIGH_THRESH	262144		/* == 256*1024 */
+-#define IPV6_FRAG_LOW_THRESH	196608		/* == 192*1024 */
+-#define IPV6_FRAG_TIMEOUT	(60*HZ)		/* 60 seconds */
++#define IPV6_FRAG_HIGH_THRESH	(256 * 1024)	/* 262144 */
++#define IPV6_FRAG_LOW_THRESH	(192 * 1024)	/* 196608 */
++#define IPV6_FRAG_TIMEOUT	(60 * HZ)	/* 60 seconds */
+ 
+ extern int __ipv6_addr_type(const struct in6_addr *addr);
+ static inline int ipv6_addr_type(const struct in6_addr *addr)
 
-(i) tx_ring, rx_ring control structures of tx/rx rings:
-	tx_ring->tx_buffer_info = vmalloc_node(size, tx_ring->numa_node);
 
-(ii) descriptor rings in the DMA region: tx_ring->dma, rx_ring->dma
-	tx_ring->desc = pci_alloc_consistent(pdev, tx_ring->size, &tx_ring->dma);
 
-(iii) packet buffers:
-	struct sk_buff *skb = netdev_alloc_skb(adapter->netdev,bufsz);
 
-(i) and (iii) are able take a node parameter and accordingly return with node-aware allocation (on x86_64/NUMA enabled kernel with SLUB allocator). But, the same is not true of (ii) for descriptor ring allocation. Adding a node_id parameter to pdev structure with set_dev_node() call has no effect - presumably because the underlying dma_alloc_coherent() call has no node awareness. 
-
-I have, hacked pci_alloc_consistent to ingest a node parameter & allocate with dma_generic_alloc_coherent(), which seems to allocate with alloc_pages_node() after stripping node parameter from the pdev->dev object. But, this did not work - I can dump TXD/RXD base addresses with ethregs tool & observe that all allocations are coming from only one of the two nodes present in Nehalem (Xeon 55xx) platforms. 
-
-What is the status of node-aware DMA region allocation for IO devices on x86_64 platforms? Any known fixes?
-
-Thanks, 
-
-Hari
-------------------------------------
-Intel/Embedded Comms/Chandler/AZ
