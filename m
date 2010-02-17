@@ -1,93 +1,106 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [net-next-2.6 PATCH] chelsio: convert to use netdev_for_each_mc_addr
-Date: Wed, 17 Feb 2010 22:56:45 +0100
-Message-ID: <20100217215645.GD2635@psychotron.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net
+From: Anatolij Gustschin <agust@denx.de>
+Subject: [net-next-2.6 PATCH v3 3/3] fs_enet: add FEC TX buffer alignment workaround for MPC5121
+Date: Wed, 17 Feb 2010 23:08:20 +0100
+Message-ID: <1266444500-17818-1-git-send-email-agust@denx.de>
+References: <1266418530-2727-4-git-send-email-agust@denx.de>
+Cc: linuxppc-dev@ozlabs.org, "David S. Miller" <davem@davemloft.net>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Detlev Zundel <dzu@denx.de>, Wolfgang Denk <wd@denx.de>,
+	John Rigby <jcrigby@gmail.com>,
+	Anatolij Gustschin <agust@denx.de>,
+	Piotr Ziecik <kosmo@semihalf.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44687 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754575Ab0BQV4t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2010 16:56:49 -0500
-Content-Disposition: inline
+Received: from mail-out.m-online.net ([212.18.0.9]:46090 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752305Ab0BQWI0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 17:08:26 -0500
+In-Reply-To: <1266418530-2727-4-git-send-email-agust@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+MPC5121 FEC requeries 4-byte alignmnent for TX data buffers.
+This patch is a work around that copies misaligned tx packets
+to an aligned skb before sending.
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+Signed-off-by: John Rigby <jcrigby@gmail.com>
+Signed-off-by: Piotr Ziecik <kosmo@semihalf.com>
+Signed-off-by: Wolfgang Denk <wd@denx.de>
+Signed-off-by: Anatolij Gustschin <agust@denx.de>
 ---
- drivers/net/chelsio/common.h |   16 ++--------------
- drivers/net/chelsio/cxgb2.c  |    2 --
- drivers/net/chelsio/pm3393.c |    6 +++---
- 3 files changed, 5 insertions(+), 19 deletions(-)
+Changes since v2:
+ - ratelimit warning message
+ - use skb->len + 4 as size for allocation of the new skb
+   with aligned buffer.
 
-diff --git a/drivers/net/chelsio/common.h b/drivers/net/chelsio/common.h
-index bb159d9..9f89fd6 100644
---- a/drivers/net/chelsio/common.h
-+++ b/drivers/net/chelsio/common.h
-@@ -90,25 +90,13 @@
- typedef struct adapter adapter_t;
+ drivers/net/fs_enet/fs_enet-main.c |   47 ++++++++++++++++++++++++++++++++++++
+ 1 files changed, 47 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
+index 4297021..0770e2f 100644
+--- a/drivers/net/fs_enet/fs_enet-main.c
++++ b/drivers/net/fs_enet/fs_enet-main.c
+@@ -580,6 +580,40 @@ void fs_cleanup_bds(struct net_device *dev)
  
- struct t1_rx_mode {
--	struct net_device *dev;
--	u32 idx;
--	struct dev_mc_list *list;
-+       struct net_device *dev;
- };
+ /**********************************************************************************/
  
- #define t1_rx_mode_promisc(rm)	(rm->dev->flags & IFF_PROMISC)
- #define t1_rx_mode_allmulti(rm)	(rm->dev->flags & IFF_ALLMULTI)
- #define t1_rx_mode_mc_cnt(rm)	(netdev_mc_count(rm->dev))
--
--static inline u8 *t1_get_next_mcaddr(struct t1_rx_mode *rm)
--{
--	u8 *addr = NULL;
--
--	if (rm->idx++ < t1_rx_mode_mc_cnt(rm)) {
--		addr = rm->list->dmi_addr;
--		rm->list = rm->list->next;
--	}
--	return addr;
--}
-+#define t1_get_netdev(rm)	(rm->dev)
++#ifdef CONFIG_FS_ENET_MPC5121_FEC
++/*
++ * MPC5121 FEC requeries 4-byte alignment for TX data buffer!
++ */
++static struct sk_buff *tx_skb_align_workaround(struct net_device *dev,
++					       struct sk_buff *skb)
++{
++	struct sk_buff *new_skb;
++	struct fs_enet_private *fep = netdev_priv(dev);
++
++	/* Alloc new skb */
++	new_skb = dev_alloc_skb(skb->len + 4);
++	if (!new_skb) {
++		if (net_ratelimit()) {
++			dev_warn(fep->dev,
++				 "Memory squeeze, dropping tx packet.\n");
++		}
++		return NULL;
++	}
++
++	/* Make sure new skb is properly aligned */
++	skb_align(new_skb, 4);
++
++	/* Copy data to new skb ... */
++	skb_copy_from_linear_data(skb, new_skb->data, skb->len);
++	skb_put(new_skb, skb->len);
++
++	/* ... and free an old one */
++	dev_kfree_skb_any(skb);
++
++	return new_skb;
++}
++#endif
++
+ static int fs_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct fs_enet_private *fep = netdev_priv(dev);
+@@ -588,6 +622,19 @@ static int fs_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	u16 sc;
+ 	unsigned long flags;
  
- #define	MAX_NPORTS 4
- #define PORT_MASK ((1 << MAX_NPORTS) - 1)
-diff --git a/drivers/net/chelsio/cxgb2.c b/drivers/net/chelsio/cxgb2.c
-index 082cdb2..a54a32b 100644
---- a/drivers/net/chelsio/cxgb2.c
-+++ b/drivers/net/chelsio/cxgb2.c
-@@ -125,8 +125,6 @@ static void t1_set_rxmode(struct net_device *dev)
- 	struct t1_rx_mode rm;
++#ifdef CONFIG_FS_ENET_MPC5121_FEC
++	if (((unsigned long)skb->data) & 0x3) {
++		skb = tx_skb_align_workaround(dev, skb);
++		if (!skb) {
++			/*
++			 * We have lost packet due to memory allocation error
++			 * in tx_skb_align_workaround(). Hopefully original
++			 * skb is still valid, so try transmit it later.
++			 */
++			return NETDEV_TX_BUSY;
++		}
++	}
++#endif
+ 	spin_lock_irqsave(&fep->tx_lock, flags);
  
- 	rm.dev = dev;
--	rm.idx = 0;
--	rm.list = dev->mc_list;
- 	mac->ops->set_rx_mode(mac, &rm);
- }
- 
-diff --git a/drivers/net/chelsio/pm3393.c b/drivers/net/chelsio/pm3393.c
-index 2117c4f..33d674f 100644
---- a/drivers/net/chelsio/pm3393.c
-+++ b/drivers/net/chelsio/pm3393.c
-@@ -375,12 +375,12 @@ static int pm3393_set_rx_mode(struct cmac *cmac, struct t1_rx_mode *rm)
- 		rx_mode |= SUNI1x10GEXP_BITMSK_RXXG_MHASH_EN;
- 	} else if (t1_rx_mode_mc_cnt(rm)) {
- 		/* Accept one or more multicast(s). */
--		u8 *addr;
-+		struct dev_mc_list *dmi;
- 		int bit;
- 		u16 mc_filter[4] = { 0, };
- 
--		while ((addr = t1_get_next_mcaddr(rm))) {
--			bit = (ether_crc(ETH_ALEN, addr) >> 23) & 0x3f;	/* bit[23:28] */
-+		netdev_for_each_mc_addr(dmi, t1_get_netdev(rm)) {
-+			bit = (ether_crc(ETH_ALEN, dmi->dmi_addr) >> 23) & 0x3f; /* bit[23:28] */
- 			mc_filter[bit >> 4] |= 1 << (bit & 0xf);
- 		}
- 		pmwrite(cmac, SUNI1x10GEXP_REG_RXXG_MULTICAST_HASH_LOW, mc_filter[0]);
+ 	/*
 -- 
-1.6.6
+1.6.3.3
 
