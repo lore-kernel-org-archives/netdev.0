@@ -1,87 +1,55 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [net-next PATCH v4 0/3] net: reserve ports for applications using fixed port
-Date: Wed, 17 Feb 2010 08:26:27 -0800
-Message-ID: <m18war3k24.fsf@fess.ebiederm.org>
-References: <1266271241-6293-1-git-send-email-opurdila@ixiacom.com>
-	<201002162151.04861.opurdila@ixiacom.com>
-	<m1mxz93pw2.fsf@fess.ebiederm.org>
-	<201002162322.13101.opurdila@ixiacom.com>
-	<4B7C11D4.1080309@redhat.com> <m1ljer3ksy.fsf@fess.ebiederm.org>
-	<4B7C1722.7040304@redhat.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [net-next PATCH v4 1/3] sysctl: refactor integer handling proc
+ code
+Date: Thu, 18 Feb 2010 00:31:45 +0800
+Message-ID: <4B7C19F1.9090106@redhat.com>
+References: <1266271241-6293-1-git-send-email-opurdila@ixiacom.com> <201002161248.56598.opurdila@ixiacom.com> <4B7A98C7.3070107@redhat.com> <201002161600.54975.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Octavian Purdila <opurdila@ixiacom.com>,
-	David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Cong Wang <amwang@redhat.com>
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B7C1722.7040304@redhat.com> (Cong Wang's message of "Thu\, 18 Feb 2010 00\:19\:46 +0800")
+In-Reply-To: <201002161600.54975.opurdila@ixiacom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cong Wang <amwang@redhat.com> writes:
+Octavian Purdila wrote:
+> On Tuesday 16 February 2010 15:08:23 you wrote:
+>> Octavian Purdila wrote:
+>>> On Tuesday 16 February 2010 10:41:07 you wrote:
+>>>>> +
+>>>>> +     if (!write && !first && left && !err)
+>>>>> +             err = proc_put_newline(&buffer, &left);
+>>>>> +     if (write && !err)
+>>>>> +             err = proc_skip_wspace(&buffer, &left);
+>>>>> +     if (err == -EFAULT /* do we really need to check for -EFAULT? */
+>>>>> || +         (write && first))
+>>>>> +             return err ? : -EINVAL;
+>>>> The logic here seems messy, adding one or two goto's may help?
+>>> OK, I'll give it a try.
+>>>
+>>> What about the EFAULT check, is that really required?
+>> I think so, it means to keep the errno to user-space when it is EFAULT,
+>> right? This seems reasonable.
+>>
+> 
+> The problem I see is that this way we don't actually acknowledge some of the 
+> set values, e.g. say that we have buffer="1 2 3" and length = 100. Although we 
+> do accept values 1, 2 and 3 we don't acknowledge that to the user (as we would 
+> do for, say "1 2 3 4a"), but return -EFAULT.
+> 
+> I think it would be better to skip this check. That means that the user will 
+> get the ack for the 1, 2 and 3 values and next time it continues the write it 
+> will get -EFAULT.
+> 
+> This will of course change the userspace ABI, albeit in a minor way, and it is 
+> not clear to me if doing this is allowed (even if this new approach would be 
+> the correct one).
+> 
 
-> Eric W. Biederman wrote:
->> Cong Wang <amwang@redhat.com> writes:
->>
->>> Octavian Purdila wrote:
->>>> On Tuesday 16 February 2010 22:08:13 you wrote:
->>>>>> Something like bellow?
->>>>>>
->>>>>> # set bits 8080 and 1666
->>>>>> $echo 8080 1666-1666 > /proc
->>>>>>
->>>>>> #reset bit 1666
->>>>>> $echo 8080 > /proc
->>>>>>
->>>>>> #reset whole bitmap
->>>>>> $echo > /proc
->>>>> Yes. So something like that.
->>>>>
->>>>> I think I would use commas instead of spaces as that is more traditional.
->>>
->>> Why this is better than the current version?
->>>
->>> For the single port case, currently we use:
->>>
->>> echo +8080 > /xxxx #set
->>> echo -8080 > /xxxx #clear
->>>
->>> Now we will use:
->>>
->>> echo 8080 > /xxxx #set
->>> echo 8080 > /xxxx #clear
->>
->> No.
->>
->>> I don't think the latter is better...
->>>
->>> For the multi-port case, yes, we should accept 'echo 8080,10000 >/xxxx'.
->>
->> What I was envisioning was:
->>
->> echo 8080 > /xxx # set the bitmap to 8080
->> echo 8080,10000 > /xxx # add 10000 to the bitmap
->> echo 8080 > /xxxx # remove 10000 from the bitmap.
->>
->> That is when you set it you enter the entire set every time, treating
->> the entire set as a single value.
->>
->
-> Oh, I see, this is ok.
->
-> But if we could support multi-port, that will be better, something like:
->
-> echo '8080,10000-11000' > /xxx #add port 8080 and port range 10000-11000
->
-> so that I don't have to construct a long string for all ports within
-> 10000 and 11000.
-
-Yes, multi-port ranges are what I suggested.  You simply had not
-gotten confused about that aspect, so I was not repeating it.
-Except for pathological cases a ranges should keep the string
-that represents the bitmap small.
-
-Eric
+I think the right behavior is accept "1 2 3" and return the number of
+bytes that we accept.
