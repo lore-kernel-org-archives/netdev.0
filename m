@@ -1,83 +1,88 @@
-From: <gregkh@suse.de>
-Subject: patch net-move-am79c961-s-probe-function-to-.devinit.text.patch added to gregkh-2.6 tree
-Date: Wed, 17 Feb 2010 13:15:00 -0800
-Message-ID: <12664413002764@kroah.org>
-References: <1265313417-5568-9-git-send-email-u.kleine-koenig@pengutronix.de>
+From: Anatolij Gustschin <agust@denx.de>
+Subject: Re: [net-next-2.6 PATCH v2 3/3] fs_enet: add FEC TX buffer
+ alignment workaround for MPC5121
+Date: Wed, 17 Feb 2010 22:31:04 +0100
+Message-ID: <20100217223104.41d91a83@wker>
+References: <1266418530-2727-1-git-send-email-agust@denx.de>
+	<1266418530-2727-2-git-send-email-agust@denx.de>
+	<1266418530-2727-3-git-send-email-agust@denx.de>
+	<1266418530-2727-4-git-send-email-agust@denx.de>
+	<1266419836.3075.12.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: u.kleine-koenig@pengutronix.de, 12o3l@tiscali.nl,
-	akpm@linux-foundation.org, gregkh@suse.de, netdev@vger.kernel.org,
-	rmk+kernel@arm.linux.org.uk
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Detlev Zundel <dzu@denx.de>, Wolfgang Denk <wd@denx.de>,
+	John Rigby <jcrigby@gmail.com>,
+	Piotr Ziecik <kosmo@semihalf.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:50753 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756496Ab0BQVPS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2010 16:15:18 -0500
-In-Reply-To: <1265313417-5568-9-git-send-email-u.kleine-koenig@pengutronix.de>
+Received: from mail-out.m-online.net ([212.18.0.9]:45622 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754175Ab0BQVb3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 16:31:29 -0500
+In-Reply-To: <1266419836.3075.12.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 17 Feb 2010 16:17:16 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-This is a note to let you know that I've just added the patch titled
+> Le mercredi 17 f=C3=A9vrier 2010 =C3=A0 15:55 +0100, Anatolij Gustsch=
+in a =C3=A9crit :
+=2E..
+> > +static struct sk_buff *tx_skb_align_workaround(struct net_device *=
+dev,
+> > +					       struct sk_buff *skb)
+> > +{
+> > +	struct sk_buff *new_skb;
+> > +	struct fs_enet_private *fep =3D netdev_priv(dev);
+> > +
+> > +	/* Alloc new skb */
+> > +	new_skb =3D dev_alloc_skb(ENET_RX_FRSIZE + 4);
+>=20
+>=20
+> ENET_RX_FRSIZE looks strange in TX path
+>=20
+> Why not using skb->len + 4 instead of ENET_RX_FRSIZE + 4 ?
 
-    Subject: net: move am79c961's probe function to .devinit.text
+I will fix it.
 
-to my gregkh-2.6 tree.  Its filename is
+> > +	if (!new_skb) {
+> > +		dev_warn(fep->dev, "Memory squeeze, dropping tx packet.\n");
+>=20
+> I am just wondering if this is ratelimited ?
 
-    net-move-am79c961-s-probe-function-to-.devinit.text.patch
+Right, it should be ratelimited, will fix it, too.
 
-This tree can be found at=20
-    http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/pat=
-ches/
+=2E..
+> >  static int fs_enet_start_xmit(struct sk_buff *skb, struct net_devi=
+ce *dev)
+> >  {
+> >  	struct fs_enet_private *fep =3D netdev_priv(dev);
+> > @@ -588,6 +619,19 @@ static int fs_enet_start_xmit(struct sk_buff *=
+skb, struct net_device *dev)
+> >  	u16 sc;
+> >  	unsigned long flags;
+> > =20
+> > +#ifdef CONFIG_FS_ENET_MPC5121_FEC
+> > +	if (((unsigned long)skb->data) & 0x3) {
+> > +		skb =3D tx_skb_align_workaround(dev, skb);
+> > +		if (!skb) {
+> > +			/*
+> > +			 * We have lost packet due to memory allocation error
+> > +			 * in tx_skb_align_workaround(). Hopefully original
+> > +			 * skb is still valid, so try transmit it later.
+> > +			 */
+>=20
+> Could you define 'try to transmit later' ?
+> Who is responsible to trigger this event ?
 
+The function returns NETDEV_TX_BUSY here, skb is not
+consumed and will be requeued by sch_direct_xmit(), so
+it is scheduled for resending later.
 
-=46rom u.kleine-koenig@pengutronix.de  Wed Feb 17 12:45:57 2010
-=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-Date: Thu,  4 Feb 2010 20:56:57 +0100
-Subject: net: move am79c961's probe function to .devinit.text
-To: Greg KH <gregkh@suse.de>
-Cc: Roel Kluin <12o3l@tiscali.nl>, Russell King <rmk+kernel@arm.linux.o=
-rg.uk>, netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.or=
-g>
-Message-ID: <1265313417-5568-9-git-send-email-u.kleine-koenig@pengutron=
-ix.de>
-
-=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-
-A pointer to am79c961_probe is passed to the core via
-platform_driver_register and so the function must not disappear when th=
-e
-=2Einit sections are discarded.  Otherwise (if also having HOTPLUG=3Dy)
-unbinding and binding a device to the driver via sysfs will result in a=
-n
-oops as does a device being registered late.
-
-An alternative to this patch is using platform_driver_probe instead of
-platform_driver_register plus removing the pointer to the probe functio=
-n
-from the struct platform_driver.
-
-Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-Cc: Roel Kluin <12o3l@tiscali.nl>
-Cc: Russell King <rmk+kernel@arm.linux.org.uk>
-Cc: <netdev@vger.kernel.org>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
----
- drivers/net/arm/am79c961a.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- a/drivers/net/arm/am79c961a.c
-+++ b/drivers/net/arm/am79c961a.c
-@@ -680,7 +680,7 @@ static const struct net_device_ops am79c
- #endif
- };
-=20
--static int __init am79c961_probe(struct platform_device *pdev)
-+static int __devinit am79c961_probe(struct platform_device *pdev)
- {
- 	struct resource *res;
- 	struct net_device *dev;
-
+Thanks,
+Anatolij
