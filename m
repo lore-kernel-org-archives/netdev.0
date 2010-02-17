@@ -1,23 +1,29 @@
-From: "Tadepalli, Hari K" <hari.k.tadepalli@intel.com>
-Subject: TEST, Ignore!
-Date: Tue, 16 Feb 2010 20:49:41 -0700
-Message-ID: <41885A88D9043444B138491FB10E15420476DD1805@azsmsx506.amr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netdev: bfin_mac: drop experimental markings on RMII
+ support
+Date: Tue, 16 Feb 2010 20:20:38 -0800 (PST)
+Message-ID: <20100216.202038.193708598.davem@davemloft.net>
+References: <1266280370-18670-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org
+To: vapier@gentoo.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:13054 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933996Ab0BQDtp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 22:49:45 -0500
-Content-Language: en-US
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43091
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934011Ab0BQEUX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 23:20:23 -0500
+In-Reply-To: <1266280370-18670-1-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Newbie testing, ...
- 
-- Hari Tadepalli
-____________________________________
-Embedded Communications Group
-Intel Corporation, Chandler, AZ
+From: Mike Frysinger <vapier@gentoo.org>
+Date: Mon, 15 Feb 2010 19:32:50 -0500
+
+> The code has been around for a long time now and is known to work on a
+> bunch of different parts/boards.
+> 
+> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+
+Applied to net-next-2.6
