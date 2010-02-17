@@ -1,66 +1,36 @@
-From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-Subject: Re: ixgbe_clean_tx_irq: tx hang 1 detected, resetting adapter
-	(2.6.32.8)
-Date: Wed, 17 Feb 2010 14:53:34 -0800
-Message-ID: <4807377b1002171453n277cfea3s6d7f3629bd43f674@mail.gmail.com>
-References: <4B7824F1.6000202@krogh.cc>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: regression due to "flush SAD/SPD generate false events"
+Date: Wed, 17 Feb 2010 18:07:18 -0500
+Message-ID: <1266448038.17794.135.camel@bigi>
+References: <20100217191718.GA5256@x200>  <1266442972.17794.51.camel@bigi>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Jesper Krogh <jesper@krogh.cc>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f227.google.com ([209.85.217.227]:42393 "EHLO
-	mail-gx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755588Ab0BQWxg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 17:53:36 -0500
-In-Reply-To: <4B7824F1.6000202@krogh.cc>
+Received: from mail-qy0-f200.google.com ([209.85.221.200]:37360 "EHLO
+	mail-qy0-f200.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755079Ab0BQXHV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 18:07:21 -0500
+Received: by qyk38 with SMTP id 38so2456162qyk.1
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2010 15:07:19 -0800 (PST)
+In-Reply-To: <1266442972.17794.51.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 14, 2010 at 8:29 AM, Jesper Krogh <jesper@krogh.cc> wrote:
-> Hi List.
->
-> I have tried to get a dual bond of 2 x 10G NICs using the
-> Intel Corporation 82598EB 10-Gigabit AT2 Server Adapter (rev 01)
-> going. As first it looked like it "just worked" but when tried to fil=
-l
-> the links with data one of the NIC's (eth7) hang and did a reset of
-> itself, so all data was pushed through the other NIC in the bond (eth=
-8)
->
-> Full dmesg below, but I think the important part is this:
->
-> [ 2162.745354] ixgbe: eth7: ixgbe_check_tx_hang: Detected Tx Unit Han=
-g
-> [ 2162.745356] =A0 Tx Queue =A0 =A0 =A0 =A0 =A0 =A0 <4>
-> [ 2162.745356] =A0 TDH, TDT =A0 =A0 =A0 =A0 =A0 =A0 <e1>, <cc>
-> [ 2162.745357] =A0 next_to_use =A0 =A0 =A0 =A0 =A0<cc>
-> [ 2162.745358] =A0 next_to_clean =A0 =A0 =A0 =A0<e1>
-> [ 2162.745359] tx_buffer_info[next_to_clean]
-> [ 2162.745359] =A0 time_stamp =A0 =A0 =A0 =A0 =A0 <1000713d3>
-> [ 2162.745360] =A0 jiffies =A0 =A0 =A0 =A0 =A0 =A0 =A0<10007152e>
-> [ 2163.162478] ixgbe: eth7: ixgbe_clean_tx_irq: tx hang 1 detected,
-> resetting adapter
-> [ 2163.357333] bonding: bond0: link status definitely down for interf=
-ace
-> eth7, disabling it
-> [ 2168.670342] ixgbe: eth7 NIC Link is Up 10 Gbps, Flow Control: None
+On Wed, 2010-02-17 at 16:42 -0500, jamal wrote:
 
-Hi Jesper, my first thought was flow control, but I can see you have it=
- off.
+> I will try to reproduce it in about an hour. Do you have
+> anything like selinux being used etc?
 
-Can we get some more details on the hardware and bios version?  What
-about some dmidecode output.  I'm checking here if we have any
-hardware like this.
+I have reproduced it - thanks Alexey. When you flush
+an empty table, the time goes up from about 1.5s
+to 3 secs with pfkey. You also see the EAGAIN for
+each flush ...
+I am going to dig a little more ..
 
-are you running ubuntu 9.10 or something else?
+cheers,
+jamal
 
-Wow, thats a monster machine, 8 nodes, 128GB ram.  Can we get a full
-lspci -vvv output, as well as ethtool -e eth7 and eth8
-
-32 has ixgbe with a known issue of multiple mappings on transmit
-possibly causing some problems, could it be that you're running into
-this?  can you apply commit e5a43549f7a58509a91b299a51337d386697b92c
-and see if it fixes your issue?
