@@ -1,94 +1,64 @@
 From: jamal <hadi@cyberus.ca>
-Subject: [RFC PATCH net-next-2.6]: xfrm: Introduce LINUX_MIB_XFRMFWDHDRERROR
-Date: Wed, 17 Feb 2010 06:40:52 -0500
-Message-ID: <1266406852.3799.7.camel@bigi>
+Subject: Re: [net-next-2.6 PATCH 1/7] xfrm: introduce basic mark
+ infrastructure
+Date: Wed, 17 Feb 2010 06:58:25 -0500
+Message-ID: <1266407905.3799.24.camel@bigi>
+References: <1266160732-946-1-git-send-email-hadi@cyberus.ca>
+	 <1266160732-946-2-git-send-email-hadi@cyberus.ca>
+	 <4B796B70.2050102@trash.net> <1266253235.6776.90.camel@bigi>
+	 <4B797F09.5050207@trash.net> <1266254073.6776.109.camel@bigi>
+	 <m37hqdcvgm.fsf@ursa.amorsen.dk> <1266321437.6776.250.camel@bigi>
+	 <m3hbphxrnm.fsf@ursa.amorsen.dk> <1266326164.6776.263.camel@bigi>
+	 <m3635w4zg0.fsf@ursa.amorsen.dk>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-UETSCRRbQQLnuwJCpJjY"
-Cc: Masahide NAKAMURA <nakam@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, herbert@gondor.apana.org.au,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, timo.teras@iki.fi,
+	herbert@gondor.apana.org.au, davem@davemloft.net,
 	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Benny Amorsen <benny+usenet@amorsen.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f178.google.com ([209.85.221.178]:65394 "EHLO
+Received: from mail-qy0-f178.google.com ([209.85.221.178]:41424 "EHLO
 	mail-qy0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755889Ab0BQLk5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 06:40:57 -0500
-Received: by qyk8 with SMTP id 8so1696701qyk.24
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2010 03:40:55 -0800 (PST)
+	with ESMTP id S1756227Ab0BQL6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 06:58:30 -0500
+Received: by qyk8 with SMTP id 8so1702646qyk.24
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2010 03:58:28 -0800 (PST)
+In-Reply-To: <m3635w4zg0.fsf@ursa.amorsen.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2010-02-16 at 22:56 +0100, Benny Amorsen wrote:
+> jamal <hadi@cyberus.ca> writes:
 
---=-UETSCRRbQQLnuwJCpJjY
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+> > ip route add blah blah mark 0x10
+> 
+> Exactly.
+> 
+> > and that the routing core will use the mark to (as it does for example
+> > with ifindex) to pick the route? I like the idea for the simple fact it
+> > will reduce immensely configuration in some cases..
+> 
+> It would certainly be handy for me...
+> 
 
+I would certainly be interested in adding this feature for the reasons
+described above. 
 
-I had a hard time debugging some setup while testing xfrm by mark
-in presence of traffic being forwarded as well as being locally 
-terminated. This change helped narrow things down a little for me.
-The danger is that it changes the /proc output which may break some
-user space tool (thats why i have it as an RFC).
+An additional interesting connection would be to tie this feature to
+grouping of netdevices for the purpose of multipath routing. This would
+be the same as what we do currently with bindtodevice but on a group
+instead of a single netdevice. It would require to also have general
+purpose netdev->mark to group multiple netdevices (for this case).
+The dev->mark could also be handy for other things (which have not
+been efficiently solved in the past); example, i could add mark 0x10 to
+all ppp* devices and then do "ip link ls mark 0x10" and it would only
+fetch ppp* (or for shit-and-giggles as some New Brunswickians like to
+say, ip link mark 0x10 down)
+
+Patrick, thoughts? see anything breaking from either feature?
 
 cheers,
-jamal 
-
---=-UETSCRRbQQLnuwJCpJjY
-Content-Disposition: attachment; filename="FwdHdrErr"
-Content-Type: text/plain; name="FwdHdrErr"; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-
-commit cba12a140f1c4cad34f55d1b01067c2d83ee0748
-Author: Jamal Hadi Salim <hadi@cyberus.ca>
-Date:   Wed Feb 17 06:26:52 2010 -0500
-
-    xfrm: Introduce LINUX_MIB_XFRMFWDHDRERROR
-    
-    XFRMINHDRERROR counter is ambigous when validating forwarding
-    path. It makes it tricky to debug when you have both in and fwd
-    validation.
-    
-    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
-
-diff --git a/include/linux/snmp.h b/include/linux/snmp.h
-index 0f953fe..8522120 100644
---- a/include/linux/snmp.h
-+++ b/include/linux/snmp.h
-@@ -246,6 +246,7 @@ enum
- 	LINUX_MIB_XFRMINNOPOLS,			/* XfrmInNoPols */
- 	LINUX_MIB_XFRMINPOLBLOCK,		/* XfrmInPolBlock */
- 	LINUX_MIB_XFRMINPOLERROR,		/* XfrmInPolError */
-+	LINUX_MIB_XFRMFWDHDRERROR,		/* XfrmFwdHdrError*/
- 	LINUX_MIB_XFRMOUTERROR,			/* XfrmOutError */
- 	LINUX_MIB_XFRMOUTBUNDLEGENERROR,	/* XfrmOutBundleGenError */
- 	LINUX_MIB_XFRMOUTBUNDLECHECKERROR,	/* XfrmOutBundleCheckError */
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index eb870fc..916784d 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2052,8 +2052,7 @@ int __xfrm_route_forward(struct sk_buff *skb, unsigned short family)
- 	int res;
- 
- 	if (xfrm_decode_session(skb, &fl, family) < 0) {
--		/* XXX: we should have something like FWDHDRERROR here. */
--		XFRM_INC_STATS(net, LINUX_MIB_XFRMINHDRERROR);
-+		XFRM_INC_STATS(net, LINUX_MIB_XFRMFWDHDRERROR);
- 		return 0;
- 	}
- 
-diff --git a/net/xfrm/xfrm_proc.c b/net/xfrm/xfrm_proc.c
-index c083a4e..289992a 100644
---- a/net/xfrm/xfrm_proc.c
-+++ b/net/xfrm/xfrm_proc.c
-@@ -30,6 +30,7 @@ static const struct snmp_mib xfrm_mib_list[] = {
- 	SNMP_MIB_ITEM("XfrmInNoPols", LINUX_MIB_XFRMINNOPOLS),
- 	SNMP_MIB_ITEM("XfrmInPolBlock", LINUX_MIB_XFRMINPOLBLOCK),
- 	SNMP_MIB_ITEM("XfrmInPolError", LINUX_MIB_XFRMINPOLERROR),
-+	SNMP_MIB_ITEM("XfrmFwdHdrError", LINUX_MIB_XFRMFWDHDRERROR),
- 	SNMP_MIB_ITEM("XfrmOutError", LINUX_MIB_XFRMOUTERROR),
- 	SNMP_MIB_ITEM("XfrmOutBundleGenError", LINUX_MIB_XFRMOUTBUNDLEGENERROR),
- 	SNMP_MIB_ITEM("XfrmOutBundleCheckError", LINUX_MIB_XFRMOUTBUNDLECHECKERROR),
-
---=-UETSCRRbQQLnuwJCpJjY--
+jamal
 
