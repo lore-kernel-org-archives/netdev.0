@@ -1,36 +1,35 @@
-From: jamal <hadi@cyberus.ca>
+From: David Miller <davem@davemloft.net>
 Subject: Re: regression due to "flush SAD/SPD generate false events"
-Date: Wed, 17 Feb 2010 18:34:38 -0500
-Message-ID: <1266449678.17794.160.camel@bigi>
+Date: Wed, 17 Feb 2010 15:40:09 -0800 (PST)
+Message-ID: <20100217.154009.78177059.davem@davemloft.net>
 References: <20100217191718.GA5256@x200>
-	 <20100217.134217.244120118.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+	<20100217.134217.244120118.davem@davemloft.net>
+	<1266449678.17794.160.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: adobriyan@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.24]:2622 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755797Ab0BQXel (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 18:34:41 -0500
-Received: by qw-out-2122.google.com with SMTP id 3so167527qwe.37
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2010 15:34:39 -0800 (PST)
-In-Reply-To: <20100217.134217.244120118.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44236
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755563Ab0BQXj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 18:39:56 -0500
+In-Reply-To: <1266449678.17794.160.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-02-17 at 13:42 -0800, David Miller wrote:
+From: jamal <hadi@cyberus.ca>
+Date: Wed, 17 Feb 2010 18:34:38 -0500
 
-> Jamal, if you can find a way to do this without breaking
-> existing applications feel free to send a new version of
-> these patches.
+> On Wed, 2010-02-17 at 13:42 -0800, David Miller wrote:
+> 
+>> Jamal, if you can find a way to do this without breaking
+>> existing applications feel free to send a new version of
+>> these patches.
+> 
+> I sent incremental patch. If you still want me to resend
+> the whole thing i could after Alexey responds.
 
-I sent incremental patch. If you still want me to resend
-the whole thing i could after Alexey responds.
-
-cheers,
-jamal
-
-
+Please do, your changes are reverted so I need the whole
+thing back.
