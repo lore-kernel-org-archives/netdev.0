@@ -1,40 +1,94 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] ipmr: remove useless checks from ipmr_device_event
-Date: Wed, 17 Feb 2010 14:19:32 +0300
-Message-ID: <4B7BD0C4.3090304@openvz.org>
+From: jamal <hadi@cyberus.ca>
+Subject: [RFC PATCH net-next-2.6]: xfrm: Introduce LINUX_MIB_XFRMFWDHDRERROR
+Date: Wed, 17 Feb 2010 06:40:52 -0500
+Message-ID: <1266406852.3799.7.camel@bigi>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: multipart/mixed; boundary="=-UETSCRRbQQLnuwJCpJjY"
+Cc: Masahide NAKAMURA <nakam@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:7028 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752747Ab0BQLku (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2010 06:40:50 -0500
+Received: from mail-qy0-f178.google.com ([209.85.221.178]:65394 "EHLO
+	mail-qy0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755889Ab0BQLk5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 06:40:57 -0500
+Received: by qyk8 with SMTP id 8so1696701qyk.24
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2010 03:40:55 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The net being checked there is dev_net(dev) and thus this if
-is always false.
 
-Fits both net and net-next trees.
+--=-UETSCRRbQQLnuwJCpJjY
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
----
+I had a hard time debugging some setup while testing xfrm by mark
+in presence of traffic being forwarded as well as being locally 
+terminated. This change helped narrow things down a little for me.
+The danger is that it changes the /proc output which may break some
+user space tool (thats why i have it as an RFC).
 
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 54596f7..8582e12 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -1163,9 +1163,6 @@ static int ipmr_device_event(struct notifier_block *this, unsigned long event, v
- 	int ct;
- 	LIST_HEAD(list);
+cheers,
+jamal 
+
+--=-UETSCRRbQQLnuwJCpJjY
+Content-Disposition: attachment; filename="FwdHdrErr"
+Content-Type: text/plain; name="FwdHdrErr"; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+commit cba12a140f1c4cad34f55d1b01067c2d83ee0748
+Author: Jamal Hadi Salim <hadi@cyberus.ca>
+Date:   Wed Feb 17 06:26:52 2010 -0500
+
+    xfrm: Introduce LINUX_MIB_XFRMFWDHDRERROR
+    
+    XFRMINHDRERROR counter is ambigous when validating forwarding
+    path. It makes it tricky to debug when you have both in and fwd
+    validation.
+    
+    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+diff --git a/include/linux/snmp.h b/include/linux/snmp.h
+index 0f953fe..8522120 100644
+--- a/include/linux/snmp.h
++++ b/include/linux/snmp.h
+@@ -246,6 +246,7 @@ enum
+ 	LINUX_MIB_XFRMINNOPOLS,			/* XfrmInNoPols */
+ 	LINUX_MIB_XFRMINPOLBLOCK,		/* XfrmInPolBlock */
+ 	LINUX_MIB_XFRMINPOLERROR,		/* XfrmInPolError */
++	LINUX_MIB_XFRMFWDHDRERROR,		/* XfrmFwdHdrError*/
+ 	LINUX_MIB_XFRMOUTERROR,			/* XfrmOutError */
+ 	LINUX_MIB_XFRMOUTBUNDLEGENERROR,	/* XfrmOutBundleGenError */
+ 	LINUX_MIB_XFRMOUTBUNDLECHECKERROR,	/* XfrmOutBundleCheckError */
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index eb870fc..916784d 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2052,8 +2052,7 @@ int __xfrm_route_forward(struct sk_buff *skb, unsigned short family)
+ 	int res;
  
--	if (!net_eq(dev_net(dev), net))
--		return NOTIFY_DONE;
--
- 	if (event != NETDEV_UNREGISTER)
- 		return NOTIFY_DONE;
- 	v = &net->ipv4.vif_table[0];
+ 	if (xfrm_decode_session(skb, &fl, family) < 0) {
+-		/* XXX: we should have something like FWDHDRERROR here. */
+-		XFRM_INC_STATS(net, LINUX_MIB_XFRMINHDRERROR);
++		XFRM_INC_STATS(net, LINUX_MIB_XFRMFWDHDRERROR);
+ 		return 0;
+ 	}
+ 
+diff --git a/net/xfrm/xfrm_proc.c b/net/xfrm/xfrm_proc.c
+index c083a4e..289992a 100644
+--- a/net/xfrm/xfrm_proc.c
++++ b/net/xfrm/xfrm_proc.c
+@@ -30,6 +30,7 @@ static const struct snmp_mib xfrm_mib_list[] = {
+ 	SNMP_MIB_ITEM("XfrmInNoPols", LINUX_MIB_XFRMINNOPOLS),
+ 	SNMP_MIB_ITEM("XfrmInPolBlock", LINUX_MIB_XFRMINPOLBLOCK),
+ 	SNMP_MIB_ITEM("XfrmInPolError", LINUX_MIB_XFRMINPOLERROR),
++	SNMP_MIB_ITEM("XfrmFwdHdrError", LINUX_MIB_XFRMFWDHDRERROR),
+ 	SNMP_MIB_ITEM("XfrmOutError", LINUX_MIB_XFRMOUTERROR),
+ 	SNMP_MIB_ITEM("XfrmOutBundleGenError", LINUX_MIB_XFRMOUTBUNDLEGENERROR),
+ 	SNMP_MIB_ITEM("XfrmOutBundleCheckError", LINUX_MIB_XFRMOUTBUNDLECHECKERROR),
+
+--=-UETSCRRbQQLnuwJCpJjY--
+
