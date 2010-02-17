@@ -1,127 +1,50 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 3/3] net: consolidate netif_needs_gso() checks
-Date: Wed, 17 Feb 2010 04:36:48 -0800
-Message-ID: <20100217123647.18210.10992.stgit@localhost.localdomain>
-References: <20100217123606.18210.13602.stgit@localhost.localdomain>
+From: Darren Jenkins <darrenrjenkins@gmail.com>
+Subject: [PATCH] drivers/net/wireless/p54/txrx.c Fix off by one error
+Date: Wed, 17 Feb 2010 23:40:15 +1100
+Message-ID: <1266410415.17837.6.camel@ICE-BOX>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: Michael Wu <flamingice@sourmilk.net>,
+	Christian Lamparter <chunkeey@web.de>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Bob Copeland <me@bobcopeland.com>,
+	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Kernel Janitors <kernel-janitors@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:35639
-	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752609Ab0BQMhG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 07:37:06 -0500
-In-Reply-To: <20100217123606.18210.13602.stgit@localhost.localdomain>
+Received: from mail-yx0-f200.google.com ([209.85.210.200]:38003 "EHLO
+	mail-yx0-f200.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757256Ab0BQMkX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 07:40:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+fix off by one error in the queue size check of p54_tx_qos_accounting_alloc()
 
-netif_needs_gso() is checked twice in the TX path once,
-before submitting the skb to the qdisc and once after
-it is dequeued from the qdisc just before calling
-ndo_hard_start().  This opens a window for a user to
-change the gso/tso or tx checksum settings that can
-cause netif_needs_gso to be true in one check and false
-in the other.
+Coverity CID: 13314
 
-Specifically, changing TX checksum setting may cause
-the warning in skb_gso_segment() to be triggered if
-the checksum is calculated earlier.
-
-This consolidates the netif_needs_gso() calls so that
-the stack only checks if gso is needed in
-dev_hard_start_xmit().
-
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Darren Jenkins <darrenrjenkins@gmail.com>
 ---
+ drivers/net/wireless/p54/txrx.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
- net/core/dev.c |   50 +++++++++++++++++++++++++++++---------------------
- 1 files changed, 29 insertions(+), 21 deletions(-)
+diff --git a/drivers/net/wireless/p54/txrx.c b/drivers/net/wireless/p54/txrx.c
+index b6dda2b..9d147de 100644
+--- a/drivers/net/wireless/p54/txrx.c
++++ b/drivers/net/wireless/p54/txrx.c
+@@ -186,7 +186,7 @@ static int p54_tx_qos_accounting_alloc(struct p54_common *priv,
+ 	struct ieee80211_tx_queue_stats *queue;
+ 	unsigned long flags;
+ 
+-	if (WARN_ON(p54_queue > P54_QUEUE_NUM))
++	if (WARN_ON(p54_queue >= P54_QUEUE_NUM))
+ 		return -EINVAL;
+ 
+ 	queue = &priv->tx_stats[p54_queue];
+-- 
+1.6.3.3
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d1cf53d..84a0acb 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1835,12 +1835,40 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
- {
- 	const struct net_device_ops *ops = dev->netdev_ops;
- 	int rc = NETDEV_TX_OK;
-+	int need_gso = netif_needs_gso(dev, skb);
-+
-+	if (!need_gso) {
-+		if (skb_has_frags(skb) &&
-+		    !(dev->features & NETIF_F_FRAGLIST) &&
-+		    __skb_linearize(skb))
-+			goto out_kfree_skb;
-+
-+		/* Fragmented skb is linearized if device does not support SG,
-+		 * or if at least one of fragments is in highmem and device
-+		 * does not support DMA from it.
-+		 */
-+		if (skb_shinfo(skb)->nr_frags &&
-+		    (!(dev->features & NETIF_F_SG) ||
-+		      illegal_highdma(dev, skb)) &&
-+		    __skb_linearize(skb))
-+			goto out_kfree_skb;
-+		/* If packet is not checksummed and device does not support
-+		 * checksumming for this protocol, complete checksumming here.
-+		 */
-+		if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+			skb_set_transport_header(skb, skb->csum_start -
-+				      skb_headroom(skb));
-+			if (!dev_can_checksum(dev, skb) &&
-+			     skb_checksum_help(skb))
-+				goto out_kfree_skb;
-+		}
-+	}
- 
- 	if (likely(!skb->next)) {
- 		if (!list_empty(&ptype_all))
- 			dev_queue_xmit_nit(skb, dev);
- 
--		if (netif_needs_gso(dev, skb)) {
-+		if (need_gso) {
- 			if (unlikely(dev_gso_segment(skb)))
- 				goto out_kfree_skb;
- 			if (skb->next)
-@@ -2056,25 +2084,6 @@ int dev_queue_xmit(struct sk_buff *skb)
- 	struct Qdisc *q;
- 	int rc = -ENOMEM;
- 
--	/* GSO will handle the following emulations directly. */
--	if (netif_needs_gso(dev, skb))
--		goto gso;
--
--	/* Convert a paged skb to linear, if required */
--	if (skb_needs_linearize(skb, dev) && __skb_linearize(skb))
--		goto out_kfree_skb;
--
--	/* If packet is not checksummed and device does not support
--	 * checksumming for this protocol, complete checksumming here.
--	 */
--	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		skb_set_transport_header(skb, skb->csum_start -
--					      skb_headroom(skb));
--		if (!dev_can_checksum(dev, skb) && skb_checksum_help(skb))
--			goto out_kfree_skb;
--	}
--
--gso:
- 	/* Disable soft irqs for various locks below. Also
- 	 * stops preemption for RCU.
- 	 */
-@@ -2133,7 +2142,6 @@ gso:
- 	rc = -ENETDOWN;
- 	rcu_read_unlock_bh();
- 
--out_kfree_skb:
- 	kfree_skb(skb);
- 	return rc;
- out:
+
 
