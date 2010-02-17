@@ -1,56 +1,67 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 18/18] igb: update tx DMA mapping error handling
-Date: Wed, 17 Feb 2010 03:06:16 -0800
-Message-ID: <20100217110614.17723.84160.stgit@localhost.localdomain>
-References: <20100217105953.17723.36633.stgit@localhost.localdomain>
+From: Sathya Perla <sathyap@serverengines.com>
+Subject: [PATCH net-next-2.6 1/4] be2net: a mini optimization in
+ rx_compl_process() code
+Date: Wed, 17 Feb 2010 17:04:22 +0530
+Message-ID: <20100217113422.GA19674@serverengines.com>
+Reply-To: Sathya Perla <sathyap@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Nicholas Nunley <nicholasx.d.nunley@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:34190
-	"EHLO qmta04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752609Ab0BQLGd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 06:06:33 -0500
-In-Reply-To: <20100217105953.17723.36633.stgit@localhost.localdomain>
+Received: from segment-124-30.sify.net ([124.30.166.146]:23124 "EHLO
+	sperla-laptop.localdomain" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752385Ab0BQLeh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 06:34:37 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nick Nunley <nicholasx.d.nunley@intel.com>
+Introduce unlikely() for skb alloc failure and vlanf checks...
 
-This updates the tx DMA mapping error handling code to
-resemble e1000e/ixgbe.
-
-Signed-off-by: Nicholas Nunley <nicholasx.d.nunley@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Sathya Perla <sathyap@serverengines.com>
 ---
+ drivers/net/benet/be_main.c |   20 ++++++++++----------
+ 1 files changed, 10 insertions(+), 10 deletions(-)
 
- drivers/net/igb/igb_main.c |    8 +++-----
- 1 files changed, 3 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index ab7c5e9..f588e49 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -3647,14 +3647,12 @@ dma_error:
- 	buffer_info->length = 0;
- 	buffer_info->next_to_watch = 0;
- 	buffer_info->mapped_as_page = false;
--	count--;
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index cbfaa3f..7bf1900 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -768,16 +768,8 @@ static void be_rx_compl_process(struct be_adapter *adapter,
+ 	u32 vlanf, vid;
+ 	u8 vtm;
  
- 	/* clear timestamp and dma mappings for remaining portion of packet */
--	while (count >= 0) {
--		count--;
-+	while (count--) {
-+		if (i == 0)
-+			i = tx_ring->count;
- 		i--;
--		if (i < 0)
--			i += tx_ring->count;
- 		buffer_info = &tx_ring->buffer_info[i];
- 		igb_unmap_and_free_tx_resource(tx_ring, buffer_info);
- 	}
+-	vlanf = AMAP_GET_BITS(struct amap_eth_rx_compl, vtp, rxcp);
+-	vtm = AMAP_GET_BITS(struct amap_eth_rx_compl, vtm, rxcp);
+-
+-	/* vlanf could be wrongly set in some cards.
+-	 * ignore if vtm is not set */
+-	if ((adapter->cap & 0x400) && !vtm)
+-		vlanf = 0;
+-
+ 	skb = netdev_alloc_skb_ip_align(adapter->netdev, BE_HDR_LEN);
+-	if (!skb) {
++	if (unlikely(!skb)) {
+ 		if (net_ratelimit())
+ 			dev_warn(&adapter->pdev->dev, "skb alloc failed\n");
+ 		be_rx_compl_discard(adapter, rxcp);
+@@ -795,7 +787,15 @@ static void be_rx_compl_process(struct be_adapter *adapter,
+ 	skb->protocol = eth_type_trans(skb, adapter->netdev);
+ 	skb->dev = adapter->netdev;
+ 
+-	if (vlanf) {
++	vlanf = AMAP_GET_BITS(struct amap_eth_rx_compl, vtp, rxcp);
++	vtm = AMAP_GET_BITS(struct amap_eth_rx_compl, vtm, rxcp);
++
++	/* vlanf could be wrongly set in some cards.
++	 * ignore if vtm is not set */
++	if ((adapter->cap & 0x400) && !vtm)
++		vlanf = 0;
++
++	if (unlikely(vlanf)) {
+ 		if (!adapter->vlan_grp || adapter->vlans_added == 0) {
+ 			kfree_skb(skb);
+ 			return;
+-- 
+1.6.3.3
 
