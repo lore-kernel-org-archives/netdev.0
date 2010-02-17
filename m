@@ -1,482 +1,216 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 07/18] igb: Allocate rings seperately instead of
-	as a block
-Date: Wed, 17 Feb 2010 03:02:39 -0800
-Message-ID: <20100217110237.17723.55613.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 08/18] igb: remove adaptive IFS from driver
+Date: Wed, 17 Feb 2010 03:02:59 -0800
+Message-ID: <20100217110257.17723.25677.stgit@localhost.localdomain>
 References: <20100217105953.17723.36633.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Nicholas Nunley <nicholasx.d.nunley@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta13.westchester.pa.mail.comcast.net ([76.96.59.243]:60348
-	"EHLO qmta13.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753021Ab0BQLC5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 06:02:57 -0500
+Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:60802
+	"EHLO qmta10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753887Ab0BQLDR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 06:03:17 -0500
 In-Reply-To: <20100217105953.17723.36633.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Nick Nunley <nicholasx.d.nunley@intel.com>
 
-This change makes it so that the rings are allocated seperately.  As a
-result we can allocate them on seperate nodes at some point in the future
-if we so desire.
+Adaptive IFS support has been included in the igb driver since its
+initial release, but it is not a feature on any igb NICs. This patch
+removes it from the driver.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Nicholas Nunley <nicholasx.d.nunley@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/igb.h         |    5 +-
- drivers/net/igb/igb_ethtool.c |   46 +++++++++--------
- drivers/net/igb/igb_main.c    |  113 +++++++++++++++++++++--------------------
- 3 files changed, 83 insertions(+), 81 deletions(-)
+ drivers/net/igb/e1000_defines.h |    6 ---
+ drivers/net/igb/e1000_hw.h      |    7 ----
+ drivers/net/igb/e1000_mac.c     |   70 ---------------------------------------
+ drivers/net/igb/e1000_mac.h     |    2 -
+ drivers/net/igb/igb_main.c      |   10 +-----
+ 5 files changed, 2 insertions(+), 93 deletions(-)
 
-diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
-index 0e0800d..8f07bc0 100644
---- a/drivers/net/igb/igb.h
-+++ b/drivers/net/igb/igb.h
-@@ -240,7 +240,6 @@ static inline int igb_desc_unused(struct igb_ring *ring)
+diff --git a/drivers/net/igb/e1000_defines.h b/drivers/net/igb/e1000_defines.h
+index c017150..fe6cf1b 100644
+--- a/drivers/net/igb/e1000_defines.h
++++ b/drivers/net/igb/e1000_defines.h
+@@ -313,12 +313,6 @@
+ #define E1000_PBA_34K 0x0022
+ #define E1000_PBA_64K 0x0040    /* 64KB */
+ 
+-#define IFS_MAX       80
+-#define IFS_MIN       40
+-#define IFS_RATIO     4
+-#define IFS_STEP      10
+-#define MIN_NUM_XMITS 1000
+-
+ /* SW Semaphore Register */
+ #define E1000_SWSM_SMBI         0x00000001 /* Driver Semaphore bit */
+ #define E1000_SWSM_SWESMBI      0x00000002 /* FW Semaphore bit */
+diff --git a/drivers/net/igb/e1000_hw.h b/drivers/net/igb/e1000_hw.h
+index dbaeb5f..4480052 100644
+--- a/drivers/net/igb/e1000_hw.h
++++ b/drivers/net/igb/e1000_hw.h
+@@ -339,19 +339,12 @@ struct e1000_mac_info {
+ 
+ 	enum e1000_mac_type type;
+ 
+-	u32 collision_delta;
+ 	u32 ledctl_default;
+ 	u32 ledctl_mode1;
+ 	u32 ledctl_mode2;
+ 	u32 mc_filter_type;
+-	u32 tx_packet_delta;
+ 	u32 txcw;
+ 
+-	u16 current_ifs_val;
+-	u16 ifs_max_val;
+-	u16 ifs_min_val;
+-	u16 ifs_ratio;
+-	u16 ifs_step_size;
+ 	u16 mta_reg_count;
+ 	u16 uta_reg_count;
+ 
+diff --git a/drivers/net/igb/e1000_mac.c b/drivers/net/igb/e1000_mac.c
+index 2ad358a..2a8a886 100644
+--- a/drivers/net/igb/e1000_mac.c
++++ b/drivers/net/igb/e1000_mac.c
+@@ -1304,76 +1304,6 @@ out:
  }
  
- /* board specific private data structure */
+ /**
+- *  igb_reset_adaptive - Reset Adaptive Interframe Spacing
+- *  @hw: pointer to the HW structure
+- *
+- *  Reset the Adaptive Interframe Spacing throttle to default values.
+- **/
+-void igb_reset_adaptive(struct e1000_hw *hw)
+-{
+-	struct e1000_mac_info *mac = &hw->mac;
 -
- struct igb_adapter {
- 	struct timer_list watchdog_timer;
- 	struct timer_list phy_info_timer;
-@@ -266,12 +265,12 @@ struct igb_adapter {
- 	unsigned long led_status;
- 
- 	/* TX */
--	struct igb_ring *tx_ring;      /* One per active queue */
-+	struct igb_ring *tx_ring[16];
- 	unsigned long tx_queue_len;
- 	u32 tx_timeout_count;
- 
- 	/* RX */
--	struct igb_ring *rx_ring;      /* One per active queue */
-+	struct igb_ring *rx_ring[16];
- 	int num_tx_queues;
- 	int num_rx_queues;
- 
-diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
-index 4852883..a4cead1 100644
---- a/drivers/net/igb/igb_ethtool.c
-+++ b/drivers/net/igb/igb_ethtool.c
-@@ -314,7 +314,7 @@ static int igb_set_pauseparam(struct net_device *netdev,
- static u32 igb_get_rx_csum(struct net_device *netdev)
- {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
--	return !!(adapter->rx_ring[0].flags & IGB_RING_FLAG_RX_CSUM);
-+	return !!(adapter->rx_ring[0]->flags & IGB_RING_FLAG_RX_CSUM);
- }
- 
- static int igb_set_rx_csum(struct net_device *netdev, u32 data)
-@@ -324,9 +324,9 @@ static int igb_set_rx_csum(struct net_device *netdev, u32 data)
- 
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
- 		if (data)
--			adapter->rx_ring[i].flags |= IGB_RING_FLAG_RX_CSUM;
-+			adapter->rx_ring[i]->flags |= IGB_RING_FLAG_RX_CSUM;
- 		else
--			adapter->rx_ring[i].flags &= ~IGB_RING_FLAG_RX_CSUM;
-+			adapter->rx_ring[i]->flags &= ~IGB_RING_FLAG_RX_CSUM;
- 	}
- 
- 	return 0;
-@@ -789,9 +789,9 @@ static int igb_set_ringparam(struct net_device *netdev,
- 
- 	if (!netif_running(adapter->netdev)) {
- 		for (i = 0; i < adapter->num_tx_queues; i++)
--			adapter->tx_ring[i].count = new_tx_count;
-+			adapter->tx_ring[i]->count = new_tx_count;
- 		for (i = 0; i < adapter->num_rx_queues; i++)
--			adapter->rx_ring[i].count = new_rx_count;
-+			adapter->rx_ring[i]->count = new_rx_count;
- 		adapter->tx_ring_count = new_tx_count;
- 		adapter->rx_ring_count = new_rx_count;
- 		goto clear_reset;
-@@ -815,10 +815,10 @@ static int igb_set_ringparam(struct net_device *netdev,
- 	 * to the tx and rx ring structs.
- 	 */
- 	if (new_tx_count != adapter->tx_ring_count) {
--		memcpy(temp_ring, adapter->tx_ring,
--		       adapter->num_tx_queues * sizeof(struct igb_ring));
+-	if (!mac->adaptive_ifs) {
+-		hw_dbg("Not in Adaptive IFS mode!\n");
+-		goto out;
+-	}
 -
- 		for (i = 0; i < adapter->num_tx_queues; i++) {
-+			memcpy(&temp_ring[i], adapter->tx_ring[i],
-+			       sizeof(struct igb_ring));
-+
- 			temp_ring[i].count = new_tx_count;
- 			err = igb_setup_tx_resources(&temp_ring[i]);
- 			if (err) {
-@@ -830,20 +830,21 @@ static int igb_set_ringparam(struct net_device *netdev,
- 			}
- 		}
- 
--		for (i = 0; i < adapter->num_tx_queues; i++)
--			igb_free_tx_resources(&adapter->tx_ring[i]);
-+		for (i = 0; i < adapter->num_tx_queues; i++) {
-+			igb_free_tx_resources(adapter->tx_ring[i]);
- 
--		memcpy(adapter->tx_ring, temp_ring,
--		       adapter->num_tx_queues * sizeof(struct igb_ring));
-+			memcpy(adapter->tx_ring[i], &temp_ring[i],
-+			       sizeof(struct igb_ring));
-+		}
- 
- 		adapter->tx_ring_count = new_tx_count;
- 	}
- 
--	if (new_rx_count != adapter->rx_ring->count) {
--		memcpy(temp_ring, adapter->rx_ring,
--		       adapter->num_rx_queues * sizeof(struct igb_ring));
+-	if (!mac->ifs_params_forced) {
+-		mac->current_ifs_val = 0;
+-		mac->ifs_min_val = IFS_MIN;
+-		mac->ifs_max_val = IFS_MAX;
+-		mac->ifs_step_size = IFS_STEP;
+-		mac->ifs_ratio = IFS_RATIO;
+-	}
 -
-+	if (new_rx_count != adapter->rx_ring_count) {
- 		for (i = 0; i < adapter->num_rx_queues; i++) {
-+			memcpy(&temp_ring[i], adapter->rx_ring[i],
-+			       sizeof(struct igb_ring));
-+
- 			temp_ring[i].count = new_rx_count;
- 			err = igb_setup_rx_resources(&temp_ring[i]);
- 			if (err) {
-@@ -856,11 +857,12 @@ static int igb_set_ringparam(struct net_device *netdev,
+-	mac->in_ifs_mode = false;
+-	wr32(E1000_AIT, 0);
+-out:
+-	return;
+-}
+-
+-/**
+- *  igb_update_adaptive - Update Adaptive Interframe Spacing
+- *  @hw: pointer to the HW structure
+- *
+- *  Update the Adaptive Interframe Spacing Throttle value based on the
+- *  time between transmitted packets and time between collisions.
+- **/
+-void igb_update_adaptive(struct e1000_hw *hw)
+-{
+-	struct e1000_mac_info *mac = &hw->mac;
+-
+-	if (!mac->adaptive_ifs) {
+-		hw_dbg("Not in Adaptive IFS mode!\n");
+-		goto out;
+-	}
+-
+-	if ((mac->collision_delta * mac->ifs_ratio) > mac->tx_packet_delta) {
+-		if (mac->tx_packet_delta > MIN_NUM_XMITS) {
+-			mac->in_ifs_mode = true;
+-			if (mac->current_ifs_val < mac->ifs_max_val) {
+-				if (!mac->current_ifs_val)
+-					mac->current_ifs_val = mac->ifs_min_val;
+-				else
+-					mac->current_ifs_val +=
+-						mac->ifs_step_size;
+-				wr32(E1000_AIT,
+-						mac->current_ifs_val);
+-			}
+-		}
+-	} else {
+-		if (mac->in_ifs_mode &&
+-		    (mac->tx_packet_delta <= MIN_NUM_XMITS)) {
+-			mac->current_ifs_val = 0;
+-			mac->in_ifs_mode = false;
+-			wr32(E1000_AIT, 0);
+-		}
+-	}
+-out:
+-	return;
+-}
+-
+-/**
+  *  igb_validate_mdi_setting - Verify MDI/MDIx settings
+  *  @hw: pointer to the HW structure
+  *
+diff --git a/drivers/net/igb/e1000_mac.h b/drivers/net/igb/e1000_mac.h
+index bca17d8..601be99 100644
+--- a/drivers/net/igb/e1000_mac.h
++++ b/drivers/net/igb/e1000_mac.h
+@@ -67,8 +67,6 @@ void igb_mta_set(struct e1000_hw *hw, u32 hash_value);
+ void igb_put_hw_semaphore(struct e1000_hw *hw);
+ void igb_rar_set(struct e1000_hw *hw, u8 *addr, u32 index);
+ s32  igb_check_alt_mac_addr(struct e1000_hw *hw);
+-void igb_reset_adaptive(struct e1000_hw *hw);
+-void igb_update_adaptive(struct e1000_hw *hw);
  
- 		}
+ bool igb_enable_mng_pass_thru(struct e1000_hw *hw);
  
--		for (i = 0; i < adapter->num_rx_queues; i++)
--			igb_free_rx_resources(&adapter->rx_ring[i]);
-+		for (i = 0; i < adapter->num_rx_queues; i++) {
-+			igb_free_rx_resources(adapter->rx_ring[i]);
- 
--		memcpy(adapter->rx_ring, temp_ring,
--		       adapter->num_rx_queues * sizeof(struct igb_ring));
-+			memcpy(adapter->rx_ring[i], &temp_ring[i],
-+			       sizeof(struct igb_ring));
-+		}
- 
- 		adapter->rx_ring_count = new_rx_count;
- 	}
-@@ -2036,12 +2038,12 @@ static void igb_get_ethtool_stats(struct net_device *netdev,
- 			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
- 	}
- 	for (j = 0; j < adapter->num_tx_queues; j++) {
--		queue_stat = (u64 *)&adapter->tx_ring[j].tx_stats;
-+		queue_stat = (u64 *)&adapter->tx_ring[j]->tx_stats;
- 		for (k = 0; k < IGB_TX_QUEUE_STATS_LEN; k++, i++)
- 			data[i] = queue_stat[k];
- 	}
- 	for (j = 0; j < adapter->num_rx_queues; j++) {
--		queue_stat = (u64 *)&adapter->rx_ring[j].rx_stats;
-+		queue_stat = (u64 *)&adapter->rx_ring[j]->rx_stats;
- 		for (k = 0; k < IGB_RX_QUEUE_STATS_LEN; k++, i++)
- 			data[i] = queue_stat[k];
- 	}
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 089a7c3..30fb5a8 100644
+index 30fb5a8..eb48e1a 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -318,31 +318,35 @@ static void igb_cache_ring_register(struct igb_adapter *adapter)
- 		 */
- 		if (adapter->vfs_allocated_count) {
- 			for (; i < adapter->rss_queues; i++)
--				adapter->rx_ring[i].reg_idx = rbase_offset +
--				                              Q_IDX_82576(i);
-+				adapter->rx_ring[i]->reg_idx = rbase_offset +
-+				                               Q_IDX_82576(i);
- 			for (; j < adapter->rss_queues; j++)
--				adapter->tx_ring[j].reg_idx = rbase_offset +
--				                              Q_IDX_82576(j);
-+				adapter->tx_ring[j]->reg_idx = rbase_offset +
-+				                               Q_IDX_82576(j);
- 		}
- 	case e1000_82575:
- 	case e1000_82580:
- 	default:
- 		for (; i < adapter->num_rx_queues; i++)
--			adapter->rx_ring[i].reg_idx = rbase_offset + i;
-+			adapter->rx_ring[i]->reg_idx = rbase_offset + i;
- 		for (; j < adapter->num_tx_queues; j++)
--			adapter->tx_ring[j].reg_idx = rbase_offset + j;
-+			adapter->tx_ring[j]->reg_idx = rbase_offset + j;
- 		break;
- 	}
+@@ -1365,7 +1365,6 @@ void igb_reset(struct igb_adapter *adapter)
+ 	/* Enable h/w to recognize an 802.1Q VLAN Ethernet packet */
+ 	wr32(E1000_VET, ETHERNET_IEEE_VLAN_TYPE);
+ 
+-	igb_reset_adaptive(hw);
+ 	igb_get_phy_info(hw);
  }
  
- static void igb_free_queues(struct igb_adapter *adapter)
- {
--	kfree(adapter->tx_ring);
--	kfree(adapter->rx_ring);
--
--	adapter->tx_ring = NULL;
--	adapter->rx_ring = NULL;
-+	int i;
+@@ -1508,7 +1507,6 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 	igb_get_bus_info_pcie(hw);
  
-+	for (i = 0; i < adapter->num_tx_queues; i++) {
-+		kfree(adapter->tx_ring[i]);
-+		adapter->tx_ring[i] = NULL;
-+	}
-+	for (i = 0; i < adapter->num_rx_queues; i++) {
-+		kfree(adapter->rx_ring[i]);
-+		adapter->rx_ring[i] = NULL;
-+	}
- 	adapter->num_rx_queues = 0;
- 	adapter->num_tx_queues = 0;
- }
-@@ -356,20 +360,13 @@ static void igb_free_queues(struct igb_adapter *adapter)
-  **/
- static int igb_alloc_queues(struct igb_adapter *adapter)
- {
-+	struct igb_ring *ring;
- 	int i;
+ 	hw->phy.autoneg_wait_to_complete = false;
+-	hw->mac.adaptive_ifs = true;
  
--	adapter->tx_ring = kcalloc(adapter->num_tx_queues,
--				   sizeof(struct igb_ring), GFP_KERNEL);
--	if (!adapter->tx_ring)
--		goto err;
--
--	adapter->rx_ring = kcalloc(adapter->num_rx_queues,
--				   sizeof(struct igb_ring), GFP_KERNEL);
--	if (!adapter->rx_ring)
--		goto err;
--
- 	for (i = 0; i < adapter->num_tx_queues; i++) {
--		struct igb_ring *ring = &(adapter->tx_ring[i]);
-+		ring = kzalloc(sizeof(struct igb_ring), GFP_KERNEL);
-+		if (!ring)
-+			goto err;
- 		ring->count = adapter->tx_ring_count;
- 		ring->queue_index = i;
- 		ring->pdev = adapter->pdev;
-@@ -377,10 +374,13 @@ static int igb_alloc_queues(struct igb_adapter *adapter)
- 		/* For 82575, context index must be unique per ring. */
- 		if (adapter->hw.mac.type == e1000_82575)
- 			ring->flags = IGB_RING_FLAG_TX_CTX_IDX;
-+		adapter->tx_ring[i] = ring;
+ 	/* Copper options */
+ 	if (hw->phy.media_type == e1000_media_type_copper) {
+@@ -3159,7 +3157,6 @@ static void igb_watchdog_task(struct work_struct *work)
  	}
  
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
--		struct igb_ring *ring = &(adapter->rx_ring[i]);
-+		ring = kzalloc(sizeof(struct igb_ring), GFP_KERNEL);
-+		if (!ring)
-+			goto err;
- 		ring->count = adapter->rx_ring_count;
- 		ring->queue_index = i;
- 		ring->pdev = adapter->pdev;
-@@ -390,6 +390,7 @@ static int igb_alloc_queues(struct igb_adapter *adapter)
- 		/* set flag indicating ring supports SCTP checksum offload */
- 		if (adapter->hw.mac.type >= e1000_82576)
- 			ring->flags |= IGB_RING_FLAG_RX_SCTP_CSUM;
-+		adapter->rx_ring[i] = ring;
- 	}
- 
- 	igb_cache_ring_register(adapter);
-@@ -780,10 +781,9 @@ err_out:
- static void igb_map_rx_ring_to_vector(struct igb_adapter *adapter,
-                                       int ring_idx, int v_idx)
- {
--	struct igb_q_vector *q_vector;
-+	struct igb_q_vector *q_vector = adapter->q_vector[v_idx];
- 
--	q_vector = adapter->q_vector[v_idx];
--	q_vector->rx_ring = &adapter->rx_ring[ring_idx];
-+	q_vector->rx_ring = adapter->rx_ring[ring_idx];
- 	q_vector->rx_ring->q_vector = q_vector;
- 	q_vector->itr_val = adapter->rx_itr_setting;
- 	if (q_vector->itr_val && q_vector->itr_val <= 3)
-@@ -793,10 +793,9 @@ static void igb_map_rx_ring_to_vector(struct igb_adapter *adapter,
- static void igb_map_tx_ring_to_vector(struct igb_adapter *adapter,
-                                       int ring_idx, int v_idx)
- {
--	struct igb_q_vector *q_vector;
-+	struct igb_q_vector *q_vector = adapter->q_vector[v_idx];
- 
--	q_vector = adapter->q_vector[v_idx];
--	q_vector->tx_ring = &adapter->tx_ring[ring_idx];
-+	q_vector->tx_ring = adapter->tx_ring[ring_idx];
- 	q_vector->tx_ring->q_vector = q_vector;
- 	q_vector->itr_val = adapter->tx_itr_setting;
- 	if (q_vector->itr_val && q_vector->itr_val <= 3)
-@@ -1106,7 +1105,7 @@ static void igb_configure(struct igb_adapter *adapter)
- 	 * at least 1 descriptor unused to make sure
- 	 * next_to_use != next_to_clean */
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
--		struct igb_ring *ring = &adapter->rx_ring[i];
-+		struct igb_ring *ring = adapter->rx_ring[i];
- 		igb_alloc_rx_buffers_adv(ring, igb_desc_unused(ring));
- 	}
- 
-@@ -2148,19 +2147,19 @@ static int igb_setup_all_tx_resources(struct igb_adapter *adapter)
- 	int i, err = 0;
+ 	igb_update_stats(adapter);
+-	igb_update_adaptive(hw);
  
  	for (i = 0; i < adapter->num_tx_queues; i++) {
--		err = igb_setup_tx_resources(&adapter->tx_ring[i]);
-+		err = igb_setup_tx_resources(adapter->tx_ring[i]);
- 		if (err) {
- 			dev_err(&pdev->dev,
- 				"Allocation for Tx Queue %u failed\n", i);
- 			for (i--; i >= 0; i--)
--				igb_free_tx_resources(&adapter->tx_ring[i]);
-+				igb_free_tx_resources(adapter->tx_ring[i]);
- 			break;
- 		}
- 	}
+ 		struct igb_ring *tx_ring = adapter->tx_ring[i];
+@@ -4064,11 +4061,8 @@ void igb_update_stats(struct igb_adapter *adapter)
+ 	adapter->stats.mptc += rd32(E1000_MPTC);
+ 	adapter->stats.bptc += rd32(E1000_BPTC);
  
- 	for (i = 0; i < IGB_ABS_MAX_TX_QUEUES; i++) {
- 		int r_idx = i % adapter->num_tx_queues;
--		adapter->multi_tx_table[i] = &adapter->tx_ring[r_idx];
-+		adapter->multi_tx_table[i] = adapter->tx_ring[r_idx];
- 	}
- 	return err;
- }
-@@ -2243,7 +2242,7 @@ static void igb_configure_tx(struct igb_adapter *adapter)
- 	int i;
+-	/* used for adaptive IFS */
+-	hw->mac.tx_packet_delta = rd32(E1000_TPT);
+-	adapter->stats.tpt += hw->mac.tx_packet_delta;
+-	hw->mac.collision_delta = rd32(E1000_COLC);
+-	adapter->stats.colc += hw->mac.collision_delta;
++	adapter->stats.tpt += rd32(E1000_TPT);
++	adapter->stats.colc += rd32(E1000_COLC);
  
- 	for (i = 0; i < adapter->num_tx_queues; i++)
--		igb_configure_tx_ring(adapter, &adapter->tx_ring[i]);
-+		igb_configure_tx_ring(adapter, adapter->tx_ring[i]);
- }
- 
- /**
-@@ -2301,12 +2300,12 @@ static int igb_setup_all_rx_resources(struct igb_adapter *adapter)
- 	int i, err = 0;
- 
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
--		err = igb_setup_rx_resources(&adapter->rx_ring[i]);
-+		err = igb_setup_rx_resources(adapter->rx_ring[i]);
- 		if (err) {
- 			dev_err(&pdev->dev,
- 				"Allocation for Rx Queue %u failed\n", i);
- 			for (i--; i >= 0; i--)
--				igb_free_rx_resources(&adapter->rx_ring[i]);
-+				igb_free_rx_resources(adapter->rx_ring[i]);
- 			break;
- 		}
- 	}
-@@ -2634,7 +2633,7 @@ static void igb_configure_rx(struct igb_adapter *adapter)
- 	/* Setup the HW Rx Head and Tail Descriptor Pointers and
- 	 * the Base and Length of the Rx Descriptor Ring */
- 	for (i = 0; i < adapter->num_rx_queues; i++)
--		igb_configure_rx_ring(adapter, &adapter->rx_ring[i]);
-+		igb_configure_rx_ring(adapter, adapter->rx_ring[i]);
- }
- 
- /**
-@@ -2671,7 +2670,7 @@ static void igb_free_all_tx_resources(struct igb_adapter *adapter)
- 	int i;
- 
- 	for (i = 0; i < adapter->num_tx_queues; i++)
--		igb_free_tx_resources(&adapter->tx_ring[i]);
-+		igb_free_tx_resources(adapter->tx_ring[i]);
- }
- 
- void igb_unmap_and_free_tx_resource(struct igb_ring *tx_ring,
-@@ -2738,7 +2737,7 @@ static void igb_clean_all_tx_rings(struct igb_adapter *adapter)
- 	int i;
- 
- 	for (i = 0; i < adapter->num_tx_queues; i++)
--		igb_clean_tx_ring(&adapter->tx_ring[i]);
-+		igb_clean_tx_ring(adapter->tx_ring[i]);
- }
- 
- /**
-@@ -2775,7 +2774,7 @@ static void igb_free_all_rx_resources(struct igb_adapter *adapter)
- 	int i;
- 
- 	for (i = 0; i < adapter->num_rx_queues; i++)
--		igb_free_rx_resources(&adapter->rx_ring[i]);
-+		igb_free_rx_resources(adapter->rx_ring[i]);
- }
- 
- /**
-@@ -2839,7 +2838,7 @@ static void igb_clean_all_rx_rings(struct igb_adapter *adapter)
- 	int i;
- 
- 	for (i = 0; i < adapter->num_rx_queues; i++)
--		igb_clean_rx_ring(&adapter->rx_ring[i]);
-+		igb_clean_rx_ring(adapter->rx_ring[i]);
- }
- 
- /**
-@@ -3163,7 +3162,7 @@ static void igb_watchdog_task(struct work_struct *work)
- 	igb_update_adaptive(hw);
- 
- 	for (i = 0; i < adapter->num_tx_queues; i++) {
--		struct igb_ring *tx_ring = &adapter->tx_ring[i];
-+		struct igb_ring *tx_ring = adapter->tx_ring[i];
- 		if (!netif_carrier_ok(netdev)) {
- 			/* We've lost link, so the controller stops DMA,
- 			 * but we've got queued Tx work that's never going
-@@ -3359,13 +3358,13 @@ static void igb_set_itr(struct igb_adapter *adapter)
- 
- 	adapter->rx_itr = igb_update_itr(adapter,
- 				    adapter->rx_itr,
--				    adapter->rx_ring->total_packets,
--				    adapter->rx_ring->total_bytes);
-+				    q_vector->rx_ring->total_packets,
-+				    q_vector->rx_ring->total_bytes);
- 
- 	adapter->tx_itr = igb_update_itr(adapter,
- 				    adapter->tx_itr,
--				    adapter->tx_ring->total_packets,
--				    adapter->tx_ring->total_bytes);
-+				    q_vector->tx_ring->total_packets,
-+				    q_vector->tx_ring->total_bytes);
- 	current_itr = max(adapter->rx_itr, adapter->tx_itr);
- 
- 	/* conservative mode (itr 3) eliminates the lowest_latency setting */
-@@ -3388,10 +3387,10 @@ static void igb_set_itr(struct igb_adapter *adapter)
- 	}
- 
- set_itr_now:
--	adapter->rx_ring->total_bytes = 0;
--	adapter->rx_ring->total_packets = 0;
--	adapter->tx_ring->total_bytes = 0;
--	adapter->tx_ring->total_packets = 0;
-+	q_vector->rx_ring->total_bytes = 0;
-+	q_vector->rx_ring->total_packets = 0;
-+	q_vector->tx_ring->total_bytes = 0;
-+	q_vector->tx_ring->total_packets = 0;
- 
- 	if (new_itr != q_vector->itr_val) {
- 		/* this attempts to bias the interrupt rate towards Bulk
-@@ -3950,7 +3949,7 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
- 	netdev->mtu = new_mtu;
- 
- 	for (i = 0; i < adapter->num_rx_queues; i++)
--		adapter->rx_ring[i].rx_buffer_len = rx_buffer_len;
-+		adapter->rx_ring[i]->rx_buffer_len = rx_buffer_len;
- 
- 	if (netif_running(netdev))
- 		igb_up(adapter);
-@@ -3992,10 +3991,11 @@ void igb_update_stats(struct igb_adapter *adapter)
- 	packets = 0;
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
- 		u32 rqdpc_tmp = rd32(E1000_RQDPC(i)) & 0x0FFF;
--		adapter->rx_ring[i].rx_stats.drops += rqdpc_tmp;
-+		struct igb_ring *ring = adapter->rx_ring[i];
-+		ring->rx_stats.drops += rqdpc_tmp;
- 		net_stats->rx_fifo_errors += rqdpc_tmp;
--		bytes += adapter->rx_ring[i].rx_stats.bytes;
--		packets += adapter->rx_ring[i].rx_stats.packets;
-+		bytes += ring->rx_stats.bytes;
-+		packets += ring->rx_stats.packets;
- 	}
- 
- 	net_stats->rx_bytes = bytes;
-@@ -4004,8 +4004,9 @@ void igb_update_stats(struct igb_adapter *adapter)
- 	bytes = 0;
- 	packets = 0;
- 	for (i = 0; i < adapter->num_tx_queues; i++) {
--		bytes += adapter->tx_ring[i].tx_stats.bytes;
--		packets += adapter->tx_ring[i].tx_stats.packets;
-+		struct igb_ring *ring = adapter->tx_ring[i];
-+		bytes += ring->tx_stats.bytes;
-+		packets += ring->tx_stats.packets;
- 	}
- 	net_stats->tx_bytes = bytes;
- 	net_stats->tx_packets = packets;
+ 	adapter->stats.algnerrc += rd32(E1000_ALGNERRC);
+ 	adapter->stats.rxerrc += rd32(E1000_RXERRC);
 
