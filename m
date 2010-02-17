@@ -1,31 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 0/3] qlge: minor fixes.
-Date: Wed, 17 Feb 2010 13:42:54 -0800 (PST)
-Message-ID: <20100217.134254.04460767.davem@davemloft.net>
-References: <1266424883-25927-1-git-send-email-ron.mercer@qlogic.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH V3 net-next 0/2] usbnet: Use (netdev|netif)_<level>
+ macros
+Date: Wed, 17 Feb 2010 13:44:27 -0800
+Message-ID: <1266443067.8446.179.camel@Joe-Laptop.home>
+References: <20100217.000422.246530855.davem@davemloft.net>
+	 <cover.1266438216.git.joe@perches.com>
+	 <20100217.133846.181531049.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ron.mercer@qlogic.com
+Cc: david-b@pacbell.net, gregkh@suse.de, tilman@imap.cc,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57266
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757363Ab0BQVmj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 16:42:39 -0500
-In-Reply-To: <1266424883-25927-1-git-send-email-ron.mercer@qlogic.com>
+Received: from mail.perches.com ([173.55.12.10]:1046 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757212Ab0BQVo3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2010 16:44:29 -0500
+In-Reply-To: <20100217.133846.181531049.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Wed, 17 Feb 2010 08:41:20 -0800
+On Wed, 2010-02-17 at 13:38 -0800, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Wed, 17 Feb 2010 12:30:22 -0800
+> > Sorry 'bout that.
+> > I'll try to improve my insufficient grep and build testing.
+> 'allmodconfig' works well for build testing.  :-)
 
-> 
->  Miscellaneous fixes for qlge:
-> 
-> 1) Fix large ping (non-TCP/UDP) frame dropping when data spans
-> multiple  rx  buffers.
-> 2) Fix mac address filter issue for bonding.
-> 3) Fix ethtool loopback test.
+And takes ~6 hours on my netbook ;)
 
-All applied, thanks.
+I try to avoid it.
+Do you know of an ssh-able test build system?
+
+cheers, Joe
+
