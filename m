@@ -1,43 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net-next 2/2] drivers/net/usb: Use netif_<level>
- logging facilities
-Date: Tue, 16 Feb 2010 23:37:22 -0800 (PST)
-Message-ID: <20100216.233722.59677659.davem@davemloft.net>
-References: <20100212.123837.56526847.davem@davemloft.net>
-	<c9b38227b55aa3bb46728329bf5290063124f516.1266221693.git.joe@perches.com>
+Subject: Re: [PATCH] net: remove INIT_RCU_HEAD() usage
+Date: Tue, 16 Feb 2010 23:38:07 -0800 (PST)
+Message-ID: <20100216.233807.48509000.davem@davemloft.net>
+References: <20100212214138.GA5866@x200>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: david-b@pacbell.net, gregkh@suse.de, tilman@imap.cc,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <c9b38227b55aa3bb46728329bf5290063124f516.1266221693.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: adobriyan@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45520
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751573Ab0BQHhv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 02:37:51 -0500
+In-Reply-To: <20100212214138.GA5866@x200>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Mon, 15 Feb 2010 00:25:12 -0800
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Fri, 12 Feb 2010 23:41:39 +0200
 
-> Convert from:
-> 	if (netif_msg_<foo>(priv))
-> 		dev_<level>(dev...
-> to
-> 	netif_<level>(priv, foo, dev...
+> call_rcu() will unconditionally reinitialize RCU head anyway.
 > 
-> Also convert a few:
-> 
-> 	if (i < REG_TIMEOUT) {
-> 		etc...
-> 		return ret;
->        }
-> to
-> 	if (i >= REG_TIMEOUT)
-> 		goto fail;
-> 	etc...
-> 	return ret;
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-Applied.
+Applied to net-next-2.6
