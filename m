@@ -1,33 +1,30 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [PATCH 0/2] Staging: Clean up octeon Ethernet some.
-Date: Tue, 16 Feb 2010 20:58:44 -0800
-Message-ID: <20100217045844.GB18306@suse.de>
-References: <4B7B4540.1010700@caviumnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] atm : fix
+ /sys/devices/virtual/atm/X/carrier(ATM_PHY_SIG_UNKNOWN)
+Date: Tue, 16 Feb 2010 22:16:51 -0800 (PST)
+Message-ID: <20100216.221651.189702430.davem@davemloft.net>
+References: <20100214175136.GA15891@frolo.macqel>
+	<201002142134.o1ELYehH019725@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ralf Baechle <ralf@linux-mips.org>,
-	linux-mips <linux-mips@linux-mips.org>,
-	Netdev <netdev@vger.kernel.org>
-To: David Daney <ddaney@caviumnetworks.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: phdm@macqel.be, netdev@vger.kernel.org
+To: chas3@users.sourceforge.net, chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:59181 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934042Ab0BQE7Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Feb 2010 23:59:25 -0500
-Content-Disposition: inline
-In-Reply-To: <4B7B4540.1010700@caviumnetworks.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54556
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751083Ab0BQGQi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 01:16:38 -0500
+In-Reply-To: <201002142134.o1ELYehH019725@thirdoffive.cmf.nrl.navy.mil>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 16, 2010 at 05:24:16PM -0800, David Daney wrote:
-> These two patches clean up some comments and get rid of the code that
-> creates a non-standard file in /proc
-> 
-> As with the previous octeon_ethernet patches, these can probably go
-> via Ralf's linux-mips.org tree.
+From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
+Date: Sun, 14 Feb 2010 16:34:40 -0500
 
-Going through Ralf's tree is fine for me.
+> as i said before there is carrier or there is not.  if the driver
+> doesnt support checking/knowing the carrier status it should simply
+> say 'yes i have carrier'.
 
-thanks,
-
-greg k-h
+I agree %100 and this is how we handle similar situations
+for other networking device types.
