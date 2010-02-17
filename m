@@ -1,54 +1,87 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [net-next PATCH v4 1/3] sysctl: refactor integer handling proc
- code
-Date: Thu, 18 Feb 2010 00:21:30 +0800
-Message-ID: <4B7C178A.8010708@redhat.com>
-References: <1266271241-6293-1-git-send-email-opurdila@ixiacom.com> <201002161341.56206.opurdila@ixiacom.com> <4B7A991F.3040601@redhat.com> <201002161544.33086.opurdila@ixiacom.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [net-next PATCH v4 0/3] net: reserve ports for applications using fixed port
+Date: Wed, 17 Feb 2010 08:26:27 -0800
+Message-ID: <m18war3k24.fsf@fess.ebiederm.org>
+References: <1266271241-6293-1-git-send-email-opurdila@ixiacom.com>
+	<201002162151.04861.opurdila@ixiacom.com>
+	<m1mxz93pw2.fsf@fess.ebiederm.org>
+	<201002162322.13101.opurdila@ixiacom.com>
+	<4B7C11D4.1080309@redhat.com> <m1ljer3ksy.fsf@fess.ebiederm.org>
+	<4B7C1722.7040304@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Octavian Purdila <opurdila@ixiacom.com>,
+	David Miller <davem@davemloft.net>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Octavian Purdila <opurdila@ixiacom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22732 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751393Ab0BQQSL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2010 11:18:11 -0500
-In-Reply-To: <201002161544.33086.opurdila@ixiacom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4B7C1722.7040304@redhat.com> (Cong Wang's message of "Thu\, 18 Feb 2010 00\:19\:46 +0800")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Octavian Purdila wrote:
-> On Tuesday 16 February 2010 15:09:51 you wrote:
->> Octavian Purdila wrote:
->>> On Tuesday 16 February 2010 10:41:07 you wrote:
->>>>> +static int proc_skip_wspace(char __user **buf, size_t *size)
->>>>> +{
->>>>> +     char c;
->>>>> +
->>>>> +     while (*size) {
->>>>> +             if (get_user(c, *buf))
->>>>> +                     return -EFAULT;
->>>>> +             if (!isspace(c))
->>>>> +                     break;
->>>>> +             (*size)--; (*buf)++;
->>>>> +     }
->>>>> +
->>>>> +     return 0;
->>>>> +}
->>>> In lib/string.c we have skip_spaces(), I think we can use it
->>>> here instead of inventing another one.
->>> I'm afraid we can't, skip_spaces does not accept userspace buffers.
->> Well, you need to use copy_from_user() before call it.
+Cong Wang <amwang@redhat.com> writes:
+
+> Eric W. Biederman wrote:
+>> Cong Wang <amwang@redhat.com> writes:
 >>
-> 
-> And how much would you copy? You need to either use a stack buffer and do a 
-> loop copy or you would need to copy the whole userspace buffer which means we 
-> need to allocate a kernel buffer. I think its much cleaner the way is currently 
-> done.
+>>> Octavian Purdila wrote:
+>>>> On Tuesday 16 February 2010 22:08:13 you wrote:
+>>>>>> Something like bellow?
+>>>>>>
+>>>>>> # set bits 8080 and 1666
+>>>>>> $echo 8080 1666-1666 > /proc
+>>>>>>
+>>>>>> #reset bit 1666
+>>>>>> $echo 8080 > /proc
+>>>>>>
+>>>>>> #reset whole bitmap
+>>>>>> $echo > /proc
+>>>>> Yes. So something like that.
+>>>>>
+>>>>> I think I would use commas instead of spaces as that is more traditional.
+>>>
+>>> Why this is better than the current version?
+>>>
+>>> For the single port case, currently we use:
+>>>
+>>> echo +8080 > /xxxx #set
+>>> echo -8080 > /xxxx #clear
+>>>
+>>> Now we will use:
+>>>
+>>> echo 8080 > /xxxx #set
+>>> echo 8080 > /xxxx #clear
+>>
+>> No.
+>>
+>>> I don't think the latter is better...
+>>>
+>>> For the multi-port case, yes, we should accept 'echo 8080,10000 >/xxxx'.
+>>
+>> What I was envisioning was:
+>>
+>> echo 8080 > /xxx # set the bitmap to 8080
+>> echo 8080,10000 > /xxx # add 10000 to the bitmap
+>> echo 8080 > /xxxx # remove 10000 from the bitmap.
+>>
+>> That is when you set it you enter the entire set every time, treating
+>> the entire set as a single value.
+>>
+>
+> Oh, I see, this is ok.
+>
+> But if we could support multi-port, that will be better, something like:
+>
+> echo '8080,10000-11000' > /xxx #add port 8080 and port range 10000-11000
+>
+> so that I don't have to construct a long string for all ports within
+> 10000 and 11000.
 
-Yeah, maybe just a personal preference. :-/
+Yes, multi-port ranges are what I suggested.  You simply had not
+gotten confused about that aspect, so I was not repeating it.
+Except for pathological cases a ranges should keep the string
+that represents the bitmap small.
 
+Eric
