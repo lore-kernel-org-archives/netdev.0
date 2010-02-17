@@ -1,38 +1,39 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH V3 net-next 0/2] usbnet: Use (netdev|netif)_<level>
- macros
-Date: Wed, 17 Feb 2010 13:44:27 -0800
-Message-ID: <1266443067.8446.179.camel@Joe-Laptop.home>
-References: <20100217.000422.246530855.davem@davemloft.net>
-	 <cover.1266438216.git.joe@perches.com>
-	 <20100217.133846.181531049.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/8]: Bug fixes and new FW patch series
+Date: Wed, 17 Feb 2010 13:44:51 -0800 (PST)
+Message-ID: <20100217.134451.10225453.davem@davemloft.net>
+References: <1266408196.25691.841.camel@lb-tlvb-vladz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: david-b@pacbell.net, gregkh@suse.de, tilman@imap.cc,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: vladz@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1046 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757212Ab0BQVo3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2010 16:44:29 -0500
-In-Reply-To: <20100217.133846.181531049.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57276
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757397Ab0BQVog (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 16:44:36 -0500
+In-Reply-To: <1266408196.25691.841.camel@lb-tlvb-vladz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-02-17 at 13:38 -0800, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Wed, 17 Feb 2010 12:30:22 -0800
-> > Sorry 'bout that.
-> > I'll try to improve my insufficient grep and build testing.
-> 'allmodconfig' works well for build testing.  :-)
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Date: Wed, 17 Feb 2010 14:03:16 +0200
 
-And takes ~6 hours on my netbook ;)
+> Dave, hi.
+> Pls., apply the following series of patches.
+> It includes a few bugs fixes and a few FW.
+> 
+> The patches may also be found at
+> http://linux.broadcom.com/eilong/1.52.1-6
 
-I try to avoid it.
-Do you know of an ssh-able test build system?
+All applied, but please coordinate better with changes coming in via
+your colleages.
 
-cheers, Joe
+Patch #6 would not apply cleanly because the firmware/Makefile is
+different due to the bnx2 driver firmware updates made yesterday.
 
+I fixed it up by hand, but in the future apply patches that apply
+cleanly to the current tree.
+
+Thanks.
