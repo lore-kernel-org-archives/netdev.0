@@ -1,36 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ethtool: Don't flush n-tuple list from ethtool_reset()
-Date: Wed, 17 Feb 2010 13:39:34 -0800 (PST)
-Message-ID: <20100217.133934.143869560.davem@davemloft.net>
-References: <1266434814.2090.6.camel@achroite.uk.solarflarecom.com>
-	<Pine.WNT.4.64.1002171128350.7212@ppwaskie-MOBL2.amr.corp.intel.com>
+Subject: Re: regression due to "flush SAD/SPD generate false events"
+Date: Wed, 17 Feb 2010 13:42:17 -0800 (PST)
+Message-ID: <20100217.134217.244120118.davem@davemloft.net>
+References: <20100217191718.GA5256@x200>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
-To: peter.p.waskiewicz.jr@intel.com
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org
+To: adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44238
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57253
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754848Ab0BQVjT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 16:39:19 -0500
-In-Reply-To: <Pine.WNT.4.64.1002171128350.7212@ppwaskie-MOBL2.amr.corp.intel.com>
+	by vger.kernel.org with ESMTP id S1754848Ab0BQVmC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 16:42:02 -0500
+In-Reply-To: <20100217191718.GA5256@x200>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Date: Wed, 17 Feb 2010 11:29:33 -0800 (Pacific Standard Time)
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Wed, 17 Feb 2010 21:17:19 +0200
 
-> On Wed, 17 Feb 2010, Ben Hutchings wrote:
+> commit 19f4c7133fc1b94001b997c4843d0a9192ee63e5
+> xfrm: Flushing empty SAD generates false events
 > 
->> The n-tuple list should be flushed if and only if the ETH_RESET_FILTER
->> flag is set and the driver is able to reset filtering/flow direction
->> hardware without also resetting a component whose flag is not set.
->> This test is best left to the driver.
->> 
->> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> commit 0dca3a843632c2fbb6e358734fb08fc23e800f50
+> xfrm: Flushing empty SPD generates false events
 > 
-> Yes, this was the intent.  Thanks for cleaning this bit up in the ethtool 
-> core.
+> setkey now takes several seconds to run this simple script
+> and it spits "recv: Resource temporarily unavailable" messages.
+> 
+> #!/usr/sbin/setkey -f
+> flush;
+> spdflush;
+> 
+> add A B ipcomp 44 -m tunnel -C deflate;
+> add B A ipcomp 45 -m tunnel -C deflate;
+> 
+> spdadd A B any -P in ipsec
+>         ipcomp/tunnel/192.168.1.2-192.168.1.3/use;
+> spdadd B A any -P out ipsec
+>         ipcomp/tunnel/192.168.1.3-192.168.1.2/use;
 
-Patch applied, thanks everyone.
+Thanks for the report Alexey.  I'll revert these changes
+for now.
+
+Jamal, if you can find a way to do this without breaking
+existing applications feel free to send a new version of
+these patches.
+
+Thanks.
