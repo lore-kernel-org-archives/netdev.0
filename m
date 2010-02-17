@@ -1,52 +1,47 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after final merge (net tree)
-Date: Wed, 17 Feb 2010 17:40:15 +1100
-Message-ID: <20100217174015.d1a8a478.sfr@canb.auug.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-2.6] net: bug fix for vlan + gro issue
+Date: Wed, 17 Feb 2010 14:40:30 +0800
+Message-ID: <20100217064030.GA15791@gondor.apana.org.au>
+References: <20100212053451.GA23351@serverengines.com> <20100216114015.GB31642@gondor.apana.org.au> <20100217062541.GA10350@serverengines.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__17_Feb_2010_17_40_15_+1100_A=5+XS9VyLjzW5wp"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jan Engelhardt <jengelh@medozas.de>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---Signature=_Wed__17_Feb_2010_17_40_15_+1100_A=5+XS9VyLjzW5wp
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kaber@trash.net,
+	netdev <netdev@vger.kernel.org>
+To: Ajit Khaparde <ajitk@serverengines.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:37349 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752542Ab0BQGkj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 01:40:39 -0500
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <20100217062541.GA10350@serverengines.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Wed, Feb 17, 2010 at 11:55:43AM +0530, Ajit Khaparde wrote:
+>
+> Here is the patch:-
+> 
+> Traffic (tcp) doesnot start on a vlan interface when gro is enabled.
+> Even the tcp handshake was not taking place.
+> This is because, the eth_type_trans call before the netif_receive_skb
+> in napi_gro_finish() resets the skb->dev to napi->dev from the previously
+> set vlan netdev interface. This causes the ip_route_input to drop the
+> incoming packet considering it as a packet coming from a martian source.
+> 
+> I could repro this on 2.6.32.7 (stable) and 2.6.33-rc7.
+> With this fix, the traffic starts and the test runs fine on both vlan
+> and non-vlan interfaces.
+> 
+> CC: Herbert Xu <herbert@gondor.apana.org.au>
+> CC: Patrick McHardy <kaber@trash.net>
+> Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
 
-After merging, today's linux-next build (sparc64 defconfig) failed like
-this:
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-In file included from include/linux/netfilter_ipv4/ip_tables.h:29,
-                 from arch/sparc/kernel/sys_sparc32.c:47:
-include/linux/netfilter/x_tables.h:525: error: expected declaration specifi=
-ers or '...' before 'nf_hookfn'
-
-Caused by commit 2b95efe7f6bb750256a702cc32d33b0cb2cd8223 ("netfilter:
-xtables: use xt_table for hook instantiation").  Missing direct include
-of linux/netfilter.h?
-
-I have reverted that commit for today.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Wed__17_Feb_2010_17_40_15_+1100_A=5+XS9VyLjzW5wp
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAkt7j08ACgkQjjKRsyhoI8yVpQCfXIFaSl3U6IN1qhWW5vq92CWC
-EwsAoK47Hpzl3pTvEyUl5wP9yDzd/RvG
-=/ab6
------END PGP SIGNATURE-----
-
---Signature=_Wed__17_Feb_2010_17_40_15_+1100_A=5+XS9VyLjzW5wp--
+Thanks a lot!
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
