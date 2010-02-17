@@ -1,28 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] xt_hashlimit: fix locking
-Date: Wed, 17 Feb 2010 13:39:04 -0800 (PST)
-Message-ID: <20100217.133904.176439942.davem@davemloft.net>
-References: <20100216145550.2796.32.sendpatchset@x2.localnet>
-	<1266425027.3075.66.camel@edumazet-laptop>
-	<4B7C4CD1.1070105@trash.net>
+Subject: Re: [PATCH] net: use kasprintf() for socket cache names
+Date: Wed, 17 Feb 2010 13:39:15 -0800 (PST)
+Message-ID: <20100217.133915.12332482.davem@davemloft.net>
+References: <20100217193411.GC5256@x200>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B7C4CD1.1070105@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: adobriyan@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44234
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757156Ab0BQVjA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 16:39:00 -0500
+In-Reply-To: <20100217193411.GC5256@x200>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed, 17 Feb 2010 21:08:49 +0100
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Wed, 17 Feb 2010 21:34:12 +0200
 
-> Eric Dumazet wrote:
->> Or following quick & dirty patch just cures the problem.
+> kasprintf() makes code smaller.
 > 
-> Thanks, this looks fine.
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-To get this fixed quickly I've applied this directly
-to net-next-2.6, thanks everyone.
+Applied.
