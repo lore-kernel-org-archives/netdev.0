@@ -1,25 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] b44: Ratelimit timeout error message.
-Date: Tue, 16 Feb 2010 23:37:56 -0800 (PST)
-Message-ID: <20100216.233756.115930925.davem@davemloft.net>
-References: <1266005514-2731-1-git-send-email-jochen@scram.de>
+Subject: Re: [PATCH] ipv6.h: reassembly: replace calculated magic number
+ with multiplication
+Date: Tue, 16 Feb 2010 23:38:21 -0800 (PST)
+Message-ID: <20100216.233821.260093505.davem@davemloft.net>
+References: <1266335018.29987.50.camel@Joe-Laptop.home>
+	<4B7ABDF8.8010004@trash.net>
+	<1266381604.8446.17.camel@Joe-Laptop.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zambrano@broadcom.com, netdev@vger.kernel.org
-To: jochen@scram.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45512
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751573Ab0BQHhk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 02:37:40 -0500
-In-Reply-To: <1266005514-2731-1-git-send-email-jochen@scram.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kaber@trash.net, shanwei@cn.fujitsu.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: joe@perches.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1266381604.8446.17.camel@Joe-Laptop.home>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jochen Friedrich <jochen@scram.de>
-Date: Fri, 12 Feb 2010 21:11:54 +0100
+From: Joe Perches <joe@perches.com>
+Date: Tue, 16 Feb 2010 20:40:04 -0800
 
-> Signed-off-by: Jochen Friedrich <jochen@scram.de>
+> On Tue, 2010-02-16 at 16:47 +0100, Patrick McHardy wrote:
+>> Joe Perches wrote:
+>> >> @@ -246,6 +246,8 @@ extern int ipv6_opt_accepted(struct sock *sk, struct sk_buff *skb);
+>> >>  int ip6_frag_nqueues(struct net *net);
+>> >>  int ip6_frag_mem(struct net *net);
+>> >>  
+>> >> +#define IPV6_FRAG_HIGH_THRESH	262144		/* == 256*1024 */
+>> >> +#define IPV6_FRAG_LOW_THRESH	196608		/* == 192*1024 */
+>> >>  #define IPV6_FRAG_TIMEOUT	(60*HZ)		/* 60 seconds */
+>> > 
+>> > 196608 isn't a number I want to remember.
+>> > Is this better as:
+>> > 
+>> > #define IPV6_FRAG_HIGH_THRESH	(256 * 1024)	/* 262144 */
+>> > #define IPV6_FRAG_LOW_THRESH	(192 * 1024)	/* 196608 */
+>> 
+>> Please send a patch, I'll apply it once these patches are in Dave's
+>> tree.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Applied to net-next-2.6, thanks.
+Applied.
