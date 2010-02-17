@@ -1,27 +1,32 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH 2/2] Staging: Octeon: Remove /proc/octeon_ethernet_stats
-Date: Wed, 17 Feb 2010 15:25:21 +0100
-Message-ID: <20100217142521.GJ1561@linux-mips.org>
-References: <4B7B4540.1010700@caviumnetworks.com>
- <1266369933-1282-2-git-send-email-ddaney@caviumnetworks.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: Recent change to net-next broke KVM bridging
+Date: Wed, 17 Feb 2010 15:26:02 +0100
+Message-ID: <201002171526.02493.arnd@arndb.de>
+References: <20100216173658.519b6245@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org, gregkh@suse.de
-To: David Daney <ddaney@caviumnetworks.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([78.24.191.182]:53772 "EHLO
-	eddie.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753312Ab0BQOZb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 09:25:31 -0500
-Received: from localhost.localdomain ([127.0.0.1]:57807 "EHLO h5.dl5rb.org.uk"
-        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
-        id S1492394Ab0BQOZ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 17 Feb 2010 15:25:28 +0100
-Content-Disposition: inline
-In-Reply-To: <1266369933-1282-2-git-send-email-ddaney@caviumnetworks.com>
+Received: from moutng.kundenserver.de ([212.227.126.171]:50585 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752647Ab0BQO0P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 09:26:15 -0500
+In-Reply-To: <20100216173658.519b6245@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks folks, queued for 2.6.23.
+On Wednesday 17 February 2010, Stephen Hemminger wrote:
+> Something in net-next tree broke bridging of virtual nets.
+> My local VM's can no longer access external networks.
 
-  Ralf
+Is that using tun/tap devices to access the bridge or something else?
+Do you know if an older net-next version on top of 2.6.33-rc was still
+working?
+
+The only patch I've seen in that area is 05c2828c7 "tun: export
+underlying socket", but that seems harmless.
+
+	Arnd
