@@ -1,61 +1,33 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] ipv6.h: reassembly: replace calculated magic number with
- multiplication
-Date: Tue, 16 Feb 2010 20:40:04 -0800
-Message-ID: <1266381604.8446.17.camel@Joe-Laptop.home>
-References: <20100216145517.2796.40634.sendpatchset@x2.localnet>
-	 <20100216145545.2796.47717.sendpatchset@x2.localnet>
-	 <1266335018.29987.50.camel@Joe-Laptop.home>  <4B7ABDF8.8010004@trash.net>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 0/2] Staging: Clean up octeon Ethernet some.
+Date: Tue, 16 Feb 2010 20:58:44 -0800
+Message-ID: <20100217045844.GB18306@suse.de>
+References: <4B7B4540.1010700@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Shan Wei <shanwei@cn.fujitsu.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B7ABDF8.8010004@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ralf Baechle <ralf@linux-mips.org>,
+	linux-mips <linux-mips@linux-mips.org>,
+	Netdev <netdev@vger.kernel.org>
+To: David Daney <ddaney@caviumnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:59181 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934042Ab0BQE7Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Feb 2010 23:59:25 -0500
+Content-Disposition: inline
+In-Reply-To: <4B7B4540.1010700@caviumnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-02-16 at 16:47 +0100, Patrick McHardy wrote:
-> Joe Perches wrote:
-> >> @@ -246,6 +246,8 @@ extern int ipv6_opt_accepted(struct sock *sk, struct sk_buff *skb);
-> >>  int ip6_frag_nqueues(struct net *net);
-> >>  int ip6_frag_mem(struct net *net);
-> >>  
-> >> +#define IPV6_FRAG_HIGH_THRESH	262144		/* == 256*1024 */
-> >> +#define IPV6_FRAG_LOW_THRESH	196608		/* == 192*1024 */
-> >>  #define IPV6_FRAG_TIMEOUT	(60*HZ)		/* 60 seconds */
-> > 
-> > 196608 isn't a number I want to remember.
-> > Is this better as:
-> > 
-> > #define IPV6_FRAG_HIGH_THRESH	(256 * 1024)	/* 262144 */
-> > #define IPV6_FRAG_LOW_THRESH	(192 * 1024)	/* 196608 */
+On Tue, Feb 16, 2010 at 05:24:16PM -0800, David Daney wrote:
+> These two patches clean up some comments and get rid of the code that
+> creates a non-standard file in /proc
 > 
-> Please send a patch, I'll apply it once these patches are in Dave's
-> tree.
+> As with the previous octeon_ethernet patches, these can probably go
+> via Ralf's linux-mips.org tree.
 
-Signed-off-by: Joe Perches <joe@perches.com>
+Going through Ralf's tree is fine for me.
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 639ec53..d067db1 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -246,9 +246,9 @@ extern int ipv6_opt_accepted(struct sock *sk, struct sk_buff *skb);
- int ip6_frag_nqueues(struct net *net);
- int ip6_frag_mem(struct net *net);
- 
--#define IPV6_FRAG_HIGH_THRESH	262144		/* == 256*1024 */
--#define IPV6_FRAG_LOW_THRESH	196608		/* == 192*1024 */
--#define IPV6_FRAG_TIMEOUT	(60*HZ)		/* 60 seconds */
-+#define IPV6_FRAG_HIGH_THRESH	(256 * 1024)	/* 262144 */
-+#define IPV6_FRAG_LOW_THRESH	(192 * 1024)	/* 196608 */
-+#define IPV6_FRAG_TIMEOUT	(60 * HZ)	/* 60 seconds */
- 
- extern int __ipv6_addr_type(const struct in6_addr *addr);
- static inline int ipv6_addr_type(const struct in6_addr *addr)
+thanks,
 
-
-
-
+greg k-h
