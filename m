@@ -1,65 +1,40 @@
-From: Sathya Perla <sathyap@serverengines.com>
-Subject: [PATCH net-next-2.6 4/4] be2net: implement pci shutdown handler
-Date: Wed, 17 Feb 2010 17:05:37 +0530
-Message-ID: <20100217113537.GA20272@serverengines.com>
-Reply-To: Sathya Perla <sathyap@serverengines.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH] ipmr: remove useless checks from ipmr_device_event
+Date: Wed, 17 Feb 2010 14:19:32 +0300
+Message-ID: <4B7BD0C4.3090304@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:23341 "EHLO
-	sperla-laptop.localdomain" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755889Ab0BQLfu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 06:35:50 -0500
-Content-Disposition: inline
+Received: from mailhub.sw.ru ([195.214.232.25]:7028 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752747Ab0BQLku (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2010 06:40:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The net being checked there is dev_net(dev) and thus this if
+is always false.
 
-Signed-off-by: Sathya Perla <sathyap@serverengines.com>
+Fits both net and net-next trees.
+
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
 ---
- drivers/net/benet/be_main.c |   21 +++++++++++++++++++++
- 1 files changed, 21 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 0ce2c26..8a53efe 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -2449,6 +2449,26 @@ static int be_resume(struct pci_dev *pdev)
- 	return 0;
- }
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 54596f7..8582e12 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1163,9 +1163,6 @@ static int ipmr_device_event(struct notifier_block *this, unsigned long event, v
+ 	int ct;
+ 	LIST_HEAD(list);
  
-+/*
-+ * An FLR will stop BE from DMAing any data.
-+ */
-+static void be_shutdown(struct pci_dev *pdev)
-+{
-+	struct be_adapter *adapter = pci_get_drvdata(pdev);
-+	struct net_device *netdev =  adapter->netdev;
-+
-+	netif_device_detach(netdev);
-+
-+	be_cmd_reset_function(adapter);
-+
-+	if (adapter->wol)
-+		be_setup_wol(adapter, true);
-+
-+	pci_disable_device(pdev);
-+	
-+	return;
-+}
-+
- static pci_ers_result_t be_eeh_err_detected(struct pci_dev *pdev,
- 				pci_channel_state_t state)
- {
-@@ -2544,6 +2564,7 @@ static struct pci_driver be_driver = {
- 	.remove = be_remove,
- 	.suspend = be_suspend,
- 	.resume = be_resume,
-+	.shutdown = be_shutdown,
- 	.err_handler = &be_eeh_handlers
- };
- 
--- 
-1.6.3.3
-
+-	if (!net_eq(dev_net(dev), net))
+-		return NOTIFY_DONE;
+-
+ 	if (event != NETDEV_UNREGISTER)
+ 		return NOTIFY_DONE;
+ 	v = &net->ipv4.vif_table[0];
