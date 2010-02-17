@@ -1,47 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-2.6] net: bug fix for vlan + gro issue
-Date: Wed, 17 Feb 2010 14:40:30 +0800
-Message-ID: <20100217064030.GA15791@gondor.apana.org.au>
-References: <20100212053451.GA23351@serverengines.com> <20100216114015.GB31642@gondor.apana.org.au> <20100217062541.GA10350@serverengines.com>
+From: "Denis Kirjanov <kirjanov@gmail.com" <kirjanov@gmail.com>
+Subject: [PATCH] mv643xx_eth: fix missing validate_addr hook
+Date: Wed, 17 Feb 2010 09:40:11 +0300
+Message-ID: <20100217064011.GA4132@coldcone>
+Reply-To: kirjanov@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kaber@trash.net,
-	netdev <netdev@vger.kernel.org>
-To: Ajit Khaparde <ajitk@serverengines.com>
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:37349 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752542Ab0BQGkj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 01:40:39 -0500
+Received: from fg-out-1718.google.com ([72.14.220.155]:29884 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752207Ab0BQGlj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 01:41:39 -0500
+Received: by fg-out-1718.google.com with SMTP id 19so123506fgg.1
+        for <netdev@vger.kernel.org>; Tue, 16 Feb 2010 22:41:35 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20100217062541.GA10350@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 17, 2010 at 11:55:43AM +0530, Ajit Khaparde wrote:
->
-> Here is the patch:-
-> 
-> Traffic (tcp) doesnot start on a vlan interface when gro is enabled.
-> Even the tcp handshake was not taking place.
-> This is because, the eth_type_trans call before the netif_receive_skb
-> in napi_gro_finish() resets the skb->dev to napi->dev from the previously
-> set vlan netdev interface. This causes the ip_route_input to drop the
-> incoming packet considering it as a packet coming from a martian source.
-> 
-> I could repro this on 2.6.32.7 (stable) and 2.6.33-rc7.
-> With this fix, the traffic starts and the test runs fine on both vlan
-> and non-vlan interfaces.
-> 
-> CC: Herbert Xu <herbert@gondor.apana.org.au>
-> CC: Patrick McHardy <kaber@trash.net>
-> Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+Fix missing validate_addr hook.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Denis Kirjanov <kirjanov@gmail.com>
 
-Thanks a lot!
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+---
+drivers/net/mv643xx_eth.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+index e24072a..2733b0a 100644
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -2846,6 +2846,7 @@ static const struct net_device_ops mv643xx_eth_netdev_ops = {
+ 	.ndo_start_xmit		= mv643xx_eth_xmit,
+ 	.ndo_set_rx_mode	= mv643xx_eth_set_rx_mode,
+ 	.ndo_set_mac_address	= mv643xx_eth_set_mac_address,
++	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_do_ioctl		= mv643xx_eth_ioctl,
+ 	.ndo_change_mtu		= mv643xx_eth_change_mtu,
+ 	.ndo_tx_timeout		= mv643xx_eth_tx_timeout,
