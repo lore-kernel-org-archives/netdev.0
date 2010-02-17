@@ -1,47 +1,34 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: [PATCH 8/8] bnx2x: version number and date
-Date: Wed, 17 Feb 2010 14:05:54 +0200
-Message-ID: <1266408354.25691.855.camel@lb-tlvb-vladz>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH 13/23 v3] mlx4: Unicast Loopback support
+Date: Wed, 17 Feb 2010 14:15:51 +0200
+Message-ID: <15ddcffd1002170415k30b47d70tb055945f5478a366@mail.gmail.com>
+References: <4B7AB9A6.1090209@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
+	liranl@mellanox.co.il, tziporet@mellanox.co.il
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2994 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756814Ab0BQMNl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2010 07:13:41 -0500
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:61800 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753043Ab0BQMPx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 07:15:53 -0500
+Received: by bwz19 with SMTP id 19so5406634bwz.28
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2010 04:15:51 -0800 (PST)
+In-Reply-To: <4B7AB9A6.1090209@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Updated release version and date: 1.52.1-6 and 2010/02/16
+Yevgeny Petrilin <yevgenyp@mellanox.co.il> wrote:
+> I am referring to the case where two VMs are served by two different VFs. The HW checks this field and decides
+> whether the packet is loopback or not (by checking whether the written mac matches one of the registered macs on this device).
 
-Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+okay good. I'd be glad to understand what setting/instrumentation has
+to be made to the PF driver code to allow for VF/VF traffic to be
+either internally switched by the PF HW or be forwarded to the PF
+uplink for external switch doing the job (VEPA mode).
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 164a5e8..32b629e 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -57,8 +57,8 @@
- #include "bnx2x_init_ops.h"
- #include "bnx2x_dump.h"
- 
--#define DRV_MODULE_VERSION	"1.52.1-5"
--#define DRV_MODULE_RELDATE	"2009/11/09"
-+#define DRV_MODULE_VERSION	"1.52.1-6"
-+#define DRV_MODULE_RELDATE	"2010/02/16"
- #define BNX2X_BC_VER		0x040200
- 
- #include <linux/firmware.h>
--- 
-1.6.3.3
+I don't think you have to explicitly allow this in the initial
+patchset, just try to make it easy to patch.
 
-
-
-
+Or.
