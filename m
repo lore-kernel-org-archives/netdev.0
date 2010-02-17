@@ -1,8 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 04/18] igb: ignore EEPROM APME check when
-	shutting down serdes link
-Date: Wed, 17 Feb 2010 03:01:40 -0800
-Message-ID: <20100217110138.17723.30876.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 05/18] igb: Power down link when interface is down
+Date: Wed, 17 Feb 2010 03:01:59 -0800
+Message-ID: <20100217110158.17723.27002.stgit@localhost.localdomain>
 References: <20100217105953.17723.36633.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,69 +11,322 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:34139 "EHLO
-	qmta09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754020Ab0BQLB5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 06:01:57 -0500
+Received: from qmta01.westchester.pa.mail.comcast.net ([76.96.62.16]:60765
+	"EHLO qmta01.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751861Ab0BQLCS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 06:02:18 -0500
 In-Reply-To: <20100217105953.17723.36633.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nick Nunley <nicholasx.d.nunley@intel.com>
 
-Checking the EEPROM APME state unnecessarily prevents the link from
-shutting down. The standard power down routines should be
-sufficient to determine whether the serdes link can power down
-when going into D3.
+This changes the behavior of the driver to power down the link
+when the associated interface is down, unless management is enabled.
 
 Signed-off-by: Nicholas Nunley <nicholasx.d.nunley@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/e1000_82575.c |   21 ++-------------------
- 1 files changed, 2 insertions(+), 19 deletions(-)
+ drivers/net/igb/e1000_82575.c   |   44 +++++++++++++++++++++++++++++++++++++++
+ drivers/net/igb/e1000_82575.h   |    2 ++
+ drivers/net/igb/e1000_defines.h |    1 +
+ drivers/net/igb/e1000_phy.c     |   35 +++++++++++++++++++++++++++++++
+ drivers/net/igb/e1000_phy.h     |    2 ++
+ drivers/net/igb/igb.h           |    1 +
+ drivers/net/igb/igb_ethtool.c   |   16 ++++++++++++--
+ drivers/net/igb/igb_main.c      |   39 +++++++++++++++++++++++++++--------
+ 8 files changed, 129 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
-index c505b50..59817bc 100644
+index 59817bc..9d7fa2f 100644
 --- a/drivers/net/igb/e1000_82575.c
 +++ b/drivers/net/igb/e1000_82575.c
-@@ -791,27 +791,12 @@ static s32 igb_get_pcs_speed_and_duplex_82575(struct e1000_hw *hw, u16 *speed,
- void igb_shutdown_serdes_link_82575(struct e1000_hw *hw)
- {
- 	u32 reg;
--	u16 eeprom_data = 0;
- 
--	if (hw->phy.media_type != e1000_media_type_internal_serdes ||
-+	if (hw->phy.media_type != e1000_media_type_internal_serdes &&
- 	    igb_sgmii_active_82575(hw))
- 		return;
- 
--	if (hw->bus.func == E1000_FUNC_0)
--		hw->nvm.ops.read(hw, NVM_INIT_CONTROL3_PORT_A, 1, &eeprom_data);
--	else if (hw->mac.type == e1000_82580)
--		hw->nvm.ops.read(hw, NVM_INIT_CONTROL3_PORT_A +
--		                 NVM_82580_LAN_FUNC_OFFSET(hw->bus.func), 1,
--		                 &eeprom_data);
--	else if (hw->bus.func == E1000_FUNC_1)
--		hw->nvm.ops.read(hw, NVM_INIT_CONTROL3_PORT_B, 1, &eeprom_data);
--
--	/*
--	 * If APM is not enabled in the EEPROM and management interface is
--	 * not enabled, then power down.
--	 */
--	if (!(eeprom_data & E1000_NVM_APME_82575) &&
--	    !igb_enable_mng_pass_thru(hw)) {
-+	if (!igb_enable_mng_pass_thru(hw)) {
- 		/* Disable PCS to turn off link */
- 		reg = rd32(E1000_PCS_CFG0);
- 		reg &= ~E1000_PCS_CFG_PCS_EN;
-@@ -826,8 +811,6 @@ void igb_shutdown_serdes_link_82575(struct e1000_hw *hw)
- 		wrfl();
- 		msleep(1);
- 	}
--
--	return;
+@@ -727,6 +727,34 @@ static s32 igb_check_for_link_82575(struct e1000_hw *hw)
  }
  
  /**
++ *  igb_power_up_serdes_link_82575 - Power up the serdes link after shutdown
++ *  @hw: pointer to the HW structure
++ **/
++void igb_power_up_serdes_link_82575(struct e1000_hw *hw)
++{
++	u32 reg;
++
++
++	if ((hw->phy.media_type != e1000_media_type_internal_serdes) &&
++	    !igb_sgmii_active_82575(hw))
++		return;
++
++	/* Enable PCS to turn on link */
++	reg = rd32(E1000_PCS_CFG0);
++	reg |= E1000_PCS_CFG_PCS_EN;
++	wr32(E1000_PCS_CFG0, reg);
++
++	/* Power up the laser */
++	reg = rd32(E1000_CTRL_EXT);
++	reg &= ~E1000_CTRL_EXT_SDP3_DATA;
++	wr32(E1000_CTRL_EXT, reg);
++
++	/* flush the write to verify completion */
++	wrfl();
++	msleep(1);
++}
++
++/**
+  *  igb_get_pcs_speed_and_duplex_82575 - Retrieve current speed/duplex
+  *  @hw: pointer to the HW structure
+  *  @speed: stores the current speed
+@@ -1166,6 +1194,22 @@ out:
+ }
+ 
+ /**
++ * igb_power_down_phy_copper_82575 - Remove link during PHY power down
++ * @hw: pointer to the HW structure
++ *
++ * In the case of a PHY power down to save power, or to turn off link during a
++ * driver unload, or wake on lan is not enabled, remove the link.
++ **/
++void igb_power_down_phy_copper_82575(struct e1000_hw *hw)
++{
++	/* If the management interface is not enabled, then power down */
++	if (!(igb_enable_mng_pass_thru(hw) || igb_check_reset_block(hw)))
++		igb_power_down_phy_copper(hw);
++
++	return;
++}
++
++/**
+  *  igb_clear_hw_cntrs_82575 - Clear device specific hardware counters
+  *  @hw: pointer to the HW structure
+  *
+diff --git a/drivers/net/igb/e1000_82575.h b/drivers/net/igb/e1000_82575.h
+index bb53083..fbe1c99 100644
+--- a/drivers/net/igb/e1000_82575.h
++++ b/drivers/net/igb/e1000_82575.h
+@@ -29,6 +29,8 @@
+ #define _E1000_82575_H_
+ 
+ extern void igb_shutdown_serdes_link_82575(struct e1000_hw *hw);
++extern void igb_power_up_serdes_link_82575(struct e1000_hw *hw);
++extern void igb_power_down_phy_copper_82575(struct e1000_hw *hw);
+ extern void igb_rx_fifo_flush_82575(struct e1000_hw *hw);
+ 
+ #define ID_LED_DEFAULT_82575_SERDES ((ID_LED_DEF1_DEF2 << 12) | \
+diff --git a/drivers/net/igb/e1000_defines.h b/drivers/net/igb/e1000_defines.h
+index 6e036ae..c017150 100644
+--- a/drivers/net/igb/e1000_defines.h
++++ b/drivers/net/igb/e1000_defines.h
+@@ -481,6 +481,7 @@
+ /* PHY Control Register */
+ #define MII_CR_FULL_DUPLEX      0x0100  /* FDX =1, half duplex =0 */
+ #define MII_CR_RESTART_AUTO_NEG 0x0200  /* Restart auto negotiation */
++#define MII_CR_POWER_DOWN       0x0800  /* Power down */
+ #define MII_CR_AUTO_NEG_EN      0x1000  /* Auto Neg Enable */
+ #define MII_CR_LOOPBACK         0x4000  /* 0 = normal, 1 = loopback */
+ #define MII_CR_RESET            0x8000  /* 0 = normal, 1 = PHY reset */
+diff --git a/drivers/net/igb/e1000_phy.c b/drivers/net/igb/e1000_phy.c
+index 3670a66..cf1f323 100644
+--- a/drivers/net/igb/e1000_phy.c
++++ b/drivers/net/igb/e1000_phy.c
+@@ -1931,6 +1931,41 @@ s32 igb_phy_init_script_igp3(struct e1000_hw *hw)
+ }
+ 
+ /**
++ * igb_power_up_phy_copper - Restore copper link in case of PHY power down
++ * @hw: pointer to the HW structure
++ *
++ * In the case of a PHY power down to save power, or to turn off link during a
++ * driver unload, restore the link to previous settings.
++ **/
++void igb_power_up_phy_copper(struct e1000_hw *hw)
++{
++	u16 mii_reg = 0;
++
++	/* The PHY will retain its settings across a power down/up cycle */
++	hw->phy.ops.read_reg(hw, PHY_CONTROL, &mii_reg);
++	mii_reg &= ~MII_CR_POWER_DOWN;
++	hw->phy.ops.write_reg(hw, PHY_CONTROL, mii_reg);
++}
++
++/**
++ * igb_power_down_phy_copper - Power down copper PHY
++ * @hw: pointer to the HW structure
++ *
++ * Power down PHY to save power when interface is down and wake on lan
++ * is not enabled.
++ **/
++void igb_power_down_phy_copper(struct e1000_hw *hw)
++{
++	u16 mii_reg = 0;
++
++	/* The PHY will retain its settings across a power down/up cycle */
++	hw->phy.ops.read_reg(hw, PHY_CONTROL, &mii_reg);
++	mii_reg |= MII_CR_POWER_DOWN;
++	hw->phy.ops.write_reg(hw, PHY_CONTROL, mii_reg);
++	msleep(1);
++}
++
++/**
+  *  igb_check_polarity_82580 - Checks the polarity.
+  *  @hw: pointer to the HW structure
+  *
+diff --git a/drivers/net/igb/e1000_phy.h b/drivers/net/igb/e1000_phy.h
+index 555eb54..565a6db 100644
+--- a/drivers/net/igb/e1000_phy.h
++++ b/drivers/net/igb/e1000_phy.h
+@@ -60,6 +60,8 @@ s32  igb_setup_copper_link(struct e1000_hw *hw);
+ s32  igb_write_phy_reg_igp(struct e1000_hw *hw, u32 offset, u16 data);
+ s32  igb_phy_has_link(struct e1000_hw *hw, u32 iterations,
+ 				u32 usec_interval, bool *success);
++void igb_power_up_phy_copper(struct e1000_hw *hw);
++void igb_power_down_phy_copper(struct e1000_hw *hw);
+ s32  igb_phy_init_script_igp3(struct e1000_hw *hw);
+ s32  igb_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data);
+ s32  igb_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data);
+diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
+index 452a4de..0e0800d 100644
+--- a/drivers/net/igb/igb.h
++++ b/drivers/net/igb/igb.h
+@@ -358,6 +358,7 @@ extern void igb_alloc_rx_buffers_adv(struct igb_ring *, int);
+ extern void igb_update_stats(struct igb_adapter *);
+ extern bool igb_has_link(struct igb_adapter *adapter);
+ extern void igb_set_ethtool_ops(struct net_device *);
++extern void igb_power_up_link(struct igb_adapter *);
+ 
+ static inline s32 igb_reset_phy(struct e1000_hw *hw)
+ {
+diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
+index 4eea03b..4852883 100644
+--- a/drivers/net/igb/igb_ethtool.c
++++ b/drivers/net/igb/igb_ethtool.c
+@@ -1722,6 +1722,9 @@ static void igb_diag_test(struct net_device *netdev,
+ 
+ 		dev_info(&adapter->pdev->dev, "offline testing starting\n");
+ 
++		/* power up link for link test */
++		igb_power_up_link(adapter);
++
+ 		/* Link test performed before hardware reset so autoneg doesn't
+ 		 * interfere with test result */
+ 		if (igb_link_test(adapter, &data[4]))
+@@ -1745,6 +1748,8 @@ static void igb_diag_test(struct net_device *netdev,
+ 			eth_test->flags |= ETH_TEST_FL_FAILED;
+ 
+ 		igb_reset(adapter);
++		/* power up link for loopback test */
++		igb_power_up_link(adapter);
+ 		if (igb_loopback_test(adapter, &data[3]))
+ 			eth_test->flags |= ETH_TEST_FL_FAILED;
+ 
+@@ -1763,9 +1768,14 @@ static void igb_diag_test(struct net_device *netdev,
+ 			dev_open(netdev);
+ 	} else {
+ 		dev_info(&adapter->pdev->dev, "online testing starting\n");
+-		/* Online tests */
+-		if (igb_link_test(adapter, &data[4]))
+-			eth_test->flags |= ETH_TEST_FL_FAILED;
++
++		/* PHY is powered down when interface is down */
++		if (!netif_carrier_ok(netdev)) {
++			data[4] = 0;
++		} else {
++			if (igb_link_test(adapter, &data[4]))
++				eth_test->flags |= ETH_TEST_FL_FAILED;
++		}
+ 
+ 		/* Online tests aren't run; pass by default */
+ 		data[0] = 0;
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index e40319e..0427e7c 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -1114,6 +1114,29 @@ static void igb_configure(struct igb_adapter *adapter)
+ 	adapter->tx_queue_len = netdev->tx_queue_len;
+ }
+ 
++/**
++ * igb_power_up_link - Power up the phy/serdes link
++ * @adapter: address of board private structure
++ **/
++void igb_power_up_link(struct igb_adapter *adapter)
++{
++	if (adapter->hw.phy.media_type == e1000_media_type_copper)
++		igb_power_up_phy_copper(&adapter->hw);
++	else
++		igb_power_up_serdes_link_82575(&adapter->hw);
++}
++
++/**
++ * igb_power_down_link - Power down the phy/serdes link
++ * @adapter: address of board private structure
++ */
++static void igb_power_down_link(struct igb_adapter *adapter)
++{
++	if (adapter->hw.phy.media_type == e1000_media_type_copper)
++		igb_power_down_phy_copper_82575(&adapter->hw);
++	else
++		igb_shutdown_serdes_link_82575(&adapter->hw);
++}
+ 
+ /**
+  * igb_up - Open the interface and prepare it to handle traffic
+@@ -1335,6 +1358,9 @@ void igb_reset(struct igb_adapter *adapter)
+ 		wr32(E1000_PCIEMISC,
+ 		                reg & ~E1000_PCIEMISC_LX_DECISION);
+ 	}
++	if (!netif_running(adapter->netdev))
++		igb_power_down_link(adapter);
++
+ 	igb_update_mng_vlan(adapter);
+ 
+ 	/* Enable h/w to recognize an 802.1Q VLAN Ethernet packet */
+@@ -1717,9 +1743,6 @@ static void __devexit igb_remove(struct pci_dev *pdev)
+ 
+ 	unregister_netdev(netdev);
+ 
+-	if (!igb_check_reset_block(hw))
+-		igb_reset_phy(hw);
+-
+ 	igb_clear_interrupt_scheme(adapter);
+ 
+ #ifdef CONFIG_PCI_IOV
+@@ -1995,7 +2018,7 @@ static int igb_open(struct net_device *netdev)
+ 	if (err)
+ 		goto err_setup_rx;
+ 
+-	/* e1000_power_up_phy(adapter); */
++	igb_power_up_link(adapter);
+ 
+ 	/* before we allocate an interrupt, we must be ready to handle it.
+ 	 * Setting DEBUG_SHIRQ in the kernel makes it fire an interrupt
+@@ -2037,7 +2060,7 @@ static int igb_open(struct net_device *netdev)
+ 
+ err_req_irq:
+ 	igb_release_hw_control(adapter);
+-	/* e1000_power_down_phy(adapter); */
++	igb_power_down_link(adapter);
+ 	igb_free_all_rx_resources(adapter);
+ err_setup_rx:
+ 	igb_free_all_tx_resources(adapter);
+@@ -5820,7 +5843,9 @@ static int __igb_shutdown(struct pci_dev *pdev, bool *enable_wake)
+ 
+ 	*enable_wake = wufc || adapter->en_mng_pt;
+ 	if (!*enable_wake)
+-		igb_shutdown_serdes_link_82575(hw);
++		igb_power_down_link(adapter);
++	else
++		igb_power_up_link(adapter);
+ 
+ 	/* Release control of h/w to f/w.  If f/w is AMT enabled, this
+ 	 * would have already happened in close and is redundant. */
+@@ -5877,8 +5902,6 @@ static int igb_resume(struct pci_dev *pdev)
+ 		return -ENOMEM;
+ 	}
+ 
+-	/* e1000_power_up_phy(adapter); */
+-
+ 	igb_reset(adapter);
+ 
+ 	/* let the f/w know that the h/w is now under the control of the
 
