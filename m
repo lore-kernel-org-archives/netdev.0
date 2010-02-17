@@ -1,60 +1,69 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] net: use kasprintf() for socket cache names
-Date: Wed, 17 Feb 2010 21:34:12 +0200
-Message-ID: <20100217193411.GC5256@x200>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Riccardo Ghetta <birrachiara@tin.it>
+Subject: [PATCH] SiS190/191 half-duplex initialization fix
+Date: Wed, 17 Feb 2010 20:28:58 +0100
+Message-ID: <1266434938-11199-1-git-send-email-birrachiara@tin.it>
+Cc: netdev@vger.kernel.org, Riccardo Ghetta <birrachiara@tin.it>
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f200.google.com ([209.85.221.200]:58379 "EHLO
-	mail-qy0-f200.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753884Ab0BQTeN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 14:34:13 -0500
-Received: by qyk38 with SMTP id 38so2251485qyk.1
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2010 11:34:12 -0800 (PST)
-Content-Disposition: inline
+Received: from vsmtp21.tin.it ([212.216.176.109]:38733 "EHLO vsmtp21.tin.it"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754417Ab0BQTem (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2010 14:34:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-kasprintf() makes code smaller.
+Adds half-duplex specific setup code (taken from SiS own GPL driver).
+Without those, half-duplex connections are very unreliable, often
+working on small transfers and failing after a while.
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+Signed-off-by: Riccardo Ghetta <birrachiara@tin.it>
 ---
+ drivers/net/sis190.c |   11 ++++++++++-
+ 1 files changed, 10 insertions(+), 1 deletions(-)
 
- net/core/sock.c |   10 ++--------
- 1 file changed, 2 insertions(+), 8 deletions(-)
-
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2228,13 +2228,10 @@ int proto_register(struct proto *prot, int alloc_slab)
+diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
+index 8c4e38f..bf2ffbb 100644
+--- a/drivers/net/sis190.c
++++ b/drivers/net/sis190.c
+@@ -47,7 +47,7 @@
+ #define PHY_ID_ANY		0x1f
+ #define MII_REG_ANY		0x1f
+ 
+-#define DRV_VERSION		"1.3"
++#define DRV_VERSION		"1.4"
+ #define DRV_NAME		"sis190"
+ #define SIS190_DRIVER_NAME	DRV_NAME " Gigabit Ethernet driver " DRV_VERSION
+ #define PFX DRV_NAME ": "
+@@ -294,6 +294,7 @@ struct sis190_private {
+ 	struct mii_if_info mii_if;
+ 	struct list_head first_phy;
+ 	u32 features;
++	u32 negotiated_lpa;
+ };
+ 
+ struct sis190_phy {
+@@ -1004,6 +1005,8 @@ static void sis190_phy_task(struct work_struct *work)
+ 			SIS_W32(RGDelay, 0x0440);
  		}
  
- 		if (prot->rsk_prot != NULL) {
--			static const char mask[] = "request_sock_%s";
--
--			prot->rsk_prot->slab_name = kmalloc(strlen(prot->name) + sizeof(mask) - 1, GFP_KERNEL);
-+			prot->rsk_prot->slab_name = kasprintf(GFP_KERNEL, "request_sock_%s", prot->name);
- 			if (prot->rsk_prot->slab_name == NULL)
- 				goto out_free_sock_slab;
++		tp->negotiated_lpa = p->val;
++
+ 		net_link(tp, KERN_INFO "%s: link on %s mode.\n", dev->name,
+ 			 p->msg);
+ 		netif_carrier_on(dev);
+@@ -1211,6 +1214,12 @@ static netdev_tx_t sis190_start_xmit(struct sk_buff *skb,
+ 	wmb();
  
--			sprintf(prot->rsk_prot->slab_name, mask, prot->name);
- 			prot->rsk_prot->slab = kmem_cache_create(prot->rsk_prot->slab_name,
- 								 prot->rsk_prot->obj_size, 0,
- 								 SLAB_HWCACHE_ALIGN, NULL);
-@@ -2247,14 +2244,11 @@ int proto_register(struct proto *prot, int alloc_slab)
- 		}
+ 	desc->status = cpu_to_le32(OWNbit | INTbit | DEFbit | CRCbit | PADbit);
++	if (tp->negotiated_lpa & (LPA_1000HALF | LPA_100HALF | LPA_10HALF)) {
++		/* Half Duplex */
++		desc->status |= cpu_to_le32(COLEN | CRSEN | BKFEN);
++		if (tp->negotiated_lpa & (LPA_1000HALF | LPA_1000FULL))
++			desc->status |= cpu_to_le32(EXTEN | BSTEN); /* gigabit HD */
++	}
  
- 		if (prot->twsk_prot != NULL) {
--			static const char mask[] = "tw_sock_%s";
--
--			prot->twsk_prot->twsk_slab_name = kmalloc(strlen(prot->name) + sizeof(mask) - 1, GFP_KERNEL);
-+			prot->twsk_prot->twsk_slab_name = kasprintf(GFP_KERNEL, "tw_sock_%s", prot->name);
+ 	tp->cur_tx++;
  
- 			if (prot->twsk_prot->twsk_slab_name == NULL)
- 				goto out_free_request_sock_slab;
- 
--			sprintf(prot->twsk_prot->twsk_slab_name, mask, prot->name);
- 			prot->twsk_prot->twsk_slab =
- 				kmem_cache_create(prot->twsk_prot->twsk_slab_name,
- 						  prot->twsk_prot->twsk_obj_size,
+-- 
+1.6.4.4
+
