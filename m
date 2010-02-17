@@ -1,82 +1,79 @@
-From: Ajit Khaparde <ajitkhaparde@gmail.com>
-Subject: Re: [PATCH net-2.6] net: bug fix for vlan + gro issue
-Date: Wed, 17 Feb 2010 11:55:43 +0530
-Message-ID: <20100217062541.GA10350@serverengines.com>
-References: <20100212053451.GA23351@serverengines.com>
- <20100216114015.GB31642@gondor.apana.org.au>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: "Benjamin Li" <benli@broadcom.com>
+Subject: [RFC] Large Ethtool Register Dumps
+Date: Tue, 16 Feb 2010 22:38:24 -0800
+Message-ID: <1266388704.3048.22.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kaber@trash.net,
-	netdev <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Jeff Garzik" <jeff@garzik.org>,
+	"David Miller" <davem@davemloft.net>,
+	"Amir Frankel" <amirf@broadcom.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f200.google.com ([209.85.210.200]:61118 "EHLO
-	mail-yx0-f200.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751248Ab0BQGZt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 01:25:49 -0500
-Received: by yxe38 with SMTP id 38so5005819yxe.4
-        for <netdev@vger.kernel.org>; Tue, 16 Feb 2010 22:25:47 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20100216114015.GB31642@gondor.apana.org.au>
+Received: from mms3.broadcom.com ([216.31.210.19]:1303 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751827Ab0BQGik (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2010 01:38:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16/02/10 19:40 +0800, Herbert Xu wrote:
-> On Fri, Feb 12, 2010 at 11:04:53AM +0530, Ajit Khaparde wrote:
-> >
-> > diff --git a/net/core/dev.c b/net/core/dev.c
-> > index be9924f..16aac06 100644
-> > --- a/net/core/dev.c
-> > +++ b/net/core/dev.c
-> > @@ -2761,7 +2761,10 @@ gro_result_t napi_frags_finish(struct napi_struct *napi, struct sk_buff *skb,
-> >  	switch (ret) {
-> >  	case GRO_NORMAL:
-> >  	case GRO_HELD:
-> > -		skb->protocol = eth_type_trans(skb, napi->dev);
-> > +		if (skb->vlan_tci)
-> > +			skb->protocol = eth_type_trans(skb, skb->dev);
-> > +		else
-> > +			skb->protocol = eth_type_trans(skb, napi->dev);
+Hi All,
+
+Amir and I were planning to include a routine to dump out relevant
+register and memory contents from the hardware driven by the bnx2x
+driver.  This is so we can be better prepared for debugging issues out
+in the field.  The problem with this is that for an entire
+register/memory dump it is about 6MB.  Because in the
+net/core/ethtool.c:ethtool_get_regs() function, kmalloc() is used to
+allocate space for the register dump, sometimes this will fail because
+it can't get 6MB of contiguous space.  
+
+Currently, we have a patch to the bnx2x driver which will break each
+part of the dump into multiple chunks and a chunk would be returned with
+every `ethtool -d` call.  (This is to get around the memory limiation)
+But this is not a very friendly user experience.  I was wondering what
+would be the preferred way in handling this situation.
+
+1.  Modify the user space utility ethtool to call the ethtool ioctl with
+the ethtool command, ETHTOOL_GREGS, mutiliple times under the covers in
+the routine ethtool.c:do_gregs() only for the bnx2x driver.  For
+example, the user would only have to run `ethtool -d <eth#>` once; and
+underneath if using strace we would see multiple ethool ioctl's being
+called for getting the registers. This way none of the kernel code
+changes and bnx2x driver would be the first to call the ethool ioctl to
+get a register dump multiple times.
+
+2.  Modify net/core/ethtool.c:ethtool_get_regs() to use vmalloc() so
+that we can allocate enough memory to keep all the register contents at
+once?  Is it critical that contiguous space be allocated for where the
+register dump is going to be stored?
+
+3.  Add an additionial ethtool cmd so that there is a new ethtool
+command to just read a single register rather then the current ethtool
+registers dump.  All the business logic in formatting the register dump
+is placed in the driver specific user space ethtool application.
+
+4.  From Jeff Garzik:
+
+> If we start talking about arbitrarily large outputs, it gets 
+> increasingly hard to stuff via an ioctl.
 > 
-> We should be able to just use skb->dev here.
+> I would rather see userspace open a file descriptor that can be
+read(2) 
+> or mmap(2)'d, to access large regions of EEPROM or register space.
+> 
+> Also, it would be preferred to ask this sort of question on 
+> netdev@vger.kernel.org (cc'ing me if you'd like), so that we all can 
+> collaborate on design.
+> 
+> 	Jeff
+> 
 
-Thanks Herbert. I think you meant something like this:
-+		skb->protocol = eth_type_trans(skb, skb->dev);
+Any guidance anyone could give would be greatly appreciated.
 
-Here is the patch:-
+Thanks again.
 
-Traffic (tcp) doesnot start on a vlan interface when gro is enabled.
-Even the tcp handshake was not taking place.
-This is because, the eth_type_trans call before the netif_receive_skb
-in napi_gro_finish() resets the skb->dev to napi->dev from the previously
-set vlan netdev interface. This causes the ip_route_input to drop the
-incoming packet considering it as a packet coming from a martian source.
+-Ben
 
-I could repro this on 2.6.32.7 (stable) and 2.6.33-rc7.
-With this fix, the traffic starts and the test runs fine on both vlan
-and non-vlan interfaces.
 
-CC: Herbert Xu <herbert@gondor.apana.org.au>
-CC: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
----
- net/core/dev.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index be9924f..ec87421 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2761,7 +2761,7 @@ gro_result_t napi_frags_finish(struct napi_struct *napi, struct sk_buff *skb,
- 	switch (ret) {
- 	case GRO_NORMAL:
- 	case GRO_HELD:
--		skb->protocol = eth_type_trans(skb, napi->dev);
-+		skb->protocol = eth_type_trans(skb, skb->dev);
- 
- 		if (ret == GRO_HELD)
- 			skb_gro_pull(skb, -ETH_HLEN);
--- 
-1.6.3.3
 
