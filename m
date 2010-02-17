@@ -1,41 +1,42 @@
-From: David Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: linux-next: build failure after final merge (net tree)
-Date: Tue, 16 Feb 2010 23:11:09 -0800 (PST)
-Message-ID: <20100216.231109.183048308.davem@davemloft.net>
+Date: Wed, 17 Feb 2010 08:13:28 +0100
+Message-ID: <1266390808.2830.1.camel@edumazet-laptop>
 References: <20100217174015.d1a8a478.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jengelh@medozas.de
-To: sfr@canb.auug.org.au
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jan Engelhardt <jengelh@medozas.de>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <linux-next-owner@vger.kernel.org>
 In-Reply-To: <20100217174015.d1a8a478.sfr@canb.auug.org.au>
 Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogU3RlcGhlbiBSb3Rod2VsbCA8c2ZyQGNhbmIuYXV1Zy5vcmcuYXU+DQpEYXRlOiBXZWQs
-IDE3IEZlYiAyMDEwIDE3OjQwOjE1ICsxMTAwDQoNCj4gQWZ0ZXIgbWVyZ2luZywgdG9kYXkncyBs
-aW51eC1uZXh0IGJ1aWxkIChzcGFyYzY0IGRlZmNvbmZpZykgZmFpbGVkIGxpa2UNCj4gdGhpczoN
-Cg0KRml4ZWQgZm9yIGF0IGxlYXN0IDYgaG91cnM6DQoNCkZyb20gMTc3ODY3Y2UwOGYyNzU2ZmEz
-NjFlMzcwODZmYzE3OTJkN2I0Y2YyOSBNb24gU2VwIDE3IDAwOjAwOjAwIDIwMDENCkZyb206IERh
-dmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCkRhdGU6IFR1ZSwgMTYgRmViIDIw
-MTAgMTU6MjM6MjMgLTA4MDANClN1YmplY3Q6IFtQQVRDSCA2NDEvNjk4XSBzcGFyYzY0OiBLaWxs
-IGJvZ3VzIGlwX3RhYmxlcy5oIGluY2x1ZGUuDQpNSU1FLVZlcnNpb246IDEuMA0KQ29udGVudC1U
-eXBlOiB0ZXh0L3BsYWluOyBjaGFyc2V0PVVURi04DQpDb250ZW50LVRyYW5zZmVyLUVuY29kaW5n
-OiA4Yml0DQoNCkZpeGVzIHRoZSBmb2xsb3dpbmcgYnVpbGQgZmFpbHVyZToNCg0KICBDQyAgICAg
-IGFyY2gvc3BhcmMva2VybmVsL3N5c19zcGFyYzMyLm8NCkluIGZpbGUgaW5jbHVkZWQgZnJvbSBp
-bmNsdWRlL2xpbnV4L25ldGZpbHRlcl9pcHY0L2lwX3RhYmxlcy5oOjI4LA0KICAgICAgICAgICAg
-ICAgICBmcm9tIGFyY2gvc3BhcmMva2VybmVsL3N5c19zcGFyYzMyLmM6NDY6DQppbmNsdWRlL2xp
-bnV4L25ldGZpbHRlci94X3RhYmxlcy5oOjUyNTogZXJyb3I6IGV4cGVjdGVkIGRlY2xhcmF0aW9u
-IHNwZWNpZmllcnMgb3IgoS4uLqIgYmVmb3JlIKFuZl9ob29rZm6iDQoNClNpZ25lZC1vZmYtYnk6
-IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCi0tLQ0KIGFyY2gvc3BhcmMv
-a2VybmVsL3N5c19zcGFyYzMyLmMgfCAgICAxIC0NCiAxIGZpbGVzIGNoYW5nZWQsIDAgaW5zZXJ0
-aW9ucygrKSwgMSBkZWxldGlvbnMoLSkNCg0KZGlmZiAtLWdpdCBhL2FyY2gvc3BhcmMva2VybmVs
-L3N5c19zcGFyYzMyLmMgYi9hcmNoL3NwYXJjL2tlcm5lbC9zeXNfc3BhcmMzMi5jDQppbmRleCBk
-YzBhYzE5Li5kYWRlZDNiIDEwMDY0NA0KLS0tIGEvYXJjaC9zcGFyYy9rZXJuZWwvc3lzX3NwYXJj
-MzIuYw0KKysrIGIvYXJjaC9zcGFyYy9rZXJuZWwvc3lzX3NwYXJjMzIuYw0KQEAgLTQzLDcgKzQz
-LDYgQEANCiAjaW5jbHVkZSA8bGludXgvc2VjdXJpdHkuaD4NCiAjaW5jbHVkZSA8bGludXgvY29t
-cGF0Lmg+DQogI2luY2x1ZGUgPGxpbnV4L3Zmcy5oPg0KLSNpbmNsdWRlIDxsaW51eC9uZXRmaWx0
-ZXJfaXB2NC9pcF90YWJsZXMuaD4NCiAjaW5jbHVkZSA8bGludXgvcHRyYWNlLmg+DQogDQogI2lu
-Y2x1ZGUgPGFzbS90eXBlcy5oPg0KLS0gDQoxLjYuNi4xDQoNCg==
+Le mercredi 17 f=C3=A9vrier 2010 =C3=A0 17:40 +1100, Stephen Rothwell a=
+ =C3=A9crit :
+> Hi Dave,
+>=20
+> After merging, today's linux-next build (sparc64 defconfig) failed li=
+ke
+> this:
+>=20
+> In file included from include/linux/netfilter_ipv4/ip_tables.h:29,
+>                  from arch/sparc/kernel/sys_sparc32.c:47:
+> include/linux/netfilter/x_tables.h:525: error: expected declaration s=
+pecifiers or '...' before 'nf_hookfn'
+>=20
+> Caused by commit 2b95efe7f6bb750256a702cc32d33b0cb2cd8223 ("netfilter=
+:
+> xtables: use xt_table for hook instantiation").  Missing direct inclu=
+de
+> of linux/netfilter.h?
+>=20
+
+Hi Stephen
+
+David took care of this already.
+
+http://marc.info/?l=3Dlinux-netdev&m=3D126636301220734&w=3D2
