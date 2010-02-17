@@ -1,57 +1,33 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after final merge (net tree)
-Date: Wed, 17 Feb 2010 18:57:48 +1100
-Message-ID: <20100217185748.051ff632.sfr@canb.auug.org.au>
-References: <20100217174015.d1a8a478.sfr@canb.auug.org.au>
-	<20100216.231109.183048308.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2 net-next 1/2] usbnet: Convert dev(dbg|err|warn|info)
+ macros to netdev_<level>
+Date: Wed, 17 Feb 2010 00:04:22 -0800 (PST)
+Message-ID: <20100217.000422.246530855.davem@davemloft.net>
+References: <20100212.123837.56526847.davem@davemloft.net>
+	<48cb1d6445dceaa7043d1039ca775a8961020d88.1266221693.git.joe@perches.com>
+	<20100216.233714.39181977.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__17_Feb_2010_18_57_48_+1100_4UmnoEUqHb7xmWa8"
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jengelh@medozas.de
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:35651 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934047Ab0BQH55 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2010 02:57:57 -0500
-In-Reply-To: <20100216.231109.183048308.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: david-b@pacbell.net, gregkh@suse.de, tilman@imap.cc,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100216.233714.39181977.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---Signature=_Wed__17_Feb_2010_18_57_48_+1100_4UmnoEUqHb7xmWa8
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Tue, 16 Feb 2010 23:11:09 -0800 (PST) David Miller <davem@davemloft.net>=
- wrote:
->
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Wed, 17 Feb 2010 17:40:15 +1100
->=20
-> > After merging, today's linux-next build (sparc64 defconfig) failed like
-> > this:
->=20
-> Fixed for at least 6 hours:
+I had to revert this series, the build fails:
 
-Excellent, thanks.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Wed__17_Feb_2010_18_57_48_+1100_4UmnoEUqHb7xmWa8
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAkt7oXwACgkQjjKRsyhoI8xg4ACcD5LxUuBolowblUPfdzf7J5Dr
-PxAAoIJUmm7FKFlqhSrszyOl2VA80BJB
-=T0go
------END PGP SIGNATURE-----
-
---Signature=_Wed__17_Feb_2010_18_57_48_+1100_4UmnoEUqHb7xmWa8--
+drivers/net/wireless/rndis_wlan.c: In function 'rndis_query_oid':
+drivers/net/wireless/rndis_wlan.c:731: error: implicit declaration of function 'devdbg'
+drivers/net/wireless/rndis_wlan.c: In function 'set_essid':
+drivers/net/wireless/rndis_wlan.c:948: error: implicit declaration of function 'devwarn'
+drivers/net/wireless/rndis_wlan.c: In function 'rndis_connect':
+drivers/net/wireless/rndis_wlan.c:1796: error: implicit declaration of function 'deverr'
+drivers/net/wireless/rndis_wlan.c: In function 'rndis_wlan_auth_indication':
+drivers/net/wireless/rndis_wlan.c:2273: error: implicit declaration of function 'devinfo'
+make[3]: *** [drivers/net/wireless/rndis_wlan.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
