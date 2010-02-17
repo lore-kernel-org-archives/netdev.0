@@ -1,47 +1,41 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
 Subject: Re: linux-next: build failure after final merge (net tree)
-Date: Wed, 17 Feb 2010 17:46:36 +1100
-Message-ID: <20100217174636.8f1fc499.sfr@canb.auug.org.au>
+Date: Tue, 16 Feb 2010 23:11:09 -0800 (PST)
+Message-ID: <20100216.231109.183048308.davem@davemloft.net>
 References: <20100217174015.d1a8a478.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__17_Feb_2010_17_46_36_+1100_1bFPo2UVnjGaARu3"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jengelh@medozas.de
+To: sfr@canb.auug.org.au
 Return-path: <linux-next-owner@vger.kernel.org>
 In-Reply-To: <20100217174015.d1a8a478.sfr@canb.auug.org.au>
 Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Wed__17_Feb_2010_17_46_36_+1100_1bFPo2UVnjGaARu3
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 17 Feb 2010 17:40:15 +1100 Stephen Rothwell <sfr@canb.auug.org.au> =
-wrote:
->
-> Caused by commit 2b95efe7f6bb750256a702cc32d33b0cb2cd8223 ("netfilter:
-> xtables: use xt_table for hook instantiation").  Missing direct include
-> of linux/netfilter.h?
-
-The address for Jan Engelhardt is bouncing ...
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Wed__17_Feb_2010_17_46_36_+1100_1bFPo2UVnjGaARu3
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAkt7kMwACgkQjjKRsyhoI8xjvgCgvkIOpOx8advseNaiGyGJpwU9
-IeEAn0Ids8qq3+d37f1Dho+aUmcQigLu
-=x/p8
------END PGP SIGNATURE-----
-
---Signature=_Wed__17_Feb_2010_17_46_36_+1100_1bFPo2UVnjGaARu3--
+RnJvbTogU3RlcGhlbiBSb3Rod2VsbCA8c2ZyQGNhbmIuYXV1Zy5vcmcuYXU+DQpEYXRlOiBXZWQs
+IDE3IEZlYiAyMDEwIDE3OjQwOjE1ICsxMTAwDQoNCj4gQWZ0ZXIgbWVyZ2luZywgdG9kYXkncyBs
+aW51eC1uZXh0IGJ1aWxkIChzcGFyYzY0IGRlZmNvbmZpZykgZmFpbGVkIGxpa2UNCj4gdGhpczoN
+Cg0KRml4ZWQgZm9yIGF0IGxlYXN0IDYgaG91cnM6DQoNCkZyb20gMTc3ODY3Y2UwOGYyNzU2ZmEz
+NjFlMzcwODZmYzE3OTJkN2I0Y2YyOSBNb24gU2VwIDE3IDAwOjAwOjAwIDIwMDENCkZyb206IERh
+dmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCkRhdGU6IFR1ZSwgMTYgRmViIDIw
+MTAgMTU6MjM6MjMgLTA4MDANClN1YmplY3Q6IFtQQVRDSCA2NDEvNjk4XSBzcGFyYzY0OiBLaWxs
+IGJvZ3VzIGlwX3RhYmxlcy5oIGluY2x1ZGUuDQpNSU1FLVZlcnNpb246IDEuMA0KQ29udGVudC1U
+eXBlOiB0ZXh0L3BsYWluOyBjaGFyc2V0PVVURi04DQpDb250ZW50LVRyYW5zZmVyLUVuY29kaW5n
+OiA4Yml0DQoNCkZpeGVzIHRoZSBmb2xsb3dpbmcgYnVpbGQgZmFpbHVyZToNCg0KICBDQyAgICAg
+IGFyY2gvc3BhcmMva2VybmVsL3N5c19zcGFyYzMyLm8NCkluIGZpbGUgaW5jbHVkZWQgZnJvbSBp
+bmNsdWRlL2xpbnV4L25ldGZpbHRlcl9pcHY0L2lwX3RhYmxlcy5oOjI4LA0KICAgICAgICAgICAg
+ICAgICBmcm9tIGFyY2gvc3BhcmMva2VybmVsL3N5c19zcGFyYzMyLmM6NDY6DQppbmNsdWRlL2xp
+bnV4L25ldGZpbHRlci94X3RhYmxlcy5oOjUyNTogZXJyb3I6IGV4cGVjdGVkIGRlY2xhcmF0aW9u
+IHNwZWNpZmllcnMgb3IgoS4uLqIgYmVmb3JlIKFuZl9ob29rZm6iDQoNClNpZ25lZC1vZmYtYnk6
+IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCi0tLQ0KIGFyY2gvc3BhcmMv
+a2VybmVsL3N5c19zcGFyYzMyLmMgfCAgICAxIC0NCiAxIGZpbGVzIGNoYW5nZWQsIDAgaW5zZXJ0
+aW9ucygrKSwgMSBkZWxldGlvbnMoLSkNCg0KZGlmZiAtLWdpdCBhL2FyY2gvc3BhcmMva2VybmVs
+L3N5c19zcGFyYzMyLmMgYi9hcmNoL3NwYXJjL2tlcm5lbC9zeXNfc3BhcmMzMi5jDQppbmRleCBk
+YzBhYzE5Li5kYWRlZDNiIDEwMDY0NA0KLS0tIGEvYXJjaC9zcGFyYy9rZXJuZWwvc3lzX3NwYXJj
+MzIuYw0KKysrIGIvYXJjaC9zcGFyYy9rZXJuZWwvc3lzX3NwYXJjMzIuYw0KQEAgLTQzLDcgKzQz
+LDYgQEANCiAjaW5jbHVkZSA8bGludXgvc2VjdXJpdHkuaD4NCiAjaW5jbHVkZSA8bGludXgvY29t
+cGF0Lmg+DQogI2luY2x1ZGUgPGxpbnV4L3Zmcy5oPg0KLSNpbmNsdWRlIDxsaW51eC9uZXRmaWx0
+ZXJfaXB2NC9pcF90YWJsZXMuaD4NCiAjaW5jbHVkZSA8bGludXgvcHRyYWNlLmg+DQogDQogI2lu
+Y2x1ZGUgPGFzbS90eXBlcy5oPg0KLS0gDQoxLjYuNi4xDQoNCg==
