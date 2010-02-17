@@ -1,42 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 2/2] net neigh: Decouple per interface
- neighbour table controls from binary sysctls
-Date: Tue, 16 Feb 2010 15:55:55 -0800 (PST)
-Message-ID: <20100216.155555.218061146.davem@davemloft.net>
-References: <m1fx54kkyo.fsf@fess.ebiederm.org>
-	<m1bpfskkwo.fsf@fess.ebiederm.org>
+Subject: Re: [PATCH v2 00/41] CAPI: Major rework, tons of bug fixes
+Date: Tue, 16 Feb 2010 16:02:01 -0800 (PST)
+Message-ID: <20100216.160201.62198315.davem@davemloft.net>
+References: <cover.1265659933.git.jan.kiszka@web.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ebiederm@xmission.com
+Cc: isdn@linux-pingi.de, linux-kernel@vger.kernel.org,
+	i4ldeveloper@listserv.isdn4linux.de,
+	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	alan@lxorguk.ukuu.org.uk, marcel@holtmann.org
+To: jan.kiszka@web.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46325
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52469
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932771Ab0BPXzk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 18:55:40 -0500
-In-Reply-To: <m1bpfskkwo.fsf@fess.ebiederm.org>
+	by vger.kernel.org with ESMTP id S932771Ab0BQABq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Feb 2010 19:01:46 -0500
+In-Reply-To: <cover.1265659933.git.jan.kiszka@web.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Sun, 14 Feb 2010 05:27:03 -0800
+From: Jan Kiszka <jan.kiszka@web.de>
+Date: Mon,  8 Feb 2010 21:12:04 +0100
 
+> Here is the second take of my CAPI rework. I tried to address all
+> feedback on v1, so this one comes with the following changes:
 > 
-> Stop computing the number of neighbour table settings we have by
-> counting the number of binary sysctls.  This behaviour was silly
-> and meant that we could not add another neighbour table setting
-> without also adding another binary sysctl.
+>  o rebased over net-next
+>  o reworked locking of the NCCI TTY using latest and greatest tty_port
+>    features and kref, hopefully in the right way
+>  o more fine-grained patch steps for the tricky TTY rework
+>  o dynamic major for NCCI TTYs, ie. CAPI no longer claims 191
+>  o dynamic TTY minor registrations, completely obsoleting capifs
+>  o schedule capifs for removal
+>  o some small additional cleanups
 > 
-> Don't pass the binary sysctl path for neighour table entries
-> into neigh_sysctl_register.  These parameters are no longer
-> used and so are just dead code.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> I kept my capifs fixes though this thing should die in the future. The
+> work is done, and people may still use it due to their distro
+> configuration (and the hard-wired loading by capiinit - needs fixing).
 
-Applied.
+Thank you for all of your hard work.
 
-I bet we can do even better and make it such that even
-this NEIGH_VARS_MAX thing isn't needed.
+I've applied your entire series to net-next-2.6
 
-Anyways, thanks for doing this work Eric.
+Thanks again!
