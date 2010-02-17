@@ -1,467 +1,388 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH v2 0/3] e1000e,igb,ixgbe: add registers etc. printout
- code just before resetting adapters
-Date: Wed, 17 Feb 2010 11:10:01 -0800 (Pacific Standard Time)
-Message-ID: <alpine.WNT.2.00.1002171043450.5328@jbrandeb-desk1.amr.corp.intel.com>
-References: <4B593B74.2020601@jp.fujitsu.com> <alpine.WNT.2.00.1001221345580.6104@jbrandeb-desk1.amr.corp.intel.com> <4B5EC215.5090509@jp.fujitsu.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: regression due to "flush SAD/SPD generate false events"
+Date: Wed, 17 Feb 2010 21:17:19 +0200
+Message-ID: <20100217191718.GA5256@x200>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	Koki Sanagi <sanagi.koki@jp.fujitsu.com>,
-	Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
-	"chavey@google.com" <chavey@google.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: hadi@cyberus.ca, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:16532 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750883Ab0BQTKE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2010 14:10:04 -0500
-In-Reply-To: <4B5EC215.5090509@jp.fujitsu.com>
+Received: from qw-out-2122.google.com ([74.125.92.24]:14888 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754090Ab0BQTRa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 14:17:30 -0500
+Received: by qw-out-2122.google.com with SMTP id 3so91764qwe.37
+        for <netdev@vger.kernel.org>; Wed, 17 Feb 2010 11:17:28 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+commit 19f4c7133fc1b94001b997c4843d0a9192ee63e5
+xfrm: Flushing empty SAD generates false events
 
-On Tue, 26 Jan 2010, Taku Izumi wrote:
-> (2010/01/23 6:54), Brandeburg, Jesse wrote:
-> > Taku, thanks for these, we are talking the patches over and reviewing
-> > them.  While I agree with the idea of these patches is good, I still don't
-> > agree with the default being enabled.  Usually if someone is getting tx
-> > hangs they are repeatable and we can work with them to get the debug
-> > turned on.  I DO think it is useful to have the feature available by
-> > default but NOT enabled.
-> > 
-> > If we wanted to enable something by default it might be useful to print
-> > something that actually draws some conclusions from known failure modes,
-> > like if TDH!=TDT after some amount of time.  I think one or two lines
-> > maximum for default printing.
-> > 
-> > If you're working in this area I had an idea.  I had wanted to be able to
-> > print the large amount of ring information (especially in the ixgbe case
-> > with many rings) to the ftrace buffers in order to not overrun the syslog
-> > daemon.  Not sure if you're interested in more new features, it certainly
-> > is separate but related to this patch.
-> 
-> I thought similar things, that is, all information should be dumped to
-> the private ring buffer to avoid filling syslog up with driver messages.
-> But I didn't have any good idea to extract information from ring buffers,
-> so as the first step, I decided to printout it by using printk().
-> Is there the easy way to extract it from ring buffers?
+commit 0dca3a843632c2fbb6e358734fb08fc23e800f50
+xfrm: Flushing empty SPD generates false events
 
-First, I need to apologize for the delay, it's my fault.
+setkey now takes several seconds to run this simple script
+and it spits "recv: Resource temporarily unavailable" messages.
 
-I'm not sure about an easy way to use the private ring buffers yet, I know 
-you can use the ftrace buffers directly, and then when someone read 
-/sys/kernel/debug/tracing/trace they would get all the output.
+#!/usr/sbin/setkey -f
+flush;
+spdflush;
 
-Lets not do ftrace yet.
+add A B ipcomp 44 -m tunnel -C deflate;
+add B A ipcomp 45 -m tunnel -C deflate;
 
-I have a counter proposal to make, here is a (incomplete) patch that we 
-use all the time to debug tx hangs.  This example is for e1000e.  We are 
-trying to avoid changes with other users' copyright to some of the files 
-in our drivers so that we can ship them under multiple license.  We would 
-much prefer something like this to be used, can you review?
-
-I also have another patch I made for ixgb to show the use of sysfs and a 
-module parameter, I'll reply again with that next.
-
----
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-
-e1000e: dump code for descriptor rings
-
-This is debug code for descriptor ring dumps, only enable if you really want a
-lot of stuff in your syslog/dmesg when you get NETDEV WATCHDOG or tx hang
-reports from the driver.
-
-<not implemented> Code can be enabled at boot time with a module parameter or
-via sysfs at runtime.
-
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
----
-
- drivers/net/e1000e/ethtool.c |    4 +
- drivers/net/e1000e/hw.h      |   10 +
- drivers/net/e1000e/netdev.c  |  298 ++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 311 insertions(+), 1 deletions(-)
+spdadd A B any -P in ipsec
+        ipcomp/tunnel/192.168.1.2-192.168.1.3/use;
+spdadd B A any -P out ipsec
+        ipcomp/tunnel/192.168.1.3-192.168.1.2/use;
 
 
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index 0aa50c2..bbcf5c7 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -434,6 +434,8 @@ static int e1000_get_regs_len(struct net_device *netdev)
- 	return E1000_REGS_LEN * sizeof(u32);
- }
- 
-+extern void e1000e_dump(struct e1000_adapter *);
-+
- static void e1000_get_regs(struct net_device *netdev,
- 			   struct ethtool_regs *regs, void *p)
- {
-@@ -443,6 +445,8 @@ static void e1000_get_regs(struct net_device *netdev,
- 	u16 phy_data;
- 	u8 revision_id;
- 
-+	e1000e_dump(adapter);
-+
- 	memset(p, 0, E1000_REGS_LEN * sizeof(u32));
- 
- 	pci_read_config_byte(adapter->pdev, PCI_REVISION_ID, &revision_id);
-diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index eccf29b..d23501d 100644
---- a/drivers/net/e1000e/hw.h
-+++ b/drivers/net/e1000e/hw.h
-@@ -92,6 +92,11 @@ enum e1e_registers {
- 	E1000_FCRTL    = 0x02160, /* Flow Control Receive Threshold Low - RW */
- 	E1000_FCRTH    = 0x02168, /* Flow Control Receive Threshold High - RW */
- 	E1000_PSRCTL   = 0x02170, /* Packet Split Receive Control - RW */
-+	E1000_RDFH     = 0x02410, /* Rx Data FIFO Head - RW */
-+	E1000_RDFT     = 0x02418, /* Rx Data FIFO Tail - RW */
-+	E1000_RDFHS    = 0x02420, /* Rx Data FIFO Head Saved - RW */
-+	E1000_RDFTS    = 0x02428, /* Rx Data FIFO Tail Saved - RW */
-+	E1000_RDFPC    = 0x02430, /* Rx Data FIFO Packet Count - RW */
- 	E1000_RDBAL    = 0x02800, /* Rx Descriptor Base Address Low - RW */
- 	E1000_RDBAH    = 0x02804, /* Rx Descriptor Base Address High - RW */
- 	E1000_RDLEN    = 0x02808, /* Rx Descriptor Length - RW */
-@@ -112,6 +117,11 @@ enum e1e_registers {
-  */
- #define E1000_RDBAL_REG(_n)   (E1000_RDBAL + (_n << 8))
- 	E1000_KABGTXD  = 0x03004, /* AFE Band Gap Transmit Ref Data */
-+	E1000_TDFH     = 0x03410, /* TX Data FIFO Head - RW */
-+	E1000_TDFT     = 0x03418, /* TX Data FIFO Tail - RW */
-+	E1000_TDFHS    = 0x03420, /* TX Data FIFO Head Saved - RW */
-+	E1000_TDFTS    = 0x03428, /* Tx Data FIFO Tail Saved - RW */
-+	E1000_TDFPC    = 0x03430, /* TX Data FIFO Packet Count - RW */
- 	E1000_TDBAL    = 0x03800, /* Tx Descriptor Base Address Low - RW */
- 	E1000_TDBAH    = 0x03804, /* Tx Descriptor Base Address High - RW */
- 	E1000_TDLEN    = 0x03808, /* Tx Descriptor Length - RW */
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index c45965a..c990341 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -48,7 +48,7 @@
- 
- #include "e1000.h"
- 
--#define DRV_VERSION "1.0.2-k2"
-+#define DRV_VERSION "1.0.2-k4"
- char e1000e_driver_name[] = "e1000e";
- const char e1000e_driver_version[] = DRV_VERSION;
- 
-@@ -601,6 +601,301 @@ static void e1000_print_hw_hang(struct work_struct *work)
- 	      pci_status);
- }
- 
-+#if 0
-+static void hexdump(dma_addr_t dma, u16 len)
-+{
-+	u16 offset, i;
-+	char str[80], byte[4];
-+	void *va = phys_to_virt((unsigned long)dma);
-+
-+	printk("buffer at %016llX (%d)\n", (u64)dma, len);
-+	for (offset = 0; offset < len; offset += 16) {
-+		sprintf(str, "%04x: ", offset);
-+		for (i = 0; i < 16; i++) {
-+			if ((offset + i) < len)
-+				sprintf(byte, "%02x ",
-+				        ((unsigned char *)va)[offset + i]);
-+			else
-+				strcpy(byte, "   ");
-+			strcat(str, byte);
-+		}
-+		printk("%s\n", str);
-+	}
-+}
-+
-+#endif
-+void e1000e_dump(struct e1000_adapter *adapter)
-+{
-+	/* this code doesn't handle multiple rings */
-+	struct e1000_ring *tx_ring = adapter->tx_ring;
-+	struct e1000_ring *rx_ring = adapter->rx_ring;
-+	struct e1000_hw *hw = &adapter->hw;
-+	int i = 0;
-+#define NUM_REGS 38 /* 1 based count */
-+	u32 regs[NUM_REGS];
-+	u32 *regs_buff = regs;
-+
-+	char *reg_name[] = {
-+	"CTRL",  "STATUS",
-+	"RCTL", "RDLEN", "RDH", "RDT", "RDTR",
-+	"TCTL", "TDBAL", "TDBAH", "TDLEN", "TDH", "TDT",
-+	"TIDV", "TXDCTL", "TADV", "TARC0",
-+	"TDBAL1", "TDBAH1", "TDLEN1", "TDH1", "TDT1",
-+	"TXDCTL1", "TARC1",
-+	"CTRL_EXT", "ERT", "RDBAL", "RDBAH",
-+	 "TDFH", "TDFT", "TDFHS", "TDFTS", "TDFPC",
-+	 "RDFH", "RDFT", "RDFHS", "RDFTS", "RDFPC",
-+	};
-+
-+	//if (!e1000e_debug_dump)
-+		//return;
-+
-+	regs_buff[0]  = er32(CTRL);
-+	regs_buff[1]  = er32(STATUS);
-+
-+	regs_buff[2]  = er32(RCTL);
-+	regs_buff[3]  = er32(RDLEN);
-+	regs_buff[4]  = er32(RDH);
-+	regs_buff[5]  = er32(RDT);
-+	regs_buff[6]  = er32(RDTR);
-+
-+	regs_buff[7]  = er32(TCTL);
-+	regs_buff[8]  = er32(TDBAL);
-+	regs_buff[9]  = er32(TDBAH);
-+	regs_buff[10] = er32(TDLEN);
-+	regs_buff[11] = er32(TDH);
-+	regs_buff[12] = er32(TDT);
-+	regs_buff[13] = er32(TIDV);
-+	regs_buff[14] = er32(TXDCTL(0));
-+	regs_buff[15] = er32(TADV);
-+	regs_buff[16] = er32(TARC(0));
-+
-+	regs_buff[22] = er32(TXDCTL(1));
-+	regs_buff[23] = er32(TARC(1));
-+	regs_buff[24] = er32(CTRL_EXT);
-+	regs_buff[25] = er32(ERT);
-+	regs_buff[26] = er32(RDBAL);
-+	regs_buff[27] = er32(RDBAH);
-+	regs_buff[28] = er32(TDFH);
-+	regs_buff[29] = er32(TDFT);
-+	regs_buff[30] = er32(TDFHS);
-+	regs_buff[31] = er32(TDFTS);
-+	regs_buff[32] = er32(TDFPC);
-+	regs_buff[33] = er32(RDFH);
-+	regs_buff[34] = er32(RDFT);
-+	regs_buff[35] = er32(RDFHS);
-+	regs_buff[36] = er32(RDFTS);
-+	regs_buff[37] = er32(RDFPC);
-+
-+	e_err("Register dump\n");
-+	for (i = 0; i < NUM_REGS; i++) {
-+		printk("%-15s  %08x\n",
-+		reg_name[i], regs_buff[i]);
-+	}
-+
-+	/*
-+	 * transmit dump
-+	 */
-+	printk(KERN_ERR"TX Desc ring0 dump\n");
-+
-+	/* Transmit Descriptor Formats - DEXT[29] is 0 (Legacy) or 1 (Extended)
-+	 *
-+	 * Legacy Transmit Descriptor
-+	 *   +--------------------------------------------------------------+
-+	 * 0 |         Buffer Address [63:0] (Reserved on Write Back)       |
-+	 *   +--------------------------------------------------------------+
-+	 * 8 | Special  |    CSS     | Status |  CMD    |  CSO   |  Length  |
-+	 *   +--------------------------------------------------------------+
-+	 *   63       48 47        36 35    32 31     24 23    16 15        0
-+	 *
-+	 * Extended Context Descriptor (DTYP=0x0) for TSO or checksum offload
-+	 *   63      48 47    40 39       32 31             16 15    8 7      0
-+	 *   +----------------------------------------------------------------+
-+	 * 0 |  TUCSE  | TUCS0  |   TUCSS   |     IPCSE       | IPCS0 | IPCSS |
-+	 *   +----------------------------------------------------------------+
-+	 * 8 |   MSS   | HDRLEN | RSV | STA | TUCMD | DTYP |      PAYLEN      |
-+	 *   +----------------------------------------------------------------+
-+	 *   63      48 47    40 39 36 35 32 31   24 23  20 19                0
-+	 *
-+	 * Extended Data Descriptor (DTYP=0x1)
-+	 *   +----------------------------------------------------------------+
-+	 * 0 |                     Buffer Address [63:0]                      |
-+	 *   +----------------------------------------------------------------+
-+	 * 8 | VLAN tag |  POPTS  | Rsvd | Status | Command | DTYP |  DTALEN  |
-+	 *   +----------------------------------------------------------------+
-+	 *   63       48 47     40 39  36 35    32 31     24 23  20 19        0
-+	 */
-+	printk("Tl(Legacy)   [address 63:0  ] [SpeCssSCmCsLen] [buffer_info dma"
-+	       " leng  ntw       time_stamp             skb]\n");
-+	printk("Tc(ExtCont)  [Ce CoCsIpceCoS] [MssHlRSCm0Plen] [buffer_info dma"
-+	       " leng  ntw       time_stamp             skb]\n");
-+	printk("Td(ExtData)  [address 63:0  ] [VlaPoRSCm1Dlen] [buffer_info dma"
-+	       " leng  ntw       time_stamp             skb]\n");
-+	for (i = 0; tx_ring->desc && (i < tx_ring->count); i++) {
-+		struct e1000_tx_desc *tx_desc = E1000_TX_DESC(*tx_ring, i);
-+		struct e1000_buffer *buffer_info = &tx_ring->buffer_info[i];
-+		struct my_u { u64 a; u64 b; };
-+		struct my_u *u = (struct my_u *)tx_desc;
-+		printk("T%c[0x%03X]    %016llX %016llX %016llX %04X  %3X "
-+		       "%016llX %p",
-+		       (!(le64_to_cpu(u->b) & (1<<29)) ? 'l' :
-+		         ((le64_to_cpu(u->b) & (1<<20)) ? 'd' : 'c')), i,
-+		       le64_to_cpu(u->a), le64_to_cpu(u->b),
-+		       (u64)buffer_info->dma, buffer_info->length,
-+		       buffer_info->next_to_watch, (u64)buffer_info->time_stamp,
-+		       buffer_info->skb);
-+		if (i == tx_ring->next_to_use && i == tx_ring->next_to_clean)
-+			printk(" NTC/U\n");
-+		else if (i == tx_ring->next_to_use)
-+			printk(" NTU\n");
-+		else if (i == tx_ring->next_to_clean)
-+			printk(" NTC\n");
-+		else
-+			printk("\n");
-+
-+#if 0
-+		if (adapter->dump_buffers && (buffer_info->dma != 0))
-+			hexdump(buffer_info->dma, buffer_info->length);
-+#endif
-+	}
-+
-+	/*
-+	 * receive dump
-+	 */
-+	printk(KERN_ERR"\nRX Desc ring dump\n");
-+
-+	switch (adapter->rx_ps_pages) {
-+	case 1:
-+	case 2:
-+	case 3:
-+		/* [Extended] Packet Split Receive Descriptor Format
-+		 *
-+		 *    +-----------------------------------------------------+
-+		 *  0 |                Buffer Address 0 [63:0]              |
-+		 *    +-----------------------------------------------------+
-+		 *  8 |                Buffer Address 1 [63:0]              |
-+		 *    +-----------------------------------------------------+
-+		 * 16 |                Buffer Address 2 [63:0]              |
-+		 *    +-----------------------------------------------------+
-+		 * 24 |                Buffer Address 3 [63:0]              |
-+		 *    +-----------------------------------------------------+
-+		 */
-+		printk("R  [desc]      [buffer 0 63:0 ] [buffer 1 63:0 ] "
-+		       "[buffer 2 63:0 ] [buffer 3 63:0 ] [bi->dma       ] "
-+		       "[bi->skb] <-- Ext Pkt Split format\n");
-+		/* [Extended] Receive Descriptor (Write-Back) Format
-+		 *
-+		 *   63       48 47    32 31     13 12    8 7    4 3        0
-+		 *   +------------------------------------------------------+
-+		 * 0 | Packet   | IP     |  Rsvd   | MRQ   | Rsvd | MRQ RSS |
-+		 *   | Checksum | Ident  |         | Queue |      |  Type   |
-+		 *   +------------------------------------------------------+
-+		 * 8 | VLAN Tag | Length | Extended Error | Extended Status |
-+		 *   +------------------------------------------------------+
-+		 *   63       48 47    32 31            20 19               0
-+		 */
-+		printk("RWB[desc]      [ck ipid mrqhsh] [vl   l0 ee  es] "
-+		       "[ l3  l2  l1 hs] [reserved      ] ---------------- "
-+		       "[bi->skb] <-- Ext Rx Write-Back format\n");
-+		for (i = 0; i < rx_ring->count; i++) {
-+			struct e1000_buffer *buffer_info =
-+						&rx_ring->buffer_info[i];
-+			union e1000_rx_desc_packet_split *rx_desc =
-+						E1000_RX_DESC_PS(*rx_ring, i);
-+			struct my_u { u64 a; u64 b; u64 c; u64 d; };
-+			struct my_u *u = (struct my_u *)rx_desc;
-+			u32 staterr;
-+			staterr = le32_to_cpu(rx_desc->wb.middle.status_error);
-+			if (staterr & E1000_RXD_STAT_DD) {
-+				/* Descriptor Done */
-+				printk("RWB[0x%03X]     %016llX %016llX %016llX"
-+				       " %016llX ---------------- %p",
-+				       i, le64_to_cpu(u->a), le64_to_cpu(u->b),
-+				       le64_to_cpu(u->c), le64_to_cpu(u->d),
-+				       buffer_info->skb);
-+			} else {
-+				printk("R  [0x%03X]     %016llX %016llX %016llX"
-+				       " %016llX %016llX %p",
-+				       i, le64_to_cpu(u->a), le64_to_cpu(u->b),
-+				       le64_to_cpu(u->c), le64_to_cpu(u->d),
-+				       (u64)buffer_info->dma, buffer_info->skb);
-+
-+#if 0
-+				if (adapter->dump_buffers)
-+					hexdump(buffer_info->dma,
-+					        adapter->rx_ps_bsize0);
-+#endif
-+			}
-+
-+			if (i == rx_ring->next_to_use)
-+				printk(" NTU\n");
-+			else if (i == rx_ring->next_to_clean)
-+				printk(" NTC\n");
-+			else
-+				printk("\n");
-+		}
-+		break;
-+	default:
-+	case 0:
-+		/* Legacy Receive Descriptor Format
-+		 *
-+		 * +-----------------------------------------------------+
-+		 * |                Buffer Address [63:0]                |
-+		 * +-----------------------------------------------------+
-+		 * | VLAN Tag | Errors | Status 0 | Packet csum | Length |
-+		 * +-----------------------------------------------------+
-+		 * 63       48 47    40 39      32 31         16 15      0
-+		 */
-+		printk("Rl[desc]     [address 63:0  ] [vl er S cks ln] "
-+		       "[bi->dma       ] [bi->skb] <-- Legacy format\n");
-+		for (i = 0; rx_ring->desc && (i < rx_ring->count); i++) {
-+			struct e1000_rx_desc *rx_desc =
-+						E1000_RX_DESC(*rx_ring, i);
-+			struct e1000_buffer *buffer_info =
-+						&rx_ring->buffer_info[i];
-+			struct my_u { u64 a; u64 b; };
-+			struct my_u *u = (struct my_u *)rx_desc;
-+			printk("Rl[0x%03X]    %016llX %016llX %016llX %p",
-+				i, le64_to_cpu(u->a), le64_to_cpu(u->b),
-+				(u64)buffer_info->dma, buffer_info->skb);
-+			if (i == rx_ring->next_to_use)
-+				printk(" NTU\n");
-+			else if (i == rx_ring->next_to_clean)
-+				printk(" NTC\n");
-+			else
-+				printk("\n");
-+
-+#if 0
-+			if (adapter->dump_buffers)
-+				hexdump(buffer_info->dma,
-+				        adapter->rx_buffer_len);
-+#endif
-+		} /* for */
-+	} /* switch */
-+
-+	/* dump the descriptor caches */
-+	/* rx */
-+	printk("Rx descriptor cache in 64bit format\n");
-+	for (i = 0x6000; i <= 0x63FF ; i += 0x10) {
-+		printk("R%04X: %08X|%08X %08X|%08X\n",
-+				i,
-+				readl(adapter->hw.hw_addr + i+4),
-+				readl(adapter->hw.hw_addr + i),
-+				readl(adapter->hw.hw_addr + i+12),
-+				readl(adapter->hw.hw_addr + i+8));
-+	}
-+	/* tx */
-+	printk("Tx descriptor cache in 64bit format\n");
-+	for (i = 0x7000; i <= 0x73FF ; i += 0x10) {
-+		printk("T%04X: %08X|%08X %08X|%08X\n",
-+				i,
-+				readl(adapter->hw.hw_addr + i+4),
-+				readl(adapter->hw.hw_addr + i),
-+				readl(adapter->hw.hw_addr + i+12),
-+				readl(adapter->hw.hw_addr + i+8));
-+	}
-+}
-+
- /**
-  * e1000_clean_tx_irq - Reclaim resources after transmit completes
-  * @adapter: board private structure
-@@ -682,6 +977,7 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter)
- 			       + (adapter->tx_timeout_factor * HZ)) &&
- 		    !(er32(STATUS) & E1000_STATUS_TXOFF)) {
- 			schedule_work(&adapter->print_hang_task);
-+			e1000e_dump(adapter);
- 			netif_stop_queue(netdev);
- 		}
- 	}
+4909  execve("/root/ipcomp-tunnel.setkey", ["/root/ipcomp-tunnel.setkey"], [/* 22 vars */]) = 0
+4909  brk(0)                            = 0x16d0000
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c83000
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c82000
+4909  access("/etc/ld.so.preload", R_OK) = -1 ENOENT (No such file or directory)
+4909  open("/etc/ld.so.cache", O_RDONLY) = 3
+4909  fstat(3, {st_mode=S_IFREG|0644, st_size=40409, ...}) = 0
+4909  mmap(NULL, 40409, PROT_READ, MAP_PRIVATE, 3, 0) = 0x7fa171c78000
+4909  close(3)                          = 0
+4909  open("/lib/libutil.so.1", O_RDONLY) = 3
+4909  read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0 \16\0\0\0\0\0\0"..., 832) = 832
+4909  fstat(3, {st_mode=S_IFREG|0755, st_size=28959, ...}) = 0
+4909  mmap(NULL, 2105608, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7fa171865000
+4909  mprotect(0x7fa171867000, 2093056, PROT_NONE) = 0
+4909  mmap(0x7fa171a66000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1000) = 0x7fa171a66000
+4909  close(3)                          = 0
+4909  open("/usr/lib/libcrypto.so.0.9.8", O_RDONLY) = 3
+4909  read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\0\221\6\0\0\0\0\0"..., 832) = 832
+4909  fstat(3, {st_mode=S_IFREG|0555, st_size=5981705, ...}) = 0
+4909  mmap(NULL, 3707672, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7fa1714db000
+4909  mprotect(0x7fa17163c000, 2093056, PROT_NONE) = 0
+4909  mmap(0x7fa17183b000, 155648, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x160000) = 0x7fa17183b000
+4909  mmap(0x7fa171861000, 13080, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7fa171861000
+4909  close(3)                          = 0
+4909  open("/lib/libresolv.so.2", O_RDONLY) = 3
+4909  read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\3208\0\0\0\0\0\0"..., 832) = 832
+4909  fstat(3, {st_mode=S_IFREG|0755, st_size=328639, ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c77000
+4909  mmap(NULL, 2189960, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7fa1712c4000
+4909  mprotect(0x7fa1712d7000, 2097152, PROT_NONE) = 0
+4909  mmap(0x7fa1714d7000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x13000) = 0x7fa1714d7000
+4909  mmap(0x7fa1714d9000, 6792, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7fa1714d9000
+4909  close(3)                          = 0
+4909  open("/lib/libreadline.so.6", O_RDONLY) = 3
+4909  read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\240g\1\0\0\0\0\0"..., 832) = 832
+4909  fstat(3, {st_mode=S_IFREG|0555, st_size=731087, ...}) = 0
+4909  mmap(NULL, 2372136, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7fa171080000
+4909  mprotect(0x7fa1710bb000, 2093056, PROT_NONE) = 0
+4909  mmap(0x7fa1712ba000, 32768, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x3a000) = 0x7fa1712ba000
+4909  mmap(0x7fa1712c2000, 4648, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7fa1712c2000
+4909  close(3)                          = 0
+4909  open("/lib/libcrypt.so.1", O_RDONLY) = 3
+4909  read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0`\n\0\0\0\0\0\0"..., 832) = 832
+4909  fstat(3, {st_mode=S_IFREG|0755, st_size=125022, ...}) = 0
+4909  mmap(NULL, 2322880, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7fa170e48000
+4909  mprotect(0x7fa170e50000, 2097152, PROT_NONE) = 0
+4909  mmap(0x7fa171050000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x8000) = 0x7fa171050000
+4909  mmap(0x7fa171052000, 184768, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7fa171052000
+4909  close(3)                          = 0
+4909  open("/lib/libc.so.6", O_RDONLY)  = 3
+4909  read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0@\353\1\0\0\0\0\0"..., 832) = 832
+4909  fstat(3, {st_mode=S_IFREG|0755, st_size=8673692, ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c76000
+4909  mmap(NULL, 3508264, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7fa170aef000
+4909  mprotect(0x7fa170c3e000, 2097152, PROT_NONE) = 0
+4909  mmap(0x7fa170e3e000, 20480, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x14f000) = 0x7fa170e3e000
+4909  mmap(0x7fa170e43000, 18472, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7fa170e43000
+4909  close(3)                          = 0
+4909  open("/lib/libdl.so.2", O_RDONLY) = 3
+4909  read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\360\r\0\0\0\0\0\0"..., 832) = 832
+4909  fstat(3, {st_mode=S_IFREG|0755, st_size=103353, ...}) = 0
+4909  mmap(NULL, 2109696, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7fa1708eb000
+4909  mprotect(0x7fa1708ed000, 2097152, PROT_NONE) = 0
+4909  mmap(0x7fa170aed000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7fa170aed000
+4909  close(3)                          = 0
+4909  open("/lib/libz.so.1", O_RDONLY)  = 3
+4909  read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0@ \0\0\0\0\0\0"..., 832) = 832
+4909  fstat(3, {st_mode=S_IFREG|0755, st_size=217286, ...}) = 0
+4909  mmap(NULL, 2183664, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7fa1706d5000
+4909  mprotect(0x7fa1706ea000, 2093056, PROT_NONE) = 0
+4909  mmap(0x7fa1708e9000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x14000) = 0x7fa1708e9000
+4909  close(3)                          = 0
+4909  open("/lib/libncurses.so.5", O_RDONLY) = 3
+4909  read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\240M\1\0\0\0\0\0"..., 832) = 832
+4909  fstat(3, {st_mode=S_IFREG|0755, st_size=1433703, ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c75000
+4909  mmap(NULL, 2426760, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7fa170484000
+4909  mprotect(0x7fa1704d0000, 2093056, PROT_NONE) = 0
+4909  mmap(0x7fa1706cf000, 20480, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x4b000) = 0x7fa1706cf000
+4909  mmap(0x7fa1706d4000, 1928, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7fa1706d4000
+4909  close(3)                          = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c74000
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c73000
+4909  arch_prctl(ARCH_SET_FS, 0x7fa171c736f0) = 0
+4909  mprotect(0x7fa1706cf000, 16384, PROT_READ) = 0
+4909  mprotect(0x7fa1708e9000, 4096, PROT_READ) = 0
+4909  mprotect(0x7fa170aed000, 4096, PROT_READ) = 0
+4909  mprotect(0x7fa170e3e000, 16384, PROT_READ) = 0
+4909  mprotect(0x7fa171050000, 4096, PROT_READ) = 0
+4909  mprotect(0x7fa1712ba000, 8192, PROT_READ) = 0
+4909  mprotect(0x7fa1714d7000, 4096, PROT_READ) = 0
+4909  mprotect(0x7fa17183b000, 57344, PROT_READ) = 0
+4909  mprotect(0x7fa171a66000, 4096, PROT_READ) = 0
+4909  mprotect(0x616000, 4096, PROT_READ) = 0
+4909  mprotect(0x7fa171c84000, 4096, PROT_READ) = 0
+4909  munmap(0x7fa171c78000, 40409)     = 0
+4909  brk(0)                            = 0x16d0000
+4909  brk(0x16f1000)                    = 0x16f1000
+4909  open("/etc/localtime", O_RDONLY)  = 3
+4909  fstat(3, {st_mode=S_IFREG|0644, st_size=2067, ...}) = 0
+4909  fstat(3, {st_mode=S_IFREG|0644, st_size=2067, ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c81000
+4909  read(3, "TZif2\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\v\0\0\0\v\0\0\0\0"..., 4096) = 2067
+4909  lseek(3, -1300, SEEK_CUR)         = 767
+4909  read(3, "TZif2\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\f\0\0\0\f\0\0\0\0"..., 4096) = 1300
+4909  close(3)                          = 0
+4909  munmap(0x7fa171c81000, 4096)      = 0
+4909  stat("/etc/localtime", {st_mode=S_IFREG|0644, st_size=2067, ...}) = 0
+4909  open("/root/ipcomp-tunnel.setkey", O_RDONLY) = 3
+4909  socket(PF_KEY, SOCK_RAW, 2)       = 4
+4909  setsockopt(4, SOL_SOCKET, SO_SNDBUF, [131072], 4) = 0
+4909  setsockopt(4, SOL_SOCKET, SO_RCVBUF, [131072], 4) = 0
+4909  setsockopt(4, SOL_SOCKET, SO_RCVBUF, [262144], 4) = 0
+4909  setsockopt(4, SOL_SOCKET, SO_RCVBUF, [524288], 4) = 0
+4909  setsockopt(4, SOL_SOCKET, SO_RCVBUF, [1048576], 4) = 0
+4909  getpid()                          = 4909
+4909  sendto(4, "\2\7\0\0\2\0\0\0\0\0\0\0-\23\0\0", 16, 0, NULL, 0) = 16
+4909  recvfrom(4, "\2\7\0\0\v\0\0\0\0\0\0\0-\23\0\0", 16, MSG_PEEK, NULL, NULL) = 16
+4909  recvfrom(4, "\2\7\0\0\v\0\0\0\0\0\0\0-\23\0\0\3\0\16\0kkkk\373\0\0\0\0\0\0\0"..., 88, 0, NULL, NULL) = 88
+4909  ioctl(3, SNDCTL_TMR_TIMEBASE or TCGETS, 0x7fffa5d10d90) = -1 ENOTTY (Inappropriate ioctl for device)
+4909  fstat(3, {st_mode=S_IFREG|0755, st_size=599, ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c81000
+4909  read(3, "#!/usr/sbin/setkey -f\nflush;\nspd"..., 8192) = 599
+4909  read(3, "", 4096)                 = 0
+4909  setsockopt(4, SOL_SOCKET, SO_RCVTIMEO, "\1\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16) = 0
+4909  sendto(4, "\2\t\0\0\2\0\0\0\0\0\0\0-\23\0\0", 16, 0, NULL, 0) = 16
+4909  recvfrom(4, 0x7fffa5d08e80, 32768, 0, 0, 0) = -1 EAGAIN (Resource temporarily unavailable)
+4909  dup(2)                            = 5
+4909  fcntl(5, F_GETFL)                 = 0x8002 (flags O_RDWR|O_LARGEFILE)
+4909  fstat(5, {st_mode=S_IFCHR|0620, st_rdev=makedev(136, 1), ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c80000
+4909  lseek(5, 0, SEEK_CUR)             = -1 ESPIPE (Illegal seek)
+4909  write(5, "recv: Resource temporarily unava"..., 39) = 39
+4909  close(5)                          = 0
+4909  munmap(0x7fa171c80000, 4096)      = 0
+4909  setsockopt(4, SOL_SOCKET, SO_RCVTIMEO, "\1\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16) = 0
+4909  sendto(4, "\2\23\0\0\2\0\0\0\0\0\0\0-\23\0\0", 16, 0, NULL, 0) = 16
+4909  recvfrom(4, 0x7fffa5d08e80, 32768, 0, 0, 0) = -1 EAGAIN (Resource temporarily unavailable)
+4909  dup(2)                            = 5
+4909  fcntl(5, F_GETFL)                 = 0x8002 (flags O_RDWR|O_LARGEFILE)
+4909  fstat(5, {st_mode=S_IFCHR|0620, st_rdev=makedev(136, 1), ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c80000
+4909  lseek(5, 0, SEEK_CUR)             = -1 ESPIPE (Illegal seek)
+4909  write(5, "recv: Resource temporarily unava"..., 39) = 39
+4909  close(5)                          = 0
+4909  munmap(0x7fa171c80000, 4096)      = 0
+4909  socket(PF_NETLINK, SOCK_RAW, 0)   = 5
+4909  bind(5, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 0
+4909  getsockname(5, {sa_family=AF_NETLINK, pid=4909, groups=00000000}, [12]) = 0
+4909  sendto(5, "\24\0\0\0\26\0\1\3#7|K\0\0\0\0\0\0\0\0", 20, 0, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 20
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"8\0\0\0\24\0\2\0#7|K-\23\0\0\2\10\200\376\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 116
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"\24\0\0\0\3\0\2\0#7|K-\23\0\0\0\0\0\0\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 20
+4909  close(5)                          = 0
+4909  socket(PF_FILE, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0) = 5
+4909  connect(5, {sa_family=AF_FILE, path="/var/run/nscd/socket"}, 110) = -1 ENOENT (No such file or directory)
+4909  close(5)                          = 0
+4909  socket(PF_FILE, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0) = 5
+4909  connect(5, {sa_family=AF_FILE, path="/var/run/nscd/socket"}, 110) = -1 ENOENT (No such file or directory)
+4909  close(5)                          = 0
+4909  open("/etc/nsswitch.conf", O_RDONLY) = 5
+4909  fstat(5, {st_mode=S_IFREG|0644, st_size=508, ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c80000
+4909  read(5, "# /etc/nsswitch.conf:\n# $Header:"..., 4096) = 508
+4909  read(5, "", 4096)                 = 0
+4909  close(5)                          = 0
+4909  munmap(0x7fa171c80000, 4096)      = 0
+4909  open("/etc/host.conf", O_RDONLY)  = 5
+4909  fstat(5, {st_mode=S_IFREG|0644, st_size=936, ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c80000
+4909  read(5, "# /etc/host.conf:\n# $Header: /va"..., 4096) = 936
+4909  read(5, "", 4096)                 = 0
+4909  close(5)                          = 0
+4909  munmap(0x7fa171c80000, 4096)      = 0
+4909  open("/etc/resolv.conf", O_RDONLY) = 5
+4909  fstat(5, {st_mode=S_IFREG|0644, st_size=23, ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c80000
+4909  read(5, "nameserver 192.168.1.1\n", 4096) = 23
+4909  read(5, "", 4096)                 = 0
+4909  close(5)                          = 0
+4909  munmap(0x7fa171c80000, 4096)      = 0
+4909  uname({sys="Linux", node="B", ...}) = 0
+4909  open("/etc/ld.so.cache", O_RDONLY) = 5
+4909  fstat(5, {st_mode=S_IFREG|0644, st_size=40409, ...}) = 0
+4909  mmap(NULL, 40409, PROT_READ, MAP_PRIVATE, 5, 0) = 0x7fa171c69000
+4909  close(5)                          = 0
+4909  open("/lib/libnss_files.so.2", O_RDONLY) = 5
+4909  read(5, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0p!\0\0\0\0\0\0"..., 832) = 832
+4909  fstat(5, {st_mode=S_IFREG|0755, st_size=218643, ...}) = 0
+4909  mmap(NULL, 2143632, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 5, 0) = 0x7fa170278000
+4909  mprotect(0x7fa170283000, 2093056, PROT_NONE) = 0
+4909  mmap(0x7fa170482000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 5, 0xa000) = 0x7fa170482000
+4909  close(5)                          = 0
+4909  mprotect(0x7fa170482000, 4096, PROT_READ) = 0
+4909  munmap(0x7fa171c69000, 40409)     = 0
+4909  open("/etc/hosts", O_RDONLY|O_CLOEXEC) = 5
+4909  fcntl(5, F_GETFD)                 = 0x1 (flags FD_CLOEXEC)
+4909  fstat(5, {st_mode=S_IFREG|0644, st_size=131, ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c80000
+4909  read(5, "127.0.0.1\tlocalhost\n192.168.1.2\t"..., 4096) = 131
+4909  close(5)                          = 0
+4909  munmap(0x7fa171c80000, 4096)      = 0
+4909  socket(PF_NETLINK, SOCK_RAW, 0)   = 5
+4909  bind(5, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 0
+4909  getsockname(5, {sa_family=AF_NETLINK, pid=4909, groups=00000000}, [12]) = 0
+4909  sendto(5, "\24\0\0\0\26\0\1\3#7|K\0\0\0\0\0\0\0\0", 20, 0, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 20
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"8\0\0\0\24\0\2\0#7|K-\23\0\0\2\10\200\376\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 116
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"\24\0\0\0\3\0\2\0#7|K-\23\0\0\0\0\0\0\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 20
+4909  close(5)                          = 0
+4909  stat("/etc/resolv.conf", {st_mode=S_IFREG|0644, st_size=23, ...}) = 0
+4909  open("/etc/resolv.conf", O_RDONLY) = 5
+4909  fstat(5, {st_mode=S_IFREG|0644, st_size=23, ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c80000
+4909  read(5, "nameserver 192.168.1.1\n", 4096) = 23
+4909  read(5, "", 4096)                 = 0
+4909  close(5)                          = 0
+4909  munmap(0x7fa171c80000, 4096)      = 0
+4909  uname({sys="Linux", node="B", ...}) = 0
+4909  open("/etc/hosts", O_RDONLY|O_CLOEXEC) = 5
+4909  fstat(5, {st_mode=S_IFREG|0644, st_size=131, ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c80000
+4909  read(5, "127.0.0.1\tlocalhost\n192.168.1.2\t"..., 4096) = 131
+4909  close(5)                          = 0
+4909  munmap(0x7fa171c80000, 4096)      = 0
+4909  setsockopt(4, SOL_SOCKET, SO_RCVTIMEO, "\1\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16) = 0
+4909  sendto(4, "\2\3\0\t\f\0\0\0\0\0\0\0-\23\0\0\2\0\1\0\0\0\0,\0\0\0\2@\0\0\0"..., 96, 0, NULL, 0) = 96
+4909  recvfrom(4, "\2\3\0\t\33\0\0\0\0\0\0\0-\23\0\0\2\0\1\0\0\0\0,\0\1\0\2\0\0\0\0"..., 32768, 0, NULL, NULL) = 216
+4909  socket(PF_NETLINK, SOCK_RAW, 0)   = 5
+4909  bind(5, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 0
+4909  getsockname(5, {sa_family=AF_NETLINK, pid=4909, groups=00000000}, [12]) = 0
+4909  sendto(5, "\24\0\0\0\26\0\1\3#7|K\0\0\0\0\0\0\0\0", 20, 0, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 20
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"8\0\0\0\24\0\2\0#7|K-\23\0\0\2\10\200\376\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 116
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"\24\0\0\0\3\0\2\0#7|K-\23\0\0\0\0\0\0\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 20
+4909  close(5)                          = 0
+4909  open("/etc/hosts", O_RDONLY|O_CLOEXEC) = 5
+4909  fstat(5, {st_mode=S_IFREG|0644, st_size=131, ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c80000
+4909  read(5, "127.0.0.1\tlocalhost\n192.168.1.2\t"..., 4096) = 131
+4909  close(5)                          = 0
+4909  munmap(0x7fa171c80000, 4096)      = 0
+4909  socket(PF_NETLINK, SOCK_RAW, 0)   = 5
+4909  bind(5, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 0
+4909  getsockname(5, {sa_family=AF_NETLINK, pid=4909, groups=00000000}, [12]) = 0
+4909  sendto(5, "\24\0\0\0\26\0\1\3#7|K\0\0\0\0\0\0\0\0", 20, 0, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 20
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"8\0\0\0\24\0\2\0#7|K-\23\0\0\2\10\200\376\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 116
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"\24\0\0\0\3\0\2\0#7|K-\23\0\0\0\0\0\0\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 20
+4909  close(5)                          = 0
+4909  open("/etc/hosts", O_RDONLY|O_CLOEXEC) = 5
+4909  fstat(5, {st_mode=S_IFREG|0644, st_size=131, ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c80000
+4909  read(5, "127.0.0.1\tlocalhost\n192.168.1.2\t"..., 4096) = 131
+4909  close(5)                          = 0
+4909  munmap(0x7fa171c80000, 4096)      = 0
+4909  setsockopt(4, SOL_SOCKET, SO_RCVTIMEO, "\1\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16) = 0
+4909  sendto(4, "\2\3\0\t\f\0\0\0\0\0\0\0-\23\0\0\2\0\1\0\0\0\0-\0\0\0\2@\0\0\0"..., 96, 0, NULL, 0) = 96
+4909  recvfrom(4, "\2\3\0\t\33\0\0\0\0\0\0\0-\23\0\0\2\0\1\0\0\0\0-\0\1\0\2\0\0\0\0"..., 32768, 0, NULL, NULL) = 216
+4909  socket(PF_NETLINK, SOCK_RAW, 0)   = 5
+4909  bind(5, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 0
+4909  getsockname(5, {sa_family=AF_NETLINK, pid=4909, groups=00000000}, [12]) = 0
+4909  sendto(5, "\24\0\0\0\26\0\1\3#7|K\0\0\0\0\0\0\0\0", 20, 0, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 20
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"8\0\0\0\24\0\2\0#7|K-\23\0\0\2\10\200\376\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 116
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"\24\0\0\0\3\0\2\0#7|K-\23\0\0\0\0\0\0\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 20
+4909  close(5)                          = 0
+4909  socket(PF_NETLINK, SOCK_RAW, 0)   = 5
+4909  bind(5, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 0
+4909  getsockname(5, {sa_family=AF_NETLINK, pid=4909, groups=00000000}, [12]) = 0
+4909  sendto(5, "\24\0\0\0\26\0\1\3#7|K\0\0\0\0\0\0\0\0", 20, 0, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 20
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"8\0\0\0\24\0\2\0#7|K-\23\0\0\2\10\200\376\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 116
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"\24\0\0\0\3\0\2\0#7|K-\23\0\0\0\0\0\0\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 20
+4909  close(5)                          = 0
+4909  socket(PF_NETLINK, SOCK_RAW, 0)   = 5
+4909  bind(5, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 0
+4909  getsockname(5, {sa_family=AF_NETLINK, pid=4909, groups=00000000}, [12]) = 0
+4909  sendto(5, "\24\0\0\0\26\0\1\3#7|K\0\0\0\0\0\0\0\0", 20, 0, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 20
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"8\0\0\0\24\0\2\0#7|K-\23\0\0\2\10\200\376\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 116
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"\24\0\0\0\3\0\2\0#7|K-\23\0\0\0\0\0\0\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 20
+4909  close(5)                          = 0
+4909  open("/etc/hosts", O_RDONLY|O_CLOEXEC) = 5
+4909  fstat(5, {st_mode=S_IFREG|0644, st_size=131, ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c80000
+4909  read(5, "127.0.0.1\tlocalhost\n192.168.1.2\t"..., 4096) = 131
+4909  close(5)                          = 0
+4909  munmap(0x7fa171c80000, 4096)      = 0
+4909  socket(PF_NETLINK, SOCK_RAW, 0)   = 5
+4909  bind(5, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 0
+4909  getsockname(5, {sa_family=AF_NETLINK, pid=4909, groups=00000000}, [12]) = 0
+4909  sendto(5, "\24\0\0\0\26\0\1\3#7|K\0\0\0\0\0\0\0\0", 20, 0, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 20
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"8\0\0\0\24\0\2\0#7|K-\23\0\0\2\10\200\376\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 116
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"\24\0\0\0\3\0\2\0#7|K-\23\0\0\0\0\0\0\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 20
+4909  close(5)                          = 0
+4909  open("/etc/hosts", O_RDONLY|O_CLOEXEC) = 5
+4909  fstat(5, {st_mode=S_IFREG|0644, st_size=131, ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c80000
+4909  read(5, "127.0.0.1\tlocalhost\n192.168.1.2\t"..., 4096) = 131
+4909  close(5)                          = 0
+4909  munmap(0x7fa171c80000, 4096)      = 0
+4909  setsockopt(4, SOL_SOCKET, SO_RCVTIMEO, "\1\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16) = 0
+4909  sendto(4, "\2\16\0\0\20\0\0\0\0\0\0\0-\23\0\0\10\0\22\0\2\0\1\0\0\0\0\0\0\0\0\200"..., 128, 0, NULL, 0) = 128
+4909  recvfrom(4, "\2\16\0\0\34\0\3\0\0\0\0\0-\23\0\0\3\0\5\0\377 \0\0\2\0\0\0\300\250\1\2"..., 32768, 0, NULL, NULL) = 224
+4909  setsockopt(4, SOL_SOCKET, SO_RCVTIMEO, "\1\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16) = 0
+4909  sendto(4, "\2\16\0\0\20\0\0\0\0\0\0\0-\23\0\0\10\0\22\0\2\0\3\0\0\0\0\0\0\0\0\200"..., 128, 0, NULL, 0) = 128
+4909  recvfrom(4, "\2\16\0\0\34\0\3\0\0\0\0\0-\23\0\0\3\0\5\0\377 \0\0\2\0\0\0\300\250\1\2"..., 32768, 0, NULL, NULL) = 224
+4909  socket(PF_NETLINK, SOCK_RAW, 0)   = 5
+4909  bind(5, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 0
+4909  getsockname(5, {sa_family=AF_NETLINK, pid=4909, groups=00000000}, [12]) = 0
+4909  sendto(5, "\24\0\0\0\26\0\1\3#7|K\0\0\0\0\0\0\0\0", 20, 0, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 20
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"8\0\0\0\24\0\2\0#7|K-\23\0\0\2\10\200\376\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 116
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"\24\0\0\0\3\0\2\0#7|K-\23\0\0\0\0\0\0\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 20
+4909  close(5)                          = 0
+4909  socket(PF_NETLINK, SOCK_RAW, 0)   = 5
+4909  bind(5, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 0
+4909  getsockname(5, {sa_family=AF_NETLINK, pid=4909, groups=00000000}, [12]) = 0
+4909  sendto(5, "\24\0\0\0\26\0\1\3#7|K\0\0\0\0\0\0\0\0", 20, 0, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 20
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"8\0\0\0\24\0\2\0#7|K-\23\0\0\2\10\200\376\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 116
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"\24\0\0\0\3\0\2\0#7|K-\23\0\0\0\0\0\0\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 20
+4909  close(5)                          = 0
+4909  socket(PF_NETLINK, SOCK_RAW, 0)   = 5
+4909  bind(5, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 0
+4909  getsockname(5, {sa_family=AF_NETLINK, pid=4909, groups=00000000}, [12]) = 0
+4909  sendto(5, "\24\0\0\0\26\0\1\3#7|K\0\0\0\0\0\0\0\0", 20, 0, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 20
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"8\0\0\0\24\0\2\0#7|K-\23\0\0\2\10\200\376\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 116
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"\24\0\0\0\3\0\2\0#7|K-\23\0\0\0\0\0\0\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 20
+4909  close(5)                          = 0
+4909  open("/etc/hosts", O_RDONLY|O_CLOEXEC) = 5
+4909  fstat(5, {st_mode=S_IFREG|0644, st_size=131, ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c80000
+4909  read(5, "127.0.0.1\tlocalhost\n192.168.1.2\t"..., 4096) = 131
+4909  close(5)                          = 0
+4909  munmap(0x7fa171c80000, 4096)      = 0
+4909  socket(PF_NETLINK, SOCK_RAW, 0)   = 5
+4909  bind(5, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 0
+4909  getsockname(5, {sa_family=AF_NETLINK, pid=4909, groups=00000000}, [12]) = 0
+4909  sendto(5, "\24\0\0\0\26\0\1\3#7|K\0\0\0\0\0\0\0\0", 20, 0, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 20
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"8\0\0\0\24\0\2\0#7|K-\23\0\0\2\10\200\376\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 116
+4909  recvmsg(5, {msg_name(12)={sa_family=AF_NETLINK, pid=0, groups=00000000}, msg_iov(1)=[{"\24\0\0\0\3\0\2\0#7|K-\23\0\0\0\0\0\0\1\0\0\0\10\0\1\0\177\0\0\1"..., 4096}], msg_controllen=0, msg_flags=0}, 0) = 20
+4909  close(5)                          = 0
+4909  open("/etc/hosts", O_RDONLY|O_CLOEXEC) = 5
+4909  fstat(5, {st_mode=S_IFREG|0644, st_size=131, ...}) = 0
+4909  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7fa171c80000
+4909  read(5, "127.0.0.1\tlocalhost\n192.168.1.2\t"..., 4096) = 131
+4909  close(5)                          = 0
+4909  munmap(0x7fa171c80000, 4096)      = 0
+4909  setsockopt(4, SOL_SOCKET, SO_RCVTIMEO, "\1\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16) = 0
+4909  sendto(4, "\2\16\0\0\20\0\0\0\0\0\0\0-\23\0\0\10\0\22\0\2\0\2\0\0\0\0\0\0\0\0\200"..., 128, 0, NULL, 0) = 128
+4909  recvfrom(4, "\2\16\0\0\34\0\3\0\0\0\0\0-\23\0\0\3\0\5\0\377 \0\0\2\0\0\0\300\250\1\3"..., 32768, 0, NULL, NULL) = 224
+4909  read(3, "", 8192)                 = 0
+4909  ioctl(3, SNDCTL_TMR_TIMEBASE or TCGETS, 0x7fffa5d10d90) = -1 ENOTTY (Inappropriate ioctl for device)
+4909  exit_group(0)                     = ?
