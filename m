@@ -1,7 +1,8 @@
 From: Anatolij Gustschin <agust@denx.de>
-Subject: [net-next-2.6 PATCH v2 0/3] Support for MPC512x FEC
-Date: Wed, 17 Feb 2010 15:55:27 +0100
-Message-ID: <1266418530-2727-1-git-send-email-agust@denx.de>
+Subject: [net-next-2.6 PATCH v2 1/3] fs_enet: use dev_xxx instead of printk
+Date: Wed, 17 Feb 2010 15:55:28 +0100
+Message-ID: <1266418530-2727-2-git-send-email-agust@denx.de>
+References: <1266418530-2727-1-git-send-email-agust@denx.de>
 Cc: linuxppc-dev@ozlabs.org, "David S. Miller" <davem@davemloft.net>,
 	Grant Likely <grant.likely@secretlab.ca>,
 	Detlev Zundel <dzu@denx.de>, Wolfgang Denk <wd@denx.de>,
@@ -9,43 +10,209 @@ Cc: linuxppc-dev@ozlabs.org, "David S. Miller" <davem@davemloft.net>,
 	Anatolij Gustschin <agust@denx.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:49866 "EHLO
+Received: from mail-out.m-online.net ([212.18.0.10]:47448 "EHLO
 	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757133Ab0BQO45 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 09:56:57 -0500
+	with ESMTP id S1757346Ab0BQO5E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 09:57:04 -0500
+In-Reply-To: <1266418530-2727-1-git-send-email-agust@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These patches attempt to provide support for the Freescale MPC512x
-FEC in the fs_enet driver. The first cleanup patch replaces printk
-by dev_xxx. The second and third attemt to support MPC5121 FEC
-in the FEC driver.
+Signed-off-by: Anatolij Gustschin <agust@denx.de>
+Acked-by: Grant Likely <grant.likely@secretlab.ca>
+---
+ drivers/net/fs_enet/fs_enet-main.c |   39 +++++++++++++----------------------
+ drivers/net/fs_enet/mac-fcc.c      |    5 ++-
+ drivers/net/fs_enet/mac-fec.c      |   12 ++++------
+ drivers/net/fs_enet/mac-scc.c      |    9 +++----
+ 4 files changed, 27 insertions(+), 38 deletions(-)
 
-Changes since previous version:
-
- - don't attempt to provide runtime selection of
-   MPC5121 FEC support in the driver since it doesn't
-   make sence. Select MPC5121 FEC support at compile time.
- - fix tx buffer alignment workaround patch to align
-   only misaligned buffers.
-
-The patches are based on net-next-2.6 and has been
-tested on the:
-   - Freescale/STX "MPC5121ADS" board (board rev. 4) with
-     a MPC5121e Rev. 2.
-   - TQM860L and TQM855 boards.
-
-Anatolij Gustschin (3):
-  fs_enet: use dev_xxx instead of printk
-  fs_enet: Add support for MPC512x to fs_enet driver
-  fs_enet: add FEC TX buffer alignment workaround for MPC5121
-
- drivers/net/fs_enet/Kconfig        |   10 +++-
- drivers/net/fs_enet/fs_enet-main.c |   90 ++++++++++++++++++++++++++----------
- drivers/net/fs_enet/fs_enet.h      |   49 +++++++++++++++++++-
- drivers/net/fs_enet/mac-fcc.c      |    5 +-
- drivers/net/fs_enet/mac-fec.c      |   58 ++++++++++++++---------
- drivers/net/fs_enet/mac-scc.c      |    9 ++--
- drivers/net/fs_enet/mii-fec.c      |    4 +-
- 7 files changed, 166 insertions(+), 59 deletions(-)
+diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
+index ec2f503..c34a7e0 100644
+--- a/drivers/net/fs_enet/fs_enet-main.c
++++ b/drivers/net/fs_enet/fs_enet-main.c
+@@ -108,9 +108,7 @@ static int fs_enet_rx_napi(struct napi_struct *napi, int budget)
+ 		 * the last indicator should be set.
+ 		 */
+ 		if ((sc & BD_ENET_RX_LAST) == 0)
+-			printk(KERN_WARNING DRV_MODULE_NAME
+-			       ": %s rcv is not +last\n",
+-			       dev->name);
++			dev_warn(fep->dev, "rcv is not +last\n");
+ 
+ 		/*
+ 		 * Check for errors.
+@@ -178,9 +176,8 @@ static int fs_enet_rx_napi(struct napi_struct *napi, int budget)
+ 				received++;
+ 				netif_receive_skb(skb);
+ 			} else {
+-				printk(KERN_WARNING DRV_MODULE_NAME
+-				       ": %s Memory squeeze, dropping packet.\n",
+-				       dev->name);
++				dev_warn(fep->dev,
++					 "Memory squeeze, dropping packet.\n");
+ 				fep->stats.rx_dropped++;
+ 				skbn = skb;
+ 			}
+@@ -242,9 +239,7 @@ static int fs_enet_rx_non_napi(struct net_device *dev)
+ 		 * the last indicator should be set.
+ 		 */
+ 		if ((sc & BD_ENET_RX_LAST) == 0)
+-			printk(KERN_WARNING DRV_MODULE_NAME
+-			       ": %s rcv is not +last\n",
+-			       dev->name);
++			dev_warn(fep->dev, "rcv is not +last\n");
+ 
+ 		/*
+ 		 * Check for errors.
+@@ -313,9 +308,8 @@ static int fs_enet_rx_non_napi(struct net_device *dev)
+ 				received++;
+ 				netif_rx(skb);
+ 			} else {
+-				printk(KERN_WARNING DRV_MODULE_NAME
+-				       ": %s Memory squeeze, dropping packet.\n",
+-				       dev->name);
++				dev_warn(fep->dev,
++					 "Memory squeeze, dropping packet.\n");
+ 				fep->stats.rx_dropped++;
+ 				skbn = skb;
+ 			}
+@@ -388,10 +382,10 @@ static void fs_enet_tx(struct net_device *dev)
+ 		} else
+ 			fep->stats.tx_packets++;
+ 
+-		if (sc & BD_ENET_TX_READY)
+-			printk(KERN_WARNING DRV_MODULE_NAME
+-			       ": %s HEY! Enet xmit interrupt and TX_READY.\n",
+-			       dev->name);
++		if (sc & BD_ENET_TX_READY) {
++			dev_warn(fep->dev,
++				 "HEY! Enet xmit interrupt and TX_READY.\n");
++		}
+ 
+ 		/*
+ 		 * Deferred means some collisions occurred during transmit,
+@@ -511,9 +505,8 @@ void fs_init_bds(struct net_device *dev)
+ 	for (i = 0, bdp = fep->rx_bd_base; i < fep->rx_ring; i++, bdp++) {
+ 		skb = dev_alloc_skb(ENET_RX_FRSIZE);
+ 		if (skb == NULL) {
+-			printk(KERN_WARNING DRV_MODULE_NAME
+-			       ": %s Memory squeeze, unable to allocate skb\n",
+-			       dev->name);
++			dev_warn(fep->dev,
++				 "Memory squeeze, unable to allocate skb\n");
+ 			break;
+ 		}
+ 		skb_align(skb, ENET_RX_ALIGN);
+@@ -610,8 +603,7 @@ static int fs_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		 * Ooops.  All transmit buffers are full.  Bail out.
+ 		 * This should not happen, since the tx queue should be stopped.
+ 		 */
+-		printk(KERN_WARNING DRV_MODULE_NAME
+-		       ": %s tx queue full!.\n", dev->name);
++		dev_warn(fep->dev, "tx queue full!.\n");
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+@@ -788,8 +780,7 @@ static int fs_enet_open(struct net_device *dev)
+ 	r = request_irq(fep->interrupt, fs_enet_interrupt, IRQF_SHARED,
+ 			"fs_enet-mac", dev);
+ 	if (r != 0) {
+-		printk(KERN_ERR DRV_MODULE_NAME
+-		       ": %s Could not allocate FS_ENET IRQ!", dev->name);
++		dev_err(fep->dev, "Could not allocate FS_ENET IRQ!");
+ 		if (fep->fpi->use_napi)
+ 			napi_disable(&fep->napi);
+ 		return -EINVAL;
+@@ -1053,7 +1044,7 @@ static int __devinit fs_enet_probe(struct of_device *ofdev,
+ 	if (ret)
+ 		goto out_free_bd;
+ 
+-	printk(KERN_INFO "%s: fs_enet: %pM\n", ndev->name, ndev->dev_addr);
++	pr_info("%s: fs_enet: %pM\n", ndev->name, ndev->dev_addr);
+ 
+ 	return 0;
+ 
+diff --git a/drivers/net/fs_enet/mac-fcc.c b/drivers/net/fs_enet/mac-fcc.c
+index 482f27d..504add3 100644
+--- a/drivers/net/fs_enet/mac-fcc.c
++++ b/drivers/net/fs_enet/mac-fcc.c
+@@ -476,8 +476,9 @@ static void clear_int_events(struct net_device *dev, u32 int_events)
+ 
+ static void ev_error(struct net_device *dev, u32 int_events)
+ {
+-	printk(KERN_WARNING DRV_MODULE_NAME
+-	       ": %s FS_ENET ERROR(s) 0x%x\n", dev->name, int_events);
++	struct fs_enet_private *fep = netdev_priv(dev);
++
++	dev_warn(fep->dev, "FS_ENET ERROR(s) 0x%x\n", int_events);
+ }
+ 
+ static int get_regs(struct net_device *dev, void *p, int *sizep)
+diff --git a/drivers/net/fs_enet/mac-fec.c b/drivers/net/fs_enet/mac-fec.c
+index ddf13ef..7047813 100644
+--- a/drivers/net/fs_enet/mac-fec.c
++++ b/drivers/net/fs_enet/mac-fec.c
+@@ -257,8 +257,7 @@ static void restart(struct net_device *dev)
+ 
+ 	r = whack_reset(fep->fec.fecp);
+ 	if (r != 0)
+-		printk(KERN_ERR DRV_MODULE_NAME
+-				": %s FEC Reset FAILED!\n", dev->name);
++		dev_err(fep->dev, "FEC Reset FAILED!\n");
+ 	/*
+ 	 * Set station address.
+ 	 */
+@@ -355,9 +354,7 @@ static void stop(struct net_device *dev)
+ 		udelay(1);
+ 
+ 	if (i == FEC_RESET_DELAY)
+-		printk(KERN_WARNING DRV_MODULE_NAME
+-		       ": %s FEC timeout on graceful transmit stop\n",
+-		       dev->name);
++		dev_warn(fep->dev, "FEC timeout on graceful transmit stop\n");
+ 	/*
+ 	 * Disable FEC. Let only MII interrupts.
+ 	 */
+@@ -433,8 +430,9 @@ static void clear_int_events(struct net_device *dev, u32 int_events)
+ 
+ static void ev_error(struct net_device *dev, u32 int_events)
+ {
+-	printk(KERN_WARNING DRV_MODULE_NAME
+-	       ": %s FEC ERROR(s) 0x%x\n", dev->name, int_events);
++	struct fs_enet_private *fep = netdev_priv(dev);
++
++	dev_warn(fep->dev, "FEC ERROR(s) 0x%x\n", int_events);
+ }
+ 
+ static int get_regs(struct net_device *dev, void *p, int *sizep)
+diff --git a/drivers/net/fs_enet/mac-scc.c b/drivers/net/fs_enet/mac-scc.c
+index 141dbc9..ff467e4 100644
+--- a/drivers/net/fs_enet/mac-scc.c
++++ b/drivers/net/fs_enet/mac-scc.c
+@@ -367,9 +367,7 @@ static void stop(struct net_device *dev)
+ 		udelay(1);
+ 
+ 	if (i == SCC_RESET_DELAY)
+-		printk(KERN_WARNING DRV_MODULE_NAME
+-		       ": %s SCC timeout on graceful transmit stop\n",
+-		       dev->name);
++		dev_warn(fep->dev, "SCC timeout on graceful transmit stop\n");
+ 
+ 	W16(sccp, scc_sccm, 0);
+ 	C32(sccp, scc_gsmrl, SCC_GSMRL_ENR | SCC_GSMRL_ENT);
+@@ -429,8 +427,9 @@ static void clear_int_events(struct net_device *dev, u32 int_events)
+ 
+ static void ev_error(struct net_device *dev, u32 int_events)
+ {
+-	printk(KERN_WARNING DRV_MODULE_NAME
+-	       ": %s SCC ERROR(s) 0x%x\n", dev->name, int_events);
++	struct fs_enet_private *fep = netdev_priv(dev);
++
++	dev_warn(fep->dev, "SCC ERROR(s) 0x%x\n", int_events);
+ }
+ 
+ static int get_regs(struct net_device *dev, void *p, int *sizep)
+-- 
+1.6.3.3
 
