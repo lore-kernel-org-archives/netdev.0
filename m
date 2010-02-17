@@ -1,76 +1,66 @@
-From: Vasu Dev <vasu.dev@linux.intel.com>
-Subject: Re: [net-next-2.6 PATCH 1/3] vlan: adds vlan_dev_select_queue
-Date: Wed, 17 Feb 2010 14:40:41 -0800
-Message-ID: <1266446441.1891.96.camel@vi2.jf.intel.com>
-References: <20100217123606.18210.13602.stgit@localhost.localdomain>
-	 <1266414675.3246.12.camel@edumazet-laptop>
-	 <20100217.134330.48386140.davem@davemloft.net>
+From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Subject: Re: ixgbe_clean_tx_irq: tx hang 1 detected, resetting adapter
+	(2.6.32.8)
+Date: Wed, 17 Feb 2010 14:53:34 -0800
+Message-ID: <4807377b1002171453n277cfea3s6d7f3629bd43f674@mail.gmail.com>
+References: <4B7824F1.6000202@krogh.cc>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, vasu.dev@intel.com
-To: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Jesper Krogh <jesper@krogh.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([143.182.124.22]:54700 "EHLO
-	azsmga101.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752819Ab0BQWkn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 17:40:43 -0500
-In-Reply-To: <20100217.134330.48386140.davem@davemloft.net>
+Received: from mail-gx0-f227.google.com ([209.85.217.227]:42393 "EHLO
+	mail-gx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755588Ab0BQWxg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 17:53:36 -0500
+In-Reply-To: <4B7824F1.6000202@krogh.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-02-17 at 13:43 -0800, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 17 Feb 2010 14:51:15 +0100
-> 
-> > This is a bit dangerous and deserves a self contained patch IMHO.
-> > 
+On Sun, Feb 14, 2010 at 8:29 AM, Jesper Krogh <jesper@krogh.cc> wrote:
+> Hi List.
+>
+> I have tried to get a dual bond of 2 x 10G NICs using the
+> Intel Corporation 82598EB 10-Gigabit AT2 Server Adapter (rev 01)
+> going. As first it looked like it "just worked" but when tried to fil=
+l
+> the links with data one of the NIC's (eth7) hang and did a reset of
+> itself, so all data was pushed through the other NIC in the bond (eth=
+8)
+>
+> Full dmesg below, but I think the important part is this:
+>
+> [ 2162.745354] ixgbe: eth7: ixgbe_check_tx_hang: Detected Tx Unit Han=
+g
+> [ 2162.745356] =A0 Tx Queue =A0 =A0 =A0 =A0 =A0 =A0 <4>
+> [ 2162.745356] =A0 TDH, TDT =A0 =A0 =A0 =A0 =A0 =A0 <e1>, <cc>
+> [ 2162.745357] =A0 next_to_use =A0 =A0 =A0 =A0 =A0<cc>
+> [ 2162.745358] =A0 next_to_clean =A0 =A0 =A0 =A0<e1>
+> [ 2162.745359] tx_buffer_info[next_to_clean]
+> [ 2162.745359] =A0 time_stamp =A0 =A0 =A0 =A0 =A0 <1000713d3>
+> [ 2162.745360] =A0 jiffies =A0 =A0 =A0 =A0 =A0 =A0 =A0<10007152e>
+> [ 2163.162478] ixgbe: eth7: ixgbe_clean_tx_irq: tx hang 1 detected,
+> resetting adapter
+> [ 2163.357333] bonding: bond0: link status definitely down for interf=
+ace
+> eth7, disabling it
+> [ 2168.670342] ixgbe: eth7 NIC Link is Up 10 Gbps, Flow Control: None
 
-OK, I'll create separate patch for this.
- 
-> > I would add for example a
-> > 	BUG_ON(vlandev->real_num_tx_queues > vlandev->num_tx_queues)
-> > 
+Hi Jesper, my first thought was flow control, but I can see you have it=
+ off.
 
-I'll add this.
+Can we get some more details on the hardware and bios version?  What
+about some dmidecode output.  I'm checking here if we have any
+hardware like this.
 
-> > ------------------
-> > 
-> > For performance reason, we could avoid calling vlan_dev_select_queue()
-> > for real devices without ndo_select_queue() handler, this would need to
-> > mirror vlan_netdev_ops & vlan_netdev_accel_ops.
-> > 
+are you running ubuntu 9.10 or something else?
 
-This means vlan_netdev_ops & vlan_netdev_accel_ops not to be const
-anymore so that vlan_dev_select_queue() could be initialized to vlan ops
-based on real dev ndo_select_queue() present or not, should be okay to
-be not const anymore. I'll update patch as suggested.
+Wow, thats a monster machine, 8 nodes, 128GB ram.  Can we get a full
+lspci -vvv output, as well as ethtool -e eth7 and eth8
 
-> > It would also make vlan_dev_select_queue shorter and not duplicates
-> > internals of net/dev/core.c :
-> > 
-
-Good reasons.
-
-> > static u16 vlan_dev_select_queue(struct net_device *dev, struct sk_buff
-> > *skb)
-> > {
-> >        struct net_device *rdev = vlan_dev_info(dev)->real_dev;
-> >        const struct net_device_ops *ops = rdev->netdev_ops;
-> > 
-> >        return ops->ndo_select_queue(rdev, skb);
-> > }
-> > 
-> > 
-> 
-> Jeff, please resubmit this patch set after addressing
-> Eric's feedback.
-> 
-
-I'm updating patches per Eric's feedback to have Jeff resubmit these
-patches.
-
-	Vasu
-
-
+32 has ixgbe with a known issue of multiple mappings on transmit
+possibly causing some problems, could it be that you're running into
+this?  can you apply commit e5a43549f7a58509a91b299a51337d386697b92c
+and see if it fixes your issue?
