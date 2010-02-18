@@ -1,406 +1,570 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 15/15] drivers/net/yellowfin.c: Use (pr|netdev)_<level> macro helpers
-Date: Wed, 17 Feb 2010 17:02:02 -0800
-Message-ID: <bc88729f2b8e7da71f2f3e2c760444a0f855b3a8.1266454576.git.joe@perches.com>
+Subject: [PATCH net-next 14/15] drivers/net/typhoon.c: Use (pr|netdev)_<level> macro helpers
+Date: Wed, 17 Feb 2010 17:02:01 -0800
+Message-ID: <40a714d7757b0c24f3f0737f028d0242853f935b.1266454576.git.joe@perches.com>
 References: <cover.1266454575.git.joe@perches.com>
-Cc: linux-kernel@vger.kernel.org
+Cc: David Dillow <dave@thedillows.org>, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1057 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755339Ab0BRBCP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2010 20:02:15 -0500
 In-Reply-To: <cover.1266454575.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Add #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 Remove #define PFX
+Remove #define ERR_PFX
 Use pr_<level>
 Use netdev_<level>
-Convert formats like %8.8 to %08
-Remove periods from formats
 Coalesce long formats
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/yellowfin.c |  162 +++++++++++++++++++++++------------------------
- 1 files changed, 78 insertions(+), 84 deletions(-)
+ drivers/net/typhoon.c |  162 ++++++++++++++++++++++---------------------------
+ 1 files changed, 73 insertions(+), 89 deletions(-)
 
-diff --git a/drivers/net/yellowfin.c b/drivers/net/yellowfin.c
-index 5c88024..e4aab4d 100644
---- a/drivers/net/yellowfin.c
-+++ b/drivers/net/yellowfin.c
-@@ -23,12 +23,12 @@
- 
+diff --git a/drivers/net/typhoon.c b/drivers/net/typhoon.c
+index edabc49..843f986 100644
+--- a/drivers/net/typhoon.c
++++ b/drivers/net/typhoon.c
+@@ -45,6 +45,8 @@
+ 		http://oss.sgi.com/cgi-bin/mesg.cgi?a=netdev&i=20031215152211.7003fe8e.rddunlap%40osdl.org
  */
  
 +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 +
- #define DRV_NAME	"yellowfin"
- #define DRV_VERSION	"2.1"
- #define DRV_RELDATE	"Sep 11, 2006"
+ /* Set the copy breakpoint for the copy-only-tiny-frames scheme.
+  * Setting to > 1518 effectively disables this feature.
+  */
+@@ -102,8 +104,6 @@ static const int multicast_filter_limit = 32;
+ #define DRV_MODULE_NAME		"typhoon"
+ #define DRV_MODULE_VERSION 	"1.5.9"
+ #define DRV_MODULE_RELDATE	"Mar 2, 2009"
+-#define PFX			DRV_MODULE_NAME ": "
+-#define ERR_PFX			KERN_ERR PFX
+ #define FIRMWARE_NAME		"3com/typhoon.bin"
  
--#define PFX DRV_NAME ": "
--
- /* The user-configurable values.
-    These may be modified when a driver module is loaded.*/
- 
-@@ -399,7 +399,7 @@ static int __devinit yellowfin_init_one(struct pci_dev *pdev,
- 
- 	dev = alloc_etherdev(sizeof(*np));
- 	if (!dev) {
--		printk (KERN_ERR PFX "cannot allocate ethernet device\n");
-+		pr_err("cannot allocate ethernet device\n");
- 		return -ENOMEM;
- 	}
- 	SET_NETDEV_DEV(dev, &pdev->dev);
-@@ -487,10 +487,10 @@ static int __devinit yellowfin_init_one(struct pci_dev *pdev,
- 	if (i)
- 		goto err_out_unmap_status;
- 
--	printk(KERN_INFO "%s: %s type %8x at %p, %pM, IRQ %d.\n",
--		   dev->name, pci_id_tbl[chip_idx].name,
--		   ioread32(ioaddr + ChipRev), ioaddr,
--		   dev->dev_addr, irq);
-+	netdev_info(dev, "%s type %8x at %p, %pM, IRQ %d\n",
-+		    pci_id_tbl[chip_idx].name,
-+		    ioread32(ioaddr + ChipRev), ioaddr,
-+		    dev->dev_addr, irq);
- 
- 	if (np->drv_flags & HasMII) {
- 		int phy, phy_idx = 0;
-@@ -499,9 +499,8 @@ static int __devinit yellowfin_init_one(struct pci_dev *pdev,
- 			if (mii_status != 0xffff  &&  mii_status != 0x0000) {
- 				np->phys[phy_idx++] = phy;
- 				np->advertising = mdio_read(ioaddr, phy, 4);
--				printk(KERN_INFO "%s: MII PHY found at address %d, status "
--					   "0x%4.4x advertising %4.4x.\n",
--					   dev->name, phy, mii_status, np->advertising);
-+				netdev_info(dev, "MII PHY found at address %d, status 0x%04x advertising %04x\n",
-+					    phy, mii_status, np->advertising);
- 			}
- 		}
- 		np->mii_cnt = phy_idx;
-@@ -584,8 +583,8 @@ static int yellowfin_open(struct net_device *dev)
- 		return ret;
- 
- 	if (yellowfin_debug > 1)
--		printk(KERN_DEBUG "%s: yellowfin_open() irq %d.\n",
--			   dev->name, dev->irq);
-+		netdev_printk(KERN_DEBUG, dev, "%s() irq %d\n",
-+			      __func__, dev->irq);
- 
- 	ret = yellowfin_init_ring(dev);
- 	if (ret) {
-@@ -642,8 +641,7 @@ static int yellowfin_open(struct net_device *dev)
- 	iowrite32(0x80008000, ioaddr + TxCtrl);
- 
- 	if (yellowfin_debug > 2) {
--		printk(KERN_DEBUG "%s: Done yellowfin_open().\n",
--			   dev->name);
-+		netdev_printk(KERN_DEBUG, dev, "Done %s()\n", __func__);
- 	}
- 
- 	/* Set the timer to check for link beat. */
-@@ -664,8 +662,8 @@ static void yellowfin_timer(unsigned long data)
- 	int next_tick = 60*HZ;
- 
- 	if (yellowfin_debug > 3) {
--		printk(KERN_DEBUG "%s: Yellowfin timer tick, status %8.8x.\n",
--			   dev->name, ioread16(ioaddr + IntrStatus));
-+		netdev_printk(KERN_DEBUG, dev, "Yellowfin timer tick, status %08x\n",
-+			      ioread16(ioaddr + IntrStatus));
- 	}
- 
- 	if (yp->mii_cnt) {
-@@ -673,9 +671,8 @@ static void yellowfin_timer(unsigned long data)
- 		int lpa = mdio_read(ioaddr, yp->phys[0], MII_LPA);
- 		int negotiated = lpa & yp->advertising;
- 		if (yellowfin_debug > 1)
--			printk(KERN_DEBUG "%s: MII #%d status register is %4.4x, "
--				   "link partner capability %4.4x.\n",
--				   dev->name, yp->phys[0], bmsr, lpa);
-+			netdev_printk(KERN_DEBUG, dev, "MII #%d status register is %04x, link partner capability %04x\n",
-+				      yp->phys[0], bmsr, lpa);
- 
- 		yp->full_duplex = mii_duplex(yp->duplex_lock, negotiated);
- 
-@@ -696,25 +693,24 @@ static void yellowfin_tx_timeout(struct net_device *dev)
- 	struct yellowfin_private *yp = netdev_priv(dev);
- 	void __iomem *ioaddr = yp->base;
- 
--	printk(KERN_WARNING "%s: Yellowfin transmit timed out at %d/%d Tx "
--		   "status %4.4x, Rx status %4.4x, resetting...\n",
--		   dev->name, yp->cur_tx, yp->dirty_tx,
--		   ioread32(ioaddr + TxStatus), ioread32(ioaddr + RxStatus));
-+	netdev_warn(dev, "Yellowfin transmit timed out at %d/%d Tx status %04x, Rx status %04x, resetting...\n",
-+		    yp->cur_tx, yp->dirty_tx,
-+		    ioread32(ioaddr + TxStatus),
-+		    ioread32(ioaddr + RxStatus));
- 
- 	/* Note: these should be KERN_DEBUG. */
- 	if (yellowfin_debug) {
- 		int i;
--		printk(KERN_WARNING "  Rx ring %p: ", yp->rx_ring);
-+		pr_warning("  Rx ring %p: ", yp->rx_ring);
- 		for (i = 0; i < RX_RING_SIZE; i++)
--			printk(KERN_CONT " %8.8x",
--			       yp->rx_ring[i].result_status);
--		printk(KERN_CONT "\n");
--		printk(KERN_WARNING"  Tx ring %p: ", yp->tx_ring);
-+			pr_cont(" %08x", yp->rx_ring[i].result_status);
-+		pr_cont("\n");
-+		pr_warning("  Tx ring %p: ", yp->tx_ring);
- 		for (i = 0; i < TX_RING_SIZE; i++)
--			printk(KERN_CONT " %4.4x /%8.8x",
-+			pr_cont(" %04x /%08x",
- 			       yp->tx_status[i].tx_errs,
- 			       yp->tx_ring[i].result_status);
--		printk(KERN_CONT "\n");
-+		pr_cont("\n");
- 	}
- 
- 	/* If the hardware is found to hang regularly, we will update the code
-@@ -891,8 +887,8 @@ static netdev_tx_t yellowfin_start_xmit(struct sk_buff *skb,
- 		yp->tx_full = 1;
- 
- 	if (yellowfin_debug > 4) {
--		printk(KERN_DEBUG "%s: Yellowfin transmit frame #%d queued in slot %d.\n",
--			   dev->name, yp->cur_tx, entry);
-+		netdev_printk(KERN_DEBUG, dev, "Yellowfin transmit frame #%d queued in slot %d\n",
-+			      yp->cur_tx, entry);
- 	}
- 	return NETDEV_TX_OK;
- }
-@@ -916,8 +912,8 @@ static irqreturn_t yellowfin_interrupt(int irq, void *dev_instance)
- 		u16 intr_status = ioread16(ioaddr + IntrClear);
- 
- 		if (yellowfin_debug > 4)
--			printk(KERN_DEBUG "%s: Yellowfin interrupt, status %4.4x.\n",
--				   dev->name, intr_status);
-+			netdev_printk(KERN_DEBUG, dev, "Yellowfin interrupt, status %04x\n",
-+				      intr_status);
- 
- 		if (intr_status == 0)
- 			break;
-@@ -963,13 +959,12 @@ static irqreturn_t yellowfin_interrupt(int irq, void *dev_instance)
- 
- #ifndef final_version
- 				if (yellowfin_debug > 5)
--					printk(KERN_DEBUG "%s: Tx queue %d check, Tx status "
--						   "%4.4x %4.4x %4.4x %4.4x.\n",
--						   dev->name, entry,
--						   yp->tx_status[entry].tx_cnt,
--						   yp->tx_status[entry].tx_errs,
--						   yp->tx_status[entry].total_tx_cnt,
--						   yp->tx_status[entry].paused);
-+					netdev_printk(KERN_DEBUG, dev, "Tx queue %d check, Tx status %04x %04x %04x %04x\n",
-+						      entry,
-+						      yp->tx_status[entry].tx_cnt,
-+						      yp->tx_status[entry].tx_errs,
-+						      yp->tx_status[entry].total_tx_cnt,
-+						      yp->tx_status[entry].paused);
- #endif
- 				if (tx_errs == 0)
- 					break;	/* It still hasn't been Txed */
-@@ -978,8 +973,8 @@ static irqreturn_t yellowfin_interrupt(int irq, void *dev_instance)
- 					/* There was an major error, log it. */
- #ifndef final_version
- 					if (yellowfin_debug > 1)
--						printk(KERN_DEBUG "%s: Transmit error, Tx status %4.4x.\n",
--							   dev->name, tx_errs);
-+						netdev_printk(KERN_DEBUG, dev, "Transmit error, Tx status %04x\n",
-+							      tx_errs);
- #endif
- 					dev->stats.tx_errors++;
- 					if (tx_errs & 0xF800) dev->stats.tx_aborted_errors++;
-@@ -989,8 +984,8 @@ static irqreturn_t yellowfin_interrupt(int irq, void *dev_instance)
- 				} else {
- #ifndef final_version
- 					if (yellowfin_debug > 4)
--						printk(KERN_DEBUG "%s: Normal transmit, Tx status %4.4x.\n",
--							   dev->name, tx_errs);
-+						netdev_printk(KERN_DEBUG, dev, "Normal transmit, Tx status %04x\n",
-+							      tx_errs);
- #endif
- 					dev->stats.tx_bytes += skb->len;
- 					dev->stats.collisions += tx_errs & 15;
-@@ -1008,8 +1003,8 @@ static irqreturn_t yellowfin_interrupt(int irq, void *dev_instance)
- 
- #ifndef final_version
- 			if (yp->cur_tx - dirty_tx > TX_RING_SIZE) {
--				printk(KERN_ERR "%s: Out-of-sync dirty pointer, %d vs. %d, full=%d.\n",
--					   dev->name, dirty_tx, yp->cur_tx, yp->tx_full);
-+				netdev_err(dev, "Out-of-sync dirty pointer, %d vs. %d, full=%d\n",
-+					   dirty_tx, yp->cur_tx, yp->tx_full);
- 				dirty_tx += TX_RING_SIZE;
- 			}
- #endif
-@@ -1031,16 +1026,15 @@ static irqreturn_t yellowfin_interrupt(int irq, void *dev_instance)
- 			yellowfin_error(dev, intr_status);
- 
- 		if (--boguscnt < 0) {
--			printk(KERN_WARNING "%s: Too much work at interrupt, "
--				   "status=0x%4.4x.\n",
--				   dev->name, intr_status);
-+			netdev_warn(dev, "Too much work at interrupt, status=%#04x\n",
-+				    intr_status);
- 			break;
- 		}
- 	} while (1);
- 
- 	if (yellowfin_debug > 3)
--		printk(KERN_DEBUG "%s: exiting interrupt, status=%#4.4x.\n",
--			   dev->name, ioread16(ioaddr + IntrStatus));
-+		netdev_printk(KERN_DEBUG, dev, "exiting interrupt, status=%#04x\n",
-+			      ioread16(ioaddr + IntrStatus));
- 
- 	spin_unlock (&yp->lock);
- 	return IRQ_RETVAL(handled);
-@@ -1055,9 +1049,9 @@ static int yellowfin_rx(struct net_device *dev)
- 	int boguscnt = yp->dirty_rx + RX_RING_SIZE - yp->cur_rx;
- 
- 	if (yellowfin_debug > 4) {
--		printk(KERN_DEBUG " In yellowfin_rx(), entry %d status %8.8x.\n",
-+		printk(KERN_DEBUG " In yellowfin_rx(), entry %d status %08x\n",
- 			   entry, yp->rx_ring[entry].result_status);
--		printk(KERN_DEBUG "   #%d desc. %8.8x %8.8x %8.8x.\n",
-+		printk(KERN_DEBUG "   #%d desc. %08x %08x %08x\n",
- 			   entry, yp->rx_ring[entry].dbdma_cmd, yp->rx_ring[entry].addr,
- 			   yp->rx_ring[entry].result_status);
- 	}
-@@ -1081,20 +1075,20 @@ static int yellowfin_rx(struct net_device *dev)
- 			le32_to_cpu(desc->result_status)) & 0xffff;
- 		frame_status = get_unaligned_le16(&(buf_addr[data_size - 2]));
- 		if (yellowfin_debug > 4)
--			printk(KERN_DEBUG "  yellowfin_rx() status was %4.4x.\n",
--				   frame_status);
-+			printk(KERN_DEBUG "  %s() status was %04x\n",
-+			       __func__, frame_status);
- 		if (--boguscnt < 0)
- 			break;
- 		if ( ! (desc_status & RX_EOP)) {
- 			if (data_size != 0)
--				printk(KERN_WARNING "%s: Oversized Ethernet frame spanned multiple buffers,"
--					   " status %4.4x, data_size %d!\n", dev->name, desc_status, data_size);
-+				netdev_warn(dev, "Oversized Ethernet frame spanned multiple buffers, status %04x, data_size %d!\n",
-+					    desc_status, data_size);
- 			dev->stats.rx_length_errors++;
- 		} else if ((yp->drv_flags & IsGigabit)  &&  (frame_status & 0x0038)) {
- 			/* There was a error. */
- 			if (yellowfin_debug > 3)
--				printk(KERN_DEBUG "  yellowfin_rx() Rx error was %4.4x.\n",
--					   frame_status);
-+				printk(KERN_DEBUG "  %s() Rx error was %04x\n",
-+				       __func__, frame_status);
- 			dev->stats.rx_errors++;
- 			if (frame_status & 0x0060) dev->stats.rx_length_errors++;
- 			if (frame_status & 0x0008) dev->stats.rx_frame_errors++;
-@@ -1118,8 +1112,8 @@ static int yellowfin_rx(struct net_device *dev)
- 				entry*sizeof(struct yellowfin_desc)),
- 				"\377\377\377\377\377\377", 6) != 0) {
- 			if (bogus_rx++ == 0)
--				printk(KERN_WARNING "%s: Bad frame to %pM\n",
--					   dev->name, buf_addr);
-+				netdev_warn(dev, "Bad frame to %pM\n",
-+					    buf_addr);
- #endif
+ #include <linux/module.h>
+@@ -534,8 +534,7 @@ typhoon_process_response(struct typhoon *tp, int resp_size,
+ 		} else if(resp->cmd == TYPHOON_CMD_HELLO_RESP) {
+ 			typhoon_hello(tp);
  		} else {
- 			struct sk_buff *skb;
-@@ -1129,9 +1123,8 @@ static int yellowfin_rx(struct net_device *dev)
+-			printk(KERN_ERR "%s: dumping unexpected response "
+-			       "0x%04x:%d:0x%02x:0x%04x:%08x:%08x\n",
++			pr_err("%s: dumping unexpected response 0x%04x:%d:0x%02x:0x%04x:%08x:%08x\n",
+ 			       tp->name, le16_to_cpu(resp->cmd),
+ 			       resp->numDesc, resp->flags,
+ 			       le16_to_cpu(resp->parm1),
+@@ -606,9 +605,8 @@ typhoon_issue_command(struct typhoon *tp, int num_cmd, struct cmd_desc *cmd,
+ 	freeResp = typhoon_num_free_resp(tp);
  
- #ifndef final_version
- 			if (yellowfin_debug > 4)
--				printk(KERN_DEBUG "  yellowfin_rx() normal Rx pkt length %d"
--					   " of %d, bogus_cnt %d.\n",
--					   pkt_len, data_size, boguscnt);
-+				printk(KERN_DEBUG "  %s() normal Rx pkt length %d of %d, bogus_cnt %d\n",
-+				       __func__, pkt_len, data_size, boguscnt);
- #endif
- 			/* Check if the packet is long enough to just pass up the skbuff
- 			   without copying to a properly sized skbuff. */
-@@ -1191,8 +1184,7 @@ static int yellowfin_rx(struct net_device *dev)
+ 	if(freeCmd < num_cmd || freeResp < num_resp) {
+-		printk("%s: no descs for cmd, had (needed) %d (%d) cmd, "
+-			"%d (%d) resp\n", tp->name, freeCmd, num_cmd,
+-			freeResp, num_resp);
++		pr_err("%s: no descs for cmd, had (needed) %d (%d) cmd, %d (%d) resp\n",
++		       tp->name, freeCmd, num_cmd, freeResp, num_resp);
+ 		err = -ENOMEM;
+ 		goto out;
+ 	}
+@@ -1021,7 +1019,7 @@ typhoon_get_stats(struct net_device *dev)
+ 		return saved;
  
- static void yellowfin_error(struct net_device *dev, int intr_status)
- {
--	printk(KERN_ERR "%s: Something Wicked happened! %4.4x.\n",
--		   dev->name, intr_status);
-+	netdev_err(dev, "Something Wicked happened! %04x\n", intr_status);
- 	/* Hmmmmm, it's not clear what to do here. */
- 	if (intr_status & (IntrTxPCIErr | IntrTxPCIFault))
- 		dev->stats.tx_errors++;
-@@ -1209,13 +1201,13 @@ static int yellowfin_close(struct net_device *dev)
- 	netif_stop_queue (dev);
- 
- 	if (yellowfin_debug > 1) {
--		printk(KERN_DEBUG "%s: Shutting down ethercard, status was Tx %4.4x "
--			   "Rx %4.4x Int %2.2x.\n",
--			   dev->name, ioread16(ioaddr + TxStatus),
--			   ioread16(ioaddr + RxStatus),
--			   ioread16(ioaddr + IntrStatus));
--		printk(KERN_DEBUG "%s: Queue pointers were Tx %d / %d,  Rx %d / %d.\n",
--			   dev->name, yp->cur_tx, yp->dirty_tx, yp->cur_rx, yp->dirty_rx);
-+		netdev_printk(KERN_DEBUG, dev, "Shutting down ethercard, status was Tx %04x Rx %04x Int %02x\n",
-+			      ioread16(ioaddr + TxStatus),
-+			      ioread16(ioaddr + RxStatus),
-+			      ioread16(ioaddr + IntrStatus));
-+		netdev_printk(KERN_DEBUG, dev, "Queue pointers were Tx %d / %d,  Rx %d / %d\n",
-+			      yp->cur_tx, yp->dirty_tx,
-+			      yp->cur_rx, yp->dirty_rx);
+ 	if(typhoon_do_get_stats(tp) < 0) {
+-		printk(KERN_ERR "%s: error getting stats\n", dev->name);
++		netdev_err(dev, "error getting stats\n");
+ 		return saved;
  	}
  
- 	/* Disable interrupts by clearing the interrupt mask. */
-@@ -1229,33 +1221,35 @@ static int yellowfin_close(struct net_device *dev)
+@@ -1366,8 +1364,8 @@ typhoon_request_firmware(struct typhoon *tp)
  
- #if defined(__i386__)
- 	if (yellowfin_debug > 2) {
--		printk(KERN_DEBUG"  Tx ring at %8.8llx:\n",
-+		printk(KERN_DEBUG "  Tx ring at %08llx:\n",
- 				(unsigned long long)yp->tx_ring_dma);
- 		for (i = 0; i < TX_RING_SIZE*2; i++)
--			printk(KERN_DEBUG " %c #%d desc. %8.8x %8.8x %8.8x %8.8x.\n",
-+			printk(KERN_DEBUG " %c #%d desc. %08x %08x %08x %08x\n",
- 				   ioread32(ioaddr + TxPtr) == (long)&yp->tx_ring[i] ? '>' : ' ',
- 				   i, yp->tx_ring[i].dbdma_cmd, yp->tx_ring[i].addr,
- 				   yp->tx_ring[i].branch_addr, yp->tx_ring[i].result_status);
- 		printk(KERN_DEBUG "  Tx status %p:\n", yp->tx_status);
- 		for (i = 0; i < TX_RING_SIZE; i++)
--			printk(KERN_DEBUG "   #%d status %4.4x %4.4x %4.4x %4.4x.\n",
-+			printk(KERN_DEBUG "   #%d status %04x %04x %04x %04x\n",
- 				   i, yp->tx_status[i].tx_cnt, yp->tx_status[i].tx_errs,
- 				   yp->tx_status[i].total_tx_cnt, yp->tx_status[i].paused);
+ 	err = request_firmware(&typhoon_fw, FIRMWARE_NAME, &tp->pdev->dev);
+ 	if (err) {
+-		printk(KERN_ERR "%s: Failed to load firmware \"%s\"\n",
+-				tp->name, FIRMWARE_NAME);
++		pr_err("%s: Failed to load firmware \"%s\"\n",
++		       tp->name, FIRMWARE_NAME);
+ 		return err;
+ 	}
  
--		printk(KERN_DEBUG "  Rx ring %8.8llx:\n",
-+		printk(KERN_DEBUG "  Rx ring %08llx:\n",
- 				(unsigned long long)yp->rx_ring_dma);
- 		for (i = 0; i < RX_RING_SIZE; i++) {
--			printk(KERN_DEBUG " %c #%d desc. %8.8x %8.8x %8.8x\n",
-+			printk(KERN_DEBUG " %c #%d desc. %08x %08x %08x\n",
- 				   ioread32(ioaddr + RxPtr) == (long)&yp->rx_ring[i] ? '>' : ' ',
- 				   i, yp->rx_ring[i].dbdma_cmd, yp->rx_ring[i].addr,
- 				   yp->rx_ring[i].result_status);
- 			if (yellowfin_debug > 6) {
- 				if (get_unaligned((u8*)yp->rx_ring[i].addr) != 0x69) {
- 					int j;
-+
-+					printk(KERN_DEBUG);
- 					for (j = 0; j < 0x50; j++)
--						printk(" %4.4x",
--							   get_unaligned(((u16*)yp->rx_ring[i].addr) + j));
--					printk("\n");
-+						pr_cont(" %04x",
-+							get_unaligned(((u16*)yp->rx_ring[i].addr) + j));
-+					pr_cont("\n");
- 				}
+@@ -1402,7 +1400,7 @@ typhoon_request_firmware(struct typhoon *tp)
+ 	return 0;
+ 
+ invalid_fw:
+-	printk(KERN_ERR "%s: Invalid firmware image\n", tp->name);
++	pr_err("%s: Invalid firmware image\n", tp->name);
+ 	release_firmware(typhoon_fw);
+ 	typhoon_fw = NULL;
+ 	return -EINVAL;
+@@ -1439,7 +1437,7 @@ typhoon_download_firmware(struct typhoon *tp)
+ 	err = -ENOMEM;
+ 	dpage = pci_alloc_consistent(pdev, PAGE_SIZE, &dpage_dma);
+ 	if(!dpage) {
+-		printk(KERN_ERR "%s: no DMA mem for firmware\n", tp->name);
++		pr_err("%s: no DMA mem for firmware\n", tp->name);
+ 		goto err_out;
+ 	}
+ 
+@@ -1452,7 +1450,7 @@ typhoon_download_firmware(struct typhoon *tp)
+ 
+ 	err = -ETIMEDOUT;
+ 	if(typhoon_wait_status(ioaddr, TYPHOON_STATUS_WAITING_FOR_HOST) < 0) {
+-		printk(KERN_ERR "%s: card ready timeout\n", tp->name);
++		pr_err("%s: card ready timeout\n", tp->name);
+ 		goto err_out_irq;
+ 	}
+ 
+@@ -1492,7 +1490,7 @@ typhoon_download_firmware(struct typhoon *tp)
+ 			if(typhoon_wait_interrupt(ioaddr) < 0 ||
+ 			   ioread32(ioaddr + TYPHOON_REG_STATUS) !=
+ 			   TYPHOON_STATUS_WAITING_FOR_SEGMENT) {
+-				printk(KERN_ERR "%s: segment ready timeout\n",
++				pr_err("%s: segment ready timeout\n",
+ 				       tp->name);
+ 				goto err_out_irq;
  			}
- 		}
-@@ -1281,8 +1275,8 @@ static int yellowfin_close(struct net_device *dev)
- 
- #ifdef YF_PROTOTYPE			/* Support for prototype hardware errata. */
- 	if (yellowfin_debug > 0) {
--		printk(KERN_DEBUG "%s: Received %d frames that we should not have.\n",
--			   dev->name, bogus_rx);
-+		netdev_printk(KERN_DEBUG, dev, "Received %d frames that we should not have\n",
-+			      bogus_rx);
+@@ -1526,14 +1524,14 @@ typhoon_download_firmware(struct typhoon *tp)
+ 	if(typhoon_wait_interrupt(ioaddr) < 0 ||
+ 	   ioread32(ioaddr + TYPHOON_REG_STATUS) !=
+ 	   TYPHOON_STATUS_WAITING_FOR_SEGMENT) {
+-		printk(KERN_ERR "%s: final segment ready timeout\n", tp->name);
++		pr_err("%s: final segment ready timeout\n", tp->name);
+ 		goto err_out_irq;
  	}
- #endif
  
+ 	iowrite32(TYPHOON_BOOTCMD_DNLD_COMPLETE, ioaddr + TYPHOON_REG_COMMAND);
+ 
+ 	if(typhoon_wait_status(ioaddr, TYPHOON_STATUS_WAITING_FOR_BOOT) < 0) {
+-		printk(KERN_ERR "%s: boot ready timeout, status 0x%0x\n",
++		pr_err("%s: boot ready timeout, status 0x%0x\n",
+ 		       tp->name, ioread32(ioaddr + TYPHOON_REG_STATUS));
+ 		goto err_out_irq;
+ 	}
+@@ -1556,7 +1554,7 @@ typhoon_boot_3XP(struct typhoon *tp, u32 initial_status)
+ 	void __iomem *ioaddr = tp->ioaddr;
+ 
+ 	if(typhoon_wait_status(ioaddr, initial_status) < 0) {
+-		printk(KERN_ERR "%s: boot ready timeout\n", tp->name);
++		pr_err("%s: boot ready timeout\n", tp->name);
+ 		goto out_timeout;
+ 	}
+ 
+@@ -1567,7 +1565,7 @@ typhoon_boot_3XP(struct typhoon *tp, u32 initial_status)
+ 				ioaddr + TYPHOON_REG_COMMAND);
+ 
+ 	if(typhoon_wait_status(ioaddr, TYPHOON_STATUS_RUNNING) < 0) {
+-		printk(KERN_ERR "%s: boot finish timeout (status 0x%x)\n",
++		pr_err("%s: boot finish timeout (status 0x%x)\n",
+ 		       tp->name, ioread32(ioaddr + TYPHOON_REG_STATUS));
+ 		goto out_timeout;
+ 	}
+@@ -1867,8 +1865,7 @@ typhoon_interrupt(int irq, void *dev_instance)
+ 		typhoon_post_pci_writes(ioaddr);
+ 		__napi_schedule(&tp->napi);
+ 	} else {
+-		printk(KERN_ERR "%s: Error, poll already scheduled\n",
+-                       dev->name);
++		netdev_err(dev, "Error, poll already scheduled\n");
+ 	}
+ 	return IRQ_HANDLED;
+ }
+@@ -1901,16 +1898,16 @@ typhoon_sleep(struct typhoon *tp, pci_power_t state, __le16 events)
+ 	xp_cmd.parm1 = events;
+ 	err = typhoon_issue_command(tp, 1, &xp_cmd, 0, NULL);
+ 	if(err < 0) {
+-		printk(KERN_ERR "%s: typhoon_sleep(): wake events cmd err %d\n",
+-				tp->name, err);
++		pr_err("%s: %s(): wake events cmd err %d\n",
++		       tp->name, __func__, err);
+ 		return err;
+ 	}
+ 
+ 	INIT_COMMAND_NO_RESPONSE(&xp_cmd, TYPHOON_CMD_GOTO_SLEEP);
+ 	err = typhoon_issue_command(tp, 1, &xp_cmd, 0, NULL);
+ 	if(err < 0) {
+-		printk(KERN_ERR "%s: typhoon_sleep(): sleep cmd err %d\n",
+-				tp->name, err);
++		pr_err("%s: %s(): sleep cmd err %d\n",
++		       tp->name, __func__, err);
+ 		return err;
+ 	}
+ 
+@@ -2070,8 +2067,7 @@ typhoon_stop_runtime(struct typhoon *tp, int wait_type)
+ 	}
+ 
+ 	if(i == TYPHOON_WAIT_TIMEOUT)
+-		printk(KERN_ERR
+-		       "%s: halt timed out waiting for Tx to complete\n",
++		pr_err("%s: halt timed out waiting for Tx to complete\n",
+ 		       tp->name);
+ 
+ 	INIT_COMMAND_NO_RESPONSE(&xp_cmd, TYPHOON_CMD_TX_DISABLE);
+@@ -2089,11 +2085,11 @@ typhoon_stop_runtime(struct typhoon *tp, int wait_type)
+ 	typhoon_issue_command(tp, 1, &xp_cmd, 0, NULL);
+ 
+ 	if(typhoon_wait_status(ioaddr, TYPHOON_STATUS_HALTED) < 0)
+-		printk(KERN_ERR "%s: timed out waiting for 3XP to halt\n",
++		pr_err("%s: timed out waiting for 3XP to halt\n",
+ 		       tp->name);
+ 
+ 	if(typhoon_reset(ioaddr, wait_type) < 0) {
+-		printk(KERN_ERR "%s: unable to reset 3XP\n", tp->name);
++		pr_err("%s: unable to reset 3XP\n", tp->name);
+ 		return -ETIMEDOUT;
+ 	}
+ 
+@@ -2112,8 +2108,7 @@ typhoon_tx_timeout(struct net_device *dev)
+ 	struct typhoon *tp = netdev_priv(dev);
+ 
+ 	if(typhoon_reset(tp->ioaddr, WaitNoSleep) < 0) {
+-		printk(KERN_WARNING "%s: could not reset in tx timeout\n",
+-					dev->name);
++		netdev_warn(dev, "could not reset in tx timeout\n");
+ 		goto truely_dead;
+ 	}
+ 
+@@ -2122,8 +2117,7 @@ typhoon_tx_timeout(struct net_device *dev)
+ 	typhoon_free_rx_rings(tp);
+ 
+ 	if(typhoon_start_runtime(tp) < 0) {
+-		printk(KERN_ERR "%s: could not start runtime in tx timeout\n",
+-					dev->name);
++		netdev_err(dev, "could not start runtime in tx timeout\n");
+ 		goto truely_dead;
+         }
+ 
+@@ -2148,7 +2142,7 @@ typhoon_open(struct net_device *dev)
+ 
+ 	err = typhoon_wakeup(tp, WaitSleep);
+ 	if(err < 0) {
+-		printk(KERN_ERR "%s: unable to wakeup device\n", dev->name);
++		netdev_err(dev, "unable to wakeup device\n");
+ 		goto out_sleep;
+ 	}
+ 
+@@ -2173,14 +2167,13 @@ out_irq:
+ 
+ out_sleep:
+ 	if(typhoon_boot_3XP(tp, TYPHOON_STATUS_WAITING_FOR_HOST) < 0) {
+-		printk(KERN_ERR "%s: unable to reboot into sleep img\n",
+-				dev->name);
++		netdev_err(dev, "unable to reboot into sleep img\n");
+ 		typhoon_reset(tp->ioaddr, NoWait);
+ 		goto out;
+ 	}
+ 
+ 	if(typhoon_sleep(tp, PCI_D3hot, 0) < 0)
+-		printk(KERN_ERR "%s: unable to go back to sleep\n", dev->name);
++		netdev_err(dev, "unable to go back to sleep\n");
+ 
+ out:
+ 	return err;
+@@ -2195,7 +2188,7 @@ typhoon_close(struct net_device *dev)
+ 	napi_disable(&tp->napi);
+ 
+ 	if(typhoon_stop_runtime(tp, WaitSleep) < 0)
+-		printk(KERN_ERR "%s: unable to stop runtime\n", dev->name);
++		netdev_err(dev, "unable to stop runtime\n");
+ 
+ 	/* Make sure there is no irq handler running on a different CPU. */
+ 	free_irq(dev->irq, dev);
+@@ -2204,10 +2197,10 @@ typhoon_close(struct net_device *dev)
+ 	typhoon_init_rings(tp);
+ 
+ 	if(typhoon_boot_3XP(tp, TYPHOON_STATUS_WAITING_FOR_HOST) < 0)
+-		printk(KERN_ERR "%s: unable to boot sleep image\n", dev->name);
++		netdev_err(dev, "unable to boot sleep image\n");
+ 
+ 	if(typhoon_sleep(tp, PCI_D3hot, 0) < 0)
+-		printk(KERN_ERR "%s: unable to put card to sleep\n", dev->name);
++		netdev_err(dev, "unable to put card to sleep\n");
+ 
+ 	return 0;
+ }
+@@ -2225,14 +2218,12 @@ typhoon_resume(struct pci_dev *pdev)
+ 		return 0;
+ 
+ 	if(typhoon_wakeup(tp, WaitNoSleep) < 0) {
+-		printk(KERN_ERR "%s: critical: could not wake up in resume\n",
+-				dev->name);
++		netdev_err(dev, "critical: could not wake up in resume\n");
+ 		goto reset;
+ 	}
+ 
+ 	if(typhoon_start_runtime(tp) < 0) {
+-		printk(KERN_ERR "%s: critical: could not start runtime in "
+-				"resume\n", dev->name);
++		netdev_err(dev, "critical: could not start runtime in resume\n");
+ 		goto reset;
+ 	}
+ 
+@@ -2259,8 +2250,7 @@ typhoon_suspend(struct pci_dev *pdev, pm_message_t state)
+ 	spin_lock_bh(&tp->state_lock);
+ 	if(tp->vlgrp && tp->wol_events & TYPHOON_WAKE_MAGIC_PKT) {
+ 		spin_unlock_bh(&tp->state_lock);
+-		printk(KERN_ERR "%s: cannot do WAKE_MAGIC with VLANS\n",
+-				dev->name);
++		netdev_err(dev, "cannot do WAKE_MAGIC with VLANS\n");
+ 		return -EBUSY;
+ 	}
+ 	spin_unlock_bh(&tp->state_lock);
+@@ -2268,7 +2258,7 @@ typhoon_suspend(struct pci_dev *pdev, pm_message_t state)
+ 	netif_device_detach(dev);
+ 
+ 	if(typhoon_stop_runtime(tp, WaitNoSleep) < 0) {
+-		printk(KERN_ERR "%s: unable to stop runtime\n", dev->name);
++		netdev_err(dev, "unable to stop runtime\n");
+ 		goto need_resume;
+ 	}
+ 
+@@ -2276,7 +2266,7 @@ typhoon_suspend(struct pci_dev *pdev, pm_message_t state)
+ 	typhoon_init_rings(tp);
+ 
+ 	if(typhoon_boot_3XP(tp, TYPHOON_STATUS_WAITING_FOR_HOST) < 0) {
+-		printk(KERN_ERR "%s: unable to boot sleep image\n", dev->name);
++		netdev_err(dev, "unable to boot sleep image\n");
+ 		goto need_resume;
+ 	}
+ 
+@@ -2284,21 +2274,19 @@ typhoon_suspend(struct pci_dev *pdev, pm_message_t state)
+ 	xp_cmd.parm1 = cpu_to_le16(ntohs(*(__be16 *)&dev->dev_addr[0]));
+ 	xp_cmd.parm2 = cpu_to_le32(ntohl(*(__be32 *)&dev->dev_addr[2]));
+ 	if(typhoon_issue_command(tp, 1, &xp_cmd, 0, NULL) < 0) {
+-		printk(KERN_ERR "%s: unable to set mac address in suspend\n",
+-				dev->name);
++		netdev_err(dev, "unable to set mac address in suspend\n");
+ 		goto need_resume;
+ 	}
+ 
+ 	INIT_COMMAND_NO_RESPONSE(&xp_cmd, TYPHOON_CMD_SET_RX_FILTER);
+ 	xp_cmd.parm1 = TYPHOON_RX_FILTER_DIRECTED | TYPHOON_RX_FILTER_BROADCAST;
+ 	if(typhoon_issue_command(tp, 1, &xp_cmd, 0, NULL) < 0) {
+-		printk(KERN_ERR "%s: unable to set rx filter in suspend\n",
+-				dev->name);
++		netdev_err(dev, "unable to set rx filter in suspend\n");
+ 		goto need_resume;
+ 	}
+ 
+ 	if(typhoon_sleep(tp, pci_choose_state(pdev, state), tp->wol_events) < 0) {
+-		printk(KERN_ERR "%s: unable to put card to sleep\n", dev->name);
++		netdev_err(dev, "unable to put card to sleep\n");
+ 		goto need_resume;
+ 	}
+ 
+@@ -2352,7 +2340,7 @@ out_unmap:
+ 
+ out:
+ 	if(!mode)
+-		printk(KERN_INFO PFX "falling back to port IO\n");
++		pr_info("falling back to port IO\n");
+ 	return mode;
+ }
+ 
+@@ -2384,11 +2372,11 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	int err = 0;
+ 
+ 	if(!did_version++)
+-		printk(KERN_INFO "%s", version);
++		pr_info("%s", version);
+ 
+ 	dev = alloc_etherdev(sizeof(*tp));
+ 	if(dev == NULL) {
+-		printk(ERR_PFX "%s: unable to alloc new net device\n",
++		pr_err("%s: unable to alloc new net device\n",
+ 		       pci_name(pdev));
+ 		err = -ENOMEM;
+ 		goto error_out;
+@@ -2397,20 +2385,20 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	err = pci_enable_device(pdev);
+ 	if(err < 0) {
+-		printk(ERR_PFX "%s: unable to enable device\n",
++		pr_err("%s: unable to enable device\n",
+ 		       pci_name(pdev));
+ 		goto error_out_dev;
+ 	}
+ 
+ 	err = pci_set_mwi(pdev);
+ 	if(err < 0) {
+-		printk(ERR_PFX "%s: unable to set MWI\n", pci_name(pdev));
++		pr_err("%s: unable to set MWI\n", pci_name(pdev));
+ 		goto error_out_disable;
+ 	}
+ 
+ 	err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
+ 	if(err < 0) {
+-		printk(ERR_PFX "%s: No usable DMA configuration\n",
++		pr_err("%s: No usable DMA configuration\n",
+ 		       pci_name(pdev));
+ 		goto error_out_mwi;
+ 	}
+@@ -2418,27 +2406,25 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	/* sanity checks on IO and MMIO BARs
+ 	 */
+ 	if(!(pci_resource_flags(pdev, 0) & IORESOURCE_IO)) {
+-		printk(ERR_PFX
+-		       "%s: region #1 not a PCI IO resource, aborting\n",
++		pr_err("%s: region #1 not a PCI IO resource, aborting\n",
+ 		       pci_name(pdev));
+ 		err = -ENODEV;
+ 		goto error_out_mwi;
+ 	}
+ 	if(pci_resource_len(pdev, 0) < 128) {
+-		printk(ERR_PFX "%s: Invalid PCI IO region size, aborting\n",
++		pr_err("%s: Invalid PCI IO region size, aborting\n",
+ 		       pci_name(pdev));
+ 		err = -ENODEV;
+ 		goto error_out_mwi;
+ 	}
+ 	if(!(pci_resource_flags(pdev, 1) & IORESOURCE_MEM)) {
+-		printk(ERR_PFX
+-		       "%s: region #1 not a PCI MMIO resource, aborting\n",
++		pr_err("%s: region #1 not a PCI MMIO resource, aborting\n",
+ 		       pci_name(pdev));
+ 		err = -ENODEV;
+ 		goto error_out_mwi;
+ 	}
+ 	if(pci_resource_len(pdev, 1) < 128) {
+-		printk(ERR_PFX "%s: Invalid PCI MMIO region size, aborting\n",
++		pr_err("%s: Invalid PCI MMIO region size, aborting\n",
+ 		       pci_name(pdev));
+ 		err = -ENODEV;
+ 		goto error_out_mwi;
+@@ -2446,7 +2432,7 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	err = pci_request_regions(pdev, "typhoon");
+ 	if(err < 0) {
+-		printk(ERR_PFX "%s: could not request regions\n",
++		pr_err("%s: could not request regions\n",
+ 		       pci_name(pdev));
+ 		goto error_out_mwi;
+ 	}
+@@ -2458,7 +2444,7 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	ioaddr = pci_iomap(pdev, use_mmio, 128);
+ 	if (!ioaddr) {
+-		printk(ERR_PFX "%s: cannot remap registers, aborting\n",
++		pr_err("%s: cannot remap registers, aborting\n",
+ 		       pci_name(pdev));
+ 		err = -EIO;
+ 		goto error_out_regions;
+@@ -2469,7 +2455,7 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	shared = pci_alloc_consistent(pdev, sizeof(struct typhoon_shared),
+ 				      &shared_dma);
+ 	if(!shared) {
+-		printk(ERR_PFX "%s: could not allocate DMA memory\n",
++		pr_err("%s: could not allocate DMA memory\n",
+ 		       pci_name(pdev));
+ 		err = -ENOMEM;
+ 		goto error_out_remap;
+@@ -2493,7 +2479,7 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	 * 5) Put the card to sleep.
+ 	 */
+ 	if (typhoon_reset(ioaddr, WaitSleep) < 0) {
+-		printk(ERR_PFX "%s: could not reset 3XP\n", pci_name(pdev));
++		pr_err("%s: could not reset 3XP\n", pci_name(pdev));
+ 		err = -EIO;
+ 		goto error_out_dma;
+ 	}
+@@ -2515,7 +2501,7 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	typhoon_init_rings(tp);
+ 
+ 	if(typhoon_boot_3XP(tp, TYPHOON_STATUS_WAITING_FOR_HOST) < 0) {
+-		printk(ERR_PFX "%s: cannot boot 3XP sleep image\n",
++		pr_err("%s: cannot boot 3XP sleep image\n",
+ 		       pci_name(pdev));
+ 		err = -EIO;
+ 		goto error_out_reset;
+@@ -2523,7 +2509,7 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	INIT_COMMAND_WITH_RESPONSE(&xp_cmd, TYPHOON_CMD_READ_MAC_ADDRESS);
+ 	if(typhoon_issue_command(tp, 1, &xp_cmd, 1, xp_resp) < 0) {
+-		printk(ERR_PFX "%s: cannot read MAC address\n",
++		pr_err("%s: cannot read MAC address\n",
+ 		       pci_name(pdev));
+ 		err = -EIO;
+ 		goto error_out_reset;
+@@ -2533,8 +2519,8 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	*(__be32 *)&dev->dev_addr[2] = htonl(le32_to_cpu(xp_resp[0].parm2));
+ 
+ 	if(!is_valid_ether_addr(dev->dev_addr)) {
+-		printk(ERR_PFX "%s: Could not obtain valid ethernet address, "
+-		       "aborting\n", pci_name(pdev));
++		pr_err("%s: Could not obtain valid ethernet address, aborting\n",
++		       pci_name(pdev));
+ 		goto error_out_reset;
+ 	}
+ 
+@@ -2543,7 +2529,7 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	 */
+ 	INIT_COMMAND_WITH_RESPONSE(&xp_cmd, TYPHOON_CMD_READ_VERSIONS);
+ 	if(typhoon_issue_command(tp, 1, &xp_cmd, 3, xp_resp) < 0) {
+-		printk(ERR_PFX "%s: Could not get Sleep Image version\n",
++		pr_err("%s: Could not get Sleep Image version\n",
+ 			pci_name(pdev));
+ 		goto error_out_reset;
+ 	}
+@@ -2561,7 +2547,7 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		tp->capabilities |= TYPHOON_WAKEUP_NEEDS_RESET;
+ 
+ 	if(typhoon_sleep(tp, PCI_D3hot, 0) < 0) {
+-		printk(ERR_PFX "%s: cannot put adapter to sleep\n",
++		pr_err("%s: cannot put adapter to sleep\n",
+ 		       pci_name(pdev));
+ 		err = -EIO;
+ 		goto error_out_reset;
+@@ -2589,11 +2575,11 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	pci_set_drvdata(pdev, dev);
+ 
+-	printk(KERN_INFO "%s: %s at %s 0x%llx, %pM\n",
+-	       dev->name, typhoon_card_info[card_id].name,
+-	       use_mmio ? "MMIO" : "IO",
+-	       (unsigned long long)pci_resource_start(pdev, use_mmio),
+-	       dev->dev_addr);
++	netdev_info(dev, "%s at %s 0x%llx, %pM\n",
++		    typhoon_card_info[card_id].name,
++		    use_mmio ? "MMIO" : "IO",
++		    (unsigned long long)pci_resource_start(pdev, use_mmio),
++		    dev->dev_addr);
+ 
+ 	/* xp_resp still contains the response to the READ_VERSIONS command.
+ 	 * For debugging, let the user know what version he has.
+@@ -2603,23 +2589,21 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		 * of version is Month/Day of build.
+ 		 */
+ 		u16 monthday = le32_to_cpu(xp_resp[0].parm2) & 0xffff;
+-		printk(KERN_INFO "%s: Typhoon 1.0 Sleep Image built "
+-			"%02u/%02u/2000\n", dev->name, monthday >> 8,
+-			monthday & 0xff);
++		netdev_info(dev, "Typhoon 1.0 Sleep Image built %02u/%02u/2000\n",
++			    monthday >> 8, monthday & 0xff);
+ 	} else if(xp_resp[0].numDesc == 2) {
+ 		/* This is the Typhoon 1.1+ type Sleep Image
+ 		 */
+ 		u32 sleep_ver = le32_to_cpu(xp_resp[0].parm2);
+ 		u8 *ver_string = (u8 *) &xp_resp[1];
+ 		ver_string[25] = 0;
+-		printk(KERN_INFO "%s: Typhoon 1.1+ Sleep Image version "
+-			"%02x.%03x.%03x %s\n", dev->name, sleep_ver >> 24,
+-			(sleep_ver >> 12) & 0xfff, sleep_ver & 0xfff,
+-			ver_string);
++		netdev_info(dev, "Typhoon 1.1+ Sleep Image version %02x.%03x.%03x %s\n",
++			    sleep_ver >> 24,
++			    (sleep_ver >> 12) & 0xfff, sleep_ver & 0xfff,
++			    ver_string);
+ 	} else {
+-		printk(KERN_WARNING "%s: Unknown Sleep Image version "
+-			"(%u:%04x)\n", dev->name, xp_resp[0].numDesc,
+-			le32_to_cpu(xp_resp[0].parm2));
++		netdev_warn(dev, "Unknown Sleep Image version (%u:%04x)\n",
++			    xp_resp[0].numDesc, le32_to_cpu(xp_resp[0].parm2));
+ 	}
+ 
+ 	return 0;
 -- 
 1.7.0.14.g7e948
+
