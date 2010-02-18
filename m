@@ -1,52 +1,30 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: regression due to "flush SAD/SPD generate false events"
-Date: Thu, 18 Feb 2010 16:45:58 -0500
-Message-ID: <1266529558.3879.121.camel@bigi>
-References: <20100217191718.GA5256@x200> <1266442972.17794.51.camel@bigi>
-	 <1266448038.17794.135.camel@bigi> <1266449529.17794.157.camel@bigi>
-	 <20100218185510.GA18829@x200>  <1266526416.3879.109.camel@bigi>
-Reply-To: hadi@cyberus.ca
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: netfilter 00/09: netfilter update part II
+Date: Thu, 18 Feb 2010 22:48:34 +0100 (CET)
+Message-ID: <alpine.LSU.2.01.1002182247270.25853@obet.zrqbmnf.qr>
+References: <20100218182103.21826.17908.sendpatchset@x2.localnet> <20100218.121624.32079245.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f200.google.com ([209.85.221.200]:60819 "EHLO
-	mail-qy0-f200.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754186Ab0BRVqB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 16:46:01 -0500
-Received: by qyk38 with SMTP id 38so3249667qyk.1
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2010 13:46:00 -0800 (PST)
-In-Reply-To: <1266526416.3879.109.camel@bigi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Thu, 2010-02-18 at 15:53 -0500, jamal wrote:
-
-> Agree - that is a better alternative.
-> I was hoping returning an error code of 0 will do that.
-> But that triggers the EAGAIN you saw. It doesnt trigger
-> an EAGAIN for the netlink side (and it is a nop there).
-> Let me look at it. Clearly the EAGAIN is causing the 
-> latency.
-
-Ok, looking closely at the strace i think ive figured out
-what pfkey is doing. It basically sets non-blocking receive
-and expects to see the flush event whether real or bogus
-(EAGAIN is because it tries to recvmsg and fails the first
-time because we dont send the event when table is empty).
-
-The two options are: 1) Restore old behavior just for pfkey
-where bogus event is sent always or 2) return -ESRCH as I
-have done in the last patch.
-I think #2 is more accurate. But if that is going to break
-existing scripts then #1 is the way to go.
-
-Thoughts?
-
-cheers,
-jamal
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20100218.121624.32079245.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu, 18 Feb 2010 19:21:03 +0100 (MET)
+> following are a few more netfilter patches for 2.6.34, containing:
+> 
+> - bridge netfilter compat support from Florian Westphal
+> - IPVS SCTP load-balancing support from Venkata Mohan Reddy
+> - a build fix for nf_defrag_ipv4 from myself
+> 
+> Please apply or pull from:
+> 
+> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
 
+Can I send my next batch? :)
