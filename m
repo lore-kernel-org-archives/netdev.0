@@ -1,143 +1,189 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 04/12] tg3: Allow phylib flowctrl changes
- anytime
-Date: Wed, 17 Feb 2010 17:16:57 -0800
-Message-ID: <1266455825-16150-5-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 09/12] tg3: Reformat SSID to phy ID table
+Date: Wed, 17 Feb 2010 17:17:02 -0800
+Message-ID: <1266455825-16150-10-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3068 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3254 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754537Ab0BRBRU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2010 20:17:20 -0500
+	id S1755540Ab0BRBR0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2010 20:17:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch loosens the restriction that the phylib interface must be up
-and running to change the flow control parameters.
+This patch reformats the SSID to phy ID table, replacing constants with
+preprocessor definitions.  This patch is also prep work for the
+following patch, which will push line lengths beyond 80 chars.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   94 +++++++++++++++++++++++++++++-----------------------
- 1 files changed, 52 insertions(+), 42 deletions(-)
+ drivers/net/tg3.c |   84 ++++++++++++++++++++++++++++++++++------------------
+ drivers/net/tg3.h |   34 +++++++++++++++++++++-
+ 2 files changed, 88 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index f08e4b8..11ee44b 100644
+index 3a62cc5..b545ea7 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -10093,56 +10093,66 @@ static int tg3_set_pauseparam(struct net_device *dev, struct ethtool_pauseparam
- 	int err = 0;
+@@ -12112,45 +12112,71 @@ struct subsys_tbl_ent {
+ 	u32 phy_id;
+ };
  
- 	if (tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB) {
--		if (!(tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED))
--			return -EAGAIN;
-+		u32 newadv;
-+		struct phy_device *phydev;
+-static struct subsys_tbl_ent subsys_id_to_phy_id[] = {
++static struct subsys_tbl_ent subsys_id_to_phy_id[] __devinitdata = {
+ 	/* Broadcom boards. */
+-	{ PCI_VENDOR_ID_BROADCOM, 0x1644, PHY_ID_BCM5401 }, /* BCM95700A6 */
+-	{ PCI_VENDOR_ID_BROADCOM, 0x0001, PHY_ID_BCM5701 }, /* BCM95701A5 */
+-	{ PCI_VENDOR_ID_BROADCOM, 0x0002, PHY_ID_BCM8002 }, /* BCM95700T6 */
+-	{ PCI_VENDOR_ID_BROADCOM, 0x0003, 0 },		    /* BCM95700A9 */
+-	{ PCI_VENDOR_ID_BROADCOM, 0x0005, PHY_ID_BCM5701 }, /* BCM95701T1 */
+-	{ PCI_VENDOR_ID_BROADCOM, 0x0006, PHY_ID_BCM5701 }, /* BCM95701T8 */
+-	{ PCI_VENDOR_ID_BROADCOM, 0x0007, 0 },		    /* BCM95701A7 */
+-	{ PCI_VENDOR_ID_BROADCOM, 0x0008, PHY_ID_BCM5701 }, /* BCM95701A10 */
+-	{ PCI_VENDOR_ID_BROADCOM, 0x8008, PHY_ID_BCM5701 }, /* BCM95701A12 */
+-	{ PCI_VENDOR_ID_BROADCOM, 0x0009, PHY_ID_BCM5703 }, /* BCM95703Ax1 */
+-	{ PCI_VENDOR_ID_BROADCOM, 0x8009, PHY_ID_BCM5703 }, /* BCM95703Ax2 */
++	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95700A6, PHY_ID_BCM5401 },
++	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701A5, PHY_ID_BCM5701 },
++	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95700T6, PHY_ID_BCM8002 },
++	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95700A9, 0 },
++	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701T1, PHY_ID_BCM5701 },
++	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701T8, PHY_ID_BCM5701 },
++	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701A7, 0 },
++	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701A10, PHY_ID_BCM5701 },
++	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701A12, PHY_ID_BCM5701 },
++	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95703AX1, PHY_ID_BCM5703 },
++	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95703AX2, PHY_ID_BCM5703 },
  
--		if (epause->autoneg) {
--			u32 newadv;
--			struct phy_device *phydev;
-+		phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
+ 	/* 3com boards. */
+-	{ PCI_VENDOR_ID_3COM, 0x1000, PHY_ID_BCM5401 }, /* 3C996T */
+-	{ PCI_VENDOR_ID_3COM, 0x1006, PHY_ID_BCM5701 }, /* 3C996BT */
+-	{ PCI_VENDOR_ID_3COM, 0x1004, 0 },		/* 3C996SX */
+-	{ PCI_VENDOR_ID_3COM, 0x1007, PHY_ID_BCM5701 }, /* 3C1000T */
+-	{ PCI_VENDOR_ID_3COM, 0x1008, PHY_ID_BCM5701 }, /* 3C940BR01 */
++	{ TG3PCI_SUBVENDOR_ID_3COM,
++	  TG3PCI_SUBDEVICE_ID_3COM_3C996T, PHY_ID_BCM5401 },
++	{ TG3PCI_SUBVENDOR_ID_3COM,
++	  TG3PCI_SUBDEVICE_ID_3COM_3C996BT, PHY_ID_BCM5701 },
++	{ TG3PCI_SUBVENDOR_ID_3COM,
++	  TG3PCI_SUBDEVICE_ID_3COM_3C996SX, 0 },
++	{ TG3PCI_SUBVENDOR_ID_3COM,
++	  TG3PCI_SUBDEVICE_ID_3COM_3C1000T, PHY_ID_BCM5701 },
++	{ TG3PCI_SUBVENDOR_ID_3COM,
++	  TG3PCI_SUBDEVICE_ID_3COM_3C940BR01, PHY_ID_BCM5701 },
  
--			phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
-+		if (!(phydev->supported & SUPPORTED_Pause) ||
-+		    (!(phydev->supported & SUPPORTED_Asym_Pause) &&
-+		     ((epause->rx_pause && !epause->tx_pause) ||
-+		      (!epause->rx_pause && epause->tx_pause))))
-+			return -EINVAL;
+ 	/* DELL boards. */
+-	{ PCI_VENDOR_ID_DELL, 0x00d1, PHY_ID_BCM5401 }, /* VIPER */
+-	{ PCI_VENDOR_ID_DELL, 0x0106, PHY_ID_BCM5401 }, /* JAGUAR */
+-	{ PCI_VENDOR_ID_DELL, 0x0109, PHY_ID_BCM5411 }, /* MERLOT */
+-	{ PCI_VENDOR_ID_DELL, 0x010a, PHY_ID_BCM5411 }, /* SLIM_MERLOT */
++	{ TG3PCI_SUBVENDOR_ID_DELL,
++	  TG3PCI_SUBDEVICE_ID_DELL_VIPER, PHY_ID_BCM5401 },
++	{ TG3PCI_SUBVENDOR_ID_DELL,
++	  TG3PCI_SUBDEVICE_ID_DELL_JAGUAR, PHY_ID_BCM5401 },
++	{ TG3PCI_SUBVENDOR_ID_DELL,
++	  TG3PCI_SUBDEVICE_ID_DELL_MERLOT, PHY_ID_BCM5411 },
++	{ TG3PCI_SUBVENDOR_ID_DELL,
++	  TG3PCI_SUBDEVICE_ID_DELL_SLIM_MERLOT, PHY_ID_BCM5411 },
  
--			if (epause->rx_pause) {
--				if (epause->tx_pause)
--					newadv = ADVERTISED_Pause;
--				else
--					newadv = ADVERTISED_Pause |
--						 ADVERTISED_Asym_Pause;
--			} else if (epause->tx_pause) {
--				newadv = ADVERTISED_Asym_Pause;
-+		tp->link_config.flowctrl = 0;
-+		if (epause->rx_pause) {
-+			tp->link_config.flowctrl |= FLOW_CTRL_RX;
-+
-+			if (epause->tx_pause) {
-+				tp->link_config.flowctrl |= FLOW_CTRL_TX;
-+				newadv = ADVERTISED_Pause;
- 			} else
--				newadv = 0;
--
--			if (tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED) {
--				u32 oldadv = phydev->advertising &
--					     (ADVERTISED_Pause |
--					      ADVERTISED_Asym_Pause);
--				if (oldadv != newadv) {
--					phydev->advertising &=
--						~(ADVERTISED_Pause |
--						  ADVERTISED_Asym_Pause);
--					phydev->advertising |= newadv;
--					err = phy_start_aneg(phydev);
-+				newadv = ADVERTISED_Pause |
-+					 ADVERTISED_Asym_Pause;
-+		} else if (epause->tx_pause) {
-+			tp->link_config.flowctrl |= FLOW_CTRL_TX;
-+			newadv = ADVERTISED_Asym_Pause;
-+		} else
-+			newadv = 0;
-+
-+		if (epause->autoneg)
-+			tp->tg3_flags |= TG3_FLAG_PAUSE_AUTONEG;
-+		else
-+			tp->tg3_flags &= ~TG3_FLAG_PAUSE_AUTONEG;
-+
-+		if (tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED) {
-+			u32 oldadv = phydev->advertising &
-+				     (ADVERTISED_Pause | ADVERTISED_Asym_Pause);
-+			if (oldadv != newadv) {
-+				phydev->advertising &=
-+					~(ADVERTISED_Pause |
-+					  ADVERTISED_Asym_Pause);
-+				phydev->advertising |= newadv;
-+				if (phydev->autoneg) {
-+					/*
-+					 * Always renegotiate the link to
-+					 * inform our link partner of our
-+					 * flow control settings, even if the
-+					 * flow control is forced.  Let
-+					 * tg3_adjust_link() do the final
-+					 * flow control setup.
-+					 */
-+					return phy_start_aneg(phydev);
- 				}
--			} else {
--				tp->link_config.advertising &=
--						~(ADVERTISED_Pause |
--						  ADVERTISED_Asym_Pause);
--				tp->link_config.advertising |= newadv;
- 			}
--		} else {
--			if (epause->rx_pause)
--				tp->link_config.flowctrl |= FLOW_CTRL_RX;
--			else
--				tp->link_config.flowctrl &= ~FLOW_CTRL_RX;
--
--			if (epause->tx_pause)
--				tp->link_config.flowctrl |= FLOW_CTRL_TX;
--			else
--				tp->link_config.flowctrl &= ~FLOW_CTRL_TX;
+ 	/* Compaq boards. */
+-	{ PCI_VENDOR_ID_COMPAQ, 0x007c, PHY_ID_BCM5701 }, /* BANSHEE */
+-	{ PCI_VENDOR_ID_COMPAQ, 0x009a, PHY_ID_BCM5701 }, /* BANSHEE_2 */
+-	{ PCI_VENDOR_ID_COMPAQ, 0x007d, 0 },		  /* CHANGELING */
+-	{ PCI_VENDOR_ID_COMPAQ, 0x0085, PHY_ID_BCM5701 }, /* NC7780 */
+-	{ PCI_VENDOR_ID_COMPAQ, 0x0099, PHY_ID_BCM5701 }, /* NC7780_2 */
++	{ TG3PCI_SUBVENDOR_ID_COMPAQ,
++	  TG3PCI_SUBDEVICE_ID_COMPAQ_BANSHEE, PHY_ID_BCM5701 },
++	{ TG3PCI_SUBVENDOR_ID_COMPAQ,
++	  TG3PCI_SUBDEVICE_ID_COMPAQ_BANSHEE_2, PHY_ID_BCM5701 },
++	{ TG3PCI_SUBVENDOR_ID_COMPAQ,
++	  TG3PCI_SUBDEVICE_ID_COMPAQ_CHANGELING, 0 },
++	{ TG3PCI_SUBVENDOR_ID_COMPAQ,
++	  TG3PCI_SUBDEVICE_ID_COMPAQ_NC7780, PHY_ID_BCM5701 },
++	{ TG3PCI_SUBVENDOR_ID_COMPAQ,
++	  TG3PCI_SUBDEVICE_ID_COMPAQ_NC7780_2, PHY_ID_BCM5701 },
  
--			if (netif_running(dev))
-+			if (!epause->autoneg)
- 				tg3_setup_flow_control(tp, 0, 0);
-+		} else {
-+			tp->link_config.orig_advertising &=
-+					~(ADVERTISED_Pause |
-+					  ADVERTISED_Asym_Pause);
-+			tp->link_config.orig_advertising |= newadv;
- 		}
- 	} else {
- 		int irq_sync = 0;
+ 	/* IBM boards. */
+-	{ PCI_VENDOR_ID_IBM, 0x0281, 0 } /* IBM??? */
++	{ TG3PCI_SUBVENDOR_ID_IBM,
++	  TG3PCI_SUBDEVICE_ID_IBM_5703SAX2, 0 }
+ };
+ 
+-static inline struct subsys_tbl_ent *lookup_by_subsys(struct tg3 *tp)
++static struct subsys_tbl_ent * __devinit tg3_lookup_by_subsys(struct tg3 *tp)
+ {
+ 	int i;
+ 
+@@ -12476,7 +12502,7 @@ static int __devinit tg3_phy_probe(struct tg3 *tp)
+ 			/* No eeprom signature?  Try the hardcoded
+ 			 * subsys device table.
+ 			 */
+-			p = lookup_by_subsys(tp);
++			p = tg3_lookup_by_subsys(tp);
+ 			if (!p)
+ 				return -ENODEV;
+ 
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index d2712c5..12ce226 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -56,7 +56,39 @@
+ #define  TG3PCI_DEVICE_TIGON3_57765	 0x16b4
+ #define  TG3PCI_DEVICE_TIGON3_57791	 0x16b2
+ #define  TG3PCI_DEVICE_TIGON3_57795	 0x16b6
+-/* 0x04 --> 0x64 unused */
++/* 0x04 --> 0x2c unused */
++#define TG3PCI_SUBVENDOR_ID_BROADCOM		PCI_VENDOR_ID_BROADCOM
++#define TG3PCI_SUBDEVICE_ID_BROADCOM_95700A6	0x1644
++#define TG3PCI_SUBDEVICE_ID_BROADCOM_95701A5	0x0001
++#define TG3PCI_SUBDEVICE_ID_BROADCOM_95700T6	0x0002
++#define TG3PCI_SUBDEVICE_ID_BROADCOM_95700A9	0x0003
++#define TG3PCI_SUBDEVICE_ID_BROADCOM_95701T1	0x0005
++#define TG3PCI_SUBDEVICE_ID_BROADCOM_95701T8	0x0006
++#define TG3PCI_SUBDEVICE_ID_BROADCOM_95701A7	0x0007
++#define TG3PCI_SUBDEVICE_ID_BROADCOM_95701A10	0x0008
++#define TG3PCI_SUBDEVICE_ID_BROADCOM_95701A12	0x8008
++#define TG3PCI_SUBDEVICE_ID_BROADCOM_95703AX1	0x0009
++#define TG3PCI_SUBDEVICE_ID_BROADCOM_95703AX2	0x8009
++#define TG3PCI_SUBVENDOR_ID_3COM		PCI_VENDOR_ID_3COM
++#define TG3PCI_SUBDEVICE_ID_3COM_3C996T		0x1000
++#define TG3PCI_SUBDEVICE_ID_3COM_3C996BT	0x1006
++#define TG3PCI_SUBDEVICE_ID_3COM_3C996SX	0x1004
++#define TG3PCI_SUBDEVICE_ID_3COM_3C1000T	0x1007
++#define TG3PCI_SUBDEVICE_ID_3COM_3C940BR01	0x1008
++#define TG3PCI_SUBVENDOR_ID_DELL		PCI_VENDOR_ID_DELL
++#define TG3PCI_SUBDEVICE_ID_DELL_VIPER		0x00d1
++#define TG3PCI_SUBDEVICE_ID_DELL_JAGUAR		0x0106
++#define TG3PCI_SUBDEVICE_ID_DELL_MERLOT		0x0109
++#define TG3PCI_SUBDEVICE_ID_DELL_SLIM_MERLOT	0x010a
++#define TG3PCI_SUBVENDOR_ID_COMPAQ		PCI_VENDOR_ID_COMPAQ
++#define TG3PCI_SUBDEVICE_ID_COMPAQ_BANSHEE	0x007c
++#define TG3PCI_SUBDEVICE_ID_COMPAQ_BANSHEE_2	0x009a
++#define TG3PCI_SUBDEVICE_ID_COMPAQ_CHANGELING	0x007d
++#define TG3PCI_SUBDEVICE_ID_COMPAQ_NC7780	0x0085
++#define TG3PCI_SUBDEVICE_ID_COMPAQ_NC7780_2	0x0099
++#define TG3PCI_SUBVENDOR_ID_IBM			PCI_VENDOR_ID_IBM
++#define TG3PCI_SUBDEVICE_ID_IBM_5703SAX2	0x0281
++/* 0x30 --> 0x64 unused */
+ #define TG3PCI_MSI_DATA			0x00000064
+ /* 0x66 --> 0x68 unused */
+ #define TG3PCI_MISC_HOST_CTRL		0x00000068
 -- 
 1.6.4.4
 
