@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next-2.6]: xfrm: Introduce
- LINUX_MIB_XFRMFWDHDRERROR
-Date: Thu, 18 Feb 2010 15:44:20 -0800 (PST)
-Message-ID: <20100218.154420.131884035.davem@davemloft.net>
-References: <1266406852.3799.7.camel@bigi>
-	<20100217.134946.106752388.davem@davemloft.net>
-	<1266500107.17794.167.camel@bigi>
+Subject: Re: [PATCH net-next-2.6] be2net: free tx buffers when completions
+ never arrive
+Date: Thu, 18 Feb 2010 15:44:36 -0800 (PST)
+Message-ID: <20100218.154436.211087999.davem@davemloft.net>
+References: <20100218093603.GA28912@serverengines.com>
+	<20100218.021616.127015823.davem@davemloft.net>
+	<20100218103717.GA15679@serverengines.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nakam@linux-ipv6.org, kaber@trash.net, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Cc: netdev@vger.kernel.org
+To: sathyap@serverengines.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37489
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37494
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751687Ab0BRXoE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 18:44:04 -0500
-In-Reply-To: <1266500107.17794.167.camel@bigi>
+	by vger.kernel.org with ESMTP id S1751642Ab0BRXoV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 18:44:21 -0500
+In-Reply-To: <20100218103717.GA15679@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: jamal <hadi@cyberus.ca>
-Date: Thu, 18 Feb 2010 08:35:07 -0500
+From: Sathya Perla <sathyap@serverengines.com>
+Date: Thu, 18 Feb 2010 16:07:17 +0530
 
-> On Wed, 2010-02-17 at 13:49 -0800, David Miller wrote:
 > 
->> This should be fine, the tools just parse the lines individually
->> as "string integer" pairs.
+> On 18/02/10 02:16 -0800, David Miller wrote:
+> <snip>
+>> > +        bool dummy_wrb;
 >> 
->> If you want to be super anal, add the new counter to the end of
->> the array.
+>> Some of your lines start with tabs, some with spaces.   You
+>> have to use tabs consistently.
+>> 
+> <snip>
 > 
-> Ok, thanks - here is the updated patch.
+> Sorry, mistake fixed; patch below. Thanks a lot...
 
-Applied, thanks Jamal.
+Applied.
