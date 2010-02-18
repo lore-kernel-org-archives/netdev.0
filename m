@@ -1,128 +1,137 @@
-From: Franco Fichtner <franco@lastsummer.de>
-Subject: Re: [net-next PATCH v4 2/3] net: TCP thin linear timeouts
-Date: Thu, 18 Feb 2010 10:25:13 +0100
-Message-ID: <4B7D0779.6010609@lastsummer.de>
-References: <4B7AAE69.8020701@simula.no> <20100217.163255.133898079.davem@davemloft.net> <alpine.DEB.2.00.1002181040520.9961@melkinpaasi.cs.helsinki.fi> <4B7CFDE4.4010003@simula.no> <4B7D01CE.1030101@lastsummer.de> <alpine.DEB.2.00.1002181102260.9961@melkinpaasi.cs.helsinki.fi> <4B7D05ED.4060900@simula.no>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH 4/5] xfrm: CONFIG_COMPAT support for x86 architecture
+Date: Thu, 18 Feb 2010 10:33:31 +0100
+Message-ID: <20100218093331.GC20183@Chamillionaire.breakpoint.cc>
+References: <1266252393-20911-1-git-send-email-fw@strlen.de>
+ <1266252393-20911-5-git-send-email-fw@strlen.de>
+ <1266479858.5564.8.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Franco Fichtner <franco@lastsummer.de>,
-	Netdev <netdev@vger.kernel.org>, eric.dumazet@gmail.com,
-	hannemann@nets.rwth-aachen.de, LKML <linux-kernel@vger.kernel.org>,
-	shemminger@vyatta.com, william.allen.simpson@gmail.com,
-	damian@tvk.rwth-aachen.de, ebiederm@xmission.com,
-	David Miller <davem@davemloft.net>
-To: Andreas Petlund <apetlund@simula.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B7D05ED.4060900@simula.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:33046 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751450Ab0BRJdc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 04:33:32 -0500
+Content-Disposition: inline
+In-Reply-To: <1266479858.5564.8.camel@jlt3.sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andreas Petlund wrote:
-> On 02/18/2010 10:09 AM, Ilpo J=E4rvinen wrote:
->  =20
->> On Thu, 18 Feb 2010, Franco Fichtner wrote:
->>
->>    =20
->>> Andreas Petlund wrote:
->>>      =20
->>>> On 02/18/2010 09:41 AM, Ilpo J=E4rvinen wrote:
->>>>  =20
->>>>        =20
->>>>> On Wed, 17 Feb 2010, David Miller wrote:
->>>>>
->>>>>    =20
->>>>>          =20
->>>>>> From: Andreas Petlund <apetlund@simula.no>
->>>>>> Date: Tue, 16 Feb 2010 15:40:41 +0100
->>>>>>
->>>>>>      =20
->>>>>>            =20
->>>>>>> @@ -341,6 +342,8 @@ struct tcp_sock {
->>>>>>>  	u16	advmss;		/* Advertised MSS
->>>>>>> */
->>>>>>>  	u8	frto_counter;	/* Number of new acks after RTO */
->>>>>>>  	u8	nonagle;	/* Disable Nagle algorithm?
->>>>>>> */
->>>>>>> +	u8      thin_lto    : 1,/* Use linear timeouts for thin
->>>>>>> streams */
->>>>>>> +		thin_undef  : 7;
->>>>>>>         =20
->>>>>>>              =20
->>>>>> There is now a gap of 3 unused bytes here in this critical
->>>>>> core TCP socket data structure.
->>>>>>
->>>>>> Please either find a way to avoid this hole, or document
->>>>>> it with a comment.
->>>>>>      =20
->>>>>>            =20
->>>>> There would be multiple bits free for use in both frto_counter an=
-d nonagle
->>>>> byte.
->>>>>
->>>>>    =20
->>>>>          =20
->>>> I was playing aroud with this setup:
->>>>
->>>> =3D=3D=3D=3D=3D=3D=3D=3D=3D
->>>> u8	nonagle     : 4,/* Disable Nagle algorithm?             */
->>>> 	thin_lto    : 1,/* Use linear timeouts for thin streams */
->>>> 	thin_dupack : 1,/* Fast retransmit on first dupack      */
->>>> 	thin_undef  : 2;
->>>> =3D=3D=3D=3D=3D=3D=3D=3D=3D
->>>>
->>>> Do you think that would do the trick?
->>>>  =20
->>>>        =20
->>> According to Ilpo, it would be ok to reduce both ftro_counter and
->>> nonagle, so why not join all these into u16 and leave the remaining
->>> free bits documented for other people. Like this:
->>>
->>>    u16 frto_counter:x; /* Number of new acks after RTO */
->>>    u16 nonagle:y; /* Disable Nagle algorithm? */
->>>    u16 thin_lto:1; /* Use linear timeouts for thin streams */
->>>    u16 unused:15-x-y;
->>>
->>> Not sure about the y and x. Ilpo, can you comment on those values?
->>>      =20
->> I don't remember top of the hat how much of nonagle used, but for=20
->> frto_counter max value was 3 iirc.=20
->>    =20
->
-> I think nonagle uses 4 bits:
-> =3D=3D=3D=3D=3D=3D
-> #define TCP_NAGLE_OFF           1       /* Nagle's algo is disabled *=
-/
-> #define TCP_NAGLE_CORK          2       /* Socket is corked         *=
-/
-> #define TCP_NAGLE_PUSH          4       /* Cork is overridden for alr=
-eady queued data */
-> =3D=3D=3D=3D=3D=3D
->
->  =20
-That would be 3 bits. :)
+Johannes Berg <johannes@sipsolutions.net> wrote:
+> > +static bool xfrm_msg_compat(const struct sk_buff *skb)
+> > +{
+> > +	return unlikely(!!NETLINK_CB(skb).msg_compat);
+> > +}
+> 
+> The !! seems pointless but that's not why I'm quoting this here.
+> 
+> I think this function should only be used in the input path.
 
->> However, I'm unsure if compiler is=20
->> nowadays wise enough to handle bitfields in some not all so stupid w=
-ay.
->>    =20
->
-> Would you then recommend to use a byte for each value, thus avoiding =
-the bitfields?
->  =20
-No, he meant he's not sure if the compiler can merge the bitfields in a=
-=20
-clever
-way if written like this.
+Fair enough.  I'll see about introducing "bool compat" arguments
+to the functions that currently use this helper in the output path.
 
-I use this style all the time at work and according to pahole it's okay=
-=2E=20
-But then,
-I'm not sure if pahole can be trusted or if there is some compiler twis=
-t on
-non-intel architectures.
+> > +static bool xfrm_add_compatskb(struct sk_buff *skb,
+> > +                               unsigned int len, gfp_t gfp)
+> > +{
+> 
+> I think this should return the new skb, and I don't think it should set
+> the msg_compat flag in the NETLINK_CB.
 
+Right, that would no longer be necessary if xfrm_msg_compat() is
+restricted to the input path.
 
-=46ranco
+> > +static struct sk_buff *xfrm_get_compatskb(struct sk_buff *skb)
+> > +{
+> 
+> making this no longer needed.
+> 
+
+[..]
+> Shouldn't that be some sizeof() trickery instead of hardcoding 4?
+
+I'll do that. For x86/x86_64 the delta is always 4 (or 0), though.
+
+> > @@ -700,6 +856,9 @@ static int copy_one_state(struct sk_buff *skb,
+> > struct xfrm_state *x, struct xfrm
+> >  	size_t len = sizeof(*p);
+> >  	int err;
+> >  
+> > +	if (xfrm_msg_compat(skb))
+> > +		len = sizeof(struct compat_xfrm_usersa_info);
+> > +
+> 
+> I really dislike this use though.
+
+Alright, I will add a "bool is_compat" argument instead.
+
+> > @@ -724,6 +883,13 @@ static int dump_one_state(struct xfrm_state *x,
+> > int count, void *ptr)
+> >  	struct xfrm_dump_info *sp = ptr;
+> >  	struct sk_buff *skb = sp->out_skb;
+> >  	int ret = copy_one_state(skb, x, sp);
+> > +#ifdef CONFIG_COMPAT_FOR_U64_ALIGNMENT
+> > +	if (ret == 0) {
+> > +		skb = xfrm_get_compatskb(skb);
+> > +		if (skb)
+> > +			copy_one_state(skb, x, sp);
+> > +	}
+> > +#endif
+> >  	return ret;
+> >  }
+> 
+> And that's really convoluted.
+
+dump_one_state() is called from xfrm_state_walk(), so it has to prepare
+both native and compat skb.
+
+The "ifdef" is not necessary; I added it because gcc 4.3.4 did
+no longer inline copy_one_state() without them in the
+COMPAT_FOR_U64_ALIGNMENT=n case.
+
+> > @@ -753,6 +919,8 @@ static int xfrm_dump_sa(struct sk_buff *skb,
+> > struct netlink_callback *cb)
+> >  		xfrm_state_walk_init(walk, 0);
+> >  	}
+> >  
+> > +	xfrm_add_compatskb(skb, NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+> > +
+> >  	(void) xfrm_state_walk(net, walk, dump_one_state, &info);
+> >  
+> >  	return skb->len;
+> 
+> And this just seems wrong -- doesn't that fill _only_ the compat skb
+> here then??
+
+No, dump_one_state() calls copy_one_state() twice (once for
+skb, once for ->frag_list.
+
+> > @@ -2200,6 +2455,9 @@ static int xfrm_exp_state_notify(struct
+> > xfrm_state *x, struct km_event *c)
+> >  	if (build_expire(skb, x, c) < 0)
+> >  		BUG();
+> >  
+> > +	if (xfrm_add_compatskb(skb, compat_xfrm_expire_msgsize(), GFP_ATOMIC))
+> > +		compat_build_expire(skb_shinfo(skb)->frag_list, x, c);
+> 
+> This is a good model, although I'd change it to be like this:
+> 
+> if (cskb = xfrm_add_compatskb(skb, ...))
+> compat_build_expire(cskb, x, c);
+
+good point, I'll change this accordingly.
+
+> And I think the code would be a lot clearer if the other user were like
+> 
+> build_foo(skb, ..., false /* not compat */);
+> if ((cskb = xfrm_add_compatskb(skb, ...)))
+> build_foo(cskb, ..., true /* compat */);
+> 
+> instead of all the trickery with setting msg_compat on the output path
+> and then checking it again in the fill functions.
+
+Thanks a lot for spending time on reviewing this; I'll make the changes
+you suggested.
+
+Florian
