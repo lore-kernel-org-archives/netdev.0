@@ -1,283 +1,226 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 11/15] drivers/net/skge.c: Use (pr|netdev)_<level> macro helpers
-Date: Wed, 17 Feb 2010 17:01:58 -0800
-Message-ID: <68f273dcc35e852e462f2e49ca563ddc5bf74ab0.1266454576.git.joe@perches.com>
+Subject: [PATCH net-next 12/15] drivers/net/sky2.c: Use (pr|netdev)_<level> macro helpers
+Date: Wed, 17 Feb 2010 17:01:59 -0800
+Message-ID: <dd6928cf4431fb87b8a834d07aa13db04d7d244f.1266454576.git.joe@perches.com>
 References: <cover.1266454575.git.joe@perches.com>
 Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
 	linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1063 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932161Ab0BRBCN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2010 20:02:13 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1266454575.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Add #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 Remove #define PFX
 Use pr_<level>
 Use netdev_<level>
-Checkpatch cleaning
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/skge.c |   81 +++++++++++++++++++++++++++-------------------------
- 1 files changed, 42 insertions(+), 39 deletions(-)
+ drivers/net/sky2.c |   63 ++++++++++++++++++++++-----------------------------
+ 1 files changed, 27 insertions(+), 36 deletions(-)
 
-diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-index 8aa24c5..720af1c 100644
---- a/drivers/net/skge.c
-+++ b/drivers/net/skge.c
-@@ -71,9 +71,9 @@ MODULE_AUTHOR("Stephen Hemminger <shemminger@linux-foundation.org>");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_VERSION);
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index a1198f1..d1e98e2 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -22,6 +22,8 @@
+  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+  */
  
--static const u32 default_msg
--	= NETIF_MSG_DRV| NETIF_MSG_PROBE| NETIF_MSG_LINK
--	  | NETIF_MSG_IFUP| NETIF_MSG_IFDOWN;
-+static const u32 default_msg = (NETIF_MSG_DRV | NETIF_MSG_PROBE |
-+				NETIF_MSG_LINK | NETIF_MSG_IFUP |
-+				NETIF_MSG_IFDOWN);
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
+ #include <linux/crc32.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+@@ -51,7 +53,6 @@
  
- static int debug = -1;	/* defaults above */
- module_param(debug, int, 0);
-@@ -188,8 +188,8 @@ static void skge_wol_init(struct skge_port *skge)
+ #define DRV_NAME		"sky2"
+ #define DRV_VERSION		"1.27"
+-#define PFX			DRV_NAME " "
  
- 	/* Force to 10/100 skge_reset will re-enable on resume	 */
- 	gm_phy_write(hw, port, PHY_MARV_AUNE_ADV,
--		     PHY_AN_100FULL | PHY_AN_100HALF |
--		     PHY_AN_10FULL | PHY_AN_10HALF| PHY_AN_CSMA);
-+		     (PHY_AN_100FULL | PHY_AN_100HALF |
-+		      PHY_AN_10FULL | PHY_AN_10HALF | PHY_AN_CSMA));
- 	/* no 1000 HD/FD */
- 	gm_phy_write(hw, port, PHY_MARV_1000T_CTRL, 0);
- 	gm_phy_write(hw, port, PHY_MARV_CTRL,
-@@ -258,25 +258,28 @@ static u32 skge_supported_modes(const struct skge_hw *hw)
- 	u32 supported;
+ /*
+  * The Yukon II chipset takes 64 bit command blocks (called list elements)
+@@ -1212,8 +1213,7 @@ static void sky2_rx_stop(struct sky2_port *sky2)
+ 		    == sky2_read8(hw, RB_ADDR(rxq, Q_RL)))
+ 			goto stopped;
  
- 	if (hw->copper) {
--		supported = SUPPORTED_10baseT_Half
--			| SUPPORTED_10baseT_Full
--			| SUPPORTED_100baseT_Half
--			| SUPPORTED_100baseT_Full
--			| SUPPORTED_1000baseT_Half
--			| SUPPORTED_1000baseT_Full
--			| SUPPORTED_Autoneg| SUPPORTED_TP;
-+		supported = (SUPPORTED_10baseT_Half |
-+			     SUPPORTED_10baseT_Full |
-+			     SUPPORTED_100baseT_Half |
-+			     SUPPORTED_100baseT_Full |
-+			     SUPPORTED_1000baseT_Half |
-+			     SUPPORTED_1000baseT_Full |
-+			     SUPPORTED_Autoneg |
-+			     SUPPORTED_TP);
+-	printk(KERN_WARNING PFX "%s: receiver stop failed\n",
+-	       sky2->netdev->name);
++	netdev_warn(sky2->netdev, "receiver stop failed\n");
+ stopped:
+ 	sky2_write32(hw, Q_ADDR(rxq, Q_CSR), BMU_RST_SET | BMU_FIFO_RST);
  
- 		if (hw->chip_id == CHIP_ID_GENESIS)
--			supported &= ~(SUPPORTED_10baseT_Half
--					     | SUPPORTED_10baseT_Full
--					     | SUPPORTED_100baseT_Half
--					     | SUPPORTED_100baseT_Full);
-+			supported &= ~(SUPPORTED_10baseT_Half |
-+				       SUPPORTED_10baseT_Full |
-+				       SUPPORTED_100baseT_Half |
-+				       SUPPORTED_100baseT_Full);
+@@ -1555,7 +1555,7 @@ static void sky2_hw_up(struct sky2_port *sky2)
+ 	if (ramsize > 0) {
+ 		u32 rxspace;
  
- 		else if (hw->chip_id == CHIP_ID_YUKON)
- 			supported &= ~SUPPORTED_1000baseT_Half;
- 	} else
--		supported = SUPPORTED_1000baseT_Full | SUPPORTED_1000baseT_Half
--			| SUPPORTED_FIBRE | SUPPORTED_Autoneg;
-+		supported = (SUPPORTED_1000baseT_Full |
-+			     SUPPORTED_1000baseT_Half |
-+			     SUPPORTED_FIBRE |
-+			     SUPPORTED_Autoneg);
- 
- 	return supported;
- }
-@@ -366,7 +369,7 @@ static int skge_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
- 		}
- 	}
- 
--	return (0);
-+	return 0;
- }
- 
- static void skge_get_drvinfo(struct net_device *dev,
-@@ -813,7 +816,7 @@ static int skge_get_eeprom_len(struct net_device *dev)
- 	u32 reg2;
- 
- 	pci_read_config_dword(skge->hw->pdev, PCI_DEV_REG2, &reg2);
--	return 1 << ( ((reg2 & PCI_VPD_ROM_SZ) >> 14) + 8);
-+	return 1 << (((reg2 & PCI_VPD_ROM_SZ) >> 14) + 8);
- }
- 
- static u32 skge_vpd_read(struct pci_dev *pdev, int cap, u16 offset)
-@@ -1044,7 +1047,7 @@ static int skge_rx_fill(struct net_device *dev)
- 
- 		skb_reserve(skb, NET_IP_ALIGN);
- 		skge_rx_setup(skge, e, skb, skge->rx_buf_size);
--	} while ( (e = e->next) != ring->start);
-+	} while ((e = e->next) != ring->start);
- 
- 	ring->to_clean = ring->start;
- 	return 0;
-@@ -1052,7 +1055,7 @@ static int skge_rx_fill(struct net_device *dev)
- 
- static const char *skge_pause(enum pause_status status)
- {
--	switch(status) {
-+	switch (status) {
- 	case FLOW_STAT_NONE:
- 		return "none";
- 	case FLOW_STAT_REM_SEND:
-@@ -1322,7 +1325,7 @@ static void bcom_phy_init(struct skge_port *skge)
- 	/* Optimize MDIO transfer by suppressing preamble. */
- 	r = xm_read16(hw, port, XM_MMU_CMD);
- 	r |=  XM_MMU_NO_PRE;
--	xm_write16(hw, port, XM_MMU_CMD,r);
-+	xm_write16(hw, port, XM_MMU_CMD, r);
- 
- 	switch (id1) {
- 	case PHY_BCOM_ID1_C0:
-@@ -1512,7 +1515,7 @@ static void xm_link_timer(unsigned long arg)
- {
- 	struct skge_port *skge = (struct skge_port *) arg;
- 	struct net_device *dev = skge->netdev;
-- 	struct skge_hw *hw = skge->hw;
-+	struct skge_hw *hw = skge->hw;
- 	int port = skge->port;
- 	int i;
- 	unsigned long flags;
-@@ -1531,7 +1534,7 @@ static void xm_link_timer(unsigned long arg)
- 			goto link_down;
- 	}
- 
--        /* Re-enable interrupt to detect link down */
-+	/* Re-enable interrupt to detect link down */
- 	if (xm_check_link(dev)) {
- 		u16 msk = xm_read16(hw, port, XM_IMSK);
- 		msk &= ~XM_IS_INP_ASS;
-@@ -1588,7 +1591,7 @@ static void genesis_mac_init(struct skge_hw *hw, int port)
- 	}
- 
- 
--	switch(hw->phy_type) {
-+	switch (hw->phy_type) {
- 	case SK_PHY_XMAC:
- 		xm_phy_init(skge);
- 		break;
-@@ -1695,7 +1698,7 @@ static void genesis_mac_init(struct skge_hw *hw, int port)
- 
- 	if (jumbo) {
- 		/* Enable frame flushing if jumbo frames used */
--		skge_write16(hw, SK_REG(port,RX_MFF_CTRL1), MFF_ENA_FLUSH);
-+		skge_write16(hw, SK_REG(port, RX_MFF_CTRL1), MFF_ENA_FLUSH);
- 	} else {
- 		/* enable timeout timers if normal frames */
- 		skge_write16(hw, B3_PA_CTRL,
-@@ -1710,7 +1713,7 @@ static void genesis_stop(struct skge_port *skge)
- 	unsigned retries = 1000;
- 	u16 cmd;
- 
-- 	/* Disable Tx and Rx */
-+	/* Disable Tx and Rx */
- 	cmd = xm_read16(hw, port, XM_MMU_CMD);
- 	cmd &= ~(XM_MMU_ENA_RX | XM_MMU_ENA_TX);
- 	xm_write16(hw, port, XM_MMU_CMD, cmd);
-@@ -1789,7 +1792,7 @@ static void genesis_mac_intr(struct skge_hw *hw, int port)
- 		     "mac interrupt status 0x%x\n", status);
- 
- 	if (hw->phy_type == SK_PHY_XMAC && (status & XM_IS_INP_ASS)) {
--  		xm_link_down(hw, port);
-+		xm_link_down(hw, port);
- 		mod_timer(&skge->link_timer, jiffies + 1);
- 	}
- 
-@@ -1823,7 +1826,7 @@ static void genesis_link_up(struct skge_port *skge)
- 	xm_write16(hw, port, XM_MMU_CMD, cmd);
- 
- 	mode = xm_read32(hw, port, XM_MODE);
--	if (skge->flow_status== FLOW_STAT_SYMMETRIC ||
-+	if (skge->flow_status == FLOW_STAT_SYMMETRIC ||
- 	    skge->flow_status == FLOW_STAT_LOC_SEND) {
- 		/*
- 		 * Configure Pause Frame Generation
-@@ -2466,7 +2469,7 @@ static int skge_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 	if (!netif_running(dev))
- 		return -ENODEV;	/* Phy still in reset */
- 
--	switch(cmd) {
-+	switch (cmd) {
- 	case SIOCGMIIPHY:
- 		data->phy_id = hw->phy_addr;
- 
-@@ -2765,7 +2768,7 @@ static netdev_tx_t skge_xmit_frame(struct sk_buff *skb,
- 		 * does.  Looks like hardware is wrong?
- 		 */
- 		if (ipip_hdr(skb)->protocol == IPPROTO_UDP &&
--	            hw->chip_rev == 0 && hw->chip_id == CHIP_ID_YUKON)
-+		    hw->chip_rev == 0 && hw->chip_id == CHIP_ID_YUKON)
- 			control = BMU_TCP_CHECK;
+-		pr_debug(PFX "%s: ram buffer %dK\n", sky2->netdev->name, ramsize);
++		netdev_dbg(sky2->netdev, "ram buffer %dK\n", ramsize);
+ 		if (ramsize < 16)
+ 			rxspace = ramsize / 2;
  		else
- 			control = BMU_UDP_CHECK;
-@@ -2777,7 +2780,7 @@ static netdev_tx_t skge_xmit_frame(struct sk_buff *skb,
- 		control = BMU_CHECK;
- 
- 	if (!skb_shinfo(skb)->nr_frags) /* single buffer i.e. no fragments */
--		control |= BMU_EOF| BMU_IRQ_EOF;
-+		control |= BMU_EOF | BMU_IRQ_EOF;
- 	else {
- 		struct skge_tx_desc *tf = td;
- 
-@@ -3077,7 +3080,7 @@ static struct sk_buff *skge_rx_get(struct net_device *dev,
- 				 pci_unmap_len(e, maplen),
- 				 PCI_DMA_FROMDEVICE);
- 		skb = e->skb;
--  		prefetch(skb->data);
-+		prefetch(skb->data);
- 		skge_rx_setup(skge, e, nskb, skge->rx_buf_size);
+@@ -2070,13 +2070,12 @@ static int sky2_autoneg_done(struct sky2_port *sky2, u16 aux)
+ 	advert = gm_phy_read(hw, port, PHY_MARV_AUNE_ADV);
+ 	lpa = gm_phy_read(hw, port, PHY_MARV_AUNE_LP);
+ 	if (lpa & PHY_M_AN_RF) {
+-		printk(KERN_ERR PFX "%s: remote fault", sky2->netdev->name);
++		netdev_err(sky2->netdev, "remote fault\n");
+ 		return -1;
  	}
  
-@@ -3554,8 +3557,7 @@ static int skge_reset(struct skge_hw *hw)
- 			hw->ram_offset = 0x80000;
- 		} else
- 			hw->ram_size = t8 * 512;
--	}
--	else if (t8 == 0)
-+	} else if (t8 == 0)
- 		hw->ram_size = 0x20000;
- 	else
- 		hw->ram_size = t8 * 4096;
-@@ -3709,7 +3711,7 @@ static int skge_device_event(struct notifier_block *unused,
- 		goto done;
+ 	if (!(aux & PHY_M_PS_SPDUP_RES)) {
+-		printk(KERN_ERR PFX "%s: speed/duplex mismatch",
+-		       sky2->netdev->name);
++		netdev_err(sky2->netdev, "speed/duplex mismatch\n");
+ 		return -1;
+ 	}
  
- 	skge = netdev_priv(dev);
--	switch(event) {
-+	switch (event) {
- 	case NETDEV_CHANGENAME:
- 		if (skge->debugfs) {
- 			d = debugfs_rename(skge_debug, skge->debugfs,
-@@ -3914,7 +3916,7 @@ static int __devinit skge_probe(struct pci_dev *pdev,
+@@ -2195,10 +2194,10 @@ static void sky2_tx_timeout(struct net_device *dev)
  
- 	err = -ENOMEM;
- 	/* space for skge@pci:0000:04:00.0 */
--	hw = kzalloc(sizeof(*hw) + strlen(DRV_NAME "@pci:" )
-+	hw = kzalloc(sizeof(*hw) + strlen(DRV_NAME "@pci:")
- 		     + strlen(pci_name(pdev)) + 1, GFP_KERNEL);
- 	if (!hw) {
- 		dev_err(&pdev->dev, "cannot allocate hardware struct\n");
-@@ -4010,7 +4012,8 @@ static void __devexit skge_remove(struct pci_dev *pdev)
+ 	netif_err(sky2, timer, dev, "tx timeout\n");
  
- 	flush_scheduled_work();
+-	printk(KERN_DEBUG PFX "%s: transmit ring %u .. %u report=%u done=%u\n",
+-	       dev->name, sky2->tx_cons, sky2->tx_prod,
+-	       sky2_read16(hw, sky2->port == 0 ? STAT_TXA1_RIDX : STAT_TXA2_RIDX),
+-	       sky2_read16(hw, Q_ADDR(txqaddr[sky2->port], Q_DONE)));
++	netdev_printk(KERN_DEBUG, dev, "transmit ring %u .. %u report=%u done=%u\n",
++		      sky2->tx_cons, sky2->tx_prod,
++		      sky2_read16(hw, sky2->port == 0 ? STAT_TXA1_RIDX : STAT_TXA2_RIDX),
++		      sky2_read16(hw, Q_ADDR(txqaddr[sky2->port], Q_DONE)));
  
--	if ((dev1 = hw->dev[1]))
-+	dev1 = hw->dev[1];
-+	if (dev1)
- 		unregister_netdev(dev1);
- 	dev0 = hw->dev[0];
- 	unregister_netdev(dev0);
+ 	/* can't restart safely under softirq */
+ 	schedule_work(&hw->restart_work);
+@@ -2614,8 +2613,7 @@ static int sky2_status_intr(struct sky2_hw *hw, int to_do, u16 idx)
+ 
+ 		default:
+ 			if (net_ratelimit())
+-				printk(KERN_WARNING PFX
+-				       "unknown status opcode 0x%x\n", opcode);
++				pr_warning("unknown status opcode 0x%x\n", opcode);
+ 		}
+ 	} while (hw->st_idx != idx);
+ 
+@@ -2634,41 +2632,37 @@ static void sky2_hw_error(struct sky2_hw *hw, unsigned port, u32 status)
+ 	struct net_device *dev = hw->dev[port];
+ 
+ 	if (net_ratelimit())
+-		printk(KERN_INFO PFX "%s: hw error interrupt status 0x%x\n",
+-		       dev->name, status);
++		netdev_info(dev, "hw error interrupt status 0x%x\n", status);
+ 
+ 	if (status & Y2_IS_PAR_RD1) {
+ 		if (net_ratelimit())
+-			printk(KERN_ERR PFX "%s: ram data read parity error\n",
+-			       dev->name);
++			netdev_err(dev, "ram data read parity error\n");
+ 		/* Clear IRQ */
+ 		sky2_write16(hw, RAM_BUFFER(port, B3_RI_CTRL), RI_CLR_RD_PERR);
+ 	}
+ 
+ 	if (status & Y2_IS_PAR_WR1) {
+ 		if (net_ratelimit())
+-			printk(KERN_ERR PFX "%s: ram data write parity error\n",
+-			       dev->name);
++			netdev_err(dev, "ram data write parity error\n");
+ 
+ 		sky2_write16(hw, RAM_BUFFER(port, B3_RI_CTRL), RI_CLR_WR_PERR);
+ 	}
+ 
+ 	if (status & Y2_IS_PAR_MAC1) {
+ 		if (net_ratelimit())
+-			printk(KERN_ERR PFX "%s: MAC parity error\n", dev->name);
++			netdev_err(dev, "MAC parity error\n");
+ 		sky2_write8(hw, SK_REG(port, TX_GMF_CTRL_T), GMF_CLI_TX_PE);
+ 	}
+ 
+ 	if (status & Y2_IS_PAR_RX1) {
+ 		if (net_ratelimit())
+-			printk(KERN_ERR PFX "%s: RX parity error\n", dev->name);
++			netdev_err(dev, "RX parity error\n");
+ 		sky2_write32(hw, Q_ADDR(rxqaddr[port], Q_CSR), BMU_CLR_IRQ_PAR);
+ 	}
+ 
+ 	if (status & Y2_IS_TCP_TXA1) {
+ 		if (net_ratelimit())
+-			printk(KERN_ERR PFX "%s: TCP segmentation error\n",
+-			       dev->name);
++			netdev_err(dev, "TCP segmentation error\n");
+ 		sky2_write32(hw, Q_ADDR(txqaddr[port], Q_CSR), BMU_CLR_IRQ_TCP);
+ 	}
+ }
+@@ -2751,8 +2745,7 @@ static void sky2_le_error(struct sky2_hw *hw, unsigned port, u16 q)
+ 	struct net_device *dev = hw->dev[port];
+ 	u16 idx = sky2_read16(hw, Y2_QADDR(q, PREF_UNIT_GET_IDX));
+ 
+-	dev_err(&hw->pdev->dev, PFX
+-		"%s: descriptor error q=%#x get=%u put=%u\n",
++	dev_err(&hw->pdev->dev, "%s: descriptor error q=%#x get=%u put=%u\n",
+ 		dev->name, (unsigned) q, (unsigned) idx,
+ 		(unsigned) sky2_read16(hw, Y2_QADDR(q, PREF_UNIT_PUT_IDX)));
+ 
+@@ -2777,9 +2770,10 @@ static int sky2_rx_hung(struct net_device *dev)
+ 	     /* Check if the PCI RX hang */
+ 	     (fifo_rp == sky2->check.fifo_rp &&
+ 	      fifo_lev != 0 && fifo_lev >= sky2->check.fifo_lev))) {
+-		printk(KERN_DEBUG PFX "%s: hung mac %d:%d fifo %d (%d:%d)\n",
+-		       dev->name, mac_lev, mac_rp, fifo_lev, fifo_rp,
+-		       sky2_read8(hw, Q_ADDR(rxq, Q_WP)));
++		netdev_printk(KERN_DEBUG, dev,
++			      "hung mac %d:%d fifo %d (%d:%d)\n",
++			      mac_lev, mac_rp, fifo_lev,
++			      fifo_rp, sky2_read8(hw, Q_ADDR(rxq, Q_WP)));
+ 		return 1;
+ 	} else {
+ 		sky2->check.last = dev->last_rx;
+@@ -2810,8 +2804,7 @@ static void sky2_watchdog(unsigned long arg)
+ 			/* For chips with Rx FIFO, check if stuck */
+ 			if ((hw->flags & SKY2_HW_RAM_BUFFER) &&
+ 			     sky2_rx_hung(dev)) {
+-				pr_info(PFX "%s: receiver hang detected\n",
+-					dev->name);
++				netdev_info(dev, "receiver hang detected\n");
+ 				schedule_work(&hw->restart_work);
+ 				return;
+ 			}
+@@ -3253,8 +3246,7 @@ static int sky2_reattach(struct net_device *dev)
+ 	if (netif_running(dev)) {
+ 		err = sky2_up(dev);
+ 		if (err) {
+-			printk(KERN_INFO PFX "%s: could not restart %d\n",
+-			       dev->name, err);
++			netdev_info(dev, "could not restart %d\n", err);
+ 			dev_close(dev);
+ 		} else {
+ 			netif_device_attach(dev);
+@@ -4032,7 +4024,7 @@ static int sky2_vpd_wait(const struct sky2_hw *hw, int cap, u16 busy)
+ 	while ( (sky2_pci_read16(hw, cap + PCI_VPD_ADDR) & PCI_VPD_ADDR_F) == busy) {
+ 		/* Can take up to 10.6 ms for write */
+ 		if (time_after(jiffies, start + HZ/4)) {
+-			dev_err(&hw->pdev->dev, PFX "VPD cycle timed out");
++			dev_err(&hw->pdev->dev, "VPD cycle timed out\n");
+ 			return -ETIMEDOUT;
+ 		}
+ 		mdelay(1);
+@@ -4366,8 +4358,7 @@ static int sky2_device_event(struct notifier_block *unused,
+ 
+ 	case NETDEV_GOING_DOWN:
+ 		if (sky2->debugfs) {
+-			printk(KERN_DEBUG PFX "%s: remove debugfs\n",
+-			       dev->name);
++			netdev_printk(KERN_DEBUG, dev, "remove debugfs\n");
+ 			debugfs_remove(sky2->debugfs);
+ 			sky2->debugfs = NULL;
+ 		}
+@@ -4931,7 +4922,7 @@ static struct pci_driver sky2_driver = {
+ 
+ static int __init sky2_init_module(void)
+ {
+-	pr_info(PFX "driver version " DRV_VERSION "\n");
++	pr_info("driver version " DRV_VERSION "\n");
+ 
+ 	sky2_debug_init();
+ 	return pci_register_driver(&sky2_driver);
 -- 
 1.7.0.14.g7e948
-
