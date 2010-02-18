@@ -1,40 +1,74 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] drivers/net/tehuti.c: Reapply use DEFINE_PCI_DEVICE_TABLE()
-Date: Wed, 17 Feb 2010 18:08:55 -0800
-Message-ID: <63f0493c99e6bc106b8e61f9a7471f3bb0edf7d5.1266458260.git.joe@perches.com>
-Cc: Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1070 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755602Ab0BRCI4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2010 21:08:56 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net tree with the kvm tree
+Date: Thu, 18 Feb 2010 13:15:39 +1100
+Message-ID: <20100218131539.0f10c2e7.sfr@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jan Kiszka <jan.kiszka@web.de>, Avi Kivity <avi@redhat.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 865a21a5e3d1b384c559a44c898fcad93e187b82 overwrote
-commit a3aa18842a5303fc28fcc4d57dbd16618bd830a0
+Hi all,
 
-Fix it.
+Today's linux-next merge of the net tree got a conflict in
+Documentation/feature-removal-schedule.txt between commit
+f5c9db332c54af513e5bee5cd84f5aadb8d21f55 ("KVM: Plan obsolescence of
+kernel allocated slots, paravirt mmu") from the kvm tree and commit
+79e95f4717767e9ddc4dbec5d778f0c9970eed34 ("CAPI: Schedule capifs for
+removal") from the net tree.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/tehuti.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/tehuti.c b/drivers/net/tehuti.c
-index b295b92..2517cc0 100644
---- a/drivers/net/tehuti.c
-+++ b/drivers/net/tehuti.c
-@@ -66,7 +66,7 @@
- 
- #include "tehuti.h"
- 
--static struct pci_device_id __devinitdata bdx_pci_tbl[] = {
-+static DEFINE_PCI_DEVICE_TABLE(bdx_pci_tbl) = {
- 	{0x1FC9, 0x3009, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
- 	{0x1FC9, 0x3010, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
- 	{0x1FC9, 0x3014, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
+Just overlapping additions. I fixed it up (see below) and can carry the
+fix as necessary.
 -- 
-1.7.0.14.g7e948
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
+diff --cc Documentation/feature-removal-schedule.txt
+index 47a6554,721a2aa..0000000
+--- a/Documentation/feature-removal-schedule.txt
++++ b/Documentation/feature-removal-schedule.txt
+@@@ -545,30 -524,10 +524,40 @@@ Who:	Hans de Goede <hdegoede@redhat.com
+  
+  ----------------------------
+  
+ +What:	KVM memory aliases support
+ +When:	July 2010
+ +Why:	Memory aliasing support is used for speeding up guest vga access
+ +	through the vga windows.
+ +
+ +	Modern userspace no longer uses this feature, so it's just bitrotted
+ +	code and can be removed with no impact.
+ +Who:	Avi Kivity <avi@redhat.com>
+ +
+ +----------------------------
+ +
+ +What:	KVM kernel-allocated memory slots
+ +When:	July 2010
+ +Why:	Since 2.6.25, kvm supports user-allocated memory slots, which are
+ +	much more flexible than kernel-allocated slots.  All current userspace
+ +	supports the newer interface and this code can be removed with no
+ +	impact.
+ +Who:	Avi Kivity <avi@redhat.com>
+ +
+ +----------------------------
+ +
+ +What:	KVM paravirt mmu host support
+ +When:	January 2011
+ +Why:	The paravirt mmu host support is slower than non-paravirt mmu, both
+ +	on newer and older hardware.  It is already not exposed to the guest,
+ +	and kept only for live migration purposes.
+ +Who:	Avi Kivity <avi@redhat.com>
+++
+++----------------------------
+++
++ What:	capifs
++ When:	February 2011
++ Files:	drivers/isdn/capi/capifs.*
++ Why:	udev fully replaces this special file system that only contains CAPI
++ 	NCCI TTY device nodes. User space (pppdcapiplugin) works without
++ 	noticing the difference.
++ Who:	Jan Kiszka <jan.kiszka@web.de>
