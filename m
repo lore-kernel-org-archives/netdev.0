@@ -1,28 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: regression due to "flush SAD/SPD generate false events"
-Date: Thu, 18 Feb 2010 15:01:16 -0800 (PST)
-Message-ID: <20100218.150116.166768993.davem@davemloft.net>
-References: <1266529558.3879.121.camel@bigi>
-	<20100218.142735.230862605.davem@davemloft.net>
-	<1266533561.3879.132.camel@bigi>
+Subject: Re: [net-next-2.6 PATCH] depca: remove forgotten needless
+ inicialization
+Date: Thu, 18 Feb 2010 15:01:37 -0800 (PST)
+Message-ID: <20100218.150137.189442638.davem@davemloft.net>
+References: <20100218085506.GB2772@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: adobriyan@gmail.com, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Cc: netdev@vger.kernel.org
+To: jpirko@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35699
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35705
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751185Ab0BRXBA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 18:01:00 -0500
-In-Reply-To: <1266533561.3879.132.camel@bigi>
+	by vger.kernel.org with ESMTP id S1751312Ab0BRXBW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 18:01:22 -0500
+In-Reply-To: <20100218085506.GB2772@psychotron.lab.eng.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: jamal <hadi@cyberus.ca>
-Date: Thu, 18 Feb 2010 17:52:41 -0500
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Thu, 18 Feb 2010 09:55:07 +0100
 
-> I dont have time to fix it right now - but i will send a patch
-> tommorow.
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-Ok, thanks for the update.
+Applied.
