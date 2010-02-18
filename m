@@ -1,141 +1,128 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 02/09: ebtables: split copy_everything_to_user into two functions
-Date: Thu, 18 Feb 2010 19:21:05 +0100 (MET)
-Message-ID: <20100218182105.21826.13597.sendpatchset@x2.localnet>
+Subject: netfilter 07/09: ebtables: mark: add CONFIG_COMPAT support
+Date: Thu, 18 Feb 2010 19:21:12 +0100 (MET)
+Message-ID: <20100218182112.21826.87769.sendpatchset@x2.localnet>
 References: <20100218182103.21826.17908.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:38161 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752193Ab0BRSVI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 13:21:08 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <20100218182103.21826.17908.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit 837395aa863142be7c38be0ca780aef21b12b49f
+commit 6e705f56a181118f6fbd35e6b443eab33df07290
 Author: Florian Westphal <fw@strlen.de>
-Date:   Sun Feb 7 02:11:34 2010 +0100
+Date:   Wed Jan 27 14:39:05 2010 +0100
 
-    netfilter: ebtables: split copy_everything_to_user into two functions
+    netfilter: ebtables: mark: add CONFIG_COMPAT support
     
-    once CONFIG_COMPAT support is added to ebtables, the new
-    copy_counters_to_user function can be called instead of duplicating
-    code.
+    Add the required handlers to convert 32 bit
+    ebtables mark match and match target structs to 64bit layout.
     
-    Also remove last use of MEMPRINT, as requested by Bart De Schuymer.
-    
-    Signed-off-by: Florian Westphal <fw@strlen.de>
+    Signed-off-by: Florian Westphal <fwestphal@astaro.com>
 
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index a707dbd..46030dc 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -33,11 +33,6 @@
- #define BUGPRINT(format, args...) printk("kernel msg: ebtables bug: please "\
- 					 "report to author: "format, ## args)
- /* #define BUGPRINT(format, args...) */
--#define MEMPRINT(format, args...) printk("kernel msg: ebtables "\
--					 ": out of memory: "format, ## args)
--/* #define MEMPRINT(format, args...) */
--
--
- 
- /*
-  * Each cpu has its own set of counters, so there is no need for write_lock in
-@@ -1263,10 +1258,8 @@ static int update_counters(struct net *net, const void __user *user,
- 	if (hlp.num_counters == 0)
- 		return -EINVAL;
- 
--	if (!(tmp = vmalloc(hlp.num_counters * sizeof(*tmp)))) {
--		MEMPRINT("Update_counters && nomemory\n");
-+	if (!(tmp = vmalloc(hlp.num_counters * sizeof(*tmp))))
- 		return -ENOMEM;
--	}
- 
- 	t = find_table_lock(net, hlp.name, &ret, &ebt_mutex);
- 	if (!t)
-@@ -1345,14 +1338,46 @@ ebt_make_names(struct ebt_entry *e, const char *base, char __user *ubase)
- 	return 0;
+diff --git a/net/bridge/netfilter/ebt_mark.c b/net/bridge/netfilter/ebt_mark.c
+index 153e167..2b5ce53 100644
+--- a/net/bridge/netfilter/ebt_mark.c
++++ b/net/bridge/netfilter/ebt_mark.c
+@@ -52,6 +52,32 @@ static bool ebt_mark_tg_check(const struct xt_tgchk_param *par)
+ 		return false;
+ 	return true;
  }
- 
-+static int copy_counters_to_user(struct ebt_table *t,
-+				  const struct ebt_counter *oldcounters,
-+				  void __user *user, unsigned int num_counters,
-+				  unsigned int nentries)
++#ifdef CONFIG_COMPAT
++struct compat_ebt_mark_t_info {
++	compat_ulong_t mark;
++	compat_uint_t target;
++};
++
++static void mark_tg_compat_from_user(void *dst, const void *src)
 +{
-+	struct ebt_counter *counterstmp;
-+	int ret = 0;
++	const struct compat_ebt_mark_t_info *user = src;
++	struct ebt_mark_t_info *kern = dst;
 +
-+	/* userspace might not need the counters */
-+	if (num_counters == 0)
-+		return 0;
-+
-+	if (num_counters != nentries) {
-+		BUGPRINT("Num_counters wrong\n");
-+		return -EINVAL;
-+	}
-+
-+	counterstmp = vmalloc(nentries * sizeof(*counterstmp));
-+	if (!counterstmp)
-+		return -ENOMEM;
-+
-+	write_lock_bh(&t->lock);
-+	get_counters(oldcounters, counterstmp, nentries);
-+	write_unlock_bh(&t->lock);
-+
-+	if (copy_to_user(user, counterstmp,
-+	   nentries * sizeof(struct ebt_counter)))
-+		ret = -EFAULT;
-+	vfree(counterstmp);
-+	return ret;
++	kern->mark = user->mark;
++	kern->target = user->target;
 +}
 +
- /* called with ebt_mutex locked */
- static int copy_everything_to_user(struct ebt_table *t, void __user *user,
-     const int *len, int cmd)
- {
- 	struct ebt_replace tmp;
--	struct ebt_counter *counterstmp;
- 	const struct ebt_counter *oldcounters;
- 	unsigned int entries_size, nentries;
-+	int ret;
- 	char *entries;
++static int mark_tg_compat_to_user(void __user *dst, const void *src)
++{
++	struct compat_ebt_mark_t_info __user *user = dst;
++	const struct ebt_mark_t_info *kern = src;
++
++	if (put_user(kern->mark, &user->mark) ||
++	    put_user(kern->target, &user->target))
++		return -EFAULT;
++	return 0;
++}
++#endif
  
- 	if (cmd == EBT_SO_GET_ENTRIES) {
-@@ -1388,29 +1413,10 @@ static int copy_everything_to_user(struct ebt_table *t, void __user *user,
- 		return -EINVAL;
- 	}
+ static struct xt_target ebt_mark_tg_reg __read_mostly = {
+ 	.name		= "mark",
+@@ -60,6 +86,11 @@ static struct xt_target ebt_mark_tg_reg __read_mostly = {
+ 	.target		= ebt_mark_tg,
+ 	.checkentry	= ebt_mark_tg_check,
+ 	.targetsize	= sizeof(struct ebt_mark_t_info),
++#ifdef CONFIG_COMPAT
++	.compatsize	= sizeof(struct compat_ebt_mark_t_info),
++	.compat_from_user = mark_tg_compat_from_user,
++	.compat_to_user	= mark_tg_compat_to_user,
++#endif
+ 	.me		= THIS_MODULE,
+ };
  
--	/* userspace might not need the counters */
--	if (tmp.num_counters) {
--		if (tmp.num_counters != nentries) {
--			BUGPRINT("Num_counters wrong\n");
--			return -EINVAL;
--		}
--		counterstmp = vmalloc(nentries * sizeof(*counterstmp));
--		if (!counterstmp) {
--			MEMPRINT("Couldn't copy counters, out of memory\n");
--			return -ENOMEM;
--		}
--		write_lock_bh(&t->lock);
--		get_counters(oldcounters, counterstmp, nentries);
--		write_unlock_bh(&t->lock);
--
--		if (copy_to_user(tmp.counters, counterstmp,
--		   nentries * sizeof(struct ebt_counter))) {
--			BUGPRINT("Couldn't copy counters to userspace\n");
--			vfree(counterstmp);
--			return -EFAULT;
--		}
--		vfree(counterstmp);
--	}
-+	ret = copy_counters_to_user(t, oldcounters, tmp.counters,
-+					tmp.num_counters, nentries);
-+	if (ret)
-+		return ret;
+diff --git a/net/bridge/netfilter/ebt_mark_m.c b/net/bridge/netfilter/ebt_mark_m.c
+index 89abf40..8de8c39 100644
+--- a/net/bridge/netfilter/ebt_mark_m.c
++++ b/net/bridge/netfilter/ebt_mark_m.c
+@@ -35,6 +35,38 @@ static bool ebt_mark_mt_check(const struct xt_mtchk_param *par)
+ 	return true;
+ }
  
- 	if (copy_to_user(tmp.entries, entries, entries_size)) {
- 		BUGPRINT("Couldn't copy entries to userspace\n");
++
++#ifdef CONFIG_COMPAT
++struct compat_ebt_mark_m_info {
++	compat_ulong_t mark, mask;
++	uint8_t invert, bitmask;
++};
++
++static void mark_mt_compat_from_user(void *dst, const void *src)
++{
++	const struct compat_ebt_mark_m_info *user = src;
++	struct ebt_mark_m_info *kern = dst;
++
++	kern->mark = user->mark;
++	kern->mask = user->mask;
++	kern->invert = user->invert;
++	kern->bitmask = user->bitmask;
++}
++
++static int mark_mt_compat_to_user(void __user *dst, const void *src)
++{
++	struct compat_ebt_mark_m_info __user *user = dst;
++	const struct ebt_mark_m_info *kern = src;
++
++	if (put_user(kern->mark, &user->mark) ||
++	    put_user(kern->mask, &user->mask) ||
++	    put_user(kern->invert, &user->invert) ||
++	    put_user(kern->bitmask, &user->bitmask))
++		return -EFAULT;
++	return 0;
++}
++#endif
++
+ static struct xt_match ebt_mark_mt_reg __read_mostly = {
+ 	.name		= "mark_m",
+ 	.revision	= 0,
+@@ -42,6 +74,11 @@ static struct xt_match ebt_mark_mt_reg __read_mostly = {
+ 	.match		= ebt_mark_mt,
+ 	.checkentry	= ebt_mark_mt_check,
+ 	.matchsize	= sizeof(struct ebt_mark_m_info),
++#ifdef CONFIG_COMPAT
++	.compatsize	= sizeof(struct compat_ebt_mark_m_info),
++	.compat_from_user = mark_mt_compat_from_user,
++	.compat_to_user	= mark_mt_compat_to_user,
++#endif
+ 	.me		= THIS_MODULE,
+ };
+ 
