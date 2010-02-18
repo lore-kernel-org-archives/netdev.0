@@ -1,42 +1,40 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [PATCH net-next 00/15] drivers/net: Use
- (pr|netdev|netif)_<level> macros
-Date: Wed, 17 Feb 2010 21:00:47 -0500
-Message-ID: <1266458447.5719.44.camel@obelisk.thedillows.org>
-References: <cover.1266454575.git.joe@perches.com>
-	 <20100217.174615.133415843.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org, zambrano@broadcom.com,
-	mchan@broadcom.com, eilong@broadcom.com, romieu@fr.zoreil.com,
-	shemminger@linux-foundation.org, mcarlson@broadcom.com,
-	linux-kernel@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] drivers/net/tehuti.c: Reapply use DEFINE_PCI_DEVICE_TABLE()
+Date: Wed, 17 Feb 2010 18:08:55 -0800
+Message-ID: <63f0493c99e6bc106b8e61f9a7471f3bb0edf7d5.1266458260.git.joe@perches.com>
+Cc: Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.knology.net ([24.214.63.101]:56898 "EHLO smtp.knology.net"
+Received: from mail.perches.com ([173.55.12.10]:1070 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756253Ab0BRCIJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2010 21:08:09 -0500
-In-Reply-To: <20100217.174615.133415843.davem@davemloft.net>
+	id S1755602Ab0BRCI4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2010 21:08:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-02-17 at 17:46 -0800, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Wed, 17 Feb 2010 17:01:47 -0800
-> 
-> > Use the newly added netdev_<level> and netif_<level> logging macros
-> > in some of the drivers.
-> > 
-> > Adds some message logging consistency.
-> > 
-> > pci-skeleton had a checkpatch style cleaning as well.
-> 
-> The sis190.c and tg3.c changes didn't apply due to other
-> recent commits into the net-next-2.6 tree
-> 
-> I applied all of the others.
+Commit 865a21a5e3d1b384c559a44c898fcad93e187b82 overwrote
+commit a3aa18842a5303fc28fcc4d57dbd16618bd830a0
 
-Have you pushed? I'd rather some of the typhoon ones not go in.
+Fix it.
+
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/tehuti.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/tehuti.c b/drivers/net/tehuti.c
+index b295b92..2517cc0 100644
+--- a/drivers/net/tehuti.c
++++ b/drivers/net/tehuti.c
+@@ -66,7 +66,7 @@
+ 
+ #include "tehuti.h"
+ 
+-static struct pci_device_id __devinitdata bdx_pci_tbl[] = {
++static DEFINE_PCI_DEVICE_TABLE(bdx_pci_tbl) = {
+ 	{0x1FC9, 0x3009, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
+ 	{0x1FC9, 0x3010, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
+ 	{0x1FC9, 0x3014, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
+-- 
+1.7.0.14.g7e948
 
