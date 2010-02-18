@@ -1,189 +1,419 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 09/12] tg3: Reformat SSID to phy ID table
-Date: Wed, 17 Feb 2010 17:17:02 -0800
-Message-ID: <1266455825-16150-10-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 10/12] tg3: Rename tg3 phy ID preprocessor
+ definitions
+Date: Wed, 17 Feb 2010 17:17:03 -0800
+Message-ID: <1266455825-16150-11-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3254 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3094 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755540Ab0BRBR0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2010 20:17:26 -0500
+	id S1754594Ab0BRBRU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2010 20:17:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch reformats the SSID to phy ID table, replacing constants with
-preprocessor definitions.  This patch is also prep work for the
-following patch, which will push line lengths beyond 80 chars.
+The phylib presents the phy ID in a different format than the one tg3
+has traditionally used.  To highlight the distinction, this patch
+prepends the tg3 native phy ID format with TG3.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   84 ++++++++++++++++++++++++++++++++++------------------
- drivers/net/tg3.h |   34 +++++++++++++++++++++-
- 2 files changed, 88 insertions(+), 30 deletions(-)
+ drivers/net/tg3.c |  122 ++++++++++++++++++++++++++--------------------------
+ drivers/net/tg3.h |   91 +++++++++++++++++++--------------------
+ 2 files changed, 106 insertions(+), 107 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 3a62cc5..b545ea7 100644
+index b545ea7..965efa9 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -12112,45 +12112,71 @@ struct subsys_tbl_ent {
- 	u32 phy_id;
- };
+@@ -1995,7 +1995,7 @@ out:
+ 	}
+ 	/* Set Extended packet length bit (bit 14) on all chips that */
+ 	/* support jumbo frames */
+-	if ((tp->phy_id & PHY_ID_MASK) == PHY_ID_BCM5401) {
++	if ((tp->phy_id & TG3_PHY_ID_MASK) == TG3_PHY_ID_BCM5401) {
+ 		/* Cannot do read-modify-write on 5401 */
+ 		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x4c20);
+ 	} else if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) {
+@@ -2147,7 +2147,7 @@ static int tg3_5700_link_polarity(struct tg3 *tp, u32 speed)
+ {
+ 	if (tp->led_ctrl == LED_CTRL_MODE_PHY_2)
+ 		return 1;
+-	else if ((tp->phy_id & PHY_ID_MASK) == PHY_ID_BCM5411) {
++	else if ((tp->phy_id & TG3_PHY_ID_MASK) == TG3_PHY_ID_BCM5411) {
+ 		if (speed != SPEED_10)
+ 			return 1;
+ 	} else if (speed == SPEED_10)
+@@ -3077,7 +3077,7 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
+ 	if (force_reset)
+ 		tg3_phy_reset(tp);
  
--static struct subsys_tbl_ent subsys_id_to_phy_id[] = {
-+static struct subsys_tbl_ent subsys_id_to_phy_id[] __devinitdata = {
+-	if ((tp->phy_id & PHY_ID_MASK) == PHY_ID_BCM5401) {
++	if ((tp->phy_id & TG3_PHY_ID_MASK) == TG3_PHY_ID_BCM5401) {
+ 		tg3_readphy(tp, MII_BMSR, &bmsr);
+ 		if (tg3_readphy(tp, MII_BMSR, &bmsr) ||
+ 		    !(tp->tg3_flags & TG3_FLAG_INIT_COMPLETE))
+@@ -3098,7 +3098,8 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
+ 				}
+ 			}
+ 
+-			if ((tp->phy_id & PHY_ID_REV_MASK) == PHY_REV_BCM5401_B0 &&
++			if ((tp->phy_id & TG3_PHY_ID_REV_MASK) ==
++			    TG3_PHY_REV_BCM5401_B0 &&
+ 			    !(bmsr & BMSR_LSTATUS) &&
+ 			    tp->link_config.active_speed == SPEED_1000) {
+ 				err = tg3_phy_reset(tp);
+@@ -3253,7 +3254,7 @@ relink:
+ 	/* ??? Without this setting Netgear GA302T PHY does not
+ 	 * ??? send/receive packets...
+ 	 */
+-	if ((tp->phy_id & PHY_ID_MASK) == PHY_ID_BCM5411 &&
++	if ((tp->phy_id & TG3_PHY_ID_MASK) == TG3_PHY_ID_BCM5411 &&
+ 	    tp->pci_chip_rev_id == CHIPREV_ID_5700_ALTIMA) {
+ 		tp->mi_mode |= MAC_MI_MODE_AUTO_POLL;
+ 		tw32_f(MAC_MI_MODE, tp->mi_mode);
+@@ -3968,7 +3969,7 @@ static int tg3_setup_fiber_phy(struct tg3 *tp, int force_reset)
+ 	tw32_f(MAC_MODE, tp->mac_mode);
+ 	udelay(40);
+ 
+-	if (tp->phy_id == PHY_ID_BCM8002)
++	if (tp->phy_id == TG3_PHY_ID_BCM8002)
+ 		tg3_init_bcm8002(tp);
+ 
+ 	/* Enable link change event even when serdes polling.  */
+@@ -10854,9 +10855,10 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
+ 			tw32_f(MAC_RX_MODE, tp->rx_mode);
+ 		}
+ 		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700) {
+-			if ((tp->phy_id & PHY_ID_MASK) == PHY_ID_BCM5401)
++			u32 masked_phy_id = tp->phy_id & TG3_PHY_ID_MASK;
++			if (masked_phy_id == TG3_PHY_ID_BCM5401)
+ 				mac_mode &= ~MAC_MODE_LINK_POLARITY;
+-			else if ((tp->phy_id & PHY_ID_MASK) == PHY_ID_BCM5411)
++			else if (masked_phy_id == TG3_PHY_ID_BCM5411)
+ 				mac_mode |= MAC_MODE_LINK_POLARITY;
+ 			tg3_writephy(tp, MII_TG3_EXT_CTRL,
+ 				     MII_TG3_EXT_CTRL_LNK3_LED_MODE);
+@@ -12115,61 +12117,61 @@ struct subsys_tbl_ent {
+ static struct subsys_tbl_ent subsys_id_to_phy_id[] __devinitdata = {
  	/* Broadcom boards. */
--	{ PCI_VENDOR_ID_BROADCOM, 0x1644, PHY_ID_BCM5401 }, /* BCM95700A6 */
--	{ PCI_VENDOR_ID_BROADCOM, 0x0001, PHY_ID_BCM5701 }, /* BCM95701A5 */
--	{ PCI_VENDOR_ID_BROADCOM, 0x0002, PHY_ID_BCM8002 }, /* BCM95700T6 */
--	{ PCI_VENDOR_ID_BROADCOM, 0x0003, 0 },		    /* BCM95700A9 */
--	{ PCI_VENDOR_ID_BROADCOM, 0x0005, PHY_ID_BCM5701 }, /* BCM95701T1 */
--	{ PCI_VENDOR_ID_BROADCOM, 0x0006, PHY_ID_BCM5701 }, /* BCM95701T8 */
--	{ PCI_VENDOR_ID_BROADCOM, 0x0007, 0 },		    /* BCM95701A7 */
--	{ PCI_VENDOR_ID_BROADCOM, 0x0008, PHY_ID_BCM5701 }, /* BCM95701A10 */
--	{ PCI_VENDOR_ID_BROADCOM, 0x8008, PHY_ID_BCM5701 }, /* BCM95701A12 */
--	{ PCI_VENDOR_ID_BROADCOM, 0x0009, PHY_ID_BCM5703 }, /* BCM95703Ax1 */
--	{ PCI_VENDOR_ID_BROADCOM, 0x8009, PHY_ID_BCM5703 }, /* BCM95703Ax2 */
-+	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
-+	  TG3PCI_SUBDEVICE_ID_BROADCOM_95700A6, PHY_ID_BCM5401 },
-+	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
-+	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701A5, PHY_ID_BCM5701 },
-+	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
-+	  TG3PCI_SUBDEVICE_ID_BROADCOM_95700T6, PHY_ID_BCM8002 },
-+	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
-+	  TG3PCI_SUBDEVICE_ID_BROADCOM_95700A9, 0 },
-+	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
-+	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701T1, PHY_ID_BCM5701 },
-+	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
-+	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701T8, PHY_ID_BCM5701 },
-+	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
-+	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701A7, 0 },
-+	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
-+	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701A10, PHY_ID_BCM5701 },
-+	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
-+	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701A12, PHY_ID_BCM5701 },
-+	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
-+	  TG3PCI_SUBDEVICE_ID_BROADCOM_95703AX1, PHY_ID_BCM5703 },
-+	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
-+	  TG3PCI_SUBDEVICE_ID_BROADCOM_95703AX2, PHY_ID_BCM5703 },
+ 	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
+-	  TG3PCI_SUBDEVICE_ID_BROADCOM_95700A6, PHY_ID_BCM5401 },
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95700A6, TG3_PHY_ID_BCM5401 },
+ 	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
+-	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701A5, PHY_ID_BCM5701 },
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701A5, TG3_PHY_ID_BCM5701 },
+ 	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
+-	  TG3PCI_SUBDEVICE_ID_BROADCOM_95700T6, PHY_ID_BCM8002 },
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95700T6, TG3_PHY_ID_BCM8002 },
+ 	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
+ 	  TG3PCI_SUBDEVICE_ID_BROADCOM_95700A9, 0 },
+ 	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
+-	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701T1, PHY_ID_BCM5701 },
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701T1, TG3_PHY_ID_BCM5701 },
+ 	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
+-	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701T8, PHY_ID_BCM5701 },
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701T8, TG3_PHY_ID_BCM5701 },
+ 	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
+ 	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701A7, 0 },
+ 	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
+-	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701A10, PHY_ID_BCM5701 },
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701A10, TG3_PHY_ID_BCM5701 },
+ 	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
+-	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701A12, PHY_ID_BCM5701 },
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95701A12, TG3_PHY_ID_BCM5701 },
+ 	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
+-	  TG3PCI_SUBDEVICE_ID_BROADCOM_95703AX1, PHY_ID_BCM5703 },
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95703AX1, TG3_PHY_ID_BCM5703 },
+ 	{ TG3PCI_SUBVENDOR_ID_BROADCOM,
+-	  TG3PCI_SUBDEVICE_ID_BROADCOM_95703AX2, PHY_ID_BCM5703 },
++	  TG3PCI_SUBDEVICE_ID_BROADCOM_95703AX2, TG3_PHY_ID_BCM5703 },
  
  	/* 3com boards. */
--	{ PCI_VENDOR_ID_3COM, 0x1000, PHY_ID_BCM5401 }, /* 3C996T */
--	{ PCI_VENDOR_ID_3COM, 0x1006, PHY_ID_BCM5701 }, /* 3C996BT */
--	{ PCI_VENDOR_ID_3COM, 0x1004, 0 },		/* 3C996SX */
--	{ PCI_VENDOR_ID_3COM, 0x1007, PHY_ID_BCM5701 }, /* 3C1000T */
--	{ PCI_VENDOR_ID_3COM, 0x1008, PHY_ID_BCM5701 }, /* 3C940BR01 */
-+	{ TG3PCI_SUBVENDOR_ID_3COM,
-+	  TG3PCI_SUBDEVICE_ID_3COM_3C996T, PHY_ID_BCM5401 },
-+	{ TG3PCI_SUBVENDOR_ID_3COM,
-+	  TG3PCI_SUBDEVICE_ID_3COM_3C996BT, PHY_ID_BCM5701 },
-+	{ TG3PCI_SUBVENDOR_ID_3COM,
-+	  TG3PCI_SUBDEVICE_ID_3COM_3C996SX, 0 },
-+	{ TG3PCI_SUBVENDOR_ID_3COM,
-+	  TG3PCI_SUBDEVICE_ID_3COM_3C1000T, PHY_ID_BCM5701 },
-+	{ TG3PCI_SUBVENDOR_ID_3COM,
-+	  TG3PCI_SUBDEVICE_ID_3COM_3C940BR01, PHY_ID_BCM5701 },
+ 	{ TG3PCI_SUBVENDOR_ID_3COM,
+-	  TG3PCI_SUBDEVICE_ID_3COM_3C996T, PHY_ID_BCM5401 },
++	  TG3PCI_SUBDEVICE_ID_3COM_3C996T, TG3_PHY_ID_BCM5401 },
+ 	{ TG3PCI_SUBVENDOR_ID_3COM,
+-	  TG3PCI_SUBDEVICE_ID_3COM_3C996BT, PHY_ID_BCM5701 },
++	  TG3PCI_SUBDEVICE_ID_3COM_3C996BT, TG3_PHY_ID_BCM5701 },
+ 	{ TG3PCI_SUBVENDOR_ID_3COM,
+ 	  TG3PCI_SUBDEVICE_ID_3COM_3C996SX, 0 },
+ 	{ TG3PCI_SUBVENDOR_ID_3COM,
+-	  TG3PCI_SUBDEVICE_ID_3COM_3C1000T, PHY_ID_BCM5701 },
++	  TG3PCI_SUBDEVICE_ID_3COM_3C1000T, TG3_PHY_ID_BCM5701 },
+ 	{ TG3PCI_SUBVENDOR_ID_3COM,
+-	  TG3PCI_SUBDEVICE_ID_3COM_3C940BR01, PHY_ID_BCM5701 },
++	  TG3PCI_SUBDEVICE_ID_3COM_3C940BR01, TG3_PHY_ID_BCM5701 },
  
  	/* DELL boards. */
--	{ PCI_VENDOR_ID_DELL, 0x00d1, PHY_ID_BCM5401 }, /* VIPER */
--	{ PCI_VENDOR_ID_DELL, 0x0106, PHY_ID_BCM5401 }, /* JAGUAR */
--	{ PCI_VENDOR_ID_DELL, 0x0109, PHY_ID_BCM5411 }, /* MERLOT */
--	{ PCI_VENDOR_ID_DELL, 0x010a, PHY_ID_BCM5411 }, /* SLIM_MERLOT */
-+	{ TG3PCI_SUBVENDOR_ID_DELL,
-+	  TG3PCI_SUBDEVICE_ID_DELL_VIPER, PHY_ID_BCM5401 },
-+	{ TG3PCI_SUBVENDOR_ID_DELL,
-+	  TG3PCI_SUBDEVICE_ID_DELL_JAGUAR, PHY_ID_BCM5401 },
-+	{ TG3PCI_SUBVENDOR_ID_DELL,
-+	  TG3PCI_SUBDEVICE_ID_DELL_MERLOT, PHY_ID_BCM5411 },
-+	{ TG3PCI_SUBVENDOR_ID_DELL,
-+	  TG3PCI_SUBDEVICE_ID_DELL_SLIM_MERLOT, PHY_ID_BCM5411 },
+ 	{ TG3PCI_SUBVENDOR_ID_DELL,
+-	  TG3PCI_SUBDEVICE_ID_DELL_VIPER, PHY_ID_BCM5401 },
++	  TG3PCI_SUBDEVICE_ID_DELL_VIPER, TG3_PHY_ID_BCM5401 },
+ 	{ TG3PCI_SUBVENDOR_ID_DELL,
+-	  TG3PCI_SUBDEVICE_ID_DELL_JAGUAR, PHY_ID_BCM5401 },
++	  TG3PCI_SUBDEVICE_ID_DELL_JAGUAR, TG3_PHY_ID_BCM5401 },
+ 	{ TG3PCI_SUBVENDOR_ID_DELL,
+-	  TG3PCI_SUBDEVICE_ID_DELL_MERLOT, PHY_ID_BCM5411 },
++	  TG3PCI_SUBDEVICE_ID_DELL_MERLOT, TG3_PHY_ID_BCM5411 },
+ 	{ TG3PCI_SUBVENDOR_ID_DELL,
+-	  TG3PCI_SUBDEVICE_ID_DELL_SLIM_MERLOT, PHY_ID_BCM5411 },
++	  TG3PCI_SUBDEVICE_ID_DELL_SLIM_MERLOT, TG3_PHY_ID_BCM5411 },
  
  	/* Compaq boards. */
--	{ PCI_VENDOR_ID_COMPAQ, 0x007c, PHY_ID_BCM5701 }, /* BANSHEE */
--	{ PCI_VENDOR_ID_COMPAQ, 0x009a, PHY_ID_BCM5701 }, /* BANSHEE_2 */
--	{ PCI_VENDOR_ID_COMPAQ, 0x007d, 0 },		  /* CHANGELING */
--	{ PCI_VENDOR_ID_COMPAQ, 0x0085, PHY_ID_BCM5701 }, /* NC7780 */
--	{ PCI_VENDOR_ID_COMPAQ, 0x0099, PHY_ID_BCM5701 }, /* NC7780_2 */
-+	{ TG3PCI_SUBVENDOR_ID_COMPAQ,
-+	  TG3PCI_SUBDEVICE_ID_COMPAQ_BANSHEE, PHY_ID_BCM5701 },
-+	{ TG3PCI_SUBVENDOR_ID_COMPAQ,
-+	  TG3PCI_SUBDEVICE_ID_COMPAQ_BANSHEE_2, PHY_ID_BCM5701 },
-+	{ TG3PCI_SUBVENDOR_ID_COMPAQ,
-+	  TG3PCI_SUBDEVICE_ID_COMPAQ_CHANGELING, 0 },
-+	{ TG3PCI_SUBVENDOR_ID_COMPAQ,
-+	  TG3PCI_SUBDEVICE_ID_COMPAQ_NC7780, PHY_ID_BCM5701 },
-+	{ TG3PCI_SUBVENDOR_ID_COMPAQ,
-+	  TG3PCI_SUBDEVICE_ID_COMPAQ_NC7780_2, PHY_ID_BCM5701 },
+ 	{ TG3PCI_SUBVENDOR_ID_COMPAQ,
+-	  TG3PCI_SUBDEVICE_ID_COMPAQ_BANSHEE, PHY_ID_BCM5701 },
++	  TG3PCI_SUBDEVICE_ID_COMPAQ_BANSHEE, TG3_PHY_ID_BCM5701 },
+ 	{ TG3PCI_SUBVENDOR_ID_COMPAQ,
+-	  TG3PCI_SUBDEVICE_ID_COMPAQ_BANSHEE_2, PHY_ID_BCM5701 },
++	  TG3PCI_SUBDEVICE_ID_COMPAQ_BANSHEE_2, TG3_PHY_ID_BCM5701 },
+ 	{ TG3PCI_SUBVENDOR_ID_COMPAQ,
+ 	  TG3PCI_SUBDEVICE_ID_COMPAQ_CHANGELING, 0 },
+ 	{ TG3PCI_SUBVENDOR_ID_COMPAQ,
+-	  TG3PCI_SUBDEVICE_ID_COMPAQ_NC7780, PHY_ID_BCM5701 },
++	  TG3PCI_SUBDEVICE_ID_COMPAQ_NC7780, TG3_PHY_ID_BCM5701 },
+ 	{ TG3PCI_SUBVENDOR_ID_COMPAQ,
+-	  TG3PCI_SUBDEVICE_ID_COMPAQ_NC7780_2, PHY_ID_BCM5701 },
++	  TG3PCI_SUBDEVICE_ID_COMPAQ_NC7780_2, TG3_PHY_ID_BCM5701 },
  
  	/* IBM boards. */
--	{ PCI_VENDOR_ID_IBM, 0x0281, 0 } /* IBM??? */
-+	{ TG3PCI_SUBVENDOR_ID_IBM,
-+	  TG3PCI_SUBDEVICE_ID_IBM_5703SAX2, 0 }
- };
+ 	{ TG3PCI_SUBVENDOR_ID_IBM,
+@@ -12217,7 +12219,7 @@ static void __devinit tg3_get_eeprom_hw_cfg(struct tg3 *tp)
+ 	val = tr32(MEMARB_MODE);
+ 	tw32(MEMARB_MODE, val | MEMARB_MODE_ENABLE);
  
--static inline struct subsys_tbl_ent *lookup_by_subsys(struct tg3 *tp)
-+static struct subsys_tbl_ent * __devinit tg3_lookup_by_subsys(struct tg3 *tp)
- {
- 	int i;
+-	tp->phy_id = PHY_ID_INVALID;
++	tp->phy_id = TG3_PHY_ID_INVALID;
+ 	tp->led_ctrl = LED_CTRL_MODE_PHY_1;
  
-@@ -12476,7 +12502,7 @@ static int __devinit tg3_phy_probe(struct tg3 *tp)
- 			/* No eeprom signature?  Try the hardcoded
- 			 * subsys device table.
+ 	/* Assume an onboard device and WOL capable by default.  */
+@@ -12468,7 +12470,7 @@ static int __devinit tg3_phy_probe(struct tg3 *tp)
+ 	err = 0;
+ 	if ((tp->tg3_flags & TG3_FLAG_ENABLE_ASF) ||
+ 	    (tp->tg3_flags3 & TG3_FLG3_ENABLE_APE)) {
+-		hw_phy_id = hw_phy_id_masked = PHY_ID_INVALID;
++		hw_phy_id = hw_phy_id_masked = TG3_PHY_ID_INVALID;
+ 	} else {
+ 		/* Now read the physical PHY_ID from the chip and verify
+ 		 * that it is sane.  If it doesn't look good, we fall back
+@@ -12482,17 +12484,17 @@ static int __devinit tg3_phy_probe(struct tg3 *tp)
+ 		hw_phy_id |= (hw_phy_id_2 & 0xfc00) << 16;
+ 		hw_phy_id |= (hw_phy_id_2 & 0x03ff) <<  0;
+ 
+-		hw_phy_id_masked = hw_phy_id & PHY_ID_MASK;
++		hw_phy_id_masked = hw_phy_id & TG3_PHY_ID_MASK;
+ 	}
+ 
+-	if (!err && KNOWN_PHY_ID(hw_phy_id_masked)) {
++	if (!err && TG3_KNOWN_PHY_ID(hw_phy_id_masked)) {
+ 		tp->phy_id = hw_phy_id;
+-		if (hw_phy_id_masked == PHY_ID_BCM8002)
++		if (hw_phy_id_masked == TG3_PHY_ID_BCM8002)
+ 			tp->tg3_flags2 |= TG3_FLG2_PHY_SERDES;
+ 		else
+ 			tp->tg3_flags2 &= ~TG3_FLG2_PHY_SERDES;
+ 	} else {
+-		if (tp->phy_id != PHY_ID_INVALID) {
++		if (tp->phy_id != TG3_PHY_ID_INVALID) {
+ 			/* Do nothing, phy ID already set up in
+ 			 * tg3_get_eeprom_hw_cfg().
  			 */
--			p = lookup_by_subsys(tp);
-+			p = tg3_lookup_by_subsys(tp);
- 			if (!p)
- 				return -ENODEV;
+@@ -12508,7 +12510,7 @@ static int __devinit tg3_phy_probe(struct tg3 *tp)
  
+ 			tp->phy_id = p->phy_id;
+ 			if (!tp->phy_id ||
+-			    tp->phy_id == PHY_ID_BCM8002)
++			    tp->phy_id == TG3_PHY_ID_BCM8002)
+ 				tp->tg3_flags2 |= TG3_FLG2_PHY_SERDES;
+ 		}
+ 	}
+@@ -12560,13 +12562,11 @@ static int __devinit tg3_phy_probe(struct tg3 *tp)
+ 	}
+ 
+ skip_phy_reset:
+-	if ((tp->phy_id & PHY_ID_MASK) == PHY_ID_BCM5401) {
++	if ((tp->phy_id & TG3_PHY_ID_MASK) == TG3_PHY_ID_BCM5401) {
+ 		err = tg3_init_5401phy_dsp(tp);
+ 		if (err)
+ 			return err;
+-	}
+ 
+-	if (!err && ((tp->phy_id & PHY_ID_MASK) == PHY_ID_BCM5401)) {
+ 		err = tg3_init_5401phy_dsp(tp);
+ 	}
+ 
+@@ -14317,28 +14317,28 @@ static void __devinit tg3_init_bufmgr_config(struct tg3 *tp)
+ 
+ static char * __devinit tg3_phy_string(struct tg3 *tp)
+ {
+-	switch (tp->phy_id & PHY_ID_MASK) {
+-	case PHY_ID_BCM5400:	return "5400";
+-	case PHY_ID_BCM5401:	return "5401";
+-	case PHY_ID_BCM5411:	return "5411";
+-	case PHY_ID_BCM5701:	return "5701";
+-	case PHY_ID_BCM5703:	return "5703";
+-	case PHY_ID_BCM5704:	return "5704";
+-	case PHY_ID_BCM5705:	return "5705";
+-	case PHY_ID_BCM5750:	return "5750";
+-	case PHY_ID_BCM5752:	return "5752";
+-	case PHY_ID_BCM5714:	return "5714";
+-	case PHY_ID_BCM5780:	return "5780";
+-	case PHY_ID_BCM5755:	return "5755";
+-	case PHY_ID_BCM5787:	return "5787";
+-	case PHY_ID_BCM5784:	return "5784";
+-	case PHY_ID_BCM5756:	return "5722/5756";
+-	case PHY_ID_BCM5906:	return "5906";
+-	case PHY_ID_BCM5761:	return "5761";
+-	case PHY_ID_BCM5718C:	return "5718C";
+-	case PHY_ID_BCM5718S:	return "5718S";
+-	case PHY_ID_BCM57765:	return "57765";
+-	case PHY_ID_BCM8002:	return "8002/serdes";
++	switch (tp->phy_id & TG3_PHY_ID_MASK) {
++	case TG3_PHY_ID_BCM5400:	return "5400";
++	case TG3_PHY_ID_BCM5401:	return "5401";
++	case TG3_PHY_ID_BCM5411:	return "5411";
++	case TG3_PHY_ID_BCM5701:	return "5701";
++	case TG3_PHY_ID_BCM5703:	return "5703";
++	case TG3_PHY_ID_BCM5704:	return "5704";
++	case TG3_PHY_ID_BCM5705:	return "5705";
++	case TG3_PHY_ID_BCM5750:	return "5750";
++	case TG3_PHY_ID_BCM5752:	return "5752";
++	case TG3_PHY_ID_BCM5714:	return "5714";
++	case TG3_PHY_ID_BCM5780:	return "5780";
++	case TG3_PHY_ID_BCM5755:	return "5755";
++	case TG3_PHY_ID_BCM5787:	return "5787";
++	case TG3_PHY_ID_BCM5784:	return "5784";
++	case TG3_PHY_ID_BCM5756:	return "5722/5756";
++	case TG3_PHY_ID_BCM5906:	return "5906";
++	case TG3_PHY_ID_BCM5761:	return "5761";
++	case TG3_PHY_ID_BCM5718C:	return "5718C";
++	case TG3_PHY_ID_BCM5718S:	return "5718S";
++	case TG3_PHY_ID_BCM57765:	return "57765";
++	case TG3_PHY_ID_BCM8002:	return "8002/serdes";
+ 	case 0:			return "serdes";
+ 	default:		return "unknown";
+ 	}
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index d2712c5..12ce226 100644
+index 12ce226..800dec4 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -56,7 +56,39 @@
- #define  TG3PCI_DEVICE_TIGON3_57765	 0x16b4
- #define  TG3PCI_DEVICE_TIGON3_57791	 0x16b2
- #define  TG3PCI_DEVICE_TIGON3_57795	 0x16b6
--/* 0x04 --> 0x64 unused */
-+/* 0x04 --> 0x2c unused */
-+#define TG3PCI_SUBVENDOR_ID_BROADCOM		PCI_VENDOR_ID_BROADCOM
-+#define TG3PCI_SUBDEVICE_ID_BROADCOM_95700A6	0x1644
-+#define TG3PCI_SUBDEVICE_ID_BROADCOM_95701A5	0x0001
-+#define TG3PCI_SUBDEVICE_ID_BROADCOM_95700T6	0x0002
-+#define TG3PCI_SUBDEVICE_ID_BROADCOM_95700A9	0x0003
-+#define TG3PCI_SUBDEVICE_ID_BROADCOM_95701T1	0x0005
-+#define TG3PCI_SUBDEVICE_ID_BROADCOM_95701T8	0x0006
-+#define TG3PCI_SUBDEVICE_ID_BROADCOM_95701A7	0x0007
-+#define TG3PCI_SUBDEVICE_ID_BROADCOM_95701A10	0x0008
-+#define TG3PCI_SUBDEVICE_ID_BROADCOM_95701A12	0x8008
-+#define TG3PCI_SUBDEVICE_ID_BROADCOM_95703AX1	0x0009
-+#define TG3PCI_SUBDEVICE_ID_BROADCOM_95703AX2	0x8009
-+#define TG3PCI_SUBVENDOR_ID_3COM		PCI_VENDOR_ID_3COM
-+#define TG3PCI_SUBDEVICE_ID_3COM_3C996T		0x1000
-+#define TG3PCI_SUBDEVICE_ID_3COM_3C996BT	0x1006
-+#define TG3PCI_SUBDEVICE_ID_3COM_3C996SX	0x1004
-+#define TG3PCI_SUBDEVICE_ID_3COM_3C1000T	0x1007
-+#define TG3PCI_SUBDEVICE_ID_3COM_3C940BR01	0x1008
-+#define TG3PCI_SUBVENDOR_ID_DELL		PCI_VENDOR_ID_DELL
-+#define TG3PCI_SUBDEVICE_ID_DELL_VIPER		0x00d1
-+#define TG3PCI_SUBDEVICE_ID_DELL_JAGUAR		0x0106
-+#define TG3PCI_SUBDEVICE_ID_DELL_MERLOT		0x0109
-+#define TG3PCI_SUBDEVICE_ID_DELL_SLIM_MERLOT	0x010a
-+#define TG3PCI_SUBVENDOR_ID_COMPAQ		PCI_VENDOR_ID_COMPAQ
-+#define TG3PCI_SUBDEVICE_ID_COMPAQ_BANSHEE	0x007c
-+#define TG3PCI_SUBDEVICE_ID_COMPAQ_BANSHEE_2	0x009a
-+#define TG3PCI_SUBDEVICE_ID_COMPAQ_CHANGELING	0x007d
-+#define TG3PCI_SUBDEVICE_ID_COMPAQ_NC7780	0x0085
-+#define TG3PCI_SUBDEVICE_ID_COMPAQ_NC7780_2	0x0099
-+#define TG3PCI_SUBVENDOR_ID_IBM			PCI_VENDOR_ID_IBM
-+#define TG3PCI_SUBDEVICE_ID_IBM_5703SAX2	0x0281
-+/* 0x30 --> 0x64 unused */
- #define TG3PCI_MSI_DATA			0x00000064
- /* 0x66 --> 0x68 unused */
- #define TG3PCI_MISC_HOST_CTRL		0x00000068
+@@ -2921,45 +2921,59 @@ struct tg3 {
+ 
+ 	/* PHY info */
+ 	u32				phy_id;
+-#define PHY_ID_MASK			0xfffffff0
+-#define PHY_ID_BCM5400			0x60008040
+-#define PHY_ID_BCM5401			0x60008050
+-#define PHY_ID_BCM5411			0x60008070
+-#define PHY_ID_BCM5701			0x60008110
+-#define PHY_ID_BCM5703			0x60008160
+-#define PHY_ID_BCM5704			0x60008190
+-#define PHY_ID_BCM5705			0x600081a0
+-#define PHY_ID_BCM5750			0x60008180
+-#define PHY_ID_BCM5752			0x60008100
+-#define PHY_ID_BCM5714			0x60008340
+-#define PHY_ID_BCM5780			0x60008350
+-#define PHY_ID_BCM5755			0xbc050cc0
+-#define PHY_ID_BCM5787			0xbc050ce0
+-#define PHY_ID_BCM5756			0xbc050ed0
+-#define PHY_ID_BCM5784			0xbc050fa0
+-#define PHY_ID_BCM5761			0xbc050fd0
+-#define PHY_ID_BCM5718C			0x5c0d8a00
+-#define PHY_ID_BCM5718S			0xbc050ff0
+-#define PHY_ID_BCM57765			0x5c0d8a40
+-#define PHY_ID_BCM5906			0xdc00ac40
+-#define PHY_ID_BCM8002			0x60010140
+-#define PHY_ID_INVALID			0xffffffff
+-#define PHY_ID_REV_MASK			0x0000000f
+-#define PHY_REV_BCM5401_B0		0x1
+-#define PHY_REV_BCM5401_B2		0x3
+-#define PHY_REV_BCM5401_C0		0x6
+-#define PHY_REV_BCM5411_X0		0x1 /* Found on Netgear GA302T */
+-#define TG3_PHY_ID_BCM50610		0x143bd60
+-#define TG3_PHY_ID_BCM50610M	0x143bd70
+-#define TG3_PHY_ID_BCMAC131		0x143bc70
++#define TG3_PHY_ID_MASK			0xfffffff0
++#define TG3_PHY_ID_BCM5400		0x60008040
++#define TG3_PHY_ID_BCM5401		0x60008050
++#define TG3_PHY_ID_BCM5411		0x60008070
++#define TG3_PHY_ID_BCM5701		0x60008110
++#define TG3_PHY_ID_BCM5703		0x60008160
++#define TG3_PHY_ID_BCM5704		0x60008190
++#define TG3_PHY_ID_BCM5705		0x600081a0
++#define TG3_PHY_ID_BCM5750		0x60008180
++#define TG3_PHY_ID_BCM5752		0x60008100
++#define TG3_PHY_ID_BCM5714		0x60008340
++#define TG3_PHY_ID_BCM5780		0x60008350
++#define TG3_PHY_ID_BCM5755		0xbc050cc0
++#define TG3_PHY_ID_BCM5787		0xbc050ce0
++#define TG3_PHY_ID_BCM5756		0xbc050ed0
++#define TG3_PHY_ID_BCM5784		0xbc050fa0
++#define TG3_PHY_ID_BCM5761		0xbc050fd0
++#define TG3_PHY_ID_BCM5718C		0x5c0d8a00
++#define TG3_PHY_ID_BCM5718S		0xbc050ff0
++#define TG3_PHY_ID_BCM57765		0x5c0d8a40
++#define TG3_PHY_ID_BCM5906		0xdc00ac40
++#define TG3_PHY_ID_BCM8002		0x60010140
++#define TG3_PHY_ID_BCM50610		0x0143bd60
++#define TG3_PHY_ID_BCM50610M		0x0143bd70
++#define TG3_PHY_ID_BCMAC131		0x0143bc70
+ #define TG3_PHY_ID_RTL8211C		0x001cc910
+ #define TG3_PHY_ID_RTL8201E		0x00008200
+ #define TG3_PHY_ID_BCM57780		0x03625d90
++#define TG3_PHY_ID_INVALID		0xffffffff
++
++#define TG3_PHY_ID_REV_MASK		0x0000000f
++#define TG3_PHY_REV_BCM5401_B0		0x1
++
+ #define TG3_PHY_OUI_MASK		0xfffffc00
+ #define TG3_PHY_OUI_1			0x00206000
+ #define TG3_PHY_OUI_2			0x0143bc00
+ #define TG3_PHY_OUI_3			0x03625c00
+ 
++	/* This macro assumes the passed PHY ID is
++	 * already masked with TG3_PHY_ID_MASK.
++	 */
++#define TG3_KNOWN_PHY_ID(X)		\
++	((X) == TG3_PHY_ID_BCM5400 || (X) == TG3_PHY_ID_BCM5401 || \
++	 (X) == TG3_PHY_ID_BCM5411 || (X) == TG3_PHY_ID_BCM5701 || \
++	 (X) == TG3_PHY_ID_BCM5703 || (X) == TG3_PHY_ID_BCM5704 || \
++	 (X) == TG3_PHY_ID_BCM5705 || (X) == TG3_PHY_ID_BCM5750 || \
++	 (X) == TG3_PHY_ID_BCM5752 || (X) == TG3_PHY_ID_BCM5714 || \
++	 (X) == TG3_PHY_ID_BCM5780 || (X) == TG3_PHY_ID_BCM5787 || \
++	 (X) == TG3_PHY_ID_BCM5755 || (X) == TG3_PHY_ID_BCM5756 || \
++	 (X) == TG3_PHY_ID_BCM5906 || (X) == TG3_PHY_ID_BCM5761 || \
++	 (X) == TG3_PHY_ID_BCM5718C || (X) == TG3_PHY_ID_BCM5718S || \
++	 (X) == TG3_PHY_ID_BCM57765 || (X) == TG3_PHY_ID_BCM8002)
++
+ 	u32				led_ctrl;
+ 	u32				phy_otp;
+ 
+@@ -2971,21 +2985,6 @@ struct tg3 {
+ 	u32				pci_clock_ctrl;
+ 	struct pci_dev			*pdev_peer;
+ 
+-	/* This macro assumes the passed PHY ID is already masked
+-	 * with PHY_ID_MASK.
+-	 */
+-#define KNOWN_PHY_ID(X)		\
+-	((X) == PHY_ID_BCM5400 || (X) == PHY_ID_BCM5401 || \
+-	 (X) == PHY_ID_BCM5411 || (X) == PHY_ID_BCM5701 || \
+-	 (X) == PHY_ID_BCM5703 || (X) == PHY_ID_BCM5704 || \
+-	 (X) == PHY_ID_BCM5705 || (X) == PHY_ID_BCM5750 || \
+-	 (X) == PHY_ID_BCM5752 || (X) == PHY_ID_BCM5714 || \
+-	 (X) == PHY_ID_BCM5780 || (X) == PHY_ID_BCM5787 || \
+-	 (X) == PHY_ID_BCM5755 || (X) == PHY_ID_BCM5756 || \
+-	 (X) == PHY_ID_BCM5906 || (X) == PHY_ID_BCM5761 || \
+-	 (X) == PHY_ID_BCM5718C || (X) == PHY_ID_BCM5718S || \
+-	 (X) == PHY_ID_BCM57765 || (X) == PHY_ID_BCM8002)
+-
+ 	struct tg3_hw_stats		*hw_stats;
+ 	dma_addr_t			stats_mapping;
+ 	struct work_struct		reset_task;
 -- 
 1.6.4.4
 
