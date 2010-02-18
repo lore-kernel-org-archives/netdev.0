@@ -1,35 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: regression due to "flush SAD/SPD generate false events"
-Date: Thu, 18 Feb 2010 14:27:35 -0800 (PST)
-Message-ID: <20100218.142735.230862605.davem@davemloft.net>
-References: <20100218185510.GA18829@x200>
-	<1266526416.3879.109.camel@bigi>
-	<1266529558.3879.121.camel@bigi>
+Subject: Re: [PATCH] ipv6: remove stale MIB definitions
+Date: Thu, 18 Feb 2010 14:30:33 -0800 (PST)
+Message-ID: <20100218.143033.27409563.davem@davemloft.net>
+References: <20100218181220.GA21184@x200>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: adobriyan@gmail.com, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Cc: netdev@vger.kernel.org
+To: adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36770
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36779
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758550Ab0BRW1T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 17:27:19 -0500
-In-Reply-To: <1266529558.3879.121.camel@bigi>
+	by vger.kernel.org with ESMTP id S1758743Ab0BRWaS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 17:30:18 -0500
+In-Reply-To: <20100218181220.GA21184@x200>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: jamal <hadi@cyberus.ca>
-Date: Thu, 18 Feb 2010 16:45:58 -0500
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Thu, 18 Feb 2010 20:12:20 +0200
 
-> The two options are: 1) Restore old behavior just for pfkey
-> where bogus event is sent always or 2) return -ESRCH as I
-> have done in the last patch.
-> I think #2 is more accurate. But if that is going to break
-> existing scripts then #1 is the way to go.
+> ICMP6 MIB statistics was per-netns for quite a time.
 > 
-> Thoughts?
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-Let's see how #2 works out, if we get any more breakage
-cases reported then we'll have to revert again and go with
-#1.
+Applied.
