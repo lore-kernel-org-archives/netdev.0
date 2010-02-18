@@ -1,74 +1,38 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next-2.6] macvtap: Add GSO/csum offload support
-Date: Thu, 18 Feb 2010 21:47:57 +0100
-Message-ID: <201002182147.57516.arnd@arndb.de>
-References: <1266013667.6105.18.camel@w-sridhar.beaverton.ibm.com> <201002181710.45121.arnd@arndb.de> <1266523423.15681.24.camel@w-sridhar.beaverton.ibm.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: regression due to "flush SAD/SPD generate false events"
+Date: Thu, 18 Feb 2010 15:53:36 -0500
+Message-ID: <1266526416.3879.109.camel@bigi>
+References: <20100217191718.GA5256@x200> <1266442972.17794.51.camel@bigi>
+	 <1266448038.17794.135.camel@bigi> <1266449529.17794.157.camel@bigi>
+	 <20100218185510.GA18829@x200>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev <netdev@vger.kernel.org>
-To: Sridhar Samudrala <sri@us.ibm.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:63309 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755850Ab0BRUsJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 15:48:09 -0500
-In-Reply-To: <1266523423.15681.24.camel@w-sridhar.beaverton.ibm.com>
+Received: from mail-qy0-f200.google.com ([209.85.221.200]:37628 "EHLO
+	mail-qy0-f200.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755239Ab0BRUxi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 15:53:38 -0500
+Received: by qyk38 with SMTP id 38so3211228qyk.1
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2010 12:53:38 -0800 (PST)
+In-Reply-To: <20100218185510.GA18829@x200>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 18 February 2010, Sridhar Samudrala wrote:
-> > 
-> > macvtap is different from tun/tap here, because the data direction is the
-> > opposite: reading from a macvtap chardev corresponds to receive, while
-> > writing to it is a transmit in the network stack. In the tap driver, we
-> > just set the GSO flags of the netdev and dev_queue_xmit will do the right
-> > thing when forwarding data to the tap, but for macvtap, incoming frames
-> > never go through dev_queue_xmit (they go through netif_rx), so if the
-> > external device passes us GSO frames, we just pass them on unmodified
-> > to the guest, even if that guest does not understand GSO.
-> 
-> If a guest is connected to a macvtap device attached to an underlying physical
-> device with GRO enabled, it is possible to receive large SKBs and we don't handle
-> them correctly. The current workaround is to disable GRO on the physical device.
+On Thu, 2010-02-18 at 20:55 +0200, Alexey Dobriyan wrote:
 
-Ok. 
+> I'd expect flushing empty SAD/SPD to be exact nops. :^)
 
-> > In particular, when we have two guests using macvtap in bridge mode,
-> > we don't even go through the network stack and just pass down the
-> > SKB we got from the other side if the destination MAC address matches.
-> > That means that a sender using virtio-net with GSO will send garbage
-> > to another guest using a hardware emulated NIC that cannot receive
-> > GSO (GRO?) frames.
-> 
-> Yes. I think we need to do something similar to dev_gso_segment() in
-> macvtap_forward() if skb_is_gso() and IFF_VNET_HDR is not set in
-> q->flags.
- 
-I think it needs to be more fine-grained than that, and take into account
-the specific offload capabilities of the receiving guest that were
-negotiated in TUNSETOFFLOAD, but other than that, this looks fine.
+Agree - that is a better alternative.
+I was hoping returning an error code of 0 will do that.
+But that triggers the EAGAIN you saw. It doesnt trigger
+an EAGAIN for the netlink side (and it is a nop there).
+Let me look at it. Clearly the EAGAIN is causing the 
+latency.
 
-Regarding TUNSETOFFLOAD, the part I don't get is what the negotiation
-really means for TX and RX respectively. Is it safe to assume that what
-gets set is the common subset of features between guest and host for
-RX *and* TX, or is it just one of them?
+cheers,
+jamal
 
-> > I hope you have an idea how to do this right or can convince me that
-> > everything is ok, otherwise we'd have to defer this patch.
-> 
-> I would prefer getting this patch in as it helps peformance when both
-> the guest and the physical device support offloads and also we have 
-> workaround for other situations. In the meantime, I will start looking
-> into addressing this specific case in macvtap_forward().
-
-Ok, fair enough.
-
-For the forwarding between ports, simply refusing TUNSETOFFLOAD for
-any bridge mode ports should be fine and still let us use offloading
-for vepa mode.
-
-	Arnd
