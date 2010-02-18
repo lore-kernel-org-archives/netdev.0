@@ -1,393 +1,298 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 09/15] drivers/net/sis190.c: Use (pr|netdev|netif)_<level> macro helpers
-Date: Wed, 17 Feb 2010 17:01:56 -0800
-Message-ID: <a9449fa4b0219cd2e0699f3afe4f8ca811b72843.1266454576.git.joe@perches.com>
+Subject: [PATCH net-next 07/15] drivers/net/cnic.c: Use (pr|netdev)_<level> macro helpers
+Date: Wed, 17 Feb 2010 17:01:54 -0800
+Message-ID: <abc8f90b86adf40514e06b9e5fe9a1483c09630a.1266454576.git.joe@perches.com>
 References: <cover.1266454575.git.joe@perches.com>
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	linux-kernel@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1057 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755842Ab0BRBCL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2010 20:02:11 -0500
 In-Reply-To: <cover.1266454575.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Add #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 Remove #define PFX
 Use pr_<level>
 Use netdev_<level>
-Use netif_<level> and netif_msg_<test>
-Remove local #define net_<test> macros
 Remove periods from formats
+Coalesce long formats
+Use __func__
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/sis190.c |  152 +++++++++++++++++++++++++-------------------------
- 1 files changed, 75 insertions(+), 77 deletions(-)
+ drivers/net/cnic.c |   87 ++++++++++++++++++++++------------------------------
+ 1 files changed, 37 insertions(+), 50 deletions(-)
 
-diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
-index 8c4e38f..b1a4b75 100644
---- a/drivers/net/sis190.c
-+++ b/drivers/net/sis190.c
-@@ -17,7 +17,9 @@
+diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
+index 4332b3a..6aecef9 100644
+--- a/drivers/net/cnic.c
++++ b/drivers/net/cnic.c
+@@ -10,6 +10,8 @@
+  * Modified and maintained by: Michael Chan <mchan@broadcom.com>
+  */
  
-    See the file COPYING in this distribution for more information.
- 
-- */
-+*/
-+
 +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
- 
++
  #include <linux/module.h>
- #include <linux/moduleparam.h>
-@@ -32,17 +34,6 @@
- #include <linux/dma-mapping.h>
- #include <asm/irq.h>
  
--#define net_drv(p, arg...)	if (netif_msg_drv(p)) \
--					printk(arg)
--#define net_probe(p, arg...)	if (netif_msg_probe(p)) \
--					printk(arg)
--#define net_link(p, arg...)	if (netif_msg_link(p)) \
--					printk(arg)
--#define net_intr(p, arg...)	if (netif_msg_intr(p)) \
--					printk(arg)
--#define net_tx_err(p, arg...)	if (netif_msg_tx_err(p)) \
--					printk(arg)
--
- #define PHY_MAX_ADDR		32
- #define PHY_ID_ANY		0x1f
- #define MII_REG_ANY		0x1f
-@@ -50,7 +41,6 @@
- #define DRV_VERSION		"1.3"
- #define DRV_NAME		"sis190"
- #define SIS190_DRIVER_NAME	DRV_NAME " Gigabit Ethernet driver " DRV_VERSION
--#define PFX DRV_NAME ": "
+ #include <linux/kernel.h>
+@@ -47,7 +49,6 @@
+ #include "cnic_defs.h"
  
- #define sis190_rx_skb			netif_rx
- #define sis190_rx_quota(count, quota)	count
-@@ -381,7 +371,7 @@ static void __mdio_cmd(void __iomem *ioaddr, u32 ctl)
+ #define DRV_MODULE_NAME		"cnic"
+-#define PFX DRV_MODULE_NAME	": "
+ 
+ static char version[] __devinitdata =
+ 	"Broadcom NetXtreme II CNIC Driver " DRV_MODULE_NAME " v" CNIC_MODULE_VERSION " (" CNIC_MODULE_RELDATE ")\n";
+@@ -409,14 +410,13 @@ int cnic_register_driver(int ulp_type, struct cnic_ulp_ops *ulp_ops)
+ 	struct cnic_dev *dev;
+ 
+ 	if (ulp_type < 0 || ulp_type >= MAX_CNIC_ULP_TYPE) {
+-		printk(KERN_ERR PFX "cnic_register_driver: Bad type %d\n",
+-		       ulp_type);
++		pr_err("%s: Bad type %d\n", __func__, ulp_type);
+ 		return -EINVAL;
+ 	}
+ 	mutex_lock(&cnic_lock);
+ 	if (cnic_ulp_tbl[ulp_type]) {
+-		printk(KERN_ERR PFX "cnic_register_driver: Type %d has already "
+-				    "been registered\n", ulp_type);
++		pr_err("%s: Type %d has already been registered\n",
++		       __func__, ulp_type);
+ 		mutex_unlock(&cnic_lock);
+ 		return -EBUSY;
+ 	}
+@@ -455,15 +455,14 @@ int cnic_unregister_driver(int ulp_type)
+ 	int i = 0;
+ 
+ 	if (ulp_type < 0 || ulp_type >= MAX_CNIC_ULP_TYPE) {
+-		printk(KERN_ERR PFX "cnic_unregister_driver: Bad type %d\n",
+-		       ulp_type);
++		pr_err("%s: Bad type %d\n", __func__, ulp_type);
+ 		return -EINVAL;
+ 	}
+ 	mutex_lock(&cnic_lock);
+ 	ulp_ops = cnic_ulp_tbl[ulp_type];
+ 	if (!ulp_ops) {
+-		printk(KERN_ERR PFX "cnic_unregister_driver: Type %d has not "
+-				    "been registered\n", ulp_type);
++		pr_err("%s: Type %d has not been registered\n",
++		       __func__, ulp_type);
+ 		goto out_unlock;
+ 	}
+ 	read_lock(&cnic_dev_lock);
+@@ -471,8 +470,8 @@ int cnic_unregister_driver(int ulp_type)
+ 		struct cnic_local *cp = dev->cnic_priv;
+ 
+ 		if (rcu_dereference(cp->ulp_ops[ulp_type])) {
+-			printk(KERN_ERR PFX "cnic_unregister_driver: Type %d "
+-			       "still has devices registered\n", ulp_type);
++			pr_err("%s: Type %d still has devices registered\n",
++			       __func__, ulp_type);
+ 			read_unlock(&cnic_dev_lock);
+ 			goto out_unlock;
+ 		}
+@@ -492,8 +491,7 @@ int cnic_unregister_driver(int ulp_type)
  	}
  
- 	if (i > 99)
--		printk(KERN_ERR PFX "PHY command failed !\n");
-+		pr_err("PHY command failed !\n");
- }
+ 	if (atomic_read(&ulp_ops->ref_count) != 0)
+-		printk(KERN_WARNING PFX "%s: Failed waiting for ref count to go"
+-					" to zero.\n", dev->netdev->name);
++		netdev_warn(dev->netdev, "Failed waiting for ref count to go to zero\n");
+ 	return 0;
  
- static void mdio_write(void __iomem *ioaddr, int phy_id, int reg, int val)
-@@ -589,8 +579,7 @@ static int sis190_rx_interrupt(struct net_device *dev,
+ out_unlock:
+@@ -511,20 +509,19 @@ static int cnic_register_device(struct cnic_dev *dev, int ulp_type,
+ 	struct cnic_ulp_ops *ulp_ops;
  
- 		status = le32_to_cpu(desc->PSize);
- 
--		// net_intr(tp, KERN_INFO "%s: Rx PSize = %08x.\n", dev->name,
--		//	 status);
-+		//netif_info(tp, intr, dev, "Rx PSize = %08x\n", status);
- 
- 		if (sis190_rx_pkt_err(status, stats) < 0)
- 			sis190_give_to_asic(desc, tp->rx_buf_sz);
-@@ -601,9 +590,8 @@ static int sis190_rx_interrupt(struct net_device *dev,
- 			struct pci_dev *pdev = tp->pci_dev;
- 
- 			if (unlikely(pkt_size > tp->rx_buf_sz)) {
--				net_intr(tp, KERN_INFO
--					 "%s: (frag) status = %08x.\n",
--					 dev->name, status);
-+				netif_info(tp, intr, dev,
-+					   "(frag) status = %08x\n", status);
- 				stats->rx_dropped++;
- 				stats->rx_length_errors++;
- 				sis190_give_to_asic(desc, tp->rx_buf_sz);
-@@ -637,12 +625,12 @@ static int sis190_rx_interrupt(struct net_device *dev,
- 	tp->cur_rx = cur_rx;
- 
- 	delta = sis190_rx_fill(tp, dev, tp->dirty_rx, tp->cur_rx);
--	if (!delta && count && netif_msg_intr(tp))
--		printk(KERN_INFO "%s: no Rx buffer allocated.\n", dev->name);
-+	if (!delta && count)
-+		netif_info(tp, intr, dev, "no Rx buffer allocated\n");
- 	tp->dirty_rx += delta;
- 
--	if (((tp->dirty_rx + NUM_RX_DESC) == tp->cur_rx) && netif_msg_intr(tp))
--		printk(KERN_EMERG "%s: Rx buffers exhausted.\n", dev->name);
-+	if ((tp->dirty_rx + NUM_RX_DESC) == tp->cur_rx)
-+		netif_emerg(tp, intr, dev, "Rx buffers exhausted\n");
- 
- 	return count;
- }
-@@ -751,10 +739,10 @@ static irqreturn_t sis190_interrupt(int irq, void *__dev)
- 
- 	SIS_W32(IntrStatus, status);
- 
--	// net_intr(tp, KERN_INFO "%s: status = %08x.\n", dev->name, status);
-+//	netif_info(tp, intr, dev, "status = %08x\n", status);
- 
- 	if (status & LinkChange) {
--		net_intr(tp, KERN_INFO "%s: link change.\n", dev->name);
-+		netif_info(tp, intr, dev, "link change\n");
- 		schedule_work(&tp->phy_task);
+ 	if (ulp_type < 0 || ulp_type >= MAX_CNIC_ULP_TYPE) {
+-		printk(KERN_ERR PFX "cnic_register_device: Bad type %d\n",
+-		       ulp_type);
++		pr_err("%s: Bad type %d\n", __func__, ulp_type);
+ 		return -EINVAL;
  	}
+ 	mutex_lock(&cnic_lock);
+ 	if (cnic_ulp_tbl[ulp_type] == NULL) {
+-		printk(KERN_ERR PFX "cnic_register_device: Driver with type %d "
+-				    "has not been registered\n", ulp_type);
++		pr_err("%s: Driver with type %d has not been registered\n",
++		       __func__, ulp_type);
+ 		mutex_unlock(&cnic_lock);
+ 		return -EAGAIN;
+ 	}
+ 	if (rcu_dereference(cp->ulp_ops[ulp_type])) {
+-		printk(KERN_ERR PFX "cnic_register_device: Type %d has already "
+-		       "been registered to this device\n", ulp_type);
++		pr_err("%s: Type %d has already been registered to this device\n",
++		       __func__, ulp_type);
+ 		mutex_unlock(&cnic_lock);
+ 		return -EBUSY;
+ 	}
+@@ -552,8 +549,7 @@ static int cnic_unregister_device(struct cnic_dev *dev, int ulp_type)
+ 	int i = 0;
  
-@@ -932,8 +920,7 @@ static void sis190_phy_task(struct work_struct *work)
- 	} else if (!(mdio_read_latched(ioaddr, phy_id, MII_BMSR) &
- 		     BMSR_ANEGCOMPLETE)) {
- 		netif_carrier_off(dev);
--		net_link(tp, KERN_WARNING "%s: auto-negotiating...\n",
--			 dev->name);
-+		netif_warn(tp, link, dev, "auto-negotiating...\n");
- 		mod_timer(&tp->timer, jiffies + SIS190_PHY_TIMEOUT);
+ 	if (ulp_type < 0 || ulp_type >= MAX_CNIC_ULP_TYPE) {
+-		printk(KERN_ERR PFX "cnic_unregister_device: Bad type %d\n",
+-		       ulp_type);
++		pr_err("%s: Bad type %d\n", __func__, ulp_type);
+ 		return -EINVAL;
+ 	}
+ 	mutex_lock(&cnic_lock);
+@@ -561,8 +557,8 @@ static int cnic_unregister_device(struct cnic_dev *dev, int ulp_type)
+ 		rcu_assign_pointer(cp->ulp_ops[ulp_type], NULL);
+ 		cnic_put(dev);
  	} else {
- 		/* Rejoice ! */
-@@ -959,13 +946,13 @@ static void sis190_phy_task(struct work_struct *work)
- 		u16 adv, autoexp, gigadv, gigrec;
+-		printk(KERN_ERR PFX "cnic_unregister_device: device not "
+-		       "registered to this ulp type %d\n", ulp_type);
++		pr_err("%s: device not registered to this ulp type %d\n",
++		       __func__, ulp_type);
+ 		mutex_unlock(&cnic_lock);
+ 		return -EINVAL;
+ 	}
+@@ -576,8 +572,7 @@ static int cnic_unregister_device(struct cnic_dev *dev, int ulp_type)
+ 		i++;
+ 	}
+ 	if (test_bit(ULP_F_CALL_PENDING, &cp->ulp_flags[ulp_type]))
+-		printk(KERN_WARNING PFX "%s: Failed waiting for ULP up call"
+-					" to complete.\n", dev->netdev->name);
++		netdev_warn(dev->netdev, "Failed waiting for ULP up call to complete\n");
  
- 		val = mdio_read(ioaddr, phy_id, 0x1f);
--		net_link(tp, KERN_INFO "%s: mii ext = %04x.\n", dev->name, val);
-+		netif_info(tp, link, dev, "mii ext = %04x\n", val);
+ 	return 0;
+ }
+@@ -1865,8 +1860,7 @@ static int cnic_bnx2x_connect(struct cnic_dev *dev, struct kwqe *wqes[],
+ 	}
  
- 		val = mdio_read(ioaddr, phy_id, MII_LPA);
- 		adv = mdio_read(ioaddr, phy_id, MII_ADVERTISE);
- 		autoexp = mdio_read(ioaddr, phy_id, MII_EXPANSION);
--		net_link(tp, KERN_INFO "%s: mii lpa=%04x adv=%04x exp=%04x.\n",
--			 dev->name, val, adv, autoexp);
-+		netif_info(tp, link, dev, "mii lpa=%04x adv=%04x exp=%04x\n",
-+			   val, adv, autoexp);
- 
- 		if (val & LPA_NPAGE && autoexp & EXPANSION_NWAY) {
- 			/* check for gigabit speed */
-@@ -1004,8 +991,7 @@ static void sis190_phy_task(struct work_struct *work)
- 			SIS_W32(RGDelay, 0x0440);
+ 	if (sizeof(*conn_buf) > CNIC_KWQ16_DATA_SIZE) {
+-		printk(KERN_ERR PFX "%s: conn_buf size too big\n",
+-			       dev->netdev->name);
++		netdev_err(dev->netdev, "conn_buf size too big\n");
+ 		return -ENOMEM;
+ 	}
+ 	conn_buf = cnic_get_kwqe_16_data(cp, l5_cid, &l5_data);
+@@ -2026,13 +2020,13 @@ static int cnic_submit_bnx2x_kwqes(struct cnic_dev *dev, struct kwqe *wqes[],
+ 			break;
+ 		default:
+ 			ret = 0;
+-			printk(KERN_ERR PFX "%s: Unknown type of KWQE(0x%x)\n",
+-			       dev->netdev->name, opcode);
++			netdev_err(dev->netdev, "Unknown type of KWQE(0x%x)\n",
++				   opcode);
+ 			break;
+ 		}
+ 		if (ret < 0)
+-			printk(KERN_ERR PFX "%s: KWQE(0x%x) failed\n",
+-			       dev->netdev->name, opcode);
++			netdev_err(dev->netdev, "KWQE(0x%x) failed\n",
++				   opcode);
+ 		i += work;
+ 	}
+ 	return 0;
+@@ -2074,8 +2068,8 @@ static void service_kcqes(struct cnic_dev *dev, int num_cqes)
+ 		else if (kcqe_layer == KCQE_FLAGS_LAYER_MASK_L2)
+ 			goto end;
+ 		else {
+-			printk(KERN_ERR PFX "%s: Unknown type of KCQE(0x%x)\n",
+-			       dev->netdev->name, kcqe_op_flag);
++			netdev_err(dev->netdev, "Unknown type of KCQE(0x%x)\n",
++				   kcqe_op_flag);
+ 			goto end;
  		}
  
--		net_link(tp, KERN_INFO "%s: link on %s mode.\n", dev->name,
--			 p->msg);
-+		netif_info(tp, link, dev, "link on %s mode\n", p->msg);
- 		netif_carrier_on(dev);
- 	}
+@@ -3435,8 +3429,7 @@ static int cnic_init_bnx2_irq(struct cnic_dev *dev)
+ 	return 0;
  
-@@ -1191,9 +1177,8 @@ static netdev_tx_t sis190_start_xmit(struct sk_buff *skb,
- 
- 	if (unlikely(le32_to_cpu(desc->status) & OWNbit)) {
- 		netif_stop_queue(dev);
--		net_tx_err(tp, KERN_ERR PFX
--			   "%s: BUG! Tx Ring full when queue awake!\n",
--			   dev->name);
-+		netif_err(tp, tx_err, dev,
-+			  "BUG! Tx Ring full when queue awake!\n");
- 		return NETDEV_TX_BUSY;
- 	}
- 
-@@ -1287,9 +1272,9 @@ static u16 sis190_default_phy(struct net_device *dev)
- 
- 	if (mii_if->phy_id != phy_default->phy_id) {
- 		mii_if->phy_id = phy_default->phy_id;
--		net_probe(tp, KERN_INFO
--		       "%s: Using transceiver at address %d as default.\n",
--		       pci_name(tp->pci_dev), mii_if->phy_id);
-+		if (netif_msg_probe(tp))
-+			pr_info("%s: Using transceiver at address %d as default\n",
-+				pci_name(tp->pci_dev), mii_if->phy_id);
- 	}
- 
- 	status = mdio_read(ioaddr, mii_if->phy_id, MII_BMCR);
-@@ -1327,14 +1312,15 @@ static void sis190_init_phy(struct net_device *dev, struct sis190_private *tp,
- 			((mii_status & (BMSR_100FULL | BMSR_100HALF)) ?
- 				LAN : HOME) : p->type;
- 		tp->features |= p->feature;
--		net_probe(tp, KERN_INFO "%s: %s transceiver at address %d.\n",
--			pci_name(tp->pci_dev), p->name, phy_id);
-+		if (netif_msg_probe(tp))
-+			pr_info("%s: %s transceiver at address %d\n",
-+				pci_name(tp->pci_dev), p->name, phy_id);
- 	} else {
- 		phy->type = UNKNOWN;
--		net_probe(tp, KERN_INFO
--			"%s: unknown PHY 0x%x:0x%x transceiver at address %d\n",
--			pci_name(tp->pci_dev),
--			phy->id[0], (phy->id[1] & 0xfff0), phy_id);
-+		if (netif_msg_probe(tp))
-+			pr_info("%s: unknown PHY 0x%x:0x%x transceiver at address %d\n",
-+				pci_name(tp->pci_dev),
-+				phy->id[0], (phy->id[1] & 0xfff0), phy_id);
- 	}
+ failed:
+-	printk(KERN_ERR PFX "%s: " "KCQ index not resetting to 0.\n",
+-	       dev->netdev->name);
++	netdev_err(dev->netdev, "KCQ index not resetting to 0\n");
+ 	return -EBUSY;
  }
  
-@@ -1398,8 +1384,9 @@ static int __devinit sis190_mii_probe(struct net_device *dev)
+@@ -3758,8 +3751,7 @@ static int cnic_start_bnx2_hw(struct cnic_dev *dev)
+ 
+ 	err = cnic_init_bnx2_irq(dev);
+ 	if (err) {
+-		printk(KERN_ERR PFX "%s: cnic_init_irq failed\n",
+-		       dev->netdev->name);
++		netdev_err(dev->netdev, "cnic_init_irq failed\n");
+ 		cnic_reg_wr_ind(dev, BNX2_CP_SCRATCH + 0x20, 0);
+ 		cnic_reg_wr_ind(dev, BNX2_COM_SCRATCH + 0x20, 0);
+ 		return err;
+@@ -4122,8 +4114,7 @@ static int cnic_start_bnx2x_hw(struct cnic_dev *dev)
+ 			   offsetof(struct cstorm_status_block_c,
+ 				    index_values[HC_INDEX_C_ISCSI_EQ_CONS]));
+ 	if (eq_idx != 0) {
+-		printk(KERN_ERR PFX "%s: EQ cons index %x != 0\n",
+-		       dev->netdev->name, eq_idx);
++		netdev_err(dev->netdev, "EQ cons index %x != 0\n", eq_idx);
+ 		return -EBUSY;
+ 	}
+ 	ret = cnic_init_bnx2x_irq(dev);
+@@ -4208,8 +4199,7 @@ static int cnic_register_netdev(struct cnic_dev *dev)
+ 
+ 	err = ethdev->drv_register_cnic(dev->netdev, cp->cnic_ops, dev);
+ 	if (err)
+-		printk(KERN_ERR PFX "%s: register_cnic failed\n",
+-		       dev->netdev->name);
++		netdev_err(dev->netdev, "register_cnic failed\n");
+ 
+ 	return err;
+ }
+@@ -4243,8 +4233,7 @@ static int cnic_start_hw(struct cnic_dev *dev)
+ 
+ 	err = cp->alloc_resc(dev);
+ 	if (err) {
+-		printk(KERN_ERR PFX "%s: allocate resource failure\n",
+-		       dev->netdev->name);
++		netdev_err(dev->netdev, "allocate resource failure\n");
+ 		goto err1;
  	}
  
- 	if (list_empty(&tp->first_phy)) {
--		net_probe(tp, KERN_INFO "%s: No MII transceivers found!\n",
--			  pci_name(tp->pci_dev));
-+		if (netif_msg_probe(tp))
-+			pr_info("%s: No MII transceivers found!\n",
-+				pci_name(tp->pci_dev));
- 		rc = -EIO;
- 		goto out;
+@@ -4326,10 +4315,9 @@ static void cnic_free_dev(struct cnic_dev *dev)
+ 		i++;
  	}
-@@ -1445,7 +1432,8 @@ static struct net_device * __devinit sis190_init_board(struct pci_dev *pdev)
+ 	if (atomic_read(&dev->ref_count) != 0)
+-		printk(KERN_ERR PFX "%s: Failed waiting for ref count to go"
+-				    " to zero.\n", dev->netdev->name);
++		netdev_err(dev->netdev, "Failed waiting for ref count to go to zero\n");
  
- 	dev = alloc_etherdev(sizeof(*tp));
- 	if (!dev) {
--		net_drv(&debug, KERN_ERR PFX "unable to alloc new ethernet\n");
-+		if (netif_msg_drv(&debug))
-+			pr_err("unable to alloc new ethernet\n");
- 		rc = -ENOMEM;
- 		goto err_out_0;
- 	}
-@@ -1458,34 +1446,39 @@ static struct net_device * __devinit sis190_init_board(struct pci_dev *pdev)
+-	printk(KERN_INFO PFX "Removed CNIC device: %s\n", dev->netdev->name);
++	netdev_info(dev->netdev, "Removed CNIC device\n");
+ 	dev_put(dev->netdev);
+ 	kfree(dev);
+ }
+@@ -4345,8 +4333,7 @@ static struct cnic_dev *cnic_alloc_dev(struct net_device *dev,
  
- 	rc = pci_enable_device(pdev);
- 	if (rc < 0) {
--		net_probe(tp, KERN_ERR "%s: enable failure\n", pci_name(pdev));
-+		if (netif_msg_probe(tp))
-+			pr_err("%s: enable failure\n", pci_name(pdev));
- 		goto err_free_dev_1;
+ 	cdev = kzalloc(alloc_size , GFP_KERNEL);
+ 	if (cdev == NULL) {
+-		printk(KERN_ERR PFX "%s: allocate dev struct failure\n",
+-		       dev->name);
++		netdev_err(dev, "allocate dev struct failure\n");
+ 		return NULL;
  	}
  
- 	rc = -ENODEV;
+@@ -4364,7 +4351,7 @@ static struct cnic_dev *cnic_alloc_dev(struct net_device *dev,
  
- 	if (!(pci_resource_flags(pdev, 0) & IORESOURCE_MEM)) {
--		net_probe(tp, KERN_ERR "%s: region #0 is no MMIO resource.\n",
--			  pci_name(pdev));
-+		if (netif_msg_probe(tp))
-+			pr_err("%s: region #0 is no MMIO resource\n",
-+			       pci_name(pdev));
- 		goto err_pci_disable_2;
- 	}
- 	if (pci_resource_len(pdev, 0) < SIS190_REGS_SIZE) {
--		net_probe(tp, KERN_ERR "%s: invalid PCI region size(s).\n",
--			  pci_name(pdev));
-+		if (netif_msg_probe(tp))
-+			pr_err("%s: invalid PCI region size(s)\n",
-+			       pci_name(pdev));
- 		goto err_pci_disable_2;
- 	}
+ 	spin_lock_init(&cp->cnic_ulp_lock);
  
- 	rc = pci_request_regions(pdev, DRV_NAME);
- 	if (rc < 0) {
--		net_probe(tp, KERN_ERR PFX "%s: could not request regions.\n",
--			  pci_name(pdev));
-+		if (netif_msg_probe(tp))
-+			pr_err("%s: could not request regions\n",
-+			       pci_name(pdev));
- 		goto err_pci_disable_2;
- 	}
+-	printk(KERN_INFO PFX "Added CNIC device: %s\n", dev->name);
++	netdev_info(dev, "Added CNIC device\n");
  
- 	rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
- 	if (rc < 0) {
--		net_probe(tp, KERN_ERR "%s: DMA configuration failed.\n",
--			  pci_name(pdev));
-+		if (netif_msg_probe(tp))
-+			pr_err("%s: DMA configuration failed\n",
-+			       pci_name(pdev));
- 		goto err_free_res_3;
- 	}
+ 	return cdev;
+ }
+@@ -4605,7 +4592,7 @@ static int __init cnic_init(void)
+ {
+ 	int rc = 0;
  
-@@ -1493,8 +1486,9 @@ static struct net_device * __devinit sis190_init_board(struct pci_dev *pdev)
+-	printk(KERN_INFO "%s", version);
++	pr_info("%s", version);
  
- 	ioaddr = ioremap(pci_resource_start(pdev, 0), SIS190_REGS_SIZE);
- 	if (!ioaddr) {
--		net_probe(tp, KERN_ERR "%s: cannot remap MMIO, aborting\n",
--			  pci_name(pdev));
-+		if (netif_msg_probe(tp))
-+			pr_err("%s: cannot remap MMIO, aborting\n",
-+			       pci_name(pdev));
- 		rc = -EIO;
- 		goto err_free_res_3;
- 	}
-@@ -1530,9 +1524,8 @@ static void sis190_tx_timeout(struct net_device *dev)
- 	if (tmp8 & CmdTxEnb)
- 		SIS_W8(TxControl, tmp8 & ~CmdTxEnb);
- 
--
--	net_tx_err(tp, KERN_INFO "%s: Transmit timeout, status %08x %08x.\n",
--		   dev->name, SIS_R32(TxControl), SIS_R32(TxSts));
-+	netif_info(tp, tx_err, dev, "Transmit timeout, status %08x %08x\n",
-+		   SIS_R32(TxControl), SIS_R32(TxSts));
- 
- 	/* Disable interrupts by clearing the interrupt mask. */
- 	SIS_W32(IntrMask, 0x0000);
-@@ -1561,15 +1554,16 @@ static int __devinit sis190_get_mac_addr_from_eeprom(struct pci_dev *pdev,
- 	u16 sig;
- 	int i;
- 
--	net_probe(tp, KERN_INFO "%s: Read MAC address from EEPROM\n",
--		  pci_name(pdev));
-+	if (netif_msg_probe(tp))
-+		pr_info("%s: Read MAC address from EEPROM\n", pci_name(pdev));
- 
- 	/* Check to see if there is a sane EEPROM */
- 	sig = (u16) sis190_read_eeprom(ioaddr, EEPROMSignature);
- 
- 	if ((sig == 0xffff) || (sig == 0x0000)) {
--		net_probe(tp, KERN_INFO "%s: Error EEPROM read %x.\n",
--			  pci_name(pdev), sig);
-+		if (netif_msg_probe(tp))
-+			pr_info("%s: Error EEPROM read %x\n",
-+				pci_name(pdev), sig);
- 		return -EIO;
- 	}
- 
-@@ -1603,8 +1597,8 @@ static int __devinit sis190_get_mac_addr_from_apc(struct pci_dev *pdev,
- 	u8 reg, tmp8;
- 	unsigned int i;
- 
--	net_probe(tp, KERN_INFO "%s: Read MAC address from APC.\n",
--		  pci_name(pdev));
-+	if (netif_msg_probe(tp))
-+		pr_info("%s: Read MAC address from APC\n", pci_name(pdev));
- 
- 	for (i = 0; i < ARRAY_SIZE(ids); i++) {
- 		isa_bridge = pci_get_device(PCI_VENDOR_ID_SI, ids[i], NULL);
-@@ -1613,8 +1607,9 @@ static int __devinit sis190_get_mac_addr_from_apc(struct pci_dev *pdev,
- 	}
- 
- 	if (!isa_bridge) {
--		net_probe(tp, KERN_INFO "%s: Can not find ISA bridge.\n",
--			  pci_name(pdev));
-+		if (netif_msg_probe(tp))
-+			pr_info("%s: Can not find ISA bridge\n",
-+				pci_name(pdev));
- 		return -EIO;
- 	}
- 
-@@ -1695,7 +1690,7 @@ static void sis190_set_speed_auto(struct net_device *dev)
- 	int phy_id = tp->mii_if.phy_id;
- 	int val;
- 
--	net_link(tp, KERN_INFO "%s: Enabling Auto-negotiation.\n", dev->name);
-+	netif_info(tp, link, dev, "Enabling Auto-negotiation\n");
- 
- 	val = mdio_read(ioaddr, phy_id, MII_ADVERTISE);
- 
-@@ -1822,7 +1817,8 @@ static int __devinit sis190_init_one(struct pci_dev *pdev,
- 	int rc;
- 
- 	if (!printed_version) {
--		net_drv(&debug, KERN_INFO SIS190_DRIVER_NAME " loaded.\n");
-+		if (netif_msg_drv(&debug))
-+			pr_info(SIS190_DRIVER_NAME " loaded\n");
- 		printed_version = 1;
- 	}
- 
-@@ -1862,12 +1858,14 @@ static int __devinit sis190_init_one(struct pci_dev *pdev,
- 	if (rc < 0)
- 		goto err_remove_mii;
- 
--	net_probe(tp, KERN_INFO "%s: %s at %p (IRQ: %d), %pM\n",
--		  pci_name(pdev), sis_chip_info[ent->driver_data].name,
--		  ioaddr, dev->irq, dev->dev_addr);
--
--	net_probe(tp, KERN_INFO "%s: %s mode.\n", dev->name,
--		  (tp->features & F_HAS_RGMII) ? "RGMII" : "GMII");
-+	if (netif_msg_probe(tp)) {
-+		netdev_info(dev, "%s: %s at %p (IRQ: %d), %pM\n",
-+			    pci_name(pdev),
-+			    sis_chip_info[ent->driver_data].name,
-+			    ioaddr, dev->irq, dev->dev_addr);
-+		netdev_info(dev, "%s mode.\n",
-+			    (tp->features & F_HAS_RGMII) ? "RGMII" : "GMII");
-+	}
- 
- 	netif_carrier_off(dev);
- 
+ 	rc = register_netdevice_notifier(&cnic_netdev_notifier);
+ 	if (rc) {
 -- 
 1.7.0.14.g7e948
+
