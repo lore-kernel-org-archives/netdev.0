@@ -1,242 +1,417 @@
 From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH net-next-2.6] macvtap: Add GSO/csum offload support
-Date: Thu, 18 Feb 2010 12:03:43 -0800
-Message-ID: <1266523423.15681.24.camel@w-sridhar.beaverton.ibm.com>
-References: <1266013667.6105.18.camel@w-sridhar.beaverton.ibm.com>
-	 <201002181710.45121.arnd@arndb.de>
+Subject: Re: [PATCH 1/3] macvtap: rework object lifetime rules
+Date: Thu, 18 Feb 2010 12:09:08 -0800
+Message-ID: <1266523748.15681.25.camel@w-sridhar.beaverton.ibm.com>
+References: <201002111645.02770.arnd@arndb.de>
+	 <20100215.215341.66627877.davem@davemloft.net>
+	 <201002181644.29740.arnd@arndb.de>  <201002181645.36426.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev <netdev@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	eswierk@aristanetworks.com, netdev@vger.kernel.org
 To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:53971 "EHLO e2.ny.us.ibm.com"
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:45081 "EHLO e9.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752683Ab0BRUDv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Feb 2010 15:03:51 -0500
+	id S1758432Ab0BRUJQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2010 15:09:16 -0500
 Received: from d01relay06.pok.ibm.com (d01relay06.pok.ibm.com [9.56.227.116])
-	by e2.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o1IJrloW029909
-	for <netdev@vger.kernel.org>; Thu, 18 Feb 2010 14:53:47 -0500
+	by e9.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o1IJxjLW014692
+	for <netdev@vger.kernel.org>; Thu, 18 Feb 2010 14:59:45 -0500
 Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay06.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o1IK3lBE1794160
-	for <netdev@vger.kernel.org>; Thu, 18 Feb 2010 15:03:47 -0500
+	by d01relay06.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o1IK9E6w1777878
+	for <netdev@vger.kernel.org>; Thu, 18 Feb 2010 15:09:14 -0500
 Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o1IK3jSM005813
-	for <netdev@vger.kernel.org>; Thu, 18 Feb 2010 15:03:46 -0500
-In-Reply-To: <201002181710.45121.arnd@arndb.de>
+	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o1IK9D6n002249
+	for <netdev@vger.kernel.org>; Thu, 18 Feb 2010 15:09:13 -0500
+In-Reply-To: <201002181645.36426.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-02-18 at 17:10 +0100, Arnd Bergmann wrote:
-> On Friday 12 February 2010, Sridhar Samudrala wrote:
-> > This patch adds GSO/checksum offload support to macvtap driver and applies
-> > on top of Arnd's refcnt bugfix.
-> > 	http://patchwork.ozlabs.org/patch/45136/
-> > 
-> > Added flags field to macvtap_queue to enable/disable processing of
-> > virtio_net_hdr via IFF_VNET_HDR. This flag is checked to prepend virtio_net_hdr
-> > in the receive path and process/skip virtio_net_hdr in the send path.
-> > 
-> > Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+On Thu, 2010-02-18 at 16:45 +0100, Arnd Bergmann wrote:
+> This reworks the change done by the previous patch
+> in a more complete way.
 > 
-> I've just sent out the new version of this, with further changes from
-> myself and rebased on my vhost-net series. Here are some more comments
-> about stuff that I changed in the process and why:
+> The original macvtap code has a number of problems
+> resulting from the use of RCU for protecting the
+> access to struct macvtap_queue from open files.
 > 
-> >  /* Get packet from user space buffer */
-> >  static ssize_t macvtap_get_user(struct macvtap_queue *q,
-> >  				const struct iovec *iv, size_t count,
-> > @@ -336,31 +362,99 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q,
-> >  	struct sk_buff *skb;
-> >  	size_t len = count;
-> >  	int err;
-> > +	struct virtio_net_hdr vnet_hdr = { 0 };
-> > +	int vnet_hdr_len = 0;
-> > +	unsigned short gso_type = 0;
-> > +
-> > +	if (q->flags & IFF_VNET_HDR) {
-> > +		vnet_hdr_len = sizeof(vnet_hdr); 
-> > +
-> > +		err = -EINVAL;
-> > +		if ((len -= vnet_hdr_len) < 0)
-> > +			goto out;
-> > +
-> > +		err = (memcpy_fromiovecend((void *)&vnet_hdr, iv, 0,
-> > +					   vnet_hdr_len));
-> > +		if (err < 0)
-> > +			goto out;			
-> > +
-> > +		if ((vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
-> > +		     vnet_hdr.csum_start + vnet_hdr.csum_offset + 2 > 
-> > +							vnet_hdr.hdr_len)
-> > +			vnet_hdr.hdr_len = vnet_hdr.csum_start +
-> > +						vnet_hdr.csum_offset + 2;
-> > +
-> > +		err = -EINVAL;
-> > +		if (vnet_hdr.hdr_len > len)
-> > +			goto out;
-> > +
-> > +		if (vnet_hdr.gso_type != VIRTIO_NET_HDR_GSO_NONE) {
-> > +			switch (vnet_hdr.gso_type & ~VIRTIO_NET_HDR_GSO_ECN) {
-> > +			case VIRTIO_NET_HDR_GSO_TCPV4:
-> > +				gso_type = SKB_GSO_TCPV4;
-> > +				break;
-> > +			case VIRTIO_NET_HDR_GSO_TCPV6:
-> > +				gso_type = SKB_GSO_TCPV6;
-> > +				break;
-> > +			case VIRTIO_NET_HDR_GSO_UDP:
-> > +				gso_type = SKB_GSO_UDP;
-> > +				break;
-> > +			default:
-> > +				goto out;
-> > +			}
-> > +
-> > +			if (vnet_hdr.gso_type & VIRTIO_NET_HDR_GSO_ECN)
-> > +				gso_type |= SKB_GSO_TCP_ECN;
-> > +               
-> > +			if (vnet_hdr.gso_size == 0)
-> > +				goto out;
-> > +		}
-> > +	}
+> This includes
+> - need for GFP_ATOMIC allocations for skbs
+> - potential deadlocks when copy_*_user sleeps
+> - inability to work with vhost-net
 > 
-> I've moved most of this to a separate function. The function was getting
-> far too complex to read, and splitting it out makes it possible to move
-> it into a common location later so it can also be used by the tun/tap
-> driver that does basically the same here.
+> Changing the lifetime of macvtap_queue to always
+> depend on the open file solves all these. The
+> RCU reference simply moves one step down to
+> the reference on the macvlan_dev, which we
+> only need for nonblocking operations.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Yes. I agree. We could share this code with tap and af_packet socket
-offload too.
+Reviewed and tested.
+Acked-by: Sridhar Samudrala <sri@us.ibm.com>
 
-> >  
-> >  	macvlan_start_xmit(skb, q->vlan->dev);
-> >  
-> > +	macvlan_count_rx(q->vlan, skb->len, 1, 0);
-> >  	return count;
-> > +
-> > +out_free:
-> > +	kfree_skb(skb);
-> > +out:
-> > +	macvlan_count_rx(q->vlan, 0, false, false);
-> > +	return -EINVAL;
-> >  }
+> ---
+>  drivers/net/macvtap.c |  183 ++++++++++++++++++++++++-------------------------
+>  1 files changed, 91 insertions(+), 92 deletions(-)
 > 
-> macvlan_count_rx() is really the wrong thing to do here, since we're
-> transmitting the data, not receiving it. On success, the accounting will
-> be done by macvlan_start_xmit, and I've added a corresponding tx_dropped
-> count in the failure path.
-
-OK.
->   
-> >  static ssize_t macvtap_aio_write(struct kiocb *iocb, const struct iovec *iv,
-> > @@ -387,14 +481,54 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
-> >  {
-> >  	struct macvlan_dev *vlan = q->vlan;
-> >  	int ret;
-> > +	int vnet_hdr_len = 0;
-> > +
-> > +	if (q->flags & IFF_VNET_HDR) {
-> > +		struct virtio_net_hdr vnet_hdr = { 0 };
-> > +
-> > +		vnet_hdr_len = sizeof(vnet_hdr);
-> > +		if ((len -= vnet_hdr_len) < 0)
-> > +			return -EINVAL;
-> > +
-> > +		if (skb_is_gso(skb)) {
-> > +			struct skb_shared_info *sinfo = skb_shinfo(skb);
-> > +
-> > +			/* This is a hint as to how much should be linear. */
-> > +			vnet_hdr.hdr_len = skb_headlen(skb);
-> > +			vnet_hdr.gso_size = sinfo->gso_size;
-> > +			if (sinfo->gso_type & SKB_GSO_TCPV4)
-> > +				vnet_hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
-> > +			else if (sinfo->gso_type & SKB_GSO_TCPV6)
-> > +				vnet_hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
-> > +			else if (sinfo->gso_type & SKB_GSO_UDP)
-> > +				vnet_hdr.gso_type = VIRTIO_NET_HDR_GSO_UDP;
-> > +			else
-> > +				BUG();
-> > +			if (sinfo->gso_type & SKB_GSO_TCP_ECN)
-> > +				vnet_hdr.gso_type |= VIRTIO_NET_HDR_GSO_ECN;
-> > +		} else
-> > +			vnet_hdr.gso_type = VIRTIO_NET_HDR_GSO_NONE;
-> > +
-> > +		if (skb->ip_summed == CHECKSUM_PARTIAL) {
-> > +			vnet_hdr.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
-> > +			vnet_hdr.csum_start = skb->csum_start -
-> > +						skb_headroom(skb);
-> > +			vnet_hdr.csum_offset = skb->csum_offset;
-> > +		} /* else everything is zero */
-> > +
-> > +		if (unlikely(memcpy_toiovecend(iv, (void *)&vnet_hdr, 0,
-> > +								vnet_hdr_len)))
-> > +			return -EFAULT;
-> > +	}
-> > +
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index fe7656b..7050997 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -60,30 +60,19 @@ static struct cdev macvtap_cdev;
 > 
-> This code is now also a separate function, same reason as above.
+>  /*
+>   * RCU usage:
+> - * The macvtap_queue is referenced both from the chardev struct file
+> - * and from the struct macvlan_dev using rcu_read_lock.
+> + * The macvtap_queue and the macvlan_dev are loosely coupled, the
+> + * pointers from one to the other can only be read while rcu_read_lock
+> + * or macvtap_lock is held.
+>   *
+> - * We never actually update the contents of a macvtap_queue atomically
+> - * with RCU but it is used for race-free destruction of a queue when
+> - * either the file or the macvlan_dev goes away. Pointers back to
+> - * the dev and the file are implicitly valid as long as the queue
+> - * exists.
+> + * Both the file and the macvlan_dev hold a reference on the macvtap_queue
+> + * through sock_hold(&q->sk). When the macvlan_dev goes away first,
+> + * q->vlan becomes inaccessible. When the files gets closed,
+> + * macvtap_get_queue() fails.
+>   *
+> - * The callbacks from macvlan are always done with rcu_read_lock held
+> - * already. For calls from file_operations, we use the rcu_read_lock_bh
+> - * to get a reference count on the socket and the device.
+> - *
+> - * When destroying a queue, we remove the pointers from the file and
+> - * from the dev and then synchronize_rcu to make sure no thread is
+> - * still using the queue. There may still be references to the struct
+> - * sock inside of the queue from outbound SKBs, but these never
+> - * reference back to the file or the dev. The data structure is freed
+> - * through __sk_free when both our references and any pending SKBs
+> - * are gone.
+> - *
+> - * macvtap_lock is only used to prevent multiple concurrent open()
+> - * calls to assign a new vlan->tap pointer. It could be moved into
+> - * the macvlan_dev itself but is extremely rarely used.
+> + * There may still be references to the struct sock inside of the
+> + * queue from outbound SKBs, but these never reference back to the
+> + * file or the dev. The data structure is freed through __sk_free
+> + * when both our references and any pending SKBs are gone.
+>   */
+>  static DEFINE_SPINLOCK(macvtap_lock);
 > 
-> >  	case TUNSETOFFLOAD:
-> > -		/* let the user check for future flags */
-> > -		if (arg & ~(TUN_F_CSUM | TUN_F_TSO4 | TUN_F_TSO6 |
-> > -			  TUN_F_TSO_ECN | TUN_F_UFO))
-> > -			return -EINVAL;
-> > -
-> > -		/* TODO: add support for these, so far we don't
-> > -			 support any offload */
-> > -		if (arg & (TUN_F_CSUM | TUN_F_TSO4 | TUN_F_TSO6 |
-> > -			 TUN_F_TSO_ECN | TUN_F_UFO))
-> > -			return -EINVAL;
-> > -
-> > -		return 0;
-> > +		q = macvtap_file_get_queue(file);
-> > +		if (!q)
-> > +			return -ENOLINK;
-> > +		ret = 0;
-> > +		if (!(q->flags & IFF_VNET_HDR))
-> > +			ret =  -EINVAL;
-> > +		macvtap_file_put_queue(q);
-> > +		return ret;
+> @@ -101,11 +90,12 @@ static int macvtap_set_queue(struct net_device *dev, struct file *file,
+>  		goto out;
 > 
-> I still feel uncomfortable about this, but partly because I don't fully
-> understand the GSO functionality. I've added a comment for now so we can
-> have another look.
+>  	err = 0;
+> -	q->vlan = vlan;
+> +	rcu_assign_pointer(q->vlan, vlan);
+>  	rcu_assign_pointer(vlan->tap, q);
+> +	sock_hold(&q->sk);
 > 
-> macvtap is different from tun/tap here, because the data direction is the
-> opposite: reading from a macvtap chardev corresponds to receive, while
-> writing to it is a transmit in the network stack. In the tap driver, we
-> just set the GSO flags of the netdev and dev_queue_xmit will do the right
-> thing when forwarding data to the tap, but for macvtap, incoming frames
-> never go through dev_queue_xmit (they go through netif_rx), so if the
-> external device passes us GSO frames, we just pass them on unmodified
-> to the guest, even if that guest does not understand GSO.
-
-If a guest is connected to a macvtap device attached to an underlying physical
-device with GRO enabled, it is possible to receive large SKBs and we don't handle
-them correctly. The current workaround is to disable GRO on the physical device.
-
+>  	q->file = file;
+> -	rcu_assign_pointer(file->private_data, q);
+> +	file->private_data = q;
 > 
-> In particular, when we have two guests using macvtap in bridge mode,
-> we don't even go through the network stack and just pass down the
-> SKB we got from the other side if the destination MAC address matches.
-> That means that a sender using virtio-net with GSO will send garbage
-> to another guest using a hardware emulated NIC that cannot receive
-> GSO (GRO?) frames.
-
-Yes. I think we need to do something similar to dev_gso_segment() in
-macvtap_forward() if skb_is_gso() and IFF_VNET_HDR is not set in
-q->flags.
-
+>  out:
+>  	spin_unlock(&macvtap_lock);
+> @@ -113,28 +103,25 @@ out:
+>  }
 > 
-> I hope you have an idea how to do this right or can convince me that
-> everything is ok, otherwise we'd have to defer this patch.
-
-I would prefer getting this patch in as it helps peformance when both
-the guest and the physical device support offloads and also we have 
-workaround for other situations. In the meantime, I will start looking
-into addressing this specific case in macvtap_forward().
-
-Thanks
-Sridhar
+>  /*
+> - * We must destroy each queue exactly once, when either
+> - * the netdev or the file go away.
+> + * The file owning the queue got closed, give up both
+> + * the reference that the files holds as well as the
+> + * one from the macvlan_dev if that still exists.
+>   *
+>   * Using the spinlock makes sure that we don't get
+>   * to the queue again after destroying it.
+> - *
+> - * synchronize_rcu serializes with the packet flow
+> - * that uses rcu_read_lock.
+>   */
+> -static void macvtap_del_queue(struct macvtap_queue **qp)
+> +static void macvtap_put_queue(struct macvtap_queue *q)
+>  {
+> -	struct macvtap_queue *q;
+> +	struct macvlan_dev *vlan;
+> 
+>  	spin_lock(&macvtap_lock);
+> -	q = rcu_dereference(*qp);
+> -	if (!q) {
+> -		spin_unlock(&macvtap_lock);
+> -		return;
+> +	vlan = rcu_dereference(q->vlan);
+> +	if (vlan) {
+> +		rcu_assign_pointer(vlan->tap, NULL);
+> +		rcu_assign_pointer(q->vlan, NULL);
+> +		sock_put(&q->sk);
+>  	}
+> 
+> -	rcu_assign_pointer(q->vlan->tap, NULL);
+> -	rcu_assign_pointer(q->file->private_data, NULL);
+>  	spin_unlock(&macvtap_lock);
+> 
+>  	synchronize_rcu();
+> @@ -152,29 +139,29 @@ static struct macvtap_queue *macvtap_get_queue(struct net_device *dev,
+>  	return rcu_dereference(vlan->tap);
+>  }
+> 
+> +/*
+> + * The net_device is going away, give up the reference
+> + * that it holds on the queue (all the queues one day)
+> + * and safely set the pointer from the queues to NULL.
+> + */
+>  static void macvtap_del_queues(struct net_device *dev)
+>  {
+>  	struct macvlan_dev *vlan = netdev_priv(dev);
+> -	macvtap_del_queue(&vlan->tap);
+> -}
+> -
+> -static inline struct macvtap_queue *macvtap_file_get_queue(struct file *file)
+> -{
+>  	struct macvtap_queue *q;
+> -	rcu_read_lock_bh();
+> -	q = rcu_dereference(file->private_data);
+> -	if (q) {
+> -		sock_hold(&q->sk);
+> -		dev_hold(q->vlan->dev);
+> +
+> +	spin_lock(&macvtap_lock);
+> +	q = rcu_dereference(vlan->tap);
+> +	if (!q) {
+> +		spin_unlock(&macvtap_lock);
+> +		return;
+>  	}
+> -	rcu_read_unlock_bh();
+> -	return q;
+> -}
+> 
+> -static inline void macvtap_file_put_queue(struct macvtap_queue *q)
+> -{
+> +	rcu_assign_pointer(vlan->tap, NULL);
+> +	rcu_assign_pointer(q->vlan, NULL);
+> +	spin_unlock(&macvtap_lock);
+> +
+> +	synchronize_rcu();
+>  	sock_put(&q->sk);
+> -	dev_put(q->vlan->dev);
+>  }
+> 
+>  /*
+> @@ -284,7 +271,6 @@ static int macvtap_open(struct inode *inode, struct file *file)
+>  	q->sock.type = SOCK_RAW;
+>  	q->sock.state = SS_CONNECTED;
+>  	sock_init_data(&q->sock, &q->sk);
+> -	q->sk.sk_allocation = GFP_ATOMIC; /* for now */
+>  	q->sk.sk_write_space = macvtap_sock_write_space;
+> 
+>  	err = macvtap_set_queue(dev, file, q);
+> @@ -300,13 +286,14 @@ out:
+> 
+>  static int macvtap_release(struct inode *inode, struct file *file)
+>  {
+> -	macvtap_del_queue((struct macvtap_queue **)&file->private_data);
+> +	struct macvtap_queue *q = file->private_data;
+> +	macvtap_put_queue(q);
+>  	return 0;
+>  }
+> 
+>  static unsigned int macvtap_poll(struct file *file, poll_table * wait)
+>  {
+> -	struct macvtap_queue *q = macvtap_file_get_queue(file);
+> +	struct macvtap_queue *q = file->private_data;
+>  	unsigned int mask = POLLERR;
+> 
+>  	if (!q)
+> @@ -323,7 +310,6 @@ static unsigned int macvtap_poll(struct file *file, poll_table * wait)
+>  	     sock_writeable(&q->sk)))
+>  		mask |= POLLOUT | POLLWRNORM;
+> 
+> -	macvtap_file_put_queue(q);
+>  out:
+>  	return mask;
+>  }
+> @@ -334,6 +320,7 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q,
+>  				int noblock)
+>  {
+>  	struct sk_buff *skb;
+> +	struct macvlan_dev *vlan;
+>  	size_t len = count;
+>  	int err;
+> 
+> @@ -341,26 +328,37 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q,
+>  		return -EINVAL;
+> 
+>  	skb = sock_alloc_send_skb(&q->sk, NET_IP_ALIGN + len, noblock, &err);
+> -
+> -	if (!skb) {
+> -		macvlan_count_rx(q->vlan, 0, false, false);
+> -		return err;
+> -	}
+> +	if (!skb)
+> +		goto err;
+> 
+>  	skb_reserve(skb, NET_IP_ALIGN);
+>  	skb_put(skb, count);
+> 
+> -	if (skb_copy_datagram_from_iovec(skb, 0, iv, 0, len)) {
+> -		macvlan_count_rx(q->vlan, 0, false, false);
+> -		kfree_skb(skb);
+> -		return -EFAULT;
+> -	}
+> +	err = skb_copy_datagram_from_iovec(skb, 0, iv, 0, len);
+> +	if (err)
+> +		goto err;
+> 
+>  	skb_set_network_header(skb, ETH_HLEN);
+> -
+> -	macvlan_start_xmit(skb, q->vlan->dev);
+> +	rcu_read_lock_bh();
+> +	vlan = rcu_dereference(q->vlan);
+> +	if (vlan)
+> +		macvlan_start_xmit(skb, vlan->dev);
+> +	else
+> +		kfree_skb(skb);
+> +	rcu_read_unlock_bh();
+> 
+>  	return count;
+> +
+> +err:
+> +	rcu_read_lock_bh();
+> +	vlan = rcu_dereference(q->vlan);
+> +	if (vlan)
+> +		macvlan_count_rx(q->vlan, 0, false, false);
+> +	rcu_read_unlock_bh();
+> +
+> +	kfree_skb(skb);
+> +
+> +	return err;
+>  }
+> 
+>  static ssize_t macvtap_aio_write(struct kiocb *iocb, const struct iovec *iv,
+> @@ -368,15 +366,10 @@ static ssize_t macvtap_aio_write(struct kiocb *iocb, const struct iovec *iv,
+>  {
+>  	struct file *file = iocb->ki_filp;
+>  	ssize_t result = -ENOLINK;
+> -	struct macvtap_queue *q = macvtap_file_get_queue(file);
+> -
+> -	if (!q)
+> -		goto out;
+> +	struct macvtap_queue *q = file->private_data;
+> 
+>  	result = macvtap_get_user(q, iv, iov_length(iv, count),
+>  			      file->f_flags & O_NONBLOCK);
+> -	macvtap_file_put_queue(q);
+> -out:
+>  	return result;
+>  }
+> 
+> @@ -385,14 +378,17 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+>  				const struct sk_buff *skb,
+>  				const struct iovec *iv, int len)
+>  {
+> -	struct macvlan_dev *vlan = q->vlan;
+> +	struct macvlan_dev *vlan;
+>  	int ret;
+> 
+>  	len = min_t(int, skb->len, len);
+> 
+>  	ret = skb_copy_datagram_const_iovec(skb, 0, iv, 0, len);
+> 
+> +	rcu_read_lock_bh();
+> +	vlan = rcu_dereference(q->vlan);
+>  	macvlan_count_rx(vlan, len, ret == 0, 0);
+> +	rcu_read_unlock_bh();
+> 
+>  	return ret ? ret : len;
+>  }
+> @@ -401,14 +397,16 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
+>  				unsigned long count, loff_t pos)
+>  {
+>  	struct file *file = iocb->ki_filp;
+> -	struct macvtap_queue *q = macvtap_file_get_queue(file);
+> +	struct macvtap_queue *q = file->private_data;
+> 
+>  	DECLARE_WAITQUEUE(wait, current);
+>  	struct sk_buff *skb;
+>  	ssize_t len, ret = 0;
+> 
+> -	if (!q)
+> -		return -ENOLINK;
+> +	if (!q) {
+> +		ret = -ENOLINK;
+> +		goto out;
+> +	}
+> 
+>  	len = iov_length(iv, count);
+>  	if (len < 0) {
+> @@ -444,7 +442,6 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
+>  	remove_wait_queue(q->sk.sk_sleep, &wait);
+> 
+>  out:
+> -	macvtap_file_put_queue(q);
+>  	return ret;
+>  }
+> 
+> @@ -454,12 +451,13 @@ out:
+>  static long macvtap_ioctl(struct file *file, unsigned int cmd,
+>  			  unsigned long arg)
+>  {
+> -	struct macvtap_queue *q;
+> +	struct macvtap_queue *q = file->private_data;
+> +	struct macvlan_dev *vlan;
+>  	void __user *argp = (void __user *)arg;
+>  	struct ifreq __user *ifr = argp;
+>  	unsigned int __user *up = argp;
+>  	unsigned int u;
+> -	char devname[IFNAMSIZ];
+> +	int ret;
+> 
+>  	switch (cmd) {
+>  	case TUNSETIFF:
+> @@ -471,16 +469,21 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+>  		return 0;
+> 
+>  	case TUNGETIFF:
+> -		q = macvtap_file_get_queue(file);
+> -		if (!q)
+> +		rcu_read_lock_bh();
+> +		vlan = rcu_dereference(q->vlan);
+> +		if (vlan)
+> +			dev_hold(vlan->dev);
+> +		rcu_read_unlock_bh();
+> +
+> +		if (!vlan)
+>  			return -ENOLINK;
+> -		memcpy(devname, q->vlan->dev->name, sizeof(devname));
+> -		macvtap_file_put_queue(q);
+> 
+> +		ret = 0;
+>  		if (copy_to_user(&ifr->ifr_name, q->vlan->dev->name, IFNAMSIZ) ||
+>  		    put_user((TUN_TAP_DEV | TUN_NO_PI), &ifr->ifr_flags))
+> -			return -EFAULT;
+> -		return 0;
+> +			ret = -EFAULT;
+> +		dev_put(vlan->dev);
+> +		return ret;
+> 
+>  	case TUNGETFEATURES:
+>  		if (put_user((IFF_TAP | IFF_NO_PI), up))
+> @@ -491,11 +494,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+>  		if (get_user(u, up))
+>  			return -EFAULT;
+> 
+> -		q = macvtap_file_get_queue(file);
+> -		if (!q)
+> -			return -ENOLINK;
+>  		q->sk.sk_sndbuf = u;
+> -		macvtap_file_put_queue(q);
+>  		return 0;
+> 
+>  	case TUNSETOFFLOAD:
 
