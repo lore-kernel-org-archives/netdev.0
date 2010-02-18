@@ -1,28 +1,49 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [IPVS] SCTP Trasport Loadbalancing Support
-Date: Thu, 18 Feb 2010 12:31:46 +0100
-Message-ID: <4B7D2522.6070101@trash.net>
-References: <20100218010642.GD16530@verge.net.au>
+From: Christine Caulfield <christine.caulfield@googlemail.com>
+Subject: [PATCH] Orphan DECnet
+Date: Thu, 18 Feb 2010 11:33:13 +0000
+Message-ID: <1266492793.412.1.camel@rhdesktop.chrissie.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Venkata Mohan Reddy <mohanreddykv@gmail.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20100218010642.GD16530@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org, torvalds@linux-foundation.org,
+	swhiteho@redhat.com, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from queueout01-winn.ispmail.ntl.com ([81.103.221.31]:24453 "EHLO
+	queueout01-winn.ispmail.ntl.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752374Ab0BRLqS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 06:46:18 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Simon Horman wrote:
-> From: Venkata Mohan Reddy <mohanreddykv@gmail.com>
-> 
-> Enhance IPVS to load balance SCTP transport protocol packets. This is done
-> based on the SCTP rfc 4960. All possible control chunks have been taken
-> care. The state machine used in this code looks some what lengthy. I tried
-> to make the state machine easy to understand.
+Hiya all
 
-Applied, thanks.
+Due to lack of time, space, motivation, hardware and probably expertise,
+I have reluctantly decided to orphan the DECnet code in the kernel.
+
+Judging by the deafening silence on the linux-decnet mailing list I
+suspect it's either not being used anyway, or the few people that are
+using it are happy with their older kernels.
+
+Chrissie
+
+
+Signed-Off-By: Christine Caulfield <christine.caulfield@googlemail.com>
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 412eff6..8ed3d0a 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1733,10 +1733,9 @@ F:	include/linux/tfrc.h
+ F:	net/dccp/
+ 
+ DECnet NETWORK LAYER
+-M:	Christine Caulfield <christine.caulfield@googlemail.com>
+ W:	http://linux-decnet.sourceforge.net
+ L:	linux-decnet-user@lists.sourceforge.net
+-S:	Maintained
++S:	Orphan
+ F:	Documentation/networking/decnet.txt
+ F:	net/decnet/
+ 
+
+
