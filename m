@@ -1,43 +1,42 @@
 From: Dimitris Michailidis <dm@chelsio.com>
-Subject: [PATCH net-next 3/7] cxgb4: Add HW and FW support code
-Date: Wed, 17 Feb 2010 17:37:38 -0800
-Message-ID: <1266457062-31150-4-git-send-email-dm@chelsio.com>
+Subject: [PATCH net-next 4/7] cxgb4: Add packet queues and packet DMA code
+Date: Wed, 17 Feb 2010 17:37:39 -0800
+Message-ID: <1266457062-31150-5-git-send-email-dm@chelsio.com>
 References: <1266457062-31150-1-git-send-email-dm@chelsio.com>
  <1266457062-31150-2-git-send-email-dm@chelsio.com>
  <1266457062-31150-3-git-send-email-dm@chelsio.com>
+ <1266457062-31150-4-git-send-email-dm@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:21687 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:6090 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752108Ab0BRBho (ORCPT
+	with ESMTP id S1752756Ab0BRBho (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 17 Feb 2010 20:37:44 -0500
 Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
-	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o1I1bhAe024567
-	for <netdev@vger.kernel.org>; Wed, 17 Feb 2010 17:37:43 -0800
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o1I1biAx024570
+	for <netdev@vger.kernel.org>; Wed, 17 Feb 2010 17:37:44 -0800
 Received: from darkside.asicdesigners.com (localhost.localdomain [127.0.0.1])
-	by darkside.asicdesigners.com (8.13.4/8.13.4) with ESMTP id o1I1bhrt031212
+	by darkside.asicdesigners.com (8.13.4/8.13.4) with ESMTP id o1I1bh6O031216
 	for <netdev@vger.kernel.org>; Wed, 17 Feb 2010 17:37:43 -0800
 Received: (from dm@localhost)
-	by darkside.asicdesigners.com (8.13.4/8.13.4/Submit) id o1I1bhOo031210
+	by darkside.asicdesigners.com (8.13.4/8.13.4/Submit) id o1I1bhYX031215
 	for netdev@vger.kernel.org; Wed, 17 Feb 2010 17:37:43 -0800
-In-Reply-To: <1266457062-31150-3-git-send-email-dm@chelsio.com>
+In-Reply-To: <1266457062-31150-4-git-send-email-dm@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
 ---
- drivers/net/cxgb4/t4_hw.c | 3116 +++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/cxgb4/t4_hw.h |  129 ++
- 2 files changed, 3245 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/cxgb4/t4_hw.c
- create mode 100644 drivers/net/cxgb4/t4_hw.h
+ drivers/net/cxgb4/sge.c | 2463 +++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 2463 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/cxgb4/sge.c
 
-diff --git a/drivers/net/cxgb4/t4_hw.c b/drivers/net/cxgb4/t4_hw.c
+diff --git a/drivers/net/cxgb4/sge.c b/drivers/net/cxgb4/sge.c
 new file mode 100644
-index 0000000..fee2f32
+index 0000000..3a7bb1a
 --- /dev/null
-+++ b/drivers/net/cxgb4/t4_hw.c
-@@ -0,0 +1,3116 @@
++++ b/drivers/net/cxgb4/sge.c
+@@ -0,0 +1,2463 @@
 +/*
 + * This file is part of the Chelsio T4 Ethernet driver for Linux.
 + *
@@ -72,3223 +71,2435 @@ index 0000000..fee2f32
 + * SOFTWARE.
 + */
 +
-+#include <linux/init.h>
-+#include <linux/delay.h>
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/if_vlan.h>
++#include <linux/ip.h>
++#include <linux/dma-mapping.h>
++#include <net/ipv6.h>
++#include <net/tcp.h>
 +#include "cxgb4.h"
 +#include "t4_regs.h"
++#include "t4_msg.h"
 +#include "t4fw_api.h"
 +
-+/**
-+ *	t4_wait_op_done_val - wait until an operation is completed
-+ *	@adapter: the adapter performing the operation
-+ *	@reg: the register to check for completion
-+ *	@mask: a single-bit field within @reg that indicates completion
-+ *	@polarity: the value of the field when the operation is completed
-+ *	@attempts: number of check iterations
-+ *	@delay: delay in usecs between iterations
-+ *	@valp: where to store the value of the register at completion time
-+ *
-+ *	Wait until an operation is completed by checking a bit in a register
-+ *	up to @attempts times.  If @valp is not NULL the value of the register
-+ *	at the time it indicated completion is stored there.  Returns 0 if the
-+ *	operation completes and	-EAGAIN	otherwise.
++/*
++ * Rx buffer size.  We use largish buffers if possible but settle for single
++ * pages under memory shortage.
 + */
-+int t4_wait_op_done_val(struct adapter *adapter, int reg, u32 mask,
-+			int polarity, int attempts, int delay, u32 *valp)
-+{
-+	while (1) {
-+		u32 val = t4_read_reg(adapter, reg);
++#if PAGE_SHIFT >= 16
++# define FL_PG_ORDER 0
++#else
++# define FL_PG_ORDER (16 - PAGE_SHIFT)
++#endif
 +
-+		if (!!(val & mask) == polarity) {
-+			if (valp)
-+				*valp = val;
-+			return 0;
++/* RX_PULL_LEN should be <= RX_COPY_THRES */
++#define RX_COPY_THRES    256
++#define RX_PULL_LEN      128
++
++/*
++ * Main body length for sk_buffs used for Rx Ethernet packets with fragments.
++ * Should be >= RX_PULL_LEN but possibly bigger to give pskb_may_pull some room.
++ */
++#define RX_PKT_SKB_LEN   512
++
++/* Ethernet header padding prepended to RX_PKTs */
++#define RX_PKT_PAD 2
++
++/*
++ * Max number of Tx descriptors we clean up at a time.  Should be modest as
++ * freeing skbs isn't cheap and it happens while holding locks.  We just need
++ * to free packets faster than they arrive, we eventually catch up and keep
++ * the amortized cost reasonable.  Must be >= 2 * TXQ_STOP_THRES.
++ */
++#define MAX_TX_RECLAIM 16
++
++/*
++ * Max number of Rx buffers we replenish at a time.  Again keep this modest,
++ * allocating buffers isn't cheap either.
++ */
++#define MAX_RX_REFILL 16U
++
++/*
++ * Period of the Rx queue check timer.  This timer is infrequent as it has
++ * something to do only when the system experiences severe memory shortage.
++ */
++#define RX_QCHECK_PERIOD (HZ / 2)
++
++/*
++ * Period of the Tx queue check timer.
++ */
++#define TX_QCHECK_PERIOD (HZ / 2)
++
++/*
++ * Timer index used when backing off due to memory shortage.
++ */
++#define NOMEM_TMR_IDX (SGE_NTIMERS - 1)
++
++/*
++ * An FL with <= FL_STARVE_THRES buffers is starving and a periodic timer will
++ * attempt to refill it.
++ */
++#define FL_STARVE_THRES 4
++
++/*
++ * Suspend an Ethernet Tx queue with fewer available descriptors than this.
++ * This is the same as calc_tx_descs() for a TSO packet with
++ * nr_frags == MAX_SKB_FRAGS.
++ */
++#define ETHTXQ_STOP_THRES \
++	(1 + DIV_ROUND_UP((3 * MAX_SKB_FRAGS) / 2 + (MAX_SKB_FRAGS & 1), 8))
++
++/*
++ * Suspension threshold for non-Ethernet Tx queues.  We require enough room
++ * for a full sized WR.
++ */
++#define TXQ_STOP_THRES (SGE_MAX_WR_LEN / sizeof(struct tx_desc))
++
++/*
++ * Max Tx descriptor space we allow for an Ethernet packet to be inlined
++ * into a WR.
++ */
++#define MAX_IMM_TX_PKT_LEN 128
++
++/*
++ * Max size of a WR sent through a control Tx queue.
++ */
++#define MAX_CTRL_WR_LEN SGE_MAX_WR_LEN
++
++enum {
++	/* packet alignment in FL buffers */
++	FL_ALIGN = L1_CACHE_BYTES < 32 ? 32 : L1_CACHE_BYTES,
++	/* egress status entry size */
++	STAT_LEN = L1_CACHE_BYTES > 64 ? 128 : 64
++};
++
++struct tx_sw_desc {                /* SW state per Tx descriptor */
++	struct sk_buff *skb;
++	struct ulptx_sgl *sgl;
++};
++
++struct rx_sw_desc {                /* SW state per Rx descriptor */
++	struct page *page;
++	dma_addr_t dma_addr;
++};
++
++/*
++ * The low bits of rx_sw_desc.dma_addr have special meaning.
++ */
++enum {
++	RX_LARGE_BUF    = 1 << 0, /* buffer is larger than PAGE_SIZE */
++	RX_UNMAPPED_BUF = 1 << 1, /* buffer is not mapped */
++};
++
++static inline dma_addr_t get_buf_addr(const struct rx_sw_desc *d)
++{
++	return d->dma_addr & ~(dma_addr_t)(RX_LARGE_BUF | RX_UNMAPPED_BUF);
++}
++
++static inline bool is_buf_mapped(const struct rx_sw_desc *d)
++{
++	return !(d->dma_addr & RX_UNMAPPED_BUF);
++}
++
++/**
++ *	txq_avail - return the number of available slots in a Tx queue
++ *	@q: the Tx queue
++ *
++ *	Returns the number of descriptors in a Tx queue available to write new
++ *	packets.
++ */
++static inline unsigned int txq_avail(const struct sge_txq *q)
++{
++	return q->size - 1 - q->in_use;
++}
++
++/**
++ *	fl_cap - return the capacity of a free-buffer list
++ *	@fl: the FL
++ *
++ *	Returns the capacity of a free-buffer list.  The capacity is less than
++ *	the size because one descriptor needs to be left unpopulated, otherwise
++ *	HW will think the FL is empty.
++ */
++static inline unsigned int fl_cap(const struct sge_fl *fl)
++{
++	return fl->size - 8;   /* 1 descriptor = 8 buffers */
++}
++
++static inline bool fl_starving(const struct sge_fl *fl)
++{
++	return fl->avail - fl->pend_cred <= FL_STARVE_THRES;
++}
++
++static int map_skb(struct device *dev, const struct sk_buff *skb,
++		   dma_addr_t *addr)
++{
++	const skb_frag_t *fp, *end;
++	const struct skb_shared_info *si;
++
++	*addr = dma_map_single(dev, skb->data, skb_headlen(skb), DMA_TO_DEVICE);
++	if (dma_mapping_error(dev, *addr))
++		goto out_err;
++
++	si = skb_shinfo(skb);
++	end = &si->frags[si->nr_frags];
++
++	for (fp = si->frags; fp < end; fp++) {
++		*++addr = dma_map_page(dev, fp->page, fp->page_offset, fp->size,
++				       DMA_TO_DEVICE);
++		if (dma_mapping_error(dev, *addr))
++			goto unwind;
++	}
++	return 0;
++
++unwind:
++	while (fp-- > si->frags)
++		dma_unmap_page(dev, *--addr, fp->size, DMA_TO_DEVICE);
++
++	dma_unmap_single(dev, addr[-1], skb_headlen(skb), DMA_TO_DEVICE);
++out_err:
++	return -ENOMEM;
++}
++
++static void unmap_skb(struct device *dev, const struct sk_buff *skb,
++		      const dma_addr_t *addr)
++{
++	const skb_frag_t *fp, *end;
++	const struct skb_shared_info *si;
++
++	dma_unmap_single(dev, *addr++, skb_headlen(skb), DMA_TO_DEVICE);
++
++	si = skb_shinfo(skb);
++	end = &si->frags[si->nr_frags];
++	for (fp = si->frags; fp < end; fp++)
++		dma_unmap_page(dev, *addr++, fp->size, DMA_TO_DEVICE);
++}
++
++static void unmap_sgl(struct device *dev, const struct sk_buff *skb,
++		      const struct ulptx_sgl *sgl, const struct sge_txq *q)
++{
++	const struct ulptx_sge_pair *p;
++	unsigned int nfrags = skb_shinfo(skb)->nr_frags;
++
++	if (likely(skb_headlen(skb)))
++		dma_unmap_single(dev, be64_to_cpu(sgl->addr0), ntohl(sgl->len0),
++				 DMA_TO_DEVICE);
++	else {
++		dma_unmap_page(dev, be64_to_cpu(sgl->addr0), ntohl(sgl->len0),
++			       DMA_TO_DEVICE);
++		nfrags--;
++	}
++
++	/*
++	 * the complexity below is because of the possibility of a wrap-around
++	 * in the middle of an SGL
++	 */
++	for (p = sgl->sge; nfrags >= 2; nfrags -= 2) {
++		if (likely((u8 *)(p + 1) <= (u8 *)q->stat)) {
++unmap:			dma_unmap_page(dev, be64_to_cpu(p->addr[0]),
++				       ntohl(p->len[0]), DMA_TO_DEVICE);
++			dma_unmap_page(dev, be64_to_cpu(p->addr[1]),
++				       ntohl(p->len[1]), DMA_TO_DEVICE);
++			p++;
++		} else if ((u8 *)p == (u8 *)q->stat) {
++			p = (const struct ulptx_sge_pair *)q->desc;
++			goto unmap;
++		} else if ((u8 *)p + 8 == (u8 *)q->stat) {
++			const __be64 *addr = (const __be64 *)q->desc;
++
++			dma_unmap_page(dev, be64_to_cpu(addr[0]),
++				       ntohl(p->len[0]), DMA_TO_DEVICE);
++			dma_unmap_page(dev, be64_to_cpu(addr[1]),
++				       ntohl(p->len[1]), DMA_TO_DEVICE);
++			p = (const struct ulptx_sge_pair *)&addr[2];
++		} else {
++			const __be64 *addr = (const __be64 *)q->desc;
++
++			dma_unmap_page(dev, be64_to_cpu(p->addr[0]),
++				       ntohl(p->len[0]), DMA_TO_DEVICE);
++			dma_unmap_page(dev, be64_to_cpu(addr[0]),
++				       ntohl(p->len[1]), DMA_TO_DEVICE);
++			p = (const struct ulptx_sge_pair *)&addr[1];
 +		}
-+		if (--attempts == 0)
-+			return -EAGAIN;
-+		if (delay)
-+			udelay(delay);
 +	}
-+}
++	if (nfrags) {
++		__be64 addr;
 +
-+static inline int t4_wait_op_done(struct adapter *adapter, int reg, u32 mask,
-+				  int polarity, int attempts, int delay)
-+{
-+	return t4_wait_op_done_val(adapter, reg, mask, polarity, attempts,
-+				   delay, NULL);
-+}
-+
-+/**
-+ *	t4_set_reg_field - set a register field to a value
-+ *	@adapter: the adapter to program
-+ *	@addr: the register address
-+ *	@mask: specifies the portion of the register to modify
-+ *	@val: the new value for the register field
-+ *
-+ *	Sets a register field specified by the supplied mask to the
-+ *	given value.
-+ */
-+void t4_set_reg_field(struct adapter *adapter, unsigned int addr, u32 mask,
-+		      u32 val)
-+{
-+	u32 v = t4_read_reg(adapter, addr) & ~mask;
-+
-+	t4_write_reg(adapter, addr, v | val);
-+	(void) t4_read_reg(adapter, addr);      /* flush */
-+}
-+
-+/**
-+ *	t4_read_indirect - read indirectly addressed registers
-+ *	@adap: the adapter
-+ *	@addr_reg: register holding the indirect address
-+ *	@data_reg: register holding the value of the indirect register
-+ *	@vals: where the read register values are stored
-+ *	@nregs: how many indirect registers to read
-+ *	@start_idx: index of first indirect register to read
-+ *
-+ *	Reads registers that are accessed indirectly through an address/data
-+ *	register pair.
-+ */
-+void t4_read_indirect(struct adapter *adap, unsigned int addr_reg,
-+		      unsigned int data_reg, u32 *vals, unsigned int nregs,
-+		      unsigned int start_idx)
-+{
-+	while (nregs--) {
-+		t4_write_reg(adap, addr_reg, start_idx);
-+		*vals++ = t4_read_reg(adap, data_reg);
-+		start_idx++;
++		if ((u8 *)p == (u8 *)q->stat)
++			p = (const struct ulptx_sge_pair *)q->desc;
++		addr = (u8 *)p + 16 <= (u8 *)q->stat ? p->addr[0] :
++						       *(const __be64 *)q->desc;
++		dma_unmap_page(dev, be64_to_cpu(addr), ntohl(p->len[0]),
++			       DMA_TO_DEVICE);
 +	}
 +}
 +
 +/**
-+ *	t4_write_indirect - write indirectly addressed registers
-+ *	@adap: the adapter
-+ *	@addr_reg: register holding the indirect addresses
-+ *	@data_reg: register holding the value for the indirect registers
-+ *	@vals: values to write
-+ *	@nregs: how many indirect registers to write
-+ *	@start_idx: address of first indirect register to write
++ *	need_skb_unmap - does the platform need unmapping of sk_buffs?
 + *
-+ *	Writes a sequential block of registers that are accessed indirectly
-+ *	through an address/data register pair.
++ *	Returns true if the platfrom needs sk_buff unmapping.  The compiler
++ *	optimizes away unecessary code if this returns true.
 + */
-+void t4_write_indirect(struct adapter *adap, unsigned int addr_reg,
-+		       unsigned int data_reg, const u32 *vals,
-+		       unsigned int nregs, unsigned int start_idx)
++static inline int need_skb_unmap(void)
 +{
-+	while (nregs--) {
-+		t4_write_reg(adap, addr_reg, start_idx++);
-+		t4_write_reg(adap, data_reg, *vals++);
-+	}
-+}
-+
-+/*
-+ * Get the reply to a mailbox command and store it in @rpl in big-endian order.
-+ */
-+static void get_mbox_rpl(struct adapter *adap, __be64 *rpl, int nflit,
-+			 u32 mbox_addr)
-+{
-+	for ( ; nflit; nflit--, mbox_addr += 8)
-+		*rpl++ = cpu_to_be64(t4_read_reg64(adap, mbox_addr));
-+}
-+
-+/*
-+ * Handle a FW assertion reported in a mailbox.
-+ */
-+static void fw_asrt(struct adapter *adap, u32 mbox_addr)
-+{
-+	struct fw_debug_cmd asrt;
-+
-+	get_mbox_rpl(adap, (__be64 *)&asrt, sizeof(asrt) / 8, mbox_addr);
-+	CH_ALERT(adap, "FW assertion at %.16s:%u, val0 %#x, val1 %#x\n",
-+		 asrt.u.assert.filename_0_7, ntohl(asrt.u.assert.line),
-+		 ntohl(asrt.u.assert.x), ntohl(asrt.u.assert.y));
-+}
-+
-+static void dump_mbox(struct adapter *adap, int mbox, u32 data_reg)
-+{
-+	CH_ERR(adap, "mbox %d: %llx %llx %llx %llx %llx %llx %llx %llx\n", mbox,
-+	       (unsigned long long)t4_read_reg64(adap, data_reg),
-+	       (unsigned long long)t4_read_reg64(adap, data_reg + 8),
-+	       (unsigned long long)t4_read_reg64(adap, data_reg + 16),
-+	       (unsigned long long)t4_read_reg64(adap, data_reg + 24),
-+	       (unsigned long long)t4_read_reg64(adap, data_reg + 32),
-+	       (unsigned long long)t4_read_reg64(adap, data_reg + 40),
-+	       (unsigned long long)t4_read_reg64(adap, data_reg + 48),
-+	       (unsigned long long)t4_read_reg64(adap, data_reg + 56));
-+}
-+
-+/**
-+ *	t4_wr_mbox_meat - send a command to FW through the given mailbox
-+ *	@adap: the adapter
-+ *	@mbox: index of the mailbox to use
-+ *	@cmd: the command to write
-+ *	@size: command length in bytes
-+ *	@rpl: where to optionally store the reply
-+ *	@sleep_ok: if true we may sleep while awaiting command completion
-+ *
-+ *	Sends the given command to FW through the selected mailbox and waits
-+ *	for the FW to execute the command.  If @rpl is not %NULL it is used to
-+ *	store the FW's reply to the command.  The command and its optional
-+ *	reply are of the same length.  FW can take up to %FW_CMD_MAX_TIMEOUT ms
-+ *	to respond.  @sleep_ok determines whether we may sleep while awaiting
-+ *	the response.  If sleeping is allowed we use progressive backoff
-+ *	otherwise we spin.
-+ *
-+ *	The return value is 0 on success or a negative errno on failure.  A
-+ *	failure can happen either because we are not able to execute the
-+ *	command or FW executes it but signals an error.  In the latter case
-+ *	the return value is the error code indicated by FW (negated).
-+ */
-+int t4_wr_mbox_meat(struct adapter *adap, int mbox, const void *cmd, int size,
-+		    void *rpl, bool sleep_ok)
-+{
-+	static int delay[] = {
-+		1, 1, 3, 5, 10, 10, 20, 50, 100, 200
++	/*
++	 * This structure is used to tell if the platfrom needs buffer
++	 * unmapping by checking if DECLARE_PCI_UNMAP_ADDR defines anything.
++	 */
++	struct dummy {
++		DECLARE_PCI_UNMAP_ADDR(addr);
 +	};
 +
-+	u32 v;
-+	u64 res;
-+	int i, ms, delay_idx;
-+	const __be64 *p = cmd;
-+	u32 data_reg = PF_REG(mbox, A_CIM_PF_MAILBOX_DATA);
-+	u32 ctl_reg = PF_REG(mbox, A_CIM_PF_MAILBOX_CTRL);
++	return sizeof(struct dummy) != 0;
++}
 +
-+	if ((size & 15) || size > MBOX_LEN)
-+		return -EINVAL;
++/**
++ *	free_tx_desc - reclaims Tx descriptors and their buffers
++ *	@adapter: the adapter
++ *	@q: the Tx queue to reclaim descriptors from
++ *	@n: the number of descriptors to reclaim
++ *	@unmap: whether the buffers should be unmapped for DMA
++ *
++ *	Reclaims Tx descriptors from an SGE Tx queue and frees the associated
++ *	Tx buffers.  Called with the Tx queue lock held.
++ */
++static void free_tx_desc(struct adapter *adap, struct sge_txq *q,
++			 unsigned int n, bool unmap)
++{
++	struct tx_sw_desc *d;
++	unsigned int cidx = q->cidx;
++	struct device *dev = adap->pdev_dev;
 +
-+	v = G_MBOWNER(t4_read_reg(adap, ctl_reg));
-+	for (i = 0; v == MBOX_OWNER_NONE && i < 3; i++)
-+		v = G_MBOWNER(t4_read_reg(adap, ctl_reg));
++	const int need_unmap = need_skb_unmap() && unmap;
 +
-+	if (v != MBOX_OWNER_DRV)
-+		return v ? -EBUSY : -ETIMEDOUT;
-+
-+	for (i = 0; i < size; i += 8)
-+		t4_write_reg64(adap, data_reg + i, be64_to_cpu(*p++));
-+
-+	t4_write_reg(adap, ctl_reg, F_MBMSGVALID | V_MBOWNER(MBOX_OWNER_FW));
-+	t4_read_reg(adap, ctl_reg);          /* flush write */
-+
-+	delay_idx = 0;
-+	ms = delay[0];
-+
-+	for (i = 0; i < FW_CMD_MAX_TIMEOUT; i += ms) {
-+		if (sleep_ok) {
-+			ms = delay[delay_idx];  /* last element may repeat */
-+			if (delay_idx < ARRAY_SIZE(delay) - 1)
-+				delay_idx++;
-+			msleep(ms);
-+		} else
-+			mdelay(ms);
-+
-+		v = t4_read_reg(adap, ctl_reg);
-+		if (G_MBOWNER(v) == MBOX_OWNER_DRV) {
-+			if (!(v & F_MBMSGVALID)) {
-+				t4_write_reg(adap, ctl_reg, 0);
-+				continue;
-+			}
-+
-+			res = t4_read_reg64(adap, data_reg);
-+			if (G_FW_CMD_OP(res >> 32) == FW_DEBUG_CMD) {
-+				fw_asrt(adap, data_reg);
-+				res = V_FW_CMD_RETVAL(EIO);
-+			} else if (rpl)
-+				get_mbox_rpl(adap, rpl, size / 8, data_reg);
-+
-+			if (G_FW_CMD_RETVAL((int)res))
-+				dump_mbox(adap, mbox, data_reg);
-+			t4_write_reg(adap, ctl_reg, 0);
-+			return -G_FW_CMD_RETVAL((int)res);
++	d = &q->sdesc[cidx];
++	while (n--) {
++		if (d->skb) {                       /* an SGL is present */
++			if (need_unmap)
++				unmap_sgl(dev, d->skb, d->sgl, q);
++			kfree_skb(d->skb);
++			d->skb = NULL;
++		}
++		++d;
++		if (++cidx == q->size) {
++			cidx = 0;
++			d = q->sdesc;
 +		}
 +	}
-+
-+	dump_mbox(adap, mbox, data_reg);
-+	CH_ERR(adap, "command %#x in mailbox %d timed out\n",
-+	       *(const u8 *)cmd, mbox);
-+	return -ETIMEDOUT;
++	q->cidx = cidx;
 +}
-+
-+/**
-+ *	t4_mc_read - read from MC through backdoor accesses
-+ *	@adap: the adapter
-+ *	@addr: address of first byte requested
-+ *	@data: 64 bytes of data containing the requested address
-+ *	@ecc: where to store the corresponding 64-bit ECC word
-+ *
-+ *	Read 64 bytes of data from MC starting at a 64-byte-aligned address
-+ *	that covers the requested address @addr.  If @parity is not %NULL it
-+ *	is assigned the 64-bit ECC word for the read data.
-+ */
-+int t4_mc_read(struct adapter *adap, u32 addr, __be32 *data, u64 *ecc)
-+{
-+	int i;
-+
-+	if (t4_read_reg(adap, A_MC_BIST_CMD) & F_START_BIST)
-+		return -EBUSY;
-+	t4_write_reg(adap, A_MC_BIST_CMD_ADDR, addr & ~0x3fU);
-+	t4_write_reg(adap, A_MC_BIST_CMD_LEN, 64);
-+	t4_write_reg(adap, A_MC_BIST_DATA_PATTERN, 0xc);
-+	t4_write_reg(adap, A_MC_BIST_CMD, V_BIST_OPCODE(1) | F_START_BIST |
-+		     V_BIST_CMD_GAP(1));
-+	i = t4_wait_op_done(adap, A_MC_BIST_CMD, F_START_BIST, 0, 10, 1);
-+	if (i)
-+		return i;
-+
-+#define MC_DATA(i) MC_BIST_STATUS_REG(A_MC_BIST_STATUS_RDATA, i)
-+
-+	for (i = 15; i >= 0; i--)
-+		*data++ = htonl(t4_read_reg(adap, MC_DATA(i)));
-+	if (ecc)
-+		*ecc = t4_read_reg64(adap, MC_DATA(16));
-+#undef MC_DATA
-+	return 0;
-+}
-+
-+/**
-+ *	t4_edc_read - read from EDC through backdoor accesses
-+ *	@adap: the adapter
-+ *	@idx: which EDC to access
-+ *	@addr: address of first byte requested
-+ *	@data: 64 bytes of data containing the requested address
-+ *	@ecc: where to store the corresponding 64-bit ECC word
-+ *
-+ *	Read 64 bytes of data from EDC starting at a 64-byte-aligned address
-+ *	that covers the requested address @addr.  If @parity is not %NULL it
-+ *	is assigned the 64-bit ECC word for the read data.
-+ */
-+int t4_edc_read(struct adapter *adap, int idx, u32 addr, __be32 *data, u64 *ecc)
-+{
-+	int i;
-+
-+	idx *= EDC_STRIDE;
-+	if (t4_read_reg(adap, A_EDC_BIST_CMD + idx) & F_START_BIST)
-+		return -EBUSY;
-+	t4_write_reg(adap, A_EDC_BIST_CMD_ADDR + idx, addr & ~0x3fU);
-+	t4_write_reg(adap, A_EDC_BIST_CMD_LEN + idx, 64);
-+	t4_write_reg(adap, A_EDC_BIST_DATA_PATTERN + idx, 0xc);
-+	t4_write_reg(adap, A_EDC_BIST_CMD + idx,
-+		     V_BIST_OPCODE(1) | V_BIST_CMD_GAP(1) | F_START_BIST);
-+	i = t4_wait_op_done(adap, A_EDC_BIST_CMD + idx, F_START_BIST, 0, 10, 1);
-+	if (i)
-+		return i;
-+
-+#define EDC_DATA(i) (EDC_BIST_STATUS_REG(A_EDC_BIST_STATUS_RDATA, i) + idx)
-+
-+	for (i = 15; i >= 0; i--)
-+		*data++ = htonl(t4_read_reg(adap, EDC_DATA(i)));
-+	if (ecc)
-+		*ecc = t4_read_reg64(adap, EDC_DATA(16));
-+#undef EDC_DATA
-+	return 0;
-+}
-+
-+#define VPD_ENTRY(name, len) \
-+	u8 name##_kword[2]; u8 name##_len; u8 name##_data[len]
 +
 +/*
-+ * Partial EEPROM Vital Product Data structure.  Includes only the ID and
-+ * VPD-R sections.
++ * Return the number of reclaimable descriptors in a Tx queue.
 + */
-+struct t4_vpd {
-+	u8  id_tag;
-+	u8  id_len[2];
-+	u8  id_data[ID_LEN];
-+	u8  vpdr_tag;
-+	u8  vpdr_len[2];
-+	VPD_ENTRY(pn, 16);                     /* part number */
-+	VPD_ENTRY(ec, EC_LEN);                 /* EC level */
-+	VPD_ENTRY(sn, SERNUM_LEN);             /* serial number */
-+	VPD_ENTRY(na, 12);                     /* MAC address base */
-+	VPD_ENTRY(port_type, 8);               /* port types */
-+	VPD_ENTRY(gpio, 14);                   /* GPIO usage */
-+	VPD_ENTRY(cclk, 6);                    /* core clock */
-+	VPD_ENTRY(port_addr, 8);               /* port MDIO addresses */
-+	VPD_ENTRY(rv, 1);                      /* csum */
-+	u32 pad;                  /* for multiple-of-4 sizing and alignment */
-+};
-+
-+#define EEPROM_STAT_ADDR   0x7bfc
-+#define VPD_BASE           0
-+
-+/**
-+ *	t4_seeprom_wp - enable/disable EEPROM write protection
-+ *	@adapter: the adapter
-+ *	@enable: whether to enable or disable write protection
-+ *
-+ *	Enables or disables write protection on the serial EEPROM.
-+ */
-+int t4_seeprom_wp(struct adapter *adapter, bool enable)
++static inline int reclaimable(const struct sge_txq *q)
 +{
-+	unsigned int v = enable ? 0xc : 0;
-+	int ret = pci_write_vpd(adapter->pdev, EEPROM_STAT_ADDR, 4, &v);
-+	return ret < 0 ? ret : 0;
++	int hw_cidx = ntohs(q->stat->cidx);
++	hw_cidx -= q->cidx;
++	return hw_cidx < 0 ? hw_cidx + q->size : hw_cidx;
 +}
 +
 +/**
-+ *	get_vpd_params - read VPD parameters from VPD EEPROM
-+ *	@adapter: adapter to read
-+ *	@p: where to store the parameters
++ *	reclaim_completed_tx - reclaims completed Tx descriptors
++ *	@adap: the adapter
++ *	@q: the Tx queue to reclaim completed descriptors from
++ *	@unmap: whether the buffers should be unmapped for DMA
 + *
-+ *	Reads card parameters stored in VPD EEPROM.
++ *	Reclaims Tx descriptors that the SGE has indicated it has processed,
++ *	and frees the associated buffers if possible.  Called with the Tx
++ *	queue locked.
 + */
-+static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
++static inline void reclaim_completed_tx(struct adapter *adap, struct sge_txq *q,
++					bool unmap)
 +{
-+	int ret;
-+	struct t4_vpd vpd;
-+	u8 *q = (u8 *)&vpd, csum;
++	int avail = reclaimable(q);
 +
-+	ret = pci_read_vpd(adapter->pdev, VPD_BASE, sizeof(vpd), &vpd);
-+	if (ret < 0)
-+		return ret;
++	if (avail) {
++		/*
++		 * Limit the amount of clean up work we do at a time to keep
++		 * the Tx lock hold time O(1).
++		 */
++		if (avail > MAX_TX_RECLAIM)
++			avail = MAX_TX_RECLAIM;
 +
-+	for (csum = 0; q <= vpd.rv_data; q++)
-+		csum += *q;
-+
-+	if (csum) {
-+		CH_ERR(adapter, "corrupted VPD EEPROM, actual csum %u\n", csum);
-+		return -EINVAL;
++		free_tx_desc(adap, q, avail, unmap);
++		q->in_use -= avail;
 +	}
-+
-+	p->cclk = simple_strtoul(vpd.cclk_data, NULL, 10);
-+	memcpy(p->id, vpd.id_data, sizeof(vpd.id_data));
-+	strim(p->id);
-+	memcpy(p->ec, vpd.ec_data, sizeof(vpd.ec_data));
-+	strim(p->ec);
-+	memcpy(p->sn, vpd.sn_data, sizeof(vpd.sn_data));
-+	strim(p->sn);
-+	return 0;
 +}
 +
-+/* serial flash and firmware constants */
-+enum {
-+	SF_ATTEMPTS = 10,             /* max retries for SF operations */
-+
-+	/* flash command opcodes */
-+	SF_PROG_PAGE    = 2,          /* program page */
-+	SF_WR_DISABLE   = 4,          /* disable writes */
-+	SF_RD_STATUS    = 5,          /* read status register */
-+	SF_WR_ENABLE    = 6,          /* enable writes */
-+	SF_RD_DATA_FAST = 0xb,        /* read flash */
-+	SF_ERASE_SECTOR = 0xd8,       /* erase sector */
-+
-+	FW_START_SEC = 8,             /* first flash sector for FW */
-+	FW_END_SEC = 15,              /* last flash sector for FW */
-+	FW_IMG_START = FW_START_SEC * SF_SEC_SIZE,
-+	FW_MAX_SIZE = (FW_END_SEC - FW_START_SEC + 1) * SF_SEC_SIZE,
-+};
-+
-+/**
-+ *	sf1_read - read data from the serial flash
-+ *	@adapter: the adapter
-+ *	@byte_cnt: number of bytes to read
-+ *	@cont: whether another operation will be chained
-+ *	@lock: whether to lock SF for PL access only
-+ *	@valp: where to store the read data
-+ *
-+ *	Reads up to 4 bytes of data from the serial flash.  The location of
-+ *	the read needs to be specified prior to calling this by issuing the
-+ *	appropriate commands to the serial flash.
-+ */
-+static int sf1_read(struct adapter *adapter, unsigned int byte_cnt, int cont,
-+		    int lock, u32 *valp)
++static inline int get_buf_size(const struct rx_sw_desc *d)
 +{
-+	int ret;
-+
-+	if (!byte_cnt || byte_cnt > 4)
-+		return -EINVAL;
-+	if (t4_read_reg(adapter, A_SF_OP) & F_BUSY)
-+		return -EBUSY;
-+	t4_write_reg(adapter, A_SF_OP,
-+		     V_SF_LOCK(lock) | V_CONT(cont) | V_BYTECNT(byte_cnt - 1));
-+	ret = t4_wait_op_done(adapter, A_SF_OP, F_BUSY, 0, SF_ATTEMPTS, 5);
-+	if (!ret)
-+		*valp = t4_read_reg(adapter, A_SF_DATA);
-+	return ret;
++#if FL_PG_ORDER > 0
++	return (d->dma_addr & RX_LARGE_BUF) ? (PAGE_SIZE << FL_PG_ORDER) :
++					      PAGE_SIZE;
++#else
++	return PAGE_SIZE;
++#endif
 +}
 +
 +/**
-+ *	sf1_write - write data to the serial flash
-+ *	@adapter: the adapter
-+ *	@byte_cnt: number of bytes to write
-+ *	@cont: whether another operation will be chained
-+ *	@lock: whether to lock SF for PL access only
-+ *	@val: value to write
++ *	free_rx_bufs - free the Rx buffers on an SGE free list
++ *	@adap: the adapter
++ *	@q: the SGE free list to free buffers from
++ *	@n: how many buffers to free
 + *
-+ *	Writes up to 4 bytes of data to the serial flash.  The location of
-+ *	the write needs to be specified prior to calling this by issuing the
-+ *	appropriate commands to the serial flash.
++ *	Release the next @n buffers on an SGE free-buffer Rx queue.   The
++ *	buffers must be made inaccessible to HW before calling this function.
 + */
-+static int sf1_write(struct adapter *adapter, unsigned int byte_cnt, int cont,
-+		     int lock, u32 val)
++static void free_rx_bufs(struct adapter *adap, struct sge_fl *q, int n)
 +{
-+	if (!byte_cnt || byte_cnt > 4)
-+		return -EINVAL;
-+	if (t4_read_reg(adapter, A_SF_OP) & F_BUSY)
-+		return -EBUSY;
-+	t4_write_reg(adapter, A_SF_DATA, val);
-+	t4_write_reg(adapter, A_SF_OP, V_SF_LOCK(lock) |
-+		     V_CONT(cont) | V_BYTECNT(byte_cnt - 1) | V_OP(1));
-+	return t4_wait_op_done(adapter, A_SF_OP, F_BUSY, 0, SF_ATTEMPTS, 5);
-+}
++	while (n--) {
++		struct rx_sw_desc *d = &q->sdesc[q->cidx];
 +
-+/**
-+ *	flash_wait_op - wait for a flash operation to complete
-+ *	@adapter: the adapter
-+ *	@attempts: max number of polls of the status register
-+ *	@delay: delay between polls in ms
-+ *
-+ *	Wait for a flash operation to complete by polling the status register.
-+ */
-+static int flash_wait_op(struct adapter *adapter, int attempts, int delay)
-+{
-+	int ret;
-+	u32 status;
-+
-+	while (1) {
-+		if ((ret = sf1_write(adapter, 1, 1, 1, SF_RD_STATUS)) != 0 ||
-+		    (ret = sf1_read(adapter, 1, 0, 1, &status)) != 0)
-+			return ret;
-+		if (!(status & 1))
-+			return 0;
-+		if (--attempts == 0)
-+			return -EAGAIN;
-+		if (delay)
-+			msleep(delay);
++		if (is_buf_mapped(d))
++			dma_unmap_page(adap->pdev_dev, get_buf_addr(d),
++				       get_buf_size(d), PCI_DMA_FROMDEVICE);
++		put_page(d->page);
++		d->page = NULL;
++		if (++q->cidx == q->size)
++			q->cidx = 0;
++		q->avail--;
 +	}
 +}
 +
 +/**
-+ *	t4_read_flash - read words from serial flash
-+ *	@adapter: the adapter
-+ *	@addr: the start address for the read
-+ *	@nwords: how many 32-bit words to read
-+ *	@data: where to store the read data
-+ *	@byte_oriented: whether to store data as bytes or as words
++ *	unmap_rx_buf - unmap the current Rx buffer on an SGE free list
++ *	@adap: the adapter
++ *	@q: the SGE free list
 + *
-+ *	Read the specified number of 32-bit words from the serial flash.
-+ *	If @byte_oriented is set the read data is stored as a byte array
-+ *	(i.e., big-endian), otherwise as 32-bit words in the platform's
-+ *	natural endianess.
++ *	Unmap the current buffer on an SGE free-buffer Rx queue.   The
++ *	buffer must be made inaccessible to HW before calling this function.
++ *
++ *	This is similar to @free_rx_bufs above but does not free the buffer.
++ *	Do note that the FL still loses any further access to the buffer.
 + */
-+int t4_read_flash(struct adapter *adapter, unsigned int addr,
-+		  unsigned int nwords, u32 *data, int byte_oriented)
++static void unmap_rx_buf(struct adapter *adap, struct sge_fl *q)
 +{
-+	int ret;
++	struct rx_sw_desc *d = &q->sdesc[q->cidx];
 +
-+	if (addr + nwords * sizeof(u32) > SF_SIZE || (addr & 3))
-+		return -EINVAL;
++	if (is_buf_mapped(d))
++		dma_unmap_page(adap->pdev_dev, get_buf_addr(d),
++			       get_buf_size(d), PCI_DMA_FROMDEVICE);
++	d->page = NULL;
++	if (++q->cidx == q->size)
++		q->cidx = 0;
++	q->avail--;
++}
 +
-+	addr = swab32(addr) | SF_RD_DATA_FAST;
-+
-+	if ((ret = sf1_write(adapter, 4, 1, 0, addr)) != 0 ||
-+	    (ret = sf1_read(adapter, 1, 1, 0, data)) != 0)
-+		return ret;
-+
-+	for ( ; nwords; nwords--, data++) {
-+		ret = sf1_read(adapter, 4, nwords > 1, nwords == 1, data);
-+		if (nwords == 1)
-+			t4_write_reg(adapter, A_SF_OP, 0);    /* unlock SF */
-+		if (ret)
-+			return ret;
-+		if (byte_oriented)
-+			*data = htonl(*data);
++static inline void ring_fl_db(struct adapter *adap, struct sge_fl *q)
++{
++	if (q->pend_cred >= 8) {
++		t4_write_reg(adap, MYPF_REG(A_SGE_PF_KDOORBELL), F_DBPRIO |
++			     V_QID(q->cntxt_id) | V_PIDX(q->pend_cred / 8));
++		q->pend_cred &= 7;
 +	}
-+	return 0;
++}
++
++static inline void set_rx_sw_desc(struct rx_sw_desc *sd, struct page *pg,
++				  dma_addr_t mapping)
++{
++	sd->page = pg;
++	sd->dma_addr = mapping;      /* includes size low bits */
 +}
 +
 +/**
-+ *	t4_write_flash - write up to a page of data to the serial flash
-+ *	@adapter: the adapter
-+ *	@addr: the start address to write
-+ *	@n: length of data to write in bytes
-+ *	@data: the data to write
++ *	refill_fl - refill an SGE Rx buffer ring
++ *	@adap: the adapter
++ *	@q: the ring to refill
++ *	@n: the number of new buffers to allocate
++ *	@gfp: the gfp flags for the allocations
 + *
-+ *	Writes up to a page of data (256 bytes) to the serial flash starting
-+ *	at the given address.  All the data must be written to the same page.
++ *	(Re)populate an SGE free-buffer queue with up to @n new packet buffers,
++ *	allocated with the supplied gfp flags.  The caller must assure that
++ *	@n does not exceed the queue's capacity.  Returns the number of buffers
++ *	allocated.
 + */
-+static int t4_write_flash(struct adapter *adapter, unsigned int addr,
-+			  unsigned int n, const u8 *data)
++static unsigned int refill_fl(struct adapter *adap, struct sge_fl *q, int n,
++			      gfp_t gfp)
 +{
-+	int ret;
-+	u32 buf[64];
-+	unsigned int i, c, left, val, offset = addr & 0xff;
++	struct page *pg;
++	dma_addr_t mapping;
++	unsigned int cred = q->avail;
++	__be64 *d = &q->desc[q->pidx];
++	struct rx_sw_desc *sd = &q->sdesc[q->pidx];
 +
-+	if (addr >= SF_SIZE || offset + n > SF_PAGE_SIZE)
-+		return -EINVAL;
++	gfp |= __GFP_NOWARN;         /* failures are expected */
 +
-+	val = swab32(addr) | SF_PROG_PAGE;
++#if FL_PG_ORDER > 0
++	/*
++	 * Prefer large buffers
++	 */
++	while (n) {
++		pg = alloc_pages(gfp | __GFP_COMP, FL_PG_ORDER);
++		if (unlikely(!pg)) {
++			q->large_alloc_failed++;
++			break;       /* fall back to single pages */
++		}
 +
-+	if ((ret = sf1_write(adapter, 1, 0, 1, SF_WR_ENABLE)) != 0 ||
-+	    (ret = sf1_write(adapter, 4, 1, 1, val)) != 0)
-+		goto unlock;
++		mapping = dma_map_page(adap->pdev_dev, pg, 0,
++				       PAGE_SIZE << FL_PG_ORDER,
++				       PCI_DMA_FROMDEVICE);
++		if (unlikely(dma_mapping_error(adap->pdev_dev, mapping))) {
++			__free_pages(pg, FL_PG_ORDER);
++			goto out;   /* do not try small pages for this error */
++		}
++		mapping |= RX_LARGE_BUF;
++		*d++ = cpu_to_be64(mapping);
 +
-+	for (left = n; left; left -= c) {
-+		c = min(left, 4U);
-+		for (val = 0, i = 0; i < c; ++i)
-+			val = (val << 8) + *data++;
++		set_rx_sw_desc(sd, pg, mapping);
++		sd++;
 +
-+		ret = sf1_write(adapter, c, c != left, 1, val);
-+		if (ret)
-+			goto unlock;
++		q->avail++;
++		if (++q->pidx == q->size) {
++			q->pidx = 0;
++			sd = q->sdesc;
++			d = q->desc;
++		}
++		n--;
 +	}
-+	if ((ret = flash_wait_op(adapter, 5, 1)) != 0)
-+		goto unlock;
++#endif
 +
-+	t4_write_reg(adapter, A_SF_OP, 0);    /* unlock SF */
-+
-+	/* Read the page to verify the write succeeded */
-+	ret = t4_read_flash(adapter, addr & ~0xff, ARRAY_SIZE(buf), buf, 1);
-+	if (ret)
-+		return ret;
-+
-+	if (memcmp(data - n, (u8 *)buf + offset, n)) {
-+		CH_ERR(adapter, "failed to correctly write the flash page "
-+		       "at %#x\n", addr);
-+		return -EIO;
-+	}
-+	return 0;
-+
-+unlock:
-+	t4_write_reg(adapter, A_SF_OP, 0);    /* unlock SF */
-+	return ret;
-+}
-+
-+/**
-+ *	t4_get_fw_version - read the firmware version
-+ *	@adapter: the adapter
-+ *	@vers: where to place the version
-+ *
-+ *	Reads the FW version from flash.
-+ */
-+int t4_get_fw_version(struct adapter *adapter, u32 *vers)
-+{
-+	return t4_read_flash(adapter,
-+			     FW_IMG_START + offsetof(struct fw_hdr, fw_ver), 1,
-+			     vers, 0);
-+}
-+
-+/**
-+ *	t4_get_tp_version - read the TP microcode version
-+ *	@adapter: the adapter
-+ *	@vers: where to place the version
-+ *
-+ *	Reads the TP microcode version from flash.
-+ */
-+int t4_get_tp_version(struct adapter *adapter, u32 *vers)
-+{
-+	return t4_read_flash(adapter, FW_IMG_START + offsetof(struct fw_hdr,
-+							      tp_microcode_ver),
-+			     1, vers, 0);
-+}
-+
-+/**
-+ *	t4_check_fw_version - check if the FW is compatible with this driver
-+ *	@adapter: the adapter
-+ *
-+ *	Checks if an adapter's FW is compatible with the driver.  Returns 0
-+ *	if there's exact match, a negative error if the version could not be
-+ *	read or there's a major version mismatch, and a positive value if the
-+ *	expected major version is found but there's a minor version mismatch.
-+ */
-+int t4_check_fw_version(struct adapter *adapter)
-+{
-+	int ret, major, minor;
-+
-+	ret = t4_get_fw_version(adapter, &adapter->params.fw_vers);
-+	if (!ret)
-+		ret = t4_get_tp_version(adapter, &adapter->params.tp_vers);
-+	if (ret)
-+		return ret;
-+
-+	major = G_FW_HDR_FW_VER_MAJOR(adapter->params.fw_vers);
-+	minor = G_FW_HDR_FW_VER_MINOR(adapter->params.fw_vers);
-+
-+	if (major != FW_VERSION_MAJOR) {            /* major mismatch - fail */
-+		CH_ERR(adapter, "card FW has major version %u, driver wants "
-+		       "%u\n", major, FW_VERSION_MAJOR);
-+		return -EINVAL;
-+	}
-+
-+	if (minor == FW_VERSION_MINOR)              /* perfect match */
-+		return 0;
-+
-+	/* Minor version mismatch.  Report it but often it can be dealt with. */
-+	CH_WARN(adapter, "FW minor version mismatch, found %u.%u, prefer "
-+		"%u.%u\n", major, minor, FW_VERSION_MAJOR, FW_VERSION_MINOR);
-+	return minor < FW_VERSION_MINOR ? 1 : 2;
-+}
-+
-+/**
-+ *	t4_flash_erase_sectors - erase a range of flash sectors
-+ *	@adapter: the adapter
-+ *	@start: the first sector to erase
-+ *	@end: the last sector to erase
-+ *
-+ *	Erases the sectors in the given inclusive range.
-+ */
-+static int t4_flash_erase_sectors(struct adapter *adapter, int start, int end)
-+{
-+	int ret = 0;
-+
-+	while (start <= end) {
-+		if ((ret = sf1_write(adapter, 1, 0, 1, SF_WR_ENABLE)) != 0 ||
-+		    (ret = sf1_write(adapter, 4, 0, 1,
-+				     SF_ERASE_SECTOR | (start << 8))) != 0 ||
-+		    (ret = flash_wait_op(adapter, 5, 500)) != 0) {
-+			CH_ERR(adapter, "erase of flash sector %d failed, "
-+			       "error %d\n", start, ret);
++	while (n--) {
++		pg = __netdev_alloc_page(adap->port[0], gfp);
++		if (unlikely(!pg)) {
++			q->alloc_failed++;
 +			break;
 +		}
-+		start++;
++
++		mapping = dma_map_page(adap->pdev_dev, pg, 0, PAGE_SIZE,
++				       PCI_DMA_FROMDEVICE);
++		if (unlikely(dma_mapping_error(adap->pdev_dev, mapping))) {
++			netdev_free_page(adap->port[0], pg);
++			break;
++		}
++		*d++ = cpu_to_be64(mapping);
++
++		set_rx_sw_desc(sd, pg, mapping);
++		sd++;
++
++		q->avail++;
++		if (++q->pidx == q->size) {
++			q->pidx = 0;
++			sd = q->sdesc;
++			d = q->desc;
++		}
 +	}
-+	t4_write_reg(adapter, A_SF_OP, 0);    /* unlock SF */
-+	return ret;
++
++out:	cred = q->avail - cred;
++	q->pend_cred += cred;
++	ring_fl_db(adap, q);
++	return cred;
++}
++
++static inline void __refill_fl(struct adapter *adap, struct sge_fl *fl)
++{
++	refill_fl(adap, fl, min(MAX_RX_REFILL, fl_cap(fl) - fl->avail),
++		  GFP_ATOMIC);
 +}
 +
 +/**
-+ *	t4_load_fw - download firmware
++ *	replenish_fl - refill an SGE Rx buffer ring and check for starvation
 + *	@adap: the adapter
-+ *	@fw_data: the firmware image to write
-+ *	@size: image size
++ *	@fl: the ring to refill
++ *	@gfp: the gfp flags for the allocations
 + *
-+ *	Write the supplied firmware image to the card's serial flash.
++ *	Attempt to refill an FL to capacity.  If afterwards the queue is found
++ *	critically low mark it as starving in the bitmap of starving FLs.
 + */
-+int t4_load_fw(struct adapter *adap, const u8 *fw_data, unsigned int size)
++static void replenish_fl(struct adapter *adap, struct sge_fl *fl, gfp_t gfp)
 +{
-+	u32 csum;
-+	__be32 vers;
-+	int ret, addr;
-+	unsigned int i;
-+	u8 first_page[SF_PAGE_SIZE];
-+	const u32 *p = (const u32 *)fw_data;
-+	struct fw_hdr *hdr = (struct fw_hdr *)fw_data;
-+
-+	if (!size) {
-+		CH_ERR(adap, "FW image has no data\n");
-+		return -EINVAL;
-+	}
-+	if (size & 511) {
-+		CH_ERR(adap, "FW image size not multiple of 512 bytes\n");
-+		return -EINVAL;
-+	}
-+	if (ntohs(hdr->len512) * 512 != size) {
-+		CH_ERR(adap, "FW image size differs from size in FW header\n");
-+		return -EINVAL;
-+	}
-+	if (size > FW_MAX_SIZE) {
-+		CH_ERR(adap, "FW image too large, max is %u bytes\n",
-+		       FW_MAX_SIZE);
-+		return -EFBIG;
-+	}
-+
-+	for (csum = 0, i = 0; i < size / sizeof(csum); i++)
-+		csum += ntohl(p[i]);
-+
-+	if (csum != 0xffffffff) {
-+		CH_ERR(adap, "corrupted firmware image, checksum %#x\n",
-+		       csum);
-+		return -EINVAL;
-+	}
-+
-+	i = DIV_ROUND_UP(size, SF_SEC_SIZE);        /* # of sectors spanned */
-+	ret = t4_flash_erase_sectors(adap, FW_START_SEC, FW_START_SEC + i - 1);
-+	if (ret)
-+		goto out;
-+
-+	/*
-+	 * We write the correct version at the end so the driver can see a bad
-+	 * version if the FW write fails.  Start by writing a copy of the
-+	 * first page with a bad version.
-+	 */
-+	vers = hdr->fw_ver;
-+	memcpy(first_page, fw_data, SF_PAGE_SIZE);
-+	((struct fw_hdr *)first_page)->fw_ver = htonl(0xffffffff);
-+	ret = t4_write_flash(adap, FW_IMG_START, SF_PAGE_SIZE, first_page);
-+	if (ret)
-+		goto out;
-+
-+	addr = FW_IMG_START;
-+	for (size -= SF_PAGE_SIZE ; size; size -= SF_PAGE_SIZE) {
-+		addr += SF_PAGE_SIZE;
-+		fw_data += SF_PAGE_SIZE;
-+		ret = t4_write_flash(adap, addr, SF_PAGE_SIZE, fw_data);
-+		if (ret)
-+			goto out;
-+	}
-+
-+	ret = t4_write_flash(adap,
-+			     FW_IMG_START + offsetof(struct fw_hdr, fw_ver),
-+			     sizeof(vers), (const u8 *)&vers);
-+out:
-+	if (ret)
-+		CH_ERR(adap, "firmware download failed, error %d\n", ret);
-+	return ret;
-+}
-+
-+#define ADVERT_MASK (FW_PORT_CAP_SPEED_100M | FW_PORT_CAP_SPEED_1G |\
-+		     FW_PORT_CAP_SPEED_10G | FW_PORT_CAP_ANEG)
-+
-+/**
-+ *	t4_link_start - apply link configuration to MAC/PHY
-+ *	@phy: the PHY to setup
-+ *	@mac: the MAC to setup
-+ *	@lc: the requested link configuration
-+ *
-+ *	Set up a port's MAC and PHY according to a desired link configuration.
-+ *	- If the PHY can auto-negotiate first decide what to advertise, then
-+ *	  enable/disable auto-negotiation as desired, and reset.
-+ *	- If the PHY does not auto-negotiate just reset it.
-+ *	- If auto-negotiation is off set the MAC to the proper speed/duplex/FC,
-+ *	  otherwise do it later based on the outcome of auto-negotiation.
-+ */
-+int t4_link_start(struct adapter *adap, unsigned int mbox, unsigned int port,
-+		  struct link_config *lc)
-+{
-+	struct fw_port_cmd c;
-+	unsigned int fc = 0, mdi = V_FW_PORT_MDI(FW_PORT_MDI_AUTO);
-+
-+	lc->link_ok = 0;
-+	if (lc->requested_fc & PAUSE_RX)
-+		fc |= FW_PORT_CAP_FC_RX;
-+	if (lc->requested_fc & PAUSE_TX)
-+		fc |= FW_PORT_CAP_FC_TX;
-+
-+	memset(&c, 0, sizeof(c));
-+	c.op_to_portid = htonl(V_FW_CMD_OP(FW_PORT_CMD) | F_FW_CMD_REQUEST |
-+			       F_FW_CMD_EXEC | V_FW_PORT_CMD_PORTID(port));
-+	c.action_to_len16 = htonl(V_FW_PORT_CMD_ACTION(FW_PORT_ACTION_L1_CFG) |
-+				  FW_LEN16(c));
-+
-+	if (!(lc->supported & FW_PORT_CAP_ANEG)) {
-+		c.u.l1cfg.rcap = htonl((lc->supported & ADVERT_MASK) | fc);
-+		lc->fc = lc->requested_fc & (PAUSE_RX | PAUSE_TX);
-+	} else if (lc->autoneg == AUTONEG_DISABLE) {
-+		c.u.l1cfg.rcap = htonl(lc->requested_speed | fc | mdi);
-+		lc->fc = lc->requested_fc & (PAUSE_RX | PAUSE_TX);
-+	} else
-+		c.u.l1cfg.rcap = htonl(lc->advertising | fc | mdi);
-+
-+	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
++	refill_fl(adap, fl, fl_cap(fl) - fl->avail, gfp);
++	if (unlikely(fl_starving(fl)))
++		set_bit(fl->cntxt_id, adap->sge.starving_fl);
 +}
 +
 +/**
-+ *	t4_restart_aneg - restart autonegotiation
-+ *	@adap: the adapter
-+ *	@mbox: mbox to use for the FW command
-+ *	@port: the port id
++ *	alloc_ring - allocate resources for an SGE descriptor ring
++ *	@dev: the PCI device's core device
++ *	@nelem: the number of descriptors
++ *	@elem_size: the size of each descriptor
++ *	@sw_size: the size of the SW state associated with each ring element
++ *	@phys: the physical address of the allocated ring
++ *	@metadata: address of the array holding the SW state for the ring
++ *	@stat_size: extra space in HW ring for status information
 + *
-+ *	Restarts autonegotiation for the selected port.
++ *	Allocates resources for an SGE descriptor ring, such as Tx queues,
++ *	free buffer lists, or response queues.  Each SGE ring requires
++ *	space for its HW descriptors plus, optionally, space for the SW state
++ *	associated with each HW entry (the metadata).  The function returns
++ *	three values: the virtual address for the HW ring (the return value
++ *	of the function), the bus address of the HW ring, and the address
++ *	of the SW ring.
 + */
-+int t4_restart_aneg(struct adapter *adap, unsigned int mbox, unsigned int port)
++static void *alloc_ring(struct device *dev, size_t nelem, size_t elem_size,
++			size_t sw_size, dma_addr_t *phys, void *metadata,
++			size_t stat_size)
 +{
-+	struct fw_port_cmd c;
++	size_t len = nelem * elem_size + stat_size;
++	void *s = NULL;
++	void *p = dma_alloc_coherent(dev, len, phys, GFP_KERNEL);
 +
-+	memset(&c, 0, sizeof(c));
-+	c.op_to_portid = htonl(V_FW_CMD_OP(FW_PORT_CMD) | F_FW_CMD_REQUEST |
-+			       F_FW_CMD_EXEC | V_FW_PORT_CMD_PORTID(port));
-+	c.action_to_len16 = htonl(V_FW_PORT_CMD_ACTION(FW_PORT_ACTION_L1_CFG) |
-+				  FW_LEN16(c));
-+	c.u.l1cfg.rcap = htonl(FW_PORT_CAP_ANEG);
-+	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
++	if (!p)
++		return NULL;
++	if (sw_size) {
++		s = kcalloc(nelem, sw_size, GFP_KERNEL);
++
++		if (!s) {
++			dma_free_coherent(dev, len, p, *phys);
++			return NULL;
++		}
++	}
++	if (metadata)
++		*(void **)metadata = s;
++	memset(p, 0, len);
++	return p;
 +}
 +
 +/**
-+ *	t4_set_vlan_accel - configure HW VLAN extraction
-+ *	@adap: the adapter
-+ *	@ports: bitmap of adapter ports to operate on
-+ *	@on: enable (1) or disable (0) HW VLAN extraction
++ *	sgl_len - calculates the size of an SGL of the given capacity
++ *	@n: the number of SGL entries
 + *
-+ *	Enables or disables HW extraction of VLAN tags for the ports specified
-+ *	by @ports.  @ports is a bitmap with the ith bit designating the port
-+ *	associated with the ith adapter channel.
++ *	Calculates the number of flits needed for a scatter/gather list that
++ *	can hold the given number of entries.
 + */
-+void t4_set_vlan_accel(struct adapter *adap, unsigned int ports, int on)
++static inline unsigned int sgl_len(unsigned int n)
 +{
-+	ports <<= S_VLANEXTENABLEPORT0;
-+	t4_set_reg_field(adap, A_TP_OUT_CONFIG, ports, on ? ports : 0);
++	n--;
++	return (3 * n) / 2 + (n & 1) + 2;
 +}
-+
-+struct intr_info {
-+	unsigned int mask;       /* bits to check in interrupt status */
-+	const char *msg;         /* message to print or NULL */
-+	short stat_idx;          /* stat counter to increment or -1 */
-+	unsigned short fatal;    /* whether the condition reported is fatal */
-+};
 +
 +/**
-+ *	t4_handle_intr_status - table driven interrupt handler
-+ *	@adapter: the adapter that generated the interrupt
-+ *	@reg: the interrupt status register to process
-+ *	@acts: table of interrupt actions
-+ *	@stats: statistics counters tracking interrupt occurences
++ *	flits_to_desc - returns the num of Tx descriptors for the given flits
++ *	@n: the number of flits
 + *
-+ *	A table driven interrupt handler that applies a set of masks to an
-+ *	interrupt status word and performs the corresponding actions if the
-+ *	interrupts described by the mask have occured.  The actions include
-+ *	optionally emitting a warning or alert message, and optionally
-+ *	incrementing a stat counter.  The table is terminated by an entry
-+ *	specifying mask 0.  Returns the number of fatal interrupt conditions.
++ *	Returns the number of Tx descriptors needed for the supplied number
++ *	of flits.
 + */
-+static int t4_handle_intr_status(struct adapter *adapter, unsigned int reg,
-+		const struct intr_info *acts, unsigned long *stats)
++static inline unsigned int flits_to_desc(unsigned int n)
 +{
-+	int fatal = 0;
-+	unsigned int mask = 0;
-+	unsigned int status = t4_read_reg(adapter, reg);
-+
-+	for ( ; acts->mask; ++acts) {
-+		if (!(status & acts->mask)) continue;
-+		if (acts->fatal) {
-+			fatal++;
-+			CH_ALERT(adapter, "%s (0x%x)\n",
-+				 acts->msg, status & acts->mask);
-+		} else if (acts->msg)
-+			CH_WARN_RATELIMIT(adapter, "%s (0x%x)\n",
-+					  acts->msg, status & acts->mask);
-+		if (acts->stat_idx >= 0)
-+			stats[acts->stat_idx]++;
-+		mask |= acts->mask;
-+	}
-+	status &= mask;
-+	if (status)                           /* clear processed interrupts */
-+		t4_write_reg(adapter, reg, status);
-+	return fatal;
++	BUG_ON(n > SGE_MAX_WR_LEN / 8);
++	return DIV_ROUND_UP(n, 8);
 +}
 +
-+/*
-+ * Interrupt handler for the PCIE module.
++/**
++ *	is_eth_imm - can an Ethernet packet be sent as immediate data?
++ *	@skb: the packet
++ *
++ *	Returns whether an Ethernet packet is small enough to fit as
++ *	immediate data.
 + */
-+static void pcie_intr_handler(struct adapter *adapter)
++static inline int is_eth_imm(const struct sk_buff *skb)
 +{
-+	static struct intr_info sysbus_intr_info[] = {
-+		{ F_RNPP, "RXNP array parity error", -1, 1 },
-+		{ F_RPCP, "RXPC array parity error", -1, 1 },
-+		{ F_RCIP, "RXCIF array parity error", -1, 1 },
-+		{ F_RCCP, "Rx completions control array parity error", -1, 1 },
-+		{ F_RFTP, "RXFT array parity error", -1, 1 },
-+		{ 0 }
-+	};
-+	static struct intr_info pcie_port_intr_info[] = {
-+		{ F_TPCP, "TXPC array parity error", -1, 1 },
-+		{ F_TNPP, "TXNP array parity error", -1, 1 },
-+		{ F_TFTP, "TXFT array parity error", -1, 1 },
-+		{ F_TCAP, "TXCA array parity error", -1, 1 },
-+		{ F_TCIP, "TXCIF array parity error", -1, 1 },
-+		{ F_RCAP, "RXCA array parity error", -1, 1 },
-+		{ F_OTDD, "outbound request TLP discarded", -1, 1 },
-+		{ F_RDPE, "Rx data parity error", -1, 1 },
-+		{ F_TDUE, "Tx uncorrectable data error", -1, 1 },
-+		{ 0 }
-+	};
-+	static struct intr_info pcie_intr_info[] = {
-+		{ F_MSIADDRLPERR, "MSI AddrL parity error", -1, 1 },
-+		{ F_MSIADDRHPERR, "MSI AddrH parity error", -1, 1 },
-+		{ F_MSIDATAPERR, "MSI data parity error", -1, 1 },
-+		{ F_MSIXADDRLPERR, "MSI-X AddrL parity error", -1, 1 },
-+		{ F_MSIXADDRHPERR, "MSI-X AddrH parity error", -1, 1 },
-+		{ F_MSIXDATAPERR, "MSI-X data parity error", -1, 1 },
-+		{ F_MSIXDIPERR, "MSI-X DI parity error", -1, 1 },
-+		{ F_PIOCPLPERR, "PCI PIO completion FIFO parity error", -1, 1 },
-+		{ F_PIOREQPERR, "PCI PIO request FIFO parity error", -1, 1 },
-+		{ F_TARTAGPERR, "PCI PCI target tag FIFO parity error", -1, 1 },
-+		{ F_CCNTPERR, "PCI CMD channel count parity error", -1, 1 },
-+		{ F_CREQPERR, "PCI CMD channel request parity error", -1, 1 },
-+		{ F_CRSPPERR, "PCI CMD channel response parity error", -1, 1 },
-+		{ F_DCNTPERR, "PCI DMA channel count parity error", -1, 1 },
-+		{ F_DREQPERR, "PCI DMA channel request parity error", -1, 1 },
-+		{ F_DRSPPERR, "PCI DMA channel response parity error", -1, 1 },
-+		{ F_HCNTPERR, "PCI HMA channel count parity error", -1, 1 },
-+		{ F_HREQPERR, "PCI HMA channel request parity error", -1, 1 },
-+		{ F_HRSPPERR, "PCI HMA channel response parity error", -1, 1 },
-+		{ F_CFGSNPPERR, "PCI config snoop FIFO parity error", -1, 1 },
-+		{ F_FIDPERR, "PCI FID parity error", -1, 1 },
-+		{ F_INTXCLRPERR, "PCI INTx clear parity error", -1, 1 },
-+		{ F_MATAGPERR, "PCI MA tag parity error", -1, 1 },
-+		{ F_PIOTAGPERR, "PCI PIO tag parity error", -1, 1 },
-+		{ F_RXCPLPERR, "PCI Rx completion parity error", -1, 1 },
-+		{ F_RXWRPERR, "PCI Rx write parity error", -1, 1 },
-+		{ F_RPLPERR, "PCI replay buffer parity error", -1, 1 },
-+		{ F_PCIESINT, "PCI core secondary fault", -1, 1 },
-+		{ F_PCIEPINT, "PCI core primary fault", -1, 1 },
-+		{ F_UNXSPLCPLERR, "PCI unexpected split completion error", -1,
-+		  0 },
-+		{ 0 }
-+	};
-+
-+	int fat;
-+
-+	fat = t4_handle_intr_status(adapter,
-+				    A_PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS,
-+				    sysbus_intr_info, NULL) +
-+	      t4_handle_intr_status(adapter,
-+				    A_PCIE_CORE_UTL_PCI_EXPRESS_PORT_STATUS,
-+				    pcie_port_intr_info, NULL) +
-+	      t4_handle_intr_status(adapter, A_PCIE_INT_CAUSE, pcie_intr_info,
-+				    NULL);
-+	if (fat)
-+		t4_fatal_err(adapter);
++	return skb->len <= MAX_IMM_TX_PKT_LEN - sizeof(struct cpl_tx_pkt);
 +}
 +
-+/*
-+ * TP interrupt handler.
++/**
++ *	calc_tx_flits - calculate the number of flits for a packet Tx WR
++ *	@skb: the packet
++ *
++ * 	Returns the number of flits needed for a Tx WR for the given Ethernet
++ * 	packet, including the needed WR and CPL headers.
 + */
-+static void tp_intr_handler(struct adapter *adapter)
++static inline unsigned int calc_tx_flits(const struct sk_buff *skb)
 +{
-+	static struct intr_info tp_intr_info[] = {
-+		{ 0x3fffffff, "TP parity error", -1, 1 },
-+		{ F_FLMTXFLSTEMPTY, "TP out of Tx pages", -1, 1 },
-+		{ 0 }
-+	};
++	unsigned int flits;
 +
-+	if (t4_handle_intr_status(adapter, A_TP_INT_CAUSE, tp_intr_info, NULL))
-+		t4_fatal_err(adapter);
++	if (is_eth_imm(skb))
++		return DIV_ROUND_UP(skb->len + sizeof(struct cpl_tx_pkt), 8);
++
++	flits = sgl_len(skb_shinfo(skb)->nr_frags + 1) + 4;
++	if (skb_shinfo(skb)->gso_size)
++		flits += 2;
++	return flits;
 +}
 +
-+/*
-+ * SGE interrupt handler.
++/**
++ *	calc_tx_descs - calculate the number of Tx descriptors for a packet
++ *	@skb: the packet
++ *
++ * 	Returns the number of Tx descriptors needed for the given Ethernet
++ * 	packet, including the needed WR and CPL headers.
 + */
-+static void sge_intr_handler(struct adapter *adapter)
++static inline unsigned int calc_tx_descs(const struct sk_buff *skb)
 +{
-+	u64 v;
-+
-+	static struct intr_info sge_intr_info[] = {
-+		{ F_ERR_CPL_EXCEED_IQE_SIZE,
-+		  "SGE received CPL exceeding IQE size", -1, 1 },
-+		{ F_ERR_INVALID_CIDX_INC,
-+		  "SGE GTS CIDX increment too large", -1, 0 },
-+		{ F_ERR_CPL_OPCODE_0, "SGE received 0-length CPL", -1, 0 },
-+		{ F_ERR_DROPPED_DB, "SGE doorbell dropped", -1, 0 },
-+		{ F_ERR_DATA_CPL_ON_HIGH_QID1 | F_ERR_DATA_CPL_ON_HIGH_QID0,
-+		  "SGE IQID > 1023 received CPL for FL", -1, 0 },
-+		{ F_ERR_BAD_DB_PIDX3, "SGE DBP 3 pidx increment too large", -1,
-+		  0 },
-+		{ F_ERR_BAD_DB_PIDX2, "SGE DBP 2 pidx increment too large", -1,
-+		  0 },
-+		{ F_ERR_BAD_DB_PIDX1, "SGE DBP 1 pidx increment too large", -1,
-+		  0 },
-+		{ F_ERR_BAD_DB_PIDX0, "SGE DBP 0 pidx increment too large", -1,
-+		  0 },
-+		{ F_ERR_ING_CTXT_PRIO,
-+		  "SGE too many priority ingress contexts", -1, 0 },
-+		{ F_ERR_EGR_CTXT_PRIO,
-+		  "SGE too many priority egress contexts", -1, 0 },
-+		{ F_INGRESS_SIZE_ERR, "SGE illegal ingress QID", -1, 0 },
-+		{ F_EGRESS_SIZE_ERR, "SGE illegal egress QID", -1, 0 },
-+		{ 0 }
-+	};
-+
-+	v = (u64)t4_read_reg(adapter, A_SGE_INT_CAUSE1) |
-+	    ((u64)t4_read_reg(adapter, A_SGE_INT_CAUSE2) << 32);
-+	if (v) {
-+		CH_ALERT(adapter, "SGE parity error (%#llx)\n",
-+			 (unsigned long long)v);
-+		t4_write_reg(adapter, A_SGE_INT_CAUSE1, v);
-+		t4_write_reg(adapter, A_SGE_INT_CAUSE2, v >> 32);
-+	}
-+
-+	if (t4_handle_intr_status(adapter, A_SGE_INT_CAUSE3,
-+				  sge_intr_info, NULL) || v)
-+		t4_fatal_err(adapter);
++	return flits_to_desc(calc_tx_flits(skb));
 +}
 +
-+#define CIM_OBQ_INTR (F_OBQULP0PARERR | F_OBQULP1PARERR | F_OBQULP2PARERR |\
-+		      F_OBQULP3PARERR | F_OBQSGEPARERR | F_OBQNCSIPARERR)
-+#define CIM_IBQ_INTR (F_IBQTP0PARERR | F_IBQTP1PARERR | F_IBQULPPARERR |\
-+		      F_IBQSGEHIPARERR | F_IBQSGELOPARERR | F_IBQNCSIPARERR)
-+
-+/*
-+ * CIM interrupt handler.
++/**
++ *	write_sgl - populate a scatter/gather list for a packet
++ *	@skb: the packet
++ *	@q: the Tx queue we are writing into
++ *	@sgl: starting location for writing the SGL
++ *	@end: points right after the end of the SGL
++ *	@start: start offset into skb main-body data to include in the SGL
++ *	@addr: the list of bus addresses for the SGL elements
++ *
++ *	Generates a gather list for the buffers that make up a packet.
++ *	The caller must provide adequate space for the SGL that will be written.
++ *	The SGL includes all of the packet's page fragments and the data in its
++ *	main body except for the first @start bytes.  @sgl must be 16-byte
++ *	aligned and within a Tx descriptor with available space.  @end points
++ *	right after the end of the SGL but does not account for any potential
++ *	wrap around, i.e., @end > @sgl.
 + */
-+static void cim_intr_handler(struct adapter *adapter)
++static void write_sgl(const struct sk_buff *skb, struct sge_txq *q,
++		      struct ulptx_sgl *sgl, u64 *end, unsigned int start,
++		      const dma_addr_t *addr)
 +{
-+	static struct intr_info cim_intr_info[] = {
-+		{ F_PREFDROPINT, "CIM control register prefetch drop", -1, 1 },
-+		{ CIM_OBQ_INTR, "CIM OBQ parity error", -1, 1 },
-+		{ CIM_IBQ_INTR, "CIM IBQ parity error", -1, 1 },
-+		{ F_MBUPPARERR, "CIM mailbox uP parity error", -1, 1 },
-+		{ F_MBHOSTPARERR, "CIM mailbox host parity error", -1, 1 },
-+		{ F_TIEQINPARERRINT, "CIM TIEQ outgoing parity error", -1, 1 },
-+		{ F_TIEQOUTPARERRINT, "CIM TIEQ incoming parity error", -1, 1 },
-+		{ 0 }
-+	};
-+	static struct intr_info cim_upintr_info[] = {
-+		{ F_RSVDSPACEINT, "CIM reserved space access", -1, 1 },
-+		{ F_ILLTRANSINT, "CIM illegal transaction", -1, 1 },
-+		{ F_ILLWRINT, "CIM illegal write", -1, 1 },
-+		{ F_ILLRDINT, "CIM illegal read", -1, 1 },
-+		{ F_ILLRDBEINT, "CIM illegal read BE", -1, 1 },
-+		{ F_ILLWRBEINT, "CIM illegal write BE", -1, 1 },
-+		{ F_SGLRDBOOTINT, "CIM single read from boot space", -1, 1 },
-+		{ F_SGLWRBOOTINT, "CIM single write to boot space", -1, 1 },
-+		{ F_BLKWRBOOTINT, "CIM block write to boot space", -1, 1 },
-+		{ F_SGLRDFLASHINT, "CIM single read from flash space", -1, 1 },
-+		{ F_SGLWRFLASHINT, "CIM single write to flash space", -1, 1 },
-+		{ F_BLKWRFLASHINT, "CIM block write to flash space", -1, 1 },
-+		{ F_SGLRDEEPROMINT, "CIM single EEPROM read", -1, 1 },
-+		{ F_SGLWREEPROMINT, "CIM single EEPROM write", -1, 1 },
-+		{ F_BLKRDEEPROMINT, "CIM block EEPROM read", -1, 1 },
-+		{ F_BLKWREEPROMINT, "CIM block EEPROM write", -1, 1 },
-+		{ F_SGLRDCTLINT , "CIM single read from CTL space", -1, 1 },
-+		{ F_SGLWRCTLINT , "CIM single write to CTL space", -1, 1 },
-+		{ F_BLKRDCTLINT , "CIM block read from CTL space", -1, 1 },
-+		{ F_BLKWRCTLINT , "CIM block write to CTL space", -1, 1 },
-+		{ F_SGLRDPLINT , "CIM single read from PL space", -1, 1 },
-+		{ F_SGLWRPLINT , "CIM single write to PL space", -1, 1 },
-+		{ F_BLKRDPLINT , "CIM block read from PL space", -1, 1 },
-+		{ F_BLKWRPLINT , "CIM block write to PL space", -1, 1 },
-+		{ F_REQOVRLOOKUPINT , "CIM request FIFO overwrite", -1, 1 },
-+		{ F_RSPOVRLOOKUPINT , "CIM response FIFO overwrite", -1, 1 },
-+		{ F_TIMEOUTINT , "CIM PIF timeout", -1, 1 },
-+		{ F_TIMEOUTMAINT , "CIM PIF MA timeout", -1, 1 },
-+		{ 0 }
-+        };
++	unsigned int i, len;
++	struct ulptx_sge_pair *to;
++	const struct skb_shared_info *si = skb_shinfo(skb);
++	unsigned int nfrags = si->nr_frags;
++	struct ulptx_sge_pair buf[MAX_SKB_FRAGS / 2 + 1];
 +
-+	int fat;
-+
-+	fat = t4_handle_intr_status(adapter, A_CIM_HOST_INT_CAUSE,
-+				    cim_intr_info, NULL) +
-+	      t4_handle_intr_status(adapter, A_CIM_HOST_UPACC_INT_CAUSE,
-+				    cim_upintr_info, NULL);
-+	if (fat)
-+		t4_fatal_err(adapter);
-+}
-+
-+/*
-+ * ULP RX interrupt handler.
-+ */
-+static void ulprx_intr_handler(struct adapter *adapter)
-+{
-+	static struct intr_info ulprx_intr_info[] = {
-+		{ 0x7fffff, "ULPRX parity error", -1, 1 },
-+		{ 0 }
-+        };
-+
-+	if (t4_handle_intr_status(adapter, A_ULP_RX_INT_CAUSE, ulprx_intr_info,
-+				  NULL))
-+		t4_fatal_err(adapter);
-+}
-+
-+/*
-+ * ULP TX interrupt handler.
-+ */
-+static void ulptx_intr_handler(struct adapter *adapter)
-+{
-+	static struct intr_info ulptx_intr_info[] = {
-+		{ F_PBL_BOUND_ERR_CH3, "ULPTX channel 3 PBL out of bounds", -1,
-+		  0 },
-+		{ F_PBL_BOUND_ERR_CH2, "ULPTX channel 2 PBL out of bounds", -1,
-+		  0 },
-+		{ F_PBL_BOUND_ERR_CH1, "ULPTX channel 1 PBL out of bounds", -1,
-+		  0 },
-+		{ F_PBL_BOUND_ERR_CH0, "ULPTX channel 0 PBL out of bounds", -1,
-+		  0 },
-+		{ 0xfffffff, "ULPTX parity error", -1, 1 },
-+		{ 0 }
-+        };
-+
-+	if (t4_handle_intr_status(adapter, A_ULP_TX_INT_CAUSE, ulptx_intr_info,
-+				  NULL))
-+		t4_fatal_err(adapter);
-+}
-+
-+/*
-+ * PM TX interrupt handler.
-+ */
-+static void pmtx_intr_handler(struct adapter *adapter)
-+{
-+	static struct intr_info pmtx_intr_info[] = {
-+		{ F_PCMD_LEN_OVFL0, "PMTX channel 0 pcmd too large", -1, 1 },
-+		{ F_PCMD_LEN_OVFL1, "PMTX channel 1 pcmd too large", -1, 1 },
-+		{ F_PCMD_LEN_OVFL2, "PMTX channel 2 pcmd too large", -1, 1 },
-+		{ F_ZERO_C_CMD_ERROR, "PMTX 0-length pcmd", -1, 1 },
-+		{ 0xffffff0, "PMTX framing error", -1, 1 },
-+		{ F_OESPI_PAR_ERROR, "PMTX oespi parity error", -1, 1 },
-+		{ F_DB_OPTIONS_PAR_ERROR, "PMTX db_options parity error", -1,
-+		  1 },
-+		{ F_ICSPI_PAR_ERROR, "PMTX icspi parity error", -1, 1 },
-+		{ F_C_PCMD_PAR_ERROR, "PMTX c_pcmd parity error", -1, 1},
-+		{ 0 }
-+        };
-+
-+	if (t4_handle_intr_status(adapter, A_PM_TX_INT_CAUSE, pmtx_intr_info,
-+				  NULL))
-+		t4_fatal_err(adapter);
-+}
-+
-+/*
-+ * PM RX interrupt handler.
-+ */
-+static void pmrx_intr_handler(struct adapter *adapter)
-+{
-+	static struct intr_info pmrx_intr_info[] = {
-+		{ F_ZERO_E_CMD_ERROR, "PMRX 0-length pcmd", -1, 1 },
-+		{ 0x3ffff0, "PMRX framing error", -1, 1 },
-+		{ F_OCSPI_PAR_ERROR, "PMRX ocspi parity error", -1, 1 },
-+		{ F_DB_OPTIONS_PAR_ERROR, "PMRX db_options parity error", -1,
-+		  1 },
-+		{ F_IESPI_PAR_ERROR, "PMRX iespi parity error", -1, 1 },
-+		{ F_E_PCMD_PAR_ERROR, "PMRX e_pcmd parity error", -1, 1},
-+		{ 0 }
-+        };
-+
-+	if (t4_handle_intr_status(adapter, A_PM_RX_INT_CAUSE, pmrx_intr_info,
-+				  NULL))
-+		t4_fatal_err(adapter);
-+}
-+
-+/*
-+ * CPL switch interrupt handler.
-+ */
-+static void cplsw_intr_handler(struct adapter *adapter)
-+{
-+	static struct intr_info cplsw_intr_info[] = {
-+		{ F_CIM_OP_MAP_PERR, "CPLSW CIM op_map parity error", -1, 1 },
-+		{ F_CIM_OVFL_ERROR, "CPLSW CIM overflow", -1, 1 },
-+		{ F_TP_FRAMING_ERROR, "CPLSW TP framing error", -1, 1 },
-+		{ F_SGE_FRAMING_ERROR, "CPLSW SGE framing error", -1, 1 },
-+		{ F_CIM_FRAMING_ERROR, "CPLSW CIM framing error", -1, 1 },
-+		{ F_ZERO_SWITCH_ERROR, "CPLSW no-switch error", -1, 1 },
-+		{ 0 }
-+        };
-+
-+	if (t4_handle_intr_status(adapter, A_CPL_INTR_CAUSE, cplsw_intr_info,
-+				  NULL))
-+		t4_fatal_err(adapter);
-+}
-+
-+/*
-+ * LE interrupt handler.
-+ */
-+static void le_intr_handler(struct adapter *adap)
-+{
-+	static struct intr_info le_intr_info[] = {
-+		{ F_LIPMISS, "LE LIP miss", -1, 0 },
-+		{ F_LIP0, "LE 0 LIP error", -1, 0 },
-+		{ F_PARITYERR, "LE parity error", -1, 1 },
-+		{ F_UNKNOWNCMD, "LE unknown command", -1, 1 },
-+		{ F_REQQPARERR, "LE request queue parity error", -1, 1 },
-+		{ 0 }
-+	};
-+
-+	if (t4_handle_intr_status(adap, A_LE_DB_INT_CAUSE, le_intr_info, NULL))
-+		t4_fatal_err(adap);
-+}
-+
-+/*
-+ * MPS interrupt handler.
-+ */
-+static void mps_intr_handler(struct adapter *adapter)
-+{
-+	static struct intr_info mps_rx_intr_info[] = {
-+		{ 0xffffff, "MPS Rx parity error", -1, 1 },
-+		{ 0 }
-+	};
-+	static struct intr_info mps_tx_intr_info[] = {
-+		{ V_TPFIFO(M_TPFIFO), "MPS Tx TP FIFO parity error", -1, 1 },
-+		{ F_NCSIFIFO, "MPS Tx NC-SI FIFO parity error", -1, 1 },
-+		{ V_TXDATAFIFO(M_TXDATAFIFO), "MPS Tx data FIFO parity error",
-+		  -1, 1 },
-+		{ V_TXDESCFIFO(M_TXDESCFIFO), "MPS Tx desc FIFO parity error",
-+		  -1, 1 },
-+		{ F_BUBBLE, "MPS Tx underflow", -1, 1 },
-+		{ F_SECNTERR, "MPS Tx SOP/EOP error", -1, 1 },
-+		{ F_FRMERR, "MPS Tx framing error", -1, 1 },
-+		{ 0 }
-+	};
-+	static struct intr_info mps_trc_intr_info[] = {
-+		{ V_FILTMEM(M_FILTMEM), "MPS TRC filter parity error", -1, 1 },
-+		{ V_PKTFIFO(M_PKTFIFO), "MPS TRC packet FIFO parity error", -1,
-+		  1 },
-+		{ F_MISCPERR, "MPS TRC misc parity error", -1, 1 },
-+		{ 0 }
-+	};
-+	static struct intr_info mps_stat_sram_intr_info[] = {
-+		{ 0x1fffff, "MPS statistics SRAM parity error", -1, 1 },
-+		{ 0 }
-+	};
-+	static struct intr_info mps_stat_tx_intr_info[] = {
-+		{ 0xfffff, "MPS statistics Tx FIFO parity error", -1, 1 },
-+		{ 0 }
-+	};
-+	static struct intr_info mps_stat_rx_intr_info[] = {
-+		{ 0xffffff, "MPS statistics Rx FIFO parity error", -1, 1 },
-+		{ 0 }
-+	};
-+	static struct intr_info mps_cls_intr_info[] = {
-+		{ F_MATCHSRAM, "MPS match SRAM parity error", -1, 1 },
-+		{ F_MATCHTCAM, "MPS match TCAM parity error", -1, 1 },
-+		{ F_HASHSRAM, "MPS hash SRAM parity error", -1, 1 },
-+		{ 0 }
-+	};
-+
-+	int fat;
-+
-+	fat = t4_handle_intr_status(adapter, A_MPS_RX_PERR_INT_CAUSE,
-+				    mps_rx_intr_info, NULL) +
-+	      t4_handle_intr_status(adapter, A_MPS_TX_INT_CAUSE,
-+				    mps_tx_intr_info, NULL) +
-+	      t4_handle_intr_status(adapter, A_MPS_TRC_INT_CAUSE,
-+				    mps_trc_intr_info, NULL) +
-+	      t4_handle_intr_status(adapter, A_MPS_STAT_PERR_INT_CAUSE_SRAM,
-+				    mps_stat_sram_intr_info, NULL) +
-+	      t4_handle_intr_status(adapter, A_MPS_STAT_PERR_INT_CAUSE_TX_FIFO,
-+				    mps_stat_tx_intr_info, NULL) +
-+	      t4_handle_intr_status(adapter, A_MPS_STAT_PERR_INT_CAUSE_RX_FIFO,
-+				    mps_stat_rx_intr_info, NULL) +
-+	      t4_handle_intr_status(adapter, A_MPS_CLS_INT_CAUSE,
-+				    mps_cls_intr_info, NULL);
-+
-+	t4_write_reg(adapter, A_MPS_INT_CAUSE, F_CLSINT | F_TRCINT |
-+		     F_RXINT | F_TXINT | F_STATINT);
-+	t4_read_reg(adapter, A_MPS_INT_CAUSE);                    /* flush */
-+	if (fat)
-+		t4_fatal_err(adapter);
-+}
-+
-+#define MEM_INT_MASK (F_PERR_INT_CAUSE | F_ECC_CE_INT_CAUSE | F_ECC_UE_INT_CAUSE)
-+
-+/*
-+ * EDC/MC interrupt handler.
-+ */
-+static void mem_intr_handler(struct adapter *adapter, int idx)
-+{
-+	static const char name[3][5] = { "EDC0", "EDC1", "MC" };
-+
-+	unsigned int addr, cnt_addr, v;
-+
-+	if (idx <= MEM_EDC1) {
-+		addr = EDC_REG(A_EDC_INT_CAUSE, idx);
-+		cnt_addr = EDC_REG(A_EDC_ECC_STATUS, idx);
++	len = skb_headlen(skb) - start;
++	if (likely(len)) {
++		sgl->len0 = htonl(len);
++		sgl->addr0 = cpu_to_be64(addr[0] + start);
++		nfrags++;
 +	} else {
-+		addr = A_MC_INT_CAUSE;
-+		cnt_addr = A_MC_ECC_STATUS;
++		sgl->len0 = htonl(si->frags[0].size);
++		sgl->addr0 = cpu_to_be64(addr[1]);
 +	}
 +
-+	v = t4_read_reg(adapter, addr) & MEM_INT_MASK;
-+	if (v & F_PERR_INT_CAUSE)
-+		CH_ALERT(adapter, "%s FIFO parity error\n", name[idx]);
-+	if (v & F_ECC_CE_INT_CAUSE) {
-+		u32 cnt = G_ECC_CECNT(t4_read_reg(adapter, cnt_addr));
-+
-+		t4_write_reg(adapter, cnt_addr, V_ECC_CECNT(M_ECC_CECNT));
-+		CH_WARN_RATELIMIT(adapter,
-+				  "%u %s correctable ECC data error%s\n",
-+				  cnt, name[idx], cnt > 1 ? "s" : "");
-+	}
-+	if (v & F_ECC_UE_INT_CAUSE)
-+		CH_ALERT(adapter, "%s uncorrectable ECC data error\n",
-+			 name[idx]);
-+
-+	t4_write_reg(adapter, addr, v);
-+	if (v & (F_PERR_INT_CAUSE | F_ECC_UE_INT_CAUSE))
-+		t4_fatal_err(adapter);
-+}
-+
-+/*
-+ * MA interrupt handler.
-+ */
-+static void ma_intr_handler(struct adapter *adapter)
-+{
-+	u32 v, status = t4_read_reg(adapter, A_MA_INT_CAUSE);
-+
-+	if (status & F_MEM_PERR_INT_CAUSE)
-+		CH_ALERT(adapter, "MA parity error, parity status %#x\n",
-+			 t4_read_reg(adapter, A_MA_PARITY_ERROR_STATUS));
-+	if (status & F_MEM_WRAP_INT_CAUSE) {
-+		v = t4_read_reg(adapter, A_MA_INT_WRAP_STATUS);
-+		CH_ALERT(adapter, "MA address wrap-around error by client %u to"
-+			 " address %#x\n", G_MEM_WRAP_CLIENT_NUM(v),
-+			 G_MEM_WRAP_ADDRESS(v) << 4);
-+	}
-+	t4_write_reg(adapter, A_MA_INT_CAUSE, status);
-+	t4_fatal_err(adapter);
-+}
-+
-+/*
-+ * SMB interrupt handler.
-+ */
-+static void smb_intr_handler(struct adapter *adap)
-+{
-+	static struct intr_info smb_intr_info[] = {
-+		{ F_MSTTXFIFOPARINT, "SMB master Tx FIFO parity error", -1, 1 },
-+		{ F_MSTRXFIFOPARINT, "SMB master Rx FIFO parity error", -1, 1 },
-+		{ F_SLVFIFOPARINT, "SMB slave FIFO parity error", -1, 1 },
-+		{ 0 }
-+	};
-+
-+	if (t4_handle_intr_status(adap, A_SMB_INT_CAUSE, smb_intr_info, NULL))
-+		t4_fatal_err(adap);
-+}
-+
-+/*
-+ * NC-SI interrupt handler.
-+ */
-+static void ncsi_intr_handler(struct adapter *adap)
-+{
-+	static struct intr_info ncsi_intr_info[] = {
-+		{ F_CIM_DM_PRTY_ERR, "NC-SI CIM parity error", -1, 1 },
-+		{ F_MPS_DM_PRTY_ERR, "NC-SI MPS parity error", -1, 1 },
-+		{ F_TXFIFO_PRTY_ERR, "NC-SI Tx FIFO parity error", -1, 1 },
-+		{ F_RXFIFO_PRTY_ERR, "NC-SI Rx FIFO parity error", -1, 1 },
-+		{ 0 }
-+	};
-+
-+	if (t4_handle_intr_status(adap, A_NCSI_INT_CAUSE, ncsi_intr_info, NULL))
-+		t4_fatal_err(adap);
-+}
-+
-+/*
-+ * XGMAC interrupt handler.
-+ */
-+static void xgmac_intr_handler(struct adapter *adap, int port)
-+{
-+	u32 v = t4_read_reg(adap, PORT_REG(port, A_XGMAC_PORT_INT_CAUSE));
-+
-+	v &= F_TXFIFO_PRTY_ERR | F_RXFIFO_PRTY_ERR;
-+	if (!v)
++	sgl->cmd_nsge = htonl(V_ULPTX_CMD(ULP_TX_SC_DSGL) |
++			      V_ULPTX_NSGE(nfrags));
++	if (likely(--nfrags == 0))
 +		return;
++	/*
++	 * Most of the complexity below deals with the possibility we hit the
++	 * end of the queue in the middle of writing the SGL.  For this case
++	 * only we create the SGL in a temporary buffer and then copy it.
++	 */
++	to = (u8 *)end > (u8 *)q->stat ? buf : sgl->sge;
 +
-+	if (v & F_TXFIFO_PRTY_ERR)
-+		CH_ALERT(adap, "XGMAC %d Tx FIFO parity error\n", port);
-+	if (v & F_RXFIFO_PRTY_ERR)
-+		CH_ALERT(adap, "XGMAC %d Rx FIFO parity error\n", port);
-+	t4_write_reg(adap, PORT_REG(port, A_XGMAC_PORT_INT_CAUSE), v);
-+	t4_fatal_err(adap);
++	for (i = (nfrags != si->nr_frags); nfrags >= 2; nfrags -= 2, to++) {
++		to->len[0] = cpu_to_be32(si->frags[i].size);
++		to->len[1] = cpu_to_be32(si->frags[++i].size);
++		to->addr[0] = cpu_to_be64(addr[i]);
++		to->addr[1] = cpu_to_be64(addr[++i]);
++	}
++	if (nfrags) {
++		to->len[0] = cpu_to_be32(si->frags[i].size);
++		to->len[1] = cpu_to_be32(0);
++		to->addr[0] = cpu_to_be64(addr[i + 1]);
++	}
++	if (unlikely((u8 *)end > (u8 *)q->stat)) {
++		unsigned int part0 = (u8 *)q->stat - (u8 *)sgl->sge, part1;
++
++		if (likely(part0))
++			memcpy(sgl->sge, buf, part0);
++		part1 = (u8 *)end - (u8 *)q->stat;
++		memcpy(q->desc, (u8 *)buf + part0, part1);
++		end = (void *)q->desc + part1;
++	}
++	if ((uintptr_t)end & 8)           /* 0-pad to multiple of 16 */
++		*(u64 *)end = 0;
++}
++
++/**
++ *	ring_tx_db - check and potentially ring a Tx queue's doorbell
++ *	@adap: the adapter
++ *	@q: the Tx queue
++ *	@n: number of new descriptors to give to HW
++ *
++ *	Ring the doorbel for a Tx queue.
++ */
++static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
++{
++	wmb();            /* write descriptors before telling HW */
++	t4_write_reg(adap, MYPF_REG(A_SGE_PF_KDOORBELL),
++		     V_QID(q->cntxt_id) | V_PIDX(n));
++}
++
++/**
++ * 	inline_tx_skb - inline a packet's data into Tx descriptors
++ * 	@skb: the packet
++ * 	@q: the Tx queue where the packet will be inlined
++ * 	@pos: starting position in the Tx queue where to inline the packet
++ *
++ *	Inline a packet's contents directly into Tx descriptors, starting at
++ *	the given position within the Tx DMA ring.
++ *	Most of the complexity of this operation is dealing with wrap arounds
++ *	in the middle of the packet we want to inline.
++ */
++static void inline_tx_skb(const struct sk_buff *skb, const struct sge_txq *q,
++			  void *pos)
++{
++	u64 *p;
++	int left = (void *)q->stat - pos;
++
++	if (likely(skb->len <= left)) {
++		if (likely(!skb->data_len))
++			skb_copy_from_linear_data(skb, pos, skb->len);
++		else
++			skb_copy_bits(skb, 0, pos, skb->len);
++		pos += skb->len;
++	} else {
++		skb_copy_bits(skb, 0, pos, left);
++		skb_copy_bits(skb, left, q->desc, skb->len - left);
++		pos = (void *)q->desc + (skb->len - left);
++	}
++
++	/* 0-pad to multiple of 16 */
++	p = PTR_ALIGN(pos, 8);
++	if ((uintptr_t)p & 8)
++		*p = 0;
 +}
 +
 +/*
-+ * PL interrupt handler.
++ * Figure out what HW csum a packet wants and return the appropriate control
++ * bits.
 + */
-+static void pl_intr_handler(struct adapter *adap)
++static u64 hwcsum(const struct sk_buff *skb)
 +{
-+	static struct intr_info pl_intr_info[] = {
-+		{ F_FATALPERR, "T4 fatal parity error", -1, 1 },
-+		{ F_PERRVFID, "PL VFID_MAP parity error", -1, 1 },
-+		{ 0 }
-+	};
++	int csum_type;
++	const struct iphdr *iph = ip_hdr(skb);
 +
-+	if (t4_handle_intr_status(adap, A_PL_PL_INT_CAUSE, pl_intr_info, NULL))
-+		t4_fatal_err(adap);
-+}
-+
-+#define PF_INTR_MASK (F_PFSW | F_PFCIM)
-+#define GLBL_INTR_MASK (F_CIM | F_MPS | F_PL | F_PCIE | F_MC | F_EDC0 | \
-+		F_EDC1 | F_LE | F_TP | F_MA | F_PM_TX | F_PM_RX | F_ULP_RX | \
-+		F_CPL_SWITCH | F_SGE | F_ULP_TX)
-+
-+/**
-+ *	t4_slow_intr_handler - control path interrupt handler
-+ *	@adapter: the adapter
-+ *
-+ *	T4 interrupt handler for non-data global interrupt events, e.g., errors.
-+ *	The designation 'slow' is because it involves register reads, while
-+ *	data interrupts typically don't involve any MMIOs.
-+ */
-+int t4_slow_intr_handler(struct adapter *adapter)
-+{
-+	u32 cause = t4_read_reg(adapter, A_PL_INT_CAUSE);
-+
-+	if (!(cause & GLBL_INTR_MASK))
-+		return 0;
-+	if (cause & F_CIM)
-+		cim_intr_handler(adapter);
-+	if (cause & F_MPS)
-+		mps_intr_handler(adapter);
-+	if (cause & F_NCSI)
-+		ncsi_intr_handler(adapter);
-+	if (cause & F_PL)
-+		pl_intr_handler(adapter);
-+	if (cause & F_SMB)
-+		smb_intr_handler(adapter);
-+	if (cause & F_XGMAC0)
-+		xgmac_intr_handler(adapter, 0);
-+	if (cause & F_XGMAC1)
-+		xgmac_intr_handler(adapter, 1);
-+	if (cause & F_XGMAC_KR0)
-+		xgmac_intr_handler(adapter, 2);
-+	if (cause & F_XGMAC_KR1)
-+		xgmac_intr_handler(adapter, 3);
-+	if (cause & F_PCIE)
-+		pcie_intr_handler(adapter);
-+	if (cause & F_MC)
-+		mem_intr_handler(adapter, MEM_MC);
-+	if (cause & F_EDC0)
-+		mem_intr_handler(adapter, MEM_EDC0);
-+	if (cause & F_EDC1)
-+		mem_intr_handler(adapter, MEM_EDC1);
-+	if (cause & F_LE)
-+		le_intr_handler(adapter);
-+	if (cause & F_TP)
-+		tp_intr_handler(adapter);
-+	if (cause & F_MA)
-+		ma_intr_handler(adapter);
-+	if (cause & F_PM_TX)
-+		pmtx_intr_handler(adapter);
-+	if (cause & F_PM_RX)
-+		pmrx_intr_handler(adapter);
-+	if (cause & F_ULP_RX)
-+		ulprx_intr_handler(adapter);
-+	if (cause & F_CPL_SWITCH)
-+		cplsw_intr_handler(adapter);
-+	if (cause & F_SGE)
-+		sge_intr_handler(adapter);
-+	if (cause & F_ULP_TX)
-+		ulptx_intr_handler(adapter);
-+
-+	/* Clear the interrupts just processed for which we are the master. */
-+	t4_write_reg(adapter, A_PL_INT_CAUSE, cause & GLBL_INTR_MASK);
-+	(void) t4_read_reg(adapter, A_PL_INT_CAUSE); /* flush */
-+	return 1;
-+}
-+
-+/**
-+ *	t4_intr_enable - enable interrupts
-+ *	@adapter: the adapter whose interrupts should be enabled
-+ *
-+ *	Enable PF-specific interrupts for the calling function and the top-level
-+ *	interrupt concentrator for global interrupts.  Interrupts are already
-+ *	enabled at each module,	here we just enable the roots of the interrupt
-+ *	hierarchies.
-+ *
-+ *	Note: this function should be called only when the driver manages
-+ *	non PF-specific interrupts from the various HW modules.  Only one PCI
-+ *	function at a time should be doing this.
-+ */
-+void t4_intr_enable(struct adapter *adapter)
-+{
-+	u32 pf = G_SOURCEPF(t4_read_reg(adapter, A_PL_WHOAMI));
-+
-+	t4_write_reg(adapter, A_SGE_INT_ENABLE3, F_ERR_CPL_EXCEED_IQE_SIZE |
-+		     F_ERR_INVALID_CIDX_INC | F_ERR_CPL_OPCODE_0 |
-+		     F_ERR_DROPPED_DB | F_ERR_DATA_CPL_ON_HIGH_QID1 |
-+		     F_ERR_DATA_CPL_ON_HIGH_QID0 | F_ERR_BAD_DB_PIDX3 |
-+		     F_ERR_BAD_DB_PIDX2 | F_ERR_BAD_DB_PIDX1 |
-+		     F_ERR_BAD_DB_PIDX0 | F_ERR_ING_CTXT_PRIO |
-+		     F_ERR_EGR_CTXT_PRIO | F_INGRESS_SIZE_ERR |
-+		     F_EGRESS_SIZE_ERR);
-+	t4_write_reg(adapter, MYPF_REG(A_PL_PF_INT_ENABLE), PF_INTR_MASK);
-+	t4_set_reg_field(adapter, A_PL_INT_MAP0, 0, 1 << pf);
-+}
-+
-+/**
-+ *	t4_intr_disable - disable interrupts
-+ *	@adapter: the adapter whose interrupts should be disabled
-+ *
-+ *	Disable interrupts.  We only disable the top-level interrupt
-+ *	concentrators.  The caller must be a PCI function managing global
-+ *	interrupts.
-+ */
-+void t4_intr_disable(struct adapter *adapter)
-+{
-+	u32 pf = G_SOURCEPF(t4_read_reg(adapter, A_PL_WHOAMI));
-+
-+	t4_write_reg(adapter, MYPF_REG(A_PL_PF_INT_ENABLE), 0);
-+	t4_set_reg_field(adapter, A_PL_INT_MAP0, 1 << pf, 0);
-+}
-+
-+/**
-+ *	t4_intr_clear - clear all interrupts
-+ *	@adapter: the adapter whose interrupts should be cleared
-+ *
-+ *	Clears all interrupts.  The caller must be a PCI function managing
-+ *	global interrupts.
-+ */
-+void t4_intr_clear(struct adapter *adapter)
-+{
-+	static const unsigned int cause_reg[] = {
-+		A_SGE_INT_CAUSE1, A_SGE_INT_CAUSE2, A_SGE_INT_CAUSE3,
-+		A_PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS,
-+		A_PCIE_CORE_UTL_PCI_EXPRESS_PORT_STATUS,
-+		A_PCIE_NONFAT_ERR, A_PCIE_INT_CAUSE,
-+		A_MC_INT_CAUSE,
-+		A_MA_INT_WRAP_STATUS, A_MA_PARITY_ERROR_STATUS, A_MA_INT_CAUSE,
-+		A_EDC_INT_CAUSE, EDC_REG(A_EDC_INT_CAUSE, 1),
-+		A_CIM_HOST_INT_CAUSE, A_CIM_HOST_UPACC_INT_CAUSE,
-+		MYPF_REG(A_CIM_PF_HOST_INT_CAUSE),
-+		A_TP_INT_CAUSE,
-+		A_ULP_RX_INT_CAUSE, A_ULP_TX_INT_CAUSE,
-+		A_PM_RX_INT_CAUSE, A_PM_TX_INT_CAUSE,
-+		A_MPS_RX_PERR_INT_CAUSE,
-+		A_CPL_INTR_CAUSE,
-+		MYPF_REG(A_PL_PF_INT_CAUSE),
-+		A_PL_PL_INT_CAUSE,
-+		A_LE_DB_INT_CAUSE,
-+	};
-+
-+	unsigned int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(cause_reg); ++i)
-+		t4_write_reg(adapter, cause_reg[i], 0xffffffff);
-+
-+	t4_write_reg(adapter, A_PL_INT_CAUSE, GLBL_INTR_MASK);
-+	(void) t4_read_reg(adapter, A_PL_INT_CAUSE);          /* flush */
-+}
-+
-+/**
-+ *	t4_hash_mac_addr - return the hash value of a MAC address
-+ *	@addr: the 48-bit Ethernet MAC address
-+ *
-+ *	Hashes a MAC address according to the hash function used by HW inexact
-+ *	(hash) address matching.
-+ */
-+int t4_hash_mac_addr(const u8 *addr)
-+{
-+	u32 a = ((u32)addr[0] << 16) | ((u32)addr[1] << 8) | addr[2];
-+	u32 b = ((u32)addr[3] << 16) | ((u32)addr[4] << 8) | addr[5];
-+	a ^= b;
-+	a ^= (a >> 12);
-+	a ^= (a >> 6);
-+	return a & 0x3f;
-+}
-+
-+/**
-+ *	t4_config_rss_range - configure a portion of the RSS mapping table
-+ *	@adapter: the adapter
-+ *	@mbox: mbox to use for the FW command
-+ *	@viid: virtual interface whose RSS subtable is to be written
-+ *	@start: start entry in the table to write
-+ *	@n: how many table entries to write
-+ *	@rspq: values for the response queue lookup table
-+ *	@nrspq: number of values in @rspq
-+ *
-+ *	Programs the selected part of the VI's RSS mapping table with the
-+ *	provided values.  If @nrspq < @n the supplied values are used repeatedly
-+ *	until the full table range is populated.
-+ *
-+ *	The caller must ensure the values in @rspq are in the range allowed for
-+ *	@viid.
-+ */
-+int t4_config_rss_range(struct adapter *adapter, int mbox, unsigned int viid,
-+			int start, int n, const u16 *rspq, unsigned int nrspq)
-+{
-+	int ret;
-+	const u16 *rsp = rspq;
-+	const u16 *rsp_end = rspq + nrspq;
-+	struct fw_rss_ind_tbl_cmd cmd;
-+
-+	memset(&cmd, 0, sizeof(cmd));
-+	cmd.op_to_viid = htonl(V_FW_CMD_OP(FW_RSS_IND_TBL_CMD) |
-+			       F_FW_CMD_REQUEST | F_FW_CMD_WRITE |
-+			       V_FW_RSS_IND_TBL_CMD_VIID(viid));
-+	cmd.retval_len16 = htonl(FW_LEN16(cmd));
-+
-+	/* each fw_rss_ind_tbl_cmd takes up to 32 entries */
-+	while (n > 0) {
-+		int nq = min(n, 32);
-+		__be32 *qp = &cmd.iq0_to_iq2;
-+
-+		cmd.niqid = htons(nq);
-+		cmd.startidx = htons(start);
-+
-+		start += nq;
-+		n -= nq;
-+
-+		while (nq > 0) {
-+			unsigned int v;
-+
-+			v = V_FW_RSS_IND_TBL_CMD_IQ0(*rsp);
-+			if (++rsp >= rsp_end)
-+				rsp = rspq;
-+			v |= V_FW_RSS_IND_TBL_CMD_IQ1(*rsp);
-+			if (++rsp >= rsp_end)
-+				rsp = rspq;
-+			v |= V_FW_RSS_IND_TBL_CMD_IQ2(*rsp);
-+			if (++rsp >= rsp_end)
-+				rsp = rspq;
-+
-+			*qp++ = htonl(v);
-+			nq -= 3;
++	if (iph->version == 4) {
++		if (iph->protocol == IPPROTO_TCP)
++			csum_type = TX_CSUM_TCPIP;
++		else if (iph->protocol == IPPROTO_UDP)
++			csum_type = TX_CSUM_UDPIP;
++		else {
++nocsum:			/*
++			 * unknown protocol, disable HW csum
++			 * and hope a bad packet is detected
++			 */
++			return F_TXPKT_L4CSUM_DIS;
 +		}
-+
-+		ret = t4_wr_mbox(adapter, mbox, &cmd, sizeof(cmd), NULL);
-+		if (ret != FW_SUCCESS)
-+			return ret;
-+	}
-+	return 0;
-+}
-+
-+/**
-+ *	t4_config_glbl_rss - configure the global RSS mode
-+ *	@adapter: the adapter
-+ *	@mbox: mbox to use for the FW command
-+ *	@mode: global RSS mode
-+ *	@flags: mode-specific flags
-+ *
-+ *	Sets the global RSS mode.
-+ */
-+int t4_config_glbl_rss(struct adapter *adapter, int mbox, unsigned int mode,
-+		       unsigned int flags)
-+{
-+	struct fw_rss_glb_config_cmd c;
-+
-+	memset(&c, 0, sizeof(c));
-+	c.op_to_write = htonl(V_FW_CMD_OP(FW_RSS_GLB_CONFIG_CMD) |
-+			      F_FW_CMD_REQUEST | F_FW_CMD_WRITE);
-+	c.retval_len16 = htonl(FW_LEN16(c));
-+	if (mode == FW_RSS_GLB_CONFIG_CMD_MODE_MANUAL) {
-+		c.u.manual.mode_pkd = htonl(V_FW_RSS_GLB_CONFIG_CMD_MODE(mode));
-+	} else if (mode == FW_RSS_GLB_CONFIG_CMD_MODE_BASICVIRTUAL) {
-+		c.u.basicvirtual.mode_pkd =
-+			htonl(V_FW_RSS_GLB_CONFIG_CMD_MODE(mode));
-+		c.u.basicvirtual.synmapen_to_hashtoeplitz = htonl(flags);
-+	} else
-+		return -EINVAL;
-+	return t4_wr_mbox(adapter, mbox, &c, sizeof(c), NULL);
-+}
-+
-+/* Read an RSS table row */
-+static int rd_rss_row(struct adapter *adap, int row, u32 *val)
-+{
-+	t4_write_reg(adap, A_TP_RSS_LKP_TABLE, 0xfff00000 | row);
-+	return t4_wait_op_done_val(adap, A_TP_RSS_LKP_TABLE, F_LKPTBLROWVLD, 1,
-+				   5, 0, val);
-+}
-+
-+/**
-+ *	t4_read_rss - read the contents of the RSS mapping table
-+ *	@adapter: the adapter
-+ *	@map: holds the contents of the RSS mapping table
-+ *
-+ *	Reads the contents of the RSS hash->queue mapping table.
-+ */
-+int t4_read_rss(struct adapter *adapter, u16 *map)
-+{
-+	u32 val;
-+	int i, ret;
-+
-+	for (i = 0; i < RSS_NENTRIES / 2; ++i) {
-+		ret = rd_rss_row(adapter, i, &val);
-+		if (ret)
-+			return ret;
-+		*map++ = G_LKPTBLQUEUE0(val);
-+		*map++ = G_LKPTBLQUEUE1(val);
-+	}
-+	return 0;
-+}
-+
-+/**
-+ *	t4_tp_get_tcp_stats - read TP's TCP MIB counters
-+ *	@adap: the adapter
-+ *	@v4: holds the TCP/IP counter values
-+ *	@v6: holds the TCP/IPv6 counter values
-+ *
-+ *	Returns the values of TP's TCP/IP and TCP/IPv6 MIB counters.
-+ *	Either @v4 or @v6 may be %NULL to skip the corresponding stats.
-+ */
-+void t4_tp_get_tcp_stats(struct adapter *adap, struct tp_tcp_stats *v4,
-+			 struct tp_tcp_stats *v6)
-+{
-+	u32 val[A_TP_MIB_TCP_RXT_SEG_LO - A_TP_MIB_TCP_OUT_RST + 1];
-+
-+#define STAT_IDX(x) ((A_TP_MIB_TCP_##x) - A_TP_MIB_TCP_OUT_RST)
-+#define STAT(x)     val[STAT_IDX(x)]
-+#define STAT64(x)   (((u64)STAT(x##_HI) << 32) | STAT(x##_LO))
-+
-+	if (v4) {
-+		t4_read_indirect(adap, A_TP_MIB_INDEX, A_TP_MIB_DATA, val,
-+				 ARRAY_SIZE(val), A_TP_MIB_TCP_OUT_RST);
-+		v4->tcpOutRsts = STAT(OUT_RST);
-+		v4->tcpInSegs  = STAT64(IN_SEG);
-+		v4->tcpOutSegs = STAT64(OUT_SEG);
-+		v4->tcpRetransSegs = STAT64(RXT_SEG);
-+	}
-+	if (v6) {
-+		t4_read_indirect(adap, A_TP_MIB_INDEX, A_TP_MIB_DATA, val,
-+				 ARRAY_SIZE(val), A_TP_MIB_TCP_V6OUT_RST);
-+		v6->tcpOutRsts = STAT(OUT_RST);
-+		v6->tcpInSegs  = STAT64(IN_SEG);
-+		v6->tcpOutSegs = STAT64(OUT_SEG);
-+		v6->tcpRetransSegs = STAT64(RXT_SEG);
-+	}
-+#undef STAT64
-+#undef STAT
-+#undef STAT_IDX
-+}
-+
-+/**
-+ *	t4_tp_get_err_stats - read TP's error MIB counters
-+ *	@adap: the adapter
-+ *	@st: holds the counter values
-+ *
-+ *	Returns the values of TP's error counters.
-+ */
-+void t4_tp_get_err_stats(struct adapter *adap, struct tp_err_stats *st)
-+{
-+	t4_read_indirect(adap, A_TP_MIB_INDEX, A_TP_MIB_DATA, st->macInErrs,
-+			 12, A_TP_MIB_MAC_IN_ERR_0);
-+	t4_read_indirect(adap, A_TP_MIB_INDEX, A_TP_MIB_DATA, st->tnlCongDrops,
-+			 8, A_TP_MIB_TNL_CNG_DROP_0);
-+	t4_read_indirect(adap, A_TP_MIB_INDEX, A_TP_MIB_DATA, st->tnlTxDrops,
-+			 4, A_TP_MIB_TNL_DROP_0);
-+	t4_read_indirect(adap, A_TP_MIB_INDEX, A_TP_MIB_DATA, st->ofldVlanDrops,
-+			 4, A_TP_MIB_OFD_VLN_DROP_0);
-+	t4_read_indirect(adap, A_TP_MIB_INDEX, A_TP_MIB_DATA, st->tcp6InErrs,
-+			 4, A_TP_MIB_TCP_V6IN_ERR_0);
-+	t4_read_indirect(adap, A_TP_MIB_INDEX, A_TP_MIB_DATA, &st->ofldNoNeigh,
-+			 2, A_TP_MIB_OFD_ARP_DROP);
-+}
-+
-+/**
-+ *	t4_read_mtu_tbl - returns the values in the HW path MTU table
-+ *	@adap: the adapter
-+ *	@mtus: where to store the MTU values
-+ *	@mtu_log: where to store the MTU base-2 log (may be %NULL)
-+ *
-+ *	Reads the HW path MTU table.
-+ */
-+void t4_read_mtu_tbl(struct adapter *adap, u16 *mtus, u8 *mtu_log)
-+{
-+	u32 v;
-+	int i;
-+
-+	for (i = 0; i < NMTUS; ++i) {
-+		t4_write_reg(adap, A_TP_MTU_TABLE,
-+			     V_MTUINDEX(0xff) | V_MTUVALUE(i));
-+		v = t4_read_reg(adap, A_TP_MTU_TABLE);
-+		mtus[i] = G_MTUVALUE(v);
-+		if (mtu_log)
-+			mtu_log[i] = G_MTUWIDTH(v);
-+	}
-+}
-+
-+/**
-+ *	init_cong_ctrl - initialize congestion control parameters
-+ *	@a: the alpha values for congestion control
-+ *	@b: the beta values for congestion control
-+ *
-+ *	Initialize the congestion control parameters.
-+ */
-+static void __devinit init_cong_ctrl(unsigned short *a, unsigned short *b)
-+{
-+	a[0] = a[1] = a[2] = a[3] = a[4] = a[5] = a[6] = a[7] = a[8] = 1;
-+	a[9] = 2;
-+	a[10] = 3;
-+	a[11] = 4;
-+	a[12] = 5;
-+	a[13] = 6;
-+	a[14] = 7;
-+	a[15] = 8;
-+	a[16] = 9;
-+	a[17] = 10;
-+	a[18] = 14;
-+	a[19] = 17;
-+	a[20] = 21;
-+	a[21] = 25;
-+	a[22] = 30;
-+	a[23] = 35;
-+	a[24] = 45;
-+	a[25] = 60;
-+	a[26] = 80;
-+	a[27] = 100;
-+	a[28] = 200;
-+	a[29] = 300;
-+	a[30] = 400;
-+	a[31] = 500;
-+
-+	b[0] = b[1] = b[2] = b[3] = b[4] = b[5] = b[6] = b[7] = b[8] = 0;
-+	b[9] = b[10] = 1;
-+	b[11] = b[12] = 2;
-+	b[13] = b[14] = b[15] = b[16] = 3;
-+	b[17] = b[18] = b[19] = b[20] = b[21] = 4;
-+	b[22] = b[23] = b[24] = b[25] = b[26] = b[27] = 5;
-+	b[28] = b[29] = 6;
-+	b[30] = b[31] = 7;
-+}
-+
-+/* The minimum additive increment value for the congestion control table */
-+#define CC_MIN_INCR 2U
-+
-+/**
-+ *	t4_load_mtus - write the MTU and congestion control HW tables
-+ *	@adap: the adapter
-+ *	@mtus: the values for the MTU table
-+ *	@alpha: the values for the congestion control alpha parameter
-+ *	@beta: the values for the congestion control beta parameter
-+ *
-+ *	Write the HW MTU table with the supplied MTUs and the high-speed
-+ *	congestion control table with the supplied alpha, beta, and MTUs.
-+ *	We write the two tables together because the additive increments
-+ *	depend on the MTUs.
-+ */
-+void t4_load_mtus(struct adapter *adap, const unsigned short *mtus,
-+		  const unsigned short *alpha, const unsigned short *beta)
-+{
-+	static const unsigned int avg_pkts[NCCTRL_WIN] = {
-+		2, 6, 10, 14, 20, 28, 40, 56, 80, 112, 160, 224, 320, 448, 640,
-+		896, 1281, 1792, 2560, 3584, 5120, 7168, 10240, 14336, 20480,
-+		28672, 40960, 57344, 81920, 114688, 163840, 229376
-+	};
-+
-+	unsigned int i, w;
-+
-+	for (i = 0; i < NMTUS; ++i) {
-+		unsigned int mtu = mtus[i];
-+		unsigned int log2 = fls(mtu);
-+
-+		if (!(mtu & ((1 << log2) >> 2)))     /* round */
-+			log2--;
-+		t4_write_reg(adap, A_TP_MTU_TABLE, V_MTUINDEX(i) |
-+			     V_MTUWIDTH(log2) | V_MTUVALUE(mtu));
-+
-+		for (w = 0; w < NCCTRL_WIN; ++w) {
-+			unsigned int inc;
-+
-+			inc = max(((mtu - 40) * alpha[w]) / avg_pkts[w],
-+				  CC_MIN_INCR);
-+
-+			t4_write_reg(adap, A_TP_CCTRL_TABLE, (i << 21) |
-+				     (w << 16) | (beta[w] << 13) | inc);
-+		}
-+	}
-+}
-+
-+/**
-+ *	t4_set_trace_filter - configure one of the tracing filters
-+ *	@adap: the adapter
-+ *	@tp: the desired trace filter parameters
-+ *	@idx: which filter to configure
-+ *	@enable: whether to enable or disable the filter
-+ *
-+ *	Configures one of the tracing filters available in HW.  If @enable is
-+ *	%0 @tp is not examined and may be %NULL.
-+ */
-+int t4_set_trace_filter(struct adapter *adap, const struct trace_params *tp,
-+			int idx, int enable)
-+{
-+	int i, ofst = idx * 4;
-+	u32 data_reg, mask_reg, cfg;
-+	u32 multitrc = F_TRCMULTIFILTER;
-+
-+	if (!enable) {
-+		t4_write_reg(adap, A_MPS_TRC_FILTER_MATCH_CTL_A + ofst, 0);
-+		goto out;
-+	}
-+
-+	if (tp->port > 11 || tp->invert > 1 || tp->skip_len > M_TFLENGTH ||
-+	    tp->skip_ofst > M_TFOFFSET || tp->min_len > M_TFMINPKTSIZE ||
-+	    tp->snap_len > 9600 || (idx && tp->snap_len > 256))
-+		return -EINVAL;
-+
-+	if (tp->snap_len > 256) {            /* must be tracer 0 */
-+		if ((t4_read_reg(adap, A_MPS_TRC_FILTER_MATCH_CTL_A + 4) |
-+		     t4_read_reg(adap, A_MPS_TRC_FILTER_MATCH_CTL_A + 8) |
-+		     t4_read_reg(adap, A_MPS_TRC_FILTER_MATCH_CTL_A + 12)) &
-+		    F_TFEN)
-+			return -EINVAL;  /* other tracers are enabled */
-+		multitrc = 0;
-+	} else if (idx) {
-+		i = t4_read_reg(adap, A_MPS_TRC_FILTER_MATCH_CTL_B);
-+		if (G_TFCAPTUREMAX(i) > 256 &&
-+		    (t4_read_reg(adap, A_MPS_TRC_FILTER_MATCH_CTL_A) & F_TFEN))
-+			return -EINVAL;
-+	}
-+
-+	/* stop the tracer we'll be changing */
-+	t4_write_reg(adap, A_MPS_TRC_FILTER_MATCH_CTL_A + ofst, 0);
-+
-+	/* disable tracing globally if running in the wrong single/multi mode */
-+	cfg = t4_read_reg(adap, A_MPS_TRC_CFG);
-+	if ((cfg & F_TRCEN) && multitrc != (cfg & F_TRCMULTIFILTER)) {
-+		t4_write_reg(adap, A_MPS_TRC_CFG, cfg ^ F_TRCEN);
-+		t4_read_reg(adap, A_MPS_TRC_CFG);                  /* flush */
-+		msleep(1);
-+		if (!(t4_read_reg(adap, A_MPS_TRC_CFG) & F_TRCFIFOEMPTY))
-+			return -ETIMEDOUT;
-+	}
-+	/*
-+	 * At this point either the tracing is enabled and in the right mode or
-+	 * disabled.
-+	 */
-+
-+	idx *= (A_MPS_TRC_FILTER1_MATCH - A_MPS_TRC_FILTER0_MATCH);
-+	data_reg = A_MPS_TRC_FILTER0_MATCH + idx;
-+	mask_reg = A_MPS_TRC_FILTER0_DONT_CARE + idx;
-+
-+	for (i = 0; i < TRACE_LEN / 4; i++, data_reg += 4, mask_reg += 4) {
-+		t4_write_reg(adap, data_reg, tp->data[i]);
-+		t4_write_reg(adap, mask_reg, ~tp->mask[i]);
-+	}
-+	t4_write_reg(adap, A_MPS_TRC_FILTER_MATCH_CTL_B + ofst,
-+		     V_TFCAPTUREMAX(tp->snap_len) |
-+		     V_TFMINPKTSIZE(tp->min_len));
-+	t4_write_reg(adap, A_MPS_TRC_FILTER_MATCH_CTL_A + ofst,
-+		     V_TFOFFSET(tp->skip_ofst) | V_TFLENGTH(tp->skip_len) |
-+		     V_TFPORT(tp->port) | F_TFEN | V_TFINVERTMATCH(tp->invert));
-+
-+	cfg &= ~F_TRCMULTIFILTER;
-+	t4_write_reg(adap, A_MPS_TRC_CFG, cfg | F_TRCEN | multitrc);
-+out:	t4_read_reg(adap, A_MPS_TRC_CFG);  /* flush */
-+	return 0;
-+}
-+
-+/**
-+ *	t4_get_trace_filter - query one of the tracing filters
-+ *	@adap: the adapter
-+ *	@tp: the current trace filter parameters
-+ *	@idx: which trace filter to query
-+ *	@enabled: non-zero if the filter is enabled
-+ *
-+ *	Returns the current settings of one of the HW tracing filters.
-+ */
-+void t4_get_trace_filter(struct adapter *adap, struct trace_params *tp, int idx,
-+			 int *enabled)
-+{
-+	u32 ctla, ctlb;
-+	int i, ofst = idx * 4;
-+	u32 data_reg, mask_reg;
-+
-+	ctla = t4_read_reg(adap, A_MPS_TRC_FILTER_MATCH_CTL_A + ofst);
-+	ctlb = t4_read_reg(adap, A_MPS_TRC_FILTER_MATCH_CTL_B + ofst);
-+
-+	*enabled = !!(ctla & F_TFEN);
-+	tp->snap_len = G_TFCAPTUREMAX(ctlb);
-+	tp->min_len = G_TFMINPKTSIZE(ctlb);
-+	tp->skip_ofst = G_TFOFFSET(ctla);
-+	tp->skip_len = G_TFLENGTH(ctla);
-+	tp->invert = !!(ctla & F_TFINVERTMATCH);
-+	tp->port = G_TFPORT(ctla);
-+
-+	ofst = (A_MPS_TRC_FILTER1_MATCH - A_MPS_TRC_FILTER0_MATCH) * idx;
-+	data_reg = A_MPS_TRC_FILTER0_MATCH + ofst;
-+	mask_reg = A_MPS_TRC_FILTER0_DONT_CARE + ofst;
-+
-+	for (i = 0; i < TRACE_LEN / 4; i++, data_reg += 4, mask_reg += 4) {
-+		tp->mask[i] = ~t4_read_reg(adap, mask_reg);
-+		tp->data[i] = t4_read_reg(adap, data_reg) & tp->mask[i];
-+	}
-+}
-+
-+/**
-+ *	get_mps_bg_map - return the buffer groups associated with a port
-+ *	@adap: the adapter
-+ *	@idx: the port index
-+ *
-+ *	Returns a bitmap indicating which MPS buffer groups are associated
-+ *	with the given port.  Bit i is set if buffer group i is used by the
-+ *	port.
-+ */
-+static unsigned int get_mps_bg_map(struct adapter *adap, int idx)
-+{
-+	u32 n = G_NUMPORTS(t4_read_reg(adap, A_MPS_CMN_CTL));
-+
-+	if (n == 0)
-+		return idx == 0 ? 0xf : 0;
-+	if (n == 1)
-+		return idx < 2 ? (3 << (2 * idx)) : 0;
-+	return 1 << idx;
-+}
-+
-+/**
-+ *	t4_get_port_stats - collect port statistics
-+ *	@adap: the adapter
-+ *	@idx: the port index
-+ *	@p: the stats structure to fill
-+ *
-+ *	Collect statistics related to the given port from HW.
-+ */
-+void t4_get_port_stats(struct adapter *adap, int idx, struct port_stats *p)
-+{
-+	u32 bgmap = get_mps_bg_map(adap, idx);
-+
-+#define GET_STAT(name) \
-+	t4_read_reg64(adap, PORT_REG(idx, A_MPS_PORT_STAT_##name##_L))
-+#define GET_STAT_COM(name) t4_read_reg64(adap, A_MPS_STAT_##name##_L)
-+
-+	p->tx_octets           = GET_STAT(TX_PORT_BYTES);
-+	p->tx_frames           = GET_STAT(TX_PORT_FRAMES);
-+	p->tx_bcast_frames     = GET_STAT(TX_PORT_BCAST);
-+	p->tx_mcast_frames     = GET_STAT(TX_PORT_MCAST);
-+	p->tx_ucast_frames     = GET_STAT(TX_PORT_UCAST);
-+	p->tx_error_frames     = GET_STAT(TX_PORT_ERROR);
-+	p->tx_frames_64        = GET_STAT(TX_PORT_64B);
-+	p->tx_frames_65_127    = GET_STAT(TX_PORT_65B_127B);
-+	p->tx_frames_128_255   = GET_STAT(TX_PORT_128B_255B);
-+	p->tx_frames_256_511   = GET_STAT(TX_PORT_256B_511B);
-+	p->tx_frames_512_1023  = GET_STAT(TX_PORT_512B_1023B);
-+	p->tx_frames_1024_1518 = GET_STAT(TX_PORT_1024B_1518B);
-+	p->tx_frames_1519_max  = GET_STAT(TX_PORT_1519B_MAX);
-+	p->tx_drop             = GET_STAT(TX_PORT_DROP);
-+	p->tx_pause            = GET_STAT(TX_PORT_PAUSE);
-+	p->tx_ppp0             = GET_STAT(TX_PORT_PPP0);
-+	p->tx_ppp1             = GET_STAT(TX_PORT_PPP1);
-+	p->tx_ppp2             = GET_STAT(TX_PORT_PPP2);
-+	p->tx_ppp3             = GET_STAT(TX_PORT_PPP3);
-+	p->tx_ppp4             = GET_STAT(TX_PORT_PPP4);
-+	p->tx_ppp5             = GET_STAT(TX_PORT_PPP5);
-+	p->tx_ppp6             = GET_STAT(TX_PORT_PPP6);
-+	p->tx_ppp7             = GET_STAT(TX_PORT_PPP7);
-+
-+	p->rx_octets           = GET_STAT(RX_PORT_BYTES);
-+	p->rx_frames           = GET_STAT(RX_PORT_FRAMES);
-+	p->rx_bcast_frames     = GET_STAT(RX_PORT_BCAST);
-+	p->rx_mcast_frames     = GET_STAT(RX_PORT_MCAST);
-+	p->rx_ucast_frames     = GET_STAT(RX_PORT_UCAST);
-+	p->rx_too_long         = GET_STAT(RX_PORT_MTU_ERROR);
-+	p->rx_jabber           = GET_STAT(RX_PORT_MTU_CRC_ERROR);
-+	p->rx_fcs_err          = GET_STAT(RX_PORT_CRC_ERROR);
-+	p->rx_len_err          = GET_STAT(RX_PORT_LEN_ERROR);
-+	p->rx_symbol_err       = GET_STAT(RX_PORT_SYM_ERROR);
-+	p->rx_runt             = GET_STAT(RX_PORT_LESS_64B);
-+	p->rx_frames_64        = GET_STAT(RX_PORT_64B);
-+	p->rx_frames_65_127    = GET_STAT(RX_PORT_65B_127B);
-+	p->rx_frames_128_255   = GET_STAT(RX_PORT_128B_255B);
-+	p->rx_frames_256_511   = GET_STAT(RX_PORT_256B_511B);
-+	p->rx_frames_512_1023  = GET_STAT(RX_PORT_512B_1023B);
-+	p->rx_frames_1024_1518 = GET_STAT(RX_PORT_1024B_1518B);
-+	p->rx_frames_1519_max  = GET_STAT(RX_PORT_1519B_MAX);
-+	p->rx_pause            = GET_STAT(RX_PORT_PAUSE);
-+	p->rx_ppp0             = GET_STAT(RX_PORT_PPP0);
-+	p->rx_ppp1             = GET_STAT(RX_PORT_PPP1);
-+	p->rx_ppp2             = GET_STAT(RX_PORT_PPP2);
-+	p->rx_ppp3             = GET_STAT(RX_PORT_PPP3);
-+	p->rx_ppp4             = GET_STAT(RX_PORT_PPP4);
-+	p->rx_ppp5             = GET_STAT(RX_PORT_PPP5);
-+	p->rx_ppp6             = GET_STAT(RX_PORT_PPP6);
-+	p->rx_ppp7             = GET_STAT(RX_PORT_PPP7);
-+
-+	p->rx_ovflow0 = (bgmap & 1) ? GET_STAT_COM(RX_BG_0_MAC_DROP_FRAME) : 0;
-+	p->rx_ovflow1 = (bgmap & 2) ? GET_STAT_COM(RX_BG_1_MAC_DROP_FRAME) : 0;
-+	p->rx_ovflow2 = (bgmap & 4) ? GET_STAT_COM(RX_BG_2_MAC_DROP_FRAME) : 0;
-+	p->rx_ovflow3 = (bgmap & 8) ? GET_STAT_COM(RX_BG_3_MAC_DROP_FRAME) : 0;
-+	p->rx_trunc0 = (bgmap & 1) ? GET_STAT_COM(RX_BG_0_MAC_TRUNC_FRAME) : 0;
-+	p->rx_trunc1 = (bgmap & 2) ? GET_STAT_COM(RX_BG_1_MAC_TRUNC_FRAME) : 0;
-+	p->rx_trunc2 = (bgmap & 4) ? GET_STAT_COM(RX_BG_2_MAC_TRUNC_FRAME) : 0;
-+	p->rx_trunc3 = (bgmap & 8) ? GET_STAT_COM(RX_BG_3_MAC_TRUNC_FRAME) : 0;
-+
-+#undef GET_STAT
-+#undef GET_STAT_COM
-+}
-+
-+/**
-+ *	t4_get_lb_stats - collect loopback port statistics
-+ *	@adap: the adapter
-+ *	@idx: the loopback port index
-+ *	@p: the stats structure to fill
-+ *
-+ *	Return HW statistics for the given loopback port.
-+ */
-+void t4_get_lb_stats(struct adapter *adap, int idx, struct lb_port_stats *p)
-+{
-+	u32 bgmap = get_mps_bg_map(adap, idx);
-+
-+#define GET_STAT(name) \
-+	t4_read_reg64(adap, PORT_REG(idx, A_MPS_PORT_STAT_LB_PORT_##name##_L))
-+#define GET_STAT_COM(name) t4_read_reg64(adap, A_MPS_STAT_##name##_L)
-+
-+	p->octets           = GET_STAT(BYTES);
-+	p->frames           = GET_STAT(FRAMES);
-+	p->bcast_frames     = GET_STAT(BCAST);
-+	p->mcast_frames     = GET_STAT(MCAST);
-+	p->ucast_frames     = GET_STAT(UCAST);
-+	p->error_frames     = GET_STAT(ERROR);
-+
-+	p->frames_64        = GET_STAT(64B);
-+	p->frames_65_127    = GET_STAT(65B_127B);
-+	p->frames_128_255   = GET_STAT(128B_255B);
-+	p->frames_256_511   = GET_STAT(256B_511B);
-+	p->frames_512_1023  = GET_STAT(512B_1023B);
-+	p->frames_1024_1518 = GET_STAT(1024B_1518B);
-+	p->frames_1519_max  = GET_STAT(1519B_MAX);
-+	p->drop             = t4_read_reg(adap, PORT_REG(idx,
-+					  A_MPS_PORT_STAT_LB_PORT_DROP_FRAMES));
-+
-+	p->ovflow0 = (bgmap & 1) ? GET_STAT_COM(RX_BG_0_LB_DROP_FRAME) : 0;
-+	p->ovflow1 = (bgmap & 2) ? GET_STAT_COM(RX_BG_1_LB_DROP_FRAME) : 0;
-+	p->ovflow2 = (bgmap & 4) ? GET_STAT_COM(RX_BG_2_LB_DROP_FRAME) : 0;
-+	p->ovflow3 = (bgmap & 8) ? GET_STAT_COM(RX_BG_3_LB_DROP_FRAME) : 0;
-+	p->trunc0 = (bgmap & 1) ? GET_STAT_COM(RX_BG_0_LB_TRUNC_FRAME) : 0;
-+	p->trunc1 = (bgmap & 2) ? GET_STAT_COM(RX_BG_1_LB_TRUNC_FRAME) : 0;
-+	p->trunc2 = (bgmap & 4) ? GET_STAT_COM(RX_BG_2_LB_TRUNC_FRAME) : 0;
-+	p->trunc3 = (bgmap & 8) ? GET_STAT_COM(RX_BG_3_LB_TRUNC_FRAME) : 0;
-+
-+#undef GET_STAT
-+#undef GET_STAT_COM
-+}
-+
-+/**
-+ * 	t4_wol_magic_enable - enable/disable magic packet WoL
-+ * 	@adap: the adapter
-+ * 	@port: the physical port index
-+ * 	@addr: MAC address expected in magic packets, %NULL to disable
-+ *
-+ * 	Enables/disables magic packet wake-on-LAN for the selected port.
-+ */
-+void t4_wol_magic_enable(struct adapter *adap, unsigned int port,
-+			 const u8 *addr)
-+{
-+	if (addr) {
-+		t4_write_reg(adap, PORT_REG(port, A_XGMAC_PORT_MAGIC_MACID_LO),
-+			     (addr[2] << 24) | (addr[3] << 16) |
-+			     (addr[4] << 8) | addr[5]);
-+		t4_write_reg(adap, PORT_REG(port, A_XGMAC_PORT_MAGIC_MACID_HI),
-+			     (addr[0] << 8) | addr[1]);
-+	}
-+	t4_set_reg_field(adap, PORT_REG(port, A_XGMAC_PORT_CFG2), F_MAGICEN,
-+			 V_MAGICEN(addr != NULL));
-+}
-+
-+/**
-+ *	t4_wol_pat_enable - enable/disable pattern-based WoL
-+ *	@adap: the adapter
-+ *	@port: the physical port index
-+ *	@map: bitmap of which HW pattern filters to set
-+ *	@mask0: byte mask for bytes 0-63 of a packet
-+ *	@mask1: byte mask for bytes 64-127 of a packet
-+ *	@crc: Ethernet CRC for selected bytes
-+ *	@enable: enable/disable switch
-+ *
-+ *	Sets the pattern filters indicated in @map to mask out the bytes
-+ *	specified in @mask0/@mask1 in received packets and compare the CRC of
-+ *	the resulting packet against @crc.  If @enable is %true pattern-based
-+ *	WoL is enabled, otherwise disabled.
-+ */
-+int t4_wol_pat_enable(struct adapter *adap, unsigned int port, unsigned int map,
-+		      u64 mask0, u64 mask1, unsigned int crc, bool enable)
-+{
-+	int i;
-+
-+	if (!enable) {
-+		t4_set_reg_field(adap, PORT_REG(port, A_XGMAC_PORT_CFG2),
-+				 F_PATEN, 0);
-+		return 0;
-+	}
-+	if (map > 0xff)
-+		return -EINVAL;
-+
-+#define EPIO_REG(name) PORT_REG(port, A_XGMAC_PORT_EPIO_##name)
-+
-+	t4_write_reg(adap, EPIO_REG(DATA1), mask0 >> 32);
-+	t4_write_reg(adap, EPIO_REG(DATA2), mask1);
-+	t4_write_reg(adap, EPIO_REG(DATA3), mask1 >> 32);
-+
-+	for (i = 0; i < NWOL_PAT; i++, map >>= 1) {
-+		if (!(map & 1))
-+			continue;
-+
-+		/* write byte masks */
-+		t4_write_reg(adap, EPIO_REG(DATA0), mask0);
-+		t4_write_reg(adap, EPIO_REG(OP), V_ADDRESS(i) | F_EPIOWR);
-+		t4_read_reg(adap, EPIO_REG(OP));                /* flush */
-+		if (t4_read_reg(adap, EPIO_REG(OP)) & F_BUSY)
-+			return -ETIMEDOUT;
-+
-+		/* write CRC */
-+		t4_write_reg(adap, EPIO_REG(DATA0), crc);
-+		t4_write_reg(adap, EPIO_REG(OP), V_ADDRESS(i + 32) | F_EPIOWR);
-+		t4_read_reg(adap, EPIO_REG(OP));                /* flush */
-+		if (t4_read_reg(adap, EPIO_REG(OP)) & F_BUSY)
-+			return -ETIMEDOUT;
-+	}
-+#undef EPIO_REG
-+
-+	t4_set_reg_field(adap, PORT_REG(port, A_XGMAC_PORT_CFG2), 0, F_PATEN);
-+	return 0;
-+}
-+
-+#define INIT_CMD(var, cmd, rd_wr) \
-+	(var).op_to_write = htonl(V_FW_CMD_OP(FW_##cmd##_CMD) | \
-+				  F_FW_CMD_REQUEST | F_FW_CMD_##rd_wr); \
-+	(var).retval_len16 = htonl(FW_LEN16(var))
-+
-+/**
-+ * 	t4_mdio_rd - read a PHY register through MDIO
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@phy_addr: the PHY address
-+ * 	@mmd: the PHY MMD to access (0 for clause 22 PHYs)
-+ * 	@reg: the register to read
-+ * 	@valp: where to store the value
-+ *
-+ * 	Issues a FW command through the given mailbox to read a PHY register.
-+ */
-+int t4_mdio_rd(struct adapter *adap, unsigned int mbox, unsigned int phy_addr,
-+	       unsigned int mmd, unsigned int reg, u16 *valp)
-+{
-+	int ret;
-+	struct fw_ldst_cmd c;
-+
-+	memset(&c, 0, sizeof(c));
-+	c.op_to_addrspace = htonl(V_FW_CMD_OP(FW_LDST_CMD) | F_FW_CMD_REQUEST |
-+		F_FW_CMD_READ | V_FW_LDST_CMD_ADDRSPACE(FW_LDST_ADDRSPC_MDIO));
-+	c.cycles_to_len16 = htonl(FW_LEN16(c));
-+	c.u.mdio.paddr_mmd = htons(V_FW_LDST_CMD_PADDR(phy_addr) |
-+				   V_FW_LDST_CMD_MMD(mmd));
-+	c.u.mdio.raddr = htons(reg);
-+
-+	ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), &c);
-+	if (ret == 0)
-+		*valp = ntohs(c.u.mdio.rval);
-+	return ret;
-+}
-+
-+/**
-+ * 	t4_mdio_wr - write a PHY register through MDIO
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@phy_addr: the PHY address
-+ * 	@mmd: the PHY MMD to access (0 for clause 22 PHYs)
-+ * 	@reg: the register to write
-+ * 	@valp: value to write
-+ *
-+ * 	Issues a FW command through the given mailbox to write a PHY register.
-+ */
-+int t4_mdio_wr(struct adapter *adap, unsigned int mbox, unsigned int phy_addr,
-+	       unsigned int mmd, unsigned int reg, u16 val)
-+{
-+	struct fw_ldst_cmd c;
-+
-+	memset(&c, 0, sizeof(c));
-+	c.op_to_addrspace = htonl(V_FW_CMD_OP(FW_LDST_CMD) | F_FW_CMD_REQUEST |
-+		F_FW_CMD_WRITE | V_FW_LDST_CMD_ADDRSPACE(FW_LDST_ADDRSPC_MDIO));
-+	c.cycles_to_len16 = htonl(FW_LEN16(c));
-+	c.u.mdio.paddr_mmd = htons(V_FW_LDST_CMD_PADDR(phy_addr) |
-+				   V_FW_LDST_CMD_MMD(mmd));
-+	c.u.mdio.raddr = htons(reg);
-+	c.u.mdio.rval = htons(val);
-+
-+	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
-+}
-+
-+/**
-+ * 	t4_fw_hello - establish communication with FW
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@evt_mbox: mailbox to receive async FW events
-+ * 	@master: specifies the caller's willingness to be the device master
-+ * 	@state: returns the current device state
-+ *
-+ * 	Issues a command to establish communication with FW.
-+ */
-+int t4_fw_hello(struct adapter *adap, unsigned int mbox, unsigned int evt_mbox,
-+		enum dev_master master, enum dev_state *state)
-+{
-+	int ret; 
-+	struct fw_hello_cmd c;
-+
-+	INIT_CMD(c, HELLO, WRITE);
-+	c.err_to_mbasyncnot = htonl(
-+		V_FW_HELLO_CMD_MASTERDIS(master == MASTER_CANT) |
-+		V_FW_HELLO_CMD_MASTERFORCE(master == MASTER_MUST) |
-+		V_FW_HELLO_CMD_MBMASTER(master == MASTER_MUST ? mbox : 0xff) |
-+		V_FW_HELLO_CMD_MBASYNCNOT(evt_mbox));
-+
-+	ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), &c);
-+	if (ret == 0 && state) {
-+		u32 v = ntohl(c.err_to_mbasyncnot);
-+		if (v & F_FW_HELLO_CMD_INIT)
-+			*state = DEV_STATE_INIT;
-+		else if (v & F_FW_HELLO_CMD_ERR)
-+			*state = DEV_STATE_ERR;
++	} else {
++		/*
++		 * this doesn't work with extension headers
++		 */
++		const struct ipv6hdr *ip6h = (const struct ipv6hdr *)iph;
++
++		if (ip6h->nexthdr == IPPROTO_TCP)
++			csum_type = TX_CSUM_TCPIP6;
++		else if (ip6h->nexthdr == IPPROTO_UDP)
++			csum_type = TX_CSUM_UDPIP6;
 +		else
-+			*state = DEV_STATE_UNINIT;
-+	}
-+	return ret;
-+}
-+
-+/**
-+ * 	t4_fw_bye - end communication with FW
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ *
-+ * 	Issues a command to terminate communication with FW.
-+ */
-+int t4_fw_bye(struct adapter *adap, unsigned int mbox)
-+{
-+	struct fw_bye_cmd c;
-+
-+	INIT_CMD(c, BYE, WRITE);
-+	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
-+}
-+
-+/**
-+ * 	t4_init_cmd - ask FW to initialize the device
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ *
-+ * 	Issues a command to FW to partially initialize the device.  This
-+ * 	performs initialization that generally doesn't depend on user input.
-+ */
-+int t4_early_init(struct adapter *adap, unsigned int mbox)
-+{
-+	struct fw_initialize_cmd c;
-+
-+	INIT_CMD(c, INITIALIZE, WRITE);
-+	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
-+}
-+
-+/**
-+ * 	t4_fw_reset - issue a reset to FW
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@reset: specifies the type of reset to perform
-+ *
-+ * 	Issues a reset command of the specified type to FW.
-+ */
-+int t4_fw_reset(struct adapter *adap, unsigned int mbox, int reset)
-+{
-+	struct fw_reset_cmd c;
-+
-+	INIT_CMD(c, RESET, WRITE);
-+	c.val = htonl(reset);
-+	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
-+}
-+
-+/**
-+ * 	t4_query_params - query FW or device parameters
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@nparams: the number of parameters
-+ * 	@params: the parameter names
-+ * 	@val: the parameter values
-+ *
-+ * 	Reads the value of FW or device parameters.  Up to 7 parameters can be
-+ * 	queried at once.
-+ */
-+int t4_query_params(struct adapter *adap, unsigned int mbox,
-+		    unsigned int nparams, const u32 *params, u32 *val)
-+{
-+	int i, ret;
-+	struct fw_params_cmd c;
-+	__be32 *p = &c.param[0].mnem;
-+
-+	if (nparams > 7)
-+		return -EINVAL;
-+
-+	memset(&c, 0, sizeof(c));
-+	INIT_CMD(c, PARAMS, READ);
-+	for (i = 0; i < nparams; i++, p += 2)
-+		*p = htonl(*params++);
-+
-+	ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), &c);
-+	if (ret == 0)
-+		for (i = 0, p = &c.param[0].val; i < nparams; i++, p += 2)
-+			*val++ = ntohl(*p);
-+	return ret;
-+}
-+
-+/**
-+ * 	t4_set_params - sets FW or device parameters
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@nparams: the number of parameters
-+ * 	@params: the parameter names
-+ * 	@val: the parameter values
-+ *
-+ * 	Sets the value of FW or device parameters.  Up to 7 parameters can be
-+ * 	specified at once.
-+ */
-+int t4_set_params(struct adapter *adap, unsigned int mbox, unsigned int nparams,
-+		  const u32 *params, const u32 *val)
-+{
-+	struct fw_params_cmd c;
-+	__be32 *p = &c.param[0].mnem;
-+
-+	if (nparams > 7)
-+		return -EINVAL;
-+
-+	memset(&c, 0, sizeof(c));
-+	INIT_CMD(c, PARAMS, WRITE);
-+	while (nparams--) {
-+		*p++ = htonl(*params++);
-+		*p++ = htonl(*val++);
++			goto nocsum;
 +	}
 +
-+	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
++	if (likely(csum_type >= TX_CSUM_TCPIP))
++		return V_TXPKT_CSUM_TYPE(csum_type) |
++			V_TXPKT_IPHDR_LEN(skb_network_header_len(skb)) |
++			V_TXPKT_ETHHDR_LEN(skb_network_offset(skb) - ETH_HLEN);
++	else {
++		int start = skb_transport_offset(skb);
++
++		return V_TXPKT_CSUM_TYPE(csum_type) |
++			V_TXPKT_CSUM_START(start) |
++			V_TXPKT_CSUM_LOC(start + skb->csum_offset);
++	}
 +}
 +
-+/**
-+ * 	t4_cfg_pfvf - configure PF/VF resource limits
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@pf: the PF being configured
-+ * 	@vf: the VF being configured
-+ * 	@txq: the max number of egress queues
-+ * 	@txq_eth_ctrl: the max number of egress Ethernet or control queues
-+ * 	@rxqi: the max number of interrupt-capable ingress queues
-+ * 	@rxq: the max number of interruptless ingress queues
-+ * 	@tc: the PCI traffic class
-+ * 	@vi: the max number of virtual interfaces
-+ * 	@cmask: the channel access rights mask for the PF/VF
-+ * 	@pmask: the port access rights mask for the PF/VF
-+ * 	@nexact: the maximum number of exact MPS filters
-+ * 	@rcaps: read capabilities
-+ * 	@wxcaps: write/execute capabilities
-+ *
-+ * 	Configures resource limits and capabilities for a physical or virtual
-+ * 	function.
-+ */
-+int t4_cfg_pfvf(struct adapter *adap, unsigned int mbox, unsigned int pf,
-+		unsigned int vf, unsigned int txq, unsigned int txq_eth_ctrl,
-+		unsigned int rxqi, unsigned int rxq, unsigned int tc,
-+		unsigned int vi, unsigned int cmask, unsigned int pmask,
-+		unsigned int nexact, unsigned int rcaps, unsigned int wxcaps)
++static void eth_txq_stop(struct sge_eth_txq *q)
 +{
-+	struct fw_pfvf_cmd c;
++	netif_tx_stop_queue(q->txq);
++	q->q.stops++;
++}
 +
-+	memset(&c, 0, sizeof(c));
-+	c.op_to_vfn = htonl(V_FW_CMD_OP(FW_PFVF_CMD) | F_FW_CMD_REQUEST |
-+			    F_FW_CMD_WRITE | V_FW_PFVF_CMD_PFN(pf) |
-+			    V_FW_PFVF_CMD_VFN(vf));
-+	c.retval_len16 = htonl(FW_LEN16(c));
-+	c.niqflint_niq = htonl(V_FW_PFVF_CMD_NIQFLINT(rxqi) |
-+			       V_FW_PFVF_CMD_NIQ(rxq));
-+	c.cmask_to_neq = htonl(V_FW_PFVF_CMD_CMASK(cmask) |
-+			       V_FW_PFVF_CMD_PMASK(pmask) |
-+			       V_FW_PFVF_CMD_NEQ(txq));
-+	c.tc_to_nexactf = htonl(V_FW_PFVF_CMD_TC(tc) | V_FW_PFVF_CMD_NVI(vi) |
-+				V_FW_PFVF_CMD_NEXACTF(nexact));
-+	c.r_caps_to_nethctrl = htonl(V_FW_PFVF_CMD_R_CAPS(rcaps) |
-+				     V_FW_PFVF_CMD_WX_CAPS(wxcaps) |
-+				     V_FW_PFVF_CMD_NETHCTRL(txq_eth_ctrl));
-+	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
++static inline void txq_advance(struct sge_txq *q, unsigned int n)
++{
++	q->in_use += n;
++	q->pidx += n;
++	if (q->pidx >= q->size)
++		q->pidx -= q->size;
 +}
 +
 +/**
-+ * 	t4_alloc_vi - allocate a virtual interface
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@port: physical port associated with the VI
-+ * 	@pf: the PF owning the VI
-+ * 	@vf: the VF owning the VI
-+ * 	@nmac: number of MAC addresses needed (1 to 5)
-+ * 	@mac: the MAC addresses of the VI
-+ * 	@rss_size: size of RSS table slice associated with this VI
++ *	t4_eth_xmit - add a packet to an Ethernet Tx queue
++ *	@skb: the packet
++ *	@dev: the egress net device
 + *
-+ * 	Allocates a virtual interface for the given physical port.  If @mac is
-+ * 	not %NULL it contains the MAC addresses of the VI as assigned by FW.
-+ * 	@mac should be large enough to hold @nmac Ethernet addresses, they are
-+ * 	stored consecutively so the space needed is @nmac * 6 bytes.
-+ * 	Returns a negative error number or the non-negative VI id.
++ *	Add a packet to an SGE Ethernet Tx queue.  Runs with softirqs disabled.
 + */
-+int t4_alloc_vi(struct adapter *adap, unsigned int mbox, unsigned int port,
-+		unsigned int pf, unsigned int vf, unsigned int nmac, u8 *mac,
-+		unsigned int *rss_size)
++netdev_tx_t t4_eth_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	u32 wr_mid;
++	u64 cntrl, *end;
++	int qidx, credits;
++	unsigned int flits, ndesc;
++	struct adapter *adap;
++	struct sge_eth_txq *q;
++	const struct port_info *pi;
++	struct fw_eth_tx_pkt_wr *wr;
++	struct cpl_tx_pkt_core *cpl;
++	const struct skb_shared_info *ssi;
++	dma_addr_t addr[MAX_SKB_FRAGS + 1];
++
++	/*
++	 * The chip min packet length is 10 octets but play safe and reject
++	 * anything shorter than an Ethernet header.
++	 */
++	if (unlikely(skb->len < ETH_HLEN)) {
++out_free:	dev_kfree_skb(skb);
++		return NETDEV_TX_OK;
++	}
++
++	pi = netdev_priv(dev);
++	adap = pi->adapter;
++	qidx = skb_get_queue_mapping(skb);
++	q = &adap->sge.ethtxq[qidx + pi->first_qset];
++
++	reclaim_completed_tx(adap, &q->q, true);
++
++	flits = calc_tx_flits(skb);
++	ndesc = flits_to_desc(flits);
++	credits = txq_avail(&q->q) - ndesc;
++
++	if (unlikely(credits < 0)) {
++		eth_txq_stop(q);
++		dev_err(adap->pdev_dev,
++			"%s: Tx ring %u full while queue awake!\n",
++			dev->name, qidx);
++		return NETDEV_TX_BUSY;
++	}
++
++	if (!is_eth_imm(skb) &&
++	    unlikely(map_skb(adap->pdev_dev, skb, addr) < 0)) {
++		q->mapping_err++;
++		goto out_free;
++	}
++
++	wr_mid = V_FW_WR_LEN16(DIV_ROUND_UP(flits, 2));
++	if (unlikely(credits < ETHTXQ_STOP_THRES)) {
++		eth_txq_stop(q);
++		wr_mid |= F_FW_WR_EQUEQ | F_FW_WR_EQUIQ;
++	}
++
++	wr = (void *)&q->q.desc[q->q.pidx];
++	wr->equiq_to_len16 = htonl(wr_mid);
++	wr->r3 = cpu_to_be64(0);
++	end = (u64 *)wr + flits;
++
++	ssi = skb_shinfo(skb);
++	if (ssi->gso_size) {
++		struct cpl_tx_pkt_lso *lso = (void *)wr;
++		bool v6 = (ssi->gso_type & SKB_GSO_TCPV6) != 0;
++		int l3hdr_len = skb_network_header_len(skb);
++		int eth_xtra_len = skb_network_offset(skb) - ETH_HLEN;
++
++		wr->op_immdlen = htonl(V_FW_WR_OP(FW_ETH_TX_PKT_WR) |
++				       V_FW_WR_IMMDLEN(sizeof(*lso)));
++		lso->lso_ctrl = htonl(V_LSO_OPCODE(CPL_TX_PKT_LSO) |
++				      F_LSO_FIRST_SLICE | F_LSO_LAST_SLICE |
++				      V_LSO_IPV6(v6) |
++				      V_LSO_ETHHDR_LEN(eth_xtra_len / 4) |
++				      V_LSO_IPHDR_LEN(l3hdr_len / 4) |
++				      V_LSO_TCPHDR_LEN(tcp_hdr(skb)->doff));
++		lso->ipid_ofst = htons(0);
++		lso->mss = htons(ssi->gso_size);
++		lso->seqno_offset = htonl(0);
++		lso->len = htonl(skb->len);
++		cpl = (void *)(lso + 1);
++		cntrl = V_TXPKT_CSUM_TYPE(v6 ? TX_CSUM_TCPIP6 : TX_CSUM_TCPIP) |
++			V_TXPKT_IPHDR_LEN(l3hdr_len) |
++			V_TXPKT_ETHHDR_LEN(eth_xtra_len);
++		q->tso++;
++		q->tx_cso += ssi->gso_segs;
++	} else {
++		int len;
++
++		len = is_eth_imm(skb) ? skb->len + sizeof(*cpl) : sizeof(*cpl);
++		wr->op_immdlen = htonl(V_FW_WR_OP(FW_ETH_TX_PKT_WR) |
++				       V_FW_WR_IMMDLEN(len));
++		cpl = (void *)(wr + 1);
++		if (skb->ip_summed == CHECKSUM_PARTIAL) {
++			cntrl = hwcsum(skb) | F_TXPKT_IPCSUM_DIS;
++			q->tx_cso++;
++		} else
++			cntrl = F_TXPKT_L4CSUM_DIS | F_TXPKT_IPCSUM_DIS;
++	}
++
++	if (vlan_tx_tag_present(skb)) {
++		q->vlan_ins++;
++		cntrl |= F_TXPKT_VLAN_VLD | V_TXPKT_VLAN(vlan_tx_tag_get(skb));
++	}
++
++	cpl->ctrl0 = htonl(V_TXPKT_OPCODE(CPL_TX_PKT_XT) |
++			   V_TXPKT_INTF(pi->tx_chan) | V_TXPKT_PF(0));
++	cpl->pack = htons(0);
++	cpl->len = htons(skb->len);
++	cpl->ctrl1 = cpu_to_be64(cntrl);
++
++	if (is_eth_imm(skb)) {
++		inline_tx_skb(skb, &q->q, cpl + 1);
++		dev_kfree_skb(skb);
++	} else {
++		int last_desc;
++
++		write_sgl(skb, &q->q, (struct ulptx_sgl *)(cpl + 1), end, 0,
++			  addr);
++		skb_orphan(skb);
++
++		last_desc = q->q.pidx + ndesc - 1;
++		if (last_desc >= q->q.size)
++			last_desc -= q->q.size;
++		q->q.sdesc[last_desc].skb = skb;
++		q->q.sdesc[last_desc].sgl = (struct ulptx_sgl *)(cpl + 1);
++	}
++
++	txq_advance(&q->q, ndesc);
++
++	ring_tx_db(adap, &q->q, ndesc);
++	return NETDEV_TX_OK;
++}
++
++/**
++ *	reclaim_completed_tx_imm - reclaim completed control-queue Tx descs
++ *	@q: the SGE control Tx queue
++ *
++ *	This is a variant of reclaim_completed_tx() that is used for Tx queues
++ *	that send only immediate data (presently just the control queues) and
++ *	thus do not have any sk_buffs to release.
++ */
++static inline void reclaim_completed_tx_imm(struct sge_txq *q)
++{
++	int hw_cidx = ntohs(q->stat->cidx);
++	int reclaim = hw_cidx - q->cidx;
++
++	if (reclaim < 0)
++		reclaim += q->size;
++
++	q->in_use -= reclaim;
++	q->cidx = hw_cidx;
++}
++
++/**
++ *	is_imm - check whether a packet can be sent as immediate data
++ *	@skb: the packet
++ *
++ *	Returns true if a packet can be sent as a WR with immediate data.
++ */
++static inline int is_imm(const struct sk_buff *skb)
++{
++	return skb->len <= MAX_CTRL_WR_LEN;
++}
++
++/**
++ *	ctrlq_check_stop - check if a control queue is full and should stop
++ *	@q: the queue
++ *	@wr: most recent WR written to the queue
++ *
++ *	Check if a control queue has become full and should be stopped.
++ *	We clean up control queue descriptors very lazily, only when we are out.
++ *	If the queue is still full after reclaiming any completed descriptors
++ *	we suspend it and have the last WR wake it up.
++ */
++static void ctrlq_check_stop(struct sge_ctrl_txq *q, struct fw_wr_hdr *wr)
++{
++	reclaim_completed_tx_imm(&q->q);
++	if (unlikely(txq_avail(&q->q) < TXQ_STOP_THRES)) {
++		wr->lo |= htonl(F_FW_WR_EQUEQ | F_FW_WR_EQUIQ);
++		q->q.stops++;
++		q->full = 1;
++	}
++}
++
++/**
++ *	ctrl_xmit - send a packet through an SGE control Tx queue
++ *	@q: the control queue
++ *	@skb: the packet
++ *
++ *	Send a packet through an SGE control Tx queue.  Packets sent through
++ *	a control queue must fit entirely as immediate data.
++ */
++static int ctrl_xmit(struct sge_ctrl_txq *q, struct sk_buff *skb)
++{
++	unsigned int ndesc;
++	struct fw_wr_hdr *wr;
++
++	if (unlikely(!is_imm(skb))) {
++		WARN_ON(1);
++		dev_kfree_skb(skb);
++		return NET_XMIT_DROP;
++	}
++
++	ndesc = DIV_ROUND_UP(skb->len, sizeof(struct tx_desc));
++	spin_lock(&q->sendq.lock);
++
++	if (unlikely(q->full)) {
++		skb->priority = ndesc;                  /* save for restart */
++		__skb_queue_tail(&q->sendq, skb);
++		spin_unlock(&q->sendq.lock);
++		return NET_XMIT_CN;
++	}
++
++	wr = (struct fw_wr_hdr *)&q->q.desc[q->q.pidx];
++	inline_tx_skb(skb, &q->q, wr);
++
++	txq_advance(&q->q, ndesc);
++	if (unlikely(txq_avail(&q->q) < TXQ_STOP_THRES))
++		ctrlq_check_stop(q, wr);
++
++	ring_tx_db(q->adap, &q->q, ndesc);
++	spin_unlock(&q->sendq.lock);
++
++	kfree_skb(skb);
++	return NET_XMIT_SUCCESS;
++}
++
++/**
++ *	restart_ctrlq - restart a suspended control queue
++ *	@data: the control queue to restart
++ *
++ *	Resumes transmission on a suspended Tx control queue.
++ */
++static void restart_ctrlq(unsigned long data)
++{
++	struct sk_buff *skb;
++	unsigned int written = 0;
++	struct sge_ctrl_txq *q = (struct sge_ctrl_txq *)data;
++
++	spin_lock(&q->sendq.lock);
++	reclaim_completed_tx_imm(&q->q);
++	BUG_ON(txq_avail(&q->q) < TXQ_STOP_THRES);  /* q should be empty */
++
++	while ((skb = __skb_dequeue(&q->sendq)) != NULL) {
++		struct fw_wr_hdr *wr;
++		unsigned int ndesc = skb->priority;     /* previously saved */
++
++		/*
++		 * Write descriptors and free skbs outside the lock to limit
++		 * wait times.  q->full is still set so new skbs will be queued.
++		 */
++		spin_unlock(&q->sendq.lock);
++
++		wr = (struct fw_wr_hdr *)&q->q.desc[q->q.pidx];
++		inline_tx_skb(skb, &q->q, wr);
++		kfree_skb(skb);
++
++		written += ndesc;
++		txq_advance(&q->q, ndesc);
++		if (unlikely(txq_avail(&q->q) < TXQ_STOP_THRES)) {
++			unsigned long old = q->q.stops;
++
++			ctrlq_check_stop(q, wr);
++			if (q->q.stops != old) {          /* suspended anew */
++				spin_lock(&q->sendq.lock);
++				goto ringdb;
++			}
++		}
++		if (written > 16) {
++			ring_tx_db(q->adap, &q->q, written);
++			written = 0;
++		}
++		spin_lock(&q->sendq.lock);
++	}
++	q->full = 0;
++ringdb: if (written)
++		ring_tx_db(q->adap, &q->q, written);
++	spin_unlock(&q->sendq.lock);
++}
++
++/**
++ *	t4_mgmt_tx - send a management message
++ *	@adap: the adapter
++ *	@skb: the packet containing the management message
++ *
++ *	Send a management message through control queue 0.
++ */
++int t4_mgmt_tx(struct adapter *adap, struct sk_buff *skb)
 +{
 +	int ret;
-+	struct fw_vi_cmd c;
 +
-+	memset(&c, 0, sizeof(c));
-+	c.op_to_vfn = htonl(V_FW_CMD_OP(FW_VI_CMD) | F_FW_CMD_REQUEST |
-+			    F_FW_CMD_WRITE | F_FW_CMD_EXEC |
-+			    V_FW_VI_CMD_PFN(pf) | V_FW_VI_CMD_VFN(vf));
-+	c.alloc_to_len16 = htonl(F_FW_VI_CMD_ALLOC | FW_LEN16(c));
-+	c.portid_pkd = V_FW_VI_CMD_PORTID(port);
-+	c.nmac = nmac - 1;
++	local_bh_disable();
++	ret = ctrl_xmit(&adap->sge.ctrlq[0], skb);
++	local_bh_enable();
++	return ret;
++}
 +
-+	ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), &c);
-+	if (ret)
-+		return ret;
++/**
++ *	deferred_unmap_destructor - unmap a packet when it is freed
++ *	@skb: the packet
++ *
++ *	This is the packet destructor used for Tx packets that need to remain
++ *	mapped until they are freed rather than until their Tx descriptors are
++ *	freed.
++ */
++static void deferred_unmap_destructor(struct sk_buff *skb)
++{
++	unmap_skb(skb->dev->dev.parent, skb, (dma_addr_t *)skb->head);
++}
 +
-+       	if (mac) {
-+		memcpy(mac, c.mac, sizeof(c.mac));
-+		switch (nmac) {
-+			case 5: memcpy(mac + 24, c.nmac3, sizeof(c.nmac3));
-+			case 4: memcpy(mac + 18, c.nmac2, sizeof(c.nmac2));
-+			case 3: memcpy(mac + 12, c.nmac1, sizeof(c.nmac1));
-+			case 2: memcpy(mac + 6,  c.nmac0, sizeof(c.nmac0));
++/**
++ *	is_ofld_imm - check whether a packet can be sent as immediate data
++ *	@skb: the packet
++ *
++ *	Returns true if a packet can be sent as an offload WR with immediate
++ *	data.  We currently use the same limit as for Ethernet packets.
++ */
++static inline int is_ofld_imm(const struct sk_buff *skb)
++{
++	return skb->len <= MAX_IMM_TX_PKT_LEN;
++}
++
++/**
++ *	calc_tx_flits_ofld - calculate # of flits for an offload packet
++ *	@skb: the packet
++ *
++ * 	Returns the number of flits needed for the given offload packet.
++ * 	These packets are already fully constructed and no additional headers
++ * 	will be added.
++ */
++static inline unsigned int calc_tx_flits_ofld(const struct sk_buff *skb)
++{
++	unsigned int flits, cnt;
++
++	if (is_ofld_imm(skb))
++		return DIV_ROUND_UP(skb->len, 8);
++
++	flits = skb_transport_offset(skb) / 8U;   /* headers */
++	cnt = skb_shinfo(skb)->nr_frags;
++	if (skb->tail != skb->transport_header)
++		cnt++;
++	return flits + sgl_len(cnt);
++}
++
++/**
++ *	txq_stop_maperr - stop a Tx queue due to I/O MMU exhaustion
++ *	@adap: the adapter
++ *	@q: the queue to stop
++ *
++ *	Mark a Tx queue stopped due to I/O MMU exhaustion and resulting
++ *	inability to map packets.  A periodic timer attempts to restart
++ *	queues so marked.
++ */
++static void txq_stop_maperr(struct sge_ofld_txq *q)
++{
++	q->mapping_err++;
++	q->q.stops++;
++	set_bit(q->q.cntxt_id, q->adap->sge.txq_maperr);
++}
++
++/**
++ *	ofldtxq_stop - stop an offload Tx queue that has become full
++ *	@q: the queue to stop
++ *	@skb: the packet causing the queue to become full
++ *
++ *	Stops an offload Tx queue that has become full and modifies the packet
++ *	being written to request a wakeup.
++ */
++static void ofldtxq_stop(struct sge_ofld_txq *q, struct sk_buff *skb)
++{
++	struct fw_wr_hdr *wr = (struct fw_wr_hdr *)skb->data;
++
++	wr->lo |= htonl(F_FW_WR_EQUEQ | F_FW_WR_EQUIQ);
++	q->q.stops++;
++	q->full = 1;
++}
++
++/**
++ *	service_ofldq - restart a suspended offload queue
++ *	@q: the offload queue
++ *
++ *	Services an offload Tx queue by moving packets from its packet queue
++ *	to the HW Tx ring.  The function starts and ends with the queue locked.
++ */
++static void service_ofldq(struct sge_ofld_txq *q)
++{
++	u64 *pos;
++	int credits;
++	struct sk_buff *skb;
++	unsigned int written = 0;
++	unsigned int flits, ndesc;
++
++	while ((skb = skb_peek(&q->sendq)) != NULL && !q->full) {
++		/*
++		 * We drop the lock but leave skb on sendq, thus retaining
++		 * exclusive access to the state of the queue.
++		 */
++		spin_unlock(&q->sendq.lock);
++
++		reclaim_completed_tx(q->adap, &q->q, false);
++
++		flits = skb->priority;                /* previously saved */
++		ndesc = flits_to_desc(flits);
++		credits = txq_avail(&q->q) - ndesc;
++		BUG_ON(credits < 0);
++		if (unlikely(credits < TXQ_STOP_THRES))
++			ofldtxq_stop(q, skb);
++
++		pos = (u64 *)&q->q.desc[q->q.pidx];
++		if (is_ofld_imm(skb))
++			inline_tx_skb(skb, &q->q, pos);
++		else if (map_skb(q->adap->pdev_dev, skb,
++				 (dma_addr_t *)skb->head)) {
++			txq_stop_maperr(q);
++			spin_lock(&q->sendq.lock);
++			break;
++		} else {
++			int last_desc, hdr_len = skb_transport_offset(skb);
++
++			memcpy(pos, skb->data, hdr_len);
++			write_sgl(skb, &q->q, (void *)pos + hdr_len,
++				  pos + flits, hdr_len,
++				  (dma_addr_t *)skb->head);
++
++			if (need_skb_unmap()) {
++				skb->dev = q->adap->port[0];
++				skb->destructor = deferred_unmap_destructor;
++			}
++
++			last_desc = q->q.pidx + ndesc - 1;
++			if (last_desc >= q->q.size)
++				last_desc -= q->q.size;
++			q->q.sdesc[last_desc].skb = skb;
++		}
++
++		txq_advance(&q->q, ndesc);
++		written += ndesc;
++		if (unlikely(written > 32)) {
++			ring_tx_db(q->adap, &q->q, written);
++			written = 0;
++		}
++
++		spin_lock(&q->sendq.lock);
++		__skb_unlink(skb, &q->sendq);
++		if (is_ofld_imm(skb))
++			kfree_skb(skb);
++	}
++	if (likely(written))
++		ring_tx_db(q->adap, &q->q, written);
++}
++
++/**
++ *	ofld_xmit - send a packet through an offload queue
++ *	@q: the Tx offload queue
++ *	@skb: the packet
++ *
++ *	Send an offload packet through an SGE offload queue.
++ */
++static int ofld_xmit(struct sge_ofld_txq *q, struct sk_buff *skb)
++{
++	skb->priority = calc_tx_flits_ofld(skb);       /* save for restart */
++	spin_lock(&q->sendq.lock);
++	__skb_queue_tail(&q->sendq, skb);
++	if (q->sendq.qlen == 1)
++		service_ofldq(q);
++	spin_unlock(&q->sendq.lock);
++	return NET_XMIT_SUCCESS;
++}
++
++/**
++ *	restart_ofldq - restart a suspended offload queue
++ *	@data: the offload queue to restart
++ *
++ *	Resumes transmission on a suspended Tx offload queue.
++ */
++static void restart_ofldq(unsigned long data)
++{
++	struct sge_ofld_txq *q = (struct sge_ofld_txq *)data;
++
++	spin_lock(&q->sendq.lock);
++	q->full = 0;            /* the queue actually is completely empty now */
++	service_ofldq(q);
++	spin_unlock(&q->sendq.lock);
++}
++
++/**
++ *	skb_txq - return the Tx queue an offload packet should use
++ *	@skb: the packet
++ *
++ *	Returns the Tx queue an offload packet should use as indicated by bits
++ *	1-15 in the packet's queue_mapping.
++ */
++static inline unsigned int skb_txq(const struct sk_buff *skb)
++{
++	return skb->queue_mapping >> 1;
++}
++
++/**
++ *	is_ctrl_pkt - return whether an offload packet is a control packet
++ *	@skb: the packet
++ *
++ *	Returns whether an offload packet should use an OFLD or a CTRL
++ *	Tx queue as indicated by bit 0 in the packet's queue_mapping.
++ */
++static inline unsigned int is_ctrl_pkt(const struct sk_buff *skb)
++{
++	return skb->queue_mapping & 1;
++}
++
++static inline int ofld_send(struct adapter *adap, struct sk_buff *skb)
++{
++	unsigned int idx = skb_txq(skb);
++
++	if (unlikely(is_ctrl_pkt(skb)))
++		return ctrl_xmit(&adap->sge.ctrlq[idx], skb);
++	return ofld_xmit(&adap->sge.ofldtxq[idx], skb);
++}
++
++/**
++ *	t4_ofld_send - send an offload packet
++ *	@adap: the adapter
++ *	@skb: the packet
++ *
++ *	Sends an offload packet.  We use the packet queue_mapping to select the
++ *	appropriate Tx queue as follows: bit 0 indicates whether the packet
++ *	should be sent as regular or control, bits 1-15 select the queue.
++ */
++int t4_ofld_send(struct adapter *adap, struct sk_buff *skb)
++{
++	int ret;
++
++	local_bh_disable();
++	ret = ofld_send(adap, skb);
++	local_bh_enable();
++	return ret;
++}
++
++/**
++ *	cxgb4_ofld_send - send an offload packet
++ *	@dev: the net device
++ *	@skb: the packet
++ *
++ *	Sends an offload packet.  This is an exported version of @t4_ofld_send,
++ *	intended for ULDs.
++ */
++int cxgb4_ofld_send(struct net_device *dev, struct sk_buff *skb)
++{
++	return t4_ofld_send(netdev2adap(dev), skb);
++}
++EXPORT_SYMBOL(cxgb4_ofld_send);
++
++static inline void copy_frags(struct skb_shared_info *ssi,
++			      const struct pkt_gl *gl, unsigned int offset)
++{
++	unsigned int n;
++
++	/* usually there's just one frag */
++	ssi->frags[0].page = gl->frags[0].page;
++	ssi->frags[0].page_offset = gl->frags[0].page_offset + offset;
++	ssi->frags[0].size = gl->frags[0].size - offset;
++	ssi->nr_frags = gl->nfrags;
++	n = gl->nfrags - 1;
++	if (n)
++		memcpy(&ssi->frags[1], &gl->frags[1], n * sizeof(skb_frag_t));
++
++	/* get a reference to the last page, we don't own it */
++	get_page(gl->frags[n].page);
++}
++
++/**
++ *	cxgb4_pktgl_to_skb - build an sk_buff from a packet gather list
++ *	@gl: the gather list
++ *	@skb_len: size of sk_buff main body if it carries fragments
++ *	@pull_len: amount of data to move to the sk_buff's main body
++ *
++ *	Builds an sk_buff from the given packet gather list.  Returns the
++ *	sk_buff or %NULL if sk_buff allocation failed.
++ */
++struct sk_buff *cxgb4_pktgl_to_skb(const struct pkt_gl *gl,
++				   unsigned int skb_len, unsigned int pull_len)
++{
++	struct sk_buff *skb;
++
++	/*
++	 * Below we rely on RX_COPY_THRES being less than the smallest Rx buffer
++	 * size, which is expected since buffers are at least PAGE_SIZEd.
++	 * In this case packets up to RX_COPY_THRES have only one fragment.
++	 */
++	if (gl->tot_len <= RX_COPY_THRES) {
++		skb = dev_alloc_skb(gl->tot_len);
++		if (unlikely(!skb))
++			goto out;
++		__skb_put(skb, gl->tot_len);
++		skb_copy_to_linear_data(skb, gl->va, gl->tot_len);
++	} else {
++		skb = dev_alloc_skb(skb_len);
++		if (unlikely(!skb))
++			goto out;
++		__skb_put(skb, pull_len);
++		skb_copy_to_linear_data(skb, gl->va, pull_len);
++
++		copy_frags(skb_shinfo(skb), gl, pull_len);
++		skb->len = gl->tot_len;
++		skb->data_len = skb->len - pull_len;
++		skb->truesize += skb->data_len;
++	}
++out:	return skb;
++}
++EXPORT_SYMBOL(cxgb4_pktgl_to_skb);
++
++/**
++ *	t4_pktgl_free - free a packet gather list
++ *	@gl: the gather list
++ *
++ *	Releases the pages of a packet gather list.  We do not own the last
++ *	page on the list and do not free it.
++ */
++void t4_pktgl_free(const struct pkt_gl *gl)
++{
++	int n;
++	const skb_frag_t *p;
++
++	for (p = gl->frags, n = gl->nfrags - 1; n--; p++)
++		put_page(p->page);
++}
++
++/*
++ * Process an MPS trace packet.  Give it an unused protocol number so it won't
++ * be delivered to anyone and send it to the stack for capture.
++ */
++static noinline int handle_trace_pkt(struct adapter *adap,
++				     const struct pkt_gl *gl)
++{
++	struct sk_buff *skb;
++	struct cpl_trace_pkt *p;
++
++	skb = cxgb4_pktgl_to_skb(gl, RX_PULL_LEN, RX_PULL_LEN);
++	if (unlikely(!skb)) {
++		t4_pktgl_free(gl);
++		return 0;
++	}
++
++	p = (struct cpl_trace_pkt *)skb->data;
++	__skb_pull(skb, sizeof(*p));
++	skb_reset_mac_header(skb);
++	skb->protocol = htons(0xffff);
++	skb->dev = adap->port[0];
++	netif_receive_skb(skb);
++	return 0;
++}
++
++static void do_gro(struct sge_eth_rxq *rxq, const struct pkt_gl *gl,
++		   const struct cpl_rx_pkt *pkt)
++{
++	int ret;
++	struct sk_buff *skb;
++
++	skb = napi_get_frags(&rxq->rspq.napi);
++	if (unlikely(!skb)) {
++		t4_pktgl_free(gl);
++		rxq->stats.rx_drops++;
++		return;
++	}
++
++	copy_frags(skb_shinfo(skb), gl, RX_PKT_PAD);
++	skb->len = gl->tot_len - RX_PKT_PAD;
++	skb->data_len = skb->len;
++	skb->truesize += skb->data_len;
++	skb->ip_summed = CHECKSUM_UNNECESSARY;
++	skb_record_rx_queue(skb, rxq->rspq.idx);
++
++	if (unlikely(pkt->vlan_ex)) {
++		struct port_info *pi = netdev_priv(rxq->rspq.netdev);
++		struct vlan_group *grp = pi->vlan_grp;
++
++		rxq->stats.vlan_ex++;
++		if (likely(grp)) {
++			ret = vlan_gro_frags(&rxq->rspq.napi, grp,
++					     ntohs(pkt->vlan));
++			goto stats;
 +		}
 +	}
-+	if (rss_size)
-+		*rss_size = G_FW_VI_CMD_RSSSIZE(ntohs(c.rsssize_pkd));
-+	return ntohs(c.viid_pkd);
++	ret = napi_gro_frags(&rxq->rspq.napi);
++stats:  if (ret == GRO_HELD)
++		rxq->stats.lro_pkts++;
++	else if (ret == GRO_MERGED || ret == GRO_MERGED_FREE)
++		rxq->stats.lro_merged++;
++	rxq->stats.pkts++;
++	rxq->stats.rx_cso++;
 +}
 +
 +/**
-+ * 	t4_free_vi - free a virtual interface
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@pf: the PF owning the VI
-+ * 	@vf: the VF owning the VI
-+ * 	@viid: virtual interface identifiler
++ *	t4_ethrx_handler - process an ingress ethernet packet
++ *	@q: the response queue that received the packet
++ *	@rsp: the response queue descriptor holding the RX_PKT message
++ *	@si: the gather list of packet fragments
 + *
-+ * 	Free a previously allocated virtual interface.
++ *	Process an ingress ethernet packet and deliver it to the stack.
 + */
-+int t4_free_vi(struct adapter *adap, unsigned int mbox, unsigned int pf,
-+	       unsigned int vf, unsigned int viid)
++int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
++		     const struct pkt_gl *si)
 +{
-+	struct fw_vi_cmd c;
++	bool csum_ok;
++	struct sk_buff *skb;
++	struct port_info *pi;
++	const struct cpl_rx_pkt *pkt;
++	struct sge_eth_rxq *rxq = container_of(q, struct sge_eth_rxq, rspq);
 +
-+	memset(&c, 0, sizeof(c));
-+	c.op_to_vfn = htonl(V_FW_CMD_OP(FW_VI_CMD) | F_FW_CMD_REQUEST |
-+			    F_FW_CMD_EXEC | V_FW_VI_CMD_PFN(pf) |
-+			    V_FW_VI_CMD_VFN(vf));
-+	c.alloc_to_len16 = htonl(F_FW_VI_CMD_FREE | FW_LEN16(c));
-+	c.viid_pkd = htons(V_FW_VI_CMD_VIID(viid));
-+	return t4_wr_mbox(adap, mbox, &c, sizeof(c), &c);
-+}
++	if (unlikely(*(u8 *)rsp == CPL_TRACE_PKT))
++		return handle_trace_pkt(q->adap, si);
 +
-+/**
-+ * 	t4_set_rxmode - set Rx properties of a virtual interface
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@viid: the VI id
-+ * 	@mtu: the new MTU or -1
-+ * 	@promisc: 1 to enable promiscuous mode, 0 to disable it, -1 no change
-+ * 	@all_multi: 1 to enable all-multi mode, 0 to disable it, -1 no change
-+ * 	@bcast: 1 to enable broadcast Rx, 0 to disable it, -1 no change
-+ * 	@sleep_ok: if true we may sleep while awaiting command completion
-+ *
-+ * 	Sets Rx properties of a virtual interface.
-+ */
-+int t4_set_rxmode(struct adapter *adap, unsigned int mbox, unsigned int viid,
-+		  int mtu, int promisc, int all_multi, int bcast, bool sleep_ok)
-+{
-+	struct fw_vi_rxmode_cmd c;
-+
-+	/* convert to FW values */
-+	if (mtu < 0)
-+		mtu = M_FW_VI_RXMODE_CMD_MTU;
-+	if (promisc < 0)
-+		promisc = M_FW_VI_RXMODE_CMD_PROMISCEN;
-+	if (all_multi < 0)
-+		all_multi = M_FW_VI_RXMODE_CMD_ALLMULTIEN;
-+	if (bcast < 0)
-+		bcast = M_FW_VI_RXMODE_CMD_BROADCASTEN;
-+
-+	memset(&c, 0, sizeof(c));
-+	c.op_to_viid = htonl(V_FW_CMD_OP(FW_VI_RXMODE_CMD) | F_FW_CMD_REQUEST |
-+			     F_FW_CMD_WRITE | V_FW_VI_RXMODE_CMD_VIID(viid));
-+	c.retval_len16 = htonl(FW_LEN16(c));
-+	c.mtu_to_broadcasten = htonl(V_FW_VI_RXMODE_CMD_MTU(mtu) |
-+				     V_FW_VI_RXMODE_CMD_PROMISCEN(promisc) |
-+				     V_FW_VI_RXMODE_CMD_ALLMULTIEN(all_multi) |
-+				     V_FW_VI_RXMODE_CMD_BROADCASTEN(bcast));
-+	return t4_wr_mbox_meat(adap, mbox, &c, sizeof(c), NULL, sleep_ok);
-+}
-+
-+/**
-+ * 	t4_alloc_mac_filt - allocates exact-match filters for MAC addresses
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@viid: the VI id
-+ * 	@free: if true any existing filters for this VI id are first removed
-+ * 	@naddr: the number of MAC addresses to allocate filters for (up to 7)
-+ * 	@addr: the MAC address(es)
-+ * 	@idx: where to store the index of each allocated filter
-+ * 	@hash: pointer to hash address filter bitmap
-+ * 	@sleep_ok: call is allowed to sleep
-+ *
-+ * 	Allocates an exact-match filter for each of the supplied addresses and
-+ * 	sets it to the corresponding address.  If @idx is not %NULL it should
-+ * 	have at least @naddr entries, each of which will be set to the index of
-+ * 	the filter allocated for the corresponding MAC address.  If a filter
-+ * 	could not be allocated for an address its index is set to 0xffff.
-+ * 	If @hash is not %NULL addresses that fail to allocate an exact filter
-+ * 	are hashed and update the hash filter bitmap pointed at by @hash.
-+ *
-+ * 	Returns a negative error number or the number of filters allocated.
-+ */
-+int t4_alloc_mac_filt(struct adapter *adap, unsigned int mbox,
-+		      unsigned int viid, bool free, unsigned int naddr,
-+		      const u8 **addr, u16 *idx, u64 *hash, bool sleep_ok)
-+{
-+	int i, ret;
-+	struct fw_vi_mac_cmd c;
-+	struct fw_vi_mac_exact *p;
-+
-+	if (naddr > 7)
-+		return -EINVAL;
-+
-+	memset(&c, 0, sizeof(c));
-+	c.op_to_viid = htonl(V_FW_CMD_OP(FW_VI_MAC_CMD) | F_FW_CMD_REQUEST |
-+			     F_FW_CMD_WRITE | V_FW_CMD_EXEC(free) |
-+			     V_FW_VI_MAC_CMD_VIID(viid));
-+	c.freemacs_to_len16 = htonl(V_FW_VI_MAC_CMD_FREEMACS(free) |
-+				    V_FW_CMD_LEN16((naddr + 2) / 2));
-+
-+	for (i = 0, p = c.u.exact; i < naddr; i++, p++) {
-+		p->valid_to_idx = htons(F_FW_VI_MAC_CMD_VALID |
-+				      V_FW_VI_MAC_CMD_IDX(FW_VI_MAC_ADD_MAC));
-+		memcpy(p->macaddr, addr[i], sizeof(p->macaddr));
++	pkt = (void *)&rsp[1];
++	csum_ok = pkt->csum_calc && !pkt->err_vec;
++	if ((pkt->l2info & htonl(F_RXF_TCP)) &&
++	    (q->netdev->features & NETIF_F_GRO) && csum_ok && !pkt->ip_frag) {
++		do_gro(rxq, si, pkt);
++		return 0;
 +	}
 +
-+	ret = t4_wr_mbox_meat(adap, mbox, &c, sizeof(c), &c, sleep_ok);
++	if (si->tot_len <= RX_COPY_THRES) {
++		/* small packets have only one fragment */
++		skb = dev_alloc_skb(si->frags[0].size);
++		if (!skb)
++			goto nomem;
++		__skb_put(skb, si->frags[0].size);
++		skb_copy_to_linear_data(skb, si->va, si->frags[0].size);
++	} else {
++		skb = dev_alloc_skb(RX_PKT_SKB_LEN);
++		if (!skb)
++			goto nomem;
++		__skb_put(skb, RX_PULL_LEN);
++		skb_copy_to_linear_data(skb, si->va, RX_PULL_LEN);
++
++		copy_frags(skb_shinfo(skb), si, RX_PULL_LEN);
++		skb->len = si->tot_len;
++		skb->data_len = skb->len - RX_PULL_LEN;
++		skb->truesize += skb->data_len;
++	}
++
++	__skb_pull(skb, RX_PKT_PAD);      /* remove ethernet header padding */
++	skb->protocol = eth_type_trans(skb, q->netdev);
++	skb_record_rx_queue(skb, q->idx);
++	pi = netdev_priv(skb->dev);
++	rxq->stats.pkts++;
++
++	if (csum_ok && (pi->rx_offload & RX_CSO) &&
++	    (pkt->l2info & htonl(F_RXF_UDP | F_RXF_TCP))) {
++		if (!pkt->ip_frag)
++			skb->ip_summed = CHECKSUM_UNNECESSARY;
++		else {
++			__sum16 c = (__force __sum16)pkt->csum;
++			skb->csum = csum_unfold(c);
++			skb->ip_summed = CHECKSUM_COMPLETE;
++		}
++		rxq->stats.rx_cso++;
++	} else
++		skb->ip_summed = CHECKSUM_NONE;
++
++	if (unlikely(pkt->vlan_ex)) {
++		struct vlan_group *grp = pi->vlan_grp;
++
++		rxq->stats.vlan_ex++;
++		if (likely(grp))
++			vlan_hwaccel_receive_skb(skb, grp, ntohs(pkt->vlan));
++		else
++			dev_kfree_skb_any(skb);
++	} else
++		netif_receive_skb(skb);
++
++	return 0;
++
++nomem:	t4_pktgl_free(si);
++	rxq->stats.rx_drops++;
++	return 0;
++}
++
++/**
++ *	restore_rx_bufs - put back a packet's Rx buffers
++ *	@si: the packet gather list
++ *	@q: the SGE free list
++ *	@frags: number of FL buffers to restore
++ *
++ *	Puts back on an FL the Rx buffers associated with @si.  The buffers
++ *	have already been unmapped and are left unmapped, we mark them so to
++ *	prevent further unmapping attempts. 
++ *
++ *	This function undoes a series of @unmap_rx_buf calls when we find out
++ *	that the current packet can't be processed right away afterall and we
++ *	need to come back to it later.  This is a very rare event and there's
++ *	no effort to make this particularly efficient.
++ */
++static void restore_rx_bufs(const struct pkt_gl *si, struct sge_fl *q,
++			    int frags)
++{
++	struct rx_sw_desc *d;
++
++	while (frags--) {
++		if (q->cidx == 0)
++			q->cidx = q->size - 1;
++		else
++			q->cidx--;
++		d = &q->sdesc[q->cidx];
++		d->page = si->frags[frags].page;
++		d->dma_addr |= RX_UNMAPPED_BUF;
++		q->avail++;
++	}
++}
++
++/**
++ *	is_new_response - check if a response is newly written
++ *	@r: the response descriptor
++ *	@q: the response queue
++ *
++ *	Returns true if a response descriptor contains a yet unprocessed
++ *	response.
++ */
++static inline bool is_new_response(const struct rsp_ctrl *r,
++				   const struct sge_rspq *q)
++{
++	return (r->type_gen >> S_RSPD_GEN) == q->gen;
++}
++
++/**
++ *	rspq_next - advance to the next entry in a response queue
++ *	@q: the queue
++ *
++ *	Updates the state of a response queue to advance it to the next entry.
++ */
++static inline void rspq_next(struct sge_rspq *q)
++{
++	q->cur_desc = (void *)q->cur_desc + q->iqe_len;
++	if (unlikely(++q->cidx == q->size)) {
++		q->cidx = 0;
++		q->gen ^= 1;
++		q->cur_desc = q->desc;
++	}
++}
++
++/**
++ *	process_responses - process responses from an SGE response queue
++ *	@q: the ingress queue to process
++ *	@budget: how many responses can be processed in this round
++ *
++ *	Process responses from an SGE response queue up to the supplied budget.
++ *	Responses include received packets as well as control messages from FW
++ *	or HW.
++ *
++ *	Additionally choose the interrupt holdoff time for the next interrupt
++ *	on this queue.  If the system is under memory shortage use a fairly
++ *	long delay to help recovery.
++ */
++int process_responses(struct sge_rspq *q, int budget)
++{
++	int ret, rsp_type;
++	int budget_left = budget;
++	const struct rsp_ctrl *rc;
++	struct sge_eth_rxq *rxq = container_of(q, struct sge_eth_rxq, rspq);
++
++	while (likely(budget_left)) {
++		rc = (void *)q->cur_desc + (q->iqe_len - sizeof(*rc));
++		if (!is_new_response(rc, q))
++			break;
++
++		rmb();
++		rsp_type = G_RSPD_TYPE(rc->type_gen);
++		if (likely(rsp_type == RSP_TYPE_FLBUF)) {
++			skb_frag_t *fp;
++			struct pkt_gl si;
++			const struct rx_sw_desc *rsd;
++			u32 len = ntohl(rc->pldbuflen_qid), bufsz, frags;
++
++			if (len & F_RSPD_NEWBUF) {
++				if (likely(q->offset > 0)) {
++					free_rx_bufs(q->adap, &rxq->fl, 1);
++					q->offset = 0;
++				}
++				len = G_RSPD_LEN(len);
++			}
++			si.tot_len = len;
++
++			/* gather packet fragments */
++			for (frags = 0, fp = si.frags; ; frags++, fp++) {
++				rsd = &rxq->fl.sdesc[rxq->fl.cidx];
++				bufsz = get_buf_size(rsd);
++				fp->page = rsd->page;
++				fp->page_offset = q->offset;
++				fp->size = min(bufsz, len);
++				len -= fp->size;
++				if (!len)
++					break;
++				unmap_rx_buf(q->adap, &rxq->fl);
++			}
++
++			/*
++			 * Last buffer remains mapped so explicitly make it
++			 * coherent for CPU access.
++			 */
++			dma_sync_single_for_cpu(q->adap->pdev_dev,
++						get_buf_addr(rsd),
++						fp->size, DMA_FROM_DEVICE);
++
++			si.va = page_address(si.frags[0].page) +
++				si.frags[0].page_offset;
++			prefetch(si.va);
++
++			si.nfrags = frags + 1;
++			ret = q->handler(q, q->cur_desc, &si);
++			if (likely(ret == 0))
++				q->offset += ALIGN(fp->size, FL_ALIGN);
++			else
++				restore_rx_bufs(&si, &rxq->fl, frags);
++		} else if (likely(rsp_type == RSP_TYPE_CPL)) {
++			ret = q->handler(q, q->cur_desc, NULL);
++		} else {
++			ret = q->handler(q, (const __be64 *)rc, CXGB4_MSG_AN);
++		}
++
++		if (unlikely(ret)) {
++			/* couldn't process descriptor, back off for recovery */
++			q->next_intr_params = V_QINTR_TIMER_IDX(NOMEM_TMR_IDX);
++			break;
++		}
++
++		rspq_next(q);
++		budget_left--;
++	}
++
++	if (q->offset >= 0 && rxq->fl.size - rxq->fl.avail >= 16)
++		replenish_fl(q->adap, &rxq->fl, GFP_ATOMIC);
++	return budget - budget_left;
++}
++
++/**
++ *	napi_rx_handler - the NAPI handler for Rx processing
++ *	@napi: the napi instance
++ *	@budget: how many packets we can process in this round
++ *
++ *	Handler for new data events when using NAPI.  This does not need any
++ *	locking or protection from interrupts as data interrupts are off at
++ *	this point and other adapter interrupts do not interfere (the latter
++ *	in not a concern at all with MSI-X as non-data interrupts then have
++ *	a separate handler).
++ */
++static int napi_rx_handler(struct napi_struct *napi, int budget)
++{
++	unsigned int params;
++	struct sge_rspq *q = container_of(napi, struct sge_rspq, napi);
++	int work_done = process_responses(q, budget);
++
++	if (likely(work_done < budget)) {
++		napi_complete(napi);
++		params = q->next_intr_params;
++		q->next_intr_params = q->intr_params;
++	} else
++		params = V_QINTR_TIMER_IDX(7);
++
++	t4_write_reg(q->adap, MYPF_REG(A_SGE_PF_GTS), V_CIDXINC(work_done) |
++		     V_INGRESSQID((u32)q->cntxt_id) | V_SEINTARM(params));
++	return work_done;
++}
++
++/*
++ * Returns true if a NAPI instance is already scheduled for polling.
++ */
++static inline int napi_is_scheduled(const struct napi_struct *napi)
++{
++	return test_bit(NAPI_STATE_SCHED, &napi->state);
++}
++
++/*
++ * The MSI-X interrupt handler for an SGE response queue.
++ */
++irqreturn_t t4_sge_intr_msix(int irq, void *cookie)
++{
++	struct sge_rspq *q = cookie;
++
++	spin_lock(&q->lock);
++	napi_schedule(&q->napi);
++	spin_unlock(&q->lock);
++	return IRQ_HANDLED;
++}
++
++/*
++ * Process the indirect interrupt entries in the interrupt queue and kick off
++ * NAPI for each queue that has generated an entry.
++ */
++static unsigned int process_intrq(struct adapter *adap)
++{
++	unsigned int credits;
++	const struct rsp_ctrl *rc;
++	struct sge_rspq *q = &adap->sge.intrq;
++
++	for (credits = 0; ; credits++) {
++		rc = (void *)q->cur_desc + (q->iqe_len - sizeof(*rc));
++		if (!is_new_response(rc, q))
++			break;
++
++		rmb();
++		if (G_RSPD_TYPE(rc->type_gen) == RSP_TYPE_INTR) {
++			unsigned int qid = ntohl(rc->pldbuflen_qid);
++			struct sge_rspq *srcq = adap->sge.ingr_map[qid];
++
++			spin_lock(&srcq->lock);
++			napi_schedule(&srcq->napi);
++			spin_unlock(&srcq->lock);
++		}
++
++		rspq_next(q);
++	}
++
++	t4_write_reg(adap, MYPF_REG(A_SGE_PF_GTS), V_CIDXINC(credits) |
++		     V_INGRESSQID(q->cntxt_id) | V_SEINTARM(q->intr_params));
++	return credits;
++}
++
++/*
++ * The MSI interrupt handler, which handles data events from SGE response queues
++ * as well as error and other async events as they all use the same MSI vector.
++ */
++static irqreturn_t t4_intr_msi(int irq, void *cookie)
++{
++	struct adapter *adap = cookie;
++
++	t4_slow_intr_handler(adap);
++	process_intrq(adap);
++	return IRQ_HANDLED;
++}
++
++/*
++ * Interrupt handler for legacy INTx interrupts.
++ * Handles data events from SGE response queues as well as error and other
++ * async events as they all use the same interrupt line.
++ */
++static irqreturn_t t4_intr_intx(int irq, void *cookie)
++{
++	struct adapter *adap = cookie;
++
++	t4_write_reg(adap, MYPF_REG(A_PCIE_PF_CLI), 0);
++	if (t4_slow_intr_handler(adap) | process_intrq(adap))
++		return IRQ_HANDLED;
++	return IRQ_NONE;             /* probably shared interrupt */
++}
++
++/**
++ *	t4_intr_handler - select the top-level interrupt handler
++ *	@adap: the adapter
++ *
++ *	Selects the top-level interrupt handler based on the type of interrupts
++ *	(MSI-X, MSI, or INTx).
++ */
++irq_handler_t t4_intr_handler(struct adapter *adap)
++{
++	if (adap->flags & USING_MSIX)
++		return t4_sge_intr_msix;
++	if (adap->flags & USING_MSI)
++		return t4_intr_msi;
++	return t4_intr_intx;
++}
++
++static void sge_rx_timer_cb(unsigned long data)
++{
++	unsigned long m;
++	unsigned int i, cnt[2];
++	struct adapter *adap = (struct adapter *)data;
++	struct sge *s = &adap->sge;
++
++	for (i = 0; i < ARRAY_SIZE(s->starving_fl); i++)
++		for (m = s->starving_fl[i]; m; m &= m - 1) {
++			struct sge_eth_rxq *rxq;
++			unsigned int id = __ffs(m) + i * BITS_PER_LONG;
++			struct sge_fl *fl = s->egr_map[id];
++
++			rxq = container_of(fl, struct sge_eth_rxq, fl);
++			if (spin_trylock_irq(&rxq->rspq.lock)) {
++				if (!napi_is_scheduled(&rxq->rspq.napi)) {
++					if (fl_starving(fl)) {
++						fl->starving++;
++						__refill_fl(adap, fl);
++					}
++					if (!fl_starving(fl))
++						clear_bit(id, s->starving_fl);
++				}
++				spin_unlock(&rxq->rspq.lock);
++			}
++		}
++
++	t4_write_reg(adap, A_SGE_DEBUG_INDEX, 13);
++	cnt[0] = t4_read_reg(adap, A_SGE_DEBUG_DATA_HIGH);
++	cnt[1] = t4_read_reg(adap, A_SGE_DEBUG_DATA_LOW);
++
++	for (i = 0; i < 2; i++)
++		if (cnt[i] >= s->starve_thres) {
++			if (s->idma_state[i])
++				continue;
++			s->idma_state[i] = 1;
++			t4_write_reg(adap, A_SGE_DEBUG_INDEX, 11);
++			m = t4_read_reg(adap, A_SGE_DEBUG_DATA_LOW) >> (i * 16);
++			CH_WARN(adap, "SGE idma%u starvation detected for "
++				"queue %lu\n", i, m & 0xffff);
++		} else if (s->idma_state[i])
++			s->idma_state[i] = 0;
++
++	mod_timer(&s->rx_timer, jiffies + RX_QCHECK_PERIOD);
++}
++
++static void sge_tx_timer_cb(unsigned long data)
++{
++	unsigned long m, i;
++	struct adapter *adap = (struct adapter *)data;
++	struct sge *s = &adap->sge;
++
++	for (i = 0; i < ARRAY_SIZE(s->txq_maperr); i++)
++		for (m = s->txq_maperr[i]; m; m &= m - 1) {
++			unsigned long id = __ffs(m) + i * BITS_PER_LONG;
++			struct sge_ofld_txq *txq = s->egr_map[id];
++
++			clear_bit(id, s->txq_maperr);
++			tasklet_schedule(&txq->qresume_tsk);
++		}
++
++	mod_timer(&s->tx_timer, jiffies + TX_QCHECK_PERIOD);
++}
++
++int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
++		     struct net_device *dev, int intr_idx,
++		     struct sge_fl *fl, rspq_handler_t hnd)
++{
++	int ret, flsz = 0;
++	struct fw_iq_cmd c;
++	struct port_info *pi = netdev_priv(dev);
++
++	/* Size needs to be multiple of 16, including status entry. */
++	iq->size = roundup(iq->size, 16);
++
++	iq->desc = alloc_ring(adap->pdev_dev, iq->size, iq->iqe_len, 0,
++			      &iq->phys_addr, NULL, 0);
++	if (!iq->desc)
++		return -ENOMEM;
++
++	memset(&c, 0, sizeof(c));
++	c.op_to_vfn = htonl(V_FW_CMD_OP(FW_IQ_CMD) | F_FW_CMD_REQUEST |
++			    F_FW_CMD_WRITE | F_FW_CMD_EXEC |
++			    V_FW_IQ_CMD_PFN(0) | V_FW_IQ_CMD_VFN(0));
++	c.alloc_to_len16 = htonl(F_FW_IQ_CMD_ALLOC | F_FW_IQ_CMD_IQSTART |
++				 FW_LEN16(c));
++	c.type_to_iqandstindex = htonl(V_FW_IQ_CMD_TYPE(FW_IQ_TYPE_FL_INT_CAP) |
++		V_FW_IQ_CMD_IQASYNCH(fwevtq) | V_FW_IQ_CMD_VIID(pi->viid) |
++		V_FW_IQ_CMD_IQANDST(intr_idx < 0) | V_FW_IQ_CMD_IQANUD(1) |
++		V_FW_IQ_CMD_IQANDSTINDEX(intr_idx >= 0 ? intr_idx :
++							-intr_idx - 1));
++	c.iqdroprss_to_iqesize = htons(V_FW_IQ_CMD_IQPCIECH(pi->tx_chan) |
++		F_FW_IQ_CMD_IQGTSMODE |
++		V_FW_IQ_CMD_IQINTCNTTHRESH(iq->pktcnt_idx) |
++		V_FW_IQ_CMD_IQESIZE(ilog2(iq->iqe_len) - 4));
++	c.iqsize = htons(iq->size);
++	c.iqaddr = cpu_to_be64(iq->phys_addr);
++
++	if (fl) {
++		fl->size = roundup(fl->size, 8);
++		fl->desc = alloc_ring(adap->pdev_dev, fl->size, sizeof(__be64),
++				      sizeof(struct rx_sw_desc), &fl->addr,
++				      &fl->sdesc, STAT_LEN);
++		if (!fl->desc)
++			goto fl_nomem;
++
++		flsz = fl->size / 8 + STAT_LEN / sizeof(struct tx_desc);
++		c.iqns_to_fl0congen = htonl(F_FW_IQ_CMD_FL0PACKEN |
++					    F_FW_IQ_CMD_FL0PADEN);
++		c.fl0dcaen_to_fl0cidxfthresh = htons(V_FW_IQ_CMD_FL0FBMIN(2) |
++				V_FW_IQ_CMD_FL0FBMAX(3));
++		c.fl0size = htons(flsz);
++		c.fl0addr = cpu_to_be64(fl->addr);
++	}
++
++	ret = t4_wr_mbox(adap, 0, &c, sizeof(c), &c);
 +	if (ret)
-+		return ret;
++		goto err;
 +
-+	for (i = 0, p = c.u.exact; i < naddr; i++, p++) {
-+		u16 index = G_FW_VI_MAC_CMD_IDX(ntohs(p->valid_to_idx));
++	spin_lock_init(&iq->lock);
++	netif_napi_add(dev, &iq->napi, napi_rx_handler, 64);
++	iq->cur_desc = iq->desc;
++	iq->cidx = 0;
++	iq->gen = 1;
++	iq->next_intr_params = iq->intr_params;
++	iq->cntxt_id = ntohs(c.iqid);
++	iq->abs_id = ntohs(c.physiqid);
++	iq->size--;                           /* subtract status entry */
++	iq->adap = adap;
++	iq->netdev = dev;
++	iq->handler = hnd;
 +
-+		if (idx)
-+			idx[i] = index >= NEXACT_MAC ? 0xffff : index;
-+		if (index < NEXACT_MAC)
-+			ret++;
-+		else if (hash)
-+			*hash |= (1 << t4_hash_mac_addr(addr[i]));
++	/* set offset to -1 to distinguish ingress queues without FL */
++	iq->offset = fl ? 0 : -1;
++
++	adap->sge.ingr_map[iq->cntxt_id] = iq;
++
++	if (fl) {
++		fl->cntxt_id = htons(c.fl0id);
++		fl->avail = fl->pend_cred = 0;
++		fl->pidx = fl->cidx = 0;
++		fl->alloc_failed = fl->large_alloc_failed = fl->starving = 0;
++		adap->sge.egr_map[fl->cntxt_id] = fl;
++		replenish_fl(adap, fl, GFP_KERNEL);
++	}
++	return 0;
++
++fl_nomem:
++	ret = -ENOMEM;
++err:
++	if (iq->desc) {
++		dma_free_coherent(adap->pdev_dev, iq->size * iq->iqe_len,
++				  iq->desc, iq->phys_addr);
++		iq->desc = NULL;
++	}
++	if (fl && fl->desc) {
++		kfree(fl->sdesc);
++		fl->sdesc = NULL;
++		dma_free_coherent(adap->pdev_dev, flsz * sizeof(struct tx_desc),
++				  fl->desc, fl->addr);
++		fl->desc = NULL;
 +	}
 +	return ret;
 +}
 +
-+/**
-+ * 	t4_change_mac - modifies the exact-match filter for a MAC address
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@viid: the VI id
-+ * 	@idx: index of existing filter for old value of MAC address, or -1
-+ * 	@addr: the new MAC address value
-+ * 	@persist: whether a new MAC allocation should be persistent
-+ *
-+ *	Modifies an exact-match filter and sets it to the new MAC address.
-+ *	Note that in general it is not possible to modify the value of a given
-+ *	filter so the generic way to modify an address filter is to free the one
-+ *	being used by the old address value and allocate a new filter for the
-+ *	new address value.  @idx can be -1 if the address is a new addition.
-+ *
-+ * 	Returns a negative error number or the index of the filter with the new
-+ * 	MAC value.
-+ */
-+int t4_change_mac(struct adapter *adap, unsigned int mbox, unsigned int viid,
-+		  int idx, const u8 *addr, bool persist)
++static void init_txq(struct adapter *adap, struct sge_txq *q, unsigned int id)
 +{
-+	int ret;
-+	struct fw_vi_mac_cmd c;
-+	struct fw_vi_mac_exact *p = c.u.exact;
-+
-+	if (idx < 0)                             /* new allocation */
-+		idx = persist ? FW_VI_MAC_ADD_PERSIST_MAC : FW_VI_MAC_ADD_MAC;
-+
-+	memset(&c, 0, sizeof(c));
-+	c.op_to_viid = htonl(V_FW_CMD_OP(FW_VI_MAC_CMD) | F_FW_CMD_REQUEST |
-+			     F_FW_CMD_WRITE | V_FW_VI_MAC_CMD_VIID(viid));
-+	c.freemacs_to_len16 = htonl(V_FW_CMD_LEN16(1));
-+	p->valid_to_idx = htons(F_FW_VI_MAC_CMD_VALID |
-+				V_FW_VI_MAC_CMD_IDX(idx));
-+	memcpy(p->macaddr, addr, sizeof(p->macaddr));
-+
-+	ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), &c);
-+	if (ret == 0) {
-+		ret = G_FW_VI_MAC_CMD_IDX(ntohs(p->valid_to_idx));
-+		if (ret >= NEXACT_MAC)
-+			ret = -ENOMEM;
-+	}
-+	return ret;
++	q->in_use = 0;
++	q->cidx = q->pidx = 0;
++	q->stops = q->restarts = 0;
++	q->stat = (void *)&q->desc[q->size];
++	q->cntxt_id = id;
++	adap->sge.egr_map[id] = q;
 +}
 +
-+/**
-+ * 	t4_set_addr_hash - program the MAC inexact-match hash filter
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@viid: the VI id
-+ * 	@ucast: whether the hash filter should also match unicast addresses
-+ * 	@vec: the value to be written to the hash filter
-+ * 	@sleep_ok: call is allowed to sleep
-+ *
-+ * 	Sets the 64-bit inexact-match hash filter for a virtual interface.
-+ */
-+int t4_set_addr_hash(struct adapter *adap, unsigned int mbox, unsigned int viid,
-+		     bool ucast, u64 vec, bool sleep_ok)
++int t4_sge_alloc_eth_txq(struct adapter *adap, struct sge_eth_txq *txq,
++			 struct net_device *dev, struct netdev_queue *netdevq,
++			 unsigned int iqid)
 +{
-+	struct fw_vi_mac_cmd c;
-+
-+	memset(&c, 0, sizeof(c));
-+	c.op_to_viid = htonl(V_FW_CMD_OP(FW_VI_MAC_CMD) | F_FW_CMD_REQUEST |
-+			     F_FW_CMD_WRITE | V_FW_VI_ENABLE_CMD_VIID(viid));
-+	c.freemacs_to_len16 = htonl(F_FW_VI_MAC_CMD_HASHVECEN |
-+				    V_FW_VI_MAC_CMD_HASHUNIEN(ucast) |
-+				    V_FW_CMD_LEN16(1));
-+	c.u.hash.hashvec = cpu_to_be64(vec);
-+	return t4_wr_mbox_meat(adap, mbox, &c, sizeof(c), NULL, sleep_ok);
-+}
-+
-+/**
-+ * 	t4_enable_vi - enable/disable a virtual interface
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@viid: the VI id
-+ * 	@rx_en: 1=enable Rx, 0=disable Rx
-+ * 	@tx_en: 1=enable Tx, 0=disable Tx
-+ *
-+ * 	Enables/disables a virtual interface.
-+ */
-+int t4_enable_vi(struct adapter *adap, unsigned int mbox, unsigned int viid,
-+		 bool rx_en, bool tx_en)
-+{
-+	struct fw_vi_enable_cmd c;
-+
-+	memset(&c, 0, sizeof(c));
-+	c.op_to_viid = htonl(V_FW_CMD_OP(FW_VI_ENABLE_CMD) | F_FW_CMD_REQUEST |
-+			     F_FW_CMD_EXEC | V_FW_VI_ENABLE_CMD_VIID(viid));
-+	c.ien_to_len16 = htonl(V_FW_VI_ENABLE_CMD_IEN(rx_en) |
-+			       V_FW_VI_ENABLE_CMD_EEN(tx_en) | FW_LEN16(c));
-+	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
-+}
-+
-+/**
-+ * 	t4_identify_port - identify a VI's port by blinking its LED
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@viid: the VI id
-+ * 	@nblinks: how many times to blink LED at 2.5 Hz
-+ *
-+ * 	Identifies a VI's port by blinking its LED.
-+ */
-+int t4_identify_port(struct adapter *adap, unsigned int mbox, unsigned int viid,
-+		     unsigned int nblinks)
-+{
-+	struct fw_vi_enable_cmd c;
-+
-+	c.op_to_viid = htonl(V_FW_CMD_OP(FW_VI_ENABLE_CMD) | F_FW_CMD_REQUEST |
-+			     F_FW_CMD_EXEC | V_FW_VI_ENABLE_CMD_VIID(viid));
-+	c.ien_to_len16 = htonl(F_FW_VI_ENABLE_CMD_LED | FW_LEN16(c));
-+	c.blinkdur = htons(nblinks);
-+	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
-+}
-+
-+/**
-+ * 	t4_iq_start_stop - enable/disable an ingress queue and its FLs
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@start: %true to enable the queues, %false to disable them
-+ * 	@pf: the PF owning the queues
-+ * 	@vf: the VF owning the queues
-+ * 	@iqid: ingress queue id
-+ * 	@fl0id: FL0 queue id or 0xffff if no attached FL0
-+ * 	@fl1id: FL1 queue id or 0xffff if no attached FL1
-+ *
-+ * 	Starts or stops an ingress queue and its associated FLs, if any.
-+ */
-+int t4_iq_start_stop(struct adapter *adap, unsigned int mbox, bool start,
-+		     unsigned int pf, unsigned int vf, unsigned int iqid,
-+		     unsigned int fl0id, unsigned int fl1id)
-+{
-+	struct fw_iq_cmd c;
-+
-+	memset(&c, 0, sizeof(c));
-+	c.op_to_vfn = htonl(V_FW_CMD_OP(FW_IQ_CMD) | F_FW_CMD_REQUEST |
-+			    F_FW_CMD_EXEC | V_FW_IQ_CMD_PFN(pf) |
-+			    V_FW_IQ_CMD_VFN(vf));
-+	c.alloc_to_len16 = htonl(V_FW_IQ_CMD_IQSTART(start) |
-+				 V_FW_IQ_CMD_IQSTOP(!start) | FW_LEN16(c));
-+	c.iqid = htons(iqid);
-+	c.fl0id = htons(fl0id);
-+	c.fl1id = htons(fl1id);
-+	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
-+}
-+
-+/**
-+ * 	t4_iq_free - free an ingress queue and its FLs
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@pf: the PF owning the queues
-+ * 	@vf: the VF owning the queues
-+ * 	@iqtype: the ingress queue type
-+ * 	@iqid: ingress queue id
-+ * 	@fl0id: FL0 queue id or 0xffff if no attached FL0
-+ * 	@fl1id: FL1 queue id or 0xffff if no attached FL1
-+ *
-+ * 	Frees an ingress queue and its associated FLs, if any.
-+ */
-+int t4_iq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
-+	       unsigned int vf, unsigned int iqtype, unsigned int iqid,
-+	       unsigned int fl0id, unsigned int fl1id)
-+{
-+	struct fw_iq_cmd c;
-+
-+	memset(&c, 0, sizeof(c));
-+	c.op_to_vfn = htonl(V_FW_CMD_OP(FW_IQ_CMD) | F_FW_CMD_REQUEST |
-+			    F_FW_CMD_EXEC | V_FW_IQ_CMD_PFN(pf) |
-+			    V_FW_IQ_CMD_VFN(vf));
-+	c.alloc_to_len16 = htonl(F_FW_IQ_CMD_FREE | FW_LEN16(c));
-+	c.type_to_iqandstindex = htonl(V_FW_IQ_CMD_TYPE(iqtype));
-+	c.iqid = htons(iqid);
-+	c.fl0id = htons(fl0id);
-+	c.fl1id = htons(fl1id);
-+	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
-+}
-+
-+/**
-+ * 	t4_eth_eq_free - free an Ethernet egress queue
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@pf: the PF owning the queue
-+ * 	@vf: the VF owning the queue
-+ * 	@eqid: egress queue id
-+ *
-+ * 	Frees an Ethernet egress queue.
-+ */
-+int t4_eth_eq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
-+		   unsigned int vf, unsigned int eqid)
-+{
++	int ret, nentries;
 +	struct fw_eq_eth_cmd c;
++	struct port_info *pi = netdev_priv(dev);
++
++	/* Add status entries */
++	nentries = txq->q.size + STAT_LEN / sizeof(struct tx_desc);
++
++	txq->q.desc = alloc_ring(adap->pdev_dev, txq->q.size,
++			sizeof(struct tx_desc), sizeof(struct tx_sw_desc),
++			&txq->q.phys_addr, &txq->q.sdesc, STAT_LEN);
++	if (!txq->q.desc)
++		return -ENOMEM;
 +
 +	memset(&c, 0, sizeof(c));
 +	c.op_to_vfn = htonl(V_FW_CMD_OP(FW_EQ_ETH_CMD) | F_FW_CMD_REQUEST |
-+			    F_FW_CMD_EXEC | V_FW_EQ_ETH_CMD_PFN(pf) |
-+			    V_FW_EQ_ETH_CMD_VFN(vf));
-+	c.alloc_to_len16 = htonl(F_FW_EQ_ETH_CMD_FREE | FW_LEN16(c));
-+	c.eqid_pkd = htonl(V_FW_EQ_ETH_CMD_EQID(eqid));
-+	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
++			    F_FW_CMD_WRITE | F_FW_CMD_EXEC |
++			    V_FW_EQ_ETH_CMD_PFN(0) | V_FW_EQ_ETH_CMD_VFN(0));
++	c.alloc_to_len16 = htonl(F_FW_EQ_ETH_CMD_ALLOC |
++				 F_FW_EQ_ETH_CMD_EQSTART | FW_LEN16(c));
++	c.viid_pkd = htonl(V_FW_EQ_ETH_CMD_VIID(pi->viid));
++	c.fetchszm_to_iqid = htonl(V_FW_EQ_ETH_CMD_HOSTFCMODE(2) |
++				   V_FW_EQ_ETH_CMD_PCIECHN(pi->tx_chan) |
++				   V_FW_EQ_ETH_CMD_IQID(iqid));
++	c.dcaen_to_eqsize = htonl(V_FW_EQ_ETH_CMD_FBMIN(2) |
++				  V_FW_EQ_ETH_CMD_FBMAX(3) |
++				  V_FW_EQ_ETH_CMD_CIDXFTHRESH(5) |
++				  V_FW_EQ_ETH_CMD_EQSIZE(nentries));
++	c.eqaddr = cpu_to_be64(txq->q.phys_addr);
++
++	ret = t4_wr_mbox(adap, 0, &c, sizeof(c), &c);
++	if (ret) {
++		kfree(txq->q.sdesc);
++		txq->q.sdesc = NULL;
++		dma_free_coherent(adap->pdev_dev,
++				  nentries * sizeof(struct tx_desc),
++				  txq->q.desc, txq->q.phys_addr);
++		txq->q.desc = NULL;
++		return ret;
++	}
++
++	init_txq(adap, &txq->q, G_FW_EQ_ETH_CMD_EQID(ntohl(c.eqid_pkd)));
++	txq->txq = netdevq;
++	txq->tso = txq->tx_cso = txq->vlan_ins = 0;
++	txq->mapping_err = 0;
++	return 0;
 +}
 +
-+/**
-+ * 	t4_ctrl_eq_free - free a control egress queue
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@pf: the PF owning the queue
-+ * 	@vf: the VF owning the queue
-+ * 	@eqid: egress queue id
-+ *
-+ * 	Frees a control egress queue.
-+ */
-+int t4_ctrl_eq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
-+		    unsigned int vf, unsigned int eqid)
++int t4_sge_alloc_ctrl_txq(struct adapter *adap, struct sge_ctrl_txq *txq,
++			  struct net_device *dev, unsigned int iqid,
++			  unsigned int cmplqid)
 +{
++	int ret, nentries;
 +	struct fw_eq_ctrl_cmd c;
++	struct port_info *pi = netdev_priv(dev);
 +
-+	memset(&c, 0, sizeof(c));
++	/* Add status entries */
++	nentries = txq->q.size + STAT_LEN / sizeof(struct tx_desc);
++
++	txq->q.desc = alloc_ring(adap->pdev_dev, nentries,
++				 sizeof(struct tx_desc), 0, &txq->q.phys_addr,
++				 NULL, 0);
++	if (!txq->q.desc)
++		return -ENOMEM;
++
 +	c.op_to_vfn = htonl(V_FW_CMD_OP(FW_EQ_CTRL_CMD) | F_FW_CMD_REQUEST |
-+			    F_FW_CMD_EXEC | V_FW_EQ_CTRL_CMD_PFN(pf) |
-+			    V_FW_EQ_CTRL_CMD_VFN(vf));
-+	c.alloc_to_len16 = htonl(F_FW_EQ_CTRL_CMD_FREE | FW_LEN16(c));
-+	c.cmpliqid_eqid = htonl(V_FW_EQ_CTRL_CMD_EQID(eqid));
-+	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
++			    F_FW_CMD_WRITE | F_FW_CMD_EXEC |
++			    V_FW_EQ_CTRL_CMD_PFN(0) | V_FW_EQ_CTRL_CMD_VFN(0));
++	c.alloc_to_len16 = htonl(F_FW_EQ_CTRL_CMD_ALLOC |
++				 F_FW_EQ_CTRL_CMD_EQSTART | FW_LEN16(c));
++	c.cmpliqid_eqid = htonl(V_FW_EQ_CTRL_CMD_CMPLIQID(cmplqid));
++	c.physeqid_pkd = htonl(0);
++	c.fetchszm_to_iqid = htonl(V_FW_EQ_CTRL_CMD_HOSTFCMODE(2) |
++				   V_FW_EQ_CTRL_CMD_PCIECHN(pi->tx_chan) |
++				   V_FW_EQ_CTRL_CMD_IQID(iqid));
++	c.dcaen_to_eqsize = htonl(V_FW_EQ_CTRL_CMD_FBMIN(2) |
++				  V_FW_EQ_CTRL_CMD_FBMAX(3) |
++				  V_FW_EQ_CTRL_CMD_CIDXFTHRESH(5) |
++				  V_FW_EQ_CTRL_CMD_EQSIZE(nentries));
++	c.eqaddr = cpu_to_be64(txq->q.phys_addr);
++
++	ret = t4_wr_mbox(adap, 0, &c, sizeof(c), &c);
++	if (ret) {
++		dma_free_coherent(adap->pdev_dev,
++				  nentries * sizeof(struct tx_desc),
++				  txq->q.desc, txq->q.phys_addr);
++		txq->q.desc = NULL;
++		return ret;
++	}
++
++	init_txq(adap, &txq->q, G_FW_EQ_CTRL_CMD_EQID(ntohl(c.cmpliqid_eqid)));
++	txq->adap = adap;
++	skb_queue_head_init(&txq->sendq);
++	tasklet_init(&txq->qresume_tsk, restart_ctrlq, (unsigned long)txq);
++	txq->full = 0;
++	return 0;
 +}
 +
-+/**
-+ * 	t4_ofld_eq_free - free an offload egress queue
-+ * 	@adap: the adapter
-+ * 	@mbox: mailbox to use for the FW command
-+ * 	@pf: the PF owning the queue
-+ * 	@vf: the VF owning the queue
-+ * 	@eqid: egress queue id
-+ *
-+ * 	Frees a control egress queue.
-+ */
-+int t4_ofld_eq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
-+		    unsigned int vf, unsigned int eqid)
++int t4_sge_alloc_ofld_txq(struct adapter *adap, struct sge_ofld_txq *txq,
++			  struct net_device *dev, unsigned int iqid)
 +{
++	int ret, nentries;
 +	struct fw_eq_ofld_cmd c;
++	struct port_info *pi = netdev_priv(dev);
++
++	/* Add status entries */
++	nentries = txq->q.size + STAT_LEN / sizeof(struct tx_desc);
++
++	txq->q.desc = alloc_ring(adap->pdev_dev, txq->q.size,
++			sizeof(struct tx_desc), sizeof(struct tx_sw_desc),
++			&txq->q.phys_addr, &txq->q.sdesc, STAT_LEN);
++	if (!txq->q.desc)
++		return -ENOMEM;
 +
 +	memset(&c, 0, sizeof(c));
 +	c.op_to_vfn = htonl(V_FW_CMD_OP(FW_EQ_OFLD_CMD) | F_FW_CMD_REQUEST |
-+			    F_FW_CMD_EXEC | V_FW_EQ_OFLD_CMD_PFN(pf) |
-+			    V_FW_EQ_OFLD_CMD_VFN(vf));
-+	c.alloc_to_len16 = htonl(F_FW_EQ_OFLD_CMD_FREE | FW_LEN16(c));
-+	c.eqid_pkd = htonl(V_FW_EQ_OFLD_CMD_EQID(eqid));
-+	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
-+}
++			    F_FW_CMD_WRITE | F_FW_CMD_EXEC |
++			    V_FW_EQ_OFLD_CMD_PFN(0) | V_FW_EQ_OFLD_CMD_VFN(0));
++	c.alloc_to_len16 = htonl(F_FW_EQ_OFLD_CMD_ALLOC |
++				 F_FW_EQ_OFLD_CMD_EQSTART | FW_LEN16(c));
++	c.fetchszm_to_iqid = htonl(V_FW_EQ_OFLD_CMD_HOSTFCMODE(2) |
++				   V_FW_EQ_OFLD_CMD_PCIECHN(pi->tx_chan) |
++				   V_FW_EQ_OFLD_CMD_IQID(iqid));
++	c.dcaen_to_eqsize = htonl(V_FW_EQ_OFLD_CMD_FBMIN(2) |
++				  V_FW_EQ_OFLD_CMD_FBMAX(3) |
++				  V_FW_EQ_OFLD_CMD_CIDXFTHRESH(5) |
++				  V_FW_EQ_OFLD_CMD_EQSIZE(nentries));
++	c.eqaddr = cpu_to_be64(txq->q.phys_addr);
 +
-+/**
-+ * 	t4_handle_fw_rpl - process a FW reply message
-+ * 	@adap: the adapter
-+ * 	@rpl: start of the FW message
-+ *
-+ * 	Processes a FW message, such as link state change messages.
-+ */
-+int t4_handle_fw_rpl(struct adapter *adap, const __be64 *rpl)
-+{
-+	u8 opcode = *(const u8 *)rpl;
-+
-+	if (opcode == FW_PORT_CMD) {    /* link/module state change message */
-+		int speed = 0, fc = 0;
-+		const struct fw_port_cmd *p = (void *)rpl;
-+		int chan = G_FW_PORT_CMD_PORTID(ntohl(p->op_to_portid));
-+		int port = adap->chan_map[chan];
-+		struct port_info *pi = adap2pinfo(adap, port);
-+		struct link_config *lc = &pi->link_cfg;
-+		u32 stat = ntohl(p->u.info.lstatus_to_modtype);
-+		int link_ok = (stat & F_FW_PORT_CMD_LSTATUS) != 0;
-+		u32 mod = G_FW_PORT_CMD_MODTYPE(stat);
-+
-+		if (stat & F_FW_PORT_CMD_RXPAUSE)
-+			fc |= PAUSE_RX;
-+		if (stat & F_FW_PORT_CMD_TXPAUSE)
-+			fc |= PAUSE_TX;
-+		if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_100M))
-+			speed = SPEED_100;
-+		else if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_1G))
-+			speed = SPEED_1000;
-+		else if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_10G))
-+			speed = SPEED_10000;
-+
-+		if (link_ok != lc->link_ok || speed != lc->speed ||
-+		    fc != lc->fc) {                    /* something changed */
-+			lc->link_ok = link_ok;
-+			lc->speed = speed;
-+			lc->fc = fc;
-+			t4_os_link_changed(adap, port, link_ok);
-+		}
-+		if (mod != pi->mod_type) {
-+			pi->mod_type = mod;
-+			t4_os_portmod_changed(adap, port);
-+		}
-+	}
-+	return 0;
-+}
-+
-+/**
-+ *	get_pci_mode - determine a card's PCI mode
-+ *	@adapter: the adapter
-+ *	@p: where to store the PCI settings
-+ *
-+ *	Determines a card's PCI mode and associated parameters, such as speed
-+ *	and width.
-+ */
-+static void __devinit get_pci_mode(struct adapter *adapter,
-+				   struct pci_params *p)
-+{
-+	u16 val;
-+	u32 pcie_cap;
-+
-+	pcie_cap = pci_find_capability(adapter->pdev, PCI_CAP_ID_EXP);
-+	if (pcie_cap) {
-+		pci_read_config_word(adapter->pdev, pcie_cap + PCI_EXP_LNKSTA,
-+				     &val);
-+		p->speed = val & PCI_EXP_LNKSTA_CLS;
-+		p->width = (val & PCI_EXP_LNKSTA_NLW) >> 4;
-+	}
-+}
-+
-+/**
-+ *	init_link_config - initialize a link's SW state
-+ *	@lc: structure holding the link state
-+ *	@caps: link capabilities
-+ *
-+ *	Initializes the SW state maintained for each link, including the link's
-+ *	capabilities and default speed/flow-control/autonegotiation settings.
-+ */
-+static void __devinit init_link_config(struct link_config *lc,
-+				       unsigned int caps)
-+{
-+	lc->supported = caps;
-+	lc->requested_speed = 0;
-+	lc->speed = 0;
-+	lc->requested_fc = lc->fc = PAUSE_RX | PAUSE_TX;
-+	if (lc->supported & FW_PORT_CAP_ANEG) {
-+		lc->advertising = lc->supported & ADVERT_MASK;
-+		lc->autoneg = AUTONEG_ENABLE;
-+		lc->requested_fc |= PAUSE_AUTONEG;
-+	} else {
-+		lc->advertising = 0;
-+		lc->autoneg = AUTONEG_DISABLE;
-+	}
-+}
-+
-+static int __devinit wait_dev_ready(struct adapter *adap)
-+{
-+	if (t4_read_reg(adap, A_PL_WHOAMI) != 0xffffffff)
-+		return 0;
-+	msleep(500);
-+	return t4_read_reg(adap, A_PL_WHOAMI) != 0xffffffff ? 0 : -EIO;
-+}
-+
-+/**
-+ *	t4_prep_adapter - prepare SW and HW for operation
-+ *	@adapter: the adapter
-+ *	@reset: if true perform a HW reset
-+ *
-+ *	Initialize adapter SW state for the various HW modules, set initial
-+ *	values for some adapter tunables, take PHYs out of reset, and
-+ *	initialize the MDIO interface.
-+ */
-+int __devinit t4_prep_adapter(struct adapter *adapter)
-+{
-+	int ret;
-+
-+	ret = wait_dev_ready(adapter);
-+	if (ret < 0)
++	ret = t4_wr_mbox(adap, 0, &c, sizeof(c), &c);
++	if (ret) {
++		kfree(txq->q.sdesc);
++		txq->q.sdesc = NULL;
++		dma_free_coherent(adap->pdev_dev,
++				  nentries * sizeof(struct tx_desc),
++				  txq->q.desc, txq->q.phys_addr);
++		txq->q.desc = NULL;
 +		return ret;
-+
-+	get_pci_mode(adapter, &adapter->params.pci);
-+	adapter->params.rev = t4_read_reg(adapter, A_PL_REV);
-+
-+	ret = get_vpd_params(adapter, &adapter->params.vpd);
-+	if (ret < 0)
-+		return ret;
-+
-+	init_cong_ctrl(adapter->params.a_wnd, adapter->params.b_wnd);
-+
-+	/*
-+	 * Default port for debugging in case we can't reach FW.
-+	 */
-+	adapter->params.nports = 1;
-+	adapter->params.portvec = 1;
-+	return 0;
-+}
-+
-+int __devinit t4_port_init(struct adapter *adap, int mbox, int pf, int vf)
-+{
-+	u8 addr[6];
-+	int ret, i, j = 0;
-+	struct fw_port_cmd c;
-+
-+	memset(&c, 0, sizeof(c));
-+
-+	for_each_port(adap, i) {
-+		unsigned int rss_size;
-+		struct port_info *p = adap2pinfo(adap, i);
-+
-+		while ((adap->params.portvec & (1 << j)) == 0)
-+			j++;
-+
-+		c.op_to_portid = htonl(V_FW_CMD_OP(FW_PORT_CMD) |
-+				       F_FW_CMD_REQUEST | F_FW_CMD_READ |
-+				       V_FW_PORT_CMD_PORTID(j));
-+		c.action_to_len16 = htonl(
-+			V_FW_PORT_CMD_ACTION(FW_PORT_ACTION_GET_PORT_INFO) |
-+			FW_LEN16(c));
-+		ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), &c);
-+		if (ret)
-+			return ret;
-+
-+		ret = t4_alloc_vi(adap, mbox, j, pf, vf, 1, addr, &rss_size);
-+		if (ret < 0)
-+			return ret;
-+
-+		p->viid = ret;
-+		p->tx_chan = j;
-+		p->lport = j;
-+		p->rss_size = rss_size;
-+		memcpy(adap->port[i]->dev_addr, addr, ETH_ALEN);
-+		memcpy(adap->port[i]->perm_addr, addr, ETH_ALEN);
-+
-+		ret = ntohl(c.u.info.lstatus_to_modtype);
-+		p->mdio_addr = (ret & F_FW_PORT_CMD_MDIOCAP) ?
-+			G_FW_PORT_CMD_MDIOADDR(ret) : -1;
-+		p->port_type = G_FW_PORT_CMD_PTYPE(ret);
-+		p->mod_type = G_FW_PORT_CMD_MODTYPE(ret);
-+
-+		init_link_config(&p->link_cfg, ntohs(c.u.info.pcap));
-+		j++;
 +	}
++
++	init_txq(adap, &txq->q, G_FW_EQ_OFLD_CMD_EQID(ntohl(c.eqid_pkd)));
++	txq->adap = adap;
++	skb_queue_head_init(&txq->sendq);
++	tasklet_init(&txq->qresume_tsk, restart_ofldq, (unsigned long)txq);
++	txq->full = 0;
++	txq->mapping_err = 0;
 +	return 0;
 +}
-diff --git a/drivers/net/cxgb4/t4_hw.h b/drivers/net/cxgb4/t4_hw.h
-new file mode 100644
-index 0000000..9e2228a
---- /dev/null
-+++ b/drivers/net/cxgb4/t4_hw.h
-@@ -0,0 +1,129 @@
-+/*
-+ * This file is part of the Chelsio T4 Ethernet driver for Linux.
++
++static void free_txq(struct adapter *adap, struct sge_txq *q)
++{
++	dma_free_coherent(adap->pdev_dev,
++			  q->size * sizeof(struct tx_desc) + STAT_LEN,
++			  q->desc, q->phys_addr);
++	q->cntxt_id = 0;
++	q->sdesc = NULL;
++	q->desc = NULL;
++}
++
++static void free_rspq_fl(struct adapter *adap, struct sge_rspq *rq,
++			 struct sge_fl *fl)
++{
++	unsigned int fl_id = fl ? fl->cntxt_id : 0xffff;
++
++	t4_iq_free(adap, 0, 0, 0, FW_IQ_TYPE_FL_INT_CAP, rq->cntxt_id, fl_id,
++		   0xffff);
++	dma_free_coherent(adap->pdev_dev, (rq->size + 1) * rq->iqe_len,
++			  rq->desc, rq->phys_addr);
++	netif_napi_del(&rq->napi);
++	rq->netdev = NULL;
++	rq->cntxt_id = rq->abs_id = 0;
++	rq->desc = NULL;
++
++	if (fl) {
++		free_rx_bufs(adap, fl, fl->avail);
++		dma_free_coherent(adap->pdev_dev, fl->size * 8 + STAT_LEN,
++				  fl->desc, fl->addr);
++		kfree(fl->sdesc);
++		fl->sdesc = NULL;
++		fl->cntxt_id = 0;
++		fl->desc = NULL;
++	}
++}
++
++/**
++ *	t4_free_sge_resources - free SGE resources
++ *	@adap: the adapter
 + *
-+ * Copyright (c) 2003-2010 Chelsio Communications, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
++ *	Frees resources used by the SGE queue sets.
 + */
++void t4_free_sge_resources(struct adapter *adap)
++{
++	int i;
++	struct sge_eth_rxq *eq = adap->sge.ethrxq;
++	struct sge_eth_txq *etq = adap->sge.ethtxq;
++	struct sge_ofld_rxq *oq = adap->sge.ofldrxq;
++	struct sge_rspq *intrq = &adap->sge.intrq;
 +
-+#ifndef __T4_HW_H
-+#define __T4_HW_H
++	/* clean up Ethernet Tx/Rx queues */
++	for (i = 0; i < adap->sge.ethqsets; i++, eq++, etq++) {
++		if (eq->rspq.desc)
++			free_rspq_fl(adap, &eq->rspq, &eq->fl);
++		if (etq->q.desc) {
++			t4_eth_eq_free(adap, 0, 0, 0, etq->q.cntxt_id);
++			free_tx_desc(adap, &etq->q, etq->q.in_use, true);
++			kfree(etq->q.sdesc);
++			free_txq(adap, &etq->q);
++		}
++	}
 +
-+#include <linux/types.h>
++	/* clean up RDMA and iSCSI Rx queues */
++	for (i = 0; i < adap->sge.ofldqsets; i++, oq++) {
++		if (oq->rspq.desc)
++			free_rspq_fl(adap, &oq->rspq, &oq->fl);
++	}
++	for (i = 0, oq = adap->sge.rdmarxq; i < adap->sge.rdmaqs; i++, oq++) {
++		if (oq->rspq.desc)
++			free_rspq_fl(adap, &oq->rspq, &oq->fl);
++	}
 +
-+enum {
-+	NCHAN          = 4,     /* # of HW channels */
-+	MAX_MTU        = 9600,  /* max MAC MTU, excluding header + FCS */
-+	EEPROMSIZE     = 17408, /* Serial EEPROM physical size */
-+	EEPROMVSIZE    = 32768, /* Serial EEPROM virtual address space size */
-+	RSS_NENTRIES   = 2048,  /* # of entries in RSS mapping table */
-+	TCB_SIZE       = 128,   /* TCB size */
-+	NMTUS          = 16,    /* size of MTU table */
-+	NCCTRL_WIN     = 32,    /* # of congestion control windows */
-+	NEXACT_MAC     = 336,   /* # of exact MAC address filters */
-+	L2T_SIZE       = 4096,  /* # of L2T entries */
-+	MBOX_LEN       = 64,    /* mailbox size in bytes */
-+	TRACE_LEN      = 112,   /* length of trace data and mask */
-+	FILTER_OPT_LEN = 36,    /* filter tuple width for optional components */
-+	NWOL_PAT       = 8,     /* # of WoL patterns */
-+	WOL_PAT_LEN    = 128,   /* length of WoL patterns */
-+};
++	/* clean up offload Tx queues */
++	for (i = 0; i < ARRAY_SIZE(adap->sge.ofldtxq); i++) {
++		struct sge_ofld_txq *q = &adap->sge.ofldtxq[i];
 +
-+enum {
-+	SF_PAGE_SIZE = 256,           /* serial flash page size */
-+	SF_SEC_SIZE = 64 * 1024,      /* serial flash sector size */
-+	SF_SIZE = SF_SEC_SIZE * 16,   /* serial flash size */
-+};
++		if (q->q.desc) {
++			tasklet_kill(&q->qresume_tsk);
++			t4_ofld_eq_free(adap, 0, 0, 0, q->q.cntxt_id);
++			free_tx_desc(adap, &q->q, q->q.in_use, false);
++			kfree(q->q.sdesc);
++			__skb_queue_purge(&q->sendq);
++			free_txq(adap, &q->q);
++		}
++	}
 +
-+enum { RSP_TYPE_FLBUF, RSP_TYPE_CPL, RSP_TYPE_INTR }; /* response entry types */
++	/* clean up control Tx queues */
++	for (i = 0; i < ARRAY_SIZE(adap->sge.ctrlq); i++) {
++		struct sge_ctrl_txq *cq = &adap->sge.ctrlq[i];
 +
-+enum { MBOX_OWNER_NONE, MBOX_OWNER_FW, MBOX_OWNER_DRV };    /* mailbox owners */
++		if (cq->q.desc) {
++			tasklet_kill(&cq->qresume_tsk);
++			t4_ctrl_eq_free(adap, 0, 0, 0, cq->q.cntxt_id);
++			__skb_queue_purge(&cq->sendq);
++			free_txq(adap, &cq->q);
++		}
++	}
 +
-+enum {
-+	SGE_MAX_WR_LEN = 512,     /* max WR size in bytes */
-+	SGE_CTXT_SIZE = 24,       /* size of SGE context */
-+	SGE_NTIMERS = 6,          /* # of interrupt holdoff timer values */
-+	SGE_NCOUNTERS = 4,        /* # of interrupt packet counter values */
-+};
++	if (adap->sge.fw_evtq.desc)
++		free_rspq_fl(adap, &adap->sge.fw_evtq, NULL);
 +
-+struct sge_qstat {                /* data written to SGE queue status entries */
-+	__be32 qid;
-+	__be16 cidx;
-+	__be16 pidx;
-+};
++	if (intrq->desc) {
++		t4_iq_free(adap, 0, 0, 0, FW_IQ_TYPE_FL_INT_CAP,
++			   intrq->cntxt_id, 0xffff, 0xffff);
++		dma_free_coherent(adap->pdev_dev,
++				  (intrq->size + 1) * intrq->iqe_len,
++				  intrq->desc, intrq->phys_addr);
++		intrq->cntxt_id = intrq->abs_id = 0;
++		intrq->desc = NULL;
++		/* this queue doesn't use NAPI */
++	}
++}
 +
-+#define S_QSTAT_PIDX    0
-+#define M_QSTAT_PIDX    0xffff
-+#define G_QSTAT_PIDX(x) (((x) >> S_QSTAT_PIDX) & M_QSTAT_PIDX)
++void t4_sge_start(struct adapter *adap)
++{
++	mod_timer(&adap->sge.rx_timer, jiffies + RX_QCHECK_PERIOD);
++	mod_timer(&adap->sge.tx_timer, jiffies + TX_QCHECK_PERIOD);
++}
 +
-+#define S_QSTAT_CIDX    16
-+#define M_QSTAT_CIDX    0xffff
-+#define G_QSTAT_CIDX(x) (((x) >> S_QSTAT_CIDX) & M_QSTAT_CIDX)
-+
-+/*
-+ * Structure for last 128 bits of response descriptors
++/**
++ *	t4_sge_stop - disable SGE operation
++ *	@adap: the adapter
++ *
++ *	Stop tasklets and timers associated with the DMA engine.  Note that
++ *	this is effective only if measures have been taken to disable any HW
++ *	events that may restart them.
 + */
-+struct rsp_ctrl {
-+	__be32 hdrbuflen_pidx;
-+	__be32 pldbuflen_qid;
-+	union {
-+		u8 type_gen;
-+		__be64 last_flit;
-+	};
-+};
++void t4_sge_stop(struct adapter *adap)
++{
++	int i;
++	struct sge *s = &adap->sge;
 +
-+#define S_RSPD_NEWBUF    31
-+#define V_RSPD_NEWBUF(x) ((x) << S_RSPD_NEWBUF)
-+#define F_RSPD_NEWBUF    V_RSPD_NEWBUF(1U)
++	if (in_interrupt())  /* actions below require waiting */
++		return;
 +
-+#define S_RSPD_LEN    0
-+#define M_RSPD_LEN    0x7fffffff
-+#define V_RSPD_LEN(x) ((x) << S_RSPD_LEN)
-+#define G_RSPD_LEN(x) (((x) >> S_RSPD_LEN) & M_RSPD_LEN)
++	if (s->rx_timer.function)
++		del_timer_sync(&s->rx_timer);
++	if (s->tx_timer.function)
++		del_timer_sync(&s->tx_timer);
 +
-+#define S_RSPD_GEN    7
-+#define V_RSPD_GEN(x) ((x) << S_RSPD_GEN)
-+#define F_RSPD_GEN    V_RSPD_GEN(1U)
++	for (i = 0; i < ARRAY_SIZE(s->ofldtxq); i++) {
++		struct sge_ofld_txq *q = &s->ofldtxq[i];
 +
-+#define S_RSPD_TYPE    4
-+#define M_RSPD_TYPE    0x3
-+#define V_RSPD_TYPE(x) ((x) << S_RSPD_TYPE)
-+#define G_RSPD_TYPE(x) (((x) >> S_RSPD_TYPE) & M_RSPD_TYPE)
++		if (q->q.desc)
++			tasklet_kill(&q->qresume_tsk);
++	}
++	for (i = 0; i < ARRAY_SIZE(s->ctrlq); i++) {
++		struct sge_ctrl_txq *cq = &s->ctrlq[i];
 +
-+/* Rx queue interrupt deferral fields: counter enable and timer index */
-+#define S_QINTR_CNT_EN    0
-+#define V_QINTR_CNT_EN(x) ((x) << S_QINTR_CNT_EN)
-+#define F_QINTR_CNT_EN    V_QINTR_CNT_EN(1U)
++		if (cq->q.desc)
++			tasklet_kill(&cq->qresume_tsk);
++	}
++}
 +
-+#define S_QINTR_TIMER_IDX    1
-+#define M_QINTR_TIMER_IDX    0x7
-+#define V_QINTR_TIMER_IDX(x) ((x) << S_QINTR_TIMER_IDX)
-+#define G_QINTR_TIMER_IDX(x) (((x) >> S_QINTR_TIMER_IDX) & M_QINTR_TIMER_IDX)
++/**
++ *	t4_sge_init - initialize SGE
++ *	@adap: the adapter
++ *
++ *	Performs SGE initialization needed every time after a chip reset.
++ *	We do not initialize any of the queues here, instead the driver
++ *	top-level must request them individually.
++ */
++void t4_sge_init(struct adapter *adap)
++{
++	struct sge *s = &adap->sge;
++	unsigned int fl_align_log = ilog2(FL_ALIGN);
 +
-+#endif /* __T4_HW_H */
++	t4_set_reg_field(adap, A_SGE_CONTROL, V_PKTSHIFT(M_PKTSHIFT) |
++			 V_INGPADBOUNDARY(M_INGPADBOUNDARY) |
++			 F_EGRSTATUSPAGESIZE,
++			 V_INGPADBOUNDARY(fl_align_log - 5) | V_PKTSHIFT(2) |
++			 F_RXPKTCPLMODE | V_EGRSTATUSPAGESIZE(STAT_LEN == 128));
++	t4_set_reg_field(adap, A_SGE_HOST_PAGE_SIZE,
++			 V_HOSTPAGESIZEPF0(M_HOSTPAGESIZEPF0),
++			 V_HOSTPAGESIZEPF0(PAGE_SHIFT - 10));
++	t4_write_reg(adap, A_SGE_FL_BUFFER_SIZE0, PAGE_SIZE);
++#if FL_PG_ORDER > 0
++	t4_write_reg(adap, A_SGE_FL_BUFFER_SIZE1, PAGE_SIZE << FL_PG_ORDER);
++#endif
++	t4_write_reg(adap, A_SGE_INGRESS_RX_THRESHOLD,
++		     V_THRESHOLD_0(s->counter_val[0]) |
++		     V_THRESHOLD_1(s->counter_val[1]) |
++		     V_THRESHOLD_2(s->counter_val[2]) |
++		     V_THRESHOLD_3(s->counter_val[3]));
++	t4_write_reg(adap, A_SGE_TIMER_VALUE_0_AND_1,
++		     V_TIMERVALUE0(us_to_core_ticks(adap, s->timer_val[0])) |
++		     V_TIMERVALUE1(us_to_core_ticks(adap, s->timer_val[1])));
++	t4_write_reg(adap, A_SGE_TIMER_VALUE_2_AND_3,
++		     V_TIMERVALUE2(us_to_core_ticks(adap, s->timer_val[2])) |
++		     V_TIMERVALUE3(us_to_core_ticks(adap, s->timer_val[3])));
++	t4_write_reg(adap, A_SGE_TIMER_VALUE_4_AND_5,
++		     V_TIMERVALUE4(us_to_core_ticks(adap, s->timer_val[4])) |
++		     V_TIMERVALUE5(us_to_core_ticks(adap, s->timer_val[5])));
++	setup_timer(&s->rx_timer, sge_rx_timer_cb, (unsigned long)adap);
++	setup_timer(&s->tx_timer, sge_tx_timer_cb, (unsigned long)adap);
++	s->starve_thres = core_ticks_per_usec(adap) * 1000000;  /* 1 s */
++	s->idma_state[0] = s->idma_state[1] = 0;
++}
 -- 
 1.5.4
 
