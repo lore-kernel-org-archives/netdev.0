@@ -1,181 +1,100 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [net-next PATCH v5 3/3] net: TCP thin dupack
-Date: Thu, 18 Feb 2010 14:56:41 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.1002181451260.7063@wel-95.cs.helsinki.fi>
-References: <4B7D35A5.10106@simula.no> <4B7D3705.4080803@simula.no>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC PATCH net-next-2.6]: xfrm: Introduce
+ LINUX_MIB_XFRMFWDHDRERROR
+Date: Thu, 18 Feb 2010 08:35:07 -0500
+Message-ID: <1266500107.17794.167.camel@bigi>
+References: <1266406852.3799.7.camel@bigi>
+	 <20100217.134946.106752388.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="8323329-1561996399-1266497676=:7063"
-Cc: Netdev <netdev@vger.kernel.org>, eric.dumazet@gmail.com,
-	hannemann@nets.rwth-aachen.de, LKML <linux-kernel@vger.kernel.org>,
-	shemminger@vyatta.com, william.allen.simpson@gmail.com,
-	damian@tvk.rwth-aachen.de, ebiederm@xmission.com,
-	David Miller <davem@davemloft.net>,
-	Franco Fichtner <franco@lastsummer.de>
-To: Andreas Petlund <apetlund@simula.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B7D3705.4080803@simula.no>
-Content-ID: <alpine.DEB.2.00.1002181455500.7063@wel-95.cs.helsinki.fi>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="=-qudqM8F4ikeLY2A85NOf"
+Cc: nakam@linux-ipv6.org, kaber@trash.net, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f192.google.com ([209.85.221.192]:39233 "EHLO
+	mail-qy0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754209Ab0BRNfM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 08:35:12 -0500
+Received: by qyk30 with SMTP id 30so7066434qyk.23
+        for <netdev@vger.kernel.org>; Thu, 18 Feb 2010 05:35:10 -0800 (PST)
+In-Reply-To: <20100217.134946.106752388.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
---8323329-1561996399-1266497676=:7063
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-Content-ID: <alpine.DEB.2.00.1002181455501.7063@wel-95.cs.helsinki.fi>
+--=-qudqM8F4ikeLY2A85NOf
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-On Thu, 18 Feb 2010, Andreas Petlund wrote:
+On Wed, 2010-02-17 at 13:49 -0800, David Miller wrote:
 
-> This patch enables fast retransmissions after one dupACK for
-> TCP if the stream is identified as thin. This will reduce
-> latencies for thin streams that are not able to trigger fast
-> retransmissions due to high packet interarrival time. This
-> mechanism is only active if enabled by iocontrol or syscontrol
-> and the stream is identified as thin.
+> This should be fine, the tools just parse the lines individually
+> as "string integer" pairs.
 > 
-> 
-> Signed-off-by: Andreas Petlund <apetlund@simula.no>
-> ---
->  Documentation/networking/ip-sysctl.txt |   12 ++++++++++++
->  include/linux/tcp.h                    |    4 +++-
->  include/net/tcp.h                      |    1 +
->  net/ipv4/sysctl_net_ipv4.c             |    7 +++++++
->  net/ipv4/tcp.c                         |    7 +++++++
->  net/ipv4/tcp_input.c                   |   12 ++++++++++++
->  6 files changed, 42 insertions(+), 1 deletions(-)
-> 
-> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-> index f147310..2571a62 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
-> @@ -499,6 +499,18 @@ tcp_thin_linear_timeouts - BOOLEAN
->  	Documentation/networking/tcp-thin.txt
->  	Default: 0
->  
-> +tcp_thin_dupack - BOOLEAN
-> +	Enable dynamic triggering of retransmissions after one dupACK
-> +	for thin streams. If set, a check is performed upon reception
-> +	of a dupACK to determine if the stream is thin (less than 4
-> +	packets in flight). As long as the stream is found to be thin,
-> +	data is retransmitted on the first received dupACK. This
-> +	improves retransmission latency for non-aggressive thin
-> +	streams, often found to be time-dependent.
-> +	For more information on thin streams, see
-> +	Documentation/networking/tcp-thin.txt
-> +	Default: 0
-> +
->  UDP variables:
->  
->  udp_mem - vector of 3 INTEGERs: min, pressure, max
-> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-> index 3ba8b07..a778ee0 100644
-> --- a/include/linux/tcp.h
-> +++ b/include/linux/tcp.h
-> @@ -104,6 +104,7 @@ enum {
->  #define TCP_MD5SIG		14	/* TCP MD5 Signature (RFC2385) */
->  #define TCP_COOKIE_TRANSACTIONS	15	/* TCP Cookie Transactions */
->  #define TCP_THIN_LINEAR_TIMEOUTS 16      /* Use linear timeouts for thin streams*/
-> +#define TCP_THIN_DUPACK         17      /* Fast retrans. after 1 dupack */
->  
->  /* for TCP_INFO socket option */
->  #define TCPI_OPT_TIMESTAMPS	1
-> @@ -343,7 +344,8 @@ struct tcp_sock {
->  	u8	frto_counter;	/* Number of new acks after RTO */
->  	u8	nonagle     : 4,/* Disable Nagle algorithm?             */
->  		thin_lto    : 1,/* Use linear timeouts for thin streams */
-> -		unused      : 3;
-> +		thin_dupack : 1,/* Fast retransmit on first dupack      */
-> +		unused      : 2;
->  
->  /* RTT measurement */
->  	u32	srtt;		/* smoothed round trip time << 3	*/
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 6278fc7..56f0aec 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -245,6 +245,7 @@ extern int sysctl_tcp_slow_start_after_idle;
->  extern int sysctl_tcp_max_ssthresh;
->  extern int sysctl_tcp_cookie_size;
->  extern int sysctl_tcp_thin_linear_timeouts;
-> +extern int sysctl_tcp_thin_dupack;
->  
->  extern atomic_t tcp_memory_allocated;
->  extern struct percpu_counter tcp_sockets_allocated;
-> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-> index e6a2460..c1bc074 100644
-> --- a/net/ipv4/sysctl_net_ipv4.c
-> +++ b/net/ipv4/sysctl_net_ipv4.c
-> @@ -582,6 +582,13 @@ static struct ctl_table ipv4_table[] = {
->  		.mode           = 0644,
->  		.proc_handler   = proc_dointvec
->  	},
-> +        {
-> +		.procname       = "tcp_thin_dupack",
-> +		.data           = &sysctl_tcp_thin_dupack,
-> +		.maxlen         = sizeof(int),
-> +		.mode           = 0644,
-> +		.proc_handler   = proc_dointvec
-> +	},
->  	{
->  		.procname	= "udp_mem",
->  		.data		= &sysctl_udp_mem,
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 21bae9a..5901010 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -2236,6 +2236,13 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
->  			tp->thin_lto = val;
->  		break;
->  
-> +	case TCP_THIN_DUPACK:
-> +		if (val < 0 || val > 1)
-> +			err = -EINVAL;
-> +		else
-> +			tp->thin_dupack = val;
-> +		break;
-> +
->  	case TCP_CORK:
->  		/* When set indicates to always queue non-full frames.
->  		 * Later the user clears this option and we transmit
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 3fddc69..8d950b9 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -89,6 +89,8 @@ int sysctl_tcp_frto __read_mostly = 2;
->  int sysctl_tcp_frto_response __read_mostly;
->  int sysctl_tcp_nometrics_save __read_mostly;
->  
-> +int sysctl_tcp_thin_dupack __read_mostly;
-> +
->  int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
->  int sysctl_tcp_abc __read_mostly;
->  
-> @@ -2447,6 +2449,16 @@ static int tcp_time_to_recover(struct sock *sk)
->  		return 1;
->  	}
->  
-> +	/* If a thin stream is detected, retransmit after first
-> +	 * received dupack. Employ only if SACK is supported in order
-> +	 * to avoid possible corner-case series of spurious retransmissions
-> +	 * Use only if there are no unsent data.
-> +	 */
-> +	if ((tp->thin_dupack || sysctl_tcp_thin_dupack) &&
-> +	    tcp_stream_is_thin(tp) && tcp_dupack_heuristics(tp) > 1 &&
-> +	    tcp_is_sack(tp) && sk->sk_send_head == NULL)
+> If you want to be super anal, add the new counter to the end of
+> the array.
 
-Use tcp_send_head(sk) instead.
+Ok, thanks - here is the updated patch.
 
-> +		return 1;
-> +
->  	return 0;
->  }
+cheers,
+jamal
 
-Other than that,
+--=-qudqM8F4ikeLY2A85NOf
+Content-Disposition: attachment; filename="FwdHdrErr2"
+Content-Type: text/plain; name="FwdHdrErr2"; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 
-Acked-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+commit 9bc885a86cf4be134ddf09cec8113cde24bb5048
+Author: Jamal Hadi Salim <hadi@cyberus.ca>
+Date:   Thu Feb 18 08:25:57 2010 -0500
 
--- 
- i.
---8323329-1561996399-1266497676=:7063--
+    xfrm: Introduce LINUX_MIB_XFRMFWDHDRERROR
+    
+    XFRMINHDRERROR counter is ambigous when validating forwarding
+    path. It makes it tricky to debug when you have both in and fwd
+    validation.
+    
+    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+diff --git a/include/linux/snmp.h b/include/linux/snmp.h
+index 0f953fe..e28f5a0 100644
+--- a/include/linux/snmp.h
++++ b/include/linux/snmp.h
+@@ -257,6 +257,7 @@ enum
+ 	LINUX_MIB_XFRMOUTPOLBLOCK,		/* XfrmOutPolBlock */
+ 	LINUX_MIB_XFRMOUTPOLDEAD,		/* XfrmOutPolDead */
+ 	LINUX_MIB_XFRMOUTPOLERROR,		/* XfrmOutPolError */
++	LINUX_MIB_XFRMFWDHDRERROR,		/* XfrmFwdHdrError*/
+ 	__LINUX_MIB_XFRMMAX
+ };
+ 
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 2c5d931..4368e7b 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2045,8 +2045,7 @@ int __xfrm_route_forward(struct sk_buff *skb, unsigned short family)
+ 	int res;
+ 
+ 	if (xfrm_decode_session(skb, &fl, family) < 0) {
+-		/* XXX: we should have something like FWDHDRERROR here. */
+-		XFRM_INC_STATS(net, LINUX_MIB_XFRMINHDRERROR);
++		XFRM_INC_STATS(net, LINUX_MIB_XFRMFWDHDRERROR);
+ 		return 0;
+ 	}
+ 
+diff --git a/net/xfrm/xfrm_proc.c b/net/xfrm/xfrm_proc.c
+index 003f2c4..58d9ae0 100644
+--- a/net/xfrm/xfrm_proc.c
++++ b/net/xfrm/xfrm_proc.c
+@@ -41,6 +41,7 @@ static const struct snmp_mib xfrm_mib_list[] = {
+ 	SNMP_MIB_ITEM("XfrmOutPolBlock", LINUX_MIB_XFRMOUTPOLBLOCK),
+ 	SNMP_MIB_ITEM("XfrmOutPolDead", LINUX_MIB_XFRMOUTPOLDEAD),
+ 	SNMP_MIB_ITEM("XfrmOutPolError", LINUX_MIB_XFRMOUTPOLERROR),
++	SNMP_MIB_ITEM("XfrmFwdHdrError", LINUX_MIB_XFRMFWDHDRERROR),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+
+--=-qudqM8F4ikeLY2A85NOf--
+
