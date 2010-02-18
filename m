@@ -1,263 +1,175 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] const: struct nla_policy
-Date: Thu, 18 Feb 2010 20:14:31 +0200
-Message-ID: <20100218181431.GC21184@x200>
+From: kapil dakhane <kdakhane@gmail.com>
+Subject: Infinite loop in inet_csk_get_port
+Date: Thu, 18 Feb 2010 10:17:16 -0800
+Message-ID: <99d458641002181017l1ab5f81es3b715a220ad79969@mail.gmail.com>
+References: <99d458641002171105n34e3f053vd71941697b463a71@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f220.google.com ([209.85.220.220]:42130 "EHLO
-	mail-fx0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751364Ab0BRSOa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 13:14:30 -0500
-Received: by fxm20 with SMTP id 20so9317601fxm.21
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2010 10:14:29 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <99d458641002171105n34e3f053vd71941697b463a71@mail.gmail.com>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Make remaining netlink policies as const.
-Fixup coding style where needed.
+Hi,
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+This is in continuation of my previous mail...
 
- include/net/netlink.h    |    2 +-
- kernel/taskstats.c       |    6 ++----
- net/dcb/dcbnl.c          |   16 ++++++++--------
- net/irda/irnetlink.c     |    2 +-
- net/wimax/op-msg.c       |    3 +--
- net/wimax/op-reset.c     |    3 +--
- net/wimax/op-rfkill.c    |    3 +--
- net/wimax/op-state-get.c |    3 +--
- net/wimax/stack.c        |    3 +--
- net/wireless/nl80211.c   |   14 +++++---------
- 10 files changed, 22 insertions(+), 33 deletions(-)
+>From: kapil dakhane <kdakhane@gmail.com>
+>Date: Mon, Nov 30, 2009 at 6:02 PM
+>Subject: soft lockup in inet_csk_get_port
+>To: netdev@vger.kernel.org
+>Cc: netfilter@vger.kernel.org
+>Hello,
+>
+>I am trying to analyze the capacity of linux network stack on x6270
+>which has 16 Hyper threads on two 8-core Intel(r) Xeon(r) CPU.
 
---- a/include/net/netlink.h
-+++ b/include/net/netlink.h
-@@ -196,7 +196,7 @@ enum {
-  *    All other            Exact length of attribute payload
-  *
-  * Example:
-- * static struct nla_policy my_policy[ATTR_MAX+1] __read_mostly = {
-+ * static const struct nla_policy my_policy[ATTR_MAX+1] = {
-  * 	[ATTR_FOO] = { .type = NLA_U16 },
-  *	[ATTR_BAR] = { .type = NLA_STRING, .len = BARSIZ },
-  *	[ATTR_BAZ] = { .len = sizeof(struct mystruct) },
---- a/kernel/taskstats.c
-+++ b/kernel/taskstats.c
-@@ -46,15 +46,13 @@ static struct genl_family family = {
- 	.maxattr	= TASKSTATS_CMD_ATTR_MAX,
- };
- 
--static struct nla_policy taskstats_cmd_get_policy[TASKSTATS_CMD_ATTR_MAX+1]
--__read_mostly = {
-+static const struct nla_policy taskstats_cmd_get_policy[TASKSTATS_CMD_ATTR_MAX+1] = {
- 	[TASKSTATS_CMD_ATTR_PID]  = { .type = NLA_U32 },
- 	[TASKSTATS_CMD_ATTR_TGID] = { .type = NLA_U32 },
- 	[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK] = { .type = NLA_STRING },
- 	[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK] = { .type = NLA_STRING },};
- 
--static struct nla_policy
--cgroupstats_cmd_get_policy[CGROUPSTATS_CMD_ATTR_MAX+1] __read_mostly = {
-+static const struct nla_policy cgroupstats_cmd_get_policy[CGROUPSTATS_CMD_ATTR_MAX+1] = {
- 	[CGROUPSTATS_CMD_ATTR_FD] = { .type = NLA_U32 },
- };
- 
---- a/net/dcb/dcbnl.c
-+++ b/net/dcb/dcbnl.c
-@@ -54,7 +54,7 @@ MODULE_LICENSE("GPL");
- /**************** DCB attribute policies *************************************/
- 
- /* DCB netlink attributes policy */
--static struct nla_policy dcbnl_rtnl_policy[DCB_ATTR_MAX + 1] = {
-+static const struct nla_policy dcbnl_rtnl_policy[DCB_ATTR_MAX + 1] = {
- 	[DCB_ATTR_IFNAME]      = {.type = NLA_NUL_STRING, .len = IFNAMSIZ - 1},
- 	[DCB_ATTR_STATE]       = {.type = NLA_U8},
- 	[DCB_ATTR_PFC_CFG]     = {.type = NLA_NESTED},
-@@ -68,7 +68,7 @@ static struct nla_policy dcbnl_rtnl_policy[DCB_ATTR_MAX + 1] = {
- };
- 
- /* DCB priority flow control to User Priority nested attributes */
--static struct nla_policy dcbnl_pfc_up_nest[DCB_PFC_UP_ATTR_MAX + 1] = {
-+static const struct nla_policy dcbnl_pfc_up_nest[DCB_PFC_UP_ATTR_MAX + 1] = {
- 	[DCB_PFC_UP_ATTR_0]   = {.type = NLA_U8},
- 	[DCB_PFC_UP_ATTR_1]   = {.type = NLA_U8},
- 	[DCB_PFC_UP_ATTR_2]   = {.type = NLA_U8},
-@@ -81,7 +81,7 @@ static struct nla_policy dcbnl_pfc_up_nest[DCB_PFC_UP_ATTR_MAX + 1] = {
- };
- 
- /* DCB priority grouping nested attributes */
--static struct nla_policy dcbnl_pg_nest[DCB_PG_ATTR_MAX + 1] = {
-+static const struct nla_policy dcbnl_pg_nest[DCB_PG_ATTR_MAX + 1] = {
- 	[DCB_PG_ATTR_TC_0]      = {.type = NLA_NESTED},
- 	[DCB_PG_ATTR_TC_1]      = {.type = NLA_NESTED},
- 	[DCB_PG_ATTR_TC_2]      = {.type = NLA_NESTED},
-@@ -103,7 +103,7 @@ static struct nla_policy dcbnl_pg_nest[DCB_PG_ATTR_MAX + 1] = {
- };
- 
- /* DCB traffic class nested attributes. */
--static struct nla_policy dcbnl_tc_param_nest[DCB_TC_ATTR_PARAM_MAX + 1] = {
-+static const struct nla_policy dcbnl_tc_param_nest[DCB_TC_ATTR_PARAM_MAX + 1] = {
- 	[DCB_TC_ATTR_PARAM_PGID]            = {.type = NLA_U8},
- 	[DCB_TC_ATTR_PARAM_UP_MAPPING]      = {.type = NLA_U8},
- 	[DCB_TC_ATTR_PARAM_STRICT_PRIO]     = {.type = NLA_U8},
-@@ -112,7 +112,7 @@ static struct nla_policy dcbnl_tc_param_nest[DCB_TC_ATTR_PARAM_MAX + 1] = {
- };
- 
- /* DCB capabilities nested attributes. */
--static struct nla_policy dcbnl_cap_nest[DCB_CAP_ATTR_MAX + 1] = {
-+static const struct nla_policy dcbnl_cap_nest[DCB_CAP_ATTR_MAX + 1] = {
- 	[DCB_CAP_ATTR_ALL]     = {.type = NLA_FLAG},
- 	[DCB_CAP_ATTR_PG]      = {.type = NLA_U8},
- 	[DCB_CAP_ATTR_PFC]     = {.type = NLA_U8},
-@@ -124,14 +124,14 @@ static struct nla_policy dcbnl_cap_nest[DCB_CAP_ATTR_MAX + 1] = {
- };
- 
- /* DCB capabilities nested attributes. */
--static struct nla_policy dcbnl_numtcs_nest[DCB_NUMTCS_ATTR_MAX + 1] = {
-+static const struct nla_policy dcbnl_numtcs_nest[DCB_NUMTCS_ATTR_MAX + 1] = {
- 	[DCB_NUMTCS_ATTR_ALL]     = {.type = NLA_FLAG},
- 	[DCB_NUMTCS_ATTR_PG]      = {.type = NLA_U8},
- 	[DCB_NUMTCS_ATTR_PFC]     = {.type = NLA_U8},
- };
- 
- /* DCB BCN nested attributes. */
--static struct nla_policy dcbnl_bcn_nest[DCB_BCN_ATTR_MAX + 1] = {
-+static const struct nla_policy dcbnl_bcn_nest[DCB_BCN_ATTR_MAX + 1] = {
- 	[DCB_BCN_ATTR_RP_0]         = {.type = NLA_U8},
- 	[DCB_BCN_ATTR_RP_1]         = {.type = NLA_U8},
- 	[DCB_BCN_ATTR_RP_2]         = {.type = NLA_U8},
-@@ -160,7 +160,7 @@ static struct nla_policy dcbnl_bcn_nest[DCB_BCN_ATTR_MAX + 1] = {
- };
- 
- /* DCB APP nested attributes. */
--static struct nla_policy dcbnl_app_nest[DCB_APP_ATTR_MAX + 1] = {
-+static const struct nla_policy dcbnl_app_nest[DCB_APP_ATTR_MAX + 1] = {
- 	[DCB_APP_ATTR_IDTYPE]       = {.type = NLA_U8},
- 	[DCB_APP_ATTR_ID]           = {.type = NLA_U16},
- 	[DCB_APP_ATTR_PRIORITY]     = {.type = NLA_U8},
---- a/net/irda/irnetlink.c
-+++ b/net/irda/irnetlink.c
-@@ -124,7 +124,7 @@ static int irda_nl_get_mode(struct sk_buff *skb, struct genl_info *info)
- 	return ret;
- }
- 
--static struct nla_policy irda_nl_policy[IRDA_NL_ATTR_MAX + 1] = {
-+static const struct nla_policy irda_nl_policy[IRDA_NL_ATTR_MAX + 1] = {
- 	[IRDA_NL_ATTR_IFNAME] = { .type = NLA_NUL_STRING,
- 				  .len = IFNAMSIZ-1 },
- 	[IRDA_NL_ATTR_MODE] = { .type = NLA_U32 },
---- a/net/wimax/op-msg.c
-+++ b/net/wimax/op-msg.c
-@@ -320,8 +320,7 @@ int wimax_msg(struct wimax_dev *wimax_dev, const char *pipe_name,
- EXPORT_SYMBOL_GPL(wimax_msg);
- 
- 
--static const
--struct nla_policy wimax_gnl_msg_policy[WIMAX_GNL_ATTR_MAX + 1] = {
-+static const struct nla_policy wimax_gnl_msg_policy[WIMAX_GNL_ATTR_MAX + 1] = {
- 	[WIMAX_GNL_MSG_IFIDX] = {
- 		.type = NLA_U32,
- 	},
---- a/net/wimax/op-reset.c
-+++ b/net/wimax/op-reset.c
-@@ -91,8 +91,7 @@ int wimax_reset(struct wimax_dev *wimax_dev)
- EXPORT_SYMBOL(wimax_reset);
- 
- 
--static const
--struct nla_policy wimax_gnl_reset_policy[WIMAX_GNL_ATTR_MAX + 1] = {
-+static const struct nla_policy wimax_gnl_reset_policy[WIMAX_GNL_ATTR_MAX + 1] = {
- 	[WIMAX_GNL_RESET_IFIDX] = {
- 		.type = NLA_U32,
- 	},
---- a/net/wimax/op-rfkill.c
-+++ b/net/wimax/op-rfkill.c
-@@ -410,8 +410,7 @@ void wimax_rfkill_rm(struct wimax_dev *wimax_dev)
-  * just query).
-  */
- 
--static const
--struct nla_policy wimax_gnl_rfkill_policy[WIMAX_GNL_ATTR_MAX + 1] = {
-+static const struct nla_policy wimax_gnl_rfkill_policy[WIMAX_GNL_ATTR_MAX + 1] = {
- 	[WIMAX_GNL_RFKILL_IFIDX] = {
- 		.type = NLA_U32,
- 	},
---- a/net/wimax/op-state-get.c
-+++ b/net/wimax/op-state-get.c
-@@ -33,8 +33,7 @@
- #include "debug-levels.h"
- 
- 
--static const
--struct nla_policy wimax_gnl_state_get_policy[WIMAX_GNL_ATTR_MAX + 1] = {
-+static const struct nla_policy wimax_gnl_state_get_policy[WIMAX_GNL_ATTR_MAX + 1] = {
- 	[WIMAX_GNL_STGET_IFIDX] = {
- 		.type = NLA_U32,
- 	},
---- a/net/wimax/stack.c
-+++ b/net/wimax/stack.c
-@@ -75,8 +75,7 @@ MODULE_PARM_DESC(debug,
-  * close to where the data is generated.
-  */
- /*
--static const
--struct nla_policy wimax_gnl_re_status_change[WIMAX_GNL_ATTR_MAX + 1] = {
-+static const struct nla_policy wimax_gnl_re_status_change[WIMAX_GNL_ATTR_MAX + 1] = {
- 	[WIMAX_GNL_STCH_STATE_OLD] = { .type = NLA_U8 },
- 	[WIMAX_GNL_STCH_STATE_NEW] = { .type = NLA_U8 },
- };
---- a/net/wireless/nl80211.c
-+++ b/net/wireless/nl80211.c
-@@ -58,7 +58,7 @@ static int get_rdev_dev_by_info_ifindex(struct genl_info *info,
- }
- 
- /* policy for the attributes */
--static struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] __read_mostly = {
-+static const struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] = {
- 	[NL80211_ATTR_WIPHY] = { .type = NLA_U32 },
- 	[NL80211_ATTR_WIPHY_NAME] = { .type = NLA_NUL_STRING,
- 				      .len = 20-1 },
-@@ -148,8 +148,7 @@ static struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] __read_mostly = {
- };
- 
- /* policy for the attributes */
--static struct nla_policy
--nl80211_key_policy[NL80211_KEY_MAX + 1] __read_mostly = {
-+static const struct nla_policy nl80211_key_policy[NL80211_KEY_MAX + 1] = {
- 	[NL80211_KEY_DATA] = { .type = NLA_BINARY, .len = WLAN_MAX_KEY_LEN },
- 	[NL80211_KEY_IDX] = { .type = NLA_U8 },
- 	[NL80211_KEY_CIPHER] = { .type = NLA_U32 },
-@@ -2501,8 +2500,7 @@ static int nl80211_set_bss(struct sk_buff *skb, struct genl_info *info)
- 	return err;
- }
- 
--static const struct nla_policy
--	reg_rule_policy[NL80211_REG_RULE_ATTR_MAX + 1] = {
-+static const struct nla_policy reg_rule_policy[NL80211_REG_RULE_ATTR_MAX + 1] = {
- 	[NL80211_ATTR_REG_RULE_FLAGS]		= { .type = NLA_U32 },
- 	[NL80211_ATTR_FREQ_RANGE_START]		= { .type = NLA_U32 },
- 	[NL80211_ATTR_FREQ_RANGE_END]		= { .type = NLA_U32 },
-@@ -2671,8 +2669,7 @@ do {\
- 	} \
- } while (0);\
- 
--static struct nla_policy
--nl80211_meshconf_params_policy[NL80211_MESHCONF_ATTR_MAX+1] __read_mostly = {
-+static const struct nla_policy nl80211_meshconf_params_policy[NL80211_MESHCONF_ATTR_MAX+1] = {
- 	[NL80211_MESHCONF_RETRY_TIMEOUT] = { .type = NLA_U16 },
- 	[NL80211_MESHCONF_CONFIRM_TIMEOUT] = { .type = NLA_U16 },
- 	[NL80211_MESHCONF_HOLDING_TIMEOUT] = { .type = NLA_U16 },
-@@ -4470,8 +4467,7 @@ static u32 rateset_to_mask(struct ieee80211_supported_band *sband,
- 	return mask;
- }
- 
--static struct nla_policy
--nl80211_txattr_policy[NL80211_TXRATE_MAX + 1] __read_mostly = {
-+static const struct nla_policy nl80211_txattr_policy[NL80211_TXRATE_MAX + 1] = {
- 	[NL80211_TXRATE_LEGACY] = { .type = NLA_BINARY,
- 				    .len = NL80211_MAX_SUPP_RATES },
- };
+This resulted in patch...
+
+>From: Eric Dumazet <eric.dumazet@gmail.com>
+>Date: Wed, Dec 2, 2009 at 7:08 AM
+>Subject: [PATCH net-next-2.6] tcp: connect() race with timewait reuse
+>To: David Miller <davem@davemloft.net>
+>Cc: kdakhane@gmail.com, netdev@vger.kernel.org, netfilter@vger.kernel.=
+org, Evgeniy Polyakov <zbr@ioremap.net>
+>
+
+The test is exactly same as before, except for following changes:
+1. =A0linux kernel is now a snapshot of net-next jit maintained by
+dave-miller. The snapshot was downloaded on Jan 28 tarball name is
+net-next-2.6-d74340d.tar.gz, uname shows 2.6.33-rc5 as the kernel
+version. This has all the fixes from the above mentioned patch.
+2. Platform is now HS22, which is an IBM bladecenter blade with add-on
+10 gb ethernet card from broadcom, "Broadcom Corporation NetXtreme II
+BCM57710 10-Gigabit PCIe [Everest]". CPU is same as that in previous
+tests "Intel(R) Xeon(R) CPU X5570 =A0@ 2.93GHz". Test routes both
+ingress and egress traffic through this card, with the help of vlans.
+As in previous tests, traffic was transparently captured, and
+transparently forwarded.
+3. Webproxy application now had business logic enabled as opposed to
+just data forwarding as in previous tests.
+
+Tuning parameters have remained same...
+
+net.ipv4.tcp_keepalive_intvl =3D 5
+net.ipv4.tcp_keepalive_probes =3D 3
+net.ipv4.tcp_keepalive_time =3D 180
+net.ipv4.tcp_fin_timeout =3D 10
+net.ipv4.tcp_max_syn_backlog =3D 8192
+net.ipv4.tcp_max_tw_buckets =3D 512000
+net.ipv4.tcp_tw_reuse =3D 1
+net.ipv4.tcp_tw_recycle =3D 1
+net.ipv4.tcp_syncookies =3D 0
+net.core.netdev_max_backlog =3D 5000
+
+mpstat output shows that CPU 9 is stuck in infinite loop. This was
+observed after the test was terminated.
+10:22:36 AM =A0CPU =A0 %user =A0 %nice =A0 =A0%sys %iowait =A0 =A0%irq =
+=A0 %soft
+%steal =A0 %idle =A0 =A0intr/s
+=2E..
+10:22:38 AM =A0 =A09 =A0 =A00.00 =A0 =A00.00 =A0 =A00.00 =A0 =A00.00 =A0=
+ =A00.00 =A0100.00
+0.00 =A0 =A00.00 =A0 =A0 =A00.00
+=2E..
+
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: BUG: soft lockup - CPU#9
+stuck for 61s! [webproxy:11957]
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: Modules linked in: xt_TPROXY
+xt_tcpudp xt_MARK xt_socket nf_conntrack nf_defrag_ipv4 nf_tproxy_core
+iptable_mangle ip_tables x_tables autofs4 hidp rfcomm l2cap crc16
+bluetooth rfkill lockd sunrpc 8021q ipv6 dm_multipath scsi_dh video
+output sbs sbshc battery acpi_memhotplug ac parport_pc lp parport
+cdc_ether usbnet sg mii bnx2x serio_raw button tpm_tis tpm rtc_cmos
+rtc_core tpm_bios rtc_lib mdio bnx2 i2c_i801 i2c_core pcspkr
+dm_snapshot dm_zero dm_mirror dm_region_hash dm_log dm_mod shpchp
+mptsas mptscsih mptbase scsi_transport_sas sd_mod scsi_mod ext3 jbd
+uhci_hcd ohci_hcd ehci_hcd [last unloaded: freq_table]
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: CPU 9
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: Pid: 11957, comm: webproxy
+Tainted: G =A0 M =A0 =A0W =A02.6.33-rc5 #1 49Y5114 =A0 =A0 /IBM System =
+x
+-[7870AC1]-
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: RIP:
+0010:[<ffffffff8129c590>] =A0[<ffffffff8129c590>]
+inet_csk_bind_conflict+0x5f/0xa6
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: RSP: 0018:ffff880c17929e30
+EFLAGS: 00000202
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: RAX: ffffffff81461a01 RBX:
+ffff880c5d3205a0 RCX: ffff880bd45ef1e8
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: RDX: ffff880bd45ef1c0 RSI:
+0000000000000000 RDI: ffff880674053300
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: RBP: ffffffff810031ce R08:
+000000000001b20d R09: ffff880a8ecba128
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: R10: ffff880674053301 R11:
+ffffffff81132b11 R12: ffff880c17929ee8
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: R13: ffff880c00000000 R14:
+0000000000000000 R15: ffff880c17929d90
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: FS: =A000007fa55a6c6720(0000=
+)
+GS:ffff880028340000(0000) knlGS:0000000000000000
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: CS: =A00010 DS: 0000 ES: 000=
+0
+CR0: 0000000080050033
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: CR2: 00007fa5269c8000 CR3:
+0000000c1bd12000 CR4: 00000000000006e0
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: DR0: 0000000000000000 DR1:
+0000000000000000 DR2: 0000000000000000
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: DR3: 0000000000000000 DR6:
+00000000ffff0ff0 DR7: 0000000000000400
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: Process webproxy (pid: 11957=
+,
+threadinfo ffff880c17928000, task ffff880c17b700c0)
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: Stack:
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: =A0ffffffff8129c789
+0000000000000000 0000000500000000 00000000ffffffff
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: <0> 0000000000000000
+0000000000000000 ffff880674053300 00000000ffffffea
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: <0> 0000000000051005
+0000000000000001 ffff880c17929ec8 00007fa55e4923f0
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: Call Trace:
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: =A0[<ffffffff8129c789>] ?
+inet_csk_get_port+0x1b2/0x29e
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: =A0[<ffffffff812b9368>] ?
+inet_bind+0x10c/0x1c1
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: =A0[<ffffffff8126497b>] ?
+sys_bind+0x6e/0x9e
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: =A0[<ffffffff8106de32>] ?
+audit_syscall_entry+0x1b9/0x1e4
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: =A0[<ffffffff8100286b>] ?
+system_call_fastpath+0x16/0x1b
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: Code: 40 62 10 eb 04 f6 42 5=
+4
+01 75 44 8b 77 20 85 f6 74 0b 8b 42 20 85 c0 74 04 39 c6 75 32 45 84
+d2 74 0d 80 7a 1f 00 74 07 8a 42 1e <3c> 0a 75 20 8a 42 1e 3c 06 74 08
+8b 82 24 02 00 00 eb 03 8b 42
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: Call Trace:
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: =A0[<ffffffff8129c789>] ?
+inet_csk_get_port+0x1b2/0x29e
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: =A0[<ffffffff812b9368>] ?
+inet_bind+0x10c/0x1c1
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: =A0[<ffffffff8126497b>] ?
+sys_bind+0x6e/0x9e
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: =A0[<ffffffff8106de32>] ?
+audit_syscall_entry+0x1b9/0x1e4
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel: =A0[<ffffffff8100286b>] ?
+system_call_fastpath+0x16/0x1b
+=46eb 17 10:23:25 fusion-ch01-bl05 kernel:
+[bnx2x_timer:4677(eth3)]drv_pulse (0x3104) !=3D mcp_pulse (0x3854)
+=46eb 17 10:23:26 fusion-ch01-bl05 kernel:
+[bnx2x_timer:4677(eth3)]drv_pulse (0x3105) !=3D mcp_pulse (0x3854)
+=46eb 17 10:23:27 fusion-ch01-bl05 kernel:
+[bnx2x_timer:4677(eth3)]drv_pulse (0x3106) !=3D mcp_pulse (0x3854)
+=46eb 17 10:23:28 fusion-ch01-bl05 kernel:
+[bnx2x_timer:4677(eth3)]drv_pulse (0x3107) !=3D mcp_pulse (0x3854)
+
+These messages keep repeating every 60 seconds.
+
+To me this feels like that there are more code paths which lead to the
+same corruption as in previous issue.
+
+Regards,
+Kapil
