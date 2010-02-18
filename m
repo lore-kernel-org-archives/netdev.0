@@ -1,61 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next-2.6 PATCH 1/3] vlan: adds vlan_dev_select_queue
-Date: Thu, 18 Feb 2010 08:37:10 +0100
-Message-ID: <1266478630.2877.9.camel@edumazet-laptop>
-References: <20100217123606.18210.13602.stgit@localhost.localdomain>
-	 <1266414675.3246.12.camel@edumazet-laptop>
-	 <20100217.134330.48386140.davem@davemloft.net>
-	 <1266446441.1891.96.camel@vi2.jf.intel.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 2/5] netlink: store MSG_CMSG_COMPAT flag in
+ netlink_skb_parms
+Date: Thu, 18 Feb 2010 08:37:14 +0100
+Message-ID: <1266478634.3807.1.camel@jlt3.sipsolutions.net>
+References: <1266252393-20911-1-git-send-email-fw@strlen.de>
+	 <1266252393-20911-3-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, gospo@redhat.com, vasu.dev@intel.com
-To: Vasu Dev <vasu.dev@linux.intel.com>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-f80PWwrSl+f/PApjHKt9"
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f220.google.com ([209.85.220.220]:65300 "EHLO
-	mail-fx0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751153Ab0BRHhR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 02:37:17 -0500
-Received: by fxm20 with SMTP id 20so8643278fxm.21
-        for <netdev@vger.kernel.org>; Wed, 17 Feb 2010 23:37:15 -0800 (PST)
-In-Reply-To: <1266446441.1891.96.camel@vi2.jf.intel.com>
+Received: from he.sipsolutions.net ([78.46.109.217]:33476 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751323Ab0BRHhT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 02:37:19 -0500
+In-Reply-To: <1266252393-20911-3-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 17 f=C3=A9vrier 2010 =C3=A0 14:40 -0800, Vasu Dev a =C3=A9c=
-rit :
-> > > ------------------
-> > >=20
-> > > For performance reason, we could avoid calling vlan_dev_select_qu=
-eue()
-> > > for real devices without ndo_select_queue() handler, this would n=
-eed to
-> > > mirror vlan_netdev_ops & vlan_netdev_accel_ops.
-> > >=20
->=20
-> This means vlan_netdev_ops & vlan_netdev_accel_ops not to be const
-> anymore so that vlan_dev_select_queue() could be initialized to vlan =
-ops
-> based on real dev ndo_select_queue() present or not, should be okay t=
-o
-> be not const anymore. I'll update patch as suggested.
 
-No they should stay const
+--=-f80PWwrSl+f/PApjHKt9
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-I said you should mirror (copy if you prefer) the structure, one with a
-NULL ndo_select_queue pointer, one with a ndo_select_queue =3D
-vlan_dev_select_queue.
+On Mon, 2010-02-15 at 17:46 +0100, Florian Westphal wrote:
+> This allows the netlink processing context to determine if the data
+> needs any 32 bit fixups.
 
-Both structures are const.
+> --- a/include/linux/netlink.h
+> +++ b/include/linux/netlink.h
+> @@ -164,6 +164,7 @@ struct netlink_skb_parms {
+>  	__u32			loginuid;	/* Login (audit) uid */
+>  	__u32			sessionid;	/* Session id (audit) */
+>  	__u32			sid;		/* SELinux security id */
+> +	__u8			msg_compat;	/* Message needs 32bit fixups */
 
-You must not dynamiucally change the structure, because the same machin=
-e
-might have a vlan over a device with no ndo_select_queue() method, and
-another vlan over a device with a ndo_select_queue()
+bool?
 
-Thanks
+johannes
 
+--=-f80PWwrSl+f/PApjHKt9
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
+-----BEGIN PGP SIGNATURE-----
 
+iQIcBAABAgAGBQJLfO4mAAoJEODzc/N7+QmamgsQAMfrmXXulAklc7lVn0bVSP/j
+6DE/gdhEvK0UKLYgAqTzyUBIGEV+J+sbrXhGFTxVWaG0QUHB3KUxRSuDW1jDHdFq
+ywUPt5kjf6c376dp2ndWIQfFYLQNoFSQWi3HfECs4htZTI+mwEzM0hjyeL6TI1ck
+qHrszhK/MJDA4yjgsFO6UrNWYfaXR9PBSwXUKSAOAqKhYLCuSM+iR1ew4zNAfOGQ
+GPyZVNGO2ZgdjR3SY2l5IHGj9MpYkEetwXGhwFBxZ5+1KKjC1cA/03xL0pQtYd36
+KjnbW+GOHOlMdBYfbeoNAJ14n35cpLL6wyqtkbEwgKIzrE0tSnF+887D/TaMpTnz
+mrKbg604f1h3qDLuDn3kNziN7Heg37xrws8hjSVS1eX9s+m+ShuUugCSFGbEjBR8
+gouNTIWOcjMz9sE1ALV8Z3EW+GQdXF6KQ8kc1DI0TS1ZEi1o7gy+ChL9zzha7Giw
+NUh23uL3e/I8kFLaqazBogYxPKueUky0VIbbVOqtXR34nP8kMJASt+IxeAkofzdR
+8AYl0bCze0B4s9b4LUpwo0bcj6v6qMTZxD3Cnm/rbF1LALYqyVnm2EAraofCw+Fl
+0/GCPJl3dQn3sWrhZton2EvMKvkiyDw33UUbWOIhf6taEWIVmROxj/al9VrJ7ZNE
+BaImr2pTdKLkn1Bgj6cw
+=VM3p
+-----END PGP SIGNATURE-----
+
+--=-f80PWwrSl+f/PApjHKt9--
 
