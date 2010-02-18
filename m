@@ -1,59 +1,41 @@
 From: Dimitris Michailidis <dm@chelsio.com>
-Subject: [PATCH net-next 6/7] cxgb4: Add main driver file and driver Makefile
-Date: Thu, 18 Feb 2010 13:24:15 -0800
-Message-ID: <1266528256-20873-7-git-send-email-dm@chelsio.com>
+Subject: [PATCH net-next 1/7] cxgb4: Add register and message definitions
+Date: Thu, 18 Feb 2010 13:24:10 -0800
+Message-ID: <1266528256-20873-2-git-send-email-dm@chelsio.com>
 References: <1266528256-20873-1-git-send-email-dm@chelsio.com>
- <1266528256-20873-2-git-send-email-dm@chelsio.com>
- <1266528256-20873-3-git-send-email-dm@chelsio.com>
- <1266528256-20873-4-git-send-email-dm@chelsio.com>
- <1266528256-20873-5-git-send-email-dm@chelsio.com>
- <1266528256-20873-6-git-send-email-dm@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:13489 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:23271 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752694Ab0BRVYa (ORCPT
+	with ESMTP id S1752308Ab0BRVYa (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 16:24:30 -0500
 Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
-	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o1ILOUg1032165
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o1ILOUfp032165
 	for <netdev@vger.kernel.org>; Thu, 18 Feb 2010 13:24:30 -0800
 Received: from darkside.asicdesigners.com (localhost.localdomain [127.0.0.1])
-	by darkside.asicdesigners.com (8.13.4/8.13.4) with ESMTP id o1ILOHFl020964
-	for <netdev@vger.kernel.org>; Thu, 18 Feb 2010 13:24:17 -0800
+	by darkside.asicdesigners.com (8.13.4/8.13.4) with ESMTP id o1ILOG1Y020944
+	for <netdev@vger.kernel.org>; Thu, 18 Feb 2010 13:24:16 -0800
 Received: (from dm@localhost)
-	by darkside.asicdesigners.com (8.13.4/8.13.4/Submit) id o1ILOHkh020963
-	for netdev@vger.kernel.org; Thu, 18 Feb 2010 13:24:17 -0800
-In-Reply-To: <1266528256-20873-6-git-send-email-dm@chelsio.com>
+	by darkside.asicdesigners.com (8.13.4/8.13.4/Submit) id o1ILOGCP020943
+	for netdev@vger.kernel.org; Thu, 18 Feb 2010 13:24:16 -0800
+In-Reply-To: <1266528256-20873-1-git-send-email-dm@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
 ---
- drivers/net/cxgb4/Makefile     |    7 +
- drivers/net/cxgb4/cxgb4_main.c | 4217 ++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 4224 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/cxgb4/Makefile
- create mode 100644 drivers/net/cxgb4/cxgb4_main.c
+ drivers/net/cxgb4/t4_msg.h  | 1353 +++++++++++++++++++++++++++
+ drivers/net/cxgb4/t4_regs.h | 2109 +++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 3462 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/cxgb4/t4_msg.h
+ create mode 100644 drivers/net/cxgb4/t4_regs.h
 
-diff --git a/drivers/net/cxgb4/Makefile b/drivers/net/cxgb4/Makefile
+diff --git a/drivers/net/cxgb4/t4_msg.h b/drivers/net/cxgb4/t4_msg.h
 new file mode 100644
-index 0000000..4986674
+index 0000000..9d22c5c
 --- /dev/null
-+++ b/drivers/net/cxgb4/Makefile
-@@ -0,0 +1,7 @@
-+#
-+# Chelsio T4 driver
-+#
-+
-+obj-$(CONFIG_CHELSIO_T4) += cxgb4.o
-+
-+cxgb4-objs := cxgb4_main.o l2t.o t4_hw.o sge.o
-diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
-new file mode 100644
-index 0000000..7d243a2
---- /dev/null
-+++ b/drivers/net/cxgb4/cxgb4_main.c
-@@ -0,0 +1,4217 @@
++++ b/drivers/net/cxgb4/t4_msg.h
+@@ -0,0 +1,1353 @@
 +/*
 + * This file is part of the Chelsio T4 Ethernet driver for Linux.
 + *
@@ -88,4189 +70,3440 @@ index 0000000..7d243a2
 + * SOFTWARE.
 + */
 +
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++#ifndef __T4_MSG_H
++#define __T4_MSG_H
 +
-+#include <linux/bitmap.h>
-+#include <linux/crc32.h>
-+#include <linux/ctype.h>
-+#include <linux/debugfs.h>
-+#include <linux/etherdevice.h>
-+#include <linux/firmware.h>
-+#include <linux/if_vlan.h>
-+#include <linux/init.h>
-+#include <linux/log2.h>
-+#include <linux/mdio.h>
-+#include <linux/module.h>
-+#include <linux/moduleparam.h>
-+#include <linux/mutex.h>
-+#include <linux/netdevice.h>
-+#include <linux/pci.h>
-+#include <linux/aer.h>
-+#include <linux/proc_fs.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/seq_file.h>
-+#include <linux/sockios.h>
-+#include <linux/vmalloc.h>
-+#include <linux/workqueue.h>
-+#include <net/neighbour.h>
-+#include <net/netevent.h>
-+#include <asm/uaccess.h>
-+
-+#include "cxgb4.h"
-+#include "t4_regs.h"
-+#include "t4_msg.h"
-+#include "t4fw_api.h"
-+#include "l2t.h"
-+
-+#define DRV_VERSION "1.0.0-ko"
-+#define DRV_DESC "Chelsio T4 Network Driver"
-+
-+/*
-+ * Max interrupt hold-off timer value in us.  Queues fall back to this value
-+ * under extreme memory pressure so it's largish to give the system time to
-+ * recover.
-+ */
-+#define MAX_SGE_TIMERVAL 200U
++#include <linux/types.h>
 +
 +enum {
-+	MEMWIN0_APERTURE = 65536,
-+	MEMWIN0_BASE     = 0x30000,
-+	MEMWIN1_APERTURE = 32768,
-+	MEMWIN1_BASE     = 0x28000,
-+	MEMWIN2_APERTURE = 2048,
-+	MEMWIN2_BASE     = 0x1b800,
++	CPL_PASS_OPEN_REQ     = 0x1,
++	CPL_PASS_ACCEPT_RPL   = 0x2,
++	CPL_ACT_OPEN_REQ      = 0x3,
++	CPL_SET_TCB_FIELD     = 0x5,
++	CPL_GET_TCB           = 0x6,
++	CPL_CLOSE_CON_REQ     = 0x8,
++	CPL_CLOSE_LISTSRV_REQ = 0x9,
++	CPL_ABORT_REQ         = 0xA,
++	CPL_ABORT_RPL         = 0xB,
++	CPL_RX_DATA_ACK       = 0xD,
++	CPL_TX_PKT            = 0xE,
++	CPL_L2T_WRITE_REQ     = 0x12,
++	CPL_TID_RELEASE       = 0x1A,
++
++	CPL_CLOSE_LISTSRV_RPL = 0x20,
++	CPL_L2T_WRITE_RPL     = 0x23,
++	CPL_PASS_OPEN_RPL     = 0x24,
++	CPL_ACT_OPEN_RPL      = 0x25,
++	CPL_PEER_CLOSE        = 0x26,
++	CPL_ABORT_REQ_RSS     = 0x2B,
++	CPL_ABORT_RPL_RSS     = 0x2D,
++
++	CPL_CLOSE_CON_RPL     = 0x32,
++	CPL_ISCSI_HDR         = 0x33,
++	CPL_RDMA_CQE          = 0x35,
++	CPL_RDMA_CQE_READ_RSP = 0x36,
++	CPL_RDMA_CQE_ERR      = 0x37,
++	CPL_RX_DATA           = 0x39,
++	CPL_SET_TCB_RPL       = 0x3A,
++	CPL_RX_PKT            = 0x3B,
++	CPL_RX_DDP_COMPLETE   = 0x3F,
++
++	CPL_ACT_ESTABLISH     = 0x40,
++	CPL_PASS_ESTABLISH    = 0x41,
++	CPL_RX_DATA_DDP       = 0x42,
++	CPL_PASS_ACCEPT_REQ   = 0x44,
++
++	CPL_RDMA_READ_REQ     = 0x60,
++
++	CPL_PASS_OPEN_REQ6    = 0x81,
++	CPL_ACT_OPEN_REQ6     = 0x83,
++
++	CPL_RDMA_TERMINATE    = 0xA2,
++	CPL_RDMA_WRITE        = 0xA4,
++	CPL_SGE_EGR_UPDATE    = 0xA5,
++
++	CPL_TRACE_PKT         = 0xB0,
++
++	CPL_FW4_MSG           = 0xC0,
++	CPL_FW4_PLD           = 0xC1,
++	CPL_FW4_ACK           = 0xC3,
++
++	CPL_FW6_MSG           = 0xE0,
++	CPL_FW6_PLD           = 0xE1,
++	CPL_TX_PKT_LSO        = 0xED,
++	CPL_TX_PKT_XT         = 0xEE,
++
++	NUM_CPL_CMDS    /* must be last and previous entries must be sorted */
++};
++
++enum CPL_error {
++	CPL_ERR_NONE               = 0,
++	CPL_ERR_TCAM_PARITY        = 1,
++	CPL_ERR_TCAM_FULL          = 3,
++	CPL_ERR_BAD_LENGTH         = 15,
++	CPL_ERR_BAD_ROUTE          = 18,
++	CPL_ERR_CONN_RESET         = 20,
++	CPL_ERR_CONN_EXIST_SYNRECV = 21,
++	CPL_ERR_CONN_EXIST         = 22,
++	CPL_ERR_ARP_MISS           = 23,
++	CPL_ERR_BAD_SYN            = 24,
++	CPL_ERR_CONN_TIMEDOUT      = 30,
++	CPL_ERR_XMIT_TIMEDOUT      = 31,
++	CPL_ERR_PERSIST_TIMEDOUT   = 32,
++	CPL_ERR_FINWAIT2_TIMEDOUT  = 33,
++	CPL_ERR_KEEPALIVE_TIMEDOUT = 34,
++	CPL_ERR_RTX_NEG_ADVICE     = 35,
++	CPL_ERR_PERSIST_NEG_ADVICE = 36,
++	CPL_ERR_ABORT_FAILED       = 42,
++	CPL_ERR_IWARP_FLM          = 50,
 +};
 +
 +enum {
-+	MAX_TXQ_ENTRIES      = 16384,
-+	MAX_CTRL_TXQ_ENTRIES = 1024,
-+	MAX_RSPQ_ENTRIES     = 16384,
-+	MAX_RX_BUFFERS       = 16384,
-+	MIN_TXQ_ENTRIES      = 32,
-+	MIN_CTRL_TXQ_ENTRIES = 32,
-+	MIN_RSPQ_ENTRIES     = 128,
-+	MIN_FL_ENTRIES       = 16
++	CPL_CONN_POLICY_ASK  = 1,
 +};
-+
-+#define DFLT_MSG_ENABLE (NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK | \
-+			 NETIF_MSG_TIMER | NETIF_MSG_IFDOWN | NETIF_MSG_IFUP |\
-+			 NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR)
-+
-+#define CH_DEVICE(devid) { PCI_VDEVICE(CHELSIO, devid), 0 }
-+
-+static DEFINE_PCI_DEVICE_TABLE(cxgb4_pci_tbl) = {
-+	CH_DEVICE(0xa000),  /* PE10K */
-+	{ 0, }
-+};
-+
-+#define FW_FNAME "cxgb4/t4fw.bin"
-+
-+MODULE_DESCRIPTION(DRV_DESC);
-+MODULE_AUTHOR("Chelsio Communications");
-+MODULE_LICENSE("Dual BSD/GPL");
-+MODULE_VERSION(DRV_VERSION);
-+MODULE_DEVICE_TABLE(pci, cxgb4_pci_tbl);
-+MODULE_FIRMWARE(FW_FNAME);
-+
-+static int dflt_msg_enable = DFLT_MSG_ENABLE;
-+
-+module_param(dflt_msg_enable, int, 0644);
-+MODULE_PARM_DESC(dflt_msg_enable, "Chelsio T4 default message enable bitmap");
-+
-+/*
-+ * The driver uses the best interrupt scheme available on a platform in the
-+ * order MSI-X, MSI, legacy INTx interrupts.  This parameter determines which
-+ * of these schemes the driver may consider as follows:
-+ *
-+ * msi = 2: choose from among all three options
-+ * msi = 1: only consider MSI and INTx interrupts
-+ * msi = 0: force INTx interrupts
-+ */
-+static int msi = 2;
-+
-+module_param(msi, int, 0644);
-+MODULE_PARM_DESC(msi, "whether to use INTx (0), MSI (1) or MSI-X (2)");
-+
-+/*
-+ * Queue interrupt hold-off timer values.  Queues default to the first of these
-+ * upon creation.
-+ */
-+static unsigned int intr_holdoff[SGE_NTIMERS - 1] = { 5, 10, 20, 50, 100 };
-+
-+module_param_array(intr_holdoff, uint, NULL, 0644);
-+MODULE_PARM_DESC(intr_holdoff, "values for queue interrupt hold-off timers "
-+		 "0..4 in microseconds");
-+
-+static unsigned int intr_cnt[SGE_NCOUNTERS - 1] = { 4, 8, 16 };
-+
-+module_param_array(intr_cnt, uint, NULL, 0644);
-+MODULE_PARM_DESC(intr_cnt,
-+		 "thresholds 1..3 for queue interrupt packet counters");
-+
-+static int vf_acls;
-+
-+#ifdef CONFIG_PCI_IOV
-+module_param(vf_acls, bool, 0644);
-+MODULE_PARM_DESC(vf_acls, "if set enable virtualization L2 ACL enforcement");
-+
-+static unsigned int num_vf[4];
-+
-+module_param_array(num_vf, uint, NULL, 0644);
-+MODULE_PARM_DESC(num_vf, "number of VFs for each of PFs 0-3");
-+#endif
-+
-+static struct dentry *cxgb4_debugfs_root;
-+static struct proc_dir_entry *cxgb4_proc_root;
-+
-+static LIST_HEAD(adapter_list);
-+static DEFINE_MUTEX(uld_mutex);
-+static struct cxgb4_uld_info ulds[CXGB4_ULD_MAX];
-+static const char *uld_str[] = { "RDMA", "iSCSI" };
-+
-+static void link_report(struct net_device *dev)
-+{
-+	if (!netif_carrier_ok(dev))
-+		netdev_info(dev, "link down\n");
-+	else {
-+		static const char *fc[] = { "no", "Rx", "Tx", "Tx/Rx" };
-+
-+		const char *s = "10Mbps";
-+		const struct port_info *p = netdev_priv(dev);
-+
-+		switch (p->link_cfg.speed) {
-+		case SPEED_10000:
-+			s = "10Gbps";
-+			break;
-+		case SPEED_1000:
-+			s = "1000Mbps";
-+			break;
-+		case SPEED_100:
-+			s = "100Mbps";
-+			break;
-+		}
-+
-+		netdev_info(dev, "link up, %s, full-duplex, %s PAUSE\n", s,
-+			    fc[p->link_cfg.fc]);
-+	}
-+}
-+
-+void t4_os_link_changed(struct adapter *adapter, int port_id, int link_stat)
-+{
-+	struct net_device *dev = adapter->port[port_id];
-+
-+	/* Skip changes from disabled ports. */
-+	if (netif_running(dev) && link_stat != netif_carrier_ok(dev)) {
-+		if (link_stat)
-+			netif_carrier_on(dev);
-+		else
-+			netif_carrier_off(dev);
-+
-+		link_report(dev);
-+	}
-+}
-+
-+void t4_os_portmod_changed(const struct adapter *adap, int port_id)
-+{
-+	static const char *mod_str[] = {
-+		NULL, "LR", "SR", "ER", "passive DA", "active DA"
-+	};
-+
-+	const struct net_device *dev = adap->port[port_id];
-+	const struct port_info *pi = netdev_priv(dev);
-+
-+	if (pi->mod_type == FW_PORT_MOD_TYPE_NONE)
-+		netdev_info(dev, "port module unplugged\n");
-+	else
-+		netdev_info(dev, "%s module inserted\n", mod_str[pi->mod_type]);
-+}
-+
-+/*
-+ * Configure the exact and hash address filters to handle a port's multicast
-+ * and secondary unicast MAC addresses.
-+ */
-+static int set_addr_filters(const struct net_device *dev, bool sleep)
-+{
-+	u64 mhash = 0;
-+	u64 uhash = 0;
-+	bool free = true;
-+	u16 filt_idx[7];
-+	const u8 *addr[7];
-+	int ret, naddr = 0;
-+	const struct dev_addr_list *d;
-+	const struct netdev_hw_addr *ha;
-+	int uc_cnt = netdev_uc_count(dev);
-+	const struct port_info *pi = netdev_priv(dev);
-+
-+	/* first do the secondary unicast addresses */
-+	netdev_for_each_uc_addr(ha, dev) {
-+		addr[naddr++] = ha->addr;
-+		if (--uc_cnt == 0 || naddr >= ARRAY_SIZE(addr)) {
-+			ret = t4_alloc_mac_filt(pi->adapter, 0, pi->viid, free,
-+					naddr, addr, filt_idx, &uhash, sleep);
-+			if (ret < 0)
-+				return ret;
-+
-+			free = false;
-+			naddr = 0;
-+		}
-+	}
-+
-+	/* next set up the multicast addresses */
-+	netdev_for_each_mc_addr(d, dev) {
-+		addr[naddr++] = d->dmi_addr;
-+		if (naddr >= ARRAY_SIZE(addr) || d->next == NULL) {
-+			ret = t4_alloc_mac_filt(pi->adapter, 0, pi->viid, free,
-+					naddr, addr, filt_idx, &mhash, sleep);
-+			if (ret < 0)
-+				return ret;
-+
-+			free = false;
-+			naddr = 0;
-+		}
-+	}
-+
-+	return t4_set_addr_hash(pi->adapter, 0, pi->viid, uhash != 0,
-+				uhash | mhash, sleep);
-+}
-+
-+/*
-+ * Set Rx properties of a port, such as promiscruity, address filters, and MTU.
-+ * If @mtu is -1 it is left unchanged.
-+ */
-+static int set_rxmode(struct net_device *dev, int mtu, bool sleep_ok)
-+{
-+	int ret;
-+	struct port_info *pi = netdev_priv(dev);
-+
-+	ret = set_addr_filters(dev, sleep_ok);
-+	if (ret == 0)
-+		ret = t4_set_rxmode(pi->adapter, 0, pi->viid, mtu,
-+				    (dev->flags & IFF_PROMISC) ? 1 : 0,
-+				    (dev->flags & IFF_ALLMULTI) ? 1 : 0, 1,
-+				    sleep_ok);
-+	return ret;
-+}
-+
-+/**
-+ *	link_start - enable a port
-+ *	@dev: the port to enable
-+ *
-+ *	Performs the MAC and PHY actions needed to enable a port.
-+ */
-+static int link_start(struct net_device *dev)
-+{
-+	int ret;
-+	struct port_info *pi = netdev_priv(dev);
-+
-+	/*
-+	 * We do not set address filters and promiscuity here, the stack does
-+	 * that step explicitly.
-+	 */
-+	ret = t4_set_rxmode(pi->adapter, 0, pi->viid, dev->mtu, -1, -1, -1,
-+			    true);
-+	if (ret == 0) {
-+		ret = t4_change_mac(pi->adapter, 0, pi->viid,
-+				    pi->xact_addr_filt, dev->dev_addr, true);
-+		if (ret >= 0) {
-+			pi->xact_addr_filt = ret;
-+			ret = 0;
-+		}
-+	}
-+	if (ret == 0)
-+		ret = t4_link_start(pi->adapter, 0, pi->tx_chan, &pi->link_cfg);
-+	if (ret == 0)
-+		ret = t4_enable_vi(pi->adapter, 0, pi->viid, true, true);
-+	return ret;
-+}
-+
-+/*
-+ * Response queue handler for the FW event queue.
-+ */
-+static int fwevtq_handler(struct sge_rspq *q, const __be64 *rsp,
-+			  const struct pkt_gl *gl)
-+{
-+	u8 opcode = ((const struct rss_header *)rsp)->opcode;
-+
-+	rsp++;                                          /* skip RSS header */
-+	if (likely(opcode == CPL_SGE_EGR_UPDATE)) {
-+		const struct cpl_sge_egr_update *p = (void *)rsp;
-+		unsigned int qid = G_EGR_QID(ntohl(p->opcode_qid));
-+		struct sge_txq *txq = q->adap->sge.egr_map[qid];
-+
-+		txq->restarts++;
-+		if ((u8 *)txq < (u8 *)q->adap->sge.ethrxq) {
-+			struct sge_eth_txq *eq;
-+
-+			eq = container_of(txq, struct sge_eth_txq, q);
-+			netif_tx_wake_queue(eq->txq);
-+		} else {
-+			struct sge_ofld_txq *oq;
-+
-+			oq = container_of(txq, struct sge_ofld_txq, q);
-+			tasklet_schedule(&oq->qresume_tsk);
-+		}
-+	} else if (opcode == CPL_FW6_MSG || opcode == CPL_FW4_MSG) {
-+		const struct cpl_fw6_msg *p = (void *)rsp;
-+
-+		if (p->type == 0)
-+			t4_handle_fw_rpl(q->adap, p->data);
-+	} else if (opcode == CPL_L2T_WRITE_RPL) {
-+		const struct cpl_l2t_write_rpl *p = (void *)rsp;
-+
-+		do_l2t_write_rpl(q->adap, p);
-+	} else
-+		dev_err(q->adap->pdev_dev,
-+			"unexpected CPL %#x on FW event queue\n", opcode);
-+	return 0;
-+}
-+
-+/**
-+ *	uldrx_handler - response queue handler for ULD queues
-+ *	@q: the response queue that received the packet
-+ *	@rsp: the response queue descriptor holding the offload message
-+ *	@gl: the gather list of packet fragments
-+ *
-+ *	Deliver an ingress offload packet to a ULD.  All processing is done by
-+ *	the ULD, we just maintain statistics.
-+ */
-+static int uldrx_handler(struct sge_rspq *q, const __be64 *rsp,
-+			 const struct pkt_gl *gl)
-+{
-+	struct sge_ofld_rxq *rxq = container_of(q, struct sge_ofld_rxq, rspq);
-+
-+	if (ulds[q->uld].rx_handler(q->adap->uld_handle[q->uld], rsp, gl)) {
-+		rxq->stats.nomem++;
-+		return -1;
-+	}
-+	if (gl == NULL)
-+		rxq->stats.imm++;
-+	else if (gl == CXGB4_MSG_AN)
-+		rxq->stats.an++;
-+	else
-+		rxq->stats.pkts++;
-+	return 0;
-+}
-+
-+static void disable_msi(struct adapter *adapter)
-+{
-+	if (adapter->flags & USING_MSIX) {
-+		pci_disable_msix(adapter->pdev);
-+		adapter->flags &= ~USING_MSIX;
-+	} else if (adapter->flags & USING_MSI) {
-+		pci_disable_msi(adapter->pdev);
-+		adapter->flags &= ~USING_MSI;
-+	}
-+}
-+
-+/*
-+ * Interrupt handler for non-data events used with MSI-X.
-+ */
-+static irqreturn_t t4_nondata_intr(int irq, void *cookie)
-+{
-+	struct adapter *adap = cookie;
-+
-+	u32 v = t4_read_reg(adap, MYPF_REG(A_PL_PF_INT_CAUSE));
-+	if (v & F_PFSW) {
-+		adap->swintr = 1;
-+		t4_write_reg(adap, MYPF_REG(A_PL_PF_INT_CAUSE), v);
-+	}
-+	t4_slow_intr_handler(adap);
-+	return IRQ_HANDLED;
-+}
-+
-+/*
-+ * Name the MSI-X interrupts.
-+ */
-+static void name_msix_vecs(struct adapter *adap)
-+{
-+	int i, j, msi_idx = 2, n = sizeof(adap->msix_info[0].desc) - 1;
-+
-+	/* non-data interrupts */
-+	snprintf(adap->msix_info[0].desc, n, "%s", adap->name);
-+	adap->msix_info[0].desc[n] = 0;
-+
-+	/* FW events */
-+	snprintf(adap->msix_info[1].desc, n, "%s-FWeventq", adap->name);
-+	adap->msix_info[1].desc[n] = 0;
-+
-+	/* Ethernet queues */
-+	for_each_port(adap, j) {
-+		struct net_device *d = adap->port[j];
-+		const struct port_info *pi = netdev_priv(d);
-+
-+		for (i = 0; i < pi->nqsets; i++, msi_idx++) {
-+			snprintf(adap->msix_info[msi_idx].desc, n, "%s-Rx%d",
-+				 d->name, i);
-+			adap->msix_info[msi_idx].desc[n] = 0;
-+		}
-+	}
-+
-+	/* offload queues */
-+	for_each_ofldrxq(&adap->sge, i) {
-+		snprintf(adap->msix_info[msi_idx].desc, n, "%s-ofld%d",
-+			 adap->name, i);
-+		adap->msix_info[msi_idx++].desc[n] = 0;
-+	}
-+	for_each_rdmarxq(&adap->sge, i) {
-+		snprintf(adap->msix_info[msi_idx].desc, n, "%s-rdma%d",
-+			 adap->name, i);
-+		adap->msix_info[msi_idx++].desc[n] = 0;
-+	}
-+}
-+
-+static int request_msix_queue_irqs(struct adapter *adap)
-+{
-+	struct sge *s = &adap->sge;
-+	int err, ethqidx, ofldqidx = 0, rdmaqidx = 0, msi = 2;
-+
-+	err = request_irq(adap->msix_info[1].vec, t4_sge_intr_msix, 0,
-+			  adap->msix_info[1].desc, &s->fw_evtq);
-+	if (err)
-+		return err;
-+
-+	for_each_ethrxq(s, ethqidx) {
-+		err = request_irq(adap->msix_info[msi].vec, t4_sge_intr_msix, 0,
-+				  adap->msix_info[msi].desc,
-+				  &s->ethrxq[ethqidx].rspq);
-+		if (err)
-+			goto unwind;
-+		msi++;
-+	}
-+	for_each_ofldrxq(s, ofldqidx) {
-+		err = request_irq(adap->msix_info[msi].vec, t4_sge_intr_msix, 0,
-+				  adap->msix_info[msi].desc,
-+				  &s->ofldrxq[ofldqidx].rspq);
-+		if (err)
-+			goto unwind;
-+		msi++;
-+	}
-+	for_each_rdmarxq(s, rdmaqidx) {
-+		err = request_irq(adap->msix_info[msi].vec, t4_sge_intr_msix, 0,
-+				  adap->msix_info[msi].desc,
-+				  &s->rdmarxq[rdmaqidx].rspq);
-+		if (err)
-+			goto unwind;
-+		msi++;
-+	}
-+	return 0;
-+
-+unwind:
-+	while (--rdmaqidx >= 0)
-+		free_irq(adap->msix_info[--msi].vec,
-+			 &s->rdmarxq[rdmaqidx].rspq);
-+	while (--ofldqidx >= 0)
-+		free_irq(adap->msix_info[--msi].vec,
-+			 &s->ofldrxq[ofldqidx].rspq);
-+	while (--ethqidx >= 0)
-+		free_irq(adap->msix_info[--msi].vec, &s->ethrxq[ethqidx].rspq);
-+	free_irq(adap->msix_info[1].vec, &s->fw_evtq);
-+	return err;
-+}
-+
-+static void free_msix_queue_irqs(struct adapter *adap)
-+{
-+	int i, msi = 2;
-+	struct sge *s = &adap->sge;
-+
-+	free_irq(adap->msix_info[1].vec, &s->fw_evtq);
-+	for_each_ethrxq(s, i)
-+		free_irq(adap->msix_info[msi++].vec, &s->ethrxq[i].rspq);
-+	for_each_ofldrxq(s, i)
-+		free_irq(adap->msix_info[msi++].vec, &s->ofldrxq[i].rspq);
-+	for_each_rdmarxq(s, i)
-+		free_irq(adap->msix_info[msi++].vec, &s->rdmarxq[i].rspq);
-+}
-+
-+/**
-+ *	setup_rss - configure RSS
-+ *	@adap: the adapter
-+ *
-+ *	Sets up RSS to distribute packets to multiple receive queues.  We
-+ *	configure the RSS CPU lookup table to distribute to the number of HW
-+ *	receive queues, and the response queue lookup table to narrow that
-+ *	down to the response queues actually configured for each port.
-+ *	We always configure the RSS mapping for all ports since the mapping
-+ *	table has plenty of entries.
-+ */
-+static int setup_rss(struct adapter *adap)
-+{
-+	int i, j, err;
-+	u16 rss[MAX_ETH_QSETS];
-+
-+	for_each_port(adap, i) {
-+		const struct port_info *pi = adap2pinfo(adap, i);
-+		const struct sge_eth_rxq *q = &adap->sge.ethrxq[pi->first_qset];
-+
-+		for (j = 0; j < pi->nqsets; j++)
-+			rss[j] = q[j].rspq.abs_id;
-+
-+		err = t4_config_rss_range(adap, 0, pi->viid, 0, pi->rss_size,
-+					  rss, pi->nqsets);
-+		if (err)
-+			return err;
-+	}
-+	return 0;
-+}
-+
-+/*
-+ * Wait until all NAPI handlers are descheduled.
-+ */
-+static void quiesce_rx(struct adapter *adap)
-+{
-+	int i;
-+	struct sge *s = &adap->sge;
-+
-+	for_each_ethrxq(s, i)
-+		napi_disable(&s->ethrxq[i].rspq.napi);
-+
-+	for_each_ofldrxq(s, i)
-+		napi_disable(&s->ofldrxq[i].rspq.napi);
-+
-+	for_each_rdmarxq(s, i)
-+		napi_disable(&s->rdmarxq[i].rspq.napi);
-+
-+	napi_disable(&s->fw_evtq.napi);
-+}
-+
-+static void qenable(struct sge_rspq *q)
-+{
-+	napi_enable(&q->napi);
-+	/* 0-increment GTS to start the timer and enable interrupts */
-+	t4_write_reg(q->adap, MYPF_REG(A_SGE_PF_GTS),
-+		     V_SEINTARM(q->intr_params) | V_INGRESSQID(q->cntxt_id));
-+}
-+
-+/*
-+ * Enable NAPI scheduling and interrupt generation for all Rx queues.
-+ */
-+static void enable_rx(struct adapter *adap)
-+{
-+	int i;
-+	struct sge *s = &adap->sge;
-+
-+	for_each_ethrxq(s, i)
-+		qenable(&s->ethrxq[i].rspq);
-+
-+	for_each_ofldrxq(s, i)
-+		qenable(&s->ofldrxq[i].rspq);
-+
-+	for_each_rdmarxq(s, i)
-+		qenable(&s->rdmarxq[i].rspq);
-+
-+	qenable(&s->fw_evtq);
-+
-+	/* the interrupt queue doesn't use NAPI */
-+	if (!(adap->flags & USING_MSIX))
-+		t4_write_reg(adap, MYPF_REG(A_SGE_PF_GTS),
-+			     V_SEINTARM(s->intrq.intr_params) |
-+			     V_INGRESSQID(s->intrq.cntxt_id));
-+}
-+
-+/**
-+ *	setup_sge_queues - configure SGE Tx/Rx/response queues
-+ *	@adap: the adapter
-+ *
-+ *	Determines how many sets of SGE queues to use and initializes them.
-+ *	We support multiple queue sets per port if we have MSI-X, otherwise
-+ *	just one queue set per port.
-+ */
-+static int setup_sge_queues(struct adapter *adap)
-+{
-+	int err, msi_idx, i, j;
-+	struct sge *s = &adap->sge;
-+
-+	bitmap_zero(s->starving_fl, MAX_EGRQ);
-+	bitmap_zero(s->txq_maperr, MAX_EGRQ);
-+
-+	if (adap->flags & USING_MSIX)
-+		msi_idx = 1;         /* vector 0 is for non-queue interrupts */
-+	else {
-+		err = t4_sge_alloc_rxq(adap, &s->intrq, false, adap->port[0], 0,
-+				       NULL, NULL);
-+		if (err)
-+			return err;
-+		msi_idx = -((int)s->intrq.abs_id + 1);
-+	}
-+
-+	err = t4_sge_alloc_rxq(adap, &s->fw_evtq, true, adap->port[0],
-+			       msi_idx, NULL, fwevtq_handler);
-+	if (err) {
-+freeout:	t4_free_sge_resources(adap);
-+		return err;
-+	}
-+
-+	for_each_port(adap, i) {
-+		struct net_device *dev = adap->port[i];
-+		struct port_info *pi = netdev_priv(dev);
-+		struct sge_eth_rxq *q = &s->ethrxq[pi->first_qset];
-+		struct sge_eth_txq *t = &s->ethtxq[pi->first_qset];
-+
-+		for (j = 0; j < pi->nqsets; j++, q++) {
-+			if (msi_idx > 0)
-+				msi_idx++;
-+			err = t4_sge_alloc_rxq(adap, &q->rspq, false, dev,
-+					       msi_idx, &q->fl,
-+					       t4_ethrx_handler);
-+			if (err)
-+				goto freeout;
-+			q->rspq.idx = j;
-+			memset(&q->stats, 0, sizeof(q->stats));
-+		}
-+		for (j = 0; j < pi->nqsets; j++, t++) {
-+			err = t4_sge_alloc_eth_txq(adap, t, dev,
-+					netdev_get_tx_queue(dev, j),
-+					s->fw_evtq.cntxt_id);
-+			if (err)
-+				goto freeout;
-+		}
-+	}
-+
-+	j = s->ofldqsets / adap->params.nports; /* ofld queues per channel */
-+	for_each_ofldrxq(s, i) {
-+		struct sge_ofld_rxq *q = &s->ofldrxq[i];
-+		struct net_device *dev = adap->port[i / j];
-+
-+		if (msi_idx > 0)
-+			msi_idx++;
-+		err = t4_sge_alloc_rxq(adap, &q->rspq, false, dev, msi_idx,
-+				       &q->fl, uldrx_handler);
-+		if (err)
-+			goto freeout;
-+		memset(&q->stats, 0, sizeof(q->stats));
-+		s->ofld_rxq[i] = q->rspq.abs_id;
-+		err = t4_sge_alloc_ofld_txq(adap, &s->ofldtxq[i], dev,
-+					    s->fw_evtq.cntxt_id);
-+		if (err)
-+			goto freeout;
-+	}
-+
-+	for_each_rdmarxq(s, i) {
-+		struct sge_ofld_rxq *q = &s->rdmarxq[i];
-+
-+		if (msi_idx > 0)
-+			msi_idx++;
-+		err = t4_sge_alloc_rxq(adap, &q->rspq, false, adap->port[i],
-+				       msi_idx, &q->fl, uldrx_handler);
-+		if (err)
-+			goto freeout;
-+		memset(&q->stats, 0, sizeof(q->stats));
-+		s->rdma_rxq[i] = q->rspq.abs_id;
-+	}
-+
-+	for_each_port(adap, i) {
-+		/*
-+		 * Note that ->rdmarxq[i].rspq.cntxt_id below is 0 if we don't
-+		 * have RDMA queues, and that's the right value.
-+		 */
-+		err = t4_sge_alloc_ctrl_txq(adap, &s->ctrlq[i], adap->port[i],
-+					    s->fw_evtq.cntxt_id,
-+					    s->rdmarxq[i].rspq.cntxt_id);
-+		if (err)
-+			goto freeout;
-+	}
-+
-+	t4_write_reg(adap, A_MPS_TRC_RSS_CONTROL,
-+		     V_RSSCONTROL(netdev2pinfo(adap->port[0])->tx_chan) |
-+		     V_QUEUENUMBER(s->ethrxq[0].rspq.abs_id));
-+	return 0;
-+}
-+
-+static int upgrade_fw(struct adapter *adap)
-+{
-+	int ret;
-+	const struct firmware *fw;
-+	struct device *dev = adap->pdev_dev;
-+
-+	ret = request_firmware(&fw, FW_FNAME, dev);
-+	if (ret < 0) {
-+		dev_err(dev, "unable to load firmware image " FW_FNAME
-+			", error %d\n", ret);
-+		return ret;
-+	}
-+	ret = t4_load_fw(adap, fw->data, fw->size);
-+	release_firmware(fw);
-+	if (!ret)
-+		dev_info(dev, "firmware upgraded to " FW_FNAME "\n");
-+	return ret;
-+}
-+
-+/*
-+ * Allocate a chunk of memory using kmalloc or, if that fails, vmalloc.
-+ * The allocated memory is cleared.
-+ */
-+void *t4_alloc_mem(size_t size)
-+{
-+	void *p = kmalloc(size, GFP_KERNEL);
-+
-+	if (!p)
-+		p = vmalloc(size);
-+	if (p)
-+		memset(p, 0, size);
-+	return p;
-+}
-+
-+/*
-+ * Free memory allocated through alloc_mem().
-+ */
-+void t4_free_mem(void *addr)
-+{
-+	if (is_vmalloc_addr(addr))
-+		vfree(addr);
-+	else
-+		kfree(addr);
-+}
-+
-+static inline int is_offload(const struct adapter *adap)
-+{
-+	return adap->params.offload;
-+}
-+
-+/*
-+ * Implementation of ethtool operations.
-+ */
-+
-+static u32 get_msglevel(struct net_device *dev)
-+{
-+	return netdev2adap(dev)->msg_enable;
-+}
-+
-+static void set_msglevel(struct net_device *dev, u32 val)
-+{
-+	netdev2adap(dev)->msg_enable = val;
-+}
-+
-+static char stats_strings[][ETH_GSTRING_LEN] = {
-+	"TxOctetsOK         ",
-+	"TxFramesOK         ",
-+	"TxBroadcastFrames  ",
-+	"TxMulticastFrames  ",
-+	"TxUnicastFrames    ",
-+	"TxErrorFrames      ",
-+
-+	"TxFrames64         ",
-+	"TxFrames65To127    ",
-+	"TxFrames128To255   ",
-+	"TxFrames256To511   ",
-+	"TxFrames512To1023  ",
-+	"TxFrames1024To1518 ",
-+	"TxFrames1519ToMax  ",
-+
-+	"TxFramesDropped    ",
-+	"TxPauseFrames      ",
-+	"TxPPP0Frames       ",
-+	"TxPPP1Frames       ",
-+	"TxPPP2Frames       ",
-+	"TxPPP3Frames       ",
-+	"TxPPP4Frames       ",
-+	"TxPPP5Frames       ",
-+	"TxPPP6Frames       ",
-+	"TxPPP7Frames       ",
-+
-+	"RxOctetsOK         ",
-+	"RxFramesOK         ",
-+	"RxBroadcastFrames  ",
-+	"RxMulticastFrames  ",
-+	"RxUnicastFrames    ",
-+
-+	"RxFramesTooLong    ",
-+	"RxJabberErrors     ",
-+	"RxFCSErrors        ",
-+	"RxLengthErrors     ",
-+	"RxSymbolErrors     ",
-+	"RxRuntFrames       ",
-+
-+	"RxFrames64         ",
-+	"RxFrames65To127    ",
-+	"RxFrames128To255   ",
-+	"RxFrames256To511   ",
-+	"RxFrames512To1023  ",
-+	"RxFrames1024To1518 ",
-+	"RxFrames1519ToMax  ",
-+
-+	"RxPauseFrames      ",
-+	"RxPPP0Frames       ",
-+	"RxPPP1Frames       ",
-+	"RxPPP2Frames       ",
-+	"RxPPP3Frames       ",
-+	"RxPPP4Frames       ",
-+	"RxPPP5Frames       ",
-+	"RxPPP6Frames       ",
-+	"RxPPP7Frames       ",
-+
-+	"RxBG0FramesDropped ",
-+	"RxBG1FramesDropped ",
-+	"RxBG2FramesDropped ",
-+	"RxBG3FramesDropped ",
-+	"RxBG0FramesTrunc   ",
-+	"RxBG1FramesTrunc   ",
-+	"RxBG2FramesTrunc   ",
-+	"RxBG3FramesTrunc   ",
-+
-+	"TSO                ",
-+	"TxCsumOffload      ",
-+	"RxCsumGood         ",
-+	"VLANextractions    ",
-+	"VLANinsertions     ",
-+};
-+
-+static int get_sset_count(struct net_device *dev, int sset)
-+{
-+	switch (sset) {
-+	case ETH_SS_STATS:
-+		return ARRAY_SIZE(stats_strings);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+#define T4_REGMAP_SIZE (160 * 1024)
-+
-+static int get_regs_len(struct net_device *dev)
-+{
-+	return T4_REGMAP_SIZE;
-+}
-+
-+static int get_eeprom_len(struct net_device *dev)
-+{
-+	return EEPROMSIZE;
-+}
-+
-+static void get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
-+{
-+	struct adapter *adapter = netdev2adap(dev);
-+
-+	strcpy(info->driver, KBUILD_MODNAME);
-+	strcpy(info->version, DRV_VERSION);
-+	strcpy(info->bus_info, pci_name(adapter->pdev));
-+
-+	if (!adapter->params.fw_vers)
-+		strcpy(info->fw_version, "N/A");
-+	else
-+		snprintf(info->fw_version, sizeof(info->fw_version),
-+			"%u.%u.%u.%u, TP %u.%u.%u.%u",
-+			G_FW_HDR_FW_VER_MAJOR(adapter->params.fw_vers),
-+			G_FW_HDR_FW_VER_MINOR(adapter->params.fw_vers),
-+			G_FW_HDR_FW_VER_MICRO(adapter->params.fw_vers),
-+			G_FW_HDR_FW_VER_BUILD(adapter->params.fw_vers),
-+			G_FW_HDR_FW_VER_MAJOR(adapter->params.tp_vers),
-+			G_FW_HDR_FW_VER_MINOR(adapter->params.tp_vers),
-+			G_FW_HDR_FW_VER_MICRO(adapter->params.tp_vers),
-+			G_FW_HDR_FW_VER_BUILD(adapter->params.tp_vers));
-+}
-+
-+static void get_strings(struct net_device *dev, u32 stringset, u8 *data)
-+{
-+	if (stringset == ETH_SS_STATS)
-+		memcpy(data, stats_strings, sizeof(stats_strings));
-+}
-+
-+/*
-+ * port stats maintained per queue of the port.  They should be in the same
-+ * order as in stats_strings above.
-+ */
-+struct queue_port_stats {
-+	u64 tso;
-+	u64 tx_csum;
-+	u64 rx_csum;
-+	u64 vlan_ex;
-+	u64 vlan_ins;
-+};
-+
-+static void collect_sge_port_stats(const struct adapter *adap,
-+		const struct port_info *p, struct queue_port_stats *s)
-+{
-+	int i;
-+	const struct sge_eth_txq *tx = &adap->sge.ethtxq[p->first_qset];
-+	const struct sge_eth_rxq *rx = &adap->sge.ethrxq[p->first_qset];
-+
-+	memset(s, 0, sizeof(*s));
-+	for (i = 0; i < p->nqsets; i++, rx++, tx++) {
-+		s->tso += tx->tso;
-+		s->tx_csum += tx->tx_cso;
-+		s->rx_csum += rx->stats.rx_cso;
-+		s->vlan_ex += rx->stats.vlan_ex;
-+		s->vlan_ins += tx->vlan_ins;
-+	}
-+}
-+
-+static void get_stats(struct net_device *dev, struct ethtool_stats *stats,
-+		      u64 *data)
-+{
-+	struct port_info *pi = netdev_priv(dev);
-+	struct adapter *adapter = pi->adapter;
-+
-+	t4_get_port_stats(adapter, pi->tx_chan, (struct port_stats *)data);
-+
-+	data += sizeof(struct port_stats) / sizeof(u64);
-+	collect_sge_port_stats(adapter, pi, (struct queue_port_stats *)data);
-+}
-+
-+/*
-+ * Return a version number to identify the type of adapter.  The scheme is:
-+ * - bits 0..9: chip version
-+ * - bits 10..15: chip revision
-+ */
-+static inline unsigned int mk_adap_vers(const struct adapter *ap)
-+{
-+	return 4 | (ap->params.rev << 10);
-+}
-+
-+static void reg_block_dump(struct adapter *ap, void *buf, unsigned int start,
-+			   unsigned int end)
-+{
-+	u32 *p = buf + start;
-+
-+	for ( ; start <= end; start += sizeof(u32))
-+		*p++ = t4_read_reg(ap, start);
-+}
-+
-+static void get_regs(struct net_device *dev, struct ethtool_regs *regs,
-+		     void *buf)
-+{
-+	static const unsigned int reg_ranges[] = {
-+		0x1008, 0x1108,
-+		0x1180, 0x11b4,
-+		0x11fc, 0x123c,
-+		0x1300, 0x173c,
-+		0x1800, 0x18fc,
-+		0x3000, 0x30d8,
-+		0x30e0, 0x5924,
-+		0x5960, 0x59d4,
-+		0x5a00, 0x5af8,
-+		0x6000, 0x6098,
-+		0x6100, 0x6150,
-+		0x6200, 0x6208,
-+		0x6240, 0x6248,
-+		0x6280, 0x6338,
-+		0x6370, 0x638c,
-+		0x6400, 0x643c,
-+		0x6500, 0x6524,
-+		0x6a00, 0x6a38,
-+		0x6a60, 0x6a78,
-+		0x6b00, 0x6b84,
-+		0x6bf0, 0x6c84,
-+		0x6cf0, 0x6d84,
-+		0x6df0, 0x6e84,
-+		0x6ef0, 0x6f84,
-+		0x6ff0, 0x7084,
-+		0x70f0, 0x7184,
-+		0x71f0, 0x7284,
-+		0x72f0, 0x7384,
-+		0x73f0, 0x7450,
-+		0x7500, 0x7530,
-+		0x7600, 0x761c,
-+		0x7680, 0x76cc,
-+		0x7700, 0x7798,
-+		0x77c0, 0x77fc,
-+		0x7900, 0x79fc,
-+		0x7b00, 0x7c38,
-+		0x7d00, 0x7efc,
-+		0x8dc0, 0x8e1c,
-+		0x8e30, 0x8e78,
-+		0x8ea0, 0x8f6c,
-+		0x8fc0, 0x9074,
-+		0x90fc, 0x90fc,
-+		0x9400, 0x9458,
-+		0x9600, 0x96bc,
-+		0x9800, 0x9808,
-+		0x9820, 0x983c,
-+		0x9850, 0x9864,
-+		0x9c00, 0x9c6c,
-+		0x9c80, 0x9cec,
-+		0x9d00, 0x9d6c,
-+		0x9d80, 0x9dec,
-+		0x9e00, 0x9e6c,
-+		0x9e80, 0x9eec,
-+		0x9f00, 0x9f6c,
-+		0x9f80, 0x9fec,
-+		0xd004, 0xd03c,
-+		0xdfc0, 0xdfe0,
-+		0xe000, 0xea7c,
-+		0xf000, 0x11190,
-+		0x19040, 0x19124,
-+		0x19150, 0x191b0,
-+		0x191d0, 0x191e8,
-+		0x19238, 0x1924c,
-+		0x193f8, 0x19474,
-+		0x19490, 0x194f8,
-+		0x19800, 0x19f30,
-+		0x1a000, 0x1a06c,
-+		0x1a0b0, 0x1a120,
-+		0x1a128, 0x1a138,
-+		0x1a190, 0x1a1c4,
-+		0x1a1fc, 0x1a1fc,
-+		0x1e040, 0x1e04c,
-+		0x1e240, 0x1e28c,
-+		0x1e2c0, 0x1e2c0,
-+		0x1e2e0, 0x1e2e0,
-+		0x1e300, 0x1e384,
-+		0x1e3c0, 0x1e3c8,
-+		0x1e440, 0x1e44c,
-+		0x1e640, 0x1e68c,
-+		0x1e6c0, 0x1e6c0,
-+		0x1e6e0, 0x1e6e0,
-+		0x1e700, 0x1e784,
-+		0x1e7c0, 0x1e7c8,
-+		0x1e840, 0x1e84c,
-+		0x1ea40, 0x1ea8c,
-+		0x1eac0, 0x1eac0,
-+		0x1eae0, 0x1eae0,
-+		0x1eb00, 0x1eb84,
-+		0x1ebc0, 0x1ebc8,
-+		0x1ec40, 0x1ec4c,
-+		0x1ee40, 0x1ee8c,
-+		0x1eec0, 0x1eec0,
-+		0x1eee0, 0x1eee0,
-+		0x1ef00, 0x1ef84,
-+		0x1efc0, 0x1efc8,
-+		0x1f040, 0x1f04c,
-+		0x1f240, 0x1f28c,
-+		0x1f2c0, 0x1f2c0,
-+		0x1f2e0, 0x1f2e0,
-+		0x1f300, 0x1f384,
-+		0x1f3c0, 0x1f3c8,
-+		0x1f440, 0x1f44c,
-+		0x1f640, 0x1f68c,
-+		0x1f6c0, 0x1f6c0,
-+		0x1f6e0, 0x1f6e0,
-+		0x1f700, 0x1f784,
-+		0x1f7c0, 0x1f7c8,
-+		0x1f840, 0x1f84c,
-+		0x1fa40, 0x1fa8c,
-+		0x1fac0, 0x1fac0,
-+		0x1fae0, 0x1fae0,
-+		0x1fb00, 0x1fb84,
-+		0x1fbc0, 0x1fbc8,
-+		0x1fc40, 0x1fc4c,
-+		0x1fe40, 0x1fe8c,
-+		0x1fec0, 0x1fec0,
-+		0x1fee0, 0x1fee0,
-+		0x1ff00, 0x1ff84,
-+		0x1ffc0, 0x1ffc8,
-+		0x20000, 0x2002c,
-+		0x20100, 0x2013c,
-+		0x20190, 0x201c4,
-+		0x20200, 0x20318,
-+		0x20400, 0x20528,
-+		0x20540, 0x20614,
-+		0x21000, 0x21040,
-+		0x2104c, 0x21060,
-+		0x210c0, 0x210ec,
-+		0x21200, 0x21268,
-+		0x21270, 0x21284,
-+		0x212fc, 0x21388,
-+		0x21400, 0x21404,
-+		0x21500, 0x21518,
-+		0x2152c, 0x2153c,
-+		0x21550, 0x21554,
-+		0x21600, 0x21600,
-+		0x21608, 0x21628,
-+		0x21630, 0x2163c,
-+		0x21700, 0x2171c,
-+		0x21780, 0x2178c,
-+		0x21800, 0x21c38,
-+		0x21c80, 0x21d7c,
-+		0x21e00, 0x21e04,
-+		0x22000, 0x2202c,
-+		0x22100, 0x2213c,
-+		0x22190, 0x221c4,
-+		0x22200, 0x22318,
-+		0x22400, 0x22528,
-+		0x22540, 0x22614,
-+		0x23000, 0x23040,
-+		0x2304c, 0x23060,
-+		0x230c0, 0x230ec,
-+		0x23200, 0x23268,
-+		0x23270, 0x23284,
-+		0x232fc, 0x23388,
-+		0x23400, 0x23404,
-+		0x23500, 0x23518,
-+		0x2352c, 0x2353c,
-+		0x23550, 0x23554,
-+		0x23600, 0x23600,
-+		0x23608, 0x23628,
-+		0x23630, 0x2363c,
-+		0x23700, 0x2371c,
-+		0x23780, 0x2378c,
-+		0x23800, 0x23c38,
-+		0x23c80, 0x23d7c,
-+		0x23e00, 0x23e04,
-+		0x24000, 0x2402c,
-+		0x24100, 0x2413c,
-+		0x24190, 0x241c4,
-+		0x24200, 0x24318,
-+		0x24400, 0x24528,
-+		0x24540, 0x24614,
-+		0x25000, 0x25040,
-+		0x2504c, 0x25060,
-+		0x250c0, 0x250ec,
-+		0x25200, 0x25268,
-+		0x25270, 0x25284,
-+		0x252fc, 0x25388,
-+		0x25400, 0x25404,
-+		0x25500, 0x25518,
-+		0x2552c, 0x2553c,
-+		0x25550, 0x25554,
-+		0x25600, 0x25600,
-+		0x25608, 0x25628,
-+		0x25630, 0x2563c,
-+		0x25700, 0x2571c,
-+		0x25780, 0x2578c,
-+		0x25800, 0x25c38,
-+		0x25c80, 0x25d7c,
-+		0x25e00, 0x25e04,
-+		0x26000, 0x2602c,
-+		0x26100, 0x2613c,
-+		0x26190, 0x261c4,
-+		0x26200, 0x26318,
-+		0x26400, 0x26528,
-+		0x26540, 0x26614,
-+		0x27000, 0x27040,
-+		0x2704c, 0x27060,
-+		0x270c0, 0x270ec,
-+		0x27200, 0x27268,
-+		0x27270, 0x27284,
-+		0x272fc, 0x27388,
-+		0x27400, 0x27404,
-+		0x27500, 0x27518,
-+		0x2752c, 0x2753c,
-+		0x27550, 0x27554,
-+		0x27600, 0x27600,
-+		0x27608, 0x27628,
-+		0x27630, 0x2763c,
-+		0x27700, 0x2771c,
-+		0x27780, 0x2778c,
-+		0x27800, 0x27c38,
-+		0x27c80, 0x27d7c,
-+		0x27e00, 0x27e04
-+	};
-+
-+	int i;
-+	struct adapter *ap = netdev2adap(dev);
-+
-+	regs->version = mk_adap_vers(ap);
-+
-+	memset(buf, 0, T4_REGMAP_SIZE);
-+	for (i = 0; i < ARRAY_SIZE(reg_ranges); i += 2)
-+		reg_block_dump(ap, buf, reg_ranges[i], reg_ranges[i + 1]);
-+}
-+
-+static int restart_autoneg(struct net_device *dev)
-+{
-+	struct port_info *p = netdev_priv(dev);
-+
-+	if (!netif_running(dev))
-+		return -EAGAIN;
-+	if (p->link_cfg.autoneg != AUTONEG_ENABLE)
-+		return -EINVAL;
-+	t4_restart_aneg(p->adapter, 0, p->tx_chan);
-+	return 0;
-+}
-+
-+static int identify_port(struct net_device *dev, u32 data)
-+{
-+	if (data == 0)
-+		data = 2;     /* default to 2 seconds */
-+
-+	return t4_identify_port(netdev2adap(dev), 0, netdev2pinfo(dev)->viid,
-+				data * 5);
-+}
-+
-+static unsigned int from_fw_linkcaps(unsigned int type, unsigned int caps)
-+{
-+	unsigned int v = 0;
-+
-+	if (type == FW_PORT_TYPE_BT_SGMII || type == FW_PORT_TYPE_BT_XAUI) {
-+		v |= SUPPORTED_TP;
-+		if (caps & FW_PORT_CAP_SPEED_100M)
-+			v |= SUPPORTED_100baseT_Full;
-+		if (caps & FW_PORT_CAP_SPEED_1G)
-+			v |= SUPPORTED_1000baseT_Full;
-+		if (caps & FW_PORT_CAP_SPEED_10G)
-+			v |= SUPPORTED_10000baseT_Full;
-+	} else if (type == FW_PORT_TYPE_KX4 || type == FW_PORT_TYPE_KX) {
-+		v |= SUPPORTED_Backplane;
-+		if (caps & FW_PORT_CAP_SPEED_1G)
-+			v |= SUPPORTED_1000baseKX_Full;
-+		if (caps & FW_PORT_CAP_SPEED_10G)
-+			v |= SUPPORTED_10000baseKX4_Full;
-+	} else if (type == FW_PORT_TYPE_KR)
-+		v |= SUPPORTED_Backplane | SUPPORTED_10000baseKR_Full;
-+	else if (type == FW_PORT_TYPE_FIBER)
-+		v |= SUPPORTED_FIBRE;
-+
-+	if (caps & FW_PORT_CAP_ANEG)
-+		v |= SUPPORTED_Autoneg;
-+	return v;
-+}
-+
-+static unsigned int to_fw_linkcaps(unsigned int caps)
-+{
-+	unsigned int v = 0;
-+
-+	if (caps & ADVERTISED_100baseT_Full)
-+		v |= FW_PORT_CAP_SPEED_100M;
-+	if (caps & ADVERTISED_1000baseT_Full)
-+		v |= FW_PORT_CAP_SPEED_1G;
-+	if (caps & ADVERTISED_10000baseT_Full)
-+		v |= FW_PORT_CAP_SPEED_10G;
-+	return v;
-+}
-+
-+static int get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+{
-+	const struct port_info *p = netdev_priv(dev);
-+
-+	if (p->port_type == FW_PORT_TYPE_BT_SGMII ||
-+	    p->port_type == FW_PORT_TYPE_BT_XAUI)
-+		cmd->port = PORT_TP;
-+	else if (p->port_type == FW_PORT_TYPE_FIBER)
-+		cmd->port = PORT_FIBRE;
-+	else if (p->port_type == FW_PORT_TYPE_TWINAX)
-+		cmd->port = PORT_DA;
-+	else
-+		cmd->port = PORT_OTHER;
-+
-+	if (p->mdio_addr >= 0) {
-+		cmd->phy_address = p->mdio_addr;
-+		cmd->transceiver = XCVR_EXTERNAL;
-+		cmd->mdio_support = p->port_type == FW_PORT_TYPE_BT_SGMII ?
-+			MDIO_SUPPORTS_C22 : MDIO_SUPPORTS_C45;
-+	} else {
-+		cmd->phy_address = 0;  /* not really, but no better option */
-+		cmd->transceiver = XCVR_INTERNAL;
-+		cmd->mdio_support = 0;
-+	}
-+
-+	cmd->supported = from_fw_linkcaps(p->port_type, p->link_cfg.supported);
-+	cmd->advertising = from_fw_linkcaps(p->port_type,
-+					    p->link_cfg.advertising);
-+	cmd->speed = netif_carrier_ok(dev) ? p->link_cfg.speed : 0;
-+	cmd->duplex = DUPLEX_FULL;
-+	cmd->autoneg = p->link_cfg.autoneg;
-+	cmd->maxtxpkt = 0;
-+	cmd->maxrxpkt = 0;
-+	return 0;
-+}
-+
-+static unsigned int speed_to_caps(int speed)
-+{
-+	if (speed == SPEED_100)
-+		return FW_PORT_CAP_SPEED_100M;
-+	if (speed == SPEED_1000)
-+		return FW_PORT_CAP_SPEED_1G;
-+	if (speed == SPEED_10000)
-+		return FW_PORT_CAP_SPEED_10G;
-+	return 0;
-+}
-+
-+static int set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+{
-+	unsigned int cap;
-+	struct port_info *p = netdev_priv(dev);
-+	struct link_config *lc = &p->link_cfg;
-+
-+	if (cmd->duplex != DUPLEX_FULL)     /* only full-duplex supported */
-+		return -EINVAL;
-+
-+	if (!(lc->supported & FW_PORT_CAP_ANEG)) {
-+		/*
-+		 * PHY offers a single speed.  See if that's what's
-+		 * being requested.
-+		 */
-+		if (cmd->autoneg == AUTONEG_DISABLE &&
-+		    (lc->supported & speed_to_caps(cmd->speed)))
-+				return 0;
-+		return -EINVAL;
-+	}
-+
-+	if (cmd->autoneg == AUTONEG_DISABLE) {
-+		cap = speed_to_caps(cmd->speed);
-+
-+		if (!(lc->supported & cap) || cmd->speed == SPEED_1000 ||
-+		    cmd->speed == SPEED_10000)
-+			return -EINVAL;
-+		lc->requested_speed = cap;
-+		lc->advertising = 0;
-+	} else {
-+		cap = to_fw_linkcaps(cmd->advertising);
-+		if (!(lc->supported & cap))
-+			return -EINVAL;
-+		lc->requested_speed = 0;
-+		lc->advertising = cap | FW_PORT_CAP_ANEG;
-+	}
-+	lc->autoneg = cmd->autoneg;
-+
-+	if (netif_running(dev))
-+		return t4_link_start(p->adapter, 0, p->tx_chan, lc);
-+	return 0;
-+}
-+
-+static void get_pauseparam(struct net_device *dev,
-+			   struct ethtool_pauseparam *epause)
-+{
-+	struct port_info *p = netdev_priv(dev);
-+
-+	epause->autoneg = (p->link_cfg.requested_fc & PAUSE_AUTONEG) != 0;
-+	epause->rx_pause = (p->link_cfg.fc & PAUSE_RX) != 0;
-+	epause->tx_pause = (p->link_cfg.fc & PAUSE_TX) != 0;
-+}
-+
-+static int set_pauseparam(struct net_device *dev,
-+			  struct ethtool_pauseparam *epause)
-+{
-+	struct port_info *p = netdev_priv(dev);
-+	struct link_config *lc = &p->link_cfg;
-+
-+	if (epause->autoneg == AUTONEG_DISABLE)
-+		lc->requested_fc = 0;
-+	else if (lc->supported & FW_PORT_CAP_ANEG)
-+		lc->requested_fc = PAUSE_AUTONEG;
-+	else
-+		return -EINVAL;
-+
-+	if (epause->rx_pause)
-+		lc->requested_fc |= PAUSE_RX;
-+	if (epause->tx_pause)
-+		lc->requested_fc |= PAUSE_TX;
-+	if (netif_running(dev))
-+		return t4_link_start(p->adapter, 0, p->tx_chan, lc);
-+	return 0;
-+}
-+
-+static u32 get_rx_csum(struct net_device *dev)
-+{
-+	struct port_info *p = netdev_priv(dev);
-+
-+	return p->rx_offload & RX_CSO;
-+}
-+
-+static int set_rx_csum(struct net_device *dev, u32 data)
-+{
-+	struct port_info *p = netdev_priv(dev);
-+
-+	if (data)
-+		p->rx_offload |= RX_CSO;
-+	else
-+		p->rx_offload &= ~RX_CSO;
-+	return 0;
-+}
-+
-+static void get_sge_param(struct net_device *dev, struct ethtool_ringparam *e)
-+{
-+	const struct port_info *pi = netdev_priv(dev);
-+	const struct sge *s = &pi->adapter->sge;
-+
-+	e->rx_max_pending = MAX_RX_BUFFERS;
-+	e->rx_mini_max_pending = MAX_RSPQ_ENTRIES;
-+	e->rx_jumbo_max_pending = 0;
-+	e->tx_max_pending = MAX_TXQ_ENTRIES;
-+
-+	e->rx_pending = s->ethrxq[pi->first_qset].fl.size - 8;
-+	e->rx_mini_pending = s->ethrxq[pi->first_qset].rspq.size;
-+	e->rx_jumbo_pending = 0;
-+	e->tx_pending = s->ethtxq[pi->first_qset].q.size;
-+}
-+
-+static int set_sge_param(struct net_device *dev, struct ethtool_ringparam *e)
-+{
-+	int i;
-+	const struct port_info *pi = netdev_priv(dev);
-+	struct adapter *adapter = pi->adapter;
-+	struct sge *s = &adapter->sge;
-+
-+	if (e->rx_pending > MAX_RX_BUFFERS || e->rx_jumbo_pending ||
-+	    e->tx_pending > MAX_TXQ_ENTRIES ||
-+	    e->rx_mini_pending > MAX_RSPQ_ENTRIES ||
-+	    e->rx_mini_pending < MIN_RSPQ_ENTRIES ||
-+	    e->rx_pending < MIN_FL_ENTRIES || e->tx_pending < MIN_TXQ_ENTRIES)
-+		return -EINVAL;
-+
-+	if (adapter->flags & FULL_INIT_DONE)
-+		return -EBUSY;
-+
-+	for (i = 0; i < pi->nqsets; ++i) {
-+		s->ethtxq[pi->first_qset + i].q.size = e->tx_pending;
-+		s->ethrxq[pi->first_qset + i].fl.size = e->rx_pending + 8;
-+		s->ethrxq[pi->first_qset + i].rspq.size = e->rx_mini_pending;
-+	}
-+	return 0;
-+}
-+
-+static int closest_timer(const struct sge *s, int time)
-+{
-+	int i, delta, match = 0, min_delta = INT_MAX;
-+
-+	for (i = 0; i < ARRAY_SIZE(s->timer_val); i++) {
-+		delta = time - s->timer_val[i];
-+		if (delta < 0)
-+			delta = -delta;
-+		if (delta < min_delta) {
-+			min_delta = delta;
-+			match = i;
-+		}
-+	}
-+	return match;
-+}
-+
-+static int closest_thres(const struct sge *s, int thres)
-+{
-+	int i, delta, match = 0, min_delta = INT_MAX;
-+
-+	for (i = 0; i < ARRAY_SIZE(s->counter_val); i++) {
-+		delta = thres - s->counter_val[i];
-+		if (delta < 0)
-+			delta = -delta;
-+		if (delta < min_delta) {
-+			min_delta = delta;
-+			match = i;
-+		}
-+	}
-+	return match;
-+}
-+
-+/*
-+ * Return a queue's interrupt hold-off time in us.  0 means no timer.
-+ */
-+static unsigned int qtimer_val(const struct adapter *adap,
-+			       const struct sge_rspq *q)
-+{
-+	unsigned int idx = G_QINTR_TIMER_IDX(q->intr_params);
-+
-+	return idx < SGE_NTIMERS ? adap->sge.timer_val[idx] : 0;
-+}
-+
-+/**
-+ *	set_rxq_intr_params - set a queue's interrupt holdoff parameters
-+ *	@adap: the adapter
-+ *	@q: the Rx queue
-+ *	@us: the hold-off time in us, or 0 to disable timer
-+ *	@cnt: the hold-off packet count, or 0 to disable counter
-+ *
-+ *	Sets an Rx queue's interrupt hold-off time and packet count.  At least
-+ *	one of the two needs to be enabled for the queue to generate interrupts.
-+ */
-+static int set_rxq_intr_params(struct adapter *adap, struct sge_rspq *q,
-+			       unsigned int us, unsigned int cnt)
-+{
-+	if ((us | cnt) == 0)
-+		cnt = 1;
-+
-+	if (cnt) {
-+		int err;
-+		u32 v, new_idx;
-+
-+		new_idx = closest_thres(&adap->sge, cnt);
-+		if (q->desc && q->pktcnt_idx != new_idx) {
-+			/* the queue has already been created, update it */
-+			v = V_FW_PARAMS_MNEM(FW_PARAMS_MNEM_DMAQ) |
-+			    V_FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DMAQ_IQ_INTCNTTHRESH) |
-+			    V_FW_PARAMS_PARAM_YZ(q->cntxt_id);
-+			err = t4_set_params(adap, 0, 1, &v, &new_idx);
-+			if (err)
-+				return err;
-+		}
-+		q->pktcnt_idx = new_idx;
-+	}
-+
-+	us = us == 0 ? E_TIMERIDX_NONE : closest_timer(&adap->sge, us);
-+	q->intr_params = V_QINTR_TIMER_IDX(us) | V_QINTR_CNT_EN(cnt > 0);
-+	return 0;
-+}
-+
-+static int set_coalesce(struct net_device *dev, struct ethtool_coalesce *c)
-+{
-+	const struct port_info *pi = netdev_priv(dev);
-+	struct adapter *adap = pi->adapter;
-+
-+	return set_rxq_intr_params(adap, &adap->sge.ethrxq[pi->first_qset].rspq,
-+			c->rx_coalesce_usecs, c->rx_max_coalesced_frames);
-+}
-+
-+static int get_coalesce(struct net_device *dev, struct ethtool_coalesce *c)
-+{
-+	const struct port_info *pi = netdev_priv(dev);
-+	const struct adapter *adap = pi->adapter;
-+	const struct sge_rspq *rq = &adap->sge.ethrxq[pi->first_qset].rspq;
-+
-+	c->rx_coalesce_usecs = qtimer_val(adap, rq);
-+	c->rx_max_coalesced_frames = (rq->intr_params & F_QINTR_CNT_EN) ?
-+		adap->sge.counter_val[rq->pktcnt_idx] : 0;
-+	return 0;
-+}
-+
-+/*
-+ * Translate a physical EEPROM address to virtual.  The first 1K is accessed
-+ * through virtual addresses starting at 31K, the rest is accessed through
-+ * virtual addresses starting at 0.  This mapping is correct only for PF0.
-+ */
-+static int eeprom_ptov(unsigned int phys_addr)
-+{
-+	if (phys_addr < 1024)
-+		return phys_addr + (31 << 10);
-+	if (phys_addr < EEPROMSIZE)
-+		return phys_addr - 1024;
-+	return -EINVAL;
-+}
-+
-+/*
-+ * The next two routines implement eeprom read/write from physical addresses.
-+ * The physical->virtual translation is correct only for PF0.
-+ */
-+static int eeprom_rd_phys(struct adapter *adap, unsigned int phys_addr, u32 *v)
-+{
-+	int vaddr = eeprom_ptov(phys_addr);
-+
-+	if (vaddr >= 0)
-+		vaddr = pci_read_vpd(adap->pdev, vaddr, sizeof(u32), v);
-+	return vaddr < 0 ? vaddr : 0;
-+}
-+
-+static int eeprom_wr_phys(struct adapter *adap, unsigned int phys_addr, u32 v)
-+{
-+	int vaddr = eeprom_ptov(phys_addr);
-+
-+	if (vaddr >= 0)
-+		vaddr = pci_write_vpd(adap->pdev, vaddr, sizeof(u32), &v);
-+	return vaddr < 0 ? vaddr : 0;
-+}
-+
-+#define EEPROM_MAGIC 0x38E2F10C
-+
-+static int get_eeprom(struct net_device *dev, struct ethtool_eeprom *e,
-+		      u8 *data)
-+{
-+	int i, err = 0;
-+	struct adapter *adapter = netdev2adap(dev);
-+
-+	u8 *buf = kmalloc(EEPROMSIZE, GFP_KERNEL);
-+	if (!buf)
-+		return -ENOMEM;
-+
-+	e->magic = EEPROM_MAGIC;
-+	for (i = e->offset & ~3; !err && i < e->offset + e->len; i += 4)
-+		err = eeprom_rd_phys(adapter, i, (u32 *)&buf[i]);
-+
-+	if (!err)
-+		memcpy(data, buf + e->offset, e->len);
-+	kfree(buf);
-+	return err;
-+}
-+
-+static int set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
-+		      u8 *data)
-+{
-+	u8 *buf;
-+	int err = 0;
-+	u32 aligned_offset, aligned_len, *p;
-+	struct adapter *adapter = netdev2adap(dev);
-+
-+	if (eeprom->magic != EEPROM_MAGIC)
-+		return -EINVAL;
-+
-+	aligned_offset = eeprom->offset & ~3;
-+	aligned_len = (eeprom->len + (eeprom->offset & 3) + 3) & ~3;
-+
-+	if (aligned_offset != eeprom->offset || aligned_len != eeprom->len) {
-+		/*
-+		 * RMW possibly needed for first or last words.
-+		 */
-+		buf = kmalloc(aligned_len, GFP_KERNEL);
-+		if (!buf)
-+			return -ENOMEM;
-+		err = eeprom_rd_phys(adapter, aligned_offset, (u32 *)buf);
-+		if (!err && aligned_len > 4)
-+			err = eeprom_rd_phys(adapter,
-+					     aligned_offset + aligned_len - 4,
-+					     (u32 *)&buf[aligned_len - 4]);
-+		if (err)
-+			goto out;
-+		memcpy(buf + (eeprom->offset & 3), data, eeprom->len);
-+	} else
-+		buf = data;
-+
-+	err = t4_seeprom_wp(adapter, false);
-+	if (err)
-+		goto out;
-+
-+	for (p = (u32 *)buf; !err && aligned_len; aligned_len -= 4, p++) {
-+		err = eeprom_wr_phys(adapter, aligned_offset, *p);
-+		aligned_offset += 4;
-+	}
-+
-+	if (!err)
-+		err = t4_seeprom_wp(adapter, true);
-+out:
-+	if (buf != data)
-+		kfree(buf);
-+	return err;
-+}
-+
-+static int set_flash(struct net_device *netdev, struct ethtool_flash *ef)
-+{
-+	int ret;
-+	const struct firmware *fw;
-+	struct adapter *adap = netdev2adap(netdev);
-+
-+	ef->data[sizeof(ef->data) - 1] = '\0';
-+	ret = request_firmware(&fw, ef->data, adap->pdev_dev);
-+	if (ret < 0)
-+		return ret;
-+
-+	ret = t4_load_fw(adap, fw->data, fw->size);
-+	release_firmware(fw);
-+	if (!ret)
-+		dev_info(adap->pdev_dev, "loaded firmware %s\n", ef->data);
-+	return ret;
-+}
-+
-+#define WOL_SUPPORTED (WAKE_BCAST | WAKE_MAGIC)
-+#define BCAST_CRC 0xa0ccc1a6
-+
-+static void get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
-+{
-+	wol->supported = WAKE_BCAST | WAKE_MAGIC;
-+	wol->wolopts = netdev2adap(dev)->wol;
-+	memset(&wol->sopass, 0, sizeof(wol->sopass));
-+}
-+
-+static int set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
-+{
-+	int err = 0;
-+	struct port_info *pi = netdev_priv(dev);
-+
-+	if (wol->wolopts & ~WOL_SUPPORTED)
-+		return -EINVAL;
-+	t4_wol_magic_enable(pi->adapter, pi->tx_chan,
-+			    (wol->wolopts & WAKE_MAGIC) ? dev->dev_addr : NULL);
-+	if (wol->wolopts & WAKE_BCAST) {
-+		err = t4_wol_pat_enable(pi->adapter, pi->tx_chan, 0xfe, ~0ULL,
-+					~0ULL, 0, false);
-+		if (!err)
-+			err = t4_wol_pat_enable(pi->adapter, pi->tx_chan, 1,
-+						~6ULL, ~0ULL, BCAST_CRC, true);
-+	} else
-+		t4_wol_pat_enable(pi->adapter, pi->tx_chan, 0, 0, 0, 0, false);
-+	return err;
-+}
-+
-+static int set_tso(struct net_device *dev, u32 value)
-+{
-+	if (value)
-+		dev->features |= NETIF_F_TSO | NETIF_F_TSO6;
-+	else
-+		dev->features &= ~(NETIF_F_TSO | NETIF_F_TSO6);
-+	return 0;
-+}
-+
-+static struct ethtool_ops cxgb_ethtool_ops = {
-+	.get_settings      = get_settings,
-+	.set_settings      = set_settings,
-+	.get_drvinfo       = get_drvinfo,
-+	.get_msglevel      = get_msglevel,
-+	.set_msglevel      = set_msglevel,
-+	.get_ringparam     = get_sge_param,
-+	.set_ringparam     = set_sge_param,
-+	.get_coalesce      = get_coalesce,
-+	.set_coalesce      = set_coalesce,
-+	.get_eeprom_len    = get_eeprom_len,
-+	.get_eeprom        = get_eeprom,
-+	.set_eeprom        = set_eeprom,
-+	.get_pauseparam    = get_pauseparam,
-+	.set_pauseparam    = set_pauseparam,
-+	.get_rx_csum       = get_rx_csum,
-+	.set_rx_csum       = set_rx_csum,
-+	.set_tx_csum       = ethtool_op_set_tx_ipv6_csum,
-+	.set_sg            = ethtool_op_set_sg,
-+	.get_link          = ethtool_op_get_link,
-+	.get_strings       = get_strings,
-+	.phys_id           = identify_port,
-+	.nway_reset        = restart_autoneg,
-+	.get_sset_count    = get_sset_count,
-+	.get_ethtool_stats = get_stats,
-+	.get_regs_len      = get_regs_len,
-+	.get_regs          = get_regs,
-+	.get_wol           = get_wol,
-+	.set_wol           = set_wol,
-+	.set_tso           = set_tso,
-+	.flash_device      = set_flash,
-+};
-+
-+/*
-+ * Read a vector of numbers from a user space buffer.  Each number must be
-+ * between min and max inclusive and in the given base.
-+ */
-+static int rd_usr_int_vec(const char __user *buf, size_t usr_len, int vec_len,
-+			  unsigned long *vals, unsigned long min,
-+			  unsigned long max, int base)
-+{
-+	size_t l;
-+	unsigned long v;
-+	char c, word[68], *end;
-+
-+	while (usr_len) {
-+		/* skip whitespace to beginning of next word */
-+		while (usr_len) {
-+			if (get_user(c, buf))
-+				return -EFAULT;
-+			if (!isspace(c))
-+				break;
-+			usr_len--;
-+			buf++;
-+		}
-+
-+		if (!usr_len)
-+			break;
-+		if (!vec_len)
-+			return -EINVAL;              /* too many numbers */
-+
-+		/* get next word (possibly going beyond its end) */
-+		l = min(usr_len, sizeof(word) - 1);
-+		if (copy_from_user(word, buf, l))
-+			return -EFAULT;
-+		word[l] = '\0';
-+
-+		v = simple_strtoul(word, &end, base);
-+		l = end - word;
-+		if (!l)
-+			return -EINVAL;              /* catch embedded '\0's */
-+		if (*end && !isspace(*end))
-+			return -EINVAL;
-+		/*
-+		 * Complain if we encountered a too long sequence of digits.
-+		 * The most we can consume in one iteration is for a 64-bit
-+		 * number in binary.  Too bad simple_strtoul doesn't catch
-+		 * overflows.
-+		 */
-+		if (l > 64)
-+			return -EINVAL;
-+		if (v < min || v > max)
-+			return -ERANGE;
-+		*vals++ = v;
-+		vec_len--;
-+		usr_len -= l;
-+		buf += l;
-+	}
-+	if (vec_len)
-+		return -EINVAL;                      /* not enough numbers */
-+	return 0;
-+}
-+
-+static void seq_noop_stop(struct seq_file *seq, void *v)
-+{
-+}
-+
-+/*
-+ * generic seq_file support for showing a table of size rows x width.
-+ */
-+struct seq_tab {
-+	int (*show)(struct seq_file *seq, void *v, int idx);
-+	unsigned int rows;        /* # of entries */
-+	unsigned char width;      /* size in bytes of each entry */
-+	unsigned char skip_first; /* whether the first line is a header */
-+	char data[0];             /* the table data */
-+};
-+
-+static void *seq_tab_get_idx(struct seq_tab *tb, loff_t pos)
-+{
-+	pos -= tb->skip_first;
-+	return pos >= tb->rows ? NULL : &tb->data[pos * tb->width];
-+}
-+
-+static void *seq_tab_start(struct seq_file *seq, loff_t *pos)
-+{
-+	struct seq_tab *tb = seq->private;
-+
-+	if (tb->skip_first && *pos == 0)
-+		return SEQ_START_TOKEN;
-+
-+	return seq_tab_get_idx(tb, *pos);
-+}
-+
-+static void *seq_tab_next(struct seq_file *seq, void *v, loff_t *pos)
-+{
-+	v = seq_tab_get_idx(seq->private, *pos + 1);
-+	if (v)
-+		++*pos;
-+	return v;
-+}
-+
-+static int seq_tab_show(struct seq_file *seq, void *v)
-+{
-+	const struct seq_tab *tb = seq->private;
-+
-+	/*
-+	 * index is bogus when v isn't within data, eg when it's
-+	 * SEQ_START_TOKEN, but that's OK
-+	 */
-+	return tb->show(seq, v, ((char *)v - tb->data) / tb->width);
-+}
-+
-+static const struct seq_operations seq_tab_ops = {
-+	.start = seq_tab_start,
-+	.next  = seq_tab_next,
-+	.stop  = seq_noop_stop,
-+	.show  = seq_tab_show
-+};
-+
-+static struct seq_tab *seq_open_tab(struct file *f, unsigned int rows,
-+		unsigned int width, unsigned int have_header,
-+		int (*show)(struct seq_file *seq, void *v, int i))
-+{
-+	struct seq_tab *p;
-+
-+	p = __seq_open_private(f, &seq_tab_ops, sizeof(*p) + rows * width);
-+	if (p) {
-+		p->show = show;
-+		p->rows = rows;
-+		p->width = width;
-+		p->skip_first = have_header != 0;
-+	}
-+	return p;
-+}
-+
-+/*
-+ * debugfs support
-+ */
-+
-+static int mem_open(struct inode *inode, struct file *file)
-+{
-+	file->private_data = inode->i_private;
-+	return 0;
-+}
-+
-+static ssize_t mem_read(struct file *file, char __user *buf, size_t count,
-+			loff_t *ppos)
-+{
-+	loff_t pos = *ppos;
-+	loff_t avail = file->f_path.dentry->d_inode->i_size;
-+	unsigned int mem = (uintptr_t)file->private_data & 3;
-+	struct adapter *adap = file->private_data - mem;
-+
-+	if (pos < 0)
-+		return -EINVAL;
-+	if (pos >= avail)
-+		return 0;
-+	if (count > avail - pos)
-+		count = avail - pos;
-+
-+	while (count) {
-+		size_t len;
-+		int ret, ofst;
-+		__be32 data[16];
-+
-+		if (mem == MEM_MC)
-+			ret = t4_mc_read(adap, pos, data, NULL);
-+		else
-+			ret = t4_edc_read(adap, mem, pos, data, NULL);
-+		if (ret)
-+			return ret;
-+
-+		ofst = pos % sizeof(data);
-+		len = min(count, sizeof(data) - ofst);
-+		if (copy_to_user(buf, (u8 *)data + ofst, len))
-+			return -EFAULT;
-+
-+		buf += len;
-+		pos += len;
-+		count -= len;
-+	}
-+	count = pos - *ppos;
-+	*ppos = pos;
-+	return count;
-+}
-+
-+static const struct file_operations mem_debugfs_fops = {
-+	.owner   = THIS_MODULE,
-+	.open    = mem_open,
-+	.read    = mem_read,
-+};
-+
-+static void __devinit add_debugfs_mem(struct adapter *adap, const char *name,
-+				      unsigned int idx, unsigned int size_mb)
-+{
-+	struct dentry *de;
-+
-+	de = debugfs_create_file(name, S_IRUSR, adap->debugfs_root,
-+				 (void *)adap + idx, &mem_debugfs_fops);
-+	if (de && de->d_inode)
-+		de->d_inode->i_size = size_mb << 20;
-+}
-+
-+static int __devinit setup_debugfs(struct adapter *adap)
-+{
-+	int i;
-+
-+	if (!adap->debugfs_root)
-+		return -1;
-+
-+	i = t4_read_reg(adap, A_MA_TARGET_MEM_ENABLE);
-+	if (i & F_EDRAM0_ENABLE)
-+		add_debugfs_mem(adap, "edc0", MEM_EDC0, 5);
-+	if (i & F_EDRAM1_ENABLE)
-+		add_debugfs_mem(adap, "edc1", MEM_EDC1, 5);
-+	if (i & F_EXT_MEM_ENABLE)
-+		add_debugfs_mem(adap, "mc", MEM_MC,
-+			G_EXT_MEM_SIZE(t4_read_reg(adap, A_MA_EXT_MEMORY_BAR)));
-+	return 0;
-+}
-+
-+/*
-+ * /proc support
-+ */
-+
-+#define DEFINE_SIMPLE_PROC_FILE(name) \
-+static int name##_open(struct inode *inode, struct file *file) \
-+{ \
-+	return single_open(file, name##_show, PDE(inode)->data); \
-+} \
-+static const struct file_operations name##_proc_fops = { \
-+	.owner   = THIS_MODULE, \
-+	.open    = name##_open, \
-+	.read    = seq_read, \
-+	.llseek  = seq_lseek, \
-+	.release = single_release \
-+}
-+
-+static int sge_stats_show(struct seq_file *seq, void *v)
-+{
-+	struct adapter *adap = seq->private;
-+	int eth_entries = DIV_ROUND_UP(adap->sge.ethqsets, 4);
-+	int ofld_entries = DIV_ROUND_UP(adap->sge.ofldqsets, 4);
-+	int rdma_entries = DIV_ROUND_UP(adap->sge.rdmaqs, 4);
-+	int ctrl_entries = DIV_ROUND_UP(MAX_CTRL_QUEUES, 4);
-+	int i, r = (uintptr_t)v - 1;
-+
-+	if (r)
-+		seq_putc(seq, '\n');
-+
-+#define S3(fmt_spec, s, v) do { \
-+	seq_printf(seq, "%-12s", s); \
-+	for (i = 0; i < n; ++i) \
-+		seq_printf(seq, " %16" fmt_spec, v); \
-+		seq_putc(seq, '\n'); \
-+} while (0)
-+#define S(s, v) S3("s", s, v)
-+#define T3(fmt_spec, s, v) S3(fmt_spec, s, tx[i].v)
-+#define T(s, v) T3("lu", s, v)
-+#define R3(fmt_spec, s, v) S3(fmt_spec, s, qs[i].v)
-+#define R(s, v) R3("lu", s, v)
-+
-+	if (r < eth_entries) {
-+		const struct sge_eth_rxq *qs = &adap->sge.ethrxq[r * 4];
-+		const struct sge_eth_txq *tx = &adap->sge.ethtxq[r * 4];
-+		int n = min(4, adap->sge.ethqsets - 4 * r);
-+
-+		S("QType:", "Ethernet");
-+		S("Interface:",
-+		  qs[i].rspq.netdev ? qs[i].rspq.netdev->name : "N/A");
-+		R("RxPackets:", stats.pkts);
-+		R("RxCSO:", stats.rx_cso);
-+		R("VLANxtract:", stats.vlan_ex);
-+		R("LROmerged:", stats.lro_merged);
-+		R("LROpackets:", stats.lro_pkts);
-+		R("RxDrops:", stats.rx_drops);
-+		T("TSO:", tso);
-+		T("TxCSO:", tx_cso);
-+		T("VLANins:", vlan_ins);
-+		T("TxQFull:", q.stops);
-+		T("TxQRestarts:", q.restarts);
-+		T("TxMapErr:", mapping_err);
-+		R("FLAllocErr:", fl.alloc_failed);
-+		R("FLLrgAlcErr:", fl.large_alloc_failed);
-+		R("FLstarving:", fl.starving);
-+	} else if ((r -= eth_entries) < ofld_entries) {
-+		const struct sge_ofld_rxq *qs = &adap->sge.ofldrxq[r * 4];
-+		const struct sge_ofld_txq *tx = &adap->sge.ofldtxq[r * 4];
-+		int n = min(4, adap->sge.ofldqsets - 4 * r);
-+
-+		S("QType:", "OFLD");
-+		R("RxPackets:", stats.pkts);
-+		R("RxImmPkts:", stats.imm);
-+		R("RxNoMem:", stats.nomem);
-+		T("TxQFull:", q.stops);
-+		T("TxQRestarts:", q.restarts);
-+		T("TxMapErr:", mapping_err);
-+		R("FLAllocErr:", fl.alloc_failed);
-+		R("FLLrgAlcErr:", fl.large_alloc_failed);
-+		R("FLstarving:", fl.starving);
-+	} else if ((r -= ofld_entries) < rdma_entries) {
-+		const struct sge_ofld_rxq *qs = &adap->sge.rdmarxq[r * 4];
-+		int n = min(4, adap->sge.rdmaqs - 4 * r);
-+
-+		S("QType:", "RDMA");
-+		R("RxPackets:", stats.pkts);
-+		R("RxImmPkts:", stats.imm);
-+		R("RxAN:", stats.an);
-+		R("RxNoMem:", stats.nomem);
-+		R("FLAllocErr:", fl.alloc_failed);
-+		R("FLstarving:", fl.starving);
-+	} else if ((r -= rdma_entries) < ctrl_entries) {
-+		const struct sge_ctrl_txq *tx = &adap->sge.ctrlq[r * 4];
-+		int n = min(4, MAX_CTRL_QUEUES - 4 * r);
-+
-+		S("QType:", "Control");
-+		T("TxQFull:", q.stops);
-+		T("TxQRestarts:", q.restarts);
-+	} else if ((r -= ctrl_entries) == 0) {
-+		seq_printf(seq, "%-12s %16s\n", "QType:", "FW event queue");
-+	}
-+#undef R
-+#undef T
-+#undef S
-+#undef R3
-+#undef T3
-+#undef S3
-+	return 0;
-+}
-+
-+static int sge_queue_entries(const struct adapter *adap)
-+{
-+	return DIV_ROUND_UP(adap->sge.ethqsets, 4) +
-+	       DIV_ROUND_UP(adap->sge.ofldqsets, 4) +
-+	       DIV_ROUND_UP(adap->sge.rdmaqs, 4) +
-+	       DIV_ROUND_UP(MAX_CTRL_QUEUES, 4) + 1;
-+}
-+
-+static void *sge_queue_start(struct seq_file *seq, loff_t *pos)
-+{
-+	int entries = sge_queue_entries(seq->private);
-+
-+	return *pos < entries ? (void *)((uintptr_t)*pos + 1) : NULL;
-+}
-+
-+static void *sge_queue_next(struct seq_file *seq, void *v, loff_t *pos)
-+{
-+	int entries = sge_queue_entries(seq->private);
-+
-+	++*pos;
-+	return *pos < entries ? (void *)((uintptr_t)*pos + 1) : NULL;
-+}
-+
-+static const struct seq_operations sge_stats_seq_ops = {
-+	.start = sge_queue_start,
-+	.next  = sge_queue_next,
-+	.stop  = seq_noop_stop,
-+	.show  = sge_stats_show
-+};
-+
-+static int sge_stats_open(struct inode *inode, struct file *file)
-+{
-+	int res = seq_open(file, &sge_stats_seq_ops);
-+
-+	if (!res) {
-+		struct seq_file *seq = file->private_data;
-+		seq->private = PDE(inode)->data;
-+	}
-+	return res;
-+}
-+
-+static const struct file_operations sge_stats_proc_fops = {
-+	.owner   = THIS_MODULE,
-+	.open    = sge_stats_open,
-+	.read    = seq_read,
-+	.llseek  = seq_lseek,
-+	.release = seq_release,
-+};
-+
-+static int lb_stats_show(struct seq_file *seq, void *v)
-+{
-+	static const char *stat_name[] = {
-+		"OctetsOK:", "FramesOK:", "BcastFrames:", "McastFrames:",
-+		"UcastFrames:", "ErrorFrames:", "Frames64:", "Frames65To127:",
-+		"Frames128To255:", "Frames256To511:", "Frames512To1023:",
-+		"Frames1024To1518:", "Frames1519ToMax:", "FramesDropped:",
-+		"BG0FramesDropped:", "BG1FramesDropped:", "BG2FramesDropped:",
-+		"BG3FramesDropped:", "BG0FramesTrunc:", "BG1FramesTrunc:",
-+		"BG2FramesTrunc:", "BG3FramesTrunc:"
-+	};
-+
-+	int i, j;
-+	u64 *p0, *p1;
-+	struct lb_port_stats s[2];
-+
-+	memset(s, 0, sizeof(s));
-+
-+	for (i = 0; i < 4; i += 2) {
-+		t4_get_lb_stats(seq->private, i, &s[0]);
-+		t4_get_lb_stats(seq->private, i + 1, &s[1]);
-+
-+		p0 = &s[0].octets;
-+		p1 = &s[1].octets;
-+		seq_printf(seq, "%s                       Loopback %u          "
-+			   " Loopback %u\n", i == 0 ? "" : "\n", i, i + 1);
-+
-+		for (j = 0; j < ARRAY_SIZE(stat_name); j++)
-+			seq_printf(seq, "%-17s %20llu %20llu\n", stat_name[j],
-+				   (unsigned long long)*p0++,
-+				   (unsigned long long)*p1++);
-+	}
-+	return 0;
-+}
-+
-+DEFINE_SIMPLE_PROC_FILE(lb_stats);
-+
-+static int tcp_stats_show(struct seq_file *seq, void *v)
-+{
-+	struct tp_tcp_stats v4, v6;
-+	struct adapter *adap = seq->private;
-+
-+	spin_lock(&adap->stats_lock);
-+	t4_tp_get_tcp_stats(adap, &v4, &v6);
-+	spin_unlock(&adap->stats_lock);
-+
-+	seq_puts(seq,
-+		 "                                IP                 IPv6\n");
-+	seq_printf(seq, "OutRsts:      %20u %20u\n",
-+		   v4.tcpOutRsts, v6.tcpOutRsts);
-+	seq_printf(seq, "InSegs:       %20llu %20llu\n",
-+		   (unsigned long long)v4.tcpInSegs,
-+		   (unsigned long long)v6.tcpInSegs);
-+	seq_printf(seq, "OutSegs:      %20llu %20llu\n",
-+		   (unsigned long long)v4.tcpOutSegs,
-+		   (unsigned long long)v6.tcpOutSegs);
-+	seq_printf(seq, "RetransSegs:  %20llu %20llu\n",
-+		   (unsigned long long)v4.tcpRetransSegs,
-+		   (unsigned long long)v6.tcpRetransSegs);
-+	return 0;
-+}
-+
-+DEFINE_SIMPLE_PROC_FILE(tcp_stats);
-+
-+static int tp_err_stats_show(struct seq_file *seq, void *v)
-+{
-+	struct tp_err_stats stats;
-+	struct adapter *adap = seq->private;
-+
-+	spin_lock(&adap->stats_lock);
-+	t4_tp_get_err_stats(adap, &stats);
-+	spin_unlock(&adap->stats_lock);
-+
-+	seq_puts(seq, "                 channel 0  channel 1  channel 2  "
-+		      "channel 3\n");
-+	seq_printf(seq, "macInErrs:      %10u %10u %10u %10u\n",
-+		   stats.macInErrs[0], stats.macInErrs[1], stats.macInErrs[2],
-+		   stats.macInErrs[3]);
-+	seq_printf(seq, "hdrInErrs:      %10u %10u %10u %10u\n",
-+		   stats.hdrInErrs[0], stats.hdrInErrs[1], stats.hdrInErrs[2],
-+		   stats.hdrInErrs[3]);
-+	seq_printf(seq, "tcpInErrs:      %10u %10u %10u %10u\n",
-+		   stats.tcpInErrs[0], stats.tcpInErrs[1], stats.tcpInErrs[2],
-+		   stats.tcpInErrs[3]);
-+	seq_printf(seq, "tcp6InErrs:     %10u %10u %10u %10u\n",
-+		   stats.tcp6InErrs[0], stats.tcp6InErrs[1],
-+		   stats.tcp6InErrs[2], stats.tcp6InErrs[3]);
-+	seq_printf(seq, "tnlCongDrops:   %10u %10u %10u %10u\n",
-+		   stats.tnlCongDrops[0], stats.tnlCongDrops[1],
-+		   stats.tnlCongDrops[2], stats.tnlCongDrops[3]);
-+	seq_printf(seq, "tnlTxDrops:     %10u %10u %10u %10u\n",
-+		   stats.tnlTxDrops[0], stats.tnlTxDrops[1],
-+		   stats.tnlTxDrops[2], stats.tnlTxDrops[3]);
-+	seq_printf(seq, "ofldVlanDrops:  %10u %10u %10u %10u\n",
-+		   stats.ofldVlanDrops[0], stats.ofldVlanDrops[1],
-+		   stats.ofldVlanDrops[2], stats.ofldVlanDrops[3]);
-+	seq_printf(seq, "ofldChanDrops:  %10u %10u %10u %10u\n\n",
-+		   stats.ofldChanDrops[0], stats.ofldChanDrops[1],
-+		   stats.ofldChanDrops[2], stats.ofldChanDrops[3]);
-+	seq_printf(seq, "ofldNoNeigh:    %u\nofldCongDefer:  %u\n",
-+		   stats.ofldNoNeigh, stats.ofldCongDefer);
-+	return 0;
-+}
-+
-+DEFINE_SIMPLE_PROC_FILE(tp_err_stats);
-+
-+static int rss_show(struct seq_file *seq, void *v, int idx)
-+{
-+	u16 *entry = v;
-+
-+	seq_printf(seq, "%4d:  %4u  %4u  %4u  %4u  %4u  %4u  %4u  %4u\n",
-+		   idx * 8, entry[0], entry[1], entry[2], entry[3], entry[4],
-+		   entry[5], entry[6], entry[7]);
-+	return 0;
-+}
-+
-+static int rss_open(struct inode *inode, struct file *file)
-+{
-+	int ret;
-+	struct seq_tab *p;
-+
-+	p = seq_open_tab(file, RSS_NENTRIES / 8, 8 * sizeof(u16), 0, rss_show);
-+	if (!p)
-+		return -ENOMEM;
-+	ret = t4_read_rss(PDE(inode)->data, (u16 *)p->data);
-+	if (ret)
-+		seq_release_private(inode, file);
-+	return ret;
-+}
-+
-+static const struct file_operations rss_proc_fops = {
-+	.owner   = THIS_MODULE,
-+	.open    = rss_open,
-+	.read    = seq_read,
-+	.llseek  = seq_lseek,
-+	.release = seq_release_private
-+};
-+
-+static int mtutab_show(struct seq_file *seq, void *v)
-+{
-+	u16 mtus[NMTUS];
-+	struct adapter *adap = seq->private;
-+
-+	spin_lock(&adap->stats_lock);
-+	t4_read_mtu_tbl(adap, mtus, NULL);
-+	spin_unlock(&adap->stats_lock);
-+
-+	seq_printf(seq, "%u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u\n",
-+		   mtus[0], mtus[1], mtus[2], mtus[3], mtus[4], mtus[5],
-+		   mtus[6], mtus[7], mtus[8], mtus[9], mtus[10], mtus[11],
-+		   mtus[12], mtus[13], mtus[14], mtus[15]);
-+	return 0;
-+}
-+
-+static int mtutab_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, mtutab_show, PDE(inode)->data);
-+}
-+
-+static ssize_t mtutab_write(struct file *file, const char __user *buf,
-+			    size_t count, loff_t *pos)
-+{
-+	int i;
-+	unsigned long mtus[NMTUS];
-+	struct adapter *adap = PDE(file->f_path.dentry->d_inode)->data;
-+
-+	if (adap->flags & FULL_INIT_DONE)
-+		return -EBUSY;
-+
-+	/* Require min MTU of 81 to accommodate SACK */
-+	i = rd_usr_int_vec(buf, count, NMTUS, mtus, 81, MAX_MTU, 10);
-+	if (i)
-+		return i;
-+
-+	/* MTUs must be in ascending order */
-+	for (i = 1; i < NMTUS; ++i)
-+		if (mtus[i] < mtus[i - 1])
-+			return -EINVAL;
-+
-+	for (i = 0; i < NMTUS; ++i)
-+		adap->params.mtus[i] = mtus[i];
-+	t4_load_mtus(adap, adap->params.mtus, adap->params.a_wnd,
-+		     adap->params.b_wnd);
-+	return count;
-+}
-+
-+static const struct file_operations mtutab_proc_fops = {
-+	.owner   = THIS_MODULE,
-+	.open    = mtutab_open,
-+	.read    = seq_read,
-+	.llseek  = seq_lseek,
-+	.release = single_release,
-+	.write   = mtutab_write
-+};
-+
-+static int mps_trc_show(struct seq_file *seq, void *v)
-+{
-+	int enabled, i;
-+	struct trace_params tp;
-+	struct adapter *adap = seq->private;
-+	unsigned int trcidx = (uintptr_t)adap & 3;
-+
-+	adap = (void *)adap - trcidx;
-+	t4_get_trace_filter(adap, &tp, trcidx, &enabled);
-+	if (!enabled) {
-+		seq_puts(seq, "tracer is disabled\n");
-+		return 0;
-+	}
-+
-+	if (tp.skip_ofst * 8 >= TRACE_LEN) {
-+		dev_err(adap->pdev_dev, "illegal trace pattern skip offset\n");
-+		return -EINVAL;
-+	}
-+	if (tp.port < 8) {
-+		i = adap->chan_map[tp.port & 3];
-+		if (i >= MAX_NPORTS) {
-+			dev_err(adap->pdev_dev, "tracer %u is assigned "
-+				"to non-existing port\n", trcidx);
-+			return -EINVAL;
-+		}
-+		seq_printf(seq, "tracer is capturing %s %s, ",
-+			   adap->port[i]->name, tp.port < 4 ? "Rx" : "Tx");
-+	} else
-+		seq_printf(seq, "tracer is capturing loopback %d, ",
-+			   tp.port - 8);
-+	seq_printf(seq, "snap length: %u, min length: %u\n", tp.snap_len,
-+		   tp.min_len);
-+	seq_printf(seq, "packets captured %smatch filter\n",
-+		   tp.invert ? "do not " : "");
-+
-+	if (tp.skip_ofst) {
-+		seq_puts(seq, "filter pattern: ");
-+		for (i = 0; i < tp.skip_ofst * 2; i += 2)
-+			seq_printf(seq, "%08x%08x", tp.data[i], tp.data[i + 1]);
-+		seq_putc(seq, '/');
-+		for (i = 0; i < tp.skip_ofst * 2; i += 2)
-+			seq_printf(seq, "%08x%08x", tp.mask[i], tp.mask[i + 1]);
-+		seq_puts(seq, "@0\n");
-+	}
-+
-+	seq_puts(seq, "filter pattern: ");
-+	for (i = tp.skip_ofst * 2; i < TRACE_LEN / 4; i += 2)
-+		seq_printf(seq, "%08x%08x", tp.data[i], tp.data[i + 1]);
-+	seq_putc(seq, '/');
-+	for (i = tp.skip_ofst * 2; i < TRACE_LEN / 4; i += 2)
-+		seq_printf(seq, "%08x%08x", tp.mask[i], tp.mask[i + 1]);
-+	seq_printf(seq, "@%u\n", (tp.skip_ofst + tp.skip_len) * 8);
-+	return 0;
-+}
-+
-+static int mps_trc_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, mps_trc_show, PDE(inode)->data);
-+}
-+
-+static unsigned int xdigit2int(unsigned char c)
-+{
-+	return isdigit(c) ? c - '0' : tolower(c) - 'a' + 10;
-+}
-+
-+#define TRC_PORT_NONE 0xff
-+
-+/*
-+ * Set an MPS trace filter.  Syntax is:
-+ *
-+ * disable
-+ *
-+ * to disable tracing, or
-+ *
-+ * interface [snaplen=<val>] [minlen=<val>] [not] [<pattern>]...
-+ *
-+ * where interface is one of rxN, txN, or loopbackN, N = 0..3, and pattern
-+ * has the form
-+ *
-+ * <pattern data>[/<pattern mask>][@<anchor>]
-+ *
-+ * Up to 2 filter patterns can be specified.  If 2 are supplied the first one
-+ * must be anchored at 0.  An omited mask is taken as a mask of 1s, an omitted
-+ * anchor is taken as 0.
-+ */
-+static ssize_t mps_trc_write(struct file *file, const char __user *buf,
-+			     size_t count, loff_t *pos)
-+{
-+	int i, j, enable;
-+	u32 *data, *mask;
-+	struct trace_params tp;
-+	char *s, *p, *word, *end;
-+	struct adapter *adap = PDE(file->f_path.dentry->d_inode)->data;
-+	unsigned int trcidx = (uintptr_t)adap & 3;
-+
-+	adap = (void *)adap - trcidx;
-+
-+	/*
-+	 * Don't accept input more than 1K, can't be anything valid except lots
-+	 * of whitespace.  Well, use less.
-+	 */
-+	if (count > 1024)
-+		return -EFBIG;
-+	p = s = kzalloc(count + 1, GFP_USER);
-+	if (!s)
-+		return -ENOMEM;
-+	if (copy_from_user(s, buf, count)) {
-+		count = -EFAULT;
-+		goto out;
-+	}
-+
-+	if (s[count - 1] == '\n')
-+		s[count - 1] = '\0';
-+
-+	enable = strcmp("disable", s) != 0;
-+	if (!enable)
-+		goto apply;
-+
-+	memset(&tp, 0, sizeof(tp));
-+	tp.port = TRC_PORT_NONE;
-+	i = 0;                                      /* counts pattern nibbles */
-+
-+	while (p) {
-+		while (isspace(*p))
-+			p++;
-+		word = strsep(&p, " ");
-+		if (!*word)
-+			break;
-+
-+		if (!strncmp(word, "snaplen=", 8)) {
-+			j = simple_strtoul(word + 8, &end, 10);
-+			if (*end || j > 9600) {
-+inval:				count = -EINVAL;
-+				goto out;
-+			}
-+			tp.snap_len = j;
-+			continue;
-+		}
-+		if (!strncmp(word, "minlen=", 7)) {
-+			j = simple_strtoul(word + 7, &end, 10);
-+			if (*end || j > M_TFMINPKTSIZE)
-+				goto inval;
-+			tp.min_len = j;
-+			continue;
-+		}
-+		if (!strcmp(word, "not")) {
-+			tp.invert = !tp.invert;
-+			continue;
-+		}
-+		if (!strncmp(word, "loopback", 8) && tp.port == TRC_PORT_NONE) {
-+			if (word[8] < '0' || word[8] > '3' || word[9])
-+				goto inval;
-+			tp.port = word[8] - '0' + 8;
-+			continue;
-+		}
-+		if (!strncmp(word, "tx", 2) && tp.port == TRC_PORT_NONE) {
-+			if (word[2] < '0' || word[2] > '3' || word[3])
-+				goto inval;
-+			tp.port = word[2] - '0' + 4;
-+			if (adap->chan_map[tp.port & 3] >= MAX_NPORTS)
-+				goto inval;
-+			continue;
-+		}
-+		if (!strncmp(word, "rx", 2) && tp.port == TRC_PORT_NONE) {
-+			if (word[2] < '0' || word[2] > '3' || word[3])
-+				goto inval;
-+			tp.port = word[2] - '0';
-+			if (adap->chan_map[tp.port] >= MAX_NPORTS)
-+				goto inval;
-+			continue;
-+		}
-+		if (!isxdigit(*word))
-+			goto inval;
-+
-+		/* we have found a trace pattern */
-+		if (i) {                            /* split pattern */
-+			if (tp.skip_len)            /* too many splits */
-+				goto inval;
-+			tp.skip_ofst = i / 16;
-+		}
-+
-+		data = &tp.data[i / 8];
-+		mask = &tp.mask[i / 8];
-+		j = i;
-+
-+		while (isxdigit(*word)) {
-+			if (i >= TRACE_LEN * 2) {
-+				count = -EFBIG;
-+				goto out;
-+			}
-+			*data = (*data << 4) + xdigit2int(*word++);
-+			if (++i % 8 == 0)
-+				data++;
-+		}
-+		if (*word == '/') {
-+			word++;
-+			while (isxdigit(*word)) {
-+				if (j >= i)         /* mask longer than data */
-+					goto inval;
-+				*mask = (*mask << 4) + xdigit2int(*word++);
-+				if (++j % 8 == 0)
-+					mask++;
-+			}
-+			if (i != j)                 /* mask shorter than data */
-+				goto inval;
-+		} else {                            /* no mask, use all 1s */
-+			for ( ; i - j >= 8; j += 8)
-+				*mask++ = 0xffffffff;
-+			if (i % 8)
-+				*mask = (1 << (i % 8) * 4) - 1;
-+		}
-+		if (*word == '@') {
-+			j = simple_strtoul(word + 1, &end, 10);
-+			if (*end && *end != '\n')
-+				goto inval;
-+			if (j & 7)          /* doesn't start at multiple of 8 */
-+				goto inval;
-+			j /= 8;
-+			if (j < tp.skip_ofst)     /* overlaps earlier pattern */
-+				goto inval;
-+			if (j - tp.skip_ofst > 31)            /* skip too big */
-+				goto inval;
-+			tp.skip_len = j - tp.skip_ofst;
-+		}
-+		if (i % 8) {
-+			*data <<= (8 - i % 8) * 4;
-+			*mask <<= (8 - i % 8) * 4;
-+			i = (i + 15) & ~15;         /* 8-byte align */
-+		}
-+	}
-+
-+	if (tp.port == TRC_PORT_NONE)
-+		goto inval;
-+apply:
-+	i = t4_set_trace_filter(adap, &tp, trcidx, enable);
-+	if (i)
-+		count = i;
-+out:
-+	kfree(s);
-+	return count;
-+}
-+
-+static const struct file_operations mps_trc_proc_fops = {
-+	.owner   = THIS_MODULE,
-+	.open    = mps_trc_open,
-+	.read    = seq_read,
-+	.llseek  = seq_lseek,
-+	.release = single_release,
-+	.write   = mps_trc_write
-+};
-+
-+static int tid_info_show(struct seq_file *seq, void *v)
-+{
-+	struct adapter *adap = seq->private;
-+	const struct tid_info *t = &adap->tids;
-+
-+	if (t4_read_reg(adap, A_LE_DB_CONFIG) & F_HASHEN) {
-+		unsigned int sb = t4_read_reg(adap, A_LE_DB_SERVER_INDEX) / 4;
-+
-+		if (sb)
-+			seq_printf(seq, "TID range: 0..%u/%u..%u", sb - 1,
-+				   t4_read_reg(adap, A_LE_DB_TID_HASHBASE) / 4,
-+				   t->ntids - 1);
-+		else
-+			seq_printf(seq, "TID range: %u..%u",
-+				   t4_read_reg(adap, A_LE_DB_TID_HASHBASE) / 4,
-+				   t->ntids - 1);
-+	} else
-+		seq_printf(seq, "TID range: 0..%u", t->ntids - 1);
-+	seq_printf(seq, ", in use: %u\n", atomic_read(&t->tids_in_use));
-+	seq_printf(seq, "STID range: %u..%u, in use: %u\n", t->stid_base,
-+		   t->stid_base + t->nstids - 1, t->stids_in_use);
-+	seq_printf(seq, "ATID range: 0..%u, in use: %u\n", t->natids - 1,
-+		   t->atids_in_use);
-+	seq_printf(seq, "FTID range: %u..%u\n", t->ftid_base,
-+		   t->ftid_base + t->nftids - 1);
-+	seq_printf(seq, "HW TID usage: %u IP users, %u IPv6 users\n",
-+		   t4_read_reg(adap, A_LE_DB_ACT_CNT_IPV4),
-+		   t4_read_reg(adap, A_LE_DB_ACT_CNT_IPV6));
-+	return 0;
-+}
-+
-+DEFINE_SIMPLE_PROC_FILE(tid_info);
-+
-+static int uld_show(struct seq_file *seq, void *v)
-+{
-+	int i;
-+	struct adapter *adap = seq->private;
-+
-+	for (i = 0; i < CXGB4_ULD_MAX; i++)
-+		if (adap->uld_handle[i])
-+			seq_printf(seq, "%s: %s\n", uld_str[i], ulds[i].name);
-+	return 0;
-+}
-+
-+DEFINE_SIMPLE_PROC_FILE(uld);
 +
 +enum {
-+	ADAP_NEED_L2T  = 1 << 0,
-+	ADAP_NEED_OFLD = 1 << 1,
++	ULP_MODE_NONE          = 0,
++	ULP_MODE_ISCSI         = 2,
++	ULP_MODE_RDMA          = 4,
++	ULP_MODE_FCOE          = 6,
 +};
 +
-+struct cxgb4_proc_entry {
-+	const char *name;
-+	mode_t mode;
-+	unsigned int req;      /* adapter requirements to create this file */
-+	unsigned char data;    /* data passed in low bits of adapter pointer */
-+	const struct file_operations *fops;
++enum {
++	ULP_CRC_HEADER = 1 << 0,
++	ULP_CRC_DATA   = 1 << 1
 +};
 +
-+static struct cxgb4_proc_entry proc_files[] = {
-+	{ "l2t", 0444, ADAP_NEED_L2T, 0, &t4_l2t_proc_fops },
-+	{ "lb_stats", 0444, 0, 0, &lb_stats_proc_fops },
-+	{ "path_mtus", 0644, 0, 0, &mtutab_proc_fops },
-+	{ "qstats", 0444, 0, 0, &sge_stats_proc_fops },
-+	{ "rss", 0444, 0, 0, &rss_proc_fops },
-+	{ "tcp_stats", 0444, 0, 0, &tcp_stats_proc_fops },
-+	{ "tids", 0444, ADAP_NEED_OFLD, 0, &tid_info_proc_fops },
-+	{ "tp_err_stats", 0444, 0, 0, &tp_err_stats_proc_fops },
-+	{ "trace0", 0644, 0, 0, &mps_trc_proc_fops },
-+	{ "trace1", 0644, 0, 1, &mps_trc_proc_fops },
-+	{ "trace2", 0644, 0, 2, &mps_trc_proc_fops },
-+	{ "trace3", 0644, 0, 3, &mps_trc_proc_fops },
-+	{ "uld", 0444, 0, 0, &uld_proc_fops },
++enum {
++	CPL_PASS_OPEN_ACCEPT,
++	CPL_PASS_OPEN_REJECT,
++	CPL_PASS_OPEN_ACCEPT_TNL
 +};
 +
-+static int __devinit setup_proc(struct adapter *adap,
-+				struct proc_dir_entry *dir)
-+{
-+	int i, created;
-+	struct proc_dir_entry *p;
-+	int ofld = is_offload(adap);
-+
-+	if (!dir)
-+		return -EINVAL;
-+
-+	/* If we can create any of the entries we do. */
-+	for (created = i = 0; i < ARRAY_SIZE(proc_files); ++i) {
-+		unsigned int req = proc_files[i].req;
-+
-+		if ((req & ADAP_NEED_OFLD) && !ofld)
-+			continue;
-+		if ((req & ADAP_NEED_L2T) && !adap->l2t)
-+			continue;
-+
-+		p = proc_create_data(proc_files[i].name, proc_files[i].mode,
-+				     dir, proc_files[i].fops,
-+				     (void *)adap + proc_files[i].data);
-+		if (p)
-+			created++;
-+	}
-+
-+	return created;
-+}
-+
-+static void cleanup_proc(struct proc_dir_entry *dir)
-+{
-+	int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(proc_files); ++i)
-+		remove_proc_entry(proc_files[i].name, dir);
-+}
-+
-+/*
-+ * upper-layer driver support
-+ */
-+
-+/*
-+ * Allocate an active-open TID and set it to the supplied value.
-+ */
-+int cxgb4_alloc_atid(struct tid_info *t, void *data)
-+{
-+	int atid = -1;
-+
-+	spin_lock_bh(&t->atid_lock);
-+	if (t->afree) {
-+		union aopen_entry *p = t->afree;
-+
-+		atid = p - t->atid_tab;
-+		t->afree = p->next;
-+		p->data = data;
-+		t->atids_in_use++;
-+	}
-+	spin_unlock_bh(&t->atid_lock);
-+	return atid;
-+}
-+EXPORT_SYMBOL(cxgb4_alloc_atid);
-+
-+/*
-+ * Release an active-open TID.
-+ */
-+void cxgb4_free_atid(struct tid_info *t, unsigned int atid)
-+{
-+	union aopen_entry *p = &t->atid_tab[atid];
-+
-+	spin_lock_bh(&t->atid_lock);
-+	p->next = t->afree;
-+	t->afree = p;
-+	t->atids_in_use--;
-+	spin_unlock_bh(&t->atid_lock);
-+}
-+EXPORT_SYMBOL(cxgb4_free_atid);
-+
-+/*
-+ * Allocate a server TID and set it to the supplied value.
-+ */
-+int cxgb4_alloc_stid(struct tid_info *t, int family, void *data)
-+{
-+	int stid;
-+
-+	spin_lock_bh(&t->stid_lock);
-+	if (family == PF_INET) {
-+		stid = find_first_zero_bit(t->stid_bmap, t->nstids);
-+		if (stid < t->nstids)
-+			__set_bit(stid, t->stid_bmap);
-+		else
-+			stid = -1;
-+	} else {
-+		stid = bitmap_find_free_region(t->stid_bmap, t->nstids, 2);
-+		if (stid < 0)
-+			stid = -1;
-+	}
-+	if (stid >= 0) {
-+		t->stid_tab[stid].data = data;
-+		stid += t->stid_base;
-+		t->stids_in_use++;
-+	}
-+	spin_unlock_bh(&t->stid_lock);
-+	return stid;
-+}
-+EXPORT_SYMBOL(cxgb4_alloc_stid);
-+
-+/*
-+ * Release a server TID.
-+ */
-+void cxgb4_free_stid(struct tid_info *t, unsigned int stid, int family)
-+{
-+	stid -= t->stid_base;
-+	spin_lock_bh(&t->stid_lock);
-+	if (family == PF_INET)
-+		__clear_bit(stid, t->stid_bmap);
-+	else
-+		bitmap_release_region(t->stid_bmap, stid, 2);
-+	t->stid_tab[stid].data = NULL;
-+	t->stids_in_use--;
-+	spin_unlock_bh(&t->stid_lock);
-+}
-+EXPORT_SYMBOL(cxgb4_free_stid);
-+
-+/*
-+ * Populate a TID_RELEASE WR.  Caller must properly size the skb.
-+ */
-+static void mk_tid_release(struct sk_buff *skb, unsigned int chan,
-+			   unsigned int tid)
-+{
-+	struct cpl_tid_release *req;
-+
-+	set_wr_txq(skb, CPL_PRIORITY_SETUP, chan);
-+	req = (struct cpl_tid_release *)__skb_put(skb, sizeof(*req));
-+	INIT_TP_WR(req, tid);
-+	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_TID_RELEASE, tid));
-+}
-+
-+/*
-+ * Queue a TID release request and if necessary schedule a work queue to
-+ * process it.
-+ */
-+void cxgb4_queue_tid_release(struct tid_info *t, unsigned int chan,
-+			     unsigned int tid)
-+{
-+	void **p = &t->tid_tab[tid];
-+	struct adapter *adap = container_of(t, struct adapter, tids);
-+
-+	spin_lock_bh(&adap->tid_release_lock);
-+	*p = adap->tid_release_head;
-+	/* Low 2 bits encode the Tx channel number */
-+	adap->tid_release_head = (void **)((uintptr_t)p | chan);
-+	if (!*p)
-+		schedule_work(&adap->tid_release_task);
-+	spin_unlock_bh(&adap->tid_release_lock);
-+}
-+EXPORT_SYMBOL(cxgb4_queue_tid_release);
-+
-+/*
-+ * Process the list of pending TID release requests.
-+ */
-+static void process_tid_release_list(struct work_struct *work)
-+{
-+	struct sk_buff *skb;
-+	struct adapter *adap;
-+
-+	adap = container_of(work, struct adapter, tid_release_task);
-+
-+	spin_lock_bh(&adap->tid_release_lock);
-+	while (adap->tid_release_head) {
-+		void **p = adap->tid_release_head;
-+		unsigned int chan = (uintptr_t)p & 3;
-+		p = (void *)p - chan;
-+
-+		adap->tid_release_head = *p;
-+		*p = NULL;
-+		spin_unlock_bh(&adap->tid_release_lock);
-+
-+		while (!(skb = alloc_skb(sizeof(struct cpl_tid_release),
-+					 GFP_KERNEL)))
-+			yield();
-+
-+		mk_tid_release(skb, chan, p - adap->tids.tid_tab);
-+		t4_ofld_send(adap, skb);
-+		spin_lock_bh(&adap->tid_release_lock);
-+	}
-+	spin_unlock_bh(&adap->tid_release_lock);
-+}
-+
-+/*
-+ * Release a TID and inform HW.  If we are unable to allocate the release
-+ * message we defer to a work queue.
-+ */
-+void cxgb4_remove_tid(struct tid_info *t, unsigned int chan, unsigned int tid)
-+{
-+	struct sk_buff *skb;
-+	struct adapter *adap = container_of(t, struct adapter, tids);
-+
-+	WARN_ON(tid >= t->ntids);
-+
-+	skb = alloc_skb(sizeof(struct cpl_tid_release), GFP_ATOMIC);
-+	if (likely(skb)) {
-+		t->tid_tab[tid] = NULL;
-+		mk_tid_release(skb, chan, tid);
-+		t4_ofld_send(adap, skb);
-+	} else
-+		cxgb4_queue_tid_release(t, chan, tid);
-+	atomic_dec(&t->tids_in_use);
-+}
-+EXPORT_SYMBOL(cxgb4_remove_tid);
-+
-+/*
-+ * Allocate and initialize the TID tables.  Returns 0 on success.
-+ */
-+static int tid_init(struct tid_info *t)
-+{
-+	size_t size;
-+	unsigned int natids = t->natids;
-+
-+	size = t->ntids * sizeof(*t->tid_tab) + natids * sizeof(*t->atid_tab) +
-+	       t->nstids * sizeof(*t->stid_tab) +
-+	       BITS_TO_LONGS(t->nstids) * sizeof(long);
-+	t->tid_tab = t4_alloc_mem(size);
-+	if (!t->tid_tab)
-+		return -ENOMEM;
-+
-+	t->atid_tab = (union aopen_entry *)&t->tid_tab[t->ntids];
-+	t->stid_tab = (struct serv_entry *)&t->atid_tab[natids];
-+	t->stid_bmap = (unsigned long *)&t->stid_tab[t->nstids];
-+	spin_lock_init(&t->stid_lock);
-+	spin_lock_init(&t->atid_lock);
-+
-+	t->stids_in_use = 0;
-+	t->afree = NULL;
-+	t->atids_in_use = 0;
-+	atomic_set(&t->tids_in_use, 0);
-+
-+	/* Setup the free list for atid_tab and clear the stid bitmap. */
-+	if (natids) {
-+		while (--natids)
-+			t->atid_tab[natids - 1].next = &t->atid_tab[natids];
-+		t->afree = t->atid_tab;
-+	}
-+	bitmap_zero(t->stid_bmap, t->nstids);
-+	return 0;
-+}
-+
-+/**
-+ *	cxgb4_create_server - create an IP server
-+ *	@dev: the device
-+ *	@stid: the server TID
-+ *	@sip: local IP address to bind server to
-+ *	@sport: the server's TCP port
-+ *	@queue: queue to direct messages from this server to
-+ *
-+ *	Create an IP server for the given port and address.
-+ *	Returns <0 on error and one of the %NET_XMIT_* values on success.
-+ */
-+int cxgb4_create_server(const struct net_device *dev, unsigned int stid,
-+			__be32 sip, __be16 sport, unsigned int queue)
-+{
-+	unsigned int chan;
-+	struct sk_buff *skb;
-+	struct adapter *adap;
-+	struct cpl_pass_open_req *req;
-+
-+	skb = alloc_skb(sizeof(*req), GFP_KERNEL);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	adap = netdev2adap(dev);
-+	req = (struct cpl_pass_open_req *)__skb_put(skb, sizeof(*req));
-+	INIT_TP_WR(req, 0);
-+	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_PASS_OPEN_REQ, stid));
-+	req->local_port = sport;
-+	req->peer_port = htons(0);
-+	req->local_ip = sip;
-+	req->peer_ip = htonl(0);
-+	chan = netdev2pinfo(adap->sge.ingr_map[queue]->netdev)->tx_chan;
-+	req->opt0 = cpu_to_be64(V_TX_CHAN(chan));
-+	req->opt1 = cpu_to_be64(V_CONN_POLICY(CPL_CONN_POLICY_ASK) |
-+				F_SYN_RSS_ENABLE | V_SYN_RSS_QUEUE(queue));
-+	return t4_mgmt_tx(adap, skb);
-+}
-+EXPORT_SYMBOL(cxgb4_create_server);
-+
-+/**
-+ *	cxgb4_create_server6 - create an IPv6 server
-+ *	@dev: the device
-+ *	@stid: the server TID
-+ *	@sip: local IPv6 address to bind server to
-+ *	@sport: the server's TCP port
-+ *	@queue: queue to direct messages from this server to
-+ *
-+ *	Create an IPv6 server for the given port and address.
-+ *	Returns <0 on error and one of the %NET_XMIT_* values on success.
-+ */
-+int cxgb4_create_server6(const struct net_device *dev, unsigned int stid,
-+			 const struct in6_addr *sip, __be16 sport,
-+			 unsigned int queue)
-+{
-+	unsigned int chan;
-+	struct sk_buff *skb;
-+	struct adapter *adap;
-+	struct cpl_pass_open_req6 *req;
-+
-+	skb = alloc_skb(sizeof(*req), GFP_KERNEL);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	adap = netdev2adap(dev);
-+	req = (struct cpl_pass_open_req6 *)__skb_put(skb, sizeof(*req));
-+	INIT_TP_WR(req, 0);
-+	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_PASS_OPEN_REQ6, stid));
-+	req->local_port = sport;
-+	req->peer_port = htons(0);
-+	req->local_ip_hi = *(__be64 *)(sip->s6_addr);
-+	req->local_ip_lo = *(__be64 *)(sip->s6_addr + 8);
-+	req->peer_ip_hi = cpu_to_be64(0);
-+	req->peer_ip_lo = cpu_to_be64(0);
-+	chan = netdev2pinfo(adap->sge.ingr_map[queue]->netdev)->tx_chan;
-+	req->opt0 = cpu_to_be64(V_TX_CHAN(chan));
-+	req->opt1 = cpu_to_be64(V_CONN_POLICY(CPL_CONN_POLICY_ASK) |
-+				F_SYN_RSS_ENABLE | V_SYN_RSS_QUEUE(queue));
-+	return t4_mgmt_tx(adap, skb);
-+}
-+EXPORT_SYMBOL(cxgb4_create_server6);
-+
-+/**
-+ *	cxgb4_best_mtu - find the entry in the MTU table closest to an MTU
-+ *	@mtus: the HW MTU table
-+ *	@mtu: the target MTU
-+ *	@idx: index of selected entry in the MTU table
-+ *
-+ *	Returns the index and the value in the HW MTU table that is closest to
-+ *	but does not exceed @mtu, unless @mtu is smaller than any value in the
-+ *	table, in which case that smallest available value is selected.
-+ */
-+unsigned int cxgb4_best_mtu(const unsigned short *mtus, unsigned short mtu,
-+			    unsigned int *idx)
-+{
-+	unsigned int i = 0;
-+
-+	while (i < NMTUS - 1 && mtus[i + 1] <= mtu)
-+		++i;
-+	if (idx)
-+		*idx = i;
-+	return mtus[i];
-+}
-+EXPORT_SYMBOL(cxgb4_best_mtu);
-+
-+/**
-+ *	cxgb4_port_chan - get the HW channel of a port
-+ *	@dev: the net device for the port
-+ *
-+ *	Return the HW Tx channel of the given port.
-+ */
-+unsigned int cxgb4_port_chan(const struct net_device *dev)
-+{
-+	return netdev2pinfo(dev)->tx_chan;
-+}
-+EXPORT_SYMBOL(cxgb4_port_chan);
-+
-+/**
-+ *	cxgb4_netdev_by_hwid - return the net device of a HW port
-+ *	@pdev: identifies the adapter
-+ *	@id: the HW port id
-+ *
-+ *	Return the net device associated with the interface with the given HW
-+ *	id.
-+ */
-+struct net_device *cxgb4_netdev_by_hwid(struct pci_dev *pdev, unsigned int id)
-+{
-+	const struct adapter *adap = pci_get_drvdata(pdev);
-+
-+	if (!adap || id >= NCHAN)
-+		return NULL;
-+	id = adap->chan_map[id];
-+	return id < MAX_NPORTS ? adap->port[id] : NULL;
-+}
-+EXPORT_SYMBOL(cxgb4_netdev_by_hwid);
-+
-+void cxgb4_iscsi_init(struct net_device *dev, unsigned int tag_mask,
-+		      const unsigned int *pgsz_order)
-+{
-+	struct adapter *adap = netdev2adap(dev);
-+
-+	t4_write_reg(adap, A_ULP_RX_ISCSI_TAGMASK, tag_mask);
-+	t4_write_reg(adap, A_ULP_RX_ISCSI_PSZ, V_HPZ0(pgsz_order[0]) |
-+		     V_HPZ1(pgsz_order[1]) | V_HPZ2(pgsz_order[2]) |
-+		     V_HPZ3(pgsz_order[3]));
-+}
-+EXPORT_SYMBOL(cxgb4_iscsi_init);
-+
-+static struct pci_driver cxgb4_driver;
-+
-+static void check_neigh_update(struct neighbour *neigh)
-+{
-+	const struct device *parent;
-+	const struct net_device *netdev = neigh->dev;
-+
-+	if (netdev->priv_flags & IFF_802_1Q_VLAN)
-+		netdev = vlan_dev_real_dev(netdev);
-+	parent = netdev->dev.parent;
-+	if (parent && parent->driver == &cxgb4_driver.driver)
-+		t4_l2t_update(dev_get_drvdata(parent), neigh);
-+}
-+
-+static int netevent_cb(struct notifier_block *nb, unsigned long event,
-+		       void *data)
-+{
-+	switch (event) {
-+	case NETEVENT_NEIGH_UPDATE:
-+		check_neigh_update(data);
-+		break;
-+	case NETEVENT_PMTU_UPDATE:
-+	case NETEVENT_REDIRECT:
-+	default:
-+		break;
-+	}
-+	return 0;
-+}
-+
-+static bool netevent_registered;
-+static struct notifier_block cxgb4_netevent_nb = {
-+	.notifier_call = netevent_cb
++enum {
++	CPL_ABORT_SEND_RST = 0,
++	CPL_ABORT_NO_RST,
 +};
 +
-+static void uld_attach(struct adapter *adap, unsigned int uld)
-+{
-+	void *handle;
-+	struct cxgb4_lld_info lli;
++enum {                     /* TX_PKT_XT checksum types */
++	TX_CSUM_TCP    = 0,
++	TX_CSUM_UDP    = 1,
++	TX_CSUM_CRC16  = 4,
++	TX_CSUM_CRC32  = 5,
++	TX_CSUM_CRC32C = 6,
++	TX_CSUM_FCOE   = 7,
++	TX_CSUM_TCPIP  = 8,
++	TX_CSUM_UDPIP  = 9,
++	TX_CSUM_TCPIP6 = 10,
++	TX_CSUM_UDPIP6 = 11,
++	TX_CSUM_IP     = 12,
++};
 +
-+	lli.pdev = adap->pdev;
-+	lli.l2t = adap->l2t;
-+	lli.tids = &adap->tids;
-+	lli.ports = adap->port;
-+	lli.vr = &adap->vres;
-+	lli.mtus = adap->params.mtus;
-+	if (uld == CXGB4_ULD_RDMA) {
-+		lli.rxq_ids = adap->sge.rdma_rxq;
-+		lli.nrxq = adap->sge.rdmaqs;
-+	} else if (uld == CXGB4_ULD_ISCSI) {
-+		lli.rxq_ids = adap->sge.ofld_rxq;
-+		lli.nrxq = adap->sge.ofldqsets;
-+	}
-+	lli.ntxq = adap->sge.ofldqsets;
-+	lli.nchan = adap->params.nports;
-+	lli.nports = adap->params.nports;
-+	lli.wr_cred = adap->params.ofldq_wr_cred;
-+	lli.adapter_type = CXGB4_ADAP_T4;
-+	lli.udb_density = 1 << G_QUEUESPERPAGEPF0(
-+			t4_read_reg(adap, A_SGE_EGRESS_QUEUES_PER_PAGE_PF));
-+	lli.ucq_density = 1 << G_QUEUESPERPAGEPF0(
-+			t4_read_reg(adap, A_SGE_INGRESS_QUEUES_PER_PAGE_PF));
-+	lli.gts_reg = adap->regs + MYPF_REG(A_SGE_PF_GTS);
-+	lli.db_reg = adap->regs + MYPF_REG(A_SGE_PF_KDOORBELL);
-+	lli.fw_vers = adap->params.fw_vers;
++enum {                     /* packet type in CPL_RX_PKT */
++	PKTYPE_XACT_UCAST = 0,
++	PKTYPE_HASH_UCAST = 1,
++	PKTYPE_XACT_MCAST = 2,
++	PKTYPE_HASH_MCAST = 3,
++	PKTYPE_PROMISC    = 4,
++	PKTYPE_HPROMISC   = 5,
++	PKTYPE_BCAST      = 6
++};
 +
-+	handle = ulds[uld].add(&lli);
-+	if (IS_ERR(handle)) {
-+		dev_warn(adap->pdev_dev,
-+			 "could not attach to the %s driver, error %ld\n",
-+			 uld_str[uld], PTR_ERR(handle));
-+		return;
-+	}
++enum {                     /* DMAC type in CPL_RX_PKT */
++	DATYPE_UCAST,
++	DATYPE_MCAST,
++	DATYPE_BCAST
++};
 +
-+	adap->uld_handle[uld] = handle;
++enum {                     /* RSS hash type */
++	RSS_HASH_NONE = 0, /* no hash computed */
++	RSS_HASH_IP   = 1, /* IP or IPv6 2-tuple hash */
++	RSS_HASH_TCP  = 2, /* TCP 4-tuple hash */
++	RSS_HASH_UDP  = 3  /* UDP 4-tuple hash */
++};
 +
-+	if (!netevent_registered) {
-+		register_netevent_notifier(&cxgb4_netevent_nb);
-+		netevent_registered = true;
-+	}
-+}
++union opcode_tid {
++	__be32 opcode_tid;
++	__u8 opcode;
++};
 +
-+static void attach_ulds(struct adapter *adap)
-+{
-+	unsigned int i;
++#define S_CPL_OPCODE    24
++#define V_CPL_OPCODE(x) ((x) << S_CPL_OPCODE)
++#define G_CPL_OPCODE(x) (((x) >> S_CPL_OPCODE) & 0xFF)
++#define G_TID(x)    ((x) & 0xFFFFFF)
 +
-+	mutex_lock(&uld_mutex);
-+	list_add_tail(&adap->list_node, &adapter_list);
-+	for (i = 0; i < CXGB4_ULD_MAX; i++)
-+		if (ulds[i].add)
-+			uld_attach(adap, i);
-+	mutex_unlock(&uld_mutex);
-+}
++#define MK_OPCODE_TID(opcode, tid) (V_CPL_OPCODE(opcode) | (tid))
 +
-+static void detach_ulds(struct adapter *adap)
-+{
-+	unsigned int i;
++#define OPCODE_TID(cmd) ((cmd)->ot.opcode_tid)
 +
-+	mutex_lock(&uld_mutex);
-+	list_del(&adap->list_node);
-+	for (i = 0; i < CXGB4_ULD_MAX; i++)
-+		if (adap->uld_handle[i]) {
-+			ulds[i].state_change(adap->uld_handle[i],
-+					     CXGB4_STATE_DETACH);
-+			adap->uld_handle[i] = NULL;
-+		}
-+	if (netevent_registered && list_empty(&adapter_list)) {
-+		unregister_netevent_notifier(&cxgb4_netevent_nb);
-+		netevent_registered = false;
-+	}
-+	mutex_unlock(&uld_mutex);
-+}
++/* extract the TID from a CPL command */
++#define GET_TID(cmd) (G_TID(ntohl(OPCODE_TID(cmd))))
 +
-+static void notify_ulds(struct adapter *adap, enum cxgb4_state new_state)
-+{
-+	unsigned int i;
++/* partitioning of TID fields that also carry a queue id */
++#define S_TID_TID    0
++#define M_TID_TID    0x3fff
++#define V_TID_TID(x) ((x) << S_TID_TID)
++#define G_TID_TID(x) (((x) >> S_TID_TID) & M_TID_TID)
 +
-+	mutex_lock(&uld_mutex);
-+	for (i = 0; i < CXGB4_ULD_MAX; i++)
-+		if (adap->uld_handle[i])
-+			ulds[i].state_change(adap->uld_handle[i], new_state);
-+	mutex_unlock(&uld_mutex);
-+}
++#define S_TID_QID    14
++#define M_TID_QID    0x3ff
++#define V_TID_QID(x) ((x) << S_TID_QID)
++#define G_TID_QID(x) (((x) >> S_TID_QID) & M_TID_QID)
 +
-+/**
-+ *	cxgb4_register_uld - register an upper-layer driver
-+ *	@type: the ULD type
-+ *	@p: the ULD methods
-+ *
-+ *	Registers an upper-layer driver with this driver and notifies the ULD
-+ *	about any presently available devices that support its type.  Returns
-+ *	%-EBUSY if a ULD of the same type is already registered.
-+ */
-+int cxgb4_register_uld(enum cxgb4_uld type, const struct cxgb4_uld_info *p)
-+{
-+	int ret = 0;
-+	struct adapter *adap;
-+
-+	if (type >= CXGB4_ULD_MAX)
-+		return -EINVAL;
-+	mutex_lock(&uld_mutex);
-+	if (ulds[type].add) {
-+		ret = -EBUSY;
-+		goto out;
-+	}
-+	ulds[type] = *p;
-+	list_for_each_entry(adap, &adapter_list, list_node)
-+		uld_attach(adap, type);
-+out:	mutex_unlock(&uld_mutex);
-+	return ret;
-+}
-+EXPORT_SYMBOL(cxgb4_register_uld);
-+
-+/**
-+ *	cxgb4_unregister_uld - unregister an upper-layer driver
-+ *	@type: the ULD type
-+ *
-+ *	Unregisters an existing upper-layer driver.
-+ */
-+int cxgb4_unregister_uld(enum cxgb4_uld type)
-+{
-+	struct adapter *adap;
-+
-+	if (type >= CXGB4_ULD_MAX)
-+		return -EINVAL;
-+	mutex_lock(&uld_mutex);
-+	list_for_each_entry(adap, &adapter_list, list_node)
-+		adap->uld_handle[type] = NULL;
-+	ulds[type].add = NULL;
-+	mutex_unlock(&uld_mutex);
-+	return 0;
-+}
-+EXPORT_SYMBOL(cxgb4_unregister_uld);
-+
-+/**
-+ *	cxgb_up - enable the adapter
-+ *	@adap: adapter being enabled
-+ *
-+ *	Called when the first port is enabled, this function performs the
-+ *	actions necessary to make an adapter operational, such as completing
-+ *	the initialization of HW modules, and enabling interrupts.
-+ *
-+ *	Must be called with the rtnl lock held.
-+ */
-+static int cxgb_up(struct adapter *adap)
-+{
-+	int err = 0;
-+
-+	if (!(adap->flags & FULL_INIT_DONE)) {
-+		err = setup_sge_queues(adap);
-+		if (err)
-+			goto out;
-+		err = setup_rss(adap);
-+		if (err) {
-+			t4_free_sge_resources(adap);
-+			goto out;
-+		}
-+		if (adap->flags & USING_MSIX)
-+			name_msix_vecs(adap);
-+		adap->flags |= FULL_INIT_DONE;
-+	}
-+
-+	if (adap->flags & USING_MSIX) {
-+		err = request_irq(adap->msix_info[0].vec, t4_nondata_intr, 0,
-+				  adap->msix_info[0].desc, adap);
-+		if (err)
-+			goto irq_err;
-+
-+		err = request_msix_queue_irqs(adap);
-+		if (err) {
-+			free_irq(adap->msix_info[0].vec, adap);
-+			goto irq_err;
-+		}
-+	} else {
-+		err = request_irq(adap->pdev->irq, t4_intr_handler(adap),
-+				  (adap->flags & USING_MSI) ? 0 : IRQF_SHARED,
-+				  adap->name, adap);
-+		if (err)
-+			goto irq_err;
-+	}
-+	enable_rx(adap);
-+	t4_sge_start(adap);
-+	t4_intr_enable(adap);
-+	notify_ulds(adap, CXGB4_STATE_UP);
-+ out:
-+	return err;
-+ irq_err:
-+	dev_err(adap->pdev_dev, "request_irq failed, err %d\n", err);
-+	goto out;
-+}
-+
-+static void cxgb_down(struct adapter *adapter)
-+{
-+	t4_intr_disable(adapter);
-+	cancel_work_sync(&adapter->tid_release_task);
-+
-+	if (adapter->flags & USING_MSIX) {
-+		free_msix_queue_irqs(adapter);
-+		free_irq(adapter->msix_info[0].vec, adapter);
-+	} else
-+		free_irq(adapter->pdev->irq, adapter);
-+	quiesce_rx(adapter);
-+}
-+
-+/*
-+ * net_device operations
-+ */
-+static int cxgb_open(struct net_device *dev)
-+{
-+	int err;
-+	struct port_info *pi = netdev_priv(dev);
-+	struct adapter *adapter = pi->adapter;
-+
-+	if (!adapter->open_device_map && (err = cxgb_up(adapter)) < 0)
-+		return err;
-+
-+	dev->real_num_tx_queues = pi->nqsets;
-+	set_bit(pi->tx_chan, &adapter->open_device_map);
-+	link_start(dev);
-+	netif_tx_start_all_queues(dev);
-+	return 0;
-+}
-+
-+static int cxgb_close(struct net_device *dev)
-+{
-+	int ret;
-+	struct port_info *pi = netdev_priv(dev);
-+	struct adapter *adapter = pi->adapter;
-+
-+	netif_tx_stop_all_queues(dev);
-+	netif_carrier_off(dev);
-+	ret = t4_enable_vi(adapter, 0, pi->viid, false, false);
-+
-+	clear_bit(pi->tx_chan, &adapter->open_device_map);
-+
-+	if (!adapter->open_device_map)
-+		cxgb_down(adapter);
-+	return 0;
-+}
-+
-+static struct net_device_stats *cxgb_get_stats(struct net_device *dev)
-+{
-+	struct port_stats stats;
-+	struct port_info *p = netdev_priv(dev);
-+	struct adapter *adapter = p->adapter;
-+	struct net_device_stats *ns = &dev->stats;
-+
-+	spin_lock(&adapter->stats_lock);
-+	t4_get_port_stats(adapter, p->tx_chan, &stats);
-+	spin_unlock(&adapter->stats_lock);
-+
-+	ns->tx_bytes   = stats.tx_octets;
-+	ns->tx_packets = stats.tx_frames;
-+	ns->rx_bytes   = stats.rx_octets;
-+	ns->rx_packets = stats.rx_frames;
-+	ns->multicast  = stats.rx_mcast_frames;
-+
-+	/* detailed rx_errors */
-+	ns->rx_length_errors = stats.rx_jabber + stats.rx_too_long +
-+			       stats.rx_runt;
-+	ns->rx_over_errors   = 0;
-+	ns->rx_crc_errors    = stats.rx_fcs_err;
-+	ns->rx_frame_errors  = stats.rx_symbol_err;
-+	ns->rx_fifo_errors   = stats.rx_ovflow0 + stats.rx_ovflow1 +
-+			       stats.rx_ovflow2 + stats.rx_ovflow3 +
-+			       stats.rx_trunc0 + stats.rx_trunc1 +
-+			       stats.rx_trunc2 + stats.rx_trunc3;
-+	ns->rx_missed_errors = 0;
-+
-+	/* detailed tx_errors */
-+	ns->tx_aborted_errors   = 0;
-+	ns->tx_carrier_errors   = 0;
-+	ns->tx_fifo_errors      = 0;
-+	ns->tx_heartbeat_errors = 0;
-+	ns->tx_window_errors    = 0;
-+
-+	ns->tx_errors = stats.tx_error_frames;
-+	ns->rx_errors = stats.rx_symbol_err + stats.rx_fcs_err +
-+		ns->rx_length_errors + stats.rx_len_err + ns->rx_fifo_errors;
-+	return ns;
-+}
-+
-+static int cxgb_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
-+{
-+	int ret = 0, prtad, devad;
-+	struct port_info *pi = netdev_priv(dev);
-+	struct mii_ioctl_data *data = (struct mii_ioctl_data *)&req->ifr_data;
-+
-+	switch (cmd) {
-+	case SIOCGMIIPHY:
-+		if (pi->mdio_addr < 0)
-+			return -EOPNOTSUPP;
-+		data->phy_id = pi->mdio_addr;
-+		break;
-+	case SIOCGMIIREG:
-+	case SIOCSMIIREG:
-+		if (mdio_phy_id_is_c45(data->phy_id)) {
-+			prtad = mdio_phy_id_prtad(data->phy_id);
-+			devad = mdio_phy_id_devad(data->phy_id);
-+		} else if (data->phy_id < 32) {
-+			prtad = data->phy_id;
-+			devad = 0;
-+			data->reg_num &= 0x1f;
-+		} else
-+			return -EINVAL;
-+
-+		if (cmd == SIOCGMIIREG)
-+			ret = t4_mdio_rd(pi->adapter, 0, prtad, devad,
-+					 data->reg_num, &data->val_out);
-+		else
-+			ret = t4_mdio_wr(pi->adapter, 0, prtad, devad,
-+					 data->reg_num, data->val_in);
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+	return ret;
-+}
-+
-+static void cxgb_set_rxmode(struct net_device *dev)
-+{
-+	/* unfortunately we can't return errors to the stack */
-+	set_rxmode(dev, -1, false);
-+}
-+
-+static int cxgb_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	int ret;
-+	struct port_info *pi = netdev_priv(dev);
-+
-+	if (new_mtu < 81 || new_mtu > MAX_MTU)         /* accommodate SACK */
-+		return -EINVAL;
-+	ret = t4_set_rxmode(pi->adapter, 0, pi->viid, new_mtu, -1, -1, -1,
-+			    true);
-+	if (!ret)
-+		dev->mtu = new_mtu;
-+	return ret;
-+}
-+
-+static int cxgb_set_mac_addr(struct net_device *dev, void *p)
-+{
-+	int ret;
-+	struct sockaddr *addr = p;
-+	struct port_info *pi = netdev_priv(dev);
-+
-+	if (!is_valid_ether_addr(addr->sa_data))
-+		return -EINVAL;
-+
-+	ret = t4_change_mac(pi->adapter, 0, pi->viid, pi->xact_addr_filt,
-+			    addr->sa_data, true);
-+	if (ret < 0)
-+		return ret;
-+
-+	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
-+	pi->xact_addr_filt = ret;
-+	return 0;
-+}
-+
-+static void vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
-+{
-+	struct port_info *pi = netdev_priv(dev);
-+
-+	pi->vlan_grp = grp;
-+	t4_set_vlan_accel(pi->adapter, 1 << pi->tx_chan, grp != NULL);
-+}
-+
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+static void cxgb_netpoll(struct net_device *dev)
-+{
-+	int i;
-+	struct port_info *pi = netdev_priv(dev);
-+	struct adapter *adap = pi->adapter;
-+	struct sge_eth_rxq *rx = &adap->sge.ethrxq[pi->first_qset];
-+
-+	for (i = 0; i < pi->nqsets; i++, rx++)
-+		t4_intr_handler(adap)((adap->flags & USING_MSIX) ? &rx->rspq :
-+								   adap);
-+}
-+#endif
-+
-+static const struct net_device_ops cxgb4_netdev_ops = {
-+	.ndo_open             = cxgb_open,
-+	.ndo_stop             = cxgb_close,
-+	.ndo_start_xmit       = t4_eth_xmit,
-+	.ndo_get_stats        = cxgb_get_stats,
-+	.ndo_set_rx_mode      = cxgb_set_rxmode,
-+	.ndo_set_mac_address  = cxgb_set_mac_addr,
-+	.ndo_validate_addr    = eth_validate_addr,
-+	.ndo_do_ioctl         = cxgb_ioctl,
-+	.ndo_change_mtu       = cxgb_change_mtu,
-+	.ndo_vlan_rx_register = vlan_rx_register,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller  = cxgb_netpoll,
++struct tcp_options {
++	__be16 mss;
++	__u8 wsf;
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	__u8 :4;
++	__u8 unknown:1;
++	__u8 :1;
++	__u8 sack:1;
++	__u8 tstamp:1;
++#else
++	__u8 tstamp:1;
++	__u8 sack:1;
++	__u8 :1;
++	__u8 unknown:1;
++	__u8 :4;
 +#endif
 +};
 +
-+void t4_fatal_err(struct adapter *adap)
-+{
-+	t4_set_reg_field(adap, A_SGE_CONTROL, F_GLOBALENABLE, 0);
-+	dev_alert(adap->pdev_dev, "encountered fatal error, adapter stopped\n");
-+}
-+
-+static void setup_memwin(struct adapter *adap)
-+{
-+	u32 bar0;
-+
-+	bar0 = pci_resource_start(adap->pdev, 0);  /* truncation intentional */
-+	t4_write_reg(adap, PCIE_MEM_ACCESS_REG(A_PCIE_MEM_ACCESS_BASE_WIN, 0),
-+		     (bar0 + MEMWIN0_BASE) | V_BIR(0) |
-+		     V_WINDOW(ilog2(MEMWIN0_APERTURE) - 10));
-+	t4_write_reg(adap, PCIE_MEM_ACCESS_REG(A_PCIE_MEM_ACCESS_BASE_WIN, 1),
-+		     (bar0 + MEMWIN1_BASE) | V_BIR(0) |
-+		     V_WINDOW(ilog2(MEMWIN1_APERTURE) - 10));
-+	t4_write_reg(adap, PCIE_MEM_ACCESS_REG(A_PCIE_MEM_ACCESS_BASE_WIN, 2),
-+		     (bar0 + MEMWIN2_BASE) | V_BIR(0) |
-+		     V_WINDOW(ilog2(MEMWIN2_APERTURE) - 10));
-+}
-+
-+/*
-+ * Max # of ATIDs.  The absolute HW max is 16K but we keep it lower.
-+ */
-+#define MAX_ATIDS 8192U
-+
-+/*
-+ * Phase 0 of initialization: contact FW, obtain config, perform basic init.
-+ */
-+static int adap_init0(struct adapter *adap)
-+{
-+	int ret;
-+	u32 v, port_vec;
-+	enum dev_state state;
-+	u32 params[7], val[7];
-+	struct fw_caps_config_cmd c;
-+
-+	ret = t4_check_fw_version(adap);
-+	if (ret == -EINVAL) {
-+		ret = upgrade_fw(adap);
-+		if (ret == 0)                          /* recache FW version */
-+			ret = t4_check_fw_version(adap);
-+	}
-+	if (ret < 0)
-+		return ret;
-+
-+	/* contact FW, request master */
-+	ret = t4_fw_hello(adap, 0, 0, MASTER_MUST, &state);
-+	if (ret < 0) {
-+		dev_err(adap->pdev_dev, "could not connect to FW, error %d\n",
-+			ret);
-+		return ret;
-+	}
-+
-+	/* reset device */
-+	ret = t4_fw_reset(adap, 0, F_PIORSTMODE | F_PIORST);
-+	if (ret < 0)
-+		goto bye;
-+
-+	/* get device capabilities */
-+	memset(&c, 0, sizeof(c));
-+	c.op_to_write = htonl(V_FW_CMD_OP(FW_CAPS_CONFIG_CMD) |
-+			      F_FW_CMD_REQUEST | F_FW_CMD_READ);
-+	c.retval_len16 = htonl(FW_LEN16(c));
-+	ret = t4_wr_mbox(adap, 0, &c, sizeof(c), &c);
-+	if (ret < 0)
-+		goto bye;
-+
-+	/* select capabilities we'll be using */
-+	if (c.niccaps & htons(FW_CAPS_CONFIG_NIC_VM)) {
-+		if (!vf_acls)
-+			c.niccaps ^= htons(FW_CAPS_CONFIG_NIC_VM);
-+		else
-+			c.niccaps = htons(FW_CAPS_CONFIG_NIC_VM);
-+	} else if (vf_acls) {
-+		dev_err(adap->pdev_dev, "virtualization ACLs not supported");
-+		goto bye;
-+	}
-+	c.op_to_write = htonl(V_FW_CMD_OP(FW_CAPS_CONFIG_CMD) |
-+			      F_FW_CMD_REQUEST | F_FW_CMD_WRITE);
-+	ret = t4_wr_mbox(adap, 0, &c, sizeof(c), NULL);
-+	if (ret < 0)
-+		goto bye;
-+
-+	ret = t4_config_glbl_rss(adap, 0,
-+				 FW_RSS_GLB_CONFIG_CMD_MODE_BASICVIRTUAL,
-+				 F_FW_RSS_GLB_CONFIG_CMD_TNLMAPEN |
-+				 F_FW_RSS_GLB_CONFIG_CMD_TNLALLLKP);
-+	if (ret < 0)
-+		goto bye;
-+
-+	ret = t4_cfg_pfvf(adap, 0, 0, 0, 64, 64, 64, 0, 0, 4,
-+			  M_FW_PFVF_CMD_CMASK, M_FW_PFVF_CMD_PMASK, 16,
-+			  FW_CMD_CAP_PF, FW_CMD_CAP_PF);
-+	if (ret < 0)
-+		goto bye;
-+
-+	for (v = 0; v < SGE_NTIMERS - 1; v++)
-+		adap->sge.timer_val[v] = min(intr_holdoff[v], MAX_SGE_TIMERVAL);
-+	adap->sge.timer_val[SGE_NTIMERS - 1] = MAX_SGE_TIMERVAL;
-+	adap->sge.counter_val[0] = 1;
-+	for (v = 1; v < SGE_NCOUNTERS; v++)
-+		adap->sge.counter_val[v] = min(intr_cnt[v - 1], M_THRESHOLD_0);
-+	t4_sge_init(adap);
-+
-+	/* get basic stuff going */
-+	ret = t4_early_init(adap, 0);
-+	if (ret < 0)
-+		goto bye;
-+
-+#define FW_PARAM_DEV(param) \
-+	(V_FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) | \
-+	 V_FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_##param))
-+
-+#define FW_PARAM_PFVF(param) \
-+	(V_FW_PARAMS_MNEM(FW_PARAMS_MNEM_PFVF) | \
-+	 V_FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_PFVF_##param))
-+
-+	params[0] = FW_PARAM_DEV(PORTVEC);
-+	params[1] = FW_PARAM_PFVF(L2T_START);
-+	params[2] = FW_PARAM_PFVF(L2T_END);
-+	params[3] = FW_PARAM_PFVF(FILTER_START);
-+	params[4] = FW_PARAM_PFVF(FILTER_END);
-+	ret = t4_query_params(adap, 0, 5, params, val);
-+	if (ret < 0)
-+		goto bye;
-+	port_vec = val[0];
-+	adap->tids.ftid_base = val[3];
-+	adap->tids.nftids = val[4] - val[3] + 1;
-+
-+	if (c.ofldcaps) {
-+		/* query offload-related parameters */
-+		params[0] = FW_PARAM_DEV(NTID);
-+		params[1] = FW_PARAM_PFVF(SERVER_START);
-+		params[2] = FW_PARAM_PFVF(SERVER_END);
-+		params[3] = FW_PARAM_PFVF(TDDP_START);
-+		params[4] = FW_PARAM_PFVF(TDDP_END);
-+		params[5] = FW_PARAM_DEV(FLOWC_BUFFIFO_SZ);
-+		ret = t4_query_params(adap, 0, 6, params, val);
-+		if (ret < 0)
-+			goto bye;
-+		adap->tids.ntids = val[0];
-+		adap->tids.natids = min(adap->tids.ntids / 2, MAX_ATIDS);
-+		adap->tids.stid_base = val[1];
-+		adap->tids.nstids = val[2] - val[1] + 1;
-+		adap->vres.ddp.start = val[3];
-+		adap->vres.ddp.size = val[4] - val[3] + 1;
-+		adap->params.ofldq_wr_cred = val[5];
-+		adap->params.offload = 1;
-+	}
-+	if (c.rdmacaps) {
-+		params[0] = FW_PARAM_PFVF(STAG_START);
-+		params[1] = FW_PARAM_PFVF(STAG_END);
-+		params[2] = FW_PARAM_PFVF(RQ_START);
-+		params[3] = FW_PARAM_PFVF(RQ_END);
-+		params[4] = FW_PARAM_PFVF(PBL_START);
-+		params[5] = FW_PARAM_PFVF(PBL_END);
-+		ret = t4_query_params(adap, 0, 6, params, val);
-+		if (ret < 0)
-+			goto bye;
-+		adap->vres.stag.start = val[0];
-+		adap->vres.stag.size = val[1] - val[0] + 1;
-+		adap->vres.rq.start = val[2];
-+		adap->vres.rq.size = val[3] - val[2] + 1;
-+		adap->vres.pbl.start = val[4];
-+		adap->vres.pbl.size = val[5] - val[4] + 1;
-+	}
-+	if (c.iscsicaps) {
-+		params[0] = FW_PARAM_PFVF(ISCSI_START);
-+		params[1] = FW_PARAM_PFVF(ISCSI_END);
-+		ret = t4_query_params(adap, 0, 2, params, val);
-+		if (ret < 0)
-+			goto bye;
-+		adap->vres.iscsi.start = val[0];
-+		adap->vres.iscsi.size = val[1] - val[0] + 1;
-+	}
-+#undef FW_PARAM_PFVF
-+#undef FW_PARAM_DEV
-+
-+	adap->params.nports = hweight32(port_vec);
-+	adap->params.portvec = port_vec;
-+	adap->flags |= FW_OK;
-+
-+	/* These are finalized by FW initialization, load their values now */
-+	v = t4_read_reg(adap, A_TP_TIMER_RESOLUTION);
-+	adap->params.tp.tre = G_TIMERRESOLUTION(v);
-+	t4_read_mtu_tbl(adap, adap->params.mtus, NULL);
-+	t4_load_mtus(adap, adap->params.mtus, adap->params.a_wnd,
-+		     adap->params.b_wnd);
-+
-+	/* tweak some settings */
-+	t4_write_reg(adap, A_TP_SHIFT_CNT, V_SYNSHIFTMAX(6) |
-+		     V_RXTSHIFTMAXR1(4) | V_RXTSHIFTMAXR2(15) |
-+		     V_PERSHIFTBACKOFFMAX(8) | V_PERSHIFTMAX(8) |
-+		     V_KEEPALIVEMAXR1(4) | V_KEEPALIVEMAXR2(9));
-+	t4_write_reg(adap, A_ULP_RX_TDDP_PSZ, V_HPZ0(PAGE_SHIFT - 12));
-+	t4_write_reg(adap, A_TP_PIO_ADDR, A_TP_INGRESS_CONFIG);
-+	v = t4_read_reg(adap, A_TP_PIO_DATA);
-+	t4_write_reg(adap, A_TP_PIO_DATA, v & ~F_CSUM_HAS_PSEUDO_HDR);
-+	setup_memwin(adap);
-+	return 0;
-+
-+	/*
-+	 * If a command timed out or failed with EIO FW does not operate within
-+	 * its spec or something catastrophic happened to HW/FW, stop issuing
-+	 * commands.
-+	 */
-+bye:	if (ret != -ETIMEDOUT && ret != -EIO)
-+		t4_fw_bye(adap, 0);
-+	return ret;
-+}
-+
-+static inline bool is_10g_port(const struct link_config *lc)
-+{
-+	return (lc->supported & FW_PORT_CAP_SPEED_10G) != 0;
-+}
-+
-+static inline void init_rspq(struct sge_rspq *q, u8 timer_idx, u8 pkt_cnt_idx,
-+			     unsigned int size, unsigned int iqe_size)
-+{
-+	q->intr_params = V_QINTR_TIMER_IDX(timer_idx) |
-+			 V_QINTR_CNT_EN(pkt_cnt_idx < SGE_NCOUNTERS);
-+	q->pktcnt_idx = pkt_cnt_idx < SGE_NCOUNTERS ? pkt_cnt_idx : 0;
-+	q->iqe_len = iqe_size;
-+	q->size = size;
-+}
-+
-+/*
-+ * Perform default configuration of DMA queues depending on the number and type
-+ * of ports we found and the number of available CPUs.  Most settings can be
-+ * modified by the admin prior to actual use.
-+ */
-+static void __devinit cfg_queues(struct adapter *adap)
-+{
-+	struct sge *s = &adap->sge;
-+	int i, q10g = 0, n10g = 0, qidx = 0;
-+
-+	for_each_port(adap, i)
-+		n10g += is_10g_port(&adap2pinfo(adap, i)->link_cfg);
-+
-+	/*
-+	 * We default to 1 queue per non-10G port and up to # of cores queues
-+	 * per 10G port.
-+	 */
-+	if (n10g)
-+		q10g = (MAX_ETH_QSETS - (adap->params.nports - n10g)) / n10g;
-+	if (q10g > num_online_cpus())
-+		q10g = num_online_cpus();
-+
-+	for_each_port(adap, i) {
-+		struct port_info *pi = adap2pinfo(adap, i);
-+
-+		pi->first_qset = qidx;
-+		pi->nqsets = is_10g_port(&pi->link_cfg) ? q10g : 1;
-+		qidx += pi->nqsets;
-+	}
-+
-+	s->ethqsets = qidx;
-+	s->max_ethqsets = qidx;   /* MSI-X may lower it later */
-+
-+	if (is_offload(adap)) {
-+		/*
-+		 * For offload we use 1 queue/channel if all ports are up to 1G,
-+		 * otherwise we divide all available queues amongst the channels
-+		 * capped by the number of available cores.
-+		 */
-+		if (n10g) {
-+			i = min_t(int, ARRAY_SIZE(s->ofldrxq),
-+				  num_online_cpus());
-+			s->ofldqsets = roundup(i, adap->params.nports);
-+		} else
-+			s->ofldqsets = adap->params.nports;
-+		/* For RDMA one Rx queue per channel suffices */
-+		s->rdmaqs = adap->params.nports;
-+	}
-+
-+	for (i = 0; i < ARRAY_SIZE(s->ethrxq); i++) {
-+		struct sge_eth_rxq *r = &s->ethrxq[i];
-+
-+		init_rspq(&r->rspq, 0, 0, 1024, 64);
-+		r->fl.size = 72;
-+	}
-+
-+	for (i = 0; i < ARRAY_SIZE(s->ethtxq); i++)
-+		s->ethtxq[i].q.size = 1024;
-+
-+	for (i = 0; i < ARRAY_SIZE(s->ctrlq); i++)
-+		s->ctrlq[i].q.size = 512;
-+
-+	for (i = 0; i < ARRAY_SIZE(s->ofldtxq); i++)
-+		s->ofldtxq[i].q.size = 1024;
-+
-+	for (i = 0; i < ARRAY_SIZE(s->ofldrxq); i++) {
-+		struct sge_ofld_rxq *r = &s->ofldrxq[i];
-+
-+		init_rspq(&r->rspq, 0, 0, 1024, 64);
-+		r->rspq.uld = CXGB4_ULD_ISCSI;
-+		r->fl.size = 72;
-+	}
-+
-+	for (i = 0; i < ARRAY_SIZE(s->rdmarxq); i++) {
-+		struct sge_ofld_rxq *r = &s->rdmarxq[i];
-+
-+		init_rspq(&r->rspq, 0, 0, 511, 64);
-+		r->rspq.uld = CXGB4_ULD_RDMA;
-+		r->fl.size = 72;
-+	}
-+
-+	init_rspq(&s->fw_evtq, E_TIMERIDX_NONE, 0, 512, 64);
-+	init_rspq(&s->intrq, E_TIMERIDX_NONE, 0, 2 * MAX_INGQ, 64);
-+}
-+
-+/*
-+ * Reduce the number of Ethernet queues across all ports to at most n.
-+ * n provides at least one queue per port.
-+ */
-+static void __devinit reduce_ethqs(struct adapter *adap, int n)
-+{
-+	int i;
-+	struct port_info *pi;
-+
-+	while (n < adap->sge.ethqsets)
-+		for_each_port(adap, i) {
-+			pi = adap2pinfo(adap, i);
-+			if (pi->nqsets > 1) {
-+				pi->nqsets--;
-+				adap->sge.ethqsets--;
-+				if (adap->sge.ethqsets <= n)
-+					break;
-+			}
-+		}
-+
-+	n = 0;
-+	for_each_port(adap, i) {
-+		pi = adap2pinfo(adap, i);
-+		pi->first_qset = n;
-+		n += pi->nqsets;
-+	}
-+}
-+
-+/* 2 MSI-X vectors needed for the FW queue and non-data interrupts */
-+#define EXTRA_VECS 2
-+
-+static int __devinit enable_msix(struct adapter *adap)
-+{
-+	int ofld_need = 0;
-+	int i, err, want, need;
-+	struct sge *s = &adap->sge;
-+	unsigned int nchan = adap->params.nports;
-+	struct msix_entry entries[MAX_INGQ + 1];
-+
-+	for (i = 0; i < ARRAY_SIZE(entries); ++i)
-+		entries[i].entry = i;
-+
-+	want = s->max_ethqsets + EXTRA_VECS;
-+	if (is_offload(adap)) {
-+		want += s->rdmaqs + s->ofldqsets;
-+		/* need nchan for each possible ULD */
-+		ofld_need = 2 * nchan;
-+	}
-+	need = adap->params.nports + EXTRA_VECS + ofld_need;
-+
-+	while ((err = pci_enable_msix(adap->pdev, entries, want)) >= need)
-+		want = err;
-+
-+	if (!err) {
-+		/*
-+		 * Distribute available vectors to the various queue groups.
-+		 * Every group gets its minimum requirement and NIC gets top
-+		 * priority for leftovers.
-+		 */
-+		i = want - EXTRA_VECS - ofld_need;
-+		if (i < s->max_ethqsets) {
-+			s->max_ethqsets = i;
-+			if (i < s->ethqsets)
-+				reduce_ethqs(adap, i);
-+		}
-+		if (is_offload(adap)) {
-+			i = want - EXTRA_VECS - s->max_ethqsets;
-+			i -= ofld_need - nchan;
-+			s->ofldqsets = (i / nchan) * nchan;  /* round down */
-+		}
-+		for (i = 0; i < want; ++i)
-+			adap->msix_info[i].vec = entries[i].vector;
-+	} else if (err > 0)
-+		dev_info(adap->pdev_dev,
-+			 "only %d MSI-X vectors left, not using MSI-X\n", err);
-+	return err;
-+}
-+
-+#undef EXTRA_VECS
-+
-+static void __devinit print_port_info(struct adapter *adap)
-+{
-+	static const char *base[] = {
-+		"R", "KX4", "T", "KX", "T", "KR", "CX4"
-+	};
-+
-+	int i;
-+	char buf[80];
-+
-+	for_each_port(adap, i) {
-+		struct net_device *dev = adap->port[i];
-+		const struct port_info *pi = netdev_priv(dev);
-+		char *bufp = buf;
-+
-+		if (!test_bit(i, &adap->registered_device_map))
-+			continue;
-+
-+		if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_100M)
-+			bufp += sprintf(bufp, "100/");
-+		if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_1G)
-+			bufp += sprintf(bufp, "1000/");
-+		if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_10G)
-+			bufp += sprintf(bufp, "10G/");
-+		if (bufp != buf)
-+			--bufp;
-+		sprintf(bufp, "BASE-%s", base[pi->port_type]);
-+
-+		netdev_info(dev, "Chelsio %s rev %d %s %sNIC PCIe x%d%s\n",
-+			    adap->params.vpd.id, adap->params.rev,
-+			    buf, is_offload(adap) ? "R" : "",
-+			    adap->params.pci.width,
-+			    (adap->flags & USING_MSIX) ? " MSI-X" :
-+			    (adap->flags & USING_MSI) ? " MSI" : "");
-+		if (adap->name == dev->name)
-+			netdev_info(dev, "S/N: %s, E/C: %s\n",
-+				    adap->params.vpd.sn, adap->params.vpd.ec);
-+	}
-+}
-+
-+#define VLAN_FEAT (NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO | NETIF_F_TSO6 |\
-+		   NETIF_F_IPV6_CSUM | NETIF_F_HIGHDMA)
-+
-+static int __devinit init_one(struct pci_dev *pdev,
-+			      const struct pci_device_id *ent)
-+{
-+	int func, i, err;
-+	struct port_info *pi;
-+	unsigned int highdma = 0;
-+	struct adapter *adapter = NULL;
-+
-+	printk_once(KERN_INFO "%s - version %s\n", DRV_DESC, DRV_VERSION);
-+
-+	err = pci_request_regions(pdev, KBUILD_MODNAME);
-+	if (err) {
-+		/* Just info, some other driver may have claimed the device. */
-+		dev_info(&pdev->dev, "cannot obtain PCI resources\n");
-+		return err;
-+	}
-+
-+	/* We control everything through PF 0 */
-+	func = PCI_FUNC(pdev->devfn);
-+	if (func > 0)
-+		goto sriov;
-+
-+	err = pci_enable_device(pdev);
-+	if (err) {
-+		dev_err(&pdev->dev, "cannot enable PCI device\n");
-+		goto out_release_regions;
-+	}
-+
-+	if (!pci_set_dma_mask(pdev, DMA_BIT_MASK(64))) {
-+		highdma = NETIF_F_HIGHDMA;
-+		err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
-+		if (err) {
-+			dev_err(&pdev->dev, "unable to obtain 64-bit DMA for "
-+				"coherent allocations\n");
-+			goto out_disable_device;
-+		}
-+	} else {
-+		err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
-+		if (err) {
-+			dev_err(&pdev->dev, "no usable DMA configuration\n");
-+			goto out_disable_device;
-+		}
-+	}
-+
-+	pci_enable_pcie_error_reporting(pdev);
-+	pci_set_master(pdev);
-+	pci_save_state(pdev);
-+
-+	adapter = kzalloc(sizeof(*adapter), GFP_KERNEL);
-+	if (!adapter) {
-+		err = -ENOMEM;
-+		goto out_disable_device;
-+	}
-+
-+	adapter->regs = pci_ioremap_bar(pdev, 0);
-+	if (!adapter->regs) {
-+		dev_err(&pdev->dev, "cannot map device registers\n");
-+		err = -ENOMEM;
-+		goto out_free_adapter;
-+	}
-+
-+	adapter->pdev = pdev;
-+	adapter->pdev_dev = &pdev->dev;
-+	adapter->name = pci_name(pdev);
-+	adapter->msg_enable = dflt_msg_enable;
-+	memset(adapter->chan_map, 0xff, sizeof(adapter->chan_map));
-+
-+	spin_lock_init(&adapter->stats_lock);
-+	spin_lock_init(&adapter->tid_release_lock);
-+
-+	INIT_WORK(&adapter->tid_release_task, process_tid_release_list);
-+
-+	err = t4_prep_adapter(adapter);
-+	if (err)
-+		goto out_unmap_bar;
-+	err = adap_init0(adapter);
-+	if (err)
-+		goto out_unmap_bar;
-+
-+	for_each_port(adapter, i) {
-+		struct net_device *netdev;
-+
-+		netdev = alloc_etherdev_mq(sizeof(struct port_info),
-+					   MAX_ETH_QSETS);
-+		if (!netdev) {
-+			err = -ENOMEM;
-+			goto out_free_dev;
-+		}
-+
-+		SET_NETDEV_DEV(netdev, &pdev->dev);
-+
-+		adapter->port[i] = netdev;
-+		pi = netdev_priv(netdev);
-+		pi->adapter = adapter;
-+		pi->xact_addr_filt = -1;
-+		pi->rx_offload = RX_CSO;
-+		pi->port_id = i;
-+		netif_carrier_off(netdev);
-+		netif_tx_stop_all_queues(netdev);
-+		netdev->irq = pdev->irq;
-+
-+		netdev->features |= NETIF_F_SG | NETIF_F_TSO | NETIF_F_TSO6;
-+		netdev->features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
-+		netdev->features |= NETIF_F_GRO | highdma;
-+		netdev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
-+		netdev->vlan_features = netdev->features & VLAN_FEAT;
-+
-+		netdev->netdev_ops = &cxgb4_netdev_ops;
-+		SET_ETHTOOL_OPS(netdev, &cxgb_ethtool_ops);
-+	}
-+
-+	pci_set_drvdata(pdev, adapter);
-+
-+	if (adapter->flags & FW_OK) {
-+		err = t4_port_init(adapter, 0, 0, 0);
-+		if (err)
-+			goto out_free_dev;
-+	}
-+
-+	/*
-+	 * Configure queues and allocate tables now, they can be needed as
-+	 * soon as the first register_netdev completes.
-+	 */
-+	cfg_queues(adapter);
-+
-+	adapter->l2t = t4_init_l2t();
-+	if (!adapter->l2t) {
-+		/* We tolerate a lack of L2T, giving up some functionality */
-+		dev_warn(&pdev->dev, "could not allocate L2T, continuing\n");
-+		adapter->params.offload = 0;
-+	}
-+
-+	if (is_offload(adapter) && tid_init(&adapter->tids) < 0) {
-+		dev_warn(&pdev->dev, "could not allocate TID table, "
-+			 "continuing\n");
-+		adapter->params.offload = 0;
-+	}
-+
-+	/*
-+	 * The card is now ready to go.  If any errors occur during device
-+	 * registration we do not fail the whole card but rather proceed only
-+	 * with the ports we manage to register successfully.  However we must
-+	 * register at least one net device.
-+	 */
-+	for_each_port(adapter, i) {
-+		err = register_netdev(adapter->port[i]);
-+		if (err)
-+			dev_warn(&pdev->dev,
-+				 "cannot register net device %s, skipping\n",
-+				 adapter->port[i]->name);
-+		else {
-+			/*
-+			 * Change the name we use for messages to the name of
-+			 * the first successfully registered interface.
-+			 */
-+			if (!adapter->registered_device_map)
-+				adapter->name = adapter->port[i]->name;
-+
-+			__set_bit(i, &adapter->registered_device_map);
-+			adapter->chan_map[adap2pinfo(adapter, i)->tx_chan] = i;
-+		}
-+	}
-+	if (!adapter->registered_device_map) {
-+		dev_err(&pdev->dev, "could not register any net devices\n");
-+		goto out_free_dev;
-+	}
-+
-+	if (cxgb4_proc_root) {
-+		adapter->proc_root = proc_mkdir(pci_name(pdev),
-+						cxgb4_proc_root);
-+		if (!adapter->proc_root)
-+			dev_warn(&pdev->dev,
-+				 "could not create /proc directory");
-+		else
-+			setup_proc(adapter, adapter->proc_root);
-+	}
-+
-+	if (cxgb4_debugfs_root) {
-+		adapter->debugfs_root = debugfs_create_dir(pci_name(pdev),
-+							   cxgb4_debugfs_root);
-+		setup_debugfs(adapter);
-+	}
-+
-+	/* See what interrupts we'll be using */
-+	if (msi > 1 && enable_msix(adapter) == 0)
-+		adapter->flags |= USING_MSIX;
-+	else if (msi > 0 && pci_enable_msi(pdev) == 0)
-+		adapter->flags |= USING_MSI;
-+
-+	if (is_offload(adapter))
-+		attach_ulds(adapter);
-+
-+	print_port_info(adapter);
-+
-+sriov:
-+#ifdef CONFIG_PCI_IOV
-+	if (func < ARRAY_SIZE(num_vf) && num_vf[func] > 0)
-+		if (pci_enable_sriov(pdev, num_vf[func]) == 0)
-+			dev_info(&pdev->dev,
-+				 "instantiated %u virtual functions\n",
-+				 num_vf[func]);
++struct rss_header {
++	__u8 opcode;
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	__u8 channel:2;
++	__u8 filter_hit:1;
++	__u8 filter_tid:1;
++	__u8 hash_type:2;
++	__u8 ipv6:1;
++	__u8 send2fw:1;
++#else
++	__u8 send2fw:1;
++	__u8 ipv6:1;
++	__u8 hash_type:2;
++	__u8 filter_tid:1;
++	__u8 filter_hit:1;
++	__u8 channel:2;
 +#endif
-+	return 0;
-+
-+ out_free_dev:
-+	t4_free_mem(adapter->tids.tid_tab);
-+	t4_free_mem(adapter->l2t);
-+	for_each_port(adapter, i)
-+		if (adapter->port[i])
-+			free_netdev(adapter->port[i]);
-+	if (adapter->flags & FW_OK)
-+		t4_fw_bye(adapter, 0);
-+ out_unmap_bar:
-+	iounmap(adapter->regs);
-+ out_free_adapter:
-+	kfree(adapter);
-+ out_disable_device:
-+	pci_disable_pcie_error_reporting(pdev);
-+	pci_disable_device(pdev);
-+ out_release_regions:
-+	pci_release_regions(pdev);
-+	pci_set_drvdata(pdev, NULL);
-+	return err;
-+}
-+
-+static void __devexit remove_one(struct pci_dev *pdev)
-+{
-+	struct adapter *adapter = pci_get_drvdata(pdev);
-+
-+	pci_disable_sriov(pdev);
-+
-+	if (adapter) {
-+		int i;
-+
-+		if (is_offload(adapter))
-+			detach_ulds(adapter);
-+
-+		t4_sge_stop(adapter);
-+
-+		for_each_port(adapter, i)
-+			if (test_bit(i, &adapter->registered_device_map))
-+				unregister_netdev(adapter->port[i]);
-+
-+		if (adapter->proc_root) {
-+			cleanup_proc(adapter->proc_root);
-+			remove_proc_entry(pci_name(pdev), cxgb4_proc_root);
-+		}
-+
-+		if (adapter->debugfs_root)
-+			debugfs_remove_recursive(adapter->debugfs_root);
-+
-+		t4_free_sge_resources(adapter);
-+		t4_free_mem(adapter->l2t);
-+		t4_free_mem(adapter->tids.tid_tab);
-+		disable_msi(adapter);
-+
-+		for_each_port(adapter, i)
-+			if (adapter->port[i])
-+				free_netdev(adapter->port[i]);
-+
-+		if (adapter->flags & FW_OK)
-+			t4_fw_bye(adapter, 0);
-+		iounmap(adapter->regs);
-+		kfree(adapter);
-+		pci_disable_pcie_error_reporting(pdev);
-+		pci_disable_device(pdev);
-+		pci_release_regions(pdev);
-+		pci_set_drvdata(pdev, NULL);
-+	} else if (PCI_FUNC(pdev->devfn) > 0)
-+		pci_release_regions(pdev);
-+}
-+
-+static struct pci_driver cxgb4_driver = {
-+	.name     = KBUILD_MODNAME,
-+	.id_table = cxgb4_pci_tbl,
-+	.probe    = init_one,
-+	.remove   = __devexit_p(remove_one),
++	__be16 qid;
++	__be32 hash_val;
 +};
 +
-+#define DRV_PROC_NAME "driver/" KBUILD_MODNAME
++#define S_HASHTYPE 20
++#define M_HASHTYPE 0x3
++#define G_HASHTYPE(x) (((x) >> S_HASHTYPE) & M_HASHTYPE)
 +
-+static int __init cxgb4_init_module(void)
-+{
-+	int ret;
++#define S_QNUM 0
++#define M_QNUM 0xFFFF
++#define G_QNUM(x) (((x) >> S_QNUM) & M_QNUM)
 +
-+	/* Debugfs support is optional, just warn if this fails */
-+	cxgb4_debugfs_root = debugfs_create_dir(KBUILD_MODNAME, NULL);
-+	if (!cxgb4_debugfs_root)
-+		pr_warning("could not create debugfs entry, continuing\n");
++struct work_request_hdr {
++	__be32 wr_hi;
++	__be32 wr_mid;
++	__be64 wr_lo;
++};
 +
-+#ifdef CONFIG_PROC_FS
-+	cxgb4_proc_root = proc_mkdir(DRV_PROC_NAME, NULL);
-+	if (!cxgb4_proc_root)
-+		pr_warning("could not create /proc driver directory, "
-+			   "continuing\n");
++/* wr_mid fields */
++#define S_WR_LEN16    0
++#define M_WR_LEN16    0xFF
++#define V_WR_LEN16(x) ((x) << S_WR_LEN16)
++#define G_WR_LEN16(x) (((x) >> S_WR_LEN16) & M_WR_LEN16)
++
++/* wr_hi fields */
++#define S_WR_OP    24
++#define M_WR_OP    0xFF
++#define V_WR_OP(x) ((__u64)(x) << S_WR_OP)
++#define G_WR_OP(x) (((x) >> S_WR_OP) & M_WR_OP)
++
++#define WR_HDR struct work_request_hdr wr
++
++/* option 0 fields */
++#define S_ACCEPT_MODE    0
++#define M_ACCEPT_MODE    0x3
++#define V_ACCEPT_MODE(x) ((x) << S_ACCEPT_MODE)
++#define G_ACCEPT_MODE(x) (((x) >> S_ACCEPT_MODE) & M_ACCEPT_MODE)
++
++#define S_TX_CHAN    2
++#define M_TX_CHAN    0x3
++#define V_TX_CHAN(x) ((x) << S_TX_CHAN)
++#define G_TX_CHAN(x) (((x) >> S_TX_CHAN) & M_TX_CHAN)
++
++#define S_NO_CONG    4
++#define V_NO_CONG(x) ((x) << S_NO_CONG)
++#define F_NO_CONG    V_NO_CONG(1U)
++
++#define S_DELACK    5
++#define V_DELACK(x) ((x) << S_DELACK)
++#define F_DELACK    V_DELACK(1U)
++
++#define S_NON_OFFLOAD    7
++#define V_NON_OFFLOAD(x) ((x) << S_NON_OFFLOAD)
++#define F_NON_OFFLOAD    V_NON_OFFLOAD(1U)
++
++#define S_ULP_MODE    8
++#define M_ULP_MODE    0xF
++#define V_ULP_MODE(x) ((x) << S_ULP_MODE)
++#define G_ULP_MODE(x) (((x) >> S_ULP_MODE) & M_ULP_MODE)
++
++#define S_RCV_BUFSIZ    12
++#define M_RCV_BUFSIZ    0x3FF
++#define V_RCV_BUFSIZ(x) ((x) << S_RCV_BUFSIZ)
++#define G_RCV_BUFSIZ(x) (((x) >> S_RCV_BUFSIZ) & M_RCV_BUFSIZ)
++
++#define S_DSCP    22
++#define M_DSCP    0x3F
++#define V_DSCP(x) ((x) << S_DSCP)
++#define G_DSCP(x) (((x) >> S_DSCP) & M_DSCP)
++
++#define S_SMAC_SEL    28
++#define M_SMAC_SEL    0xFF
++#define V_SMAC_SEL(x) ((__u64)(x) << S_SMAC_SEL)
++#define G_SMAC_SEL(x) (((x) >> S_SMAC_SEL) & M_SMAC_SEL)
++
++#define S_L2T_IDX    36
++#define M_L2T_IDX    0xFFF
++#define V_L2T_IDX(x) ((__u64)(x) << S_L2T_IDX)
++#define G_L2T_IDX(x) (((x) >> S_L2T_IDX) & M_L2T_IDX)
++
++#define S_TCAM_BYPASS    48
++#define V_TCAM_BYPASS(x) ((__u64)(x) << S_TCAM_BYPASS)
++#define F_TCAM_BYPASS    V_TCAM_BYPASS(1ULL)
++
++#define S_NAGLE    49
++#define V_NAGLE(x) ((__u64)(x) << S_NAGLE)
++#define F_NAGLE    V_NAGLE(1ULL)
++
++#define S_WND_SCALE    50
++#define M_WND_SCALE    0xF
++#define V_WND_SCALE(x) ((__u64)(x) << S_WND_SCALE)
++#define G_WND_SCALE(x) (((x) >> S_WND_SCALE) & M_WND_SCALE)
++
++#define S_KEEP_ALIVE    54
++#define V_KEEP_ALIVE(x) ((__u64)(x) << S_KEEP_ALIVE)
++#define F_KEEP_ALIVE    V_KEEP_ALIVE(1ULL)
++
++#define S_MAX_RT    55
++#define M_MAX_RT    0xF
++#define V_MAX_RT(x) ((__u64)(x) << S_MAX_RT)
++#define G_MAX_RT(x) (((x) >> S_MAX_RT) & M_MAX_RT)
++
++#define S_MAX_RT_OVERRIDE    59
++#define V_MAX_RT_OVERRIDE(x) ((__u64)(x) << S_MAX_RT_OVERRIDE)
++#define F_MAX_RT_OVERRIDE    V_MAX_RT_OVERRIDE(1ULL)
++
++#define S_MSS_IDX    60
++#define M_MSS_IDX    0xF
++#define V_MSS_IDX(x) ((__u64)(x) << S_MSS_IDX)
++#define G_MSS_IDX(x) (((x) >> S_MSS_IDX) & M_MSS_IDX)
++
++/* option 1 fields */
++#define S_SYN_RSS_ENABLE    0
++#define V_SYN_RSS_ENABLE(x) ((x) << S_SYN_RSS_ENABLE)
++#define F_SYN_RSS_ENABLE    V_SYN_RSS_ENABLE(1U)
++
++#define S_SYN_RSS_USE_HASH    1
++#define V_SYN_RSS_USE_HASH(x) ((x) << S_SYN_RSS_USE_HASH)
++#define F_SYN_RSS_USE_HASH    V_SYN_RSS_USE_HASH(1U)
++
++#define S_SYN_RSS_QUEUE    2
++#define M_SYN_RSS_QUEUE    0x3FF
++#define V_SYN_RSS_QUEUE(x) ((x) << S_SYN_RSS_QUEUE)
++#define G_SYN_RSS_QUEUE(x) (((x) >> S_SYN_RSS_QUEUE) & M_SYN_RSS_QUEUE)
++
++#define S_LISTEN_INTF    12
++#define M_LISTEN_INTF    0xFF
++#define V_LISTEN_INTF(x) ((x) << S_LISTEN_INTF)
++#define G_LISTEN_INTF(x) (((x) >> S_LISTEN_INTF) & M_LISTEN_INTF)
++
++#define S_LISTEN_FILTER    20
++#define V_LISTEN_FILTER(x) ((x) << S_LISTEN_FILTER)
++#define F_LISTEN_FILTER    V_LISTEN_FILTER(1U)
++
++#define S_CONN_POLICY    22
++#define M_CONN_POLICY    0x3
++#define V_CONN_POLICY(x) ((x) << S_CONN_POLICY)
++#define G_CONN_POLICY(x) (((x) >> S_CONN_POLICY) & M_CONN_POLICY)
++
++/* option 2 fields */
++#define S_RSS_QUEUE    0
++#define M_RSS_QUEUE    0x3FF
++#define V_RSS_QUEUE(x) ((x) << S_RSS_QUEUE)
++#define G_RSS_QUEUE(x) (((x) >> S_RSS_QUEUE) & M_RSS_QUEUE)
++
++#define S_RSS_QUEUE_VALID    10
++#define V_RSS_QUEUE_VALID(x) ((x) << S_RSS_QUEUE_VALID)
++#define F_RSS_QUEUE_VALID    V_RSS_QUEUE_VALID(1U)
++
++#define S_RX_COALESCE_VALID    11
++#define V_RX_COALESCE_VALID(x) ((x) << S_RX_COALESCE_VALID)
++#define F_RX_COALESCE_VALID    V_RX_COALESCE_VALID(1U)
++
++#define S_RX_COALESCE    12
++#define M_RX_COALESCE    0x3
++#define V_RX_COALESCE(x) ((x) << S_RX_COALESCE)
++#define G_RX_COALESCE(x) (((x) >> S_RX_COALESCE) & M_RX_COALESCE)
++
++#define S_CONG_CNTRL    14
++#define M_CONG_CNTRL    0x3
++#define V_CONG_CNTRL(x) ((x) << S_CONG_CNTRL)
++#define G_CONG_CNTRL(x) (((x) >> S_CONG_CNTRL) & M_CONG_CNTRL)
++
++#define S_PACE    16
++#define M_PACE    0x3
++#define V_PACE(x) ((x) << S_PACE)
++#define G_PACE(x) (((x) >> S_PACE) & M_PACE)
++
++#define S_CONG_CNTRL_VALID    18
++#define V_CONG_CNTRL_VALID(x) ((x) << S_CONG_CNTRL_VALID)
++#define F_CONG_CNTRL_VALID    V_CONG_CNTRL_VALID(1U)
++
++#define S_PACE_VALID    19
++#define V_PACE_VALID(x) ((x) << S_PACE_VALID)
++#define F_PACE_VALID    V_PACE_VALID(1U)
++
++#define S_RX_FC_DISABLE    20
++#define V_RX_FC_DISABLE(x) ((x) << S_RX_FC_DISABLE)
++#define F_RX_FC_DISABLE    V_RX_FC_DISABLE(1U)
++
++#define S_RX_FC_DDP    21
++#define V_RX_FC_DDP(x) ((x) << S_RX_FC_DDP)
++#define F_RX_FC_DDP    V_RX_FC_DDP(1U)
++
++#define S_RX_FC_VALID    22
++#define V_RX_FC_VALID(x) ((x) << S_RX_FC_VALID)
++#define F_RX_FC_VALID    V_RX_FC_VALID(1U)
++
++#define S_TX_QUEUE    23
++#define M_TX_QUEUE    0x7
++#define V_TX_QUEUE(x) ((x) << S_TX_QUEUE)
++#define G_TX_QUEUE(x) (((x) >> S_TX_QUEUE) & M_TX_QUEUE)
++
++#define S_RX_CHANNEL    26
++#define V_RX_CHANNEL(x) ((x) << S_RX_CHANNEL)
++#define F_RX_CHANNEL    V_RX_CHANNEL(1U)
++
++#define S_CCTRL_ECN    27
++#define V_CCTRL_ECN(x) ((x) << S_CCTRL_ECN)
++#define F_CCTRL_ECN    V_CCTRL_ECN(1U)
++
++#define S_WND_SCALE_EN    28
++#define V_WND_SCALE_EN(x) ((x) << S_WND_SCALE_EN)
++#define F_WND_SCALE_EN    V_WND_SCALE_EN(1U)
++
++#define S_TSTAMPS_EN    29
++#define V_TSTAMPS_EN(x) ((x) << S_TSTAMPS_EN)
++#define F_TSTAMPS_EN    V_TSTAMPS_EN(1U)
++
++#define S_SACK_EN    30
++#define V_SACK_EN(x) ((x) << S_SACK_EN)
++#define F_SACK_EN    V_SACK_EN(1U)
++
++struct cpl_pass_open_req {
++	WR_HDR;
++	union opcode_tid ot;
++	__be16 local_port;
++	__be16 peer_port;
++	__be32 local_ip;
++	__be32 peer_ip;
++	__be64 opt0;
++	__be64 opt1;
++};
++
++struct cpl_pass_open_req6 {
++	WR_HDR;
++	union opcode_tid ot;
++	__be16 local_port;
++	__be16 peer_port;
++	__be64 local_ip_hi;
++	__be64 local_ip_lo;
++	__be64 peer_ip_hi;
++	__be64 peer_ip_lo;
++	__be64 opt0;
++	__be64 opt1;
++};
++
++struct cpl_pass_open_rpl {
++	union opcode_tid ot;
++	__u8 rsvd[3];
++	__u8 status;
++};
++
++struct cpl_pass_establish {
++	union opcode_tid ot;
++	__be32 rsvd;
++	__be32 tos_stid;
++	__be16 mac_idx;
++	__be16 tcp_opt;
++	__be32 snd_isn;
++	__be32 rcv_isn;
++};
++
++/* cpl_pass_establish.tos_stid fields */
++#define S_PASS_OPEN_TID    0
++#define M_PASS_OPEN_TID    0xFFFFFF
++#define V_PASS_OPEN_TID(x) ((x) << S_PASS_OPEN_TID)
++#define G_PASS_OPEN_TID(x) (((x) >> S_PASS_OPEN_TID) & M_PASS_OPEN_TID)
++
++#define S_PASS_OPEN_TOS    24
++#define M_PASS_OPEN_TOS    0xFF
++#define V_PASS_OPEN_TOS(x) ((x) << S_PASS_OPEN_TOS)
++#define G_PASS_OPEN_TOS(x) (((x) >> S_PASS_OPEN_TOS) & M_PASS_OPEN_TOS)
++
++/* cpl_pass_establish.tcp_opt fields (also applies to act_open_establish) */
++#define G_TCPOPT_WSCALE_OK(x)  (((x) >> 5) & 1)
++#define G_TCPOPT_SACK(x)       (((x) >> 6) & 1)
++#define G_TCPOPT_TSTAMP(x)     (((x) >> 7) & 1)
++#define G_TCPOPT_SND_WSCALE(x) (((x) >> 8) & 0xf)
++#define G_TCPOPT_MSS(x)        (((x) >> 12) & 0xf)
++
++struct cpl_pass_accept_req {
++	union opcode_tid ot;
++	__be16 rsvd;
++	__be16 len;
++	__be32 hdr_len;
++	__be16 vlan;
++	__be16 l2info;
++	__be32 tos_stid;
++	struct tcp_options tcpopt;
++};
++
++/* cpl_pass_accept_req.hdr_len fields */
++#define S_SYN_RX_CHAN    0
++#define M_SYN_RX_CHAN    0xF
++#define V_SYN_RX_CHAN(x) ((x) << S_SYN_RX_CHAN)
++#define G_SYN_RX_CHAN(x) (((x) >> S_SYN_RX_CHAN) & M_SYN_RX_CHAN)
++
++#define S_TCP_HDR_LEN    10
++#define M_TCP_HDR_LEN    0x3F
++#define V_TCP_HDR_LEN(x) ((x) << S_TCP_HDR_LEN)
++#define G_TCP_HDR_LEN(x) (((x) >> S_TCP_HDR_LEN) & M_TCP_HDR_LEN)
++
++#define S_IP_HDR_LEN    16
++#define M_IP_HDR_LEN    0x3FF
++#define V_IP_HDR_LEN(x) ((x) << S_IP_HDR_LEN)
++#define G_IP_HDR_LEN(x) (((x) >> S_IP_HDR_LEN) & M_IP_HDR_LEN)
++
++#define S_ETH_HDR_LEN    26
++#define M_ETH_HDR_LEN    0x1F
++#define V_ETH_HDR_LEN(x) ((x) << S_ETH_HDR_LEN)
++#define G_ETH_HDR_LEN(x) (((x) >> S_ETH_HDR_LEN) & M_ETH_HDR_LEN)
++
++/* cpl_pass_accept_req.l2info fields */
++#define S_SYN_MAC_IDX    0
++#define M_SYN_MAC_IDX    0x1FF
++#define V_SYN_MAC_IDX(x) ((x) << S_SYN_MAC_IDX)
++#define G_SYN_MAC_IDX(x) (((x) >> S_SYN_MAC_IDX) & M_SYN_MAC_IDX)
++
++#define S_SYN_XACT_MATCH    9
++#define V_SYN_XACT_MATCH(x) ((x) << S_SYN_XACT_MATCH)
++#define F_SYN_XACT_MATCH    V_SYN_XACT_MATCH(1U)
++
++#define S_SYN_INTF    12
++#define M_SYN_INTF    0xF
++#define V_SYN_INTF(x) ((x) << S_SYN_INTF)
++#define G_SYN_INTF(x) (((x) >> S_SYN_INTF) & M_SYN_INTF)
++
++struct cpl_pass_accept_rpl {
++	WR_HDR;
++	union opcode_tid ot;
++	__be32 opt2;
++	__be64 opt0;
++};
++
++struct cpl_act_open_req {
++	WR_HDR;
++	union opcode_tid ot;
++	__be16 local_port;
++	__be16 peer_port;
++	__be32 local_ip;
++	__be32 peer_ip;
++	__be64 opt0;
++	__be32 params;
++	__be32 opt2;
++};
++
++struct cpl_act_open_req6 {
++	WR_HDR;
++	union opcode_tid ot;
++	__be16 local_port;
++	__be16 peer_port;
++	__be64 local_ip_hi;
++	__be64 local_ip_lo;
++	__be64 peer_ip_hi;
++	__be64 peer_ip_lo;
++	__be64 opt0;
++	__be32 params;
++	__be32 opt2;
++};
++
++struct cpl_act_open_rpl {
++	union opcode_tid ot;
++	__be32 atid_status;
++};
++
++/* cpl_act_open_rpl.atid_status fields */
++#define S_AOPEN_STATUS    0
++#define M_AOPEN_STATUS    0xFF
++#define V_AOPEN_STATUS(x) ((x) << S_AOPEN_STATUS)
++#define G_AOPEN_STATUS(x) (((x) >> S_AOPEN_STATUS) & M_AOPEN_STATUS)
++
++#define S_AOPEN_ATID    8
++#define M_AOPEN_ATID    0xFFFFFF
++#define V_AOPEN_ATID(x) ((x) << S_AOPEN_ATID)
++#define G_AOPEN_ATID(x) (((x) >> S_AOPEN_ATID) & M_AOPEN_ATID)
++
++struct cpl_act_establish {
++	union opcode_tid ot;
++	__be32 rsvd;
++	__be32 tos_atid;
++	__be16 mac_idx;
++	__be16 tcp_opt;
++	__be32 snd_isn;
++	__be32 rcv_isn;
++};
++
++struct cpl_get_tcb {
++	WR_HDR;
++	union opcode_tid ot;
++	__be16 reply_ctrl;
++	__be16 cookie;
++};
++
++/* cpl_get_tcb.reply_ctrl fields */
++#define S_QUEUENO    0
++#define M_QUEUENO    0x3FF
++#define V_QUEUENO(x) ((x) << S_QUEUENO)
++#define G_QUEUENO(x) (((x) >> S_QUEUENO) & M_QUEUENO)
++
++#define S_REPLY_CHAN    14
++#define V_REPLY_CHAN(x) ((x) << S_REPLY_CHAN)
++#define F_REPLY_CHAN    V_REPLY_CHAN(1U)
++
++#define S_NO_REPLY    15
++#define V_NO_REPLY(x) ((x) << S_NO_REPLY)
++#define F_NO_REPLY    V_NO_REPLY(1U)
++
++struct cpl_get_tcb_rpl {
++	union opcode_tid ot;
++	__u8 cookie;
++	__u8 status;
++	__be16 len;
++};
++
++struct cpl_set_tcb_field {
++	WR_HDR;
++	union opcode_tid ot;
++	__be16 reply_ctrl;
++	__be16 word_cookie;
++	__be64 mask;
++	__be64 val;
++};
++
++/* cpl_set_tcb_field.word_cookie fields */
++#define S_WORD    0
++#define M_WORD    0x1F
++#define V_WORD(x) ((x) << S_WORD)
++#define G_WORD(x) (((x) >> S_WORD) & M_WORD)
++
++#define S_COOKIE    5
++#define M_COOKIE    0x7
++#define V_COOKIE(x) ((x) << S_COOKIE)
++#define G_COOKIE(x) (((x) >> S_COOKIE) & M_COOKIE)
++
++struct cpl_set_tcb_rpl {
++	union opcode_tid ot;
++	__be16 rsvd;
++	__u8   cookie;
++	__u8   status;
++	__be64 oldval;
++};
++
++struct cpl_close_con_req {
++	WR_HDR;
++	union opcode_tid ot;
++	__be32 rsvd;
++};
++
++struct cpl_close_con_rpl {
++	union opcode_tid ot;
++	__u8  rsvd[3];
++	__u8  status;
++	__be32 snd_nxt;
++	__be32 rcv_nxt;
++};
++
++struct cpl_close_listsvr_req {
++	WR_HDR;
++	union opcode_tid ot;
++	__be16 reply_ctrl;
++	__be16 rsvd;
++};
++
++/* additional cpl_close_listsvr_req.reply_ctrl field */
++#define S_LISTSVR_IPV6    14
++#define V_LISTSVR_IPV6(x) ((x) << S_LISTSVR_IPV6)
++#define F_LISTSVR_IPV6    V_LISTSVR_IPV6(1U)
++
++struct cpl_close_listsvr_rpl {
++	union opcode_tid ot;
++	__u8 rsvd[3];
++	__u8 status;
++};
++
++struct cpl_abort_req_rss {
++	union opcode_tid ot;
++	__u8  rsvd[3];
++	__u8  status;
++};
++
++struct cpl_abort_req {
++	WR_HDR;
++	union opcode_tid ot;
++	__be32 rsvd0;
++	__u8  rsvd1;
++	__u8  cmd;
++	__u8  rsvd2[6];
++};
++
++struct cpl_abort_rpl_rss {
++	union opcode_tid ot;
++	__u8  rsvd[3];
++	__u8  status;
++};
++
++struct cpl_abort_rpl {
++	WR_HDR;
++	union opcode_tid ot;
++	__be32 rsvd0;
++	__u8  rsvd1;
++	__u8  cmd;
++	__u8  rsvd2[6];
++};
++
++struct cpl_peer_close {
++	union opcode_tid ot;
++	__be32 rcv_nxt;
++};
++
++struct cpl_tid_release {
++	WR_HDR;
++	union opcode_tid ot;
++	__be32 rsvd;
++};
++
++struct cpl_tx_pkt_core {
++	__be32 ctrl0;
++	__be16 pack;
++	__be16 len;
++	__be64 ctrl1;
++};
++
++struct cpl_tx_pkt {
++	WR_HDR;
++	struct cpl_tx_pkt_core c;
++};
++
++#define cpl_tx_pkt_xt cpl_tx_pkt
++
++/* cpl_tx_pkt_core.ctrl0 fields */
++#define S_TXPKT_VF    0
++#define M_TXPKT_VF    0xFF
++#define V_TXPKT_VF(x) ((x) << S_TXPKT_VF)
++#define G_TXPKT_VF(x) (((x) >> S_TXPKT_VF) & M_TXPKT_VF)
++
++#define S_TXPKT_PF    8
++#define M_TXPKT_PF    0x7
++#define V_TXPKT_PF(x) ((x) << S_TXPKT_PF)
++#define G_TXPKT_PF(x) (((x) >> S_TXPKT_PF) & M_TXPKT_PF)
++
++#define S_TXPKT_VF_VLD    11
++#define V_TXPKT_VF_VLD(x) ((x) << S_TXPKT_VF_VLD)
++#define F_TXPKT_VF_VLD    V_TXPKT_VF_VLD(1U)
++
++#define S_TXPKT_OVLAN_IDX    12
++#define M_TXPKT_OVLAN_IDX    0xF
++#define V_TXPKT_OVLAN_IDX(x) ((x) << S_TXPKT_OVLAN_IDX)
++#define G_TXPKT_OVLAN_IDX(x) (((x) >> S_TXPKT_OVLAN_IDX) & M_TXPKT_OVLAN_IDX)
++
++#define S_TXPKT_INTF    16
++#define M_TXPKT_INTF    0xF
++#define V_TXPKT_INTF(x) ((x) << S_TXPKT_INTF)
++#define G_TXPKT_INTF(x) (((x) >> S_TXPKT_INTF) & M_TXPKT_INTF)
++
++#define S_TXPKT_SPECIAL_STAT    20
++#define V_TXPKT_SPECIAL_STAT(x) ((x) << S_TXPKT_SPECIAL_STAT)
++#define F_TXPKT_SPECIAL_STAT    V_TXPKT_SPECIAL_STAT(1U)
++
++#define S_TXPKT_INS_OVLAN    21
++#define V_TXPKT_INS_OVLAN(x) ((x) << S_TXPKT_INS_OVLAN)
++#define F_TXPKT_INS_OVLAN    V_TXPKT_INS_OVLAN(1U)
++
++#define S_TXPKT_STAT_DIS    22
++#define V_TXPKT_STAT_DIS(x) ((x) << S_TXPKT_STAT_DIS)
++#define F_TXPKT_STAT_DIS    V_TXPKT_STAT_DIS(1U)
++
++#define S_TXPKT_LOOPBACK    23
++#define V_TXPKT_LOOPBACK(x) ((x) << S_TXPKT_LOOPBACK)
++#define F_TXPKT_LOOPBACK    V_TXPKT_LOOPBACK(1U)
++
++#define S_TXPKT_OPCODE    24
++#define M_TXPKT_OPCODE    0xFF
++#define V_TXPKT_OPCODE(x) ((x) << S_TXPKT_OPCODE)
++#define G_TXPKT_OPCODE(x) (((x) >> S_TXPKT_OPCODE) & M_TXPKT_OPCODE)
++
++/* cpl_tx_pkt_core.ctrl1 fields */
++#define S_TXPKT_SA_IDX    0
++#define M_TXPKT_SA_IDX    0xFFF
++#define V_TXPKT_SA_IDX(x) ((x) << S_TXPKT_SA_IDX)
++#define G_TXPKT_SA_IDX(x) (((x) >> S_TXPKT_SA_IDX) & M_TXPKT_SA_IDX)
++
++#define S_TXPKT_CSUM_END    12
++#define M_TXPKT_CSUM_END    0xFF
++#define V_TXPKT_CSUM_END(x) ((x) << S_TXPKT_CSUM_END)
++#define G_TXPKT_CSUM_END(x) (((x) >> S_TXPKT_CSUM_END) & M_TXPKT_CSUM_END)
++
++#define S_TXPKT_CSUM_START    20
++#define M_TXPKT_CSUM_START    0x3FF
++#define V_TXPKT_CSUM_START(x) ((x) << S_TXPKT_CSUM_START)
++#define G_TXPKT_CSUM_START(x) (((x) >> S_TXPKT_CSUM_START) & M_TXPKT_CSUM_START)
++
++#define S_TXPKT_IPHDR_LEN    20
++#define M_TXPKT_IPHDR_LEN    0x3FFF
++#define V_TXPKT_IPHDR_LEN(x) ((__u64)(x) << S_TXPKT_IPHDR_LEN)
++#define G_TXPKT_IPHDR_LEN(x) (((x) >> S_TXPKT_IPHDR_LEN) & M_TXPKT_IPHDR_LEN)
++
++#define S_TXPKT_CSUM_LOC    30
++#define M_TXPKT_CSUM_LOC    0x3FF
++#define V_TXPKT_CSUM_LOC(x) ((__u64)(x) << S_TXPKT_CSUM_LOC)
++#define G_TXPKT_CSUM_LOC(x) (((x) >> S_TXPKT_CSUM_LOC) & M_TXPKT_CSUM_LOC)
++
++#define S_TXPKT_ETHHDR_LEN    34
++#define M_TXPKT_ETHHDR_LEN    0x3F
++#define V_TXPKT_ETHHDR_LEN(x) ((__u64)(x) << S_TXPKT_ETHHDR_LEN)
++#define G_TXPKT_ETHHDR_LEN(x) (((x) >> S_TXPKT_ETHHDR_LEN) & M_TXPKT_ETHHDR_LEN)
++
++#define S_TXPKT_CSUM_TYPE    40
++#define M_TXPKT_CSUM_TYPE    0xF
++#define V_TXPKT_CSUM_TYPE(x) ((__u64)(x) << S_TXPKT_CSUM_TYPE)
++#define G_TXPKT_CSUM_TYPE(x) (((x) >> S_TXPKT_CSUM_TYPE) & M_TXPKT_CSUM_TYPE)
++
++#define S_TXPKT_VLAN    44
++#define M_TXPKT_VLAN    0xFFFF
++#define V_TXPKT_VLAN(x) ((__u64)(x) << S_TXPKT_VLAN)
++#define G_TXPKT_VLAN(x) (((x) >> S_TXPKT_VLAN) & M_TXPKT_VLAN)
++
++#define S_TXPKT_VLAN_VLD    60
++#define V_TXPKT_VLAN_VLD(x) ((__u64)(x) << S_TXPKT_VLAN_VLD)
++#define F_TXPKT_VLAN_VLD    V_TXPKT_VLAN_VLD(1ULL)
++
++#define S_TXPKT_IPSEC    61
++#define V_TXPKT_IPSEC(x) ((__u64)(x) << S_TXPKT_IPSEC)
++#define F_TXPKT_IPSEC    V_TXPKT_IPSEC(1ULL)
++
++#define S_TXPKT_IPCSUM_DIS    62
++#define V_TXPKT_IPCSUM_DIS(x) ((__u64)(x) << S_TXPKT_IPCSUM_DIS)
++#define F_TXPKT_IPCSUM_DIS    V_TXPKT_IPCSUM_DIS(1ULL)
++
++#define S_TXPKT_L4CSUM_DIS    63
++#define V_TXPKT_L4CSUM_DIS(x) ((__u64)(x) << S_TXPKT_L4CSUM_DIS)
++#define F_TXPKT_L4CSUM_DIS    V_TXPKT_L4CSUM_DIS(1ULL)
++
++struct cpl_tx_pkt_lso {
++	WR_HDR;
++	__be32 lso_ctrl;
++	__be16 ipid_ofst;
++	__be16 mss;
++	__be32 seqno_offset;
++	__be32 len;
++	/* encapsulated CPL (TX_PKT, TX_PKT_XT or TX_DATA) follows here */
++};
++
++/* cpl_tx_pkt_lso.lso_ctrl fields */
++#define S_LSO_TCPHDR_LEN    0
++#define M_LSO_TCPHDR_LEN    0xF
++#define V_LSO_TCPHDR_LEN(x) ((x) << S_LSO_TCPHDR_LEN)
++#define G_LSO_TCPHDR_LEN(x) (((x) >> S_LSO_TCPHDR_LEN) & M_LSO_TCPHDR_LEN)
++
++#define S_LSO_IPHDR_LEN    4
++#define M_LSO_IPHDR_LEN    0xFFF
++#define V_LSO_IPHDR_LEN(x) ((x) << S_LSO_IPHDR_LEN)
++#define G_LSO_IPHDR_LEN(x) (((x) >> S_LSO_IPHDR_LEN) & M_LSO_IPHDR_LEN)
++
++#define S_LSO_ETHHDR_LEN    16
++#define M_LSO_ETHHDR_LEN    0xF
++#define V_LSO_ETHHDR_LEN(x) ((x) << S_LSO_ETHHDR_LEN)
++#define G_LSO_ETHHDR_LEN(x) (((x) >> S_LSO_ETHHDR_LEN) & M_LSO_ETHHDR_LEN)
++
++#define S_LSO_IPV6    20
++#define V_LSO_IPV6(x) ((x) << S_LSO_IPV6)
++#define F_LSO_IPV6    V_LSO_IPV6(1U)
++
++#define S_LSO_OFLD_ENCAP    21
++#define V_LSO_OFLD_ENCAP(x) ((x) << S_LSO_OFLD_ENCAP)
++#define F_LSO_OFLD_ENCAP    V_LSO_OFLD_ENCAP(1U)
++
++#define S_LSO_LAST_SLICE    22
++#define V_LSO_LAST_SLICE(x) ((x) << S_LSO_LAST_SLICE)
++#define F_LSO_LAST_SLICE    V_LSO_LAST_SLICE(1U)
++
++#define S_LSO_FIRST_SLICE    23
++#define V_LSO_FIRST_SLICE(x) ((x) << S_LSO_FIRST_SLICE)
++#define F_LSO_FIRST_SLICE    V_LSO_FIRST_SLICE(1U)
++
++#define S_LSO_OPCODE    24
++#define M_LSO_OPCODE    0xFF
++#define V_LSO_OPCODE(x) ((x) << S_LSO_OPCODE)
++#define G_LSO_OPCODE(x) (((x) >> S_LSO_OPCODE) & M_LSO_OPCODE)
++
++/* cpl_tx_pkt_lso.mss fields */
++#define S_LSO_MSS    0
++#define M_LSO_MSS    0x3FFF
++#define V_LSO_MSS(x) ((x) << S_LSO_MSS)
++#define G_LSO_MSS(x) (((x) >> S_LSO_MSS) & M_LSO_MSS)
++
++#define S_LSO_IPID_SPLIT    15
++#define V_LSO_IPID_SPLIT(x) ((x) << S_LSO_IPID_SPLIT)
++#define F_LSO_IPID_SPLIT    V_LSO_IPID_SPLIT(1U)
++
++struct cpl_iscsi_hdr {
++	union opcode_tid ot;
++	__be16 pdu_len_ddp;
++	__be16 len;
++	__be32 seq;
++	__be16 urg;
++	__u8 rsvd;
++	__u8 status;
++};
++
++/* cpl_iscsi_hdr.pdu_len_ddp fields */
++#define S_ISCSI_PDU_LEN    0
++#define M_ISCSI_PDU_LEN    0x7FFF
++#define V_ISCSI_PDU_LEN(x) ((x) << S_ISCSI_PDU_LEN)
++#define G_ISCSI_PDU_LEN(x) (((x) >> S_ISCSI_PDU_LEN) & M_ISCSI_PDU_LEN)
++
++#define S_ISCSI_DDP    15
++#define V_ISCSI_DDP(x) ((x) << S_ISCSI_DDP)
++#define F_ISCSI_DDP    V_ISCSI_DDP(1U)
++
++struct cpl_rx_data {
++	union opcode_tid ot;
++	__be16 rsvd;
++	__be16 len;
++	__be32 seq;
++	__be16 urg;
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	__u8 dack_mode:2;
++	__u8 psh:1;
++	__u8 heartbeat:1;
++	__u8 ddp_off:1;
++	__u8 :3;
++#else
++	__u8 :3;
++	__u8 ddp_off:1;
++	__u8 heartbeat:1;
++	__u8 psh:1;
++	__u8 dack_mode:2;
 +#endif
++	__u8 status;
++};
 +
-+	ret = pci_register_driver(&cxgb4_driver);
-+	if (ret < 0) {
-+		remove_proc_entry(DRV_PROC_NAME, NULL);
-+		debugfs_remove(cxgb4_debugfs_root);
-+	}
-+	return ret;
-+}
++struct cpl_rx_data_ack {
++	WR_HDR;
++	union opcode_tid ot;
++	__be32 credit_dack;
++};
 +
-+static void __exit cxgb4_cleanup_module(void)
-+{
-+	pci_unregister_driver(&cxgb4_driver);
-+	remove_proc_entry(DRV_PROC_NAME, NULL);
-+	debugfs_remove(cxgb4_debugfs_root);  /* NULL ok */
-+}
++/* cpl_rx_data_ack.ack_seq fields */
++#define S_RX_CREDITS    0
++#define M_RX_CREDITS    0x3FFFFFF
++#define V_RX_CREDITS(x) ((x) << S_RX_CREDITS)
++#define G_RX_CREDITS(x) (((x) >> S_RX_CREDITS) & M_RX_CREDITS)
 +
-+module_init(cxgb4_init_module);
-+module_exit(cxgb4_cleanup_module);
++#define S_RX_MODULATE_TX    26
++#define V_RX_MODULATE_TX(x) ((x) << S_RX_MODULATE_TX)
++#define F_RX_MODULATE_TX    V_RX_MODULATE_TX(1U)
++
++#define S_RX_MODULATE_RX    27
++#define V_RX_MODULATE_RX(x) ((x) << S_RX_MODULATE_RX)
++#define F_RX_MODULATE_RX    V_RX_MODULATE_RX(1U)
++
++#define S_RX_FORCE_ACK    28
++#define V_RX_FORCE_ACK(x) ((x) << S_RX_FORCE_ACK)
++#define F_RX_FORCE_ACK    V_RX_FORCE_ACK(1U)
++
++#define S_RX_DACK_MODE    29
++#define M_RX_DACK_MODE    0x3
++#define V_RX_DACK_MODE(x) ((x) << S_RX_DACK_MODE)
++#define G_RX_DACK_MODE(x) (((x) >> S_RX_DACK_MODE) & M_RX_DACK_MODE)
++
++#define S_RX_DACK_CHANGE    31
++#define V_RX_DACK_CHANGE(x) ((x) << S_RX_DACK_CHANGE)
++#define F_RX_DACK_CHANGE    V_RX_DACK_CHANGE(1U)
++
++struct cpl_rx_pkt {
++	__u8 opcode;
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	__u8 iff:4;
++	__u8 csum_calc:1;
++	__u8 ipmi_pkt:1;
++	__u8 vlan_ex:1;
++	__u8 ip_frag:1;
++#else
++	__u8 ip_frag:1;
++	__u8 vlan_ex:1;
++	__u8 ipmi_pkt:1;
++	__u8 csum_calc:1;
++	__u8 iff:4;
++#endif
++	__be16 csum;
++	__be16 vlan;
++	__be16 len;
++	__be32 l2info;
++	__be16 hdr_len;
++	__be16 err_vec;
++};
++
++/* rx_pkt.l2info fields */
++#define S_RX_ETHHDR_LEN    0
++#define M_RX_ETHHDR_LEN    0x1F
++#define V_RX_ETHHDR_LEN(x) ((x) << S_RX_ETHHDR_LEN)
++#define G_RX_ETHHDR_LEN(x) (((x) >> S_RX_ETHHDR_LEN) & M_RX_ETHHDR_LEN)
++
++#define S_RX_PKTYPE    5
++#define M_RX_PKTYPE    0x7
++#define V_RX_PKTYPE(x) ((x) << S_RX_PKTYPE)
++#define G_RX_PKTYPE(x) (((x) >> S_RX_PKTYPE) & M_RX_PKTYPE)
++
++#define S_RX_MACIDX    8
++#define M_RX_MACIDX    0x1FF
++#define V_RX_MACIDX(x) ((x) << S_RX_MACIDX)
++#define G_RX_MACIDX(x) (((x) >> S_RX_MACIDX) & M_RX_MACIDX)
++
++#define S_RX_DATYPE    18
++#define M_RX_DATYPE    0x3
++#define V_RX_DATYPE(x) ((x) << S_RX_DATYPE)
++#define G_RX_DATYPE(x) (((x) >> S_RX_DATYPE) & M_RX_DATYPE)
++
++#define S_RXF_PSH    20
++#define V_RXF_PSH(x) ((x) << S_RXF_PSH)
++#define F_RXF_PSH    V_RXF_PSH(1U)
++
++#define S_RXF_SYN    21
++#define V_RXF_SYN(x) ((x) << S_RXF_SYN)
++#define F_RXF_SYN    V_RXF_SYN(1U)
++
++#define S_RXF_UDP    22
++#define V_RXF_UDP(x) ((x) << S_RXF_UDP)
++#define F_RXF_UDP    V_RXF_UDP(1U)
++
++#define S_RXF_TCP    23
++#define V_RXF_TCP(x) ((x) << S_RXF_TCP)
++#define F_RXF_TCP    V_RXF_TCP(1U)
++
++#define S_RXF_IP    24
++#define V_RXF_IP(x) ((x) << S_RXF_IP)
++#define F_RXF_IP    V_RXF_IP(1U)
++
++#define S_RXF_IP6    25
++#define V_RXF_IP6(x) ((x) << S_RXF_IP6)
++#define F_RXF_IP6    V_RXF_IP6(1U)
++
++#define S_RXF_SYN_COOKIE    26
++#define V_RXF_SYN_COOKIE(x) ((x) << S_RXF_SYN_COOKIE)
++#define F_RXF_SYN_COOKIE    V_RXF_SYN_COOKIE(1U)
++
++#define S_RXF_FCOE    26
++#define V_RXF_FCOE(x) ((x) << S_RXF_FCOE)
++#define F_RXF_FCOE    V_RXF_FCOE(1U)
++
++#define S_RXF_LRO    27
++#define V_RXF_LRO(x) ((x) << S_RXF_LRO)
++#define F_RXF_LRO    V_RXF_LRO(1U)
++
++#define S_RX_CHAN    28
++#define M_RX_CHAN    0xF
++#define V_RX_CHAN(x) ((x) << S_RX_CHAN)
++#define G_RX_CHAN(x) (((x) >> S_RX_CHAN) & M_RX_CHAN)
++
++/* rx_pkt.hdr_len fields */
++#define S_RX_TCPHDR_LEN    0
++#define M_RX_TCPHDR_LEN    0x3F
++#define V_RX_TCPHDR_LEN(x) ((x) << S_RX_TCPHDR_LEN)
++#define G_RX_TCPHDR_LEN(x) (((x) >> S_RX_TCPHDR_LEN) & M_RX_TCPHDR_LEN)
++
++#define S_RX_IPHDR_LEN    6
++#define M_RX_IPHDR_LEN    0x3FF
++#define V_RX_IPHDR_LEN(x) ((x) << S_RX_IPHDR_LEN)
++#define G_RX_IPHDR_LEN(x) (((x) >> S_RX_IPHDR_LEN) & M_RX_IPHDR_LEN)
++
++/* rx_pkt.err_vec fields */
++#define S_RXERR_OR    0
++#define V_RXERR_OR(x) ((x) << S_RXERR_OR)
++#define F_RXERR_OR    V_RXERR_OR(1U)
++
++#define S_RXERR_MAC    1
++#define V_RXERR_MAC(x) ((x) << S_RXERR_MAC)
++#define F_RXERR_MAC    V_RXERR_MAC(1U)
++
++#define S_RXERR_IPVERS    2
++#define V_RXERR_IPVERS(x) ((x) << S_RXERR_IPVERS)
++#define F_RXERR_IPVERS    V_RXERR_IPVERS(1U)
++
++#define S_RXERR_FRAG    3
++#define V_RXERR_FRAG(x) ((x) << S_RXERR_FRAG)
++#define F_RXERR_FRAG    V_RXERR_FRAG(1U)
++
++#define S_RXERR_ATTACK    4
++#define V_RXERR_ATTACK(x) ((x) << S_RXERR_ATTACK)
++#define F_RXERR_ATTACK    V_RXERR_ATTACK(1U)
++
++#define S_RXERR_ETHHDR_LEN    5
++#define V_RXERR_ETHHDR_LEN(x) ((x) << S_RXERR_ETHHDR_LEN)
++#define F_RXERR_ETHHDR_LEN    V_RXERR_ETHHDR_LEN(1U)
++
++#define S_RXERR_IPHDR_LEN    6
++#define V_RXERR_IPHDR_LEN(x) ((x) << S_RXERR_IPHDR_LEN)
++#define F_RXERR_IPHDR_LEN    V_RXERR_IPHDR_LEN(1U)
++
++#define S_RXERR_TCPHDR_LEN    7
++#define V_RXERR_TCPHDR_LEN(x) ((x) << S_RXERR_TCPHDR_LEN)
++#define F_RXERR_TCPHDR_LEN    V_RXERR_TCPHDR_LEN(1U)
++
++#define S_RXERR_PKT_LEN    8
++#define V_RXERR_PKT_LEN(x) ((x) << S_RXERR_PKT_LEN)
++#define F_RXERR_PKT_LEN    V_RXERR_PKT_LEN(1U)
++
++#define S_RXERR_TCP_OPT    9
++#define V_RXERR_TCP_OPT(x) ((x) << S_RXERR_TCP_OPT)
++#define F_RXERR_TCP_OPT    V_RXERR_TCP_OPT(1U)
++
++#define S_RXERR_IPCSUM    12
++#define V_RXERR_IPCSUM(x) ((x) << S_RXERR_IPCSUM)
++#define F_RXERR_IPCSUM    V_RXERR_IPCSUM(1U)
++
++#define S_RXERR_CSUM    13
++#define V_RXERR_CSUM(x) ((x) << S_RXERR_CSUM)
++#define F_RXERR_CSUM    V_RXERR_CSUM(1U)
++
++#define S_RXERR_PING    14
++#define V_RXERR_PING(x) ((x) << S_RXERR_PING)
++#define F_RXERR_PING    V_RXERR_PING(1U)
++
++struct cpl_trace_pkt {
++	__u8 opcode;
++	__u8 intf;
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	__u8 runt:4;
++	__u8 filter_hit:4;
++	__u8 :6;
++	__u8 err:1;
++	__u8 trunc:1;
++#else
++	__u8 filter_hit:4;
++	__u8 runt:4;
++	__u8 trunc:1;
++	__u8 err:1;
++	__u8 :6;
++#endif
++	__be16 rsvd;
++	__be16 len;
++	__be64 tstamp;
++};
++
++struct cpl_l2t_write_req {
++	WR_HDR;
++	union opcode_tid ot;
++	__be16 params;
++	__be16 l2t_idx;
++	__be16 vlan;
++	__u8   dst_mac[6];
++};
++
++/* cpl_l2t_write_req.params fields */
++#define S_L2T_W_INFO    2
++#define M_L2T_W_INFO    0x3F
++#define V_L2T_W_INFO(x) ((x) << S_L2T_W_INFO)
++#define G_L2T_W_INFO(x) (((x) >> S_L2T_W_INFO) & M_L2T_W_INFO)
++
++#define S_L2T_W_PORT    8
++#define M_L2T_W_PORT    0xF
++#define V_L2T_W_PORT(x) ((x) << S_L2T_W_PORT)
++#define G_L2T_W_PORT(x) (((x) >> S_L2T_W_PORT) & M_L2T_W_PORT)
++
++#define S_L2T_W_NOREPLY    15
++#define V_L2T_W_NOREPLY(x) ((x) << S_L2T_W_NOREPLY)
++#define F_L2T_W_NOREPLY    V_L2T_W_NOREPLY(1U)
++
++struct cpl_l2t_write_rpl {
++	union opcode_tid ot;
++	__u8 status;
++	__u8 rsvd[3];
++};
++
++struct cpl_rdma_terminate {
++	union opcode_tid ot;
++	__be16 rsvd;
++	__be16 len;
++};
++
++struct cpl_sge_egr_update {
++	__be32 opcode_qid;
++	__be16 cidx;
++	__be16 pidx;
++};
++
++/* cpl_sge_egr_update.ot fields */
++#define S_EGR_QID    0
++#define M_EGR_QID    0x1FFFF
++#define V_EGR_QID(x) ((x) << S_EGR_QID)
++#define G_EGR_QID(x) (((x) >> S_EGR_QID) & M_EGR_QID)
++
++struct cpl_fw4_pld {
++	u8 opcode;
++	u8 rsvd0[3];
++	u8 type;
++	u8 rsvd1;
++	__be16 len;
++	__be64 data;
++	__be64 rsvd2;
++};
++
++struct cpl_fw6_pld {
++	u8 opcode;
++	u8 rsvd[5];
++	__be16 len;
++	__be64 data[4];
++};
++
++struct cpl_fw4_msg {
++	u8 opcode;
++	u8 type;
++	__be16 rsvd0;
++	__be32 rsvd1;
++	__be64 data[2];
++};
++
++struct cpl_fw4_ack {
++	union opcode_tid ot;
++	u8 credits;
++	u8 rsvd0[2];
++	u8 seq_vld;
++	__be32 snd_nxt;
++	__be32 snd_una;
++	__be64 rsvd1;
++};
++
++struct cpl_fw6_msg {
++	u8 opcode;
++	u8 type;
++	__be16 rsvd0;
++	__be32 rsvd1;
++	__be64 data[4];
++};
++
++/* ULP_TX opcodes */
++enum {
++	ULP_TX_MEM_READ = 2,
++	ULP_TX_MEM_WRITE = 3,
++	ULP_TX_PKT = 4
++};
++
++enum {
++	ULP_TX_SC_NOOP = 0x80,
++	ULP_TX_SC_IMM  = 0x81,
++	ULP_TX_SC_DSGL = 0x82,
++	ULP_TX_SC_ISGL = 0x83
++};
++
++#define S_ULPTX_CMD    24
++#define M_ULPTX_CMD    0xFF
++#define V_ULPTX_CMD(x) ((x) << S_ULPTX_CMD)
++
++#define S_ULPTX_LEN16    0
++#define M_ULPTX_LEN16    0xFF
++#define V_ULPTX_LEN16(x) ((x) << S_ULPTX_LEN16)
++
++struct ulptx_sge_pair {
++	__be32 len[2];
++	__be64 addr[2];
++};
++
++struct ulptx_sgl {
++	__be32 cmd_nsge;
++	__be32 len0;
++	__be64 addr0;
++	struct ulptx_sge_pair sge[0];
++};
++
++struct ulptx_isge {
++	__be32 stag;
++	__be32 len;
++	__be64 target_ofst;
++};
++
++struct ulptx_isgl {
++	__be32 cmd_nisge;
++	__be32 rsvd;
++	struct ulptx_isge sge[0];
++};
++
++#define S_ULPTX_NSGE    0
++#define M_ULPTX_NSGE    0xFFFF
++#define V_ULPTX_NSGE(x) ((x) << S_ULPTX_NSGE)
++
++struct ulp_mem_io {
++	WR_HDR;
++	__be32 cmd;
++	__be32 len16;             /* command length */
++	__be32 dlen;              /* data length in 32-byte units */
++	__be32 lock_addr;
++};
++
++/* additional ulp_mem_io.cmd fields */
++#define S_ULP_MEMIO_ORDER    23
++#define V_ULP_MEMIO_ORDER(x) ((x) << S_ULP_MEMIO_ORDER)
++#define F_ULP_MEMIO_ORDER    V_ULP_MEMIO_ORDER(1U)
++
++/* ulp_mem_io.lock_addr fields */
++#define S_ULP_MEMIO_ADDR    0
++#define M_ULP_MEMIO_ADDR    0x7FFFFFF
++#define V_ULP_MEMIO_ADDR(x) ((x) << S_ULP_MEMIO_ADDR)
++
++#define S_ULP_MEMIO_LOCK    31
++#define V_ULP_MEMIO_LOCK(x) ((x) << S_ULP_MEMIO_LOCK)
++#define F_ULP_MEMIO_LOCK    V_ULP_MEMIO_LOCK(1U)
++
++/* ulp_mem_io.dlen fields */
++#define S_ULP_MEMIO_DATA_LEN    0
++#define M_ULP_MEMIO_DATA_LEN    0x1F
++#define V_ULP_MEMIO_DATA_LEN(x) ((x) << S_ULP_MEMIO_DATA_LEN)
++
++struct ulp_txpkt {
++	__be32 cmd_dest;
++	__be32 len;
++};
++
++/* ulp_txpkt.cmd_dest fields */
++#define S_ULP_TXPKT_DEST    16
++#define M_ULP_TXPKT_DEST    0x3
++#define V_ULP_TXPKT_DEST(x) ((x) << S_ULP_TXPKT_DEST)
++
++#endif  /* __T4_MSG_H */
+diff --git a/drivers/net/cxgb4/t4_regs.h b/drivers/net/cxgb4/t4_regs.h
+new file mode 100644
+index 0000000..27d288f
+--- /dev/null
++++ b/drivers/net/cxgb4/t4_regs.h
+@@ -0,0 +1,2109 @@
++/*
++ * This file is part of the Chelsio T4 Ethernet driver for Linux.
++ *
++ * Copyright (c) 2010 Chelsio Communications, Inc. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#ifndef __T4_REGS_H
++#define __T4_REGS_H
++
++#define MYPF_BASE 0x1b000
++#define MYPF_REG(reg_addr) (MYPF_BASE + (reg_addr))
++
++#define PF0_BASE 0x1e000
++#define PF0_REG(reg_addr) (PF0_BASE + (reg_addr))
++
++#define PF_STRIDE 0x400
++#define PF_BASE(idx) (PF0_BASE + (idx) * PF_STRIDE)
++#define PF_REG(idx, reg) (PF_BASE(idx) + (reg))
++
++#define MYPORT_BASE 0x1c000
++#define MYPORT_REG(reg_addr) (MYPORT_BASE + (reg_addr))
++
++#define PORT0_BASE 0x20000
++#define PORT0_REG(reg_addr) (PORT0_BASE + (reg_addr))
++
++#define PORT_STRIDE 0x2000
++#define PORT_BASE(idx) (PORT0_BASE + (idx) * PORT_STRIDE)
++#define PORT_REG(idx, reg) (PORT_BASE(idx) + (reg))
++
++#define EDC_STRIDE (EDC_1_BASE_ADDR - EDC_0_BASE_ADDR)
++#define EDC_REG(reg, idx) (reg + EDC_STRIDE * idx)
++
++#define PCIE_MEM_ACCESS_REG(reg_addr, idx) ((reg_addr) + (idx) * 8)
++#define NUM_PCIE_MEM_ACCESS_INSTANCES 8
++
++#define PCIE_MAILBOX_REG(reg_addr, idx) ((reg_addr) + (idx) * 8)
++#define NUM_PCIE_MAILBOX_INSTANCES 1
++
++#define MC_BIST_STATUS_REG(reg_addr, idx) ((reg_addr) + (idx) * 4)
++#define NUM_MC_BIST_STATUS_INSTANCES 18
++
++#define EDC_BIST_STATUS_REG(reg_addr, idx) ((reg_addr) + (idx) * 4)
++#define NUM_EDC_BIST_STATUS_INSTANCES 18
++
++#define CIM_PF_MAILBOX_DATA(idx) (A_CIM_PF_MAILBOX_DATA + (idx) * 4)
++#define NUM_CIM_PF_MAILBOX_DATA_INSTANCES 16
++
++#define MPS_TRC_FILTER_MATCH_CTL_A(idx) (A_MPS_TRC_FILTER_MATCH_CTL_A + (idx) * 4)
++#define NUM_MPS_TRC_FILTER_MATCH_CTL_A_INSTANCES 4
++
++#define MPS_TRC_FILTER_MATCH_CTL_B(idx) (A_MPS_TRC_FILTER_MATCH_CTL_B + (idx) * 4)
++#define NUM_MPS_TRC_FILTER_MATCH_CTL_B_INSTANCES 4
++
++#define MPS_TRC_FILTER0_MATCH(idx) (A_MPS_TRC_FILTER0_MATCH + (idx) * 4)
++#define NUM_MPS_TRC_FILTER0_MATCH_INSTANCES 28
++
++#define MPS_TRC_FILTER0_DONT_CARE(idx) (A_MPS_TRC_FILTER0_DONT_CARE + (idx) * 4)
++#define NUM_MPS_TRC_FILTER0_DONT_CARE_INSTANCES 28
++
++#define MPS_TRC_FILTER1_MATCH(idx) (A_MPS_TRC_FILTER1_MATCH + (idx) * 4)
++#define NUM_MPS_TRC_FILTER1_MATCH_INSTANCES 28
++
++/*
++ * The macros below define register addresses and fields within registers.
++ * The first letter of each macro identifies what the macro is about as follows:
++ *
++ * A_* is a register's Address
++ * S_* is the Start bit position of a field in a register
++ * M_* is the Mask for a register field
++ * V_* turns its argument into the Value of a field (appropriately shifted)
++ * F_* is the on value for 1-bit fields, i.e., Flags
++ * E_* is a symbolic constant for a field value, i.e., an Enum
++ * G_* Gets (extracts) a field's value from a register value
++ */
++
++/* registers for module SGE */
++#define A_SGE_PF_KDOORBELL 0x0
++
++#define S_QID    15
++#define M_QID    0x1ffffU
++#define V_QID(x) ((x) << S_QID)
++
++#define S_DBPRIO    14
++#define V_DBPRIO(x) ((x) << S_DBPRIO)
++#define F_DBPRIO    V_DBPRIO(1U)
++
++#define S_PIDX    0
++#define M_PIDX    0x3fffU
++#define V_PIDX(x) ((x) << S_PIDX)
++
++#define A_SGE_PF_GTS 0x4
++
++#define S_INGRESSQID    16
++#define M_INGRESSQID    0xffffU
++#define V_INGRESSQID(x) ((x) << S_INGRESSQID)
++
++#define S_TIMERREG    13
++#define M_TIMERREG    0x7U
++#define V_TIMERREG(x) ((x) << S_TIMERREG)
++
++#define E_TIMERIDX_NONE     6
++#define E_TIMERIDX_CRED_UPD 7
++
++#define S_SEINTARM    12
++#define V_SEINTARM(x) ((x) << S_SEINTARM)
++#define F_SEINTARM    V_SEINTARM(1U)
++
++#define S_CIDXINC    0
++#define M_CIDXINC    0xfffU
++#define V_CIDXINC(x) ((x) << S_CIDXINC)
++
++#define A_SGE_CONTROL 0x1008
++
++#define S_IGRALLCPLTOFL    31
++#define V_IGRALLCPLTOFL(x) ((x) << S_IGRALLCPLTOFL)
++#define F_IGRALLCPLTOFL    V_IGRALLCPLTOFL(1U)
++
++#define S_FLSPLITMIN    22
++#define M_FLSPLITMIN    0x1ffU
++#define V_FLSPLITMIN(x) ((x) << S_FLSPLITMIN)
++#define G_FLSPLITMIN(x) (((x) >> S_FLSPLITMIN) & M_FLSPLITMIN)
++
++#define S_FLSPLITMODE    20
++#define M_FLSPLITMODE    0x3U
++#define V_FLSPLITMODE(x) ((x) << S_FLSPLITMODE)
++#define G_FLSPLITMODE(x) (((x) >> S_FLSPLITMODE) & M_FLSPLITMODE)
++
++#define S_DCASYSTYPE    19
++#define V_DCASYSTYPE(x) ((x) << S_DCASYSTYPE)
++#define F_DCASYSTYPE    V_DCASYSTYPE(1U)
++
++#define S_RXPKTCPLMODE    18
++#define V_RXPKTCPLMODE(x) ((x) << S_RXPKTCPLMODE)
++#define F_RXPKTCPLMODE    V_RXPKTCPLMODE(1U)
++
++#define S_EGRSTATUSPAGESIZE    17
++#define V_EGRSTATUSPAGESIZE(x) ((x) << S_EGRSTATUSPAGESIZE)
++#define F_EGRSTATUSPAGESIZE    V_EGRSTATUSPAGESIZE(1U)
++
++#define S_INGHINTENABLE1    15
++#define V_INGHINTENABLE1(x) ((x) << S_INGHINTENABLE1)
++#define F_INGHINTENABLE1    V_INGHINTENABLE1(1U)
++
++#define S_INGHINTENABLE0    14
++#define V_INGHINTENABLE0(x) ((x) << S_INGHINTENABLE0)
++#define F_INGHINTENABLE0    V_INGHINTENABLE0(1U)
++
++#define S_INGINTCOMPAREIDX    13
++#define V_INGINTCOMPAREIDX(x) ((x) << S_INGINTCOMPAREIDX)
++#define F_INGINTCOMPAREIDX    V_INGINTCOMPAREIDX(1U)
++
++#define S_PKTSHIFT    10
++#define M_PKTSHIFT    0x7U
++#define V_PKTSHIFT(x) ((x) << S_PKTSHIFT)
++#define G_PKTSHIFT(x) (((x) >> S_PKTSHIFT) & M_PKTSHIFT)
++
++#define S_INGPCIEBOUNDARY    7
++#define M_INGPCIEBOUNDARY    0x7U
++#define V_INGPCIEBOUNDARY(x) ((x) << S_INGPCIEBOUNDARY)
++#define G_INGPCIEBOUNDARY(x) (((x) >> S_INGPCIEBOUNDARY) & M_INGPCIEBOUNDARY)
++
++#define S_INGPADBOUNDARY    4
++#define M_INGPADBOUNDARY    0x7U
++#define V_INGPADBOUNDARY(x) ((x) << S_INGPADBOUNDARY)
++#define G_INGPADBOUNDARY(x) (((x) >> S_INGPADBOUNDARY) & M_INGPADBOUNDARY)
++
++#define S_EGRPCIEBOUNDARY    1
++#define M_EGRPCIEBOUNDARY    0x7U
++#define V_EGRPCIEBOUNDARY(x) ((x) << S_EGRPCIEBOUNDARY)
++#define G_EGRPCIEBOUNDARY(x) (((x) >> S_EGRPCIEBOUNDARY) & M_EGRPCIEBOUNDARY)
++
++#define S_GLOBALENABLE    0
++#define V_GLOBALENABLE(x) ((x) << S_GLOBALENABLE)
++#define F_GLOBALENABLE    V_GLOBALENABLE(1U)
++
++#define A_SGE_HOST_PAGE_SIZE 0x100c
++
++#define S_HOSTPAGESIZEPF7    28
++#define M_HOSTPAGESIZEPF7    0xfU
++#define V_HOSTPAGESIZEPF7(x) ((x) << S_HOSTPAGESIZEPF7)
++#define G_HOSTPAGESIZEPF7(x) (((x) >> S_HOSTPAGESIZEPF7) & M_HOSTPAGESIZEPF7)
++
++#define S_HOSTPAGESIZEPF6    24
++#define M_HOSTPAGESIZEPF6    0xfU
++#define V_HOSTPAGESIZEPF6(x) ((x) << S_HOSTPAGESIZEPF6)
++#define G_HOSTPAGESIZEPF6(x) (((x) >> S_HOSTPAGESIZEPF6) & M_HOSTPAGESIZEPF6)
++
++#define S_HOSTPAGESIZEPF5    20
++#define M_HOSTPAGESIZEPF5    0xfU
++#define V_HOSTPAGESIZEPF5(x) ((x) << S_HOSTPAGESIZEPF5)
++#define G_HOSTPAGESIZEPF5(x) (((x) >> S_HOSTPAGESIZEPF5) & M_HOSTPAGESIZEPF5)
++
++#define S_HOSTPAGESIZEPF4    16
++#define M_HOSTPAGESIZEPF4    0xfU
++#define V_HOSTPAGESIZEPF4(x) ((x) << S_HOSTPAGESIZEPF4)
++#define G_HOSTPAGESIZEPF4(x) (((x) >> S_HOSTPAGESIZEPF4) & M_HOSTPAGESIZEPF4)
++
++#define S_HOSTPAGESIZEPF3    12
++#define M_HOSTPAGESIZEPF3    0xfU
++#define V_HOSTPAGESIZEPF3(x) ((x) << S_HOSTPAGESIZEPF3)
++#define G_HOSTPAGESIZEPF3(x) (((x) >> S_HOSTPAGESIZEPF3) & M_HOSTPAGESIZEPF3)
++
++#define S_HOSTPAGESIZEPF2    8
++#define M_HOSTPAGESIZEPF2    0xfU
++#define V_HOSTPAGESIZEPF2(x) ((x) << S_HOSTPAGESIZEPF2)
++#define G_HOSTPAGESIZEPF2(x) (((x) >> S_HOSTPAGESIZEPF2) & M_HOSTPAGESIZEPF2)
++
++#define S_HOSTPAGESIZEPF1    4
++#define M_HOSTPAGESIZEPF1    0xfU
++#define V_HOSTPAGESIZEPF1(x) ((x) << S_HOSTPAGESIZEPF1)
++#define G_HOSTPAGESIZEPF1(x) (((x) >> S_HOSTPAGESIZEPF1) & M_HOSTPAGESIZEPF1)
++
++#define S_HOSTPAGESIZEPF0    0
++#define M_HOSTPAGESIZEPF0    0xfU
++#define V_HOSTPAGESIZEPF0(x) ((x) << S_HOSTPAGESIZEPF0)
++#define G_HOSTPAGESIZEPF0(x) (((x) >> S_HOSTPAGESIZEPF0) & M_HOSTPAGESIZEPF0)
++
++#define A_SGE_EGRESS_QUEUES_PER_PAGE_PF 0x1010
++
++#define S_QUEUESPERPAGEPF7    28
++#define M_QUEUESPERPAGEPF7    0xfU
++#define V_QUEUESPERPAGEPF7(x) ((x) << S_QUEUESPERPAGEPF7)
++#define G_QUEUESPERPAGEPF7(x) (((x) >> S_QUEUESPERPAGEPF7) & M_QUEUESPERPAGEPF7)
++
++#define S_QUEUESPERPAGEPF6    24
++#define M_QUEUESPERPAGEPF6    0xfU
++#define V_QUEUESPERPAGEPF6(x) ((x) << S_QUEUESPERPAGEPF6)
++#define G_QUEUESPERPAGEPF6(x) (((x) >> S_QUEUESPERPAGEPF6) & M_QUEUESPERPAGEPF6)
++
++#define S_QUEUESPERPAGEPF5    20
++#define M_QUEUESPERPAGEPF5    0xfU
++#define V_QUEUESPERPAGEPF5(x) ((x) << S_QUEUESPERPAGEPF5)
++#define G_QUEUESPERPAGEPF5(x) (((x) >> S_QUEUESPERPAGEPF5) & M_QUEUESPERPAGEPF5)
++
++#define S_QUEUESPERPAGEPF4    16
++#define M_QUEUESPERPAGEPF4    0xfU
++#define V_QUEUESPERPAGEPF4(x) ((x) << S_QUEUESPERPAGEPF4)
++#define G_QUEUESPERPAGEPF4(x) (((x) >> S_QUEUESPERPAGEPF4) & M_QUEUESPERPAGEPF4)
++
++#define S_QUEUESPERPAGEPF3    12
++#define M_QUEUESPERPAGEPF3    0xfU
++#define V_QUEUESPERPAGEPF3(x) ((x) << S_QUEUESPERPAGEPF3)
++#define G_QUEUESPERPAGEPF3(x) (((x) >> S_QUEUESPERPAGEPF3) & M_QUEUESPERPAGEPF3)
++
++#define S_QUEUESPERPAGEPF2    8
++#define M_QUEUESPERPAGEPF2    0xfU
++#define V_QUEUESPERPAGEPF2(x) ((x) << S_QUEUESPERPAGEPF2)
++#define G_QUEUESPERPAGEPF2(x) (((x) >> S_QUEUESPERPAGEPF2) & M_QUEUESPERPAGEPF2)
++
++#define S_QUEUESPERPAGEPF1    4
++#define M_QUEUESPERPAGEPF1    0xfU
++#define V_QUEUESPERPAGEPF1(x) ((x) << S_QUEUESPERPAGEPF1)
++#define G_QUEUESPERPAGEPF1(x) (((x) >> S_QUEUESPERPAGEPF1) & M_QUEUESPERPAGEPF1)
++
++#define S_QUEUESPERPAGEPF0    0
++#define M_QUEUESPERPAGEPF0    0xfU
++#define V_QUEUESPERPAGEPF0(x) ((x) << S_QUEUESPERPAGEPF0)
++#define G_QUEUESPERPAGEPF0(x) (((x) >> S_QUEUESPERPAGEPF0) & M_QUEUESPERPAGEPF0)
++
++#define A_SGE_INT_CAUSE1 0x1024
++#define A_SGE_INT_CAUSE2 0x1030
++#define A_SGE_INT_CAUSE3 0x103c
++
++#define S_ERR_FLM_DBP    31
++#define V_ERR_FLM_DBP(x) ((x) << S_ERR_FLM_DBP)
++#define F_ERR_FLM_DBP    V_ERR_FLM_DBP(1U)
++
++#define S_ERR_FLM_IDMA1    30
++#define V_ERR_FLM_IDMA1(x) ((x) << S_ERR_FLM_IDMA1)
++#define F_ERR_FLM_IDMA1    V_ERR_FLM_IDMA1(1U)
++
++#define S_ERR_FLM_IDMA0    29
++#define V_ERR_FLM_IDMA0(x) ((x) << S_ERR_FLM_IDMA0)
++#define F_ERR_FLM_IDMA0    V_ERR_FLM_IDMA0(1U)
++
++#define S_ERR_FLM_HINT    28
++#define V_ERR_FLM_HINT(x) ((x) << S_ERR_FLM_HINT)
++#define F_ERR_FLM_HINT    V_ERR_FLM_HINT(1U)
++
++#define S_ERR_PCIE_ERROR3    27
++#define V_ERR_PCIE_ERROR3(x) ((x) << S_ERR_PCIE_ERROR3)
++#define F_ERR_PCIE_ERROR3    V_ERR_PCIE_ERROR3(1U)
++
++#define S_ERR_PCIE_ERROR2    26
++#define V_ERR_PCIE_ERROR2(x) ((x) << S_ERR_PCIE_ERROR2)
++#define F_ERR_PCIE_ERROR2    V_ERR_PCIE_ERROR2(1U)
++
++#define S_ERR_PCIE_ERROR1    25
++#define V_ERR_PCIE_ERROR1(x) ((x) << S_ERR_PCIE_ERROR1)
++#define F_ERR_PCIE_ERROR1    V_ERR_PCIE_ERROR1(1U)
++
++#define S_ERR_PCIE_ERROR0    24
++#define V_ERR_PCIE_ERROR0(x) ((x) << S_ERR_PCIE_ERROR0)
++#define F_ERR_PCIE_ERROR0    V_ERR_PCIE_ERROR0(1U)
++
++#define S_ERR_TIMER_ABOVE_MAX_QID    23
++#define V_ERR_TIMER_ABOVE_MAX_QID(x) ((x) << S_ERR_TIMER_ABOVE_MAX_QID)
++#define F_ERR_TIMER_ABOVE_MAX_QID    V_ERR_TIMER_ABOVE_MAX_QID(1U)
++
++#define S_ERR_CPL_EXCEED_IQE_SIZE    22
++#define V_ERR_CPL_EXCEED_IQE_SIZE(x) ((x) << S_ERR_CPL_EXCEED_IQE_SIZE)
++#define F_ERR_CPL_EXCEED_IQE_SIZE    V_ERR_CPL_EXCEED_IQE_SIZE(1U)
++
++#define S_ERR_INVALID_CIDX_INC    21
++#define V_ERR_INVALID_CIDX_INC(x) ((x) << S_ERR_INVALID_CIDX_INC)
++#define F_ERR_INVALID_CIDX_INC    V_ERR_INVALID_CIDX_INC(1U)
++
++#define S_ERR_ITP_TIME_PAUSED    20
++#define V_ERR_ITP_TIME_PAUSED(x) ((x) << S_ERR_ITP_TIME_PAUSED)
++#define F_ERR_ITP_TIME_PAUSED    V_ERR_ITP_TIME_PAUSED(1U)
++
++#define S_ERR_CPL_OPCODE_0    19
++#define V_ERR_CPL_OPCODE_0(x) ((x) << S_ERR_CPL_OPCODE_0)
++#define F_ERR_CPL_OPCODE_0    V_ERR_CPL_OPCODE_0(1U)
++
++#define S_ERR_DROPPED_DB    18
++#define V_ERR_DROPPED_DB(x) ((x) << S_ERR_DROPPED_DB)
++#define F_ERR_DROPPED_DB    V_ERR_DROPPED_DB(1U)
++
++#define S_ERR_DATA_CPL_ON_HIGH_QID1    17
++#define V_ERR_DATA_CPL_ON_HIGH_QID1(x) ((x) << S_ERR_DATA_CPL_ON_HIGH_QID1)
++#define F_ERR_DATA_CPL_ON_HIGH_QID1    V_ERR_DATA_CPL_ON_HIGH_QID1(1U)
++
++#define S_ERR_DATA_CPL_ON_HIGH_QID0    16
++#define V_ERR_DATA_CPL_ON_HIGH_QID0(x) ((x) << S_ERR_DATA_CPL_ON_HIGH_QID0)
++#define F_ERR_DATA_CPL_ON_HIGH_QID0    V_ERR_DATA_CPL_ON_HIGH_QID0(1U)
++
++#define S_ERR_BAD_DB_PIDX3    15
++#define V_ERR_BAD_DB_PIDX3(x) ((x) << S_ERR_BAD_DB_PIDX3)
++#define F_ERR_BAD_DB_PIDX3    V_ERR_BAD_DB_PIDX3(1U)
++
++#define S_ERR_BAD_DB_PIDX2    14
++#define V_ERR_BAD_DB_PIDX2(x) ((x) << S_ERR_BAD_DB_PIDX2)
++#define F_ERR_BAD_DB_PIDX2    V_ERR_BAD_DB_PIDX2(1U)
++
++#define S_ERR_BAD_DB_PIDX1    13
++#define V_ERR_BAD_DB_PIDX1(x) ((x) << S_ERR_BAD_DB_PIDX1)
++#define F_ERR_BAD_DB_PIDX1    V_ERR_BAD_DB_PIDX1(1U)
++
++#define S_ERR_BAD_DB_PIDX0    12
++#define V_ERR_BAD_DB_PIDX0(x) ((x) << S_ERR_BAD_DB_PIDX0)
++#define F_ERR_BAD_DB_PIDX0    V_ERR_BAD_DB_PIDX0(1U)
++
++#define S_ERR_ING_CTXT_PRIO    10
++#define V_ERR_ING_CTXT_PRIO(x) ((x) << S_ERR_ING_CTXT_PRIO)
++#define F_ERR_ING_CTXT_PRIO    V_ERR_ING_CTXT_PRIO(1U)
++
++#define S_ERR_EGR_CTXT_PRIO    9
++#define V_ERR_EGR_CTXT_PRIO(x) ((x) << S_ERR_EGR_CTXT_PRIO)
++#define F_ERR_EGR_CTXT_PRIO    V_ERR_EGR_CTXT_PRIO(1U)
++
++#define S_DBFIFO_HP_INT    8
++#define V_DBFIFO_HP_INT(x) ((x) << S_DBFIFO_HP_INT)
++#define F_DBFIFO_HP_INT    V_DBFIFO_HP_INT(1U)
++
++#define S_DBFIFO_LP_INT    7
++#define V_DBFIFO_LP_INT(x) ((x) << S_DBFIFO_LP_INT)
++#define F_DBFIFO_LP_INT    V_DBFIFO_LP_INT(1U)
++
++#define S_INGRESS_SIZE_ERR    5
++#define V_INGRESS_SIZE_ERR(x) ((x) << S_INGRESS_SIZE_ERR)
++#define F_INGRESS_SIZE_ERR    V_INGRESS_SIZE_ERR(1U)
++
++#define S_EGRESS_SIZE_ERR    4
++#define V_EGRESS_SIZE_ERR(x) ((x) << S_EGRESS_SIZE_ERR)
++#define F_EGRESS_SIZE_ERR    V_EGRESS_SIZE_ERR(1U)
++
++#define A_SGE_INT_ENABLE3 0x1040
++#define A_SGE_FL_BUFFER_SIZE0 0x1044
++
++#define S_SIZE    4
++#define M_SIZE    0xfffffffU
++#define V_SIZE(x) ((x) << S_SIZE)
++#define G_SIZE(x) (((x) >> S_SIZE) & M_SIZE)
++
++#define A_SGE_FL_BUFFER_SIZE1 0x1048
++#define A_SGE_INGRESS_RX_THRESHOLD 0x10a0
++
++#define S_THRESHOLD_0    24
++#define M_THRESHOLD_0    0x3fU
++#define V_THRESHOLD_0(x) ((x) << S_THRESHOLD_0)
++#define G_THRESHOLD_0(x) (((x) >> S_THRESHOLD_0) & M_THRESHOLD_0)
++
++#define S_THRESHOLD_1    16
++#define M_THRESHOLD_1    0x3fU
++#define V_THRESHOLD_1(x) ((x) << S_THRESHOLD_1)
++#define G_THRESHOLD_1(x) (((x) >> S_THRESHOLD_1) & M_THRESHOLD_1)
++
++#define S_THRESHOLD_2    8
++#define M_THRESHOLD_2    0x3fU
++#define V_THRESHOLD_2(x) ((x) << S_THRESHOLD_2)
++#define G_THRESHOLD_2(x) (((x) >> S_THRESHOLD_2) & M_THRESHOLD_2)
++
++#define S_THRESHOLD_3    0
++#define M_THRESHOLD_3    0x3fU
++#define V_THRESHOLD_3(x) ((x) << S_THRESHOLD_3)
++#define G_THRESHOLD_3(x) (((x) >> S_THRESHOLD_3) & M_THRESHOLD_3)
++
++#define A_SGE_TIMER_VALUE_0_AND_1 0x10b8
++
++#define S_TIMERVALUE0    16
++#define M_TIMERVALUE0    0xffffU
++#define V_TIMERVALUE0(x) ((x) << S_TIMERVALUE0)
++#define G_TIMERVALUE0(x) (((x) >> S_TIMERVALUE0) & M_TIMERVALUE0)
++
++#define S_TIMERVALUE1    0
++#define M_TIMERVALUE1    0xffffU
++#define V_TIMERVALUE1(x) ((x) << S_TIMERVALUE1)
++#define G_TIMERVALUE1(x) (((x) >> S_TIMERVALUE1) & M_TIMERVALUE1)
++
++#define A_SGE_TIMER_VALUE_2_AND_3 0x10bc
++
++#define S_TIMERVALUE2    16
++#define M_TIMERVALUE2    0xffffU
++#define V_TIMERVALUE2(x) ((x) << S_TIMERVALUE2)
++#define G_TIMERVALUE2(x) (((x) >> S_TIMERVALUE2) & M_TIMERVALUE2)
++
++#define S_TIMERVALUE3    0
++#define M_TIMERVALUE3    0xffffU
++#define V_TIMERVALUE3(x) ((x) << S_TIMERVALUE3)
++#define G_TIMERVALUE3(x) (((x) >> S_TIMERVALUE3) & M_TIMERVALUE3)
++
++#define A_SGE_TIMER_VALUE_4_AND_5 0x10c0
++
++#define S_TIMERVALUE4    16
++#define M_TIMERVALUE4    0xffffU
++#define V_TIMERVALUE4(x) ((x) << S_TIMERVALUE4)
++#define G_TIMERVALUE4(x) (((x) >> S_TIMERVALUE4) & M_TIMERVALUE4)
++
++#define S_TIMERVALUE5    0
++#define M_TIMERVALUE5    0xffffU
++#define V_TIMERVALUE5(x) ((x) << S_TIMERVALUE5)
++#define G_TIMERVALUE5(x) (((x) >> S_TIMERVALUE5) & M_TIMERVALUE5)
++
++#define A_SGE_DEBUG_INDEX 0x10cc
++#define A_SGE_DEBUG_DATA_HIGH 0x10d0
++#define A_SGE_DEBUG_DATA_LOW 0x10d4
++#define A_SGE_INGRESS_QUEUES_PER_PAGE_PF 0x10f4
++#define A_SGE_CTXT_CMD 0x11fc
++
++#define S_BUSY    31
++#define V_BUSY(x) ((x) << S_BUSY)
++#define F_BUSY    V_BUSY(1U)
++
++/* registers for module PCIE */
++#define A_PCIE_PF_CLI 0x44
++#define A_PCIE_INT_CAUSE 0x3004
++
++#define S_NONFATALERR    30
++#define V_NONFATALERR(x) ((x) << S_NONFATALERR)
++#define F_NONFATALERR    V_NONFATALERR(1U)
++
++#define S_UNXSPLCPLERR    29
++#define V_UNXSPLCPLERR(x) ((x) << S_UNXSPLCPLERR)
++#define F_UNXSPLCPLERR    V_UNXSPLCPLERR(1U)
++
++#define S_PCIEPINT    28
++#define V_PCIEPINT(x) ((x) << S_PCIEPINT)
++#define F_PCIEPINT    V_PCIEPINT(1U)
++
++#define S_PCIESINT    27
++#define V_PCIESINT(x) ((x) << S_PCIESINT)
++#define F_PCIESINT    V_PCIESINT(1U)
++
++#define S_RPLPERR    26
++#define V_RPLPERR(x) ((x) << S_RPLPERR)
++#define F_RPLPERR    V_RPLPERR(1U)
++
++#define S_RXWRPERR    25
++#define V_RXWRPERR(x) ((x) << S_RXWRPERR)
++#define F_RXWRPERR    V_RXWRPERR(1U)
++
++#define S_RXCPLPERR    24
++#define V_RXCPLPERR(x) ((x) << S_RXCPLPERR)
++#define F_RXCPLPERR    V_RXCPLPERR(1U)
++
++#define S_PIOTAGPERR    23
++#define V_PIOTAGPERR(x) ((x) << S_PIOTAGPERR)
++#define F_PIOTAGPERR    V_PIOTAGPERR(1U)
++
++#define S_MATAGPERR    22
++#define V_MATAGPERR(x) ((x) << S_MATAGPERR)
++#define F_MATAGPERR    V_MATAGPERR(1U)
++
++#define S_INTXCLRPERR    21
++#define V_INTXCLRPERR(x) ((x) << S_INTXCLRPERR)
++#define F_INTXCLRPERR    V_INTXCLRPERR(1U)
++
++#define S_FIDPERR    20
++#define V_FIDPERR(x) ((x) << S_FIDPERR)
++#define F_FIDPERR    V_FIDPERR(1U)
++
++#define S_CFGSNPPERR    19
++#define V_CFGSNPPERR(x) ((x) << S_CFGSNPPERR)
++#define F_CFGSNPPERR    V_CFGSNPPERR(1U)
++
++#define S_HRSPPERR    18
++#define V_HRSPPERR(x) ((x) << S_HRSPPERR)
++#define F_HRSPPERR    V_HRSPPERR(1U)
++
++#define S_HREQPERR    17
++#define V_HREQPERR(x) ((x) << S_HREQPERR)
++#define F_HREQPERR    V_HREQPERR(1U)
++
++#define S_HCNTPERR    16
++#define V_HCNTPERR(x) ((x) << S_HCNTPERR)
++#define F_HCNTPERR    V_HCNTPERR(1U)
++
++#define S_DRSPPERR    15
++#define V_DRSPPERR(x) ((x) << S_DRSPPERR)
++#define F_DRSPPERR    V_DRSPPERR(1U)
++
++#define S_DREQPERR    14
++#define V_DREQPERR(x) ((x) << S_DREQPERR)
++#define F_DREQPERR    V_DREQPERR(1U)
++
++#define S_DCNTPERR    13
++#define V_DCNTPERR(x) ((x) << S_DCNTPERR)
++#define F_DCNTPERR    V_DCNTPERR(1U)
++
++#define S_CRSPPERR    12
++#define V_CRSPPERR(x) ((x) << S_CRSPPERR)
++#define F_CRSPPERR    V_CRSPPERR(1U)
++
++#define S_CREQPERR    11
++#define V_CREQPERR(x) ((x) << S_CREQPERR)
++#define F_CREQPERR    V_CREQPERR(1U)
++
++#define S_CCNTPERR    10
++#define V_CCNTPERR(x) ((x) << S_CCNTPERR)
++#define F_CCNTPERR    V_CCNTPERR(1U)
++
++#define S_TARTAGPERR    9
++#define V_TARTAGPERR(x) ((x) << S_TARTAGPERR)
++#define F_TARTAGPERR    V_TARTAGPERR(1U)
++
++#define S_PIOREQPERR    8
++#define V_PIOREQPERR(x) ((x) << S_PIOREQPERR)
++#define F_PIOREQPERR    V_PIOREQPERR(1U)
++
++#define S_PIOCPLPERR    7
++#define V_PIOCPLPERR(x) ((x) << S_PIOCPLPERR)
++#define F_PIOCPLPERR    V_PIOCPLPERR(1U)
++
++#define S_MSIXDIPERR    6
++#define V_MSIXDIPERR(x) ((x) << S_MSIXDIPERR)
++#define F_MSIXDIPERR    V_MSIXDIPERR(1U)
++
++#define S_MSIXDATAPERR    5
++#define V_MSIXDATAPERR(x) ((x) << S_MSIXDATAPERR)
++#define F_MSIXDATAPERR    V_MSIXDATAPERR(1U)
++
++#define S_MSIXADDRHPERR    4
++#define V_MSIXADDRHPERR(x) ((x) << S_MSIXADDRHPERR)
++#define F_MSIXADDRHPERR    V_MSIXADDRHPERR(1U)
++
++#define S_MSIXADDRLPERR    3
++#define V_MSIXADDRLPERR(x) ((x) << S_MSIXADDRLPERR)
++#define F_MSIXADDRLPERR    V_MSIXADDRLPERR(1U)
++
++#define S_MSIDATAPERR    2
++#define V_MSIDATAPERR(x) ((x) << S_MSIDATAPERR)
++#define F_MSIDATAPERR    V_MSIDATAPERR(1U)
++
++#define S_MSIADDRHPERR    1
++#define V_MSIADDRHPERR(x) ((x) << S_MSIADDRHPERR)
++#define F_MSIADDRHPERR    V_MSIADDRHPERR(1U)
++
++#define S_MSIADDRLPERR    0
++#define V_MSIADDRLPERR(x) ((x) << S_MSIADDRLPERR)
++#define F_MSIADDRLPERR    V_MSIADDRLPERR(1U)
++
++#define A_PCIE_NONFAT_ERR 0x3010
++#define A_PCIE_MEM_ACCESS_BASE_WIN 0x3068
++
++#define S_PCIEOFST    10
++#define M_PCIEOFST    0x3fffffU
++#define V_PCIEOFST(x) ((x) << S_PCIEOFST)
++#define G_PCIEOFST(x) (((x) >> S_PCIEOFST) & M_PCIEOFST)
++
++#define S_BIR    8
++#define M_BIR    0x3U
++#define V_BIR(x) ((x) << S_BIR)
++#define G_BIR(x) (((x) >> S_BIR) & M_BIR)
++
++#define S_WINDOW    0
++#define M_WINDOW    0xffU
++#define V_WINDOW(x) ((x) << S_WINDOW)
++#define G_WINDOW(x) (((x) >> S_WINDOW) & M_WINDOW)
++
++#define A_PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS 0x5908
++
++#define S_RNPP    31
++#define V_RNPP(x) ((x) << S_RNPP)
++#define F_RNPP    V_RNPP(1U)
++
++#define S_RPCP    29
++#define V_RPCP(x) ((x) << S_RPCP)
++#define F_RPCP    V_RPCP(1U)
++
++#define S_RCIP    27
++#define V_RCIP(x) ((x) << S_RCIP)
++#define F_RCIP    V_RCIP(1U)
++
++#define S_RCCP    26
++#define V_RCCP(x) ((x) << S_RCCP)
++#define F_RCCP    V_RCCP(1U)
++
++#define S_RFTP    23
++#define V_RFTP(x) ((x) << S_RFTP)
++#define F_RFTP    V_RFTP(1U)
++
++#define S_PTRP    20
++#define V_PTRP(x) ((x) << S_PTRP)
++#define F_PTRP    V_PTRP(1U)
++
++#define A_PCIE_CORE_UTL_PCI_EXPRESS_PORT_STATUS 0x59a4
++
++#define S_TPCP    30
++#define V_TPCP(x) ((x) << S_TPCP)
++#define F_TPCP    V_TPCP(1U)
++
++#define S_TNPP    29
++#define V_TNPP(x) ((x) << S_TNPP)
++#define F_TNPP    V_TNPP(1U)
++
++#define S_TFTP    28
++#define V_TFTP(x) ((x) << S_TFTP)
++#define F_TFTP    V_TFTP(1U)
++
++#define S_TCAP    27
++#define V_TCAP(x) ((x) << S_TCAP)
++#define F_TCAP    V_TCAP(1U)
++
++#define S_TCIP    26
++#define V_TCIP(x) ((x) << S_TCIP)
++#define F_TCIP    V_TCIP(1U)
++
++#define S_RCAP    25
++#define V_RCAP(x) ((x) << S_RCAP)
++#define F_RCAP    V_RCAP(1U)
++
++#define S_PLUP    23
++#define V_PLUP(x) ((x) << S_PLUP)
++#define F_PLUP    V_PLUP(1U)
++
++#define S_PLDN    22
++#define V_PLDN(x) ((x) << S_PLDN)
++#define F_PLDN    V_PLDN(1U)
++
++#define S_OTDD    21
++#define V_OTDD(x) ((x) << S_OTDD)
++#define F_OTDD    V_OTDD(1U)
++
++#define S_GTRP    20
++#define V_GTRP(x) ((x) << S_GTRP)
++#define F_GTRP    V_GTRP(1U)
++
++#define S_RDPE    18
++#define V_RDPE(x) ((x) << S_RDPE)
++#define F_RDPE    V_RDPE(1U)
++
++#define S_TDCE    17
++#define V_TDCE(x) ((x) << S_TDCE)
++#define F_TDCE    V_TDCE(1U)
++
++#define S_TDUE    16
++#define V_TDUE(x) ((x) << S_TDUE)
++#define F_TDUE    V_TDUE(1U)
++
++/* registers for module MC */
++#define A_MC_INT_CAUSE 0x7518
++
++#define S_ECC_UE_INT_CAUSE    2
++#define V_ECC_UE_INT_CAUSE(x) ((x) << S_ECC_UE_INT_CAUSE)
++#define F_ECC_UE_INT_CAUSE    V_ECC_UE_INT_CAUSE(1U)
++
++#define S_ECC_CE_INT_CAUSE    1
++#define V_ECC_CE_INT_CAUSE(x) ((x) << S_ECC_CE_INT_CAUSE)
++#define F_ECC_CE_INT_CAUSE    V_ECC_CE_INT_CAUSE(1U)
++
++#define S_PERR_INT_CAUSE    0
++#define V_PERR_INT_CAUSE(x) ((x) << S_PERR_INT_CAUSE)
++#define F_PERR_INT_CAUSE    V_PERR_INT_CAUSE(1U)
++
++#define A_MC_ECC_STATUS 0x751c
++
++#define S_ECC_CECNT    16
++#define M_ECC_CECNT    0xffffU
++#define V_ECC_CECNT(x) ((x) << S_ECC_CECNT)
++#define G_ECC_CECNT(x) (((x) >> S_ECC_CECNT) & M_ECC_CECNT)
++
++#define S_ECC_UECNT    0
++#define M_ECC_UECNT    0xffffU
++#define V_ECC_UECNT(x) ((x) << S_ECC_UECNT)
++#define G_ECC_UECNT(x) (((x) >> S_ECC_UECNT) & M_ECC_UECNT)
++
++#define A_MC_BIST_CMD 0x7600
++
++#define S_START_BIST    31
++#define V_START_BIST(x) ((x) << S_START_BIST)
++#define F_START_BIST    V_START_BIST(1U)
++
++#define S_BIST_CMD_GAP    8
++#define M_BIST_CMD_GAP    0xffU
++#define V_BIST_CMD_GAP(x) ((x) << S_BIST_CMD_GAP)
++
++#define S_BIST_OPCODE    0
++#define M_BIST_OPCODE    0x3U
++#define V_BIST_OPCODE(x) ((x) << S_BIST_OPCODE)
++
++#define A_MC_BIST_CMD_ADDR 0x7604
++#define A_MC_BIST_CMD_LEN 0x7608
++#define A_MC_BIST_DATA_PATTERN 0x760c
++
++#define S_BIST_DATA_TYPE    0
++#define M_BIST_DATA_TYPE    0xfU
++#define V_BIST_DATA_TYPE(x) ((x) << S_BIST_DATA_TYPE)
++
++#define A_MC_BIST_STATUS_RDATA 0x7688
++
++/* registers for module MA */
++#define A_MA_EXT_MEMORY_BAR 0x77c8
++
++#define S_EXT_MEM_BASE    16
++#define M_EXT_MEM_BASE    0xfffU
++#define V_EXT_MEM_BASE(x) ((x) << S_EXT_MEM_BASE)
++#define G_EXT_MEM_BASE(x) (((x) >> S_EXT_MEM_BASE) & M_EXT_MEM_BASE)
++
++#define S_EXT_MEM_SIZE    0
++#define M_EXT_MEM_SIZE    0xfffU
++#define V_EXT_MEM_SIZE(x) ((x) << S_EXT_MEM_SIZE)
++#define G_EXT_MEM_SIZE(x) (((x) >> S_EXT_MEM_SIZE) & M_EXT_MEM_SIZE)
++
++#define A_MA_TARGET_MEM_ENABLE 0x77d8
++
++#define S_HMA_ENABLE    3
++#define V_HMA_ENABLE(x) ((x) << S_HMA_ENABLE)
++#define F_HMA_ENABLE    V_HMA_ENABLE(1U)
++
++#define S_EXT_MEM_ENABLE    2
++#define V_EXT_MEM_ENABLE(x) ((x) << S_EXT_MEM_ENABLE)
++#define F_EXT_MEM_ENABLE    V_EXT_MEM_ENABLE(1U)
++
++#define S_EDRAM1_ENABLE    1
++#define V_EDRAM1_ENABLE(x) ((x) << S_EDRAM1_ENABLE)
++#define F_EDRAM1_ENABLE    V_EDRAM1_ENABLE(1U)
++
++#define S_EDRAM0_ENABLE    0
++#define V_EDRAM0_ENABLE(x) ((x) << S_EDRAM0_ENABLE)
++#define F_EDRAM0_ENABLE    V_EDRAM0_ENABLE(1U)
++
++#define A_MA_INT_CAUSE 0x77e0
++
++#define S_MEM_PERR_INT_CAUSE    1
++#define V_MEM_PERR_INT_CAUSE(x) ((x) << S_MEM_PERR_INT_CAUSE)
++#define F_MEM_PERR_INT_CAUSE    V_MEM_PERR_INT_CAUSE(1U)
++
++#define S_MEM_WRAP_INT_CAUSE    0
++#define V_MEM_WRAP_INT_CAUSE(x) ((x) << S_MEM_WRAP_INT_CAUSE)
++#define F_MEM_WRAP_INT_CAUSE    V_MEM_WRAP_INT_CAUSE(1U)
++
++#define A_MA_INT_WRAP_STATUS 0x77e4
++
++#define S_MEM_WRAP_ADDRESS    4
++#define M_MEM_WRAP_ADDRESS    0xfffffffU
++#define V_MEM_WRAP_ADDRESS(x) ((x) << S_MEM_WRAP_ADDRESS)
++#define G_MEM_WRAP_ADDRESS(x) (((x) >> S_MEM_WRAP_ADDRESS) & M_MEM_WRAP_ADDRESS)
++
++#define S_MEM_WRAP_CLIENT_NUM    0
++#define M_MEM_WRAP_CLIENT_NUM    0xfU
++#define V_MEM_WRAP_CLIENT_NUM(x) ((x) << S_MEM_WRAP_CLIENT_NUM)
++#define G_MEM_WRAP_CLIENT_NUM(x) (((x) >> S_MEM_WRAP_CLIENT_NUM) & M_MEM_WRAP_CLIENT_NUM)
++
++#define A_MA_PARITY_ERROR_STATUS 0x77f4
++
++/* registers for module EDC_0 */
++#define EDC_0_BASE_ADDR 0x7900
++
++#define A_EDC_BIST_CMD 0x7904
++#define A_EDC_BIST_CMD_ADDR 0x7908
++#define A_EDC_BIST_CMD_LEN 0x790c
++#define A_EDC_BIST_DATA_PATTERN 0x7910
++#define A_EDC_BIST_STATUS_RDATA 0x7928
++#define A_EDC_INT_CAUSE 0x7978
++
++#define S_ECC_UE_PAR    5
++#define V_ECC_UE_PAR(x) ((x) << S_ECC_UE_PAR)
++#define F_ECC_UE_PAR    V_ECC_UE_PAR(1U)
++
++#define S_ECC_CE_PAR    4
++#define V_ECC_CE_PAR(x) ((x) << S_ECC_CE_PAR)
++#define F_ECC_CE_PAR    V_ECC_CE_PAR(1U)
++
++#define S_PERR_PAR_CAUSE    3
++#define V_PERR_PAR_CAUSE(x) ((x) << S_PERR_PAR_CAUSE)
++#define F_PERR_PAR_CAUSE    V_PERR_PAR_CAUSE(1U)
++
++#define A_EDC_ECC_STATUS 0x797c
++
++/* registers for module EDC_1 */
++#define EDC_1_BASE_ADDR 0x7980
++
++/* registers for module CIM */
++#define A_CIM_PF_MAILBOX_DATA 0x240
++#define A_CIM_PF_MAILBOX_CTRL 0x280
++
++#define S_MBGENERIC    4
++#define M_MBGENERIC    0xfffffffU
++#define V_MBGENERIC(x) ((x) << S_MBGENERIC)
++#define G_MBGENERIC(x) (((x) >> S_MBGENERIC) & M_MBGENERIC)
++
++#define S_MBMSGVALID    3
++#define V_MBMSGVALID(x) ((x) << S_MBMSGVALID)
++#define F_MBMSGVALID    V_MBMSGVALID(1U)
++
++#define S_MBINTREQ    2
++#define V_MBINTREQ(x) ((x) << S_MBINTREQ)
++#define F_MBINTREQ    V_MBINTREQ(1U)
++
++#define S_MBOWNER    0
++#define M_MBOWNER    0x3U
++#define V_MBOWNER(x) ((x) << S_MBOWNER)
++#define G_MBOWNER(x) (((x) >> S_MBOWNER) & M_MBOWNER)
++
++#define A_CIM_PF_HOST_INT_CAUSE 0x28c
++
++#define S_MBMSGRDYINT    19
++#define V_MBMSGRDYINT(x) ((x) << S_MBMSGRDYINT)
++#define F_MBMSGRDYINT    V_MBMSGRDYINT(1U)
++
++#define A_CIM_HOST_INT_CAUSE 0x7b2c
++
++#define S_TIEQOUTPARERRINT    20
++#define V_TIEQOUTPARERRINT(x) ((x) << S_TIEQOUTPARERRINT)
++#define F_TIEQOUTPARERRINT    V_TIEQOUTPARERRINT(1U)
++
++#define S_TIEQINPARERRINT    19
++#define V_TIEQINPARERRINT(x) ((x) << S_TIEQINPARERRINT)
++#define F_TIEQINPARERRINT    V_TIEQINPARERRINT(1U)
++
++#define S_MBHOSTPARERR    18
++#define V_MBHOSTPARERR(x) ((x) << S_MBHOSTPARERR)
++#define F_MBHOSTPARERR    V_MBHOSTPARERR(1U)
++
++#define S_MBUPPARERR    17
++#define V_MBUPPARERR(x) ((x) << S_MBUPPARERR)
++#define F_MBUPPARERR    V_MBUPPARERR(1U)
++
++#define S_IBQTP0PARERR    16
++#define V_IBQTP0PARERR(x) ((x) << S_IBQTP0PARERR)
++#define F_IBQTP0PARERR    V_IBQTP0PARERR(1U)
++
++#define S_IBQTP1PARERR    15
++#define V_IBQTP1PARERR(x) ((x) << S_IBQTP1PARERR)
++#define F_IBQTP1PARERR    V_IBQTP1PARERR(1U)
++
++#define S_IBQULPPARERR    14
++#define V_IBQULPPARERR(x) ((x) << S_IBQULPPARERR)
++#define F_IBQULPPARERR    V_IBQULPPARERR(1U)
++
++#define S_IBQSGELOPARERR    13
++#define V_IBQSGELOPARERR(x) ((x) << S_IBQSGELOPARERR)
++#define F_IBQSGELOPARERR    V_IBQSGELOPARERR(1U)
++
++#define S_IBQSGEHIPARERR    12
++#define V_IBQSGEHIPARERR(x) ((x) << S_IBQSGEHIPARERR)
++#define F_IBQSGEHIPARERR    V_IBQSGEHIPARERR(1U)
++
++#define S_IBQNCSIPARERR    11
++#define V_IBQNCSIPARERR(x) ((x) << S_IBQNCSIPARERR)
++#define F_IBQNCSIPARERR    V_IBQNCSIPARERR(1U)
++
++#define S_OBQULP0PARERR    10
++#define V_OBQULP0PARERR(x) ((x) << S_OBQULP0PARERR)
++#define F_OBQULP0PARERR    V_OBQULP0PARERR(1U)
++
++#define S_OBQULP1PARERR    9
++#define V_OBQULP1PARERR(x) ((x) << S_OBQULP1PARERR)
++#define F_OBQULP1PARERR    V_OBQULP1PARERR(1U)
++
++#define S_OBQULP2PARERR    8
++#define V_OBQULP2PARERR(x) ((x) << S_OBQULP2PARERR)
++#define F_OBQULP2PARERR    V_OBQULP2PARERR(1U)
++
++#define S_OBQULP3PARERR    7
++#define V_OBQULP3PARERR(x) ((x) << S_OBQULP3PARERR)
++#define F_OBQULP3PARERR    V_OBQULP3PARERR(1U)
++
++#define S_OBQSGEPARERR    6
++#define V_OBQSGEPARERR(x) ((x) << S_OBQSGEPARERR)
++#define F_OBQSGEPARERR    V_OBQSGEPARERR(1U)
++
++#define S_OBQNCSIPARERR    5
++#define V_OBQNCSIPARERR(x) ((x) << S_OBQNCSIPARERR)
++#define F_OBQNCSIPARERR    V_OBQNCSIPARERR(1U)
++
++#define S_TIMER1INT    3
++#define V_TIMER1INT(x) ((x) << S_TIMER1INT)
++#define F_TIMER1INT    V_TIMER1INT(1U)
++
++#define S_TIMER0INT    2
++#define V_TIMER0INT(x) ((x) << S_TIMER0INT)
++#define F_TIMER0INT    V_TIMER0INT(1U)
++
++#define S_PREFDROPINT    1
++#define V_PREFDROPINT(x) ((x) << S_PREFDROPINT)
++#define F_PREFDROPINT    V_PREFDROPINT(1U)
++
++#define S_UPACCNONZERO    0
++#define V_UPACCNONZERO(x) ((x) << S_UPACCNONZERO)
++#define F_UPACCNONZERO    V_UPACCNONZERO(1U)
++
++#define A_CIM_HOST_UPACC_INT_CAUSE 0x7b34
++
++#define S_EEPROMWRINT    30
++#define V_EEPROMWRINT(x) ((x) << S_EEPROMWRINT)
++#define F_EEPROMWRINT    V_EEPROMWRINT(1U)
++
++#define S_TIMEOUTMAINT    29
++#define V_TIMEOUTMAINT(x) ((x) << S_TIMEOUTMAINT)
++#define F_TIMEOUTMAINT    V_TIMEOUTMAINT(1U)
++
++#define S_TIMEOUTINT    28
++#define V_TIMEOUTINT(x) ((x) << S_TIMEOUTINT)
++#define F_TIMEOUTINT    V_TIMEOUTINT(1U)
++
++#define S_RSPOVRLOOKUPINT    27
++#define V_RSPOVRLOOKUPINT(x) ((x) << S_RSPOVRLOOKUPINT)
++#define F_RSPOVRLOOKUPINT    V_RSPOVRLOOKUPINT(1U)
++
++#define S_REQOVRLOOKUPINT    26
++#define V_REQOVRLOOKUPINT(x) ((x) << S_REQOVRLOOKUPINT)
++#define F_REQOVRLOOKUPINT    V_REQOVRLOOKUPINT(1U)
++
++#define S_BLKWRPLINT    25
++#define V_BLKWRPLINT(x) ((x) << S_BLKWRPLINT)
++#define F_BLKWRPLINT    V_BLKWRPLINT(1U)
++
++#define S_BLKRDPLINT    24
++#define V_BLKRDPLINT(x) ((x) << S_BLKRDPLINT)
++#define F_BLKRDPLINT    V_BLKRDPLINT(1U)
++
++#define S_SGLWRPLINT    23
++#define V_SGLWRPLINT(x) ((x) << S_SGLWRPLINT)
++#define F_SGLWRPLINT    V_SGLWRPLINT(1U)
++
++#define S_SGLRDPLINT    22
++#define V_SGLRDPLINT(x) ((x) << S_SGLRDPLINT)
++#define F_SGLRDPLINT    V_SGLRDPLINT(1U)
++
++#define S_BLKWRCTLINT    21
++#define V_BLKWRCTLINT(x) ((x) << S_BLKWRCTLINT)
++#define F_BLKWRCTLINT    V_BLKWRCTLINT(1U)
++
++#define S_BLKRDCTLINT    20
++#define V_BLKRDCTLINT(x) ((x) << S_BLKRDCTLINT)
++#define F_BLKRDCTLINT    V_BLKRDCTLINT(1U)
++
++#define S_SGLWRCTLINT    19
++#define V_SGLWRCTLINT(x) ((x) << S_SGLWRCTLINT)
++#define F_SGLWRCTLINT    V_SGLWRCTLINT(1U)
++
++#define S_SGLRDCTLINT    18
++#define V_SGLRDCTLINT(x) ((x) << S_SGLRDCTLINT)
++#define F_SGLRDCTLINT    V_SGLRDCTLINT(1U)
++
++#define S_BLKWREEPROMINT    17
++#define V_BLKWREEPROMINT(x) ((x) << S_BLKWREEPROMINT)
++#define F_BLKWREEPROMINT    V_BLKWREEPROMINT(1U)
++
++#define S_BLKRDEEPROMINT    16
++#define V_BLKRDEEPROMINT(x) ((x) << S_BLKRDEEPROMINT)
++#define F_BLKRDEEPROMINT    V_BLKRDEEPROMINT(1U)
++
++#define S_SGLWREEPROMINT    15
++#define V_SGLWREEPROMINT(x) ((x) << S_SGLWREEPROMINT)
++#define F_SGLWREEPROMINT    V_SGLWREEPROMINT(1U)
++
++#define S_SGLRDEEPROMINT    14
++#define V_SGLRDEEPROMINT(x) ((x) << S_SGLRDEEPROMINT)
++#define F_SGLRDEEPROMINT    V_SGLRDEEPROMINT(1U)
++
++#define S_BLKWRFLASHINT    13
++#define V_BLKWRFLASHINT(x) ((x) << S_BLKWRFLASHINT)
++#define F_BLKWRFLASHINT    V_BLKWRFLASHINT(1U)
++
++#define S_BLKRDFLASHINT    12
++#define V_BLKRDFLASHINT(x) ((x) << S_BLKRDFLASHINT)
++#define F_BLKRDFLASHINT    V_BLKRDFLASHINT(1U)
++
++#define S_SGLWRFLASHINT    11
++#define V_SGLWRFLASHINT(x) ((x) << S_SGLWRFLASHINT)
++#define F_SGLWRFLASHINT    V_SGLWRFLASHINT(1U)
++
++#define S_SGLRDFLASHINT    10
++#define V_SGLRDFLASHINT(x) ((x) << S_SGLRDFLASHINT)
++#define F_SGLRDFLASHINT    V_SGLRDFLASHINT(1U)
++
++#define S_BLKWRBOOTINT    9
++#define V_BLKWRBOOTINT(x) ((x) << S_BLKWRBOOTINT)
++#define F_BLKWRBOOTINT    V_BLKWRBOOTINT(1U)
++
++#define S_BLKRDBOOTINT    8
++#define V_BLKRDBOOTINT(x) ((x) << S_BLKRDBOOTINT)
++#define F_BLKRDBOOTINT    V_BLKRDBOOTINT(1U)
++
++#define S_SGLWRBOOTINT    7
++#define V_SGLWRBOOTINT(x) ((x) << S_SGLWRBOOTINT)
++#define F_SGLWRBOOTINT    V_SGLWRBOOTINT(1U)
++
++#define S_SGLRDBOOTINT    6
++#define V_SGLRDBOOTINT(x) ((x) << S_SGLRDBOOTINT)
++#define F_SGLRDBOOTINT    V_SGLRDBOOTINT(1U)
++
++#define S_ILLWRBEINT    5
++#define V_ILLWRBEINT(x) ((x) << S_ILLWRBEINT)
++#define F_ILLWRBEINT    V_ILLWRBEINT(1U)
++
++#define S_ILLRDBEINT    4
++#define V_ILLRDBEINT(x) ((x) << S_ILLRDBEINT)
++#define F_ILLRDBEINT    V_ILLRDBEINT(1U)
++
++#define S_ILLRDINT    3
++#define V_ILLRDINT(x) ((x) << S_ILLRDINT)
++#define F_ILLRDINT    V_ILLRDINT(1U)
++
++#define S_ILLWRINT    2
++#define V_ILLWRINT(x) ((x) << S_ILLWRINT)
++#define F_ILLWRINT    V_ILLWRINT(1U)
++
++#define S_ILLTRANSINT    1
++#define V_ILLTRANSINT(x) ((x) << S_ILLTRANSINT)
++#define F_ILLTRANSINT    V_ILLTRANSINT(1U)
++
++#define S_RSVDSPACEINT    0
++#define V_RSVDSPACEINT(x) ((x) << S_RSVDSPACEINT)
++#define F_RSVDSPACEINT    V_RSVDSPACEINT(1U)
++
++/* registers for module TP */
++#define A_TP_OUT_CONFIG 0x7d04
++
++#define S_VLANEXTENABLEPORT0    12
++#define V_VLANEXTENABLEPORT0(x) ((x) << S_VLANEXTENABLEPORT0)
++#define F_VLANEXTENABLEPORT0    V_VLANEXTENABLEPORT0(1U)
++
++#define A_TP_TIMER_RESOLUTION 0x7d90
++
++#define S_TIMERRESOLUTION    16
++#define M_TIMERRESOLUTION    0xffU
++#define V_TIMERRESOLUTION(x) ((x) << S_TIMERRESOLUTION)
++#define G_TIMERRESOLUTION(x) (((x) >> S_TIMERRESOLUTION) & M_TIMERRESOLUTION)
++
++#define A_TP_SHIFT_CNT 0x7dc0
++
++#define S_SYNSHIFTMAX    24
++#define M_SYNSHIFTMAX    0xffU
++#define V_SYNSHIFTMAX(x) ((x) << S_SYNSHIFTMAX)
++#define G_SYNSHIFTMAX(x) (((x) >> S_SYNSHIFTMAX) & M_SYNSHIFTMAX)
++
++#define S_RXTSHIFTMAXR1    20
++#define M_RXTSHIFTMAXR1    0xfU
++#define V_RXTSHIFTMAXR1(x) ((x) << S_RXTSHIFTMAXR1)
++#define G_RXTSHIFTMAXR1(x) (((x) >> S_RXTSHIFTMAXR1) & M_RXTSHIFTMAXR1)
++
++#define S_RXTSHIFTMAXR2    16
++#define M_RXTSHIFTMAXR2    0xfU
++#define V_RXTSHIFTMAXR2(x) ((x) << S_RXTSHIFTMAXR2)
++#define G_RXTSHIFTMAXR2(x) (((x) >> S_RXTSHIFTMAXR2) & M_RXTSHIFTMAXR2)
++
++#define S_PERSHIFTBACKOFFMAX    12
++#define M_PERSHIFTBACKOFFMAX    0xfU
++#define V_PERSHIFTBACKOFFMAX(x) ((x) << S_PERSHIFTBACKOFFMAX)
++#define G_PERSHIFTBACKOFFMAX(x) (((x) >> S_PERSHIFTBACKOFFMAX) & M_PERSHIFTBACKOFFMAX)
++
++#define S_PERSHIFTMAX    8
++#define M_PERSHIFTMAX    0xfU
++#define V_PERSHIFTMAX(x) ((x) << S_PERSHIFTMAX)
++#define G_PERSHIFTMAX(x) (((x) >> S_PERSHIFTMAX) & M_PERSHIFTMAX)
++
++#define S_KEEPALIVEMAXR1    4
++#define M_KEEPALIVEMAXR1    0xfU
++#define V_KEEPALIVEMAXR1(x) ((x) << S_KEEPALIVEMAXR1)
++#define G_KEEPALIVEMAXR1(x) (((x) >> S_KEEPALIVEMAXR1) & M_KEEPALIVEMAXR1)
++
++#define S_KEEPALIVEMAXR2    0
++#define M_KEEPALIVEMAXR2    0xfU
++#define V_KEEPALIVEMAXR2(x) ((x) << S_KEEPALIVEMAXR2)
++#define G_KEEPALIVEMAXR2(x) (((x) >> S_KEEPALIVEMAXR2) & M_KEEPALIVEMAXR2)
++
++#define A_TP_CCTRL_TABLE 0x7ddc
++#define A_TP_MTU_TABLE 0x7de4
++
++#define S_MTUINDEX    24
++#define M_MTUINDEX    0xffU
++#define V_MTUINDEX(x) ((x) << S_MTUINDEX)
++#define G_MTUINDEX(x) (((x) >> S_MTUINDEX) & M_MTUINDEX)
++
++#define S_MTUWIDTH    16
++#define M_MTUWIDTH    0xfU
++#define V_MTUWIDTH(x) ((x) << S_MTUWIDTH)
++#define G_MTUWIDTH(x) (((x) >> S_MTUWIDTH) & M_MTUWIDTH)
++
++#define S_MTUVALUE    0
++#define M_MTUVALUE    0x3fffU
++#define V_MTUVALUE(x) ((x) << S_MTUVALUE)
++#define G_MTUVALUE(x) (((x) >> S_MTUVALUE) & M_MTUVALUE)
++
++#define A_TP_RSS_LKP_TABLE 0x7dec
++
++#define S_LKPTBLROWVLD    31
++#define V_LKPTBLROWVLD(x) ((x) << S_LKPTBLROWVLD)
++#define F_LKPTBLROWVLD    V_LKPTBLROWVLD(1U)
++
++#define S_LKPTBLROWIDX    20
++#define M_LKPTBLROWIDX    0x3ffU
++#define V_LKPTBLROWIDX(x) ((x) << S_LKPTBLROWIDX)
++#define G_LKPTBLROWIDX(x) (((x) >> S_LKPTBLROWIDX) & M_LKPTBLROWIDX)
++
++#define S_LKPTBLQUEUE1    10
++#define M_LKPTBLQUEUE1    0x3ffU
++#define V_LKPTBLQUEUE1(x) ((x) << S_LKPTBLQUEUE1)
++#define G_LKPTBLQUEUE1(x) (((x) >> S_LKPTBLQUEUE1) & M_LKPTBLQUEUE1)
++
++#define S_LKPTBLQUEUE0    0
++#define M_LKPTBLQUEUE0    0x3ffU
++#define V_LKPTBLQUEUE0(x) ((x) << S_LKPTBLQUEUE0)
++#define G_LKPTBLQUEUE0(x) (((x) >> S_LKPTBLQUEUE0) & M_LKPTBLQUEUE0)
++
++#define A_TP_PIO_ADDR 0x7e40
++#define A_TP_PIO_DATA 0x7e44
++#define A_TP_MIB_INDEX 0x7e50
++#define A_TP_MIB_DATA 0x7e54
++#define A_TP_INT_CAUSE 0x7e74
++
++#define S_FLMTXFLSTEMPTY    30
++#define V_FLMTXFLSTEMPTY(x) ((x) << S_FLMTXFLSTEMPTY)
++#define F_FLMTXFLSTEMPTY    V_FLMTXFLSTEMPTY(1U)
++
++#define A_TP_INGRESS_CONFIG 0x141
++
++#define S_VNIC    11
++#define V_VNIC(x) ((x) << S_VNIC)
++#define F_VNIC    V_VNIC(1U)
++
++#define S_CSUM_HAS_PSEUDO_HDR    10
++#define V_CSUM_HAS_PSEUDO_HDR(x) ((x) << S_CSUM_HAS_PSEUDO_HDR)
++#define F_CSUM_HAS_PSEUDO_HDR    V_CSUM_HAS_PSEUDO_HDR(1U)
++
++#define S_RM_OVLAN    9
++#define V_RM_OVLAN(x) ((x) << S_RM_OVLAN)
++#define F_RM_OVLAN    V_RM_OVLAN(1U)
++
++#define S_LOOKUPEVERYPKT    8
++#define V_LOOKUPEVERYPKT(x) ((x) << S_LOOKUPEVERYPKT)
++#define F_LOOKUPEVERYPKT    V_LOOKUPEVERYPKT(1U)
++
++#define A_TP_MIB_MAC_IN_ERR_0 0x0
++#define A_TP_MIB_TCP_OUT_RST 0xc
++#define A_TP_MIB_TCP_IN_SEG_HI 0x10
++#define A_TP_MIB_TCP_IN_SEG_LO 0x11
++#define A_TP_MIB_TCP_OUT_SEG_HI 0x12
++#define A_TP_MIB_TCP_OUT_SEG_LO 0x13
++#define A_TP_MIB_TCP_RXT_SEG_HI 0x14
++#define A_TP_MIB_TCP_RXT_SEG_LO 0x15
++#define A_TP_MIB_TNL_CNG_DROP_0 0x18
++#define A_TP_MIB_TCP_V6IN_ERR_0 0x28
++#define A_TP_MIB_TCP_V6OUT_RST 0x2c
++#define A_TP_MIB_OFD_ARP_DROP 0x36
++#define A_TP_MIB_TNL_DROP_0 0x44
++#define A_TP_MIB_OFD_VLN_DROP_0 0x58
++
++/* registers for module ULP_TX */
++#define A_ULP_TX_INT_CAUSE 0x8dcc
++
++#define S_PBL_BOUND_ERR_CH3    31
++#define V_PBL_BOUND_ERR_CH3(x) ((x) << S_PBL_BOUND_ERR_CH3)
++#define F_PBL_BOUND_ERR_CH3    V_PBL_BOUND_ERR_CH3(1U)
++
++#define S_PBL_BOUND_ERR_CH2    30
++#define V_PBL_BOUND_ERR_CH2(x) ((x) << S_PBL_BOUND_ERR_CH2)
++#define F_PBL_BOUND_ERR_CH2    V_PBL_BOUND_ERR_CH2(1U)
++
++#define S_PBL_BOUND_ERR_CH1    29
++#define V_PBL_BOUND_ERR_CH1(x) ((x) << S_PBL_BOUND_ERR_CH1)
++#define F_PBL_BOUND_ERR_CH1    V_PBL_BOUND_ERR_CH1(1U)
++
++#define S_PBL_BOUND_ERR_CH0    28
++#define V_PBL_BOUND_ERR_CH0(x) ((x) << S_PBL_BOUND_ERR_CH0)
++#define F_PBL_BOUND_ERR_CH0    V_PBL_BOUND_ERR_CH0(1U)
++
++/* registers for module PM_RX */
++#define A_PM_RX_INT_CAUSE 0x8fdc
++
++#define S_ZERO_E_CMD_ERROR    22
++#define V_ZERO_E_CMD_ERROR(x) ((x) << S_ZERO_E_CMD_ERROR)
++#define F_ZERO_E_CMD_ERROR    V_ZERO_E_CMD_ERROR(1U)
++
++#define S_OCSPI_PAR_ERROR    3
++#define V_OCSPI_PAR_ERROR(x) ((x) << S_OCSPI_PAR_ERROR)
++#define F_OCSPI_PAR_ERROR    V_OCSPI_PAR_ERROR(1U)
++
++#define S_DB_OPTIONS_PAR_ERROR    2
++#define V_DB_OPTIONS_PAR_ERROR(x) ((x) << S_DB_OPTIONS_PAR_ERROR)
++#define F_DB_OPTIONS_PAR_ERROR    V_DB_OPTIONS_PAR_ERROR(1U)
++
++#define S_IESPI_PAR_ERROR    1
++#define V_IESPI_PAR_ERROR(x) ((x) << S_IESPI_PAR_ERROR)
++#define F_IESPI_PAR_ERROR    V_IESPI_PAR_ERROR(1U)
++
++#define S_E_PCMD_PAR_ERROR    0
++#define V_E_PCMD_PAR_ERROR(x) ((x) << S_E_PCMD_PAR_ERROR)
++#define F_E_PCMD_PAR_ERROR    V_E_PCMD_PAR_ERROR(1U)
++
++/* registers for module PM_TX */
++#define A_PM_TX_INT_CAUSE 0x8ffc
++
++#define S_PCMD_LEN_OVFL0    31
++#define V_PCMD_LEN_OVFL0(x) ((x) << S_PCMD_LEN_OVFL0)
++#define F_PCMD_LEN_OVFL0    V_PCMD_LEN_OVFL0(1U)
++
++#define S_PCMD_LEN_OVFL1    30
++#define V_PCMD_LEN_OVFL1(x) ((x) << S_PCMD_LEN_OVFL1)
++#define F_PCMD_LEN_OVFL1    V_PCMD_LEN_OVFL1(1U)
++
++#define S_PCMD_LEN_OVFL2    29
++#define V_PCMD_LEN_OVFL2(x) ((x) << S_PCMD_LEN_OVFL2)
++#define F_PCMD_LEN_OVFL2    V_PCMD_LEN_OVFL2(1U)
++
++#define S_ZERO_C_CMD_ERROR    28
++#define V_ZERO_C_CMD_ERROR(x) ((x) << S_ZERO_C_CMD_ERROR)
++#define F_ZERO_C_CMD_ERROR    V_ZERO_C_CMD_ERROR(1U)
++
++#define S_OESPI_PAR_ERROR    3
++#define V_OESPI_PAR_ERROR(x) ((x) << S_OESPI_PAR_ERROR)
++#define F_OESPI_PAR_ERROR    V_OESPI_PAR_ERROR(1U)
++
++#define S_ICSPI_PAR_ERROR    1
++#define V_ICSPI_PAR_ERROR(x) ((x) << S_ICSPI_PAR_ERROR)
++#define F_ICSPI_PAR_ERROR    V_ICSPI_PAR_ERROR(1U)
++
++#define S_C_PCMD_PAR_ERROR    0
++#define V_C_PCMD_PAR_ERROR(x) ((x) << S_C_PCMD_PAR_ERROR)
++#define F_C_PCMD_PAR_ERROR    V_C_PCMD_PAR_ERROR(1U)
++
++/* registers for module MPS */
++#define A_MPS_PORT_STAT_TX_PORT_BYTES_L 0x400
++#define A_MPS_PORT_STAT_TX_PORT_BYTES_H 0x404
++#define A_MPS_PORT_STAT_TX_PORT_FRAMES_L 0x408
++#define A_MPS_PORT_STAT_TX_PORT_FRAMES_H 0x40c
++#define A_MPS_PORT_STAT_TX_PORT_BCAST_L 0x410
++#define A_MPS_PORT_STAT_TX_PORT_BCAST_H 0x414
++#define A_MPS_PORT_STAT_TX_PORT_MCAST_L 0x418
++#define A_MPS_PORT_STAT_TX_PORT_MCAST_H 0x41c
++#define A_MPS_PORT_STAT_TX_PORT_UCAST_L 0x420
++#define A_MPS_PORT_STAT_TX_PORT_UCAST_H 0x424
++#define A_MPS_PORT_STAT_TX_PORT_ERROR_L 0x428
++#define A_MPS_PORT_STAT_TX_PORT_ERROR_H 0x42c
++#define A_MPS_PORT_STAT_TX_PORT_64B_L 0x430
++#define A_MPS_PORT_STAT_TX_PORT_64B_H 0x434
++#define A_MPS_PORT_STAT_TX_PORT_65B_127B_L 0x438
++#define A_MPS_PORT_STAT_TX_PORT_65B_127B_H 0x43c
++#define A_MPS_PORT_STAT_TX_PORT_128B_255B_L 0x440
++#define A_MPS_PORT_STAT_TX_PORT_128B_255B_H 0x444
++#define A_MPS_PORT_STAT_TX_PORT_256B_511B_L 0x448
++#define A_MPS_PORT_STAT_TX_PORT_256B_511B_H 0x44c
++#define A_MPS_PORT_STAT_TX_PORT_512B_1023B_L 0x450
++#define A_MPS_PORT_STAT_TX_PORT_512B_1023B_H 0x454
++#define A_MPS_PORT_STAT_TX_PORT_1024B_1518B_L 0x458
++#define A_MPS_PORT_STAT_TX_PORT_1024B_1518B_H 0x45c
++#define A_MPS_PORT_STAT_TX_PORT_1519B_MAX_L 0x460
++#define A_MPS_PORT_STAT_TX_PORT_1519B_MAX_H 0x464
++#define A_MPS_PORT_STAT_TX_PORT_DROP_L 0x468
++#define A_MPS_PORT_STAT_TX_PORT_DROP_H 0x46c
++#define A_MPS_PORT_STAT_TX_PORT_PAUSE_L 0x470
++#define A_MPS_PORT_STAT_TX_PORT_PAUSE_H 0x474
++#define A_MPS_PORT_STAT_TX_PORT_PPP0_L 0x478
++#define A_MPS_PORT_STAT_TX_PORT_PPP0_H 0x47c
++#define A_MPS_PORT_STAT_TX_PORT_PPP1_L 0x480
++#define A_MPS_PORT_STAT_TX_PORT_PPP1_H 0x484
++#define A_MPS_PORT_STAT_TX_PORT_PPP2_L 0x488
++#define A_MPS_PORT_STAT_TX_PORT_PPP2_H 0x48c
++#define A_MPS_PORT_STAT_TX_PORT_PPP3_L 0x490
++#define A_MPS_PORT_STAT_TX_PORT_PPP3_H 0x494
++#define A_MPS_PORT_STAT_TX_PORT_PPP4_L 0x498
++#define A_MPS_PORT_STAT_TX_PORT_PPP4_H 0x49c
++#define A_MPS_PORT_STAT_TX_PORT_PPP5_L 0x4a0
++#define A_MPS_PORT_STAT_TX_PORT_PPP5_H 0x4a4
++#define A_MPS_PORT_STAT_TX_PORT_PPP6_L 0x4a8
++#define A_MPS_PORT_STAT_TX_PORT_PPP6_H 0x4ac
++#define A_MPS_PORT_STAT_TX_PORT_PPP7_L 0x4b0
++#define A_MPS_PORT_STAT_TX_PORT_PPP7_H 0x4b4
++#define A_MPS_PORT_STAT_LB_PORT_BYTES_L 0x4c0
++#define A_MPS_PORT_STAT_LB_PORT_BYTES_H 0x4c4
++#define A_MPS_PORT_STAT_LB_PORT_FRAMES_L 0x4c8
++#define A_MPS_PORT_STAT_LB_PORT_FRAMES_H 0x4cc
++#define A_MPS_PORT_STAT_LB_PORT_BCAST_L 0x4d0
++#define A_MPS_PORT_STAT_LB_PORT_BCAST_H 0x4d4
++#define A_MPS_PORT_STAT_LB_PORT_MCAST_L 0x4d8
++#define A_MPS_PORT_STAT_LB_PORT_MCAST_H 0x4dc
++#define A_MPS_PORT_STAT_LB_PORT_UCAST_L 0x4e0
++#define A_MPS_PORT_STAT_LB_PORT_UCAST_H 0x4e4
++#define A_MPS_PORT_STAT_LB_PORT_ERROR_L 0x4e8
++#define A_MPS_PORT_STAT_LB_PORT_ERROR_H 0x4ec
++#define A_MPS_PORT_STAT_LB_PORT_64B_L 0x4f0
++#define A_MPS_PORT_STAT_LB_PORT_64B_H 0x4f4
++#define A_MPS_PORT_STAT_LB_PORT_65B_127B_L 0x4f8
++#define A_MPS_PORT_STAT_LB_PORT_65B_127B_H 0x4fc
++#define A_MPS_PORT_STAT_LB_PORT_128B_255B_L 0x500
++#define A_MPS_PORT_STAT_LB_PORT_128B_255B_H 0x504
++#define A_MPS_PORT_STAT_LB_PORT_256B_511B_L 0x508
++#define A_MPS_PORT_STAT_LB_PORT_256B_511B_H 0x50c
++#define A_MPS_PORT_STAT_LB_PORT_512B_1023B_L 0x510
++#define A_MPS_PORT_STAT_LB_PORT_512B_1023B_H 0x514
++#define A_MPS_PORT_STAT_LB_PORT_1024B_1518B_L 0x518
++#define A_MPS_PORT_STAT_LB_PORT_1024B_1518B_H 0x51c
++#define A_MPS_PORT_STAT_LB_PORT_1519B_MAX_L 0x520
++#define A_MPS_PORT_STAT_LB_PORT_1519B_MAX_H 0x524
++#define A_MPS_PORT_STAT_LB_PORT_DROP_FRAMES 0x528
++#define A_MPS_PORT_STAT_RX_PORT_BYTES_L 0x540
++#define A_MPS_PORT_STAT_RX_PORT_BYTES_H 0x544
++#define A_MPS_PORT_STAT_RX_PORT_FRAMES_L 0x548
++#define A_MPS_PORT_STAT_RX_PORT_FRAMES_H 0x54c
++#define A_MPS_PORT_STAT_RX_PORT_BCAST_L 0x550
++#define A_MPS_PORT_STAT_RX_PORT_BCAST_H 0x554
++#define A_MPS_PORT_STAT_RX_PORT_MCAST_L 0x558
++#define A_MPS_PORT_STAT_RX_PORT_MCAST_H 0x55c
++#define A_MPS_PORT_STAT_RX_PORT_UCAST_L 0x560
++#define A_MPS_PORT_STAT_RX_PORT_UCAST_H 0x564
++#define A_MPS_PORT_STAT_RX_PORT_MTU_ERROR_L 0x568
++#define A_MPS_PORT_STAT_RX_PORT_MTU_ERROR_H 0x56c
++#define A_MPS_PORT_STAT_RX_PORT_MTU_CRC_ERROR_L 0x570
++#define A_MPS_PORT_STAT_RX_PORT_MTU_CRC_ERROR_H 0x574
++#define A_MPS_PORT_STAT_RX_PORT_CRC_ERROR_L 0x578
++#define A_MPS_PORT_STAT_RX_PORT_CRC_ERROR_H 0x57c
++#define A_MPS_PORT_STAT_RX_PORT_LEN_ERROR_L 0x580
++#define A_MPS_PORT_STAT_RX_PORT_LEN_ERROR_H 0x584
++#define A_MPS_PORT_STAT_RX_PORT_SYM_ERROR_L 0x588
++#define A_MPS_PORT_STAT_RX_PORT_SYM_ERROR_H 0x58c
++#define A_MPS_PORT_STAT_RX_PORT_64B_L 0x590
++#define A_MPS_PORT_STAT_RX_PORT_64B_H 0x594
++#define A_MPS_PORT_STAT_RX_PORT_65B_127B_L 0x598
++#define A_MPS_PORT_STAT_RX_PORT_65B_127B_H 0x59c
++#define A_MPS_PORT_STAT_RX_PORT_128B_255B_L 0x5a0
++#define A_MPS_PORT_STAT_RX_PORT_128B_255B_H 0x5a4
++#define A_MPS_PORT_STAT_RX_PORT_256B_511B_L 0x5a8
++#define A_MPS_PORT_STAT_RX_PORT_256B_511B_H 0x5ac
++#define A_MPS_PORT_STAT_RX_PORT_512B_1023B_L 0x5b0
++#define A_MPS_PORT_STAT_RX_PORT_512B_1023B_H 0x5b4
++#define A_MPS_PORT_STAT_RX_PORT_1024B_1518B_L 0x5b8
++#define A_MPS_PORT_STAT_RX_PORT_1024B_1518B_H 0x5bc
++#define A_MPS_PORT_STAT_RX_PORT_1519B_MAX_L 0x5c0
++#define A_MPS_PORT_STAT_RX_PORT_1519B_MAX_H 0x5c4
++#define A_MPS_PORT_STAT_RX_PORT_PAUSE_L 0x5c8
++#define A_MPS_PORT_STAT_RX_PORT_PAUSE_H 0x5cc
++#define A_MPS_PORT_STAT_RX_PORT_PPP0_L 0x5d0
++#define A_MPS_PORT_STAT_RX_PORT_PPP0_H 0x5d4
++#define A_MPS_PORT_STAT_RX_PORT_PPP1_L 0x5d8
++#define A_MPS_PORT_STAT_RX_PORT_PPP1_H 0x5dc
++#define A_MPS_PORT_STAT_RX_PORT_PPP2_L 0x5e0
++#define A_MPS_PORT_STAT_RX_PORT_PPP2_H 0x5e4
++#define A_MPS_PORT_STAT_RX_PORT_PPP3_L 0x5e8
++#define A_MPS_PORT_STAT_RX_PORT_PPP3_H 0x5ec
++#define A_MPS_PORT_STAT_RX_PORT_PPP4_L 0x5f0
++#define A_MPS_PORT_STAT_RX_PORT_PPP4_H 0x5f4
++#define A_MPS_PORT_STAT_RX_PORT_PPP5_L 0x5f8
++#define A_MPS_PORT_STAT_RX_PORT_PPP5_H 0x5fc
++#define A_MPS_PORT_STAT_RX_PORT_PPP6_L 0x600
++#define A_MPS_PORT_STAT_RX_PORT_PPP6_H 0x604
++#define A_MPS_PORT_STAT_RX_PORT_PPP7_L 0x608
++#define A_MPS_PORT_STAT_RX_PORT_PPP7_H 0x60c
++#define A_MPS_PORT_STAT_RX_PORT_LESS_64B_L 0x610
++#define A_MPS_PORT_STAT_RX_PORT_LESS_64B_H 0x614
++#define A_MPS_CMN_CTL 0x9000
++
++#define S_NUMPORTS    0
++#define M_NUMPORTS    0x3U
++#define V_NUMPORTS(x) ((x) << S_NUMPORTS)
++#define G_NUMPORTS(x) (((x) >> S_NUMPORTS) & M_NUMPORTS)
++
++#define A_MPS_INT_CAUSE 0x9008
++
++#define S_STATINT    5
++#define V_STATINT(x) ((x) << S_STATINT)
++#define F_STATINT    V_STATINT(1U)
++
++#define S_TXINT    4
++#define V_TXINT(x) ((x) << S_TXINT)
++#define F_TXINT    V_TXINT(1U)
++
++#define S_RXINT    3
++#define V_RXINT(x) ((x) << S_RXINT)
++#define F_RXINT    V_RXINT(1U)
++
++#define S_TRCINT    2
++#define V_TRCINT(x) ((x) << S_TRCINT)
++#define F_TRCINT    V_TRCINT(1U)
++
++#define S_CLSINT    1
++#define V_CLSINT(x) ((x) << S_CLSINT)
++#define F_CLSINT    V_CLSINT(1U)
++
++#define S_PLINT    0
++#define V_PLINT(x) ((x) << S_PLINT)
++#define F_PLINT    V_PLINT(1U)
++
++#define A_MPS_TX_INT_CAUSE 0x9408
++
++#define S_PORTERR    16
++#define V_PORTERR(x) ((x) << S_PORTERR)
++#define F_PORTERR    V_PORTERR(1U)
++
++#define S_FRMERR    15
++#define V_FRMERR(x) ((x) << S_FRMERR)
++#define F_FRMERR    V_FRMERR(1U)
++
++#define S_SECNTERR    14
++#define V_SECNTERR(x) ((x) << S_SECNTERR)
++#define F_SECNTERR    V_SECNTERR(1U)
++
++#define S_BUBBLE    13
++#define V_BUBBLE(x) ((x) << S_BUBBLE)
++#define F_BUBBLE    V_BUBBLE(1U)
++
++#define S_TXDESCFIFO    9
++#define M_TXDESCFIFO    0xfU
++#define V_TXDESCFIFO(x) ((x) << S_TXDESCFIFO)
++#define G_TXDESCFIFO(x) (((x) >> S_TXDESCFIFO) & M_TXDESCFIFO)
++
++#define S_TXDATAFIFO    5
++#define M_TXDATAFIFO    0xfU
++#define V_TXDATAFIFO(x) ((x) << S_TXDATAFIFO)
++#define G_TXDATAFIFO(x) (((x) >> S_TXDATAFIFO) & M_TXDATAFIFO)
++
++#define S_NCSIFIFO    4
++#define V_NCSIFIFO(x) ((x) << S_NCSIFIFO)
++#define F_NCSIFIFO    V_NCSIFIFO(1U)
++
++#define S_TPFIFO    0
++#define M_TPFIFO    0xfU
++#define V_TPFIFO(x) ((x) << S_TPFIFO)
++#define G_TPFIFO(x) (((x) >> S_TPFIFO) & M_TPFIFO)
++
++#define A_MPS_STAT_PERR_INT_CAUSE_SRAM 0x9614
++#define A_MPS_STAT_PERR_INT_CAUSE_TX_FIFO 0x9620
++
++#define S_TX    12
++#define M_TX    0xffU
++#define V_TX(x) ((x) << S_TX)
++#define G_TX(x) (((x) >> S_TX) & M_TX)
++
++#define S_TXPAUSEFIFO    8
++#define M_TXPAUSEFIFO    0xfU
++#define V_TXPAUSEFIFO(x) ((x) << S_TXPAUSEFIFO)
++#define G_TXPAUSEFIFO(x) (((x) >> S_TXPAUSEFIFO) & M_TXPAUSEFIFO)
++
++#define S_DROP    0
++#define M_DROP    0xffU
++#define V_DROP(x) ((x) << S_DROP)
++#define G_DROP(x) (((x) >> S_DROP) & M_DROP)
++
++#define A_MPS_STAT_PERR_INT_CAUSE_RX_FIFO 0x962c
++
++#define S_PAUSEFIFO    20
++#define M_PAUSEFIFO    0xfU
++#define V_PAUSEFIFO(x) ((x) << S_PAUSEFIFO)
++#define G_PAUSEFIFO(x) (((x) >> S_PAUSEFIFO) & M_PAUSEFIFO)
++
++#define S_LPBK    16
++#define M_LPBK    0xfU
++#define V_LPBK(x) ((x) << S_LPBK)
++#define G_LPBK(x) (((x) >> S_LPBK) & M_LPBK)
++
++#define S_NQ    8
++#define M_NQ    0xffU
++#define V_NQ(x) ((x) << S_NQ)
++#define G_NQ(x) (((x) >> S_NQ) & M_NQ)
++
++#define S_PV    4
++#define M_PV    0xfU
++#define V_PV(x) ((x) << S_PV)
++#define G_PV(x) (((x) >> S_PV) & M_PV)
++
++#define S_MAC    0
++#define M_MAC    0xfU
++#define V_MAC(x) ((x) << S_MAC)
++#define G_MAC(x) (((x) >> S_MAC) & M_MAC)
++
++#define A_MPS_STAT_RX_BG_0_MAC_DROP_FRAME_L 0x9640
++#define A_MPS_STAT_RX_BG_0_MAC_DROP_FRAME_H 0x9644
++#define A_MPS_STAT_RX_BG_1_MAC_DROP_FRAME_L 0x9648
++#define A_MPS_STAT_RX_BG_1_MAC_DROP_FRAME_H 0x964c
++#define A_MPS_STAT_RX_BG_2_MAC_DROP_FRAME_L 0x9650
++#define A_MPS_STAT_RX_BG_2_MAC_DROP_FRAME_H 0x9654
++#define A_MPS_STAT_RX_BG_3_MAC_DROP_FRAME_L 0x9658
++#define A_MPS_STAT_RX_BG_3_MAC_DROP_FRAME_H 0x965c
++#define A_MPS_STAT_RX_BG_0_LB_DROP_FRAME_L 0x9660
++#define A_MPS_STAT_RX_BG_0_LB_DROP_FRAME_H 0x9664
++#define A_MPS_STAT_RX_BG_1_LB_DROP_FRAME_L 0x9668
++#define A_MPS_STAT_RX_BG_1_LB_DROP_FRAME_H 0x966c
++#define A_MPS_STAT_RX_BG_2_LB_DROP_FRAME_L 0x9670
++#define A_MPS_STAT_RX_BG_2_LB_DROP_FRAME_H 0x9674
++#define A_MPS_STAT_RX_BG_3_LB_DROP_FRAME_L 0x9678
++#define A_MPS_STAT_RX_BG_3_LB_DROP_FRAME_H 0x967c
++#define A_MPS_STAT_RX_BG_0_MAC_TRUNC_FRAME_L 0x9680
++#define A_MPS_STAT_RX_BG_0_MAC_TRUNC_FRAME_H 0x9684
++#define A_MPS_STAT_RX_BG_1_MAC_TRUNC_FRAME_L 0x9688
++#define A_MPS_STAT_RX_BG_1_MAC_TRUNC_FRAME_H 0x968c
++#define A_MPS_STAT_RX_BG_2_MAC_TRUNC_FRAME_L 0x9690
++#define A_MPS_STAT_RX_BG_2_MAC_TRUNC_FRAME_H 0x9694
++#define A_MPS_STAT_RX_BG_3_MAC_TRUNC_FRAME_L 0x9698
++#define A_MPS_STAT_RX_BG_3_MAC_TRUNC_FRAME_H 0x969c
++#define A_MPS_STAT_RX_BG_0_LB_TRUNC_FRAME_L 0x96a0
++#define A_MPS_STAT_RX_BG_0_LB_TRUNC_FRAME_H 0x96a4
++#define A_MPS_STAT_RX_BG_1_LB_TRUNC_FRAME_L 0x96a8
++#define A_MPS_STAT_RX_BG_1_LB_TRUNC_FRAME_H 0x96ac
++#define A_MPS_STAT_RX_BG_2_LB_TRUNC_FRAME_L 0x96b0
++#define A_MPS_STAT_RX_BG_2_LB_TRUNC_FRAME_H 0x96b4
++#define A_MPS_STAT_RX_BG_3_LB_TRUNC_FRAME_L 0x96b8
++#define A_MPS_STAT_RX_BG_3_LB_TRUNC_FRAME_H 0x96bc
++#define A_MPS_TRC_CFG 0x9800
++
++#define S_TRCFIFOEMPTY    4
++#define V_TRCFIFOEMPTY(x) ((x) << S_TRCFIFOEMPTY)
++#define F_TRCFIFOEMPTY    V_TRCFIFOEMPTY(1U)
++
++#define S_TRCIGNOREDROPINPUT    3
++#define V_TRCIGNOREDROPINPUT(x) ((x) << S_TRCIGNOREDROPINPUT)
++#define F_TRCIGNOREDROPINPUT    V_TRCIGNOREDROPINPUT(1U)
++
++#define S_TRCKEEPDUPLICATES    2
++#define V_TRCKEEPDUPLICATES(x) ((x) << S_TRCKEEPDUPLICATES)
++#define F_TRCKEEPDUPLICATES    V_TRCKEEPDUPLICATES(1U)
++
++#define S_TRCEN    1
++#define V_TRCEN(x) ((x) << S_TRCEN)
++#define F_TRCEN    V_TRCEN(1U)
++
++#define S_TRCMULTIFILTER    0
++#define V_TRCMULTIFILTER(x) ((x) << S_TRCMULTIFILTER)
++#define F_TRCMULTIFILTER    V_TRCMULTIFILTER(1U)
++
++#define A_MPS_TRC_RSS_CONTROL 0x9808
++
++#define S_RSSCONTROL    16
++#define M_RSSCONTROL    0xffU
++#define V_RSSCONTROL(x) ((x) << S_RSSCONTROL)
++#define G_RSSCONTROL(x) (((x) >> S_RSSCONTROL) & M_RSSCONTROL)
++
++#define S_QUEUENUMBER    0
++#define M_QUEUENUMBER    0xffffU
++#define V_QUEUENUMBER(x) ((x) << S_QUEUENUMBER)
++#define G_QUEUENUMBER(x) (((x) >> S_QUEUENUMBER) & M_QUEUENUMBER)
++
++#define A_MPS_TRC_FILTER_MATCH_CTL_A 0x9810
++
++#define S_TFINVERTMATCH    24
++#define V_TFINVERTMATCH(x) ((x) << S_TFINVERTMATCH)
++#define F_TFINVERTMATCH    V_TFINVERTMATCH(1U)
++
++#define S_TFPKTTOOLARGE    23
++#define V_TFPKTTOOLARGE(x) ((x) << S_TFPKTTOOLARGE)
++#define F_TFPKTTOOLARGE    V_TFPKTTOOLARGE(1U)
++
++#define S_TFEN    22
++#define V_TFEN(x) ((x) << S_TFEN)
++#define F_TFEN    V_TFEN(1U)
++
++#define S_TFPORT    18
++#define M_TFPORT    0xfU
++#define V_TFPORT(x) ((x) << S_TFPORT)
++#define G_TFPORT(x) (((x) >> S_TFPORT) & M_TFPORT)
++
++#define S_TFDROP    17
++#define V_TFDROP(x) ((x) << S_TFDROP)
++#define F_TFDROP    V_TFDROP(1U)
++
++#define S_TFSOPEOPERR    16
++#define V_TFSOPEOPERR(x) ((x) << S_TFSOPEOPERR)
++#define F_TFSOPEOPERR    V_TFSOPEOPERR(1U)
++
++#define S_TFLENGTH    8
++#define M_TFLENGTH    0x1fU
++#define V_TFLENGTH(x) ((x) << S_TFLENGTH)
++#define G_TFLENGTH(x) (((x) >> S_TFLENGTH) & M_TFLENGTH)
++
++#define S_TFOFFSET    0
++#define M_TFOFFSET    0x1fU
++#define V_TFOFFSET(x) ((x) << S_TFOFFSET)
++#define G_TFOFFSET(x) (((x) >> S_TFOFFSET) & M_TFOFFSET)
++
++#define A_MPS_TRC_FILTER_MATCH_CTL_B 0x9820
++
++#define S_TFMINPKTSIZE    16
++#define M_TFMINPKTSIZE    0x1ffU
++#define V_TFMINPKTSIZE(x) ((x) << S_TFMINPKTSIZE)
++#define G_TFMINPKTSIZE(x) (((x) >> S_TFMINPKTSIZE) & M_TFMINPKTSIZE)
++
++#define S_TFCAPTUREMAX    0
++#define M_TFCAPTUREMAX    0x3fffU
++#define V_TFCAPTUREMAX(x) ((x) << S_TFCAPTUREMAX)
++#define G_TFCAPTUREMAX(x) (((x) >> S_TFCAPTUREMAX) & M_TFCAPTUREMAX)
++
++#define A_MPS_TRC_INT_CAUSE 0x985c
++
++#define S_TRCPLERRENB    9
++#define V_TRCPLERRENB(x) ((x) << S_TRCPLERRENB)
++#define F_TRCPLERRENB    V_TRCPLERRENB(1U)
++
++#define S_MISCPERR    8
++#define V_MISCPERR(x) ((x) << S_MISCPERR)
++#define F_MISCPERR    V_MISCPERR(1U)
++
++#define S_PKTFIFO    4
++#define M_PKTFIFO    0xfU
++#define V_PKTFIFO(x) ((x) << S_PKTFIFO)
++#define G_PKTFIFO(x) (((x) >> S_PKTFIFO) & M_PKTFIFO)
++
++#define S_FILTMEM    0
++#define M_FILTMEM    0xfU
++#define V_FILTMEM(x) ((x) << S_FILTMEM)
++#define G_FILTMEM(x) (((x) >> S_FILTMEM) & M_FILTMEM)
++
++#define A_MPS_TRC_FILTER0_MATCH 0x9c00
++#define A_MPS_TRC_FILTER0_DONT_CARE 0x9c80
++#define A_MPS_TRC_FILTER1_MATCH 0x9d00
++#define A_MPS_CLS_INT_CAUSE 0xd028
++
++#define S_PLERRENB    3
++#define V_PLERRENB(x) ((x) << S_PLERRENB)
++#define F_PLERRENB    V_PLERRENB(1U)
++
++#define S_HASHSRAM    2
++#define V_HASHSRAM(x) ((x) << S_HASHSRAM)
++#define F_HASHSRAM    V_HASHSRAM(1U)
++
++#define S_MATCHTCAM    1
++#define V_MATCHTCAM(x) ((x) << S_MATCHTCAM)
++#define F_MATCHTCAM    V_MATCHTCAM(1U)
++
++#define S_MATCHSRAM    0
++#define V_MATCHSRAM(x) ((x) << S_MATCHSRAM)
++#define F_MATCHSRAM    V_MATCHSRAM(1U)
++
++#define A_MPS_RX_PERR_INT_CAUSE 0x11074
++
++/* registers for module CPL_SWITCH */
++#define A_CPL_INTR_CAUSE 0x19054
++
++#define S_CIM_OP_MAP_PERR    5
++#define V_CIM_OP_MAP_PERR(x) ((x) << S_CIM_OP_MAP_PERR)
++#define F_CIM_OP_MAP_PERR    V_CIM_OP_MAP_PERR(1U)
++
++#define S_CIM_OVFL_ERROR    4
++#define V_CIM_OVFL_ERROR(x) ((x) << S_CIM_OVFL_ERROR)
++#define F_CIM_OVFL_ERROR    V_CIM_OVFL_ERROR(1U)
++
++#define S_TP_FRAMING_ERROR    3
++#define V_TP_FRAMING_ERROR(x) ((x) << S_TP_FRAMING_ERROR)
++#define F_TP_FRAMING_ERROR    V_TP_FRAMING_ERROR(1U)
++
++#define S_SGE_FRAMING_ERROR    2
++#define V_SGE_FRAMING_ERROR(x) ((x) << S_SGE_FRAMING_ERROR)
++#define F_SGE_FRAMING_ERROR    V_SGE_FRAMING_ERROR(1U)
++
++#define S_CIM_FRAMING_ERROR    1
++#define V_CIM_FRAMING_ERROR(x) ((x) << S_CIM_FRAMING_ERROR)
++#define F_CIM_FRAMING_ERROR    V_CIM_FRAMING_ERROR(1U)
++
++#define S_ZERO_SWITCH_ERROR    0
++#define V_ZERO_SWITCH_ERROR(x) ((x) << S_ZERO_SWITCH_ERROR)
++#define F_ZERO_SWITCH_ERROR    V_ZERO_SWITCH_ERROR(1U)
++
++/* registers for module SMB */
++#define A_SMB_INT_CAUSE 0x19090
++
++#define S_MSTTXFIFOPARINT    21
++#define V_MSTTXFIFOPARINT(x) ((x) << S_MSTTXFIFOPARINT)
++#define F_MSTTXFIFOPARINT    V_MSTTXFIFOPARINT(1U)
++
++#define S_MSTRXFIFOPARINT    20
++#define V_MSTRXFIFOPARINT(x) ((x) << S_MSTRXFIFOPARINT)
++#define F_MSTRXFIFOPARINT    V_MSTRXFIFOPARINT(1U)
++
++#define S_SLVFIFOPARINT    19
++#define V_SLVFIFOPARINT(x) ((x) << S_SLVFIFOPARINT)
++#define F_SLVFIFOPARINT    V_SLVFIFOPARINT(1U)
++
++/* registers for module ULP_RX */
++#define A_ULP_RX_INT_CAUSE 0x19158
++#define A_ULP_RX_ISCSI_TAGMASK 0x19164
++
++#define S_ISCSITAGMASK    6
++#define M_ISCSITAGMASK    0x3ffffffU
++#define V_ISCSITAGMASK(x) ((x) << S_ISCSITAGMASK)
++#define G_ISCSITAGMASK(x) (((x) >> S_ISCSITAGMASK) & M_ISCSITAGMASK)
++
++#define A_ULP_RX_ISCSI_PSZ 0x19168
++
++#define S_HPZ3    24
++#define M_HPZ3    0xfU
++#define V_HPZ3(x) ((x) << S_HPZ3)
++#define G_HPZ3(x) (((x) >> S_HPZ3) & M_HPZ3)
++
++#define S_HPZ2    16
++#define M_HPZ2    0xfU
++#define V_HPZ2(x) ((x) << S_HPZ2)
++#define G_HPZ2(x) (((x) >> S_HPZ2) & M_HPZ2)
++
++#define S_HPZ1    8
++#define M_HPZ1    0xfU
++#define V_HPZ1(x) ((x) << S_HPZ1)
++#define G_HPZ1(x) (((x) >> S_HPZ1) & M_HPZ1)
++
++#define S_HPZ0    0
++#define M_HPZ0    0xfU
++#define V_HPZ0(x) ((x) << S_HPZ0)
++#define G_HPZ0(x) (((x) >> S_HPZ0) & M_HPZ0)
++
++#define A_ULP_RX_TDDP_PSZ 0x19178
++
++/* registers for module SF */
++#define A_SF_DATA 0x193f8
++#define A_SF_OP 0x193fc
++
++#define S_SF_LOCK    4
++#define V_SF_LOCK(x) ((x) << S_SF_LOCK)
++#define F_SF_LOCK    V_SF_LOCK(1U)
++
++#define S_CONT    3
++#define V_CONT(x) ((x) << S_CONT)
++#define F_CONT    V_CONT(1U)
++
++#define S_BYTECNT    1
++#define M_BYTECNT    0x3U
++#define V_BYTECNT(x) ((x) << S_BYTECNT)
++
++#define S_OP    0
++#define V_OP(x) ((x) << S_OP)
++#define F_OP    V_OP(1U)
++
++/* registers for module PL */
++#define A_PL_PF_INT_CAUSE 0x3c0
++
++#define S_PFSW    3
++#define V_PFSW(x) ((x) << S_PFSW)
++#define F_PFSW    V_PFSW(1U)
++
++#define S_PFSGE    2
++#define V_PFSGE(x) ((x) << S_PFSGE)
++#define F_PFSGE    V_PFSGE(1U)
++
++#define S_PFCIM    1
++#define V_PFCIM(x) ((x) << S_PFCIM)
++#define F_PFCIM    V_PFCIM(1U)
++
++#define S_PFMPS    0
++#define V_PFMPS(x) ((x) << S_PFMPS)
++#define F_PFMPS    V_PFMPS(1U)
++
++#define A_PL_PF_INT_ENABLE 0x3c4
++#define A_PL_PF_CTL 0x3c8
++
++#define S_SWINT    0
++#define V_SWINT(x) ((x) << S_SWINT)
++#define F_SWINT    V_SWINT(1U)
++
++#define A_PL_WHOAMI 0x19400
++
++#define S_PORTXMAP    24
++#define M_PORTXMAP    0x7U
++#define V_PORTXMAP(x) ((x) << S_PORTXMAP)
++#define G_PORTXMAP(x) (((x) >> S_PORTXMAP) & M_PORTXMAP)
++
++#define S_SOURCEBUS    16
++#define M_SOURCEBUS    0x3U
++#define V_SOURCEBUS(x) ((x) << S_SOURCEBUS)
++#define G_SOURCEBUS(x) (((x) >> S_SOURCEBUS) & M_SOURCEBUS)
++
++#define S_SOURCEPF    8
++#define M_SOURCEPF    0x7U
++#define V_SOURCEPF(x) ((x) << S_SOURCEPF)
++#define G_SOURCEPF(x) (((x) >> S_SOURCEPF) & M_SOURCEPF)
++
++#define S_ISVF    7
++#define V_ISVF(x) ((x) << S_ISVF)
++#define F_ISVF    V_ISVF(1U)
++
++#define S_VFID    0
++#define M_VFID    0x7fU
++#define V_VFID(x) ((x) << S_VFID)
++#define G_VFID(x) (((x) >> S_VFID) & M_VFID)
++
++#define A_PL_INT_CAUSE 0x1940c
++
++#define S_FLR    30
++#define V_FLR(x) ((x) << S_FLR)
++#define F_FLR    V_FLR(1U)
++
++#define S_ULP_TX    27
++#define V_ULP_TX(x) ((x) << S_ULP_TX)
++#define F_ULP_TX    V_ULP_TX(1U)
++
++#define S_SGE    26
++#define V_SGE(x) ((x) << S_SGE)
++#define F_SGE    V_SGE(1U)
++
++#define S_CPL_SWITCH    24
++#define V_CPL_SWITCH(x) ((x) << S_CPL_SWITCH)
++#define F_CPL_SWITCH    V_CPL_SWITCH(1U)
++
++#define S_ULP_RX    23
++#define V_ULP_RX(x) ((x) << S_ULP_RX)
++#define F_ULP_RX    V_ULP_RX(1U)
++
++#define S_PM_RX    22
++#define V_PM_RX(x) ((x) << S_PM_RX)
++#define F_PM_RX    V_PM_RX(1U)
++
++#define S_PM_TX    21
++#define V_PM_TX(x) ((x) << S_PM_TX)
++#define F_PM_TX    V_PM_TX(1U)
++
++#define S_MA    20
++#define V_MA(x) ((x) << S_MA)
++#define F_MA    V_MA(1U)
++
++#define S_TP    19
++#define V_TP(x) ((x) << S_TP)
++#define F_TP    V_TP(1U)
++
++#define S_LE    18
++#define V_LE(x) ((x) << S_LE)
++#define F_LE    V_LE(1U)
++
++#define S_EDC1    17
++#define V_EDC1(x) ((x) << S_EDC1)
++#define F_EDC1    V_EDC1(1U)
++
++#define S_EDC0    16
++#define V_EDC0(x) ((x) << S_EDC0)
++#define F_EDC0    V_EDC0(1U)
++
++#define S_MC    15
++#define V_MC(x) ((x) << S_MC)
++#define F_MC    V_MC(1U)
++
++#define S_PCIE    14
++#define V_PCIE(x) ((x) << S_PCIE)
++#define F_PCIE    V_PCIE(1U)
++
++#define S_PMU    13
++#define V_PMU(x) ((x) << S_PMU)
++#define F_PMU    V_PMU(1U)
++
++#define S_XGMAC_KR1    12
++#define V_XGMAC_KR1(x) ((x) << S_XGMAC_KR1)
++#define F_XGMAC_KR1    V_XGMAC_KR1(1U)
++
++#define S_XGMAC_KR0    11
++#define V_XGMAC_KR0(x) ((x) << S_XGMAC_KR0)
++#define F_XGMAC_KR0    V_XGMAC_KR0(1U)
++
++#define S_XGMAC1    10
++#define V_XGMAC1(x) ((x) << S_XGMAC1)
++#define F_XGMAC1    V_XGMAC1(1U)
++
++#define S_XGMAC0    9
++#define V_XGMAC0(x) ((x) << S_XGMAC0)
++#define F_XGMAC0    V_XGMAC0(1U)
++
++#define S_SMB    8
++#define V_SMB(x) ((x) << S_SMB)
++#define F_SMB    V_SMB(1U)
++
++#define S_SF    7
++#define V_SF(x) ((x) << S_SF)
++#define F_SF    V_SF(1U)
++
++#define S_PL    6
++#define V_PL(x) ((x) << S_PL)
++#define F_PL    V_PL(1U)
++
++#define S_NCSI    5
++#define V_NCSI(x) ((x) << S_NCSI)
++#define F_NCSI    V_NCSI(1U)
++
++#define S_MPS    4
++#define V_MPS(x) ((x) << S_MPS)
++#define F_MPS    V_MPS(1U)
++
++#define S_MI    3
++#define V_MI(x) ((x) << S_MI)
++#define F_MI    V_MI(1U)
++
++#define S_DBG    2
++#define V_DBG(x) ((x) << S_DBG)
++#define F_DBG    V_DBG(1U)
++
++#define S_I2CM    1
++#define V_I2CM(x) ((x) << S_I2CM)
++#define F_I2CM    V_I2CM(1U)
++
++#define S_CIM    0
++#define V_CIM(x) ((x) << S_CIM)
++#define F_CIM    V_CIM(1U)
++
++#define A_PL_INT_MAP0 0x19414
++
++#define S_MAPNCSI    16
++#define M_MAPNCSI    0x1ffU
++#define V_MAPNCSI(x) ((x) << S_MAPNCSI)
++#define G_MAPNCSI(x) (((x) >> S_MAPNCSI) & M_MAPNCSI)
++
++#define S_MAPDEFAULT    0
++#define M_MAPDEFAULT    0x1ffU
++#define V_MAPDEFAULT(x) ((x) << S_MAPDEFAULT)
++#define G_MAPDEFAULT(x) (((x) >> S_MAPDEFAULT) & M_MAPDEFAULT)
++
++#define A_PL_RST 0x19428
++
++#define S_PIORST    1
++#define V_PIORST(x) ((x) << S_PIORST)
++#define F_PIORST    V_PIORST(1U)
++
++#define S_PIORSTMODE    0
++#define V_PIORSTMODE(x) ((x) << S_PIORSTMODE)
++#define F_PIORSTMODE    V_PIORSTMODE(1U)
++
++#define A_PL_PL_INT_CAUSE 0x19430
++
++#define S_PF_ENABLEERR    5
++#define V_PF_ENABLEERR(x) ((x) << S_PF_ENABLEERR)
++#define F_PF_ENABLEERR    V_PF_ENABLEERR(1U)
++
++#define S_FATALPERR    4
++#define V_FATALPERR(x) ((x) << S_FATALPERR)
++#define F_FATALPERR    V_FATALPERR(1U)
++
++#define S_INVALIDACCESS    3
++#define V_INVALIDACCESS(x) ((x) << S_INVALIDACCESS)
++#define F_INVALIDACCESS    V_INVALIDACCESS(1U)
++
++#define S_TIMEOUT    2
++#define V_TIMEOUT(x) ((x) << S_TIMEOUT)
++#define F_TIMEOUT    V_TIMEOUT(1U)
++
++#define S_PLERR    1
++#define V_PLERR(x) ((x) << S_PLERR)
++#define F_PLERR    V_PLERR(1U)
++
++#define S_PERRVFID    0
++#define V_PERRVFID(x) ((x) << S_PERRVFID)
++#define F_PERRVFID    V_PERRVFID(1U)
++
++#define A_PL_REV 0x1943c
++
++/* registers for module LE */
++#define A_LE_DB_CONFIG 0x19c04
++
++#define S_HASHEN    20
++#define V_HASHEN(x) ((x) << S_HASHEN)
++#define F_HASHEN    V_HASHEN(1U)
++
++#define S_ASBOTHSRCHEN    18
++#define V_ASBOTHSRCHEN(x) ((x) << S_ASBOTHSRCHEN)
++#define F_ASBOTHSRCHEN    V_ASBOTHSRCHEN(1U)
++
++#define S_ASLIPCOMPEN    17
++#define V_ASLIPCOMPEN(x) ((x) << S_ASLIPCOMPEN)
++#define F_ASLIPCOMPEN    V_ASLIPCOMPEN(1U)
++
++#define S_FILTEREN    11
++#define V_FILTEREN(x) ((x) << S_FILTEREN)
++#define F_FILTEREN    V_FILTEREN(1U)
++
++#define A_LE_DB_SERVER_INDEX 0x19c18
++
++#define S_SRINDX    7
++#define M_SRINDX    0x3fU
++#define V_SRINDX(x) ((x) << S_SRINDX)
++#define G_SRINDX(x) (((x) >> S_SRINDX) & M_SRINDX)
++
++#define A_LE_DB_ACT_CNT_IPV4 0x19c20
++#define A_LE_DB_ACT_CNT_IPV6 0x19c24
++#define A_LE_DB_INT_CAUSE 0x19c3c
++
++#define S_REQQPARERR    16
++#define V_REQQPARERR(x) ((x) << S_REQQPARERR)
++#define F_REQQPARERR    V_REQQPARERR(1U)
++
++#define S_UNKNOWNCMD    15
++#define V_UNKNOWNCMD(x) ((x) << S_UNKNOWNCMD)
++#define F_UNKNOWNCMD    V_UNKNOWNCMD(1U)
++
++#define S_PARITYERR    6
++#define V_PARITYERR(x) ((x) << S_PARITYERR)
++#define F_PARITYERR    V_PARITYERR(1U)
++
++#define S_LIPMISS    5
++#define V_LIPMISS(x) ((x) << S_LIPMISS)
++#define F_LIPMISS    V_LIPMISS(1U)
++
++#define S_LIP0    4
++#define V_LIP0(x) ((x) << S_LIP0)
++#define F_LIP0    V_LIP0(1U)
++
++#define A_LE_DB_TID_HASHBASE 0x19df8
++
++#define S_HASHBASE_ADDR    2
++#define M_HASHBASE_ADDR    0xfffffU
++#define V_HASHBASE_ADDR(x) ((x) << S_HASHBASE_ADDR)
++#define G_HASHBASE_ADDR(x) (((x) >> S_HASHBASE_ADDR) & M_HASHBASE_ADDR)
++
++/* registers for module NCSI */
++#define A_NCSI_INT_CAUSE 0x1a0d8
++
++#define S_CIM_DM_PRTY_ERR    8
++#define V_CIM_DM_PRTY_ERR(x) ((x) << S_CIM_DM_PRTY_ERR)
++#define F_CIM_DM_PRTY_ERR    V_CIM_DM_PRTY_ERR(1U)
++
++#define S_MPS_DM_PRTY_ERR    7
++#define V_MPS_DM_PRTY_ERR(x) ((x) << S_MPS_DM_PRTY_ERR)
++#define F_MPS_DM_PRTY_ERR    V_MPS_DM_PRTY_ERR(1U)
++
++#define S_TXFIFO_PRTY_ERR    1
++#define V_TXFIFO_PRTY_ERR(x) ((x) << S_TXFIFO_PRTY_ERR)
++#define F_TXFIFO_PRTY_ERR    V_TXFIFO_PRTY_ERR(1U)
++
++#define S_RXFIFO_PRTY_ERR    0
++#define V_RXFIFO_PRTY_ERR(x) ((x) << S_RXFIFO_PRTY_ERR)
++#define F_RXFIFO_PRTY_ERR    V_RXFIFO_PRTY_ERR(1U)
++
++/* registers for module XGMAC */
++#define A_XGMAC_PORT_CFG2 0x1018
++
++#define S_PATEN    18
++#define V_PATEN(x) ((x) << S_PATEN)
++#define F_PATEN    V_PATEN(1U)
++
++#define S_MAGICEN    17
++#define V_MAGICEN(x) ((x) << S_MAGICEN)
++#define F_MAGICEN    V_MAGICEN(1U)
++
++#define S_TX_IPG    4
++#define M_TX_IPG    0x1fffU
++#define V_TX_IPG(x) ((x) << S_TX_IPG)
++#define G_TX_IPG(x) (((x) >> S_TX_IPG) & M_TX_IPG)
++
++#define S_AEC_PMA_TX_READY    1
++#define V_AEC_PMA_TX_READY(x) ((x) << S_AEC_PMA_TX_READY)
++#define F_AEC_PMA_TX_READY    V_AEC_PMA_TX_READY(1U)
++
++#define S_AEC_PMA_RX_READY    0
++#define V_AEC_PMA_RX_READY(x) ((x) << S_AEC_PMA_RX_READY)
++#define F_AEC_PMA_RX_READY    V_AEC_PMA_RX_READY(1U)
++
++#define A_XGMAC_PORT_MAGIC_MACID_LO 0x1024
++#define A_XGMAC_PORT_MAGIC_MACID_HI 0x1028
++
++#define S_MAC_WOL_DA    0
++#define M_MAC_WOL_DA    0xffffU
++#define V_MAC_WOL_DA(x) ((x) << S_MAC_WOL_DA)
++#define G_MAC_WOL_DA(x) (((x) >> S_MAC_WOL_DA) & M_MAC_WOL_DA)
++
++#define A_XGMAC_PORT_EPIO_DATA0 0x10c0
++#define A_XGMAC_PORT_EPIO_DATA1 0x10c4
++#define A_XGMAC_PORT_EPIO_DATA2 0x10c8
++#define A_XGMAC_PORT_EPIO_DATA3 0x10cc
++#define A_XGMAC_PORT_EPIO_OP 0x10d0
++
++#define S_EPIOWR    8
++#define V_EPIOWR(x) ((x) << S_EPIOWR)
++#define F_EPIOWR    V_EPIOWR(1U)
++
++#define S_ADDRESS    0
++#define M_ADDRESS    0xffU
++#define V_ADDRESS(x) ((x) << S_ADDRESS)
++
++#define A_XGMAC_PORT_INT_CAUSE 0x10dc
++#endif /* __T4_REGS_H */
 -- 
 1.5.4
 
