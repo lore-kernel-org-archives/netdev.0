@@ -1,46 +1,44 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Bridge: request for the via_phys_dev feature discussion
-Date: Thu, 18 Feb 2010 15:21:12 +0300
-Message-ID: <4B7D30B8.2050400@openvz.org>
+From: Andreas Petlund <apetlund@simula.no>
+Subject: [net-next PATCH v5 0/3] net: TCP thin-stream latency-improving modifications
+Date: Thu, 18 Feb 2010 13:42:13 +0100
+Message-ID: <4B7D35A5.10106@simula.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	eric.dumazet@gmail.com, hannemann@nets.rwth-aachen.de,
+	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
+	william.allen.simpson@gmail.com, damian@tvk.rwth-aachen.de,
+	ebiederm@xmission.com, David Miller <davem@davemloft.net>,
+	Franco Fichtner <franco@lastsummer.de>
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:4942 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758044Ab0BRMVY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Feb 2010 07:21:24 -0500
+Received: from mail-forward1.uio.no ([129.240.10.70]:50705 "EHLO
+	mail-forward1.uio.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758104Ab0BRMmQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 07:42:16 -0500
+Received: from exim by mail-out1.uio.no with local-bsmtp (Exim 4.69)
+	(envelope-from <apetlund@simula.no>)
+	id 1Ni5hv-0005nd-4Y
+	for netdev@vger.kernel.org; Thu, 18 Feb 2010 13:42:15 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Stephen.
+This is a series of patches enabling non-intrusive, dynamically 
+triggered modifications that improve retransmission latencies 
+for thin streams.
 
-Some time ago Cyrill Corcunov sent a patches, that added to bridges the 
-ability to send/receive packets via ethernet device in it rather than via 
-the bridge device itself. Here's the link on the thread:
-http://www.mail-archive.com/bridge@lists.linux-foundation.org/msg01108.html
+The patch set was modified according to the feedback received.
 
-That time you told, that the problem we were trying to solve with the 
-patches could be solved by other means. If you don't mind can we discus
-this in more details?
+Major change:
+      -Used bitfields to compact the nonagle variable
+       in the tcp_sock struct. nonagle, thin_lto and
+       thin_dupack is now contained in the same u8.
 
-In simple situation containers users want to bridge their containers through
-veth device with the host eth0 adapter. But after one add his eth0 to bridge
-he need to
-a) reconfigure everything including IP addresses, routing tables and
-   netfilter rules
-b) recreate connections that were bound to eth0
+I decided to use bitfields to handle this as it is
+already done similarly in the tcp_options_received struct.
 
-That's OK if one setup the box from the scratch and adds eth0 to bridge from
-the very beginning, but for those who start using containers on pre-configured
-boxes or for those, who decided to switch to bridge+veth from some other 
-virtual device (e.g. macvlan or venet device in OpenVZ) this becomes real pain.
+Also corrected some formatting issues.
 
-I don't insist you accept the patches Cyrill proposed, I don't even insist
-we rework them keeping the idea intact. I just want to know your opinion about
-how to solve the above problem better.
-
-Thanks,
-Pavel
+Cheers,
+Andreas Petlund
