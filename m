@@ -1,524 +1,177 @@
 From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: [net-next PATCH v5 1/3] sysctl: refactor integer handling proc code
-Date: Fri, 19 Feb 2010 00:30:09 +0200
-Message-ID: <1266532210-11536-2-git-send-email-opurdila@ixiacom.com>
-References: <1266532210-11536-1-git-send-email-opurdila@ixiacom.com>
+Subject: [net-next PATCH v5 2/3] sysctl: add proc_do_large_bitmap
+Date: Fri, 19 Feb 2010 00:32:26 +0200
+Message-ID: <1266532346-11604-1-git-send-email-opurdila@ixiacom.com>
 Cc: Octavian Purdila <opurdila@ixiacom.com>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
 	WANG Cong <amwang@redhat.com>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:20155 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752833Ab0BRTei (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 14:34:38 -0500
-In-Reply-To: <1266532210-11536-1-git-send-email-opurdila@ixiacom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-As we are about to add another integer handling proc function a little
-bit of cleanup is in order: add a few helper functions to improve code
-readability and decrease code duplication.
+The new function can be used to read/write large bitmaps via /proc. A
+comma separated range format is used for compact output and input
+(e.g. 1,3-4,10-10).
 
-In the process a bug is also fixed: if the user specifies a number
-with more then 20 digits it will be interpreted as two integers
-(e.g. 10000...13 will be interpreted as 100.... and 13).
-
-Behavior for EFAULT handling was changed as well. Previous to this
-patch, when an EFAULT error occurred in the middle of a write
-operation, although some of the elements were set, that was not
-acknowledged to the user (by shorting the write and returning the
-number of bytes accepted). EFAULT is not treated just like any other
-errors by acknowledging the amount of bytes accepted.
+Writing into the file will first reset the bitmap then update it
+based on the given input.
 
 Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
 Cc: WANG Cong <amwang@redhat.com>
 Cc: Eric W. Biederman <ebiederm@xmission.com>
 ---
- kernel/sysctl.c |  337 ++++++++++++++++++++++++++++++-------------------------
- 1 files changed, 183 insertions(+), 154 deletions(-)
+ include/linux/sysctl.h |    2 +
+ kernel/sysctl.c        |  122 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 124 insertions(+), 0 deletions(-)
 
+diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+index f66014c..7bb5cb6 100644
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
+@@ -980,6 +980,8 @@ extern int proc_doulongvec_minmax(struct ctl_table *, int,
+ 				  void __user *, size_t *, loff_t *);
+ extern int proc_doulongvec_ms_jiffies_minmax(struct ctl_table *table, int,
+ 				      void __user *, size_t *, loff_t *);
++extern int proc_do_large_bitmap(struct ctl_table *, int,
++				void __user *, size_t *, loff_t *);
+ 
+ /*
+  * Register a set of sysctl names by calling register_sysctl_table
 diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index 8a68b24..5259727 100644
+index 5259727..ef2c13d 100644
 --- a/kernel/sysctl.c
 +++ b/kernel/sysctl.c
-@@ -2039,8 +2039,131 @@ int proc_dostring(struct ctl_table *table, int write,
- 			       buffer, lenp, ppos);
- }
- 
-+static int proc_skip_wspace(char __user **buf, size_t *size)
-+{
-+	char c;
-+
-+	while (*size) {
-+		if (get_user(c, *buf))
-+			return -EFAULT;
-+		if (!isspace(c))
-+			break;
-+		(*size)--; (*buf)++;
-+	}
-+
-+	return 0;
-+}
-+
-+#define TMPBUFLEN 22
-+/**
-+ * proc_get_ulong - reads an ASCII formated integer from a user buffer
-+ *
-+ * @buf - user buffer
-+ * @size - size of the user buffer
-+ * @perm_trailers - a NULL terminated string with trailers that are
-+ * allowed to terminate this number (besides the standard whitespace ones)
-+ * @val - this is where the number will be stored
-+ * @neg - set to %TRUE if number is negative
-+ * @tr - pointer to store the trailer character.
-+ *
-+ * In case of success 0 is returned and buf and size are updated with
-+ * the amount of bytes read. If tr is non NULL and a trailing
-+ * character exist (size is non zero after returning from this
-+ * function) tr is updated with the trailing character.
-+ */
-+static int proc_get_ulong(char __user **buf, size_t *size,  const char *perm_tr,
-+			  unsigned long *val, bool *neg, char *tr)
-+{
-+	int len;
-+	char *p, tmp[TMPBUFLEN];
-+	int err;
-+
-+	err = proc_skip_wspace(buf, size);
-+	if (err)
-+		return err;
-+	if (!*size)
-+		return -EINVAL;
-+
-+	len = *size;
-+	if (len > TMPBUFLEN-1)
-+		len = TMPBUFLEN-1;
-+
-+	if (copy_from_user(tmp, *buf, len))
-+		return -EFAULT;
-+
-+	tmp[len] = 0;
-+	p = tmp;
-+	if (*p == '-' && *size > 1) {
-+		*neg = 1;
-+		p++;
-+	} else
-+		*neg = 0;
-+	if (!isdigit(*p))
-+		return -EINVAL;
-+
-+	*val = simple_strtoul(p, &p, 0);
-+
-+	len = p - tmp;
-+	if (((len < *size) && *p && !isspace(*p) &&
-+	     perm_tr && !strchr(perm_tr, *p)) ||
-+	    /* We don't know if the next char is whitespace thus we may accept
-+	     * invalid integers (e.g. 1234...a) or two integers instead of one
-+	     * (e.g. 123...1). So lets not allow such large numbers. */
-+	    len == TMPBUFLEN - 1)
-+		return -EINVAL;
- 
--static int do_proc_dointvec_conv(int *negp, unsigned long *lvalp,
-+	if (tr && (len < *size))
-+		*tr = *p;
-+
-+	*buf += len; *size -= len;
-+
-+	return 0;
-+}
-+
-+/**
-+ * proc_put_ulong - coverts an integer to a decimal ASCII formated string
-+ *
-+ * @buf - the user buffer
-+ * @size - the size of the user buffer
-+ * @val - the integer to be converted
-+ * @neg - sign of the number, %TRUE for negative
-+ * @first - if %FALSE will insert a separator character before the number
-+ * @separator - the separator character
-+ *
-+ * In case of success 0 is returned and buf and size are updated with
-+ * the amount of bytes read.
-+ */
-+static int proc_put_ulong(char __user **buf, size_t *size, unsigned long val,
-+			  bool neg, bool first, char separator)
-+{
-+	int len;
-+	char tmp[TMPBUFLEN], *p = tmp;
-+
-+	if (!first)
-+		*p++ = separator;
-+	sprintf(p, "%s%lu", neg ? "-" : "", val);
-+	len = strlen(tmp);
-+	if (len > *size)
-+		len = *size;
-+	if (copy_to_user(*buf, tmp, len))
-+		return -EFAULT;
-+	*size -= len;
-+	*buf += len;
-+	return 0;
-+}
-+#undef TMPBUFLEN
-+
-+static int proc_put_char(char __user **buf, size_t *size, char c)
-+{
-+	if (*size) {
-+		if (put_user(c, *buf))
-+			return -EFAULT;
-+		(*size)--, (*buf)++;
-+	}
-+	return 0;
-+}
-+
-+static int do_proc_dointvec_conv(bool *negp, unsigned long *lvalp,
- 				 int *valp,
- 				 int write, void *data)
- {
-@@ -2049,7 +2172,7 @@ static int do_proc_dointvec_conv(int *negp, unsigned long *lvalp,
- 	} else {
- 		int val = *valp;
- 		if (val < 0) {
--			*negp = -1;
-+			*negp = 1;
- 			*lvalp = (unsigned long)-val;
- 		} else {
- 			*negp = 0;
-@@ -2060,19 +2183,15 @@ static int do_proc_dointvec_conv(int *negp, unsigned long *lvalp,
- }
- 
- static int __do_proc_dointvec(void *tbl_data, struct ctl_table *table,
--		  int write, void __user *buffer,
-+		  int write, void __user *_buffer,
- 		  size_t *lenp, loff_t *ppos,
--		  int (*conv)(int *negp, unsigned long *lvalp, int *valp,
-+		  int (*conv)(bool *negp, unsigned long *lvalp, int *valp,
- 			      int write, void *data),
- 		  void *data)
- {
--#define TMPBUFLEN 21
--	int *i, vleft, first = 1, neg;
--	unsigned long lval;
--	size_t left, len;
--	
--	char buf[TMPBUFLEN], *p;
--	char __user *s = buffer;
-+	int *i, vleft, first = 1, err = 0;
-+	size_t left;
-+	char __user *buffer = (char __user *) _buffer;
- 	
- 	if (!tbl_data || !table->maxlen || !*lenp ||
- 	    (*ppos && !write)) {
-@@ -2088,88 +2207,44 @@ static int __do_proc_dointvec(void *tbl_data, struct ctl_table *table,
- 		conv = do_proc_dointvec_conv;
- 
- 	for (; left && vleft--; i++, first=0) {
--		if (write) {
--			while (left) {
--				char c;
--				if (get_user(c, s))
--					return -EFAULT;
--				if (!isspace(c))
--					break;
--				left--;
--				s++;
--			}
--			if (!left)
--				break;
--			neg = 0;
--			len = left;
--			if (len > sizeof(buf) - 1)
--				len = sizeof(buf) - 1;
--			if (copy_from_user(buf, s, len))
--				return -EFAULT;
--			buf[len] = 0;
--			p = buf;
--			if (*p == '-' && left > 1) {
--				neg = 1;
--				p++;
--			}
--			if (*p < '0' || *p > '9')
--				break;
--
--			lval = simple_strtoul(p, &p, 0);
-+		unsigned long lval;
-+		bool neg;
- 
--			len = p-buf;
--			if ((len < left) && *p && !isspace(*p))
-+		if (write) {
-+			err = proc_get_ulong(&buffer, &left, NULL, &lval, &neg,
-+					     NULL);
-+			if (err)
- 				break;
--			s += len;
--			left -= len;
--
--			if (conv(&neg, &lval, i, 1, data))
-+			if (conv(&neg, &lval, i, 1, data)) {
-+				err = -EINVAL;
- 				break;
-+			}
- 		} else {
--			p = buf;
--			if (!first)
--				*p++ = '\t';
--	
--			if (conv(&neg, &lval, i, 0, data))
-+			if (conv(&neg, &lval, i, 0, data)) {
-+				err = -EINVAL;
- 				break;
--
--			sprintf(p, "%s%lu", neg ? "-" : "", lval);
--			len = strlen(buf);
--			if (len > left)
--				len = left;
--			if(copy_to_user(s, buf, len))
--				return -EFAULT;
--			left -= len;
--			s += len;
--		}
--	}
--
--	if (!write && !first && left) {
--		if(put_user('\n', s))
--			return -EFAULT;
--		left--, s++;
--	}
--	if (write) {
--		while (left) {
--			char c;
--			if (get_user(c, s++))
--				return -EFAULT;
--			if (!isspace(c))
-+			}
-+			err = proc_put_ulong(&buffer, &left, lval, neg, first,
-+					     '\t');
-+			if (err)
- 				break;
--			left--;
- 		}
- 	}
-+
-+	if (!write && !first && left && !err)
-+		err = proc_put_char(&buffer, &left, '\n');
-+	if (write && !err)
-+		err = proc_skip_wspace(&buffer, &left);
- 	if (write && first)
--		return -EINVAL;
-+		return err ? : -EINVAL;
- 	*lenp -= left;
- 	*ppos += *lenp;
+@@ -2635,6 +2635,128 @@ static int proc_do_cad_pid(struct ctl_table *table, int write,
  	return 0;
--#undef TMPBUFLEN
  }
  
- static int do_proc_dointvec(struct ctl_table *table, int write,
- 		  void __user *buffer, size_t *lenp, loff_t *ppos,
--		  int (*conv)(int *negp, unsigned long *lvalp, int *valp,
-+		  int (*conv)(bool *negp, unsigned long *lvalp, int *valp,
- 			      int write, void *data),
- 		  void *data)
- {
-@@ -2237,8 +2312,8 @@ struct do_proc_dointvec_minmax_conv_param {
- 	int *max;
- };
- 
--static int do_proc_dointvec_minmax_conv(int *negp, unsigned long *lvalp, 
--					int *valp, 
-+static int do_proc_dointvec_minmax_conv(bool *negp, unsigned long *lvalp,
-+					int *valp,
- 					int write, void *data)
- {
- 	struct do_proc_dointvec_minmax_conv_param *param = data;
-@@ -2251,7 +2326,7 @@ static int do_proc_dointvec_minmax_conv(int *negp, unsigned long *lvalp,
- 	} else {
- 		int val = *valp;
- 		if (val < 0) {
--			*negp = -1;
-+			*negp = 1;
- 			*lvalp = (unsigned long)-val;
- 		} else {
- 			*negp = 0;
-@@ -2289,17 +2364,15 @@ int proc_dointvec_minmax(struct ctl_table *table, int write,
- }
- 
- static int __do_proc_doulongvec_minmax(void *data, struct ctl_table *table, int write,
--				     void __user *buffer,
-+				     void __user *_buffer,
- 				     size_t *lenp, loff_t *ppos,
- 				     unsigned long convmul,
- 				     unsigned long convdiv)
- {
--#define TMPBUFLEN 21
--	unsigned long *i, *min, *max, val;
--	int vleft, first=1, neg;
--	size_t len, left;
--	char buf[TMPBUFLEN], *p;
--	char __user *s = buffer;
-+	unsigned long *i, *min, *max;
-+	int vleft, first = 1, err = 0;
-+	size_t left;
++/**
++ * proc_do_large_bitmap - read/write from/to a large bitmap
++ * @table: the sysctl table
++ * @write: %TRUE if this is a write to the sysctl file
++ * @buffer: the user buffer
++ * @lenp: the size of the user buffer
++ * @ppos: file position
++ *
++ * The bitmap is stored at table->data and the bitmap length (in bits)
++ * in table->maxlen.
++ *
++ * We use a range comma separated format (e.g. 1,3-4,10-10) so that
++ * large bitmaps may be represented in a compact manner. Writing into
++ * the file will clear the bitmap then update it with the given input.
++ *
++ * Returns 0 on success.
++ */
++int proc_do_large_bitmap(struct ctl_table *table, int write,
++			 void __user *_buffer, size_t *lenp, loff_t *ppos)
++{
++	bool first = 1;
++	unsigned long *bitmap = (unsigned long *) table->data;
++	unsigned long bitmap_len = table->maxlen;
++	int left = *lenp, err = 0;
 +	char __user *buffer = (char __user *) _buffer;
- 	
- 	if (!data || !table->maxlen || !*lenp ||
- 	    (*ppos && !write)) {
-@@ -2314,82 +2387,38 @@ static int __do_proc_doulongvec_minmax(void *data, struct ctl_table *table, int
- 	left = *lenp;
- 	
- 	for (; left && vleft--; i++, min++, max++, first=0) {
-+		unsigned long val;
++	char tr_a[] = { '-', ',', 0 }, tr_b[] = { ',', 0 }, c;
 +
- 		if (write) {
--			while (left) {
--				char c;
--				if (get_user(c, s))
--					return -EFAULT;
--				if (!isspace(c))
--					break;
--				left--;
--				s++;
--			}
--			if (!left)
--				break;
--			neg = 0;
--			len = left;
--			if (len > TMPBUFLEN-1)
--				len = TMPBUFLEN-1;
--			if (copy_from_user(buf, s, len))
--				return -EFAULT;
--			buf[len] = 0;
--			p = buf;
--			if (*p == '-' && left > 1) {
--				neg = 1;
--				p++;
--			}
--			if (*p < '0' || *p > '9')
--				break;
--			val = simple_strtoul(p, &p, 0) * convmul / convdiv ;
--			len = p-buf;
--			if ((len < left) && *p && !isspace(*p))
++
++	if (!bitmap_len || !left || (*ppos && !write)) {
++		*lenp = 0;
++		return 0;
++	}
++
++	if (write) {
++		bitmap_clear(bitmap, 0, bitmap_len);
++		err = proc_skip_wspace(&buffer, &left);
++		while (!err && left) {
++			unsigned long val_a, val_b;
 +			bool neg;
 +
-+			err = proc_get_ulong(&buffer, &left, NULL,
-+					     &val, &neg, NULL);
++			err = proc_get_ulong(&buffer, &left, tr_a,
++					     &val_a, &neg, &c);
 +			if (err)
- 				break;
- 			if (neg)
--				val = -val;
--			s += len;
--			left -= len;
--
--			if(neg)
- 				continue;
- 			if ((min && val < *min) || (max && val > *max))
- 				continue;
- 			*i = val;
- 		} else {
--			p = buf;
--			if (!first)
--				*p++ = '\t';
--			sprintf(p, "%lu", convdiv * (*i) / convmul);
--			len = strlen(buf);
--			if (len > left)
--				len = left;
--			if(copy_to_user(s, buf, len))
--				return -EFAULT;
--			left -= len;
--			s += len;
--		}
--	}
--
--	if (!write && !first && left) {
--		if(put_user('\n', s))
--			return -EFAULT;
--		left--, s++;
--	}
--	if (write) {
--		while (left) {
--			char c;
--			if (get_user(c, s++))
--				return -EFAULT;
--			if (!isspace(c))
-+			val = convdiv * (*i) / convmul;
-+			err = proc_put_ulong(&buffer, &left, val, 0, first,
-+					     '\t');
-+			if (err)
- 				break;
--			left--;
- 		}
- 	}
++				break;
 +
-+	if (!write && !first && left && !err)
-+		err = proc_put_char(&buffer, &left, '\n');
-+	if (write && !err)
-+		err = proc_skip_wspace(&buffer, &left);
- 	if (write && first)
--		return -EINVAL;
-+		return err ? : -EINVAL;
- 	*lenp -= left;
- 	*ppos += *lenp;
- 	return 0;
--#undef TMPBUFLEN
- }
++			if (val_a >= bitmap_len || neg) {
++				err = -EINVAL;
++				break;
++			}
++
++			if (!left || c != '-') {
++				if (c == ',') {
++					buffer++;
++					left--;
++				}
++				val_b = val_a;
++				goto update;
++			}
++
++			/* skip the - */
++			buffer++; left--;
++
++			err = proc_get_ulong(&buffer, &left, tr_b,
++					     &val_b, &neg, &c);
++			if (err)
++				break;
++
++			if (val_b >= bitmap_len || neg || val_a > val_b) {
++				err = -EINVAL;
++				break;
++			}
++
++			if (left && c == ',') {
++				buffer++;
++				left--;
++			}
++
++update:
++			while (val_a <= val_b)
++				set_bit(val_a++, bitmap);
++
++			first = 0; val_b++;
++		}
++		if (!err)
++			err = proc_skip_wspace(&buffer, &left);
++	} else {
++		unsigned long bit_a, bit_b = 0;
++
++		while (left) {
++			bit_a = find_next_bit(bitmap, bitmap_len, bit_b);
++			if (bit_a >= bitmap_len)
++				break;
++			bit_b = find_next_zero_bit(bitmap, bitmap_len,
++						   bit_a + 1) - 1;
++
++			err = proc_put_ulong(&buffer, &left, bit_a, 0, first,
++					     ',');
++			if (err)
++				break;
++			if (bit_a != bit_b) {
++				err = proc_put_char(&buffer, &left, '-');
++				if (err)
++					break;
++				err = proc_put_ulong(&buffer, &left, bit_b, 0,
++						     1, 0);
++				if (err)
++					break;
++			}
++
++			first = 0; bit_b++;
++		}
++		if (!err)
++			err = proc_put_char(&buffer, &left, '\n');
++	}
++
++	if (write && first)
++		return err;
++	*lenp -= left;
++	*ppos += *lenp;
++	return 0;
++}
++
+ #else /* CONFIG_PROC_FS */
  
- static int do_proc_doulongvec_minmax(struct ctl_table *table, int write,
-@@ -2450,7 +2479,7 @@ int proc_doulongvec_ms_jiffies_minmax(struct ctl_table *table, int write,
- }
- 
- 
--static int do_proc_dointvec_jiffies_conv(int *negp, unsigned long *lvalp,
-+static int do_proc_dointvec_jiffies_conv(bool *negp, unsigned long *lvalp,
- 					 int *valp,
- 					 int write, void *data)
- {
-@@ -2462,7 +2491,7 @@ static int do_proc_dointvec_jiffies_conv(int *negp, unsigned long *lvalp,
- 		int val = *valp;
- 		unsigned long lval;
- 		if (val < 0) {
--			*negp = -1;
-+			*negp = 1;
- 			lval = (unsigned long)-val;
- 		} else {
- 			*negp = 0;
-@@ -2473,7 +2502,7 @@ static int do_proc_dointvec_jiffies_conv(int *negp, unsigned long *lvalp,
- 	return 0;
- }
- 
--static int do_proc_dointvec_userhz_jiffies_conv(int *negp, unsigned long *lvalp,
-+static int do_proc_dointvec_userhz_jiffies_conv(bool *negp, unsigned long *lvalp,
- 						int *valp,
- 						int write, void *data)
- {
-@@ -2485,7 +2514,7 @@ static int do_proc_dointvec_userhz_jiffies_conv(int *negp, unsigned long *lvalp,
- 		int val = *valp;
- 		unsigned long lval;
- 		if (val < 0) {
--			*negp = -1;
-+			*negp = 1;
- 			lval = (unsigned long)-val;
- 		} else {
- 			*negp = 0;
-@@ -2496,7 +2525,7 @@ static int do_proc_dointvec_userhz_jiffies_conv(int *negp, unsigned long *lvalp,
- 	return 0;
- }
- 
--static int do_proc_dointvec_ms_jiffies_conv(int *negp, unsigned long *lvalp,
-+static int do_proc_dointvec_ms_jiffies_conv(bool *negp, unsigned long *lvalp,
- 					    int *valp,
- 					    int write, void *data)
- {
-@@ -2506,7 +2535,7 @@ static int do_proc_dointvec_ms_jiffies_conv(int *negp, unsigned long *lvalp,
- 		int val = *valp;
- 		unsigned long lval;
- 		if (val < 0) {
--			*negp = -1;
-+			*negp = 1;
- 			lval = (unsigned long)-val;
- 		} else {
- 			*negp = 0;
+ int proc_dostring(struct ctl_table *table, int write,
 -- 
 1.5.6.5
-
