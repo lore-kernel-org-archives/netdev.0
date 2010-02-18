@@ -1,59 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] be2net: free tx buffers when completions
- never arrive
-Date: Thu, 18 Feb 2010 02:16:16 -0800 (PST)
-Message-ID: <20100218.021616.127015823.davem@davemloft.net>
-References: <20100218093603.GA28912@serverengines.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: kernel stack  trace using conntrack
+Date: Thu, 18 Feb 2010 11:34:54 +0100
+Message-ID: <4B7D17CE.6010805@trash.net>
+References: <7EF5DBE4C76A7B4DA655334E9F2BFD26CED7BC8D04@FRSPX100.fr01.awl.atosorigin.net>	 <1266313889.3045.1.camel@edumazet-laptop>	 <7EF5DBE4C76A7B4DA655334E9F2BFD26CED7BC8D54@FRSPX100.fr01.awl.atosorigin.net>	 <1266318928.3045.38.camel@edumazet-laptop>  <4B7A9E95.103@netfilter.org> <1266327917.3045.55.camel@edumazet-laptop> <7EF5DBE4C76A7B4DA655334E9F2BFD26CED7BC905D@FRSPX100.fr01.awl.atosorigin.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathyap@serverengines.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40623
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754997Ab0BRKQE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 05:16:04 -0500
-In-Reply-To: <20100218093603.GA28912@serverengines.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Ramblewski David <David.Ramblewski@atosorigin.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <7EF5DBE4C76A7B4DA655334E9F2BFD26CED7BC905D@FRSPX100.fr01.awl.atosorigin.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sathya Perla <sathyap@serverengines.com>
-Date: Thu, 18 Feb 2010 15:06:03 +0530
-
-> In cases like when a pci device is disconnected after a pci error,
-> pending tx completions will never arrive. Unmap and free such
-> buffers in the tx cleanup path.
+Ramblewski David wrote:
+> Hi Eric,
 > 
-> Signed-off-by: Sathya Perla <sathyap@serverengines.com>
-> ---
->  drivers/net/benet/be_main.c |   12 ++++++++++++
->  1 files changed, 12 insertions(+), 0 deletions(-)
+> The conntrack patch works successfully.
 > 
-> diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-> index 68e7848..810d2a4 100644
-> --- a/drivers/net/benet/be_main.c
-> +++ b/drivers/net/benet/be_main.c
-> @@ -1128,6 +1128,9 @@ static void be_tx_compl_clean(struct be_adapter *adapter)
->  	struct be_queue_info *txq = &adapter->tx_obj.q;
->  	struct be_eth_tx_compl *txcp;
->  	u16 end_idx, cmpl = 0, timeo = 0;
-> +	struct sk_buff **sent_skbs = adapter->tx_obj.sent_skb_list;
-> +	struct sk_buff *sent_skb;
-> +        bool dummy_wrb;
+>>> diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+>>> index 0ffe689..d2657aa 100644
+>>> --- a/net/netfilter/nf_conntrack_netlink.c
+>>> +++ b/net/netfilter/nf_conntrack_netlink.c
+>>> @@ -923,7 +923,7 @@ ctnetlink_change_status(struct nf_conn *ct, const struct nlattr * const cda[])
+>>>     unsigned int status = ntohl(nla_get_be32(cda[CTA_STATUS]));
+>>>     d = ct->status ^ status;
+>>>
+>>> -   if (d & (IPS_EXPECTED|IPS_CONFIRMED|IPS_DYING))
+>>> +   if (d & (IPS_EXPECTED|IPS_DYING))
+>>>             /* unchangeable */
+>>>             return -EBUSY;
+>> I think that we should explicitly report if the user unsets
+>> IPS_CONFIRMED. Please, don't change this.
+>>
+>> Apart from that, the patch seems fine to me. Thanks!
+> 
+> Problem is we now (I mean after my patch) enter
+> ctnetlink_change_status() with ct->status being null (or at least,
+> IPS_CONFIRMED not set)
 
-Some of your lines start with tabs, some with spaces.   You
-have to use tabs consistently.
-
-> +	
-> +	/* free posted tx for which compls will never arrive */
-> +        while (atomic_read(&txq->used)) {
-> +                sent_skb = sent_skbs[txq->tail];
-> +                end_idx = txq->tail;
-> +                index_adv(&end_idx,
-> +                        wrb_cnt_for_skb(sent_skb, &dummy_wrb) - 1, txq->len);
-> +                be_tx_compl_process(adapter, end_idx);
-> +        }
->  }
-
-More tabbing and indentation problems here too.
+Pablo, please let me know whether you want me to apply this.
