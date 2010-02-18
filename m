@@ -1,210 +1,393 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 10/15] drivers/net/skge.c: Use (pr|netdev)_<level> macro helpers
-Date: Wed, 17 Feb 2010 17:01:57 -0800
-Message-ID: <f38c47d9015203896e3bc4075c89032ad77eca33.1266454576.git.joe@perches.com>
+Subject: [PATCH net-next 09/15] drivers/net/sis190.c: Use (pr|netdev|netif)_<level> macro helpers
+Date: Wed, 17 Feb 2010 17:01:56 -0800
+Message-ID: <a9449fa4b0219cd2e0699f3afe4f8ca811b72843.1266454576.git.joe@perches.com>
 References: <cover.1266454575.git.joe@perches.com>
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
 	linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1057 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932134Ab0BRBCM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2010 20:02:12 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1266454575.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Add #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 Remove #define PFX
 Use pr_<level>
 Use netdev_<level>
+Use netif_<level> and netif_msg_<test>
+Remove local #define net_<test> macros
+Remove periods from formats
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/skge.c |   50 +++++++++++++++++++++-----------------------------
- 1 files changed, 21 insertions(+), 29 deletions(-)
+ drivers/net/sis190.c |  152 +++++++++++++++++++++++++-------------------------
+ 1 files changed, 75 insertions(+), 77 deletions(-)
 
-diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-index ffa55df..8aa24c5 100644
---- a/drivers/net/skge.c
-+++ b/drivers/net/skge.c
-@@ -23,6 +23,8 @@
-  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-  */
+diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
+index 8c4e38f..b1a4b75 100644
+--- a/drivers/net/sis190.c
++++ b/drivers/net/sis190.c
+@@ -17,7 +17,9 @@
  
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+    See the file COPYING in this distribution for more information.
+ 
+- */
++*/
 +
- #include <linux/in.h>
- #include <linux/kernel.h>
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ 
  #include <linux/module.h>
-@@ -46,7 +48,6 @@
+ #include <linux/moduleparam.h>
+@@ -32,17 +34,6 @@
+ #include <linux/dma-mapping.h>
+ #include <asm/irq.h>
  
- #define DRV_NAME		"skge"
- #define DRV_VERSION		"1.13"
--#define PFX			DRV_NAME " "
+-#define net_drv(p, arg...)	if (netif_msg_drv(p)) \
+-					printk(arg)
+-#define net_probe(p, arg...)	if (netif_msg_probe(p)) \
+-					printk(arg)
+-#define net_link(p, arg...)	if (netif_msg_link(p)) \
+-					printk(arg)
+-#define net_intr(p, arg...)	if (netif_msg_intr(p)) \
+-					printk(arg)
+-#define net_tx_err(p, arg...)	if (netif_msg_tx_err(p)) \
+-					printk(arg)
+-
+ #define PHY_MAX_ADDR		32
+ #define PHY_ID_ANY		0x1f
+ #define MII_REG_ANY		0x1f
+@@ -50,7 +41,6 @@
+ #define DRV_VERSION		"1.3"
+ #define DRV_NAME		"sis190"
+ #define SIS190_DRIVER_NAME	DRV_NAME " Gigabit Ethernet driver " DRV_VERSION
+-#define PFX DRV_NAME ": "
  
- #define DEFAULT_TX_RING_SIZE	128
- #define DEFAULT_RX_RING_SIZE	512
-@@ -1129,8 +1130,7 @@ static u16 xm_phy_read(struct skge_hw *hw, int port, u16 reg)
- {
- 	u16 v = 0;
- 	if (__xm_phy_read(hw, port, reg, &v))
--		printk(KERN_WARNING PFX "%s: phy read timed out\n",
--		       hw->dev[port]->name);
-+		pr_warning("%s: phy read timed out\n", hw->dev[port]->name);
- 	return v;
- }
- 
-@@ -1252,8 +1252,7 @@ static void bcom_check_link(struct skge_hw *hw, int port)
- 
- 		lpa = xm_phy_read(hw, port, PHY_XMAC_AUNE_LP);
- 		if (lpa & PHY_B_AN_RF) {
--			printk(KERN_NOTICE PFX "%s: remote fault\n",
--			       dev->name);
-+			netdev_notice(dev, "remote fault\n");
- 			return;
- 		}
- 
-@@ -1268,8 +1267,7 @@ static void bcom_check_link(struct skge_hw *hw, int port)
- 			skge->duplex = DUPLEX_HALF;
- 			break;
- 		default:
--			printk(KERN_NOTICE PFX "%s: duplex mismatch\n",
--			       dev->name);
-+			netdev_notice(dev, "duplex mismatch\n");
- 			return;
- 		}
- 
-@@ -1461,8 +1459,7 @@ static int xm_check_link(struct net_device *dev)
- 
- 		lpa = xm_phy_read(hw, port, PHY_XMAC_AUNE_LP);
- 		if (lpa & PHY_B_AN_RF) {
--			printk(KERN_NOTICE PFX "%s: remote fault\n",
--			       dev->name);
-+			netdev_notice(dev, "remote fault\n");
- 			return 0;
- 		}
- 
-@@ -1477,8 +1474,7 @@ static int xm_check_link(struct net_device *dev)
- 			skge->duplex = DUPLEX_HALF;
- 			break;
- 		default:
--			printk(KERN_NOTICE PFX "%s: duplex mismatch\n",
--			       dev->name);
-+			netdev_notice(dev, "duplex mismatch\n");
- 			return 0;
- 		}
- 
-@@ -1566,7 +1562,7 @@ static void genesis_mac_init(struct skge_hw *hw, int port)
- 		udelay(1);
+ #define sis190_rx_skb			netif_rx
+ #define sis190_rx_quota(count, quota)	count
+@@ -381,7 +371,7 @@ static void __mdio_cmd(void __iomem *ioaddr, u32 ctl)
  	}
  
--	printk(KERN_WARNING PFX "%s: genesis reset failed\n", dev->name);
-+	netdev_warn(dev, "genesis reset failed\n");
+ 	if (i > 99)
+-		printk(KERN_ERR PFX "PHY command failed !\n");
++		pr_err("PHY command failed !\n");
+ }
  
-  reset_ok:
- 	/* Unreset the XMAC. */
-@@ -1898,7 +1894,7 @@ static inline void bcom_phy_intr(struct skge_port *skge)
- 		     "phy interrupt status 0x%x\n", isrc);
+ static void mdio_write(void __iomem *ioaddr, int phy_id, int reg, int val)
+@@ -589,8 +579,7 @@ static int sis190_rx_interrupt(struct net_device *dev,
  
- 	if (isrc & PHY_B_IS_PSE)
--		printk(KERN_ERR PFX "%s: uncorrectable pair swap error\n",
-+		pr_err("%s: uncorrectable pair swap error\n",
- 		       hw->dev[port]->name);
+ 		status = le32_to_cpu(desc->PSize);
  
- 	/* Workaround BCom Errata:
-@@ -1931,8 +1927,7 @@ static int gm_phy_write(struct skge_hw *hw, int port, u16 reg, u16 val)
- 			return 0;
+-		// net_intr(tp, KERN_INFO "%s: Rx PSize = %08x.\n", dev->name,
+-		//	 status);
++		//netif_info(tp, intr, dev, "Rx PSize = %08x\n", status);
+ 
+ 		if (sis190_rx_pkt_err(status, stats) < 0)
+ 			sis190_give_to_asic(desc, tp->rx_buf_sz);
+@@ -601,9 +590,8 @@ static int sis190_rx_interrupt(struct net_device *dev,
+ 			struct pci_dev *pdev = tp->pci_dev;
+ 
+ 			if (unlikely(pkt_size > tp->rx_buf_sz)) {
+-				net_intr(tp, KERN_INFO
+-					 "%s: (frag) status = %08x.\n",
+-					 dev->name, status);
++				netif_info(tp, intr, dev,
++					   "(frag) status = %08x\n", status);
+ 				stats->rx_dropped++;
+ 				stats->rx_length_errors++;
+ 				sis190_give_to_asic(desc, tp->rx_buf_sz);
+@@ -637,12 +625,12 @@ static int sis190_rx_interrupt(struct net_device *dev,
+ 	tp->cur_rx = cur_rx;
+ 
+ 	delta = sis190_rx_fill(tp, dev, tp->dirty_rx, tp->cur_rx);
+-	if (!delta && count && netif_msg_intr(tp))
+-		printk(KERN_INFO "%s: no Rx buffer allocated.\n", dev->name);
++	if (!delta && count)
++		netif_info(tp, intr, dev, "no Rx buffer allocated\n");
+ 	tp->dirty_rx += delta;
+ 
+-	if (((tp->dirty_rx + NUM_RX_DESC) == tp->cur_rx) && netif_msg_intr(tp))
+-		printk(KERN_EMERG "%s: Rx buffers exhausted.\n", dev->name);
++	if ((tp->dirty_rx + NUM_RX_DESC) == tp->cur_rx)
++		netif_emerg(tp, intr, dev, "Rx buffers exhausted\n");
+ 
+ 	return count;
+ }
+@@ -751,10 +739,10 @@ static irqreturn_t sis190_interrupt(int irq, void *__dev)
+ 
+ 	SIS_W32(IntrStatus, status);
+ 
+-	// net_intr(tp, KERN_INFO "%s: status = %08x.\n", dev->name, status);
++//	netif_info(tp, intr, dev, "status = %08x\n", status);
+ 
+ 	if (status & LinkChange) {
+-		net_intr(tp, KERN_INFO "%s: link change.\n", dev->name);
++		netif_info(tp, intr, dev, "link change\n");
+ 		schedule_work(&tp->phy_task);
  	}
  
--	printk(KERN_WARNING PFX "%s: phy write timeout\n",
--	       hw->dev[port]->name);
-+	pr_warning("%s: phy write timeout\n", hw->dev[port]->name);
- 	return -EIO;
- }
+@@ -932,8 +920,7 @@ static void sis190_phy_task(struct work_struct *work)
+ 	} else if (!(mdio_read_latched(ioaddr, phy_id, MII_BMSR) &
+ 		     BMSR_ANEGCOMPLETE)) {
+ 		netif_carrier_off(dev);
+-		net_link(tp, KERN_WARNING "%s: auto-negotiating...\n",
+-			 dev->name);
++		netif_warn(tp, link, dev, "auto-negotiating...\n");
+ 		mod_timer(&tp->timer, jiffies + SIS190_PHY_TIMEOUT);
+ 	} else {
+ 		/* Rejoice ! */
+@@ -959,13 +946,13 @@ static void sis190_phy_task(struct work_struct *work)
+ 		u16 adv, autoexp, gigadv, gigrec;
  
-@@ -1960,8 +1955,7 @@ static u16 gm_phy_read(struct skge_hw *hw, int port, u16 reg)
- {
- 	u16 v = 0;
- 	if (__gm_phy_read(hw, port, reg, &v))
--		printk(KERN_WARNING PFX "%s: phy read timeout\n",
--	       hw->dev[port]->name);
-+		pr_warning("%s: phy read timeout\n", hw->dev[port]->name);
- 	return v;
- }
+ 		val = mdio_read(ioaddr, phy_id, 0x1f);
+-		net_link(tp, KERN_INFO "%s: mii ext = %04x.\n", dev->name, val);
++		netif_info(tp, link, dev, "mii ext = %04x\n", val);
  
-@@ -2434,8 +2428,7 @@ static void yukon_phy_intr(struct skge_port *skge)
+ 		val = mdio_read(ioaddr, phy_id, MII_LPA);
+ 		adv = mdio_read(ioaddr, phy_id, MII_ADVERTISE);
+ 		autoexp = mdio_read(ioaddr, phy_id, MII_EXPANSION);
+-		net_link(tp, KERN_INFO "%s: mii lpa=%04x adv=%04x exp=%04x.\n",
+-			 dev->name, val, adv, autoexp);
++		netif_info(tp, link, dev, "mii lpa=%04x adv=%04x exp=%04x\n",
++			   val, adv, autoexp);
+ 
+ 		if (val & LPA_NPAGE && autoexp & EXPANSION_NWAY) {
+ 			/* check for gigabit speed */
+@@ -1004,8 +991,7 @@ static void sis190_phy_task(struct work_struct *work)
+ 			SIS_W32(RGDelay, 0x0440);
+ 		}
+ 
+-		net_link(tp, KERN_INFO "%s: link on %s mode.\n", dev->name,
+-			 p->msg);
++		netif_info(tp, link, dev, "link on %s mode\n", p->msg);
+ 		netif_carrier_on(dev);
  	}
- 	return;
-  failed:
--	printk(KERN_ERR PFX "%s: autonegotiation failed (%s)\n",
--	       skge->netdev->name, reason);
-+	pr_err("%s: autonegotiation failed (%s)\n", skge->netdev->name, reason);
  
- 	/* XXX restart autonegotiation? */
- }
-@@ -2824,7 +2817,7 @@ static netdev_tx_t skge_xmit_frame(struct sk_buff *skb,
- 	smp_wmb();
+@@ -1191,9 +1177,8 @@ static netdev_tx_t sis190_start_xmit(struct sk_buff *skb,
  
- 	if (skge_avail(&skge->tx_ring) <= TX_LOW_WATER) {
--		pr_debug("%s: transmit queue full\n", dev->name);
-+		netdev_dbg(dev, "transmit queue full\n");
+ 	if (unlikely(le32_to_cpu(desc->status) & OWNbit)) {
  		netif_stop_queue(dev);
+-		net_tx_err(tp, KERN_ERR PFX
+-			   "%s: BUG! Tx Ring full when queue awake!\n",
+-			   dev->name);
++		netif_err(tp, tx_err, dev,
++			  "BUG! Tx Ring full when queue awake!\n");
+ 		return NETDEV_TX_BUSY;
  	}
  
-@@ -3724,7 +3717,7 @@ static int skge_device_event(struct notifier_block *unused,
- 			if (d)
- 				skge->debugfs = d;
- 			else {
--				pr_info(PFX "%s: rename failed\n", dev->name);
-+				netdev_info(dev, "rename failed\n");
- 				debugfs_remove(skge->debugfs);
- 			}
- 		}
-@@ -3742,8 +3735,7 @@ static int skge_device_event(struct notifier_block *unused,
- 					skge_debug, dev,
- 					&skge_debug_fops);
- 		if (!d || IS_ERR(d))
--			pr_info(PFX "%s: debugfs create failed\n",
--			       dev->name);
-+			netdev_info(dev, "debugfs create failed\n");
- 		else
- 			skge->debugfs = d;
- 		break;
-@@ -3764,7 +3756,7 @@ static __init void skge_debug_init(void)
+@@ -1287,9 +1272,9 @@ static u16 sis190_default_phy(struct net_device *dev)
  
- 	ent = debugfs_create_dir("skge", NULL);
- 	if (!ent || IS_ERR(ent)) {
--		pr_info(PFX "debugfs create directory failed\n");
-+		pr_info("debugfs create directory failed\n");
- 		return;
+ 	if (mii_if->phy_id != phy_default->phy_id) {
+ 		mii_if->phy_id = phy_default->phy_id;
+-		net_probe(tp, KERN_INFO
+-		       "%s: Using transceiver at address %d as default.\n",
+-		       pci_name(tp->pci_dev), mii_if->phy_id);
++		if (netif_msg_probe(tp))
++			pr_info("%s: Using transceiver at address %d as default\n",
++				pci_name(tp->pci_dev), mii_if->phy_id);
  	}
  
-@@ -3945,9 +3937,10 @@ static int __devinit skge_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_out_iounmap;
+ 	status = mdio_read(ioaddr, mii_if->phy_id, MII_BMCR);
+@@ -1327,14 +1312,15 @@ static void sis190_init_phy(struct net_device *dev, struct sis190_private *tp,
+ 			((mii_status & (BMSR_100FULL | BMSR_100HALF)) ?
+ 				LAN : HOME) : p->type;
+ 		tp->features |= p->feature;
+-		net_probe(tp, KERN_INFO "%s: %s transceiver at address %d.\n",
+-			pci_name(tp->pci_dev), p->name, phy_id);
++		if (netif_msg_probe(tp))
++			pr_info("%s: %s transceiver at address %d\n",
++				pci_name(tp->pci_dev), p->name, phy_id);
+ 	} else {
+ 		phy->type = UNKNOWN;
+-		net_probe(tp, KERN_INFO
+-			"%s: unknown PHY 0x%x:0x%x transceiver at address %d\n",
+-			pci_name(tp->pci_dev),
+-			phy->id[0], (phy->id[1] & 0xfff0), phy_id);
++		if (netif_msg_probe(tp))
++			pr_info("%s: unknown PHY 0x%x:0x%x transceiver at address %d\n",
++				pci_name(tp->pci_dev),
++				phy->id[0], (phy->id[1] & 0xfff0), phy_id);
+ 	}
+ }
  
--	printk(KERN_INFO PFX DRV_VERSION " addr 0x%llx irq %d chip %s rev %d\n",
--	       (unsigned long long)pci_resource_start(pdev, 0), pdev->irq,
--	       skge_board_name(hw), hw->chip_rev);
-+	pr_info("%s addr 0x%llx irq %d chip %s rev %d\n",
-+		DRV_VERSION,
-+		(unsigned long long)pci_resource_start(pdev, 0), pdev->irq,
-+		skge_board_name(hw), hw->chip_rev);
+@@ -1398,8 +1384,9 @@ static int __devinit sis190_mii_probe(struct net_device *dev)
+ 	}
  
- 	dev = skge_devinit(hw, 0, using_dac);
- 	if (!dev)
-@@ -4104,8 +4097,7 @@ static int skge_resume(struct pci_dev *pdev)
- 			err = skge_up(dev);
+ 	if (list_empty(&tp->first_phy)) {
+-		net_probe(tp, KERN_INFO "%s: No MII transceivers found!\n",
+-			  pci_name(tp->pci_dev));
++		if (netif_msg_probe(tp))
++			pr_info("%s: No MII transceivers found!\n",
++				pci_name(tp->pci_dev));
+ 		rc = -EIO;
+ 		goto out;
+ 	}
+@@ -1445,7 +1432,8 @@ static struct net_device * __devinit sis190_init_board(struct pci_dev *pdev)
  
- 			if (err) {
--				printk(KERN_ERR PFX "%s: could not up: %d\n",
--				       dev->name, err);
-+				netdev_err(dev, "could not up: %d\n", err);
- 				dev_close(dev);
- 				goto out;
- 			}
+ 	dev = alloc_etherdev(sizeof(*tp));
+ 	if (!dev) {
+-		net_drv(&debug, KERN_ERR PFX "unable to alloc new ethernet\n");
++		if (netif_msg_drv(&debug))
++			pr_err("unable to alloc new ethernet\n");
+ 		rc = -ENOMEM;
+ 		goto err_out_0;
+ 	}
+@@ -1458,34 +1446,39 @@ static struct net_device * __devinit sis190_init_board(struct pci_dev *pdev)
+ 
+ 	rc = pci_enable_device(pdev);
+ 	if (rc < 0) {
+-		net_probe(tp, KERN_ERR "%s: enable failure\n", pci_name(pdev));
++		if (netif_msg_probe(tp))
++			pr_err("%s: enable failure\n", pci_name(pdev));
+ 		goto err_free_dev_1;
+ 	}
+ 
+ 	rc = -ENODEV;
+ 
+ 	if (!(pci_resource_flags(pdev, 0) & IORESOURCE_MEM)) {
+-		net_probe(tp, KERN_ERR "%s: region #0 is no MMIO resource.\n",
+-			  pci_name(pdev));
++		if (netif_msg_probe(tp))
++			pr_err("%s: region #0 is no MMIO resource\n",
++			       pci_name(pdev));
+ 		goto err_pci_disable_2;
+ 	}
+ 	if (pci_resource_len(pdev, 0) < SIS190_REGS_SIZE) {
+-		net_probe(tp, KERN_ERR "%s: invalid PCI region size(s).\n",
+-			  pci_name(pdev));
++		if (netif_msg_probe(tp))
++			pr_err("%s: invalid PCI region size(s)\n",
++			       pci_name(pdev));
+ 		goto err_pci_disable_2;
+ 	}
+ 
+ 	rc = pci_request_regions(pdev, DRV_NAME);
+ 	if (rc < 0) {
+-		net_probe(tp, KERN_ERR PFX "%s: could not request regions.\n",
+-			  pci_name(pdev));
++		if (netif_msg_probe(tp))
++			pr_err("%s: could not request regions\n",
++			       pci_name(pdev));
+ 		goto err_pci_disable_2;
+ 	}
+ 
+ 	rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
+ 	if (rc < 0) {
+-		net_probe(tp, KERN_ERR "%s: DMA configuration failed.\n",
+-			  pci_name(pdev));
++		if (netif_msg_probe(tp))
++			pr_err("%s: DMA configuration failed\n",
++			       pci_name(pdev));
+ 		goto err_free_res_3;
+ 	}
+ 
+@@ -1493,8 +1486,9 @@ static struct net_device * __devinit sis190_init_board(struct pci_dev *pdev)
+ 
+ 	ioaddr = ioremap(pci_resource_start(pdev, 0), SIS190_REGS_SIZE);
+ 	if (!ioaddr) {
+-		net_probe(tp, KERN_ERR "%s: cannot remap MMIO, aborting\n",
+-			  pci_name(pdev));
++		if (netif_msg_probe(tp))
++			pr_err("%s: cannot remap MMIO, aborting\n",
++			       pci_name(pdev));
+ 		rc = -EIO;
+ 		goto err_free_res_3;
+ 	}
+@@ -1530,9 +1524,8 @@ static void sis190_tx_timeout(struct net_device *dev)
+ 	if (tmp8 & CmdTxEnb)
+ 		SIS_W8(TxControl, tmp8 & ~CmdTxEnb);
+ 
+-
+-	net_tx_err(tp, KERN_INFO "%s: Transmit timeout, status %08x %08x.\n",
+-		   dev->name, SIS_R32(TxControl), SIS_R32(TxSts));
++	netif_info(tp, tx_err, dev, "Transmit timeout, status %08x %08x\n",
++		   SIS_R32(TxControl), SIS_R32(TxSts));
+ 
+ 	/* Disable interrupts by clearing the interrupt mask. */
+ 	SIS_W32(IntrMask, 0x0000);
+@@ -1561,15 +1554,16 @@ static int __devinit sis190_get_mac_addr_from_eeprom(struct pci_dev *pdev,
+ 	u16 sig;
+ 	int i;
+ 
+-	net_probe(tp, KERN_INFO "%s: Read MAC address from EEPROM\n",
+-		  pci_name(pdev));
++	if (netif_msg_probe(tp))
++		pr_info("%s: Read MAC address from EEPROM\n", pci_name(pdev));
+ 
+ 	/* Check to see if there is a sane EEPROM */
+ 	sig = (u16) sis190_read_eeprom(ioaddr, EEPROMSignature);
+ 
+ 	if ((sig == 0xffff) || (sig == 0x0000)) {
+-		net_probe(tp, KERN_INFO "%s: Error EEPROM read %x.\n",
+-			  pci_name(pdev), sig);
++		if (netif_msg_probe(tp))
++			pr_info("%s: Error EEPROM read %x\n",
++				pci_name(pdev), sig);
+ 		return -EIO;
+ 	}
+ 
+@@ -1603,8 +1597,8 @@ static int __devinit sis190_get_mac_addr_from_apc(struct pci_dev *pdev,
+ 	u8 reg, tmp8;
+ 	unsigned int i;
+ 
+-	net_probe(tp, KERN_INFO "%s: Read MAC address from APC.\n",
+-		  pci_name(pdev));
++	if (netif_msg_probe(tp))
++		pr_info("%s: Read MAC address from APC\n", pci_name(pdev));
+ 
+ 	for (i = 0; i < ARRAY_SIZE(ids); i++) {
+ 		isa_bridge = pci_get_device(PCI_VENDOR_ID_SI, ids[i], NULL);
+@@ -1613,8 +1607,9 @@ static int __devinit sis190_get_mac_addr_from_apc(struct pci_dev *pdev,
+ 	}
+ 
+ 	if (!isa_bridge) {
+-		net_probe(tp, KERN_INFO "%s: Can not find ISA bridge.\n",
+-			  pci_name(pdev));
++		if (netif_msg_probe(tp))
++			pr_info("%s: Can not find ISA bridge\n",
++				pci_name(pdev));
+ 		return -EIO;
+ 	}
+ 
+@@ -1695,7 +1690,7 @@ static void sis190_set_speed_auto(struct net_device *dev)
+ 	int phy_id = tp->mii_if.phy_id;
+ 	int val;
+ 
+-	net_link(tp, KERN_INFO "%s: Enabling Auto-negotiation.\n", dev->name);
++	netif_info(tp, link, dev, "Enabling Auto-negotiation\n");
+ 
+ 	val = mdio_read(ioaddr, phy_id, MII_ADVERTISE);
+ 
+@@ -1822,7 +1817,8 @@ static int __devinit sis190_init_one(struct pci_dev *pdev,
+ 	int rc;
+ 
+ 	if (!printed_version) {
+-		net_drv(&debug, KERN_INFO SIS190_DRIVER_NAME " loaded.\n");
++		if (netif_msg_drv(&debug))
++			pr_info(SIS190_DRIVER_NAME " loaded\n");
+ 		printed_version = 1;
+ 	}
+ 
+@@ -1862,12 +1858,14 @@ static int __devinit sis190_init_one(struct pci_dev *pdev,
+ 	if (rc < 0)
+ 		goto err_remove_mii;
+ 
+-	net_probe(tp, KERN_INFO "%s: %s at %p (IRQ: %d), %pM\n",
+-		  pci_name(pdev), sis_chip_info[ent->driver_data].name,
+-		  ioaddr, dev->irq, dev->dev_addr);
+-
+-	net_probe(tp, KERN_INFO "%s: %s mode.\n", dev->name,
+-		  (tp->features & F_HAS_RGMII) ? "RGMII" : "GMII");
++	if (netif_msg_probe(tp)) {
++		netdev_info(dev, "%s: %s at %p (IRQ: %d), %pM\n",
++			    pci_name(pdev),
++			    sis_chip_info[ent->driver_data].name,
++			    ioaddr, dev->irq, dev->dev_addr);
++		netdev_info(dev, "%s mode.\n",
++			    (tp->features & F_HAS_RGMII) ? "RGMII" : "GMII");
++	}
+ 
+ 	netif_carrier_off(dev);
+ 
 -- 
 1.7.0.14.g7e948
-
