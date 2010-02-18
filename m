@@ -1,53 +1,70 @@
-From: Andreas Petlund <apetlund@simula.no>
-Subject: Re: [net-next PATCH v4 3/3] net: TCP thin dupack
-Date: Thu, 18 Feb 2010 10:21:56 +0100
-Message-ID: <4B7D06B4.60706@simula.no>
-References: <4B7AAE6E.7080600@simula.no> <20100217.163338.54972301.davem@davemloft.net>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [net-next-2.6 PATCH] smsc911x: convert to use netdev_for_each_mc_addr
+Date: Thu, 18 Feb 2010 10:22:38 +0100
+Message-ID: <20100218092238.GD2772@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
-	eric.dumazet@gmail.com, hannemann@nets.rwth-aachen.de,
-	linux-kernel@vger.kernel.org, shemminger@vyatta.com,
-	william.allen.simpson@gmail.com, damian@tvk.rwth-aachen.de,
-	ebiederm@xmission.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, steve.glendinning@smsc.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-forward1.uio.no ([129.240.10.70]:43909 "EHLO
-	mail-forward1.uio.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751153Ab0BRJWB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 04:22:01 -0500
-Received: from exim by mail-out1.uio.no with local-bsmtp (Exim 4.69)
-	(envelope-from <apetlund@simula.no>)
-	id 1Ni2a7-00082t-PS
-	for netdev@vger.kernel.org; Thu, 18 Feb 2010 10:21:59 +0100
-In-Reply-To: <20100217.163338.54972301.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:28530 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752406Ab0BRJWn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Feb 2010 04:22:43 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/18/2010 01:33 AM, David Miller wrote:
-> From: Andreas Petlund <apetlund@simula.no>
-> Date: Tue, 16 Feb 2010 15:40:46 +0100
-> 
->> Major changes:
->>       -Renamed variables, ioctl and sysctl.
->>       -Added sysctl documentation.
->>       -Removed redundant allocation
->>
->> Signed-off-by: Andreas Petlund <apetlund@simula.no>
-> 
-> Patches #2 and #3 look the same, what's going on here?
-> 
-> Thanks.
+also removed unnecessary checks
 
-The changes from v3 to v4 was basically in the naming. I 
-changed names for the given variables both for patch #2 and
-patch #3. The removal of the unneeded allocation was also
-done for both patches. It seems also I have forgotten to 
-include the general patch description for each patch. I will
-fix this for the next round of changes.
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/net/smsc911x.c |   27 +++++++++------------------
+ 1 files changed, 9 insertions(+), 18 deletions(-)
 
-Cheers,
-Andreas
-
+diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
+index 13c0b76..4fd1d8b 100644
+--- a/drivers/net/smsc911x.c
++++ b/drivers/net/smsc911x.c
+@@ -1383,29 +1383,20 @@ static void smsc911x_set_multicast_list(struct net_device *dev)
+ 		/* Enabling specific multicast addresses */
+ 		unsigned int hash_high = 0;
+ 		unsigned int hash_low = 0;
+-		unsigned int count = 0;
+-		struct dev_mc_list *mc_list = dev->mc_list;
++		struct dev_mc_list *mc_list;
+ 
+ 		pdata->set_bits_mask = MAC_CR_HPFILT_;
+ 		pdata->clear_bits_mask = (MAC_CR_PRMS_ | MAC_CR_MCPAS_);
+ 
+-		while (mc_list) {
+-			count++;
+-			if ((mc_list->dmi_addrlen) == ETH_ALEN) {
+-				unsigned int bitnum =
+-				    smsc911x_hash(mc_list->dmi_addr);
+-				unsigned int mask = 0x01 << (bitnum & 0x1F);
+-				if (bitnum & 0x20)
+-					hash_high |= mask;
+-				else
+-					hash_low |= mask;
+-			} else {
+-				SMSC_WARNING(DRV, "dmi_addrlen != 6");
+-			}
+-			mc_list = mc_list->next;
++		netdev_for_each_mc_addr(mc_list, dev) {
++			unsigned int bitnum = smsc911x_hash(mc_list->dmi_addr);
++			unsigned int mask = 0x01 << (bitnum & 0x1F);
++
++			if (bitnum & 0x20)
++				hash_high |= mask;
++			else
++				hash_low |= mask;
+ 		}
+-		if (count != (unsigned int)netdev_mc_count(dev))
+-			SMSC_WARNING(DRV, "mc_count != dev->mc_count");
+ 
+ 		pdata->hashhi = hash_high;
+ 		pdata->hashlo = hash_low;
+-- 
+1.6.6
 
