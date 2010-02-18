@@ -1,30 +1,46 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: netfilter 00/09: netfilter update part II
-Date: Thu, 18 Feb 2010 22:48:34 +0100 (CET)
-Message-ID: <alpine.LSU.2.01.1002182247270.25853@obet.zrqbmnf.qr>
-References: <20100218182103.21826.17908.sendpatchset@x2.localnet> <20100218.121624.32079245.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] macvtap: rework object lifetime rules
+Date: Thu, 18 Feb 2010 14:11:26 -0800 (PST)
+Message-ID: <20100218.141126.38076586.davem@davemloft.net>
+References: <20100215.215341.66627877.davem@davemloft.net>
+	<201002181644.29740.arnd@arndb.de>
+	<201002181645.36426.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100218.121624.32079245.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sri@us.ibm.com, kaber@trash.net, eswierk@aristanetworks.com,
+	netdev@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50825
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753153Ab0BRWLL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 17:11:11 -0500
+In-Reply-To: <201002181645.36426.arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Thu, 18 Feb 2010 16:45:36 +0100
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 18 Feb 2010 19:21:03 +0100 (MET)
-> following are a few more netfilter patches for 2.6.34, containing:
+> This reworks the change done by the previous patch
+> in a more complete way.
 > 
-> - bridge netfilter compat support from Florian Westphal
-> - IPVS SCTP load-balancing support from Venkata Mohan Reddy
-> - a build fix for nf_defrag_ipv4 from myself
+> The original macvtap code has a number of problems
+> resulting from the use of RCU for protecting the
+> access to struct macvtap_queue from open files.
 > 
-> Please apply or pull from:
+> This includes
+> - need for GFP_ATOMIC allocations for skbs
+> - potential deadlocks when copy_*_user sleeps
+> - inability to work with vhost-net
 > 
-> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
+> Changing the lifetime of macvtap_queue to always
+> depend on the open file solves all these. The
+> RCU reference simply moves one step down to
+> the reference on the macvlan_dev, which we
+> only need for nonblocking operations.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Can I send my next batch? :)
+Applied.
