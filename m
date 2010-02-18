@@ -1,89 +1,179 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 01/12] tg3: Enforce DMA mapping / skb
- assignment ordering
-Date: Wed, 17 Feb 2010 17:16:54 -0800
-Message-ID: <1266455825-16150-2-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 11/12] tg3: Push phylib definitions to phylib
+Date: Wed, 17 Feb 2010 17:17:04 -0800
+Message-ID: <1266455825-16150-12-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com,
-	"Michael Chan" <mchan@broadcom.com>
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3246 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3105 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754591Ab0BRBR0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Feb 2010 20:17:26 -0500
+	id S1754591Ab0BRBRU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Feb 2010 20:17:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael Chan noted that there is nothing in the code that would prevent
-the compiler from delaying the access of the "mapping" member of the
-newly arrived packet until much later.  If this happened after the
-skb = NULL assignment, it is possible for the driver to pass a bad
-dma_addr value to pci_unmap_single().  To enforce this ordering, we need
-a write memory barrier.  The pairing read memory barrier already exists
-in tg3_rx_prodring_xfer() under the comments starting with
-"Ensure that updates to the...".
+This patch pushes phylib definitions out to phylib headers.  For phy
+IDs, this removes some code duplication.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |    9 +++++++--
- 1 files changed, 7 insertions(+), 2 deletions(-)
+ drivers/net/phy/broadcom.c |    5 +----
+ drivers/net/tg3.c          |   32 ++++++++++++++++----------------
+ drivers/net/tg3.h          |   14 +++-----------
+ include/linux/brcmphy.h    |   11 +++++++++++
+ 4 files changed, 31 insertions(+), 31 deletions(-)
 
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index 33c4b12..f482fc4 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -18,9 +18,6 @@
+ #include <linux/phy.h>
+ #include <linux/brcmphy.h>
+ 
+-#define PHY_ID_BCM50610		0x0143bd60
+-#define PHY_ID_BCM50610M	0x0143bd70
+-#define PHY_ID_BCM57780		0x03625d90
+ 
+ #define BRCM_PHY_MODEL(phydev) \
+ 	((phydev)->drv->phy_id & (phydev)->drv->phy_id_mask)
+@@ -823,7 +820,7 @@ static struct phy_driver bcm57780_driver = {
+ };
+ 
+ static struct phy_driver bcmac131_driver = {
+-	.phy_id		= 0x0143bc70,
++	.phy_id		= PHY_ID_BCMAC131,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCMAC131",
+ 	.features	= PHY_BASIC_FEATURES |
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 385434f..344490e 100644
+index 965efa9..994bac0 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -4659,11 +4659,16 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
- 			if (skb_size < 0)
- 				goto drop_it;
-
--			ri->skb = NULL;
--
- 			pci_unmap_single(tp->pdev, dma_addr, skb_size,
- 					 PCI_DMA_FROMDEVICE);
-
-+			/* Ensure that the update to the skb happens
-+			 * after the usage of the old DMA mapping.
-+			 */
-+			smp_wmb();
-+
-+			ri->skb = NULL;
-+
- 			skb_put(skb, len);
- 		} else {
- 			struct sk_buff *copy_skb;
---
-1.6.4.4
----
- drivers/net/tg3.c |    9 +++++++--
- 1 files changed, 7 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 385434f..344490e 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -4659,11 +4659,16 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
- 			if (skb_size < 0)
- 				goto drop_it;
+@@ -955,17 +955,17 @@ static void tg3_mdio_config_5785(struct tg3 *tp)
  
--			ri->skb = NULL;
--
- 			pci_unmap_single(tp->pdev, dma_addr, skb_size,
- 					 PCI_DMA_FROMDEVICE);
+ 	phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
+ 	switch (phydev->drv->phy_id & phydev->drv->phy_id_mask) {
+-	case TG3_PHY_ID_BCM50610:
+-	case TG3_PHY_ID_BCM50610M:
++	case PHY_ID_BCM50610:
++	case PHY_ID_BCM50610M:
+ 		val = MAC_PHYCFG2_50610_LED_MODES;
+ 		break;
+-	case TG3_PHY_ID_BCMAC131:
++	case PHY_ID_BCMAC131:
+ 		val = MAC_PHYCFG2_AC131_LED_MODES;
+ 		break;
+-	case TG3_PHY_ID_RTL8211C:
++	case PHY_ID_RTL8211C:
+ 		val = MAC_PHYCFG2_RTL8211C_LED_MODES;
+ 		break;
+-	case TG3_PHY_ID_RTL8201E:
++	case PHY_ID_RTL8201E:
+ 		val = MAC_PHYCFG2_RTL8201E_LED_MODES;
+ 		break;
+ 	default:
+@@ -1115,12 +1115,12 @@ static int tg3_mdio_init(struct tg3 *tp)
+ 	}
  
-+			/* Ensure that the update to the skb happens
-+			 * after the usage of the old DMA mapping.
-+			 */
-+			smp_wmb();
+ 	switch (phydev->drv->phy_id & phydev->drv->phy_id_mask) {
+-	case TG3_PHY_ID_BCM57780:
++	case PHY_ID_BCM57780:
+ 		phydev->interface = PHY_INTERFACE_MODE_GMII;
+ 		phydev->dev_flags |= PHY_BRCM_AUTO_PWRDWN_ENABLE;
+ 		break;
+-	case TG3_PHY_ID_BCM50610:
+-	case TG3_PHY_ID_BCM50610M:
++	case PHY_ID_BCM50610:
++	case PHY_ID_BCM50610M:
+ 		phydev->dev_flags |= PHY_BRCM_CLEAR_RGMII_MODE |
+ 				     PHY_BRCM_RX_REFCLK_UNUSED |
+ 				     PHY_BRCM_DIS_TXCRXC_NOENRGY |
+@@ -1132,11 +1132,11 @@ static int tg3_mdio_init(struct tg3 *tp)
+ 		if (tp->tg3_flags3 & TG3_FLG3_RGMII_EXT_IBND_TX_EN)
+ 			phydev->dev_flags |= PHY_BRCM_EXT_IBND_TX_ENABLE;
+ 		/* fallthru */
+-	case TG3_PHY_ID_RTL8211C:
++	case PHY_ID_RTL8211C:
+ 		phydev->interface = PHY_INTERFACE_MODE_RGMII;
+ 		break;
+-	case TG3_PHY_ID_RTL8201E:
+-	case TG3_PHY_ID_BCMAC131:
++	case PHY_ID_RTL8201E:
++	case PHY_ID_BCMAC131:
+ 		phydev->interface = PHY_INTERFACE_MODE_MII;
+ 		phydev->dev_flags |= PHY_BRCM_AUTO_PWRDWN_ENABLE;
+ 		tp->tg3_flags3 |= TG3_FLG3_PHY_IS_FET;
+@@ -2563,11 +2563,11 @@ static int tg3_set_power_state(struct tg3 *tp, pci_power_t state)
+ 			phy_start_aneg(phydev);
+ 
+ 			phyid = phydev->drv->phy_id & phydev->drv->phy_id_mask;
+-			if (phyid != TG3_PHY_ID_BCMAC131) {
+-				phyid &= TG3_PHY_OUI_MASK;
+-				if (phyid == TG3_PHY_OUI_1 ||
+-				    phyid == TG3_PHY_OUI_2 ||
+-				    phyid == TG3_PHY_OUI_3)
++			if (phyid != PHY_ID_BCMAC131) {
++				phyid &= PHY_BCM_OUI_MASK;
++				if (phyid == PHY_BCM_OUI_1 ||
++				    phyid == PHY_BCM_OUI_2 ||
++				    phyid == PHY_BCM_OUI_3)
+ 					do_low_power = true;
+ 			}
+ 		}
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 800dec4..574a1cc 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2943,22 +2943,14 @@ struct tg3 {
+ #define TG3_PHY_ID_BCM57765		0x5c0d8a40
+ #define TG3_PHY_ID_BCM5906		0xdc00ac40
+ #define TG3_PHY_ID_BCM8002		0x60010140
+-#define TG3_PHY_ID_BCM50610		0x0143bd60
+-#define TG3_PHY_ID_BCM50610M		0x0143bd70
+-#define TG3_PHY_ID_BCMAC131		0x0143bc70
+-#define TG3_PHY_ID_RTL8211C		0x001cc910
+-#define TG3_PHY_ID_RTL8201E		0x00008200
+-#define TG3_PHY_ID_BCM57780		0x03625d90
+ #define TG3_PHY_ID_INVALID		0xffffffff
+ 
++#define PHY_ID_RTL8211C			0x001cc910
++#define PHY_ID_RTL8201E			0x00008200
 +
-+			ri->skb = NULL;
+ #define TG3_PHY_ID_REV_MASK		0x0000000f
+ #define TG3_PHY_REV_BCM5401_B0		0x1
+ 
+-#define TG3_PHY_OUI_MASK		0xfffffc00
+-#define TG3_PHY_OUI_1			0x00206000
+-#define TG3_PHY_OUI_2			0x0143bc00
+-#define TG3_PHY_OUI_3			0x03625c00
+-
+ 	/* This macro assumes the passed PHY ID is
+ 	 * already masked with TG3_PHY_ID_MASK.
+ 	 */
+diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
+index 2b31b91..7f437ca 100644
+--- a/include/linux/brcmphy.h
++++ b/include/linux/brcmphy.h
+@@ -1,3 +1,14 @@
++#define PHY_ID_BCM50610			0x0143bd60
++#define PHY_ID_BCM50610M		0x0143bd70
++#define PHY_ID_BCMAC131			0x0143bc70
++#define PHY_ID_BCM57780			0x03625d90
 +
- 			skb_put(skb, len);
- 		} else {
- 			struct sk_buff *copy_skb;
++#define PHY_BCM_OUI_MASK		0xfffffc00
++#define PHY_BCM_OUI_1			0x00206000
++#define PHY_BCM_OUI_2			0x0143bc00
++#define PHY_BCM_OUI_3			0x03625c00
++
++
+ #define PHY_BCM_FLAGS_MODE_COPPER	0x00000001
+ #define PHY_BCM_FLAGS_MODE_1000BX	0x00000002
+ #define PHY_BCM_FLAGS_INTF_SGMII	0x00000010
 -- 
 1.6.4.4
 
