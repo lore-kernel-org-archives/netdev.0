@@ -1,49 +1,45 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: regression due to "flush SAD/SPD generate false events"
-Date: Thu, 18 Feb 2010 20:55:10 +0200
-Message-ID: <20100218185510.GA18829@x200>
-References: <20100217191718.GA5256@x200>
- <1266442972.17794.51.camel@bigi>
- <1266448038.17794.135.camel@bigi>
- <1266449529.17794.157.camel@bigi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gv-out-0910.google.com ([216.239.58.189]:3982 "EHLO
-	gv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755020Ab0BRTCG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 14:02:06 -0500
-Received: by gv-out-0910.google.com with SMTP id y18so270072gvf.37
-        for <netdev@vger.kernel.org>; Thu, 18 Feb 2010 11:02:05 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1266449529.17794.157.camel@bigi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: [net-next PATCH v5 0/3] net: reserve ports for applications using fixed port numbers
+Date: Fri, 19 Feb 2010 00:30:08 +0200
+Message-ID: <1266532210-11536-1-git-send-email-opurdila@ixiacom.com>
+Cc: Octavian Purdila <opurdila@ixiacom.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	WANG Cong <amwang@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 17, 2010 at 06:32:09PM -0500, jamal wrote:
-> On Wed, 2010-02-17 at 18:07 -0500, jamal wrote:
-> > When you flush
-> > an empty table, the time goes up from about 1.5s
-> > to 3 secs with pfkey. You also see the EAGAIN for
-> > each flush ...
-> > I am going to dig a little more ..
-> 
-> Here is a fix. The speed is restored (actually looks a little better
-> now) - the only thing is if you try to flush an empty table we return
-> -ESRCH; this seems reasonable, no? So a script like following 
-> 
-> ---
-> #!/usr/sbin/setkey -f
-> flush;
-> spdflush;
-> ----
-> 
-> will get:
-> ---
-> bigismall:~# time setkey -f ./setkey-sample
-> The result of line 2: No such process.
-> The result of line 3: No such process.
+This patch introduces /proc/sys/net/ipv4/ip_local_reserved_ports which
+allows users to reserve ports for third-party applications.
 
-I'd expect flushing empty SAD/SPD to be exact nops. :^)
+The reserved ports will not be used by automatic port assignments
+(e.g. when calling connect() or bind() with port number 0). Explicit
+port allocation behavior is unchanged.
+
+Changes from the previous version:
+- switch the /proc entry format to coma separated list of range ports
+- treat -EFAULT just like any other error and acknowledge written values
+- use isdigit() in proc_get_ulong
+
+Octavian Purdila (3):
+  sysctl: refactor integer handling proc code
+  sysctl: add proc_do_large_bitmap
+  net: reserve ports for applications using fixed port numbers
+
+ Documentation/networking/ip-sysctl.txt |   14 +
+ drivers/infiniband/core/cma.c          |    7 +-
+ include/linux/sysctl.h                 |    2 +
+ include/net/ip.h                       |    6 +
+ kernel/sysctl.c                        |  449 +++++++++++++++++++++-----------
+ net/ipv4/af_inet.c                     |    8 +-
+ net/ipv4/inet_connection_sock.c        |    6 +
+ net/ipv4/inet_hashtables.c             |    2 +
+ net/ipv4/sysctl_net_ipv4.c             |   17 ++
+ net/ipv4/udp.c                         |    3 +-
+ net/sctp/socket.c                      |    2 +
+ 11 files changed, 361 insertions(+), 155 deletions(-)
