@@ -1,72 +1,104 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH 2/5] netlink: store MSG_CMSG_COMPAT flag in
- netlink_skb_parms
-Date: Fri, 19 Feb 2010 14:34:15 +0100
-Message-ID: <20100219133415.GF20183@Chamillionaire.breakpoint.cc>
-References: <1266583307-3049-1-git-send-email-fwestphal@astaro.com>
- <1266583307-3049-3-git-send-email-fwestphal@astaro.com>
- <1266583764.3991.56.camel@jlt3.sipsolutions.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next-2.6] vhost: Restart tx poll when socket send
+	queue is full
+Date: Fri, 19 Feb 2010 16:42:03 +0200
+Message-ID: <20100219144203.GD14847@redhat.com>
+References: <1266526751.15681.71.camel@w-sridhar.beaverton.ibm.com> <20100218223021.GB14847@redhat.com> <1266544807.15681.259.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Sridhar Samudrala <sri@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:33284 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751521Ab0BSNeQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2010 08:34:16 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:25228 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751344Ab0BSOpV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Feb 2010 09:45:21 -0500
 Content-Disposition: inline
-In-Reply-To: <1266583764.3991.56.camel@jlt3.sipsolutions.net>
+In-Reply-To: <1266544807.15681.259.camel@w-sridhar.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Johannes Berg <johannes@sipsolutions.net> wrote:
-> On Fri, 2010-02-19 at 13:41 +0100, Florian Westphal wrote:
-> > From: Florian Westphal <fw@strlen.de>
+On Thu, Feb 18, 2010 at 06:00:07PM -0800, Sridhar Samudrala wrote:
+> On Fri, 2010-02-19 at 00:30 +0200, Michael S. Tsirkin wrote:
+> > On Thu, Feb 18, 2010 at 12:59:11PM -0800, Sridhar Samudrala wrote:
+> > > When running guest to remote host TCP stream test using vhost-net
+> > > via tap/macvtap, i am seeing network transmit hangs. This happens
+> > > when handle_tx() returns because of the socket send queue full 
+> > > condition.
+> > > This patch fixes this by restarting tx poll when hitting this
+> > > condition.
 > > 
-> > This allows the netlink processing context to determine if the data
-> > needs any 32 bit fixups.
 > > 
-> > Cc: Johannes Berg <johannes@sipsolutions.net>
-> > Signed-off-by: Florian Westphal <fw@strlen.de>
-> > ---
-> >  changes since v1: change msg_compat to bool.
+> > Thanks! I would like to better understand what happens exactly.
+> > Some questions below:
 > > 
-> >  include/linux/netlink.h  |    1 +
-> >  net/netlink/af_netlink.c |    3 +++
-> >  2 files changed, 4 insertions(+), 0 deletions(-)
+> > > 
+> > > Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> > > 
+> > > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> > > index 91a324c..82d4bbe 100644
+> > > --- a/drivers/vhost/net.c
+> > > +++ b/drivers/vhost/net.c
+> > > @@ -113,12 +113,16 @@ static void handle_tx(struct vhost_net *net)
+> > >  	if (!sock)
+> > >  		return;
+> > >  
+> > > -	wmem = atomic_read(&sock->sk->sk_wmem_alloc);
+> > > -	if (wmem >= sock->sk->sk_sndbuf)
+> > > -		return;
+> > > -
 > > 
-> > diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-> > index fde27c0..c094694 100644
-> > --- a/include/linux/netlink.h
-> > +++ b/include/linux/netlink.h
-> > @@ -164,6 +164,7 @@ struct netlink_skb_parms {
-> >  	__u32			loginuid;	/* Login (audit) uid */
-> >  	__u32			sessionid;	/* Session id (audit) */
-> >  	__u32			sid;		/* SELinux security id */
-> > +	bool			msg_compat;	/* Message needs 32bit fixups */
-> >  };
-> >  
-> >  #define NETLINK_CB(skb)		(*(struct netlink_skb_parms*)&((skb)->cb))
-> > diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> > index 4910031..5ff97cf 100644
-> > --- a/net/netlink/af_netlink.c
-> > +++ b/net/netlink/af_netlink.c
-> > @@ -1328,6 +1328,9 @@ static int netlink_sendmsg(struct kiocb *kiocb,
-> > struct socket *sock,
-> >  	NETLINK_CB(skb).dst_group = dst_group;
-> >  	NETLINK_CB(skb).loginuid = audit_get_loginuid(current);
-> >  	NETLINK_CB(skb).sessionid = audit_get_sessionid(current);
-> > +#ifdef CONFIG_COMPAT_NETLINK_MESSAGES
-> > +	NETLINK_CB(skb).msg_compat = !!(msg->msg_flags & MSG_CMSG_COMPAT);
-> > +#endif
+> > The disadvantage here is that a spurious wakeup
+> > when queue is still full becomes more expensive.
+> > 
+> > >  	use_mm(net->dev.mm);
+> > >  	mutex_lock(&vq->mutex);
+> > > +
+> > > +	wmem = atomic_read(&sock->sk->sk_wmem_alloc);
+> > > +	if (wmem >= sock->sk->sk_sndbuf) {
+> > > +		tx_poll_start(net, sock);
+> > 
+> > Hmm. We already do
+> >                        if (wmem >= sock->sk->sk_sndbuf * 3 / 4) {
+> >                                 tx_poll_start(net, sock);
+> >                                 set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
+> >                                 break;
+> >                         }
+> > why does not this code trigger here?
 > 
-> Can't really decide ... does that ifdef make sense? Or should the
-> variable be ifdef'ed as well?
+> This check is done only when the ring is empty(head == vq->num).
+> But we are breaking out of the loop here.
+>                 if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
+>                         vhost_poll_queue(&vq->poll);
+>                         break;
+>                 }
+> 
+> I guess tx_poll_start() is missing here. The following patch fixes
+> the hang and may be a better fix.
+> 
+> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 4c89283..fe9d296 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -172,6 +172,7 @@ static void handle_tx(struct vhost_net *net)
+>  		vhost_add_used_and_signal(&net->dev, vq, head, 0);
+>  		total_len += len;
+>  		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
+> +			tx_poll_start(net, sock);
+>  			vhost_poll_queue(&vq->poll);
+>  			break;
+>  		}
+> 
+> Thanks
+> Sridhar
 
-The define is there because the assignment is only relevant for
-COMPAT_NETLINK_MESSAGES=y.
 
-I did not add the define to netlink.h because I don't see any advantage.
+Hmm, this happens when
+we have polled a lot of packets, and want to
+give another vq a chance to poll.
+Looks like a strange place to add it.
 
-But I do not mind changing this.
+-- 
+MST
