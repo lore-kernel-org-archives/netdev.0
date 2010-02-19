@@ -1,44 +1,49 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 01/03: restore POST_ROUTING hook in NF_HOOK_COND
-Date: Fri, 19 Feb 2010 18:02:08 +0100 (MET)
-Message-ID: <20100219170208.18096.29854.sendpatchset@x2.localnet>
-References: <20100219170206.18096.12788.sendpatchset@x2.localnet>
+Subject: netfilter 00/03: netfilter fixes
+Date: Fri, 19 Feb 2010 18:02:06 +0100 (MET)
+Message-ID: <20100219170206.18096.12788.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100219170206.18096.12788.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:62746 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755050Ab0BSRCI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2010 12:02:08 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 4bac6b180771f7ef5275b1a6d88e630ca3a3d6f0
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Fri Feb 19 08:03:28 2010 +0100
+Hi Dave,
 
-    netfilter: restore POST_ROUTING hook in NF_HOOK_COND
-    
-    Commit 2249065 ("netfilter: get rid of the grossness in netfilter.h")
-    inverted the logic for conditional hook invocation, breaking the
-    POST_ROUTING hook invoked by ip_output().
-    
-    Correct the logic and remove an unnecessary initialization.
-    
-    Reported-by: Stephen Hemminger <shemminger@vyatta.com>
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+following are three netfilter fixes for net-next, fixing:
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index 7007945..89341c3 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -212,8 +212,9 @@ NF_HOOK_COND(uint8_t pf, unsigned int hook, struct sk_buff *skb,
- 	     struct net_device *in, struct net_device *out,
- 	     int (*okfn)(struct sk_buff *), bool cond)
- {
--	int ret = 1;
--	if (cond ||
-+	int ret;
-+
-+	if (!cond ||
- 	    (ret = nf_hook_thresh(pf, hook, skb, in, out, okfn, INT_MIN) == 1))
- 		ret = okfn(skb);
- 	return ret;
+- the NAT issue reported by Stephen, which was caused by inverted logic
+  in NF_HOOK_COND(), causing it to skip the POST_ROUTING hook invocation
+
+- an assertion in ct_extend, caused by invalid ordering in ctnetlink
+  when setting up new conntracks. Additionally it is invalid to
+  attach helpers to existing conntracks, which is disabled by this
+  patch.
+
+- an skb leak in nf_queue when userspace returns NF_STOLEN as verdict
+
+Please apply or pull from:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
+
+Thanks!
+
+
+ include/linux/netfilter.h            |    5 +++--
+ net/netfilter/nf_conntrack_netlink.c |   22 +++++++++++-----------
+ net/netfilter/nf_queue.c             |    2 +-
+ 3 files changed, 15 insertions(+), 14 deletions(-)
+
+Eric Dumazet (1):
+      netfilter: nf_queue: fix NF_STOLEN skb leak
+
+Pablo Neira Ayuso (1):
+      netfilter: ctnetlink: fix creation of conntrack with helpers
+
+Patrick McHardy (1):
+      netfilter: restore POST_ROUTING hook in NF_HOOK_COND
