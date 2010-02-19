@@ -1,158 +1,57 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH] greth: some driver cleanups
-Date: Fri, 19 Feb 2010 16:25:02 +0100
-Message-ID: <20100219152502.GD6598@psychotron.redhat.com>
-References: <20100219111439.GA4046@coldcone>
- <20100219120425.GD2644@psychotron.redhat.com>
- <20100219125148.GA6598@psychotron.redhat.com>
- <20100219150051.GA12393@coldcone>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: Re: [PATCH] tc35815: Remove a wrong netif_wake_queue() call which
+ triggers BUG_ON
+Date: Sat, 20 Feb 2010 00:31:22 +0900 (JST)
+Message-ID: <20100220.003122.26280041.anemo@mba.ocn.ne.jp>
+References: <1266592438-10772-1-git-send-email-anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kristoffer@gaisler.com, netdev@vger.kernel.org
-To: kirjanov@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, ralf.roesch@rw-gmbh.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10532 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754694Ab0BSPZQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Feb 2010 10:25:16 -0500
-Content-Disposition: inline
-In-Reply-To: <20100219150051.GA12393@coldcone>
+Received: from mv-drv-hcb004.ocn.ad.jp ([118.23.109.134]:42954 "EHLO
+	mv-drv-hcb004.ocn.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750973Ab0BSPb3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2010 10:31:29 -0500
+In-Reply-To: <1266592438-10772-1-git-send-email-anemo@mba.ocn.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Feb 19, 2010 at 04:00:52PM CET, kirjanov@gmail.com wrote:
->On Fri, Feb 19, 2010 at 13:51 +0100, Jiri Pirko wrote:
->> 
->> <snip>
->> >>@@ -1031,7 +1029,7 @@ static void greth_set_multicast_list(struct net_device *dev)
->> >> 			return;
->> >> 		}
->> >> 
->> >>-		if (dev->mc_count == 0) {
->> >>+		if (!netdev_mc_count(dev)) {
->> also please use netdev_mc_empty() here.
->Some driver cleanups:
->* convert to use phy_find_first/phy_direct_connect
->* convert to use netdev_mc_* helpers
->* fixed missing validate_addr hook
->* removed netdev_priv castings
->
->Signed-off-by: Denis Kirjanov <kirjanov@gmail.com>
->---
->
-> drivers/net/greth.c |   49 ++++++++++++++++++-------------------------------
-> 1 files changed, 18 insertions(+), 31 deletions(-)
->
->diff --git a/drivers/net/greth.c b/drivers/net/greth.c
->index 457da1c..d203233 100644
->--- a/drivers/net/greth.c
->+++ b/drivers/net/greth.c
->@@ -965,7 +965,7 @@ static int greth_set_mac_add(struct net_device *dev, void *p)
-> 	struct greth_private *greth;
-> 	struct greth_regs *regs;
-> 
->-	greth = (struct greth_private *) netdev_priv(dev);
->+	greth = netdev_priv(dev);
-> 	regs = (struct greth_regs *) greth->regs;
-> 
-> 	if (!is_valid_ether_addr(addr->sa_data))
->@@ -988,20 +988,14 @@ static u32 greth_hash_get_index(__u8 *addr)
-> static void greth_set_hash_filter(struct net_device *dev)
-> {
-> 	struct dev_mc_list *curr;
->-	struct greth_private *greth = (struct greth_private *) netdev_priv(dev);
->+	struct greth_private *greth = netdev_priv(dev);
-> 	struct greth_regs *regs = (struct greth_regs *) greth->regs;
-> 	u32 mc_filter[2];
->-	unsigned int i, bitnr;
->+	unsigned int bitnr;
-> 
-> 	mc_filter[0] = mc_filter[1] = 0;
-> 
->-	curr = dev->mc_list;
->-
->-	for (i = 0; i < dev->mc_count; i++, curr = curr->next) {
->-
->-		if (!curr)
->-			break;	/* unexpected end of list */
->-
->+	netdev_for_each_mc_addr(curr, dev) {
-> 		bitnr = greth_hash_get_index(curr->dmi_addr);
-> 		mc_filter[bitnr >> 5] |= 1 << (bitnr & 31);
-> 	}
->@@ -1031,7 +1025,7 @@ static void greth_set_multicast_list(struct net_device *dev)
-> 			return;
-> 		}
-> 
->-		if (dev->mc_count == 0) {
->+		if (netdev_mc_empty(dev)) {
-> 			cfg &= ~GRETH_CTRL_MCEN;
-> 			GRETH_REGSAVE(regs->control, cfg);
-> 			return;
->@@ -1160,6 +1154,7 @@ static struct net_device_ops greth_netdev_ops = {
-> 	.ndo_stop = greth_close,
-> 	.ndo_start_xmit = greth_start_xmit,
-> 	.ndo_set_mac_address = greth_set_mac_add,
->+	.ndo_validate_addr 	= eth_validate_addr,
-> };
-> 
-> static inline int wait_for_mdio(struct greth_private *greth)
->@@ -1275,28 +1270,26 @@ static int greth_mdio_probe(struct net_device *dev)
-> {
-> 	struct greth_private *greth = netdev_priv(dev);
-> 	struct phy_device *phy = NULL;
->-	u32 interface;
->-	int i;
->+	int ret;
-> 
-> 	/* Find the first PHY */
->-	for (i = 0; i < PHY_MAX_ADDR; i++) {
->-		if (greth->mdio->phy_map[i]) {
->-			phy = greth->mdio->phy_map[i];
->-			break;
->-		}
->-	}
->+	phy = phy_find_first(greth->mdio);
->+
-> 	if (!phy) {
-> 		if (netif_msg_probe(greth))
-> 			dev_err(&dev->dev, "no PHY found\n");
-> 		return -ENXIO;
-> 	}
-> 
->-	if (greth->gbit_mac)
->-		interface = PHY_INTERFACE_MODE_GMII;
->-	else
->-		interface = PHY_INTERFACE_MODE_MII;
->-
->-	phy = phy_connect(dev, dev_name(&phy->dev), &greth_link_change, 0, interface);
->+	ret = phy_connect_direct(dev, phy, &greth_link_change,
->+			0, greth->gbit_mac ?
->+			PHY_INTERFACE_MODE_GMII :
->+			PHY_INTERFACE_MODE_MII);
->+	if (ret) {
->+		if (netif_msg_ifup(greth))
->+			dev_err(&dev->dev, "could not attach to PHY\n");
->+		return ret;
->+	}
-> 
-> 	if (greth->gbit_mac)
-> 		phy->supported &= PHY_GBIT_FEATURES;
->@@ -1305,12 +1298,6 @@ static int greth_mdio_probe(struct net_device *dev)
-> 
-> 	phy->advertising = phy->supported;
-> 
->-	if (IS_ERR(phy)) {
->-		if (netif_msg_ifup(greth))
->-			dev_err(&dev->dev, "could not attach to PHY\n");
->-		return PTR_ERR(phy);
->-	}
->-
-> 	greth->link = 0;
-> 	greth->speed = 0;
-> 	greth->duplex = -1;
+On Sat, 20 Feb 2010 00:13:58 +0900, Atsushi Nemoto <anemo@mba.ocn.ne.jp> wrote:
+> @@ -1437,7 +1437,6 @@ static int tc35815_do_interrupt(struct net_device *dev, u32 status, int limit)
+>  		/* Transmit complete. */
+>  		lp->lstats.tx_ints++;
+>  		tc35815_txdone(dev);
+> -		netif_wake_queue(dev);
+>  		if (ret < 0)
+>  			ret = 0;
+>  	}
 
-Looks good.
+BTY, it looks isa-skelton.c have same problem.
 
-Reviewed-by: Jiri Pirko <jpirko@redhat.com>
+void net_tx(struct net_device *dev)
+{
+...
+	if (netif_queue_stopped(dev) && ! tx_full(dev))
+		netif_wake_queue(dev);
+...
+}
 
+static irqreturn_t net_interrupt(int irq, void *dev_id)
+{
+...
+	if (status & TX_INTR) {
+		/* Transmit complete. */
+		net_tx(dev);
+		np->stats.tx_packets++;
+		netif_wake_queue(dev);
+	}
+...
+}
+
+
+I suppose here is the far origin of the bug :)
+
+---
+Atsushi Nemoto
