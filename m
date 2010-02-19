@@ -1,192 +1,491 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] seq_file: add RCU versions of new hlist/list iterators
-Date: Thu, 18 Feb 2010 17:12:47 -0800
-Message-ID: <20100219011247.GJ6833@linux.vnet.ibm.com>
-References: <20100218153041.2f722db8@nehalam>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: NAT regression in next tree
+Date: Thu, 18 Feb 2010 17:36:33 -0800
+Message-ID: <20100218173633.30bb8c41@nehalam>
+References: <20100216173658.519b6245@nehalam>
+	<201002171526.02493.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:35876 "EHLO e7.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752673Ab0BSBMt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Feb 2010 20:12:49 -0500
-Content-Disposition: inline
-In-Reply-To: <20100218153041.2f722db8@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <201002171526.02493.arnd@arndb.de>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 18, 2010 at 03:30:41PM -0800, Stephen Hemminger wrote:
-> Many usages of seq_file use RCU protected lists, so non RCU
-> iterators will not work safely.
+Something in net-next tree broke bridging of virtual nets.
+My local VM's can no longer access external networks.
 
-Can't say that I am thrilled by the use of __list_for_each_rcu() and the
-creation of __hlist_for_each(), but given the seq_list API, I don't see
-a reasonable alternative.  So...
+It is a NAT problem. One of the recent netfilter changes is causing
+the packets to not have there source address rewritten.
 
-Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+I see:
+    VM1  -- 192.168.100.0/24 -- HOST -- 192.168.1.0/24 -- ROUTER
+                           virbr0    eth0
 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> ---
->  fs/seq_file.c            |   82 +++++++++++++++++++++++++++++++++++++++++++++++
->  include/linux/rculist.h  |    5 ++
->  include/linux/seq_file.h |   27 ++++++++++-----
->  3 files changed, 105 insertions(+), 9 deletions(-)
-> 
-> --- a/fs/seq_file.c	2010-02-18 15:08:53.228872265 -0800
-> +++ b/fs/seq_file.c	2010-02-18 15:26:21.157402219 -0800
-> @@ -695,6 +695,38 @@ struct list_head *seq_list_next(void *v,
->  }
->  EXPORT_SYMBOL(seq_list_next);
-> 
-> +struct list_head *seq_list_start_rcu(struct list_head *head, loff_t pos)
-> +{
-> +	struct list_head *lh;
-> +
-> +	__list_for_each_rcu(lh, head)
-> +		if (pos-- == 0)
-> +			return lh;
-> +
-> +	return NULL;
-> +}
-> +EXPORT_SYMBOL(seq_list_start_rcu);
-> +
-> +struct list_head *seq_list_start_head_rcu(struct list_head *head, loff_t pos)
-> +{
-> +	if (!pos)
-> +		return head;
-> +
-> +	return seq_list_start_rcu(head, pos - 1);
-> +}
-> +EXPORT_SYMBOL(seq_list_start_head_rcu);
-> +
-> +struct list_head *seq_list_next_rcu(void *v, struct list_head *head,
-> +				    loff_t *ppos)
-> +{
-> +	struct list_head *lh = v;
-> +
-> +	lh = rcu_dereference(lh->next);
-> +	++*ppos;
-> +	return lh == head ? NULL : lh;
-> +}
-> +EXPORT_SYMBOL(seq_list_next_rcu);
-> +
->  /**
->   * seq_hlist_start - start an iteration of a hlist
->   * @head: the head of the hlist
-> @@ -750,3 +782,53 @@ struct hlist_node *seq_hlist_next(void *
->  		return node->next;
->  }
->  EXPORT_SYMBOL(seq_hlist_next);
-> +
-> +/**
-> + * seq_hlist_start_rcu - start an iteration of a hlist protected by RCU
-> + * @head: the head of the hlist
-> + * @pos:  the start position of the sequence
-> + *
-> + * Called at seq_file->op->start().
-> + */
-> +struct hlist_node *seq_hlist_start_rcu(struct hlist_head *head, loff_t pos)
-> +{
-> +	struct hlist_node *node;
-> +
-> +	__hlist_for_each_rcu(node, head)
-> +		if (pos-- == 0)
-> +			return node;
-> +	return NULL;
-> +}
-> +EXPORT_SYMBOL(seq_hlist_start_rcu);
-> +
-> +/**
-> + * seq_hlist_start_head_rcu - start an iteration of a hlist protected by RCU
-> + * @head: the head of the hlist
-> + * @pos:  the start position of the sequence
-> + *
-> + * Called at seq_file->op->start(). Call this function if you want to
-> + * print a header at the top of the output.
-> + */
-> +struct hlist_node *seq_hlist_start_head_rcu(struct hlist_head *head, loff_t pos)
-> +{
-> +	if (!pos)
-> +		return SEQ_START_TOKEN;
-> +
-> +	return seq_hlist_start_rcu(head, pos - 1);
-> +}
-> +EXPORT_SYMBOL(seq_hlist_start_rcu);
-> +
-> +/**
-> + * seq_hlist_next_rcu - move to the next position of the hlist protected by RCU
-> + * @v:    the current iterator
-> + * @head: the head of the hlist
-> + * @pos:  the current posision
-> + *
-> + * Called at seq_file->op->next().
-> + */
-> +struct hlist_node *seq_hlist_next_rcu(void *v, struct hlist_head *head,
-> +				      loff_t *ppos)
-> +{
-> +	return rcu_dereference(seq_hlist_next(v, head, ppos));
-> +}
-> +EXPORT_SYMBOL(seq_hlist_next_rcu);
-> --- a/include/linux/seq_file.h	2010-02-18 15:08:53.256872028 -0800
-> +++ b/include/linux/seq_file.h	2010-02-18 15:09:14.128997914 -0800
-> @@ -127,23 +127,32 @@ int seq_release_private(struct inode *, 
->  /*
->   * Helpers for iteration over list_head-s in seq_files
->   */
-> -
->  extern struct list_head *seq_list_start(struct list_head *head,
-> -		loff_t pos);
-> +					loff_t pos);
->  extern struct list_head *seq_list_start_head(struct list_head *head,
-> -		loff_t pos);
-> +					     loff_t pos);
->  extern struct list_head *seq_list_next(void *v, struct list_head *head,
-> -		loff_t *ppos);
-> -
-> +				       loff_t *ppos);
-> +extern struct list_head *seq_list_start_rcu(struct list_head *head,
-> +					    loff_t pos);
-> +extern struct list_head *seq_list_start_head_rcu(struct list_head *head,
-> +						 loff_t pos);
-> +extern struct list_head *seq_list_next_rcu(void *v, struct list_head *head,
-> +					   loff_t *ppos);
->  /*
->   * Helpers for iteration over hlist_head-s in seq_files
->   */
-> -
->  extern struct hlist_node *seq_hlist_start(struct hlist_head *head,
-> -		loff_t pos);
-> +					  loff_t pos);
->  extern struct hlist_node *seq_hlist_start_head(struct hlist_head *head,
-> -		loff_t pos);
-> +					       loff_t pos);
->  extern struct hlist_node *seq_hlist_next(void *v, struct hlist_head *head,
-> -		loff_t *ppos);
-> +					 loff_t *ppos);
-> 
-> +extern struct hlist_node *seq_hlist_start_rcu(struct hlist_head *head,
-> +					      loff_t pos);
-> +extern struct hlist_node *seq_hlist_start_head_rcu(struct hlist_head *head,
-> +						   loff_t pos);
-> +extern struct hlist_node *seq_hlist_next_rcu(void *v, struct hlist_head *head,
-> +					     loff_t *ppos);
->  #endif
-> --- a/include/linux/rculist.h	2010-02-18 15:25:03.681496691 -0800
-> +++ b/include/linux/rculist.h	2010-02-18 15:26:13.909286656 -0800
-> @@ -406,6 +406,11 @@ static inline void hlist_add_after_rcu(s
->  		n->next->pprev = &n->next;
->  }
-> 
-> +#define __hlist_for_each(pos, head)			\
-> +	for (pos = rcu_dereference((head)->first);	\
-> +	     pos && ({ prefetch(pos->next); 1; });	\
-> +	     pos = rcu_derference(pos->next))
-> +
->  /**
->   * hlist_for_each_entry_rcu - iterate over rcu list of given type
->   * @tpos:	the type * to use as a loop cursor.
+Even a simple ping from VM1 doesn't get responded to because
+the 192.168.100.X source address is not getting rewritten.
+
+iptables -n -v -v -L (on host) after several attempted packets
+-----------------
+Chain INPUT (policy ACCEPT 2767 packets, 1347K bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+    0     0 ACCEPT     udp  --  virbr1 *       0.0.0.0/0            0.0.0.0/0           udp dpt:53 
+    0     0 ACCEPT     tcp  --  virbr1 *       0.0.0.0/0            0.0.0.0/0           tcp dpt:53 
+    0     0 ACCEPT     udp  --  virbr1 *       0.0.0.0/0            0.0.0.0/0           udp dpt:67 
+    0     0 ACCEPT     tcp  --  virbr1 *       0.0.0.0/0            0.0.0.0/0           tcp dpt:67 
+    0     0 ACCEPT     udp  --  virbr2 *       0.0.0.0/0            0.0.0.0/0           udp dpt:53 
+    0     0 ACCEPT     tcp  --  virbr2 *       0.0.0.0/0            0.0.0.0/0           tcp dpt:53 
+    0     0 ACCEPT     udp  --  virbr2 *       0.0.0.0/0            0.0.0.0/0           udp dpt:67 
+    0     0 ACCEPT     tcp  --  virbr2 *       0.0.0.0/0            0.0.0.0/0           tcp dpt:67 
+    5   295 ACCEPT     udp  --  virbr0 *       0.0.0.0/0            0.0.0.0/0           udp dpt:53 
+    0     0 ACCEPT     tcp  --  virbr0 *       0.0.0.0/0            0.0.0.0/0           tcp dpt:53 
+    2   656 ACCEPT     udp  --  virbr0 *       0.0.0.0/0            0.0.0.0/0           udp dpt:67 
+    0     0 ACCEPT     tcp  --  virbr0 *       0.0.0.0/0            0.0.0.0/0           tcp dpt:67 
+    0     0 ACCEPT     udp  --  virbr4 *       0.0.0.0/0            0.0.0.0/0           udp dpt:53 
+    0     0 ACCEPT     tcp  --  virbr4 *       0.0.0.0/0            0.0.0.0/0           tcp dpt:53 
+    0     0 ACCEPT     udp  --  virbr4 *       0.0.0.0/0            0.0.0.0/0           udp dpt:67 
+    0     0 ACCEPT     tcp  --  virbr4 *       0.0.0.0/0            0.0.0.0/0           tcp dpt:67 
+
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+    0     0 ACCEPT     all  --  virbr1 virbr1  0.0.0.0/0            0.0.0.0/0           
+    0     0 REJECT     all  --  *      virbr1  0.0.0.0/0            0.0.0.0/0           reject-with icmp-port-unreachable 
+    0     0 REJECT     all  --  virbr1 *       0.0.0.0/0            0.0.0.0/0           reject-with icmp-port-unreachable 
+    0     0 ACCEPT     all  --  virbr2 virbr2  0.0.0.0/0            0.0.0.0/0           
+    0     0 REJECT     all  --  *      virbr2  0.0.0.0/0            0.0.0.0/0           reject-with icmp-port-unreachable 
+    0     0 REJECT     all  --  virbr2 *       0.0.0.0/0            0.0.0.0/0           reject-with icmp-port-unreachable 
+    0     0 ACCEPT     all  --  *      virbr0  0.0.0.0/0            192.168.100.0/24    state RELATED,ESTABLISHED 
+   15  1188 ACCEPT     all  --  virbr0 *       192.168.100.0/24     0.0.0.0/0           
+    0     0 ACCEPT     all  --  virbr0 virbr0  0.0.0.0/0            0.0.0.0/0           
+    0     0 REJECT     all  --  *      virbr0  0.0.0.0/0            0.0.0.0/0           reject-with icmp-port-unreachable 
+    0     0 REJECT     all  --  virbr0 *       0.0.0.0/0            0.0.0.0/0           reject-with icmp-port-unreachable 
+    0     0 ACCEPT     all  --  virbr4 virbr4  0.0.0.0/0            0.0.0.0/0           
+    0     0 REJECT     all  --  *      virbr4  0.0.0.0/0            0.0.0.0/0           reject-with icmp-port-unreachable 
+    0     0 REJECT     all  --  virbr4 *       0.0.0.0/0            0.0.0.0/0           reject-with icmp-port-unreachable 
+
+Chain OUTPUT (policy ACCEPT 2720 packets, 1311K bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+libiptc vlibxtables.so.2. 6000 bytes.
+Table `filter'
+Hooks: pre/in/fwd/out/post = ffffffff/0/d18/1628/ffffffff
+Underflows: pre/in/fwd/out/post = ffffffff/c80/1590/1628/ffffffff
+Entry 0 (0):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr1'/XXXXXXX.........to `'/................
+Protocol: 17
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Match name: `udp'
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 1 (200):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr1'/XXXXXXX.........to `'/................
+Protocol: 6
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Match name: `tcp'
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 2 (400):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr1'/XXXXXXX.........to `'/................
+Protocol: 17
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Match name: `udp'
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 3 (600):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr1'/XXXXXXX.........to `'/................
+Protocol: 6
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Match name: `tcp'
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 4 (800):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr2'/XXXXXXX.........to `'/................
+Protocol: 17
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Match name: `udp'
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 5 (1000):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr2'/XXXXXXX.........to `'/................
+Protocol: 6
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Match name: `tcp'
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 6 (1200):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr2'/XXXXXXX.........to `'/................
+Protocol: 17
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Match name: `udp'
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 7 (1400):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr2'/XXXXXXX.........to `'/................
+Protocol: 6
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Match name: `tcp'
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 8 (1600):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr0'/XXXXXXX.........to `'/................
+Protocol: 17
+Flags: 00
+Invflags: 00
+Counters: 5 packets, 295 bytes
+Cache: 00000000
+Match name: `udp'
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 9 (1800):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr0'/XXXXXXX.........to `'/................
+Protocol: 6
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Match name: `tcp'
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 10 (2000):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr0'/XXXXXXX.........to `'/................
+Protocol: 17
+Flags: 00
+Invflags: 00
+Counters: 2 packets, 656 bytes
+Cache: 00000000
+Match name: `udp'
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 11 (2200):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr0'/XXXXXXX.........to `'/................
+Protocol: 6
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Match name: `tcp'
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 12 (2400):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr4'/XXXXXXX.........to `'/................
+Protocol: 17
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Match name: `udp'
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 13 (2600):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr4'/XXXXXXX.........to `'/................
+Protocol: 6
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Match name: `tcp'
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 14 (2800):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr4'/XXXXXXX.........to `'/................
+Protocol: 17
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Match name: `udp'
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 15 (3000):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr4'/XXXXXXX.........to `'/................
+Protocol: 6
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Match name: `tcp'
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 16 (3200):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `'/................to `'/................
+Protocol: 0
+Flags: 00
+Invflags: 00
+Counters: 2767 packets, 1347401 bytes
+Cache: 00000000
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 17 (3352):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr1'/XXXXXXX.........to `virbr1'/XXXXXXX.........
+Protocol: 0
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 18 (3504):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `'/................to `virbr1'/XXXXXXX.........
+Protocol: 0
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Target name: `REJECT' [40]
+
+Entry 19 (3656):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr1'/XXXXXXX.........to `'/................
+Protocol: 0
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Target name: `REJECT' [40]
+
+Entry 20 (3808):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr2'/XXXXXXX.........to `virbr2'/XXXXXXX.........
+Protocol: 0
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 21 (3960):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `'/................to `virbr2'/XXXXXXX.........
+Protocol: 0
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Target name: `REJECT' [40]
+
+Entry 22 (4112):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr2'/XXXXXXX.........to `'/................
+Protocol: 0
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Target name: `REJECT' [40]
+
+Entry 23 (4264):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 192.168.100.0/255.255.255.0
+Interface: `'/................to `virbr0'/XXXXXXX.........
+Protocol: 0
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Match name: `state'
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 24 (4456):
+SRC IP: 192.168.100.0/255.255.255.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr0'/XXXXXXX.........to `'/................
+Protocol: 0
+Flags: 00
+Invflags: 00
+Counters: 15 packets, 1188 bytes
+Cache: 00000000
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 25 (4608):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr0'/XXXXXXX.........to `virbr0'/XXXXXXX.........
+Protocol: 0
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 26 (4760):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `'/................to `virbr0'/XXXXXXX.........
+Protocol: 0
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Target name: `REJECT' [40]
+
+Entry 27 (4912):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr0'/XXXXXXX.........to `'/................
+Protocol: 0
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Target name: `REJECT' [40]
+
+Entry 28 (5064):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr4'/XXXXXXX.........to `virbr4'/XXXXXXX.........
+Protocol: 0
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 29 (5216):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `'/................to `virbr4'/XXXXXXX.........
+Protocol: 0
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Target name: `REJECT' [40]
+
+Entry 30 (5368):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `virbr4'/XXXXXXX.........to `'/................
+Protocol: 0
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Target name: `REJECT' [40]
+
+Entry 31 (5520):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `'/................to `'/................
+Protocol: 0
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 32 (5672):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `'/................to `'/................
+Protocol: 0
+Flags: 00
+Invflags: 00
+Counters: 2720 packets, 1310915 bytes
+Cache: 00000000
+Target name: `' [40]
+verdict=NF_ACCEPT
+
+Entry 33 (5824):
+SRC IP: 0.0.0.0/0.0.0.0
+DST IP: 0.0.0.0/0.0.0.0
+Interface: `'/................to `'/................
+Protocol: 0
+Flags: 00
+Invflags: 00
+Counters: 0 packets, 0 bytes
+Cache: 00000000
+Target name: `ERROR' [64]
+error=`ERROR'
+
