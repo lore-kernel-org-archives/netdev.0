@@ -1,491 +1,105 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: NAT regression in next tree
-Date: Thu, 18 Feb 2010 17:36:33 -0800
-Message-ID: <20100218173633.30bb8c41@nehalam>
-References: <20100216173658.519b6245@nehalam>
-	<201002171526.02493.arnd@arndb.de>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [PATCH net-next-2.6] vhost: Restart tx poll when socket send
+ queue is full
+Date: Thu, 18 Feb 2010 18:00:07 -0800
+Message-ID: <1266544807.15681.259.camel@w-sridhar.beaverton.ibm.com>
+References: <1266526751.15681.71.camel@w-sridhar.beaverton.ibm.com>
+	 <20100218223021.GB14847@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <201002171526.02493.arnd@arndb.de>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:34126 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753145Ab0BSCA1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Feb 2010 21:00:27 -0500
+Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
+	by e36.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id o1J1vXL5002636
+	for <netdev@vger.kernel.org>; Thu, 18 Feb 2010 18:57:33 -0700
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o1J20816085684
+	for <netdev@vger.kernel.org>; Thu, 18 Feb 2010 19:00:08 -0700
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o1J208Eq030595
+	for <netdev@vger.kernel.org>; Thu, 18 Feb 2010 19:00:08 -0700
+In-Reply-To: <20100218223021.GB14847@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Something in net-next tree broke bridging of virtual nets.
-My local VM's can no longer access external networks.
+On Fri, 2010-02-19 at 00:30 +0200, Michael S. Tsirkin wrote:
+> On Thu, Feb 18, 2010 at 12:59:11PM -0800, Sridhar Samudrala wrote:
+> > When running guest to remote host TCP stream test using vhost-net
+> > via tap/macvtap, i am seeing network transmit hangs. This happens
+> > when handle_tx() returns because of the socket send queue full 
+> > condition.
+> > This patch fixes this by restarting tx poll when hitting this
+> > condition.
+> 
+> 
+> Thanks! I would like to better understand what happens exactly.
+> Some questions below:
+> 
+> > 
+> > Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> > 
+> > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> > index 91a324c..82d4bbe 100644
+> > --- a/drivers/vhost/net.c
+> > +++ b/drivers/vhost/net.c
+> > @@ -113,12 +113,16 @@ static void handle_tx(struct vhost_net *net)
+> >  	if (!sock)
+> >  		return;
+> >  
+> > -	wmem = atomic_read(&sock->sk->sk_wmem_alloc);
+> > -	if (wmem >= sock->sk->sk_sndbuf)
+> > -		return;
+> > -
+> 
+> The disadvantage here is that a spurious wakeup
+> when queue is still full becomes more expensive.
+> 
+> >  	use_mm(net->dev.mm);
+> >  	mutex_lock(&vq->mutex);
+> > +
+> > +	wmem = atomic_read(&sock->sk->sk_wmem_alloc);
+> > +	if (wmem >= sock->sk->sk_sndbuf) {
+> > +		tx_poll_start(net, sock);
+> 
+> Hmm. We already do
+>                        if (wmem >= sock->sk->sk_sndbuf * 3 / 4) {
+>                                 tx_poll_start(net, sock);
+>                                 set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
+>                                 break;
+>                         }
+> why does not this code trigger here?
 
-It is a NAT problem. One of the recent netfilter changes is causing
-the packets to not have there source address rewritten.
+This check is done only when the ring is empty(head == vq->num).
+But we are breaking out of the loop here.
+                if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
+                        vhost_poll_queue(&vq->poll);
+                        break;
+                }
 
-I see:
-    VM1  -- 192.168.100.0/24 -- HOST -- 192.168.1.0/24 -- ROUTER
-                           virbr0    eth0
+I guess tx_poll_start() is missing here. The following patch fixes
+the hang and may be a better fix.
 
-Even a simple ping from VM1 doesn't get responded to because
-the 192.168.100.X source address is not getting rewritten.
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
-iptables -n -v -v -L (on host) after several attempted packets
------------------
-Chain INPUT (policy ACCEPT 2767 packets, 1347K bytes)
- pkts bytes target     prot opt in     out     source               destination         
-    0     0 ACCEPT     udp  --  virbr1 *       0.0.0.0/0            0.0.0.0/0           udp dpt:53 
-    0     0 ACCEPT     tcp  --  virbr1 *       0.0.0.0/0            0.0.0.0/0           tcp dpt:53 
-    0     0 ACCEPT     udp  --  virbr1 *       0.0.0.0/0            0.0.0.0/0           udp dpt:67 
-    0     0 ACCEPT     tcp  --  virbr1 *       0.0.0.0/0            0.0.0.0/0           tcp dpt:67 
-    0     0 ACCEPT     udp  --  virbr2 *       0.0.0.0/0            0.0.0.0/0           udp dpt:53 
-    0     0 ACCEPT     tcp  --  virbr2 *       0.0.0.0/0            0.0.0.0/0           tcp dpt:53 
-    0     0 ACCEPT     udp  --  virbr2 *       0.0.0.0/0            0.0.0.0/0           udp dpt:67 
-    0     0 ACCEPT     tcp  --  virbr2 *       0.0.0.0/0            0.0.0.0/0           tcp dpt:67 
-    5   295 ACCEPT     udp  --  virbr0 *       0.0.0.0/0            0.0.0.0/0           udp dpt:53 
-    0     0 ACCEPT     tcp  --  virbr0 *       0.0.0.0/0            0.0.0.0/0           tcp dpt:53 
-    2   656 ACCEPT     udp  --  virbr0 *       0.0.0.0/0            0.0.0.0/0           udp dpt:67 
-    0     0 ACCEPT     tcp  --  virbr0 *       0.0.0.0/0            0.0.0.0/0           tcp dpt:67 
-    0     0 ACCEPT     udp  --  virbr4 *       0.0.0.0/0            0.0.0.0/0           udp dpt:53 
-    0     0 ACCEPT     tcp  --  virbr4 *       0.0.0.0/0            0.0.0.0/0           tcp dpt:53 
-    0     0 ACCEPT     udp  --  virbr4 *       0.0.0.0/0            0.0.0.0/0           udp dpt:67 
-    0     0 ACCEPT     tcp  --  virbr4 *       0.0.0.0/0            0.0.0.0/0           tcp dpt:67 
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 4c89283..fe9d296 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -172,6 +172,7 @@ static void handle_tx(struct vhost_net *net)
+ 		vhost_add_used_and_signal(&net->dev, vq, head, 0);
+ 		total_len += len;
+ 		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
++			tx_poll_start(net, sock);
+ 			vhost_poll_queue(&vq->poll);
+ 			break;
+ 		}
 
-Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
- pkts bytes target     prot opt in     out     source               destination         
-    0     0 ACCEPT     all  --  virbr1 virbr1  0.0.0.0/0            0.0.0.0/0           
-    0     0 REJECT     all  --  *      virbr1  0.0.0.0/0            0.0.0.0/0           reject-with icmp-port-unreachable 
-    0     0 REJECT     all  --  virbr1 *       0.0.0.0/0            0.0.0.0/0           reject-with icmp-port-unreachable 
-    0     0 ACCEPT     all  --  virbr2 virbr2  0.0.0.0/0            0.0.0.0/0           
-    0     0 REJECT     all  --  *      virbr2  0.0.0.0/0            0.0.0.0/0           reject-with icmp-port-unreachable 
-    0     0 REJECT     all  --  virbr2 *       0.0.0.0/0            0.0.0.0/0           reject-with icmp-port-unreachable 
-    0     0 ACCEPT     all  --  *      virbr0  0.0.0.0/0            192.168.100.0/24    state RELATED,ESTABLISHED 
-   15  1188 ACCEPT     all  --  virbr0 *       192.168.100.0/24     0.0.0.0/0           
-    0     0 ACCEPT     all  --  virbr0 virbr0  0.0.0.0/0            0.0.0.0/0           
-    0     0 REJECT     all  --  *      virbr0  0.0.0.0/0            0.0.0.0/0           reject-with icmp-port-unreachable 
-    0     0 REJECT     all  --  virbr0 *       0.0.0.0/0            0.0.0.0/0           reject-with icmp-port-unreachable 
-    0     0 ACCEPT     all  --  virbr4 virbr4  0.0.0.0/0            0.0.0.0/0           
-    0     0 REJECT     all  --  *      virbr4  0.0.0.0/0            0.0.0.0/0           reject-with icmp-port-unreachable 
-    0     0 REJECT     all  --  virbr4 *       0.0.0.0/0            0.0.0.0/0           reject-with icmp-port-unreachable 
-
-Chain OUTPUT (policy ACCEPT 2720 packets, 1311K bytes)
- pkts bytes target     prot opt in     out     source               destination         
-libiptc vlibxtables.so.2. 6000 bytes.
-Table `filter'
-Hooks: pre/in/fwd/out/post = ffffffff/0/d18/1628/ffffffff
-Underflows: pre/in/fwd/out/post = ffffffff/c80/1590/1628/ffffffff
-Entry 0 (0):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr1'/XXXXXXX.........to `'/................
-Protocol: 17
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Match name: `udp'
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 1 (200):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr1'/XXXXXXX.........to `'/................
-Protocol: 6
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Match name: `tcp'
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 2 (400):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr1'/XXXXXXX.........to `'/................
-Protocol: 17
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Match name: `udp'
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 3 (600):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr1'/XXXXXXX.........to `'/................
-Protocol: 6
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Match name: `tcp'
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 4 (800):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr2'/XXXXXXX.........to `'/................
-Protocol: 17
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Match name: `udp'
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 5 (1000):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr2'/XXXXXXX.........to `'/................
-Protocol: 6
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Match name: `tcp'
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 6 (1200):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr2'/XXXXXXX.........to `'/................
-Protocol: 17
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Match name: `udp'
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 7 (1400):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr2'/XXXXXXX.........to `'/................
-Protocol: 6
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Match name: `tcp'
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 8 (1600):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr0'/XXXXXXX.........to `'/................
-Protocol: 17
-Flags: 00
-Invflags: 00
-Counters: 5 packets, 295 bytes
-Cache: 00000000
-Match name: `udp'
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 9 (1800):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr0'/XXXXXXX.........to `'/................
-Protocol: 6
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Match name: `tcp'
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 10 (2000):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr0'/XXXXXXX.........to `'/................
-Protocol: 17
-Flags: 00
-Invflags: 00
-Counters: 2 packets, 656 bytes
-Cache: 00000000
-Match name: `udp'
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 11 (2200):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr0'/XXXXXXX.........to `'/................
-Protocol: 6
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Match name: `tcp'
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 12 (2400):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr4'/XXXXXXX.........to `'/................
-Protocol: 17
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Match name: `udp'
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 13 (2600):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr4'/XXXXXXX.........to `'/................
-Protocol: 6
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Match name: `tcp'
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 14 (2800):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr4'/XXXXXXX.........to `'/................
-Protocol: 17
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Match name: `udp'
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 15 (3000):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr4'/XXXXXXX.........to `'/................
-Protocol: 6
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Match name: `tcp'
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 16 (3200):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `'/................to `'/................
-Protocol: 0
-Flags: 00
-Invflags: 00
-Counters: 2767 packets, 1347401 bytes
-Cache: 00000000
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 17 (3352):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr1'/XXXXXXX.........to `virbr1'/XXXXXXX.........
-Protocol: 0
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 18 (3504):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `'/................to `virbr1'/XXXXXXX.........
-Protocol: 0
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Target name: `REJECT' [40]
-
-Entry 19 (3656):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr1'/XXXXXXX.........to `'/................
-Protocol: 0
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Target name: `REJECT' [40]
-
-Entry 20 (3808):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr2'/XXXXXXX.........to `virbr2'/XXXXXXX.........
-Protocol: 0
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 21 (3960):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `'/................to `virbr2'/XXXXXXX.........
-Protocol: 0
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Target name: `REJECT' [40]
-
-Entry 22 (4112):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr2'/XXXXXXX.........to `'/................
-Protocol: 0
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Target name: `REJECT' [40]
-
-Entry 23 (4264):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 192.168.100.0/255.255.255.0
-Interface: `'/................to `virbr0'/XXXXXXX.........
-Protocol: 0
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Match name: `state'
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 24 (4456):
-SRC IP: 192.168.100.0/255.255.255.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr0'/XXXXXXX.........to `'/................
-Protocol: 0
-Flags: 00
-Invflags: 00
-Counters: 15 packets, 1188 bytes
-Cache: 00000000
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 25 (4608):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr0'/XXXXXXX.........to `virbr0'/XXXXXXX.........
-Protocol: 0
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 26 (4760):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `'/................to `virbr0'/XXXXXXX.........
-Protocol: 0
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Target name: `REJECT' [40]
-
-Entry 27 (4912):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr0'/XXXXXXX.........to `'/................
-Protocol: 0
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Target name: `REJECT' [40]
-
-Entry 28 (5064):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr4'/XXXXXXX.........to `virbr4'/XXXXXXX.........
-Protocol: 0
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 29 (5216):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `'/................to `virbr4'/XXXXXXX.........
-Protocol: 0
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Target name: `REJECT' [40]
-
-Entry 30 (5368):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `virbr4'/XXXXXXX.........to `'/................
-Protocol: 0
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Target name: `REJECT' [40]
-
-Entry 31 (5520):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `'/................to `'/................
-Protocol: 0
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 32 (5672):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `'/................to `'/................
-Protocol: 0
-Flags: 00
-Invflags: 00
-Counters: 2720 packets, 1310915 bytes
-Cache: 00000000
-Target name: `' [40]
-verdict=NF_ACCEPT
-
-Entry 33 (5824):
-SRC IP: 0.0.0.0/0.0.0.0
-DST IP: 0.0.0.0/0.0.0.0
-Interface: `'/................to `'/................
-Protocol: 0
-Flags: 00
-Invflags: 00
-Counters: 0 packets, 0 bytes
-Cache: 00000000
-Target name: `ERROR' [64]
-error=`ERROR'
+Thanks
+Sridhar
 
