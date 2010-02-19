@@ -1,49 +1,37 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-2.6 1/2] sfc: Fix sign of efx_mcdi_poll_reboot() error
- in efx_mcdi_poll()
-Date: Fri, 19 Feb 2010 23:29:27 +0000
-Message-ID: <1266622168.2091.5.camel@achroite.uk.solarflarecom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] net: Fix sysctl restarts...
+Date: Fri, 19 Feb 2010 15:29:54 -0800 (PST)
+Message-ID: <20100219.152954.39315470.davem@davemloft.net>
+References: <m14olcu7xo.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:22504 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756267Ab0BSX3b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2010 18:29:31 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55475
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756318Ab0BSX3h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2010 18:29:37 -0500
+In-Reply-To: <m14olcu7xo.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-efx_mcdi_poll() uses positive error numbers, matching the MCDI
-protocol.  It must negate the result of efx_mcdi_poll_reboot() which
-returns the usual negative error numbers.
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Fri, 19 Feb 2010 15:22:59 -0800
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/sfc/mcdi.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> Yuck.  It turns out that when we restart sysctls we were restarting
+> with the values already changed.  Which unfortunately meant that
+> the second time through we thought there was no change and skipped
+> all kinds of work, despite the fact that there was indeed a change.
+> 
+> I have fixed this the simplest way possible by restoring the changed
+> values when we restart the sysctl write.
+> 
+> One of my coworkers spotted this bug when after disabling forwarding
+> on an interface pings were still forwarded.
+> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
-diff --git a/drivers/net/sfc/mcdi.c b/drivers/net/sfc/mcdi.c
-index 9f035b9..f66b3da 100644
---- a/drivers/net/sfc/mcdi.c
-+++ b/drivers/net/sfc/mcdi.c
-@@ -127,7 +127,7 @@ static int efx_mcdi_poll(struct efx_nic *efx)
- 	efx_dword_t reg;
- 
- 	/* Check for a reboot atomically with respect to efx_mcdi_copyout() */
--	rc = efx_mcdi_poll_reboot(efx);
-+	rc = -efx_mcdi_poll_reboot(efx);
- 	if (rc)
- 		goto out;
- 
--- 
-1.6.2.5
-
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+What commit added this bug?
