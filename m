@@ -1,92 +1,158 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] packet: convert socket list to RCU
-Date: Fri, 19 Feb 2010 16:16:24 +0100
-Message-ID: <1266592584.3136.41.camel@edumazet-laptop>
-References: <20100219054145.959067404@vyatta.com>
-	 <20100219054201.501571315@vyatta.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH] greth: some driver cleanups
+Date: Fri, 19 Feb 2010 16:25:02 +0100
+Message-ID: <20100219152502.GD6598@psychotron.redhat.com>
+References: <20100219111439.GA4046@coldcone>
+ <20100219120425.GD2644@psychotron.redhat.com>
+ <20100219125148.GA6598@psychotron.redhat.com>
+ <20100219150051.GA12393@coldcone>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Li Zefan <lizf@cn.fujitsu.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kristoffer@gaisler.com, netdev@vger.kernel.org
+To: kirjanov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:36684 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753894Ab0BSPQb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2010 10:16:31 -0500
-In-Reply-To: <20100219054201.501571315@vyatta.com>
+Received: from mx1.redhat.com ([209.132.183.28]:10532 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754694Ab0BSPZQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Feb 2010 10:25:16 -0500
+Content-Disposition: inline
+In-Reply-To: <20100219150051.GA12393@coldcone>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 18 f=C3=A9vrier 2010 =C3=A0 21:41 -0800, Stephen Hemminger a =C3=
-=A9crit :
+Fri, Feb 19, 2010 at 04:00:52PM CET, kirjanov@gmail.com wrote:
+>On Fri, Feb 19, 2010 at 13:51 +0100, Jiri Pirko wrote:
+>> 
+>> <snip>
+>> >>@@ -1031,7 +1029,7 @@ static void greth_set_multicast_list(struct net_device *dev)
+>> >> 			return;
+>> >> 		}
+>> >> 
+>> >>-		if (dev->mc_count == 0) {
+>> >>+		if (!netdev_mc_count(dev)) {
+>> also please use netdev_mc_empty() here.
+>Some driver cleanups:
+>* convert to use phy_find_first/phy_direct_connect
+>* convert to use netdev_mc_* helpers
+>* fixed missing validate_addr hook
+>* removed netdev_priv castings
+>
+>Signed-off-by: Denis Kirjanov <kirjanov@gmail.com>
+>---
+>
+> drivers/net/greth.c |   49 ++++++++++++++++++-------------------------------
+> 1 files changed, 18 insertions(+), 31 deletions(-)
+>
+>diff --git a/drivers/net/greth.c b/drivers/net/greth.c
+>index 457da1c..d203233 100644
+>--- a/drivers/net/greth.c
+>+++ b/drivers/net/greth.c
+>@@ -965,7 +965,7 @@ static int greth_set_mac_add(struct net_device *dev, void *p)
+> 	struct greth_private *greth;
+> 	struct greth_regs *regs;
+> 
+>-	greth = (struct greth_private *) netdev_priv(dev);
+>+	greth = netdev_priv(dev);
+> 	regs = (struct greth_regs *) greth->regs;
+> 
+> 	if (!is_valid_ether_addr(addr->sa_data))
+>@@ -988,20 +988,14 @@ static u32 greth_hash_get_index(__u8 *addr)
+> static void greth_set_hash_filter(struct net_device *dev)
+> {
+> 	struct dev_mc_list *curr;
+>-	struct greth_private *greth = (struct greth_private *) netdev_priv(dev);
+>+	struct greth_private *greth = netdev_priv(dev);
+> 	struct greth_regs *regs = (struct greth_regs *) greth->regs;
+> 	u32 mc_filter[2];
+>-	unsigned int i, bitnr;
+>+	unsigned int bitnr;
+> 
+> 	mc_filter[0] = mc_filter[1] = 0;
+> 
+>-	curr = dev->mc_list;
+>-
+>-	for (i = 0; i < dev->mc_count; i++, curr = curr->next) {
+>-
+>-		if (!curr)
+>-			break;	/* unexpected end of list */
+>-
+>+	netdev_for_each_mc_addr(curr, dev) {
+> 		bitnr = greth_hash_get_index(curr->dmi_addr);
+> 		mc_filter[bitnr >> 5] |= 1 << (bitnr & 31);
+> 	}
+>@@ -1031,7 +1025,7 @@ static void greth_set_multicast_list(struct net_device *dev)
+> 			return;
+> 		}
+> 
+>-		if (dev->mc_count == 0) {
+>+		if (netdev_mc_empty(dev)) {
+> 			cfg &= ~GRETH_CTRL_MCEN;
+> 			GRETH_REGSAVE(regs->control, cfg);
+> 			return;
+>@@ -1160,6 +1154,7 @@ static struct net_device_ops greth_netdev_ops = {
+> 	.ndo_stop = greth_close,
+> 	.ndo_start_xmit = greth_start_xmit,
+> 	.ndo_set_mac_address = greth_set_mac_add,
+>+	.ndo_validate_addr 	= eth_validate_addr,
+> };
+> 
+> static inline int wait_for_mdio(struct greth_private *greth)
+>@@ -1275,28 +1270,26 @@ static int greth_mdio_probe(struct net_device *dev)
+> {
+> 	struct greth_private *greth = netdev_priv(dev);
+> 	struct phy_device *phy = NULL;
+>-	u32 interface;
+>-	int i;
+>+	int ret;
+> 
+> 	/* Find the first PHY */
+>-	for (i = 0; i < PHY_MAX_ADDR; i++) {
+>-		if (greth->mdio->phy_map[i]) {
+>-			phy = greth->mdio->phy_map[i];
+>-			break;
+>-		}
+>-	}
+>+	phy = phy_find_first(greth->mdio);
+>+
+> 	if (!phy) {
+> 		if (netif_msg_probe(greth))
+> 			dev_err(&dev->dev, "no PHY found\n");
+> 		return -ENXIO;
+> 	}
+> 
+>-	if (greth->gbit_mac)
+>-		interface = PHY_INTERFACE_MODE_GMII;
+>-	else
+>-		interface = PHY_INTERFACE_MODE_MII;
+>-
+>-	phy = phy_connect(dev, dev_name(&phy->dev), &greth_link_change, 0, interface);
+>+	ret = phy_connect_direct(dev, phy, &greth_link_change,
+>+			0, greth->gbit_mac ?
+>+			PHY_INTERFACE_MODE_GMII :
+>+			PHY_INTERFACE_MODE_MII);
+>+	if (ret) {
+>+		if (netif_msg_ifup(greth))
+>+			dev_err(&dev->dev, "could not attach to PHY\n");
+>+		return ret;
+>+	}
+> 
+> 	if (greth->gbit_mac)
+> 		phy->supported &= PHY_GBIT_FEATURES;
+>@@ -1305,12 +1298,6 @@ static int greth_mdio_probe(struct net_device *dev)
+> 
+> 	phy->advertising = phy->supported;
+> 
+>-	if (IS_ERR(phy)) {
+>-		if (netif_msg_ifup(greth))
+>-			dev_err(&dev->dev, "could not attach to PHY\n");
+>-		return PTR_ERR(phy);
+>-	}
+>-
+> 	greth->link = 0;
+> 	greth->speed = 0;
+> 	greth->duplex = -1;
 
-> Convert AF_PACKET to use RCU, eliminating one more reader/writer lock=
-=2E
->=20
-> I needed to create some minor additional socket list RCU infrastructu=
-re
-> to make this work. Note: there is no need for a real sk_del_node_init=
-_rcu(),=20
-> because sk_del_node_init is doing the equivalent thing to=20
-> hlst_del_init_rcu already; but added some comments to try and make th=
-at obvious.
->=20
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
+Looks good.
 
-Stephen, I am a bit worried by the interaction between packet_release()
-and packet_notifier()
-
-With your version, packet_notifier() can run and let another cpu run
-packet_release() un-contented. Both cpus could manipulate same po (and
-particularly po->running)
-
-Before your patch, the read_lock() done in packet_notifier() was
-preventing packet_release() runnning at the same time.
-
-Maybe packet_release() should lock po->bind_lock before manipulating
-po->running, avoiding a refcount error.
-
-Something like this preliminary patch :
-
-[PATCH] packet: fix a race in packet_release
-
-packet_release() has a potential race with packet_notifier(NETDEV_DOWN)=
-,
-leading to a double __sock_put(). (dev_remove_pack() is safe)
-
-=46ix is to always use po->bind_lock before accessing po->running
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 10f7295..b706031 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1271,15 +1271,15 @@ static int packet_release(struct socket *sock)
- 	 *	Unhook packet receive handler.
- 	 */
-=20
-+	spin_lock(&po->bind_lock);
- 	if (po->running) {
--		/*
--		 *	Remove the protocol hook
--		 */
--		dev_remove_pack(&po->prot_hook);
-+		__sock_put(sk);
- 		po->running =3D 0;
- 		po->num =3D 0;
--		__sock_put(sk);
--	}
-+		spin_unlock(&po->bind_lock);
-+		dev_remove_pack(&po->prot_hook);
-+	} else
-+		spin_unlock(&po->bind_lock);
-=20
- 	packet_flush_mclist(sk);
-=20
-
+Reviewed-by: Jiri Pirko <jpirko@redhat.com>
 
