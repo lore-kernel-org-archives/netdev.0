@@ -1,50 +1,52 @@
-From: Bruce Cran <bruce@cran.org.uk>
-Subject: Re: connect() sometimes succeeds when it shouldn't
-Date: Fri, 19 Feb 2010 10:55:39 +0000
-Message-ID: <201002191055.39244.bruce@cran.org.uk>
-References: <201002181947.11125.bruce@cran.org.uk> <alpine.DEB.2.00.1002190053260.16302@melkinpaasi.cs.helsinki.fi>
+From: Torgny Johansson <torgny.johansson@gmail.com>
+Subject: [PATCH torvalds-2.6] cdc_ether: new PID for Ericsson C3607w to the whitelist
+Date: Fri, 19 Feb 2010 11:58:03 +0100
+Message-ID: <201002191158.03712.torgny.johansson@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: "Ilpo =?iso-8859-1?q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from muon.cran.org.uk ([109.74.192.160]:54838 "EHLO muon.cran.org.uk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753756Ab0BSKzR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Feb 2010 05:55:17 -0500
-In-Reply-To: <alpine.DEB.2.00.1002190053260.16302@melkinpaasi.cs.helsinki.fi>
+Received: from mail-ew0-f219.google.com ([209.85.219.219]:38957 "EHLO
+	mail-ew0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753888Ab0BSK6M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2010 05:58:12 -0500
+Received: by ewy19 with SMTP id 19so7912492ewy.21
+        for <netdev@vger.kernel.org>; Fri, 19 Feb 2010 02:58:10 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 18 February 2010 23:09:09 Ilpo J=E4rvinen wrote:
-> On Thu, 18 Feb 2010, Bruce Cran wrote:
-> > I've found that if I run a program that does lots of calls to conne=
-ct()
-> > then it will eventually succeed when there's no server listening. F=
-or
-> > SCTP it takes a few thousand, for TCP up to a couple of million.  I=
- first
-> > came across the problem in Windows, where the connection was being
-> > processed so quickly that by the time the handler function had fini=
-shed,
-> > the 'connecting' flag had already been reset, which wasn't expected=
-=2E I've
-> > not checked the Linux sources to see if something similar is happen=
-ing
-> > though.
-> >
-> > The machine I tested it on was running a 2.6.32 i686 kernel.
-> >
-> > The test code can be found at
-> > http://www.cran.org.uk/~brucec/linux/badconnect.c
->=20
-> Perhaps you just managed to dial your own number? ...Please try with
-> my improved version of badconnect.c below. :-)
+Hi!
 
-That was the problem: calling bind() before connect() fixed it. Sorry f=
-or the=20
-noise.
+This patch adds a new vid/pid to the cdc_ether whitelist.
 
---=20
-Bruce Cran
+Device added:
+- Ericsson Mobile Broadband variant C3607w
+
+Regards
+Torgny Johansson
+
+---
+
+Signed-off-by: Torgny Johansson <torgny.johansson@gmail.com>
+
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 4f27f02..5f3b9ea 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -584,6 +584,11 @@ static const struct usb_device_id	products [] = {
+ 			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
+ 	.driver_info = (unsigned long) &mbm_info,
+ }, {
++	/* Ericsson C3607w ver 2 */
++	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x190b, 
+USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
++	.driver_info = (unsigned long) &mbm_info,
++}, {
+ 	/* Toshiba F3507g */
+ 	USB_DEVICE_AND_INTERFACE_INFO(0x0930, 0x130b, 
+USB_CLASS_COMM,
+ 			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
