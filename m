@@ -1,37 +1,119 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: Fix sysctl restarts...
-Date: Fri, 19 Feb 2010 15:29:54 -0800 (PST)
-Message-ID: <20100219.152954.39315470.davem@davemloft.net>
-References: <m14olcu7xo.fsf@fess.ebiederm.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-2.6 2/2] sfc: SFE4002/SFN4112F: Widen temperature and
+ voltage tolerances
+Date: Fri, 19 Feb 2010 23:34:03 +0000
+Message-ID: <1266622444.2091.10.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ebiederm@xmission.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55475
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756318Ab0BSX3h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2010 18:29:37 -0500
-In-Reply-To: <m14olcu7xo.fsf@fess.ebiederm.org>
+Received: from mail.solarflare.com ([216.237.3.220]:22777 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755751Ab0BSXeH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2010 18:34:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Fri, 19 Feb 2010 15:22:59 -0800
+The temperature and voltage limits currently set on these boards are
+too conservative and will cause the driver to stop the net device
+erroneously in some systems.
 
-> 
-> Yuck.  It turns out that when we restart sysctls we were restarting
-> with the values already changed.  Which unfortunately meant that
-> the second time through we thought there was no change and skipped
-> all kinds of work, despite the fact that there was indeed a change.
-> 
-> I have fixed this the simplest way possible by restoring the changed
-> values when we restart the sysctl write.
-> 
-> One of my coworkers spotted this bug when after disabling forwarding
-> on an interface pings were still forwarded.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+Based on a review of the chip datasheets and advice from the designer
+of these boards:
 
-What commit added this bug?
+- Raise the maximum board temperatures to the specified maximum ambient
+  temperatures for their PHYs plus the expected temperature bias of the
+  board
+- Raise the maximum controller temperature to 90 degrees
+- Lower the minimum temperatures to 0 degrees
+- Widen the voltage tolerances to at least +/- 10%
+
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/sfc/falcon_boards.c |   45 +++++++++++++++++++++++--------=
+-------
+ 1 files changed, 27 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/net/sfc/falcon_boards.c b/drivers/net/sfc/falcon_b=
+oards.c
+index bf0b96a..5712fdd 100644
+--- a/drivers/net/sfc/falcon_boards.c
++++ b/drivers/net/sfc/falcon_boards.c
+@@ -29,6 +29,15 @@
+ #define FALCON_BOARD_SFN4111T 0x51
+ #define FALCON_BOARD_SFN4112F 0x52
+=20
++/* Board temperature is about 15=C2=B0C above ambient when air flow is
++ * limited. */
++#define FALCON_BOARD_TEMP_BIAS	15
++
++/* SFC4000 datasheet says: 'The maximum permitted junction temperature
++ * is 125=C2=B0C; the thermal design of the environment for the SFC400=
+0
++ * should aim to keep this well below 100=C2=B0C.' */
++#define FALCON_JUNC_TEMP_MAX	90
++
+ /*********************************************************************=
+********
+  * Support for LM87 sensor chip used on several boards
+  */
+@@ -548,16 +557,16 @@ fail_hwmon:
+ static u8 sfe4002_lm87_channel =3D 0x03; /* use AIN not FAN inputs */
+=20
+ static const u8 sfe4002_lm87_regs[] =3D {
+-	LM87_IN_LIMITS(0, 0x83, 0x91),		/* 2.5V:  1.8V +/- 5% */
+-	LM87_IN_LIMITS(1, 0x51, 0x5a),		/* Vccp1: 1.2V +/- 5% */
+-	LM87_IN_LIMITS(2, 0xb6, 0xca),		/* 3.3V:  3.3V +/- 5% */
+-	LM87_IN_LIMITS(3, 0xb0, 0xc9),		/* 5V:    4.6-5.2V */
+-	LM87_IN_LIMITS(4, 0xb0, 0xe0),		/* 12V:   11-14V */
+-	LM87_IN_LIMITS(5, 0x44, 0x4b),		/* Vccp2: 1.0V +/- 5% */
+-	LM87_AIN_LIMITS(0, 0xa0, 0xb2),		/* AIN1:  1.66V +/- 5% */
+-	LM87_AIN_LIMITS(1, 0x91, 0xa1),		/* AIN2:  1.5V +/- 5% */
+-	LM87_TEMP_INT_LIMITS(10, 60),		/* board */
+-	LM87_TEMP_EXT1_LIMITS(10, 70),		/* Falcon */
++	LM87_IN_LIMITS(0, 0x7c, 0x99),		/* 2.5V:  1.8V +/- 10% */
++	LM87_IN_LIMITS(1, 0x4c, 0x5e),		/* Vccp1: 1.2V +/- 10% */
++	LM87_IN_LIMITS(2, 0xac, 0xd4),		/* 3.3V:  3.3V +/- 10% */
++	LM87_IN_LIMITS(3, 0xac, 0xd4),		/* 5V:    5.0V +/- 10% */
++	LM87_IN_LIMITS(4, 0xac, 0xe0),		/* 12V:   10.8-14V */
++	LM87_IN_LIMITS(5, 0x3f, 0x4f),		/* Vccp2: 1.0V +/- 10% */
++	LM87_AIN_LIMITS(0, 0x98, 0xbb),		/* AIN1:  1.66V +/- 10% */
++	LM87_AIN_LIMITS(1, 0x8a, 0xa9),		/* AIN2:  1.5V +/- 10% */
++	LM87_TEMP_INT_LIMITS(0, 80 + FALCON_BOARD_TEMP_BIAS),
++	LM87_TEMP_EXT1_LIMITS(0, FALCON_JUNC_TEMP_MAX),
+ 	0
+ };
+=20
+@@ -619,14 +628,14 @@ static int sfe4002_init(struct efx_nic *efx)
+ static u8 sfn4112f_lm87_channel =3D 0x03; /* use AIN not FAN inputs */
+=20
+ static const u8 sfn4112f_lm87_regs[] =3D {
+-	LM87_IN_LIMITS(0, 0x83, 0x91),		/* 2.5V:  1.8V +/- 5% */
+-	LM87_IN_LIMITS(1, 0x51, 0x5a),		/* Vccp1: 1.2V +/- 5% */
+-	LM87_IN_LIMITS(2, 0xb6, 0xca),		/* 3.3V:  3.3V +/- 5% */
+-	LM87_IN_LIMITS(4, 0xb0, 0xe0),		/* 12V:   11-14V */
+-	LM87_IN_LIMITS(5, 0x44, 0x4b),		/* Vccp2: 1.0V +/- 5% */
+-	LM87_AIN_LIMITS(1, 0x91, 0xa1),		/* AIN2:  1.5V +/- 5% */
+-	LM87_TEMP_INT_LIMITS(10, 60),		/* board */
+-	LM87_TEMP_EXT1_LIMITS(10, 70),		/* Falcon */
++	LM87_IN_LIMITS(0, 0x7c, 0x99),		/* 2.5V:  1.8V +/- 10% */
++	LM87_IN_LIMITS(1, 0x4c, 0x5e),		/* Vccp1: 1.2V +/- 10% */
++	LM87_IN_LIMITS(2, 0xac, 0xd4),		/* 3.3V:  3.3V +/- 10% */
++	LM87_IN_LIMITS(4, 0xac, 0xe0),		/* 12V:   10.8-14V */
++	LM87_IN_LIMITS(5, 0x3f, 0x4f),		/* Vccp2: 1.0V +/- 10% */
++	LM87_AIN_LIMITS(1, 0x8a, 0xa9),		/* AIN2:  1.5V +/- 10% */
++	LM87_TEMP_INT_LIMITS(0, 60 + FALCON_BOARD_TEMP_BIAS),
++	LM87_TEMP_EXT1_LIMITS(0, FALCON_JUNC_TEMP_MAX),
+ 	0
+ };
+=20
+--=20
+1.6.2.5
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
