@@ -1,51 +1,44 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC 1/2] sctp: convert hash list to RCU
-Date: Fri, 19 Feb 2010 08:18:56 -0800
-Message-ID: <20100219081856.79ba7cf8@nehalam>
-References: <20100219055520.223027612@vyatta.com>
-	<20100219055628.436258223@vyatta.com>
-	<20100219155825.GA6778@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: paulmck@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45768 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751462Ab0BSQTW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Feb 2010 11:19:22 -0500
-In-Reply-To: <20100219155825.GA6778@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: netfilter 01/03: restore POST_ROUTING hook in NF_HOOK_COND
+Date: Fri, 19 Feb 2010 18:02:08 +0100 (MET)
+Message-ID: <20100219170208.18096.29854.sendpatchset@x2.localnet>
+References: <20100219170206.18096.12788.sendpatchset@x2.localnet>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20100219170206.18096.12788.sendpatchset@x2.localnet>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 19 Feb 2010 07:58:25 -0800
-"Paul E. McKenney" <paulmck@linux.vnet.ibm.com> wrote:
+commit 4bac6b180771f7ef5275b1a6d88e630ca3a3d6f0
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Fri Feb 19 08:03:28 2010 +0100
 
-> On Thu, Feb 18, 2010 at 09:55:21PM -0800, Stephen Hemminger wrote:
-> > This patch converts existing SCTP hash list to using RCU
-> > rather than reader/writer lock. Also, get rid of no longer used
-> > locking wrappers.
-> > 
-> > In future, the SCTP hash locking should be broken out from the
-> > hash structure because of the wasted space for the hash locks
-> > and associated holes. A single lock per hashlist is sufficient
-> > now that RCU is used.
-> > 
-> > Compile tested only. I can't think of an SCTP stress application.
-> > 
-> > P.s: Some janitor ought to go through and remove the locking
-> > macros here.
-> 
-> One question below about what looks to be mixing of RCU and RCU-bh
-> read-side critical sections while waiting only for RCU grace periods.
-> Unless I am missing something, this can result in memory corruption.
-> 
+    netfilter: restore POST_ROUTING hook in NF_HOOK_COND
+    
+    Commit 2249065 ("netfilter: get rid of the grossness in netfilter.h")
+    inverted the logic for conditional hook invocation, breaking the
+    POST_ROUTING hook invoked by ip_output().
+    
+    Correct the logic and remove an unnecessary initialization.
+    
+    Reported-by: Stephen Hemminger <shemminger@vyatta.com>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Thanks, I copied the original locking which was broken there as well.
-
-
--- 
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 7007945..89341c3 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -212,8 +212,9 @@ NF_HOOK_COND(uint8_t pf, unsigned int hook, struct sk_buff *skb,
+ 	     struct net_device *in, struct net_device *out,
+ 	     int (*okfn)(struct sk_buff *), bool cond)
+ {
+-	int ret = 1;
+-	if (cond ||
++	int ret;
++
++	if (!cond ||
+ 	    (ret = nf_hook_thresh(pf, hook, skb, in, out, okfn, INT_MIN) == 1))
+ 		ret = okfn(skb);
+ 	return ret;
