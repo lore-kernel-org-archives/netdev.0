@@ -1,193 +1,48 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 2/2] packet: convert socket list to RCU
-Date: Thu, 18 Feb 2010 21:41:47 -0800
-Message-ID: <20100219054201.501571315@vyatta.com>
-References: <20100219054145.959067404@vyatta.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Li Zefan <lizf@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:53503 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752397Ab0BSFqk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Feb 2010 00:46:40 -0500
-Content-Disposition: inline; filename=packet-list-rcu.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: NAT regression in next tree
+Date: Thu, 18 Feb 2010 21:51:06 -0800
+Message-ID: <20100218215106.557be6b0@nehalam>
+References: <20100216173658.519b6245@nehalam>
+	<201002171526.02493.arnd@arndb.de>
+	<20100218173633.30bb8c41@nehalam>
+	<4B7E2587.3050608@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4B7E2587.3050608@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Convert AF_PACKET to use RCU, eliminating one more reader/writer lock.
+On Fri, 19 Feb 2010 06:45:43 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-I needed to create some minor additional socket list RCU infrastructure
-to make this work. Note: there is no need for a real sk_del_node_init_rcu(), 
-because sk_del_node_init is doing the equivalent thing to 
-hlst_del_init_rcu already; but added some comments to try and make that obvious.
+> Stephen Hemminger wrote:
+> > Something in net-next tree broke bridging of virtual nets.
+> > My local VM's can no longer access external networks.
+> > 
+> > It is a NAT problem. One of the recent netfilter changes is causing
+> > the packets to not have there source address rewritten.
+> > 
+> > I see:
+> >     VM1  -- 192.168.100.0/24 -- HOST -- 192.168.1.0/24 -- ROUTER
+> >                            virbr0    eth0
+> > 
+> > Even a simple ping from VM1 doesn't get responded to because
+> > the 192.168.100.X source address is not getting rewritten.
+> 
+> I'll try to reproduce it locally. What is the HEAD of the broken
+> tree you're running?
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+commit 37ee3d5b3e979a168536e7e2f15bd1e769cb4122
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Thu Feb 18 19:04:44 2010 +0100
 
----
- include/net/netns/packet.h |    4 ++--
- include/net/sock.h         |   10 ++++++++++
- net/packet/af_packet.c     |   42 ++++++++++++++++++++----------------------
- 3 files changed, 32 insertions(+), 24 deletions(-)
+    netfilter: nf_defrag_ipv4: fix compilation error with NF_CONNTRACK=n
 
---- a/include/net/netns/packet.h	2010-02-18 15:08:59.532872158 -0800
-+++ b/include/net/netns/packet.h	2010-02-18 15:09:16.433496523 -0800
-@@ -4,11 +4,11 @@
- #ifndef __NETNS_PACKET_H__
- #define __NETNS_PACKET_H__
- 
--#include <linux/list.h>
-+#include <linux/rculist.h>
- #include <linux/spinlock.h>
- 
- struct netns_packet {
--	rwlock_t		sklist_lock;
-+	spinlock_t		sklist_lock;
- 	struct hlist_head	sklist;
- };
- 
---- a/net/packet/af_packet.c	2010-02-18 15:08:59.520873035 -0800
-+++ b/net/packet/af_packet.c	2010-02-18 15:10:33.908871539 -0800
-@@ -1262,18 +1262,15 @@ static int packet_release(struct socket 
- 	net = sock_net(sk);
- 	po = pkt_sk(sk);
- 
--	write_lock_bh(&net->packet.sklist_lock);
--	sk_del_node_init(sk);
-+	spin_lock_bh(&net->packet.sklist_lock);
-+	sk_del_node_init_rcu(sk);
- 	sock_prot_inuse_add(net, sk->sk_prot, -1);
--	write_unlock_bh(&net->packet.sklist_lock);
--
--	/*
--	 *	Unhook packet receive handler.
--	 */
-+	spin_unlock_bh(&net->packet.sklist_lock);
- 
- 	if (po->running) {
- 		/*
--		 *	Remove the protocol hook
-+		 * Remove from protocol table
-+		 *  does synchronize_net()
- 		 */
- 		dev_remove_pack(&po->prot_hook);
- 		po->running = 0;
-@@ -1478,10 +1475,11 @@ static int packet_create(struct net *net
- 		po->running = 1;
- 	}
- 
--	write_lock_bh(&net->packet.sklist_lock);
--	sk_add_node(sk, &net->packet.sklist);
-+	spin_lock_bh(&net->packet.sklist_lock);
-+	sk_add_node_rcu(sk, &net->packet.sklist);
- 	sock_prot_inuse_add(net, &packet_proto, 1);
--	write_unlock_bh(&net->packet.sklist_lock);
-+	spin_unlock_bh(&net->packet.sklist_lock);
-+
- 	return 0;
- out:
- 	return err;
-@@ -2075,8 +2073,8 @@ static int packet_notifier(struct notifi
- 	struct net_device *dev = data;
- 	struct net *net = dev_net(dev);
- 
--	read_lock(&net->packet.sklist_lock);
--	sk_for_each(sk, node, &net->packet.sklist) {
-+	rcu_read_lock();
-+	sk_for_each_rcu(sk, node, &net->packet.sklist) {
- 		struct packet_sock *po = pkt_sk(sk);
- 
- 		switch (msg) {
-@@ -2115,7 +2113,7 @@ static int packet_notifier(struct notifi
- 			break;
- 		}
- 	}
--	read_unlock(&net->packet.sklist_lock);
-+	rcu_read_unlock();
- 	return NOTIFY_DONE;
- }
- 
-@@ -2512,24 +2510,24 @@ static struct notifier_block packet_netd
- #ifdef CONFIG_PROC_FS
- 
- static void *packet_seq_start(struct seq_file *seq, loff_t *pos)
--	__acquires(seq_file_net(seq)->packet.sklist_lock)
-+	__acquires(RCU)
- {
- 	struct net *net = seq_file_net(seq);
--	read_lock(&net->packet.sklist_lock);
--	return seq_hlist_start_head(&net->packet.sklist, *pos);
-+
-+	rcu_read_lock();
-+	return seq_hlist_start_head_rcu(&net->packet.sklist, *pos);
- }
- 
- static void *packet_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- {
- 	struct net *net = seq_file_net(seq);
--	return seq_hlist_next(v, &net->packet.sklist, pos);
-+	return seq_hlist_next_rcu(v, &net->packet.sklist, pos);
- }
- 
- static void packet_seq_stop(struct seq_file *seq, void *v)
--	__releases(seq_file_net(seq)->packet.sklist_lock)
-+	__releases(RCU)
- {
--	struct net *net = seq_file_net(seq);
--	read_unlock(&net->packet.sklist_lock);
-+	rcu_read_unlock();
- }
- 
- static int packet_seq_show(struct seq_file *seq, void *v)
-@@ -2581,7 +2579,7 @@ static const struct file_operations pack
- 
- static int __net_init packet_net_init(struct net *net)
- {
--	rwlock_init(&net->packet.sklist_lock);
-+	spin_lock_init(&net->packet.sklist_lock);
- 	INIT_HLIST_HEAD(&net->packet.sklist);
- 
- 	if (!proc_net_fops_create(net, "packet", 0, &packet_seq_fops))
---- a/include/net/sock.h	2010-02-18 15:08:59.548872240 -0800
-+++ b/include/net/sock.h	2010-02-18 15:09:16.437496392 -0800
-@@ -381,6 +381,7 @@ static __inline__ void __sk_del_node(str
- 	__hlist_del(&sk->sk_node);
- }
- 
-+/* NB: equivalent to hlist_del_init_rcu */
- static __inline__ int __sk_del_node_init(struct sock *sk)
- {
- 	if (sk_hashed(sk)) {
-@@ -421,6 +422,7 @@ static __inline__ int sk_del_node_init(s
- 	}
- 	return rc;
- }
-+#define sk_del_node_init_rcu(sk)	sk_del_node_init(sk)
- 
- static __inline__ int __sk_nulls_del_node_init_rcu(struct sock *sk)
- {
-@@ -454,6 +456,12 @@ static __inline__ void sk_add_node(struc
- 	__sk_add_node(sk, list);
- }
- 
-+static __inline__ void sk_add_node_rcu(struct sock *sk, struct hlist_head *list)
-+{
-+	sock_hold(sk);
-+	hlist_add_head_rcu(&sk->sk_node, list);
-+}
-+
- static __inline__ void __sk_nulls_add_node_rcu(struct sock *sk, struct hlist_nulls_head *list)
- {
- 	hlist_nulls_add_head_rcu(&sk->sk_nulls_node, list);
-@@ -478,6 +486,8 @@ static __inline__ void sk_add_bind_node(
- 
- #define sk_for_each(__sk, node, list) \
- 	hlist_for_each_entry(__sk, node, list, sk_node)
-+#define sk_for_each_rcu(__sk, node, list) \
-+	hlist_for_each_entry_rcu(__sk, node, list, sk_node)
- #define sk_nulls_for_each(__sk, node, list) \
- 	hlist_nulls_for_each_entry(__sk, node, list, sk_nulls_node)
- #define sk_nulls_for_each_rcu(__sk, node, list) \
+
 
 -- 
-
