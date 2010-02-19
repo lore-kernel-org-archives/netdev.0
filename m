@@ -1,41 +1,61 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: Re: [PATCH] mlx4: replace the dma_sync_single_range_for_cpu/device
- API
-Date: Fri, 19 Feb 2010 16:44:29 +0900
-Message-ID: <20100219164408H.fujita.tomonori@lab.ntt.co.jp>
-References: <20100205135626G.fujita.tomonori@lab.ntt.co.jp>
-	<20100204.210939.133998827.davem@davemloft.net>
-	<adavde35rr9.fsf@roland-alpha.cisco.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after final merge (net tree)
+Date: Fri, 19 Feb 2010 18:45:22 +1100
+Message-ID: <20100219184522.b89facc7.sfr@canb.auug.org.au>
+References: <20100219173713.e3f9f386.sfr@canb.auug.org.au>
+	<20100218.233321.226788593.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fujita.tomonori@lab.ntt.co.jp, netdev@vger.kernel.org,
-	rolandd@cisco.com, eli@mellanox.co.il, linux-kernel@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__19_Feb_2010_18_45_22_+1100_QV.B4eE8K7zWsXnv"
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kristoffer@gaisler.com
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <adavde35rr9.fsf@roland-alpha.cisco.com>
+In-Reply-To: <20100218.233321.226788593.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 11 Feb 2010 14:31:22 -0800
-Roland Dreier <rdreier@cisco.com> wrote:
+--Signature=_Fri__19_Feb_2010_18_45_22_+1100_QV.B4eE8K7zWsXnv
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
->  > > There are only two users of the dma_sync_single_range_for_cpu/device
->  > > API in mainline (mlx4 and ssb). The
->  > > dma_sync_single_range_for_cpu/device API has never been documented and
->  > > the dma_sync_single_for_cpu/device API also support a partial sync.
->  > > 
->  > > This converts mlx4 to use the dma_sync_single_for_cpu/device API
->  > > (preparations for the removal of the dma_sync_single_range_for_cpu/device API).
->  > > 
->  > > Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
->  > 
->  > Acked-by: David S. Miller <davem@davemloft.net>
-> 
-> Dave, please go ahead and merge this -- this affects the mlx4 ethernet
-> driver, so it's your area anyway.
+Hi Dave,
 
-Seems that net-next still doesn't have this. Can you please merge
-this?
+On Thu, 18 Feb 2010 23:33:21 -0800 (PST) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Fri, 19 Feb 2010 17:37:13 +1100
+>=20
+> > I assume that this driver was written and tested only on Sparc
+> > ... maybe it should depend on SPARC?
+>=20
+> Indeed, it should.  I thought for some reason that all OF
+> platforms have of_remap() and of_device->resource[], oh
+> well :-)
+>=20
+> Will commit the following, thanks!
+>=20
+> net: Make GRETH driver depend on SPARC.
 
-Thanks,
+Thanks.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Fri__19_Feb_2010_18_45_22_+1100_QV.B4eE8K7zWsXnv
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAkt+QZIACgkQjjKRsyhoI8wYpACeJUqvzMiseGEskzw6gNJkgkWf
+W7oAoLbgidgt2HbDhvUF8sKAvWNLPhQ1
+=zEew
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__19_Feb_2010_18_45_22_+1100_QV.B4eE8K7zWsXnv--
