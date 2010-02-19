@@ -1,142 +1,77 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH] greth: some driver cleanups
-Date: Fri, 19 Feb 2010 13:04:26 +0100
-Message-ID: <20100219120425.GD2644@psychotron.redhat.com>
-References: <20100219111439.GA4046@coldcone>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: kernel stack  trace using conntrack
+Date: Fri, 19 Feb 2010 13:33:44 +0100
+Message-ID: <1266582824.3136.1.camel@edumazet-laptop>
+References: <7EF5DBE4C76A7B4DA655334E9F2BFD26CED7BC8D04@FRSPX100.fr01.awl.atosorigin.net>
+	 <1266313889.3045.1.camel@edumazet-laptop>
+	 <7EF5DBE4C76A7B4DA655334E9F2BFD26CED7BC8D54@FRSPX100.fr01.awl.atosorigin.net>
+	 <1266318928.3045.38.camel@edumazet-laptop>  <4B7A9E95.103@netfilter.org>
+	 <1266327917.3045.55.camel@edumazet-laptop>
+	 <7EF5DBE4C76A7B4DA655334E9F2BFD26CED7BC905D@FRSPX100.fr01.awl.atosorigin.net>
+	 <4B7D17CE.6010805@trash.net> <4B7D1E32.6000705@netfilter.org>
+	 <4B7D215A.6060400@trash.net> <4B7D3022.9030405@netfilter.org>
+	 <4B7D306F.9060808@trash.net>  <4B7DF4DC.4000502@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kristoffer@gaisler.com, netdev@vger.kernel.org
-To: kirjanov@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	Ramblewski David <David.Ramblewski@atosorigin.com>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52766 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751018Ab0BSMEd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Feb 2010 07:04:33 -0500
-Content-Disposition: inline
-In-Reply-To: <20100219111439.GA4046@coldcone>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:58532 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751312Ab0BSMd5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2010 07:33:57 -0500
+In-Reply-To: <4B7DF4DC.4000502@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Feb 19, 2010 at 12:14:39PM CET, kirjanov@gmail.com wrote:
->Some driver cleanups:
->* convert to use phy_find_first/phy_direct_connect
->* convert to use netdev_mc_* helpers
->* fixed missing validate_addr hook
->* removed netdev_priv castings
->
->Signed-off-by: Denis Kirjanov <kirjanov@gmail.com>
->
->---
-> drivers/net/greth.c |   38 +++++++++++++++-----------------------
-> 1 files changed, 15 insertions(+), 23 deletions(-)
->
->diff --git a/drivers/net/greth.c b/drivers/net/greth.c
->index 457da1c..38620da 100644
->--- a/drivers/net/greth.c
->+++ b/drivers/net/greth.c
->@@ -965,7 +965,7 @@ static int greth_set_mac_add(struct net_device *dev, void *p)
-> 	struct greth_private *greth;
-> 	struct greth_regs *regs;
-> 
->-	greth = (struct greth_private *) netdev_priv(dev);
->+	greth = netdev_priv(dev);
-> 	regs = (struct greth_regs *) greth->regs;
-> 
-> 	if (!is_valid_ether_addr(addr->sa_data))
->@@ -988,16 +988,14 @@ static u32 greth_hash_get_index(__u8 *addr)
-> static void greth_set_hash_filter(struct net_device *dev)
-> {
-> 	struct dev_mc_list *curr;
->-	struct greth_private *greth = (struct greth_private *) netdev_priv(dev);
->+	struct greth_private *greth = netdev_priv(dev);
-> 	struct greth_regs *regs = (struct greth_regs *) greth->regs;
-> 	u32 mc_filter[2];
->-	unsigned int i, bitnr;
->+	unsigned int bitnr;
-> 
-> 	mc_filter[0] = mc_filter[1] = 0;
-> 
->-	curr = dev->mc_list;
->-
->-	for (i = 0; i < dev->mc_count; i++, curr = curr->next) {
->+	netdev_for_each_mc_addr(curr, dev) {
-> 
+Le vendredi 19 f=C3=A9vrier 2010 =C3=A0 03:18 +0100, Pablo Neira Ayuso =
+a =C3=A9crit :
+> Patrick McHardy wrote:
+> > Pablo Neira Ayuso wrote:
+> >> Patrick McHardy wrote:
+> >>>>> Pablo, please let me know whether you want me to apply this.
+> >>>> ctnetlink_change_helper() also calls nf_ct_ext_add() for conntra=
+cks that
+> >>>> are confirmed (in case of a helper update for an existing conntr=
+ack).
+> >>>> That would also trigger the assertion. If we want to support hel=
+per
+> >>>> assignation via ctnetlink for existing conntracks, we will need =
+to add
+> >>>> locking to the conntrack extension infrastructure to avoid races=
+=2E
+> >>>>
+> >>>> I don't see a clear solution for this yet.
+> >>> I see, this is indeed a problem. Since the helper is known at the
+> >>> first event, we could restrict this to only allow manual assignme=
+nt
+> >>> for newly created conntracks. Most helpers probably can't properl=
+y
+> >>> cope with connections not seen from the beginning anyways.
+> >> Indeed, changing the helper in the middle of the road doesn't make=
+ too
+> >> much sense to me either. I can send you a patch for this along tod=
+ay,
+> >> I'll find some spare time to do it.
+> >=20
+> > Great, thanks Pablo.
+>=20
+> I have slightly tested the following patch here. I think it should fi=
+x
+> the problem.
+>=20
+> We can revisit ctnetlink_change_helper() later, I think there's some
+> code there that can be refactorized.
+>=20
+> Let me know if you're OK with it.
 
-Please also remove following 2 lines:
-> 		if (!curr)
-> 			break;	/* unexpected end of list */
-------------------------------------
+I sucessfuly tested your patch Pablo, thanks.
 
->@@ -1031,7 +1029,7 @@ static void greth_set_multicast_list(struct net_device *dev)
-> 			return;
-> 		}
-> 
->-		if (dev->mc_count == 0) {
->+		if (!netdev_mc_count(dev)) {
-> 			cfg &= ~GRETH_CTRL_MCEN;
-> 			GRETH_REGSAVE(regs->control, cfg);
-> 			return;
->@@ -1160,6 +1158,7 @@ static struct net_device_ops greth_netdev_ops = {
-> 	.ndo_stop = greth_close,
-> 	.ndo_start_xmit = greth_start_xmit,
-> 	.ndo_set_mac_address = greth_set_mac_add,
->+	.ndo_validate_addr 	= eth_validate_addr,
-> };
-> 
-> static inline int wait_for_mdio(struct greth_private *greth)
->@@ -1275,28 +1274,21 @@ static int greth_mdio_probe(struct net_device *dev)
-> {
-> 	struct greth_private *greth = netdev_priv(dev);
-> 	struct phy_device *phy = NULL;
->-	u32 interface;
->-	int i;
->+	int ret;
-> 
-> 	/* Find the first PHY */
->-	for (i = 0; i < PHY_MAX_ADDR; i++) {
->-		if (greth->mdio->phy_map[i]) {
->-			phy = greth->mdio->phy_map[i];
->-			break;
->-		}
->-	}
->+	phy = phy_find_first(greth->mdio);
->+
-> 	if (!phy) {
-> 		if (netif_msg_probe(greth))
-> 			dev_err(&dev->dev, "no PHY found\n");
-> 		return -ENXIO;
-> 	}
-> 
->-	if (greth->gbit_mac)
->-		interface = PHY_INTERFACE_MODE_GMII;
->-	else
->-		interface = PHY_INTERFACE_MODE_MII;
->-
->-	phy = phy_connect(dev, dev_name(&phy->dev), &greth_link_change, 0, interface);
->+	ret = phy_connect_direct(dev, phy, &greth_link_change,
->+			0, greth->gbit_mac ?
->+			PHY_INTERFACE_MODE_GMII :
->+			PHY_INTERFACE_MODE_MII);
-> 
-> 	if (greth->gbit_mac)
-> 		phy->supported &= PHY_GBIT_FEATURES;
->@@ -1305,10 +1297,10 @@ static int greth_mdio_probe(struct net_device *dev)
-> 
-> 	phy->advertising = phy->supported;
-> 
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-When you are in this, I would rather move return value checking right after
-phy_connect_direct() call
 
-Regards,
-	Jirka
 
->-	if (IS_ERR(phy)) {
->+	if (ret) {
-> 		if (netif_msg_ifup(greth))
-> 			dev_err(&dev->dev, "could not attach to PHY\n");
->-		return PTR_ERR(phy);
->+		return ret;
-> 	}
-> 
-> 	greth->link = 0;
