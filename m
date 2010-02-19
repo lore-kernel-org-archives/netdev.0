@@ -1,131 +1,64 @@
-From: "Denis Kirjanov <kirjanov@gmail.com" <kirjanov@gmail.com>
-Subject: [PATCH] greth: some driver cleanups
-Date: Fri, 19 Feb 2010 14:14:39 +0300
-Message-ID: <20100219111439.GA4046@coldcone>
-Reply-To: kirjanov@gmail.com
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v2 0/3] e1000e,igb,ixgbe: add registers etc. printout
+ code just before resetting adapters
+Date: Fri, 19 Feb 2010 03:20:56 -0800
+Message-ID: <1266578456.25502.23.camel@localhost.localdomain>
+References: <4B593B74.2020601@jp.fujitsu.com>
+	 <alpine.WNT.2.00.1001221345580.6104@jbrandeb-desk1.amr.corp.intel.com>
+	 <4B5EC215.5090509@jp.fujitsu.com>
+	 <alpine.WNT.2.00.1002171043450.5328@jbrandeb-desk1.amr.corp.intel.com>
+	 <4B7E48F8.7010208@jp.fujitsu.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: kristoffer@gaisler.com, jpirko@redhat.com, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	Koki Sanagi <sanagi.koki@jp.fujitsu.com>,
+	Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
+	"chavey@google.com" <chavey@google.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Taku Izumi <izumi.taku@jp.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.154]:39038 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751945Ab0BSLMu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2010 06:12:50 -0500
-Received: by fg-out-1718.google.com with SMTP id 22so15729fge.1
-        for <netdev@vger.kernel.org>; Fri, 19 Feb 2010 03:12:48 -0800 (PST)
-Content-Disposition: inline
+Received: from mga01.intel.com ([192.55.52.88]:62575 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752049Ab0BSLU5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Feb 2010 06:20:57 -0500
+In-Reply-To: <4B7E48F8.7010208@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some driver cleanups:
-* convert to use phy_find_first/phy_direct_connect
-* convert to use netdev_mc_* helpers
-* fixed missing validate_addr hook
-* removed netdev_priv castings
+On Fri, 2010-02-19 at 01:16 -0700, Taku Izumi wrote:
+> Hi Jesse,
+> 
+> > I have a counter proposal to make, here is a (incomplete) patch that we
+> > use all the time to debug tx hangs.  This example is for e1000e.  We are
+> > trying to avoid changes with other users' copyright to some of the files
+> > in our drivers so that we can ship them under multiple license.  We would
+> > much prefer something like this to be used, can you review?
+> 
+>   I haven't understood yet about the reason we have to avoid changing some
+>   files. Are there any files (header files?) we can't modify?
+> 
+> Best regards,
+> Taku Izumi
+> 
 
-Signed-off-by: Denis Kirjanov <kirjanov@gmail.com>
+To answer your question, no there are no files you can't submit patches
+to.  We do have some common files which are used/shared amongst all of
+our drivers which are used for initializing and/or bring up the
+hardware, so when a patch is submitted to our drivers which changes our
+"shared code" our first question is "Is this change necessary for all of
+our drivers?" and if the answer is no, then we take a look at what
+changes can be made in the code which is not shared among our other
+drivers.
 
----
- drivers/net/greth.c |   38 +++++++++++++++-----------------------
- 1 files changed, 15 insertions(+), 23 deletions(-)
+-- 
+Cheers,
+Jeff
 
-diff --git a/drivers/net/greth.c b/drivers/net/greth.c
-index 457da1c..38620da 100644
---- a/drivers/net/greth.c
-+++ b/drivers/net/greth.c
-@@ -965,7 +965,7 @@ static int greth_set_mac_add(struct net_device *dev, void *p)
- 	struct greth_private *greth;
- 	struct greth_regs *regs;
- 
--	greth = (struct greth_private *) netdev_priv(dev);
-+	greth = netdev_priv(dev);
- 	regs = (struct greth_regs *) greth->regs;
- 
- 	if (!is_valid_ether_addr(addr->sa_data))
-@@ -988,16 +988,14 @@ static u32 greth_hash_get_index(__u8 *addr)
- static void greth_set_hash_filter(struct net_device *dev)
- {
- 	struct dev_mc_list *curr;
--	struct greth_private *greth = (struct greth_private *) netdev_priv(dev);
-+	struct greth_private *greth = netdev_priv(dev);
- 	struct greth_regs *regs = (struct greth_regs *) greth->regs;
- 	u32 mc_filter[2];
--	unsigned int i, bitnr;
-+	unsigned int bitnr;
- 
- 	mc_filter[0] = mc_filter[1] = 0;
- 
--	curr = dev->mc_list;
--
--	for (i = 0; i < dev->mc_count; i++, curr = curr->next) {
-+	netdev_for_each_mc_addr(curr, dev) {
- 
- 		if (!curr)
- 			break;	/* unexpected end of list */
-@@ -1031,7 +1029,7 @@ static void greth_set_multicast_list(struct net_device *dev)
- 			return;
- 		}
- 
--		if (dev->mc_count == 0) {
-+		if (!netdev_mc_count(dev)) {
- 			cfg &= ~GRETH_CTRL_MCEN;
- 			GRETH_REGSAVE(regs->control, cfg);
- 			return;
-@@ -1160,6 +1158,7 @@ static struct net_device_ops greth_netdev_ops = {
- 	.ndo_stop = greth_close,
- 	.ndo_start_xmit = greth_start_xmit,
- 	.ndo_set_mac_address = greth_set_mac_add,
-+	.ndo_validate_addr 	= eth_validate_addr,
- };
- 
- static inline int wait_for_mdio(struct greth_private *greth)
-@@ -1275,28 +1274,21 @@ static int greth_mdio_probe(struct net_device *dev)
- {
- 	struct greth_private *greth = netdev_priv(dev);
- 	struct phy_device *phy = NULL;
--	u32 interface;
--	int i;
-+	int ret;
- 
- 	/* Find the first PHY */
--	for (i = 0; i < PHY_MAX_ADDR; i++) {
--		if (greth->mdio->phy_map[i]) {
--			phy = greth->mdio->phy_map[i];
--			break;
--		}
--	}
-+	phy = phy_find_first(greth->mdio);
-+
- 	if (!phy) {
- 		if (netif_msg_probe(greth))
- 			dev_err(&dev->dev, "no PHY found\n");
- 		return -ENXIO;
- 	}
- 
--	if (greth->gbit_mac)
--		interface = PHY_INTERFACE_MODE_GMII;
--	else
--		interface = PHY_INTERFACE_MODE_MII;
--
--	phy = phy_connect(dev, dev_name(&phy->dev), &greth_link_change, 0, interface);
-+	ret = phy_connect_direct(dev, phy, &greth_link_change,
-+			0, greth->gbit_mac ?
-+			PHY_INTERFACE_MODE_GMII :
-+			PHY_INTERFACE_MODE_MII);
- 
- 	if (greth->gbit_mac)
- 		phy->supported &= PHY_GBIT_FEATURES;
-@@ -1305,10 +1297,10 @@ static int greth_mdio_probe(struct net_device *dev)
- 
- 	phy->advertising = phy->supported;
- 
--	if (IS_ERR(phy)) {
-+	if (ret) {
- 		if (netif_msg_ifup(greth))
- 			dev_err(&dev->dev, "could not attach to PHY\n");
--		return PTR_ERR(phy);
-+		return ret;
- 	}
- 
- 	greth->link = 0;
