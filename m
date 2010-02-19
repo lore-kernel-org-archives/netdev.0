@@ -1,69 +1,85 @@
-From: "Benjamin Li" <benli@broadcom.com>
-Subject: Re: BNX2: Kernel crashes with 2.6.31 and 2.6.31.9
-Date: Fri, 19 Feb 2010 13:47:14 -0800
-Message-ID: <1266616034.2610.51.camel@dhcp-10-12-137-130.broadcom.com>
-References: <20091229084929.54912c0c@pluto.restena.lu>
- <1262077540.12520.4.camel@localhost>
- <20091229145403.39f82773@pluto.restena.lu>
- <1262149691.2788.63.camel@localhost>
- <20100219091034.5fbb0165@pluto.restena.lu>
- <1266609426.2610.36.camel@dhcp-10-12-137-130.broadcom.com>
- <4B7EFCA6.7050709@hp.com>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: Subject: [PATCH 6/6] bna: Brocade 10Gb Ethernet device driver
+Date: Fri, 19 Feb 2010 13:52:38 -0800
+Message-ID: <201002192152.o1JLqceW031971@blc-10-1.brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Bruno =?ISO-8859-1?Q?Pr=E9mont?=" <bonbons@linux-vserver.org>,
-	NetDEV <netdev@vger.kernel.org>,
-	"Michael Chan" <mchan@broadcom.com>,
-	Linux-Kernel <linux-kernel@vger.kernel.org>
-To: "Brian Haley" <brian.haley@hp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B7EFCA6.7050709@hp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <adapter_linux_open_src_team@brocade.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hq-exedge.brocade.com ([66.243.153.83]:43375 "EHLO
+	hq-exedge.brocade.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752906Ab0BSVwj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2010 16:52:39 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Brian,
+From: Rasesh Mody <rmody@brocade.com>
 
-On Fri, 2010-02-19 at 13:03 -0800, Brian Haley wrote:
-> Hi Ben,
-> 
-> Benjamin Li wrote:
-> > Hi Bruno,
-> > 
-> > @@ -8201,7 +8204,7 @@ bnx2_init_napi(struct bnx2 *bp)
-> >  {
-> >  	int i;
-> >  
-> > -	for (i = 0; i < BNX2_MAX_MSIX_VEC; i++) {
-> > +	for (i = 0; i < bp->irq_nvecs; i++) {
-> >  		struct bnx2_napi *bnapi = &bp->bnx2_napi[i];
-> >  		int (*poll)(struct napi_struct *, int);
-> 
-> Would this same change need to be made in other places, like bnx2_init_chip()
-> or bnx2_clear_ring_states() ?
+This is patch 6/6 which contains linux driver source for
+Brocade's BR1010/BR1020 10Gb CEE capable ethernet adapter.
+Source is based against net-next-2.6.
 
-The other locations in the bnx2.c driver are bnx2_init_chip(),
-bnx2_clear_ring_states(), bnx2_alloc_mem().  With the current
-implementation, the bnx2_napi structures are initialize but never used
-which should be ok.  But, we can clean this up to save some cycles.
+We wish this patch to be considered for inclusion in net-next-2.6
 
-The following are the areas in the code which iterate through all the
-vectors.
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
+---
+ Kconfig      |   15 +++++++++++++++
+ Makefile     |    1 +
+ bna/Makefile |   14 ++++++++++++++
+ 3 files changed, 30 insertions(+)
 
-bnx2_init_chip() - zero the last_status_idx field in the bnx2_napi
-structure
-bnx2_clear_ring_states() - zero the rings producer/consumer indexes
-bnx2_alloc_mem() - initialize the consumer pointers
-
-Thanks again.
-
--Ben
-
-> 
-> -Brian
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-> 
+diff -ruP net-next-2.6.33-rc5-orig/drivers/net/Kconfig net-next-2.6.33-rc5-mod/drivers/net/Kconfig
+--- net-next-2.6.33-rc5-orig/drivers/net/Kconfig	2010-02-05 20:04:14.000000000 -0800
++++ net-next-2.6.33-rc5-mod/drivers/net/Kconfig	2010-02-19 13:49:02.020069000 -0800
+@@ -2792,6 +2792,21 @@
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called qlge.
+ 
++config BNA
++        tristate "Brocade 1010/1020 10Gb Ethernet Driver support"
++        depends on PCI
++        ---help---
++          This driver supports Brocade 1010/1020 10Gb CEE capable Ethernet
++          cards.
++
++          To compile this driver as a module, choose M here: the module
++          will be called bna.
++
++          For general information and support, go to the Brocade support
++          website at:
++
++          <http://support.brocade.com>
++
+ source "drivers/net/sfc/Kconfig"
+ 
+ source "drivers/net/benet/Kconfig"
+diff -ruP net-next-2.6.33-rc5-orig/drivers/net/Makefile net-next-2.6.33-rc5-mod/drivers/net/Makefile
+--- net-next-2.6.33-rc5-orig/drivers/net/Makefile	2010-02-05 20:04:14.000000000 -0800
++++ net-next-2.6.33-rc5-mod/drivers/net/Makefile	2010-02-19 13:49:02.044063000 -0800
+@@ -32,6 +32,7 @@
+ obj-$(CONFIG_JME) += jme.o
+ obj-$(CONFIG_BE2NET) += benet/
+ obj-$(CONFIG_VMXNET3) += vmxnet3/
++obj-$(CONFIG_BNA) += bna/
+ 
+ gianfar_driver-objs := gianfar.o \
+ 		gianfar_ethtool.o \
+diff -ruP net-next-2.6.33-rc5-orig/drivers/net/bna/Makefile net-next-2.6.33-rc5-mod/drivers/net/bna/Makefile
+--- net-next-2.6.33-rc5-orig/drivers/net/bna/Makefile	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6.33-rc5-mod/drivers/net/bna/Makefile	2010-02-19 13:49:02.079068000 -0800
+@@ -0,0 +1,14 @@
++#
++# Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
++# All rights reserved.
++#
++
++obj-$(CONFIG_BNA) += bna.o
++
++bna-objs := bnad.o bnad_ethtool.o bna_fn.o bna_if.o bna_queue.o
++bna-objs += bfad_fwimg.o bfa_csdebug.o bfa_sm.o bfa_ioc.o bfa_ioc_ct.o
++bna-objs += bfa_cee.o
++
++EXTRA_CFLAGS := -Idrivers/net/bna -Idrivers/net/bna/include/cee
++EXTRA_CFLAGS +=	-Idrivers/net/bna/include -Idrivers/net/bna/include/cs
++EXTRA_CFLAGS +=	-Idrivers/net/bna/include/cna/pstats
