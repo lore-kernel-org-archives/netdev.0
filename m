@@ -1,49 +1,98 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 00/03: netfilter fixes
-Date: Fri, 19 Feb 2010 18:02:06 +0100 (MET)
-Message-ID: <20100219170206.18096.12788.sendpatchset@x2.localnet>
+Subject: netfilter 02/03: ctnetlink: fix creation of conntrack with helpers
+Date: Fri, 19 Feb 2010 18:02:09 +0100 (MET)
+Message-ID: <20100219170209.18096.38387.sendpatchset@x2.localnet>
+References: <20100219170206.18096.12788.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62746 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755050Ab0BSRCI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2010 12:02:08 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20100219170206.18096.12788.sendpatchset@x2.localnet>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+commit a88e22adf5aad79b6e2ddd1bf0109c2ba8b46b0e
+Author: Pablo Neira Ayuso <pablo@netfilter.org>
+Date:   Fri Feb 19 14:24:39 2010 +0100
 
-following are three netfilter fixes for net-next, fixing:
+    netfilter: ctnetlink: fix creation of conntrack with helpers
+    
+    This patch fixes a bug that triggers an assertion if you create
+    a conntrack entry with a helper and netfilter debugging is enabled.
+    Basically, we hit the assertion because the confirmation flag is
+    set before the conntrack extensions are added. To fix this, we
+    move the extension addition before the aforementioned flag is
+    set.
+    
+    This patch also removes the possibility of setting a helper for
+    existing conntracks. This operation would also trigger the
+    assertion since we are not allowed to add new extensions for
+    existing conntracks. We know noone that could benefit from
+    this operation sanely.
+    
+    Thanks to Eric Dumazet for initial posting a preliminary patch
+    to address this issue.
+    
+    Reported-by: David Ramblewski <David.Ramblewski@atosorigin.com>
+    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+    Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-- the NAT issue reported by Stephen, which was caused by inverted logic
-  in NF_HOOK_COND(), causing it to skip the POST_ROUTING hook invocation
-
-- an assertion in ct_extend, caused by invalid ordering in ctnetlink
-  when setting up new conntracks. Additionally it is invalid to
-  attach helpers to existing conntracks, which is disabled by this
-  patch.
-
-- an skb leak in nf_queue when userspace returns NF_STOLEN as verdict
-
-Please apply or pull from:
-
-git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
-
-Thanks!
-
-
- include/linux/netfilter.h            |    5 +++--
- net/netfilter/nf_conntrack_netlink.c |   22 +++++++++++-----------
- net/netfilter/nf_queue.c             |    2 +-
- 3 files changed, 15 insertions(+), 14 deletions(-)
-
-Eric Dumazet (1):
-      netfilter: nf_queue: fix NF_STOLEN skb leak
-
-Pablo Neira Ayuso (1):
-      netfilter: ctnetlink: fix creation of conntrack with helpers
-
-Patrick McHardy (1):
-      netfilter: restore POST_ROUTING hook in NF_HOOK_COND
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 8b05f36..2b2af63 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -1077,9 +1077,8 @@ ctnetlink_change_helper(struct nf_conn *ct, const struct nlattr * const cda[])
+ 		/* need to zero data of old helper */
+ 		memset(&help->help, 0, sizeof(help->help));
+ 	} else {
+-		help = nf_ct_helper_ext_add(ct, GFP_ATOMIC);
+-		if (help == NULL)
+-			return -ENOMEM;
++		/* we cannot set a helper for an existing conntrack */
++		return -EOPNOTSUPP;
+ 	}
+ 
+ 	rcu_assign_pointer(help->helper, helper);
+@@ -1263,7 +1262,6 @@ ctnetlink_create_conntrack(struct net *net, u16 zone,
+ 	ct->timeout.expires = ntohl(nla_get_be32(cda[CTA_TIMEOUT]));
+ 
+ 	ct->timeout.expires = jiffies + ct->timeout.expires * HZ;
+-	ct->status |= IPS_CONFIRMED;
+ 
+ 	rcu_read_lock();
+  	if (cda[CTA_HELP]) {
+@@ -1314,14 +1312,19 @@ ctnetlink_create_conntrack(struct net *net, u16 zone,
+ 			goto err2;
+ 	}
+ 
+-	if (cda[CTA_STATUS]) {
+-		err = ctnetlink_change_status(ct, cda);
++	if (cda[CTA_NAT_SRC] || cda[CTA_NAT_DST]) {
++		err = ctnetlink_change_nat(ct, cda);
+ 		if (err < 0)
+ 			goto err2;
+ 	}
+ 
+-	if (cda[CTA_NAT_SRC] || cda[CTA_NAT_DST]) {
+-		err = ctnetlink_change_nat(ct, cda);
++	nf_ct_acct_ext_add(ct, GFP_ATOMIC);
++	nf_ct_ecache_ext_add(ct, 0, 0, GFP_ATOMIC);
++	/* we must add conntrack extensions before confirmation. */
++	ct->status |= IPS_CONFIRMED;
++
++	if (cda[CTA_STATUS]) {
++		err = ctnetlink_change_status(ct, cda);
+ 		if (err < 0)
+ 			goto err2;
+ 	}
+@@ -1340,9 +1343,6 @@ ctnetlink_create_conntrack(struct net *net, u16 zone,
+ 			goto err2;
+ 	}
+ 
+-	nf_ct_acct_ext_add(ct, GFP_ATOMIC);
+-	nf_ct_ecache_ext_add(ct, 0, 0, GFP_ATOMIC);
+-
+ #if defined(CONFIG_NF_CONNTRACK_MARK)
+ 	if (cda[CTA_MARK])
+ 		ct->mark = ntohl(nla_get_be32(cda[CTA_MARK]));
