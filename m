@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.34] r8169: enable 64-bit DMA by default for PCI
- Express devices
-Date: Fri, 19 Feb 2010 13:17:18 -0800 (PST)
-Message-ID: <20100219.131718.115496278.davem@davemloft.net>
-References: <4B7CAEC1.6090408@gmail.com>
+Subject: Re: [net-next 2.6 PATCH] net/pcmcia: convert to use
+ netdev_for_each_mc_addr
+Date: Fri, 19 Feb 2010 13:18:09 -0800 (PST)
+Message-ID: <20100219.131809.123982708.davem@davemloft.net>
+References: <20100219184847.GG6598@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	romieu@fr.zoreil.com
-To: hancockrwd@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B7CAEC1.6090408@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: jpirko@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35620
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751417Ab0BSVRw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2010 16:17:52 -0500
+In-Reply-To: <20100219184847.GG6598@psychotron.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Robert Hancock <hancockrwd@gmail.com>
-Date: Wed, 17 Feb 2010 21:06:41 -0600
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Fri, 19 Feb 2010 19:48:47 +0100
 
-> Currently use of 64-bit DMA is disabled in r8169 unless the user passes the
-> use_dac module option. This is reasonable for conventional PCI devices where
-> broken chipsets may not handle dual-address-cycle transfers properly for
-> 32-bit slots and so this may not be safe. However, PCI Express should not have
-> this problem and not using 64-bit DMA results in DMA transfers needlessly using
-> the IOMMU or SWIOTLB. Set the use_dac module parameter to a new default value of
-> -1 which results in 64-bit DMA being enabled by default for PCI Express devices
-> only.
+> removed fill_multicast_tbl function in smc91c92_cs and do the work inline
 > 
-> Signed-off-by: Robert Hancock <hancockrwd@gmail.com>
+> rewritten set_addresses function in xirc2ps_cs. This was kinda headache.
+> Simulated the original and new functions and they bahave the same.
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-This patch is fine, but it doesn't apply cleanly to net-next-2.6
-
-Please fix this up and resubmit, thanks!
+Applied.
