@@ -1,17 +1,30 @@
-From: Unknown <unknown@unknown.invalid>
-Subject: Wide variety of innovative treatments for hair loss and thinning hair.
-Date: 19 Feb 2010 17:18:31 +0900
-Message-ID: <20100219081831.29148.qmail@idion.co.jp>
-To: netdev@vger.kernel.org
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH] greth: some driver cleanups
+Date: Fri, 19 Feb 2010 13:51:51 +0100
+Message-ID: <20100219125148.GA6598@psychotron.redhat.com>
+References: <20100219111439.GA4046@coldcone>
+ <20100219120425.GD2644@psychotron.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kristoffer@gaisler.com, netdev@vger.kernel.org
+To: kirjanov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 221x240x226x34.ap221.ftth.ucom.ne.jp ([221.240.226.34]:50120
-	"HELO idion.co.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with SMTP id S1753905Ab0BSMuL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2010 07:50:11 -0500
-From: <>
+Received: from mx1.redhat.com ([209.132.183.28]:55156 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751152Ab0BSMwM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Feb 2010 07:52:12 -0500
+Content-Disposition: inline
+In-Reply-To: <20100219120425.GD2644@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pending delivery http://bespopc.crisivren.com/
 
+<snip>
+>>@@ -1031,7 +1029,7 @@ static void greth_set_multicast_list(struct net_device *dev)
+>> 			return;
+>> 		}
+>> 
+>>-		if (dev->mc_count == 0) {
+>>+		if (!netdev_mc_count(dev)) {
+also please use netdev_mc_empty() here.
 
