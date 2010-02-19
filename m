@@ -1,124 +1,142 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [PATCH 3/3] xfrm: Flushing empty SPD generates false events
-Date: Fri, 19 Feb 2010 07:00:42 -0500
-Message-ID: <1266580842-10608-4-git-send-email-hadi@cyberus.ca>
-References: <flush-fix-xfrm>
- <1266580842-10608-1-git-send-email-hadi@cyberus.ca>
- <1266580842-10608-2-git-send-email-hadi@cyberus.ca>
- <1266580842-10608-3-git-send-email-hadi@cyberus.ca>
-Cc: netdev@vger.kernel.org, Jamal Hadi Salim <hadi@cyberus.ca>
-To: davem@davemloft.net, adobriyan@gmail.com
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH] greth: some driver cleanups
+Date: Fri, 19 Feb 2010 13:04:26 +0100
+Message-ID: <20100219120425.GD2644@psychotron.redhat.com>
+References: <20100219111439.GA4046@coldcone>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kristoffer@gaisler.com, netdev@vger.kernel.org
+To: kirjanov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f179.google.com ([209.85.221.179]:59575 "EHLO
-	mail-qy0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751045Ab0BSMBB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2010 07:01:01 -0500
-Received: by qyk9 with SMTP id 9so5661015qyk.22
-        for <netdev@vger.kernel.org>; Fri, 19 Feb 2010 04:01:00 -0800 (PST)
-In-Reply-To: <1266580842-10608-3-git-send-email-hadi@cyberus.ca>
+Received: from mx1.redhat.com ([209.132.183.28]:52766 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751018Ab0BSMEd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Feb 2010 07:04:33 -0500
+Content-Disposition: inline
+In-Reply-To: <20100219111439.GA4046@coldcone>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <hadi@cyberus.ca>
+Fri, Feb 19, 2010 at 12:14:39PM CET, kirjanov@gmail.com wrote:
+>Some driver cleanups:
+>* convert to use phy_find_first/phy_direct_connect
+>* convert to use netdev_mc_* helpers
+>* fixed missing validate_addr hook
+>* removed netdev_priv castings
+>
+>Signed-off-by: Denis Kirjanov <kirjanov@gmail.com>
+>
+>---
+> drivers/net/greth.c |   38 +++++++++++++++-----------------------
+> 1 files changed, 15 insertions(+), 23 deletions(-)
+>
+>diff --git a/drivers/net/greth.c b/drivers/net/greth.c
+>index 457da1c..38620da 100644
+>--- a/drivers/net/greth.c
+>+++ b/drivers/net/greth.c
+>@@ -965,7 +965,7 @@ static int greth_set_mac_add(struct net_device *dev, void *p)
+> 	struct greth_private *greth;
+> 	struct greth_regs *regs;
+> 
+>-	greth = (struct greth_private *) netdev_priv(dev);
+>+	greth = netdev_priv(dev);
+> 	regs = (struct greth_regs *) greth->regs;
+> 
+> 	if (!is_valid_ether_addr(addr->sa_data))
+>@@ -988,16 +988,14 @@ static u32 greth_hash_get_index(__u8 *addr)
+> static void greth_set_hash_filter(struct net_device *dev)
+> {
+> 	struct dev_mc_list *curr;
+>-	struct greth_private *greth = (struct greth_private *) netdev_priv(dev);
+>+	struct greth_private *greth = netdev_priv(dev);
+> 	struct greth_regs *regs = (struct greth_regs *) greth->regs;
+> 	u32 mc_filter[2];
+>-	unsigned int i, bitnr;
+>+	unsigned int bitnr;
+> 
+> 	mc_filter[0] = mc_filter[1] = 0;
+> 
+>-	curr = dev->mc_list;
+>-
+>-	for (i = 0; i < dev->mc_count; i++, curr = curr->next) {
+>+	netdev_for_each_mc_addr(curr, dev) {
+> 
 
-To see the effect make sure you have an empty SPD.
-On window1 "ip xfrm mon" and on window2 issue "ip xfrm policy flush"
-You get prompt back in window2 and you see the flush event on window1.
-With this fix, you still get prompt on window1 but no event on window2.
+Please also remove following 2 lines:
+> 		if (!curr)
+> 			break;	/* unexpected end of list */
+------------------------------------
 
-Thanks to Alexey Dobriyan for finding a bug in earlier version
-when using pfkey to do the flushing.
+>@@ -1031,7 +1029,7 @@ static void greth_set_multicast_list(struct net_device *dev)
+> 			return;
+> 		}
+> 
+>-		if (dev->mc_count == 0) {
+>+		if (!netdev_mc_count(dev)) {
+> 			cfg &= ~GRETH_CTRL_MCEN;
+> 			GRETH_REGSAVE(regs->control, cfg);
+> 			return;
+>@@ -1160,6 +1158,7 @@ static struct net_device_ops greth_netdev_ops = {
+> 	.ndo_stop = greth_close,
+> 	.ndo_start_xmit = greth_start_xmit,
+> 	.ndo_set_mac_address = greth_set_mac_add,
+>+	.ndo_validate_addr 	= eth_validate_addr,
+> };
+> 
+> static inline int wait_for_mdio(struct greth_private *greth)
+>@@ -1275,28 +1274,21 @@ static int greth_mdio_probe(struct net_device *dev)
+> {
+> 	struct greth_private *greth = netdev_priv(dev);
+> 	struct phy_device *phy = NULL;
+>-	u32 interface;
+>-	int i;
+>+	int ret;
+> 
+> 	/* Find the first PHY */
+>-	for (i = 0; i < PHY_MAX_ADDR; i++) {
+>-		if (greth->mdio->phy_map[i]) {
+>-			phy = greth->mdio->phy_map[i];
+>-			break;
+>-		}
+>-	}
+>+	phy = phy_find_first(greth->mdio);
+>+
+> 	if (!phy) {
+> 		if (netif_msg_probe(greth))
+> 			dev_err(&dev->dev, "no PHY found\n");
+> 		return -ENXIO;
+> 	}
+> 
+>-	if (greth->gbit_mac)
+>-		interface = PHY_INTERFACE_MODE_GMII;
+>-	else
+>-		interface = PHY_INTERFACE_MODE_MII;
+>-
+>-	phy = phy_connect(dev, dev_name(&phy->dev), &greth_link_change, 0, interface);
+>+	ret = phy_connect_direct(dev, phy, &greth_link_change,
+>+			0, greth->gbit_mac ?
+>+			PHY_INTERFACE_MODE_GMII :
+>+			PHY_INTERFACE_MODE_MII);
+> 
+> 	if (greth->gbit_mac)
+> 		phy->supported &= PHY_GBIT_FEATURES;
+>@@ -1305,10 +1297,10 @@ static int greth_mdio_probe(struct net_device *dev)
+> 
+> 	phy->advertising = phy->supported;
+> 
 
-Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
----
- net/key/af_key.c       |    7 +++++--
- net/xfrm/xfrm_policy.c |   13 ++++++++++---
- net/xfrm/xfrm_user.c   |    6 +++++-
- 3 files changed, 20 insertions(+), 6 deletions(-)
+When you are in this, I would rather move return value checking right after
+phy_connect_direct() call
 
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index c269ce6..a20d2fa 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -2735,8 +2735,11 @@ static int pfkey_spdflush(struct sock *sk, struct sk_buff *skb, struct sadb_msg
- 	audit_info.secid = 0;
- 	err = xfrm_policy_flush(net, XFRM_POLICY_TYPE_MAIN, &audit_info);
- 	err2 = unicast_flush_resp(sk, hdr);
--	if (err || err2)
--		return err ? err : err2;
-+	if (err || err2) {
-+		if (err == -ESRCH) /* empty table - old silent behavior */
-+			return 0;
-+		return err;
-+	}
- 
- 	c.data.type = XFRM_POLICY_TYPE_MAIN;
- 	c.event = XFRM_MSG_FLUSHPOLICY;
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 4368e7b..d6eb16d 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -771,7 +771,8 @@ xfrm_policy_flush_secctx_check(struct net *net, u8 type, struct xfrm_audit *audi
- 
- int xfrm_policy_flush(struct net *net, u8 type, struct xfrm_audit *audit_info)
- {
--	int dir, err = 0;
-+	int dir, err = 0, cnt = 0;
-+	struct xfrm_policy *dp;
- 
- 	write_lock_bh(&xfrm_policy_lock);
- 
-@@ -789,8 +790,10 @@ int xfrm_policy_flush(struct net *net, u8 type, struct xfrm_audit *audit_info)
- 				     &net->xfrm.policy_inexact[dir], bydst) {
- 			if (pol->type != type)
- 				continue;
--			__xfrm_policy_unlink(pol, dir);
-+			dp = __xfrm_policy_unlink(pol, dir);
- 			write_unlock_bh(&xfrm_policy_lock);
-+			if (dp)
-+				cnt++;
- 
- 			xfrm_audit_policy_delete(pol, 1, audit_info->loginuid,
- 						 audit_info->sessionid,
-@@ -809,8 +812,10 @@ int xfrm_policy_flush(struct net *net, u8 type, struct xfrm_audit *audit_info)
- 					     bydst) {
- 				if (pol->type != type)
- 					continue;
--				__xfrm_policy_unlink(pol, dir);
-+				dp = __xfrm_policy_unlink(pol, dir);
- 				write_unlock_bh(&xfrm_policy_lock);
-+				if (dp)
-+					cnt++;
- 
- 				xfrm_audit_policy_delete(pol, 1,
- 							 audit_info->loginuid,
-@@ -824,6 +829,8 @@ int xfrm_policy_flush(struct net *net, u8 type, struct xfrm_audit *audit_info)
- 		}
- 
- 	}
-+	if (!cnt)
-+		err = -ESRCH;
- 	atomic_inc(&flow_cache_genid);
- out:
- 	write_unlock_bh(&xfrm_policy_lock);
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index cd94a9d..ee04e6b 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -1679,8 +1679,12 @@ static int xfrm_flush_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	audit_info.sessionid = NETLINK_CB(skb).sessionid;
- 	audit_info.secid = NETLINK_CB(skb).sid;
- 	err = xfrm_policy_flush(net, type, &audit_info);
--	if (err)
-+	if (err) {
-+		if (err == -ESRCH) /* empty table */
-+			return 0;
- 		return err;
-+	}
-+
- 	c.data.type = type;
- 	c.event = nlh->nlmsg_type;
- 	c.seq = nlh->nlmsg_seq;
--- 
-1.6.0.4
+Regards,
+	Jirka
 
+>-	if (IS_ERR(phy)) {
+>+	if (ret) {
+> 		if (netif_msg_ifup(greth))
+> 			dev_err(&dev->dev, "could not attach to PHY\n");
+>-		return PTR_ERR(phy);
+>+		return ret;
+> 	}
+> 
+> 	greth->link = 0;
