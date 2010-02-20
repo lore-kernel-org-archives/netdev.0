@@ -1,99 +1,56 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [net-next-2.6 PATCH 0/7] xfrm by MARK
-Date: Sat, 20 Feb 2010 15:55:33 -0500
-Message-ID: <1266699340-5590-1-git-send-email-hadi@cyberus.ca>
-References: <xfrm-mark-take2>
-Cc: kaber@trash.net, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, Jamal Hadi Salim <hadi@cyberus.ca>
-To: davem@davemloft.net, timo.teras@iki.fi
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/3] af_key: locking change
+Date: Sat, 20 Feb 2010 12:51:45 -0800 (PST)
+Message-ID: <20100220.125145.173499637.davem@davemloft.net>
+References: <20100219220111.868268353@vyatta.com>
+	<1266638850.2839.6.camel@edumazet-laptop>
+	<20100219215314.66d6f857@nehalam>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, viro@zeniv.linux.org.uk,
+	akpm@linux-foundation.org, rusty@rustcorp.com.au,
+	oberpar@linux.vnet.ibm.com, mszeredi@suse.cz,
+	paulmck@linux.vnet.ibm.com, jpirko@redhat.com, jolsa@redhat.com,
+	mingo@elte.hu, adobriyan@gmail.com, hadi@cyberus.ca,
+	nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.25]:65016 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756061Ab0BTUzt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Feb 2010 15:55:49 -0500
-Received: by qw-out-2122.google.com with SMTP id 8so229360qwh.37
-        for <netdev@vger.kernel.org>; Sat, 20 Feb 2010 12:55:48 -0800 (PST)
-In-Reply-To: <xfrm-mark-take2>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42045
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756078Ab0BTUv3 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Feb 2010 15:51:29 -0500
+In-Reply-To: <20100219215314.66d6f857@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <hadi@cyberus.ca>
+=46rom: Stephen Hemminger <shemminger@vyatta.com>
+Date: Fri, 19 Feb 2010 21:53:14 -0800
 
-This patchset implements manipulation of ipsec tables with the
-"mark" tag. You can config the SAD and SPD from user space
-with a specified mark. 
+> On Sat, 20 Feb 2010 05:07:30 +0100
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>=20
+>> Le vendredi 19 f=E9vrier 2010 =E0 13:59 -0800, Stephen Hemminger a =E9=
+crit :
+>> > pi=E8ce jointe document texte brut (pfkey-rcu.patch)
+>> > Get rid of custom locking that was using wait queue, lock, and ato=
+mic
+>> > to basically build a queued mutex.  Use RCU for read side.
+>> >=20
+>> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>>=20
+>> Excellent
+>>=20
+>> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+>>=20
+>> I dont know why you used synchronize_sched() instead of
+>> synchronize_rcu().
+>=20
+> I'll go back to synchronize_rcu.
 
-Changes since last time:
-----------------------
-Patch 1/7: Feedback from Patrick McHardy; We pass to user space any 
-mark as long as it has non-zero mask.
+Please also add some comments for patch #1 as requested by
+Al Viro.
 
-Example usage:
----
-#ip xfrm state add src 192.168.2.100 dst 192.168.1.10 proto esp spi 0x00000301 mode tunnel mark 7 auth md5 0x96358c90783bbfa3d7b196ceabe0536b enc des3_ede 0xf6ddb555acfd9d77b03ea3843f2653255afe8eb5573965df
-
-#ip xfrm state get mark 7 src 192.168.2.100 dst 192.168.1.10 proto esp spi 0x00000301
-src 192.168.2.100 dst 192.168.1.10
-        proto esp spi 0x00000301 reqid 0 mode tunnel
-        replay-window 0 
-        mark 7/0xffffffff
-        auth hmac(md5) 0x96358c90783bbfa3d7b196ceabe0536b
-        enc cbc(des3_ede) 0xf6ddb555acfd9d77b03ea3843f2653255afe8eb5573965df
-        sel src 0.0.0.0/0 dst 0.0.0.0/0 
-#
-#
-#ip xfrm policy add src 172.16.2.0/24 dst 172.16.1.0/24 \
-        dir fwd ptype main \
-        tmpl src 192.168.2.100 dst 192.168.1.100 \
-        proto esp mode tunnel mark 7 mask 0xffffffff
-#
-#ip xfrm policy ls
-src 172.16.2.0/24 dst 172.16.1.0/24 
-        dir fwd priority 0 ptype main 
-        mark 7/0xffffffff
-        tmpl src 192.168.2.100 dst 192.168.1.100
-                proto esp reqid 0 mode tunnel
------
-
-A mark-configured SAD/SPD entry will use the mark as part of the 
-lookup key (both in data and control path).
-Example:
-
----
-# ip xfrm pol get src 172.16.2.0/24 dst 172.16.1.0/24 dir fwd
-RTNETLINK answers: No such file or directory
-# ip xfrm pol get src 172.16.2.0/24 dst 172.16.1.0/24 dir fwd mark 7
-src 172.16.2.0/24 dst 172.16.1.0/24 
-        dir fwd priority 0 ptype main 
-        mark 7/0xffffffff
-        tmpl src 192.168.2.100 dst 192.168.1.100
-                proto esp reqid 0 mode tunnel
----
-
-
-Jamal Hadi Salim (7):
-  xfrm: introduce basic mark infrastructure
-  xfrm: SA lookups signature with mark
-  xfrm: SA lookups with mark
-  xfrm: SP lookups signature with mark
-  xfrm: SP lookups with mark
-  xfrm: Allow user space config of SAD mark
-  xfrm: Allow user space manipulation of SPD mark
-
- include/linux/xfrm.h   |   12 ++++-
- include/net/xfrm.h     |   56 +++++++++++++++++++++++----
- net/core/pktgen.c      |    3 +-
- net/ipv4/ah4.c         |    2 +-
- net/ipv4/esp4.c        |    2 +-
- net/ipv4/ipcomp.c      |    6 ++-
- net/ipv6/ah6.c         |    2 +-
- net/ipv6/esp6.c        |    2 +-
- net/ipv6/ipcomp6.c     |    6 ++-
- net/ipv6/xfrm6_input.c |    2 +-
- net/key/af_key.c       |   16 ++++---
- net/xfrm/xfrm_input.c  |    2 +-
- net/xfrm/xfrm_policy.c |   20 +++++++--
- net/xfrm/xfrm_state.c  |   70 +++++++++++++++++++++++------------
- net/xfrm/xfrm_user.c   |   96 ++++++++++++++++++++++++++++++++++++++++--------
- 15 files changed, 222 insertions(+), 75 deletions(-)
-
+When you post the new series with these changes I'll apply
+it to net-next-2.6, thanks!
