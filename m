@@ -1,158 +1,185 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [net-next PATCH v5 3/3] net: reserve ports for applications using
- fixed port numbers
-Date: Sat, 20 Feb 2010 16:20:53 +0800
-Message-ID: <4B7F9B65.1060309@redhat.com>
-References: <1266532210-11536-1-git-send-email-opurdila@ixiacom.com> <1266532210-11536-3-git-send-email-opurdila@ixiacom.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [net-next-2.6 PATCH] net/arm: convert to use netdev_for_each_mc_addr
+Date: Sat, 20 Feb 2010 10:06:27 +0100
+Message-ID: <20100220090626.GA2607@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Octavian Purdila <opurdila@ixiacom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1266532210-11536-3-git-send-email-opurdila@ixiacom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:18582 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754148Ab0BTJGa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Feb 2010 04:06:30 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Octavian Purdila wrote:
-> This patch introduces /proc/sys/net/ipv4/ip_local_reserved_ports which
-> allows users to reserve ports for third-party applications.
-> 
-> The reserved ports will not be used by automatic port assignments
-> (e.g. when calling connect() or bind() with port number 0). Explicit
-> port allocation behavior is unchanged.
-> 
-> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
-> Signed-off-by: WANG Cong <amwang@redhat.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Eric W. Biederman <ebiederm@xmission.com>
-> ---
->  Documentation/networking/ip-sysctl.txt |   14 ++++++++++++++
->  drivers/infiniband/core/cma.c          |    7 ++++++-
->  include/net/ip.h                       |    6 ++++++
->  net/ipv4/af_inet.c                     |    8 +++++++-
->  net/ipv4/inet_connection_sock.c        |    6 ++++++
->  net/ipv4/inet_hashtables.c             |    2 ++
->  net/ipv4/sysctl_net_ipv4.c             |   17 +++++++++++++++++
->  net/ipv4/udp.c                         |    3 ++-
->  net/sctp/socket.c                      |    2 ++
->  9 files changed, 62 insertions(+), 3 deletions(-)
-> 
-> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-> index 2dc7a1d..6534ee7 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
-> @@ -564,6 +564,20 @@ ip_local_port_range - 2 INTEGERS
->  	(i.e. by default) range 1024-4999 is enough to issue up to
->  	2000 connections per second to systems supporting timestamps.
->  
-> +ip_local_reserved_ports - list of comma separated ranges
-> +	Specify the ports which are reserved for known third-party
-> +	applications. These ports will not be used by automatic port
-> +	assignments (e.g. when calling connect() or bind() with port
-> +	number 0). Explicit port allocation behavior is unchanged.
-> +
-> +	The format used for both input and output is a comma separated
-> +	list of ranges (e.g. "1,2-4,10-10" for ports 1, 2, 3, 4 and
-> +	10). Writing to the file will clear all previously reserved
-> +	ports and update the current list with the one given in the
-> +	input.
-> +
-> +	Default: Empty
-> +
->  ip_nonlocal_bind - BOOLEAN
->  	If set, allows processes to bind() to non-local IP addresses,
->  	which can be quite useful - but may break some applications.
-> diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-> index 875e34e..06c9fa5 100644
-> --- a/drivers/infiniband/core/cma.c
-> +++ b/drivers/infiniband/core/cma.c
-> @@ -1979,6 +1979,8 @@ retry:
->  	/* FIXME: add proper port randomization per like inet_csk_get_port */
->  	do {
->  		ret = idr_get_new_above(ps, bind_list, next_port, &port);
-> +		if (inet_is_reserved_local_port(port))
-> +			ret = -EAGAIN;
->  	} while ((ret == -EAGAIN) && idr_pre_get(ps, GFP_KERNEL));
->  
->  	if (ret)
-> @@ -2995,10 +2997,13 @@ static int __init cma_init(void)
->  {
->  	int ret, low, high, remaining;
->  
-> -	get_random_bytes(&next_port, sizeof next_port);
->  	inet_get_local_port_range(&low, &high);
-> +again:
-> +	get_random_bytes(&next_port, sizeof next_port);
->  	remaining = (high - low) + 1;
->  	next_port = ((unsigned int) next_port % remaining) + low;
-> +	if (inet_is_reserved_local_port(next_port))
-> +		goto again;
->  
->  	cma_wq = create_singlethread_workqueue("rdma_cm");
->  	if (!cma_wq)
-> diff --git a/include/net/ip.h b/include/net/ip.h
-> index 503994a..3da9004 100644
-> --- a/include/net/ip.h
-> +++ b/include/net/ip.h
-> @@ -184,6 +184,12 @@ extern struct local_ports {
->  } sysctl_local_ports;
->  extern void inet_get_local_port_range(int *low, int *high);
->  
-> +extern unsigned long *sysctl_local_reserved_ports;
-> +static inline int inet_is_reserved_local_port(int port)
-> +{
-> +	return test_bit(port, sysctl_local_reserved_ports);
-> +}
-> +
->  extern int sysctl_ip_default_ttl;
->  extern int sysctl_ip_nonlocal_bind;
->  
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index 33b7dff..e283fbe 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -1546,9 +1546,13 @@ static int __init inet_init(void)
->  
->  	BUILD_BUG_ON(sizeof(struct inet_skb_parm) > sizeof(dummy_skb->cb));
->  
-> +	sysctl_local_reserved_ports = kzalloc(65536 / 8, GFP_KERNEL);
-> +	if (!sysctl_local_reserved_ports)
-> +		goto out;
-> +
->  	rc = proto_register(&tcp_prot, 1);
->  	if (rc)
-> -		goto out;
-> +		goto out_free_reserved_ports;
->  
->  	rc = proto_register(&udp_prot, 1);
->  	if (rc)
-> @@ -1647,6 +1651,8 @@ out_unregister_udp_proto:
->  	proto_unregister(&udp_prot);
->  out_unregister_tcp_proto:
->  	proto_unregister(&tcp_prot);
-> +out_free_reserved_ports:
-> +	kfree(sysctl_local_reserved_ports);
->  	goto out;
->  }
->  
-> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-> index 8da6429..1acb462 100644
-> --- a/net/ipv4/inet_connection_sock.c
-> +++ b/net/ipv4/inet_connection_sock.c
-> @@ -37,6 +37,9 @@ struct local_ports sysctl_local_ports __read_mostly = {
->  	.range = { 32768, 61000 },
->  };
->  
-> +unsigned long *sysctl_local_reserved_ports;
-> +EXPORT_SYMBOL(sysctl_local_reserved_ports);
-> +
 
-Sorry, this looks somewhat weird, why not just export
-inet_is_reserved_local_port()?
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/net/arm/am79c961a.c     |   10 +++++-----
+ drivers/net/arm/at91_ether.c    |    7 ++-----
+ drivers/net/arm/ixp4xx_eth.c    |   13 ++++++++-----
+ drivers/net/arm/ks8695net.c     |   20 +++++++++-----------
+ drivers/net/arm/w90p910_ether.c |    8 ++++----
+ 5 files changed, 28 insertions(+), 30 deletions(-)
+
+diff --git a/drivers/net/arm/am79c961a.c b/drivers/net/arm/am79c961a.c
+index 1c3c1f9..f1f58c5 100644
+--- a/drivers/net/arm/am79c961a.c
++++ b/drivers/net/arm/am79c961a.c
+@@ -351,13 +351,13 @@ static struct net_device_stats *am79c961_getstats (struct net_device *dev)
+ 	return &priv->stats;
+ }
+ 
+-static void am79c961_mc_hash(struct dev_mc_list *dmi, unsigned short *hash)
++static void am79c961_mc_hash(char *addr, unsigned short *hash)
+ {
+-	if (dmi->dmi_addrlen == ETH_ALEN && dmi->dmi_addr[0] & 0x01) {
++	if (addr[0] & 0x01) {
+ 		int idx, bit;
+ 		u32 crc;
+ 
+-		crc = ether_crc_le(ETH_ALEN, dmi->dmi_addr);
++		crc = ether_crc_le(ETH_ALEN, addr);
+ 
+ 		idx = crc >> 30;
+ 		bit = (crc >> 26) & 15;
+@@ -387,8 +387,8 @@ static void am79c961_setmulticastlist (struct net_device *dev)
+ 
+ 		memset(multi_hash, 0x00, sizeof(multi_hash));
+ 
+-		for (dmi = dev->mc_list; dmi; dmi = dmi->next)
+-			am79c961_mc_hash(dmi, multi_hash);
++		netdev_for_each_mc_addr(dmi, dev)
++			am79c961_mc_hash(dmi->dmi_addr, multi_hash);
+ 	}
+ 
+ 	spin_lock_irqsave(&priv->chip_lock, flags);
+diff --git a/drivers/net/arm/at91_ether.c b/drivers/net/arm/at91_ether.c
+index 17d85d9..8b23d5a 100644
+--- a/drivers/net/arm/at91_ether.c
++++ b/drivers/net/arm/at91_ether.c
+@@ -558,14 +558,11 @@ static void at91ether_sethashtable(struct net_device *dev)
+ {
+ 	struct dev_mc_list *curr;
+ 	unsigned long mc_filter[2];
+-	unsigned int i, bitnr;
++	unsigned int bitnr;
+ 
+ 	mc_filter[0] = mc_filter[1] = 0;
+ 
+-	curr = dev->mc_list;
+-	for (i = 0; i < netdev_mc_count(dev); i++, curr = curr->next) {
+-		if (!curr) break;	/* unexpected end of list */
+-
++	netdev_for_each_mc_addr(curr, dev) {
+ 		bitnr = hash_get_index(curr->dmi_addr);
+ 		mc_filter[bitnr >> 5] |= 1 << (bitnr & 31);
+ 	}
+diff --git a/drivers/net/arm/ixp4xx_eth.c b/drivers/net/arm/ixp4xx_eth.c
+index 1a5f78b..6e2ae1d 100644
+--- a/drivers/net/arm/ixp4xx_eth.c
++++ b/drivers/net/arm/ixp4xx_eth.c
+@@ -735,22 +735,25 @@ static int eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ static void eth_set_mcast_list(struct net_device *dev)
+ {
+ 	struct port *port = netdev_priv(dev);
+-	struct dev_mc_list *mclist = dev->mc_list;
++	struct dev_mc_list *mclist;
+ 	u8 diffs[ETH_ALEN], *addr;
+-	int cnt = netdev_mc_count(dev), i;
++	int i;
+ 
+-	if ((dev->flags & IFF_PROMISC) || !mclist || !cnt) {
++	if ((dev->flags & IFF_PROMISC) || netdev_mc_empty(dev)) {
+ 		__raw_writel(DEFAULT_RX_CNTRL0 & ~RX_CNTRL0_ADDR_FLTR_EN,
+ 			     &port->regs->rx_control[0]);
+ 		return;
+ 	}
+ 
+ 	memset(diffs, 0, ETH_ALEN);
+-	addr = mclist->dmi_addr; /* first MAC address */
+ 
+-	while (--cnt && (mclist = mclist->next))
++	addr = NULL;
++	netdev_for_each_mc_addr(mclist, dev) {
++		if (!addr)
++			addr = mclist->dmi_addr; /* first MAC address */
+ 		for (i = 0; i < ETH_ALEN; i++)
+ 			diffs[i] |= addr[i] ^ mclist->dmi_addr[i];
++	}
+ 
+ 	for (i = 0; i < ETH_ALEN; i++) {
+ 		__raw_writel(addr[i], &port->regs->mcast_addr[i]);
+diff --git a/drivers/net/arm/ks8695net.c b/drivers/net/arm/ks8695net.c
+index 1dc181a..2380696 100644
+--- a/drivers/net/arm/ks8695net.c
++++ b/drivers/net/arm/ks8695net.c
+@@ -327,25 +327,24 @@ ks8695_refill_rxbuffers(struct ks8695_priv *ksp)
+  */
+ static void
+ ks8695_init_partial_multicast(struct ks8695_priv *ksp,
+-			      struct dev_mc_list *addr,
+-			      int nr_addr)
++			      struct net_device *ndev)
+ {
+ 	u32 low, high;
+ 	int i;
++	struct dev_mc_list *dmi;
+ 
+-	for (i = 0; i < nr_addr; i++, addr = addr->next) {
+-		/* Ran out of addresses? */
+-		if (!addr)
+-			break;
++	i = 0;
++	netdev_for_each_mc_addr(dmi, ndev) {
+ 		/* Ran out of space in chip? */
+ 		BUG_ON(i == KS8695_NR_ADDRESSES);
+ 
+-		low = (addr->dmi_addr[2] << 24) | (addr->dmi_addr[3] << 16) |
+-			(addr->dmi_addr[4] << 8) | (addr->dmi_addr[5]);
+-		high = (addr->dmi_addr[0] << 8) | (addr->dmi_addr[1]);
++		low = (dmi->dmi_addr[2] << 24) | (dmi->dmi_addr[3] << 16) |
++		      (dmi->dmi_addr[4] << 8) | (dmi->dmi_addr[5]);
++		high = (dmi->dmi_addr[0] << 8) | (dmi->dmi_addr[1]);
+ 
+ 		ks8695_writereg(ksp, KS8695_AAL_(i), low);
+ 		ks8695_writereg(ksp, KS8695_AAH_(i), AAH_E | high);
++		i++;
+ 	}
+ 
+ 	/* Clear the remaining Additional Station Addresses */
+@@ -1215,8 +1214,7 @@ ks8695_set_multicast(struct net_device *ndev)
+ 	} else {
+ 		/* enable specific multicasts */
+ 		ctrl &= ~DRXC_RM;
+-		ks8695_init_partial_multicast(ksp, ndev->mc_list,
+-					      netdev_mc_count(ndev));
++		ks8695_init_partial_multicast(ksp, ndev);
+ 	}
+ 
+ 	ks8695_writereg(ksp, KS8695_DRXC, ctrl);
+diff --git a/drivers/net/arm/w90p910_ether.c b/drivers/net/arm/w90p910_ether.c
+index b7f3866..febd813 100644
+--- a/drivers/net/arm/w90p910_ether.c
++++ b/drivers/net/arm/w90p910_ether.c
+@@ -858,10 +858,10 @@ static void w90p910_ether_set_multicast_list(struct net_device *dev)
+ 
+ 	if (dev->flags & IFF_PROMISC)
+ 		rx_mode = CAMCMR_AUP | CAMCMR_AMP | CAMCMR_ABP | CAMCMR_ECMP;
+-	else if ((dev->flags & IFF_ALLMULTI) || dev->mc_list)
+-			rx_mode = CAMCMR_AMP | CAMCMR_ABP | CAMCMR_ECMP;
+-		else
+-				rx_mode = CAMCMR_ECMP | CAMCMR_ABP;
++	else if ((dev->flags & IFF_ALLMULTI) || !netdev_mc_empty(dev))
++		rx_mode = CAMCMR_AMP | CAMCMR_ABP | CAMCMR_ECMP;
++	else
++		rx_mode = CAMCMR_ECMP | CAMCMR_ABP;
+ 	__raw_writel(rx_mode, ether->reg + REG_CAMCMR);
+ }
+ 
+-- 
+1.6.6
+
