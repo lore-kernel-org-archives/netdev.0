@@ -1,187 +1,22 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [net-next-2.6 PATCH 7/7] xfrm: Allow user space manipulation of SPD mark
-Date: Sat, 20 Feb 2010 15:55:40 -0500
-Message-ID: <1266699340-5590-8-git-send-email-hadi@cyberus.ca>
-References: <xfrm-mark-take2>
- <1266699340-5590-1-git-send-email-hadi@cyberus.ca>
- <1266699340-5590-2-git-send-email-hadi@cyberus.ca>
- <1266699340-5590-3-git-send-email-hadi@cyberus.ca>
- <1266699340-5590-4-git-send-email-hadi@cyberus.ca>
- <1266699340-5590-5-git-send-email-hadi@cyberus.ca>
- <1266699340-5590-6-git-send-email-hadi@cyberus.ca>
- <1266699340-5590-7-git-send-email-hadi@cyberus.ca>
-Cc: kaber@trash.net, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, Jamal Hadi Salim <hadi@cyberus.ca>
-To: davem@davemloft.net, timo.teras@iki.fi
+From: David Miller <davem@davemloft.net>
+Subject: Re: Subject: [PATCH 0/6] bna: Brocade 10Gb Ethernet device driver
+Date: Sat, 20 Feb 2010 13:01:54 -0800 (PST)
+Message-ID: <20100220.130154.166011973.davem@davemloft.net>
+References: <201002192152.o1JLqcB6031953@blc-10-1.brocade.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@brocade.com
+To: rmody@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f179.google.com ([209.85.221.179]:43533 "EHLO
-	mail-qy0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756469Ab0BTUz6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Feb 2010 15:55:58 -0500
-Received: by mail-qy0-f179.google.com with SMTP id 9so233085qyk.21
-        for <netdev@vger.kernel.org>; Sat, 20 Feb 2010 12:55:58 -0800 (PST)
-In-Reply-To: <1266699340-5590-7-git-send-email-hadi@cyberus.ca>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55507
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751276Ab0BTVBh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Feb 2010 16:01:37 -0500
+In-Reply-To: <201002192152.o1JLqcB6031953@blc-10-1.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <hadi@cyberus.ca>
 
-Add ability for netlink userspace to manipulate the SPD
-and manipulate the mark, retrieve it and get events with a defined
-mark, etc.
-
-Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
----
- net/xfrm/xfrm_user.c |   31 +++++++++++++++++++++++++------
- 1 files changed, 25 insertions(+), 6 deletions(-)
-
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index dbc4b68..8041793 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -31,8 +31,6 @@
- #include <linux/in6.h>
- #endif
- 
--#define DUMMY_MARK 0
--
- static inline int aead_len(struct xfrm_algo_aead *alg)
- {
- 	return sizeof(*alg) + ((alg->alg_key_len + 7) / 8);
-@@ -1234,6 +1232,8 @@ static struct xfrm_policy *xfrm_policy_construct(struct net *net, struct xfrm_us
- 	if (err)
- 		goto error;
- 
-+	xfrm_mark_get(attrs, &xp->mark);
-+
- 	return xp;
-  error:
- 	*errp = err;
-@@ -1380,10 +1380,13 @@ static int dump_one_policy(struct xfrm_policy *xp, int dir, int count, void *ptr
- 		goto nlmsg_failure;
- 	if (copy_to_user_policy_type(xp->type, skb) < 0)
- 		goto nlmsg_failure;
-+	if (xfrm_mark_put(skb, &xp->mark))
-+		goto nla_put_failure;
- 
- 	nlmsg_end(skb, nlh);
- 	return 0;
- 
-+nla_put_failure:
- nlmsg_failure:
- 	nlmsg_cancel(skb, nlh);
- 	return -EMSGSIZE;
-@@ -1455,6 +1458,8 @@ static int xfrm_get_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	int err;
- 	struct km_event c;
- 	int delete;
-+	struct xfrm_kmark m;
-+	u32 mark = xfrm_mark_get(attrs, &m);
- 
- 	p = nlmsg_data(nlh);
- 	delete = nlh->nlmsg_type == XFRM_MSG_DELPOLICY;
-@@ -1468,7 +1473,7 @@ static int xfrm_get_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
- 		return err;
- 
- 	if (p->index)
--		xp = xfrm_policy_byid(net, DUMMY_MARK, type, p->dir, p->index, delete, &err);
-+		xp = xfrm_policy_byid(net, mark, type, p->dir, p->index, delete, &err);
- 	else {
- 		struct nlattr *rt = attrs[XFRMA_SEC_CTX];
- 		struct xfrm_sec_ctx *ctx;
-@@ -1485,7 +1490,7 @@ static int xfrm_get_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
- 			if (err)
- 				return err;
- 		}
--		xp = xfrm_policy_bysel_ctx(net, DUMMY_MARK, type, p->dir, &p->sel,
-+		xp = xfrm_policy_bysel_ctx(net, mark, type, p->dir, &p->sel,
- 					   ctx, delete, &err);
- 		security_xfrm_policy_free(ctx);
- 	}
-@@ -1729,13 +1734,15 @@ static int xfrm_add_pol_expire(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	struct xfrm_userpolicy_info *p = &up->pol;
- 	u8 type = XFRM_POLICY_TYPE_MAIN;
- 	int err = -ENOENT;
-+	struct xfrm_kmark m;
-+	u32 mark = xfrm_mark_get(attrs, &m);
- 
- 	err = copy_from_user_policy_type(&type, attrs);
- 	if (err)
- 		return err;
- 
- 	if (p->index)
--		xp = xfrm_policy_byid(net, DUMMY_MARK, type, p->dir, p->index, 0, &err);
-+		xp = xfrm_policy_byid(net, mark, type, p->dir, p->index, 0, &err);
- 	else {
- 		struct nlattr *rt = attrs[XFRMA_SEC_CTX];
- 		struct xfrm_sec_ctx *ctx;
-@@ -1752,7 +1759,7 @@ static int xfrm_add_pol_expire(struct sk_buff *skb, struct nlmsghdr *nlh,
- 			if (err)
- 				return err;
- 		}
--		xp = xfrm_policy_bysel_ctx(net, DUMMY_MARK, type, p->dir,
-+		xp = xfrm_policy_bysel_ctx(net, mark, type, p->dir,
- 					   &p->sel, ctx, 0, &err);
- 		security_xfrm_policy_free(ctx);
- 	}
-@@ -2424,9 +2431,12 @@ static int build_acquire(struct sk_buff *skb, struct xfrm_state *x,
- 		goto nlmsg_failure;
- 	if (copy_to_user_policy_type(xp->type, skb) < 0)
- 		goto nlmsg_failure;
-+	if (xfrm_mark_put(skb, &xp->mark))
-+		goto nla_put_failure;
- 
- 	return nlmsg_end(skb, nlh);
- 
-+nla_put_failure:
- nlmsg_failure:
- 	nlmsg_cancel(skb, nlh);
- 	return -EMSGSIZE;
-@@ -2513,6 +2523,7 @@ static inline size_t xfrm_polexpire_msgsize(struct xfrm_policy *xp)
- 	return NLMSG_ALIGN(sizeof(struct xfrm_user_polexpire))
- 	       + nla_total_size(sizeof(struct xfrm_user_tmpl) * xp->xfrm_nr)
- 	       + nla_total_size(xfrm_user_sec_ctx_size(xp->security))
-+	       + nla_total_size(sizeof(struct xfrm_umark))
- 	       + userpolicy_type_attrsize();
- }
- 
-@@ -2535,10 +2546,13 @@ static int build_polexpire(struct sk_buff *skb, struct xfrm_policy *xp,
- 		goto nlmsg_failure;
- 	if (copy_to_user_policy_type(xp->type, skb) < 0)
- 		goto nlmsg_failure;
-+	if (xfrm_mark_put(skb, &xp->mark))
-+		goto nla_put_failure;
- 	upe->hard = !!hard;
- 
- 	return nlmsg_end(skb, nlh);
- 
-+nla_put_failure:
- nlmsg_failure:
- 	nlmsg_cancel(skb, nlh);
- 	return -EMSGSIZE;
-@@ -2575,6 +2589,7 @@ static int xfrm_notify_policy(struct xfrm_policy *xp, int dir, struct km_event *
- 		headlen = sizeof(*id);
- 	}
- 	len += userpolicy_type_attrsize();
-+	len += nla_total_size(sizeof(struct xfrm_umark));
- 	len += NLMSG_ALIGN(headlen);
- 
- 	skb = nlmsg_new(len, GFP_ATOMIC);
-@@ -2610,10 +2625,14 @@ static int xfrm_notify_policy(struct xfrm_policy *xp, int dir, struct km_event *
- 	if (copy_to_user_policy_type(xp->type, skb) < 0)
- 		goto nlmsg_failure;
- 
-+	if (xfrm_mark_put(skb, &xp->mark))
-+		goto nla_put_failure;
-+
- 	nlmsg_end(skb, nlh);
- 
- 	return nlmsg_multicast(net->xfrm.nlsk, skb, 0, XFRMNLGRP_POLICY, GFP_ATOMIC);
- 
-+nla_put_failure:
- nlmsg_failure:
- 	kfree_skb(skb);
- 	return -1;
--- 
-1.6.0.4
-
+Why does the string "Subject: " appear in the subject of
+all of your postings?
