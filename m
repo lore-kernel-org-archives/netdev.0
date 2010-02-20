@@ -1,51 +1,41 @@
 From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH 1/2] b44: Set PHY address to NO_PHY if reset fails.
-Date: Sat, 20 Feb 2010 21:55:25 +0100
-Message-ID: <1266699326-1541-1-git-send-email-hauke@hauke-m.de>
+Subject: [PATCH 2/2] b44: use netdev_alloc_skb instead of dev_alloc_skb
+Date: Sat, 20 Feb 2010 21:55:26 +0100
+Message-ID: <1266699326-1541-2-git-send-email-hauke@hauke-m.de>
+References: <1266699326-1541-1-git-send-email-hauke@hauke-m.de>
 Cc: zambrano@broadcom.com, netdev@vger.kernel.org,
 	Hauke Mehrtens <hauke@hauke-m.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:59688 "EHLO
+Received: from server19320154104.serverpool.info ([193.201.54.104]:59689 "EHLO
 	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756241Ab0BTVEx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756294Ab0BTVEx (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 20 Feb 2010 16:04:53 -0500
+In-Reply-To: <1266699326-1541-1-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Do a PHY reset to test if there is an active phy and set the PHY address
-to B44_PHY_ADDR_NO_PHY in case of an not active phy. This is needed for
-the Linksys WRTSL54GS and Asus WL-500W.
+The conversion in bf0dcbd929faf036f1a4f2918090344d0e249cf5 missed the
+new allocation in b44_rx.
 This patch was used in OpenWRT for a long time.
 
 Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 ---
- drivers/net/b44.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+ drivers/net/b44.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-index 180510e..71fa0be 100644
+index 71fa0be..bcb6a02 100644
 --- a/drivers/net/b44.c
 +++ b/drivers/net/b44.c
-@@ -338,7 +338,7 @@ static int b44_phy_reset(struct b44 *bp)
- 		}
- 	}
+@@ -809,7 +809,7 @@ static int b44_rx(struct b44 *bp, int budget)
+ 			struct sk_buff *copy_skb;
  
--	return 0;
-+	return err;
- }
- 
- static void __b44_set_flow_ctrl(struct b44 *bp, u32 pause_flags)
-@@ -2215,6 +2215,10 @@ static int __devinit b44_init_one(struct ssb_device *sdev,
- 	 */
- 	b44_chip_reset(bp, B44_CHIP_RESET_FULL);
- 
-+	/* do a phy reset to test if there is an active phy */
-+	if (b44_phy_reset(bp) < 0)
-+		bp->phy_addr = B44_PHY_ADDR_NO_PHY;
-+
- 	netdev_info(dev, "Broadcom 44xx/47xx 10/100BaseT Ethernet %pM\n",
- 		    dev->dev_addr);
+ 			b44_recycle_rx(bp, cons, bp->rx_prod);
+-			copy_skb = dev_alloc_skb(len + 2);
++			copy_skb = netdev_alloc_skb(bp->dev, len + 2);
+ 			if (copy_skb == NULL)
+ 				goto drop_it_no_recycle;
  
 -- 
 1.6.3.3
