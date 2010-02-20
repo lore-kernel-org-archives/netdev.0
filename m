@@ -1,22 +1,118 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Subject: [PATCH 0/6] bna: Brocade 10Gb Ethernet device driver
-Date: Sat, 20 Feb 2010 13:01:54 -0800 (PST)
-Message-ID: <20100220.130154.166011973.davem@davemloft.net>
-References: <201002192152.o1JLqcB6031953@blc-10-1.brocade.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@brocade.com
-To: rmody@brocade.com
+From: jamal <hadi@cyberus.ca>
+Subject: [net-next-2.6 PATCH 3/7] xfrm: SA lookups with mark
+Date: Sat, 20 Feb 2010 15:55:36 -0500
+Message-ID: <1266699340-5590-4-git-send-email-hadi@cyberus.ca>
+References: <xfrm-mark-take2>
+ <1266699340-5590-1-git-send-email-hadi@cyberus.ca>
+ <1266699340-5590-2-git-send-email-hadi@cyberus.ca>
+ <1266699340-5590-3-git-send-email-hadi@cyberus.ca>
+Cc: kaber@trash.net, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, Jamal Hadi Salim <hadi@cyberus.ca>
+To: davem@davemloft.net, timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55507
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751276Ab0BTVBh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Feb 2010 16:01:37 -0500
-In-Reply-To: <201002192152.o1JLqcB6031953@blc-10-1.brocade.com>
+Received: from mail-qy0-f179.google.com ([209.85.221.179]:49218 "EHLO
+	mail-qy0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756241Ab0BTUzy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Feb 2010 15:55:54 -0500
+Received: by qyk9 with SMTP id 9so233095qyk.21
+        for <netdev@vger.kernel.org>; Sat, 20 Feb 2010 12:55:53 -0800 (PST)
+In-Reply-To: <1266699340-5590-3-git-send-email-hadi@cyberus.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jamal Hadi Salim <hadi@cyberus.ca>
 
-Why does the string "Subject: " appear in the subject of
-all of your postings?
+Allow mark to be added to the SA lookup
+
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+---
+ net/xfrm/xfrm_state.c |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
+
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 5771008..1711a2b 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -682,6 +682,8 @@ static struct xfrm_state *__xfrm_state_lookup(struct net *net, u32 mark, xfrm_ad
+ 		    xfrm_addr_cmp(&x->id.daddr, daddr, family))
+ 			continue;
+ 
++		if ((mark & x->mark.m) != x->mark.v)
++			continue;
+ 		xfrm_state_hold(x);
+ 		return x;
+ 	}
+@@ -702,6 +704,8 @@ static struct xfrm_state *__xfrm_state_lookup_byaddr(struct net *net, u32 mark,
+ 		    xfrm_addr_cmp(&x->props.saddr, saddr, family))
+ 			continue;
+ 
++		if ((mark & x->mark.m) != x->mark.v)
++			continue;
+ 		xfrm_state_hold(x);
+ 		return x;
+ 	}
+@@ -794,6 +798,7 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
+ 	hlist_for_each_entry(x, entry, net->xfrm.state_bydst+h, bydst) {
+ 		if (x->props.family == family &&
+ 		    x->props.reqid == tmpl->reqid &&
++		    (mark & x->mark.m) == x->mark.v &&
+ 		    !(x->props.flags & XFRM_STATE_WILDRECV) &&
+ 		    xfrm_state_addr_check(x, daddr, saddr, family) &&
+ 		    tmpl->mode == x->props.mode &&
+@@ -809,6 +814,7 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
+ 	hlist_for_each_entry(x, entry, net->xfrm.state_bydst+h_wildcard, bydst) {
+ 		if (x->props.family == family &&
+ 		    x->props.reqid == tmpl->reqid &&
++		    (mark & x->mark.m) == x->mark.v &&
+ 		    !(x->props.flags & XFRM_STATE_WILDRECV) &&
+ 		    xfrm_state_addr_check(x, daddr, saddr, family) &&
+ 		    tmpl->mode == x->props.mode &&
+@@ -892,6 +898,7 @@ xfrm_stateonly_find(struct net *net, u32 mark,
+ 	hlist_for_each_entry(x, entry, net->xfrm.state_bydst+h, bydst) {
+ 		if (x->props.family == family &&
+ 		    x->props.reqid == reqid &&
++		    (mark & x->mark.m) == x->mark.v &&
+ 		    !(x->props.flags & XFRM_STATE_WILDRECV) &&
+ 		    xfrm_state_addr_check(x, daddr, saddr, family) &&
+ 		    mode == x->props.mode &&
+@@ -954,11 +961,13 @@ static void __xfrm_state_bump_genids(struct xfrm_state *xnew)
+ 	struct xfrm_state *x;
+ 	struct hlist_node *entry;
+ 	unsigned int h;
++	u32 mark = xnew->mark.v & xnew->mark.m;
+ 
+ 	h = xfrm_dst_hash(net, &xnew->id.daddr, &xnew->props.saddr, reqid, family);
+ 	hlist_for_each_entry(x, entry, net->xfrm.state_bydst+h, bydst) {
+ 		if (x->props.family	== family &&
+ 		    x->props.reqid	== reqid &&
++		    (mark & x->mark.m) == x->mark.v &&
+ 		    !xfrm_addr_cmp(&x->id.daddr, &xnew->id.daddr, family) &&
+ 		    !xfrm_addr_cmp(&x->props.saddr, &xnew->props.saddr, family))
+ 			x->genid = xfrm_state_genid;
+@@ -980,6 +989,7 @@ static struct xfrm_state *__find_acq_core(struct net *net, struct xfrm_kmark *m,
+ 	unsigned int h = xfrm_dst_hash(net, daddr, saddr, reqid, family);
+ 	struct hlist_node *entry;
+ 	struct xfrm_state *x;
++	u32 mark = m->v & m->m;
+ 
+ 	hlist_for_each_entry(x, entry, net->xfrm.state_bydst+h, bydst) {
+ 		if (x->props.reqid  != reqid ||
+@@ -988,6 +998,7 @@ static struct xfrm_state *__find_acq_core(struct net *net, struct xfrm_kmark *m,
+ 		    x->km.state     != XFRM_STATE_ACQ ||
+ 		    x->id.spi       != 0 ||
+ 		    x->id.proto	    != proto ||
++		    (mark & x->mark.m) != x->mark.v ||
+ 		    xfrm_addr_cmp(&x->id.daddr, daddr, family) ||
+ 		    xfrm_addr_cmp(&x->props.saddr, saddr, family))
+ 			continue;
+@@ -1442,6 +1453,7 @@ static struct xfrm_state *__xfrm_find_acq_byseq(struct net *net, u32 mark, u32 s
+ 
+ 		hlist_for_each_entry(x, entry, net->xfrm.state_bydst+i, bydst) {
+ 			if (x->km.seq == seq &&
++			    (mark & x->mark.m) == x->mark.v &&
+ 			    x->km.state == XFRM_STATE_ACQ) {
+ 				xfrm_state_hold(x);
+ 				return x;
+-- 
+1.6.0.4
+
