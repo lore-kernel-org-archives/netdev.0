@@ -1,75 +1,42 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 1/2] net: Fix sysctl restarts...
-Date: Fri, 19 Feb 2010 15:58:53 -0800
-Message-ID: <m1aav4srpe.fsf@fess.ebiederm.org>
-References: <m14olcu7xo.fsf@fess.ebiederm.org>
-	<20100219.152954.39315470.davem@davemloft.net>
-	<m1ocjksssg.fsf@fess.ebiederm.org>
-	<20100219.154140.77047519.davem@davemloft.net>
+From: Ajit Khaparde <ajitkhaparde@gmail.com>
+Subject: [PATCH 4/4] MAINTAINERS: Add two maintainers for be2net driver
+Date: Sat, 20 Feb 2010 05:30:03 +0530
+Message-ID: <20100219235950.GA12990@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:57099 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752961Ab0BSX66 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2010 18:58:58 -0500
-In-Reply-To: <20100219.154140.77047519.davem@davemloft.net> (David Miller's message of "Fri\, 19 Feb 2010 15\:41\:40 -0800 \(PST\)")
+Received: from mail-gx0-f217.google.com ([209.85.217.217]:38320 "EHLO
+	mail-gx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753036Ab0BTAAL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Feb 2010 19:00:11 -0500
+Received: by gxk9 with SMTP id 9so730379gxk.8
+        for <netdev@vger.kernel.org>; Fri, 19 Feb 2010 16:00:09 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
 
-2> From: ebiederm@xmission.com (Eric W. Biederman)
-> Date: Fri, 19 Feb 2010 15:35:27 -0800
->
->> When we I fixed the deadlock that can happen if you write to forwarding
->> while removing the device.  The deadlock was fixed, the restart worked
->> but I somehow missed the fact that proc_dointvec modifies state and so
->> defeated the change detection.  *embarrassing*
->
-> Ok, I'll have to push these around to Linus and a couple -stable
-> releases.
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+---
+ MAINTAINERS |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-The second patch fixes an issue which isn't quite as old.
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 2c8b0d3..9b0557a 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4844,6 +4844,8 @@ F:	drivers/scsi/be2iscsi/
+ SERVER ENGINES 10Gbps NIC - BladeEngine 2 DRIVER
+ M:	Sathya Perla <sathyap@serverengines.com>
+ M:	Subbu Seetharaman <subbus@serverengines.com>
++M:	Sarveshwar Bandi <sarveshwarb@serverengines.com>
++M:	Ajit Khaparde <ajitk@serverengines.com>
+ L:	netdev@vger.kernel.org
+ W:	http://www.serverengines.com
+ S:	Supported
+-- 
+1.6.3.3
 
-I caught it when I was looking for other rtnl_lock issues that
-I may have missed.  Thankfully the worst sysfs does is re-read
-the string from userspace on a restart so none of the sysfs
-rtnl_trylock cases have a nasty deadlock associated.
-
-Eric
-
-
-commit a160ee69c6a4622ed30c377a978554015e9931cb
-Author: Johannes Berg <johannes@sipsolutions.net>
-Date:   Mon Oct 5 02:22:23 2009 -0700
-
-    wext: let get_wireless_stats() sleep
-    
-    A number of drivers (recently including cfg80211-based ones)
-    assume that all wireless handlers, including statistics, can
-    sleep and they often also implicitly assume that the rtnl is
-    held around their invocation. This is almost always true now
-    except when reading from sysfs:
-    
-      BUG: sleeping function called from invalid context at kernel/mutex.c:280
-      in_atomic(): 1, irqs_disabled(): 0, pid: 10450, name: head
-      2 locks held by head/10450:
-       #0:  (&buffer->mutex){+.+.+.}, at: [<c10ceb99>] sysfs_read_file+0x24/0xf4
-       #1:  (dev_base_lock){++.?..}, at: [<c12844ee>] wireless_show+0x1a/0x4c
-      Pid: 10450, comm: head Not tainted 2.6.32-rc3 #1
-      Call Trace:
-       [<c102301c>] __might_sleep+0xf0/0xf7
-       [<c1324355>] mutex_lock_nested+0x1a/0x33
-       [<f8cea53b>] wdev_lock+0xd/0xf [cfg80211]
-       [<f8cea58f>] cfg80211_wireless_stats+0x45/0x12d [cfg80211]
-       [<c13118d6>] get_wireless_stats+0x16/0x1c
-       [<c12844fe>] wireless_show+0x2a/0x4c
-    
-    Fix this by using the rtnl instead of dev_base_lock.
-    
-    Reported-by: Miles Lane <miles.lane@gmail.com>
-    Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
