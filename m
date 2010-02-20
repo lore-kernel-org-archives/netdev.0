@@ -1,54 +1,54 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 3/3] af_key: locking change
-Date: Fri, 19 Feb 2010 21:53:14 -0800
-Message-ID: <20100219215314.66d6f857@nehalam>
-References: <20100219215913.819285957@vyatta.com>
-	<20100219220111.868268353@vyatta.com>
-	<1266638850.2839.6.camel@edumazet-laptop>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [net-next PATCH v4 3/3] net: reserve ports for applications using
+ fixed port numbers
+Date: Sat, 20 Feb 2010 16:00:46 +0800
+Message-ID: <4B7F96AE.1010102@redhat.com>
+References: <1266271241-6293-1-git-send-email-opurdila@ixiacom.com>	 <1266271241-6293-4-git-send-email-opurdila@ixiacom.com>	 <4B7A6740.1000701@redhat.com> <201002161306.29708.opurdila@ixiacom.com>	 <4B7A9852.5020105@redhat.com> <1266326425.3045.53.camel@edumazet-laptop>	 <4B7C159A.3060603@redhat.com> <1266424768.3075.61.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Viro <viro@zeniv.linux.org.uk>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Peter Oberparleiter <oberpar@linux.vnet.ibm.com>,
-	Miklos Szeredi <mszeredi@suse.cz>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>, Jiri Olsa <jolsa@redhat.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org
+Cc: Octavian Purdila <opurdila@ixiacom.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Neil Horman <nhorman@tuxdriver.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54091 "EHLO mail.vyatta.com"
+Received: from mx1.redhat.com ([209.132.183.28]:4525 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750929Ab0BTFxt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Feb 2010 00:53:49 -0500
-In-Reply-To: <1266638850.2839.6.camel@edumazet-laptop>
+	id S1751621Ab0BTH51 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Feb 2010 02:57:27 -0500
+In-Reply-To: <1266424768.3075.61.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 20 Feb 2010 05:07:30 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-
-> Le vendredi 19 f=C3=A9vrier 2010 =C3=A0 13:59 -0800, Stephen Hemminge=
-r a =C3=A9crit :
-> > pi=C3=A8ce jointe document texte brut (pfkey-rcu.patch)
-> > Get rid of custom locking that was using wait queue, lock, and atom=
-ic
-> > to basically build a queued mutex.  Use RCU for read side.
-> >=20
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Eric Dumazet wrote:
+> Le jeudi 18 f=C3=A9vrier 2010 =C3=A0 00:13 +0800, Cong Wang a =C3=A9c=
+rit :
 >=20
-> Excellent
+>> I don't think so, if you want to avoid race condition, you just need=
+ to
+>> write the reserved ports before any networking application starts, I=
+OW,
+>> as early as possible during boot.
+>>
 >=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Sure, but I was thinking retrieving the list of reserved port by a
+> database query, using network :)
 >=20
-> I dont know why you used synchronize_sched() instead of
-> synchronize_rcu().
+> Anyway, I just feel your argument is not applicable.
+>=20
+> Our kernel is capable of doing an intersection for us, we dont need
+> to forbid user to mark a port as 'reserved' if this port is already
+> blacklisted by another mechanism (for example, if this port is alread=
+y
+> in use)
+>=20
 
-I'll go back to synchronize_rcu.
+Oh, I see your points.
 
---=20
+But this still could make people confused, like me. I think we'd better
+document this.
+
+Thanks.
