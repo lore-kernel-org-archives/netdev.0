@@ -1,26 +1,43 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: Re: [PATCH] gianfar: add brace at gfar_netpoll()
-Date: Sun, 21 Feb 2010 04:35:42 +0300
-Message-ID: <a4423d671002201735v25a52cc8n2fd0ea2c9e770a5e@mail.gmail.com>
-References: <1266715059-18682-1-git-send-email-a.beregalov@gmail.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [net-next PATCH v5 3/3] net: reserve ports for applications using
+ fixed port numbers
+Date: Sun, 21 Feb 2010 10:00:26 +0800
+Message-ID: <4B8093BA.7010809@redhat.com>
+References: <1266532210-11536-1-git-send-email-opurdila@ixiacom.com> <1266532210-11536-3-git-send-email-opurdila@ixiacom.com> <4B7F9B65.1060309@redhat.com> <201002201527.37643.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Beregalov <a.beregalov@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:34316 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755596Ab0BUBfo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Feb 2010 20:35:44 -0500
-Received: by bwz1 with SMTP id 1so911690bwz.21
-        for <netdev@vger.kernel.org>; Sat, 20 Feb 2010 17:35:42 -0800 (PST)
-In-Reply-To: <1266715059-18682-1-git-send-email-a.beregalov@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:17767 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756239Ab0BUB5E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Feb 2010 20:57:04 -0500
+In-Reply-To: <201002201527.37643.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 21 February 2010 04:17, Alexander Beregalov <a.beregalov@gmail.com> wrote:
-> Found by cppcheck.
->
-> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+Octavian Purdila wrote:
+> On Saturday 20 February 2010 10:20:53 you wrote:
+> 
+>>> +unsigned long *sysctl_local_reserved_ports;
+>>> +EXPORT_SYMBOL(sysctl_local_reserved_ports);
+>>> +
+>> Sorry, this looks somewhat weird, why not just export
+>> inet_is_reserved_local_port()?
+>>
+> 
+> My understanding is that if we do that than we won't be able to inline 
+> inet_is_reserved_local_port().  And as David said previously that will have a 
+> significant impact on performance.
 
-it is fixed already. Sorry, I looked at wrong branch.
+Oh, that would be true probably, so just leave as it is.
+
+Thanks.
+
