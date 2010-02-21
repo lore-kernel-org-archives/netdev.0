@@ -1,38 +1,45 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: RE: [net-next 2.6 PATCH] net/pcmcia: convert to use
-Date: Sun, 21 Feb 2010 11:32:53 +0100
-Message-ID: <20100221103245.GA2584@psychotron.redhat.com>
-References: <5083689.85171266728689181.ken_kawasaki@spring.nifty.jp>
- <9571361.89671266729917620.ken_kawasaki@spring.nifty.jp>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [net-next PATCH v4 1/3] net: TCP thin-stream detection
+Date: Sun, 21 Feb 2010 11:21:03 +0100
+Message-ID: <20100221102102.GB1311@ucw.cz>
+References: <4B7AAE60.3070305@simula.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54607 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755040Ab0BUKc7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 Feb 2010 05:32:59 -0500
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
+	LKML <linux-kernel@vger.kernel.org>, shemminger@vyatta.com,
+	David Miller <davem@davemloft.net>,
+	william.allen.simpson@gmail.com, damian@tvk.rwth-aachen.de,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Andreas Petlund <apetlund@simula.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <9571361.89671266729917620.ken_kawasaki@spring.nifty.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4B7AAE60.3070305@simula.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sun, Feb 21, 2010 at 06:25:17AM CET, ken_kawasaki@spring.nifty.jp wrote:
->Hi,
->
->"ifndef final_version" is unnecessary in smc91c92_cs.c,
->isn't it?
->
->-#ifndef final_version		/* Verify multicast address. */
->-		if ((mc_addr->dmi_addr[0] & 1) == 0)
->-		    continue;
->-#endif
+Hi!
 
-Right, looks like it is. Feel free to send the patch to remove this.
+> +After analysing a large number of time-dependent interactive
+> +applications, we have seen that they often produce thin streams
+> +and also stay with this traffic pattern throughout its entire
+> +lifespan. The combination of time-dependency and the fact that the
+> +streams provoke high latencies when using TCP is unfortunate.
+> +
+> +In order to reduce application-layer latency when packets are lost,
+> +a set of mechanisms has been made, which address these latency issues
+> +for thin streams. In short, if the kernel detects a thin stream,
+> +the retransmission mechanisms are modified in the following manner:
+> +
+> +1) If the stream is thin, fast retransmit on the first dupACK.
+> +2) If the stream is thin, do not apply exponential backoff.
 
-Jirka
->
->
->Ken
->
+2) seems very dangerous/unfair. If network  congestion is caused just
+by thin streams, will the network just fall apart?
+
+
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
