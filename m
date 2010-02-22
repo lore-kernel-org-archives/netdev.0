@@ -1,32 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/2] can:ti_hecc: Add pm hook-up
-Date: Mon, 22 Feb 2010 15:33:30 -0800 (PST)
-Message-ID: <20100222.153330.107211362.davem@davemloft.net>
-References: <1266845736-7161-1-git-send-email-srk@ti.com>
-	<4B828E3C.40203@grandegger.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] ARC vmac ethernet driver.
+Date: Mon, 22 Feb 2010 15:40:10 -0800 (PST)
+Message-ID: <20100222.154010.149123575.davem@davemloft.net>
+References: <1266798092-25938-1-git-send-email-andreas.fenkart@streamunlimited.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: srk-l0cyMroinI0@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, krbaalaaji-l0cyMroinI0@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4B828E3C.40203-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: andreas.fenkart@streamunlimited.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43849
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755057Ab0BVXjw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 18:39:52 -0500
+In-Reply-To: <1266798092-25938-1-git-send-email-andreas.fenkart@streamunlimited.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Date: Mon, 22 Feb 2010 15:01:32 +0100
+From: Andreas Fenkart <andreas.fenkart@streamunlimited.com>
+Date: Mon, 22 Feb 2010 01:21:32 +0100
 
-> What is the reason for moving around module_init? Please revert. Then
-> you can add my "Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>".
+>  drivers/net/arcvmac.h      |  122 ++++
+>  drivers/net/arcvmac_fifo.h |  109 ++++
 
-I don't think this is enough to warrant rejection of this patch.
+There is no reason to create a completely seperate header file just
+for one DMA fifo data structure and a bunch of helper inline
+functions.
+
+Put this into arcvmac.h, thanks.
