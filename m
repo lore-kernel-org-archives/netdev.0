@@ -1,14 +1,16 @@
 From: gfilip@ee.ethz.ch
-Subject: [PATCH 1/5] temac: Add Virtex4 address mappings
-Date: Mon, 22 Feb 2010 20:06:57 +0100
-Message-ID: <1266865621-28955-1-git-send-email-gfilip@ee.ethz.ch>
+Subject: [PATCH 2/5] temac: dma init for Virtex4
+Date: Mon, 22 Feb 2010 20:06:58 +0100
+Message-ID: <1266865621-28955-2-git-send-email-gfilip@ee.ethz.ch>
+References: <1266865621-28955-1-git-send-email-gfilip@ee.ethz.ch>
 Cc: glikely@secretlab.ca, Filip Gospodinov <gfilip@ee.ethz.ch>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ee.ethz.ch ([129.132.2.219]:56348 "EHLO smtp.ee.ethz.ch"
+Received: from smtp.ee.ethz.ch ([129.132.2.219]:56366 "EHLO smtp.ee.ethz.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753349Ab0BVTOh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Feb 2010 14:14:37 -0500
+	id S1753684Ab0BVTOi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Feb 2010 14:14:38 -0500
+In-Reply-To: <1266865621-28955-1-git-send-email-gfilip@ee.ethz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -16,74 +18,68 @@ This patch belongs to a set of patches which extends the temac driver to support
 
 Signed-off-by: Filip Gospodinov <gfilip@ee.ethz.ch>
 ---
- drivers/net/ll_temac.h |   46 ++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 46 insertions(+), 0 deletions(-)
+ drivers/net/ll_temac.h      |    4 ++++
+ drivers/net/ll_temac_main.c |   17 ++++++++++++++++-
+ 2 files changed, 20 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/ll_temac.h b/drivers/net/ll_temac.h
-index 1af66a1..95dd650 100644
+index 95dd650..51824a8 100644
 --- a/drivers/net/ll_temac.h
 +++ b/drivers/net/ll_temac.h
-@@ -56,7 +56,52 @@ This option defaults to enabled (set) */
- 	 XTE_OPTION_RXEN)
+@@ -383,7 +383,11 @@ struct temac_local {
  
- /* XPS_LL_TEMAC SDMA registers definition */
+ 	/* IO registers and IRQs */
+ 	void __iomem *regs;
 +#ifdef CONFIG_XILINX_VIRTEX_4_FX
-+#define TX_NXTDESC_PTR      0x00            /* r */
-+#define TX_CURBUF_ADDR      0x04            /* r */
-+#define TX_CURBUF_LENGTH    0x08            /* r */
-+#define TX_CURDESC_PTR      0x0C            /* rw */
-+#define TX_TAILDESC_PTR     0x10            /* rw */
-+#define TX_CHNL_CTRL        0x14            /* rw */
-+#define CHNL_CTRL_IRQ_IOE       (1 << 9)
-+#define CHNL_CTRL_IRQ_EN        (1 << 7)
-+#define CHNL_CTRL_IRQ_ERR_EN    (1 << 2)
-+#define CHNL_CTRL_IRQ_DLY_EN    (1 << 1)
-+#define CHNL_CTRL_IRQ_COAL_EN   (1 << 0)
-+#define TX_IRQ_REG          0x18            /* rw */
-+#define TX_CHNL_STS         0x1C            /* r */
-+#define RX_NXTDESC_PTR      0x20            /* r */
-+#define RX_CURBUF_ADDR      0x24            /* r */
-+#define RX_CURBUF_LENGTH    0x28            /* r */
-+#define RX_CURDESC_PTR      0x2C            /* rw */
-+#define RX_TAILDESC_PTR     0x30            /* rw */
-+#define RX_CHNL_CTRL        0x34            /* rw */
-+#define RX_IRQ_REG          0x38           /* rw */
-+#define IRQ_COAL        (1 << 0)
-+#define IRQ_DLY         (1 << 1)
-+#define IRQ_ERR         (1 << 2)
-+#define IRQ_DMAERR      (1 << 7)            /* this is not documented ??? */
-+#define RX_CHNL_STS         0x3C        /* r */
-+#define CHNL_STS_ENGBUSY    (1 << 1)
-+#define CHNL_STS_EOP        (1 << 2)
-+#define CHNL_STS_SOP        (1 << 3)
-+#define CHNL_STS_CMPLT      (1 << 4)
-+#define CHNL_STS_SOE        (1 << 5)
-+#define CHNL_STS_IOE        (1 << 6)
-+#define CHNL_STS_ERR        (1 << 7)
-+
-+#define CHNL_STS_BSYWR      (1 << 16)
-+#define CHNL_STS_CURPERR    (1 << 17)
-+#define CHNL_STS_NXTPERR    (1 << 18)
-+#define CHNL_STS_ADDRERR    (1 << 19)
-+#define CHNL_STS_CMPERR     (1 << 20)
-+#define CHNL_STS_TAILERR    (1 << 21)
-+
-+#define DMA_CONTROL_REG             0x40            /* rw */
-+#define DMA_CONTROL_RST                 (1 << 0)
-+#define DMA_TAIL_ENABLE                 (1 << 2)
- 
++	void __iomem *dma_regs;
 +#else
- #define TX_NXTDESC_PTR      0x00            /* r */
- #define TX_CURBUF_ADDR      0x01            /* r */
- #define TX_CURBUF_LENGTH    0x02            /* r */
-@@ -182,6 +227,7 @@ This option defaults to enabled (set) */
- #define DMA_CONTROL_REG             0x10            /* rw */
- #define DMA_CONTROL_RST                 (1 << 0)
- #define DMA_TAIL_ENABLE                 (1 << 2)
-+#endif /*CONFIG_XILINX_VIRTEX_4_FX*/
+ 	dcr_host_t sdma_dcrs;
++#endif
+ 	int tx_irq;
+ 	int rx_irq;
+ 	int emac_num;
+diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
+index a8522bd..0d4b1c5 100644
+--- a/drivers/net/ll_temac_main.c
++++ b/drivers/net/ll_temac_main.c
+@@ -812,7 +812,6 @@ temac_of_probe(struct of_device *op, const struct of_device_id *match)
+ 	struct net_device *ndev;
+ 	const void *addr;
+ 	int size, rc = 0;
+-	unsigned int dcrs;
  
- /* XPS_LL_TEMAC direct registers definition */
+ 	/* Init network device structure */
+ 	ndev = alloc_etherdev(sizeof(*lp));
+@@ -862,6 +861,21 @@ temac_of_probe(struct of_device *op, const struct of_device_id *match)
+ 		goto nodev;
+ 	}
  
++#ifdef CONFIG_XILINX_VIRTEX_4_FX
++	unsigned int ds;
++	const u32 *dr = of_get_property(np, "reg", &ds);
++	if (dr == NULL || ds & 1 || 0 >= ds ) {
++		dev_err(&op->dev, "could not get DMA register address\n");
++		goto nodev;
++	}
++	lp->dma_regs = (u32) ioremap(*dr, 4096);
++	if (!lp->dma_regs) {
++		dev_err(&op->dev, "could not get DMA virtual address\n");
++		goto nodev;
++	}
++	dev_dbg(&op->dev, "DMA base: %x\n", lp->dma_regs);
++#else	/*CONFIG_XILINX_VIRTEX_4_FX*/
++	unsigned int dcrs;
+ 	dcrs = dcr_resource_start(np, 0);
+ 	if (dcrs == 0) {
+ 		dev_err(&op->dev, "could not get DMA register address\n");
+@@ -869,6 +883,7 @@ temac_of_probe(struct of_device *op, const struct of_device_id *match)
+ 	}
+ 	lp->sdma_dcrs = dcr_map(np, dcrs, dcr_resource_len(np, 0));
+ 	dev_dbg(&op->dev, "DCR base: %x\n", dcrs);
++#endif /*CONFIG_XILINX_VIRTEX_4_FX*/'
+ 
+ 	lp->rx_irq = irq_of_parse_and_map(np, 0);
+ 	lp->tx_irq = irq_of_parse_and_map(np, 1);
 -- 
 1.6.4.4
 
