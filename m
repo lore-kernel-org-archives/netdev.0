@@ -1,21 +1,22 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH 1/5] temac: Add Virtex4 address mappings
-Date: Mon, 22 Feb 2010 15:10:39 -0700
-Message-ID: <fa686aa41002221410y41886d50r8d657bc88b8ddbc8@mail.gmail.com>
+Subject: Re: [PATCH 2/5] temac: dma init for Virtex4
+Date: Mon, 22 Feb 2010 15:23:40 -0700
+Message-ID: <fa686aa41002221423g74349c60k7602f47b9e946018@mail.gmail.com>
 References: <1266865621-28955-1-git-send-email-gfilip@ee.ethz.ch>
+	<1266865621-28955-2-git-send-email-gfilip@ee.ethz.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: gfilip@ee.ethz.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f197.google.com ([209.85.211.197]:32973 "EHLO
+Received: from mail-yw0-f197.google.com ([209.85.211.197]:38602 "EHLO
 	mail-yw0-f197.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754498Ab0BVWTQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 17:19:16 -0500
-Received: by ywh35 with SMTP id 35so1484886ywh.4
-        for <netdev@vger.kernel.org>; Mon, 22 Feb 2010 14:19:16 -0800 (PST)
-In-Reply-To: <1266865621-28955-1-git-send-email-gfilip@ee.ethz.ch>
+	with ESMTP id S1754183Ab0BVWYE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 17:24:04 -0500
+Received: by ywh35 with SMTP id 35so1488935ywh.4
+        for <netdev@vger.kernel.org>; Mon, 22 Feb 2010 14:24:04 -0800 (PST)
+In-Reply-To: <1266865621-28955-2-git-send-email-gfilip@ee.ethz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -26,81 +27,99 @@ ion board.
 >
 > Signed-off-by: Filip Gospodinov <gfilip@ee.ethz.ch>
 > ---
-> =A0drivers/net/ll_temac.h | =A0 46 ++++++++++++++++++++++++++++++++++=
-++++++++++++
-> =A01 files changed, 46 insertions(+), 0 deletions(-)
+> =A0drivers/net/ll_temac.h =A0 =A0 =A0| =A0 =A04 ++++
+> =A0drivers/net/ll_temac_main.c | =A0 17 ++++++++++++++++-
+> =A02 files changed, 20 insertions(+), 1 deletions(-)
 >
 > diff --git a/drivers/net/ll_temac.h b/drivers/net/ll_temac.h
-> index 1af66a1..95dd650 100644
+> index 95dd650..51824a8 100644
 > --- a/drivers/net/ll_temac.h
 > +++ b/drivers/net/ll_temac.h
-> @@ -56,7 +56,52 @@ This option defaults to enabled (set) */
-> =A0 =A0 =A0 =A0 XTE_OPTION_RXEN)
+> @@ -383,7 +383,11 @@ struct temac_local {
 >
-> =A0/* XPS_LL_TEMAC SDMA registers definition */
+> =A0 =A0 =A0 =A0/* IO registers and IRQs */
+> =A0 =A0 =A0 =A0void __iomem *regs;
 > +#ifdef CONFIG_XILINX_VIRTEX_4_FX
-> +#define TX_NXTDESC_PTR =A0 =A0 =A00x00 =A0 =A0 =A0 =A0 =A0 =A0/* r *=
-/
-> +#define TX_CURBUF_ADDR =A0 =A0 =A00x04 =A0 =A0 =A0 =A0 =A0 =A0/* r *=
-/
-> +#define TX_CURBUF_LENGTH =A0 =A00x08 =A0 =A0 =A0 =A0 =A0 =A0/* r */
-> +#define TX_CURDESC_PTR =A0 =A0 =A00x0C =A0 =A0 =A0 =A0 =A0 =A0/* rw =
-*/
-> +#define TX_TAILDESC_PTR =A0 =A0 0x10 =A0 =A0 =A0 =A0 =A0 =A0/* rw */
-> +#define TX_CHNL_CTRL =A0 =A0 =A0 =A00x14 =A0 =A0 =A0 =A0 =A0 =A0/* r=
-w */
-> +#define CHNL_CTRL_IRQ_IOE =A0 =A0 =A0 (1 << 9)
-> +#define CHNL_CTRL_IRQ_EN =A0 =A0 =A0 =A0(1 << 7)
-> +#define CHNL_CTRL_IRQ_ERR_EN =A0 =A0(1 << 2)
-> +#define CHNL_CTRL_IRQ_DLY_EN =A0 =A0(1 << 1)
-> +#define CHNL_CTRL_IRQ_COAL_EN =A0 (1 << 0)
-> +#define TX_IRQ_REG =A0 =A0 =A0 =A0 =A00x18 =A0 =A0 =A0 =A0 =A0 =A0/*=
- rw */
-> +#define TX_CHNL_STS =A0 =A0 =A0 =A0 0x1C =A0 =A0 =A0 =A0 =A0 =A0/* r=
- */
-> +#define RX_NXTDESC_PTR =A0 =A0 =A00x20 =A0 =A0 =A0 =A0 =A0 =A0/* r *=
-/
-> +#define RX_CURBUF_ADDR =A0 =A0 =A00x24 =A0 =A0 =A0 =A0 =A0 =A0/* r *=
-/
-> +#define RX_CURBUF_LENGTH =A0 =A00x28 =A0 =A0 =A0 =A0 =A0 =A0/* r */
-> +#define RX_CURDESC_PTR =A0 =A0 =A00x2C =A0 =A0 =A0 =A0 =A0 =A0/* rw =
-*/
-> +#define RX_TAILDESC_PTR =A0 =A0 0x30 =A0 =A0 =A0 =A0 =A0 =A0/* rw */
-> +#define RX_CHNL_CTRL =A0 =A0 =A0 =A00x34 =A0 =A0 =A0 =A0 =A0 =A0/* r=
-w */
-> +#define RX_IRQ_REG =A0 =A0 =A0 =A0 =A00x38 =A0 =A0 =A0 =A0 =A0 /* rw=
- */
-> +#define IRQ_COAL =A0 =A0 =A0 =A0(1 << 0)
-> +#define IRQ_DLY =A0 =A0 =A0 =A0 (1 << 1)
-> +#define IRQ_ERR =A0 =A0 =A0 =A0 (1 << 2)
-> +#define IRQ_DMAERR =A0 =A0 =A0(1 << 7) =A0 =A0 =A0 =A0 =A0 =A0/* thi=
-s is not documented ??? */
-> +#define RX_CHNL_STS =A0 =A0 =A0 =A0 0x3C =A0 =A0 =A0 =A0/* r */
-> +#define CHNL_STS_ENGBUSY =A0 =A0(1 << 1)
-> +#define CHNL_STS_EOP =A0 =A0 =A0 =A0(1 << 2)
-> +#define CHNL_STS_SOP =A0 =A0 =A0 =A0(1 << 3)
-> +#define CHNL_STS_CMPLT =A0 =A0 =A0(1 << 4)
-> +#define CHNL_STS_SOE =A0 =A0 =A0 =A0(1 << 5)
-> +#define CHNL_STS_IOE =A0 =A0 =A0 =A0(1 << 6)
-> +#define CHNL_STS_ERR =A0 =A0 =A0 =A0(1 << 7)
-> +
-> +#define CHNL_STS_BSYWR =A0 =A0 =A0(1 << 16)
-> +#define CHNL_STS_CURPERR =A0 =A0(1 << 17)
-> +#define CHNL_STS_NXTPERR =A0 =A0(1 << 18)
-> +#define CHNL_STS_ADDRERR =A0 =A0(1 << 19)
-> +#define CHNL_STS_CMPERR =A0 =A0 (1 << 20)
-> +#define CHNL_STS_TAILERR =A0 =A0(1 << 21)
-> +
-> +#define DMA_CONTROL_REG =A0 =A0 =A0 =A0 =A0 =A0 0x40 =A0 =A0 =A0 =A0=
- =A0 =A0/* rw */
-> +#define DMA_CONTROL_RST =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 (1 << 0)
-> +#define DMA_TAIL_ENABLE =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 (1 << 2)
->
+> + =A0 =A0 =A0 void __iomem *dma_regs;
+> +#else
+> =A0 =A0 =A0 =A0dcr_host_t sdma_dcrs;
+> +#endif
 
-Oh, ugly.  The register definitions are identical for virtex4 mmio
-access and virtex5 DCR access.  The only difference is the multiplier
-(DCRs increase by 1, mmio increments by 4) to the register.  Rather
-than defining a whole new register block, just multiply the offset by
-4 when doing an MMIO access.
+Hi Filip,
+
+Rather than using a CONFIG symbol to select between MMIO and DCR
+modes, you should look at how this patch implemented it:
+
+http://www.gossamer-threads.com/lists/linux/kernel/1184834?page=3Dlast
+
+John Tyner's approach is pretty good, but it needs a bit more work
+before merging and he is no longer working on a virtex platform so he
+isn't planning to finish it.  Basically, there is no reason for the
+driver to have to choose at compile time whether DCR or MMIO will be
+used.
 
 g.
+
+> =A0 =A0 =A0 =A0int tx_irq;
+> =A0 =A0 =A0 =A0int rx_irq;
+> =A0 =A0 =A0 =A0int emac_num;
+> diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.=
+c
+> index a8522bd..0d4b1c5 100644
+> --- a/drivers/net/ll_temac_main.c
+> +++ b/drivers/net/ll_temac_main.c
+> @@ -812,7 +812,6 @@ temac_of_probe(struct of_device *op, const struct=
+ of_device_id *match)
+> =A0 =A0 =A0 =A0struct net_device *ndev;
+> =A0 =A0 =A0 =A0const void *addr;
+> =A0 =A0 =A0 =A0int size, rc =3D 0;
+> - =A0 =A0 =A0 unsigned int dcrs;
+>
+> =A0 =A0 =A0 =A0/* Init network device structure */
+> =A0 =A0 =A0 =A0ndev =3D alloc_etherdev(sizeof(*lp));
+> @@ -862,6 +861,21 @@ temac_of_probe(struct of_device *op, const struc=
+t of_device_id *match)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto nodev;
+> =A0 =A0 =A0 =A0}
+>
+> +#ifdef CONFIG_XILINX_VIRTEX_4_FX
+> + =A0 =A0 =A0 unsigned int ds;
+> + =A0 =A0 =A0 const u32 *dr =3D of_get_property(np, "reg", &ds);
+> + =A0 =A0 =A0 if (dr =3D=3D NULL || ds & 1 || 0 >=3D ds ) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_err(&op->dev, "could not get DMA re=
+gister address\n");
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto nodev;
+> + =A0 =A0 =A0 }
+> + =A0 =A0 =A0 lp->dma_regs =3D (u32) ioremap(*dr, 4096);
+> + =A0 =A0 =A0 if (!lp->dma_regs) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_err(&op->dev, "could not get DMA vi=
+rtual address\n");
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto nodev;
+> + =A0 =A0 =A0 }
+> + =A0 =A0 =A0 dev_dbg(&op->dev, "DMA base: %x\n", lp->dma_regs);
+> +#else =A0/*CONFIG_XILINX_VIRTEX_4_FX*/
+> + =A0 =A0 =A0 unsigned int dcrs;
+> =A0 =A0 =A0 =A0dcrs =3D dcr_resource_start(np, 0);
+> =A0 =A0 =A0 =A0if (dcrs =3D=3D 0) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_err(&op->dev, "could not get DMA r=
+egister address\n");
+> @@ -869,6 +883,7 @@ temac_of_probe(struct of_device *op, const struct=
+ of_device_id *match)
+> =A0 =A0 =A0 =A0}
+> =A0 =A0 =A0 =A0lp->sdma_dcrs =3D dcr_map(np, dcrs, dcr_resource_len(n=
+p, 0));
+> =A0 =A0 =A0 =A0dev_dbg(&op->dev, "DCR base: %x\n", dcrs);
+> +#endif /*CONFIG_XILINX_VIRTEX_4_FX*/'
+>
+> =A0 =A0 =A0 =A0lp->rx_irq =3D irq_of_parse_and_map(np, 0);
+> =A0 =A0 =A0 =A0lp->tx_irq =3D irq_of_parse_and_map(np, 1);
+> --
+> 1.6.4.4
+>
+>
+
+
+
+--=20
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
