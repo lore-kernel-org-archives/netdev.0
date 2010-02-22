@@ -1,227 +1,73 @@
-From: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
-Subject: Re: dccp-test-tree [Patch 1/1] "UDP-like" CCID sample kernel module
-Date: Mon, 22 Feb 2010 04:00:31 -0300
-Message-ID: <cb00fa211002212300r2460471ub0932eb3e6c40c05@mail.gmail.com>
-References: <20100215060928.GA5350@gerrit.erg.abdn.ac.uk>
+From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] module param_call: fix potential NULL pointer dereference
+Date: Mon, 22 Feb 2010 15:37:00 +0800
+Message-ID: <2375c9f91002212337l543795d5ndb24173dd19e039e@mail.gmail.com>
+References: <1266737078-26186-1-git-send-email-dongdong.deng@windriver.com>
+	 <2375c9f91002210041l1bf30871vdf3881589a654d5a@mail.gmail.com>
+	 <4B80FA08.8080304@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f196.google.com ([209.85.210.196]:50533 "EHLO
-	mail-yx0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750766Ab0BVHGN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 02:06:13 -0500
-In-Reply-To: <20100215060928.GA5350@gerrit.erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rusty@rustcorp.com.au, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jason.wessel@windriver.com, lenb@kernel.org, dwmw2@infradead.org,
+	mdharm-usb@one-eyed-alien.net, bfields@fieldses.org,
+	robert.richter@amd.com
+To: DDD <dongdong.deng@windriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4B80FA08.8080304@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 15, 2010 at 03:09, Gerrit Renker <gerrit@erg.abdn.ac.uk> wr=
-ote:
-> This patch is for the dccp test tree at
-> =A0git://eden-feed.erg.abdn.ac.uk/dccp_exp [subtree 'dccp']
+On Sun, Feb 21, 2010 at 5:16 PM, DDD <dongdong.deng@windriver.com> wrot=
+e:
+> Am=C3=A9rico Wang wrote:
+>>
+>> On Sun, Feb 21, 2010 at 3:24 PM, Dongdong Deng
+>> <dongdong.deng@windriver.com> wrote:
+>>>
+>>> The param_set_fn() function will get a parameter which is a NULL
+>>> pointer when insmod module with params via following method:
+>>>
+>>> $insmod module.ko module_params
+>>>
+>>> BTW: the normal method usually as following format:
+>>> $insmod module.ko module_params=3Dexample
+>>>
+>>> If the param_set_fn() function didn't check that parameter and used
+>>> it directly, it could caused an OOPS due to NULL pointer dereferenc=
+e.
+>>>
+>>> The solution is simple:
+>>> Just checking the parameter before using in param_set_fn().
+>>>
+>>> Example:
+>>> int set_module_params(const char *val, struct kernel_param *kp)
+>>> {
+>>> =C2=A0 =C2=A0 =C2=A0 /*Checking the val parameter before using */
+>>> =C2=A0 =C2=A0 =C2=A0 if (!val)
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return -EINVAL;
+>>> =C2=A0 =C2=A0 =C2=A0 ...
+>>> }
+>>> module_param_call(module_params, set_module_params, NULL, NULL, 064=
+4);
+>>>
+>>
+>> Why not just checking all of them in the generic code?
 >
-> The actual 'module' is only 5 lines long.
->>>>>>>>>>>>>>>>>>>>>> Patch <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<=
-<<<<<<<
-> dccp: sample kernel module, NULL-CCID ("UDP-like")
+> It is no problem that we check the params before invoking param_set_f=
+n().
 >
-> This implements an experimental CCID which does not do any congestion=
- control,
-> i.e. "UDP-like".
->
-> This is an experimental CCID. It is not meant for actual deployment, =
-but
-> rather as sample kernel code, providing a worked example of how to ad=
-d a
-> new CCID module.
->
-> Since CCID-0 is reserved (RFC 4340, table 5), this experimental NULL =
-CCID uses
-> the first available experimental CCID, CCID-248 (RFC 4340, 19.5).
->
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-> ---
-> =A0include/linux/dccp.h =A0 | =A0 =A07 +++++++
-> =A0net/dccp/Makefile =A0 =A0 =A0| =A0 =A01 +
-> =A0net/dccp/ccid.c =A0 =A0 =A0 =A0| =A0 =A03 +++
-> =A0net/dccp/ccid.h =A0 =A0 =A0 =A0| =A0 =A03 +++
-> =A0net/dccp/ccids/Kconfig | =A0 12 ++++++++++++
-> =A0net/dccp/ccids/ccid0.c | =A0 27 +++++++++++++++++++++++++++
-> =A0net/dccp/feat.c =A0 =A0 =A0 =A0| =A0 17 ++++++++++++++++-
-> =A07 files changed, 69 insertions(+), 1 deletion(-)
->
-> --- a/include/linux/dccp.h
-> +++ b/include/linux/dccp.h
-> @@ -177,6 +177,13 @@ enum {
-> =A0enum {
-> =A0 =A0 =A0 =A0DCCPC_CCID2 =3D 2,
-> =A0 =A0 =A0 =A0DCCPC_CCID3 =3D 3,
-> + =A0 =A0 =A0 /*
-> + =A0 =A0 =A0 =A0* CCIDs 248-255 below are permanently reserved for
-> + =A0 =A0 =A0 =A0* experimental and testing use (RFC 4340, 19.5).
-> + =A0 =A0 =A0 =A0*/
-> +#define DCCPC_TESTING_MIN =A0 =A0 =A0248
-> +#define DCCPC_TESTING_MAX =A0 =A0 =A0255
-> + =A0 =A0 =A0 DCCPC_CCID_ZERO =3D DCCPC_TESTING_MIN,
-> =A0};
->
-> =A0/* DCCP features (RFC 4340 section 6.4) */
-> --- /dev/null
-> +++ b/net/dccp/ccids/ccid0.c
-> @@ -0,0 +1,27 @@
-> +/*
-> + * =A0CCID-ZERO - UDP-like congestion control
-> + *
-> + * =A0This is a sample kernel module, used for testing and developme=
-nt, but not
-> + * =A0for actual deployment. The CCID number is taken from the range=
- of CCIDs
-> + * =A0set apart for testing and experimenting.
-> + *
-> + * =A0This program is free software; you can redistribute it and/or =
-modify
-> + * =A0it under the terms of the GNU General Public License as publis=
-hed by
-> + * =A0the Free Software Foundation; either version 2 of the License,=
- or
-> + * =A0(at your option) any later version.
-> + *
-> + * =A0This program is distributed in the hope that it will be useful=
-,
-> + * =A0but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * =A0MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. =A0See th=
-e
-> + * =A0GNU General Public License for more details.
-> + *
-> + * =A0You should have received a copy of the GNU General Public Lice=
-nse
-> + * =A0along with this program; if not, write to the Free Software
-> + * =A0Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-> + */
-> +#include "../ccid.h"
-> +
-> +struct ccid_operations ccid0_ops =3D {
-> + =A0 =A0 =A0 .ccid_id =A0 =A0 =A0 =A0=3D DCCPC_CCID_ZERO,
-> + =A0 =A0 =A0 .ccid_name =A0 =A0 =A0=3D "UDP-like transport"
-> +};
-> --- a/net/dccp/ccid.c
-> +++ b/net/dccp/ccid.c
-> @@ -19,6 +19,9 @@ static struct ccid_operations *ccids[] =3D
-> =A0#ifdef CONFIG_IP_DCCP_CCID3
-> =A0 =A0 =A0 =A0&ccid3_ops,
-> =A0#endif
-> +#ifdef CONFIG_IP_DCCP_CCID0
-> + =A0 =A0 =A0 &ccid0_ops,
-> +#endif
-> =A0};
->
-> =A0static struct ccid_operations *ccid_by_number(const u8 id)
-> --- a/net/dccp/ccid.h
-> +++ b/net/dccp/ccid.h
-> @@ -91,6 +91,9 @@ struct ccid_operations {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 int __user *optlen);
-> =A0};
->
-> +#ifdef CONFIG_IP_DCCP_CCID0
-> +extern struct ccid_operations ccid0_ops;
-> +#endif
-> =A0extern struct ccid_operations ccid2_ops;
-> =A0#ifdef CONFIG_IP_DCCP_CCID3
-> =A0extern struct ccid_operations ccid3_ops;
-> --- a/net/dccp/feat.c
-> +++ b/net/dccp/feat.c
-> @@ -620,7 +620,8 @@ static u8 dccp_feat_is_valid_sp_val(u8 f
-> =A0{
-> =A0 =A0 =A0 =A0switch (feat_num) {
-> =A0 =A0 =A0 =A0case DCCPF_CCID:
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 return val =3D=3D DCCPC_CCID2 || val =3D=
-=3D DCCPC_CCID3;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return =A0val =3D=3D DCCPC_CCID2 || val=
- =3D=3D DCCPC_CCID3 ||
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 (val >=3D DCCPC_TESTING=
-_MIN && val <=3D DCCPC_TESTING_MAX);
-> =A0 =A0 =A0 =A0/* Type-check Boolean feature values: */
-> =A0 =A0 =A0 =A0case DCCPF_SHORT_SEQNOS:
-> =A0 =A0 =A0 =A0case DCCPF_ECN_INCAPABLE:
-> @@ -831,6 +832,18 @@ EXPORT_SYMBOL_GPL(dccp_feat_signal_nn_ch
-> =A0*/
-> =A0static const struct ccid_dependency *dccp_feat_ccid_deps(u8 ccid, =
-bool is_local)
-> =A0{
-> + =A0 =A0 =A0 static const struct ccid_dependency ccid0_dependencies[=
-2][2] =3D {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /*
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* The UDP-like CCID does not have sp=
-ecial dependencies, but for
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* testing dependencies (e.g. Ack Vec=
-tors) can be defined below.
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 { 0, 0, 0, 0 }
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 },
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 { 0, 0, 0, 0 }
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
-> + =A0 =A0 =A0 };
-> =A0 =A0 =A0 =A0static const struct ccid_dependency ccid2_dependencies=
-[2][2] =3D {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/*
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 * CCID2 mandates Ack Vectors (RFC 434=
-1, 4.): as CCID is a TX
-> @@ -916,6 +929,8 @@ static const struct ccid_dependency *dcc
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
-> =A0 =A0 =A0 =A0};
-> =A0 =A0 =A0 =A0switch (ccid) {
-> + =A0 =A0 =A0 case DCCPC_CCID_ZERO:
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return ccid0_dependencies[is_local];
-> =A0 =A0 =A0 =A0case DCCPC_CCID2:
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return ccid2_dependencies[is_local];
-> =A0 =A0 =A0 =A0case DCCPC_CCID3:
-> --- a/net/dccp/ccids/Kconfig
-> +++ b/net/dccp/ccids/Kconfig
-> @@ -103,4 +103,16 @@ config IP_DCCP_TFRC_LIB
->
-> =A0config IP_DCCP_TFRC_DEBUG
-> =A0 =A0 =A0 =A0def_bool y if IP_DCCP_CCID3_DEBUG
-> +
-> +config IP_DCCP_CCID0
-> + =A0 =A0 =A0 bool "CCID-ZERO (UDP-Like) sample kernel module"
-> + =A0 =A0 =A0 def_bool n
-> + =A0 =A0 =A0 ---help---
-> + =A0 =A0 =A0 =A0 This is a sample kernel module to illustrate the in=
-tegration of new
-> + =A0 =A0 =A0 =A0 CCID kernel modules into CCID. It can also be used =
-for performance
-> + =A0 =A0 =A0 =A0 testing, but is not meant for deployment since it o=
-perates without
-> + =A0 =A0 =A0 =A0 any congestion control. It is a NULL CCID, its iden=
-tifier is 248.
-> +
-> + =A0 =A0 =A0 =A0 Say N.
-> +
-> =A0endmenu
-> --- a/net/dccp/Makefile
-> +++ b/net/dccp/Makefile
-> @@ -7,6 +7,7 @@ dccp-y :=3D ccid.o feat.o input.o minisock
-> =A0#
-> =A0# CCID-2 is default (RFC 4340, p. 77) and has Ack Vectors as depen=
-dency
-> =A0dccp-y +=3D ccids/ccid2.o ackvec.o
-> +dccp-$(CONFIG_IP_DCCP_CCID0) =A0 +=3D ccids/ccid0.o
-> =A0dccp-$(CONFIG_IP_DCCP_CCID3) =A0 +=3D ccids/ccid3.o
-> =A0dccp-$(CONFIG_IP_DCCP_TFRC_LIB) +=3D ccids/lib/tfrc.o =A0 =A0 =A0 =
-=A0 =A0 =A0\
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 c=
-cids/lib/tfrc_equation.o =A0 =A0\
-> --
-> To unsubscribe from this list: send the line "unsubscribe dccp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+> But I trend to do the checking in param_set_*fn(), because we can off=
+er some
+> special prompt infos to user if we want and handle some special cases=
+ like
+> param_set_bool().
 >
 
+Yeah, I knew standard bool parameters can accept that,
+the problem is that KPARAM_ISBOOL is not enough to
+check if a parameter is bool or not. Probably we need
+a new flag...
 
-Acked-by: Ivo Calado <ivocalado@embedded.ufcg.edu.br>  for ccid4 subtre=
-e
+Thanks.
