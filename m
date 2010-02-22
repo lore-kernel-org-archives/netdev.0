@@ -1,114 +1,120 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 15342] New: max_address parameter is not taken
- into consideration when IPv6 addresses are created
-Date: Mon, 22 Feb 2010 13:08:58 -0800
-Message-ID: <20100222130858.3c186888.akpm@linux-foundation.org>
-References: <bug-15342-10286@http.bugzilla.kernel.org/>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, nedyalkor@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:45406 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753153Ab0BVVKJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 16:10:09 -0500
-In-Reply-To: <bug-15342-10286@http.bugzilla.kernel.org/>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: [PATCH] isdn: fix a few Kconfig imperfections
+Date: Mon, 22 Feb 2010 22:09:38 +0100 (CET)
+Message-ID: <20100222210938.75A3B4011D@xenon.ts.pxnet.com>
+Cc: Karsten Keil <keil@b1-systems.de>,
+	David Miller <davem@davemloft.net>,
+	isdn4linux@listserv.isdn4linux.de,
+	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+1. Rewrite the outdated help texts for config options ISDN and ISDN_CAPI.
+2. The MISDN config option appeared between ISDN_I4L and the I4L hardware
+   driver options; move it to a less irritating place.
+3. HYSDN is not in fact an I4L driver, and needn't depend on ISDN_I4L, so
+   move it from the I4L section to the general section.
+4. ISDN_HDLC is now also used by drivers outside I4L.  Move it from the
+   I4L section to the general section, too.
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+---
+ drivers/isdn/Kconfig     |   43 ++++++++++++++++++++++++++++---------------
+ drivers/isdn/i4l/Kconfig |    7 -------
+ 2 files changed, 28 insertions(+), 22 deletions(-)
 
-On Wed, 17 Feb 2010 14:12:28 GMT bugzilla-daemon@bugzilla.kernel.org wrote:
-
-> http://bugzilla.kernel.org/show_bug.cgi?id=15342
-> 
->            Summary: max_address parameter is not taken into consideration
->                     when IPv6 addresses are created
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 2.6.32.5
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: low
->           Priority: P1
->          Component: IPV6
->         AssignedTo: yoshfuji@linux-ipv6.org
->         ReportedBy: nedyalkor@gmail.com
->         Regression: No
-> 
-> 
-> >From ip-sysctl.txt file in kernel documentation I can see following description
-> for max_addresses:
-> max_addresses - INTEGER
->         Number of maximum addresses per interface.  0 disables limitation.
->         It is recommended not set too large value (or 0) because it would
->         be too easy way to crash kernel to allow to create too much of
->         autoconfigured addresses.
->         Default: 16
-> 
-> On my machine all parameters are set to default value 16:
-> # sysctl -a|grep max_addresses
-> net.ipv6.conf.all.max_addresses = 16
-> net.ipv6.conf.default.max_addresses = 16
-> net.ipv6.conf.lo.max_addresses = 16
-> net.ipv6.conf.eth0.max_addresses = 16
-> 
-> To my understanding I should not be able to create more than 16 IP addresses,
-> but in fact I am able do it:
-> 
-> # for i in `seq 1 16`; do ip addr add fec0::$i/64 dev eth0; done
-> # ip addr add fec0::17/64 dev eth0
-> # ip -6 addr
-> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436
->     inet6 ::1/128 scope host
->        valid_lft forever preferred_lft forever
-> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
->     inet6 fec0::17/64 scope site
->        valid_lft forever preferred_lft forever
->     inet6 fec0::16/64 scope site
->        valid_lft forever preferred_lft forever
->     inet6 fec0::15/64 scope site
->        valid_lft forever preferred_lft forever
->     inet6 fec0::14/64 scope site
->        valid_lft forever preferred_lft forever
->     inet6 fec0::13/64 scope site
->        valid_lft forever preferred_lft forever
->     inet6 fec0::12/64 scope site
->        valid_lft forever preferred_lft forever
->     inet6 fec0::11/64 scope site
->        valid_lft forever preferred_lft forever
->     inet6 fec0::10/64 scope site
->        valid_lft forever preferred_lft forever
->     inet6 fec0::9/64 scope site
->        valid_lft forever preferred_lft forever
->     inet6 fec0::8/64 scope site
->        valid_lft forever preferred_lft forever
->     inet6 fec0::7/64 scope site
->        valid_lft forever preferred_lft forever
->     inet6 fec0::6/64 scope site
->        valid_lft forever preferred_lft forever
->     inet6 fec0::5/64 scope site
->        valid_lft forever preferred_lft forever
->     inet6 fec0::4/64 scope site
->        valid_lft forever preferred_lft forever
->     inet6 fec0::3/64 scope site
->        valid_lft forever preferred_lft forever
->     inet6 fec0::2/64 scope site
->        valid_lft forever preferred_lft forever
->     inet6 fec0::1/64 scope site
->        valid_lft forever preferred_lft forever
->     inet6 fe80::223:aeff:fe77:44ba/64 scope link
->        valid_lft forever preferred_lft forever
-> 
->
-> If this parameter applies only for auto-configured IP addressed, please state
-> it more clearly in docs or rename the parameter to show that it refers to
-> auto-configuration.
-> 
+diff --git a/drivers/isdn/Kconfig b/drivers/isdn/Kconfig
+index 022a194..4fb6016 100644
+--- a/drivers/isdn/Kconfig
++++ b/drivers/isdn/Kconfig
+@@ -7,15 +7,14 @@ menuconfig ISDN
+ 	depends on NET
+ 	depends on !S390
+ 	---help---
+-	  ISDN ("Integrated Services Digital Networks", called RNIS in France)
+-	  is a special type of fully digital telephone service; it's mostly
+-	  used to connect to your Internet service provider (with SLIP or
+-	  PPP).  The main advantage is that the speed is higher than ordinary
+-	  modem/telephone connections, and that you can have voice
+-	  conversations while downloading stuff.  It only works if your
+-	  computer is equipped with an ISDN card and both you and your service
+-	  provider purchased an ISDN line from the phone company.  For
+-	  details, read <http://www.alumni.caltech.edu/~dank/isdn/> on the WWW.
++	  ISDN ("Integrated Services Digital Network", called RNIS in France)
++	  is a fully digital telephone service that can be used for voice and
++	  data connections.  If your computer is equipped with an ISDN
++	  adapter you can use it to connect to your Internet service provider
++	  (with SLIP or PPP) faster than via a conventional telephone modem
++	  (though still much slower than with DSL) or to make and accept
++	  voice calls (eg. turning your PC into a software answering machine
++	  or PABX).
+ 
+ 	  Select this option if you want your kernel to support ISDN.
+ 
+@@ -39,17 +38,22 @@ menuconfig ISDN_I4L
+ 	  It is still available, though, for use with adapters that are not
+ 	  supported by the new CAPI subsystem yet.
+ 
+-source "drivers/isdn/mISDN/Kconfig"
+-
+ source "drivers/isdn/i4l/Kconfig"
+ 
+ menuconfig ISDN_CAPI
+ 	tristate "CAPI 2.0 subsystem"
+ 	help
+-	  This provides the CAPI (Common ISDN Application Programming
+-	  Interface, a standard making it easy for programs to access ISDN
+-	  hardware, see <http://www.capi.org/>.  This is needed for AVM's set
+-	  of active ISDN controllers like B1, T1, M1.
++	  This provides CAPI (the Common ISDN Application Programming
++	  Interface) Version 2.0, a standard making it easy for programs to
++	  access ISDN hardware in a device independent way. (For details see
++	  <http://www.capi.org/>.)  CAPI supports making and accepting voice
++	  and data connections, controlling call options and protocols,
++	  as well as ISDN supplementary services like call forwarding or
++	  three-party conferences (if supported by the specific hardware
++	  driver).
++
++	  Select this option and the appropriate hardware driver below if
++	  you have an ISDN adapter supported by the CAPI subsystem.
+ 
+ if ISDN_CAPI
+ 
+@@ -61,4 +65,13 @@ endif # ISDN_CAPI
+ 
+ source "drivers/isdn/gigaset/Kconfig"
+ 
++source "drivers/isdn/hysdn/Kconfig"
++
++source "drivers/isdn/mISDN/Kconfig"
++
++config ISDN_HDLC
++	tristate
++	select CRC_CCITT
++	select BITREVERSE
++
+ endif # ISDN
+diff --git a/drivers/isdn/i4l/Kconfig b/drivers/isdn/i4l/Kconfig
+index 07c4e49..9c6650e 100644
+--- a/drivers/isdn/i4l/Kconfig
++++ b/drivers/isdn/i4l/Kconfig
+@@ -134,14 +134,7 @@ source "drivers/isdn/sc/Kconfig"
+ 
+ source "drivers/isdn/act2000/Kconfig"
+ 
+-source "drivers/isdn/hysdn/Kconfig"
+-
+ endmenu
+ # end ISDN_I4L
+ endif
+ 
+-config ISDN_HDLC
+-	tristate
+-	select CRC_CCITT
+-	select BITREVERSE
+-
+-- 
+1.6.5.3.298.g39add
