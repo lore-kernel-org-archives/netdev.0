@@ -1,54 +1,62 @@
-From: Robert Hancock <hancockrwd@gmail.com>
-Subject: NETIF_F_HIGHDMA misuse in networking drivers?
-Date: Sat, 20 Feb 2010 12:29:14 -0600
-Message-ID: <4B8029FA.2000404@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][v4] tcp: fix ICMP-RTO war
+Date: Sun, 21 Feb 2010 18:10:29 -0800 (PST)
+Message-ID: <20100221.181029.71107197.davem@davemloft.net>
+References: <4B7303C2.5000703@tvk.rwth-aachen.de>
+	<alpine.DEB.2.00.1002151535030.7063@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: damian@tvk.rwth-aachen.de, netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43434
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754362Ab0BVCKL convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 Feb 2010 21:10:11 -0500
+In-Reply-To: <alpine.DEB.2.00.1002151535030.7063@wel-95.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Was just part of a discussion in another thread talking about 64-bit DMA 
-support issues where NETIF_F_HIGHDMA came up. I was originally under the 
-impression that this flag indicated the device supported 64-bit DMA 
-addressing. However, from looking at the code that checks for it (and, 
-well, the actual comment for the flag) it really means "can access 
-highmem" which has nothing to do with 64-bit at all. And if there's no 
-highmem (like on x86_64) it has no effect at all.
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Tue, 16 Feb 2010 14:45:25 +0200 (EET)
 
- From looking at some drivers, however, it seems a lot of others had 
-similar confusion, as they are doing things like setting NETIF_F_HIGHDMA 
-conditionally on whether setting 64-bit DMA mask succeeds:
+> On Wed, 10 Feb 2010, Damian Lukowski wrote:
+>=20
+>> @@ -5783,12 +5783,10 @@ int tcp_rcv_state_process(struct sock *sk, s=
+truct sk_buff *skb,
+>> =20
+>>  				/* tcp_ack considers this ACK as duplicate
+>>  				 * and does not calculate rtt.
+>> -				 * Fix it at least with timestamps.
+>> +				 * Force it here.
+>>  				 */
+>> -				if (tp->rx_opt.saw_tstamp &&
+>> -				    tp->rx_opt.rcv_tsecr && !tp->srtt)
+>> -					tcp_ack_saw_tstamp(sk, 0);
+>> -
+>> +				tcp_ack_update_rtt(sk, 0, 0);
+>> +
+>=20
+> ...Here a zero seq_rtt is given to RTT estimator (it will be effectiv=
+e=20
+> only in the case w/o timestamps, TS case recalculates it from the sto=
+red=20
+> timestamps). Maybe we could use some field (timestamp related one com=
+es to=20
+> my mind) in request sock to get a real RTT estimate for non-timestamp=
+ case=20
+> too. ...It seems possible to me, though tricky because the request_so=
+ck is=20
+> no longer that easily available here so some parameter passing would =
+be=20
+> needed.
 
-drivers/net/8139cp.c:
+Agreed.
 
-         if (pci_using_dac)
-                 dev->features |= NETIF_F_HIGHDMA;
+But even more simply I think we should make even the current
+tcp_ack_update_rtt() call here conditional on at least
+tp->srtt being zero.
 
-drivers/net/jme.c:
-
-         if (jme->dev->features & NETIF_F_HIGHDMA)
-                 rxdesc->desc1.flags = RXFLAG_64BIT;
-
-drivers/net/forcedeth.c:
-
-                 if (dma_64bit) {
-                         if (pci_set_dma_mask(pci_dev, DMA_BIT_MASK(39)))
-                                 dev_printk(KERN_INFO, &pci_dev->dev,
-                                         "64-bit DMA failed, using 
-32-bit addressing\n");
-                         else
-                                 dev->features |= NETIF_F_HIGHDMA;
-
-(the last one is extra funny because it keeps saying 64-bit when it's 
-really only 39-bit..)
-
-The net result is that a lot of drivers aren't setting the HIGHDMA flag 
-where they should, and thus on architectures where highmem exists, 
-resulting in a bunch of unnecessary copying.
-
-Assuming my interpretation is correct, I could try and fix up some of 
-this mess.. any comments?
+Damian do you at least agree with that?
