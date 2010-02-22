@@ -1,69 +1,85 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 4/4] isdn: remove ishexdigit() in regard to isxdigit()
-Date: Tue, 23 Feb 2010 00:10:22 +0100 (CET)
-Message-ID: <20100221-patch-gigaset-04.tilman@imap.cc>
-References: <20100221-patch-gigaset-00.tilman@imap.cc>
-Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
-	isdn4linux@listserv.isdn4linux.de,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pxnet.com ([195.227.45.7]:57838 "EHLO mail.pxnet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754365Ab0BVXLc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Feb 2010 18:11:32 -0500
-In-Reply-To: <20100221-patch-gigaset-00.tilman@imap.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: RFC: netfilter: nf_conntrack: add support for "conntrack zones"
+Date: Mon, 22 Feb 2010 15:17:58 -0800
+Message-ID: <m1wry46es9.fsf@fess.ebiederm.org>
+References: <4B4F24AC.70105@trash.net> <1263481549.23480.24.camel@bigi>
+	<4B4F3A50.1050400@trash.net> <1263490403.23480.109.camel@bigi>
+	<4B50403A.6010507@trash.net> <1263568754.23480.142.camel@bigi>
+	<m13a0tf17t.fsf@fess.ebiederm.org> <1266875729.3673.12.camel@bigi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	containers@lists.linux-foundation.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>
+To: hadi@cyberus.ca
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1266875729.3673.12.camel@bigi> (jamal's message of "Mon\, 22 Feb 2010 16\:55\:29 -0500")
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andy Shevchenko <ext-andriy.shevchenko@nokia.com>
-Subject: [PATCH 4/4] isdn: remove ishexdigit() in regard to isxdigit()
+jamal <hadi@cyberus.ca> writes:
 
-Samll cleanup in drivers/isdn/gigaset/capi.c where own implementation of
-isxdigit() has been changed to kernel native one.
+> On Mon, 2010-02-22 at 12:46 -0800, Eric W. Biederman wrote:
+>> jamal <hadi@cyberus.ca> writes:
+>
+>> 
+>> This is one of the long standing issues that we have always known
+>> we needed to solve, but have not taken the time to do it.  Now that
+>> the need is more real it looks about time to solve this one.
+>> 
+>> There are currently two problems.
+>> 1) A process is needed to hold a reference to the network namespace.
+>> 2) We use pids which are an awkward way of talking about network
+>>    namespaces.
+>> 
+>> The solution I have been playing with involves.
+>> - Using a file descriptor to refer to a network namespace.
+>> - Using a trivial virtual filesystem to persistently hold onto
+>>   a namespace without the need of a process.
+>> - Have a convention of mounting the fs at something like
+>>   /var/run/netns/<name>
+>> 
+>
+> I didnt quiet follow how i could use the above to do:
+> "ip ns <name/id> route add blah" from namespace0.
+>
+> I tend to think in packets and wires instead of files;
+> How about just allowing a "control" channel from which
+> i could discover the namespace?
+> Example, assuming i have the right permissions:
+> 1) listen to async events example on a multicast bus when
+> a namespace is created or destroyed. Provide me a little more info on
+> the created namespace such as its pid, name(?), types of namespace, etc
+> 2) send a query to dump existing namespace or query by name, id etc.
+> I get the same details as above.
+>
+> using genetlink should provide you with sufficient ability to do this.
 
-Signed-off-by: Andy Shevchenko <ext-andriy.shevchenko@nokia.com>
-Acked-by: Tilman Schmidt <tilman@imap.cc>
----
- drivers/isdn/gigaset/capi.c |   16 +---------------
- 1 files changed, 1 insertions(+), 15 deletions(-)
+What I am thinking is:
 
-diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
-index 7ac71c5..c949df5 100644
---- a/drivers/isdn/gigaset/capi.c
-+++ b/drivers/isdn/gigaset/capi.c
-@@ -171,20 +171,6 @@ static inline void ignore_cstruct_param(struct cardstate *cs, _cstruct param,
- }
- 
- /*
-- * check for legal hex digit
-- */
--static inline int ishexdigit(char c)
--{
--	if (c >= '0' && c <= '9')
--		return 1;
--	if (c >= 'A' && c <= 'F')
--		return 1;
--	if (c >= 'a' && c <= 'f')
--		return 1;
--	return 0;
--}
--
--/*
-  * convert hex to binary
-  */
- static inline u8 hex2bin(char c)
-@@ -204,7 +190,7 @@ static int encode_ie(char *in, u8 *out, int maxlen)
- {
- 	int l = 0;
- 	while (*in) {
--		if (!ishexdigit(in[0]) || !ishexdigit(in[1]) || l >= maxlen)
-+		if (!isxdigit(in[0]) || !isxdigit(in[1]) || l >= maxlen)
- 			return -1;
- 		out[++l] = (hex2bin(in[0]) << 4) + hex2bin(in[1]);
- 		in += 2;
--- 
-1.6.5.3.298.g39add
+"ip ns <name> route add blah" is:
+fd = open("/var/run/netns/<name>");
+sys_setns(fd);  /* Like unshare but takes an existing namespace */
+/* Then the rest of the existing ip command */
 
+"ip ns list" is:
+dfd = open("/var/run/netns", O_DIRECTORY);
+getdents(dfd, buf, count);
+
+"ip ns new <name>" is:
+unshare(CLONE_NEWNS);
+fd = nsfd(NETNS);
+mkdir("/var/run/netns/<name>");
+mount("none", "/var/run/netns/<name>", "ns", 0, fd);
+
+Using unix domain names means that which namespaces you see is under
+control of userspace.  Which allows for nested containers (something I
+use today), and ultimately container migration.
+
+Using genetlink userspace doesn't result in a nestable implementation
+unless I introduce yet another namespace, ugh.
+
+Eric
