@@ -1,70 +1,85 @@
-From: Alexander Zimmermann <Alexander.Zimmermann@nets.rwth-aachen.de>
-Subject: Re: [net-next PATCH v4 1/3] net: TCP thin-stream detection
-Date: Mon, 22 Feb 2010 16:35:49 +0100
-Message-ID: <2114B7CA-8078-4D90-BEFA-91956C58B6DA@nets.rwth-aachen.de>
-References: <20100221102102.GB1311@ucw.cz>
- <D40945A6-301D-485D-BB8C-826D2EB68DA4@nets.rwth-aachen.de>
- <2EC47E8B-BC4C-4DAB-86ED-F702D67F8AD0@nokia.com>
- <20100221.150311.193707249.davem@davemloft.net>
- <FB5F656F-091A-4FB5-9586-15C6CB263D05@nokia.com>
- <87k4u5mh9u.fsf@basil.nowhere.org>
+From: "Tadepalli, Hari K" <hari.k.tadepalli@intel.com>
+Subject: RE: stress testing netfilter's hashlimit
+Date: Mon, 22 Feb 2010 08:39:07 -0700
+Message-ID: <41885A88D9043444B138491FB10E15420476E86A91@azsmsx506.amr.corp.intel.com>
+References: <4B8292C6.4000207@infopact.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: Lars Eggert <lars.eggert@nokia.com>,
-	David Miller <davem@davemloft.net>,
-	"pavel@ucw.cz" <pavel@ucw.cz>,
-	"apetlund@simula.no" <apetlund@simula.no>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"ilpo.jarvinen@helsinki.fi" <ilpo.jarvinen@helsinki.fi>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	Arnd Hannemann <Arnd.Hannemann@nets.rwth-aachen.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"william.allen.simpson@gmail.com" <william.allen.simpson@gmail.com>,
-	"damian@tvk.rwth-aachen.de" <damian@tvk.rwth-aachen.de>,
-	"ebiederm@xmission.com" <ebiederm@xmission.com>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <87k4u5mh9u.fsf@basil.nowhere.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Jorrit Kronjee <j.kronjee@infopact.nl>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:38995 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753259Ab0BVPjL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 10:39:11 -0500
+In-Reply-To: <4B8292C6.4000207@infopact.nl>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+>> Each of these are separate machines. The sender has a Gigabit Ethernet
+>> interface and sends ~410,000 packets per second (52 bytes Ethernet
+>> frames). The bridge has two Gigabit Ethernet interfaces, a quad core
+>> Xeon X3330 and is running Ubuntu 9.10 (Karmic Koala) with kernel
+>> 2.6.31-19-generic-pae.
+
+This is a Penryn class quad core processor, advertized at 2.66GHz. On this platform & with PCI express NICs, you can expect an IPv4 forwarding rate of ~1 Mpps per CPU core. Given the processing cost involved in forwarding/routing a packet, it is not possible to approach line rate forwarding line rate on stock kernels. Looks like, @ 52B packets, you are using a packet size that will NOT be sufficient to fill a full UDP header in the packet. 
+
+Coming to BRIDGING: I have not worked on bridging, but have seen anecdotal evidence that bridging costs far more CPU cycles than routing/forwarding (on a per packet basis). What you are observing seems to align well with this. You can play with a few platform level tunings; setting interrupt affinity of each NIC port to align with adjacent processor pair, as in:
+
+echo 1 > /proc/irq/22/smp_affinity
+echo 2 > /proc/irq/23/smp_affinity
+
+- assuming your NIC ports are assigned IRQs of 22 and 23 respectively. This will balance the traffic from each NIC to be handled by a different CPU core, while minimizing the impact of inter-cpu cache thrashes. 
+
+- Hari
+
+____________________________________
+Intel/ Embedded Comms/ Chandler, AZ
 
 
-Am 22.02.2010 um 16:17 schrieb Andi Kleen:
+-----Original Message-----
+From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Jorrit Kronjee
+Sent: Monday, February 22, 2010 7:21 AM
+To: netdev@vger.kernel.org
+Subject: stress testing netfilter's hashlimit
 
-> Lars Eggert <lars.eggert@nokia.com> writes:
-> 
->> If it's off by default there is no issue.
-> 
-> Still a sufficient large number of people might turn it on
-> and then the network would melt.
-> 
-> IMHO TCP changes with badly understood congestion behaviour
-> should not be merged until the necessary analysis/simulation etc.
-> is done.
-> 
-> -Andi
+Dear list,
 
-100% ack.
+I'm not entirely sure if this is the right list for this question, but
+if someone could me give me some pointers where to ask otherwise, it
+would be most appreciated.
 
-See for example here: http://www.umic-mesh.net/~zimmermann/linux.png
+We're trying to stress test netfilter's hashlimit module. To do so,
+we've built the following setup.
 
-It's a screenshot of the ps3mediaserver. Since it's a streaming server, it's
-very useful to deactivate Nagle :-)
+[ sender ] --> [ bridge ] --> [ receiver ]
 
-Alex
+Each of these are separate machines. The sender has a Gigabit Ethernet
+interface and sends ~410,000 packets per second (52 bytes Ethernet
+frames). The bridge has two Gigabit Ethernet interfaces, a quad core
+Xeon X3330 and is running Ubuntu 9.10 (Karmic Koala) with kernel
+2.6.31-19-generic-pae. The receiver is a non-descript machine with a
+Gigabit Ethernet interface and is not really important for my question.
+We disabled connection tracking (because the packets are UDP) on the
+bridge as follows:
 
-> 
-> -- 
-> ak@linux.intel.com -- Speaking for myself only.
+# iptables -t raw -nL
+Chain PREROUTING (policy ACCEPT)
+target     prot opt source               destination        
+NOTRACK    all  --  0.0.0.0/0            0.0.0.0/0          
 
-//
-// Dipl.-Inform. Alexander Zimmermann
-// Department of Computer Science, Informatik 4
-// RWTH Aachen University
-// Ahornstr. 55, 52056 Aachen, Germany
-// phone: (49-241) 80-21422, fax: (49-241) 80-22220
-// email: zimmermann@cs.rwth-aachen.de
-// web: http://www.umic-mesh.net
-//
+Chain OUTPUT (policy ACCEPT)
+target     prot opt source               destination        
+NOTRACK    all  --  0.0.0.0/0            0.0.0.0/0          
+
+We used brctl to make a bridge between eth3 and eth4 (even though we
+don't have a eth[0,1,2]):
+
+# brctl show
+bridge name    bridge id        STP enabled    interfaces
+br1        8000.001517b30cb3    no        eth3
+                            eth4
+
+
