@@ -1,7 +1,7 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 1/4] gigaset: small documentation improvement
-Date: Tue, 23 Feb 2010 00:08:51 +0100 (CET)
-Message-ID: <20100221-patch-gigaset-01.tilman@imap.cc>
+Subject: [PATCH 2/4] bas_gigaset: collapse CR/LF at end of AT response
+Date: Tue, 23 Feb 2010 00:09:22 +0100 (CET)
+Message-ID: <20100221-patch-gigaset-02.tilman@imap.cc>
 References: <20100221-patch-gigaset-00.tilman@imap.cc>
 Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
 	isdn4linux@listserv.isdn4linux.de,
@@ -15,45 +15,130 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 1/4] gigaset: small documentation improvement
+Subject: [PATCH 2/4] bas_gigaset: collapse CR/LF at end of AT response
 
-Clarify the non-support by isdnlog, and propose a better standard
-debug mask.
+Copy the mechanism from ser_/usb_gigaset to avoid producing
+spurious empty responses for CR/LF sequences from the device.
+Add a comment in all drivers documenting that behaviour.
+Correct an off by one error that might result in a one byte
+buffer overflow when receiving an unexpectedly long reply.
 
-Impact: Documentation
+Impact: minor bugfix
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- Documentation/isdn/README.gigaset |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/isdn/gigaset/asyncdata.c |    2 +
+ drivers/isdn/gigaset/gigaset.h   |    4 +-
+ drivers/isdn/gigaset/isocdata.c  |   44 ++++++++++++++++++++++++++-----------
+ 3 files changed, 35 insertions(+), 15 deletions(-)
 
-diff --git a/Documentation/isdn/README.gigaset b/Documentation/isdn/README.gigaset
-index 794941f..e472df8 100644
---- a/Documentation/isdn/README.gigaset
-+++ b/Documentation/isdn/README.gigaset
-@@ -292,10 +292,10 @@ GigaSet 307x Device Driver
-         to /etc/modprobe.d/gigaset, /etc/modprobe.conf.local or a similar file.
+diff --git a/drivers/isdn/gigaset/asyncdata.c b/drivers/isdn/gigaset/asyncdata.c
+index ccb2a7b..e913beb 100644
+--- a/drivers/isdn/gigaset/asyncdata.c
++++ b/drivers/isdn/gigaset/asyncdata.c
+@@ -40,6 +40,8 @@ static inline int muststuff(unsigned char c)
+  * Append received bytes to the command response buffer and forward them
+  * line by line to the response handler. Exit whenever a mode/state change
+  * might have occurred.
++ * Note: Received lines may be terminated by CR, LF, or CR LF, which will be
++ * removed before passing the line to the response handler.
+  * Return value:
+  *	number of processed bytes
+  */
+diff --git a/drivers/isdn/gigaset/gigaset.h b/drivers/isdn/gigaset/gigaset.h
+index e963a6c..c9ccf7d 100644
+--- a/drivers/isdn/gigaset/gigaset.h
++++ b/drivers/isdn/gigaset/gigaset.h
+@@ -38,7 +38,7 @@
+ #define GIG_COMPAT  {0, 4, 0, 0}
  
-      Problem:
--        Your isdn script aborts with a message about isdnlog.
-+        The isdnlog program emits error messages or just doesn't work.
-      Solution:
--        Try deactivating (or commenting out) isdnlog. This driver does not
--        support it.
-+        Isdnlog supports only the HiSax driver. Do not attempt to use it with
-+	other drivers such as Gigaset.
+ #define MAX_REC_PARAMS 10	/* Max. number of params in response string */
+-#define MAX_RESP_SIZE 512	/* Max. size of a response string */
++#define MAX_RESP_SIZE 511	/* Max. size of a response string */
  
-      Problem:
-         You have two or more DECT data adapters (M101/M105) and only the
-@@ -321,8 +321,8 @@ GigaSet 307x Device Driver
-      writing an appropriate value to /sys/module/gigaset/parameters/debug, e.g.
-         echo 0 > /sys/module/gigaset/parameters/debug
-      switches off debugging output completely,
--        echo 0x10a020 > /sys/module/gigaset/parameters/debug
--     enables the standard set of debugging output messages. These values are
-+        echo 0x302020 > /sys/module/gigaset/parameters/debug
-+     enables a reasonable set of debugging output messages. These values are
-      bit patterns where every bit controls a certain type of debugging output.
-      See the constants DEBUG_* in the source file gigaset.h for details.
+ #define MAX_EVENTS 64		/* size of event queue */
+ 
+@@ -498,7 +498,7 @@ struct cardstate {
+ 	spinlock_t ev_lock;
+ 
+ 	/* current modem response */
+-	unsigned char respdata[MAX_RESP_SIZE];
++	unsigned char respdata[MAX_RESP_SIZE+1];
+ 	unsigned cbytes;
+ 
+ 	/* private data of hardware drivers */
+diff --git a/drivers/isdn/gigaset/isocdata.c b/drivers/isdn/gigaset/isocdata.c
+index 85394a6..16fd3bd 100644
+--- a/drivers/isdn/gigaset/isocdata.c
++++ b/drivers/isdn/gigaset/isocdata.c
+@@ -905,29 +905,49 @@ void gigaset_isoc_receive(unsigned char *src, unsigned count,
+ 
+ /* == data input =========================================================== */
+ 
++/* process a block of received bytes in command mode (mstate != MS_LOCKED)
++ * Append received bytes to the command response buffer and forward them
++ * line by line to the response handler.
++ * Note: Received lines may be terminated by CR, LF, or CR LF, which will be
++ * removed before passing the line to the response handler.
++ */
+ static void cmd_loop(unsigned char *src, int numbytes, struct inbuf_t *inbuf)
+ {
+ 	struct cardstate *cs = inbuf->cs;
+ 	unsigned cbytes      = cs->cbytes;
++	unsigned char c;
+ 
+ 	while (numbytes--) {
+-		/* copy next character, check for end of line */
+-		switch (cs->respdata[cbytes] = *src++) {
+-		case '\r':
++		c = *src++;
++		switch (c) {
+ 		case '\n':
+-			/* end of line */
+-			gig_dbg(DEBUG_TRANSCMD, "%s: End of Command (%d Bytes)",
+-				__func__, cbytes);
+-			if (cbytes >= MAX_RESP_SIZE - 1)
+-				dev_warn(cs->dev, "response too large\n");
++			if (cbytes == 0 && cs->respdata[0] == '\r') {
++				/* collapse LF with preceding CR */
++				cs->respdata[0] = 0;
++				break;
++			}
++			/* --v-- fall through --v-- */
++		case '\r':
++			/* end of message line, pass to response handler */
++			if (cbytes >= MAX_RESP_SIZE) {
++				dev_warn(cs->dev, "response too large (%d)\n",
++					 cbytes);
++				cbytes = MAX_RESP_SIZE;
++			}
+ 			cs->cbytes = cbytes;
++			gigaset_dbg_buffer(DEBUG_TRANSCMD, "received response",
++					   cbytes, cs->respdata);
+ 			gigaset_handle_modem_response(cs);
+ 			cbytes = 0;
++
++			/* store EOL byte for CRLF collapsing */
++			cs->respdata[0] = c;
+ 			break;
+ 		default:
+-			/* advance in line buffer, checking for overflow */
+-			if (cbytes < MAX_RESP_SIZE - 1)
+-				cbytes++;
++			/* append to line buffer if possible */
++			if (cbytes < MAX_RESP_SIZE)
++				cs->respdata[cbytes] = c;
++			cbytes++;
+ 		}
+ 	}
+ 
+@@ -958,8 +978,6 @@ void gigaset_isoc_input(struct inbuf_t *inbuf)
+ 					   numbytes, src);
+ 			gigaset_if_receive(inbuf->cs, src, numbytes);
+ 		} else {
+-			gigaset_dbg_buffer(DEBUG_CMD, "received response",
+-					   numbytes, src);
+ 			cmd_loop(src, numbytes, inbuf);
+ 		}
  
 -- 
 1.6.5.3.298.g39add
