@@ -1,195 +1,83 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-2.6 2010-02-22
-Date: Mon, 22 Feb 2010 13:26:53 -0500
-Message-ID: <20100222182653.GB2988@tuxdriver.com>
+From: Jesper Krogh <jesper-Q2TZfHgGEy4@public.gmane.org>
+Subject: Re: ixgbe_clean_tx_irq: tx hang 1 detected, resetting adapter 	(2.6.32.8)
+Date: Mon, 22 Feb 2010 19:40:20 +0100
+Message-ID: <4B82CF94.5070903@krogh.cc>
+References: <4B7824F1.6000202@krogh.cc> <4807377b1002171453n277cfea3s6d7f3629bd43f674@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, torvalds@linux-foundation.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Jesse Brandeburg <jesse.brandeburg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Jesse Brandeburg <jesse.brandeburg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4807377b1002171453n277cfea3s6d7f3629bd43f674-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Dave,
+Jesse Brandeburg wrote:
+> On Sun, Feb 14, 2010 at 8:29 AM, Jesper Krogh <jesper-Q2TZfHgGEy4@public.gmane.org> wrote:
+>> Hi List.
+>>
+>> I have tried to get a dual bond of 2 x 10G NICs using the
+>> Intel Corporation 82598EB 10-Gigabit AT2 Server Adapter (rev 01)
+>> going. As first it looked like it "just worked" but when tried to fill
+>> the links with data one of the NIC's (eth7) hang and did a reset of
+>> itself, so all data was pushed through the other NIC in the bond (eth8)
+>>
+>> Full dmesg below, but I think the important part is this:
+>>
+>> [ 2162.745354] ixgbe: eth7: ixgbe_check_tx_hang: Detected Tx Unit Hang
+>> [ 2162.745356]   Tx Queue             <4>
+>> [ 2162.745356]   TDH, TDT             <e1>, <cc>
+>> [ 2162.745357]   next_to_use          <cc>
+>> [ 2162.745358]   next_to_clean        <e1>
+>> [ 2162.745359] tx_buffer_info[next_to_clean]
+>> [ 2162.745359]   time_stamp           <1000713d3>
+>> [ 2162.745360]   jiffies              <10007152e>
+>> [ 2163.162478] ixgbe: eth7: ixgbe_clean_tx_irq: tx hang 1 detected,
+>> resetting adapter
+>> [ 2163.357333] bonding: bond0: link status definitely down for interface
+>> eth7, disabling it
+>> [ 2168.670342] ixgbe: eth7 NIC Link is Up 10 Gbps, Flow Control: None
+> 
+> Hi Jesper, my first thought was flow control, but I can see you have it off.
 
-I have a handful of late-breakers for iwlwifi.  The one from Dan
-Halperin moves a single line of code and is a fix for an 802.11n
-regression introduced in the 2.6.33 cycle.  The other two combine
-to address a problem that causes the wireless LAN connection to
-die without any error message.  It has been developed and tested in
-combination between the Intel wireless team and a contributor from
-Red Hat.  I hope you will consider including these for 2.6.33 if at
-all possible.
+I didnt change it, so its default.
 
-Please let me know if there are problems!
+> Can we get some more details on the hardware and bios version?  
 
-Thanks,
+Sun X4600, 128GB, 16 cores..
 
-John
+> What
+> about some dmidecode output.  I'm checking here if we have any
+> hardware like this.
 
-P.S.  The wireless-2.6 tree should be safe/clean for Linus to pull if
-time is too short for a round-trip through net-2.6... :-)
+http://shrek.krogh.cc/~jesper/dmidecode.txt
 
----
 
-The following changes since commit 242cc0547f3bcecc0b02ca6f3e9512760185727e:
-  Ben Hutchings (1):
-        sfc: SFE4002/SFN4112F: Widen temperature and voltage tolerances
+> are you running ubuntu 9.10 or something else?
 
-are available in the git repository at:
+We're on Ubuntu 8.04 but we basically "only" use a filesystem, kernel
+with a well-performing NFS-server and some NIC that work well :-)
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
+> Wow, thats a monster machine, 8 nodes, 128GB ram.  Can we get a full
+> lspci -vvv output, as well as ethtool -e eth7 and eth8
 
-Dan Halperin (1):
-      iwlwifi: set HT flags after channel in rxon
+http://shrek.krogh.cc/~jesper/lspci.txt
 
-Stanislaw Gruszka (1):
-      iwlwifi: sanity check before counting number of tfds can be free
+http://shrek.krogh.cc/~jesper/ethtool-eth7.txt
+http://shrek.krogh.cc/~jesper/ethtool-eth8.txt
 
-Wey-Yi Guy (1):
-      iwlwifi: error checking for number of tfds in queue
+> 32 has ixgbe with a known issue of multiple mappings on transmit
+> possibly causing some problems, could it be that you're running into
+> this?  can you apply commit e5a43549f7a58509a91b299a51337d386697b92c
+> and see if it fixes your issue?
 
- drivers/net/wireless/iwlwifi/iwl-4965.c |    2 +-
- drivers/net/wireless/iwlwifi/iwl-5000.c |    8 +++-----
- drivers/net/wireless/iwlwifi/iwl-core.c |    2 +-
- drivers/net/wireless/iwlwifi/iwl-core.h |    2 ++
- drivers/net/wireless/iwlwifi/iwl-tx.c   |   22 ++++++++++++++++++++--
- 5 files changed, 27 insertions(+), 9 deletions(-)
+I'll do that the next time I can push a reboot through.
 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-4965.c b/drivers/net/wireless/iwlwifi/iwl-4965.c
-index 9b4b8b5..3146281 100644
---- a/drivers/net/wireless/iwlwifi/iwl-4965.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-4965.c
-@@ -2008,7 +2008,7 @@ static void iwl4965_rx_reply_tx(struct iwl_priv *priv,
- 			IWL_DEBUG_TX_REPLY(priv, "Retry scheduler reclaim scd_ssn "
- 					   "%d index %d\n", scd_ssn , index);
- 			freed = iwl_tx_queue_reclaim(priv, txq_id, index);
--			priv->stations[sta_id].tid[tid].tfds_in_queue -= freed;
-+			iwl_free_tfds_in_queue(priv, sta_id, tid, freed);
- 
- 			if (priv->mac80211_registered &&
- 			    (iwl_queue_space(&txq->q) > txq->q.low_mark) &&
-diff --git a/drivers/net/wireless/iwlwifi/iwl-5000.c b/drivers/net/wireless/iwlwifi/iwl-5000.c
-index de45f30..cffaae7 100644
---- a/drivers/net/wireless/iwlwifi/iwl-5000.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-5000.c
-@@ -1125,7 +1125,7 @@ static void iwl5000_rx_reply_tx(struct iwl_priv *priv,
- 					scd_ssn , index, txq_id, txq->swq_id);
- 
- 			freed = iwl_tx_queue_reclaim(priv, txq_id, index);
--			priv->stations[sta_id].tid[tid].tfds_in_queue -= freed;
-+			iwl_free_tfds_in_queue(priv, sta_id, tid, freed);
- 
- 			if (priv->mac80211_registered &&
- 			    (iwl_queue_space(&txq->q) > txq->q.low_mark) &&
-@@ -1153,16 +1153,14 @@ static void iwl5000_rx_reply_tx(struct iwl_priv *priv,
- 				   tx_resp->failure_frame);
- 
- 		freed = iwl_tx_queue_reclaim(priv, txq_id, index);
--		if (ieee80211_is_data_qos(tx_resp->frame_ctrl))
--			priv->stations[sta_id].tid[tid].tfds_in_queue -= freed;
-+		iwl_free_tfds_in_queue(priv, sta_id, tid, freed);
- 
- 		if (priv->mac80211_registered &&
- 		    (iwl_queue_space(&txq->q) > txq->q.low_mark))
- 			iwl_wake_queue(priv, txq_id);
- 	}
- 
--	if (ieee80211_is_data_qos(tx_resp->frame_ctrl))
--		iwl_txq_check_empty(priv, sta_id, tid, txq_id);
-+	iwl_txq_check_empty(priv, sta_id, tid, txq_id);
- 
- 	if (iwl_check_bits(status, TX_ABORT_REQUIRED_MSK))
- 		IWL_ERR(priv, "TODO:  Implement Tx ABORT REQUIRED!!!\n");
-diff --git a/drivers/net/wireless/iwlwifi/iwl-core.c b/drivers/net/wireless/iwlwifi/iwl-core.c
-index d10bea6..f36f804 100644
---- a/drivers/net/wireless/iwlwifi/iwl-core.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-core.c
-@@ -2744,8 +2744,8 @@ int iwl_mac_config(struct ieee80211_hw *hw, u32 changed)
- 		if ((le16_to_cpu(priv->staging_rxon.channel) != ch))
- 			priv->staging_rxon.flags = 0;
- 
--		iwl_set_rxon_ht(priv, ht_conf);
- 		iwl_set_rxon_channel(priv, conf->channel);
-+		iwl_set_rxon_ht(priv, ht_conf);
- 
- 		iwl_set_flags_for_band(priv, conf->channel->band);
- 		spin_unlock_irqrestore(&priv->lock, flags);
-diff --git a/drivers/net/wireless/iwlwifi/iwl-core.h b/drivers/net/wireless/iwlwifi/iwl-core.h
-index 675b7df..fe37d6a 100644
---- a/drivers/net/wireless/iwlwifi/iwl-core.h
-+++ b/drivers/net/wireless/iwlwifi/iwl-core.h
-@@ -446,6 +446,8 @@ void iwl_hw_txq_ctx_free(struct iwl_priv *priv);
- int iwl_hw_tx_queue_init(struct iwl_priv *priv,
- 			 struct iwl_tx_queue *txq);
- int iwl_txq_update_write_ptr(struct iwl_priv *priv, struct iwl_tx_queue *txq);
-+void iwl_free_tfds_in_queue(struct iwl_priv *priv,
-+			    int sta_id, int tid, int freed);
- int iwl_tx_queue_init(struct iwl_priv *priv, struct iwl_tx_queue *txq,
- 		      int slots_num, u32 txq_id);
- void iwl_tx_queue_free(struct iwl_priv *priv, int txq_id);
-diff --git a/drivers/net/wireless/iwlwifi/iwl-tx.c b/drivers/net/wireless/iwlwifi/iwl-tx.c
-index 87ce2bd..8f40715 100644
---- a/drivers/net/wireless/iwlwifi/iwl-tx.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-tx.c
-@@ -120,6 +120,20 @@ int iwl_txq_update_write_ptr(struct iwl_priv *priv, struct iwl_tx_queue *txq)
- EXPORT_SYMBOL(iwl_txq_update_write_ptr);
- 
- 
-+void iwl_free_tfds_in_queue(struct iwl_priv *priv,
-+			    int sta_id, int tid, int freed)
-+{
-+	if (priv->stations[sta_id].tid[tid].tfds_in_queue >= freed)
-+		priv->stations[sta_id].tid[tid].tfds_in_queue -= freed;
-+	else {
-+		IWL_ERR(priv, "free more than tfds_in_queue (%u:%d)\n",
-+			priv->stations[sta_id].tid[tid].tfds_in_queue,
-+			freed);
-+		priv->stations[sta_id].tid[tid].tfds_in_queue = 0;
-+	}
-+}
-+EXPORT_SYMBOL(iwl_free_tfds_in_queue);
-+
- /**
-  * iwl_tx_queue_free - Deallocate DMA queue.
-  * @txq: Transmit queue to deallocate.
-@@ -1131,6 +1145,7 @@ int iwl_tx_queue_reclaim(struct iwl_priv *priv, int txq_id, int index)
- 	struct iwl_queue *q = &txq->q;
- 	struct iwl_tx_info *tx_info;
- 	int nfreed = 0;
-+	struct ieee80211_hdr *hdr;
- 
- 	if ((index >= q->n_bd) || (iwl_queue_used(q, index) == 0)) {
- 		IWL_ERR(priv, "Read index for DMA queue txq id (%d), index %d, "
-@@ -1145,13 +1160,16 @@ int iwl_tx_queue_reclaim(struct iwl_priv *priv, int txq_id, int index)
- 
- 		tx_info = &txq->txb[txq->q.read_ptr];
- 		iwl_tx_status(priv, tx_info->skb[0]);
-+
-+		hdr = (struct ieee80211_hdr *)tx_info->skb[0]->data;
-+		if (hdr && ieee80211_is_data_qos(hdr->frame_control))
-+			nfreed++;
- 		tx_info->skb[0] = NULL;
- 
- 		if (priv->cfg->ops->lib->txq_inval_byte_cnt_tbl)
- 			priv->cfg->ops->lib->txq_inval_byte_cnt_tbl(priv, txq);
- 
- 		priv->cfg->ops->lib->txq_free_tfd(priv, txq);
--		nfreed++;
- 	}
- 	return nfreed;
- }
-@@ -1559,7 +1577,7 @@ void iwl_rx_reply_compressed_ba(struct iwl_priv *priv,
- 	if (txq->q.read_ptr != (ba_resp_scd_ssn & 0xff)) {
- 		/* calculate mac80211 ampdu sw queue to wake */
- 		int freed = iwl_tx_queue_reclaim(priv, scd_flow, index);
--		priv->stations[sta_id].tid[tid].tfds_in_queue -= freed;
-+		iwl_free_tfds_in_queue(priv, sta_id, tid, freed);
- 
- 		if ((iwl_queue_space(&txq->q) > txq->q.low_mark) &&
- 		    priv->mac80211_registered &&
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Jesper
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
