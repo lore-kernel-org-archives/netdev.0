@@ -1,49 +1,62 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH 5/5] temac: add missing mask
-Date: Mon, 22 Feb 2010 15:25:32 -0700
-Message-ID: <fa686aa41002221425p357d7806n85e15f713d1034ec@mail.gmail.com>
-References: <1266865621-28955-1-git-send-email-gfilip@ee.ethz.ch>
-	<1266865621-28955-2-git-send-email-gfilip@ee.ethz.ch> <1266865621-28955-3-git-send-email-gfilip@ee.ethz.ch>
-	<1266865621-28955-4-git-send-email-gfilip@ee.ethz.ch> <1266865621-28955-5-git-send-email-gfilip@ee.ethz.ch>
+From: Brian Haley <brian.haley@hp.com>
+Subject: [PATCH] IPv6: better document max_addresses parameter
+Date: Mon, 22 Feb 2010 17:27:21 -0500
+Message-ID: <4B8304C9.1030800@hp.com>
+References: <bug-15342-10286@http.bugzilla.kernel.org/> <20100222130858.3c186888.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: gfilip@ee.ethz.ch
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: nedyalkor@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f217.google.com ([209.85.217.217]:50906 "EHLO
-	mail-gx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754687Ab0BVWZx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 17:25:53 -0500
-Received: by gxk9 with SMTP id 9so3642220gxk.8
-        for <netdev@vger.kernel.org>; Mon, 22 Feb 2010 14:25:52 -0800 (PST)
-In-Reply-To: <1266865621-28955-5-git-send-email-gfilip@ee.ethz.ch>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:15170 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754687Ab0BVW1Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 17:27:25 -0500
+In-Reply-To: <20100222130858.3c186888.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 22, 2010 at 12:07 PM,  <gfilip@ee.ethz.ch> wrote:
-> For Virtex4-FX this mask is necessary. I think this is also true for =
-Virtex5. Please test.
->
-> Signed-off-by: Filip Gospodinov <gfilip@ee.ethz.ch>
-> ---
-> =A0drivers/net/ll_temac_main.c | =A0 =A02 +-
-> =A01 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.=
-c
-> index 8b4e1b9..43d51b7 100644
-> --- a/drivers/net/ll_temac_main.c
-> +++ b/drivers/net/ll_temac_main.c
-> @@ -627,7 +627,7 @@ static void ll_temac_recv(struct net_device *ndev=
-)
-> =A0 =A0 =A0 =A0while ((bdstat & STS_CTRL_APP0_CMPLT)) {
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0skb =3D lp->rx_skb[lp->rx_bd_ci];
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 length =3D cur_p->app4;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 length =3D (cur_p->app4 & 0x3fff);
+Andrew Morton wrote:
+>> >From ip-sysctl.txt file in kernel documentation I can see following description
+>> for max_addresses:
+>> max_addresses - INTEGER
+>>         Number of maximum addresses per interface.  0 disables limitation.
+>>         It is recommended not set too large value (or 0) because it would
+>>         be too easy way to crash kernel to allow to create too much of
+>>         autoconfigured addresses.
+           ^^^^^^^^^^^^^^
 
-A patch making this change has already been merged into david's next tr=
-ee.
+>> If this parameter applies only for auto-configured IP addressed, please state
+>> it more clearly in docs or rename the parameter to show that it refers to
+>> auto-configuration.
 
-g.
+It did mention autoconfigured in the text, but the below makes it more obvious.
+
+
+More clearly document IPv6 max_addresses parameter.
+
+Signed-off-by: Brian Haley <brian.haley@hp.com>
+---
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 2571a62..8b72c88 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1126,10 +1126,10 @@ regen_max_retry - INTEGER
+ 	Default: 5
+ 
+ max_addresses - INTEGER
+-	Number of maximum addresses per interface.  0 disables limitation.
+-	It is recommended not set too large value (or 0) because it would
+-	be too easy way to crash kernel to allow to create too much of
+-	autoconfigured addresses.
++	Maximum number of autoconfigured addresses per interface.  Setting
++	to zero disables the limitation.  It is not recommended to set this
++	value too large (or to zero) because it would be an easy way to
++	crash the kernel by allowing too many addresses to be created.
+ 	Default: 16
+ 
+ disable_ipv6 - BOOLEAN
