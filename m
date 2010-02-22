@@ -1,52 +1,67 @@
-From: Dan Smith <danms@us.ibm.com>
-Subject: Re: [PATCH 3/5] Add checkpoint support for veth devices (v2)
-Date: Mon, 22 Feb 2010 12:25:08 -0800
-Message-ID: <87sk8t6msb.fsf@caffeine.danplanet.com>
-References: <1266336187-19105-1-git-send-email-danms@us.ibm.com>
-	<1266336187-19105-4-git-send-email-danms@us.ibm.com>
-	<20100222195647.GB13135@us.ibm.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: RFC: netfilter: nf_conntrack: add support for "conntrack zones"
+Date: Mon, 22 Feb 2010 12:46:14 -0800
+Message-ID: <m13a0tf17t.fsf@fess.ebiederm.org>
+References: <4B4F24AC.70105@trash.net> <1263481549.23480.24.camel@bigi>
+	<4B4F3A50.1050400@trash.net> <1263490403.23480.109.camel@bigi>
+	<4B50403A.6010507@trash.net> <1263568754.23480.142.camel@bigi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org
-To: "Serge E. Hallyn" <serue@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw0.danplanet.com ([71.245.107.82]:43496 "EHLO
-	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753800Ab0BVUZN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 15:25:13 -0500
-In-Reply-To: <20100222195647.GB13135@us.ibm.com> (Serge E. Hallyn's message of "Mon\, 22 Feb 2010 13\:56\:47 -0600")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	containers@lists.linux-foundation.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>
+To: hadi@cyberus.ca
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1263568754.23480.142.camel@bigi> (jamal's message of "Fri\, 15 Jan 2010 10\:19\:14 -0500")
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> +	else if (!ckpt_obj_lookup(ctx, peer->nd_net, CKPT_OBJ_NET_NS)) {
->> +		ret = -EINVAL;
->> +		ckpt_err(ctx, ret,
->> +			 "Peer %s of %s not in checkpointed namespaces\n",
->> +			 peer->name, dev->name);
+jamal <hadi@cyberus.ca> writes:
 
-SH> I'm not sure this check does what you think it does: note that
-SH> ckpt_netdev_base(), defined in the previous patch, and called
-SH> higher up in this function, is going to checkpoint peer->nd_net.
-SH> :)
+>> > Agreed. But the major ones like iproute2 etc could be taught. We have
+>> > namespaces in the kernel already, over a period of time I think changing
+>> > the user space tools would a sensible evolution.
+>> 
+>> Yes, that might be useful in any case. But I don't think it would
+>> even work for iproute or other standalone programs, a process can't
+>> associate to an existing namespace except through clone(). So it
+>> needs to run as child of a process already associated with the
+>> namespace.
+>
+> The mechanics are not there, yet. But if i had sufficient permission,
+> and was able to find the namespaces when i ask and/or get events when it
+> is created it should be an issue of sending it a message.
+> The current approach to say migrate a veth via iproute2 requires we 
+> know the pid of the target namespace. Thats a usability issue.
+> I tried to muck with namespaces and if you use a library like lxc
+> you can do it - but it is a hack as it stands today (and merging
+> iproute2 with lxc is questionable).
 
-Actually, no, ckpt_netdev_base() can't checkpoint peer->nd_net because
-it's device-agnostic and has no knowledge of dev->peer.
+This is one of the long standing issues that we have always known
+we needed to solve, but have not taken the time to do it.  Now that
+the need is more real it looks about time to solve this one.
 
-The idea here was that we checkpoint a netns when we arrive at it via
-nsproxy.  Doing that, we checkpoint the devices within.  We encounter
-a veth device, which has a peer, so we decide if:
+There are currently two problems.
+1) A process is needed to hold a reference to the network namespace.
+2) We use pids which are an awkward way of talking about network
+   namespaces.
 
- 1. We won't arrive at the peer later because it is in the init
-    namespace, so we checkpoint it now.
- 2. We will arrive at it later because the peer's netns is in the list
-    we've already collected, so checkpoint the peer with its namespace
- 3. Neither are true and we won't arrive at it later and therefore we
-    can't allow checkpoint to continue
+The solution I have been playing with involves.
+- Using a file descriptor to refer to a network namespace.
+- Using a trivial virtual filesystem to persistently hold onto
+  a namespace without the need of a process.
+- Have a convention of mounting the fs at something like
+  /var/run/netns/<name>
 
-#2 depends on the collect process having put all the task's netns' in
- the hash ahead of time.
+That solves the naming problem, and it should allow iproute and
+it's kin to have support without being closely integrated with
+lxc or anything else that creates namespaces.
 
--- 
-Dan Smith
-IBM Linux Technology Center
-email: danms@us.ibm.com
+It is a big conversation, and it is something that has to done
+right but it looks like the problem is finally real enough that
+it is time to solve it.
+
+Eric
