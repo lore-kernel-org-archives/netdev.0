@@ -1,42 +1,57 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH 2/2] b44: use netdev_alloc_skb instead of dev_alloc_skb
-Date: Sat, 20 Feb 2010 21:55:26 +0100
-Message-ID: <1266699326-1541-2-git-send-email-hauke@hauke-m.de>
-References: <1266699326-1541-1-git-send-email-hauke@hauke-m.de>
-Cc: zambrano@broadcom.com, netdev@vger.kernel.org,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: davem@davemloft.net
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [PATCH V2 net-next 14/15] drivers/net/typhoon.c: Use
+ (pr|netdev)_<level> macro helpers
+Date: Sun, 21 Feb 2010 22:23:15 -0500
+Message-ID: <1266808995.2930.24.camel@obelisk.thedillows.org>
+References: <1266460221.5719.60.camel@obelisk.thedillows.org>
+	 <20100217.184100.232538560.davem@davemloft.net>
+	 <1266462064.5719.78.camel@obelisk.thedillows.org>
+	 <20100217.191002.240804576.davem@davemloft.net>
+	 <1266463341.5719.96.camel@obelisk.thedillows.org>
+	 <1266467718.8446.251.camel@Joe-Laptop.home>
+	 <1266795829.2930.8.camel@obelisk.thedillows.org>
+	 <1266804176.10646.65.camel@Joe-Laptop.home>
+	 <1266808127.10646.77.camel@Joe-Laptop.home>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:59689 "EHLO
-	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756294Ab0BTVEx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Feb 2010 16:04:53 -0500
-In-Reply-To: <1266699326-1541-1-git-send-email-hauke@hauke-m.de>
+Received: from smtp.knology.net ([24.214.63.101]:45489 "EHLO smtp.knology.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754502Ab0BVDXS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 Feb 2010 22:23:18 -0500
+In-Reply-To: <1266808127.10646.77.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The conversion in bf0dcbd929faf036f1a4f2918090344d0e249cf5 missed the
-new allocation in b44_rx.
-This patch was used in OpenWRT for a long time.
+On Sun, 2010-02-21 at 19:08 -0800, Joe Perches wrote: 
+> David Dillow took my suggestions and improved on them.
+> Here is this latest version.
+> 
+> Add #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> Remove #define PFX
+> Remove #define ERR_PFX
+> Remove now unused member name from struct typhoon
+> Use pr_<level>
+> Use netdev_<level>
+> Coalesce long formats
+> Remove version information
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: David Dillow <dave@thedillows.org>
 
-Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
----
- drivers/net/b44.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Perhaps commit text as follows? I can sign-off on it, but I don't think
+my effort rises to that level. I certainly ack the patch, though.
 
-diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-index 71fa0be..bcb6a02 100644
---- a/drivers/net/b44.c
-+++ b/drivers/net/b44.c
-@@ -809,7 +809,7 @@ static int b44_rx(struct b44 *bp, int budget)
- 			struct sk_buff *copy_skb;
- 
- 			b44_recycle_rx(bp, cons, bp->rx_prod);
--			copy_skb = dev_alloc_skb(len + 2);
-+			copy_skb = netdev_alloc_skb(bp->dev, len + 2);
- 			if (copy_skb == NULL)
- 				goto drop_it_no_recycle;
- 
--- 
-1.6.3.3
+typhoon: clean up message output
+    
+Use the new netdev_* helpers to clean up and make the logging output
+more consistent with other network drivers. This also removes the
+constantly-stale version info in favor of using the kernel version from
+which the module was built.
+
+Signed-off-by: Joe Perches <joe@perches.com>
+Acked-by: David Dillow <dave@thedillows.org>
 
