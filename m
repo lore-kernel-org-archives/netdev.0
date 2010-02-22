@@ -1,164 +1,242 @@
-From: Daniel Baluta <daniel.baluta@gmail.com>
-Subject: Re: [PATCH 1/2] can:ti_hecc: Add pm hook-up
-Date: Mon, 22 Feb 2010 16:11:18 +0200
-Message-ID: <413a6a951002220611j91b8da8ga670a3efbb1c1f08@mail.gmail.com>
-References: <1266845736-7161-1-git-send-email-srk@ti.com>
-	 <4B828E3C.40203@grandegger.com>
+From: Jorrit Kronjee <j.kronjee@infopact.nl>
+Subject: stress testing netfilter's hashlimit
+Date: Mon, 22 Feb 2010 15:20:54 +0100
+Message-ID: <4B8292C6.4000207@infopact.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sriramakrishnan <srk@ti.com>, socketcan-core@lists.berlios.de,
-	netdev@vger.kernel.org, K R Baalaaji <krbaalaaji@ti.com>
-To: Wolfgang Grandegger <wg@grandegger.com>
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f219.google.com ([209.85.220.219]:55171 "EHLO
-	mail-fx0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753031Ab0BVOLU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 09:11:20 -0500
-Received: by fxm19 with SMTP id 19so2528186fxm.21
-        for <netdev@vger.kernel.org>; Mon, 22 Feb 2010 06:11:18 -0800 (PST)
-In-Reply-To: <4B828E3C.40203@grandegger.com>
+Received: from smtp1.infopact.nl ([212.29.160.232]:45779 "EHLO
+	smtp1.infopact.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752872Ab0BVOVH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 09:21:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 22, 2010 at 4:01 PM, Wolfgang Grandegger <wg@grandegger.com=
-> wrote:
-> Sriramakrishnan wrote:
->> Added the suspend and resume implementation in the HECC (CAN)
->> driver.
->>
->> Signed-off-by: K R Baalaaji <krbaalaaji@ti.com>
->> Signed-off-by: Sriramakrishnan <srk@ti.com>
->> Acked-by: Anant Gole <anantgole@ti.com>
->> ---
->> =A0drivers/net/can/ti_hecc.c | =A0 51 ++++++++++++++++++++++++++++++=
-++++++++++++--
->> =A01 files changed, 48 insertions(+), 3 deletions(-)
->>
->> diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
->> index 5c993c2..df27d82 100644
->> --- a/drivers/net/can/ti_hecc.c
->> +++ b/drivers/net/can/ti_hecc.c
->> @@ -824,7 +824,6 @@ static int ti_hecc_open(struct net_device *ndev)
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 return err;
->> =A0 =A0 =A0 }
->>
->> - =A0 =A0 clk_enable(priv->clk);
->> =A0 =A0 =A0 ti_hecc_start(ndev);
->> =A0 =A0 =A0 napi_enable(&priv->napi);
->> =A0 =A0 =A0 netif_start_queue(ndev);
->> @@ -840,7 +839,6 @@ static int ti_hecc_close(struct net_device *ndev=
-)
->> =A0 =A0 =A0 napi_disable(&priv->napi);
->> =A0 =A0 =A0 ti_hecc_stop(ndev);
->> =A0 =A0 =A0 free_irq(ndev->irq, ndev);
->> - =A0 =A0 clk_disable(priv->clk);
->> =A0 =A0 =A0 close_candev(ndev);
->>
->> =A0 =A0 =A0 return 0;
->> @@ -925,6 +923,7 @@ static int ti_hecc_probe(struct platform_device =
-*pdev)
->> =A0 =A0 =A0 netif_napi_add(ndev, &priv->napi, ti_hecc_rx_poll,
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 HECC_DEF_NAPI_WEIGHT);
->>
->> + =A0 =A0 clk_enable(priv->clk);
->> =A0 =A0 =A0 err =3D register_candev(ndev);
->> =A0 =A0 =A0 if (err) {
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_err(&pdev->dev, "register_candev() f=
-ailed\n");
->> @@ -953,6 +952,7 @@ static int __devexit ti_hecc_remove(struct platf=
-orm_device *pdev)
->> =A0 =A0 =A0 struct net_device *ndev =3D platform_get_drvdata(pdev);
->> =A0 =A0 =A0 struct ti_hecc_priv *priv =3D netdev_priv(ndev);
->>
->> + =A0 =A0 clk_disable(priv->clk);
->> =A0 =A0 =A0 clk_put(priv->clk);
->> =A0 =A0 =A0 res =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
->> =A0 =A0 =A0 iounmap(priv->base);
->> @@ -964,6 +964,48 @@ static int __devexit ti_hecc_remove(struct plat=
-form_device *pdev)
->> =A0 =A0 =A0 return 0;
->> =A0}
->>
->> +
->> +#ifdef CONFIG_PM
->> +static int ti_hecc_suspend(struct platform_device *pdev, pm_message=
-_t state)
->> +{
->> + =A0 =A0 struct net_device *dev =3D platform_get_drvdata(pdev);
->> + =A0 =A0 struct ti_hecc_priv *priv =3D netdev_priv(dev);
->> +
->> + =A0 =A0 if (netif_running(dev)) {
->> + =A0 =A0 =A0 =A0 =A0 =A0 netif_stop_queue(dev);
->> + =A0 =A0 =A0 =A0 =A0 =A0 netif_device_detach(dev);
->> + =A0 =A0 }
->> +
->> + =A0 =A0 hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
->> + =A0 =A0 priv->can.state =3D CAN_STATE_SLEEPING;
->> +
->> + =A0 =A0 clk_disable(priv->clk);
->> +
->> + =A0 =A0 return 0;
->> +}
->> +
->> +static int ti_hecc_resume(struct platform_device *pdev)
->> +{
->> + =A0 =A0 struct net_device *dev =3D platform_get_drvdata(pdev);
->> + =A0 =A0 struct ti_hecc_priv *priv =3D netdev_priv(dev);
->> +
->> + =A0 =A0 clk_enable(priv->clk);
->> +
->> + =A0 =A0 hecc_clear_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
->> + =A0 =A0 priv->can.state =3D CAN_STATE_ERROR_ACTIVE;
->> +
->> + =A0 =A0 if (netif_running(dev)) {
->> + =A0 =A0 =A0 =A0 =A0 =A0 netif_device_attach(dev);
->> + =A0 =A0 =A0 =A0 =A0 =A0 netif_start_queue(dev);
->> + =A0 =A0 }
->> +
->> + =A0 =A0 return 0;
->> +}
->> +#else
->> +#define ti_hecc_suspend NULL
->> +#define ti_hecc_resume NULL
->> +#endif
->> +
->> =A0/* TI HECC netdevice driver: platform driver structure */
->> =A0static struct platform_driver ti_hecc_driver =3D {
->> =A0 =A0 =A0 .driver =3D {
->> @@ -972,6 +1014,8 @@ static struct platform_driver ti_hecc_driver =3D=
- {
->> =A0 =A0 =A0 },
->> =A0 =A0 =A0 .probe =3D ti_hecc_probe,
->> =A0 =A0 =A0 .remove =3D __devexit_p(ti_hecc_remove),
->> + =A0 =A0 .suspend =3D ti_hecc_suspend,
->> + =A0 =A0 .resume =3D ti_hecc_resume,
->> =A0};
->>
->> =A0static int __init ti_hecc_init_driver(void)
->> @@ -979,14 +1023,15 @@ static int __init ti_hecc_init_driver(void)
->> =A0 =A0 =A0 printk(KERN_INFO DRV_DESC "\n");
->> =A0 =A0 =A0 return platform_driver_register(&ti_hecc_driver);
->> =A0}
->> -module_init(ti_hecc_init_driver);
->>
->> =A0static void __exit ti_hecc_exit_driver(void)
->> =A0{
->> =A0 =A0 =A0 printk(KERN_INFO DRV_DESC " unloaded\n");
->> =A0 =A0 =A0 platform_driver_unregister(&ti_hecc_driver);
->> =A0}
->> +
->> =A0module_exit(ti_hecc_exit_driver);
->> +module_init(ti_hecc_init_driver);
->
-> What is the reason for moving around module_init? Please revert. Then
-> you can add my "Acked-by: Wolfgang Grandegger <wg@grandegger.com>".
+Dear list,
 
-I think "revert" is not the most appropriate word.
-As you can see module_init was placed before ti_hecc_exit_driver functi=
-on.
+I'm not entirely sure if this is the right list for this question, but
+if someone could me give me some pointers where to ask otherwise, it
+would be most appreciated.
 
-The best way to do it is to have at the end:
+We're trying to stress test netfilter's hashlimit module. To do so,
+we've built the following setup.
 
-module_init(ti_hecc_init_driver);
-module_exit(ti_hecc_exit_driver);
+[ sender ] --> [ bridge ] --> [ receiver ]
+
+Each of these are separate machines. The sender has a Gigabit Ethernet
+interface and sends ~410,000 packets per second (52 bytes Ethernet
+frames). The bridge has two Gigabit Ethernet interfaces, a quad core
+Xeon X3330 and is running Ubuntu 9.10 (Karmic Koala) with kernel
+2.6.31-19-generic-pae. The receiver is a non-descript machine with a
+Gigabit Ethernet interface and is not really important for my question.
+We disabled connection tracking (because the packets are UDP) on the
+bridge as follows:
+
+# iptables -t raw -nL
+Chain PREROUTING (policy ACCEPT)
+target     prot opt source               destination        
+NOTRACK    all  --  0.0.0.0/0            0.0.0.0/0          
+
+Chain OUTPUT (policy ACCEPT)
+target     prot opt source               destination        
+NOTRACK    all  --  0.0.0.0/0            0.0.0.0/0          
+
+We used brctl to make a bridge between eth3 and eth4 (even though we
+don't have a eth[0,1,2]):
+
+# brctl show
+bridge name    bridge id        STP enabled    interfaces
+br1        8000.001517b30cb3    no        eth3
+                            eth4
+
+Even without hashlimit activated we noticed a few packet drops (~50 pps)
+on the receiving interface of the bridge. Generating keyboard interrupts
+(by switching tty's or just typing) would make the amount of packet
+drops increase, sometimes even up to a ~1000 pps, while the load average
+remained around 0.00. The sending interface did not show any packet drops.
+
+Because one of the NICs is using the e1000 driver and the other the
+e1000e driver and the whole machine is just a bridge anyway, we decided
+to switch the cables around, but to no avail. Both NICs showed the same
+problem.
+
+I'm wondering if we've reached the limits of our hardware or if there
+are ways to tweak it a little bit. Our goal is to be able to process
+twice the amount (~800,000 pps) without any drops. Once we're able to do
+that, we should be able to test the hashlimit module for our needs. Does
+anyone have any ideas on what we should look into? How can I figure out
+if this is a hardware limit? And if so, what kind of hardware do I need
+to make this work? Theoretically a Gigabit Ethernet NIC should be able
+to process a lot more (since 410k * 52 bytes * 8 bits is much smaller
+than 1 Gigabit).
+
+I hope someone is able to help me. If there's any additional testing
+required then please tell me.
+
+Thanks in advance!
+
+Regards,
+
+Jorrit Kronjee
+
+Oh, by the way, here is some information about the bridge:
+
+# ethtool -i eth3
+driver: e1000
+version: 7.3.21-k3-NAPI
+firmware-version: N/A
+bus-info: 0000:04:02.0
+
+# ethtool -i eth4
+driver: e1000e
+version: 1.1.2.1a-NAPI
+firmware-version: 1.3-0
+bus-info: 0000:00:19.0
+
+# lspci
+00:00.0 Host bridge: Intel Corporation 3200/3210 Chipset DRAM Controller
+00:01.0 PCI bridge: Intel Corporation 3200/3210 Chipset Host-Primary PCI
+Express Bridge
+00:19.0 Ethernet controller: Intel Corporation 82566DM-2 Gigabit Network
+Connection (rev 02)
+00:1a.0 USB Controller: Intel Corporation 82801I (ICH9 Family) USB UHCI
+Controller #4 (rev 02)
+00:1a.1 USB Controller: Intel Corporation 82801I (ICH9 Family) USB UHCI
+Controller #5 (rev 02)
+00:1a.7 USB Controller: Intel Corporation 82801I (ICH9 Family) USB2 EHCI
+Controller #2 (rev 02)
+00:1c.0 PCI bridge: Intel Corporation 82801I (ICH9 Family) PCI Express
+Port 1 (rev 02)
+00:1c.4 PCI bridge: Intel Corporation 82801I (ICH9 Family) PCI Express
+Port 5 (rev 02)
+00:1d.0 USB Controller: Intel Corporation 82801I (ICH9 Family) USB UHCI
+Controller #1 (rev 02)
+00:1d.1 USB Controller: Intel Corporation 82801I (ICH9 Family) USB UHCI
+Controller #2 (rev 02)
+00:1d.2 USB Controller: Intel Corporation 82801I (ICH9 Family) USB UHCI
+Controller #3 (rev 02)
+00:1d.7 USB Controller: Intel Corporation 82801I (ICH9 Family) USB2 EHCI
+Controller #1 (rev 02)
+00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev 92)
+00:1f.0 ISA bridge: Intel Corporation 82801IR (ICH9R) LPC Interface
+Controller (rev 02)
+00:1f.2 IDE interface: Intel Corporation 82801IR/IO/IH (ICH9R/DO/DH) 4
+port SATA IDE Controller (rev 02)
+00:1f.3 SMBus: Intel Corporation 82801I (ICH9 Family) SMBus Controller
+(rev 02)
+00:1f.5 IDE interface: Intel Corporation 82801I (ICH9 Family) 2 port
+SATA IDE Controller (rev 02)
+01:00.0 RAID bus controller: Areca Technology Corp. Unknown device 1201
+03:00.0 VGA compatible controller: Matrox Graphics, Inc. MGA G200e
+[Pilot] ServerEngines (SEP1) (rev 02)
+04:02.0 Ethernet controller: Intel Corporation 82541GI Gigabit Ethernet
+Controller (rev 05)
+
+# ethtool -S eth3
+NIC statistics:
+     rx_packets: 2053904136
+     tx_packets: 136751343
+     rx_bytes: 131449844380
+     tx_bytes: 8752131643
+     rx_broadcast: 29
+     tx_broadcast: 374
+     rx_multicast: 2635
+     tx_multicast: 261
+     rx_errors: 0
+     tx_errors: 0
+     tx_dropped: 0
+     multicast: 2635
+     collisions: 0
+     rx_length_errors: 0
+     rx_over_errors: 0
+     rx_crc_errors: 0
+     rx_frame_errors: 0
+     rx_no_buffer_count: 1263333
+     rx_missed_errors: 242487
+     tx_aborted_errors: 0
+     tx_carrier_errors: 0
+     tx_fifo_errors: 0
+     tx_heartbeat_errors: 0
+     tx_window_errors: 0
+     tx_abort_late_coll: 0
+     tx_deferred_ok: 0
+     tx_single_coll_ok: 0
+     tx_multi_coll_ok: 0
+     tx_timeout_count: 2
+     tx_restart_queue: 628451
+     rx_long_length_errors: 0
+     rx_short_length_errors: 0
+     rx_align_errors: 0
+     tx_tcp_seg_good: 0
+     tx_tcp_seg_failed: 0
+     rx_flow_control_xon: 0
+     rx_flow_control_xoff: 0
+     tx_flow_control_xon: 0
+     tx_flow_control_xoff: 0
+     rx_long_byte_count: 131449844380
+     rx_csum_offload_good: 0
+     rx_csum_offload_errors: 0
+     rx_header_split: 0
+     alloc_rx_buff_failed: 0
+     tx_smbus: 0
+     rx_smbus: 0
+     dropped_smbus: 0
+
+# ethtool -S eth4
+NIC statistics:
+     rx_packets: 154443470
+     tx_packets: 2050030020
+     rx_bytes: 9884436894
+     tx_bytes: 131201969861
+     rx_broadcast: 392
+     tx_broadcast: 29
+     rx_multicast: 310
+     tx_multicast: 2596
+     rx_errors: 0
+     tx_errors: 0
+     tx_dropped: 0
+     multicast: 310
+     collisions: 0
+     rx_length_errors: 0
+     rx_over_errors: 0
+     rx_crc_errors: 0
+     rx_frame_errors: 0
+     rx_no_buffer_count: 4825441
+     rx_missed_errors: 14717022
+     tx_aborted_errors: 0
+     tx_carrier_errors: 0
+     tx_fifo_errors: 0
+     tx_heartbeat_errors: 0
+     tx_window_errors: 0
+     tx_abort_late_coll: 0
+     tx_deferred_ok: 0
+     tx_single_coll_ok: 0
+     tx_multi_coll_ok: 0
+     tx_timeout_count: 0
+     tx_restart_queue: 18404766
+     rx_long_length_errors: 0
+     rx_short_length_errors: 0
+     rx_align_errors: 0
+     tx_tcp_seg_good: 0
+     tx_tcp_seg_failed: 0
+     rx_flow_control_xon: 0
+     rx_flow_control_xoff: 0
+     tx_flow_control_xon: 0
+     tx_flow_control_xoff: 0
+     rx_long_byte_count: 9884436894
+     rx_csum_offload_good: 0
+     rx_csum_offload_errors: 0
+     rx_header_split: 0
+     alloc_rx_buff_failed: 0
+     tx_smbus: 0
+     rx_smbus: 0
+     dropped_smbus: 0
+     rx_dma_failed: 0
+     tx_dma_failed: 0
+
+
+
+
+
