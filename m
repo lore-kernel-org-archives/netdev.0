@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] isdn: fix a few Kconfig imperfections
-Date: Mon, 22 Feb 2010 15:48:11 -0800 (PST)
-Message-ID: <20100222.154811.175887702.davem@davemloft.net>
-References: <20100222210938.75A3B4011D@xenon.ts.pxnet.com>
+Subject: Re: [net-next-2.6 PATCH] net/arm: convert to use
+ netdev_for_each_mc_addr
+Date: Mon, 22 Feb 2010 15:48:21 -0800 (PST)
+Message-ID: <20100222.154821.122974377.davem@davemloft.net>
+References: <20100220090626.GA2607@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, keil@b1-systems.de,
-	isdn4linux@listserv.isdn4linux.de,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: tilman@imap.cc
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100222210938.75A3B4011D@xenon.ts.pxnet.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: jpirko@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47110
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752060Ab0BVXsE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 18:48:04 -0500
+In-Reply-To: <20100220090626.GA2607@psychotron.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tilman Schmidt <tilman@imap.cc>
-Date: Mon, 22 Feb 2010 22:09:38 +0100 (CET)
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Sat, 20 Feb 2010 10:06:27 +0100
 
-> 1. Rewrite the outdated help texts for config options ISDN and ISDN_CAPI.
-> 2. The MISDN config option appeared between ISDN_I4L and the I4L hardware
->    driver options; move it to a less irritating place.
-> 3. HYSDN is not in fact an I4L driver, and needn't depend on ISDN_I4L, so
->    move it from the I4L section to the general section.
-> 4. ISDN_HDLC is now also used by drivers outside I4L.  Move it from the
->    I4L section to the general section, too.
 > 
-> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
 Applied.
