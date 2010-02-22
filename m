@@ -1,17 +1,18 @@
 From: gfilip@ee.ethz.ch
-Subject: [PATCH 3/5] temac: dma deinit
-Date: Mon, 22 Feb 2010 20:06:59 +0100
-Message-ID: <1266865621-28955-3-git-send-email-gfilip@ee.ethz.ch>
+Subject: [PATCH 4/5] temac: dma MMIO for Virtex4
+Date: Mon, 22 Feb 2010 20:07:00 +0100
+Message-ID: <1266865621-28955-4-git-send-email-gfilip@ee.ethz.ch>
 References: <1266865621-28955-1-git-send-email-gfilip@ee.ethz.ch>
  <1266865621-28955-2-git-send-email-gfilip@ee.ethz.ch>
+ <1266865621-28955-3-git-send-email-gfilip@ee.ethz.ch>
 Cc: glikely@secretlab.ca, Filip Gospodinov <gfilip@ee.ethz.ch>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ee.ethz.ch ([129.132.2.219]:56360 "EHLO smtp.ee.ethz.ch"
+Received: from smtp.ee.ethz.ch ([129.132.2.219]:56361 "EHLO smtp.ee.ethz.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753506Ab0BVTOh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Feb 2010 14:14:37 -0500
-In-Reply-To: <1266865621-28955-2-git-send-email-gfilip@ee.ethz.ch>
+	id S1753673Ab0BVTOi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Feb 2010 14:14:38 -0500
+In-Reply-To: <1266865621-28955-3-git-send-email-gfilip@ee.ethz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -19,23 +20,39 @@ This patch belongs to a set of patches which extends the temac driver to support
 
 Signed-off-by: Filip Gospodinov <gfilip@ee.ethz.ch>
 ---
- drivers/net/ll_temac_main.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ drivers/net/ll_temac_main.c |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
-index 0d4b1c5..2e7421c 100644
+index 2e7421c..8b4e1b9 100644
 --- a/drivers/net/ll_temac_main.c
 +++ b/drivers/net/ll_temac_main.c
-@@ -946,6 +946,9 @@ static int __devexit temac_of_remove(struct of_device *op)
- 	if (lp->phy_node)
- 		of_node_put(lp->phy_node);
- 	lp->phy_node = NULL;
+@@ -115,6 +115,17 @@ void temac_indirect_out32(struct temac_local *lp, int reg, u32 value)
+ 	temac_iow(lp, XTE_CTL0_OFFSET, CNTLREG_WRITE_ENABLE_MASK | reg);
+ }
+ 
 +#ifdef CONFIG_XILINX_VIRTEX_4_FX
-+	iounmap((void *) lp->dma_regs);
++static u32 temac_dma_in32(struct temac_local *lp, int reg)
++{
++	return in_be32((u32 *)(lp->dma_regs + reg));
++}
++
++static void temac_dma_out32(struct temac_local *lp, int reg, u32 value)
++{
++	out_be32((u32 *)(lp->dma_regs + reg), value);
++}
++#else
+ static u32 temac_dma_in32(struct temac_local *lp, int reg)
+ {
+ 	return dcr_read(lp->sdma_dcrs, reg);
+@@ -124,6 +135,7 @@ static void temac_dma_out32(struct temac_local *lp, int reg, u32 value)
+ {
+ 	dcr_write(lp->sdma_dcrs, reg, value);
+ }
 +#endif
- 	dev_set_drvdata(&op->dev, NULL);
- 	free_netdev(ndev);
- 	return 0;
+ 
+ /**
+  * temac_dma_bd_init - Setup buffer descriptor rings
 -- 
 1.6.4.4
 
