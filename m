@@ -1,63 +1,51 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 2/2] can: ti hecc module : add platform specific	initialization
- callback.
-Date: Mon, 22 Feb 2010 17:00:41 +0100
-Message-ID: <4B82AA29.4090200@pengutronix.de>
-References: <1266845762-7809-1-git-send-email-srk@ti.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [net-next PATCH v4 1/3] net: TCP thin-stream detection
+Date: Mon, 22 Feb 2010 17:06:25 +0100
+Message-ID: <228e2e29ccd24144a77d42cfc5bc72fa@localhost>
+References: <20100221102102.GB1311@ucw.cz> <D40945A6-301D-485D-BB8C-826D2EB68DA4@nets.rwth-aachen.de> <2EC47E8B-BC4C-4DAB-86ED-F702D67F8AD0@nokia.com> <20100221.150311.193707249.davem@davemloft.net> <FB5F656F-091A-4FB5-9586-15C6CB263D05@nokia.com> <87k4u5mh9u.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig9E2E3C8E747D9BF19593DF47"
-Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org
-To: Sriramakrishnan <srk@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:59031 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754127Ab0BVQAx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 11:00:53 -0500
-In-Reply-To: <1266845762-7809-1-git-send-email-srk@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig9E2E3C8E747D9BF19593DF47
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-Sriramakrishnan wrote:
-> CAN module on AM3517 requires programming of IO expander as part
-> of init sequence - to enable CAN PHY. Added platform specific
-> init callback to handle this.
-
-Consider giving it a more descriptive name like "phy_switch" and adding
-an argument to the function to enable/disable the phy. Put the routine
-in the driver's open and close function.
-
-Pleae also update the ti_hecc_platform_data documentation in the top of
-ti_hecc.c
-
-Have a look at the at91 for example.
-
-cheers, Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Lars Eggert <lars.eggert@nokia.com>,
+	David Miller <davem@davemloft.net>,
+	<zimmermann@nets.rwth-aachen.de>, <pavel@ucw.cz>,
+	<apetlund@simula.no>, <netdev@vger.kernel.org>,
+	<ilpo.jarvinen@helsinki.fi>, <eric.dumazet@gmail.com>,
+	<Arnd.Hannemann@nets.rwth-aachen.de>,
+	<linux-kernel@vger.kernel.org>, <shemminger@vyatta.com>,
+	<william.allen.simpson@gmail.com>, <damian@tvk.rwth-aachen.de>,
+	<ebiederm@xmission.com>
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87k4u5mh9u.fsf@basil.nowhere.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---------------enig9E2E3C8E747D9BF19593DF47
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+On Mon, 22 Feb 2010 16:17:33 +0100, Andi Kleen <andi@firstfloor.org> wrote:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+> Lars Eggert <lars.eggert@nokia.com> writes:
 
-iEYEARECAAYFAkuCqi4ACgkQjTAFq1RaXHOlTwCeI4hRV7PvXPH3zhr93Ip4EpOB
-n8sAoIjqo3ETLqvH7VAljECRZnj06OEo
-=PYdm
------END PGP SIGNATURE-----
+> 
 
---------------enig9E2E3C8E747D9BF19593DF47--
+>> If it's off by default there is no issue.
+
+> 
+
+> Still a sufficient large number of people might turn it on
+
+> and then the network would melt.
+
+
+
+Then we should apply the same policy as used for the congestion control
+
+algorithms!? Restrict the usage to change the standard behavior via Kconfig
+
+(e.g. menuconfig TCP_CONG_ADVANCED) or even more restricted demand for
+
+CAP_NET_ADMIN.
+
+
+
+Hagen
