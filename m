@@ -1,41 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] cxgb4 patches V2
-Date: Sun, 21 Feb 2010 22:30:49 -0800 (PST)
-Message-ID: <20100221.223049.183064491.davem@davemloft.net>
-References: <1266528256-20873-1-git-send-email-dm@chelsio.com>
+Subject: Re: Subject: [PATCH 0/6] bna: Brocade 10Gb Ethernet device driver
+Date: Sun, 21 Feb 2010 22:39:32 -0800 (PST)
+Message-ID: <20100221.223932.39195123.davem@davemloft.net>
+References: <201002192152.o1JLqcB6031953@blc-10-1.brocade.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dm@chelsio.com
+Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@brocade.com
+To: rmody@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55480
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38260
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753418Ab0BVGab (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 01:30:31 -0500
-In-Reply-To: <1266528256-20873-1-git-send-email-dm@chelsio.com>
+	by vger.kernel.org with ESMTP id S1751739Ab0BVGjO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 01:39:14 -0500
+In-Reply-To: <201002192152.o1JLqcB6031953@blc-10-1.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dimitris Michailidis <dm@chelsio.com>
-Date: Thu, 18 Feb 2010 13:24:09 -0800
 
-> 
-> This is V2 of the cxgb4 patches.
-> 
-> Changes since V1:
-> - Whitespace fixed as well as some additional checkpatch issues.
-> - I removed the CH_* logging wrappers.  I used the new netdev_* in a handful of
->   places but mostly stayed with the dev_* functions.
-> - I added some comments to describe the register macro scheme.  As a macro
->   change would involve a rather large number of LOCs I'd really like to avoid
->   changing them.
+This driver still needs a lot of work.
 
-I also told you to not use the non-standard S_*, V_*, etc. register
-naming convention.
+The number of headers files is rediculious and I see pieces of
+information duplicated up to 4 or 5 times (!?!??!)
 
-If you repost your driver without addressing all of the review
-feedback you've received thus far, you are wasting people's time
-because they will take time out to review your patches again
-only to find that you've haven't fixed everything you've already
-been made aware of.
+First, reduce the header files to say two or three.
+
+Next, remove all of the duplicated information.  You have at least two
+copies of the PCI device ID in these header files.  There are three or
+four definitions of the same statistics data structures.
+
+It's pure bloat, you have to consolidate the content and the number of
+header files holding this information.
