@@ -1,146 +1,33 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH 1/2] can:ti_hecc: Add pm hook-up
-Date: Mon, 22 Feb 2010 15:01:32 +0100
-Message-ID: <4B828E3C.40203@grandegger.com>
-References: <1266845736-7161-1-git-send-email-srk@ti.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [net-next-2.6 PATCH 1/7] xfrm: introduce basic mark
+ infrastructure
+Date: Mon, 22 Feb 2010 09:09:04 -0500
+Message-ID: <1266847744.14840.0.camel@bigi>
+References: <xfrm-mark-take2>
+	 <1266699340-5590-1-git-send-email-hadi@cyberus.ca>
+	 <1266699340-5590-2-git-send-email-hadi@cyberus.ca>
+	 <20100221.222612.112587589.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
-	K R Baalaaji <krbaalaaji@ti.com>
-To: Sriramakrishnan <srk@ti.com>
+Cc: timo.teras@iki.fi, kaber@trash.net, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:58480 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751821Ab0BVOC7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 09:02:59 -0500
-In-Reply-To: <1266845736-7161-1-git-send-email-srk@ti.com>
+Received: from mail-qy0-f191.google.com ([209.85.221.191]:54666 "EHLO
+	mail-qy0-f191.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751821Ab0BVOJL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 09:09:11 -0500
+Received: by qyk29 with SMTP id 29so90837qyk.21
+        for <netdev@vger.kernel.org>; Mon, 22 Feb 2010 06:09:10 -0800 (PST)
+In-Reply-To: <20100221.222612.112587589.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sriramakrishnan wrote:
-> Added the suspend and resume implementation in the HECC (CAN)
-> driver.
-> 
-> Signed-off-by: K R Baalaaji <krbaalaaji@ti.com>
-> Signed-off-by: Sriramakrishnan <srk@ti.com>
-> Acked-by: Anant Gole <anantgole@ti.com>
-> ---
->  drivers/net/can/ti_hecc.c |   51 ++++++++++++++++++++++++++++++++++++++++++--
->  1 files changed, 48 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
-> index 5c993c2..df27d82 100644
-> --- a/drivers/net/can/ti_hecc.c
-> +++ b/drivers/net/can/ti_hecc.c
-> @@ -824,7 +824,6 @@ static int ti_hecc_open(struct net_device *ndev)
->  		return err;
->  	}
->  
-> -	clk_enable(priv->clk);
->  	ti_hecc_start(ndev);
->  	napi_enable(&priv->napi);
->  	netif_start_queue(ndev);
-> @@ -840,7 +839,6 @@ static int ti_hecc_close(struct net_device *ndev)
->  	napi_disable(&priv->napi);
->  	ti_hecc_stop(ndev);
->  	free_irq(ndev->irq, ndev);
-> -	clk_disable(priv->clk);
->  	close_candev(ndev);
->  
->  	return 0;
-> @@ -925,6 +923,7 @@ static int ti_hecc_probe(struct platform_device *pdev)
->  	netif_napi_add(ndev, &priv->napi, ti_hecc_rx_poll,
->  		HECC_DEF_NAPI_WEIGHT);
->  
-> +	clk_enable(priv->clk);
->  	err = register_candev(ndev);
->  	if (err) {
->  		dev_err(&pdev->dev, "register_candev() failed\n");
-> @@ -953,6 +952,7 @@ static int __devexit ti_hecc_remove(struct platform_device *pdev)
->  	struct net_device *ndev = platform_get_drvdata(pdev);
->  	struct ti_hecc_priv *priv = netdev_priv(ndev);
->  
-> +	clk_disable(priv->clk);
->  	clk_put(priv->clk);
->  	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
->  	iounmap(priv->base);
-> @@ -964,6 +964,48 @@ static int __devexit ti_hecc_remove(struct platform_device *pdev)
->  	return 0;
->  }
->  
-> +
-> +#ifdef CONFIG_PM
-> +static int ti_hecc_suspend(struct platform_device *pdev, pm_message_t state)
-> +{
-> +	struct net_device *dev = platform_get_drvdata(pdev);
-> +	struct ti_hecc_priv *priv = netdev_priv(dev);
-> +
-> +	if (netif_running(dev)) {
-> +		netif_stop_queue(dev);
-> +		netif_device_detach(dev);
-> +	}
-> +
-> +	hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
-> +	priv->can.state = CAN_STATE_SLEEPING;
-> +
-> +	clk_disable(priv->clk);
-> +
-> +	return 0;
-> +}
-> +
-> +static int ti_hecc_resume(struct platform_device *pdev)
-> +{
-> +	struct net_device *dev = platform_get_drvdata(pdev);
-> +	struct ti_hecc_priv *priv = netdev_priv(dev);
-> +
-> +	clk_enable(priv->clk);
-> +
-> +	hecc_clear_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
-> +	priv->can.state = CAN_STATE_ERROR_ACTIVE;
-> +
-> +	if (netif_running(dev)) {
-> +		netif_device_attach(dev);
-> +		netif_start_queue(dev);
-> +	}
-> +
-> +	return 0;
-> +}
-> +#else
-> +#define ti_hecc_suspend NULL
-> +#define ti_hecc_resume NULL
-> +#endif
-> +
->  /* TI HECC netdevice driver: platform driver structure */
->  static struct platform_driver ti_hecc_driver = {
->  	.driver = {
-> @@ -972,6 +1014,8 @@ static struct platform_driver ti_hecc_driver = {
->  	},
->  	.probe = ti_hecc_probe,
->  	.remove = __devexit_p(ti_hecc_remove),
-> +	.suspend = ti_hecc_suspend,
-> +	.resume = ti_hecc_resume,
->  };
->  
->  static int __init ti_hecc_init_driver(void)
-> @@ -979,14 +1023,15 @@ static int __init ti_hecc_init_driver(void)
->  	printk(KERN_INFO DRV_DESC "\n");
->  	return platform_driver_register(&ti_hecc_driver);
->  }
-> -module_init(ti_hecc_init_driver);
->  
->  static void __exit ti_hecc_exit_driver(void)
->  {
->  	printk(KERN_INFO DRV_DESC " unloaded\n");
->  	platform_driver_unregister(&ti_hecc_driver);
->  }
-> +
->  module_exit(ti_hecc_exit_driver);
-> +module_init(ti_hecc_init_driver);
 
-What is the reason for moving around module_init? Please revert. Then
-you can add my "Acked-by: Wolfgang Grandegger <wg@grandegger.com>".
+I will fix both and resubmit. Thanks for taking the time Dave.
 
-Thanks,
+cheers,
+jamal
 
-Wolfgang.
