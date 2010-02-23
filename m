@@ -1,33 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] vhost: fix get_user_pages_fast error handling
-Date: Tue, 23 Feb 2010 14:42:35 -0800 (PST)
-Message-ID: <20100223.144235.08984181.davem@davemloft.net>
-References: <20100223173434.GB9834@redhat.com>
-	<20100223173258.GA25338@redhat.com>
-	<20100223173952.GC9834@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, rusty@rustcorp.com.au, kvm@vger.kernel.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, markmc@redhat.com,
-	herbert.xu@redhat.com, quintela@redhat.com, dlaor@redhat.com,
-	avi@redhat.com
-To: gleb@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100223173952.GC9834@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: jamal <hadi@cyberus.ca>
+Subject: [net-next-2.6 PATCH 1/1] xfrm: clone mark when cloning policy
+Date: Tue, 23 Feb 2010 18:08:04 -0500
+Message-ID: <1266966484-1750-1-git-send-email-hadi@cyberus.ca>
+References: <sk-mark-clone>
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <hadi@cyberus.ca>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:64821 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754646Ab0BWXIO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2010 18:08:14 -0500
+Received: by pwj8 with SMTP id 8so4287863pwj.19
+        for <netdev@vger.kernel.org>; Tue, 23 Feb 2010 15:08:14 -0800 (PST)
+In-Reply-To: <sk-mark-clone>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Jamal Hadi Salim <hadi@cyberus.ca>
 
-Just for the record I'm generally not interested in vhost
-patches.
+When we clone the SP, we should also clone the mark.
+Useful for socket based SPs.
 
-If it's a specific network one that will be merged via
-the networking tree, yes please CC: me.
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+---
+ net/xfrm/xfrm_policy.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-But if it's a bunch of changes to vhost.c and other pieces
-of infrastructure, feel free to leave me out of it.  It just
-clutters my already overflowing inbox.
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 2a6e646..34a5ef8 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1154,6 +1154,7 @@ static struct xfrm_policy *clone_policy(struct xfrm_policy *old, int dir)
+ 		}
+ 		newp->lft = old->lft;
+ 		newp->curlft = old->curlft;
++		newp->mark = old->mark;
+ 		newp->action = old->action;
+ 		newp->flags = old->flags;
+ 		newp->xfrm_nr = old->xfrm_nr;
+-- 
+1.6.0.4
 
-Thanks.
