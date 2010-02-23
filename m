@@ -1,75 +1,42 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: RFC: netfilter: nf_conntrack: add support for "conntrack zones"
-Date: Tue, 23 Feb 2010 09:20:17 -0500
-Message-ID: <1266934817.3973.654.camel@bigi>
-References: <4B4F24AC.70105@trash.net> <1263481549.23480.24.camel@bigi>
-	 <4B4F3A50.1050400@trash.net> <1263490403.23480.109.camel@bigi>
-	 <4B50403A.6010507@trash.net> <1263568754.23480.142.camel@bigi>
-	 <m13a0tf17t.fsf@fess.ebiederm.org> <1266875729.3673.12.camel@bigi>
-	 <m1wry46es9.fsf@fess.ebiederm.org> <1266931623.3973.643.camel@bigi>
-	 <m1iq9ocafv.fsf@fess.ebiederm.org>
-Reply-To: hadi@cyberus.ca
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH 2/2] can: ti hecc module : add platform
+	specific	initialization callback.
+Date: Tue, 23 Feb 2010 15:34:02 +0100
+Message-ID: <4B83E75A.7040101@grandegger.com>
+References: <1266845762-7809-1-git-send-email-srk@ti.com>
+	<20100222.154741.56894014.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <m1iq9ocafv.fsf@fess.ebiederm.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: srk-l0cyMroinI0@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20100222.154741.56894014.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Added Daniel to the discussion..
-
-On Tue, 2010-02-23 at 06:07 -0800, Eric W. Biederman wrote:
-> jamal <hadi@cyberus.ca> writes:
-
-> > Does the point after sys_setns(fd) allow me to do io inside
-> > ns <name>? Can i do open() and get a fd from ns <name>?
+David Miller wrote:
+> From: Sriramakrishnan <srk-l0cyMroinI0@public.gmane.org>
+> Date: Mon, 22 Feb 2010 19:06:02 +0530
 > 
-> Yes.  My intention is that current->nsproxy->net_ns be changed.
-> We can already change it in unshare so this is feasible.
-
-I like it if it makes it as easy as it sounds;-> With lxc,
-i essentially have to create a proxy process inside the
-namespace that i use unix domain to open fds inside the ns.
-Do i still need that?
-
-> > The only problem that i see is events are not as nice. I take it i am 
-> > going to get something like an inotify when a new namespace is created?
+>> CAN module on AM3517 requires programming of IO expander as part
+>> of init sequence - to enable CAN PHY. Added platform specific
+>> init callback to handle this.
+>>
+>> Signed-off-by: Sriramakrishnan <srk-l0cyMroinI0@public.gmane.org>
+>> Acked-by: Anant Gole <anantgole-l0cyMroinI0@public.gmane.org>
 > 
-> Yes.  Inotify would at the very least see that mkdir.  You could also
-> use poll on /proc/mounts to see the set of mounts change.
+> Please address Wolfgang's feedback comments.
 
-It is not as nice but livable. I suppose attributes of the specific
-namespace are retrieved somewhere there as well..
+Yes, as Marc suggested, please follow the at91_can.c example using
+transceiver_switch.
 
-> > Is it not just a naming convention that you are dealing with?
-> > Example in your scheme above a nested namespace shows up as:
-> > /var/run/netns/<name>/<nestedname>, no?
-> 
-> No.  More like:
-> 
-> For the outer namespace:
-> /var/run/netns/<name>
-> 
-> For the inner namespace:
-> /some/random/fs/path/to/a/chroot/var/run/netns/<name>
-> 
-> For a doubly nested scenario:
-> /some/random/fs/path/to/a/chroot/some/other/random/fs/path/to/another/chroot/var/run/netns/<name>
-> 
-> Since I would be using mount namespaces instead of chroot it is not
-> strictly required that the fs paths nest at all.
-
-Ok.
-
-cheers,
-jamal
-
+Wolfgang.
