@@ -1,71 +1,61 @@
-From: "Stephens, Allan" <allan.stephens@windriver.com>
-Subject: Re: [PATCH]: tipc: Fix oops on send prior to
-	entering networked mode
-Date: Tue, 23 Feb 2010 08:21:25 -0800
-Message-ID: <29C1DC0826876849BDD9F1C67ABA2943070F0E2E@ala-mail09.corp.ad.wrs.com>
-References: <20100219194033.GA28743@hmsreliant.think-freely.org>
-	<29C1DC0826876849BDD9F1C67ABA29430705EF62@ala-mail09.corp.ad.wrs.com>
-	<20100223011116.GA2021@localhost.localdomain>
-	<29C1DC0826876849BDD9F1C67ABA2943070F0D92@ala-mail09.corp.ad.wrs.com>
-	<20100223160936.GA16435@hmsreliant.think-freely.org>
+From: Dan Smith <danms@us.ibm.com>
+Subject: Re: [PATCH 2/5] C/R: Basic support for network namespaces and devices (v4)
+Date: Tue, 23 Feb 2010 08:35:57 -0800
+Message-ID: <87k4u37vv6.fsf@caffeine.danplanet.com>
+References: <1266336187-19105-1-git-send-email-danms@us.ibm.com>
+	<1266336187-19105-3-git-send-email-danms@us.ibm.com>
+	<20100222194523.GA13135@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net, davem@davemloft.net
-To: "Neil Horman" <nhorman@tuxdriver.com>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-Content-class: urn:content-classes:message
-In-Reply-To: <20100223160936.GA16435@hmsreliant.think-freely.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: containers@lists.osdl.org, netdev@vger.kernel.org
+To: "Serge E. Hallyn" <serue@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw0.danplanet.com ([71.245.107.82]:44944 "EHLO
+	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753098Ab0BWQgJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2010 11:36:09 -0500
+In-Reply-To: <20100222194523.GA13135@us.ibm.com> (Serge E. Hallyn's message of "Mon\, 22 Feb 2010 13\:45\:23 -0600")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Neil wrote: 
+SH> the above two hunks change the flow in checkpoint_container(), but
+SH> they don't seem to actually add anything.  And I don't see (with a
+SH> quick browse) any later patch in this series changing this either.
+SH> Is this just noise?
 
-> I agree that you patch fixes the exact problem that I 
-> reported here, but theres more to it than that.  A quick grep 
-> of the tipc stack reveals the following
-> symbols:
-> tipc_bearers
-> media_list
-> tipc_local_nodes
-> bcbearer
-> bclink
-> tipc_net.zones
-> 
-> All of these symbols:
-> 
-> 1) Are allocated dynamically in tipc_net_start, _after_ 
-> tipc_mode is set to TIPC_NET_MODE
-> 
-> 2) dereferenced without NULL pointer checks in either the 
-> send path or in the netlink configuration path, both of which 
-> are reachable from user space.
-> 
-> So your patch fixes the last item on your list, but what 
-> about the others?  In fact, I'll bet I can very quickly 
-> change the application to trip over a null tipc_local_nodes 
-> dereference by changing the destination address to be 
-> something within zone 0, cluster 0.
+Ah, yeah, I think that's left over from a previous version where I had
+to insert something there.  Sorry about that :)
 
-The semantics of TIPC addressing don't allow a node address of the form
-<0.0.N> where N != 0, so this kind of a send ateempt should be caught
-and handled by TIPC.  However, you've already found one missing error
-check, so it's certainly worth trying it out!
+>> +int ckpt_netdev_in_init_netns(struct ckpt_ctx *ctx, struct net_device *dev)
+>> +{
+>> +	return dev->nd_net == current->nsproxy->net_ns;
+>> +}
 
-Regards,
-Al
+SH> You are comparing it to the net_ns of the checkpointing task.  I'm
+SH> not sure that makes sense - but I'm also not sure what if anything
+SH> makes more sense.
 
-------------------------------------------------------------------------------
-Download Intel&#174; Parallel Studio Eval
-Try the new software tools for yourself. Speed compiling, find bugs
-proactively, and fine-tune applications for parallel performance.
-See why Intel Parallel Studio got high marks during beta.
-http://p.sf.net/sfu/intel-sw-dev
+SH> What exactly do you mean by the 'init' netns here?  Do you mean
+SH> the init_net_ns for the container, or that it is the net_ns of
+SH> whatever task created the container?
+
+In this case, 'current' is the task doing the checkpoint, right?  So,
+we're treating the netns that it is in as the "top level" and will
+restore the tree, as visible from that task, relative to the netns of
+the restart process.  We had an IRC conversation about this, I believe :)
+
+SH> How about a
+SH> 			ckpt_err(ctx, -ENOSYS,
+SH> 				Device %s does not support checkpoint\n",
+dev-> name);
+
+SH> here to put a meaningful msg in the user's log?
+
+Yep, definitely.
+
+Thanks!
+
+-- 
+Dan Smith
+IBM Linux Technology Center
+email: danms@us.ibm.com
