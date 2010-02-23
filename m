@@ -1,110 +1,41 @@
-From: Jorrit Kronjee <j.kronjee@infopact.nl>
-Subject: Re: stress testing netfilter's hashlimit
-Date: Tue, 23 Feb 2010 08:38:23 +0100
-Message-ID: <4B8385EF.9060802@infopact.nl>
-References: <4B8292C6.4000207@infopact.nl> <41885A88D9043444B138491FB10E15420476E86A91@azsmsx506.amr.corp.intel.com>
+From: =?iso-8859-1?Q?Sjur_Br=E6ndeland?= <sjur.brandeland@stericsson.com>
+Subject: RE: [PATCH net-next-2.6 v3 00/12] net-caif: introducing CAIF protocol stack
+Date: Tue, 23 Feb 2010 08:39:52 +0100
+Message-ID: <61D8D34BB13CFE408D154529C120E07903359AE7@eseldmw101.eemea.ericsson.se>
+References: <1266876331-23988-1-git-send-email-sjur.brandeland@stericsson.com> <1266910387.18491.54.camel@violet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Tadepalli, Hari K" <hari.k.tadepalli@intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	"Daniel Martensson" <daniel.martensson@stericsson.com>,
+	<kaber@trash.net>, <stefano.babic@babic.homelinux.org>,
+	<randy.dunlap@oracle.com>
+To: "Marcel Holtmann" <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.infopact.nl ([212.29.160.232]:45237 "EHLO
-	smtp1.infopact.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753048Ab0BWHic (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2010 02:38:32 -0500
-In-Reply-To: <41885A88D9043444B138491FB10E15420476E86A91@azsmsx506.amr.corp.intel.com>
+Received: from mailgw9.se.ericsson.net ([193.180.251.57]:62822 "EHLO
+	mailgw9.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752879Ab0BWHjz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2010 02:39:55 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <1266910387.18491.54.camel@violet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hari,
+Hi Marcel.
+>> CHANGE LOG:
+>> Based on review comments from David Miller and Marcel Holtmann on the
+>> previous patch set submitted the 16 February the following changes
+>> have been done: 
+>> - Removed ifdef __cplusplus from caif_socket.h
+>> - Use socket level SOL_IP for socket options SO_PRIORITY and
+>> SO_BINDTODEVICE
+> 
+> are you sure it is not better to use SOL_SOCKET here. At least
+> according to man 7 socket this would make a lot more sense. My point
+> in actually using SO_PRIORITY and SO_BINDTODEVICE is to use standard
+> socket options that are already used by everybody else. So they know
+> what to expect.    
+> 
+Yes, this makes sense. I'll update this.
 
-Thank you very much for your quick response. I have a follow-up question 
-however.
-
-Tadepalli, Hari K wrote:
->>> Each of these are separate machines. The sender has a Gigabit Ethernet
->>> interface and sends ~410,000 packets per second (52 bytes Ethernet
->>> frames). The bridge has two Gigabit Ethernet interfaces, a quad core
->>> Xeon X3330 and is running Ubuntu 9.10 (Karmic Koala) with kernel
->>> 2.6.31-19-generic-pae.
->>>       
->
-> This is a Penryn class quad core processor, advertized at 2.66GHz. On this platform & with PCI express NICs, you can expect an IPv4 forwarding rate of ~1 Mpps per CPU core. Given the processing cost involved in forwarding/routing a packet, it is not possible to approach line rate forwarding line rate on stock kernels. Looks like, @ 52B packets, you are using a packet size that will NOT be sufficient to fill a full UDP header in the packet. 
->
->   
-You are writing that it's not possible with a stock kernel; what would I 
-need to change to the kernel to do make it work at higher speeds? My 
-goal is to be able to bridge/route a stable 1 Mpps.
-
-> Coming to BRIDGING: I have not worked on bridging, but have seen anecdotal evidence that bridging costs far more CPU cycles than routing/forwarding (on a per packet basis). What you are observing seems to align well with this. You can play with a few platform level tunings; setting interrupt affinity of each NIC port to align with adjacent processor pair, as in:
->
-> echo 1 > /proc/irq/22/smp_affinity
-> echo 2 > /proc/irq/23/smp_affinity
->
-> - assuming your NIC ports are assigned IRQs of 22 and 23 respectively. This will balance the traffic from each NIC to be handled by a different CPU core, while minimizing the impact of inter-cpu cache thrashes. 
->
->   
-You are absolutely right. Just turning off bridging increased the speed 
-to ~800,000 pps. After that the kernel started dropping packets again. 
-Weird, because my gut feeling would say that just copying packets from 
-one interface to another requires less work than routing them.
-
-Thanks again for your reply!
-
-Regards,
-
-Jorrit
-
-
-> - Hari
->
-> ____________________________________
-> Intel/ Embedded Comms/ Chandler, AZ
->
->
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Jorrit Kronjee
-> Sent: Monday, February 22, 2010 7:21 AM
-> To: netdev@vger.kernel.org
-> Subject: stress testing netfilter's hashlimit
->
-> Dear list,
->
-> I'm not entirely sure if this is the right list for this question, but
-> if someone could me give me some pointers where to ask otherwise, it
-> would be most appreciated.
->
-> We're trying to stress test netfilter's hashlimit module. To do so,
-> we've built the following setup.
->
-> [ sender ] --> [ bridge ] --> [ receiver ]
->
-> Each of these are separate machines. The sender has a Gigabit Ethernet
-> interface and sends ~410,000 packets per second (52 bytes Ethernet
-> frames). The bridge has two Gigabit Ethernet interfaces, a quad core
-> Xeon X3330 and is running Ubuntu 9.10 (Karmic Koala) with kernel
-> 2.6.31-19-generic-pae. The receiver is a non-descript machine with a
-> Gigabit Ethernet interface and is not really important for my question.
-> We disabled connection tracking (because the packets are UDP) on the
-> bridge as follows:
->
-> # iptables -t raw -nL
-> Chain PREROUTING (policy ACCEPT)
-> target     prot opt source               destination        
-> NOTRACK    all  --  0.0.0.0/0            0.0.0.0/0          
->
-> Chain OUTPUT (policy ACCEPT)
-> target     prot opt source               destination        
-> NOTRACK    all  --  0.0.0.0/0            0.0.0.0/0          
->
-> We used brctl to make a bridge between eth3 and eth4 (even though we
-> don't have a eth[0,1,2]):
->
-> # brctl show
-> bridge name    bridge id        STP enabled    interfaces
-> br1        8000.001517b30cb3    no        eth3
->                             eth4
->
->
->   
+BR/Sjur
