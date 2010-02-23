@@ -1,35 +1,40 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH] MAINTAINERS: update mv643xx_eth maintenance status
-Date: Tue, 23 Feb 2010 09:34:54 +0100
-Message-ID: <20100223083454.GR1637@mail.wantstofly.org>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [net-next-2.6 PATCH] e1000: correct wrong coding style for "else"
+Date: Tue, 23 Feb 2010 09:48:08 +0100
+Message-ID: <20100223084808.GB2610@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: jesse.brandeburg@gmail.com, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wantstofly.org ([80.101.37.227]:33172 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752233Ab0BWIez (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2010 03:34:55 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:27250 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751111Ab0BWIsN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Feb 2010 03:48:13 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am no longer with Marvell.
 
-Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/net/e1000/e1000_main.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index c57d396..c20a25b 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -3392,9 +3392,9 @@ S:	Maintained
- F:	drivers/net/wireless/libertas/
- 
- MARVELL MV643XX ETHERNET DRIVER
--M:	Lennert Buytenhek <buytenh@marvell.com>
-+M:	Lennert Buytenhek <buytenh@wantstofly.org>
- L:	netdev@vger.kernel.org
--S:	Supported
-+S:	Maintained
- F:	drivers/net/mv643xx_eth.*
- F:	include/linux/mv643xx.h
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index c99f95c..319c2b5 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -2170,8 +2170,7 @@ static void e1000_set_rx_mode(struct net_device *netdev)
+ 			hash_bit = hash_value & 0x1F;
+ 			mta = (1 << hash_bit);
+ 			mcarray[hash_reg] |= mta;
+-		}
+-		else {
++		} else {
+ 			e1000_rar_set(hw, mc_ptr->da_addr, i++);
+ 		}
+ 	}
+-- 
+1.6.6
+
