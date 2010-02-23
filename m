@@ -1,148 +1,49 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [net-next-2.6 PATCH] ixgbevf: convert to use netdev_for_each_mc_addr
-Date: Tue, 23 Feb 2010 20:06:44 +0100
-Message-ID: <20100223190644.GB2673@psychotron.redhat.com>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: Re: [PATCH net-next 0/7] cxgb4 patches V2
+Date: Tue, 23 Feb 2010 11:07:29 -0800
+Message-ID: <4B842771.9000506@chelsio.com>
+References: <1266528256-20873-1-git-send-email-dm@chelsio.com> <20100221.223049.183064491.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47774 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753645Ab0BWTGs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Feb 2010 14:06:48 -0500
-Content-Disposition: inline
+Received: from stargate.chelsio.com ([67.207.112.58]:10047 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753756Ab0BWTHd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2010 14:07:33 -0500
+In-Reply-To: <20100221.223049.183064491.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David Miller wrote:
+> From: Dimitris Michailidis <dm@chelsio.com>
+> Date: Thu, 18 Feb 2010 13:24:09 -0800
+> 
+>> This is V2 of the cxgb4 patches.
+>>
+>> Changes since V1:
+>> - Whitespace fixed as well as some additional checkpatch issues.
+>> - I removed the CH_* logging wrappers.  I used the new netdev_* in a handful of
+>>   places but mostly stayed with the dev_* functions.
+>> - I added some comments to describe the register macro scheme.  As a macro
+>>   change would involve a rather large number of LOCs I'd really like to avoid
+>>   changing them.
+> 
+> I also told you to not use the non-standard S_*, V_*, etc. register
+> naming convention.
+> 
+> If you repost your driver without addressing all of the review
+> feedback you've received thus far, you are wasting people's time
+> because they will take time out to review your patches again
+> only to find that you've haven't fixed everything you've already
+> been made aware of.
+> 
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- drivers/net/ixgbevf/ixgbevf_main.c |   24 +-----------------------
- drivers/net/ixgbevf/vf.c           |   24 ++++++++++++------------
- drivers/net/ixgbevf/vf.h           |    4 ++--
- 3 files changed, 15 insertions(+), 37 deletions(-)
-
-diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
-index 235b5fd..cfa30aa 100644
---- a/drivers/net/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ixgbevf/ixgbevf_main.c
-@@ -1495,22 +1495,6 @@ static void ixgbevf_restore_vlan(struct ixgbevf_adapter *adapter)
- 	}
- }
- 
--static u8 *ixgbevf_addr_list_itr(struct ixgbe_hw *hw, u8 **mc_addr_ptr,
--				 u32 *vmdq)
--{
--	struct dev_mc_list *mc_ptr;
--	u8 *addr = *mc_addr_ptr;
--	*vmdq = 0;
--
--	mc_ptr = container_of(addr, struct dev_mc_list, dmi_addr[0]);
--	if (mc_ptr->next)
--		*mc_addr_ptr = mc_ptr->next->dmi_addr;
--	else
--		*mc_addr_ptr = NULL;
--
--	return addr;
--}
--
- /**
-  * ixgbevf_set_rx_mode - Multicast set
-  * @netdev: network interface device structure
-@@ -1523,16 +1507,10 @@ static void ixgbevf_set_rx_mode(struct net_device *netdev)
- {
- 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
--	u8 *addr_list = NULL;
--	int addr_count = 0;
- 
- 	/* reprogram multicast list */
--	addr_count = netdev_mc_count(netdev);
--	if (addr_count)
--		addr_list = netdev->mc_list->dmi_addr;
- 	if (hw->mac.ops.update_mc_addr_list)
--		hw->mac.ops.update_mc_addr_list(hw, addr_list, addr_count,
--						ixgbevf_addr_list_itr);
-+		hw->mac.ops.update_mc_addr_list(hw, netdev);
- }
- 
- static void ixgbevf_napi_enable_all(struct ixgbevf_adapter *adapter)
-diff --git a/drivers/net/ixgbevf/vf.c b/drivers/net/ixgbevf/vf.c
-index 4b5dec0..f457c52 100644
---- a/drivers/net/ixgbevf/vf.c
-+++ b/drivers/net/ixgbevf/vf.c
-@@ -252,22 +252,18 @@ static s32 ixgbevf_set_rar_vf(struct ixgbe_hw *hw, u32 index, u8 *addr,
- /**
-  *  ixgbevf_update_mc_addr_list_vf - Update Multicast addresses
-  *  @hw: pointer to the HW structure
-- *  @mc_addr_list: array of multicast addresses to program
-- *  @mc_addr_count: number of multicast addresses to program
-- *  @next: caller supplied function to return next address in list
-+ *  @netdev: pointer to net device structure
-  *
-  *  Updates the Multicast Table Array.
-  **/
--static s32 ixgbevf_update_mc_addr_list_vf(struct ixgbe_hw *hw, u8 *mc_addr_list,
--					u32 mc_addr_count,
--					ixgbe_mc_addr_itr next)
-+static s32 ixgbevf_update_mc_addr_list_vf(struct ixgbe_hw *hw,
-+					  struct net_device *netdev)
- {
-+	struct dev_addr_list *dmi;
- 	struct ixgbe_mbx_info *mbx = &hw->mbx;
- 	u32 msgbuf[IXGBE_VFMAILBOX_SIZE];
- 	u16 *vector_list = (u16 *)&msgbuf[1];
--	u32 vector;
- 	u32 cnt, i;
--	u32 vmdq;
- 
- 	/* Each entry in the list uses 1 16 bit word.  We have 30
- 	 * 16 bit words available in our HW msg buffer (minus 1 for the
-@@ -278,13 +274,17 @@ static s32 ixgbevf_update_mc_addr_list_vf(struct ixgbe_hw *hw, u8 *mc_addr_list,
- 	 * addresses except for in large enterprise network environments.
- 	 */
- 
--	cnt = (mc_addr_count > 30) ? 30 : mc_addr_count;
-+	cnt = netdev_mc_count(netdev);
-+	if (cnt > 30)
-+		cnt = 30;
- 	msgbuf[0] = IXGBE_VF_SET_MULTICAST;
- 	msgbuf[0] |= cnt << IXGBE_VT_MSGINFO_SHIFT;
- 
--	for (i = 0; i < cnt; i++) {
--		vector = ixgbevf_mta_vector(hw, next(hw, &mc_addr_list, &vmdq));
--		vector_list[i] = vector;
-+	i = 0;
-+	netdev_for_each_mc_addr(dmi, netdev) {
-+		if (i == cnt)
-+			break;
-+		vector_list[i++] = ixgbevf_mta_vector(hw, dmi->dmi_addr);
- 	}
- 
- 	mbx->ops.write_posted(hw, msgbuf, IXGBE_VFMAILBOX_SIZE);
-diff --git a/drivers/net/ixgbevf/vf.h b/drivers/net/ixgbevf/vf.h
-index 799600e..07a9aed 100644
---- a/drivers/net/ixgbevf/vf.h
-+++ b/drivers/net/ixgbevf/vf.h
-@@ -32,6 +32,7 @@
- #include <linux/delay.h>
- #include <linux/interrupt.h>
- #include <linux/if_ether.h>
-+#include <linux/netdevice.h>
- 
- #include "defines.h"
- #include "regs.h"
-@@ -62,8 +63,7 @@ struct ixgbe_mac_operations {
- 	/* RAR, Multicast, VLAN */
- 	s32 (*set_rar)(struct ixgbe_hw *, u32, u8 *, u32);
- 	s32 (*init_rx_addrs)(struct ixgbe_hw *);
--	s32 (*update_mc_addr_list)(struct ixgbe_hw *, u8 *, u32,
--				   ixgbe_mc_addr_itr);
-+	s32 (*update_mc_addr_list)(struct ixgbe_hw *, struct net_device *);
- 	s32 (*enable_mc)(struct ixgbe_hw *);
- 	s32 (*disable_mc)(struct ixgbe_hw *);
- 	s32 (*clear_vfta)(struct ixgbe_hw *);
--- 
-1.6.6
-
+Can you please clarify what exactly you want me to change about the macros? 
+  I looked at a few other drivers in the tree and I saw shift macros with 
+_SHIFT or _SH suffixes, masks tend to have _MASK or _MSK suffixes, etc.  Are 
+you asking me basically to change our S_, V_, etc prefixes to _SHIFT, etc 
+suffixes or are we talking about some other kind of change?  Please bear 
+with me, I am trying to understand what you're asking for exactly.
