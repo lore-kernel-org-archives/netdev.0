@@ -1,53 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: NETIF_F_HIGHDMA misuse in networking drivers?
-Date: Mon, 22 Feb 2010 15:53:57 -0800 (PST)
-Message-ID: <20100222.155357.235673585.davem@davemloft.net>
-References: <4B8029FA.2000404@gmail.com>
+Subject: Re: [net-next-2.6 PATCH 0/7] xfrm by MARK
+Date: Mon, 22 Feb 2010 16:21:52 -0800 (PST)
+Message-ID: <20100222.162152.63475772.davem@davemloft.net>
+References: <xfrm-mark-v3>
+	<1266874380-29593-1-git-send-email-hadi@cyberus.ca>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: hancockrwd@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B8029FA.2000404@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: timo.teras@iki.fi, kaber@trash.net, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: hadi@cyberus.ca
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52113
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751115Ab0BWAVi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 19:21:38 -0500
+In-Reply-To: <1266874380-29593-1-git-send-email-hadi@cyberus.ca>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Robert Hancock <hancockrwd@gmail.com>
-Date: Sat, 20 Feb 2010 12:29:14 -0600
+From: jamal <hadi@cyberus.ca>
+Date: Mon, 22 Feb 2010 16:32:53 -0500
 
-> Was just part of a discussion in another thread talking about 64-bit
-> DMA support issues where NETIF_F_HIGHDMA came up. I was originally
-> under the impression that this flag indicated the device supported
-> 64-bit DMA addressing. However, from looking at the code that checks
-> for it (and, well, the actual comment for the flag) it really means
-> "can access highmem" which has nothing to do with 64-bit at all. And
-> if there's no highmem (like on x86_64) it has no effect at all.
+> This patchset implements manipulation of ipsec tables with the
+> "mark" tag. You can config the SAD and SPD from user space
+> with a specified mark. 
 
-I think it's trying to do two things, and doing only one of them
-well :-)
-
-It's trying to keep drivers from receiving highmem pages if they are
-not able to access them properly.  F.e. imagine a driver that copies
-data out of the packet assuming that page_address() is always valid on
-the SKB pages.
-
-It's also trying to use this to prevent physical addresses beyond 4GB
-from reaching the driver, which as you note is not implemented
-precisely here.
-
-Without knowing something about how the driver "DMAs" packet data we
-can't really do an accurate test here.  Maybe the driver directly DMAs
-using physical addressing (an ASIC inside of a CPU, for example,
-drivers/net/niu.c has a case of this).
-
-Maybe the platform uses an IOMMU with 32-bit virtual addressing, so
-any physical address is fine even if the card only supports 32-bit
-addressing (basically any PCI coard on sparc64 is an example of this).
-
-And finally maybe the card supports 64-bit DMA addressing so anything
-works on any platform.
-
-How to test all of these possible cases precisely that at this spot in
-the transmit path is the question at hand.  To be honest I consider
-the current hack "good enough" :-)
+Looks good, all applied to net-next-2.6, thanks!
