@@ -1,114 +1,110 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [net-next-2.6 PATCH] e1000: convert to use
- netdev_for_each_mc_addr
-Date: Tue, 23 Feb 2010 08:32:32 +0100
-Message-ID: <20100223073231.GA2610@psychotron.redhat.com>
-References: <20100222191044.GC4141@psychotron.redhat.com>
- <4807377b1002221654t423023efq9f6ad45492d1374f@mail.gmail.com>
+From: Jorrit Kronjee <j.kronjee@infopact.nl>
+Subject: Re: stress testing netfilter's hashlimit
+Date: Tue, 23 Feb 2010 08:38:23 +0100
+Message-ID: <4B8385EF.9060802@infopact.nl>
+References: <4B8292C6.4000207@infopact.nl> <41885A88D9043444B138491FB10E15420476E86A91@azsmsx506.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Tadepalli, Hari K" <hari.k.tadepalli@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37298 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752515Ab0BWHch (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Feb 2010 02:32:37 -0500
-Content-Disposition: inline
-In-Reply-To: <4807377b1002221654t423023efq9f6ad45492d1374f@mail.gmail.com>
+Received: from smtp1.infopact.nl ([212.29.160.232]:45237 "EHLO
+	smtp1.infopact.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753048Ab0BWHic (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2010 02:38:32 -0500
+In-Reply-To: <41885A88D9043444B138491FB10E15420476E86A91@azsmsx506.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Feb 23, 2010 at 01:54:13AM CET, jesse.brandeburg@gmail.com wrote:
->On Mon, Feb 22, 2010 at 11:10 AM, Jiri Pirko <jpirko@redhat.com> wrote=
-:
->>
->> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->> ---
->> =A0drivers/net/e1000/e1000_main.c | =A0 37 +++++++++++++++++--------=
-------------
->> =A01 files changed, 17 insertions(+), 20 deletions(-)
->>
->> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e100=
-0_main.c
->> index 3b14dd7..c99f95c 100644
->> --- a/drivers/net/e1000/e1000_main.c
->> +++ b/drivers/net/e1000/e1000_main.c
->> @@ -2161,29 +2161,26 @@ static void e1000_set_rx_mode(struct net_dev=
-ice *netdev)
->>
->> =A0 =A0 =A0 =A0WARN_ON(i =3D=3D rar_entries);
->>
->> - =A0 =A0 =A0 mc_ptr =3D netdev->mc_list;
->> -
->> - =A0 =A0 =A0 for (; i < rar_entries; i++) {
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (mc_ptr) {
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 e1000_rar_set(hw, mc_p=
-tr->da_addr, i);
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 mc_ptr =3D mc_ptr->nex=
-t;
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 } else {
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 E1000_WRITE_REG_ARRAY(=
-hw, RA, i << 1, 0);
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 E1000_WRITE_FLUSH();
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 E1000_WRITE_REG_ARRAY(=
-hw, RA, (i << 1) + 1, 0);
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 E1000_WRITE_FLUSH();
->> + =A0 =A0 =A0 netdev_for_each_mc_addr(mc_ptr, netdev) {
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (i =3D=3D rar_entries) {
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* load any remaining =
-addresses into the hash table */
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 u32 hash_reg, hash_bit=
-, mta;
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 hash_value =3D e1000_h=
-ash_mc_addr(hw, mc_ptr->da_addr);
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 hash_reg =3D (hash_val=
-ue >> 5) & 0x7F;
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 hash_bit =3D hash_valu=
-e & 0x1F;
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 mta =3D (1 << hash_bit=
-);
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 mcarray[hash_reg] |=3D=
- mta;
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 else {
+Hari,
+
+Thank you very much for your quick response. I have a follow-up question 
+however.
+
+Tadepalli, Hari K wrote:
+>>> Each of these are separate machines. The sender has a Gigabit Ethernet
+>>> interface and sends ~410,000 packets per second (52 bytes Ethernet
+>>> frames). The bridge has two Gigabit Ethernet interfaces, a quad core
+>>> Xeon X3330 and is running Ubuntu 9.10 (Karmic Koala) with kernel
+>>> 2.6.31-19-generic-pae.
+>>>       
 >
->nit - else should be in the same line like  "} else {"
-
-Oh right, but patch is already applied. Will post correction.
-
+> This is a Penryn class quad core processor, advertized at 2.66GHz. On this platform & with PCI express NICs, you can expect an IPv4 forwarding rate of ~1 Mpps per CPU core. Given the processing cost involved in forwarding/routing a packet, it is not possible to approach line rate forwarding line rate on stock kernels. Looks like, @ 52B packets, you are using a packet size that will NOT be sufficient to fill a full UDP header in the packet. 
 >
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 e1000_rar_set(hw, mc_p=
-tr->da_addr, i++);
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
->> =A0 =A0 =A0 =A0}
->>
->> - =A0 =A0 =A0 /* load any remaining addresses into the hash table */
->> -
->> - =A0 =A0 =A0 for (; mc_ptr; mc_ptr =3D mc_ptr->next) {
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 u32 hash_reg, hash_bit, mta;
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 hash_value =3D e1000_hash_mc_addr(hw, =
-mc_ptr->da_addr);
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 hash_reg =3D (hash_value >> 5) & 0x7F;
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 hash_bit =3D hash_value & 0x1F;
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 mta =3D (1 << hash_bit);
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 mcarray[hash_reg] |=3D mta;
->> + =A0 =A0 =A0 for (; i < rar_entries; i++) {
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 E1000_WRITE_REG_ARRAY(hw, RA, i << 1, =
-0);
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 E1000_WRITE_FLUSH();
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 E1000_WRITE_REG_ARRAY(hw, RA, (i << 1)=
- + 1, 0);
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 E1000_WRITE_FLUSH();
->> =A0 =A0 =A0 =A0}
->>
->> =A0 =A0 =A0 =A0/* write the hash table completely, write from bottom=
- to avoid
+>   
+You are writing that it's not possible with a stock kernel; what would I 
+need to change to the kernel to do make it work at higher speeds? My 
+goal is to be able to bridge/route a stable 1 Mpps.
+
+> Coming to BRIDGING: I have not worked on bridging, but have seen anecdotal evidence that bridging costs far more CPU cycles than routing/forwarding (on a per packet basis). What you are observing seems to align well with this. You can play with a few platform level tunings; setting interrupt affinity of each NIC port to align with adjacent processor pair, as in:
 >
->otherwise seems okay.  Thanks for your work on cleaning this stuff,
->we'll be testing it as part of the net next testing already going on.
+> echo 1 > /proc/irq/22/smp_affinity
+> echo 2 > /proc/irq/23/smp_affinity
+>
+> - assuming your NIC ports are assigned IRQs of 22 and 23 respectively. This will balance the traffic from each NIC to be handled by a different CPU core, while minimizing the impact of inter-cpu cache thrashes. 
+>
+>   
+You are absolutely right. Just turning off bridging increased the speed 
+to ~800,000 pps. After that the kernel started dropping packets again. 
+Weird, because my gut feeling would say that just copying packets from 
+one interface to another requires less work than routing them.
 
-Cool, thanks
+Thanks again for your reply!
 
-Jirka
+Regards,
+
+Jorrit
+
+
+> - Hari
+>
+> ____________________________________
+> Intel/ Embedded Comms/ Chandler, AZ
+>
+>
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Jorrit Kronjee
+> Sent: Monday, February 22, 2010 7:21 AM
+> To: netdev@vger.kernel.org
+> Subject: stress testing netfilter's hashlimit
+>
+> Dear list,
+>
+> I'm not entirely sure if this is the right list for this question, but
+> if someone could me give me some pointers where to ask otherwise, it
+> would be most appreciated.
+>
+> We're trying to stress test netfilter's hashlimit module. To do so,
+> we've built the following setup.
+>
+> [ sender ] --> [ bridge ] --> [ receiver ]
+>
+> Each of these are separate machines. The sender has a Gigabit Ethernet
+> interface and sends ~410,000 packets per second (52 bytes Ethernet
+> frames). The bridge has two Gigabit Ethernet interfaces, a quad core
+> Xeon X3330 and is running Ubuntu 9.10 (Karmic Koala) with kernel
+> 2.6.31-19-generic-pae. The receiver is a non-descript machine with a
+> Gigabit Ethernet interface and is not really important for my question.
+> We disabled connection tracking (because the packets are UDP) on the
+> bridge as follows:
+>
+> # iptables -t raw -nL
+> Chain PREROUTING (policy ACCEPT)
+> target     prot opt source               destination        
+> NOTRACK    all  --  0.0.0.0/0            0.0.0.0/0          
+>
+> Chain OUTPUT (policy ACCEPT)
+> target     prot opt source               destination        
+> NOTRACK    all  --  0.0.0.0/0            0.0.0.0/0          
+>
+> We used brctl to make a bridge between eth3 and eth4 (even though we
+> don't have a eth[0,1,2]):
+>
+> # brctl show
+> bridge name    bridge id        STP enabled    interfaces
+> br1        8000.001517b30cb3    no        eth3
+>                             eth4
+>
+>
+>   
