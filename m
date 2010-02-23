@@ -1,157 +1,47 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 2/4] bas_gigaset: collapse CR/LF at end of AT response
-Date: Tue, 23 Feb 2010 17:34:25 +1100
-Message-ID: <20100223063425.GA28744@verge.net.au>
-References: <20100221-patch-gigaset-00.tilman@imap.cc>
- <20100221-patch-gigaset-02.tilman@imap.cc>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH net-next-2.6 v3 00/12] net-caif: introducing CAIF
+ protocol stack
+Date: Tue, 23 Feb 2010 08:33:07 +0100
+Message-ID: <1266910387.18491.54.camel@violet>
+References: <1266876331-23988-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Karsten Keil <isdn@linux-pingi.de>,
-	David Miller <davem@davemloft.net>,
-	Hansjoerg Lipp <hjlipp@web.de>,
-	Karsten Keil <keil@b1-systems.de>,
-	isdn4linux@listserv.isdn4linux.de,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Tilman Schmidt <tilman@imap.cc>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100221-patch-gigaset-02.tilman@imap.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	daniel.martensson@stericsson.com, kaber@trash.net,
+	stefano.babic@babic.homelinux.org, randy.dunlap@oracle.com
+To: sjur.brandeland@stericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from senator.holtmann.net ([87.106.208.187]:34117 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752804Ab0BWHbm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2010 02:31:42 -0500
+In-Reply-To: <1266876331-23988-1-git-send-email-sjur.brandeland@stericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 23, 2010 at 12:09:22AM +0100, Tilman Schmidt wrote:
-> From: Tilman Schmidt <tilman@imap.cc>
-> Subject: [PATCH 2/4] bas_gigaset: collapse CR/LF at end of AT response
+Hi Sjur,
+
+> This patch-set introduces the CAIF protocol Stack.
+> The "Communication CPU to Application CPU Interface" (CAIF) is a packet based
+> connection-oriented MUX protocol developed by ST-Ericsson for use with its
+> modems.
 > 
-> Copy the mechanism from ser_/usb_gigaset to avoid producing
-> spurious empty responses for CR/LF sequences from the device.
-> Add a comment in all drivers documenting that behaviour.
-> Correct an off by one error that might result in a one byte
-> buffer overflow when receiving an unexpectedly long reply.
 > 
-> Impact: minor bugfix
-> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
-> ---
->  drivers/isdn/gigaset/asyncdata.c |    2 +
->  drivers/isdn/gigaset/gigaset.h   |    4 +-
->  drivers/isdn/gigaset/isocdata.c  |   44 ++++++++++++++++++++++++++-----------
->  3 files changed, 35 insertions(+), 15 deletions(-)
-> 
-> diff --git a/drivers/isdn/gigaset/asyncdata.c b/drivers/isdn/gigaset/asyncdata.c
-> index ccb2a7b..e913beb 100644
-> --- a/drivers/isdn/gigaset/asyncdata.c
-> +++ b/drivers/isdn/gigaset/asyncdata.c
-> @@ -40,6 +40,8 @@ static inline int muststuff(unsigned char c)
->   * Append received bytes to the command response buffer and forward them
->   * line by line to the response handler. Exit whenever a mode/state change
->   * might have occurred.
-> + * Note: Received lines may be terminated by CR, LF, or CR LF, which will be
-> + * removed before passing the line to the response handler.
->   * Return value:
->   *	number of processed bytes
->   */
-> diff --git a/drivers/isdn/gigaset/gigaset.h b/drivers/isdn/gigaset/gigaset.h
-> index e963a6c..c9ccf7d 100644
-> --- a/drivers/isdn/gigaset/gigaset.h
-> +++ b/drivers/isdn/gigaset/gigaset.h
-> @@ -38,7 +38,7 @@
->  #define GIG_COMPAT  {0, 4, 0, 0}
->  
->  #define MAX_REC_PARAMS 10	/* Max. number of params in response string */
-> -#define MAX_RESP_SIZE 512	/* Max. size of a response string */
-> +#define MAX_RESP_SIZE 511	/* Max. size of a response string */
->  
->  #define MAX_EVENTS 64		/* size of event queue */
->  
-> @@ -498,7 +498,7 @@ struct cardstate {
->  	spinlock_t ev_lock;
->  
->  	/* current modem response */
-> -	unsigned char respdata[MAX_RESP_SIZE];
-> +	unsigned char respdata[MAX_RESP_SIZE+1];
->  	unsigned cbytes;
->  
->  	/* private data of hardware drivers */
-> diff --git a/drivers/isdn/gigaset/isocdata.c b/drivers/isdn/gigaset/isocdata.c
-> index 85394a6..16fd3bd 100644
-> --- a/drivers/isdn/gigaset/isocdata.c
-> +++ b/drivers/isdn/gigaset/isocdata.c
-> @@ -905,29 +905,49 @@ void gigaset_isoc_receive(unsigned char *src, unsigned count,
->  
->  /* == data input =========================================================== */
->  
-> +/* process a block of received bytes in command mode (mstate != MS_LOCKED)
-> + * Append received bytes to the command response buffer and forward them
-> + * line by line to the response handler.
-> + * Note: Received lines may be terminated by CR, LF, or CR LF, which will be
-> + * removed before passing the line to the response handler.
-> + */
->  static void cmd_loop(unsigned char *src, int numbytes, struct inbuf_t *inbuf)
->  {
->  	struct cardstate *cs = inbuf->cs;
->  	unsigned cbytes      = cs->cbytes;
-> +	unsigned char c;
->  
->  	while (numbytes--) {
-> -		/* copy next character, check for end of line */
-> -		switch (cs->respdata[cbytes] = *src++) {
-> -		case '\r':
-> +		c = *src++;
-> +		switch (c) {
->  		case '\n':
-> -			/* end of line */
-> -			gig_dbg(DEBUG_TRANSCMD, "%s: End of Command (%d Bytes)",
-> -				__func__, cbytes);
-> -			if (cbytes >= MAX_RESP_SIZE - 1)
+> CHANGE LOG:
+> Based on review comments from David Miller and Marcel Holtmann on the 
+> previous patch set submitted the 16 February the following changes
+> have been done:
+> - Removed ifdef __cplusplus from caif_socket.h
+> - Use socket level SOL_IP for socket options SO_PRIORITY and SO_BINDTODEVICE
 
-I am confused about what the value of MAX_RESP_SIZE means.
-Is it a hw restriction?
+are you sure it is not better to use SOL_SOCKET here. At least according
+to man 7 socket this would make a lot more sense. My point in actually
+using SO_PRIORITY and SO_BINDTODEVICE is to use standard socket options
+that are already used by everybody else. So they know what to expect.
 
-It seems that up to MAX_RESP_SIZE of string-data is permitted if the line
-is terminated by CR. But only MAX_RESP_SIZE -1  bytes if the line is
-terminated by LF or CR LF.
+Regards
 
-> -				dev_warn(cs->dev, "response too large\n");
-> +			if (cbytes == 0 && cs->respdata[0] == '\r') {
-> +				/* collapse LF with preceding CR */
-> +				cs->respdata[0] = 0;
-> +				break;
-> +			}
-> +			/* --v-- fall through --v-- */
-> +		case '\r':
-> +			/* end of message line, pass to response handler */
-> +			if (cbytes >= MAX_RESP_SIZE) {
-> +				dev_warn(cs->dev, "response too large (%d)\n",
-> +					 cbytes);
-> +				cbytes = MAX_RESP_SIZE;
-> +			}
->  			cs->cbytes = cbytes;
-> +			gigaset_dbg_buffer(DEBUG_TRANSCMD, "received response",
-> +					   cbytes, cs->respdata);
->  			gigaset_handle_modem_response(cs);
->  			cbytes = 0;
-> +
-> +			/* store EOL byte for CRLF collapsing */
-> +			cs->respdata[0] = c;
->  			break;
->  		default:
-> -			/* advance in line buffer, checking for overflow */
-> -			if (cbytes < MAX_RESP_SIZE - 1)
-> -				cbytes++;
-> +			/* append to line buffer if possible */
-> +			if (cbytes < MAX_RESP_SIZE)
-> +				cs->respdata[cbytes] = c;
-> +			cbytes++;
->  		}
->  	}
->  
-> @@ -958,8 +978,6 @@ void gigaset_isoc_input(struct inbuf_t *inbuf)
->  					   numbytes, src);
->  			gigaset_if_receive(inbuf->cs, src, numbytes);
->  		} else {
-> -			gigaset_dbg_buffer(DEBUG_CMD, "received response",
-> -					   numbytes, src);
->  			cmd_loop(src, numbytes, inbuf);
->  		}
->  
+Marcel
+
+
