@@ -1,72 +1,34 @@
-From: Felix Fietkau <nbd@openwrt.org>
-Subject: [PATCH v3] skbuff: align sk_buff::cb to 64 bit and close some potential
- holes
-Date: Tue, 23 Feb 2010 22:45:51 +0100
-Message-ID: <4B844C8F.2060908@openwrt.org>
-References: <1264835220.2919.10.camel@edumazet-laptop>	<4B671CEB.5080505@caviumnetworks.com>	<4B671F79.8090808@openwrt.org> <20100212.121306.225788982.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/7] cxgb4 patches V2
+Date: Tue, 23 Feb 2010 14:40:54 -0800 (PST)
+Message-ID: <20100223.144054.261850790.davem@davemloft.net>
+References: <1266528256-20873-1-git-send-email-dm@chelsio.com>
+	<20100221.223049.183064491.davem@davemloft.net>
+	<4B842771.9000506@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ddaney@caviumnetworks.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, buytenh@wantstofly.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: dm@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([88.198.39.176]:43343 "EHLO ds10.nbd.name"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754023Ab0BWVqG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Feb 2010 16:46:06 -0500
-In-Reply-To: <20100212.121306.225788982.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39900
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754089Ab0BWWkj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2010 17:40:39 -0500
+In-Reply-To: <4B842771.9000506@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The alignment requirement for 64-bit load/store instructions on ARM is
-implementation defined. Some CPUs (such as Marvell Feroceon) do not
-generate an exception, if such an instruction is executed with an
-address that is not 64 bit aligned. In such a case, the Feroceon
-corrupts adjacent memory, which showed up in my tests as a crash in the
-rx path of ath9k that only occured with CONFIG_XFRM set.
+From: Dimitris Michailidis <dm@chelsio.com>
+Date: Tue, 23 Feb 2010 11:07:29 -0800
 
-This crash happened, because the first field of the mac80211 rx status
-info in the cb is an u64, and changing it corrupted the skb->sp field.
+> Can you please clarify what exactly you want me to change about the
+> macros?  I looked at a few other drivers in the tree and I saw shift
+> macros with _SHIFT or _SH suffixes, masks tend to have _MASK or _MSK
+> suffixes, etc.  Are you asking me basically to change our S_, V_, etc
+> prefixes to _SHIFT, etc suffixes or are we talking about some other
+> kind of change?  Please bear with me, I am trying to understand what
+> you're asking for exactly.
 
-This patch also closes some potential pre-existing holes in the sk_buff
-struct surrounding the cb[] area.
-
-Signed-off-by: Felix Fietkau <nbd@openwrt.org>
-Cc: stable@kernel.org
----
-sorry that it took so long for me to post this, i completely forgot
-about it, as I had other things to take care of ;)
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -315,22 +315,23 @@ struct sk_buff {
- 	struct sk_buff		*next;
- 	struct sk_buff		*prev;
- 
--	struct sock		*sk;
- 	ktime_t			tstamp;
-+
-+	struct sock		*sk;
- 	struct net_device	*dev;
- 
--	unsigned long		_skb_dst;
--#ifdef CONFIG_XFRM
--	struct	sec_path	*sp;
--#endif
- 	/*
- 	 * This is the control buffer. It is free to use for every
- 	 * layer. Please put your private variables there. If you
- 	 * want to keep them across layers you have to do a skb_clone()
- 	 * first. This is owned by whoever has the skb queued ATM.
- 	 */
--	char			cb[48];
-+	char			cb[48] __aligned(8);
- 
-+	unsigned long		_skb_dst;
-+#ifdef CONFIG_XFRM
-+	struct	sec_path	*sp;
-+#endif
- 	unsigned int		len,
- 				data_len;
- 	__u16			mac_len,
-
+Yes.  Don't put things at the beginning, start with the register
+name then add things at the end for shifts, masks, etc.
