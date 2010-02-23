@@ -1,84 +1,69 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [PATCH] tg3: receive packets larger than MTU but smaller
- than 1500 bytes
-Date: Tue, 23 Feb 2010 15:15:22 -0800
-Message-ID: <20100223231522.GA850@xw6200.broadcom.net>
-References: <ac67d9131002230356h7d293a5yba011698302f8c4a@mail.gmail.com>
+From: Matt Helsley <matthltc@us.ibm.com>
+Subject: Re: RFC: netfilter: nf_conntrack: add support for "conntrack zones"
+Date: Tue, 23 Feb 2010 15:49:42 -0800
+Message-ID: <20100223234942.GO3604@count0.beaverton.ibm.com>
+References: <1263490403.23480.109.camel@bigi>
+ <4B50403A.6010507@trash.net>
+ <1263568754.23480.142.camel@bigi>
+ <m13a0tf17t.fsf@fess.ebiederm.org>
+ <1266875729.3673.12.camel@bigi>
+ <m1wry46es9.fsf@fess.ebiederm.org>
+ <1266931623.3973.643.camel@bigi>
+ <m1iq9ocafv.fsf@fess.ebiederm.org>
+ <1266934817.3973.654.camel@bigi>
+ <m1r5obbu2w.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Ben Hutchings" <bhutchings@solarflare.com>,
-	"Templin, Fred L" <Fred.L.Templin@boeing.com>
-To: "Szilveszter Ordog" <slipszi@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2139 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752656Ab0BWXPg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Feb 2010 18:15:36 -0500
-In-Reply-To: <ac67d9131002230356h7d293a5yba011698302f8c4a@mail.gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, Linux Netdev List <netdev@vger.kernel.org>,
+	containers@lists.linux-foundation.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <m1r5obbu2w.fsf@fess.ebiederm.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This isn't such a good idea, is it?  The tg3 driver tries very hard to
-configure the hardware to the requirements specified by they kernel.  If
-you break that link, then you reduce the effectiveness of the hardware's
-filtering based on packet size and you interfere with the hardware's
-ability to tally oversized frames.
+On Tue, Feb 23, 2010 at 12:00:55PM -0800, Eric W. Biederman wrote:
+> jamal <hadi@cyberus.ca> writes:
+> 
+> > Added Daniel to the discussion..
+> >
+> > On Tue, 2010-02-23 at 06:07 -0800, Eric W. Biederman wrote:
+> >> jamal <hadi@cyberus.ca> writes:
+> >
+> >> > Does the point after sys_setns(fd) allow me to do io inside
+> >> > ns <name>? Can i do open() and get a fd from ns <name>?
+> >> 
+> >> Yes.  My intention is that current->nsproxy->net_ns be changed.
+> >> We can already change it in unshare so this is feasible.
+> >
+> > I like it if it makes it as easy as it sounds;-> With lxc,
+> > i essentially have to create a proxy process inside the
+> > namespace that i use unix domain to open fds inside the ns.
+> > Do i still need that?
+> 
+> That point of the mount to hold a persistent reference to the
+> namespace without using a process.
 
-This patch also makes assumptions about how large the driver's internal
-buffer sizes are.
+I think technicaly it's still held using processes, only now it's
+much more indirect:
 
-I saw the conversation you had with Ben Hutchings and Fred Templin.
-Perhaps it is better to first decide if we should decouple the tx MTU
-from the rx MTU.  If everyone agrees to that, then we can work on
-implementing a proper driver interface to describe our intentions.
+netns <- mount <- mount namespace(s) <- process(es)
 
-On Tue, Feb 23, 2010 at 03:56:26AM -0800, Szilveszter Ordog wrote:
-> This allows for proper ICMP needs fragmentation responses on standard Ethernet
-> networks.
-> 
-> Signed-off-by: Szilveszter ?rd?g <slipszi@gmail.com>
-> ---
->  drivers/net/tg3.c |    6 ++++--
->  1 files changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> index 46a3f86..0c5027b 100644
-> --- a/drivers/net/tg3.c
-> +++ b/drivers/net/tg3.c
-> @@ -93,6 +93,8 @@
->  #define TG3_MIN_MTU			60
->  #define TG3_MAX_MTU(tp)	\
->  	((tp->tg3_flags2 & TG3_FLG2_JUMBO_CAPABLE) ? 9000 : 1500)
-> +#define TG3_MAX_RX_MTU(tp) \
-> +	max(tp->dev->mtu, (unsigned int)ETH_DATA_LEN)
-> 
->  /* These numbers seem to be hard coded in the NIC firmware somehow.
->   * You can't change the ring sizes, but you can change where you place
-> @@ -4532,7 +4534,7 @@ static int tg3_rx(struct tg3 *tp, int budget)
-> 
->  		skb->protocol = eth_type_trans(skb, tp->dev);
-> 
-> -		if (len > (tp->dev->mtu + ETH_HLEN) &&
-> +		if (len > (TG3_MAX_RX_MTU(tp) + ETH_HLEN) &&
->  		    skb->protocol != htons(ETH_P_8021Q)) {
->  			dev_kfree_skb(skb);
->  			goto next_pkt;
-> @@ -6979,7 +6981,7 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
-> 
->  	/* MTU + ethernet header + FCS + optional VLAN tag */
->  	tw32(MAC_RX_MTU_SIZE,
-> -	     tp->dev->mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN);
-> +	     TG3_MAX_RX_MTU(tp) + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN);
-> 
->  	/* The slot time is changed by tg3_setup_phy if we
->  	 * run at gigabit with half duplex.
-> -- 
-> 1.6.3.3
-> 
+The big difference is we'd be waiting for all the processes
+sharing that mount (or dups of it in multiple mount namespaces) to
+exit too -- not just those sharing the netns.
 
+Using a mount requires keeping names for the namespaces themselves
+in the kernel which is a problem we've largely avoided so far.
+The nscgroup is an example of the messes that creates, I think. And it
+further complicates c/r -- we'd need to checkpoint and recreate the
+names of the namespaces too. So we'll need a namespace for the names of
+the namespaces to make restart reliable won't we? Makes my head spin...
+
+Cheers,
+	-Matt Helsley
