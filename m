@@ -1,54 +1,58 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [net-next-2.6 PATCH] octeon: convert to use netdev_for_each_mc_addr
-Date: Tue, 23 Feb 2010 20:54:58 +0100
-Message-ID: <20100223195457.GF2673@psychotron.redhat.com>
+From: Juan Quintela <quintela@redhat.com>
+Subject: Re: [PATCH 3/3] vhost: fix get_user_pages_fast error handling
+Date: Tue, 23 Feb 2010 20:56:56 +0100
+Message-ID: <m3ocjfsp2v.fsf@trasno.mitica>
+References: <cover.1266943453.git.mst@redhat.com>
+	<82ba8c97ce55dd4bf9972ad755961cd14e6a0938.1266943453.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40935 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751252Ab0BWTzC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Feb 2010 14:55:02 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Rusty Russell <rusty@rustcorp.com.au>, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	markmc@redhat.com, gleb@redhat.com, herbert.xu@redhat.com,
+	dlaor@redhat.com, avi@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <82ba8c97ce55dd4bf9972ad755961cd14e6a0938.1266943453.git.mst@redhat.com>
+	(Michael S. Tsirkin's message of "Tue, 23 Feb 2010 18:57:58 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hmm so actually my original patch including this bit was correct,
-"list = list->next;" confused me :) - will send patch correcting that in a few.
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
+> get_user_pages_fast returns number of pages on success, negative value
+> on failure, but never 0. Fix vhost code to match this logic.
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- drivers/net/octeon/octeon_mgmt.c |    7 +------
- 1 files changed, 1 insertions(+), 6 deletions(-)
+It can return 0 if you ask for 0 pages :)
+>From the comment:
 
-diff --git a/drivers/net/octeon/octeon_mgmt.c b/drivers/net/octeon/octeon_mgmt.c
-index 3a0f910..be368e5 100644
---- a/drivers/net/octeon/octeon_mgmt.c
-+++ b/drivers/net/octeon/octeon_mgmt.c
-@@ -467,7 +467,6 @@ static void octeon_mgmt_set_rx_filtering(struct net_device *netdev)
- {
- 	struct octeon_mgmt *p = netdev_priv(netdev);
- 	int port = p->port;
--	int i;
- 	union cvmx_agl_gmx_rxx_adr_ctl adr_ctl;
- 	union cvmx_agl_gmx_prtx_cfg agl_gmx_prtx;
- 	unsigned long flags;
-@@ -511,12 +510,8 @@ static void octeon_mgmt_set_rx_filtering(struct net_device *netdev)
- 		}
- 	}
- 	if (multicast_mode == 0) {
--		i = netdev_mc_count(netdev);
--		list = netdev->mc_list;
--		while (i--) {
-+		netdev_for_each_mc_addr(list, netdev)
- 			octeon_mgmt_cam_state_add(&cam_state, list->da_addr);
--			list = list->next;
--		}
- 	}
- 
- 
--- 
-1.6.6
+ * Returns number of pages pinned. This may be fewer than the number
+ * requested. If nr_pages is 0 or negative, returns 0. If no pages
+ * were pinned, returns -errno.
+ */
 
+I agree that code was wrong, but the BUG_ON() is not neccessary
+IMHO. The important bit is the change in the comparison.
+
+Reviewed-by: Juan Quintela <quintela@redhat.com>
+
+
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>  drivers/vhost/vhost.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletions(-)
+>
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index d4f8fdf..d003504 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -646,8 +646,9 @@ static int set_bit_to_user(int nr, void __user *addr)
+>  	int bit = nr + (log % PAGE_SIZE) * 8;
+>  	int r;
+>  	r = get_user_pages_fast(log, 1, 1, &page);
+> -	if (r)
+> +	if (r < 0)
+>  		return r;
+> +	BUG_ON(r != 1);
+>  	base = kmap_atomic(page, KM_USER0);
+>  	set_bit(bit, base);
+>  	kunmap_atomic(base, KM_USER0);
