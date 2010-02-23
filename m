@@ -1,16 +1,16 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [net-next-2.6 PATCH] ixgbe: convert to use netdev_for_each_mc_addr
-Date: Tue, 23 Feb 2010 20:05:05 +0100
-Message-ID: <20100223190505.GA2673@psychotron.redhat.com>
+Subject: [net-next-2.6 PATCH] ixgbevf: convert to use netdev_for_each_mc_addr
+Date: Tue, 23 Feb 2010 20:06:44 +0100
+Message-ID: <20100223190644.GB2673@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50485 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:47774 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753514Ab0BWTFM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Feb 2010 14:05:12 -0500
+	id S1753645Ab0BWTGs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Feb 2010 14:06:48 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -18,85 +18,21 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/ixgbe/ixgbe_common.c |   16 +++++++---------
- drivers/net/ixgbe/ixgbe_common.h |    5 ++---
- drivers/net/ixgbe/ixgbe_main.c   |   24 ++----------------------
- drivers/net/ixgbe/ixgbe_type.h   |    3 +--
- 4 files changed, 12 insertions(+), 36 deletions(-)
+ drivers/net/ixgbevf/ixgbevf_main.c |   24 +-----------------------
+ drivers/net/ixgbevf/vf.c           |   24 ++++++++++++------------
+ drivers/net/ixgbevf/vf.h           |    4 ++--
+ 3 files changed, 15 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
-index eb49020..4d1c3a4 100644
---- a/drivers/net/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ixgbe/ixgbe_common.c
-@@ -1484,26 +1484,24 @@ static void ixgbe_set_mta(struct ixgbe_hw *hw, u8 *mc_addr)
- /**
-  *  ixgbe_update_mc_addr_list_generic - Updates MAC list of multicast addresses
-  *  @hw: pointer to hardware structure
-- *  @mc_addr_list: the list of new multicast addresses
-- *  @mc_addr_count: number of addresses
-- *  @next: iterator function to walk the multicast address list
-+ *  @netdev: pointer to net device structure
-  *
-  *  The given list replaces any existing list. Clears the MC addrs from receive
-  *  address registers and the multicast table. Uses unused receive address
-  *  registers for the first multicast addresses, and hashes the rest into the
-  *  multicast table.
-  **/
--s32 ixgbe_update_mc_addr_list_generic(struct ixgbe_hw *hw, u8 *mc_addr_list,
--                                      u32 mc_addr_count, ixgbe_mc_addr_itr next)
-+s32 ixgbe_update_mc_addr_list_generic(struct ixgbe_hw *hw,
-+				      struct net_device *netdev)
- {
-+	struct dev_addr_list *dmi;
- 	u32 i;
--	u32 vmdq;
- 
- 	/*
- 	 * Set the new number of MC addresses that we are being requested to
- 	 * use.
- 	 */
--	hw->addr_ctrl.num_mc_addrs = mc_addr_count;
-+	hw->addr_ctrl.num_mc_addrs = netdev_mc_count(netdev);
- 	hw->addr_ctrl.mta_in_use = 0;
- 
- 	/* Clear the MTA */
-@@ -1512,9 +1510,9 @@ s32 ixgbe_update_mc_addr_list_generic(struct ixgbe_hw *hw, u8 *mc_addr_list,
- 		IXGBE_WRITE_REG(hw, IXGBE_MTA(i), 0);
- 
- 	/* Add the new addresses */
--	for (i = 0; i < mc_addr_count; i++) {
-+	netdev_for_each_mc_addr(dmi, netdev) {
- 		hw_dbg(hw, " Adding the multicast addresses:\n");
--		ixgbe_set_mta(hw, next(hw, &mc_addr_list, &vmdq));
-+		ixgbe_set_mta(hw, dmi->dmi_addr);
- 	}
- 
- 	/* Enable mta */
-diff --git a/drivers/net/ixgbe/ixgbe_common.h b/drivers/net/ixgbe/ixgbe_common.h
-index 13606d4..264eef5 100644
---- a/drivers/net/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ixgbe/ixgbe_common.h
-@@ -56,9 +56,8 @@ s32 ixgbe_set_rar_generic(struct ixgbe_hw *hw, u32 index, u8 *addr, u32 vmdq,
-                           u32 enable_addr);
- s32 ixgbe_clear_rar_generic(struct ixgbe_hw *hw, u32 index);
- s32 ixgbe_init_rx_addrs_generic(struct ixgbe_hw *hw);
--s32 ixgbe_update_mc_addr_list_generic(struct ixgbe_hw *hw, u8 *mc_addr_list,
--                                      u32 mc_addr_count,
--                                      ixgbe_mc_addr_itr func);
-+s32 ixgbe_update_mc_addr_list_generic(struct ixgbe_hw *hw,
-+				      struct net_device *netdev);
- s32 ixgbe_update_uc_addr_list_generic(struct ixgbe_hw *hw,
- 				      struct net_device *netdev);
- s32 ixgbe_enable_mc_generic(struct ixgbe_hw *hw);
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 3308790..5ef4f6a 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2513,21 +2513,6 @@ static void ixgbe_restore_vlan(struct ixgbe_adapter *adapter)
+diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
+index 235b5fd..cfa30aa 100644
+--- a/drivers/net/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ixgbevf/ixgbevf_main.c
+@@ -1495,22 +1495,6 @@ static void ixgbevf_restore_vlan(struct ixgbevf_adapter *adapter)
  	}
  }
  
--static u8 *ixgbe_addr_list_itr(struct ixgbe_hw *hw, u8 **mc_addr_ptr, u32 *vmdq)
+-static u8 *ixgbevf_addr_list_itr(struct ixgbe_hw *hw, u8 **mc_addr_ptr,
+-				 u32 *vmdq)
 -{
 -	struct dev_mc_list *mc_ptr;
 -	u8 *addr = *mc_addr_ptr;
@@ -112,41 +48,97 @@ index 3308790..5ef4f6a 100644
 -}
 -
  /**
-  * ixgbe_set_rx_mode - Unicast, Multicast and Promiscuous mode set
+  * ixgbevf_set_rx_mode - Multicast set
   * @netdev: network interface device structure
-@@ -2542,8 +2527,6 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+@@ -1523,16 +1507,10 @@ static void ixgbevf_set_rx_mode(struct net_device *netdev)
+ {
+ 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
  	struct ixgbe_hw *hw = &adapter->hw;
- 	u32 fctrl, vlnctrl;
 -	u8 *addr_list = NULL;
 -	int addr_count = 0;
- 
- 	/* Check for Promiscuous and All Multicast modes */
- 
-@@ -2572,11 +2555,8 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 	hw->mac.ops.update_uc_addr_list(hw, netdev);
  
  	/* reprogram multicast list */
 -	addr_count = netdev_mc_count(netdev);
 -	if (addr_count)
 -		addr_list = netdev->mc_list->dmi_addr;
--	hw->mac.ops.update_mc_addr_list(hw, addr_list, addr_count,
--	                                ixgbe_addr_list_itr);
-+	hw->mac.ops.update_mc_addr_list(hw, netdev);
-+
- 	if (adapter->num_vfs)
- 		ixgbe_restore_vf_multicasts(adapter);
+ 	if (hw->mac.ops.update_mc_addr_list)
+-		hw->mac.ops.update_mc_addr_list(hw, addr_list, addr_count,
+-						ixgbevf_addr_list_itr);
++		hw->mac.ops.update_mc_addr_list(hw, netdev);
  }
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index 2be9074..c67b98e 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -2415,8 +2415,7 @@ struct ixgbe_mac_operations {
- 	s32 (*clear_vmdq)(struct ixgbe_hw *, u32, u32);
+ 
+ static void ixgbevf_napi_enable_all(struct ixgbevf_adapter *adapter)
+diff --git a/drivers/net/ixgbevf/vf.c b/drivers/net/ixgbevf/vf.c
+index 4b5dec0..f457c52 100644
+--- a/drivers/net/ixgbevf/vf.c
++++ b/drivers/net/ixgbevf/vf.c
+@@ -252,22 +252,18 @@ static s32 ixgbevf_set_rar_vf(struct ixgbe_hw *hw, u32 index, u8 *addr,
+ /**
+  *  ixgbevf_update_mc_addr_list_vf - Update Multicast addresses
+  *  @hw: pointer to the HW structure
+- *  @mc_addr_list: array of multicast addresses to program
+- *  @mc_addr_count: number of multicast addresses to program
+- *  @next: caller supplied function to return next address in list
++ *  @netdev: pointer to net device structure
+  *
+  *  Updates the Multicast Table Array.
+  **/
+-static s32 ixgbevf_update_mc_addr_list_vf(struct ixgbe_hw *hw, u8 *mc_addr_list,
+-					u32 mc_addr_count,
+-					ixgbe_mc_addr_itr next)
++static s32 ixgbevf_update_mc_addr_list_vf(struct ixgbe_hw *hw,
++					  struct net_device *netdev)
+ {
++	struct dev_addr_list *dmi;
+ 	struct ixgbe_mbx_info *mbx = &hw->mbx;
+ 	u32 msgbuf[IXGBE_VFMAILBOX_SIZE];
+ 	u16 *vector_list = (u16 *)&msgbuf[1];
+-	u32 vector;
+ 	u32 cnt, i;
+-	u32 vmdq;
+ 
+ 	/* Each entry in the list uses 1 16 bit word.  We have 30
+ 	 * 16 bit words available in our HW msg buffer (minus 1 for the
+@@ -278,13 +274,17 @@ static s32 ixgbevf_update_mc_addr_list_vf(struct ixgbe_hw *hw, u8 *mc_addr_list,
+ 	 * addresses except for in large enterprise network environments.
+ 	 */
+ 
+-	cnt = (mc_addr_count > 30) ? 30 : mc_addr_count;
++	cnt = netdev_mc_count(netdev);
++	if (cnt > 30)
++		cnt = 30;
+ 	msgbuf[0] = IXGBE_VF_SET_MULTICAST;
+ 	msgbuf[0] |= cnt << IXGBE_VT_MSGINFO_SHIFT;
+ 
+-	for (i = 0; i < cnt; i++) {
+-		vector = ixgbevf_mta_vector(hw, next(hw, &mc_addr_list, &vmdq));
+-		vector_list[i] = vector;
++	i = 0;
++	netdev_for_each_mc_addr(dmi, netdev) {
++		if (i == cnt)
++			break;
++		vector_list[i++] = ixgbevf_mta_vector(hw, dmi->dmi_addr);
+ 	}
+ 
+ 	mbx->ops.write_posted(hw, msgbuf, IXGBE_VFMAILBOX_SIZE);
+diff --git a/drivers/net/ixgbevf/vf.h b/drivers/net/ixgbevf/vf.h
+index 799600e..07a9aed 100644
+--- a/drivers/net/ixgbevf/vf.h
++++ b/drivers/net/ixgbevf/vf.h
+@@ -32,6 +32,7 @@
+ #include <linux/delay.h>
+ #include <linux/interrupt.h>
+ #include <linux/if_ether.h>
++#include <linux/netdevice.h>
+ 
+ #include "defines.h"
+ #include "regs.h"
+@@ -62,8 +63,7 @@ struct ixgbe_mac_operations {
+ 	/* RAR, Multicast, VLAN */
+ 	s32 (*set_rar)(struct ixgbe_hw *, u32, u8 *, u32);
  	s32 (*init_rx_addrs)(struct ixgbe_hw *);
- 	s32 (*update_uc_addr_list)(struct ixgbe_hw *, struct net_device *);
 -	s32 (*update_mc_addr_list)(struct ixgbe_hw *, u8 *, u32,
--	                           ixgbe_mc_addr_itr);
+-				   ixgbe_mc_addr_itr);
 +	s32 (*update_mc_addr_list)(struct ixgbe_hw *, struct net_device *);
  	s32 (*enable_mc)(struct ixgbe_hw *);
  	s32 (*disable_mc)(struct ixgbe_hw *);
