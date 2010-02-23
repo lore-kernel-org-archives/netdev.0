@@ -1,49 +1,70 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [PATCH 2/4] bas_gigaset: collapse CR/LF at end of AT response
-Date: Tue, 23 Feb 2010 14:19:19 +0100
-Message-ID: <4B83D5D7.3040407@imap.cc>
-References: <20100221-patch-gigaset-00.tilman@imap.cc> <20100221-patch-gigaset-02.tilman@imap.cc> <20100223063425.GA28744@verge.net.au>
+From: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
+Subject: Re: RFC: netfilter: nf_conntrack: add support for "conntrack zones"
+Date: Tue, 23 Feb 2010 08:27:03 -0500
+Message-ID: <1266931623.3973.643.camel@bigi>
+References: <4B4F24AC.70105@trash.net> <1263481549.23480.24.camel@bigi>
+	<4B4F3A50.1050400@trash.net> <1263490403.23480.109.camel@bigi>
+	<4B50403A.6010507@trash.net> <1263568754.23480.142.camel@bigi>
+	<m13a0tf17t.fsf@fess.ebiederm.org> <1266875729.3673.12.camel@bigi>
+	<m1wry46es9.fsf@fess.ebiederm.org>
+Reply-To: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Karsten Keil <isdn@linux-pingi.de>,
-	David Miller <davem@davemloft.net>,
-	Hansjoerg Lipp <hjlipp@web.de>,
-	Karsten Keil <keil@b1-systems.de>,
-	isdn4linux@listserv.isdn4linux.de,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2.smtp.messagingengine.com ([66.111.4.26]:48543 "EHLO
-	out2.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752415Ab0BWNTX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2010 08:19:23 -0500
-In-Reply-To: <20100223063425.GA28744@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+        Netfilter Development Mailinglist <netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <m1wry46es9.fsf-+imSwln9KH6u2/kzUuoCbdi2O/JbrIOy@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Simon Horman schrieb:
-> I am confused about what the value of MAX_RESP_SIZE means.
-> Is it a hw restriction?
+On Mon, 2010-02-22 at 15:17 -0800, Eric W. Biederman wrote:
 
-It's an arbitrary limitation in the driver. The hardware specification
-says nothing about the possible length of AT responses from the device,
-so we had to draw a line somewhere. 512 bytes have so far proved to be
-amply sufficient.
+> What I am thinking is:
+> 
+> "ip ns <name> route add blah" is:
+> fd = open("/var/run/netns/<name>");
+> sys_setns(fd);  /* Like unshare but takes an existing namespace */
+> /* Then the rest of the existing ip command */
 
-In practice, the limit is only hit with the M10x devices (which transmit
-commands and data over the same channel) when the state machine gets out
-of sync and tries to interpret received payload data as AT responses.
+The other two below make some sense; For the above:
+Does the point after sys_setns(fd) allow me to do io inside
+ns <name>? Can i do open() and get a fd from ns <name>?
 
-> It seems that up to MAX_RESP_SIZE of string-data is permitted if the line
-> is terminated by CR. But only MAX_RESP_SIZE -1  bytes if the line is
-> terminated by LF or CR LF.
+> "ip ns list" is:
+> dfd = open("/var/run/netns", O_DIRECTORY);
+> getdents(dfd, buf, count);
+> 
+> "ip ns new <name>" is:
+> unshare(CLONE_NEWNS);
+> fd = nsfd(NETNS);
+> mkdir("/var/run/netns/<name>");
+> mount("none", "/var/run/netns/<name>", "ns", 0, fd);
+> 
+> Using unix domain names means that which namespaces you see is under
+> control of userspace.  Which allows for nested containers (something I
+> use today), and ultimately container migration.
 
-Note that when storing the CR in cs->respdata[0] for possible collapsing
-with a subsequent LF, the cbytes counter is left at 0, so the CR gets
-overwritten by the first character of the next response if there's no
-intervening LF.
+The only problem that i see is events are not as nice. I take it i am 
+going to get something like an inotify when a new namespace is created?
 
-Thanks for reviewing,
-Tilman
+> Using genetlink userspace doesn't result in a nestable implementation
+> unless I introduce yet another namespace, ugh.
+
+Is it not just a naming convention that you are dealing with?
+Example in your scheme above a nested namespace shows up as:
+/var/run/netns/<name>/<nestedname>, no?
+
+cheers,
+jamal
