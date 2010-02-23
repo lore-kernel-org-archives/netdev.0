@@ -1,34 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] cxgb4 patches V2
-Date: Tue, 23 Feb 2010 14:40:54 -0800 (PST)
-Message-ID: <20100223.144054.261850790.davem@davemloft.net>
-References: <1266528256-20873-1-git-send-email-dm@chelsio.com>
-	<20100221.223049.183064491.davem@davemloft.net>
-	<4B842771.9000506@chelsio.com>
+Subject: Re: [PATCH 3/3] vhost: fix get_user_pages_fast error handling
+Date: Tue, 23 Feb 2010 14:42:35 -0800 (PST)
+Message-ID: <20100223.144235.08984181.davem@davemloft.net>
+References: <20100223173434.GB9834@redhat.com>
+	<20100223173258.GA25338@redhat.com>
+	<20100223173952.GC9834@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dm@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39900
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754089Ab0BWWkj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2010 17:40:39 -0500
-In-Reply-To: <4B842771.9000506@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, rusty@rustcorp.com.au, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, markmc@redhat.com,
+	herbert.xu@redhat.com, quintela@redhat.com, dlaor@redhat.com,
+	avi@redhat.com
+To: gleb@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100223173952.GC9834@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dimitris Michailidis <dm@chelsio.com>
-Date: Tue, 23 Feb 2010 11:07:29 -0800
 
-> Can you please clarify what exactly you want me to change about the
-> macros?  I looked at a few other drivers in the tree and I saw shift
-> macros with _SHIFT or _SH suffixes, masks tend to have _MASK or _MSK
-> suffixes, etc.  Are you asking me basically to change our S_, V_, etc
-> prefixes to _SHIFT, etc suffixes or are we talking about some other
-> kind of change?  Please bear with me, I am trying to understand what
-> you're asking for exactly.
+Just for the record I'm generally not interested in vhost
+patches.
 
-Yes.  Don't put things at the beginning, start with the register
-name then add things at the end for shifts, masks, etc.
+If it's a specific network one that will be merged via
+the networking tree, yes please CC: me.
+
+But if it's a bunch of changes to vhost.c and other pieces
+of infrastructure, feel free to leave me out of it.  It just
+clutters my already overflowing inbox.
+
+Thanks.
