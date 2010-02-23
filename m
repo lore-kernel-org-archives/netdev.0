@@ -1,29 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 0/7] xfrm by MARK
-Date: Mon, 22 Feb 2010 16:21:52 -0800 (PST)
-Message-ID: <20100222.162152.63475772.davem@davemloft.net>
-References: <xfrm-mark-v3>
-	<1266874380-29593-1-git-send-email-hadi@cyberus.ca>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [PATCH V2 net-next 14/15] drivers/net/typhoon.c: Use
+ (pr|netdev)_<level> macro helpers
+Date: Mon, 22 Feb 2010 19:22:29 -0500
+Message-ID: <1266884549.2930.57.camel@obelisk.thedillows.org>
+References: <1266804176.10646.65.camel@Joe-Laptop.home>
+	 <1266808127.10646.77.camel@Joe-Laptop.home>
+	 <1266808995.2930.24.camel@obelisk.thedillows.org>
+	 <20100222.154306.114398657.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: timo.teras@iki.fi, kaber@trash.net, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Cc: joe@perches.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52113
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751115Ab0BWAVi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Feb 2010 19:21:38 -0500
-In-Reply-To: <1266874380-29593-1-git-send-email-hadi@cyberus.ca>
+Received: from smtp.knology.net ([24.214.63.101]:54448 "EHLO smtp.knology.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752221Ab0BWAWc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Feb 2010 19:22:32 -0500
+In-Reply-To: <20100222.154306.114398657.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: jamal <hadi@cyberus.ca>
-Date: Mon, 22 Feb 2010 16:32:53 -0500
+On Mon, 2010-02-22 at 15:43 -0800, David Miller wrote:
+> Man you are picky :-/  Are you a control freak?
 
-> This patchset implements manipulation of ipsec tables with the
-> "mark" tag. You can config the SAD and SPD from user space
-> with a specified mark. 
+Sometimes, yes. Aren't you? ;)
 
-Looks good, all applied to net-next-2.6, thanks!
+> You can't even let Joe write his commit comments consistently with the
+> ones he is using for all the other similar network driver transmations?
+
+That's fine, I was offering a suggestion on improving the comments that
+I felt were in line with messages in the past from you, Ingo, Linus, and
+others regarding the quality of commit messages.
+
+> What makes doing the same exact transformations to your favorite
+> driver so special that it deserves a specially constructed commit
+> message?
+
+I expect Joe to continue to submit high quality patches, and to grow
+into larger roles than the already important one he is doing now. He's
+doing good work, and he's been easy to work with. I'd just like to see
+the commit messages improve beyond giving a bullet list of changes one
+could get from a quick scan of the patch -- adding the context and why
+of the changes rather than a mechanical listing.
+
+It doesn't matter for this driver, with its minimal user base. And it
+may not be worth the effort for the transformation series. But I think
+he's going to move into much larger projects and I believe it would be a
+good habit to develop.
+
