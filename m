@@ -1,50 +1,109 @@
-From: Dan Smith <danms@us.ibm.com>
-Subject: Re: [PATCH 2/5] C/R: Basic support for network namespaces and devices (v4)
-Date: Tue, 23 Feb 2010 09:27:44 -0800
-Message-ID: <87fx4r7tgv.fsf@caffeine.danplanet.com>
-References: <1266336187-19105-1-git-send-email-danms@us.ibm.com>
-	<1266336187-19105-3-git-send-email-danms@us.ibm.com>
-	<20100222194523.GA13135@us.ibm.com>
-	<87k4u37vv6.fsf@caffeine.danplanet.com>
-	<20100223164755.GA31671@hallyn.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [PATCH net-next-2.6] vhost: Restart tx poll when socket send
+ queue is full
+Date: Tue, 23 Feb 2010 09:31:32 -0800
+Message-ID: <1266946292.6364.6.camel@w-sridhar.beaverton.ibm.com>
+References: <1266526751.15681.71.camel@w-sridhar.beaverton.ibm.com>
+	 <20100223102437.GA23835@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Serge E. Hallyn" <serue@us.ibm.com>, containers@lists.osdl.org,
-	netdev@vger.kernel.org
-To: "Serge E. Hallyn" <serge@hallyn.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw0.danplanet.com ([71.245.107.82]:45068 "EHLO
-	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751216Ab0BWR1r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2010 12:27:47 -0500
-In-Reply-To: <20100223164755.GA31671@hallyn.com> (Serge E. Hallyn's message of "Tue\, 23 Feb 2010 10\:47\:55 -0600")
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:42157 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752544Ab0BWRbg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Feb 2010 12:31:36 -0500
+Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
+	by e3.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o1NHKelN024894
+	for <netdev@vger.kernel.org>; Tue, 23 Feb 2010 12:20:40 -0500
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o1NHVZ1e107268
+	for <netdev@vger.kernel.org>; Tue, 23 Feb 2010 12:31:35 -0500
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o1NHVYfd008130
+	for <netdev@vger.kernel.org>; Tue, 23 Feb 2010 12:31:35 -0500
+In-Reply-To: <20100223102437.GA23835@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SH> But there is no guarantee that the checkpointer is in the netns
-SH> which we would call the 'top level' netns.  Which means that, at
-SH> restart, whether or not the devices which are in what we call the
-SH> top level netns are in fact inherited or not, will depend on
-SH> conditions of the checkpointer.  Do we care?  (I thought we did,
-SH> but maybe we don't... it's unlikely to happen anyway)
+On Tue, 2010-02-23 at 12:24 +0200, Michael S. Tsirkin wrote:
+> On Thu, Feb 18, 2010 at 12:59:11PM -0800, Sridhar Samudrala wrote:
+> > When running guest to remote host TCP stream test using vhost-net
+> > via tap/macvtap, i am seeing network transmit hangs. This happens
+> > when handle_tx() returns because of the socket send queue full 
+> > condition.
+> > This patch fixes this by restarting tx poll when hitting this
+> > condition.
+> > 
+> > Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> > 
+> > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> > index 91a324c..82d4bbe 100644
+> > --- a/drivers/vhost/net.c
+> > +++ b/drivers/vhost/net.c
+> > @@ -113,12 +113,16 @@ static void handle_tx(struct vhost_net *net)
+> >  	if (!sock)
+> >  		return;
+> >  
+> > -	wmem = atomic_read(&sock->sk->sk_wmem_alloc);
+> > -	if (wmem >= sock->sk->sk_sndbuf)
+> > -		return;
+> > -
+> >  	use_mm(net->dev.mm);
+> >  	mutex_lock(&vq->mutex);
+> > +
+> > +	wmem = atomic_read(&sock->sk->sk_wmem_alloc);
+> > +	if (wmem >= sock->sk->sk_sndbuf) {
+> > +		tx_poll_start(net, sock);
+> > +		set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
+> > +		goto unlock;
+> > +	}
+> > +
+> >  	vhost_disable_notify(vq);
+> >  
+> >  	if (wmem < sock->sk->sk_sndbuf * 2)
+> > @@ -178,6 +182,7 @@ static void handle_tx(struct vhost_net *net)
+> >  		}
+> >  	}
+> >  
+> > +unlock:
+> >  	mutex_unlock(&vq->mutex);
+> >  	unuse_mm(net->dev.mm);
+> >  }
+> 
+> 
+> It might be better to avoid use_mm when ring is full.
+> Does the following fix the tx hang for you?
 
-Well, when we discussed this on IRC with Oren, I think we came to the
-conclusion that since network namespaces aren't hierarchical, that we
-would restore things from the "viewpoint" of the process that
-checkpointed them.  It gives us a sane way to ensure that the peer
-devices residing in the init netns can be put back there, even though we
-don't checkpoint everything in the init netns (like eth0).
+Yes. this fixes the tx hang.
 
-If you checkpoint a veth from within the container and you have a peer
-device that is outside the container (but not in a netns that is
-checkpointed as part of a task), it's going to fail and tell you that
-one of your peers leaked to the outside.  I think that's sane and
-preferred behavior, no?  If you're using macvlan and you checkpoint
-from within the container, I think you should be okay, as long as
-there is a appropriately named device to base the restored devices on
-in whatever netns your restore process is in.
+Thanks
+Sridhar
 
--- 
-Dan Smith
-IBM Linux Technology Center
-email: danms@us.ibm.com
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 4c89283..f5f6efe 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -113,8 +113,12 @@ static void handle_tx(struct vhost_net *net)
+>  		return;
+> 
+>  	wmem = atomic_read(&sock->sk->sk_wmem_alloc);
+> -	if (wmem >= sock->sk->sk_sndbuf)
+> -		return;
+> +	if (wmem >= sock->sk->sk_sndbuf) {
+> +		mutex_lock(&vq->mutex);
+> +		tx_poll_start(net, sock);
+> +		mutex_unlock(&vq->mutex);
+> +                return;
+> +	}
+> 
+>  	use_mm(net->dev.mm);
+>  	mutex_lock(&vq->mutex);
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
