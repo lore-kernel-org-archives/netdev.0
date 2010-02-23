@@ -1,35 +1,42 @@
-From: Christian Kujau <lists@nerdbynature.de>
-Subject: Peer unexpectedly shrunk window
-Date: Tue, 23 Feb 2010 12:09:35 -0800 (PST)
-Message-ID: <alpine.DEB.2.01.1002231154290.28195@bogon.housecafe.de>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: octeon dev_addrs list usage
+Date: Tue, 23 Feb 2010 21:41:52 +0100
+Message-ID: <20100223204151.GG2673@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: ddaney@caviumnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:8892 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751411Ab0BWUlz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Feb 2010 15:41:55 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello David.
 
-OK, the "Treason uncloaked" messages have been reworded[0][1] to now say 
-"Peer [...] unexpectedly shrunk window", but the messages continue to 
-appear. On a small Tor node (~100KB/s, ~200 connections) I'm getting ~2000 
-or so messages per month in my kernel log (and on the console).
+Lookin at octeon driver, drivers/net/octeon/octeon_mgmt.c,
+octeon_mgmt_set_rx_filtering function and following code:
 
-I see that it's logged with KERN_DEBUG, is there anyway to suppress 
-those, i.e. some magic tcp specific bootparameter? Or is setting 
-loglevel=6 the only way to supress them? But that's a global option :-\
+503         if (cam_mode == 1) {
+504                 /* Add primary address. */
+505                 octeon_mgmt_cam_state_add(&cam_state, netdev->dev_addr);
+506                 list_for_each(pos, &netdev->dev_addrs.list) {
+507                         struct netdev_hw_addr *hw_addr;
+508                         hw_addr = list_entry(pos, struct netdev_hw_addr, list);
+509                         octeon_mgmt_cam_state_add(&cam_state, hw_addr->addr);
+510                         list = list->next;
+511                 }
+512         }
 
-Since the messages always say "repaired", why log them at all? If we can't 
-do something about the remote side, I fail to see the point of these 
-messages or what one is supposed to do to "fix" them.
+besides netdev->dev_addr is first entry in netdev->dev_addrs.list and
+"list = list->next;" makes no sense here (I posted a patch correcting
+these earlier), are you sure you are traversing the right list? This list is
+currently not filled in anywhere (besides ixgbe driver). Don't you want
+to traverse through unicast_list instead? Maybe I'm missing something...
 
-Thanks for your insights,
-Christian.
+Thanks.
 
-[0] http://lkml.org/lkml/2008/12/18/454
-[1] http://kerneltrap.org/mailarchive/linux-netdev/2009/4/19/5518144
--- 
-BOFH excuse #399:
-
-We are a 100% Microsoft Shop.
+Jirka
