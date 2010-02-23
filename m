@@ -1,52 +1,31 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: RFC: netfilter: nf_conntrack: add support for "conntrack zones"
-Date: Tue, 23 Feb 2010 18:09:41 -0500
-Message-ID: <1266966581.3973.675.camel@bigi>
-References: <4B4F24AC.70105@trash.net> <1263481549.23480.24.camel@bigi>
-	 <4B4F3A50.1050400@trash.net> <1263490403.23480.109.camel@bigi>
-	 <4B50403A.6010507@trash.net> <1263568754.23480.142.camel@bigi>
-	 <m13a0tf17t.fsf@fess.ebiederm.org> <1266875729.3673.12.camel@bigi>
-	 <m1wry46es9.fsf@fess.ebiederm.org> <1266931623.3973.643.camel@bigi>
-	 <m1iq9ocafv.fsf@fess.ebiederm.org> <1266934817.3973.654.camel@bigi>
-	 <m1r5obbu2w.fsf@fess.ebiederm.org>
-Reply-To: hadi@cyberus.ca
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH 1/1] xfrm: clone mark when cloning policy
+Date: Tue, 23 Feb 2010 15:10:27 -0800 (PST)
+Message-ID: <20100223.151027.99318910.davem@davemloft.net>
+References: <sk-mark-clone>
+	<1266966484-1750-1-git-send-email-hadi@cyberus.ca>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <m1r5obbu2w.fsf@fess.ebiederm.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: hadi@cyberus.ca
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51983
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754531Ab0BWXKK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2010 18:10:10 -0500
+In-Reply-To: <1266966484-1750-1-git-send-email-hadi@cyberus.ca>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-02-23 at 12:00 -0800, Eric W. Biederman wrote:
+From: jamal <hadi@cyberus.ca>
+Date: Tue, 23 Feb 2010 18:08:04 -0500
 
-> That point of the mount to hold a persistent reference to the
-> namespace without using a process.
+> From: Jamal Hadi Salim <hadi@cyberus.ca>
 > 
-> The point of the of the to be written set_ns call is to change
-> the default network namespace of the process such that all future
-> open/bind/socket calls happen in the referenced network namespace.
+> When we clone the SP, we should also clone the mark.
+> Useful for socket based SPs.
+> 
+> Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
-Ok, i like it ;-> Patches RSN? Let me if you want someone to test..
-
-> The are a few stray places like sysfs where it is the mount point
-> not current->nsproxy->net_ns that will determine what we see.
-
-Is sysfs considered "usable enough" for namespaces?
-
-> Attributes of the specific namespace?
-
-Well, example what is being un/shared etc. 
-
-cheers,
-jamal
-
-
+Applied, thanks.
