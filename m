@@ -1,99 +1,89 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next 0/7] drivers/net conversions to
-	netdev_<level>, etc
-Date: Tue, 23 Feb 2010 18:33:23 -0800
-Message-ID: <9929d2391002231833j65008a1ev1d2297672a39a483@mail.gmail.com>
-References: <cover.1266893507.git.joe@perches.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT]: Networking
+Date: Tue, 23 Feb 2010 19:13:47 -0800 (PST)
+Message-ID: <20100223.191347.124292181.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, John Ronciak <john.ronciak@intel.com>,
-	Brice Goglin <brice@myri.com>, Andrew Gallatin <gallatin@myri.com>,
-	David Miller <davem@davemloft.net>
-To: Joe Perches <joe@perches.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <cover.1266893507.git.joe@perches.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34692
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754911Ab0BXDNb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2010 22:13:31 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBGZWIgMjIsIDIwMTAgYXQgMTg6NTYsIEpvZSBQZXJjaGVzIDxqb2VAcGVyY2hlcy5j
-b20+IHdyb3RlOgo+IFNvbWUgbW9yZSBjb252ZXJzaW9ucyBvZiBkcml2ZXJzIHRvOgo+Cj4gwqAg
-wqBuZXRpZl88bGV2ZWw+Cj4gwqAgwqBuZXRkZXZfPGxldmVsPgo+IMKgIMKgcHJfPGxldmVsPgo+
-Cj4gd2l0aCBzb21lIG90aGVyIG1pbm9yIHVwZGF0ZXMvY29ycmVjdGlvbnMKPiBub3RpY2VkIGR1
-cmluZyBjb252ZXJzaW9ucy4KPgo+IEpvZSBQZXJjaGVzICg3KToKPiDCoGRyaXZlcnMvbmV0L2No
-ZWxzaW86IFVzZSBwcl88bGV2ZWw+LCBuZXRpZl9tc2dfPHR5cGU+Cj4gwqBkcml2ZXJzL25ldC9t
-eXJpMTBnZTogVXNlIHByXzxsZXZlbD4gYW5kIG5ldGRldl88bGV2ZWw+Cj4gwqBkcml2ZXJzL25l
-dC9peGdiZTogVXNlIHByXzxsZXZlbD4gYW5kIG5ldGlmXzxsZXZlbD4KPiDCoGRyaXZlcnMvbmV0
-L2l4Z2I6IFVzZSBwcl88bGV2ZWw+IGFuZCBuZXRkZXZfPGxldmVsPgo+IMKgZHJpdmVycy9uZXQv
-ZTEwMDA6IFVzZSBwcl88bGV2ZWw+IGFuZCBuZXRpZl88bGV2ZWw+Cj4gwqBkcml2ZXJzL25ldC9l
-MTAwMGU6IFVzZSBwcl88bGV2ZWw+IGFuZCBuZXRkZXZfPGxldmVsPgo+IMKgZHJpdmVycy9uZXQv
-aWdiOiBVc2UgbmV0ZGV2XzxsZXZlbD4KPgo+IMKgZHJpdmVycy9uZXQvY2hlbHNpby9jb21tb24u
-aCDCoCDCoCDCoHwgwqAgMjQgKy0tCj4gwqBkcml2ZXJzL25ldC9jaGVsc2lvL2N4Z2IyLmMgwqAg
-wqAgwqAgfCDCoCAxOCArLQo+IMKgZHJpdmVycy9uZXQvY2hlbHNpby9lc3BpLmMgwqAgwqAgwqAg
-wqB8IMKgIMKgNCArLQo+IMKgZHJpdmVycy9uZXQvY2hlbHNpby9wbTMzOTMuYyDCoCDCoCDCoHwg
-wqAgMTYgKy0KPiDCoGRyaXZlcnMvbmV0L2NoZWxzaW8vc2dlLmMgwqAgwqAgwqAgwqAgfCDCoCAx
-MCArLQo+IMKgZHJpdmVycy9uZXQvY2hlbHNpby9zdWJyLmMgwqAgwqAgwqAgwqB8IMKgIDMyICsr
-LS0KPiDCoGRyaXZlcnMvbmV0L2NoZWxzaW8vdnNjNzMyNi5jIMKgIMKgIHwgwqAgMjQgKystLQo+
-IMKgZHJpdmVycy9uZXQvZTEwMDAvZTEwMDAuaCDCoCDCoCDCoCDCoCB8IMKgIDE3IC0tCj4gwqBk
-cml2ZXJzL25ldC9lMTAwMC9lMTAwMF9ldGh0b29sLmMgfCDCoCAzOCArKy0tCj4gwqBkcml2ZXJz
-L25ldC9lMTAwMC9lMTAwMF9ody5jIMKgIMKgIMKgfCDCoDM4MyArKysrKysrKysrKysrKysrKyst
-LS0tLS0tLS0tLS0tLS0tLS0tCj4gwqBkcml2ZXJzL25ldC9lMTAwMC9lMTAwMF9tYWluLmMgwqAg
-wqB8IMKgMjcyICsrKysrKysrKysrKystLS0tLS0tLS0tLS0tCj4gwqBkcml2ZXJzL25ldC9lMTAw
-MC9lMTAwMF9vc2RlcC5oIMKgIHwgwqAgMTQgKy0tCj4gwqBkcml2ZXJzL25ldC9lMTAwMC9lMTAw
-MF9wYXJhbS5jIMKgIHwgwqAxMjEgKysrKysrKy0tLS0tLQo+IMKgZHJpdmVycy9uZXQvZTEwMDBl
-LzgyNTcxLmMgwqAgwqAgwqAgwqB8IMKgIDU3ICsrKystLQo+IMKgZHJpdmVycy9uZXQvZTEwMDBl
-L2UxMDAwLmggwqAgwqAgwqAgwqB8IMKgIDIxIC0tCj4gwqBkcml2ZXJzL25ldC9lMTAwMGUvZXMy
-bGFuLmMgwqAgwqAgwqAgfCDCoCAyNyArKy0tCj4gwqBkcml2ZXJzL25ldC9lMTAwMGUvZXRodG9v
-bC5jIMKgIMKgIMKgfCDCoCAzNyArKy0tCj4gwqBkcml2ZXJzL25ldC9lMTAwMGUvaWNoOGxhbi5j
-IMKgIMKgIMKgfCDCoCA5MCArKysrKy0tLS0KPiDCoGRyaXZlcnMvbmV0L2UxMDAwZS9saWIuYyDC
-oCDCoCDCoCDCoCDCoHwgwqAxMzEgKysrKysrKy0tLS0tLS0KPiDCoGRyaXZlcnMvbmV0L2UxMDAw
-ZS9uZXRkZXYuYyDCoCDCoCDCoCB8IMKgIDk1ICsrKysrLS0tLS0KPiDCoGRyaXZlcnMvbmV0L2Ux
-MDAwZS9wYXJhbS5jIMKgIMKgIMKgIMKgfCDCoCAyMCArLQo+IMKgZHJpdmVycy9uZXQvZTEwMDBl
-L3BoeS5jIMKgIMKgIMKgIMKgIMKgfCDCoDExNCArKysrKystLS0tLS0KPiDCoGRyaXZlcnMvbmV0
-L2lnYi9lMTAwMF84MjU3NS5jIMKgIMKgIHwgwqAgNTggKysrLS0tCj4gwqBkcml2ZXJzL25ldC9p
-Z2IvZTEwMDBfaHcuaCDCoCDCoCDCoCDCoHwgwqAgMTIgKy0KPiDCoGRyaXZlcnMvbmV0L2lnYi9l
-MTAwMF9tYWMuYyDCoCDCoCDCoCB8IMKgIDg0ICsrKystLS0tCj4gwqBkcml2ZXJzL25ldC9pZ2Iv
-ZTEwMDBfbnZtLmMgwqAgwqAgwqAgfCDCoCAyMiArLQo+IMKgZHJpdmVycy9uZXQvaWdiL2UxMDAw
-X3BoeS5jIMKgIMKgIMKgIHwgwqAxMDQgKysrKystLS0tLQo+IMKgZHJpdmVycy9uZXQvaWdiL2ln
-Yi5oIMKgIMKgIMKgIMKgIMKgIMKgIHwgwqAgwqAxIC0KPiDCoGRyaXZlcnMvbmV0L2lnYi9pZ2Jf
-ZXRodG9vbC5jIMKgIMKgIHwgwqAgwqA2ICstCj4gwqBkcml2ZXJzL25ldC9pZ2IvaWdiX21haW4u
-YyDCoCDCoCDCoCDCoHwgwqAgNDMgKystLS0KPiDCoGRyaXZlcnMvbmV0L2l4Z2IvaXhnYi5oIMKg
-IMKgIMKgIMKgIMKgIHwgwqAgwqA4ICstCj4gwqBkcml2ZXJzL25ldC9peGdiL2l4Z2JfZWUuYyDC
-oCDCoCDCoCDCoHwgwqAgMTQgKy0KPiDCoGRyaXZlcnMvbmV0L2l4Z2IvaXhnYl9ody5jIMKgIMKg
-IMKgIMKgfCDCoDE0NyArKysrKystLS0tLS0tLS0KPiDCoGRyaXZlcnMvbmV0L2l4Z2IvaXhnYl9o
-dy5oIMKgIMKgIMKgIMKgfCDCoCAxMiAtLQo+IMKgZHJpdmVycy9uZXQvaXhnYi9peGdiX21haW4u
-YyDCoCDCoCDCoHwgwqAgMzMgKystLQo+IMKgZHJpdmVycy9uZXQvaXhnYi9peGdiX29zZGVwLmgg
-wqAgwqAgfCDCoCAxNiArLS0KPiDCoGRyaXZlcnMvbmV0L2l4Z2IvaXhnYl9wYXJhbS5jIMKgIMKg
-IHwgwqAgMzEgKystLQo+IMKgZHJpdmVycy9uZXQvaXhnYmUvaXhnYmUuaCDCoCDCoCDCoCDCoCB8
-IMKgIMKgNiAtCj4gwqBkcml2ZXJzL25ldC9peGdiZS9peGdiZV9jb21tb24uaCDCoHwgwqAgMTUg
-Ky0KPiDCoGRyaXZlcnMvbmV0L2l4Z2JlL2l4Z2JlX2RjYl9ubC5jIMKgfCDCoCDCoDUgKy0KPiDC
-oGRyaXZlcnMvbmV0L2l4Z2JlL2l4Z2JlX2V0aHRvb2wuYyB8IMKgIDQwICsrKy0tCj4gwqBkcml2
-ZXJzL25ldC9peGdiZS9peGdiZV9mY29lLmMgwqAgwqB8IMKgIDI1ICsrLS0KPiDCoGRyaXZlcnMv
-bmV0L2l4Z2JlL2l4Z2JlX21haW4uYyDCoCDCoHwgwqAxMTAgKysrKystLS0tLS0KPiDCoGRyaXZl
-cnMvbmV0L2l4Z2JlL2l4Z2JlX3BoeS5jIMKgIMKgIHwgwqAgwqAyICsKPiDCoGRyaXZlcnMvbmV0
-L2l4Z2JlL2l4Z2JlX3NyaW92LmMgwqAgfCDCoCAxMSArLQo+IMKgZHJpdmVycy9uZXQvbXlyaTEw
-Z2UvbXlyaTEwZ2UuYyDCoCB8IMKgMTgzICsrKysrKystLS0tLS0tLS0tLQo+IMKgNDYgZmlsZXMg
-Y2hhbmdlZCwgMTIwMiBpbnNlcnRpb25zKCspLCAxMzUxIGRlbGV0aW9ucygtKQo+CgpJIGhhdmUg
-YXBwbGllZCBwYXRjaGVzIDMtNyAodGhlIHBhdGNoZXMgdG8gSW50ZWwgZHJpdmVycykgdG8gbXkg
-cXVldWUKb2YgcGF0Y2hlcyBmb3IgcmV2aWV3IGFuZCB0ZXN0aW5nLgoKLS0gCkNoZWVycywKSmVm
-ZgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkRvd25sb2FkIEludGVsJiMxNzQ7IFBhcmFsbGVsIFN0
-dWRpbyBFdmFsClRyeSB0aGUgbmV3IHNvZnR3YXJlIHRvb2xzIGZvciB5b3Vyc2VsZi4gU3BlZWQg
-Y29tcGlsaW5nLCBmaW5kIGJ1Z3MKcHJvYWN0aXZlbHksIGFuZCBmaW5lLXR1bmUgYXBwbGljYXRp
-b25zIGZvciBwYXJhbGxlbCBwZXJmb3JtYW5jZS4KU2VlIHdoeSBJbnRlbCBQYXJhbGxlbCBTdHVk
-aW8gZ290IGhpZ2ggbWFya3MgZHVyaW5nIGJldGEuCmh0dHA6Ly9wLnNmLm5ldC9zZnUvaW50ZWwt
-c3ctZGV2Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkUx
-MDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQK
-aHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vZTEwMDAtZGV2ZWwK
-VG8gbGVhcm4gbW9yZSBhYm91dCBJbnRlbCYjMTc0OyBFdGhlcm5ldCwgdmlzaXQgaHR0cDovL2Nv
-bW11bml0aWVzLmludGVsLmNvbS9jb21tdW5pdHkvd2lyZWQK
+
+1) Wireless fixes from Linville and co. in particular an
+   iwlwifi tfd freeing issue that many people are likely to hit.
+
+2) GRO handling uses napi->dev when it should use skb->dev,
+   breaking VLAN + GRO.  Fix from Ajit Khaparde.
+
+3) Make IPV6 max_addresses sysctl documentation clearer.
+
+4) Add new device ID to cdc_ether, from Torgny Johansson.
+
+5) tc35815 double netif_wake_queue()s, triggering a BUG().
+   Fix from Atsushi Nemoto.
+
+6) DMA mapping error handlng on RX in e1000 driver crashes under
+   load.  Fix from Anton Blanchard.
+
+7) MAINTAINERS update for mv643xx_eth.
+
+Please pull, thanks a lot!
+
+The following changes since commit be64c970f601d5bb439b6cc88ea2bd208b3422a0:
+  Linus Torvalds (1):
+        Merge branch 'release' of git://git.kernel.org/.../lenb/linux-acpi-2.6
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Ajit Khaparde (1):
+      net: bug fix for vlan + gro issue
+
+Anton Blanchard (1):
+      e1000: Fix DMA mapping error handling on RX
+
+Atsushi Nemoto (1):
+      tc35815: Remove a wrong netif_wake_queue() call which triggers BUG_ON
+
+Brian Haley (1):
+      IPv6: better document max_addresses parameter
+
+Dan Halperin (1):
+      iwlwifi: set HT flags after channel in rxon
+
+David S. Miller (1):
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
+
+Lennert Buytenhek (1):
+      MAINTAINERS: update mv643xx_eth maintenance status
+
+Stanislaw Gruszka (1):
+      iwlwifi: sanity check before counting number of tfds can be free
+
+Torgny Johansson (1):
+      cdc_ether: new PID for Ericsson C3607w to the whitelist (resubmit)
+
+Wey-Yi Guy (1):
+      iwlwifi: error checking for number of tfds in queue
+
+ Documentation/networking/ip-sysctl.txt  |    8 ++++----
+ MAINTAINERS                             |    4 ++--
+ drivers/net/e1000/e1000_main.c          |   19 ++++++++++++++++++-
+ drivers/net/tc35815.c                   |    1 -
+ drivers/net/usb/cdc_ether.c             |    5 +++++
+ drivers/net/wireless/iwlwifi/iwl-4965.c |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-5000.c |    8 +++-----
+ drivers/net/wireless/iwlwifi/iwl-core.c |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-core.h |    2 ++
+ drivers/net/wireless/iwlwifi/iwl-tx.c   |   22 ++++++++++++++++++++--
+ net/core/dev.c                          |    2 +-
+ 11 files changed, 57 insertions(+), 18 deletions(-)
