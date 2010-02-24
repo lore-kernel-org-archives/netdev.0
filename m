@@ -1,89 +1,226 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Tue, 23 Feb 2010 19:13:47 -0800 (PST)
-Message-ID: <20100223.191347.124292181.davem@davemloft.net>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [net-next PATCH v5 2/3] sysctl: add proc_do_large_bitmap
+Date: Wed, 24 Feb 2010 13:24:00 +0800
+Message-ID: <4B84B7F0.7090709@redhat.com>
+References: <1266752533.3428.28.camel@Nokia-N900-42-11> <4B81EFD8.8020202@redhat.com> <201002221829.13987.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34692
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754911Ab0BXDNb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Feb 2010 22:13:31 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Octavian Purdila <opurdila@ixiacom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201002221829.13987.opurdila@ixiacom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Octavian Purdila wrote:
+> 
+> Here is a new version of this patch which fixes both the comma and invalid 
+> value issues, please give it a try.
+> 
+
+Sorry, it is even worse. :(
+
+> [net-next PATCH v5 2/3] sysctl: add proc_do_large_bitmap
+> 
+> The new function can be used to read/write large bitmaps via /proc. A
+> comma separated range format is used for compact output and input
+> (e.g. 1,3-4,10-10).
+> 
 
 
-1) Wireless fixes from Linville and co. in particular an
-   iwlwifi tfd freeing issue that many people are likely to hit.
+Writing "50000-50100" gets EINVAL, it should be success.
+Writing "50000,50100" fails too.
 
-2) GRO handling uses napi->dev when it should use skb->dev,
-   breaking VLAN + GRO.  Fix from Ajit Khaparde.
+Please, at least, do some basic testing.
 
-3) Make IPV6 max_addresses sysctl documentation clearer.
+Also some comments below.
 
-4) Add new device ID to cdc_ether, from Torgny Johansson.
+> Writing into the file will first reset the bitmap then update it
+> based on the given input.
+> 
+> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+> Cc: WANG Cong <amwang@redhat.com>
+> Cc: Eric W. Biederman <ebiederm@xmission.com>
 
-5) tc35815 double netif_wake_queue()s, triggering a BUG().
-   Fix from Atsushi Nemoto.
+Please resend the whole patchset, and update the doc in patch 3/3.
 
-6) DMA mapping error handlng on RX in e1000 driver crashes under
-   load.  Fix from Anton Blanchard.
 
-7) MAINTAINERS update for mv643xx_eth.
+> ---
+>  include/linux/sysctl.h |    2 +
+>  kernel/sysctl.c        |  134 
+> ++++++++++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 136 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+> index f66014c..7bb5cb6 100644
+> --- a/include/linux/sysctl.h
+> +++ b/include/linux/sysctl.h
+> @@ -980,6 +980,8 @@ extern int proc_doulongvec_minmax(struct ctl_table *, int,
+>  				  void __user *, size_t *, loff_t *);
+>  extern int proc_doulongvec_ms_jiffies_minmax(struct ctl_table *table, int,
+>  				      void __user *, size_t *, loff_t *);
+> +extern int proc_do_large_bitmap(struct ctl_table *, int,
+> +				void __user *, size_t *, loff_t *);
+>  
+>  /*
+>   * Register a set of sysctl names by calling register_sysctl_table
+> diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+> index 5259727..d8ea839 100644
+> --- a/kernel/sysctl.c
+> +++ b/kernel/sysctl.c
+> @@ -2635,6 +2635,140 @@ static int proc_do_cad_pid(struct ctl_table *table, 
+> int write,
 
-Please pull, thanks a lot!
 
-The following changes since commit be64c970f601d5bb439b6cc88ea2bd208b3422a0:
-  Linus Torvalds (1):
-        Merge branch 'release' of git://git.kernel.org/.../lenb/linux-acpi-2.6
+The above line is wrong, it should be a part of previous line.
 
-are available in the git repository at:
 
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+>  	return 0;
+>  }
+>  
+> +/**
+> + * proc_do_large_bitmap - read/write from/to a large bitmap
+> + * @table: the sysctl table
+> + * @write: %TRUE if this is a write to the sysctl file
+> + * @buffer: the user buffer
+> + * @lenp: the size of the user buffer
+> + * @ppos: file position
+> + *
+> + * The bitmap is stored at table->data and the bitmap length (in bits)
+> + * in table->maxlen.
+> + *
+> + * We use a range comma separated format (e.g. 1,3-4,10-10) so that
+> + * large bitmaps may be represented in a compact manner. Writing into
+> + * the file will clear the bitmap then update it with the given input.
+> + *
+> + * Returns 0 on success.
+> + */
+> +int proc_do_large_bitmap(struct ctl_table *table, int write,
+> +			 void __user *_buffer, size_t *lenp, loff_t *ppos)
+> +{
+> +	bool first = 1;
+> +	unsigned long *bitmap = (unsigned long *) table->data;
+> +	unsigned long bitmap_len = table->maxlen;
+> +	int left = *lenp, err = 0;
 
-Ajit Khaparde (1):
-      net: bug fix for vlan + gro issue
 
-Anton Blanchard (1):
-      e1000: Fix DMA mapping error handling on RX
+'left' should be size_t.
 
-Atsushi Nemoto (1):
-      tc35815: Remove a wrong netif_wake_queue() call which triggers BUG_ON
 
-Brian Haley (1):
-      IPv6: better document max_addresses parameter
-
-Dan Halperin (1):
-      iwlwifi: set HT flags after channel in rxon
-
-David S. Miller (1):
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
-
-Lennert Buytenhek (1):
-      MAINTAINERS: update mv643xx_eth maintenance status
-
-Stanislaw Gruszka (1):
-      iwlwifi: sanity check before counting number of tfds can be free
-
-Torgny Johansson (1):
-      cdc_ether: new PID for Ericsson C3607w to the whitelist (resubmit)
-
-Wey-Yi Guy (1):
-      iwlwifi: error checking for number of tfds in queue
-
- Documentation/networking/ip-sysctl.txt  |    8 ++++----
- MAINTAINERS                             |    4 ++--
- drivers/net/e1000/e1000_main.c          |   19 ++++++++++++++++++-
- drivers/net/tc35815.c                   |    1 -
- drivers/net/usb/cdc_ether.c             |    5 +++++
- drivers/net/wireless/iwlwifi/iwl-4965.c |    2 +-
- drivers/net/wireless/iwlwifi/iwl-5000.c |    8 +++-----
- drivers/net/wireless/iwlwifi/iwl-core.c |    2 +-
- drivers/net/wireless/iwlwifi/iwl-core.h |    2 ++
- drivers/net/wireless/iwlwifi/iwl-tx.c   |   22 ++++++++++++++++++++--
- net/core/dev.c                          |    2 +-
- 11 files changed, 57 insertions(+), 18 deletions(-)
+> +	char __user *buffer = (char __user *) _buffer;
+> +	char tr_a[] = { '-', ',', 0 }, tr_b[] = { ',', 0 }, c;
+> +
+> +
+> +	if (!bitmap_len || !left || (*ppos && !write)) {
+> +		*lenp = 0;
+> +		return 0;
+> +	}
+> +
+> +	if (write) {
+> +		err = proc_skip_wspace(&buffer, &left);
+> +		while (!err && left) {
+> +			unsigned long val_a, val_b;
+> +			bool neg;
+> +
+> +			err = proc_get_ulong(&buffer, &left, tr_a,
+> +					     &val_a, &neg, &c);
+> +			if (err)
+> +				break;
+> +
+> +			if (val_a >= bitmap_len || neg) {
+> +				err = -EINVAL;
+> +				break;
+> +			}
+> +
+> +			val_b = val_a;
+> +			if (left && c == '-') {
+> +				/* skip the - */
+> +				buffer++; left--;
+> +
+> +				err = proc_get_ulong(&buffer, &left, tr_b,
+> +						     &val_b, &neg, &c);
+> +				if (err)
+> +					break;
+> +
+> +				if (val_b >= bitmap_len || neg ||
+> +				    val_a > val_b) {
+> +					err = -EINVAL;
+> +					break;
+> +				}
+> +			}
+> +
+> +			if (left) {
+> +				err = proc_skip_wspace(&buffer, &left);
+> +				if (err)
+> +					break;
+> +				if (left) {
+> +					if (get_user(c, buffer)) {
+> +						err = -EFAULT;
+> +						break;
+> +					}
+> +					if (c != ',') {
+> +						err = -EINVAL;
+> +						break;
+> +					}
+> +					/* skip the , */
+> +					buffer++; left--;
+> +				}
+> +			}
+> +
+> +			if (first)
+> +				bitmap_clear(bitmap, 0, bitmap_len);
+> +
+> +			while (val_a <= val_b)
+> +				set_bit(val_a++, bitmap);
+> +
+> +			first = 0;
+> +		}
+> +		if (!err)
+> +			err = proc_skip_wspace(&buffer, &left);
+> +	} else {
+> +		unsigned long bit_a, bit_b = 0;
+> +
+> +		while (left) {
+> +			bit_a = find_next_bit(bitmap, bitmap_len, bit_b);
+> +			if (bit_a >= bitmap_len)
+> +				break;
+> +			bit_b = find_next_zero_bit(bitmap, bitmap_len,
+> +						   bit_a + 1) - 1;
+> +
+> +			err = proc_put_ulong(&buffer, &left, bit_a, 0, first,
+> +					     ',');
+> +			if (err)
+> +				break;
+> +			if (bit_a != bit_b) {
+> +				err = proc_put_char(&buffer, &left, '-');
+> +				if (err)
+> +					break;
+> +				err = proc_put_ulong(&buffer, &left, bit_b, 0,
+> +						     1, 0);
+> +				if (err)
+> +					break;
+> +			}
+> +
+> +			first = 0; bit_b++;
+> +		}
+> +		if (!err)
+> +			err = proc_put_char(&buffer, &left, '\n');
+> +	}
+> +
+> +	if (first) {
+> +		if (err)
+> +			return err;
+> +		bitmap_clear(bitmap, 0, bitmap_len);
+> +	}
+> +	*lenp -= left;
+> +	*ppos += *lenp;
+> +	return 0;
+> +}
+> +
+>  #else /* CONFIG_PROC_FS */
+>  
+>  int proc_dostring(struct ctl_table *table, int write,
