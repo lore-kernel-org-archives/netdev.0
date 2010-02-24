@@ -1,60 +1,58 @@
 From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: [RFC PATCH net-next 3/5]IPv6:netfilter: Record MIB counter when reassembling
- all fragments
-Date: Wed, 24 Feb 2010 14:08:26 +0800
-Message-ID: <4B84C25A.4080403@cn.fujitsu.com>
+Subject: [RFC PATCH net-next 5/5]IPv6:netfilter: Add IPSTATS_MIB_REASMFAILS
+ MIB counter value when evicting fragment queue
+Date: Wed, 24 Feb 2010 14:08:50 +0800
+Message-ID: <4B84C272.1040505@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	netfilter-devel@vger.kernel.org, Shan Wei <shanwei@cn.fujitsu.com>
-To: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
+To: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>,
 	Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-According to RFC4293, this patch records MIB counter of IPSTATS_MIB_REASMFAILS, 
-IPSTATS_MIB_REASMOKS, when reassembling fragments after all fragments reached.
+This patch adds MIB counter value about IPSTATS_MIB_REASMFAILS
+if mem member of netns_frags exceeds high thresh, just like IPv4/v6 stack.
+
 
 Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
 ---
- net/ipv6/netfilter/nf_conntrack_reasm.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+ net/ipv6/netfilter/nf_conntrack_reasm.c |   10 +++++++---
+ 1 files changed, 7 insertions(+), 3 deletions(-)
 
 diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index 4a1b5bd..9f50c13 100644
+index 32c5bbd..136b0de 100644
 --- a/net/ipv6/netfilter/nf_conntrack_reasm.c
 +++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -398,6 +398,7 @@ static struct sk_buff *
- nf_ct_frag6_reasm(struct nf_ct_frag6_queue *fq, struct net_device *dev)
- {
- 	struct sk_buff *fp, *op, *head = fq->q.fragments;
-+	struct net *net = container_of(fq->q.net, struct net, ipv6.frags);
- 	int    payload_len;
- 
- 	fq_kill(fq);
-@@ -499,6 +500,9 @@ nf_ct_frag6_reasm(struct nf_ct_frag6_queue *fq, struct net_device *dev)
- 		NFCT_FRAG6_CB(fp)->orig = NULL;
- 	}
- 
-+	rcu_read_lock();
-+	IP6_INC_STATS(net, __in6_dev_get(dev), IPSTATS_MIB_REASMOKS);
-+	rcu_read_unlock();
- 	return head;
- 
- out_oversize:
-@@ -509,6 +513,9 @@ out_oom:
- 	if (net_ratelimit())
- 		printk(KERN_DEBUG "nf_ct_frag6_reasm: no memory for reassembly\n");
- out_fail:
-+	rcu_read_lock();
-+	IP6_INC_STATS(net, __in6_dev_get(dev), IPSTATS_MIB_REASMFAILS);
-+	rcu_read_unlock();
- 	return NULL;
+@@ -113,9 +113,13 @@ static __inline__ void fq_kill(struct nf_ct_frag6_queue *fq)
+ 	inet_frag_kill(&fq->q, &nf_frags);
  }
  
+-static void nf_ct_frag6_evictor(struct net *net)
++static void nf_ct_frag6_evictor(struct net *net, struct inet6_dev *idev)
+ {
+-	inet_frag_evictor(&net->ipv6.frags, &nf_frags);
++	int evicted;
++
++	evicted = inet_frag_evictor(&net->ipv6.frags, &nf_frags);
++	if (evicted)
++		IP6_ADD_STATS_BH(net, idev, IPSTATS_MIB_REASMFAILS, evicted);
+ }
+ 
+ static void nf_ct_frag6_expire(unsigned long data)
+@@ -632,7 +636,7 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32 user)
+ 	}
+ 
+ 	if (atomic_read(&net->ipv6.frags.mem) > net->ipv6.frags.high_thresh)
+-		nf_ct_frag6_evictor(net);
++		nf_ct_frag6_evictor(net, idev);
+ 
+ 	fq = fq_find(net, fhdr->identification, user, &hdr->saddr, &hdr->daddr);
+ 	if (fq == NULL) {
 -- 
 1.6.3.3
 
