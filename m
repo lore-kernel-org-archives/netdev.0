@@ -1,80 +1,43 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [net-next-2.6 PATCH v3 4/5] rtnetlink: Add VF config code to
- rtnetlink
-Date: Wed, 24 Feb 2010 15:15:04 +0100
-Message-ID: <4B853468.10509@trash.net>
-References: <20100210114303.14483.71368.stgit@localhost.localdomain> <20100210114403.14483.11004.stgit@localhost.localdomain> <4B72A061.40905@trash.net> <EA929A9653AAE14F841771FB1DE5A1365FE3CBE343@rrsmsx501.amr.corp.intel.com>
+Subject: Re: [RFC PATCH net-next 1/5]IPv6:netfilter: defrag:Introduce net
+ namespace to conntrack and share netns_frags with IPv6 stack
+Date: Wed, 24 Feb 2010 16:07:31 +0100
+Message-ID: <4B8540B3.8080404@trash.net>
+References: <4B84C235.4070601@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
+Cc: David Miller <davem@davemloft.net>,
+	Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:44373 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753193Ab0BXOPG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2010 09:15:06 -0500
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FE3CBE343@rrsmsx501.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	netfilter-devel@vger.kernel.org
+To: Shan Wei <shanwei@cn.fujitsu.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4B84C235.4070601@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Williams, Mitch A wrote:
->> From: Patrick McHardy [mailto:kaber@trash.net]
-> [snip]
->> We usually encapsulate lists of the same attribute type in another
->> top-level attribute. Check out the IFLA_VLAN_*_QOS attributes for
->> an example.
->>
->> The interface should also be symetrical, IOW you should dump the
->> same attributes used in the userspace->kernel direction instead
->> of a combined "info" attribute.
+Shan Wei wrote:
+> Introduce net namespace to conntrack and share netns_frags with IPv6 stack.  
 > 
-> Sheesh, Patrick, where were you three months ago when I first
-> posted this stuff? It would have helped a lot if I heard from
-> you back then. We've had at least five internal review cycles
-> here and nobody caught this, mostly because nobody understands
-> it.
+> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+> ---
+>  net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |    7 +-
+>  net/ipv6/netfilter/nf_conntrack_reasm.c        |   79 +++++++-----------------
+>  2 files changed, 25 insertions(+), 61 deletions(-)
 > 
-> That being said, I'll take another look at the NLA_NESTED stuff
-> and see what I can figure out. Do you know of any place (outside
-> of the code) where this is documented?  It's particularly
-> difficult to follow this code.
-> 
-> I see your point about symmetrical interfaces, but I'm not sure
-> it's the best thing here. We want the user to be able to set these
-> attributes independently, without blowing away any other settings.
-> If we put all three settings together into one data structure,
-> the code flow will end up being much more complicated.
-> 
-> I'd prefer to leave the data structures as they are, and switch
-> to using nested attributes for the status reporting part, i.e.
-> what happens when you type 'ip link show'. Would this work for you?
-> 
->> It dev_base_lock really correct here? This is running under the RTNL, so
->> changes to the device list can't happen.
->>
-> 
-> Good catch - I'll pull out the lock.
-> 
-> 
->>> +		if (ops->ndo_set_vf_mac)
->>> +			err = ops->ndo_set_vf_mac(dev, ivm->vf, ivm->mac);
->> Shouldn't this indicate an error if the attributes aren't supported?
-> 
-> Yes. I'll fix this.
-> 
->> The casts aren't necessary. But why does struct ifla_vf_vlan use u32
->> for the vlan in the first place?
-> 
-> I used u32 for all of the values because that's what everything else
-> used. All the stuff in iproute2 seems to like u32 size as well.
-> 
-> The casts aren't necessary for the compiler, but I put them in for
-> readability purposes - to make it obvious. I can remove them if 
-> they're objectionable.
+> diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+> index 996c3f4..f153b2c 100644
+> --- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+> +++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+> @@ -221,7 +221,10 @@ static unsigned int ipv6_defrag(unsigned int hooknum,
+>  	if (skb->nfct && !nf_ct_is_template((struct nf_conn *)skb->nfct))
+>  		return NF_ACCEPT;
+>  
+> +	local_bh_disable();
+>  	reasm = nf_ct_frag6_gather(skb, nf_ct6_defrag_user(hooknum, skb));
+> +	local_bh_enable();
 
-I just noticed the patch went in without any of these changes.
-Are you going to fix this up?
+Please seperate any locking changes from the introduction
+of network namespaces.
+
