@@ -1,87 +1,63 @@
-From: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [net-next-2.6 PATCH] infiniband: convert to use
- netdev_for_each_mc_addr
-Date: Wed, 24 Feb 2010 21:18:14 +0100
-Message-ID: <20100224201813.GD2683@psychotron.redhat.com>
-References: <20100224151108.GD2663@psychotron.lab.eng.brq.redhat.com>
- <603F8A3875DCE940BA37B49D0A6EA0AE842606EE@azsmsx501.amr.corp.intel.com>
+From: "Denis Kirjanov <kirjanov@gmail.com" <kirjanov@gmail.com>
+Subject: [PATCH] greth: convert to netdev_tx_t
+Date: Wed, 24 Feb 2010 23:25:33 +0300
+Message-ID: <20100224202533.GA4531@coldcone>
+Reply-To: kirjanov@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Latif, Faisal" <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Tung, Chien Tin" <chien.tin.tung-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: kristoffer@gaisler.com, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f219.google.com ([209.85.220.219]:38647 "EHLO
+	mail-fx0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757814Ab0BXUXj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2010 15:23:39 -0500
+Received: by fxm19 with SMTP id 19so5509717fxm.21
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2010 12:23:38 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <603F8A3875DCE940BA37B49D0A6EA0AE842606EE-uLM7Qlg6Mbekrb+BlOpmy7fspsVTdybXVpNB7YpNyf8@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wed, Feb 24, 2010 at 08:46:24PM CET, chien.tin.tung-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org wrote:
->Hi Jiri,
->
->I am having trouble applying your patch.  It is erroring out on hunk #5.
->Current nes_nic.c does not have this line:
->
->>-		  netdev_mc_count(netdev), !!(netdev->flags & IFF_PROMISC),
+Convert to netdev_tx_t
+Signed-off-by: Denis Kirjanov <kirjanov@gmail.com>
+---
+ drivers/net/greth.c |   12 ++++++++----
+ 1 files changed, 8 insertions(+), 4 deletions(-)
 
-This is present in current net-next tree.
-
-Jirka
-
->
->Did I miss an old patch?
->
->Chien
->
->For reference:
->
->>diff --git a/drivers/infiniband/hw/nest/nes_nic.c b/drivers/infiniband/hw/nest/nes_nic.c
->>index c04f8fc..9384f5d 100644
->>--- a/drivers/infiniband/hw/nes/nes_nic.c
->>+++ b/drivers/infiniband/hw/nest/nes_nic.c
->[...]
->>@@ -862,19 +871,30 @@ static void nes_netdev_set_multicast_list(struct net_device *netdev)
->> 	}
->>
->> 	nes_debug(NES_DBG_NIC_RX, "Number of MC entries = %d, Promiscous = %d, All Multicast = %d.\n",
->>-		  netdev_mc_count(netdev), !!(netdev->flags & IFF_PROMISC),
->>+		  mc_count, !!(netdev->flags & IFF_PROMISC),
->> 		  !!(netdev->flags & IFF_ALLMULTI));
->> 	if (!mc_all_on) {
->>-		multicast_addr = netdev->mc_list;
->>+		char *addrs;
->>+		int i;
->>+		struct dev_mc_list *mcaddr;
->>+
->>+		addrs = kmalloc(ETH_ALEN * mc_count, GFP_ATOMIC);
->>+		if (!addrs) {
->>+			set_allmulti(nesdev, nic_active_bit);
->>+			goto unlock;
->>+		}
->>+		i = 0;
->>+		netdev_for_each_mc_addr(mcaddr, netdev)
->>+			memcpy(get_addr(addrs, i++),
->>+			       mcaddr->dmi_addr, ETH_ALEN);
->>+
->> 		perfect_filter_register_address = NES_IDX_PERFECT_FILTER_LOW +
->> 						pft_entries_preallocated * 0x8;
->>-		for (mc_index = 0; mc_index < max_pft_entries_avaiable;
->>-		mc_index++) {
->>-			while (multicast_addr && nesvnic->mcrq_mcast_filter &&
->>+		for (i = 0, mc_index = 0; mc_index < max_pft_entries_avaiable;
->>+		     mc_index++) {
->>+			while (i < mc_count && nesvnic->mcrq_mcast_filter &&
->> 			((mc_nic_index = nesvnic->mcrq_mcast_filter(nesvnic,
->>-					multicast_addr->dmi_addr)) == 0)) {
->>-				multicast_addr = multicast_addr->next;
->>-			}
->>+					get_addr(addrs, i++))) == 0));
->> 			if (mc_nic_index < 0)
->> 				mc_nic_index = nesvnic->nic_index;
->> 			while (nesadapter->pft_mcast_map[mc_index] < 16 &&
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/greth.c b/drivers/net/greth.c
+index d203233..d75b461 100644
+--- a/drivers/net/greth.c
++++ b/drivers/net/greth.c
+@@ -66,8 +66,10 @@ module_param(greth_edcl, int, 0);
+ MODULE_PARM_DESC(greth_edcl, "GRETH EDCL usage indicator. Set to 1 if EDCL is used.");
+ 
+ static int greth_open(struct net_device *dev);
+-static int greth_start_xmit(struct sk_buff *skb, struct net_device *dev);
+-static int greth_start_xmit_gbit(struct sk_buff *skb, struct net_device *dev);
++static netdev_tx_t greth_start_xmit(struct sk_buff *skb,
++	   struct net_device *dev);
++static netdev_tx_t greth_start_xmit_gbit(struct sk_buff *skb,
++	   struct net_device *dev);
+ static int greth_rx(struct net_device *dev, int limit);
+ static int greth_rx_gbit(struct net_device *dev, int limit);
+ static void greth_clean_tx(struct net_device *dev);
+@@ -379,7 +381,8 @@ static int greth_close(struct net_device *dev)
+ 	return 0;
+ }
+ 
+-static int greth_start_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t
++greth_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct greth_private *greth = netdev_priv(dev);
+ 	struct greth_bd *bdp;
+@@ -441,7 +444,8 @@ out:
+ }
+ 
+ 
+-static int greth_start_xmit_gbit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t
++greth_start_xmit_gbit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct greth_private *greth = netdev_priv(dev);
+ 	struct greth_bd *bdp;
