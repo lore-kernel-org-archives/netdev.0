@@ -1,90 +1,62 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH]: tipc: Fix oops on send prior to entering networked mode
-Date: Wed, 24 Feb 2010 16:19:19 -0500
-Message-ID: <20100224211919.GD15380@hmsreliant.think-freely.org>
-References: <20100219194033.GA28743@hmsreliant.think-freely.org>
- <29C1DC0826876849BDD9F1C67ABA29430705EF62@ala-mail09.corp.ad.wrs.com>
- <20100223011116.GA2021@localhost.localdomain>
- <29C1DC0826876849BDD9F1C67ABA2943070F0D92@ala-mail09.corp.ad.wrs.com>
- <20100223160936.GA16435@hmsreliant.think-freely.org>
- <29C1DC0826876849BDD9F1C67ABA2943070F0E2E@ala-mail09.corp.ad.wrs.com>
- <20100224185340.GB15380@hmsreliant.think-freely.org>
- <29C1DC0826876849BDD9F1C67ABA2943070F1534@ala-mail09.corp.ad.wrs.com>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH] myri10ge: optimize 4k-boundary check when stocking rx pages
+Date: Wed, 24 Feb 2010 23:11:19 +0100
+Message-ID: <4B85A407.5050800@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jon.maloy@ericsson.com,
-	tipc-discussion@lists.sourceforge.net, davem@davemloft.net
-To: "Stephens, Allan" <allan.stephens@windriver.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Network Development list <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:33234 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758074Ab0BXVTV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2010 16:19:21 -0500
-Content-Disposition: inline
-In-Reply-To: <29C1DC0826876849BDD9F1C67ABA2943070F1534@ala-mail09.corp.ad.wrs.com>
+Received: from mailbox2.myri.com ([64.172.73.26]:1887 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1758042Ab0BXWpN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Feb 2010 17:45:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As noted in my previous note, I'd agreed tht the preiviously posted patches for
-the various tipc patches we encountered were sufficient for the oops at hand.
-This patch closes the race condition thats left open after the application of
-those patches.
+Small optimization to the code which checks to see if we'd cross
+a 4K boundary when stocking RX ring.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Brice Goglin <brice@myri.com>
+Signed-off-by: Andrew Gallatin <gallatin@myri.com>
+Signed-off-by: Guillaume Morin <guillaume@morinfr.org>
 
-
- include/net/tipc/tipc.h |    3 ++-
- net/tipc/net.c          |    8 +++++---
- 2 files changed, 7 insertions(+), 4 deletions(-)
-
-
-diff --git a/include/net/tipc/tipc.h b/include/net/tipc/tipc.h
-index 9566608..14076e9 100644
---- a/include/net/tipc/tipc.h
-+++ b/include/net/tipc/tipc.h
-@@ -54,7 +54,8 @@ u32 tipc_get_addr(void);
+diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
+index c0884a9..03f9fc0 100644
+--- a/drivers/net/myri10ge/myri10ge.c
++++ b/drivers/net/myri10ge/myri10ge.c
+@@ -75,7 +75,7 @@
+ #include "myri10ge_mcp.h"
+ #include "myri10ge_mcp_gen_header.h"
  
- #define TIPC_NOT_RUNNING  0
- #define TIPC_NODE_MODE    1
--#define TIPC_NET_MODE     2
-+#define TIPC_TRANS_MODE	  2
-+#define TIPC_NET_MODE     3
+-#define MYRI10GE_VERSION_STR "1.5.1-1.453"
++#define MYRI10GE_VERSION_STR "1.5.2-1.459"
  
- typedef void (*tipc_mode_event)(void *usr_handle, int mode, u32 addr);
- 
-diff --git a/net/tipc/net.c b/net/tipc/net.c
-index 7906608..daeafe7 100644
---- a/net/tipc/net.c
-+++ b/net/tipc/net.c
-@@ -278,7 +278,7 @@ int tipc_net_start(u32 addr)
- 	tipc_cfg_stop();
- 
- 	tipc_own_addr = addr;
--	tipc_mode = TIPC_NET_MODE;
-+	tipc_mode = TIPC_TRANS_MODE;
- 	tipc_named_reinit();
- 	tipc_port_reinit();
- 
-@@ -295,18 +295,20 @@ int tipc_net_start(u32 addr)
- 	info("Started in network mode\n");
- 	info("Own node address %s, network identity %u\n",
- 	     addr_string_fill(addr_string, tipc_own_addr), tipc_net_id);
-+	tipc_mode = TIPC_NET_MODE;
- 	return 0;
- }
- 
- void tipc_net_stop(void)
+ MODULE_DESCRIPTION("Myricom 10G driver (10GbE)");
+ MODULE_AUTHOR("Maintainer: help@myri.com");
+@@ -1201,6 +1201,9 @@ myri10ge_alloc_rx_pages(struct myri10ge_priv *mgp, struct myri10ge_rx_buf *rx,
  {
--	if (tipc_mode != TIPC_NET_MODE)
-+	if (tipc_mode < TIPC_TRANS_MODE)
+ 	struct page *page;
+ 	int idx;
++#if MYRI10GE_ALLOC_SIZE > 4096
++	int end_offset;
++#endif
+ 
+ 	if (unlikely(rx->watchdog_needed && !watchdog))
  		return;
-+	tipc_mode = TIPC_TRANS_MODE;
- 	write_lock_bh(&tipc_net_lock);
- 	tipc_bearer_stop();
--	tipc_mode = TIPC_NODE_MODE;
- 	tipc_bclink_stop();
- 	net_stop();
-+	tipc_mode = TIPC_NODE_MODE;
- 	write_unlock_bh(&tipc_net_lock);
- 	info("Left network mode \n");
- }
+@@ -1242,9 +1245,9 @@ myri10ge_alloc_rx_pages(struct myri10ge_priv *mgp, struct myri10ge_rx_buf *rx,
+ 
+ #if MYRI10GE_ALLOC_SIZE > 4096
+ 		/* don't cross a 4KB boundary */
+-		if ((rx->page_offset >> 12) !=
+-		    ((rx->page_offset + bytes - 1) >> 12))
+-			rx->page_offset = (rx->page_offset + 4096) & ~4095;
++		end_offset = rx->page_offset + bytes - 1;
++		if ((unsigned)(rx->page_offset ^ end_offset) > 4095)
++			rx->page_offset = end_offset & ~4095;
+ #endif
+ 		rx->fill_cnt++;
+ 
+
+
