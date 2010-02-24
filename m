@@ -1,39 +1,26 @@
-From: =?UTF-8?Q?R=C3=A9mi_Denis-Courmont?= <remi@remlab.net>
-Subject: Re: tuntap with =?UTF-8?Q?tun=5Fno=5Fpi=20and=20X=32=35=20question?=
-Date: Wed, 24 Feb 2010 13:51:44 +0100
-Message-ID: <1bf329b2b4fe8fca4f4ea16874643c11@chewa.net>
-References: <d45a3acc1002240352r43e546c7x4a40aa7d8e187369@mail.gmail.com>
+From: =?iso-8859-1?Q?=A9Web_Unit?= <web3002@singnet.com.sg>
+Subject: Irish 2010 Grant Winner
+Date: Wed, 24 Feb 2010 21:14:12 +0800 (SGT)
+Message-ID: <1267017252.4b8526248ba51@arrowana.singnet.com.sg>
+Reply-To: b_nl1234@hotmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
-To: andrew hendry <andrew.hendry@gmail.com>
+To: info@iris.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:40821 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756844Ab0BXMvp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Feb 2010 07:51:45 -0500
-In-Reply-To: <d45a3acc1002240352r43e546c7x4a40aa7d8e187369@mail.gmail.com>
+Received: from comsmtp2.singnet.com.sg ([165.21.101.75]:40155 "EHLO
+	comsmtp2.singnet.com.sg" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756958Ab0BXNOr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2010 08:14:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Wed, 24 Feb 2010 22:52:27 +1100, andrew hendry <andrew.hendry@gmail.=
-com>=0D
-wrote:=0D
-> The 0x40 and 0x60 comes from the first byte of the IP which has the=0D
-> version there?=0D
-=0D
-Yes.=0D
-=0D
-> With X.25 the first byte changes depending on the call sequence, so i=
-t=0D
-> cant be detected and set in the same way.=0D
-=0D
-Then you need to use PI. That's what it's meant for.=0D
-=0D
--- =0D
-R=C3=A9mi Denis-Courmont=0D
-http://www.remlab.net=0D
-http://fi.linkedin.com/in/remidenis
-
+=A31,000,000Pounds has been awarded to you in the BRITISH PROMO.send yo=
+ur
+Names,,,,,,,,,,,
+Tel,,,,,,,,,,,,,,,,,,
+Age,,,,,,,,,,,,,,,,
+Address,,,,,,,,,,,,
+Occupation,,,,,,,,,,
+Country,,,,,,,,,,,,,,,
+Email:b_nl1234@hotmail.com
