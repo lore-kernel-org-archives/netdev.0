@@ -1,79 +1,50 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next-2.6 PATCH] Preserve queue mapping with bonding and VLAN
-	devices
-Date: Wed, 24 Feb 2010 01:53:12 -0800
-Message-ID: <9929d2391002240153r2c1c73e1x718c69effa90120f@mail.gmail.com>
-References: <33081266938239@webmail48.yandex.ru>
-	 <1266940741.2109.7.camel@achroite.uk.solarflarecom.com>
-	 <68631266953760@webmail134.yandex.ru>
+From: andrew hendry <andrew.hendry@gmail.com>
+Subject: tuntap with tun_no_pi and X25 question
+Date: Wed, 24 Feb 2010 22:52:27 +1100
+Message-ID: <d45a3acc1002240352r43e546c7x4a40aa7d8e187369@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
-To: "Oleg A. Arkhangelsky" <sysoleg@yandex.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f191.google.com ([209.85.216.191]:47957 "EHLO
-	mail-px0-f191.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755578Ab0BXJyZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2010 04:54:25 -0500
-Received: by pxi29 with SMTP id 29so2572005pxi.1
-        for <netdev@vger.kernel.org>; Wed, 24 Feb 2010 01:54:25 -0800 (PST)
-In-Reply-To: <68631266953760@webmail134.yandex.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 23, 2010 at 11:36, "Oleg A. Arkhangelsky" <sysoleg@yandex.r=
-u> wrote:
-> 23.02.10, 15:59, "Ben Hutchings" <bhutchings@solarflare.com>:
->
->> =C2=A0The queue mapping will normally be the same, only no longer bi=
-ased by 1.
->> =C2=A0So I think a better solution would be to maintain that bias on=
- TX as
->> =C2=A0well, or to remove the bias and reserve -1 for unknown RX queu=
-e.
->
-> Second try. Not tested but looks OK.
->
-> Must be applied with "[net-next-2.6 PATCH] Multiqueue support for bon=
-ding devices"
->
-> Forwarded packet goes through dev_queue_xmit() more that once when us=
-ing bonding
-> or 802.1q VLAN devices, so we've lost rx-tx queue mapping index for r=
-eal devices.
-> This is because initial queue index value (as it recorded by skb_reco=
-rd_tx_queue())
-> is overwritten by skb_set_queue_mapping().
->
-> Signed-off-by: Oleg A. Arkhangelsky <sysoleg@yandex.ru>
->
-> ---
-> =C2=A0drivers/net/bnx2.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =
-=C2=A0 =C2=A02 +-
-> =C2=A0drivers/net/bnx2x_main.c =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =C2=A02 =
-+-
-> =C2=A0drivers/net/gianfar.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0=
- =C2=A06 +++---
-> =C2=A0drivers/net/igb/igb_main.c =C2=A0 =C2=A0 | =C2=A0 =C2=A02 +-
-> =C2=A0drivers/net/ixgbe/ixgbe_main.c | =C2=A0 =C2=A06 +++---
-> =C2=A0drivers/net/mlx4/en_tx.c =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =C2=A02 =
-+-
-> =C2=A0drivers/net/niu.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0| =C2=A0 =C2=A02 +-
-> =C2=A0drivers/net/qlge/qlge_main.c =C2=A0 | =C2=A0 =C2=A02 +-
-> =C2=A0drivers/net/s2io.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =
-=C2=A0 =C2=A02 +-
-> =C2=A0include/linux/skbuff.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0 14 =
-++------------
-> =C2=A0net/core/dev.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 | =C2=A0 =C2=A02 +-
-> =C2=A011 files changed, 16 insertions(+), 26 deletions(-)
->
+Setting up tun using X25, I can read X25 from the tun but cannot write
+to it, hitting this -EINVAL on write.
 
-Intel driver changes look fine...
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+/* Get packet from user space buffer */
+static __inline__ ssize_t tun_get_user(struct tun_struct *tun,
+                                       const struct iovec *iv, size_t count,
+                                       int noblock)
+{
 
---=20
-Cheers,
-Jeff
+....
+       case TUN_TUN_DEV:
+                if (tun->flags & TUN_NO_PI) {
+                        switch (skb->data[0] & 0xf0) {
+                        case 0x40:
+                                pi.proto = htons(ETH_P_IP);
+                                break;
+                        case 0x60:
+                                pi.proto = htons(ETH_P_IPV6);
+                                break;
+                        default:
+                                tun->dev->stats.rx_dropped++;
+                                kfree_skb(skb);
+                                return -EINVAL;
+                        }
+                }
+....
+
+The 0x40 and 0x60 comes from the first byte of the IP which has the
+version there?
+With X.25 the first byte changes depending on the call sequence, so it
+cant be detected and set in the same way.
+
+Is there a way to for a combination of TUNSETIFF with IFF_TUN |
+IFF_NO_PI and TUNSETLINK with ARPHRD_X25 to work?
+Probably all the non IP type protocols in if_arp.h have the same issue
+with IFF_NO_PI?
+
+thanks,
+Andrew
