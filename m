@@ -1,59 +1,99 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: RFC: netfilter: nf_conntrack: add support for "conntrack zones"
-Date: Tue, 23 Feb 2010 17:43:10 -0800
-Message-ID: <m1ocjf1k9d.fsf@fess.ebiederm.org>
-References: <4B4F24AC.70105@trash.net> <1263481549.23480.24.camel@bigi>
-	<4B4F3A50.1050400@trash.net> <1263490403.23480.109.camel@bigi>
-	<4B50403A.6010507@trash.net> <1263568754.23480.142.camel@bigi>
-	<m13a0tf17t.fsf@fess.ebiederm.org> <1266875729.3673.12.camel@bigi>
-	<m1wry46es9.fsf@fess.ebiederm.org> <1266931623.3973.643.camel@bigi>
-	<m1iq9ocafv.fsf@fess.ebiederm.org> <1266934817.3973.654.camel@bigi>
-	<m1r5obbu2w.fsf@fess.ebiederm.org> <1266966581.3973.675.camel@bigi>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next 0/7] drivers/net conversions to
+	netdev_<level>, etc
+Date: Tue, 23 Feb 2010 18:33:23 -0800
+Message-ID: <9929d2391002231833j65008a1ev1d2297672a39a483@mail.gmail.com>
+References: <cover.1266893507.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>
-To: hadi@cyberus.ca
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1266966581.3973.675.camel@bigi> (jamal's message of "Tue\, 23 Feb 2010 18\:09\:41 -0500")
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org, John Ronciak <john.ronciak@intel.com>,
+	Brice Goglin <brice@myri.com>, Andrew Gallatin <gallatin@myri.com>,
+	David Miller <davem@davemloft.net>
+To: Joe Perches <joe@perches.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <cover.1266893507.git.joe@perches.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-jamal <hadi@cyberus.ca> writes:
-
-> On Tue, 2010-02-23 at 12:00 -0800, Eric W. Biederman wrote:
->
->> That point of the mount to hold a persistent reference to the
->> namespace without using a process.
->> 
->> The point of the of the to be written set_ns call is to change
->> the default network namespace of the process such that all future
->> open/bind/socket calls happen in the referenced network namespace.
->
-> Ok, i like it ;-> Patches RSN? Let me if you want someone to test..
-
-My target will be 2.6.35.   There is an old prototype implementation
-that hit the containers list and I think netdev a year or so ago.
-
->> The are a few stray places like sysfs where it is the mount point
->> not current->nsproxy->net_ns that will determine what we see.
->
-> Is sysfs considered "usable enough" for namespaces?
-
-Mine is ;) I had a bad cold and didn't get through all of the patches
-this development cycle, just all the prereqs.  I plan on getting that
-final conversation started for as soon as 2.6.34-rc1 hits.
-
->> Attributes of the specific namespace?
->
-> Well, example what is being un/shared etc. 
-
-Got it.  Implementation wise I'm going to stash a pointer
-to the namespace in a inode or super block, simple.
-
-Eric
+T24gTW9uLCBGZWIgMjIsIDIwMTAgYXQgMTg6NTYsIEpvZSBQZXJjaGVzIDxqb2VAcGVyY2hlcy5j
+b20+IHdyb3RlOgo+IFNvbWUgbW9yZSBjb252ZXJzaW9ucyBvZiBkcml2ZXJzIHRvOgo+Cj4gwqAg
+wqBuZXRpZl88bGV2ZWw+Cj4gwqAgwqBuZXRkZXZfPGxldmVsPgo+IMKgIMKgcHJfPGxldmVsPgo+
+Cj4gd2l0aCBzb21lIG90aGVyIG1pbm9yIHVwZGF0ZXMvY29ycmVjdGlvbnMKPiBub3RpY2VkIGR1
+cmluZyBjb252ZXJzaW9ucy4KPgo+IEpvZSBQZXJjaGVzICg3KToKPiDCoGRyaXZlcnMvbmV0L2No
+ZWxzaW86IFVzZSBwcl88bGV2ZWw+LCBuZXRpZl9tc2dfPHR5cGU+Cj4gwqBkcml2ZXJzL25ldC9t
+eXJpMTBnZTogVXNlIHByXzxsZXZlbD4gYW5kIG5ldGRldl88bGV2ZWw+Cj4gwqBkcml2ZXJzL25l
+dC9peGdiZTogVXNlIHByXzxsZXZlbD4gYW5kIG5ldGlmXzxsZXZlbD4KPiDCoGRyaXZlcnMvbmV0
+L2l4Z2I6IFVzZSBwcl88bGV2ZWw+IGFuZCBuZXRkZXZfPGxldmVsPgo+IMKgZHJpdmVycy9uZXQv
+ZTEwMDA6IFVzZSBwcl88bGV2ZWw+IGFuZCBuZXRpZl88bGV2ZWw+Cj4gwqBkcml2ZXJzL25ldC9l
+MTAwMGU6IFVzZSBwcl88bGV2ZWw+IGFuZCBuZXRkZXZfPGxldmVsPgo+IMKgZHJpdmVycy9uZXQv
+aWdiOiBVc2UgbmV0ZGV2XzxsZXZlbD4KPgo+IMKgZHJpdmVycy9uZXQvY2hlbHNpby9jb21tb24u
+aCDCoCDCoCDCoHwgwqAgMjQgKy0tCj4gwqBkcml2ZXJzL25ldC9jaGVsc2lvL2N4Z2IyLmMgwqAg
+wqAgwqAgfCDCoCAxOCArLQo+IMKgZHJpdmVycy9uZXQvY2hlbHNpby9lc3BpLmMgwqAgwqAgwqAg
+wqB8IMKgIMKgNCArLQo+IMKgZHJpdmVycy9uZXQvY2hlbHNpby9wbTMzOTMuYyDCoCDCoCDCoHwg
+wqAgMTYgKy0KPiDCoGRyaXZlcnMvbmV0L2NoZWxzaW8vc2dlLmMgwqAgwqAgwqAgwqAgfCDCoCAx
+MCArLQo+IMKgZHJpdmVycy9uZXQvY2hlbHNpby9zdWJyLmMgwqAgwqAgwqAgwqB8IMKgIDMyICsr
+LS0KPiDCoGRyaXZlcnMvbmV0L2NoZWxzaW8vdnNjNzMyNi5jIMKgIMKgIHwgwqAgMjQgKystLQo+
+IMKgZHJpdmVycy9uZXQvZTEwMDAvZTEwMDAuaCDCoCDCoCDCoCDCoCB8IMKgIDE3IC0tCj4gwqBk
+cml2ZXJzL25ldC9lMTAwMC9lMTAwMF9ldGh0b29sLmMgfCDCoCAzOCArKy0tCj4gwqBkcml2ZXJz
+L25ldC9lMTAwMC9lMTAwMF9ody5jIMKgIMKgIMKgfCDCoDM4MyArKysrKysrKysrKysrKysrKyst
+LS0tLS0tLS0tLS0tLS0tLS0tCj4gwqBkcml2ZXJzL25ldC9lMTAwMC9lMTAwMF9tYWluLmMgwqAg
+wqB8IMKgMjcyICsrKysrKysrKysrKystLS0tLS0tLS0tLS0tCj4gwqBkcml2ZXJzL25ldC9lMTAw
+MC9lMTAwMF9vc2RlcC5oIMKgIHwgwqAgMTQgKy0tCj4gwqBkcml2ZXJzL25ldC9lMTAwMC9lMTAw
+MF9wYXJhbS5jIMKgIHwgwqAxMjEgKysrKysrKy0tLS0tLQo+IMKgZHJpdmVycy9uZXQvZTEwMDBl
+LzgyNTcxLmMgwqAgwqAgwqAgwqB8IMKgIDU3ICsrKystLQo+IMKgZHJpdmVycy9uZXQvZTEwMDBl
+L2UxMDAwLmggwqAgwqAgwqAgwqB8IMKgIDIxIC0tCj4gwqBkcml2ZXJzL25ldC9lMTAwMGUvZXMy
+bGFuLmMgwqAgwqAgwqAgfCDCoCAyNyArKy0tCj4gwqBkcml2ZXJzL25ldC9lMTAwMGUvZXRodG9v
+bC5jIMKgIMKgIMKgfCDCoCAzNyArKy0tCj4gwqBkcml2ZXJzL25ldC9lMTAwMGUvaWNoOGxhbi5j
+IMKgIMKgIMKgfCDCoCA5MCArKysrKy0tLS0KPiDCoGRyaXZlcnMvbmV0L2UxMDAwZS9saWIuYyDC
+oCDCoCDCoCDCoCDCoHwgwqAxMzEgKysrKysrKy0tLS0tLS0KPiDCoGRyaXZlcnMvbmV0L2UxMDAw
+ZS9uZXRkZXYuYyDCoCDCoCDCoCB8IMKgIDk1ICsrKysrLS0tLS0KPiDCoGRyaXZlcnMvbmV0L2Ux
+MDAwZS9wYXJhbS5jIMKgIMKgIMKgIMKgfCDCoCAyMCArLQo+IMKgZHJpdmVycy9uZXQvZTEwMDBl
+L3BoeS5jIMKgIMKgIMKgIMKgIMKgfCDCoDExNCArKysrKystLS0tLS0KPiDCoGRyaXZlcnMvbmV0
+L2lnYi9lMTAwMF84MjU3NS5jIMKgIMKgIHwgwqAgNTggKysrLS0tCj4gwqBkcml2ZXJzL25ldC9p
+Z2IvZTEwMDBfaHcuaCDCoCDCoCDCoCDCoHwgwqAgMTIgKy0KPiDCoGRyaXZlcnMvbmV0L2lnYi9l
+MTAwMF9tYWMuYyDCoCDCoCDCoCB8IMKgIDg0ICsrKystLS0tCj4gwqBkcml2ZXJzL25ldC9pZ2Iv
+ZTEwMDBfbnZtLmMgwqAgwqAgwqAgfCDCoCAyMiArLQo+IMKgZHJpdmVycy9uZXQvaWdiL2UxMDAw
+X3BoeS5jIMKgIMKgIMKgIHwgwqAxMDQgKysrKystLS0tLQo+IMKgZHJpdmVycy9uZXQvaWdiL2ln
+Yi5oIMKgIMKgIMKgIMKgIMKgIMKgIHwgwqAgwqAxIC0KPiDCoGRyaXZlcnMvbmV0L2lnYi9pZ2Jf
+ZXRodG9vbC5jIMKgIMKgIHwgwqAgwqA2ICstCj4gwqBkcml2ZXJzL25ldC9pZ2IvaWdiX21haW4u
+YyDCoCDCoCDCoCDCoHwgwqAgNDMgKystLS0KPiDCoGRyaXZlcnMvbmV0L2l4Z2IvaXhnYi5oIMKg
+IMKgIMKgIMKgIMKgIHwgwqAgwqA4ICstCj4gwqBkcml2ZXJzL25ldC9peGdiL2l4Z2JfZWUuYyDC
+oCDCoCDCoCDCoHwgwqAgMTQgKy0KPiDCoGRyaXZlcnMvbmV0L2l4Z2IvaXhnYl9ody5jIMKgIMKg
+IMKgIMKgfCDCoDE0NyArKysrKystLS0tLS0tLS0KPiDCoGRyaXZlcnMvbmV0L2l4Z2IvaXhnYl9o
+dy5oIMKgIMKgIMKgIMKgfCDCoCAxMiAtLQo+IMKgZHJpdmVycy9uZXQvaXhnYi9peGdiX21haW4u
+YyDCoCDCoCDCoHwgwqAgMzMgKystLQo+IMKgZHJpdmVycy9uZXQvaXhnYi9peGdiX29zZGVwLmgg
+wqAgwqAgfCDCoCAxNiArLS0KPiDCoGRyaXZlcnMvbmV0L2l4Z2IvaXhnYl9wYXJhbS5jIMKgIMKg
+IHwgwqAgMzEgKystLQo+IMKgZHJpdmVycy9uZXQvaXhnYmUvaXhnYmUuaCDCoCDCoCDCoCDCoCB8
+IMKgIMKgNiAtCj4gwqBkcml2ZXJzL25ldC9peGdiZS9peGdiZV9jb21tb24uaCDCoHwgwqAgMTUg
+Ky0KPiDCoGRyaXZlcnMvbmV0L2l4Z2JlL2l4Z2JlX2RjYl9ubC5jIMKgfCDCoCDCoDUgKy0KPiDC
+oGRyaXZlcnMvbmV0L2l4Z2JlL2l4Z2JlX2V0aHRvb2wuYyB8IMKgIDQwICsrKy0tCj4gwqBkcml2
+ZXJzL25ldC9peGdiZS9peGdiZV9mY29lLmMgwqAgwqB8IMKgIDI1ICsrLS0KPiDCoGRyaXZlcnMv
+bmV0L2l4Z2JlL2l4Z2JlX21haW4uYyDCoCDCoHwgwqAxMTAgKysrKystLS0tLS0KPiDCoGRyaXZl
+cnMvbmV0L2l4Z2JlL2l4Z2JlX3BoeS5jIMKgIMKgIHwgwqAgwqAyICsKPiDCoGRyaXZlcnMvbmV0
+L2l4Z2JlL2l4Z2JlX3NyaW92LmMgwqAgfCDCoCAxMSArLQo+IMKgZHJpdmVycy9uZXQvbXlyaTEw
+Z2UvbXlyaTEwZ2UuYyDCoCB8IMKgMTgzICsrKysrKystLS0tLS0tLS0tLQo+IMKgNDYgZmlsZXMg
+Y2hhbmdlZCwgMTIwMiBpbnNlcnRpb25zKCspLCAxMzUxIGRlbGV0aW9ucygtKQo+CgpJIGhhdmUg
+YXBwbGllZCBwYXRjaGVzIDMtNyAodGhlIHBhdGNoZXMgdG8gSW50ZWwgZHJpdmVycykgdG8gbXkg
+cXVldWUKb2YgcGF0Y2hlcyBmb3IgcmV2aWV3IGFuZCB0ZXN0aW5nLgoKLS0gCkNoZWVycywKSmVm
+ZgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkRvd25sb2FkIEludGVsJiMxNzQ7IFBhcmFsbGVsIFN0
+dWRpbyBFdmFsClRyeSB0aGUgbmV3IHNvZnR3YXJlIHRvb2xzIGZvciB5b3Vyc2VsZi4gU3BlZWQg
+Y29tcGlsaW5nLCBmaW5kIGJ1Z3MKcHJvYWN0aXZlbHksIGFuZCBmaW5lLXR1bmUgYXBwbGljYXRp
+b25zIGZvciBwYXJhbGxlbCBwZXJmb3JtYW5jZS4KU2VlIHdoeSBJbnRlbCBQYXJhbGxlbCBTdHVk
+aW8gZ290IGhpZ2ggbWFya3MgZHVyaW5nIGJldGEuCmh0dHA6Ly9wLnNmLm5ldC9zZnUvaW50ZWwt
+c3ctZGV2Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkUx
+MDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQK
+aHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vZTEwMDAtZGV2ZWwK
+VG8gbGVhcm4gbW9yZSBhYm91dCBJbnRlbCYjMTc0OyBFdGhlcm5ldCwgdmlzaXQgaHR0cDovL2Nv
+bW11bml0aWVzLmludGVsLmNvbS9jb21tdW5pdHkvd2lyZWQK
