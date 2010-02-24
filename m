@@ -1,62 +1,114 @@
-From: Brice Goglin <brice@myri.com>
-Subject: [PATCH] myri10ge: optimize 4k-boundary check when stocking rx pages
-Date: Wed, 24 Feb 2010 23:11:19 +0100
-Message-ID: <4B85A407.5050800@myri.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 15379] New: u32 classifier port range
+ calculation error
+Date: Wed, 24 Feb 2010 14:52:20 -0800
+Message-ID: <20100224145220.da5ec0b0.akpm@linux-foundation.org>
+References: <bug-15379-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, reinaldoc@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1887 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758042Ab0BXWpN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Feb 2010 17:45:13 -0500
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:51251 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758042Ab0BXWxE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2010 17:53:04 -0500
+In-Reply-To: <bug-15379-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Small optimization to the code which checks to see if we'd cross
-a 4K boundary when stocking RX ring.
 
-Signed-off-by: Brice Goglin <brice@myri.com>
-Signed-off-by: Andrew Gallatin <gallatin@myri.com>
-Signed-off-by: Guillaume Morin <guillaume@morinfr.org>
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
-index c0884a9..03f9fc0 100644
---- a/drivers/net/myri10ge/myri10ge.c
-+++ b/drivers/net/myri10ge/myri10ge.c
-@@ -75,7 +75,7 @@
- #include "myri10ge_mcp.h"
- #include "myri10ge_mcp_gen_header.h"
- 
--#define MYRI10GE_VERSION_STR "1.5.1-1.453"
-+#define MYRI10GE_VERSION_STR "1.5.2-1.459"
- 
- MODULE_DESCRIPTION("Myricom 10G driver (10GbE)");
- MODULE_AUTHOR("Maintainer: help@myri.com");
-@@ -1201,6 +1201,9 @@ myri10ge_alloc_rx_pages(struct myri10ge_priv *mgp, struct myri10ge_rx_buf *rx,
- {
- 	struct page *page;
- 	int idx;
-+#if MYRI10GE_ALLOC_SIZE > 4096
-+	int end_offset;
-+#endif
- 
- 	if (unlikely(rx->watchdog_needed && !watchdog))
- 		return;
-@@ -1242,9 +1245,9 @@ myri10ge_alloc_rx_pages(struct myri10ge_priv *mgp, struct myri10ge_rx_buf *rx,
- 
- #if MYRI10GE_ALLOC_SIZE > 4096
- 		/* don't cross a 4KB boundary */
--		if ((rx->page_offset >> 12) !=
--		    ((rx->page_offset + bytes - 1) >> 12))
--			rx->page_offset = (rx->page_offset + 4096) & ~4095;
-+		end_offset = rx->page_offset + bytes - 1;
-+		if ((unsigned)(rx->page_offset ^ end_offset) > 4095)
-+			rx->page_offset = end_offset & ~4095;
- #endif
- 		rx->fill_cnt++;
- 
+On Tue, 23 Feb 2010 20:56:09 GMT bugzilla-daemon@bugzilla.kernel.org wrote:
 
+> http://bugzilla.kernel.org/show_bug.cgi?id=15379
+> 
+>            Summary: u32 classifier port range calculation error
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: All (2.6.32 tested)
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: acme@ghostprotocols.net
+>         ReportedBy: reinaldoc@gmail.com
+>         Regression: No
+> 
+> 
+> U32 classifier have a problem on mask calculation of IP port range value.
+> 
+> To reproduce the problem:
+> 
+> ##### MASK CALCULATION FOR PORT RANGE 6880->6911
+> 
+> echo "obase=16;(2^13)-32" | bc
+> 1FE0
+> 
+> Example:
+> 
+> ###### TC SAMPLE RULES
+> tc qdisc del dev eth0 root >/dev/null 2>&1
+> 
+> tc qdisc  add dev eth0 root handle 1: htb default 1100
+> tc class  add dev eth0 root classid 1:1000 htb rate 1000Mbit ceil 1000Mbit
+> tc class  add dev eth0 classid 1:1100 parent 1:1000 htb prio 0 rate 999Mbit
+> ceil 999Mbit
+> tc class  add dev eth0 classid 1:1200 parent 1:1000 htb prio 0 rate 1Mbit  
+> ceil 1Mbit
+> 
+> tc filter add dev eth0 protocol ip prio 1 parent 1: u32 flowid 1:1200 match ip
+> dport 6880 0x1FE0
+> 
+> ###### STATS CLEAN ** success 0
+> tc -s filter show dev eth0
+> filter parent 1: protocol ip pref 1 u32
+> filter parent 1: protocol ip pref 1 u32 fh 800: ht divisor 1
+> filter parent 1: protocol ip pref 1 u32 fh 800::800 order 2048 key ht 800 bkt 0
+> flowid 1:1200  (rule hit 116 success 0)
+>   match 00001ae0/00001fe0 at 20 (success 0 )
+> 
+> ###### SENDING PACKETS I
+> # nmap example.ufpa.br -p 1-10000
+> 
+> ###### STATS I ** success 32 (OK)
+> # tc -s filter show dev eth0
+> filter parent 1: protocol ip pref 1 u32
+> filter parent 1: protocol ip pref 1 u32 fh 800: ht divisor 1
+> filter parent 1: protocol ip pref 1 u32 fh 800::800 order 2048 key ht 800 bkt 0
+> flowid 1:1200  (rule hit 12676 success 32)
+>   match 00001ae0/00001fe0 at 20 (success 32 )
+> 
+> ###### SENDING PACKETS II
+> # nmap example.ufpa.br -p 10000-20000
+> 
+> ###### STATS II ** success 64 (ERROR) - should not match
+> 
+> # tc -s filter show dev eth0
+> filter parent 1: protocol ip pref 1 u32
+> filter parent 1: protocol ip pref 1 u32 fh 800: ht divisor 1
+> filter parent 1: protocol ip pref 1 u32 fh 800::800 order 2048 key ht 800 bkt 0
+> flowid 1:1200  (rule hit 25172 success 64)
+>   match 00001ae0/00001fe0 at 20 (success 64 )
+> 
+> ###### SENDING PACKETS III
+> # nmap example.ufpa.br -p 20000-30000
+> 
+> ###### STATS III ** success 96 (ERROR) - should not match
+> 
+> # tc -s filter show dev eth0
+> filter parent 1: protocol ip pref 1 u32
+> filter parent 1: protocol ip pref 1 u32 fh 800: ht divisor 1
+> filter parent 1: protocol ip pref 1 u32 fh 800::800 order 2048 key ht 800 bkt 0
+> flowid 1:1200  (rule hit 43131 success 96)
+>   match 00001ae0/00001fe0 at 20 (success 96 )
+> 
+> ### End
 
