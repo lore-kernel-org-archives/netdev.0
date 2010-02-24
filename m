@@ -1,36 +1,55 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [net-next-2.6 PATCH] net: convert multiple drivers to use netdev_for_each_mc_addr,
- part5
-Date: Wed, 24 Feb 2010 09:47:24 -0800
-Message-ID: <4B85662C.5090708@caviumnetworks.com>
-References: <20100223190739.GC2673@psychotron.redhat.com> <20100223191258.GD2673@psychotron.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.caviumnetworks.com ([209.113.159.134]:6111 "EHLO
-	smtp2.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757365Ab0BXRr1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2010 12:47:27 -0500
-In-Reply-To: <20100223191258.GD2673@psychotron.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: netfilter 00/08: netfilter update
+Date: Wed, 24 Feb 2010 18:49:27 +0100 (MET)
+Message-ID: <20100224174927.16391.59798.sendpatchset@x2.localnet>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/23/2010 11:12 AM, Jiri Pirko wrote:
-> Oups Dave please scratch this... Found issue in octeon
->
+Hi Dave,
 
-Jiri,
+following is the probably final netfilter update for 2.6.34, containing:
 
-I am happy to test any octeon changes on real hardware.
+- an IPv6 reassembly fix for packets "fragmented" into a single fragment
+  from myself
 
-Also if you directly CC: me, it is more likely I will see any message.
+- an fix for an overflow and a false match in the recent match from Tim Gardner
 
-Thanks,
-David Daney
+- replacement of the xtables iteration macros by a set of new macros behaving
+  more like the regular list iteration macros from Jan
+
+Please apply or pull from:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
+
+Thanks!
 
 
-> Jirka
-[...]
+ include/linux/netfilter/x_tables.h        |   17 ++
+ include/linux/netfilter_arp/arp_tables.h  |   10 +-
+ include/linux/netfilter_ipv4/ip_tables.h  |   15 +-
+ include/linux/netfilter_ipv6/ip6_tables.h |   14 +-
+ net/ipv4/netfilter/arp_tables.c           |  301 +++++++++-----------
+ net/ipv4/netfilter/ip_tables.c            |  436 ++++++++++++++---------------
+ net/ipv6/netfilter/ip6_tables.c           |  436 ++++++++++++++---------------
+ net/ipv6/netfilter/nf_conntrack_reasm.c   |    8 +-
+ net/netfilter/xt_TCPMSS.c                 |   12 +-
+ net/netfilter/xt_recent.c                 |    4 +-
+ 10 files changed, 597 insertions(+), 656 deletions(-)
+
+Jan Engelhardt (5):
+      netfilter: xtables: replace XT_ENTRY_ITERATE macro
+      netfilter: xtables: optimize call flow around xt_entry_foreach
+      netfilter: xtables: replace XT_MATCH_ITERATE macro
+      netfilter: xtables: optimize call flow around xt_ematch_foreach
+      netfilter: xtables: reduce arguments to translate_table
+
+Patrick McHardy (1):
+      netfilter: nf_conntrack_reasm: properly handle packets fragmented into a single fragment
+
+Tim Gardner (2):
+      netfilter: xt_recent: fix buffer overflow
+      netfilter: xt_recent: fix false match
