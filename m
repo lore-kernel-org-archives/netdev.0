@@ -1,63 +1,99 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH]: tipc: Fix oops on send prior to entering networked mode
-Date: Wed, 24 Feb 2010 20:42:07 -0500
-Message-ID: <20100225014207.GB10527@localhost.localdomain>
-References: <29C1DC0826876849BDD9F1C67ABA2943070F0E2E@ala-mail09.corp.ad.wrs.com>
- <20100224185340.GB15380@hmsreliant.think-freely.org>
- <29C1DC0826876849BDD9F1C67ABA2943070F1534@ala-mail09.corp.ad.wrs.com>
- <20100224.173436.212403104.davem@davemloft.net>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: [RFC PATCH] accounting for socket backlog
+Date: Thu, 25 Feb 2010 11:13:13 +0800
+Message-ID: <1267067593.16986.1583.camel@debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: allan.stephens@windriver.com, netdev@vger.kernel.org,
-	jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:41720 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758711Ab0BYBmO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2010 20:42:14 -0500
-Content-Disposition: inline
-In-Reply-To: <20100224.173436.212403104.davem@davemloft.net>
+Received: from mga02.intel.com ([134.134.136.20]:38324 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758718Ab0BYDMH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Feb 2010 22:12:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 24, 2010 at 05:34:36PM -0800, David Miller wrote:
-> From: "Stephens, Allan" <allan.stephens@windriver.com>
-> Date: Wed, 24 Feb 2010 11:05:12 -0800
-> 
-> > Have you tried upgrading your system to use TIPC 1.7.6 (available at
-> > http://tipc.sourceforge.net/tipc_linux.html)?  This is a significant
-> > revised and enhanced version of TIPC that hasn't yet made its way into
-> > mainsteam Linux, and seems to be the version-of-choice for most TIPC
-> > users.  It also appears to avoid a number of the issues that currently
-> > exist in TIPC 1.6, including the one caused by the random configuration
-> > command you mentioned in your email below.
-> > 
-> > I didn't have a problem with you working on a small patch for TIPC 1.6
-> > to get around a limited problem, but I'd hate to see you waste time on
-> > fixing issues that have already been addressed in TIPC 1.7.
-> 
-> Why is the TIPC kernel protocol code being developed out of tree
-> instead of directly upstream?
-> 
-> Regardless of that, if the code is in the kernel tree and it can be
-> OOPS'd, we must fix it.
-> 
-Agreed, with a combination of:
-1) The patch which Allan posted to check tipc_net.zone and tipc_local_nodes for
-being NULL in tipc_select_node
+Hi,
 
-2) The patch that I asked Allan to extract from the sourceforge package which
-adds checks for TIPC_NET_MODE in the appropriate places
+We got system OOM while running some UDP netperf testing on the loopback
+device. The case is multiple senders sent stream UDP packets to a single
+receiver via loopback on local host. Of course, the receiver is not able
+to handle all the packets in time. But we surprisingly found that these
+packets were not discarded due to the receiver's sk->sk_rcvbuf limit.
+Instead, they are kept queuing to sk->sk_backlog and finally ate up all
+the memory. We believe this is a secure hole that a none privileged user
+can crash the system.
 
-3) The patch I posted to close the race in the setting of tipc_mode
+The root cause for this problem is, when the receiver is doing
+__release_sock() (i.e. after userspace recv, kernel udp_recvmsg ->
+skb_free_datagram_locked -> release_sock), it moves skbs from backlog to
+sk_receive_queue with the softirq enabled. In the above case, multiple
+busy senders will almost make it an endless loop. The skbs in the
+backlog end up eat all the system memory.
 
-we should fix all the oopses I've found so far.
+The patch fixed this problem by adding accounting for the socket
+backlog. So that the backlog size can be restricted by protocol's choice
+(i.e. UDP).
 
-Ideally it would seem what would be most appropriate would be to wholesale
-import tipc 1.7.6 from sourceforge to the kernel to get all the fixes that have
-gone in there.  That seems like its been waiting in the wings for over a year
-now.
+Signed-off-by: Zhu Yi <yi.zhu@intel.com>
+---
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 3f1a480..2e003b9 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -253,6 +253,7 @@ struct sock {
+ 	struct {
+ 		struct sk_buff *head;
+ 		struct sk_buff *tail;
++		atomic_t len;
+ 	} sk_backlog;
+ 	wait_queue_head_t	*sk_sleep;
+ 	struct dst_entry	*sk_dst_cache;
+@@ -583,11 +584,13 @@ static inline void sk_add_backlog(struct sock *sk, struct sk_buff *skb)
+ 		sk->sk_backlog.tail->next = skb;
+ 		sk->sk_backlog.tail = skb;
+ 	}
++	atomic_add(skb->truesize, &sk->sk_backlog.len);
+ 	skb->next = NULL;
+ }
+ 
+ static inline int sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+ {
++	atomic_sub(skb->truesize, &sk->sk_backlog.len);
+ 	return sk->sk_backlog_rcv(sk, skb);
+ }
+ 
+diff --git a/net/core/sock.c b/net/core/sock.c
+index e1f6f22..3b988f2 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1138,6 +1138,7 @@ struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
+ 		sock_lock_init(newsk);
+ 		bh_lock_sock(newsk);
+ 		newsk->sk_backlog.head	= newsk->sk_backlog.tail = NULL;
++		atomic_set(&newsk->sk_backlog.len, 0);
+ 
+ 		atomic_set(&newsk->sk_rmem_alloc, 0);
+ 		/*
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index f0126fd..e019067 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1372,8 +1372,13 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 	bh_lock_sock(sk);
+ 	if (!sock_owned_by_user(sk))
+ 		rc = __udp_queue_rcv_skb(sk, skb);
+-	else
++	else {
++		if (atomic_read(&sk->sk_backlog.len) >= sk->sk_rcvbuf) {
++			bh_unlock_sock(sk);
++			goto drop;
++		}
+ 		sk_add_backlog(sk, skb);
++	}
+ 	bh_unlock_sock(sk);
+ 
+ 	return rc;
 
-Neil
 
