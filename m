@@ -1,73 +1,35 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [ethtool PATCH] ethtool: Support n-tuple filter programming
-Date: Wed, 24 Feb 2010 23:04:23 -0800 (Pacific Standard Time)
-Message-ID: <Pine.WNT.4.64.1002242258160.42728@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <20100204075101.16661.95658.stgit@localhost.localdomain>
- <4B85F173.40703@garzik.org>
+From: Or Gerlitz <ogerlitz-hKgKHo2Ms0FWk0Htik3J/w@public.gmane.org>
+Subject: Re: [net-next-2.6 PATCH] infiniband: convert to use	netdev_for_each_mc_addr
+Date: Thu, 25 Feb 2010 10:00:07 +0200
+Message-ID: <4B862E07.7020002@Voltaire.com>
+References: <20100224151108.GD2663@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:23727 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752077Ab0BYHEo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Feb 2010 02:04:44 -0500
-In-Reply-To: <4B85F173.40703@garzik.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100224151108.GD2663-YzwxZg+R7evMbnheQZGK0N5OCZ2W11yPFxja6HXR22MAvxtiuMwx3w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 24 Feb 2010, Jeff Garzik wrote:
+Jiri Pirko wrote:
+> --- a/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
+> +++ b/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
+> @@ -767,11 +767,8 @@ void ipoib_mcast_dev_flush(struct net_device *dev)
+> -static int ipoib_mcast_addr_is_valid(const u8 *addr, unsigned int addrlen,
+> -				     const u8 *broadcast)
+> +static int ipoib_mcast_addr_is_valid(const u8 *addr, const u8 *broadcast)
+>  {
+> -	if (addrlen != INFINIBAND_ALEN)
+> -		return 0;
 
-> On 02/04/2010 02:51 AM, Jeff Kirsher wrote:
-> > From: Peter Waskiewicz<peter.p.waskiewicz.jr@intel.com>
-> >
-> > Program underlying ethernet devices with n-tuple flow classification
-> > filters.
-> >
-> > This also adds a new flag to ethtool_flags, allowing n-tuple
-> > programming to be toggled using the set_flags call.
-> >
-> > Signed-off-by: Peter P Waskiewicz Jr<peter.p.waskiewicz.jr@intel.com>
-> > Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
-> > ---
-> >
-> >   ethtool-copy.h |   35 +++++++++++++
-> >   ethtool.c      |  156 ++++++++++++++++++++++++++++++++++++++++++++++++++++++--
-> >   2 files changed, 186 insertions(+), 5 deletions(-)
-> 
-> applied, but two problems remain:
-> 
-> 1) you failed to document this in the man page.  I will expect a patch 
-> to ethtool.8.
+This check was added by commit 5e47596b "IPoIB: Check multicast address format", may I ask what is the reason for removing it now?
 
-And you shall have it shortly.  My bad.
-
-> 
-> 2) you introduced a deviation from the upstream kernel ethtool.h:
-
-I see what happened.  We moved those two entries in ethtool.h into the 
-#ifdef __KERNEL__ section.  I can create a patch for the kernel ethtool.h 
-to move them back to match userspace if that is what folks want.
-
-> 
-> 
-> --- ethtool-copy.h      2010-02-24 22:39:21.000000000 -0500
-> +++ ../net-next-2.6/include/linux/ethtool.h     2010-02-24 
-> 22:14:43.000000000 -0500
-> @@ -389,8 +389,6 @@
->   #define ETHTOOL_RXNTUPLE_ACTION_DROP -1
->   };
-> 
-> -#define ETHTOOL_MAX_NTUPLE_LIST_ENTRY 1024
-> -#define ETHTOOL_MAX_NTUPLE_STRING_PER_ENTRY 14
->   struct ethtool_rx_ntuple {
->          __u32                                   cmd;
->          struct ethtool_rx_ntuple_flow_spec      fs;
-> 
-> 
-> 
+Or.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
