@@ -1,64 +1,92 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
-Date: Thu, 25 Feb 2010 22:31:49 +0100
-Message-ID: <4B86EC45.3060005@free.fr>
-References: <4B4F24AC.70105@trash.net> <1263481549.23480.24.camel@bigi>	<4B4F3A50.1050400@trash.net> <1263490403.23480.109.camel@bigi>	<4B50403A.6010507@trash.net> <1263568754.23480.142.camel@bigi>	<m13a0tf17t.fsf@fess.ebiederm.org> <1266875729.3673.12.camel@bigi>	<m1wry46es9.fsf@fess.ebiederm.org> <1266931623.3973.643.camel@bigi>	<m1iq9ocafv.fsf@fess.ebiederm.org> <1266934817.3973.654.camel@bigi>	<m1r5obbu2w.fsf@fess.ebiederm.org> <1266966581.3973.675.camel@bigi> <m1pr3t2fvl.fsf_-_@fess.ebiederm.org>
+From: Alex Chiang <achiang@hp.com>
+Subject: Re: [PATCH] Export smbios strings associated with onboard devices
+	to sysfs
+Date: Thu, 25 Feb 2010 14:40:20 -0700
+Message-ID: <20100225214020.GA15010@ldl.fc.hp.com>
+References: <20100225202941.GA19404@mock.linuxdev.us.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.uk.ibm.com ([194.196.100.166]:60384 "EHLO
-	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933805Ab0BYVby (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 16:31:54 -0500
-In-Reply-To: <m1pr3t2fvl.fsf_-_@fess.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
+	linux-pci@vger.kernel.org, matt_domsch@dell.com,
+	jordan_hargrave@dell.com, sandeep_k_shandilya@dell.com,
+	charles_rose@dell.com, shyam_iyer@dell.com
+To: Narendra K <Narendra_K@dell.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100225202941.GA19404@mock.linuxdev.us.dell.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> Introduce two new system calls:
-> int nsfd(pid_t pid, unsigned long nstype);
-> int setns(unsigned long nstype, int fd);
->
-> These two new system calls address three specific problems that can
-> make namespaces hard to work with.
-> - Namespaces require a dedicated process to pin them in memory.
-> - It is not possible to use a namespace unless you are the
->   child of the original creator.
-> - Namespaces don't have names that userspace can use to talk
->   about them.
->
-> The nsfd() system call returns a file descriptor that can
-> be used to talk about a specific namespace, and to keep
-> the specified namespace alive.
->
-> The fd returned by nsfd() can be bind mounted as:
-> mount --bind /proc/self/fd/N /some/filesystem/path
-> to keep the namespace alive indefinitely as long as
-> it is mounted.
->
-> open works on the fd returned by nsfd() so another
-> process can get a hold of it and do interesting things.
->
-> Overall that allows for persistent naming of namespaces
-> according to userspace policy.
->
-> setns() allows changing the namespace of the current process
-> to a namespace that originates with nsfd().
->
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-> ---
->   
+* Narendra K <Narendra_K@dell.com>:
+> 
+> * We have been having discussions in the netdev list about
+> creating multiple names for the network interfaces to bring
+> determinism into the way network interfaces are named in the
+> OSes. In specific, "eth0 in the OS does not always map to the
+> integrated NIC Gb1 as labelled on the chassis".  
 
-Is it planned to support all the namespaces for 'nsfd' ?
- I mean will it be possible to specify an Or'ed combination of nstype to 
-grab a reference for several namespaces at a time of the targeted process ?
+Yes, I agree that this is a real problem that we do not handle
+well today.
 
-for example : nsfd( 1234, NSTYPE_NET | NSTYPE_IPC, NSTYPE_MNT)
+> 1.Export smbios strings of onboard devices, to sysfs. For example -
+> 
+> cat /sys/class/net/eth0/device/smbiosname
+> Embedded NIC 2
+> 
+> cat  /sys/bus/pci/devices/0000\:03\:00.0/smbiosname
+> Embedded NIC 2
+
+I agree with this concept, but I don't like the interface.
+
+The name "smbiosname" isn't the proper level of abstraction. We
+don't want users to care what firmware standard is providing the
+name (think smbios vs acpi vs open firmware...).
+
+We learned this lesson with exposing ACPI interfaces. Let's not
+make the same mistake here.
+
+Something like "firmwarename", "fwname", "platformname" etc. is
+generic, and then the interface will make sense for platforms
+that do not implement SMBIOS.
+
+I don't particularly care which name you choose as long as it's
+properly generic.
+
+As far as implementation goes, I've been thinking about this
+problem for a while now, and I keep wanting to use the
+pci_create_slot() API, but am still a little on the fence about
+it.
+
+The pros:
+	- all you have to do is write a simple little driver that
+	  can read SMBIOS to get PCI bus:devfn and the name, and
+	  then you call pci_create_slot(). Then you get all sorts
+	  of stuff for free, like sysfs exposure, proper
+	  refcounting (important given that the PCI logical
+	  hotplug interface (/sys/bus/pci/rescan and friends) can
+	  be used to remove onboard devices), etc.
+
+	- see drivers/acpi/pci_slot.c for an example of how to
+	  detect slots and then register them.
+
+The cons:
+	- the user interface is /sys/bus/pci/slots/<name>
+
+	I don't know if that is an appropriate interface, since
+	technically an onboard device isn't in a slot. But maybe
+	if you did something like:
+
+		/sys/bus/pci/slots/onboard0
+		/sys/bus/pci/slots/onboard1
+	
+	that might make sense.
+
+	Or...
+		/sys/bus/pci/onboard/<name>
+
+I read through the patch, but given that the implementation
+strategy might change based on my comments, will hold off and see
+how the conversation develops.
+
+Thanks,
+/ac
