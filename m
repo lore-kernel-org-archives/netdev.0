@@ -1,186 +1,112 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCHv2] can: ti hecc module : add platform specific
-	initialization callback.
-Date: Thu, 25 Feb 2010 19:00:24 +0100
-Message-ID: <4B86BAB8.8090603@pengutronix.de>
-References: <1267118802-19263-1-git-send-email-srk@ti.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH 4/7] pci: Add VPD information field helper functions
+Date: Thu, 25 Feb 2010 10:19:19 -0800
+Message-ID: <1267121962-6077-5-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1409634064=="
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Sriramakrishnan <srk-l0cyMroinI0@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1267118802-19263-1-git-send-email-srk-l0cyMroinI0@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-pci@vger.kernel.org, netdev@vger.kernel.org,
+	andy@greyhouse.net, mcarlson@broadcom.com,
+	"Michael Chan" <mchan@broadcom.com>
+To: jbarnes@virtuousgeek.org
+Return-path: <linux-pci-owner@vger.kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============1409634064==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig4833F621162261436612D2CE"
+This patch adds a preprocessor constant to describe the PCI VPD
+information field header size and an inline function to extract the
+size of the information field itself.
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig4833F621162261436612D2CE
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/bnx2.c      |   11 ++++++-----
+ drivers/net/tg3.c       |    7 ++++---
+ include/linux/pci-vpd.h |    6 ++++++
+ 3 files changed, 16 insertions(+), 8 deletions(-)
 
-Sriramakrishnan wrote:
-> CAN module on AM3517 requires programming of IO expander as part
-> of init sequence - to enable CAN PHY. Added platform specific
-> callback to handle phy control(switch on /off).
->=20
-> Signed-off-by: Sriramakrishnan <srk-l0cyMroinI0@public.gmane.org>
-
-looks good, just minor nitpicking inline
-
-Cheers, Marc
-
-> ---
-> Modified as per review comments received.
->=20
->  drivers/net/can/ti_hecc.c            |   15 ++++++++++++++-
->  include/linux/can/platform/ti_hecc.h |    3 ++-
->  2 files changed, 16 insertions(+), 2 deletions(-)
->=20
-> diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
-> index df27d82..871a3fe 100644
-> --- a/drivers/net/can/ti_hecc.c
-> +++ b/drivers/net/can/ti_hecc.c
-> @@ -28,9 +28,11 @@
->   *         .mbx_offset             =3D 0x2000,
->   *         .int_line               =3D 0,
->   *         .revision               =3D 1,
-> + *         .transceiver_switch     =3D hecc_phy_control,
->   * };
->   *
-> - * Please see include/can/platform/ti_hecc.h for description of above =
-fields
-> + * Please see include/linux/can/platform/ti_hecc.h for description of
-> + * above fields.
->   *
->   */
-> =20
-> @@ -220,6 +222,7 @@ struct ti_hecc_priv {
->  	u32 tx_head;
->  	u32 tx_tail;
->  	u32 rx_next;
-> +	void (*transceiver_switch)(int);
->  };
-> =20
->  static inline int get_tx_head_mb(struct ti_hecc_priv *priv)
-> @@ -317,6 +320,13 @@ static int ti_hecc_set_btc(struct ti_hecc_priv *pr=
-iv)
->  	return 0;
->  }
-> =20
-> +static void ti_hecc_transceiver_switch(const struct ti_hecc_priv *priv=
-,
-> +					int on)
-> +{
-> +	if (priv->transceiver_switch)
-> +		priv->transceiver_switch(on);
-> +}
-> +
->  static void ti_hecc_reset(struct net_device *ndev)
->  {
->  	u32 cnt;
-> @@ -824,6 +834,7 @@ static int ti_hecc_open(struct net_device *ndev)
->  		return err;
->  	}
-> =20
-> +	ti_hecc_transceiver_switch(priv, 1);
->  	ti_hecc_start(ndev);
->  	napi_enable(&priv->napi);
->  	netif_start_queue(ndev);
-> @@ -840,6 +851,7 @@ static int ti_hecc_close(struct net_device *ndev)
->  	ti_hecc_stop(ndev);
->  	free_irq(ndev->irq, ndev);
->  	close_candev(ndev);
-> +	ti_hecc_transceiver_switch(priv, 0);
-
-nitpick: it's not symetric to the _start function.
-
-> =20
->  	return 0;
->  }
-> @@ -901,6 +913,7 @@ static int ti_hecc_probe(struct platform_device *pd=
-ev)
->  	priv->hecc_ram_offset =3D pdata->hecc_ram_offset;
->  	priv->mbx_offset =3D pdata->mbx_offset;
->  	priv->int_line =3D pdata->int_line;
-> +	priv->transceiver_switch =3D pdata->transceiver_switch;
-> =20
->  	priv->can.bittiming_const =3D &ti_hecc_bittiming_const;
->  	priv->can.do_set_mode =3D ti_hecc_do_set_mode;
-> diff --git a/include/linux/can/platform/ti_hecc.h b/include/linux/can/p=
-latform/ti_hecc.h
-> index 4688c7b..825bc6a 100644
-> --- a/include/linux/can/platform/ti_hecc.h
-> +++ b/include/linux/can/platform/ti_hecc.h
-> @@ -23,6 +23,7 @@
->   * @mbx_offset:		Mailbox RAM offset
->   * @int_line:		Interrupt line to use - 0 or 1
->   * @version:		version for future use
-> + * @transceiver_switch  platform specific callback fn for transceiver =
-control
-                         ^^
-nitpick:
-these are spaces, but the other lines use tabs
-
->   *
->   * Platform data structure to get all platform specific settings.
->   * this structure also accounts the fact that the IP may have differen=
-t
-> @@ -35,6 +36,6 @@ struct ti_hecc_platform_data {
->  	u32 mbx_offset;
->  	u32 int_line;
->  	u32 version;
-> +	void (*transceiver_switch) (int);
->  };
-> =20
-> -
-
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig4833F621162261436612D2CE
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iEYEARECAAYFAkuGurwACgkQjTAFq1RaXHNz+gCeKMtqDdkELjAJO8rV1XWUTbev
-4ckAoJfY5C5aHI4mJ6eYF4co9j1fRIqf
-=jENa
------END PGP SIGNATURE-----
-
---------------enig4833F621162261436612D2CE--
-
---===============1409634064==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============1409634064==--
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 2de3576..c3e5182 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -7775,14 +7775,15 @@ bnx2_read_vpd_fw_ver(struct bnx2 *bp)
+ 			goto vpd_done;
+ 
+ 		while (i < (block_end - 2)) {
+-			int len = data[i + 2];
++			int len = pci_vpd_info_field_size(&data[i]);
+ 
+-			if (i + 3 + len > block_end)
++			if (i + PCI_VPD_INFO_FLD_HDR_SIZE + len > block_end)
+ 				goto vpd_done;
+ 
+ 			if (data[i] == 'M' && data[i + 1] == 'N') {
+ 				if (len != 4 ||
+-				    memcmp(&data[i + 3], "1028", 4))
++				    memcmp(&data[i + PCI_VPD_INFO_FLD_HDR_SIZE],
++					   "1028", 4))
+ 					goto vpd_done;
+ 				mn_match = true;
+ 
+@@ -7791,9 +7792,9 @@ bnx2_read_vpd_fw_ver(struct bnx2 *bp)
+ 					goto vpd_done;
+ 
+ 				v0_len = len;
+-				v0_str = &data[i + 3];
++				v0_str = &data[i + PCI_VPD_INFO_FLD_HDR_SIZE];
+ 			}
+-			i += 3 + len;
++			i += PCI_VPD_INFO_FLD_HDR_SIZE + len;
+ 
+ 			if (mn_match && v0_str) {
+ 				memcpy(bp->fw_version, v0_str, v0_len);
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index eaf178b..500a145 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -12498,9 +12498,9 @@ static void __devinit tg3_read_partno(struct tg3 *tp)
+ 		while (i < (block_end - 2)) {
+ 			if (vpd_data[i + 0] == 'P' &&
+ 			    vpd_data[i + 1] == 'N') {
+-				int partno_len = vpd_data[i + 2];
++				int partno_len = pci_vpd_info_field_size(&vpd_data[i]);
+ 
+-				i += 3;
++				i += PCI_VPD_INFO_FLD_HDR_SIZE;
+ 				if (partno_len > TG3_BPN_SIZE ||
+ 				    (partno_len + i) > TG3_NVM_VPD_LEN)
+ 					goto out_not_found;
+@@ -12511,7 +12511,8 @@ static void __devinit tg3_read_partno(struct tg3 *tp)
+ 				/* Success. */
+ 				return;
+ 			}
+-			i += 3 + vpd_data[i + 2];
++			i += PCI_VPD_INFO_FLD_HDR_SIZE +
++			     pci_vpd_info_field_size(&vpd_data[i]);
+ 		}
+ 
+ 		/* Part number not found. */
+diff --git a/include/linux/pci-vpd.h b/include/linux/pci-vpd.h
+index 04eb87e..ebde9b9 100644
+--- a/include/linux/pci-vpd.h
++++ b/include/linux/pci-vpd.h
+@@ -38,6 +38,7 @@
+ 
+ #define PCI_VPD_LRDT_TAG_SIZE		3
+ #define PCI_VPD_SRDT_TAG_SIZE		1
++#define PCI_VPD_INFO_FLD_HDR_SIZE	3
+ 
+ static inline u16 pci_vpd_lrdt_size(u8 *lrdt)
+ {
+@@ -51,4 +52,9 @@ static inline u8 pci_vpd_srdt_size(u8 *srdt)
+ 
+ int pci_vpd_find_tag(u8 *data, unsigned int start, unsigned int len, u8 tagid);
+ 
++static inline u8 pci_vpd_info_field_size(u8 *info_field)
++{
++	return info_field[2];
++}
++
+ #endif /* LINUX_PCI_VPD_H */
+-- 
+1.6.4.4
