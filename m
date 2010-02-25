@@ -1,96 +1,82 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 6/6] cnic: Update version to 2.1.1.
-Date: Wed, 24 Feb 2010 16:42:09 -0800
-Message-ID: <1267058529-18454-6-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net-next 2/6] cnic: Finetune iSCSI connection reset.
+Date: Wed, 24 Feb 2010 16:42:05 -0800
+Message-ID: <1267058529-18454-2-git-send-email-mchan@broadcom.com>
 References: <1267058529-18454-1-git-send-email-mchan@broadcom.com>
- <1267058529-18454-2-git-send-email-mchan@broadcom.com>
- <1267058529-18454-3-git-send-email-mchan@broadcom.com>
- <1267058529-18454-4-git-send-email-mchan@broadcom.com>
- <1267058529-18454-5-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2833 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3608 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758668Ab0BYAcn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Feb 2010 19:32:43 -0500
-In-Reply-To: <1267058529-18454-5-git-send-email-mchan@broadcom.com>
+	id S1758688Ab0BYAct (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Feb 2010 19:32:49 -0500
+In-Reply-To: <1267058529-18454-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-And update copyright to 2010.
+From: Eddie Wai <waie@broadcom.com>
 
+For bnx2 devices, always send notification to bnx2i to let it initiate
+the cleanup when RST is received.
+
+For bnx2x devices, add unsolicited RST_COMP handling to start the cleanup.
+
+Signed-off-by: Eddie Wai <waie@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Benjamin Li <benli@broadcom.com>
 ---
- drivers/net/cnic.c      |    2 +-
- drivers/net/cnic.h      |    2 +-
- drivers/net/cnic_defs.h |    2 +-
- drivers/net/cnic_if.h   |    6 +++---
- 4 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/cnic.c |   21 ++++++++++++++++-----
+ 1 files changed, 16 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-index 463408f..9781942 100644
+index 0fe8371..40865aa 100644
 --- a/drivers/net/cnic.c
 +++ b/drivers/net/cnic.c
-@@ -1,6 +1,6 @@
- /* cnic.c: Broadcom CNIC core network driver.
-  *
-- * Copyright (c) 2006-2009 Broadcom Corporation
-+ * Copyright (c) 2006-2010 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-diff --git a/drivers/net/cnic.h b/drivers/net/cnic.h
-index d566390..a0d853d 100644
---- a/drivers/net/cnic.h
-+++ b/drivers/net/cnic.h
-@@ -1,6 +1,6 @@
- /* cnic.h: Broadcom CNIC core network driver.
-  *
-- * Copyright (c) 2006-2009 Broadcom Corporation
-+ * Copyright (c) 2006-2010 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-diff --git a/drivers/net/cnic_defs.h b/drivers/net/cnic_defs.h
-index 9827b27..7ce694d 100644
---- a/drivers/net/cnic_defs.h
-+++ b/drivers/net/cnic_defs.h
-@@ -1,7 +1,7 @@
+@@ -3108,7 +3108,10 @@ static void cnic_cm_process_kcqe(struct cnic_dev *dev, struct kcqe *kcqe)
+ 		break;
  
- /* cnic.c: Broadcom CNIC core network driver.
-  *
-- * Copyright (c) 2006-2009 Broadcom Corporation
-+ * Copyright (c) 2006-2010 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-diff --git a/drivers/net/cnic_if.h b/drivers/net/cnic_if.h
-index 8aaf98b..110c620 100644
---- a/drivers/net/cnic_if.h
-+++ b/drivers/net/cnic_if.h
-@@ -1,6 +1,6 @@
- /* cnic_if.h: Broadcom CNIC core network driver.
-  *
-- * Copyright (c) 2006 Broadcom Corporation
-+ * Copyright (c) 2006-2010 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -12,8 +12,8 @@
- #ifndef CNIC_IF_H
- #define CNIC_IF_H
+ 	case L4_KCQE_OPCODE_VALUE_RESET_RECEIVED:
+-		if (test_and_clear_bit(SK_F_OFFLD_COMPLETE, &csk->flags))
++		if (test_bit(CNIC_F_BNX2_CLASS, &dev->flags)) {
++			cnic_cm_upcall(cp, csk, opcode);
++			break;
++		} else if (test_and_clear_bit(SK_F_OFFLD_COMPLETE, &csk->flags))
+ 			csk->state = opcode;
+ 		/* fall through */
+ 	case L4_KCQE_OPCODE_VALUE_CLOSE_COMP:
+@@ -3172,6 +3175,16 @@ static int cnic_ready_to_close(struct cnic_sock *csk, u32 opcode)
+ 		if (!test_and_set_bit(SK_F_CLOSING, &csk->flags))
+ 			return 1;
+ 	}
++	/* 57710+ only  workaround to handle unsolicited RESET_COMP
++	 * which will be treated like a RESET RCVD notification
++	 * which triggers the clean up procedure
++	 */
++	else if (opcode == L4_KCQE_OPCODE_VALUE_RESET_COMP) {
++		if (!test_and_set_bit(SK_F_CLOSING, &csk->flags)) {
++			csk->state = L4_KCQE_OPCODE_VALUE_RESET_RECEIVED;
++			return 1;
++		}
++	}
+ 	return 0;
+ }
  
--#define CNIC_MODULE_VERSION	"2.1.0"
--#define CNIC_MODULE_RELDATE	"Oct 10, 2009"
-+#define CNIC_MODULE_VERSION	"2.1.1"
-+#define CNIC_MODULE_RELDATE	"Feb 22, 2010"
+@@ -3181,10 +3194,8 @@ static void cnic_close_bnx2_conn(struct cnic_sock *csk, u32 opcode)
+ 	struct cnic_local *cp = dev->cnic_priv;
  
- #define CNIC_ULP_RDMA		0
- #define CNIC_ULP_ISCSI		1
+ 	clear_bit(SK_F_CONNECT_START, &csk->flags);
+-	if (cnic_ready_to_close(csk, opcode)) {
+-		cnic_close_conn(csk);
+-		cnic_cm_upcall(cp, csk, opcode);
+-	}
++	cnic_close_conn(csk);
++	cnic_cm_upcall(cp, csk, opcode);
+ }
+ 
+ static void cnic_cm_stop_bnx2_hw(struct cnic_dev *dev)
 -- 
 1.6.4.GIT
 
