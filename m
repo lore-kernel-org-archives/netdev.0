@@ -1,46 +1,112 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: Gianfar driver failing on MPC8641D based board
-Date: Thu, 25 Feb 2010 19:51:41 +0300
-Message-ID: <20100225165141.GA9686@oksana.dev.rtsoft.ru>
-References: <4B6C2488.3060403@ge.com>
- <4B865176.7080806@ge.com>
- <4B86A97E.6050509@ge.com>
-Reply-To: avorontsov@ru.mvista.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linuxppc-dev list <linuxppc-dev@ozlabs.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>,
-	davem@davemloft.net, Kumar Gala <galak@kernel.crashing.org>
-To: Martyn Welch <martyn.welch@ge.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4B86A97E.6050509@ge.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sriramakrishnan <srk@ti.com>
+Subject: [PATCHv2] can: ti hecc module : add platform specific initialization callback.
+Date: Thu, 25 Feb 2010 22:56:42 +0530
+Message-ID: <1267118802-19263-1-git-send-email-srk@ti.com>
+Cc: anantgole@ti.com, Sriramakrishnan <srk@ti.com>
+To: socketcan-core@lists.berlios.de, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bear.ext.ti.com ([192.94.94.41]:36441 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932999Ab0BYR0v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2010 12:26:51 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 25, 2010 at 04:46:54PM +0000, Martyn Welch wrote:
-[...]
-> > nfs: server 192.168.0.1 not responding, still trying
-> >   
-> 
-> Further testing has shown that this isn't restricted to warm reboots, it
-> happens from cold as well. In addition, the exact timing of the failure
-> seems to vary, some boots have got further before failing.
+CAN module on AM3517 requires programming of IO expander as part
+of init sequence - to enable CAN PHY. Added platform specific
+callback to handle phy control(switch on /off).
 
-Unfortunately I don't have any 8641 boards near me, so I can't
-debug this myself. Though, I tested gianfar on MPC8568E-MDS with
-2.6.33 kernel, and it seems to work just fine.
+Signed-off-by: Sriramakrishnan <srk@ti.com>
+---
+Modified as per review comments received.
 
-I see you use SMP. Can you try to turn it off? If that will fix
-the issue, then it'll be a good data point.
+ drivers/net/can/ti_hecc.c            |   15 ++++++++++++++-
+ include/linux/can/platform/ti_hecc.h |    3 ++-
+ 2 files changed, 16 insertions(+), 2 deletions(-)
 
-Meanwhile, I'll try SMP kernel on MPC8568 (UP), and let you
-know the results.
-
-Thanks,
-
+diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
+index df27d82..871a3fe 100644
+--- a/drivers/net/can/ti_hecc.c
++++ b/drivers/net/can/ti_hecc.c
+@@ -28,9 +28,11 @@
+  *         .mbx_offset             = 0x2000,
+  *         .int_line               = 0,
+  *         .revision               = 1,
++ *         .transceiver_switch     = hecc_phy_control,
+  * };
+  *
+- * Please see include/can/platform/ti_hecc.h for description of above fields
++ * Please see include/linux/can/platform/ti_hecc.h for description of
++ * above fields.
+  *
+  */
+ 
+@@ -220,6 +222,7 @@ struct ti_hecc_priv {
+ 	u32 tx_head;
+ 	u32 tx_tail;
+ 	u32 rx_next;
++	void (*transceiver_switch)(int);
+ };
+ 
+ static inline int get_tx_head_mb(struct ti_hecc_priv *priv)
+@@ -317,6 +320,13 @@ static int ti_hecc_set_btc(struct ti_hecc_priv *priv)
+ 	return 0;
+ }
+ 
++static void ti_hecc_transceiver_switch(const struct ti_hecc_priv *priv,
++					int on)
++{
++	if (priv->transceiver_switch)
++		priv->transceiver_switch(on);
++}
++
+ static void ti_hecc_reset(struct net_device *ndev)
+ {
+ 	u32 cnt;
+@@ -824,6 +834,7 @@ static int ti_hecc_open(struct net_device *ndev)
+ 		return err;
+ 	}
+ 
++	ti_hecc_transceiver_switch(priv, 1);
+ 	ti_hecc_start(ndev);
+ 	napi_enable(&priv->napi);
+ 	netif_start_queue(ndev);
+@@ -840,6 +851,7 @@ static int ti_hecc_close(struct net_device *ndev)
+ 	ti_hecc_stop(ndev);
+ 	free_irq(ndev->irq, ndev);
+ 	close_candev(ndev);
++	ti_hecc_transceiver_switch(priv, 0);
+ 
+ 	return 0;
+ }
+@@ -901,6 +913,7 @@ static int ti_hecc_probe(struct platform_device *pdev)
+ 	priv->hecc_ram_offset = pdata->hecc_ram_offset;
+ 	priv->mbx_offset = pdata->mbx_offset;
+ 	priv->int_line = pdata->int_line;
++	priv->transceiver_switch = pdata->transceiver_switch;
+ 
+ 	priv->can.bittiming_const = &ti_hecc_bittiming_const;
+ 	priv->can.do_set_mode = ti_hecc_do_set_mode;
+diff --git a/include/linux/can/platform/ti_hecc.h b/include/linux/can/platform/ti_hecc.h
+index 4688c7b..825bc6a 100644
+--- a/include/linux/can/platform/ti_hecc.h
++++ b/include/linux/can/platform/ti_hecc.h
+@@ -23,6 +23,7 @@
+  * @mbx_offset:		Mailbox RAM offset
+  * @int_line:		Interrupt line to use - 0 or 1
+  * @version:		version for future use
++ * @transceiver_switch  platform specific callback fn for transceiver control
+  *
+  * Platform data structure to get all platform specific settings.
+  * this structure also accounts the fact that the IP may have different
+@@ -35,6 +36,6 @@ struct ti_hecc_platform_data {
+ 	u32 mbx_offset;
+ 	u32 int_line;
+ 	u32 version;
++	void (*transceiver_switch) (int);
+ };
+ 
+-
 -- 
-Anton Vorontsov
-email: cbouatmailru@gmail.com
-irc://irc.freenode.net/bd2
+1.6.2.4
+
