@@ -1,99 +1,67 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: [RFC PATCH] accounting for socket backlog
-Date: Thu, 25 Feb 2010 11:13:13 +0800
-Message-ID: <1267067593.16986.1583.camel@debian>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [net-next PATCH v5 2/3] sysctl: add proc_do_large_bitmap
+Date: Thu, 25 Feb 2010 11:18:41 +0800
+Message-ID: <4B85EC11.5030304@redhat.com>
+References: <1266752533.3428.28.camel@Nokia-N900-42-11> <201002221829.13987.opurdila@ixiacom.com> <4B84B7F0.7090709@redhat.com> <201002241402.54122.opurdila@ixiacom.com> <4B85CFB4.5030908@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:38324 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758718Ab0BYDMH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Feb 2010 22:12:07 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Octavian Purdila <opurdila@ixiacom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4B85CFB4.5030908@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Cong Wang wrote:
+> Octavian Purdila wrote:
+>> On Wednesday 24 February 2010 07:24:00 you wrote:
+>>> Octavian Purdila wrote:
+>>>> Here is a new version of this patch which fixes both the comma and
+>>>> invalid value issues, please give it a try.
+>>> Sorry, it is even worse. :(
+>>>
+>>>> [net-next PATCH v5 2/3] sysctl: add proc_do_large_bitmap
+>>>>
+>>>> The new function can be used to read/write large bitmaps via /proc. A
+>>>> comma separated range format is used for compact output and input
+>>>> (e.g. 1,3-4,10-10).
+>>> Writing "50000-50100" gets EINVAL, it should be success.
+>>> Writing "50000,50100" fails too.
+>>>
+>>
+>> Hmm, they don't fail for me :-/
+>>
+>>> Please, at least, do some basic testing.
+>>>
+>>
+>> I do test them, I've attached the current test batch I was using.
+>>
+>> Anyways, today I've noticed that "1,2 3" does not fail and even more 
+>> importantly the final value is "3".
+>> Being that I don't see a way of fixing this without not acknowledging 
+>> 1,2 even though we will do set these values, I revisited the "1 2 3" 
+>> issue. And I don't understand why this is actually an issue, we are 
+>> just being more permissive (i.e. we are allowing as separators both 
+>> whitespaces and ,).
+>>
+>>
+> 
+> Oops, after rechecking my test case, it is actually my test case's
+> fault. Sorry for this. I will fix my test case and run it again.
+> 
 
 Hi,
 
-We got system OOM while running some UDP netperf testing on the loopback
-device. The case is multiple senders sent stream UDP packets to a single
-receiver via loopback on local host. Of course, the receiver is not able
-to handle all the packets in time. But we surprisingly found that these
-packets were not discarded due to the receiver's sk->sk_rcvbuf limit.
-Instead, they are kept queuing to sk->sk_backlog and finally ate up all
-the memory. We believe this is a secure hole that a none privileged user
-can crash the system.
+Still a small problem, if I do write(fd, "50000,50100", 12) I will
+get a return value of 11, which should mean 11 bytes are written,
+however, actually only the first 6 bytes are accepted.
 
-The root cause for this problem is, when the receiver is doing
-__release_sock() (i.e. after userspace recv, kernel udp_recvmsg ->
-skb_free_datagram_locked -> release_sock), it moves skbs from backlog to
-sk_receive_queue with the softirq enabled. In the above case, multiple
-busy senders will almost make it an endless loop. The skbs in the
-backlog end up eat all the system memory.
+The rest looks better now.
 
-The patch fixed this problem by adding accounting for the socket
-backlog. So that the backlog size can be restricted by protocol's choice
-(i.e. UDP).
+Or am I missing something here? :)
 
-Signed-off-by: Zhu Yi <yi.zhu@intel.com>
----
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 3f1a480..2e003b9 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -253,6 +253,7 @@ struct sock {
- 	struct {
- 		struct sk_buff *head;
- 		struct sk_buff *tail;
-+		atomic_t len;
- 	} sk_backlog;
- 	wait_queue_head_t	*sk_sleep;
- 	struct dst_entry	*sk_dst_cache;
-@@ -583,11 +584,13 @@ static inline void sk_add_backlog(struct sock *sk, struct sk_buff *skb)
- 		sk->sk_backlog.tail->next = skb;
- 		sk->sk_backlog.tail = skb;
- 	}
-+	atomic_add(skb->truesize, &sk->sk_backlog.len);
- 	skb->next = NULL;
- }
- 
- static inline int sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
- {
-+	atomic_sub(skb->truesize, &sk->sk_backlog.len);
- 	return sk->sk_backlog_rcv(sk, skb);
- }
- 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index e1f6f22..3b988f2 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1138,6 +1138,7 @@ struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
- 		sock_lock_init(newsk);
- 		bh_lock_sock(newsk);
- 		newsk->sk_backlog.head	= newsk->sk_backlog.tail = NULL;
-+		atomic_set(&newsk->sk_backlog.len, 0);
- 
- 		atomic_set(&newsk->sk_rmem_alloc, 0);
- 		/*
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index f0126fd..e019067 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1372,8 +1372,13 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 	bh_lock_sock(sk);
- 	if (!sock_owned_by_user(sk))
- 		rc = __udp_queue_rcv_skb(sk, skb);
--	else
-+	else {
-+		if (atomic_read(&sk->sk_backlog.len) >= sk->sk_rcvbuf) {
-+			bh_unlock_sock(sk);
-+			goto drop;
-+		}
- 		sk_add_backlog(sk, skb);
-+	}
- 	bh_unlock_sock(sk);
- 
- 	return rc;
-
-
+Thanks!
