@@ -1,513 +1,334 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
-Date: Thu, 25 Feb 2010 12:57:02 -0800
-Message-ID: <m1pr3t2fvl.fsf_-_@fess.ebiederm.org>
-References: <4B4F24AC.70105@trash.net> <1263481549.23480.24.camel@bigi>
-	<4B4F3A50.1050400@trash.net> <1263490403.23480.109.camel@bigi>
-	<4B50403A.6010507@trash.net> <1263568754.23480.142.camel@bigi>
-	<m13a0tf17t.fsf@fess.ebiederm.org> <1266875729.3673.12.camel@bigi>
-	<m1wry46es9.fsf@fess.ebiederm.org> <1266931623.3973.643.camel@bigi>
-	<m1iq9ocafv.fsf@fess.ebiederm.org> <1266934817.3973.654.camel@bigi>
-	<m1r5obbu2w.fsf@fess.ebiederm.org> <1266966581.3973.675.camel@bigi>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: [PATCH v5 6/7] TCPCT part 2f: cleanup tcp_parse_options
+Date: Thu, 25 Feb 2010 16:01:03 -0500
+Message-ID: <4B86E50F.9040305@gmail.com>
+References: <4B86DDCB.50608@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>,
-	Serge Hallyn <serue@us.ibm.com>,
-	Matt Helsley <matthltc@us.ibm.com>
-To: hadi@cyberus.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:40271 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933525Ab0BYU5R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 15:57:17 -0500
-In-Reply-To: <1266966581.3973.675.camel@bigi> (jamal's message of "Tue\, 23 Feb 2010 18\:09\:41 -0500")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------080408000706050606080604"
+Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4B86DDCB.50608@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------080408000706050606080604
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Introduce two new system calls:
-int nsfd(pid_t pid, unsigned long nstype);
-int setns(unsigned long nstype, int fd);
+Split switch, shift cases to the left, fix most lines beyond column 80.
 
-These two new system calls address three specific problems that can
-make namespaces hard to work with.
-- Namespaces require a dedicated process to pin them in memory.
-- It is not possible to use a namespace unless you are the
-  child of the original creator.
-- Namespaces don't have names that userspace can use to talk
-  about them.
+Prepare (future) error return.
 
-The nsfd() system call returns a file descriptor that can
-be used to talk about a specific namespace, and to keep
-the specified namespace alive.
+Harmonize initialization in syncookies.
+Fix initialization in tcp_minisocks.
 
-The fd returned by nsfd() can be bind mounted as:
-mount --bind /proc/self/fd/N /some/filesystem/path
-to keep the namespace alive indefinitely as long as
-it is mounted.
+Repair net/ipv4/tcp_ipv4.c errors with goto targets, overlooked by
+David Miller in commit bb5b7c11263dbbe78253cd05945a6bf8f55add8e
 
-open works on the fd returned by nsfd() so another
-process can get a hold of it and do interesting things.
+Requires:
+   TCPCT part 1g: Responder Cookie => Initiator
+   net: tcp_header_len_th and tcp_option_len_th
 
-Overall that allows for persistent naming of namespaces
-according to userspace policy.
-
-setns() allows changing the namespace of the current process
-to a namespace that originates with nsfd().
-
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+Signed-off-by: William.Allen.Simpson@gmail.com
 ---
+  include/net/tcp.h        |    3 +-
+  net/ipv4/syncookies.c    |    9 ++-
+  net/ipv4/tcp_input.c     |  223 ++++++++++++++++++++++++++--------------------
+  net/ipv4/tcp_ipv4.c      |   10 ++-
+  net/ipv4/tcp_minisocks.c |   26 ++++--
+  net/ipv6/syncookies.c    |    9 ++-
+  net/ipv6/tcp_ipv6.c      |    6 +-
+  7 files changed, 172 insertions(+), 114 deletions(-)
 
-This is just my first pass at this, and not yet compiled tested.
-I was pleasantly surprised at how easy all of this was to implement.
+--------------080408000706050606080604
+Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
+ name="TCPCT+2f5+2.6.33.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="TCPCT+2f5+2.6.33.patch"
 
-I have verified mount will let me bind mount /proc/self/fd/N so
-there is nothing special needed for the mount case, except
-getting the reference counting and lifetime rules correct for
-my filesystem objects.
-
- arch/x86/ia32/ia32entry.S          |    2 +
- arch/x86/include/asm/unistd_32.h   |    4 +-
- arch/x86/include/asm/unistd_64.h   |    4 +
- arch/x86/kernel/syscall_table_32.S |    2 +
- fs/Makefile                        |    2 +-
- fs/nsfd.c                          |  278 ++++++++++++++++++++++++++++++++++++
- include/linux/magic.h              |    1 +
- include/linux/nsproxy.h            |    1 +
- include/linux/nstype.h             |    6 +
- kernel/nsproxy.c                   |   17 +++
- 10 files changed, 315 insertions(+), 2 deletions(-)
- create mode 100644 fs/nsfd.c
- create mode 100644 include/linux/nstype.h
-
-diff --git a/arch/x86/ia32/ia32entry.S b/arch/x86/ia32/ia32entry.S
-index 53147ad..9fd33de 100644
---- a/arch/x86/ia32/ia32entry.S
-+++ b/arch/x86/ia32/ia32entry.S
-@@ -842,4 +842,6 @@ ia32_sys_call_table:
- 	.quad compat_sys_rt_tgsigqueueinfo	/* 335 */
- 	.quad sys_perf_event_open
- 	.quad compat_sys_recvmmsg
-+	.quad sys_nsfd
-+	.quad sys_setns
- ia32_syscall_end:
-diff --git a/arch/x86/include/asm/unistd_32.h b/arch/x86/include/asm/unistd_32.h
-index 3baf379..5b7833c 100644
---- a/arch/x86/include/asm/unistd_32.h
-+++ b/arch/x86/include/asm/unistd_32.h
-@@ -343,10 +343,12 @@
- #define __NR_rt_tgsigqueueinfo	335
- #define __NR_perf_event_open	336
- #define __NR_recvmmsg		337
-+#define __NR_nsfd		338
-+#define __NR_setns		339
- 
- #ifdef __KERNEL__
- 
--#define NR_syscalls 338
-+#define NR_syscalls 340
- 
- #define __ARCH_WANT_IPC_PARSE_VERSION
- #define __ARCH_WANT_OLD_READDIR
-diff --git a/arch/x86/include/asm/unistd_64.h b/arch/x86/include/asm/unistd_64.h
-index 4843f7b..260d542 100644
---- a/arch/x86/include/asm/unistd_64.h
-+++ b/arch/x86/include/asm/unistd_64.h
-@@ -663,6 +663,10 @@ __SYSCALL(__NR_rt_tgsigqueueinfo, sys_rt_tgsigqueueinfo)
- __SYSCALL(__NR_perf_event_open, sys_perf_event_open)
- #define __NR_recvmmsg				299
- __SYSCALL(__NR_recvmmsg, sys_recvmmsg)
-+#define __NR_nsfd				300
-+__SYSCALL(__NR_nsfd, sys_nsfd)
-+#define __NR_setns				301
-+__SYSCALL(__NR_setns, sys_setns)
- 
- #ifndef __NO_STUBS
- #define __ARCH_WANT_OLD_READDIR
-diff --git a/arch/x86/kernel/syscall_table_32.S b/arch/x86/kernel/syscall_table_32.S
-index 15228b5..e09a45b 100644
---- a/arch/x86/kernel/syscall_table_32.S
-+++ b/arch/x86/kernel/syscall_table_32.S
-@@ -337,3 +337,5 @@ ENTRY(sys_call_table)
- 	.long sys_rt_tgsigqueueinfo	/* 335 */
- 	.long sys_perf_event_open
- 	.long sys_recvmmsg
-+	.long sys_nsfd
-+	.long sys_setns
-diff --git a/fs/Makefile b/fs/Makefile
-index af6d047..74d5091 100644
---- a/fs/Makefile
-+++ b/fs/Makefile
-@@ -11,7 +11,7 @@ obj-y :=	open.o read_write.o file_table.o super.o \
- 		attr.o bad_inode.o file.o filesystems.o namespace.o \
- 		seq_file.o xattr.o libfs.o fs-writeback.o \
- 		pnode.o drop_caches.o splice.o sync.o utimes.o \
--		stack.o fs_struct.o
-+		stack.o fs_struct.o nsfd.o
- 
- ifeq ($(CONFIG_BLOCK),y)
- obj-y +=	buffer.o bio.o block_dev.o direct-io.o mpage.o ioprio.o
-diff --git a/fs/nsfd.c b/fs/nsfd.c
-new file mode 100644
-index 0000000..71bcc55
---- /dev/null
-+++ b/fs/nsfd.c
-@@ -0,0 +1,278 @@
-+#include <linux/nstype.h>
-+#include <linux/fs.h>
-+#include <linux/magic.h>
-+#include <net/net_namespace.h>
-+#include <linux/file.h>
-+#include <linux/mount.h>
-+#include <linux/cred.h>
-+#include <linux/sched.h>
-+#include <linux/ptrace.h>
-+#include <linux/nsproxy.h>
-+#include <linux/kernel.h>
-+#include <linux/syscalls.h>
-+
-+static struct vfsmount *nsfd_mnt __read_mostly;
-+static struct inode *nsfd_inode;
-+
-+static const struct file_operations nsfd_file_operations = {
-+	.llseek = no_llseek,
-+};
-+
-+
-+static int nsfd_get_sb(struct file_system_type *fs_type, int flags,
-+	const char *dev_name, void *data, struct vfsmount *mnt)
-+{
-+	return get_sb_pseudo(fs_type, "nsfd:", NULL, NSFD_FS_MAGIC, mnt);
-+}
-+
-+static char *nsfd_dname(struct dentry *dentry, char *buffer, int buflen)
-+{
-+	static const char name[] = "nsfd";
-+
-+	if (sizeof(name) > buflen)
-+		return ERR_PTR(-ENAMETOOLONG);
-+
-+	return memcpy(buffer, name, sizeof(name));
-+}
-+
-+static const struct dentry_operations nsfd_dentry_operations = {
-+	.d_dname		= nsfd_dname,
-+};
-+
-+static struct file_system_type nsfd_fs_type = {
-+	.name		= "nsfd",
-+	.get_sb		= nsfd_get_sb,
-+	.kill_sb	= kill_anon_super,
-+	
-+};
-+
-+static void netns_dentry_release(struct dentry *dentry)
-+{
-+	put_net(dentry->d_fsdata);
-+	dentry->d_fsdata = NULL;
-+}
-+
-+static const struct dentry_operations netns_dentry_operations = {
-+	.d_dname	= nsfd_dname,
-+	.d_release	= netns_dentry_release,
-+};
-+
-+static const struct dentry_operations *nsfd_dops[] = {
-+	[NSTYPE_NET] = &netns_dentry_operations,
-+};
-+
-+static const struct dentry_operations *nstype_dops(unsigned long nstype)
-+{
-+	const struct dentry_operations *d_op = NULL;
-+
-+	if (nstype < sizeof(nsfd_dops)/sizeof(nsfd_dops[0]))
-+		d_op = nsfd_dops[nstype];
-+
-+	return d_op;
-+}
-+
-+static struct file *nsfd_fget(int fd, unsigned long nstype)
-+{
-+	const struct dentry_operations *d_op;
-+	struct file *file;
-+
-+	d_op = nstype_dops(nstype);
-+	if (!d_op)
-+		return ERR_PTR(-EINVAL);
-+
-+	file = fget(fd);
-+	if (!file)
-+		return ERR_PTR(-EBADF);
-+
-+	if (file->f_op != &nsfd_file_operations)
-+		goto out_invalid;
-+
-+	if (file->f_path.dentry->d_op != d_op)
-+		goto out_invalid;
-+
-+	return file;
-+
-+out_invalid:
-+	fput(file);
-+	return ERR_PTR(-EINVAL);
-+}
-+
-+static struct inode *nsfd_mkinode(void)
-+{
-+	struct inode *inode;
-+	inode = new_inode(nsfd_mnt->mnt_sb);
-+	if (!inode)
-+		return ERR_PTR(-ENOMEM);
-+
-+	inode->i_fop = &nsfd_file_operations;
-+
-+	/*
-+	 * Mark the inode dirty from the very beginning,
-+	 * that way it will never be moved to the dirty
-+	 * list because mark_inode_dirty() will think that
-+	 * it already _is_ on the dirty list.
-+	 */
-+	inode->i_state = I_DIRTY;
-+	inode->i_mode = S_IRUSR | S_IWUSR;
-+	inode->i_uid = current_fsuid();
-+	inode->i_gid = current_fsgid();
-+	inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
-+	return inode;
-+}
-+
-+
-+static struct file *nsfd_getfile(void)
-+{
-+	struct qstr name = { .name = "" };
-+	struct path path;
-+	struct file *file;
-+
-+	path.dentry = d_alloc(nsfd_mnt->mnt_sb->s_root, &name);
-+	if (!path.dentry)
-+		return ERR_PTR(-ENOMEM);
-+
-+	path.mnt = mntget(nsfd_mnt);
-+
-+	/*
-+	 * We know the nsfd_inode inode count is always greater than zero,
-+	 * so we can avoid doing an igrab() and we can use an open-coded
-+	 * atomic_inc().
-+	 */
-+	atomic_inc(&nsfd_inode->i_count);
-+	path.dentry->d_op = &nsfd_dentry_operations;
-+	d_instantiate(path.dentry, nsfd_inode);
-+
-+	file = alloc_file(&path, FMODE_READ, &nsfd_file_operations);
-+	if (!file) {
-+		path_put(&path);
-+		return ERR_PTR(-ENFILE);
-+	}
-+	file->f_mapping = nsfd_inode->i_mapping;
-+
-+	file->f_pos = 0;
-+	file->f_flags = O_RDONLY;
-+	file->f_version = 0;
-+	file->private_data = NULL;
-+
-+	return file;
-+}
-+
-+static void *nsfd_getns(pid_t pid, unsigned long nstype)
-+{
-+	struct task_struct *task;
-+	struct nsproxy *nsproxy;
-+	void *ns;
-+
-+	ns = ERR_PTR(-ESRCH);
-+	rcu_read_lock();
-+	if (pid == 0)
-+		task = current;
-+	else
-+		task = find_task_by_vpid(pid);
-+	if (!task)
-+		goto out;
-+
-+	ns = ERR_PTR(-EPERM);
-+	if (!ptrace_may_access(task, PTRACE_MODE_ATTACH))
-+		goto out;
-+
-+	ns = ERR_PTR(-ESRCH);
-+	nsproxy = task_nsproxy(task);
-+	if (!nsproxy)
-+		goto out;
-+
-+	ns = ERR_PTR(-EINVAL);
-+	switch(nstype) {
-+	case NSTYPE_NET:
-+		ns = get_net(nsproxy->net_ns);
-+		break;
-+	}
-+out:
-+	rcu_read_unlock();
-+	return ns;
-+}
-+
-+SYSCALL_DEFINE2(nsfd, pid_t, pid, unsigned long, nstype)
-+{
-+	const struct dentry_operations *d_op;
-+	struct file *file;
-+	int fd;
-+	void *ns;
-+
-+	d_op = nstype_dops(nstype);
-+	if (!d_op)
-+		return -EINVAL;
-+
-+	file = nsfd_getfile();
-+	if (IS_ERR(file))
-+		return PTR_ERR(file);
-+
-+	ns = nsfd_getns(pid, nstype);
-+	if (IS_ERR(ns)) {
-+		fput(file);
-+		return PTR_ERR(ns);
-+	}
-+
-+	file->f_dentry->d_fsdata = ns;
-+	file->f_dentry->d_op = d_op;
-+	
-+	fd = get_unused_fd();
-+	if (fd < 0) {
-+		fput(file);
-+		return fd;
-+	}
-+	fd_install(fd, file);
-+
-+	return fd;
-+}
-+
-+
-+SYSCALL_DEFINE2(setns, unsigned long, nstype, int, fd)
-+{
-+	struct file *file;
-+
-+	if (!capable(CAP_SYS_ADMIN))
-+		return -EPERM;
-+
-+	file = nsfd_fget(fd, nstype);
-+	if (IS_ERR(file))
-+		return PTR_ERR(file);
-+
-+	set_namespace(nstype, file->f_dentry->d_fsdata);
-+
-+	fput(file);
-+	return 0;
-+}
-+
-+
-+static int __init nsfd_init(void)
-+{
-+	int error;
-+
-+	error = register_filesystem(&nsfd_fs_type);
-+	if (error)
-+		goto err_exit;
-+
-+	nsfd_mnt  = kern_mount(&nsfd_fs_type);
-+	if (IS_ERR(nsfd_mnt)) {
-+		error = PTR_ERR(nsfd_mnt);
-+		goto err_unregister_filesystem;
-+	}
-+
-+	nsfd_inode = nsfd_mkinode();
-+	if (IS_ERR(nsfd_inode)) {
-+		error = PTR_ERR(nsfd_inode);
-+		goto err_mntput;
-+	}
-+
-+	return 0;
-+
-+err_mntput:
-+	mntput(nsfd_mnt);
-+err_unregister_filesystem:
-+	unregister_filesystem(&nsfd_fs_type);
-+err_exit:
-+	panic(KERN_ERR "nsfd_init() failed (%d)\n", error);
-+}
-+
-+fs_initcall(nsfd_init);
-diff --git a/include/linux/magic.h b/include/linux/magic.h
-index 76285e0..a4fe6eb 100644
---- a/include/linux/magic.h
-+++ b/include/linux/magic.h
-@@ -26,6 +26,7 @@
- #define ISOFS_SUPER_MAGIC	0x9660
- #define JFFS2_SUPER_MAGIC	0x72b6
- #define ANON_INODE_FS_MAGIC	0x09041934
-+#define NSFD_FS_MAGIC		0x6e736664
- 
- #define MINIX_SUPER_MAGIC	0x137F		/* original minix fs */
- #define MINIX_SUPER_MAGIC2	0x138F		/* minix fs, 30 char names */
-diff --git a/include/linux/nsproxy.h b/include/linux/nsproxy.h
-index 7b370c7..45f1e07 100644
---- a/include/linux/nsproxy.h
-+++ b/include/linux/nsproxy.h
-@@ -65,6 +65,7 @@ static inline struct nsproxy *task_nsproxy(struct task_struct *tsk)
- int copy_namespaces(unsigned long flags, struct task_struct *tsk);
- void exit_task_namespaces(struct task_struct *tsk);
- void switch_task_namespaces(struct task_struct *tsk, struct nsproxy *new);
-+void set_namespace(unsigned long nstype, void *ns);
- void free_nsproxy(struct nsproxy *ns);
- int unshare_nsproxy_namespaces(unsigned long, struct nsproxy **,
- 	struct fs_struct *);
-diff --git a/include/linux/nstype.h b/include/linux/nstype.h
-new file mode 100644
-index 0000000..3bdf856
---- /dev/null
-+++ b/include/linux/nstype.h
-@@ -0,0 +1,6 @@
-+#ifndef _LINUX_NSTYPE_H
-+#define _LINUX_NSTYPE_H
-+
-+#define NSTYPE_NET 0
-+
-+#endif /* _LINUX_NSTYPE_H */
-diff --git a/kernel/nsproxy.c b/kernel/nsproxy.c
-index 09b4ff9..574461c 100644
---- a/kernel/nsproxy.c
-+++ b/kernel/nsproxy.c
-@@ -21,6 +21,7 @@
- #include <linux/pid_namespace.h>
- #include <net/net_namespace.h>
- #include <linux/ipc_namespace.h>
-+#include <linux/nstype.h>
- 
- static struct kmem_cache *nsproxy_cachep;
- 
-@@ -221,6 +222,22 @@ void exit_task_namespaces(struct task_struct *p)
- 	switch_task_namespaces(p, NULL);
- }
- 
-+void set_namespace(unsigned long nstype, void *ns)
-+{
-+	struct task_struct *tsk = current;
-+	struct nsproxy *new_nsproxy;
-+
-+	new_nsproxy = create_new_namespaces(0, tsk, tsk->fs);
-+	switch(nstype) {
-+	case NSTYPE_NET:
-+		put_net(new_nsproxy->net_ns);
-+		new_nsproxy->net_ns = get_net(ns);
-+		break;
-+	}
-+
-+	switch_task_namespaces(tsk, new_nsproxy);
-+}
-+
- static int __init nsproxy_cache_init(void)
- {
- 	nsproxy_cachep = KMEM_CACHE(nsproxy, SLAB_PANIC);
--- 
-1.6.5.2.143.g8cc62
-
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L3RjcC5oIGIvaW5jbHVkZS9uZXQvdGNwLmgKaW5k
+ZXggNTJkZDE4NS4uNGFlZDBjOCAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvdGNwLmgKKysr
+IGIvaW5jbHVkZS9uZXQvdGNwLmgKQEAgLTQwMyw3ICs0MDMsOCBAQCBleHRlcm4gaW50CQkJ
+dGNwX3JlY3Ztc2coc3RydWN0IGtpb2NiICppb2NiLCBzdHJ1Y3Qgc29jayAqc2ssCiAJCQkJ
+CSAgICBzaXplX3QgbGVuLCBpbnQgbm9uYmxvY2ssIAogCQkJCQkgICAgaW50IGZsYWdzLCBp
+bnQgKmFkZHJfbGVuKTsKIAotZXh0ZXJuIHZvaWQJCQl0Y3BfcGFyc2Vfb3B0aW9ucyhzdHJ1
+Y3Qgc2tfYnVmZiAqc2tiLAorZXh0ZXJuIGludAkJCXRjcF9wYXJzZV9vcHRpb25zKHN0cnVj
+dCBza19idWZmICpza2IsCisJCQkJCQkgIGNvbnN0IHN0cnVjdCB0Y3BoZHIgKnRoLAogCQkJ
+CQkJICBzdHJ1Y3QgdGNwX29wdGlvbnNfcmVjZWl2ZWQgKm9wdF9yeCwKIAkJCQkJCSAgdTgg
+KipodnBwLAogCQkJCQkJICBpbnQgZXN0YWIpOwpkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvc3lu
+Y29va2llcy5jIGIvbmV0L2lwdjQvc3luY29va2llcy5jCmluZGV4IDY2ZmQ4MGUuLmQxZjQ1
+YWQgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L3N5bmNvb2tpZXMuYworKysgYi9uZXQvaXB2NC9z
+eW5jb29raWVzLmMKQEAgLTI1NSwxNSArMjU1LDE2IEBAIHN0cnVjdCBzb2NrICpjb29raWVf
+djRfY2hlY2soc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogewogCXN0
+cnVjdCB0Y3Bfb3B0aW9uc19yZWNlaXZlZCB0Y3Bfb3B0OwogCXU4ICpoYXNoX2xvY2F0aW9u
+OworCXN0cnVjdCBydGFibGUgKnJ0OworCXN0cnVjdCByZXF1ZXN0X3NvY2sgKnJlcTsKIAlz
+dHJ1Y3QgaW5ldF9yZXF1ZXN0X3NvY2sgKmlyZXE7CiAJc3RydWN0IHRjcF9yZXF1ZXN0X3Nv
+Y2sgKnRyZXE7CiAJc3RydWN0IHRjcF9zb2NrICp0cCA9IHRjcF9zayhzayk7CiAJY29uc3Qg
+c3RydWN0IHRjcGhkciAqdGggPSB0Y3BfaGRyKHNrYik7CiAJX191MzIgY29va2llID0gbnRv
+aGwodGgtPmFja19zZXEpIC0gMTsKIAlzdHJ1Y3Qgc29jayAqcmV0ID0gc2s7Ci0Jc3RydWN0
+IHJlcXVlc3Rfc29jayAqcmVxOwogCWludCBtc3M7Ci0Jc3RydWN0IHJ0YWJsZSAqcnQ7CisJ
+aW50IHBhcnNlZDsKIAlfX3U4IHJjdl93c2NhbGU7CiAKIAlpZiAoIXN5c2N0bF90Y3Bfc3lu
+Y29va2llcyB8fCAhdGgtPmFjaykKQEAgLTI3OSw3ICsyODAsOSBAQCBzdHJ1Y3Qgc29jayAq
+Y29va2llX3Y0X2NoZWNrKHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYiwK
+IAogCS8qIGNoZWNrIGZvciB0aW1lc3RhbXAgY29va2llIHN1cHBvcnQgKi8KIAltZW1zZXQo
+JnRjcF9vcHQsIDAsIHNpemVvZih0Y3Bfb3B0KSk7Ci0JdGNwX3BhcnNlX29wdGlvbnMoc2ti
+LCAmdGNwX29wdCwgJmhhc2hfbG9jYXRpb24sIDApOworCXBhcnNlZCA9IHRjcF9wYXJzZV9v
+cHRpb25zKHNrYiwgdGgsICZ0Y3Bfb3B0LCAmaGFzaF9sb2NhdGlvbiwgMCk7CisJaWYgKHBh
+cnNlZCA8IDApCisJCWdvdG8gb3V0OwogCiAJaWYgKHRjcF9vcHQuc2F3X3RzdGFtcCkKIAkJ
+Y29va2llX2NoZWNrX3RpbWVzdGFtcCgmdGNwX29wdCk7CmRpZmYgLS1naXQgYS9uZXQvaXB2
+NC90Y3BfaW5wdXQuYyBiL25ldC9pcHY0L3RjcF9pbnB1dC5jCmluZGV4IDA4YTFiYjQuLmNj
+NmQzMjQgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L3RjcF9pbnB1dC5jCisrKyBiL25ldC9pcHY0
+L3RjcF9pbnB1dC5jCkBAIC0zNzI2LDEyMiArMzcyNiwxNDkgQEAgb2xkX2FjazoKICAqIEJ1
+dCwgdGhpcyBjYW4gYWxzbyBiZSBjYWxsZWQgb24gcGFja2V0cyBpbiB0aGUgZXN0YWJsaXNo
+ZWQgZmxvdyB3aGVuCiAgKiB0aGUgZmFzdCB2ZXJzaW9uIGJlbG93IGZhaWxzLgogICovCi12
+b2lkIHRjcF9wYXJzZV9vcHRpb25zKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCB0Y3Bf
+b3B0aW9uc19yZWNlaXZlZCAqb3B0X3J4LAotCQkgICAgICAgdTggKipodnBwLCBpbnQgZXN0
+YWIpCitpbnQgdGNwX3BhcnNlX29wdGlvbnMoc3RydWN0IHNrX2J1ZmYgKnNrYiwgY29uc3Qg
+c3RydWN0IHRjcGhkciAqdGgsCisJCSAgICAgIHN0cnVjdCB0Y3Bfb3B0aW9uc19yZWNlaXZl
+ZCAqb3B0X3J4LCB1OCAqKmh2cHAsIGludCBlc3RhYikKIHsKLQl1bnNpZ25lZCBjaGFyICpw
+dHI7Ci0Jc3RydWN0IHRjcGhkciAqdGggPSB0Y3BfaGRyKHNrYik7Ci0JaW50IGxlbmd0aCA9
+ICh0aC0+ZG9mZiAqIDQpIC0gc2l6ZW9mKHN0cnVjdCB0Y3BoZHIpOworCXVuc2lnbmVkIGNo
+YXIgKnB0ciA9ICh1bnNpZ25lZCBjaGFyICopKHRoICsgMSk7CisJaW50IGxlbmd0aCA9IHRj
+cF9vcHRpb25fbGVuX3RoKHRoKTsKKwlib29sIHN5biA9IHRoLT5zeW47CiAKLQlwdHIgPSAo
+dW5zaWduZWQgY2hhciAqKSh0aCArIDEpOwotCW9wdF9yeC0+c2F3X3RzdGFtcCA9IDA7CisJ
+b3B0X3J4LT5jb29raWVfcGx1cyA9IDA7CisJb3B0X3J4LT5zYXdfdHN0YW1wID0gMDsgLyog
+ZmFsc2UgKi8KIAogCXdoaWxlIChsZW5ndGggPiAwKSB7Ci0JCWludCBvcGNvZGUgPSAqcHRy
+Kys7CiAJCWludCBvcHNpemU7CisJCWludCBvcGNvZGUgPSAqcHRyKys7CiAKIAkJc3dpdGNo
+IChvcGNvZGUpIHsKIAkJY2FzZSBUQ1BPUFRfRU9MOgotCQkJcmV0dXJuOworCQkJbGVuZ3Ro
+ID0gMDsKKwkJCWNvbnRpbnVlOwogCQljYXNlIFRDUE9QVF9OT1A6CS8qIFJlZjogUkZDIDc5
+MyBzZWN0aW9uIDMuMSAqLwogCQkJbGVuZ3RoLS07CiAJCQljb250aW51ZTsKIAkJZGVmYXVs
+dDoKLQkJCW9wc2l6ZSA9ICpwdHIrKzsKLQkJCWlmIChvcHNpemUgPCAyKSAvKiAic2lsbHkg
+b3B0aW9ucyIgKi8KLQkJCQlyZXR1cm47Ci0JCQlpZiAob3BzaXplID4gbGVuZ3RoKQotCQkJ
+CXJldHVybjsJLyogZG9uJ3QgcGFyc2UgcGFydGlhbCBvcHRpb25zICovCi0JCQlzd2l0Y2gg
+KG9wY29kZSkgewotCQkJY2FzZSBUQ1BPUFRfTVNTOgotCQkJCWlmIChvcHNpemUgPT0gVENQ
+T0xFTl9NU1MgJiYgdGgtPnN5biAmJiAhZXN0YWIpIHsKLQkJCQkJdTE2IGluX21zcyA9IGdl
+dF91bmFsaWduZWRfYmUxNihwdHIpOwotCQkJCQlpZiAoaW5fbXNzKSB7Ci0JCQkJCQlpZiAo
+b3B0X3J4LT51c2VyX21zcyAmJgotCQkJCQkJICAgIG9wdF9yeC0+dXNlcl9tc3MgPCBpbl9t
+c3MpCi0JCQkJCQkJaW5fbXNzID0gb3B0X3J4LT51c2VyX21zczsKLQkJCQkJCW9wdF9yeC0+
+bXNzX2NsYW1wID0gaW5fbXNzOwotCQkJCQl9Ci0JCQkJfQotCQkJCWJyZWFrOwotCQkJY2Fz
+ZSBUQ1BPUFRfV0lORE9XOgotCQkJCWlmIChvcHNpemUgPT0gVENQT0xFTl9XSU5ET1cgJiYg
+dGgtPnN5biAmJgotCQkJCSAgICAhZXN0YWIgJiYgc3lzY3RsX3RjcF93aW5kb3dfc2NhbGlu
+ZykgewotCQkJCQlfX3U4IHNuZF93c2NhbGUgPSAqKF9fdTggKilwdHI7Ci0JCQkJCW9wdF9y
+eC0+d3NjYWxlX29rID0gMTsKLQkJCQkJaWYgKHNuZF93c2NhbGUgPiAxNCkgewotCQkJCQkJ
+aWYgKG5ldF9yYXRlbGltaXQoKSkKLQkJCQkJCQlwcmludGsoS0VSTl9JTkZPICJ0Y3BfcGFy
+c2Vfb3B0aW9uczogSWxsZWdhbCB3aW5kb3cgIgotCQkJCQkJCSAgICAgICAic2NhbGluZyB2
+YWx1ZSAlZCA+MTQgcmVjZWl2ZWQuXG4iLAotCQkJCQkJCSAgICAgICBzbmRfd3NjYWxlKTsK
+LQkJCQkJCXNuZF93c2NhbGUgPSAxNDsKLQkJCQkJfQotCQkJCQlvcHRfcngtPnNuZF93c2Nh
+bGUgPSBzbmRfd3NjYWxlOwotCQkJCX0KLQkJCQlicmVhazsKLQkJCWNhc2UgVENQT1BUX1RJ
+TUVTVEFNUDoKLQkJCQlpZiAoKG9wc2l6ZSA9PSBUQ1BPTEVOX1RJTUVTVEFNUCkgJiYKLQkJ
+CQkgICAgKChlc3RhYiAmJiBvcHRfcngtPnRzdGFtcF9vaykgfHwKLQkJCQkgICAgICghZXN0
+YWIgJiYgc3lzY3RsX3RjcF90aW1lc3RhbXBzKSkpIHsKLQkJCQkJb3B0X3J4LT5zYXdfdHN0
+YW1wID0gMTsKLQkJCQkJb3B0X3J4LT5yY3ZfdHN2YWwgPSBnZXRfdW5hbGlnbmVkX2JlMzIo
+cHRyKTsKLQkJCQkJb3B0X3J4LT5yY3ZfdHNlY3IgPSBnZXRfdW5hbGlnbmVkX2JlMzIocHRy
+ICsgNCk7Ci0JCQkJfQotCQkJCWJyZWFrOwotCQkJY2FzZSBUQ1BPUFRfU0FDS19QRVJNOgot
+CQkJCWlmIChvcHNpemUgPT0gVENQT0xFTl9TQUNLX1BFUk0gJiYgdGgtPnN5biAmJgotCQkJ
+CSAgICAhZXN0YWIgJiYgc3lzY3RsX3RjcF9zYWNrKSB7Ci0JCQkJCW9wdF9yeC0+c2Fja19v
+ayA9IDE7Ci0JCQkJCXRjcF9zYWNrX3Jlc2V0KG9wdF9yeCk7CisJCQkvKiBmYWxsdGhydSAq
+LworCQkJYnJlYWs7CisJCX07CisKKwkJb3BzaXplID0gKnB0cisrOworCQlpZiAob3BzaXpl
+IDwgMiB8fCBvcHNpemUgPiBsZW5ndGgpIHsKKwkJCS8qIGRvbid0IHBhcnNlIHBhcnRpYWwg
+b3B0aW9ucyAqLworCQkJYnJlYWs7CisJCX0KKworCQlzd2l0Y2ggKG9wY29kZSkgeworCQlj
+YXNlIFRDUE9QVF9NU1M6CisJCQlpZiAob3BzaXplID09IFRDUE9MRU5fTVNTICYmIHN5biAm
+JiAhZXN0YWIpIHsKKwkJCQl1MTYgaW5fbXNzID0gZ2V0X3VuYWxpZ25lZF9iZTE2KHB0cik7
+CisJCQkJaWYgKGluX21zcykgeworCQkJCQlpZiAob3B0X3J4LT51c2VyX21zcyAmJgorCQkJ
+CQkgICAgb3B0X3J4LT51c2VyX21zcyA8IGluX21zcykKKwkJCQkJCWluX21zcyA9IG9wdF9y
+eC0+dXNlcl9tc3M7CisJCQkJCW9wdF9yeC0+bXNzX2NsYW1wID0gaW5fbXNzOwogCQkJCX0K
+LQkJCQlicmVhazsKKwkJCX0KKwkJCWJyZWFrOwogCi0JCQljYXNlIFRDUE9QVF9TQUNLOgot
+CQkJCWlmICgob3BzaXplID49IChUQ1BPTEVOX1NBQ0tfQkFTRSArIFRDUE9MRU5fU0FDS19Q
+RVJCTE9DSykpICYmCi0JCQkJICAgISgob3BzaXplIC0gVENQT0xFTl9TQUNLX0JBU0UpICUg
+VENQT0xFTl9TQUNLX1BFUkJMT0NLKSAmJgotCQkJCSAgIG9wdF9yeC0+c2Fja19vaykgewot
+CQkJCQlUQ1BfU0tCX0NCKHNrYiktPnNhY2tlZCA9IChwdHIgLSAyKSAtICh1bnNpZ25lZCBj
+aGFyICopdGg7CisJCWNhc2UgVENQT1BUX1dJTkRPVzoKKwkJCWlmIChvcHNpemUgPT0gVENQ
+T0xFTl9XSU5ET1cgJiYgc3luICYmCisJCQkgICAgIWVzdGFiICYmIHN5c2N0bF90Y3Bfd2lu
+ZG93X3NjYWxpbmcpIHsKKwkJCQlfX3U4IHNuZF93c2NhbGUgPSAqKF9fdTggKilwdHI7CisJ
+CQkJb3B0X3J4LT53c2NhbGVfb2sgPSAxOworCQkJCWlmIChzbmRfd3NjYWxlID4gMTQpIHsK
+KwkJCQkJaWYgKG5ldF9yYXRlbGltaXQoKSkKKwkJCQkJCXByaW50ayhLRVJOX0lORk8KKwkJ
+CQkJCSAgICAgICAidGNwX3BhcnNlX29wdGlvbnM6ICIKKwkJCQkJCSAgICAgICAid2luZG93
+IHNjYWxpbmcgdmFsdWUgIgorCQkJCQkJICAgICAgICIlZCA+IDE0IHJlY2VpdmVkLlxuIiwK
+KwkJCQkJCSAgICAgICBzbmRfd3NjYWxlKTsKKwkJCQkJc25kX3dzY2FsZSA9IDE0OwogCQkJ
+CX0KLQkJCQlicmVhazsKKwkJCQlvcHRfcngtPnNuZF93c2NhbGUgPSBzbmRfd3NjYWxlOwor
+CQkJfQorCQkJYnJlYWs7CisKKwkJY2FzZSBUQ1BPUFRfU0FDS19QRVJNOgorCQkJaWYgKG9w
+c2l6ZSA9PSBUQ1BPTEVOX1NBQ0tfUEVSTSAmJiBzeW4gJiYKKwkJCSAgICAhZXN0YWIgJiYg
+c3lzY3RsX3RjcF9zYWNrKSB7CisJCQkJb3B0X3J4LT5zYWNrX29rID0gMTsKKwkJCQl0Y3Bf
+c2Fja19yZXNldChvcHRfcngpOworCQkJfQorCQkJYnJlYWs7CisKKwkJY2FzZSBUQ1BPUFRf
+U0FDSzoKKwkJCWlmICgob3BzaXplID49IChUQ1BPTEVOX1NBQ0tfQkFTRSArIFRDUE9MRU5f
+U0FDS19QRVJCTE9DSykpICYmCisJCQkgICAgISgob3BzaXplIC0gVENQT0xFTl9TQUNLX0JB
+U0UpICUgVENQT0xFTl9TQUNLX1BFUkJMT0NLKSAmJgorCQkJICAgIG9wdF9yeC0+c2Fja19v
+aykgeworCQkJCVRDUF9TS0JfQ0Ioc2tiKS0+c2Fja2VkID0gKHB0ciAtIDIpCisJCQkJCQkJ
+LSAodW5zaWduZWQgY2hhciAqKXRoOworCQkJfQorCQkJYnJlYWs7CisKKwkJY2FzZSBUQ1BP
+UFRfVElNRVNUQU1QOgorCQkJaWYgKChvcHNpemUgPT0gVENQT0xFTl9USU1FU1RBTVApICYm
+CisJCQkgICAgKChlc3RhYiAmJiBvcHRfcngtPnRzdGFtcF9vaykgfHwKKwkJCSAgICAgKCFl
+c3RhYiAmJiBzeXNjdGxfdGNwX3RpbWVzdGFtcHMpKSkgeworCQkJCW9wdF9yeC0+c2F3X3Rz
+dGFtcCA9IDE7CisJCQkJb3B0X3J4LT5yY3ZfdHN2YWwgPSBnZXRfdW5hbGlnbmVkX2JlMzIo
+cHRyKTsKKwkJCQlvcHRfcngtPnJjdl90c2VjciA9IGdldF91bmFsaWduZWRfYmUzMihwdHIg
+KyA0KTsKKwkJCX0KKwkJCWJyZWFrOwogI2lmZGVmIENPTkZJR19UQ1BfTUQ1U0lHCi0JCQlj
+YXNlIFRDUE9QVF9NRDVTSUc6Ci0JCQkJLyoKLQkJCQkgKiBUaGUgTUQ1IEhhc2ggaGFzIGFs
+cmVhZHkgYmVlbgotCQkJCSAqIGNoZWNrZWQgKHNlZSB0Y3Bfdns0LDZ9X2RvX3JjdigpKS4K
+LQkJCQkgKi8KLQkJCQlicmVhazsKKwkJY2FzZSBUQ1BPUFRfTUQ1U0lHOgorCQkJLyoKKwkJ
+CSAqIFRoZSBNRDUgSGFzaCBoYXMgYWxyZWFkeSBiZWVuCisJCQkgKiBjaGVja2VkIChzZWUg
+dGNwX3Z7NCw2fV9kb19yY3YoKSkuCisJCQkgKi8KKwkJCWJyZWFrOwogI2VuZGlmCi0JCQlj
+YXNlIFRDUE9QVF9DT09LSUU6Ci0JCQkJLyogVGhpcyBvcHRpb24gaXMgdmFyaWFibGUgbGVu
+Z3RoLgotCQkJCSAqLwotCQkJCXN3aXRjaCAob3BzaXplKSB7Ci0JCQkJY2FzZSBUQ1BPTEVO
+X0NPT0tJRV9CQVNFOgotCQkJCQkvKiBub3QgeWV0IGltcGxlbWVudGVkICovCi0JCQkJCWJy
+ZWFrOwotCQkJCWNhc2UgVENQT0xFTl9DT09LSUVfUEFJUjoKLQkJCQkJLyogbm90IHlldCBp
+bXBsZW1lbnRlZCAqLwotCQkJCQlicmVhazsKLQkJCQljYXNlIFRDUE9MRU5fQ09PS0lFX01J
+TiswOgotCQkJCWNhc2UgVENQT0xFTl9DT09LSUVfTUlOKzI6Ci0JCQkJY2FzZSBUQ1BPTEVO
+X0NPT0tJRV9NSU4rNDoKLQkJCQljYXNlIFRDUE9MRU5fQ09PS0lFX01JTis2OgotCQkJCWNh
+c2UgVENQT0xFTl9DT09LSUVfTUFYOgotCQkJCQkvKiAxNi1iaXQgbXVsdGlwbGUgKi8KKwkJ
+Y2FzZSBUQ1BPUFRfQ09PS0lFOgorCQkJaWYgKG9wdF9yeC0+Y29va2llX3BsdXMgIT0gMCkg
+eworCQkJCS8qIGRpc2NhcmQgZHVwbGljYXRlICovCisJCQkJYnJlYWs7CisJCQl9CisJCQlz
+d2l0Y2ggKG9wc2l6ZSkgeworCQkJY2FzZSBUQ1BPTEVOX0NPT0tJRV9CQVNFOgorCQkJCS8q
+IG5vdCB5ZXQgaW1wbGVtZW50ZWQgKi8KKwkJCQlicmVhazsKKwkJCWNhc2UgVENQT0xFTl9D
+T09LSUVfUEFJUjogeworCQkJCS8qIG5vdCB5ZXQgaW1wbGVtZW50ZWQgKi8KKwkJCQlicmVh
+azsKKwkJCX0KKwkJCWNhc2UgVENQT0xFTl9DT09LSUVfTUlOKzA6CisJCQljYXNlIFRDUE9M
+RU5fQ09PS0lFX01JTisyOgorCQkJY2FzZSBUQ1BPTEVOX0NPT0tJRV9NSU4rNDoKKwkJCWNh
+c2UgVENQT0xFTl9DT09LSUVfTUlOKzY6CisJCQljYXNlIFRDUE9MRU5fQ09PS0lFX01BWDoK
+KwkJCQkvKiAxNi1iaXQgbXVsdGlwbGUgKi8KKwkJCQlpZiAoc3luKSB7CiAJCQkJCW9wdF9y
+eC0+Y29va2llX3BsdXMgPSBvcHNpemU7CiAJCQkJCSpodnBwID0gcHRyOwotCQkJCWRlZmF1
+bHQ6Ci0JCQkJCS8qIGlnbm9yZSBvcHRpb24gKi8KLQkJCQkJYnJlYWs7Ci0JCQkJfTsKKwkJ
+CQl9CisJCQkJYnJlYWs7CisJCQlkZWZhdWx0OgorCQkJCS8qIGlnbm9yZSBvcHRpb24gKi8K
+IAkJCQlicmVhazsKIAkJCX07CisJCQlicmVhazsKIAotCQkJcHRyICs9IG9wc2l6ZS0yOwot
+CQkJbGVuZ3RoIC09IG9wc2l6ZTsKLQkJfQorCQlkZWZhdWx0OgorCQkJLyogc2tpcCB1bnJl
+Y29nbml6ZWQgb3B0aW9ucyAqLworCQkJYnJlYWs7CisJCX07CisKKwkJcHRyICs9IG9wc2l6
+ZSAtIDI7CisJCWxlbmd0aCAtPSBvcHNpemU7CiAJfQorCXJldHVybiAwOwogfQogCisvKgor
+ICogUmV0dXJuczoKKyAqCTEgb24gc3VjY2VzcworICoJMCBvbiBmYWlsdXJlCisgKi8KIHN0
+YXRpYyBpbnQgdGNwX3BhcnNlX2FsaWduZWRfdGltZXN0YW1wKHN0cnVjdCB0Y3Bfc29jayAq
+dHAsIHN0cnVjdCB0Y3BoZHIgKnRoKQogewogCV9fYmUzMiAqcHRyID0gKF9fYmUzMiAqKSh0
+aCArIDEpOwpAQCAtMzg3NSw4ICszOTAyLDcgQEAgc3RhdGljIGludCB0Y3BfZmFzdF9wYXJz
+ZV9vcHRpb25zKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCB0Y3BoZHIgKnRoLAogCQlp
+ZiAodGNwX3BhcnNlX2FsaWduZWRfdGltZXN0YW1wKHRwLCB0aCkpCiAJCQlyZXR1cm4gMTsK
+IAl9Ci0JdGNwX3BhcnNlX29wdGlvbnMoc2tiLCAmdHAtPnJ4X29wdCwgaHZwcCwgMSk7Ci0J
+cmV0dXJuIDE7CisJcmV0dXJuIHRjcF9wYXJzZV9vcHRpb25zKHNrYiwgdGgsICZ0cC0+cnhf
+b3B0LCBodnBwLCAxKTsKIH0KIAogI2lmZGVmIENPTkZJR19UQ1BfTUQ1U0lHCkBAIC01MTI3
+LDEwICs1MTUzLDEzIEBAIHN0YXRpYyBpbnQgdGNwX3ZhbGlkYXRlX2luY29taW5nKHN0cnVj
+dCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYiwKIHsKIAl1OCAqaGFzaF9sb2NhdGlv
+bjsKIAlzdHJ1Y3QgdGNwX3NvY2sgKnRwID0gdGNwX3NrKHNrKTsKKwlpbnQgcGFyc2VkID0g
+dGNwX2Zhc3RfcGFyc2Vfb3B0aW9ucyhza2IsIHRoLCB0cCwgJmhhc2hfbG9jYXRpb24pOwor
+CisJaWYgKHBhcnNlZCA8IDApCisJCWdvdG8gZGlzY2FyZDsKIAogCS8qIFJGQzEzMjM6IEgx
+LiBBcHBseSBQQVdTIGNoZWNrIGZpcnN0LiAqLwotCWlmICh0Y3BfZmFzdF9wYXJzZV9vcHRp
+b25zKHNrYiwgdGgsIHRwLCAmaGFzaF9sb2NhdGlvbikgJiYKLQkgICAgdHAtPnJ4X29wdC5z
+YXdfdHN0YW1wICYmCisJaWYgKHRwLT5yeF9vcHQuc2F3X3RzdGFtcCAmJgogCSAgICB0Y3Bf
+cGF3c19kaXNjYXJkKHNrLCBza2IpKSB7CiAJCWlmICghdGgtPnJzdCkgewogCQkJTkVUX0lO
+Q19TVEFUU19CSChzb2NrX25ldChzayksIExJTlVYX01JQl9QQVdTRVNUQUJSRUpFQ1RFRCk7
+CkBAIC01NDEyLDggKzU0NDEsMTAgQEAgc3RhdGljIGludCB0Y3BfcmN2X3N5bnNlbnRfc3Rh
+dGVfcHJvY2VzcyhzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBza19idWZmICpza2IsCiAJc3Ry
+dWN0IHRjcF9jb29raWVfdmFsdWVzICpjdnAgPSB0cC0+Y29va2llX3ZhbHVlczsKIAlpbnQg
+c2F2ZWRfY2xhbXAgPSB0cC0+cnhfb3B0Lm1zc19jbGFtcDsKIAlpbnQgcXVldWVkID0gMDsK
+KwlpbnQgcGFyc2VkID0gdGNwX3BhcnNlX29wdGlvbnMoc2tiLCB0aCwgJnRwLT5yeF9vcHQs
+ICZoYXNoX2xvY2F0aW9uLCAwKTsKIAotCXRjcF9wYXJzZV9vcHRpb25zKHNrYiwgJnRwLT5y
+eF9vcHQsICZoYXNoX2xvY2F0aW9uLCAwKTsKKwlpZiAocGFyc2VkIDwgMCkKKwkJZ290byBk
+aXNjYXJkOwogCiAJaWYgKHRoLT5hY2spIHsKIAkJLyogcmZjNzkzOgpkaWZmIC0tZ2l0IGEv
+bmV0L2lwdjQvdGNwX2lwdjQuYyBiL25ldC9pcHY0L3RjcF9pcHY0LmMKaW5kZXggZjk5OWUw
+Ni4uM2YwODEzZiAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvdGNwX2lwdjQuYworKysgYi9uZXQv
+aXB2NC90Y3BfaXB2NC5jCkBAIC0xMjE1LDYgKzEyMTUsNyBAQCBpbnQgdGNwX3Y0X2Nvbm5f
+cmVxdWVzdChzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBza19idWZmICpza2IpCiB7CiAJc3Ry
+dWN0IHRjcF9leHRlbmRfdmFsdWVzIHRtcF9leHQ7CiAJc3RydWN0IHRjcF9vcHRpb25zX3Jl
+Y2VpdmVkIHRtcF9vcHQ7CisJaW50IHBhcnNlZDsKIAl1OCAqaGFzaF9sb2NhdGlvbjsKIAlz
+dHJ1Y3QgcmVxdWVzdF9zb2NrICpyZXE7CiAJc3RydWN0IGluZXRfcmVxdWVzdF9zb2NrICpp
+cmVxOwpAQCAtMTI2NSw3ICsxMjY2LDEwIEBAIGludCB0Y3BfdjRfY29ubl9yZXF1ZXN0KHN0
+cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYikKIAl0Y3BfY2xlYXJfb3B0aW9u
+cygmdG1wX29wdCk7CiAJdG1wX29wdC5tc3NfY2xhbXAgPSBUQ1BfTVNTX0RFRkFVTFQ7CiAJ
+dG1wX29wdC51c2VyX21zcyAgPSB0cC0+cnhfb3B0LnVzZXJfbXNzOwotCXRjcF9wYXJzZV9v
+cHRpb25zKHNrYiwgJnRtcF9vcHQsICZoYXNoX2xvY2F0aW9uLCAwKTsKKwlwYXJzZWQgPSB0
+Y3BfcGFyc2Vfb3B0aW9ucyhza2IsIHRjcF9oZHIoc2tiKSwgJnRtcF9vcHQsICZoYXNoX2xv
+Y2F0aW9uLAorCQkJCSAgIDApOworCWlmIChwYXJzZWQgPCAwKQorCQlnb3RvIGRyb3BfYW5k
+X2ZyZWU7CiAKIAlpZiAodG1wX29wdC5jb29raWVfcGx1cyA+IDAgJiYKIAkgICAgdG1wX29w
+dC5zYXdfdHN0YW1wICYmCkBAIC0xMjc4LDcgKzEyODIsNyBAQCBpbnQgdGNwX3Y0X2Nvbm5f
+cmVxdWVzdChzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBza19idWZmICpza2IpCiAJCWludCBs
+ID0gdG1wX29wdC5jb29raWVfcGx1cyAtIFRDUE9MRU5fQ09PS0lFX0JBU0U7CiAKIAkJaWYg
+KHRjcF9jb29raWVfZ2VuZXJhdG9yKCZ0bXBfZXh0LmNvb2tpZV9iYWtlcnlbMF0pICE9IDAp
+Ci0JCQlnb3RvIGRyb3BfYW5kX3JlbGVhc2U7CisJCQlnb3RvIGRyb3BfYW5kX2ZyZWU7CiAK
+IAkJLyogU2VjcmV0IHJlY2lwZSBzdGFydHMgd2l0aCBJUCBhZGRyZXNzZXMgKi8KIAkJKm1l
+c3MrKyBePSBkYWRkcjsKQEAgLTEyOTksNyArMTMwMyw3IEBAIGludCB0Y3BfdjRfY29ubl9y
+ZXF1ZXN0KHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYikKIAkJdG1wX2V4
+dC5jb29raWVfb3V0X25ldmVyID0gMTsgLyogdHJ1ZSAqLwogCQl0bXBfZXh0LmNvb2tpZV9w
+bHVzID0gMDsKIAl9IGVsc2UgewotCQlnb3RvIGRyb3BfYW5kX3JlbGVhc2U7CisJCWdvdG8g
+ZHJvcF9hbmRfZnJlZTsKIAl9CiAJdG1wX2V4dC5jb29raWVfaW5fYWx3YXlzID0gdHAtPnJ4
+X29wdC5jb29raWVfaW5fYWx3YXlzOwogCmRpZmYgLS1naXQgYS9uZXQvaXB2NC90Y3BfbWlu
+aXNvY2tzLmMgYi9uZXQvaXB2NC90Y3BfbWluaXNvY2tzLmMKaW5kZXggMzdiNzUzNi4uMGYx
+YjQwOSAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvdGNwX21pbmlzb2Nrcy5jCisrKyBiL25ldC9p
+cHY0L3RjcF9taW5pc29ja3MuYwpAQCAtOTUsMTUgKzk1LDIxIEBAIHRjcF90aW1ld2FpdF9z
+dGF0ZV9wcm9jZXNzKHN0cnVjdCBpbmV0X3RpbWV3YWl0X3NvY2sgKnR3LCBzdHJ1Y3Qgc2tf
+YnVmZiAqc2tiLAogCXN0cnVjdCB0Y3BfdGltZXdhaXRfc29jayAqdGNwdHcgPSB0Y3BfdHdz
+aygoc3RydWN0IHNvY2sgKil0dyk7CiAJaW50IHBhd3NfcmVqZWN0ID0gMDsKIAotCXRtcF9v
+cHQuc2F3X3RzdGFtcCA9IDA7CisJLyogRmFzdCBjaGVjayBmb3Igb3B0aW9ucywgY29tcGFy
+ZSBkb2ZmIGRpcmVjdGx5IHRvIGNvbnN0YW50IHZhbHVlLiAqLwogCWlmICh0aC0+ZG9mZiA+
+IChzaXplb2YoKnRoKSA+PiAyKSAmJiB0Y3B0dy0+dHdfdHNfcmVjZW50X3N0YW1wKSB7Ci0J
+CXRjcF9wYXJzZV9vcHRpb25zKHNrYiwgJnRtcF9vcHQsICZoYXNoX2xvY2F0aW9uLCAwKTsK
+KwkJaW50IHBhcnNlZCA9IHRjcF9wYXJzZV9vcHRpb25zKHNrYiwgdGgsICZ0bXBfb3B0LAor
+CQkJCQkgICAgICAgJmhhc2hfbG9jYXRpb24sIDApOwogCi0JCWlmICh0bXBfb3B0LnNhd190
+c3RhbXApIHsKKwkJaWYgKHBhcnNlZCA8IDApIHsKKwkJCXBhd3NfcmVqZWN0ID0gMTsgLyog
+dHJ1ZSAqLworCQl9IGVsc2UgaWYgKHRtcF9vcHQuc2F3X3RzdGFtcCkgewogCQkJdG1wX29w
+dC50c19yZWNlbnQJPSB0Y3B0dy0+dHdfdHNfcmVjZW50OwogCQkJdG1wX29wdC50c19yZWNl
+bnRfc3RhbXAJPSB0Y3B0dy0+dHdfdHNfcmVjZW50X3N0YW1wOwogCQkJcGF3c19yZWplY3Qg
+PSB0Y3BfcGF3c19yZWplY3QoJnRtcF9vcHQsIHRoLT5yc3QpOwogCQl9CisJfSBlbHNlIHsK
+KwkJLyogb3RoZXJ3aXNlIGluaXRpYWxpemVkIGJ5IHRjcF9wYXJzZV9vcHRpb25zKCkgKi8K
+KwkJdG1wX29wdC5zYXdfdHN0YW1wID0gMDsgLyogZmFsc2UgKi8KIAl9CiAKIAlpZiAodHct
+PnR3X3N1YnN0YXRlID09IFRDUF9GSU5fV0FJVDIpIHsKQEAgLTUyNiwxMSArNTMyLDE0IEBA
+IHN0cnVjdCBzb2NrICp0Y3BfY2hlY2tfcmVxKHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNr
+X2J1ZmYgKnNrYiwKIAlfX2JlMzIgZmxnID0gdGNwX2ZsYWdfd29yZCh0aCkgJiAoVENQX0ZM
+QUdfUlNUfFRDUF9GTEFHX1NZTnxUQ1BfRkxBR19BQ0spOwogCWludCBwYXdzX3JlamVjdCA9
+IDA7CiAKLQl0bXBfb3B0LnNhd190c3RhbXAgPSAwOwotCWlmICh0aC0+ZG9mZiA+IChzaXpl
+b2Yoc3RydWN0IHRjcGhkcik+PjIpKSB7Ci0JCXRjcF9wYXJzZV9vcHRpb25zKHNrYiwgJnRt
+cF9vcHQsICZoYXNoX2xvY2F0aW9uLCAwKTsKKwkvKiBGYXN0IGNoZWNrIGZvciBvcHRpb25z
+LCBjb21wYXJlIGRvZmYgZGlyZWN0bHkgdG8gY29uc3RhbnQgdmFsdWUuICovCisJaWYgKHRo
+LT5kb2ZmID4gKHNpemVvZigqdGgpID4+IDIpKSB7CisJCWludCBwYXJzZWQgPSB0Y3BfcGFy
+c2Vfb3B0aW9ucyhza2IsIHRoLCAmdG1wX29wdCwKKwkJCQkJICAgICAgICZoYXNoX2xvY2F0
+aW9uLCAwKTsKIAotCQlpZiAodG1wX29wdC5zYXdfdHN0YW1wKSB7CisJCWlmIChwYXJzZWQg
+PCAwKSB7CisJCQlwYXdzX3JlamVjdCA9IDE7IC8qIHRydWUgKi8KKwkJfSBlbHNlIGlmICh0
+bXBfb3B0LnNhd190c3RhbXApIHsKIAkJCXRtcF9vcHQudHNfcmVjZW50ID0gcmVxLT50c19y
+ZWNlbnQ7CiAJCQkvKiBXZSBkbyBub3Qgc3RvcmUgdHJ1ZSBzdGFtcCwgYnV0IGl0IGlzIG5v
+dCByZXF1aXJlZCwKIAkJCSAqIGl0IGNhbiBiZSBlc3RpbWF0ZWQgKGFwcHJveGltYXRlbHkp
+CkBAIC01MzksNiArNTQ4LDkgQEAgc3RydWN0IHNvY2sgKnRjcF9jaGVja19yZXEoc3RydWN0
+IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCQkJdG1wX29wdC50c19yZWNlbnRf
+c3RhbXAgPSBnZXRfc2Vjb25kcygpIC0gKChUQ1BfVElNRU9VVF9JTklUL0haKTw8cmVxLT5y
+ZXRyYW5zKTsKIAkJCXBhd3NfcmVqZWN0ID0gdGNwX3Bhd3NfcmVqZWN0KCZ0bXBfb3B0LCB0
+aC0+cnN0KTsKIAkJfQorCX0gZWxzZSB7CisJCS8qIG90aGVyd2lzZSBpbml0aWFsaXplZCBi
+eSB0Y3BfcGFyc2Vfb3B0aW9ucygpICovCisJCXRtcF9vcHQuc2F3X3RzdGFtcCA9IDA7IC8q
+IGZhbHNlICovCiAJfQogCiAJLyogQ2hlY2sgZm9yIHB1cmUgcmV0cmFuc21pdHRlZCBTWU4u
+ICovCmRpZmYgLS1naXQgYS9uZXQvaXB2Ni9zeW5jb29raWVzLmMgYi9uZXQvaXB2Ni9zeW5j
+b29raWVzLmMKaW5kZXggNzIwOGEwNi4uYTA5MDViNCAxMDA2NDQKLS0tIGEvbmV0L2lwdjYv
+c3luY29va2llcy5jCisrKyBiL25ldC9pcHY2L3N5bmNvb2tpZXMuYwpAQCAtMTYxLDYgKzE2
+MSw4IEBAIHN0cnVjdCBzb2NrICpjb29raWVfdjZfY2hlY2soc3RydWN0IHNvY2sgKnNrLCBz
+dHJ1Y3Qgc2tfYnVmZiAqc2tiKQogewogCXN0cnVjdCB0Y3Bfb3B0aW9uc19yZWNlaXZlZCB0
+Y3Bfb3B0OwogCXU4ICpoYXNoX2xvY2F0aW9uOworCXN0cnVjdCBkc3RfZW50cnkgKmRzdDsK
+KwlzdHJ1Y3QgcmVxdWVzdF9zb2NrICpyZXE7CiAJc3RydWN0IGluZXRfcmVxdWVzdF9zb2Nr
+ICppcmVxOwogCXN0cnVjdCBpbmV0Nl9yZXF1ZXN0X3NvY2sgKmlyZXE2OwogCXN0cnVjdCB0
+Y3BfcmVxdWVzdF9zb2NrICp0cmVxOwpAQCAtMTY5LDkgKzE3MSw4IEBAIHN0cnVjdCBzb2Nr
+ICpjb29raWVfdjZfY2hlY2soc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2ti
+KQogCWNvbnN0IHN0cnVjdCB0Y3BoZHIgKnRoID0gdGNwX2hkcihza2IpOwogCV9fdTMyIGNv
+b2tpZSA9IG50b2hsKHRoLT5hY2tfc2VxKSAtIDE7CiAJc3RydWN0IHNvY2sgKnJldCA9IHNr
+OwotCXN0cnVjdCByZXF1ZXN0X3NvY2sgKnJlcTsKIAlpbnQgbXNzOwotCXN0cnVjdCBkc3Rf
+ZW50cnkgKmRzdDsKKwlpbnQgcGFyc2VkOwogCV9fdTggcmN2X3dzY2FsZTsKIAogCWlmICgh
+c3lzY3RsX3RjcF9zeW5jb29raWVzIHx8ICF0aC0+YWNrKQpAQCAtMTg3LDcgKzE4OCw5IEBA
+IHN0cnVjdCBzb2NrICpjb29raWVfdjZfY2hlY2soc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qg
+c2tfYnVmZiAqc2tiKQogCiAJLyogY2hlY2sgZm9yIHRpbWVzdGFtcCBjb29raWUgc3VwcG9y
+dCAqLwogCW1lbXNldCgmdGNwX29wdCwgMCwgc2l6ZW9mKHRjcF9vcHQpKTsKLQl0Y3BfcGFy
+c2Vfb3B0aW9ucyhza2IsICZ0Y3Bfb3B0LCAmaGFzaF9sb2NhdGlvbiwgMCk7CisJcGFyc2Vk
+ID0gdGNwX3BhcnNlX29wdGlvbnMoc2tiLCB0aCwgJnRjcF9vcHQsICZoYXNoX2xvY2F0aW9u
+LCAwKTsKKwlpZiAocGFyc2VkIDwgMCkKKwkJZ290byBvdXQ7CiAKIAlpZiAodGNwX29wdC5z
+YXdfdHN0YW1wKQogCQljb29raWVfY2hlY2tfdGltZXN0YW1wKCZ0Y3Bfb3B0KTsKZGlmZiAt
+LWdpdCBhL25ldC9pcHY2L3RjcF9pcHY2LmMgYi9uZXQvaXB2Ni90Y3BfaXB2Ni5jCmluZGV4
+IDNkMDhhNGQuLmUxNWU0ZjYgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L3RjcF9pcHY2LmMKKysr
+IGIvbmV0L2lwdjYvdGNwX2lwdjYuYwpAQCAtMTE2NCw2ICsxMTY0LDcgQEAgc3RhdGljIGlu
+dCB0Y3BfdjZfY29ubl9yZXF1ZXN0KHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYg
+KnNrYikKIHsKIAlzdHJ1Y3QgdGNwX2V4dGVuZF92YWx1ZXMgdG1wX2V4dDsKIAlzdHJ1Y3Qg
+dGNwX29wdGlvbnNfcmVjZWl2ZWQgdG1wX29wdDsKKwlpbnQgcGFyc2VkOwogCXU4ICpoYXNo
+X2xvY2F0aW9uOwogCXN0cnVjdCByZXF1ZXN0X3NvY2sgKnJlcTsKIAlzdHJ1Y3QgaW5ldDZf
+cmVxdWVzdF9zb2NrICp0cmVxOwpAQCAtMTIwNyw3ICsxMjA4LDEwIEBAIHN0YXRpYyBpbnQg
+dGNwX3Y2X2Nvbm5fcmVxdWVzdChzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBza19idWZmICpz
+a2IpCiAJdGNwX2NsZWFyX29wdGlvbnMoJnRtcF9vcHQpOwogCXRtcF9vcHQubXNzX2NsYW1w
+ID0gSVBWNl9NSU5fTVRVIC0gc2l6ZW9mKHN0cnVjdCB0Y3BoZHIpIC0gc2l6ZW9mKHN0cnVj
+dCBpcHY2aGRyKTsKIAl0bXBfb3B0LnVzZXJfbXNzID0gdHAtPnJ4X29wdC51c2VyX21zczsK
+LQl0Y3BfcGFyc2Vfb3B0aW9ucyhza2IsICZ0bXBfb3B0LCAmaGFzaF9sb2NhdGlvbiwgMCk7
+CisJcGFyc2VkID0gdGNwX3BhcnNlX29wdGlvbnMoc2tiLCB0Y3BfaGRyKHNrYiksICZ0bXBf
+b3B0LCAmaGFzaF9sb2NhdGlvbiwKKwkJCQkgICAwKTsKKwlpZiAocGFyc2VkIDwgMCkKKwkJ
+Z290byBkcm9wX2FuZF9mcmVlOwogCiAJaWYgKHRtcF9vcHQuY29va2llX3BsdXMgPiAwICYm
+CiAJICAgIHRtcF9vcHQuc2F3X3RzdGFtcCAmJgotLSAKMS42LjMuMwoK
+--------------080408000706050606080604--
