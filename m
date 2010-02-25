@@ -1,113 +1,152 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 7/7] tg3: Remove now useless VPD code
-Date: Thu, 25 Feb 2010 10:19:22 -0800
-Message-ID: <1267121962-6077-8-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH 2/7] pci: Add large and small resource data type code
+Date: Thu, 25 Feb 2010 10:19:17 -0800
+Message-ID: <1267121962-6077-3-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: linux-pci@vger.kernel.org, netdev@vger.kernel.org,
-	andy@greyhouse.net, mcarlson@broadcom.com
+	andy@greyhouse.net, mcarlson@broadcom.com,
+	"Michael Chan" <mchan@broadcom.com>
 To: jbarnes@virtuousgeek.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4736 "EHLO mms2.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2641 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933253Ab0BYSUT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Feb 2010 13:20:19 -0500
+	id S933231Ab0BYSUN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2010 13:20:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that the VPD searching code is abstracted away, the outer loop used
-to detect the read-only large resource data type section is useless.
+This patch introduces more VPD preprocessor definitions to identify some
+small and large resource data type item names.  The patch then continues
+to correct how the tg3 and bnx2 drivers search for the "read-only data"
+large resource data type.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   52 +++++++++++++++++++++++-----------------------------
- 1 files changed, 23 insertions(+), 29 deletions(-)
+ drivers/net/bnx2.c      |   23 +++++++++++++++++------
+ drivers/net/tg3.c       |   23 +++++++++++++++++------
+ include/linux/pci-vpd.h |   28 +++++++++++++++++++++++++++-
+ 3 files changed, 61 insertions(+), 13 deletions(-)
 
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 9f5b0fc..1c48d4a 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -7763,15 +7763,26 @@ bnx2_read_vpd_fw_ver(struct bnx2 *bp)
+ 		unsigned char val = data[i];
+ 		unsigned int block_end;
+ 
+-		if (val == 0x82 || val == 0x91) {
+-			i += PCI_VPD_LRDT_TAG_SIZE +
+-			     pci_vpd_lrdt_size(&data[i]);
++		if (val & PCI_VPD_LRDT) {
++			if (i + PCI_VPD_LRDT_TAG_SIZE > BNX2_VPD_LEN)
++				break;
++
++			if (val != PCI_VPD_LRDT_RO_DATA) {
++				i += PCI_VPD_LRDT_TAG_SIZE +
++				     pci_vpd_lrdt_size(&data[i]);
++
++				continue;
++			}
++		} else {
++			if ((val & PCI_VPD_SRDT_TIN_MASK) == PCI_VPD_STIN_END)
++				break;
++
++			i += PCI_VPD_SRDT_TAG_SIZE +
++			     pci_vpd_srdt_size(&data[i]);
++
+ 			continue;
+ 		}
+ 
+-		if (val != 0x90)
+-			goto vpd_done;
+-
+ 		block_end = (i + PCI_VPD_LRDT_TAG_SIZE +
+ 			    pci_vpd_lrdt_size(&data[i]));
+ 		i += PCI_VPD_LRDT_TAG_SIZE;
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index d9fa6c0..66d0a33 100644
+index 6cab97f..2ec6eca 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -12441,7 +12441,8 @@ skip_phy_reset:
- static void __devinit tg3_read_partno(struct tg3 *tp)
- {
- 	unsigned char vpd_data[TG3_NVM_VPD_LEN];   /* in little-endian format */
--	int i;
-+	unsigned int block_end, rosize, len;
-+	int i = 0;
- 	u32 magic;
+@@ -12483,15 +12483,26 @@ static void __devinit tg3_read_partno(struct tg3 *tp)
+ 		unsigned char val = vpd_data[i];
+ 		unsigned int block_end;
  
- 	if ((tp->tg3_flags3 & TG3_FLG3_NO_NVRAM) ||
-@@ -12463,7 +12464,7 @@ static void __devinit tg3_read_partno(struct tg3 *tp)
+-		if (val == 0x82 || val == 0x91) {
+-			i += PCI_VPD_LRDT_TAG_SIZE +
+-			     pci_vpd_lrdt_size(&vpd_data[i]);
++		if (val & PCI_VPD_LRDT) {
++			if (i + PCI_VPD_LRDT_TAG_SIZE > TG3_NVM_VPD_LEN)
++				break;
++
++			if (val != PCI_VPD_LRDT_RO_DATA) {
++				i += PCI_VPD_LRDT_TAG_SIZE +
++				     pci_vpd_lrdt_size(&vpd_data[i]);
++
++				continue;
++			}
++		} else {
++			if ((val & PCI_VPD_SRDT_TIN_MASK) == PCI_VPD_STIN_END)
++				break;
++
++			i += PCI_VPD_SRDT_TAG_SIZE +
++			     pci_vpd_srdt_size(&vpd_data[i]);
++
+ 			continue;
  		}
- 	} else {
- 		ssize_t cnt;
--		unsigned int pos = 0, i = 0;
-+		unsigned int pos = 0;
  
- 		for (; pos < TG3_NVM_VPD_LEN && i < 3; i++, pos += cnt) {
- 			cnt = pci_read_vpd(tp->pdev, pos,
-@@ -12478,40 +12479,33 @@ static void __devinit tg3_read_partno(struct tg3 *tp)
- 			goto out_not_found;
- 	}
- 
--	/* Now parse and find the part number. */
--	for (i = 0; i < TG3_NVM_VPD_LEN - 2; ) {
--		unsigned int block_end, rosize;
-+	i = pci_vpd_find_tag(vpd_data, 0, TG3_NVM_VPD_LEN,
-+			     PCI_VPD_LRDT_RO_DATA);
-+	if (i < 0)
-+		goto out_not_found;
- 
--		i = pci_vpd_find_tag(vpd_data, i, TG3_NVM_VPD_LEN,
--				     PCI_VPD_LRDT_RO_DATA);
--		if (i < 0)
--			break;
-+	rosize = pci_vpd_lrdt_size(&vpd_data[i]);
-+	block_end = i + PCI_VPD_LRDT_TAG_SIZE + rosize;
-+	i += PCI_VPD_LRDT_TAG_SIZE;
- 
--		rosize = pci_vpd_lrdt_size(&vpd_data[i]);
--		block_end = i + PCI_VPD_LRDT_TAG_SIZE + rosize;
--		i += PCI_VPD_LRDT_TAG_SIZE;
-+	if (block_end > TG3_NVM_VPD_LEN)
-+		goto out_not_found;
- 
--		if (block_end > TG3_NVM_VPD_LEN)
+-		if (val != 0x90)
 -			goto out_not_found;
-+	i = pci_vpd_find_info_keyword(vpd_data, i, rosize,
-+				      PCI_VPD_RO_KEYWORD_PARTNO);
-+	if (i < 0)
-+		goto out_not_found;
- 
--		i = pci_vpd_find_info_keyword(vpd_data, i, rosize,
--					      PCI_VPD_RO_KEYWORD_PARTNO);
--		if (i > 0) {
--			u8 len = pci_vpd_info_field_size(&vpd_data[i]);
-+	len = pci_vpd_info_field_size(&vpd_data[i]);
- 
--			i += PCI_VPD_INFO_FLD_HDR_SIZE;
--			if (len > TG3_BPN_SIZE ||
--			    (len + i) > TG3_NVM_VPD_LEN)
--				break;
 -
--			memcpy(tp->board_part_number, &vpd_data[i], len);
-+	i += PCI_VPD_INFO_FLD_HDR_SIZE;
-+	if (len > TG3_BPN_SIZE ||
-+	    (len + i) > TG3_NVM_VPD_LEN)
-+		goto out_not_found;
+ 		block_end = i + PCI_VPD_LRDT_TAG_SIZE +
+ 			    pci_vpd_lrdt_size(&vpd_data[i]);
  
--			return;
--		}
-+	memcpy(tp->board_part_number, &vpd_data[i], len);
+diff --git a/include/linux/pci-vpd.h b/include/linux/pci-vpd.h
+index c077369..b80d5c0 100644
+--- a/include/linux/pci-vpd.h
++++ b/include/linux/pci-vpd.h
+@@ -16,11 +16,37 @@
  
--		/* Part number not found. */
--		goto out_not_found;
--	}
-+	return;
+ #include <linux/pci.h>
  
- out_not_found:
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906)
+-#define PCI_VPD_LRDT_TAG_SIZE	3
++#define PCI_VPD_LRDT			0x80	/* Large Resource Data Type */
++#define PCI_VPD_LRDT_ID(x)		(x | PCI_VPD_LRDT)
++
++/* Large Resource Data Type Tag Item Names */
++#define PCI_VPD_LTIN_ID_STRING		0x02	/* Identifier String */
++#define PCI_VPD_LTIN_RO_DATA		0x10	/* Read-Only Data */
++#define PCI_VPD_LTIN_RW_DATA		0x11	/* Read-Write Data */
++
++#define PCI_VPD_LRDT_ID_STRING		PCI_VPD_LRDT_ID(PCI_VPD_LTIN_ID_STRING)
++#define PCI_VPD_LRDT_RO_DATA		PCI_VPD_LRDT_ID(PCI_VPD_LTIN_RO_DATA)
++#define PCI_VPD_LRDT_RW_DATA		PCI_VPD_LRDT_ID(PCI_VPD_LTIN_RW_DATA)
++
++/* Small Resource Data Type Tag Item Names */
++#define PCI_VPD_STIN_END		0x78	/* End */
++
++#define PCI_VPD_SRDT_END		PCI_VPD_STIN_END
++
++#define PCI_VPD_SRDT_TIN_MASK		0x78
++#define PCI_VPD_SRDT_LEN_MASK		0x07
++
++#define PCI_VPD_LRDT_TAG_SIZE		3
++#define PCI_VPD_SRDT_TAG_SIZE		1
+ 
+ static inline u16 pci_vpd_lrdt_size(u8 *lrdt)
+ {
+ 	return (u16)lrdt[1] + ((u16)lrdt[2] << 8);
+ }
+ 
++static inline u8 pci_vpd_srdt_size(u8 *srdt)
++{
++	return (*srdt) & PCI_VPD_SRDT_LEN_MASK;
++}
++
+ #endif /* LINUX_PCI_VPD_H */
 -- 
 1.6.4.4
 
