@@ -1,45 +1,39 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH] greth: fall through to common return statement on error
-Date: Fri, 26 Feb 2010 10:50:19 +1100
-Message-ID: <20100225235019.GA26133@verge.net.au>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next-2.6 PATCH] ixgbevf: convert to use netdev_for_each_mc_addr
+Date: Thu, 25 Feb 2010 15:55:24 -0800
+Message-ID: <9929d2391002251555l7314e086n279316e4c80b95c7@mail.gmail.com>
+References: <20100223190644.GB2673@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kristoffer Glembo <kristoffer@gaisler.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Denis Kirjanov <kirjanov@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:58823 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934553Ab0BYXuV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 18:50:21 -0500
-Content-Disposition: inline
+Received: from mail-pz0-f194.google.com ([209.85.222.194]:50974 "EHLO
+	mail-pz0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759318Ab0BYXz0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 18:55:26 -0500
+Received: by pzk32 with SMTP id 32so1075387pzk.4
+        for <netdev@vger.kernel.org>; Thu, 25 Feb 2010 15:55:24 -0800 (PST)
+In-Reply-To: <20100223190644.GB2673@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There doesn't seem to be any reason to explicitly return
-NETDEV_TX_OK as err is set to NETDEV_TX_OK in all cases that
-reach this point.
+On Tue, Feb 23, 2010 at 11:06, Jiri Pirko <jpirko@redhat.com> wrote:
+>
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> ---
+> =C2=A0drivers/net/ixgbevf/ixgbevf_main.c | =C2=A0 24 +---------------=
+--------
+> =C2=A0drivers/net/ixgbevf/vf.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=
+=A0 24 ++++++++++++------------
+> =C2=A0drivers/net/ixgbevf/vf.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=
+=A0 =C2=A04 ++--
+> =C2=A03 files changed, 15 insertions(+), 37 deletions(-)
+>
 
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Thanks Jiri, I have added the patch to my queue of patches.
 
---- 
-
-Cosmetic change brought about by curiosity as to weather returning
-NETDEV_TX_OK on these error conditions is correct. I have similar
-curiosity relating to greth_start_xmit().
-
-Index: net-next-2.6/drivers/net/greth.c
-===================================================================
---- net-next-2.6.orig/drivers/net/greth.c	2010-02-26 10:42:35.000000000 +1100
-+++ net-next-2.6/drivers/net/greth.c	2010-02-26 10:42:55.000000000 +1100
-@@ -556,8 +556,6 @@ map_error:
- 	if (net_ratelimit())
- 		dev_warn(greth->dev, "Could not create TX DMA mapping\n");
- 	dev_kfree_skb(skb);
--	return NETDEV_TX_OK;
--
- out:
- 	return err;
- }
+--=20
+Cheers,
+Jeff
