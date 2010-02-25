@@ -1,59 +1,191 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: Re: [RFC PATCH net-next 1/5]IPv6:netfilter: defrag:Introduce net
- namespace
-Date: Thu, 25 Feb 2010 19:36:13 +0800
-Message-ID: <4B8660AD.7030308@cn.fujitsu.com>
-References: <b6fcc0a1002232348y6ff84ca8wf3bdf21de45fffbd@mail.gmail.com> <4B84E2A2.6020006@cn.fujitsu.com> <4B85321B.1090003@trash.net>
+From: Sathya Perla <sathyap@serverengines.com>
+Subject: [PATCH] be2net: fix tx completion polling
+Date: Thu, 25 Feb 2010 17:25:16 +0530
+Message-ID: <20100225115516.GA10784@serverengines.com>
+Reply-To: Sathya Perla <sathyap@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:61130 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1759252Ab0BYLgP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Feb 2010 06:36:15 -0500
-In-Reply-To: <4B85321B.1090003@trash.net>
+Received: from segment-124-30.sify.net ([124.30.166.146]:44753 "EHLO
+	sperla-laptop.localdomain" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1759173Ab0BYLzV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 06:55:21 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote, at 02/24/2010 10:05 PM:
-> Shan Wei wrote:
->> Alexey Dobriyan wrote, at 02/24/2010 03:48 PM:
->>>> -		.procname	= "nf_conntrack_frag6_timeout",
->>>> -		.data		= &nf_init_frags.timeout,
->>>> -		.maxlen		= sizeof(unsigned int),
->>>> -		.mode		= 0644,
->>>> -		.proc_handler	= proc_dointvec_jiffies,
->>> Why are you removing sysctls?
->> Because, after introduced net namespace, we can use net->ipv6.frags to 
->> manage IPv6 conntrack fragment queue instead of nf_init_frags. 
->> And sysctls of ip6frag_low_thresh, ip6frag_time and ip6frag_high_thresh 
->> also can control IPv6 conntrack fragment queue.
->>
->> So, private member of nf_init_frags becomes redundant, and remove these sysctls. 
-> 
-> You can't simply remove them without a warning, people might be
-> using them.
+In tx/mcc polling, napi_complete() is being incorrectly called
+before reaping tx completions. This can cause tx compl processing
+to be scheduled on another cpu concurrently which can result in a panic.
+This if fixed by calling napi complete() after tx/mcc compl processing
+but before re-enabling interrupts (via a cq notify).
 
-How to provide a warning to user?
-How about handle these sysctl ABIs like this:
+Pls apply to net-2.6.
 
-s1) Retain these sysctls and refer .data to appropriate member of frags of init_net.
-    Take nf_conntrack_frag6_timeout for example, .data = &init_net.ipv6.frags.timeout.
+Signed-off-by: Sathya Perla <sathyap@serverengines.com>
+---
+ drivers/net/benet/be_cmds.c |   26 ++++++++++++------------
+ drivers/net/benet/be_cmds.h |    2 +-
+ drivers/net/benet/be_main.c |   45 +++++++++++++++++++++----------------------
+ 3 files changed, 36 insertions(+), 37 deletions(-)
 
-s2) When register sysctls of conntrack ipv6 protocol in nf_ct_l3proto_register_sysctl(),
-    print a waring like this.
-    "nf_conntrack_frag6_timeout and ip6frag_time, nf_conntrack_frag6_low_thresh and ip6frag_low_thresh,
-     nf_conntrack_frag6_high_thresh and ip6frag_high_thresh, the three sets are equivalent. 
-     nf_conntrack_frag6_timeout is just an alias for ip6frag_time. The former Parameters of IPv6 conntrack
-     will be removed in the future, please use the latter ones of IPv6."
-
-s3) Describe these removable sysctl ABIs in Documentation/feature-removal-schedule.txt
-
-
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index 006cb2e..e48797f 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -104,10 +104,10 @@ static struct be_mcc_compl *be_mcc_compl_get(struct be_adapter *adapter)
+ 	return NULL;
+ }
+ 
+-int be_process_mcc(struct be_adapter *adapter)
++int be_process_mcc(struct be_adapter *adapter, int *status)
+ {
+ 	struct be_mcc_compl *compl;
+-	int num = 0, status = 0;
++	int num = 0;
+ 
+ 	spin_lock_bh(&adapter->mcc_cq_lock);
+ 	while ((compl = be_mcc_compl_get(adapter))) {
+@@ -119,31 +119,31 @@ int be_process_mcc(struct be_adapter *adapter)
+ 			be_async_link_state_process(adapter,
+ 				(struct be_async_event_link_state *) compl);
+ 		} else if (compl->flags & CQE_FLAGS_COMPLETED_MASK) {
+-				status = be_mcc_compl_process(adapter, compl);
++				*status = be_mcc_compl_process(adapter, compl);
+ 				atomic_dec(&adapter->mcc_obj.q.used);
+ 		}
+ 		be_mcc_compl_use(compl);
+ 		num++;
+ 	}
+ 
+-	if (num)
+-		be_cq_notify(adapter, adapter->mcc_obj.cq.id, true, num);
+-
+ 	spin_unlock_bh(&adapter->mcc_cq_lock);
+-	return status;
++	return num;
+ }
+ 
+ /* Wait till no more pending mcc requests are present */
+ static int be_mcc_wait_compl(struct be_adapter *adapter)
+ {
+ #define mcc_timeout		120000 /* 12s timeout */
+-	int i, status;
++	int i, num, status = 0;
++	struct be_mcc_obj *mcc_obj = &adapter->mcc_obj;
++
+ 	for (i = 0; i < mcc_timeout; i++) {
+-		status = be_process_mcc(adapter);
+-		if (status)
+-			return status;
++		num = be_process_mcc(adapter, &status);
++		if (num)
++			be_cq_notify(adapter, mcc_obj->cq.id,
++				true, num);
+ 
+-		if (atomic_read(&adapter->mcc_obj.q.used) == 0)
++		if (atomic_read(&mcc_obj->q.used) == 0)
+ 			break;
+ 		udelay(100);
+ 	}
+@@ -151,7 +151,7 @@ static int be_mcc_wait_compl(struct be_adapter *adapter)
+ 		dev_err(&adapter->pdev->dev, "mccq poll timed out\n");
+ 		return -1;
+ 	}
+-	return 0;
++	return status;
+ }
+ 
+ /* Notify MCC requests and wait for completion */
+diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
+index 13b33c8..24d9193 100644
+--- a/drivers/net/benet/be_cmds.h
++++ b/drivers/net/benet/be_cmds.h
+@@ -907,7 +907,7 @@ extern int be_cmd_get_flow_control(struct be_adapter *adapter,
+ extern int be_cmd_query_fw_cfg(struct be_adapter *adapter,
+ 			u32 *port_num, u32 *cap);
+ extern int be_cmd_reset_function(struct be_adapter *adapter);
+-extern int be_process_mcc(struct be_adapter *adapter);
++extern int be_process_mcc(struct be_adapter *adapter, int *status);
+ extern int be_cmd_set_beacon_state(struct be_adapter *adapter,
+ 			u8 port_num, u8 beacon, u8 status, u8 state);
+ extern int be_cmd_get_beacon_state(struct be_adapter *adapter,
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 626b76c..5fc46bd 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -1428,23 +1428,38 @@ int be_poll_rx(struct napi_struct *napi, int budget)
+ 	return work_done;
+ }
+ 
+-void be_process_tx(struct be_adapter *adapter)
++/* As TX and MCC share the same EQ check for both TX and MCC completions.
++ * For TX/MCC we don't honour budget; consume everything
++ */
++static int be_poll_tx_mcc(struct napi_struct *napi, int budget)
+ {
++	struct be_eq_obj *tx_eq = container_of(napi, struct be_eq_obj, napi);
++	struct be_adapter *adapter =
++		container_of(tx_eq, struct be_adapter, tx_eq);
+ 	struct be_queue_info *txq = &adapter->tx_obj.q;
+ 	struct be_queue_info *tx_cq = &adapter->tx_obj.cq;
+ 	struct be_eth_tx_compl *txcp;
+-	u32 num_cmpl = 0;
++	int tx_compl = 0, mcc_compl, status = 0;
+ 	u16 end_idx;
+ 
+ 	while ((txcp = be_tx_compl_get(tx_cq))) {
+ 		end_idx = AMAP_GET_BITS(struct amap_eth_tx_compl,
+-					wrb_index, txcp);
++				wrb_index, txcp);
+ 		be_tx_compl_process(adapter, end_idx);
+-		num_cmpl++;
++		tx_compl++;
+ 	}
+ 
+-	if (num_cmpl) {
+-		be_cq_notify(adapter, tx_cq->id, true, num_cmpl);
++	mcc_compl = be_process_mcc(adapter, &status);
++
++	napi_complete(napi);
++
++	if (mcc_compl) {
++		struct be_mcc_obj *mcc_obj = &adapter->mcc_obj;
++		be_cq_notify(adapter, mcc_obj->cq.id, true, mcc_compl);
++	}
++
++	if (tx_compl) {
++		be_cq_notify(adapter, adapter->tx_obj.cq.id, true, tx_compl);
+ 
+ 		/* As Tx wrbs have been freed up, wake up netdev queue if
+ 		 * it was stopped due to lack of tx wrbs.
+@@ -1455,24 +1470,8 @@ void be_process_tx(struct be_adapter *adapter)
+ 		}
+ 
+ 		drvr_stats(adapter)->be_tx_events++;
+-		drvr_stats(adapter)->be_tx_compl += num_cmpl;
++		drvr_stats(adapter)->be_tx_compl += tx_compl;
+ 	}
+-}
+-
+-/* As TX and MCC share the same EQ check for both TX and MCC completions.
+- * For TX/MCC we don't honour budget; consume everything
+- */
+-static int be_poll_tx_mcc(struct napi_struct *napi, int budget)
+-{
+-	struct be_eq_obj *tx_eq = container_of(napi, struct be_eq_obj, napi);
+-	struct be_adapter *adapter =
+-		container_of(tx_eq, struct be_adapter, tx_eq);
+-
+-	napi_complete(napi);
+-
+-	be_process_tx(adapter);
+-
+-	be_process_mcc(adapter);
+ 
+ 	return 1;
+ }
 -- 
-Best Regards
------
-Shan Wei
+1.6.3.3
+
