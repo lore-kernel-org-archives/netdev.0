@@ -1,107 +1,91 @@
-From: Dan Smith <danms@us.ibm.com>
-Subject: [PATCH 6/6] C/R: Add checkpoint support to macvlan driver
-Date: Thu, 25 Feb 2010 12:43:15 -0800
-Message-ID: <1267130595-23637-7-git-send-email-danms@us.ibm.com>
-References: <1267130595-23637-1-git-send-email-danms@us.ibm.com>
-Cc: benjamin.thery@bull.net, den@openvz.org, ebiederm@xmission.com,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: containers@lists.osdl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stein.danplanet.com ([71.245.107.83]:38793 "EHLO
-	stein.danplanet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933713Ab0BYUpc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 15:45:32 -0500
-In-Reply-To: <1267130595-23637-1-git-send-email-danms@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Domsch, Matt" <Matt_Domsch@Dell.com>
+Subject: Re: [PATCH] Export smbios strings associated with onboard devices to
+ sysfs
+Date: Thu, 25 Feb 2010 14:49:05 -0600
+Message-ID: <20100225204905.GC20147@mdomsch-pws380.aus.amer.dell.com>
+References: <20100225202941.GA19404@mock.linuxdev.us.dell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-hotplug@vger.kernel.org" <linux-hotplug@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
+	"Shandilya, Sandeep K" <Sandeep_K_Shandilya@Dell.com>,
+	"Rose, Charles" <Charles_Rose@Dell.com>,
+	"Iyer, Shyam" <Shyam_Iyer@Dell.com>
+To: "K, Narendra" <Narendra_K@Dell.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100225202941.GA19404@mock.linuxdev.us.dell.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This has an small hidden gotcha.  Since the macvlan device is moved
-completely into a container's network namespace, the init netns cannot
-freeze traffic to and from it in order to migrate live network connections
-by simply utilizing its netfilter tables.  A helper process in the container
-or something like what was recently discussed on the containers list[1]
-would provide a way to do this.
+On Thu, Feb 25, 2010 at 02:29:42PM -0600, K, Narendra wrote:
+> 1.Export smbios strings of onboard devices, to sysfs. For example -
 
-[1]: https://lists.linux-foundation.org/pipermail/containers/2010-February/023001.html
+I like the idea in this patch, which exports this additional
+smbios-provided string in sysfs.  This removes the need to parse the
+SMBIOS table in userspace, which requires root privs.
 
-Signed-off-by: Dan Smith <danms@us.ibm.com>
----
- drivers/net/macvlan.c |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 48 insertions(+), 0 deletions(-)
+The concept is also extensible to other methods (e.g. ACPI) that I
+expect will appear for the platform BIOS to provide naming hints to
+the OS - I want those to appear in sysfs also.
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 21a9c9a..07d006a 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -28,6 +28,8 @@
- #include <linux/if_arp.h>
- #include <linux/if_link.h>
- #include <linux/if_macvlan.h>
-+#include <linux/checkpoint.h>
-+#include <linux/checkpoint_hdr.h>
- #include <net/rtnetlink.h>
- #include <net/xfrm.h>
- 
-@@ -493,6 +495,49 @@ static struct net_device_stats *macvlan_dev_get_stats(struct net_device *dev)
- 	return stats;
- }
- 
-+#ifdef CONFIG_CHECKPOINT
-+static int macvlan_checkpoint(struct ckpt_ctx *ctx, struct net_device *dev)
-+{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+	struct ckpt_hdr_netdev *h;
-+	struct ckpt_netdev_addr *addrs;
-+	int ret;
-+
-+	ckpt_debug("Checkpointing macvlan %s:%s\n",
-+		   dev->name, vlan->lowerdev->name);
-+
-+	h = ckpt_netdev_base(ctx, dev, &addrs);
-+	if (IS_ERR(h))
-+		return PTR_ERR(h);
-+
-+	h->type = CKPT_NETDEV_MACVLAN;
-+
-+	h->macvlan.mode = vlan->mode;
-+
-+	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *)h);
-+	if (ret < 0)
-+		goto out;
-+
-+	ret = ckpt_write_buffer(ctx, dev->name, IFNAMSIZ);
-+	if (ret < 0)
-+		goto out;
-+
-+	ret = ckpt_write_buffer(ctx, vlan->lowerdev->name, IFNAMSIZ);
-+	if (ret < 0)
-+		goto out;
-+
-+	if (h->inet_addrs > 0) {
-+		int len = (sizeof(struct ckpt_netdev_addr) * h->inet_addrs);
-+		ret = ckpt_write_buffer(ctx, addrs, len);
-+	}
-+ out:
-+	ckpt_hdr_put(ctx, h);
-+	kfree(addrs);
-+
-+	return ret;
-+}
-+#endif
-+
- static void macvlan_ethtool_get_drvinfo(struct net_device *dev,
- 					struct ethtool_drvinfo *drvinfo)
- {
-@@ -539,6 +584,9 @@ static const struct net_device_ops macvlan_netdev_ops = {
- 	.ndo_set_multicast_list	= macvlan_set_multicast_list,
- 	.ndo_get_stats		= macvlan_dev_get_stats,
- 	.ndo_validate_addr	= eth_validate_addr,
-+#ifdef CONFIG_CHECKPOINT
-+	.ndo_checkpoint		= macvlan_checkpoint,
-+#endif
- };
- 
- static void macvlan_setup(struct net_device *dev)
+now, for the patch:
+
+> diff --git a/drivers/base/bus.c b/drivers/base/bus.c
+> index c0c5a43..ad0fcfb 100644
+> --- a/drivers/base/bus.c
+> +++ b/drivers/base/bus.c
+> @@ -419,6 +419,11 @@ static int device_add_attrs(struct bus_type *bus, struct device *dev)
+>  		return 0;
+>  
+>  	for (i = 0; attr_name(bus->dev_attrs[i]); i++) {
+> +		/* if the device does not have an associated smbios string in the smbios table, do not create this attribute */ 
+> +		if (!(strcmp(attr_name(bus->dev_attrs[i]), "smbiosname"))) {
+> +			if (!smbiosname_string_is_valid(dev, NULL)) 
+> +				continue;
+> +		}
+>  		error = device_create_file(dev, &bus->dev_attrs[i]);
+>  		if (error) {
+>  			while (--i >= 0)
+
+This cannot go in bus.c.  It needs to go in pci-sysfs.c.
+
+> diff --git a/drivers/pci/pci-sysfs.c b/drivers/pci/pci-sysfs.c
+> index c5df94e..a3b9bf9 100644
+> --- a/drivers/pci/pci-sysfs.c
+> +++ b/drivers/pci/pci-sysfs.c
+> @@ -324,6 +359,9 @@ struct device_attribute pci_dev_attrs[] = {
+>  	__ATTR_RO(class),
+>  	__ATTR_RO(irq),
+>  	__ATTR_RO(local_cpus),
+> +#ifdef CONFIG_DMI
+> +	__ATTR_RO(smbiosname),
+> +#endif
+>  	__ATTR_RO(local_cpulist),
+
+Here, instead of __ATTR_RO(smbiosname), and then finding and ignoring
+it in the device core, you need to make the addition of this dynamic.
+drivers/firmware/edd.c does something quite like this:
+
+#define __ATTR_RO_TEST(_name, _test) { \
+        .attr   = { .name = __stringify(_name), .mode = 0444 }, \
+        .show   = _name##_show,                                 \
+	.test   = _test,                                        \
+}
+
+so it defines a test function to apply before creating the attribute.
+See edd.c:edd_populate_dir() for how the .test is evaluated before
+calling sysfs_create_file().
+
+Can this be genericized?  I'm sure these two places aren't the only
+places where attributes may or may not exist on an object.
+
+Thanks,
+Matt
+
 -- 
-1.6.2.5
-
+Matt Domsch
+Technology Strategist, Dell Office of the CTO
+linux.dell.com & www.dell.com/linux
