@@ -1,116 +1,78 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [RFC PATCH]xfrm: fix perpetual bundles
-Date: Thu, 25 Feb 2010 11:40:29 +0100
-Message-ID: <20100225104029.GB3927@gauss.dd.secunet.de>
-References: <1267017564.3973.790.camel@bigi>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH] accounting for socket backlog
+Date: Thu, 25 Feb 2010 12:24:40 +0100
+Message-ID: <1267097080.2822.14.camel@edumazet-laptop>
+References: <1267067593.16986.1583.camel@debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kaber@trash.net, herbert@gondor.apana.org.au,
-	yoshfuji@linux-ipv6.org, nakam@linux-ipv6.org,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Zhu Yi <yi.zhu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([213.68.205.161]:60359 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753519Ab0BYLBn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Feb 2010 06:01:43 -0500
-Content-Disposition: inline
-In-Reply-To: <1267017564.3973.790.camel@bigi>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:47476 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759252Ab0BYLYq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 06:24:46 -0500
+Received: by bwz1 with SMTP id 1so2709792bwz.21
+        for <netdev@vger.kernel.org>; Thu, 25 Feb 2010 03:24:43 -0800 (PST)
+In-Reply-To: <1267067593.16986.1583.camel@debian>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 24, 2010 at 08:19:24AM -0500, jamal wrote:
-> 
-> 1)In the connect() stage, in the slow path a route cache is
-> created with the rth->fl.fl4_src of 0.0.0.0...
-> ==> policy->bundles is empty, so we do a lookup, fail, create
-> one.. (remember rth->fl.fl4_src of 0.0.0.0 at this stage and
-> thats what we end storing in the bundle/xdst for later comparison
-> instead of the skb's fl)
-> 
-> 2)ping sends a packet (does a sendmsg) 
-> ==> xfrm_find_bundle() ends up comparing skb's->fl (non-zero
-> fl->fl4_src) with what we stored from #1b. Fails.
-> ==> we create a new bundle at attach the old one at the end of it.
-> ...and now policy->bundles has two xdst entries
-> 
-> 3) Repeat #2, and now we have 3 xdsts in policy bundles
-> 
-> 4) Repeat #2, and now we have 4 xdsts in policy bundles..
-> 
-> 5) Send 7 more pings and look at slabinfo and youll see
-> 10 object all of which are active..
-> 
-> Essentially this seems to go on and on and i can cache a huge
-> number of xdsts..
-> 
+Le jeudi 25 f=C3=A9vrier 2010 =C3=A0 11:13 +0800, Zhu Yi a =C3=A9crit :
+> Hi,
+>=20
+> We got system OOM while running some UDP netperf testing on the loopb=
+ack
+> device. The case is multiple senders sent stream UDP packets to a sin=
+gle
+> receiver via loopback on local host. Of course, the receiver is not a=
+ble
+> to handle all the packets in time. But we surprisingly found that the=
+se
+> packets were not discarded due to the receiver's sk->sk_rcvbuf limit.
+> Instead, they are kept queuing to sk->sk_backlog and finally ate up a=
+ll
+> the memory. We believe this is a secure hole that a none privileged u=
+ser
+> can crash the system.
+>=20
+> The root cause for this problem is, when the receiver is doing
+> __release_sock() (i.e. after userspace recv, kernel udp_recvmsg ->
+> skb_free_datagram_locked -> release_sock), it moves skbs from backlog=
+ to
+> sk_receive_queue with the softirq enabled. In the above case, multipl=
+e
+> busy senders will almost make it an endless loop. The skbs in the
+> backlog end up eat all the system memory.
+>=20
+> The patch fixed this problem by adding accounting for the socket
+> backlog. So that the backlog size can be restricted by protocol's cho=
+ice
+> (i.e. UDP).
+>=20
+> Signed-off-by: Zhu Yi <yi.zhu@intel.com>
+> ---
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index 3f1a480..2e003b9 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -253,6 +253,7 @@ struct sock {
+>  	struct {
+>  		struct sk_buff *head;
+>  		struct sk_buff *tail;
+> +		atomic_t len;
 
-Do you have CONFIG_XFRM_SUB_POLICY enabled?
+This adds a hole on 32bit arches.
 
-I observed the same behaviour recently when I had CONFIG_XFRM_SUB_POLICY
-enabled. The problem in my case is, that we do a route lookup based on a flow
-with a source address of 0.0.0.0 in ip_route_output_flow() if we send a ping
-packet. Then we update the flow's source address based on the routing
-informations we got from __ip_route_output_key(). Now the actual flow does
-not match the the flow information in the routing table anymore. As a result,
-we generate a new xfrm bundle entry with every ping packet, as you pointed out.
+I am pretty sure we dont need an atomic here, since we must own a lock
+before manipulating sk_backlog{head,tail,len}.
 
-I solved this by rerunning __ip_route_output_key() if we change the source or
-destination address of the flow (patch below). I have not send the patch so
-far because I'm not that familiar with the routing code and I'm still not sure
-whether this is the right way to fix it, so I wanted to do some further
-analysis first.
+UDP/IPV6 should be addressed too in your patch.
 
-Interestingly this does not happen if CONFIG_XFRM_SUB_POLICY is disabled.
+Other questions raised by your discovery :
+- What about other protocols that also use a backlog ?
+- __release_sock() could run forever with no preemption, even with a
+limit on backlog.
 
-When ping is started, it opens a udp socket. This triggers a xfrm_lookup()
-and a xfrm bundle entry is generated. In the standard case, the flow of the
-ping packets matching the flow informations from the bundle entry generated 
-by the opening of the udp socket, because we don't care for the upper layer
-flow information here. Unlike the standard case, if CONFIG_XFRM_SUB_POLICY is
-enabled we do upper layer information matching with flow_cache_uli_match().
-Now the flow of the ping packets does, of course, not match the flow
-informations of the bundle entry and we generate a new bundle entry with
-every packet...
-
-
----
- net/ipv4/route.c |   15 +++++++++++++--
- 1 files changed, 13 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index d62b05d..3bf0b89 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2778,15 +2778,26 @@ int ip_route_output_flow(struct net *net, struct rtable **rp, struct flowi *flp,
- 			 struct sock *sk, int flags)
- {
- 	int err;
-+	int update_route = 0;
- 
- 	if ((err = __ip_route_output_key(net, rp, flp)) != 0)
- 		return err;
- 
- 	if (flp->proto) {
--		if (!flp->fl4_src)
-+		if (!flp->fl4_src) {
- 			flp->fl4_src = (*rp)->rt_src;
--		if (!flp->fl4_dst)
-+			update_route = 1;
-+		}
-+		if (!flp->fl4_dst) {
- 			flp->fl4_dst = (*rp)->rt_dst;
-+			update_route = 1;
-+		}
-+		if (update_route) {
-+			dst_release(&(*rp)->u.dst);
-+			if ((err = __ip_route_output_key(net, rp, flp)) != 0)
-+				return err;
-+		}
-+
- 		err = __xfrm_lookup(net, (struct dst_entry **)rp, flp, sk,
- 				    flags ? XFRM_LOOKUP_WAIT : 0);
- 		if (err == -EREMOTE)
--- 
-1.5.6.5
 
