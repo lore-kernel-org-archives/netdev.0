@@ -1,76 +1,78 @@
-From: "Domsch, Matt" <Matt_Domsch@Dell.com>
-Subject: Re: [PATCH] Export smbios strings associated with onboard devices to
- sysfs
-Date: Thu, 25 Feb 2010 15:46:23 -0600
-Message-ID: <20100225214623.GD20147@mdomsch-pws380.aus.amer.dell.com>
-References: <20100225202941.GA19404@mock.linuxdev.us.dell.com>
- <20100225214020.GA15010@ldl.fc.hp.com>
+From: Matt Helsley <matthltc@us.ibm.com>
+Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
+Date: Thu, 25 Feb 2010 13:46:56 -0800
+Message-ID: <20100225214656.GS3604@count0.beaverton.ibm.com>
+References: <1263568754.23480.142.camel@bigi>
+ <m13a0tf17t.fsf@fess.ebiederm.org>
+ <1266875729.3673.12.camel@bigi>
+ <m1wry46es9.fsf@fess.ebiederm.org>
+ <1266931623.3973.643.camel@bigi>
+ <m1iq9ocafv.fsf@fess.ebiederm.org>
+ <1266934817.3973.654.camel@bigi>
+ <m1r5obbu2w.fsf@fess.ebiederm.org>
+ <1266966581.3973.675.camel@bigi>
+ <m1pr3t2fvl.fsf_-_@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "K, Narendra" <Narendra_K@Dell.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-hotplug@vger.kernel.org" <linux-hotplug@vger.kernel.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
-	"Shandilya, Sandeep K" <Sandeep_K_Shandilya@Dell.com>,
-	"Rose, Charles" <Charles_Rose@Dell.com>,
-	"Iyer, Shyam" <Shyam_Iyer@Dell.com>
-To: Alex Chiang <achiang@hp.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
+Cc: hadi@cyberus.ca, Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	containers@lists.linux-foundation.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>,
+	Serge Hallyn <serue@us.ibm.com>,
+	Matt Helsley <matthltc@us.ibm.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:47893 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933401Ab0BYVrU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 16:47:20 -0500
 Content-Disposition: inline
-In-Reply-To: <20100225214020.GA15010@ldl.fc.hp.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <m1pr3t2fvl.fsf_-_@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 25, 2010 at 03:40:20PM -0600, Alex Chiang wrote:
-> * Narendra K <Narendra_K@dell.com>:
-> > 
-> > * We have been having discussions in the netdev list about
-> > creating multiple names for the network interfaces to bring
-> > determinism into the way network interfaces are named in the
-> > OSes. In specific, "eth0 in the OS does not always map to the
-> > integrated NIC Gb1 as labelled on the chassis".  
+On Thu, Feb 25, 2010 at 12:57:02PM -0800, Eric W. Biederman wrote:
 > 
-> Yes, I agree that this is a real problem that we do not handle
-> well today.
+> Introduce two new system calls:
+> int nsfd(pid_t pid, unsigned long nstype);
+> int setns(unsigned long nstype, int fd);
 > 
-> > 1.Export smbios strings of onboard devices, to sysfs. For example -
-> > 
-> > cat /sys/class/net/eth0/device/smbiosname
-> > Embedded NIC 2
-> > 
-> > cat  /sys/bus/pci/devices/0000\:03\:00.0/smbiosname
-> > Embedded NIC 2
+> These two new system calls address three specific problems that can
+> make namespaces hard to work with.
+> - Namespaces require a dedicated process to pin them in memory.
+> - It is not possible to use a namespace unless you are the
+>   child of the original creator.
+> - Namespaces don't have names that userspace can use to talk
+>   about them.
 > 
-> I agree with this concept, but I don't like the interface.
+> The nsfd() system call returns a file descriptor that can
+> be used to talk about a specific namespace, and to keep
+> the specified namespace alive.
 > 
-> The name "smbiosname" isn't the proper level of abstraction. We
-> don't want users to care what firmware standard is providing the
-> name (think smbios vs acpi vs open firmware...).
+> The fd returned by nsfd() can be bind mounted as:
+> mount --bind /proc/self/fd/N /some/filesystem/path
+> to keep the namespace alive indefinitely as long as
+> it is mounted.
 > 
-> We learned this lesson with exposing ACPI interfaces. Let's not
-> make the same mistake here.
+> open works on the fd returned by nsfd() so another
+> process can get a hold of it and do interesting things.
 > 
-> Something like "firmwarename", "fwname", "platformname" etc. is
-> generic, and then the interface will make sense for platforms
-> that do not implement SMBIOS.
+> Overall that allows for persistent naming of namespaces
+> according to userspace policy.
 > 
-> I don't particularly care which name you choose as long as it's
-> properly generic.
+> setns() allows changing the namespace of the current process
+> to a namespace that originates with nsfd().
+> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
-I'm not sure I like the generic name.  Then the policy of which
-provider (if there could be >1, which there will be once this can be
-done via ACPI instead of static SMBIOS) gets to use that file name
-becomes kernel-dependent, instead of userspace-dependent.
+Hi Eric,
 
-What is wrong with having both "smbiosname" and "acpiname" (for lack
-of better names), either, both, or none, as files in the sysfs tree,
-and let userspace set the policy of which one to use if there are >1 ?
+	Seems like an ok concept to me. Did you try doing this with
+anon_inodes and bind mounting the /proc/<pid>/fd/N as above to keep
+them alive and name them?
 
-Thanks,
-Matt
-
--- 
-Matt Domsch
-Technology Strategist, Dell Office of the CTO
-linux.dell.com & www.dell.com/linux
+Cheers,
+	-Matt Helsley
