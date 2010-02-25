@@ -1,63 +1,113 @@
-From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: Re: [PATCH v2 0/3] e1000e,igb,ixgbe: add registers etc. printout
- code just before resetting adapters
-Date: Thu, 25 Feb 2010 09:30:16 +0900
-Message-ID: <4B85C498.2080701@jp.fujitsu.com>
-References: <4B593B74.2020601@jp.fujitsu.com>	 <alpine.WNT.2.00.1001221345580.6104@jbrandeb-desk1.amr.corp.intel.com>	 <4B5EC215.5090509@jp.fujitsu.com>	 <alpine.WNT.2.00.1002171043450.5328@jbrandeb-desk1.amr.corp.intel.com>	 <4B7E48F8.7010208@jp.fujitsu.com> <1266578456.25502.23.camel@localhost.localdomain>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-next 4/6] cnic: Simplify route checking during iSCSI
+ connection.
+Date: Wed, 24 Feb 2010 16:42:07 -0800
+Message-ID: <1267058529-18454-4-git-send-email-mchan@broadcom.com>
+References: <1267058529-18454-1-git-send-email-mchan@broadcom.com>
+ <1267058529-18454-2-git-send-email-mchan@broadcom.com>
+ <1267058529-18454-3-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	Koki Sanagi <sanagi.koki@jp.fujitsu.com>,
-	Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
-	"chavey@google.com" <chavey@google.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:52101 "EHLO
-	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758589Ab0BYAa3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2010 19:30:29 -0500
-Received: from m3.gw.fujitsu.co.jp ([10.0.50.73])
-	by fgwmail5.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o1P0USRk008466
-	for <netdev@vger.kernel.org> (envelope-from izumi.taku@jp.fujitsu.com);
-	Thu, 25 Feb 2010 09:30:28 +0900
-Received: from smail (m3 [127.0.0.1])
-	by outgoing.m3.gw.fujitsu.co.jp (Postfix) with ESMTP id 7887045DE52
-	for <netdev@vger.kernel.org>; Thu, 25 Feb 2010 09:30:28 +0900 (JST)
-Received: from s3.gw.fujitsu.co.jp (s3.gw.fujitsu.co.jp [10.0.50.93])
-	by m3.gw.fujitsu.co.jp (Postfix) with ESMTP id 510C845DE4E
-	for <netdev@vger.kernel.org>; Thu, 25 Feb 2010 09:30:28 +0900 (JST)
-Received: from s3.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s3.gw.fujitsu.co.jp (Postfix) with ESMTP id 36FD8E38003
-	for <netdev@vger.kernel.org>; Thu, 25 Feb 2010 09:30:28 +0900 (JST)
-Received: from m106.s.css.fujitsu.com (m106.s.css.fujitsu.com [10.249.87.106])
-	by s3.gw.fujitsu.co.jp (Postfix) with ESMTP id CBC2C1DB803B
-	for <netdev@vger.kernel.org>; Thu, 25 Feb 2010 09:30:27 +0900 (JST)
-In-Reply-To: <1266578456.25502.23.camel@localhost.localdomain>
+Received: from mms3.broadcom.com ([216.31.210.19]:2534 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758589Ab0BYAcm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Feb 2010 19:32:42 -0500
+In-Reply-To: <1267058529-18454-3-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jeff,
+With a separate IP address for iSCSI, connections should proceed
+whether or not we can get a route to the target from the network stack.
+It is possible that the network IP address may not reach the iSCSI target.
 
-> To answer your question, no there are no files you can't submit patches
-> to.  We do have some common files which are used/shared amongst all of
-> our drivers which are used for initializing and/or bring up the
-> hardware, so when a patch is submitted to our drivers which changes our
-> "shared code" our first question is "Is this change necessary for all of
-> our drivers?" and if the answer is no, then we take a look at what
-> changes can be made in the code which is not shared among our other
-> drivers.
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Benjamin Li <benli@broadcom.com>
+Signed-off-by: Eddie Wai <waie@broadcom.com>
+---
+ drivers/net/cnic.c |   37 +++++++++++++------------------------
+ 1 files changed, 13 insertions(+), 24 deletions(-)
 
-Please tell me concretely  which part of my former submitted patchset is bad?
-Next time I'll create under that condition.
+diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
+index 4558444..0defe61 100644
+--- a/drivers/net/cnic.c
++++ b/drivers/net/cnic.c
+@@ -2860,8 +2860,8 @@ static int cnic_get_route(struct cnic_sock *csk, struct cnic_sockaddr *saddr)
+ {
+ 	struct cnic_dev *dev = csk->dev;
+ 	struct cnic_local *cp = dev->cnic_priv;
+-	int is_v6, err, rc = -ENETUNREACH;
+-	struct dst_entry *dst;
++	int is_v6, rc = 0;
++	struct dst_entry *dst = NULL;
+ 	struct net_device *realdev;
+ 	u32 local_port;
+ 
+@@ -2877,39 +2877,31 @@ static int cnic_get_route(struct cnic_sock *csk, struct cnic_sockaddr *saddr)
+ 	clear_bit(SK_F_IPV6, &csk->flags);
+ 
+ 	if (is_v6) {
+-#if defined(CONFIG_IPV6) || (defined(CONFIG_IPV6_MODULE) && defined(MODULE))
+ 		set_bit(SK_F_IPV6, &csk->flags);
+-		err = cnic_get_v6_route(&saddr->remote.v6, &dst);
+-		if (err)
+-			return err;
+-
+-		if (!dst || dst->error || !dst->dev)
+-			goto err_out;
++		cnic_get_v6_route(&saddr->remote.v6, &dst);
+ 
+ 		memcpy(&csk->dst_ip[0], &saddr->remote.v6.sin6_addr,
+ 		       sizeof(struct in6_addr));
+ 		csk->dst_port = saddr->remote.v6.sin6_port;
+ 		local_port = saddr->local.v6.sin6_port;
+-#else
+-		return rc;
+-#endif
+ 
+ 	} else {
+-		err = cnic_get_v4_route(&saddr->remote.v4, &dst);
+-		if (err)
+-			return err;
+-
+-		if (!dst || dst->error || !dst->dev)
+-			goto err_out;
++		cnic_get_v4_route(&saddr->remote.v4, &dst);
+ 
+ 		csk->dst_ip[0] = saddr->remote.v4.sin_addr.s_addr;
+ 		csk->dst_port = saddr->remote.v4.sin_port;
+ 		local_port = saddr->local.v4.sin_port;
+ 	}
+ 
+-	csk->vlan_id = cnic_get_vlan(dst->dev, &realdev);
+-	if (realdev != dev->netdev)
+-		goto err_out;
++	csk->vlan_id = 0;
++	csk->mtu = dev->netdev->mtu;
++	if (dst && dst->dev) {
++		u16 vlan = cnic_get_vlan(dst->dev, &realdev);
++		if (realdev == dev->netdev) {
++			csk->vlan_id = vlan;
++			csk->mtu = dst_mtu(dst);
++		}
++	}
+ 
+ 	if (local_port >= CNIC_LOCAL_PORT_MIN &&
+ 	    local_port < CNIC_LOCAL_PORT_MAX) {
+@@ -2927,9 +2919,6 @@ static int cnic_get_route(struct cnic_sock *csk, struct cnic_sockaddr *saddr)
+ 	}
+ 	csk->src_port = local_port;
+ 
+-	csk->mtu = dst_mtu(dst);
+-	rc = 0;
+-
+ err_out:
+ 	dst_release(dst);
+ 	return rc;
+-- 
+1.6.4.GIT
 
-Best regards,
-Taku Izumi
 
