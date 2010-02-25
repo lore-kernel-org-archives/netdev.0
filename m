@@ -1,39 +1,70 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next-2.6 PATCH] ixgbevf: convert to use netdev_for_each_mc_addr
-Date: Thu, 25 Feb 2010 15:55:24 -0800
-Message-ID: <9929d2391002251555l7314e086n279316e4c80b95c7@mail.gmail.com>
-References: <20100223190644.GB2673@psychotron.redhat.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] IPv6: fix anycast address ref count leakage
+Date: Thu, 25 Feb 2010 15:57:07 -0800
+Message-ID: <20100225155707.779c582a@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f194.google.com ([209.85.222.194]:50974 "EHLO
-	mail-pz0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759318Ab0BYXz0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 18:55:26 -0500
-Received: by pzk32 with SMTP id 32so1075387pzk.4
-        for <netdev@vger.kernel.org>; Thu, 25 Feb 2010 15:55:24 -0800 (PST)
-In-Reply-To: <20100223190644.GB2673@psychotron.redhat.com>
+Received: from mail.vyatta.com ([76.74.103.46]:36408 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759320Ab0BYX5O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2010 18:57:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 23, 2010 at 11:06, Jiri Pirko <jpirko@redhat.com> wrote:
->
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> ---
-> =C2=A0drivers/net/ixgbevf/ixgbevf_main.c | =C2=A0 24 +---------------=
---------
-> =C2=A0drivers/net/ixgbevf/vf.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=
-=A0 24 ++++++++++++------------
-> =C2=A0drivers/net/ixgbevf/vf.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=
-=A0 =C2=A04 ++--
-> =C2=A03 files changed, 15 insertions(+), 37 deletions(-)
->
+The recent change in net-next to keep IPv6 address can lead to device
+hanging with unresolved refcount on removal. The issue is that the conversion
+of address from permanent to temporary needs to notify the anycast list
+code to clean up it's ref count. Also, want to tell other uses of IPv6
+(bonding/sctp) that the address is no longer available.
 
-Thanks Jiri, I have added the patch to my queue of patches.
+The fix is to notify like a regular delete.  When link comes back, DAD
+runs and will notify with NETDEV_UP that address is back.
 
---=20
-Cheers,
-Jeff
+The decrement of idev refcount when cleaning up addrconf_hash, should
+never cause address to be freed; therefore it can use __in6_ifa_put.
+
+The timer cleanup should be done when address deletion is done
+in second loop.
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+
+--- a/net/ipv6/addrconf.c	2010-02-25 15:04:58.207491933 -0800
++++ b/net/ipv6/addrconf.c	2010-02-25 15:07:57.735384610 -0800
+@@ -2653,8 +2653,7 @@ static int addrconf_ifdown(struct net_de
+ 			    (how || !(ifa->flags&IFA_F_PERMANENT))) {
+ 				*bifa = ifa->lst_next;
+ 				ifa->lst_next = NULL;
+-				addrconf_del_timer(ifa);
+-				in6_ifa_put(ifa);
++				__in6_ifa_put(ifa);
+ 				continue;
+ 			}
+ 			bifa = &ifa->lst_next;
+@@ -2706,14 +2705,15 @@ static int addrconf_ifdown(struct net_de
+ 			ifa->if_next = NULL;
+ 
+ 			ifa->dead = 1;
+-			write_unlock_bh(&idev->lock);
++		}
++		addrconf_del_timer(ifa);
++		write_unlock_bh(&idev->lock);
+ 
+-			__ipv6_ifa_notify(RTM_DELADDR, ifa);
+-			atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
+-			in6_ifa_put(ifa);
++		__ipv6_ifa_notify(RTM_DELADDR, ifa);
++		atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
++		in6_ifa_put(ifa);
+ 
+-			write_lock_bh(&idev->lock);
+-		}
++		write_lock_bh(&idev->lock);
+ 	}
+ 	write_unlock_bh(&idev->lock);
+ 
+
