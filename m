@@ -1,82 +1,60 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 2/6] cnic: Finetune iSCSI connection reset.
-Date: Wed, 24 Feb 2010 16:42:05 -0800
-Message-ID: <1267058529-18454-2-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net-next 3/6] cnic: Fix panic in
+ cnic_iscsi_nl_msg_recv() when device is down.
+Date: Wed, 24 Feb 2010 16:42:06 -0800
+Message-ID: <1267058529-18454-3-git-send-email-mchan@broadcom.com>
 References: <1267058529-18454-1-git-send-email-mchan@broadcom.com>
+ <1267058529-18454-2-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3608 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2836 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758688Ab0BYAct (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Feb 2010 19:32:49 -0500
-In-Reply-To: <1267058529-18454-1-git-send-email-mchan@broadcom.com>
+	id S1758670Ab0BYAcn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Feb 2010 19:32:43 -0500
+In-Reply-To: <1267058529-18454-2-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eddie Wai <waie@broadcom.com>
+Some data structures are freed when the device is down and it will
+crash if an ISCSI netlink message is received.  Add RCU protection
+to prevent this.  In the shutdown path, ulp_ops[CNIC_ULP_L4] is
+assigned NULL and rcu_synchronized before freeing the data
+structures.
 
-For bnx2 devices, always send notification to bnx2i to let it initiate
-the cleanup when RST is received.
-
-For bnx2x devices, add unsolicited RST_COMP handling to start the cleanup.
-
-Signed-off-by: Eddie Wai <waie@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Benjamin Li <benli@broadcom.com>
 ---
- drivers/net/cnic.c |   21 ++++++++++++++++-----
- 1 files changed, 16 insertions(+), 5 deletions(-)
+ drivers/net/cnic.c |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-index 0fe8371..40865aa 100644
+index 40865aa..4558444 100644
 --- a/drivers/net/cnic.c
 +++ b/drivers/net/cnic.c
-@@ -3108,7 +3108,10 @@ static void cnic_cm_process_kcqe(struct cnic_dev *dev, struct kcqe *kcqe)
- 		break;
+@@ -327,6 +327,12 @@ static int cnic_iscsi_nl_msg_recv(struct cnic_dev *dev, u32 msg_type,
+ 		if (l5_cid >= MAX_CM_SK_TBL_SZ)
+ 			break;
  
- 	case L4_KCQE_OPCODE_VALUE_RESET_RECEIVED:
--		if (test_and_clear_bit(SK_F_OFFLD_COMPLETE, &csk->flags))
-+		if (test_bit(CNIC_F_BNX2_CLASS, &dev->flags)) {
-+			cnic_cm_upcall(cp, csk, opcode);
++		rcu_read_lock();
++		if (!rcu_dereference(cp->ulp_ops[CNIC_ULP_L4])) {
++			rc = -ENODEV;
++			rcu_read_unlock();
 +			break;
-+		} else if (test_and_clear_bit(SK_F_OFFLD_COMPLETE, &csk->flags))
- 			csk->state = opcode;
- 		/* fall through */
- 	case L4_KCQE_OPCODE_VALUE_CLOSE_COMP:
-@@ -3172,6 +3175,16 @@ static int cnic_ready_to_close(struct cnic_sock *csk, u32 opcode)
- 		if (!test_and_set_bit(SK_F_CLOSING, &csk->flags))
- 			return 1;
- 	}
-+	/* 57710+ only  workaround to handle unsolicited RESET_COMP
-+	 * which will be treated like a RESET RCVD notification
-+	 * which triggers the clean up procedure
-+	 */
-+	else if (opcode == L4_KCQE_OPCODE_VALUE_RESET_COMP) {
-+		if (!test_and_set_bit(SK_F_CLOSING, &csk->flags)) {
-+			csk->state = L4_KCQE_OPCODE_VALUE_RESET_RECEIVED;
-+			return 1;
 +		}
-+	}
- 	return 0;
- }
- 
-@@ -3181,10 +3194,8 @@ static void cnic_close_bnx2_conn(struct cnic_sock *csk, u32 opcode)
- 	struct cnic_local *cp = dev->cnic_priv;
- 
- 	clear_bit(SK_F_CONNECT_START, &csk->flags);
--	if (cnic_ready_to_close(csk, opcode)) {
--		cnic_close_conn(csk);
--		cnic_cm_upcall(cp, csk, opcode);
--	}
-+	cnic_close_conn(csk);
-+	cnic_cm_upcall(cp, csk, opcode);
- }
- 
- static void cnic_cm_stop_bnx2_hw(struct cnic_dev *dev)
+ 		csk = &cp->csk_tbl[l5_cid];
+ 		csk_hold(csk);
+ 		if (cnic_in_use(csk)) {
+@@ -341,6 +347,7 @@ static int cnic_iscsi_nl_msg_recv(struct cnic_dev *dev, u32 msg_type,
+ 				cnic_cm_set_pg(csk);
+ 		}
+ 		csk_put(csk);
++		rcu_read_unlock();
+ 		rc = 0;
+ 	}
+ 	}
 -- 
 1.6.4.GIT
 
