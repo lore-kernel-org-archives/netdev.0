@@ -1,41 +1,28 @@
-From: System Administrator <email@administrator.com>
-Subject: verified
-Date: Thu, 25 Feb 2010 16:06:18 +0330
-Message-ID: <20100225160618.75876joene8bdd8o@92.242.195.52>
-Reply-To: a_system31@yahoo.com
+From: "William Wilcox" <william_wilcox@euromillion.com>
+Subject: Re;
+Date: Thu, 25 Feb 2010 21:39:56 +0800 (CST)
+Message-ID: <b9d62c78f6f804ccd8e62bea8cef4e17.squirrel@mail.loongson.cn>
+Reply-To: william_wilcox@live.co.uk
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;charset=gb2312
+Content-Transfer-Encoding: 8bit
 To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.sanjesh.org ([92.242.195.52]:44572 "EHLO mail.sanjesh.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932680Ab0BYOad (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Feb 2010 09:30:33 -0500
-Content-Disposition: inline
+Received: from [159.226.40.154] ([159.226.40.154]:53645 "EHLO mail.loongson.cn"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S932722Ab0BYOb0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2010 09:31:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Dear Email user,
 
-  This message is from Administration center Maintenance Policy verified that
-your mailbox exceeds its limit, you will be unable to receive new email, To
-enable us provide you with more SPACE on our database prior and to maintain
-your IN-BOX, you must fill out the required information below.
 
-Name:
-Username/Id:
-Password:
-Retype Password:
-Email Address:
+Good day!
+My name is Sir William Wilcox,I work with the Euro Lottery. I can help you
+win 4,528,000 GBP.But I charge 40% of the winning.Can we do this deal
+together? Email Me: william_wilcox@live.co.uk
 
-Thank you for your cooperation.
-System Administrator.
-
-----------------------------------------------------------------
-This message was sent using IMP, the Internet Messaging Program.
+Regards,
+William Wilcox
 
