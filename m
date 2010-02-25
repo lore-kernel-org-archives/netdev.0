@@ -1,50 +1,61 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: ethtool 2.6.33 released
-Date: Wed, 24 Feb 2010 22:35:38 -0500
-Message-ID: <4B85F00A.2050602@garzik.org>
+Subject: Re: [ethtool PATCH] ethtool: Support n-tuple filter programming
+Date: Wed, 24 Feb 2010 22:41:39 -0500
+Message-ID: <4B85F173.40703@garzik.org>
+References: <20100204075101.16661.95658.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f197.google.com ([209.85.211.197]:61579 "EHLO
-	mail-yw0-f197.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932111Ab0BYDfk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2010 22:35:40 -0500
-Received: by ywh35 with SMTP id 35so2982531ywh.4
-        for <netdev@vger.kernel.org>; Wed, 24 Feb 2010 19:35:40 -0800 (PST)
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:61282 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758899Ab0BYDlm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2010 22:41:42 -0500
+Received: by gwj16 with SMTP id 16so1487894gwj.19
+        for <netdev@vger.kernel.org>; Wed, 24 Feb 2010 19:41:41 -0800 (PST)
+In-Reply-To: <20100204075101.16661.95658.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 02/04/2010 02:51 AM, Jeff Kirsher wrote:
+> From: Peter Waskiewicz<peter.p.waskiewicz.jr@intel.com>
+>
+> Program underlying ethernet devices with n-tuple flow classification
+> filters.
+>
+> This also adds a new flag to ethtool_flags, allowing n-tuple
+> programming to be toggled using the set_flags call.
+>
+> Signed-off-by: Peter P Waskiewicz Jr<peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
+> ---
+>
+>   ethtool-copy.h |   35 +++++++++++++
+>   ethtool.c      |  156 ++++++++++++++++++++++++++++++++++++++++++++++++++++++--
+>   2 files changed, 186 insertions(+), 5 deletions(-)
 
-ethtool version 2.6.33 has been released.
+applied, but two problems remain:
 
-Home page: https://sourceforge.net/projects/gkernel/
-Download link: 
-https://sourceforge.net/projects/gkernel/files/ethtool/2.6.33/ethtool-2.6.33.tar.gz/download
+1) you failed to document this in the man page.  I will expect a patch 
+to ethtool.8.
 
-Release notes:
+2) you introduced a deviation from the upstream kernel ethtool.h:
 
-         This version introduces a new release numbering scheme, based
-         on the latest upstream kernel interface supported.
 
-         * Fix: several man page corrections
-         * Feature: rx flow hash configuration
-         * Feature: report 10000baseT support, where available
-         * Feature: report MDI-X status, pause auto-neg, link partner
-	  adverts
-         * Feature: support additional port types
-         * Feature: support arbitrary speeds, faster than 65535 Mb
-         * Feature: large and generic receive offload (LRO, GRO) support
-         * Feature: option to flash firmware image from specified file
-         * Feature: support for block writing of EEPROMs
-         * Feature: marvell register dump update
-         * Feature: at76c50x-usb, e1000e, igb, ixgbe, r8169 register
-	  dump support
-         * Cleanup: remove support for RX hasing by port (was removed in
-           kernel by 59089d8d162ddcb5c434672e915331964d38a754)
-         * Doc: Explicitly ship GPLv2 license, rather than relying
-           on autotools to supply it for us (autotools started
-	  auto-installing GPLv3 recently)
+--- ethtool-copy.h      2010-02-24 22:39:21.000000000 -0500
++++ ../net-next-2.6/include/linux/ethtool.h     2010-02-24 
+22:14:43.000000000 -0500
+@@ -389,8 +389,6 @@
+  #define ETHTOOL_RXNTUPLE_ACTION_DROP -1
+  };
+
+-#define ETHTOOL_MAX_NTUPLE_LIST_ENTRY 1024
+-#define ETHTOOL_MAX_NTUPLE_STRING_PER_ENTRY 14
+  struct ethtool_rx_ntuple {
+         __u32                                   cmd;
+         struct ethtool_rx_ntuple_flow_spec      fs;
 
 
