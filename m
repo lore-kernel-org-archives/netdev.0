@@ -1,28 +1,39 @@
-From: "William Wilcox" <william_wilcox@euromillion.com>
-Subject: Re;
-Date: Thu, 25 Feb 2010 21:39:56 +0800 (CST)
-Message-ID: <b9d62c78f6f804ccd8e62bea8cef4e17.squirrel@mail.loongson.cn>
-Reply-To: william_wilcox@live.co.uk
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH]: tipc: Fix oops on send prior to entering networked
+ mode
+Date: Thu, 25 Feb 2010 07:06:20 -0800 (PST)
+Message-ID: <20100225.070620.236234509.davem@davemloft.net>
+References: <20100224211507.GC15380@hmsreliant.think-freely.org>
+	<20100224.173811.264809559.davem@davemloft.net>
+	<29C1DC0826876849BDD9F1C67ABA2943070F1849@ala-mail09.corp.ad.wrs.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=gb2312
-Content-Transfer-Encoding: 8bit
-To: undisclosed-recipients:;
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
+	jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net,
+	hadi@cyberus.ca
+To: allan.stephens@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [159.226.40.154] ([159.226.40.154]:53645 "EHLO mail.loongson.cn"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S932722Ab0BYOb0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Feb 2010 09:31:26 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60596
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759037Ab0BYPGC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 10:06:02 -0500
+In-Reply-To: <29C1DC0826876849BDD9F1C67ABA2943070F1849@ala-mail09.corp.ad.wrs.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: "Stephens, Allan" <allan.stephens@windriver.com>
+Date: Thu, 25 Feb 2010 06:24:15 -0800
 
+> PS. I'm holding back on replying to other previous emails from David and
+> Neil in this thread since deciding how to fix the oops that triggered
+> this whole discussion depends on whether or not we're going to integrate
+> the rest of TIPC 1.7 or not.
 
+Are you out of your mind?
 
-Good day!
-My name is Sir William Wilcox,I work with the Euro Lottery. I can help you
-win 4,528,000 GBP.But I charge 40% of the winning.Can we do this deal
-together? Email Me: william_wilcox@live.co.uk
+We're fixing the OOPS in the smallest and most expediant way
+possible.
 
-Regards,
-William Wilcox
-
+Integrating all of TIPC 1.7 to fix this OOPS is utter and pure
+insanity.
