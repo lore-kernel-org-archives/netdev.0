@@ -1,112 +1,87 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 4/6] cnic: Simplify route checking during iSCSI
- connection.
-Date: Wed, 24 Feb 2010 16:42:07 -0800
-Message-ID: <1267058529-18454-4-git-send-email-mchan@broadcom.com>
-References: <1267058529-18454-1-git-send-email-mchan@broadcom.com>
- <1267058529-18454-2-git-send-email-mchan@broadcom.com>
- <1267058529-18454-3-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net-next 1/6] cnic: Finetune iSCSI connection set up.
+Date: Wed, 24 Feb 2010 16:42:04 -0800
+Message-ID: <1267058529-18454-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2534 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2830 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758589Ab0BYAcm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Feb 2010 19:32:42 -0500
-In-Reply-To: <1267058529-18454-3-git-send-email-mchan@broadcom.com>
+	id S1758669Ab0BYAcn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Feb 2010 19:32:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With a separate IP address for iSCSI, connections should proceed
-whether or not we can get a route to the target from the network stack.
-It is possible that the network IP address may not reach the iSCSI target.
+From: Eddie Wai <waie@broadcom.com>
 
+Initialize IP ID and handle some additional connection errors.
+
+Signed-off-by: Eddie Wai <waie@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 Signed-off-by: Benjamin Li <benli@broadcom.com>
-Signed-off-by: Eddie Wai <waie@broadcom.com>
 ---
- drivers/net/cnic.c |   37 +++++++++++++------------------------
- 1 files changed, 13 insertions(+), 24 deletions(-)
+ drivers/net/cnic.c |   17 ++++++++++++++++-
+ drivers/net/cnic.h |    2 +-
+ 2 files changed, 17 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-index 4558444..0defe61 100644
+index 6aecef9..0fe8371 100644
 --- a/drivers/net/cnic.c
 +++ b/drivers/net/cnic.c
-@@ -2860,8 +2860,8 @@ static int cnic_get_route(struct cnic_sock *csk, struct cnic_sockaddr *saddr)
- {
- 	struct cnic_dev *dev = csk->dev;
- 	struct cnic_local *cp = dev->cnic_priv;
--	int is_v6, err, rc = -ENETUNREACH;
--	struct dst_entry *dst;
-+	int is_v6, rc = 0;
-+	struct dst_entry *dst = NULL;
- 	struct net_device *realdev;
- 	u32 local_port;
+@@ -2507,7 +2507,7 @@ static int cnic_cm_offload_pg(struct cnic_sock *csk)
+ 	l4kwqe->sa5 = dev->mac_addr[5];
  
-@@ -2877,39 +2877,31 @@ static int cnic_get_route(struct cnic_sock *csk, struct cnic_sockaddr *saddr)
- 	clear_bit(SK_F_IPV6, &csk->flags);
+ 	l4kwqe->etype = ETH_P_IP;
+-	l4kwqe->ipid_count = DEF_IPID_COUNT;
++	l4kwqe->ipid_start = DEF_IPID_START;
+ 	l4kwqe->host_opaque = csk->l5_cid;
  
- 	if (is_v6) {
--#if defined(CONFIG_IPV6) || (defined(CONFIG_IPV6_MODULE) && defined(MODULE))
- 		set_bit(SK_F_IPV6, &csk->flags);
--		err = cnic_get_v6_route(&saddr->remote.v6, &dst);
--		if (err)
--			return err;
--
--		if (!dst || dst->error || !dst->dev)
--			goto err_out;
-+		cnic_get_v6_route(&saddr->remote.v6, &dst);
- 
- 		memcpy(&csk->dst_ip[0], &saddr->remote.v6.sin6_addr,
- 		       sizeof(struct in6_addr));
- 		csk->dst_port = saddr->remote.v6.sin6_port;
- 		local_port = saddr->local.v6.sin6_port;
--#else
--		return rc;
--#endif
- 
- 	} else {
--		err = cnic_get_v4_route(&saddr->remote.v4, &dst);
--		if (err)
--			return err;
--
--		if (!dst || dst->error || !dst->dev)
--			goto err_out;
-+		cnic_get_v4_route(&saddr->remote.v4, &dst);
- 
- 		csk->dst_ip[0] = saddr->remote.v4.sin_addr.s_addr;
- 		csk->dst_port = saddr->remote.v4.sin_port;
- 		local_port = saddr->local.v4.sin_port;
+ 	if (csk->vlan_id) {
+@@ -3046,6 +3046,14 @@ static void cnic_cm_process_offld_pg(struct cnic_dev *dev, struct l4_kcq *kcqe)
+ 		clear_bit(SK_F_OFFLD_SCHED, &csk->flags);
+ 		goto done;
  	}
- 
--	csk->vlan_id = cnic_get_vlan(dst->dev, &realdev);
--	if (realdev != dev->netdev)
--		goto err_out;
-+	csk->vlan_id = 0;
-+	csk->mtu = dev->netdev->mtu;
-+	if (dst && dst->dev) {
-+		u16 vlan = cnic_get_vlan(dst->dev, &realdev);
-+		if (realdev == dev->netdev) {
-+			csk->vlan_id = vlan;
-+			csk->mtu = dst_mtu(dst);
-+		}
++	/* Possible PG kcqe status:  SUCCESS, OFFLOADED_PG, or CTX_ALLOC_FAIL */
++	if (kcqe->status == L4_KCQE_COMPLETION_STATUS_CTX_ALLOC_FAIL) {
++		clear_bit(SK_F_OFFLD_SCHED, &csk->flags);
++		cnic_cm_upcall(cp, csk,
++			       L4_KCQE_OPCODE_VALUE_CONNECT_COMPLETE);
++		goto done;
 +	}
- 
- 	if (local_port >= CNIC_LOCAL_PORT_MIN &&
- 	    local_port < CNIC_LOCAL_PORT_MAX) {
-@@ -2927,9 +2919,6 @@ static int cnic_get_route(struct cnic_sock *csk, struct cnic_sockaddr *saddr)
++
+ 	csk->pg_cid = kcqe->pg_cid;
+ 	set_bit(SK_F_PG_OFFLD_COMPLETE, &csk->flags);
+ 	cnic_cm_conn_req(csk);
+@@ -3083,6 +3091,13 @@ static void cnic_cm_process_kcqe(struct cnic_dev *dev, struct kcqe *kcqe)
  	}
- 	csk->src_port = local_port;
  
--	csk->mtu = dst_mtu(dst);
--	rc = 0;
--
- err_out:
- 	dst_release(dst);
- 	return rc;
+ 	switch (opcode) {
++	case L5CM_RAMROD_CMD_ID_TCP_CONNECT:
++		if (l4kcqe->status != 0) {
++			clear_bit(SK_F_OFFLD_SCHED, &csk->flags);
++			cnic_cm_upcall(cp, csk,
++				       L4_KCQE_OPCODE_VALUE_CONNECT_COMPLETE);
++		}
++		break;
+ 	case L4_KCQE_OPCODE_VALUE_CONNECT_COMPLETE:
+ 		if (l4kcqe->status == 0)
+ 			set_bit(SK_F_OFFLD_COMPLETE, &csk->flags);
+diff --git a/drivers/net/cnic.h b/drivers/net/cnic.h
+index 241d09a..1921597 100644
+--- a/drivers/net/cnic.h
++++ b/drivers/net/cnic.h
+@@ -101,7 +101,7 @@ struct cnic_redirect_entry {
+ #define BNX2X_KWQ_DATA(cp, x)						\
+ 	&(cp)->kwq_16_data[BNX2X_KWQ_DATA_PG(cp, x)][BNX2X_KWQ_DATA_IDX(cp, x)]
+ 
+-#define DEF_IPID_COUNT		0xc001
++#define DEF_IPID_START		0x8000
+ 
+ #define DEF_KA_TIMEOUT		10000
+ #define DEF_KA_INTERVAL		300000
 -- 
 1.6.4.GIT
 
