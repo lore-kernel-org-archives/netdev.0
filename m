@@ -1,52 +1,68 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] netdev: use list_first_entry macro
-Date: Wed, 24 Feb 2010 16:01:38 -0800
-Message-ID: <20100224160138.3a8de8de@nehalam>
+From: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Subject: Re: [PATCH v2 0/3] e1000e,igb,ixgbe: add registers etc. printout
+ code 	just before resetting adapters
+Date: Thu, 25 Feb 2010 09:24:54 +0900
+Message-ID: <4B85C356.9090703@jp.fujitsu.com>
+References: <4B593B74.2020601@jp.fujitsu.com> <alpine.WNT.2.00.1001221345580.6104@jbrandeb-desk1.amr.corp.intel.com> 	<4B5EC215.5090509@jp.fujitsu.com> <alpine.WNT.2.00.1002171043450.5328@jbrandeb-desk1.amr.corp.intel.com> 	<4B7E48F8.7010208@jp.fujitsu.com> <1266578456.25502.23.camel@localhost.localdomain> <97949e3e1002241136q70f55c97rafd79c2a5a19349c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: jeffrey.t.kirsher@intel.com,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	Koki Sanagi <sanagi.koki@jp.fujitsu.com>,
+	Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Laurent Chavey <chavey@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60334 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758589Ab0BYABy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Feb 2010 19:01:54 -0500
+Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:51861 "EHLO
+	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758572Ab0BYAZZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2010 19:25:25 -0500
+Received: from m4.gw.fujitsu.co.jp ([10.0.50.74])
+	by fgwmail5.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o1P0PMn0006061
+	for <netdev@vger.kernel.org> (envelope-from izumi.taku@jp.fujitsu.com);
+	Thu, 25 Feb 2010 09:25:22 +0900
+Received: from smail (m4 [127.0.0.1])
+	by outgoing.m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 4B2FB45DE79
+	for <netdev@vger.kernel.org>; Thu, 25 Feb 2010 09:25:22 +0900 (JST)
+Received: from s4.gw.fujitsu.co.jp (s4.gw.fujitsu.co.jp [10.0.50.94])
+	by m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 19AE545DE60
+	for <netdev@vger.kernel.org>; Thu, 25 Feb 2010 09:25:22 +0900 (JST)
+Received: from s4.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id EB3B01DB803E
+	for <netdev@vger.kernel.org>; Thu, 25 Feb 2010 09:25:21 +0900 (JST)
+Received: from ml14.s.css.fujitsu.com (ml14.s.css.fujitsu.com [10.249.87.104])
+	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id 9893F1DB803A
+	for <netdev@vger.kernel.org>; Thu, 25 Feb 2010 09:25:21 +0900 (JST)
+In-Reply-To: <97949e3e1002241136q70f55c97rafd79c2a5a19349c@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use list_first_entry macro; no longer any need to use 
-'next' directly in list to find first entry.
+Hi Chavey,
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> I like the idea of adding debugging support. While using syslog does provide
+> a "easier" way to get the output out, I am wondering if it would be
+> worse the while
+> to try to add a generic debug interface (via ethtool / netlink) that
+> each driver would
+> then support.
+> 
+> If using syslog is the choosen way, then having the feature on by
+> default may not
+> be wanted.
 
+I think these pritout messages are not only for debugging purpose but
+a kind of error notification, for adapter resetting is error.
+I prefer that these messages are always output wheter debugging mode is enabled
+or not, but if it is not hoped to be always output to syslog, another place
+(like a private ring buffer) is also acceptable.
+Now I'm considering to output to private pring buffer.
 
---- a/net/core/dev.c	2010-02-24 15:14:47.502112037 -0800
-+++ b/net/core/dev.c	2010-02-24 15:15:45.201861020 -0800
-@@ -3018,7 +3018,7 @@ static void net_rx_action(struct softirq
- 		 * entries to the tail of this list, and only ->poll()
- 		 * calls can remove this head entry from the list.
- 		 */
--		n = list_entry(list->next, struct napi_struct, poll_list);
-+		n = list_first_entry(list, struct napi_struct, poll_list);
- 
- 		have = netpoll_poll_lock(n);
- 
-@@ -4882,7 +4882,7 @@ static void rollback_registered_many(str
- 	}
- 
- 	/* Process any work delayed until the end of the batch */
--	dev = list_entry(head->next, struct net_device, unreg_list);
-+	dev = list_first_entry(head, struct net_device, unreg_list);
- 	call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH, dev);
- 
- 	synchronize_net();
-@@ -5268,7 +5268,7 @@ void netdev_run_todo(void)
- 
- 	while (!list_empty(&list)) {
- 		struct net_device *dev
--			= list_entry(list.next, struct net_device, todo_list);
-+			= list_first_entry(&list, struct net_device, todo_list);
- 		list_del(&dev->todo_list);
- 
- 		if (unlikely(dev->reg_state != NETREG_UNREGISTERING)) {
+Taku Izumi
+
