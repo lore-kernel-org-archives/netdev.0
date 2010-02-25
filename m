@@ -1,81 +1,69 @@
 From: Dan Smith <danms@us.ibm.com>
-Subject: [PATCH 3/6] C/R: Add checkpoint support for veth devices (v2)
-Date: Thu, 25 Feb 2010 12:43:12 -0800
-Message-ID: <1267130595-23637-4-git-send-email-danms@us.ibm.com>
+Subject: [PATCH 6/6] C/R: Add checkpoint support to macvlan driver
+Date: Thu, 25 Feb 2010 12:43:15 -0800
+Message-ID: <1267130595-23637-7-git-send-email-danms@us.ibm.com>
 References: <1267130595-23637-1-git-send-email-danms@us.ibm.com>
 Cc: benjamin.thery@bull.net, den@openvz.org, ebiederm@xmission.com,
 	davem@davemloft.net, netdev@vger.kernel.org
 To: containers@lists.osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stein.danplanet.com ([71.245.107.83]:38780 "EHLO
+Received: from stein.danplanet.com ([71.245.107.83]:38793 "EHLO
 	stein.danplanet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933710Ab0BYUpc (ORCPT
+	with ESMTP id S933713Ab0BYUpc (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 15:45:32 -0500
 In-Reply-To: <1267130595-23637-1-git-send-email-danms@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds an ndo_checkpoint() handler for veth devices to checkpoint themselves.
-Writes out the pairing information, addresses, and initiates a checkpoint
-on the peer if the peer won't be reached from another netns.  Throws an
-error of our peer's netns isn't already in the hash (i.e., a tree leak).
+This has an small hidden gotcha.  Since the macvlan device is moved
+completely into a container's network namespace, the init netns cannot
+freeze traffic to and from it in order to migrate live network connections
+by simply utilizing its netfilter tables.  A helper process in the container
+or something like what was recently discussed on the containers list[1]
+would provide a way to do this.
 
-Changes in v2:
- - Fix check detecting if peer is in the init netns
+[1]: https://lists.linux-foundation.org/pipermail/containers/2010-February/023001.html
 
 Signed-off-by: Dan Smith <danms@us.ibm.com>
 ---
- drivers/net/veth.c |   76 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 76 insertions(+), 0 deletions(-)
+ drivers/net/macvlan.c |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 48 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 3a15de5..db92de8 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -16,6 +16,9 @@
- #include <net/xfrm.h>
- #include <linux/veth.h>
- 
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 21a9c9a..07d006a 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -28,6 +28,8 @@
+ #include <linux/if_arp.h>
+ #include <linux/if_link.h>
+ #include <linux/if_macvlan.h>
 +#include <linux/checkpoint.h>
 +#include <linux/checkpoint_hdr.h>
-+
- #define DRV_NAME	"veth"
- #define DRV_VERSION	"1.0"
+ #include <net/rtnetlink.h>
+ #include <net/xfrm.h>
  
-@@ -284,6 +287,76 @@ static void veth_dev_free(struct net_device *dev)
- 	free_netdev(dev);
+@@ -493,6 +495,49 @@ static struct net_device_stats *macvlan_dev_get_stats(struct net_device *dev)
+ 	return stats;
  }
  
 +#ifdef CONFIG_CHECKPOINT
-+static int veth_checkpoint(struct ckpt_ctx *ctx, struct net_device *dev)
++static int macvlan_checkpoint(struct ckpt_ctx *ctx, struct net_device *dev)
 +{
++	struct macvlan_dev *vlan = netdev_priv(dev);
 +	struct ckpt_hdr_netdev *h;
-+	struct veth_priv *priv = netdev_priv(dev);
-+	struct net_device *peer = priv->peer;
 +	struct ckpt_netdev_addr *addrs;
 +	int ret;
-+	int n;
 +
-+	if (!peer) {
-+		ckpt_err(ctx, -EINVAL, "veth device has no peer!\n");
-+		return -EINVAL;
-+	}
++	ckpt_debug("Checkpointing macvlan %s:%s\n",
++		   dev->name, vlan->lowerdev->name);
 +
 +	h = ckpt_netdev_base(ctx, dev, &addrs);
 +	if (IS_ERR(h))
 +		return PTR_ERR(h);
 +
-+	h->type = CKPT_NETDEV_VETH;
++	h->type = CKPT_NETDEV_MACVLAN;
 +
-+	ret = h->veth.this_ref = ckpt_obj_lookup_add(ctx, dev,
-+						     CKPT_OBJ_NETDEV, &n);
-+	if (ret < 0)
-+		goto out;
-+
-+	ret = h->veth.peer_ref = ckpt_obj_lookup_add(ctx, peer,
-+						     CKPT_OBJ_NETDEV, &n);
-+	if (ret < 0)
-+		goto out;
++	h->macvlan.mode = vlan->mode;
 +
 +	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *)h);
 +	if (ret < 0)
@@ -85,28 +73,13 @@ index 3a15de5..db92de8 100644
 +	if (ret < 0)
 +		goto out;
 +
-+	ret = ckpt_write_buffer(ctx, peer->name, IFNAMSIZ);
++	ret = ckpt_write_buffer(ctx, vlan->lowerdev->name, IFNAMSIZ);
 +	if (ret < 0)
 +		goto out;
 +
 +	if (h->inet_addrs > 0) {
 +		int len = (sizeof(struct ckpt_netdev_addr) * h->inet_addrs);
 +		ret = ckpt_write_buffer(ctx, addrs, len);
-+		if (ret)
-+			goto out;
-+	}
-+
-+	/* Only checkpoint peer if we're not going to arrive at it
-+	 * via another task's netns.  Fail if the pipe exits
-+	 * our container to a netns not already in the hash
-+	 */
-+	if (ckpt_netdev_in_init_netns(ctx, peer))
-+		ret = checkpoint_obj(ctx, peer, CKPT_OBJ_NETDEV);
-+	else if (!ckpt_obj_lookup(ctx, peer->nd_net, CKPT_OBJ_NET_NS)) {
-+		ret = -EINVAL;
-+		ckpt_err(ctx, ret,
-+			 "Peer %s of %s not in checkpointed namespaces\n",
-+			 peer->name, dev->name);
 +	}
 + out:
 +	ckpt_hdr_put(ctx, h);
@@ -116,19 +89,19 @@ index 3a15de5..db92de8 100644
 +}
 +#endif
 +
- static const struct net_device_ops veth_netdev_ops = {
- 	.ndo_init            = veth_dev_init,
- 	.ndo_open            = veth_open,
-@@ -292,6 +365,9 @@ static const struct net_device_ops veth_netdev_ops = {
- 	.ndo_change_mtu      = veth_change_mtu,
- 	.ndo_get_stats       = veth_get_stats,
- 	.ndo_set_mac_address = eth_mac_addr,
+ static void macvlan_ethtool_get_drvinfo(struct net_device *dev,
+ 					struct ethtool_drvinfo *drvinfo)
+ {
+@@ -539,6 +584,9 @@ static const struct net_device_ops macvlan_netdev_ops = {
+ 	.ndo_set_multicast_list	= macvlan_set_multicast_list,
+ 	.ndo_get_stats		= macvlan_dev_get_stats,
+ 	.ndo_validate_addr	= eth_validate_addr,
 +#ifdef CONFIG_CHECKPOINT
-+	.ndo_checkpoint      = veth_checkpoint,
++	.ndo_checkpoint		= macvlan_checkpoint,
 +#endif
  };
  
- static void veth_setup(struct net_device *dev)
+ static void macvlan_setup(struct net_device *dev)
 -- 
 1.6.2.5
 
