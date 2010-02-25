@@ -1,92 +1,76 @@
-From: Alex Chiang <achiang@hp.com>
-Subject: Re: [PATCH] Export smbios strings associated with onboard devices
-	to sysfs
-Date: Thu, 25 Feb 2010 14:40:20 -0700
-Message-ID: <20100225214020.GA15010@ldl.fc.hp.com>
+From: "Domsch, Matt" <Matt_Domsch@Dell.com>
+Subject: Re: [PATCH] Export smbios strings associated with onboard devices to
+ sysfs
+Date: Thu, 25 Feb 2010 15:46:23 -0600
+Message-ID: <20100225214623.GD20147@mdomsch-pws380.aus.amer.dell.com>
 References: <20100225202941.GA19404@mock.linuxdev.us.dell.com>
+ <20100225214020.GA15010@ldl.fc.hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	linux-pci@vger.kernel.org, matt_domsch@dell.com,
-	jordan_hargrave@dell.com, sandeep_k_shandilya@dell.com,
-	charles_rose@dell.com, shyam_iyer@dell.com
-To: Narendra K <Narendra_K@dell.com>
+Cc: "K, Narendra" <Narendra_K@Dell.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-hotplug@vger.kernel.org" <linux-hotplug@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
+	"Shandilya, Sandeep K" <Sandeep_K_Shandilya@Dell.com>,
+	"Rose, Charles" <Charles_Rose@Dell.com>,
+	"Iyer, Shyam" <Shyam_Iyer@Dell.com>
+To: Alex Chiang <achiang@hp.com>
 Return-path: <linux-pci-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20100225202941.GA19404@mock.linuxdev.us.dell.com>
+In-Reply-To: <20100225214020.GA15010@ldl.fc.hp.com>
 Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Narendra K <Narendra_K@dell.com>:
+On Thu, Feb 25, 2010 at 03:40:20PM -0600, Alex Chiang wrote:
+> * Narendra K <Narendra_K@dell.com>:
+> > 
+> > * We have been having discussions in the netdev list about
+> > creating multiple names for the network interfaces to bring
+> > determinism into the way network interfaces are named in the
+> > OSes. In specific, "eth0 in the OS does not always map to the
+> > integrated NIC Gb1 as labelled on the chassis".  
 > 
-> * We have been having discussions in the netdev list about
-> creating multiple names for the network interfaces to bring
-> determinism into the way network interfaces are named in the
-> OSes. In specific, "eth0 in the OS does not always map to the
-> integrated NIC Gb1 as labelled on the chassis".  
-
-Yes, I agree that this is a real problem that we do not handle
-well today.
-
-> 1.Export smbios strings of onboard devices, to sysfs. For example -
+> Yes, I agree that this is a real problem that we do not handle
+> well today.
 > 
-> cat /sys/class/net/eth0/device/smbiosname
-> Embedded NIC 2
+> > 1.Export smbios strings of onboard devices, to sysfs. For example -
+> > 
+> > cat /sys/class/net/eth0/device/smbiosname
+> > Embedded NIC 2
+> > 
+> > cat  /sys/bus/pci/devices/0000\:03\:00.0/smbiosname
+> > Embedded NIC 2
 > 
-> cat  /sys/bus/pci/devices/0000\:03\:00.0/smbiosname
-> Embedded NIC 2
+> I agree with this concept, but I don't like the interface.
+> 
+> The name "smbiosname" isn't the proper level of abstraction. We
+> don't want users to care what firmware standard is providing the
+> name (think smbios vs acpi vs open firmware...).
+> 
+> We learned this lesson with exposing ACPI interfaces. Let's not
+> make the same mistake here.
+> 
+> Something like "firmwarename", "fwname", "platformname" etc. is
+> generic, and then the interface will make sense for platforms
+> that do not implement SMBIOS.
+> 
+> I don't particularly care which name you choose as long as it's
+> properly generic.
 
-I agree with this concept, but I don't like the interface.
+I'm not sure I like the generic name.  Then the policy of which
+provider (if there could be >1, which there will be once this can be
+done via ACPI instead of static SMBIOS) gets to use that file name
+becomes kernel-dependent, instead of userspace-dependent.
 
-The name "smbiosname" isn't the proper level of abstraction. We
-don't want users to care what firmware standard is providing the
-name (think smbios vs acpi vs open firmware...).
-
-We learned this lesson with exposing ACPI interfaces. Let's not
-make the same mistake here.
-
-Something like "firmwarename", "fwname", "platformname" etc. is
-generic, and then the interface will make sense for platforms
-that do not implement SMBIOS.
-
-I don't particularly care which name you choose as long as it's
-properly generic.
-
-As far as implementation goes, I've been thinking about this
-problem for a while now, and I keep wanting to use the
-pci_create_slot() API, but am still a little on the fence about
-it.
-
-The pros:
-	- all you have to do is write a simple little driver that
-	  can read SMBIOS to get PCI bus:devfn and the name, and
-	  then you call pci_create_slot(). Then you get all sorts
-	  of stuff for free, like sysfs exposure, proper
-	  refcounting (important given that the PCI logical
-	  hotplug interface (/sys/bus/pci/rescan and friends) can
-	  be used to remove onboard devices), etc.
-
-	- see drivers/acpi/pci_slot.c for an example of how to
-	  detect slots and then register them.
-
-The cons:
-	- the user interface is /sys/bus/pci/slots/<name>
-
-	I don't know if that is an appropriate interface, since
-	technically an onboard device isn't in a slot. But maybe
-	if you did something like:
-
-		/sys/bus/pci/slots/onboard0
-		/sys/bus/pci/slots/onboard1
-	
-	that might make sense.
-
-	Or...
-		/sys/bus/pci/onboard/<name>
-
-I read through the patch, but given that the implementation
-strategy might change based on my comments, will hold off and see
-how the conversation develops.
+What is wrong with having both "smbiosname" and "acpiname" (for lack
+of better names), either, both, or none, as files in the sysfs tree,
+and let userspace set the policy of which one to use if there are >1 ?
 
 Thanks,
-/ac
+Matt
+
+-- 
+Matt Domsch
+Technology Strategist, Dell Office of the CTO
+linux.dell.com & www.dell.com/linux
