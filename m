@@ -1,61 +1,43 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [net-next PATCH v5 2/3] sysctl: add proc_do_large_bitmap
-Date: Thu, 25 Feb 2010 09:17:40 +0800
-Message-ID: <4B85CFB4.5030908@redhat.com>
-References: <1266752533.3428.28.camel@Nokia-N900-42-11> <201002221829.13987.opurdila@ixiacom.com> <4B84B7F0.7090709@redhat.com> <201002241402.54122.opurdila@ixiacom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH]: tipc: Fix oops on send prior to entering networked
+ mode
+Date: Wed, 24 Feb 2010 17:34:36 -0800 (PST)
+Message-ID: <20100224.173436.212403104.davem@davemloft.net>
+References: <29C1DC0826876849BDD9F1C67ABA2943070F0E2E@ala-mail09.corp.ad.wrs.com>
+	<20100224185340.GB15380@hmsreliant.think-freely.org>
+	<29C1DC0826876849BDD9F1C67ABA2943070F1534@ala-mail09.corp.ad.wrs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Octavian Purdila <opurdila@ixiacom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201002241402.54122.opurdila@ixiacom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
+	jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
+To: allan.stephens@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41913
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753199Ab0BYBeS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Feb 2010 20:34:18 -0500
+In-Reply-To: <29C1DC0826876849BDD9F1C67ABA2943070F1534@ala-mail09.corp.ad.wrs.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Octavian Purdila wrote:
-> On Wednesday 24 February 2010 07:24:00 you wrote:
->> Octavian Purdila wrote:
->>> Here is a new version of this patch which fixes both the comma and
->>> invalid value issues, please give it a try.
->> Sorry, it is even worse. :(
->>
->>> [net-next PATCH v5 2/3] sysctl: add proc_do_large_bitmap
->>>
->>> The new function can be used to read/write large bitmaps via /proc. A
->>> comma separated range format is used for compact output and input
->>> (e.g. 1,3-4,10-10).
->> Writing "50000-50100" gets EINVAL, it should be success.
->> Writing "50000,50100" fails too.
->>
-> 
-> Hmm, they don't fail for me :-/
-> 
->> Please, at least, do some basic testing.
->>
-> 
-> I do test them, I've attached the current test batch I was using.
-> 
-> Anyways, today I've noticed that "1,2 3" does not fail and even more 
-> importantly the final value is "3". 
-> 
-> Being that I don't see a way of fixing this without not acknowledging 1,2 even 
-> though we will do set these values, I revisited the "1 2 3" issue. And I don't 
-> understand why this is actually an issue, we are just being more permissive 
-> (i.e. we are allowing as separators both whitespaces and ,).
-> 
-> 
+From: "Stephens, Allan" <allan.stephens@windriver.com>
+Date: Wed, 24 Feb 2010 11:05:12 -0800
 
-Oops, after rechecking my test case, it is actually my test case's
-fault. Sorry for this. I will fix my test case and run it again.
-
-
+> Have you tried upgrading your system to use TIPC 1.7.6 (available at
+> http://tipc.sourceforge.net/tipc_linux.html)?  This is a significant
+> revised and enhanced version of TIPC that hasn't yet made its way into
+> mainsteam Linux, and seems to be the version-of-choice for most TIPC
+> users.  It also appears to avoid a number of the issues that currently
+> exist in TIPC 1.6, including the one caused by the random configuration
+> command you mentioned in your email below.
 > 
-> I will resend the whole patch series once we get this formatting issue 
-> resolved.
-> 
+> I didn't have a problem with you working on a small patch for TIPC 1.6
+> to get around a limited problem, but I'd hate to see you waste time on
+> fixing issues that have already been addressed in TIPC 1.7.
 
-Thanks much!
+Why is the TIPC kernel protocol code being developed out of tree
+instead of directly upstream?
+
+Regardless of that, if the code is in the kernel tree and it can be
+OOPS'd, we must fix it.
