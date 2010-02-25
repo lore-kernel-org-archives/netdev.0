@@ -1,17 +1,17 @@
 From: =?iso-8859-1?Q?=A9Web_Unit?= <dbass@singnet.com.sg>
 Subject: Re:Royal Dutch Oil
-Date: Fri, 26 Feb 2010 02:28:55 +0800 (SGT)
-Message-ID: <1267122535.4b86c16723927@discus.singnet.com.sg>
+Date: Fri, 26 Feb 2010 02:34:42 +0800 (SGT)
+Message-ID: <1267122882.4b86c2c27d962@arrowana.singnet.com.sg>
 Reply-To: r_dutchplc@yahoo.ie
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
 To: info@dtl.nl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comsmtp1.singnet.com.sg ([165.21.101.74]:51459 "EHLO
+Received: from comsmtp1.singnet.com.sg ([165.21.101.74]:53555 "EHLO
 	comsmtp1.singnet.com.sg" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933250Ab0BYS32 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 13:29:28 -0500
+	with ESMTP id S932933Ab0BYSjS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 13:39:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
