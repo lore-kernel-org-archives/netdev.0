@@ -1,271 +1,124 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: [PATCH v5 4/7] tcp: input header length, prediction, and timestamp
- bugs
-Date: Thu, 25 Feb 2010 15:49:37 -0500
-Message-ID: <4B86E261.5020000@gmail.com>
-References: <4B86DDCB.50608@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v3 2/7] net: remove old tcp_optlen function
+Date: Thu, 25 Feb 2010 20:55:29 +0000
+Message-ID: <1267131329.2107.27.camel@achroite.uk.solarflarecom.com>
+References: <4B86DDCB.50608@gmail.com>  <4B86DFF4.5000007@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070701080906060807080603"
-Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
-	Andi Kleen <andi@firstfloor.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>
+	Michael Chan <mchan@broadcom.com>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B86DDCB.50608@gmail.com>
+In-Reply-To: <4B86DFF4.5000007@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070701080906060807080603
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+On Thu, 2010-02-25 at 15:39 -0500, William Allen Simpson wrote:
+> The tcp_optlen() function returns a potential *negative* unsigned.
+> 
+> In the only two existing files using the old tcp_optlen() function,
+> clean up confusing and inconsistent mixing of both byte and word
+> offsets, and other coding style issues.  Document assumptions.
+> 
+> Quoth David Miller:
+>     This is transmit, and the packets can only come from the Linux
+>     TCP stack, not some external entity.
+> 
+>     You're being way too anal here, and adding these checks to
+>     drivers would be just a lot of rediculious bloat. [sic]
+> 
+> Therefore, there are *no* checks for bad TCP and IP header sizes, nor
+> any semantic changes.  The drivers should function exactly as existing.
+> 
+> No response from testers in 19+ weeks.
 
-Fix incorrect header prediction flags documentation.
+There's no need for these passive-aggressive comments and they certainly
+won't get your patches merged any faster.
 
-Relieve register pressure in (the i386) fast path by accessing skb->len
-directly, instead of carrying a rarely used len parameter.
+> Requires:
+>    net: tcp_header_len_th and tcp_option_len_th
+> 
+> Signed-off-by: William.Allen.Simpson@gmail.com
+> CC: Michael Chan <mchan@broadcom.com>
+> ---
+>   drivers/net/bnx2.c  |   29 +++++++++++++-----------
+>   drivers/net/tg3.c   |   60 +++++++++++++++++++++++---------------------------
+>   include/linux/tcp.h |    5 ----
+>   3 files changed, 44 insertions(+), 50 deletions(-)
 
-Eliminate unused len parameters in two other functions.
+> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+> index 65df1de..45452c5 100644
+> --- a/drivers/net/bnx2.c
+> +++ b/drivers/net/bnx2.c
+> @@ -6352,6 +6352,8 @@ bnx2_vlan_rx_register(struct net_device *dev, struct vlan_group *vlgrp)
+>  /* Called with netif_tx_lock.
+>   * bnx2_tx_int() runs without netif_tx_lock unless it needs to call
+>   * netif_wake_queue().
+> + *
+> + * No TCP or IP length checking, per David Miller (see commit log).
+>   */
+>  static netdev_tx_t
+>  bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
+> @@ -6396,19 +6398,19 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  			(TX_BD_FLAGS_VLAN_TAG | (vlan_tx_tag_get(skb) << 16));
+>  	}
+>  #endif
+> -	if ((mss = skb_shinfo(skb)->gso_size)) {
+> -		u32 tcp_opt_len;
+> -		struct iphdr *iph;
+> +	mss = skb_shinfo(skb)->gso_size;
+> +	if (mss != 0) {
+> +		struct tcphdr *th = tcp_hdr(skb);
+> +		int tcp_opt_words = th->doff - (sizeof(*th) >> 2);
+> +		/* assumes positive tcp_opt_words without checking */
 
-Don't use output calculated tp->tcp_header_len for input decisions.
-While the output header is usually the same as the input (same options
-in both directions), that's a poor assumption. In particular, Sack will
-be different. Newer options are not guaranteed.
+It would be far more helpful to add a comment to the top of this block
+that notes that skbs with gso_size set are known to have valid headers.
 
-Moreover, in the fast path, that only saved a shift or two. The other
-efficiencies in this patch more than make up the difference.
+>  		vlan_tag_flags |= TX_BD_FLAGS_SW_LSO;
+>  
+> -		tcp_opt_len = tcp_optlen(skb);
+> -
 
-Instead, use tp->rx_opt.tstamp_ok to accurately predict header length.
+How is this an improvement?
 
-Likewise, use tp->rx_opt.tstamp_ok for received MSS calculations.
+>  		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
+>  			u32 tcp_off = skb_transport_offset(skb) -
+>  				      sizeof(struct ipv6hdr) - ETH_HLEN;
+>  
+> -			vlan_tag_flags |= ((tcp_opt_len >> 2) << 8) |
+> +			vlan_tag_flags |= (tcp_opt_words << 8) |
+>  					  TX_BD_FLAGS_SW_FLAGS;
+>  			if (likely(tcp_off == 0))
+>  				vlan_tag_flags &= ~TX_BD_FLAGS_TCP6_OFF0_MSK;
+> @@ -6421,14 +6423,15 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  				mss |= (tcp_off & 0xc) << TX_BD_TCP6_OFF2_SHL;
+>  			}
+>  		} else {
+> -			iph = ip_hdr(skb);
+> -			if (tcp_opt_len || (iph->ihl > 5)) {
+> -				vlan_tag_flags |= ((iph->ihl - 5) +
+> -						   (tcp_opt_len >> 2)) << 8;
+> -			}
+> +			struct iphdr *iph = ip_hdr(skb);
+> +			int ip_opt_words = iph->ihl - (sizeof(*iph) >> 2);
+> +			/* assumes positive ip_opt_words without checking */
+> +			int opt_words = ip_opt_words + tcp_opt_words;
+> +
+> +			if (opt_words > 0)
+> +				vlan_tag_flags |= opt_words << 8;
+[...]
 
-Don't use "sizeof(struct tcphdr) + TCPOLEN_TSTAMP_ALIGNED" to guess that
-the timestamp is present. This may have been OK in the days with fewer
-possible options, but various combinations of newer options may yield
-the same header length. (This bug is in 3 places.)
+That *is* clearer.
 
-Instead, use tp->rx_opt.saw_tstamp to determine a timestamp is present.
+Ben.
 
-There's no need to test buffer length against header length, already
-checked by tcp_v[4,6]_rcv(). Straighten code for minor efficiency gain.
-
-Stand-alone patch, originally developed for TCPCT.
-
-Requires:
-   net: tcp_header_len_th and tcp_option_len_th
-   tcp: harmonize tcp_vx_rcv header length assumptions
-
-Signed-off-by: William.Allen.Simpson@gmail.com
-Reviewed-by: Andi Kleen <andi@firstfloor.org>
----
-  include/linux/tcp.h      |    6 ++-
-  include/net/tcp.h        |   18 ++++++--
-  net/ipv4/tcp_input.c     |   96 +++++++++++++++++++---------------------------
-  net/ipv4/tcp_ipv4.c      |    4 +-
-  net/ipv4/tcp_minisocks.c |    3 +-
-  net/ipv4/tcp_probe.c     |    2 +-
-  net/ipv6/tcp_ipv6.c      |    4 +-
-  7 files changed, 63 insertions(+), 70 deletions(-)
-
-
-
---------------070701080906060807080603
-Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
- name="len_th+2d5+2.6.33.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="len_th+2d5+2.6.33.patch"
-
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvdGNwLmggYi9pbmNsdWRlL2xpbnV4L3RjcC5o
-CmluZGV4IDc0NzI4ZjcuLjI5ODdlZTggMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbGludXgvdGNw
-LmgKKysrIGIvaW5jbHVkZS9saW51eC90Y3AuaApAQCAtMzAxLDcgKzMwMSwxMSBAQCBzdHJ1
-Y3QgdGNwX3NvY2sgewogCiAvKgogICoJSGVhZGVyIHByZWRpY3Rpb24gZmxhZ3MKLSAqCTB4
-NT8xMCA8PCAxNiArIHNuZF93bmQgaW4gbmV0IGJ5dGUgb3JkZXIKKyAqCVMgPDwgMjggKyBU
-Q1BfRkxBR19BQ0sgKyBzbmRfd25kLCBpbiBuZXQgYnl0ZSBvcmRlcgorICoJCShQU0ggZmxh
-ZyBpcyBpZ25vcmVkKQorICoJCVMgaXMgNSAobm8gb3B0aW9ucyksIG9yIDggKHRpbWVzdGFt
-cCBhbGlnbmVkKQorICoJb3RoZXJ3aXNlLCAwIHRvIHR1cm4gaXQgb2ZmIC0tIGZvciBpbnN0
-YW5jZSwgd2hlbiB0aGVyZSBhcmUKKyAqCWhvbGVzIGluIHJlY2VpdmUgc3BhY2UuCiAgKi8K
-IAlfX2JlMzIJcHJlZF9mbGFnczsKIApkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQvdGNwLmgg
-Yi9pbmNsdWRlL25ldC90Y3AuaAppbmRleCAzNGY1Y2MyLi41MmRkMTg1IDEwMDY0NAotLS0g
-YS9pbmNsdWRlL25ldC90Y3AuaAorKysgYi9pbmNsdWRlL25ldC90Y3AuaApAQCAtMzEwLDEz
-ICszMTAsMTEgQEAgZXh0ZXJuIGludAkJCXRjcF9pb2N0bChzdHJ1Y3Qgc29jayAqc2ssCiAK
-IGV4dGVybiBpbnQJCQl0Y3BfcmN2X3N0YXRlX3Byb2Nlc3Moc3RydWN0IHNvY2sgKnNrLCAK
-IAkJCQkJCSAgICAgIHN0cnVjdCBza19idWZmICpza2IsCi0JCQkJCQkgICAgICBzdHJ1Y3Qg
-dGNwaGRyICp0aCwKLQkJCQkJCSAgICAgIHVuc2lnbmVkIGxlbik7CisJCQkJCQkgICAgICBz
-dHJ1Y3QgdGNwaGRyICp0aCk7CiAKIGV4dGVybiBpbnQJCQl0Y3BfcmN2X2VzdGFibGlzaGVk
-KHN0cnVjdCBzb2NrICpzaywgCiAJCQkJCQkgICAgc3RydWN0IHNrX2J1ZmYgKnNrYiwKLQkJ
-CQkJCSAgICBzdHJ1Y3QgdGNwaGRyICp0aCwgCi0JCQkJCQkgICAgdW5zaWduZWQgbGVuKTsK
-KwkJCQkJCSAgICBzdHJ1Y3QgdGNwaGRyICp0aCk7CiAKIGV4dGVybiB2b2lkCQkJdGNwX3Jj
-dl9zcGFjZV9hZGp1c3Qoc3RydWN0IHNvY2sgKnNrKTsKIApAQCAtNTMzLDkgKzUzMSwxOSBA
-QCBzdGF0aWMgaW5saW5lIHUzMiBfX3RjcF9zZXRfcnRvKGNvbnN0IHN0cnVjdCB0Y3Bfc29j
-ayAqdHApCiAJcmV0dXJuICh0cC0+c3J0dCA+PiAzKSArIHRwLT5ydHR2YXI7CiB9CiAKK3N0
-YXRpYyBpbmxpbmUgdTggX190Y3BfZmFzdF9wYXRoX2hlYWRlcl9sZW5ndGgoY29uc3Qgc3Ry
-dWN0IHRjcF9zb2NrICp0cCkKK3sKKwlyZXR1cm4gdHAtPnJ4X29wdC50c3RhbXBfb2sKKwkJ
-PyBzaXplb2Yoc3RydWN0IHRjcGhkcikgKyBUQ1BPTEVOX1RTVEFNUF9BTElHTkVECisJCTog
-c2l6ZW9mKHN0cnVjdCB0Y3BoZHIpOworfQorCiBzdGF0aWMgaW5saW5lIHZvaWQgX190Y3Bf
-ZmFzdF9wYXRoX29uKHN0cnVjdCB0Y3Bfc29jayAqdHAsIHUzMiBzbmRfd25kKQogewotCXRw
-LT5wcmVkX2ZsYWdzID0gaHRvbmwoKHRwLT50Y3BfaGVhZGVyX2xlbiA8PCAyNikgfAorCS8q
-IFNlZSBsaW51eC90Y3AuaCBmb3IgcHJlZF9mbGFncyBkZXRhaWxzLgorCSAqICdTJyAoZG9m
-ZikgaXMgMzItYml0IHdvcmRzLCBjb252ZXJ0IGZyb20gYnl0ZXM6IDI2ID0gMjggLSAyLgor
-CSAqLworCXRwLT5wcmVkX2ZsYWdzID0gaHRvbmwoKF9fdGNwX2Zhc3RfcGF0aF9oZWFkZXJf
-bGVuZ3RoKHRwKSA8PCAyNikgfAogCQkJICAgICAgIG50b2hsKFRDUF9GTEFHX0FDSykgfAog
-CQkJICAgICAgIHNuZF93bmQpOwogfQpkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvdGNwX2lucHV0
-LmMgYi9uZXQvaXB2NC90Y3BfaW5wdXQuYwppbmRleCAzZmRkYzY5Li5lOGY5ZTNiIDEwMDY0
-NAotLS0gYS9uZXQvaXB2NC90Y3BfaW5wdXQuYworKysgYi9uZXQvaXB2NC90Y3BfaW5wdXQu
-YwpAQCAtMTUyLDcgKzE1Miw3IEBAIHN0YXRpYyB2b2lkIHRjcF9tZWFzdXJlX3Jjdl9tc3Mo
-c3RydWN0IHNvY2sgKnNrLCBjb25zdCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogCQkJICogdGNw
-IGhlYWRlciBwbHVzIGZpeGVkIHRpbWVzdGFtcCBvcHRpb24gbGVuZ3RoLgogCQkJICogUmVz
-dWx0aW5nICJsZW4iIGlzIE1TUyBmcmVlIG9mIFNBQ0sgaml0dGVyLgogCQkJICovCi0JCQls
-ZW4gLT0gdGNwX3NrKHNrKS0+dGNwX2hlYWRlcl9sZW47CisJCQlsZW4gLT0gX190Y3BfZmFz
-dF9wYXRoX2hlYWRlcl9sZW5ndGgodGNwX3NrKHNrKSk7CiAJCQlpY3NrLT5pY3NrX2Fjay5s
-YXN0X3NlZ19zaXplID0gbGVuOwogCQkJaWYgKGxlbiA9PSBsc3MpIHsKIAkJCQlpY3NrLT5p
-Y3NrX2Fjay5yY3ZfbXNzID0gbGVuOwpAQCAtNTIwNiw3ICs1MjA2LDcgQEAgZGlzY2FyZDoK
-ICAqCXRjcF9kYXRhX3F1ZXVlIHdoZW4gZXZlcnl0aGluZyBpcyBPSy4KICAqLwogaW50IHRj
-cF9yY3ZfZXN0YWJsaXNoZWQoc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2ti
-LAotCQkJc3RydWN0IHRjcGhkciAqdGgsIHVuc2lnbmVkIGxlbikKKwkJCXN0cnVjdCB0Y3Bo
-ZHIgKnRoKQogewogCXN0cnVjdCB0Y3Bfc29jayAqdHAgPSB0Y3Bfc2soc2spOwogCWludCBy
-ZXM7CkBAIC01MjI0LDMyICs1MjI0LDE4IEBAIGludCB0Y3BfcmN2X2VzdGFibGlzaGVkKHN0
-cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYiwKIAkgKglPdXIgY3VycmVudCBz
-Y2hlbWUgaXMgbm90IHNpbGx5IGVpdGhlciBidXQgd2UgdGFrZSB0aGUKIAkgKglleHRyYSBj
-b3N0IG9mIHRoZSBuZXRfYmggc29mdCBpbnRlcnJ1cHQgcHJvY2Vzc2luZy4uLgogCSAqCVdl
-IGRvIGNoZWNrc3VtIGFuZCBjb3B5IGFsc28gYnV0IGZyb20gZGV2aWNlIHRvIGtlcm5lbC4K
-KwkgKgorCSAqCVNlZSBsaW51eC90Y3AuaCBhbmQgbmV0L3RjcC5oIGZvciBwcmVkX2ZsYWdz
-IGRldGFpbHMuCiAJICovCi0KLQl0cC0+cnhfb3B0LnNhd190c3RhbXAgPSAwOwotCi0JLyoJ
-cHJlZF9mbGFncyBpcyAweFM/MTAgPDwgMTYgKyBzbmRfd25kCi0JICoJaWYgaGVhZGVyX3By
-ZWRpY3Rpb24gaXMgdG8gYmUgbWFkZQotCSAqCSdTJyB3aWxsIGFsd2F5cyBiZSB0cC0+dGNw
-X2hlYWRlcl9sZW4gPj4gMgotCSAqCSc/JyB3aWxsIGJlIDAgZm9yIHRoZSBmYXN0IHBhdGgs
-IG90aGVyd2lzZSBwcmVkX2ZsYWdzIGlzIDAgdG8KLQkgKiAgdHVybiBpdCBvZmYJKHdoZW4g
-dGhlcmUgYXJlIGhvbGVzIGluIHRoZSByZWNlaXZlCi0JICoJIHNwYWNlIGZvciBpbnN0YW5j
-ZSkKLQkgKglQU0ggZmxhZyBpcyBpZ25vcmVkLgotCSAqLwotCiAJaWYgKCh0Y3BfZmxhZ193
-b3JkKHRoKSAmIFRDUF9IUF9CSVRTKSA9PSB0cC0+cHJlZF9mbGFncyAmJgogCSAgICBUQ1Bf
-U0tCX0NCKHNrYiktPnNlcSA9PSB0cC0+cmN2X254dCAmJgogCSAgICAhYWZ0ZXIoVENQX1NL
-Ql9DQihza2IpLT5hY2tfc2VxLCB0cC0+c25kX254dCkpIHsKLQkJaW50IHRjcF9oZWFkZXJf
-bGVuID0gdHAtPnRjcF9oZWFkZXJfbGVuOwotCi0JCS8qIFRpbWVzdGFtcCBoZWFkZXIgcHJl
-ZGljdGlvbjogdGNwX2hlYWRlcl9sZW4KLQkJICogaXMgYXV0b21hdGljYWxseSBlcXVhbCB0
-byB0aC0+ZG9mZio0IGR1ZSB0byBwcmVkX2ZsYWdzCi0JCSAqIG1hdGNoLgotCQkgKi8KKwkJ
-aW50IHRjcF9oZWFkZXJfbGVuID0gdGNwX2hlYWRlcl9sZW5fdGgodGgpOwogCi0JCS8qIENo
-ZWNrIHRpbWVzdGFtcCAqLwotCQlpZiAodGNwX2hlYWRlcl9sZW4gPT0gc2l6ZW9mKHN0cnVj
-dCB0Y3BoZHIpICsgVENQT0xFTl9UU1RBTVBfQUxJR05FRCkgewotCQkJLyogTm8/IFNsb3cg
-cGF0aCEgKi8KKwkJLyogVGltZXN0YW1wIGhlYWRlciBwcmVkaWN0aW9uICovCisJCWlmICh0
-Y3BfaGVhZGVyX2xlbiAhPSBzaXplb2YoKnRoKSArIFRDUE9MRU5fVFNUQU1QX0FMSUdORUQp
-IHsKKwkJCXRwLT5yeF9vcHQuc2F3X3RzdGFtcCA9IDA7IC8qIGZhbHNlICovCisJCX0gZWxz
-ZSB7CiAJCQlpZiAoIXRjcF9wYXJzZV9hbGlnbmVkX3RpbWVzdGFtcCh0cCwgdGgpKQogCQkJ
-CWdvdG8gc2xvd19wYXRoOwogCkBAIC01MjY0LDM1ICs1MjUwLDEyIEBAIGludCB0Y3BfcmN2
-X2VzdGFibGlzaGVkKHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYiwKIAkJ
-CSAqLwogCQl9CiAKLQkJaWYgKGxlbiA8PSB0Y3BfaGVhZGVyX2xlbikgewotCQkJLyogQnVs
-ayBkYXRhIHRyYW5zZmVyOiBzZW5kZXIgKi8KLQkJCWlmIChsZW4gPT0gdGNwX2hlYWRlcl9s
-ZW4pIHsKLQkJCQkvKiBQcmVkaWN0ZWQgcGFja2V0IGlzIGluIHdpbmRvdyBieSBkZWZpbml0
-aW9uLgotCQkJCSAqIHNlcSA9PSByY3Zfbnh0IGFuZCByY3Zfd3VwIDw9IHJjdl9ueHQuCi0J
-CQkJICogSGVuY2UsIGNoZWNrIHNlcTw9cmN2X3d1cCByZWR1Y2VzIHRvOgotCQkJCSAqLwot
-CQkJCWlmICh0Y3BfaGVhZGVyX2xlbiA9PQotCQkJCSAgICAoc2l6ZW9mKHN0cnVjdCB0Y3Bo
-ZHIpICsgVENQT0xFTl9UU1RBTVBfQUxJR05FRCkgJiYKLQkJCQkgICAgdHAtPnJjdl9ueHQg
-PT0gdHAtPnJjdl93dXApCi0JCQkJCXRjcF9zdG9yZV90c19yZWNlbnQodHApOwotCi0JCQkJ
-LyogV2Uga25vdyB0aGF0IHN1Y2ggcGFja2V0cyBhcmUgY2hlY2tzdW1tZWQKLQkJCQkgKiBv
-biBlbnRyeS4KLQkJCQkgKi8KLQkJCQl0Y3BfYWNrKHNrLCBza2IsIDApOwotCQkJCV9fa2Zy
-ZWVfc2tiKHNrYik7Ci0JCQkJdGNwX2RhdGFfc25kX2NoZWNrKHNrKTsKLQkJCQlyZXR1cm4g
-MDsKLQkJCX0gZWxzZSB7IC8qIEhlYWRlciB0b28gc21hbGwgKi8KLQkJCQlUQ1BfSU5DX1NU
-QVRTX0JIKHNvY2tfbmV0KHNrKSwgVENQX01JQl9JTkVSUlMpOwotCQkJCWdvdG8gZGlzY2Fy
-ZDsKLQkJCX0KLQkJfSBlbHNlIHsKKwkJaWYgKHRjcF9oZWFkZXJfbGVuIDwgc2tiLT5sZW4p
-IHsKIAkJCWludCBlYXRlbiA9IDA7CiAJCQlpbnQgY29waWVkX2Vhcmx5ID0gMDsKIAogCQkJ
-aWYgKHRwLT5jb3BpZWRfc2VxID09IHRwLT5yY3Zfbnh0ICYmCi0JCQkgICAgbGVuIC0gdGNw
-X2hlYWRlcl9sZW4gPD0gdHAtPnVjb3B5LmxlbikgeworCQkJICAgIHNrYi0+bGVuIC0gdGNw
-X2hlYWRlcl9sZW4gPD0gdHAtPnVjb3B5LmxlbikgewogI2lmZGVmIENPTkZJR19ORVRfRE1B
-CiAJCQkJaWYgKHRjcF9kbWFfdHJ5X2Vhcmx5X2NvcHkoc2ssIHNrYiwgdGNwX2hlYWRlcl9s
-ZW4pKSB7CiAJCQkJCWNvcGllZF9lYXJseSA9IDE7CkBAIC01MzExLDkgKzUyNzQsNyBAQCBp
-bnQgdGNwX3Jjdl9lc3RhYmxpc2hlZChzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBza19idWZm
-ICpza2IsCiAJCQkJCSAqIHNlcSA9PSByY3Zfbnh0IGFuZCByY3Zfd3VwIDw9IHJjdl9ueHQu
-CiAJCQkJCSAqIEhlbmNlLCBjaGVjayBzZXE8PXJjdl93dXAgcmVkdWNlcyB0bzoKIAkJCQkJ
-ICovCi0JCQkJCWlmICh0Y3BfaGVhZGVyX2xlbiA9PQotCQkJCQkgICAgKHNpemVvZihzdHJ1
-Y3QgdGNwaGRyKSArCi0JCQkJCSAgICAgVENQT0xFTl9UU1RBTVBfQUxJR05FRCkgJiYKKwkJ
-CQkJaWYgKHRwLT5yeF9vcHQuc2F3X3RzdGFtcCAmJgogCQkJCQkgICAgdHAtPnJjdl9ueHQg
-PT0gdHAtPnJjdl93dXApCiAJCQkJCQl0Y3Bfc3RvcmVfdHNfcmVjZW50KHRwKTsKIApAQCAt
-NTMzNCw4ICs1Mjk1LDcgQEAgaW50IHRjcF9yY3ZfZXN0YWJsaXNoZWQoc3RydWN0IHNvY2sg
-KnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCQkJCSAqIHNlcSA9PSByY3Zfbnh0IGFuZCBy
-Y3Zfd3VwIDw9IHJjdl9ueHQuCiAJCQkJICogSGVuY2UsIGNoZWNrIHNlcTw9cmN2X3d1cCBy
-ZWR1Y2VzIHRvOgogCQkJCSAqLwotCQkJCWlmICh0Y3BfaGVhZGVyX2xlbiA9PQotCQkJCSAg
-ICAoc2l6ZW9mKHN0cnVjdCB0Y3BoZHIpICsgVENQT0xFTl9UU1RBTVBfQUxJR05FRCkgJiYK
-KwkJCQlpZiAodHAtPnJ4X29wdC5zYXdfdHN0YW1wICYmCiAJCQkJICAgIHRwLT5yY3Zfbnh0
-ID09IHRwLT5yY3Zfd3VwKQogCQkJCQl0Y3Bfc3RvcmVfdHNfcmVjZW50KHRwKTsKIApAQCAt
-NTM3NiwxMSArNTMzNiwzMyBAQCBub19hY2s6CiAJCQllbHNlCiAJCQkJc2stPnNrX2RhdGFf
-cmVhZHkoc2ssIDApOwogCQkJcmV0dXJuIDA7CisJCX0gZWxzZSB7CisJCQkvKiBCdWxrIGRh
-dGEgdHJhbnNmZXI6IHNlbmRlcgorCQkJICoKKwkJCSAqIHRjcF9oZWFkZXJfbGVuID4gc2ti
-LT5sZW4gbmV2ZXIgaGFwcGVucywKKwkJCSAqIGFscmVhZHkgY2hlY2tlZCBieSB0Y3Bfdls0
-LDZdX3JjdigpCisJCQkgKgorCQkJICogUHJlZGljdGVkIHBhY2tldCBpcyBpbiB3aW5kb3cg
-YnkgZGVmaW5pdGlvbi4KKwkJCSAqIHNlcSA9PSByY3Zfbnh0IGFuZCByY3Zfd3VwIDw9IHJj
-dl9ueHQuCisJCQkgKiBIZW5jZSwgY2hlY2sgc2VxPD1yY3Zfd3VwIHJlZHVjZXMgdG86CisJ
-CQkgKi8KKwkJCWlmICh0cC0+cnhfb3B0LnNhd190c3RhbXAgJiYKKwkJCSAgICB0cC0+cmN2
-X254dCA9PSB0cC0+cmN2X3d1cCkKKwkJCQl0Y3Bfc3RvcmVfdHNfcmVjZW50KHRwKTsKKwor
-CQkJLyogV2Uga25vdyB0aGF0IHN1Y2ggcGFja2V0cyBhcmUgY2hlY2tzdW1tZWQKKwkJCSAq
-IG9uIGVudHJ5LgorCQkJICovCisJCQl0Y3BfYWNrKHNrLCBza2IsIDApOworCQkJX19rZnJl
-ZV9za2Ioc2tiKTsKKwkJCXRjcF9kYXRhX3NuZF9jaGVjayhzayk7CisJCQlyZXR1cm4gMDsK
-IAkJfQogCX0KIAogc2xvd19wYXRoOgotCWlmIChsZW4gPCAodGgtPmRvZmYgPDwgMikgfHwg
-dGNwX2NoZWNrc3VtX2NvbXBsZXRlX3VzZXIoc2ssIHNrYikpCisJLyogQXNzdW1lcyBoZWFk
-ZXIgYW5kIG9wdGlvbnMgdW5jaGFuZ2VkIHNpbmNlIGNoZWNrc3VtX2luaXQoKSAqLworCWlm
-ICh0Y3BfY2hlY2tzdW1fY29tcGxldGVfdXNlcihzaywgc2tiKSkKIAkJZ290byBjc3VtX2Vy
-cm9yOwogCiAJLyoKQEAgLTU0MTYsNyArNTM5OCw3IEBAIGRpc2NhcmQ6CiB9CiAKIHN0YXRp
-YyBpbnQgdGNwX3Jjdl9zeW5zZW50X3N0YXRlX3Byb2Nlc3Moc3RydWN0IHNvY2sgKnNrLCBz
-dHJ1Y3Qgc2tfYnVmZiAqc2tiLAotCQkJCQkgc3RydWN0IHRjcGhkciAqdGgsIHVuc2lnbmVk
-IGxlbikKKwkJCQkJIHN0cnVjdCB0Y3BoZHIgKnRoKQogewogCXU4ICpoYXNoX2xvY2F0aW9u
-OwogCXN0cnVjdCBpbmV0X2Nvbm5lY3Rpb25fc29jayAqaWNzayA9IGluZXRfY3NrKHNrKTsK
-QEAgLTU2OTMsNyArNTY3NSw3IEBAIHJlc2V0X2FuZF91bmRvOgogICovCiAKIGludCB0Y3Bf
-cmN2X3N0YXRlX3Byb2Nlc3Moc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2ti
-LAotCQkJICBzdHJ1Y3QgdGNwaGRyICp0aCwgdW5zaWduZWQgbGVuKQorCQkJICBzdHJ1Y3Qg
-dGNwaGRyICp0aCkKIHsKIAlzdHJ1Y3QgdGNwX3NvY2sgKnRwID0gdGNwX3NrKHNrKTsKIAlz
-dHJ1Y3QgaW5ldF9jb25uZWN0aW9uX3NvY2sgKmljc2sgPSBpbmV0X2Nzayhzayk7CkBAIC01
-NzQwLDcgKzU3MjIsNyBAQCBpbnQgdGNwX3Jjdl9zdGF0ZV9wcm9jZXNzKHN0cnVjdCBzb2Nr
-ICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYiwKIAkJZ290byBkaXNjYXJkOwogCiAJY2FzZSBU
-Q1BfU1lOX1NFTlQ6Ci0JCXF1ZXVlZCA9IHRjcF9yY3Zfc3luc2VudF9zdGF0ZV9wcm9jZXNz
-KHNrLCBza2IsIHRoLCBsZW4pOworCQlxdWV1ZWQgPSB0Y3BfcmN2X3N5bnNlbnRfc3RhdGVf
-cHJvY2Vzcyhzaywgc2tiLCB0aCk7CiAJCWlmIChxdWV1ZWQgPj0gMCkKIAkJCXJldHVybiBx
-dWV1ZWQ7CiAKZGlmZiAtLWdpdCBhL25ldC9pcHY0L3RjcF9pcHY0LmMgYi9uZXQvaXB2NC90
-Y3BfaXB2NC5jCmluZGV4IDBhNzZlNDEuLmY5OTllMDYgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0
-L3RjcF9pcHY0LmMKKysrIGIvbmV0L2lwdjQvdGNwX2lwdjQuYwpAQCAtMTU1MSw3ICsxNTUx
-LDcgQEAgaW50IHRjcF92NF9kb19yY3Yoc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVm
-ZiAqc2tiKQogCiAJaWYgKHNrLT5za19zdGF0ZSA9PSBUQ1BfRVNUQUJMSVNIRUQpIHsgLyog
-RmFzdCBwYXRoICovCiAJCVRDUF9DSEVDS19USU1FUihzayk7Ci0JCWlmICh0Y3BfcmN2X2Vz
-dGFibGlzaGVkKHNrLCBza2IsIHRjcF9oZHIoc2tiKSwgc2tiLT5sZW4pKSB7CisJCWlmICh0
-Y3BfcmN2X2VzdGFibGlzaGVkKHNrLCBza2IsIHRjcF9oZHIoc2tiKSkpIHsKIAkJCXJzayA9
-IHNrOwogCQkJZ290byByZXNldDsKIAkJfQpAQCAtMTU3OCw3ICsxNTc4LDcgQEAgaW50IHRj
-cF92NF9kb19yY3Yoc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogCX0K
-IAogCVRDUF9DSEVDS19USU1FUihzayk7Ci0JaWYgKHRjcF9yY3Zfc3RhdGVfcHJvY2Vzcyhz
-aywgc2tiLCB0Y3BfaGRyKHNrYiksIHNrYi0+bGVuKSkgeworCWlmICh0Y3BfcmN2X3N0YXRl
-X3Byb2Nlc3Moc2ssIHNrYiwgdGNwX2hkcihza2IpKSkgewogCQlyc2sgPSBzazsKIAkJZ290
-byByZXNldDsKIAl9CmRpZmYgLS1naXQgYS9uZXQvaXB2NC90Y3BfbWluaXNvY2tzLmMgYi9u
-ZXQvaXB2NC90Y3BfbWluaXNvY2tzLmMKaW5kZXggZjIwNmVlNS4uMzdiNzUzNiAxMDA2NDQK
-LS0tIGEvbmV0L2lwdjQvdGNwX21pbmlzb2Nrcy5jCisrKyBiL25ldC9pcHY0L3RjcF9taW5p
-c29ja3MuYwpAQCAtNzE4LDggKzcxOCw3IEBAIGludCB0Y3BfY2hpbGRfcHJvY2VzcyhzdHJ1
-Y3Qgc29jayAqcGFyZW50LCBzdHJ1Y3Qgc29jayAqY2hpbGQsCiAJaW50IHN0YXRlID0gY2hp
-bGQtPnNrX3N0YXRlOwogCiAJaWYgKCFzb2NrX293bmVkX2J5X3VzZXIoY2hpbGQpKSB7Ci0J
-CXJldCA9IHRjcF9yY3Zfc3RhdGVfcHJvY2VzcyhjaGlsZCwgc2tiLCB0Y3BfaGRyKHNrYiks
-Ci0JCQkJCSAgICBza2ItPmxlbik7CisJCXJldCA9IHRjcF9yY3Zfc3RhdGVfcHJvY2Vzcyhj
-aGlsZCwgc2tiLCB0Y3BfaGRyKHNrYikpOwogCQkvKiBXYWtldXAgcGFyZW50LCBzZW5kIFNJ
-R0lPICovCiAJCWlmIChzdGF0ZSA9PSBUQ1BfU1lOX1JFQ1YgJiYgY2hpbGQtPnNrX3N0YXRl
-ICE9IHN0YXRlKQogCQkJcGFyZW50LT5za19kYXRhX3JlYWR5KHBhcmVudCwgMCk7CmRpZmYg
-LS1naXQgYS9uZXQvaXB2NC90Y3BfcHJvYmUuYyBiL25ldC9pcHY0L3RjcF9wcm9iZS5jCmlu
-ZGV4IDliYzgwNWQuLmRlMmEzMmUgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L3RjcF9wcm9iZS5j
-CisrKyBiL25ldC9pcHY0L3RjcF9wcm9iZS5jCkBAIC04OCw3ICs4OCw3IEBAIHN0YXRpYyBp
-bmxpbmUgaW50IHRjcF9wcm9iZV9hdmFpbCh2b2lkKQogICogTm90ZTogYXJndW1lbnRzIG11
-c3QgbWF0Y2ggdGNwX3Jjdl9lc3RhYmxpc2hlZCgpIQogICovCiBzdGF0aWMgaW50IGp0Y3Bf
-cmN2X2VzdGFibGlzaGVkKHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYiwK
-LQkJCSAgICAgICBzdHJ1Y3QgdGNwaGRyICp0aCwgdW5zaWduZWQgbGVuKQorCQkJICAgICAg
-IHN0cnVjdCB0Y3BoZHIgKnRoKQogewogCWNvbnN0IHN0cnVjdCB0Y3Bfc29jayAqdHAgPSB0
-Y3Bfc2soc2spOwogCWNvbnN0IHN0cnVjdCBpbmV0X3NvY2sgKmluZXQgPSBpbmV0X3NrKHNr
-KTsKZGlmZiAtLWdpdCBhL25ldC9pcHY2L3RjcF9pcHY2LmMgYi9uZXQvaXB2Ni90Y3BfaXB2
-Ni5jCmluZGV4IGI3NjkzOWEuLjNkMDhhNGQgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L3RjcF9p
-cHY2LmMKKysrIGIvbmV0L2lwdjYvdGNwX2lwdjYuYwpAQCAtMTU4Niw3ICsxNTg2LDcgQEAg
-c3RhdGljIGludCB0Y3BfdjZfZG9fcmN2KHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1
-ZmYgKnNrYikKIAogCWlmIChzay0+c2tfc3RhdGUgPT0gVENQX0VTVEFCTElTSEVEKSB7IC8q
-IEZhc3QgcGF0aCAqLwogCQlUQ1BfQ0hFQ0tfVElNRVIoc2spOwotCQlpZiAodGNwX3Jjdl9l
-c3RhYmxpc2hlZChzaywgc2tiLCB0Y3BfaGRyKHNrYiksIHNrYi0+bGVuKSkKKwkJaWYgKHRj
-cF9yY3ZfZXN0YWJsaXNoZWQoc2ssIHNrYiwgdGNwX2hkcihza2IpKSkKIAkJCWdvdG8gcmVz
-ZXQ7CiAJCVRDUF9DSEVDS19USU1FUihzayk7CiAJCWlmIChvcHRfc2tiKQpAQCAtMTYxOCw3
-ICsxNjE4LDcgQEAgc3RhdGljIGludCB0Y3BfdjZfZG9fcmN2KHN0cnVjdCBzb2NrICpzaywg
-c3RydWN0IHNrX2J1ZmYgKnNrYikKIAl9CiAKIAlUQ1BfQ0hFQ0tfVElNRVIoc2spOwotCWlm
-ICh0Y3BfcmN2X3N0YXRlX3Byb2Nlc3Moc2ssIHNrYiwgdGNwX2hkcihza2IpLCBza2ItPmxl
-bikpCisJaWYgKHRjcF9yY3Zfc3RhdGVfcHJvY2Vzcyhzaywgc2tiLCB0Y3BfaGRyKHNrYikp
-KQogCQlnb3RvIHJlc2V0OwogCVRDUF9DSEVDS19USU1FUihzayk7CiAJaWYgKG9wdF9za2Ip
-Ci0tIAoxLjYuMy4zCgo=
---------------070701080906060807080603--
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
