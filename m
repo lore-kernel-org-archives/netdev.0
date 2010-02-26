@@ -1,218 +1,107 @@
 From: Anatolij Gustschin <agust@denx.de>
-Subject: [net-next-2.6 PATCH v3 1/3] fs_enet: use dev_xxx instead of printk
-Date: Fri, 26 Feb 2010 23:00:47 +0100
-Message-ID: <1267221649-22754-2-git-send-email-agust@denx.de>
+Subject: [net-next-2.6 PATCH v3 3/3] fs_enet: add FEC TX buffer alignment workaround for MPC5121
+Date: Fri, 26 Feb 2010 23:00:49 +0100
+Message-ID: <1267221649-22754-4-git-send-email-agust@denx.de>
 References: <1267221649-22754-1-git-send-email-agust@denx.de>
 Cc: linuxppc-dev@ozlabs.org, "David S. Miller" <davem@davemloft.net>,
 	Grant Likely <grant.likely@secretlab.ca>,
 	Detlev Zundel <dzu@denx.de>, Wolfgang Denk <wd@denx.de>,
 	John Rigby <jcrigby@gmail.com>,
-	Anatolij Gustschin <agust@denx.de>
+	Anatolij Gustschin <agust@denx.de>,
+	Piotr Ziecik <kosmo@semihalf.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:43335 "EHLO
+Received: from mail-out.m-online.net ([212.18.0.10]:54603 "EHLO
 	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966326Ab0BZWBh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 17:01:37 -0500
+	with ESMTP id S966341Ab0BZWBn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 17:01:43 -0500
 In-Reply-To: <1267221649-22754-1-git-send-email-agust@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+MPC5121 FEC requeries 4-byte alignmnent for TX data buffers.
+This patch is a work around that copies misaligned tx packets
+to an aligned skb before sending.
+
+Signed-off-by: John Rigby <jcrigby@gmail.com>
+Signed-off-by: Piotr Ziecik <kosmo@semihalf.com>
+Signed-off-by: Wolfgang Denk <wd@denx.de>
 Signed-off-by: Anatolij Gustschin <agust@denx.de>
 Acked-by: Grant Likely <grant.likely@secretlab.ca>
 ---
- drivers/net/fs_enet/fs_enet-main.c |   39 +++++++++++++----------------------
- drivers/net/fs_enet/mac-fcc.c      |    5 ++-
- drivers/net/fs_enet/mac-fec.c      |   12 ++++------
- drivers/net/fs_enet/mac-scc.c      |    9 +++----
- 4 files changed, 27 insertions(+), 38 deletions(-)
+Changes since v2:
+ - ratelimit warning message
+ - use skb->len + 4 as size for allocation of the new skb
+   with aligned buffer.
+
+ drivers/net/fs_enet/fs_enet-main.c |   47 ++++++++++++++++++++++++++++++++++++
+ 1 files changed, 47 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
-index ec2f503..c34a7e0 100644
+index 4297021..0770e2f 100644
 --- a/drivers/net/fs_enet/fs_enet-main.c
 +++ b/drivers/net/fs_enet/fs_enet-main.c
-@@ -108,9 +108,7 @@ static int fs_enet_rx_napi(struct napi_struct *napi, int budget)
- 		 * the last indicator should be set.
- 		 */
- 		if ((sc & BD_ENET_RX_LAST) == 0)
--			printk(KERN_WARNING DRV_MODULE_NAME
--			       ": %s rcv is not +last\n",
--			       dev->name);
-+			dev_warn(fep->dev, "rcv is not +last\n");
+@@ -580,6 +580,40 @@ void fs_cleanup_bds(struct net_device *dev)
  
- 		/*
- 		 * Check for errors.
-@@ -178,9 +176,8 @@ static int fs_enet_rx_napi(struct napi_struct *napi, int budget)
- 				received++;
- 				netif_receive_skb(skb);
- 			} else {
--				printk(KERN_WARNING DRV_MODULE_NAME
--				       ": %s Memory squeeze, dropping packet.\n",
--				       dev->name);
-+				dev_warn(fep->dev,
-+					 "Memory squeeze, dropping packet.\n");
- 				fep->stats.rx_dropped++;
- 				skbn = skb;
- 			}
-@@ -242,9 +239,7 @@ static int fs_enet_rx_non_napi(struct net_device *dev)
- 		 * the last indicator should be set.
- 		 */
- 		if ((sc & BD_ENET_RX_LAST) == 0)
--			printk(KERN_WARNING DRV_MODULE_NAME
--			       ": %s rcv is not +last\n",
--			       dev->name);
-+			dev_warn(fep->dev, "rcv is not +last\n");
+ /**********************************************************************************/
  
- 		/*
- 		 * Check for errors.
-@@ -313,9 +308,8 @@ static int fs_enet_rx_non_napi(struct net_device *dev)
- 				received++;
- 				netif_rx(skb);
- 			} else {
--				printk(KERN_WARNING DRV_MODULE_NAME
--				       ": %s Memory squeeze, dropping packet.\n",
--				       dev->name);
-+				dev_warn(fep->dev,
-+					 "Memory squeeze, dropping packet.\n");
- 				fep->stats.rx_dropped++;
- 				skbn = skb;
- 			}
-@@ -388,10 +382,10 @@ static void fs_enet_tx(struct net_device *dev)
- 		} else
- 			fep->stats.tx_packets++;
- 
--		if (sc & BD_ENET_TX_READY)
--			printk(KERN_WARNING DRV_MODULE_NAME
--			       ": %s HEY! Enet xmit interrupt and TX_READY.\n",
--			       dev->name);
-+		if (sc & BD_ENET_TX_READY) {
++#ifdef CONFIG_FS_ENET_MPC5121_FEC
++/*
++ * MPC5121 FEC requeries 4-byte alignment for TX data buffer!
++ */
++static struct sk_buff *tx_skb_align_workaround(struct net_device *dev,
++					       struct sk_buff *skb)
++{
++	struct sk_buff *new_skb;
++	struct fs_enet_private *fep = netdev_priv(dev);
++
++	/* Alloc new skb */
++	new_skb = dev_alloc_skb(skb->len + 4);
++	if (!new_skb) {
++		if (net_ratelimit()) {
 +			dev_warn(fep->dev,
-+				 "HEY! Enet xmit interrupt and TX_READY.\n");
++				 "Memory squeeze, dropping tx packet.\n");
 +		}
- 
- 		/*
- 		 * Deferred means some collisions occurred during transmit,
-@@ -511,9 +505,8 @@ void fs_init_bds(struct net_device *dev)
- 	for (i = 0, bdp = fep->rx_bd_base; i < fep->rx_ring; i++, bdp++) {
- 		skb = dev_alloc_skb(ENET_RX_FRSIZE);
- 		if (skb == NULL) {
--			printk(KERN_WARNING DRV_MODULE_NAME
--			       ": %s Memory squeeze, unable to allocate skb\n",
--			       dev->name);
-+			dev_warn(fep->dev,
-+				 "Memory squeeze, unable to allocate skb\n");
- 			break;
- 		}
- 		skb_align(skb, ENET_RX_ALIGN);
-@@ -610,8 +603,7 @@ static int fs_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		 * Ooops.  All transmit buffers are full.  Bail out.
- 		 * This should not happen, since the tx queue should be stopped.
- 		 */
--		printk(KERN_WARNING DRV_MODULE_NAME
--		       ": %s tx queue full!.\n", dev->name);
-+		dev_warn(fep->dev, "tx queue full!.\n");
- 		return NETDEV_TX_BUSY;
- 	}
- 
-@@ -788,8 +780,7 @@ static int fs_enet_open(struct net_device *dev)
- 	r = request_irq(fep->interrupt, fs_enet_interrupt, IRQF_SHARED,
- 			"fs_enet-mac", dev);
- 	if (r != 0) {
--		printk(KERN_ERR DRV_MODULE_NAME
--		       ": %s Could not allocate FS_ENET IRQ!", dev->name);
-+		dev_err(fep->dev, "Could not allocate FS_ENET IRQ!");
- 		if (fep->fpi->use_napi)
- 			napi_disable(&fep->napi);
- 		return -EINVAL;
-@@ -1053,7 +1044,7 @@ static int __devinit fs_enet_probe(struct of_device *ofdev,
- 	if (ret)
- 		goto out_free_bd;
- 
--	printk(KERN_INFO "%s: fs_enet: %pM\n", ndev->name, ndev->dev_addr);
-+	pr_info("%s: fs_enet: %pM\n", ndev->name, ndev->dev_addr);
- 
- 	return 0;
- 
-diff --git a/drivers/net/fs_enet/mac-fcc.c b/drivers/net/fs_enet/mac-fcc.c
-index a761d31..cf4f674 100644
---- a/drivers/net/fs_enet/mac-fcc.c
-+++ b/drivers/net/fs_enet/mac-fcc.c
-@@ -476,8 +476,9 @@ static void clear_int_events(struct net_device *dev, u32 int_events)
- 
- static void ev_error(struct net_device *dev, u32 int_events)
- {
--	printk(KERN_WARNING DRV_MODULE_NAME
--	       ": %s FS_ENET ERROR(s) 0x%x\n", dev->name, int_events);
-+	struct fs_enet_private *fep = netdev_priv(dev);
++		return NULL;
++	}
 +
-+	dev_warn(fep->dev, "FS_ENET ERROR(s) 0x%x\n", int_events);
- }
++	/* Make sure new skb is properly aligned */
++	skb_align(new_skb, 4);
++
++	/* Copy data to new skb ... */
++	skb_copy_from_linear_data(skb, new_skb->data, skb->len);
++	skb_put(new_skb, skb->len);
++
++	/* ... and free an old one */
++	dev_kfree_skb_any(skb);
++
++	return new_skb;
++}
++#endif
++
+ static int fs_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct fs_enet_private *fep = netdev_priv(dev);
+@@ -588,6 +622,19 @@ static int fs_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	u16 sc;
+ 	unsigned long flags;
  
- static int get_regs(struct net_device *dev, void *p, int *sizep)
-diff --git a/drivers/net/fs_enet/mac-fec.c b/drivers/net/fs_enet/mac-fec.c
-index ca806d1..8a632f6 100644
---- a/drivers/net/fs_enet/mac-fec.c
-+++ b/drivers/net/fs_enet/mac-fec.c
-@@ -257,8 +257,7 @@ static void restart(struct net_device *dev)
++#ifdef CONFIG_FS_ENET_MPC5121_FEC
++	if (((unsigned long)skb->data) & 0x3) {
++		skb = tx_skb_align_workaround(dev, skb);
++		if (!skb) {
++			/*
++			 * We have lost packet due to memory allocation error
++			 * in tx_skb_align_workaround(). Hopefully original
++			 * skb is still valid, so try transmit it later.
++			 */
++			return NETDEV_TX_BUSY;
++		}
++	}
++#endif
+ 	spin_lock_irqsave(&fep->tx_lock, flags);
  
- 	r = whack_reset(fep->fec.fecp);
- 	if (r != 0)
--		printk(KERN_ERR DRV_MODULE_NAME
--				": %s FEC Reset FAILED!\n", dev->name);
-+		dev_err(fep->dev, "FEC Reset FAILED!\n");
  	/*
- 	 * Set station address.
- 	 */
-@@ -355,9 +354,7 @@ static void stop(struct net_device *dev)
- 		udelay(1);
- 
- 	if (i == FEC_RESET_DELAY)
--		printk(KERN_WARNING DRV_MODULE_NAME
--		       ": %s FEC timeout on graceful transmit stop\n",
--		       dev->name);
-+		dev_warn(fep->dev, "FEC timeout on graceful transmit stop\n");
- 	/*
- 	 * Disable FEC. Let only MII interrupts.
- 	 */
-@@ -433,8 +430,9 @@ static void clear_int_events(struct net_device *dev, u32 int_events)
- 
- static void ev_error(struct net_device *dev, u32 int_events)
- {
--	printk(KERN_WARNING DRV_MODULE_NAME
--	       ": %s FEC ERROR(s) 0x%x\n", dev->name, int_events);
-+	struct fs_enet_private *fep = netdev_priv(dev);
-+
-+	dev_warn(fep->dev, "FEC ERROR(s) 0x%x\n", int_events);
- }
- 
- static int get_regs(struct net_device *dev, void *p, int *sizep)
-diff --git a/drivers/net/fs_enet/mac-scc.c b/drivers/net/fs_enet/mac-scc.c
-index 5bfc99b..c490a46 100644
---- a/drivers/net/fs_enet/mac-scc.c
-+++ b/drivers/net/fs_enet/mac-scc.c
-@@ -367,9 +367,7 @@ static void stop(struct net_device *dev)
- 		udelay(1);
- 
- 	if (i == SCC_RESET_DELAY)
--		printk(KERN_WARNING DRV_MODULE_NAME
--		       ": %s SCC timeout on graceful transmit stop\n",
--		       dev->name);
-+		dev_warn(fep->dev, "SCC timeout on graceful transmit stop\n");
- 
- 	W16(sccp, scc_sccm, 0);
- 	C32(sccp, scc_gsmrl, SCC_GSMRL_ENR | SCC_GSMRL_ENT);
-@@ -429,8 +427,9 @@ static void clear_int_events(struct net_device *dev, u32 int_events)
- 
- static void ev_error(struct net_device *dev, u32 int_events)
- {
--	printk(KERN_WARNING DRV_MODULE_NAME
--	       ": %s SCC ERROR(s) 0x%x\n", dev->name, int_events);
-+	struct fs_enet_private *fep = netdev_priv(dev);
-+
-+	dev_warn(fep->dev, "SCC ERROR(s) 0x%x\n", int_events);
- }
- 
- static int get_regs(struct net_device *dev, void *p, int *sizep)
 -- 
 1.6.3.3
 
