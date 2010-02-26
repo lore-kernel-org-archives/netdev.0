@@ -1,65 +1,85 @@
-From: Oren Laadan <orenl@cs.columbia.edu>
-Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
-Date: Fri, 26 Feb 2010 17:52:03 -0500
-Message-ID: <4B885093.4070807@cs.columbia.edu>
-References: <4B4F24AC.70105@trash.net> <1263481549.23480.24.camel@bigi>	<4B4F3A50.1050400@trash.net> <1263490403.23480.109.camel@bigi>	<4B50403A.6010507@trash.net> <1263568754.23480.142.camel@bigi>	<m13a0tf17t.fsf@fess.ebiederm.org> <1266875729.3673.12.camel@bigi>	<m1wry46es9.fsf@fess.ebiederm.org> <1266931623.3973.643.camel@bigi>	<m1iq9ocafv.fsf@fess.ebiederm.org> <1266934817.3973.654.camel@bigi>	<m1r5obbu2w.fsf@fess.ebiederm.org> <1266966581.3973.675.camel@bigi>	<m1pr3t2fvl.fsf_-_@fess.ebiederm.org> <4B883987.6090408@parallels.com>	<m1bpfbwuze.fsf@fess.ebiederm.org> <4B883E6F.1060907@parallels.com>	<m13a0nwu6p.fsf@fess.ebiederm.org> <4B8843FE.4000404@cs.columbia.edu> <m1zl2vtzg4.fsf@fess.ebiederm.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH net-next-2.6 v4 02/12] net-caif: add CAIF socket and
+ configuration headers
+Date: Sat, 27 Feb 2010 00:15:15 +0100
+Message-ID: <1267226115.18491.71.camel@violet>
+References: <1267222417-2764-1-git-send-email-sjur.brandeland@stericsson.com>
+	 <1267222417-2764-2-git-send-email-sjur.brandeland@stericsson.com>
+	 <1267222417-2764-3-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Pavel Emelyanov <xemul@parallels.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <m1zl2vtzg4.fsf@fess.ebiederm.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	daniel.martensson@stericsson.com, kaber@trash.net,
+	stefano.babic@babic.homelinux.org, randy.dunlap@oracle.com
+To: sjur.brandeland@stericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from senator.holtmann.net ([87.106.208.187]:36004 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966524Ab0BZXNc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 18:13:32 -0500
+In-Reply-To: <1267222417-2764-3-git-send-email-sjur.brandeland@stericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Hi Sjur,
+
+I think most issues have been resolved and this should be ready for
+merging, but I am bit worried about the userspace API. Can we start a
+bit smaller and extend it later? Especially the socket options worry me
+a bit.
+
+Dave, personally I would prefer if we can merge this without these
+socket options. Since I am really missing the need for it.
+
+> +/**
+> + * enum caif_socket_opts - CAIF option values for getsockopt and setsockopt.
+> + *
+> + * @CAIFSO_LINK_SELECT:		Selector used if multiple CAIF Link layers are
+> + *				available. Either a high bandwidth
+> + *				link can be selected (CAIF_LINK_HIGH_BANDW) or
+> + *				or a low latency link (CAIF_LINK_LOW_LATENCY).
+> + *                              This option is of type u_int32_t.
+> + *				Alternatively SO_BINDTODEVICE can be used.
+> + *
+> + * @CAIFSO_REQ_PARAM:		Used to set the request parameters for a
+> + *				utility channel. (struct caif_param). This
+> + *				option must be set before connecting.
+> + *
+> + * @CAIFSO_RSP_PARAM:		Gets the request parameters for a utility
+> + *				channel. (struct caif_param). This option
+> + *				is valid after a successful connect.
+
+These two more look like a combination of setsockopt/getsockopt instead
+of two socket options. Maybe it is leftover from a ioctl interface, but
+socket options work differently.
+
+Also the caif_param struct seems pointless. Socket options contain a
+length parameter anyway. So why bother with a struct that is just a data
+field and a length field.
+
+> + * @CAIFSO_CHANNEL_ID:		Gets the channel id on a CAIF Channel.
+> + *				This option is valid after a successful connect.
+> + *				( u_int32_t)
+
+Where is this used and what is it used for? Is this something that
+shouldn't be better part of the sockaddr structure. Then you can use
+getpeername for it?
+
+> + * @CAIFSO_NEXT_PAKCET_LEN:	Gets the size of next received packet.
+> + *				Value is 0 if no packet is available.
+> + *				This option is valid after a successful connect.
+> + *				( u_int32_t)
+
+Typo. And why do we need this?
+
+> + * @CAIFSO_MAX_PAKCET_LEN:	Gets the maximum packet size for this
+> + *				connection. ( u_int32_t)
+
+Isn't this more like SO_RCVBUF or SO_SNDBUF.
+
+Regards
+
+Marcel
 
 
-
-Eric W. Biederman wrote:
-> Oren Laadan <orenl@cs.columbia.edu> writes:
-> 
->> Eric W. Biederman wrote:
->>> Pavel Emelyanov <xemul@parallels.com> writes:
->>>
->>>>>> Yet another set of per-namespace IDs along with CLONE_NEWXXX ones?
->>>>>> I currently have a way to create all namespaces we have with one
->>>>>> syscall. Why don't we have an ability to enter them all with one syscall?
->>>>> The CLONE_NEWXXX series of bits has been an royal pain to work with,
->>>>> and it appears to be unnecessary complications for no gain.
->>>> That's the answer for the "Yet another set..." question.
->>>> How about the "Why don't we have..." one?
->>> I am not certain which question you are asking:
->>>
->>> Why don't we have an ability to enter all namespaces with one syscall
->>> invocation?
->> That's how I understood the question, and I, too, wonder why not ?
->>
->> By the way, an alternative to using bitmap is to change the prototype
->> of setns() to accept an array of FD's:
->>
->> 	int setns(int *fds, int nfds);
->>
->> So the process will atomically enter all the namespaces as specified
->> by the FDs.
-> 
-> We could.  Mostly I implemented things in the simplest way possible.
-> 
-> Semantically I know of no reason why need to enter more than one namespace
-> at once, and I don't expect entering a namespace to be on anyone's fast
-> path so every last drop of performance was not crucial.
-> 
-> The only justification I can think of for more than one namespace at a
-> time is that because we have a synchronize_rcu() in the kernel we can
-> loop in the kernel much more quickly than we can loop in userspace.
-
-Can't think of a specific scenario, but I wonder if there would
-be a problem (security or otherwise) with a process that only
-partly belongs to a container, even if for a short time ?
-
-Oren.
