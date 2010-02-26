@@ -1,474 +1,267 @@
 From: sjur.brandeland@stericsson.com
-Subject: [PATCH net-next-2.6 v4 09/12] net-caif: add CAIF netdevice
-Date: Fri, 26 Feb 2010 23:13:34 +0100
-Message-ID: <1267222417-2764-10-git-send-email-sjur.brandeland@stericsson.com>
+Subject: [PATCH net-next-2.6 v4 02/12] net-caif: add CAIF socket and configuration headers
+Date: Fri, 26 Feb 2010 23:13:27 +0100
+Message-ID: <1267222417-2764-3-git-send-email-sjur.brandeland@stericsson.com>
 References: <1267222417-2764-1-git-send-email-sjur.brandeland@stericsson.com>
  <1267222417-2764-2-git-send-email-sjur.brandeland@stericsson.com>
- <1267222417-2764-3-git-send-email-sjur.brandeland@stericsson.com>
- <1267222417-2764-4-git-send-email-sjur.brandeland@stericsson.com>
- <1267222417-2764-5-git-send-email-sjur.brandeland@stericsson.com>
- <1267222417-2764-6-git-send-email-sjur.brandeland@stericsson.com>
- <1267222417-2764-7-git-send-email-sjur.brandeland@stericsson.com>
- <1267222417-2764-8-git-send-email-sjur.brandeland@stericsson.com>
- <1267222417-2764-9-git-send-email-sjur.brandeland@stericsson.com>
 Cc: daniel.martensson@stericsson.com, kaber@trash.net,
 	stefano.babic@babic.homelinux.org, randy.dunlap@oracle.com,
 	Sjur Braendeland <sjur.brandeland@stericsson.com>
 To: netdev@vger.kernel.org, davem@davemloft.net, marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gktv.no ([80.239.85.213]:58303 "EHLO mail.gktv.no"
+Received: from mail.gktv.no ([80.239.85.213]:58309 "EHLO mail.gktv.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966333Ab0BZWWO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S966371Ab0BZWWO (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 26 Feb 2010 17:22:14 -0500
-In-Reply-To: <1267222417-2764-9-git-send-email-sjur.brandeland@stericsson.com>
+In-Reply-To: <1267222417-2764-2-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-Adding GPRS Net Device for PDP Contexts.
-The device can be managed by RTNL as defined in if_caif.h.
+Add CAIF types for Socket Address, Socket Options,
+and configuration parameters for the GPRS IP network interface.
 
 Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
 ---
- net/caif/chnl_net.c |  429 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 429 insertions(+), 0 deletions(-)
+ include/linux/caif/caif_socket.h |  188 ++++++++++++++++++++++++++++++++++++++
+ include/linux/caif/if_caif.h     |   34 +++++++
+ 2 files changed, 222 insertions(+), 0 deletions(-)
 
-diff --git a/net/caif/chnl_net.c b/net/caif/chnl_net.c
+diff --git a/include/linux/caif/caif_socket.h b/include/linux/caif/caif_socket.h
 new file mode 100644
-index 0000000..ae37fd2
+index 0000000..f0aea0a
 --- /dev/null
-+++ b/net/caif/chnl_net.c
-@@ -0,0 +1,429 @@
-+/*
++++ b/include/linux/caif/caif_socket.h
+@@ -0,0 +1,188 @@
++/* linux/caif_socket.h
++ * CAIF Definitions for CAIF socket and network layer
 + * Copyright (C) ST-Ericsson AB 2010
-+ * Authors:	Sjur Brendeland/sjur.brandeland@stericsson.com
-+ *		Daniel Martensson / Daniel.Martensson@stericsson.com
++ * Author:	 Sjur Brendeland/ sjur.brandeland@stericsson.com
 + * License terms: GNU General Public License (GPL) version 2
 + */
 +
-+#include <linux/version.h>
-+#include <linux/fs.h>
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <linux/netdevice.h>
-+#include <linux/if_ether.h>
-+#include <linux/moduleparam.h>
-+#include <linux/ip.h>
-+#include <linux/sched.h>
++#ifndef _LINUX_CAIF_SOCKET_H
++#define _LINUX_CAIF_SOCKET_H
++
++#ifdef __KERNEL__
++#include <linux/types.h>
++#include <linux/socket.h>
++#else
++#include <sys/types.h>
++#include <sys/socket.h>
++#endif
++
++
++/**
++ * enum caif_link_selector -    Physical Link Selection.
++ * @CAIF_LINK_HIGH_BANDW:	Physical interface for high-bandwidth
++ *				traffic.
++ * @CAIF_LINK_LOW_LATENCY:	Physical interface for low-latency
++ *				traffic.
++ *
++ * CAIF Link Layers can register their link properties.
++ * This enum is used for choosing between CAIF Link Layers when
++ * setting up CAIF Channels when multiple CAIF Link Layers exists.
++ */
++enum caif_link_selector {
++	CAIF_LINK_HIGH_BANDW,
++	CAIF_LINK_LOW_LATENCY
++};
++
++/**
++ * enum caif_channel_priority - CAIF channel priorities.
++ *
++ * @CAIF_PRIO_MIN:	Min priority for a channel.
++ * @CAIF_PRIO_LOW:	Low-priority channel.
++ * @CAIF_PRIO_NORMAL:	Normal/default priority level.
++ * @CAIF_PRIO_HIGH:	High priority level
++ * @CAIF_PRIO_MAX:	Max priority for channel
++ *
++ * Priority can be set on CAIF Channels in order to
++ * prioritize between traffic on different CAIF Channels.
++ * These priority levels are recommended, but the priority value
++ * is not restricted to the values defined in this enum, any value
++ * between CAIF_PRIO_MIN and CAIF_PRIO_MAX could be used.
++ */
++enum caif_channel_priority {
++	CAIF_PRIO_MIN	 = 0x01,
++	CAIF_PRIO_LOW	 = 0x04,
++	CAIF_PRIO_NORMAL = 0x0f,
++	CAIF_PRIO_HIGH	 = 0x14,
++	CAIF_PRIO_MAX	 = 0x1F
++};
++
++/**
++ * enum caif_protocol_type  -	CAIF Channel type.
++ * @CAIFPROTO_AT:		Classic AT channel.
++ * @CAIFPROTO_DATAGRAM:		Datagram channel.
++ * @CAIFPROTO_DATAGRAM_LOOP:	Datagram loopback channel, used for testing.
++ * @CAIFPROTO_UTIL:		Utility (Psock) channel.
++ * @CAIFPROTO_RFM:		Remote File Manager
++ *
++ * This enum defines the CAIF Channel type to be used. This defines
++ * the service to connect to on the modem.
++ */
++enum caif_protocol_type {
++	CAIFPROTO_AT,
++	CAIFPROTO_DATAGRAM,
++	CAIFPROTO_DATAGRAM_LOOP,
++	CAIFPROTO_UTIL,
++	CAIFPROTO_RFM,
++	_CAIFPROTO_MAX
++};
++#define	CAIFPROTO_MAX _CAIFPROTO_MAX
++
++/**
++ * enum caif_at_type - AT Service Endpoint
++ * @CAIF_ATTYPE_PLAIN:	     Connects to a plain vanilla AT channel.
++ */
++enum caif_at_type {
++	CAIF_ATTYPE_PLAIN = 2
++};
++
++/**
++ * struct sockaddr_caif - the sockaddr structure for CAIF sockets.
++ * @u:			     Union of address data 'switched' by family.
++ * :
++ * @u.at:                    Applies when family = CAIFPROTO_AT.
++ *
++ * @u.at.type:               Type of AT link to set up (enum caif_at_type).
++ *
++ * @u.util:                  Applies when family = CAIFPROTO_UTIL
++ *
++ * @u.util.service:          Utility service name.
++ *
++ * @u.dgm:                   Applies when family = CAIFPROTO_DATAGRAM
++ *
++ * @u.dgm.connection_id:     Datagram connection id.
++ *
++ * @u.dgm.nsapi:             NSAPI of the PDP-Context.
++ *
++ * @u.rfm:                   Applies when family = CAIFPROTO_RFM
++ *
++ * @u.rfm.connection_id:     Connection ID for RFM.
++ *
++ * @u.rfm.volume:            Volume to mount.
++ *
++ * Description:
++ * This structure holds the connect parameters used for setting up a
++ * CAIF Channel. It defines the service to connect to on the modem.
++ */
++struct sockaddr_caif {
++	sa_family_t  family;
++	union {
++		struct {
++			u_int8_t  type;		/* type: enum caif_at_type */
++		} at;				/* CAIFPROTO_AT */
++		struct {
++			char	  service[16];
++		} util;				/* CAIFPROTO_UTIL */
++		union {
++			u_int32_t connection_id;
++			u_int8_t  nsapi;
++		} dgm;				/* CAIFPROTO_DATAGRAM(_LOOP)*/
++		struct {
++			u_int32_t connection_id;
++			char	  volume[16];
++		} rfm;				/* CAIFPROTO_RFM */
++	} u;
++};
++
++/**
++ * struct caif_param - CAIF parameters.
++ * @size:	Length of data
++ * @data:	Binary Data Blob
++ */
++struct caif_param {
++	u_int16_t  size;
++	u_int8_t   data[256];
++};
++
++/**
++ * enum caif_socket_opts - CAIF option values for getsockopt and setsockopt.
++ *
++ * @CAIFSO_LINK_SELECT:		Selector used if multiple CAIF Link layers are
++ *				available. Either a high bandwidth
++ *				link can be selected (CAIF_LINK_HIGH_BANDW) or
++ *				or a low latency link (CAIF_LINK_LOW_LATENCY).
++ *                              This option is of type u_int32_t.
++ *				Alternatively SO_BINDTODEVICE can be used.
++ *
++ * @CAIFSO_REQ_PARAM:		Used to set the request parameters for a
++ *				utility channel. (struct caif_param). This
++ *				option must be set before connecting.
++ *
++ * @CAIFSO_RSP_PARAM:		Gets the request parameters for a utility
++ *				channel. (struct caif_param). This option
++ *				is valid after a successful connect.
++ *
++ * @CAIFSO_CHANNEL_ID:		Gets the channel id on a CAIF Channel.
++ *				This option is valid after a successful connect.
++ *				( u_int32_t)
++ *
++ * @CAIFSO_NEXT_PAKCET_LEN:	Gets the size of next received packet.
++ *				Value is 0 if no packet is available.
++ *				This option is valid after a successful connect.
++ *				( u_int32_t)
++ *
++ * @CAIFSO_MAX_PAKCET_LEN:	Gets the maximum packet size for this
++ *				connection. ( u_int32_t)
++ *
++ * This enum defines the CAIF Socket options to be used on a socket
++ *
++ */
++enum caif_socket_opts {
++	CAIFSO_LINK_SELECT	= 127,
++	CAIFSO_REQ_PARAM	= 128,
++	CAIFSO_RSP_PARAM	= 129,
++	CAIFSO_CHANNEL_ID	= 130,
++	CAIFSO_NEXT_PACKET_LEN	= 131,
++	CAIFSO_MAX_PACKET_LEN	= 132,
++};
++
++#endif /* _LINUX_CAIF_SOCKET_H */
+diff --git a/include/linux/caif/if_caif.h b/include/linux/caif/if_caif.h
+new file mode 100644
+index 0000000..5e7eed4
+--- /dev/null
++++ b/include/linux/caif/if_caif.h
+@@ -0,0 +1,34 @@
++/*
++ * Copyright (C) ST-Ericsson AB 2010
++ * Author:	Sjur Brendeland/ sjur.brandeland@stericsson.com
++ * License terms: GNU General Public License (GPL) version 2
++ */
++
++#ifndef IF_CAIF_H_
++#define IF_CAIF_H_
 +#include <linux/sockios.h>
-+#include <linux/caif/if_caif.h>
-+#include <net/rtnetlink.h>
-+#include <net/caif/caif_layer.h>
-+#include <net/caif/cfcnfg.h>
-+#include <net/caif/cfpkt.h>
-+#include <net/caif/caif_dev.h>
++#include <linux/types.h>
++#include <linux/socket.h>
 +
-+#define CAIF_CONNECT_TIMEOUT 30
-+#define SIZE_MTU 1500
-+#define SIZE_MTU_MAX 4080
-+#define SIZE_MTU_MIN 68
-+#define CAIF_NET_DEFAULT_QUEUE_LEN 500
-+
-+#undef pr_debug
-+#define pr_debug pr_warning
-+
-+/*This list is protected by the rtnl lock. */
-+static LIST_HEAD(chnl_net_list);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_ALIAS_RTNL_LINK("caif");
-+
-+struct chnl_net {
-+	struct layer chnl;
-+	struct net_device_stats stats;
-+	struct caif_connect_request conn_req;
-+	struct list_head list_field;
-+	struct net_device *netdev;
-+	char name[256];
-+	wait_queue_head_t netmgmt_wq;
-+	/* Flow status to remember and control the transmission. */
-+	bool flowenabled;
++/**
++ * enum ifla_caif - CAIF NetlinkRT parameters.
++ * @IFLA_CAIF_IPV4_CONNID:  Connection ID for IPv4 PDP Context.
++ *			    The type of attribute is NLA_U32.
++ * @IFLA_CAIF_IPV6_CONNID:  Connection ID for IPv6 PDP Context.
++ *			    The type of attribute is NLA_U32.
++ * @IFLA_CAIF_LOOPBACK:	    If different from zero, device is doing loopback
++ *			    The type of attribute is NLA_U8.
++ *
++ * When using RT Netlink to create, destroy or configure a CAIF IP interface,
++ * enum ifla_caif is used to specify the configuration attributes.
++ */
++enum ifla_caif {
++	__IFLA_CAIF_UNSPEC,
++	IFLA_CAIF_IPV4_CONNID,
++	IFLA_CAIF_IPV6_CONNID,
++	IFLA_CAIF_LOOPBACK,
++	__IFLA_CAIF_MAX
 +};
++#define	IFLA_CAIF_MAX (__IFLA_CAIF_MAX-1)
 +
-+static void robust_list_del(struct list_head *delete_node)
-+{
-+	struct list_head *list_node;
-+	struct list_head *n;
-+	ASSERT_RTNL();
-+	list_for_each_safe(list_node, n, &chnl_net_list) {
-+		if (list_node == delete_node) {
-+			list_del(list_node);
-+			break;
-+		}
-+	}
-+}
-+
-+static int chnl_recv_cb(struct layer *layr, struct cfpkt *pkt)
-+{
-+	struct sk_buff *skb;
-+	struct chnl_net *priv  = NULL;
-+	int pktlen;
-+	int err = 0;
-+
-+	priv = container_of(layr, struct chnl_net, chnl);
-+
-+	if (!priv)
-+		return -EINVAL;
-+
-+	/* Get length of CAIF packet. */
-+	pktlen = cfpkt_getlen(pkt);
-+
-+	skb = (struct sk_buff *) cfpkt_tonative(pkt);
-+	/* Pass some minimum information and
-+	 * send the packet to the net stack.
-+	 */
-+	skb->dev = priv->netdev;
-+	skb->protocol = htons(ETH_P_IP);
-+
-+	/* If we change the header in loop mode, the checksum is corrupted. */
-+	if (priv->conn_req.protocol == CAIFPROTO_DATAGRAM_LOOP)
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	else
-+		skb->ip_summed = CHECKSUM_COMPLETE;
-+
-+	/* FIXME: Drivers should call this in tasklet context. */
-+	if (in_interrupt())
-+		netif_rx(skb);
-+	else
-+		netif_rx_ni(skb);
-+
-+	/* Update statistics. */
-+	priv->netdev->stats.rx_packets++;
-+	priv->netdev->stats.rx_bytes += pktlen;
-+
-+	return err;
-+}
-+
-+static void chnl_flowctrl_cb(struct layer *layr, enum caif_ctrlcmd flow,
-+				int phyid)
-+{
-+	struct chnl_net *priv  = NULL;
-+	pr_debug("CAIF: %s(): NET flowctrl func called flow: %s.\n",
-+		__func__,
-+		flow == CAIF_CTRLCMD_FLOW_ON_IND ? "ON" :
-+		flow == CAIF_CTRLCMD_INIT_RSP ? "INIT" :
-+		flow == CAIF_CTRLCMD_FLOW_OFF_IND ? "OFF" :
-+		flow == CAIF_CTRLCMD_DEINIT_RSP ? "CLOSE/DEINIT" :
-+		flow == CAIF_CTRLCMD_INIT_FAIL_RSP ? "OPEN_FAIL" :
-+		flow == CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND ?
-+		 "REMOTE_SHUTDOWN" : "UKNOWN CTRL COMMAND");
-+
-+	priv = container_of(layr, struct chnl_net, chnl);
-+
-+	switch (flow) {
-+	case CAIF_CTRLCMD_FLOW_OFF_IND:
-+	case CAIF_CTRLCMD_DEINIT_RSP:
-+	case CAIF_CTRLCMD_INIT_FAIL_RSP:
-+	case CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND:
-+		priv->flowenabled = false;
-+		netif_tx_disable(priv->netdev);
-+		wake_up_interruptible(&priv->netmgmt_wq);
-+	break;
-+	case CAIF_CTRLCMD_FLOW_ON_IND:
-+	case CAIF_CTRLCMD_INIT_RSP:
-+		priv->flowenabled = true;
-+		netif_wake_queue(priv->netdev);
-+		wake_up_interruptible(&priv->netmgmt_wq);
-+	break;
-+	default:
-+		break;
-+	}
-+}
-+
-+static int chnl_net_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct chnl_net *priv;
-+	struct cfpkt *pkt = NULL;
-+	int len;
-+	int result = -1;
-+	/* Get our private data. */
-+	priv = netdev_priv(dev);
-+
-+	if (skb->len > priv->netdev->mtu) {
-+		pr_warning("CAIF: %s(): Size of skb exceeded MTU\n", __func__);
-+		return -ENOSPC;
-+	}
-+
-+	if (!priv->flowenabled) {
-+		pr_debug("CAIF: %s(): dropping packets flow off\n", __func__);
-+		return NETDEV_TX_BUSY;
-+	}
-+
-+	if (priv->conn_req.protocol == CAIFPROTO_DATAGRAM_LOOP)
-+		swap(ip_hdr(skb)->saddr, ip_hdr(skb)->daddr);
-+
-+	/* Store original SKB length. */
-+	len = skb->len;
-+
-+	pkt = cfpkt_fromnative(CAIF_DIR_OUT, (void *) skb);
-+
-+	/* Send the packet down the stack. */
-+	result = priv->chnl.dn->transmit(priv->chnl.dn, pkt);
-+	if (result) {
-+		if (result == -EAGAIN)
-+			result = NETDEV_TX_BUSY;
-+		return result;
-+	}
-+
-+	/* Update statistics. */
-+	dev->stats.tx_packets++;
-+	dev->stats.tx_bytes += len;
-+
-+	return NETDEV_TX_OK;
-+}
-+
-+
-+static int chnl_net_open(struct net_device *dev)
-+{
-+	struct chnl_net *priv = NULL;
-+	int result = -1;
-+	ASSERT_RTNL();
-+
-+	priv = netdev_priv(dev);
-+	pr_debug("CAIF: %s(): dev name: %s\n", __func__, priv->name);
-+
-+	if (!priv) {
-+		pr_debug("CAIF: %s(): chnl_net_open: no priv\n", __func__);
-+		return -ENODEV;
-+	}
-+	result = caif_connect_client(&priv->conn_req, &priv->chnl);
-+	if (result != 0) {
-+		pr_debug("CAIF: %s(): err: "
-+			 "Unable to register and open device, Err:%d\n",
-+			__func__,
-+			result);
-+		return -ENODEV;
-+	}
-+	result = wait_event_interruptible(priv->netmgmt_wq, priv->flowenabled);
-+
-+	if (result == -ERESTARTSYS) {
-+		pr_debug("CAIF: %s(): wait_event_interruptible"
-+			 " woken by a signal\n", __func__);
-+		return -ERESTARTSYS;
-+	} else
-+		pr_debug("CAIF: %s(): Flow on recieved\n", __func__);
-+
-+	return 0;
-+}
-+
-+static int chnl_net_stop(struct net_device *dev)
-+{
-+	struct chnl_net *priv;
-+	int result = -1;
-+	ASSERT_RTNL();
-+	priv = netdev_priv(dev);
-+
-+	result = caif_disconnect_client(&priv->chnl);
-+	if (result != 0) {
-+		pr_debug("CAIF: %s(): chnl_net_stop: err: "
-+			 "Unable to STOP device, Err:%d\n",
-+			 __func__, result);
-+		return -EBUSY;
-+	}
-+	result = wait_event_interruptible(priv->netmgmt_wq,
-+					  !priv->flowenabled);
-+
-+	if (result == -ERESTARTSYS) {
-+		pr_debug("CAIF: %s(): wait_event_interruptible woken by"
-+			 " signal, signal_pending(current) = %d\n",
-+			 __func__,
-+			 signal_pending(current));
-+	} else {
-+		pr_debug("CAIF: %s(): disconnect received\n", __func__);
-+
-+	}
-+
-+	return 0;
-+}
-+
-+int chnl_net_init(struct net_device *dev)
-+{
-+	struct chnl_net *priv;
-+	ASSERT_RTNL();
-+	priv = netdev_priv(dev);
-+	strncpy(priv->name, dev->name, sizeof(priv->name));
-+	return 0;
-+}
-+
-+void chnl_net_uninit(struct net_device *dev)
-+{
-+	struct chnl_net *priv;
-+	ASSERT_RTNL();
-+	priv = netdev_priv(dev);
-+	robust_list_del(&priv->list_field);
-+}
-+
-+static const struct net_device_ops netdev_ops = {
-+	.ndo_open = chnl_net_open,
-+	.ndo_stop = chnl_net_stop,
-+	.ndo_init = chnl_net_init,
-+	.ndo_uninit = chnl_net_uninit,
-+	.ndo_start_xmit = chnl_net_start_xmit,
-+};
-+
-+static void ipcaif_net_setup(struct net_device *dev)
-+{
-+	struct chnl_net *priv;
-+	dev->netdev_ops = &netdev_ops;
-+	dev->destructor = free_netdev;
-+	dev->flags |= IFF_NOARP;
-+	dev->flags |= IFF_POINTOPOINT;
-+	dev->needed_headroom = CAIF_NEEDED_HEADROOM;
-+	dev->needed_tailroom = CAIF_NEEDED_TAILROOM;
-+	dev->mtu = SIZE_MTU;
-+	dev->tx_queue_len = CAIF_NET_DEFAULT_QUEUE_LEN;
-+
-+	priv = netdev_priv(dev);
-+	priv->chnl.receive = chnl_recv_cb;
-+	priv->chnl.ctrlcmd = chnl_flowctrl_cb;
-+	priv->netdev = dev;
-+	priv->conn_req.protocol = CAIFPROTO_DATAGRAM;
-+	priv->conn_req.link_selector = CAIF_LINK_HIGH_BANDW;
-+	priv->conn_req.priority = CAIF_PRIO_LOW;
-+	/* Insert illegal value */
-+	priv->conn_req.sockaddr.u.dgm.connection_id = -1;
-+	priv->flowenabled = false;
-+
-+	ASSERT_RTNL();
-+	init_waitqueue_head(&priv->netmgmt_wq);
-+	list_add(&priv->list_field, &chnl_net_list);
-+}
-+
-+static int delete_device(struct chnl_net *dev)
-+{
-+	ASSERT_RTNL();
-+	if (dev->netdev)
-+		unregister_netdevice(dev->netdev);
-+	return 0;
-+}
-+
-+static int ipcaif_fill_info(struct sk_buff *skb, const struct net_device *dev)
-+{
-+	struct chnl_net *priv;
-+	u8 loop;
-+	priv = netdev_priv(dev);
-+	NLA_PUT_U32(skb, IFLA_CAIF_IPV4_CONNID,
-+		    priv->conn_req.sockaddr.u.dgm.connection_id);
-+	NLA_PUT_U32(skb, IFLA_CAIF_IPV6_CONNID,
-+		    priv->conn_req.sockaddr.u.dgm.connection_id);
-+	loop = priv->conn_req.protocol == CAIFPROTO_DATAGRAM_LOOP;
-+	NLA_PUT_U8(skb, IFLA_CAIF_LOOPBACK, loop);
-+
-+
-+	return 0;
-+nla_put_failure:
-+	return -EMSGSIZE;
-+
-+}
-+
-+static void caif_netlink_parms(struct nlattr *data[],
-+				struct caif_connect_request *conn_req)
-+{
-+	if (!data) {
-+		pr_warning("CAIF: %s: no params data found\n", __func__);
-+		return;
-+	}
-+	if (data[IFLA_CAIF_IPV4_CONNID])
-+		conn_req->sockaddr.u.dgm.connection_id =
-+			nla_get_u32(data[IFLA_CAIF_IPV4_CONNID]);
-+	if (data[IFLA_CAIF_IPV6_CONNID])
-+		conn_req->sockaddr.u.dgm.connection_id =
-+			nla_get_u32(data[IFLA_CAIF_IPV6_CONNID]);
-+	if (data[IFLA_CAIF_LOOPBACK]) {
-+		if (nla_get_u8(data[IFLA_CAIF_LOOPBACK]))
-+			conn_req->protocol = CAIFPROTO_DATAGRAM_LOOP;
-+		else
-+			conn_req->protocol = CAIFPROTO_DATAGRAM;
-+	}
-+}
-+
-+static int ipcaif_newlink(struct net *src_net, struct net_device *dev,
-+			  struct nlattr *tb[], struct nlattr *data[])
-+{
-+	int ret;
-+	struct chnl_net *caifdev;
-+	ASSERT_RTNL();
-+	caifdev = netdev_priv(dev);
-+	caif_netlink_parms(data, &caifdev->conn_req);
-+	ret = register_netdevice(dev);
-+	if (ret)
-+		pr_warning("CAIF: %s(): device rtml registration failed\n",
-+			   __func__);
-+	return ret;
-+}
-+
-+static int ipcaif_changelink(struct net_device *dev, struct nlattr *tb[],
-+				struct nlattr *data[])
-+{
-+	struct chnl_net *caifdev;
-+	ASSERT_RTNL();
-+	caifdev = netdev_priv(dev);
-+	caif_netlink_parms(data, &caifdev->conn_req);
-+	netdev_state_change(dev);
-+	return 0;
-+}
-+
-+static size_t ipcaif_get_size(const struct net_device *dev)
-+{
-+	return
-+		/* IFLA_CAIF_IPV4_CONNID */
-+		nla_total_size(4) +
-+		/* IFLA_CAIF_IPV6_CONNID */
-+		nla_total_size(4) +
-+		/* IFLA_CAIF_LOOPBACK */
-+		nla_total_size(2) +
-+		0;
-+}
-+
-+static const struct nla_policy ipcaif_policy[IFLA_CAIF_MAX + 1] = {
-+	[IFLA_CAIF_IPV4_CONNID]	      = { .type = NLA_U32 },
-+	[IFLA_CAIF_IPV6_CONNID]	      = { .type = NLA_U32 },
-+	[IFLA_CAIF_LOOPBACK]	      = { .type = NLA_U8 }
-+};
-+
-+
-+static struct rtnl_link_ops ipcaif_link_ops __read_mostly = {
-+	.kind		= "caif",
-+	.priv_size	= sizeof(struct chnl_net),
-+	.setup		= ipcaif_net_setup,
-+	.maxtype	= IFLA_CAIF_MAX,
-+	.policy		= ipcaif_policy,
-+	.newlink	= ipcaif_newlink,
-+	.changelink	= ipcaif_changelink,
-+	.get_size	= ipcaif_get_size,
-+	.fill_info	= ipcaif_fill_info,
-+
-+};
-+
-+
-+static int __init chnl_init_module(void)
-+{
-+	return rtnl_link_register(&ipcaif_link_ops);
-+}
-+
-+static void __exit chnl_exit_module(void)
-+{
-+	struct chnl_net *dev = NULL;
-+	struct list_head *list_node;
-+	struct list_head *_tmp;
-+	rtnl_link_unregister(&ipcaif_link_ops);
-+	rtnl_lock();
-+	list_for_each_safe(list_node, _tmp, &chnl_net_list) {
-+		dev = list_entry(list_node, struct chnl_net, list_field);
-+		list_del(list_node);
-+		delete_device(dev);
-+	}
-+	rtnl_unlock();
-+}
-+
-+module_init(chnl_init_module);
-+module_exit(chnl_exit_module);
++#endif /*IF_CAIF_H_*/
 -- 
 1.6.3.3
 
