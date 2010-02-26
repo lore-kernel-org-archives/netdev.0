@@ -1,69 +1,35 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: bonding: fix device leak on error in bond_create()
-Date: Fri, 26 Feb 2010 11:05:44 -0500
-Message-ID: <20100226160544.GA2108@gospo.rdu.redhat.com>
-References: <4B87EA58.7090601@trash.net>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: Gianfar driver failing on MPC8641D based board
+Date: Fri, 26 Feb 2010 19:10:59 +0300
+Message-ID: <20100226161058.GA22954@oksana.dev.rtsoft.ru>
+References: <4B86A97E.6050509@ge.com>
+ <20100225165141.GA9686@oksana.dev.rtsoft.ru>
+ <20100225174935.GA32370@oksana.dev.rtsoft.ru>
+ <7d1d9c251002251653n6473f01ex2d43933ec6aa010b@mail.gmail.com>
+ <20100226031452.GA11319@oksana.dev.rtsoft.ru>
+ <4B87B937.6010204@ge.com>
+ <20100226143532.GA31622@oksana.dev.rtsoft.ru>
+ <4B87E01E.4070704@windriver.com>
+ <4B87E662.3080106@ge.com>
+ <4B87E9EF.3010604@ge.com>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53452 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965060Ab0BZQFu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Feb 2010 11:05:50 -0500
+Content-Type: text/plain; charset=utf-8
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev list <linuxppc-dev@ozlabs.org>,
+	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>,
+	davem@davemloft.net
+To: Martyn Welch <martyn.welch@ge.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4B87EA58.7090601@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4B87E9EF.3010604@ge.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 26, 2010 at 04:35:52PM +0100, Patrick McHardy wrote:
+On Fri, Feb 26, 2010 at 03:34:07PM +0000, Martyn Welch wrote:
+[...]
+> Out of 10 boot attempts, 7 failed.
 
-> commit f357a5caa0ca29b74811a0fc08efb5ae4aade959
-> Author: Patrick McHardy <kaber@trash.net>
-> Date:   Thu Feb 25 20:21:10 2010 +0100
-> 
->     bonding: fix device leak on error in bond_create()
->     
->     When the register_netdevice() call fails, the newly allocated device is
->     not freed.
->     
->     Signed-off-by: Patrick McHardy <kaber@trash.net>
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 1787e3c..430c022 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -4946,6 +4946,8 @@ int bond_create(struct net *net, const char *name)
->  	}
->  
->  	res = register_netdevice(bond_dev);
-> +	if (res < 0)
-> +		goto out_netdev;
->  
->  out:
->  	rtnl_unlock();
-
-Acked-by: Andy Gospodarek <andy@greyhouse.net>
-
-Seems like a good idea.  I know register_netdevice is always supposed to
-return a value < 0 on error, but this would work if it didn't for some
-reason.
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 1787e3c..cd3ea54 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4946,6 +4946,8 @@ int bond_create(struct net *net, const char *name)
- 	}
- 
- 	res = register_netdevice(bond_dev);
-+	if (res)
-+		goto out_netdev;
- 
- out:
- 	rtnl_unlock();
-
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-
+OK, I see why. With ip=on (dhcp boot) it's much harder to trigger
+it. With static ip config can I see the same.
