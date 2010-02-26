@@ -1,30 +1,42 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [net-next-2.6 PATCH] infiniband: convert to use
- netdev_for_each_mc_addr
-Date: Fri, 26 Feb 2010 04:22:53 -0800 (PST)
-Message-ID: <20100226.042253.149934046.davem@davemloft.net>
-References: <20100224151108.GD2663@psychotron.lab.eng.brq.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Bridge: request for the via_phys_dev feature discussion
+Date: Fri, 26 Feb 2010 04:30:28 -0800 (PST)
+Message-ID: <20100226.043028.245172342.davem@davemloft.net>
+References: <4B7D30B8.2050400@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	chien.tin.tung-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100224151108.GD2663-YzwxZg+R7evMbnheQZGK0N5OCZ2W11yPFxja6HXR22MAvxtiuMwx3w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: xemul@openvz.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41254
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S935853Ab0BZMaK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 07:30:10 -0500
+In-Reply-To: <4B7D30B8.2050400@openvz.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Wed, 24 Feb 2010 16:11:08 +0100
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Thu, 18 Feb 2010 15:21:12 +0300
 
-> Due to the loop complexicity in nes_nic.c, I'm using char* to copy mc addresses
-> to it.
+> In simple situation containers users want to bridge their containers through
+> veth device with the host eth0 adapter. But after one add his eth0 to bridge
+> he need to
+> a) reconfigure everything including IP addresses, routing tables and
+>    netfilter rules
+> b) recreate connections that were bound to eth0
 > 
-> Signed-off-by: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> That's OK if one setup the box from the scratch and adds eth0 to bridge from
+> the very beginning, but for those who start using containers on pre-configured
+> boxes or for those, who decided to switch to bridge+veth from some other 
+> virtual device (e.g. macvlan or venet device in OpenVZ) this becomes real pain.
+> 
+> I don't insist you accept the patches Cyrill proposed, I don't even insist
+> we rework them keeping the idea intact. I just want to know your opinion about
+> how to solve the above problem better.
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Stephen, please work with Pavel on finding a solution for this issue
+that works for you.
+
+Thanks.
