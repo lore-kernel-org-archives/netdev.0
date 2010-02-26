@@ -1,71 +1,61 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 3/3] ixgbe: Do not allocate too many netdev
-	txqueues
-Date: Fri, 26 Feb 2010 01:15:21 -0800
-Message-ID: <20100226091519.19796.82441.stgit@localhost.localdomain>
-References: <20100226091318.19796.70225.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 5/5] net: sock_aio_write: set CMSG_MSG_COMPAT flag if
+ is_compat_task
+Date: Fri, 26 Feb 2010 01:16:46 -0800 (PST)
+Message-ID: <20100226.011646.257642830.davem@davemloft.net>
+References: <1266583307-3049-1-git-send-email-fwestphal@astaro.com>
+	<1266583307-3049-6-git-send-email-fwestphal@astaro.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org, johannes@sipsolutions.net
+To: fwestphal@astaro.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta03.westchester.pa.mail.comcast.net ([76.96.62.32]:41017
-	"EHLO qmta03.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S935633Ab0BZJPj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 04:15:39 -0500
-In-Reply-To: <20100226091318.19796.70225.stgit@localhost.localdomain>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41215
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S935633Ab0BZJQ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 04:16:28 -0500
+In-Reply-To: <1266583307-3049-6-git-send-email-fwestphal@astaro.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+From: Florian Westphal <fwestphal@astaro.com>
+Date: Fri, 19 Feb 2010 13:41:47 +0100
 
-Instead of allocating 128 struct netdev_queue per device, use the
-minimum value between 128 and the number of possible txq's, to
-reduce ram usage and "tc -s -d class shod dev .." output.
+> some programs (e.g. pluto ike daemon), send netlink data to the
+> kernel via write().
+> 
+> So far, the CMSG_MSG_COMPAT flag is not set in this case, which
+> results in the kernel interpreting the netlink data the wrong way.
+> 
+> An alternative solution is to switch userspace to sendmsg() when
+> using netlink sockets.
+> 
+> Cc: Johannes Berg <johannes@sipsolutions.net>
+> Signed-off-by: Florian Westphal <fwestphal@astaro.com>
 
-This patch fixes Eric Dumazet's patch to set the TX queues to
-the correct minimum.
+I was about to apply this entire patch set, but thinking about this
+one patch we have to do it differently:
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+> @@ -837,6 +837,10 @@ static ssize_t do_sock_write(struct msghdr *msg, struct kiocb *iocb,
+>  	msg->msg_iov = (struct iovec *)iov;
+>  	msg->msg_iovlen = nr_segs;
+>  	msg->msg_flags = (file->f_flags & O_NONBLOCK) ? MSG_DONTWAIT : 0;
+> +#ifdef CONFIG_COMPAT
+> +	if (is_compat_task())
+> +		msg->msg_flags |= MSG_CMSG_COMPAT;
+> +#endif
+>  	if (sock->type == SOCK_SEQPACKET)
+>  		msg->msg_flags |= MSG_EOR;
+>  
 
- drivers/net/ixgbe/ixgbe_main.c |   14 +++++++++++++-
- 1 files changed, 13 insertions(+), 1 deletions(-)
+What if the kernel itself does a socket write, say from a software
+interrupt or to generate events in response to a user event,
+and the current process happens to be a compat task?
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 4a01022..a961da2 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -5996,6 +5996,7 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	const struct ixgbe_info *ii = ixgbe_info_tbl[ent->driver_data];
- 	static int cards_found;
- 	int i, err, pci_using_dac;
-+	unsigned int indices = num_possible_cpus();
- #ifdef IXGBE_FCOE
- 	u16 device_caps;
- #endif
-@@ -6034,7 +6035,18 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	pci_set_master(pdev);
- 	pci_save_state(pdev);
- 
--	netdev = alloc_etherdev_mq(sizeof(struct ixgbe_adapter), MAX_TX_QUEUES);
-+	if (ii->mac == ixgbe_mac_82598EB)
-+		indices = min_t(unsigned int, indices, IXGBE_MAX_RSS_INDICES);
-+	else
-+		indices = min_t(unsigned int, indices, IXGBE_MAX_FDIR_INDICES);
-+
-+	indices = max_t(unsigned int, indices, IXGBE_MAX_DCB_INDICES);
-+#ifdef IXGBE_FCOE
-+	indices += min_t(unsigned int, num_possible_cpus(),
-+			 IXGBE_MAX_FCOE_INDICES);
-+#endif
-+	indices = min_t(unsigned int, indices, MAX_TX_QUEUES);
-+	netdev = alloc_etherdev_mq(sizeof(struct ixgbe_adapter), indices);
- 	if (!netdev) {
- 		err = -ENOMEM;
- 		goto err_alloc_etherdev;
+I think this could even occur for NFS perhaps?
 
+Anyways, that isn't going to work properly.
+
+We might need to add ->compat_write to file operations to do
+it properly.
