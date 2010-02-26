@@ -1,60 +1,54 @@
-From: "richardvoigt@gmail.com" <richardvoigt@gmail.com>
-Subject: Re: [Bridge] [RFC 0/5] bridge - introduce via_phys_dev feature
-Date: Fri, 26 Feb 2010 10:52:52 -0600
-Message-ID: <2e59e6971002260852m79d9c79t5293b3b8c7575d46@mail.gmail.com>
-References: <20090511114639.440944109@openvz.org>
-	 <20090519152153.012d4814@nehalam> <20090520192726.GF4968@lenovo>
-	 <20090520131225.03b7715a@nehalam> <20090521180805.GC4932@lenovo>
-	 <20090521140504.1865883b@nehalam> <20090522201850.GF5354@lenovo>
-	 <20100226081843.07f37742@nehalam>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] isa-skelton: Remove a wrong netif_wake_queue() call
+Date: Fri, 26 Feb 2010 12:03:47 -0500
+Message-ID: <4B87FEF3.5020809@garzik.org>
+References: <1267027217-7812-1-git-send-email-anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Cyrill Gorcunov <gorcunov@gmail.com>, netdev@vger.kernel.org,
-	bridge@linux-foundation.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f219.google.com ([209.85.220.219]:57967 "EHLO
-	mail-fx0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965375Ab0BZQwx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 11:52:53 -0500
-Received: by fxm19 with SMTP id 19so291695fxm.21
-        for <netdev@vger.kernel.org>; Fri, 26 Feb 2010 08:52:52 -0800 (PST)
-In-Reply-To: <20100226081843.07f37742@nehalam>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:49470 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965375Ab0BZRDy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 12:03:54 -0500
+Received: by gyh20 with SMTP id 20so136545gyh.19
+        for <netdev@vger.kernel.org>; Fri, 26 Feb 2010 09:03:53 -0800 (PST)
+In-Reply-To: <1267027217-7812-1-git-send-email-anemo@mba.ocn.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 26, 2010 at 10:18 AM, Stephen Hemminger
-<shemminger@linux-foundation.org> wrote:
-> Looking back at this. What if the API was simpler:
+On 02/24/2010 11:00 AM, Atsushi Nemoto wrote:
+> The netif_wake_queue() is called correctly (i.e. only on !txfull
+> condition) from net_tx().  So Unconditional call to the
+> netif_wake_queue() here is wrong.  This might cause calling of
+> start_xmit routine on txfull state and trigger tx-ring overflow.
 >
-> Instead of:
->> Typical session looks like
->>
->> | s...@10.10.0.160$ brctl addbr br0
->> | s...@10.10.0.160$ ifconfig br0 up
->> | s...@10.10.0.160$ echo 1 > /sys/class/net/bridge/br0/via_phys_dev
->> | s...@10.10.0.160$ brctl addif br0 eth0
->> | (...waiting a bit...)
->> | s...@10.10.0.160$
+> This fix is ported from commit 662a96bd6f020782dfbdc0d0bd177c7dbb556687.
 >
-> Why not:
-> =C2=A01. Setup bridge (and any other interfaces except eth0); include=
-s bringing br0 up
-> =C2=A02. Add eth0 to bridge with new flag to inherit
-> =C2=A0 =C2=A0 =C2=A0 a. brctl addif br0 eth0 inherit
+> Signed-off-by: Atsushi Nemoto<anemo@mba.ocn.ne.jp>
+> ---
+>   drivers/net/isa-skeleton.c |    1 -
+>   1 files changed, 0 insertions(+), 1 deletions(-)
 >
-> Inherit functionality would need to move address (Ether, IP, IPv6)
-> and routes from eth0 to br0.
-> I will see about doing it as much as possible in userspace.
+> diff --git a/drivers/net/isa-skeleton.c b/drivers/net/isa-skeleton.c
+> index 04d0502..3f33c90 100644
+> --- a/drivers/net/isa-skeleton.c
+> +++ b/drivers/net/isa-skeleton.c
+> @@ -536,7 +536,6 @@ static irqreturn_t net_interrupt(int irq, void *dev_id)
+>   		/* Transmit complete. */
+>   		net_tx(dev);
+>   		np->stats.tx_packets++;
+> -		netif_wake_queue(dev);
+>   	}
+>   #endif
 
-How about inheriting the up/down status as well, this way the bridge
-can be left down until the settings are inherited, and will come up
-with the inherited MAC address, IP address, and routing table instead
-of changing while live?
+I would suggest deleting this "driver" entirely...  Any new drivers 
+remotely like ISA would use the platform API and look more like a PCI 
+driver.
 
-> _______________________________________________
-> Bridge mailing list
-> Bridge@lists.linux-foundation.org
-> https://lists.linux-foundation.org/mailman/listinfo/bridge
->
+	Jeff
+
+
+
