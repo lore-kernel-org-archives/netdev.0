@@ -1,32 +1,45 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH net-next 3/6] cnic: Fix panic in
- cnic_iscsi_nl_msg_recv() when device is down.
-Date: Fri, 26 Feb 2010 11:51:14 +1100
-Message-ID: <20100226005114.GH3876@verge.net.au>
-References: <1267058529-18454-1-git-send-email-mchan@broadcom.com>
- <1267058529-18454-2-git-send-email-mchan@broadcom.com>
- <1267058529-18454-3-git-send-email-mchan@broadcom.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
+Date: Thu, 25 Feb 2010 16:53:16 -0800
+Message-ID: <m1bpfczukj.fsf@fess.ebiederm.org>
+References: <1263568754.23480.142.camel@bigi>
+	<m13a0tf17t.fsf@fess.ebiederm.org> <1266875729.3673.12.camel@bigi>
+	<m1wry46es9.fsf@fess.ebiederm.org> <1266931623.3973.643.camel@bigi>
+	<m1iq9ocafv.fsf@fess.ebiederm.org> <1266934817.3973.654.camel@bigi>
+	<m1r5obbu2w.fsf@fess.ebiederm.org> <1266966581.3973.675.camel@bigi>
+	<m1pr3t2fvl.fsf_-_@fess.ebiederm.org>
+	<20100225214656.GS3604@count0.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
+Cc: hadi@cyberus.ca, Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	containers@lists.linux-foundation.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>,
+	Serge Hallyn <serue@us.ibm.com>
+To: Matt Helsley <matthltc@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:53984 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759318Ab0BZAvQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 19:51:16 -0500
-Content-Disposition: inline
-In-Reply-To: <1267058529-18454-3-git-send-email-mchan@broadcom.com>
+Received: from out01.mta.xmission.com ([166.70.13.231]:50557 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759391Ab0BZAx0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 19:53:26 -0500
+In-Reply-To: <20100225214656.GS3604@count0.beaverton.ibm.com> (Matt Helsley's message of "Thu\, 25 Feb 2010 13\:46\:56 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 24, 2010 at 04:42:06PM -0800, Michael Chan wrote:
-> Some data structures are freed when the device is down and it will
-> crash if an ISCSI netlink message is received.  Add RCU protection
-> to prevent this.  In the shutdown path, ulp_ops[CNIC_ULP_L4] is
-> assigned NULL and rcu_synchronized before freeing the data
-> structures.
+Matt Helsley <matthltc@us.ibm.com> writes:
 
-Is rcu_assign_pointer() unnecessary in cnic_cm_open()?
-It doesn't seem to be followed by rcu_synchronized() and the pointer
-doesn't seem to be accessible anywhere else at that time.
+
+> 	Seems like an ok concept to me. Did you try doing this with
+> anon_inodes and bind mounting the /proc/<pid>/fd/N as above to keep
+> them alive and name them?
+
+Of course this part doesn't work in my patch because I have the wrong
+mnt_ns on my mount MS_NOUSER on my superblock.
+
+MS_NOUSER is easy to get past.  Getting a vfsmount in the proper mnt
+namespace could be tricky.
+
+Eric
