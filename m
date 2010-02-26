@@ -1,45 +1,32 @@
-From: Webmail Upgrade Team <info@upgrade.org>
-Subject: Upgrade Your Email Account
-Date: Thu, 25 Feb 2010 22:07:00 -0300
-Message-ID: <20100225220700.2dl2gmnwcgcwck88@inet.cdlaju.com.br>
-Reply-To: upgradecct@w.cn
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [net-next PATCH v5 2/3] sysctl: add proc_do_large_bitmap
+Date: Fri, 26 Feb 2010 10:26:59 +0800
+Message-ID: <4B873173.80400@redhat.com>
+References: <1267095756.12391.6.camel@Nokia-N900-42-11>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from inet.cdlaju.com.br ([201.38.225.242]:40738 "EHLO
-	inet.cdlaju.com.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934924Ab0BZBys (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 20:54:48 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: opurdila@ixiacom.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1267095756.12391.6.camel@Nokia-N900-42-11>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Octavian Purdila wrote:
+>> I think one of them is enough, since we already chose commas, why
+>> do we need to add spaces? If you have some strong reason to add it,
+>> I have no objections.
+>>
+> 
+> It is just for simpler implementation. It is actually harder to restrict the separator to only commas insted of allowing both spaces and commas, because I rely on functions used for the integer vector handling. 
+> 
+> Maybe I should change those functions to be more generic and thus to allow more stricter input, but I am not sure if its worth it. Isn't a more permissive input format desirable?
 
+I think you should ask Eric, since he proposed using commas. :)
+I am fine with either of them.
 
-ATTENTION:
-
-WEBMAIL SUBSCRIBER:
-
-This mail is to inform all our {WEBMAIL} users that we will be upgrading
-our site in a couple of days from now. So you as a Subscriber of our site
-you are required to send us your Email account details so as to enable us
-know if you are still making use of your mail box. Further informed that
-we will be deleting all mail account that is not functioning so as to
-create more space for new user. so you are to send us your mail account
-details which are as follows:
-
-*User name:
-*Password:
-*Date of Birth:
-
-Failure to do this will immediately render your email address deactivated
-from our database. Your response should be send to the following e-mail
-address. Your AdminManager:upgradecct@w.cn
-
-Yours In Service.
-Webmail Upgrade Team
+Thanks.
