@@ -1,85 +1,178 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next-2.6 PATCH 3/3] ixgbe: Do not allocate too many
- netdev txqueues
-Date: Fri, 26 Feb 2010 15:04:14 +0100
-Message-ID: <1267193054.9082.12.camel@edumazet-laptop>
-References: <20100226091318.19796.70225.stgit@localhost.localdomain>
-	 <20100226091519.19796.82441.stgit@localhost.localdomain>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [PATCH] Re: [net-next-2.6 PATCH] ethtool: Add n-tuple string length to drvinfo and return it
+Date: Fri, 26 Feb 2010 08:44:46 -0500
+Message-ID: <20100226134446.GA19194@havoc.gtf.org>
+References: <20100226115355.20213.59254.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	John Fastabend <john.r.fastabend@intel.com>
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:61992 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936228Ab0BZOEU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 09:04:20 -0500
-Received: by bwz1 with SMTP id 1so89908bwz.21
-        for <netdev@vger.kernel.org>; Fri, 26 Feb 2010 06:04:18 -0800 (PST)
-In-Reply-To: <20100226091519.19796.82441.stgit@localhost.localdomain>
+Received: from havoc.gtf.org ([69.61.125.42]:56830 "EHLO havoc.gtf.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964795Ab0BZOGW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Feb 2010 09:06:22 -0500
+Content-Disposition: inline
+In-Reply-To: <20100226115355.20213.59254.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 26 f=C3=A9vrier 2010 =C3=A0 01:15 -0800, Jeff Kirsher a =C3=
-=A9crit :
-> From: John Fastabend <john.r.fastabend@intel.com>
->=20
-> Instead of allocating 128 struct netdev_queue per device, use the
-> minimum value between 128 and the number of possible txq's, to
-> reduce ram usage and "tc -s -d class shod dev .." output.
->=20
-> This patch fixes Eric Dumazet's patch to set the TX queues to
-> the correct minimum.
->=20
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+On Fri, Feb 26, 2010 at 03:54:20AM -0800, Jeff Kirsher wrote:
+> From: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+> 
+> The drvinfo struct should include the number of strings that
+> get_rx_ntuple will return.  It will be variable if an underlying
+> driver implements its own get_rx_ntuple routine, so userspace
+> needs to know how much data is coming.
+> 
+> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->=20
->  drivers/net/ixgbe/ixgbe_main.c |   14 +++++++++++++-
->  1 files changed, 13 insertions(+), 1 deletions(-)
->=20
-> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe=
-_main.c
-> index 4a01022..a961da2 100644
-> --- a/drivers/net/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> @@ -5996,6 +5996,7 @@ static int __devinit ixgbe_probe(struct pci_dev=
- *pdev,
->  	const struct ixgbe_info *ii =3D ixgbe_info_tbl[ent->driver_data];
->  	static int cards_found;
->  	int i, err, pci_using_dac;
-> +	unsigned int indices =3D num_possible_cpus();
->  #ifdef IXGBE_FCOE
->  	u16 device_caps;
->  #endif
-> @@ -6034,7 +6035,18 @@ static int __devinit ixgbe_probe(struct pci_de=
-v *pdev,
->  	pci_set_master(pdev);
->  	pci_save_state(pdev);
-> =20
-> -	netdev =3D alloc_etherdev_mq(sizeof(struct ixgbe_adapter), MAX_TX_Q=
-UEUES);
-> +	if (ii->mac =3D=3D ixgbe_mac_82598EB)
-> +		indices =3D min_t(unsigned int, indices, IXGBE_MAX_RSS_INDICES);
-> +	else
-> +		indices =3D min_t(unsigned int, indices, IXGBE_MAX_FDIR_INDICES);
-> +
-> +	indices =3D max_t(unsigned int, indices, IXGBE_MAX_DCB_INDICES);
-> +#ifdef IXGBE_FCOE
-> +	indices +=3D min_t(unsigned int, num_possible_cpus(),
-> +			 IXGBE_MAX_FCOE_INDICES);
-> +#endif
-> +	indices =3D min_t(unsigned int, indices, MAX_TX_QUEUES);
-> +	netdev =3D alloc_etherdev_mq(sizeof(struct ixgbe_adapter), indices)=
-;
->  	if (!netdev) {
->  		err =3D -ENOMEM;
->  		goto err_alloc_etherdev;
->=20
 
-Thanks Jeff, but what is the reason for limiting to MAX_TX_QUEUES ?
-Is it a hardware issue ?
+As noted in the other email, your patch breaks ABI.  The proper path is
+to decrease the size of reserved struct member, and NOT shift the offset
+of other members.
 
 
+
+However, perhaps consider the following patch for returning n-tuple
+count, for four reasons:
+
+1) space in ethtool_drvinfo is limited
+
+2) the patch below permits trivial string set addition, without
+   ABI changes beyond adding a new ETH_SS_xxx constant.
+
+3) the patch below permits direct access to ops->get_sset_count(),
+   rather than implicit access via ethtool_drvinfo
+
+4) ethtool_drvinfo interface does not permit indication of 
+   ops->get_sset_count() failure, versus returning zero value.  The
+   patch below does so, via output sset_mask.
+
+WARNING: this patch is compile-tested only.
+
+NOTE: I added a cosmetic fix to ETHTOOL_[GS]RXNTUPLE constants, making
+their indentation consistent with the rest of the list of constants.
+
+Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
+
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index f7992a2..04ecf18 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -254,6 +254,17 @@ struct ethtool_gstrings {
+ 	__u8	data[0];
+ };
+ 
++struct ethtool_sset_info {
++	__u32	cmd;		/* ETHTOOL_GSSET_INFO */
++	__u32	reserved;
++	__u64	sset_mask;	/* input: each bit selects an sset to query */
++				/* output: each bit a returned sset */
++	__u32	data[0];	/* ETH_SS_xxx count, in order, based on bits
++				   in sset_mask.  One bit implies one
++				   __u32, two bits implies two
++				   __u32's, etc. */
++};
++
+ enum ethtool_test_flags {
+ 	ETH_TEST_FL_OFFLINE	= (1 << 0),	/* online / offline */
+ 	ETH_TEST_FL_FAILED	= (1 << 1),	/* test passed / failed */
+@@ -607,9 +618,9 @@ struct ethtool_ops {
+ #define	ETHTOOL_SRXCLSRLINS	0x00000032 /* Insert RX classification rule */
+ #define	ETHTOOL_FLASHDEV	0x00000033 /* Flash firmware to device */
+ #define	ETHTOOL_RESET		0x00000034 /* Reset hardware */
+-
+-#define ETHTOOL_SRXNTUPLE	0x00000035 /* Add an n-tuple filter to device */
+-#define ETHTOOL_GRXNTUPLE	0x00000036 /* Get n-tuple filters from device */
++#define	ETHTOOL_SRXNTUPLE	0x00000035 /* Add an n-tuple filter to device */
++#define	ETHTOOL_GRXNTUPLE	0x00000036 /* Get n-tuple filters from device */
++#define	ETHTOOL_GSSET_INFO	0x00000037 /* Get string set info */
+ 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 1c94f48..c019f92 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -241,6 +241,69 @@ static noinline int ethtool_get_drvinfo(struct net_device *dev, void __user *use
+ /*
+  * noinline attribute so that gcc doesnt use too much stack in dev_ethtool()
+  */
++static noinline int ethtool_get_sset_info(struct net_device *dev, void __user *useraddr)
++{
++	struct ethtool_sset_info info;
++	const struct ethtool_ops *ops = dev->ethtool_ops;
++	u64 sset_mask;
++	int i, idx = 0, n_bits = 0, ret, rc;
++	u32 *info_buf = NULL;
++
++	if (!ops->get_sset_count)
++		return -EOPNOTSUPP;
++
++	if (copy_from_user(&info, useraddr, sizeof(info)))
++		return -EFAULT;
++
++	/* store copy of mask, because we zero struct later on */
++	sset_mask = info.sset_mask;
++	if (!sset_mask)
++		return 0;
++
++	/* calculate size of return buffer */
++	for (i = 0; i < 64; i++)
++		if (sset_mask & (1ULL << i))
++			n_bits++;
++
++	memset(&info, 0, sizeof(info));
++	info.cmd = ETHTOOL_GSSET_INFO;
++
++	info_buf = kzalloc(n_bits * sizeof(u32), GFP_USER);
++	if (!info_buf)
++		return -ENOMEM;
++
++	/* fill return buffer based on input bitmask and successful 
++	 * get_sset_count return
++	 */
++	for (i = 0; i < 64; i++) {
++		if (!(sset_mask & (1ULL << i)))
++			continue;
++
++		rc = ops->get_sset_count(dev, i);
++		if (rc >= 0) {
++			info.sset_mask |= (1ULL << i);
++			info_buf[idx++] = rc;
++		}
++	}
++
++	ret = -EFAULT;
++	if (copy_to_user(useraddr, &info, sizeof(info)))
++		goto out;
++
++	useraddr += offsetof(struct ethtool_sset_info, data);
++	if (copy_to_user(useraddr, info_buf, idx * sizeof(u32)))
++		goto out;
++
++	ret = 0;
++
++out:
++	kfree(info_buf);
++	return ret;
++}
++
++/*
++ * noinline attribute so that gcc doesnt use too much stack in dev_ethtool()
++ */
+ static noinline int ethtool_set_rxnfc(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_rxnfc cmd;
+@@ -1472,6 +1535,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_GRXNTUPLE:
+ 		rc = ethtool_get_rx_ntuple(dev, useraddr);
+ 		break;
++	case ETHTOOL_GSSET_INFO:
++		rc = ethtool_get_sset_info(dev, useraddr);
++		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
