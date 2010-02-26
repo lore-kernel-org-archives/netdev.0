@@ -1,100 +1,62 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 1/3] ixgbe: Fix DMA mapping/unmapping issues when
-	HWRSC is enabled on IOMMU enabled kernels
-Date: Fri, 26 Feb 2010 01:14:37 -0800
-Message-ID: <20100226091318.19796.70225.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 2/3] ixgbe: do not stop tx queues in ixgbe_set_tso
+Date: Fri, 26 Feb 2010 01:14:58 -0800
+Message-ID: <20100226091456.19796.53149.stgit@localhost.localdomain>
+References: <20100226091318.19796.70225.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:52756
-	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S935611Ab0BZJO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 04:14:56 -0500
+Received: from qmta14.westchester.pa.mail.comcast.net ([76.96.59.212]:58535
+	"EHLO qmta14.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S935633Ab0BZJPT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 04:15:19 -0500
+In-Reply-To: <20100226091318.19796.70225.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-Work around 82599 HW issue when HWRSC is enabled on IOMMU enabled
-kernels. 82599 HW is updating the header information after setting the
-descriptor to done, resulting DMA mapping/unmapping issues on IOMMU
-enabled systems. To work around the issue delay unmapping of first packet
-that carries the header information until end of packet is reached.
+Disabling TSO can cause the dev_watchdog timer to be triggered because
+when TSO is disabled netif_tx_stop_all_queues is called.  If the watchdog
+timer fires while the queues are stopped and traffic has not recently been
+sent on a paticular queue this is falsly identified as a hang and
+ndo_tx_timeout() is called.  This is ocossionally seen during testing.
 
-Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
+This removes the netif_tx_stop_all_queues() it is not needed.  The scheduler
+submits skb's with dev_hard_start_xmit(), this checks if netif_needs_gso and
+if so it calls dev_gso_segment.  Disabling TSO will cause dev_hard_start_xmit()
+to do the gso processing.   However ixgbe does not use the features flags to
+determine if it needs to use tso or not instead it uses skb->gso_size so
+ixgbe will process these frames correctly regardless of the netdev features
+flag.
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |   32 +++++++++++++++++++++++++++++---
- 1 files changed, 29 insertions(+), 3 deletions(-)
+ drivers/net/ixgbe/ixgbe_ethtool.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 3308790..4a01022 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -818,6 +818,12 @@ static inline struct sk_buff *ixgbe_transform_rsc_queue(struct sk_buff *skb,
- 	return skb;
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index 0d23434..7949a44 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -441,10 +441,8 @@ static int ixgbe_set_tso(struct net_device *netdev, u32 data)
+ 		netdev->features |= NETIF_F_TSO;
+ 		netdev->features |= NETIF_F_TSO6;
+ 	} else {
+-		netif_tx_stop_all_queues(netdev);
+ 		netdev->features &= ~NETIF_F_TSO;
+ 		netdev->features &= ~NETIF_F_TSO6;
+-		netif_tx_start_all_queues(netdev);
+ 	}
+ 	return 0;
  }
- 
-+struct ixgbe_rsc_cb {
-+	dma_addr_t dma;
-+};
-+
-+#define IXGBE_RSC_CB(skb) ((struct ixgbe_rsc_cb *)(skb)->cb)
-+
- static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
-                                struct ixgbe_ring *rx_ring,
-                                int *work_done, int work_to_do)
-@@ -867,9 +873,21 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 		rx_buffer_info->skb = NULL;
- 
- 		if (rx_buffer_info->dma) {
--			pci_unmap_single(pdev, rx_buffer_info->dma,
--			                 rx_ring->rx_buf_len,
--			                 PCI_DMA_FROMDEVICE);
-+			if ((adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED) &&
-+			    (!(staterr & IXGBE_RXD_STAT_EOP)) &&
-+				 (!(skb->prev)))
-+				/*
-+				 * When HWRSC is enabled, delay unmapping
-+				 * of the first packet. It carries the
-+				 * header information, HW may still
-+				 * access the header after the writeback.
-+				 * Only unmap it when EOP is reached
-+				 */
-+				IXGBE_RSC_CB(skb)->dma = rx_buffer_info->dma;
-+			else
-+				pci_unmap_single(pdev, rx_buffer_info->dma,
-+				                 rx_ring->rx_buf_len,
-+				                 PCI_DMA_FROMDEVICE);
- 			rx_buffer_info->dma = 0;
- 			skb_put(skb, len);
- 		}
-@@ -917,6 +935,10 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 			if (skb->prev)
- 				skb = ixgbe_transform_rsc_queue(skb, &(rx_ring->rsc_count));
- 			if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED) {
-+				if (IXGBE_RSC_CB(skb)->dma)
-+					pci_unmap_single(pdev, IXGBE_RSC_CB(skb)->dma,
-+					                 rx_ring->rx_buf_len,
-+					                 PCI_DMA_FROMDEVICE);
- 				if (rx_ring->flags & IXGBE_RING_RX_PS_ENABLED)
- 					rx_ring->rsc_count += skb_shinfo(skb)->nr_frags;
- 				else
-@@ -3104,6 +3126,10 @@ static void ixgbe_clean_rx_ring(struct ixgbe_adapter *adapter,
- 			rx_buffer_info->skb = NULL;
- 			do {
- 				struct sk_buff *this = skb;
-+				if (IXGBE_RSC_CB(this)->dma)
-+					pci_unmap_single(pdev, IXGBE_RSC_CB(this)->dma,
-+					                 rx_ring->rx_buf_len,
-+					                 PCI_DMA_FROMDEVICE);
- 				skb = skb->prev;
- 				dev_kfree_skb(this);
- 			} while (skb);
 
