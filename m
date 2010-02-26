@@ -1,48 +1,52 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [net-next-2.6 PATCH] net: convert multiple drivers to use
- netdev_for_each_mc_addr, part5 V2
-Date: Fri, 26 Feb 2010 11:12:25 +0100
-Message-ID: <20100226101224.GC2650@psychotron.redhat.com>
-References: <20100223191948.GE2673@psychotron.redhat.com>
- <20100226.014953.203661752.davem@davemloft.net>
- <20100226.020333.13570565.davem@davemloft.net>
+From: Martyn Welch <martyn.welch@ge.com>
+Subject: Re: Gianfar driver failing on MPC8641D based board
+Date: Fri, 26 Feb 2010 11:51:00 +0000
+Message-ID: <4B87B5A4.2010106@ge.com>
+References: <4B6C2488.3060403@ge.com> <4B865176.7080806@ge.com> <4B86A97E.6050509@ge.com> <20100225165141.GA9686@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62080 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933355Ab0BZKM2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Feb 2010 05:12:28 -0500
-Content-Disposition: inline
-In-Reply-To: <20100226.020333.13570565.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev list <linuxppc-dev@ozlabs.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>,
+	davem@davemloft.net, Kumar Gala <galak@kernel.crashing.org>
+To: avorontsov@ru.mvista.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100225165141.GA9686@oksana.dev.rtsoft.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fri, Feb 26, 2010 at 11:03:33AM CET, davem@davemloft.net wrote:
+Anton Vorontsov wrote:
+> On Thu, Feb 25, 2010 at 04:46:54PM +0000, Martyn Welch wrote:
+> [...]
+>   
+>>> nfs: server 192.168.0.1 not responding, still trying
+>>>   
+>>>       
+>> Further testing has shown that this isn't restricted to warm reboots, it
+>> happens from cold as well. In addition, the exact timing of the failure
+>> seems to vary, some boots have got further before failing.
+>>     
 >
->100 EURO says you didn't compile test this.
+> Unfortunately I don't have any 8641 boards near me, so I can't
+> debug this myself. Though, I tested gianfar on MPC8568E-MDS with
+> 2.6.33 kernel, and it seems to work just fine.
 >
->@@ -975,7 +968,7 @@ static void do_set_multicast_list(struct net_device *dev)
-> 
->   	if(dev->flags&IFF_PROMISC)
->   		ei_outb_p(E8390_RXCONFIG | 0x18, e8390_base + EN0_RXCR);
->-	else if(dev->flags&IFF_ALLMULTI || dev->mc_list)
->+	else if (dev->flags & IFF_ALLMULTI || !netdev_mc_addr(dev))
->   		ei_outb_p(E8390_RXCONFIG | 0x08, e8390_base + EN0_RXCR);
->   	else
->   		ei_outb_p(E8390_RXCONFIG, e8390_base + EN0_RXCR);
+> I see you use SMP. Can you try to turn it off? If that will fix
+> the issue, then it'll be a good data point.
 >
->I'll fix it up, but you have to start getting proper build
->coverage of your patches!
+> Meanwhile, I'll try SMP kernel on MPC8568 (UP), and let you
+> know the results.
 >
->I really don't care how slow your netbook is, this case could have
->been easily prevented.
+> Thanks
 
-I'm really sorry, I do compile test all my patches, but I must have missed this
-:(
+I removed the second core from the dts file rather than truly disabling
+SMP in the kernel config. Doing this allowed the board to boot reliably.
 
-I promise I'll reserve 2xtime next time. You'll have a beer on me :)
+Martyn
 
-Jirka
+-- 
+Martyn Welch (Principal Software Engineer)   |   Registered in England and
+GE Intelligent Platforms                     |   Wales (3828642) at 100
+T +44(0)127322748                            |   Barbirolli Square, Manchester,
+E martyn.welch@ge.com                        |   M2 3AB  VAT:GB 927559189
