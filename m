@@ -1,153 +1,331 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [net-next-2.6 PATCH] ethtool: Add n-tuple string length to drvinfo
- and return it
-Date: Fri, 26 Feb 2010 08:56:43 -0500
-Message-ID: <4B87D31B.4000001@garzik.org>
-References: <20100226115355.20213.59254.stgit@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] IPVS: Convert connection table lock over to RCU
+Date: Fri, 26 Feb 2010 14:57:18 +0100
+Message-ID: <1267192638.9082.9.camel@edumazet-laptop>
+References: <20100226030054.GA6111@verge.net.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020304070302040201030705"
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f197.google.com ([209.85.211.197]:46054 "EHLO
-	mail-yw0-f197.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936217Ab0BZN4q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 08:56:46 -0500
-Received: by ywh35 with SMTP id 35so42466ywh.4
-        for <netdev@vger.kernel.org>; Fri, 26 Feb 2010 05:56:45 -0800 (PST)
-In-Reply-To: <20100226115355.20213.59254.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20100226030054.GA6111@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020304070302040201030705
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+Le vendredi 26 f=C3=A9vrier 2010 =C3=A0 14:00 +1100, Simon Horman a =C3=
+=A9crit :
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+>=20
+> ---=20
+>=20
+> This seems to be a fairly clean conversion to me. But its my journey
+> into the world of RCU, so I would appreciate a careful review.
+>=20
+> I have deliberately introduced some noise into this patch
+> in the form of changing the name of some global variables and functio=
+ns.
+> This is in order to clearly highlight changes at the call-sites.
+>=20
+> The table of 16 locks (4 bits) used for the connection table seems
+> to be somewhat arbitrary to me, this patch intentionally leaves
+> that as is.
+>=20
+> Index: net-next-2.6/net/netfilter/ipvs/ip_vs_conn.c
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> --- net-next-2.6.orig/net/netfilter/ipvs/ip_vs_conn.c	2010-02-26 10:4=
+2:16.000000000 +1100
+> +++ net-next-2.6/net/netfilter/ipvs/ip_vs_conn.c	2010-02-26 10:52:32.=
+000000000 +1100
+> @@ -35,6 +35,8 @@
+>  #include <linux/seq_file.h>
+>  #include <linux/jhash.h>
+>  #include <linux/random.h>
+> +#include <linux/spinlock.h>
+> +#include <linux/rculist.h>
+> =20
+>  #include <net/net_namespace.h>
+>  #include <net/ip_vs.h>
+> @@ -75,57 +77,37 @@ static unsigned int ip_vs_conn_rnd;
+>  /*
+>   *  Fine locking granularity for big connection hash table
+>   */
+> -#define CT_LOCKARRAY_BITS  4
+> -#define CT_LOCKARRAY_SIZE  (1<<CT_LOCKARRAY_BITS)
+> -#define CT_LOCKARRAY_MASK  (CT_LOCKARRAY_SIZE-1)
+> +#define CT_MUTEX_BITS  4
+> +#define CT_MUTEX_SIZE  (1<<CT_MUTEX_BITS)
+> +#define CT_MUTEX_MASK  (CT_MUTEX_SIZE-1)
+> =20
+> -struct ip_vs_aligned_lock
+> +struct ip_vs_aligned_spinlock
+>  {
+> -	rwlock_t	l;
+> +	spinlock_t	l;
+>  } __attribute__((__aligned__(SMP_CACHE_BYTES)));
+> =20
+> -/* lock array for conn table */
+> -static struct ip_vs_aligned_lock
+> -__ip_vs_conntbl_lock_array[CT_LOCKARRAY_SIZE] __cacheline_aligned;
+> +/* mutex array for connection table */
+> +static struct ip_vs_aligned_spinlock
+> +__ip_vs_conntbl_mutex[CT_MUTEX_SIZE] __cacheline_aligned;
+> =20
+> -static inline void ct_read_lock(unsigned key)
+> +static inline void ct_mutex_lock(unsigned key)
+>  {
+> -	read_lock(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l);
+> +	spin_lock(&__ip_vs_conntbl_mutex[key&CT_MUTEX_MASK].l);
+>  }
+> =20
+> -static inline void ct_read_unlock(unsigned key)
+> +static inline void ct_mutex_unlock(unsigned key)
+>  {
+> -	read_unlock(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l);
+> +	spin_unlock(&__ip_vs_conntbl_mutex[key&CT_MUTEX_MASK].l);
+>  }
+> =20
+> -static inline void ct_write_lock(unsigned key)
+> +static inline void ct_mutex_lock_bh(unsigned key)
+>  {
+> -	write_lock(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l);
+> +	spin_lock_bh(&__ip_vs_conntbl_mutex[key&CT_MUTEX_MASK].l);
+>  }
+> =20
+> -static inline void ct_write_unlock(unsigned key)
+> +static inline void ct_mutex_unlock_bh(unsigned key)
+>  {
+> -	write_unlock(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l);
+> -}
+> -
+> -static inline void ct_read_lock_bh(unsigned key)
+> -{
+> -	read_lock_bh(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l);
+> -}
+> -
+> -static inline void ct_read_unlock_bh(unsigned key)
+> -{
+> -	read_unlock_bh(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l=
+);
+> -}
+> -
+> -static inline void ct_write_lock_bh(unsigned key)
+> -{
+> -	write_lock_bh(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l)=
+;
+> -}
+> -
+> -static inline void ct_write_unlock_bh(unsigned key)
+> -{
+> -	write_unlock_bh(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].=
+l);
+> +	spin_unlock_bh(&__ip_vs_conntbl_mutex[key&CT_MUTEX_MASK].l);
+>  }
+> =20
+>=20
+> @@ -155,27 +137,27 @@ static unsigned int ip_vs_conn_hashkey(i
+>  static inline int ip_vs_conn_hash(struct ip_vs_conn *cp)
+>  {
+>  	unsigned hash;
+> -	int ret;
+> =20
+>  	/* Hash by protocol, client address and port */
+>  	hash =3D ip_vs_conn_hashkey(cp->af, cp->protocol, &cp->caddr, cp->c=
+port);
+> =20
+> -	ct_write_lock(hash);
+> +	ct_mutex_lock(hash);
+> =20
+>  	if (!(cp->flags & IP_VS_CONN_F_HASHED)) {
+> -		list_add(&cp->c_list, &ip_vs_conn_tab[hash]);
+> +		list_add_rcu(&cp->c_list, &ip_vs_conn_tab[hash]);
+>  		cp->flags |=3D IP_VS_CONN_F_HASHED;
+>  		atomic_inc(&cp->refcnt);
+> -		ret =3D 1;
+> -	} else {
+> -		pr_err("%s(): request for already hashed, called from %pF\n",
+> -		       __func__, __builtin_return_address(0));
+> -		ret =3D 0;
+> +		ct_mutex_unlock(hash);
+> +		synchronize_rcu();
 
-On 02/26/2010 06:54 AM, Jeff Kirsher wrote:
-> From: Peter Waskiewicz<peter.p.waskiewicz.jr@intel.com>
->
-> The drvinfo struct should include the number of strings that
-> get_rx_ntuple will return.  It will be variable if an underlying
-> driver implements its own get_rx_ntuple routine, so userspace
-> needs to know how much data is coming.
->
-> Signed-off-by: Peter P Waskiewicz Jr<peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
-> ---
->
->   include/linux/ethtool.h |    1 +
->   net/core/ethtool.c      |    3 +++
->   2 files changed, 4 insertions(+), 0 deletions(-)
+Why is synchronize_rcu() necessary here ?
 
-(resending reply, standard patch-sending box is having trouble sending 
-to vger)
+When adding a new item in a list, you dont need any rcu grace period.
+
+> +		return 1;
+>  	}
+> =20
+> -	ct_write_unlock(hash);
+> +	ct_mutex_unlock(hash);
+> =20
+> -	return ret;
+> +	pr_err("%s(): request for already hashed, called from %pF\n",
+> +	       __func__, __builtin_return_address(0));
+> +
+> +	return 0;
+>  }
+> =20
+>=20
+> @@ -186,24 +168,24 @@ static inline int ip_vs_conn_hash(struct
+>  static inline int ip_vs_conn_unhash(struct ip_vs_conn *cp)
+>  {
+>  	unsigned hash;
+> -	int ret;
+> =20
+>  	/* unhash it and decrease its reference counter */
+>  	hash =3D ip_vs_conn_hashkey(cp->af, cp->protocol, &cp->caddr, cp->c=
+port);
+> =20
+> -	ct_write_lock(hash);
+> +	ct_mutex_lock(hash);
+> =20
+>  	if (cp->flags & IP_VS_CONN_F_HASHED) {
+> -		list_del(&cp->c_list);
+> +		list_del_rcu(&cp->c_list);
+>  		cp->flags &=3D ~IP_VS_CONN_F_HASHED;
+>  		atomic_dec(&cp->refcnt);
+> -		ret =3D 1;
+> -	} else
+> -		ret =3D 0;
+> +		ct_mutex_unlock(hash);
+> +		synchronize_rcu();
+
+Are you sure we can afford a synchronize_rcu() call here ?
+
+This is a very long primitive, and I bet this is not acceptable for IPV=
+S
+use case.
+
+> +		return 1;
+> +	}
+> =20
+> -	ct_write_unlock(hash);
+> +	ct_mutex_unlock(hash);
+> =20
+> -	return ret;
+> +	return 0;
+>  }
+> =20
+>=20
+> @@ -222,9 +204,9 @@ static inline struct ip_vs_conn *__ip_vs
+> =20
+>  	hash =3D ip_vs_conn_hashkey(af, protocol, s_addr, s_port);
+> =20
+> -	ct_read_lock(hash);
+> +	rcu_read_lock();
+> =20
+> -	list_for_each_entry(cp, &ip_vs_conn_tab[hash], c_list) {
+> +	list_for_each_entry_rcu(cp, &ip_vs_conn_tab[hash], c_list) {
+>  		if (cp->af =3D=3D af &&
+>  		    ip_vs_addr_equal(af, s_addr, &cp->caddr) &&
+>  		    ip_vs_addr_equal(af, d_addr, &cp->vaddr) &&
+> @@ -233,12 +215,12 @@ static inline struct ip_vs_conn *__ip_vs
+>  		    protocol =3D=3D cp->protocol) {
+>  			/* HIT */
+>  			atomic_inc(&cp->refcnt);
+> -			ct_read_unlock(hash);
+> +			rcu_read_unlock();
+>  			return cp;
+>  		}
+>  	}
+> =20
+> -	ct_read_unlock(hash);
+> +	rcu_read_unlock();
+> =20
+>  	return NULL;
+>  }
+> @@ -273,9 +255,9 @@ struct ip_vs_conn *ip_vs_ct_in_get
+> =20
+>  	hash =3D ip_vs_conn_hashkey(af, protocol, s_addr, s_port);
+> =20
+> -	ct_read_lock(hash);
+> +	rcu_read_lock();
+> =20
+> -	list_for_each_entry(cp, &ip_vs_conn_tab[hash], c_list) {
+> +	list_for_each_entry_rcu(cp, &ip_vs_conn_tab[hash], c_list) {
+>  		if (cp->af =3D=3D af &&
+>  		    ip_vs_addr_equal(af, s_addr, &cp->caddr) &&
+>  		    /* protocol should only be IPPROTO_IP if
+> @@ -293,7 +275,7 @@ struct ip_vs_conn *ip_vs_ct_in_get
+>  	cp =3D NULL;
+> =20
+>    out:
+> -	ct_read_unlock(hash);
+> +	rcu_read_unlock();
+> =20
+>  	IP_VS_DBG_BUF(9, "template lookup/in %s %s:%d->%s:%d %s\n",
+>  		      ip_vs_proto_name(protocol),
+> @@ -322,9 +304,9 @@ struct ip_vs_conn *ip_vs_conn_out_get
+>  	 */
+>  	hash =3D ip_vs_conn_hashkey(af, protocol, d_addr, d_port);
+> =20
+> -	ct_read_lock(hash);
+> +	rcu_read_lock();
+> =20
+> -	list_for_each_entry(cp, &ip_vs_conn_tab[hash], c_list) {
+> +	list_for_each_entry_rcu(cp, &ip_vs_conn_tab[hash], c_list) {
+>  		if (cp->af =3D=3D af &&
+>  		    ip_vs_addr_equal(af, d_addr, &cp->caddr) &&
+>  		    ip_vs_addr_equal(af, s_addr, &cp->daddr) &&
+> @@ -337,7 +319,7 @@ struct ip_vs_conn *ip_vs_conn_out_get
+>  		}
+>  	}
+> =20
+> -	ct_read_unlock(hash);
+> +	rcu_read_unlock();
+> =20
+>  	IP_VS_DBG_BUF(9, "lookup/out %s %s:%d->%s:%d %s\n",
+>  		      ip_vs_proto_name(protocol),
+> @@ -776,14 +758,16 @@ static void *ip_vs_conn_array(struct seq
+>  	struct ip_vs_conn *cp;
+> =20
+>  	for (idx =3D 0; idx < ip_vs_conn_tab_size; idx++) {
+> -		ct_read_lock_bh(idx);
+> -		list_for_each_entry(cp, &ip_vs_conn_tab[idx], c_list) {
+> +		rcu_read_lock_bh();
+> +		list_for_each_entry_rcu(cp, &ip_vs_conn_tab[idx], c_list) {
+>  			if (pos-- =3D=3D 0) {
+>  				seq->private =3D &ip_vs_conn_tab[idx];
+> +				/* N.B: no rcu_read_unlock_bh() here
+> +				 *      Seems really horrible :-( */
+>  				return cp;
+>  			}
+>  		}
+> -		ct_read_unlock_bh(idx);
+> +		rcu_read_unlock_bh();
+>  	}
+> =20
+>  	return NULL;
+> @@ -807,19 +791,22 @@ static void *ip_vs_conn_seq_next(struct
+> =20
+>  	/* more on same hash chain? */
+>  	if ((e =3D cp->c_list.next) !=3D l)
+> -		return list_entry(e, struct ip_vs_conn, c_list);
+> +		return list_entry_rcu(e, struct ip_vs_conn, c_list);
+> =20
+>  	idx =3D l - ip_vs_conn_tab;
+> -	ct_read_unlock_bh(idx);
+> +	rcu_read_unlock_bh();
+> =20
+>  	while (++idx < ip_vs_conn_tab_size) {
+> -		ct_read_lock_bh(idx);
+> -		list_for_each_entry(cp, &ip_vs_conn_tab[idx], c_list) {
+> +		rcu_read_lock_bh();
+> +		list_for_each_entry_rcu(cp, &ip_vs_conn_tab[idx], c_list) {
+>  			seq->private =3D &ip_vs_conn_tab[idx];
+> +			/* N.B: no rcu_read_unlock_bh() here
+> +			 *      Seems really horrible :-( */
+
+=2E.. if you add a comment, please write why you need to keep rcu locke=
+d
+=2E.. or dont add a comment, since this construct is quite common.
 
 
-As noted in the other email, your patch breaks ABI.  The proper path is
-to decrease the size of reserved struct member, and NOT shift the offset
-of other members.
 
-
-
-However, perhaps consider the following patch for returning n-tuple
-count, for four reasons:
-
-1) space in ethtool_drvinfo is limited
-
-2) the patch below permits trivial string set addition, without
-    ABI changes beyond adding a new ETH_SS_xxx constant.
-
-3) the patch below permits direct access to ops->get_sset_count(),
-    rather than implicit access via ethtool_drvinfo
-
-4) ethtool_drvinfo interface does not permit indication of
-    ops->get_sset_count() failure, versus returning zero value.  The
-    patch below does so, via output sset_mask.
-
-WARNING: this patch is compile-tested only.
-
-NOTE: I added a cosmetic fix to ETHTOOL_[GS]RXNTUPLE constants, making
-their indentation consistent with the rest of the list of constants.
-
-Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
-
-
-
---------------020304070302040201030705
-Content-Type: text/plain;
- name="patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="patch"
-
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvZXRodG9vbC5oIGIvaW5jbHVkZS9saW51eC9l
-dGh0b29sLmgKaW5kZXggZjc5OTJhMi4uMDRlY2YxOCAxMDA2NDQKLS0tIGEvaW5jbHVkZS9s
-aW51eC9ldGh0b29sLmgKKysrIGIvaW5jbHVkZS9saW51eC9ldGh0b29sLmgKQEAgLTI1NCw2
-ICsyNTQsMTcgQEAgc3RydWN0IGV0aHRvb2xfZ3N0cmluZ3MgewogCV9fdTgJZGF0YVswXTsK
-IH07CiAKK3N0cnVjdCBldGh0b29sX3NzZXRfaW5mbyB7CisJX191MzIJY21kOwkJLyogRVRI
-VE9PTF9HU1NFVF9JTkZPICovCisJX191MzIJcmVzZXJ2ZWQ7CisJX191NjQJc3NldF9tYXNr
-OwkvKiBpbnB1dDogZWFjaCBiaXQgc2VsZWN0cyBhbiBzc2V0IHRvIHF1ZXJ5ICovCisJCQkJ
-Lyogb3V0cHV0OiBlYWNoIGJpdCBhIHJldHVybmVkIHNzZXQgKi8KKwlfX3UzMglkYXRhWzBd
-OwkvKiBFVEhfU1NfeHh4IGNvdW50LCBpbiBvcmRlciwgYmFzZWQgb24gYml0cworCQkJCSAg
-IGluIHNzZXRfbWFzay4gIE9uZSBiaXQgaW1wbGllcyBvbmUKKwkJCQkgICBfX3UzMiwgdHdv
-IGJpdHMgaW1wbGllcyB0d28KKwkJCQkgICBfX3UzMidzLCBldGMuICovCit9OworCiBlbnVt
-IGV0aHRvb2xfdGVzdF9mbGFncyB7CiAJRVRIX1RFU1RfRkxfT0ZGTElORQk9ICgxIDw8IDAp
-LAkvKiBvbmxpbmUgLyBvZmZsaW5lICovCiAJRVRIX1RFU1RfRkxfRkFJTEVECT0gKDEgPDwg
-MSksCS8qIHRlc3QgcGFzc2VkIC8gZmFpbGVkICovCkBAIC02MDcsOSArNjE4LDkgQEAgc3Ry
-dWN0IGV0aHRvb2xfb3BzIHsKICNkZWZpbmUJRVRIVE9PTF9TUlhDTFNSTElOUwkweDAwMDAw
-MDMyIC8qIEluc2VydCBSWCBjbGFzc2lmaWNhdGlvbiBydWxlICovCiAjZGVmaW5lCUVUSFRP
-T0xfRkxBU0hERVYJMHgwMDAwMDAzMyAvKiBGbGFzaCBmaXJtd2FyZSB0byBkZXZpY2UgKi8K
-ICNkZWZpbmUJRVRIVE9PTF9SRVNFVAkJMHgwMDAwMDAzNCAvKiBSZXNldCBoYXJkd2FyZSAq
-LwotCi0jZGVmaW5lIEVUSFRPT0xfU1JYTlRVUExFCTB4MDAwMDAwMzUgLyogQWRkIGFuIG4t
-dHVwbGUgZmlsdGVyIHRvIGRldmljZSAqLwotI2RlZmluZSBFVEhUT09MX0dSWE5UVVBMRQkw
-eDAwMDAwMDM2IC8qIEdldCBuLXR1cGxlIGZpbHRlcnMgZnJvbSBkZXZpY2UgKi8KKyNkZWZp
-bmUJRVRIVE9PTF9TUlhOVFVQTEUJMHgwMDAwMDAzNSAvKiBBZGQgYW4gbi10dXBsZSBmaWx0
-ZXIgdG8gZGV2aWNlICovCisjZGVmaW5lCUVUSFRPT0xfR1JYTlRVUExFCTB4MDAwMDAwMzYg
-LyogR2V0IG4tdHVwbGUgZmlsdGVycyBmcm9tIGRldmljZSAqLworI2RlZmluZQlFVEhUT09M
-X0dTU0VUX0lORk8JMHgwMDAwMDAzNyAvKiBHZXQgc3RyaW5nIHNldCBpbmZvICovCiAKIC8q
-IGNvbXBhdGliaWxpdHkgd2l0aCBvbGRlciBjb2RlICovCiAjZGVmaW5lIFNQQVJDX0VUSF9H
-U0VUCQlFVEhUT09MX0dTRVQKZGlmZiAtLWdpdCBhL25ldC9jb3JlL2V0aHRvb2wuYyBiL25l
-dC9jb3JlL2V0aHRvb2wuYwppbmRleCAxYzk0ZjQ4Li5jMDE5ZjkyIDEwMDY0NAotLS0gYS9u
-ZXQvY29yZS9ldGh0b29sLmMKKysrIGIvbmV0L2NvcmUvZXRodG9vbC5jCkBAIC0yNDEsNiAr
-MjQxLDY5IEBAIHN0YXRpYyBub2lubGluZSBpbnQgZXRodG9vbF9nZXRfZHJ2aW5mbyhzdHJ1
-Y3QgbmV0X2RldmljZSAqZGV2LCB2b2lkIF9fdXNlciAqdXNlCiAvKgogICogbm9pbmxpbmUg
-YXR0cmlidXRlIHNvIHRoYXQgZ2NjIGRvZXNudCB1c2UgdG9vIG11Y2ggc3RhY2sgaW4gZGV2
-X2V0aHRvb2woKQogICovCitzdGF0aWMgbm9pbmxpbmUgaW50IGV0aHRvb2xfZ2V0X3NzZXRf
-aW5mbyhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB2b2lkIF9fdXNlciAqdXNlcmFkZHIpCit7
-CisJc3RydWN0IGV0aHRvb2xfc3NldF9pbmZvIGluZm87CisJY29uc3Qgc3RydWN0IGV0aHRv
-b2xfb3BzICpvcHMgPSBkZXYtPmV0aHRvb2xfb3BzOworCXU2NCBzc2V0X21hc2s7CisJaW50
-IGksIGlkeCA9IDAsIG5fYml0cyA9IDAsIHJldCwgcmM7CisJdTMyICppbmZvX2J1ZiA9IE5V
-TEw7CisKKwlpZiAoIW9wcy0+Z2V0X3NzZXRfY291bnQpCisJCXJldHVybiAtRU9QTk9UU1VQ
-UDsKKworCWlmIChjb3B5X2Zyb21fdXNlcigmaW5mbywgdXNlcmFkZHIsIHNpemVvZihpbmZv
-KSkpCisJCXJldHVybiAtRUZBVUxUOworCisJLyogc3RvcmUgY29weSBvZiBtYXNrLCBiZWNh
-dXNlIHdlIHplcm8gc3RydWN0IGxhdGVyIG9uICovCisJc3NldF9tYXNrID0gaW5mby5zc2V0
-X21hc2s7CisJaWYgKCFzc2V0X21hc2spCisJCXJldHVybiAwOworCisJLyogY2FsY3VsYXRl
-IHNpemUgb2YgcmV0dXJuIGJ1ZmZlciAqLworCWZvciAoaSA9IDA7IGkgPCA2NDsgaSsrKQor
-CQlpZiAoc3NldF9tYXNrICYgKDFVTEwgPDwgaSkpCisJCQluX2JpdHMrKzsKKworCW1lbXNl
-dCgmaW5mbywgMCwgc2l6ZW9mKGluZm8pKTsKKwlpbmZvLmNtZCA9IEVUSFRPT0xfR1NTRVRf
-SU5GTzsKKworCWluZm9fYnVmID0ga3phbGxvYyhuX2JpdHMgKiBzaXplb2YodTMyKSwgR0ZQ
-X1VTRVIpOworCWlmICghaW5mb19idWYpCisJCXJldHVybiAtRU5PTUVNOworCisJLyogZmls
-bCByZXR1cm4gYnVmZmVyIGJhc2VkIG9uIGlucHV0IGJpdG1hc2sgYW5kIHN1Y2Nlc3NmdWwg
-CisJICogZ2V0X3NzZXRfY291bnQgcmV0dXJuCisJICovCisJZm9yIChpID0gMDsgaSA8IDY0
-OyBpKyspIHsKKwkJaWYgKCEoc3NldF9tYXNrICYgKDFVTEwgPDwgaSkpKQorCQkJY29udGlu
-dWU7CisKKwkJcmMgPSBvcHMtPmdldF9zc2V0X2NvdW50KGRldiwgaSk7CisJCWlmIChyYyA+
-PSAwKSB7CisJCQlpbmZvLnNzZXRfbWFzayB8PSAoMVVMTCA8PCBpKTsKKwkJCWluZm9fYnVm
-W2lkeCsrXSA9IHJjOworCQl9CisJfQorCisJcmV0ID0gLUVGQVVMVDsKKwlpZiAoY29weV90
-b191c2VyKHVzZXJhZGRyLCAmaW5mbywgc2l6ZW9mKGluZm8pKSkKKwkJZ290byBvdXQ7CisK
-Kwl1c2VyYWRkciArPSBvZmZzZXRvZihzdHJ1Y3QgZXRodG9vbF9zc2V0X2luZm8sIGRhdGEp
-OworCWlmIChjb3B5X3RvX3VzZXIodXNlcmFkZHIsIGluZm9fYnVmLCBpZHggKiBzaXplb2Yo
-dTMyKSkpCisJCWdvdG8gb3V0OworCisJcmV0ID0gMDsKKworb3V0OgorCWtmcmVlKGluZm9f
-YnVmKTsKKwlyZXR1cm4gcmV0OworfQorCisvKgorICogbm9pbmxpbmUgYXR0cmlidXRlIHNv
-IHRoYXQgZ2NjIGRvZXNudCB1c2UgdG9vIG11Y2ggc3RhY2sgaW4gZGV2X2V0aHRvb2woKQor
-ICovCiBzdGF0aWMgbm9pbmxpbmUgaW50IGV0aHRvb2xfc2V0X3J4bmZjKHN0cnVjdCBuZXRf
-ZGV2aWNlICpkZXYsIHZvaWQgX191c2VyICp1c2VyYWRkcikKIHsKIAlzdHJ1Y3QgZXRodG9v
-bF9yeG5mYyBjbWQ7CkBAIC0xNDcyLDYgKzE1MzUsOSBAQCBpbnQgZGV2X2V0aHRvb2woc3Ry
-dWN0IG5ldCAqbmV0LCBzdHJ1Y3QgaWZyZXEgKmlmcikKIAljYXNlIEVUSFRPT0xfR1JYTlRV
-UExFOgogCQlyYyA9IGV0aHRvb2xfZ2V0X3J4X250dXBsZShkZXYsIHVzZXJhZGRyKTsKIAkJ
-YnJlYWs7CisJY2FzZSBFVEhUT09MX0dTU0VUX0lORk86CisJCXJjID0gZXRodG9vbF9nZXRf
-c3NldF9pbmZvKGRldiwgdXNlcmFkZHIpOworCQlicmVhazsKIAlkZWZhdWx0OgogCQlyYyA9
-IC1FT1BOT1RTVVBQOwogCX0K
---------------020304070302040201030705--
