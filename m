@@ -1,69 +1,106 @@
-From: Martyn Welch <martyn.welch@ge.com>
-Subject: Re: Gianfar driver failing on MPC8641D based board
-Date: Fri, 26 Feb 2010 15:18:58 +0000
-Message-ID: <4B87E662.3080106@ge.com>
-References: <4B6C2488.3060403@ge.com> <4B865176.7080806@ge.com> <4B86A97E.6050509@ge.com> <20100225165141.GA9686@oksana.dev.rtsoft.ru> <20100225174935.GA32370@oksana.dev.rtsoft.ru> <7d1d9c251002251653n6473f01ex2d43933ec6aa010b@mail.gmail.com> <20100226031452.GA11319@oksana.dev.rtsoft.ru> <4B87B937.6010204@ge.com> <20100226143532.GA31622@oksana.dev.rtsoft.ru> <4B87E01E.4070704@windriver.com>
+From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Subject: Re: [RFC PATCH] fix problems with NETIF_F_HIGHDMA in networking drivers
+Date: Fri, 26 Feb 2010 16:25:24 +0100
+Message-ID: <201002261625.24523.bzolnier@gmail.com>
+References: <4B834159.7070105@gmail.com> <20100226.013637.255461265.davem@davemloft.net> <51f3faa71002260646r705891e8tdbab1f6faeeb4b81@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: avorontsov@ru.mvista.com,
-	linuxppc-dev list <linuxppc-dev@ozlabs.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>,
-	davem@davemloft.net
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: Robert Hancock <hancockrwd@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B87E01E.4070704@windriver.com>
+In-Reply-To: <51f3faa71002260646r705891e8tdbab1f6faeeb4b81@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Paul Gortmaker wrote:
-> On 10-02-26 09:35 AM, Anton Vorontsov wrote:
->   
->> On Fri, Feb 26, 2010 at 12:06:15PM +0000, Martyn Welch wrote:
->>     
->>> Anton Vorontsov wrote:
->>>       
->>>> On Thu, Feb 25, 2010 at 07:53:30PM -0500, Paul Gortmaker wrote:
->>>> [...]
->>>>
->>>>         
->>>>> I was able to reproduce it on an 8641D and bisected it down to this:
->>>>>
->>>>> -----------
->>>>> commit a3bc1f11e9b867a4f49505ecac486a33af248b2e
->>>>> Author: Anton Vorontsov<avorontsov@ru.mvista.com>
->>>>> Date:   Tue Nov 10 14:11:10 2009 +0000
->>>>>
->>>>>      gianfar: Revive SKB recycling
->>>>>
->>>>>           
->>>> Thanks for the bisect. I have a guess why tx hangs in
->>>> SMP case. Could anyone try the patch down below?
->>>>
->>>>         
->>> Yup, no problem. I'm afraid it doesn't resolve the problem for me.
->>>       
->> Hm.. I found a p2020 board and I was able to reproduce the issue.
->> The patch down below fixed it completely for me... hm.
->>     
->
-> Interesting. I just tested the patch on the sbc8641d, and it
-> still has the issue with your patch applied.  I'm using NFSroot
-> just like Martyn was and it still appears bound up on that
-> gianfar tx lock.  I'll see if I can get a SysRq backtrace in
-> case that will help you see how it manages to get there...
->   
+On Friday 26 February 2010 03:46:45 pm Robert Hancock wrote:
+> On Fri, Feb 26, 2010 at 3:36 AM, David Miller <davem@davemloft.net> wrote:
+> > From: Robert Hancock <hancockrwd@gmail.com>
+> > Date: Mon, 22 Feb 2010 20:45:45 -0600
+> >
+> >> Many networking drivers have issues with the use of the NETIF_F_HIGHDMA flag.
+> >> This flag actually indicates whether or not the device/driver can handle
+> >> skbs located in high memory (as opposed to lowmem). However, many drivers
+> >> incorrectly treat this flag as indicating that 64-bit DMA is supported, which
+> >> has nothing to do with its actual function. It makes no sense to make setting
+> >> NETIF_F_HIGHDMA conditional on whether a 64-bit DMA mask has been set, as many
+> >> drivers do, since if highmem DMA is supported at all, it should work regardless
+> >> of whether 64-bit DMA is supported. Failing to set NETIF_F_HIGHDMA when it
+> >> should be can hurt performance on architectures which use highmem since it
+> >> results in needless data copying.
+> >>
+> >> This fixes up the networking drivers which currently use NETIF_F_HIGHDMA to
+> >> not do so conditionally on DMA mask settings.
+> >>
+> >> For the USB kaweth and usbnet drivers, this patch also uncomments and corrects
+> >> some code to set NETIF_F_HIGHDMA based on the USB host controller's DMA mask.
+> >> These drivers should be able to access highmem unless the host controller is
+> >> non-DMA-capable, which is indicated by the DMA mask being null.
+> >>
+> >> Signed-off-by: Robert Hancock <hancockrwd@gmail.com>
+> >
+> > Well, if the device isn't using 64-bit DMA addressing and the platform
+> > uses direct (no-iommu) mapping of physical to DMA addresses , won't
+> > your change break things?  The device will get a >4GB DMA address or
+> > the DMA mapping layer will signal an error.
+> >
+> > That's really part of the what the issue is I think.
+> >
+> > So, this trigger the check in check_addr() in
+> > arch/x86/kernel/pci-nommu.c when such packets try to get mapped by the
+> > driver, right?
+> >
+> > That will make the DMA mapping call fail, and the packet will be
+> > dropped permanently.  And hey, on top of it, many of these drivers you
+> > remove the setting from don't even check the mapping call return
+> > values for errors.
+> >
+> > So even bigger breakage.  One example is drivers/net/8139cp.c,
+> > it just does dma_map_single() and uses the result.
+> >
+> > It really depends upon that NETIF_F_HIGHDMA setting for correct
+> > operation.
+> >
+> > And even if something like swiotlb is available, now we're going
+> > to do bounce buffering which is largely equivalent to what
+> > a lack of NETIF_F_HIGHDMA will do.  Except that once NETIF_F_HIGHDMA
+> > copies the packet to lowmem it will only do that once, whereas if
+> > the packet goes to multiple devices swiotlb might copy the packet
+> > to a bounce buffer multiple times.
+> >
+> > We definitely can't apply your patch as-is.
+> 
+> Hmm.. Yeah, there is a bit of a mess there. I'm thinking of the
+> particular example of i386 where you have 32-bit DMA devices with more
+> than 4GB of RAM. If you then allow the device to access highmem then
+> the DMA mapping API can get presented with addresses above 4GB and
+> AFAIK I don't think it can cope with that situation on that platform.
+> 
+> Problem is that the NETIF_F_HIGHDMA check is generally too restrictive
+> in that situation, and it's really conflating two things into one (the
+> genuine can't-access-highmem part, and the "oh by the way, if highmem
+> can be >4GB then we can't access that") . If you have 3GB of RAM on
+> i386 with one of these drivers, you'll have packets being bounced
+> through lowmem without any real reason. I'll have a look into things a
+> bit further..
 
-I've got a p2020ds here as well, so I'll give NFSroot on that a try with
-your patch.
+Maybe it would be useful to start with splitting NETIF_F_HIGHDMA on two
+independent flags, i.e.:
 
-Martyn
+	#define	NETIF_F_DMA_HIGH	(1 << 27)
+	#define NETIF_F_DMA_64BIT	(1 << 28)
 
+and keeping NETIF_F_HIGHDMA as
 
+	#define NETIF_F_HIGHDMA		(NETIF_F_DMA_HIGH | NET_F_DMA_64BIT)
 
--- 
-Martyn Welch (Principal Software Engineer)   |   Registered in England and
-GE Intelligent Platforms                     |   Wales (3828642) at 100
-T +44(0)127322748                            |   Barbirolli Square, Manchester,
-E martyn.welch@ge.com                        |   M2 3AB  VAT:GB 927559189
+for now..?
+
+[ Next step would involve fixing illegal_highdma() check in net/core/dev.c
+  to distinguish between those new flags which in turn should allow sorting
+  out code in the device drivers on *per-driver* basis. ]
+
+--
+Bartlomiej Zolnierkiewicz
