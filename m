@@ -1,70 +1,32 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] IPv6: fix anycast address ref count leakage
-Date: Thu, 25 Feb 2010 15:57:07 -0800
-Message-ID: <20100225155707.779c582a@nehalam>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH net-next 3/6] cnic: Fix panic in
+ cnic_iscsi_nl_msg_recv() when device is down.
+Date: Fri, 26 Feb 2010 11:51:14 +1100
+Message-ID: <20100226005114.GH3876@verge.net.au>
+References: <1267058529-18454-1-git-send-email-mchan@broadcom.com>
+ <1267058529-18454-2-git-send-email-mchan@broadcom.com>
+ <1267058529-18454-3-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36408 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759320Ab0BYX5O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Feb 2010 18:57:14 -0500
+Received: from kirsty.vergenet.net ([202.4.237.240]:53984 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759318Ab0BZAvQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 19:51:16 -0500
+Content-Disposition: inline
+In-Reply-To: <1267058529-18454-3-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The recent change in net-next to keep IPv6 address can lead to device
-hanging with unresolved refcount on removal. The issue is that the conversion
-of address from permanent to temporary needs to notify the anycast list
-code to clean up it's ref count. Also, want to tell other uses of IPv6
-(bonding/sctp) that the address is no longer available.
+On Wed, Feb 24, 2010 at 04:42:06PM -0800, Michael Chan wrote:
+> Some data structures are freed when the device is down and it will
+> crash if an ISCSI netlink message is received.  Add RCU protection
+> to prevent this.  In the shutdown path, ulp_ops[CNIC_ULP_L4] is
+> assigned NULL and rcu_synchronized before freeing the data
+> structures.
 
-The fix is to notify like a regular delete.  When link comes back, DAD
-runs and will notify with NETDEV_UP that address is back.
-
-The decrement of idev refcount when cleaning up addrconf_hash, should
-never cause address to be freed; therefore it can use __in6_ifa_put.
-
-The timer cleanup should be done when address deletion is done
-in second loop.
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
-
---- a/net/ipv6/addrconf.c	2010-02-25 15:04:58.207491933 -0800
-+++ b/net/ipv6/addrconf.c	2010-02-25 15:07:57.735384610 -0800
-@@ -2653,8 +2653,7 @@ static int addrconf_ifdown(struct net_de
- 			    (how || !(ifa->flags&IFA_F_PERMANENT))) {
- 				*bifa = ifa->lst_next;
- 				ifa->lst_next = NULL;
--				addrconf_del_timer(ifa);
--				in6_ifa_put(ifa);
-+				__in6_ifa_put(ifa);
- 				continue;
- 			}
- 			bifa = &ifa->lst_next;
-@@ -2706,14 +2705,15 @@ static int addrconf_ifdown(struct net_de
- 			ifa->if_next = NULL;
- 
- 			ifa->dead = 1;
--			write_unlock_bh(&idev->lock);
-+		}
-+		addrconf_del_timer(ifa);
-+		write_unlock_bh(&idev->lock);
- 
--			__ipv6_ifa_notify(RTM_DELADDR, ifa);
--			atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
--			in6_ifa_put(ifa);
-+		__ipv6_ifa_notify(RTM_DELADDR, ifa);
-+		atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
-+		in6_ifa_put(ifa);
- 
--			write_lock_bh(&idev->lock);
--		}
-+		write_lock_bh(&idev->lock);
- 	}
- 	write_unlock_bh(&idev->lock);
- 
-
+Is rcu_assign_pointer() unnecessary in cnic_cm_open()?
+It doesn't seem to be followed by rcu_synchronized() and the pointer
+doesn't seem to be accessible anywhere else at that time.
