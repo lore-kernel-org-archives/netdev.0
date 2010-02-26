@@ -1,666 +1,982 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-next-2.6 2010-02-26
-Date: Fri, 26 Feb 2010 18:01:50 -0500
-Message-ID: <20100226230149.GA10987@tuxdriver.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH net-next-2.6 v4 03/12] net-caif: add CAIF core protocol
+ stack header files
+Date: Sat, 27 Feb 2010 00:17:49 +0100
+Message-ID: <1267226269.18491.73.camel@violet>
+References: <1267222417-2764-1-git-send-email-sjur.brandeland@stericsson.com>
+	 <1267222417-2764-2-git-send-email-sjur.brandeland@stericsson.com>
+	 <1267222417-2764-3-git-send-email-sjur.brandeland@stericsson.com>
+	 <1267222417-2764-4-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	daniel.martensson@stericsson.com, kaber@trash.net,
+	stefano.babic@babic.homelinux.org, randy.dunlap@oracle.com
+To: sjur.brandeland@stericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from senator.holtmann.net ([87.106.208.187]:52290 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753220Ab0BZXQI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 18:16:08 -0500
+In-Reply-To: <1267222417-2764-4-git-send-email-sjur.brandeland@stericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dave,
+Hi Sjur,
 
-Here is one final round of wireless bits for the 2.6.34 merge window.
-Basically these would qualify as fixes anyway (more or less), but we
-might as well get them in now.
+> +#ifndef CAIF_LAYER_H_
+> +#define CAIF_LAYER_H_
+> +
+> +#include <linux/list.h>
+> +
+> +struct layer;
+> +struct cfpkt;
+> +struct cfpktq;
+> +struct payload_info;
+> +struct caif_packet_funcs;
 
-Please let me know if there are problems!
+could we use struct cflayer and struct caif_payload_info. The other
+names are bit too generic for my taste.
 
-Thanks!
+> +
+> +#define CAIF_MAX_FRAMESIZE 4096
+> +#define CAIF_MAX_PAYLOAD_SIZE (4096 - 64)
+> +#define CAIF_NEEDED_HEADROOM (10)
+> +#define CAIF_NEEDED_TAILROOM (2)
+> +
+> +
+> +#define CAIF_LAYER_NAME_SZ 16
+> +#define CAIF_SUCCESS    1
+> +#define CAIF_FAILURE    0
+> +
+> +/**
+> + * caif_assert() - Assert function for CAIF.
+> + * @assert: expression to evaluate.
+> + *
+> + * This function will print a error message and a do WARN_ON if the
+> + * assertion failes. Normally this will do a stack up at the current location.
+> + */
+> +#define caif_assert(assert)\
+> +do if (!(assert)) { \
+> +	pr_err("caif:Assert detected:'%s'\n", #assert); \
+> +	WARN_ON(!(assert));\
+> +} while (0)
+> +
+> +/**
+> + * enum caif_ctrlcmd - CAIF Stack Control Signaling sent in layer.ctrlcmd().
+> + *
+> + * @CAIF_CTRLCMD_FLOW_OFF_IND:		Flow Control is OFF, transmit function
+> + *					should stop sending data
+> + *
+> + * @CAIF_CTRLCMD_FLOW_ON_IND:		Flow Control is ON, transmit function
+> + *					can start sending data
+> + *
+> + * @CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND:  	Remote end modem has decided to close
+> + *					down channel
+> + *
+> + * @CAIF_CTRLCMD_INIT_RSP:		Called initially when the layer below
+> + *					has finished initialization
+> + *
+> + * @CAIF_CTRLCMD_DEINIT_RSP:		Called when de-initialization is
+> + *					complete
+> + *
+> + * @CAIF_CTRLCMD_INIT_FAIL_RSP:		Called if initialization fails
+> + *
+> + * @_CAIF_CTRLCMD_PHYIF_FLOW_OFF_IND: 	CAIF Link layer temporarily cannot
+> + *					send more packets.
+> + * @_CAIF_CTRLCMD_PHYIF_FLOW_ON_IND:	Called if CAIF Link layer is able
+> + *					to send	packets again.
+> + * @_CAIF_CTRLCMD_PHYIF_DOWN_IND:	Called if CAIF Link layer is going
+> + *					down.
+> + *
+> + * These commands are sent upwards in the CAIF stack to the CAIF Client.
+> + * They are used for signaling originating from the modem or CAIF Link Layer.
+> + * These are either responses (*_RSP) or events (*_IND).
+> + */
+> +enum caif_ctrlcmd {
+> +	CAIF_CTRLCMD_FLOW_OFF_IND,
+> +	CAIF_CTRLCMD_FLOW_ON_IND,
+> +	CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND,
+> +	CAIF_CTRLCMD_INIT_RSP,
+> +	CAIF_CTRLCMD_DEINIT_RSP,
+> +	CAIF_CTRLCMD_INIT_FAIL_RSP,
+> +	_CAIF_CTRLCMD_PHYIF_FLOW_OFF_IND,
+> +	_CAIF_CTRLCMD_PHYIF_FLOW_ON_IND,
+> +	_CAIF_CTRLCMD_PHYIF_DOWN_IND,
+> +};
+> +
+> +/**
+> + * enum caif_modemcmd -  Modem Control Signaling, sent from CAIF Client
+> + *                       to the CAIF Link Layer or modem.
+> + *
+> + * @CAIF_MODEMCMD_FLOW_ON_REQ:		Flow Control is ON, transmit function
+> + *					can start sending data.
+> + *
+> + * @CAIF_MODEMCMD_FLOW_OFF_REQ:		Flow Control is OFF, transmit function
+> + *					should stop sending data.
+> + *
+> + * @_CAIF_MODEMCMD_PHYIF_USEFULL:	Notify physical layer that it is in use
+> + *
+> + * @_CAIF_MODEMCMD_PHYIF_USELESS:	Notify physical layer that it is
+> + *					no longer in use.
+> + *
+> + * These are requests sent 'downwards' in the stack.
+> + * Flow ON, OFF can be indicated to the modem.
+> + */
+> +enum caif_modemcmd {
+> +	CAIF_MODEMCMD_FLOW_ON_REQ = 0,
+> +	CAIF_MODEMCMD_FLOW_OFF_REQ = 1,
+> +	_CAIF_MODEMCMD_PHYIF_USEFULL = 3,
+> +	_CAIF_MODEMCMD_PHYIF_USELESS = 4
+> +};
+> +
+> +/**
+> + * enum caif_direction - CAIF Packet Direction.
+> + * Indicate if a packet is to be sent out or to be received in.
+> + * @CAIF_DIR_IN:		Incoming packet received.
+> + * @CAIF_DIR_OUT:		Outgoing packet to be transmitted.
+> + */
+> +enum caif_direction {
+> +	CAIF_DIR_IN = 0,
+> +	CAIF_DIR_OUT = 1
+> +};
+> +
+> +/**
+> + * struct layer - CAIF Stack layer.
+> + * Defines the framework for the CAIF Core Stack.
+> + * @up: 	Pointer up to the layer above.
+> + * @dn:		Pointer down to the layer below.
+> + * @node:	List node used when layer participate in a list.
+> + * @receive:	Packet receive function.
+> + * @transmit:	Packet transmit funciton.
+> + * @ctrlcmd:	Used for control signalling upwards in the stack.
+> + * @modemcmd:	Used for control signaling downwards in the stack.
+> + * @prio:	Priority of this layer.
+> + * @id:		The identity of this layer
+> + * @type:	The type of this layer
+> + * @name:	Name of the layer.
+> + *
+> + *  This structure defines the layered structure in CAIF.
+> + *
+> + *  It defines CAIF layering structure, used by all CAIF Layers and the
+> + *  layers interfacing CAIF.
+> + *
+> + *  In order to integrate with CAIF an adaptation layer on top of the CAIF stack
+> + *  and PHY layer below the CAIF stack
+> + *  must be implemented. These layer must follow the design principles below.
+> + *
+> + *  Principles for layering of protocol layers:
+> + *    -All layers must use this structure. If embedding it, then place this
+> + *	     structure first in the layer specific structure.
+> + *
+> + *    - Each layer should not depend on any others layer private data.
+> + *
+> + *    - In order to send data upwards do
+> + *	 layer->up->receive(layer->up, packet);
+> + *
+> + *    -In order to send data downwards do
+> + *	 layer->dn->transmit(layer->dn, info, packet);
+> + */
+> +struct layer {
+> +	struct layer *up;
+> +	struct layer *dn;
+> +	struct list_head node;
+> +
+> +	/*
+> +	 *  receive() - Receive Function.
+> +	 *  Contract: Each layer must implement a receive function passing the
+> +	 *  CAIF packets upwards in the stack.
+> +	 *	Packet handling rules:
+> +	 *	      -# The CAIF packet (cfpkt) cannot be accessed after
+> +	 *		     passing it to the next layer using up->receive().
+> +	 *	      -# If parsing of the packet fails, the packet must be
+> +	 *		     destroyed and -1 returned from the function.
+> +	 *	      -# If parsing succeeds (and above layers return OK) then
+> +	 *		      the function must return a value > 0.
+> +	 *
+> +	 *  Returns result < 0 indicates an error, 0 or positive value
+> +	 *	     indicates success.
+> +	 *
+> +	 *  @layr: Pointer to the current layer the receive function is
+> +	 *		implemented for (this pointer).
+> +	 *  @cfpkt: Pointer to CaifPacket to be handled.
+> +	 */
+> +	int (*receive)(struct layer *layr, struct cfpkt *cfpkt);
+> +
+> +	/*
+> +	 *  transmit() - Transmit Function.
+> +	 *  Contract: Each layer must implement a transmit function passing the
+> +	 *	CAIF packet downwards in the stack.
+> +	 *	Packet handling rules:
+> +	 *	      -# The CAIF packet (cfpkt) ownership is passed to the
+> +	 *		 transmit function. This means that the the packet
+> +	 *		 cannot be accessed after passing it to the below
+> +	 *		 layer using dn->transmit().
+> +	 *
+> +	 *	      -# If transmit fails, however, the ownership is returned
+> +	 *		 to thecaller. The caller of "dn->transmit()" must
+> +	 *		 destroy or resend packet.
+> +	 *
+> +	 *	      -# Return value less than zero means error, zero or
+> +	 *		 greater than zero means OK.
+> +	 *
+> +	 *       result < 0 indicates an error, 0 or positive value
+> +	 *	 indicate success.
+> +	 *
+> +	 *  @layr:  	Pointer to the current layer the receive function
+> +	 *		isimplemented for (this pointer).
+> +	 *  @cfpkt:	 Pointer to CaifPacket to be handled.
+> +	 */
+> +	int (*transmit) (struct layer *layr, struct cfpkt *cfpkt);
+> +
+> +	/*
+> +	 *  cttrlcmd() - Control Function upwards in CAIF Stack.
+> +	 *  Used for signaling responses (CAIF_CTRLCMD_*_RSP)
+> +	 *  and asynchronous events from the modem  (CAIF_CTRLCMD_*_IND)
+> +	 *
+> +	 *  @layr:  	Pointer to the current layer the receive function
+> +	 *		is implemented for (this pointer).
+> +	 *  @ctrl:	Control Command.
+> +	 */
+> +	void (*ctrlcmd) (struct layer *layr, enum caif_ctrlcmd ctrl,
+> +			 int phyid);
+> +
+> +	/*
+> +	 *  modemctrl() - Control Function used for controlling the modem.
+> +	 *  Used to signal down-wards in the CAIF stack.
+> +	 *  Returns 0 on success, < 0 upon failure.
+> +	 *
+> +	 *  @layr:	Pointer to the current layer the receive function
+> +	 *		is implemented for (this pointer).
+> +	 *  @ctrl:  Control Command.
+> +	 */
+> +	int (*modemcmd) (struct layer *layr, enum caif_modemcmd ctrl);
+> +
+> +	unsigned short prio;
+> +	unsigned int id;
+> +	unsigned int type;
+> +	char name[CAIF_LAYER_NAME_SZ];
+> +};
+> +
+> +/**
+> + * layer_set_up() - Set the up pointer for a specified layer.
+> + *  @layr: Layer where up pointer shall be set.
+> + *  @above: Layer above.
+> + */
+> +#define layer_set_up(layr, above) ((layr)->up = (struct layer *)(above))
+> +
+> +/**
+> + *  layer_set_dn() - Set the down pointer for a specified layer.
+> + *  @layr:  Layer where down pointer shall be set.
+> + *  @below: Layer below.
+> + */
+> +#define layer_set_dn(layr, below) ((layr)->dn = (struct layer *)(below))
+> +
+> +
+> +
+> +/**
+> + * struct dev_info - Physical Device info information about physical layer.
+> + * @dev:	Pointer to native physical device.
+> + * @id:		Physical ID of the physical connection used by the
+> + *	 	logical CAIF connection. Used by service layers to
+> + *		identify their physical id to Caif MUX (CFMUXL)so
+> + *		that the MUX can add the correct physical ID to the
+> + *		packet.
+> + */
+> +struct dev_info {
+> +	void *dev;
+> +	unsigned int id;
+> +};
+> +
+> +/**
+> + * struct payload_info - Payload information embedded in packet (sk_buff).
+> + *
+> + * @dev_info:	Information about the receiving device.
+> + *
+> + * @hdr_len:	Header length, used to align pay load on 32bit boundary.
+> + *
+> + * @channel_id: Channel ID of the logical CAIF connection.
+> + * 		Used by mux to insert channel id into the caif packet.
+> + */
+> +struct payload_info {
+> +	struct dev_info *dev_info;
+> +	unsigned short hdr_len;
+> +	unsigned short channel_id;
+> +};
+> +
+> +#endif	/* CAIF_LAYER_H_ */
+> diff --git a/include/net/caif/cfcnfg.h b/include/net/caif/cfcnfg.h
+> new file mode 100644
+> index 0000000..57ad876
+> --- /dev/null
+> +++ b/include/net/caif/cfcnfg.h
+> @@ -0,0 +1,134 @@
+> +/*
+> + * Copyright (C) ST-Ericsson AB 2010
+> + * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
+> + * License terms: GNU General Public License (GPL) version 2
+> + */
+> +
+> +#ifndef CFCNFG_H_
+> +#define CFCNFG_H_
+> +#include <linux/spinlock.h>
+> +#include <net/caif/caif_layer.h>
+> +#include <net/caif/cfctrl.h>
+> +
+> +struct cfcnfg;
+> +
+> +/**
+> + * enum cfcnfg_phy_type -  Types of physical layers defined in CAIF Stack
+> + *
+> + * @CFPHYTYPE_FRAG:	Fragmented frames physical interface.
+> + * @CFPHYTYPE_CAIF:	Generic CAIF physical interface
+> + */
+> +enum cfcnfg_phy_type {
+> +	CFPHYTYPE_FRAG = 1,
+> +	CFPHYTYPE_CAIF,
+> +	CFPHYTYPE_MAX
+> +};
+> +
+> +/**
+> + * enum cfcnfg_phy_preference - Physical preference HW Abstraction
+> + *
+> + * @CFPHYPREF_UNSPECIFIED:	Default physical interface
+> + *
+> + * @CFPHYPREF_LOW_LAT:		Default physical interface for low-latency
+> + *				traffic
+> + * @CFPHYPREF_HIGH_BW:		Default physical interface for high-bandwidth
+> + *				traffic
+> + * @CFPHYPREF_LOOP:		TEST only Loopback interface simulating modem
+> + *				responses.
+> + *
+> + */
+> +enum cfcnfg_phy_preference {
+> +	CFPHYPREF_UNSPECIFIED,
+> +	CFPHYPREF_LOW_LAT,
+> +	CFPHYPREF_HIGH_BW,
+> +	CFPHYPREF_LOOP
+> +};
+> +
+> +/**
+> + * cfcnfg_create() - Create the CAIF configuration object.
+> + */
+> +struct cfcnfg *cfcnfg_create(void);
+> +
+> +/**
+> + * cfcnfg_remove() -  Remove the CFCNFG object
+> + * @cfg: config object
+> + */
+> +void cfcnfg_remove(struct cfcnfg *cfg);
+> +
+> +/**
+> + * cfcnfg_add_phy_layer() - Adds a physical layer to the CAIF stack.
+> + * @cnfg:	Pointer to a CAIF configuration object, created by
+> + *		cfcnfg_create().
+> + * @phy_type: 	Specifies the type of physical interface, e.g.
+> + *		   	CFPHYTYPE_FRAG.
+> + * @dev:	Pointer to link layer device
+> + * @phy_layer:	Specify the physical layer. The transmit function
+> + *		MUST be set in the structure.
+> + * @phyid:	The assigned physical ID for this layer, used in
+> + *		cfcnfg_add_adapt_layer to specify PHY for the link.
+> + * @pref:	The phy (link layer) preference.
+> + * @fcs:	Specify if checksum is used in CAIF Framing Layer.
+> + * @stx:	Specify if Start Of Frame eXtention is used.
+> + */
+> +
+> +void
+> +cfcnfg_add_phy_layer(struct cfcnfg *cnfg, enum cfcnfg_phy_type phy_type,
+> +		     void *dev, struct layer *phy_layer, u16 *phyid,
+> +		     enum cfcnfg_phy_preference pref,
+> +		     bool fcs, bool stx);
+> +
+> +/**
+> + * cfcnfg_del_phy_layer - Deletes an phy layer from the CAIF stack.
+> + *
+> + * @cnfg:	Pointer to a CAIF configuration object, created by
+> + *		cfcnfg_create().
+> + * @phy_layer:	Adaptation layer to be removed.
+> + */
+> +int cfcnfg_del_phy_layer(struct cfcnfg *cnfg, struct layer *phy_layer);
+> +
+> +
+> +/**
+> + * cfcnfg_del_adapt_layer - Deletes an adaptation layer from the CAIF stack.
+> + *
+> + * @cnfg:	Pointer to a CAIF configuration object, created by
+> + *		cfcnfg_create().
+> + * @adap_layer: Adaptation layer to be removed.
+> + */
+> +int cfcnfg_del_adapt_layer(struct cfcnfg *cnfg, struct layer *adap_layer);
+> +
+> +
+> +/**
+> + * cfcnfg_add_adaptation_layer - Add an adaptation layer to the CAIF stack.
+> + *
+> + * The adaptation Layer is where the interface to application or higher-level
+> + * driver functionality is implemented.
+> + *
+> + * @cnfg:		Pointer to a CAIF configuration object, created by
+> + *				cfcnfg_create().
+> + * @param:		Link setup parameters.
+> + * @adap_layer:		Specify the adaptation layer; the receive and
+> + *			flow-control functions MUST be set in the structure.
+> + *
+> + */
+> +int
+> +cfcnfg_add_adaptation_layer(struct cfcnfg *cnfg,
+> +			    struct cfctrl_link_param *param,
+> +			    struct layer *adap_layer);
+> +/**
+> + * cfcnfg_get_phyid() - Get physical ID, given type.
+> + * Returns one of the physical interfaces matching the given type.
+> + * Zero if no match is found.
+> + * @cnfg:	Configuration object
+> + * @phy_pref:	Caif Link Layer preference
+> + */
+> +struct dev_info *cfcnfg_get_phyid(struct cfcnfg *cnfg,
+> +		     enum cfcnfg_phy_preference phy_pref);
+> +
+> +/**
+> + * cfcnfg_get_named() - Get the Physical Identifier of CAIF Link Layer
+> + * @cnfg:	Configuration object
+> + * @name:	Name of the Physical Layer (Caif Link Layer)
+> + */
+> +int cfcnfg_get_named(struct cfcnfg *cnfg, char *name);
+> +
+> +#endif				/* CFCNFG_H_ */
+> diff --git a/include/net/caif/cfctrl.h b/include/net/caif/cfctrl.h
+> new file mode 100644
+> index 0000000..302e5a2
+> --- /dev/null
+> +++ b/include/net/caif/cfctrl.h
+> @@ -0,0 +1,136 @@
+> +/*
+> + * Copyright (C) ST-Ericsson AB 2010
+> + * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
+> + * License terms: GNU General Public License (GPL) version 2
+> + */
+> +
+> +#ifndef CFCTRL_H_
+> +#define CFCTRL_H_
+> +#include <net/caif/caif_layer.h>
+> +#include <net/caif/cfsrvl.h>
+> +
+> +/* CAIF Control packet commands */
+> +enum cfctrl_cmd {
+> +	CFCTRL_CMD_LINK_SETUP = 0,
+> +	CFCTRL_CMD_LINK_DESTROY = 1,
+> +	CFCTRL_CMD_LINK_ERR = 2,
+> +	CFCTRL_CMD_ENUM = 3,
+> +	CFCTRL_CMD_SLEEP = 4,
+> +	CFCTRL_CMD_WAKE = 5,
+> +	CFCTRL_CMD_LINK_RECONF = 6,
+> +	CFCTRL_CMD_START_REASON = 7,
+> +	CFCTRL_CMD_RADIO_SET = 8,
+> +	CFCTRL_CMD_MODEM_SET = 9,
+> +	CFCTRL_CMD_MASK = 0xf
+> +};
+> +
+> +/* Channel types */
+> +enum cfctrl_srv {
+> +	CFCTRL_SRV_DECM = 0,
+> +	CFCTRL_SRV_VEI = 1,
+> +	CFCTRL_SRV_VIDEO = 2,
+> +	CFCTRL_SRV_DBG = 3,
+> +	CFCTRL_SRV_DATAGRAM = 4,
+> +	CFCTRL_SRV_RFM = 5,
+> +	CFCTRL_SRV_UTIL = 6,
+> +	CFCTRL_SRV_MASK = 0xf
+> +};
+> +
+> +#define CFCTRL_RSP_BIT 0x20
+> +#define CFCTRL_ERR_BIT 0x10
+> +
+> +struct cfctrl_rsp {
+> +	void (*linksetup_rsp)(struct layer *layer, u8 linkid,
+> +			      enum cfctrl_srv serv, u8 phyid,
+> +			      struct layer *adapt_layer);
+> +	void (*linkdestroy_rsp)(struct layer *layer, u8 linkid,
+> +				struct layer *client_layer);
+> +	void (*linkerror_ind)(void);
+> +	void (*enum_rsp)(void);
+> +	void (*sleep_rsp)(void);
+> +	void (*wake_rsp)(void);
+> +	void (*restart_rsp)(void);
+> +	void (*radioset_rsp)(void);
+> +	void (*reject_rsp)(struct layer *layer, u8 linkid,
+> +				struct layer *client_layer);;
+> +};
+> +
+> +/* Link Setup Parameters for CAIF-Links. */
+> +struct cfctrl_link_param {
+> +	enum cfctrl_srv linktype;/* (T3,T0) Type of Channel */
+> +	u8 priority;		  /* (P4,P0) Priority of the channel */
+> +	u8 phyid;		  /* (U2-U0) Physical interface to connect */
+> +	u8 endpoint;		  /* (E1,E0) Endpoint for data channels */
+> +	u8 chtype;		  /* (H1,H0) Channel-Type, applies to
+> +				   *            VEI, DEBUG */
+> +	union {
+> +		struct {
+> +			u8 connid;	/*  (D7,D0) Video LinkId */
+> +		} video;
+> +
+> +		struct {
+> +			u32 connid;	/* (N31,Ngit0) Connection ID used
+> +					 *  for Datagram */
+> +		} datagram;
+> +
+> +		struct {
+> +			u32 connid;	/* Connection ID used for RFM */
+> +			char volume[20];	/* Volume to mount for RFM */
+> +		} rfm;		/* Configuration for RFM */
+> +
+> +		struct {
+> +			u16 fifosize_kb;	/* Psock FIFO size in KB */
+> +			u16 fifosize_bufs;	/* Psock # signal buffers */
+> +			char name[16];	/* Name of the PSOCK service */
+> +			u8 params[255];	/* Link setup Parameters> */
+> +			u16 paramlen;	/* Length of Link Setup
+> +						 *   Parameters */
+> +		} utility;	/* Configuration for Utility Links (Psock) */
+> +	} u;
+> +};
+> +
+> +/* This structure is used internally in CFCTRL */
+> +struct cfctrl_request_info {
+> +	int sequence_no;
+> +	enum cfctrl_cmd cmd;
+> +	u8 channel_id;
+> +	struct cfctrl_link_param param;
+> +	struct cfctrl_request_info *next;
+> +	struct layer *client_layer;
+> +};
+> +
+> +struct cfctrl {
+> +	struct cfsrvl serv;
+> +	struct cfctrl_rsp res;
+> +	atomic_t req_seq_no;
+> +	atomic_t rsp_seq_no;
+> +	struct cfctrl_request_info *first_req;
+> +	spinlock_t info_list_lock;
+> +#ifndef CAIF_NO_LOOP
+> +	u8 loop_linkid;
+> +	int loop_linkused[256];
+> +	spinlock_t loop_linkid_lock;
+> +#endif
+> +
+> +};
+> +
+> +void cfctrl_enum_req(struct layer *cfctrl, u8 physlinkid);
+> +void cfctrl_linkup_request(struct layer *cfctrl,
+> +			   struct cfctrl_link_param *param,
+> +			   struct layer *user_layer);
+> +int  cfctrl_linkdown_req(struct layer *cfctrl, u8 linkid,
+> +			 struct layer *client);
+> +void cfctrl_sleep_req(struct layer *cfctrl);
+> +void cfctrl_wake_req(struct layer *cfctrl);
+> +void cfctrl_getstartreason_req(struct layer *cfctrl);
+> +struct layer *cfctrl_create(void);
+> +void cfctrl_set_dnlayer(struct layer *this, struct layer *dn);
+> +void cfctrl_set_uplayer(struct layer *this, struct layer *up);
+> +struct cfctrl_rsp *cfctrl_get_respfuncs(struct layer *layer);
+> +bool cfctrl_req_eq(struct cfctrl_request_info *r1,
+> +		   struct cfctrl_request_info *r2);
+> +void cfctrl_insert_req(struct cfctrl *ctrl,
+> +			      struct cfctrl_request_info *req);
+> +struct cfctrl_request_info *cfctrl_remove_req(struct cfctrl *ctrl,
+> +					      struct cfctrl_request_info *req);
+> +#endif				/* CFCTRL_H_ */
+> diff --git a/include/net/caif/cffrml.h b/include/net/caif/cffrml.h
+> new file mode 100644
+> index 0000000..5412598
+> --- /dev/null
+> +++ b/include/net/caif/cffrml.h
+> @@ -0,0 +1,17 @@
+> +/*
+> + * Copyright (C) ST-Ericsson AB 2010
+> + * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
+> + * License terms: GNU General Public License (GPL) version 2
+> + */
+> +
+> +#ifndef CFFRML_H_
+> +#define CFFRML_H_
+> +#include <net/caif/caif_layer.h>
+> +
+> +struct cffrml;
+> +struct layer *cffrml_create(u16 phyid, bool DoFCS);
+> +void cffrml_set_uplayer(struct layer *this, struct layer *up);
+> +void cffrml_set_dnlayer(struct layer *this, struct layer *dn);
+> +void cffrml_destroy(struct layer *layer);
+> +
+> +#endif /* CFFRML_H_ */
+> diff --git a/include/net/caif/cfmuxl.h b/include/net/caif/cfmuxl.h
+> new file mode 100644
+> index 0000000..16253bf
+> --- /dev/null
+> +++ b/include/net/caif/cfmuxl.h
+> @@ -0,0 +1,22 @@
+> +/*
+> + * Copyright (C) ST-Ericsson AB 2010
+> + * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
+> + * License terms: GNU General Public License (GPL) version 2
+> + */
+> +
+> +#ifndef CFMUXL_H_
+> +#define CFMUXL_H_
+> +#include <net/caif/caif_layer.h>
+> +
+> +struct cfsrvl;
+> +struct cffrml;
+> +
+> +struct layer *cfmuxl_create(void);
+> +int cfmuxl_set_uplayer(struct layer *layr, struct layer *up, u8 linkid);
+> +struct layer *cfmuxl_remove_dnlayer(struct layer *layr, u8 phyid);
+> +int cfmuxl_set_dnlayer(struct layer *layr, struct layer *up, u8 phyid);
+> +struct layer *cfmuxl_remove_uplayer(struct layer *layr, u8 linkid);
+> +bool cfmuxl_is_phy_inuse(struct layer *layr, u8 phyid);
+> +u8 cfmuxl_get_phyid(struct layer *layr, __u8 channel_id);
+> +
+> +#endif				/* CFMUXL_H_ */
+> diff --git a/include/net/caif/cfpkt.h b/include/net/caif/cfpkt.h
+> new file mode 100644
+> index 0000000..93d8835
+> --- /dev/null
+> +++ b/include/net/caif/cfpkt.h
+> @@ -0,0 +1,274 @@
+> +/*
+> + * Copyright (C) ST-Ericsson AB 2010
+> + * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
+> + * License terms: GNU General Public License (GPL) version 2
+> + */
+> +
+> +#ifndef CFPKT_H_
+> +#define CFPKT_H_
+> +#include <net/caif/caif_layer.h>
+> +#include <linux/types.h>
+> +struct cfpkt;
+> +
+> +/* Create a CAIF packet.
+> + * len: Length of packet to be created
+> + * @return New packet.
+> + */
+> +struct cfpkt *cfpkt_create(u16 len);
+> +
+> +/* Create a CAIF packet.
+> + * data Data to copy.
+> + * len Length of packet to be created
+> + * @return New packet.
+> + */
+> +struct cfpkt *cfpkt_create_uplink(const unsigned char *data, unsigned int len);
+> +/*
+> + * Destroy a CAIF Packet.
+> + * pkt Packet to be destoyed.
+> + */
+> +void cfpkt_destroy(struct cfpkt *pkt);
+> +
+> +/*
+> + * Extract header from packet.
+> + *
+> + * pkt Packet to extract header data from.
+> + * data Pointer to copy the header data into.
+> + * len Length of head data to copy.
+> + * @return zero on success and error code upon failure
+> + */
+> +int cfpkt_extr_head(struct cfpkt *pkt, void *data, u16 len);
+> +
+> +/*
+> + * Peek header from packet.
+> + * Reads data from packet without changing packet.
+> + *
+> + * pkt Packet to extract header data from.
+> + * data Pointer to copy the header data into.
+> + * len Length of head data to copy.
+> + * @return zero on success and error code upon failure
+> + */
+> +int cfpkt_peek_head(struct cfpkt *pkt, void *data, u16 len);
+> +
+> +/*
+> + * Extract header from trailer (end of packet).
+> + *
+> + * pkt Packet to extract header data from.
+> + * data Pointer to copy the trailer data into.
+> + * len Length of header data to copy.
+> + * @return zero on success and error code upon failure
+> + */
+> +int cfpkt_extr_trail(struct cfpkt *pkt, void *data, u16 len);
+> +
+> +/*
+> + * Add header to packet.
+> + *
+> + *
+> + * pkt Packet to add header data to.
+> + * data Pointer to data to copy into the header.
+> + * len Length of header data to copy.
+> + * @return zero on success and error code upon failure
+> + */
+> +int cfpkt_add_head(struct cfpkt *pkt, const void *data, u16 len);
+> +
+> +/*
+> + * Add trailer to packet.
+> + *
+> + *
+> + * pkt Packet to add trailer data to.
+> + * data Pointer to data to copy into the trailer.
+> + * len Length of trailer data to copy.
+> + * @return zero on success and error code upon failure
+> + */
+> +int cfpkt_add_trail(struct cfpkt *pkt, const void *data, u16 len);
+> +
+> +/*
+> + * Pad trailer on packet.
+> + * Moves data pointer in packet, no content copied.
+> + *
+> + * pkt Packet in which to pad trailer.
+> + * len Length of padding to add.
+> + * @return zero on success and error code upon failure
+> + */
+> +int cfpkt_pad_trail(struct cfpkt *pkt, u16 len);
+> +
+> +/*
+> + * Add a single byte to packet body (tail).
+> + *
+> + * pkt Packet in which to add byte.
+> + * data Byte to add.
+> + * @return zero on success and error code upon failure
+> + */
+> +int cfpkt_addbdy(struct cfpkt *pkt, const u8 data);
+> +
+> +/*
+> + * Add a data to packet body (tail).
+> + *
+> + * pkt Packet in which to add data.
+> + * data Pointer to data to copy into the packet body.
+> + * len Length of data to add.
+> + * @return zero on success and error code upon failure
+> + */
+> +int cfpkt_add_body(struct cfpkt *pkt, const void *data, u16 len);
+> +
+> +/*
+> + * Checks whether there are more data to process in packet.
+> + * pkt Packet to check.
+> + * @return true if more data are available in packet false otherwise
+> + */
+> +bool cfpkt_more(struct cfpkt *pkt);
+> +
+> +/*
+> + * Checks whether the packet is erroneous,
+> + * i.e. if it has been attempted to extract more data than available in packet
+> + * or writing more data than has been allocated in cfpkt_create().
+> + * pkt Packet to check.
+> + * @return true on error false otherwise
+> + */
+> +bool cfpkt_erroneous(struct cfpkt *pkt);
+> +
+> +/*
+> + * Get the packet length.
+> + * pkt Packet to get length from.
+> + * @return Number of bytes in packet.
+> + */
+> +u16 cfpkt_getlen(struct cfpkt *pkt);
+> +
+> +/*
+> + * Set the packet length, by adjusting the trailer pointer according to length.
+> + * pkt Packet to set length.
+> + * len Packet length.
+> + * @return Number of bytes in packet.
+> + */
+> +int cfpkt_setlen(struct cfpkt *pkt, u16 len);
+> +
+> +/*
+> + * cfpkt_append - Appends a packet's data to another packet.
+> + * dstpkt:    Packet to append data into, WILL BE FREED BY THIS FUNCTION
+> + * addpkt:    Packet to be appended and automatically released,
+> + *            WILL BE FREED BY THIS FUNCTION.
+> + * expectlen: Packet's expected total length. This should be considered
+> + *            as a hint.
+> + * NB: Input packets will be destroyed after appending and cannot be used
+> + * after calling this function.
+> + * @return    The new appended packet.
+> + */
+> +struct cfpkt *cfpkt_append(struct cfpkt *dstpkt, struct cfpkt *addpkt,
+> +		      u16 expectlen);
+> +
+> +/*
+> + * cfpkt_split - Split a packet into two packets at the specified split point.
+> + * pkt: Packet to be split (will contain the first part of the data on exit)
+> + * pos: Position to split packet in two parts.
+> + * @return The new packet, containing the second part of the data.
+> + */
+> +struct cfpkt *cfpkt_split(struct cfpkt *pkt, u16 pos);
+> +
+> +/*
+> + * Iteration function, iterates the packet buffers from start to end.
+> + *
+> + * Checksum iteration function used to iterate buffers
+> + * (we may have packets consisting of a chain of buffers)
+> + * pkt:       Packet to calculate checksum for
+> + * iter_func: Function pointer to iteration function
+> + * chks:      Checksum calculated so far.
+> + * buf:       Pointer to the buffer to checksum
+> + * len:       Length of buf.
+> + * data:      Initial checksum value.
+> + * @return    Checksum of buffer.
+> + */
+> +
+> +u16 cfpkt_iterate(struct cfpkt *pkt,
+> +		u16 (*iter_func)(__u16 chks, void *buf, __u16 len),
+> +		u16 data);
+> +
+> +/* Append by giving user access to packet buffer
+> + * cfpkt Packet to append to
+> + * buf Buffer inside pkt that user shall copy data into
+> + * buflen Length of buffer and number of bytes added to packet
+> + * @return 0 on error, 1 on success
+> + */
+> +int cfpkt_raw_append(struct cfpkt *cfpkt, void **buf, unsigned int buflen);
+> +
+> +/* Extract by giving user access to packet buffer
+> + * cfpkt Packet to extract from
+> + * buf Buffer inside pkt that user shall copy data from
+> + * buflen Length of buffer and number of bytes removed from packet
+> + * @return 0 on error, 1 on success
+> + */
+> +int cfpkt_raw_extract(struct cfpkt *cfpkt, void **buf, unsigned int buflen);
+> +
+> +/* Map from a "native" packet (e.g. Linux Socket Buffer) to a CAIF packet.
+> + *  dir - Direction indicating whether this packet is to be sent or received.
+> + *  nativepkt  - The native packet to be transformed to a CAIF packet
+> + *  @return The mapped CAIF Packet CFPKT.
+> + */
+> +struct cfpkt *cfpkt_fromnative(enum caif_direction dir, void *nativepkt);
+> +
+> +/* Map from a CAIF packet to a "native" packet (e.g. Linux Socket Buffer).
+> + *  pkt  - The CAIF packet to be transformed into a "native" packet.
+> + *  @return The native packet transformed from a CAIF packet.
+> + */
+> +void *cfpkt_tonative(struct cfpkt *pkt);
+> +
+> +/*
+> + * Insert a packet in the packet queue.
+> + * pktq Packet queue to insert into
+> + * pkt Packet to be inserted in queue
+> + * prio Priority of packet
+> + */
+> +void cfpkt_queue(struct cfpktq *pktq, struct cfpkt *pkt,
+> +		 unsigned short prio);
+> +
+> +/*
+> + * Remove a packet from the packet queue.
+> + * pktq Packet queue to fetch packets from.
+> + * @return Dequeued packet.
+> + */
+> +struct cfpkt *cfpkt_dequeue(struct cfpktq *pktq);
+> +
+> +/*
+> + * Peek into a packet from the packet queue.
+> + * pktq Packet queue to fetch packets from.
+> + * @return Peeked packet.
+> + */
+> +struct cfpkt *cfpkt_qpeek(struct cfpktq *pktq);
+> +
+> +/*
+> + * Initiates the packet queue.
+> + * @return Pointer to new packet queue.
+> + */
+> +struct cfpktq *cfpktq_create(void);
+> +
+> +/*
+> + * Get the number of packets in the queue.
+> + * pktq Packet queue to fetch count from.
+> + * @return Number of packets in queue.
+> + */
+> +int cfpkt_qcount(struct cfpktq *pktq);
+> +
+> +/*
+> + * Put content of packet into buffer for debuging purposes.
+> + * pkt Packet to copy data from
+> + * buf Buffer to copy data into
+> + * buflen Length of data to copy
+> + * @return Pointer to copied data
+> + */
+> +char *cfpkt_log_pkt(struct cfpkt *pkt, char *buf, int buflen);
+> +
+> +/*
+> + * Clones a packet and releases the original packet.
+> + * This is used for taking ownership of a packet e.g queueing.
+> + * pkt Packet to clone and release.
+> + * @return Cloned packet.
+> + */
+> +struct cfpkt *cfpkt_clone_release(struct cfpkt *pkt);
+> +
+> +
+> +/*
+> + * Returns packet information for a packet.
+> + * pkt Packet to get info from;
+> + * @return Packet information
+> + */
+> +struct payload_info *cfpkt_info(struct cfpkt *pkt);
+> +/*! @} */
+> +#endif				/* CFPKT_H_ */
+> diff --git a/include/net/caif/cfserl.h b/include/net/caif/cfserl.h
+> new file mode 100644
+> index 0000000..fd0ec77
+> --- /dev/null
+> +++ b/include/net/caif/cfserl.h
+> @@ -0,0 +1,13 @@
+> +/*
+> + * Copyright (C) ST-Ericsson AB 2010
+> + * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
+> + * License terms: GNU General Public License (GPL) version 2
+> + */
+> +
+> +#ifndef CFSERL_H_
+> +#define CFSERL_H_
+> +#include <net/caif/caif_layer.h>
+> +
+> +struct layer *cfserl_create(int type, int instance, bool use_stx);
+> +
+> +#endif				/* CFSERL_H_ */
+> diff --git a/include/net/caif/cfsrvl.h b/include/net/caif/cfsrvl.h
+> new file mode 100644
+> index 0000000..ddbe52b
+> --- /dev/null
+> +++ b/include/net/caif/cfsrvl.h
+> @@ -0,0 +1,34 @@
+> +/*
+> + * Copyright (C) ST-Ericsson AB 2010
+> + * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
+> + * License terms: GNU General Public License (GPL) version 2
+> + */
+> +
+> +#ifndef CFSRVL_H_
+> +#define CFSRVL_H_
+> +#include <linux/list.h>
+> +#include <linux/stddef.h>
+> +#include <linux/types.h>
+> +struct cfsrvl {
+> +	struct layer layer;
+> +	bool open;
+> +	bool phy_flow_on;
+> +	bool modem_flow_on;
+> +	struct dev_info dev_info;
+> +};
+> +
+> +struct layer *cfvei_create(u8 linkid, struct dev_info *dev_info);
+> +struct layer *cfdgml_create(u8 linkid, struct dev_info *dev_info);
+> +struct layer *cfutill_create(u8 linkid, struct dev_info *dev_info);
+> +struct layer *cfvidl_create(u8 linkid, struct dev_info *dev_info);
+> +struct layer *cfrfml_create(u8 linkid, struct dev_info *dev_info);
+> +struct layer *cfdbgl_create(u8 linkid, struct dev_info *dev_info);
+> +bool cfsrvl_phyid_match(struct layer *layer, int phyid);
+> +void cfservl_destroy(struct layer *layer);
+> +void cfsrvl_init(struct cfsrvl *service,
+> +		 u8 channel_id,
+> +		 struct dev_info *dev_info);
+> +bool cfsrvl_ready(struct cfsrvl *service, int *err);
+> +u8 cfsrvl_getphyid(struct layer *layer);
+> +
+> +#endif				/* CFSRVL_H_ */
 
-John
 
----
-
-The following changes since commit 8266d7127c1b0bdf924066c19c71be4d351e9583:
-  Jeff Garzik (1):
-        net: Delete isa-skeleton net driver
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git master
-
-Abhijeet Kolekar (1):
-      iwlwifi: increase command buffer size
-
-Felix Fietkau (1):
-      ath9k: disable RIFS search for AR91xx based chips
-
-Helmut Schaa (1):
-      mac80211: use listen interval 5 as default
-
-John W. Linville (4):
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
-      Merge branch 'wireless-2.6' of git://git.kernel.org/.../iwlwifi/iwlwifi-2.6
-      Merge branch 'wireless-next-2.6' of git://git.kernel.org/.../iwlwifi/iwlwifi-2.6
-      netdevice.h: check for CONFIG_WLAN instead of CONFIG_WLAN_80211
-
-Juuso Oikarinen (1):
-      mac80211: fix direct probe loop on ieee80211_work_purge
-
-Lennert Buytenhek (1):
-      MAINTAINERS: update mwl8k maintenance status
-
-Linus Torvalds (1):
-      b43: fall back gracefully to PIO mode after fatal DMA errors
-
-Reinette Chatre (1):
-      Revert "iwlwifi: Monitor and recover the aggregation TX flow failure"
-
- MAINTAINERS                                 |    4 +-
- drivers/net/wireless/ath/ath9k/hw.c         |   10 +++++
- drivers/net/wireless/ath/ath9k/phy.h        |    3 ++
- drivers/net/wireless/ath/ath9k/xmit.c       |    4 +-
- drivers/net/wireless/b43/Kconfig            |   17 ++++++++-
- drivers/net/wireless/b43/b43.h              |    7 ++++
- drivers/net/wireless/b43/main.c             |   14 ++++---
- drivers/net/wireless/iwlwifi/iwl-4965.c     |    2 +-
- drivers/net/wireless/iwlwifi/iwl-5000.c     |    8 ++---
- drivers/net/wireless/iwlwifi/iwl-agn.c      |   14 +-------
- drivers/net/wireless/iwlwifi/iwl-commands.h |    1 +
- drivers/net/wireless/iwlwifi/iwl-core.c     |    2 +-
- drivers/net/wireless/iwlwifi/iwl-core.h     |    2 +
- drivers/net/wireless/iwlwifi/iwl-dev.h      |    3 --
- drivers/net/wireless/iwlwifi/iwl-rx.c       |   51 ++------------------------
- drivers/net/wireless/iwlwifi/iwl-tx.c       |   33 ++++++++++++++---
- drivers/net/wireless/iwmc3200wifi/rx.c      |    2 +-
- drivers/net/wireless/rtl818x/rtl8187_dev.c  |    1 +
- include/linux/netdevice.h                   |    2 +-
- net/mac80211/main.c                         |    6 +++-
- net/mac80211/rate.c                         |    3 ++
- net/mac80211/work.c                         |    1 +
- 22 files changed, 100 insertions(+), 90 deletions(-)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 2b4a4d2..cb0a800 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -3450,9 +3450,9 @@ F:	drivers/net/mv643xx_eth.*
- F:	include/linux/mv643xx.h
- 
- MARVELL MWL8K WIRELESS DRIVER
--M:	Lennert Buytenhek <buytenh@marvell.com>
-+M:	Lennert Buytenhek <buytenh@wantstofly.org>
- L:	linux-wireless@vger.kernel.org
--S:	Supported
-+S:	Maintained
- F:	drivers/net/wireless/mwl8k.c
- 
- MARVELL SOC MMC/SD/SDIO CONTROLLER DRIVER
-diff --git a/drivers/net/wireless/ath/ath9k/hw.c b/drivers/net/wireless/ath/ath9k/hw.c
-index f00f5c7..2e767cf 100644
---- a/drivers/net/wireless/ath/ath9k/hw.c
-+++ b/drivers/net/wireless/ath/ath9k/hw.c
-@@ -1310,6 +1310,16 @@ static void ath9k_hw_override_ini(struct ath_hw *ah,
- 	 * Necessary to avoid issues on AR5416 2.0
- 	 */
- 	REG_WRITE(ah, 0x9800 + (651 << 2), 0x11);
-+
-+	/*
-+	 * Disable RIFS search on some chips to avoid baseband
-+	 * hang issues.
-+	 */
-+	if (AR_SREV_9100(ah) || AR_SREV_9160(ah)) {
-+		val = REG_READ(ah, AR_PHY_HEAVY_CLIP_FACTOR_RIFS);
-+		val &= ~AR_PHY_RIFS_INIT_DELAY;
-+		REG_WRITE(ah, AR_PHY_HEAVY_CLIP_FACTOR_RIFS, val);
-+	}
- }
- 
- static u32 ath9k_hw_def_ini_fixup(struct ath_hw *ah,
-diff --git a/drivers/net/wireless/ath/ath9k/phy.h b/drivers/net/wireless/ath/ath9k/phy.h
-index 31de27d..0999a49 100644
---- a/drivers/net/wireless/ath/ath9k/phy.h
-+++ b/drivers/net/wireless/ath/ath9k/phy.h
-@@ -384,6 +384,9 @@ bool ath9k_hw_set_rf_regs(struct ath_hw *ah,
- 
- #define AR_PHY_HEAVY_CLIP_ENABLE         0x99E0
- 
-+#define AR_PHY_HEAVY_CLIP_FACTOR_RIFS    0x99EC
-+#define AR_PHY_RIFS_INIT_DELAY         0x03ff0000
-+
- #define AR_PHY_M_SLEEP      0x99f0
- #define AR_PHY_REFCLKDLY    0x99f4
- #define AR_PHY_REFCLKPD     0x99f8
-diff --git a/drivers/net/wireless/ath/ath9k/xmit.c b/drivers/net/wireless/ath/ath9k/xmit.c
-index f5cbbcb..47294f9 100644
---- a/drivers/net/wireless/ath/ath9k/xmit.c
-+++ b/drivers/net/wireless/ath/ath9k/xmit.c
-@@ -1610,7 +1610,7 @@ static int ath_tx_setup_buffer(struct ieee80211_hw *hw, struct ath_buf *bf,
- 		bf->bf_frmlen -= padsize;
- 	}
- 
--	if (conf_is_ht(&hw->conf) && !is_pae(skb))
-+	if (conf_is_ht(&hw->conf))
- 		bf->bf_state.bf_type |= BUF_HT;
- 
- 	bf->bf_flags = setup_tx_flags(sc, skb, txctl->txq);
-@@ -1696,7 +1696,7 @@ static void ath_tx_start_dma(struct ath_softc *sc, struct ath_buf *bf,
- 			goto tx_done;
- 		}
- 
--		if (tx_info->flags & IEEE80211_TX_CTL_AMPDU) {
-+		if ((tx_info->flags & IEEE80211_TX_CTL_AMPDU) && !is_pae(skb)) {
- 			/*
- 			 * Try aggregation if it's a unicast data frame
- 			 * and the destination is HT capable.
-diff --git a/drivers/net/wireless/b43/Kconfig b/drivers/net/wireless/b43/Kconfig
-index 073be56..0a00d42 100644
---- a/drivers/net/wireless/b43/Kconfig
-+++ b/drivers/net/wireless/b43/Kconfig
-@@ -3,7 +3,6 @@ config B43
- 	depends on SSB_POSSIBLE && MAC80211 && HAS_DMA
- 	select SSB
- 	select FW_LOADER
--	select SSB_BLOCKIO
- 	---help---
- 	  b43 is a driver for the Broadcom 43xx series wireless devices.
- 
-@@ -79,6 +78,14 @@ config B43_SDIO
- 
- 	  If unsure, say N.
- 
-+#Data transfers to the device via PIO. We want it as a fallback even
-+# if we can do DMA.
-+config B43_PIO
-+	bool
-+	depends on B43
-+	select SSB_BLOCKIO
-+	default y
-+
- config B43_NPHY
- 	bool "Pre IEEE 802.11n support (BROKEN)"
- 	depends on B43 && EXPERIMENTAL && BROKEN
-@@ -130,4 +137,12 @@ config B43_DEBUG
- 	  for production use.
- 	  Only say Y, if you are debugging a problem in the b43 driver sourcecode.
- 
-+config B43_FORCE_PIO
-+	bool "Force usage of PIO instead of DMA"
-+	depends on B43 && B43_DEBUG
-+	---help---
-+	  This will disable DMA and always enable PIO instead.
- 
-+	  Say N!
-+	  This is only for debugging the PIO engine code. You do
-+	  _NOT_ want to enable this.
-diff --git a/drivers/net/wireless/b43/b43.h b/drivers/net/wireless/b43/b43.h
-index 6a6ab0f..b8807fb 100644
---- a/drivers/net/wireless/b43/b43.h
-+++ b/drivers/net/wireless/b43/b43.h
-@@ -702,6 +702,7 @@ struct b43_wldev {
- 	bool radio_hw_enable;	/* saved state of radio hardware enabled state */
- 	bool qos_enabled;		/* TRUE, if QoS is used. */
- 	bool hwcrypto_enabled;		/* TRUE, if HW crypto acceleration is enabled. */
-+	bool use_pio;			/* TRUE if next init should use PIO */
- 
- 	/* PHY/Radio device. */
- 	struct b43_phy phy;
-@@ -886,6 +887,12 @@ static inline bool b43_using_pio_transfers(struct b43_wldev *dev)
- 	return dev->__using_pio_transfers;
- }
- 
-+#ifdef CONFIG_B43_FORCE_PIO
-+# define B43_PIO_DEFAULT 1
-+#else
-+# define B43_PIO_DEFAULT 0
-+#endif
-+
- /* Message printing */
- void b43info(struct b43_wl *wl, const char *fmt, ...)
-     __attribute__ ((format(printf, 2, 3)));
-diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
-index 8f7a8c0..16580d0 100644
---- a/drivers/net/wireless/b43/main.c
-+++ b/drivers/net/wireless/b43/main.c
-@@ -107,9 +107,9 @@ int b43_modparam_verbose = B43_VERBOSITY_DEFAULT;
- module_param_named(verbose, b43_modparam_verbose, int, 0644);
- MODULE_PARM_DESC(verbose, "Log message verbosity: 0=error, 1=warn, 2=info(default), 3=debug");
- 
--static int modparam_pio;
--module_param_named(pio, modparam_pio, int, 0444);
--MODULE_PARM_DESC(pio, "enable(1) / disable(0) PIO mode");
-+int b43_modparam_pio = B43_PIO_DEFAULT;
-+module_param_named(pio, b43_modparam_pio, int, 0644);
-+MODULE_PARM_DESC(pio, "Use PIO accesses by default: 0=DMA, 1=PIO");
- 
- static const struct ssb_device_id b43_ssb_tbl[] = {
- 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 5),
-@@ -1804,8 +1804,9 @@ static void b43_do_interrupt_thread(struct b43_wldev *dev)
- 			       dma_reason[4], dma_reason[5]);
- 			b43err(dev->wl, "This device does not support DMA "
- 			       "on your system. Please use PIO instead.\n");
--			b43err(dev->wl, "Unload the b43 module and reload "
--			       "with 'pio=1'\n");
-+			/* Fall back to PIO transfers if we get fatal DMA errors! */
-+			dev->use_pio = 1;
-+			b43_controller_restart(dev, "DMA error");
- 			return;
- 		}
- 		if (merged_dma_reason & B43_DMAIRQ_NONFATALMASK) {
-@@ -4357,7 +4358,7 @@ static int b43_wireless_core_init(struct b43_wldev *dev)
- 
- 	if ((dev->dev->bus->bustype == SSB_BUSTYPE_PCMCIA) ||
- 	    (dev->dev->bus->bustype == SSB_BUSTYPE_SDIO) ||
--	    modparam_pio) {
-+	    dev->use_pio) {
- 		dev->__using_pio_transfers = 1;
- 		err = b43_pio_init(dev);
- 	} else {
-@@ -4824,6 +4825,7 @@ static int b43_one_core_attach(struct ssb_device *dev, struct b43_wl *wl)
- 	if (!wldev)
- 		goto out;
- 
-+	wldev->use_pio = b43_modparam_pio;
- 	wldev->dev = dev;
- 	wldev->wl = wl;
- 	b43_set_status(wldev, B43_STAT_UNINIT);
-diff --git a/drivers/net/wireless/iwlwifi/iwl-4965.c b/drivers/net/wireless/iwlwifi/iwl-4965.c
-index 17e91ad..1bd2cd8 100644
---- a/drivers/net/wireless/iwlwifi/iwl-4965.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-4965.c
-@@ -2015,7 +2015,7 @@ static void iwl4965_rx_reply_tx(struct iwl_priv *priv,
- 			IWL_DEBUG_TX_REPLY(priv, "Retry scheduler reclaim scd_ssn "
- 					   "%d index %d\n", scd_ssn , index);
- 			freed = iwl_tx_queue_reclaim(priv, txq_id, index);
--			priv->stations[sta_id].tid[tid].tfds_in_queue -= freed;
-+			iwl_free_tfds_in_queue(priv, sta_id, tid, freed);
- 
- 			if (priv->mac80211_registered &&
- 			    (iwl_queue_space(&txq->q) > txq->q.low_mark) &&
-diff --git a/drivers/net/wireless/iwlwifi/iwl-5000.c b/drivers/net/wireless/iwlwifi/iwl-5000.c
-index 94fc836..e476acb 100644
---- a/drivers/net/wireless/iwlwifi/iwl-5000.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-5000.c
-@@ -1123,7 +1123,7 @@ static void iwl5000_rx_reply_tx(struct iwl_priv *priv,
- 					scd_ssn , index, txq_id, txq->swq_id);
- 
- 			freed = iwl_tx_queue_reclaim(priv, txq_id, index);
--			priv->stations[sta_id].tid[tid].tfds_in_queue -= freed;
-+			iwl_free_tfds_in_queue(priv, sta_id, tid, freed);
- 
- 			if (priv->mac80211_registered &&
- 			    (iwl_queue_space(&txq->q) > txq->q.low_mark) &&
-@@ -1151,16 +1151,14 @@ static void iwl5000_rx_reply_tx(struct iwl_priv *priv,
- 				   tx_resp->failure_frame);
- 
- 		freed = iwl_tx_queue_reclaim(priv, txq_id, index);
--		if (ieee80211_is_data_qos(tx_resp->frame_ctrl))
--			priv->stations[sta_id].tid[tid].tfds_in_queue -= freed;
-+		iwl_free_tfds_in_queue(priv, sta_id, tid, freed);
- 
- 		if (priv->mac80211_registered &&
- 		    (iwl_queue_space(&txq->q) > txq->q.low_mark))
- 			iwl_wake_queue(priv, txq_id);
- 	}
- 
--	if (ieee80211_is_data_qos(tx_resp->frame_ctrl))
--		iwl_txq_check_empty(priv, sta_id, tid, txq_id);
-+	iwl_txq_check_empty(priv, sta_id, tid, txq_id);
- 
- 	if (iwl_check_bits(status, TX_ABORT_REQUIRED_MSK))
- 		IWL_ERR(priv, "TODO:  Implement Tx ABORT REQUIRED!!!\n");
-diff --git a/drivers/net/wireless/iwlwifi/iwl-agn.c b/drivers/net/wireless/iwlwifi/iwl-agn.c
-index c5b724e..1fac015 100644
---- a/drivers/net/wireless/iwlwifi/iwl-agn.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
-@@ -2941,21 +2941,10 @@ static int iwl_mac_ampdu_action(struct ieee80211_hw *hw,
- 			return ret;
- 	case IEEE80211_AMPDU_TX_START:
- 		IWL_DEBUG_HT(priv, "start Tx\n");
--		ret = iwl_tx_agg_start(priv, sta->addr, tid, ssn);
--		if (ret == 0) {
--			priv->agg_tids_count++;
--			IWL_DEBUG_HT(priv, "priv->agg_tids_count = %u\n",
--				priv->agg_tids_count);
--		}
--		return ret;
-+		return iwl_tx_agg_start(priv, sta->addr, tid, ssn);
- 	case IEEE80211_AMPDU_TX_STOP:
- 		IWL_DEBUG_HT(priv, "stop Tx\n");
- 		ret = iwl_tx_agg_stop(priv, sta->addr, tid);
--		if ((ret == 0) && (priv->agg_tids_count > 0)) {
--			priv->agg_tids_count--;
--			IWL_DEBUG_HT(priv, "priv->agg_tids_count = %u\n",
--				priv->agg_tids_count);
--		}
- 		if (test_bit(STATUS_EXIT_PENDING, &priv->status))
- 			return 0;
- 		else
-@@ -3376,7 +3365,6 @@ static int iwl_init_drv(struct iwl_priv *priv)
- 	priv->iw_mode = NL80211_IFTYPE_STATION;
- 	priv->current_ht_config.smps = IEEE80211_SMPS_STATIC;
- 	priv->missed_beacon_threshold = IWL_MISSED_BEACON_THRESHOLD_DEF;
--	priv->agg_tids_count = 0;
- 
- 	/* initialize force reset */
- 	priv->force_reset[IWL_RF_RESET].reset_duration =
-diff --git a/drivers/net/wireless/iwlwifi/iwl-commands.h b/drivers/net/wireless/iwlwifi/iwl-commands.h
-index ab3c77b..6383d9f 100644
---- a/drivers/net/wireless/iwlwifi/iwl-commands.h
-+++ b/drivers/net/wireless/iwlwifi/iwl-commands.h
-@@ -2623,6 +2623,7 @@ struct iwl_ssid_ie {
- #define TX_CMD_LIFE_TIME_INFINITE	cpu_to_le32(0xFFFFFFFF)
- #define IWL_GOOD_CRC_TH			cpu_to_le16(1)
- #define IWL_MAX_SCAN_SIZE 1024
-+#define IWL_MAX_CMD_SIZE 4096
- #define IWL_MAX_PROBE_REQUEST		200
- 
- /*
-diff --git a/drivers/net/wireless/iwlwifi/iwl-core.c b/drivers/net/wireless/iwlwifi/iwl-core.c
-index 55252a6..112149e 100644
---- a/drivers/net/wireless/iwlwifi/iwl-core.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-core.c
-@@ -2787,8 +2787,8 @@ int iwl_mac_config(struct ieee80211_hw *hw, u32 changed)
- 		if ((le16_to_cpu(priv->staging_rxon.channel) != ch))
- 			priv->staging_rxon.flags = 0;
- 
--		iwl_set_rxon_ht(priv, ht_conf);
- 		iwl_set_rxon_channel(priv, conf->channel);
-+		iwl_set_rxon_ht(priv, ht_conf);
- 
- 		iwl_set_flags_for_band(priv, conf->channel->band);
- 		spin_unlock_irqrestore(&priv->lock, flags);
-diff --git a/drivers/net/wireless/iwlwifi/iwl-core.h b/drivers/net/wireless/iwlwifi/iwl-core.h
-index 3df7933..4ef7739 100644
---- a/drivers/net/wireless/iwlwifi/iwl-core.h
-+++ b/drivers/net/wireless/iwlwifi/iwl-core.h
-@@ -451,6 +451,8 @@ int iwl_tx_skb(struct iwl_priv *priv, struct sk_buff *skb);
- void iwl_hw_txq_ctx_free(struct iwl_priv *priv);
- int iwl_hw_tx_queue_init(struct iwl_priv *priv,
- 			 struct iwl_tx_queue *txq);
-+void iwl_free_tfds_in_queue(struct iwl_priv *priv,
-+			    int sta_id, int tid, int freed);
- void iwl_txq_update_write_ptr(struct iwl_priv *priv, struct iwl_tx_queue *txq);
- int iwl_tx_queue_init(struct iwl_priv *priv, struct iwl_tx_queue *txq,
- 		      int slots_num, u32 txq_id);
-diff --git a/drivers/net/wireless/iwlwifi/iwl-dev.h b/drivers/net/wireless/iwlwifi/iwl-dev.h
-index 7914d65..ab891b9 100644
---- a/drivers/net/wireless/iwlwifi/iwl-dev.h
-+++ b/drivers/net/wireless/iwlwifi/iwl-dev.h
-@@ -1084,9 +1084,6 @@ struct iwl_priv {
- 	/* storing the jiffies when the plcp error rate is received */
- 	unsigned long plcp_jiffies;
- 
--	/* reporting the number of tids has AGG on. 0 means no AGGREGATION */
--	u8 agg_tids_count;
--
- 	/* force reset */
- 	struct iwl_force_reset force_reset[IWL_MAX_FORCE_RESET];
- 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-rx.c b/drivers/net/wireless/iwlwifi/iwl-rx.c
-index fed554a..df257bc 100644
---- a/drivers/net/wireless/iwlwifi/iwl-rx.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-rx.c
-@@ -616,11 +616,6 @@ static void iwl_accumulative_statistics(struct iwl_priv *priv,
- 
- #define REG_RECALIB_PERIOD (60)
- 
--/* the threshold ratio of actual_ack_cnt to expected_ack_cnt in percent */
--#define ACK_CNT_RATIO (50)
--#define BA_TIMEOUT_CNT (5)
--#define BA_TIMEOUT_MAX (16)
--
- #define PLCP_MSG "plcp_err exceeded %u, %u, %u, %u, %u, %d, %u mSecs\n"
- void iwl_rx_statistics(struct iwl_priv *priv,
- 			      struct iwl_rx_mem_buffer *rxb)
-@@ -630,9 +625,6 @@ void iwl_rx_statistics(struct iwl_priv *priv,
- 	int combined_plcp_delta;
- 	unsigned int plcp_msec;
- 	unsigned long plcp_received_jiffies;
--	int actual_ack_cnt_delta;
--	int expected_ack_cnt_delta;
--	int ba_timeout_delta;
- 
- 	IWL_DEBUG_RX(priv, "Statistics notification received (%d vs %d).\n",
- 		     (int)sizeof(priv->statistics),
-@@ -647,44 +639,6 @@ void iwl_rx_statistics(struct iwl_priv *priv,
- #ifdef CONFIG_IWLWIFI_DEBUG
- 	iwl_accumulative_statistics(priv, (__le32 *)&pkt->u.stats);
- #endif
--	actual_ack_cnt_delta = le32_to_cpu(pkt->u.stats.tx.actual_ack_cnt) -
--		le32_to_cpu(priv->statistics.tx.actual_ack_cnt);
--	expected_ack_cnt_delta = le32_to_cpu(
--			pkt->u.stats.tx.expected_ack_cnt) -
--		le32_to_cpu(priv->statistics.tx.expected_ack_cnt);
--	ba_timeout_delta = le32_to_cpu(
--			pkt->u.stats.tx.agg.ba_timeout) -
--		le32_to_cpu(priv->statistics.tx.agg.ba_timeout);
--	if ((priv->agg_tids_count > 0) &&
--		(expected_ack_cnt_delta > 0) &&
--		(((actual_ack_cnt_delta * 100) / expected_ack_cnt_delta) <
--			ACK_CNT_RATIO) &&
--		(ba_timeout_delta > BA_TIMEOUT_CNT)) {
--		IWL_DEBUG_RADIO(priv,
--			"actual_ack_cnt delta = %d, expected_ack_cnt = %d\n",
--			actual_ack_cnt_delta, expected_ack_cnt_delta);
--
--#ifdef CONFIG_IWLWIFI_DEBUG
--		IWL_DEBUG_RADIO(priv, "rx_detected_cnt delta = %d\n",
--			priv->delta_statistics.tx.rx_detected_cnt);
--		IWL_DEBUG_RADIO(priv,
--			"ack_or_ba_timeout_collision delta = %d\n",
--			priv->delta_statistics.tx.ack_or_ba_timeout_collision);
--#endif
--		IWL_DEBUG_RADIO(priv, "agg ba_timeout delta = %d\n",
--			ba_timeout_delta);
--		if ((actual_ack_cnt_delta == 0) &&
--			(ba_timeout_delta >=
--				BA_TIMEOUT_MAX)) {
--			IWL_DEBUG_RADIO(priv,
--				"call iwl_force_reset(IWL_FW_RESET)\n");
--			iwl_force_reset(priv, IWL_FW_RESET);
--		} else {
--			IWL_DEBUG_RADIO(priv,
--				"call iwl_force_reset(IWL_RF_RESET)\n");
--			iwl_force_reset(priv, IWL_RF_RESET);
--		}
--	}
- 	/*
- 	 * check for plcp_err and trigger radio reset if it exceeds
- 	 * the plcp error threshold plcp_delta.
-@@ -1054,7 +1008,10 @@ static void iwl_pass_packet_to_mac80211(struct iwl_priv *priv,
- 	if (ieee80211_is_mgmt(fc) ||
- 	    ieee80211_has_protected(fc) ||
- 	    ieee80211_has_morefrags(fc) ||
--	    le16_to_cpu(hdr->seq_ctrl) & IEEE80211_SCTL_FRAG)
-+	    le16_to_cpu(hdr->seq_ctrl) & IEEE80211_SCTL_FRAG ||
-+	    (ieee80211_is_data_qos(fc) &&
-+	     *ieee80211_get_qos_ctl(hdr) &
-+	     IEEE80211_QOS_CONTROL_A_MSDU_PRESENT))
- 		ret = skb_linearize(skb);
- 	else
- 		ret = __pskb_pull_tail(skb, min_t(u16, IWL_LINK_HDR_MAX, len)) ?
-diff --git a/drivers/net/wireless/iwlwifi/iwl-tx.c b/drivers/net/wireless/iwlwifi/iwl-tx.c
-index 38655ad..1ed5206 100644
---- a/drivers/net/wireless/iwlwifi/iwl-tx.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-tx.c
-@@ -118,6 +118,20 @@ void iwl_txq_update_write_ptr(struct iwl_priv *priv, struct iwl_tx_queue *txq)
- EXPORT_SYMBOL(iwl_txq_update_write_ptr);
- 
- 
-+void iwl_free_tfds_in_queue(struct iwl_priv *priv,
-+			    int sta_id, int tid, int freed)
-+{
-+	if (priv->stations[sta_id].tid[tid].tfds_in_queue >= freed)
-+		priv->stations[sta_id].tid[tid].tfds_in_queue -= freed;
-+	else {
-+		IWL_ERR(priv, "free more than tfds_in_queue (%u:%d)\n",
-+			priv->stations[sta_id].tid[tid].tfds_in_queue,
-+			freed);
-+		priv->stations[sta_id].tid[tid].tfds_in_queue = 0;
-+	}
-+}
-+EXPORT_SYMBOL(iwl_free_tfds_in_queue);
-+
- /**
-  * iwl_tx_queue_free - Deallocate DMA queue.
-  * @txq: Transmit queue to deallocate.
-@@ -350,7 +364,7 @@ int iwl_tx_queue_init(struct iwl_priv *priv, struct iwl_tx_queue *txq,
- 	for (i = 0; i < actual_slots; i++) {
- 		/* only happens for cmd queue */
- 		if (i == slots_num)
--			len += IWL_MAX_SCAN_SIZE;
-+			len = IWL_MAX_CMD_SIZE;
- 
- 		txq->cmd[i] = kmalloc(len, GFP_KERNEL);
- 		if (!txq->cmd[i])
-@@ -1009,9 +1023,12 @@ int iwl_enqueue_hcmd(struct iwl_priv *priv, struct iwl_host_cmd *cmd)
- 
- 	/* If any of the command structures end up being larger than
- 	 * the TFD_MAX_PAYLOAD_SIZE, and it sent as a 'small' command then
--	 * we will need to increase the size of the TFD entries */
-+	 * we will need to increase the size of the TFD entries
-+	 * Also, check to see if command buffer should not exceed the size
-+	 * of device_cmd and max_cmd_size. */
- 	BUG_ON((fix_size > TFD_MAX_PAYLOAD_SIZE) &&
- 	       !(cmd->flags & CMD_SIZE_HUGE));
-+	BUG_ON(fix_size > IWL_MAX_CMD_SIZE);
- 
- 	if (iwl_is_rfkill(priv) || iwl_is_ctkill(priv)) {
- 		IWL_WARN(priv, "Not sending command - %s KILL\n",
-@@ -1055,8 +1072,8 @@ int iwl_enqueue_hcmd(struct iwl_priv *priv, struct iwl_host_cmd *cmd)
- 	if (cmd->flags & CMD_SIZE_HUGE)
- 		out_cmd->hdr.sequence |= SEQ_HUGE_FRAME;
- 	len = sizeof(struct iwl_device_cmd);
--	len += (idx == TFD_CMD_SLOTS) ?  IWL_MAX_SCAN_SIZE : 0;
--
-+	if (idx == TFD_CMD_SLOTS)
-+		len = IWL_MAX_CMD_SIZE;
- 
- #ifdef CONFIG_IWLWIFI_DEBUG
- 	switch (out_cmd->hdr.cmd) {
-@@ -1127,6 +1144,7 @@ int iwl_tx_queue_reclaim(struct iwl_priv *priv, int txq_id, int index)
- 	struct iwl_queue *q = &txq->q;
- 	struct iwl_tx_info *tx_info;
- 	int nfreed = 0;
-+	struct ieee80211_hdr *hdr;
- 
- 	if ((index >= q->n_bd) || (iwl_queue_used(q, index) == 0)) {
- 		IWL_ERR(priv, "Read index for DMA queue txq id (%d), index %d, "
-@@ -1141,13 +1159,16 @@ int iwl_tx_queue_reclaim(struct iwl_priv *priv, int txq_id, int index)
- 
- 		tx_info = &txq->txb[txq->q.read_ptr];
- 		iwl_tx_status(priv, tx_info->skb[0]);
-+
-+		hdr = (struct ieee80211_hdr *)tx_info->skb[0]->data;
-+		if (hdr && ieee80211_is_data_qos(hdr->frame_control))
-+			nfreed++;
- 		tx_info->skb[0] = NULL;
- 
- 		if (priv->cfg->ops->lib->txq_inval_byte_cnt_tbl)
- 			priv->cfg->ops->lib->txq_inval_byte_cnt_tbl(priv, txq);
- 
- 		priv->cfg->ops->lib->txq_free_tfd(priv, txq);
--		nfreed++;
- 	}
- 	return nfreed;
- }
-@@ -1561,7 +1582,7 @@ void iwl_rx_reply_compressed_ba(struct iwl_priv *priv,
- 	if (txq->q.read_ptr != (ba_resp_scd_ssn & 0xff)) {
- 		/* calculate mac80211 ampdu sw queue to wake */
- 		int freed = iwl_tx_queue_reclaim(priv, scd_flow, index);
--		priv->stations[sta_id].tid[tid].tfds_in_queue -= freed;
-+		iwl_free_tfds_in_queue(priv, sta_id, tid, freed);
- 
- 		if ((iwl_queue_space(&txq->q) > txq->q.low_mark) &&
- 		    priv->mac80211_registered &&
-diff --git a/drivers/net/wireless/iwmc3200wifi/rx.c b/drivers/net/wireless/iwmc3200wifi/rx.c
-index fd399e6..6b53ae1 100644
---- a/drivers/net/wireless/iwmc3200wifi/rx.c
-+++ b/drivers/net/wireless/iwmc3200wifi/rx.c
-@@ -794,7 +794,7 @@ static int iwm_mlme_update_bss_table(struct iwm_priv *iwm, u8 *buf,
- 	}
- 
- 	bss->bss = kzalloc(bss_len, GFP_KERNEL);
--	if (!bss) {
-+	if (!bss->bss) {
- 		kfree(bss);
- 		IWM_ERR(iwm, "Couldn't allocate bss\n");
- 		return -ENOMEM;
-diff --git a/drivers/net/wireless/rtl818x/rtl8187_dev.c b/drivers/net/wireless/rtl818x/rtl8187_dev.c
-index a053825..0fb850e 100644
---- a/drivers/net/wireless/rtl818x/rtl8187_dev.c
-+++ b/drivers/net/wireless/rtl818x/rtl8187_dev.c
-@@ -65,6 +65,7 @@ static struct usb_device_id rtl8187_table[] __devinitdata = {
- 	/* Sitecom */
- 	{USB_DEVICE(0x0df6, 0x000d), .driver_info = DEVICE_RTL8187},
- 	{USB_DEVICE(0x0df6, 0x0028), .driver_info = DEVICE_RTL8187B},
-+	{USB_DEVICE(0x0df6, 0x0029), .driver_info = DEVICE_RTL8187B},
- 	/* Sphairon Access Systems GmbH */
- 	{USB_DEVICE(0x114B, 0x0150), .driver_info = DEVICE_RTL8187},
- 	/* Dick Smith Electronics */
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index a3fccc8..99914e6 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -136,7 +136,7 @@ static inline bool dev_xmit_complete(int rc)
-  *	used.
-  */
- 
--#if defined(CONFIG_WLAN_80211) || defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
-+#if defined(CONFIG_WLAN) || defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
- # if defined(CONFIG_MAC80211_MESH)
- #  define LL_MAX_HEADER 128
- # else
-diff --git a/net/mac80211/main.c b/net/mac80211/main.c
-index ec8f767..06c33b6 100644
---- a/net/mac80211/main.c
-+++ b/net/mac80211/main.c
-@@ -558,8 +558,12 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
- 
- 	debugfs_hw_add(local);
- 
-+	/*
-+	 * if the driver doesn't specify a max listen interval we
-+	 * use 5 which should be a safe default
-+	 */
- 	if (local->hw.max_listen_interval == 0)
--		local->hw.max_listen_interval = 1;
-+		local->hw.max_listen_interval = 5;
- 
- 	local->hw.conf.listen_interval = local->hw.max_listen_interval;
- 
-diff --git a/net/mac80211/rate.c b/net/mac80211/rate.c
-index 99ab24c..0b299d2 100644
---- a/net/mac80211/rate.c
-+++ b/net/mac80211/rate.c
-@@ -303,6 +303,9 @@ void rate_control_get_rate(struct ieee80211_sub_if_data *sdata,
- 		info->control.rates[i].count = 1;
- 	}
- 
-+	if (sdata->local->hw.flags & IEEE80211_HW_HAS_RATE_CONTROL)
-+		return;
-+
- 	ref->ops->get_rate(ref->priv, ista, priv_sta, txrc);
- 
- 	/*
-diff --git a/net/mac80211/work.c b/net/mac80211/work.c
-index 7e708d5..1e1ea30 100644
---- a/net/mac80211/work.c
-+++ b/net/mac80211/work.c
-@@ -869,6 +869,7 @@ static void ieee80211_work_work(struct work_struct *work)
- 			break;
- 		case IEEE80211_WORK_ABORT:
- 			rma = WORK_ACT_TIMEOUT;
-+			break;
- 		case IEEE80211_WORK_DIRECT_PROBE:
- 			rma = ieee80211_direct_probe(wk);
- 			break;
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
