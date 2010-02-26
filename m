@@ -1,110 +1,87 @@
-From: Robert Hancock <hancockrwd-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC PATCH] fix problems with NETIF_F_HIGHDMA in networking
-	drivers
-Date: Fri, 26 Feb 2010 08:46:45 -0600
-Message-ID: <51f3faa71002260646r705891e8tdbab1f6faeeb4b81@mail.gmail.com>
-References: <4B834159.7070105@gmail.com>
-	 <20100226.013637.255461265.davem@davemloft.net>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: Gianfar driver failing on MPC8641D based board
+Date: Fri, 26 Feb 2010 09:52:14 -0500
+Message-ID: <4B87E01E.4070704@windriver.com>
+References: <4B6C2488.3060403@ge.com> <4B865176.7080806@ge.com> <4B86A97E.6050509@ge.com> <20100225165141.GA9686@oksana.dev.rtsoft.ru> <20100225174935.GA32370@oksana.dev.rtsoft.ru> <7d1d9c251002251653n6473f01ex2d43933ec6aa010b@mail.gmail.com> <20100226031452.GA11319@oksana.dev.rtsoft.ru> <4B87B937.6010204@ge.com> <20100226143532.GA31622@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100226.013637.255461265.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Martyn Welch <martyn.welch@ge.com>,
+	linuxppc-dev list <linuxppc-dev@ozlabs.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>,
+	davem@davemloft.net
+To: avorontsov@ru.mvista.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:48958 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964913Ab0BZOwg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 09:52:36 -0500
+In-Reply-To: <20100226143532.GA31622@oksana.dev.rtsoft.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 26, 2010 at 3:36 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wro=
-te:
-> From: Robert Hancock <hancockrwd-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Mon, 22 Feb 2010 20:45:45 -0600
->
->> Many networking drivers have issues with the use of the NETIF_F_HIGH=
-DMA flag.
->> This flag actually indicates whether or not the device/driver can ha=
-ndle
->> skbs located in high memory (as opposed to lowmem). However, many dr=
-ivers
->> incorrectly treat this flag as indicating that 64-bit DMA is support=
-ed, which
->> has nothing to do with its actual function. It makes no sense to mak=
-e setting
->> NETIF_F_HIGHDMA conditional on whether a 64-bit DMA mask has been se=
-t, as many
->> drivers do, since if highmem DMA is supported at all, it should work=
- regardless
->> of whether 64-bit DMA is supported. Failing to set NETIF_F_HIGHDMA w=
-hen it
->> should be can hurt performance on architectures which use highmem si=
-nce it
->> results in needless data copying.
+On 10-02-26 09:35 AM, Anton Vorontsov wrote:
+> On Fri, Feb 26, 2010 at 12:06:15PM +0000, Martyn Welch wrote:
+>> Anton Vorontsov wrote:
+>>> On Thu, Feb 25, 2010 at 07:53:30PM -0500, Paul Gortmaker wrote:
+>>> [...]
+>>>
+>>>> I was able to reproduce it on an 8641D and bisected it down to this:
+>>>>
+>>>> -----------
+>>>> commit a3bc1f11e9b867a4f49505ecac486a33af248b2e
+>>>> Author: Anton Vorontsov<avorontsov@ru.mvista.com>
+>>>> Date:   Tue Nov 10 14:11:10 2009 +0000
+>>>>
+>>>>      gianfar: Revive SKB recycling
+>>>>
+>>>
+>>> Thanks for the bisect. I have a guess why tx hangs in
+>>> SMP case. Could anyone try the patch down below?
+>>>
 >>
->> This fixes up the networking drivers which currently use NETIF_F_HIG=
-HDMA to
->> not do so conditionally on DMA mask settings.
->>
->> For the USB kaweth and usbnet drivers, this patch also uncomments an=
-d corrects
->> some code to set NETIF_F_HIGHDMA based on the USB host controller's =
-DMA mask.
->> These drivers should be able to access highmem unless the host contr=
-oller is
->> non-DMA-capable, which is indicated by the DMA mask being null.
->>
->> Signed-off-by: Robert Hancock <hancockrwd-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->
-> Well, if the device isn't using 64-bit DMA addressing and the platfor=
-m
-> uses direct (no-iommu) mapping of physical to DMA addresses , won't
-> your change break things? =A0The device will get a >4GB DMA address o=
-r
-> the DMA mapping layer will signal an error.
->
-> That's really part of the what the issue is I think.
->
-> So, this trigger the check in check_addr() in
-> arch/x86/kernel/pci-nommu.c when such packets try to get mapped by th=
-e
-> driver, right?
->
-> That will make the DMA mapping call fail, and the packet will be
-> dropped permanently. =A0And hey, on top of it, many of these drivers =
-you
-> remove the setting from don't even check the mapping call return
-> values for errors.
->
-> So even bigger breakage. =A0One example is drivers/net/8139cp.c,
-> it just does dma_map_single() and uses the result.
->
-> It really depends upon that NETIF_F_HIGHDMA setting for correct
-> operation.
->
-> And even if something like swiotlb is available, now we're going
-> to do bounce buffering which is largely equivalent to what
-> a lack of NETIF_F_HIGHDMA will do. =A0Except that once NETIF_F_HIGHDM=
-A
-> copies the packet to lowmem it will only do that once, whereas if
-> the packet goes to multiple devices swiotlb might copy the packet
-> to a bounce buffer multiple times.
->
-> We definitely can't apply your patch as-is.
+>> Yup, no problem. I'm afraid it doesn't resolve the problem for me.
+> 
+> Hm.. I found a p2020 board and I was able to reproduce the issue.
+> The patch down below fixed it completely for me... hm.
 
-Hmm.. Yeah, there is a bit of a mess there. I'm thinking of the
-particular example of i386 where you have 32-bit DMA devices with more
-than 4GB of RAM. If you then allow the device to access highmem then
-the DMA mapping API can get presented with addresses above 4GB and
-AFAIK I don't think it can cope with that situation on that platform.
+Interesting. I just tested the patch on the sbc8641d, and it
+still has the issue with your patch applied.  I'm using NFSroot
+just like Martyn was and it still appears bound up on that
+gianfar tx lock.  I'll see if I can get a SysRq backtrace in
+case that will help you see how it manages to get there...
 
-Problem is that the NETIF_F_HIGHDMA check is generally too restrictive
-in that situation, and it's really conflating two things into one (the
-genuine can't-access-highmem part, and the "oh by the way, if highmem
-can be >4GB then we can't access that") . If you have 3GB of RAM on
-i386 with one of these drivers, you'll have packets being bounced
-through lowmem without any real reason. I'll have a look into things a
-bit further..
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Paul.
+
+----
+
+nfs: server not responding, still trying 
+
+[repeated ~15 times, then...]
+                      
+INFO: task rc.sysinit:837 blocked for more than 120 seconds.                    
+"echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.       
+rc.sysinit    D 0fef73f4     0   837    836 0x00000000                          
+Call Trace:                                                                     
+[dfb7d9b0] [c000a144] __switch_to+0x8c/0xf8                                     
+[dfb7d9d0] [c03443dc] schedule+0x380/0x954                                      
+[dfb7da50] [c0344a0c] io_schedule+0x5c/0x90                                     
+[dfb7da70] [c0074b0c] sync_page+0x4c/0x74                                       
+[dfb7da80] [c0344f44] __wait_on_bit_lock+0xb0/0x148                             
+[dfb7dab0] [c0074a8c] __lock_page+0x94/0xa4                                     
+[dfb7dae0] [c0074d5c] find_lock_page+0x8c/0xa4                                  
+[dfb7db00] [c0075674] filemap_fault+0x1ec/0x4fc                                 
+[dfb7db40] [c008d548] __do_fault+0x98/0x53c                                     
+[dfb7dba0] [c0018478] do_page_fault+0x2d0/0x500                                 
+[dfb7dc50] [c00149d4] handle_page_fault+0xc/0x80                                
+--- Exception: 301 at __clear_user+0x14/0x7c                                    
+    LR = load_elf_binary+0x670/0x1270                                           
+[dfb7dd10] [c00f6ca0] load_elf_binary+0x620/0x1270 (unreliable)                 
+[dfb7dd90] [c00b1f78] search_binary_handler+0x17c/0x394                         
+[dfb7dde0] [c00f4f50] load_script+0x274/0x288                                   
+[dfb7de90] [c00b1f78] search_binary_handler+0x17c/0x394                         
+[dfb7dee0] [c00b3580] do_execve+0x240/0x29c                                     
+[dfb7df20] [c000a46c] sys_execve+0x68/0xa4                                      
+[dfb7df40] [c00145a4] ret_from_syscall+0x0/0x38     
+
