@@ -1,229 +1,43 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: net 04/04: rtnetlink: support specifying device flags on device creation
-Date: Fri, 26 Feb 2010 17:34:54 +0100 (MET)
-Message-ID: <20100226163454.11434.26017.sendpatchset@x2.localnet>
+Subject: net 01/04: rtnetlink: ignore NETDEV_PRE_UP notifier in rtnetlink_event()
+Date: Fri, 26 Feb 2010 17:34:50 +0100 (MET)
+Message-ID: <20100226163450.11434.29192.sendpatchset@x2.localnet>
 References: <20100226163449.11434.13013.sendpatchset@x2.localnet>
 Cc: Patrick McHardy <kaber@trash.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59368 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:59362 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965338Ab0BZQez (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 11:34:55 -0500
+	with ESMTP id S965325Ab0BZQev (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 11:34:51 -0500
 In-Reply-To: <20100226163449.11434.13013.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit e8469ed959c373c2ff9e6f488aa5a14971aebe1f
+commit 140dcbaa692be4ce66e68624d438aed030184186
 Author: Patrick McHardy <kaber@trash.net>
-Date:   Tue Feb 23 20:41:30 2010 +0100
+Date:   Tue Feb 23 20:56:39 2010 +0100
 
-    net: rtnetlink: support specifying device flags on device creation
+    net: rtnetlink: ignore NETDEV_PRE_UP notifier in rtnetlink_event()
     
-    Support specifying the initial device flags when creating a device though
-    rtnl_link. Devices allocated by rtnl_create_link() are marked as INITIALIZING
-    in order to surpress netlink registration notifications. To complete setup,
-    rtnl_configure_link() must be called, which performs the device flag changes
-    and invokes the deferred notifiers if everything went well.
+    Commit 3b8bcfd (net: introduce pre-up netdev notifier) added a new
+    notifier which is run before a device is set UP for use by cfg80211.
     
-    Two examples:
-    
-    # add macvlan to eth0
-    #
-    $ ip link add link eth0 up allmulticast on type macvlan
-    
-    [LINK]11: macvlan0@eth0: <BROADCAST,MULTICAST,ALLMULTI,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN
-        link/ether 26:f8:84:02:f9:2a brd ff:ff:ff:ff:ff:ff
-    [ROUTE]ff00::/8 dev macvlan0  table local  metric 256  mtu 1500 advmss 1440 hoplimit 0
-    [ROUTE]fe80::/64 dev macvlan0  proto kernel  metric 256  mtu 1500 advmss 1440 hoplimit 0
-    [LINK]11: macvlan0@eth0: <BROADCAST,MULTICAST,ALLMULTI,UP,LOWER_UP> mtu 1500
-        link/ether 26:f8:84:02:f9:2a
-    [ADDR]11: macvlan0    inet6 fe80::24f8:84ff:fe02:f92a/64 scope link
-           valid_lft forever preferred_lft forever
-    [ROUTE]local fe80::24f8:84ff:fe02:f92a via :: dev lo  table local  proto none  metric 0  mtu 16436 advmss 16376 hoplimit 0
-    [ROUTE]default via fe80::215:e9ff:fef0:10f8 dev macvlan0  proto kernel  metric 1024  mtu 1500 advmss 1440 hoplimit 0
-    [NEIGH]fe80::215:e9ff:fef0:10f8 dev macvlan0 lladdr 00:15:e9:f0:10:f8 router STALE
-    [ROUTE]2001:6f8:974::/64 dev macvlan0  proto kernel  metric 256  expires 0sec mtu 1500 advmss 1440 hoplimit 0
-    [PREFIX]prefix 2001:6f8:974::/64 dev macvlan0 onlink autoconf valid 14400 preferred 131084
-    [ADDR]11: macvlan0    inet6 2001:6f8:974:0:24f8:84ff:fe02:f92a/64 scope global dynamic
-           valid_lft 86399sec preferred_lft 14399sec
-    
-    # add VLAN to eth1, eth1 is down
-    #
-    $ ip link add link eth1 up type vlan id 1000
-    RTNETLINK answers: Network is down
-    
-    <no events>
+    The patch missed to add the new notifier to the ignore list in
+    rtnetlink_event(), so we currently get an unnecessary netlink
+    notification before a device is set UP.
     
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 35609e6..b583d49 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -333,19 +333,17 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 	struct veth_priv *priv;
- 	char ifname[IFNAMSIZ];
- 	struct nlattr *peer_tb[IFLA_MAX + 1], **tbp;
-+	struct ifinfomsg *ifmp;
- 	struct net *net;
- 
- 	/*
- 	 * create and register peer first
--	 *
--	 * struct ifinfomsg is at the head of VETH_INFO_PEER, but we
--	 * skip it since no info from it is useful yet
- 	 */
--
- 	if (data != NULL && data[VETH_INFO_PEER] != NULL) {
- 		struct nlattr *nla_peer;
- 
- 		nla_peer = data[VETH_INFO_PEER];
-+		ifmp = nla_data(nla_peer);
- 		err = nla_parse(peer_tb, IFLA_MAX,
- 				nla_data(nla_peer) + sizeof(struct ifinfomsg),
- 				nla_len(nla_peer) - sizeof(struct ifinfomsg),
-@@ -358,8 +356,10 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 			return err;
- 
- 		tbp = peer_tb;
--	} else
-+	} else {
-+		ifmp = NULL;
- 		tbp = tb;
-+	}
- 
- 	if (tbp[IFLA_IFNAME])
- 		nla_strlcpy(ifname, tbp[IFLA_IFNAME], IFNAMSIZ);
-@@ -387,6 +387,10 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 
- 	netif_carrier_off(peer);
- 
-+	err = rtnl_configure_link(peer, ifmp);
-+	if (err < 0)
-+		goto err_configure_peer;
-+
- 	/*
- 	 * register dev last
- 	 *
-@@ -428,6 +432,7 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- err_register_dev:
- 	/* nothing to do */
- err_alloc_name:
-+err_configure_peer:
- 	unregister_netdevice(peer);
- 	return err;
- 
-diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
-index 48d3efc..af60fd0 100644
---- a/include/net/rtnetlink.h
-+++ b/include/net/rtnetlink.h
-@@ -87,6 +87,8 @@ extern void	rtnl_link_unregister(struct rtnl_link_ops *ops);
- extern struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[]);
- extern struct net_device *rtnl_create_link(struct net *src_net, struct net *net,
- 	char *ifname, const struct rtnl_link_ops *ops, struct nlattr *tb[]);
-+extern int rtnl_configure_link(struct net_device *dev,
-+			       const struct ifinfomsg *ifm);
- extern const struct nla_policy ifla_policy[IFLA_MAX+1];
- 
- #define MODULE_ALIAS_RTNL_LINK(kind) MODULE_ALIAS("rtnl-link-" kind)
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index c21ec42..d1472a4 100644
+index 4dd4c3c..b7c7dfd 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
-@@ -549,6 +549,19 @@ static void set_operstate(struct net_device *dev, unsigned char transition)
- 	}
- }
- 
-+static unsigned int rtnl_dev_combine_flags(const struct net_device *dev,
-+					   const struct ifinfomsg *ifm)
-+{
-+	unsigned int flags = ifm->ifi_flags;
-+
-+	/* bugwards compatibility: ifi_change == 0 is treated as ~0 */
-+	if (ifm->ifi_change)
-+		flags = (flags & ifm->ifi_change) |
-+			(dev->flags & ~ifm->ifi_change);
-+
-+	return flags;
-+}
-+
- static void copy_rtnl_link_stats(struct rtnl_link_stats *a,
- 				 const struct net_device_stats *b)
- {
-@@ -904,13 +917,7 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
- 	}
- 
- 	if (ifm->ifi_flags || ifm->ifi_change) {
--		unsigned int flags = ifm->ifi_flags;
--
--		/* bugwards compatibility: ifi_change == 0 is treated as ~0 */
--		if (ifm->ifi_change)
--			flags = (flags & ifm->ifi_change) |
--				(dev->flags & ~ifm->ifi_change);
--		err = dev_change_flags(dev, flags);
-+		err = dev_change_flags(dev, rtnl_dev_combine_flags(dev, ifm));
- 		if (err < 0)
- 			goto errout;
- 	}
-@@ -1053,6 +1060,26 @@ static int rtnl_dellink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	return 0;
- }
- 
-+int rtnl_configure_link(struct net_device *dev, const struct ifinfomsg *ifm)
-+{
-+	unsigned int old_flags;
-+	int err;
-+
-+	old_flags = dev->flags;
-+	if (ifm && (ifm->ifi_flags || ifm->ifi_change)) {
-+		err = __dev_change_flags(dev, rtnl_dev_combine_flags(dev, ifm));
-+		if (err < 0)
-+			return err;
-+	}
-+
-+	dev->rtnl_link_state = RTNL_LINK_INITIALIZED;
-+	rtmsg_ifinfo(RTM_NEWLINK, dev, ~0U);
-+
-+	__dev_notify_flags(dev, old_flags);
-+	return 0;
-+}
-+EXPORT_SYMBOL(rtnl_configure_link);
-+
- struct net_device *rtnl_create_link(struct net *src_net, struct net *net,
- 	char *ifname, const struct rtnl_link_ops *ops, struct nlattr *tb[])
- {
-@@ -1074,6 +1101,7 @@ struct net_device *rtnl_create_link(struct net *src_net, struct net *net,
- 
- 	dev_net_set(dev, net);
- 	dev->rtnl_link_ops = ops;
-+	dev->rtnl_link_state = RTNL_LINK_INITIALIZING;
- 	dev->real_num_tx_queues = real_num_queues;
- 
- 	if (strchr(dev->name, '%')) {
-@@ -1203,7 +1231,7 @@ replay:
- 		if (!(nlh->nlmsg_flags & NLM_F_CREATE))
- 			return -ENODEV;
- 
--		if (ifm->ifi_index || ifm->ifi_flags || ifm->ifi_change)
-+		if (ifm->ifi_index)
- 			return -EOPNOTSUPP;
- 		if (tb[IFLA_MAP] || tb[IFLA_MASTER] || tb[IFLA_PROTINFO])
- 			return -EOPNOTSUPP;
-@@ -1234,9 +1262,15 @@ replay:
- 			err = ops->newlink(net, dev, tb, data);
- 		else
- 			err = register_netdevice(dev);
--		if (err < 0 && !IS_ERR(dev))
-+		if (err < 0 && !IS_ERR(dev)) {
- 			free_netdev(dev);
-+			goto out;
-+		}
- 
-+		err = rtnl_configure_link(dev, ifm);
-+		if (err < 0)
-+			unregister_netdevice(dev);
-+out:
- 		put_net(dest_net);
- 		return err;
- 	}
+@@ -1432,6 +1432,7 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
+ 	case NETDEV_DOWN:
+ 		rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_UP|IFF_RUNNING);
+ 		break;
++	case NETDEV_PRE_UP:
+ 	case NETDEV_POST_INIT:
+ 	case NETDEV_REGISTER:
+ 	case NETDEV_CHANGE:
