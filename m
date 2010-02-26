@@ -1,178 +1,67 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [patch] IPVS: ip_vs_lblcr: use list head
-Date: Fri, 26 Feb 2010 14:02:11 +1100
-Message-ID: <20100226030211.GB6111@verge.net.au>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: Gianfar driver failing on MPC8641D based board
+Date: Fri, 26 Feb 2010 06:14:52 +0300
+Message-ID: <20100226031452.GA11319@oksana.dev.rtsoft.ru>
+References: <4B6C2488.3060403@ge.com> <4B865176.7080806@ge.com>
+	<4B86A97E.6050509@ge.com>
+	<20100225165141.GA9686@oksana.dev.rtsoft.ru>
+	<20100225174935.GA32370@oksana.dev.rtsoft.ru>
+	<7d1d9c251002251653n6473f01ex2d43933ec6aa010b@mail.gmail.com>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Martyn Welch <martyn.welch@ge.com>,
+	linuxppc-dev list <linuxppc-dev@ozlabs.org>,
+	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>, davem@davemloft.net
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
+In-Reply-To: <7d1d9c251002251653n6473f01ex2d43933ec6aa010b@mail.gmail.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Use list_head rather than a custom list implementation.
+On Thu, Feb 25, 2010 at 07:53:30PM -0500, Paul Gortmaker wrote:
+[...]
+> I was able to reproduce it on an 8641D and bisected it down to this:
+> 
+> -----------
+> commit a3bc1f11e9b867a4f49505ecac486a33af248b2e
+> Author: Anton Vorontsov <avorontsov@ru.mvista.com>
+> Date:   Tue Nov 10 14:11:10 2009 +0000
+> 
+>     gianfar: Revive SKB recycling
 
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Thanks for the bisect. I have a guess why tx hangs in
+SMP case. Could anyone try the patch down below?
 
-Index: net-next-2.6/net/netfilter/ipvs/ip_vs_lblcr.c
-===================================================================
---- net-next-2.6.orig/net/netfilter/ipvs/ip_vs_lblcr.c	2010-02-24 15:32:33.000000000 +1100
-+++ net-next-2.6/net/netfilter/ipvs/ip_vs_lblcr.c	2010-02-25 11:56:16.000000000 +1100
-@@ -45,6 +45,7 @@
- #include <linux/kernel.h>
- #include <linux/skbuff.h>
- #include <linux/jiffies.h>
-+#include <linux/list.h>
+[...]
+> ...which probably explains why you weren't seeing it on non-SMP.
+> I'd imagine it would show up on any of the e500mc boards too.
+
+Yeah.. Pity, I don't have SMP boards anymore. I'll try
+to get one though.
+
+
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 8bd3c9f..3ff3bd0 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -2614,6 +2614,8 @@ static int gfar_poll(struct napi_struct *napi, int budget)
+ 			tx_queue = priv->tx_queue[rx_queue->qindex];
  
- /* for sysctl */
- #include <linux/fs.h>
-@@ -85,25 +86,25 @@ static int sysctl_ip_vs_lblcr_expiration
- /*
-  *      IPVS destination set structure and operations
-  */
--struct ip_vs_dest_list {
--	struct ip_vs_dest_list  *next;          /* list link */
-+struct ip_vs_dest_set_elem {
-+	struct list_head	list;          /* list link */
- 	struct ip_vs_dest       *dest;          /* destination server */
- };
- 
- struct ip_vs_dest_set {
- 	atomic_t                size;           /* set size */
- 	unsigned long           lastmod;        /* last modified time */
--	struct ip_vs_dest_list  *list;          /* destination list */
-+	struct list_head	list;           /* destination list */
- 	rwlock_t	        lock;           /* lock for this list */
- };
- 
- 
--static struct ip_vs_dest_list *
-+static struct ip_vs_dest_set_elem *
- ip_vs_dest_set_insert(struct ip_vs_dest_set *set, struct ip_vs_dest *dest)
- {
--	struct ip_vs_dest_list *e;
-+	struct ip_vs_dest_set_elem *e;
- 
--	for (e=set->list; e!=NULL; e=e->next) {
-+	list_for_each_entry(e, &set->list, list) {
- 		if (e->dest == dest)
- 			/* already existed */
- 			return NULL;
-@@ -118,9 +119,7 @@ ip_vs_dest_set_insert(struct ip_vs_dest_
- 	atomic_inc(&dest->refcnt);
- 	e->dest = dest;
- 
--	/* link it to the list */
--	e->next = set->list;
--	set->list = e;
-+	list_add(&e->list, &set->list);
- 	atomic_inc(&set->size);
- 
- 	set->lastmod = jiffies;
-@@ -130,34 +129,33 @@ ip_vs_dest_set_insert(struct ip_vs_dest_
- static void
- ip_vs_dest_set_erase(struct ip_vs_dest_set *set, struct ip_vs_dest *dest)
- {
--	struct ip_vs_dest_list *e, **ep;
-+	struct ip_vs_dest_set_elem *e;
- 
--	for (ep=&set->list, e=*ep; e!=NULL; e=*ep) {
-+	list_for_each_entry(e, &set->list, list) {
- 		if (e->dest == dest) {
- 			/* HIT */
--			*ep = e->next;
- 			atomic_dec(&set->size);
- 			set->lastmod = jiffies;
- 			atomic_dec(&e->dest->refcnt);
-+			list_del(&e->list);
- 			kfree(e);
- 			break;
- 		}
--		ep = &e->next;
- 	}
- }
- 
- static void ip_vs_dest_set_eraseall(struct ip_vs_dest_set *set)
- {
--	struct ip_vs_dest_list *e, **ep;
-+	struct ip_vs_dest_set_elem *e, *ep;
- 
- 	write_lock(&set->lock);
--	for (ep=&set->list, e=*ep; e!=NULL; e=*ep) {
--		*ep = e->next;
-+	list_for_each_entry_safe(e, ep, &set->list, list) {
- 		/*
- 		 * We don't kfree dest because it is refered either
- 		 * by its service or by the trash dest list.
- 		 */
- 		atomic_dec(&e->dest->refcnt);
-+		list_del(&e->list);
- 		kfree(e);
- 	}
- 	write_unlock(&set->lock);
-@@ -166,7 +164,7 @@ static void ip_vs_dest_set_eraseall(stru
- /* get weighted least-connection node in the destination set */
- static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
- {
--	register struct ip_vs_dest_list *e;
-+	register struct ip_vs_dest_set_elem *e;
- 	struct ip_vs_dest *dest, *least;
- 	int loh, doh;
- 
-@@ -174,7 +172,7 @@ static inline struct ip_vs_dest *ip_vs_d
- 		return NULL;
- 
- 	/* select the first destination server, whose weight > 0 */
--	for (e=set->list; e!=NULL; e=e->next) {
-+	list_for_each_entry(e, &set->list, list) {
- 		least = e->dest;
- 		if (least->flags & IP_VS_DEST_F_OVERLOAD)
- 			continue;
-@@ -190,7 +188,7 @@ static inline struct ip_vs_dest *ip_vs_d
- 
- 	/* find the destination with the weighted least load */
-   nextstage:
--	for (e=e->next; e!=NULL; e=e->next) {
-+	list_for_each_entry(e, &set->list, list) {
- 		dest = e->dest;
- 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
- 			continue;
-@@ -220,7 +218,7 @@ static inline struct ip_vs_dest *ip_vs_d
- /* get weighted most-connection node in the destination set */
- static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set)
- {
--	register struct ip_vs_dest_list *e;
-+	register struct ip_vs_dest_set_elem *e;
- 	struct ip_vs_dest *dest, *most;
- 	int moh, doh;
- 
-@@ -228,7 +226,7 @@ static inline struct ip_vs_dest *ip_vs_d
- 		return NULL;
- 
- 	/* select the first destination server, whose weight > 0 */
--	for (e=set->list; e!=NULL; e=e->next) {
-+	list_for_each_entry(e, &set->list, list) {
- 		most = e->dest;
- 		if (atomic_read(&most->weight) > 0) {
- 			moh = atomic_read(&most->activeconns) * 50
-@@ -240,7 +238,7 @@ static inline struct ip_vs_dest *ip_vs_d
- 
- 	/* find the destination with the weighted most load */
-   nextstage:
--	for (e=e->next; e!=NULL; e=e->next) {
-+	list_for_each_entry(e, &set->list, list) {
- 		dest = e->dest;
- 		doh = atomic_read(&dest->activeconns) * 50
- 			+ atomic_read(&dest->inactconns);
-@@ -389,7 +387,7 @@ ip_vs_lblcr_new(struct ip_vs_lblcr_table
- 
- 		/* initilize its dest set */
- 		atomic_set(&(en->set.size), 0);
--		en->set.list = NULL;
-+		INIT_LIST_HEAD(&en->set.list);
- 		rwlock_init(&en->set.lock);
- 
- 		ip_vs_lblcr_hash(tbl, en);
+ 			tx_cleaned += gfar_clean_tx_ring(tx_queue);
++			if (!tx_cleaned && !tx_queue->num_txbdfree)
++				tx_cleaned += 1; /* don't complete napi */
+ 			rx_cleaned_per_queue = gfar_clean_rx_ring(rx_queue,
+ 							budget_per_queue);
+ 			rx_cleaned += rx_cleaned_per_queue;
