@@ -1,101 +1,76 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [ethtool PATCH] ethtool: Support n-tuple filter programming
-Date: Fri, 26 Feb 2010 16:05:19 -0500
-Message-ID: <4B88378F.9040104@garzik.org>
-References: <20100204075101.16661.95658.stgit@localhost.localdomain>	 <4B85F173.40703@garzik.org>	 <Pine.WNT.4.64.1002251739130.51452@ppwaskie-MOBL2.amr.corp.intel.com>	 <4B87315E.4080905@garzik.org> <1267214397.2098.17.camel@achroite.uk.solarflarecom.com>
+From: Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
+Date: Sat, 27 Feb 2010 00:13:43 +0300
+Message-ID: <4B883987.6090408@parallels.com>
+References: <4B4F24AC.70105@trash.net>
+	<1263481549.23480.24.camel@bigi>	<4B4F3A50.1050400@trash.net>
+	<1263490403.23480.109.camel@bigi>	<4B50403A.6010507@trash.net>
+	<1263568754.23480.142.camel@bigi>	<m13a0tf17t.fsf@fess.ebiederm.org>
+	<1266875729.3673.12.camel@bigi>	<m1wry46es9.fsf@fess.ebiederm.org>
+	<1266931623.3973.643.camel@bigi>	<m1iq9ocafv.fsf@fess.ebiederm.org>
+	<1266934817.3973.654.camel@bigi>	<m1r5obbu2w.fsf@fess.ebiederm.org>
+	<1266966581.3973.675.camel@bigi>
+	<m1pr3t2fvl.fsf_-_@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f182.google.com ([209.85.210.182]:43479 "EHLO
-	mail-yx0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754574Ab0BZVFb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 16:05:31 -0500
-Received: by yxe12 with SMTP id 12so251211yxe.33
-        for <netdev@vger.kernel.org>; Fri, 26 Feb 2010 13:05:30 -0800 (PST)
-In-Reply-To: <1267214397.2098.17.camel@achroite.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+        Netfilter Development Mailinglist <netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Daniel Lezcano <dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org>
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <m1pr3t2fvl.fsf_-_-+imSwln9KH6u2/kzUuoCbdi2O/JbrIOy@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 02/26/2010 02:59 PM, Ben Hutchings wrote:
-> On Thu, 2010-02-25 at 21:26 -0500, Jeff Garzik wrote:
->> On 02/25/2010 08:49 PM, Waskiewicz Jr, Peter P wrote:
-> [...]
->>> This will require a small kernel change.  Will something like this be
->>> pulled in at this point, given that 2.6.33 just released?
->>
->> The n-tuple stuff is not in 2.6.33's ethtool interface, so it hasn't
->> actually made it into a released kernel at this point.
->>
->> It seems reasonable for 2.6.34 to either add ETHTOOL_GSTRINGS_COUNT or
->> update drvinfo.  Even if net-next has already been pulled into
->> post-2.6.33 merge window, that would IMO qualify as a reasonable
->> interface bugfix to get upstream.  The ethtool n-tuple ABI is not locked
->> into stone until 2.6.34 is released by Linus.
->
-> Given that, I would really like to see the tuple strings replaced with
-> binary structures.  Setting them in binary format and retrieving them in
-> text format is inelegant.  Also we should not assume that ethtool is the
-> only user of the ethtool API.  If someone wanted to write a GUI to
-> manage the filter tuples, or a tool that would programmatically
-> reconfigure filters, they would have to parse the strings.
->
-> Even the lookup of number of strings seems to be completely
-> misconceived.  It's delegated to the driver thus:
->
->          ret = ops->get_sset_count(dev, gstrings.string_set);
->          if (ret<  0)
->                  return ret;
->
-> What if gstrings.string_set != ETH_SS_NTUPLE_FILTERS?  Why is that even
-> a parameter to the operation?
->
-> Further, each filter can be formatted as multiple strings.  So is the
-> driver supposed to know how many strings the ethtool core might
-> generate?
+> +static struct inode *nsfd_mkinode(void)
+> +{
+> +	struct inode *inode;
+> +	inode = new_inode(nsfd_mnt->mnt_sb);
+> +	if (!inode)
+> +		return ERR_PTR(-ENOMEM);
+> +
+> +	inode->i_fop = &nsfd_file_operations;
+> +
+> +	/*
+> +	 * Mark the inode dirty from the very beginning,
+> +	 * that way it will never be moved to the dirty
+> +	 * list because mark_inode_dirty() will think that
+> +	 * it already _is_ on the dirty list.
+> +	 */
+> +	inode->i_state = I_DIRTY;
+> +	inode->i_mode = S_IRUSR | S_IWUSR;
+> +	inode->i_uid = current_fsuid();
+> +	inode->i_gid = current_fsgid();
+> +	inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
+> +	return inode;
+> +}
 
-Speaking _generally_, not specifically about n-tuple filters, text 
-strings are much more flexible across varied types of hardware.  For 
-example, the "private flags" ethtool interface is intended to be used as 
-a generic means for a driver to export a set of hardware-specific 
-boolean knobs.
+Why not use anon inodes?
 
-For example, e1000e's SmartPowerDownEnable need not be a module-wide 
-parameter applying to all e1000e devices in the system.  ethtool's 
-private-flags interface could enable per-net_device runtime setting of 
-this Intel-specific feature, simply by exporting a string 
-"SmartPowerDownEnable" as a private flag.
+> diff --git a/include/linux/nstype.h b/include/linux/nstype.h
+> new file mode 100644
+> index 0000000..3bdf856
+> --- /dev/null
+> +++ b/include/linux/nstype.h
+> @@ -0,0 +1,6 @@
+> +#ifndef _LINUX_NSTYPE_H
+> +#define _LINUX_NSTYPE_H
+> +
+> +#define NSTYPE_NET 0
+> +
+> +#endif /* _LINUX_NSTYPE_H */
 
-Thus, text strings isolate the problem of hardware-specific settings, 
-features and structures entirely in the kernel driver itself.
-
-Getting back to n-tuple filters, the question becomes:  how 
-hardware-specific are the filter formats?
-
-Using binary structures is generally more efficient...   but efficiency 
-is not really a primary goal.  Working across a broad spectrum of 
-hardware, future-proof-edness, is more important.  Binary structures may 
-lock ethtool users into a very specific filter specification -- one that 
-might not be as easily applicable to other vendors' hardware, or even 
-future hardware from the same vendor.
-
-procfs and sysfs exist in their current, ASCII-friendly form in part 
-because Linus has often observed that text strings are often easier and 
-more resilient kernel<->userspace interfaces than binary interfaces.
-
-All that said, I cannot argue that there are elements of the current 
-Intel implementation that are quite inelegant, and binary structures may 
-simply be easier.
-
-Like everything else in life, it's a balance...   ;-)
-
-	Jeff
-
-
-
+Yet another set of per-namespace IDs along with CLONE_NEWXXX ones?
+I currently have a way to create all namespaces we have with one
+syscall. Why don't we have an ability to enter them all with one syscall?
