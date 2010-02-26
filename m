@@ -1,43 +1,56 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [RFC] [1/13] bridge: Add IGMP snooping support
-Date: Fri, 26 Feb 2010 23:34:10 +0800
-Message-ID: <20100226153410.GA26419@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Subject: [PATCH 1/13] bridge: Do br_pass_frame_up after other ports
+Date: Fri, 26 Feb 2010 23:35:05 +0800
+Message-ID: <E1Nl2DZ-0006uq-SS@gondolin.me.apana.org.au>
+References: <20100226153410.GA26419@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:52498 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:52503 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S965046Ab0BZPeN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 10:34:13 -0500
-Content-Disposition: inline
+	with ESMTP id S965046Ab0BZPfH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 10:35:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
+bridge: Do br_pass_frame_up after other ports
 
-This series of patches adds basic IGMP support to the bridge
-device.  First of all the following is not currently supported
-but may be added in future:
+At the moment we deliver to the local bridge port via the function
+br_pass_frame_up before all other ports.  There is no requirement
+for this.
 
-* IGMPv3 source support (so really just IGMPv2 for now)
-* Non-querier router detection
-* IPv6
+For the purpose of IGMP snooping, it would be more convenient if
+we did the local port last.  Therefore this patch rearranges the
+bridge input processing so that the local bridge port gets to see
+the packet last (if at all).
 
-The series is divided into two portions:
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
 
-1-5 lays the ground work and can be merged without any of the
-other patches.
+ net/bridge/br_input.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-6-13 are the actual IGMP-specific patches.
-
-This is a kernel-only implementation.  In future we could move
-parts of this into user-space just like RTP.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 5ee1a36..9589937 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -73,9 +73,6 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 	if (skb2 == skb)
+ 		skb2 = skb_clone(skb, GFP_ATOMIC);
+ 
+-	if (skb2)
+-		br_pass_frame_up(br, skb2);
+-
+ 	if (skb) {
+ 		if (dst)
+ 			br_forward(dst->dst, skb);
+@@ -83,6 +80,9 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 			br_flood_forward(br, skb);
+ 	}
+ 
++	if (skb2)
++		br_pass_frame_up(br, skb2);
++
+ out:
+ 	return 0;
+ drop:
