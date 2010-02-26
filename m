@@ -1,88 +1,63 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
-Date: Thu, 25 Feb 2010 17:26:41 -0800
-Message-ID: <m1mxywyege.fsf@fess.ebiederm.org>
-References: <1263568754.23480.142.camel@bigi>
-	<m13a0tf17t.fsf@fess.ebiederm.org> <1266875729.3673.12.camel@bigi>
-	<m1wry46es9.fsf@fess.ebiederm.org> <1266931623.3973.643.camel@bigi>
-	<m1iq9ocafv.fsf@fess.ebiederm.org> <1266934817.3973.654.camel@bigi>
-	<m1r5obbu2w.fsf@fess.ebiederm.org> <1266966581.3973.675.camel@bigi>
-	<m1pr3t2fvl.fsf_-_@fess.ebiederm.org>
-	<20100226010915.GA20106@count0.beaverton.ibm.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [ethtool PATCH] ethtool: Support n-tuple filter programming
+Date: Thu, 25 Feb 2010 17:49:39 -0800 (Pacific Standard Time)
+Message-ID: <Pine.WNT.4.64.1002251739130.51452@ppwaskie-MOBL2.amr.corp.intel.com>
+References: <20100204075101.16661.95658.stgit@localhost.localdomain>
+ <4B85F173.40703@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>,
-	Serge Hallyn <serue@us.ibm.com>
-To: Matt Helsley <matthltc@us.ibm.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100226010915.GA20106@count0.beaverton.ibm.com> (Matt Helsley's message of "Thu\, 25 Feb 2010 17\:09\:15 -0800")
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+To: Jeff Garzik <jeff@garzik.org>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:59604 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934883Ab0BZBtr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Feb 2010 20:49:47 -0500
+In-Reply-To: <4B85F173.40703@garzik.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Matt Helsley <matthltc@us.ibm.com> writes:
+On Wed, 24 Feb 2010, Jeff Garzik wrote:
 
-> On Thu, Feb 25, 2010 at 12:57:02PM -0800, Eric W. Biederman wrote:
->> 
->> Introduce two new system calls:
->> int nsfd(pid_t pid, unsigned long nstype);
->> int setns(unsigned long nstype, int fd);
->> 
->> These two new system calls address three specific problems that can
->> make namespaces hard to work with.
->> - Namespaces require a dedicated process to pin them in memory.
->> - It is not possible to use a namespace unless you are the
->>   child of the original creator.
->> - Namespaces don't have names that userspace can use to talk
->>   about them.
->> 
->> The nsfd() system call returns a file descriptor that can
->> be used to talk about a specific namespace, and to keep
->> the specified namespace alive.
->> 
->> The fd returned by nsfd() can be bind mounted as:
->> mount --bind /proc/self/fd/N /some/filesystem/path
->> to keep the namespace alive indefinitely as long as
->> it is mounted.
->> 
->> open works on the fd returned by nsfd() so another
->> process can get a hold of it and do interesting things.
->> 
->> Overall that allows for persistent naming of namespaces
->> according to userspace policy.
->> 
->> setns() allows changing the namespace of the current process
->> to a namespace that originates with nsfd().
->> 
->> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
->> ---
->> 
->> This is just my first pass at this, and not yet compiled tested.
->> I was pleasantly surprised at how easy all of this was to implement.
->
-> <snip>
->
->> +SYSCALL_DEFINE2(setns, unsigned long, nstype, int, fd)
->> +{
->> +	struct file *file;
->> +
->> +	if (!capable(CAP_SYS_ADMIN))
->> +		return -EPERM;
->
-> Is this check preliminary? In the future would we check against the
-> owner of the target namespace too? Naturally that will require tagging
-> each namespace with an owner but I thought that was already part of the
-> plan...
+> On 02/04/2010 02:51 AM, Jeff Kirsher wrote:
+> > From: Peter Waskiewicz<peter.p.waskiewicz.jr@intel.com>
+> >
+> > Program underlying ethernet devices with n-tuple flow classification
+> > filters.
+> >
+> > This also adds a new flag to ethtool_flags, allowing n-tuple
+> > programming to be toggled using the set_flags call.
+> >
+> > Signed-off-by: Peter P Waskiewicz Jr<peter.p.waskiewicz.jr@intel.com>
+> > Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
+> > ---
+> >
+> >   ethtool-copy.h |   35 +++++++++++++
+> >   ethtool.c      |  156 ++++++++++++++++++++++++++++++++++++++++++++++++++++++--
+> >   2 files changed, 186 insertions(+), 5 deletions(-)
+> 
+> applied, but two problems remain:
+> 
+> 1) you failed to document this in the man page.  I will expect a patch 
+> to ethtool.8.
+> 
+> 2) you introduced a deviation from the upstream kernel ethtool.h:
 
-We aren't modifying the namespace here so namespace owners are
-irrelevant here.
+The way I've come up with to fix this is less intrusive than I want, but I 
+think it's right way to do it.  The intent wasn't to have ethtool 
+(userspace) enforce how many filters could be returned.  What it should do 
+is get the number of strings through drvinfo to make the proper memory 
+allocation.
 
-We are modifying the process so we need to have CAP_SYS_ADMIN in the
-processes credential/uid namespace.
+What I need to change is the drvinfo struct in the kernel to include the 
+ethtool strings field, returned from get_sset_count().  Then I can pull 
+that into userspace and make the correct memory allocation, then call 
+get_rx_ntuple().
 
-Eric
+This will require a small kernel change.  Will something like this be 
+pulled in at this point, given that 2.6.33 just released?
+
+-PJ
