@@ -1,73 +1,84 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [net-next-2.6 PATCH] ethtool: Add n-tuple string length to drvinfo
- and return it
-Date: Fri, 26 Feb 2010 08:59:22 -0500
-Message-ID: <4B87D3BA.7050404@garzik.org>
-References: <20100226115355.20213.59254.stgit@localhost.localdomain> <4B87D31B.4000001@garzik.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Advice on RCU for IPVS
+Date: Fri, 26 Feb 2010 15:00:20 +0100
+Message-ID: <1267192820.9082.11.camel@edumazet-laptop>
+References: <20100226031812.GC6111@verge.net.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010400080505010801070201"
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f197.google.com ([209.85.211.197]:40055 "EHLO
-	mail-yw0-f197.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936288Ab0BZN7Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 08:59:24 -0500
-Received: by ywh35 with SMTP id 35so43577ywh.4
-        for <netdev@vger.kernel.org>; Fri, 26 Feb 2010 05:59:24 -0800 (PST)
-In-Reply-To: <4B87D31B.4000001@garzik.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20100226031812.GC6111@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010400080505010801070201
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+Le vendredi 26 f=C3=A9vrier 2010 =C3=A0 14:18 +1100, Simon Horman a =C3=
+=A9crit :
+> Hi,
+>=20
+> I have been looking at converting the rwlocks in IPVS over to use RCU=
+=2E
+> A problem that I am facing is that the lblcr scheduler uses
+> a write lock on list A and then taking a write lock on list B.
+> Where list B is basically part of one of the elements of list A.
+>=20
+> This problem is present in ip_vs_lblcr_schedule() and
+> the key code looks like this.
+>=20
+>=20
+> 	/* First look in our cache */
+> 	read_lock(&svc->sched_lock);
+> 	en =3D ip_vs_lblcr_get(svc->af, tbl, &iph.daddr);
+> 	if (en) {
+> 		...
+>=20
+> 		/* Get the least loaded destination */
+> 		read_lock(&en->set.lock);
+> 		dest =3D ip_vs_dest_set_min(&en->set);
+> 		read_unlock(&en->set.lock);
+>=20
+> 		...
+>=20
+> 			write_lock(&en->set.lock);
+> 			m =3D ip_vs_dest_set_max(&en->set);
+> 			if (m)
+> 				ip_vs_dest_set_erase(&en->set, m);
+> 			write_unlock(&en->set.lock);
+>=20
+> 		...
+>=20
+> 		/* Update our cache entry */
+> 		write_lock(&en->set.lock);
+> 		ip_vs_dest_set_insert(&en->set, dest);
+> 		write_unlock(&en->set.lock);
+> 	}
+> 	read_unlock(&svc->sched_lock);
+>=20
+> dest is referenced counted and doesn't seem to need to be guarded
+> by svc->sched_lock.
+>=20
+> It seems to me that this is quite difficult to convert over to RCU
+> as there are write-side critical sections inside a read-side critical
+> section.
+>=20
+> I investigated reference counting the return value of
+> ip_vs_lblcr_get() or the return value of ip_vs_dest_set_max() and
+> ip_vs_dest_set_insert(). But this seems to be difficult,
+> especially at rmmod time.
+>=20
+> I also considered just making the whole thing a write-side critical s=
+ection.
+> Which seems to be somewhat of a sledge-hammer and result in
+> a critical section that is much larger than I would like. Though
+> no bigger than the existing area covered by the read-lock on
+> svc->sched_lock.
+>=20
+> Any suggestions would be appreciated.
 
-On 02/26/2010 08:56 AM, Jeff Garzik wrote:
-> However, perhaps consider the following patch for returning n-tuple
-> count, for four reasons:
->
-> 1) space in ethtool_drvinfo is limited
->
-> 2) the patch below permits trivial string set addition, without
-> ABI changes beyond adding a new ETH_SS_xxx constant.
->
-> 3) the patch below permits direct access to ops->get_sset_count(),
-> rather than implicit access via ethtool_drvinfo
->
-> 4) ethtool_drvinfo interface does not permit indication of
-> ops->get_sset_count() failure, versus returning zero value. The
-> patch below does so, via output sset_mask.
->
-> WARNING: this patch is compile-tested only.
->
-> NOTE: I added a cosmetic fix to ETHTOOL_[GS]RXNTUPLE constants, making
-> their indentation consistent with the rest of the list of constants.
->
-> Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
+The code you copy/pasted seems really complex, I would suggest to make
+it as simple as possible (using spinlocks for example instead of
+rwlocks) before considering RCU conversion.
 
 
-With, perhaps, a note like the attached as a reminder to folks about 
-future additions.
 
-
---------------010400080505010801070201
-Content-Type: text/plain;
- name="patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="patch"
-
-ZGlmZiAtLWdpdCBhL25ldC9jb3JlL2V0aHRvb2wuYyBiL25ldC9jb3JlL2V0aHRvb2wuYwpp
-bmRleCAzMWIxZWRkLi5lMzc2ZThjIDEwMDY0NAotLS0gYS9uZXQvY29yZS9ldGh0b29sLmMK
-KysrIGIvbmV0L2NvcmUvZXRodG9vbC5jCkBAIC0yMTIsNiArMjEyLDkgQEAgc3RhdGljIG5v
-aW5saW5lIGludCBldGh0b29sX2dldF9kcnZpbmZvKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYs
-IHZvaWQgX191c2VyICp1c2UKIAlpbmZvLmNtZCA9IEVUSFRPT0xfR0RSVklORk87CiAJb3Bz
-LT5nZXRfZHJ2aW5mbyhkZXYsICZpbmZvKTsKIAorCS8qIHRoaXMgbWV0aG9kIG9mIG9idGFp
-bmluZyBzdHJpbmcgc2V0IGluZm8gaXMgZGVwcmVjYXRlZDsKKwkgKiBjb25zaWRlciB1c2lu
-ZyBFVEhUT09MX0dTU0VUX0lORk8gaW5zdGVhZAorCSAqLwogCWlmIChvcHMtPmdldF9zc2V0
-X2NvdW50KSB7CiAJCWludCByYzsKIAo=
---------------010400080505010801070201--
