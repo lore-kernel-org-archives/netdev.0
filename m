@@ -1,38 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: Use 1280 as min MTU for ipv6 forwarding
-Date: Fri, 26 Feb 2010 03:59:47 -0800 (PST)
-Message-ID: <20100226.035947.242568281.davem@davemloft.net>
-References: <20100226092752.GA5969@babylon>
+Subject: Re: [PATCH] ipv6: Remove IPV6_ADDR_RESERVED
+Date: Fri, 26 Feb 2010 03:59:52 -0800 (PST)
+Message-ID: <20100226.035952.27099373.davem@davemloft.net>
+References: <20100226092858.GA5986@babylon>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: uweber@astaro.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59279
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59283
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S935334Ab0BZL73 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 06:59:29 -0500
-In-Reply-To: <20100226092752.GA5969@babylon>
+	by vger.kernel.org with ESMTP id S935641Ab0BZL7e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 06:59:34 -0500
+In-Reply-To: <20100226092858.GA5986@babylon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ulrich Weber <uweber@astaro.com>
-Date: Fri, 26 Feb 2010 10:27:52 +0100
+Date: Fri, 26 Feb 2010 10:28:58 +0100
 
-> Clients will set their MTU to 1280 if they receive a
-> ICMPV6_PKT_TOOBIG message with an MTU less than 1280.
+> RFC 4291 section 2.4 states that all uncategorized addresses
+> should be considered as Global Unicast.
 > 
-> To allow encapsulating of packets over a 1280 link
-> we should always accept packets with a size of 1280
-> for forwarding even if the path has a lower MTU and
-> fragment the encapsulated packets afterwards.
-> 
-> In case a forwarded packet is not going to be encapsulated
-> a ICMPV6_PKT_TOOBIG msg will still be send by ip6_fragment()
-> with the correct MTU.
+> This will remove IPV6_ADDR_RESERVED completely
+> and return IPV6_ADDR_UNICAST in ipv6_addr_type() instead.
 > 
 > Signed-off-by: Ulrich Weber <uweber@astaro.com>
 
-Patch does not apply to net-next-2.6, icmpv6_send() no longer
-takes the final 'dev' argument.
+Applied.
