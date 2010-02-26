@@ -1,7 +1,7 @@
 From: Webmail Upgrade Team <info@upgrade.org>
 Subject: Upgrade Your Email Account
-Date: Thu, 25 Feb 2010 22:07:05 -0300
-Message-ID: <20100225220705.2aiowh00r48cccck@inet.cdlaju.com.br>
+Date: Thu, 25 Feb 2010 22:07:00 -0300
+Message-ID: <20100225220700.2dl2gmnwcgcwck88@inet.cdlaju.com.br>
 Reply-To: upgradecct@w.cn
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -11,10 +11,10 @@ Content-Type: text/plain;
 Content-Transfer-Encoding: 7bit
 To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from inet.cdlaju.com.br ([201.38.225.242]:39715 "EHLO
+Received: from inet.cdlaju.com.br ([201.38.225.242]:40738 "EHLO
 	inet.cdlaju.com.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934944Ab0BZBwp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 20:52:45 -0500
+	with ESMTP id S934924Ab0BZBys (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Feb 2010 20:54:48 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
