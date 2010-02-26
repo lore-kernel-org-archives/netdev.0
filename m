@@ -1,69 +1,49 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [ethtool PATCH] ethtool: Support n-tuple filter programming
-Date: Fri, 26 Feb 2010 19:59:57 +0000
-Message-ID: <1267214397.2098.17.camel@achroite.uk.solarflarecom.com>
-References: <20100204075101.16661.95658.stgit@localhost.localdomain>
-	 <4B85F173.40703@garzik.org>
-	 <Pine.WNT.4.64.1002251739130.51452@ppwaskie-MOBL2.amr.corp.intel.com>
-	 <4B87315E.4080905@garzik.org>
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [net-next-2.6 PATCH] ethtool: Add n-tuple string length to
+ drvinfo and return it
+Date: Fri, 26 Feb 2010 12:08:32 -0800
+Message-ID: <1267214912.2224.1.camel@localhost>
+References: <20100226115355.20213.59254.stgit@localhost.localdomain>
+	 <20100226.042027.250812962.davem@davemloft.net>
+	 <4B87C70F.8060403@garzik.org>
+	 <20100226.051145.01410157.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	davem@davemloft.net,
+Cc: "jeff@garzik.org" <jeff@garzik.org>,
 	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"gospo@redhat.com" <gospo@redhat.com>
-To: Jeff Garzik <jeff@garzik.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:31704 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965876Ab0BZUAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 15:00:05 -0500
-In-Reply-To: <4B87315E.4080905@garzik.org>
+Received: from mga09.intel.com ([134.134.136.24]:30005 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965910Ab0BZUIe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Feb 2010 15:08:34 -0500
+In-Reply-To: <20100226.051145.01410157.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-02-25 at 21:26 -0500, Jeff Garzik wrote:
-> On 02/25/2010 08:49 PM, Waskiewicz Jr, Peter P wrote:
-[...]
-> > This will require a small kernel change.  Will something like this be
-> > pulled in at this point, given that 2.6.33 just released?
+On Fri, 2010-02-26 at 05:11 -0800, David Miller wrote:
+> From: Jeff Garzik <jeff@garzik.org>
+> Date: Fri, 26 Feb 2010 08:05:19 -0500
 > 
-> The n-tuple stuff is not in 2.6.33's ethtool interface, so it hasn't 
-> actually made it into a released kernel at this point.
+> > NAK.  Did you even read the patch?
 > 
-> It seems reasonable for 2.6.34 to either add ETHTOOL_GSTRINGS_COUNT or 
-> update drvinfo.  Even if net-next has already been pulled into 
-> post-2.6.33 merge window, that would IMO qualify as a reasonable 
-> interface bugfix to get upstream.  The ethtool n-tuple ABI is not locked 
-> into stone until 2.6.34 is released by Linus.
+> I did, brain doesn't work sometimes :-)
+> 
+> > We don't increase the size of struct ethtool_drvinfo, _especially_ by
+> > sticking struct members into the middle of the struct.
+> > 
 
-Given that, I would really like to see the tuple strings replaced with
-binary structures.  Setting them in binary format and retrieving them in
-text format is inelegant.  Also we should not assume that ethtool is the
-only user of the ethtool API.  If someone wanted to write a GUI to
-manage the filter tuples, or a tool that would programmatically
-reconfigure filters, they would have to parse the strings.
+Brain lapse.  When you mentioned ABI not being locked down until 2.6.34
+is dropped, I didn't think.
 
-Even the lookup of number of strings seems to be completely
-misconceived.  It's delegated to the driver thus:
+I'm testing your proposed change, and once I have it working, I'll give
+it to Jeff K. to get pushed along with a new userspace patch.
 
-        ret = ops->get_sset_count(dev, gstrings.string_set);
-        if (ret < 0)
-                return ret;
+> > What do you think 'reserved' is for???
+> 
+> Right, I'll revert, thanks.
 
-What if gstrings.string_set != ETH_SS_NTUPLE_FILTERS?  Why is that even
-a parameter to the operation?
-
-Further, each filter can be formatted as multiple strings.  So is the
-driver supposed to know how many strings the ethtool core might
-generate?
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
 
