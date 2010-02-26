@@ -1,56 +1,133 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: bonding: fix device leak on error in bond_create()
-Date: Fri, 26 Feb 2010 16:35:52 +0100
-Message-ID: <4B87EA58.7090601@trash.net>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050707090204020706060302"
-Cc: Jay Vosburgh <fubar@us.ibm.com>
-To: Linux Netdev List <netdev@vger.kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [PATCH 5/13] bridge: Split may_deliver/deliver_clone out of br_flood
+Date: Fri, 26 Feb 2010 23:35:10 +0800
+Message-ID: <E1Nl2De-0006vb-9M@gondolin.me.apana.org.au>
+References: <20100226153410.GA26419@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58244 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965167Ab0BZPfy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 10:35:54 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:52514 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965135Ab0BZPfN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 10:35:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------050707090204020706060302
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+bridge: Split may_deliver/deliver_clone out of br_flood
 
+This patch moves the main loop body in br_flood into the function
+may_deliver.  The code that clones an skb and delivers it is moved
+into the deliver_clone function.
 
---------------050707090204020706060302
-Content-Type: text/x-patch;
- name="01.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="01.diff"
+This allows this to be reused by the future multicast forward
+function.
 
-commit f357a5caa0ca29b74811a0fc08efb5ae4aade959
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Thu Feb 25 20:21:10 2010 +0100
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
 
-    bonding: fix device leak on error in bond_create()
-    
-    When the register_netdevice() call fails, the newly allocated device is
-    not freed.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+ net/bridge/br_forward.c |   69 ++++++++++++++++++++++++++++++++----------------
+ 1 file changed, 46 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 1787e3c..430c022 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4946,6 +4946,8 @@ int bond_create(struct net *net, const char *name)
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index 2e1cb43..86cd071 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -11,6 +11,7 @@
+  *	2 of the License, or (at your option) any later version.
+  */
+ 
++#include <linux/err.h>
+ #include <linux/kernel.h>
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>
+@@ -103,6 +104,44 @@ void br_forward(const struct net_bridge_port *to, struct sk_buff *skb)
+ 	kfree_skb(skb);
+ }
+ 
++static int deliver_clone(struct net_bridge_port *prev, struct sk_buff *skb,
++			 void (*__packet_hook)(const struct net_bridge_port *p,
++					       struct sk_buff *skb))
++{
++	skb = skb_clone(skb, GFP_ATOMIC);
++	if (!skb) {
++		struct net_device *dev = BR_INPUT_SKB_CB(skb)->brdev;
++
++		dev->stats.tx_dropped++;
++		return -ENOMEM;
++	}
++
++	__packet_hook(prev, skb);
++	return 0;
++}
++
++static struct net_bridge_port *maybe_deliver(
++	struct net_bridge_port *prev, struct net_bridge_port *p,
++	struct sk_buff *skb,
++	void (*__packet_hook)(const struct net_bridge_port *p,
++			      struct sk_buff *skb))
++{
++	int err;
++
++	if (!should_deliver(p, skb))
++		return prev;
++
++	if (!prev)
++		goto out;
++
++	err = deliver_clone(prev, skb, __packet_hook);
++	if (err)
++		return ERR_PTR(err);
++
++out:
++	return p;
++}
++
+ /* called under bridge lock */
+ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
+ 		     struct sk_buff *skb0,
+@@ -111,38 +150,22 @@ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
+ {
+ 	struct net_bridge_port *p;
+ 	struct net_bridge_port *prev;
+-	struct net_device *dev = BR_INPUT_SKB_CB(skb)->brdev;
+ 
+ 	prev = NULL;
+ 
+ 	list_for_each_entry_rcu(p, &br->port_list, list) {
+-		if (should_deliver(p, skb)) {
+-			if (prev != NULL) {
+-				struct sk_buff *skb2;
+-
+-				if ((skb2 = skb_clone(skb, GFP_ATOMIC)) == NULL) {
+-					dev->stats.tx_dropped++;
+-					goto out;
+-				}
+-
+-				__packet_hook(prev, skb2);
+-			}
+-
+-			prev = p;
+-		}
++		prev = maybe_deliver(prev, p, skb, __packet_hook);
++		if (IS_ERR(prev))
++			goto out;
  	}
  
- 	res = register_netdevice(bond_dev);
-+	if (res < 0)
-+		goto out_netdev;
+ 	if (!prev)
+ 		goto out;
+ 
+-	if (skb0) {
+-		skb = skb_clone(skb, GFP_ATOMIC);
+-		if (!skb) {
+-			dev->stats.tx_dropped++;
+-			goto out;
+-		}
+-	}
+-	__packet_hook(prev, skb);
++	if (skb0)
++		deliver_clone(prev, skb, __packet_hook);
++	else
++		__packet_hook(prev, skb);
+ 	return;
  
  out:
- 	rtnl_unlock();
-
---------------050707090204020706060302--
