@@ -1,255 +1,109 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 10/13] bridge: Add multicast_router sysfs entries
-Date: Fri, 26 Feb 2010 23:35:15 +0800
-Message-ID: <E1Nl2Dj-0006wU-LU@gondolin.me.apana.org.au>
+Subject: [PATCH 9/13] bridge: Add multicast data-path hooks
+Date: Fri, 26 Feb 2010 23:35:14 +0800
+Message-ID: <E1Nl2Di-0006wJ-JB@gondolin.me.apana.org.au>
 References: <20100226153410.GA26419@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:52527 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:52525 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S965145Ab0BZPfU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 10:35:20 -0500
+	with ESMTP id S965144Ab0BZPfT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 10:35:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bridge: Add multicast_router sysfs entries
+bridge: Add multicast data-path hooks
 
-This patch allows the user to forcibly enable/disable ports as
-having multicast routers attached.  A port with a multicast router
-will receive all multicast traffic.
-
-The value 0 disables it completely.  The default is 1 which lets
-the system automatically detect the presence of routers (currently
-this is limited to picking up queries), and 2 means that the port
-will always receive all multicast traffic.
+This patch finally hooks up the multicast snooping module to the
+data path.  In particular, all multicast packets passing through
+the bridge are fed into the module and switched by it.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/bridge/br_multicast.c |  105 +++++++++++++++++++++++++++++++++++++++-------
- net/bridge/br_private.h   |    3 +
- net/bridge/br_sysfs_br.c  |   21 +++++++++
- net/bridge/br_sysfs_if.c  |   18 +++++++
- 4 files changed, 133 insertions(+), 14 deletions(-)
+ net/bridge/br_device.c |   15 ++++++++++++---
+ net/bridge/br_input.c  |   18 +++++++++++++++++-
+ 2 files changed, 29 insertions(+), 4 deletions(-)
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 746b5a6..674224b 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -746,12 +746,30 @@ static int br_multicast_igmp3_report(struct net_bridge *br,
- 	return err;
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index 91dffe7..eb7062d 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -25,6 +25,7 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct net_bridge *br = netdev_priv(dev);
+ 	const unsigned char *dest = skb->data;
+ 	struct net_bridge_fdb_entry *dst;
++	struct net_bridge_mdb_entry *mdst;
+ 
+ 	BR_INPUT_SKB_CB(skb)->brdev = dev;
+ 
+@@ -34,13 +35,21 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	skb_reset_mac_header(skb);
+ 	skb_pull(skb, ETH_HLEN);
+ 
+-	if (dest[0] & 1)
+-		br_flood_deliver(br, skb);
+-	else if ((dst = __br_fdb_get(br, dest)) != NULL)
++	if (dest[0] & 1) {
++		if (br_multicast_rcv(br, NULL, skb))
++			goto out;
++
++		mdst = br_mdb_get(br, skb);
++		if (mdst || BR_INPUT_SKB_CB(skb)->mrouters_only)
++			br_multicast_deliver(mdst, skb);
++		else
++			br_flood_deliver(br, skb);
++	} else if ((dst = __br_fdb_get(br, dest)) != NULL)
+ 		br_deliver(dst->dst, skb);
+ 	else
+ 		br_flood_deliver(br, skb);
+ 
++out:
+ 	return NETDEV_TX_OK;
  }
  
-+static void br_multicast_add_router(struct net_bridge *br,
-+				    struct net_bridge_port *port)
-+{
-+	struct hlist_node *p;
-+	struct hlist_node **h;
-+
-+	for (h = &br->router_list.first;
-+	     (p = *h) &&
-+	     (unsigned long)container_of(p, struct net_bridge_port, rlist) >
-+	     (unsigned long)port;
-+	     h = &p->next)
-+		;
-+
-+	port->rlist.pprev = h;
-+	port->rlist.next = p;
-+	rcu_assign_pointer(*h, &port->rlist);
-+	if (p)
-+		p->pprev = &port->rlist.next;
-+}
-+
- static void br_multicast_mark_router(struct net_bridge *br,
- 				     struct net_bridge_port *port)
- {
- 	unsigned long now = jiffies;
--	struct hlist_node *p;
--	struct hlist_node **h;
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index edfdaef..53b3985 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -41,6 +41,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 	struct net_bridge_port *p = rcu_dereference(skb->dev->br_port);
+ 	struct net_bridge *br;
+ 	struct net_bridge_fdb_entry *dst;
++	struct net_bridge_mdb_entry *mdst;
+ 	struct sk_buff *skb2;
  
- 	if (!port) {
- 		if (br->multicast_router == 1)
-@@ -766,18 +784,7 @@ static void br_multicast_mark_router(struct net_bridge *br,
- 	if (!hlist_unhashed(&port->rlist))
- 		goto timer;
+ 	if (!p || p->state == BR_STATE_DISABLED)
+@@ -50,6 +51,10 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 	br = p->br;
+ 	br_fdb_update(br, p, eth_hdr(skb)->h_source);
  
--	for (h = &br->router_list.first;
--	     (p = *h) &&
--	     (unsigned long)container_of(p, struct net_bridge_port, rlist) >
--	     (unsigned long)port;
--	     h = &p->next)
--		;
--
--	port->rlist.pprev = h;
--	port->rlist.next = p;
--	rcu_assign_pointer(*h, &port->rlist);
--	if (p)
--		p->pprev = &port->rlist.next;
-+	br_multicast_add_router(br, port);
++	if (is_multicast_ether_addr(dest) &&
++	    br_multicast_rcv(br, p, skb))
++		goto drop;
++
+ 	if (p->state == BR_STATE_LEARNING)
+ 		goto drop;
  
- timer:
- 	mod_timer(&port->multicast_router_timer,
-@@ -1133,3 +1140,73 @@ void br_multicast_stop(struct net_bridge *br)
- out:
- 	spin_unlock_bh(&br->multicast_lock);
- }
-+
-+int br_multicast_set_router(struct net_bridge *br, unsigned long val)
-+{
-+	int err = -ENOENT;
-+
-+	spin_lock_bh(&br->multicast_lock);
-+	if (!netif_running(br->dev))
-+		goto unlock;
-+
-+	switch (val) {
-+	case 0:
-+	case 2:
-+		del_timer(&br->multicast_router_timer);
-+		/* fall through */
-+	case 1:
-+		br->multicast_router = val;
-+		err = 0;
-+		break;
-+
-+	default:
-+		err = -EINVAL;
-+		break;
-+	}
-+
-+unlock:
-+	spin_unlock_bh(&br->multicast_lock);
-+
-+	return err;
-+}
-+
-+int br_multicast_set_port_router(struct net_bridge_port *p, unsigned long val)
-+{
-+	struct net_bridge *br = p->br;
-+	int err = -ENOENT;
-+
-+	spin_lock(&br->multicast_lock);
-+	if (!netif_running(br->dev) || p->state == BR_STATE_DISABLED)
-+		goto unlock;
-+
-+	switch (val) {
-+	case 0:
-+	case 1:
-+	case 2:
-+		p->multicast_router = val;
-+		err = 0;
-+
-+		if (val < 2 && !hlist_unhashed(&p->rlist))
-+			hlist_del_init_rcu(&p->rlist);
-+
-+		if (val == 1)
-+			break;
-+
-+		del_timer(&p->multicast_router_timer);
-+
-+		if (val == 0)
-+			break;
-+
-+		br_multicast_add_router(br, p);
-+		break;
-+
-+	default:
-+		err = -EINVAL;
-+		break;
-+	}
-+
-+unlock:
-+	spin_unlock(&br->multicast_lock);
-+
-+	return err;
-+}
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index f2dd411..2d3df82 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -298,6 +298,9 @@ extern void br_multicast_deliver(struct net_bridge_mdb_entry *mdst,
- 				 struct sk_buff *skb);
- extern void br_multicast_forward(struct net_bridge_mdb_entry *mdst,
- 				 struct sk_buff *skb, struct sk_buff *skb2);
-+extern int br_multicast_set_router(struct net_bridge *br, unsigned long val);
-+extern int br_multicast_set_port_router(struct net_bridge_port *p,
-+					unsigned long val);
- #else
- static inline int br_multicast_rcv(struct net_bridge *br,
- 				   struct net_bridge_port *port,
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index bee4f30..cb74201 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -345,6 +345,24 @@ static ssize_t store_flush(struct device *d,
- }
- static DEVICE_ATTR(flush, S_IWUSR, NULL, store_flush);
+@@ -64,8 +69,19 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 	dst = NULL;
  
-+#ifdef CONFIG_BRIDGE_IGMP_SNOOPING
-+static ssize_t show_multicast_router(struct device *d,
-+				     struct device_attribute *attr, char *buf)
-+{
-+	struct net_bridge *br = to_bridge(d);
-+	return sprintf(buf, "%d\n", br->multicast_router);
-+}
+ 	if (is_multicast_ether_addr(dest)) {
++		mdst = br_mdb_get(br, skb);
++		if (mdst || BR_INPUT_SKB_CB(skb)->mrouters_only) {
++			if ((mdst && !hlist_unhashed(&mdst->mglist)) ||
++			    br_multicast_is_router(br))
++				skb2 = skb;
++			br_multicast_forward(mdst, skb, skb2);
++			skb = NULL;
++			if (!skb2)
++				goto out;
++		} else
++			skb2 = skb;
 +
-+static ssize_t store_multicast_router(struct device *d,
-+				      struct device_attribute *attr,
-+				      const char *buf, size_t len)
-+{
-+	return store_bridge_parm(d, buf, len, br_multicast_set_router);
-+}
-+static DEVICE_ATTR(multicast_router, S_IRUGO | S_IWUSR, show_multicast_router,
-+		   store_multicast_router);
-+#endif
-+
- static struct attribute *bridge_attrs[] = {
- 	&dev_attr_forward_delay.attr,
- 	&dev_attr_hello_time.attr,
-@@ -364,6 +382,9 @@ static struct attribute *bridge_attrs[] = {
- 	&dev_attr_gc_timer.attr,
- 	&dev_attr_group_addr.attr,
- 	&dev_attr_flush.attr,
-+#ifdef CONFIG_BRIDGE_IGMP_SNOOPING
-+	&dev_attr_multicast_router.attr,
-+#endif
- 	NULL
- };
- 
-diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
-index 820643a..696596c 100644
---- a/net/bridge/br_sysfs_if.c
-+++ b/net/bridge/br_sysfs_if.c
-@@ -159,6 +159,21 @@ static ssize_t store_hairpin_mode(struct net_bridge_port *p, unsigned long v)
- static BRPORT_ATTR(hairpin_mode, S_IRUGO | S_IWUSR,
- 		   show_hairpin_mode, store_hairpin_mode);
- 
-+#ifdef CONFIG_BRIDGE_IGMP_SNOOPING
-+static ssize_t show_multicast_router(struct net_bridge_port *p, char *buf)
-+{
-+	return sprintf(buf, "%d\n", p->multicast_router);
-+}
-+
-+static ssize_t store_multicast_router(struct net_bridge_port *p,
-+				      unsigned long v)
-+{
-+	return br_multicast_set_port_router(p, v);
-+}
-+static BRPORT_ATTR(multicast_router, S_IRUGO | S_IWUSR, show_multicast_router,
-+		   store_multicast_router);
-+#endif
-+
- static struct brport_attribute *brport_attrs[] = {
- 	&brport_attr_path_cost,
- 	&brport_attr_priority,
-@@ -176,6 +191,9 @@ static struct brport_attribute *brport_attrs[] = {
- 	&brport_attr_hold_timer,
- 	&brport_attr_flush,
- 	&brport_attr_hairpin_mode,
-+#ifdef CONFIG_BRIDGE_IGMP_SNOOPING
-+	&brport_attr_multicast_router,
-+#endif
- 	NULL
- };
- 
+ 		br->dev->stats.multicast++;
+-		skb2 = skb;
+ 	} else if ((dst = __br_fdb_get(br, dest)) && dst->is_local) {
+ 		skb2 = skb;
+ 		/* Do not forward the packet since it's local. */
