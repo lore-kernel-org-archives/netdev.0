@@ -1,68 +1,88 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
-Date: Fri, 26 Feb 2010 14:16:43 -0800
-Message-ID: <m1zl2vtzg4.fsf@fess.ebiederm.org>
-References: <4B4F24AC.70105@trash.net> <1263481549.23480.24.camel@bigi>
-	<4B4F3A50.1050400@trash.net> <1263490403.23480.109.camel@bigi>
-	<4B50403A.6010507@trash.net> <1263568754.23480.142.camel@bigi>
-	<m13a0tf17t.fsf@fess.ebiederm.org> <1266875729.3673.12.camel@bigi>
-	<m1wry46es9.fsf@fess.ebiederm.org> <1266931623.3973.643.camel@bigi>
-	<m1iq9ocafv.fsf@fess.ebiederm.org> <1266934817.3973.654.camel@bigi>
-	<m1r5obbu2w.fsf@fess.ebiederm.org> <1266966581.3973.675.camel@bigi>
-	<m1pr3t2fvl.fsf_-_@fess.ebiederm.org> <4B883987.6090408@parallels.com>
-	<m1bpfbwuze.fsf@fess.ebiederm.org> <4B883E6F.1060907@parallels.com>
-	<m13a0nwu6p.fsf@fess.ebiederm.org> <4B8843FE.4000404@cs.columbia.edu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Emelyanov <xemul@parallels.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>
-To: Oren Laadan <orenl@cs.columbia.edu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B8843FE.4000404@cs.columbia.edu> (Oren Laadan's message of "Fri\, 26 Feb 2010 16\:58\:22 -0500")
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: sjur.brandeland@stericsson.com
+Subject: [PATCH net-next-2.6 v4 01/12] net-caif: add CAIF protocol definitions
+Date: Fri, 26 Feb 2010 23:13:26 +0100
+Message-ID: <1267222417-2764-2-git-send-email-sjur.brandeland@stericsson.com>
+References: <1267222417-2764-1-git-send-email-sjur.brandeland@stericsson.com>
+Cc: daniel.martensson@stericsson.com, kaber@trash.net,
+	stefano.babic@babic.homelinux.org, randy.dunlap@oracle.com,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>
+To: netdev@vger.kernel.org, davem@davemloft.net, marcel@holtmann.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.gktv.no ([80.239.85.213]:58334 "EHLO mail.gktv.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S966371Ab0BZWWR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Feb 2010 17:22:17 -0500
+In-Reply-To: <1267222417-2764-1-git-send-email-sjur.brandeland@stericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Oren Laadan <orenl@cs.columbia.edu> writes:
+From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-> Eric W. Biederman wrote:
->> Pavel Emelyanov <xemul@parallels.com> writes:
->>
->>>>> Yet another set of per-namespace IDs along with CLONE_NEWXXX ones?
->>>>> I currently have a way to create all namespaces we have with one
->>>>> syscall. Why don't we have an ability to enter them all with one syscall?
->>>> The CLONE_NEWXXX series of bits has been an royal pain to work with,
->>>> and it appears to be unnecessary complications for no gain.
->>> That's the answer for the "Yet another set..." question.
->>> How about the "Why don't we have..." one?
->>
->> I am not certain which question you are asking:
->>
->> Why don't we have an ability to enter all namespaces with one syscall
->> invocation?
->
-> That's how I understood the question, and I, too, wonder why not ?
->
-> By the way, an alternative to using bitmap is to change the prototype
-> of setns() to accept an array of FD's:
->
-> 	int setns(int *fds, int nfds);
->
-> So the process will atomically enter all the namespaces as specified
-> by the FDs.
+Add CAIF definitions to existing header files.
+Files: if_arp.h, if_ether.h, socket.h.
+Types: ARPHRD_CAIF, ETH_P_CAIF, AF_CAIF, PF_CAIF, SOL_CAIF, N_CAIF
 
-We could.  Mostly I implemented things in the simplest way possible.
+Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
+---
+ include/linux/if_arp.h   |    1 +
+ include/linux/if_ether.h |    1 +
+ include/linux/socket.h   |    5 ++++-
+ 3 files changed, 6 insertions(+), 1 deletions(-)
 
-Semantically I know of no reason why need to enter more than one namespace
-at once, and I don't expect entering a namespace to be on anyone's fast
-path so every last drop of performance was not crucial.
+diff --git a/include/linux/if_arp.h b/include/linux/if_arp.h
+index e80b7f8..6d722f4 100644
+--- a/include/linux/if_arp.h
++++ b/include/linux/if_arp.h
+@@ -90,6 +90,7 @@
+ 
+ #define ARPHRD_PHONET	820		/* PhoNet media type		*/
+ #define ARPHRD_PHONET_PIPE 821		/* PhoNet pipe header		*/
++#define ARPHRD_CAIF	822		/* CAIF media type		*/
+ 
+ #define ARPHRD_VOID	  0xFFFF	/* Void type, nothing is known */
+ #define ARPHRD_NONE	  0xFFFE	/* zero header length */
+diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
+index 299b412..bed7a46 100644
+--- a/include/linux/if_ether.h
++++ b/include/linux/if_ether.h
+@@ -109,6 +109,7 @@
+ #define ETH_P_TRAILER	0x001C		/* Trailer switch tagging	*/
+ #define ETH_P_PHONET	0x00F5		/* Nokia Phonet frames          */
+ #define ETH_P_IEEE802154 0x00F6		/* IEEE802.15.4 frame		*/
++#define ETH_P_CAIF	0x00F7		/* ST-Ericsson CAIF protocol	*/
+ 
+ /*
+  *	This is an Ethernet frame header.
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 7b3aae2..960659b 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -189,7 +189,8 @@ struct ucred {
+ #define AF_ISDN		34	/* mISDN sockets 		*/
+ #define AF_PHONET	35	/* Phonet sockets		*/
+ #define AF_IEEE802154	36	/* IEEE802154 sockets		*/
+-#define AF_MAX		37	/* For now.. */
++#define AF_CAIF		37	/* CAIF sockets			*/
++#define AF_MAX		38	/* For now.. */
+ 
+ /* Protocol families, same as address families. */
+ #define PF_UNSPEC	AF_UNSPEC
+@@ -229,6 +230,7 @@ struct ucred {
+ #define PF_ISDN		AF_ISDN
+ #define PF_PHONET	AF_PHONET
+ #define PF_IEEE802154	AF_IEEE802154
++#define PF_CAIF		AF_CAIF
+ #define PF_MAX		AF_MAX
+ 
+ /* Maximum queue length specifiable by listen.  */
+@@ -300,6 +302,7 @@ struct ucred {
+ #define SOL_PNPIPE	275
+ #define SOL_RDS		276
+ #define SOL_IUCV	277
++#define SOL_CAIF	278
+ 
+ /* IPX options */
+ #define IPX_TYPE	1
+-- 
+1.6.3.3
 
-The only justification I can think of for more than one namespace at a
-time is that because we have a synchronize_rcu() in the kernel we can
-loop in the kernel much more quickly than we can loop in userspace.
-
-Eric
