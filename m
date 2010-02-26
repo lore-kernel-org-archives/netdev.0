@@ -1,187 +1,247 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: IPVS 01/03: ip_vs_lblcr: use list headA
-Date: Fri, 26 Feb 2010 18:15:22 +0100 (MET)
-Message-ID: <20100226171522.30040.76445.sendpatchset@x2.localnet>
+Subject: netfilter 03/03: xtables: restore indentation
+Date: Fri, 26 Feb 2010 18:15:25 +0100 (MET)
+Message-ID: <20100226171525.30040.44643.sendpatchset@x2.localnet>
 References: <20100226171521.30040.76590.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59976 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965421Ab0BZRPX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 12:15:23 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <20100226171521.30040.76590.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit 51f0bc78680edccb6574ef56bd32f9e2939c8a5a
-Author: Simon Horman <horms@verge.net.au>
-Date:   Fri Feb 26 17:45:14 2010 +0100
+commit 6b4ff2d7675511a31980fa5379808660e1261f90
+Author: Jan Engelhardt <jengelh@medozas.de>
+Date:   Fri Feb 26 17:53:31 2010 +0100
 
-    IPVS: ip_vs_lblcr: use list headA
+    netfilter: xtables: restore indentation
     
-    Use list_head rather than a custom list implementation.
-    
-    Signed-off-by: Simon Horman <horms@verge.net.au>
+    Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-index f7476b9..caa58fa 100644
---- a/net/netfilter/ipvs/ip_vs_lblcr.c
-+++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-@@ -45,6 +45,7 @@
- #include <linux/kernel.h>
- #include <linux/skbuff.h>
- #include <linux/jiffies.h>
-+#include <linux/list.h>
- 
- /* for sysctl */
- #include <linux/fs.h>
-@@ -85,25 +86,25 @@ static int sysctl_ip_vs_lblcr_expiration = 24*60*60*HZ;
- /*
-  *      IPVS destination set structure and operations
-  */
--struct ip_vs_dest_list {
--	struct ip_vs_dest_list  *next;          /* list link */
-+struct ip_vs_dest_set_elem {
-+	struct list_head	list;          /* list link */
- 	struct ip_vs_dest       *dest;          /* destination server */
- };
- 
- struct ip_vs_dest_set {
- 	atomic_t                size;           /* set size */
- 	unsigned long           lastmod;        /* last modified time */
--	struct ip_vs_dest_list  *list;          /* destination list */
-+	struct list_head	list;           /* destination list */
- 	rwlock_t	        lock;           /* lock for this list */
- };
- 
- 
--static struct ip_vs_dest_list *
-+static struct ip_vs_dest_set_elem *
- ip_vs_dest_set_insert(struct ip_vs_dest_set *set, struct ip_vs_dest *dest)
- {
--	struct ip_vs_dest_list *e;
-+	struct ip_vs_dest_set_elem *e;
- 
--	for (e=set->list; e!=NULL; e=e->next) {
-+	list_for_each_entry(e, &set->list, list) {
- 		if (e->dest == dest)
- 			/* already existed */
- 			return NULL;
-@@ -118,9 +119,7 @@ ip_vs_dest_set_insert(struct ip_vs_dest_set *set, struct ip_vs_dest *dest)
- 	atomic_inc(&dest->refcnt);
- 	e->dest = dest;
- 
--	/* link it to the list */
--	e->next = set->list;
--	set->list = e;
-+	list_add(&e->list, &set->list);
- 	atomic_inc(&set->size);
- 
- 	set->lastmod = jiffies;
-@@ -130,34 +129,33 @@ ip_vs_dest_set_insert(struct ip_vs_dest_set *set, struct ip_vs_dest *dest)
- static void
- ip_vs_dest_set_erase(struct ip_vs_dest_set *set, struct ip_vs_dest *dest)
- {
--	struct ip_vs_dest_list *e, **ep;
-+	struct ip_vs_dest_set_elem *e;
- 
--	for (ep=&set->list, e=*ep; e!=NULL; e=*ep) {
-+	list_for_each_entry(e, &set->list, list) {
- 		if (e->dest == dest) {
- 			/* HIT */
--			*ep = e->next;
- 			atomic_dec(&set->size);
- 			set->lastmod = jiffies;
- 			atomic_dec(&e->dest->refcnt);
-+			list_del(&e->list);
- 			kfree(e);
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index 57098dc..f07d77f 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -644,8 +644,10 @@ static int translate_table(struct xt_table_info *newinfo, void *entry0,
+ 	/* Walk through entries, checking offsets. */
+ 	xt_entry_foreach(iter, entry0, newinfo->size) {
+ 		ret = check_entry_size_and_hooks(iter, newinfo, entry0,
+-		      entry0 + repl->size, repl->hook_entry, repl->underflow,
+-		      repl->valid_hooks);
++						 entry0 + repl->size,
++						 repl->hook_entry,
++						 repl->underflow,
++						 repl->valid_hooks);
+ 		if (ret != 0)
  			break;
+ 		++i;
+@@ -730,7 +732,7 @@ static void get_counters(const struct xt_table_info *t,
+ 	i = 0;
+ 	xt_entry_foreach(iter, t->entries[curcpu], t->size) {
+ 		SET_COUNTER(counters[i], iter->counters.bcnt,
+-			iter->counters.pcnt);
++			    iter->counters.pcnt);
+ 		++i;
+ 	}
+ 
+@@ -741,7 +743,7 @@ static void get_counters(const struct xt_table_info *t,
+ 		xt_info_wrlock(cpu);
+ 		xt_entry_foreach(iter, t->entries[cpu], t->size) {
+ 			ADD_COUNTER(counters[i], iter->counters.bcnt,
+-				iter->counters.pcnt);
++				    iter->counters.pcnt);
+ 			++i;
  		}
--		ep = &e->next;
+ 		xt_info_wrunlock(cpu);
+@@ -1356,8 +1358,11 @@ static int translate_compat_table(const char *name,
+ 	/* Walk through entries, checking offsets. */
+ 	xt_entry_foreach(iter0, entry0, total_size) {
+ 		ret = check_compat_entry_size_and_hooks(iter0, info, &size,
+-		      entry0, entry0 + total_size, hook_entries, underflows,
+-		      name);
++							entry0,
++							entry0 + total_size,
++							hook_entries,
++							underflows,
++							name);
+ 		if (ret != 0)
+ 			goto out_unlock;
+ 		++j;
+@@ -1401,8 +1406,8 @@ static int translate_compat_table(const char *name,
+ 	pos = entry1;
+ 	size = total_size;
+ 	xt_entry_foreach(iter0, entry0, total_size) {
+-		ret = compat_copy_entry_from_user(iter0, &pos,
+-		      &size, name, newinfo, entry1);
++		ret = compat_copy_entry_from_user(iter0, &pos, &size,
++						  name, newinfo, entry1);
+ 		if (ret != 0)
+ 			break;
  	}
- }
- 
- static void ip_vs_dest_set_eraseall(struct ip_vs_dest_set *set)
- {
--	struct ip_vs_dest_list *e, **ep;
-+	struct ip_vs_dest_set_elem *e, *ep;
- 
- 	write_lock(&set->lock);
--	for (ep=&set->list, e=*ep; e!=NULL; e=*ep) {
--		*ep = e->next;
-+	list_for_each_entry_safe(e, ep, &set->list, list) {
- 		/*
- 		 * We don't kfree dest because it is refered either
- 		 * by its service or by the trash dest list.
- 		 */
- 		atomic_dec(&e->dest->refcnt);
-+		list_del(&e->list);
- 		kfree(e);
+@@ -1617,7 +1622,7 @@ static int compat_copy_entries_to_user(unsigned int total_size,
+ 	size = total_size;
+ 	xt_entry_foreach(iter, loc_cpu_entry, total_size) {
+ 		ret = compat_copy_entry_to_user(iter, &pos,
+-		      &size, counters, i++);
++						&size, counters, i++);
+ 		if (ret != 0)
+ 			break;
  	}
- 	write_unlock(&set->lock);
-@@ -166,7 +164,7 @@ static void ip_vs_dest_set_eraseall(struct ip_vs_dest_set *set)
- /* get weighted least-connection node in the destination set */
- static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
- {
--	register struct ip_vs_dest_list *e;
-+	register struct ip_vs_dest_set_elem *e;
- 	struct ip_vs_dest *dest, *least;
- 	int loh, doh;
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index c92f4e5..b29c66d 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -836,8 +836,10 @@ translate_table(struct net *net, struct xt_table_info *newinfo, void *entry0,
+ 	/* Walk through entries, checking offsets. */
+ 	xt_entry_foreach(iter, entry0, newinfo->size) {
+ 		ret = check_entry_size_and_hooks(iter, newinfo, entry0,
+-		      entry0 + repl->size, repl->hook_entry, repl->underflow,
+-		      repl->valid_hooks);
++						 entry0 + repl->size,
++						 repl->hook_entry,
++						 repl->underflow,
++						 repl->valid_hooks);
+ 		if (ret != 0)
+ 			return ret;
+ 		++i;
+@@ -918,7 +920,7 @@ get_counters(const struct xt_table_info *t,
+ 	i = 0;
+ 	xt_entry_foreach(iter, t->entries[curcpu], t->size) {
+ 		SET_COUNTER(counters[i], iter->counters.bcnt,
+-			iter->counters.pcnt);
++			    iter->counters.pcnt);
+ 		++i;
+ 	}
  
-@@ -174,7 +172,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
- 		return NULL;
+@@ -929,7 +931,7 @@ get_counters(const struct xt_table_info *t,
+ 		xt_info_wrlock(cpu);
+ 		xt_entry_foreach(iter, t->entries[cpu], t->size) {
+ 			ADD_COUNTER(counters[i], iter->counters.bcnt,
+-				iter->counters.pcnt);
++				    iter->counters.pcnt);
+ 			++i; /* macro does multi eval of i */
+ 		}
+ 		xt_info_wrunlock(cpu);
+@@ -1540,7 +1542,7 @@ check_compat_entry_size_and_hooks(struct compat_ipt_entry *e,
+ 	j = 0;
+ 	xt_ematch_foreach(ematch, e) {
+ 		ret = compat_find_calc_match(ematch, name,
+-		      &e->ip, e->comefrom, &off);
++					     &e->ip, e->comefrom, &off);
+ 		if (ret != 0)
+ 			goto release_matches;
+ 		++j;
+@@ -1701,8 +1703,11 @@ translate_compat_table(struct net *net,
+ 	/* Walk through entries, checking offsets. */
+ 	xt_entry_foreach(iter0, entry0, total_size) {
+ 		ret = check_compat_entry_size_and_hooks(iter0, info, &size,
+-		      entry0, entry0 + total_size, hook_entries, underflows,
+-		      name);
++							entry0,
++							entry0 + total_size,
++							hook_entries,
++							underflows,
++							name);
+ 		if (ret != 0)
+ 			goto out_unlock;
+ 		++j;
+@@ -1746,8 +1751,8 @@ translate_compat_table(struct net *net,
+ 	pos = entry1;
+ 	size = total_size;
+ 	xt_entry_foreach(iter0, entry0, total_size) {
+-		ret = compat_copy_entry_from_user(iter0, &pos,
+-		      &size, name, newinfo, entry1);
++		ret = compat_copy_entry_from_user(iter0, &pos, &size,
++						  name, newinfo, entry1);
+ 		if (ret != 0)
+ 			break;
+ 	}
+@@ -1927,7 +1932,7 @@ compat_copy_entries_to_user(unsigned int total_size, struct xt_table *table,
+ 	size = total_size;
+ 	xt_entry_foreach(iter, loc_cpu_entry, total_size) {
+ 		ret = compat_copy_entry_to_user(iter, &pos,
+-		      &size, counters, i++);
++						&size, counters, i++);
+ 		if (ret != 0)
+ 			break;
+ 	}
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index f704286..9210e31 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -866,8 +866,10 @@ translate_table(struct net *net, struct xt_table_info *newinfo, void *entry0,
+ 	/* Walk through entries, checking offsets. */
+ 	xt_entry_foreach(iter, entry0, newinfo->size) {
+ 		ret = check_entry_size_and_hooks(iter, newinfo, entry0,
+-		      entry0 + repl->size, repl->hook_entry, repl->underflow,
+-		      repl->valid_hooks);
++						 entry0 + repl->size,
++						 repl->hook_entry,
++						 repl->underflow,
++						 repl->valid_hooks);
+ 		if (ret != 0)
+ 			return ret;
+ 		++i;
+@@ -948,7 +950,7 @@ get_counters(const struct xt_table_info *t,
+ 	i = 0;
+ 	xt_entry_foreach(iter, t->entries[curcpu], t->size) {
+ 		SET_COUNTER(counters[i], iter->counters.bcnt,
+-			iter->counters.pcnt);
++			    iter->counters.pcnt);
+ 		++i;
+ 	}
  
- 	/* select the first destination server, whose weight > 0 */
--	for (e=set->list; e!=NULL; e=e->next) {
-+	list_for_each_entry(e, &set->list, list) {
- 		least = e->dest;
- 		if (least->flags & IP_VS_DEST_F_OVERLOAD)
- 			continue;
-@@ -190,7 +188,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
- 
- 	/* find the destination with the weighted least load */
-   nextstage:
--	for (e=e->next; e!=NULL; e=e->next) {
-+	list_for_each_entry(e, &set->list, list) {
- 		dest = e->dest;
- 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
- 			continue;
-@@ -220,7 +218,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
- /* get weighted most-connection node in the destination set */
- static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set)
- {
--	register struct ip_vs_dest_list *e;
-+	register struct ip_vs_dest_set_elem *e;
- 	struct ip_vs_dest *dest, *most;
- 	int moh, doh;
- 
-@@ -228,7 +226,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set)
- 		return NULL;
- 
- 	/* select the first destination server, whose weight > 0 */
--	for (e=set->list; e!=NULL; e=e->next) {
-+	list_for_each_entry(e, &set->list, list) {
- 		most = e->dest;
- 		if (atomic_read(&most->weight) > 0) {
- 			moh = atomic_read(&most->activeconns) * 50
-@@ -240,7 +238,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set)
- 
- 	/* find the destination with the weighted most load */
-   nextstage:
--	for (e=e->next; e!=NULL; e=e->next) {
-+	list_for_each_entry(e, &set->list, list) {
- 		dest = e->dest;
- 		doh = atomic_read(&dest->activeconns) * 50
- 			+ atomic_read(&dest->inactconns);
-@@ -389,7 +387,7 @@ ip_vs_lblcr_new(struct ip_vs_lblcr_table *tbl, const union nf_inet_addr *daddr,
- 
- 		/* initilize its dest set */
- 		atomic_set(&(en->set.size), 0);
--		en->set.list = NULL;
-+		INIT_LIST_HEAD(&en->set.list);
- 		rwlock_init(&en->set.lock);
- 
- 		ip_vs_lblcr_hash(tbl, en);
+@@ -959,7 +961,7 @@ get_counters(const struct xt_table_info *t,
+ 		xt_info_wrlock(cpu);
+ 		xt_entry_foreach(iter, t->entries[cpu], t->size) {
+ 			ADD_COUNTER(counters[i], iter->counters.bcnt,
+-				iter->counters.pcnt);
++				    iter->counters.pcnt);
+ 			++i;
+ 		}
+ 		xt_info_wrunlock(cpu);
+@@ -1573,7 +1575,7 @@ check_compat_entry_size_and_hooks(struct compat_ip6t_entry *e,
+ 	j = 0;
+ 	xt_ematch_foreach(ematch, e) {
+ 		ret = compat_find_calc_match(ematch, name,
+-		      &e->ipv6, e->comefrom, &off);
++					     &e->ipv6, e->comefrom, &off);
+ 		if (ret != 0)
+ 			goto release_matches;
+ 		++j;
+@@ -1734,8 +1736,11 @@ translate_compat_table(struct net *net,
+ 	/* Walk through entries, checking offsets. */
+ 	xt_entry_foreach(iter0, entry0, total_size) {
+ 		ret = check_compat_entry_size_and_hooks(iter0, info, &size,
+-		      entry0, entry0 + total_size, hook_entries, underflows,
+-		      name);
++							entry0,
++							entry0 + total_size,
++							hook_entries,
++							underflows,
++							name);
+ 		if (ret != 0)
+ 			goto out_unlock;
+ 		++j;
+@@ -1779,8 +1784,8 @@ translate_compat_table(struct net *net,
+ 	pos = entry1;
+ 	size = total_size;
+ 	xt_entry_foreach(iter0, entry0, total_size) {
+-		ret = compat_copy_entry_from_user(iter0, &pos,
+-		      &size, name, newinfo, entry1);
++		ret = compat_copy_entry_from_user(iter0, &pos, &size,
++						  name, newinfo, entry1);
+ 		if (ret != 0)
+ 			break;
+ 	}
+@@ -1960,7 +1965,7 @@ compat_copy_entries_to_user(unsigned int total_size, struct xt_table *table,
+ 	size = total_size;
+ 	xt_entry_foreach(iter, loc_cpu_entry, total_size) {
+ 		ret = compat_copy_entry_to_user(iter, &pos,
+-		      &size, counters, i++);
++						&size, counters, i++);
+ 		if (ret != 0)
+ 			break;
+ 	}
