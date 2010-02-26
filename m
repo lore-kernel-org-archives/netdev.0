@@ -1,42 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Bridge: request for the via_phys_dev feature discussion
-Date: Fri, 26 Feb 2010 04:30:28 -0800 (PST)
-Message-ID: <20100226.043028.245172342.davem@davemloft.net>
-References: <4B7D30B8.2050400@openvz.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCHv2] can: ti hecc module : add platform specific
+	initialization callback.
+Date: Fri, 26 Feb 2010 04:32:15 -0800 (PST)
+Message-ID: <20100226.043215.79129135.davem@davemloft.net>
+References: <1267118802-19263-1-git-send-email-srk@ti.com>
+	<4B86BAB8.8090603@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: xemul@openvz.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41254
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S935853Ab0BZMaK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 07:30:10 -0500
-In-Reply-To: <4B7D30B8.2050400@openvz.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: srk-l0cyMroinI0@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4B86BAB8.8090603-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Thu, 18 Feb 2010 15:21:12 +0300
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Date: Thu, 25 Feb 2010 19:00:24 +0100
 
-> In simple situation containers users want to bridge their containers through
-> veth device with the host eth0 adapter. But after one add his eth0 to bridge
-> he need to
-> a) reconfigure everything including IP addresses, routing tables and
->    netfilter rules
-> b) recreate connections that were bound to eth0
+> Sriramakrishnan wrote:
+>> CAN module on AM3517 requires programming of IO expander as part
+>> of init sequence - to enable CAN PHY. Added platform specific
+>> callback to handle phy control(switch on /off).
+>> 
+>> Signed-off-by: Sriramakrishnan <srk-l0cyMroinI0@public.gmane.org>
 > 
-> That's OK if one setup the box from the scratch and adds eth0 to bridge from
-> the very beginning, but for those who start using containers on pre-configured
-> boxes or for those, who decided to switch to bridge+veth from some other 
-> virtual device (e.g. macvlan or venet device in OpenVZ) this becomes real pain.
-> 
-> I don't insist you accept the patches Cyrill proposed, I don't even insist
-> we rework them keeping the idea intact. I just want to know your opinion about
-> how to solve the above problem better.
+> looks good, just minor nitpicking inline
 
-Stephen, please work with Pavel on finding a solution for this issue
-that works for you.
+Please address the feedback and resubmit this patch.
 
-Thanks.
+Thank you.
