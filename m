@@ -1,91 +1,68 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: Gianfar driver failing on MPC8641D based board
-Date: Fri, 26 Feb 2010 17:12:39 -0500
-Message-ID: <4B884757.2070205@windriver.com>
-References: <20100225174935.GA32370@oksana.dev.rtsoft.ru> <7d1d9c251002251653n6473f01ex2d43933ec6aa010b@mail.gmail.com> <20100226031452.GA11319@oksana.dev.rtsoft.ru> <4B87B937.6010204@ge.com> <20100226143532.GA31622@oksana.dev.rtsoft.ru> <4B87E01E.4070704@windriver.com> <4B87E662.3080106@ge.com> <4B87E9EF.3010604@ge.com> <20100226161058.GA22954@oksana.dev.rtsoft.ru> <4B87F67E.5070601@windriver.com> <20100226213825.GA32363@oksana.dev.rtsoft.ru>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
+Date: Fri, 26 Feb 2010 14:16:43 -0800
+Message-ID: <m1zl2vtzg4.fsf@fess.ebiederm.org>
+References: <4B4F24AC.70105@trash.net> <1263481549.23480.24.camel@bigi>
+	<4B4F3A50.1050400@trash.net> <1263490403.23480.109.camel@bigi>
+	<4B50403A.6010507@trash.net> <1263568754.23480.142.camel@bigi>
+	<m13a0tf17t.fsf@fess.ebiederm.org> <1266875729.3673.12.camel@bigi>
+	<m1wry46es9.fsf@fess.ebiederm.org> <1266931623.3973.643.camel@bigi>
+	<m1iq9ocafv.fsf@fess.ebiederm.org> <1266934817.3973.654.camel@bigi>
+	<m1r5obbu2w.fsf@fess.ebiederm.org> <1266966581.3973.675.camel@bigi>
+	<m1pr3t2fvl.fsf_-_@fess.ebiederm.org> <4B883987.6090408@parallels.com>
+	<m1bpfbwuze.fsf@fess.ebiederm.org> <4B883E6F.1060907@parallels.com>
+	<m13a0nwu6p.fsf@fess.ebiederm.org> <4B8843FE.4000404@cs.columbia.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Martyn Welch <martyn.welch@ge.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	linuxppc-dev list <linuxppc-dev@ozlabs.org>,
-	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>,
-	davem@davemloft.net
-To: avorontsov@ru.mvista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:61116 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759494Ab0BZWMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 17:12:55 -0500
-In-Reply-To: <20100226213825.GA32363@oksana.dev.rtsoft.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pavel Emelyanov <xemul@parallels.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	containers@lists.linux-foundation.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>
+To: Oren Laadan <orenl@cs.columbia.edu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4B8843FE.4000404@cs.columbia.edu> (Oren Laadan's message of "Fri\, 26 Feb 2010 16\:58\:22 -0500")
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10-02-26 04:38 PM, Anton Vorontsov wrote:
+Oren Laadan <orenl@cs.columbia.edu> writes:
 
-> OK, I think I found what's happening in gianfar.
-> 
-> Some background...
-> 
-> start_xmit() prepares new skb for transmitting, generally it does
-> three things:
-> 
-> 1. sets up all BDs (marks them ready to send), except the first one.
-> 2. stores skb into tx_queue->tx_skbuff so that clean_tx_ring()
->     would cleanup it later.
-> 3. sets up the first BD, i.e. marks it ready.
-> 
-> Here is what clean_tx_ring() does:
-> 
-> 1. reads skbs from tx_queue->tx_skbuff
-> 2. Checks if the *last* BD is ready. If it's still ready [to send]
->     then it it isn't transmitted, so clean_tx_ring() returns.
->     Otherwise it actually cleanups BDs. All is OK.
-> 
-> Now, if there is just one BD, code flow:
-> 
-> - start_xmit(): stores skb into tx_skbuff. Note that the first BD
->    (which is also the last one) isn't marked as ready, yet.
-> - clean_tx_ring(): sees that skb is not null, *and* its lstatus
->    says that it is NOT ready (like if BD was sent), so it cleans
->    it up (bad!)
-> - start_xmit(): marks BD as ready [to send], but it's too late.
-> 
-> We can fix this simply by reordering lstatus/tx_skbuff writes.
-> 
-> It works flawlessly on my p2020, please try it.
+> Eric W. Biederman wrote:
+>> Pavel Emelyanov <xemul@parallels.com> writes:
+>>
+>>>>> Yet another set of per-namespace IDs along with CLONE_NEWXXX ones?
+>>>>> I currently have a way to create all namespaces we have with one
+>>>>> syscall. Why don't we have an ability to enter them all with one syscall?
+>>>> The CLONE_NEWXXX series of bits has been an royal pain to work with,
+>>>> and it appears to be unnecessary complications for no gain.
+>>> That's the answer for the "Yet another set..." question.
+>>> How about the "Why don't we have..." one?
+>>
+>> I am not certain which question you are asking:
+>>
+>> Why don't we have an ability to enter all namespaces with one syscall
+>> invocation?
+>
+> That's how I understood the question, and I, too, wonder why not ?
+>
+> By the way, an alternative to using bitmap is to change the prototype
+> of setns() to accept an array of FD's:
+>
+> 	int setns(int *fds, int nfds);
+>
+> So the process will atomically enter all the namespaces as specified
+> by the FDs.
 
-I've skipped right to the test part (I'll think about the description
-more later) and it passed 5 out of 5 boot tests on NFSroot sbc8641d.
-Looks like you've got a solution.
+We could.  Mostly I implemented things in the simplest way possible.
 
-Paul.
+Semantically I know of no reason why need to enter more than one namespace
+at once, and I don't expect entering a namespace to be on anyone's fast
+path so every last drop of performance was not crucial.
 
-> 
-> Thanks!
-> 
-> 
-> diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-> index 8bd3c9f..cccb409 100644
-> --- a/drivers/net/gianfar.c
-> +++ b/drivers/net/gianfar.c
-> @@ -2021,7 +2021,6 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
->   	}
-> 
->   	/* setup the TxBD length and buffer pointer for the first BD */
-> -	tx_queue->tx_skbuff[tx_queue->skb_curtx] = skb;
->   	txbdp_start->bufPtr = dma_map_single(&priv->ofdev->dev, skb->data,
->   			skb_headlen(skb), DMA_TO_DEVICE);
-> 
-> @@ -2053,6 +2052,10 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> 
->   	txbdp_start->lstatus = lstatus;
-> 
-> +	eieio(); /* force lstatus write before tx_skbuff */
-> +
-> +	tx_queue->tx_skbuff[tx_queue->skb_curtx] = skb;
-> +
->   	/* Update the current skb pointer to the next entry we will use
->   	 * (wrapping if necessary) */
->   	tx_queue->skb_curtx = (tx_queue->skb_curtx + 1)&
+The only justification I can think of for more than one namespace at a
+time is that because we have a synchronize_rcu() in the kernel we can
+loop in the kernel much more quickly than we can loop in userspace.
 
+Eric
