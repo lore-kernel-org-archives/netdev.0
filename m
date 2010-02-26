@@ -1,88 +1,110 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 12/13] bridge: Add hash elasticity/max sysfs entries
-Date: Fri, 26 Feb 2010 23:35:17 +0800
-Message-ID: <E1Nl2Dl-0006wv-QS@gondolin.me.apana.org.au>
+Subject: [PATCH 11/13] bridge: Add multicast_snooping sysfs toggle
+Date: Fri, 26 Feb 2010 23:35:16 +0800
+Message-ID: <E1Nl2Dk-0006wn-Nw@gondolin.me.apana.org.au>
 References: <20100226153410.GA26419@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:52536 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:52534 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S965152Ab0BZPfX (ORCPT
+	with ESMTP id S965151Ab0BZPfX (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 10:35:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bridge: Add hash elasticity/max sysfs entries
+bridge: Add multicast_snooping sysfs toggle
 
-This patch allows the user to control the hash elasticity/max
-parameters.  The elasticity setting does not take effect until
-the next new multicast group is added.  At which point it is
-checked and if after rehashing it still can't be satisfied then
-snooping will be disabled.
-
-The max setting on the other hand takes effect immediately.  It
-must be a power of two and cannot be set to a value less than the
-current number of multicast group entries.  This is the only way
-to shrink the multicast hash.
+This patch allows the user to disable IGMP snooping completely
+through a sysfs toggle.  It also allows the user to reenable
+snooping when it has been automatically disabled due to hash
+collisions.  If the collisions have not been resolved however
+the system will refuse to reenable snooping.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/bridge/br_multicast.c |   41 +++++++++++++++++++++++++++++++++++++++++
- net/bridge/br_private.h   |    1 +
- net/bridge/br_sysfs_br.c  |   39 +++++++++++++++++++++++++++++++++++++++
- 3 files changed, 81 insertions(+)
+ net/bridge/br_multicast.c |   61 ++++++++++++++++++++++++++++++++++++++++++----
+ net/bridge/br_private.h   |    1 
+ net/bridge/br_sysfs_br.c  |   18 +++++++++++++
+ 3 files changed, 75 insertions(+), 5 deletions(-)
 
 diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index c7a1095..2559fb5 100644
+index 674224b..c7a1095 100644
 --- a/net/bridge/br_multicast.c
 +++ b/net/bridge/br_multicast.c
-@@ -15,6 +15,7 @@
- #include <linux/igmp.h>
- #include <linux/jhash.h>
- #include <linux/kernel.h>
-+#include <linux/log2.h>
- #include <linux/netdevice.h>
- #include <linux/netfilter_bridge.h>
- #include <linux/random.h>
-@@ -1261,3 +1262,43 @@ unlock:
+@@ -656,6 +656,15 @@ void br_multicast_del_port(struct net_bridge_port *port)
+ 	del_timer_sync(&port->multicast_router_timer);
+ }
+ 
++static void __br_multicast_enable_port(struct net_bridge_port *port)
++{
++	port->multicast_startup_queries_sent = 0;
++
++	if (try_to_del_timer_sync(&port->multicast_query_timer) >= 0 ||
++	    del_timer(&port->multicast_query_timer))
++		mod_timer(&port->multicast_query_timer, jiffies);
++}
++
+ void br_multicast_enable_port(struct net_bridge_port *port)
+ {
+ 	struct net_bridge *br = port->br;
+@@ -664,11 +673,7 @@ void br_multicast_enable_port(struct net_bridge_port *port)
+ 	if (br->multicast_disabled || !netif_running(br->dev))
+ 		goto out;
+ 
+-	port->multicast_startup_queries_sent = 0;
+-
+-	if (try_to_del_timer_sync(&port->multicast_query_timer) >= 0 ||
+-	    del_timer(&port->multicast_query_timer))
+-		mod_timer(&port->multicast_query_timer, jiffies);
++	__br_multicast_enable_port(port);
+ 
+ out:
+ 	spin_unlock(&br->multicast_lock);
+@@ -1210,3 +1215,49 @@ unlock:
  
  	return err;
  }
 +
-+int br_multicast_set_hash_max(struct net_bridge *br, unsigned long val)
++int br_multicast_toggle(struct net_bridge *br, unsigned long val)
 +{
++	struct net_bridge_port *port;
 +	int err = -ENOENT;
-+	u32 old;
 +
 +	spin_lock(&br->multicast_lock);
 +	if (!netif_running(br->dev))
 +		goto unlock;
 +
-+	err = -EINVAL;
-+	if (!is_power_of_2(val))
-+		goto unlock;
-+	if (br->mdb && val < br->mdb->size)
-+		goto unlock;
-+
 +	err = 0;
++	if (br->multicast_disabled == !val)
++		goto unlock;
 +
-+	old = br->hash_max;
-+	br->hash_max = val;
++	br->multicast_disabled = !val;
++	if (br->multicast_disabled)
++		goto unlock;
 +
 +	if (br->mdb) {
 +		if (br->mdb->old) {
 +			err = -EEXIST;
 +rollback:
-+			br->hash_max = old;
++			br->multicast_disabled = !!val;
 +			goto unlock;
 +		}
 +
-+		err = br_mdb_rehash(&br->mdb, br->hash_max,
++		err = br_mdb_rehash(&br->mdb, br->mdb->max,
 +				    br->hash_elasticity);
 +		if (err)
 +			goto rollback;
++	}
++
++	br_multicast_open(br);
++	list_for_each_entry(port, &br->port_list, list) {
++		if (port->state == BR_STATE_DISABLED ||
++		    port->state == BR_STATE_BLOCKING)
++			continue;
++
++		__br_multicast_enable_port(port);
 +	}
 +
 +unlock:
@@ -91,71 +113,50 @@ index c7a1095..2559fb5 100644
 +	return err;
 +}
 diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 4467904..0f12a8f 100644
+index 2d3df82..4467904 100644
 --- a/net/bridge/br_private.h
 +++ b/net/bridge/br_private.h
-@@ -302,6 +302,7 @@ extern int br_multicast_set_router(struct net_bridge *br, unsigned long val);
+@@ -301,6 +301,7 @@ extern void br_multicast_forward(struct net_bridge_mdb_entry *mdst,
+ extern int br_multicast_set_router(struct net_bridge *br, unsigned long val);
  extern int br_multicast_set_port_router(struct net_bridge_port *p,
  					unsigned long val);
- extern int br_multicast_toggle(struct net_bridge *br, unsigned long val);
-+extern int br_multicast_set_hash_max(struct net_bridge *br, unsigned long val);
++extern int br_multicast_toggle(struct net_bridge *br, unsigned long val);
  #else
  static inline int br_multicast_rcv(struct net_bridge *br,
  				   struct net_bridge_port *port,
 diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index 0ab2883..d2ee53b 100644
+index cb74201..0ab2883 100644
 --- a/net/bridge/br_sysfs_br.c
 +++ b/net/bridge/br_sysfs_br.c
-@@ -378,6 +378,43 @@ static ssize_t store_multicast_snooping(struct device *d,
+@@ -361,6 +361,23 @@ static ssize_t store_multicast_router(struct device *d,
  }
- static DEVICE_ATTR(multicast_snooping, S_IRUGO | S_IWUSR,
- 		   show_multicast_snooping, store_multicast_snooping);
+ static DEVICE_ATTR(multicast_router, S_IRUGO | S_IWUSR, show_multicast_router,
+ 		   store_multicast_router);
 +
-+static ssize_t show_hash_elasticity(struct device *d,
-+				    struct device_attribute *attr, char *buf)
++static ssize_t show_multicast_snooping(struct device *d,
++				       struct device_attribute *attr,
++				       char *buf)
 +{
 +	struct net_bridge *br = to_bridge(d);
-+	return sprintf(buf, "%u\n", br->hash_elasticity);
++	return sprintf(buf, "%d\n", !br->multicast_disabled);
 +}
 +
-+static int set_elasticity(struct net_bridge *br, unsigned long val)
++static ssize_t store_multicast_snooping(struct device *d,
++					struct device_attribute *attr,
++					const char *buf, size_t len)
 +{
-+	br->hash_elasticity = val;
-+	return 0;
++	return store_bridge_parm(d, buf, len, br_multicast_toggle);
 +}
-+
-+static ssize_t store_hash_elasticity(struct device *d,
-+				     struct device_attribute *attr,
-+				     const char *buf, size_t len)
-+{
-+	return store_bridge_parm(d, buf, len, set_elasticity);
-+}
-+static DEVICE_ATTR(hash_elasticity, S_IRUGO | S_IWUSR, show_hash_elasticity,
-+		   store_hash_elasticity);
-+
-+static ssize_t show_hash_max(struct device *d, struct device_attribute *attr,
-+			     char *buf)
-+{
-+	struct net_bridge *br = to_bridge(d);
-+	return sprintf(buf, "%u\n", br->hash_max);
-+}
-+
-+static ssize_t store_hash_max(struct device *d, struct device_attribute *attr,
-+			      const char *buf, size_t len)
-+{
-+	return store_bridge_parm(d, buf, len, br_multicast_set_hash_max);
-+}
-+static DEVICE_ATTR(hash_max, S_IRUGO | S_IWUSR, show_hash_max,
-+		   store_hash_max);
++static DEVICE_ATTR(multicast_snooping, S_IRUGO | S_IWUSR,
++		   show_multicast_snooping, store_multicast_snooping);
  #endif
  
  static struct attribute *bridge_attrs[] = {
-@@ -402,6 +439,8 @@ static struct attribute *bridge_attrs[] = {
+@@ -384,6 +401,7 @@ static struct attribute *bridge_attrs[] = {
+ 	&dev_attr_flush.attr,
  #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
  	&dev_attr_multicast_router.attr,
- 	&dev_attr_multicast_snooping.attr,
-+	&dev_attr_hash_elasticity.attr,
-+	&dev_attr_hash_max.attr,
++	&dev_attr_multicast_snooping.attr,
  #endif
  	NULL
  };
