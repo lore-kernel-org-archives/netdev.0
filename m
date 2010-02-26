@@ -1,31 +1,30 @@
-From: David Miller <davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Subject: Re: [net-next-2.6 PATCH] infiniband: convert to use
  netdev_for_each_mc_addr
-Date: Fri, 26 Feb 2010 04:22:47 -0800 (PST)
-Message-ID: <20100226.042247.171081493.davem@davemloft.net>
+Date: Fri, 26 Feb 2010 04:22:53 -0800 (PST)
+Message-ID: <20100226.042253.149934046.davem@davemloft.net>
 References: <20100224151108.GD2663@psychotron.lab.eng.brq.redhat.com>
-	<4B862E07.7020002@Voltaire.com>
-	<20100225084915.GA3171@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ogerlitz@voltaire.com, netdev@vger.kernel.org,
-	jgunthorpe@obsidianresearch.com, linux-rdma@vger.kernel.org
-To: jpirko@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48572
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S936136Ab0BZMW3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 07:22:29 -0500
-In-Reply-To: <20100225084915.GA3171@psychotron.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	chien.tin.tung-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100224151108.GD2663-YzwxZg+R7evMbnheQZGK0N5OCZ2W11yPFxja6HXR22MAvxtiuMwx3w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Thu, 25 Feb 2010 09:49:15 +0100
+From: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Date: Wed, 24 Feb 2010 16:11:08 +0100
 
-> Subject: [net-next-2.6 PATCH] net: add addr len check to dev_mc_add
+> Due to the loop complexicity in nes_nic.c, I'm using char* to copy mc addresses
+> to it.
 > 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> Signed-off-by: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
