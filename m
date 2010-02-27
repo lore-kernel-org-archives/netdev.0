@@ -1,31 +1,40 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: TCP ACK loop with 2.6.33-rc6
-Date: Sat, 27 Feb 2010 13:13:49 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.1002271313070.31669@melkinpaasi.cs.helsinki.fi>
-References: <4B88FB88.3050902@simon.arlott.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/13] bridge: Allow tail-call on br_pass_frame_up
+Date: Sat, 27 Feb 2010 03:14:51 -0800 (PST)
+Message-ID: <20100227.031451.21192400.davem@davemloft.net>
+References: <20100226153410.GA26419@gondor.apana.org.au>
+	<E1Nl2Db-0006v3-21@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Simon Arlott <simon@fire.lp0.eu>
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:59479 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965569Ab0B0LNu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 06:13:50 -0500
-In-Reply-To: <4B88FB88.3050902@simon.arlott.org.uk>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40402
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965569Ab0B0LOd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 06:14:33 -0500
+In-Reply-To: <E1Nl2Db-0006v3-21@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 27 Feb 2010, Simon Arlott wrote:
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 26 Feb 2010 23:35:07 +0800
 
-> Packet capture attached. Is it possible to tell which side is at fault?
-> They are both responding to each other's ACK with another ACK at 400pps.
-> 
-> 10:32:28.991111 IP6 2001:8b0:ffea:0:205:b4ff:fe12:530.35545 > 2001:500:b::1.53: . ack 766 win 58 <nop,nop,timestamp 2411331059 251057709>
-> 10:32:28.995046 IP6 2001:500:b::1.53 > 2001:8b0:ffea:0:205:b4ff:fe12:530.35545: . ack 1 win 1559
+> @@ -20,9 +20,9 @@
+>  /* Bridge group multicast address 802.1d (pg 51). */
+>  const u8 br_group_address[ETH_ALEN] = { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 };
+>  
+> -static void br_pass_frame_up(struct net_bridge *br, struct sk_buff *skb)
+> +static int br_pass_frame_up(struct sk_buff *skb)
+>  {
+> -	struct net_device *indev, *brdev = br->dev;
+> +	struct net_device *indev, *brdev = BR_INPUT_SKB_CB(skb)->brdev;
+>  
 
-Why only a single ends talks with timestamps?!?!?
+You use this new BR_INPUT_SKB_CB() here in patch #2, but you only
+start setting ->brdev it in patch #4.
 
--- 
- i.
+This breaks things and makes your patch series non-bisectable.
+
+Please fix, thanks.
