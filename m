@@ -1,68 +1,64 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
-Date: Sat, 27 Feb 2010 01:42:52 -0800
-Message-ID: <m1bpfbqajn.fsf@fess.ebiederm.org>
-References: <4B4F24AC.70105@trash.net> <4B4F3A50.1050400@trash.net>
-	<1263490403.23480.109.camel@bigi> <4B50403A.6010507@trash.net>
-	<1263568754.23480.142.camel@bigi> <m13a0tf17t.fsf@fess.ebiederm.org>
-	<1266875729.3673.12.camel@bigi> <m1wry46es9.fsf@fess.ebiederm.org>
-	<1266931623.3973.643.camel@bigi> <m1iq9ocafv.fsf@fess.ebiederm.org>
-	<1266934817.3973.654.camel@bigi> <m1r5obbu2w.fsf@fess.ebiederm.org>
-	<1266966581.3973.675.camel@bigi> <m1pr3t2fvl.fsf_-_@fess.ebiederm.org>
-	<4B883987.6090408@parallels.com> <m1bpfbwuze.fsf@fess.ebiederm.org>
-	<4B883E6F.1060907@parallels.com> <m13a0nwu6p.fsf@fess.ebiederm.org>
-	<4B88D80A.8010701@parallels.com> <m1mxyvrqvk.fsf@fess.ebiederm.org>
-	<4B88E431.6040609@parallels.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/7] cxgb4: Add packet queues and packet DMA code
+Date: Sat, 27 Feb 2010 01:46:18 -0800 (PST)
+Message-ID: <20100227.014618.193735140.davem@davemloft.net>
+References: <1267227339-8076-4-git-send-email-dm@chelsio.com>
+	<1267227339-8076-5-git-send-email-dm@chelsio.com>
+	<20100226155756.09c0485c@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>,
-	Serge Hallyn <serue@us.ibm.com>,
-	Matt Helsley <matthltc@us.ibm.com>
-To: Pavel Emelyanov <xemul@parallels.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B88E431.6040609@parallels.com> (Pavel Emelyanov's message of "Sat\, 27 Feb 2010 12\:21\:53 +0300")
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dm@chelsio.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38632
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S968061Ab0B0JqD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 04:46:03 -0500
+In-Reply-To: <20100226155756.09c0485c@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pavel Emelyanov <xemul@parallels.com> writes:
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Fri, 26 Feb 2010 15:57:56 -0800
 
-> Thanks. What's the problem with setns?
+> On Fri, 26 Feb 2010 15:35:36 -0800
+> Dimitris Michailidis <dm@chelsio.com> wrote:
+> 
+>> +
+>> +/**
+>> + *	need_skb_unmap - does the platform need unmapping of sk_buffs?
+>> + *
+>> + *	Returns true if the platfrom needs sk_buff unmapping.  The compiler
+>> + *	optimizes away unecessary code if this returns true.
+>> + */
+>> +static inline int need_skb_unmap(void)
+>> +{
+>> +	/*
+>> +	 * This structure is used to tell if the platfrom needs buffer
+>> +	 * unmapping by checking if DECLARE_PCI_UNMAP_ADDR defines anything.
+>> +	 */
+>> +	struct dummy {
+>> +		DECLARE_PCI_UNMAP_ADDR(addr);
+>> +	};
+>> +
+>> +	return sizeof(struct dummy) != 0;
+>> +}
+>> +
+> 
+> I would prefer one code path and let the compiler decide if unmap
+> should be nop; rather than this kind of trick code.
 
-joining a preexisting namespace is roughly the same problem as
-unsharing a namespace.  We simply haven't figure out how to do it
-safely for the pid and the uid namespaces.
+Agreed, this is rediculious.  And there is currently no platform that
+matters where this will trigger.
 
->> I have designed these file descriptors to pin the namespaces, so
->> waiting for them to exit isn't something they can do now.  It makes a
->> lot of sense to have similar ones that take  weak references to the namespaces
->> that we can use to wait for a namespace to exit.
->
-> Yes, I saw this from patches. Eric, I'd very much appreciate if we
-> workout a solution that will allow us to kill two birds with one stone.
-> I do not want to invent yet another bunch of system calls for "taking
-> weak reference".
+With IOMMUs and even the swiommu layer, even bog standard x86 systems
+need the unmap addresses.
 
-Definitely.  I only consider the current interface to be a mushy not
-set in stone.
+Therefore optimizing this is totally unreasonable.  Just use the provided
+APIs and let the compiler and the platform defines do the work.
 
-> As a "brain storm" start up. Can we use inotify/dnotify for this? 
-> Or maybe we should better equip the nsfd call with flags argument and 
-> add a flag for weak reference? In that case - how shall we get a 
-> notification about namespace is dead? With poll? Maybe worth making
-> the sys_close return only when the namespace is dead (by providing a
-> proper ->release callback of a file)?
-
-We would want poll to work, anything else is a weird work-around.
-The challenging part is that we don't have any infrastructure for
-notifying when a namespace goes away.  So that has to be built before
-we can wire it up to userspace.  I don't expect it is too difficult
-but there is work to be done.
-
-Eric
+I'm amazed at how people do stuff like this.  If it's a reasonable
+opimization, maybe, JUST MAYBE, it's better to optimize it generically
+so that every driver gets the benefit NOT JUST YOUR individual driver.
 
