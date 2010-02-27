@@ -1,36 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] infiniband: convert to use
- netdev_for_each_mc_addr
-Date: Sat, 27 Feb 2010 02:44:42 -0800 (PST)
-Message-ID: <20100227.024442.40098463.davem@davemloft.net>
-References: <20100225084915.GA3171@psychotron.redhat.com>
-	<20100227060146.GA13231@obsidianresearch.com>
-	<20100227103835.GA2862@psychotron.redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jgunthorpe@obsidianresearch.com, ogerlitz@voltaire.com,
-	netdev@vger.kernel.org, linux-rdma@vger.kernel.org
-To: jpirko@redhat.com
+From: Dominik Brodowski <linux@dominikbrodowski.net>
+Subject: [PATCH 02/49] pcmcia: remove remaining unused IRQ_FIRST_SHARED parameter
+Date: Sat, 27 Feb 2010 11:41:57 +0100
+Message-ID: <1267267364-5424-2-git-send-email-linux@dominikbrodowski.net>
+References: <20100227103934.GA4430@comet.dominikbrodowski.net>
+Cc: Dominik Brodowski <linux@dominikbrodowski.net>,
+	netdev@vger.kernel.org, Komuro <komurojun-mbn@nifty.com>
+To: <linux-pcmcia@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41745
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965301Ab0B0KoY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 05:44:24 -0500
-In-Reply-To: <20100227103835.GA2862@psychotron.redhat.com>
+Received: from isilmar.linta.de ([213.133.102.198]:56312 "EHLO linta.de"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S965301Ab0B0KpA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Feb 2010 05:45:00 -0500
+In-Reply-To: <20100227103934.GA4430@comet.dominikbrodowski.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Sat, 27 Feb 2010 11:38:37 +0100
+Komuro pointed out correctly that I missed one IRQ_FIRST_SHARED
+parameter in smc91c92_cs.c, and that another line could be writter
+more beautifully.
 
-> I see two solutions:
-> 1) check the length in all drivers to ensure correctness.
-> 2) when bonding changes it's type, flush mc addresses and start over.
-> 
-> Second option looks nicer to me, but I might be missing something, thouths?
+CC: netdev@vger.kernel.org
+CC: Komuro <komurojun-mbn@nifty.com>
+Tested-by: Wolfram Sang <w.sang@pengutronix.de>
+Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
+---
+ drivers/net/pcmcia/smc91c92_cs.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-If bonding is causing this problem, perhaps we should make bonding
-go through a programmatic interface to do it's work so that the
-check can be done generically and in a place that will get
-caught during code changes and audits.
+diff --git a/drivers/net/pcmcia/smc91c92_cs.c b/drivers/net/pcmcia/smc91c92_cs.c
+index 6dd486d..aa57cfd 100644
+--- a/drivers/net/pcmcia/smc91c92_cs.c
++++ b/drivers/net/pcmcia/smc91c92_cs.c
+@@ -453,8 +453,7 @@ static int mhz_mfc_config(struct pcmcia_device *link)
+ 
+     link->conf.Attributes |= CONF_ENABLE_SPKR;
+     link->conf.Status = CCSR_AUDIO_ENA;
+-    link->irq.Attributes =
+-	IRQ_TYPE_DYNAMIC_SHARING;
++    link->irq.Attributes = IRQ_TYPE_DYNAMIC_SHARING;
+     link->io.IOAddrLines = 16;
+     link->io.Attributes2 = IO_DATA_PATH_WIDTH_8;
+     link->io.NumPorts2 = 8;
+@@ -652,8 +651,7 @@ static int osi_config(struct pcmcia_device *link)
+ 
+     link->conf.Attributes |= CONF_ENABLE_SPKR;
+     link->conf.Status = CCSR_AUDIO_ENA;
+-    link->irq.Attributes =
+-	IRQ_TYPE_DYNAMIC_SHARING|IRQ_FIRST_SHARED;
++    link->irq.Attributes = IRQ_TYPE_DYNAMIC_SHARING;
+     link->io.NumPorts1 = 64;
+     link->io.Attributes2 = IO_DATA_PATH_WIDTH_8;
+     link->io.NumPorts2 = 8;
+-- 
+1.6.3.3
+
