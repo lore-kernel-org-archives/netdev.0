@@ -1,37 +1,42 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: Re: [PATCH v3 0/7] pci: Add VPD parsing support
-Date: Sat, 27 Feb 2010 08:46:30 -0800
-Message-ID: <20100227084630.6d556003@jbarnes-piketon>
-References: <1267229085-21303-1-git-send-email-mcarlson@broadcom.com>
-	<20100227.030831.210644479.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: mcarlson@broadcom.com, linux-pci@vger.kernel.org,
-	netdev@vger.kernel.org, andy@greyhouse.net
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20100227.030831.210644479.davem@davemloft.net>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrea Gelmini <andrea.gelmini@gelma.net>
+Subject: [PATCH 30/66] include/net/x25device.h: Checkpatch cleanup
+Date: Sat, 27 Feb 2010 17:51:11 +0100
+Message-ID: <1267289508-31031-31-git-send-email-andrea.gelmini@gelma.net>
+References: <1267289508-31031-1-git-send-email-andrea.gelmini@gelma.net>
+Cc: Andrea Gelmini <andrea.gelmini@gelma.net>,
+	Andrew Hendry <andrew.hendry@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-x25@vger.kernel.org,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:41119 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S968647Ab0B0Qyu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 11:54:50 -0500
+In-Reply-To: <1267289508-31031-1-git-send-email-andrea.gelmini@gelma.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 27 Feb 2010 03:08:31 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+include/net/x25device.h:13: ERROR: trailing whitespace
 
-> From: "Matt Carlson" <mcarlson@broadcom.com>
-> Date: Fri, 26 Feb 2010 16:04:38 -0800
-> 
-> > This patch adds code to help parse a device's VPD.  The bnx2 and tg3
-> > network drivers are modified as an example on how to use the API.  I
-> > believe the bnx2x driver will also use this API in the future.
-> 
-> PCI folks, ok with this?
-> 
-> And if so, OK if I merge this via the net-next-2.6 tree?
+Signed-off-by: Andrea Gelmini <andrea.gelmini@gelma.net>
+---
+ include/net/x25device.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Yeah, latest round looks good to me.  Thanks for doing this, Matt!
-
-Acked-by: Jesse Barnes <jbarnes@virtuousgeek.org>
-
+diff --git a/include/net/x25device.h b/include/net/x25device.h
+index 1415bcf..246a17b 100644
+--- a/include/net/x25device.h
++++ b/include/net/x25device.h
+@@ -10,7 +10,7 @@ static inline __be16 x25_type_trans(struct sk_buff *skb, struct net_device *dev)
+ 	skb->dev = dev;
+ 	skb_reset_mac_header(skb);
+ 	skb->pkt_type = PACKET_HOST;
+-	
++
+ 	return htons(ETH_P_X25);
+ }
+ #endif
 -- 
-Jesse Barnes, Intel Open Source Technology Center
+1.7.0.90.g251a4
+
