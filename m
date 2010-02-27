@@ -1,28 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/7] pci: Add VPD parsing support
-Date: Sat, 27 Feb 2010 03:08:31 -0800 (PST)
-Message-ID: <20100227.030831.210644479.davem@davemloft.net>
-References: <1267229085-21303-1-git-send-email-mcarlson@broadcom.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: TCP ACK loop with 2.6.33-rc6
+Date: Sat, 27 Feb 2010 13:13:49 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.1002271313070.31669@melkinpaasi.cs.helsinki.fi>
+References: <4B88FB88.3050902@simon.arlott.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jbarnes@virtuousgeek.org, linux-pci@vger.kernel.org,
-	netdev@vger.kernel.org, andy@greyhouse.net
-To: mcarlson@broadcom.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1267229085-21303-1-git-send-email-mcarlson@broadcom.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Simon Arlott <simon@fire.lp0.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:59479 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965569Ab0B0LNu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 06:13:50 -0500
+In-Reply-To: <4B88FB88.3050902@simon.arlott.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Fri, 26 Feb 2010 16:04:38 -0800
+On Sat, 27 Feb 2010, Simon Arlott wrote:
 
-> This patch adds code to help parse a device's VPD.  The bnx2 and tg3
-> network drivers are modified as an example on how to use the API.  I
-> believe the bnx2x driver will also use this API in the future.
+> Packet capture attached. Is it possible to tell which side is at fault?
+> They are both responding to each other's ACK with another ACK at 400pps.
+> 
+> 10:32:28.991111 IP6 2001:8b0:ffea:0:205:b4ff:fe12:530.35545 > 2001:500:b::1.53: . ack 766 win 58 <nop,nop,timestamp 2411331059 251057709>
+> 10:32:28.995046 IP6 2001:500:b::1.53 > 2001:8b0:ffea:0:205:b4ff:fe12:530.35545: . ack 1 win 1559
 
-PCI folks, ok with this?
+Why only a single ends talks with timestamps?!?!?
 
-And if so, OK if I merge this via the net-next-2.6 tree?
-
-Thanks!
+-- 
+ i.
