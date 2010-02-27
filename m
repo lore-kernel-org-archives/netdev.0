@@ -1,43 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] Preserve queue mapping with bonding and
- VLAN devices
-Date: Sat, 27 Feb 2010 02:02:54 -0800 (PST)
-Message-ID: <20100227.020254.189681426.davem@davemloft.net>
-References: <68631266953760@webmail134.yandex.ru>
-	<20100226.055025.30718012.davem@davemloft.net>
-	<14541267264382@webmail122.yandex.ru>
+From: =?iso-8859-1?Q?Sjur_Br=E6ndeland?= <sjur.brandeland@stericsson.com>
+Subject: RE: [PATCH net-next-2.6 v3 00/12] net-caif: introducing CAIF protocol stack
+Date: Sat, 27 Feb 2010 11:05:14 +0100
+Message-ID: <61D8D34BB13CFE408D154529C120E079138CB8@eseldmw101.eemea.ericsson.se>
+References: <1266876331-23988-1-git-send-email-sjur.brandeland@stericsson.com><1266910387.18491.54.camel@violet><61D8D34BB13CFE408D154529C120E07903359AE7@eseldmw101.eemea.ericsson.se> <20100226.012204.67216627.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sysoleg@yandex.ru
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <marcel@holtmann.org>, <netdev@vger.kernel.org>,
+	"Daniel Martensson" <daniel.martensson@stericsson.com>,
+	<kaber@trash.net>, <stefano.babic@babic.homelinux.org>,
+	<randy.dunlap@oracle.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36829
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S968104Ab0B0KCg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 05:02:36 -0500
-In-Reply-To: <14541267264382@webmail122.yandex.ru>
+Received: from mailgw10.se.ericsson.net ([193.180.251.61]:64696 "EHLO
+	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964877Ab0B0KUY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 05:20:24 -0500
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
-Date: Sat, 27 Feb 2010 12:53:02 +0300
+David Miller wrote:
+>> Hi Marcel.
+>>>> CHANGE LOG:
+>>>> Based on review comments from David Miller and Marcel Holtmann on the
+>>>> previous patch set submitted the 16 February the following changes
+>>>> have been done: 
+>>>> - Removed ifdef __cplusplus from caif_socket.h
+>>>> - Use socket level SOL_IP for socket options SO_PRIORITY and
+>>>> SO_BINDTODEVICE
+>>> 
+>>> are you sure it is not better to use SOL_SOCKET here. At least
+>>> according to man 7 socket this would make a lot more sense. My point
+>>> in actually using SO_PRIORITY and SO_BINDTODEVICE is to use standard
+>>> socket options that are already used by everybody else. So they know
+>>> what to expect.    
+>>> 
+>> Yes, this makes sense. I'll update this.
+>
+>Please fix this up and resubmit your patch series so I can add
+>it to the net-next-2.6 tree.
 
-> 26.02.10, 05:50, "David Miller" <davem@davemloft.net>:
-> 
->>  Your patches are fine, but they are whitespace corrupted by your
->>  email client (tabs turned into spaces, etc.) so they won't apply
->>  properly.
->>  
->>  Please fix this up and resend your patches.
->>  
->>  Thanks!
-> 
-> I'm sorry, corrected it.
+I have sent a V4 patch-set, fixing the review comments on the 
+V3 patch-set. But there are still review comments coming in.
 
-I said "patches", plural.
+Unfortunately, I am traveling until Thursday this week, without Internet access,
+so if you would like me to resubmit again I will not be able to do that before
+Thursday or Friday this week.
 
-Both your patches had whitespace issues.
-
-Please resend both patches, as a series, with the whitespace fixed.
-
+BR/Sjur
