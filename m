@@ -1,125 +1,80 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH v2] net: consolidate netif_needs_gso() checks
-Date: Fri, 26 Feb 2010 16:20:11 -0800
-Message-ID: <20100227001954.32474.62766.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH] ixgbe: move TC_PRIO_CONTROL check into
+	ixgbe_select_queue()
+Date: Fri, 26 Feb 2010 16:21:36 -0800
+Message-ID: <20100227002135.32576.23757.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	John Fastabend <john.r.fastabend@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:36982 "EHLO
-	qmta07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S966663Ab0B0AUk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 19:20:40 -0500
+Received: from qmta14.emeryville.ca.mail.comcast.net ([76.96.27.212]:59402
+	"EHLO qmta14.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S966663Ab0B0AV6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 19:21:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: John Fastabend <john.r.fastabend@intel.com>
 
-netif_needs_gso() is checked twice in the TX path once,
-before submitting the skb to the qdisc and once after
-it is dequeued from the qdisc just before calling
-ndo_hard_start().  This opens a window for a user to
-change the gso/tso or tx checksum settings that can
-cause netif_needs_gso to be true in one check and false
-in the other.
-
-Specifically, changing TX checksum setting may cause
-the warning in skb_gso_segment() to be triggered if
-the checksum is calculated earlier.
-
-This consolidates the netif_needs_gso() calls so that
-the stack only checks if gso is needed in
-dev_hard_start_xmit().
+Move TC_PRIO_CONTROL check and queue remapping into
+ixgbe_select_queue().  Remapping queues after the qdisc
+can result in the wrong qdisc queue being stopped with
+netif_stop_subqueue().  Even if this is resolved and the
+correct queue is stopped it can result in a queue being
+blocked by TC_PRIO_CONTROL frames uneccesarily.  Moving
+this into the select_queue routine maintains alignment
+between tx_rings and qdisc queues.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- net/core/dev.c |   50 +++++++++++++++++++++++++++++---------------------
- 1 files changed, 29 insertions(+), 21 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |   21 +++++++++++----------
+ 1 files changed, 11 insertions(+), 10 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index eb7f1a4..626124d 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1835,12 +1835,40 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
- {
- 	const struct net_device_ops *ops = dev->netdev_ops;
- 	int rc = NETDEV_TX_OK;
-+	int need_gso = netif_needs_gso(dev, skb);
-+
-+	if (!need_gso) {
-+		if (skb_has_frags(skb) &&
-+		    !(dev->features & NETIF_F_FRAGLIST) &&
-+		    __skb_linearize(skb))
-+			goto out_kfree_skb;
-+
-+		/* Fragmented skb is linearized if device does not support SG,
-+		 * or if at least one of fragments is in highmem and device
-+		 * does not support DMA from it.
-+		 */
-+		if (skb_shinfo(skb)->nr_frags &&
-+		    (!(dev->features & NETIF_F_SG) ||
-+		      illegal_highdma(dev, skb)) &&
-+		    __skb_linearize(skb))
-+			goto out_kfree_skb;
-+		/* If packet is not checksummed and device does not support
-+		 * checksumming for this protocol, complete checksumming here.
-+		 */
-+		if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+			skb_set_transport_header(skb, skb->csum_start -
-+				      skb_headroom(skb));
-+			if (!dev_can_checksum(dev, skb) &&
-+			     skb_checksum_help(skb))
-+				goto out_kfree_skb;
-+		}
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index a961da2..45e3532 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -5639,8 +5639,14 @@ static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb)
+ 		return txq;
+ 	}
+ #endif
+-	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED)
+-		return (skb->vlan_tci & IXGBE_TX_FLAGS_VLAN_PRIO_MASK) >> 13;
++	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
++		if (skb->priority == TC_PRIO_CONTROL)
++			txq = adapter->ring_feature[RING_F_DCB].indices-1;
++		else
++			txq = (skb->vlan_tci & IXGBE_TX_FLAGS_VLAN_PRIO_MASK)
++			       >> 13;
++		return txq;
 +	}
  
- 	if (likely(!skb->next)) {
- 		if (!list_empty(&ptype_all))
- 			dev_queue_xmit_nit(skb, dev);
+ 	return skb_tx_hash(dev, skb);
+ }
+@@ -5667,14 +5673,9 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
+ 		tx_flags <<= IXGBE_TX_FLAGS_VLAN_SHIFT;
+ 		tx_flags |= IXGBE_TX_FLAGS_VLAN;
+ 	} else if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
+-		if (skb->priority != TC_PRIO_CONTROL) {
+-			tx_flags |= ((skb->queue_mapping & 0x7) << 13);
+-			tx_flags <<= IXGBE_TX_FLAGS_VLAN_SHIFT;
+-			tx_flags |= IXGBE_TX_FLAGS_VLAN;
+-		} else {
+-			skb->queue_mapping =
+-				adapter->ring_feature[RING_F_DCB].indices-1;
+-		}
++		tx_flags |= ((skb->queue_mapping & 0x7) << 13);
++		tx_flags <<= IXGBE_TX_FLAGS_VLAN_SHIFT;
++		tx_flags |= IXGBE_TX_FLAGS_VLAN;
+ 	}
  
--		if (netif_needs_gso(dev, skb)) {
-+		if (need_gso) {
- 			if (unlikely(dev_gso_segment(skb)))
- 				goto out_kfree_skb;
- 			if (skb->next)
-@@ -2056,25 +2084,6 @@ int dev_queue_xmit(struct sk_buff *skb)
- 	struct Qdisc *q;
- 	int rc = -ENOMEM;
- 
--	/* GSO will handle the following emulations directly. */
--	if (netif_needs_gso(dev, skb))
--		goto gso;
--
--	/* Convert a paged skb to linear, if required */
--	if (skb_needs_linearize(skb, dev) && __skb_linearize(skb))
--		goto out_kfree_skb;
--
--	/* If packet is not checksummed and device does not support
--	 * checksumming for this protocol, complete checksumming here.
--	 */
--	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		skb_set_transport_header(skb, skb->csum_start -
--					      skb_headroom(skb));
--		if (!dev_can_checksum(dev, skb) && skb_checksum_help(skb))
--			goto out_kfree_skb;
--	}
--
--gso:
- 	/* Disable soft irqs for various locks below. Also
- 	 * stops preemption for RCU.
- 	 */
-@@ -2133,7 +2142,6 @@ gso:
- 	rc = -ENETDOWN;
- 	rcu_read_unlock_bh();
- 
--out_kfree_skb:
- 	kfree_skb(skb);
- 	return rc;
- out:
+ 	tx_ring = adapter->tx_ring[skb->queue_mapping];
 
