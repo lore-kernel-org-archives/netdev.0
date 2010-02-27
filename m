@@ -1,56 +1,67 @@
-From: Dominik Brodowski <linux@dominikbrodowski.net>
-Subject: [PATCH 02/49] pcmcia: remove remaining unused IRQ_FIRST_SHARED parameter
-Date: Sat, 27 Feb 2010 11:41:57 +0100
-Message-ID: <1267267364-5424-2-git-send-email-linux@dominikbrodowski.net>
-References: <20100227103934.GA4430@comet.dominikbrodowski.net>
-Cc: Dominik Brodowski <linux@dominikbrodowski.net>,
-	netdev@vger.kernel.org, Komuro <komurojun-mbn@nifty.com>
-To: <linux-pcmcia@lists.infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net: rtnetlink: support specifying device flags on device
+ creation
+Date: Sat, 27 Feb 2010 02:51:28 -0800 (PST)
+Message-ID: <20100227.025128.186425822.davem@davemloft.net>
+References: <20100226163449.11434.13013.sendpatchset@x2.localnet>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from isilmar.linta.de ([213.133.102.198]:56312 "EHLO linta.de"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S965301Ab0B0KpA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Feb 2010 05:45:00 -0500
-In-Reply-To: <20100227103934.GA4430@comet.dominikbrodowski.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39722
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965301Ab0B0KvL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 05:51:11 -0500
+In-Reply-To: <20100226163449.11434.13013.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Komuro pointed out correctly that I missed one IRQ_FIRST_SHARED
-parameter in smc91c92_cs.c, and that another line could be writter
-more beautifully.
+From: Patrick McHardy <kaber@trash.net>
+Date: Fri, 26 Feb 2010 17:34:49 +0100 (MET)
 
-CC: netdev@vger.kernel.org
-CC: Komuro <komurojun-mbn@nifty.com>
-Tested-by: Wolfram Sang <w.sang@pengutronix.de>
-Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
----
- drivers/net/pcmcia/smc91c92_cs.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+> The following patches add support to specify the device flags (like UP) when
+> creating a new device through rtnl_link. This requires to surpress netlink
+> notifications until the device is fully configured in order to not confuse
+> userspace when changing the flags fails and registration has to be undone.
+> Once the device is configured, a single NEWLINK message with the full state
+> is sent.
+> 
+> The individual patch changelogs describe the necessary changes in more detail.
 
-diff --git a/drivers/net/pcmcia/smc91c92_cs.c b/drivers/net/pcmcia/smc91c92_cs.c
-index 6dd486d..aa57cfd 100644
---- a/drivers/net/pcmcia/smc91c92_cs.c
-+++ b/drivers/net/pcmcia/smc91c92_cs.c
-@@ -453,8 +453,7 @@ static int mhz_mfc_config(struct pcmcia_device *link)
- 
-     link->conf.Attributes |= CONF_ENABLE_SPKR;
-     link->conf.Status = CCSR_AUDIO_ENA;
--    link->irq.Attributes =
--	IRQ_TYPE_DYNAMIC_SHARING;
-+    link->irq.Attributes = IRQ_TYPE_DYNAMIC_SHARING;
-     link->io.IOAddrLines = 16;
-     link->io.Attributes2 = IO_DATA_PATH_WIDTH_8;
-     link->io.NumPorts2 = 8;
-@@ -652,8 +651,7 @@ static int osi_config(struct pcmcia_device *link)
- 
-     link->conf.Attributes |= CONF_ENABLE_SPKR;
-     link->conf.Status = CCSR_AUDIO_ENA;
--    link->irq.Attributes =
--	IRQ_TYPE_DYNAMIC_SHARING|IRQ_FIRST_SHARED;
-+    link->irq.Attributes = IRQ_TYPE_DYNAMIC_SHARING;
-     link->io.NumPorts1 = 64;
-     link->io.Attributes2 = IO_DATA_PATH_WIDTH_8;
-     link->io.NumPorts2 = 8;
--- 
-1.6.3.3
+All applied, but two things:
 
+1) This patch set was harder to review because there were no
+   default initializations of the new enumeration you added
+   to struct netdev.
+
+   I know RTNL_LINK_INITIALIZED is probably zero by C enumeration
+   rules, and the zeroing out of new netdev objects gives us this,
+   but I only figured that out after some time.
+
+   It deserved at least a commit message mention in patch #2.
+
+2) I would really appreciate you forming your patch postings
+   properly.  I have to edit them every single time
+
+   You put the whole output of "git show" or "git format-patch" into
+   your email body.  That doesn't work, we don't want all of those
+   commit ID etc. lines in there.  It also causes every line of your
+   commit messages to be indented by 4 spaces.
+
+   Your email body should just contain the unindented commit message
+   and the signoffs, then the patch itself.
+
+   Your Subject lines are also not setup properly.  Because the
+   "net X/N:" thing isn't in [] brackets, it ends up in the
+   commit message header lines when I feed your emails to
+   "git am".
+
+   All of this could be avoided if you used git send-email but
+   I realize that a lot of people dislike that for one reason
+   or another (myself included), but if you're going to compose
+   the emails by hand you ought to make it look the same (syntax
+   wise) as what git send-email would have emitted.
+
+Thanks!
