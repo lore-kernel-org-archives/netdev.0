@@ -1,7 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH v3 1/7] pci: Add PCI LRDT tag size and section size
-Date: Fri, 26 Feb 2010 16:04:39 -0800
-Message-ID: <1267229085-21303-2-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH v3 2/7] pci: Add large and small resource data type code
+Date: Fri, 26 Feb 2010 16:04:40 -0800
+Message-ID: <1267229085-21303-3-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,100 +9,153 @@ Cc: linux-pci@vger.kernel.org, netdev@vger.kernel.org,
 	andy@greyhouse.net, mcarlson@broadcom.com,
 	"Michael Chan" <mchan@broadcom.com>
 To: jbarnes@virtuousgeek.org
-Return-path: <linux-pci-owner@vger.kernel.org>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:1952 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S966617Ab0B0AEz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Feb 2010 19:04:55 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds a preprocessor constant to describe the PCI VPD large
-resource data type tag size and an inline function to extract the large
-resource section size from the large resource data type tag.
+This patch introduces more VPD preprocessor definitions to identify some
+small and large resource data type item names.  The patch then continues
+to correct how the tg3 and bnx2 drivers search for the "read-only data"
+large resource data type.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/bnx2.c  |    8 +++++---
- drivers/net/tg3.c   |   13 ++++++-------
- include/linux/pci.h |   14 ++++++++++++++
- 3 files changed, 25 insertions(+), 10 deletions(-)
+ drivers/net/bnx2.c  |   23 +++++++++++++++++------
+ drivers/net/tg3.c   |   23 +++++++++++++++++------
+ include/linux/pci.h |   34 +++++++++++++++++++++++++++++++++-
+ 3 files changed, 67 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 65df1de..d466208 100644
+index d466208..7caa98d 100644
 --- a/drivers/net/bnx2.c
 +++ b/drivers/net/bnx2.c
-@@ -7763,15 +7763,17 @@ bnx2_read_vpd_fw_ver(struct bnx2 *bp)
+@@ -7762,15 +7762,26 @@ bnx2_read_vpd_fw_ver(struct bnx2 *bp)
+ 		unsigned char val = data[i];
  		unsigned int block_end;
  
- 		if (val == 0x82 || val == 0x91) {
--			i = (i + 3 + (data[i + 1] + (data[i + 2] << 8)));
-+			i += PCI_VPD_LRDT_TAG_SIZE +
-+			     pci_vpd_lrdt_size(&data[i]);
+-		if (val == 0x82 || val == 0x91) {
+-			i += PCI_VPD_LRDT_TAG_SIZE +
+-			     pci_vpd_lrdt_size(&data[i]);
++		if (val & PCI_VPD_LRDT) {
++			if (i + PCI_VPD_LRDT_TAG_SIZE > BNX2_VPD_LEN)
++				break;
++
++			if (val != PCI_VPD_LRDT_RO_DATA) {
++				i += PCI_VPD_LRDT_TAG_SIZE +
++				     pci_vpd_lrdt_size(&data[i]);
++
++				continue;
++			}
++		} else {
++			if ((val & PCI_VPD_SRDT_TIN_MASK) == PCI_VPD_STIN_END)
++				break;
++
++			i += PCI_VPD_SRDT_TAG_SIZE +
++			     pci_vpd_srdt_size(&data[i]);
++
  			continue;
  		}
  
- 		if (val != 0x90)
- 			goto vpd_done;
- 
--		block_end = (i + 3 + (data[i + 1] + (data[i + 2] << 8)));
--		i += 3;
-+		block_end = (i + PCI_VPD_LRDT_TAG_SIZE +
-+			    pci_vpd_lrdt_size(&data[i]));
-+		i += PCI_VPD_LRDT_TAG_SIZE;
- 
- 		if (block_end > BNX2_VPD_LEN)
- 			goto vpd_done;
+-		if (val != 0x90)
+-			goto vpd_done;
+-
+ 		block_end = (i + PCI_VPD_LRDT_TAG_SIZE +
+ 			    pci_vpd_lrdt_size(&data[i]));
+ 		i += PCI_VPD_LRDT_TAG_SIZE;
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 7f82b02..d01e133 100644
+index d01e133..4c24998 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -12483,19 +12483,18 @@ static void __devinit tg3_read_partno(struct tg3 *tp)
+@@ -12482,15 +12482,26 @@ static void __devinit tg3_read_partno(struct tg3 *tp)
+ 		unsigned char val = vpd_data[i];
  		unsigned int block_end;
  
- 		if (val == 0x82 || val == 0x91) {
--			i = (i + 3 +
--			     (vpd_data[i + 1] +
--			      (vpd_data[i + 2] << 8)));
-+			i += PCI_VPD_LRDT_TAG_SIZE +
-+			     pci_vpd_lrdt_size(&vpd_data[i]);
+-		if (val == 0x82 || val == 0x91) {
+-			i += PCI_VPD_LRDT_TAG_SIZE +
+-			     pci_vpd_lrdt_size(&vpd_data[i]);
++		if (val & PCI_VPD_LRDT) {
++			if (i + PCI_VPD_LRDT_TAG_SIZE > TG3_NVM_VPD_LEN)
++				break;
++
++			if (val != PCI_VPD_LRDT_RO_DATA) {
++				i += PCI_VPD_LRDT_TAG_SIZE +
++				     pci_vpd_lrdt_size(&vpd_data[i]);
++
++				continue;
++			}
++		} else {
++			if ((val & PCI_VPD_SRDT_TIN_MASK) == PCI_VPD_STIN_END)
++				break;
++
++			i += PCI_VPD_SRDT_TAG_SIZE +
++			     pci_vpd_srdt_size(&vpd_data[i]);
++
  			continue;
  		}
  
- 		if (val != 0x90)
- 			goto out_not_found;
+-		if (val != 0x90)
+-			goto out_not_found;
+-
+ 		block_end = i + PCI_VPD_LRDT_TAG_SIZE +
+ 			    pci_vpd_lrdt_size(&vpd_data[i]);
  
--		block_end = (i + 3 +
--			     (vpd_data[i + 1] +
--			      (vpd_data[i + 2] << 8)));
--		i += 3;
-+		block_end = i + PCI_VPD_LRDT_TAG_SIZE +
-+			    pci_vpd_lrdt_size(&vpd_data[i]);
-+
-+		i += PCI_VPD_LRDT_TAG_SIZE;
- 
- 		if (block_end > TG3_NVM_VPD_LEN)
- 			goto out_not_found;
 diff --git a/include/linux/pci.h b/include/linux/pci.h
-index c1968f4..038f3c0 100644
+index 038f3c0..d6f2b17 100644
 --- a/include/linux/pci.h
 +++ b/include/linux/pci.h
-@@ -1338,5 +1338,19 @@ static inline bool pci_is_pcie(struct pci_dev *dev)
- 
+@@ -1339,7 +1339,28 @@ static inline bool pci_is_pcie(struct pci_dev *dev)
  void pci_request_acs(void);
  
+ 
+-#define PCI_VPD_LRDT_TAG_SIZE	3
++#define PCI_VPD_LRDT			0x80	/* Large Resource Data Type */
++#define PCI_VPD_LRDT_ID(x)		(x | PCI_VPD_LRDT)
 +
-+#define PCI_VPD_LRDT_TAG_SIZE	3
++/* Large Resource Data Type Tag Item Names */
++#define PCI_VPD_LTIN_ID_STRING		0x02	/* Identifier String */
++#define PCI_VPD_LTIN_RO_DATA		0x10	/* Read-Only Data */
++#define PCI_VPD_LTIN_RW_DATA		0x11	/* Read-Write Data */
 +
++#define PCI_VPD_LRDT_ID_STRING		PCI_VPD_LRDT_ID(PCI_VPD_LTIN_ID_STRING)
++#define PCI_VPD_LRDT_RO_DATA		PCI_VPD_LRDT_ID(PCI_VPD_LTIN_RO_DATA)
++#define PCI_VPD_LRDT_RW_DATA		PCI_VPD_LRDT_ID(PCI_VPD_LTIN_RW_DATA)
++
++/* Small Resource Data Type Tag Item Names */
++#define PCI_VPD_STIN_END		0x78	/* End */
++
++#define PCI_VPD_SRDT_END		PCI_VPD_STIN_END
++
++#define PCI_VPD_SRDT_TIN_MASK		0x78
++#define PCI_VPD_SRDT_LEN_MASK		0x07
++
++#define PCI_VPD_LRDT_TAG_SIZE		3
++#define PCI_VPD_SRDT_TAG_SIZE		1
+ 
+ /**
+  * pci_vpd_lrdt_size - Extracts the Large Resource Data Type length
+@@ -1352,5 +1373,16 @@ static inline u16 pci_vpd_lrdt_size(const u8 *lrdt)
+ 	return (u16)lrdt[1] + ((u16)lrdt[2] << 8);
+ }
+ 
 +/**
-+ * pci_vpd_lrdt_size - Extracts the Large Resource Data Type length
-+ * @lrdt: Pointer to the beginning of the Large Resource Data Type tag
++ * pci_vpd_srdt_size - Extracts the Small Resource Data Type length
++ * @lrdt: Pointer to the beginning of the Small Resource Data Type tag
 + *
-+ * Returns the extracted Large Resource Data Type length.
++ * Returns the extracted Small Resource Data Type length.
 + */
-+static inline u16 pci_vpd_lrdt_size(const u8 *lrdt)
++static inline u8 pci_vpd_srdt_size(const u8 *srdt)
 +{
-+	return (u16)lrdt[1] + ((u16)lrdt[2] << 8);
++	return (*srdt) & PCI_VPD_SRDT_LEN_MASK;
 +}
 +
  #endif /* __KERNEL__ */
  #endif /* LINUX_PCI_H */
 -- 
 1.6.4.4
+
+
