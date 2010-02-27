@@ -1,65 +1,102 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] zd1211rw: fix potential array underflow
-Date: Sat, 27 Feb 2010 09:12:34 +0300
-Message-ID: <20100227061234.GA14323@bicker>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [net-next-2.6 PATCH] ethtool: Add n-tuple string length to drvinfo
+ and return it
+Date: Sat, 27 Feb 2010 01:31:08 -0500
+Message-ID: <4B88BC2C.1030304@garzik.org>
+References: <20100226115355.20213.59254.stgit@localhost.localdomain>	 <4B87D31B.4000001@garzik.org> <1267228162.2224.38.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ulrich Kunitz <kune@deine-taler.de>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
-	=?iso-8859-1?Q?Andr=E9?= Goddard Rosa <andre.goddard@gmail.com>,
-	Benoit PAPILLAULT <benoit.papillault@free.fr>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Daniel Drake <dsd@gentoo.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:52168 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752467Ab0B0GbM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 01:31:12 -0500
+Received: by gwb19 with SMTP id 19so294230gwb.19
+        for <netdev@vger.kernel.org>; Fri, 26 Feb 2010 22:31:10 -0800 (PST)
+In-Reply-To: <1267228162.2224.38.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The first chunk fixes a debugging assert to print a warning about array underflows.
-The second chunk corrects a potential array underflow.  I also removed an assert
-in the second chunk because it can no longer happen.
+On 02/26/2010 06:49 PM, Peter P Waskiewicz Jr wrote:
+> On Fri, 2010-02-26 at 05:56 -0800, Jeff Garzik wrote:
+>> On 02/26/2010 06:54 AM, Jeff Kirsher wrote:
+>>> From: Peter Waskiewicz<peter.p.waskiewicz.jr@intel.com>
+>>>
+>>> The drvinfo struct should include the number of strings that
+>>> get_rx_ntuple will return.  It will be variable if an underlying
+>>> driver implements its own get_rx_ntuple routine, so userspace
+>>> needs to know how much data is coming.
+>>>
+>>> Signed-off-by: Peter P Waskiewicz Jr<peter.p.waskiewicz.jr@intel.com>
+>>> Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
+>>> ---
+>>>
+>>>    include/linux/ethtool.h |    1 +
+>>>    net/core/ethtool.c      |    3 +++
+>>>    2 files changed, 4 insertions(+), 0 deletions(-)
+>>
+>> (resending reply, standard patch-sending box is having trouble sending
+>> to vger)
+>>
+>>
+>> As noted in the other email, your patch breaks ABI.  The proper path is
+>> to decrease the size of reserved struct member, and NOT shift the offset
+>> of other members.
+>>
+>>
+>>
+>> However, perhaps consider the following patch for returning n-tuple
+>> count, for four reasons:
+>>
+>> 1) space in ethtool_drvinfo is limited
+>>
+>> 2) the patch below permits trivial string set addition, without
+>>      ABI changes beyond adding a new ETH_SS_xxx constant.
+>>
+>> 3) the patch below permits direct access to ops->get_sset_count(),
+>>      rather than implicit access via ethtool_drvinfo
+>>
+>> 4) ethtool_drvinfo interface does not permit indication of
+>>      ops->get_sset_count() failure, versus returning zero value.  The
+>>      patch below does so, via output sset_mask.
+>>
+>> WARNING: this patch is compile-tested only.
+>>
+>> NOTE: I added a cosmetic fix to ETHTOOL_[GS]RXNTUPLE constants, making
+>> their indentation consistent with the rest of the list of constants.
+>>
+>> Signed-off-by: Jeff Garzik<jgarzik@redhat.com>
+>
+> I'm updating your patch since I found an issue.  The mask is passing in
+> the ETH_SS_* flags, but then they're treated as bits, not enumerated
+> flags.  I'm thinking of the best non-intrusive way to correct it.
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
----
-This was found by a static check and compile tested only.  Please review carefully.
+As Ben noted, you cannot change those enumerated values, as they are 
+already part of the ABI.
 
-diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
-index f14deb0..ead2f2c 100644
---- a/drivers/net/wireless/zd1211rw/zd_mac.c
-+++ b/drivers/net/wireless/zd1211rw/zd_mac.c
-@@ -350,7 +350,7 @@ static void zd_mac_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb,
- 	first_idx = info->status.rates[0].idx;
- 	ZD_ASSERT(0<=first_idx && first_idx<ARRAY_SIZE(zd_retry_rates));
- 	retries = &zd_retry_rates[first_idx];
--	ZD_ASSERT(0<=retry && retry<=retries->count);
-+	ZD_ASSERT(1 <= retry && retry <= retries->count);
- 
- 	info->status.rates[0].idx = retries->rate[0];
- 	info->status.rates[0].count = 1; // (retry > 1 ? 2 : 1);
-@@ -360,7 +360,7 @@ static void zd_mac_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb,
- 		info->status.rates[i].count = 1; // ((i==retry-1) && success ? 1:2);
- 	}
- 	for (; i<IEEE80211_TX_MAX_RATES && i<retry; i++) {
--		info->status.rates[i].idx = retries->rate[retry-1];
-+		info->status.rates[i].idx = retries->rate[retry - 1];
- 		info->status.rates[i].count = 1; // (success ? 1:2);
- 	}
- 	if (i<IEEE80211_TX_MAX_RATES)
-@@ -424,12 +424,10 @@ void zd_mac_tx_failed(struct urb *urb)
- 		first_idx = info->status.rates[0].idx;
- 		ZD_ASSERT(0<=first_idx && first_idx<ARRAY_SIZE(zd_retry_rates));
- 		retries = &zd_retry_rates[first_idx];
--		if (retry < 0 || retry > retries->count) {
-+		if (retry <= 0 || retry > retries->count)
- 			continue;
--		}
- 
--		ZD_ASSERT(0<=retry && retry<=retries->count);
--		final_idx = retries->rate[retry-1];
-+		final_idx = retries->rate[retry - 1];
- 		final_rate = zd_rates[final_idx].hw_value;
- 
- 		if (final_rate != tx_status->rate) {
+For ETHTOOL_GSSET_INFO, you initialize the sset_mask like this:
+
+	info.sset_mask = (1ULL << ETH_SS_NTUPLE_FILTERS);
+
+A multiple initialization would look like this:
+
+	info.sset_mask = (1ULL << ETH_SS_NTUPLE_FILTERS) |
+			(1ULL << ETH_SS_STATS) |
+			(1ULL << ETH_SS_PRIV_FLAGS);
+
+Do you still see an issue in my suggested code, now that sset_mask 
+confusion is cleared up?
+
+Regards,
+
+	Jeff
+
+
+
