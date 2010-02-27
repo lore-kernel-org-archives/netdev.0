@@ -1,30 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2010-02-26
-Date: Sat, 27 Feb 2010 02:31:58 -0800 (PST)
-Message-ID: <20100227.023158.191415952.davem@davemloft.net>
-References: <20100226230149.GA10987@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH v3 0/3] Support for MPC512x FEC
+Date: Sat, 27 Feb 2010 02:34:57 -0800 (PST)
+Message-ID: <20100227.023457.174832003.davem@davemloft.net>
+References: <1267221649-22754-1-git-send-email-agust@denx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100226230149.GA10987-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	grant.likely@secretlab.ca, dzu@denx.de, wd@denx.de,
+	jcrigby@gmail.com
+To: agust@denx.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33372
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965178Ab0B0Kej (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 05:34:39 -0500
+In-Reply-To: <1267221649-22754-1-git-send-email-agust@denx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Fri, 26 Feb 2010 18:01:50 -0500
+From: Anatolij Gustschin <agust@denx.de>
+Date: Fri, 26 Feb 2010 23:00:46 +0100
 
-> Here is one final round of wireless bits for the 2.6.34 merge window.
-> Basically these would qualify as fixes anyway (more or less), but we
-> might as well get them in now.
-> 
-> Please let me know if there are problems!
+> These patches attempt to provide support for the Freescale MPC512x
+> FEC in the fs_enet driver. The first cleanup patch replaces printk
+> by dev_xxx. The second and third attemt to support MPC5121 FEC
+> in the FEC driver.
 
-Pulled, thanks John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, for real this time! :-)
+
+Thanks.
