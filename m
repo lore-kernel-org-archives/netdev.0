@@ -1,85 +1,61 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 2/9] Bluetooth: Make USB device id constant
-Date: Sat, 27 Feb 2010 23:38:31 +0100
-Message-ID: <8978111e2d148f75bd5e329a14600feadc567381.1267276098.git.marcel@holtmann.org>
-References: <cover.1267276098.git.marcel@holtmann.org>
- <8e5b2308489dbca27c104fc6a557d4c9348552e5.1267276098.git.marcel@holtmann.org>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: Re: [PATCH 4/7] cxgb4: Add packet queues and packet DMA code
+Date: Sat, 27 Feb 2010 14:41:09 -0800
+Message-ID: <4B899F85.1000101@chelsio.com>
+References: <8A71B368A89016469F72CD08050AD33401359B69@maui.asicdesigners.com> <20100227.014839.226753616.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:54690 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936359Ab0B0WkS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 17:40:18 -0500
-In-Reply-To: <8e5b2308489dbca27c104fc6a557d4c9348552e5.1267276098.git.marcel@holtmann.org>
-In-Reply-To: <cover.1267276098.git.marcel@holtmann.org>
-References: <cover.1267276098.git.marcel@holtmann.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:30345 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965003Ab0B0WlO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 17:41:14 -0500
+In-Reply-To: <20100227.014839.226753616.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: M=C3=A1rton N=C3=A9meth <nm127@freemail.hu>
+David Miller wrote:
+> From: "Dimitrios Michailidis" <dm@chelsio.com>
+> Date: Fri, 26 Feb 2010 16:10:07 -0800
+> 
+>> I believe this function does not generate any code, the compiler
+>> statically figures out the result and optimizes any conditionals that
+>> call it.  What option do you have in mind that would tell the compiler
+>> if unmap is nop?
+> 
+> I've got better questions:
+> 
+> 1) Why is your driver so damn special?
+> 
+>    If this optimization is useful, it dosen't belong privately in
+>    some driver, it belongs in some generic spot.
 
-The id_table field of the struct usb_device_id is constant in <linux/us=
-b.h>
-so it is worth to make bcm203x_table also constant.
+I agree that it would be better if this were available at some generic 
+place, eg an arch header.  It is implicitly available for most arches 
+through the definition of DECLARE_PCI_UNMAP_ADDR and related macros, which 
+is why the driver is looking at that, but it would be nicer if it were 
+explicitly available.  Among the arches MIPS has an explicit indication 
+through its CONFIG_DMA_NEED_PCI_MAP_STATE but it's the only one.
 
-The semantic match that finds this kind of pattern is as follows:
-(http://coccinelle.lip6.fr/)
+> 
+> 2) What configuration does this even help for?  Even bog standard x86
+>    and x86_64 uses IOMMUs and thus make use of the unmap address.
+> 
+>    I cannot think of one platform that matters where this will even
+>    trigger.
 
-// <smpl>
-@r@
-disable decl_init,const_decl_init;
-identifier I1, I2, x;
-@@
-	struct I1 {
-	  ...
-	  const struct I2 *x;
-	  ...
-	};
-@s@
-identifier r.I1, y;
-identifier r.x, E;
-@@
-	struct I1 y =3D {
-	  .x =3D E,
-	};
-@c@
-identifier r.I2;
-identifier s.E;
-@@
-	const struct I2 E[] =3D ... ;
-@depends on !c@
-identifier r.I2;
-identifier s.E;
-@@
-+	const
-	struct I2 E[] =3D ...;
-// </smpl>
+While x86_32 has configurations that don't use unmapping (see 
+arch/x86/include/asm/pci.h) it is more helpful with less powerful CPUs, like 
+PPC or MIPS one finds in embedded systems.  People use this device with 
+embedded CPUs.
 
-Signed-off-by: M=C3=A1rton N=C3=A9meth <nm127@freemail.hu>
-Cc: Julia Lawall <julia@diku.dk>
-Cc: cocci@diku.dk
-Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
----
- drivers/bluetooth/bcm203x.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> Get rid of this junk, please.  Because even if it's valid, it doesn't
+> belong privately in your driver.
+> 
 
-diff --git a/drivers/bluetooth/bcm203x.c b/drivers/bluetooth/bcm203x.c
-index eafd4af..b0c84c1 100644
---- a/drivers/bluetooth/bcm203x.c
-+++ b/drivers/bluetooth/bcm203x.c
-@@ -39,7 +39,7 @@
-=20
- #define VERSION "1.2"
-=20
--static struct usb_device_id bcm203x_table[] =3D {
-+static const struct usb_device_id bcm203x_table[] =3D {
- 	/* Broadcom Blutonium (BCM2033) */
- 	{ USB_DEVICE(0x0a5c, 0x2033) },
-=20
---=20
-1.6.6
-
+I'd love not to have this in the driver but I don't know how to get the same 
+result without it with the current state of affairs.
