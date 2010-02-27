@@ -1,80 +1,57 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: [PATCH] e1000e: export some settings using ethtool private flags
-Date: Sat, 27 Feb 2010 03:23:05 -0500
-Message-ID: <20100227082305.GA18194@havoc.gtf.org>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
+Date: Sat, 27 Feb 2010 11:30:02 +0300
+Message-ID: <4B88D80A.8010701@parallels.com>
+References: <4B4F24AC.70105@trash.net> <1263481549.23480.24.camel@bigi>	<4B4F3A50.1050400@trash.net> <1263490403.23480.109.camel@bigi>	<4B50403A.6010507@trash.net> <1263568754.23480.142.camel@bigi>	<m13a0tf17t.fsf@fess.ebiederm.org> <1266875729.3673.12.camel@bigi>	<m1wry46es9.fsf@fess.ebiederm.org> <1266931623.3973.643.camel@bigi>	<m1iq9ocafv.fsf@fess.ebiederm.org> <1266934817.3973.654.camel@bigi>	<m1r5obbu2w.fsf@fess.ebiederm.org> <1266966581.3973.675.camel@bigi>	<m1pr3t2fvl.fsf_-_@fess.ebiederm.org> <4B883987.6090408@parallels.com>	<m1bpfbwuze.fsf@fess.ebiederm.org> <4B883E6F.1060907@parallels.com> <m13a0nwu6p.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:41509 "EHLO havoc.gtf.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S967944Ab0B0IXI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Feb 2010 03:23:08 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	containers@lists.linux-foundation.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>,
+	Serge Hallyn <serue@us.ibm.com>,
+	Matt Helsley <matthltc@us.ibm.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <m13a0nwu6p.fsf@fess.ebiederm.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Eric W. Biederman wrote:
+> Pavel Emelyanov <xemul@parallels.com> writes:
+> 
+>>>> Yet another set of per-namespace IDs along with CLONE_NEWXXX ones?
+>>>> I currently have a way to create all namespaces we have with one
+>>>> syscall. Why don't we have an ability to enter them all with one syscall?
+>>> The CLONE_NEWXXX series of bits has been an royal pain to work with,
+>>> and it appears to be unnecessary complications for no gain.
+>> That's the answer for the "Yet another set..." question.
+>> How about the "Why don't we have..." one?
+> 
+> I am not certain which question you are asking:
+> 
+> Why don't we have an ability to enter all namespaces with one syscall
+> invocation?
 
-The ethtool private flags interface exists to get/set driver-specific
-settings at runtime, in a flexible manner.
+Exactly. Please add at least the NSTYPE_NSPROXY or whatever, that will
+pin all namespaces of a given pid from the very beginning.
 
-Use this facility to export a couple e1000e features, that were
-previously only set at module initialization time.
+> Why don't we have a syscall that allows us to enter every namespace?
 
-Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
----
- drivers/net/e1000e/ethtool.c |   27 +++++++++++++++++++++++++++
- 1 file changed, 27 insertions(+)
+This one is done in the patch, no?
 
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index b33e3cb..4bda27f 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -112,6 +112,30 @@ static const char e1000_gstrings_test[][ETH_GSTRING_LEN] = {
- };
- #define E1000_TEST_LEN ARRAY_SIZE(e1000_gstrings_test)
- 
-+enum e1000_pflags {
-+	E1000_PF_SMART_POWERDOWN	= (1 << 0),
-+	E1000_PF_RO_NVM			= (1 << 1),
-+};
-+
-+#define E1000_N_PFLAGS ARRAY_SIZE(e1000_gstrings_pflags)
-+static const char e1000_gstrings_pflags[][ETH_GSTRING_LEN] = {
-+	"smart_power_down",
-+	"read_only_nvm",
-+};
-+
-+u32 e1000_get_priv_flags(struct net_device *netdev)
-+{
-+	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	u32 ret = 0;
-+
-+	if (adapter->flags & FLAG_SMART_POWER_DOWN)
-+		ret |= E1000_PF_SMART_POWERDOWN;
-+	if (adapter->flags & FLAG_READ_ONLY_NVM)
-+		ret |= E1000_PF_RO_NVM;
-+
-+	return ret;
-+}
-+
- static int e1000_get_settings(struct net_device *netdev,
- 			      struct ethtool_cmd *ecmd)
- {
-@@ -1666,6 +1690,8 @@ static int e1000e_get_sset_count(struct net_device *netdev, int sset)
- 		return E1000_TEST_LEN;
- 	case ETH_SS_STATS:
- 		return E1000_STATS_LEN;
-+	case ETH_SS_PRIV_FLAGS:
-+		return E1000_N_PFLAGS;
- 	default:
- 		return -EOPNOTSUPP;
- 	}
-@@ -2014,6 +2040,7 @@ static const struct ethtool_ops e1000_ethtool_ops = {
- 	.set_coalesce		= e1000_set_coalesce,
- 	.get_flags		= ethtool_op_get_flags,
- 	.set_flags		= ethtool_op_set_flags,
-+	.get_priv_flags		= e1000_get_priv_flags,
- };
- 
- void e1000e_set_ethtool_ops(struct net_device *netdev)
+Although the approach is OK for me, there's one design issue, that came
+up to my mind recently: can we use this fd to wail for a namespace to 
+stop? I currently don't see this ability, but this is something I require
+badly.
+
+Thoughts?
+
+> Eric
+> 
+> 
+
