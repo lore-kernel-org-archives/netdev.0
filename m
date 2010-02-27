@@ -1,51 +1,108 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 4/7] cxgb4: Add packet queues and packet DMA code
-Date: Fri, 26 Feb 2010 15:57:56 -0800
-Message-ID: <20100226155756.09c0485c@nehalam>
-References: <1267227339-8076-1-git-send-email-dm@chelsio.com>
-	<1267227339-8076-2-git-send-email-dm@chelsio.com>
-	<1267227339-8076-3-git-send-email-dm@chelsio.com>
-	<1267227339-8076-4-git-send-email-dm@chelsio.com>
-	<1267227339-8076-5-git-send-email-dm@chelsio.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH v3 1/7] pci: Add PCI LRDT tag size and section size
+Date: Fri, 26 Feb 2010 16:04:39 -0800
+Message-ID: <1267229085-21303-2-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dimitris Michailidis <dm@chelsio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:46761 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966562Ab0BZX6N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Feb 2010 18:58:13 -0500
-In-Reply-To: <1267227339-8076-5-git-send-email-dm@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-pci@vger.kernel.org, netdev@vger.kernel.org,
+	andy@greyhouse.net, mcarlson@broadcom.com,
+	"Michael Chan" <mchan@broadcom.com>
+To: jbarnes@virtuousgeek.org
+Return-path: <linux-pci-owner@vger.kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 26 Feb 2010 15:35:36 -0800
-Dimitris Michailidis <dm@chelsio.com> wrote:
+This patch adds a preprocessor constant to describe the PCI VPD large
+resource data type tag size and an inline function to extract the large
+resource section size from the large resource data type tag.
 
-> +
-> +/**
-> + *	need_skb_unmap - does the platform need unmapping of sk_buffs?
-> + *
-> + *	Returns true if the platfrom needs sk_buff unmapping.  The compiler
-> + *	optimizes away unecessary code if this returns true.
-> + */
-> +static inline int need_skb_unmap(void)
-> +{
-> +	/*
-> +	 * This structure is used to tell if the platfrom needs buffer
-> +	 * unmapping by checking if DECLARE_PCI_UNMAP_ADDR defines anything.
-> +	 */
-> +	struct dummy {
-> +		DECLARE_PCI_UNMAP_ADDR(addr);
-> +	};
-> +
-> +	return sizeof(struct dummy) != 0;
-> +}
-> +
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/bnx2.c  |    8 +++++---
+ drivers/net/tg3.c   |   13 ++++++-------
+ include/linux/pci.h |   14 ++++++++++++++
+ 3 files changed, 25 insertions(+), 10 deletions(-)
 
-I would prefer one code path and let the compiler decide if unmap
-should be nop; rather than this kind of trick code.
-
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 65df1de..d466208 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -7763,15 +7763,17 @@ bnx2_read_vpd_fw_ver(struct bnx2 *bp)
+ 		unsigned int block_end;
+ 
+ 		if (val == 0x82 || val == 0x91) {
+-			i = (i + 3 + (data[i + 1] + (data[i + 2] << 8)));
++			i += PCI_VPD_LRDT_TAG_SIZE +
++			     pci_vpd_lrdt_size(&data[i]);
+ 			continue;
+ 		}
+ 
+ 		if (val != 0x90)
+ 			goto vpd_done;
+ 
+-		block_end = (i + 3 + (data[i + 1] + (data[i + 2] << 8)));
+-		i += 3;
++		block_end = (i + PCI_VPD_LRDT_TAG_SIZE +
++			    pci_vpd_lrdt_size(&data[i]));
++		i += PCI_VPD_LRDT_TAG_SIZE;
+ 
+ 		if (block_end > BNX2_VPD_LEN)
+ 			goto vpd_done;
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 7f82b02..d01e133 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -12483,19 +12483,18 @@ static void __devinit tg3_read_partno(struct tg3 *tp)
+ 		unsigned int block_end;
+ 
+ 		if (val == 0x82 || val == 0x91) {
+-			i = (i + 3 +
+-			     (vpd_data[i + 1] +
+-			      (vpd_data[i + 2] << 8)));
++			i += PCI_VPD_LRDT_TAG_SIZE +
++			     pci_vpd_lrdt_size(&vpd_data[i]);
+ 			continue;
+ 		}
+ 
+ 		if (val != 0x90)
+ 			goto out_not_found;
+ 
+-		block_end = (i + 3 +
+-			     (vpd_data[i + 1] +
+-			      (vpd_data[i + 2] << 8)));
+-		i += 3;
++		block_end = i + PCI_VPD_LRDT_TAG_SIZE +
++			    pci_vpd_lrdt_size(&vpd_data[i]);
++
++		i += PCI_VPD_LRDT_TAG_SIZE;
+ 
+ 		if (block_end > TG3_NVM_VPD_LEN)
+ 			goto out_not_found;
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index c1968f4..038f3c0 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -1338,5 +1338,19 @@ static inline bool pci_is_pcie(struct pci_dev *dev)
+ 
+ void pci_request_acs(void);
+ 
++
++#define PCI_VPD_LRDT_TAG_SIZE	3
++
++/**
++ * pci_vpd_lrdt_size - Extracts the Large Resource Data Type length
++ * @lrdt: Pointer to the beginning of the Large Resource Data Type tag
++ *
++ * Returns the extracted Large Resource Data Type length.
++ */
++static inline u16 pci_vpd_lrdt_size(const u8 *lrdt)
++{
++	return (u16)lrdt[1] + ((u16)lrdt[2] << 8);
++}
++
+ #endif /* __KERNEL__ */
+ #endif /* LINUX_PCI_H */
 -- 
+1.6.4.4
