@@ -1,157 +1,47 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: SV: [PATCH net-next-2.6 v4 02/12] net-caif: add CAIF socket
- and configuration headers
-Date: Sat, 27 Feb 2010 23:58:07 +0100
-Message-ID: <1267311487.8849.91.camel@localhost.localdomain>
-References: <1267222417-2764-1-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267222417-2764-2-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267222417-2764-3-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267226115.18491.71.camel@violet>
-	 <61D8D34BB13CFE408D154529C120E079138CB5@eseldmw101.eemea.ericsson.se>
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Subject: [PATCH  kernel 2.6.33] axnet_cs: add new id
+Date: Sun, 28 Feb 2010 08:34:20 +0900
+Message-ID: <20100228083420.9ca8e285.ken_kawasaki@spring.nifty.jp>
+References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
+	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
+	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
+	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
+	<20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
+	<20091221205849.dae4e929.ken_kawasaki@spring.nifty.jp>
+	<20091223171004.77316fa5.ken_kawasaki@spring.nifty.jp>
+	<20100123065625.db751a12.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Daniel Martensson <daniel.martensson@stericsson.com>,
-	kaber@trash.net, stefano.babic@babic.homelinux.org,
-	randy.dunlap@oracle.com
-To: Sjur =?ISO-8859-1?Q?Br=E6ndeland?=
-	<sjur.brandeland@stericsson.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:47962 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965496Ab0B0W7n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 17:59:43 -0500
-In-Reply-To: <61D8D34BB13CFE408D154529C120E079138CB5@eseldmw101.eemea.ericsson.se>
+Received: from mail.sv1.nifty.com ([220.209.183.60]:45282 "EHLO
+	defg303p.nifty.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1030902Ab0B0XjW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 18:39:22 -0500
+Received: from userg508.nifty.com (userg508p.nifty.com [172.22.128.88])by defg303p.nifty.com with ESMTP id o1RNacMY002684
+	for <netdev@vger.kernel.org>; Sun, 28 Feb 2010 08:36:38 +0900
+Received: from localhost.localdomain (eaoska192127.adsl.ppp.infoweb.ne.jp [220.145.29.127])by userg508.nifty.com with SMTP id o1RNa3Rg022040
+	for <netdev@vger.kernel.org>; Sun, 28 Feb 2010 08:36:04 +0900
+In-Reply-To: <20100123065625.db751a12.ken_kawasaki@spring.nifty.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Sjur,
 
-> >I think most issues have been resolved and this should be ready for
-> >merging, but I am bit worried about the userspace API. Can we start a
-> >bit smaller and extend it later? Especially the socket options worry me
-> >a bit.
-> 
-> >Dave, personally I would prefer if we can merge this without these
-> >socket options. Since I am really missing the need for it.
-> 
-> As mentioned in previous mail to Dave, I will be off traveling,
-> so I will not be able to send out anything new in the next four days.
-> Which means that we will miss the next pull of net-next-2.6.
+axnet_cs:
+  add new id (corega PCC-TXM)
 
-it could be possible that Dave makes an exception since it is a new
-subsystem and doesn't change anything else. So he might consider this
-under the "new driver" exception.
+Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
 
-As I mentioned before, I think it is ready to be merged. I am just
-worried about the userspace API. Adding socket options at a later point
-is easy. Removing or changing them is the part that we can't do.
+---
 
-> >> +/**
-> >> + * enum caif_socket_opts - CAIF option values for getsockopt and setsockopt.
-> >> + *
-> >> + * @CAIFSO_LINK_SELECT:		Selector used if multiple CAIF Link layers are
-> >> + *				available. Either a high bandwidth
-> >> + *				link can be selected (CAIF_LINK_HIGH_BANDW) or
-> >> + *				or a low latency link (CAIF_LINK_LOW_LATENCY).
-> >> + *                              This option is of type u_int32_t.
-> >> + *				Alternatively SO_BINDTODEVICE can be used.
-> >> + *
-> >> + * @CAIFSO_REQ_PARAM:		Used to set the request parameters for a
-> >> + *				utility channel. (struct caif_param). This
-> >> + *				option must be set before connecting.
-> >> + *
-> >> + * @CAIFSO_RSP_PARAM:		Gets the request parameters for a utility
-> 
-> It is a typo in the documentation here, s/request/response/. Sorry for the confusion.
-> 
-> >> + *				channel. (struct caif_param). This option
-> >> + *				is valid after a successful connect.
-> >
-> >These two more look like a combination of setsockopt/getsockopt instead
-> >of two socket options. Maybe it is leftover from a ioctl interface, but
-> >socket options work differently.
-> 
-> No the REQ_PARAM and RSP_PARAM are not just reading/writing the same option.
-> The CAIF protocol defines "utility channels". This channels are "pipes" between
-> processes on the modem and host side.
-> The CAIF protocol defines extra request parameters (REQ_PARAM) for Utility
-> channels that can be sent from the client to the server in the connect request.
-> The server may also send response parameters (RSP_PARAM) in the connect response message. 
-> These socket options are used for setting the request parameters and reading the response 
-> parameters.
-> 
-> I think we need these socket options, otherwise we would not be able to support
-> the CAIF Utility Links.
-> >
-> >Also the caif_param struct seems pointless. Socket options contain a
-> >length parameter anyway. So why bother with a struct that is just a data
-> >field and a length field.
-> 
-> Yes, I see your point here, I could have skipped this type.
-
-You need to fix the documentation here, because I didn't understand what
-it was suppose to be doing. Also I think we should get rid of caif_param
-struct before we can merge this.
-
-> >> + * @CAIFSO_CHANNEL_ID:		Gets the channel id on a CAIF Channel.
-> >> + *				This option is valid after a successful connect.
-> >> + *				( u_int32_t)
-> >
-> >Where is this used and what is it used for? Is this something that
-> >shouldn't be better part of the sockaddr structure. Then you can use
-> >getpeername for it?
-> 
-> CAIF on the modem side generates unique channel IDs for each CAIF Channel.
-> This ID identifies the CAIF Channel both on Host and Modem side.
-> This socket option gives the Linux Side client a possibility to get hold
-> of this client id. 
-> This would typically be used for application logging purposes in order to be able to
-> correlate host side logs and modem side logs. I could move this to debugfs...
-> 
-> Personally I would prefer to keep it, but it could be skipped.
-
-Can an application force a specific channel ID? If yes, then this should
-be part of the sockaddr_caif structure, if not, the socket option is
-fine. I have no preference for debugfs or socket option. It sounds a bit
-more like a debug feature.
-
-As a side note, you might wanna mention which ones are read-only etc.
-
-> >> + * @CAIFSO_NEXT_PAKCET_LEN:	Gets the size of next received packet.
-> >> + *				Value is 0 if no packet is available.
-> >> + *				This option is valid after a successful connect.
-> >> + *				( u_int32_t)
-> >Typo. And why do we need this?
-> 
-> This would be used by a client to see the size of the next message to read, allowing
-> the client to allocate a buffer of the correct size.
-> I agree that this option is not vital.
-
-If you really want this kind of thing then I would say including the
-next packet length in CMSG of the message you just read via recvmsg()
-would be a way more efficient way. Calling getsockopt() before every
-recv() seems pretty much wrong to me.
-
-> >> + * @CAIFSO_MAX_PAKCET_LEN:	Gets the maximum packet size for this
-> >> + *				connection. ( u_int32_t)
-> >Isn't this more like SO_RCVBUF or SO_SNDBUF.
-> 
-> CAIF protocol on modem side has a limit on one page size (4096) on the link layer.
-> However different CAIF Channel types and Link Layers will result in different
-> maximum sizes for each CAIF Channel. This options allows client to see the 
-> maximum CAIF packet size can be used in sendmsg. I guess the SO_SNDBUF would have
-> slightly different semantic, describing the maximum number of bytes in the hosts send queue.
-> 
-> If we in the future change this protocol limitation, it would be nice for the host client to
-> have this information dynamically pr channel instead of constants in the clients source code.
-
-Looks fine to me. Just needed to understand what it is for. However even
-this one has a typo in the documentation ;)
-
-Regards
-
-Marcel
-
-
+--- linux-2.6.33-stock/drivers/net/pcmcia/axnet_cs.c.orig	2010-02-27 20:57:19.000000000 +0900
++++ linux-2.6.33-stock/drivers/net/pcmcia/axnet_cs.c	2010-02-27 20:59:27.000000000 +0900
+@@ -779,6 +779,7 @@ static struct pcmcia_device_id axnet_ids
+ 	PCMCIA_DEVICE_PROD_ID12("CNet", "CNF301", 0xbc477dde, 0x78c5f40b),
+ 	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "corega FEther PCC-TXD", 0x5261440f, 0x436768c5),
+ 	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "corega FEtherII PCC-TXD", 0x5261440f, 0x730df72e),
++	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "corega FEther PCC-TXM", 0x5261440f, 0x3abbd061),
+ 	PCMCIA_DEVICE_PROD_ID12("Dynalink", "L100C16", 0x55632fd5, 0x66bc2a90),
+ 	PCMCIA_DEVICE_PROD_ID12("IO DATA", "ETXPCM", 0x547e66dc, 0x233adac2),
+ 	PCMCIA_DEVICE_PROD_ID12("Linksys", "EtherFast 10/100 PC Card (PCMPC100 V3)", 0x0733cc81, 0x232019a8),
