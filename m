@@ -1,61 +1,87 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: iproute2: adding /128 address to sit interface borks
-Date: Sat, 27 Feb 2010 08:23:56 -0800
-Message-ID: <20100227082356.67b7c0a3@nehalam>
-References: <alpine.LSU.2.00.0907101402430.21999@fbirervta.pbzchgretzou.qr>
-	<20090710082731.0b06c0eb@nehalam>
-	<alpine.LSU.2.01.1002271601210.29398@obet.zrqbmnf.qr>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6 1/2] mq: support for bonding
+Date: Sat, 27 Feb 2010 17:29:14 +0100
+Message-ID: <1267288154.9082.23.camel@edumazet-laptop>
+References: <310461267277260@webmail48.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:57952 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S968514Ab0B0QYJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Feb 2010 11:24:09 -0500
-In-Reply-To: <alpine.LSU.2.01.1002271601210.29398@obet.zrqbmnf.qr>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:37992 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S968550Ab0B0Qbv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 11:31:51 -0500
+Received: by bwz1 with SMTP id 1so324238bwz.21
+        for <netdev@vger.kernel.org>; Sat, 27 Feb 2010 08:31:49 -0800 (PST)
+In-Reply-To: <310461267277260@webmail48.yandex.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 27 Feb 2010 16:03:36 +0100 (CET)
-Jan Engelhardt <jengelh@medozas.de> wrote:
+Le samedi 27 f=C3=A9vrier 2010 =C3=A0 16:27 +0300, "Oleg A. Arkhangelsk=
+y" a
+=C3=A9crit :
+>=20
+> Make bonding driver multiqueue aware.
+>=20
 
-> 
-> On Friday 2009-07-10 17:27, Stephen Hemminger wrote:
-> >On Fri, 10 Jul 2009 14:05:01 +0200 (CEST)
-> >Jan Engelhardt <jengelh@medozas.de> wrote:
-> >
-> >> it's impossible to do this, and the error message does not say why 
-> >> that is so. No word in dmesg either.
-> >> 
-> >> # ip a a fc00::49/128 peer fc00::7 dev sit7
-> >> RTNETLINK answers: Invalid argument
-> >
-> >You will need to walk through the path in the kernel.
-> >In worst case, it means adding kernel printk's.
-> >
-> >Then if you want to be nice, make a patch to ipaddr.c in iproute
-> >utilities so command line can find the error before passing to
-> >kernel and give a nice error :-)
-> 
-> The issue here was that the peer is encoded using the broadcast
-> field, and since IPv6 has no broadcast, it was rejected by
-> the kernel. The error messages really need to be improved.
-> 
-> This year also came an article about that,
-> http://lwn.net/Articles/374794/
+I wish it could be true :)
 
-The article overlooks the fact that netlink is a message based interface.
-There is no reason that the response message can't be extended to add
-additional sections to give more detailed answer. The issues are:
-  * no infrastructure for this (message format, helpers, etc)
-  * tedious effort to annotate all the existing error returns
-  * update to command and library
+> Signed-off-by: Oleg A. Arkhangelsky <sysoleg@yandex.ru>=20
+>=20
+> ---
+>=20
+>  drivers/net/bonding/bond_main.c |    5 +++--
+>  drivers/net/bonding/bonding.h   |    1 +
+>  2 files changed, 4 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bo=
+nd_main.c
+> index 430c022..ea4ff33 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -4928,8 +4928,9 @@ int bond_create(struct net *net, const char *na=
+me)
+> =20
+>  	rtnl_lock();
+> =20
+> -	bond_dev =3D alloc_netdev(sizeof(struct bonding), name ? name : "",
+> -				bond_setup);
+> +	bond_dev =3D alloc_netdev_mq(sizeof(struct bonding), name ? name : =
+"",
+> +				bond_setup,
+> +				min_t(u32, BOND_MAX_TX_QUEUES, num_online_cpus()));
+>  	if (!bond_dev) {
+>  		pr_err("%s: eek! can't alloc netdev!\n", name);
+>  		res =3D -ENOMEM;
+> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bond=
+ing.h
+> index 257a7a4..4a6cfb4 100644
+> --- a/drivers/net/bonding/bonding.h
+> +++ b/drivers/net/bonding/bonding.h
+> @@ -29,6 +29,7 @@
+>  #define DRV_DESCRIPTION	"Ethernet Channel Bonding Driver"
+> =20
+>  #define BOND_MAX_ARP_TARGETS	16
+> +#define BOND_MAX_TX_QUEUES	8=20
+> =20
+>  #define IS_UP(dev)					   \
+>  	      ((((dev)->flags & IFF_UP) =3D=3D IFF_UP)	&& \
+>=20
+> ---
+>=20
 
-The extended error reports could even be a kernel config option so the
-embedded and those worried about space would not have to have it.
+Hi Oleg
 
--- 
+1) Could you explain why this arbitrary value (8) was chosen ?
+
+My dev machine has 16 cpus, and my network card has 16 queues per NIC
+
+2) This multi queue support is not a real one, since bond driver is
+currently using a per device central lock (bond->lock and
+bond->curr_slave_lock).
+Every xmit has to get this lock(s) and performance is not optimal.
+
+
+
