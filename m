@@ -1,61 +1,46 @@
-From: Dimitris Michailidis <dm@chelsio.com>
-Subject: Re: [PATCH 4/7] cxgb4: Add packet queues and packet DMA code
-Date: Sat, 27 Feb 2010 14:41:09 -0800
-Message-ID: <4B899F85.1000101@chelsio.com>
-References: <8A71B368A89016469F72CD08050AD33401359B69@maui.asicdesigners.com> <20100227.014839.226753616.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: [PATCH 3/9] Bluetooth: Add missing kfree() on error path in Atheros driver
+Date: Sat, 27 Feb 2010 23:38:32 +0100
+Message-ID: <10f7891f998e84acfa31ac9c5a0fea052c39ecb8.1267276098.git.marcel@holtmann.org>
+References: <cover.1267276098.git.marcel@holtmann.org>
+ <8e5b2308489dbca27c104fc6a557d4c9348552e5.1267276098.git.marcel@holtmann.org>
+ <8978111e2d148f75bd5e329a14600feadc567381.1267276098.git.marcel@holtmann.org>
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:30345 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965003Ab0B0WlO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 17:41:14 -0500
-In-Reply-To: <20100227.014839.226753616.davem@davemloft.net>
+Received: from senator.holtmann.net ([87.106.208.187]:54692 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936360Ab0B0WkT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 17:40:19 -0500
+In-Reply-To: <8978111e2d148f75bd5e329a14600feadc567381.1267276098.git.marcel@holtmann.org>
+In-Reply-To: <cover.1267276098.git.marcel@holtmann.org>
+References: <cover.1267276098.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: "Dimitrios Michailidis" <dm@chelsio.com>
-> Date: Fri, 26 Feb 2010 16:10:07 -0800
-> 
->> I believe this function does not generate any code, the compiler
->> statically figures out the result and optimizes any conditionals that
->> call it.  What option do you have in mind that would tell the compiler
->> if unmap is nop?
-> 
-> I've got better questions:
-> 
-> 1) Why is your driver so damn special?
-> 
->    If this optimization is useful, it dosen't belong privately in
->    some driver, it belongs in some generic spot.
+From: Dan Carpenter <error27@gmail.com>
 
-I agree that it would be better if this were available at some generic 
-place, eg an arch header.  It is implicitly available for most arches 
-through the definition of DECLARE_PCI_UNMAP_ADDR and related macros, which 
-is why the driver is looking at that, but it would be nicer if it were 
-explicitly available.  Among the arches MIPS has an explicit indication 
-through its CONFIG_DMA_NEED_PCI_MAP_STATE but it's the only one.
+Add a couple kfree() calls on an error path.
 
-> 
-> 2) What configuration does this even help for?  Even bog standard x86
->    and x86_64 uses IOMMUs and thus make use of the unmap address.
-> 
->    I cannot think of one platform that matters where this will even
->    trigger.
+Signed-off-by: Dan Carpenter <error27@gmail.com>
+Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+---
+ drivers/bluetooth/ath3k.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-While x86_32 has configurations that don't use unmapping (see 
-arch/x86/include/asm/pci.h) it is more helpful with less powerful CPUs, like 
-PPC or MIPS one finds in embedded systems.  People use this device with 
-embedded CPUs.
+diff --git a/drivers/bluetooth/ath3k.c b/drivers/bluetooth/ath3k.c
+index add9485..128cae4 100644
+--- a/drivers/bluetooth/ath3k.c
++++ b/drivers/bluetooth/ath3k.c
+@@ -143,6 +143,8 @@ static int ath3k_probe(struct usb_interface *intf,
+ 	usb_set_intfdata(intf, data);
+ 	if (ath3k_load_firmware(data, data->fw_data, data->fw_size)) {
+ 		usb_set_intfdata(intf, NULL);
++		kfree(data->fw_data);
++		kfree(data);
+ 		return -EIO;
+ 	}
+ 
+-- 
+1.6.6
 
-> 
-> Get rid of this junk, please.  Because even if it's valid, it doesn't
-> belong privately in your driver.
-> 
-
-I'd love not to have this in the driver but I don't know how to get the same 
-result without it with the current state of affairs.
