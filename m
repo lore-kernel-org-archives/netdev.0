@@ -1,88 +1,204 @@
-From: "Dimitrios Michailidis" <dm@chelsio.com>
-Subject: RE: [PATCH 4/7] cxgb4: Add packet queues and packet DMA code
-Date: Fri, 26 Feb 2010 16:52:10 -0800
-Message-ID: <8A71B368A89016469F72CD08050AD33401359B6A@maui.asicdesigners.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Stephen Hemminger" <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:3231 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966740Ab0B0AvJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Feb 2010 19:51:09 -0500
-Content-class: urn:content-classes:message
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: [net-next PATCH v6 2/3] sysctl: add proc_do_large_bitmap
+Date: Sat, 27 Feb 2010 03:25:51 +0200
+Message-ID: <1267233952-5856-3-git-send-email-opurdila@ixiacom.com>
+References: <1267233952-5856-1-git-send-email-opurdila@ixiacom.com>
+Cc: Octavian Purdila <opurdila@ixiacom.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	WANG Cong <amwang@redhat.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1267233952-5856-1-git-send-email-opurdila@ixiacom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+The new function can be used to read/write large bitmaps via /proc. A
+comma separated range format is used for compact output and input
+(e.g. 1,3-4,10-10).
 
+Writing into the file will first reset the bitmap then update it
+based on the given input.
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org
-[mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Stephen Hemminger
-> Sent: Friday, February 26, 2010 4:16 PM
-> To: Dimitrios Michailidis
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [PATCH 4/7] cxgb4: Add packet queues and packet DMA code
-> 
-> On Fri, 26 Feb 2010 16:10:07 -0800
-> "Dimitrios Michailidis" <dm@chelsio.com> wrote:
-> 
-> >
-> >
-> > > -----Original Message-----
-> > > From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> > > Sent: Friday, February 26, 2010 3:58 PM
-> > > To: Dimitrios Michailidis
-> > > Cc: netdev@vger.kernel.org
-> > > Subject: Re: [PATCH 4/7] cxgb4: Add packet queues and packet DMA
-code
-> > >
-> > > On Fri, 26 Feb 2010 15:35:36 -0800
-> > > Dimitris Michailidis <dm@chelsio.com> wrote:
-> > >
-> > > > +
-> > > > +/**
-> > > > + *	need_skb_unmap - does the platform need unmapping of
-sk_buffs?
-> > > > + *
-> > > > + *	Returns true if the platfrom needs sk_buff unmapping.
-The
-> > compiler
-> > > > + *	optimizes away unecessary code if this returns true.
-> > > > + */
-> > > > +static inline int need_skb_unmap(void)
-> > > > +{
-> > > > +	/*
-> > > > +	 * This structure is used to tell if the platfrom needs
-buffer
-> > > > +	 * unmapping by checking if DECLARE_PCI_UNMAP_ADDR
-defines
-> > anything.
-> > > > +	 */
-> > > > +	struct dummy {
-> > > > +		DECLARE_PCI_UNMAP_ADDR(addr);
-> > > > +	};
-> > > > +
-> > > > +	return sizeof(struct dummy) != 0;
-> > > > +}
-> > > > +
-> > >
-> > > I would prefer one code path and let the compiler decide if unmap
-> > > should be nop; rather than this kind of trick code.
-> >
-> > I believe this function does not generate any code, the compiler
-> > statically figures out the result and optimizes any conditionals
-that
-> > call it.  What option do you have in mind that would tell the
-compiler
-> > if unmap is nop?
-> 
-> Why do you care, let compiler decide.
+Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+Cc: WANG Cong <amwang@redhat.com>
+Cc: Eric W. Biederman <ebiederm@xmission.com>
+---
+ include/linux/sysctl.h |    2 +
+ kernel/sysctl.c        |  140 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 142 insertions(+), 0 deletions(-)
 
-I want the compiler to decide but I must be missing something.  How is
-the compiler going to decide?  The purpose of this code is to tell the
-compiler if unmapping is nop.  Does it have another way to tell?
+diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+index f66014c..7bb5cb6 100644
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
+@@ -980,6 +980,8 @@ extern int proc_doulongvec_minmax(struct ctl_table *, int,
+ 				  void __user *, size_t *, loff_t *);
+ extern int proc_doulongvec_ms_jiffies_minmax(struct ctl_table *table, int,
+ 				      void __user *, size_t *, loff_t *);
++extern int proc_do_large_bitmap(struct ctl_table *, int,
++				void __user *, size_t *, loff_t *);
+ 
+ /*
+  * Register a set of sysctl names by calling register_sysctl_table
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index 0873846..5d599cd 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -2071,6 +2071,23 @@ static bool isanyof(char c, const char *v, unsigned len)
+ 	return true;
+ }
+ 
++static int proc_skip_anyof(char __user **buf, size_t *size,
++			   const char *v, unsigned len)
++{
++	char c;
++
++	while (*size) {
++		if (get_user(c, *buf))
++			return -EFAULT;
++		if (!isanyof(c, v, len))
++			break;
++		(*size)--;
++		(*buf)++;
++	}
++
++	return 0;
++}
++
+ #define TMPBUFLEN 22
+ /**
+  * proc_get_ulong - reads an ASCII formated integer from a user buffer
+@@ -2662,6 +2679,129 @@ static int proc_do_cad_pid(struct ctl_table *table, int write,
+ 	return 0;
+ }
+ 
++/**
++ * proc_do_large_bitmap - read/write from/to a large bitmap
++ * @table: the sysctl table
++ * @write: %TRUE if this is a write to the sysctl file
++ * @buffer: the user buffer
++ * @lenp: the size of the user buffer
++ * @ppos: file position
++ *
++ * The bitmap is stored at table->data and the bitmap length (in bits)
++ * in table->maxlen.
++ *
++ * We use a range comma separated format (e.g. 1,3-4,10-10) so that
++ * large bitmaps may be represented in a compact manner. Writing into
++ * the file will clear the bitmap then update it with the given input.
++ *
++ * Returns 0 on success.
++ */
++int proc_do_large_bitmap(struct ctl_table *table, int write,
++			 void __user *_buffer, size_t *lenp, loff_t *ppos)
++{
++	int err = 0;
++	bool first = 1;
++	size_t left = *lenp;
++	unsigned long bitmap_len = table->maxlen;
++	char __user *buffer = (char __user *) _buffer;
++	unsigned long *bitmap = (unsigned long *) table->data;
++	char tr_a[] = { '-', ',', '\n', 0 }, tr_b[] = { ',', '\n', 0 }, c;
++	char tr_end[] = { '\n', 0 };
++
++
++	if (!bitmap_len || !left || (*ppos && !write)) {
++		*lenp = 0;
++		return 0;
++	}
++
++	if (write) {
++		err = proc_skip_anyof(&buffer, &left, tr_end, sizeof(tr_end));
++		while (!err && left) {
++			unsigned long val_a, val_b;
++			bool neg;
++
++			err = proc_get_ulong(&buffer, &left, &val_a, &neg, tr_a,
++					     sizeof(tr_a), &c);
++			if (err)
++				break;
++			if (val_a >= bitmap_len || neg) {
++				err = -EINVAL;
++				break;
++			}
++
++			val_b = val_a;
++			if (left) {
++				buffer++;
++				left--;
++			}
++
++			if (c == '-') {
++				err = proc_get_ulong(&buffer, &left, &val_b,
++						     &neg, tr_b, sizeof(tr_b),
++						     &c);
++				if (err)
++					break;
++				if (val_b >= bitmap_len || neg ||
++				    val_a > val_b) {
++					err = -EINVAL;
++					break;
++				}
++				if (left) {
++					buffer++;
++					left--;
++				}
++			}
++
++			if (first)
++				bitmap_clear(bitmap, 0, bitmap_len);
++
++			while (val_a <= val_b)
++				set_bit(val_a++, bitmap);
++
++			first = 0;
++			err = proc_skip_anyof(&buffer, &left, tr_end,
++					      sizeof(tr_end));
++		}
++	} else {
++		unsigned long bit_a, bit_b = 0;
++
++		while (left) {
++			bit_a = find_next_bit(bitmap, bitmap_len, bit_b);
++			if (bit_a >= bitmap_len)
++				break;
++			bit_b = find_next_zero_bit(bitmap, bitmap_len,
++						   bit_a + 1) - 1;
++
++			err = proc_put_ulong(&buffer, &left, bit_a, 0, first,
++					     ',');
++			if (err)
++				break;
++			if (bit_a != bit_b) {
++				err = proc_put_char(&buffer, &left, '-');
++				if (err)
++					break;
++				err = proc_put_ulong(&buffer, &left, bit_b, 0,
++						     1, 0);
++				if (err)
++					break;
++			}
++
++			first = 0; bit_b++;
++		}
++		if (!err)
++			err = proc_put_char(&buffer, &left, '\n');
++	}
++
++	if (first) {
++		if (err)
++			return err;
++		bitmap_clear(bitmap, 0, bitmap_len);
++	}
++	*lenp -= left;
++	*ppos += *lenp;
++	return 0;
++}
++
+ #else /* CONFIG_PROC_FS */
+ 
+ int proc_dostring(struct ctl_table *table, int write,
+-- 
+1.5.6.5
