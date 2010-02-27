@@ -1,54 +1,83 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 1/9] Bluetooth: Add __init/__exit macros to Marvell SDIO driver
-Date: Sat, 27 Feb 2010 23:38:30 +0100
-Message-ID: <8e5b2308489dbca27c104fc6a557d4c9348552e5.1267276098.git.marcel@holtmann.org>
-References: <cover.1267276098.git.marcel@holtmann.org>
+Subject: Pull request: bluetooth-next-2.6 2010-02-27
+Date: Sat, 27 Feb 2010 23:38:29 +0100
+Message-ID: <cover.1267276098.git.marcel@holtmann.org>
+Mime-Version: 1.0
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:54687 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:54686 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936346Ab0B0WkR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 17:40:17 -0500
-In-Reply-To: <cover.1267276098.git.marcel@holtmann.org>
-In-Reply-To: <cover.1267276098.git.marcel@holtmann.org>
-References: <cover.1267276098.git.marcel@holtmann.org>
+	with ESMTP id S936345Ab0B0WkQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 17:40:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Huewe <peterhuewe@gmx.de>
+I was hoping to get the Enhanced L2CAP updates ready for this merge window,
+but in the end they were not stable enough. So I removed all the L2CAP
+changes out of this merge request.
 
-Trivial patch which adds the __init/__exit macros to the module_init/
-module_exit functions of btmrvl_sdio.c driver.
+The leftovers are small updates and bug fixes. The only bigger change is
+a patch that adds per controller debugfs. That way drivers don't have to
+deal with it on their own. This avoids clashes with multiple controllers
+attached to the same system. The Marvell driver is one of the examples
+where this is needed. Their debugfs support and multiple controllers was
+not done properly.
 
-Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
-Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
----
- drivers/bluetooth/btmrvl_sdio.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Regards
 
-diff --git a/drivers/bluetooth/btmrvl_sdio.c b/drivers/bluetooth/btmrvl_sdio.c
-index 57d965b..94f1f55 100644
---- a/drivers/bluetooth/btmrvl_sdio.c
-+++ b/drivers/bluetooth/btmrvl_sdio.c
-@@ -976,7 +976,7 @@ static struct sdio_driver bt_mrvl_sdio = {
- 	.remove		= btmrvl_sdio_remove,
- };
- 
--static int btmrvl_sdio_init_module(void)
-+static int __init btmrvl_sdio_init_module(void)
- {
- 	if (sdio_register_driver(&bt_mrvl_sdio) != 0) {
- 		BT_ERR("SDIO Driver Registration Failed");
-@@ -989,7 +989,7 @@ static int btmrvl_sdio_init_module(void)
- 	return 0;
- }
- 
--static void btmrvl_sdio_exit_module(void)
-+static void __exit btmrvl_sdio_exit_module(void)
- {
- 	/* Set the flag as user is removing this module. */
- 	user_rmmod = 1;
--- 
-1.6.6
+Marcel
+
+
+Please pull from
+
+    git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-next-2.6.git master
+
+This will update the following files:
+
+ drivers/bluetooth/ath3k.c          |    2 +
+ drivers/bluetooth/bcm203x.c        |    2 +-
+ drivers/bluetooth/bfusb.c          |    2 +-
+ drivers/bluetooth/bluecard_cs.c    |    2 +-
+ drivers/bluetooth/bpa10x.c         |    2 +-
+ drivers/bluetooth/bt3c_cs.c        |    2 +-
+ drivers/bluetooth/btmrvl_debugfs.c |   14 ++--
+ drivers/bluetooth/btmrvl_main.c    |    2 +-
+ drivers/bluetooth/btmrvl_sdio.c    |    4 +-
+ drivers/bluetooth/btsdio.c         |    2 +-
+ drivers/bluetooth/btuart_cs.c      |    2 +-
+ drivers/bluetooth/btusb.c          |    2 +-
+ drivers/bluetooth/dtl1_cs.c        |    2 +-
+ drivers/bluetooth/hci_ldisc.c      |    2 +-
+ drivers/bluetooth/hci_vhci.c       |    2 +-
+ include/net/bluetooth/hci.h        |    6 ++-
+ include/net/bluetooth/hci_core.h   |    5 +-
+ net/bluetooth/hci_core.c           |   12 +++-
+ net/bluetooth/hci_event.c          |    1 +
+ net/bluetooth/hci_sock.c           |    2 +-
+ net/bluetooth/hci_sysfs.c          |  122 +++++++++++++++++++++++++----------
+ 21 files changed, 129 insertions(+), 63 deletions(-)
+
+through these ChangeSets:
+
+Dan Carpenter (1):
+    Bluetooth: Add missing kfree() on error path in Atheros driver
+
+Johann Felix Soden (1):
+    Bluetooth: Fix out of scope variable access in hci_sock_cmsg()
+
+Marcel Holtmann (4):
+    Bluetooth: Convert controller hdev->type to hdev->bus
+    Bluetooth: Convert inquiry cache to use debugfs instead of sysfs
+    Bluetooth: Convert Marvell driver to use per adapter debugfs
+    Bluetooth: Add controller types for BR/EDR and 802.11 AMP
+
+Márton Németh (1):
+    Bluetooth: Make USB device id constant
+
+Peter Huewe (1):
+    Bluetooth: Add __init/__exit macros to Marvell SDIO driver
+
+Stephen Coe (1):
+    Bluetooth: Add SCO fallback for unsupported feature error
 
