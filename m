@@ -1,109 +1,25 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 9/13] bridge: Add multicast data-path hooks
-Date: Sun, 28 Feb 2010 13:41:48 +0800
-Message-ID: <E1NlbuW-00021d-8E@gondolin.me.apana.org.au>
-References: <20100228054012.GA7583@gondor.apana.org.au>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:42756 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752097Ab0B1Flx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 00:41:53 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 30/66] include/net/x25device.h: Checkpatch cleanup
+Date: Sun, 28 Feb 2010 00:11:30 -0800 (PST)
+Message-ID: <20100228.001130.226792131.davem@davemloft.net>
+References: <1267289508-31031-1-git-send-email-andrea.gelmini@gelma.net>
+	<1267289508-31031-31-git-send-email-andrea.gelmini@gelma.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, andrew.hendry@gmail.com,
+	linux-x25@vger.kernel.org, netdev@vger.kernel.org
+To: andrea.gelmini@gelma.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1267289508-31031-31-git-send-email-andrea.gelmini@gelma.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-bridge: Add multicast data-path hooks
+From: Andrea Gelmini <andrea.gelmini@gelma.net>
+Date: Sat, 27 Feb 2010 17:51:11 +0100
 
-This patch finally hooks up the multicast snooping module to the
-data path.  In particular, all multicast packets passing through
-the bridge are fed into the module and switched by it.
+> include/net/x25device.h:13: ERROR: trailing whitespace
+> 
+> Signed-off-by: Andrea Gelmini <andrea.gelmini@gelma.net>
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
-
- net/bridge/br_device.c |   15 ++++++++++++---
- net/bridge/br_input.c  |   18 +++++++++++++++++-
- 2 files changed, 29 insertions(+), 4 deletions(-)
-
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 91dffe7..eb7062d 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -25,6 +25,7 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct net_bridge *br = netdev_priv(dev);
- 	const unsigned char *dest = skb->data;
- 	struct net_bridge_fdb_entry *dst;
-+	struct net_bridge_mdb_entry *mdst;
- 
- 	BR_INPUT_SKB_CB(skb)->brdev = dev;
- 
-@@ -34,13 +35,21 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 	skb_reset_mac_header(skb);
- 	skb_pull(skb, ETH_HLEN);
- 
--	if (dest[0] & 1)
--		br_flood_deliver(br, skb);
--	else if ((dst = __br_fdb_get(br, dest)) != NULL)
-+	if (dest[0] & 1) {
-+		if (br_multicast_rcv(br, NULL, skb))
-+			goto out;
-+
-+		mdst = br_mdb_get(br, skb);
-+		if (mdst || BR_INPUT_SKB_CB(skb)->mrouters_only)
-+			br_multicast_deliver(mdst, skb);
-+		else
-+			br_flood_deliver(br, skb);
-+	} else if ((dst = __br_fdb_get(br, dest)) != NULL)
- 		br_deliver(dst->dst, skb);
- 	else
- 		br_flood_deliver(br, skb);
- 
-+out:
- 	return NETDEV_TX_OK;
- }
- 
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index edfdaef..53b3985 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -41,6 +41,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 	struct net_bridge_port *p = rcu_dereference(skb->dev->br_port);
- 	struct net_bridge *br;
- 	struct net_bridge_fdb_entry *dst;
-+	struct net_bridge_mdb_entry *mdst;
- 	struct sk_buff *skb2;
- 
- 	if (!p || p->state == BR_STATE_DISABLED)
-@@ -50,6 +51,10 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 	br = p->br;
- 	br_fdb_update(br, p, eth_hdr(skb)->h_source);
- 
-+	if (is_multicast_ether_addr(dest) &&
-+	    br_multicast_rcv(br, p, skb))
-+		goto drop;
-+
- 	if (p->state == BR_STATE_LEARNING)
- 		goto drop;
- 
-@@ -64,8 +69,19 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 	dst = NULL;
- 
- 	if (is_multicast_ether_addr(dest)) {
-+		mdst = br_mdb_get(br, skb);
-+		if (mdst || BR_INPUT_SKB_CB(skb)->mrouters_only) {
-+			if ((mdst && !hlist_unhashed(&mdst->mglist)) ||
-+			    br_multicast_is_router(br))
-+				skb2 = skb;
-+			br_multicast_forward(mdst, skb, skb2);
-+			skb = NULL;
-+			if (!skb2)
-+				goto out;
-+		} else
-+			skb2 = skb;
-+
- 		br->dev->stats.multicast++;
--		skb2 = skb;
- 	} else if ((dst = __br_fdb_get(br, dest)) && dst->is_local) {
- 		skb2 = skb;
- 		/* Do not forward the packet since it's local. */
+Acked-by: David S. Miller <davem@davemloft.net>
