@@ -1,49 +1,41 @@
 From: Dimitris Michailidis <dm@chelsio.com>
-Subject: [PATCH 5/7] cxgb4: Add remaining driver headers and L2T management
-Date: Sun, 28 Feb 2010 08:09:43 -0800
-Message-ID: <1267373385-1665-6-git-send-email-dm@chelsio.com>
+Subject: [PATCH 1/7] cxgb4: Add register and message definitions
+Date: Sun, 28 Feb 2010 08:09:39 -0800
+Message-ID: <1267373385-1665-2-git-send-email-dm@chelsio.com>
 References: <1267373385-1665-1-git-send-email-dm@chelsio.com>
- <1267373385-1665-2-git-send-email-dm@chelsio.com>
- <1267373385-1665-3-git-send-email-dm@chelsio.com>
- <1267373385-1665-4-git-send-email-dm@chelsio.com>
- <1267373385-1665-5-git-send-email-dm@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:9247 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:5882 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754356Ab0B1QJq (ORCPT
+	with ESMTP id S1754220Ab0B1QJq (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 11:09:46 -0500
 Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
-	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o1SG9kNC030487
-	for <netdev@vger.kernel.org>; Sun, 28 Feb 2010 08:09:46 -0800
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o1SG9j0M030473
+	for <netdev@vger.kernel.org>; Sun, 28 Feb 2010 08:09:45 -0800
 Received: from darkside.asicdesigners.com (localhost.localdomain [127.0.0.1])
-	by darkside.asicdesigners.com (8.13.4/8.13.4) with ESMTP id o1SG9ko2001721
-	for <netdev@vger.kernel.org>; Sun, 28 Feb 2010 08:09:46 -0800
+	by darkside.asicdesigners.com (8.13.4/8.13.4) with ESMTP id o1SG9jS8001705
+	for <netdev@vger.kernel.org>; Sun, 28 Feb 2010 08:09:45 -0800
 Received: (from dm@localhost)
-	by darkside.asicdesigners.com (8.13.4/8.13.4/Submit) id o1SG9kVo001720
-	for netdev@vger.kernel.org; Sun, 28 Feb 2010 08:09:46 -0800
-In-Reply-To: <1267373385-1665-5-git-send-email-dm@chelsio.com>
+	by darkside.asicdesigners.com (8.13.4/8.13.4/Submit) id o1SG9jaE001704
+	for netdev@vger.kernel.org; Sun, 28 Feb 2010 08:09:45 -0800
+In-Reply-To: <1267373385-1665-1-git-send-email-dm@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
 ---
- drivers/net/cxgb4/cxgb4.h     |  735 +++++++++++++++++++++++++++++++++++++++++
- drivers/net/cxgb4/cxgb4_uld.h |  230 +++++++++++++
- drivers/net/cxgb4/l2t.c       |  626 +++++++++++++++++++++++++++++++++++
- drivers/net/cxgb4/l2t.h       |  110 ++++++
- 4 files changed, 1701 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/cxgb4/cxgb4.h
- create mode 100644 drivers/net/cxgb4/cxgb4_uld.h
- create mode 100644 drivers/net/cxgb4/l2t.c
- create mode 100644 drivers/net/cxgb4/l2t.h
+ drivers/net/cxgb4/t4_msg.h  |  649 ++++++++++++++++++++++++++++++++
+ drivers/net/cxgb4/t4_regs.h |  873 +++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 1522 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/cxgb4/t4_msg.h
+ create mode 100644 drivers/net/cxgb4/t4_regs.h
 
-diff --git a/drivers/net/cxgb4/cxgb4.h b/drivers/net/cxgb4/cxgb4.h
+diff --git a/drivers/net/cxgb4/t4_msg.h b/drivers/net/cxgb4/t4_msg.h
 new file mode 100644
-index 0000000..ba8f772
+index 0000000..1a31ede
 --- /dev/null
-+++ b/drivers/net/cxgb4/cxgb4.h
-@@ -0,0 +1,735 @@
++++ b/drivers/net/cxgb4/t4_msg.h
+@@ -0,0 +1,649 @@
 +/*
 + * This file is part of the Chelsio T4 Ethernet driver for Linux.
 + *
@@ -78,1585 +70,631 @@ index 0000000..ba8f772
 + * SOFTWARE.
 + */
 +
-+#ifndef __CXGB4_H__
-+#define __CXGB4_H__
++#ifndef __T4_MSG_H
++#define __T4_MSG_H
 +
-+#include <linux/bitops.h>
-+#include <linux/cache.h>
-+#include <linux/interrupt.h>
-+#include <linux/list.h>
-+#include <linux/netdevice.h>
-+#include <linux/pci.h>
-+#include <linux/spinlock.h>
-+#include <linux/timer.h>
-+#include <asm/io.h>
-+#include "cxgb4_uld.h"
-+#include "t4_hw.h"
-+
-+#define FW_VERSION_MAJOR 1
-+#define FW_VERSION_MINOR 0
-+#define FW_VERSION_MICRO 2
++#include <linux/types.h>
 +
 +enum {
-+	MAX_NPORTS = 4,     /* max # of ports */
-+	SERNUM_LEN = 16,    /* Serial # length */
-+	EC_LEN     = 16,    /* E/C length */
-+	ID_LEN     = 16,    /* ID length */
++	CPL_PASS_OPEN_REQ     = 0x1,
++	CPL_PASS_ACCEPT_RPL   = 0x2,
++	CPL_ACT_OPEN_REQ      = 0x3,
++	CPL_SET_TCB_FIELD     = 0x5,
++	CPL_GET_TCB           = 0x6,
++	CPL_CLOSE_CON_REQ     = 0x8,
++	CPL_CLOSE_LISTSRV_REQ = 0x9,
++	CPL_ABORT_REQ         = 0xA,
++	CPL_ABORT_RPL         = 0xB,
++	CPL_RX_DATA_ACK       = 0xD,
++	CPL_TX_PKT            = 0xE,
++	CPL_L2T_WRITE_REQ     = 0x12,
++	CPL_TID_RELEASE       = 0x1A,
++
++	CPL_CLOSE_LISTSRV_RPL = 0x20,
++	CPL_L2T_WRITE_RPL     = 0x23,
++	CPL_PASS_OPEN_RPL     = 0x24,
++	CPL_ACT_OPEN_RPL      = 0x25,
++	CPL_PEER_CLOSE        = 0x26,
++	CPL_ABORT_REQ_RSS     = 0x2B,
++	CPL_ABORT_RPL_RSS     = 0x2D,
++
++	CPL_CLOSE_CON_RPL     = 0x32,
++	CPL_ISCSI_HDR         = 0x33,
++	CPL_RDMA_CQE          = 0x35,
++	CPL_RDMA_CQE_READ_RSP = 0x36,
++	CPL_RDMA_CQE_ERR      = 0x37,
++	CPL_RX_DATA           = 0x39,
++	CPL_SET_TCB_RPL       = 0x3A,
++	CPL_RX_PKT            = 0x3B,
++	CPL_RX_DDP_COMPLETE   = 0x3F,
++
++	CPL_ACT_ESTABLISH     = 0x40,
++	CPL_PASS_ESTABLISH    = 0x41,
++	CPL_RX_DATA_DDP       = 0x42,
++	CPL_PASS_ACCEPT_REQ   = 0x44,
++
++	CPL_RDMA_READ_REQ     = 0x60,
++
++	CPL_PASS_OPEN_REQ6    = 0x81,
++	CPL_ACT_OPEN_REQ6     = 0x83,
++
++	CPL_RDMA_TERMINATE    = 0xA2,
++	CPL_RDMA_WRITE        = 0xA4,
++	CPL_SGE_EGR_UPDATE    = 0xA5,
++
++	CPL_TRACE_PKT         = 0xB0,
++
++	CPL_FW4_MSG           = 0xC0,
++	CPL_FW4_PLD           = 0xC1,
++	CPL_FW4_ACK           = 0xC3,
++
++	CPL_FW6_MSG           = 0xE0,
++	CPL_FW6_PLD           = 0xE1,
++	CPL_TX_PKT_LSO        = 0xED,
++	CPL_TX_PKT_XT         = 0xEE,
++
++	NUM_CPL_CMDS
 +};
 +
-+enum {
-+	MEM_EDC0,
-+	MEM_EDC1,
-+	MEM_MC
-+};
-+
-+enum dev_master {
-+	MASTER_CANT,
-+	MASTER_MAY,
-+	MASTER_MUST
-+};
-+
-+enum dev_state {
-+	DEV_STATE_UNINIT,
-+	DEV_STATE_INIT,
-+	DEV_STATE_ERR
-+};
-+
-+enum {
-+	PAUSE_RX      = 1 << 0,
-+	PAUSE_TX      = 1 << 1,
-+	PAUSE_AUTONEG = 1 << 2
-+};
-+
-+struct port_stats {
-+	u64 tx_octets;            /* total # of octets in good frames */
-+	u64 tx_frames;            /* all good frames */
-+	u64 tx_bcast_frames;      /* all broadcast frames */
-+	u64 tx_mcast_frames;      /* all multicast frames */
-+	u64 tx_ucast_frames;      /* all unicast frames */
-+	u64 tx_error_frames;      /* all error frames */
-+
-+	u64 tx_frames_64;         /* # of Tx frames in a particular range */
-+	u64 tx_frames_65_127;
-+	u64 tx_frames_128_255;
-+	u64 tx_frames_256_511;
-+	u64 tx_frames_512_1023;
-+	u64 tx_frames_1024_1518;
-+	u64 tx_frames_1519_max;
-+
-+	u64 tx_drop;              /* # of dropped Tx frames */
-+	u64 tx_pause;             /* # of transmitted pause frames */
-+	u64 tx_ppp0;              /* # of transmitted PPP prio 0 frames */
-+	u64 tx_ppp1;              /* # of transmitted PPP prio 1 frames */
-+	u64 tx_ppp2;              /* # of transmitted PPP prio 2 frames */
-+	u64 tx_ppp3;              /* # of transmitted PPP prio 3 frames */
-+	u64 tx_ppp4;              /* # of transmitted PPP prio 4 frames */
-+	u64 tx_ppp5;              /* # of transmitted PPP prio 5 frames */
-+	u64 tx_ppp6;              /* # of transmitted PPP prio 6 frames */
-+	u64 tx_ppp7;              /* # of transmitted PPP prio 7 frames */
-+
-+	u64 rx_octets;            /* total # of octets in good frames */
-+	u64 rx_frames;            /* all good frames */
-+	u64 rx_bcast_frames;      /* all broadcast frames */
-+	u64 rx_mcast_frames;      /* all multicast frames */
-+	u64 rx_ucast_frames;      /* all unicast frames */
-+	u64 rx_too_long;          /* # of frames exceeding MTU */
-+	u64 rx_jabber;            /* # of jabber frames */
-+	u64 rx_fcs_err;           /* # of received frames with bad FCS */
-+	u64 rx_len_err;           /* # of received frames with length error */
-+	u64 rx_symbol_err;        /* symbol errors */
-+	u64 rx_runt;              /* # of short frames */
-+
-+	u64 rx_frames_64;         /* # of Rx frames in a particular range */
-+	u64 rx_frames_65_127;
-+	u64 rx_frames_128_255;
-+	u64 rx_frames_256_511;
-+	u64 rx_frames_512_1023;
-+	u64 rx_frames_1024_1518;
-+	u64 rx_frames_1519_max;
-+
-+	u64 rx_pause;             /* # of received pause frames */
-+	u64 rx_ppp0;              /* # of received PPP prio 0 frames */
-+	u64 rx_ppp1;              /* # of received PPP prio 1 frames */
-+	u64 rx_ppp2;              /* # of received PPP prio 2 frames */
-+	u64 rx_ppp3;              /* # of received PPP prio 3 frames */
-+	u64 rx_ppp4;              /* # of received PPP prio 4 frames */
-+	u64 rx_ppp5;              /* # of received PPP prio 5 frames */
-+	u64 rx_ppp6;              /* # of received PPP prio 6 frames */
-+	u64 rx_ppp7;              /* # of received PPP prio 7 frames */
-+
-+	u64 rx_ovflow0;           /* drops due to buffer-group 0 overflows */
-+	u64 rx_ovflow1;           /* drops due to buffer-group 1 overflows */
-+	u64 rx_ovflow2;           /* drops due to buffer-group 2 overflows */
-+	u64 rx_ovflow3;           /* drops due to buffer-group 3 overflows */
-+	u64 rx_trunc0;            /* buffer-group 0 truncated packets */
-+	u64 rx_trunc1;            /* buffer-group 1 truncated packets */
-+	u64 rx_trunc2;            /* buffer-group 2 truncated packets */
-+	u64 rx_trunc3;            /* buffer-group 3 truncated packets */
-+};
-+
-+struct lb_port_stats {
-+	u64 octets;
-+	u64 frames;
-+	u64 bcast_frames;
-+	u64 mcast_frames;
-+	u64 ucast_frames;
-+	u64 error_frames;
-+
-+	u64 frames_64;
-+	u64 frames_65_127;
-+	u64 frames_128_255;
-+	u64 frames_256_511;
-+	u64 frames_512_1023;
-+	u64 frames_1024_1518;
-+	u64 frames_1519_max;
-+
-+	u64 drop;
-+
-+	u64 ovflow0;
-+	u64 ovflow1;
-+	u64 ovflow2;
-+	u64 ovflow3;
-+	u64 trunc0;
-+	u64 trunc1;
-+	u64 trunc2;
-+	u64 trunc3;
-+};
-+
-+struct tp_tcp_stats {
-+	u32 tcpOutRsts;
-+	u64 tcpInSegs;
-+	u64 tcpOutSegs;
-+	u64 tcpRetransSegs;
-+};
-+
-+struct tp_err_stats {
-+	u32 macInErrs[4];
-+	u32 hdrInErrs[4];
-+	u32 tcpInErrs[4];
-+	u32 tnlCongDrops[4];
-+	u32 ofldChanDrops[4];
-+	u32 tnlTxDrops[4];
-+	u32 ofldVlanDrops[4];
-+	u32 tcp6InErrs[4];
-+	u32 ofldNoNeigh;
-+	u32 ofldCongDefer;
-+};
-+
-+struct tp_params {
-+	unsigned int ntxchan;        /* # of Tx channels */
-+	unsigned int tre;            /* log2 of core clocks per TP tick */
-+};
-+
-+struct vpd_params {
-+	unsigned int cclk;
-+	u8 ec[EC_LEN + 1];
-+	u8 sn[SERNUM_LEN + 1];
-+	u8 id[ID_LEN + 1];
-+};
-+
-+struct pci_params {
-+	unsigned char speed;
-+	unsigned char width;
-+};
-+
-+struct adapter_params {
-+	struct tp_params  tp;
-+	struct vpd_params vpd;
-+	struct pci_params pci;
-+
-+	unsigned int fw_vers;
-+	unsigned int tp_vers;
-+
-+	unsigned short mtus[NMTUS];
-+	unsigned short a_wnd[NCCTRL_WIN];
-+	unsigned short b_wnd[NCCTRL_WIN];
-+
-+	unsigned char nports;             /* # of ethernet ports */
-+	unsigned char portvec;
-+	unsigned char rev;                /* chip revision */
-+	unsigned char offload;
-+
-+	unsigned int ofldq_wr_cred;
-+};
-+
-+struct trace_params {
-+	u32 data[TRACE_LEN / 4];
-+	u32 mask[TRACE_LEN / 4];
-+	unsigned short snap_len;
-+	unsigned short min_len;
-+	unsigned char skip_ofst;
-+	unsigned char skip_len;
-+	unsigned char invert;
-+	unsigned char port;
-+};
-+
-+struct link_config {
-+	unsigned short supported;        /* link capabilities */
-+	unsigned short advertising;      /* advertised capabilities */
-+	unsigned short requested_speed;  /* speed user has requested */
-+	unsigned short speed;            /* actual link speed */
-+	unsigned char  requested_fc;     /* flow control user has requested */
-+	unsigned char  fc;               /* actual link flow control */
-+	unsigned char  autoneg;          /* autonegotiating? */
-+	unsigned char  link_ok;          /* link up? */
-+};
-+
-+#define FW_LEN16(fw_struct) FW_CMD_LEN16(sizeof(fw_struct) / 16)
-+
-+enum {
-+	MAX_ETH_QSETS = 32,           /* # of Ethernet Tx/Rx queue sets */
-+	MAX_OFLD_QSETS = 16,          /* # of offload Tx/Rx queue sets */
-+	MAX_CTRL_QUEUES = NCHAN,      /* # of control Tx queues */
-+	MAX_RDMA_QUEUES = NCHAN,      /* # of streaming RDMA Rx queues */
++enum CPL_error {
++	CPL_ERR_NONE               = 0,
++	CPL_ERR_TCAM_FULL          = 3,
++	CPL_ERR_BAD_LENGTH         = 15,
++	CPL_ERR_BAD_ROUTE          = 18,
++	CPL_ERR_CONN_RESET         = 20,
++	CPL_ERR_CONN_EXIST_SYNRECV = 21,
++	CPL_ERR_CONN_EXIST         = 22,
++	CPL_ERR_ARP_MISS           = 23,
++	CPL_ERR_BAD_SYN            = 24,
++	CPL_ERR_CONN_TIMEDOUT      = 30,
++	CPL_ERR_XMIT_TIMEDOUT      = 31,
++	CPL_ERR_PERSIST_TIMEDOUT   = 32,
++	CPL_ERR_FINWAIT2_TIMEDOUT  = 33,
++	CPL_ERR_KEEPALIVE_TIMEDOUT = 34,
++	CPL_ERR_RTX_NEG_ADVICE     = 35,
++	CPL_ERR_PERSIST_NEG_ADVICE = 36,
++	CPL_ERR_ABORT_FAILED       = 42,
++	CPL_ERR_IWARP_FLM          = 50,
 +};
 +
 +enum {
-+	MAX_EGRQ = 128,         /* max # of egress queues, including FLs */
-+	MAX_INGQ = 64           /* max # of interrupt-capable ingress queues */
++	ULP_MODE_NONE          = 0,
++	ULP_MODE_ISCSI         = 2,
++	ULP_MODE_RDMA          = 4,
++	ULP_MODE_FCOE          = 6,
 +};
 +
-+struct adapter;
-+struct vlan_group;
-+struct sge_rspq;
-+
-+struct port_info {
-+	struct adapter *adapter;
-+	struct vlan_group *vlan_grp;
-+	u16    viid;
-+	s16    xact_addr_filt;        /* index of exact MAC address filter */
-+	u16    rss_size;              /* size of VI's RSS table slice */
-+	s8     mdio_addr;
-+	u8     port_type;
-+	u8     mod_type;
-+	u8     port_id;
-+	u8     tx_chan;
-+	u8     lport;                 /* associated offload logical port */
-+	u8     rx_offload;            /* CSO, etc */
-+	u8     nqsets;                /* # of qsets */
-+	u8     first_qset;            /* index of first qset */
-+	struct link_config link_cfg;
-+};
-+
-+/* port_info.rx_offload flags */
 +enum {
-+	RX_CSO = 1 << 0,
++	ULP_CRC_HEADER = 1 << 0,
++	ULP_CRC_DATA   = 1 << 1
 +};
 +
-+struct dentry;
-+struct work_struct;
-+struct proc_dir_entry;
-+
-+enum {                                 /* adapter flags */
-+	FULL_INIT_DONE     = (1 << 0),
-+	USING_MSI          = (1 << 1),
-+	USING_MSIX         = (1 << 2),
-+	QUEUES_BOUND       = (1 << 3),
-+	FW_OK              = (1 << 4),
++enum {
++	CPL_ABORT_SEND_RST = 0,
++	CPL_ABORT_NO_RST,
 +};
 +
-+struct rx_sw_desc;
-+
-+struct sge_fl {                     /* SGE free-buffer queue state */
-+	unsigned int avail;         /* # of available Rx buffers */
-+	unsigned int pend_cred;     /* new buffers since last FL DB ring */
-+	unsigned int cidx;          /* consumer index */
-+	unsigned int pidx;          /* producer index */
-+	unsigned long alloc_failed; /* # of times buffer allocation failed */
-+	unsigned long large_alloc_failed;
-+	unsigned long starving;
-+	/* RO fields */
-+	unsigned int cntxt_id;      /* SGE context id for the free list */
-+	unsigned int size;          /* capacity of free list */
-+	struct rx_sw_desc *sdesc;   /* address of SW Rx descriptor ring */
-+	__be64 *desc;               /* address of HW Rx descriptor ring */
-+	dma_addr_t addr;            /* bus address of HW ring start */
++enum {                     /* TX_PKT_XT checksum types */
++	TX_CSUM_TCP    = 0,
++	TX_CSUM_UDP    = 1,
++	TX_CSUM_CRC16  = 4,
++	TX_CSUM_CRC32  = 5,
++	TX_CSUM_CRC32C = 6,
++	TX_CSUM_FCOE   = 7,
++	TX_CSUM_TCPIP  = 8,
++	TX_CSUM_UDPIP  = 9,
++	TX_CSUM_TCPIP6 = 10,
++	TX_CSUM_UDPIP6 = 11,
++	TX_CSUM_IP     = 12,
 +};
 +
-+/* A packet gather list */
-+struct pkt_gl {
-+	skb_frag_t frags[MAX_SKB_FRAGS];
-+	void *va;                         /* virtual address of first byte */
-+	unsigned int nfrags;              /* # of fragments */
-+	unsigned int tot_len;             /* total length of fragments */
++union opcode_tid {
++	__be32 opcode_tid;
++	__u8 opcode;
 +};
 +
-+typedef int (*rspq_handler_t)(struct sge_rspq *q, const __be64 *rsp,
-+			      const struct pkt_gl *gl);
++#define CPL_OPCODE(x) ((x) << 24)
++#define MK_OPCODE_TID(opcode, tid) (CPL_OPCODE(opcode) | (tid))
++#define OPCODE_TID(cmd) ((cmd)->ot.opcode_tid)
++#define GET_TID(cmd) (ntohl(OPCODE_TID(cmd)) & 0xFFFFFF)
 +
-+struct sge_rspq {                   /* state for an SGE response queue */
-+	spinlock_t lock;            /* guards response processing */
-+	struct napi_struct napi;
-+	const __be64 *cur_desc;     /* current descriptor in queue */
-+	unsigned int cidx;          /* consumer index */
-+	u8 gen;                     /* current generation bit */
-+	u8 intr_params;             /* interrupt holdoff parameters */
-+	u8 next_intr_params;        /* holdoff params for next interrupt */
-+	u8 pktcnt_idx;              /* interrupt packet threshold */
-+	u8 uld;                     /* ULD handling this queue */
-+	u8 idx;                     /* queue index within its group */
-+	int offset;                 /* offset into current Rx buffer */
-+	u16 cntxt_id;               /* SGE context id for the response q */
-+	u16 abs_id;                 /* absolute SGE id for the response q */
-+	__be64 *desc;               /* address of HW response ring */
-+	dma_addr_t phys_addr;       /* physical address of the ring */
-+	unsigned int iqe_len;       /* entry size */
-+	unsigned int size;          /* capacity of response queue */
-+	struct adapter *adap;
-+	struct net_device *netdev;  /* associated net device */
-+	rspq_handler_t handler;
-+};
++/* partitioning of TID fields that also carry a queue id */
++#define GET_TID_TID(x) ((x) & 0x3fff)
++#define GET_TID_QID(x) (((x) >> 14) & 0x3ff)
++#define TID_QID(x)     ((x) << 14)
 +
-+struct sge_eth_stats {              /* Ethernet queue statistics */
-+	unsigned long pkts;         /* # of ethernet packets */
-+	unsigned long lro_pkts;     /* # of LRO super packets */
-+	unsigned long lro_merged;   /* # of wire packets merged by LRO */
-+	unsigned long rx_cso;       /* # of Rx checksum offloads */
-+	unsigned long vlan_ex;      /* # of Rx VLAN extractions */
-+	unsigned long rx_drops;     /* # of packets dropped due to no mem */
-+};
-+
-+struct sge_eth_rxq {                /* SW Ethernet Rx queue */
-+	struct sge_rspq rspq;
-+	struct sge_fl fl;
-+	struct sge_eth_stats stats;
-+} ____cacheline_aligned_in_smp;
-+
-+struct sge_ofld_stats {             /* offload queue statistics */
-+	unsigned long pkts;         /* # of packets */
-+	unsigned long imm;          /* # of immediate-data packets */
-+	unsigned long an;           /* # of asynchronous notifications */
-+	unsigned long nomem;        /* # of responses deferred due to no mem */
-+};
-+
-+struct sge_ofld_rxq {               /* SW offload Rx queue */
-+	struct sge_rspq rspq;
-+	struct sge_fl fl;
-+	struct sge_ofld_stats stats;
-+} ____cacheline_aligned_in_smp;
-+
-+struct tx_desc {
-+	__be64 flit[8];
-+};
-+
-+struct tx_sw_desc;
-+
-+struct sge_txq {
-+	unsigned int  in_use;       /* # of in-use Tx descriptors */
-+	unsigned int  size;         /* # of descriptors */
-+	unsigned int  cidx;         /* SW consumer index */
-+	unsigned int  pidx;         /* producer index */
-+	unsigned long stops;        /* # of times q has been stopped */
-+	unsigned long restarts;     /* # of queue restarts */
-+	unsigned int  cntxt_id;     /* SGE context id for the Tx q */
-+	struct tx_desc *desc;       /* address of HW Tx descriptor ring */
-+	struct tx_sw_desc *sdesc;   /* address of SW Tx descriptor ring */
-+	struct sge_qstat *stat;     /* queue status entry */
-+	dma_addr_t    phys_addr;    /* physical address of the ring */
-+};
-+
-+struct sge_eth_txq {                /* state for an SGE Ethernet Tx queue */
-+	struct sge_txq q;
-+	struct netdev_queue *txq;   /* associated netdev TX queue */
-+	unsigned long tso;          /* # of TSO requests */
-+	unsigned long tx_cso;       /* # of Tx checksum offloads */
-+	unsigned long vlan_ins;     /* # of Tx VLAN insertions */
-+	unsigned long mapping_err;  /* # of I/O MMU packet mapping errors */
-+} ____cacheline_aligned_in_smp;
-+
-+struct sge_ofld_txq {               /* state for an SGE offload Tx queue */
-+	struct sge_txq q;
-+	struct adapter *adap;
-+	struct sk_buff_head sendq;  /* list of backpressured packets */
-+	struct tasklet_struct qresume_tsk; /* restarts the queue */
-+	u8 full;                    /* the Tx ring is full */
-+	unsigned long mapping_err;  /* # of I/O MMU packet mapping errors */
-+} ____cacheline_aligned_in_smp;
-+
-+struct sge_ctrl_txq {               /* state for an SGE control Tx queue */
-+	struct sge_txq q;
-+	struct adapter *adap;
-+	struct sk_buff_head sendq;  /* list of backpressured packets */
-+	struct tasklet_struct qresume_tsk; /* restarts the queue */
-+	u8 full;                    /* the Tx ring is full */
-+} ____cacheline_aligned_in_smp;
-+
-+struct sge {
-+	struct sge_eth_txq ethtxq[MAX_ETH_QSETS];
-+	struct sge_eth_rxq ethrxq[MAX_ETH_QSETS];
-+	struct sge_ofld_txq ofldtxq[MAX_OFLD_QSETS];
-+	struct sge_ofld_rxq ofldrxq[MAX_OFLD_QSETS];
-+	struct sge_ofld_rxq rdmarxq[MAX_RDMA_QUEUES];
-+	struct sge_ctrl_txq ctrlq[MAX_CTRL_QUEUES];
-+	struct sge_rspq fw_evtq;
-+	struct sge_rspq intrq;
-+	u16 max_ethqsets;           /* # of available Ethernet queue sets */
-+	u16 ethqsets;               /* # of active Ethernet queue sets */
-+	u16 ofldqsets;              /* # of active offload queue sets */
-+	u16 rdmaqs;                 /* # of available RDMA Rx queues */
-+	u16 ofld_rxq[MAX_OFLD_QSETS];
-+	u16 rdma_rxq[NCHAN];
-+	u16 timer_val[SGE_NTIMERS];
-+	u8 counter_val[SGE_NCOUNTERS];
-+	unsigned int starve_thres;
-+	u8 idma_state[2];
-+	void *egr_map[MAX_EGRQ];    /* qid->queue egress queue map */
-+	struct sge_rspq *ingr_map[MAX_INGQ]; /* qid->queue ingress queue map */
-+	DECLARE_BITMAP(starving_fl, MAX_EGRQ);
-+	DECLARE_BITMAP(txq_maperr, MAX_EGRQ);
-+	struct timer_list rx_timer; /* refills starving FLs */
-+	struct timer_list tx_timer; /* checks Tx queues */
-+};
-+
-+#define for_each_ethrxq(sge, i) for (i = 0; i < (sge)->ethqsets; i++)
-+#define for_each_ofldrxq(sge, i) for (i = 0; i < (sge)->ofldqsets; i++)
-+#define for_each_rdmarxq(sge, i) for (i = 0; i < (sge)->rdmaqs; i++)
-+
-+struct l2t_data;
-+
-+struct adapter {
-+	void __iomem *regs;
-+	struct pci_dev *pdev;
-+	struct device *pdev_dev;
-+	unsigned long registered_device_map;
-+	unsigned long open_device_map;
-+	unsigned long flags;
-+
-+	const char *name;
-+	int msg_enable;
-+
-+	struct adapter_params params;
-+	struct cxgb4_virt_res vres;
-+	unsigned int swintr;
-+
-+	unsigned int wol;
-+
-+	struct {
-+		unsigned short vec;
-+		char desc[14];
-+	} msix_info[MAX_INGQ + 1];
-+
-+	struct sge sge;
-+
-+	struct net_device *port[MAX_NPORTS];
-+	u8 chan_map[NCHAN];                   /* channel -> port map */
-+
-+	struct l2t_data *l2t;
-+	void *uld_handle[CXGB4_ULD_MAX];
-+	struct list_head list_node;
-+
-+	struct tid_info tids;
-+	void **tid_release_head;
-+	spinlock_t tid_release_lock;
-+	struct work_struct tid_release_task;
-+
-+	struct dentry *debugfs_root;
-+	struct proc_dir_entry *proc_root;
-+
-+	spinlock_t stats_lock;
-+};
-+
-+static inline u32 t4_read_reg(struct adapter *adap, u32 reg_addr)
-+{
-+	return readl(adap->regs + reg_addr);
-+}
-+
-+static inline void t4_write_reg(struct adapter *adap, u32 reg_addr, u32 val)
-+{
-+	writel(val, adap->regs + reg_addr);
-+}
-+
-+#ifndef readq
-+static inline u64 readq(const volatile void __iomem *addr)
-+{
-+	return readl(addr) + ((u64)readl(addr + 4) << 32);
-+}
-+
-+static inline void writeq(u64 val, volatile void __iomem *addr)
-+{
-+	writel(val, addr);
-+	writel(val >> 32, addr + 4);
-+}
++struct rss_header {
++	__u8 opcode;
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	__u8 channel:2;
++	__u8 filter_hit:1;
++	__u8 filter_tid:1;
++	__u8 hash_type:2;
++	__u8 ipv6:1;
++	__u8 send2fw:1;
++#else
++	__u8 send2fw:1;
++	__u8 ipv6:1;
++	__u8 hash_type:2;
++	__u8 filter_tid:1;
++	__u8 filter_hit:1;
++	__u8 channel:2;
 +#endif
-+
-+static inline u64 t4_read_reg64(struct adapter *adap, u32 reg_addr)
-+{
-+	return readq(adap->regs + reg_addr);
-+}
-+
-+static inline void t4_write_reg64(struct adapter *adap, u32 reg_addr, u64 val)
-+{
-+	writeq(val, adap->regs + reg_addr);
-+}
-+
-+/**
-+ * netdev2pinfo - return the port_info structure associated with a net_device
-+ * @dev: the netdev
-+ *
-+ * Return the struct port_info associated with a net_device
-+ */
-+static inline struct port_info *netdev2pinfo(const struct net_device *dev)
-+{
-+	return netdev_priv(dev);
-+}
-+
-+/**
-+ * adap2pinfo - return the port_info of a port
-+ * @adap: the adapter
-+ * @idx: the port index
-+ *
-+ * Return the port_info structure for the port of the given index.
-+ */
-+static inline struct port_info *adap2pinfo(struct adapter *adap, int idx)
-+{
-+	return netdev_priv(adap->port[idx]);
-+}
-+
-+/**
-+ * netdev2adap - return the adapter structure associated with a net_device
-+ * @dev: the netdev
-+ *
-+ * Return the struct adapter associated with a net_device
-+ */
-+static inline struct adapter *netdev2adap(const struct net_device *dev)
-+{
-+	return netdev2pinfo(dev)->adapter;
-+}
-+
-+void t4_os_portmod_changed(const struct adapter *adap, int port_id);
-+void t4_os_link_changed(struct adapter *adap, int port_id, int link_stat);
-+
-+void *t4_alloc_mem(size_t size);
-+void t4_free_mem(void *addr);
-+
-+void t4_free_sge_resources(struct adapter *adap);
-+irq_handler_t t4_intr_handler(struct adapter *adap);
-+netdev_tx_t t4_eth_xmit(struct sk_buff *skb, struct net_device *dev);
-+int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
-+		     const struct pkt_gl *gl);
-+int t4_mgmt_tx(struct adapter *adap, struct sk_buff *skb);
-+int t4_ofld_send(struct adapter *adap, struct sk_buff *skb);
-+int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
-+		     struct net_device *dev, int intr_idx,
-+		     struct sge_fl *fl, rspq_handler_t hnd);
-+int t4_sge_alloc_eth_txq(struct adapter *adap, struct sge_eth_txq *txq,
-+			 struct net_device *dev, struct netdev_queue *netdevq,
-+			 unsigned int iqid);
-+int t4_sge_alloc_ctrl_txq(struct adapter *adap, struct sge_ctrl_txq *txq,
-+			  struct net_device *dev, unsigned int iqid,
-+			  unsigned int cmplqid);
-+int t4_sge_alloc_ofld_txq(struct adapter *adap, struct sge_ofld_txq *txq,
-+			  struct net_device *dev, unsigned int iqid);
-+irqreturn_t t4_sge_intr_msix(int irq, void *cookie);
-+void t4_sge_init(struct adapter *adap);
-+void t4_sge_start(struct adapter *adap);
-+void t4_sge_stop(struct adapter *adap);
-+
-+#define for_each_port(adapter, iter) \
-+	for (iter = 0; iter < (adapter)->params.nports; ++iter)
-+
-+static inline unsigned int core_ticks_per_usec(const struct adapter *adap)
-+{
-+	return adap->params.vpd.cclk / 1000;
-+}
-+
-+static inline unsigned int us_to_core_ticks(const struct adapter *adap,
-+					    unsigned int us)
-+{
-+	return (us * adap->params.vpd.cclk) / 1000;
-+}
-+
-+void t4_set_reg_field(struct adapter *adap, unsigned int addr, u32 mask,
-+		      u32 val);
-+
-+int t4_wr_mbox_meat(struct adapter *adap, int mbox, const void *cmd, int size,
-+		    void *rpl, bool sleep_ok);
-+
-+static inline int t4_wr_mbox(struct adapter *adap, int mbox, const void *cmd,
-+			     int size, void *rpl)
-+{
-+	return t4_wr_mbox_meat(adap, mbox, cmd, size, rpl, true);
-+}
-+
-+static inline int t4_wr_mbox_ns(struct adapter *adap, int mbox, const void *cmd,
-+				int size, void *rpl)
-+{
-+	return t4_wr_mbox_meat(adap, mbox, cmd, size, rpl, false);
-+}
-+
-+void t4_intr_enable(struct adapter *adapter);
-+void t4_intr_disable(struct adapter *adapter);
-+void t4_intr_clear(struct adapter *adapter);
-+int t4_slow_intr_handler(struct adapter *adapter);
-+
-+int t4_link_start(struct adapter *adap, unsigned int mbox, unsigned int port,
-+		  struct link_config *lc);
-+int t4_restart_aneg(struct adapter *adap, unsigned int mbox, unsigned int port);
-+int t4_seeprom_wp(struct adapter *adapter, bool enable);
-+int t4_read_flash(struct adapter *adapter, unsigned int addr,
-+		  unsigned int nwords, u32 *data, int byte_oriented);
-+int t4_load_fw(struct adapter *adapter, const u8 *fw_data, unsigned int size);
-+int t4_check_fw_version(struct adapter *adapter);
-+int t4_prep_adapter(struct adapter *adapter);
-+int t4_port_init(struct adapter *adap, int mbox, int pf, int vf);
-+void t4_fatal_err(struct adapter *adapter);
-+void t4_set_vlan_accel(struct adapter *adapter, unsigned int ports, int on);
-+int t4_set_trace_filter(struct adapter *adapter, const struct trace_params *tp,
-+			int filter_index, int enable);
-+void t4_get_trace_filter(struct adapter *adapter, struct trace_params *tp,
-+			 int filter_index, int *enabled);
-+int t4_config_rss_range(struct adapter *adapter, int mbox, unsigned int viid,
-+			int start, int n, const u16 *rspq, unsigned int nrspq);
-+int t4_config_glbl_rss(struct adapter *adapter, int mbox, unsigned int mode,
-+		       unsigned int flags);
-+int t4_read_rss(struct adapter *adapter, u16 *entries);
-+int t4_mc_read(struct adapter *adap, u32 addr, __be32 *data, u64 *parity);
-+int t4_edc_read(struct adapter *adap, int idx, u32 addr, __be32 *data,
-+		u64 *parity);
-+
-+void t4_get_port_stats(struct adapter *adap, int idx, struct port_stats *p);
-+void t4_get_lb_stats(struct adapter *adap, int idx, struct lb_port_stats *p);
-+
-+void t4_read_mtu_tbl(struct adapter *adap, u16 *mtus, u8 *mtu_log);
-+void t4_tp_get_err_stats(struct adapter *adap, struct tp_err_stats *st);
-+void t4_tp_get_tcp_stats(struct adapter *adap, struct tp_tcp_stats *v4,
-+			 struct tp_tcp_stats *v6);
-+void t4_load_mtus(struct adapter *adap, const unsigned short *mtus,
-+		  const unsigned short *alpha, const unsigned short *beta);
-+
-+void t4_wol_magic_enable(struct adapter *adap, unsigned int port,
-+			 const u8 *addr);
-+int t4_wol_pat_enable(struct adapter *adap, unsigned int port, unsigned int map,
-+		      u64 mask0, u64 mask1, unsigned int crc, bool enable);
-+
-+int t4_fw_hello(struct adapter *adap, unsigned int mbox, unsigned int evt_mbox,
-+		enum dev_master master, enum dev_state *state);
-+int t4_fw_bye(struct adapter *adap, unsigned int mbox);
-+int t4_early_init(struct adapter *adap, unsigned int mbox);
-+int t4_fw_reset(struct adapter *adap, unsigned int mbox, int reset);
-+int t4_query_params(struct adapter *adap, unsigned int mbox,
-+		    unsigned int nparams, const u32 *params, u32 *val);
-+int t4_set_params(struct adapter *adap, unsigned int mbox, unsigned int nparams,
-+		  const u32 *params, const u32 *val);
-+int t4_cfg_pfvf(struct adapter *adap, unsigned int mbox, unsigned int pf,
-+		unsigned int vf, unsigned int txq, unsigned int txq_eth_ctrl,
-+		unsigned int rxqi, unsigned int rxq, unsigned int tc,
-+		unsigned int vi, unsigned int cmask, unsigned int pmask,
-+		unsigned int nexact, unsigned int rcaps, unsigned int wxcaps);
-+int t4_alloc_vi(struct adapter *adap, unsigned int mbox, unsigned int port,
-+		unsigned int pf, unsigned int vf, unsigned int nmac, u8 *mac,
-+		unsigned int *rss_size);
-+int t4_free_vi(struct adapter *adap, unsigned int mbox, unsigned int pf,
-+	       unsigned int vf, unsigned int viid);
-+int t4_set_rxmode(struct adapter *adap, unsigned int mbox, unsigned int viid,
-+		int mtu, int promisc, int all_multi, int bcast, bool sleep_ok);
-+int t4_alloc_mac_filt(struct adapter *adap, unsigned int mbox,
-+		      unsigned int viid, bool free, unsigned int naddr,
-+		      const u8 **addr, u16 *idx, u64 *hash, bool sleep_ok);
-+int t4_change_mac(struct adapter *adap, unsigned int mbox, unsigned int viid,
-+		  int idx, const u8 *addr, bool persist);
-+int t4_set_addr_hash(struct adapter *adap, unsigned int mbox, unsigned int viid,
-+		     bool ucast, u64 vec, bool sleep_ok);
-+int t4_enable_vi(struct adapter *adap, unsigned int mbox, unsigned int viid,
-+		 bool rx_en, bool tx_en);
-+int t4_identify_port(struct adapter *adap, unsigned int mbox, unsigned int viid,
-+		     unsigned int nblinks);
-+int t4_mdio_rd(struct adapter *adap, unsigned int mbox, unsigned int phy_addr,
-+	       unsigned int mmd, unsigned int reg, u16 *valp);
-+int t4_mdio_wr(struct adapter *adap, unsigned int mbox, unsigned int phy_addr,
-+	       unsigned int mmd, unsigned int reg, u16 val);
-+int t4_iq_start_stop(struct adapter *adap, unsigned int mbox, bool start,
-+		     unsigned int pf, unsigned int vf, unsigned int iqid,
-+		     unsigned int fl0id, unsigned int fl1id);
-+int t4_iq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
-+	       unsigned int vf, unsigned int iqtype, unsigned int iqid,
-+	       unsigned int fl0id, unsigned int fl1id);
-+int t4_eth_eq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
-+		   unsigned int vf, unsigned int eqid);
-+int t4_ctrl_eq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
-+		    unsigned int vf, unsigned int eqid);
-+int t4_ofld_eq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
-+		    unsigned int vf, unsigned int eqid);
-+int t4_handle_fw_rpl(struct adapter *adap, const __be64 *rpl);
-+#endif /* __CXGB4_H__ */
-diff --git a/drivers/net/cxgb4/cxgb4_uld.h b/drivers/net/cxgb4/cxgb4_uld.h
-new file mode 100644
-index 0000000..ac56f85
---- /dev/null
-+++ b/drivers/net/cxgb4/cxgb4_uld.h
-@@ -0,0 +1,230 @@
-+/*
-+ * This file is part of the Chelsio T4 Ethernet driver for Linux.
-+ *
-+ * Copyright (c) 2003-2010 Chelsio Communications, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#ifndef __CXGB4_OFLD_H
-+#define __CXGB4_OFLD_H
-+
-+#include <linux/cache.h>
-+#include <linux/spinlock.h>
-+#include <linux/skbuff.h>
-+#include <asm/atomic.h>
-+
-+/* CPL message priority levels */
-+enum {
-+	CPL_PRIORITY_DATA     = 0,  /* data messages */
-+	CPL_PRIORITY_SETUP    = 1,  /* connection setup messages */
-+	CPL_PRIORITY_TEARDOWN = 0,  /* connection teardown messages */
-+	CPL_PRIORITY_LISTEN   = 1,  /* listen start/stop messages */
-+	CPL_PRIORITY_ACK      = 1,  /* RX ACK messages */
-+	CPL_PRIORITY_CONTROL  = 1   /* control messages */
++	__be16 qid;
++	__be32 hash_val;
 +};
 +
-+#define INIT_TP_WR(w, tid) do { \
-+	(w)->wr.wr_hi = htonl(FW_WR_OP(FW_TP_WR) | \
-+			      FW_WR_IMMDLEN(sizeof(*w) - sizeof(w->wr))); \
-+	(w)->wr.wr_mid = htonl(FW_WR_LEN16(DIV_ROUND_UP(sizeof(*w), 16)) | \
-+			       FW_WR_FLOWID(tid)); \
-+	(w)->wr.wr_lo = cpu_to_be64(0); \
-+} while (0)
-+
-+#define INIT_TP_WR_CPL(w, cpl, tid) do { \
-+	INIT_TP_WR(w, tid); \
-+	OPCODE_TID(w) = htonl(MK_OPCODE_TID(cpl, tid)); \
-+} while (0)
-+
-+/* Special asynchronous notification message */
-+#define CXGB4_MSG_AN ((void *)1)
-+
-+struct serv_entry {
-+	void *data;
++struct work_request_hdr {
++	__be32 wr_hi;
++	__be32 wr_mid;
++	__be64 wr_lo;
 +};
 +
-+union aopen_entry {
-+	void *data;
-+	union aopen_entry *next;
++#define WR_HDR struct work_request_hdr wr
++
++struct cpl_pass_open_req {
++	WR_HDR;
++	union opcode_tid ot;
++	__be16 local_port;
++	__be16 peer_port;
++	__be32 local_ip;
++	__be32 peer_ip;
++	__be64 opt0;
++#define TX_CHAN(x)    ((x) << 2)
++#define DELACK(x)     ((x) << 5)
++#define ULP_MODE(x)   ((x) << 8)
++#define RCV_BUFSIZ(x) ((x) << 12)
++#define DSCP(x)       ((x) << 22)
++#define SMAC_SEL(x)   ((__u64)(x) << 28)
++#define L2T_IDX(x)    ((__u64)(x) << 36)
++#define NAGLE(x)      ((__u64)(x) << 49)
++#define WND_SCALE(x)  ((__u64)(x) << 50)
++#define KEEP_ALIVE(x) ((__u64)(x) << 54)
++#define MSS_IDX(x)    ((__u64)(x) << 60)
++	__be64 opt1;
++#define SYN_RSS_ENABLE   (1 << 0)
++#define SYN_RSS_QUEUE(x) ((x) << 2)
++#define CONN_POLICY_ASK  (1 << 22)
 +};
 +
-+/*
-+ * Holds the size, base address, free list start, etc of the TID, server TID,
-+ * and active-open TID tables.  The tables themselves are allocated dynamically.
-+ */
-+struct tid_info {
-+	void **tid_tab;
-+	unsigned int ntids;
-+
-+	struct serv_entry *stid_tab;
-+	unsigned long *stid_bmap;
-+	unsigned int nstids;
-+	unsigned int stid_base;
-+
-+	union aopen_entry *atid_tab;
-+	unsigned int natids;
-+
-+	unsigned int nftids;
-+	unsigned int ftid_base;
-+
-+	spinlock_t atid_lock ____cacheline_aligned_in_smp;
-+	union aopen_entry *afree;
-+	unsigned int atids_in_use;
-+
-+	spinlock_t stid_lock;
-+	unsigned int stids_in_use;
-+
-+	atomic_t tids_in_use;
++struct cpl_pass_open_req6 {
++	WR_HDR;
++	union opcode_tid ot;
++	__be16 local_port;
++	__be16 peer_port;
++	__be64 local_ip_hi;
++	__be64 local_ip_lo;
++	__be64 peer_ip_hi;
++	__be64 peer_ip_lo;
++	__be64 opt0;
++	__be64 opt1;
 +};
 +
-+static inline void *lookup_tid(const struct tid_info *t, unsigned int tid)
-+{
-+	return tid < t->ntids ? t->tid_tab[tid] : NULL;
-+}
-+
-+static inline void *lookup_atid(const struct tid_info *t, unsigned int atid)
-+{
-+	return atid < t->natids ? t->atid_tab[atid].data : NULL;
-+}
-+
-+static inline void *lookup_stid(const struct tid_info *t, unsigned int stid)
-+{
-+	stid -= t->stid_base;
-+	return stid < t->nstids ? t->stid_tab[stid].data : NULL;
-+}
-+
-+static inline void cxgb4_insert_tid(struct tid_info *t, void *data,
-+				    unsigned int tid)
-+{
-+	t->tid_tab[tid] = data;
-+	atomic_inc(&t->tids_in_use);
-+}
-+
-+int cxgb4_alloc_atid(struct tid_info *t, void *data);
-+int cxgb4_alloc_stid(struct tid_info *t, int family, void *data);
-+void cxgb4_free_atid(struct tid_info *t, unsigned int atid);
-+void cxgb4_free_stid(struct tid_info *t, unsigned int stid, int family);
-+void cxgb4_remove_tid(struct tid_info *t, unsigned int qid, unsigned int tid);
-+void cxgb4_queue_tid_release(struct tid_info *t, unsigned int chan,
-+			     unsigned int tid);
-+
-+struct in6_addr;
-+
-+int cxgb4_create_server(const struct net_device *dev, unsigned int stid,
-+			__be32 sip, __be16 sport, unsigned int queue);
-+int cxgb4_create_server6(const struct net_device *dev, unsigned int stid,
-+			 const struct in6_addr *sip, __be16 sport,
-+			 unsigned int queue);
-+
-+static inline void set_wr_txq(struct sk_buff *skb, int prio, int queue)
-+{
-+	skb_set_queue_mapping(skb, (queue << 1) | prio);
-+}
-+
-+enum cxgb4_uld {
-+	CXGB4_ULD_RDMA,
-+	CXGB4_ULD_ISCSI,
-+	CXGB4_ULD_MAX
++struct cpl_pass_open_rpl {
++	union opcode_tid ot;
++	__u8 rsvd[3];
++	__u8 status;
 +};
 +
-+enum cxgb4_state {
-+	CXGB4_STATE_UP,
-+	CXGB4_STATE_START_RECOVERY,
-+	CXGB4_STATE_DOWN,
-+	CXGB4_STATE_DETACH
++struct cpl_pass_accept_rpl {
++	WR_HDR;
++	union opcode_tid ot;
++	__be32 opt2;
++#define RSS_QUEUE(x)         ((x) << 0)
++#define RSS_QUEUE_VALID      (1 << 10)
++#define RX_COALESCE_VALID(x) ((x) << 11)
++#define RX_COALESCE(x)       ((x) << 12)
++#define TX_QUEUE(x)          ((x) << 23)
++#define RX_CHANNEL(x)        ((x) << 26)
++#define WND_SCALE_EN(x)      ((x) << 28)
++#define TSTAMPS_EN(x)        ((x) << 29)
++#define SACK_EN(x)           ((x) << 30)
++	__be64 opt0;
 +};
 +
-+struct pci_dev;
-+struct l2t_data;
-+struct net_device;
-+struct pkt_gl;
-+
-+struct cxgb4_range {
-+	unsigned int start;
-+	unsigned int size;
++struct cpl_act_open_req {
++	WR_HDR;
++	union opcode_tid ot;
++	__be16 local_port;
++	__be16 peer_port;
++	__be32 local_ip;
++	__be32 peer_ip;
++	__be64 opt0;
++	__be32 params;
++	__be32 opt2;
 +};
 +
-+struct cxgb4_virt_res {                      /* virtualized HW resources */
-+	struct cxgb4_range ddp;
-+	struct cxgb4_range iscsi;
-+	struct cxgb4_range stag;
-+	struct cxgb4_range rq;
-+	struct cxgb4_range pbl;
++struct cpl_act_open_req6 {
++	WR_HDR;
++	union opcode_tid ot;
++	__be16 local_port;
++	__be16 peer_port;
++	__be64 local_ip_hi;
++	__be64 local_ip_lo;
++	__be64 peer_ip_hi;
++	__be64 peer_ip_lo;
++	__be64 opt0;
++	__be32 params;
++	__be32 opt2;
 +};
 +
-+/*
-+ * Block of information the LLD provides to ULDs attaching to a device.
-+ */
-+struct cxgb4_lld_info {
-+	struct pci_dev *pdev;                /* associated PCI device */
-+	struct l2t_data *l2t;                /* L2 table */
-+	struct tid_info *tids;               /* TID table */
-+	struct net_device **ports;           /* device ports */
-+	const struct cxgb4_virt_res *vr;     /* assorted HW resources */
-+	const unsigned short *mtus;          /* MTU table */
-+	const unsigned short *rxq_ids;       /* the ULD's Rx queue ids */
-+	unsigned short nrxq;                 /* # of Rx queues */
-+	unsigned short ntxq;                 /* # of Tx queues */
-+	unsigned char nchan;                 /* # of channels */
-+	unsigned char nports;                /* # of ports */
-+	unsigned char wr_cred;               /* WR 16-byte credits */
-+	unsigned char adapter_type;          /* type of adapter */
-+	unsigned int fw_vers;                /* FW version */
-+	unsigned short udb_density;          /* # of user DB/page */
-+	unsigned short ucq_density;          /* # of user CQs/page */
-+	void __iomem *gts_reg;               /* address of GTS register */
-+	void __iomem *db_reg;                /* address of kernel doorbell */
++struct cpl_act_open_rpl {
++	union opcode_tid ot;
++	__be32 atid_status;
++#define GET_AOPEN_STATUS(x) ((x) & 0xff)
++#define GET_AOPEN_ATID(x)   (((x) >> 8) & 0xffffff)
 +};
 +
-+/* cxgb4_lld_info.adapter_type values */
-+enum {
-+	CXGB4_ADAP_T4 = 0,
++struct cpl_pass_establish {
++	union opcode_tid ot;
++	__be32 rsvd;
++	__be32 tos_stid;
++#define GET_POPEN_TID(x) ((x) & 0xffffff)
++#define GET_POPEN_TOS(x) (((x) >> 24) & 0xff)
++	__be16 mac_idx;
++	__be16 tcp_opt;
++#define GET_TCPOPT_WSCALE_OK(x)  (((x) >> 5) & 1)
++#define GET_TCPOPT_SACK(x)       (((x) >> 6) & 1)
++#define GET_TCPOPT_TSTAMP(x)     (((x) >> 7) & 1)
++#define GET_TCPOPT_SND_WSCALE(x) (((x) >> 8) & 0xf)
++#define GET_TCPOPT_MSS(x)        (((x) >> 12) & 0xf)
++	__be32 snd_isn;
++	__be32 rcv_isn;
 +};
 +
-+struct cxgb4_uld_info {
-+	const char *name;
-+	void *(*add)(const struct cxgb4_lld_info *p);
-+	int (*rx_handler)(void *handle, const __be64 *rsp,
-+			  const struct pkt_gl *gl);
-+	int (*state_change)(void *handle, enum cxgb4_state new_state);
++struct cpl_act_establish {
++	union opcode_tid ot;
++	__be32 rsvd;
++	__be32 tos_atid;
++	__be16 mac_idx;
++	__be16 tcp_opt;
++	__be32 snd_isn;
++	__be32 rcv_isn;
 +};
 +
-+int cxgb4_register_uld(enum cxgb4_uld type, const struct cxgb4_uld_info *p);
-+int cxgb4_unregister_uld(enum cxgb4_uld type);
-+int cxgb4_ofld_send(struct net_device *dev, struct sk_buff *skb);
-+unsigned int cxgb4_port_chan(const struct net_device *dev);
-+struct net_device *cxgb4_netdev_by_hwid(struct pci_dev *pdev, unsigned int id);
-+unsigned int cxgb4_best_mtu(const unsigned short *mtus, unsigned short mtu,
-+			    unsigned int *idx);
-+void cxgb4_iscsi_init(struct net_device *dev, unsigned int tag_mask,
-+		      const unsigned int *pgsz_order);
-+struct sk_buff *cxgb4_pktgl_to_skb(const struct pkt_gl *gl,
-+				   unsigned int skb_len, unsigned int pull_len);
-+#endif  /* !__CXGB4_OFLD_H */
-diff --git a/drivers/net/cxgb4/l2t.c b/drivers/net/cxgb4/l2t.c
-new file mode 100644
-index 0000000..cd1d7bd
---- /dev/null
-+++ b/drivers/net/cxgb4/l2t.c
-@@ -0,0 +1,626 @@
-+/*
-+ * This file is part of the Chelsio T4 Ethernet driver for Linux.
-+ *
-+ * Copyright (c) 2003-2010 Chelsio Communications, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
-+#include <linux/if.h>
-+#include <linux/if_vlan.h>
-+#include <linux/jhash.h>
-+#include <net/neighbour.h>
-+#include "cxgb4.h"
-+#include "l2t.h"
-+#include "t4_msg.h"
-+#include "t4fw_api.h"
-+
-+#define VLAN_NONE 0xfff
-+
-+/* identifies sync vs async L2T_WRITE_REQs */
-+#define F_SYNC_WR    (1 << 12)
-+
-+enum {
-+	L2T_STATE_VALID,      /* entry is up to date */
-+	L2T_STATE_STALE,      /* entry may be used but needs revalidation */
-+	L2T_STATE_RESOLVING,  /* entry needs address resolution */
-+	L2T_STATE_SYNC_WRITE, /* synchronous write of entry underway */
-+
-+	/* when state is one of the below the entry is not hashed */
-+	L2T_STATE_SWITCHING,  /* entry is being used by a switching filter */
-+	L2T_STATE_UNUSED      /* entry not in use */
++struct cpl_get_tcb {
++	WR_HDR;
++	union opcode_tid ot;
++	__be16 reply_ctrl;
++#define QUEUENO(x)    ((x) << 0)
++#define REPLY_CHAN(x) ((x) << 14)
++#define NO_REPLY(x)   ((x) << 15)
++	__be16 cookie;
 +};
 +
-+struct l2t_data {
-+	rwlock_t lock;
-+	atomic_t nfree;             /* number of free entries */
-+	struct l2t_entry *rover;    /* starting point for next allocation */
-+	struct l2t_entry l2tab[L2T_SIZE];
++struct cpl_set_tcb_field {
++	WR_HDR;
++	union opcode_tid ot;
++	__be16 reply_ctrl;
++	__be16 word_cookie;
++#define TCB_WORD(x)   ((x) << 0)
++#define TCB_COOKIE(x) ((x) << 5)
++	__be64 mask;
++	__be64 val;
 +};
 +
-+static inline unsigned int vlan_prio(const struct l2t_entry *e)
-+{
-+	return e->vlan >> 13;
-+}
-+
-+static inline void l2t_hold(struct l2t_data *d, struct l2t_entry *e)
-+{
-+	if (atomic_add_return(1, &e->refcnt) == 1)  /* 0 -> 1 transition */
-+		atomic_dec(&d->nfree);
-+}
-+
-+/*
-+ * To avoid having to check address families we do not allow v4 and v6
-+ * neighbors to be on the same hash chain.  We keep v4 entries in the first
-+ * half of available hash buckets and v6 in the second.
-+ */
-+enum {
-+	L2T_SZ_HALF = L2T_SIZE / 2,
-+	L2T_HASH_MASK = L2T_SZ_HALF - 1
++struct cpl_set_tcb_rpl {
++	union opcode_tid ot;
++	__be16 rsvd;
++	__u8   cookie;
++	__u8   status;
++	__be64 oldval;
 +};
 +
-+static inline unsigned int arp_hash(const u32 *key, int ifindex)
-+{
-+	return jhash_2words(*key, ifindex, 0) & L2T_HASH_MASK;
-+}
-+
-+static inline unsigned int ipv6_hash(const u32 *key, int ifindex)
-+{
-+	u32 xor = key[0] ^ key[1] ^ key[2] ^ key[3];
-+
-+	return L2T_SZ_HALF + (jhash_2words(xor, ifindex, 0) & L2T_HASH_MASK);
-+}
-+
-+static unsigned int addr_hash(const u32 *addr, int addr_len, int ifindex)
-+{
-+	return addr_len == 4 ? arp_hash(addr, ifindex) :
-+			       ipv6_hash(addr, ifindex);
-+}
-+
-+/*
-+ * Checks if an L2T entry is for the given IP/IPv6 address.  It does not check
-+ * whether the L2T entry and the address are of the same address family.
-+ * Callers ensure an address is only checked against L2T entries of the same
-+ * family, something made trivial by the separation of IP and IPv6 hash chains
-+ * mentioned above.  Returns 0 if there's a match,
-+ */
-+static int addreq(const struct l2t_entry *e, const u32 *addr)
-+{
-+	if (e->v6)
-+		return (e->addr[0] ^ addr[0]) | (e->addr[1] ^ addr[1]) |
-+		       (e->addr[2] ^ addr[2]) | (e->addr[3] ^ addr[3]);
-+	return e->addr[0] ^ addr[0];
-+}
-+
-+static void neigh_replace(struct l2t_entry *e, struct neighbour *n)
-+{
-+	neigh_hold(n);
-+	if (e->neigh)
-+		neigh_release(e->neigh);
-+	e->neigh = n;
-+}
-+
-+/*
-+ * Write an L2T entry.  Must be called with the entry locked.
-+ * The write may be synchronous or asynchronous.
-+ */
-+static int write_l2e(struct adapter *adap, struct l2t_entry *e, int sync)
-+{
-+	struct sk_buff *skb;
-+	struct cpl_l2t_write_req *req;
-+
-+	skb = alloc_skb(sizeof(*req), GFP_ATOMIC);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	req = (struct cpl_l2t_write_req *)__skb_put(skb, sizeof(*req));
-+	INIT_TP_WR(req, 0);
-+
-+	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_L2T_WRITE_REQ,
-+					e->idx | (sync ? F_SYNC_WR : 0) |
-+					TID_QID(adap->sge.fw_evtq.abs_id)));
-+	req->params = htons(L2T_W_PORT(e->lport) | L2T_W_NOREPLY(!sync));
-+	req->l2t_idx = htons(e->idx);
-+	req->vlan = htons(e->vlan);
-+	if (e->neigh)
-+		memcpy(e->dmac, e->neigh->ha, sizeof(e->dmac));
-+	memcpy(req->dst_mac, e->dmac, sizeof(req->dst_mac));
-+
-+	set_wr_txq(skb, CPL_PRIORITY_CONTROL, 0);
-+	t4_ofld_send(adap, skb);
-+
-+	if (sync && e->state != L2T_STATE_SWITCHING)
-+		e->state = L2T_STATE_SYNC_WRITE;
-+	return 0;
-+}
-+
-+/*
-+ * Send packets waiting in an L2T entry's ARP queue.  Must be called with the
-+ * entry locked.
-+ */
-+static void send_pending(struct adapter *adap, struct l2t_entry *e)
-+{
-+	while (e->arpq_head) {
-+		struct sk_buff *skb = e->arpq_head;
-+
-+		e->arpq_head = skb->next;
-+		skb->next = NULL;
-+		t4_ofld_send(adap, skb);
-+	}
-+	e->arpq_tail = NULL;
-+}
-+
-+/*
-+ * Process a CPL_L2T_WRITE_RPL.  Wake up the ARP queue if it completes a
-+ * synchronous L2T_WRITE.  Note that the TID in the reply is really the L2T
-+ * index it refers to.
-+ */
-+void do_l2t_write_rpl(struct adapter *adap, const struct cpl_l2t_write_rpl *rpl)
-+{
-+	unsigned int tid = GET_TID(rpl);
-+	unsigned int idx = tid & (L2T_SIZE - 1);
-+
-+	if (unlikely(rpl->status != CPL_ERR_NONE)) {
-+		dev_err(adap->pdev_dev,
-+			"Unexpected L2T_WRITE_RPL status %u for entry %u\n",
-+			rpl->status, idx);
-+		return;
-+	}
-+
-+	if (tid & F_SYNC_WR) {
-+		struct l2t_entry *e = &adap->l2t->l2tab[idx];
-+
-+		spin_lock(&e->lock);
-+		if (e->state != L2T_STATE_SWITCHING) {
-+			send_pending(adap, e);
-+			e->state = (e->neigh->nud_state & NUD_STALE) ?
-+					L2T_STATE_STALE : L2T_STATE_VALID;
-+		}
-+		spin_unlock(&e->lock);
-+	}
-+}
-+
-+/*
-+ * Add a packet to an L2T entry's queue of packets awaiting resolution.
-+ * Must be called with the entry's lock held.
-+ */
-+static inline void arpq_enqueue(struct l2t_entry *e, struct sk_buff *skb)
-+{
-+	skb->next = NULL;
-+	if (e->arpq_head)
-+		e->arpq_tail->next = skb;
-+	else
-+		e->arpq_head = skb;
-+	e->arpq_tail = skb;
-+}
-+
-+int cxgb4_l2t_send(struct net_device *dev, struct sk_buff *skb,
-+		   struct l2t_entry *e)
-+{
-+	struct adapter *adap = netdev2adap(dev);
-+
-+again:
-+	switch (e->state) {
-+	case L2T_STATE_STALE:     /* entry is stale, kick off revalidation */
-+		neigh_event_send(e->neigh, NULL);
-+		spin_lock_bh(&e->lock);
-+		if (e->state == L2T_STATE_STALE)
-+			e->state = L2T_STATE_VALID;
-+		spin_unlock_bh(&e->lock);
-+	case L2T_STATE_VALID:     /* fast-path, send the packet on */
-+		return t4_ofld_send(adap, skb);
-+	case L2T_STATE_RESOLVING:
-+	case L2T_STATE_SYNC_WRITE:
-+		spin_lock_bh(&e->lock);
-+		if (e->state != L2T_STATE_SYNC_WRITE &&
-+		    e->state != L2T_STATE_RESOLVING) {
-+			spin_unlock_bh(&e->lock);
-+			goto again;
-+		}
-+		arpq_enqueue(e, skb);
-+		spin_unlock_bh(&e->lock);
-+
-+		if (e->state == L2T_STATE_RESOLVING &&
-+		    !neigh_event_send(e->neigh, NULL)) {
-+			spin_lock_bh(&e->lock);
-+			if (e->state == L2T_STATE_RESOLVING && e->arpq_head)
-+				write_l2e(adap, e, 1);
-+			spin_unlock_bh(&e->lock);
-+		}
-+	}
-+	return 0;
-+}
-+EXPORT_SYMBOL(cxgb4_l2t_send);
-+
-+/*
-+ * Allocate a free L2T entry.  Must be called with l2t_data.lock held.
-+ */
-+static struct l2t_entry *alloc_l2e(struct l2t_data *d)
-+{
-+	struct l2t_entry *end, *e, **p;
-+
-+	if (!atomic_read(&d->nfree))
-+		return NULL;
-+
-+	/* there's definitely a free entry */
-+	for (e = d->rover, end = &d->l2tab[L2T_SIZE]; e != end; ++e)
-+		if (atomic_read(&e->refcnt) == 0)
-+			goto found;
-+
-+	for (e = d->l2tab; atomic_read(&e->refcnt); ++e)
-+		;
-+found:
-+	d->rover = e + 1;
-+	atomic_dec(&d->nfree);
-+
-+	/*
-+	 * The entry we found may be an inactive entry that is
-+	 * presently in the hash table.  We need to remove it.
-+	 */
-+	if (e->state < L2T_STATE_SWITCHING)
-+		for (p = &d->l2tab[e->hash].first; *p; p = &(*p)->next)
-+			if (*p == e) {
-+				*p = e->next;
-+				e->next = NULL;
-+				break;
-+			}
-+
-+	e->state = L2T_STATE_UNUSED;
-+	return e;
-+}
-+
-+/*
-+ * Called when an L2T entry has no more users.
-+ */
-+static void t4_l2e_free(struct l2t_entry *e)
-+{
-+	struct l2t_data *d;
-+
-+	spin_lock_bh(&e->lock);
-+	if (atomic_read(&e->refcnt) == 0) {  /* hasn't been recycled */
-+		if (e->neigh) {
-+			neigh_release(e->neigh);
-+			e->neigh = NULL;
-+		}
-+	}
-+	spin_unlock_bh(&e->lock);
-+
-+	d = container_of(e, struct l2t_data, l2tab[e->idx]);
-+	atomic_inc(&d->nfree);
-+}
-+
-+void cxgb4_l2t_release(struct l2t_entry *e)
-+{
-+	if (atomic_dec_and_test(&e->refcnt))
-+		t4_l2e_free(e);
-+}
-+EXPORT_SYMBOL(cxgb4_l2t_release);
-+
-+/*
-+ * Update an L2T entry that was previously used for the same next hop as neigh.
-+ * Must be called with softirqs disabled.
-+ */
-+static void reuse_entry(struct l2t_entry *e, struct neighbour *neigh)
-+{
-+	unsigned int nud_state;
-+
-+	spin_lock(&e->lock);                /* avoid race with t4_l2t_free */
-+	if (neigh != e->neigh)
-+		neigh_replace(e, neigh);
-+	nud_state = neigh->nud_state;
-+	if (memcmp(e->dmac, neigh->ha, sizeof(e->dmac)) ||
-+	    !(nud_state & NUD_VALID))
-+		e->state = L2T_STATE_RESOLVING;
-+	else if (nud_state & NUD_CONNECTED)
-+		e->state = L2T_STATE_VALID;
-+	else
-+		e->state = L2T_STATE_STALE;
-+	spin_unlock(&e->lock);
-+}
-+
-+struct l2t_entry *cxgb4_l2t_get(struct l2t_data *d, struct neighbour *neigh,
-+				const struct net_device *physdev,
-+				unsigned int priority)
-+{
-+	u8 lport;
-+	u16 vlan;
-+	struct l2t_entry *e;
-+	int addr_len = neigh->tbl->key_len;
-+	u32 *addr = (u32 *)neigh->primary_key;
-+	int ifidx = neigh->dev->ifindex;
-+	int hash = addr_hash(addr, addr_len, ifidx);
-+
-+	if (neigh->dev->flags & IFF_LOOPBACK)
-+		lport = netdev2pinfo(physdev)->tx_chan + 4;
-+	else
-+		lport = netdev2pinfo(physdev)->lport;
-+
-+	if (neigh->dev->priv_flags & IFF_802_1Q_VLAN)
-+		vlan = vlan_dev_vlan_id(neigh->dev);
-+	else
-+		vlan = VLAN_NONE;
-+
-+	write_lock_bh(&d->lock);
-+	for (e = d->l2tab[hash].first; e; e = e->next)
-+		if (!addreq(e, addr) && e->ifindex == ifidx &&
-+		    e->vlan == vlan && e->lport == lport) {
-+			l2t_hold(d, e);
-+			if (atomic_read(&e->refcnt) == 1)
-+				reuse_entry(e, neigh);
-+			goto done;
-+		}
-+
-+	/* Need to allocate a new entry */
-+	e = alloc_l2e(d);
-+	if (e) {
-+		spin_lock(&e->lock);          /* avoid race with t4_l2t_free */
-+		e->state = L2T_STATE_RESOLVING;
-+		memcpy(e->addr, addr, addr_len);
-+		e->ifindex = ifidx;
-+		e->hash = hash;
-+		e->lport = lport;
-+		e->v6 = addr_len == 16;
-+		atomic_set(&e->refcnt, 1);
-+		neigh_replace(e, neigh);
-+		e->vlan = vlan;
-+		e->next = d->l2tab[hash].first;
-+		d->l2tab[hash].first = e;
-+		spin_unlock(&e->lock);
-+	}
-+done:
-+	write_unlock_bh(&d->lock);
-+	return e;
-+}
-+EXPORT_SYMBOL(cxgb4_l2t_get);
-+
-+/*
-+ * Called when address resolution fails for an L2T entry to handle packets
-+ * on the arpq head.  If a packet specifies a failure handler it is invoked,
-+ * otherwise the packet is sent to the device.
-+ */
-+static void handle_failed_resolution(struct adapter *adap, struct sk_buff *arpq)
-+{
-+	while (arpq) {
-+		struct sk_buff *skb = arpq;
-+		const struct l2t_skb_cb *cb = L2T_SKB_CB(skb);
-+
-+		arpq = skb->next;
-+		skb->next = NULL;
-+		if (cb->arp_err_handler)
-+			cb->arp_err_handler(cb->handle, skb);
-+		else
-+			t4_ofld_send(adap, skb);
-+	}
-+}
-+
-+/*
-+ * Called when the host's neighbor layer makes a change to some entry that is
-+ * loaded into the HW L2 table.
-+ */
-+void t4_l2t_update(struct adapter *adap, struct neighbour *neigh)
-+{
-+	struct l2t_entry *e;
-+	struct sk_buff *arpq = NULL;
-+	struct l2t_data *d = adap->l2t;
-+	int addr_len = neigh->tbl->key_len;
-+	u32 *addr = (u32 *) neigh->primary_key;
-+	int ifidx = neigh->dev->ifindex;
-+	int hash = addr_hash(addr, addr_len, ifidx);
-+
-+	read_lock_bh(&d->lock);
-+	for (e = d->l2tab[hash].first; e; e = e->next)
-+		if (!addreq(e, addr) && e->ifindex == ifidx) {
-+			spin_lock(&e->lock);
-+			if (atomic_read(&e->refcnt))
-+				goto found;
-+			spin_unlock(&e->lock);
-+			break;
-+		}
-+	read_unlock_bh(&d->lock);
-+	return;
-+
-+ found:
-+	read_unlock(&d->lock);
-+
-+	if (neigh != e->neigh)
-+		neigh_replace(e, neigh);
-+
-+	if (e->state == L2T_STATE_RESOLVING) {
-+		if (neigh->nud_state & NUD_FAILED) {
-+			arpq = e->arpq_head;
-+			e->arpq_head = e->arpq_tail = NULL;
-+		} else if ((neigh->nud_state & (NUD_CONNECTED | NUD_STALE)) &&
-+			   e->arpq_head) {
-+			write_l2e(adap, e, 1);
-+		}
-+	} else {
-+		e->state = neigh->nud_state & NUD_CONNECTED ?
-+			L2T_STATE_VALID : L2T_STATE_STALE;
-+		if (memcmp(e->dmac, neigh->ha, sizeof(e->dmac)))
-+			write_l2e(adap, e, 0);
-+	}
-+
-+	spin_unlock_bh(&e->lock);
-+
-+	if (arpq)
-+		handle_failed_resolution(adap, arpq);
-+}
-+
-+/*
-+ * Allocate an L2T entry for use by a switching rule.  Such entries need to be
-+ * explicitly freed and while busy they are not on any hash chain, so normal
-+ * address resolution updates do not see them.
-+ */
-+struct l2t_entry *t4_l2t_alloc_switching(struct l2t_data *d)
-+{
-+	struct l2t_entry *e;
-+
-+	write_lock_bh(&d->lock);
-+	e = alloc_l2e(d);
-+	if (e) {
-+		spin_lock(&e->lock);          /* avoid race with t4_l2t_free */
-+		e->state = L2T_STATE_SWITCHING;
-+		atomic_set(&e->refcnt, 1);
-+		spin_unlock(&e->lock);
-+	}
-+	write_unlock_bh(&d->lock);
-+	return e;
-+}
-+
-+/*
-+ * Sets/updates the contents of a switching L2T entry that has been allocated
-+ * with an earlier call to @t4_l2t_alloc_switching.
-+ */
-+int t4_l2t_set_switching(struct adapter *adap, struct l2t_entry *e, u16 vlan,
-+			 u8 port, u8 *eth_addr)
-+{
-+	e->vlan = vlan;
-+	e->lport = port;
-+	memcpy(e->dmac, eth_addr, ETH_ALEN);
-+	return write_l2e(adap, e, 0);
-+}
-+
-+struct l2t_data *t4_init_l2t(void)
-+{
-+	int i;
-+	struct l2t_data *d;
-+
-+	d = t4_alloc_mem(sizeof(*d));
-+	if (!d)
-+		return NULL;
-+
-+	d->rover = d->l2tab;
-+	atomic_set(&d->nfree, L2T_SIZE);
-+	rwlock_init(&d->lock);
-+
-+	for (i = 0; i < L2T_SIZE; ++i) {
-+		d->l2tab[i].idx = i;
-+		d->l2tab[i].state = L2T_STATE_UNUSED;
-+		spin_lock_init(&d->l2tab[i].lock);
-+		atomic_set(&d->l2tab[i].refcnt, 0);
-+	}
-+	return d;
-+}
-+
-+#ifdef CONFIG_PROC_FS
-+#include <linux/module.h>
-+#include <linux/proc_fs.h>
-+#include <linux/seq_file.h>
-+
-+static inline void *l2t_get_idx(struct seq_file *seq, loff_t pos)
-+{
-+	struct l2t_entry *l2tab = seq->private;
-+
-+	return pos >= L2T_SIZE ? NULL : &l2tab[pos];
-+}
-+
-+static void *l2t_seq_start(struct seq_file *seq, loff_t *pos)
-+{
-+	return *pos ? l2t_get_idx(seq, *pos - 1) : SEQ_START_TOKEN;
-+}
-+
-+static void *l2t_seq_next(struct seq_file *seq, void *v, loff_t *pos)
-+{
-+	v = l2t_get_idx(seq, *pos);
-+	if (v)
-+		++*pos;
-+	return v;
-+}
-+
-+static void l2t_seq_stop(struct seq_file *seq, void *v)
-+{
-+}
-+
-+static char l2e_state(const struct l2t_entry *e)
-+{
-+	switch (e->state) {
-+	case L2T_STATE_VALID: return 'V';
-+	case L2T_STATE_STALE: return 'S';
-+	case L2T_STATE_SYNC_WRITE: return 'W';
-+	case L2T_STATE_RESOLVING: return e->arpq_head ? 'A' : 'R';
-+	case L2T_STATE_SWITCHING: return 'X';
-+	default:
-+		return 'U';
-+	}
-+}
-+
-+static int l2t_seq_show(struct seq_file *seq, void *v)
-+{
-+	if (v == SEQ_START_TOKEN)
-+		seq_puts(seq, " Idx IP address      Ethernet address  VLAN/P "
-+			 "LP State Users Port\n");
-+	else {
-+		char ip[60];
-+		struct l2t_entry *e = v;
-+
-+		spin_lock_bh(&e->lock);
-+		if (e->state == L2T_STATE_SWITCHING)
-+			ip[0] = '\0';
-+		else
-+			sprintf(ip, e->v6 ? "%pI6c" : "%pI4", e->addr);
-+		seq_printf(seq, "%4u %-15s %17pM %4d %u %2u   %c   %5u %s\n",
-+			   e->idx, ip, e->dmac,
-+			   e->vlan & VLAN_VID_MASK, vlan_prio(e), e->lport,
-+			   l2e_state(e), atomic_read(&e->refcnt),
-+			   e->neigh ? e->neigh->dev->name : "");
-+		spin_unlock_bh(&e->lock);
-+	}
-+	return 0;
-+}
-+
-+static const struct seq_operations l2t_seq_ops = {
-+	.start = l2t_seq_start,
-+	.next = l2t_seq_next,
-+	.stop = l2t_seq_stop,
-+	.show = l2t_seq_show
++struct cpl_close_con_req {
++	WR_HDR;
++	union opcode_tid ot;
++	__be32 rsvd;
 +};
 +
-+static int l2t_seq_open(struct inode *inode, struct file *file)
-+{
-+	int rc = seq_open(file, &l2t_seq_ops);
-+
-+	if (!rc) {
-+		struct adapter *adap = PDE(inode)->data;
-+		struct seq_file *seq = file->private_data;
-+
-+		seq->private = adap->l2t->l2tab;
-+	}
-+	return rc;
-+}
-+
-+const struct file_operations t4_l2t_proc_fops = {
-+	.owner = THIS_MODULE,
-+	.open = l2t_seq_open,
-+	.read = seq_read,
-+	.llseek = seq_lseek,
-+	.release = seq_release,
++struct cpl_close_con_rpl {
++	union opcode_tid ot;
++	__u8  rsvd[3];
++	__u8  status;
++	__be32 snd_nxt;
++	__be32 rcv_nxt;
 +};
++
++struct cpl_close_listsvr_req {
++	WR_HDR;
++	union opcode_tid ot;
++	__be16 reply_ctrl;
++#define LISTSVR_IPV6 (1 << 14)
++	__be16 rsvd;
++};
++
++struct cpl_close_listsvr_rpl {
++	union opcode_tid ot;
++	__u8 rsvd[3];
++	__u8 status;
++};
++
++struct cpl_abort_req_rss {
++	union opcode_tid ot;
++	__u8  rsvd[3];
++	__u8  status;
++};
++
++struct cpl_abort_req {
++	WR_HDR;
++	union opcode_tid ot;
++	__be32 rsvd0;
++	__u8  rsvd1;
++	__u8  cmd;
++	__u8  rsvd2[6];
++};
++
++struct cpl_abort_rpl_rss {
++	union opcode_tid ot;
++	__u8  rsvd[3];
++	__u8  status;
++};
++
++struct cpl_abort_rpl {
++	WR_HDR;
++	union opcode_tid ot;
++	__be32 rsvd0;
++	__u8  rsvd1;
++	__u8  cmd;
++	__u8  rsvd2[6];
++};
++
++struct cpl_peer_close {
++	union opcode_tid ot;
++	__be32 rcv_nxt;
++};
++
++struct cpl_tid_release {
++	WR_HDR;
++	union opcode_tid ot;
++	__be32 rsvd;
++};
++
++struct cpl_tx_pkt_core {
++	__be32 ctrl0;
++#define TXPKT_VF(x)        ((x) << 0)
++#define TXPKT_PF(x)        ((x) << 8)
++#define TXPKT_VF_VLD       (1 << 11)
++#define TXPKT_OVLAN_IDX(x) ((x) << 12)
++#define TXPKT_INTF(x)      ((x) << 16)
++#define TXPKT_INS_OVLAN    (1 << 21)
++#define TXPKT_OPCODE(x)    ((x) << 24)
++	__be16 pack;
++	__be16 len;
++	__be64 ctrl1;
++#define TXPKT_CSUM_END(x)   ((x) << 12)
++#define TXPKT_CSUM_START(x) ((x) << 20)
++#define TXPKT_IPHDR_LEN(x)  ((__u64)(x) << 20)
++#define TXPKT_CSUM_LOC(x)   ((__u64)(x) << 30)
++#define TXPKT_ETHHDR_LEN(x) ((__u64)(x) << 34)
++#define TXPKT_CSUM_TYPE(x)  ((__u64)(x) << 40)
++#define TXPKT_VLAN(x)       ((__u64)(x) << 44)
++#define TXPKT_VLAN_VLD      (1ULL << 60)
++#define TXPKT_IPCSUM_DIS    (1ULL << 62)
++#define TXPKT_L4CSUM_DIS    (1ULL << 63)
++};
++
++struct cpl_tx_pkt {
++	WR_HDR;
++	struct cpl_tx_pkt_core c;
++};
++
++#define cpl_tx_pkt_xt cpl_tx_pkt
++
++struct cpl_tx_pkt_lso {
++	WR_HDR;
++	__be32 lso_ctrl;
++#define LSO_TCPHDR_LEN(x) ((x) << 0)
++#define LSO_IPHDR_LEN(x)  ((x) << 4)
++#define LSO_ETHHDR_LEN(x) ((x) << 16)
++#define LSO_IPV6(x)       ((x) << 20)
++#define LSO_LAST_SLICE    (1 << 22)
++#define LSO_FIRST_SLICE   (1 << 23)
++#define LSO_OPCODE(x)     ((x) << 24)
++	__be16 ipid_ofst;
++	__be16 mss;
++	__be32 seqno_offset;
++	__be32 len;
++	/* encapsulated CPL (TX_PKT, TX_PKT_XT or TX_DATA) follows here */
++};
++
++struct cpl_iscsi_hdr {
++	union opcode_tid ot;
++	__be16 pdu_len_ddp;
++#define ISCSI_PDU_LEN(x) ((x) & 0x7FFF)
++#define ISCSI_DDP        (1 << 15)
++	__be16 len;
++	__be32 seq;
++	__be16 urg;
++	__u8 rsvd;
++	__u8 status;
++};
++
++struct cpl_rx_data {
++	union opcode_tid ot;
++	__be16 rsvd;
++	__be16 len;
++	__be32 seq;
++	__be16 urg;
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	__u8 dack_mode:2;
++	__u8 psh:1;
++	__u8 heartbeat:1;
++	__u8 ddp_off:1;
++	__u8 :3;
++#else
++	__u8 :3;
++	__u8 ddp_off:1;
++	__u8 heartbeat:1;
++	__u8 psh:1;
++	__u8 dack_mode:2;
 +#endif
-diff --git a/drivers/net/cxgb4/l2t.h b/drivers/net/cxgb4/l2t.h
++	__u8 status;
++};
++
++struct cpl_rx_data_ack {
++	WR_HDR;
++	union opcode_tid ot;
++	__be32 credit_dack;
++};
++
++struct cpl_rx_pkt {
++	__u8 opcode;
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	__u8 iff:4;
++	__u8 csum_calc:1;
++	__u8 ipmi_pkt:1;
++	__u8 vlan_ex:1;
++	__u8 ip_frag:1;
++#else
++	__u8 ip_frag:1;
++	__u8 vlan_ex:1;
++	__u8 ipmi_pkt:1;
++	__u8 csum_calc:1;
++	__u8 iff:4;
++#endif
++	__be16 csum;
++	__be16 vlan;
++	__be16 len;
++	__be32 l2info;
++#define RXF_UDP (1 << 22)
++#define RXF_TCP (1 << 23)
++	__be16 hdr_len;
++	__be16 err_vec;
++};
++
++struct cpl_trace_pkt {
++	__u8 opcode;
++	__u8 intf;
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	__u8 runt:4;
++	__u8 filter_hit:4;
++	__u8 :6;
++	__u8 err:1;
++	__u8 trunc:1;
++#else
++	__u8 filter_hit:4;
++	__u8 runt:4;
++	__u8 trunc:1;
++	__u8 err:1;
++	__u8 :6;
++#endif
++	__be16 rsvd;
++	__be16 len;
++	__be64 tstamp;
++};
++
++struct cpl_l2t_write_req {
++	WR_HDR;
++	union opcode_tid ot;
++	__be16 params;
++#define L2T_W_INFO(x)    ((x) << 2)
++#define L2T_W_PORT(x)    ((x) << 8)
++#define L2T_W_NOREPLY(x) ((x) << 15)
++	__be16 l2t_idx;
++	__be16 vlan;
++	__u8   dst_mac[6];
++};
++
++struct cpl_l2t_write_rpl {
++	union opcode_tid ot;
++	__u8 status;
++	__u8 rsvd[3];
++};
++
++struct cpl_rdma_terminate {
++	union opcode_tid ot;
++	__be16 rsvd;
++	__be16 len;
++};
++
++struct cpl_sge_egr_update {
++	__be32 opcode_qid;
++#define EGR_QID(x) ((x) & 0x1FFFF)
++	__be16 cidx;
++	__be16 pidx;
++};
++
++struct cpl_fw4_pld {
++	u8 opcode;
++	u8 rsvd0[3];
++	u8 type;
++	u8 rsvd1;
++	__be16 len;
++	__be64 data;
++	__be64 rsvd2;
++};
++
++struct cpl_fw6_pld {
++	u8 opcode;
++	u8 rsvd[5];
++	__be16 len;
++	__be64 data[4];
++};
++
++struct cpl_fw4_msg {
++	u8 opcode;
++	u8 type;
++	__be16 rsvd0;
++	__be32 rsvd1;
++	__be64 data[2];
++};
++
++struct cpl_fw4_ack {
++	union opcode_tid ot;
++	u8 credits;
++	u8 rsvd0[2];
++	u8 seq_vld;
++	__be32 snd_nxt;
++	__be32 snd_una;
++	__be64 rsvd1;
++};
++
++struct cpl_fw6_msg {
++	u8 opcode;
++	u8 type;
++	__be16 rsvd0;
++	__be32 rsvd1;
++	__be64 data[4];
++};
++
++enum {
++	ULP_TX_MEM_READ = 2,
++	ULP_TX_MEM_WRITE = 3,
++	ULP_TX_PKT = 4
++};
++
++enum {
++	ULP_TX_SC_NOOP = 0x80,
++	ULP_TX_SC_IMM  = 0x81,
++	ULP_TX_SC_DSGL = 0x82,
++	ULP_TX_SC_ISGL = 0x83
++};
++
++struct ulptx_sge_pair {
++	__be32 len[2];
++	__be64 addr[2];
++};
++
++struct ulptx_sgl {
++	__be32 cmd_nsge;
++#define ULPTX_CMD(x) ((x) << 24)
++#define ULPTX_NSGE(x) ((x) << 0)
++	__be32 len0;
++	__be64 addr0;
++	struct ulptx_sge_pair sge[0];
++};
++#endif  /* __T4_MSG_H */
+diff --git a/drivers/net/cxgb4/t4_regs.h b/drivers/net/cxgb4/t4_regs.h
 new file mode 100644
-index 0000000..013a2a5
+index 0000000..418fc9c
 --- /dev/null
-+++ b/drivers/net/cxgb4/l2t.h
-@@ -0,0 +1,110 @@
++++ b/drivers/net/cxgb4/t4_regs.h
+@@ -0,0 +1,873 @@
 +/*
 + * This file is part of the Chelsio T4 Ethernet driver for Linux.
 + *
-+ * Copyright (c) 2003-2010 Chelsio Communications, Inc. All rights reserved.
++ * Copyright (c) 2010 Chelsio Communications, Inc. All rights reserved.
 + *
 + * This software is available to you under a choice of one of two
 + * licenses.  You may choose to be licensed under the terms of the GNU
@@ -1687,82 +725,845 @@ index 0000000..013a2a5
 + * SOFTWARE.
 + */
 +
-+#ifndef __CXGB4_L2T_H
-+#define __CXGB4_L2T_H
++#ifndef __T4_REGS_H
++#define __T4_REGS_H
 +
-+#include <linux/spinlock.h>
-+#include <linux/if_ether.h>
-+#include <asm/atomic.h>
++#define MYPF_BASE 0x1b000
++#define MYPF_REG(reg_addr) (MYPF_BASE + (reg_addr))
 +
-+struct adapter;
-+struct l2t_data;
-+struct neighbour;
-+struct net_device;
-+struct file_operations;
-+struct cpl_l2t_write_rpl;
++#define PF0_BASE 0x1e000
++#define PF0_REG(reg_addr) (PF0_BASE + (reg_addr))
 +
-+/*
-+ * Each L2T entry plays multiple roles.  First of all, it keeps state for the
-+ * corresponding entry of the HW L2 table and maintains a queue of offload
-+ * packets awaiting address resolution.  Second, it is a node of a hash table
-+ * chain, where the nodes of the chain are linked together through their next
-+ * pointer.  Finally, each node is a bucket of a hash table, pointing to the
-+ * first element in its chain through its first pointer.
-+ */
-+struct l2t_entry {
-+	u16 state;                  /* entry state */
-+	u16 idx;                    /* entry index */
-+	u32 addr[4];                /* next hop IP or IPv6 address */
-+	int ifindex;                /* neighbor's net_device's ifindex */
-+	struct neighbour *neigh;    /* associated neighbour */
-+	struct l2t_entry *first;    /* start of hash chain */
-+	struct l2t_entry *next;     /* next l2t_entry on chain */
-+	struct sk_buff *arpq_head;  /* queue of packets awaiting resolution */
-+	struct sk_buff *arpq_tail;
-+	spinlock_t lock;
-+	atomic_t refcnt;            /* entry reference count */
-+	u16 hash;                   /* hash bucket the entry is on */
-+	u16 vlan;                   /* VLAN TCI (id: bits 0-11, prio: 13-15 */
-+	u8 v6;                      /* whether entry is for IPv6 */
-+	u8 lport;                   /* associated offload logical interface */
-+	u8 dmac[ETH_ALEN];          /* neighbour's MAC address */
-+};
++#define PF_STRIDE 0x400
++#define PF_BASE(idx) (PF0_BASE + (idx) * PF_STRIDE)
++#define PF_REG(idx, reg) (PF_BASE(idx) + (reg))
 +
-+typedef void (*arp_err_handler_t)(void *handle, struct sk_buff *skb);
++#define MYPORT_BASE 0x1c000
++#define MYPORT_REG(reg_addr) (MYPORT_BASE + (reg_addr))
 +
-+/*
-+ * Callback stored in an skb to handle address resolution failure.
-+ */
-+struct l2t_skb_cb {
-+	void *handle;
-+	arp_err_handler_t arp_err_handler;
-+};
++#define PORT0_BASE 0x20000
++#define PORT0_REG(reg_addr) (PORT0_BASE + (reg_addr))
 +
-+#define L2T_SKB_CB(skb) ((struct l2t_skb_cb *)(skb)->cb)
++#define PORT_STRIDE 0x2000
++#define PORT_BASE(idx) (PORT0_BASE + (idx) * PORT_STRIDE)
++#define PORT_REG(idx, reg) (PORT_BASE(idx) + (reg))
 +
-+static inline void t4_set_arp_err_handler(struct sk_buff *skb, void *handle,
-+					  arp_err_handler_t handler)
-+{
-+	L2T_SKB_CB(skb)->handle = handle;
-+	L2T_SKB_CB(skb)->arp_err_handler = handler;
-+}
++#define EDC_STRIDE (EDC_1_BASE_ADDR - EDC_0_BASE_ADDR)
++#define EDC_REG(reg, idx) (reg + EDC_STRIDE * idx)
 +
-+void cxgb4_l2t_release(struct l2t_entry *e);
-+int cxgb4_l2t_send(struct net_device *dev, struct sk_buff *skb,
-+		   struct l2t_entry *e);
-+struct l2t_entry *cxgb4_l2t_get(struct l2t_data *d, struct neighbour *neigh,
-+				const struct net_device *physdev,
-+				unsigned int priority);
++#define PCIE_MEM_ACCESS_REG(reg_addr, idx) ((reg_addr) + (idx) * 8)
++#define PCIE_MAILBOX_REG(reg_addr, idx) ((reg_addr) + (idx) * 8)
++#define MC_BIST_STATUS_REG(reg_addr, idx) ((reg_addr) + (idx) * 4)
++#define EDC_BIST_STATUS_REG(reg_addr, idx) ((reg_addr) + (idx) * 4)
 +
-+void t4_l2t_update(struct adapter *adap, struct neighbour *neigh);
-+struct l2t_entry *t4_l2t_alloc_switching(struct l2t_data *d);
-+int t4_l2t_set_switching(struct adapter *adap, struct l2t_entry *e, u16 vlan,
-+			 u8 port, u8 *eth_addr);
-+struct l2t_data *t4_init_l2t(void);
-+void do_l2t_write_rpl(struct adapter *p, const struct cpl_l2t_write_rpl *rpl);
++#define SGE_PF_KDOORBELL 0x0
++#define  QID_MASK    0xffff8000U
++#define  QID_SHIFT   15
++#define  QID(x)      ((x) << QID_SHIFT)
++#define  DBPRIO      0x00004000U
++#define  PIDX_MASK   0x00003fffU
++#define  PIDX_SHIFT  0
++#define  PIDX(x)     ((x) << PIDX_SHIFT)
 +
-+extern const struct file_operations t4_l2t_proc_fops;
-+#endif  /* __CXGB4_L2T_H */
++#define SGE_PF_GTS 0x4
++#define  INGRESSQID_MASK   0xffff0000U
++#define  INGRESSQID_SHIFT  16
++#define  INGRESSQID(x)     ((x) << INGRESSQID_SHIFT)
++#define  TIMERREG_MASK     0x0000e000U
++#define  TIMERREG_SHIFT    13
++#define  TIMERREG(x)       ((x) << TIMERREG_SHIFT)
++#define  SEINTARM_MASK     0x00001000U
++#define  SEINTARM_SHIFT    12
++#define  SEINTARM(x)       ((x) << SEINTARM_SHIFT)
++#define  CIDXINC_MASK      0x00000fffU
++#define  CIDXINC_SHIFT     0
++#define  CIDXINC(x)        ((x) << CIDXINC_SHIFT)
++
++#define SGE_CONTROL 0x1008
++#define  DCASYSTYPE             0x00080000U
++#define  RXPKTCPLMODE           0x00040000U
++#define  EGRSTATUSPAGESIZE      0x00020000U
++#define  PKTSHIFT_MASK          0x00001c00U
++#define  PKTSHIFT_SHIFT         10
++#define  PKTSHIFT(x)            ((x) << PKTSHIFT_SHIFT)
++#define  INGPCIEBOUNDARY_MASK   0x00000380U
++#define  INGPCIEBOUNDARY_SHIFT  7
++#define  INGPCIEBOUNDARY(x)     ((x) << INGPCIEBOUNDARY_SHIFT)
++#define  INGPADBOUNDARY_MASK    0x00000070U
++#define  INGPADBOUNDARY_SHIFT   4
++#define  INGPADBOUNDARY(x)      ((x) << INGPADBOUNDARY_SHIFT)
++#define  EGRPCIEBOUNDARY_MASK   0x0000000eU
++#define  EGRPCIEBOUNDARY_SHIFT  1
++#define  EGRPCIEBOUNDARY(x)     ((x) << EGRPCIEBOUNDARY_SHIFT)
++#define  GLOBALENABLE           0x00000001U
++
++#define SGE_HOST_PAGE_SIZE 0x100c
++#define  HOSTPAGESIZEPF0_MASK   0x0000000fU
++#define  HOSTPAGESIZEPF0_SHIFT  0
++#define  HOSTPAGESIZEPF0(x)     ((x) << HOSTPAGESIZEPF0_SHIFT)
++
++#define SGE_EGRESS_QUEUES_PER_PAGE_PF 0x1010
++#define  QUEUESPERPAGEPF0_MASK   0x0000000fU
++#define  QUEUESPERPAGEPF0_GET(x) ((x) & QUEUESPERPAGEPF0_MASK)
++
++#define SGE_INT_CAUSE1 0x1024
++#define SGE_INT_CAUSE2 0x1030
++#define SGE_INT_CAUSE3 0x103c
++#define  ERR_FLM_DBP               0x80000000U
++#define  ERR_FLM_IDMA1             0x40000000U
++#define  ERR_FLM_IDMA0             0x20000000U
++#define  ERR_FLM_HINT              0x10000000U
++#define  ERR_PCIE_ERROR3           0x08000000U
++#define  ERR_PCIE_ERROR2           0x04000000U
++#define  ERR_PCIE_ERROR1           0x02000000U
++#define  ERR_PCIE_ERROR0           0x01000000U
++#define  ERR_TIMER_ABOVE_MAX_QID   0x00800000U
++#define  ERR_CPL_EXCEED_IQE_SIZE   0x00400000U
++#define  ERR_INVALID_CIDX_INC      0x00200000U
++#define  ERR_ITP_TIME_PAUSED       0x00100000U
++#define  ERR_CPL_OPCODE_0          0x00080000U
++#define  ERR_DROPPED_DB            0x00040000U
++#define  ERR_DATA_CPL_ON_HIGH_QID1 0x00020000U
++#define  ERR_DATA_CPL_ON_HIGH_QID0 0x00010000U
++#define  ERR_BAD_DB_PIDX3          0x00008000U
++#define  ERR_BAD_DB_PIDX2          0x00004000U
++#define  ERR_BAD_DB_PIDX1          0x00002000U
++#define  ERR_BAD_DB_PIDX0          0x00001000U
++#define  ERR_ING_PCIE_CHAN         0x00000800U
++#define  ERR_ING_CTXT_PRIO         0x00000400U
++#define  ERR_EGR_CTXT_PRIO         0x00000200U
++#define  DBFIFO_HP_INT             0x00000100U
++#define  DBFIFO_LP_INT             0x00000080U
++#define  REG_ADDRESS_ERR           0x00000040U
++#define  INGRESS_SIZE_ERR          0x00000020U
++#define  EGRESS_SIZE_ERR           0x00000010U
++#define  ERR_INV_CTXT3             0x00000008U
++#define  ERR_INV_CTXT2             0x00000004U
++#define  ERR_INV_CTXT1             0x00000002U
++#define  ERR_INV_CTXT0             0x00000001U
++
++#define SGE_INT_ENABLE3 0x1040
++#define SGE_FL_BUFFER_SIZE0 0x1044
++#define SGE_FL_BUFFER_SIZE1 0x1048
++#define SGE_INGRESS_RX_THRESHOLD 0x10a0
++#define  THRESHOLD_0_MASK   0x3f000000U
++#define  THRESHOLD_0_SHIFT  24
++#define  THRESHOLD_0(x)     ((x) << THRESHOLD_0_SHIFT)
++#define  THRESHOLD_0_GET(x) (((x) & THRESHOLD_0_MASK) >> THRESHOLD_0_SHIFT)
++#define  THRESHOLD_1_MASK   0x003f0000U
++#define  THRESHOLD_1_SHIFT  16
++#define  THRESHOLD_1(x)     ((x) << THRESHOLD_1_SHIFT)
++#define  THRESHOLD_1_GET(x) (((x) & THRESHOLD_1_MASK) >> THRESHOLD_1_SHIFT)
++#define  THRESHOLD_2_MASK   0x00003f00U
++#define  THRESHOLD_2_SHIFT  8
++#define  THRESHOLD_2(x)     ((x) << THRESHOLD_2_SHIFT)
++#define  THRESHOLD_2_GET(x) (((x) & THRESHOLD_2_MASK) >> THRESHOLD_2_SHIFT)
++#define  THRESHOLD_3_MASK   0x0000003fU
++#define  THRESHOLD_3_SHIFT  0
++#define  THRESHOLD_3(x)     ((x) << THRESHOLD_3_SHIFT)
++#define  THRESHOLD_3_GET(x) (((x) & THRESHOLD_3_MASK) >> THRESHOLD_3_SHIFT)
++
++#define SGE_TIMER_VALUE_0_AND_1 0x10b8
++#define  TIMERVALUE0_MASK   0xffff0000U
++#define  TIMERVALUE0_SHIFT  16
++#define  TIMERVALUE0(x)     ((x) << TIMERVALUE0_SHIFT)
++#define  TIMERVALUE0_GET(x) (((x) & TIMERVALUE0_MASK) >> TIMERVALUE0_SHIFT)
++#define  TIMERVALUE1_MASK   0x0000ffffU
++#define  TIMERVALUE1_SHIFT  0
++#define  TIMERVALUE1(x)     ((x) << TIMERVALUE1_SHIFT)
++#define  TIMERVALUE1_GET(x) (((x) & TIMERVALUE1_MASK) >> TIMERVALUE1_SHIFT)
++
++#define SGE_TIMER_VALUE_2_AND_3 0x10bc
++#define SGE_TIMER_VALUE_4_AND_5 0x10c0
++#define SGE_DEBUG_INDEX 0x10cc
++#define SGE_DEBUG_DATA_HIGH 0x10d0
++#define SGE_DEBUG_DATA_LOW 0x10d4
++#define SGE_INGRESS_QUEUES_PER_PAGE_PF 0x10f4
++
++#define PCIE_PF_CLI 0x44
++#define PCIE_INT_CAUSE 0x3004
++#define  UNXSPLCPLERR  0x20000000U
++#define  PCIEPINT      0x10000000U
++#define  PCIESINT      0x08000000U
++#define  RPLPERR       0x04000000U
++#define  RXWRPERR      0x02000000U
++#define  RXCPLPERR     0x01000000U
++#define  PIOTAGPERR    0x00800000U
++#define  MATAGPERR     0x00400000U
++#define  INTXCLRPERR   0x00200000U
++#define  FIDPERR       0x00100000U
++#define  CFGSNPPERR    0x00080000U
++#define  HRSPPERR      0x00040000U
++#define  HREQPERR      0x00020000U
++#define  HCNTPERR      0x00010000U
++#define  DRSPPERR      0x00008000U
++#define  DREQPERR      0x00004000U
++#define  DCNTPERR      0x00002000U
++#define  CRSPPERR      0x00001000U
++#define  CREQPERR      0x00000800U
++#define  CCNTPERR      0x00000400U
++#define  TARTAGPERR    0x00000200U
++#define  PIOREQPERR    0x00000100U
++#define  PIOCPLPERR    0x00000080U
++#define  MSIXDIPERR    0x00000040U
++#define  MSIXDATAPERR  0x00000020U
++#define  MSIXADDRHPERR 0x00000010U
++#define  MSIXADDRLPERR 0x00000008U
++#define  MSIDATAPERR   0x00000004U
++#define  MSIADDRHPERR  0x00000002U
++#define  MSIADDRLPERR  0x00000001U
++
++#define PCIE_NONFAT_ERR 0x3010
++#define PCIE_MEM_ACCESS_BASE_WIN 0x3068
++#define  PCIEOFST_MASK   0xfffffc00U
++#define  BIR_MASK        0x00000300U
++#define  BIR_SHIFT       8
++#define  BIR(x)          ((x) << BIR_SHIFT)
++#define  WINDOW_MASK     0x000000ffU
++#define  WINDOW_SHIFT    0
++#define  WINDOW(x)       ((x) << WINDOW_SHIFT)
++
++#define PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS 0x5908
++#define  RNPP 0x80000000U
++#define  RPCP 0x20000000U
++#define  RCIP 0x08000000U
++#define  RCCP 0x04000000U
++#define  RFTP 0x00800000U
++#define  PTRP 0x00100000U
++
++#define PCIE_CORE_UTL_PCI_EXPRESS_PORT_STATUS 0x59a4
++#define  TPCP 0x40000000U
++#define  TNPP 0x20000000U
++#define  TFTP 0x10000000U
++#define  TCAP 0x08000000U
++#define  TCIP 0x04000000U
++#define  RCAP 0x02000000U
++#define  PLUP 0x00800000U
++#define  PLDN 0x00400000U
++#define  OTDD 0x00200000U
++#define  GTRP 0x00100000U
++#define  RDPE 0x00040000U
++#define  TDCE 0x00020000U
++#define  TDUE 0x00010000U
++
++#define MC_INT_CAUSE 0x7518
++#define  ECC_UE_INT_CAUSE 0x00000004U
++#define  ECC_CE_INT_CAUSE 0x00000002U
++#define  PERR_INT_CAUSE   0x00000001U
++
++#define MC_ECC_STATUS 0x751c
++#define  ECC_CECNT_MASK   0xffff0000U
++#define  ECC_CECNT_SHIFT  16
++#define  ECC_CECNT(x)     ((x) << ECC_CECNT_SHIFT)
++#define  ECC_CECNT_GET(x) (((x) & ECC_CECNT_MASK) >> ECC_CECNT_SHIFT)
++#define  ECC_UECNT_MASK   0x0000ffffU
++#define  ECC_UECNT_SHIFT  0
++#define  ECC_UECNT(x)     ((x) << ECC_UECNT_SHIFT)
++#define  ECC_UECNT_GET(x) (((x) & ECC_UECNT_MASK) >> ECC_UECNT_SHIFT)
++
++#define MC_BIST_CMD 0x7600
++#define  START_BIST          0x80000000U
++#define  BIST_CMD_GAP_MASK   0x0000ff00U
++#define  BIST_CMD_GAP_SHIFT  8
++#define  BIST_CMD_GAP(x)     ((x) << BIST_CMD_GAP_SHIFT)
++#define  BIST_OPCODE_MASK    0x00000003U
++#define  BIST_OPCODE_SHIFT   0
++#define  BIST_OPCODE(x)      ((x) << BIST_OPCODE_SHIFT)
++
++#define MC_BIST_CMD_ADDR 0x7604
++#define MC_BIST_CMD_LEN 0x7608
++#define MC_BIST_DATA_PATTERN 0x760c
++#define  BIST_DATA_TYPE_MASK   0x0000000fU
++#define  BIST_DATA_TYPE_SHIFT  0
++#define  BIST_DATA_TYPE(x)     ((x) << BIST_DATA_TYPE_SHIFT)
++
++#define MC_BIST_STATUS_RDATA 0x7688
++
++#define MA_EXT_MEMORY_BAR 0x77c8
++#define  EXT_MEM_SIZE_MASK   0x00000fffU
++#define  EXT_MEM_SIZE_SHIFT  0
++#define  EXT_MEM_SIZE_GET(x) (((x) & EXT_MEM_SIZE_MASK) >> EXT_MEM_SIZE_SHIFT)
++
++#define MA_TARGET_MEM_ENABLE 0x77d8
++#define  EXT_MEM_ENABLE 0x00000004U
++#define  EDRAM1_ENABLE  0x00000002U
++#define  EDRAM0_ENABLE  0x00000001U
++
++#define MA_INT_CAUSE 0x77e0
++#define  MEM_PERR_INT_CAUSE 0x00000002U
++#define  MEM_WRAP_INT_CAUSE 0x00000001U
++
++#define MA_INT_WRAP_STATUS 0x77e4
++#define  MEM_WRAP_ADDRESS_MASK   0xfffffff0U
++#define  MEM_WRAP_ADDRESS_SHIFT  4
++#define  MEM_WRAP_ADDRESS_GET(x) (((x) & MEM_WRAP_ADDRESS_MASK) >> MEM_WRAP_ADDRESS_SHIFT)
++#define  MEM_WRAP_CLIENT_NUM_MASK   0x0000000fU
++#define  MEM_WRAP_CLIENT_NUM_SHIFT  0
++#define  MEM_WRAP_CLIENT_NUM_GET(x) (((x) & MEM_WRAP_CLIENT_NUM_MASK) >> MEM_WRAP_CLIENT_NUM_SHIFT)
++
++#define MA_PARITY_ERROR_STATUS 0x77f4
++
++#define EDC_0_BASE_ADDR 0x7900
++
++#define EDC_BIST_CMD 0x7904
++#define EDC_BIST_CMD_ADDR 0x7908
++#define EDC_BIST_CMD_LEN 0x790c
++#define EDC_BIST_DATA_PATTERN 0x7910
++#define EDC_BIST_STATUS_RDATA 0x7928
++#define EDC_INT_CAUSE 0x7978
++#define  ECC_UE_PAR     0x00000020U
++#define  ECC_CE_PAR     0x00000010U
++#define  PERR_PAR_CAUSE 0x00000008U
++
++#define EDC_ECC_STATUS 0x797c
++
++#define EDC_1_BASE_ADDR 0x7980
++
++#define CIM_PF_MAILBOX_DATA 0x240
++#define CIM_PF_MAILBOX_CTRL 0x280
++#define  MBMSGVALID     0x00000008U
++#define  MBINTREQ       0x00000004U
++#define  MBOWNER_MASK   0x00000003U
++#define  MBOWNER_SHIFT  0
++#define  MBOWNER(x)     ((x) << MBOWNER_SHIFT)
++#define  MBOWNER_GET(x) (((x) & MBOWNER_MASK) >> MBOWNER_SHIFT)
++
++#define CIM_PF_HOST_INT_CAUSE 0x28c
++#define  MBMSGRDYINT 0x00080000U
++
++#define CIM_HOST_INT_CAUSE 0x7b2c
++#define  TIEQOUTPARERRINT  0x00100000U
++#define  TIEQINPARERRINT   0x00080000U
++#define  MBHOSTPARERR      0x00040000U
++#define  MBUPPARERR        0x00020000U
++#define  IBQPARERR         0x0001f800U
++#define  IBQTP0PARERR      0x00010000U
++#define  IBQTP1PARERR      0x00008000U
++#define  IBQULPPARERR      0x00004000U
++#define  IBQSGELOPARERR    0x00002000U
++#define  IBQSGEHIPARERR    0x00001000U
++#define  IBQNCSIPARERR     0x00000800U
++#define  OBQPARERR         0x000007e0U
++#define  OBQULP0PARERR     0x00000400U
++#define  OBQULP1PARERR     0x00000200U
++#define  OBQULP2PARERR     0x00000100U
++#define  OBQULP3PARERR     0x00000080U
++#define  OBQSGEPARERR      0x00000040U
++#define  OBQNCSIPARERR     0x00000020U
++#define  PREFDROPINT       0x00000002U
++#define  UPACCNONZERO      0x00000001U
++
++#define CIM_HOST_UPACC_INT_CAUSE 0x7b34
++#define  EEPROMWRINT      0x40000000U
++#define  TIMEOUTMAINT     0x20000000U
++#define  TIMEOUTINT       0x10000000U
++#define  RSPOVRLOOKUPINT  0x08000000U
++#define  REQOVRLOOKUPINT  0x04000000U
++#define  BLKWRPLINT       0x02000000U
++#define  BLKRDPLINT       0x01000000U
++#define  SGLWRPLINT       0x00800000U
++#define  SGLRDPLINT       0x00400000U
++#define  BLKWRCTLINT      0x00200000U
++#define  BLKRDCTLINT      0x00100000U
++#define  SGLWRCTLINT      0x00080000U
++#define  SGLRDCTLINT      0x00040000U
++#define  BLKWREEPROMINT   0x00020000U
++#define  BLKRDEEPROMINT   0x00010000U
++#define  SGLWREEPROMINT   0x00008000U
++#define  SGLRDEEPROMINT   0x00004000U
++#define  BLKWRFLASHINT    0x00002000U
++#define  BLKRDFLASHINT    0x00001000U
++#define  SGLWRFLASHINT    0x00000800U
++#define  SGLRDFLASHINT    0x00000400U
++#define  BLKWRBOOTINT     0x00000200U
++#define  BLKRDBOOTINT     0x00000100U
++#define  SGLWRBOOTINT     0x00000080U
++#define  SGLRDBOOTINT     0x00000040U
++#define  ILLWRBEINT       0x00000020U
++#define  ILLRDBEINT       0x00000010U
++#define  ILLRDINT         0x00000008U
++#define  ILLWRINT         0x00000004U
++#define  ILLTRANSINT      0x00000002U
++#define  RSVDSPACEINT     0x00000001U
++
++#define TP_OUT_CONFIG 0x7d04
++#define  VLANEXTENABLE_MASK  0x0000f000U
++#define  VLANEXTENABLE_SHIFT 12
++
++#define TP_TIMER_RESOLUTION 0x7d90
++#define  TIMERRESOLUTION_MASK   0x00ff0000U
++#define  TIMERRESOLUTION_SHIFT  16
++#define  TIMERRESOLUTION_GET(x) (((x) & TIMERRESOLUTION_MASK) >> TIMERRESOLUTION_SHIFT)
++
++#define TP_SHIFT_CNT 0x7dc0
++
++#define TP_CCTRL_TABLE 0x7ddc
++#define TP_MTU_TABLE 0x7de4
++#define  MTUINDEX_MASK   0xff000000U
++#define  MTUINDEX_SHIFT  24
++#define  MTUINDEX(x)     ((x) << MTUINDEX_SHIFT)
++#define  MTUWIDTH_MASK   0x000f0000U
++#define  MTUWIDTH_SHIFT  16
++#define  MTUWIDTH(x)     ((x) << MTUWIDTH_SHIFT)
++#define  MTUWIDTH_GET(x) (((x) & MTUWIDTH_MASK) >> MTUWIDTH_SHIFT)
++#define  MTUVALUE_MASK   0x00003fffU
++#define  MTUVALUE_SHIFT  0
++#define  MTUVALUE(x)     ((x) << MTUVALUE_SHIFT)
++#define  MTUVALUE_GET(x) (((x) & MTUVALUE_MASK) >> MTUVALUE_SHIFT)
++
++#define TP_RSS_LKP_TABLE 0x7dec
++#define  LKPTBLROWVLD        0x80000000U
++#define  LKPTBLQUEUE1_MASK   0x000ffc00U
++#define  LKPTBLQUEUE1_SHIFT  10
++#define  LKPTBLQUEUE1(x)     ((x) << LKPTBLQUEUE1_SHIFT)
++#define  LKPTBLQUEUE1_GET(x) (((x) & LKPTBLQUEUE1_MASK) >> LKPTBLQUEUE1_SHIFT)
++#define  LKPTBLQUEUE0_MASK   0x000003ffU
++#define  LKPTBLQUEUE0_SHIFT  0
++#define  LKPTBLQUEUE0(x)     ((x) << LKPTBLQUEUE0_SHIFT)
++#define  LKPTBLQUEUE0_GET(x) (((x) & LKPTBLQUEUE0_MASK) >> LKPTBLQUEUE0_SHIFT)
++
++#define TP_PIO_ADDR 0x7e40
++#define TP_PIO_DATA 0x7e44
++#define TP_MIB_INDEX 0x7e50
++#define TP_MIB_DATA 0x7e54
++#define TP_INT_CAUSE 0x7e74
++#define  FLMTXFLSTEMPTY 0x40000000U
++
++#define TP_INGRESS_CONFIG 0x141
++#define  VNIC                0x00000800U
++#define  CSUM_HAS_PSEUDO_HDR 0x00000400U
++#define  RM_OVLAN            0x00000200U
++#define  LOOKUPEVERYPKT      0x00000100U
++
++#define TP_MIB_MAC_IN_ERR_0 0x0
++#define TP_MIB_TCP_OUT_RST 0xc
++#define TP_MIB_TCP_IN_SEG_HI 0x10
++#define TP_MIB_TCP_IN_SEG_LO 0x11
++#define TP_MIB_TCP_OUT_SEG_HI 0x12
++#define TP_MIB_TCP_OUT_SEG_LO 0x13
++#define TP_MIB_TCP_RXT_SEG_HI 0x14
++#define TP_MIB_TCP_RXT_SEG_LO 0x15
++#define TP_MIB_TNL_CNG_DROP_0 0x18
++#define TP_MIB_TCP_V6IN_ERR_0 0x28
++#define TP_MIB_TCP_V6OUT_RST 0x2c
++#define TP_MIB_OFD_ARP_DROP 0x36
++#define TP_MIB_TNL_DROP_0 0x44
++#define TP_MIB_OFD_VLN_DROP_0 0x58
++
++#define ULP_TX_INT_CAUSE 0x8dcc
++#define  PBL_BOUND_ERR_CH3 0x80000000U
++#define  PBL_BOUND_ERR_CH2 0x40000000U
++#define  PBL_BOUND_ERR_CH1 0x20000000U
++#define  PBL_BOUND_ERR_CH0 0x10000000U
++
++#define PM_RX_INT_CAUSE 0x8fdc
++#define  ZERO_E_CMD_ERROR     0x00400000U
++#define  PMRX_FRAMING_ERROR   0x003ffff0U
++#define  OCSPI_PAR_ERROR      0x00000008U
++#define  DB_OPTIONS_PAR_ERROR 0x00000004U
++#define  IESPI_PAR_ERROR      0x00000002U
++#define  E_PCMD_PAR_ERROR     0x00000001U
++
++#define PM_TX_INT_CAUSE 0x8ffc
++#define  PCMD_LEN_OVFL0     0x80000000U
++#define  PCMD_LEN_OVFL1     0x40000000U
++#define  PCMD_LEN_OVFL2     0x20000000U
++#define  ZERO_C_CMD_ERROR   0x10000000U
++#define  PMTX_FRAMING_ERROR 0x0ffffff0U
++#define  OESPI_PAR_ERROR    0x00000008U
++#define  ICSPI_PAR_ERROR    0x00000002U
++#define  C_PCMD_PAR_ERROR   0x00000001U
++
++#define MPS_PORT_STAT_TX_PORT_BYTES_L 0x400
++#define MPS_PORT_STAT_TX_PORT_BYTES_H 0x404
++#define MPS_PORT_STAT_TX_PORT_FRAMES_L 0x408
++#define MPS_PORT_STAT_TX_PORT_FRAMES_H 0x40c
++#define MPS_PORT_STAT_TX_PORT_BCAST_L 0x410
++#define MPS_PORT_STAT_TX_PORT_BCAST_H 0x414
++#define MPS_PORT_STAT_TX_PORT_MCAST_L 0x418
++#define MPS_PORT_STAT_TX_PORT_MCAST_H 0x41c
++#define MPS_PORT_STAT_TX_PORT_UCAST_L 0x420
++#define MPS_PORT_STAT_TX_PORT_UCAST_H 0x424
++#define MPS_PORT_STAT_TX_PORT_ERROR_L 0x428
++#define MPS_PORT_STAT_TX_PORT_ERROR_H 0x42c
++#define MPS_PORT_STAT_TX_PORT_64B_L 0x430
++#define MPS_PORT_STAT_TX_PORT_64B_H 0x434
++#define MPS_PORT_STAT_TX_PORT_65B_127B_L 0x438
++#define MPS_PORT_STAT_TX_PORT_65B_127B_H 0x43c
++#define MPS_PORT_STAT_TX_PORT_128B_255B_L 0x440
++#define MPS_PORT_STAT_TX_PORT_128B_255B_H 0x444
++#define MPS_PORT_STAT_TX_PORT_256B_511B_L 0x448
++#define MPS_PORT_STAT_TX_PORT_256B_511B_H 0x44c
++#define MPS_PORT_STAT_TX_PORT_512B_1023B_L 0x450
++#define MPS_PORT_STAT_TX_PORT_512B_1023B_H 0x454
++#define MPS_PORT_STAT_TX_PORT_1024B_1518B_L 0x458
++#define MPS_PORT_STAT_TX_PORT_1024B_1518B_H 0x45c
++#define MPS_PORT_STAT_TX_PORT_1519B_MAX_L 0x460
++#define MPS_PORT_STAT_TX_PORT_1519B_MAX_H 0x464
++#define MPS_PORT_STAT_TX_PORT_DROP_L 0x468
++#define MPS_PORT_STAT_TX_PORT_DROP_H 0x46c
++#define MPS_PORT_STAT_TX_PORT_PAUSE_L 0x470
++#define MPS_PORT_STAT_TX_PORT_PAUSE_H 0x474
++#define MPS_PORT_STAT_TX_PORT_PPP0_L 0x478
++#define MPS_PORT_STAT_TX_PORT_PPP0_H 0x47c
++#define MPS_PORT_STAT_TX_PORT_PPP1_L 0x480
++#define MPS_PORT_STAT_TX_PORT_PPP1_H 0x484
++#define MPS_PORT_STAT_TX_PORT_PPP2_L 0x488
++#define MPS_PORT_STAT_TX_PORT_PPP2_H 0x48c
++#define MPS_PORT_STAT_TX_PORT_PPP3_L 0x490
++#define MPS_PORT_STAT_TX_PORT_PPP3_H 0x494
++#define MPS_PORT_STAT_TX_PORT_PPP4_L 0x498
++#define MPS_PORT_STAT_TX_PORT_PPP4_H 0x49c
++#define MPS_PORT_STAT_TX_PORT_PPP5_L 0x4a0
++#define MPS_PORT_STAT_TX_PORT_PPP5_H 0x4a4
++#define MPS_PORT_STAT_TX_PORT_PPP6_L 0x4a8
++#define MPS_PORT_STAT_TX_PORT_PPP6_H 0x4ac
++#define MPS_PORT_STAT_TX_PORT_PPP7_L 0x4b0
++#define MPS_PORT_STAT_TX_PORT_PPP7_H 0x4b4
++#define MPS_PORT_STAT_LB_PORT_BYTES_L 0x4c0
++#define MPS_PORT_STAT_LB_PORT_BYTES_H 0x4c4
++#define MPS_PORT_STAT_LB_PORT_FRAMES_L 0x4c8
++#define MPS_PORT_STAT_LB_PORT_FRAMES_H 0x4cc
++#define MPS_PORT_STAT_LB_PORT_BCAST_L 0x4d0
++#define MPS_PORT_STAT_LB_PORT_BCAST_H 0x4d4
++#define MPS_PORT_STAT_LB_PORT_MCAST_L 0x4d8
++#define MPS_PORT_STAT_LB_PORT_MCAST_H 0x4dc
++#define MPS_PORT_STAT_LB_PORT_UCAST_L 0x4e0
++#define MPS_PORT_STAT_LB_PORT_UCAST_H 0x4e4
++#define MPS_PORT_STAT_LB_PORT_ERROR_L 0x4e8
++#define MPS_PORT_STAT_LB_PORT_ERROR_H 0x4ec
++#define MPS_PORT_STAT_LB_PORT_64B_L 0x4f0
++#define MPS_PORT_STAT_LB_PORT_64B_H 0x4f4
++#define MPS_PORT_STAT_LB_PORT_65B_127B_L 0x4f8
++#define MPS_PORT_STAT_LB_PORT_65B_127B_H 0x4fc
++#define MPS_PORT_STAT_LB_PORT_128B_255B_L 0x500
++#define MPS_PORT_STAT_LB_PORT_128B_255B_H 0x504
++#define MPS_PORT_STAT_LB_PORT_256B_511B_L 0x508
++#define MPS_PORT_STAT_LB_PORT_256B_511B_H 0x50c
++#define MPS_PORT_STAT_LB_PORT_512B_1023B_L 0x510
++#define MPS_PORT_STAT_LB_PORT_512B_1023B_H 0x514
++#define MPS_PORT_STAT_LB_PORT_1024B_1518B_L 0x518
++#define MPS_PORT_STAT_LB_PORT_1024B_1518B_H 0x51c
++#define MPS_PORT_STAT_LB_PORT_1519B_MAX_L 0x520
++#define MPS_PORT_STAT_LB_PORT_1519B_MAX_H 0x524
++#define MPS_PORT_STAT_LB_PORT_DROP_FRAMES 0x528
++#define MPS_PORT_STAT_RX_PORT_BYTES_L 0x540
++#define MPS_PORT_STAT_RX_PORT_BYTES_H 0x544
++#define MPS_PORT_STAT_RX_PORT_FRAMES_L 0x548
++#define MPS_PORT_STAT_RX_PORT_FRAMES_H 0x54c
++#define MPS_PORT_STAT_RX_PORT_BCAST_L 0x550
++#define MPS_PORT_STAT_RX_PORT_BCAST_H 0x554
++#define MPS_PORT_STAT_RX_PORT_MCAST_L 0x558
++#define MPS_PORT_STAT_RX_PORT_MCAST_H 0x55c
++#define MPS_PORT_STAT_RX_PORT_UCAST_L 0x560
++#define MPS_PORT_STAT_RX_PORT_UCAST_H 0x564
++#define MPS_PORT_STAT_RX_PORT_MTU_ERROR_L 0x568
++#define MPS_PORT_STAT_RX_PORT_MTU_ERROR_H 0x56c
++#define MPS_PORT_STAT_RX_PORT_MTU_CRC_ERROR_L 0x570
++#define MPS_PORT_STAT_RX_PORT_MTU_CRC_ERROR_H 0x574
++#define MPS_PORT_STAT_RX_PORT_CRC_ERROR_L 0x578
++#define MPS_PORT_STAT_RX_PORT_CRC_ERROR_H 0x57c
++#define MPS_PORT_STAT_RX_PORT_LEN_ERROR_L 0x580
++#define MPS_PORT_STAT_RX_PORT_LEN_ERROR_H 0x584
++#define MPS_PORT_STAT_RX_PORT_SYM_ERROR_L 0x588
++#define MPS_PORT_STAT_RX_PORT_SYM_ERROR_H 0x58c
++#define MPS_PORT_STAT_RX_PORT_64B_L 0x590
++#define MPS_PORT_STAT_RX_PORT_64B_H 0x594
++#define MPS_PORT_STAT_RX_PORT_65B_127B_L 0x598
++#define MPS_PORT_STAT_RX_PORT_65B_127B_H 0x59c
++#define MPS_PORT_STAT_RX_PORT_128B_255B_L 0x5a0
++#define MPS_PORT_STAT_RX_PORT_128B_255B_H 0x5a4
++#define MPS_PORT_STAT_RX_PORT_256B_511B_L 0x5a8
++#define MPS_PORT_STAT_RX_PORT_256B_511B_H 0x5ac
++#define MPS_PORT_STAT_RX_PORT_512B_1023B_L 0x5b0
++#define MPS_PORT_STAT_RX_PORT_512B_1023B_H 0x5b4
++#define MPS_PORT_STAT_RX_PORT_1024B_1518B_L 0x5b8
++#define MPS_PORT_STAT_RX_PORT_1024B_1518B_H 0x5bc
++#define MPS_PORT_STAT_RX_PORT_1519B_MAX_L 0x5c0
++#define MPS_PORT_STAT_RX_PORT_1519B_MAX_H 0x5c4
++#define MPS_PORT_STAT_RX_PORT_PAUSE_L 0x5c8
++#define MPS_PORT_STAT_RX_PORT_PAUSE_H 0x5cc
++#define MPS_PORT_STAT_RX_PORT_PPP0_L 0x5d0
++#define MPS_PORT_STAT_RX_PORT_PPP0_H 0x5d4
++#define MPS_PORT_STAT_RX_PORT_PPP1_L 0x5d8
++#define MPS_PORT_STAT_RX_PORT_PPP1_H 0x5dc
++#define MPS_PORT_STAT_RX_PORT_PPP2_L 0x5e0
++#define MPS_PORT_STAT_RX_PORT_PPP2_H 0x5e4
++#define MPS_PORT_STAT_RX_PORT_PPP3_L 0x5e8
++#define MPS_PORT_STAT_RX_PORT_PPP3_H 0x5ec
++#define MPS_PORT_STAT_RX_PORT_PPP4_L 0x5f0
++#define MPS_PORT_STAT_RX_PORT_PPP4_H 0x5f4
++#define MPS_PORT_STAT_RX_PORT_PPP5_L 0x5f8
++#define MPS_PORT_STAT_RX_PORT_PPP5_H 0x5fc
++#define MPS_PORT_STAT_RX_PORT_PPP6_L 0x600
++#define MPS_PORT_STAT_RX_PORT_PPP6_H 0x604
++#define MPS_PORT_STAT_RX_PORT_PPP7_L 0x608
++#define MPS_PORT_STAT_RX_PORT_PPP7_H 0x60c
++#define MPS_PORT_STAT_RX_PORT_LESS_64B_L 0x610
++#define MPS_PORT_STAT_RX_PORT_LESS_64B_H 0x614
++#define MPS_CMN_CTL 0x9000
++#define  NUMPORTS_MASK   0x00000003U
++#define  NUMPORTS_SHIFT  0
++#define  NUMPORTS_GET(x) (((x) & NUMPORTS_MASK) >> NUMPORTS_SHIFT)
++
++#define MPS_INT_CAUSE 0x9008
++#define  STATINT 0x00000020U
++#define  TXINT   0x00000010U
++#define  RXINT   0x00000008U
++#define  TRCINT  0x00000004U
++#define  CLSINT  0x00000002U
++#define  PLINT   0x00000001U
++
++#define MPS_TX_INT_CAUSE 0x9408
++#define  PORTERR    0x00010000U
++#define  FRMERR     0x00008000U
++#define  SECNTERR   0x00004000U
++#define  BUBBLE     0x00002000U
++#define  TXDESCFIFO 0x00001e00U
++#define  TXDATAFIFO 0x000001e0U
++#define  NCSIFIFO   0x00000010U
++#define  TPFIFO     0x0000000fU
++
++#define MPS_STAT_PERR_INT_CAUSE_SRAM 0x9614
++#define MPS_STAT_PERR_INT_CAUSE_TX_FIFO 0x9620
++#define MPS_STAT_PERR_INT_CAUSE_RX_FIFO 0x962c
++
++#define MPS_STAT_RX_BG_0_MAC_DROP_FRAME_L 0x9640
++#define MPS_STAT_RX_BG_0_MAC_DROP_FRAME_H 0x9644
++#define MPS_STAT_RX_BG_1_MAC_DROP_FRAME_L 0x9648
++#define MPS_STAT_RX_BG_1_MAC_DROP_FRAME_H 0x964c
++#define MPS_STAT_RX_BG_2_MAC_DROP_FRAME_L 0x9650
++#define MPS_STAT_RX_BG_2_MAC_DROP_FRAME_H 0x9654
++#define MPS_STAT_RX_BG_3_MAC_DROP_FRAME_L 0x9658
++#define MPS_STAT_RX_BG_3_MAC_DROP_FRAME_H 0x965c
++#define MPS_STAT_RX_BG_0_LB_DROP_FRAME_L 0x9660
++#define MPS_STAT_RX_BG_0_LB_DROP_FRAME_H 0x9664
++#define MPS_STAT_RX_BG_1_LB_DROP_FRAME_L 0x9668
++#define MPS_STAT_RX_BG_1_LB_DROP_FRAME_H 0x966c
++#define MPS_STAT_RX_BG_2_LB_DROP_FRAME_L 0x9670
++#define MPS_STAT_RX_BG_2_LB_DROP_FRAME_H 0x9674
++#define MPS_STAT_RX_BG_3_LB_DROP_FRAME_L 0x9678
++#define MPS_STAT_RX_BG_3_LB_DROP_FRAME_H 0x967c
++#define MPS_STAT_RX_BG_0_MAC_TRUNC_FRAME_L 0x9680
++#define MPS_STAT_RX_BG_0_MAC_TRUNC_FRAME_H 0x9684
++#define MPS_STAT_RX_BG_1_MAC_TRUNC_FRAME_L 0x9688
++#define MPS_STAT_RX_BG_1_MAC_TRUNC_FRAME_H 0x968c
++#define MPS_STAT_RX_BG_2_MAC_TRUNC_FRAME_L 0x9690
++#define MPS_STAT_RX_BG_2_MAC_TRUNC_FRAME_H 0x9694
++#define MPS_STAT_RX_BG_3_MAC_TRUNC_FRAME_L 0x9698
++#define MPS_STAT_RX_BG_3_MAC_TRUNC_FRAME_H 0x969c
++#define MPS_STAT_RX_BG_0_LB_TRUNC_FRAME_L 0x96a0
++#define MPS_STAT_RX_BG_0_LB_TRUNC_FRAME_H 0x96a4
++#define MPS_STAT_RX_BG_1_LB_TRUNC_FRAME_L 0x96a8
++#define MPS_STAT_RX_BG_1_LB_TRUNC_FRAME_H 0x96ac
++#define MPS_STAT_RX_BG_2_LB_TRUNC_FRAME_L 0x96b0
++#define MPS_STAT_RX_BG_2_LB_TRUNC_FRAME_H 0x96b4
++#define MPS_STAT_RX_BG_3_LB_TRUNC_FRAME_L 0x96b8
++#define MPS_STAT_RX_BG_3_LB_TRUNC_FRAME_H 0x96bc
++#define MPS_TRC_CFG 0x9800
++#define  TRCFIFOEMPTY       0x00000010U
++#define  TRCIGNOREDROPINPUT 0x00000008U
++#define  TRCKEEPDUPLICATES  0x00000004U
++#define  TRCEN              0x00000002U
++#define  TRCMULTIFILTER     0x00000001U
++
++#define MPS_TRC_RSS_CONTROL 0x9808
++#define  RSSCONTROL_MASK    0x00ff0000U
++#define  RSSCONTROL_SHIFT   16
++#define  RSSCONTROL(x)      ((x) << RSSCONTROL_SHIFT)
++#define  QUEUENUMBER_MASK   0x0000ffffU
++#define  QUEUENUMBER_SHIFT  0
++#define  QUEUENUMBER(x)     ((x) << QUEUENUMBER_SHIFT)
++
++#define MPS_TRC_FILTER_MATCH_CTL_A 0x9810
++#define  TFINVERTMATCH   0x01000000U
++#define  TFPKTTOOLARGE   0x00800000U
++#define  TFEN            0x00400000U
++#define  TFPORT_MASK     0x003c0000U
++#define  TFPORT_SHIFT    18
++#define  TFPORT(x)       ((x) << TFPORT_SHIFT)
++#define  TFPORT_GET(x)   (((x) & TFPORT_MASK) >> TFPORT_SHIFT)
++#define  TFDROP          0x00020000U
++#define  TFSOPEOPERR     0x00010000U
++#define  TFLENGTH_MASK   0x00001f00U
++#define  TFLENGTH_SHIFT  8
++#define  TFLENGTH(x)     ((x) << TFLENGTH_SHIFT)
++#define  TFLENGTH_GET(x) (((x) & TFLENGTH_MASK) >> TFLENGTH_SHIFT)
++#define  TFOFFSET_MASK   0x0000001fU
++#define  TFOFFSET_SHIFT  0
++#define  TFOFFSET(x)     ((x) << TFOFFSET_SHIFT)
++#define  TFOFFSET_GET(x) (((x) & TFOFFSET_MASK) >> TFOFFSET_SHIFT)
++
++#define MPS_TRC_FILTER_MATCH_CTL_B 0x9820
++#define  TFMINPKTSIZE_MASK   0x01ff0000U
++#define  TFMINPKTSIZE_SHIFT  16
++#define  TFMINPKTSIZE(x)     ((x) << TFMINPKTSIZE_SHIFT)
++#define  TFMINPKTSIZE_GET(x) (((x) & TFMINPKTSIZE_MASK) >> TFMINPKTSIZE_SHIFT)
++#define  TFCAPTUREMAX_MASK   0x00003fffU
++#define  TFCAPTUREMAX_SHIFT  0
++#define  TFCAPTUREMAX(x)     ((x) << TFCAPTUREMAX_SHIFT)
++#define  TFCAPTUREMAX_GET(x) (((x) & TFCAPTUREMAX_MASK) >> TFCAPTUREMAX_SHIFT)
++
++#define MPS_TRC_INT_CAUSE 0x985c
++#define  MISCPERR 0x00000100U
++#define  PKTFIFO  0x000000f0U
++#define  FILTMEM  0x0000000fU
++
++#define MPS_TRC_FILTER0_MATCH 0x9c00
++#define MPS_TRC_FILTER0_DONT_CARE 0x9c80
++#define MPS_TRC_FILTER1_MATCH 0x9d00
++#define MPS_CLS_INT_CAUSE 0xd028
++#define  PLERRENB  0x00000008U
++#define  HASHSRAM  0x00000004U
++#define  MATCHTCAM 0x00000002U
++#define  MATCHSRAM 0x00000001U
++
++#define MPS_RX_PERR_INT_CAUSE 0x11074
++
++#define CPL_INTR_CAUSE 0x19054
++#define  CIM_OP_MAP_PERR   0x00000020U
++#define  CIM_OVFL_ERROR    0x00000010U
++#define  TP_FRAMING_ERROR  0x00000008U
++#define  SGE_FRAMING_ERROR 0x00000004U
++#define  CIM_FRAMING_ERROR 0x00000002U
++#define  ZERO_SWITCH_ERROR 0x00000001U
++
++#define SMB_INT_CAUSE 0x19090
++#define  MSTTXFIFOPARINT 0x00200000U
++#define  MSTRXFIFOPARINT 0x00100000U
++#define  SLVFIFOPARINT   0x00080000U
++
++#define ULP_RX_INT_CAUSE 0x19158
++#define ULP_RX_ISCSI_TAGMASK 0x19164
++#define ULP_RX_ISCSI_PSZ 0x19168
++#define  HPZ3_MASK   0x0f000000U
++#define  HPZ3_SHIFT  24
++#define  HPZ3(x)     ((x) << HPZ3_SHIFT)
++#define  HPZ2_MASK   0x000f0000U
++#define  HPZ2_SHIFT  16
++#define  HPZ2(x)     ((x) << HPZ2_SHIFT)
++#define  HPZ1_MASK   0x00000f00U
++#define  HPZ1_SHIFT  8
++#define  HPZ1(x)     ((x) << HPZ1_SHIFT)
++#define  HPZ0_MASK   0x0000000fU
++#define  HPZ0_SHIFT  0
++#define  HPZ0(x)     ((x) << HPZ0_SHIFT)
++
++#define ULP_RX_TDDP_PSZ 0x19178
++
++#define SF_DATA 0x193f8
++#define SF_OP 0x193fc
++#define  BUSY          0x80000000U
++#define  SF_LOCK       0x00000010U
++#define  SF_CONT       0x00000008U
++#define  BYTECNT_MASK  0x00000006U
++#define  BYTECNT_SHIFT 1
++#define  BYTECNT(x)    ((x) << BYTECNT_SHIFT)
++#define  OP_WR         0x00000001U
++
++#define PL_PF_INT_CAUSE 0x3c0
++#define  PFSW  0x00000008U
++#define  PFSGE 0x00000004U
++#define  PFCIM 0x00000002U
++#define  PFMPS 0x00000001U
++
++#define PL_PF_INT_ENABLE 0x3c4
++#define PL_PF_CTL 0x3c8
++#define  SWINT 0x00000001U
++
++#define PL_WHOAMI 0x19400
++#define  SOURCEPF_MASK   0x00000700U
++#define  SOURCEPF_SHIFT  8
++#define  SOURCEPF(x)     ((x) << SOURCEPF_SHIFT)
++#define  SOURCEPF_GET(x) (((x) & SOURCEPF_MASK) >> SOURCEPF_SHIFT)
++#define  ISVF            0x00000080U
++#define  VFID_MASK       0x0000007fU
++#define  VFID_SHIFT      0
++#define  VFID(x)         ((x) << VFID_SHIFT)
++#define  VFID_GET(x)     (((x) & VFID_MASK) >> VFID_SHIFT)
++
++#define PL_INT_CAUSE 0x1940c
++#define  ULP_TX     0x08000000U
++#define  SGE        0x04000000U
++#define  HMA        0x02000000U
++#define  CPL_SWITCH 0x01000000U
++#define  ULP_RX     0x00800000U
++#define  PM_RX      0x00400000U
++#define  PM_TX      0x00200000U
++#define  MA         0x00100000U
++#define  TP         0x00080000U
++#define  LE         0x00040000U
++#define  EDC1       0x00020000U
++#define  EDC0       0x00010000U
++#define  MC         0x00008000U
++#define  PCIE       0x00004000U
++#define  PMU        0x00002000U
++#define  XGMAC_KR1  0x00001000U
++#define  XGMAC_KR0  0x00000800U
++#define  XGMAC1     0x00000400U
++#define  XGMAC0     0x00000200U
++#define  SMB        0x00000100U
++#define  SF         0x00000080U
++#define  PL         0x00000040U
++#define  NCSI       0x00000020U
++#define  MPS        0x00000010U
++#define  MI         0x00000008U
++#define  DBG        0x00000004U
++#define  I2CM       0x00000002U
++#define  CIM        0x00000001U
++
++#define PL_INT_MAP0 0x19414
++#define PL_RST 0x19428
++#define  PIORST     0x00000002U
++#define  PIORSTMODE 0x00000001U
++
++#define PL_PL_INT_CAUSE 0x19430
++#define  FATALPERR 0x00000010U
++#define  PERRVFID  0x00000001U
++
++#define PL_REV 0x1943c
++
++#define LE_DB_CONFIG 0x19c04
++#define  HASHEN 0x00100000U
++
++#define LE_DB_SERVER_INDEX 0x19c18
++#define LE_DB_ACT_CNT_IPV4 0x19c20
++#define LE_DB_ACT_CNT_IPV6 0x19c24
++
++#define LE_DB_INT_CAUSE 0x19c3c
++#define  REQQPARERR 0x00010000U
++#define  UNKNOWNCMD 0x00008000U
++#define  PARITYERR  0x00000040U
++#define  LIPMISS    0x00000020U
++#define  LIP0       0x00000010U
++
++#define LE_DB_TID_HASHBASE 0x19df8
++
++#define NCSI_INT_CAUSE 0x1a0d8
++#define  CIM_DM_PRTY_ERR 0x00000100U
++#define  MPS_DM_PRTY_ERR 0x00000080U
++#define  TXFIFO_PRTY_ERR 0x00000002U
++#define  RXFIFO_PRTY_ERR 0x00000001U
++
++#define XGMAC_PORT_CFG2 0x1018
++#define  PATEN   0x00040000U
++#define  MAGICEN 0x00020000U
++
++#define XGMAC_PORT_MAGIC_MACID_LO 0x1024
++#define XGMAC_PORT_MAGIC_MACID_HI 0x1028
++
++#define XGMAC_PORT_EPIO_DATA0 0x10c0
++#define XGMAC_PORT_EPIO_DATA1 0x10c4
++#define XGMAC_PORT_EPIO_DATA2 0x10c8
++#define XGMAC_PORT_EPIO_DATA3 0x10cc
++#define XGMAC_PORT_EPIO_OP 0x10d0
++#define  EPIOWR         0x00000100U
++#define  ADDRESS_MASK   0x000000ffU
++#define  ADDRESS_SHIFT  0
++#define  ADDRESS(x)     ((x) << ADDRESS_SHIFT)
++
++#define XGMAC_PORT_INT_CAUSE 0x10dc
++#endif /* __T4_REGS_H */
 -- 
 1.5.4
 
