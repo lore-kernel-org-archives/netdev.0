@@ -1,36 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 2/2] mq: preserve queue mapping with
- bonding and VLAN devices
-Date: Sun, 28 Feb 2010 01:33:11 -0800 (PST)
-Message-ID: <20100228.013311.242139140.davem@davemloft.net>
-References: <272541267277332@webmail86.yandex.ru>
+Subject: Re: [net-next-2.6 PATCH] infiniband: convert to use
+ netdev_for_each_mc_addr
+Date: Sun, 28 Feb 2010 01:33:30 -0800 (PST)
+Message-ID: <20100228.013330.116370303.davem@davemloft.net>
+References: <20100227103835.GA2862@psychotron.redhat.com>
+	<20100227184410.GB13231@obsidianresearch.com>
+	<20100227220731.GB6550@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sysoleg@yandex.ru
+Cc: jgunthorpe@obsidianresearch.com, ogerlitz@voltaire.com,
+	netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+	monis@voltaire.com
+To: jpirko@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37792
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37797
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1031664Ab0B1Jcw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 04:32:52 -0500
-In-Reply-To: <272541267277332@webmail86.yandex.ru>
+	by vger.kernel.org with ESMTP id S1031664Ab0B1JdL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 04:33:11 -0500
+In-Reply-To: <20100227220731.GB6550@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
-Date: Sat, 27 Feb 2010 16:28:52 +0300
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Sat, 27 Feb 2010 23:07:33 +0100
 
-> Forwarded packet goes through dev_queue_xmit() more that once
-> when using bonding or 802.1q VLAN devices, so we've lost rx-tx
-> queue mapping index for real devices. This is because initial
-> queue index value (as it recorded by skb_record_tx_queue()) is
-> overwritten by skb_set_queue_mapping(). 
+> Subject: [net-next-2.6 PATCH] ipoib: returned back addrle check for mc addresses
 > 
-> Signed-off-by: Oleg A. Arkhangelsky <sysoleg@yandex.ru> 
+> Apparently bogus mc address can brake IPOIB multicast processing. Therefore
+> returning the check for addrlen back until this is resolved in bonding (I don't
+> see any other point from where mc address with non-dev->addr_len length can came
+> from).
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-Applied, thanks Oleg.
-
-Patch #1 still needs work, please address Eric Dumazet's feedback.
-
-Thanks!
+Applied.
