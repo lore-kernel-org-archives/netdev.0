@@ -1,71 +1,248 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 4/13] bridge: Use BR_INPUT_SKB_CB on xmit path
-Date: Sun, 28 Feb 2010 13:41:42 +0800
-Message-ID: <E1NlbuQ-00020u-RC@gondolin.me.apana.org.au>
+Subject: [PATCH 13/13] bridge: Add multicast count/interval sysfs entries
+Date: Sun, 28 Feb 2010 13:41:52 +0800
+Message-ID: <E1Nlbua-00022D-KV@gondolin.me.apana.org.au>
 References: <20100228054012.GA7583@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:42742 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:42769 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751849Ab0B1Flp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 00:41:45 -0500
+	with ESMTP id S1752738Ab0B1Fl7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 00:41:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bridge: Use BR_INPUT_SKB_CB on xmit path
+bridge: Add multicast count/interval sysfs entries
 
-this patch makes BR_INPUT_SKB_CB available on the xmit path so
-that we could avoid passing the br pointer around for the purpose
-of collecting device statistics.
+This patch allows the user to the IGMP parameters related to the
+snooping function of the bridge.  This includes various time
+values and retransmission limits.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/bridge/br_device.c  |    2 ++
- net/bridge/br_forward.c |    5 +++--
- 2 files changed, 5 insertions(+), 2 deletions(-)
+ net/bridge/br_sysfs_br.c |  203 +++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 203 insertions(+)
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 1a99c4e..be35629 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -26,6 +26,8 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 	const unsigned char *dest = skb->data;
- 	struct net_bridge_fdb_entry *dst;
- 
-+	BR_INPUT_SKB_CB(skb)->brdev = dev;
+diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
+index d2ee53b..dd321e3 100644
+--- a/net/bridge/br_sysfs_br.c
++++ b/net/bridge/br_sysfs_br.c
+@@ -415,6 +415,201 @@ static ssize_t store_hash_max(struct device *d, struct device_attribute *attr,
+ }
+ static DEVICE_ATTR(hash_max, S_IRUGO | S_IWUSR, show_hash_max,
+ 		   store_hash_max);
 +
- 	dev->stats.tx_packets++;
- 	dev->stats.tx_bytes += skb->len;
++static ssize_t show_multicast_last_member_count(struct device *d,
++						struct device_attribute *attr,
++						char *buf)
++{
++	struct net_bridge *br = to_bridge(d);
++	return sprintf(buf, "%u\n", br->multicast_last_member_count);
++}
++
++static int set_last_member_count(struct net_bridge *br, unsigned long val)
++{
++	br->multicast_last_member_count = val;
++	return 0;
++}
++
++static ssize_t store_multicast_last_member_count(struct device *d,
++						 struct device_attribute *attr,
++						 const char *buf, size_t len)
++{
++	return store_bridge_parm(d, buf, len, set_last_member_count);
++}
++static DEVICE_ATTR(multicast_last_member_count, S_IRUGO | S_IWUSR,
++		   show_multicast_last_member_count,
++		   store_multicast_last_member_count);
++
++static ssize_t show_multicast_startup_query_count(
++	struct device *d, struct device_attribute *attr, char *buf)
++{
++	struct net_bridge *br = to_bridge(d);
++	return sprintf(buf, "%u\n", br->multicast_startup_query_count);
++}
++
++static int set_startup_query_count(struct net_bridge *br, unsigned long val)
++{
++	br->multicast_startup_query_count = val;
++	return 0;
++}
++
++static ssize_t store_multicast_startup_query_count(
++	struct device *d, struct device_attribute *attr, const char *buf,
++	size_t len)
++{
++	return store_bridge_parm(d, buf, len, set_startup_query_count);
++}
++static DEVICE_ATTR(multicast_startup_query_count, S_IRUGO | S_IWUSR,
++		   show_multicast_startup_query_count,
++		   store_multicast_startup_query_count);
++
++static ssize_t show_multicast_last_member_interval(
++	struct device *d, struct device_attribute *attr, char *buf)
++{
++	struct net_bridge *br = to_bridge(d);
++	return sprintf(buf, "%lu\n",
++		       jiffies_to_clock_t(br->multicast_last_member_interval));
++}
++
++static int set_last_member_interval(struct net_bridge *br, unsigned long val)
++{
++	br->multicast_last_member_interval = clock_t_to_jiffies(val);
++	return 0;
++}
++
++static ssize_t store_multicast_last_member_interval(
++	struct device *d, struct device_attribute *attr, const char *buf,
++	size_t len)
++{
++	return store_bridge_parm(d, buf, len, set_last_member_interval);
++}
++static DEVICE_ATTR(multicast_last_member_interval, S_IRUGO | S_IWUSR,
++		   show_multicast_last_member_interval,
++		   store_multicast_last_member_interval);
++
++static ssize_t show_multicast_membership_interval(
++	struct device *d, struct device_attribute *attr, char *buf)
++{
++	struct net_bridge *br = to_bridge(d);
++	return sprintf(buf, "%lu\n",
++		       jiffies_to_clock_t(br->multicast_membership_interval));
++}
++
++static int set_membership_interval(struct net_bridge *br, unsigned long val)
++{
++	br->multicast_membership_interval = clock_t_to_jiffies(val);
++	return 0;
++}
++
++static ssize_t store_multicast_membership_interval(
++	struct device *d, struct device_attribute *attr, const char *buf,
++	size_t len)
++{
++	return store_bridge_parm(d, buf, len, set_membership_interval);
++}
++static DEVICE_ATTR(multicast_membership_interval, S_IRUGO | S_IWUSR,
++		   show_multicast_membership_interval,
++		   store_multicast_membership_interval);
++
++static ssize_t show_multicast_querier_interval(struct device *d,
++					       struct device_attribute *attr,
++					       char *buf)
++{
++	struct net_bridge *br = to_bridge(d);
++	return sprintf(buf, "%lu\n",
++		       jiffies_to_clock_t(br->multicast_querier_interval));
++}
++
++static int set_querier_interval(struct net_bridge *br, unsigned long val)
++{
++	br->multicast_querier_interval = clock_t_to_jiffies(val);
++	return 0;
++}
++
++static ssize_t store_multicast_querier_interval(struct device *d,
++						struct device_attribute *attr,
++						const char *buf, size_t len)
++{
++	return store_bridge_parm(d, buf, len, set_querier_interval);
++}
++static DEVICE_ATTR(multicast_querier_interval, S_IRUGO | S_IWUSR,
++		   show_multicast_querier_interval,
++		   store_multicast_querier_interval);
++
++static ssize_t show_multicast_query_interval(struct device *d,
++					     struct device_attribute *attr,
++					     char *buf)
++{
++	struct net_bridge *br = to_bridge(d);
++	return sprintf(buf, "%lu\n",
++		       jiffies_to_clock_t(br->multicast_query_interval));
++}
++
++static int set_query_interval(struct net_bridge *br, unsigned long val)
++{
++	br->multicast_query_interval = clock_t_to_jiffies(val);
++	return 0;
++}
++
++static ssize_t store_multicast_query_interval(struct device *d,
++					      struct device_attribute *attr,
++					      const char *buf, size_t len)
++{
++	return store_bridge_parm(d, buf, len, set_query_interval);
++}
++static DEVICE_ATTR(multicast_query_interval, S_IRUGO | S_IWUSR,
++		   show_multicast_query_interval,
++		   store_multicast_query_interval);
++
++static ssize_t show_multicast_query_response_interval(
++	struct device *d, struct device_attribute *attr, char *buf)
++{
++	struct net_bridge *br = to_bridge(d);
++	return sprintf(
++		buf, "%lu\n",
++		jiffies_to_clock_t(br->multicast_query_response_interval));
++}
++
++static int set_query_response_interval(struct net_bridge *br, unsigned long val)
++{
++	br->multicast_query_response_interval = clock_t_to_jiffies(val);
++	return 0;
++}
++
++static ssize_t store_multicast_query_response_interval(
++	struct device *d, struct device_attribute *attr, const char *buf,
++	size_t len)
++{
++	return store_bridge_parm(d, buf, len, set_query_response_interval);
++}
++static DEVICE_ATTR(multicast_query_response_interval, S_IRUGO | S_IWUSR,
++		   show_multicast_query_response_interval,
++		   store_multicast_query_response_interval);
++
++static ssize_t show_multicast_startup_query_interval(
++	struct device *d, struct device_attribute *attr, char *buf)
++{
++	struct net_bridge *br = to_bridge(d);
++	return sprintf(
++		buf, "%lu\n",
++		jiffies_to_clock_t(br->multicast_startup_query_interval));
++}
++
++static int set_startup_query_interval(struct net_bridge *br, unsigned long val)
++{
++	br->multicast_startup_query_interval = clock_t_to_jiffies(val);
++	return 0;
++}
++
++static ssize_t store_multicast_startup_query_interval(
++	struct device *d, struct device_attribute *attr, const char *buf,
++	size_t len)
++{
++	return store_bridge_parm(d, buf, len, set_startup_query_interval);
++}
++static DEVICE_ATTR(multicast_startup_query_interval, S_IRUGO | S_IWUSR,
++		   show_multicast_startup_query_interval,
++		   store_multicast_startup_query_interval);
+ #endif
  
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index 6cd50c6..2e1cb43 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -111,6 +111,7 @@ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
- {
- 	struct net_bridge_port *p;
- 	struct net_bridge_port *prev;
-+	struct net_device *dev = BR_INPUT_SKB_CB(skb)->brdev;
- 
- 	prev = NULL;
- 
-@@ -120,7 +121,7 @@ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
- 				struct sk_buff *skb2;
- 
- 				if ((skb2 = skb_clone(skb, GFP_ATOMIC)) == NULL) {
--					br->dev->stats.tx_dropped++;
-+					dev->stats.tx_dropped++;
- 					goto out;
- 				}
- 
-@@ -137,7 +138,7 @@ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
- 	if (skb0) {
- 		skb = skb_clone(skb, GFP_ATOMIC);
- 		if (!skb) {
--			br->dev->stats.tx_dropped++;
-+			dev->stats.tx_dropped++;
- 			goto out;
- 		}
- 	}
+ static struct attribute *bridge_attrs[] = {
+@@ -441,6 +636,14 @@ static struct attribute *bridge_attrs[] = {
+ 	&dev_attr_multicast_snooping.attr,
+ 	&dev_attr_hash_elasticity.attr,
+ 	&dev_attr_hash_max.attr,
++	&dev_attr_multicast_last_member_count.attr,
++	&dev_attr_multicast_startup_query_count.attr,
++	&dev_attr_multicast_last_member_interval.attr,
++	&dev_attr_multicast_membership_interval.attr,
++	&dev_attr_multicast_querier_interval.attr,
++	&dev_attr_multicast_query_interval.attr,
++	&dev_attr_multicast_query_response_interval.attr,
++	&dev_attr_multicast_startup_query_interval.attr,
+ #endif
+ 	NULL
+ };
