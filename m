@@ -1,37 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] infiniband: convert to use
- netdev_for_each_mc_addr
-Date: Sun, 28 Feb 2010 01:33:30 -0800 (PST)
-Message-ID: <20100228.013330.116370303.davem@davemloft.net>
-References: <20100227103835.GA2862@psychotron.redhat.com>
-	<20100227184410.GB13231@obsidianresearch.com>
-	<20100227220731.GB6550@psychotron.redhat.com>
+Subject: Re: [PATCH net-next-2.6 2/2] mq: preserve queue mapping with
+ bonding and VLAN devices
+Date: Sun, 28 Feb 2010 01:36:27 -0800 (PST)
+Message-ID: <20100228.013627.200374267.davem@davemloft.net>
+References: <272541267277332@webmail86.yandex.ru>
+	<20100228.013311.242139140.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jgunthorpe@obsidianresearch.com, ogerlitz@voltaire.com,
-	netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	monis@voltaire.com
-To: jpirko@redhat.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: sysoleg@yandex.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37797
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40128
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1031664Ab0B1JdL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 04:33:11 -0500
-In-Reply-To: <20100227220731.GB6550@psychotron.redhat.com>
+	by vger.kernel.org with ESMTP id S1031664Ab0B1JgJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 04:36:09 -0500
+In-Reply-To: <20100228.013311.242139140.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Sat, 27 Feb 2010 23:07:33 +0100
-
-> Subject: [net-next-2.6 PATCH] ipoib: returned back addrle check for mc addresses
-> 
-> Apparently bogus mc address can brake IPOIB multicast processing. Therefore
-> returning the check for addrlen back until this is resolved in bonding (I don't
-> see any other point from where mc address with non-dev->addr_len length can came
-> from).
-> 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-
-Applied.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogU3VuLCAyOCBG
+ZWIgMjAxMCAwMTozMzoxMSAtMDgwMCAoUFNUKQ0KDQo+IEFwcGxpZWQsIHRoYW5rcyBPbGVnLg0K
+DQpOZXZlcm1pbmQsIHRoaXMgcGF0Y2ggZG9lc24ndCBldmVuIGJ1aWxkIDotLyAgSSdtIHJldmVy
+dGluZy4NCg0KSW4gZmlsZSBpbmNsdWRlZCBmcm9tIGluY2x1ZGUvbGludXgvbmV0ZmlsdGVyLmg6
+NiwNCiAgICAgICAgICAgICAgICAgZnJvbSBpbmNsdWRlL25ldC9uZXRucy94X3RhYmxlcy5oOjUs
+DQogICAgICAgICAgICAgICAgIGZyb20gaW5jbHVkZS9uZXQvbmV0X25hbWVzcGFjZS5oOjE4LA0K
+ICAgICAgICAgICAgICAgICBmcm9tIGluY2x1ZGUvbGludXgvaW5pdF90YXNrLmg6MTMsDQogICAg
+ICAgICAgICAgICAgIGZyb20gYXJjaC9zcGFyYy9rZXJuZWwvaW5pdF90YXNrLmM6NToNCmluY2x1
+ZGUvbGludXgvc2tidWZmLmg6IEluIGZ1bmN0aW9uIKFza2JfZ2V0X3F1ZXVlX21hcHBpbmeiOg0K
+aW5jbHVkZS9saW51eC9za2J1ZmYuaDoyMDIyOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24g
+b2YgZnVuY3Rpb24goXNrYl9yeF9xdWV1ZV9yZWNvcmRlZKINCmluY2x1ZGUvbGludXgvc2tidWZm
+Lmg6IEF0IHRvcCBsZXZlbDoNCmluY2x1ZGUvbGludXgvc2tidWZmLmg6MjAzMDogZXJyb3I6IGNv
+bmZsaWN0aW5nIHR5cGVzIGZvciChc2tiX3J4X3F1ZXVlX3JlY29yZGVkog0KaW5jbHVkZS9saW51
+eC9za2J1ZmYuaDoyMDIyOiBub3RlOiBwcmV2aW91cyBpbXBsaWNpdCBkZWNsYXJhdGlvbiBvZiCh
+c2tiX3J4X3F1ZXVlX3JlY29yZGVkoiB3YXMgaGVyZQ0K
