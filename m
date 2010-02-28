@@ -1,107 +1,71 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 8/13] bridge: Add multicast start/stop hooks
-Date: Sun, 28 Feb 2010 13:41:47 +0800
-Message-ID: <E1NlbuV-00021U-5d@gondolin.me.apana.org.au>
+Subject: [PATCH 4/13] bridge: Use BR_INPUT_SKB_CB on xmit path
+Date: Sun, 28 Feb 2010 13:41:42 +0800
+Message-ID: <E1NlbuQ-00020u-RC@gondolin.me.apana.org.au>
 References: <20100228054012.GA7583@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:42754 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:42742 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752211Ab0B1Flv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 00:41:51 -0500
+	with ESMTP id S1751849Ab0B1Flp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 00:41:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bridge: Add multicast start/stop hooks
+bridge: Use BR_INPUT_SKB_CB on xmit path
 
-This patch hooks up the bridge start/stop and add/delete/disable
-port functions to the new multicast module.
+this patch makes BR_INPUT_SKB_CB available on the xmit path so
+that we could avoid passing the br pointer around for the purpose
+of collecting device statistics.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/bridge/br_device.c |    6 +++++-
- net/bridge/br_if.c     |    4 ++++
- net/bridge/br_stp.c    |    2 ++
- net/bridge/br_stp_if.c |    1 +
- 4 files changed, 12 insertions(+), 1 deletion(-)
+ net/bridge/br_device.c  |    2 ++
+ net/bridge/br_forward.c |    5 +++--
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index be35629..91dffe7 100644
+index 1a99c4e..be35629 100644
 --- a/net/bridge/br_device.c
 +++ b/net/bridge/br_device.c
-@@ -51,6 +51,7 @@ static int br_dev_open(struct net_device *dev)
- 	br_features_recompute(br);
- 	netif_start_queue(dev);
- 	br_stp_enable_bridge(br);
-+	br_multicast_open(br);
+@@ -26,6 +26,8 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	const unsigned char *dest = skb->data;
+ 	struct net_bridge_fdb_entry *dst;
  
- 	return 0;
- }
-@@ -61,7 +62,10 @@ static void br_dev_set_multicast_list(struct net_device *dev)
++	BR_INPUT_SKB_CB(skb)->brdev = dev;
++
+ 	dev->stats.tx_packets++;
+ 	dev->stats.tx_bytes += skb->len;
  
- static int br_dev_stop(struct net_device *dev)
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index 6cd50c6..2e1cb43 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -111,6 +111,7 @@ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
  {
--	br_stp_disable_bridge(netdev_priv(dev));
-+	struct net_bridge *br = netdev_priv(dev);
-+
-+	br_stp_disable_bridge(br);
-+	br_multicast_stop(br);
+ 	struct net_bridge_port *p;
+ 	struct net_bridge_port *prev;
++	struct net_device *dev = BR_INPUT_SKB_CB(skb)->brdev;
  
- 	netif_stop_queue(dev);
+ 	prev = NULL;
  
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index a2cbe61..cc3cdfd 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -147,6 +147,8 @@ static void del_nbp(struct net_bridge_port *p)
+@@ -120,7 +121,7 @@ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
+ 				struct sk_buff *skb2;
  
- 	rcu_assign_pointer(dev->br_port, NULL);
+ 				if ((skb2 = skb_clone(skb, GFP_ATOMIC)) == NULL) {
+-					br->dev->stats.tx_dropped++;
++					dev->stats.tx_dropped++;
+ 					goto out;
+ 				}
  
-+	br_multicast_del_port(p);
-+
- 	kobject_uevent(&p->kobj, KOBJ_REMOVE);
- 	kobject_del(&p->kobj);
- 
-@@ -209,6 +211,7 @@ static struct net_device *new_bridge_dev(struct net *net, const char *name)
- 	INIT_LIST_HEAD(&br->age_list);
- 
- 	br_stp_timer_init(br);
-+	br_multicast_init(br);
- 
- 	return dev;
- }
-@@ -260,6 +263,7 @@ static struct net_bridge_port *new_nbp(struct net_bridge *br,
- 	br_init_port(p);
- 	p->state = BR_STATE_DISABLED;
- 	br_stp_port_timer_init(p);
-+	br_multicast_add_port(p);
- 
- 	return p;
- }
-diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-index fd3f8d6..edcf14b 100644
---- a/net/bridge/br_stp.c
-+++ b/net/bridge/br_stp.c
-@@ -386,6 +386,8 @@ static void br_make_forwarding(struct net_bridge_port *p)
- 	else
- 		p->state = BR_STATE_LEARNING;
- 
-+	br_multicast_enable_port(p);
-+
- 	br_log_state(p);
- 
- 	if (br->forward_delay != 0)
-diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index 9a52ac5..d527119 100644
---- a/net/bridge/br_stp_if.c
-+++ b/net/bridge/br_stp_if.c
-@@ -108,6 +108,7 @@ void br_stp_disable_port(struct net_bridge_port *p)
- 	del_timer(&p->hold_timer);
- 
- 	br_fdb_delete_by_port(br, p, 0);
-+	br_multicast_disable_port(p);
- 
- 	br_configuration_update(br);
- 
+@@ -137,7 +138,7 @@ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
+ 	if (skb0) {
+ 		skb = skb_clone(skb, GFP_ATOMIC);
+ 		if (!skb) {
+-			br->dev->stats.tx_dropped++;
++			dev->stats.tx_dropped++;
+ 			goto out;
+ 		}
+ 	}
