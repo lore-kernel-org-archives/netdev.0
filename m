@@ -1,85 +1,99 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next-2.6 PATCH 3/3] ixgbe: Do not allocate too many
- netdev txqueues
-Date: Sun, 28 Feb 2010 04:57:00 +0100
-Message-ID: <1267329420.9082.28.camel@edumazet-laptop>
-References: <20100226091318.19796.70225.stgit@localhost.localdomain>
-	 <20100226091519.19796.82441.stgit@localhost.localdomain>
-	 <1267193054.9082.12.camel@edumazet-laptop>
-	 <1267318956.2052.1.camel@localhost>
+Subject: Re: [PATCH V2] net: add accounting for socket backlog
+Date: Sun, 28 Feb 2010 06:31:11 +0100
+Message-ID: <1267335071.9082.56.camel@edumazet-laptop>
+References: <1267176464-426-1-git-send-email-yi.zhu@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>
-To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Zhu Yi <yi.zhu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:46732 "EHLO
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:41083 "EHLO
 	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030425Ab0B1D5I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Feb 2010 22:57:08 -0500
-Received: by bwz1 with SMTP id 1so512090bwz.21
-        for <netdev@vger.kernel.org>; Sat, 27 Feb 2010 19:57:04 -0800 (PST)
-In-Reply-To: <1267318956.2052.1.camel@localhost>
+	with ESMTP id S1750770Ab0B1FbQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 00:31:16 -0500
+Received: by bwz1 with SMTP id 1so526593bwz.21
+        for <netdev@vger.kernel.org>; Sat, 27 Feb 2010 21:31:15 -0800 (PST)
+In-Reply-To: <1267176464-426-1-git-send-email-yi.zhu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 27 f=C3=A9vrier 2010 =C3=A0 17:02 -0800, Peter P Waskiewicz J=
-r a =C3=A9crit :
-> On Fri, 2010-02-26 at 06:04 -0800, Eric Dumazet wrote:
-> > Le vendredi 26 f=C3=A9vrier 2010 =C3=A0 01:15 -0800, Jeff Kirsher a=
- =C3=A9crit :
-> > > +	if (ii->mac =3D=3D ixgbe_mac_82598EB)
-> > > +		indices =3D min_t(unsigned int, indices, IXGBE_MAX_RSS_INDICES=
-);
-> > > +	else
-> > > +		indices =3D min_t(unsigned int, indices, IXGBE_MAX_FDIR_INDICE=
-S);
-> > > +
-> > > +	indices =3D max_t(unsigned int, indices, IXGBE_MAX_DCB_INDICES)=
-;
-> > > +#ifdef IXGBE_FCOE
-> > > +	indices +=3D min_t(unsigned int, num_possible_cpus(),
-> > > +			 IXGBE_MAX_FCOE_INDICES);
-> > > +#endif
-> > > +	indices =3D min_t(unsigned int, indices, MAX_TX_QUEUES);
-> > > +	netdev =3D alloc_etherdev_mq(sizeof(struct ixgbe_adapter), indi=
-ces);
-> > >  	if (!netdev) {
-> > >  		err =3D -ENOMEM;
-> > >  		goto err_alloc_etherdev;
-> > >=20
-> >=20
-> > Thanks Jeff, but what is the reason for limiting to MAX_TX_QUEUES ?
-> > Is it a hardware issue ?
-> >=20
+Le vendredi 26 f=C3=A9vrier 2010 =C3=A0 17:27 +0800, Zhu Yi a =C3=A9cri=
+t :
+> We got system OOM while running some UDP netperf testing on the loopb=
+ack
+> device. The case is multiple senders sent stream UDP packets to a sin=
+gle
+> receiver via loopback on local host. Of course, the receiver is not a=
+ble
+> to handle all the packets in time. But we surprisingly found that the=
+se
+> packets were not discarded due to the receiver's sk->sk_rcvbuf limit.
+> Instead, they are kept queuing to sk->sk_backlog and finally ate up a=
+ll
+> the memory. We believe this is a secure hole that a none privileged u=
+ser
+> can crash the system.
 >=20
-> MAX_TX_QUEUES is 128, which is the maximum the 82599 device supports =
-in
-> hardware (82598 supports 32 Tx queues).  I'm not sure why you'd ever
-> want to have more Tx queues than what you have in the network device.
+> The root cause for this problem is, when the receiver is doing
+> __release_sock() (i.e. after userspace recv, kernel udp_recvmsg ->
+> skb_free_datagram_locked -> release_sock), it moves skbs from backlog=
+ to
+> sk_receive_queue with the softirq enabled. In the above case, multipl=
+e
+> busy senders will almost make it an endless loop. The skbs in the
+> backlog end up eat all the system memory.
+>=20
+> The patch fixed this problem by adding accounting for the socket
+> backlog. So that the backlog size can be restricted by protocol's cho=
+ice
+> (i.e. UDP).
+>=20
+> Reported-by: Alex Shi <alex.shi@intel.com>
+> Cc: David Miller <davem@davemloft.net>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Zhu Yi <yi.zhu@intel.com>
+> ---
+> V2: remove atomic operation for sk_backlog.len
+>     limit UDP backlog size to 2*sk->sk_rcvbuf
+>=20
 
-I was not sure MAX_TX_QUEUES capping was still necessary after the
-block :
+> +
+>  static inline int sk_backlog_rcv(struct sock *sk, struct sk_buff *sk=
+b)
+>  {
+> +	sk->sk_backlog.len -=3D skb->truesize;
+>  	return sk->sk_backlog_rcv(sk, skb);
+>  }
+> =20
 
-if (ii->mac =3D=3D ixgbe_mac_82598EB)
-          indices =3D min_t(unsigned int, indices, IXGBE_MAX_RSS_INDICE=
-S);
-else
-          indices =3D min_t(unsigned int, indices,
-IXGBE_MAX_FDIR_INDICES);
+I am afraid sk_backlog_rcv() is not always called with lock held, and
+not always called to process backlog (see TCP ucopy.prequeue)
 
-indices =3D max_t(unsigned int, indices, IXGBE_MAX_DCB_INDICES);
-#ifdef IXGBE_FCOE
-	indices +=3D min_t(unsigned int, num_possible_cpus(),
-                    IXGBE_MAX_FCOE_INDICES);
-#endif
+If you take a look at __release_sock() for example, we make the backlog
+private to the process before handling it (outside of lock_sock())
 
-So I asked to be sure that MAX_TX_QUEUES was not a leftover from the
-previous default allocation.
+Therefore, I suggest doing the 'substraction' outside of
+sk_backlog_rcv().
+
+diff --git a/net/core/sock.c b/net/core/sock.c
+index e1f6f22..57271cb 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1520,6 +1520,7 @@ static void __release_sock(struct sock *sk)
+=20
+        do {
+                sk->sk_backlog.head =3D sk->sk_backlog.tail =3D NULL;
++               sk->sk_backlog.len =3D 0;
+                bh_unlock_sock(sk);
+=20
+                do {
+
+
+Ah, I see __release_sock() is already doing a preemption check, please
+ignore my previous comment, when I said "__release_sock() could run
+forever with no preemption, even with a limit on backlog"
 
 Thanks
 
