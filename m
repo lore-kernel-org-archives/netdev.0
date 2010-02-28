@@ -1,49 +1,59 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [1/13] bridge: Add IGMP snooping support
-Date: Sun, 28 Feb 2010 13:40:12 +0800
-Message-ID: <20100228054012.GA7583@gondor.apana.org.au>
-References: <20100226153410.GA26419@gondor.apana.org.au>
+From: Masatake YAMATO <yamato@redhat.com>
+Subject: Adding inode field to /proc/net/netlink
+Date: Sun, 28 Feb 2010 14:45:37 +0900 (JST)
+Message-ID: <20100228.144537.445518512048328806.yamato@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:54161 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751273Ab0B1FkP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 00:40:15 -0500
-Content-Disposition: inline
-In-Reply-To: <20100226153410.GA26419@gondor.apana.org.au>
+Received: from mx1.redhat.com ([209.132.183.28]:7484 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751280Ab0B1FkR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Feb 2010 00:40:17 -0500
+Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
+	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id o1S5eGTx032014
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Sun, 28 Feb 2010 00:40:16 -0500
+Received: from localhost (beach.nrt.redhat.com [10.64.200.71])
+	by int-mx02.intmail.prod.int.phx2.redhat.com (8.13.8/8.13.8) with ESMTP id o1S5eEtY006878
+	for <netdev@vger.kernel.org>; Sun, 28 Feb 2010 00:40:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave:
+The Inode field in /proc/net/{tcp,udp,packet,raw,...} is useful to know the types of 
+file descriptors associated to a process. Actually lsof utility uses the field.
+Unfortunately, unlike /proc/net/{tcp,udp,packet,raw,...}, /proc/net/netlink doesn't have the field.
+This patch adds the field to /proc/net/netlink.
 
-This is a repost of exactly the same series in order to get them
-back into patchworks.  I hope I have resolved your concerns about
-patch number 2.  Let me know if you still have any further questions.
+Signed-off-by: Masatake YAMATO <yamato@redhat.com>
 
-This series of patches adds basic IGMP support to the bridge
-device.  First of all the following is not currently supported
-but may be added in future:
-
-* IGMPv3 source support (so really just IGMPv2 for now)
-* Non-querier router detection
-* IPv6
-
-The series is divided into two portions:
-
-1-5 lays the ground work and can be merged without any of the
-other patches.
-
-6-13 are the actual IGMP-specific patches.
-
-This is a kernel-only implementation.  In future we could move
-parts of this into user-space just like RTP.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 4c5972b..320d042 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1978,12 +1978,12 @@ static int netlink_seq_show(struct seq_file *seq, void *v)
+ 	if (v == SEQ_START_TOKEN)
+ 		seq_puts(seq,
+ 			 "sk       Eth Pid    Groups   "
+-			 "Rmem     Wmem     Dump     Locks     Drops\n");
++			 "Rmem     Wmem     Dump     Locks     Drops     Inode\n");
+ 	else {
+ 		struct sock *s = v;
+ 		struct netlink_sock *nlk = nlk_sk(s);
+ 
+-		seq_printf(seq, "%p %-3d %-6d %08x %-8d %-8d %p %-8d %-8d\n",
++		seq_printf(seq, "%p %-3d %-6d %08x %-8d %-8d %p %-8d %-8d %-8lu\n",
+ 			   s,
+ 			   s->sk_protocol,
+ 			   nlk->pid,
+@@ -1992,7 +1992,8 @@ static int netlink_seq_show(struct seq_file *seq, void *v)
+ 			   sk_wmem_alloc_get(s),
+ 			   nlk->cb,
+ 			   atomic_read(&s->sk_refcnt),
+-			   atomic_read(&s->sk_drops)
++			   atomic_read(&s->sk_drops),
++			   sock_i_ino(s)
+ 			);
+ 
+ 	}
