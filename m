@@ -1,34 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Pull request: bluetooth-next-2.6 2010-02-27
-Date: Sun, 28 Feb 2010 00:19:18 -0800 (PST)
-Message-ID: <20100228.001918.260094664.davem@davemloft.net>
-References: <cover.1267276098.git.marcel@holtmann.org>
+From: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
+Subject: Re: Re: [PATCH net-next-2.6 1/2] mq: support for bonding
+Date: Sun, 28 Feb 2010 11:25:13 +0300
+Message-ID: <96591267345513@webmail87.yandex.ru>
+References: <310461267277260@webmail48.yandex.ru> <1267288154.9082.23.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: marcel@holtmann.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47171
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1031541Ab0B1ITA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 03:19:00 -0500
-In-Reply-To: <cover.1267276098.git.marcel@holtmann.org>
+Received: from forward13.mail.yandex.net ([95.108.130.120]:56475 "EHLO
+	forward13.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031496Ab0B1IZP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 03:25:15 -0500
+In-Reply-To: <1267288154.9082.23.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Sat, 27 Feb 2010 23:38:29 +0100
+Hi Eric,
 
-> Please pull from
-> 
->     git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-next-2.6.git master
+27.02.10, 17:29, "Eric Dumazet" <eric.dumazet@gmail.com>:
 
-There are no new changes in that tree.  Either you forgot to push
-or you gave me the wrong URL. :-)
+>  My dev machine has 16 cpus, and my network card has 16 queues per NIC
 
-davem@sunset:~/src/GIT/net-next-2.6$ git pull git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-next-2.6.git master
->From git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-next-2.6
- * branch            master     -> FETCH_HEAD
-Already up-to-date.
-davem@sunset:~/src/GIT/net-next-2.6$ 
+We should borrow this number from real device when enslaving it, picking
+maximum value from among slaves. But the main problem is that we don't
+known anything about slaves in bond_create() and there is no way to change
+number of tx queues later. Maybe we could solve this by adding new module
+parameter for bonding (num_tx_queues)?
+
+>  Every xmit has to get this lock(s) and performance is not optimal.
+
+You're right. I don't notice it. I see two solutions:
+
+1) Convert all rw_locks to RCU mechanism
+2) Use plain array instead of linked list to store list of slaves. In this case we
+don't need to lock when doing bond_for_each_slave().
+
+.. Or am I wrong? What do you think?
+
+-- 
+wbr, Oleg.
