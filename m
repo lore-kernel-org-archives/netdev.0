@@ -1,44 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Adding inode field to /proc/net/netlink
-Date: Sun, 28 Feb 2010 01:28:34 -0800 (PST)
-Message-ID: <20100228.012834.15245196.davem@davemloft.net>
-References: <20100228.144537.445518512048328806.yamato@redhat.com>
-	<20100228.010057.229746532.davem@davemloft.net>
-	<1267348431.9082.66.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next-2.6 2/2] mq: preserve queue mapping with
+ bonding and VLAN devices
+Date: Sun, 28 Feb 2010 01:33:11 -0800 (PST)
+Message-ID: <20100228.013311.242139140.davem@davemloft.net>
+References: <272541267277332@webmail86.yandex.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yamato@redhat.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: sysoleg@yandex.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37789
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37792
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1031664Ab0B1J2R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 04:28:17 -0500
-In-Reply-To: <1267348431.9082.66.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1031664Ab0B1Jcw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 04:32:52 -0500
+In-Reply-To: <272541267277332@webmail86.yandex.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 28 Feb 2010 10:13:51 +0100
+From: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
+Date: Sat, 27 Feb 2010 16:28:52 +0300
 
-> Hmm we already did such expansion last year with commit 38938bfe when
-> Pablo Neira Ayuso added the Drops column
+> Forwarded packet goes through dev_queue_xmit() more that once
+> when using bonding or 802.1q VLAN devices, so we've lost rx-tx
+> queue mapping index for real devices. This is because initial
+> queue index value (as it recorded by skb_record_tx_queue()) is
+> overwritten by skb_set_queue_mapping(). 
 > 
-> Extract of its Changelog :
-> 
->  This patch also includes the use of sk_drop to account the number of
->  netlink messages drop due to overrun. This value is shown in
->  /proc/net/netlink.
-> 
-> So yes, some applications might break but they probably already broke
-> one year ago and their maintainers should know that adding new fields at
-> the end of lines is expected ?
-> 
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Oleg A. Arkhangelsky <sysoleg@yandex.ru> 
 
-That's a good point.
+Applied, thanks Oleg.
 
-Ok, I'll apply this.
+Patch #1 still needs work, please address Eric Dumazet's feedback.
 
-Thanks.
+Thanks!
