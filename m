@@ -1,18 +1,18 @@
 From: "Vladislav Zolotarov" <vladz@broadcom.com>
 Subject: [PATCH 1/1] bnx2x: Tx barriers and locks
-Date: Sun, 28 Feb 2010 12:03:03 +0200
-Message-ID: <1267351383.2952.37.camel@lb-tlvb-vladz>
+Date: Sun, 28 Feb 2010 12:12:02 +0200
+Message-ID: <1267351922.10409.2.camel@lb-tlvb-vladz>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Eilon Greenstein; sgruszka"@redhat.com
-To: netdev@vger.kernel.org
+Cc: sgruszka@redhat.com, eilong@broadcom.com
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4603 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2514 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1031730Ab0B1KM6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Feb 2010 05:12:58 -0500
+	id S1031648Ab0B1KV5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Feb 2010 05:21:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
