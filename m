@@ -1,100 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH V2] net: add accounting for socket backlog
-Date: Sun, 28 Feb 2010 06:31:11 +0100
-Message-ID: <1267335071.9082.56.camel@edumazet-laptop>
-References: <1267176464-426-1-git-send-email-yi.zhu@intel.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [1/13] bridge: Add IGMP snooping support
+Date: Sun, 28 Feb 2010 13:40:12 +0800
+Message-ID: <20100228054012.GA7583@gondor.apana.org.au>
+References: <20100226153410.GA26419@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Zhu Yi <yi.zhu@intel.com>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:41083 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750770Ab0B1FbQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 00:31:16 -0500
-Received: by bwz1 with SMTP id 1so526593bwz.21
-        for <netdev@vger.kernel.org>; Sat, 27 Feb 2010 21:31:15 -0800 (PST)
-In-Reply-To: <1267176464-426-1-git-send-email-yi.zhu@intel.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:54161 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751273Ab0B1FkP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 00:40:15 -0500
+Content-Disposition: inline
+In-Reply-To: <20100226153410.GA26419@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 26 f=C3=A9vrier 2010 =C3=A0 17:27 +0800, Zhu Yi a =C3=A9cri=
-t :
-> We got system OOM while running some UDP netperf testing on the loopb=
-ack
-> device. The case is multiple senders sent stream UDP packets to a sin=
-gle
-> receiver via loopback on local host. Of course, the receiver is not a=
-ble
-> to handle all the packets in time. But we surprisingly found that the=
-se
-> packets were not discarded due to the receiver's sk->sk_rcvbuf limit.
-> Instead, they are kept queuing to sk->sk_backlog and finally ate up a=
-ll
-> the memory. We believe this is a secure hole that a none privileged u=
-ser
-> can crash the system.
->=20
-> The root cause for this problem is, when the receiver is doing
-> __release_sock() (i.e. after userspace recv, kernel udp_recvmsg ->
-> skb_free_datagram_locked -> release_sock), it moves skbs from backlog=
- to
-> sk_receive_queue with the softirq enabled. In the above case, multipl=
-e
-> busy senders will almost make it an endless loop. The skbs in the
-> backlog end up eat all the system memory.
->=20
-> The patch fixed this problem by adding accounting for the socket
-> backlog. So that the backlog size can be restricted by protocol's cho=
-ice
-> (i.e. UDP).
->=20
-> Reported-by: Alex Shi <alex.shi@intel.com>
-> Cc: David Miller <davem@davemloft.net>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Zhu Yi <yi.zhu@intel.com>
-> ---
-> V2: remove atomic operation for sk_backlog.len
->     limit UDP backlog size to 2*sk->sk_rcvbuf
->=20
+Hi Dave:
 
-> +
->  static inline int sk_backlog_rcv(struct sock *sk, struct sk_buff *sk=
-b)
->  {
-> +	sk->sk_backlog.len -=3D skb->truesize;
->  	return sk->sk_backlog_rcv(sk, skb);
->  }
-> =20
+This is a repost of exactly the same series in order to get them
+back into patchworks.  I hope I have resolved your concerns about
+patch number 2.  Let me know if you still have any further questions.
 
-I am afraid sk_backlog_rcv() is not always called with lock held, and
-not always called to process backlog (see TCP ucopy.prequeue)
+This series of patches adds basic IGMP support to the bridge
+device.  First of all the following is not currently supported
+but may be added in future:
 
-If you take a look at __release_sock() for example, we make the backlog
-private to the process before handling it (outside of lock_sock())
+* IGMPv3 source support (so really just IGMPv2 for now)
+* Non-querier router detection
+* IPv6
 
-Therefore, I suggest doing the 'substraction' outside of
-sk_backlog_rcv().
+The series is divided into two portions:
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index e1f6f22..57271cb 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1520,6 +1520,7 @@ static void __release_sock(struct sock *sk)
-=20
-        do {
-                sk->sk_backlog.head =3D sk->sk_backlog.tail =3D NULL;
-+               sk->sk_backlog.len =3D 0;
-                bh_unlock_sock(sk);
-=20
-                do {
+1-5 lays the ground work and can be merged without any of the
+other patches.
 
+6-13 are the actual IGMP-specific patches.
 
-Ah, I see __release_sock() is already doing a preemption check, please
-ignore my previous comment, when I said "__release_sock() could run
-forever with no preemption, even with a limit on backlog"
+This is a kernel-only implementation.  In future we could move
+parts of this into user-space just like RTP.
 
-Thanks
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
