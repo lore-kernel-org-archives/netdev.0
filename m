@@ -1,32 +1,36 @@
 From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: [PATCH 1/1] Tx barriers and locks
-Date: Sun, 28 Feb 2010 11:50:20 +0200
-Message-ID: <1267350620.2952.33.camel@lb-tlvb-vladz>
+Subject: [PATCH 1/1] bnx2x: Tx barriers and locks
+Date: Sun, 28 Feb 2010 12:03:03 +0200
+Message-ID: <1267351383.2952.37.camel@lb-tlvb-vladz>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, sgruszka@redhat.com
-To: netdev@vger.kernel.org, davem@davemloft.net
+Cc: "Eilon Greenstein; sgruszka"@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3060 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4603 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1031648Ab0B1KAR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Feb 2010 05:00:17 -0500
+	id S1031730Ab0B1KM6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Feb 2010 05:12:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+[Resending with the proper subject. Sorry for the mess. ]
 
 This patch is based on the RFC of Stanislaw Gruszka.
 
 More specifically it fixes two possible races:
-- One, described by Stanislaw, may lead to permanent disabling of the Tx queue.
-This is fixed by adding the smp_wmb() to propagate the BD consumer change towards the memory.
+- One, described by Stanislaw, may lead to permanent disabling of the Tx
+queue.
+This is fixed by adding the smp_wmb() to propagate the BD consumer
+change towards the memory.
 - Second may lead to bnx2x_start_xmit() returning NETDEV_TX_BUSY.
-This is fixed by taking a tx_lock() before rechecking the number of available Tx BDs.
+This is fixed by taking a tx_lock() before rechecking the number of
+available Tx BDs.
 
 thanks,
 vlad 
-
 
 Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
 Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
