@@ -1,47 +1,41 @@
-From: raj ravi <mekaviraj@gmail.com>
-Subject: GSO / TSO offload dependency
-Date: Sun, 28 Feb 2010 22:30:24 +0530
-Message-ID: <de0a9dcb1002280900k728b241fyd72112defc0336ea@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [GIT PULL] vhost-net fixes for 2.6.34
+Date: Sun, 28 Feb 2010 20:44:40 +0200
+Message-ID: <20100228184440.GA32692@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:50233 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964812Ab0B1RAZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 12:00:25 -0500
-Received: by vws10 with SMTP id 10so76709vws.19
-        for <netdev@vger.kernel.org>; Sun, 28 Feb 2010 09:00:24 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: rusty@rustcorp.com.au, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, samudrala@us.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-I m currently working on TSO feature in Linux network driver.
+David,
+The following tree, based on net-next-2.6, includes
+patches fixing issues with vhost-net.
+Please pull them for 2.6.34.
 
-Please correct my understanding.
+Thanks!
 
-GSO - Generic segmentation offload - does not require any hardware supp=
-ort.
+The following changes since commit 655ffee284dfcf9a24ac0343f3e5ee6db85b85c5:
+  Jiri Pirko (1):
+        wireless: convert to use netdev_for_each_mc_addr
 
-TSO - TCP segmentation offload=A0 - does require hardward support
+are available in the git repository at:
 
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost
 
-Does TSO needs GSO to be turned on?=A0 OR in other words,=A0 can I have
-GSO disabled and TSO Enabled ?
-I beleive the code is tied between both offload...but not sure about
-the above possibility... please clarify.
+Michael S. Tsirkin (3):
+      vhost: logging thinko fix
+      vhost: initialize log eventfd context pointer
+      vhost: fix get_user_pages_fast error handling
 
+Sridhar Samudrala (1):
+      vhost-net: restart tx poll on sk_sndbuf full
 
-Just before handing over the packets to the Network driver,
-segmentation is carried out a call to dev_gso_segment ( ) function.
-Given GSO is enabled, It will take care about creating TCP and other
-protocol=A0 segments=A0 too,=A0 even if TSO is disabled.. ..correct ?
-
-If hardware supports TSO, and=A0 If TSO and GSO are both enabled, ...
-what will happen to segmentation assembly by means of GSO ...
-GSO will not do any segmentatoin assembly for TCP alone and will do
-for other protocols ??=A0 bit confused here? Please clarify.
-
-Thx!
-Kavi
+ drivers/vhost/net.c   |    6 +++++-
+ drivers/vhost/vhost.c |   16 +++++++++++-----
+ 2 files changed, 16 insertions(+), 6 deletions(-)
