@@ -1,531 +1,1175 @@
 From: sjur.brandeland@stericsson.com
-Subject: [PATCH net-next-2.6 v5 07/12] net-caif: add CAIF device registration functionality
-Date: Mon,  1 Mar 2010 03:09:33 +0100
-Message-ID: <1267409378-2082-8-git-send-email-sjur.brandeland@stericsson.com>
+Subject: [PATCH net-next-2.6 v5 06/12] net-caif: add CAIF generic caif support functions
+Date: Mon,  1 Mar 2010 03:09:32 +0100
+Message-ID: <1267409378-2082-7-git-send-email-sjur.brandeland@stericsson.com>
 References: <1267409378-2082-1-git-send-email-sjur.brandeland@stericsson.com>
  <1267409378-2082-2-git-send-email-sjur.brandeland@stericsson.com>
  <1267409378-2082-3-git-send-email-sjur.brandeland@stericsson.com>
  <1267409378-2082-4-git-send-email-sjur.brandeland@stericsson.com>
  <1267409378-2082-5-git-send-email-sjur.brandeland@stericsson.com>
  <1267409378-2082-6-git-send-email-sjur.brandeland@stericsson.com>
- <1267409378-2082-7-git-send-email-sjur.brandeland@stericsson.com>
 Cc: daniel.martensson@stericsson.com, kaber@trash.net,
 	stefano.babic@babic.homelinux.org, randy.dunlap@oracle.com,
 	Sjur Braendeland <sjur.brandeland@stericsson.com>
 To: netdev@vger.kernel.org, davem@davemloft.net, marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gktv.no ([80.239.85.213]:51890 "EHLO mail.gktv.no"
+Received: from mail.gktv.no ([80.239.85.213]:51905 "EHLO mail.gktv.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754855Ab0CACKM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Feb 2010 21:10:12 -0500
-In-Reply-To: <1267409378-2082-7-git-send-email-sjur.brandeland@stericsson.com>
+	id S1754906Ab0CACKN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Feb 2010 21:10:13 -0500
+In-Reply-To: <1267409378-2082-6-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-Registration and deregistration of CAIF Link Layer.
+Support functions for the caif protocol stack:
+cfcnfg.c        - CAIF Configuration Module used for
+                  adding and removing drivers and connection
+cfpkt_skbuff.c  - CAIF Packet layer (SKB helper functions)
 
 Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
 ---
- net/caif/caif_config_util.c |   88 ++++++++++
- net/caif/caif_dev.c         |  394 +++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 482 insertions(+), 0 deletions(-)
+ net/caif/cfcnfg.c       |  529 +++++++++++++++++++++++++++++++++++++++++
+ net/caif/cfpkt_skbuff.c |  595 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 1124 insertions(+), 0 deletions(-)
 
-diff --git a/net/caif/caif_config_util.c b/net/caif/caif_config_util.c
+diff --git a/net/caif/cfcnfg.c b/net/caif/cfcnfg.c
 new file mode 100644
-index 0000000..af7daf8
+index 0000000..58b16b8
 --- /dev/null
-+++ b/net/caif/caif_config_util.c
-@@ -0,0 +1,88 @@
++++ b/net/caif/cfcnfg.c
+@@ -0,0 +1,529 @@
 +/*
-+ * Copyright (C) ST-Ericsson AB 2010
-+ * Author:	Sjur Brendeland sjur.brandeland@stericsson.com
-+ * License terms: GNU General Public License (GPL) version 2
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/spinlock.h>
-+#include <net/caif/cfctrl.h>
-+#include <net/caif/cfcnfg.h>
-+#include <net/caif/caif_dev.h>
-+int connect_req_to_link_param(struct cfcnfg *cnfg,
-+				struct caif_connect_request *s,
-+				struct cfctrl_link_param *l)
-+{
-+	struct dev_info *dev_info;
-+	enum cfcnfg_phy_preference pref;
-+	memset(l, 0, sizeof(*l));
-+	l->priority = s->priority;
-+
-+	if (s->link_name[0] != '\0')
-+		l->phyid = cfcnfg_get_named(cnfg, s->link_name);
-+	else {
-+		switch (s->link_selector) {
-+		case CAIF_LINK_HIGH_BANDW:
-+			pref = CFPHYPREF_HIGH_BW;
-+			break;
-+		case CAIF_LINK_LOW_LATENCY:
-+			pref = CFPHYPREF_LOW_LAT;
-+			break;
-+		default:
-+			return -EINVAL;
-+		}
-+		dev_info = cfcnfg_get_phyid(cnfg, pref);
-+		if (dev_info == NULL)
-+			return -ENODEV;
-+		l->phyid = dev_info->id;
-+	}
-+	switch (s->protocol) {
-+	case CAIFPROTO_AT:
-+		l->linktype = CFCTRL_SRV_VEI;
-+		if (s->sockaddr.u.at.type == CAIF_ATTYPE_PLAIN)
-+			l->chtype = 0x02;
-+		else
-+			l->chtype = s->sockaddr.u.at.type;
-+		l->endpoint = 0x00;
-+		break;
-+	case CAIFPROTO_DATAGRAM:
-+		l->linktype = CFCTRL_SRV_DATAGRAM;
-+		l->chtype = 0x00;
-+		l->u.datagram.connid = s->sockaddr.u.dgm.connection_id;
-+		break;
-+	case CAIFPROTO_DATAGRAM_LOOP:
-+		l->linktype = CFCTRL_SRV_DATAGRAM;
-+		l->chtype = 0x03;
-+		l->endpoint = 0x00;
-+		l->u.datagram.connid = s->sockaddr.u.dgm.connection_id;
-+		break;
-+	case CAIFPROTO_RFM:
-+		l->linktype = CFCTRL_SRV_RFM;
-+		l->u.datagram.connid = s->sockaddr.u.rfm.connection_id;
-+		strncpy(l->u.rfm.volume, s->sockaddr.u.rfm.volume,
-+			sizeof(l->u.rfm.volume)-1);
-+		l->u.rfm.volume[sizeof(l->u.rfm.volume)-1] = 0;
-+		break;
-+	case CAIFPROTO_UTIL:
-+		l->linktype = CFCTRL_SRV_UTIL;
-+		l->endpoint = 0x00;
-+		l->chtype = 0x00;
-+		strncpy(l->u.utility.name, s->sockaddr.u.util.service,
-+			sizeof(l->u.utility.name)-1);
-+		l->u.utility.name[sizeof(l->u.utility.name)-1] = 0;
-+		caif_assert(sizeof(l->u.utility.name) > 10);
-+		l->u.utility.paramlen = s->param.size;
-+		if (l->u.utility.paramlen > sizeof(l->u.utility.params))
-+			l->u.utility.paramlen = sizeof(l->u.utility.params);
-+
-+		memcpy(l->u.utility.params, s->param.data,
-+		       l->u.utility.paramlen);
-+
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+
-diff --git a/net/caif/caif_dev.c b/net/caif/caif_dev.c
-new file mode 100644
-index 0000000..2dd0b96
---- /dev/null
-+++ b/net/caif/caif_dev.c
-@@ -0,0 +1,394 @@
-+/*
-+ * CAIF Interface registration.
 + * Copyright (C) ST-Ericsson AB 2010
 + * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
 + * License terms: GNU General Public License (GPL) version 2
-+ *
-+ * Borrowed heavily from file: pn_dev.c. Thanks to
-+ *  Remi Denis-Courmont <remi.denis-courmont@nokia.com>
-+ *  and Sakari Ailus <sakari.ailus@nokia.com>
 + */
-+
-+#include <linux/version.h>
-+#include <linux/module.h>
 +#include <linux/kernel.h>
-+#include <linux/if_arp.h>
-+#include <linux/net.h>
-+#include <linux/netdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/sched.h>
-+#include <linux/wait.h>
-+#include <net/netns/generic.h>
-+#include <net/net_namespace.h>
-+#include <net/pkt_sched.h>
-+#include <net/caif/caif_device.h>
-+#include <net/caif/caif_dev.h>
++#include <linux/stddef.h>
 +#include <net/caif/caif_layer.h>
 +#include <net/caif/cfpkt.h>
 +#include <net/caif/cfcnfg.h>
++#include <net/caif/cfctrl.h>
++#include <net/caif/cfmuxl.h>
++#include <net/caif/cffrml.h>
++#include <net/caif/cfserl.h>
++#include <net/caif/cfsrvl.h>
 +
-+MODULE_LICENSE("GPL");
-+#define TIMEOUT (HZ*1000)
++#include <linux/module.h>
++#include <asm/atomic.h>
 +
-+/* Used for local tracking of the CAIF net devices */
-+struct caif_device_entry {
++#define MAX_PHY_LAYERS 7
++#define PHY_NAME_LEN 20
++
++#define container_obj(layr) container_of(layr, struct cfcnfg, layer)
++
++/* Information about CAIF physical interfaces held by Config Module in order
++ * to manage physical interfaces
++ */
++struct cfcnfg_phyinfo {
++	/* Pointer to the layer below the MUX (framing layer) */
++	struct cflayer *frm_layer;
++	/* Pointer to the lowest actual physical layer */
++	struct cflayer *phy_layer;
++	/* Unique identifier of the physical interface */
++	unsigned int id;
++	/* Preference of the physical in interface */
++	enum cfcnfg_phy_preference pref;
++
++	/* Reference count, number of channels using the device */
++	int phy_ref_count;
++
++	/* Information about the physical device */
++	struct dev_info dev_info;
++};
++
++struct cfcnfg {
 +	struct cflayer layer;
-+	struct list_head list;
-+	atomic_t in_use;
-+	atomic_t state;
-+	u16 phyid;
-+	struct net_device *netdev;
-+	wait_queue_head_t event;
++	struct cflayer *ctrl;
++	struct cflayer *mux;
++	u8 last_phyid;
++	struct cfcnfg_phyinfo phy_layers[MAX_PHY_LAYERS];
 +};
 +
-+struct caif_device_entry_list {
-+	struct list_head list;
-+	spinlock_t lock;
-+};
++static void cncfg_linkup_rsp(struct cflayer *layer, u8 linkid,
++			     enum cfctrl_srv serv, u8 phyid,
++			     struct cflayer *adapt_layer);
++static void cncfg_linkdestroy_rsp(struct cflayer *layer, u8 linkid,
++				  struct cflayer *client_layer);
++static void cncfg_reject_rsp(struct cflayer *layer, u8 linkid,
++			     struct cflayer *adapt_layer);
++static void cfctrl_resp_func(void);
++static void cfctrl_enum_resp(void);
 +
-+struct caif_net {
-+	struct caif_device_entry_list caifdevs;
-+};
-+
-+int caif_net_id;
-+struct cfcnfg *cfg;
-+
-+struct caif_device_entry_list *caif_device_list(struct net *net)
++struct cfcnfg *cfcnfg_create()
 +{
-+	struct caif_net *caifn;
-+	BUG_ON(!net);
-+	caifn = net_generic(net, caif_net_id);
-+	BUG_ON(!caifn);
-+	return &caifn->caifdevs;
-+}
-+
-+/* Allocate new CAIF device. */
-+static struct caif_device_entry *caif_device_alloc(struct net_device *dev)
-+{
-+	struct caif_device_entry_list *caifdevs;
-+	struct caif_device_entry *caifd;
-+	caifdevs = caif_device_list(dev_net(dev));
-+	BUG_ON(!caifdevs);
-+	caifd = kzalloc(sizeof(*caifd), GFP_ATOMIC);
-+	if (!caifd)
++	struct cfcnfg *this;
++	struct cfctrl_rsp *resp;
++	/* Initiate this layer */
++	this = kmalloc(sizeof(struct cfcnfg), GFP_ATOMIC);
++	if (!this) {
++		pr_warning("CAIF: %s(): Out of memory\n", __func__);
 +		return NULL;
-+	caifd->netdev = dev;
-+	list_add(&caifd->list, &caifdevs->list);
-+	init_waitqueue_head(&caifd->event);
-+	return caifd;
++	}
++	memset(this, 0, sizeof(struct cfcnfg));
++	this->mux = cfmuxl_create();
++	if (!this->mux)
++		goto out_of_mem;
++	this->ctrl = cfctrl_create();
++	if (!this->ctrl)
++		goto out_of_mem;
++	/* Initiate response functions */
++	resp = cfctrl_get_respfuncs(this->ctrl);
++	resp->enum_rsp = cfctrl_enum_resp;
++	resp->linkerror_ind = cfctrl_resp_func;
++	resp->linkdestroy_rsp = cncfg_linkdestroy_rsp;
++	resp->sleep_rsp = cfctrl_resp_func;
++	resp->wake_rsp = cfctrl_resp_func;
++	resp->restart_rsp = cfctrl_resp_func;
++	resp->radioset_rsp = cfctrl_resp_func;
++	resp->linksetup_rsp = cncfg_linkup_rsp;
++	resp->reject_rsp = cncfg_reject_rsp;
++
++	this->last_phyid = 1;
++
++	cfmuxl_set_uplayer(this->mux, this->ctrl, 0);
++	layer_set_dn(this->ctrl, this->mux);
++	layer_set_up(this->ctrl, this);
++	return this;
++out_of_mem:
++	pr_warning("CAIF: %s(): Out of memory\n", __func__);
++	kfree(this->mux);
++	kfree(this->ctrl);
++	kfree(this);
++	return NULL;
++}
++EXPORT_SYMBOL(cfcnfg_create);
++
++void cfcnfg_remove(struct cfcnfg *cfg)
++{
++	if (cfg) {
++		kfree(cfg->mux);
++		kfree(cfg->ctrl);
++		kfree(cfg);
++	}
 +}
 +
-+static struct caif_device_entry *caif_get(struct net_device *dev)
++static void cfctrl_resp_func(void)
 +{
-+	struct caif_device_entry_list *caifdevs =
-+	    caif_device_list(dev_net(dev));
-+	struct caif_device_entry *caifd;
-+	BUG_ON(!caifdevs);
-+	list_for_each_entry(caifd, &caifdevs->list, list) {
-+		if (caifd->netdev == dev)
-+			return caifd;
++}
++
++static void cfctrl_enum_resp(void)
++{
++}
++
++struct dev_info *cfcnfg_get_phyid(struct cfcnfg *cnfg,
++				  enum cfcnfg_phy_preference phy_pref)
++{
++	int i;
++
++	/* Try to match with specified preference */
++	for (i = 1; i < MAX_PHY_LAYERS; i++) {
++		if (cnfg->phy_layers[i].id == i &&
++		     cnfg->phy_layers[i].pref == phy_pref &&
++		     cnfg->phy_layers[i].frm_layer != NULL) {
++			caif_assert(cnfg->phy_layers != NULL);
++			caif_assert(cnfg->phy_layers[i].id == i);
++			return &cnfg->phy_layers[i].dev_info;
++		}
 +	}
++	/* Otherwise just return something */
++	for (i = 1; i < MAX_PHY_LAYERS; i++) {
++		if (cnfg->phy_layers[i].id == i) {
++			caif_assert(cnfg->phy_layers != NULL);
++			caif_assert(cnfg->phy_layers[i].id == i);
++			return &cnfg->phy_layers[i].dev_info;
++		}
++	}
++
 +	return NULL;
 +}
 +
-+static void caif_device_destroy(struct net_device *dev)
++static struct cfcnfg_phyinfo *cfcnfg_get_phyinfo(struct cfcnfg *cnfg,
++							u8 phyid)
 +{
-+	struct caif_device_entry_list *caifdevs =
-+	    caif_device_list(dev_net(dev));
-+	struct caif_device_entry *caifd;
-+	ASSERT_RTNL();
-+	if (dev->type != ARPHRD_CAIF)
-+		return;
-+
-+	spin_lock_bh(&caifdevs->lock);
-+	caifd = caif_get(dev);
-+	if (caifd == NULL) {
-+		spin_unlock_bh(&caifdevs->lock);
-+		return;
-+	}
-+
-+	list_del(&caifd->list);
-+	spin_unlock_bh(&caifdevs->lock);
-+
-+	kfree(caifd);
-+	return;
-+}
-+
-+static int transmit(struct cflayer *layer, struct cfpkt *pkt)
-+{
-+	struct caif_device_entry *caifd =
-+	    container_of(layer, struct caif_device_entry, layer);
-+	struct sk_buff *skb, *skb2;
-+	int ret = -EINVAL;
-+	skb = cfpkt_tonative(pkt);
-+	skb->dev = caifd->netdev;
-+	/*
-+	 * Don't allow SKB to be destroyed upon error, but signal resend
-+	 * notification to clients. We can't rely on the return value as
-+	 * congestion (NET_XMIT_CN) sometimes drops the packet, sometimes don't.
-+	 */
-+	if (netif_queue_stopped(caifd->netdev))
-+		return -EAGAIN;
-+	skb2 = skb_get(skb);
-+
-+	ret = dev_queue_xmit(skb2);
-+
-+	if (!ret)
-+		kfree_skb(skb);
-+	else
-+		return -EAGAIN;
-+
++	int i;
++	/* Try to match with specified preference */
++	for (i = 0; i < MAX_PHY_LAYERS; i++)
++		if (cnfg->phy_layers[i].frm_layer != NULL &&
++		    cnfg->phy_layers[i].id == phyid)
++			return &cnfg->phy_layers[i];
 +	return 0;
 +}
 +
-+static int modemcmd(struct cflayer *layr, enum caif_modemcmd ctrl)
++int cfcnfg_get_named(struct cfcnfg *cnfg, char *name)
 +{
-+	struct caif_device_entry *caifd;
-+	struct caif_dev_common *caifdev;
-+	caifd = container_of(layr, struct caif_device_entry, layer);
-+	caifdev = netdev_priv(caifd->netdev);
-+	if (ctrl == _CAIF_MODEMCMD_PHYIF_USEFULL) {
-+		atomic_set(&caifd->in_use, 1);
-+		wake_up_interruptible(&caifd->event);
++	int i;
 +
-+	} else if (ctrl == _CAIF_MODEMCMD_PHYIF_USELESS) {
-+		atomic_set(&caifd->in_use, 0);
-+		wake_up_interruptible(&caifd->event);
++	/* Try to match with specified name */
++	for (i = 0; i < MAX_PHY_LAYERS; i++) {
++		if (cnfg->phy_layers[i].frm_layer != NULL
++		    && strcmp(cnfg->phy_layers[i].phy_layer->name,
++			      name) == 0)
++			return cnfg->phy_layers[i].frm_layer->id;
 +	}
 +	return 0;
 +}
 +
 +/*
-+ * Stuff received packets to associated sockets.
-+ * On error, returns non-zero and releases the skb.
++ * NOTE: What happens on destroy failure:
++ *	 1a) No response - Too early
++ *	      This will not happen because enumerate has already
++ *	      completed.
++ *	 1b) No response - FATAL
++ *	      Not handled, but this should be a CAIF PROTOCOL ERROR
++ *	      Modem error, response is really expected -  this
++ *	      case is not really handled.
++ *	 2) O/E-bit indicate error
++ *	      Ignored - this link is destroyed anyway.
++ *	 3) Not able to match on request
++ *	      Not handled, but this should be a CAIF PROTOCOL ERROR
++ *	 4) Link-Error - (no response)
++ *	      Not handled, but this should be a CAIF PROTOCOL ERROR
 + */
-+static int receive(struct sk_buff *skb, struct net_device *dev,
-+		   struct packet_type *pkttype, struct net_device *orig_dev)
++
++int cfcnfg_del_adapt_layer(struct cfcnfg *cnfg, struct cflayer *adap_layer)
 +{
-+	struct net *net;
-+	struct cfpkt *pkt;
-+	struct caif_device_entry *caifd;
-+	net = dev_net(dev);
-+	pkt = cfpkt_fromnative(CAIF_DIR_IN, skb);
-+	caifd = caif_get(dev);
-+	if (!caifd || !caifd->layer.up || !caifd->layer.up->ctrlcmd)
-+		return NET_RX_DROP;
++	u8 channel_id = 0;
++	int ret = 0;
++	struct cfcnfg_phyinfo *phyinfo = NULL;
++	u8 phyid = 0;
 +
-+	if (caifd->layer.up->receive(caifd->layer.up, pkt))
-+		return NET_RX_DROP;
++	caif_assert(adap_layer != NULL);
++	channel_id = adap_layer->id;
++	if (channel_id == 0) {
++		pr_err("CAIF: %s():adap_layer->id is 0\n", __func__);
++		ret = -ENOTCONN;
++		goto end;
++	}
 +
++	if (adap_layer->dn == NULL) {
++		pr_err("CAIF: %s():adap_layer->dn is NULL\n", __func__);
++		ret = -ENODEV;
++		goto end;
++	}
++
++	if (adap_layer->dn != NULL)
++		phyid = cfsrvl_getphyid(adap_layer->dn);
++
++	phyinfo = cfcnfg_get_phyinfo(cnfg, phyid);
++	if (phyinfo == NULL) {
++		pr_warning("CAIF: %s(): No interface to send disconnect to\n",
++			   __func__);
++		ret = -ENODEV;
++		goto end;
++	}
++
++	if (phyinfo->id != phyid
++		|| phyinfo->phy_layer->id != phyid
++		|| phyinfo->frm_layer->id != phyid) {
++
++		pr_err("CAIF: %s(): Inconsistency in phy registration\n",
++			__func__);
++		ret = -EINVAL;
++		goto end;
++	}
++
++	ret = cfctrl_linkdown_req(cnfg->ctrl, channel_id, adap_layer);
++
++end:
++	if (phyinfo != NULL && --phyinfo->phy_ref_count == 0 &&
++		phyinfo->phy_layer != NULL &&
++		phyinfo->phy_layer->modemcmd != NULL) {
++		phyinfo->phy_layer->modemcmd(phyinfo->phy_layer,
++					     _CAIF_MODEMCMD_PHYIF_USELESS);
++	}
++	return ret;
++
++}
++EXPORT_SYMBOL(cfcnfg_del_adapt_layer);
++
++static void cncfg_linkdestroy_rsp(struct cflayer *layer, u8 linkid,
++				  struct cflayer *client_layer)
++{
++	struct cfcnfg *cnfg = container_obj(layer);
++	struct cflayer *servl;
++
++	/*
++	 * 1) Remove service from the MUX layer. The MUX must
++	 *    guarante that no more payload sent "upwards" (receive)
++	 */
++	servl = cfmuxl_remove_uplayer(cnfg->mux, linkid);
++
++	if (servl == NULL) {
++		pr_err("CAIF: %s(): PROTOCOL ERROR "
++		       "- Error removing service_layer Linkid(%d)",
++			__func__, linkid);
++		return;
++	}
++	caif_assert(linkid == servl->id);
++
++	if (servl != client_layer && servl->up != client_layer) {
++		pr_err("CAIF: %s(): Error removing service_layer "
++		       "Linkid(%d) %p %p",
++			__func__, linkid, (void *) servl,
++			(void *) client_layer);
++		return;
++	}
++
++	/*
++	 * 2) DEINIT_RSP must guarantee that no more packets are transmitted
++	 *    from client (adap_layer) when it returns.
++	 */
++
++	if (servl->ctrlcmd == NULL) {
++		pr_err("CAIF: %s(): Error servl->ctrlcmd == NULL", __func__);
++		return;
++	}
++
++	servl->ctrlcmd(servl, CAIF_CTRLCMD_DEINIT_RSP, 0);
++
++	/* 3) It is now safe to destroy the service layer. */
++	cfservl_destroy(servl);
++}
++
++/*
++ * NOTE: What happens on linksetup failure:
++ *	 1a) No response - Too early
++ *	      This will not happen because enumerate is secured
++ *	      before using interface.
++ *	 1b) No response - FATAL
++ *	      Not handled, but this should be a CAIF PROTOCOL ERROR
++ *	      Modem error, response is really expected -  this case is
++ *	      not really handled.
++ *	 2) O/E-bit indicate error
++ *	      Handled in cnfg_reject_rsp
++ *	 3) Not able to match on request
++ *	      Not handled, but this should be a CAIF PROTOCOL ERROR
++ *	 4) Link-Error - (no response)
++ *	      Not handled, but this should be a CAIF PROTOCOL ERROR
++ */
++
++int
++cfcnfg_add_adaptation_layer(struct cfcnfg *cnfg,
++				struct cfctrl_link_param *param,
++				struct cflayer *adap_layer)
++{
++	struct cflayer *frml;
++	if (adap_layer == NULL) {
++		pr_err("CAIF: %s(): adap_layer is zero", __func__);
++		return -EINVAL;
++	}
++	if (adap_layer->receive == NULL) {
++		pr_err("CAIF: %s(): adap_layer->receive is NULL", __func__);
++		return -EINVAL;
++	}
++	if (adap_layer->ctrlcmd == NULL) {
++		pr_err("CAIF: %s(): adap_layer->ctrlcmd == NULL", __func__);
++		return -EINVAL;
++	}
++	frml = cnfg->phy_layers[param->phyid].frm_layer;
++	if (frml == NULL) {
++		pr_err("CAIF: %s(): Specified PHY type does not exist!",
++			__func__);
++		return -ENODEV;
++	}
++	caif_assert(param->phyid == cnfg->phy_layers[param->phyid].id);
++	caif_assert(cnfg->phy_layers[param->phyid].frm_layer->id ==
++		     param->phyid);
++	caif_assert(cnfg->phy_layers[param->phyid].phy_layer->id ==
++		     param->phyid);
++	/* FIXME: ENUMERATE INITIALLY WHEN ACTIVATING PHYSICAL INTERFACE */
++	cfctrl_enum_req(cnfg->ctrl, param->phyid);
++	cfctrl_linkup_request(cnfg->ctrl, param, adap_layer);
 +	return 0;
 +}
++EXPORT_SYMBOL(cfcnfg_add_adaptation_layer);
 +
-+static struct packet_type caif_packet_type __read_mostly = {
-+	.type = cpu_to_be16(ETH_P_CAIF),
-+	.func = receive,
-+};
-+
-+static void dev_flowctrl(struct net_device *dev, int on)
++static void cncfg_reject_rsp(struct cflayer *layer, u8 linkid,
++			     struct cflayer *adapt_layer)
 +{
-+	struct caif_device_entry *caifd = caif_get(dev);
-+	if (!caifd || !caifd->layer.up || !caifd->layer.up->ctrlcmd)
-+		return;
-+
-+	caifd->layer.up->ctrlcmd(caifd->layer.up,
-+				 on ?
-+				 _CAIF_CTRLCMD_PHYIF_FLOW_ON_IND :
-+				 _CAIF_CTRLCMD_PHYIF_FLOW_OFF_IND,
-+				 caifd->layer.id);
++	if (adapt_layer != NULL && adapt_layer->ctrlcmd != NULL)
++		adapt_layer->ctrlcmd(adapt_layer,
++				     CAIF_CTRLCMD_INIT_FAIL_RSP, 0);
 +}
 +
-+/* notify Caif of device events */
-+static int caif_device_notify(struct notifier_block *me, unsigned long what,
-+			      void *arg)
++static void
++cncfg_linkup_rsp(struct cflayer *layer, u8 linkid, enum cfctrl_srv serv,
++		 u8 phyid, struct cflayer *adapt_layer)
 +{
-+	struct net_device *dev = arg;
-+	struct caif_device_entry *caifd = NULL;
-+	struct caif_dev_common *caifdev;
-+	int res = -EINVAL;
-+	enum cfcnfg_phy_type phy_type;
++	struct cfcnfg *cnfg = container_obj(layer);
++	struct cflayer *servicel = NULL;
++	struct cfcnfg_phyinfo *phyinfo;
++	if (adapt_layer == NULL) {
++		pr_err("CAIF: %s(): PROTOCOL ERROR "
++			"- LinkUp Request/Response did not match\n", __func__);
++		return;
++	}
 +
-+	if (dev->type != ARPHRD_CAIF)
-+		return 0;
++	caif_assert(cnfg != NULL);
++	caif_assert(phyid != 0);
++	phyinfo = &cnfg->phy_layers[phyid];
++	caif_assert(phyinfo != NULL);
++	caif_assert(phyinfo->id == phyid);
++	caif_assert(phyinfo->phy_layer != NULL);
++	caif_assert(phyinfo->phy_layer->id == phyid);
 +
-+	switch (what) {
-+	case NETDEV_REGISTER:
-+		pr_info("CAIF: %s():register %s\n", __func__, dev->name);
-+		caifd = caif_device_alloc(dev);
-+		if (caifd == NULL)
-+			break;
-+		caifdev = netdev_priv(dev);
-+		caifdev->flowctrl = dev_flowctrl;
-+		atomic_set(&caifd->state, what);
-+		res = 0;
++	if (phyinfo != NULL &&
++	    phyinfo->phy_ref_count++ == 0 &&
++	    phyinfo->phy_layer != NULL &&
++	    phyinfo->phy_layer->modemcmd != NULL) {
++		caif_assert(phyinfo->phy_layer->id == phyid);
++		phyinfo->phy_layer->modemcmd(phyinfo->phy_layer,
++					     _CAIF_MODEMCMD_PHYIF_USEFULL);
++
++	}
++	adapt_layer->id = linkid;
++
++	switch (serv) {
++	case CFCTRL_SRV_VEI:
++		servicel = cfvei_create(linkid, &phyinfo->dev_info);
 +		break;
++	case CFCTRL_SRV_DATAGRAM:
++		servicel = cfdgml_create(linkid, &phyinfo->dev_info);
++		break;
++	case CFCTRL_SRV_RFM:
++		servicel = cfrfml_create(linkid, &phyinfo->dev_info);
++		break;
++	case CFCTRL_SRV_UTIL:
++		servicel = cfutill_create(linkid, &phyinfo->dev_info);
++		break;
++	case CFCTRL_SRV_VIDEO:
++		servicel = cfvidl_create(linkid, &phyinfo->dev_info);
++		break;
++	case CFCTRL_SRV_DBG:
++		servicel = cfdbgl_create(linkid, &phyinfo->dev_info);
++		break;
++	default:
++		pr_err("CAIF: %s(): Protocol error. "
++			"Link setup response - unknown channel type\n",
++			__func__);
++		return;
++	}
++	if (!servicel) {
++		pr_warning("CAIF: %s(): Out of memory\n", __func__);
++		return;
++	}
++	layer_set_dn(servicel, cnfg->mux);
++	cfmuxl_set_uplayer(cnfg->mux, servicel, linkid);
++	layer_set_up(servicel, adapt_layer);
++	layer_set_dn(adapt_layer, servicel);
++	servicel->ctrlcmd(servicel, CAIF_CTRLCMD_INIT_RSP, 0);
++}
 +
-+	case NETDEV_UP:
-+		pr_info("CAIF: %s(): up %s\n", __func__, dev->name);
-+		caifd = caif_get(dev);
-+		if (caifd == NULL)
-+			break;
-+		caifdev = netdev_priv(dev);
-+		if (atomic_read(&caifd->state) == NETDEV_UP) {
-+			pr_info("CAIF: %s():%s already up\n",
-+				__func__, dev->name);
++void
++cfcnfg_add_phy_layer(struct cfcnfg *cnfg, enum cfcnfg_phy_type phy_type,
++		     void *dev, struct cflayer *phy_layer, u16 *phyid,
++		     enum cfcnfg_phy_preference pref,
++		     bool fcs, bool stx)
++{
++	struct cflayer *frml;
++	struct cflayer *phy_driver = NULL;
++	int i;
++
++
++	if (cnfg->phy_layers[cnfg->last_phyid].frm_layer == NULL) {
++		*phyid = cnfg->last_phyid;
++
++		/* range: * 1..(MAX_PHY_LAYERS-1) */
++		cnfg->last_phyid =
++		    (cnfg->last_phyid % (MAX_PHY_LAYERS - 1)) + 1;
++	} else {
++		*phyid = 0;
++		for (i = 1; i < MAX_PHY_LAYERS; i++) {
++			if (cnfg->phy_layers[i].frm_layer == NULL) {
++				*phyid = i;
++				break;
++			}
++		}
++	}
++	if (*phyid == 0) {
++		pr_err("CAIF: %s(): No Available PHY ID\n", __func__);
++		return;
++	}
++
++	switch (phy_type) {
++	case CFPHYTYPE_FRAG:
++		phy_driver =
++		    cfserl_create(CFPHYTYPE_FRAG, *phyid, stx);
++		if (!phy_driver) {
++			pr_warning("CAIF: %s(): Out of memory\n", __func__);
++			return;
++		}
++
++		break;
++	case CFPHYTYPE_CAIF:
++		phy_driver = NULL;
++		break;
++	default:
++		pr_err("CAIF: %s(): %d", __func__, phy_type);
++		return;
++		break;
++	}
++
++	phy_layer->id = *phyid;
++	cnfg->phy_layers[*phyid].pref = pref;
++	cnfg->phy_layers[*phyid].id = *phyid;
++	cnfg->phy_layers[*phyid].dev_info.id = *phyid;
++	cnfg->phy_layers[*phyid].dev_info.dev = dev;
++	cnfg->phy_layers[*phyid].phy_layer = phy_layer;
++	cnfg->phy_layers[*phyid].phy_ref_count = 0;
++	phy_layer->type = phy_type;
++	frml = cffrml_create(*phyid, fcs);
++	if (!frml) {
++		pr_warning("CAIF: %s(): Out of memory\n", __func__);
++		return;
++	}
++	cnfg->phy_layers[*phyid].frm_layer = frml;
++	cfmuxl_set_dnlayer(cnfg->mux, frml, *phyid);
++	layer_set_up(frml, cnfg->mux);
++
++	if (phy_driver != NULL) {
++		phy_driver->id = *phyid;
++		layer_set_dn(frml, phy_driver);
++		layer_set_up(phy_driver, frml);
++		layer_set_dn(phy_driver, phy_layer);
++		layer_set_up(phy_layer, phy_driver);
++	} else {
++		layer_set_dn(frml, phy_layer);
++		layer_set_up(phy_layer, frml);
++	}
++}
++EXPORT_SYMBOL(cfcnfg_add_phy_layer);
++
++int cfcnfg_del_phy_layer(struct cfcnfg *cnfg, struct cflayer *phy_layer)
++{
++	struct cflayer *frml, *frml_dn;
++	u16 phyid;
++	phyid = phy_layer->id;
++	caif_assert(phyid == cnfg->phy_layers[phyid].id);
++	caif_assert(phy_layer == cnfg->phy_layers[phyid].phy_layer);
++	caif_assert(phy_layer->id == phyid);
++	caif_assert(cnfg->phy_layers[phyid].frm_layer->id == phyid);
++
++	memset(&cnfg->phy_layers[phy_layer->id], 0,
++	       sizeof(struct cfcnfg_phyinfo));
++	frml = cfmuxl_remove_dnlayer(cnfg->mux, phy_layer->id);
++	frml_dn = frml->dn;
++	cffrml_set_uplayer(frml, NULL);
++	cffrml_set_dnlayer(frml, NULL);
++	cffrml_destroy(frml);
++
++	if (phy_layer != frml_dn) {
++		layer_set_up(frml_dn, NULL);
++		layer_set_dn(frml_dn, NULL);
++		kfree(frml_dn);
++	}
++	layer_set_up(phy_layer, NULL);
++	return 0;
++}
++EXPORT_SYMBOL(cfcnfg_del_phy_layer);
+diff --git a/net/caif/cfpkt_skbuff.c b/net/caif/cfpkt_skbuff.c
+new file mode 100644
+index 0000000..fd05094
+--- /dev/null
++++ b/net/caif/cfpkt_skbuff.c
+@@ -0,0 +1,595 @@
++/*
++ * Copyright (C) ST-Ericsson AB 2010
++ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
++ * License terms: GNU General Public License (GPL) version 2
++ */
++
++#include <linux/string.h>
++#include <linux/skbuff.h>
++#include <linux/hardirq.h>
++#include <net/caif/cfpkt.h>
++
++#define PKT_PREFIX CAIF_NEEDED_HEADROOM
++#define PKT_POSTFIX CAIF_NEEDED_TAILROOM
++#define PKT_LEN_WHEN_EXTENDING 128
++#define PKT_ERROR(pkt, errmsg) do {	   \
++    cfpkt_priv(pkt)->erronous = true;	   \
++    skb_reset_tail_pointer(&pkt->skb);	   \
++    pr_warning("CAIF: " errmsg);\
++  } while (0)
++
++struct cfpktq {
++	struct sk_buff_head head;
++	atomic_t count;
++	spinlock_t lock;
++};
++
++/*
++ * net/caif/ is generic and does not
++ * understand SKB, so we do this typecast
++ */
++struct cfpkt {
++	struct sk_buff skb;
++};
++
++/* Private data inside SKB */
++struct cfpkt_priv_data {
++	struct dev_info dev_info;
++	bool erronous;
++};
++
++inline struct cfpkt_priv_data *cfpkt_priv(struct cfpkt *pkt)
++{
++	return (struct cfpkt_priv_data *) pkt->skb.cb;
++}
++
++inline bool is_erronous(struct cfpkt *pkt)
++{
++	return cfpkt_priv(pkt)->erronous;
++}
++
++inline struct sk_buff *pkt_to_skb(struct cfpkt *pkt)
++{
++	return &pkt->skb;
++}
++
++inline struct cfpkt *skb_to_pkt(struct sk_buff *skb)
++{
++	return (struct cfpkt *) skb;
++}
++
++atomic_t cfpkt_packet_count;
++EXPORT_SYMBOL(cfpkt_packet_count);
++
++struct cfpkt *cfpkt_fromnative(enum caif_direction dir, void *nativepkt)
++{
++	struct cfpkt *pkt = skb_to_pkt(nativepkt);
++	cfpkt_priv(pkt)->erronous = false;
++	atomic_inc(&cfpkt_packet_count);
++	return pkt;
++}
++EXPORT_SYMBOL(cfpkt_fromnative);
++
++void *cfpkt_tonative(struct cfpkt *pkt)
++{
++	return (void *) pkt;
++}
++EXPORT_SYMBOL(cfpkt_tonative);
++
++struct cfpkt *cfpkt_create_pfx(u16 len, u16 pfx)
++{
++	struct sk_buff *skb;
++
++	if (likely(in_interrupt()))
++		skb = alloc_skb(len + pfx, GFP_ATOMIC);
++	else
++		skb = alloc_skb(len + pfx, GFP_KERNEL);
++
++	if (unlikely(skb == NULL))
++		return NULL;
++
++	skb_reserve(skb, pfx);
++	atomic_inc(&cfpkt_packet_count);
++	return skb_to_pkt(skb);
++}
++
++inline struct cfpkt *cfpkt_create(u16 len)
++{
++	return cfpkt_create_pfx(len + PKT_POSTFIX, PKT_PREFIX);
++}
++EXPORT_SYMBOL(cfpkt_create);
++
++void cfpkt_destroy(struct cfpkt *pkt)
++{
++	struct sk_buff *skb = pkt_to_skb(pkt);
++	atomic_dec(&cfpkt_packet_count);
++	caif_assert(atomic_read(&cfpkt_packet_count) >= 0);
++	kfree_skb(skb);
++}
++EXPORT_SYMBOL(cfpkt_destroy);
++
++inline bool cfpkt_more(struct cfpkt *pkt)
++{
++	struct sk_buff *skb = pkt_to_skb(pkt);
++	return skb->len > 0;
++}
++EXPORT_SYMBOL(cfpkt_more);
++
++int cfpkt_peek_head(struct cfpkt *pkt, void *data, u16 len)
++{
++	struct sk_buff *skb = pkt_to_skb(pkt);
++	if (skb->tail - skb->data >= len) {
++		memcpy(data, skb->data, len);
++		return 0;
++	}
++	return !cfpkt_extr_head(pkt, data, len) &&
++	    !cfpkt_add_head(pkt, data, len);
++}
++EXPORT_SYMBOL(cfpkt_peek_head);
++
++int cfpkt_extr_head(struct cfpkt *pkt, void *data, u16 len)
++{
++	struct sk_buff *skb = pkt_to_skb(pkt);
++	u8 *from;
++	if (unlikely(is_erronous(pkt)))
++		return -EPROTO;
++
++	if (unlikely(len > skb->len)) {
++		PKT_ERROR(pkt, "cfpkt_extr_head read beyond end of packet\n");
++		return -EPROTO;
++	}
++
++	if (unlikely(len > skb_headlen(skb))) {
++		if (unlikely(skb_linearize(skb) != 0)) {
++			PKT_ERROR(pkt, "cfpkt_extr_head linearize failed\n");
++			return -EPROTO;
++		}
++	}
++	from = skb_pull(skb, len);
++	from -= len;
++	memcpy(data, from, len);
++	return 0;
++}
++EXPORT_SYMBOL(cfpkt_extr_head);
++
++int cfpkt_extr_trail(struct cfpkt *pkt, void *dta, u16 len)
++{
++	struct sk_buff *skb = pkt_to_skb(pkt);
++	u8 *data = dta;
++	u8 *from;
++	if (unlikely(is_erronous(pkt)))
++		return -EPROTO;
++
++	if (unlikely(skb_linearize(skb) != 0)) {
++		PKT_ERROR(pkt, "cfpkt_extr_trail linearize failed\n");
++		return -EPROTO;
++	}
++	if (unlikely(skb->data + len > skb_tail_pointer(skb))) {
++		PKT_ERROR(pkt, "cfpkt_extr_trail read beyond end of packet\n");
++		return -EPROTO;
++	}
++	from = skb_tail_pointer(skb) - len;
++	skb_trim(skb, skb->len - len);
++	memcpy(data, from, len);
++	return 0;
++}
++EXPORT_SYMBOL(cfpkt_extr_trail);
++
++int cfpkt_pad_trail(struct cfpkt *pkt, u16 len)
++{
++	return cfpkt_add_body(pkt, NULL, len);
++}
++EXPORT_SYMBOL(cfpkt_pad_trail);
++
++int cfpkt_add_body(struct cfpkt *pkt, const void *data, u16 len)
++{
++	struct sk_buff *skb = pkt_to_skb(pkt);
++	struct sk_buff *lastskb;
++	u8 *to;
++	u16 addlen = 0;
++
++
++	if (unlikely(is_erronous(pkt)))
++		return -EPROTO;
++
++	lastskb = skb;
++
++	/* Check whether we need to add space at the tail */
++	if (unlikely(skb_tailroom(skb) < len)) {
++		if (likely(len < PKT_LEN_WHEN_EXTENDING))
++			addlen = PKT_LEN_WHEN_EXTENDING;
++		else
++			addlen = len;
++	}
++
++	/* Check whether we need to change the SKB before writing to the tail */
++	if (unlikely((addlen > 0) || skb_cloned(skb) || skb_shared(skb))) {
++
++		/* Make sure data is writable */
++		if (unlikely(skb_cow_data(skb, addlen, &lastskb) < 0)) {
++			PKT_ERROR(pkt, "cfpkt_add_body: cow failed\n");
++			return -EPROTO;
++		}
++		/*
++		 * Is the SKB non-linear after skb_cow_data()? If so, we are
++		 * going to add data to the last SKB, so we need to adjust
++		 * lengths of the top SKB.
++		 */
++		if (lastskb != skb) {
++			pr_warning("CAIF: %s(): Packet is non-linear\n",
++				   __func__);
++			skb->len += len;
++			skb->data_len += len;
++		}
++	}
++
++	/* All set to put the last SKB and optionally write data there. */
++	to = skb_put(lastskb, len);
++	if (likely(data))
++		memcpy(to, data, len);
++	return 0;
++}
++EXPORT_SYMBOL(cfpkt_add_body);
++
++inline int cfpkt_addbdy(struct cfpkt *pkt, u8 data)
++{
++	return cfpkt_add_body(pkt, &data, 1);
++}
++EXPORT_SYMBOL(cfpkt_addbdy);
++
++int cfpkt_add_head(struct cfpkt *pkt, const void *data2, u16 len)
++{
++	struct sk_buff *skb = pkt_to_skb(pkt);
++	struct sk_buff *lastskb;
++	u8 *to;
++	const u8 *data = data2;
++	if (unlikely(is_erronous(pkt)))
++		return -EPROTO;
++	if (unlikely(skb_headroom(skb) < len)) {
++		PKT_ERROR(pkt, "cfpkt_add_head: no headroom\n");
++		return -EPROTO;
++	}
++
++	/* Make sure data is writable */
++	if (unlikely(skb_cow_data(skb, 0, &lastskb) < 0)) {
++		PKT_ERROR(pkt, "cfpkt_add_head: cow failed\n");
++		return -EPROTO;
++	}
++
++	to = skb_push(skb, len);
++	memcpy(to, data, len);
++	return 0;
++}
++EXPORT_SYMBOL(cfpkt_add_head);
++
++inline int cfpkt_add_trail(struct cfpkt *pkt, const void *data, u16 len)
++{
++	return cfpkt_add_body(pkt, data, len);
++}
++EXPORT_SYMBOL(cfpkt_add_trail);
++
++inline u16 cfpkt_getlen(struct cfpkt *pkt)
++{
++	struct sk_buff *skb = pkt_to_skb(pkt);
++	return skb->len;
++}
++EXPORT_SYMBOL(cfpkt_getlen);
++
++inline u16 cfpkt_iterate(struct cfpkt *pkt,
++			    u16 (*iter_func)(u16, void *, __u16),
++			    u16 data)
++{
++	/*
++	 * Don't care about the performance hit of linearizing,
++	 * Checksum should not be used on high-speed interfaces anyway.
++	 */
++	if (unlikely(is_erronous(pkt)))
++		return -EPROTO;
++	if (unlikely(skb_linearize(&pkt->skb) != 0)) {
++		PKT_ERROR(pkt, "cfpkt_iterate: linearize failed\n");
++		return -EPROTO;
++	}
++	return iter_func(data, pkt->skb.data, cfpkt_getlen(pkt));
++}
++EXPORT_SYMBOL(cfpkt_iterate);
++
++int cfpkt_setlen(struct cfpkt *pkt, u16 len)
++{
++	struct sk_buff *skb = pkt_to_skb(pkt);
++
++
++	if (unlikely(is_erronous(pkt)))
++		return -EPROTO;
++
++	if (likely(len <= skb->len)) {
++		if (unlikely(skb->data_len))
++			___pskb_trim(skb, len);
++		else
++			skb_trim(skb, len);
++
++			return cfpkt_getlen(pkt);
++	}
++
++	/* Need to expand SKB */
++	if (unlikely(!cfpkt_pad_trail(pkt, len - skb->len)))
++		PKT_ERROR(pkt, "cfpkt_setlen: skb_pad_trail failed\n");
++
++	return cfpkt_getlen(pkt);
++}
++EXPORT_SYMBOL(cfpkt_setlen);
++
++struct cfpkt *cfpkt_create_uplink(const unsigned char *data, unsigned int len)
++{
++	struct cfpkt *pkt = cfpkt_create_pfx(len + PKT_POSTFIX, PKT_PREFIX);
++	if (unlikely(data != NULL))
++		cfpkt_add_body(pkt, data, len);
++	return pkt;
++}
++EXPORT_SYMBOL(cfpkt_create_uplink);
++
++
++struct cfpkt *cfpkt_append(struct cfpkt *dstpkt,
++			     struct cfpkt *addpkt,
++			     u16 expectlen)
++{
++	struct sk_buff *dst = pkt_to_skb(dstpkt);
++	struct sk_buff *add = pkt_to_skb(addpkt);
++	u16 addlen = add->tail - add->data;
++	u16 neededtailspace;
++	struct sk_buff *tmp;
++	u16 dstlen;
++	u16 createlen;
++	if (unlikely(is_erronous(dstpkt) || is_erronous(addpkt))) {
++		cfpkt_destroy(addpkt);
++		return dstpkt;
++	}
++	if (expectlen > addlen)
++		neededtailspace = expectlen;
++	else
++		neededtailspace = addlen;
++
++	if (dst->tail + neededtailspace > dst->end) {
++		/* Create a dumplicate of 'dst' with more tail space */
++		dstlen = dst->tail - dst->data;
++		createlen = dstlen + neededtailspace;
++		tmp = pkt_to_skb(
++			cfpkt_create(createlen + PKT_PREFIX + PKT_POSTFIX));
++		if (!tmp)
++			return NULL;
++		tmp->tail = tmp->data + dstlen;
++		tmp->len = dstlen;
++		memcpy(tmp->data, dst->data, dstlen);
++		cfpkt_destroy(dstpkt);
++		dst = tmp;
++	}
++	memcpy(dst->tail, add->data, add->tail - add->data);
++	cfpkt_destroy(addpkt);
++	dst->tail += addlen;
++	dst->len += addlen;
++	return skb_to_pkt(dst);
++}
++EXPORT_SYMBOL(cfpkt_append);
++
++struct cfpkt *cfpkt_split(struct cfpkt *pkt, u16 pos)
++{
++	struct sk_buff *skb2;
++	struct sk_buff *skb = pkt_to_skb(pkt);
++	u8 *split = skb->data + pos;
++	u16 len2nd = skb->tail - split;
++
++	if (unlikely(is_erronous(pkt)))
++		return NULL;
++
++	if (skb->data + pos > skb->tail) {
++		PKT_ERROR(pkt,
++			  "cfpkt_split: trying to split beyond end of packet");
++		return NULL;
++	}
++
++	/* Create a new packet for the second part of the data */
++	skb2 = pkt_to_skb(
++		cfpkt_create_pfx(len2nd + PKT_PREFIX + PKT_POSTFIX,
++				 PKT_PREFIX));
++
++	if (skb2 == NULL)
++		return NULL;
++
++	/* Reduce the length of the original packet */
++	skb->tail = split;
++	skb->len = pos;
++
++	memcpy(skb2->data, split, len2nd);
++	skb2->tail += len2nd;
++	skb2->len += len2nd;
++	return skb_to_pkt(skb2);
++}
++EXPORT_SYMBOL(cfpkt_split);
++
++
++char *cfpkt_log_pkt(struct cfpkt *pkt, char *buf, int buflen)
++{
++	struct sk_buff *skb = pkt_to_skb(pkt);
++	char *p = buf;
++	int i;
++
++	/*
++	 * Sanity check buffer length, it needs to be at least as large as
++	 * the header info: ~=50+ bytes
++	 */
++	if (buflen < 50)
++		return NULL;
++
++	snprintf(buf, buflen, "%s: pkt:%p len:%d(%d+%d) {%d,%d} data: [",
++		is_erronous(pkt) ? "ERRONOUS-SKB" :
++		 (skb->data_len != 0 ? "COMPLEX-SKB" : "SKB"),
++		skb,
++		skb->len,
++		skb->tail - skb->data,
++		skb->data_len,
++		skb->data - skb->head, skb->tail - skb->head);
++	p = buf + strlen(buf);
++
++	for (i = 0; i < skb->tail - skb->data && i < 300; i++) {
++		if (p > buf + buflen - 10) {
++			sprintf(p, "...");
++			p = buf + strlen(buf);
 +			break;
 +		}
-+		atomic_set(&caifd->state, what);
-+		caifd->layer.transmit = transmit;
-+		caifd->layer.modemcmd = modemcmd;
-+
-+		if (caifdev->use_frag)
-+			phy_type = CFPHYTYPE_FRAG;
-+		else
-+			phy_type = CFPHYTYPE_CAIF;
-+
-+		cfcnfg_add_phy_layer(get_caif_conf(),
-+				     phy_type,
-+				     dev,
-+				     &caifd->layer,
-+				     &caifd->phyid,
-+				     caifdev->link_select,
-+				     caifdev->use_fcs,
-+				     caifdev->use_stx);
-+		strncpy(caifd->layer.name, dev->name,
-+			sizeof(caifd->layer.name) - 1);
-+		caifd->layer.name[sizeof(caifd->layer.name) - 1] = 0;
-+		break;
-+
-+	case NETDEV_GOING_DOWN:
-+		caifd = caif_get(dev);
-+		if (caifd == NULL)
-+			break;
-+		pr_info("CAIF: %s():going down %s\n", __func__, dev->name);
-+		atomic_set(&caifd->state, what);
-+		if (!caifd || !caifd->layer.up || !caifd->layer.up->ctrlcmd)
-+			return -EINVAL;
-+		caifd->layer.up->ctrlcmd(caifd->layer.up,
-+					 _CAIF_CTRLCMD_PHYIF_DOWN_IND,
-+					 caifd->layer.id);
-+		res = wait_event_interruptible_timeout(caifd->event,
-+					atomic_read(&caifd->in_use) == 0,
-+					TIMEOUT);
-+		break;
-+
-+	case NETDEV_DOWN:
-+		caifd = caif_get(dev);
-+		if (caifd == NULL)
-+			break;
-+		pr_info("CAIF: %s(): down %s\n", __func__, dev->name);
-+		if (atomic_read(&caifd->in_use))
-+			pr_warning("CAIF: %s(): "
-+				   "Unregistering an active CAIF device: %s\n",
-+				   __func__, dev->name);
-+		cfcnfg_del_phy_layer(get_caif_conf(), &caifd->layer);
-+		atomic_set(&caifd->state, what);
-+		break;
-+
-+	case NETDEV_UNREGISTER:
-+		caifd = caif_get(dev);
-+		pr_info("CAIF: %s(): unregister %s\n", __func__, dev->name);
-+		atomic_set(&caifd->state, what);
-+		caif_device_destroy(dev);
-+		break;
++		sprintf(p, "%02x,", skb->data[i]);
++		p = buf + strlen(buf);
 +	}
-+	return 0;
++	sprintf(p, "]\n");
++	return buf;
 +}
++EXPORT_SYMBOL(cfpkt_log_pkt);
 +
-+static struct notifier_block caif_device_notifier = {
-+	.notifier_call = caif_device_notify,
-+	.priority = 0,
-+};
-+
-+
-+struct cfcnfg *get_caif_conf(void)
++int cfpkt_raw_append(struct cfpkt *pkt, void **buf, unsigned int buflen)
 +{
-+	return cfg;
-+}
-+EXPORT_SYMBOL(get_caif_conf);
++	struct sk_buff *skb = pkt_to_skb(pkt);
++	struct sk_buff *lastskb;
 +
-+int caif_connect_client(struct caif_connect_request *conn_req,
-+			   struct cflayer *client_layer)
-+{
-+	struct cfctrl_link_param param;
-+	if (connect_req_to_link_param(get_caif_conf(), conn_req, &param) == 0)
-+		/* Hook up the adaptation layer. */
-+		return cfcnfg_add_adaptation_layer(get_caif_conf(),
-+						&param, client_layer);
-+
-+	return -EINVAL;
-+
-+	caif_assert(0);
-+}
-+EXPORT_SYMBOL(caif_connect_client);
-+
-+int caif_disconnect_client(struct cflayer *adap_layer)
-+{
-+	return cfcnfg_del_adapt_layer(get_caif_conf(), adap_layer);
-+}
-+EXPORT_SYMBOL(caif_disconnect_client);
-+
-+/* Per-namespace Caif devices handling */
-+static int caif_init_net(struct net *net)
-+{
-+	struct caif_net *caifn = net_generic(net, caif_net_id);
-+	INIT_LIST_HEAD(&caifn->caifdevs.list);
-+	spin_lock_init(&caifn->caifdevs.lock);
-+	return 0;
-+}
-+
-+static void caif_exit_net(struct net *net)
-+{
-+	struct net_device *dev;
-+	int res;
-+	rtnl_lock();
-+	for_each_netdev(net, dev) {
-+		if (dev->type != ARPHRD_CAIF)
-+			continue;
-+		res = dev_close(dev);
-+		caif_device_destroy(dev);
++	caif_assert(buf != NULL);
++	if (unlikely(is_erronous(pkt)))
++		return -EPROTO;
++	/* Make sure SKB is writable */
++	if (unlikely(skb_cow_data(skb, 0, &lastskb) < 0)) {
++		PKT_ERROR(pkt, "cfpkt_raw_append: skb_cow_data failed\n");
++		return -EPROTO;
 +	}
-+	rtnl_unlock();
-+}
 +
-+static struct pernet_operations caif_net_ops = {
-+	.init = caif_init_net,
-+	.exit = caif_exit_net,
-+	.id   = &caif_net_id,
-+	.size = sizeof(struct caif_net),
-+};
-+
-+/* Initialize Caif devices list */
-+int __init caif_device_init(void)
-+{
-+	int result;
-+	cfg = cfcnfg_create();
-+	if (!cfg) {
-+		pr_warning("CAIF: %s(): can't create cfcnfg.\n", __func__);
-+		goto err_cfcnfg_create_failed;
++	if (unlikely(skb_linearize(skb) != 0)) {
++		PKT_ERROR(pkt, "cfpkt_raw_append: linearize failed\n");
++		return -EPROTO;
 +	}
-+	result = register_pernet_device(&caif_net_ops);
 +
-+	if (result) {
-+		kfree(cfg);
-+		cfg = NULL;
-+		return result;
++	if (unlikely(skb_tailroom(skb) < buflen)) {
++		PKT_ERROR(pkt, "cfpkt_raw_append: buffer too short - failed\n");
++		return -EPROTO;
 +	}
-+	dev_add_pack(&caif_packet_type);
-+	register_netdevice_notifier(&caif_device_notifier);
 +
-+	return result;
-+err_cfcnfg_create_failed:
-+	return -ENODEV;
++	*buf = skb_put(skb, buflen);
++	return 1;
 +}
++EXPORT_SYMBOL(cfpkt_raw_append);
 +
-+void __exit caif_device_exit(void)
++int cfpkt_raw_extract(struct cfpkt *pkt, void **buf, unsigned int buflen)
 +{
-+	dev_remove_pack(&caif_packet_type);
-+	unregister_pernet_device(&caif_net_ops);
-+	unregister_netdevice_notifier(&caif_device_notifier);
-+	cfcnfg_remove(cfg);
-+}
++	struct sk_buff *skb = pkt_to_skb(pkt);
 +
-+module_init(caif_device_init);
-+module_exit(caif_device_exit);
++	caif_assert(buf != NULL);
++	if (unlikely(is_erronous(pkt)))
++		return -EPROTO;
++
++	if (unlikely(buflen > skb->len)) {
++		PKT_ERROR(pkt, "cfpkt_raw_extract: buflen too large "
++				"- failed\n");
++		return -EPROTO;
++	}
++
++	if (unlikely(buflen > skb_headlen(skb))) {
++		if (unlikely(skb_linearize(skb) != 0)) {
++			PKT_ERROR(pkt, "cfpkt_raw_extract: linearize failed\n");
++			return -EPROTO;
++		}
++	}
++
++	*buf = skb->data;
++	skb_pull(skb, buflen);
++
++	return 1;
++}
++EXPORT_SYMBOL(cfpkt_raw_extract);
++
++inline bool cfpkt_erroneous(struct cfpkt *pkt)
++{
++	return cfpkt_priv(pkt)->erronous;
++}
++EXPORT_SYMBOL(cfpkt_erroneous);
++
++struct cfpkt *cfpkt_create_pkt(enum caif_direction dir,
++			  const unsigned char *data, unsigned int len)
++{
++	struct cfpkt *pkt;
++	if (dir == CAIF_DIR_OUT)
++		pkt = cfpkt_create_pfx(len + PKT_POSTFIX, PKT_PREFIX);
++	else
++		pkt = cfpkt_create_pfx(len, 0);
++	if (unlikely(!pkt))
++		return NULL;
++	if (unlikely(data))
++		cfpkt_add_body(pkt, data, len);
++	cfpkt_priv(pkt)->erronous = false;
++	return pkt;
++}
++EXPORT_SYMBOL(cfpkt_create_pkt);
++
++struct cfpktq *cfpktq_create()
++{
++	struct cfpktq *q = kmalloc(sizeof(struct cfpktq), GFP_ATOMIC);
++	if (!q)
++		return NULL;
++	skb_queue_head_init(&q->head);
++	atomic_set(&q->count, 0);
++	spin_lock_init(&q->lock);
++	return q;
++}
++EXPORT_SYMBOL(cfpktq_create);
++
++void cfpkt_queue(struct cfpktq *pktq, struct cfpkt *pkt, unsigned short prio)
++{
++	atomic_inc(&pktq->count);
++	spin_lock(&pktq->lock);
++	skb_queue_tail(&pktq->head, pkt_to_skb(pkt));
++	spin_unlock(&pktq->lock);
++
++}
++EXPORT_SYMBOL(cfpkt_queue);
++
++struct cfpkt *cfpkt_qpeek(struct cfpktq *pktq)
++{
++	struct cfpkt *tmp;
++	spin_lock(&pktq->lock);
++	tmp = skb_to_pkt(skb_peek(&pktq->head));
++	spin_unlock(&pktq->lock);
++	return tmp;
++}
++EXPORT_SYMBOL(cfpkt_qpeek);
++
++struct cfpkt *cfpkt_dequeue(struct cfpktq *pktq)
++{
++	struct cfpkt *pkt;
++	spin_lock(&pktq->lock);
++	pkt = skb_to_pkt(skb_dequeue(&pktq->head));
++	if (pkt) {
++		atomic_dec(&pktq->count);
++		caif_assert(atomic_read(&pktq->count) >= 0);
++	}
++	spin_unlock(&pktq->lock);
++	return pkt;
++}
++EXPORT_SYMBOL(cfpkt_dequeue);
++
++int cfpkt_qcount(struct cfpktq *pktq)
++{
++	return atomic_read(&pktq->count);
++}
++EXPORT_SYMBOL(cfpkt_qcount);
++
++struct cfpkt *cfpkt_clone_release(struct cfpkt *pkt)
++{
++	struct cfpkt *clone;
++	clone  = skb_to_pkt(skb_clone(pkt_to_skb(pkt), GFP_ATOMIC));
++	/* Free original packet. */
++	cfpkt_destroy(pkt);
++	if (!clone)
++		return NULL;
++	atomic_inc(&cfpkt_packet_count);
++	return clone;
++}
++EXPORT_SYMBOL(cfpkt_clone_release);
++
++struct caif_payload_info *cfpkt_info(struct cfpkt *pkt)
++{
++	return (struct caif_payload_info *)&pkt_to_skb(pkt)->cb;
++}
++EXPORT_SYMBOL(cfpkt_info);
 -- 
 1.6.3.3
 
