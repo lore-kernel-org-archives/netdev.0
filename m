@@ -1,48 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/7] cxgb4: driver submission V4
-Date: Sun, 28 Feb 2010 18:59:47 -0800 (PST)
-Message-ID: <20100228.185947.88334097.davem@davemloft.net>
-References: <1267373385-1665-1-git-send-email-dm@chelsio.com>
-	<20100228.183000.161196735.davem@davemloft.net>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: Re: [RFC PATCH] accounting for socket backlog
+Date: Mon, 01 Mar 2010 11:03:24 +0800
+Message-ID: <1267412604.23196.53.camel@debian>
+References: <1267067593.16986.1583.camel@debian>
+	 <1267097080.2822.14.camel@edumazet-laptop>
+	 <1267151683.16986.1646.camel@debian>
+	 <1267189945.2822.1572.camel@edumazet-laptop>
+	 <1267409827.23196.44.camel@debian>
+	 <1267410585.9082.115.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dm@chelsio.com
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Shi, Alex" <alex.shi@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36828
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752363Ab0CAC73 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 21:59:29 -0500
-In-Reply-To: <20100228.183000.161196735.davem@davemloft.net>
+Received: from mga02.intel.com ([134.134.136.20]:53952 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753891Ab0CADBr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Feb 2010 22:01:47 -0500
+In-Reply-To: <1267410585.9082.115.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Sun, 28 Feb 2010 18:30:00 -0800 (PST)
-
-> From: Dimitris Michailidis <dm@chelsio.com>
-> Date: Sun, 28 Feb 2010 08:09:38 -0800
+On Mon, 2010-03-01 at 10:29 +0800, Eric Dumazet wrote:
+> You focus on the case you Intel guys discovered the flaw, using
+> loopback interface. I am concerned with a DOS situation, when some bad
+> guys on your LAN sends a flood on your machine, using a real 10Gb NIC.
+> I was concerned by two things :
 > 
->> 
->> This is V4 of the cxgb4 patches, which is V3 with need_skb_unmap removed.
+> - One process being stuck forever in the __release_sock(), basically
+> stopping an application from performing progress. This is a DOS
+> problem.
+> Our kernel is potentially affected. We probably should do something to
+> avoid this problem. But I am _not_ saying this should be done by your
+> patch, it is probably possible to address it in an independant patch.
+
+Agreed. Unless you or someone else provides a better idea solves them
+both, I'd only fix one problem at a time.
+
+> - One process being stuck in __release_sock() and not yield to other
+> processes. This is not the case since we call the
+> cond_resched_sofirq()
+> function that permits other high priority task to get the CPU.
 > 
-> Applied.
+> 
+> One more point :
+> 
+> If you remember my previous mail, I suggested cleaning the len field
+> in
+> __release_sock(). This way, you can provide a first patch, protocol
+> agnostic, then provide further patch for UDP V4, another patch for UDP
+> V6, etc... to have a clean path and make the resolution of the bugs
+> more
+> self explaining and not as a whole and big patch.
 
-Nevermind, reverted.
+This is my original plan. But davem just mentioned we have to prevent
+from maliciously send frames, that means all protocols using backlog.
+That makes me consider if I should put the check to the generic path.
 
-You're not build testing your changes either:
+Thanks,
+-yi
 
-drivers/net/cxgb4/cxgb4_main.c: In function 'cxgb_netpoll':
-drivers/net/cxgb4/cxgb4_main.c:3470: warning: pointer type mismatch in conditional expression
-drivers/net/cxgb4/cxgb4_main.c:3470: warning: passing argument 1 of 't4_intr_handler(adap)' makes integer from pointer without a cast
-drivers/net/cxgb4/cxgb4_main.c:3470: note: expected 'int' but argument is of type 'void *'
-drivers/net/cxgb4/cxgb4_main.c:3470: error: too few arguments to function 't4_intr_handler(adap)'
-make[3]: *** [drivers/net/cxgb4/cxgb4_main.o] Error 1
-make[3]: *** Waiting for unfinished jobs....
-
-You know, I really can't believe people not only bomb me with all of
-this last minute networking crap, but on top of it they are also doing
-so with such poorly tested changes.
-
-Stuff that doesn't even friggin' build!
