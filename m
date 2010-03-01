@@ -1,68 +1,33 @@
-From: Kenan Kalajdzic <kenan@unix.ba>
-Subject: [RFC][PATCH] af_unix: Add peer inode to /proc/net/unix
-Date: Mon, 1 Mar 2010 05:52:07 +0100
-Message-ID: <20100301045206.GB496@home.unix.ba>
+From: "Leslie Rhorer" <lrhorer@satx.rr.com>
+Subject: (unknown)
+Date: Sun, 28 Feb 2010 23:19:59 -0600
+Message-ID: <96.B0.23353.08E4B8B4@cdptpa-omtalb.mail.rr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-mail-360.bluehost.com ([66.147.249.254]:51010 "HELO
-	outbound-mail-360.bluehost.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750717Ab0CAFBl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Mar 2010 00:01:41 -0500
-Received: from [89.146.189.194] (helo=home.unix.ba)
-	by box598.bluehost.com with esmtpsa (TLSv1:AES256-SHA:256)
-	(Exim 4.69)
-	(envelope-from <kenan@unix.ba>)
-	id 1Nlxel-00049f-T3
-	for netdev@vger.kernel.org; Sun, 28 Feb 2010 21:55:01 -0700
-Content-Disposition: inline
+Received: from cdptpa-omtalb.mail.rr.com ([75.180.132.121]:46644 "EHLO
+	cdptpa-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750730Ab0CAFUD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Mar 2010 00:20:03 -0500
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recently, I had a problem identifying local X-clients on a desktop system from 
-within a userspace application.  So, I thought it may be a good idea to add the 
-peer inode field to /proc/net/unix.
+	I was doing some ping testing today, and I ran across some test in
+ping's output I have never noticed before.  Several of the responses
+returned by `ping -q -c 50 -i 12 xxxxx` had lines like the following:
 
-Instead of adding a new column to /proc/net/unix (which breaks important 
-userspace programs, including 'netstat' and 'lsof'), we can make use of the 
-fact that most client sockets (including these of X-clients) and anonymous 
-sockets have an empty path field in /proc/net/unix, which can be used for 
-specifying the peer inode.  In order to differentiate between a regular path 
-and an entry which contains the inode number of the peer socket, I chose to 
-simply add the 'peer=' prefix to the peer inode number.
+rtt min/avg/max/mdev = 501.663/12212.524/60863.587/15003.409 ms, pipe 6
 
-Signed-off-by: Kenan Kalajdzic <kenan@unix.ba>
----
- net/unix/af_unix.c |    9 ++++++++-
- 1 files changed, 8 insertions(+), 1 deletions(-)
+	I searched the web using Google, and I came up with several queries
+concerning a response of "pipe n", but none of them were ever answered
+specifically.  One did mention something about pinging across a VPN
+connection, and I was indeed pinging across an openvpn connection, if that
+has any relevance.
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index f255119..e778428 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2157,7 +2157,7 @@ static int unix_seq_show(struct seq_file *seq, void *v)
- 		seq_puts(seq, "Num       RefCount Protocol Flags    Type St "
- 			 "Inode Path\n");
- 	else {
--		struct sock *s = v;
-+		struct sock *s = v, *peer;
- 		struct unix_sock *u = unix_sk(s);
- 		unix_state_lock(s);
- 
-@@ -2186,6 +2186,13 @@ static int unix_seq_show(struct seq_file *seq, void *v)
- 			}
- 			for ( ; i < len; i++)
- 				seq_putc(seq, u->addr->name->sun_path[i]);
-+		} else {
-+			peer = unix_peer(s);
-+			if (peer) {
-+				unix_state_lock(peer);
-+				seq_printf(seq, " peer=%lu", sock_i_ino(peer));
-+				unix_state_unlock(peer);
-+			}
- 		}
- 		unix_state_unlock(s);
- 		seq_putc(seq, '\n');
--- 
-1.6.4
+	Please respond e-mail direct, if you have an answer.  I haven't
+joined the mail list just to get an answer to this one minor question.
+
