@@ -1,37 +1,27 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: [RFC PATCH] accounting for socket backlog
-Date: Mon, 01 Mar 2010 10:17:07 +0800
-Message-ID: <1267409827.23196.44.camel@debian>
-References: <1267067593.16986.1583.camel@debian>
-	 <1267097080.2822.14.camel@edumazet-laptop>
-	 <1267151683.16986.1646.camel@debian>
-	 <1267189945.2822.1572.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6 v5 00/12] net-caif: introducing CAIF
+ protocol stack
+Date: Sun, 28 Feb 2010 18:22:53 -0800 (PST)
+Message-ID: <20100228.182253.35341423.davem@davemloft.net>
+References: <1267409378-2082-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Shi, Alex" <alex.shi@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, marcel@holtmann.org,
+	daniel.martensson@stericsson.com, kaber@trash.net,
+	stefano.babic@babic.homelinux.org, randy.dunlap@oracle.com
+To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:51218 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753186Ab0CACPa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Feb 2010 21:15:30 -0500
-In-Reply-To: <1267189945.2822.1572.camel@edumazet-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57657
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751990Ab0CACWg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 21:22:36 -0500
+In-Reply-To: <1267409378-2082-1-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-02-26 at 21:12 +0800, Eric Dumazet wrote:
-> Well, if you have one processor, and a process doesnt want to yield
-> the cpu (apart of sofirq of course that is filling the backlog while
-> your process tries to empty it), your machine is dead. This is
-> critical too :) 
 
-If you only have one CPU, this won't happen. Because while the receiver
-is busy processing the backlog, no senders will have the chance to be
-scheduled to Tx more. And with the limited backlog, it won't take long
-for the receiver to finish processing all the frames in the backlog.
+We don't use "u_int8_t" et al. types in the kernel, even in headers
+that define user interfaces.  Use "u8", "u16", et al. instead.
 
-Thanks,
--yi
-
+Please fix this up and resubmit your patch series.
