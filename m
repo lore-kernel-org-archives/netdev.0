@@ -1,49 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 2/2] mq: preserve queue mapping with
- bonding and VLAN devices
-Date: Sun, 28 Feb 2010 18:45:31 -0800 (PST)
-Message-ID: <20100228.184531.13756529.davem@davemloft.net>
-References: <20100228.013311.242139140.davem@davemloft.net>
-	<20100228.013627.200374267.davem@davemloft.net>
-	<68301267356914@webmail50.yandex.ru>
+Subject: Re: [PATCH] scm: Only support SCM_RIGHTS on unix domain sockets.
+Date: Sun, 28 Feb 2010 18:49:25 -0800 (PST)
+Message-ID: <20100228.184925.192660876.davem@davemloft.net>
+References: <m1eik5d2t7.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: sysoleg@yandex.ru
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37261
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40149
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752363Ab0CACpN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 21:45:13 -0500
-In-Reply-To: <68301267356914@webmail50.yandex.ru>
+	by vger.kernel.org with ESMTP id S1752363Ab0CACtI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Feb 2010 21:49:08 -0500
+In-Reply-To: <m1eik5d2t7.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogIlwiT2xlZyBBLiBBcmtoYW5nZWxza3lcIiIgPHN5c29sZWdAeWFuZGV4LnJ1Pg0KRGF0
-ZTogU3VuLCAyOCBGZWIgMjAxMCAxNDozNToxNCArMDMwMA0KDQo+PiAgSW4gZmlsZSBpbmNsdWRl
-ZCBmcm9tIGluY2x1ZGUvbGludXgvbmV0ZmlsdGVyLmg6NiwNCj4+ICAgICAgICAgICAgICAgICAg
-IGZyb20gaW5jbHVkZS9uZXQvbmV0bnMveF90YWJsZXMuaDo1LA0KPj4gICAgICAgICAgICAgICAg
-ICAgZnJvbSBpbmNsdWRlL25ldC9uZXRfbmFtZXNwYWNlLmg6MTgsDQo+PiAgICAgICAgICAgICAg
-ICAgICBmcm9tIGluY2x1ZGUvbGludXgvaW5pdF90YXNrLmg6MTMsDQo+PiAgICAgICAgICAgICAg
-ICAgICBmcm9tIGFyY2gvc3BhcmMva2VybmVsL2luaXRfdGFzay5jOjU6DQo+PiAgaW5jbHVkZS9s
-aW51eC9za2J1ZmYuaDogSW4gZnVuY3Rpb24goXNrYl9nZXRfcXVldWVfbWFwcGluZ6I6DQo+PiAg
-aW5jbHVkZS9saW51eC9za2J1ZmYuaDoyMDIyOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24g
-b2YgZnVuY3Rpb24goXNrYl9yeF9xdWV1ZV9yZWNvcmRlZKINCj4gDQo+IFNpbGx5IG1lLiA6KCBD
-b3JyZWN0ZWQuDQoNCllvdSdyZSBub3QgdGVzdGluZyB5b3VyIGRhbW4gY2hhbmdlcyBhdCBhbGwu
-ICBZb3UncmUgbm90IGJ1aWxkIHRlc3RpbmcgaXQsDQphbmQgeW91J3JlIHRoZXJlZm9yZSBjZXJ0
-YWlubHkgbm90IHJ1biB0aW1lIHRlc3RpbmcgaXQ6DQoNCmRyaXZlcnMvbmV0L2lnYi9pZ2JfbWFp
-bi5jOiBJbiBmdW5jdGlvbiChaWdiX2NsZWFuX3J4X2lycV9hZHaiOg0KZHJpdmVycy9uZXQvaWdi
-L2lnYl9tYWluLmM6NTI5MDogZXJyb3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9u
-IKFza2JfcmVjb3JkX3J4X3F1ZXVlog0KbWFrZVszXTogKioqIFtkcml2ZXJzL25ldC9pZ2IvaWdi
-X21haW4ub10gRXJyb3IgMQ0KbWFrZVsyXTogKioqIFtkcml2ZXJzL25ldC9pZ2JdIEVycm9yIDIN
-Cm1ha2VbMV06ICoqKiBbZHJpdmVycy9uZXRdIEVycm9yIDINCg0KQW5kIHRoaXMgbWFrZXMgbWUg
-ZnVyaW91cy4gIFlvdSBnb3Qgb25lIG9mIHRoZSBjYWxscyBpbiB0aGlzIGZpbGUsIGJ1dA0Kbm90
-IHRoZSBvdGhlciBvbmUsIHByb3ZpbmcgeW91IGRpZG4ndCBidWlsZCB0ZXN0IHRoaXMgcGFydCBv
-ZiB5b3VyDQpwYXRjaCBhdCBhbGwuDQoNCkFuZCB5b3UgZGlkIHRoaXMgbm90IG9uY2UsIGJ1dCBf
-VFdJQ0VfLiAgWW91IHB1c2hlZCBhIG5ldyB2ZXJzaW9uIG9mDQp0aGlzIHBhdGNoIGJhY2sgYXQg
-bWUgc28gcXVpY2tseSB0aGF0IHRoZXJlIGlzIHplcm8gY2hhbmNlIHRoYXQgeW91DQp0b29rIGFu
-eSB0aW1lIHRvIGRvdWJsZSBjaGVjayB0aGluZ3MuDQoNCkhvdyBpbiB0aGUgd29ybGQgY2FuIEkg
-cG9zc2libHkgdHJ1c3QgeW91IGFuZCB0aGUgcXVhbGl0eSBvZiB5b3VyIHdvcms/DQoNCkkgdGhp
-bmsgd2UgY2FuIHdhaXQgb24geW91ciBwYXRjaGVzIHVudGlsIHRoZSBuZXh0IG1lcmdlIHdpbmRv
-dy4NCg0KU29ycnkuDQo=
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Sun, 28 Feb 2010 03:20:36 -0800
+
+> We use scm_send and scm_recv on both unix domain and
+> netlink sockets, but only unix domain sockets support
+> everything required for file descriptor passing,
+> so error if someone attempts to pass file descriptors
+> over netlink sockets.
+> 
+> Cc: stable@kernel.org
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+
+Applied, thanks for fixing this Eric.
