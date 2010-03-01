@@ -1,97 +1,29 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [net-next-2.6 PATCH 3/3] ixgbe: Do not allocate too many
- netdev txqueues
-Date: Sun, 28 Feb 2010 23:21:37 -0800
-Message-ID: <1267428097.2052.772.camel@localhost>
-References: <20100226091318.19796.70225.stgit@localhost.localdomain>
-	 <20100226091519.19796.82441.stgit@localhost.localdomain>
-	 <1267193054.9082.12.camel@edumazet-laptop>
-	 <1267318956.2052.1.camel@localhost>
-	 <1267329420.9082.28.camel@edumazet-laptop>
+From: Or Gerlitz <ogerlitz-hKgKHo2Ms0FWk0Htik3J/w@public.gmane.org>
+Subject: Re: [net-next-2.6 PATCH] infiniband: convert to use	netdev_for_each_mc_addr
+Date: Mon, 01 Mar 2010 09:48:09 +0200
+Message-ID: <4B8B7139.9050707@Voltaire.com>
+References: <20100224151108.GD2663@psychotron.lab.eng.brq.redhat.com>	<4B862E07.7020002@Voltaire.com>	<20100225084915.GA3171@psychotron.redhat.com>	<20100227060146.GA13231@obsidianresearch.com>	<20100227103835.GA2862@psychotron.redhat.com> <20100227184410.GB13231@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:43463 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750823Ab0CAHVj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Mar 2010 02:21:39 -0500
-In-Reply-To: <1267329420.9082.28.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Moni Shoua <monis-hKgKHo2Ms0F+cjeuK/JdrQ@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100227184410.GB13231-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2010-02-27 at 20:57 -0700, Eric Dumazet wrote:
-> Le samedi 27 f=C3=A9vrier 2010 =C3=A0 17:02 -0800, Peter P Waskiewicz=
- Jr a =C3=A9crit :
-> > On Fri, 2010-02-26 at 06:04 -0800, Eric Dumazet wrote:
-> > > Le vendredi 26 f=C3=A9vrier 2010 =C3=A0 01:15 -0800, Jeff Kirsher=
- a =C3=A9crit :
-> > > > +	if (ii->mac =3D=3D ixgbe_mac_82598EB)
-> > > > +		indices =3D min_t(unsigned int, indices, IXGBE_MAX_RSS_INDIC=
-ES);
-> > > > +	else
-> > > > +		indices =3D min_t(unsigned int, indices, IXGBE_MAX_FDIR_INDI=
-CES);
-> > > > +
-> > > > +	indices =3D max_t(unsigned int, indices, IXGBE_MAX_DCB_INDICE=
-S);
-> > > > +#ifdef IXGBE_FCOE
-> > > > +	indices +=3D min_t(unsigned int, num_possible_cpus(),
-> > > > +			 IXGBE_MAX_FCOE_INDICES);
-> > > > +#endif
-> > > > +	indices =3D min_t(unsigned int, indices, MAX_TX_QUEUES);
-> > > > +	netdev =3D alloc_etherdev_mq(sizeof(struct ixgbe_adapter), in=
-dices);
-> > > >  	if (!netdev) {
-> > > >  		err =3D -ENOMEM;
-> > > >  		goto err_alloc_etherdev;
-> > > >=20
-> > >=20
-> > > Thanks Jeff, but what is the reason for limiting to MAX_TX_QUEUES=
- ?
-> > > Is it a hardware issue ?
-> > >=20
-> >=20
-> > MAX_TX_QUEUES is 128, which is the maximum the 82599 device support=
-s in
-> > hardware (82598 supports 32 Tx queues).  I'm not sure why you'd eve=
-r
-> > want to have more Tx queues than what you have in the network devic=
-e.
->=20
-> I was not sure MAX_TX_QUEUES capping was still necessary after the
-> block :
->=20
-> if (ii->mac =3D=3D ixgbe_mac_82598EB)
->           indices =3D min_t(unsigned int, indices, IXGBE_MAX_RSS_INDI=
-CES);
-> else
->           indices =3D min_t(unsigned int, indices,
-> IXGBE_MAX_FDIR_INDICES);
->=20
-> indices =3D max_t(unsigned int, indices, IXGBE_MAX_DCB_INDICES);
-> #ifdef IXGBE_FCOE
-> 	indices +=3D min_t(unsigned int, num_possible_cpus(),
->                     IXGBE_MAX_FCOE_INDICES);
-> #endif
->=20
-> So I asked to be sure that MAX_TX_QUEUES was not a leftover from the
-> previous default allocation.
->=20
-> Thanks
+Jason Gunthorpe wrote:
+> Jiri Pirko wrote:
+>> when bonding changes it's type, flush mc addresses and start over.
 
-I see what you're getting at now.  The most we could have from this
-codepath is 72 indices for 82599, and 24 for 82598, so yeah, this is
-probably unneeded.
+> There was a patch posted that tried to do something like what you are describing
 
-We can get the patch cleaned up.
+Indeed, Jason, commit 75c785 "bonding: remap muticast addresses without using dev_close() and dev_open()" from Moni Shoua <monis-smomgflXvOZWk0Htik3J/w@public.gmane.org> does exactly that, isn't it?
 
-Cheers,
--PJ
-
+Or.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
