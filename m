@@ -1,79 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH V2] net: add accounting for socket backlog
-Date: Mon, 01 Mar 2010 12:43:48 +0100
-Message-ID: <1267443828.3039.7.camel@edumazet-laptop>
-References: <1267176464-426-1-git-send-email-yi.zhu@intel.com>
-	 <1267335071.9082.56.camel@edumazet-laptop>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: sparse checking prevented by "net: fix kmemcheck annotations"
+Date: Mon, 01 Mar 2010 13:09:29 +0100
+Message-ID: <4B8BAE79.9000609@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Zhu Yi <yi.zhu@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:65428 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750949Ab0CALnx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Mar 2010 06:43:53 -0500
-Received: by bwz1 with SMTP id 1so282544bwz.21
-        for <netdev@vger.kernel.org>; Mon, 01 Mar 2010 03:43:52 -0800 (PST)
-In-Reply-To: <1267335071.9082.56.camel@edumazet-laptop>
+Received: from einhorn.in-berlin.de ([192.109.42.8]:53350 "EHLO
+	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751280Ab0CAMJf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Mar 2010 07:09:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 28 f=C3=A9vrier 2010 =C3=A0 06:31 +0100, Eric Dumazet a =C3=
-=A9crit :
+Hi all,
 
-> I am afraid sk_backlog_rcv() is not always called with lock held, and
-> not always called to process backlog (see TCP ucopy.prequeue)
->=20
-> If you take a look at __release_sock() for example, we make the backl=
-og
-> private to the process before handling it (outside of lock_sock())
->=20
-> Therefore, I suggest doing the 'substraction' outside of
-> sk_backlog_rcv().
->=20
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index e1f6f22..57271cb 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1520,6 +1520,7 @@ static void __release_sock(struct sock *sk)
-> =20
->         do {
->                 sk->sk_backlog.head =3D sk->sk_backlog.tail =3D NULL;
-> +               sk->sk_backlog.len =3D 0;
->                 bh_unlock_sock(sk);
-> =20
->                 do {
->=20
->=20
+the post 2.6.32-rc5, pre 2.6.32-rc6 commit 14d18a81 causes a serious
+regression for sparse checks:  make C=1 CF="-D__CHECK_ENDIAN__" now
+causes sparse to log
 
-Thinking again about this, doing this zero initialization at the very
-end of __release_sock() solves the problem of potential infinite loop i=
-n
-__release_sock(). Since producer will hit the backlog limit.
-
-Thanks
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 305cba4..544cf4a 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1542,6 +1542,11 @@ static void __release_sock(struct sock *sk)
-=20
- 		bh_lock_sock(sk);
- 	} while ((skb =3D sk->sk_backlog.head) !=3D NULL);
-+	/*
-+	 * Doing this zeroing at the end of this function guarantee we can no=
-t
-+	 * loop forever while a wild producer attempts to flood us
-+	 */
-+	sk->sk_backlog.len =3D 0;
- }
-=20
- /**
+    include/linux/skbuff.h:357:41: error: invalid bitfield specifier for
+    type restricted __be16.
 
 
+I reported this already shortly after this hit the mainline.  But back
+then I didn't notice that this sparse error causes sparse to remain
+silent on all subsequent warnings in a file!
 
+We need to either change sparse to accept this bogus bit field that
+occurs in skbuff.h (__be16 protocol:16;), silently or with a warning, or
+revert this kmemcheck annotation.
 
+("We" == preferably Eric :-)
 
+skbuff.h is included by lots of drivers, even ones that are not even
+networking drivers, notably DVB drivers.  None of these drivers can be
+checked with sparse's __CHECK_ENDIAN__ at the moment.
+-- 
+Stefan Richter
+-=====-==-=- --== ----=
+http://arcgraph.de/sr/
