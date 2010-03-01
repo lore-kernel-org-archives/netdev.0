@@ -1,63 +1,111 @@
-From: "Tadepalli, Hari K" <hari.k.tadepalli@intel.com>
-Subject: RE: [RFC] Setting processor affinity for network queues
-Date: Mon, 1 Mar 2010 10:43:15 -0700
-Message-ID: <41885A88D9043444B138491FB10E15420476F1ED89@azsmsx506.amr.corp.intel.com>
-References: <1267464102.2092.136.camel@achroite.uk.solarflarecom.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH 1/1] bnx2x: Tx barriers and locks
+Date: Mon, 1 Mar 2010 09:59:07 -0800
+Message-ID: <1267466347.19491.31.camel@nseg_linux_HP1.broadcom.com>
+References: <1267351922.10409.2.camel@lb-tlvb-vladz>
+ <20100301133339.GB2440@dhcp-lab-161.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Vladislav Zolotarov" <vladz@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Matthew Carlson" <mcarlson@broadcom.com>
+To: "Stanislaw Gruszka" <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:56926 "EHLO mga11.intel.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:4751 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750976Ab0CARnU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Mar 2010 12:43:20 -0500
-In-Reply-To: <1267464102.2092.136.camel@achroite.uk.solarflarecom.com>
-Content-Language: en-US
+	id S1752427Ab0CASLU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Mar 2010 13:11:20 -0500
+In-Reply-To: <20100301133339.GB2440@dhcp-lab-161.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Ben Hutchings
->> Sent: Monday, March 01, 2010 10:22 AM
->> To: netdev
->> Cc: Waskiewicz Jr, Peter P; Peter Zijlstra; Thomas Gleixner; Tom Herbert; Stephen Hemminger; sf-linux-drivers
->> Subject: [RFC] Setting processor affinity for network queues
->>
->> Currently we have a userspace interface for setting affinity of IRQs and
->> a convention for naming each channel's IRQ handler, but no such
->> interface for memory allocation.  For RX buffers this should not be a
->> problem since they are normally allocated as older buffers are
->> completed, in the NAPI context.  However, the DMA descriptor rings and
->> driver structures for a channel should also be allocated on the NUMA
->> node where NAPI processing is done.  Currently this allocation takes
->> place when a net device is created or when it is opened, before an
->> administrator has any opportunity to configure affinity.  Reallocation
->> will normally require a complete stop to network traffic (at least on
->> the affected queues) so it should not be done automatically when the
->> driver detects a change in IRQ affinity
-y.  There needs to be an explicit
->> mechanism for changing it.
 
-I have sought clarifications on this issue 2 weeks ago in the context of IxGbE: 
-http://marc.info/?l=linux-netdev&m=126638089307398&w=2
+On Mon, 2010-03-01 at 05:33 -0800, Stanislaw Gruszka wrote:
+> On Sun, Feb 28, 2010 at 12:12:02PM +0200, Vladislav Zolotarov wrote:
+> > --- a/drivers/net/bnx2x_main.c
+> > +++ b/drivers/net/bnx2x_main.c
+> > @@ -57,8 +57,8 @@
+> >  #include "bnx2x_init_ops.h"
+> >  #include "bnx2x_dump.h"
+> >  
+> > -#define DRV_MODULE_VERSION	"1.52.1-6"
+> > -#define DRV_MODULE_RELDATE	"2010/02/16"
+> > +#define DRV_MODULE_VERSION	"1.52.1-7"
+> > +#define DRV_MODULE_RELDATE	"2010/02/28"
+> >  #define BNX2X_BC_VER		0x040200
+> >  
+> >  #include <linux/firmware.h>
+> > @@ -957,21 +957,34 @@ static int bnx2x_tx_int(struct bnx2x_fastpath *fp)
+> >  	fp->tx_pkt_cons = sw_cons;
+> >  	fp->tx_bd_cons = bd_cons;
+> >  
+> > +	/* Need to make the tx_bd_cons update visible to start_xmit()
+> > +	 * before checking for netif_tx_queue_stopped().  Without the
+> > +	 * memory barrier, there is a small possibility that
+> > +	 * start_xmit() will miss it and cause the queue to be stopped
+> > +	 * forever.
+> > +	 */
+> > +	smp_wmb();
+> > +
+> >  	/* TBD need a thresh? */
+> >  	if (unlikely(netif_tx_queue_stopped(txq))) {
+> > -
+> > -		/* Need to make the tx_bd_cons update visible to start_xmit()
+> > -		 * before checking for netif_tx_queue_stopped().  Without the
+> > -		 * memory barrier, there is a small possibility that
+> > -		 * start_xmit() will miss it and cause the queue to be stopped
+> > -		 * forever.
+> > +		/* Taking tx_lock() is needed to prevent reenabling the queue
+> > +		 * while it's empty. This could have happen if rx_action() gets
+> > +		 * suspended in bnx2x_tx_int() after the condition before
+> > +		 * netif_tx_wake_queue(), while tx_action (bnx2x_start_xmit()):
+> > +		 *
+> > +		 * stops the queue->sees fresh tx_bd_cons->releases the queue->
+> > +		 * sends some packets consuming the whole queue again->
+> > +		 * stops the queue
+> >  		 */
+> > -		smp_mb();
+> > +
+> > +		__netif_tx_lock(txq, smp_processor_id());
+> >  
+> >  		if ((netif_tx_queue_stopped(txq)) &&
+> >  		    (bp->state == BNX2X_STATE_OPEN) &&
+> >  		    (bnx2x_tx_avail(fp) >= MAX_SKB_FRAGS + 3))
+> >  			netif_tx_wake_queue(txq);
+> > +
+> > +		__netif_tx_unlock(txq);
+> >  	}
+> >  	return 0;
+> >  }
+> 
+> There is still difference between what we have in bnx2x and bnx2/tg3
+> regarding memory barriers in tx_poll/start_xmit code. Mainly we have
+> smp_mb() in bnx2/tg3_tx_avail(), and in bnx2/tg3_tx_int() is smp_mb()
+> not smp_wmb(). I do not see that bnx2x is wrong, but would like to know
+> why there is a difference, maybe bnx2/tg3 should be changed?
+> 
 
->> (i) tx_ring, rx_ring control structures of tx/rx rings:
->>	 tx_ring->tx_buffer_info = vmalloc_node(size, tx_ring->numa_node);
->> 
->> (ii) descriptor rings in the DMA region: tx_ring->dma, rx_ring->dma
->>	  tx_ring->desc = pci_alloc_consistent(pdev, tx_ring->size, &tx_ring->dma);
->> 
->> (iii) packet buffers:
->>	   struct sk_buff *skb = netdev_alloc_skb(adapter->netdev,bufsz);
+The memory barrier in tx_int() is to make the tx index update happen
+before the netif_tx_queue_stopped() check.  The barrier is to prevent a
+situation like this:
 
-The above memory allocation calls (sparing vmalloc_node()) conventionally used in a network driver allow for node awareness only at the physical device (pdev) level, where queues in a device do not have independent node-status. This is a serious setback to the benefits expected of recent developments for high throughput networking: RSS, 10/40GbE, NUMA & many cores on an SBC (single board computer or server). Cross node traffic, even in small proportions, is a retard on performance in the million packets/sec range. 
+    CPU0					CPU1
+    start_xmit()
+    	if (tx_ring_full) {
+    						tx_int()
+    							if (!netif_tx_queue_stopped)
+    		netif_tx_stop_queue()
+    		if (!tx_ring_full)
+    							update_tx_index 
+    			netif_tx_wake_queue()
+    	}
+    
 
-I have hacked into some of the above, by using alloc_pages_node() & setting node_id explicitly when allocating for specific queues. But, look forward to a clean, 'hack-free' solution. 
+The update_tx_index code is before the if statement in program order,
+but the CPU and/or compiler can reorder it as shown above. smp_mb() will
+prevent that.  Will smp_wmb() prevent that as well?
 
-Thanks, 
 
-- Hari
-__________________________________________
-Embeedded Communications Group
-Intel/ IAG, Chandler, AZ
