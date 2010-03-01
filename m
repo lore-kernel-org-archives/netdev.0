@@ -1,58 +1,53 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: NETIF_F_FRAGLIST and NETIF_F_SG difference
-Date: Mon, 01 Mar 2010 12:58:41 +0000
-Message-ID: <1267448321.2819.15.camel@localhost>
-References: <de0a9dcb1003010302p2f81aa17ubdbb29bb007d50cf@mail.gmail.com>
+From: Martyn Welch <martyn.welch@ge.com>
+Subject: Re: Gianfar driver failing on MPC8641D based board
+Date: Mon, 01 Mar 2010 13:07:32 +0000
+Message-ID: <4B8BBC14.9010705@ge.com>
+References: <20100225174935.GA32370@oksana.dev.rtsoft.ru> <7d1d9c251002251653n6473f01ex2d43933ec6aa010b@mail.gmail.com> <20100226031452.GA11319@oksana.dev.rtsoft.ru> <4B87B937.6010204@ge.com> <20100226143532.GA31622@oksana.dev.rtsoft.ru> <4B87E01E.4070704@windriver.com> <4B87E662.3080106@ge.com> <4B87E9EF.3010604@ge.com> <20100226161058.GA22954@oksana.dev.rtsoft.ru> <4B87F67E.5070601@windriver.com> <20100226213825.GA32363@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: raj ravi <mekaviraj@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:22216 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751235Ab0CAM6s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Mar 2010 07:58:48 -0500
-In-Reply-To: <de0a9dcb1003010302p2f81aa17ubdbb29bb007d50cf@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>,
+	davem@davemloft.net
+To: linuxppc-dev list <linuxppc-dev@ozlabs.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100226213825.GA32363@oksana.dev.rtsoft.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-03-01 at 16:32 +0530, raj ravi wrote:
-> Hi,
-> http://lxr.linux.no/#linux+v2.6.33/include/linux/netdevice.h
-> In include/linux/netdevice.h I can see two definiton for "Scatter
-> Gather IO" namely NETIF_F_FRAGLIST  and NETIF_F_SG
-> 
-> Please let me know the difference between the two.... if there is no
-> difference why two Macros ??
-> 
-> 
-> #define NETIF_F_SG 1 /* Scatter/gather IO. */
+Anton Vorontsov wrote:
+> diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+> index 8bd3c9f..cccb409 100644
+> --- a/drivers/net/gianfar.c
+> +++ b/drivers/net/gianfar.c
+> @@ -2021,7 +2021,6 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	}
+>  
+>  	/* setup the TxBD length and buffer pointer for the first BD */
+> -	tx_queue->tx_skbuff[tx_queue->skb_curtx] = skb;
+>  	txbdp_start->bufPtr = dma_map_single(&priv->ofdev->dev, skb->data,
+>  			skb_headlen(skb), DMA_TO_DEVICE);
+>  
+> @@ -2053,6 +2052,10 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  
+>  	txbdp_start->lstatus = lstatus;
+>  
+> +	eieio(); /* force lstatus write before tx_skbuff */
+> +
+> +	tx_queue->tx_skbuff[tx_queue->skb_curtx] = skb;
+> +
+>  	/* Update the current skb pointer to the next entry we will use
+>  	 * (wrapping if necessary) */
+>  	tx_queue->skb_curtx = (tx_queue->skb_curtx + 1) &
+>   
+I can confirm 10/10 successful boots on p2020ds and mpc8641_hpcn.
 
-This means the device can transmit an skb with extra data attached
-through skb_shinfo(skb)->frags.
+Martyn
 
-> #define NETIF_F_IP_CSUM 2 /* Can checksum TCP/UDP over IPv4. */
-> #define NETIF_F_NO_CSUM 4 /* Does not require checksum. F.e. loopack. */
-> #define NETIF_F_HW_CSUM 8 /* Can checksum all the packets. */
-> #define NETIF_F_IPV6_CSUM 16 /* Can checksum TCP/UDP over IPV6 */
-> #define NETIF_F_HIGHDMA 32 /* Can DMA to high memory. */
-> #define NETIF_F_FRAGLIST 64 /* Scatter/gather IO. */
-
-This means the device can transmit an skb with extra data attached
-through skb->frags.
-
-(I don't know why there are two ways of adding extra data.  The latter
-does not seem to be used often.)
-
-Note that these flags really refer only to DMA gather.  There is no need
-for a feature flag for DMA scatter, since the driver controls RX buffer
-allocation.
-
-Ben.
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Martyn Welch (Principal Software Engineer)   |   Registered in England and
+GE Intelligent Platforms                     |   Wales (3828642) at 100
+T +44(0)127322748                            |   Barbirolli Square, Manchester,
+E martyn.welch@ge.com                        |   M2 3AB  VAT:GB 927559189
