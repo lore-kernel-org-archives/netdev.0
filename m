@@ -1,54 +1,97 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [RFC][PATCH] af_unix: Add peer inode to /proc/net/unix
-Date: Mon, 1 Mar 2010 15:05:50 +0800
-Message-ID: <412e6f7f1002282305i1d201d76h4085220f71fc76d0@mail.gmail.com>
-References: <20100301045206.GB496@home.unix.ba>
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [net-next-2.6 PATCH 3/3] ixgbe: Do not allocate too many
+ netdev txqueues
+Date: Sun, 28 Feb 2010 23:21:37 -0800
+Message-ID: <1267428097.2052.772.camel@localhost>
+References: <20100226091318.19796.70225.stgit@localhost.localdomain>
+	 <20100226091519.19796.82441.stgit@localhost.localdomain>
+	 <1267193054.9082.12.camel@edumazet-laptop>
+	 <1267318956.2052.1.camel@localhost>
+	 <1267329420.9082.28.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: Kenan Kalajdzic <kenan@unix.ba>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f182.google.com ([209.85.223.182]:46662 "EHLO
-	mail-iw0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750790Ab0CAHHy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Mar 2010 02:07:54 -0500
-Received: by iwn12 with SMTP id 12so2150420iwn.21
-        for <netdev@vger.kernel.org>; Sun, 28 Feb 2010 23:07:53 -0800 (PST)
-In-Reply-To: <20100301045206.GB496@home.unix.ba>
+Received: from mga11.intel.com ([192.55.52.93]:43463 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750823Ab0CAHVj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Mar 2010 02:21:39 -0500
+In-Reply-To: <1267329420.9082.28.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBNYXIgMSwgMjAxMCBhdCAxMjo1MiBQTSwgS2VuYW4gS2FsYWpkemljIDxrZW5hbkB1
-bml4LmJhPiB3cm90ZToKPiDCoG5ldC91bml4L2FmX3VuaXguYyB8IMKgIMKgOSArKysrKysrKy0K
-PiDCoDEgZmlsZXMgY2hhbmdlZCwgOCBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9ucygtKQo+Cj4g
-ZGlmZiAtLWdpdCBhL25ldC91bml4L2FmX3VuaXguYyBiL25ldC91bml4L2FmX3VuaXguYwo+IGlu
-ZGV4IGYyNTUxMTkuLmU3Nzg0MjggMTAwNjQ0Cj4gLS0tIGEvbmV0L3VuaXgvYWZfdW5peC5jCj4g
-KysrIGIvbmV0L3VuaXgvYWZfdW5peC5jCj4gQEAgLTIxNTcsNyArMjE1Nyw3IEBAIHN0YXRpYyBp
-bnQgdW5peF9zZXFfc2hvdyhzdHJ1Y3Qgc2VxX2ZpbGUgKnNlcSwgdm9pZCAqdikKPiDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoHNlcV9wdXRzKHNlcSwgIk51bSDCoCDCoCDCoCBSZWZDb3VudCBQcm90
-b2NvbCBGbGFncyDCoCDCoFR5cGUgU3QgIgo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgICJJbm9kZSBQYXRoXG4iKTsKPiDCoCDCoCDCoCDCoGVsc2Ugewo+IC0gwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgc3RydWN0IHNvY2sgKnMgPSB2Owo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-c3RydWN0IHNvY2sgKnMgPSB2LCAqcGVlcjsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHN0cnVj
-dCB1bml4X3NvY2sgKnUgPSB1bml4X3NrKHMpOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgdW5p
-eF9zdGF0ZV9sb2NrKHMpOwo+Cj4gQEAgLTIxODYsNiArMjE4NiwxMyBAQCBzdGF0aWMgaW50IHVu
-aXhfc2VxX3Nob3coc3RydWN0IHNlcV9maWxlICpzZXEsIHZvaWQgKnYpCj4gwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqB9Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqBmb3IgKCA7IGkgPCBsZW47IGkrKykKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoHNlcV9wdXRjKHNlcSwgdS0+YWRkci0+bmFtZS0+c3VuX3BhdGhb
-aV0pOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgfSBlbHNlIHsKPiArIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIHBlZXIgPSB1bml4X3BlZXIocyk7Cj4gKyDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCBpZiAocGVlcikgewo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgdW5peF9zdGF0ZV9sb2NrKHBlZXIpOwo+ICsgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgc2VxX3ByaW50ZihzZXEsICIg
-cGVlcj0lbHUiLCBzb2NrX2lfaW5vKHBlZXIpKTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIHVuaXhfc3RhdGVfdW5sb2NrKHBlZXIpOwo+ICsgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgfQo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgfQo+
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgdW5peF9zdGF0ZV91bmxvY2socyk7Cj4gwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqBzZXFfcHV0YyhzZXEsICdcbicpOwoKSWYgdGhlcmUgYXJlIHR3byByZWFk
-IHJlcXVlc3RzLCB0aGUgc3lzdGVtIG1heWJlIGxvY2tlZCB1cC4gcGxlYXNlIHVzZQp1bml4X3N0
-YXRlX2RvdWJsZV9sb2NrKCkvdW5peF9zdGF0ZV9kb3VibGVfdW5sb2NrKCksIGluc3RlYWQuIEFu
-ZCB0aGUKZmlsZSBpc24ndCBjb25zaXN0ZW50IHdpdGggdGhlIG9sZCBvbmUuIFlvdSdkIGJldHRl
-ciB1c2UgYSBjb2x1bW4KdGl0bGUgIlBlZXIiIGluc3RlYWQgb2YgInBlZXI9Ii4KCi0tIApSZWdh
-cmRz77yMCkNoYW5nbGkgR2FvKHhpYW9zdW9AZ21haWwuY29tKQo=
+On Sat, 2010-02-27 at 20:57 -0700, Eric Dumazet wrote:
+> Le samedi 27 f=C3=A9vrier 2010 =C3=A0 17:02 -0800, Peter P Waskiewicz=
+ Jr a =C3=A9crit :
+> > On Fri, 2010-02-26 at 06:04 -0800, Eric Dumazet wrote:
+> > > Le vendredi 26 f=C3=A9vrier 2010 =C3=A0 01:15 -0800, Jeff Kirsher=
+ a =C3=A9crit :
+> > > > +	if (ii->mac =3D=3D ixgbe_mac_82598EB)
+> > > > +		indices =3D min_t(unsigned int, indices, IXGBE_MAX_RSS_INDIC=
+ES);
+> > > > +	else
+> > > > +		indices =3D min_t(unsigned int, indices, IXGBE_MAX_FDIR_INDI=
+CES);
+> > > > +
+> > > > +	indices =3D max_t(unsigned int, indices, IXGBE_MAX_DCB_INDICE=
+S);
+> > > > +#ifdef IXGBE_FCOE
+> > > > +	indices +=3D min_t(unsigned int, num_possible_cpus(),
+> > > > +			 IXGBE_MAX_FCOE_INDICES);
+> > > > +#endif
+> > > > +	indices =3D min_t(unsigned int, indices, MAX_TX_QUEUES);
+> > > > +	netdev =3D alloc_etherdev_mq(sizeof(struct ixgbe_adapter), in=
+dices);
+> > > >  	if (!netdev) {
+> > > >  		err =3D -ENOMEM;
+> > > >  		goto err_alloc_etherdev;
+> > > >=20
+> > >=20
+> > > Thanks Jeff, but what is the reason for limiting to MAX_TX_QUEUES=
+ ?
+> > > Is it a hardware issue ?
+> > >=20
+> >=20
+> > MAX_TX_QUEUES is 128, which is the maximum the 82599 device support=
+s in
+> > hardware (82598 supports 32 Tx queues).  I'm not sure why you'd eve=
+r
+> > want to have more Tx queues than what you have in the network devic=
+e.
+>=20
+> I was not sure MAX_TX_QUEUES capping was still necessary after the
+> block :
+>=20
+> if (ii->mac =3D=3D ixgbe_mac_82598EB)
+>           indices =3D min_t(unsigned int, indices, IXGBE_MAX_RSS_INDI=
+CES);
+> else
+>           indices =3D min_t(unsigned int, indices,
+> IXGBE_MAX_FDIR_INDICES);
+>=20
+> indices =3D max_t(unsigned int, indices, IXGBE_MAX_DCB_INDICES);
+> #ifdef IXGBE_FCOE
+> 	indices +=3D min_t(unsigned int, num_possible_cpus(),
+>                     IXGBE_MAX_FCOE_INDICES);
+> #endif
+>=20
+> So I asked to be sure that MAX_TX_QUEUES was not a leftover from the
+> previous default allocation.
+>=20
+> Thanks
+
+I see what you're getting at now.  The most we could have from this
+codepath is 72 indices for 82599, and 24 for 82598, so yeah, this is
+probably unneeded.
+
+We can get the patch cleaned up.
+
+Cheers,
+-PJ
+
