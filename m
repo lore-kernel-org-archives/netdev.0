@@ -1,194 +1,374 @@
 From: sjur.brandeland@stericsson.com
-Subject: [PATCH net-next-2.6 v5 04/12] net-caif: add CAIF Link layer device header files
-Date: Mon,  1 Mar 2010 03:09:30 +0100
-Message-ID: <1267409378-2082-5-git-send-email-sjur.brandeland@stericsson.com>
+Subject: [PATCH net-next-2.6 v5 11/12] net-caif: add CAIF documentation
+Date: Mon,  1 Mar 2010 03:09:37 +0100
+Message-ID: <1267409378-2082-12-git-send-email-sjur.brandeland@stericsson.com>
 References: <1267409378-2082-1-git-send-email-sjur.brandeland@stericsson.com>
  <1267409378-2082-2-git-send-email-sjur.brandeland@stericsson.com>
  <1267409378-2082-3-git-send-email-sjur.brandeland@stericsson.com>
  <1267409378-2082-4-git-send-email-sjur.brandeland@stericsson.com>
+ <1267409378-2082-5-git-send-email-sjur.brandeland@stericsson.com>
+ <1267409378-2082-6-git-send-email-sjur.brandeland@stericsson.com>
+ <1267409378-2082-7-git-send-email-sjur.brandeland@stericsson.com>
+ <1267409378-2082-8-git-send-email-sjur.brandeland@stericsson.com>
+ <1267409378-2082-9-git-send-email-sjur.brandeland@stericsson.com>
+ <1267409378-2082-10-git-send-email-sjur.brandeland@stericsson.com>
+ <1267409378-2082-11-git-send-email-sjur.brandeland@stericsson.com>
 Cc: daniel.martensson@stericsson.com, kaber@trash.net,
 	stefano.babic@babic.homelinux.org, randy.dunlap@oracle.com,
 	Sjur Braendeland <sjur.brandeland@stericsson.com>
 To: netdev@vger.kernel.org, davem@davemloft.net, marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gktv.no ([80.239.85.213]:51820 "EHLO mail.gktv.no"
+Received: from mail.gktv.no ([80.239.85.213]:51932 "EHLO mail.gktv.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754240Ab0CACKK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Feb 2010 21:10:10 -0500
-In-Reply-To: <1267409378-2082-4-git-send-email-sjur.brandeland@stericsson.com>
+	id S1753357Ab0CACKO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Feb 2010 21:10:14 -0500
+In-Reply-To: <1267409378-2082-11-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-Header files for CAIF Link layer net-device,
-and link-layer registration.
+Documentation of the CAIF Protocol.
 
 Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
 ---
- include/net/caif/caif_dev.h    |   91 ++++++++++++++++++++++++++++++++++++++++
- include/net/caif/caif_device.h |   57 +++++++++++++++++++++++++
- 2 files changed, 148 insertions(+), 0 deletions(-)
+ Documentation/networking/caif/Linux-CAIF.txt |  212 ++++++++++++++++++++++++++
+ Documentation/networking/caif/README         |  110 +++++++++++++
+ 2 files changed, 322 insertions(+), 0 deletions(-)
 
-diff --git a/include/net/caif/caif_dev.h b/include/net/caif/caif_dev.h
+diff --git a/Documentation/networking/caif/Linux-CAIF.txt b/Documentation/networking/caif/Linux-CAIF.txt
 new file mode 100644
-index 0000000..f2ede2e
+index 0000000..7fe7a9a
 --- /dev/null
-+++ b/include/net/caif/caif_dev.h
-@@ -0,0 +1,91 @@
-+/*
-+ * Copyright (C) ST-Ericsson AB 2010
-+ * Author:	Sjur Brendeland/ sjur.brandeland@stericsson.com
-+ * License terms: GNU General Public License (GPL) version 2
-+ */
-+
-+#ifndef CAIF_DEV_H_
-+#define CAIF_DEV_H_
-+
-+#include <net/caif/caif_layer.h>
-+#include <net/caif/cfcnfg.h>
-+#include <linux/caif/caif_socket.h>
-+#include <linux/if.h>
-+
-+/**
-+ * struct caif_param - CAIF parameters.
-+ * @size:	Length of data
-+ * @data:	Binary Data Blob
-+ */
-+struct caif_param {
-+	u_int16_t  size;
-+	u_int8_t   data[256];
-+};
-+
-+/**
-+ * caif_connect_request - Request data for CAIF channel setup.
-+ * @sockaddr:		Socket address to connect.
-+ * @priority:		Priority of the connection.
-+ * @link_selector:	Link selector (high bandwidth or low latency)
-+ * @link_name:		Name of the CAIF Link Layer to use.
-+ *
-+ * This struct is used when connecting a CAIF channel.
-+ * It contains all CAIF channel configuration options.
-+ */
-+struct caif_connect_request {
-+	int protocol;
-+	struct sockaddr_caif sockaddr;
-+	enum caif_channel_priority priority;
-+	enum caif_link_selector link_selector;
-+	char link_name[16];
-+	struct caif_param param;
-+};
-+
-+/**
-+ * caif_connect_client - Connect a client to CAIF Core Stack.
-+ * @config:		Channel setup parameters, specifying what address
-+ *                      to connect on the Modem.
-+ * @client_layer:	User implementation of client layer. This layer
-+ *                      MUST have receive and control callback functions
-+ *                      implemented.
-+ *
-+ * This function connects a CAIF channel. The Client must implement
-+ * the struct cflayer. This layer represents the Client layer and holds
-+ * receive functions and control callback functions. Control callback
-+ * function will receive information about connect/disconnect responses,
-+ * flow control etc (see enum caif_control).
-+ * E.g. CAIF Socket will call this function for each socket it connects
-+ * and have one client_layer instance for each socket.
-+ */
-+int caif_connect_client(struct caif_connect_request *config,
-+			   struct cflayer *client_layer);
-+
-+/**
-+ * caif_disconnect_client - Disconnects a client from the CAIF stack.
-+ *
-+ * @client_layer: Client layer to be removed.
-+ */
-+int caif_disconnect_client(struct cflayer *client_layer);
++++ b/Documentation/networking/caif/Linux-CAIF.txt
+@@ -0,0 +1,212 @@
++Linux CAIF
++===========
++copyright (C) ST-Ericsson AB 2010
++Author: Sjur Brendeland/ sjur.brandeland@stericsson.com
++License terms: GNU General Public License (GPL) version 2
 +
 +
-+/**
-+ * connect_req_to_link_param - Translate configuration parameters
-+ * 				from socket format to internal format.
-+ * @cnfg: 	Pointer to configuration handler
-+ * @con_req: 	Configuration parameters supplied in function
-+ *		caif_connect_client
-+ * @channel_setup_param: Parameters supplied to the CAIF Core stack for
-+ *			 setting up channels.
-+ *
-+ */
-+int connect_req_to_link_param(struct cfcnfg *cnfg,
-+				struct caif_connect_request *con_req,
-+				struct cfctrl_link_param *channel_setup_param);
++Introduction
++------------
++CAIF is a MUX protocol used by ST-Ericsson cellular modems for
++communication between Modem and host. The host processes can open virtual AT
++channels, initiate GPRS Data connections, Video channels and Utility Channels.
++The Utility Channels are general purpose pipes between modem and host.
 +
-+/**
-+ * get_caif_conf() - Get the configuration handler.
-+ */
-+struct cfcnfg *get_caif_conf(void);
++ST-Ericsson modems support a number of transports between modem
++and host. Currently, UART and Loopback are available for Linux.
 +
 +
-+#endif /* CAIF_DEV_H_ */
-diff --git a/include/net/caif/caif_device.h b/include/net/caif/caif_device.h
++Architecture:
++------------
++The implementation of CAIF is divided into:
++* CAIF Socket Layer, Kernel API, and  Net Device.
++* CAIF Core Protocol Implementation
++* CAIF Link Layer, implemented as NET devices.
++
++
++  RTNL
++   !
++   !	 +------+   +------+   +------+
++   !	+------+!  +------+!  +------+!
++   !	! Sock !!  !Kernel!!  ! Net  !!
++   !	! API  !+  ! API  !+  ! Dev  !+	  <- CAIF Client APIs
++   !	+------+   +------!   +------+
++   !	   !	      !		 !
++   !	   +----------!----------+
++   !		   +------+		  <- CAIF Protocol Implementation
++   +------->	   ! CAIF !
++		   ! Core !
++		   +------+
++	     +--------!--------+
++	     !		       !
++	  +------+	    +-----+
++	  !    	 !	    ! TTY !	  <- Link Layer (Net Devices)
++	  +------+	    +-----+
++
++
++Using the Kernel API
++----------------------
++The Kernel API is used for accessing CAIF channels from the
++kernel.
++The user of the API has to implement two callbacks for receive
++and control.
++The receive callback gives a CAIF packet as a SKB. The control
++callback will
++notify of channel initialization complete, and flow-on/flow-
++off.
++
++
++  struct caif_device caif_dev = {
++    .caif_config = {
++     .name = "MYDEV"
++     .type = CAIF_CHTY_AT
++    }
++   .receive_cb = my_receive,
++   .control_cb = my_control,
++  };
++  caif_add_device(&caif_dev);
++  caif_transmit(&caif_dev, skb);
++
++See the caif_kernel.h for details about the CAIF kernel API.
++
++
++I M P L E M E N T A T I O N
++===========================
++===========================
++
++CAIF Core Protocol Layer
++=========================================
++
++CAIF Core layer implements the CAIF protocol as defined by ST-Ericsson.
++It implements the CAIF protocol stack in a layered approach, where
++each layer described in the specification is implemented as a separate layer.
++The architecture is inspired by the design patterns "Protocol Layer" and
++"Protocol Packet".
++
++== CAIF structure ==
++The Core CAIF implementation contains:
++      -	Simple implementation of CAIF.
++      -	Layered architecture (a la Streams), each layer in the CAIF
++	specification is implemented in a separate c-file.
++      -	Clients must implement PHY layer to access physical HW
++	with receive and transmit functions.
++      -	Clients must call configuration function to add PHY layer.
++      -	Clients must implement CAIF layer to consume/produce
++	CAIF payload with receive and transmit functions.
++      -	Clients must call configuration function to add and connect the
++	Client layer.
++      - When receiving / transmitting CAIF Packets (cfpkt), ownership is passed
++	to the called function (except for framing layers' receive functions
++	or if a transmit function returns an error, in which case the caller
++	must free the packet).
++
++Layered Architecture
++--------------------
++The CAIF protocol can be divided into two parts: Support functions and Protocol
++Implementation. The support functions include:
++
++      - CFPKT CAIF Packet. Implementation of CAIF Protocol Packet. The
++	CAIF Packet has functions for creating, destroying and adding content
++	and for adding/extracting header and trailers to protocol packets.
++
++      - CFLST CAIF list implementation.
++
++      - CFGLUE CAIF Glue. Contains OS Specifics, such as memory
++	allocation, endianness, etc.
++
++The CAIF Protocol implementation contains:
++
++      - CFCNFG CAIF Configuration layer. Configures the CAIF Protocol
++	Stack and provides a Client interface for adding Link-Layer and
++	Driver interfaces on top of the CAIF Stack.
++
++      - CFCTRL CAIF Control layer. Encodes and Decodes control messages
++	such as enumeration and channel setup. Also matches request and
++	response messages.
++
++      - CFSERVL General CAIF Service Layer functionality; handles flow
++	control and remote shutdown requests.
++
++      - CFVEI CAIF VEI layer. Handles CAIF AT Channels on VEI (Virtual
++        External Interface). This layer encodes/decodes VEI frames.
++
++      - CFDGML CAIF Datagram layer. Handles CAIF Datagram layer (IP
++	traffic), encodes/decodes Datagram frames.
++
++      - CFMUX CAIF Mux layer. Handles multiplexing between multiple
++	physical bearers and multiple channels such as VEI, Datagram, etc.
++	The MUX keeps track of the existing CAIF Channels and
++	Physical Instances and selects the apropriate instance based
++	on Channel-Id and Physical-ID.
++
++      - CFFRML CAIF Framing layer. Handles Framing i.e. Frame length
++	and frame checksum.
++
++      - CFSERL CAIF Serial layer. Handles concatenation/split of frames
++	into CAIF Frames with correct length.
++
++
++
++		    +---------+
++		    | Config  |
++		    | CFCNFG  |
++		    +---------+
++			 !
++    +---------+	    +---------+	    +---------+
++    |	AT    |	    | Control |	    | Datagram|
++    | CFVEIL  |	    | CFCTRL  |	    | CFDGML  |
++    +---------+	    +---------+	    +---------+
++	   \_____________!______________/
++			 !
++		    +---------+
++		    |	MUX   |
++		    |	      |
++		    +---------+
++		    _____!_____
++		   /	       \
++	    +---------+	    +---------+
++	    | CFFRML  |	    | CFFRML  |
++	    | Framing |	    | Framing |
++	    +---------+	    +---------+
++		 !		!
++	    +---------+	    +---------+
++	    |         |	    | Serial  |
++	    |	      |	    | CFSERL  |
++	    +---------+	    +---------+
++
++
++In this layered approach the following "rules" apply.
++      - All layers embed the same structure "struct cflayer"
++      - A layer does not depend on any other layer's private data.
++      - Layers are stacked by setting the pointers
++		  layer->up , layer->dn
++      -	In order to send data upwards, each layer should do
++		 layer->up->receive(layer->up, packet);
++      - In order to send data downwards, each layer should do
++		 layer->dn->transmit(layer->dn, packet);
++
++
++Linux Driver Implementation
++===========================
++
++Linux GPRS Net Device and CAIF socket are implemented on top of the
++CAIF Core protocol. The Net device and CAIF socket have an instance of
++'struct cflayer', just like the CAIF Core protocol stack.
++Net device and Socket implement the 'receive()' function defined by
++'struct cflayer', just like the rest of the CAIF stack. In this way, transmit and
++receive of packets is handled as by the rest of the layers: the 'dn->transmit()'
++function is called in order to transmit data.
++
++The layer on top of the CAIF Core implementation is
++sometimes referred to as the "Client layer".
++
++
++Configuration of Link Layer
++---------------------------
++The Link Layer is implemented as Linux net devices (struct net_device).
++Payload handling and registration is done using standard Linux mechanisms.
++
++The CAIF Protocol relies on a loss-less link layer without implementing
++retransmission. This implies that packet drops must not happen.
++Therefore a flow-control mechanism is implemented where the physical
++interface can initiate flow stop for all CAIF Channels.
+diff --git a/Documentation/networking/caif/README b/Documentation/networking/caif/README
 new file mode 100644
-index 0000000..ba22ee5
+index 0000000..f11cea3
 --- /dev/null
-+++ b/include/net/caif/caif_device.h
-@@ -0,0 +1,57 @@
-+/*
-+ * Copyright (C) ST-Ericsson AB 2010
-+ * Author:	Sjur Brendeland/ sjur.brandeland@stericsson.com
-+ * License terms: GNU General Public License (GPL) version 2
-+ */
++++ b/Documentation/networking/caif/README
+@@ -0,0 +1,110 @@
++Copyright (C) ST-Ericsson AB 2010
++Author: Sjur Brendeland/ sjur.brandeland@stericsson.com
++License terms: GNU General Public License (GPL) version 2
 +
-+#ifndef CAIF_DEVICE_H_
-+#define CAIF_DEVICE_H_
-+#include <linux/kernel.h>
-+#include <linux/net.h>
-+#include <linux/netdevice.h>
-+#include <linux/caif/caif_socket.h>
-+#include <net/caif/caif_device.h>
++=== Start ===
++If you have compiled CAIF for modules do:
++
++$modprobe crc_ccitt
++$modprobe caif
++$modprobe caif_socket
++$modprobe chnl_net
 +
 +
-+/**
-+ * struct caif_dev_common - data shared between CAIF drivers and stack.
-+ * @flowctrl:		Flow Control callback function. This function is
-+ *                      supplied by CAIF Core Stack and is used by CAIF
-+ *                      Link Layer to send flow-stop to CAIF Core.
-+ *                      The flow information will be distributed to all
-+ *                      clients of CAIF.
-+ *
-+ * @link_select:	Profile of device, either high-bandwidth or
-+ *			low-latency. This member is set by CAIF Link
-+ *			Layer Device in	order to indicate if this device
-+ *			is a high bandwidth or low latency device.
-+ *
-+ * @use_frag:		CAIF Frames may be fragmented.
-+ *			Is set by CAIF Link Layer in order to indicate if the
-+ *			interface receives fragmented frames that must be
-+ *			assembled by CAIF Core Layer.
-+ *
-+ * @use_fcs:		Indicate if Frame CheckSum (fcs) is used.
-+ *			Is set if the physical interface is
-+ *			using Frame Checksum on the CAIF Frames.
-+ *
-+ * @use_stx:		Indicate STart of frame eXtension (stx) in use.
-+ *			Is set if the CAIF Link Layer expects
-+ *			CAIF Frames to start with the STX byte.
-+ *
-+ * This structure is shared between the CAIF drivers and the CAIF stack.
-+ * It is used by the device to register its behavior.
-+ * CAIF Core layer must set the member flowctrl in order to supply
-+ * CAIF Link Layer with the flow control function.
-+ *
-+ */
-+ struct caif_dev_common {
-+	void (*flowctrl)(struct net_device *net, int on);
-+	enum caif_link_selector link_select;
-+	int use_frag;
-+	int use_fcs;
-+	int use_stx;
-+};
++=== Preparing the setup with a STE modem ===
 +
-+#endif	/* CAIF_DEVICE_H_ */
++If you are working on integration of CAIF you should make sure
++that the kernel is built with module support.
++
++There are some things that need to be tweaked to get the host TTY correctly
++set up to talk to the modem.
++Since the CAIF stack is running in the kernel and we want to use the existing
++TTY, we are installing our physical serial driver as a line discipline above
++the TTY device.
++
++To achieve this we need to install the N_CAIF ldisc from user space.
++The benefit is that we can hook up to any TTY.
++
++The use of Start-of-frame-extension (STX) must also be set as
++module parameter "ser_use_stx".
++
++Normally Frame Checksum is always used on UART, but this is also provided as a
++module parameter "ser_use_fcs".
++
++$ modprobe caif_serial ser_ttyname=/dev/ttyS0 ser_use_stx=yes
++$ ifconfig caif_ttyS0 up
++
++PLEASE NOTE: 	There is a limitation in Android shell.
++		It only accepts one argument to insmod/modprobe!
++
++=== Trouble shooting ===
++
++There are debugfs parameters provided for serial communication.
++/sys/kernel/debug/caif_serial/<tty-name>/
++
++* ser_state:   Prints the bit-mask status where
++  - 0x02 means SENDING, this is a transient state.
++  - 0x04 means TX_COMPLETE, i.e. a frame has been sent by the tty
++  - 0x10 means FLOW_OFF_SENT, i.e. the previous frame has not been sent
++	and is blocking further send operation. Flow OFF has been propagated
++	to all CAIF Channels using this TTY.
++
++* tty_status: Prints the bit-mask tty status information
++  - 0x01 - tty->warned is on.
++  - 0x02 - tty->low_latency is on.
++  - 0x04 - tty->packed is on.
++  - 0x08 - tty->flow_stopped is on.
++  - 0x10 - tty->hw_stopped is on.
++  - 0x20 - tty->stopped is on.
++
++* last_tx_msg: Binary blob Prints the last transmitted frame.
++	This can be printed with
++	$od --format=x1 /sys/kernel/debug/caif_serial/<tty>/last_rx_msg.
++	The first two tx messages sent look like this. Note: The initial
++	byte 02 is start of frame extension (STX) used for re-syncing
++	upon errors.
++
++  - Enumeration:
++        0000000  02 05 00 00 03 01 d2 02
++                 |  |     |  |  |  |
++                 STX(1)   |  |  |  |
++                    Length(2)|  |  |
++                          Control Channel(1)
++                             Command:Enumeration(1)
++                                Link-ID(1)
++                                    Checksum(2)
++  - Channel Setup:
++        0000000  02 07 00 00 00 21 a1 00 48 df
++                 |  |     |  |  |  |  |  |
++                 STX(1)   |  |  |  |  |  |
++                    Length(2)|  |  |  |  |
++                          Control Channel(1)
++                             Command:Channel Setup(1)
++                                Channel Type(1)
++                                    Priority and Link-ID(1)
++				      Endpoint(1)
++					  Checksum(2)
++
++* last_rx_msg: Prints the last transmitted frame.
++	The RX messages for LinkSetup look almost identical but they have the
++	bit 0x20 set in the command bit, and Channel Setup has added one byte
++	before Checksum containing Channel ID.
++	NOTE: Several CAIF Messages might be concatenated. The maximum debug
++	buffer size is 128 bytes.
++
++== Error Scenarios:
++- last_tx_msg contains channel setup message and last_rx_msg is empty ->
++  The host seems to be able to send over the UART, at least the CAIF ldisc get
++  notified that sending is completed.
++
++- last_tx_msg contains enumeration message and last_rx_msg is empty ->
++  The host is not able to send the message from UART, the tty has not been
++  able to complete the transmit operation.
++
++- if /sys/kernel/debug/caif_serial/<tty>/tty_status is non-zero there
++  might be problems transmitting over UART.
++  E.g. host and modem wiring is not correct you will typically see
++  tty_status = 0x10 (hw_stopped) and ser_state = 0x10 (FLOW_OFF_SENT).
++  You will probably see the enumeration message in last_tx_message
++  and empty last_rx_message.
 +
 -- 
 1.6.3.3
