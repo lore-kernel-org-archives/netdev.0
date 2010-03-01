@@ -1,1477 +1,1009 @@
 From: sjur.brandeland@stericsson.com
-Subject: [PATCH net-next-2.6 v6 08/12] net-caif: add CAIF socket implementation
-Date: Mon,  1 Mar 2010 13:12:35 +0100
-Message-ID: <1267445559-1911-9-git-send-email-sjur.brandeland@stericsson.com>
+Subject: [PATCH net-next-2.6 v6 03/12] net-caif: add CAIF core protocol stack header files
+Date: Mon,  1 Mar 2010 13:12:30 +0100
+Message-ID: <1267445559-1911-4-git-send-email-sjur.brandeland@stericsson.com>
 References: <1267445559-1911-1-git-send-email-sjur.brandeland@stericsson.com>
  <1267445559-1911-2-git-send-email-sjur.brandeland@stericsson.com>
  <1267445559-1911-3-git-send-email-sjur.brandeland@stericsson.com>
- <1267445559-1911-4-git-send-email-sjur.brandeland@stericsson.com>
- <1267445559-1911-5-git-send-email-sjur.brandeland@stericsson.com>
- <1267445559-1911-6-git-send-email-sjur.brandeland@stericsson.com>
- <1267445559-1911-7-git-send-email-sjur.brandeland@stericsson.com>
- <1267445559-1911-8-git-send-email-sjur.brandeland@stericsson.com>
 Cc: daniel.martensson@stericsson.com, kaber@trash.net,
 	stefano.babic@babic.homelinux.org, randy.dunlap@oracle.com,
 	Sjur Braendeland <sjur.brandeland@stericsson.com>
 To: netdev@vger.kernel.org, davem@davemloft.net, marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gktv.no ([80.239.85.213]:33851 "EHLO mail.gktv.no"
+Received: from mail.gktv.no ([80.239.85.213]:33775 "EHLO mail.gktv.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751356Ab0CAMNK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Mar 2010 07:13:10 -0500
-In-Reply-To: <1267445559-1911-8-git-send-email-sjur.brandeland@stericsson.com>
+	id S1751280Ab0CAMNH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Mar 2010 07:13:07 -0500
+In-Reply-To: <1267445559-1911-3-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-Implementation of CAIF sockets for protocol and address family
-PF_CAIF and AF_CAIF.
-CAIF socket is connection oriented implementing SOCK_SEQPACKET
-interface with supporting blocking and non-blocking mode.
+Add include files for the CAIF Core protocol stack.
+
+caif_layer.h - Defines the structure of the CAIF protocol layers
+cfcnfg.h     - CAIF Configuration Module for services and link layers
+cfctrl.h     - CAIF Control Protocol Layer
+cffrml.h     - CAIF Framing Layer
+cfmuxl.h     - CAIF Muxing Layer
+cfpkt.h	     - CAIF Packet layer (skb helper functions)
+cfserl.h     - CAIF Serial Layer
+cfsrvl.h     - CAIF Service Layer
 
 Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
 ---
- net/caif/caif_socket.c | 1431 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 1431 insertions(+), 0 deletions(-)
+ include/net/caif/caif_layer.h |  283 +++++++++++++++++++++++++++++++++++++++++
+ include/net/caif/cfcnfg.h     |  134 +++++++++++++++++++
+ include/net/caif/cfctrl.h     |  136 ++++++++++++++++++++
+ include/net/caif/cffrml.h     |   17 +++
+ include/net/caif/cfmuxl.h     |   22 +++
+ include/net/caif/cfpkt.h      |  274 +++++++++++++++++++++++++++++++++++++++
+ include/net/caif/cfserl.h     |   13 ++
+ include/net/caif/cfsrvl.h     |   34 +++++
+ 8 files changed, 913 insertions(+), 0 deletions(-)
 
-diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
+diff --git a/include/net/caif/caif_layer.h b/include/net/caif/caif_layer.h
 new file mode 100644
-index 0000000..d499e19
+index 0000000..2fc78d4
 --- /dev/null
-+++ b/net/caif/caif_socket.c
-@@ -0,0 +1,1431 @@
++++ b/include/net/caif/caif_layer.h
+@@ -0,0 +1,283 @@
 +/*
 + * Copyright (C) ST-Ericsson AB 2010
-+ * Author:	Sjur Brendeland sjur.brandeland@stericsson.com
-+ *		Per Sigmond per.sigmond@stericsson.com
++ * Author:	Sjur Brendeland / sjur.brandeland@stericsson.com
 + * License terms: GNU General Public License (GPL) version 2
 + */
 +
-+#include <linux/fs.h>
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <linux/sched.h>
-+#include <linux/spinlock.h>
-+#include <linux/mutex.h>
++#ifndef CAIF_LAYER_H_
++#define CAIF_LAYER_H_
++
 +#include <linux/list.h>
-+#include <linux/wait.h>
-+#include <linux/poll.h>
-+#include <linux/tcp.h>
-+#include <linux/uaccess.h>
-+#include <asm/atomic.h>
 +
-+#include <linux/caif/caif_socket.h>
-+#include <net/caif/caif_layer.h>
-+#include <net/caif/caif_dev.h>
-+#include <net/caif/cfpkt.h>
++struct cflayer;
++struct cfpkt;
++struct cfpktq;
++struct caif_payload_info;
++struct caif_packet_funcs;
 +
-+MODULE_LICENSE("GPL");
++#define CAIF_MAX_FRAMESIZE 4096
++#define CAIF_MAX_PAYLOAD_SIZE (4096 - 64)
++#define CAIF_NEEDED_HEADROOM (10)
++#define CAIF_NEEDED_TAILROOM (2)
 +
 +
-+#define CHNL_SKT_READ_QUEUE_HIGH 200
-+#define CHNL_SKT_READ_QUEUE_LOW 100
++#define CAIF_LAYER_NAME_SZ 16
++#define CAIF_SUCCESS    1
++#define CAIF_FAILURE    0
 +
-+int caif_sockbuf_size = 40000;
-+static struct kmem_cache *caif_sk_cachep;
-+static atomic_t caif_nr_socks = ATOMIC_INIT(0);
++/**
++ * caif_assert() - Assert function for CAIF.
++ * @assert: expression to evaluate.
++ *
++ * This function will print a error message and a do WARN_ON if the
++ * assertion failes. Normally this will do a stack up at the current location.
++ */
++#define caif_assert(assert)\
++do if (!(assert)) { \
++	pr_err("caif:Assert detected:'%s'\n", #assert); \
++	WARN_ON(!(assert));\
++} while (0)
 +
-+#define CONN_STATE_OPEN_BIT	      1
-+#define CONN_STATE_PENDING_BIT	      2
-+#define CONN_STATE_PEND_DESTROY_BIT   3
-+#define CONN_REMOTE_SHUTDOWN_BIT      4
-+
-+#define TX_FLOW_ON_BIT		      1
-+#define RX_FLOW_ON_BIT		      2
-+
-+#define STATE_IS_OPEN(cf_sk) test_bit(CONN_STATE_OPEN_BIT,\
-+				    (void *) &(cf_sk)->conn_state)
-+#define STATE_IS_REMOTE_SHUTDOWN(cf_sk) test_bit(CONN_REMOTE_SHUTDOWN_BIT,\
-+				    (void *) &(cf_sk)->conn_state)
-+#define STATE_IS_PENDING(cf_sk) test_bit(CONN_STATE_PENDING_BIT,\
-+				       (void *) &(cf_sk)->conn_state)
-+#define STATE_IS_PENDING_DESTROY(cf_sk) test_bit(CONN_STATE_PEND_DESTROY_BIT,\
-+				       (void *) &(cf_sk)->conn_state)
-+
-+#define SET_STATE_PENDING_DESTROY(cf_sk) set_bit(CONN_STATE_PEND_DESTROY_BIT,\
-+				    (void *) &(cf_sk)->conn_state)
-+#define SET_STATE_OPEN(cf_sk) set_bit(CONN_STATE_OPEN_BIT,\
-+				    (void *) &(cf_sk)->conn_state)
-+#define SET_STATE_CLOSED(cf_sk) clear_bit(CONN_STATE_OPEN_BIT,\
-+					(void *) &(cf_sk)->conn_state)
-+#define SET_PENDING_ON(cf_sk) set_bit(CONN_STATE_PENDING_BIT,\
-+				    (void *) &(cf_sk)->conn_state)
-+#define SET_PENDING_OFF(cf_sk) clear_bit(CONN_STATE_PENDING_BIT,\
-+				       (void *) &(cf_sk)->conn_state)
-+#define SET_REMOTE_SHUTDOWN(cf_sk) set_bit(CONN_REMOTE_SHUTDOWN_BIT,\
-+				    (void *) &(cf_sk)->conn_state)
-+
-+#define SET_REMOTE_SHUTDOWN_OFF(dev) clear_bit(CONN_REMOTE_SHUTDOWN_BIT,\
-+				    (void *) &(dev)->conn_state)
-+#define RX_FLOW_IS_ON(cf_sk) test_bit(RX_FLOW_ON_BIT,\
-+				    (void *) &(cf_sk)->flow_state)
-+#define TX_FLOW_IS_ON(cf_sk) test_bit(TX_FLOW_ON_BIT,\
-+				    (void *) &(cf_sk)->flow_state)
-+
-+#define SET_RX_FLOW_OFF(cf_sk) clear_bit(RX_FLOW_ON_BIT,\
-+				       (void *) &(cf_sk)->flow_state)
-+#define SET_RX_FLOW_ON(cf_sk) set_bit(RX_FLOW_ON_BIT,\
-+				    (void *) &(cf_sk)->flow_state)
-+#define SET_TX_FLOW_OFF(cf_sk) clear_bit(TX_FLOW_ON_BIT,\
-+				       (void *) &(cf_sk)->flow_state)
-+#define SET_TX_FLOW_ON(cf_sk) set_bit(TX_FLOW_ON_BIT,\
-+				    (void *) &(cf_sk)->flow_state)
-+
-+#define SKT_READ_FLAG 0x01
-+#define SKT_WRITE_FLAG 0x02
-+static struct dentry *debugfsdir;
-+#include <linux/debugfs.h>
-+
-+#ifdef CONFIG_DEBUG_FS
-+struct debug_fs_counter {
-+	atomic_t num_open;
-+	atomic_t num_close;
-+	atomic_t num_init;
-+	atomic_t num_init_resp;
-+	atomic_t num_init_fail_resp;
-+	atomic_t num_deinit;
-+	atomic_t num_deinit_resp;
-+	atomic_t num_remote_shutdown_ind;
-+	atomic_t num_tx_flow_off_ind;
-+	atomic_t num_tx_flow_on_ind;
-+	atomic_t num_rx_flow_off;
-+	atomic_t num_rx_flow_on;
-+	atomic_t skb_in_use;
-+	atomic_t skb_alloc;
-+	atomic_t skb_free;
++/**
++ * enum caif_ctrlcmd - CAIF Stack Control Signaling sent in layer.ctrlcmd().
++ *
++ * @CAIF_CTRLCMD_FLOW_OFF_IND:		Flow Control is OFF, transmit function
++ *					should stop sending data
++ *
++ * @CAIF_CTRLCMD_FLOW_ON_IND:		Flow Control is ON, transmit function
++ *					can start sending data
++ *
++ * @CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND:  	Remote end modem has decided to close
++ *					down channel
++ *
++ * @CAIF_CTRLCMD_INIT_RSP:		Called initially when the layer below
++ *					has finished initialization
++ *
++ * @CAIF_CTRLCMD_DEINIT_RSP:		Called when de-initialization is
++ *					complete
++ *
++ * @CAIF_CTRLCMD_INIT_FAIL_RSP:		Called if initialization fails
++ *
++ * @_CAIF_CTRLCMD_PHYIF_FLOW_OFF_IND: 	CAIF Link layer temporarily cannot
++ *					send more packets.
++ * @_CAIF_CTRLCMD_PHYIF_FLOW_ON_IND:	Called if CAIF Link layer is able
++ *					to send	packets again.
++ * @_CAIF_CTRLCMD_PHYIF_DOWN_IND:	Called if CAIF Link layer is going
++ *					down.
++ *
++ * These commands are sent upwards in the CAIF stack to the CAIF Client.
++ * They are used for signaling originating from the modem or CAIF Link Layer.
++ * These are either responses (*_RSP) or events (*_IND).
++ */
++enum caif_ctrlcmd {
++	CAIF_CTRLCMD_FLOW_OFF_IND,
++	CAIF_CTRLCMD_FLOW_ON_IND,
++	CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND,
++	CAIF_CTRLCMD_INIT_RSP,
++	CAIF_CTRLCMD_DEINIT_RSP,
++	CAIF_CTRLCMD_INIT_FAIL_RSP,
++	_CAIF_CTRLCMD_PHYIF_FLOW_OFF_IND,
++	_CAIF_CTRLCMD_PHYIF_FLOW_ON_IND,
++	_CAIF_CTRLCMD_PHYIF_DOWN_IND,
 +};
-+struct debug_fs_counter cnt;
-+#define	dbfs_atomic_inc(v) atomic_inc(v)
-+#define	dbfs_atomic_dec(v) atomic_dec(v)
-+#else
-+#define	dbfs_atomic_inc(v)
-+#define	dbfs_atomic_dec(v)
-+#endif
 +
-+/* The AF_CAIF socket */
-+struct caifsock {
-+	/* NOTE: sk has to be the first member */
-+	struct sock sk;
-+	struct cflayer layer;
++/**
++ * enum caif_modemcmd -  Modem Control Signaling, sent from CAIF Client
++ *                       to the CAIF Link Layer or modem.
++ *
++ * @CAIF_MODEMCMD_FLOW_ON_REQ:		Flow Control is ON, transmit function
++ *					can start sending data.
++ *
++ * @CAIF_MODEMCMD_FLOW_OFF_REQ:		Flow Control is OFF, transmit function
++ *					should stop sending data.
++ *
++ * @_CAIF_MODEMCMD_PHYIF_USEFULL:	Notify physical layer that it is in use
++ *
++ * @_CAIF_MODEMCMD_PHYIF_USELESS:	Notify physical layer that it is
++ *					no longer in use.
++ *
++ * These are requests sent 'downwards' in the stack.
++ * Flow ON, OFF can be indicated to the modem.
++ */
++enum caif_modemcmd {
++	CAIF_MODEMCMD_FLOW_ON_REQ = 0,
++	CAIF_MODEMCMD_FLOW_OFF_REQ = 1,
++	_CAIF_MODEMCMD_PHYIF_USEFULL = 3,
++	_CAIF_MODEMCMD_PHYIF_USELESS = 4
++};
++
++/**
++ * enum caif_direction - CAIF Packet Direction.
++ * Indicate if a packet is to be sent out or to be received in.
++ * @CAIF_DIR_IN:		Incoming packet received.
++ * @CAIF_DIR_OUT:		Outgoing packet to be transmitted.
++ */
++enum caif_direction {
++	CAIF_DIR_IN = 0,
++	CAIF_DIR_OUT = 1
++};
++
++/**
++ * struct cflayer - CAIF Stack layer.
++ * Defines the framework for the CAIF Core Stack.
++ * @up: 	Pointer up to the layer above.
++ * @dn:		Pointer down to the layer below.
++ * @node:	List node used when layer participate in a list.
++ * @receive:	Packet receive function.
++ * @transmit:	Packet transmit funciton.
++ * @ctrlcmd:	Used for control signalling upwards in the stack.
++ * @modemcmd:	Used for control signaling downwards in the stack.
++ * @prio:	Priority of this layer.
++ * @id:		The identity of this layer
++ * @type:	The type of this layer
++ * @name:	Name of the layer.
++ *
++ *  This structure defines the layered structure in CAIF.
++ *
++ *  It defines CAIF layering structure, used by all CAIF Layers and the
++ *  layers interfacing CAIF.
++ *
++ *  In order to integrate with CAIF an adaptation layer on top of the CAIF stack
++ *  and PHY layer below the CAIF stack
++ *  must be implemented. These layer must follow the design principles below.
++ *
++ *  Principles for layering of protocol layers:
++ *    -All layers must use this structure. If embedding it, then place this
++ *	     structure first in the layer specific structure.
++ *
++ *    - Each layer should not depend on any others layer private data.
++ *
++ *    - In order to send data upwards do
++ *	 layer->up->receive(layer->up, packet);
++ *
++ *    -In order to send data downwards do
++ *	 layer->dn->transmit(layer->dn, info, packet);
++ */
++struct cflayer {
++	struct cflayer *up;
++	struct cflayer *dn;
++	struct list_head node;
++
++	/*
++	 *  receive() - Receive Function.
++	 *  Contract: Each layer must implement a receive function passing the
++	 *  CAIF packets upwards in the stack.
++	 *	Packet handling rules:
++	 *	      -# The CAIF packet (cfpkt) cannot be accessed after
++	 *		     passing it to the next layer using up->receive().
++	 *	      -# If parsing of the packet fails, the packet must be
++	 *		     destroyed and -1 returned from the function.
++	 *	      -# If parsing succeeds (and above layers return OK) then
++	 *		      the function must return a value > 0.
++	 *
++	 *  Returns result < 0 indicates an error, 0 or positive value
++	 *	     indicates success.
++	 *
++	 *  @layr: Pointer to the current layer the receive function is
++	 *		implemented for (this pointer).
++	 *  @cfpkt: Pointer to CaifPacket to be handled.
++	 */
++	int (*receive)(struct cflayer *layr, struct cfpkt *cfpkt);
++
++	/*
++	 *  transmit() - Transmit Function.
++	 *  Contract: Each layer must implement a transmit function passing the
++	 *	CAIF packet downwards in the stack.
++	 *	Packet handling rules:
++	 *	      -# The CAIF packet (cfpkt) ownership is passed to the
++	 *		 transmit function. This means that the the packet
++	 *		 cannot be accessed after passing it to the below
++	 *		 layer using dn->transmit().
++	 *
++	 *	      -# If transmit fails, however, the ownership is returned
++	 *		 to thecaller. The caller of "dn->transmit()" must
++	 *		 destroy or resend packet.
++	 *
++	 *	      -# Return value less than zero means error, zero or
++	 *		 greater than zero means OK.
++	 *
++	 *       result < 0 indicates an error, 0 or positive value
++	 *	 indicate success.
++	 *
++	 *  @layr:  	Pointer to the current layer the receive function
++	 *		isimplemented for (this pointer).
++	 *  @cfpkt:	 Pointer to CaifPacket to be handled.
++	 */
++	int (*transmit) (struct cflayer *layr, struct cfpkt *cfpkt);
++
++	/*
++	 *  cttrlcmd() - Control Function upwards in CAIF Stack.
++	 *  Used for signaling responses (CAIF_CTRLCMD_*_RSP)
++	 *  and asynchronous events from the modem  (CAIF_CTRLCMD_*_IND)
++	 *
++	 *  @layr:  	Pointer to the current layer the receive function
++	 *		is implemented for (this pointer).
++	 *  @ctrl:	Control Command.
++	 */
++	void (*ctrlcmd) (struct cflayer *layr, enum caif_ctrlcmd ctrl,
++			 int phyid);
++
++	/*
++	 *  modemctrl() - Control Function used for controlling the modem.
++	 *  Used to signal down-wards in the CAIF stack.
++	 *  Returns 0 on success, < 0 upon failure.
++	 *
++	 *  @layr:	Pointer to the current layer the receive function
++	 *		is implemented for (this pointer).
++	 *  @ctrl:  Control Command.
++	 */
++	int (*modemcmd) (struct cflayer *layr, enum caif_modemcmd ctrl);
++
++	unsigned short prio;
++	unsigned int id;
++	unsigned int type;
 +	char name[CAIF_LAYER_NAME_SZ];
-+	u32 conn_state;
-+	u32 flow_state;
-+	struct cfpktq *pktq;
-+	int file_mode;
-+	struct caif_connect_request conn_req;
-+	int read_queue_len;
-+	spinlock_t read_queue_len_lock;
-+	struct dentry *debugfs_socket_dir;
 +};
 +
-+static void drain_queue(struct caifsock *cf_sk);
-+
-+/* Packet Receive Callback function called from CAIF Stack */
-+static int caif_sktrecv_cb(struct cflayer *layr, struct cfpkt *pkt)
-+{
-+	struct caifsock *cf_sk;
-+	int read_queue_high;
-+	cf_sk = container_of(layr, struct caifsock, layer);
-+
-+	if (!STATE_IS_OPEN(cf_sk)) {
-+		/*FIXME: This should be allowed finally!*/
-+		pr_debug("CAIF: %s(): called after close request\n", __func__);
-+		cfpkt_destroy(pkt);
-+		return 0;
-+	}
-+	/* NOTE: This function may be called in Tasklet context! */
-+
-+	/* The queue has its own lock */
-+	cfpkt_queue(cf_sk->pktq, pkt, 0);
-+
-+	spin_lock(&cf_sk->read_queue_len_lock);
-+	cf_sk->read_queue_len++;
-+
-+	read_queue_high = (cf_sk->read_queue_len > CHNL_SKT_READ_QUEUE_HIGH);
-+	spin_unlock(&cf_sk->read_queue_len_lock);
-+
-+	if (RX_FLOW_IS_ON(cf_sk) && read_queue_high) {
-+		dbfs_atomic_inc(&cnt.num_rx_flow_off);
-+		SET_RX_FLOW_OFF(cf_sk);
-+
-+		/* Send flow off (NOTE: must not sleep) */
-+		pr_debug("CAIF: %s():"
-+			" sending flow OFF (queue len = %d)\n",
-+			__func__,
-+		     cf_sk->read_queue_len);
-+		caif_assert(cf_sk->layer.dn);
-+		caif_assert(cf_sk->layer.dn->ctrlcmd);
-+
-+		(void) cf_sk->layer.dn->modemcmd(cf_sk->layer.dn,
-+					       CAIF_MODEMCMD_FLOW_OFF_REQ);
-+	}
-+
-+	/* Signal reader that data is available. */
-+
-+	wake_up_interruptible(cf_sk->sk.sk_sleep);
-+
-+	return 0;
-+}
-+
-+/* Packet Flow Control Callback function called from CAIF */
-+static void caif_sktflowctrl_cb(struct cflayer *layr,
-+				enum caif_ctrlcmd flow,
-+				int phyid)
-+{
-+	struct caifsock *cf_sk;
-+
-+	/* NOTE: This function may be called in Tasklet context! */
-+	pr_debug("CAIF: %s(): flowctrl func called: %s.\n",
-+		      __func__,
-+		      flow == CAIF_CTRLCMD_FLOW_ON_IND ? "ON" :
-+		      flow == CAIF_CTRLCMD_FLOW_OFF_IND ? "OFF" :
-+		      flow == CAIF_CTRLCMD_INIT_RSP ? "INIT_RSP" :
-+		      flow == CAIF_CTRLCMD_DEINIT_RSP ? "DEINIT_RSP" :
-+		      flow == CAIF_CTRLCMD_INIT_FAIL_RSP ? "INIT_FAIL_RSP" :
-+		      flow ==
-+		      CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND ? "REMOTE_SHUTDOWN" :
-+		      "UKNOWN CTRL COMMAND");
-+
-+	cf_sk = container_of(layr, struct caifsock, layer);
-+	switch (flow) {
-+	case CAIF_CTRLCMD_FLOW_ON_IND:
-+		dbfs_atomic_inc(&cnt.num_tx_flow_on_ind);
-+		/* Signal reader that data is available. */
-+		SET_TX_FLOW_ON(cf_sk);
-+		wake_up_interruptible(cf_sk->sk.sk_sleep);
-+		break;
-+
-+	case CAIF_CTRLCMD_FLOW_OFF_IND:
-+		dbfs_atomic_inc(&cnt.num_tx_flow_off_ind);
-+		SET_TX_FLOW_OFF(cf_sk);
-+		break;
-+
-+	case CAIF_CTRLCMD_INIT_RSP:
-+		dbfs_atomic_inc(&cnt.num_init_resp);
-+		/* Signal reader that data is available. */
-+		caif_assert(STATE_IS_OPEN(cf_sk));
-+		SET_PENDING_OFF(cf_sk);
-+		SET_TX_FLOW_ON(cf_sk);
-+		wake_up_interruptible(cf_sk->sk.sk_sleep);
-+		break;
-+
-+	case CAIF_CTRLCMD_DEINIT_RSP:
-+		dbfs_atomic_inc(&cnt.num_deinit_resp);
-+		caif_assert(!STATE_IS_OPEN(cf_sk));
-+		SET_PENDING_OFF(cf_sk);
-+		if (!STATE_IS_PENDING_DESTROY(cf_sk)) {
-+			if (cf_sk->sk.sk_sleep != NULL)
-+				wake_up_interruptible(cf_sk->sk.sk_sleep);
-+		}
-+		dbfs_atomic_inc(&cnt.num_deinit);
-+		sock_put(&cf_sk->sk);
-+		wake_up_interruptible(cf_sk->sk.sk_sleep);
-+		break;
-+
-+	case CAIF_CTRLCMD_INIT_FAIL_RSP:
-+		dbfs_atomic_inc(&cnt.num_init_fail_resp);
-+		caif_assert(STATE_IS_OPEN(cf_sk));
-+		SET_STATE_CLOSED(cf_sk);
-+		SET_PENDING_OFF(cf_sk);
-+		SET_TX_FLOW_OFF(cf_sk);
-+		wake_up_interruptible(cf_sk->sk.sk_sleep);
-+		break;
-+
-+	case CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND:
-+		dbfs_atomic_inc(&cnt.num_remote_shutdown_ind);
-+		SET_REMOTE_SHUTDOWN(cf_sk);
-+		SET_TX_FLOW_OFF(cf_sk);
-+		drain_queue(cf_sk);
-+		SET_RX_FLOW_ON(cf_sk);
-+		cf_sk->file_mode = 0;
-+		wake_up_interruptible(cf_sk->sk.sk_sleep);
-+		break;
-+
-+	default:
-+		pr_debug("CAIF: %s(): Unexpected flow command %d\n",
-+			      __func__, flow);
-+	}
-+}
-+
-+static void skb_destructor(struct sk_buff *skb)
-+{
-+	dbfs_atomic_inc(&cnt.skb_free);
-+	dbfs_atomic_dec(&cnt.skb_in_use);
-+}
-+
-+
-+static int caif_recvmsg(struct kiocb *iocb, struct socket *sock,
-+				struct msghdr *m, size_t buf_len, int flags)
-+
-+{
-+	struct sock *sk = sock->sk;
-+	struct caifsock *cf_sk = container_of(sk, struct caifsock, sk);
-+	struct cfpkt *pkt = NULL;
-+	size_t len;
-+	int result;
-+	struct sk_buff *skb;
-+	ssize_t ret = -EIO;
-+	int read_queue_low;
-+
-+	if (cf_sk == NULL) {
-+		pr_debug("CAIF: %s(): private_data not set!\n",
-+			      __func__);
-+		ret = -EBADFD;
-+		goto read_error;
-+	}
-+
-+	/* Don't do multiple iovec entries yet */
-+	if (m->msg_iovlen != 1)
-+		return -EOPNOTSUPP;
-+
-+	if (unlikely(!buf_len))
-+		return -EINVAL;
-+
-+	lock_sock(&(cf_sk->sk));
-+
-+	caif_assert(cf_sk->pktq);
-+
-+	if (!STATE_IS_OPEN(cf_sk)) {
-+		/* Socket is closed or closing. */
-+		if (!STATE_IS_PENDING(cf_sk)) {
-+			pr_debug("CAIF: %s(): socket is closed (by remote)\n",
-+				 __func__);
-+			ret = -EPIPE;
-+		} else {
-+			pr_debug("CAIF: %s(): socket is closing..\n", __func__);
-+			ret = -EBADF;
-+		}
-+		goto read_error;
-+	}
-+	/* Socket is open or opening. */
-+	if (STATE_IS_PENDING(cf_sk)) {
-+		pr_debug("CAIF: %s(): socket is opening...\n", __func__);
-+
-+		if (flags & MSG_DONTWAIT) {
-+			/* We can't block. */
-+			pr_debug("CAIF: %s():state pending and MSG_DONTWAIT\n",
-+				 __func__);
-+			ret = -EAGAIN;
-+			goto read_error;
-+		}
-+
-+		/*
-+		 * Blocking mode; state is pending and we need to wait
-+		 * for its conclusion.
-+		 */
-+		release_sock(&cf_sk->sk);
-+
-+		result =
-+		    wait_event_interruptible(*cf_sk->sk.sk_sleep,
-+					     !STATE_IS_PENDING(cf_sk));
-+
-+		lock_sock(&(cf_sk->sk));
-+
-+		if (result == -ERESTARTSYS) {
-+			pr_debug("CAIF: %s(): wait_event_interruptible"
-+				 " woken by a signal (1)", __func__);
-+			ret = -ERESTARTSYS;
-+			goto read_error;
-+		}
-+	}
-+	if (STATE_IS_REMOTE_SHUTDOWN(cf_sk)) {
-+		pr_debug("CAIF: %s(): received remote_shutdown indication\n",
-+			 __func__);
-+		ret = -ESHUTDOWN;
-+		goto read_error;
-+	}
-+
-+	/*
-+	 * Block if we don't have any received buffers.
-+	 * The queue has its own lock.
-+	 */
-+	while ((pkt = cfpkt_qpeek(cf_sk->pktq)) == NULL) {
-+
-+		if (flags & MSG_DONTWAIT) {
-+			pr_debug("CAIF: %s(): MSG_DONTWAIT\n", __func__);
-+			ret = -EAGAIN;
-+			goto read_error;
-+		}
-+		trace_printk("CAIF: %s() wait_event\n", __func__);
-+
-+		/* Let writers in. */
-+		release_sock(&cf_sk->sk);
-+
-+		/* Block reader until data arrives or socket is closed. */
-+		if (wait_event_interruptible(*cf_sk->sk.sk_sleep,
-+					cfpkt_qpeek(cf_sk->pktq)
-+					|| STATE_IS_REMOTE_SHUTDOWN(cf_sk)
-+					|| !STATE_IS_OPEN(cf_sk)) ==
-+		    -ERESTARTSYS) {
-+			pr_debug("CAIF: %s():"
-+				" wait_event_interruptible woken by "
-+				"a signal, signal_pending(current) = %d\n",
-+				__func__,
-+				signal_pending(current));
-+			return -ERESTARTSYS;
-+		}
-+
-+		trace_printk("CAIF: %s() awake\n", __func__);
-+		if (STATE_IS_REMOTE_SHUTDOWN(cf_sk)) {
-+			pr_debug("CAIF: %s(): "
-+				 "received remote_shutdown indication\n",
-+				 __func__);
-+			ret = -ESHUTDOWN;
-+			goto read_error_no_unlock;
-+		}
-+
-+		/* I want to be alone on cf_sk (except status and queue). */
-+		lock_sock(&(cf_sk->sk));
-+
-+		if (!STATE_IS_OPEN(cf_sk)) {
-+			/* Someone closed the link, report error. */
-+			pr_debug("CAIF: %s(): remote end shutdown!\n",
-+				      __func__);
-+			ret = -EPIPE;
-+			goto read_error;
-+		}
-+	}
-+
-+	/* The queue has its own lock. */
-+	len = cfpkt_getlen(pkt);
-+
-+	/* Check max length that can be copied. */
-+	if (len > buf_len) {
-+		pr_debug("CAIF: %s(): user buffer too small\n", __func__);
-+		ret = -EINVAL;
-+		goto read_error;
-+	}
-+
-+	/*
-+	 * Get packet from queue.
-+	 * The queue has its own lock.
-+	 */
-+	pkt = cfpkt_dequeue(cf_sk->pktq);
-+
-+	spin_lock(&cf_sk->read_queue_len_lock);
-+	cf_sk->read_queue_len--;
-+	read_queue_low = (cf_sk->read_queue_len < CHNL_SKT_READ_QUEUE_LOW);
-+	spin_unlock(&cf_sk->read_queue_len_lock);
-+
-+	if (!RX_FLOW_IS_ON(cf_sk) && read_queue_low) {
-+		dbfs_atomic_inc(&cnt.num_rx_flow_on);
-+		SET_RX_FLOW_ON(cf_sk);
-+
-+		/* Send flow on. */
-+		pr_debug("CAIF: %s(): sending flow ON (queue len = %d)\n",
-+			 __func__, cf_sk->read_queue_len);
-+		caif_assert(cf_sk->layer.dn);
-+		caif_assert(cf_sk->layer.dn->ctrlcmd);
-+		(void) cf_sk->layer.dn->modemcmd(cf_sk->layer.dn,
-+					       CAIF_MODEMCMD_FLOW_ON_REQ);
-+
-+		caif_assert(cf_sk->read_queue_len >= 0);
-+	}
-+
-+	skb = cfpkt_tonative(pkt);
-+	result = skb_copy_datagram_iovec(skb, 0, m->msg_iov, len);
-+	if (result) {
-+		pr_debug("CAIF: %s(): cfpkt_raw_extract failed\n", __func__);
-+		cfpkt_destroy(pkt);
-+		ret = -EFAULT;
-+		goto read_error;
-+	}
-+	if (unlikely(buf_len < len)) {
-+		len = buf_len;
-+		m->msg_flags |= MSG_TRUNC;
-+	}
-+
-+	/* Free packet. */
-+	skb_free_datagram(sk, skb);
-+
-+	/* Let the others in. */
-+	release_sock(&cf_sk->sk);
-+	return len;
-+
-+read_error:
-+	release_sock(&cf_sk->sk);
-+read_error_no_unlock:
-+	return ret;
-+}
-+
-+/* Send a signal as a consequence of sendmsg, sendto or caif_sendmsg. */
-+static int caif_sendmsg(struct kiocb *kiocb, struct socket *sock,
-+			struct msghdr *msg, size_t len)
-+{
-+
-+	struct sock *sk = sock->sk;
-+	struct caifsock *cf_sk = container_of(sk, struct caifsock, sk);
-+	void *payload;
-+	size_t payload_size = msg->msg_iov->iov_len;
-+	struct cfpkt *pkt = NULL;
-+	struct caif_payload_info info;
-+	unsigned char *txbuf;
-+	ssize_t ret = -EIO;
-+	int result;
-+	struct sk_buff *skb;
-+	caif_assert(msg->msg_iovlen == 1);
-+
-+	if (cf_sk == NULL) {
-+		pr_debug("CAIF: %s(): private_data not set!\n",
-+			      __func__);
-+		ret = -EBADFD;
-+		goto write_error_no_unlock;
-+	}
-+
-+	if (unlikely(msg->msg_iov->iov_base == NULL)) {
-+		pr_warning("CAIF: %s(): Buffer is NULL.\n", __func__);
-+		ret = -EINVAL;
-+		goto write_error_no_unlock;
-+	}
-+
-+	payload = msg->msg_iov->iov_base;
-+	if (payload_size > CAIF_MAX_PAYLOAD_SIZE) {
-+		pr_debug("CAIF: %s(): buffer too long\n", __func__);
-+		ret = -EINVAL;
-+		goto write_error_no_unlock;
-+	}
-+	/* I want to be alone on cf_sk (except status and queue) */
-+	lock_sock(&(cf_sk->sk));
-+
-+	caif_assert(cf_sk->pktq);
-+
-+	if (!STATE_IS_OPEN(cf_sk)) {
-+		/* Socket is closed or closing */
-+		if (!STATE_IS_PENDING(cf_sk)) {
-+			pr_debug("CAIF: %s(): socket is closed (by remote)\n",
-+				 __func__);
-+			ret = -EPIPE;
-+		} else {
-+			pr_debug("CAIF: %s(): socket is closing...\n",
-+				 __func__);
-+			ret = -EBADF;
-+		}
-+		goto write_error;
-+	}
-+
-+	/* Socket is open or opening */
-+	if (STATE_IS_PENDING(cf_sk)) {
-+		pr_debug("CAIF: %s(): socket is opening...\n", __func__);
-+
-+		if (msg->msg_flags & MSG_DONTWAIT) {
-+			/* We can't block */
-+			trace_printk("CAIF: %s():state pending:"
-+				     "state=MSG_DONTWAIT\n", __func__);
-+			ret = -EAGAIN;
-+			goto write_error;
-+		}
-+
-+		/* Let readers in */
-+		release_sock(&cf_sk->sk);
-+
-+		/*
-+		 * Blocking mode; state is pending and we need to wait
-+		 * for its conclusion.
-+		 */
-+		result =
-+		    wait_event_interruptible(*cf_sk->sk.sk_sleep,
-+					     !STATE_IS_PENDING(cf_sk));
-+
-+		/* I want to be alone on cf_sk (except status and queue) */
-+		lock_sock(&(cf_sk->sk));
-+
-+		if (result == -ERESTARTSYS) {
-+			pr_debug("CAIF: %s(): wait_event_interruptible"
-+				 " woken by a signal (1)", __func__);
-+			ret = -ERESTARTSYS;
-+			goto write_error;
-+		}
-+	}
-+
-+	if (STATE_IS_REMOTE_SHUTDOWN(cf_sk)) {
-+		pr_debug("CAIF: %s(): received remote_shutdown indication\n",
-+			 __func__);
-+		ret = -ESHUTDOWN;
-+		goto write_error;
-+	}
-+
-+	if (!TX_FLOW_IS_ON(cf_sk)) {
-+
-+		/* Flow is off. Check non-block flag */
-+		if (msg->msg_flags & MSG_DONTWAIT) {
-+			trace_printk("CAIF: %s(): MSG_DONTWAIT and tx flow off",
-+				 __func__);
-+			ret = -EAGAIN;
-+			goto write_error;
-+		}
-+
-+		/* release lock before waiting */
-+		release_sock(&cf_sk->sk);
-+
-+		/* Wait until flow is on or socket is closed */
-+		if (wait_event_interruptible(*cf_sk->sk.sk_sleep,
-+					TX_FLOW_IS_ON(cf_sk)
-+					|| !STATE_IS_OPEN(cf_sk)
-+					|| STATE_IS_REMOTE_SHUTDOWN(cf_sk)
-+					) == -ERESTARTSYS) {
-+			pr_debug("CAIF: %s():"
-+				 " wait_event_interruptible woken by a signal",
-+				 __func__);
-+			ret = -ERESTARTSYS;
-+			goto write_error_no_unlock;
-+		}
-+
-+		/* I want to be alone on cf_sk (except status and queue) */
-+		lock_sock(&(cf_sk->sk));
-+
-+		if (!STATE_IS_OPEN(cf_sk)) {
-+			/* someone closed the link, report error */
-+			pr_debug("CAIF: %s(): remote end shutdown!\n",
-+				      __func__);
-+			ret = -EPIPE;
-+			goto write_error;
-+		}
-+
-+		if (STATE_IS_REMOTE_SHUTDOWN(cf_sk)) {
-+			pr_debug("CAIF: %s(): "
-+				 "received remote_shutdown indication\n",
-+				 __func__);
-+			ret = -ESHUTDOWN;
-+			goto write_error;
-+		}
-+	}
-+
-+	pkt = cfpkt_create(payload_size);
-+	skb = (struct sk_buff *)pkt;
-+	skb->destructor = skb_destructor;
-+	skb->sk = sk;
-+	dbfs_atomic_inc(&cnt.skb_alloc);
-+	dbfs_atomic_inc(&cnt.skb_in_use);
-+	if (cfpkt_raw_append(pkt, (void **) &txbuf, payload_size) < 0) {
-+		pr_debug("CAIF: %s(): cfpkt_raw_append failed\n", __func__);
-+		cfpkt_destroy(pkt);
-+		ret = -EINVAL;
-+		goto write_error;
-+	}
-+
-+	/* Copy data into buffer. */
-+	if (copy_from_user(txbuf, payload, payload_size)) {
-+		pr_debug("CAIF: %s(): copy_from_user returned non zero.\n",
-+			 __func__);
-+		cfpkt_destroy(pkt);
-+		ret = -EINVAL;
-+		goto write_error;
-+	}
-+	memset(&info, 0, sizeof(info));
-+
-+	/* Send the packet down the stack. */
-+	caif_assert(cf_sk->layer.dn);
-+	caif_assert(cf_sk->layer.dn->transmit);
-+
-+	do {
-+		ret = cf_sk->layer.dn->transmit(cf_sk->layer.dn, pkt);
-+
-+		if (likely((ret >= 0) || (ret != -EAGAIN)))
-+			break;
-+
-+		/* EAGAIN - retry */
-+		if (msg->msg_flags & MSG_DONTWAIT) {
-+			pr_debug("CAIF: %s(): NONBLOCK and transmit failed,"
-+				 " error = %d\n", __func__, ret);
-+			ret = -EAGAIN;
-+			goto write_error;
-+		}
-+
-+		/* Let readers in */
-+		release_sock(&cf_sk->sk);
-+
-+		/* Wait until flow is on or socket is closed */
-+		if (wait_event_interruptible(*cf_sk->sk.sk_sleep,
-+					TX_FLOW_IS_ON(cf_sk)
-+					|| !STATE_IS_OPEN(cf_sk)
-+					|| STATE_IS_REMOTE_SHUTDOWN(cf_sk)
-+					) == -ERESTARTSYS) {
-+			pr_debug("CAIF: %s(): wait_event_interruptible"
-+				 " woken by a signal", __func__);
-+			ret = -ERESTARTSYS;
-+			goto write_error_no_unlock;
-+		}
-+
-+		/* I want to be alone on cf_sk (except status and queue) */
-+		lock_sock(&(cf_sk->sk));
-+
-+	} while (ret == -EAGAIN);
-+
-+	if (ret < 0) {
-+		cfpkt_destroy(pkt);
-+		pr_debug("CAIF: %s(): transmit failed, error = %d\n",
-+			  __func__, ret);
-+
-+		goto write_error;
-+	}
-+
-+	release_sock(&cf_sk->sk);
-+	return payload_size;
-+
-+write_error:
-+	release_sock(&cf_sk->sk);
-+write_error_no_unlock:
-+	return ret;
-+}
-+
-+static unsigned int caif_poll(struct file *file, struct socket *sock,
-+						poll_table *wait)
-+{
-+	struct sock *sk = sock->sk;
-+	struct caifsock *cf_sk = container_of(sk, struct caifsock, sk);
-+	u32 mask = 0;
-+
-+	poll_wait(file, sk->sk_sleep, wait);
-+	lock_sock(&(cf_sk->sk));
-+	if (cfpkt_qpeek(cf_sk->pktq) != NULL)
-+		mask |= (POLLIN | POLLRDNORM);
-+	if (!STATE_IS_OPEN(cf_sk))
-+		mask |= POLLHUP;
-+	else if (TX_FLOW_IS_ON(cf_sk))
-+		mask |= (POLLOUT | POLLWRNORM);
-+	release_sock(&cf_sk->sk);
-+	trace_printk("CAIF: %s(): poll mask=0x%04x...\n",
-+		      __func__, mask);
-+	return mask;
-+}
-+
-+static void drain_queue(struct caifsock *cf_sk)
-+{
-+	struct cfpkt *pkt = NULL;
-+
-+	/* Empty the queue */
-+	do {
-+		/* The queue has its own lock */
-+		pkt = cfpkt_dequeue(cf_sk->pktq);
-+		if (!pkt)
-+			break;
-+		pr_debug("CAIF: %s(): freeing packet from read queue\n",
-+			 __func__);
-+		cfpkt_destroy(pkt);
-+
-+	} while (1);
-+
-+	spin_lock(&cf_sk->read_queue_len_lock);
-+	cf_sk->read_queue_len = 0;
-+	spin_unlock(&cf_sk->read_queue_len_lock);
-+}
-+
-+
-+static int setsockopt(struct socket *sock,
-+			int lvl, int opt, char __user *ov, unsigned int ol)
-+{
-+	struct sock *sk = sock->sk;
-+	struct caifsock *cf_sk = container_of(sk, struct caifsock, sk);
-+	int prio, linksel;
-+	struct ifreq ifreq;
-+
-+	if (STATE_IS_OPEN(cf_sk)) {
-+		pr_debug("CAIF: %s(): setsockopt "
-+			 "cannot be done on a connected socket\n",
-+			 __func__);
-+		return -ENOPROTOOPT;
-+	}
-+	switch (opt) {
-+	case CAIFSO_LINK_SELECT:
-+		if (ol < sizeof(int)) {
-+			pr_debug("CAIF: %s(): setsockopt"
-+				 " CAIFSO_CHANNEL_CONFIG bad size\n", __func__);
-+			return -EINVAL;
-+		}
-+		if (lvl != SOL_CAIF)
-+			goto bad_sol;
-+		if (copy_from_user(&linksel, ov, sizeof(int)))
-+			return -EINVAL;
-+		lock_sock(&(cf_sk->sk));
-+		cf_sk->conn_req.link_selector = linksel;
-+		release_sock(&cf_sk->sk);
-+		return 0;
-+
-+	case SO_PRIORITY:
-+		if (lvl != SOL_SOCKET)
-+			goto bad_sol;
-+		if (ol < sizeof(int)) {
-+			pr_debug("CAIF: %s(): setsockopt"
-+				 " SO_PRIORITY bad size\n", __func__);
-+			return -EINVAL;
-+		}
-+		if (copy_from_user(&prio, ov, sizeof(int)))
-+			return -EINVAL;
-+		lock_sock(&(cf_sk->sk));
-+		cf_sk->conn_req.priority = prio;
-+		pr_debug("CAIF: %s(): Setting sockopt priority=%d\n", __func__,
-+			cf_sk->conn_req.priority);
-+		release_sock(&cf_sk->sk);
-+		return 0;
-+
-+	case SO_BINDTODEVICE:
-+		if (lvl != SOL_SOCKET)
-+			goto bad_sol;
-+		if (ol < sizeof(struct ifreq)) {
-+			pr_debug("CAIF: %s(): setsockopt"
-+				 " SO_PRIORITY bad size\n", __func__);
-+			return -EINVAL;
-+		}
-+		if (copy_from_user(&ifreq, ov, sizeof(ifreq)))
-+			return -EFAULT;
-+		lock_sock(&(cf_sk->sk));
-+		strncpy(cf_sk->conn_req.link_name, ifreq.ifr_name,
-+			sizeof(cf_sk->conn_req.link_name));
-+		cf_sk->conn_req.link_name
-+			[sizeof(cf_sk->conn_req.link_name)-1] = 0;
-+		release_sock(&cf_sk->sk);
-+		return 0;
-+
-+	case CAIFSO_REQ_PARAM:
-+		if (lvl != SOL_CAIF)
-+			goto bad_sol;
-+		if (cf_sk->sk.sk_protocol != CAIFPROTO_UTIL)
-+			return -ENOPROTOOPT;
-+		if (ol > sizeof(cf_sk->conn_req.param.data))
-+			goto req_param_bad_size;
-+
-+		lock_sock(&(cf_sk->sk));
-+		cf_sk->conn_req.param.size = ol;
-+		if (copy_from_user(&cf_sk->conn_req.param.data, ov, ol)) {
-+			release_sock(&cf_sk->sk);
-+req_param_bad_size:
-+			pr_debug("CAIF: %s(): setsockopt"
-+				 " CAIFSO_CHANNEL_CONFIG bad size\n", __func__);
-+			return -EINVAL;
-+		}
-+
-+		pr_debug("CAIF: %s(): Setting reqparam len=%d "
-+				"data=0x%02x%02x%02x%02x\n",
-+				__func__,
-+				cf_sk->conn_req.param.size,
-+				cf_sk->conn_req.param.data[0],
-+				cf_sk->conn_req.param.data[1],
-+				cf_sk->conn_req.param.data[2],
-+				cf_sk->conn_req.param.data[3]);
-+		release_sock(&cf_sk->sk);
-+		return 0;
-+
-+	default:
-+		pr_debug("CAIF: %s(): unhandled option %d\n", __func__, opt);
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+bad_sol:
-+	pr_debug("CAIF: %s(): setsockopt bad level\n", __func__);
-+	return -ENOPROTOOPT;
-+
-+}
-+
-+static int getsockopt(struct socket *sock,
-+			int lvl, int opt, char __user *ov, int __user *ol)
-+{
-+	struct sock *sk = sock->sk;
-+	struct caifsock *cf_sk = container_of(sk, struct caifsock, sk);
-+	int len;
-+	u32 val;
-+	if (lvl != SOL_CAIF)
-+		return -ENOPROTOOPT;
-+	if (get_user(len, ol))
-+		return -EFAULT;
-+	if (len < 0)
-+		return -EINVAL;
-+	if (!STATE_IS_OPEN(cf_sk) && !STATE_IS_PENDING(cf_sk)) {
-+		pr_debug("CAIF: %s():"
-+			"can only be done on a sconnected socket\n",
-+			 __func__);
-+		return -ENOPROTOOPT;
-+	}
-+
-+	if (ov == NULL || len < sizeof(int))
-+		return -EINVAL;
-+	switch (opt) {
-+	default:
-+		pr_debug("CAIF: %s(): unhandled option %d\n", __func__, opt);
-+		return -ENOPROTOOPT;
-+	}
-+	if (copy_to_user(ov, &val, sizeof(val)))
-+		return -EINVAL;
-+
-+	if (put_user(len, ol))
-+		return -EFAULT;
-+
-+	return 0;
-+}
-+
-+
-+int caif_connect(struct socket *sock, struct sockaddr *uservaddr,
-+	       int sockaddr_len, int flags)
-+{
-+	struct caifsock *cf_sk = NULL;
-+	int result = -1;
-+	int mode = 0;
-+	int ret = -EIO;
-+	struct sock *sk = sock->sk;
-+	BUG_ON(sk == NULL);
-+
-+	cf_sk = container_of(sk, struct caifsock, sk);
-+
-+	trace_printk("CAIF: %s(): cf_sk=%p OPEN=%d, TX_FLOW=%d, RX_FLOW=%d\n",
-+		 __func__, cf_sk,
-+		STATE_IS_OPEN(cf_sk),
-+		TX_FLOW_IS_ON(cf_sk), RX_FLOW_IS_ON(cf_sk));
-+
-+	sk->sk_state	= TCP_CLOSE;
-+	sock->state	= SS_UNCONNECTED;
-+
-+	if (sock->type == SOCK_SEQPACKET) {
-+		sock->state	= SS_CONNECTED;
-+		sk->sk_state	= TCP_ESTABLISHED;
-+	} else
-+		goto out;
-+
-+	/* I want to be alone on cf_sk (except status and queue) */
-+	lock_sock(&(cf_sk->sk));
-+
-+	if (sockaddr_len != sizeof(struct sockaddr_caif)) {
-+		pr_debug("CAIF: %s(): Bad address len (%d,%d)\n",
-+			 __func__, sockaddr_len, sizeof(struct sockaddr_caif));
-+		ret = -EINVAL;
-+		goto open_error;
-+	}
-+
-+	if (uservaddr->sa_family != AF_CAIF) {
-+		pr_debug("CAIF: %s(): Bad address family (%d)\n",
-+			 __func__, uservaddr->sa_family);
-+		ret = -EAFNOSUPPORT;
-+		goto open_error;
-+	}
-+
-+	memcpy(&cf_sk->conn_req.sockaddr, uservaddr,
-+		sizeof(struct sockaddr_caif));
-+
-+	dbfs_atomic_inc(&cnt.num_open);
-+	mode = SKT_READ_FLAG | SKT_WRITE_FLAG;
-+
-+	/* If socket is not open, make sure socket is in fully closed state */
-+	if (!STATE_IS_OPEN(cf_sk)) {
-+		/* Has link close response been received (if we ever sent it)?*/
-+		if (STATE_IS_PENDING(cf_sk)) {
-+			/*
-+			 * Still waiting for close response from remote.
-+			 * If opened non-blocking, report "would block"
-+			 */
-+			if (flags & MSG_DONTWAIT) {
-+				pr_debug("CAIF: %s(): MSG_DONTWAIT"
-+					" && close pending\n", __func__);
-+				ret = -EAGAIN;
-+				goto open_error;
-+			}
-+
-+			pr_debug("CAIF: %s(): Wait for close response"
-+				 " from remote...\n", __func__);
-+
-+			release_sock(&cf_sk->sk);
-+
-+			/*
-+			 * Blocking mode; close is pending and we need to wait
-+			 * for its conclusion.
-+			 */
-+			result =
-+			    wait_event_interruptible(*cf_sk->sk.sk_sleep,
-+						     !STATE_IS_PENDING(cf_sk));
-+
-+			lock_sock(&(cf_sk->sk));
-+			if (result == -ERESTARTSYS) {
-+				pr_debug("CAIF: %s(): wait_event_interruptible"
-+					 "woken by a signal (1)", __func__);
-+				ret = -ERESTARTSYS;
-+				goto open_error;
-+			}
-+		}
-+	}
-+
-+	/* socket is now either closed, pending open or open */
-+	if (STATE_IS_OPEN(cf_sk) && !STATE_IS_PENDING(cf_sk)) {
-+		/* Open */
-+		pr_debug("CAIF: %s(): Socket is already opened (cf_sk=%p)"
-+			" check access f_flags = 0x%x file_mode = 0x%x\n",
-+			 __func__, cf_sk, mode, cf_sk->file_mode);
-+
-+		if (mode & cf_sk->file_mode) {
-+			pr_debug("CAIF: %s(): Access mode already in use"
-+				"0x%x\n",
-+				__func__, mode);
-+			ret = -EBUSY;
-+			goto open_error;
-+		}
-+	} else {
-+		/* We are closed or pending open.
-+		 * If closed:	    send link setup
-+		 * If pending open: link setup already sent (we could have been
-+		 *		    interrupted by a signal last time)
-+		 */
-+		if (!STATE_IS_OPEN(cf_sk)) {
-+			/* First opening of file; connect lower layers: */
-+			/* Drain queue (very unlikely) */
-+			drain_queue(cf_sk);
-+
-+			cf_sk->layer.receive = caif_sktrecv_cb;
-+
-+			SET_STATE_OPEN(cf_sk);
-+			SET_PENDING_ON(cf_sk);
-+
-+			/* Register this channel. */
-+			result =
-+				caif_connect_client(&cf_sk->conn_req,
-+							&cf_sk->layer);
-+			if (result < 0) {
-+				pr_debug("CAIF: %s(): can't register channel\n",
-+					__func__);
-+				ret = -EIO;
-+				SET_STATE_CLOSED(cf_sk);
-+				SET_PENDING_OFF(cf_sk);
-+				goto open_error;
-+			}
-+			dbfs_atomic_inc(&cnt.num_init);
-+		}
-+
-+		/* If opened non-blocking, report "success".
-+		 */
-+		if (flags & MSG_DONTWAIT) {
-+			pr_debug("CAIF: %s(): MSG_DONTWAIT success\n",
-+				 __func__);
-+			ret = 0;
-+			goto open_success;
-+		}
-+
-+		trace_printk("CAIF: %s(): Wait for connect response\n",
-+			     __func__);
-+
-+		/* release lock before waiting */
-+		release_sock(&cf_sk->sk);
-+
-+		result =
-+		    wait_event_interruptible(*cf_sk->sk.sk_sleep,
-+					     !STATE_IS_PENDING(cf_sk));
-+
-+		lock_sock(&(cf_sk->sk));
-+
-+		if (result == -ERESTARTSYS) {
-+			pr_debug("CAIF: %s(): wait_event_interruptible"
-+				 "woken by a signal (2)", __func__);
-+			ret = -ERESTARTSYS;
-+			goto open_error;
-+		}
-+
-+		if (!STATE_IS_OPEN(cf_sk)) {
-+			/* Lower layers said "no" */
-+			pr_debug("CAIF: %s(): Closed received\n", __func__);
-+			ret = -EPIPE;
-+			goto open_error;
-+		}
-+
-+		trace_printk("CAIF: %s(): Connect received\n", __func__);
-+	}
-+open_success:
-+	/* Open is ok */
-+	cf_sk->file_mode |= mode;
-+
-+	trace_printk("CAIF: %s(): Connected - file mode = %x\n",
-+		  __func__, cf_sk->file_mode);
-+
-+	release_sock(&cf_sk->sk);
-+	return 0;
-+open_error:
-+	release_sock(&cf_sk->sk);
-+out:
-+	return ret;
-+}
-+
-+
-+static int caif_shutdown(struct socket *sock, int how)
-+{
-+	struct caifsock *cf_sk = NULL;
-+	int result;
-+	int tx_flow_state_was_on;
-+	struct sock *sk = sock->sk;
-+	if (how != SHUT_RDWR)
-+		return -EOPNOTSUPP; /* FIXME: ENOTSUP in userland for POSIX */
-+	cf_sk = container_of(sk, struct caifsock, sk);
-+	if (cf_sk == NULL) {
-+		pr_debug("CAIF: %s(): COULD NOT FIND SOCKET\n", __func__);
-+		return -EBADF;
-+	}
-+	/* I want to be alone on cf_sk (except status queue) */
-+	lock_sock(&(cf_sk->sk));
-+	sock_hold(&cf_sk->sk);
-+
-+	/* IS_CLOSED have double meaning:
-+	 * 1) Spontanous Remote Shutdown Request.
-+	 * 2) Ack on a channel teardown(disconnect)
-+	 * Must clear bit in case we previously received
-+	 * remote shudown request.
-+	 */
-+	if (STATE_IS_OPEN(cf_sk) && !STATE_IS_PENDING(cf_sk)) {
-+
-+		SET_STATE_CLOSED(cf_sk);
-+		SET_PENDING_ON(cf_sk);
-+		sock->state = SS_DISCONNECTING;
-+		tx_flow_state_was_on = TX_FLOW_IS_ON(cf_sk);
-+		SET_TX_FLOW_OFF(cf_sk);
-+
-+		/* Hold the socket until DEINIT_RSP is received */
-+		sock_hold(&cf_sk->sk);
-+		result = caif_disconnect_client(&cf_sk->layer);
-+
-+		if (result < 0) {
-+			pr_debug("CAIF: %s(): "
-+					"caif_disconnect_client() failed\n",
-+					 __func__);
-+			SET_STATE_CLOSED(cf_sk);
-+			SET_PENDING_OFF(cf_sk);
-+			SET_TX_FLOW_OFF(cf_sk);
-+			release_sock(&cf_sk->sk);
-+			sock_put(&cf_sk->sk);
-+			return -EIO;
-+		}
-+
-+	}
-+	if (STATE_IS_REMOTE_SHUTDOWN(cf_sk)) {
-+		SET_PENDING_OFF(cf_sk);
-+		SET_REMOTE_SHUTDOWN_OFF(cf_sk);
-+	}
-+	result =
-+	    wait_event_interruptible(*cf_sk->sk.sk_sleep,
-+				     !STATE_IS_PENDING(cf_sk));
-+
-+	if (result == -ERESTARTSYS) {
-+		pr_debug("CAIF: %s(): wait_event_interruptible"
-+			 "woken by a signal (1)", __func__);
-+	}
-+
-+	/*
-+	 * Socket is no longer in state pending close,
-+	 * and we can release the reference.
-+	 */
-+
-+	dbfs_atomic_inc(&cnt.num_close);
-+	drain_queue(cf_sk);
-+	SET_RX_FLOW_ON(cf_sk);
-+	cf_sk->file_mode = 0;
-+	sock_put(&cf_sk->sk);
-+	release_sock(&cf_sk->sk);
-+	return result;
-+}
-+
-+static ssize_t caif_sock_no_sendpage(struct socket *sock,
-+				     struct page *page,
-+				     int offset, size_t size, int flags)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+/* This function is called as part of close. */
-+static int caif_release(struct socket *sock)
-+{
-+	struct sock *sk = sock->sk;
-+	struct caifsock *cf_sk = NULL;
-+	int res;
-+
-+	caif_assert(sk != NULL);
-+	cf_sk = container_of(sk, struct caifsock, sk);
-+
-+	res = caif_shutdown(sock, SHUT_RDWR);
-+	if (res)
-+		return res;
-+	lock_sock(&(cf_sk->sk));
-+
-+	sock->sk = NULL;
-+
-+	/* Detach the socket from its process context by making it orphan. */
-+	sock_orphan(sk);
-+
-+	/*
-+	 * Setting SHUTDOWN_MASK means that both send and receive are shutdown
-+	 * for the socket.
-+	 */
-+	sk->sk_shutdown = SHUTDOWN_MASK;
-+
-+	/*
-+	 * Set the socket state to closed, the TCP_CLOSE macro is used when
-+	 * closing any socket.
-+	 */
-+	sk->sk_state = TCP_CLOSE;
-+
-+	/* Flush out this sockets receive queue. */
-+	drain_queue(cf_sk);
-+
-+	/* Finally release the socket. */
-+	STATE_IS_PENDING_DESTROY(cf_sk);
-+	release_sock(&cf_sk->sk);
-+
-+	sock_put(sk);
-+
-+	/*
-+	 * The rest of the cleanup will be handled from the
-+	 * caif_sock_destructor
-+	 */
-+	return 0;
-+}
-+
-+static struct proto_ops caif_ops = {
-+	.family = PF_CAIF,
-+	.owner = THIS_MODULE,
-+	.release = caif_release,
-+	.bind = sock_no_bind,
-+	.connect = caif_connect,
-+	.socketpair = sock_no_socketpair,
-+	.accept = sock_no_accept,
-+	.getname = sock_no_getname,
-+	.poll = caif_poll,
-+	.ioctl = sock_no_ioctl,
-+	.listen = sock_no_listen,
-+	.shutdown = caif_shutdown,
-+	.setsockopt = setsockopt,
-+	.getsockopt = getsockopt,
-+	.sendmsg = caif_sendmsg,
-+	.recvmsg = caif_recvmsg,
-+	.mmap = sock_no_mmap,
-+	.sendpage = caif_sock_no_sendpage,
++/**
++ * layer_set_up() - Set the up pointer for a specified layer.
++ *  @layr: Layer where up pointer shall be set.
++ *  @above: Layer above.
++ */
++#define layer_set_up(layr, above) ((layr)->up = (struct cflayer *)(above))
++
++/**
++ *  layer_set_dn() - Set the down pointer for a specified layer.
++ *  @layr:  Layer where down pointer shall be set.
++ *  @below: Layer below.
++ */
++#define layer_set_dn(layr, below) ((layr)->dn = (struct cflayer *)(below))
++
++
++
++/**
++ * struct dev_info - Physical Device info information about physical layer.
++ * @dev:	Pointer to native physical device.
++ * @id:		Physical ID of the physical connection used by the
++ *	 	logical CAIF connection. Used by service layers to
++ *		identify their physical id to Caif MUX (CFMUXL)so
++ *		that the MUX can add the correct physical ID to the
++ *		packet.
++ */
++struct dev_info {
++	void *dev;
++	unsigned int id;
 +};
 +
-+/* This function is called when a socket is finally destroyed. */
-+static void caif_sock_destructor(struct sock *sk)
-+{
-+	struct caifsock *cf_sk = NULL;
-+	cf_sk = container_of(sk, struct caifsock, sk);
-+
-+	/* Error checks. */
-+	caif_assert(!atomic_read(&sk->sk_wmem_alloc));
-+	caif_assert(sk_unhashed(sk));
-+	caif_assert(!sk->sk_socket);
-+
-+	if (!sock_flag(sk, SOCK_DEAD)) {
-+		pr_debug("CAIF: %s(): 0x%p", __func__, sk);
-+		return;
-+	}
-+
-+	lock_sock(&(cf_sk->sk));
-+
-+	if (STATE_IS_OPEN(cf_sk)) {
-+		pr_debug("CAIF: %s(): socket is opened (cf_sk=%p)"
-+			 " file_mode = 0x%x\n", __func__,
-+			 cf_sk, cf_sk->file_mode);
-+		release_sock(&cf_sk->sk);
-+		return;
-+	}
-+	drain_queue(cf_sk);
-+	kfree(cf_sk->pktq);
-+
-+	if (cf_sk->debugfs_socket_dir != NULL)
-+		debugfs_remove_recursive(cf_sk->debugfs_socket_dir);
-+
-+	release_sock(&cf_sk->sk);
-+	trace_printk("CAIF: %s(): caif_sock_destructor: Removing socket %s\n",
-+		__func__, cf_sk->name);
-+	atomic_dec(&caif_nr_socks);
-+}
-+
-+static int caif_create(struct net *net, struct socket *sock, int protocol,
-+		       int kern)
-+{
-+	struct sock *sk = NULL;
-+	struct caifsock *cf_sk = NULL;
-+	int result = 0;
-+	static struct proto prot = {.name = "PF_CAIF",
-+		.owner = THIS_MODULE,
-+		.obj_size = sizeof(struct caifsock),
-+	};
-+
-+	/*
-+	 * The sock->type specifies the socket type to use. The CAIF socket is
-+	 * a packet stream in the sence that it is packet based.
-+	 * CAIF trusts the reliability of the link, no resending is implemented.
-+	 */
-+	if (sock->type != SOCK_SEQPACKET)
-+		return -ESOCKTNOSUPPORT;
-+	prot.slab = caif_sk_cachep;
-+
-+	if (net != &init_net)
-+		return -EAFNOSUPPORT;
-+
-+	if (protocol < 0 || protocol >= CAIFPROTO_MAX)
-+		return -EPROTONOSUPPORT;
-+	/*
-+	 * Set the socket state to unconnected.	 The socket state is really
-+	 * not used at all in the net/core or socket.c but the
-+	 * initialization makes sure that sock->state is not uninitialized.
-+	 */
-+	sock->state = SS_UNCONNECTED;
-+
-+	sk = sk_alloc(net, PF_CAIF, GFP_KERNEL, &prot);
-+	if (!sk)
-+		return -ENOMEM;
-+
-+	cf_sk = container_of(sk, struct caifsock, sk);
-+
-+	/* Store the protocol */
-+	sk->sk_protocol = (unsigned char) protocol;
-+
-+	spin_lock_init(&cf_sk->read_queue_len_lock);
-+
-+	/* Fill in some information concerning the misc socket. */
-+	snprintf(cf_sk->name, sizeof(cf_sk->name), "cf_sk%d",
-+		atomic_read(&caif_nr_socks));
-+
-+	/*
-+	 * Lock in order to try to stop someone from opening the socket
-+	 * too early.
-+	 */
-+	lock_sock(&(cf_sk->sk));
-+
-+	/* Initialize the nozero default sock structure data. */
-+	sock_init_data(sock, sk);
-+	sock->ops = &caif_ops;
-+	sk->sk_destruct = caif_sock_destructor;
-+	sk->sk_sndbuf = caif_sockbuf_size;
-+	sk->sk_rcvbuf = caif_sockbuf_size;
-+
-+	cf_sk->pktq = cfpktq_create();
-+
-+	if (!cf_sk->pktq) {
-+		pr_err("CAIF: %s(): queue create failed.\n", __func__);
-+		result = -ENOMEM;
-+		release_sock(&cf_sk->sk);
-+		goto err_failed;
-+	}
-+	cf_sk->layer.ctrlcmd = caif_sktflowctrl_cb;
-+	SET_STATE_CLOSED(cf_sk);
-+	SET_PENDING_OFF(cf_sk);
-+	SET_TX_FLOW_OFF(cf_sk);
-+	SET_RX_FLOW_ON(cf_sk);
-+
-+	/* Set default options on configuration */
-+	cf_sk->conn_req.priority = CAIF_PRIO_NORMAL;
-+	cf_sk->conn_req.link_selector = CAIF_LINK_HIGH_BANDW;
-+	cf_sk->conn_req.protocol = protocol;
-+	/* Increase the number of sockets created. */
-+	atomic_inc(&caif_nr_socks);
-+	if (!IS_ERR(debugfsdir)) {
-+		cf_sk->debugfs_socket_dir =
-+			debugfs_create_dir(cf_sk->name, debugfsdir);
-+		debugfs_create_u32("conn_state", S_IRUSR | S_IWUSR,
-+				cf_sk->debugfs_socket_dir, &cf_sk->conn_state);
-+		debugfs_create_u32("flow_state", S_IRUSR | S_IWUSR,
-+				cf_sk->debugfs_socket_dir, &cf_sk->flow_state);
-+		debugfs_create_u32("read_queue_len", S_IRUSR | S_IWUSR,
-+				cf_sk->debugfs_socket_dir,
-+				(u32 *) &cf_sk->read_queue_len);
-+		debugfs_create_u32("identity", S_IRUSR | S_IWUSR,
-+				cf_sk->debugfs_socket_dir,
-+				(u32 *) &cf_sk->layer.id);
-+	}
-+	release_sock(&cf_sk->sk);
-+	return 0;
-+err_failed:
-+	sk_free(sk);
-+	return result;
-+}
-+
-+
-+static struct net_proto_family caif_family_ops = {
-+	.family = PF_CAIF,
-+	.create = caif_create,
-+	.owner = THIS_MODULE,
++/**
++ * struct caif_payload_info - Payload information embedded in packet (sk_buff).
++ *
++ * @dev_info:	Information about the receiving device.
++ *
++ * @hdr_len:	Header length, used to align pay load on 32bit boundary.
++ *
++ * @channel_id: Channel ID of the logical CAIF connection.
++ * 		Used by mux to insert channel id into the caif packet.
++ */
++struct caif_payload_info {
++	struct dev_info *dev_info;
++	unsigned short hdr_len;
++	unsigned short channel_id;
 +};
 +
-+int af_caif_init(void)
-+{
-+	int err;
-+	err = sock_register(&caif_family_ops);
++#endif	/* CAIF_LAYER_H_ */
+diff --git a/include/net/caif/cfcnfg.h b/include/net/caif/cfcnfg.h
+new file mode 100644
+index 0000000..55c3027
+--- /dev/null
++++ b/include/net/caif/cfcnfg.h
+@@ -0,0 +1,134 @@
++/*
++ * Copyright (C) ST-Ericsson AB 2010
++ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
++ * License terms: GNU General Public License (GPL) version 2
++ */
 +
-+	if (!err)
-+		return err;
++#ifndef CFCNFG_H_
++#define CFCNFG_H_
++#include <linux/spinlock.h>
++#include <net/caif/caif_layer.h>
++#include <net/caif/cfctrl.h>
 +
-+	return 0;
-+}
++struct cfcnfg;
 +
-+static int __init caif_sktinit_module(void)
-+{
-+	int stat;
-+#ifdef CONFIG_DEBUG_FS
-+	debugfsdir = debugfs_create_dir("chnl_skt", NULL);
-+	if (!IS_ERR(debugfsdir)) {
-+		debugfs_create_u32("skb_inuse", S_IRUSR | S_IWUSR,
-+				debugfsdir,
-+				(u32 *) &cnt.skb_in_use);
-+		debugfs_create_u32("skb_alloc", S_IRUSR | S_IWUSR,
-+				debugfsdir,
-+				(u32 *) &cnt.skb_alloc);
-+		debugfs_create_u32("skb_free", S_IRUSR | S_IWUSR,
-+				debugfsdir,
-+				(u32 *) &cnt.skb_free);
-+		debugfs_create_u32("num_sockets", S_IRUSR | S_IWUSR,
-+				debugfsdir,
-+				(u32 *) &caif_nr_socks);
-+		debugfs_create_u32("num_open", S_IRUSR | S_IWUSR,
-+				debugfsdir,
-+				(u32 *) &cnt.num_open);
-+		debugfs_create_u32("num_close", S_IRUSR | S_IWUSR,
-+				debugfsdir,
-+				(u32 *) &cnt.num_close);
-+		debugfs_create_u32("num_init", S_IRUSR | S_IWUSR,
-+				debugfsdir,
-+				(u32 *) &cnt.num_init);
-+		debugfs_create_u32("num_init_resp", S_IRUSR | S_IWUSR,
-+				debugfsdir,
-+				(u32 *) &cnt.num_init_resp);
-+		debugfs_create_u32("num_init_fail_resp", S_IRUSR | S_IWUSR,
-+				debugfsdir,
-+				(u32 *) &cnt.num_init_fail_resp);
-+		debugfs_create_u32("num_deinit", S_IRUSR | S_IWUSR,
-+				debugfsdir,
-+				(u32 *) &cnt.num_deinit);
-+		debugfs_create_u32("num_deinit_resp", S_IRUSR | S_IWUSR,
-+				debugfsdir,
-+				(u32 *) &cnt.num_deinit_resp);
-+		debugfs_create_u32("num_remote_shutdown_ind",
-+				S_IRUSR | S_IWUSR, debugfsdir,
-+				(u32 *) &cnt.num_remote_shutdown_ind);
-+		debugfs_create_u32("num_tx_flow_off_ind", S_IRUSR | S_IWUSR,
-+				debugfsdir,
-+				(u32 *) &cnt.num_tx_flow_off_ind);
-+		debugfs_create_u32("num_tx_flow_on_ind", S_IRUSR | S_IWUSR,
-+				debugfsdir,
-+				(u32 *) &cnt.num_tx_flow_on_ind);
-+		debugfs_create_u32("num_rx_flow_off", S_IRUSR | S_IWUSR,
-+				debugfsdir,
-+				(u32 *) &cnt.num_rx_flow_off);
-+		debugfs_create_u32("num_rx_flow_on", S_IRUSR | S_IWUSR,
-+				debugfsdir,
-+				(u32 *) &cnt.num_rx_flow_on);
-+	}
++/**
++ * enum cfcnfg_phy_type -  Types of physical layers defined in CAIF Stack
++ *
++ * @CFPHYTYPE_FRAG:	Fragmented frames physical interface.
++ * @CFPHYTYPE_CAIF:	Generic CAIF physical interface
++ */
++enum cfcnfg_phy_type {
++	CFPHYTYPE_FRAG = 1,
++	CFPHYTYPE_CAIF,
++	CFPHYTYPE_MAX
++};
++
++/**
++ * enum cfcnfg_phy_preference - Physical preference HW Abstraction
++ *
++ * @CFPHYPREF_UNSPECIFIED:	Default physical interface
++ *
++ * @CFPHYPREF_LOW_LAT:		Default physical interface for low-latency
++ *				traffic
++ * @CFPHYPREF_HIGH_BW:		Default physical interface for high-bandwidth
++ *				traffic
++ * @CFPHYPREF_LOOP:		TEST only Loopback interface simulating modem
++ *				responses.
++ *
++ */
++enum cfcnfg_phy_preference {
++	CFPHYPREF_UNSPECIFIED,
++	CFPHYPREF_LOW_LAT,
++	CFPHYPREF_HIGH_BW,
++	CFPHYPREF_LOOP
++};
++
++/**
++ * cfcnfg_create() - Create the CAIF configuration object.
++ */
++struct cfcnfg *cfcnfg_create(void);
++
++/**
++ * cfcnfg_remove() -  Remove the CFCNFG object
++ * @cfg: config object
++ */
++void cfcnfg_remove(struct cfcnfg *cfg);
++
++/**
++ * cfcnfg_add_phy_layer() - Adds a physical layer to the CAIF stack.
++ * @cnfg:	Pointer to a CAIF configuration object, created by
++ *		cfcnfg_create().
++ * @phy_type: 	Specifies the type of physical interface, e.g.
++ *		   	CFPHYTYPE_FRAG.
++ * @dev:	Pointer to link layer device
++ * @phy_layer:	Specify the physical layer. The transmit function
++ *		MUST be set in the structure.
++ * @phyid:	The assigned physical ID for this layer, used in
++ *		cfcnfg_add_adapt_layer to specify PHY for the link.
++ * @pref:	The phy (link layer) preference.
++ * @fcs:	Specify if checksum is used in CAIF Framing Layer.
++ * @stx:	Specify if Start Of Frame eXtention is used.
++ */
++
++void
++cfcnfg_add_phy_layer(struct cfcnfg *cnfg, enum cfcnfg_phy_type phy_type,
++		     void *dev, struct cflayer *phy_layer, u16 *phyid,
++		     enum cfcnfg_phy_preference pref,
++		     bool fcs, bool stx);
++
++/**
++ * cfcnfg_del_phy_layer - Deletes an phy layer from the CAIF stack.
++ *
++ * @cnfg:	Pointer to a CAIF configuration object, created by
++ *		cfcnfg_create().
++ * @phy_layer:	Adaptation layer to be removed.
++ */
++int cfcnfg_del_phy_layer(struct cfcnfg *cnfg, struct cflayer *phy_layer);
++
++
++/**
++ * cfcnfg_del_adapt_layer - Deletes an adaptation layer from the CAIF stack.
++ *
++ * @cnfg:	Pointer to a CAIF configuration object, created by
++ *		cfcnfg_create().
++ * @adap_layer: Adaptation layer to be removed.
++ */
++int cfcnfg_del_adapt_layer(struct cfcnfg *cnfg, struct cflayer *adap_layer);
++
++
++/**
++ * cfcnfg_add_adaptation_layer - Add an adaptation layer to the CAIF stack.
++ *
++ * The adaptation Layer is where the interface to application or higher-level
++ * driver functionality is implemented.
++ *
++ * @cnfg:		Pointer to a CAIF configuration object, created by
++ *				cfcnfg_create().
++ * @param:		Link setup parameters.
++ * @adap_layer:		Specify the adaptation layer; the receive and
++ *			flow-control functions MUST be set in the structure.
++ *
++ */
++int
++cfcnfg_add_adaptation_layer(struct cfcnfg *cnfg,
++			    struct cfctrl_link_param *param,
++			    struct cflayer *adap_layer);
++/**
++ * cfcnfg_get_phyid() - Get physical ID, given type.
++ * Returns one of the physical interfaces matching the given type.
++ * Zero if no match is found.
++ * @cnfg:	Configuration object
++ * @phy_pref:	Caif Link Layer preference
++ */
++struct dev_info *cfcnfg_get_phyid(struct cfcnfg *cnfg,
++		     enum cfcnfg_phy_preference phy_pref);
++
++/**
++ * cfcnfg_get_named() - Get the Physical Identifier of CAIF Link Layer
++ * @cnfg:	Configuration object
++ * @name:	Name of the Physical Layer (Caif Link Layer)
++ */
++int cfcnfg_get_named(struct cfcnfg *cnfg, char *name);
++
++#endif				/* CFCNFG_H_ */
+diff --git a/include/net/caif/cfctrl.h b/include/net/caif/cfctrl.h
+new file mode 100644
+index 0000000..d10d4eb
+--- /dev/null
++++ b/include/net/caif/cfctrl.h
+@@ -0,0 +1,136 @@
++/*
++ * Copyright (C) ST-Ericsson AB 2010
++ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
++ * License terms: GNU General Public License (GPL) version 2
++ */
++
++#ifndef CFCTRL_H_
++#define CFCTRL_H_
++#include <net/caif/caif_layer.h>
++#include <net/caif/cfsrvl.h>
++
++/* CAIF Control packet commands */
++enum cfctrl_cmd {
++	CFCTRL_CMD_LINK_SETUP = 0,
++	CFCTRL_CMD_LINK_DESTROY = 1,
++	CFCTRL_CMD_LINK_ERR = 2,
++	CFCTRL_CMD_ENUM = 3,
++	CFCTRL_CMD_SLEEP = 4,
++	CFCTRL_CMD_WAKE = 5,
++	CFCTRL_CMD_LINK_RECONF = 6,
++	CFCTRL_CMD_START_REASON = 7,
++	CFCTRL_CMD_RADIO_SET = 8,
++	CFCTRL_CMD_MODEM_SET = 9,
++	CFCTRL_CMD_MASK = 0xf
++};
++
++/* Channel types */
++enum cfctrl_srv {
++	CFCTRL_SRV_DECM = 0,
++	CFCTRL_SRV_VEI = 1,
++	CFCTRL_SRV_VIDEO = 2,
++	CFCTRL_SRV_DBG = 3,
++	CFCTRL_SRV_DATAGRAM = 4,
++	CFCTRL_SRV_RFM = 5,
++	CFCTRL_SRV_UTIL = 6,
++	CFCTRL_SRV_MASK = 0xf
++};
++
++#define CFCTRL_RSP_BIT 0x20
++#define CFCTRL_ERR_BIT 0x10
++
++struct cfctrl_rsp {
++	void (*linksetup_rsp)(struct cflayer *layer, u8 linkid,
++			      enum cfctrl_srv serv, u8 phyid,
++			      struct cflayer *adapt_layer);
++	void (*linkdestroy_rsp)(struct cflayer *layer, u8 linkid,
++				struct cflayer *client_layer);
++	void (*linkerror_ind)(void);
++	void (*enum_rsp)(void);
++	void (*sleep_rsp)(void);
++	void (*wake_rsp)(void);
++	void (*restart_rsp)(void);
++	void (*radioset_rsp)(void);
++	void (*reject_rsp)(struct cflayer *layer, u8 linkid,
++				struct cflayer *client_layer);;
++};
++
++/* Link Setup Parameters for CAIF-Links. */
++struct cfctrl_link_param {
++	enum cfctrl_srv linktype;/* (T3,T0) Type of Channel */
++	u8 priority;		  /* (P4,P0) Priority of the channel */
++	u8 phyid;		  /* (U2-U0) Physical interface to connect */
++	u8 endpoint;		  /* (E1,E0) Endpoint for data channels */
++	u8 chtype;		  /* (H1,H0) Channel-Type, applies to
++				   *            VEI, DEBUG */
++	union {
++		struct {
++			u8 connid;	/*  (D7,D0) Video LinkId */
++		} video;
++
++		struct {
++			u32 connid;	/* (N31,Ngit0) Connection ID used
++					 *  for Datagram */
++		} datagram;
++
++		struct {
++			u32 connid;	/* Connection ID used for RFM */
++			char volume[20];	/* Volume to mount for RFM */
++		} rfm;		/* Configuration for RFM */
++
++		struct {
++			u16 fifosize_kb;	/* Psock FIFO size in KB */
++			u16 fifosize_bufs;	/* Psock # signal buffers */
++			char name[16];	/* Name of the PSOCK service */
++			u8 params[255];	/* Link setup Parameters> */
++			u16 paramlen;	/* Length of Link Setup
++						 *   Parameters */
++		} utility;	/* Configuration for Utility Links (Psock) */
++	} u;
++};
++
++/* This structure is used internally in CFCTRL */
++struct cfctrl_request_info {
++	int sequence_no;
++	enum cfctrl_cmd cmd;
++	u8 channel_id;
++	struct cfctrl_link_param param;
++	struct cfctrl_request_info *next;
++	struct cflayer *client_layer;
++};
++
++struct cfctrl {
++	struct cfsrvl serv;
++	struct cfctrl_rsp res;
++	atomic_t req_seq_no;
++	atomic_t rsp_seq_no;
++	struct cfctrl_request_info *first_req;
++	spinlock_t info_list_lock;
++#ifndef CAIF_NO_LOOP
++	u8 loop_linkid;
++	int loop_linkused[256];
++	spinlock_t loop_linkid_lock;
 +#endif
-+	stat = af_caif_init();
-+	if (stat) {
-+		pr_err("CAIF: %s(): Failed to initialize CAIF socket layer.",
-+		       __func__);
-+		return stat;
-+	}
-+	return 0;
-+}
 +
-+static void __exit caif_sktexit_module(void)
-+{
-+	sock_unregister(PF_CAIF);
-+	if (debugfsdir != NULL)
-+		debugfs_remove_recursive(debugfsdir);
-+}
++};
 +
-+module_init(caif_sktinit_module);
-+module_exit(caif_sktexit_module);
++void cfctrl_enum_req(struct cflayer *cfctrl, u8 physlinkid);
++void cfctrl_linkup_request(struct cflayer *cfctrl,
++			   struct cfctrl_link_param *param,
++			   struct cflayer *user_layer);
++int  cfctrl_linkdown_req(struct cflayer *cfctrl, u8 linkid,
++			 struct cflayer *client);
++void cfctrl_sleep_req(struct cflayer *cfctrl);
++void cfctrl_wake_req(struct cflayer *cfctrl);
++void cfctrl_getstartreason_req(struct cflayer *cfctrl);
++struct cflayer *cfctrl_create(void);
++void cfctrl_set_dnlayer(struct cflayer *this, struct cflayer *dn);
++void cfctrl_set_uplayer(struct cflayer *this, struct cflayer *up);
++struct cfctrl_rsp *cfctrl_get_respfuncs(struct cflayer *layer);
++bool cfctrl_req_eq(struct cfctrl_request_info *r1,
++		   struct cfctrl_request_info *r2);
++void cfctrl_insert_req(struct cfctrl *ctrl,
++			      struct cfctrl_request_info *req);
++struct cfctrl_request_info *cfctrl_remove_req(struct cfctrl *ctrl,
++					      struct cfctrl_request_info *req);
++#endif				/* CFCTRL_H_ */
+diff --git a/include/net/caif/cffrml.h b/include/net/caif/cffrml.h
+new file mode 100644
+index 0000000..2ee2fe3
+--- /dev/null
++++ b/include/net/caif/cffrml.h
+@@ -0,0 +1,17 @@
++/*
++ * Copyright (C) ST-Ericsson AB 2010
++ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
++ * License terms: GNU General Public License (GPL) version 2
++ */
 +
++#ifndef CFFRML_H_
++#define CFFRML_H_
++#include <net/caif/caif_layer.h>
++
++struct cffrml;
++struct cflayer *cffrml_create(u16 phyid, bool DoFCS);
++void cffrml_set_uplayer(struct cflayer *this, struct cflayer *up);
++void cffrml_set_dnlayer(struct cflayer *this, struct cflayer *dn);
++void cffrml_destroy(struct cflayer *layer);
++
++#endif /* CFFRML_H_ */
+diff --git a/include/net/caif/cfmuxl.h b/include/net/caif/cfmuxl.h
+new file mode 100644
+index 0000000..4e1b4f3
+--- /dev/null
++++ b/include/net/caif/cfmuxl.h
+@@ -0,0 +1,22 @@
++/*
++ * Copyright (C) ST-Ericsson AB 2010
++ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
++ * License terms: GNU General Public License (GPL) version 2
++ */
++
++#ifndef CFMUXL_H_
++#define CFMUXL_H_
++#include <net/caif/caif_layer.h>
++
++struct cfsrvl;
++struct cffrml;
++
++struct cflayer *cfmuxl_create(void);
++int cfmuxl_set_uplayer(struct cflayer *layr, struct cflayer *up, u8 linkid);
++struct cflayer *cfmuxl_remove_dnlayer(struct cflayer *layr, u8 phyid);
++int cfmuxl_set_dnlayer(struct cflayer *layr, struct cflayer *up, u8 phyid);
++struct cflayer *cfmuxl_remove_uplayer(struct cflayer *layr, u8 linkid);
++bool cfmuxl_is_phy_inuse(struct cflayer *layr, u8 phyid);
++u8 cfmuxl_get_phyid(struct cflayer *layr, u8 channel_id);
++
++#endif				/* CFMUXL_H_ */
+diff --git a/include/net/caif/cfpkt.h b/include/net/caif/cfpkt.h
+new file mode 100644
+index 0000000..fbc681b
+--- /dev/null
++++ b/include/net/caif/cfpkt.h
+@@ -0,0 +1,274 @@
++/*
++ * Copyright (C) ST-Ericsson AB 2010
++ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
++ * License terms: GNU General Public License (GPL) version 2
++ */
++
++#ifndef CFPKT_H_
++#define CFPKT_H_
++#include <net/caif/caif_layer.h>
++#include <linux/types.h>
++struct cfpkt;
++
++/* Create a CAIF packet.
++ * len: Length of packet to be created
++ * @return New packet.
++ */
++struct cfpkt *cfpkt_create(u16 len);
++
++/* Create a CAIF packet.
++ * data Data to copy.
++ * len Length of packet to be created
++ * @return New packet.
++ */
++struct cfpkt *cfpkt_create_uplink(const unsigned char *data, unsigned int len);
++/*
++ * Destroy a CAIF Packet.
++ * pkt Packet to be destoyed.
++ */
++void cfpkt_destroy(struct cfpkt *pkt);
++
++/*
++ * Extract header from packet.
++ *
++ * pkt Packet to extract header data from.
++ * data Pointer to copy the header data into.
++ * len Length of head data to copy.
++ * @return zero on success and error code upon failure
++ */
++int cfpkt_extr_head(struct cfpkt *pkt, void *data, u16 len);
++
++/*
++ * Peek header from packet.
++ * Reads data from packet without changing packet.
++ *
++ * pkt Packet to extract header data from.
++ * data Pointer to copy the header data into.
++ * len Length of head data to copy.
++ * @return zero on success and error code upon failure
++ */
++int cfpkt_peek_head(struct cfpkt *pkt, void *data, u16 len);
++
++/*
++ * Extract header from trailer (end of packet).
++ *
++ * pkt Packet to extract header data from.
++ * data Pointer to copy the trailer data into.
++ * len Length of header data to copy.
++ * @return zero on success and error code upon failure
++ */
++int cfpkt_extr_trail(struct cfpkt *pkt, void *data, u16 len);
++
++/*
++ * Add header to packet.
++ *
++ *
++ * pkt Packet to add header data to.
++ * data Pointer to data to copy into the header.
++ * len Length of header data to copy.
++ * @return zero on success and error code upon failure
++ */
++int cfpkt_add_head(struct cfpkt *pkt, const void *data, u16 len);
++
++/*
++ * Add trailer to packet.
++ *
++ *
++ * pkt Packet to add trailer data to.
++ * data Pointer to data to copy into the trailer.
++ * len Length of trailer data to copy.
++ * @return zero on success and error code upon failure
++ */
++int cfpkt_add_trail(struct cfpkt *pkt, const void *data, u16 len);
++
++/*
++ * Pad trailer on packet.
++ * Moves data pointer in packet, no content copied.
++ *
++ * pkt Packet in which to pad trailer.
++ * len Length of padding to add.
++ * @return zero on success and error code upon failure
++ */
++int cfpkt_pad_trail(struct cfpkt *pkt, u16 len);
++
++/*
++ * Add a single byte to packet body (tail).
++ *
++ * pkt Packet in which to add byte.
++ * data Byte to add.
++ * @return zero on success and error code upon failure
++ */
++int cfpkt_addbdy(struct cfpkt *pkt, const u8 data);
++
++/*
++ * Add a data to packet body (tail).
++ *
++ * pkt Packet in which to add data.
++ * data Pointer to data to copy into the packet body.
++ * len Length of data to add.
++ * @return zero on success and error code upon failure
++ */
++int cfpkt_add_body(struct cfpkt *pkt, const void *data, u16 len);
++
++/*
++ * Checks whether there are more data to process in packet.
++ * pkt Packet to check.
++ * @return true if more data are available in packet false otherwise
++ */
++bool cfpkt_more(struct cfpkt *pkt);
++
++/*
++ * Checks whether the packet is erroneous,
++ * i.e. if it has been attempted to extract more data than available in packet
++ * or writing more data than has been allocated in cfpkt_create().
++ * pkt Packet to check.
++ * @return true on error false otherwise
++ */
++bool cfpkt_erroneous(struct cfpkt *pkt);
++
++/*
++ * Get the packet length.
++ * pkt Packet to get length from.
++ * @return Number of bytes in packet.
++ */
++u16 cfpkt_getlen(struct cfpkt *pkt);
++
++/*
++ * Set the packet length, by adjusting the trailer pointer according to length.
++ * pkt Packet to set length.
++ * len Packet length.
++ * @return Number of bytes in packet.
++ */
++int cfpkt_setlen(struct cfpkt *pkt, u16 len);
++
++/*
++ * cfpkt_append - Appends a packet's data to another packet.
++ * dstpkt:    Packet to append data into, WILL BE FREED BY THIS FUNCTION
++ * addpkt:    Packet to be appended and automatically released,
++ *            WILL BE FREED BY THIS FUNCTION.
++ * expectlen: Packet's expected total length. This should be considered
++ *            as a hint.
++ * NB: Input packets will be destroyed after appending and cannot be used
++ * after calling this function.
++ * @return    The new appended packet.
++ */
++struct cfpkt *cfpkt_append(struct cfpkt *dstpkt, struct cfpkt *addpkt,
++		      u16 expectlen);
++
++/*
++ * cfpkt_split - Split a packet into two packets at the specified split point.
++ * pkt: Packet to be split (will contain the first part of the data on exit)
++ * pos: Position to split packet in two parts.
++ * @return The new packet, containing the second part of the data.
++ */
++struct cfpkt *cfpkt_split(struct cfpkt *pkt, u16 pos);
++
++/*
++ * Iteration function, iterates the packet buffers from start to end.
++ *
++ * Checksum iteration function used to iterate buffers
++ * (we may have packets consisting of a chain of buffers)
++ * pkt:       Packet to calculate checksum for
++ * iter_func: Function pointer to iteration function
++ * chks:      Checksum calculated so far.
++ * buf:       Pointer to the buffer to checksum
++ * len:       Length of buf.
++ * data:      Initial checksum value.
++ * @return    Checksum of buffer.
++ */
++
++u16 cfpkt_iterate(struct cfpkt *pkt,
++		u16 (*iter_func)(u16 chks, void *buf, u16 len),
++		u16 data);
++
++/* Append by giving user access to packet buffer
++ * cfpkt Packet to append to
++ * buf Buffer inside pkt that user shall copy data into
++ * buflen Length of buffer and number of bytes added to packet
++ * @return 0 on error, 1 on success
++ */
++int cfpkt_raw_append(struct cfpkt *cfpkt, void **buf, unsigned int buflen);
++
++/* Extract by giving user access to packet buffer
++ * cfpkt Packet to extract from
++ * buf Buffer inside pkt that user shall copy data from
++ * buflen Length of buffer and number of bytes removed from packet
++ * @return 0 on error, 1 on success
++ */
++int cfpkt_raw_extract(struct cfpkt *cfpkt, void **buf, unsigned int buflen);
++
++/* Map from a "native" packet (e.g. Linux Socket Buffer) to a CAIF packet.
++ *  dir - Direction indicating whether this packet is to be sent or received.
++ *  nativepkt  - The native packet to be transformed to a CAIF packet
++ *  @return The mapped CAIF Packet CFPKT.
++ */
++struct cfpkt *cfpkt_fromnative(enum caif_direction dir, void *nativepkt);
++
++/* Map from a CAIF packet to a "native" packet (e.g. Linux Socket Buffer).
++ *  pkt  - The CAIF packet to be transformed into a "native" packet.
++ *  @return The native packet transformed from a CAIF packet.
++ */
++void *cfpkt_tonative(struct cfpkt *pkt);
++
++/*
++ * Insert a packet in the packet queue.
++ * pktq Packet queue to insert into
++ * pkt Packet to be inserted in queue
++ * prio Priority of packet
++ */
++void cfpkt_queue(struct cfpktq *pktq, struct cfpkt *pkt,
++		 unsigned short prio);
++
++/*
++ * Remove a packet from the packet queue.
++ * pktq Packet queue to fetch packets from.
++ * @return Dequeued packet.
++ */
++struct cfpkt *cfpkt_dequeue(struct cfpktq *pktq);
++
++/*
++ * Peek into a packet from the packet queue.
++ * pktq Packet queue to fetch packets from.
++ * @return Peeked packet.
++ */
++struct cfpkt *cfpkt_qpeek(struct cfpktq *pktq);
++
++/*
++ * Initiates the packet queue.
++ * @return Pointer to new packet queue.
++ */
++struct cfpktq *cfpktq_create(void);
++
++/*
++ * Get the number of packets in the queue.
++ * pktq Packet queue to fetch count from.
++ * @return Number of packets in queue.
++ */
++int cfpkt_qcount(struct cfpktq *pktq);
++
++/*
++ * Put content of packet into buffer for debuging purposes.
++ * pkt Packet to copy data from
++ * buf Buffer to copy data into
++ * buflen Length of data to copy
++ * @return Pointer to copied data
++ */
++char *cfpkt_log_pkt(struct cfpkt *pkt, char *buf, int buflen);
++
++/*
++ * Clones a packet and releases the original packet.
++ * This is used for taking ownership of a packet e.g queueing.
++ * pkt Packet to clone and release.
++ * @return Cloned packet.
++ */
++struct cfpkt *cfpkt_clone_release(struct cfpkt *pkt);
++
++
++/*
++ * Returns packet information for a packet.
++ * pkt Packet to get info from;
++ * @return Packet information
++ */
++struct caif_payload_info *cfpkt_info(struct cfpkt *pkt);
++/*! @} */
++#endif				/* CFPKT_H_ */
+diff --git a/include/net/caif/cfserl.h b/include/net/caif/cfserl.h
+new file mode 100644
+index 0000000..33644f4
+--- /dev/null
++++ b/include/net/caif/cfserl.h
+@@ -0,0 +1,13 @@
++/*
++ * Copyright (C) ST-Ericsson AB 2010
++ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
++ * License terms: GNU General Public License (GPL) version 2
++ */
++
++#ifndef CFSERL_H_
++#define CFSERL_H_
++#include <net/caif/caif_layer.h>
++
++struct cflayer *cfserl_create(int type, int instance, bool use_stx);
++
++#endif				/* CFSERL_H_ */
+diff --git a/include/net/caif/cfsrvl.h b/include/net/caif/cfsrvl.h
+new file mode 100644
+index 0000000..b2a12db
+--- /dev/null
++++ b/include/net/caif/cfsrvl.h
+@@ -0,0 +1,34 @@
++/*
++ * Copyright (C) ST-Ericsson AB 2010
++ * Author:	Sjur Brendeland/sjur.brandeland@stericsson.com
++ * License terms: GNU General Public License (GPL) version 2
++ */
++
++#ifndef CFSRVL_H_
++#define CFSRVL_H_
++#include <linux/list.h>
++#include <linux/stddef.h>
++#include <linux/types.h>
++struct cfsrvl {
++	struct cflayer layer;
++	bool open;
++	bool phy_flow_on;
++	bool modem_flow_on;
++	struct dev_info dev_info;
++};
++
++struct cflayer *cfvei_create(u8 linkid, struct dev_info *dev_info);
++struct cflayer *cfdgml_create(u8 linkid, struct dev_info *dev_info);
++struct cflayer *cfutill_create(u8 linkid, struct dev_info *dev_info);
++struct cflayer *cfvidl_create(u8 linkid, struct dev_info *dev_info);
++struct cflayer *cfrfml_create(u8 linkid, struct dev_info *dev_info);
++struct cflayer *cfdbgl_create(u8 linkid, struct dev_info *dev_info);
++bool cfsrvl_phyid_match(struct cflayer *layer, int phyid);
++void cfservl_destroy(struct cflayer *layer);
++void cfsrvl_init(struct cfsrvl *service,
++		 u8 channel_id,
++		 struct dev_info *dev_info);
++bool cfsrvl_ready(struct cfsrvl *service, int *err);
++u8 cfsrvl_getphyid(struct cflayer *layer);
++
++#endif				/* CFSRVL_H_ */
 -- 
 1.6.3.3
 
