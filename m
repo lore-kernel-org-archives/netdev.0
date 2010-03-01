@@ -1,43 +1,39 @@
-From: WESTERNUNION PAY CENTER <info@winners.com>
-Subject: call ((+2348056281072)) for your western union promo
-Date: Mon, 01 Mar 2010 17:26:58 +0200
-Message-ID: <20100301172658.9zts9ha3zfo0wc4w@mail.freehost.com.ua>
-Reply-To: w.unionclaim1@w.cn
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [RFC PATCH]xfrm: fix perpetual bundles
+Date: Mon, 1 Mar 2010 16:33:37 +0100
+Message-ID: <20100301153337.GA20508@secunet.com>
+References: <1267017564.3973.790.camel@bigi>
+ <20100225104029.GB3927@gauss.dd.secunet.de>
+ <1267103990.3973.942.camel@bigi>
+ <1267366035.24915.24.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-15;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kaber@trash.net, herbert@gondor.apana.org.au,
+	yoshfuji@linux-ipv6.org, nakam@linux-ipv6.org,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.freehost.com.ua ([194.0.200.218]:56180 "EHLO
-	mail.freehost.com.ua" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751033Ab0CAP1T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Mar 2010 10:27:19 -0500
+Received: from a.mx.secunet.com ([213.68.205.161]:43039 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750947Ab0CAPdP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Mar 2010 10:33:15 -0500
 Content-Disposition: inline
+In-Reply-To: <1267366035.24915.24.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Jamal.
 
-You have been awarded with the sum of $50,000 USD by our office, as one of our
-customers who use Western Union in their daily business transaction.Please
-provide Mr.Dominic Johnson  with the following details listed below so that
-your fund will be remited to you through Western Union.
+On Sun, Feb 28, 2010 at 09:07:15AM -0500, jamal wrote:
+> Steffen,
+> 
+> Did you try the simple patch i posted? After contemplating
+> in the background i think it is the right thing to do.
+> Ive also fixed IPV6 side the same way.
+> 
 
-1. Name:______
-2. Address________
-3. Country:_______
-4. Phone Number____
-5. Occupation:________
-6. Sex:_________________
-7. Age___________________
+Yes, I did. Your patch works fine. As your solution is less
+invasive we probaply should take your patches if nobody else
+has an opinion on this.
 
-Mr.Dominic Johnson
-Tel;+2348056281072
-E-mail: w.unionclaim1@w.cn
-
-
-
-
-
+Steffen
