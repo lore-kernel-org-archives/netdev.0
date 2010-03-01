@@ -1,84 +1,74 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
-Date: Mon, 01 Mar 2010 11:24:59 -0800
-Message-ID: <m1aaur26b8.fsf@fess.ebiederm.org>
-References: <4B4F24AC.70105@trash.net> <m1wry46es9.fsf@fess.ebiederm.org>
-	<1266931623.3973.643.camel@bigi> <m1iq9ocafv.fsf@fess.ebiederm.org>
-	<1266934817.3973.654.camel@bigi> <m1r5obbu2w.fsf@fess.ebiederm.org>
-	<1266966581.3973.675.camel@bigi> <m1pr3t2fvl.fsf_-_@fess.ebiederm.org>
-	<4B883987.6090408@parallels.com> <m1bpfbwuze.fsf@fess.ebiederm.org>
-	<4B883E6F.1060907@parallels.com> <m13a0nwu6p.fsf@fess.ebiederm.org>
-	<4B88D80A.8010701@parallels.com> <m1mxyvrqvk.fsf@fess.ebiederm.org>
-	<4B88E431.6040609@parallels.com> <m1bpfbqajn.fsf@fess.ebiederm.org>
-	<4B894564.7080104@parallels.com> <m1iq9io5sc.fsf@fess.ebiederm.org>
-	<4B89727C.9040602@parallels.com> <m1ljeempk6.fsf@fess.ebiederm.org>
-	<4B8AE8C1.1030305@free.fr>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH net-next-2.6] bridge: Fix build error when IGMP_SNOOPING is
+ not enabled
+Date: Mon, 01 Mar 2010 11:53:04 -0800
+Message-ID: <1267473184.31728.7.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Emelyanov <xemul@parallels.com>, hadi@cyberus.ca,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>,
-	Serge Hallyn <serue@us.ibm.com>,
-	Matt Helsley <matthltc@us.ibm.com>
-To: Daniel Lezcano <daniel.lezcano@free.fr>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B8AE8C1.1030305@free.fr> (Daniel Lezcano's message of "Sun\, 28 Feb 2010 23\:05\:53 +0100")
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:32987 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751459Ab0CATxO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Mar 2010 14:53:14 -0500
+Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
+	by e33.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id o21JnkH1031448
+	for <netdev@vger.kernel.org>; Mon, 1 Mar 2010 12:49:46 -0700
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o21Jr50u072570
+	for <netdev@vger.kernel.org>; Mon, 1 Mar 2010 12:53:08 -0700
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o21JtRYt020111
+	for <netdev@vger.kernel.org>; Mon, 1 Mar 2010 12:55:27 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Daniel Lezcano <daniel.lezcano@free.fr> writes:
+Fix the following build error when IGMP_SNOOPING is not enabled.
+In file included from net/bridge/br.c:24:
+net/bridge/br_private.h: In function 'br_multicast_is_router':
+net/bridge/br_private.h:361: error: 'struct net_bridge' has no member named 'multicast_router'
+net/bridge/br_private.h:362: error: 'struct net_bridge' has no member named 'multicast_router'
+net/bridge/br_private.h:363: error: 'struct net_bridge' has no member named 'multicast_router_timer'
+
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 9191198..1cf2cef 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -302,6 +302,13 @@ extern int br_multicast_set_port_router(struct net_bridge_port *p,
+ 					unsigned long val);
+ extern int br_multicast_toggle(struct net_bridge *br, unsigned long val);
+ extern int br_multicast_set_hash_max(struct net_bridge *br, unsigned long val);
++
++static inline bool br_multicast_is_router(struct net_bridge *br)
++{
++	return br->multicast_router == 2 ||
++	       (br->multicast_router == 1 &&
++		timer_pending(&br->multicast_router_timer));
++}
+ #else
+ static inline int br_multicast_rcv(struct net_bridge *br,
+ 				   struct net_bridge_port *port,
+@@ -354,14 +361,11 @@ static inline void br_multicast_forward(struct net_bridge_mdb_entry *mdst,
+ 					struct sk_buff *skb2)
+ {
+ }
+-#endif
+-
+ static inline bool br_multicast_is_router(struct net_bridge *br)
+ {
+-	return br->multicast_router == 2 ||
+-	       (br->multicast_router == 1 &&
+-		timer_pending(&br->multicast_router_timer));
++	return 0;
+ }
++#endif
+ 
+ /* br_netfilter.c */
+ #ifdef CONFIG_BRIDGE_NETFILTER
 
 
->> Replacing struct pid is guaranteed to do all kinds of nasty things with
->> signal handling and the like, de_thread is nasty enough and you are talking
->> something worse.  So if we can change pid namespaces without changing
->> the pid I am for it.
->
-> I agree with all the points you and Pavel you talked about but I don't feel
-> comfortable to have the current process to switch the pid namespace because of
-> the process tree hierarchy (what will be the parent of the process when you
-> enter the pid namespace for example). What is the difference with the sys_bindns
-> or the sys_hijack, proposed a couple of years ago ?
-
-I was not aiming at the general enter case.  There is a very specific case
-in networking where we only need a network namespace, not full blown containers
-so I was seeing what could be done to handle the easy case.
-
-The big idea is solving the namespace naming issues with bind mounts and file
-descriptors.  All of the rest is window dressing for that idea.
-
-setns looks like the easy way but what is really needed for the network namespace
-is a way to open sockets that are in a specified network namespace.
-
-> I did a suggestion some weeks ago about a new syscall 'cloneat' where the child
-> process becomes the child of the targeted process specified in the
-> syscall. Maybe it would be interesting to replace the 'setns' by, or add, a
-> cloneat' syscall with the file descriptor passed as parameter. The copy_process
-> function shall not use the nsproxy of the caller but the one provided in the fd
-> argument.
->
-> The newly created process becomes the child of the process where we retrieve the
-> namespace with nsfd and this one have to 'waitpid' it, (the caller of 'cloneat'
-> can not wait it). It's a bit similar with the CLONE_PARENT flag, except the
-> creation order is inverted (the father creates for the child).
->
-> So when entering the container, we specify the pid 1 of the container which is
-> usually a child reaper.
->
-> Does it make sense ?
-
-Essentially.  I am not hugely interested in solving the general case
-if it takes us off into tangents about pid namespace semantics.
-
-I have just realized that while the original use case for having unix
-domain sockets able to work across network namespaces was a little
-weak, there are much better arguments.  Operationally it is a game
-changer.  In the case where you don't need to support migration it
-allows direct access to your X server and greatly simplifies the
-design of a server designed to start processes in your container.
-
-Eric
