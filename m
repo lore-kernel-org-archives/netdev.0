@@ -1,39 +1,38 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [RFC PATCH]xfrm: fix perpetual bundles
-Date: Mon, 1 Mar 2010 16:33:37 +0100
-Message-ID: <20100301153337.GA20508@secunet.com>
-References: <1267017564.3973.790.camel@bigi>
- <20100225104029.GB3927@gauss.dd.secunet.de>
- <1267103990.3973.942.camel@bigi>
- <1267366035.24915.24.camel@bigi>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: sparse checking prevented by "net: fix kmemcheck annotations"
+Date: Mon, 01 Mar 2010 17:18:06 +0100
+Message-ID: <4B8BE8BE.9070505@s5r6.in-berlin.de>
+References: <4B8BAE79.9000609@s5r6.in-berlin.de> <1267448966.3039.22.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kaber@trash.net, herbert@gondor.apana.org.au,
-	yoshfuji@linux-ipv6.org, nakam@linux-ipv6.org,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([213.68.205.161]:43039 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750947Ab0CAPdP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Mar 2010 10:33:15 -0500
-Content-Disposition: inline
-In-Reply-To: <1267366035.24915.24.camel@bigi>
+Received: from einhorn.in-berlin.de ([192.109.42.8]:55183 "EHLO
+	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751015Ab0CAQSM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Mar 2010 11:18:12 -0500
+In-Reply-To: <1267448966.3039.22.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jamal.
-
-On Sun, Feb 28, 2010 at 09:07:15AM -0500, jamal wrote:
-> Steffen,
+Eric Dumazet wrote:
+> [PATCH] net: fix protocol sk_buff field
 > 
-> Did you try the simple patch i posted? After contemplating
-> in the background i think it is the right thing to do.
-> Ive also fixed IPV6 side the same way.
+> Commit e992cd9b72a18 (kmemcheck: make bitfield annotations truly no-ops
+> when disabled) allows us to revert a workaround we did in the past to
+> not add holes in sk_buff structure.
 > 
+> This patch partially reverts commit 14d18a81b5171
+> (net: fix kmemcheck annotations) so that sparse doesnt complain:
+> 
+> include/linux/skbuff.h:357:41: error: invalid bitfield specifier for
+> type restricted __be16.
 
-Yes, I did. Your patch works fine. As your solution is less
-invasive we probaply should take your patches if nobody else
-has an opinion on this.
-
-Steffen
+Great, very appreciated.
+-- 
+Stefan Richter
+-=====-==-=- --== ----=
+http://arcgraph.de/sr/
