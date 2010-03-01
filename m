@@ -1,33 +1,49 @@
-From: "Leslie Rhorer" <lrhorer@satx.rr.com>
-Subject: (unknown)
-Date: Sun, 28 Feb 2010 23:19:59 -0600
-Message-ID: <96.B0.23353.08E4B8B4@cdptpa-omtalb.mail.rr.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build warning after merge of the net tree
+Date: Mon, 1 Mar 2010 16:47:21 +1100
+Message-ID: <20100301164721.f8ce9fac.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cdptpa-omtalb.mail.rr.com ([75.180.132.121]:46644 "EHLO
-	cdptpa-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750730Ab0CAFUD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Mar 2010 00:20:03 -0500
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Mon__1_Mar_2010_16_47_21_+1100_2RYTlIYccz0aAOMh"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Marcel Holtmann <marcel@holtmann.org>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-	I was doing some ping testing today, and I ran across some test in
-ping's output I have never noticed before.  Several of the responses
-returned by `ping -q -c 50 -i 12 xxxxx` had lines like the following:
+--Signature=_Mon__1_Mar_2010_16_47_21_+1100_2RYTlIYccz0aAOMh
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-rtt min/avg/max/mdev = 501.663/12212.524/60863.587/15003.409 ms, pipe 6
+Hi Dave,
 
-	I searched the web using Google, and I came up with several queries
-concerning a response of "pipe n", but none of them were ever answered
-specifically.  One did mention something about pinging across a VPN
-connection, and I was indeed pinging across an openvpn connection, if that
-has any relevance.
+After merging the net tree, today's linux-next build (x86_64 allmodconfig)
+produced this warning:
 
-	Please respond e-mail direct, if you have an answer.  I haven't
-joined the mail list just to get an answer to this one minor question.
+net/bluetooth/hci_sysfs.c: In function 'inquiry_cache_read':
+net/bluetooth/hci_sysfs.c:441: warning: the frame size of 4208 bytes is lar=
+ger than 2048 bytes
 
+Introduced by commit ca325f698996c1a0770a67f41e7dc97a007d8bc2
+("Bluetooth: Convert inquiry cache to use debugfs instead of sysfs")
+which introduces a function with a 4096 char array on the stack.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Mon__1_Mar_2010_16_47_21_+1100_2RYTlIYccz0aAOMh
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAkuLVOkACgkQjjKRsyhoI8zrfgCfVfKWnHwTrmLvbZo5anCEyVuJ
+HW4An0IRiICeQ0ciB4LkOqlWixUEqe9I
+=fNPV
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__1_Mar_2010_16_47_21_+1100_2RYTlIYccz0aAOMh--
