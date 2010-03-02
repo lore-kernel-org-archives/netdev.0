@@ -1,140 +1,187 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC PATCH]xfrm: fix perpetual bundles
-Date: Tue, 02 Mar 2010 07:11:45 -0500
-Message-ID: <1267531905.21749.21.camel@bigi>
-References: <1267017564.3973.790.camel@bigi>
-	 <20100302112754.GA1513@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: RE: [PATCH 1/1] bnx2x: Tx barriers and locks
+Date: Tue, 2 Mar 2010 04:50:59 -0800
+Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADCB46A2B40C@SJEXCHCCR02.corp.ad.broadcom.com>
+References: <1267351922.10409.2.camel@lb-tlvb-vladz>
+ <20100301133339.GB2440@dhcp-lab-161.englab.brq.redhat.com>
+ <1267466347.19491.31.camel@nseg_linux_HP1.broadcom.com>
+ <20100302113032.GA2362@dhcp-lab-161.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kaber@trash.net, yoshfuji@linux-ipv6.org,
-	nakam@linux-ipv6.org, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Matthew Carlson" <mcarlson@broadcom.com>
+To: "Stanislaw Gruszka" <sgruszka@redhat.com>,
+	"Michael Chan" <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:59462 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752123Ab0CBMLz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Mar 2010 07:11:55 -0500
-Received: by vws9 with SMTP id 9so57112vws.19
-        for <netdev@vger.kernel.org>; Tue, 02 Mar 2010 04:11:54 -0800 (PST)
-In-Reply-To: <20100302112754.GA1513@gondor.apana.org.au>
+Received: from mms3.broadcom.com ([216.31.210.19]:4969 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752718Ab0CBMvK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Mar 2010 07:51:10 -0500
+In-Reply-To: <20100302113032.GA2362@dhcp-lab-161.englab.brq.redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-03-02 at 19:27 +0800, Herbert Xu wrote:
-> On Wed, Feb 24, 2010 at 08:19:24AM -0500, jamal wrote:
+Stanislaw barrier() is not a memory barrier - it's a compiler barrier. I don't think removing it from bnx2x_tx_avail() will improve anything. If u think I'm wrong, could u, pls., provide a specific example.
 
-> > 1)In the connect() stage, in the slow path a route cache is
-> > created with the rth->fl.fl4_src of 0.0.0.0...
-> > ==> policy->bundles is empty, so we do a lookup, fail, create
-> > one.. (remember rth->fl.fl4_src of 0.0.0.0 at this stage and
-> > thats what we end storing in the bundle/xdst for later comparison
-> > instead of the skb's fl)
+Regarding the patch u've proposed - I don't see any obvious benefit in the code change u've suggested except for replacing the smp_wmb() to smp_mb() in the bnx2x_tx_int() and would prefer to wait for Dave's reply on that matter.
+
+Let's recall that the bxn2x_start_xmit() is called under tx_lock(), so no additional memory barriers needed to ensure that bnx2x_tx_avail() has fresh values of BD consumer and producer at the beginning of bnx2x_start_xmit(). That's why we don't need the more complicated logic putting the queue asleep at the beginning of bnx2x_start_xmit() as we need at the end. That's why I think your "goto" change in the beginning of bnx2x_start_xmit() is suboptimal.
+
+Thanks,
+vlad
+
+> -----Original Message-----
+> From: Stanislaw Gruszka [mailto:sgruszka@redhat.com] 
+> Sent: Tuesday, March 02, 2010 1:31 PM
+> To: Michael Chan
+> Cc: Vladislav Zolotarov; netdev@vger.kernel.org; 
+> davem@davemloft.net; Eilon Greenstein; Matthew Carlson
+> Subject: Re: [PATCH 1/1] bnx2x: Tx barriers and locks
 > 
-> So this is root number 1.  When this stuff was first written this
-> case simply wasn't possible.  So I think the question we need to
-> ask here is can we get a valid address there at the connect stage?
-
-fl->fl4_src is valid non-zero. But in xfrm4_fill_dst()
-we do wholesale copy of xdst->u.rt.fl = rt->fl; and rt->fl.fl4_src is
-0.0.0.0.
-
-
-> After all, for non-IPsec connect(2)s, you do get a valid IP address.
-> So I don't see why the IPsec case should be different.
->
-> Creating a bundle with a zero source address is just a hack to
-> make connect(2) succeed immediately.  AFAICS getting a valid IP
-> address can also be done without waiting for the whole IPsec state
-> to be created.
+> On Mon, Mar 01, 2010 at 09:59:07AM -0800, Michael Chan wrote:
+> > > There is still difference between what we have in bnx2x 
+> and bnx2/tg3
+> > > regarding memory barriers in tx_poll/start_xmit code. 
+> Mainly we have
+> > > smp_mb() in bnx2/tg3_tx_avail(), and in bnx2/tg3_tx_int() 
+> is smp_mb()
+> > > not smp_wmb(). I do not see that bnx2x is wrong, but 
+> would like to know
+> > > why there is a difference, maybe bnx2/tg3 should be changed?
+> > > 
+> > 
+> > The memory barrier in tx_int() is to make the tx index update happen
+> > before the netif_tx_queue_stopped() check.  The barrier is 
+> to prevent a
+> > situation like this:
+> > 
+> >     CPU0					CPU1
+> >     start_xmit()
+> >     	if (tx_ring_full) {
+> >     						tx_int()
+> >     							
+> if (!netif_tx_queue_stopped)
+> >     		netif_tx_stop_queue()
+> >     		if (!tx_ring_full)
+> >     							
+> update_tx_index 
+> >     			netif_tx_wake_queue()
+> >     	}
+> >     
+> > 
+> > The update_tx_index code is before the if statement in 
+> program order,
+> > but the CPU and/or compiler can reorder it as shown above. 
+> smp_mb() will
+> > prevent that.  Will smp_wmb() prevent that as well?
 > 
-
-I did try to "fix it" above via:
-+               if (!xdst->u.rt.fl.fl4_src) {
-+                       xdst->u.rt.fl.fl4_src = fl->fl4_src;
-+               }
-
-But this breaks again later in sendmsg bundle lookup because of 
-XFRM_SUB_POLICY. If i turned off config XFRM_SUB_POLICY, then
-all works. I didnt look closely, but SUB_POLICY does do a memcpy
-or two off the dst passed in connect() - which has the wrong src.
-So i would have to "fix" a few more spots for it to work. This is
-where i gave up concluding that i was just plugging with band-aids.
-
-> Of course if anybody is still interested we could also revisit
-> the neighbouresque queueing idea.
-
-not plugged into that discussion..
-
-> > 2)ping sends a packet (does a sendmsg) 
-> > ==> xfrm_find_bundle() ends up comparing skb's->fl (non-zero
-> > fl->fl4_src) with what we stored from #1b. Fails.
-> > ==> we create a new bundle at attach the old one at the end of it.
-> > ...and now policy->bundles has two xdst entries
+> No. smp_wmb() affect only write orders on CPU1 performing tx_int(), so
+> that should be fixed in bnx2x.
 > 
-> This is the way it's supposed to work.
-
-> > 3) Repeat #2, and now we have 3 xdsts in policy bundles
+> Regarding memory barrier in tx_avail(), I don't think it its 
+> needed for
+> anything, except maybe usage at the beginning of 
+> start_xmit(), but we can
+> just remove that like in the patch below. I going to post "official"
+> patches for tg3, bnx2 and bnx2x, if no nobody has nothing against.
 > 
-> This is what I don't understand.  The code is supposed to look
-> at every bundle attached to the policy.  So why doesn't it find
-> the one we created at step #2?
-
-The issue is that the comparison is between xdst->u.rt.fl.fl4_src and
-fl->fl4_src. fl->fl4_src is always non-zero. stored
-xdst->u.rt.fl.fl4_src is always zero 
-
-> In conclusion, I think we have two problems, with the second
-> one being the most immediate cause of your symptoms.
-
-Remember the route cache (refer to dst copying above) is created at
-connect time;->
-
-So Steffen (on CC) tried to "fix it" by fixing at route cache creation
-time. His approach:
-
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2778,15 +2778,26 @@ int ip_route_output_flow(struct net *net, struct
-rtable **rp, struct flowi *flp,
-                         struct sock *sk, int flags)
- {
-        int err;
-+       int update_route = 0;
- 
-        if ((err = __ip_route_output_key(net, rp, flp)) != 0)
-                return err;
- 
-        if (flp->proto) {
--               if (!flp->fl4_src)
-+               if (!flp->fl4_src) {
-                        flp->fl4_src = (*rp)->rt_src;
--               if (!flp->fl4_dst)
-+                       update_route = 1;
-+               }
-+               if (!flp->fl4_dst) {
-                        flp->fl4_dst = (*rp)->rt_dst;
-+                       update_route = 1;
-+               }
-+               if (update_route) {
-+                       dst_release(&(*rp)->u.dst);
-+                       if ((err = __ip_route_output_key(net, rp,
-flp)) != 0)
-+                               return err;
-+               }
-+
-                err = __xfrm_lookup(net, (struct dst_entry **)rp, flp,
-sk,
-                                    flags ? XFRM_LOOKUP_WAIT : 0);
-                if (err == -EREMOTE)
---
-
-I was worried about the impact of this on something else that expects
-the behavior.
-
-cheers,
-jamal
-
+> diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+> index ed785a3..0f406b8 100644
+> --- a/drivers/net/bnx2x_main.c
+> +++ b/drivers/net/bnx2x_main.c
+> @@ -893,7 +893,6 @@ static inline u16 bnx2x_tx_avail(struct 
+> bnx2x_fastpath *fp)
+>  	u16 prod;
+>  	u16 cons;
+>  
+> -	barrier(); /* Tell compiler that prod and cons can change */
+>  	prod = fp->tx_bd_prod;
+>  	cons = fp->tx_bd_cons;
+>  
+> @@ -963,9 +962,8 @@ static int bnx2x_tx_int(struct bnx2x_fastpath *fp)
+>  	 * start_xmit() will miss it and cause the queue to be stopped
+>  	 * forever.
+>  	 */
+> -	smp_wmb();
+> +	smp_mb();
+>  
+> -	/* TBD need a thresh? */
+>  	if (unlikely(netif_tx_queue_stopped(txq))) {
+>  		/* Taking tx_lock() is needed to prevent 
+> reenabling the queue
+>  		 * while it's empty. This could have happen if 
+> rx_action() gets
+> @@ -11177,10 +11175,9 @@ static netdev_tx_t 
+> bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	struct eth_tx_bd *tx_data_bd, *total_pkt_bd = NULL;
+>  	struct eth_tx_parse_bd *pbd = NULL;
+>  	u16 pkt_prod, bd_prod;
+> -	int nbd, fp_index;
+> +	int nbd, fp_index, i, ret;
+>  	dma_addr_t mapping;
+>  	u32 xmit_type = bnx2x_xmit_type(bp, skb);
+> -	int i;
+>  	u8 hlen = 0;
+>  	__le16 pkt_size = 0;
+>  
+> @@ -11195,10 +11192,9 @@ static netdev_tx_t 
+> bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	fp = &bp->fp[fp_index];
+>  
+>  	if (unlikely(bnx2x_tx_avail(fp) < 
+> (skb_shinfo(skb)->nr_frags + 3))) {
+> -		fp->eth_q_stats.driver_xoff++;
+> -		netif_tx_stop_queue(txq);
+>  		BNX2X_ERR("BUG! Tx ring full when queue awake!\n");
+> -		return NETDEV_TX_BUSY;
+> +		ret = NETDEV_TX_BUSY;				
+> 		
+> +		goto stop_queue;
+>  	}
+>  
+>  	DP(NETIF_MSG_TX_QUEUED, "SKB: summed %x  protocol %x  
+> protocol(%x,%x)"
+> @@ -11426,19 +11422,24 @@ static netdev_tx_t 
+> bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	mmiowb();
+>  
+>  	fp->tx_bd_prod += nbd;
+> -
+> -	if (unlikely(bnx2x_tx_avail(fp) < MAX_SKB_FRAGS + 3)) {
+> -		netif_tx_stop_queue(txq);
+> -		/* We want bnx2x_tx_int to "see" the updated tx_bd_prod
+> -		   if we put Tx into XOFF state. */
+> -		smp_mb();
+> -		fp->eth_q_stats.driver_xoff++;
+> -		if (bnx2x_tx_avail(fp) >= MAX_SKB_FRAGS + 3)
+> -			netif_tx_wake_queue(txq);
+> -	}
+>  	fp->tx_pkt++;
+> +	
+> +	ret = NETDEV_TX_OK;
+> +	if (unlikely(bnx2x_tx_avail(fp) < MAX_SKB_FRAGS + 3))
+> +		goto stop_queue;
+> +
+> +	return ret;
+>  
+> -	return NETDEV_TX_OK;
+> +stop_queue:
+> +	netif_tx_stop_queue(txq);
+> +	/* paired barrier is in bnx2x_tx_int(), update of tx_bd_cons
+> +	 * have to be visable here, after we XOFF bit setting */
+> +	smp_mb();
+> +	fp->eth_q_stats.driver_xoff++;
+> +	if (bnx2x_tx_avail(fp) >= MAX_SKB_FRAGS + 3)
+> +		netif_tx_wake_queue(txq);
+> +	
+> +	return ret;
+>  }
+>  
+>  /* called with rtnl_lock */
+> 
+> 
