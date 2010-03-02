@@ -1,41 +1,48 @@
-From: Cedric Le Goater <legoater@free.fr>
-Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
-Date: Tue, 02 Mar 2010 14:10:06 +0100
-Message-ID: <4B8D0E2E.6020205@free.fr>
-References: <4B4F24AC.70105@trash.net> <m1wry46es9.fsf@fess.ebiederm.org>	<1266931623.3973.643.camel@bigi> <m1iq9ocafv.fsf@fess.ebiederm.org>	<1266934817.3973.654.camel@bigi> <m1r5obbu2w.fsf@fess.ebiederm.org>	<1266966581.3973.675.camel@bigi> <m1pr3t2fvl.fsf_-_@fess.ebiederm.org>	<4B883987.6090408@parallels.com> <m1bpfbwuze.fsf@fess.ebiederm.org>	<4B883E6F.1060907@parallels.com> <m13a0nwu6p.fsf@fess.ebiederm.org>	<4B88D80A.8010701@parallels.com> <m1mxyvrqvk.fsf@fess.ebiederm.org>	<4B88E431.6040609@parallels.com> <m1bpfbqajn.fsf@fess.ebiederm.org>	<4B894564.7080104@parallels.com> <m1iq9io5sc.fsf@fess.ebiederm.org>	<4B89727C.9040602@parallels.com> <m1ljeempk6.fsf@fess.ebiederm.org>	<4B8AE8C1.1030305@free.fr> <m1ljebwwgd.fsf@fess.ebiederm.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC PATCH]xfrm: fix perpetual bundles
+Date: Tue, 02 Mar 2010 08:10:26 -0500
+Message-ID: <1267535426.21749.24.camel@bigi>
+References: <1267017564.3973.790.camel@bigi>
+	 <20100302112754.GA1513@gondor.apana.org.au>
+	 <1267531905.21749.21.camel@bigi>
+	 <20100302125156.GA2420@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Lezcano <daniel.lezcano@free.fr>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <m1ljebwwgd.fsf@fess.ebiederm.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, kaber@trash.net, yoshfuji@linux-ipv6.org,
+	nakam@linux-ipv6.org, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:51210 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753123Ab0CBNKf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Mar 2010 08:10:35 -0500
+Received: by vws9 with SMTP id 9so75674vws.19
+        for <netdev@vger.kernel.org>; Tue, 02 Mar 2010 05:10:34 -0800 (PST)
+In-Reply-To: <20100302125156.GA2420@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/01/2010 10:42 PM, Eric W. Biederman wrote:
-> I am of two mind about my patches.  Right now they are a brilliant
-> proof of concept that we can name namespaces without needing a
-> namespace for the names of namespaces, and start to be a practical
-> solution to the join problem.   At the same time, I'm not certain
-> I like a solution that requires yet more syscalls so I ask myself
-> is there not yet a simpler way.
+On Tue, 2010-03-02 at 20:51 +0800, Herbert Xu wrote:
 
-thinking aloud,
+> Heh, you've just discovered a bug that I carefully planted back
+> in 2007, while merging the v4/v6 policy code :)
 
-what if you made the nsproxy a vfs_inode ? we could then mount the nsfs
-to do all sorts of fs operations on the object, like notifying easily
-its deletion. we would need to find a meaningful name, probably the inode
-number.
+;-> I am suprised it hasnt been noticed sooner given it accumulates
+memory on a per-packet basis.
 
-one syscall (nsfd) would be required to get the nsproxy of a task (pid).
-you can't guess that from an inode number.
+> It is a clear merging error, where *fl became rt->fl which is
+> totally different.  So please try this patch:
+> 
 
+Looks like it would work.
+I dont have time right now - but will by either tonight or tomorrow
+evening. Steffen, if you have time - please go ahead and try it out
+as well.
 
-C.
+cheers,
+jamal
+
