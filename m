@@ -1,114 +1,155 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: BNX2: Kernel crashes with 2.6.31 and 2.6.31.9
-Date: Tue, 2 Mar 2010 14:12:06 -0800
-Message-ID: <1267567926.19491.175.camel@nseg_linux_HP1.broadcom.com>
-References: <20091229084929.54912c0c@pluto.restena.lu>
- <1262077540.12520.4.camel@localhost>
- <20091229145403.39f82773@pluto.restena.lu>
- <1262149691.2788.63.camel@localhost>
- <20100219091034.5fbb0165@pluto.restena.lu>
- <1266609426.2610.36.camel@dhcp-10-12-137-130.broadcom.com>
- <20100223131508.4c6cb866@neptune.home>
- <1267493170.2762.45.camel@dhcp-10-12-137-104.broadcom.com>
- <20100302081051.3d1b1c53@pluto.restena.lu>
- <20100302092020.52cfcd0e@pluto.restena.lu>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: 2.6.33 problems
+Date: Tue, 2 Mar 2010 14:42:19 -0800
+Message-ID: <20100302144219.3cd28ae9@nehalam>
+References: <1267290551.13148@guyane.dyn-o-saur.com>
+	<20100302135032.e3d11bbf.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Benjamin Li" <benli@broadcom.com>,
-	NetDEV <netdev@vger.kernel.org>,
-	Linux-Kernel <linux-kernel@vger.kernel.org>
-To: "Bruno =?ISO-8859-1?Q?Pr=E9mont?=" <bonbons@linux-vserver.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: werner@guyane.dyn-o-saur.com, linux-kernel@vger.kernel.org,
+	Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100302092020.52cfcd0e@pluto.restena.lu>
+In-Reply-To: <20100302135032.e3d11bbf.akpm@linux-foundation.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 2 Mar 2010 13:50:32 -0800
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
-On Tue, 2010-03-02 at 00:20 -0800, Bruno Pr=C3=A9mont wrote:
-> [ 3405.422963] ------------[ cut here ]------------
-> [ 3405.428958] WARNING: at /usr/src/linux-2.6.33-rc8-git7/kernel/soft=
-irq.c:143 local_bh_enable_ip+0x72/0xa0()
+> On Sat, 27 Feb 2010 14:09:11 -0300 (GFT)
+> werner@guyane.dyn-o-saur.com wrote:
+> 
+> > For better error searching / correction, I add below the whole syslog.
+> > 
+> > This is refered to 2.6.33  published (without patchs)
+> > 
+> > This are different errors.
+> > 
+> > The most of them exists since 2.6.33-rc1 or appr. -rc5.
+> > 
+> > I posted here already the whole syslog.bz2 but nobody toke care.
+> > 
+> > the boot_vga error occurs only after I start the grafics mode.  It's the mainboard's embedded nvidia grafics. I use the vesa framebuffer driver of X 1.8
+> > 
+> > the int6_init error occurs also in text mode. I think it have something to do with internet.
+> > 
+> > Also the printk errors occur only when start the computer in the grafics mode, but not when starting it in the text mode.
+> > 
+> > Below is also the kernel config. Its the same like since -rc7 (but the errors are also the same)
+> > 
+> > 
+> 
+> Thanks.
+> 
+> >
+> > ...
+> >
+> > Feb 27 13:43:07 werner kernel: PERCPU: allocation failed, size=2048 align=8, failed to allocate new chunk
+> > Feb 27 13:43:07 werner kernel: Pid: 5314, comm: modprobe Tainted: G         C 2.6.33 #1
+> > Feb 27 13:43:07 werner kernel: Call Trace:
+> > Feb 27 13:43:07 werner kernel:  [<c1c682ca>] ? printk+0x14/0x16
+> > Feb 27 13:43:07 werner kernel:  [<c10bdfa3>] pcpu_alloc+0x6ba/0x73b
+> > Feb 27 13:43:07 werner kernel:  [<c10bb0be>] ? get_slab+0x8/0x50
+> > Feb 27 13:43:07 werner kernel:  [<c1b7283d>] ? neigh_parms_alloc+0x55/0xd1
+> > Feb 27 13:43:07 werner kernel:  [<c10be047>] __alloc_percpu+0xf/0x14
+> > Feb 27 13:43:07 werner kernel:  [<c1bb26cb>] snmp_mib_init+0x22/0x5a
+> > Feb 27 13:43:07 werner kernel:  [<fed105af>] ipv6_add_dev+0x191/0x30b [ipv6]
+> > Feb 27 13:43:07 werner kernel:  [<fd269000>] ? inet6_init+0x0/0x2a2 [ipv6]
+> > Feb 27 13:43:07 werner kernel:  [<fd2692ec>] addrconf_init+0x3b/0x11b [ipv6]
+> > Feb 27 13:43:07 werner kernel:  [<fd269195>] inet6_init+0x195/0x2a2 [ipv6]
+> > Feb 27 13:43:07 werner kernel:  [<c1001143>] do_one_initcall+0x51/0x13f
+> > Feb 27 13:43:07 werner kernel:  [<c1066570>] sys_init_module+0xac/0x1e0
+> > Feb 27 13:43:07 werner kernel:  [<c1c6acec>] syscall_call+0x7/0xb
+> > Feb 27 13:43:19 werner kdm_greet[5382]: Can't open default user face
+> > Feb 27 13:44:24 werner kernel: PERCPU: allocation failed, size=2048 align=8, failed to allocate new chunk
+> > Feb 27 13:44:24 werner kernel: Pid: 5737, comm: modprobe Tainted: G         C 2.6.33 #1
+> > Feb 27 13:44:24 werner kernel: Call Trace:
+> > Feb 27 13:44:24 werner kernel:  [<c1c682ca>] ? printk+0x14/0x16
+> > Feb 27 13:44:24 werner kernel:  [<c10bdfa3>] pcpu_alloc+0x6ba/0x73b
+> > Feb 27 13:44:24 werner kernel:  [<c10bb0be>] ? get_slab+0x8/0x50
+> > Feb 27 13:44:24 werner kernel:  [<c1b7283d>] ? neigh_parms_alloc+0x55/0xd1
+> > Feb 27 13:44:24 werner kernel:  [<c10be047>] __alloc_percpu+0xf/0x14
+> > Feb 27 13:44:24 werner kernel:  [<c1bb26cb>] snmp_mib_init+0x22/0x5a
+> > Feb 27 13:44:24 werner kernel:  [<fed105af>] ipv6_add_dev+0x191/0x30b [ipv6]
+> > Feb 27 13:44:24 werner kernel:  [<f91bf000>] ? inet6_init+0x0/0x2a2 [ipv6]
+> > Feb 27 13:44:24 werner kernel:  [<f91bf2ec>] addrconf_init+0x3b/0x11b [ipv6]
+> > Feb 27 13:44:24 werner kernel:  [<f91bf195>] inet6_init+0x195/0x2a2 [ipv6]
+> > Feb 27 13:44:24 werner kernel:  [<c1001143>] do_one_initcall+0x51/0x13f
+> > Feb 27 13:44:24 werner kernel:  [<c1066570>] sys_init_module+0xac/0x1e0
+> > Feb 27 13:44:24 werner kernel:  [<c1c6acec>] syscall_call+0x7/0xb
+> > Feb 27 13:44:27 werner kernel: PERCPU: allocation failed, size=2048 align=8, failed to allocate new chunk
+> > Feb 27 13:44:27 werner kernel: Pid: 5772, comm: modprobe Tainted: G         C 2.6.33 #1
+> > Feb 27 13:44:27 werner kernel: Call Trace:
+> > Feb 27 13:44:27 werner kernel:  [<c1c682ca>] ? printk+0x14/0x16
+> > Feb 27 13:44:27 werner kernel:  [<c10bdfa3>] pcpu_alloc+0x6ba/0x73b
+> > Feb 27 13:44:27 werner kernel:  [<c10bb0be>] ? get_slab+0x8/0x50
+> > Feb 27 13:44:27 werner kernel:  [<c1b7283d>] ? neigh_parms_alloc+0x55/0xd1
+> > Feb 27 13:44:27 werner kernel:  [<c10be047>] __alloc_percpu+0xf/0x14
+> > Feb 27 13:44:27 werner kernel:  [<c1bb26cb>] snmp_mib_init+0x22/0x5a
+> > Feb 27 13:44:27 werner kernel:  [<fee155af>] ipv6_add_dev+0x191/0x30b [ipv6]
+> > Feb 27 13:44:27 werner kernel:  [<f9185000>] ? inet6_init+0x0/0x2a2 [ipv6]
+> > Feb 27 13:44:27 werner kernel:  [<f91852ec>] addrconf_init+0x3b/0x11b [ipv6]
+> > Feb 27 13:44:27 werner kernel:  [<f9185195>] inet6_init+0x195/0x2a2 [ipv6]
+> > Feb 27 13:44:27 werner kernel:  [<c1001143>] do_one_initcall+0x51/0x13f
+> > Feb 27 13:44:27 werner kernel:  [<c1066570>] sys_init_module+0xac/0x1e0
+> > Feb 27 13:44:27 werner kernel:  [<c1c6acec>] syscall_call+0x7/0xb
+> 
+> Methinks Tejun's stuff broke, and then triggered a bug in a
+> hitherto-untested networking error recovery codepath.
+> 
+> 
+> > Feb 27 13:44:27 werner kernel: BUG: unable to handle kernel paging request at fed348d4
+> > Feb 27 13:44:27 werner kernel: IP: [<c1b68700>] unregister_pernet_operations+0x21/0x93
+> > Feb 27 13:44:27 werner kernel: *pde = 360fc067 *pte = 00000000 
+> > Feb 27 13:44:27 werner kernel: Oops: 0002 [#1] PREEMPT SMP 
+> > Feb 27 13:44:27 werner kernel: last sysfs file: /sys/devices/pci0000:00/0000:00:0d.0/boot_vga
+> > Feb 27 13:44:27 werner kernel: Modules linked in: ipv6(+) bnep rfcomm hidp l2cap bluetooth snd_usb_audio snd_usb_lib snd_rawmidi snd_seq_device rt2860sta(C) uvcvideo usbvideo lp snd_hda_codec_analog rtc_cmos rtc_core rtc_lib rtl8187 tpm_tis tpm tpm_bios mac80211 led_class snd_hda_intel snd_hda_codec k8temp hwmon 8139too cfg80211 snd_hwdep snd_pcm rfkill snd_timer snd soundcore snd_page_alloc forcedeth i2c_nforce2
+> > Feb 27 13:44:27 werner kernel: 
+> > Feb 27 13:44:27 werner kernel: Pid: 5772, comm: modprobe Tainted: G         C 2.6.33 #1 M2N-VM DH/System Product Name
+> > Feb 27 13:44:27 werner kernel: EIP: 0060:[<c1b68700>] EFLAGS: 00010246 CPU: 0
+> > Feb 27 13:44:27 werner kernel: EIP is at unregister_pernet_operations+0x21/0x93
+> > Feb 27 13:44:27 werner kernel: EAX: fed348d4 EBX: fee39850 ECX: f0d7bf58 EDX: fee398d4
+> > Feb 27 13:44:27 werner kernel: ESI: fee39850 EDI: f9185000 EBP: f0d7bf6c ESP: f0d7bf58
+> > Feb 27 13:44:27 werner kernel:  DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
+> > Feb 27 13:44:27 werner kernel: Process modprobe (pid: 5772, ti=f0d7a000 task=f0ccb660 task.ti=f0d7a000)
+> > Feb 27 13:44:27 werner kernel: Stack:
+> > Feb 27 13:44:27 werner kernel:  f0d7bf58 f0d7bf58 fee39850 00000000 f9185000 f0d7bf78 c1b687c6 fffffff4
+> > Feb 27 13:44:27 werner kernel: <0> f0d7bf84 f9185257 fee3b834 f0d7bf9c c1001143 00000000 fee3b834 00000000
+> > Feb 27 13:44:27 werner kernel: <0> 0805e188 f0d7bfac c1066570 b7516008 0805e138 f0d7a000 c1c6acec b7516008
+> > Feb 27 13:44:27 werner kernel: Call Trace:
+> > Feb 27 13:44:27 werner kernel:  [<f9185000>] ? inet6_init+0x0/0x2a2 [ipv6]
+> > Feb 27 13:44:27 werner kernel:  [<c1b687c6>] ? unregister_pernet_subsys+0x1c/0x29
+> > Feb 27 13:44:27 werner kernel:  [<f9185257>] ? inet6_init+0x257/0x2a2 [ipv6]
+> > Feb 27 13:44:27 werner kernel:  [<c1001143>] ? do_one_initcall+0x51/0x13f
+> > Feb 27 13:44:27 werner kernel:  [<c1066570>] ? sys_init_module+0xac/0x1e0
+> > Feb 27 13:44:27 werner kernel:  [<c1c6acec>] ? syscall_call+0x7/0xb
+> > Feb 27 13:44:27 werner kernel: Code: c2 75 e5 e8 78 0a 51 ff eb 97 55 89 e5 57 56 53 83 ec 08 e8 03 b2 49 ff 89 c6 8d 4d ec 89 4d ec 89 4d f0 8b 10 8b 40 04 89 42 04 <89> 10 c7 06 00 01 10 00 c7 46 04 00 02 20 00 a1 b8 b7 10 c2 8d 
+> > Feb 27 13:44:27 werner kernel: EIP: [<c1b68700>] unregister_pernet_operations+0x21/0x93 SS:ESP 0068:f0d7bf58
+> > Feb 27 13:44:27 werner kernel: CR2: 00000000fed348d4
+> > Feb 27 13:44:27 werner kernel: ---[ end trace 120df121853896c9 ]---
+> > Feb 27 13:45:39 werner kernel: BUG: Bad page map in process kio_http  pte:fee39850 pmd:ace05067
+> > Feb 27 13:45:39 werner kernel: addr:b6635000 vm_flags:08000075 anon_vma:(null) mapping:f20f434c index:5d
+> > Feb 27 13:45:39 werner kernel: vma->vm_ops->fault: filemap_fault+0x0/0x2eb
+> > Feb 27 13:45:39 werner kernel: vma->vm_file->f_op->mmap: generic_file_mmap+0x0/0x44
+> > Feb 27 13:45:39 werner kernel: Pid: 5764, comm: kio_http Tainted: G      D  C 2.6.33 #1
+> > Feb 27 13:45:39 werner kernel: Call Trace:
+> > Feb 27 13:45:39 werner kernel:  [<c10a47c7>] print_bad_pte+0x17e/0x190
+> > Feb 27 13:45:39 werner kernel:  [<c10a5782>] unmap_vmas+0x444/0x676
+> > Feb 27 13:45:39 werner kernel:  [<c10a461d>] ? __do_fault+0x3bd/0x3e9
+> > Feb 27 13:45:39 werner kernel:  [<c10988b9>] ? ____pagevec_lru_add+0x101/0x10f
+> > Feb 27 13:45:39 werner kernel:  [<c10a9344>] exit_mmap+0xab/0x13a
+> > Feb 27 13:45:39 werner kernel:  [<c1038cc1>] mmput+0x3a/0xb0
+> > Feb 27 13:45:39 werner kernel:  [<c103c669>] exit_mm+0xec/0xf4
+> > Feb 27 13:45:39 werner kernel:  [<c1c6a525>] ? _raw_spin_lock_irq+0xb/0x34
+> > Feb 27 13:45:39 werner kernel:  [<c1c6a855>] ? _raw_spin_unlock_irq+0x8/0x27
+> > Feb 27 13:45:39 werner kernel:  [<c103dbc1>] do_exit+0x1ad/0x605
+> > Feb 27 13:45:39 werner kernel:  [<c105554c>] ? up_read+0x8/0x18
+> > Feb 27 13:45:39 werner kernel:  [<c103e080>] do_group_exit+0x67/0x8a
+> > Feb 27 13:45:39 werner kernel:  [<c103e0bb>] sys_exit_group+0x18/0x1c
+> > Feb 27 13:45:39 werner kernel:  [<c1c6acec>] syscall_call+0x7/0xb
 
-In normal NAPI mode, we are in softirq context and we correctly use
-spin_lock_bh() and spin_unlock_bh() here.  In netpoll mode, IRQs are
-disabled and so we get a warning from spin_unlock_bh().
 
-> [ 3405.431858] Hardware name: ProLiant DL360 G5
-> [ 3405.431858] Modules linked in: netbomb bnx2 ipmi_devintf loop dm_m=
-od sg sr_mod cdrom ata_piix ahci ipmi_si ipmi_msghandler uhci_hcd qla2x=
-xx libata hpwdt ehci_hcd [last unloaded: bnx2]
-> [ 3405.431858] Pid: 25763, comm: cat Not tainted 2.6.33-rc8-git7-x86_=
-64 #1
-> [ 3405.431858] Call Trace:
-> [ 3405.431858]  [<ffffffff8103f002>] ? local_bh_enable_ip+0x72/0xa0
-> [ 3405.431858]  [<ffffffff81039368>] warn_slowpath_common+0x78/0xd0
-> [ 3405.431858]  [<ffffffff810393cf>] warn_slowpath_null+0xf/0x20
-> [ 3405.431858]  [<ffffffff8103f002>] local_bh_enable_ip+0x72/0xa0
-> [ 3405.431858]  [<ffffffff814002af>] _raw_spin_unlock_bh+0xf/0x20
-> [ 3405.431858]  [<ffffffffa0108ed4>] bnx2_reg_rd_ind+0x44/0x60 [bnx2]
-> [ 3405.431858]  [<ffffffffa0108eff>] bnx2_shmem_rd+0xf/0x20 [bnx2]
-> [ 3405.431858]  [<ffffffffa0113464>] bnx2_poll+0x194/0x228 [bnx2]
-> [ 3405.431858]  [<ffffffff8135c081>] netpoll_poll+0xe1/0x3c0
-> [ 3405.431858]  [<ffffffff8135c518>] netpoll_send_skb+0x118/0x210
-> [ 3405.431858]  [<ffffffff8135c80b>] netpoll_send_udp+0x1fb/0x210
-> [ 3405.431858]  [<ffffffffa00131c5>] write_msg+0x95/0xd0 [netbomb]
-> [ 3405.431858]  [<ffffffffa0013255>] netbomb_write+0x55/0xa4 [netbomb=
-]
-> [ 3405.431858]  [<ffffffff810f6571>] proc_reg_write+0x71/0xb0
-> [ 3405.431858]  [<ffffffff810ab6db>] vfs_write+0xcb/0x180
-> [ 3405.431858]  [<ffffffff810ab880>] sys_write+0x50/0x90
-> [ 3405.431858]  [<ffffffff8102a1a4>] sysenter_dispatch+0x7/0x2b
-> [ 3405.431858] ---[ end trace b4ac1510884bf2bc ]---
-> [ 3411.050005] ------------[ cut here ]------------
-> [ 3411.054851] WARNING: at /usr/src/linux-2.6.33-rc8-git7/net/sched/s=
-ch_generic.c:255 dev_watchdog+0x25e/0x270()
-> [ 3411.059546] Hardware name: ProLiant DL360 G5
-> [ 3411.061569] NETDEV WATCHDOG: eth0 (bnx2): transmit queue 0 timed o=
-ut
-> [ 3411.064582] Modules linked in: netbomb bnx2 ipmi_devintf loop dm_m=
-od sg sr_mod cdrom ata_piix ahci ipmi_si ipmi_msghandler uhci_hcd qla2x=
-xx libata hpwdt ehci_hcd [last unloaded: bnx2]
-> [ 3411.064597] Pid: 0, comm: swapper Tainted: G        W  2.6.33-rc8-=
-git7-x86_64 #1
-> [ 3411.064599] Call Trace:
-
-Do we have timers running in this environment?  The timer in the bnx2
-driver, bnx2_timer(), needs to run to provide a heart beat to the
-firmware.  In netpoll mode without timer interrupts, if we are regularl=
-y
-calling the NAPI poll function, it should also be able to provide the
-heartbeat.  Without the heartbeat, the firmware will reset the chip and
-result in the NETDEV WATCHDOG.
-
-> [ 3411.064601]  <IRQ>  [<ffffffff8135f84e>] ? dev_watchdog+0x25e/0x27=
-0
-> [ 3411.064609]  [<ffffffff81039368>] warn_slowpath_common+0x78/0xd0
-> [ 3411.064612]  [<ffffffff81039444>] warn_slowpath_fmt+0x64/0x70
-> [ 3411.064616]  [<ffffffff8103486d>] ? default_wake_function+0xd/0x10
-> [ 3411.064620]  [<ffffffff8119f339>] ? strlcpy+0x49/0x60
-> [ 3411.064623]  [<ffffffff81349b33>] ? netdev_drivername+0x43/0x50
-> [ 3411.064626]  [<ffffffff8135f84e>] dev_watchdog+0x25e/0x270
-> [ 3411.064630]  [<ffffffff8104c000>] ? delayed_work_timer_fn+0x0/0x40
-> [ 3411.064633]  [<ffffffff8104bf87>] ? __queue_work+0x77/0x90
-> [ 3411.064636]  [<ffffffff8103558b>] ? scheduler_tick+0x1bb/0x290
-> [ 3411.064639]  [<ffffffff8135f5f0>] ? dev_watchdog+0x0/0x270
-> [ 3411.064642]  [<ffffffff810440fc>] run_timer_softirq+0x13c/0x210
-> [ 3411.064645]  [<ffffffff8105b4b7>] ? clockevents_program_event+0x57=
-/0xa0
-> [ 3411.064649]  [<ffffffff8103edb6>] __do_softirq+0xa6/0x130
-> [ 3411.064652]  [<ffffffff81003bcc>] call_softirq+0x1c/0x30
-> [ 3411.064655]  [<ffffffff81005be5>] do_softirq+0x55/0x90
-> [ 3411.064658]  [<ffffffff8103eb35>] irq_exit+0x75/0x90
-> [ 3411.064661]  [<ffffffff8101aeed>] smp_apic_timer_interrupt+0x6d/0x=
-a0
-> [ 3411.064664]  [<ffffffff81003693>] apic_timer_interrupt+0x13/0x20
-> [ 3411.064666]  <EOI>  [<ffffffff8100b186>] ? mwait_idle+0x66/0x80
-> [ 3411.064670]  [<ffffffff81001f90>] ? enter_idle+0x20/0x30
-> [ 3411.064673]  [<ffffffff81002003>] cpu_idle+0x63/0xb0
-> [ 3411.064676]  [<ffffffff813f2f14>] rest_init+0x74/0x80
-> [ 3411.064680]  [<ffffffff81880c15>] start_kernel+0x2f8/0x336
-> [ 3411.064683]  [<ffffffff8188026d>] x86_64_start_reservations+0x7d/0=
-x84
-> [ 3411.064686]  [<ffffffff81880354>] x86_64_start_kernel+0xe0/0xf2
-> [ 3411.064688] ---[ end trace b4ac1510884bf2bd ]---
+The SNMP MIB stuff does allocate a disproportionately large amount of percpu
+data. Looks like 2 tables per MIB.
