@@ -1,27 +1,35 @@
-From: Mike Galbraith <efault@gmx.de>
-Subject: Re: [rfc/rft][patch] should use scheduler sync hint in
- tcp_prequeue()?
-Date: Tue, 02 Mar 2010 12:41:08 +0100
-Message-ID: <1267530068.9365.8.camel@marge.simson.net>
-References: <1267522901.25906.101.camel@marge.simson.net>
-	 <1267529273.2964.111.camel@edumazet-laptop>
-	 <1267529525.25158.40.camel@laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sis190: fix cable detect via link status poll
+Date: Tue, 02 Mar 2010 03:45:11 -0800 (PST)
+Message-ID: <20100302.034511.161195805.davem@davemloft.net>
+References: <20100301204009.GA15782@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1267529525.25158.40.camel@laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46528
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750833Ab0CBLox (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Mar 2010 06:44:53 -0500
+In-Reply-To: <20100301204009.GA15782@havoc.gtf.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-03-02 at 12:32 +0100, Peter Zijlstra wrote:
-> On Tue, 2010-03-02 at 12:27 +0100, Eric Dumazet wrote:
-> > My Q6600 has shared caches 
+From: Jeff Garzik <jeff@garzik.org>
+Date: Mon, 1 Mar 2010 15:40:09 -0500
+
+> Some sis190 devices don't report LinkChange, so do polling for
+> link status.
 > 
-> Isn't core2quad a dual die construct, having 2 cache domains?
+> Fixes http://bugzilla.kernel.org/show_bug.cgi?id=11926
+> 
+> Signed-off-by: Herton Ronaldo Krzesinski <herton@mandriva.com.br>
 
-(yes.. am I using wrong terminology?)
+Applied, thanks for giving life to this patch Jeff.
+
+I'll stick this into 2.6.34 and if we want we can backport it
+to -stable after it cooks there for a while.
+
+Thanks again.
