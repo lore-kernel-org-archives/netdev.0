@@ -1,8 +1,7 @@
 From: Samir Bellabes <sam@synack.fr>
-Subject: [RFC v2 08/10] snet: introduce snet_verdict
-Date: Tue,  2 Mar 2010 21:23:12 +0100
-Message-ID: <1267561394-13626-9-git-send-email-sam@synack.fr>
-References: <1267561394-13626-1-git-send-email-sam@synack.fr>
+Subject: [RFC v2 00/10] snet: Security for NETwork syscalls
+Date: Tue,  2 Mar 2010 21:23:04 +0100
+Message-ID: <1267561394-13626-1-git-send-email-sam@synack.fr>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, jamal <hadi@cyberus.ca>,
 	Patrick McHardy <kaber@trash.net>,
@@ -12,248 +11,121 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Samir Bellabes <sam@synack.fr>
 To: linux-security-module@vger.kernel.org
 Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1267561394-13626-1-git-send-email-sam@synack.fr>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the snet's subsystem responsive of managing verdicts
+Hello lsm and netdev people,
+This set of patches is the version 2 of snet, which I would like to submit as a
+RFC.
 
-snet is using the word 'verdict' for the returning value of LSM hooks.
-Different states exist (grant/deny/pending/none).
+snet is a linux security module. It provides a mecanism defering syscall
+security hooks and decision (verdict) to userspace. 
 
-This patch introduces a hashtable 'verdict_hash' and operations (set/get/search..)
-in order to manage verdicts. Syscalls are waiting, inside a classical waitqueue,
-for theirs verdicts or for a timeout. Timeout value and the default verdict
-policy are configurable at boot or by the snet_netlink subsystem.
-With the help of the communication's subsystem, verdicts are coming from userspace
+snet has some subsystems :
+    - snet_core     : init and exit the system
+    - snet_hooks    : LSM hooks
+    - snet_netlink  : kernel-user communication (genetlink)
+    - snet_event    : manages the list of protected syscalls
+    - snet_verdict  : provides a waitqueue for syscalls and manage verdicts
+    - snet_ticket   : provides a granted-access ticket mecanism
 
-Signed-off-by: Samir Bellabes <sam@synack.fr>
----
- security/snet/snet_verdict.c |  184 ++++++++++++++++++++++++++++++++++++++++++
- security/snet/snet_verdict.h |   23 +++++
- 2 files changed, 207 insertions(+), 0 deletions(-)
+I believe that snet will help to get over the classical configuration
+complexity of others security modules, by providing interactivity to users.
+I also think that monolithic strategy is broken with snet, as we can provide
+security for others syscall's categories:
+ - sfs  : security for filesystem,
+ - stask: security for task,
+ - smem : security for memory
+ ..
+
+In this way, and by putting abstraction on how this subsystems can talk to each
+others, we may use the security combinaison we want: choose to run sfs,
+stask, but not snet nor smem. Better, developpers may investigated how to build
+another security subsystem for tasks, and use others existing (smem, snet..)
+which they don't want to modify
+
+I think that interactivity is very usefull for users, as they may be notify when
+something is wrong and take decision, and from userspace, the decision may be
+defered to another box. In this way, snet also have a advantage for mobile
+devices as the policy decision will be push to a distant server, mobile device
+will then wait for verdicts and as policy strategies are centralized.
+
+Finally, and a important point: snet integration respects the LSM framework idea
+of using LSM hooks.
+
+New feature from the previous version:
+ * Building a ticket mecanism for each task_struct using pointer void *security
+   Use the pointer (void*) security related to task_struct to provides
+   granted-acces tickets: if two identical requests are coming, ask the user
+   for the first one, store the result in a ticket and for the second request,
+   just look in the tickets owned by the task-struct
+ * send data buffer of sendmsg to userspace
+   this may provide a way to look inside the data (as a anti-virus do)
+
+roadmap:
+ * find a way to send data buffer of sendmsg to userspace (using netfilter)
+ * adding other security systems
+   we can think about adding fork(), exec(), open(), close()..
+
+I'm Ccing netfilter-devel, as snet may be seen as a way to do filtering.
+
+Samir Bellabes (10):
+  lsm: add security_socket_closed()
+  Revert "lsm: Remove the socket_post_accept() hook"
+  snet: introduce security/snet, Makefile and Kconfig changes
+  snet: introduce snet_core
+  snet: introduce snet_event
+  snet: introduce snet_hooks
+  snet: introduce snet_netlink
+  snet: introduce snet_verdict
+  snet: introduce snet_ticket
+  snet: introduce snet_utils
+
+ include/linux/security.h            |   23 ++
+ include/linux/snet.h                |  120 ++++++
+ net/socket.c                        |    3 +
+ security/Kconfig                    |    6 +
+ security/Makefile                   |    2 +
+ security/capability.c               |   10 +
+ security/security.c                 |   10 +
+ security/snet/Kconfig               |   11 +
+ security/snet/Makefile              |   14 +
+ security/snet/snet_core.c           |   76 ++++
+ security/snet/snet_event.c          |  189 ++++++++++
+ security/snet/snet_event.h          |   21 +
+ security/snet/snet_hooks.c          |  710 +++++++++++++++++++++++++++++++++++
+ security/snet/snet_hooks.h          |   10 +
+ security/snet/snet_netlink.c        |  431 +++++++++++++++++++++
+ security/snet/snet_netlink.h        |   17 +
+ security/snet/snet_netlink_helper.c |  230 +++++++++++
+ security/snet/snet_netlink_helper.h |    7 +
+ security/snet/snet_ticket.c         |  171 +++++++++
+ security/snet/snet_ticket.h         |   37 ++
+ security/snet/snet_ticket_helper.c  |  127 +++++++
+ security/snet/snet_ticket_helper.h  |    8 +
+ security/snet/snet_utils.c          |   38 ++
+ security/snet/snet_utils.h          |   10 +
+ security/snet/snet_verdict.c        |  184 +++++++++
+ security/snet/snet_verdict.h        |   23 ++
+ 26 files changed, 2488 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/snet.h
+ create mode 100644 security/snet/Kconfig
+ create mode 100644 security/snet/Makefile
+ create mode 100644 security/snet/snet_core.c
+ create mode 100644 security/snet/snet_event.c
+ create mode 100644 security/snet/snet_event.h
+ create mode 100644 security/snet/snet_hooks.c
+ create mode 100644 security/snet/snet_hooks.h
+ create mode 100644 security/snet/snet_netlink.c
+ create mode 100644 security/snet/snet_netlink.h
+ create mode 100644 security/snet/snet_netlink_helper.c
+ create mode 100644 security/snet/snet_netlink_helper.h
+ create mode 100644 security/snet/snet_ticket.c
+ create mode 100644 security/snet/snet_ticket.h
+ create mode 100644 security/snet/snet_ticket_helper.c
+ create mode 100644 security/snet/snet_ticket_helper.h
+ create mode 100644 security/snet/snet_utils.c
+ create mode 100644 security/snet/snet_utils.h
  create mode 100644 security/snet/snet_verdict.c
  create mode 100644 security/snet/snet_verdict.h
-
-diff --git a/security/snet/snet_verdict.c b/security/snet/snet_verdict.c
-new file mode 100644
-index 0000000..480a7f8
---- /dev/null
-+++ b/security/snet/snet_verdict.c
-@@ -0,0 +1,184 @@
-+#include <linux/sched.h>
-+#include <linux/spinlock.h>
-+#include <linux/random.h>
-+#include <linux/wait.h>
-+#include <asm/atomic.h>
-+#include <linux/snet.h>
-+#include "snet_verdict.h"
-+
-+static struct list_head *snet_vdh;
-+static rwlock_t snet_vdh_lock = __RW_LOCK_UNLOCKED();
-+
-+struct snet_verdict_entry {
-+	struct list_head list;
-+	u32 verdict_id;
-+	enum snet_verdict verdict;
-+};
-+
-+static atomic_t value = ATOMIC_INIT(1);
-+
-+/* when waiting for a verdict, process is added to this queue */
-+static DECLARE_WAIT_QUEUE_HEAD(snet_wq);
-+
-+/* lookup for a verdict - before using this function, lock snet_vdh_lock */
-+static struct snet_verdict_entry *__snet_verdict_lookup(const u32 verdict_id)
-+{
-+	unsigned int h = 0;
-+	struct list_head *l = NULL;
-+	struct snet_verdict_entry *s = NULL;
-+
-+	h = verdict_id % snet_vdh_size;
-+	l = &snet_vdh[h];
-+
-+	list_for_each_entry(s, l, list) {
-+		if (s->verdict_id == verdict_id) {
-+			return s;
-+		}
-+	}
-+	return NULL;
-+}
-+
-+const enum snet_verdict snet_verdict_wait(const u32 verdict_id)
-+{
-+	enum snet_verdict verdict = SNET_VERDICT_NONE;
-+	long ret = 0;
-+
-+	ret = wait_event_timeout(snet_wq,
-+				 (verdict = snet_verdict_get(verdict_id))
-+				 != SNET_VERDICT_PENDING,
-+				 snet_verdict_delay * HZ);
-+	if (ret)
-+		return snet_verdict_get(verdict_id);
-+	else
-+		return SNET_VERDICT_NONE;
-+}
-+
-+const enum snet_verdict snet_verdict_get(const u32 verdict_id)
-+{
-+	enum snet_verdict v = SNET_VERDICT_NONE;
-+	struct snet_verdict_entry *data = NULL;
-+
-+	read_lock_bh(&snet_vdh_lock);
-+	data = __snet_verdict_lookup(verdict_id);
-+	if (data != NULL)
-+		v = data->verdict;
-+
-+	read_unlock_bh(&snet_vdh_lock);
-+	return v;
-+}
-+
-+int snet_verdict_set(const u32 verdict_id, const enum snet_verdict verdict)
-+{
-+	struct snet_verdict_entry *data = NULL;
-+	int ret = -EINVAL;
-+
-+	if (verdict >= SNET_NR_VERDICT_TYPES)
-+		goto out;
-+
-+	write_lock_bh(&snet_vdh_lock);
-+	data = __snet_verdict_lookup(verdict_id);
-+	if (data != NULL) {
-+		/* if verdict is already set because of
-+		   timeout, we won't modify it */
-+		if (data->verdict == SNET_VERDICT_PENDING) {
-+			data->verdict = verdict;
-+			ret = 0;
-+		}
-+	}
-+	write_unlock_bh(&snet_vdh_lock);
-+	wake_up(&snet_wq);
-+out:
-+	return ret;
-+}
-+
-+int snet_verdict_remove(const u32 verdict_id)
-+{
-+	struct snet_verdict_entry *data = NULL;
-+
-+	write_lock_bh(&snet_vdh_lock);
-+	data = __snet_verdict_lookup(verdict_id);
-+	if (data == NULL) {
-+		write_unlock_bh(&snet_vdh_lock);
-+		return -EINVAL;
-+	}
-+	pr_debug("(verdict_id=%u)\n", data->verdict_id);
-+	list_del(&data->list);
-+	write_unlock_bh(&snet_vdh_lock);
-+	kfree(data);
-+	return 0;
-+}
-+
-+int snet_verdict_insert(void)
-+{
-+	struct snet_verdict_entry *data = NULL;
-+	unsigned int h = 0;
-+	u32 verdict_id = 0;
-+
-+	data = kzalloc(sizeof(struct snet_verdict_entry), GFP_KERNEL);
-+	if (!data)
-+		return -ENOMEM;
-+
-+	do {
-+		verdict_id = atomic_inc_return(&value);
-+	} while (verdict_id == 0);
-+
-+	data->verdict_id = verdict_id;
-+	data->verdict = SNET_VERDICT_PENDING;
-+	INIT_LIST_HEAD(&(data->list));
-+	h = data->verdict_id % snet_vdh_size;
-+
-+	write_lock_bh(&snet_vdh_lock);
-+	list_add_tail(&data->list, &snet_vdh[h]);
-+	pr_debug("[%u]=(verdict_id=%u)\n", h, data->verdict_id);
-+	write_unlock_bh(&snet_vdh_lock);
-+
-+	return verdict_id;
-+}
-+
-+void snet_verdict_flush(void)
-+{
-+	unsigned int i = 0;
-+
-+	write_lock_bh(&snet_vdh_lock);
-+	for (i = 0; i < snet_vdh_size; i++) {
-+		struct snet_verdict_entry *data, *tmp;
-+		list_for_each_entry_safe(data, tmp, &snet_vdh[i], list) {
-+			list_del(&data->list);
-+			kfree(data);
-+		}
-+	}
-+	write_unlock_bh(&snet_vdh_lock);
-+	return;
-+}
-+
-+/* init function */
-+int snet_verdict_init(void)
-+{
-+	int err = 0, i = 0;
-+
-+	snet_vdh = kzalloc(sizeof(struct list_head) * snet_vdh_size,
-+			  GFP_KERNEL);
-+	if (!snet_vdh) {
-+		printk(KERN_WARNING
-+		       "snet: can't alloc memory for verdict\n");
-+		err = -ENOMEM;
-+		goto out;
-+	}
-+
-+	for (i = 0; i < snet_vdh_size; i++)
-+		INIT_LIST_HEAD(&snet_vdh[i]);
-+
-+out:
-+	return err;
-+}
-+
-+/* exit function */
-+void snet_verdict_exit(void)
-+{
-+	if (snet_vdh) {
-+		kfree(snet_vdh);
-+		snet_vdh = NULL;
-+	}
-+
-+	return;
-+}
-diff --git a/security/snet/snet_verdict.h b/security/snet/snet_verdict.h
-new file mode 100644
-index 0000000..07e8638
---- /dev/null
-+++ b/security/snet/snet_verdict.h
-@@ -0,0 +1,23 @@
-+#ifndef _SNET_VERDICT_H
-+#define _SNET_VERDICT_H
-+
-+extern unsigned int snet_vdh_size;
-+extern unsigned int snet_verdict_delay;
-+
-+/* helper functions */
-+const enum snet_verdict snet_verdict_wait(const u32 verdict_id);
-+
-+/* manipulate the verdicts hash table */
-+const enum snet_verdict snet_verdict_get(const u32 verdict_id);
-+int snet_verdict_set(const u32 verdict_id, const enum snet_verdict verdict);
-+int snet_verdict_insert(void);
-+int snet_verdict_remove(const u32 verdict_id);
-+int snet_verdict_insert(void);
-+void snet_verdict_flush(void);
-+
-+/* init function */
-+int snet_verdict_init(void);
-+/* exit function */
-+void snet_verdict_exit(void);
-+
-+#endif /* _SNET_VERDICT_H */
--- 
-1.6.3.3
 
