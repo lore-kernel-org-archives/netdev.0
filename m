@@ -1,84 +1,110 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 02/12] IPv6: addrconf timer race
-Date: Tue, 02 Mar 2010 15:32:45 -0800
-Message-ID: <20100302234002.971992509@vyatta.com>
+Subject: [PATCH 03/12] IPv6: addrconf notify when address is unavailable
+Date: Tue, 02 Mar 2010 15:32:46 -0800
+Message-ID: <20100302234003.046022988@vyatta.com>
 References: <20100302233243.259794027@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:58931 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:58935 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757674Ab0CBXqt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Mar 2010 18:46:49 -0500
-Content-Disposition: inline; filename=addrconf-rstimer.patch
+	id S1756126Ab0CBXqy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Mar 2010 18:46:54 -0500
+Content-Disposition: inline; filename=addrconf-anycast-notify.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Router Solicitation timer races with device state changes
-because it doesn't lock the device. Use local variable to avoid
-one repeated dereference.
+My recent change in net-next to retain permanent addresses caused regression.
+Device refcount would not go to zero when device was unregistered because
+left over anycast reference would hold ipv6 dev reference which would hold
+device references...
 
+The correct procedure is to call notify chain when address is no longer
+available for use.  When interface comes back DAD timer will notify
+back that address is available.
+
+
+Also, link local addresses should be purged when interface is brought
+down. The address might be changed.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
+---
+ net/ipv6/addrconf.c |   37 ++++++++++++++++++++++---------------
+ 1 file changed, 22 insertions(+), 15 deletions(-)
 
---- a/net/ipv6/addrconf.c	2010-02-26 20:00:43.703982448 -0800
-+++ b/net/ipv6/addrconf.c	2010-02-27 08:29:41.727984521 -0800
-@@ -2739,28 +2739,29 @@ static int addrconf_ifdown(struct net_de
- static void addrconf_rs_timer(unsigned long data)
- {
- 	struct inet6_ifaddr *ifp = (struct inet6_ifaddr *) data;
-+	struct inet6_dev *idev = ifp->idev;
- 
--	if (ifp->idev->cnf.forwarding)
-+	read_lock(&idev->lock);
-+	if (idev->dead || !(idev->if_flags & IF_READY))
- 		goto out;
- 
--	if (ifp->idev->if_flags & IF_RA_RCVD) {
--		/*
--		 *	Announcement received after solicitation
--		 *	was sent
--		 */
-+	if (idev->cnf.forwarding)
-+		goto out;
+--- a/net/ipv6/addrconf.c	2010-02-27 08:56:23.955450341 -0800
++++ b/net/ipv6/addrconf.c	2010-02-27 08:57:02.271199959 -0800
+@@ -2649,11 +2649,11 @@ static int addrconf_ifdown(struct net_de
+ 		write_lock_bh(&addrconf_hash_lock);
+ 		while ((ifa = *bifa) != NULL) {
+ 			if (ifa->idev == idev &&
+-			    (how || !(ifa->flags&IFA_F_PERMANENT))) {
++			    (how || !(ifa->flags&IFA_F_PERMANENT) ||
++			     ipv6_addr_type(&ifa->addr) & IPV6_ADDR_LINKLOCAL)) {
+ 				*bifa = ifa->lst_next;
+ 				ifa->lst_next = NULL;
+-				addrconf_del_timer(ifa);
+-				in6_ifa_put(ifa);
++				__in6_ifa_put(ifa);
+ 				continue;
+ 			}
+ 			bifa = &ifa->lst_next;
+@@ -2691,28 +2691,40 @@ static int addrconf_ifdown(struct net_de
+ #endif
+ 	bifa = &idev->addr_list;
+ 	while ((ifa = *bifa) != NULL) {
+-		if (how == 0 && (ifa->flags&IFA_F_PERMANENT)) {
+-			/* Retain permanent address on admin down */
++		addrconf_del_timer(ifa);
 +
-+	/* Announcement received after solicitation was sent */
-+	if (idev->if_flags & IF_RA_RCVD)
- 		goto out;
--	}
++		/* If just doing link down, and address is permanent
++		   and not link-local, then retain it. */
++		if (how == 0 &&
++		    (ifa->flags&IFA_F_PERMANENT) &&
++		    !(ipv6_addr_type(&ifa->addr) & IPV6_ADDR_LINKLOCAL)) {
+ 			bifa = &ifa->if_next;
  
- 	spin_lock(&ifp->lock);
--	if (ifp->probes++ < ifp->idev->cnf.rtr_solicits) {
-+	if (ifp->probes++ < idev->cnf.rtr_solicits) {
- 		/* The wait after the last probe can be shorter */
- 		addrconf_mod_timer(ifp, AC_RS,
--				   (ifp->probes == ifp->idev->cnf.rtr_solicits) ?
--				   ifp->idev->cnf.rtr_solicit_delay :
--				   ifp->idev->cnf.rtr_solicit_interval);
-+				   (ifp->probes == idev->cnf.rtr_solicits) ?
-+				   idev->cnf.rtr_solicit_delay :
-+				   idev->cnf.rtr_solicit_interval);
- 		spin_unlock(&ifp->lock);
+-			/* Restart DAD if needed when link comes back up */
+-			if ( !((dev->flags&(IFF_NOARP|IFF_LOOPBACK)) ||
+-			       idev->cnf.accept_dad <= 0 ||
+-			       (ifa->flags & IFA_F_NODAD)))
+-				ifa->flags |= IFA_F_TENTATIVE;
++			/* If not doing DAD on this address, just keep it. */
++			if ((dev->flags&(IFF_NOARP|IFF_LOOPBACK)) ||
++			    idev->cnf.accept_dad <= 0 ||
++			    (ifa->flags & IFA_F_NODAD))
++				continue;
++
++			/* If it was tentative already, no need to notify */
++			if (ifa->flags & IFA_F_TENTATIVE)
++				continue;
++
++			/* Flag it for later restoration when link comes up */
++			ifa->flags |= IFA_F_TENTATIVE;
++			in6_ifa_hold(ifa);
+ 		} else {
+ 			*bifa = ifa->if_next;
+ 			ifa->if_next = NULL;
+-
+ 			ifa->dead = 1;
+-			write_unlock_bh(&idev->lock);
++		}
++		write_unlock_bh(&idev->lock);
  
--		ndisc_send_rs(ifp->idev->dev, &ifp->addr, &in6addr_linklocal_allrouters);
-+		ndisc_send_rs(idev->dev, &ifp->addr, &in6addr_linklocal_allrouters);
- 	} else {
- 		spin_unlock(&ifp->lock);
- 		/*
-@@ -2768,10 +2769,11 @@ static void addrconf_rs_timer(unsigned l
- 		 * assumption any longer.
- 		 */
- 		printk(KERN_DEBUG "%s: no IPv6 routers present\n",
--		       ifp->idev->dev->name);
-+		       idev->dev->name);
+-			__ipv6_ifa_notify(RTM_DELADDR, ifa);
+-			atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
+-			in6_ifa_put(ifa);
++		__ipv6_ifa_notify(RTM_DELADDR, ifa);
++		atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
++		in6_ifa_put(ifa);
+ 
+-			write_lock_bh(&idev->lock);
+-		}
++		write_lock_bh(&idev->lock);
  	}
- 
- out:
-+	read_unlock(&idev->lock);
- 	in6_ifa_put(ifp);
- }
+ 	write_unlock_bh(&idev->lock);
  
 
 -- 
