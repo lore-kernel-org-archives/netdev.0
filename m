@@ -1,187 +1,137 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [PATCH 1/1] bnx2x: Tx barriers and locks
-Date: Tue, 2 Mar 2010 04:50:59 -0800
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADCB46A2B40C@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <1267351922.10409.2.camel@lb-tlvb-vladz>
- <20100301133339.GB2440@dhcp-lab-161.englab.brq.redhat.com>
- <1267466347.19491.31.camel@nseg_linux_HP1.broadcom.com>
- <20100302113032.GA2362@dhcp-lab-161.englab.brq.redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH]xfrm: fix perpetual bundles
+Date: Tue, 2 Mar 2010 20:51:56 +0800
+Message-ID: <20100302125156.GA2420@gondor.apana.org.au>
+References: <1267017564.3973.790.camel@bigi> <20100302112754.GA1513@gondor.apana.org.au> <1267531905.21749.21.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"Matthew Carlson" <mcarlson@broadcom.com>
-To: "Stanislaw Gruszka" <sgruszka@redhat.com>,
-	"Michael Chan" <mchan@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kaber@trash.net, yoshfuji@linux-ipv6.org,
+	nakam@linux-ipv6.org, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4969 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752718Ab0CBMvK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Mar 2010 07:51:10 -0500
-In-Reply-To: <20100302113032.GA2362@dhcp-lab-161.englab.brq.redhat.com>
-Content-Language: en-US
+Received: from rhun.apana.org.au ([64.62.148.172]:47424 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752798Ab0CBMwO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Mar 2010 07:52:14 -0500
+Content-Disposition: inline
+In-Reply-To: <1267531905.21749.21.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stanislaw barrier() is not a memory barrier - it's a compiler barrier. I don't think removing it from bnx2x_tx_avail() will improve anything. If u think I'm wrong, could u, pls., provide a specific example.
+On Tue, Mar 02, 2010 at 07:11:45AM -0500, jamal wrote:
+>
+> fl->fl4_src is valid non-zero. But in xfrm4_fill_dst()
 
-Regarding the patch u've proposed - I don't see any obvious benefit in the code change u've suggested except for replacing the smp_wmb() to smp_mb() in the bnx2x_tx_int() and would prefer to wait for Dave's reply on that matter.
+I see, so problem #1 doesn't exist.
 
-Let's recall that the bxn2x_start_xmit() is called under tx_lock(), so no additional memory barriers needed to ensure that bnx2x_tx_avail() has fresh values of BD consumer and producer at the beginning of bnx2x_start_xmit(). That's why we don't need the more complicated logic putting the queue asleep at the beginning of bnx2x_start_xmit() as we need at the end. That's why I think your "goto" change in the beginning of bnx2x_start_xmit() is suboptimal.
+> we do wholesale copy of xdst->u.rt.fl = rt->fl; and rt->fl.fl4_src is
+> 0.0.0.0.
 
-Thanks,
-vlad
+Heh, you've just discovered a bug that I carefully planted back
+in 2007, while merging the v4/v6 policy code :)
 
-> -----Original Message-----
-> From: Stanislaw Gruszka [mailto:sgruszka@redhat.com] 
-> Sent: Tuesday, March 02, 2010 1:31 PM
-> To: Michael Chan
-> Cc: Vladislav Zolotarov; netdev@vger.kernel.org; 
-> davem@davemloft.net; Eilon Greenstein; Matthew Carlson
-> Subject: Re: [PATCH 1/1] bnx2x: Tx barriers and locks
-> 
-> On Mon, Mar 01, 2010 at 09:59:07AM -0800, Michael Chan wrote:
-> > > There is still difference between what we have in bnx2x 
-> and bnx2/tg3
-> > > regarding memory barriers in tx_poll/start_xmit code. 
-> Mainly we have
-> > > smp_mb() in bnx2/tg3_tx_avail(), and in bnx2/tg3_tx_int() 
-> is smp_mb()
-> > > not smp_wmb(). I do not see that bnx2x is wrong, but 
-> would like to know
-> > > why there is a difference, maybe bnx2/tg3 should be changed?
-> > > 
-> > 
-> > The memory barrier in tx_int() is to make the tx index update happen
-> > before the netif_tx_queue_stopped() check.  The barrier is 
-> to prevent a
-> > situation like this:
-> > 
-> >     CPU0					CPU1
-> >     start_xmit()
-> >     	if (tx_ring_full) {
-> >     						tx_int()
-> >     							
-> if (!netif_tx_queue_stopped)
-> >     		netif_tx_stop_queue()
-> >     		if (!tx_ring_full)
-> >     							
-> update_tx_index 
-> >     			netif_tx_wake_queue()
-> >     	}
-> >     
-> > 
-> > The update_tx_index code is before the if statement in 
-> program order,
-> > but the CPU and/or compiler can reorder it as shown above. 
-> smp_mb() will
-> > prevent that.  Will smp_wmb() prevent that as well?
-> 
-> No. smp_wmb() affect only write orders on CPU1 performing tx_int(), so
-> that should be fixed in bnx2x.
-> 
-> Regarding memory barrier in tx_avail(), I don't think it its 
-> needed for
-> anything, except maybe usage at the beginning of 
-> start_xmit(), but we can
-> just remove that like in the patch below. I going to post "official"
-> patches for tg3, bnx2 and bnx2x, if no nobody has nothing against.
-> 
-> diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-> index ed785a3..0f406b8 100644
-> --- a/drivers/net/bnx2x_main.c
-> +++ b/drivers/net/bnx2x_main.c
-> @@ -893,7 +893,6 @@ static inline u16 bnx2x_tx_avail(struct 
-> bnx2x_fastpath *fp)
->  	u16 prod;
->  	u16 cons;
->  
-> -	barrier(); /* Tell compiler that prod and cons can change */
->  	prod = fp->tx_bd_prod;
->  	cons = fp->tx_bd_cons;
->  
-> @@ -963,9 +962,8 @@ static int bnx2x_tx_int(struct bnx2x_fastpath *fp)
->  	 * start_xmit() will miss it and cause the queue to be stopped
->  	 * forever.
->  	 */
-> -	smp_wmb();
-> +	smp_mb();
->  
-> -	/* TBD need a thresh? */
->  	if (unlikely(netif_tx_queue_stopped(txq))) {
->  		/* Taking tx_lock() is needed to prevent 
-> reenabling the queue
->  		 * while it's empty. This could have happen if 
-> rx_action() gets
-> @@ -11177,10 +11175,9 @@ static netdev_tx_t 
-> bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  	struct eth_tx_bd *tx_data_bd, *total_pkt_bd = NULL;
->  	struct eth_tx_parse_bd *pbd = NULL;
->  	u16 pkt_prod, bd_prod;
-> -	int nbd, fp_index;
-> +	int nbd, fp_index, i, ret;
->  	dma_addr_t mapping;
->  	u32 xmit_type = bnx2x_xmit_type(bp, skb);
-> -	int i;
->  	u8 hlen = 0;
->  	__le16 pkt_size = 0;
->  
-> @@ -11195,10 +11192,9 @@ static netdev_tx_t 
-> bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  	fp = &bp->fp[fp_index];
->  
->  	if (unlikely(bnx2x_tx_avail(fp) < 
-> (skb_shinfo(skb)->nr_frags + 3))) {
-> -		fp->eth_q_stats.driver_xoff++;
-> -		netif_tx_stop_queue(txq);
->  		BNX2X_ERR("BUG! Tx ring full when queue awake!\n");
-> -		return NETDEV_TX_BUSY;
-> +		ret = NETDEV_TX_BUSY;				
-> 		
-> +		goto stop_queue;
->  	}
->  
->  	DP(NETIF_MSG_TX_QUEUED, "SKB: summed %x  protocol %x  
-> protocol(%x,%x)"
-> @@ -11426,19 +11422,24 @@ static netdev_tx_t 
-> bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  	mmiowb();
->  
->  	fp->tx_bd_prod += nbd;
-> -
-> -	if (unlikely(bnx2x_tx_avail(fp) < MAX_SKB_FRAGS + 3)) {
-> -		netif_tx_stop_queue(txq);
-> -		/* We want bnx2x_tx_int to "see" the updated tx_bd_prod
-> -		   if we put Tx into XOFF state. */
-> -		smp_mb();
-> -		fp->eth_q_stats.driver_xoff++;
-> -		if (bnx2x_tx_avail(fp) >= MAX_SKB_FRAGS + 3)
-> -			netif_tx_wake_queue(txq);
-> -	}
->  	fp->tx_pkt++;
-> +	
-> +	ret = NETDEV_TX_OK;
-> +	if (unlikely(bnx2x_tx_avail(fp) < MAX_SKB_FRAGS + 3))
-> +		goto stop_queue;
-> +
-> +	return ret;
->  
-> -	return NETDEV_TX_OK;
-> +stop_queue:
-> +	netif_tx_stop_queue(txq);
-> +	/* paired barrier is in bnx2x_tx_int(), update of tx_bd_cons
-> +	 * have to be visable here, after we XOFF bit setting */
-> +	smp_mb();
-> +	fp->eth_q_stats.driver_xoff++;
-> +	if (bnx2x_tx_avail(fp) >= MAX_SKB_FRAGS + 3)
-> +		netif_tx_wake_queue(txq);
-> +	
-> +	return ret;
->  }
->  
->  /* called with rtnl_lock */
-> 
-> 
+It is a clear merging error, where *fl became rt->fl which is
+totally different.  So please try this patch:
+
+ipsec: Fix bogus bundle flowi
+
+When I merged the bundle creation code, I introduced a bogus
+flowi value in the bundle.  Instead of getting from the caller,
+it was instead set to the flow in the route object, which is
+totally different.
+
+The end result is that the bundles we created never match, and
+we instead end up with an ever growing bundle list.
+
+Thanks to Jamal for find this problem.
+
+Reported-by: Jamal Hadi Salim <hadi@cyberus.ca>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 60c2770..1e355d8 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -274,7 +274,8 @@ struct xfrm_policy_afinfo {
+ 					     struct dst_entry *dst,
+ 					     int nfheader_len);
+ 	int			(*fill_dst)(struct xfrm_dst *xdst,
+-					    struct net_device *dev);
++					    struct net_device *dev,
++					    struct flowi *fl);
+ };
+ 
+ extern int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo);
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index 67107d6..e4a1483 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -91,11 +91,12 @@ static int xfrm4_init_path(struct xfrm_dst *path, struct dst_entry *dst,
+ 	return 0;
+ }
+ 
+-static int xfrm4_fill_dst(struct xfrm_dst *xdst, struct net_device *dev)
++static int xfrm4_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
++			  struct flowi *fl)
+ {
+ 	struct rtable *rt = (struct rtable *)xdst->route;
+ 
+-	xdst->u.rt.fl = rt->fl;
++	xdst->u.rt.fl = *fl;
+ 
+ 	xdst->u.dst.dev = dev;
+ 	dev_hold(dev);
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index dbdc696..ae18165 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -116,7 +116,8 @@ static int xfrm6_init_path(struct xfrm_dst *path, struct dst_entry *dst,
+ 	return 0;
+ }
+ 
+-static int xfrm6_fill_dst(struct xfrm_dst *xdst, struct net_device *dev)
++static int xfrm6_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
++			  struct flowi *fl)
+ {
+ 	struct rt6_info *rt = (struct rt6_info*)xdst->route;
+ 
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 0ecb16a..f12dd3d 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1354,7 +1354,8 @@ static inline int xfrm_init_path(struct xfrm_dst *path, struct dst_entry *dst,
+ 	return err;
+ }
+ 
+-static inline int xfrm_fill_dst(struct xfrm_dst *xdst, struct net_device *dev)
++static inline int xfrm_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
++				struct flowi *fl)
+ {
+ 	struct xfrm_policy_afinfo *afinfo =
+ 		xfrm_policy_get_afinfo(xdst->u.dst.ops->family);
+@@ -1363,7 +1364,7 @@ static inline int xfrm_fill_dst(struct xfrm_dst *xdst, struct net_device *dev)
+ 	if (!afinfo)
+ 		return -EINVAL;
+ 
+-	err = afinfo->fill_dst(xdst, dev);
++	err = afinfo->fill_dst(xdst, dev, fl);
+ 
+ 	xfrm_policy_put_afinfo(afinfo);
+ 
+@@ -1468,7 +1469,7 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
+ 	for (dst_prev = dst0; dst_prev != dst; dst_prev = dst_prev->child) {
+ 		struct xfrm_dst *xdst = (struct xfrm_dst *)dst_prev;
+ 
+-		err = xfrm_fill_dst(xdst, dev);
++		err = xfrm_fill_dst(xdst, dev, fl);
+ 		if (err)
+ 			goto free_dst;
+ 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
