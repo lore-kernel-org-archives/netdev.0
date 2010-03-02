@@ -1,111 +1,109 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 03/12] IPv6: addrconf notify when address is unavailable
-Date: Tue, 02 Mar 2010 15:32:46 -0800
-Message-ID: <20100302234003.046022988@vyatta.com>
+Subject: [PATCH 07/12] ipv6: user better hash for addrconf
+Date: Tue, 02 Mar 2010 15:32:50 -0800
+Message-ID: <20100302234003.335370522@vyatta.com>
 References: <20100302233243.259794027@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:58935 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:58949 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756126Ab0CBXqy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Mar 2010 18:46:54 -0500
-Content-Disposition: inline; filename=addrconf-anycast-notify.patch
+	id S1757761Ab0CBXrQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Mar 2010 18:47:16 -0500
+Content-Disposition: inline; filename=ipv6-hash-addrconf.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-My recent change in net-next to retain permanent addresses caused regression.
-Device refcount would not go to zero when device was unregistered because
-left over anycast reference would hold ipv6 dev reference which would hold
-device references...
+The existing hash function has a couple of issues:
+  * it is hardwired to 16 for IN6_ADDR_HSIZE
+  * limited to 256 and callers using int
+  * use jhash2 rather than some old BSD algorithm
 
-The correct procedure is to call notify chain when address is no longer
-available for use.  When interface comes back DAD timer will notify
-back that address is available.
-
-
-Also, link local addresses should be purged when interface is brought
-down. The address might be changed.
+No need for random seed since this is local only (based on assigned
+addresses) table.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
----
- net/ipv6/addrconf.c |   37 ++++++++++++++++++++++---------------
- 1 file changed, 22 insertions(+), 15 deletions(-)
 
---- a/net/ipv6/addrconf.c	2010-02-27 08:56:23.955450341 -0800
-+++ b/net/ipv6/addrconf.c	2010-02-27 08:57:02.271199959 -0800
-@@ -2649,11 +2649,11 @@ static int addrconf_ifdown(struct net_de
- 		write_lock_bh(&addrconf_hash_lock);
- 		while ((ifa = *bifa) != NULL) {
- 			if (ifa->idev == idev &&
--			    (how || !(ifa->flags&IFA_F_PERMANENT))) {
-+			    (how || !(ifa->flags&IFA_F_PERMANENT) ||
-+			     ipv6_addr_type(&ifa->addr) & IPV6_ADDR_LINKLOCAL)) {
- 				*bifa = ifa->lst_next;
- 				ifa->lst_next = NULL;
--				addrconf_del_timer(ifa);
--				in6_ifa_put(ifa);
-+				__in6_ifa_put(ifa);
- 				continue;
- 			}
- 			bifa = &ifa->lst_next;
-@@ -2691,28 +2691,40 @@ static int addrconf_ifdown(struct net_de
- #endif
- 	bifa = &idev->addr_list;
- 	while ((ifa = *bifa) != NULL) {
--		if (how == 0 && (ifa->flags&IFA_F_PERMANENT)) {
--			/* Retain permanent address on admin down */
-+		addrconf_del_timer(ifa);
-+
-+		/* If just doing link down, and address is permanent
-+		   and not link-local, then retain it. */
-+		if (how == 0 &&
-+		    (ifa->flags&IFA_F_PERMANENT) &&
-+		    !(ipv6_addr_type(&ifa->addr) & IPV6_ADDR_LINKLOCAL)) {
- 			bifa = &ifa->if_next;
+---
+ net/ipv6/addrconf.c |   26 +++++++++-----------------
+ 1 file changed, 9 insertions(+), 17 deletions(-)
+
+--- a/net/ipv6/addrconf.c	2010-03-02 14:33:59.033450885 -0800
++++ b/net/ipv6/addrconf.c	2010-03-02 14:34:41.516826671 -0800
+@@ -573,23 +573,14 @@ ipv6_link_dev_addr(struct inet6_dev *ide
+ 	*ifap = ifp;
+ }
  
--			/* Restart DAD if needed when link comes back up */
--			if ( !((dev->flags&(IFF_NOARP|IFF_LOOPBACK)) ||
--			       idev->cnf.accept_dad <= 0 ||
--			       (ifa->flags & IFA_F_NODAD)))
--				ifa->flags |= IFA_F_TENTATIVE;
-+			/* If not doing DAD on this address, just keep it. */
-+			if ((dev->flags&(IFF_NOARP|IFF_LOOPBACK)) ||
-+			    idev->cnf.accept_dad <= 0 ||
-+			    (ifa->flags & IFA_F_NODAD))
-+				continue;
-+
-+			/* If it was tentative already, no need to notify */
-+			if (ifa->flags & IFA_F_TENTATIVE)
-+				continue;
-+
-+			/* Flag it for later restoration when link comes up */
-+			ifa->flags |= IFA_F_TENTATIVE;
-+			in6_ifa_hold(ifa);
- 		} else {
- 			*bifa = ifa->if_next;
- 			ifa->if_next = NULL;
+-/*
+- *	Hash function taken from net_alias.c
+- */
+-static u8 ipv6_addr_hash(const struct in6_addr *addr)
++static u32 ipv6_addr_hash(const struct in6_addr *addr)
+ {
+-	__u32 word;
 -
- 			ifa->dead = 1;
--			write_unlock_bh(&idev->lock);
-+		}
-+		write_unlock_bh(&idev->lock);
+ 	/*
+ 	 * We perform the hash function over the last 64 bits of the address
+ 	 * This will include the IEEE address token on links that support it.
+ 	 */
+-
+-	word = (__force u32)(addr->s6_addr32[2] ^ addr->s6_addr32[3]);
+-	word ^= (word >> 16);
+-	word ^= (word >> 8);
+-
+-	return ((word ^ (word >> 4)) & 0x0f);
++	return jhash_2words(addr->s6_addr32[2],  addr->s6_addr32[3], 0)
++		& (IN6_ADDR_HSIZE - 1);
+ }
  
--			__ipv6_ifa_notify(RTM_DELADDR, ifa);
--			atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
--			in6_ifa_put(ifa);
-+		__ipv6_ifa_notify(RTM_DELADDR, ifa);
-+		atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
-+		in6_ifa_put(ifa);
+ /* On success it returns ifp with increased reference count */
+@@ -600,7 +591,7 @@ ipv6_add_addr(struct inet6_dev *idev, co
+ {
+ 	struct inet6_ifaddr *ifa = NULL;
+ 	struct rt6_info *rt;
+-	int hash;
++	unsigned int hash;
+ 	int err = 0;
+ 	int addr_type = ipv6_addr_type(addr);
  
--			write_lock_bh(&idev->lock);
--		}
-+		write_lock_bh(&idev->lock);
- 	}
- 	write_unlock_bh(&idev->lock);
+@@ -1277,7 +1268,7 @@ int ipv6_chk_addr(struct net *net, struc
+ {
+ 	struct inet6_ifaddr *ifp = NULL;
+ 	struct hlist_node *node;
+-	u8 hash = ipv6_addr_hash(addr);
++	unsigned int hash = ipv6_addr_hash(addr);
  
+ 	rcu_read_lock_bh();
+ 	hlist_for_each_entry_rcu(ifp, node, &inet6_addr_lst[hash], addr_lst) {
+@@ -1302,7 +1293,7 @@ int ipv6_chk_same_addr(struct net *net, 
+ {
+ 	struct inet6_ifaddr *ifp;
+ 	struct hlist_node *node;
+-	u8 hash = ipv6_addr_hash(addr);
++	unsigned int hash = ipv6_addr_hash(addr);
+ 
+ 	hlist_for_each_entry(ifp, node, &inet6_addr_lst[hash], addr_lst) {
+ 		if (!net_eq(dev_net(ifp->idev->dev), net))
+@@ -1345,7 +1336,7 @@ struct inet6_ifaddr *ipv6_get_ifaddr(str
+ {
+ 	struct inet6_ifaddr *ifp = NULL;
+ 	struct hlist_node *node;
+-	u8 hash = ipv6_addr_hash(addr);
++	unsigned int hash = ipv6_addr_hash(addr);
+ 
+ 	rcu_read_lock_bh();
+ 	hlist_for_each_entry_rcu(ifp, node, &inet6_addr_lst[hash], addr_lst) {
+@@ -3073,7 +3064,7 @@ int ipv6_chk_home_addr(struct net *net, 
+ 	int ret = 0;
+ 	struct inet6_ifaddr *ifp = NULL;
+ 	struct hlist_node *n;
+-	u8 hash = ipv6_addr_hash(addr);
++	unsigned int hash = ipv6_addr_hash(addr);
+ 
+ 	rcu_read_lock_bh();
+ 	hlist_for_each_entry_rcu(ifp, n, &inet6_addr_lst[hash], addr_lst) {
 
 -- 
 
