@@ -1,7 +1,7 @@
 From: Samir Bellabes <sam@synack.fr>
-Subject: [RFC v2 06/10] snet: introduce snet_hooks
-Date: Tue,  2 Mar 2010 21:23:10 +0100
-Message-ID: <1267561394-13626-7-git-send-email-sam@synack.fr>
+Subject: [RFC v2 04/10] snet: introduce snet_core
+Date: Tue,  2 Mar 2010 21:23:08 +0100
+Message-ID: <1267561394-13626-5-git-send-email-sam@synack.fr>
 References: <1267561394-13626-1-git-send-email-sam@synack.fr>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, jamal <hadi@cyberus.ca>,
@@ -16,762 +16,233 @@ In-Reply-To: <1267561394-13626-1-git-send-email-sam@synack.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the snet LSM's subsystem
+this patch introduce snet_core.c, which provides functions to start and stop
+snet's subsystems, and include/linux/snet.h, which provides interface with
+userspace
 
-snet_hooks provides the security hook's functions and the security_operations
-structure. Currently hook functions are only related to network stack.
-
-For each hook function, there is a generic mecanism:
- 0. check if the event [syscall, protocol] is registered
- 1. prepare informations for userspace
- 2. send informations to userspace (snet_netlink)
- 3. wait for verdict from userspace (snet_verdict)
- 4. apply verdict for the syscall
-
-steps 3 and 4 are only valid for LSM hooks which are returning a value (a way to
-'filter' the syscall). For hooks returning 'void', steps 3 and 4 don't exist,
-but snet sends security informations to userspace (step 2) to update the global
-security policy.
+subsytems are:
+    - snet_hooks    : LSM hooks
+    - snet_netlink  : kernel-user communication (genetlink)
+    - snet_event    : manages the list of protected syscalls
+    - snet_verdict  : provides a waitqueue for syscalls and manage verdicts
+		      from userspace
+    - snet_ticket   : provides a granted-access ticket mecanism
 
 Signed-off-by: Samir Bellabes <sam@synack.fr>
 ---
- security/snet/snet_hooks.c |  710 ++++++++++++++++++++++++++++++++++++++++++++
- security/snet/snet_hooks.h |   10 +
- 2 files changed, 720 insertions(+), 0 deletions(-)
- create mode 100644 security/snet/snet_hooks.c
- create mode 100644 security/snet/snet_hooks.h
+ include/linux/snet.h      |  120 +++++++++++++++++++++++++++++++++++++++++++++
+ security/snet/snet_core.c |   76 ++++++++++++++++++++++++++++
+ 2 files changed, 196 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/snet.h
+ create mode 100644 security/snet/snet_core.c
 
-diff --git a/security/snet/snet_hooks.c b/security/snet/snet_hooks.c
+diff --git a/include/linux/snet.h b/include/linux/snet.h
 new file mode 100644
-index 0000000..689babe
+index 0000000..739601d
 --- /dev/null
-+++ b/security/snet/snet_hooks.c
-@@ -0,0 +1,710 @@
-+/*
-+ * snet_hook.c
-+ *
-+ * here are interesting informations which can be picked up from hooks.
-+ *
-+ *
-+ * SOCKET_CREATE:
-+ *	family, type, protocol
-+ * SOCKET_BIND:
-+ *	family, protocol, saddr, sport
-+ * SOCKET_CONNECT:
-+ *	family, protocol, saddr, sport, daddr, dport
-+ * SOCKET_LISTEN:
-+ *	family, protocol, saddr, sport
-+ * SOCKET_ACCEPT:
-+ *	family, protocol, saddr, sport
-+ *
-+ * SOCKET_SENDMSG:
-+ * SOCKET_RECVMSG:
-+ * SOCKET_SOCK_RCV_SKB:
-+ *
-+ *
-+ */
++++ b/include/linux/snet.h
+@@ -0,0 +1,120 @@
++#ifndef _LINUX_SNET_H
++#define _LINUX_SNET_H
 +
-+#include <linux/skbuff.h>
-+#include <linux/security.h>
-+#include <linux/net.h>
-+#include <net/sock.h>
-+#include <linux/in.h>
 +#include <linux/in6.h>
-+#include <net/inet_sock.h>
-+#include <linux/ipv6.h>
-+#include <linux/snet.h>
-+#include "snet_hooks.h"
-+#include "snet_verdict.h"
-+#include "snet_netlink.h"
-+#include "snet_event.h"
-+#include "snet_ticket.h"
 +
-+static inline void  snet_pr_tuple(struct snet_info *info)
-+{
-+	switch (info->family) {
-+	case AF_INET:
-+		pr_debug("%pI4:%u->%pI4:%u\n",
-+			 &info->src.u3.ip, info->src.u.port,
-+			 &info->dst.u3.ip, info->dst.u.port);
-+		break;
-+	case AF_INET6:
-+		pr_debug("%pI6:%u->%pI6:%u\n",
-+			 &info->src.u3.ip6, info->src.u.port,
-+			 &info->dst.u3.ip6, info->dst.u.port);
-+		break;
-+	default:
-+		break;
-+	}
-+	return;
-+}
-+
-+static inline int snet_check_listeners(enum snet_verdict *verdict)
-+{
-+	if (snet_nl_pid == 0 || snet_nl_pid == current->pid ) {
-+		if (verdict != NULL)
-+			*verdict = SNET_VERDICT_GRANT;
-+		return -1;
-+	}
-+	return 0;
-+}
-+
-+static int snet_do_verdict(enum snet_verdict *verdict, struct snet_info *info)
-+{
-+	if (info->verdict_id == 0)
-+		return -1;
-+	/* sending networking informations to userspace */
-+	if (snet_nl_send_event(info) == 0)
-+		/* waiting for userspace reply or timeout */
-+		*verdict = snet_verdict_wait(info->verdict_id);
-+	/* removing verdict */
-+	snet_verdict_remove(info->verdict_id);
-+	return 0;
-+}
-+
-+static void snet_do_send_event(struct snet_info *info)
-+{
-+	snet_nl_send_event(info);
-+	return;
-+}
-+
-+/*
-+ * security operations helper functions
-+ */
-+
-+/*
-+ * security operations functions members
-+ */
-+
-+static int snet_socket_create(int family, int type, int protocol, int kern)
-+{
-+	enum snet_verdict verdict = SNET_VERDICT_NONE;
-+
-+	/* if (kern) */
-+	/*	;		/\* do something smart *\/ */
-+
-+	if (snet_check_listeners(&verdict) < 0)
-+		goto out;
-+
-+	if (snet_event_is_registered(SNET_SOCKET_CREATE, protocol)) {
-+		struct snet_info info;
-+
-+		/* inserting verdict PENDING */
-+		info.verdict_id = snet_verdict_insert();
-+
-+		/* prepare networking informations for userspace */
-+		info.syscall = SNET_SOCKET_CREATE;
-+		info.protocol = protocol;
-+		info.family = family;
-+		info.type = type;
-+
-+		pr_debug("family=%u type=%u protocol=%u kern=%u\n",
-+			 family, type, protocol, kern);
-+
-+		snet_do_verdict(&verdict, &info);
-+
-+	} else {
-+		verdict = SNET_VERDICT_GRANT;
-+	}
-+
-+	if (verdict == SNET_VERDICT_NONE)
-+		verdict = snet_verdict_policy;
-+
-+out:
-+	return verdict;
-+}
-+
-+static int snet_socket_bind(struct socket *sock,
-+			    struct sockaddr *address, int addrlen)
-+{
-+	enum snet_verdict verdict = SNET_VERDICT_NONE;
-+	u8 protocol = 0;
-+
-+	if (snet_check_listeners(&verdict) < 0)
-+		goto out;
-+
-+	protocol = sock->sk->sk_protocol;
-+
-+	if (snet_event_is_registered(SNET_SOCKET_BIND, protocol)) {
-+		struct snet_info info;
-+		struct inet_sock *inet = inet_sk(sock->sk);
-+		struct sockaddr_in *a = (struct sockaddr_in *) address;
-+		struct sockaddr_in6 *a6 = (struct sockaddr_in6 *) address;
-+
-+		/* prepare networking informations for userspace */
-+		info.syscall = SNET_SOCKET_BIND;
-+		info.protocol = protocol;
-+		info.family = sock->sk->sk_family;
-+		info.dst.u.port = ntohs(inet->inet_dport);
-+
-+		switch (sock->sk->sk_family) {
-+		case PF_INET:
-+			info.src.u3.ip = a->sin_addr.s_addr;
-+			info.dst.u3.ip = inet->inet_daddr;
-+			info.src.u.port = ntohs(a->sin_port);
-+			/* check tickets */
-+			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+				goto out;
-+			/* inserting verdict PENDING */
-+			info.verdict_id = snet_verdict_insert();
-+			break;
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+		case PF_INET6:
-+			memcpy(&info.src.u3.ip6, (void *)&a6->sin6_addr,
-+			       sizeof(info.src.u3.ip6));
-+			memcpy(&info.dst.u3.ip6, (void *)&inet->pinet6->daddr,
-+			       sizeof(info.dst.u3.ip6));
-+			info.src.u.port = ntohs(a6->sin6_port);
-+			/* check tickets */
-+			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+				goto out;
-+			/* inserting verdict PENDING */
-+			info.verdict_id = snet_verdict_insert();
-+			break;
-+#endif
-+		default:
-+			verdict = SNET_VERDICT_NONE;
-+			goto skip_send_wait;
-+			break;
-+		}
-+		snet_pr_tuple(&info);
-+		snet_do_verdict(&verdict, &info);
-+		/* create ticket */
-+		snet_ticket_create(&info, verdict);
-+	} else {
-+		verdict = SNET_VERDICT_GRANT;
-+	}
-+
-+skip_send_wait:
-+	if (verdict == SNET_VERDICT_NONE)
-+		verdict = snet_verdict_policy;
-+out:
-+	return verdict;
-+}
-+
-+static int snet_socket_connect(struct socket *sock,
-+			       struct sockaddr *address, int addrlen)
-+{
-+	enum snet_verdict verdict = SNET_VERDICT_NONE;
-+	u8 protocol = 0;
-+
-+	if (snet_check_listeners(&verdict) < 0)
-+		goto out;
-+
-+	protocol = sock->sk->sk_protocol;
-+
-+	if (snet_event_is_registered(SNET_SOCKET_CONNECT, protocol)) {
-+		struct snet_info info;
-+		struct inet_sock *inet = inet_sk(sock->sk);
-+		struct sockaddr_in *a = (struct sockaddr_in *) address;
-+		struct sockaddr_in6 *a6 = (struct sockaddr_in6 *) address;
-+
-+		/* prepare networking informations for userspace */
-+		memset(&info, 0, sizeof(struct  snet_info));
-+		info.syscall = SNET_SOCKET_CONNECT;
-+		info.protocol = protocol;
-+		info.family = sock->sk->sk_family;
-+		info.src.u.port = ntohs(inet->inet_sport);
-+
-+		switch (sock->sk->sk_family) {
-+		case PF_INET:
-+			info.src.u3.ip = inet->inet_saddr;
-+			info.dst.u3.ip = a->sin_addr.s_addr;
-+			info.dst.u.port = ntohs(a->sin_port);
-+			/* check tickets */
-+			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+				goto out;
-+			/* inserting verdict PENDING */
-+			info.verdict_id = snet_verdict_insert();
-+			break;
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+		case PF_INET6:
-+			memcpy(&info.src.u3.ip6, (void *)&inet->pinet6->saddr,
-+			       sizeof(info.src.u3.ip6));
-+			memcpy(&info.dst.u3.ip6, (void *)&a6->sin6_addr,
-+			       sizeof(info.dst.u3.ip6));
-+			info.dst.u.port = ntohs(a6->sin6_port);
-+			/* check tickets */
-+			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+				goto out;
-+			/* inserting verdict PENDING */
-+			info.verdict_id = snet_verdict_insert();
-+			break;
-+#endif
-+		default:
-+			verdict = SNET_VERDICT_NONE;
-+			goto skip_send_wait;
-+			break;
-+		}
-+		snet_pr_tuple(&info);
-+		snet_do_verdict(&verdict, &info);
-+		/* create ticket */
-+		snet_ticket_create(&info, verdict);
-+	} else {
-+		verdict = SNET_VERDICT_GRANT;
-+	}
-+
-+skip_send_wait:
-+	if (verdict == SNET_VERDICT_NONE)
-+		verdict = snet_verdict_policy;
-+out:
-+	return verdict;
-+}
-+
-+static int snet_socket_listen(struct socket *sock, int backlog)
-+{
-+	enum snet_verdict verdict = SNET_VERDICT_NONE;
-+	u8 protocol = 0;
-+
-+	if (snet_check_listeners(&verdict) < 0)
-+		goto out;
-+
-+	protocol = sock->sk->sk_protocol;
-+
-+	if (snet_event_is_registered(SNET_SOCKET_LISTEN, protocol)) {
-+		struct snet_info info;
-+		struct inet_sock *inet = inet_sk(sock->sk);
-+
-+		/* prepare networking informations for userspace */
-+		memset(&info, 0, sizeof(struct  snet_info));
-+		info.syscall = SNET_SOCKET_LISTEN;
-+		info.protocol = protocol;
-+		info.family = sock->sk->sk_family;
-+		info.src.u.port = ntohs(inet->inet_sport);
-+		info.dst.u.port = ntohs(inet->inet_dport);
-+
-+		switch (sock->sk->sk_family) {
-+		case PF_INET:
-+			info.src.u3.ip = inet->inet_saddr;
-+			info.dst.u3.ip = inet->inet_daddr;
-+			/* check tickets */
-+			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+				goto out;
-+			/* inserting verdict PENDING */
-+			info.verdict_id = snet_verdict_insert();
-+			break;
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+		case PF_INET6:
-+			memcpy(&info.src.u3.ip6, (void *)&inet->pinet6->saddr,
-+			       sizeof(info.src.u3.ip6));
-+			memcpy(&info.dst.u3.ip6, (void *)&inet->pinet6->daddr,
-+			       sizeof(info.dst.u3.ip6));
-+			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+				goto out;
-+			/* inserting verdict PENDING */
-+			info.verdict_id = snet_verdict_insert();
-+			break;
-+#endif
-+		default:
-+			verdict = SNET_VERDICT_NONE;
-+			goto skip_send_wait;
-+			break;
-+		}
-+		snet_pr_tuple(&info);
-+		snet_do_verdict(&verdict, &info);
-+		/* create ticket */
-+		snet_ticket_create(&info, verdict);
-+	} else {
-+		verdict = SNET_VERDICT_GRANT;
-+	}
-+
-+skip_send_wait:
-+	if (verdict == SNET_VERDICT_NONE)
-+		verdict = snet_verdict_policy;
-+out:
-+	return verdict;
-+}
-+
-+static int snet_socket_accept(struct socket *sock, struct socket *newsock)
-+{
-+	enum snet_verdict verdict = SNET_VERDICT_NONE;
-+	u8 protocol = 0;
-+
-+	if (snet_check_listeners(&verdict) < 0)
-+		goto out;
-+
-+	protocol = sock->sk->sk_protocol;
-+
-+	if (snet_event_is_registered(SNET_SOCKET_ACCEPT, protocol)) {
-+		struct snet_info info;
-+		struct inet_sock *inet = inet_sk(sock->sk);
-+
-+		/* prepare networking informations for userspace */
-+		info.syscall = SNET_SOCKET_ACCEPT;
-+		info.protocol = protocol;
-+		info.family = sock->sk->sk_family;
-+		info.src.u.port = ntohs(inet->inet_sport);
-+		info.dst.u.port = ntohs(inet->inet_dport);
-+
-+		switch (sock->sk->sk_family) {
-+		case PF_INET:
-+			info.src.u3.ip = inet->inet_saddr;
-+			info.dst.u3.ip = inet->inet_daddr;
-+			/* check tickets */
-+			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+				goto out;
-+			/* inserting verdict PENDING */
-+			info.verdict_id = snet_verdict_insert();
-+			break;
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+		case PF_INET6:
-+			memcpy(&info.src.u3.ip6, (void *)&inet->pinet6->saddr,
-+			       sizeof(info.src.u3.ip6));
-+			memcpy(&info.dst.u3.ip6, (void *)&inet->pinet6->daddr,
-+			       sizeof(info.dst.u3.ip6));
-+			/* check tickets */
-+			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+				goto out;
-+			/* inserting verdict PENDING */
-+			info.verdict_id = snet_verdict_insert();
-+			break;
-+#endif
-+		default:
-+			verdict = SNET_VERDICT_NONE;
-+			goto skip_send_wait;
-+			break;
-+		}
-+		snet_pr_tuple(&info);
-+		snet_do_verdict(&verdict, &info);
-+		/* create ticket */
-+		snet_ticket_create(&info, verdict);
-+	} else {
-+		verdict = SNET_VERDICT_GRANT;
-+	}
-+
-+skip_send_wait:
-+	if (verdict == SNET_VERDICT_NONE)
-+		verdict = snet_verdict_policy;
-+out:
-+	return verdict;
-+}
-+
-+static void snet_socket_post_accept(struct socket *sock, struct socket *newsock)
-+{
-+	u8 protocol = 0;
-+
-+	if (snet_check_listeners(NULL)  < 0)
-+		goto out;
-+
-+	protocol = sock->sk->sk_protocol;
-+
-+	if (snet_event_is_registered(SNET_SOCKET_POST_ACCEPT, protocol)) {
-+		struct snet_info info;
-+		struct inet_sock *inet = inet_sk(newsock->sk);
-+
-+		/* prepare networking informations for userspace */
-+		info.syscall = SNET_SOCKET_POST_ACCEPT;
-+		info.protocol = protocol;
-+		info.family = sock->sk->sk_family;
-+		info.verdict_id = 0;
-+		info.src.u.port = ntohs(inet->inet_sport);
-+		info.dst.u.port = ntohs(inet->inet_dport);
-+
-+		switch (sock->sk->sk_family) {
-+		case PF_INET:
-+			info.src.u3.ip = inet->inet_saddr;
-+			info.dst.u3.ip = inet->inet_daddr;
-+			break;
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+		case PF_INET6:
-+			memcpy(&info.src.u3.ip6, (void *)&inet->pinet6->saddr,
-+			       sizeof(info.src.u3.ip6));
-+			memcpy(&info.dst.u3.ip6, (void *)&inet->pinet6->daddr,
-+			       sizeof(info.dst.u3.ip6));
-+			break;
-+#endif
-+		default:
-+			goto out;
-+			break;
-+		}
-+		snet_pr_tuple(&info);
-+		snet_do_send_event(&info);
-+	}
-+out:
-+	return;
-+}
-+
-+static int snet_socket_sendmsg(struct socket *sock,
-+			       struct msghdr *msg, int size)
-+{
-+	enum snet_verdict verdict = SNET_VERDICT_NONE;
-+	u8 protocol = 0;
-+
-+	if (snet_check_listeners(&verdict) < 0)
-+		goto out;
-+
-+	protocol = sock->sk->sk_protocol;
-+
-+	if (snet_event_is_registered(SNET_SOCKET_SENDMSG, protocol)) {
-+		struct snet_info info;
-+		struct inet_sock *inet = inet_sk(sock->sk);
-+
-+		/* prepare networking informations for userspace */
-+		info.syscall = SNET_SOCKET_SENDMSG;
-+		info.protocol = protocol;
-+		info.family = sock->sk->sk_family;
-+		info.src.u.port = ntohs(inet->inet_sport);
-+		info.dst.u.port = ntohs(inet->inet_dport);
-+		info.len = size;
-+		info.buffer = msg->msg_iov->iov_base;
-+
-+		switch (sock->sk->sk_family) {
-+		case PF_INET:
-+			info.src.u3.ip = inet->inet_saddr;
-+			info.dst.u3.ip = inet->inet_daddr;
-+			/* check tickets */
-+			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+				goto out;
-+			/* inserting verdict PENDING */
-+			info.verdict_id = snet_verdict_insert();
-+			break;
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+		case PF_INET6:
-+			memcpy(&info.src.u3.ip6, (void *)&inet->pinet6->saddr,
-+			       sizeof(info.src.u3.ip6));
-+			memcpy(&info.dst.u3.ip6, (void *)&inet->pinet6->daddr,
-+			       sizeof(info.dst.u3.ip6));
-+			/* check tickets */
-+			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+				goto out;
-+			/* inserting verdict PENDING */
-+			info.verdict_id = snet_verdict_insert();
-+			break;
-+#endif
-+		default:
-+			verdict = SNET_VERDICT_NONE;
-+			goto skip_send_wait;
-+			break;
-+		}
-+		snet_pr_tuple(&info);
-+		snet_do_verdict(&verdict, &info);
-+		/* create ticket */
-+		snet_ticket_create(&info, verdict);
-+	} else {
-+		verdict = SNET_VERDICT_GRANT;
-+	}
-+
-+skip_send_wait:
-+	if (verdict == SNET_VERDICT_NONE)
-+		verdict = snet_verdict_policy;
-+out:
-+	return verdict;
-+}
-+
-+static int snet_socket_recvmsg(struct socket *sock,
-+			       struct msghdr *msg, int size, int flags)
-+{
-+	enum snet_verdict verdict = SNET_VERDICT_NONE;
-+	u8 protocol = 0;
-+
-+	if (snet_check_listeners(&verdict) < 0)
-+		goto out;
-+
-+	protocol = sock->sk->sk_protocol;
-+
-+	if (snet_event_is_registered(SNET_SOCKET_RECVMSG, protocol)) {
-+		struct snet_info info;
-+		struct inet_sock *inet = inet_sk(sock->sk);
-+
-+		/* prepare networking informations for userspace */
-+		info.syscall = SNET_SOCKET_RECVMSG;
-+		info.protocol = protocol;
-+		info.family = sock->sk->sk_family;
-+		info.src.u.port = ntohs(inet->inet_sport);
-+		info.dst.u.port = ntohs(inet->inet_dport);
-+
-+		switch (sock->sk->sk_family) {
-+		case PF_INET:
-+			info.src.u3.ip = inet->inet_saddr;
-+			info.dst.u3.ip = inet->inet_daddr;
-+			/* check tickets */
-+			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+				goto out;
-+			/* inserting verdict PENDING */
-+			info.verdict_id = snet_verdict_insert();
-+			break;
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+		case PF_INET6:
-+			memcpy(&info.src.u3.ip6, (void *)&inet->pinet6->saddr,
-+			       sizeof(info.src.u3.ip6));
-+			memcpy(&info.dst.u3.ip6, (void *)&inet->pinet6->daddr,
-+			       sizeof(info.dst.u3.ip6));
-+			/* check tickets */
-+			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+				goto out;
-+			/* inserting verdict PENDING */
-+			info.verdict_id = snet_verdict_insert();
-+			break;
-+#endif
-+		default:
-+			verdict = SNET_VERDICT_NONE;
-+			goto skip_send_wait;
-+			break;
-+		}
-+		snet_pr_tuple(&info);
-+		snet_do_verdict(&verdict, &info);
-+		/* create ticket */
-+		snet_ticket_create(&info, verdict);
-+	} else {
-+		verdict = SNET_VERDICT_GRANT;
-+	}
-+
-+skip_send_wait:
-+	if (verdict == SNET_VERDICT_NONE)
-+		verdict = snet_verdict_policy;
-+out:
-+	return verdict;
-+}
-+
-+static int snet_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
-+{
-+	enum snet_verdict verdict = SNET_VERDICT_NONE;
-+	u8 protocol = 0;
-+
-+	if (snet_check_listeners(&verdict) < 0)
-+		goto out;
-+
-+	protocol = sk->sk_protocol;
-+
-+	if (snet_event_is_registered(SNET_SOCKET_SOCK_RCV_SKB, protocol)) {
-+		struct snet_info info;
-+		struct inet_sock *inet = inet_sk(sk);
-+
-+		/* prepare networking informations for userspace */
-+		info.syscall = SNET_SOCKET_SOCK_RCV_SKB;
-+		info.protocol = protocol;
-+		info.family = sk->sk_family;
-+		info.src.u.port = ntohs(inet->inet_sport);
-+		info.dst.u.port = ntohs(inet->inet_dport);
-+
-+		switch (sk->sk_family) {
-+		case PF_INET:
-+			/* inserting verdict PENDING  */
-+			/* info.verdict_id = snet_verdict_insert(); */
-+
-+			info.src.u3.ip = inet->inet_saddr;
-+			info.dst.u3.ip = inet->inet_daddr;
-+			break;
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+		case PF_INET6:
-+			/* inserting verdict PENDING  */
-+			/* info.verdict_id = snet_verdict_insert(); */
-+
-+			memcpy(&info.src.u3.ip6, (void *)&inet->pinet6->saddr,
-+			       sizeof(info.src.u3.ip6));
-+			memcpy(&info.dst.u3.ip6, (void *)&inet->pinet6->daddr,
-+			       sizeof(info.dst.u3.ip6));
-+			break;
-+#endif
-+		default:
-+			verdict = SNET_VERDICT_NONE;
-+			goto skip_send_wait;
-+			break;
-+		}
-+		snet_pr_tuple(&info);
-+		/* SNET_DOC_VERDICT(info); */
-+	} else {
-+		verdict = SNET_VERDICT_GRANT;
-+	}
-+
-+skip_send_wait:
-+	if (verdict == SNET_VERDICT_NONE)
-+		verdict = snet_verdict_policy;
-+out:
-+	return verdict;
-+}
-+
-+static void snet_socket_close(struct socket *sock)
-+{
-+	u8 protocol = 0;
-+
-+	if (sock == NULL || sock->sk == NULL) {
-+		goto out;
-+	}
-+
-+	if (snet_check_listeners(NULL)  < 0)
-+		goto out;
-+
-+	protocol = sock->sk->sk_protocol;
-+
-+	if (snet_event_is_registered(SNET_SOCKET_CLOSE, protocol)) {
-+		struct snet_info info;
-+		struct inet_sock *inet = inet_sk(sock->sk);
-+
-+		/* prepare networking informations for userspace */
-+		info.syscall = SNET_SOCKET_CLOSE;
-+		info.protocol = protocol;
-+		info.family = sock->sk->sk_family;
-+		info.verdict_id = 0;
-+		info.src.u.port = ntohs(inet->inet_sport);
-+		info.dst.u.port = ntohs(inet->inet_dport);
-+
-+		switch (sock->sk->sk_family) {
-+		case PF_INET:
-+			info.src.u3.ip = inet->inet_saddr;
-+			info.dst.u3.ip = inet->inet_daddr;
-+			break;
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+		case PF_INET6:
-+			memcpy(&info.src.u3.ip6, (void *)&inet->pinet6->saddr,
-+			       sizeof(info.src.u3.ip6));
-+			memcpy(&info.dst.u3.ip6, (void *)&inet->pinet6->daddr,
-+			       sizeof(info.dst.u3.ip6));
-+			break;
-+#endif
-+		default:
-+			goto out;
-+			break;
-+		}
-+		snet_pr_tuple(&info);
-+		snet_do_send_event(&info);
-+	}
-+out:
-+	return;
-+}
-+
-+static struct security_operations snet_security_ops = {
-+	.name			= "snet",
-+
-+	.socket_create		= snet_socket_create,
-+	.socket_bind		= snet_socket_bind,
-+	.socket_connect		= snet_socket_connect,
-+	.socket_listen		= snet_socket_listen,
-+	.socket_accept		= snet_socket_accept,
-+	.socket_post_accept	= snet_socket_post_accept,
-+	.socket_sendmsg		= snet_socket_sendmsg,
-+	.socket_recvmsg		= snet_socket_recvmsg,
-+	.socket_sock_rcv_skb	= snet_socket_sock_rcv_skb,
-+	.socket_close		= snet_socket_close,
-+
-+	.cred_prepare		= snet_prepare_creds,
-+	.cred_free		= snet_cred_free,
++#define SNET_VERSION	0x1
++#define SNET_NAME	"snet"
++
++enum snet_syscall {
++	SNET_SOCKET_CREATE = 0,
++	SNET_SOCKET_BIND,
++	SNET_SOCKET_CONNECT,
++	SNET_SOCKET_LISTEN,
++	SNET_SOCKET_ACCEPT,
++	SNET_SOCKET_POST_ACCEPT,
++	SNET_SOCKET_SENDMSG,
++	SNET_SOCKET_RECVMSG,
++	SNET_SOCKET_SOCK_RCV_SKB,
++	SNET_SOCKET_CLOSE,
++	SNET_SOCKET_INVALID,
 +};
 +
-+int snet_hooks_init(void)
-+{
-+	if (!security_module_enable(&snet_security_ops))
-+		return 0;
++#define SNET_NR_SOCKET_TYPES SNET_SOCKET_INVALID
 +
-+	if (register_security(&snet_security_ops))
-+		panic("snet: failed to register security_ops\n");
++struct snet_event {
++	enum snet_syscall syscall;
++	u8 protocol;
++};
 +
-+	return 0;
-+}
-diff --git a/security/snet/snet_hooks.h b/security/snet/snet_hooks.h
++enum snet_verdict {
++	SNET_VERDICT_GRANT = 0,	/* grant the syscall */
++	SNET_VERDICT_DENY,	/* deny the syscall */
++	SNET_VERDICT_PENDING,	/* waiting for a decision */
++	SNET_VERDICT_NONE,	/* no decision can be set */
++	SNET_VERDICT_INVALID,
++};
++
++#define SNET_NR_VERDICT_TYPES SNET_VERDICT_INVALID
++
++enum snet_ticket_mode {
++	SNET_TICKET_OFF = 0,
++	SNET_TICKET_FIX,
++	SNET_TICKET_EXTEND,
++};
++
++/* genetlink commands */
++enum {
++	SNET_C_UNSPEC,
++	SNET_C_VERSION,
++	SNET_C_REGISTER,
++	SNET_C_UNREGISTER,
++	SNET_C_INSERT,
++	SNET_C_REMOVE,
++	SNET_C_FLUSH,
++	SNET_C_LIST,
++	SNET_C_VERDICT,
++	SNET_C_CONFIG,
++	__SNET_C_MAX,
++};
++
++#define SNET_C_MAX (__SNET_C_MAX - 1)
++
++/* genetlink attributes */
++enum {
++	SNET_A_UNSPEC,
++	SNET_A_VERSION,		/* (NLA_U32) the snet protocol version	*/
++	SNET_A_VERDICT_ID,
++	SNET_A_FAMILY,
++	SNET_A_SYSCALL,		/* (NLA_U8)  a syscall identifier	*/
++	SNET_A_PROTOCOL,	/* (NLA_U8)  a protocol identifier	*/
++	SNET_A_UID,
++	SNET_A_PID,
++	SNET_A_TYPE,
++	SNET_A_IPV4SADDR,
++	SNET_A_IPV6SADDR,
++	SNET_A_IPV4DADDR,
++	SNET_A_IPV6DADDR,
++	SNET_A_SPORT,
++	SNET_A_DPORT,
++	SNET_A_BUFFER,
++	SNET_A_BUFFER_LEN,
++	SNET_A_VERDICT,
++	SNET_A_VERDICT_DELAY,
++	SNET_A_TICKET_DELAY,
++	SNET_A_TICKET_MODE,
++	__SNET_A_MAX,
++};
++
++#define SNET_A_MAX (__SNET_A_MAX - 1)
++
++#define SNET_GENL_NAME		"SNET"
++#define SNET_GENL_VERSION	SNET_VERSION
++
++struct snet_sock_half {
++	struct {
++		union {
++			__be32 ip;
++			struct in6_addr ip6;
++		};
++	} u3;
++	struct {
++		__be16 port;
++	} u;
++};
++
++struct snet_info {
++	u32 verdict_id;
++
++	enum snet_syscall syscall;
++	u8 protocol;
++	u8 family;
++
++	int type;
++	struct snet_sock_half src;
++	struct snet_sock_half dst;
++	void *buffer;
++	int len;
++};
++
++#endif /* _LINUX_SNET_H */
+diff --git a/security/snet/snet_core.c b/security/snet/snet_core.c
 new file mode 100644
-index 0000000..05fe5e8
+index 0000000..9f2eb2e
 --- /dev/null
-+++ b/security/snet/snet_hooks.h
-@@ -0,0 +1,10 @@
-+#ifndef _SNET_HOOKS_H
-+#define _SNET_HOOKS_H
++++ b/security/snet/snet_core.c
+@@ -0,0 +1,76 @@
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <net/genetlink.h>
++#include <linux/snet.h>
++#include "snet_hooks.h"
++#include "snet_event.h"
++#include "snet_verdict.h"
++#include "snet_ticket.h"
++#include "snet_utils.h"
 +
-+extern uint32_t snet_nl_pid;
-+extern unsigned int snet_verdict_policy;
++unsigned int snet_evh_size = 16;
++module_param(snet_evh_size, uint, 0400);
++MODULE_PARM_DESC(snet_evh_size, "Set the size of the event hash table");
 +
-+/* init function */
-+int snet_hooks_init(void);
++unsigned int snet_vdh_size = 16;
++module_param(snet_vdh_size, uint, 0400);
++MODULE_PARM_DESC(snet_vdh_size, "Set the size of the verdict hash table");
 +
-+#endif /* _SNET_HOOK_H */
++unsigned int snet_verdict_delay = 5;
++module_param(snet_verdict_delay, uint, 0600);
++MODULE_PARM_DESC(snet_verdict_delay, "Set the timeout for verdicts in secs");
++
++unsigned int snet_verdict_policy = SNET_VERDICT_GRANT;	/* permissive by default */
++module_param(snet_verdict_policy, uint, 0400);
++MODULE_PARM_DESC(snet_verdict_policy, "Set the default verdict");
++
++unsigned int snet_ticket_delay = 15;
++module_param(snet_ticket_delay, uint, 0600);
++MODULE_PARM_DESC(snet_ticket_delay, "Set the timeout for tickets in secs");
++
++unsigned int snet_ticket_mode = SNET_TICKET_FIX;
++module_param(snet_ticket_mode, uint, 0600);
++MODULE_PARM_DESC(snet_ticket_mode, "Set the mode for tickets");
++
++static __init int snet_init(void)
++{
++	int ret;
++
++	pr_debug("initializing: event_hash_size=%u "
++		 "verdict_hash_size=%u verdict_delay=%usecs "
++		 "default_policy=%s\n",
++		 snet_evh_size, snet_vdh_size, snet_verdict_delay,
++		 snet_verdict_name(snet_verdict_policy));
++
++	ret = snet_event_init();
++	if (ret < 0)
++		goto event_failed;
++
++	ret = snet_verdict_init();
++	if (ret < 0)
++		goto verdict_failed;
++
++	ret = snet_ticket_init();
++	if (ret < 0)
++		goto ticket_failed;
++
++	/* snet_hooks_init() returns 0 or execute panic() */
++	snet_hooks_init();
++
++	pr_debug("started\n");
++	return 0;
++
++ticket_failed:
++	snet_verdict_exit();
++verdict_failed:
++	snet_event_exit();
++event_failed:
++	pr_debug("stopped\n");
++	return ret;
++}
++
++security_initcall(snet_init);
++
++MODULE_DESCRIPTION("snet - Security for NETwork syscalls");
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Samir Bellabes <sam@synack.fr>");
 -- 
 1.6.3.3
