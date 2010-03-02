@@ -1,61 +1,22 @@
-From: Greg Kroah-Hartman <gregkh@suse.de>
-Subject: [PATCH 37/62] net: move am79c961's probe function to .devinit.text
-Date: Tue,  2 Mar 2010 15:28:36 -0800
-Message-ID: <1267572541-410-37-git-send-email-gregkh@suse.de>
-References: <20100302230933.GA32287@kroah.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>, Roel Kluin <12o3l@tiscali.nl>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	<netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Greg Kroah-Hartman <gregkh@suse.de>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100302230933.GA32287@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 00/12] IPv6 addrconf changes
+Date: Tue, 02 Mar 2010 15:32:43 -0800
+Message-ID: <20100302233243.259794027@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from suva.vyatta.com ([76.74.103.44]:58923 "EHLO suva.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754907Ab0CBXqk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Mar 2010 18:46:40 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+This set includes a mixed bag of changes all related to
+IPv6 address configuration:  bugfixes (1-3,8), changes to use
+list interface (4-5,8), RCU (6), cosmetic cleanups (9-10,12) and
+minor improvments (7,11).
 
-A pointer to am79c961_probe is passed to the core via
-platform_driver_register and so the function must not disappear when th=
-e
-=2Einit sections are discarded.  Otherwise (if also having HOTPLUG=3Dy)
-unbinding and binding a device to the driver via sysfs will result in a=
-n
-oops as does a device being registered late.
+-- 
 
-An alternative to this patch is using platform_driver_probe instead of
-platform_driver_register plus removing the pointer to the probe functio=
-n
-from the struct platform_driver.
-
-Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
-Cc: Roel Kluin <12o3l@tiscali.nl>
-Cc: Russell King <rmk+kernel@arm.linux.org.uk>
-Cc: <netdev@vger.kernel.org>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
----
- drivers/net/arm/am79c961a.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/arm/am79c961a.c b/drivers/net/arm/am79c961a.c
-index 164b37e..1c3c1f9 100644
---- a/drivers/net/arm/am79c961a.c
-+++ b/drivers/net/arm/am79c961a.c
-@@ -680,7 +680,7 @@ static const struct net_device_ops am79c961_netdev_=
-ops =3D {
- #endif
- };
-=20
--static int __init am79c961_probe(struct platform_device *pdev)
-+static int __devinit am79c961_probe(struct platform_device *pdev)
- {
- 	struct resource *res;
- 	struct net_device *dev;
---=20
-1.7.0.1
