@@ -1,70 +1,56 @@
-From: Franco Fichtner <franco@lastsummer.de>
-Subject: Re: e1000e: reset of tx_queue_len
-Date: Tue, 02 Mar 2010 20:52:15 +0100
-Message-ID: <4B8D6C6F.9050306@lastsummer.de>
-References: <4B8D4E7E.2000805@lastsummer.de> <alpine.WNT.2.00.1003021020160.2888@jbrandeb-desk1.amr.corp.intel.com>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: RE: [PATCH 0/8]: Bug fixes and new FW patch series
+Date: Tue, 2 Mar 2010 12:05:15 -0800
+Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADCB46A2B4C1@SJEXCHCCR02.corp.ad.broadcom.com>
+References: <8628FE4E7912BF47A96AE7DD7BAC0AADCB46A2B4A6@SJEXCHCCR02.corp.ad.broadcom.com>
+ <20100302.111719.211474245.davem@davemloft.net>
+ <8628FE4E7912BF47A96AE7DD7BAC0AADCB46A2B4AF@SJEXCHCCR02.corp.ad.broadcom.com>
+ <20100302.114623.119214667.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host64.kissl.de ([213.239.241.64]:50098 "EHLO host64.kissl.de"
+Received: from mms3.broadcom.com ([216.31.210.19]:3851 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750969Ab0CBTtB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Mar 2010 14:49:01 -0500
-In-Reply-To: <alpine.WNT.2.00.1003021020160.2888@jbrandeb-desk1.amr.corp.intel.com>
+	id S1755368Ab0CBUF2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Mar 2010 15:05:28 -0500
+In-Reply-To: <20100302.114623.119214667.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brandeburg, Jesse wrote:
-> On Tue, 2 Mar 2010, Franco Fichtner wrote:
->   
->> while working on a new server, I noticed that tx_queue_len is reset
->> to the default of 1000 while ADDRCONF(NETDEV_CHANGE).
->> This happens with 2.6.30.8, but I could not see any obvious
->> differences to the current state of e1000e, while trying to find the
->> problem in the code.
->>     
->
-> The driver tries to set the queuelen back to 1000 if the link changes 
-> speed, because the driver tries to shorten the txqueuelen to 100 to reduce 
-> latency when the link changes to 100/10 Mb/s
->   
+I thought u were taking "FW add/remove" patches from the ftp/http sites and not from your mailbox.
+The patch is on its way to your mailbox... ;) 
 
-Thanks, that explains it. Since we don't connect ports at startup, the 
-plugging causes
-a speed "change".
+Thanks,
+vlad
 
->> The interface has been configured including a customized qlen
->> via /etc/network/interfaces. The ports are not connected at startup
->> so obviously the Kernel reports
->>
->> ADDRCONF(NETDEV_UP): eth2: link is not ready
->>     
->
-> do your scripts try to configure the queuelen when link is not up?  Why 
-> are the ports not connected at startup?
->   
-
-I have a modified up command that sets appropriate values of mtu and 
-qlen via ip. The device is
-brought up at startup automatically with the correct values. At least 
-that's what ifconfig shows
-even though the port is not yet connected.
-
-There has been a lot of testing back and forth with single hosts and 
-much larger quantities of traffic.
-This got really messy when testing single host first (connected via 100 
-Mb/s, so qlen to 100) and then
-switching to 1000 Mb/s. qlen would still be 100, causing lots of packet 
-drops. This took a few
-days to track down, unfortunately.
-
-> Hope this helps
-
-Greatly appreciated, thanks again. :)
-
-
-Franco
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net] 
+> Sent: Tuesday, March 02, 2010 9:46 PM
+> To: Vladislav Zolotarov
+> Cc: netdev@vger.kernel.org
+> Subject: Re: [PATCH 0/8]: Bug fixes and new FW patch series
+> 
+> From: "Vladislav Zolotarov" <vladz@broadcom.com>
+> Date: Tue, 2 Mar 2010 11:40:20 -0800
+> 
+> > The patches are still availiable at:
+> > http://linux.broadcom.com/eilong/1.52.1-6 
+> > 
+> > It seems like the patch 7 hasn't been applied (remove old 
+> .ihex files)
+> > 
+> > Could u apply it, plz.
+> 
+> This is so frustrating.
+> 
+> What part of "you need to resend it to me" do you not understand?
+> 
+> I'm not going to your web sites to grab your patches, I use patchwork
+> and my email inbox as my work queue.
+> 
+> 
