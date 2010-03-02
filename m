@@ -1,65 +1,41 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: Gianfar driver failing on MPC8641D based board
-Date: Tue, 2 Mar 2010 17:02:33 +0300
-Message-ID: <20100302140233.GA14488@oksana.dev.rtsoft.ru>
-References: <20100226031452.GA11319@oksana.dev.rtsoft.ru>
- <4B87B937.6010204@ge.com>
- <20100226143532.GA31622@oksana.dev.rtsoft.ru>
- <4B87E01E.4070704@windriver.com>
- <4B87E662.3080106@ge.com>
- <4B87E9EF.3010604@ge.com>
- <20100226161058.GA22954@oksana.dev.rtsoft.ru>
- <4B87F67E.5070601@windriver.com>
- <20100226213825.GA32363@oksana.dev.rtsoft.ru>
- <9F4C7D19E8361D4C94921B95BE08B81BC93EC3@zin33exm22.fsl.freescale.net>
-Reply-To: avorontsov@ru.mvista.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH]xfrm: fix perpetual bundles
+Date: Tue, 02 Mar 2010 06:06:06 -0800 (PST)
+Message-ID: <20100302.060606.73203093.davem@davemloft.net>
+References: <1267535426.21749.24.camel@bigi>
+	<20100302134656.GC20508@secunet.com>
+	<1267538070.21749.27.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Martyn Welch <martyn.welch@ge.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	linuxppc-dev list <linuxppc-dev@ozlabs.org>,
-	davem@davemloft.net
-To: Kumar Gopalpet-B05799 <B05799@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <9F4C7D19E8361D4C94921B95BE08B81BC93EC3@zin33exm22.fsl.freescale.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+	kaber@trash.net, yoshfuji@linux-ipv6.org, nakam@linux-ipv6.org,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: hadi@cyberus.ca
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37341
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753367Ab0CBOFs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Mar 2010 09:05:48 -0500
+In-Reply-To: <1267538070.21749.27.camel@bigi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
+From: jamal <hadi@cyberus.ca>
+Date: Tue, 02 Mar 2010 08:54:30 -0500
 
-On Sat, Feb 27, 2010 at 11:05:32AM +0530, Kumar Gopalpet-B05799 wrote:
-[...]
-> Understood, and thanks for the explanation. Am I correct in saying that
-> this is
-> due to the out-of-order execution capability on powerpc ?
-
-Nope, that was just a logic issue in the driver. 
-
-Though, with the patch, the eieio() is needed so that compiler (or CPU)
-won't reorder lstatus and skbuff writes.
-
-> I have one more question, why don't we use use atomic_t for num_txbdfree
-> and
-> completely  do away with spin_locks in gfar_clean_tx_ring() and
-> gfar_start_xmit().
-> In an non-SMP, scenario I would feel there is absolutely no requirement
-> of spin_locks
-> and in case of SMP atomic operation would be much more safer on powerpc
-> rather than spin_locks.
+> On Tue, 2010-03-02 at 14:46 +0100, Steffen Klassert wrote:
 > 
-> What is your suggestion ?
+>> The problem was spotted by 
+>> commit a33bc5c15154c835aae26f16e6a3a7d9ad4acb45
+>> xfrm: select sane defaults for xfrm[4|6] gc_thresh
+>> 
+>> Before this commit, the xfrm garbage collector started to remove
+>> stale bundle entries as soon as we reached an amount of 1024
+>> bundle entries. Now the default value for the gc_thresh is
+>> based on the main route table hash size, so we can have much more
+>> bundle entries.
+> 
+> yikes. Ok. Seems this fix needs to go -stable as well then.
 
-I think that's a good idea.
-
-However, in start_xmit() we'll have to keep the spinlock anyway
-since it also protects from gfar_error(), which can modify
-regs->tstat.
-
-Thanks!
-
--- 
-Anton Vorontsov
-email: cbouatmailru@gmail.com
-irc://irc.freenode.net/bd2
+Jamal please do some testing then I'll push Herbert's fix around.
