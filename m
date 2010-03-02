@@ -1,65 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT]: Networking
-Date: Tue, 02 Mar 2010 04:03:16 -0800 (PST)
-Message-ID: <20100302.040316.155442888.davem@davemloft.net>
-References: <20100228.230535.123985162.davem@davemloft.net>
+From: Yegor Yefremov <yegorslists@googlemail.com>
+Subject: KS8695: possible NAPI issue
+Date: Tue, 2 Mar 2010 13:04:20 +0100
+Message-ID: <f69abfc31003020404y7af77fe5icefeee4644c7d08e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100228.230535.123985162.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: figo1802@gmail.com, zealcook@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:44924 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752181Ab0CBMEZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Mar 2010 07:04:25 -0500
+Received: by ewy20 with SMTP id 20so79773ewy.21
+        for <netdev@vger.kernel.org>; Tue, 02 Mar 2010 04:04:24 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Sun, 28 Feb 2010 23:05:35 -0800 (PST)
+I'm using 2.6.33 kernel and I noticed such a strange behavior:
 
-> Please pull, thanks a lot!
-> 
-> The following changes since commit 30ff056c42c665b9ea535d8515890857ae382540:
->   Linus Torvalds (1):
->         Merge branch 'x86-uv-for-linus' of git://git.kernel.org/.../tip/linux-2.6-tip
-> 
-> are available in the git repository at:
-> 
->   master.kernel.org:/pub/scm/linux/kernel/git/davem/net-next-2.6.git master
+after system start I transfer one file via netcat from my development
+host, after this transfer the network is not functioning i.e. no pings
+possible etc.
 
-Linus, if you haven't pulled in the networking tree yet, please pull
-again as I just pushed the following bug fixes into there tonight.
+To narrow down the problem I checked out this commit
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=451f14439847db302e5104c44458b2dbb4b1829d.
+Till here the network driver is functioning as intended, but after
+NAPI introduction I have this issue. With latest git-pull of "Linus'
+kernel tree" I can't even ping right after the systems start.
 
-Thanks!
+Any Ideas? What am I missing?
 
-The following changes since commit 47871889c601d8199c51a4086f77eebd77c29b0b:
-  David S. Miller (1):
-        Merge branch 'master' of /home/davem/src/GIT/linux-2.6/
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-next-2.6.git master
-
-Eric Dumazet (1):
-      net: fix protocol sk_buff field
-
-Herton Ronaldo Krzesinski (1):
-      sis190: fix cable detect via link status poll
-
-Jiri Pirko (1):
-      virtio_net: remove forgotten assignment
-
-Sathya Perla (1):
-      be2net: fix tx completion polling
-
-Sridhar Samudrala (1):
-      bridge: Fix build error when IGMP_SNOOPING is not enabled
-
- drivers/net/benet/be_cmds.c |   26 +++++++++++-----------
- drivers/net/benet/be_cmds.h |    2 +-
- drivers/net/benet/be_main.c |   47 +++++++++++++++++++++----------------------
- drivers/net/sis190.c        |   23 ++++++++++++++++----
- drivers/net/virtio_net.c    |    1 -
- include/linux/skbuff.h      |    2 +-
- net/bridge/br_private.h     |   14 ++++++++----
- 7 files changed, 65 insertions(+), 50 deletions(-)
+Regards,
+Yegor
