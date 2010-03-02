@@ -1,48 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH]  bridge: per-cpu packet statistics (v2)
-Date: Tue, 02 Mar 2010 19:06:13 +0100
-Message-ID: <1267553173.2839.9.camel@edumazet-laptop>
-References: <20100301161658.5a61143b@nehalam>
-	 <1267520579.2964.27.camel@edumazet-laptop>
-	 <20100302095831.151c8bb5@nehalam>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: e1000e: reset of tx_queue_len
+Date: Tue, 2 Mar 2010 10:27:01 -0800 (Pacific Standard Time)
+Message-ID: <alpine.WNT.2.00.1003021020160.2888@jbrandeb-desk1.amr.corp.intel.com>
+References: <4B8D4E7E.2000805@lastsummer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Netdev <netdev@vger.kernel.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>
+To: Franco Fichtner <franco@lastsummer.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:56595 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752151Ab0CBSGR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Mar 2010 13:06:17 -0500
-Received: by bwz1 with SMTP id 1so119773bwz.21
-        for <netdev@vger.kernel.org>; Tue, 02 Mar 2010 10:06:16 -0800 (PST)
-In-Reply-To: <20100302095831.151c8bb5@nehalam>
+Received: from mga14.intel.com ([143.182.124.37]:34184 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754178Ab0CBS1F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Mar 2010 13:27:05 -0500
+In-Reply-To: <4B8D4E7E.2000805@lastsummer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 02 mars 2010 =C3=A0 09:58 -0800, Stephen Hemminger a =C3=A9cri=
-t :
-> +	struct br_cpu_netstats __percpu {
-> +		unsigned long	rx_packets;
-> +		unsigned long	tx_packets;
-> +		unsigned long	rx_bytes;
-> +		unsigned long	tx_bytes;
-> +	} *stats;
-> +
-
-Ok, please group rx stats together instead of interleave, this to reduc=
-e
-possibility of touching two cache lines in tx path (or rx path)
-
-	struct br_cpu_netstats __percpu {
-> 		unsigned long	rx_packets;
-> +		unsigned long	rx_bytes;
->=20
-> +		unsigned long	tx_packets;
-> +		unsigned long	tx_bytes;
-> +	} *stats;
-> +
 
 
+On Tue, 2 Mar 2010, Franco Fichtner wrote:
+> while working on a new server, I noticed that tx_queue_len is reset
+> to the default of 1000 while ADDRCONF(NETDEV_CHANGE).
+> This happens with 2.6.30.8, but I could not see any obvious
+> differences to the current state of e1000e, while trying to find the
+> problem in the code.
+
+The driver tries to set the queuelen back to 1000 if the link changes 
+speed, because the driver tries to shorten the txqueuelen to 100 to reduce 
+latency when the link changes to 100/10 Mb/s
+
+> The interface has been configured including a customized qlen
+> via /etc/network/interfaces. The ports are not connected at startup
+> so obviously the Kernel reports
+> 
+> ADDRCONF(NETDEV_UP): eth2: link is not ready
+
+do your scripts try to configure the queuelen when link is not up?  Why 
+are the ports not connected at startup?
+
+> 
+> while ifconfig properly displays the customized qlen.
+> 
+> When plugging the server tx_queue_len is reset to 1000.
+> 
+> Any help is appreciated. Thanks.
+
+you can safely comment out the code in netdev.c on lines 3532 through 
+3549, as well as any other lines of code in the driver that modify or use 
+the variable netdev->tx_queue_len
+
+http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.30.y.git;a=blob;f=drivers/net/e1000e/netdev.c;h=42055a580f7ccd6cc2ac59ea5d7d864157b57107;hb=HEAD#l3532
+
+Its possible we should just remove this code from the in-kernel 
+driver, as I don't think many other drivers mess with the tx_queue_len 
+either.  We did introduce the code to fix some users complaints about the 
+amount of work that can get queued up in the hardware with tx_queue_len = 
+1000 when at 10/100 speeds.
+
+Hope this helps!
