@@ -1,42 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] bridge: Fix build error when
- IGMP_SNOOPING is not enabled
-Date: Mon, 01 Mar 2010 18:14:32 -0800 (PST)
-Message-ID: <20100301.181432.04478860.davem@davemloft.net>
-References: <1267473184.31728.7.camel@w-sridhar.beaverton.ibm.com>
-	<20100302004626.GA28274@gondor.apana.org.au>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: Re: [PATCH V2] net: add accounting for socket backlog
+Date: Tue, 02 Mar 2010 10:34:02 +0800
+Message-ID: <1267497242.23196.62.camel@debian>
+References: <1267176464-426-1-git-send-email-yi.zhu@intel.com>
+	 <1267335071.9082.56.camel@edumazet-laptop>
+	 <1267443828.3039.7.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: sri@us.ibm.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57922
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753215Ab0CBCOO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Mar 2010 21:14:14 -0500
-In-Reply-To: <20100302004626.GA28274@gondor.apana.org.au>
+Received: from mga09.intel.com ([134.134.136.24]:43652 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753193Ab0CBCcU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Mar 2010 21:32:20 -0500
+In-Reply-To: <1267443828.3039.7.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 2 Mar 2010 08:46:26 +0800
+On Mon, 2010-03-01 at 19:43 +0800, Eric Dumazet wrote:
+> Thinking again about this, doing this zero initialization at the very
+> end of __release_sock() solves the problem of potential infinite loop
+> in
+> __release_sock(). Since producer will hit the backlog limit.
+> 
+> Thanks
+> 
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index 305cba4..544cf4a 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -1542,6 +1542,11 @@ static void __release_sock(struct sock *sk)
+>  
+>                 bh_lock_sock(sk);
+>         } while ((skb = sk->sk_backlog.head) != NULL);
+> +       /*
+> +        * Doing this zeroing at the end of this function guarantee we
+> can not
+> +        * loop forever while a wild producer attempts to flood us
+> +        */
+> +       sk->sk_backlog.len = 0;
+>  } 
 
-> On Mon, Mar 01, 2010 at 11:53:04AM -0800, Sridhar Samudrala wrote:
->> Fix the following build error when IGMP_SNOOPING is not enabled.
->> In file included from net/bridge/br.c:24:
->> net/bridge/br_private.h: In function 'br_multicast_is_router':
->> net/bridge/br_private.h:361: error: 'struct net_bridge' has no member named 'multicast_router'
->> net/bridge/br_private.h:362: error: 'struct net_bridge' has no member named 'multicast_router'
->> net/bridge/br_private.h:363: error: 'struct net_bridge' has no member named 'multicast_router_timer'
->> 
->> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-> 
-> Thanks for the fix.
-> 
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> I'd originally left the struct data outside ifdefs and then added
-> the ifdefs without testing.
+Very good point. I'll add your sob in my next patch.
 
-Thanks everyone, I'll apply this.
+Thanks,
+-yi
+
