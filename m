@@ -1,81 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [rfc/rft][patch] should use scheduler sync hint in
- tcp_prequeue()?
-Date: Tue, 02 Mar 2010 12:27:53 +0100
-Message-ID: <1267529273.2964.111.camel@edumazet-laptop>
-References: <1267522901.25906.101.camel@marge.simson.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH]xfrm: fix perpetual bundles
+Date: Tue, 2 Mar 2010 19:27:54 +0800
+Message-ID: <20100302112754.GA1513@gondor.apana.org.au>
+References: <1267017564.3973.790.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>
-To: Mike Galbraith <efault@gmx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1267522901.25906.101.camel@marge.simson.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kaber@trash.net, yoshfuji@linux-ipv6.org,
+	nakam@linux-ipv6.org, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: jamal <hadi@cyberus.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:45462 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750811Ab0CBL2U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Mar 2010 06:28:20 -0500
+Content-Disposition: inline
+In-Reply-To: <1267017564.3973.790.camel@bigi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 02 mars 2010 =C3=A0 10:41 +0100, Mike Galbraith a =C3=A9crit :
-> Greetings network land.
->=20
-> The reason for this query is that wake_affine() fails if there is one
-> and only one task on a runqueue to encourage tasks spreading out, whi=
-ch
-> increases cpu utilization.  However, for tasks which are communicatin=
-g
-> at high frequency, the cost of the resulting cache misses, should
-> partners land in non-shared caches, is horrible to behold.  My Q6600 =
-has
-> shared caches, which may or may not be hit IFF something perturbs the
-> system, and bounces partner to the right core.  That won't happen on =
-a
-> box with no shared caches of course, and even with shared caches
-> available, the pain is highly visible in the TCP numbers below.=20
->=20
-> The sync hint tells wake_affine() that the waker is likely going to
-> sleep soonish, so it subtracts the waker from the load imbalance
-> calculation, allowing the partner task to be awakened affine.  In the
-> shared cache available case, that is also an enabler that the task be
-> placed in an idle shared cache, which can increase throughput quite a
-> bit (see .31 vs .33 AF UNIX), or may cost a bit if there is little to=
- no
-> execution overlap (see pipe).
->=20
-> Now, I _could_ change wake_affine() to globally succeed in the one ta=
-sk
-> case, but am loath to do so because that very well may upset delicate
-> load balancing apple cart.  I think it's much safer to target the spo=
-t
-> that I know hurts like hell.  Thoughts?
->=20
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 34f5cc2..ba3fc64 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -939,7 +939,7 @@ static inline int tcp_prequeue(struct sock *sk, s=
-truct sk_buff *skb)
-> =20
->  		tp->ucopy.memory =3D 0;
->  	} else if (skb_queue_len(&tp->ucopy.prequeue) =3D=3D 1) {
-> -		wake_up_interruptible_poll(sk->sk_sleep,
-> +		wake_up_interruptible_sync_poll(sk->sk_sleep,
->  					   POLLIN | POLLRDNORM | POLLRDBAND);
->  		if (!inet_csk_ack_scheduled(sk))
->  			inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
->=20
+On Wed, Feb 24, 2010 at 08:19:24AM -0500, jamal wrote:
+> 
+> Apologies for the shotgun email but this has been perplexing me for
+> sometime and i am worried the the patch i have is a band-aid (although
+> it fixes the problem), so here's a long-winded description..
 
-I suspect this discussion is more a lkml topic but anyway...
+First of all I don't think patch fixes the root (or rather, roots)
+of the problem.
+ 
+> 1)In the connect() stage, in the slow path a route cache is
+> created with the rth->fl.fl4_src of 0.0.0.0...
+> ==> policy->bundles is empty, so we do a lookup, fail, create
+> one.. (remember rth->fl.fl4_src of 0.0.0.0 at this stage and
+> thats what we end storing in the bundle/xdst for later comparison
+> instead of the skb's fl)
 
-This wake_up_interruptible_sync_poll() change might be good for loopbac=
-k
-communications (and pleases tbench), but is it desirable for regular
-multi flows NIC traffic ?=20
+So this is root number 1.  When this stuff was first written this
+case simply wasn't possible.  So I think the question we need to
+ask here is can we get a valid address there at the connect stage?
 
-Ingo probably can answer to this question, since he changed
-sock_def_readable() (and others) in commit 6f3d09291b498299
-I suspect he missed tcp_prequeue() case, maybe not...
+After all, for non-IPsec connect(2)s, you do get a valid IP address.
+So I don't see why the IPsec case should be different.
 
-sched, net: socket wakeups are sync
+Creating a bundle with a zero source address is just a hack to
+make connect(2) succeed immediately.  AFAICS getting a valid IP
+address can also be done without waiting for the whole IPsec state
+to be created.
 
-'sync' wakeups are a hint towards the scheduler that (certain)
-networking related wakeups likely create coupling between tasks.
+Of course if anybody is still interested we could also revisit
+the neighbouresque queueing idea.
+
+> 2)ping sends a packet (does a sendmsg) 
+> ==> xfrm_find_bundle() ends up comparing skb's->fl (non-zero
+> fl->fl4_src) with what we stored from #1b. Fails.
+> ==> we create a new bundle at attach the old one at the end of it.
+> ...and now policy->bundles has two xdst entries
+
+This is the way it's supposed to work.
+
+> 3) Repeat #2, and now we have 3 xdsts in policy bundles
+
+This is what I don't understand.  The code is supposed to look
+at every bundle attached to the policy.  So why doesn't it find
+the one we created at step #2?
+
+In conclusion, I think we have two problems, with the second
+one being the most immediate cause of your symptoms.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
