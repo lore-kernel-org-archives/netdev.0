@@ -1,7 +1,7 @@
 From: Samir Bellabes <sam@synack.fr>
-Subject: [RFC v2 04/10] snet: introduce snet_core
-Date: Tue,  2 Mar 2010 21:23:08 +0100
-Message-ID: <1267561394-13626-5-git-send-email-sam@synack.fr>
+Subject: [RFC v2 05/10] snet: introduce snet_event
+Date: Tue,  2 Mar 2010 21:23:09 +0100
+Message-ID: <1267561394-13626-6-git-send-email-sam@synack.fr>
 References: <1267561394-13626-1-git-send-email-sam@synack.fr>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, jamal <hadi@cyberus.ca>,
@@ -11,238 +11,255 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Grzegorz Nosek <root@localdomain.pl>,
 	Samir Bellabes <sam@synack.fr>
 To: linux-security-module@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bob75-7-88-160-5-175.fbx.proxad.net ([88.160.5.175]:38866 "EHLO
+	cerbere.dyndns.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752263Ab0CBUaY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Mar 2010 15:30:24 -0500
 In-Reply-To: <1267561394-13626-1-git-send-email-sam@synack.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-this patch introduce snet_core.c, which provides functions to start and stop
-snet's subsystems, and include/linux/snet.h, which provides interface with
-userspace
+This patch adds the snet's subsystem responsive of managing events
 
-subsytems are:
-    - snet_hooks    : LSM hooks
-    - snet_netlink  : kernel-user communication (genetlink)
-    - snet_event    : manages the list of protected syscalls
-    - snet_verdict  : provides a waitqueue for syscalls and manage verdicts
-		      from userspace
-    - snet_ticket   : provides a granted-access ticket mecanism
+snet is using the word 'event' for a couple of values [syscall, protocol].
+For example, [listen, tcp] or [sendmsg, dccp] are events.
+
+This patch introduces a hastable 'event_hash' and operations (add/remove/search..)
+in order to manage which events have to be protected.
+With the help of the communication's subsystem, managing orders are coming from
+userspace.
 
 Signed-off-by: Samir Bellabes <sam@synack.fr>
 ---
- include/linux/snet.h      |  120 +++++++++++++++++++++++++++++++++++++++++++++
- security/snet/snet_core.c |   76 ++++++++++++++++++++++++++++
- 2 files changed, 196 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/snet.h
- create mode 100644 security/snet/snet_core.c
+ security/snet/snet_event.c |  189 ++++++++++++++++++++++++++++++++++++++++++++
+ security/snet/snet_event.h |   21 +++++
+ 2 files changed, 210 insertions(+), 0 deletions(-)
+ create mode 100644 security/snet/snet_event.c
+ create mode 100644 security/snet/snet_event.h
 
-diff --git a/include/linux/snet.h b/include/linux/snet.h
+diff --git a/security/snet/snet_event.c b/security/snet/snet_event.c
 new file mode 100644
-index 0000000..739601d
+index 0000000..9e3f7d2
 --- /dev/null
-+++ b/include/linux/snet.h
-@@ -0,0 +1,120 @@
-+#ifndef _LINUX_SNET_H
-+#define _LINUX_SNET_H
-+
-+#include <linux/in6.h>
-+
-+#define SNET_VERSION	0x1
-+#define SNET_NAME	"snet"
-+
-+enum snet_syscall {
-+	SNET_SOCKET_CREATE = 0,
-+	SNET_SOCKET_BIND,
-+	SNET_SOCKET_CONNECT,
-+	SNET_SOCKET_LISTEN,
-+	SNET_SOCKET_ACCEPT,
-+	SNET_SOCKET_POST_ACCEPT,
-+	SNET_SOCKET_SENDMSG,
-+	SNET_SOCKET_RECVMSG,
-+	SNET_SOCKET_SOCK_RCV_SKB,
-+	SNET_SOCKET_CLOSE,
-+	SNET_SOCKET_INVALID,
-+};
-+
-+#define SNET_NR_SOCKET_TYPES SNET_SOCKET_INVALID
-+
-+struct snet_event {
-+	enum snet_syscall syscall;
-+	u8 protocol;
-+};
-+
-+enum snet_verdict {
-+	SNET_VERDICT_GRANT = 0,	/* grant the syscall */
-+	SNET_VERDICT_DENY,	/* deny the syscall */
-+	SNET_VERDICT_PENDING,	/* waiting for a decision */
-+	SNET_VERDICT_NONE,	/* no decision can be set */
-+	SNET_VERDICT_INVALID,
-+};
-+
-+#define SNET_NR_VERDICT_TYPES SNET_VERDICT_INVALID
-+
-+enum snet_ticket_mode {
-+	SNET_TICKET_OFF = 0,
-+	SNET_TICKET_FIX,
-+	SNET_TICKET_EXTEND,
-+};
-+
-+/* genetlink commands */
-+enum {
-+	SNET_C_UNSPEC,
-+	SNET_C_VERSION,
-+	SNET_C_REGISTER,
-+	SNET_C_UNREGISTER,
-+	SNET_C_INSERT,
-+	SNET_C_REMOVE,
-+	SNET_C_FLUSH,
-+	SNET_C_LIST,
-+	SNET_C_VERDICT,
-+	SNET_C_CONFIG,
-+	__SNET_C_MAX,
-+};
-+
-+#define SNET_C_MAX (__SNET_C_MAX - 1)
-+
-+/* genetlink attributes */
-+enum {
-+	SNET_A_UNSPEC,
-+	SNET_A_VERSION,		/* (NLA_U32) the snet protocol version	*/
-+	SNET_A_VERDICT_ID,
-+	SNET_A_FAMILY,
-+	SNET_A_SYSCALL,		/* (NLA_U8)  a syscall identifier	*/
-+	SNET_A_PROTOCOL,	/* (NLA_U8)  a protocol identifier	*/
-+	SNET_A_UID,
-+	SNET_A_PID,
-+	SNET_A_TYPE,
-+	SNET_A_IPV4SADDR,
-+	SNET_A_IPV6SADDR,
-+	SNET_A_IPV4DADDR,
-+	SNET_A_IPV6DADDR,
-+	SNET_A_SPORT,
-+	SNET_A_DPORT,
-+	SNET_A_BUFFER,
-+	SNET_A_BUFFER_LEN,
-+	SNET_A_VERDICT,
-+	SNET_A_VERDICT_DELAY,
-+	SNET_A_TICKET_DELAY,
-+	SNET_A_TICKET_MODE,
-+	__SNET_A_MAX,
-+};
-+
-+#define SNET_A_MAX (__SNET_A_MAX - 1)
-+
-+#define SNET_GENL_NAME		"SNET"
-+#define SNET_GENL_VERSION	SNET_VERSION
-+
-+struct snet_sock_half {
-+	struct {
-+		union {
-+			__be32 ip;
-+			struct in6_addr ip6;
-+		};
-+	} u3;
-+	struct {
-+		__be16 port;
-+	} u;
-+};
-+
-+struct snet_info {
-+	u32 verdict_id;
-+
-+	enum snet_syscall syscall;
-+	u8 protocol;
-+	u8 family;
-+
-+	int type;
-+	struct snet_sock_half src;
-+	struct snet_sock_half dst;
-+	void *buffer;
-+	int len;
-+};
-+
-+#endif /* _LINUX_SNET_H */
-diff --git a/security/snet/snet_core.c b/security/snet/snet_core.c
-new file mode 100644
-index 0000000..9f2eb2e
---- /dev/null
-+++ b/security/snet/snet_core.c
-@@ -0,0 +1,76 @@
-+#include <linux/module.h>
-+#include <linux/kernel.h>
-+#include <net/genetlink.h>
++++ b/security/snet/snet_event.c
+@@ -0,0 +1,189 @@
++#include <linux/spinlock.h>
++#include <linux/list.h>
++#include <linux/jhash.h>
++#include <linux/slab.h>
++#include <linux/netlink.h>
 +#include <linux/snet.h>
-+#include "snet_hooks.h"
 +#include "snet_event.h"
-+#include "snet_verdict.h"
-+#include "snet_ticket.h"
++#include "snet_netlink.h"
 +#include "snet_utils.h"
 +
-+unsigned int snet_evh_size = 16;
-+module_param(snet_evh_size, uint, 0400);
-+MODULE_PARM_DESC(snet_evh_size, "Set the size of the event hash table");
++static struct list_head *snet_evh;
++static rwlock_t snet_evh_lock = __RW_LOCK_UNLOCKED();
 +
-+unsigned int snet_vdh_size = 16;
-+module_param(snet_vdh_size, uint, 0400);
-+MODULE_PARM_DESC(snet_vdh_size, "Set the size of the verdict hash table");
++struct snet_event_entry {
++	struct list_head list;
++	struct snet_event se;
++};
 +
-+unsigned int snet_verdict_delay = 5;
-+module_param(snet_verdict_delay, uint, 0600);
-+MODULE_PARM_DESC(snet_verdict_delay, "Set the timeout for verdicts in secs");
-+
-+unsigned int snet_verdict_policy = SNET_VERDICT_GRANT;	/* permissive by default */
-+module_param(snet_verdict_policy, uint, 0400);
-+MODULE_PARM_DESC(snet_verdict_policy, "Set the default verdict");
-+
-+unsigned int snet_ticket_delay = 15;
-+module_param(snet_ticket_delay, uint, 0600);
-+MODULE_PARM_DESC(snet_ticket_delay, "Set the timeout for tickets in secs");
-+
-+unsigned int snet_ticket_mode = SNET_TICKET_FIX;
-+module_param(snet_ticket_mode, uint, 0600);
-+MODULE_PARM_DESC(snet_ticket_mode, "Set the mode for tickets");
-+
-+static __init int snet_init(void)
++/* lookup for a snet_evh - before using this function, lock snet_evh_lock */
++static struct snet_event_entry *__snet_event_lookup(const enum snet_syscall syscall,
++						    const u8 protocol)
 +{
-+	int ret;
++	unsigned int h = 0;
++	struct list_head *l;
++	struct snet_event_entry *s;
 +
-+	pr_debug("initializing: event_hash_size=%u "
-+		 "verdict_hash_size=%u verdict_delay=%usecs "
-+		 "default_policy=%s\n",
-+		 snet_evh_size, snet_vdh_size, snet_verdict_delay,
-+		 snet_verdict_name(snet_verdict_policy));
++	/* computing its hash value */
++	h = jhash_2words(syscall, protocol, 0) % snet_evh_size;
++	l = &snet_evh[h];
 +
-+	ret = snet_event_init();
-+	if (ret < 0)
-+		goto event_failed;
++	list_for_each_entry(s, l, list) {
++		if ((s->se.protocol == protocol) &&
++		    (s->se.syscall == syscall)) {
++			return s;
++		}
++	}
++	return NULL;
++}
 +
-+	ret = snet_verdict_init();
-+	if (ret < 0)
-+		goto verdict_failed;
++int snet_event_fill_info(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	unsigned int i = 0, n = 0;
++	int ret = -1;
++	unsigned hashs_to_skip = cb->args[0];
++	unsigned events_to_skip = cb->args[1];
++	struct list_head *l;
++	struct snet_event_entry *s;
 +
-+	ret = snet_ticket_init();
-+	if (ret < 0)
-+		goto ticket_failed;
++	read_lock_bh(&snet_evh_lock);
 +
-+	/* snet_hooks_init() returns 0 or execute panic() */
-+	snet_hooks_init();
++	for (i = 0; i < snet_evh_size; i++) {
++		if (i < hashs_to_skip)
++			continue;
++		l = &snet_evh[i];
++		n = 0;
++		list_for_each_entry(s, l, list) {
++			if (++n < events_to_skip)
++				continue;
++			ret = snet_nl_list_fill_info(skb,
++						     NETLINK_CB(cb->skb).pid,
++						     cb->nlh->nlmsg_seq,
++						     NLM_F_MULTI,
++						     s->se.protocol,
++						     s->se.syscall);
++			if (ret < 0)
++				goto errout;
++		}
++	}
 +
-+	pr_debug("started\n");
-+	return 0;
++errout:
++	read_unlock_bh(&snet_evh_lock);
 +
-+ticket_failed:
-+	snet_verdict_exit();
-+verdict_failed:
-+	snet_event_exit();
-+event_failed:
-+	pr_debug("stopped\n");
++	cb->args[0] = i;
++	cb->args[1] = n;
++	return skb->len;
++}
++
++/*
++ * check if a event is registered or not
++ * return 1 if event is registered, 0 if not
++ */
++int snet_event_is_registered(const enum snet_syscall syscall, const u8 protocol)
++{
++	int ret = 0;
++
++	read_lock_bh(&snet_evh_lock);
++	if (__snet_event_lookup(syscall, protocol) != NULL)
++		ret = 1;
++	read_unlock_bh(&snet_evh_lock);
 +	return ret;
 +}
 +
-+security_initcall(snet_init);
++/* adding a event */
++int snet_event_insert(const enum snet_syscall syscall, const u8 protocol)
++{
++	struct snet_event_entry *data = NULL;
++	unsigned int h = 0;
++	int err = 0;
 +
-+MODULE_DESCRIPTION("snet - Security for NETwork syscalls");
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Samir Bellabes <sam@synack.fr>");
++	data = kzalloc(sizeof(struct snet_event_entry), GFP_KERNEL);
++	if (!data) {
++		err = -ENOMEM;
++		goto out;
++	}
++
++	write_lock_bh(&snet_evh_lock);
++	/* check if event is already registered */
++	if (__snet_event_lookup(syscall, protocol) != NULL) {
++		write_unlock_bh(&snet_evh_lock);
++		kfree(data);
++		err = -EINVAL;
++		goto out;
++	}
++
++	data->se.syscall = syscall;
++	data->se.protocol = protocol;
++	INIT_LIST_HEAD(&(data->list));
++	h = jhash_2words(data->se.syscall, data->se.protocol, 0) % snet_evh_size;
++	list_add_tail(&data->list, &snet_evh[h]);
++	write_unlock_bh(&snet_evh_lock);
++	pr_debug("[%u]=(syscall=%s, protocol=%u)\n",
++		 h, snet_syscall_name(syscall), protocol);
++out:
++	return err;
++}
++
++/* removing a event */
++int snet_event_remove(const enum snet_syscall syscall, const u8 protocol)
++{
++	struct snet_event_entry *data = NULL;
++
++	write_lock_bh(&snet_evh_lock);
++	data = __snet_event_lookup(syscall, protocol);
++	if (data == NULL) {
++		write_unlock_bh(&snet_evh_lock);
++		return -EINVAL;
++	}
++	pr_debug("(syscall=%s, protocol=%u)\n",
++		 snet_syscall_name(syscall), protocol);
++	list_del(&data->list);
++	write_unlock_bh(&snet_evh_lock);
++	kfree(data);
++	return 0;
++}
++
++/* flushing all events */
++void snet_event_flush(void)
++{
++	unsigned int i = 0;
++
++	write_lock_bh(&snet_evh_lock);
++	for (i = 0; i < snet_evh_size; i++) {
++		struct snet_event_entry *data, *tmp;
++		list_for_each_entry_safe(data, tmp, &snet_evh[i], list) {
++			list_del(&data->list);
++			kfree(data);
++		}
++	}
++	write_unlock_bh(&snet_evh_lock);
++	return;
++}
++
++/* init function */
++int snet_event_init(void)
++{
++	int err = 0, i = 0;
++
++	snet_evh = kzalloc(sizeof(struct list_head) * snet_evh_size,
++			     GFP_KERNEL);
++	if (!snet_evh) {
++		printk(KERN_WARNING
++		       "snet: can't alloc memory for snet_evh\n");
++		err = -ENOMEM;
++		goto out;
++	}
++
++	for (i = 0; i < snet_evh_size; i++)
++		INIT_LIST_HEAD(&snet_evh[i]);
++
++out:
++	return err;
++}
++
++/* exit function */
++void snet_event_exit(void)
++{
++	kfree(snet_evh);
++	snet_evh = NULL;
++}
+diff --git a/security/snet/snet_event.h b/security/snet/snet_event.h
+new file mode 100644
+index 0000000..fa991c7
+--- /dev/null
++++ b/security/snet/snet_event.h
+@@ -0,0 +1,21 @@
++#ifndef _SNET_EVENT_H
++#define _SNET_EVENT_H
++
++#include <linux/skbuff.h>
++
++extern unsigned int snet_evh_size;
++
++/* manipulate the events hash table */
++int snet_event_fill_info(struct sk_buff *skb, struct netlink_callback *cb);
++int snet_event_is_registered(const enum snet_syscall syscall, const u8 protocol);
++int snet_event_insert(const enum snet_syscall syscall, const u8 protocol);
++int snet_event_remove(const enum snet_syscall syscall, const u8 protocol);
++void snet_event_flush(void);
++void snet_event_dumpall(void);
++
++/* init function */
++int snet_event_init(void);
++/* exit funtion */
++void snet_event_exit(void);
++
++#endif /* _SNET_EVENT_H */
 -- 
 1.6.3.3
+
