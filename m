@@ -1,40 +1,49 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing
- control.
-Date: Tue, 2 Mar 2010 16:14:23 +0100 (CET)
-Message-ID: <alpine.LSU.2.01.1003021613570.17303@obet.zrqbmnf.qr>
-References: <4B4F24AC.70105@trash.net> <m13a0tf17t.fsf@fess.ebiederm.org> <1266875729.3673.12.camel@bigi> <m1wry46es9.fsf@fess.ebiederm.org> <1266931623.3973.643.camel@bigi> <m1iq9ocafv.fsf@fess.ebiederm.org> <1266934817.3973.654.camel@bigi>
- <m1r5obbu2w.fsf@fess.ebiederm.org> <1266966581.3973.675.camel@bigi> <m1pr3t2fvl.fsf_-_@fess.ebiederm.org> <4B883987.6090408@parallels.com> <m1bpfbwuze.fsf@fess.ebiederm.org> <4B883E6F.1060907@parallels.com> <m13a0nwu6p.fsf@fess.ebiederm.org>
- <4B88D80A.8010701@parallels.com> <m1mxyvrqvk.fsf@fess.ebiederm.org> <4B88E431.6040609@parallels.com> <m1bpfbqajn.fsf@fess.ebiederm.org> <4B894564.7080104@parallels.com> <m1iq9io5sc.fsf@fess.ebiederm.org> <4B89727C.9040602@parallels.com> <m1ljeempk6.fsf@fess.ebiederm.org>
- <4B8AE8C1.1030305@free.fr> <4B8D28CF.8060304@parallels.com>
+From: =?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Notifier chains bug ?
+Date: Tue, 2 Mar 2010 23:42:56 +0800
+Message-ID: <20100302153651.GC4014@hack>
+References: <4B8C56F0.5090700@gmail.com> <2375c9f91003011924k43f03649y5b4df405d6247a79@mail.gmail.com> <5e9821061003012150y15e543cdkf6f23c3a7a47e4a3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Daniel Lezcano <daniel.lezcano@free.fr>,
-	"Eric W. Biederman" <ebiederm@xmission.com>, hadi@cyberus.ca,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>,
-	Serge Hallyn <serue@us.ibm.com>,
-	Matt Helsley <matthltc@us.ibm.com>
-To: Pavel Emelyanov <xemul@parallels.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B8D28CF.8060304@parallels.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Oleg Kutkov <elenbert@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5e9821061003012150y15e543cdkf6f23c3a7a47e4a3@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 2010-03-02 16:03, Pavel Emelyanov wrote:
-
->> I agree with all the points you and Pavel you talked about but I don't 
->> feel comfortable to have the current process to switch the pid namespace 
->> because of the process tree hierarchy (what will be the parent of the 
->> process when you enter the pid namespace for example).
+On Tue, Mar 02, 2010 at 07:50:01AM +0200, Oleg Kutkov wrote:
+>2010/3/2 Am=C3=A9rico Wang <xiyou.wangcong@gmail.com>:
+>> On Tue, Mar 2, 2010 at 8:08 AM, Oleg Kutkov <elenbert@gmail.com> wro=
+te:
+>>> Hello.
+>>> I try to used notifier chains for monitoring network devices events=
+=2E
+>>> All works perfectly when just i'm connecting/disconnecting network =
+cable or
+>>> up/down interface via ifconfig.
+>>> But when i try to change interface address - nothing happens. Notif=
+ier is
+>>> don't send any events :(
+>>
+>> I think you mean IP address? No, NETDEV_CHANGEADDR is for hardware
+>> address, not for IP address.
+>>
+>> If you were changing mac address, you will receive NETDEV_CHANGEADDR=
+=2E
+>>
 >
->The answer is - the one, that used to be. I see no problems with it.
->Do you?
+>Thank for quick answer.
+>Yes, i mean IP address. And what about NETDEV_CHANGE ?
 
-But perhaps it could be named "namespacefd" instead of nsfd, to reduce 
-potential clashes (because glibc will usually just use the same name 
-when making the syscall available as a C function).
+It is for rtnetlink state transition.
+
+>Is there possible for monitoring IP address/netmask changing ?
+>
+
+AFAIK, no.
+
+Cc'ing netdev experts...
