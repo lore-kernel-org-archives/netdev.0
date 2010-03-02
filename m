@@ -1,51 +1,37 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: [PATCH V2] net: add accounting for socket backlog
-Date: Tue, 02 Mar 2010 10:34:02 +0800
-Message-ID: <1267497242.23196.62.camel@debian>
-References: <1267176464-426-1-git-send-email-yi.zhu@intel.com>
-	 <1267335071.9082.56.camel@edumazet-laptop>
-	 <1267443828.3039.7.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: sparse checking prevented by "net: fix kmemcheck annotations"
+Date: Mon, 01 Mar 2010 18:39:55 -0800 (PST)
+Message-ID: <20100301.183955.258219526.davem@davemloft.net>
+References: <4B8BAE79.9000609@s5r6.in-berlin.de>
+	<1267448966.3039.22.camel@edumazet-laptop>
+	<4B8BE8BE.9070505@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:43652 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753193Ab0CBCcU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Mar 2010 21:32:20 -0500
-In-Reply-To: <1267443828.3039.7.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: stefanr@s5r6.in-berlin.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4B8BE8BE.9070505@s5r6.in-berlin.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-03-01 at 19:43 +0800, Eric Dumazet wrote:
-> Thinking again about this, doing this zero initialization at the very
-> end of __release_sock() solves the problem of potential infinite loop
-> in
-> __release_sock(). Since producer will hit the backlog limit.
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Date: Mon, 01 Mar 2010 17:18:06 +0100
+
+> Eric Dumazet wrote:
+>> [PATCH] net: fix protocol sk_buff field
+>> 
+>> Commit e992cd9b72a18 (kmemcheck: make bitfield annotations truly no-ops
+>> when disabled) allows us to revert a workaround we did in the past to
+>> not add holes in sk_buff structure.
+>> 
+>> This patch partially reverts commit 14d18a81b5171
+>> (net: fix kmemcheck annotations) so that sparse doesnt complain:
+>> 
+>> include/linux/skbuff.h:357:41: error: invalid bitfield specifier for
+>> type restricted __be16.
 > 
-> Thanks
-> 
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 305cba4..544cf4a 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1542,6 +1542,11 @@ static void __release_sock(struct sock *sk)
->  
->                 bh_lock_sock(sk);
->         } while ((skb = sk->sk_backlog.head) != NULL);
-> +       /*
-> +        * Doing this zeroing at the end of this function guarantee we
-> can not
-> +        * loop forever while a wild producer attempts to flood us
-> +        */
-> +       sk->sk_backlog.len = 0;
->  } 
+> Great, very appreciated.
 
-Very good point. I'll add your sob in my next patch.
-
-Thanks,
--yi
-
+Applied, thanks everyone.
