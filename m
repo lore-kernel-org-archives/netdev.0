@@ -1,50 +1,50 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch] cpmac: use after free
-Date: Wed, 3 Mar 2010 09:59:58 +0100
-Message-ID: <20100303085957.GA2961@psychotron.lab.eng.brq.redhat.com>
-References: <20100303084610.GH5086@bicker>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: Re: [PATCH V2 2/7] tcp: use limited socket backlog
+Date: Wed, 03 Mar 2010 17:06:02 +0800
+Message-ID: <1267607162.2370.169.camel@debian>
+References: <1267605389-7369-1-git-send-email-yi.zhu@intel.com>
+	 <1267605389-7369-2-git-send-email-yi.zhu@intel.com>
+	 <1267606433.2997.4.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Florian Fainelli <florian@openwrt.org>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Stefan Weil <weil@mail.berlios.de>,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53079 "EHLO mx1.redhat.com"
+Received: from mga14.intel.com ([143.182.124.37]:12282 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754240Ab0CCJAN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Mar 2010 04:00:13 -0500
-Content-Disposition: inline
-In-Reply-To: <20100303084610.GH5086@bicker>
+	id S1751927Ab0CCJER (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Mar 2010 04:04:17 -0500
+In-Reply-To: <1267606433.2997.4.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Mar 03, 2010 at 09:46:10AM CET, error27@gmail.com wrote:
->The original code dereferenced "cpmac_mii" after calling 
->"mdiobus_free(cpmac_mii);"
->
->Signed-off-by: Dan Carpenter <error27@gmail.com>
->---
->Found by a static checker and not tested.  Sorry.  :/
->
->diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
->index b85c81f..9d48942 100644
->--- a/drivers/net/cpmac.c
->+++ b/drivers/net/cpmac.c
->@@ -1290,8 +1290,8 @@ void __devexit cpmac_exit(void)
-> {
-> 	platform_driver_unregister(&cpmac_driver);
-> 	mdiobus_unregister(cpmac_mii);
->-	mdiobus_free(cpmac_mii);
-> 	iounmap(cpmac_mii->priv);
->+	mdiobus_free(cpmac_mii);
-> }
+On Wed, 2010-03-03 at 16:53 +0800, Eric Dumazet wrote:
+> > @@ -1682,8 +1682,10 @@ process:
+> >                       if (!tcp_prequeue(sk, skb))
+> >                               ret = tcp_v4_do_rcv(sk, skb);
+> >               }
+> > -     } else
+> > -             sk_add_backlog(sk, skb);
+> > +     } else if (sk_add_backlog_limited(sk, skb)) {
+> > +             bh_unlock_sock(sk);
+> > +             goto discard_and_relse;
+> > +     }
+> >       bh_unlock_sock(sk);
+> >  
+> >       sock_put(sk);
 > 
-> module_init(cpmac_init);
+> So no counter is incremented to reflect this loss, sk->sk_drops (local
+> counter) or SNMP ? 
 
-Looks good. Thanks.
+I simply follow how the code is originally written. As you can see,
+tcp_v4_do_rcv() doesn't always do so. And in the backlog queuing place,
+we don't even bother to check.
 
-Reviewed-by: Jiri Pirko <jpirko@redhat.com>
+Thanks,
+-yi
 
