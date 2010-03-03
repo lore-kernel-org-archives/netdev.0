@@ -1,47 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [rfc/rft][patch] should use scheduler sync hint in
- tcp_prequeue()?
-Date: Wed, 03 Mar 2010 06:05:29 -0800 (PST)
-Message-ID: <20100303.060529.195713861.davem@davemloft.net>
-References: <1267522901.25906.101.camel@marge.simson.net>
-	<1267529273.2964.111.camel@edumazet-laptop>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/2] ipv4: flush ARP entries on device change
+Date: Wed, 03 Mar 2010 15:06:00 +0100
+Message-ID: <4B8E6CC8.3080701@trash.net>
+References: <1267624874-22326-1-git-send-email-timo.teras@iki.fi> <1267624874-22326-2-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: efault@gmx.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mingo@elte.hu
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1267529273.2964.111.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:40619 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754424Ab0CCOGB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Mar 2010 09:06:01 -0500
+In-Reply-To: <1267624874-22326-2-git-send-email-timo.teras@iki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 02 Mar 2010 12:27:53 +0100
+Timo Teras wrote:
+> If device flag IFF_NOARP is changed, we should flush the ARP cache as all
+> entries need to get refreshed.
+> 
+> Signed-off-by: Timo Teras <timo.teras@iki.fi>
+> ---
+>  net/ipv4/arp.c |    3 +++
+>  1 files changed, 3 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+> index c4dd135..036da92 100644
+> --- a/net/ipv4/arp.c
+> +++ b/net/ipv4/arp.c
+> @@ -1245,6 +1245,9 @@ static int arp_netdev_event(struct notifier_block *this, unsigned long event, vo
+>  		neigh_changeaddr(&arp_tbl, dev);
+>  		rt_cache_flush(dev_net(dev), 0);
+>  		break;
+> +	case NETDEV_CHANGE:
+> +		neigh_changeaddr(&arp_tbl, dev);
+> +		break;
 
-> Le mardi 02 mars 2010 =E0 10:41 +0100, Mike Galbraith a =E9crit :
->> diff --git a/include/net/tcp.h b/include/net/tcp.h
->> index 34f5cc2..ba3fc64 100644
->> --- a/include/net/tcp.h
->> +++ b/include/net/tcp.h
->> @@ -939,7 +939,7 @@ static inline int tcp_prequeue(struct sock *sk, =
-struct sk_buff *skb)
->> =20
->>  		tp->ucopy.memory =3D 0;
->>  	} else if (skb_queue_len(&tp->ucopy.prequeue) =3D=3D 1) {
->> -		wake_up_interruptible_poll(sk->sk_sleep,
->> +		wake_up_interruptible_sync_poll(sk->sk_sleep,
->>  					   POLLIN | POLLRDNORM | POLLRDBAND);
->>  		if (!inet_csk_ack_scheduled(sk))
->>  			inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
->>=20
- ...
-> Ingo probably can answer to this question, since he changed
-> sock_def_readable() (and others) in commit 6f3d09291b498299
-> I suspect he missed tcp_prequeue() case, maybe not...
-
-It definitely looks like an oversight to me and we should add
-be using wake_up_interruptible_sync_poll() in tcp_prequeue()
-as above.
-
-Ingo?
+It would be nice if we could restrict this to IFF_NOARP changes.
