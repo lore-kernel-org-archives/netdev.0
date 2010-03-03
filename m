@@ -1,60 +1,39 @@
-From: Dick Hollenbeck <dick@softplc.com>
-Subject: Re: KS8695: possible NAPI issue
-Date: Tue, 02 Mar 2010 23:01:29 -0600
-Message-ID: <4B8DED29.9000605@softplc.com>
-References: <f69abfc31003020404y7af77fe5icefeee4644c7d08e@mail.gmail.com>	 <4B8D1C02.1010204@softplc.com> <c6ed1ac51003021746n2b246591g880b584550ec5e84@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bridge] [PATCH]  bridge: per-cpu packet statistics (v3)
+Date: Wed, 03 Mar 2010 07:09:04 +0100
+Message-ID: <1267596544.2839.71.camel@edumazet-laptop>
+References: <20100301161658.5a61143b@nehalam>
+	 <1267520579.2964.27.camel@edumazet-laptop>
+	 <20100302095831.151c8bb5@nehalam> <1267553173.2839.9.camel@edumazet-laptop>
+	 <20100302153209.74742a96@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Yegor Yefremov <yegorslists@googlemail.com>,
-	netdev@vger.kernel.org, zealcook@gmail.com
-To: figo zhang <figo1802@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kcmailp04.birch.net ([216.212.0.99]:57230 "EHLO mx01.birch.net"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750746Ab0CCFBJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Mar 2010 00:01:09 -0500
-In-Reply-To: <c6ed1ac51003021746n2b246591g880b584550ec5e84@mail.gmail.com>
+Received: from mail-bw0-f212.google.com ([209.85.218.212]:64339 "EHLO
+	mail-bw0-f212.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751195Ab0CCGJK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Mar 2010 01:09:10 -0500
+Received: by bwz4 with SMTP id 4so740913bwz.28
+        for <netdev@vger.kernel.org>; Tue, 02 Mar 2010 22:09:08 -0800 (PST)
+In-Reply-To: <20100302153209.74742a96@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-figo zhang wrote:
-> 2010/3/2 Dick Hollenbeck <dick@softplc.com>:
->   
->> Yegor Yefremov wrote:
->>     
->>> I'm using 2.6.33 kernel and I noticed such a strange behavior:
->>>
->>> after system start I transfer one file via netcat from my development
->>> host, after this transfer the network is not functioning i.e. no pings
->>> possible etc.
->>>
->>> To narrow down the problem I checked out this commit
->>>
->>> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=451f14439847db302e5104c44458b2dbb4b1829d.
->>> Till here the network driver is functioning as intended, but after
->>> NAPI introduction I have this issue. With latest git-pull of "Linus'
->>> kernel tree" I can't even ping right after the systems start.
->>>
->>> Any Ideas? What am I missing?
->>>
->>>       
->> No idea, although I am using the same ARM chip, my kernel is at 2.6.30.5,
->> and except for this occasional loss of connection I get, the ethernet driver
->> seems to work better than what you are reporting.
->>     
->
-> from linux-2.6.32, this ethernet  driver have add NAPI support, would
-> you like to
-> try using this version?
->   
+Le mardi 02 mars 2010 =C3=A0 15:32 -0800, Stephen Hemminger a =C3=A9cri=
+t :
+> The shared packet statistics are a potential source of slow down
+> on bridged traffic. Convert to per-cpu array, but only keep those
+> statistics which change per-packet.
+>=20
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>=20
 
-Seems like a lot of work for me, given that my 2.6.30.5 kernel is mostly 
-working.   Yegor is having the problems on the newer kernels, newer than 
-mine.  Sounds like a warning flag to me, not an incentive.
+Thanks Stephen !
 
-What is NAPI and why do I care?
-
-Dick
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
 
