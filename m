@@ -1,66 +1,48 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: [PATCH 1/8] net: add limit for socket backlog
-Date: Wed, 03 Mar 2010 15:35:28 +0800
-Message-ID: <1267601728.2370.47.camel@debian>
-References: <1267598111-12503-1-git-send-email-yi.zhu@intel.com>
-	 <1267599269.2839.84.camel@edumazet-laptop>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [net-2.6 PATCH] af_packet: move strict addr_len check right
+ before dev_[mc/unicast]_[add/del]
+Date: Wed, 3 Mar 2010 08:36:03 +0100
+Message-ID: <20100303073603.GD2648@psychotron.redhat.com>
+References: <1267578048.14049.11.camel@mj>
+ <20100303064001.GB2648@psychotron.redhat.com>
+ <20100303020110.hhu4cdecg08kkck0-cebfxv@webmail.spamcop.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	Patrick McHardy <kaber@trash.net>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	Per Liden <per.liden@ericsson.com>,
-	Jon Maloy <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>,
-	Andrew Hendry <andrew.hendry@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Pavel Roskin <proski@gnu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:41201 "EHLO mga09.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:29234 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752058Ab0CCHdp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Mar 2010 02:33:45 -0500
-In-Reply-To: <1267599269.2839.84.camel@edumazet-laptop>
+	id S1752257Ab0CCHgI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Mar 2010 02:36:08 -0500
+Content-Disposition: inline
+In-Reply-To: <20100303020110.hhu4cdecg08kkck0-cebfxv@webmail.spamcop.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-03-03 at 14:54 +0800, Eric Dumazet wrote:
-> > diff --git a/include/net/sock.h b/include/net/sock.h
-> > index 6cb1676..847119a 100644
-> > --- a/include/net/sock.h
-> > +++ b/include/net/sock.h
-> > @@ -253,6 +253,8 @@ struct sock {
-> >  	struct {
-> >  		struct sk_buff *head;
-> >  		struct sk_buff *tail;
-> > +		int len;
-> > +		int limit;
-> 
-> This new limit field is really not needed
+Wed, Mar 03, 2010 at 08:01:10AM CET, proski@gnu.org wrote:
+>Quoting Jiri Pirko <jpirko@redhat.com>:
+>
+>>@@ -1734,7 +1738,7 @@ static int packet_mc_add(struct sock *sk,
+>>struct packet_mreq_max *mreq)
+>> 		goto done;
+>>
+>> 	err = -EINVAL;
+>>-	if (mreq->mr_alen != dev->addr_len)
+>>+	if (mreq->mr_alen > dev->addr_len)
+>> 		goto done;
+>>
+>> 	err = -ENOBUFS;
+>
+>The patch looks good, but did you mean to include this change?  It's
+>not described.
 
-sk->sk_rcvbuf can be adjusted by setsockopt from user at run time. The
-minimum allowed value is 256. I'm afraid this will break most protocols.
+Sure - this is revert of the bit from my original patch. I think it's clear from
+description.
 
-<...>
+Jirka
 
-> Ouch, this patch breaks bisection, since all protocols currently ignore
-> -ENOBUFS value and dont free skb
-> 
-> If you split your work on several patches, you still have to make
-> resulting kernels usable.
-
-OK. Will fix.
-
-<...>
-
-> > +	sk->sk_backlog.limit	=	sk->sk_rcvbuf >> 1;
-
-Sorry, typo.
-
-Thanks,
--yi
-
+>
+>-- 
+>Regards,
+>Pavel Roskin
