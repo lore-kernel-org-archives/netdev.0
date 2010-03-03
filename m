@@ -1,525 +1,547 @@
 From: David Stevens <dlstevens@us.ibm.com>
-Subject: [RFC][ PATCH 1/3] vhost-net: support multiple buffer heads in receiver
-Date: Tue, 2 Mar 2010 17:20:15 -0700
-Message-ID: <OF201C1B9E.C89ADF9F-ON882576DB.00006AD7-882576DB.0001DA4E@us.ibm.com>
+Subject: [RFC][ PATCH 2/3] vhost-net: handle vnet_hdr processing for MRG_RX_BUF
+Date: Tue, 2 Mar 2010 17:20:26 -0700
+Message-ID: <OF9CBCD776.645508E4-ON882576DB.0000CB6E-882576DB.0001DED1@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=_mixed 0001DA48882576DB_="
+Content-Type: multipart/mixed; boundary="=_mixed 0001DECF882576DB_="
 Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	virtualization@lists.osdl.org
 To: mst@redhat.com, rusty@rustcorp.com.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:49493 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755164Ab0CCAU1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Mar 2010 19:20:27 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---=_mixed 0001DA48882576DB_=
+--=_mixed 0001DECF882576DB_=
 Content-Type: text/plain; charset="US-ASCII"
 
-This patch generalizes buffer handling functions to
-support multiple buffer heads.
-
-In-line for viewing, attached for applying.
+This patch adds vnet_hdr processing for mergeable buffer
+support to vhost-net.
 
 Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
 
-diff -ruN net-next-p0/drivers/vhost/net.c net-next-p1/drivers/vhost/net.c
---- net-next-p0/drivers/vhost/net.c     2010-02-24 12:59:24.000000000 
+diff -ruN net-next-p1/drivers/vhost/net.c net-next-p2/drivers/vhost/net.c
+--- net-next-p1/drivers/vhost/net.c     2010-03-01 11:44:22.000000000 
 -0800
-+++ net-next-p1/drivers/vhost/net.c     2010-03-01 11:44:22.000000000 
++++ net-next-p2/drivers/vhost/net.c     2010-03-02 13:01:34.000000000 
 -0800
-@@ -97,7 +97,8 @@
- static void handle_tx(struct vhost_net *net)
- {
-        struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_TX];
--       unsigned head, out, in, s;
-+       unsigned out, in, s;
-+       struct iovec head;
-        struct msghdr msg = {
-                .msg_name = NULL,
-                .msg_namelen = 0,
-@@ -126,12 +127,10 @@
-        hdr_size = vq->hdr_size;
+@@ -109,7 +109,6 @@
+        };
+        size_t len, total_len = 0;
+        int err, wmem;
+-       size_t hdr_size;
+        struct socket *sock = rcu_dereference(vq->private_data);
+        if (!sock)
+                return;
+@@ -124,7 +123,6 @@
+ 
+        if (wmem < sock->sk->sk_sndbuf * 2)
+                tx_poll_stop(net);
+-       hdr_size = vq->hdr_size;
  
         for (;;) {
--               head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
--                                        ARRAY_SIZE(vq->iov),
--                                        &out, &in,
--                                        NULL, NULL);
-+               head.iov_base = (void *)vhost_get_vq_desc(&net->dev, vq,
-+                       vq->iov, ARRAY_SIZE(vq->iov), &out, &in, NULL, 
-NULL);
-                /* Nothing new?  Wait for eventfd to tell us they 
-refilled. */
--               if (head == vq->num) {
-+               if (head.iov_base == (void *)vq->num) {
-                        wmem = atomic_read(&sock->sk->sk_wmem_alloc);
-                        if (wmem >= sock->sk->sk_sndbuf * 3 / 4) {
-                                tx_poll_start(net, sock);
-@@ -152,7 +151,7 @@
+                head.iov_base = (void *)vhost_get_vq_desc(&net->dev, vq,
+@@ -148,25 +146,45 @@
+                               "out %d, int %d\n", out, in);
+                        break;
+                }
++               if (vq->guest_hlen > vq->sock_hlen) {
++                       if (msg.msg_iov[0].iov_len == vq->guest_hlen)
++                               msg.msg_iov[0].iov_len = vq->sock_hlen;
++                       else if (out == ARRAY_SIZE(vq->iov))
++                               vq_err(vq, "handle_tx iov overflow!");
++                       else {
++                               int i;
++
++                               /* give header its own iov */
++                               for (i=out; i>0; ++i)
++                                       msg.msg_iov[i+1] = msg.msg_iov[i];
++                               msg.msg_iov[0].iov_len = vq->sock_hlen;
++                               msg.msg_iov[1].iov_base += vq->guest_hlen;
++                               msg.msg_iov[1].iov_len -= vq->guest_hlen;
++                               out++;
++                       }
++               }
                 /* Skip header. TODO: support TSO. */
-                s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, out);
+-               s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, out);
                 msg.msg_iovlen = out;
--               len = iov_length(vq->iov, out);
-+               head.iov_len = len = iov_length(vq->iov, out);
+                head.iov_len = len = iov_length(vq->iov, out);
                 /* Sanity check */
                 if (!len) {
                         vq_err(vq, "Unexpected header len for TX: "
-@@ -163,14 +162,14 @@
+                               "%zd expected %zd\n",
+-                              iov_length(vq->hdr, s), hdr_size);
++                              len, vq->guest_hlen);
+                        break;
+                }
                 /* TODO: Check specific error and bomb out unless ENOBUFS? 
 */
                 err = sock->ops->sendmsg(NULL, sock, &msg, len);
                 if (unlikely(err < 0)) {
--                       vhost_discard_vq_desc(vq);
-+                       vhost_discard(vq, 1);
-                        tx_poll_start(net, sock);
+-                       vhost_discard(vq, 1);
+-                       tx_poll_start(net, sock);
++                       if (err == -EAGAIN) {
++                               tx_poll_start(net, sock);
++                       } else {
++                               vq_err(vq, "sendmsg: errno %d\n", -err);
++                               /* drop packet; do not discard/resend */
++ vhost_add_used_and_signal(&net->dev,vq,&head,1);
++                       }
                         break;
-                }
-                if (err != len)
+-               }
+-               if (err != len)
++               } else if (err != len)
                         pr_err("Truncated TX packet: "
                                " len %d != %zd\n", err, len);
--               vhost_add_used_and_signal(&net->dev, vq, head, 0);
-+               vhost_add_used_and_signal(&net->dev, vq, &head, 1);
-                total_len += len;
-                if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
-                        vhost_poll_queue(&vq->poll);
-@@ -182,12 +181,22 @@
-        unuse_mm(net->dev.mm);
- }
- 
-+static int skb_head_len(struct sk_buff_head *skq)
-+{
-+       struct sk_buff *head;
-+
-+       head = skb_peek(skq);
-+       if (head)
-+               return head->len;
-+       return 0;
-+}
-+
- /* Expects to be always run from workqueue - which acts as
-  * read-size critical section for our kind of RCU. */
- static void handle_rx(struct vhost_net *net)
- {
-        struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_RX];
--       unsigned head, out, in, log, s;
-+       unsigned in, log, s;
-        struct vhost_log *vq_log;
-        struct msghdr msg = {
-                .msg_name = NULL,
-@@ -204,10 +213,11 @@
+                vhost_add_used_and_signal(&net->dev, vq, &head, 1);
+@@ -207,14 +225,8 @@
+                .msg_flags = MSG_DONTWAIT,
         };
  
+-       struct virtio_net_hdr hdr = {
+-               .flags = 0,
+-               .gso_type = VIRTIO_NET_HDR_GSO_NONE
+-       };
+-
         size_t len, total_len = 0;
--       int err;
-+       int err, headcount, datalen;
-        size_t hdr_size;
+        int err, headcount, datalen;
+-       size_t hdr_size;
         struct socket *sock = rcu_dereference(vq->private_data);
--       if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
-+
-+       if (!sock || !skb_head_len(&sock->sk->sk_receive_queue))
-                return;
  
+        if (!sock || !skb_head_len(&sock->sk->sk_receive_queue))
+@@ -223,7 +235,6 @@
         use_mm(net->dev.mm);
-@@ -218,13 +228,10 @@
+        mutex_lock(&vq->mutex);
+        vhost_disable_notify(vq);
+-       hdr_size = vq->hdr_size;
+ 
         vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
                 vq->log : NULL;
- 
--       for (;;) {
--               head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
--                                        ARRAY_SIZE(vq->iov),
--                                        &out, &in,
--                                        vq_log, &log);
-+       while ((datalen = skb_head_len(&sock->sk->sk_receive_queue))) {
-+               headcount = vhost_get_heads(vq, datalen, &in, vq_log, 
+@@ -232,25 +243,18 @@
+                headcount = vhost_get_heads(vq, datalen, &in, vq_log, 
 &log);
                 /* OK, now we need to know about added descriptors. */
--               if (head == vq->num) {
-+               if (!headcount) {
-                        if (unlikely(vhost_enable_notify(vq))) {
-                                /* They have slipped one in as we were
-                                 * doing that: check again. */
-@@ -235,13 +242,6 @@
-                         * they refilled. */
+                if (!headcount) {
+-                       if (unlikely(vhost_enable_notify(vq))) {
+-                               /* They have slipped one in as we were
+-                                * doing that: check again. */
+-                               vhost_disable_notify(vq);
+-                               continue;
+-                       }
+-                       /* Nothing new?  Wait for eventfd to tell us
+-                        * they refilled. */
++                       vhost_enable_notify(vq);
                         break;
                 }
--               /* We don't need to be notified again. */
--               if (out) {
--                       vq_err(vq, "Unexpected descriptor format for RX: "
--                              "out %d, int %d\n",
--                              out, in);
--                       break;
--               }
                 /* Skip header. TODO: support TSO/mergeable rx buffers. */
-                s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, in);
+-               s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, in);
                 msg.msg_iovlen = in;
-@@ -257,14 +257,14 @@
-                                         len, MSG_DONTWAIT | MSG_TRUNC);
-                /* TODO: Check specific error and bomb out unless EAGAIN? 
-*/
-                if (err < 0) {
--                       vhost_discard_vq_desc(vq);
-+                       vhost_discard(vq, 1);
+                len = iov_length(vq->iov, in);
++
+                /* Sanity check */
+                if (!len) {
+                        vq_err(vq, "Unexpected header len for RX: "
+                               "%zd expected %zd\n",
+-                              iov_length(vq->hdr, s), hdr_size);
++                              len, vq->guest_hlen);
                         break;
                 }
-                /* TODO: Should check and handle checksum. */
-                if (err > len) {
-                        pr_err("Discarded truncated rx packet: "
-                               " len %d > %zd\n", err, len);
--                       vhost_discard_vq_desc(vq);
-+                       vhost_discard(vq, 1);
+                err = sock->ops->recvmsg(NULL, sock, &msg,
+@@ -268,13 +272,7 @@
                         continue;
                 }
                 len = err;
-@@ -275,7 +275,7 @@
-                        break;
-                }
-                len += hdr_size;
--               vhost_add_used_and_signal(&net->dev, vq, head, len);
-+               vhost_add_used_and_signal(&net->dev, vq, vq->heads, 
+-               err = memcpy_toiovec(vq->hdr, (unsigned char *)&hdr, 
+hdr_size);
+-               if (err) {
+-                       vq_err(vq, "Unable to write vnet_hdr at addr %p: 
+%d\n",
+-                              vq->iov->iov_base, err);
+-                       break;
+-               }
+-               len += hdr_size;
++               len += vq->guest_hlen - vq->sock_hlen;
+                vhost_add_used_and_signal(&net->dev, vq, vq->heads, 
 headcount);
                 if (unlikely(vq_log))
                         vhost_log_write(vq, vq_log, log, len);
-                total_len += len;
-diff -ruN net-next-p0/drivers/vhost/vhost.c 
-net-next-p1/drivers/vhost/vhost.c
---- net-next-p0/drivers/vhost/vhost.c   2010-02-15 20:08:35.000000000 
--0800
-+++ net-next-p1/drivers/vhost/vhost.c   2010-03-01 11:44:06.000000000 
--0800
-@@ -848,6 +848,38 @@
-        return 0;
+@@ -483,6 +481,13 @@
+        return ERR_PTR(-ENOTSOCK);
  }
  
-+unsigned vhost_get_heads(struct vhost_virtqueue *vq, int datalen, int 
-*iovcount,
-+       struct vhost_log *log, unsigned int *log_num)
++static int vhost_sock_is_raw(struct socket *sock)
 +{
-+       struct iovec *heads = vq->heads;
-+       int out, in;
-+       int hc = 0;
-+
-+       while (datalen > 0) {
-+               if (hc >= VHOST_NET_MAX_SG) {
-+                       vhost_discard(vq, hc);
-+                       return 0;
-+               }
-+               heads[hc].iov_base = (void *)vhost_get_vq_desc(vq->dev, 
-vq,
-+                       vq->iov, ARRAY_SIZE(vq->iov), &out, &in, log, 
-log_num);
-+               if (heads[hc].iov_base == (void *)vq->num) {
-+                       vhost_discard(vq, hc);
-+                       return 0;
-+               }
-+               if (out || in <= 0) {
-+                       vq_err(vq, "unexpected descriptor format for RX: "
-+                               "out %d, in %d\n", out, in);
-+                       vhost_discard(vq, hc);
-+                       return 0;
-+               }
-+               heads[hc].iov_len = iov_length(vq->iov, in);
-+               hc++;
-+               datalen -= heads[hc].iov_len;
-+       }
-+       *iovcount = in;
-+       return hc;
++       if (!sock || !sock->sk)
++               return 0;
++       return sock->sk->sk_type == SOCK_RAW;
 +}
 +
- /* This looks in the virtqueue and for the first available buffer, and 
-converts
-  * it to an iovec for convenient access.  Since descriptors consist of 
-some
-  * number of output then some number of input descriptors, it's actually 
-two
-@@ -973,31 +1005,32 @@
- }
- 
- /* Reverse the effect of vhost_get_vq_desc. Useful for error handling. */
--void vhost_discard_vq_desc(struct vhost_virtqueue *vq)
-+void vhost_discard(struct vhost_virtqueue *vq, int n)
+ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, 
+int fd)
  {
--       vq->last_avail_idx--;
-+       vq->last_avail_idx -= n;
- }
+        struct socket *sock, *oldsock;
+@@ -519,6 +524,20 @@
  
- /* After we've used one of their buffers, we tell them about it.  We'll 
-then
-  * want to notify the guest, using eventfd. */
--int vhost_add_used(struct vhost_virtqueue *vq, unsigned int head, int 
-len)
-+int vhost_add_used(struct vhost_virtqueue *vq, struct iovec *heads, int 
-count)
- {
-        struct vring_used_elem *used;
-+       int i;
- 
--       /* The virtqueue contains a ring of used buffers.  Get a pointer 
-to the
--        * next entry in that used ring. */
--       used = &vq->used->ring[vq->last_used_idx % vq->num];
--       if (put_user(head, &used->id)) {
--               vq_err(vq, "Failed to write used id");
--               return -EFAULT;
--       }
--       if (put_user(len, &used->len)) {
--               vq_err(vq, "Failed to write used len");
--               return -EFAULT;
-+       for (i=0; i<count; i++, vq->last_used_idx++) {
-+               used = &vq->used->ring[vq->last_used_idx % vq->num];
-+               if (put_user((unsigned)heads[i].iov_base, &used->id)) {
-+                       vq_err(vq, "Failed to write used id");
-+                       return -EFAULT;
-+               }
-+               if (put_user(heads[i].iov_len, &used->len)) {
-+                       vq_err(vq, "Failed to write used len");
-+                       return -EFAULT;
-+               }
-        }
-        /* Make sure buffer is written before we update index. */
+        vhost_net_disable_vq(n, vq);
+        rcu_assign_pointer(vq->private_data, sock);
++
++       if (sock && sock->sk) {
++               if (!vhost_sock_is_raw(sock) ||
++                   vhost_has_feature(&n->dev, 
+VHOST_NET_F_VIRTIO_NET_HDR)) {
++                       vq->sock_hlen = sizeof(struct virtio_net_hdr);
++                       if (vhost_has_feature(&n->dev, 
+VIRTIO_NET_F_MRG_RXBUF))
++                               vq->guest_hlen =
++                                       sizeof(struct 
+virtio_net_hdr_mrg_rxbuf);
++                       else
++                               vq->guest_hlen = sizeof(struct 
+virtio_net_hdr);
++               } else
++                       vq->guest_hlen = vq->sock_hlen = 0;
++       } else
++               vq_err(vq, "vhost_net_set_backend: sock->sk is NULL");
+        vhost_net_enable_vq(n, vq);
+        mutex_unlock(&vq->mutex);
+ done:
+@@ -566,8 +585,17 @@
+        n->dev.acked_features = features;
         smp_wmb();
--       if (put_user(vq->last_used_idx + 1, &vq->used->idx)) {
-+       if (put_user(vq->last_used_idx, &vq->used->idx)) {
-                vq_err(vq, "Failed to increment used idx");
-                return -EFAULT;
+        for (i = 0; i < VHOST_NET_VQ_MAX; ++i) {
+-               mutex_lock(&n->vqs[i].mutex);
+-               n->vqs[i].hdr_size = hdr_size;
++               struct vhost_virtqueue *vq = n->vqs + i;
++               struct socket *sock = vq->private_data;
++
++               mutex_lock(&vq->mutex);
++               if (features & (1 << VIRTIO_NET_F_MRG_RXBUF))
++                       vq->sock_hlen = sizeof(struct 
+virtio_net_hdr_mrg_rxbuf);
++               else if (features & (1 << VHOST_NET_F_VIRTIO_NET_HDR) ||
++                        !vhost_sock_is_raw(sock))
++                       vq->sock_hlen = sizeof(struct virtio_net_hdr);
++               else
++                       vq->sock_hlen = 0;
+                mutex_unlock(&n->vqs[i].mutex);
         }
-@@ -1011,7 +1044,6 @@
-                if (vq->log_ctx)
-                        eventfd_signal(vq->log_ctx, 1);
-        }
--       vq->last_used_idx++;
+        vhost_net_flush(n);
+diff -ruN net-next-p1/drivers/vhost/vhost.c 
+net-next-p2/drivers/vhost/vhost.c
+--- net-next-p1/drivers/vhost/vhost.c   2010-03-01 11:44:06.000000000 
+-0800
++++ net-next-p2/drivers/vhost/vhost.c   2010-03-02 12:53:02.000000000 
+-0800
+@@ -113,7 +113,8 @@
+        vq->used_flags = 0;
+        vq->log_used = false;
+        vq->log_addr = -1ull;
+-       vq->hdr_size = 0;
++       vq->guest_hlen = 0;
++       vq->sock_hlen = 0;
+        vq->private_data = NULL;
+        vq->log_base = NULL;
+        vq->error_ctx = NULL;
+@@ -848,20 +849,85 @@
         return 0;
  }
  
-@@ -1038,9 +1070,9 @@
- /* And here's the combo meal deal.  Supersize me! */
- void vhost_add_used_and_signal(struct vhost_dev *dev,
-                               struct vhost_virtqueue *vq,
--                              unsigned int head, int len)
-+                              struct iovec *heads, int count)
++static int
++vhost_get_hdr(struct vhost_virtqueue *vq, int *in, struct vhost_log *log,
++       int *log_num)
++{
++       struct iovec *heads = vq->heads;
++       struct iovec *iov = vq->iov;
++       int out;
++
++       *in = 0;
++       iov[0].iov_len = 0;
++
++       /* get buffer, starting from iov[1] */
++       heads[0].iov_base = (void *)vhost_get_vq_desc(vq->dev, vq,
++               vq->iov+1, ARRAY_SIZE(vq->iov)-1, &out, in, log, log_num);
++       if (out || *in <= 0) {
++               vq_err(vq, "unexpected descriptor format for RX: out %d, "
++                       "in %d\n", out, *in);
++               return 0;
++       }
++       if (heads[0].iov_base == (void *)vq->num)
++               return 0;
++
++       /* make iov[0] the header */
++       if (!vq->guest_hlen) {
++               if (vq->sock_hlen) {
++                       static struct virtio_net_hdr junk; /* bit bucket 
+*/
++
++                       iov[0].iov_base = &junk;
++                       iov[0].iov_len = sizeof(junk);
++               } else
++                       iov[0].iov_len = 0;
++       }
++       if (vq->sock_hlen < vq->guest_hlen) {
++               iov[0].iov_base = iov[1].iov_base;
++               iov[0].iov_len = vq->sock_hlen;
++
++               if (iov[1].iov_len < vq->sock_hlen) {
++                       vq_err(vq, "can't fit header in one buffer!");
++                       vhost_discard(vq, 1);
++                       return 0;
++               }
++               if (!vq->sock_hlen) {
++                       static const struct virtio_net_hdr_mrg_rxbuf hdr = 
+{
++                               .hdr.flags = 0,
++                               .hdr.gso_type = VIRTIO_NET_HDR_GSO_NONE
++                       };
++                       memcpy(iov[0].iov_base, &hdr, vq->guest_hlen);
++               }
++               iov[1].iov_base += vq->guest_hlen;
++               iov[1].iov_len -= vq->guest_hlen;
++       }
++       return 1;
++}
++
+ unsigned vhost_get_heads(struct vhost_virtqueue *vq, int datalen, int 
+*iovcount,
+        struct vhost_log *log, unsigned int *log_num)
  {
--       vhost_add_used(vq, head, len);
-+       vhost_add_used(vq, heads, count);
-        vhost_signal(dev, vq);
+        struct iovec *heads = vq->heads;
+-       int out, in;
++       int out, in = 0;
++       int seg = 0;
+        int hc = 0;
+ 
++       if (vq->guest_hlen != vq->sock_hlen) {
++               seg = vhost_get_hdr(vq, &in, log, log_num);
++               if (!seg)
++                       return 0;
++               hc++;
++               datalen -= iov_length(vq->iov+seg, in);
++               seg += in;
++       }
++
+        while (datalen > 0) {
+                if (hc >= VHOST_NET_MAX_SG) {
+                        vhost_discard(vq, hc);
+                        return 0;
+                }
+                heads[hc].iov_base = (void *)vhost_get_vq_desc(vq->dev, 
+vq,
+-                       vq->iov, ARRAY_SIZE(vq->iov), &out, &in, log, 
+log_num);
++                       vq->iov+seg, ARRAY_SIZE(vq->iov)-seg, &out, &in,
++                       log, log_num);
+                if (heads[hc].iov_base == (void *)vq->num) {
+                        vhost_discard(vq, hc);
+                        return 0;
+@@ -872,11 +938,12 @@
+                        vhost_discard(vq, hc);
+                        return 0;
+                }
+-               heads[hc].iov_len = iov_length(vq->iov, in);
+-               hc++;
++               heads[hc].iov_len = iov_length(vq->iov+seg, in);
+                datalen -= heads[hc].iov_len;
++               hc++;
++               seg += in;
+        }
+-       *iovcount = in;
++       *iovcount = seg;
+        return hc;
  }
  
-diff -ruN net-next-p0/drivers/vhost/vhost.h 
-net-next-p1/drivers/vhost/vhost.h
---- net-next-p0/drivers/vhost/vhost.h   2010-02-15 20:08:35.000000000 
+diff -ruN net-next-p1/drivers/vhost/vhost.h 
+net-next-p2/drivers/vhost/vhost.h
+--- net-next-p1/drivers/vhost/vhost.h   2010-03-01 11:42:18.000000000 
 -0800
-+++ net-next-p1/drivers/vhost/vhost.h   2010-03-01 11:42:18.000000000 
++++ net-next-p2/drivers/vhost/vhost.h   2010-03-02 13:02:03.000000000 
 -0800
-@@ -84,6 +84,7 @@
+@@ -82,10 +82,9 @@
+        u64 log_addr;
+ 
         struct iovec indirect[VHOST_NET_MAX_SG];
-        struct iovec iov[VHOST_NET_MAX_SG];
-        struct iovec hdr[VHOST_NET_MAX_SG];
-+       struct iovec heads[VHOST_NET_MAX_SG];
-        size_t hdr_size;
+-       struct iovec iov[VHOST_NET_MAX_SG];
+-       struct iovec hdr[VHOST_NET_MAX_SG];
++       struct iovec iov[VHOST_NET_MAX_SG+1]; /* an extra for vnet hdr */
+        struct iovec heads[VHOST_NET_MAX_SG];
+-       size_t hdr_size;
++       size_t guest_hlen, sock_hlen;
         /* We use a kind of RCU to access private pointer.
          * All readers access it from workqueue, which makes it possible 
 to
-@@ -120,16 +121,18 @@
- int vhost_vq_access_ok(struct vhost_virtqueue *vq);
- int vhost_log_access_ok(struct vhost_dev *);
- 
-+unsigned vhost_get_heads(struct vhost_virtqueue *, int datalen, int 
-*iovcount,
-+                       struct vhost_log *log, unsigned int *log_num);
- unsigned vhost_get_vq_desc(struct vhost_dev *, struct vhost_virtqueue *,
-                           struct iovec iov[], unsigned int iov_count,
-                           unsigned int *out_num, unsigned int *in_num,
-                           struct vhost_log *log, unsigned int *log_num);
--void vhost_discard_vq_desc(struct vhost_virtqueue *);
-+void vhost_discard(struct vhost_virtqueue *, int);
- 
--int vhost_add_used(struct vhost_virtqueue *, unsigned int head, int len);
--void vhost_signal(struct vhost_dev *, struct vhost_virtqueue *);
-+int vhost_add_used(struct vhost_virtqueue *, struct iovec *heads, int 
-count);
- void vhost_add_used_and_signal(struct vhost_dev *, struct vhost_virtqueue 
-*,
--                              unsigned int head, int len);
-+                              struct iovec *heads, int count);
-+void vhost_signal(struct vhost_dev *, struct vhost_virtqueue *);
- void vhost_disable_notify(struct vhost_virtqueue *);
- bool vhost_enable_notify(struct vhost_virtqueue *);
- 
+         * flush the workqueue instead of synchronize_rcu. Therefore 
+readers do
 
---=_mixed 0001DA48882576DB_=
-Content-Type: application/octet-stream; name="MRXB1.patch"
-Content-Disposition: attachment; filename="MRXB1.patch"
+
+--=_mixed 0001DECF882576DB_=
+Content-Type: application/octet-stream; name="MRXB2.patch"
+Content-Disposition: attachment; filename="MRXB2.patch"
 Content-Transfer-Encoding: base64
 
-ZGlmZiAtcnVOIG5ldC1uZXh0LXAwL2RyaXZlcnMvdmhvc3QvbmV0LmMgbmV0LW5leHQtcDEvZHJp
-dmVycy92aG9zdC9uZXQuYwotLS0gbmV0LW5leHQtcDAvZHJpdmVycy92aG9zdC9uZXQuYwkyMDEw
-LTAyLTI0IDEyOjU5OjI0LjAwMDAwMDAwMCAtMDgwMAorKysgbmV0LW5leHQtcDEvZHJpdmVycy92
-aG9zdC9uZXQuYwkyMDEwLTAzLTAxIDExOjQ0OjIyLjAwMDAwMDAwMCAtMDgwMApAQCAtOTcsNyAr
-OTcsOCBAQAogc3RhdGljIHZvaWQgaGFuZGxlX3R4KHN0cnVjdCB2aG9zdF9uZXQgKm5ldCkKIHsK
-IAlzdHJ1Y3Qgdmhvc3RfdmlydHF1ZXVlICp2cSA9ICZuZXQtPmRldi52cXNbVkhPU1RfTkVUX1ZR
-X1RYXTsKLQl1bnNpZ25lZCBoZWFkLCBvdXQsIGluLCBzOworCXVuc2lnbmVkIG91dCwgaW4sIHM7
-CisJc3RydWN0IGlvdmVjIGhlYWQ7CiAJc3RydWN0IG1zZ2hkciBtc2cgPSB7CiAJCS5tc2dfbmFt
-ZSA9IE5VTEwsCiAJCS5tc2dfbmFtZWxlbiA9IDAsCkBAIC0xMjYsMTIgKzEyNywxMCBAQAogCWhk
-cl9zaXplID0gdnEtPmhkcl9zaXplOwogCiAJZm9yICg7OykgewotCQloZWFkID0gdmhvc3RfZ2V0
-X3ZxX2Rlc2MoJm5ldC0+ZGV2LCB2cSwgdnEtPmlvdiwKLQkJCQkJIEFSUkFZX1NJWkUodnEtPmlv
-diksCi0JCQkJCSAmb3V0LCAmaW4sCi0JCQkJCSBOVUxMLCBOVUxMKTsKKwkJaGVhZC5pb3ZfYmFz
-ZSA9ICh2b2lkICopdmhvc3RfZ2V0X3ZxX2Rlc2MoJm5ldC0+ZGV2LCB2cSwKKwkJCXZxLT5pb3Ys
-IEFSUkFZX1NJWkUodnEtPmlvdiksICZvdXQsICZpbiwgTlVMTCwgTlVMTCk7CiAJCS8qIE5vdGhp
-bmcgbmV3PyAgV2FpdCBmb3IgZXZlbnRmZCB0byB0ZWxsIHVzIHRoZXkgcmVmaWxsZWQuICovCi0J
-CWlmIChoZWFkID09IHZxLT5udW0pIHsKKwkJaWYgKGhlYWQuaW92X2Jhc2UgPT0gKHZvaWQgKil2
-cS0+bnVtKSB7CiAJCQl3bWVtID0gYXRvbWljX3JlYWQoJnNvY2stPnNrLT5za193bWVtX2FsbG9j
-KTsKIAkJCWlmICh3bWVtID49IHNvY2stPnNrLT5za19zbmRidWYgKiAzIC8gNCkgewogCQkJCXR4
-X3BvbGxfc3RhcnQobmV0LCBzb2NrKTsKQEAgLTE1Miw3ICsxNTEsNyBAQAogCQkvKiBTa2lwIGhl
-YWRlci4gVE9ETzogc3VwcG9ydCBUU08uICovCiAJCXMgPSBtb3ZlX2lvdmVjX2hkcih2cS0+aW92
-LCB2cS0+aGRyLCBoZHJfc2l6ZSwgb3V0KTsKIAkJbXNnLm1zZ19pb3ZsZW4gPSBvdXQ7Ci0JCWxl
-biA9IGlvdl9sZW5ndGgodnEtPmlvdiwgb3V0KTsKKwkJaGVhZC5pb3ZfbGVuID0gbGVuID0gaW92
-X2xlbmd0aCh2cS0+aW92LCBvdXQpOwogCQkvKiBTYW5pdHkgY2hlY2sgKi8KIAkJaWYgKCFsZW4p
-IHsKIAkJCXZxX2Vycih2cSwgIlVuZXhwZWN0ZWQgaGVhZGVyIGxlbiBmb3IgVFg6ICIKQEAgLTE2
-MywxNCArMTYyLDE0IEBACiAJCS8qIFRPRE86IENoZWNrIHNwZWNpZmljIGVycm9yIGFuZCBib21i
-IG91dCB1bmxlc3MgRU5PQlVGUz8gKi8KIAkJZXJyID0gc29jay0+b3BzLT5zZW5kbXNnKE5VTEws
-IHNvY2ssICZtc2csIGxlbik7CiAJCWlmICh1bmxpa2VseShlcnIgPCAwKSkgewotCQkJdmhvc3Rf
-ZGlzY2FyZF92cV9kZXNjKHZxKTsKKwkJCXZob3N0X2Rpc2NhcmQodnEsIDEpOwogCQkJdHhfcG9s
-bF9zdGFydChuZXQsIHNvY2spOwogCQkJYnJlYWs7CiAJCX0KIAkJaWYgKGVyciAhPSBsZW4pCiAJ
-CQlwcl9lcnIoIlRydW5jYXRlZCBUWCBwYWNrZXQ6ICIKIAkJCSAgICAgICAiIGxlbiAlZCAhPSAl
-emRcbiIsIGVyciwgbGVuKTsKLQkJdmhvc3RfYWRkX3VzZWRfYW5kX3NpZ25hbCgmbmV0LT5kZXYs
-IHZxLCBoZWFkLCAwKTsKKwkJdmhvc3RfYWRkX3VzZWRfYW5kX3NpZ25hbCgmbmV0LT5kZXYsIHZx
-LCAmaGVhZCwgMSk7CiAJCXRvdGFsX2xlbiArPSBsZW47CiAJCWlmICh1bmxpa2VseSh0b3RhbF9s
-ZW4gPj0gVkhPU1RfTkVUX1dFSUdIVCkpIHsKIAkJCXZob3N0X3BvbGxfcXVldWUoJnZxLT5wb2xs
-KTsKQEAgLTE4MiwxMiArMTgxLDIyIEBACiAJdW51c2VfbW0obmV0LT5kZXYubW0pOwogfQogCitz
-dGF0aWMgaW50IHNrYl9oZWFkX2xlbihzdHJ1Y3Qgc2tfYnVmZl9oZWFkICpza3EpCit7CisJc3Ry
-dWN0IHNrX2J1ZmYgKmhlYWQ7CisKKwloZWFkID0gc2tiX3BlZWsoc2txKTsKKwlpZiAoaGVhZCkK
-KwkJcmV0dXJuIGhlYWQtPmxlbjsKKwlyZXR1cm4gMDsKK30KKwogLyogRXhwZWN0cyB0byBiZSBh
-bHdheXMgcnVuIGZyb20gd29ya3F1ZXVlIC0gd2hpY2ggYWN0cyBhcwogICogcmVhZC1zaXplIGNy
-aXRpY2FsIHNlY3Rpb24gZm9yIG91ciBraW5kIG9mIFJDVS4gKi8KIHN0YXRpYyB2b2lkIGhhbmRs
-ZV9yeChzdHJ1Y3Qgdmhvc3RfbmV0ICpuZXQpCiB7CiAJc3RydWN0IHZob3N0X3ZpcnRxdWV1ZSAq
-dnEgPSAmbmV0LT5kZXYudnFzW1ZIT1NUX05FVF9WUV9SWF07Ci0JdW5zaWduZWQgaGVhZCwgb3V0
-LCBpbiwgbG9nLCBzOworCXVuc2lnbmVkIGluLCBsb2csIHM7CiAJc3RydWN0IHZob3N0X2xvZyAq
-dnFfbG9nOwogCXN0cnVjdCBtc2doZHIgbXNnID0gewogCQkubXNnX25hbWUgPSBOVUxMLApAQCAt
-MjA0LDEwICsyMTMsMTEgQEAKIAl9OwogCiAJc2l6ZV90IGxlbiwgdG90YWxfbGVuID0gMDsKLQlp
-bnQgZXJyOworCWludCBlcnIsIGhlYWRjb3VudCwgZGF0YWxlbjsKIAlzaXplX3QgaGRyX3NpemU7
-CiAJc3RydWN0IHNvY2tldCAqc29jayA9IHJjdV9kZXJlZmVyZW5jZSh2cS0+cHJpdmF0ZV9kYXRh
-KTsKLQlpZiAoIXNvY2sgfHwgc2tiX3F1ZXVlX2VtcHR5KCZzb2NrLT5zay0+c2tfcmVjZWl2ZV9x
-dWV1ZSkpCisKKwlpZiAoIXNvY2sgfHwgIXNrYl9oZWFkX2xlbigmc29jay0+c2stPnNrX3JlY2Vp
-dmVfcXVldWUpKQogCQlyZXR1cm47CiAKIAl1c2VfbW0obmV0LT5kZXYubW0pOwpAQCAtMjE4LDEz
-ICsyMjgsMTAgQEAKIAl2cV9sb2cgPSB1bmxpa2VseSh2aG9zdF9oYXNfZmVhdHVyZSgmbmV0LT5k
-ZXYsIFZIT1NUX0ZfTE9HX0FMTCkpID8KIAkJdnEtPmxvZyA6IE5VTEw7CiAKLQlmb3IgKDs7KSB7
-Ci0JCWhlYWQgPSB2aG9zdF9nZXRfdnFfZGVzYygmbmV0LT5kZXYsIHZxLCB2cS0+aW92LAotCQkJ
-CQkgQVJSQVlfU0laRSh2cS0+aW92KSwKLQkJCQkJICZvdXQsICZpbiwKLQkJCQkJIHZxX2xvZywg
-JmxvZyk7CisJd2hpbGUgKChkYXRhbGVuID0gc2tiX2hlYWRfbGVuKCZzb2NrLT5zay0+c2tfcmVj
-ZWl2ZV9xdWV1ZSkpKSB7CisJCWhlYWRjb3VudCA9IHZob3N0X2dldF9oZWFkcyh2cSwgZGF0YWxl
-biwgJmluLCB2cV9sb2csICZsb2cpOwogCQkvKiBPSywgbm93IHdlIG5lZWQgdG8ga25vdyBhYm91
-dCBhZGRlZCBkZXNjcmlwdG9ycy4gKi8KLQkJaWYgKGhlYWQgPT0gdnEtPm51bSkgeworCQlpZiAo
-IWhlYWRjb3VudCkgewogCQkJaWYgKHVubGlrZWx5KHZob3N0X2VuYWJsZV9ub3RpZnkodnEpKSkg
-ewogCQkJCS8qIFRoZXkgaGF2ZSBzbGlwcGVkIG9uZSBpbiBhcyB3ZSB3ZXJlCiAJCQkJICogZG9p
-bmcgdGhhdDogY2hlY2sgYWdhaW4uICovCkBAIC0yMzUsMTMgKzI0Miw2IEBACiAJCQkgKiB0aGV5
-IHJlZmlsbGVkLiAqLwogCQkJYnJlYWs7CiAJCX0KLQkJLyogV2UgZG9uJ3QgbmVlZCB0byBiZSBu
-b3RpZmllZCBhZ2Fpbi4gKi8KLQkJaWYgKG91dCkgewotCQkJdnFfZXJyKHZxLCAiVW5leHBlY3Rl
-ZCBkZXNjcmlwdG9yIGZvcm1hdCBmb3IgUlg6ICIKLQkJCSAgICAgICAib3V0ICVkLCBpbnQgJWRc
-biIsCi0JCQkgICAgICAgb3V0LCBpbik7Ci0JCQlicmVhazsKLQkJfQogCQkvKiBTa2lwIGhlYWRl
-ci4gVE9ETzogc3VwcG9ydCBUU08vbWVyZ2VhYmxlIHJ4IGJ1ZmZlcnMuICovCiAJCXMgPSBtb3Zl
-X2lvdmVjX2hkcih2cS0+aW92LCB2cS0+aGRyLCBoZHJfc2l6ZSwgaW4pOwogCQltc2cubXNnX2lv
-dmxlbiA9IGluOwpAQCAtMjU3LDE0ICsyNTcsMTQgQEAKIAkJCQkJIGxlbiwgTVNHX0RPTlRXQUlU
-IHwgTVNHX1RSVU5DKTsKIAkJLyogVE9ETzogQ2hlY2sgc3BlY2lmaWMgZXJyb3IgYW5kIGJvbWIg
-b3V0IHVubGVzcyBFQUdBSU4/ICovCiAJCWlmIChlcnIgPCAwKSB7Ci0JCQl2aG9zdF9kaXNjYXJk
-X3ZxX2Rlc2ModnEpOworCQkJdmhvc3RfZGlzY2FyZCh2cSwgMSk7CiAJCQlicmVhazsKIAkJfQog
-CQkvKiBUT0RPOiBTaG91bGQgY2hlY2sgYW5kIGhhbmRsZSBjaGVja3N1bS4gKi8KIAkJaWYgKGVy
-ciA+IGxlbikgewogCQkJcHJfZXJyKCJEaXNjYXJkZWQgdHJ1bmNhdGVkIHJ4IHBhY2tldDogIgog
-CQkJICAgICAgICIgbGVuICVkID4gJXpkXG4iLCBlcnIsIGxlbik7Ci0JCQl2aG9zdF9kaXNjYXJk
-X3ZxX2Rlc2ModnEpOworCQkJdmhvc3RfZGlzY2FyZCh2cSwgMSk7CiAJCQljb250aW51ZTsKIAkJ
-fQogCQlsZW4gPSBlcnI7CkBAIC0yNzUsNyArMjc1LDcgQEAKIAkJCWJyZWFrOwogCQl9CiAJCWxl
-biArPSBoZHJfc2l6ZTsKLQkJdmhvc3RfYWRkX3VzZWRfYW5kX3NpZ25hbCgmbmV0LT5kZXYsIHZx
-LCBoZWFkLCBsZW4pOworCQl2aG9zdF9hZGRfdXNlZF9hbmRfc2lnbmFsKCZuZXQtPmRldiwgdnEs
-IHZxLT5oZWFkcywgaGVhZGNvdW50KTsKIAkJaWYgKHVubGlrZWx5KHZxX2xvZykpCiAJCQl2aG9z
-dF9sb2dfd3JpdGUodnEsIHZxX2xvZywgbG9nLCBsZW4pOwogCQl0b3RhbF9sZW4gKz0gbGVuOwpk
-aWZmIC1ydU4gbmV0LW5leHQtcDAvZHJpdmVycy92aG9zdC92aG9zdC5jIG5ldC1uZXh0LXAxL2Ry
-aXZlcnMvdmhvc3Qvdmhvc3QuYwotLS0gbmV0LW5leHQtcDAvZHJpdmVycy92aG9zdC92aG9zdC5j
-CTIwMTAtMDItMTUgMjA6MDg6MzUuMDAwMDAwMDAwIC0wODAwCisrKyBuZXQtbmV4dC1wMS9kcml2
-ZXJzL3Zob3N0L3Zob3N0LmMJMjAxMC0wMy0wMSAxMTo0NDowNi4wMDAwMDAwMDAgLTA4MDAKQEAg
-LTg0OCw2ICs4NDgsMzggQEAKIAlyZXR1cm4gMDsKIH0KIAordW5zaWduZWQgdmhvc3RfZ2V0X2hl
-YWRzKHN0cnVjdCB2aG9zdF92aXJ0cXVldWUgKnZxLCBpbnQgZGF0YWxlbiwgaW50ICppb3Zjb3Vu
-dCwKKwlzdHJ1Y3Qgdmhvc3RfbG9nICpsb2csIHVuc2lnbmVkIGludCAqbG9nX251bSkKK3sKKwlz
-dHJ1Y3QgaW92ZWMgKmhlYWRzID0gdnEtPmhlYWRzOworCWludCBvdXQsIGluOworCWludCBoYyA9
-IDA7CisKKwl3aGlsZSAoZGF0YWxlbiA+IDApIHsKKwkJaWYgKGhjID49IFZIT1NUX05FVF9NQVhf
-U0cpIHsKKwkJCXZob3N0X2Rpc2NhcmQodnEsIGhjKTsKKwkJCXJldHVybiAwOworCQl9CisJCWhl
-YWRzW2hjXS5pb3ZfYmFzZSA9ICh2b2lkICopdmhvc3RfZ2V0X3ZxX2Rlc2ModnEtPmRldiwgdnEs
-CisJCQl2cS0+aW92LCBBUlJBWV9TSVpFKHZxLT5pb3YpLCAmb3V0LCAmaW4sIGxvZywgbG9nX251
-bSk7CisJCWlmIChoZWFkc1toY10uaW92X2Jhc2UgPT0gKHZvaWQgKil2cS0+bnVtKSB7CisJCQl2
-aG9zdF9kaXNjYXJkKHZxLCBoYyk7CisJCQlyZXR1cm4gMDsKKwkJfQorCQlpZiAob3V0IHx8IGlu
-IDw9IDApIHsKKwkJCXZxX2Vycih2cSwgInVuZXhwZWN0ZWQgZGVzY3JpcHRvciBmb3JtYXQgZm9y
-IFJYOiAiCisJCQkJIm91dCAlZCwgaW4gJWRcbiIsIG91dCwgaW4pOworCQkJdmhvc3RfZGlzY2Fy
-ZCh2cSwgaGMpOworCQkJcmV0dXJuIDA7CisJCX0KKwkJaGVhZHNbaGNdLmlvdl9sZW4gPSBpb3Zf
-bGVuZ3RoKHZxLT5pb3YsIGluKTsKKwkJaGMrKzsKKwkJZGF0YWxlbiAtPSBoZWFkc1toY10uaW92
-X2xlbjsKKwl9CisJKmlvdmNvdW50ID0gaW47CisJcmV0dXJuIGhjOworfQorCiAvKiBUaGlzIGxv
-b2tzIGluIHRoZSB2aXJ0cXVldWUgYW5kIGZvciB0aGUgZmlyc3QgYXZhaWxhYmxlIGJ1ZmZlciwg
-YW5kIGNvbnZlcnRzCiAgKiBpdCB0byBhbiBpb3ZlYyBmb3IgY29udmVuaWVudCBhY2Nlc3MuICBT
-aW5jZSBkZXNjcmlwdG9ycyBjb25zaXN0IG9mIHNvbWUKICAqIG51bWJlciBvZiBvdXRwdXQgdGhl
-biBzb21lIG51bWJlciBvZiBpbnB1dCBkZXNjcmlwdG9ycywgaXQncyBhY3R1YWxseSB0d28KQEAg
-LTk3MywzMSArMTAwNSwzMiBAQAogfQogCiAvKiBSZXZlcnNlIHRoZSBlZmZlY3Qgb2Ygdmhvc3Rf
-Z2V0X3ZxX2Rlc2MuIFVzZWZ1bCBmb3IgZXJyb3IgaGFuZGxpbmcuICovCi12b2lkIHZob3N0X2Rp
-c2NhcmRfdnFfZGVzYyhzdHJ1Y3Qgdmhvc3RfdmlydHF1ZXVlICp2cSkKK3ZvaWQgdmhvc3RfZGlz
-Y2FyZChzdHJ1Y3Qgdmhvc3RfdmlydHF1ZXVlICp2cSwgaW50IG4pCiB7Ci0JdnEtPmxhc3RfYXZh
-aWxfaWR4LS07CisJdnEtPmxhc3RfYXZhaWxfaWR4IC09IG47CiB9CiAKIC8qIEFmdGVyIHdlJ3Zl
-IHVzZWQgb25lIG9mIHRoZWlyIGJ1ZmZlcnMsIHdlIHRlbGwgdGhlbSBhYm91dCBpdC4gIFdlJ2xs
-IHRoZW4KICAqIHdhbnQgdG8gbm90aWZ5IHRoZSBndWVzdCwgdXNpbmcgZXZlbnRmZC4gKi8KLWlu
-dCB2aG9zdF9hZGRfdXNlZChzdHJ1Y3Qgdmhvc3RfdmlydHF1ZXVlICp2cSwgdW5zaWduZWQgaW50
-IGhlYWQsIGludCBsZW4pCitpbnQgdmhvc3RfYWRkX3VzZWQoc3RydWN0IHZob3N0X3ZpcnRxdWV1
-ZSAqdnEsIHN0cnVjdCBpb3ZlYyAqaGVhZHMsIGludCBjb3VudCkKIHsKIAlzdHJ1Y3QgdnJpbmdf
-dXNlZF9lbGVtICp1c2VkOworCWludCBpOwogCi0JLyogVGhlIHZpcnRxdWV1ZSBjb250YWlucyBh
-IHJpbmcgb2YgdXNlZCBidWZmZXJzLiAgR2V0IGEgcG9pbnRlciB0byB0aGUKLQkgKiBuZXh0IGVu
-dHJ5IGluIHRoYXQgdXNlZCByaW5nLiAqLwotCXVzZWQgPSAmdnEtPnVzZWQtPnJpbmdbdnEtPmxh
-c3RfdXNlZF9pZHggJSB2cS0+bnVtXTsKLQlpZiAocHV0X3VzZXIoaGVhZCwgJnVzZWQtPmlkKSkg
-ewotCQl2cV9lcnIodnEsICJGYWlsZWQgdG8gd3JpdGUgdXNlZCBpZCIpOwotCQlyZXR1cm4gLUVG
-QVVMVDsKLQl9Ci0JaWYgKHB1dF91c2VyKGxlbiwgJnVzZWQtPmxlbikpIHsKLQkJdnFfZXJyKHZx
-LCAiRmFpbGVkIHRvIHdyaXRlIHVzZWQgbGVuIik7Ci0JCXJldHVybiAtRUZBVUxUOworCWZvciAo
-aT0wOyBpPGNvdW50OyBpKyssIHZxLT5sYXN0X3VzZWRfaWR4KyspIHsKKwkJdXNlZCA9ICZ2cS0+
-dXNlZC0+cmluZ1t2cS0+bGFzdF91c2VkX2lkeCAlIHZxLT5udW1dOworCQlpZiAocHV0X3VzZXIo
-KHVuc2lnbmVkKWhlYWRzW2ldLmlvdl9iYXNlLCAmdXNlZC0+aWQpKSB7CisJCQl2cV9lcnIodnEs
-ICJGYWlsZWQgdG8gd3JpdGUgdXNlZCBpZCIpOworCQkJcmV0dXJuIC1FRkFVTFQ7CisJCX0KKwkJ
-aWYgKHB1dF91c2VyKGhlYWRzW2ldLmlvdl9sZW4sICZ1c2VkLT5sZW4pKSB7CisJCQl2cV9lcnIo
-dnEsICJGYWlsZWQgdG8gd3JpdGUgdXNlZCBsZW4iKTsKKwkJCXJldHVybiAtRUZBVUxUOworCQl9
-CiAJfQogCS8qIE1ha2Ugc3VyZSBidWZmZXIgaXMgd3JpdHRlbiBiZWZvcmUgd2UgdXBkYXRlIGlu
-ZGV4LiAqLwogCXNtcF93bWIoKTsKLQlpZiAocHV0X3VzZXIodnEtPmxhc3RfdXNlZF9pZHggKyAx
-LCAmdnEtPnVzZWQtPmlkeCkpIHsKKwlpZiAocHV0X3VzZXIodnEtPmxhc3RfdXNlZF9pZHgsICZ2
-cS0+dXNlZC0+aWR4KSkgewogCQl2cV9lcnIodnEsICJGYWlsZWQgdG8gaW5jcmVtZW50IHVzZWQg
-aWR4Iik7CiAJCXJldHVybiAtRUZBVUxUOwogCX0KQEAgLTEwMTEsNyArMTA0NCw2IEBACiAJCWlm
-ICh2cS0+bG9nX2N0eCkKIAkJCWV2ZW50ZmRfc2lnbmFsKHZxLT5sb2dfY3R4LCAxKTsKIAl9Ci0J
-dnEtPmxhc3RfdXNlZF9pZHgrKzsKIAlyZXR1cm4gMDsKIH0KIApAQCAtMTAzOCw5ICsxMDcwLDkg
-QEAKIC8qIEFuZCBoZXJlJ3MgdGhlIGNvbWJvIG1lYWwgZGVhbC4gIFN1cGVyc2l6ZSBtZSEgKi8K
-IHZvaWQgdmhvc3RfYWRkX3VzZWRfYW5kX3NpZ25hbChzdHJ1Y3Qgdmhvc3RfZGV2ICpkZXYsCiAJ
-CQkgICAgICAgc3RydWN0IHZob3N0X3ZpcnRxdWV1ZSAqdnEsCi0JCQkgICAgICAgdW5zaWduZWQg
-aW50IGhlYWQsIGludCBsZW4pCisJCQkgICAgICAgc3RydWN0IGlvdmVjICpoZWFkcywgaW50IGNv
-dW50KQogewotCXZob3N0X2FkZF91c2VkKHZxLCBoZWFkLCBsZW4pOworCXZob3N0X2FkZF91c2Vk
-KHZxLCBoZWFkcywgY291bnQpOwogCXZob3N0X3NpZ25hbChkZXYsIHZxKTsKIH0KIApkaWZmIC1y
-dU4gbmV0LW5leHQtcDAvZHJpdmVycy92aG9zdC92aG9zdC5oIG5ldC1uZXh0LXAxL2RyaXZlcnMv
-dmhvc3Qvdmhvc3QuaAotLS0gbmV0LW5leHQtcDAvZHJpdmVycy92aG9zdC92aG9zdC5oCTIwMTAt
-MDItMTUgMjA6MDg6MzUuMDAwMDAwMDAwIC0wODAwCisrKyBuZXQtbmV4dC1wMS9kcml2ZXJzL3Zo
-b3N0L3Zob3N0LmgJMjAxMC0wMy0wMSAxMTo0MjoxOC4wMDAwMDAwMDAgLTA4MDAKQEAgLTg0LDYg
-Kzg0LDcgQEAKIAlzdHJ1Y3QgaW92ZWMgaW5kaXJlY3RbVkhPU1RfTkVUX01BWF9TR107CiAJc3Ry
-dWN0IGlvdmVjIGlvdltWSE9TVF9ORVRfTUFYX1NHXTsKIAlzdHJ1Y3QgaW92ZWMgaGRyW1ZIT1NU
-X05FVF9NQVhfU0ddOworCXN0cnVjdCBpb3ZlYyBoZWFkc1tWSE9TVF9ORVRfTUFYX1NHXTsKIAlz
-aXplX3QgaGRyX3NpemU7CiAJLyogV2UgdXNlIGEga2luZCBvZiBSQ1UgdG8gYWNjZXNzIHByaXZh
-dGUgcG9pbnRlci4KIAkgKiBBbGwgcmVhZGVycyBhY2Nlc3MgaXQgZnJvbSB3b3JrcXVldWUsIHdo
-aWNoIG1ha2VzIGl0IHBvc3NpYmxlIHRvCkBAIC0xMjAsMTYgKzEyMSwxOCBAQAogaW50IHZob3N0
-X3ZxX2FjY2Vzc19vayhzdHJ1Y3Qgdmhvc3RfdmlydHF1ZXVlICp2cSk7CiBpbnQgdmhvc3RfbG9n
-X2FjY2Vzc19vayhzdHJ1Y3Qgdmhvc3RfZGV2ICopOwogCit1bnNpZ25lZCB2aG9zdF9nZXRfaGVh
-ZHMoc3RydWN0IHZob3N0X3ZpcnRxdWV1ZSAqLCBpbnQgZGF0YWxlbiwgaW50ICppb3Zjb3VudCwK
-KwkJCXN0cnVjdCB2aG9zdF9sb2cgKmxvZywgdW5zaWduZWQgaW50ICpsb2dfbnVtKTsKIHVuc2ln
-bmVkIHZob3N0X2dldF92cV9kZXNjKHN0cnVjdCB2aG9zdF9kZXYgKiwgc3RydWN0IHZob3N0X3Zp
-cnRxdWV1ZSAqLAogCQkJICAgc3RydWN0IGlvdmVjIGlvdltdLCB1bnNpZ25lZCBpbnQgaW92X2Nv
-dW50LAogCQkJICAgdW5zaWduZWQgaW50ICpvdXRfbnVtLCB1bnNpZ25lZCBpbnQgKmluX251bSwK
-IAkJCSAgIHN0cnVjdCB2aG9zdF9sb2cgKmxvZywgdW5zaWduZWQgaW50ICpsb2dfbnVtKTsKLXZv
-aWQgdmhvc3RfZGlzY2FyZF92cV9kZXNjKHN0cnVjdCB2aG9zdF92aXJ0cXVldWUgKik7Cit2b2lk
-IHZob3N0X2Rpc2NhcmQoc3RydWN0IHZob3N0X3ZpcnRxdWV1ZSAqLCBpbnQpOwogCi1pbnQgdmhv
-c3RfYWRkX3VzZWQoc3RydWN0IHZob3N0X3ZpcnRxdWV1ZSAqLCB1bnNpZ25lZCBpbnQgaGVhZCwg
-aW50IGxlbik7Ci12b2lkIHZob3N0X3NpZ25hbChzdHJ1Y3Qgdmhvc3RfZGV2ICosIHN0cnVjdCB2
-aG9zdF92aXJ0cXVldWUgKik7CitpbnQgdmhvc3RfYWRkX3VzZWQoc3RydWN0IHZob3N0X3ZpcnRx
-dWV1ZSAqLCBzdHJ1Y3QgaW92ZWMgKmhlYWRzLCBpbnQgY291bnQpOwogdm9pZCB2aG9zdF9hZGRf
-dXNlZF9hbmRfc2lnbmFsKHN0cnVjdCB2aG9zdF9kZXYgKiwgc3RydWN0IHZob3N0X3ZpcnRxdWV1
-ZSAqLAotCQkJICAgICAgIHVuc2lnbmVkIGludCBoZWFkLCBpbnQgbGVuKTsKKwkJCSAgICAgICBz
-dHJ1Y3QgaW92ZWMgKmhlYWRzLCBpbnQgY291bnQpOwordm9pZCB2aG9zdF9zaWduYWwoc3RydWN0
-IHZob3N0X2RldiAqLCBzdHJ1Y3Qgdmhvc3RfdmlydHF1ZXVlICopOwogdm9pZCB2aG9zdF9kaXNh
-YmxlX25vdGlmeShzdHJ1Y3Qgdmhvc3RfdmlydHF1ZXVlICopOwogYm9vbCB2aG9zdF9lbmFibGVf
-bm90aWZ5KHN0cnVjdCB2aG9zdF92aXJ0cXVldWUgKik7CiAK
+ZGlmZiAtcnVOIG5ldC1uZXh0LXAxL2RyaXZlcnMvdmhvc3QvbmV0LmMgbmV0LW5leHQtcDIvZHJp
+dmVycy92aG9zdC9uZXQuYwotLS0gbmV0LW5leHQtcDEvZHJpdmVycy92aG9zdC9uZXQuYwkyMDEw
+LTAzLTAxIDExOjQ0OjIyLjAwMDAwMDAwMCAtMDgwMAorKysgbmV0LW5leHQtcDIvZHJpdmVycy92
+aG9zdC9uZXQuYwkyMDEwLTAzLTAyIDEzOjAxOjM0LjAwMDAwMDAwMCAtMDgwMApAQCAtMTA5LDcg
+KzEwOSw2IEBACiAJfTsKIAlzaXplX3QgbGVuLCB0b3RhbF9sZW4gPSAwOwogCWludCBlcnIsIHdt
+ZW07Ci0Jc2l6ZV90IGhkcl9zaXplOwogCXN0cnVjdCBzb2NrZXQgKnNvY2sgPSByY3VfZGVyZWZl
+cmVuY2UodnEtPnByaXZhdGVfZGF0YSk7CiAJaWYgKCFzb2NrKQogCQlyZXR1cm47CkBAIC0xMjQs
+NyArMTIzLDYgQEAKIAogCWlmICh3bWVtIDwgc29jay0+c2stPnNrX3NuZGJ1ZiAqIDIpCiAJCXR4
+X3BvbGxfc3RvcChuZXQpOwotCWhkcl9zaXplID0gdnEtPmhkcl9zaXplOwogCiAJZm9yICg7Oykg
+ewogCQloZWFkLmlvdl9iYXNlID0gKHZvaWQgKil2aG9zdF9nZXRfdnFfZGVzYygmbmV0LT5kZXYs
+IHZxLApAQCAtMTQ4LDI1ICsxNDYsNDUgQEAKIAkJCSAgICAgICAib3V0ICVkLCBpbnQgJWRcbiIs
+IG91dCwgaW4pOwogCQkJYnJlYWs7CiAJCX0KKwkJaWYgKHZxLT5ndWVzdF9obGVuID4gdnEtPnNv
+Y2tfaGxlbikgeworCQkJaWYgKG1zZy5tc2dfaW92WzBdLmlvdl9sZW4gPT0gdnEtPmd1ZXN0X2hs
+ZW4pCisJCQkJbXNnLm1zZ19pb3ZbMF0uaW92X2xlbiA9IHZxLT5zb2NrX2hsZW47CisJCQllbHNl
+IGlmIChvdXQgPT0gQVJSQVlfU0laRSh2cS0+aW92KSkKKwkJCQl2cV9lcnIodnEsICJoYW5kbGVf
+dHggaW92IG92ZXJmbG93ISIpOworCQkJZWxzZSB7CisJCQkJaW50IGk7CisKKwkJCQkvKiBnaXZl
+IGhlYWRlciBpdHMgb3duIGlvdiAqLworCQkJCWZvciAoaT1vdXQ7IGk+MDsgKytpKQorCQkJCQlt
+c2cubXNnX2lvdltpKzFdID0gbXNnLm1zZ19pb3ZbaV07CisJCQkJbXNnLm1zZ19pb3ZbMF0uaW92
+X2xlbiA9IHZxLT5zb2NrX2hsZW47CisJCQkJbXNnLm1zZ19pb3ZbMV0uaW92X2Jhc2UgKz0gdnEt
+Pmd1ZXN0X2hsZW47CisJCQkJbXNnLm1zZ19pb3ZbMV0uaW92X2xlbiAtPSB2cS0+Z3Vlc3RfaGxl
+bjsKKwkJCQlvdXQrKzsKKwkJCX0KKwkJfQogCQkvKiBTa2lwIGhlYWRlci4gVE9ETzogc3VwcG9y
+dCBUU08uICovCi0JCXMgPSBtb3ZlX2lvdmVjX2hkcih2cS0+aW92LCB2cS0+aGRyLCBoZHJfc2l6
+ZSwgb3V0KTsKIAkJbXNnLm1zZ19pb3ZsZW4gPSBvdXQ7CiAJCWhlYWQuaW92X2xlbiA9IGxlbiA9
+IGlvdl9sZW5ndGgodnEtPmlvdiwgb3V0KTsKIAkJLyogU2FuaXR5IGNoZWNrICovCiAJCWlmICgh
+bGVuKSB7CiAJCQl2cV9lcnIodnEsICJVbmV4cGVjdGVkIGhlYWRlciBsZW4gZm9yIFRYOiAiCiAJ
+CQkgICAgICAgIiV6ZCBleHBlY3RlZCAlemRcbiIsCi0JCQkgICAgICAgaW92X2xlbmd0aCh2cS0+
+aGRyLCBzKSwgaGRyX3NpemUpOworCQkJICAgICAgIGxlbiwgdnEtPmd1ZXN0X2hsZW4pOwogCQkJ
+YnJlYWs7CiAJCX0KIAkJLyogVE9ETzogQ2hlY2sgc3BlY2lmaWMgZXJyb3IgYW5kIGJvbWIgb3V0
+IHVubGVzcyBFTk9CVUZTPyAqLwogCQllcnIgPSBzb2NrLT5vcHMtPnNlbmRtc2coTlVMTCwgc29j
+aywgJm1zZywgbGVuKTsKIAkJaWYgKHVubGlrZWx5KGVyciA8IDApKSB7Ci0JCQl2aG9zdF9kaXNj
+YXJkKHZxLCAxKTsKLQkJCXR4X3BvbGxfc3RhcnQobmV0LCBzb2NrKTsKKwkJCWlmIChlcnIgPT0g
+LUVBR0FJTikgeworCQkJCXR4X3BvbGxfc3RhcnQobmV0LCBzb2NrKTsKKwkJCX0gZWxzZSB7CisJ
+CQkJdnFfZXJyKHZxLCAic2VuZG1zZzogZXJybm8gJWRcbiIsIC1lcnIpOworCQkJCS8qIGRyb3Ag
+cGFja2V0OyBkbyBub3QgZGlzY2FyZC9yZXNlbmQgKi8KKwkJCQl2aG9zdF9hZGRfdXNlZF9hbmRf
+c2lnbmFsKCZuZXQtPmRldix2cSwmaGVhZCwxKTsKKwkJCX0KIAkJCWJyZWFrOwotCQl9Ci0JCWlm
+IChlcnIgIT0gbGVuKQorCQl9IGVsc2UgaWYgKGVyciAhPSBsZW4pCiAJCQlwcl9lcnIoIlRydW5j
+YXRlZCBUWCBwYWNrZXQ6ICIKIAkJCSAgICAgICAiIGxlbiAlZCAhPSAlemRcbiIsIGVyciwgbGVu
+KTsKIAkJdmhvc3RfYWRkX3VzZWRfYW5kX3NpZ25hbCgmbmV0LT5kZXYsIHZxLCAmaGVhZCwgMSk7
+CkBAIC0yMDcsMTQgKzIyNSw4IEBACiAJCS5tc2dfZmxhZ3MgPSBNU0dfRE9OVFdBSVQsCiAJfTsK
+IAotCXN0cnVjdCB2aXJ0aW9fbmV0X2hkciBoZHIgPSB7Ci0JCS5mbGFncyA9IDAsCi0JCS5nc29f
+dHlwZSA9IFZJUlRJT19ORVRfSERSX0dTT19OT05FCi0JfTsKLQogCXNpemVfdCBsZW4sIHRvdGFs
+X2xlbiA9IDA7CiAJaW50IGVyciwgaGVhZGNvdW50LCBkYXRhbGVuOwotCXNpemVfdCBoZHJfc2l6
+ZTsKIAlzdHJ1Y3Qgc29ja2V0ICpzb2NrID0gcmN1X2RlcmVmZXJlbmNlKHZxLT5wcml2YXRlX2Rh
+dGEpOwogCiAJaWYgKCFzb2NrIHx8ICFza2JfaGVhZF9sZW4oJnNvY2stPnNrLT5za19yZWNlaXZl
+X3F1ZXVlKSkKQEAgLTIyMyw3ICsyMzUsNiBAQAogCXVzZV9tbShuZXQtPmRldi5tbSk7CiAJbXV0
+ZXhfbG9jaygmdnEtPm11dGV4KTsKIAl2aG9zdF9kaXNhYmxlX25vdGlmeSh2cSk7Ci0JaGRyX3Np
+emUgPSB2cS0+aGRyX3NpemU7CiAKIAl2cV9sb2cgPSB1bmxpa2VseSh2aG9zdF9oYXNfZmVhdHVy
+ZSgmbmV0LT5kZXYsIFZIT1NUX0ZfTE9HX0FMTCkpID8KIAkJdnEtPmxvZyA6IE5VTEw7CkBAIC0y
+MzIsMjUgKzI0MywxOCBAQAogCQloZWFkY291bnQgPSB2aG9zdF9nZXRfaGVhZHModnEsIGRhdGFs
+ZW4sICZpbiwgdnFfbG9nLCAmbG9nKTsKIAkJLyogT0ssIG5vdyB3ZSBuZWVkIHRvIGtub3cgYWJv
+dXQgYWRkZWQgZGVzY3JpcHRvcnMuICovCiAJCWlmICghaGVhZGNvdW50KSB7Ci0JCQlpZiAodW5s
+aWtlbHkodmhvc3RfZW5hYmxlX25vdGlmeSh2cSkpKSB7Ci0JCQkJLyogVGhleSBoYXZlIHNsaXBw
+ZWQgb25lIGluIGFzIHdlIHdlcmUKLQkJCQkgKiBkb2luZyB0aGF0OiBjaGVjayBhZ2Fpbi4gKi8K
+LQkJCQl2aG9zdF9kaXNhYmxlX25vdGlmeSh2cSk7Ci0JCQkJY29udGludWU7Ci0JCQl9Ci0JCQkv
+KiBOb3RoaW5nIG5ldz8gIFdhaXQgZm9yIGV2ZW50ZmQgdG8gdGVsbCB1cwotCQkJICogdGhleSBy
+ZWZpbGxlZC4gKi8KKwkJCXZob3N0X2VuYWJsZV9ub3RpZnkodnEpOwogCQkJYnJlYWs7CiAJCX0K
+IAkJLyogU2tpcCBoZWFkZXIuIFRPRE86IHN1cHBvcnQgVFNPL21lcmdlYWJsZSByeCBidWZmZXJz
+LiAqLwotCQlzID0gbW92ZV9pb3ZlY19oZHIodnEtPmlvdiwgdnEtPmhkciwgaGRyX3NpemUsIGlu
+KTsKIAkJbXNnLm1zZ19pb3ZsZW4gPSBpbjsKIAkJbGVuID0gaW92X2xlbmd0aCh2cS0+aW92LCBp
+bik7CisKIAkJLyogU2FuaXR5IGNoZWNrICovCiAJCWlmICghbGVuKSB7CiAJCQl2cV9lcnIodnEs
+ICJVbmV4cGVjdGVkIGhlYWRlciBsZW4gZm9yIFJYOiAiCiAJCQkgICAgICAgIiV6ZCBleHBlY3Rl
+ZCAlemRcbiIsCi0JCQkgICAgICAgaW92X2xlbmd0aCh2cS0+aGRyLCBzKSwgaGRyX3NpemUpOwor
+CQkJICAgICAgIGxlbiwgdnEtPmd1ZXN0X2hsZW4pOwogCQkJYnJlYWs7CiAJCX0KIAkJZXJyID0g
+c29jay0+b3BzLT5yZWN2bXNnKE5VTEwsIHNvY2ssICZtc2csCkBAIC0yNjgsMTMgKzI3Miw3IEBA
+CiAJCQljb250aW51ZTsKIAkJfQogCQlsZW4gPSBlcnI7Ci0JCWVyciA9IG1lbWNweV90b2lvdmVj
+KHZxLT5oZHIsICh1bnNpZ25lZCBjaGFyICopJmhkciwgaGRyX3NpemUpOwotCQlpZiAoZXJyKSB7
+Ci0JCQl2cV9lcnIodnEsICJVbmFibGUgdG8gd3JpdGUgdm5ldF9oZHIgYXQgYWRkciAlcDogJWRc
+biIsCi0JCQkgICAgICAgdnEtPmlvdi0+aW92X2Jhc2UsIGVycik7Ci0JCQlicmVhazsKLQkJfQot
+CQlsZW4gKz0gaGRyX3NpemU7CisJCWxlbiArPSB2cS0+Z3Vlc3RfaGxlbiAtIHZxLT5zb2NrX2hs
+ZW47CiAJCXZob3N0X2FkZF91c2VkX2FuZF9zaWduYWwoJm5ldC0+ZGV2LCB2cSwgdnEtPmhlYWRz
+LCBoZWFkY291bnQpOwogCQlpZiAodW5saWtlbHkodnFfbG9nKSkKIAkJCXZob3N0X2xvZ193cml0
+ZSh2cSwgdnFfbG9nLCBsb2csIGxlbik7CkBAIC00ODMsNiArNDgxLDEzIEBACiAJcmV0dXJuIEVS
+Ul9QVFIoLUVOT1RTT0NLKTsKIH0KIAorc3RhdGljIGludCB2aG9zdF9zb2NrX2lzX3JhdyhzdHJ1
+Y3Qgc29ja2V0ICpzb2NrKQoreworCWlmICghc29jayB8fCAhc29jay0+c2spCisJCXJldHVybiAw
+OworCXJldHVybiBzb2NrLT5zay0+c2tfdHlwZSA9PSBTT0NLX1JBVzsKK30KKwogc3RhdGljIGxv
+bmcgdmhvc3RfbmV0X3NldF9iYWNrZW5kKHN0cnVjdCB2aG9zdF9uZXQgKm4sIHVuc2lnbmVkIGlu
+ZGV4LCBpbnQgZmQpCiB7CiAJc3RydWN0IHNvY2tldCAqc29jaywgKm9sZHNvY2s7CkBAIC01MTks
+NiArNTI0LDIwIEBACiAKIAl2aG9zdF9uZXRfZGlzYWJsZV92cShuLCB2cSk7CiAJcmN1X2Fzc2ln
+bl9wb2ludGVyKHZxLT5wcml2YXRlX2RhdGEsIHNvY2spOworCisJaWYgKHNvY2sgJiYgc29jay0+
+c2spIHsKKwkJaWYgKCF2aG9zdF9zb2NrX2lzX3Jhdyhzb2NrKSB8fAorCQkgICAgdmhvc3RfaGFz
+X2ZlYXR1cmUoJm4tPmRldiwgVkhPU1RfTkVUX0ZfVklSVElPX05FVF9IRFIpKSB7CisJCQl2cS0+
+c29ja19obGVuID0gc2l6ZW9mKHN0cnVjdCB2aXJ0aW9fbmV0X2hkcik7CisJCQlpZiAodmhvc3Rf
+aGFzX2ZlYXR1cmUoJm4tPmRldiwgVklSVElPX05FVF9GX01SR19SWEJVRikpCisJCQkJdnEtPmd1
+ZXN0X2hsZW4gPQorCQkJCQlzaXplb2Yoc3RydWN0IHZpcnRpb19uZXRfaGRyX21yZ19yeGJ1Zik7
+CisJCQllbHNlCisJCQkJdnEtPmd1ZXN0X2hsZW4gPSBzaXplb2Yoc3RydWN0IHZpcnRpb19uZXRf
+aGRyKTsKKwkJfSBlbHNlCisJCQl2cS0+Z3Vlc3RfaGxlbiA9IHZxLT5zb2NrX2hsZW4gPSAwOwor
+CX0gZWxzZQorCQl2cV9lcnIodnEsICJ2aG9zdF9uZXRfc2V0X2JhY2tlbmQ6IHNvY2stPnNrIGlz
+IE5VTEwiKTsKIAl2aG9zdF9uZXRfZW5hYmxlX3ZxKG4sIHZxKTsKIAltdXRleF91bmxvY2soJnZx
+LT5tdXRleCk7CiBkb25lOgpAQCAtNTY2LDggKzU4NSwxNyBAQAogCW4tPmRldi5hY2tlZF9mZWF0
+dXJlcyA9IGZlYXR1cmVzOwogCXNtcF93bWIoKTsKIAlmb3IgKGkgPSAwOyBpIDwgVkhPU1RfTkVU
+X1ZRX01BWDsgKytpKSB7Ci0JCW11dGV4X2xvY2soJm4tPnZxc1tpXS5tdXRleCk7Ci0JCW4tPnZx
+c1tpXS5oZHJfc2l6ZSA9IGhkcl9zaXplOworCQlzdHJ1Y3Qgdmhvc3RfdmlydHF1ZXVlICp2cSA9
+IG4tPnZxcyArIGk7CisJCXN0cnVjdCBzb2NrZXQgKnNvY2sgPSB2cS0+cHJpdmF0ZV9kYXRhOwor
+CisJCW11dGV4X2xvY2soJnZxLT5tdXRleCk7CisJCWlmIChmZWF0dXJlcyAmICgxIDw8IFZJUlRJ
+T19ORVRfRl9NUkdfUlhCVUYpKQorCQkJdnEtPnNvY2tfaGxlbiA9IHNpemVvZihzdHJ1Y3Qgdmly
+dGlvX25ldF9oZHJfbXJnX3J4YnVmKTsKKwkJZWxzZSBpZiAoZmVhdHVyZXMgJiAoMSA8PCBWSE9T
+VF9ORVRfRl9WSVJUSU9fTkVUX0hEUikgfHwKKwkJCSAhdmhvc3Rfc29ja19pc19yYXcoc29jaykp
+CisJCQl2cS0+c29ja19obGVuID0gc2l6ZW9mKHN0cnVjdCB2aXJ0aW9fbmV0X2hkcik7CisJCWVs
+c2UKKwkJCXZxLT5zb2NrX2hsZW4gPSAwOwogCQltdXRleF91bmxvY2soJm4tPnZxc1tpXS5tdXRl
+eCk7CiAJfQogCXZob3N0X25ldF9mbHVzaChuKTsKZGlmZiAtcnVOIG5ldC1uZXh0LXAxL2RyaXZl
+cnMvdmhvc3Qvdmhvc3QuYyBuZXQtbmV4dC1wMi9kcml2ZXJzL3Zob3N0L3Zob3N0LmMKLS0tIG5l
+dC1uZXh0LXAxL2RyaXZlcnMvdmhvc3Qvdmhvc3QuYwkyMDEwLTAzLTAxIDExOjQ0OjA2LjAwMDAw
+MDAwMCAtMDgwMAorKysgbmV0LW5leHQtcDIvZHJpdmVycy92aG9zdC92aG9zdC5jCTIwMTAtMDMt
+MDIgMTI6NTM6MDIuMDAwMDAwMDAwIC0wODAwCkBAIC0xMTMsNyArMTEzLDggQEAKIAl2cS0+dXNl
+ZF9mbGFncyA9IDA7CiAJdnEtPmxvZ191c2VkID0gZmFsc2U7CiAJdnEtPmxvZ19hZGRyID0gLTF1
+bGw7Ci0JdnEtPmhkcl9zaXplID0gMDsKKwl2cS0+Z3Vlc3RfaGxlbiA9IDA7CisJdnEtPnNvY2tf
+aGxlbiA9IDA7CiAJdnEtPnByaXZhdGVfZGF0YSA9IE5VTEw7CiAJdnEtPmxvZ19iYXNlID0gTlVM
+TDsKIAl2cS0+ZXJyb3JfY3R4ID0gTlVMTDsKQEAgLTg0OCwyMCArODQ5LDg1IEBACiAJcmV0dXJu
+IDA7CiB9CiAKK3N0YXRpYyBpbnQKK3Zob3N0X2dldF9oZHIoc3RydWN0IHZob3N0X3ZpcnRxdWV1
+ZSAqdnEsIGludCAqaW4sIHN0cnVjdCB2aG9zdF9sb2cgKmxvZywKKwlpbnQgKmxvZ19udW0pCit7
+CisJc3RydWN0IGlvdmVjICpoZWFkcyA9IHZxLT5oZWFkczsKKwlzdHJ1Y3QgaW92ZWMgKmlvdiA9
+IHZxLT5pb3Y7CisJaW50IG91dDsKKworCSppbiA9IDA7CisJaW92WzBdLmlvdl9sZW4gPSAwOwor
+CisJLyogZ2V0IGJ1ZmZlciwgc3RhcnRpbmcgZnJvbSBpb3ZbMV0gKi8KKwloZWFkc1swXS5pb3Zf
+YmFzZSA9ICh2b2lkICopdmhvc3RfZ2V0X3ZxX2Rlc2ModnEtPmRldiwgdnEsCisJCXZxLT5pb3Yr
+MSwgQVJSQVlfU0laRSh2cS0+aW92KS0xLCAmb3V0LCBpbiwgbG9nLCBsb2dfbnVtKTsKKwlpZiAo
+b3V0IHx8ICppbiA8PSAwKSB7CisJCXZxX2Vycih2cSwgInVuZXhwZWN0ZWQgZGVzY3JpcHRvciBm
+b3JtYXQgZm9yIFJYOiBvdXQgJWQsICIKKwkJCSJpbiAlZFxuIiwgb3V0LCAqaW4pOworCQlyZXR1
+cm4gMDsKKwl9CisJaWYgKGhlYWRzWzBdLmlvdl9iYXNlID09ICh2b2lkICopdnEtPm51bSkKKwkJ
+cmV0dXJuIDA7CisKKwkvKiBtYWtlIGlvdlswXSB0aGUgaGVhZGVyICovCisJaWYgKCF2cS0+Z3Vl
+c3RfaGxlbikgeworCQlpZiAodnEtPnNvY2tfaGxlbikgeworCQkJc3RhdGljIHN0cnVjdCB2aXJ0
+aW9fbmV0X2hkciBqdW5rOyAvKiBiaXQgYnVja2V0ICovCisKKwkJCWlvdlswXS5pb3ZfYmFzZSA9
+ICZqdW5rOworCQkJaW92WzBdLmlvdl9sZW4gPSBzaXplb2YoanVuayk7CisJCX0gZWxzZQorCQkJ
+aW92WzBdLmlvdl9sZW4gPSAwOworCX0KKwlpZiAodnEtPnNvY2tfaGxlbiA8IHZxLT5ndWVzdF9o
+bGVuKSB7CisJCWlvdlswXS5pb3ZfYmFzZSA9IGlvdlsxXS5pb3ZfYmFzZTsKKwkJaW92WzBdLmlv
+dl9sZW4gPSB2cS0+c29ja19obGVuOworCisJCWlmIChpb3ZbMV0uaW92X2xlbiA8IHZxLT5zb2Nr
+X2hsZW4pIHsKKwkJCXZxX2Vycih2cSwgImNhbid0IGZpdCBoZWFkZXIgaW4gb25lIGJ1ZmZlciEi
+KTsKKwkJCXZob3N0X2Rpc2NhcmQodnEsIDEpOworCQkJcmV0dXJuIDA7CisJCX0KKwkJaWYgKCF2
+cS0+c29ja19obGVuKSB7CisJCQlzdGF0aWMgY29uc3Qgc3RydWN0IHZpcnRpb19uZXRfaGRyX21y
+Z19yeGJ1ZiBoZHIgPSB7CisJCQkJLmhkci5mbGFncyA9IDAsCisJCQkJLmhkci5nc29fdHlwZSA9
+IFZJUlRJT19ORVRfSERSX0dTT19OT05FCisJCQl9OworCQkJbWVtY3B5KGlvdlswXS5pb3ZfYmFz
+ZSwgJmhkciwgdnEtPmd1ZXN0X2hsZW4pOworCQl9CisJCWlvdlsxXS5pb3ZfYmFzZSArPSB2cS0+
+Z3Vlc3RfaGxlbjsKKwkJaW92WzFdLmlvdl9sZW4gLT0gdnEtPmd1ZXN0X2hsZW47CisJfQorCXJl
+dHVybiAxOworfQorCiB1bnNpZ25lZCB2aG9zdF9nZXRfaGVhZHMoc3RydWN0IHZob3N0X3ZpcnRx
+dWV1ZSAqdnEsIGludCBkYXRhbGVuLCBpbnQgKmlvdmNvdW50LAogCXN0cnVjdCB2aG9zdF9sb2cg
+KmxvZywgdW5zaWduZWQgaW50ICpsb2dfbnVtKQogewogCXN0cnVjdCBpb3ZlYyAqaGVhZHMgPSB2
+cS0+aGVhZHM7Ci0JaW50IG91dCwgaW47CisJaW50IG91dCwgaW4gPSAwOworCWludCBzZWcgPSAw
+OwogCWludCBoYyA9IDA7CiAKKwlpZiAodnEtPmd1ZXN0X2hsZW4gIT0gdnEtPnNvY2tfaGxlbikg
+eworCQlzZWcgPSB2aG9zdF9nZXRfaGRyKHZxLCAmaW4sIGxvZywgbG9nX251bSk7CisJCWlmICgh
+c2VnKQorCQkJcmV0dXJuIDA7CisJCWhjKys7CisJCWRhdGFsZW4gLT0gaW92X2xlbmd0aCh2cS0+
+aW92K3NlZywgaW4pOworCQlzZWcgKz0gaW47CisJfQorCiAJd2hpbGUgKGRhdGFsZW4gPiAwKSB7
+CiAJCWlmIChoYyA+PSBWSE9TVF9ORVRfTUFYX1NHKSB7CiAJCQl2aG9zdF9kaXNjYXJkKHZxLCBo
+Yyk7CiAJCQlyZXR1cm4gMDsKIAkJfQogCQloZWFkc1toY10uaW92X2Jhc2UgPSAodm9pZCAqKXZo
+b3N0X2dldF92cV9kZXNjKHZxLT5kZXYsIHZxLAotCQkJdnEtPmlvdiwgQVJSQVlfU0laRSh2cS0+
+aW92KSwgJm91dCwgJmluLCBsb2csIGxvZ19udW0pOworCQkJdnEtPmlvditzZWcsIEFSUkFZX1NJ
+WkUodnEtPmlvdiktc2VnLCAmb3V0LCAmaW4sCisJCQlsb2csIGxvZ19udW0pOwogCQlpZiAoaGVh
+ZHNbaGNdLmlvdl9iYXNlID09ICh2b2lkICopdnEtPm51bSkgewogCQkJdmhvc3RfZGlzY2FyZCh2
+cSwgaGMpOwogCQkJcmV0dXJuIDA7CkBAIC04NzIsMTEgKzkzOCwxMiBAQAogCQkJdmhvc3RfZGlz
+Y2FyZCh2cSwgaGMpOwogCQkJcmV0dXJuIDA7CiAJCX0KLQkJaGVhZHNbaGNdLmlvdl9sZW4gPSBp
+b3ZfbGVuZ3RoKHZxLT5pb3YsIGluKTsKLQkJaGMrKzsKKwkJaGVhZHNbaGNdLmlvdl9sZW4gPSBp
+b3ZfbGVuZ3RoKHZxLT5pb3Yrc2VnLCBpbik7CiAJCWRhdGFsZW4gLT0gaGVhZHNbaGNdLmlvdl9s
+ZW47CisJCWhjKys7CisJCXNlZyArPSBpbjsKIAl9Ci0JKmlvdmNvdW50ID0gaW47CisJKmlvdmNv
+dW50ID0gc2VnOwogCXJldHVybiBoYzsKIH0KIApkaWZmIC1ydU4gbmV0LW5leHQtcDEvZHJpdmVy
+cy92aG9zdC92aG9zdC5oIG5ldC1uZXh0LXAyL2RyaXZlcnMvdmhvc3Qvdmhvc3QuaAotLS0gbmV0
+LW5leHQtcDEvZHJpdmVycy92aG9zdC92aG9zdC5oCTIwMTAtMDMtMDEgMTE6NDI6MTguMDAwMDAw
+MDAwIC0wODAwCisrKyBuZXQtbmV4dC1wMi9kcml2ZXJzL3Zob3N0L3Zob3N0LmgJMjAxMC0wMy0w
+MiAxMzowMjowMy4wMDAwMDAwMDAgLTA4MDAKQEAgLTgyLDEwICs4Miw5IEBACiAJdTY0IGxvZ19h
+ZGRyOwogCiAJc3RydWN0IGlvdmVjIGluZGlyZWN0W1ZIT1NUX05FVF9NQVhfU0ddOwotCXN0cnVj
+dCBpb3ZlYyBpb3ZbVkhPU1RfTkVUX01BWF9TR107Ci0Jc3RydWN0IGlvdmVjIGhkcltWSE9TVF9O
+RVRfTUFYX1NHXTsKKwlzdHJ1Y3QgaW92ZWMgaW92W1ZIT1NUX05FVF9NQVhfU0crMV07IC8qIGFu
+IGV4dHJhIGZvciB2bmV0IGhkciAqLwogCXN0cnVjdCBpb3ZlYyBoZWFkc1tWSE9TVF9ORVRfTUFY
+X1NHXTsKLQlzaXplX3QgaGRyX3NpemU7CisJc2l6ZV90IGd1ZXN0X2hsZW4sIHNvY2tfaGxlbjsK
+IAkvKiBXZSB1c2UgYSBraW5kIG9mIFJDVSB0byBhY2Nlc3MgcHJpdmF0ZSBwb2ludGVyLgogCSAq
+IEFsbCByZWFkZXJzIGFjY2VzcyBpdCBmcm9tIHdvcmtxdWV1ZSwgd2hpY2ggbWFrZXMgaXQgcG9z
+c2libGUgdG8KIAkgKiBmbHVzaCB0aGUgd29ya3F1ZXVlIGluc3RlYWQgb2Ygc3luY2hyb25pemVf
+cmN1LiBUaGVyZWZvcmUgcmVhZGVycyBkbwo=
 
---=_mixed 0001DA48882576DB_=--
+--=_mixed 0001DECF882576DB_=--
