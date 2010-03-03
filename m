@@ -1,86 +1,100 @@
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Subject: Re: KS8695: possible NAPI issue
-Date: Wed, 3 Mar 2010 09:28:12 +0100
-Message-ID: <f69abfc31003030028x500796aav21295da78743da07@mail.gmail.com>
-References: <f69abfc31003020404y7af77fe5icefeee4644c7d08e@mail.gmail.com>
-	 <4B8D1C02.1010204@softplc.com>
-	 <c6ed1ac51003021746n2b246591g880b584550ec5e84@mail.gmail.com>
-	 <4B8DED29.9000605@softplc.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: figo zhang <figo1802@gmail.com>, netdev@vger.kernel.org,
-	zealcook@gmail.com
-To: Dick Hollenbeck <dick@softplc.com>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: [PATCH V2 3/7] udp: use limited socket backlog
+Date: Wed,  3 Mar 2010 16:36:25 +0800
+Message-ID: <1267605389-7369-3-git-send-email-yi.zhu@intel.com>
+References: <1267605389-7369-1-git-send-email-yi.zhu@intel.com>
+ <1267605389-7369-2-git-send-email-yi.zhu@intel.com>
+Cc: Zhu Yi <yi.zhu@intel.com>, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f220.google.com ([209.85.219.220]:52111 "EHLO
-	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751831Ab0CCI2R convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Mar 2010 03:28:17 -0500
-Received: by ewy20 with SMTP id 20so769853ewy.21
-        for <netdev@vger.kernel.org>; Wed, 03 Mar 2010 00:28:15 -0800 (PST)
-In-Reply-To: <4B8DED29.9000605@softplc.com>
+Received: from mga01.intel.com ([192.55.52.88]:60230 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751872Ab0CCIes (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Mar 2010 03:34:48 -0500
+In-Reply-To: <1267605389-7369-2-git-send-email-yi.zhu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>> I'm using 2.6.33 kernel and I noticed such a strange behavior:
->>>>
->>>> after system start I transfer one file via netcat from my developm=
-ent
->>>> host, after this transfer the network is not functioning i.e. no p=
-ings
->>>> possible etc.
->>>>
->>>> To narrow down the problem I checked out this commit
->>>>
->>>>
->>>> http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git=
-;a=3Dcommit;h=3D451f14439847db302e5104c44458b2dbb4b1829d.
->>>> Till here the network driver is functioning as intended, but after
->>>> NAPI introduction I have this issue. With latest git-pull of "Linu=
-s'
->>>> kernel tree" I can't even ping right after the systems start.
->>>>
->>>> Any Ideas? What am I missing?
->>>>
->>>>
->>>
->>> No idea, although I am using the same ARM chip, my kernel is at 2.6=
-=2E30.5,
->>> and except for this occasional loss of connection I get, the ethern=
-et
->>> driver
->>> seems to work better than what you are reporting.
->>>
->>
->> from linux-2.6.32, this ethernet =C2=A0driver have add NAPI support,=
- would
->> you like to
->> try using this version?
->>
->
-> Seems like a lot of work for me, given that my 2.6.30.5 kernel is mos=
-tly
-> working. =C2=A0 Yegor is having the problems on the newer kernels, ne=
-wer than
-> mine. =C2=A0Sounds like a warning flag to me, not an incentive.
->
-> What is NAPI and why do I care?
+Make udp adapt to the limited socket backlog change.
 
-Here is Wikipedia article: http://en.wikipedia.org/wiki/NAPI
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: "Pekka Savola (ipv6)" <pekkas@netcore.fi>
+Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Zhu Yi <yi.zhu@intel.com>
+---
+ net/ipv4/udp.c |    6 ++++--
+ net/ipv6/udp.c |   28 ++++++++++++++++++----------
+ 2 files changed, 22 insertions(+), 12 deletions(-)
 
-The problem also is that I really need a kernel version not less than
-2.6.33 because of the support of other platforms.
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 608a544..e7eb47f 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1371,8 +1371,10 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 	bh_lock_sock(sk);
+ 	if (!sock_owned_by_user(sk))
+ 		rc = __udp_queue_rcv_skb(sk, skb);
+-	else
+-		sk_add_backlog(sk, skb);
++	else if (sk_add_backlog_limited(sk, skb)) {
++		bh_unlock_sock(sk);
++		goto drop;
++	}
+ 	bh_unlock_sock(sk);
+ 
+ 	return rc;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 52b8347..6480491 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -583,16 +583,20 @@ static void flush_stack(struct sock **stack, unsigned int count,
+ 			bh_lock_sock(sk);
+ 			if (!sock_owned_by_user(sk))
+ 				udpv6_queue_rcv_skb(sk, skb1);
+-			else
+-				sk_add_backlog(sk, skb1);
++			else if (sk_add_backlog_limited(sk, skb1)) {
++				kfree_skb(skb1);
++				bh_unlock_sock(sk);
++				goto drop;
++			}
+ 			bh_unlock_sock(sk);
+-		} else {
+-			atomic_inc(&sk->sk_drops);
+-			UDP6_INC_STATS_BH(sock_net(sk),
+-					UDP_MIB_RCVBUFERRORS, IS_UDPLITE(sk));
+-			UDP6_INC_STATS_BH(sock_net(sk),
+-					UDP_MIB_INERRORS, IS_UDPLITE(sk));
++			continue;
+ 		}
++drop:
++		atomic_inc(&sk->sk_drops);
++		UDP6_INC_STATS_BH(sock_net(sk),
++				UDP_MIB_RCVBUFERRORS, IS_UDPLITE(sk));
++		UDP6_INC_STATS_BH(sock_net(sk),
++				UDP_MIB_INERRORS, IS_UDPLITE(sk));
+ 	}
+ }
+ /*
+@@ -754,8 +758,12 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 	bh_lock_sock(sk);
+ 	if (!sock_owned_by_user(sk))
+ 		udpv6_queue_rcv_skb(sk, skb);
+-	else
+-		sk_add_backlog(sk, skb);
++	else if (sk_add_backlog_limited(sk, skb)) {
++		atomic_inc(&sk->sk_drops);
++		bh_unlock_sock(sk);
++		sock_put(sk);
++		goto discard;
++	}
+ 	bh_unlock_sock(sk);
+ 	sock_put(sk);
+ 	return 0;
+-- 
+1.6.3.3
 
-I sniffed a little with wireshark and the symptoms are the following:
-
-after netcat transfer the system sends only ARP requests and no other p=
-ackets.
-
-I just git-pulled the latest Linus tree and the network still has the
-above described issues.
-
-=46igo, could you test the latest kernel with netcat transfers? So you
-could reproduce this behavior?
-
-Yegor
