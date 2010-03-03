@@ -1,272 +1,53 @@
-From: "Stephens, Allan" <allan.stephens@windriver.com>
-Subject: Re: [PATCH]: tipc: Fix oops on send prior to
-	entering networked mode (v2)
-Date: Wed, 3 Mar 2010 08:51:02 -0800
-Message-ID: <29C1DC0826876849BDD9F1C67ABA294307204C8E@ala-mail09.corp.ad.wrs.com>
-References: <20100219194033.GA28743@hmsreliant.think-freely.org>
-	<20100302183312.GB22294@hmsreliant.think-freely.org>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
+Date: Wed, 03 Mar 2010 19:50:56 +0300
+Message-ID: <4B8E9370.3050300@parallels.com>
+References: <4B88E431.6040609@parallels.com>	<m1bpfbqajn.fsf@fess.ebiederm.org> <4B894564.7080104@parallels.com>	<m1iq9io5sc.fsf@fess.ebiederm.org> <4B89727C.9040602@parallels.com>	<m1ljeempk6.fsf@fess.ebiederm.org> <4B8AE8C1.1030305@free.fr>	<4B8D28CF.8060304@parallels.com> <20100302211942.GA17816@us.ibm.com>	<m1y6iaqsmm.fsf@fess.ebiederm.org> <20100303000743.GA13744@us.ibm.com> <m1ocj6qljj.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net,
-	davem@davemloft.net
-To: "Neil Horman" <nhorman@tuxdriver.com>, <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-Content-class: urn:content-classes:message
-In-Reply-To: <20100302183312.GB22294@hmsreliant.think-freely.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	containers@lists.linux-foundation.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
+	Daniel Lezcano <daniel.lezcano@free.fr>,
+	Serge Hallyn <serue@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:29857 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751578Ab0CCQwi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Mar 2010 11:52:38 -0500
+In-Reply-To: <m1ocj6qljj.fsf@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Neil:
+> I just played with this and if you make the semantics of unshare(CLONE_NEWPID)
+> to be that you become the idle task aka pid 0, and not the init task pid 1 the
+> implementation is trivial.
 
-Your patch looks pretty good to me, and is definitely a much cleaner
-solution than what was discussed previously.
+This is not ... handy - if after enter you have pid 0 you obviously
+can't perform 2 parallel enters. The way I see it:
 
-The only improvements I can suggest are the following:
+As far as the numbers reported to the userspace are concerned:
+1. task, that enters is still visible by its old parent by old pid
+2. task, that enters gets some pid within the entering namespace
+   and reports its parent pid to have pid 1 (init obviously doesn't
+   care)
+3. we _can_ try to allocate new pid equal to the old one so that
+   glibc stays happy
 
-- It looks like the check to see if tipc_bearers is NULL at the start of
-tipc_bearer_stop() is unnecessary, since it's now a static array.
 
-- The check to see if media_list is NULL at the start of
-tipc_register_media() needs to be replaced with a check to ensure
-tipc_mode is TIPC_NET_MODE.  (Unlike the case with the tipc_bearers
-check, we still need some sort of test in place to cause the routine to
-fail if someone uses TIPC's native API to try registering an add-on
-media type before TIPC is ready to handle it.)
+As far as the pointers are concerned:
+1. parent pointer doesn't change
+2. task_pid(tsk) one (i.e. struct pid * one) _can_ change if
+   a) we don't allow threads enter (de_thread problem is handeled)
+   b) we don't allow leave the group/session, i.e. check, that there
+      is the only one task that enters lives in its pgid/sid
+   c) we wait for the quiescent state to pass by before destroying
+      the old pid to handle race with sys_kill()
 
-Other than these minor points I can't see anything else that would cause
-problems.
-
-Regards,
-Al
-
-> -----Original Message-----
-> From: Neil Horman [mailto:nhorman@tuxdriver.com] 
-> Sent: Tuesday, March 02, 2010 1:33 PM
-> To: netdev@vger.kernel.org
-> Cc: jon.maloy@ericsson.com; Stephens, Allan; 
-> tipc-discussion@lists.sourceforge.net; davem@davemloft.net
-> Subject: Re: [PATCH]: tipc: Fix oops on send prior to 
-> entering networked mode (v2)
-> 
-> Ok, after some debate, heres version 2 of this patch.  Its a 
-> complete rewrite.
-> I started with the patches we'd proposed previously, then 
-> realized theres a much easier and elegant way to handle this, 
-> which I've implemented below.
-> 
-> Fix TIPC to disallow sending to remote addresses prior to 
-> entering NET_MODE
-> 
-> user programs can oops the kernel by sending datagrams via 
-> AF_TIPC prior to entering networked mode.  The following 
-> backtrace has been observed:
-> 
-> ID: 13459  TASK: ffff810014640040  CPU: 0   COMMAND: "tipc-client"
-> [exception RIP: tipc_node_select_next_hop+90]
-> RIP: ffffffff8869d3c3  RSP: ffff81002d9a5ab8  RFLAGS: 00010202
-> RAX: 0000000000000001  RBX: 0000000000000001  RCX: 0000000000000001
-> RDX: 0000000000000000  RSI: 0000000000000001  RDI: 0000000001001001
-> RBP: 0000000001001001   R8: 0074736575716552   R9: 0000000000000000
-> R10: ffff81003fbd0680  R11: 00000000000000c8  R12: 0000000000000008
-> R13: 0000000000000001  R14: 0000000000000001  R15: ffff810015c6ca00
-> ORIG_RAX: ffffffffffffffff  CS: 0010  SS: 0018
-> #4 [ffff81002d9a5ab0] tipc_node_select_next_hop at ffffffff8869d3b1
-> #5 [ffff81002d9a5ae0] tipc_link_send_sections_fast at ffffffff88698558
-> #6 [ffff81002d9a5be0] tipc_forward2port at ffffffff8869eb1d
-> #7 [ffff81002d9a5c10] tipc_send2port at ffffffff8869eb79
-> #8 [ffff81002d9a5c30] send_msg at ffffffff886a1d0b
-> #9 [ffff81002d9a5cb0] sock_sendmsg at ffffffff80055261
-> RIP: 0000003cbd8d49a3  RSP: 00007fffc84e0be8  RFLAGS: 00010206
-> RAX: 000000000000002c  RBX: ffffffff8005d116  RCX: 0000000000000000
-> RDX: 0000000000000008  RSI: 00007fffc84e0c00  RDI: 0000000000000003
-> RBP: 0000000000000000   R8: 00007fffc84e0c10   R9: 0000000000000010
-> R10: 0000000000000000  R11: 0000000000000246  R12: 0000000000000000
-> R13: 00007fffc84e0d10  R14: 0000000000000000  R15: 00007fffc84e0c30
-> ORIG_RAX: 000000000000002c  CS: 0033  SS: 002b
-> 
-> What happens is that, when the tipc module in inserted it 
-> enters a standalone node mode in which communication to its 
-> own address is allowed <0.0.0> but not to other addresses, 
-> since the appropriate data structures have not been allocated 
-> yet (specifically the tipc_net pointer).  There is nothing 
-> stopping a client from trying to send such a message however, 
-> and if that happens, we attempt to dereference tipc_net.zones 
-> while the pointer is still NULL, and explode.  The fix is 
-> pretty straightforward.  Since these oopses all arise from 
-> the dereference of global pointers prior to their assignment 
-> to allocated values, and since these allocations are small 
-> (about 2k total), lets convert these pointers to static 
-> arrays of the appropriate size.  All the accesses to these 
-> bits consider 0/NULL to be a non match when searching, so all 
-> the lookups still work properly, and there is no longer a 
-> chance of a bad dererence anywhere.  As a bonus, this lets us 
-> eliminate the setup/teardown routines for those pointers, and 
-> elimnates the need to preform any locking around them to 
-> prevent access while their being allocated/freed.
-> 
-> I've updated the tipc_net structure to behave this way to fix 
-> the exact reported problem, and also fixed up the 
-> tipc_bearers and media_list arrays to fix an obvious simmilar 
-> problem that arises from issuing tipc-config commands to 
-> manipulate bearers/links prior to entering networked mode
-> 
-> I've tested this for a few hours by running the sanity tests 
-> and stress test with the tipcutils suite, and nothing has 
-> fallen over.  There have been a few lockdep warnings, but 
-> those were there before, and can be addressed later, as they 
-> didn't actually result in any deadlock.
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> CC: Allan Stephens <allan.stephens@windriver.com>
-> CC: David S. Miller <davem@davemloft.net>
-> CC: tipc-discussion@lists.sourceforge.net
-> 
-> 
->  bearer.c |   28 ++--------------------------
->  bearer.h |    2 +-
->  net.c    |   25 ++++---------------------
->  3 files changed, 7 insertions(+), 48 deletions(-)
-> 
-> diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c index 
-> 327011f..d1b9226 100644
-> --- a/net/tipc/bearer.c
-> +++ b/net/tipc/bearer.c
-> @@ -45,10 +45,10 @@
->  
->  #define MAX_ADDR_STR 32
->  
-> -static struct media *media_list = NULL;
-> +static struct media media_list[MAX_MEDIA];
->  static u32 media_count = 0;
->  
-> -struct bearer *tipc_bearers = NULL;
-> +struct bearer tipc_bearers[MAX_BEARERS];
->  
->  /**
->   * media_name_valid - validate media name @@ -660,26 +660,6 
-> @@ int tipc_disable_bearer(const char *name)
->  
->  
->  
-> -int tipc_bearer_init(void)
-> -{
-> -	int res;
-> -
-> -	write_lock_bh(&tipc_net_lock);
-> -	tipc_bearers = kcalloc(MAX_BEARERS, sizeof(struct 
-> bearer), GFP_ATOMIC);
-> -	media_list = kcalloc(MAX_MEDIA, sizeof(struct media), 
-> GFP_ATOMIC);
-> -	if (tipc_bearers && media_list) {
-> -		res = 0;
-> -	} else {
-> -		kfree(tipc_bearers);
-> -		kfree(media_list);
-> -		tipc_bearers = NULL;
-> -		media_list = NULL;
-> -		res = -ENOMEM;
-> -	}
-> -	write_unlock_bh(&tipc_net_lock);
-> -	return res;
-> -}
-> -
->  void tipc_bearer_stop(void)
->  {
->  	u32 i;
-> @@ -695,10 +675,6 @@ void tipc_bearer_stop(void)
->  		if (tipc_bearers[i].active)
->  			bearer_disable(tipc_bearers[i].publ.name);
->  	}
-> -	kfree(tipc_bearers);
-> -	kfree(media_list);
-> -	tipc_bearers = NULL;
-> -	media_list = NULL;
->  	media_count = 0;
->  }
->  
-> diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h index 
-> ca57348..000228e 100644
-> --- a/net/tipc/bearer.h
-> +++ b/net/tipc/bearer.h
-> @@ -114,7 +114,7 @@ struct bearer_name {
->  
->  struct link;
->  
-> -extern struct bearer *tipc_bearers;
-> +extern struct bearer tipc_bearers[];
->  
->  void tipc_media_addr_printf(struct print_buf *pb, struct 
-> tipc_media_addr *a);  struct sk_buff 
-> *tipc_media_get_names(void); diff --git a/net/tipc/net.c 
-> b/net/tipc/net.c index 7906608..f25b1cd 100644
-> --- a/net/tipc/net.c
-> +++ b/net/tipc/net.c
-> @@ -116,7 +116,8 @@
->  */
->  
->  DEFINE_RWLOCK(tipc_net_lock);
-> -struct network tipc_net = { NULL };
-> +struct _zone *tipc_zones[256] = { NULL, }; struct network 
-> tipc_net = { 
-> +tipc_zones };
->  
->  struct tipc_node *tipc_net_select_remote_node(u32 addr, u32 
-> ref)  { @@ -158,28 +159,12 @@ void 
-> tipc_net_send_external_routes(u32 dest)
->  	}
->  }
->  
-> -static int net_init(void)
-> -{
-> -	memset(&tipc_net, 0, sizeof(tipc_net));
-> -	tipc_net.zones = kcalloc(tipc_max_zones + 1, 
-> sizeof(struct _zone *), GFP_ATOMIC);
-> -	if (!tipc_net.zones) {
-> -		return -ENOMEM;
-> -	}
-> -	return 0;
-> -}
-> -
->  static void net_stop(void)
->  {
->  	u32 z_num;
->  
-> -	if (!tipc_net.zones)
-> -		return;
-> -
-> -	for (z_num = 1; z_num <= tipc_max_zones; z_num++) {
-> +	for (z_num = 1; z_num <= tipc_max_zones; z_num++)
->  		tipc_zone_delete(tipc_net.zones[z_num]);
-> -	}
-> -	kfree(tipc_net.zones);
-> -	tipc_net.zones = NULL;
->  }
->  
->  static void net_route_named_msg(struct sk_buff *buf) @@ 
-> -282,9 +267,7 @@ int tipc_net_start(u32 addr)
->  	tipc_named_reinit();
->  	tipc_port_reinit();
->  
-> -	if ((res = tipc_bearer_init()) ||
-> -	    (res = net_init()) ||
-> -	    (res = tipc_cltr_init()) ||
-> +	if ((res = tipc_cltr_init()) ||
->  	    (res = tipc_bclink_init())) {
->  		return res;
->  	}
-> 
-
-------------------------------------------------------------------------------
-Download Intel&#174; Parallel Studio Eval
-Try the new software tools for yourself. Speed compiling, find bugs
-proactively, and fine-tune applications for parallel performance.
-See why Intel Parallel Studio got high marks during beta.
-http://p.sf.net/sfu/intel-sw-dev
+Thoughts/questions? ("This is a nasty problem" answer is not acceptable,
+the real code problems/races please)
