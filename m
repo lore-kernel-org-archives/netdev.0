@@ -1,46 +1,50 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/2] ipv4: flush ARP entries on device change
-Date: Wed, 03 Mar 2010 15:44:49 +0100
-Message-ID: <4B8E75E1.8060909@trash.net>
-References: <1267624874-22326-1-git-send-email-timo.teras@iki.fi> <1267624874-22326-2-git-send-email-timo.teras@iki.fi> <4B8E6CC8.3080701@trash.net> <4B8E701D.7070300@iki.fi> <4B8E7357.5050203@trash.net> <4B8E74A8.5060600@iki.fi>
+From: Mike Galbraith <efault@gmx.de>
+Subject: Re: [rfc/rft][patch] should use scheduler sync hint in
+ tcp_prequeue()?
+Date: Wed, 03 Mar 2010 15:46:50 +0100
+Message-ID: <1267627610.6264.21.camel@marge.simson.net>
+References: <1267522901.25906.101.camel@marge.simson.net>
+	 <1267529273.2964.111.camel@edumazet-laptop>
+	 <20100303.060529.195713861.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-15?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:41418 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754713Ab0CCOou (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Mar 2010 09:44:50 -0500
-In-Reply-To: <4B8E74A8.5060600@iki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@elte.hu
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100303.060529.195713861.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Timo Ter=E4s wrote:
-> Patrick McHardy wrote:
->> Timo Ter=E4s wrote:
->>> Patrick McHardy wrote:
->>>> Timo Teras wrote:
->>>> It would be nice if we could restrict this to IFF_NOARP changes.
->>> Yes. But I did not see any easy way to figure out which flags have
->>> changed.
->>>
->>> Should we just keep a copy of the previous IFF_NOARP bit somewhere
->>> (where?).
->>> Or did I miss something obvious?
->>
->> We shouldn't have any arp entries for devices with IFF_NOARP set,
->> so perhaps we can flush only in that case. The transition IFF_NOARP
->> -> ~IFF_NOARP shouldn't need flushing.
->=20
-> IFF_NOARP devices do have neighbor entries with the nud NOARP.
-> Exactly those entries I want to flush when IFF_NOARP flag is
-> removed.
->=20
-> You can see those entries with "ip neigh show nud all". You have
-> them e.g. for loopback stuff and broad-/multicast stuff in general.
-> With IFF_NOARP you get them on all unicast addresses used.
+On Wed, 2010-03-03 at 06:05 -0800, David Miller wrote:
 
-I see. I don't have a better suggestion, except perhaps
-to store the bit in dev->priv_flags.
+> It definitely looks like an oversight to me and we should add
+> be using wake_up_interruptible_sync_poll() in tcp_prequeue()
+> as above.
+> 
+> Ingo?
+
+Implied ack from network maintainer implies ship it to me.
+
+net: add scheduler sync hint to tcp_prequeue().
+
+Decreases the odds wakee will suffer from frequent cache misses.
+
+Signed-off-by: Mike Galbraith <efault@gmx.de>
+Cc: David Miller <davem@davemloft.net>
+LKML-Reference: <new-submission>
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 34f5cc2..ba3fc64 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -939,7 +939,7 @@ static inline int tcp_prequeue(struct sock *sk, struct sk_buff *skb)
+ 
+ 		tp->ucopy.memory = 0;
+ 	} else if (skb_queue_len(&tp->ucopy.prequeue) == 1) {
+-		wake_up_interruptible_poll(sk->sk_sleep,
++		wake_up_interruptible_sync_poll(sk->sk_sleep,
+ 					   POLLIN | POLLRDNORM | POLLRDBAND);
+ 		if (!inet_csk_ack_scheduled(sk))
+ 			inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
