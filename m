@@ -1,151 +1,49 @@
 From: Zhu Yi <yi.zhu@intel.com>
-Subject: [PATCH V2 1/7] net: add limit for socket backlog
-Date: Wed,  3 Mar 2010 16:36:23 +0800
-Message-ID: <1267605389-7369-1-git-send-email-yi.zhu@intel.com>
-Cc: Zhu Yi <yi.zhu@intel.com>, David Miller <davem@davemloft.net>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	Patrick McHardy <kaber@trash.net>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	Jon Maloy <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>,
-	Andrew Hendry <andrew.hendry@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH V2 6/7] tipc: use limited socket backlog
+Date: Wed,  3 Mar 2010 16:36:28 +0800
+Message-ID: <1267605389-7369-6-git-send-email-yi.zhu@intel.com>
+References: <1267605389-7369-1-git-send-email-yi.zhu@intel.com>
+ <1267605389-7369-2-git-send-email-yi.zhu@intel.com>
+ <1267605389-7369-3-git-send-email-yi.zhu@intel.com>
+ <1267605389-7369-4-git-send-email-yi.zhu@intel.com>
+ <1267605389-7369-5-git-send-email-yi.zhu@intel.com>
+Cc: Zhu Yi <yi.zhu@intel.com>, Jon Maloy <jon.maloy@ericsson.com>,
+	Allan Stephens <allan.stephens@windriver.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:60230 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751200Ab0CCIep (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Mar 2010 03:34:45 -0500
+	id S1752238Ab0CCIeu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Mar 2010 03:34:50 -0500
+In-Reply-To: <1267605389-7369-5-git-send-email-yi.zhu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We got system OOM while running some UDP netperf testing on the loopback
-device. The case is multiple senders sent stream UDP packets to a single
-receiver via loopback on local host. Of course, the receiver is not able
-to handle all the packets in time. But we surprisingly found that these
-packets were not discarded due to the receiver's sk->sk_rcvbuf limit.
-Instead, they are kept queuing to sk->sk_backlog and finally ate up all
-the memory. We believe this is a secure hole that a none privileged user
-can crash the system.
+Make tipc adapt to the limited socket backlog change.
 
-The root cause for this problem is, when the receiver is doing
-__release_sock() (i.e. after userspace recv, kernel udp_recvmsg ->
-skb_free_datagram_locked -> release_sock), it moves skbs from backlog to
-sk_receive_queue with the softirq enabled. In the above case, multiple
-busy senders will almost make it an endless loop. The skbs in the
-backlog end up eat all the system memory.
-
-The issue is not only for UDP. Any protocols using socket backlog is
-potentially affected. The patch adds limit for socket backlog so that
-the backlog size cannot be expanded endlessly.
-
-Reported-by: Alex Shi <alex.shi@intel.com>
-Cc: David Miller <davem@davemloft.net>
-Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru
-Cc: "Pekka Savola (ipv6)" <pekkas@netcore.fi>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Vlad Yasevich <vladislav.yasevich@hp.com>
-Cc: Sridhar Samudrala <sri@us.ibm.com>
 Cc: Jon Maloy <jon.maloy@ericsson.com>
 Cc: Allan Stephens <allan.stephens@windriver.com>
-Cc: Andrew Hendry <andrew.hendry@gmail.com>
 Signed-off-by: Zhu Yi <yi.zhu@intel.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- include/net/sock.h |   15 ++++++++++++++-
- net/core/sock.c    |   16 ++++++++++++++--
- 2 files changed, 28 insertions(+), 3 deletions(-)
+ net/tipc/socket.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 6cb1676..2516d76 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -253,6 +253,8 @@ struct sock {
- 	struct {
- 		struct sk_buff *head;
- 		struct sk_buff *tail;
-+		int len;
-+		int limit;
- 	} sk_backlog;
- 	wait_queue_head_t	*sk_sleep;
- 	struct dst_entry	*sk_dst_cache;
-@@ -589,7 +591,7 @@ static inline int sk_stream_memory_free(struct sock *sk)
- 	return sk->sk_wmem_queued < sk->sk_sndbuf;
- }
- 
--/* The per-socket spinlock must be held here. */
-+/* OOB backlog add */
- static inline void sk_add_backlog(struct sock *sk, struct sk_buff *skb)
- {
- 	if (!sk->sk_backlog.tail) {
-@@ -601,6 +603,17 @@ static inline void sk_add_backlog(struct sock *sk, struct sk_buff *skb)
- 	skb->next = NULL;
- }
- 
-+/* The per-socket spinlock must be held here. */
-+static inline int sk_add_backlog_limited(struct sock *sk, struct sk_buff *skb)
-+{
-+	if (sk->sk_backlog.len >= max(sk->sk_backlog.limit, sk->sk_rcvbuf << 1))
-+		return -ENOBUFS;
-+
-+	sk_add_backlog(sk, skb);
-+	sk->sk_backlog.len += skb->truesize;
-+	return 0;
-+}
-+
- static inline int sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
- {
- 	return sk->sk_backlog_rcv(sk, skb);
-diff --git a/net/core/sock.c b/net/core/sock.c
-index fcd397a..6e22dc9 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -340,8 +340,12 @@ int sk_receive_skb(struct sock *sk, struct sk_buff *skb, const int nested)
- 		rc = sk_backlog_rcv(sk, skb);
- 
- 		mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
--	} else
--		sk_add_backlog(sk, skb);
-+	} else if (sk_add_backlog_limited(sk, skb)) {
-+		bh_unlock_sock(sk);
-+		atomic_inc(&sk->sk_drops);
-+		goto discard_and_relse;
-+	}
-+
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 1ea64f0..22bfbc3 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -1322,8 +1322,10 @@ static u32 dispatch(struct tipc_port *tport, struct sk_buff *buf)
+ 	if (!sock_owned_by_user(sk)) {
+ 		res = filter_rcv(sk, buf);
+ 	} else {
+-		sk_add_backlog(sk, buf);
+-		res = TIPC_OK;
++		if (sk_add_backlog_limited(sk, buf))
++			res = TIPC_ERR_OVERLOAD;
++		else
++			res = TIPC_OK;
+ 	}
  	bh_unlock_sock(sk);
- out:
- 	sock_put(sk);
-@@ -1139,6 +1143,7 @@ struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
- 		sock_lock_init(newsk);
- 		bh_lock_sock(newsk);
- 		newsk->sk_backlog.head	= newsk->sk_backlog.tail = NULL;
-+		newsk->sk_backlog.len = 0;
- 
- 		atomic_set(&newsk->sk_rmem_alloc, 0);
- 		/*
-@@ -1542,6 +1547,12 @@ static void __release_sock(struct sock *sk)
- 
- 		bh_lock_sock(sk);
- 	} while ((skb = sk->sk_backlog.head) != NULL);
-+
-+	/*
-+	 * Doing the zeroing here guarantee we can not loop forever
-+	 * while a wild producer attempts to flood us.
-+	 */
-+	sk->sk_backlog.len = 0;
- }
- 
- /**
-@@ -1874,6 +1885,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
- 	sk->sk_allocation	=	GFP_KERNEL;
- 	sk->sk_rcvbuf		=	sysctl_rmem_default;
- 	sk->sk_sndbuf		=	sysctl_wmem_default;
-+	sk->sk_backlog.limit	=	sk->sk_rcvbuf << 1;
- 	sk->sk_state		=	TCP_CLOSE;
- 	sk_set_socket(sk, sock);
  
 -- 
 1.6.3.3
