@@ -1,53 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/8] net: add limit for socket backlog
-Date: Wed, 03 Mar 2010 09:47:55 +0100
-Message-ID: <1267606075.2997.1.camel@edumazet-laptop>
-References: <1267598111-12503-1-git-send-email-yi.zhu@intel.com>
-	 <1267599269.2839.84.camel@edumazet-laptop>
-	 <1267601728.2370.47.camel@debian>
-	 <1267603357.2839.105.camel@edumazet-laptop>
-	 <1267604053.2370.102.camel@debian>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: TCP Appropriate Byte Counting per default off
+Date: Wed, 3 Mar 2010 10:48:29 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.1003031035370.10775@melkinpaasi.cs.helsinki.fi>
+References: <A7D42088-84DC-4991-A8AD-E4000B2974DA@nets.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	Patrick McHardy <kaber@trash.net>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	Per Liden <per.liden@ericsson.com>,
-	Jon Maloy <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>,
-	Andrew Hendry <andrew.hendry@gmail.com>
-To: Zhu Yi <yi.zhu@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"ilpo.jarvinen@helsinki.fi J?rvinen" <ilpo.jarvinen@helsinki.fi>,
+	Netdev <netdev@vger.kernel.org>
+To: Alexander Zimmermann <zimmermann@nets.rwth-aachen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f212.google.com ([209.85.218.212]:55385 "EHLO
-	mail-bw0-f212.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753517Ab0CCIr7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Mar 2010 03:47:59 -0500
-Received: by bwz4 with SMTP id 4so837781bwz.28
-        for <netdev@vger.kernel.org>; Wed, 03 Mar 2010 00:47:58 -0800 (PST)
-In-Reply-To: <1267604053.2370.102.camel@debian>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:44471 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754004Ab0CCIsb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Mar 2010 03:48:31 -0500
+In-Reply-To: <A7D42088-84DC-4991-A8AD-E4000B2974DA@nets.rwth-aachen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 03 mars 2010 =C3=A0 16:14 +0800, Zhu Yi a =C3=A9crit :
+On Wed, 3 Mar 2010, Alexander Zimmermann wrote:
 
-> I want to provide a method for protocols to set its sock backlog limi=
-t.
-> For example, the sctp_rmem is 373500 (sysctl_sctp_rmem[1]) which is
-> larger than (sysctl_rmem_default << 1). But I'm not very sure about t=
-he
-> actual required size. So I didn't make it in the sctp patch. What do =
-you
-> think?
+> Hi David, hi Ilpo,
+> 
+> I wonder why ABC is off per default? What are the reasons?
+> Should we turn it on per default?
+> 
+> From algorithmic point of view I see no flaws just
+> benefits.
+> 
+> With RFC5681 ABC is recommended.
+> OSX uses ABC per default.
 
-I think this is not about bug fixes, but followup patches.
+As Alexey once put it, ABC is very BSD specific algorithm.
 
-We should first address the bug asap, then do further refinements later=
-=2E
+Out of two goals of ABC, protection against split ACKs is achieved in 
+Linux by other means (see tcp_clean_rtx_queue and flags it gives to 
+elsewhere). Thus, you can kind of think that we do APC already :-). The 
+other part, faster increase during slow start, isn't currently done though 
+it would be relatively simple to implement (I think I even have some, 
+possibly unfinished, patch to do that lying around somewhere I wrote 
+someday). 
 
+ABC is not that necessary when window is counted in packets. And besides 
+that, it was found to somewhat hurt small segment flows. There are some 
+messages in archives in the timeframe ABC was disabled (plus there might 
+have been some even older than that).
 
-
+-- 
+ i.
