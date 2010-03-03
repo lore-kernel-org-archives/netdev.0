@@ -1,106 +1,34 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [RFC v2 00/10] snet: Security for NETwork syscalls
-Date: Wed, 03 Mar 2010 10:56:39 +0900
-Message-ID: <201003030156.o231udx1023055@www262.sakura.ne.jp>
-References: <1267561394-13626-1-git-send-email-sam@synack.fr>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: Current wireless-testing breaks libpcap: mr_alen should be set
+Date: Tue, 2 Mar 2010 21:36:11 -0500
+Message-ID: <20100303023610.GA5624@tuxdriver.com>
+References: <1267578048.14049.11.camel@mj>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, hadi@cyberus.ca, kaber@trash.net,
-	zbr@ioremap.net, nhorman@tuxdriver.com, root@localdomain.pl,
-	linux-security-module@vger.kernel.org
-To: sam@synack.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1267561394-13626-1-git-send-email-sam@synack.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	tcpdump-workers-YE1jQ5a0g24KACXWX4p+q9i2O/JbrIOy@public.gmane.org, Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1267578048.14049.11.camel@mj>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Tue, Mar 02, 2010 at 08:00:48PM -0500, Pavel Roskin wrote:
 
+> Also, pulling bleeding edge stuff into wireless-testing before rc1
+> appears to be either a mistake or a bad decision.
 
+=46eel free to use an earlier commit...
 
-Regarding [RFC v2 02/10] Revert "lsm: Remove the socket_post_accept() hook"
-@@ -1538,6 +1538,8 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
- 	fd_install(newfd, newfile);
- 	err = newfd;
- 
-+	security_socket_post_accept(sock, newsock);
-+
- out_put:
- 	fput_light(sock->file, fput_needed);
- out:
-
-Please move security_socket_post_accept() to before fd_install().
-Otherwise, other threads which share fd tables can use
-security-informations-not-yet-updated accept()ed sockets.
-
-
-
-
-
-Regarding [RFC v2 04/10] snet: introduce snet_core
-+static __init int snet_init(void)
-+{
-+	int ret;
-+
-+	pr_debug("initializing: event_hash_size=%u "
-+		 "verdict_hash_size=%u verdict_delay=%usecs "
-+		 "default_policy=%s\n",
-+		 snet_evh_size, snet_vdh_size, snet_verdict_delay,
-+		 snet_verdict_name(snet_verdict_policy));
-
-Why not to stop here if snet_evh_size == 0 or snet_vdh_size == 0 in order to
-avoid "division by 0".
-
-
-
-
-
-Regarding [RFC v2 05/10] snet: introduce snet_event
-+static rwlock_t snet_evh_lock = __RW_LOCK_UNLOCKED();
-
-You can use "static DEFINE_RWLOCK(snet_evh_lock);".
-
-+int snet_event_is_registered(const enum snet_syscall syscall, const u8 protocol)
-
-Maybe rcu_read_lock() is better than rw spinlock because this function is
-frequently called.
-
-
-
-
-
-Regarding [RFC v2 06/10] snet: introduce snet_hooks
-+                       if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-
-Please avoid assignment in "if" statement, as scripts/checkpatch.pl suggests.
-
-
-
-
-
-Regarding [RFC v2 09/10] snet: introduce snet_ticket
-+enum snet_verdict snet_ticket_check(struct snet_info *info)
-+{
-+       struct snet_ticket *st = NULL;
-+       unsigned int h = 0, verdict = SNET_VERDICT_NONE;
-+       struct list_head *l = NULL;
-+       struct snet_task_security *tsec = NULL;
-+
-+       if (snet_ticket_mode == SNET_TICKET_OFF)
-+               goto out;
-+
-+       tsec = (struct snet_task_security*) current_security();
-+
-+       h = jhash_2words(info->syscall, info->protocol, 0) % HSIZE;
-+       l = &tsec->hash[h];
-+
-+       read_lock_bh(&tsec->lock);
-
-Credentials are allocated for copy-on-write basis.
-Sharing "tsec" among multiple "struct task_struct" is what you intended?
-
-
-
-Regards.
+--=20
+John W. Linville =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Someday the world will =
+need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0might be all =
+we have. =A0Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
