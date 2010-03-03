@@ -1,33 +1,33 @@
-From: Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>
-Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
-Date: Tue, 2 Mar 2010 16:07:43 -0800
-Message-ID: <20100303000743.GA13744@us.ibm.com>
-References: <4B88E431.6040609@parallels.com> <m1bpfbqajn.fsf@fess.ebiederm.org> <4B894564.7080104@parallels.com> <m1iq9io5sc.fsf@fess.ebiederm.org> <4B89727C.9040602@parallels.com> <m1ljeempk6.fsf@fess.ebiederm.org> <4B8AE8C1.1030305@free.fr> <4B8D28CF.8060304@parallels.com> <20100302211942.GA17816@us.ibm.com> <m1y6iaqsmm.fsf@fess.ebiederm.org>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [RFC v2 03/10] snet: introduce security/snet, Makefile and
+ Kconfig changes
+Date: Tue, 2 Mar 2010 16:03:47 -0800
+Message-ID: <20100303000347.GA3017@kroah.com>
+References: <1267561394-13626-1-git-send-email-sam@synack.fr>
+ <1267561394-13626-4-git-send-email-sam@synack.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Emelyanov <xemul@parallels.com>,
-	Daniel Lezcano <daniel.lezcano@free.fr>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: linux-security-module@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, jamal <hadi@cyberus.ca>,
+	Patrick McHardy <kaber@trash.net>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Grzegorz Nosek <root@localdomain.pl>
+To: Samir Bellabes <sam@synack.fr>
+Return-path: <linux-security-module-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <m1y6iaqsmm.fsf@fess.ebiederm.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+In-Reply-To: <1267561394-13626-4-git-send-email-sam@synack.fr>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman [ebiederm@xmission.com] wrote:
-| 
-| I think replacing a struct pid for another struct pid allocated in
-| descendant pid_namespace (but has all of the same struct upid values
-| as the first struct pid) is a disastrous idea.  It destroys the
+On Tue, Mar 02, 2010 at 09:23:07PM +0100, Samir Bellabes wrote:
+> this patch creates folder security/snet and adds changes for Kconfig and Makefile
 
-True. Sorry, I did not mean we would need a new 'struct pid' for an
-existing process. I think we talked earlier of finding a way of attaching
-additional pid numbers to the same struct pid.
+But it breaks the build, as you are referring to files here that are not
+present yet.  Please put this at the end of your patch series to make
+the tree always build for every individual patch.
 
-Sukadev
+thanks,
 
+greg k-h
