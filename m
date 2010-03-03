@@ -1,55 +1,51 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: [PATCH 1/8] net: add limit for socket backlog
-Date: Wed, 03 Mar 2010 16:14:13 +0800
-Message-ID: <1267604053.2370.102.camel@debian>
-References: <1267598111-12503-1-git-send-email-yi.zhu@intel.com>
-	 <1267599269.2839.84.camel@edumazet-laptop>
-	 <1267601728.2370.47.camel@debian>
-	 <1267603357.2839.105.camel@edumazet-laptop>
+From: Alexander Zimmermann <zimmermann@nets.rwth-aachen.de>
+Subject: TCP Appropriate Byte Counting per default off
+Date: Wed, 03 Mar 2010 09:21:44 +0100
+Message-ID: <A7D42088-84DC-4991-A8AD-E4000B2974DA@nets.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	Patrick McHardy <kaber@trash.net>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	Per Liden <per.liden@ericsson.com>,
-	Jon Maloy <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>,
-	Andrew Hendry <andrew.hendry@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	"ilpo.jarvinen@helsinki.fi J?rvinen" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:62879 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753518Ab0CCIM2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Mar 2010 03:12:28 -0500
-In-Reply-To: <1267603357.2839.105.camel@edumazet-laptop>
+Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:61193 "EHLO
+	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751200Ab0CCIVq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Mar 2010 03:21:46 -0500
+Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
+ by mta-2.ms.rz.RWTH-Aachen.de
+ (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
+ with ESMTP id <0KYP00AQ05WAEK60@mta-2.ms.rz.RWTH-Aachen.de> for
+ netdev@vger.kernel.org; Wed, 03 Mar 2010 09:21:46 +0100 (CET)
+Received: from miami.nets.rwth-aachen.de ([unknown] [137.226.12.180])
+ by relay-auth-2.ms.rz.rwth-aachen.de
+ (Sun Java(tm) System Messaging Server 7.0-3.01 64bit (built Dec  9 2008))
+ with ESMTPA id <0KYP00CLN5WAQP10@relay-auth-2.ms.rz.rwth-aachen.de> for
+ netdev@vger.kernel.org; Wed, 03 Mar 2010 09:21:46 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-03-03 at 16:02 +0800, Eric Dumazet wrote:
-> > sk->sk_rcvbuf can be adjusted by setsockopt from user at run time.
-> The
-> > minimum allowed value is 256. I'm afraid this will break most
-> protocols.
-> 
-> I see, then maybe use some offset in your test, to allow some extra
-> space.
-> 
-> #define MINBACKLOG 2048
-> 
-> if (sk->sk_backlog.len >= (sk->sk_rcvbuf << 1) + MINBACKLOG)
->         return -ENOBUFS;
+Hi David, hi Ilpo,
 
-I want to provide a method for protocols to set its sock backlog limit.
-For example, the sctp_rmem is 373500 (sysctl_sctp_rmem[1]) which is
-larger than (sysctl_rmem_default << 1). But I'm not very sure about the
-actual required size. So I didn't make it in the sctp patch. What do you
-think?
+I wonder why ABC is off per default? What are the reasons?
+Should we turn it on per default?
 
-Thanks,
--yi
+>From algorithmic point of view I see no flaws just
+benefits.
+
+With RFC5681 ABC is recommended.
+OSX uses ABC per default.
+
+Alex
+
+//
+// Dipl.-Inform. Alexander Zimmermann
+// Department of Computer Science, Informatik 4
+// RWTH Aachen University
+// Ahornstr. 55, 52056 Aachen, Germany
+// phone: (49-241) 80-21422, fax: (49-241) 80-22220
+// email: zimmermann@cs.rwth-aachen.de
+// web: http://www.umic-mesh.net
+//
 
