@@ -1,43 +1,53 @@
-From: "Zhu, Yi" <yi.zhu@intel.com>
-Subject: RE: [PATCH 8/8] x25: use limited socket backlog
-Date: Wed, 3 Mar 2010 22:00:32 +0800
-Message-ID: <DA586906BA1FFC4384FCFD6429ECE860A45A6992@shzsmsx502.ccr.corp.intel.com>
-References: <1267598111-12503-1-git-send-email-yi.zhu@intel.com>
-	 <1267598111-12503-2-git-send-email-yi.zhu@intel.com>
-	 <1267598111-12503-3-git-send-email-yi.zhu@intel.com>
-	 <1267598111-12503-4-git-send-email-yi.zhu@intel.com>
-	 <1267598111-12503-5-git-send-email-yi.zhu@intel.com>
-	 <1267598111-12503-6-git-send-email-yi.zhu@intel.com>
-	 <1267598111-12503-7-git-send-email-yi.zhu@intel.com>
-	 <1267598111-12503-8-git-send-email-yi.zhu@intel.com>
-	 <1267600109.2839.101.camel@edumazet-laptop>
- <d45a3acc1003030338m3102a95p1b06b7db1b24e58e@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: andrew hendry <andrew.hendry@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: [PATCH 1/2] gre: fix hard header destination address checking
+Date: Wed,  3 Mar 2010 16:01:13 +0200
+Message-ID: <1267624874-22326-1-git-send-email-timo.teras@iki.fi>
+Cc: Timo Teras <timo.teras@iki.fi>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:23493 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754190Ab0CCOAi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Mar 2010 09:00:38 -0500
-In-Reply-To: <d45a3acc1003030338m3102a95p1b06b7db1b24e58e@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:47207 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754211Ab0CCOBu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Mar 2010 09:01:50 -0500
+Received: by ewy20 with SMTP id 20so924178ewy.21
+        for <netdev@vger.kernel.org>; Wed, 03 Mar 2010 06:01:48 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-andrew hendry <andrew.hendry@gmail.com> wrote:
+ipgre_header() can be called with zero daddr when the gre device is
+configured as multipoint tunnel and still has the NOARP flag set (which is
+typically cleared by the userspace arp daemon).  If the NOARP packets are
+not dropped, ipgre_tunnel_xmit() will take rt->rt_gateway (= NBMA IP) and
+use that for route look up (and may lead to bogus xfrm acquires).
 
-> Will wait for the next spin and in the meantime think if there is way
-> to test it. x25 with no loopback and being so slow probably cant generate the same
-> as your UDP case.
+The multicast address check is removed as sending to multicast group should
+be ok.  In fact, if gre device has a multicast address as destination
+ipgre_header is always called with multicast address.
 
-I didn't find a way to drop the packet correctly. So I didn't change any behavior in
-this patch. Nor did I do in the second spin. It will be fine if you also think x25 doesn't
-need to limit its backlog size.
+Signed-off-by: Timo Teras <timo.teras@iki.fi>
+---
+ net/ipv4/ip_gre.c |    7 ++-----
+ 1 files changed, 2 insertions(+), 5 deletions(-)
 
-Thanks,
--yi
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index c0c5274..f47c9f7 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -1144,12 +1144,9 @@ static int ipgre_header(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	if (saddr)
+ 		memcpy(&iph->saddr, saddr, 4);
+-
+-	if (daddr) {
++	if (daddr)
+ 		memcpy(&iph->daddr, daddr, 4);
+-		return t->hlen;
+-	}
+-	if (iph->daddr && !ipv4_is_multicast(iph->daddr))
++	if (iph->daddr)
+ 		return t->hlen;
+ 
+ 	return -t->hlen;
+-- 
+1.6.3.3
 
