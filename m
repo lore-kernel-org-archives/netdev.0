@@ -1,38 +1,55 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC PATCH]xfrm: fix perpetual bundles
-Date: Tue, 02 Mar 2010 19:47:02 -0500
-Message-ID: <1267577222.3540.1.camel@bigi>
-References: <1267017564.3973.790.camel@bigi>
-	 <20100302112754.GA1513@gondor.apana.org.au>
-	 <1267531905.21749.21.camel@bigi>
-	 <20100302125156.GA2420@gondor.apana.org.au>
-	 <1267535426.21749.24.camel@bigi> <20100302134656.GC20508@secunet.com>
-	 <1267538070.21749.27.camel@bigi>  <20100302140631.GD20508@secunet.com>
-Reply-To: hadi@cyberus.ca
+From: Pavel Roskin <proski@gnu.org>
+Subject: Current wireless-testing breaks libpcap: mr_alen should be set
+Date: Tue, 02 Mar 2010 20:00:48 -0500
+Message-ID: <1267578048.14049.11.camel@mj>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
-	kaber@trash.net, yoshfuji@linux-ipv6.org, nakam@linux-ipv6.org,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Jiri Pirko <jpirko@redhat.com>
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	tcpdump-workers@lists.tcpdump.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f220.google.com ([209.85.219.220]:43692 "EHLO
-	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754308Ab0CCArJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Mar 2010 19:47:09 -0500
-Received: by ewy20 with SMTP id 20so653546ewy.21
-        for <netdev@vger.kernel.org>; Tue, 02 Mar 2010 16:47:06 -0800 (PST)
-In-Reply-To: <20100302140631.GD20508@secunet.com>
+Received: from c60.cesmail.net ([216.154.195.49]:64492 "EHLO c60.cesmail.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754134Ab0CCBBE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Mar 2010 20:01:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello!
 
-> Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
+The current wireless-testing appears to have some non-wireless bits from
+the upcoming Linux 2.6.34.  As a result, libpcap and all capture
+programs that use it are broken.
 
-tested - Looks good.
-Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
+This patch to libpcap helps:
 
-cheers,
-jamal
+--- a/pcap-linux.c
++++ b/pcap-linux.c
+@@ -1563,6 +1563,7 @@ live_open_new(pcap_t *handle, const char
+ 			memset(&mr, 0, sizeof(mr));
+ 			mr.mr_ifindex = handle->md.ifindex;
+ 			mr.mr_type    = PACKET_MR_PROMISC;
++			mr.mr_alen    = 6;
+ 			if (setsockopt(sock_fd, SOL_PACKET,
+ 				PACKET_ADD_MEMBERSHIP, &mr, sizeof(mr)) == -1)
+ 			{
 
+libpcap git doesn't have the fix yet.
+
+The breakage must be coming from the commit 914c8ad2 by Jiri Pirko to
+net/packet/af_packet.c
+
+I think it's very unhelpful to introduce patches that break significant
+userspace functionality without giving the affected programs an advance
+warning.
+
+Also, pulling bleeding edge stuff into wireless-testing before rc1
+appears to be either a mistake or a bad decision.
+
+Sorry for cross-post, but it's an urgent issue.  Repliers are encouraged
+to trim the recipient list as necessary.
+
+-- 
+Regards,
+Pavel Roskin
