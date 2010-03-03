@@ -1,78 +1,61 @@
-From: "Frank W. Miller" <frankwmiller@frankwmiller.net>
-Subject: Re: Current wireless-testing breaks libpcap: mr_alen should be set
-Date: Wed, 3 Mar 2010 08:31:07 -0700
-Message-ID: <A5B3F074CA554D3E95CFD349116E4D5B@FrankWMillerPC>
-References: <1267578048.14049.11.camel@mj>
-Reply-To: tcpdump-workers@lists.tcpdump.org
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
+Date: Wed, 3 Mar 2010 09:38:00 -0600
+Message-ID: <20100303153800.GA937@us.ibm.com>
+References: <4B894564.7080104@parallels.com>
+ <m1iq9io5sc.fsf@fess.ebiederm.org>
+ <4B89727C.9040602@parallels.com>
+ <m1ljeempk6.fsf@fess.ebiederm.org>
+ <4B8AE8C1.1030305@free.fr>
+ <4B8D28CF.8060304@parallels.com>
+ <20100302211942.GA17816@us.ibm.com>
+ <m1y6iaqsmm.fsf@fess.ebiederm.org>
+ <20100303000743.GA13744@us.ibm.com>
+ <m1ocj6qljj.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "'Jiri Pirko'" <jpirko@redhat.com>
-To: <tcpdump-workers@lists.tcpdump.org>,
-	<linux-wireless@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-Return-path: <tcpdump-workers-owner+M5230@lists.tcpdump.org>
-In-Reply-To: <1267578048.14049.11.camel@mj>
-Sender: tcpdump-workers-owner@lists.tcpdump.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	containers@lists.linux-foundation.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <m1ocj6qljj.fsf@fess.ebiederm.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Quoting Eric W. Biederman (ebiederm@xmission.com):
+> Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com> writes:
+> 
+> > Eric W. Biederman [ebiederm@xmission.com] wrote:
+> > | 
+> > | I think replacing a struct pid for another struct pid allocated in
+> > | descendant pid_namespace (but has all of the same struct upid values
+> > | as the first struct pid) is a disastrous idea.  It destroys the
+> >
+> > True. Sorry, I did not mean we would need a new 'struct pid' for an
+> > existing process. I think we talked earlier of finding a way of attaching
+> > additional pid numbers to the same struct pid.
+> 
+> I just played with this and if you make the semantics of unshare(CLONE_NEWPID)
+> to be that you become the idle task aka pid 0, and not the init task pid 1 the
+> implementation is trivial.
 
-Would this be preventing pcap_inject() from working say in kernel 2.6.31
-(stock FC12 kernel)?
+Heh, and then (browsing through your copy_process() patch hunks) the next
+forked task becomes the child reaper for the new pidns?  <shrug>  why not
+I guess.
 
-Thanks,
-FM
+Now if that child reaper then gets killed, will the idle task get killed too?
+And if not, then idle task can just re-populating the new pidns with new
+idle tasks...
 
+If this brought us a step closer to entering an existing pidns that would
+be one thing, but is there actually any advantage to being able to
+unshare a new pidns?  Oh, I guess there is - PAM can then use it at
+login, which might be neat.
 
-> -----Original Message-----
-> From: tcpdump-workers-owner@lists.tcpdump.org [mailto:tcpdump-workers-
-> owner@lists.tcpdump.org] On Behalf Of Pavel Roskin
-> Sent: Tuesday, March 02, 2010 6:01 PM
-> To: linux-wireless@vger.kernel.org; netdev@vger.kernel.org; tcpdump-
-> workers@lists.tcpdump.org
-> Cc: Jiri Pirko
-> Subject: [tcpdump-workers] Current wireless-testing breaks libpcap:
-> mr_alen should be set
-> 
-> Hello!
-> 
-> The current wireless-testing appears to have some non-wireless bits from
-> the upcoming Linux 2.6.34.  As a result, libpcap and all capture
-> programs that use it are broken.
-> 
-> This patch to libpcap helps:
-> 
-> --- a/pcap-linux.c
-> +++ b/pcap-linux.c
-> @@ -1563,6 +1563,7 @@ live_open_new(pcap_t *handle, const char
->  			memset(&mr, 0, sizeof(mr));
->  			mr.mr_ifindex = handle->md.ifindex;
->  			mr.mr_type    = PACKET_MR_PROMISC;
-> +			mr.mr_alen    = 6;
->  			if (setsockopt(sock_fd, SOL_PACKET,
->  				PACKET_ADD_MEMBERSHIP, &mr, sizeof(mr)) ==
--1)
->  			{
-> 
-> libpcap git doesn't have the fix yet.
-> 
-> The breakage must be coming from the commit 914c8ad2 by Jiri Pirko to
-> net/packet/af_packet.c
-> 
-> I think it's very unhelpful to introduce patches that break significant
-> userspace functionality without giving the affected programs an advance
-> warning.
-> 
-> Also, pulling bleeding edge stuff into wireless-testing before rc1
-> appears to be either a mistake or a bad decision.
-> 
-> Sorry for cross-post, but it's an urgent issue.  Repliers are encouraged
-> to trim the recipient list as necessary.
-> 
-> --
-> Regards,
-> Pavel Roskin
-> -
-> This is the tcpdump-workers list.
-> Visit https://cod.sandelman.ca/ to unsubscribe.
+-serge
