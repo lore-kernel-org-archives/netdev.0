@@ -1,61 +1,59 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [RFC][ PATCH 0/3] vhost-net: Add mergeable RX buffer support	to vhost-net
-Date: Wed, 3 Mar 2010 09:28:16 -0800
-Message-ID: <OFFE6E21C9.265C1D67-ON882576DB.005DAD30-882576DB.005FF8F2@us.ibm.com>
-References: <20100303092850.GB14034@redhat.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [net-next-2.6 PATCH] wireless: convert to use
+ netdev_for_each_mc_addr
+Date: Wed, 3 Mar 2010 18:52:30 +0100
+Message-ID: <20100303175229.GB2760@psychotron.redhat.com>
+References: <20100303114506.19575pbsu8yz2kjk@hayate.sektori.org>
+ <20100303124249.GD2961@psychotron.lab.eng.brq.redhat.com>
+ <20100303184256.19122kg5hcqolfgg@hayate.sektori.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, rusty@rustcorp.com.au,
-	virtualization@lists.osdl.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:33337 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754195Ab0CCR2i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Mar 2010 12:28:38 -0500
-In-Reply-To: <20100303092850.GB14034@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:7414 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755185Ab0CCRwk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Mar 2010 12:52:40 -0500
+Content-Disposition: inline
+In-Reply-To: <20100303184256.19122kg5hcqolfgg@hayate.sektori.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Interesting. Since the feature in question is billed first of all a
-> performance optimization...
+Wed, Mar 03, 2010 at 05:42:56PM CET, jussi.kivilinna@mbnet.fi wrote:
+>Hello!
+>
+>Quoting "Jiri Pirko" <jpirko@redhat.com>:
+>
+>>+	} else if (mc_count) {
+>>+		int size = min(priv->multicast_size, mc_count);
+>>+		int i = 0;
+>>+
+>>+		mc_addrs = kmalloc(size * ETH_ALEN, GFP_ATOMIC);
+>...
+>>+	if (filter != basefilter)
+>>+		goto set_filter;
+>>+
+>>+	if (mc_count) {
+>>+		ret = rndis_set_oid(usbdev, OID_802_3_MULTICAST_LIST, mc_addrs,
+>>+				    mc_count * ETH_ALEN);
+>>+		kfree(mc_addrs);
+>
+>mc_addrs was alloced by with 'size * ETH_ALEN', which might be less
+>than mc_count * ETH_ALEN.
 
-By whom? Although I see some improved performance, I think its real
-benefit is improving memory utilization on the guest. Instead of using
-75K for an ARP packet, mergeable RX buffers only uses 4K. :-)
+Actually it cannot. That's covered by:
 
-> Since the patches affect code paths when mergeable RX buffers are
-> disabled as well, I guess the most important point would be to verify
-> whether there's increase in latency and/or CPU utilization, or bandwidth
-> cost when the feature bit is *disabled*.
+if (mc_count > priv->multicast_size) {
 
-Actually, when the feature bit is disabled, it'll only get a single
-head, doesn't use the special vnet_hdr, and the codepath reduces to the
-essentially to the original. But the answer is "no"; I saw no regressions
-when using it without the feature bit. The only substantive difference in 
-that case
-is that the new code avoids copying the vnet header as the original
-does, so it should actually be faster, but I don't think that's measurable
-above the variability I already see.
+This was also in the original code. In that case "size" can be eliminated and
+"mc_addrs" can be allocated with "mc_count * ETH_ALEN".
 
-> 
-> > 2 notes: I have a modified version of qemu to get the VHOST_FEATURES
-> > flags, including the mergeable RX bufs flag, passed to the guest; I'll
-> > be working with your current qemu git trees next, if any changes are
-> > needed to support it there.
-> 
-> This feature also seems to conflict with zero-copy rx patches from Xin
-> Xiaohui (subject: Provide a zero-copy method on KVM virtio-net) these
-> are not in a mergeable shape yet, so this is not a blocker, but I wonder
-> what your thoughts on the subject are: how will we do feature
-> negotiation if some backends don't support some features?
+Jussi are you ok with this?
 
-        The qemu code I have basically sends the set features and get
-features all the way to vhost (ie, it's the guest negotiating with
-vhost), except, of course, for the magic qemu-only bits. I think that's
-the right model. I'll definitely take a look at the patch you mention
-and maybe comment further.
-
-                                                                +-DLS
-
+Jirka
+>
+>Otherwise ok, and rndis_wlan works.
+>
+> -Jussi
+>
