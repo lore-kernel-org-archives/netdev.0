@@ -1,64 +1,61 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH 8/8] x25: use limited socket backlog
-Date: Wed, 03 Mar 2010 15:33:01 +0100
-Message-ID: <1267626781.2997.28.camel@edumazet-laptop>
-References: <1267598111-12503-1-git-send-email-yi.zhu@intel.com>
-	 <1267598111-12503-2-git-send-email-yi.zhu@intel.com>
-	 <1267598111-12503-3-git-send-email-yi.zhu@intel.com>
-	 <1267598111-12503-4-git-send-email-yi.zhu@intel.com>
-	 <1267598111-12503-5-git-send-email-yi.zhu@intel.com>
-	 <1267598111-12503-6-git-send-email-yi.zhu@intel.com>
-	 <1267598111-12503-7-git-send-email-yi.zhu@intel.com>
-	 <1267598111-12503-8-git-send-email-yi.zhu@intel.com>
-	 <1267600109.2839.101.camel@edumazet-laptop>
-	 <d45a3acc1003030338m3102a95p1b06b7db1b24e58e@mail.gmail.com>
-	 <DA586906BA1FFC4384FCFD6429ECE860A45A6992@shzsmsx502.ccr.corp.intel.com>
+Subject: RE: [PATCH V2 2/7] tcp: use limited socket backlog
+Date: Wed, 03 Mar 2010 15:31:18 +0100
+Message-ID: <1267626678.2997.25.camel@edumazet-laptop>
+References: <1267605389-7369-1-git-send-email-yi.zhu@intel.com>
+	 <1267605389-7369-2-git-send-email-yi.zhu@intel.com>
+	 <1267606433.2997.4.camel@edumazet-laptop>
+	 <1267607162.2370.169.camel@debian>
+	 <1267610843.2997.7.camel@edumazet-laptop>
+	 <DA586906BA1FFC4384FCFD6429ECE860A45A6999@shzsmsx502.ccr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: andrew hendry <andrew.hendry@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	Patrick McHardy <kaber@trash.net>
 To: "Zhu, Yi" <yi.zhu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:39819 "EHLO
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:49594 "EHLO
 	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754335Ab0CCOdJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Mar 2010 09:33:09 -0500
-Received: by bwz1 with SMTP id 1so49718bwz.21
-        for <netdev@vger.kernel.org>; Wed, 03 Mar 2010 06:33:07 -0800 (PST)
-In-Reply-To: <DA586906BA1FFC4384FCFD6429ECE860A45A6992@shzsmsx502.ccr.corp.intel.com>
+	with ESMTP id S1754371Ab0CCOdK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Mar 2010 09:33:10 -0500
+Received: by bwz1 with SMTP id 1so49750bwz.21
+        for <netdev@vger.kernel.org>; Wed, 03 Mar 2010 06:33:08 -0800 (PST)
+In-Reply-To: <DA586906BA1FFC4384FCFD6429ECE860A45A6999@shzsmsx502.ccr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 03 mars 2010 =C3=A0 22:00 +0800, Zhu, Yi a =C3=A9crit :
-> andrew hendry <andrew.hendry@gmail.com> wrote:
+Le mercredi 03 mars 2010 =C3=A0 22:12 +0800, Zhu, Yi a =C3=A9crit :
+> Eric Dumazet [mailto:eric.dumazet@gmail.com] wrote:
+> > Le mercredi 03 mars 2010 =C3=A0 17:06 +0800, Zhu Yi a =C3=A9crit :
 >=20
-> > Will wait for the next spin and in the meantime think if there is w=
-ay
-> > to test it. x25 with no loopback and being so slow probably cant ge=
-nerate the same
-> > as your UDP case.
+> >> I simply follow how the code is originally written. As you can see=
+,
+> >> tcp_v4_do_rcv() doesn't always do so. And in the backlog queuing p=
+lace,
+> >> we don't even bother to check.
 >=20
-> I didn't find a way to drop the packet correctly. So I didn't change =
-any behavior in
-> this patch. Nor did I do in the second spin. It will be fine if you a=
-lso think x25 doesn't
-> need to limit its backlog size.
+> > You add a new point where a packet can be dropped, this should be
+> > accounted for, so that admins can have a clue whats going on.
+>=20
+> > Previously, packet was always queued, and dropped later (and accoun=
+ted)
+>=20
+> In case of the skb doesn't have a MD5 option while we are expecting o=
+ne, or we
+> failed to find the sk for the skb connection request, etc, the skb is=
+ dropped silently in
+> tcp_v4_do_rcv(). No?
 
-So are we sure we cant flood X25 backlog, using X25 over IP ?
+Then its a separate bug. MD5 support added so many bugs its not even
+funny.
 
-You discovered a _fatal_ flaw in backlog processing, we should close al=
-l
-holes, not only UDP case. You can be sure many bad guys will inspect al=
-l
-possibilities to bring down Linux hosts.
+Existing bugs are not an excuse for adding new ones, we try the reverse=
+=2E
+No ?
 
-If you feel uncomfortable with a small limit, just stick a big one, lik=
-e
-256 packets, and you are 100% sure you wont break a protocol. If this
-limit happens to be too small, we can change it later.
-
-(No need to count bytes, since truesize includes kernel overhead, and
-this overhead depends on 32/64 wide of host and kernel versions)
 
 
