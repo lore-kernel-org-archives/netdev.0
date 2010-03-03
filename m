@@ -1,62 +1,83 @@
-From: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: Current wireless-testing breaks libpcap: mr_alen should be set
-Date: Wed, 3 Mar 2010 07:24:00 +0100
-Message-ID: <20100303062359.GA2648@psychotron.redhat.com>
-References: <1267578048.14049.11.camel@mj>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	tcpdump-workers-YE1jQ5a0g24KACXWX4p+q9i2O/JbrIOy@public.gmane.org
-To: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1267578048.14049.11.camel@mj>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: [PATCH 3/8] tcp: use limited socket backlog
+Date: Wed,  3 Mar 2010 14:35:06 +0800
+Message-ID: <1267598111-12503-3-git-send-email-yi.zhu@intel.com>
+References: <1267598111-12503-1-git-send-email-yi.zhu@intel.com>
+ <1267598111-12503-2-git-send-email-yi.zhu@intel.com>
+Cc: Zhu Yi <yi.zhu@intel.com>, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:65441 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754451Ab0CCGde (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Mar 2010 01:33:34 -0500
+In-Reply-To: <1267598111-12503-2-git-send-email-yi.zhu@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wed, Mar 03, 2010 at 02:00:48AM CET, proski-mXXj517/zsQ@public.gmane.org wrote:
->Hello!
->
->The current wireless-testing appears to have some non-wireless bits from
->the upcoming Linux 2.6.34.  As a result, libpcap and all capture
->programs that use it are broken.
->
->This patch to libpcap helps:
->
->--- a/pcap-linux.c
->+++ b/pcap-linux.c
->@@ -1563,6 +1563,7 @@ live_open_new(pcap_t *handle, const char
-> 			memset(&mr, 0, sizeof(mr));
-> 			mr.mr_ifindex = handle->md.ifindex;
-> 			mr.mr_type    = PACKET_MR_PROMISC;
->+			mr.mr_alen    = 6;
-> 			if (setsockopt(sock_fd, SOL_PACKET,
-> 				PACKET_ADD_MEMBERSHIP, &mr, sizeof(mr)) == -1)
-> 			{
->
->libpcap git doesn't have the fix yet.
->
->The breakage must be coming from the commit 914c8ad2 by Jiri Pirko to
->net/packet/af_packet.c
->
->I think it's very unhelpful to introduce patches that break significant
->userspace functionality without giving the affected programs an advance
->warning.
->
->Also, pulling bleeding edge stuff into wireless-testing before rc1
->appears to be either a mistake or a bad decision.
->
->Sorry for cross-post, but it's an urgent issue.  Repliers are encouraged
->to trim the recipient list as necessary.
+Make tcp adapt to the limited socket backlog change.
 
-Sorry about this. Corrected patch will follow.
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: "Pekka Savola (ipv6)" <pekkas@netcore.fi>
+Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Zhu Yi <yi.zhu@intel.com>
+---
+ net/ipv4/tcp_ipv4.c      |    6 ++++--
+ net/ipv4/tcp_minisocks.c |    2 +-
+ net/ipv6/tcp_ipv6.c      |    6 ++++--
+ 3 files changed, 9 insertions(+), 5 deletions(-)
 
-Jirka
->
->-- 
->Regards,
->Pavel Roskin
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index c3588b4..1915f7d 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1682,8 +1682,10 @@ process:
+ 			if (!tcp_prequeue(sk, skb))
+ 				ret = tcp_v4_do_rcv(sk, skb);
+ 		}
+-	} else
+-		sk_add_backlog(sk, skb);
++	} else if (sk_add_backlog(sk, skb)) {
++		bh_unlock_sock(sk);
++		goto discard_and_relse;
++	}
+ 	bh_unlock_sock(sk);
+ 
+ 	sock_put(sk);
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index f206ee5..4199bc6 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -728,7 +728,7 @@ int tcp_child_process(struct sock *parent, struct sock *child,
+ 		 * in main socket hash table and lock on listening
+ 		 * socket does not protect us more.
+ 		 */
+-		sk_add_backlog(child, skb);
++		__sk_add_backlog(child, skb);
+ 	}
+ 
+ 	bh_unlock_sock(child);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 6963a6b..2c378b1 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1740,8 +1740,10 @@ process:
+ 			if (!tcp_prequeue(sk, skb))
+ 				ret = tcp_v6_do_rcv(sk, skb);
+ 		}
+-	} else
+-		sk_add_backlog(sk, skb);
++	} else if (sk_add_backlog(sk, skb)) {
++		bh_unlock_sock(sk);
++		goto discard_and_relse;
++	}
+ 	bh_unlock_sock(sk);
+ 
+ 	sock_put(sk);
+-- 
+1.6.3.3
+
