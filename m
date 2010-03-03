@@ -1,48 +1,67 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [net-2.6 PATCH] af_packet: move strict addr_len check right
- before dev_[mc/unicast]_[add/del]
-Date: Wed, 3 Mar 2010 08:36:03 +0100
-Message-ID: <20100303073603.GD2648@psychotron.redhat.com>
-References: <1267578048.14049.11.camel@mj>
- <20100303064001.GB2648@psychotron.redhat.com>
- <20100303020110.hhu4cdecg08kkck0-cebfxv@webmail.spamcop.net>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: Re: [PATCH 2/8] dccp: use limited socket backlog
+Date: Wed, 03 Mar 2010 15:43:48 +0800
+Message-ID: <1267602228.2370.64.camel@debian>
+References: <1267598111-12503-1-git-send-email-yi.zhu@intel.com>
+	 <1267598111-12503-2-git-send-email-yi.zhu@intel.com>
+	 <1267599387.2839.89.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Pavel Roskin <proski@gnu.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29234 "EHLO mx1.redhat.com"
+Received: from mga14.intel.com ([143.182.124.37]:47546 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752257Ab0CCHgI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Mar 2010 02:36:08 -0500
-Content-Disposition: inline
-In-Reply-To: <20100303020110.hhu4cdecg08kkck0-cebfxv@webmail.spamcop.net>
+	id S1751022Ab0CCHmD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Mar 2010 02:42:03 -0500
+In-Reply-To: <1267599387.2839.89.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Mar 03, 2010 at 08:01:10AM CET, proski@gnu.org wrote:
->Quoting Jiri Pirko <jpirko@redhat.com>:
->
->>@@ -1734,7 +1738,7 @@ static int packet_mc_add(struct sock *sk,
->>struct packet_mreq_max *mreq)
->> 		goto done;
->>
->> 	err = -EINVAL;
->>-	if (mreq->mr_alen != dev->addr_len)
->>+	if (mreq->mr_alen > dev->addr_len)
->> 		goto done;
->>
->> 	err = -ENOBUFS;
->
->The patch looks good, but did you mean to include this change?  It's
->not described.
+On Wed, 2010-03-03 at 14:56 +0800, Eric Dumazet wrote:
+> Le mercredi 03 mars 2010 =C3=A0 14:35 +0800, Zhu Yi a =C3=A9crit :
+> > Make dccp adapt to the limited socket backlog change.
+> >=20
+> > Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+> > Signed-off-by: Zhu Yi <yi.zhu@intel.com>
+> > ---
+> >  net/dccp/minisocks.c |    2 +-
+> >  1 files changed, 1 insertions(+), 1 deletions(-)
+> >=20
+> > diff --git a/net/dccp/minisocks.c b/net/dccp/minisocks.c
+> > index af226a0..0d508c3 100644
+> > --- a/net/dccp/minisocks.c
+> > +++ b/net/dccp/minisocks.c
+> > @@ -254,7 +254,7 @@ int dccp_child_process(struct sock *parent, str=
+uct sock *child,
+> >  		 * in main socket hash table and lock on listening
+> >  		 * socket does not protect us more.
+> >  		 */
+> > -		sk_add_backlog(child, skb);
+> > +		__sk_add_backlog(child, skb);
+> >  	}
+> > =20
+> >  	bh_unlock_sock(child);
+>=20
+> I dont understand this patch.
+>=20
+> You make dccp vulnerable to memory exhaustion, I thought you wanted t=
+o
+> solve this problem.
+>=20
+> It should therefore be named "dccp: use unlimited socket backlog"
+>=20
+> (And this sounds not so sexy :) )
 
-Sure - this is revert of the bit from my original patch. I think it's clear from
-description.
+dccp uses sk_receive_skb() which calls sk_add_backlog() that I fixed in
+the first patch. This patch here handles a different case, when the
+parent sk is in the LISTEN state and we want the child to process the
+packet. Should the backlog limit be applied here? I'm waiting for
+comments.
 
-Jirka
+Thanks,
+-yi
 
->
->-- 
->Regards,
->Pavel Roskin
+
