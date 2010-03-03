@@ -1,33 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/12] IPv6 addrconf changes
-Date: Wed, 03 Mar 2010 01:16:05 -0800 (PST)
-Message-ID: <20100303.011605.225992271.davem@davemloft.net>
-References: <20100302233243.259794027@vyatta.com>
+Subject: Re: [Bridge] [PATCH] bridge: per-cpu packet statistics (v3)
+Date: Wed, 03 Mar 2010 01:16:33 -0800 (PST)
+Message-ID: <20100303.011633.133428196.davem@davemloft.net>
+References: <1267553173.2839.9.camel@edumazet-laptop>
+	<20100302153209.74742a96@nehalam>
+	<1267596544.2839.71.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35712
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35717
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751405Ab0CCJPt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Mar 2010 04:15:49 -0500
-In-Reply-To: <20100302233243.259794027@vyatta.com>
+	by vger.kernel.org with ESMTP id S1754850Ab0CCJQO convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Mar 2010 04:16:14 -0500
+In-Reply-To: <1267596544.2839.71.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 02 Mar 2010 15:32:43 -0800
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 03 Mar 2010 07:09:04 +0100
 
-> This set includes a mixed bag of changes all related to
-> IPv6 address configuration:  bugfixes (1-3,8), changes to use
-> list interface (4-5,8), RCU (6), cosmetic cleanups (9-10,12) and
-> minor improvments (7,11).
+> Le mardi 02 mars 2010 =E0 15:32 -0800, Stephen Hemminger a =E9crit :
+>> The shared packet statistics are a potential source of slow down
+>> on bridged traffic. Convert to per-cpu array, but only keep those
+>> statistics which change per-packet.
+>>=20
+>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>>=20
+>=20
+> Thanks Stephen !
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Unless you split out the change that are not bug fixes, this
-will have to wait until the next merge window.
+This is fine but needs to go into the next merge window, not
+this one.
 
-As I very clearly stated the other day I'm really not taking
-anything other than bug fixes after Linus takes in my pull
-request, which he did today.
+Bug fixes only now.
