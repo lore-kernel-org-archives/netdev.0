@@ -1,53 +1,47 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH V2 5/7] sctp: use limited socket backlog
-Date: Wed, 03 Mar 2010 09:36:21 -0500
-Message-ID: <4B8E73E5.1030105@hp.com>
-References: <1267605389-7369-1-git-send-email-yi.zhu@intel.com> <1267605389-7369-2-git-send-email-yi.zhu@intel.com> <1267605389-7369-3-git-send-email-yi.zhu@intel.com> <1267605389-7369-4-git-send-email-yi.zhu@intel.com> <1267605389-7369-5-git-send-email-yi.zhu@intel.com> <4B8E6DD0.1020603@hp.com> <DA586906BA1FFC4384FCFD6429ECE860A45A699B@shzsmsx502.ccr.corp.intel.com>
+From: =?ISO-8859-15?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH 2/2] ipv4: flush ARP entries on device change
+Date: Wed, 03 Mar 2010 16:39:36 +0200
+Message-ID: <4B8E74A8.5060600@iki.fi>
+References: <1267624874-22326-1-git-send-email-timo.teras@iki.fi> <1267624874-22326-2-git-send-email-timo.teras@iki.fi> <4B8E6CC8.3080701@trash.net> <4B8E701D.7070300@iki.fi> <4B8E7357.5050203@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Sridhar Samudrala <sri@us.ibm.com>
-To: "Zhu, Yi" <yi.zhu@intel.com>
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:43670 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754363Ab0CCOgX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Mar 2010 09:36:23 -0500
-In-Reply-To: <DA586906BA1FFC4384FCFD6429ECE860A45A699B@shzsmsx502.ccr.corp.intel.com>
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:63446 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754371Ab0CCOjj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Mar 2010 09:39:39 -0500
+Received: by wwa36 with SMTP id 36so798894wwa.19
+        for <netdev@vger.kernel.org>; Wed, 03 Mar 2010 06:39:37 -0800 (PST)
+In-Reply-To: <4B8E7357.5050203@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Patrick McHardy wrote:
+> Timo Ter=E4s wrote:
+>> Patrick McHardy wrote:
+>>> Timo Teras wrote:
+>>> It would be nice if we could restrict this to IFF_NOARP changes.
+>> Yes. But I did not see any easy way to figure out which flags have c=
+hanged.
+>>
+>> Should we just keep a copy of the previous IFF_NOARP bit somewhere
+>> (where?).
+>> Or did I miss something obvious?
+>=20
+> We shouldn't have any arp entries for devices with IFF_NOARP set,
+> so perhaps we can flush only in that case. The transition IFF_NOARP
+> -> ~IFF_NOARP shouldn't need flushing.
 
+IFF_NOARP devices do have neighbor entries with the nud NOARP.
+Exactly those entries I want to flush when IFF_NOARP flag is
+removed.
 
-Zhu, Yi wrote:
-> Vlad Yasevich <vladislav.yasevich@hp.com> wrote:
-> 
->> I think this will result in a double-free of the skb, because sctp_chunk_free
->> attempts to free the skb that's been assigned to the chunk.  You can set the skb
->> to NULL to get around that.
-> 
-> Ah, I missed that. Thanks!
-> 
-> <...>
-> 
->> You also leak the ref counts here since now it's possible to not add a packet to
->> the backlog queue.  That means you'll take refs, but never drop them because
->> the receive routing will never run.
-> 
-> Good catch. I'll fix it.
-> 
-> BTW, does the current backlog limit (sysctl_rmem_default[1] << 1) enough for sctp?
-> I noticed the sysctl_sctp_rmem[1] is set to 373500 in my box.
-> 
+You can see those entries with "ip neigh show nud all". You have
+them e.g. for loopback stuff and broad-/multicast stuff in general.
+With IFF_NOARP you get them on all unicast addresses used.
 
-sctp uses the same algorithm as TCP to figure out the memory values.
-I guess the issue with using the smaller value that it would be possible to
-queue more the socket receive buffer then to the backlog.  Thus backlog would
-start dropping packets even though receive buffer would still accept them.
-
--vlad
-
-> Thanks,
-> -yi
-> 
+- Timo
