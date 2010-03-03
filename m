@@ -1,53 +1,61 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
-Date: Wed, 03 Mar 2010 19:50:56 +0300
-Message-ID: <4B8E9370.3050300@parallels.com>
-References: <4B88E431.6040609@parallels.com>	<m1bpfbqajn.fsf@fess.ebiederm.org> <4B894564.7080104@parallels.com>	<m1iq9io5sc.fsf@fess.ebiederm.org> <4B89727C.9040602@parallels.com>	<m1ljeempk6.fsf@fess.ebiederm.org> <4B8AE8C1.1030305@free.fr>	<4B8D28CF.8060304@parallels.com> <20100302211942.GA17816@us.ibm.com>	<m1y6iaqsmm.fsf@fess.ebiederm.org> <20100303000743.GA13744@us.ibm.com> <m1ocj6qljj.fsf@fess.ebiederm.org>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [RFC][ PATCH 0/3] vhost-net: Add mergeable RX buffer support	to vhost-net
+Date: Wed, 3 Mar 2010 09:28:16 -0800
+Message-ID: <OFFE6E21C9.265C1D67-ON882576DB.005DAD30-882576DB.005FF8F2@us.ibm.com>
+References: <20100303092850.GB14034@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
-	Daniel Lezcano <daniel.lezcano@free.fr>,
-	Serge Hallyn <serue@us.ibm.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, rusty@rustcorp.com.au,
+	virtualization@lists.osdl.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:29857 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751578Ab0CCQwi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Mar 2010 11:52:38 -0500
-In-Reply-To: <m1ocj6qljj.fsf@fess.ebiederm.org>
+Received: from e38.co.us.ibm.com ([32.97.110.159]:33337 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754195Ab0CCR2i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Mar 2010 12:28:38 -0500
+In-Reply-To: <20100303092850.GB14034@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I just played with this and if you make the semantics of unshare(CLONE_NEWPID)
-> to be that you become the idle task aka pid 0, and not the init task pid 1 the
-> implementation is trivial.
+> Interesting. Since the feature in question is billed first of all a
+> performance optimization...
 
-This is not ... handy - if after enter you have pid 0 you obviously
-can't perform 2 parallel enters. The way I see it:
+By whom? Although I see some improved performance, I think its real
+benefit is improving memory utilization on the guest. Instead of using
+75K for an ARP packet, mergeable RX buffers only uses 4K. :-)
 
-As far as the numbers reported to the userspace are concerned:
-1. task, that enters is still visible by its old parent by old pid
-2. task, that enters gets some pid within the entering namespace
-   and reports its parent pid to have pid 1 (init obviously doesn't
-   care)
-3. we _can_ try to allocate new pid equal to the old one so that
-   glibc stays happy
+> Since the patches affect code paths when mergeable RX buffers are
+> disabled as well, I guess the most important point would be to verify
+> whether there's increase in latency and/or CPU utilization, or bandwidth
+> cost when the feature bit is *disabled*.
 
+Actually, when the feature bit is disabled, it'll only get a single
+head, doesn't use the special vnet_hdr, and the codepath reduces to the
+essentially to the original. But the answer is "no"; I saw no regressions
+when using it without the feature bit. The only substantive difference in 
+that case
+is that the new code avoids copying the vnet header as the original
+does, so it should actually be faster, but I don't think that's measurable
+above the variability I already see.
 
-As far as the pointers are concerned:
-1. parent pointer doesn't change
-2. task_pid(tsk) one (i.e. struct pid * one) _can_ change if
-   a) we don't allow threads enter (de_thread problem is handeled)
-   b) we don't allow leave the group/session, i.e. check, that there
-      is the only one task that enters lives in its pgid/sid
-   c) we wait for the quiescent state to pass by before destroying
-      the old pid to handle race with sys_kill()
+> 
+> > 2 notes: I have a modified version of qemu to get the VHOST_FEATURES
+> > flags, including the mergeable RX bufs flag, passed to the guest; I'll
+> > be working with your current qemu git trees next, if any changes are
+> > needed to support it there.
+> 
+> This feature also seems to conflict with zero-copy rx patches from Xin
+> Xiaohui (subject: Provide a zero-copy method on KVM virtio-net) these
+> are not in a mergeable shape yet, so this is not a blocker, but I wonder
+> what your thoughts on the subject are: how will we do feature
+> negotiation if some backends don't support some features?
 
-Thoughts/questions? ("This is a nasty problem" answer is not acceptable,
-the real code problems/races please)
+        The qemu code I have basically sends the set features and get
+features all the way to vhost (ie, it's the guest negotiating with
+vhost), except, of course, for the magic qemu-only bits. I think that's
+the right model. I'll definitely take a look at the patch you mention
+and maybe comment further.
+
+                                                                +-DLS
+
