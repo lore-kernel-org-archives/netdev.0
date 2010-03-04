@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: =?ISO-8859-1?Q?[net-next-2.6 PATCH] ?= =?ISO-8859-1?Q?e1000e:
- do not modify?= =?ISO-8859-1?Q? tx_queue_len on link?= =?ISO-8859-1?Q?
- speed change?=
-Date: Thu, 04 Mar 2010 00:41:28 -0800 (PST)
-Message-ID: <20100304.004128.236847399.davem@davemloft.net>
-References: <20100303143137.0BCA01220127@host64.kissl.de>
+Subject: Re: [net-next-2.6 PATCH] wireless: convert to use
+ netdev_for_each_mc_addr
+Date: Thu, 04 Mar 2010 00:41:50 -0800 (PST)
+Message-ID: <20100304.004150.129762672.davem@davemloft.net>
+References: <20100303175229.GB2760@psychotron.redhat.com>
+	<20100303200510.17531s9x98zyvwm8@hayate.sektori.org>
+	<20100303180956.GC2760@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Brandeburg@host64.kissl.de, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org, Allan@host64.kissl.de,
-	bruce.w.allan@intel.com
-To: franco@lastsummer.de
+Cc: netdev@vger.kernel.org, jussi.kivilinna@mbnet.fi,
+	linux-wireless@vger.kernel.org
+To: jpirko@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36179
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36185
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754447Ab0CDIlJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 03:41:09 -0500
-In-Reply-To: <20100303143137.0BCA01220127@host64.kissl.de>
+	by vger.kernel.org with ESMTP id S1754426Ab0CDIlb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 03:41:31 -0500
+In-Reply-To: <20100303180956.GC2760@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: franco@lastsummer.de
-Date: Wed,  3 Mar 2010 15:31:37 +0100 (CET)
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Wed, 3 Mar 2010 19:09:56 +0100
 
-> e1000e would try to set appropriate values of tx_queue_len for
-> negotiated
-> link speeds overwriting the already set configuration of tx_queue_len in
-> the process. This removes all lines touching tx_queue_len from the
-> driver.
+> Here's corrected patch:
 > 
-> Signed-off-by: Franco Fichtner <franco@lastsummer.de>
+> Subject: [net-2.6 PATCH] rndis_wlan: correct multicast_list handling V2
+> 
+> My previous patch (655ffee284dfcf9a24ac0343f3e5ee6db85b85c5) added locking in
+> a bad way. Because rndis_set_oid can sleep, there is need to prepare multicast
+> addresses into local buffer under netif_addr_lock first, then call
+> rndis_set_oid outside. This caused reorganizing of the whole function.
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> Reported-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 
-Intel folks, you got this?
+Applied.
