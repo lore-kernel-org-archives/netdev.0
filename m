@@ -1,70 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH V2 2/7] tcp: use limited socket backlog
-Date: Thu, 04 Mar 2010 07:00:31 +0100
-Message-ID: <1267682431.2943.10.camel@edumazet-laptop>
-References: <1267605389-7369-1-git-send-email-yi.zhu@intel.com>
-	 <1267605389-7369-2-git-send-email-yi.zhu@intel.com>
-	 <1267606433.2997.4.camel@edumazet-laptop>
-	 <1267607162.2370.169.camel@debian>
-	 <1267610843.2997.7.camel@edumazet-laptop>
-	 <DA586906BA1FFC4384FCFD6429ECE860A45A6999@shzsmsx502.ccr.corp.intel.com>
-	 <1267626678.2997.25.camel@edumazet-laptop>
-	 <DA586906BA1FFC4384FCFD6429ECE860A45A6BAE@shzsmsx502.ccr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	Patrick McHardy <kaber@trash.net>
-To: "Zhu, Yi" <yi.zhu@intel.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 1/2] vsprintf: Recursive vsnprintf: Add "%pV", struct va_format
+Date: Wed,  3 Mar 2010 22:27:22 -0800
+Message-ID: <c0a34cb271141b652d0a210163d7d95d6f810127.1267682641.git.joe__33915.794597897$1267684059$gmane$org@perches.com>
+References: <cover.1267682641.git.joe@perches.com>
+Cc: linux-kernel@vger.kernel.org, Greg Kroah-Hartman <gregkh@suse.de>,
+	netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Nick Andrew <nick@nick-andrew.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f219.google.com ([209.85.220.219]:33250 "EHLO
-	mail-fx0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752234Ab0CDGAh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 01:00:37 -0500
-Received: by fxm19 with SMTP id 19so2417605fxm.21
-        for <netdev@vger.kernel.org>; Wed, 03 Mar 2010 22:00:35 -0800 (PST)
-In-Reply-To: <DA586906BA1FFC4384FCFD6429ECE860A45A6BAE@shzsmsx502.ccr.corp.intel.com>
+Received: from mail.perches.com ([173.55.12.10]:1363 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752505Ab0CDG1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Mar 2010 01:27:25 -0500
+In-Reply-To: <cover.1267682641.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 04 mars 2010 =C3=A0 13:21 +0800, Zhu, Yi a =C3=A9crit :
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->=20
-> > Then its a separate bug. MD5 support added so many bugs its not eve=
-n
-> > funny.
->=20
-> > Existing bugs are not an excuse for adding new ones, we try the rev=
-erse.
-> > No ?
->=20
-> Can you show me where sk_drops is used by TCP and what SNMP MIB value
-> should I use for backlog dropping? TCP_MIB_INERRS doesn't seem correc=
-t.
+Add the ability to print a format and va_list from a structure pointer
 
-sk_drop is not yet used by TCP, because when backlog processing is
-performed, TCP state machine has much finer grain capabilities to show
-why a packet is dropped. In our backlog drop, we dont examine details o=
-f
-packet and drop it at a lower level.
+Allows __dev_printk to be implemented as a single printk while
+minimizing string space duplication.
 
-Please add a new counter, say LINUX_MIB_TCPBACKLOGDROP :
+%pV should not be used without some mechanism to verify the
+format and argument use ala __attribute__(format (printf(...))).
 
-3 added lines:
-- one in "include/linux/snmp.h" to define the MIB name
-- one to define its string
-- one to perform the increment when actual drop occurs)
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ include/linux/kernel.h |    5 +++++
+ lib/vsprintf.c         |    9 +++++++++
+ 2 files changed, 14 insertions(+), 0 deletions(-)
 
-A good starting point would be to study recent commit
-72032fdbcde8b333e65b3430e1bcb4358e2d6716 from Jamal
-(xfrm: Introduce LINUX_MIB_XFRMFWDHDRERROR)
-
-=46or sk_drop, just increment it and we can get it at generic sock leve=
-l.
-
-Thanks !
-
+diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+index 7f07074..0eae8e9 100644
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -169,6 +169,11 @@ static inline void might_fault(void)
+ }
+ #endif
+ 
++struct va_format {
++	const char *fmt;
++	va_list *va;
++};
++
+ extern struct atomic_notifier_head panic_notifier_list;
+ extern long (*panic_blink)(long time);
+ NORET_TYPE void panic(const char * fmt, ...)
+diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+index af4aaa6..0fd7f8b 100644
+--- a/lib/vsprintf.c
++++ b/lib/vsprintf.c
+@@ -950,6 +950,11 @@ static char *uuid_string(char *buf, char *end, const u8 *addr,
+  *             [0][1][2][3]-[4][5]-[6][7]-[8][9]-[10][11][12][13][14][15]
+  *           little endian output byte order is:
+  *             [3][2][1][0]-[5][4]-[7][6]-[8][9]-[10][11][12][13][14][15]
++ * - 'V' For a struct va_format which contains a format string * and va_list *,
++ *       call vsnprintf(->format, *->va_list).
++ *       Implements a "recursive vsnprintf".
++ *       Do not use this feature without some mechanism to verify the
++ *       correctness of the format string and va_list arguments.
+  *
+  * Note: The difference between 'S' and 'F' is that on ia64 and ppc64
+  * function pointers are really function descriptors, which contain a
+@@ -994,6 +999,10 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr,
+ 		break;
+ 	case 'U':
+ 		return uuid_string(buf, end, ptr, spec, fmt);
++	case 'V':
++		return buf + vsnprintf(buf, end - buf,
++				       ((struct va_format *)ptr)->fmt,
++				       *(((struct va_format *)ptr)->va));
+ 	}
+ 	spec.flags |= SMALL;
+ 	if (spec.field_width == -1) {
+-- 
+1.7.0.14.g7e948
 
