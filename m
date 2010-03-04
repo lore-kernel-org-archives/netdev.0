@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: use correct barrier between cacheable and
- non-cacheable memory
-Date: Thu, 04 Mar 2010 00:40:48 -0800 (PST)
-Message-ID: <20100304.004048.09651248.davem@davemloft.net>
-References: <1267669990.23829.8.camel@obelisk.thedillows.org>
+Subject: Re: [rfc/rft][patch] should use scheduler sync hint in
+ tcp_prequeue()?
+Date: Thu, 04 Mar 2010 00:41:04 -0800 (PST)
+Message-ID: <20100304.004104.24320938.davem@davemloft.net>
+References: <1267529273.2964.111.camel@edumazet-laptop>
+	<20100303.060529.195713861.davem@davemloft.net>
+	<1267627610.6264.21.camel@marge.simson.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com, paulus@samba.org,
-	catalin.marinas@arm.com
-To: dave@thedillows.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36163
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753946Ab0CDIk3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 03:40:29 -0500
-In-Reply-To: <1267669990.23829.8.camel@obelisk.thedillows.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@elte.hu
+To: efault@gmx.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1267627610.6264.21.camel@marge.simson.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Dillow <dave@thedillows.org>
-Date: Wed, 03 Mar 2010 21:33:10 -0500
+From: Mike Galbraith <efault@gmx.de>
+Date: Wed, 03 Mar 2010 15:46:50 +0100
 
-> r8169 needs certain writes to be visible to other CPUs or the NIC before
-> touching the hardware, but was using smp_wmb() which is only required to
-> order cacheable memory access. Switch to wmb() which is required to
-> order both cacheable and non-cacheable memory.
+> On Wed, 2010-03-03 at 06:05 -0800, David Miller wrote:
 > 
-> Noticed by Catalin Marinas and Paul Mackerras.
+>> It definitely looks like an oversight to me and we should add
+>> be using wake_up_interruptible_sync_poll() in tcp_prequeue()
+>> as above.
+>> 
+>> Ingo?
 > 
-> Signed-off-by: David Dillow <dave@thedillows.org>
+> Implied ack from network maintainer implies ship it to me.
+> 
+> net: add scheduler sync hint to tcp_prequeue().
+> 
+> Decreases the odds wakee will suffer from frequent cache misses.
+> 
+> Signed-off-by: Mike Galbraith <efault@gmx.de>
 
 Applied.
