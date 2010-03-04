@@ -1,64 +1,70 @@
-From: leitao@linux.vnet.ibm.com
-Subject: [PATCH] s2io: Fixing debug message
-Date: Thu,  4 Mar 2010 15:40:44 -0500
-Message-ID: <1267735244-8367-1-git-send-email-leitao@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, Breno Leitao <leitao@linux.vnet.ibm.com>
-To: sreenivasa.honnur@neterion.com
+From: M G Berberich <berberic@fmi.uni-passau.de>
+Subject: Re: 2.6.33 dies on modprobe
+Date: Thu, 4 Mar 2010 21:38:03 +0100
+Message-ID: <20100304203803.GA3267@invalid>
+References: <fa.S/rvLm1aQlDSqPwVJz5B+5vHjbM@ifi.uio.no>
+ <fa.+Pg2gFpQSg5k/1mCpBdt8xMXeqY@ifi.uio.no>
+ <fa.0/xGeZctWXDyX0DAp6opgP1HP7w@ifi.uio.no>
+ <fa.kPSENj9DWu0Q8xolQMDkRvAwxQ0@ifi.uio.no>
+ <fa.JUJQsT7bECqtd8JSoNY+SBdASCE@ifi.uio.no>
+ <fa.Lya/54V1PJgwjc8uy1Yk4NyYUh4@ifi.uio.no>
+ <20100303230438.GA3363@invalid>
+ <20100304153042.GA4614@hack>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@suse.de>
+To: =?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp02.br.ibm.com ([32.104.18.86]:54607 "EHLO
-	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756453Ab0CDUrF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 15:47:05 -0500
-Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-	by e24smtp02.br.ibm.com (8.14.3/8.13.1) with ESMTP id o24L1Rx1026820
-	for <netdev@vger.kernel.org>; Thu, 4 Mar 2010 18:01:27 -0300
-Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
-	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o24Kku3q3649584
-	for <netdev@vger.kernel.org>; Thu, 4 Mar 2010 17:46:56 -0300
-Received: from d24av05.br.ibm.com (loopback [127.0.0.1])
-	by d24av05.br.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o24KktKs017031
-	for <netdev@vger.kernel.org>; Thu, 4 Mar 2010 17:46:55 -0300
+Received: from smtprelay04.ispgateway.de ([80.67.31.27]:59556 "EHLO
+	smtprelay04.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756312Ab0CDUiK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 15:38:10 -0500
+Content-Disposition: inline
+In-Reply-To: <20100304153042.GA4614@hack>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently s2io is dumping debug messages using the interface name
-before it was allocated, showing a message like the following:
+Am Donnerstag, den 04. M=C3=A4rz schrieb Am=C3=A9rico Wang:
+> On Thu, Mar 04, 2010 at 12:04:38AM +0100, M G Berberich wrote:
+> >Am Mittwoch, den 03. M=C3=A4rz schrieb Am=C3=A9rico Wang:
+> >> On Wed, Mar 3, 2010 at 5:08 PM, Am=C3=A9rico Wang <xiyou.wangcong@=
+gmail.com> wrote:
+> >> > On Wed, Mar 3, 2010 at 4:58 PM, Am=C3=A9rico Wang <xiyou.wangcon=
+g@gmail.com> wrote:
+> >> >> Ok, below is my patch, I am not sure it could fix the BUG for y=
+ou,
+> >> >> but it could fix the WARNING. But perhaps they are related.
+> >> >>
+> >> >> Please give it a try.
+> >> >>
+> >> >
+> >> > Oops! Ignore the patch, it should not be correct, I will send a
+> >> > correct version soon.
+> >> > Sorry.
+> >> >
+> >>=20
+> >> Here we go:
+> >
+> >Seems to fix the warning, but not the modprobe-Oops.
+> >
+>=20
+> Thanks much for your testing!
+>=20
+> Could you please try to turn on DEBUG_KOBJECT and boot your kernel
+> with "initcall_debug"? And then show us your dmesg.
 
-s2io: eth%d: Ring Mem PHY: 0x7ef80000
-s2io: s2io_reset: Resetting XFrame card eth%d
+If I'm doing this (enabled CONFIG_DEBUG_KERNEL and
+CONFIG_DEBUG_KOBJECT), the kernel dies immediately - no output.
 
-This patch just fixes it, printing the pci bus information for
-the card instead of the interface name.
+	MfG
+	bmg
 
-Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
----
- drivers/net/s2io.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-index 3c4836d..2a913be 100644
---- a/drivers/net/s2io.c
-+++ b/drivers/net/s2io.c
-@@ -923,8 +923,8 @@ static int init_shared_mem(struct s2io_nic *nic)
- 	tmp_v_addr = mac_control->stats_mem;
- 	mac_control->stats_info = (struct stat_block *)tmp_v_addr;
- 	memset(tmp_v_addr, 0, size);
--	DBG_PRINT(INIT_DBG, "%s: Ring Mem PHY: 0x%llx\n", dev->name,
--		  (unsigned long long)tmp_p_addr);
-+	DBG_PRINT(INIT_DBG, "%s: Ring Mem PHY: 0x%llx\n",
-+		dev_name(&nic->pdev->dev), (unsigned long long)tmp_p_addr);
- 	mac_control->stats_info->sw_stat.mem_allocated += mem_allocated;
- 	return SUCCESS;
- }
-@@ -3480,7 +3480,7 @@ static void s2io_reset(struct s2io_nic *sp)
- 	struct swStat *swstats;
- 
- 	DBG_PRINT(INIT_DBG, "%s: Resetting XFrame card %s\n",
--		  __func__, sp->dev->name);
-+		  __func__, pci_name(sp->pdev));
- 
- 	/* Back up  the PCI-X CMD reg, dont want to lose MMRBC, OST settings */
- 	pci_read_config_word(sp->pdev, PCIX_COMMAND_REGISTER, &(pci_cmd));
--- 
-1.6.0.2
-
+--=20
+=E2=80=9EDes is v=C3=B6llig wurscht, was heut beschlos- | M G Berberich
+ sen wird: I bin sowieso dagegn!=E2=80=9C          | berberic@fmi.uni-p=
+assau.de
+(SPD-Stadtrat Kurt Schindler; Regensburg)  | www.fmi.uni-passau.de/~ber=
+beric
