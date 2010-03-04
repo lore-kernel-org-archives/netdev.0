@@ -1,46 +1,45 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: Re: [net-next-2.6 PATCH] e1000e: do not modify tx queue len on
-	link speed change
-Date: Thu, 4 Mar 2010 06:41:00 -0800
-Message-ID: <9929d2391003040641s10ceceeax1beb3bd618fb7eb5@mail.gmail.com>
-References: <20100303143137.0BCA01220127@host64.kissl.de>
-	 <20100304.004128.236847399.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH V2 2/7] tcp: use limited socket backlog
+Date: Thu, 04 Mar 2010 15:56:30 +0100
+Message-ID: <1267714590.3302.1.camel@edumazet-laptop>
+References: <1267605389-7369-1-git-send-email-yi.zhu@intel.com>
+	 <1267605389-7369-2-git-send-email-yi.zhu@intel.com>
+	 <1267606433.2997.4.camel@edumazet-laptop>
+	 <1267607162.2370.169.camel@debian>
+	 <1267610843.2997.7.camel@edumazet-laptop>
+	 <DA586906BA1FFC4384FCFD6429ECE860A45A6999@shzsmsx502.ccr.corp.intel.com>
+	 <1267626678.2997.25.camel@edumazet-laptop>
+	 <DA586906BA1FFC4384FCFD6429ECE860A45A6BAE@shzsmsx502.ccr.corp.intel.com>
+	 <1267682431.2943.10.camel@edumazet-laptop>
+	 <DA586906BA1FFC4384FCFD6429ECE860A45A6D9E@shzsmsx502.ccr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: franco@lastsummer.de, Brandeburg@host64.kissl.de,
-	jesse.brandeburg@intel.com, netdev@vger.kernel.org,
-	Allan@host64.kissl.de, bruce.w.allan@intel.com
-To: David Miller <davem@davemloft.net>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	Patrick McHardy <kaber@trash.net>
+To: "Zhu, Yi" <yi.zhu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:53374 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753893Ab0CDOlD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 09:41:03 -0500
-Received: by pvb32 with SMTP id 32so370252pvb.19
-        for <netdev@vger.kernel.org>; Thu, 04 Mar 2010 06:41:01 -0800 (PST)
-In-Reply-To: <20100304.004128.236847399.davem@davemloft.net>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:41052 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752274Ab0CDO4g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 09:56:36 -0500
+Received: by bwz1 with SMTP id 1so439441bwz.21
+        for <netdev@vger.kernel.org>; Thu, 04 Mar 2010 06:56:34 -0800 (PST)
+In-Reply-To: <DA586906BA1FFC4384FCFD6429ECE860A45A6D9E@shzsmsx502.ccr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 4, 2010 at 00:41, David Miller <davem@davemloft.net> wrote:
-> From: franco@lastsummer.de
-> Date: Wed, =C2=A03 Mar 2010 15:31:37 +0100 (CET)
->
->> e1000e would try to set appropriate values of tx_queue_len for
->> negotiated
->> link speeds overwriting the already set configuration of tx_queue_le=
-n in
->> the process. This removes all lines touching tx_queue_len from the
->> driver.
->>
->> Signed-off-by: Franco Fichtner <franco@lastsummer.de>
->
-> Intel folks, you got this?
+Le jeudi 04 mars 2010 =C3=A0 19:04 +0800, Zhu, Yi a =C3=A9crit :
 
-Yes, I have added it to my queue of patches.  Sorry for the delayed res=
-ponse.
+>=20
+> Since neither sk_drops nor the new MIB value are used by TCP currentl=
+y.
+> How about I keep the tcp backlog limit patch as is and you implement
+> the above in another patch?
 
---=20
-Cheers,
-Jeff
+Sure, I will do that
+
+
