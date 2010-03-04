@@ -1,63 +1,50 @@
-From: David Dillow <dave@thedillows.org>
-Subject: [PATCH] typhoon: fix incorrect use of smp_wmb()
-Date: Thu, 04 Mar 2010 09:37:16 -0500
-Message-ID: <1267713436.2328.12.camel@lap75545.ornl.gov>
+From: =?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>
+Subject: Re: 2.6.33 dies on modprobe
+Date: Thu, 4 Mar 2010 23:30:42 +0800
+Message-ID: <20100304153042.GA4614@hack>
+References: <fa.S/rvLm1aQlDSqPwVJz5B+5vHjbM@ifi.uio.no> <fa.+Pg2gFpQSg5k/1mCpBdt8xMXeqY@ifi.uio.no> <fa.0/xGeZctWXDyX0DAp6opgP1HP7w@ifi.uio.no> <fa.kPSENj9DWu0Q8xolQMDkRvAwxQ0@ifi.uio.no> <fa.JUJQsT7bECqtd8JSoNY+SBdASCE@ifi.uio.no> <fa.Lya/54V1PJgwjc8uy1Yk4NyYUh4@ifi.uio.no> <20100303230438.GA3363@invalid>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from emroute2.ornl.gov ([160.91.86.17]:53391 "EHLO emroute2.ornl.gov"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753319Ab0CDPAK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 10:00:10 -0500
-Received: from emroute2.ornl.gov ([127.0.0.1])
- by emroute2.ornl.gov (PMDF V6.4 #31561)
- with ESMTP id <0KYR001Q3HY894@emroute2.ornl.gov> for netdev@vger.kernel.org;
- Thu, 04 Mar 2010 09:37:20 -0500 (EST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>,
+	linux-kernel@vger.kernel.org,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@suse.de>
+To: M G Berberich <berberic@fmi.uni-passau.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100303230438.GA3363@invalid>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The typhoon driver was incorrectly using smp_wmb() to order memory
-accesses against IO to the NIC in a few instances. Use wmb() instead,
-which is required to actually order between memory types.
+On Thu, Mar 04, 2010 at 12:04:38AM +0100, M G Berberich wrote:
+>Hello,
+>
+>Am Mittwoch, den 03. M=C3=A4rz schrieb Am=C3=A9rico Wang:
+>> On Wed, Mar 3, 2010 at 5:08 PM, Am=C3=A9rico Wang <xiyou.wangcong@gm=
+ail.com> wrote:
+>> > On Wed, Mar 3, 2010 at 4:58 PM, Am=C3=A9rico Wang <xiyou.wangcong@=
+gmail.com> wrote:
+>> >> Ok, below is my patch, I am not sure it could fix the BUG for you=
+,
+>> >> but it could fix the WARNING. But perhaps they are related.
+>> >>
+>> >> Please give it a try.
+>> >>
+>> >
+>> > Oops! Ignore the patch, it should not be correct, I will send a
+>> > correct version soon.
+>> > Sorry.
+>> >
+>>=20
+>> Here we go:
+>
+>Seems to fix the warning, but not the modprobe-Oops.
+>
 
-Signed-off-by: David Dillow <dave@thedillows.org>
----
-This is against Linus's tree, which doesn't appear to have net-next in
-it yet. It should apply with offsets, though. I can redo against
-net-next if needed, but likely won't have quick access to that tree
-until the weekend.
+Thanks much for your testing!
 
-diff --git a/drivers/net/typhoon.c b/drivers/net/typhoon.c
-index 39f1fc6..a192852 100644
---- a/drivers/net/typhoon.c
-+++ b/drivers/net/typhoon.c
-@@ -487,7 +487,7 @@ typhoon_hello(struct typhoon *tp)
- 		typhoon_inc_cmd_index(&ring->lastWrite, 1);
- 
- 		INIT_COMMAND_NO_RESPONSE(cmd, TYPHOON_CMD_HELLO_RESP);
--		smp_wmb();
-+		wmb();
- 		iowrite32(ring->lastWrite, tp->ioaddr + TYPHOON_REG_CMD_READY);
- 		spin_unlock(&tp->command_lock);
- 	}
-@@ -1321,13 +1321,15 @@ typhoon_init_interface(struct typhoon *tp)
- 
- 	tp->txlo_dma_addr = le32_to_cpu(iface->txLoAddr);
- 	tp->card_state = Sleeping;
--	smp_wmb();
- 
- 	tp->offload = TYPHOON_OFFLOAD_IP_CHKSUM | TYPHOON_OFFLOAD_TCP_CHKSUM;
- 	tp->offload |= TYPHOON_OFFLOAD_UDP_CHKSUM | TSO_OFFLOAD_ON;
- 
- 	spin_lock_init(&tp->command_lock);
- 	spin_lock_init(&tp->state_lock);
-+
-+	/* Force the writes to the shared memory area out before continuing. */
-+	wmb();
- }
- 
- static void
+Could you please try to turn on DEBUG_KOBJECT and boot your kernel
+with "initcall_debug"? And then show us your dmesg.
 
+Regards.
