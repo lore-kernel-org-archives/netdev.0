@@ -1,44 +1,50 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing
- control.
-Date: Thu, 4 Mar 2010 23:55:14 +0100 (CET)
-Message-ID: <alpine.LSU.2.01.1003042352220.27392@obet.zrqbmnf.qr>
-References: <4B894564.7080104@parallels.com> <m1iq9io5sc.fsf@fess.ebiederm.org> <4B89727C.9040602@parallels.com> <m1ljeempk6.fsf@fess.ebiederm.org> <4B8AE8C1.1030305@free.fr> <4B8D28CF.8060304@parallels.com> <20100302211942.GA17816@us.ibm.com>
- <m1y6iaqsmm.fsf@fess.ebiederm.org> <20100303000743.GA13744@us.ibm.com> <m1ocj6qljj.fsf@fess.ebiederm.org> <20100303153800.GA937@us.ibm.com> <m13a0hmblr.fsf@fess.ebiederm.org> <m1pr3j92x8.fsf@fess.ebiederm.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [RESEND PATCH 0/2] Make functions of dev_<level> macros,
+ recursive vsnprintf
+Date: Thu, 4 Mar 2010 14:38:37 -0800
+Message-ID: <20100304143837.af39845d.akpm@linux-foundation.org>
+References: <cover.1267682641.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
-	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from borg.medozas.de ([188.40.89.202]:46800 "EHLO borg.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756207Ab0CDWzR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Mar 2010 17:55:17 -0500
-In-Reply-To: <m1pr3j92x8.fsf@fess.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Nick Andrew <nick@nick-andrew.net>,
+	linux-kernel@vger.kernel.org, Greg Kroah-Hartman <gregkh@suse.de>,
+	netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1267682641.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed,  3 Mar 2010 22:27:21 -0800
+Joe Perches <joe@perches.com> wrote:
 
-On Thursday 2010-03-04 22:45, Eric W. Biederman wrote:
->
->So an unshare of the pid namespace that doesn't really take effect
->until we fork may actually be usable from pam, and in fact is probably
->the preferred implementation.  It looks like neither openssh nor login
->from util-linux-ng will cope properly with getting any pid back from
->wait() except the pid of their child.
+> (Typo'ed Linus' email address, added Greg KH and netdev)
 
-Correct; I can tell from experience with pam_mount. GDM for example is 
-very unhappy if you fork/exit processes in PAM modules and don't hide 
-the fact by bending SIGCHLD from gdm_handler to mypam_handler (which 
-itself is racy, suppose GDM re-set the SIGCHLD handler midway through).
+What is the networking significance here?
 
-(In this particular case however, I'd prefer if login programs like GDM 
-just ignored any PIDs they did not spawn in the first place instead of 
-moaning around.)
+> dev_<level> macros use a lot of repetitive string space.
+> 
+> Eliminate the string prefixes and function arguments from all the macro uses
+> and consolidate them in functions.
+> 
+> This patchset saves about 60K.
+> 
+> This implementation also adds the ability to use a struct va_format to
+> emit a format string along with va_list arguments.
+> 
+> This %pV implementation should not be used without a wrapper that
+> does printf argument verification like the dev_<level> functions.
+> 
+> Inspired a bit by Nick Andrew's patches and Linus' comments in December 2008
+> http://lkml.org/lkml/2008/12/6/15
+> http://lkml.org/lkml/2008/12/6/101
+> 
+
+Looks like a reasonable approach, although I didn't check how much
+additional stack the recursion will take.  Bear in mind that printk()
+can be called from super-deep contexts.
+
+What would I need to do to make it recur more than once?  Include a %pV
+in a string, like dev_printk("%s", %%pV")?
