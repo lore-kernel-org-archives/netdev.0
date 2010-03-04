@@ -1,52 +1,58 @@
-From: "Zhu, Yi" <yi.zhu@intel.com>
-Subject: RE: [PATCH V2 2/7] tcp: use limited socket backlog
-Date: Thu, 4 Mar 2010 19:04:55 +0800
-Message-ID: <DA586906BA1FFC4384FCFD6429ECE860A45A6D9E@shzsmsx502.ccr.corp.intel.com>
-References: <1267605389-7369-1-git-send-email-yi.zhu@intel.com>
-	 <1267605389-7369-2-git-send-email-yi.zhu@intel.com>
-	 <1267606433.2997.4.camel@edumazet-laptop>
-	 <1267607162.2370.169.camel@debian>
-	 <1267610843.2997.7.camel@edumazet-laptop>
-	 <DA586906BA1FFC4384FCFD6429ECE860A45A6999@shzsmsx502.ccr.corp.intel.com>
-	 <1267626678.2997.25.camel@edumazet-laptop>
-	 <DA586906BA1FFC4384FCFD6429ECE860A45A6BAE@shzsmsx502.ccr.corp.intel.com>
- <1267682431.2943.10.camel@edumazet-laptop>
+From: =?ISO-8859-15?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH 2/2] ipv4: flush ARP entries on device change
+Date: Thu, 04 Mar 2010 13:15:11 +0200
+Message-ID: <4B8F963F.5020901@iki.fi>
+References: <1267624874-22326-1-git-send-email-timo.teras@iki.fi> <1267624874-22326-2-git-send-email-timo.teras@iki.fi> <4B8E6CC8.3080701@trash.net> <4B8E701D.7070300@iki.fi> <4B8E7357.5050203@trash.net> <4B8E74A8.5060600@iki.fi> <4B8E75E1.8060909@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:5947 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752274Ab0CDLFD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Mar 2010 06:05:03 -0500
-In-Reply-To: <1267682431.2943.10.camel@edumazet-laptop>
-Content-Language: en-US
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:32927 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755460Ab0CDLPN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 06:15:13 -0500
+Received: by ewy20 with SMTP id 20so1614967ewy.21
+        for <netdev@vger.kernel.org>; Thu, 04 Mar 2010 03:15:12 -0800 (PST)
+In-Reply-To: <4B8E75E1.8060909@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPiB3cm90ZToNCg0KPj4gQ2FuIHlv
-dSBzaG93IG1lIHdoZXJlIHNrX2Ryb3BzIGlzIHVzZWQgYnkgVENQIGFuZCB3aGF0IFNOTVAgTUlC
-IHZhbHVlDQo+PiBzaG91bGQgSSB1c2UgZm9yIGJhY2tsb2cgZHJvcHBpbmc/IFRDUF9NSUJfSU5F
-UlJTIGRvZXNuJ3Qgc2VlbSBjb3JyZWN0Lg0KDQo+IHNrX2Ryb3AgaXMgbm90IHlldCB1c2VkIGJ5
-IFRDUCwgYmVjYXVzZSB3aGVuIGJhY2tsb2cgcHJvY2Vzc2luZyBpcw0KPiBwZXJmb3JtZWQsIFRD
-UCBzdGF0ZSBtYWNoaW5lIGhhcyBtdWNoIGZpbmVyIGdyYWluIGNhcGFiaWxpdGllcyB0byBzaG93
-DQo+IHdoeSBhIHBhY2tldCBpcyBkcm9wcGVkLiBJbiBvdXIgYmFja2xvZyBkcm9wLCB3ZSBkb250
-IGV4YW1pbmUgZGV0YWlscyBvZg0KPiBwYWNrZXQgYW5kIGRyb3AgaXQgYXQgYSBsb3dlciBsZXZl
-bC4NCg0KPiBQbGVhc2UgYWRkIGEgbmV3IGNvdW50ZXIsIHNheSBMSU5VWF9NSUJfVENQQkFDS0xP
-R0RST1AgOg0KDQo+IDMgYWRkZWQgbGluZXM6DQo+IC0gb25lIGluICJpbmNsdWRlL2xpbnV4L3Nu
-bXAuaCIgdG8gZGVmaW5lIHRoZSBNSUIgbmFtZQ0KPiAtIG9uZSB0byBkZWZpbmUgaXRzIHN0cmlu
-Zw0KPiAtIG9uZSB0byBwZXJmb3JtIHRoZSBpbmNyZW1lbnQgd2hlbiBhY3R1YWwgZHJvcCBvY2N1
-cnMpDQoNCj4gQSBnb29kIHN0YXJ0aW5nIHBvaW50IHdvdWxkIGJlIHRvIHN0dWR5IHJlY2VudCBj
-b21taXQNCj4gNzIwMzJmZGJjZGU4YjMzM2U2NWIzNDMwZTFiY2I0MzU4ZTJkNjcxNiBmcm9tIEph
-bWFsDQo+ICh4ZnJtOiBJbnRyb2R1Y2UgTElOVVhfTUlCX1hGUk1GV0RIRFJFUlJPUikNCg0KPiBG
-b3Igc2tfZHJvcCwganVzdCBpbmNyZW1lbnQgaXQgYW5kIHdlIGNhbiBnZXQgaXQgYXQgZ2VuZXJp
-YyBzb2NrIGxldmVsLg0KDQpTaW5jZSBuZWl0aGVyIHNrX2Ryb3BzIG5vciB0aGUgbmV3IE1JQiB2
-YWx1ZSBhcmUgdXNlZCBieSBUQ1AgY3VycmVudGx5Lg0KSG93IGFib3V0IEkga2VlcCB0aGUgdGNw
-IGJhY2tsb2cgbGltaXQgcGF0Y2ggYXMgaXMgYW5kIHlvdSBpbXBsZW1lbnQNCnRoZSBhYm92ZSBp
-biBhbm90aGVyIHBhdGNoPw0KDQpUaGFua3MsDQoteWkNCg==
+Patrick McHardy wrote:
+> Timo Ter=E4s wrote:
+>> Patrick McHardy wrote:
+>>> Timo Ter=E4s wrote:
+>>>> Patrick McHardy wrote:
+>>>>> Timo Teras wrote:
+>>>>> It would be nice if we could restrict this to IFF_NOARP changes.
+>>>> Yes. But I did not see any easy way to figure out which flags have
+>>>> changed.
+>>>>
+>>>> Should we just keep a copy of the previous IFF_NOARP bit somewhere
+>>>> (where?).
+>>>> Or did I miss something obvious?
+>>> We shouldn't have any arp entries for devices with IFF_NOARP set,
+>>> so perhaps we can flush only in that case. The transition IFF_NOARP
+>>> -> ~IFF_NOARP shouldn't need flushing.
+>> IFF_NOARP devices do have neighbor entries with the nud NOARP.
+>> Exactly those entries I want to flush when IFF_NOARP flag is
+>> removed.
+>>
+>> You can see those entries with "ip neigh show nud all". You have
+>> them e.g. for loopback stuff and broad-/multicast stuff in general.
+>> With IFF_NOARP you get them on all unicast addresses used.
+>=20
+> I see. I don't have a better suggestion, except perhaps
+> to store the bit in dev->priv_flags.
+
+Ok.
+
+Should I make a patch that uses dev->priv_flags and repost?
+
+Or would make sense to have more generic way, e.g. keep copy
+of the previous flags in struct net_device so notifiers can
+check which ones changed (or would this have locking issues?).
+
+- Timo
