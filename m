@@ -1,58 +1,39 @@
-From: =?ISO-8859-15?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH 2/2] ipv4: flush ARP entries on device change
-Date: Thu, 04 Mar 2010 13:15:11 +0200
-Message-ID: <4B8F963F.5020901@iki.fi>
-References: <1267624874-22326-1-git-send-email-timo.teras@iki.fi> <1267624874-22326-2-git-send-email-timo.teras@iki.fi> <4B8E6CC8.3080701@trash.net> <4B8E701D.7070300@iki.fi> <4B8E7357.5050203@trash.net> <4B8E74A8.5060600@iki.fi> <4B8E75E1.8060909@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH] wireless: convert to use
+ netdev_for_each_mc_addr
+Date: Thu, 04 Mar 2010 03:38:17 -0800 (PST)
+Message-ID: <20100304.033817.217826832.davem@davemloft.net>
+References: <20100304.004150.129762672.davem@davemloft.net>
+	<20100304.005246.240968829.davem@davemloft.net>
+	<20100304092014.GC2721@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jussi.kivilinna@mbnet.fi,
+	linux-wireless@vger.kernel.org
+To: jpirko@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f220.google.com ([209.85.219.220]:32927 "EHLO
-	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755460Ab0CDLPN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 06:15:13 -0500
-Received: by ewy20 with SMTP id 20so1614967ewy.21
-        for <netdev@vger.kernel.org>; Thu, 04 Mar 2010 03:15:12 -0800 (PST)
-In-Reply-To: <4B8E75E1.8060909@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44056
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755823Ab0CDLh7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 06:37:59 -0500
+In-Reply-To: <20100304092014.GC2721@psychotron.lab.eng.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Timo Ter=E4s wrote:
->> Patrick McHardy wrote:
->>> Timo Ter=E4s wrote:
->>>> Patrick McHardy wrote:
->>>>> Timo Teras wrote:
->>>>> It would be nice if we could restrict this to IFF_NOARP changes.
->>>> Yes. But I did not see any easy way to figure out which flags have
->>>> changed.
->>>>
->>>> Should we just keep a copy of the previous IFF_NOARP bit somewhere
->>>> (where?).
->>>> Or did I miss something obvious?
->>> We shouldn't have any arp entries for devices with IFF_NOARP set,
->>> so perhaps we can flush only in that case. The transition IFF_NOARP
->>> -> ~IFF_NOARP shouldn't need flushing.
->> IFF_NOARP devices do have neighbor entries with the nud NOARP.
->> Exactly those entries I want to flush when IFF_NOARP flag is
->> removed.
->>
->> You can see those entries with "ip neigh show nud all". You have
->> them e.g. for loopback stuff and broad-/multicast stuff in general.
->> With IFF_NOARP you get them on all unicast addresses used.
->=20
-> I see. I don't have a better suggestion, except perhaps
-> to store the bit in dev->priv_flags.
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Thu, 4 Mar 2010 10:20:14 +0100
 
-Ok.
+> Slapping myself twice on each cheek.
+> 
+> Subject: [net-2.6 PATCH] rndis_wlan: correct multicast_list handling V3
+> 
+> My previous patch (655ffee284dfcf9a24ac0343f3e5ee6db85b85c5) added locking in
+> a bad way. Because rndis_set_oid can sleep, there is need to prepare multicast
+> addresses into local buffer under netif_addr_lock first, then call
+> rndis_set_oid outside. This caused reorganizing of the whole function.
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> Reported-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 
-Should I make a patch that uses dev->priv_flags and repost?
-
-Or would make sense to have more generic way, e.g. keep copy
-of the previous flags in struct net_device so notifiers can
-check which ones changed (or would this have locking issues?).
-
-- Timo
+Applied.
