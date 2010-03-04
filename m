@@ -1,52 +1,112 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [net-next-2.6 PATCH] wireless: convert to use
- netdev_for_each_mc_addr
-Date: Thu, 04 Mar 2010 00:52:46 -0800 (PST)
-Message-ID: <20100304.005246.240968829.davem@davemloft.net>
-References: <20100303200510.17531s9x98zyvwm8@hayate.sektori.org>
-	<20100303180956.GC2760@psychotron.redhat.com>
-	<20100304.004150.129762672.davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [ethtool PATCH v4] ethtool: Correctly pull n-tuple string length for
+	get_rx_ntuple
+Date: Thu, 04 Mar 2010 00:53:29 -0800
+Message-ID: <20100304085328.4510.9284.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jussi.kivilinna-E01nCVcF24I@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100304.004150.129762672.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta13.westchester.pa.mail.comcast.net ([76.96.59.243]:48259
+	"EHLO qmta13.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754347Ab0CDIxn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 03:53:43 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Date: Thu, 04 Mar 2010 00:41:50 -0800 (PST)
+From: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-> From: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> Date: Wed, 3 Mar 2010 19:09:56 +0100
-> 
->> Here's corrected patch:
->> 
->> Subject: [net-2.6 PATCH] rndis_wlan: correct multicast_list handling V2
->> 
->> My previous patch (655ffee284dfcf9a24ac0343f3e5ee6db85b85c5) added locking in
->> a bad way. Because rndis_set_oid can sleep, there is need to prepare multicast
->> addresses into local buffer under netif_addr_lock first, then call
->> rndis_set_oid outside. This caused reorganizing of the whole function.
->> 
->> Signed-off-by: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->> Reported-by: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
-> 
-> Applied.
+This patch fixes inconsistencies with the kernel header files, while
+correctly gets the variable length string counts for the get_rx_ntuple
+return value.  It does this by using the new GSSET_INFO ioctl.
 
-Jiri did ou even type make on this patch?  The 'size' is still
-referenced:
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-drivers/net/wireless/rndis_wlan.c: In function 'set_multicast_list':
-drivers/net/wireless/rndis_wlan.c:1530: error: 'size' undeclared (first use in this function)
-drivers/net/wireless/rndis_wlan.c:1530: error: (Each undeclared identifier is reported only once
-drivers/net/wireless/rndis_wlan.c:1530: error: for each function it appears in.)
+ ethtool-copy.h |   14 ++++++++++++--
+ ethtool.c      |   19 ++++++++++++++++---
+ 2 files changed, 28 insertions(+), 5 deletions(-)
 
-I reverted, and I'm pissed off.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/ethtool-copy.h b/ethtool-copy.h
+index 8681f5e..3b4128e 100644
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
+@@ -253,6 +253,17 @@ struct ethtool_gstrings {
+ 	__u8	data[0];
+ };
+ 
++struct ethtool_sset_info {
++	__u32   cmd;		/* ETHTOOL_GSSET_INFO */
++	__u32   reserved;
++	__u64   sset_mask;	/* input: each bit selects an sset to query */
++				/* output: each bit a returned sset */
++	__u32   data[0];	/* ETH_SS_xxx count, in order, based on bits
++				   in sset_mask.  One bit implies one
++				   __u32, two bits implies two
++				   __u32's, etc. */
++};
++
+ enum ethtool_test_flags {
+ 	ETH_TEST_FL_OFFLINE	= (1 << 0),	/* online / offline */
+ 	ETH_TEST_FL_FAILED	= (1 << 1),	/* test passed / failed */
+@@ -389,8 +400,6 @@ struct ethtool_rx_ntuple_flow_spec {
+ #define ETHTOOL_RXNTUPLE_ACTION_DROP -1
+ };
+ 
+-#define ETHTOOL_MAX_NTUPLE_LIST_ENTRY 1024
+-#define ETHTOOL_MAX_NTUPLE_STRING_PER_ENTRY 14
+ struct ethtool_rx_ntuple {
+ 	__u32					cmd;
+ 	struct ethtool_rx_ntuple_flow_spec	fs;
+@@ -466,6 +475,7 @@ struct ethtool_flash {
+ 
+ #define ETHTOOL_SRXNTUPLE	0x00000035 /* Add an n-tuple filter to device */
+ #define ETHTOOL_GRXNTUPLE	0x00000036 /* Get n-tuple filters from device */
++#define ETHTOOL_GSSET_INFO	0x00000037 /* Get string set info */
+ 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/ethtool.c b/ethtool.c
+index fc9e419..8550ba2 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -2657,11 +2657,24 @@ static int do_srxntuple(int fd, struct ifreq *ifr)
+ 
+ static int do_grxntuple(int fd, struct ifreq *ifr)
+ {
++	struct ethtool_sset_info *sset_info;
+ 	struct ethtool_gstrings *strings;
+ 	int sz_str, n_strings, err, i;
+ 
+-	n_strings = ETHTOOL_MAX_NTUPLE_LIST_ENTRY *
+-	            ETHTOOL_MAX_NTUPLE_STRING_PER_ENTRY;
++	sset_info = malloc(sizeof(struct ethtool_sset_info) + sizeof(u32));
++	sset_info->cmd = ETHTOOL_GSSET_INFO;
++	sset_info->sset_mask = (1ULL << ETH_SS_NTUPLE_FILTERS);
++	ifr->ifr_data = (caddr_t)sset_info;
++	err = send_ioctl(fd, ifr);
++
++	if ((err < 0) ||
++	    (!(sset_info->sset_mask & (1ULL << ETH_SS_NTUPLE_FILTERS)))) {
++		perror("Cannot get driver strings info");
++		return 100;
++	}
++
++	n_strings = sset_info->data[0];
++	free(sset_info);
+ 	sz_str = n_strings * ETH_GSTRING_LEN;
+ 
+ 	strings = calloc(1, sz_str + sizeof(struct ethtool_gstrings));
+@@ -2678,7 +2691,7 @@ static int do_grxntuple(int fd, struct ifreq *ifr)
+ 	if (err < 0) {
+ 		perror("Cannot get Rx n-tuple information");
+ 		free(strings);
+-		return 100;
++		return 101;
+ 	}
+ 
+ 	n_strings = strings->len;
+
