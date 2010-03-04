@@ -1,61 +1,47 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] iproute2: netlink support for bus-error reporting and
- counters
-Date: Wed, 3 Mar 2010 16:47:20 -0800
-Message-ID: <20100303164720.1890c9f5@nehalam>
-References: <4B8390D7.5010409@grandegger.com>
+From: "Zhu, Yi" <yi.zhu@intel.com>
+Subject: RE: [PATCH V2 5/7] sctp: use limited socket backlog
+Date: Thu, 4 Mar 2010 10:00:17 +0800
+Message-ID: <DA586906BA1FFC4384FCFD6429ECE860A45A6A8E@shzsmsx502.ccr.corp.intel.com>
+References: <1267605389-7369-1-git-send-email-yi.zhu@intel.com>
+ <1267605389-7369-2-git-send-email-yi.zhu@intel.com>
+ <1267605389-7369-3-git-send-email-yi.zhu@intel.com>
+ <1267605389-7369-4-git-send-email-yi.zhu@intel.com>
+ <1267605389-7369-5-git-send-email-yi.zhu@intel.com>
+ <4B8E6DD0.1020603@hp.com>
+ <DA586906BA1FFC4384FCFD6429ECE860A45A699B@shzsmsx502.ccr.corp.intel.com>
+ <4B8E73E5.1030105@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	SocketCAN Core Mailing List <socketcan-core@lists.berlios.de>
-To: Wolfgang Grandegger <wg@grandegger.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Sridhar Samudrala <sri@us.ibm.com>
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37657 "EHLO mail.vyatta.com"
+Received: from mga14.intel.com ([143.182.124.37]:36485 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752306Ab0CDArb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Mar 2010 19:47:31 -0500
-In-Reply-To: <4B8390D7.5010409@grandegger.com>
+	id S1752379Ab0CDCA4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Mar 2010 21:00:56 -0500
+In-Reply-To: <4B8E73E5.1030105@hp.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 23 Feb 2010 09:24:55 +0100
-Wolfgang Grandegger <wg@grandegger.com> wrote:
+Vlad Yasevich <vladislav.yasevich@hp.com> wrote:
 
-> This patch uses the new features of the kernel's netlink CAN interface
-> making the bus-error reporting configurable and allowing to retrieve
-> the CAN TX and RX bus error counters via netlink interface. Here is the
-> output of my test session showing how to use them:
-> 
-> # ip link set can0 up type can bitrate 500000 berr-reporting on
-> # ip -d -s link show can0
-> 2: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UNKNOWN qlen 10
->     link/can
->     can <BERR-REPORTING> state ERROR-PASSIVE (berr-counter tx 128 rx 0) restart-ms 0
->                               CAN bus error counter values ^^^^^^^^^^^
->     bitrate 500000 sample-point 0.875
->     tq 125 prop-seg 6 phase-seg1 7 phase-seg2 2 sjw 1
->     sja1000: tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
->     clock 8000000
->     re-started bus-errors arbit-lost error-warn error-pass bus-off
->     0          54101      0          1          1          0
->     RX: bytes  packets  errors  dropped overrun mcast
->     432808     54101    54101   0       0       0
->     TX: bytes  packets  errors  dropped carrier collsns
->     0          0        0       0       0       0
-> 
-> # ifconfig can0 down
-> # ip link set can0 up type can berr-reporting off
-> # candump -t d any,0:0,#FFFFFFFF
->  (0.000000)  can0  20000004  [8] 00 08 00 00 00 00 60 00   ERRORFRAME
->  (0.000474)  can0  20000004  [8] 00 20 00 00 00 00 80 00   ERRORFRAME
->                                                    ^^ ^^
-> 						    \  \___ rxerr
-> 						     \_____ txerr
-> 
-> Furthermore, the missing support for one-shot mode has been added.
-> 
-> Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+>> BTW, does the current backlog limit (sysctl_rmem_default[1] << 1) enough for sctp?
+>> I noticed the sysctl_sctp_rmem[1] is set to 373500 in my box.
+>> 
 
-Applied, I had already got the header file changes as part of the
-net-next header file resync.
+> sctp uses the same algorithm as TCP to figure out the memory values.
+> I guess the issue with using the smaller value that it would be possible to
+> queue more the socket receive buffer then to the backlog.  Thus backlog would
+> start dropping packets even though receive buffer would still accept them.
+
+Sysctl_tcp_rmem[1] = 87380 in my box which is much smaller than sctp. The backlog
+limit is set to 258048 by default which is smaller than sysctl_sctp_rmem[1] = 373500.
+I don't think backlog starts to drop packets before receive queue is correct. Fortunately
+we can set the limit by individual protocols. I'll set the sk->sk_backlog.limit to
+sysctl_sctp_rmem[1] in sctp_init_sock() for sctp socks in the next version.
+
+Thanks,
+-yi
