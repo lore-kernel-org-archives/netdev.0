@@ -1,70 +1,81 @@
-From: M G Berberich <berberic@fmi.uni-passau.de>
-Subject: Re: 2.6.33 dies on modprobe
-Date: Thu, 4 Mar 2010 21:38:03 +0100
-Message-ID: <20100304203803.GA3267@invalid>
-References: <fa.S/rvLm1aQlDSqPwVJz5B+5vHjbM@ifi.uio.no>
- <fa.+Pg2gFpQSg5k/1mCpBdt8xMXeqY@ifi.uio.no>
- <fa.0/xGeZctWXDyX0DAp6opgP1HP7w@ifi.uio.no>
- <fa.kPSENj9DWu0Q8xolQMDkRvAwxQ0@ifi.uio.no>
- <fa.JUJQsT7bECqtd8JSoNY+SBdASCE@ifi.uio.no>
- <fa.Lya/54V1PJgwjc8uy1Yk4NyYUh4@ifi.uio.no>
- <20100303230438.GA3363@invalid>
- <20100304153042.GA4614@hack>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [net-next PATCH v6 0/3] net: reserve ports for applications using fixed port numbers
+Date: Thu, 4 Mar 2010 22:11:23 +0200
+Message-ID: <201003042211.23460.opurdila@ixiacom.com>
+References: <1267233952-5856-1-git-send-email-opurdila@ixiacom.com> <4B8F6FF0.5000306@redhat.com> <m1vddbdhmo.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@suse.de>
-To: =?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <amwang@redhat.com>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	nhorman@tuxdriver.com, eric.dumazet@gmail.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay04.ispgateway.de ([80.67.31.27]:59556 "EHLO
-	smtprelay04.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756312Ab0CDUiK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 15:38:10 -0500
-Content-Disposition: inline
-In-Reply-To: <20100304153042.GA4614@hack>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:23892 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753202Ab0CDUL0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 15:11:26 -0500
+In-Reply-To: <m1vddbdhmo.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Donnerstag, den 04. M=C3=A4rz schrieb Am=C3=A9rico Wang:
-> On Thu, Mar 04, 2010 at 12:04:38AM +0100, M G Berberich wrote:
-> >Am Mittwoch, den 03. M=C3=A4rz schrieb Am=C3=A9rico Wang:
-> >> On Wed, Mar 3, 2010 at 5:08 PM, Am=C3=A9rico Wang <xiyou.wangcong@=
-gmail.com> wrote:
-> >> > On Wed, Mar 3, 2010 at 4:58 PM, Am=C3=A9rico Wang <xiyou.wangcon=
-g@gmail.com> wrote:
-> >> >> Ok, below is my patch, I am not sure it could fix the BUG for y=
-ou,
-> >> >> but it could fix the WARNING. But perhaps they are related.
-> >> >>
-> >> >> Please give it a try.
-> >> >>
-> >> >
-> >> > Oops! Ignore the patch, it should not be correct, I will send a
-> >> > correct version soon.
-> >> > Sorry.
-> >> >
-> >>=20
-> >> Here we go:
+On Thursday 04 March 2010 21:14:07 you wrote:
+> Cong Wang <amwang@redhat.com> writes:
+> > David Miller wrote:
+> >> Eric B., could you look over the first two patches (which touch the
+> >> sysctl core) and give some review and ACK/NACK?
 > >
-> >Seems to fix the warning, but not the modprobe-Oops.
-> >
->=20
-> Thanks much for your testing!
->=20
-> Could you please try to turn on DEBUG_KOBJECT and boot your kernel
-> with "initcall_debug"? And then show us your dmesg.
+> > ping Eric W. Biederman ... :)
+> 
+> I have looked and it is not easy to tell by simple review if
+> correctness has been maintained in the proc cleanup patch.
+> Furthermore the code even after the cleanups still feels like code
+> that is trying too hard to do too much.
+> 
+> 
+> I think the example set by bitmap_parse_user in it's user interface is
+> a good example to follow when constructing bitmap helper functions.
+> Including having the actual parsing code should live in lib/bitmap.c
+> 
+> The users of bitmap_parse_user do something very nice.  They allocate
+> a temporary bitmap.  Parse the userspace value into the temporary
+> bitmap, and then move that new bitmap into the kernel data structures.
+> For your large bitmap this seems like the idea way to handle it.  That
+> guarantees no weird intermediate failure states, and really makes the
+> the bitmap feel like a single value.
+> 
+> I would add the restriction that the values in the list of ranges
+> always must be increasing, and in general restrict the set of accepted
+> values as much as possible.  If we don't accept it now we don't have
+> to worry about some userspace application relying on some unitended
+> side effect a few years into the future.
+> 
 
-If I'm doing this (enabled CONFIG_DEBUG_KERNEL and
-CONFIG_DEBUG_KOBJECT), the kernel dies immediately - no output.
+Eric, thanks for taking the time to go over it again. I now do share you 
+opinion that we need to be more atomic. How about this simple approach:
 
-	MfG
-	bmg
+1. Allocate new kernel buffer for the text and copy the whole userspace buffer 
+into it.
+2. Allocate temporary buffer for bitmap.
+3. Parse the kernel text buffer into the temp bitmap.
+4. Copy the temp bitmap into the final bitmap.
 
---=20
-=E2=80=9EDes is v=C3=B6llig wurscht, was heut beschlos- | M G Berberich
- sen wird: I bin sowieso dagegn!=E2=80=9C          | berberic@fmi.uni-p=
-assau.de
-(SPD-Stadtrat Kurt Schindler; Regensburg)  | www.fmi.uni-passau.de/~ber=
-beric
+This is simple and clean but it has the disadvantage of potentially allocating 
+a large chunk of memory, although even in the case that all ports are going to 
+be set the temporary buffer will not go over 390K, which is now not an issue 
+anymore for kmalloc, right?
+
+> I think it is a serious bug that you clear the destination bitmap
+> in the middle of parsing it.  That will either open or close all
+> ports in the middle of parsing, and I can't see how that would
+> ever be a good thing.
+> 
+
+Even when doing the copy from the temp bitmap you still have some inconsistent 
+bitmap state while copying. 
+
+We could solve by replacing the old buffer with the new one + RCU.
+
+
+
