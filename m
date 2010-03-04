@@ -1,34 +1,61 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [iproute2 PATCH 3/3] xfrm: add support for SA by mark
-Date: Wed, 3 Mar 2010 16:38:06 -0800
-Message-ID: <20100303163806.59bb3f81@nehalam>
-References: <xfrm-iproute-mark>
-	<1266930912-14640-1-git-send-email-hadi@cyberus.ca>
-	<1266930912-14640-2-git-send-email-hadi@cyberus.ca>
-	<1266930912-14640-3-git-send-email-hadi@cyberus.ca>
+Subject: Re: [PATCH] iproute2: netlink support for bus-error reporting and
+ counters
+Date: Wed, 3 Mar 2010 16:47:20 -0800
+Message-ID: <20100303164720.1890c9f5@nehalam>
+References: <4B8390D7.5010409@grandegger.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	SocketCAN Core Mailing List <socketcan-core@lists.berlios.de>
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37004 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:37657 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751789Ab0CDAi0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Mar 2010 19:38:26 -0500
-In-Reply-To: <1266930912-14640-3-git-send-email-hadi@cyberus.ca>
+	id S1752306Ab0CDArb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Mar 2010 19:47:31 -0500
+In-Reply-To: <4B8390D7.5010409@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 23 Feb 2010 08:15:12 -0500
-jamal <hadi@cyberus.ca> wrote:
+On Tue, 23 Feb 2010 09:24:55 +0100
+Wolfgang Grandegger <wg@grandegger.com> wrote:
 
-> From: Jamal Hadi Salim <hadi@cyberus.ca>
+> This patch uses the new features of the kernel's netlink CAN interface
+> making the bus-error reporting configurable and allowing to retrieve
+> the CAN TX and RX bus error counters via netlink interface. Here is the
+> output of my test session showing how to use them:
 > 
-> Add support for SA manipulation by mark
+> # ip link set can0 up type can bitrate 500000 berr-reporting on
+> # ip -d -s link show can0
+> 2: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UNKNOWN qlen 10
+>     link/can
+>     can <BERR-REPORTING> state ERROR-PASSIVE (berr-counter tx 128 rx 0) restart-ms 0
+>                               CAN bus error counter values ^^^^^^^^^^^
+>     bitrate 500000 sample-point 0.875
+>     tq 125 prop-seg 6 phase-seg1 7 phase-seg2 2 sjw 1
+>     sja1000: tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
+>     clock 8000000
+>     re-started bus-errors arbit-lost error-warn error-pass bus-off
+>     0          54101      0          1          1          0
+>     RX: bytes  packets  errors  dropped overrun mcast
+>     432808     54101    54101   0       0       0
+>     TX: bytes  packets  errors  dropped carrier collsns
+>     0          0        0       0       0       0
 > 
-> Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+> # ifconfig can0 down
+> # ip link set can0 up type can berr-reporting off
+> # candump -t d any,0:0,#FFFFFFFF
+>  (0.000000)  can0  20000004  [8] 00 08 00 00 00 00 60 00   ERRORFRAME
+>  (0.000474)  can0  20000004  [8] 00 20 00 00 00 00 80 00   ERRORFRAME
+>                                                    ^^ ^^
+> 						    \  \___ rxerr
+> 						     \_____ txerr
+> 
+> Furthermore, the missing support for one-shot mode has been added.
+> 
+> Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
 
-All applied
-
--- 
+Applied, I had already got the header file changes as part of the
+net-next header file resync.
