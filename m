@@ -1,47 +1,53 @@
-From: "Zhu, Yi" <yi.zhu@intel.com>
-Subject: RE: [PATCH V2 5/7] sctp: use limited socket backlog
-Date: Thu, 4 Mar 2010 10:00:17 +0800
-Message-ID: <DA586906BA1FFC4384FCFD6429ECE860A45A6A8E@shzsmsx502.ccr.corp.intel.com>
-References: <1267605389-7369-1-git-send-email-yi.zhu@intel.com>
- <1267605389-7369-2-git-send-email-yi.zhu@intel.com>
- <1267605389-7369-3-git-send-email-yi.zhu@intel.com>
- <1267605389-7369-4-git-send-email-yi.zhu@intel.com>
- <1267605389-7369-5-git-send-email-yi.zhu@intel.com>
- <4B8E6DD0.1020603@hp.com>
- <DA586906BA1FFC4384FCFD6429ECE860A45A699B@shzsmsx502.ccr.corp.intel.com>
- <4B8E73E5.1030105@hp.com>
+From: David Dillow <dave@thedillows.org>
+Subject: [PATCH] r8169: use correct barrier between cacheable and
+ non-cacheable memory
+Date: Wed, 03 Mar 2010 21:33:10 -0500
+Message-ID: <1267669990.23829.8.camel@obelisk.thedillows.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Sridhar Samudrala <sri@us.ibm.com>
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Paul Mackerras <paulus@samba.org>,
+	Catalin Marinas <catalin.marinas@arm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:36485 "EHLO mga14.intel.com"
+Received: from smtp.knology.net ([24.214.63.101]:59852 "EHLO smtp.knology.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752379Ab0CDCA4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Mar 2010 21:00:56 -0500
-In-Reply-To: <4B8E73E5.1030105@hp.com>
-Content-Language: en-US
+	id S1751887Ab0CDCdN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Mar 2010 21:33:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vlad Yasevich <vladislav.yasevich@hp.com> wrote:
+r8169 needs certain writes to be visible to other CPUs or the NIC before
+touching the hardware, but was using smp_wmb() which is only required to
+order cacheable memory access. Switch to wmb() which is required to
+order both cacheable and non-cacheable memory.
 
->> BTW, does the current backlog limit (sysctl_rmem_default[1] << 1) enough for sctp?
->> I noticed the sysctl_sctp_rmem[1] is set to 373500 in my box.
->> 
+Noticed by Catalin Marinas and Paul Mackerras.
 
-> sctp uses the same algorithm as TCP to figure out the memory values.
-> I guess the issue with using the smaller value that it would be possible to
-> queue more the socket receive buffer then to the backlog.  Thus backlog would
-> start dropping packets even though receive buffer would still accept them.
+Signed-off-by: David Dillow <dave@thedillows.org>
+---
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index dfc3573..9d3ebf3 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -4270,7 +4270,7 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+ 
+ 	tp->cur_tx += frags + 1;
+ 
+-	smp_wmb();
++	wmb();
+ 
+ 	RTL_W8(TxPoll, NPQ);	/* set polling bit */
+ 
+@@ -4621,7 +4621,7 @@ static int rtl8169_poll(struct napi_struct *napi, int budget)
+ 		 * until it does.
+ 		 */
+ 		tp->intr_mask = 0xffff;
+-		smp_wmb();
++		wmb();
+ 		RTL_W16(IntrMask, tp->intr_event);
+ 	}
+ 
 
-Sysctl_tcp_rmem[1] = 87380 in my box which is much smaller than sctp. The backlog
-limit is set to 258048 by default which is smaller than sysctl_sctp_rmem[1] = 373500.
-I don't think backlog starts to drop packets before receive queue is correct. Fortunately
-we can set the limit by individual protocols. I'll set the sk->sk_backlog.limit to
-sysctl_sctp_rmem[1] in sctp_init_sock() for sctp socks in the next version.
 
-Thanks,
--yi
