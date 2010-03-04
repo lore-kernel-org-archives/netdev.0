@@ -1,34 +1,72 @@
-From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
-Subject: Re: Notifier chains bug ?
-Date: Thu, 4 Mar 2010 18:08:07 +0800
-Message-ID: <2375c9f91003040208g1c66f1eft6c2c1044ed995c4e@mail.gmail.com>
-References: <4B8C56F0.5090700@gmail.com>
-	 <2375c9f91003011924k43f03649y5b4df405d6247a79@mail.gmail.com>
-	 <5e9821061003012150y15e543cdkf6f23c3a7a47e4a3@mail.gmail.com>
-	 <20100302153651.GC4014@hack>
-	 <7f9bf5711003020755p653a0b8cq707e9b1e12b44c98@mail.gmail.com>
+From: Yegor Yefremov <yegorslists@googlemail.com>
+Subject: Re: KS8695: possible NAPI issue
+Date: Thu, 4 Mar 2010 11:10:37 +0100
+Message-ID: <f69abfc31003040210i7e8a136am4b4a97306ba770cf@mail.gmail.com>
+References: <f69abfc31003020404y7af77fe5icefeee4644c7d08e@mail.gmail.com>
+	 <4B8D1C02.1010204@softplc.com>
+	 <c6ed1ac51003021746n2b246591g880b584550ec5e84@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oleg Kutkov <elenbert@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Atis Elsts <atis.elsts@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7f9bf5711003020755p653a0b8cq707e9b1e12b44c98@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Dick Hollenbeck <dick@softplc.com>, netdev@vger.kernel.org,
+	zealcook@gmail.com
+To: figo zhang <figo1802@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:38931 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755217Ab0CDKKl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 05:10:41 -0500
+Received: by ewy20 with SMTP id 20so1586494ewy.21
+        for <netdev@vger.kernel.org>; Thu, 04 Mar 2010 02:10:40 -0800 (PST)
+In-Reply-To: <c6ed1ac51003021746n2b246591g880b584550ec5e84@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 2, 2010 at 11:55 PM, Atis Elsts <atis.elsts@gmail.com> wrot=
-e:
-> I'm no expert, but IMHO for handling IP address changes you should us=
-e
-> function register_inetaddr_notifier() to register you callback and
-> then wait for =C2=A0NETDEV_UP and NETDEV_DOWN events.
+>>> I'm using 2.6.33 kernel and I noticed such a strange behavior:
+>>>
+>>> after system start I transfer one file via netcat from my developme=
+nt
+>>> host, after this transfer the network is not functioning i.e. no pi=
+ngs
+>>> possible etc.
+>>>
+>>> To narrow down the problem I checked out this commit
+>>>
+>>> http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;=
+a=3Dcommit;h=3D451f14439847db302e5104c44458b2dbb4b1829d.
+>>> Till here the network driver is functioning as intended, but after
+>>> NAPI introduction I have this issue. With latest git-pull of "Linus=
+'
+>>> kernel tree" I can't even ping right after the systems start.
+>>>
+>>> Any Ideas? What am I missing?
+>>>
+>>
+>> No idea, although I am using the same ARM chip, my kernel is at 2.6.=
+30.5,
+>> and except for this occasional loss of connection I get, the etherne=
+t driver
+>> seems to work better than what you are reporting.
 >
+> from linux-2.6.32, this ethernet =C2=A0driver have add NAPI support, =
+would
+> you like to
+> try using this version?
 
-Oh, I think you are right.
+=46igo, I just looked at the 2.6.32 kernel and found out that it
+doesn't' contain NAPI support (see the history
+http://git.kernel.org/?p=3Dlinux/kernel/git/stable/linux-2.6.32.y.git;a=
+=3Dhistory;f=3Ddrivers/net/arm/ks8695net.c;h=3D2a7b7745cc55b54cefada690=
+b0ea47865b54b6b9;hb=3DHEAD).
+So 2.6.33 is the first stable kernel to support NAPI.
 
-Btw, please don't drop Cc's.
+I made some further tests but I can't find the reason for network
+failures: the interrupts are coming and the packets will be received
+and sent so that rx/tx counters would be increased, but none of them
+seem to reach the IP stack. I don't know where and why the things get
+desynchronized.
 
-Thanks.
+Could you try the 2.6.33 or Linus tree? Thank you in advance.
+
+Regards,
+Yegor
