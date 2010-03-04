@@ -1,77 +1,53 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH] gianfar: Fix TX ring processing on SMP machines
-Date: Thu, 4 Mar 2010 10:34:15 -0600
-Message-ID: <DF5053B4-DCD0-4B90-B9D7-E80D0C76CFAE@kernel.crashing.org>
-References: <20100303181858.GA458@oksana.dev.rtsoft.ru>
-	<20100304.004157.18721737.davem@davemloft.net>
-Mime-Version: 1.0 (Apple Message framework v1077)
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev list <linuxppc-dev@ozlabs.org>,
-	Netdev <netdev@vger.kernel.org>, Martyn Welch <martyn.welch@ge.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>,
-	David Miller <davem@davemloft.net>
-To: Anton Vorontsov <avorontsov@ru.mvista.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20100304.004157.18721737.davem@davemloft.net>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: Iproute2 tc pfifo_fast not work
+Date: Thu, 4 Mar 2010 08:40:16 -0800
+Message-ID: <20100304084016.052a7044@nehalam>
+References: <4B8F7537.7090008@electro-com.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?UTF-8?B?0J/QtdGC0YPRhdC+0LIg0JTQvNC40YLRgNC40Lk=?=
+	<d.petuhov@electro-com.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:46753 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755550Ab0CDQkz convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Mar 2010 11:40:55 -0500
+In-Reply-To: <4B8F7537.7090008@electro-com.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Thu, 04 Mar 2010 11:54:15 +0300
+=D0=9F=D0=B5=D1=82=D1=83=D1=85=D0=BE=D0=B2 =D0=94=D0=BC=D0=B8=D1=82=D1=80=
+=D0=B8=D0=B9 <d.petuhov@electro-com.ru> wrote:
+
+> Hi Stephen.
+>=20
+> I've found that I can't add pfifo_fast qdisc to my tc class tree. It=20
+> just says:
+> -----------
+> # /sbin/tc qdisc add dev eth3 parent 2:299B handle 299B: pfifo_fast
+> qdisc 'pfifo_fast' does not support option parsing
+> -----------
+> And nothing else happends.
+> strace /sbin/tc qdisc add dev eth3 parent 2:299B handle 299B: pfifo_f=
+ast=20
+> &> tc_pfifo_strace.txt
+> attached.
+>=20
+> Kernel version 2.6.31, .config attached.
+> tc version 2.6.31.
+>=20
+> I do something wrong or this is a bug?
+no
+
+> For now I've switched to PRIO QDISC which seems to work fine, but it=20
+> would be great to use lithweigth pfifo_fast instead of prio...
+
+pfifo_fast is very limited to being just a root qdisc, and with no
+children.  If you want to do the same thing but in other context
+just use pfifo.
 
 
-On Mar 4, 2010, at 2:41 AM, David Miller wrote:
-
-> From: Anton Vorontsov <avorontsov@ru.mvista.com>
-> Date: Wed, 3 Mar 2010 21:18:58 +0300
-> 
->> Starting with commit a3bc1f11e9b867a4f49505 ("gianfar: Revive SKB
->> recycling") gianfar driver sooner or later stops transmitting any
->> packets on SMP machines.
->> 
->> start_xmit() prepares new skb for transmitting, generally it does
->> three things:
->> 
->> 1. sets up all BDs (marks them ready to send), except the first one.
->> 2. stores skb into tx_queue->tx_skbuff so that clean_tx_ring()
->>   would cleanup it later.
->> 3. sets up the first BD, i.e. marks it ready.
->> 
->> Here is what clean_tx_ring() does:
->> 
->> 1. reads skbs from tx_queue->tx_skbuff
->> 2. checks if the *last* BD is ready. If it's still ready [to send]
->>   then it it isn't transmitted, so clean_tx_ring() returns.
->>   Otherwise it actually cleanups BDs. All is OK.
->> 
->> Now, if there is just one BD, code flow:
->> 
->> - start_xmit(): stores skb into tx_skbuff. Note that the first BD
->>  (which is also the last one) isn't marked as ready, yet.
->> - clean_tx_ring(): sees that skb is not null, *and* its lstatus
->>  says that it is NOT ready (like if BD was sent), so it cleans
->>  it up (bad!)
->> - start_xmit(): marks BD as ready [to send], but it's too late.
->> 
->> We can fix this simply by reordering lstatus/tx_skbuff writes.
->> 
->> Reported-by: Martyn Welch <martyn.welch@ge.com>
->> Bisected-by: Paul Gortmaker <paul.gortmaker@windriver.com>
->> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
->> Tested-by: Paul Gortmaker <paul.gortmaker@windriver.com>
->> Tested-by: Martyn Welch <martyn.welch@ge.com>
-> 
-> Applied.
-
-Anton,
-
-Once this makes it into Linus's tree can you make sure we get it added to -stable.
-
-- k
