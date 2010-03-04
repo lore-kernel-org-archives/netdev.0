@@ -1,62 +1,56 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: uninterruptible sleep in unix_dgram_recvmsg
-Date: Thu, 4 Mar 2010 18:41:14 +0100
-Message-ID: <20100304184114.62881b21@leela>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 2/2] iproute2 skbedit: Add support to mark packets
+Date: Thu, 4 Mar 2010 09:43:23 -0800
+Message-ID: <20100304094323.05fce73a@nehalam>
+References: <1259847168.3766.40.camel@bigi>
+	<20100303163638.09520577@nehalam>
+	<1267671091.4821.27.camel@bigi>
+	<20100304084829.22a80ace@nehalam>
+	<1267721912.4821.37.camel@bigi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6340 "EHLO mx1.redhat.com"
+Received: from mail.vyatta.com ([76.74.103.46]:50799 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752504Ab0CDRlS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Mar 2010 12:41:18 -0500
+	id S1752047Ab0CDRn3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Mar 2010 12:43:29 -0500
+In-Reply-To: <1267721912.4821.37.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David.
+On Thu, 04 Mar 2010 11:58:32 -0500
+jamal <hadi@cyberus.ca> wrote:
 
-When multiple tasks call recv() on a AF_UNIX/SOCK_DGRAM socket where
-noone sends anything, only the first one will sleep interruptibly. The
-others are in uninterruptible sleep, causing artificial increase of
-loadavg. After two minutes, the hung task watchdog triggers and prints
-ugly warnings.
+> On Thu, 2010-03-04 at 08:48 -0800, Stephen Hemminger wrote:
+> > On Wed, 03 Mar 2010 21:51:31 -0500
+> > jamal <hadi@cyberus.ca> wrote:
+> > 
+> > > You applied 2/2 but not 1/2.
+> 
+> > > > 
+> > 
+> > The first was the help message text, and that was already there.
+> > Or was there some other bit.
+> 
+> I can see that now. The git logs dont show how that change
+> made it in - thats how i concluded it wasnt there. How did that 
+> sneak in there?
 
-The bug is reported here (with a reproducer attached):
-https://bugzilla.redhat.com/show_bug.cgi?id=529202
+I put the first bit in back in December. It was too early since
+kernel wasn't ready yet, but generally harmless
 
-While the first task awaits the arrival of a packet in
-skb_recv_datagram(), it holds the u->readlock mutex, on which the
-other tasks will be waiting.
 
-My first idea was to simply replace mutex_lock with
-mutex_lock_interruptible. This solves the problem, but one
-issue still remains - the receiving timeout (SO_RCVTIMEO) would start
-ticking only after the process got the mutex and entered into
-skb_recv_datagram().
+commit e04dd30a38130a3d85065a747cc33274766a9cb6
+Author: Jamal Hadi Salim <hadi@cyberus.ca>
+Date:   Sat Dec 26 11:12:43 2009 -0800
 
-So instead of that I started to think about why u->readlock is held
-across skb_recv_datagram() anyway. I found that it was added in 2.6.10
-by your patch "[AF_UNIX]: Serialize dgram read using semaphore just
-like stream" which apparently fixed an exploitable race condition
-(CAN-2004-1068).
-
-I don't know what exactly u->readlock protects here.
-IOW, what race would this patch cause?:
-
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index f255119..01387da 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1660,9 +1660,9 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
- 
- 	msg->msg_namelen = 0;
- 
-+	skb = skb_recv_datagram(sk, flags, noblock, &err);
- 	mutex_lock(&u->readlock);
- 
--	skb = skb_recv_datagram(sk, flags, noblock, &err);
- 	if (!skb) {
- 		unix_state_lock(sk);
- 		/* Signal EOF on disconnected non-blocking SEQPACKET socket. */
+    skbedit: Add support to mark packets
+    
+    This adds support for setting the skb mark.
+    
+    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+    Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
