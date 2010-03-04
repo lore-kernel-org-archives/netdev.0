@@ -1,31 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pullreq: wireless-next-2.6 2010-03-03
-Date: Wed, 03 Mar 2010 22:44:23 -0800 (PST)
-Message-ID: <20100303.224423.226765329.davem@davemloft.net>
-References: <20100303212638.GI23920@tuxdriver.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [net-next PATCH v6 0/3] net: reserve ports for applications using
+ fixed port numbers
+Date: Thu, 04 Mar 2010 16:31:44 +0800
+Message-ID: <4B8F6FF0.5000306@redhat.com>
+References: <1267233952-5856-1-git-send-email-opurdila@ixiacom.com> <20100227.033230.196838696.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: opurdila@ixiacom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, nhorman@tuxdriver.com,
+	eric.dumazet@gmail.com, ebiederm@xmission.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34680
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752165Ab0CDGoE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 01:44:04 -0500
-In-Reply-To: <20100303212638.GI23920@tuxdriver.com>
+Received: from mx1.redhat.com ([209.132.183.28]:58486 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752575Ab0CDI2V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Mar 2010 03:28:21 -0500
+In-Reply-To: <20100227.033230.196838696.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 3 Mar 2010 16:26:39 -0500
-
-> Here is another quick batch intended for 2.6.34.  Included are a
-> USB ID, some small fixes, and a few (for async firmware loading and
-> KEY_RFKILL) that depended on patches that weren't in the net-next-2.6
-> tree until after the merge window opened.
+David Miller wrote:
+> Eric B., could you look over the first two patches (which touch the
+> sysctl core) and give some review and ACK/NACK?
 > 
-> Please let me know if there are problems!
 
-Pulled, thanks John.
+ping Eric W. Biederman ... :)
+
+
