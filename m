@@ -1,45 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH V2 2/7] tcp: use limited socket backlog
-Date: Thu, 04 Mar 2010 15:56:30 +0100
-Message-ID: <1267714590.3302.1.camel@edumazet-laptop>
-References: <1267605389-7369-1-git-send-email-yi.zhu@intel.com>
-	 <1267605389-7369-2-git-send-email-yi.zhu@intel.com>
-	 <1267606433.2997.4.camel@edumazet-laptop>
-	 <1267607162.2370.169.camel@debian>
-	 <1267610843.2997.7.camel@edumazet-laptop>
-	 <DA586906BA1FFC4384FCFD6429ECE860A45A6999@shzsmsx502.ccr.corp.intel.com>
-	 <1267626678.2997.25.camel@edumazet-laptop>
-	 <DA586906BA1FFC4384FCFD6429ECE860A45A6BAE@shzsmsx502.ccr.corp.intel.com>
-	 <1267682431.2943.10.camel@edumazet-laptop>
-	 <DA586906BA1FFC4384FCFD6429ECE860A45A6D9E@shzsmsx502.ccr.corp.intel.com>
+From: David Dillow <dave@thedillows.org>
+Subject: [PATCH] typhoon: fix incorrect use of smp_wmb()
+Date: Thu, 04 Mar 2010 09:37:16 -0500
+Message-ID: <1267713436.2328.12.camel@lap75545.ornl.gov>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	Patrick McHardy <kaber@trash.net>
-To: "Zhu, Yi" <yi.zhu@intel.com>
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:41052 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752274Ab0CDO4g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 09:56:36 -0500
-Received: by bwz1 with SMTP id 1so439441bwz.21
-        for <netdev@vger.kernel.org>; Thu, 04 Mar 2010 06:56:34 -0800 (PST)
-In-Reply-To: <DA586906BA1FFC4384FCFD6429ECE860A45A6D9E@shzsmsx502.ccr.corp.intel.com>
+Received: from emroute2.ornl.gov ([160.91.86.17]:53391 "EHLO emroute2.ornl.gov"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753319Ab0CDPAK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 10:00:10 -0500
+Received: from emroute2.ornl.gov ([127.0.0.1])
+ by emroute2.ornl.gov (PMDF V6.4 #31561)
+ with ESMTP id <0KYR001Q3HY894@emroute2.ornl.gov> for netdev@vger.kernel.org;
+ Thu, 04 Mar 2010 09:37:20 -0500 (EST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 04 mars 2010 =C3=A0 19:04 +0800, Zhu, Yi a =C3=A9crit :
+The typhoon driver was incorrectly using smp_wmb() to order memory
+accesses against IO to the NIC in a few instances. Use wmb() instead,
+which is required to actually order between memory types.
 
->=20
-> Since neither sk_drops nor the new MIB value are used by TCP currentl=
-y.
-> How about I keep the tcp backlog limit patch as is and you implement
-> the above in another patch?
+Signed-off-by: David Dillow <dave@thedillows.org>
+---
+This is against Linus's tree, which doesn't appear to have net-next in
+it yet. It should apply with offsets, though. I can redo against
+net-next if needed, but likely won't have quick access to that tree
+until the weekend.
 
-Sure, I will do that
-
+diff --git a/drivers/net/typhoon.c b/drivers/net/typhoon.c
+index 39f1fc6..a192852 100644
+--- a/drivers/net/typhoon.c
++++ b/drivers/net/typhoon.c
+@@ -487,7 +487,7 @@ typhoon_hello(struct typhoon *tp)
+ 		typhoon_inc_cmd_index(&ring->lastWrite, 1);
+ 
+ 		INIT_COMMAND_NO_RESPONSE(cmd, TYPHOON_CMD_HELLO_RESP);
+-		smp_wmb();
++		wmb();
+ 		iowrite32(ring->lastWrite, tp->ioaddr + TYPHOON_REG_CMD_READY);
+ 		spin_unlock(&tp->command_lock);
+ 	}
+@@ -1321,13 +1321,15 @@ typhoon_init_interface(struct typhoon *tp)
+ 
+ 	tp->txlo_dma_addr = le32_to_cpu(iface->txLoAddr);
+ 	tp->card_state = Sleeping;
+-	smp_wmb();
+ 
+ 	tp->offload = TYPHOON_OFFLOAD_IP_CHKSUM | TYPHOON_OFFLOAD_TCP_CHKSUM;
+ 	tp->offload |= TYPHOON_OFFLOAD_UDP_CHKSUM | TSO_OFFLOAD_ON;
+ 
+ 	spin_lock_init(&tp->command_lock);
+ 	spin_lock_init(&tp->state_lock);
++
++	/* Force the writes to the shared memory area out before continuing. */
++	wmb();
+ }
+ 
+ static void
 
