@@ -1,40 +1,60 @@
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Subject: Re: KS8695: possible NAPI issue
-Date: Fri, 5 Mar 2010 16:03:10 +0100
-Message-ID: <f69abfc31003050703r36d0c91dy72fcec7950e88403@mail.gmail.com>
-References: <f69abfc31003020404y7af77fe5icefeee4644c7d08e@mail.gmail.com>
-	 <4B8D1C02.1010204@softplc.com>
-	 <c6ed1ac51003021746n2b246591g880b584550ec5e84@mail.gmail.com>
-	 <f69abfc31003040210i7e8a136am4b4a97306ba770cf@mail.gmail.com>
-	 <c6ed1ac51003042254g27f65f9dhd9bd731e05a9518@mail.gmail.com>
-	 <f69abfc31003050206h4f9ffe65s2b90e6acea014ec2@mail.gmail.com>
-	 <1267797137.2576.11.camel@myhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fix netdev_printk null dereference
+Date: Fri, 05 Mar 2010 07:03:39 -0800 (PST)
+Message-ID: <20100305.070339.166010174.davem@davemloft.net>
+References: <1267793225-426-1-git-send-email-steve.glendinning@smsc.com>
+	<20100305.063909.26489418.davem@davemloft.net>
+	<1267800620.3832.17.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dick Hollenbeck <dick@softplc.com>, netdev@vger.kernel.org,
-	zealcook@gmail.com
-To: "Figo.zhang" <figo1802@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: steve.glendinning@smsc.com, netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f212.google.com ([209.85.219.212]:53122 "EHLO
-	mail-ew0-f212.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752640Ab0CEPDM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Mar 2010 10:03:12 -0500
-Received: by ewy4 with SMTP id 4so2487534ewy.28
-        for <netdev@vger.kernel.org>; Fri, 05 Mar 2010 07:03:11 -0800 (PST)
-In-Reply-To: <1267797137.2576.11.camel@myhost>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49731
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752826Ab0CEPDU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Mar 2010 10:03:20 -0500
+In-Reply-To: <1267800620.3832.17.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 5, 2010 at 2:52 PM, Figo.zhang <figo1802@gmail.com> wrote:
->
->>
->> and even if the fourth test succeeds, if I then send a file from other
->> host the next ping or any other communication fails. I just tried to
->> make some SSH sessions. It goes without a problem till I issue a ping
->> after that.
->>
->> If I test the system with nuttcp I have no problem.
-> the network driver seems work well for system. the "netcat" application
-> is build in busybox? you can check busybox configure.
+From: Joe Perches <joe@perches.com>
+Date: Fri, 05 Mar 2010 06:50:20 -0800
 
-I'm using Debian for ARM. So it is standard netcat for Debian 5.0.
+> On Fri, 2010-03-05 at 06:39 -0800, David Miller wrote:
+>> From: Steve Glendinning <steve.glendinning@smsc.com>
+>> Date: Fri,  5 Mar 2010 12:47:05 +0000
+>> 
+>> > This patch fixes a reproducible null dereference in smsc95xx (and I
+>> > suspect others) when the device is removed during a control register
+>> > access.  This can be reproduced by rapidly plugging and unplugging
+>> > the device during its initialisation.
+>> > 
+>> > Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+>> 
+>> The parent shouldn't become NULL until the device is totally quiesced
+>> and is no longer accesses.
+>> 
+>> Maybe you can instead fix the smsc95xx driver to abide by this rule
+>> instead of adding a conditional check to thousands of other drivers in
+>> the tree that do not need this?
+>> 
+>> I really have no intention of adding your change, please fix this
+>> properly, thanks.
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> Perhaps something like this is appropriate in the mean time:
+> 
+> const char *get_netdev_parent_name(const struct net_device *dev)
+> {
+> 	if (!dev->dev.parent)
+> 		return "Unparented net_device, please report this";
+> 	return netdev->dev.parent;
+> }
+
+Yes,  but in the smsc95xx driver. :-)
+
