@@ -1,128 +1,100 @@
 From: Zhu Yi <yi.zhu@intel.com>
-Subject: [PATCH V3 5/8] sctp: use limited socket backlog
-Date: Fri,  5 Mar 2010 12:01:44 +0800
-Message-ID: <1267761707-15605-5-git-send-email-yi.zhu@intel.com>
+Subject: [PATCH V3 3/8] udp: use limited socket backlog
+Date: Fri,  5 Mar 2010 12:01:42 +0800
+Message-ID: <1267761707-15605-3-git-send-email-yi.zhu@intel.com>
 References: <1267761707-15605-1-git-send-email-yi.zhu@intel.com>
  <1267761707-15605-2-git-send-email-yi.zhu@intel.com>
- <1267761707-15605-3-git-send-email-yi.zhu@intel.com>
- <1267761707-15605-4-git-send-email-yi.zhu@intel.com>
 Cc: netdev@vger.kernel.org, Zhu Yi <yi.zhu@intel.com>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:58868 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754207Ab0CEEA2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753276Ab0CEEA2 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 4 Mar 2010 23:00:28 -0500
-In-Reply-To: <1267761707-15605-4-git-send-email-yi.zhu@intel.com>
+In-Reply-To: <1267761707-15605-2-git-send-email-yi.zhu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make sctp adapt to the limited socket backlog change.
+Make udp adapt to the limited socket backlog change.
 
-Cc: Vlad Yasevich <vladislav.yasevich@hp.com>
-Cc: Sridhar Samudrala <sri@us.ibm.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: "Pekka Savola (ipv6)" <pekkas@netcore.fi>
+Cc: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Zhu Yi <yi.zhu@intel.com>
 ---
- net/sctp/input.c  |   42 +++++++++++++++++++++++++++---------------
- net/sctp/socket.c |    3 +++
- 2 files changed, 30 insertions(+), 15 deletions(-)
+ net/ipv4/udp.c |    6 ++++--
+ net/ipv6/udp.c |   28 ++++++++++++++++++----------
+ 2 files changed, 22 insertions(+), 12 deletions(-)
 
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index c0c973e..cbc0636 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -75,7 +75,7 @@ static struct sctp_association *__sctp_lookup_association(
- 					const union sctp_addr *peer,
- 					struct sctp_transport **pt);
- 
--static void sctp_add_backlog(struct sock *sk, struct sk_buff *skb);
-+static int sctp_add_backlog(struct sock *sk, struct sk_buff *skb);
- 
- 
- /* Calculate the SCTP checksum of an SCTP packet.  */
-@@ -265,8 +265,13 @@ int sctp_rcv(struct sk_buff *skb)
- 	}
- 
- 	if (sock_owned_by_user(sk)) {
-+		if (sctp_add_backlog(sk, skb)) {
-+			sctp_bh_unlock_sock(sk);
-+			sctp_chunk_free(chunk);
-+			skb = NULL; /* sctp_chunk_free already freed the skb */
-+			goto discard_release;
-+		}
- 		SCTP_INC_STATS_BH(SCTP_MIB_IN_PKT_BACKLOG);
--		sctp_add_backlog(sk, skb);
- 	} else {
- 		SCTP_INC_STATS_BH(SCTP_MIB_IN_PKT_SOFTIRQ);
- 		sctp_inq_push(&chunk->rcvr->inqueue, chunk);
-@@ -336,8 +341,10 @@ int sctp_backlog_rcv(struct sock *sk, struct sk_buff *skb)
- 		sctp_bh_lock_sock(sk);
- 
- 		if (sock_owned_by_user(sk)) {
--			sk_add_backlog(sk, skb);
--			backloged = 1;
-+			if (sk_add_backlog_limited(sk, skb))
-+				sctp_chunk_free(chunk);
-+			else
-+				backloged = 1;
- 		} else
- 			sctp_inq_push(inqueue, chunk);
- 
-@@ -362,22 +369,27 @@ done:
- 	return 0;
- }
- 
--static void sctp_add_backlog(struct sock *sk, struct sk_buff *skb)
-+static int sctp_add_backlog(struct sock *sk, struct sk_buff *skb)
- {
- 	struct sctp_chunk *chunk = SCTP_INPUT_CB(skb)->chunk;
- 	struct sctp_ep_common *rcvr = chunk->rcvr;
-+	int ret;
- 
--	/* Hold the assoc/ep while hanging on the backlog queue.
--	 * This way, we know structures we need will not disappear from us
--	 */
--	if (SCTP_EP_TYPE_ASSOCIATION == rcvr->type)
--		sctp_association_hold(sctp_assoc(rcvr));
--	else if (SCTP_EP_TYPE_SOCKET == rcvr->type)
--		sctp_endpoint_hold(sctp_ep(rcvr));
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 608a544..e7eb47f 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1371,8 +1371,10 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 	bh_lock_sock(sk);
+ 	if (!sock_owned_by_user(sk))
+ 		rc = __udp_queue_rcv_skb(sk, skb);
 -	else
--		BUG();
-+	ret = sk_add_backlog_limited(sk, skb);
-+	if (!ret) {
-+		/* Hold the assoc/ep while hanging on the backlog queue.
-+		 * This way, we know structures we need will not disappear
-+		 * from us
-+		 */
-+		if (SCTP_EP_TYPE_ASSOCIATION == rcvr->type)
-+			sctp_association_hold(sctp_assoc(rcvr));
-+		else if (SCTP_EP_TYPE_SOCKET == rcvr->type)
-+			sctp_endpoint_hold(sctp_ep(rcvr));
-+		else
-+			BUG();
+-		sk_add_backlog(sk, skb);
++	else if (sk_add_backlog_limited(sk, skb)) {
++		bh_unlock_sock(sk);
++		goto drop;
 +	}
-+	return ret;
+ 	bh_unlock_sock(sk);
  
--	sk_add_backlog(sk, skb);
+ 	return rc;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 52b8347..6480491 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -583,16 +583,20 @@ static void flush_stack(struct sock **stack, unsigned int count,
+ 			bh_lock_sock(sk);
+ 			if (!sock_owned_by_user(sk))
+ 				udpv6_queue_rcv_skb(sk, skb1);
+-			else
+-				sk_add_backlog(sk, skb1);
++			else if (sk_add_backlog_limited(sk, skb1)) {
++				kfree_skb(skb1);
++				bh_unlock_sock(sk);
++				goto drop;
++			}
+ 			bh_unlock_sock(sk);
+-		} else {
+-			atomic_inc(&sk->sk_drops);
+-			UDP6_INC_STATS_BH(sock_net(sk),
+-					UDP_MIB_RCVBUFERRORS, IS_UDPLITE(sk));
+-			UDP6_INC_STATS_BH(sock_net(sk),
+-					UDP_MIB_INERRORS, IS_UDPLITE(sk));
++			continue;
+ 		}
++drop:
++		atomic_inc(&sk->sk_drops);
++		UDP6_INC_STATS_BH(sock_net(sk),
++				UDP_MIB_RCVBUFERRORS, IS_UDPLITE(sk));
++		UDP6_INC_STATS_BH(sock_net(sk),
++				UDP_MIB_INERRORS, IS_UDPLITE(sk));
+ 	}
  }
- 
- /* Handle icmp frag needed error. */
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index f6d1e59..dfc5c12 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -3720,6 +3720,9 @@ SCTP_STATIC int sctp_init_sock(struct sock *sk)
- 	SCTP_DBG_OBJCNT_INC(sock);
- 	percpu_counter_inc(&sctp_sockets_allocated);
- 
-+	/* Set socket backlog limit. */
-+	sk->sk_backlog.limit = sysctl_sctp_rmem[1];
-+
- 	local_bh_disable();
- 	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
- 	local_bh_enable();
+ /*
+@@ -754,8 +758,12 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 	bh_lock_sock(sk);
+ 	if (!sock_owned_by_user(sk))
+ 		udpv6_queue_rcv_skb(sk, skb);
+-	else
+-		sk_add_backlog(sk, skb);
++	else if (sk_add_backlog_limited(sk, skb)) {
++		atomic_inc(&sk->sk_drops);
++		bh_unlock_sock(sk);
++		sock_put(sk);
++		goto discard;
++	}
+ 	bh_unlock_sock(sk);
+ 	sock_put(sk);
+ 	return 0;
 -- 
 1.6.3.3
 
