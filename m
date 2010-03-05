@@ -1,59 +1,38 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: [PATCH] Fix netdev_printk null dereference
-Date: Fri, 5 Mar 2010 15:29:41 +0000
-Message-ID: <OF33DF005A.0C447DF0-ON802576DD.00538FB8-802576DD.00552375@smsc.com>
-References: <20100305.063909.26489418.davem@davemloft.net>
+From: Venkata Mohan Reddy <mohanreddykv@gmail.com>
+Subject: Re: Help On function to get IPV6 address of an interface in kernel
+Date: Fri, 5 Mar 2010 21:19:34 +0530
+Message-ID: <20100305154932.GA5139@mohan-laptop>
+References: <20100304094103.GA6599@mohan-laptop> <4B8FDD23.3070000@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:49951 "EHLO smsc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753472Ab0CEPow (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Mar 2010 10:44:52 -0500
-In-Reply-To: <20100305.063909.26489418.davem@davemloft.net>
+Received: from mail-fx0-f219.google.com ([209.85.220.219]:44454 "EHLO
+	mail-fx0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753881Ab0CEPtt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Mar 2010 10:49:49 -0500
+Received: by fxm19 with SMTP id 19so4266971fxm.21
+        for <netdev@vger.kernel.org>; Fri, 05 Mar 2010 07:49:48 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <4B8FDD23.3070000@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote on 05/03/2010 14:39:09:
+Thanks a lot Brain. ipv6_get_lladdr()  helped me. Actually I want to get site-local or univeral(global) address. Though there is no direct function to get theseaddresses, ipv6_get_lladdr() shows how we can get the other addresses too.
 
-> From: Steve Glendinning <steve.glendinning@smsc.com>
-> Date: Fri,  5 Mar 2010 12:47:05 +0000
-> 
-> > This patch fixes a reproducible null dereference in smsc95xx (and I
-> > suspect others) when the device is removed during a control register
-> > access.  This can be reproduced by rapidly plugging and unplugging
-> > the device during its initialisation.
+Thanks,
+Mohan Reddy
+  
+On Thu, Mar 04, 2010 at 11:17:39AM -0500, Brian Haley wrote:
+> Mohan Reddy wrote:
+> > Hi,
 > > 
-> > Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+> > Is there a function or a way in kernel to get an interface ipv6 address if interface name or net_device object is known? I searched in the kernel i got a function ipv6_get_ifaddr(). But it is expecting an ipv6 address as a parameter. 
 > 
-> The parent shouldn't become NULL until the device is totally quiesced
-> and is no longer accesses.
-
-The failure I'm seeing is caused when the usb device is disconnected.
-smsc95xx detects that a pending USB control operation failed
-and tries to print a message via netdev_printk to report this.
-
-Unfortunately, something else (the USB subsystem?) has already set
-parent to null at this time so the netdev_printk causes a null 
-dereference.
-
-So netdev_printk suddenly changes from safe to use to unsafe to use?
-
-I could change all instances in smsc95xx to defensively check this
-at each call, but what should I test to see if the device is still
-valid?  Is testing parent != null the correct thing to do?
-
-I think other usbnet drivers may have the same problem, but I don't have
-any hardware to test them.
-
-> Maybe you can instead fix the smsc95xx driver to abide by this rule
-> instead of adding a conditional check to thousands of other drivers in
-> the tree that do not need this?
-
-I agree it'd be better to avoid this check where it's unnecessary, but
-if netdev_printk isn't necessarily safe to call for *removable* interfaces
-then shouldn't all such callers be checking that it's safe to do so?
-
-Steve
+> What type of IPv6 address?  For link-locals you can use ipv6_get_lladdr(), but
+> for others ipv6_dev_get_saddr() is more comprehensive, but you'll need a
+> destination address.  There's lots of reference code in addrconf.c to do
+> other things.
+> 
+> -Brian
