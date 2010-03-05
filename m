@@ -1,55 +1,83 @@
-From: Daniel Walker <dwalker@codeaurora.org>
-Subject: net: smc91x: Support Qualcomm MSM development boards.
-Date: Fri, 05 Mar 2010 11:12:34 -0800
-Message-ID: <1267816354.30393.4.camel@c-dwalke-linux.qualcomm.com>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
+Date: Fri, 05 Mar 2010 22:18:13 +0300
+Message-ID: <4B9158F5.5040205@parallels.com>
+References: <4B88E431.6040609@parallels.com>	<m1bpfbqajn.fsf@fess.ebiederm.org> <4B894564.7080104@parallels.com>	<m1iq9io5sc.fsf@fess.ebiederm.org> <4B89727C.9040602@parallels.com>	<m1ljeempk6.fsf@fess.ebiederm.org> <4B8AE8C1.1030305@free.fr>	<4B8D28CF.8060304@parallels.com> <20100302211942.GA17816@us.ibm.com>	<m1y6iaqsmm.fsf@fess.ebiederm.org> <20100303000743.GA13744@us.ibm.com>	<m1ocj6qljj.fsf@fess.ebiederm.org> <4B8E9370.3050300@parallels.com> <m17hptjh3m.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Brown <davidb@quicinc.com>, netdev@vger.kernel.org
-To: Nicolas Pitre <nico@fluxnic.net>
+Cc: Daniel Lezcano <daniel.lezcano@free.fr>,
+	Serge Hallyn <serue@us.ibm.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	containers@lists.linux-foundation.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:23827 "EHLO
-	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755454Ab0CETMt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Mar 2010 14:12:49 -0500
+Received: from mailhub.sw.ru ([195.214.232.25]:44021 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755350Ab0CETTw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Mar 2010 14:19:52 -0500
+In-Reply-To: <m17hptjh3m.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Brown <davidb@quicinc.com>
+> 2 parallel enters?  I meant you have pid 0 in the entered pid namespace.
+> You have pid 0 because your pid simply does not map.
 
-Signed-off-by: David Brown <davidb@quicinc.com>
-Signed-off-by: Daniel Walker <dwalker@codeaurora.org>
----
- drivers/net/smc91x.h |   14 ++++++++++++++
- 1 files changed, 14 insertions(+), 0 deletions(-)
+Oh, I see.
 
-diff --git a/drivers/net/smc91x.h b/drivers/net/smc91x.h
-index 5479954..a6ee883 100644
---- a/drivers/net/smc91x.h
-+++ b/drivers/net/smc91x.h
-@@ -330,6 +330,20 @@ static inline void LPD7_SMC_outsw (unsigned char* a, int r,
- 
- #include <unit/smc91111.h>
- 
-+#elif defined(CONFIG_ARCH_MSM)
-+
-+#define SMC_CAN_USE_8BIT	0
-+#define SMC_CAN_USE_16BIT	1
-+#define SMC_CAN_USE_32BIT	0
-+#define SMC_NOWAIT		1
-+
-+#define SMC_inw(a, r)		readw((a) + (r))
-+#define SMC_outw(v, a, r)	writew(v, (a) + (r))
-+#define SMC_insw(a, r, p, l)	readsw((a) + (r), p, l)
-+#define SMC_outsw(a, r, p, l)	writesw((a) + (r), p, l)
-+
-+#define SMC_IRQ_FLAGS		IRQF_TRIGGER_HIGH
-+
- #else
- 
- /*
--- 
-1.6.3.3
+> There is nothing that makes to parallel enters impossible in that.
+> Even today we have one thread per cpu that has task->pid == &init_struct_pid
+> which is pid 0.
 
+How about the forked processes then? Who will be their parent?
 
+> For the case of unshare where we are designed to be used with PAM I don't
+> think my proposed semantics work.  For a join needed an extra fork before
+> you are really in the pid namespace should be minor.
+
+Hm... One more proposal - can we adopt the planned new fork_with_pids system
+call to fork the process right into a new pid namespace?
+
+> That doesn't handle the case of cached struct pids.  A good example is
+> waitpid, where it waits for a specific struct pid.  Which means that
+> allocating a new struct pid and changing task->pid will cause
+> waitpid(pid) to wait forever...
+
+OK. Good example. Thanks.
+
+> To change struct pid would require the refcount on struct pid to show
+> no references from anywhere except the task_struct.
+
+I think this is OK to return -EBUSY for this. And fix the waitpid
+respectively not to block this common case. All the others I think
+can be stayed as is.
+
+> At the cost of a little memory we can solve that problem for unshare
+> if we have a an extra upid in struct pid, how we verify there is space
+> in struct pid I'm not certain.
+> 
+> I do think that at least until someone calls exec the namespace pids are
+> reported to the process itself should not change.  That is kill and
+
+Wait a second - in that case the wait will be blocked too! No?
+
+> waitpid etc.  Which suggests an implementation the opposite of what
+> I proposed.  With ns_of_pid(task_pid(current)) being used as the
+> pid namespace of children, and current->nsproxy->pid_ns not changing
+> in the case of unshare.
+> 
+> Shrug.
+> 
+> Or perhaps this is a case where we use we can implement join with
+> an extra process but we can't implement unshare, because the effect
+> cannot be immediate.
+
+Well, I'm talking only about the join now.
+
+> Eric
+> 
 
