@@ -1,59 +1,42 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 2/3] device.h drivers/base/core.c Convert dev_<level>
- macros to functions
-Date: Thu, 04 Mar 2010 23:23:35 -0800
-Message-ID: <1267773815.2136.10.camel@Joe-Laptop.home>
-References: <cover.1267771398.git.joe@perches.com>
-	 <e18f5d8b8a0857a07918107f464a653234a47564.1267771398.git.joe@perches.com>
-	 <20100304231047.4d76e0ef.akpm@linux-foundation.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH V3 3/8] udp: use limited socket backlog
+Date: Fri, 05 Mar 2010 07:21:13 +0100
+Message-ID: <1267770073.2867.2.camel@edumazet-laptop>
+References: <1267761707-15605-1-git-send-email-yi.zhu@intel.com>
+	 <1267761707-15605-2-git-send-email-yi.zhu@intel.com>
+	 <1267761707-15605-3-git-send-email-yi.zhu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	Patrick McHardy <kaber@trash.net>
+To: Zhu Yi <yi.zhu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1420 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754670Ab0CEHXh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Mar 2010 02:23:37 -0500
-In-Reply-To: <20100304231047.4d76e0ef.akpm@linux-foundation.org>
+Received: from mail-fx0-f219.google.com ([209.85.220.219]:51807 "EHLO
+	mail-fx0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752710Ab0CEGVT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Mar 2010 01:21:19 -0500
+Received: by fxm19 with SMTP id 19so3723146fxm.21
+        for <netdev@vger.kernel.org>; Thu, 04 Mar 2010 22:21:17 -0800 (PST)
+In-Reply-To: <1267761707-15605-3-git-send-email-yi.zhu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-03-04 at 23:10 -0800, Andrew Morton wrote:
-> On Thu,  4 Mar 2010 22:56:53 -0800 Joe Perches <joe@perches.com> wrote:
-> > Perhaps over time the struct and local uses of dev_info should be renamed.
-> aww, c'mon.
-> y:/usr/src/linux-2.6.33> grep -r '\*dev_info;' . | wc -l
-> 30
+Le vendredi 05 mars 2010 =C3=A0 12:01 +0800, Zhu Yi a =C3=A9crit :
+> Make udp adapt to the limited socket backlog change.
+>=20
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> Cc: "Pekka Savola (ipv6)" <pekkas@netcore.fi>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Signed-off-by: Zhu Yi <yi.zhu@intel.com>
+> ---
+>  net/ipv4/udp.c |    6 ++++--
+>  net/ipv6/udp.c |   28 ++++++++++++++++++----------
+>  2 files changed, 22 insertions(+), 12 deletions(-)
 
-No doubt I could submit all the required changes in
-an hour or so, but some of the maintainers seem
-less than open to what they consider "churn".
-
-$ grep -rP --include=*.[ch] -l "dev_info\b\s*[^\(]" *
-arch/powerpc/platforms/iseries/dt.c
-drivers/usb/host/xhci-dbg.c
-drivers/usb/host/xhci.h
-drivers/usb/wusbcore/wusbhc.h
-drivers/scsi/scsi_devinfo.c
-drivers/staging/comedi/drivers/das08_cs.c
-drivers/staging/comedi/drivers/ni_daq_dio24.c
-drivers/staging/comedi/drivers/quatech_daqp_cs.c
-drivers/staging/comedi/drivers/ni_daq_700.c
-drivers/staging/comedi/drivers/ni_labpc_cs.c
-drivers/staging/comedi/drivers/cb_das16_cs.c
-drivers/staging/udlfb/udlfb.c
-drivers/media/video/sh_mobile_ceu_camera.c
-drivers/md/linear.h
-drivers/net/ksz884x.c
-drivers/net/bnx2x_link.c
-drivers/net/wireless/wl3501_cs.c
-drivers/net/cnic.c
-drivers/net/bnx2x_main.c
-include/linux/sfi.h
-include/net/bluetooth/rfcomm.h
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
 
