@@ -1,51 +1,55 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: RE: bnx2x crash dump on high  network load
-Date: Fri, 5 Mar 2010 09:31:36 -0800
-Message-ID: <BD3F7F1EFBA6D54DB056C4FFA451400803A1F8F2F7@SJEXCHCCR01.corp.ad.broadcom.com>
-References: <0199E0D51A61344794750DC57738F58E6D79C12E3E@GVW1118EXC.americas.hpqcorp.net>
+From: Daniel Walker <dwalker@codeaurora.org>
+Subject: net: smc91x: Support Qualcomm MSM development boards.
+Date: Fri, 05 Mar 2010 11:12:34 -0800
+Message-ID: <1267816354.30393.4.camel@c-dwalke-linux.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: eliezert <eliezert@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Fischer, Anna" <anna.fischer@hp.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Brown <davidb@quicinc.com>, netdev@vger.kernel.org
+To: Nicolas Pitre <nico@fluxnic.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1261 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754648Ab0CERbv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Mar 2010 12:31:51 -0500
-In-Reply-To: <0199E0D51A61344794750DC57738F58E6D79C12E3E@GVW1118EXC.americas.hpqcorp.net>
-Content-Language: en-US
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:23827 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755454Ab0CETMt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Mar 2010 14:12:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Anna,
+From: David Brown <davidb@quicinc.com>
 
-On this kernel, enabling bridging (like you do on virtualization) does not turn off LRO automatically. Please try to load the bnx2x with disable_tpa=1 (TPA is the HW based LRO feature).
+Signed-off-by: David Brown <davidb@quicinc.com>
+Signed-off-by: Daniel Walker <dwalker@codeaurora.org>
+---
+ drivers/net/smc91x.h |   14 ++++++++++++++
+ 1 files changed, 14 insertions(+), 0 deletions(-)
 
-Regards,
-Eilon
+diff --git a/drivers/net/smc91x.h b/drivers/net/smc91x.h
+index 5479954..a6ee883 100644
+--- a/drivers/net/smc91x.h
++++ b/drivers/net/smc91x.h
+@@ -330,6 +330,20 @@ static inline void LPD7_SMC_outsw (unsigned char* a, int r,
+ 
+ #include <unit/smc91111.h>
+ 
++#elif defined(CONFIG_ARCH_MSM)
++
++#define SMC_CAN_USE_8BIT	0
++#define SMC_CAN_USE_16BIT	1
++#define SMC_CAN_USE_32BIT	0
++#define SMC_NOWAIT		1
++
++#define SMC_inw(a, r)		readw((a) + (r))
++#define SMC_outw(v, a, r)	writew(v, (a) + (r))
++#define SMC_insw(a, r, p, l)	readsw((a) + (r), p, l)
++#define SMC_outsw(a, r, p, l)	writesw((a) + (r), p, l)
++
++#define SMC_IRQ_FLAGS		IRQF_TRIGGER_HIGH
++
+ #else
+ 
+ /*
+-- 
+1.6.3.3
 
------Original Message-----
-From: Fischer, Anna [mailto:anna.fischer@hp.com] 
-Sent: Friday, March 05, 2010 7:08 PM
-To: netdev@vger.kernel.org
-Cc: eliezert; Eilon Greenstein; Michael Chan
-Subject: bnx2x crash dump on high network load
 
-I am seeing driver crashes with a bnx2x version 1.50.16. I have attached two crash dumps that I have captured.
-
-I run Linux with the following kernel:
-
-# uname -a
-Linux sup-prj-441106 2.6.16.60-0.54.5-debug #1 SMP Fri Sep 4 01:28:03 UTC 2009 x86_64 x86_64 x86_64 GNU/Linux
-
-I am seeing these driver crashes when I run virtual machines (VMware Server) and those VMs do high bandwidth network I/O, so there are a lot of packets going through the NIC. 
-
-Can you give me any hints for what the problem here could be?
-
-Thanks,
-Anna
 
