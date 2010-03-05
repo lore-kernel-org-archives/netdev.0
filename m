@@ -1,71 +1,39 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH] e1000e: fix packet corruption and tx hang during NFSv2
-Date: Fri, 05 Mar 2010 04:21:44 -0800
-Message-ID: <20100305122131.8250.21132.stgit@localhost.localdomain>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: radvd 1.6 released
+Date: Fri, 5 Mar 2010 14:28:28 +0200 (EET)
+Message-ID: <alpine.LRH.2.00.1003051425590.26086@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, nhorman@tuxdriver.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+To: netdev@vger.kernel.org, radvd-announce-l@litech.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.emeryville.ca.mail.comcast.net ([76.96.30.24]:34155 "EHLO
-	qmta02.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751266Ab0CEMWG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Mar 2010 07:22:06 -0500
+Received: from netcore.fi ([193.94.160.1]:49333 "EHLO netcore.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750816Ab0CEM2g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Mar 2010 07:28:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Hello,
 
-when receiving a particular type of NFS v2 UDP traffic, the hardware could
-DMA some bad data and then hang, possibly corrupting memory.
+A new version of radvd has been released.  This contains a couple of 
+bug fixes and some new functionality.  Thanks to everyone who 
+contributed patches (below).
 
-Disable the NFS parsing in this hardware, verified to fix the bug.
+     *  Decrease MSG_SIZE from 4096 to about 1500B. Send buffer uses a 
+smaller size in order to avoid sending out fragmented packets, yet 
+being able to receive full-size frames.
+     * Keep track of buffer size and exit if the number of 
+prefixes/routes/etc. would grow too much. Prevent a memory corruption 
+due to wrong memset. Patches from Jan Gorig, Red Hat bug #554125.
+     * On BSD use getifaddrs() also in setup_deviceinfo(), fixes a 
+multiple interfaces problem on NetBSD 5 due to change in data 
+structures. Patch from Michael Stapelberg.
+     * Allow radvd.conf prefix, clients, route, and RDNSS options to be 
+in any order. Patch from Michael Stapelberg.
 
-Originally reported and reproduced by RedHat's Neil Horman
-CC: nhorman@tuxdriver.com
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Get it at: http://www.litech.org/radvd/
 
- drivers/net/e1000e/defines.h |    2 ++
- drivers/net/e1000e/ich8lan.c |   10 ++++++++++
- 2 files changed, 12 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
-index db05ec3..e301e26 100644
---- a/drivers/net/e1000e/defines.h
-+++ b/drivers/net/e1000e/defines.h
-@@ -320,6 +320,8 @@
- #define E1000_RXCSUM_IPPCSE    0x00001000   /* IP payload checksum enable */
- 
- /* Header split receive */
-+#define E1000_RFCTL_NFSW_DIS            0x00000040
-+#define E1000_RFCTL_NFSR_DIS            0x00000080
- #define E1000_RFCTL_ACK_DIS             0x00001000
- #define E1000_RFCTL_EXTEN               0x00008000
- #define E1000_RFCTL_IPV6_EX_DIS         0x00010000
-diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 54d03a0..8b5e157 100644
---- a/drivers/net/e1000e/ich8lan.c
-+++ b/drivers/net/e1000e/ich8lan.c
-@@ -2740,6 +2740,16 @@ static void e1000_initialize_hw_bits_ich8lan(struct e1000_hw *hw)
- 		reg &= ~(1 << 31);
- 		ew32(STATUS, reg);
- 	}
-+
-+	/*
-+	 * work-around descriptor data corruption issue during nfs v2 udp
-+	 * traffic, just disable the nfs filtering capability
-+	 */
-+	reg = er32(RFCTL);
-+	reg |= (E1000_RFCTL_NFSW_DIS | E1000_RFCTL_NFSR_DIS);
-+	ew32(RFCTL, reg);
-+
-+	return;
- }
- 
- /**
-
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
