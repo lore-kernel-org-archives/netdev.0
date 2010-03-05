@@ -1,42 +1,59 @@
-From: David Miller <davem@davemloft.net>
+From: Steve.Glendinning@smsc.com
 Subject: Re: [PATCH] Fix netdev_printk null dereference
-Date: Fri, 05 Mar 2010 07:43:35 -0800 (PST)
-Message-ID: <20100305.074335.248610315.davem@davemloft.net>
+Date: Fri, 5 Mar 2010 15:29:41 +0000
+Message-ID: <OF33DF005A.0C447DF0-ON802576DD.00538FB8-802576DD.00552375@smsc.com>
 References: <20100305.063909.26489418.davem@davemloft.net>
-	<OF33DF005A.0C447DF0-ON802576DD.00538FB8-802576DD.00552375@smsc.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="US-ASCII"
 Cc: netdev@vger.kernel.org
-To: Steve.Glendinning@smsc.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33118
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754099Ab0CEPnQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Mar 2010 10:43:16 -0500
-In-Reply-To: <OF33DF005A.0C447DF0-ON802576DD.00538FB8-802576DD.00552375@smsc.com>
+Received: from mail.smsc.com ([170.129.50.11]:49951 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753472Ab0CEPow (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Mar 2010 10:44:52 -0500
+In-Reply-To: <20100305.063909.26489418.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve.Glendinning@smsc.com
-Date: Fri, 5 Mar 2010 15:29:41 +0000
+David Miller <davem@davemloft.net> wrote on 05/03/2010 14:39:09:
 
-> The failure I'm seeing is caused when the usb device is disconnected.
-> smsc95xx detects that a pending USB control operation failed
-> and tries to print a message via netdev_printk to report this.
+> From: Steve Glendinning <steve.glendinning@smsc.com>
+> Date: Fri,  5 Mar 2010 12:47:05 +0000
 > 
-> Unfortunately, something else (the USB subsystem?) has already set
-> parent to null at this time so the netdev_printk causes a null 
-> dereference.
+> > This patch fixes a reproducible null dereference in smsc95xx (and I
+> > suspect others) when the device is removed during a control register
+> > access.  This can be reproduced by rapidly plugging and unplugging
+> > the device during its initialisation.
+> > 
+> > Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
 > 
-> So netdev_printk suddenly changes from safe to use to unsafe to use?
+> The parent shouldn't become NULL until the device is totally quiesced
+> and is no longer accesses.
 
-It seems to me that really you only need this parent NULL check where
-you notice the USB control operation failed and want to print a
-message about that.
+The failure I'm seeing is caused when the usb device is disconnected.
+smsc95xx detects that a pending USB control operation failed
+and tries to print a message via netdev_printk to report this.
 
-That should cover all the necessary cases shouldn't it?
+Unfortunately, something else (the USB subsystem?) has already set
+parent to null at this time so the netdev_printk causes a null 
+dereference.
 
-Even more importantly, why does a USB disconnect NULL out the netdev
-parent device pointer?  Until you actually release this USB device in
-the driver, the parent pointer should stay there.
+So netdev_printk suddenly changes from safe to use to unsafe to use?
+
+I could change all instances in smsc95xx to defensively check this
+at each call, but what should I test to see if the device is still
+valid?  Is testing parent != null the correct thing to do?
+
+I think other usbnet drivers may have the same problem, but I don't have
+any hardware to test them.
+
+> Maybe you can instead fix the smsc95xx driver to abide by this rule
+> instead of adding a conditional check to thousands of other drivers in
+> the tree that do not need this?
+
+I agree it'd be better to avoid this check where it's unnecessary, but
+if netdev_printk isn't necessarily safe to call for *removable* interfaces
+then shouldn't all such callers be checking that it's safe to do so?
+
+Steve
