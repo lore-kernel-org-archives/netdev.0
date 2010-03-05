@@ -1,46 +1,31 @@
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH] Fix netdev_printk null dereference
-Date: Fri,  5 Mar 2010 12:47:05 +0000
-Message-ID: <1267793225-426-1-git-send-email-steve.glendinning@smsc.com>
-To: netdev@vger.kernel.org
+From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Subject: Re: [PATCH V3 4/8] llc: use limited socket backlog
+Date: Fri, 5 Mar 2010 10:00:59 -0300
+Message-ID: <20100305130059.GD16539@ghostprotocols.net>
+References: <1267761707-15605-1-git-send-email-yi.zhu@intel.com>
+ <1267761707-15605-2-git-send-email-yi.zhu@intel.com>
+ <1267761707-15605-3-git-send-email-yi.zhu@intel.com>
+ <1267761707-15605-4-git-send-email-yi.zhu@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Zhu Yi <yi.zhu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 77-44-110-64.xdsl.murphx.net ([77.44.110.64]:59450 "EHLO
-	drevil2.shawell.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750885Ab0CEMxN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Mar 2010 07:53:13 -0500
-Received: from localhost.localdomain (unknown [10.0.20.109])
-	by drevil2.shawell.net (Postfix) with ESMTP id 1D5D967BC8
-	for <netdev@vger.kernel.org>; Fri,  5 Mar 2010 12:47:05 +0000 (GMT)
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:42871 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751996Ab0CENBD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Mar 2010 08:01:03 -0500
+Received: by gwb15 with SMTP id 15so1792401gwb.19
+        for <netdev@vger.kernel.org>; Fri, 05 Mar 2010 05:01:03 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1267761707-15605-4-git-send-email-yi.zhu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a reproducible null dereference in smsc95xx (and I
-suspect others) when the device is removed during a control register
-access.  This can be reproduced by rapidly plugging and unplugging
-the device during its initialisation.
+Em Fri, Mar 05, 2010 at 12:01:43PM +0800, Zhu Yi escreveu:
+> Make llc adapt to the limited socket backlog change.
+> 
+> Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+> Signed-off-by: Zhu Yi <yi.zhu@intel.com>
 
-Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
----
- include/linux/netdevice.h |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index c79a88b..250dbc0 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2132,9 +2132,10 @@ static inline const char *netdev_name(const struct net_device *dev)
- }
- 
- #define netdev_printk(level, netdev, format, args...)		\
--	dev_printk(level, (netdev)->dev.parent,			\
-+	({ if ((netdev)->dev.parent)				\
-+		dev_printk(level, (netdev)->dev.parent,		\
- 		   "%s: " format,				\
--		   netdev_name(netdev), ##args)
-+		   netdev_name(netdev), ##args); })
- 
- #define netdev_emerg(dev, format, args...)			\
- 	netdev_printk(KERN_EMERG, dev, format, ##args)
--- 
-1.6.6.1
-
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
