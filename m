@@ -1,64 +1,44 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 2/2] device.h drivers/base/core.c Convert dev_<level>
- macros to functions
-Date: Thu, 04 Mar 2010 18:46:11 -0800
-Message-ID: <1267757171.12993.111.camel@Joe-Laptop.home>
-References: <cover.1267682641.git.joe@perches.com>
-	 <f2b24d484347c083fa87856a75c1d96102af9005.1267682641.git.joe@perches.com>
-	 <20100304165609.20849b93.akpm@linux-foundation.org>
-	 <20100304170030.f97c6630.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Nick Andrew <nick@nick-andrew.net>,
-	linux-kernel@vger.kernel.org, Greg Kroah-Hartman <gregkh@suse.de>,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: [PATCH V3 4/8] llc: use limited socket backlog
+Date: Fri,  5 Mar 2010 12:01:43 +0800
+Message-ID: <1267761707-15605-4-git-send-email-yi.zhu@intel.com>
+References: <1267761707-15605-1-git-send-email-yi.zhu@intel.com>
+ <1267761707-15605-2-git-send-email-yi.zhu@intel.com>
+ <1267761707-15605-3-git-send-email-yi.zhu@intel.com>
+Cc: netdev@vger.kernel.org, Zhu Yi <yi.zhu@intel.com>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1402 "EHLO mail.perches.com"
+Received: from mga14.intel.com ([143.182.124.37]:27263 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754666Ab0CECqN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Mar 2010 21:46:13 -0500
-In-Reply-To: <20100304170030.f97c6630.akpm@linux-foundation.org>
+	id S1754141Ab0CEEA2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Mar 2010 23:00:28 -0500
+In-Reply-To: <1267761707-15605-3-git-send-email-yi.zhu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dOn Thu, 2010-03-04 at 17:00 -0800, Andrew Morton wrote:
-> On Thu, 4 Mar 2010 16:56:09 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
-> > On Wed,  3 Mar 2010 22:27:23 -0800 Joe Perches <joe@perches.com> wrote:
-> > > Save ~60k in a defconfig
-> > > Use %pV and struct va_format
-> > > Format arguments are verified before printk
-> > Well that doesn't work very well.
-> > 
-> > drivers/net/pcmcia/pcnet_cs.c:117: error: 'dev_info' redeclared as different kind of symbol
-> > include/linux/device.h:645: error: previous declaration of 'dev_info' was here
-> > 
-> > there are lots of other dev_info's which will fail plus perhaps
-> > dev_err's, etc.
-> > 
-> btw, this may be kludgeable aroundable by doing
-> 
-> int _dev_info(const struct device *dev, const char *fmt, ...);
-> 
-> #define dev_info(...) _dev_info(...)
-> 
-> which will use the preprocessor's separation of `foo' from `foo()' to
-> fix things up.
-> 
-> But it would be better to rename all those dev_info's to device_info or
-> whatever, IMO.
+Make llc adapt to the limited socket backlog change.
 
-Perhaps using the function name _dev_info() and adding
-the macro above is an acceptable workaround until the
-dev_info struct names or local variable names could be
-renamed if necessary.
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Signed-off-by: Zhu Yi <yi.zhu@intel.com>
+---
+ net/llc/llc_conn.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-dev_err and dev_warn exist in source comments only and
-don't seem to be a problem.
-
-David Miller?  Do you have an opinion on the renaming
-of dev_info local variables and structs?
+diff --git a/net/llc/llc_conn.c b/net/llc/llc_conn.c
+index a8dde9b..c0539ff 100644
+--- a/net/llc/llc_conn.c
++++ b/net/llc/llc_conn.c
+@@ -827,7 +827,8 @@ void llc_conn_handler(struct llc_sap *sap, struct sk_buff *skb)
+ 	else {
+ 		dprintk("%s: adding to backlog...\n", __func__);
+ 		llc_set_backlog_type(skb, LLC_PACKET);
+-		sk_add_backlog(sk, skb);
++		if (sk_add_backlog_limited(sk, skb))
++			goto drop_unlock;
+ 	}
+ out:
+ 	bh_unlock_sock(sk);
+-- 
+1.6.3.3
 
