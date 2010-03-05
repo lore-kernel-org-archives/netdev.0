@@ -1,60 +1,42 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] Fix netdev_printk null dereference
-Date: Fri, 05 Mar 2010 07:03:39 -0800 (PST)
-Message-ID: <20100305.070339.166010174.davem@davemloft.net>
-References: <1267793225-426-1-git-send-email-steve.glendinning@smsc.com>
-	<20100305.063909.26489418.davem@davemloft.net>
-	<1267800620.3832.17.camel@Joe-Laptop.home>
+Date: Fri, 05 Mar 2010 07:43:35 -0800 (PST)
+Message-ID: <20100305.074335.248610315.davem@davemloft.net>
+References: <20100305.063909.26489418.davem@davemloft.net>
+	<OF33DF005A.0C447DF0-ON802576DD.00538FB8-802576DD.00552375@smsc.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning@smsc.com, netdev@vger.kernel.org
-To: joe@perches.com
+Cc: netdev@vger.kernel.org
+To: Steve.Glendinning@smsc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49731
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33118
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752826Ab0CEPDU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Mar 2010 10:03:20 -0500
-In-Reply-To: <1267800620.3832.17.camel@Joe-Laptop.home>
+	by vger.kernel.org with ESMTP id S1754099Ab0CEPnQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Mar 2010 10:43:16 -0500
+In-Reply-To: <OF33DF005A.0C447DF0-ON802576DD.00538FB8-802576DD.00552375@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Fri, 05 Mar 2010 06:50:20 -0800
+From: Steve.Glendinning@smsc.com
+Date: Fri, 5 Mar 2010 15:29:41 +0000
 
-> On Fri, 2010-03-05 at 06:39 -0800, David Miller wrote:
->> From: Steve Glendinning <steve.glendinning@smsc.com>
->> Date: Fri,  5 Mar 2010 12:47:05 +0000
->> 
->> > This patch fixes a reproducible null dereference in smsc95xx (and I
->> > suspect others) when the device is removed during a control register
->> > access.  This can be reproduced by rapidly plugging and unplugging
->> > the device during its initialisation.
->> > 
->> > Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
->> 
->> The parent shouldn't become NULL until the device is totally quiesced
->> and is no longer accesses.
->> 
->> Maybe you can instead fix the smsc95xx driver to abide by this rule
->> instead of adding a conditional check to thousands of other drivers in
->> the tree that do not need this?
->> 
->> I really have no intention of adding your change, please fix this
->> properly, thanks.
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> The failure I'm seeing is caused when the usb device is disconnected.
+> smsc95xx detects that a pending USB control operation failed
+> and tries to print a message via netdev_printk to report this.
 > 
-> Perhaps something like this is appropriate in the mean time:
+> Unfortunately, something else (the USB subsystem?) has already set
+> parent to null at this time so the netdev_printk causes a null 
+> dereference.
 > 
-> const char *get_netdev_parent_name(const struct net_device *dev)
-> {
-> 	if (!dev->dev.parent)
-> 		return "Unparented net_device, please report this";
-> 	return netdev->dev.parent;
-> }
+> So netdev_printk suddenly changes from safe to use to unsafe to use?
 
-Yes,  but in the smsc95xx driver. :-)
+It seems to me that really you only need this parent NULL check where
+you notice the USB control operation failed and want to print a
+message about that.
 
+That should cover all the necessary cases shouldn't it?
+
+Even more importantly, why does a USB disconnect NULL out the netdev
+parent device pointer?  Until you actually release this USB device in
+the driver, the parent pointer should stay there.
