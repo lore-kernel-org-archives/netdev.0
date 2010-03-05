@@ -1,83 +1,104 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
-Date: Fri, 05 Mar 2010 22:18:13 +0300
-Message-ID: <4B9158F5.5040205@parallels.com>
-References: <4B88E431.6040609@parallels.com>	<m1bpfbqajn.fsf@fess.ebiederm.org> <4B894564.7080104@parallels.com>	<m1iq9io5sc.fsf@fess.ebiederm.org> <4B89727C.9040602@parallels.com>	<m1ljeempk6.fsf@fess.ebiederm.org> <4B8AE8C1.1030305@free.fr>	<4B8D28CF.8060304@parallels.com> <20100302211942.GA17816@us.ibm.com>	<m1y6iaqsmm.fsf@fess.ebiederm.org> <20100303000743.GA13744@us.ibm.com>	<m1ocj6qljj.fsf@fess.ebiederm.org> <4B8E9370.3050300@parallels.com> <m17hptjh3m.fsf@fess.ebiederm.org>
+From: Daniel Walker <dwalker@codeaurora.org>
+Subject: [PATCH] net: Fix race condition on receive path.
+Date: Fri, 05 Mar 2010 11:34:59 -0800
+Message-ID: <1267817699.30393.8.camel@c-dwalke-linux.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Lezcano <daniel.lezcano@free.fr>,
-	Serge Hallyn <serue@us.ibm.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>
+Cc: Jim Harford <c_jharfo@quicinc.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:44021 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755350Ab0CETTw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Mar 2010 14:19:52 -0500
-In-Reply-To: <m17hptjh3m.fsf@fess.ebiederm.org>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:2925 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755350Ab0CETfL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Mar 2010 14:35:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> 2 parallel enters?  I meant you have pid 0 in the entered pid namespace.
-> You have pid 0 because your pid simply does not map.
+From: Jim Harford <c_jharfo@quicinc.com>
 
-Oh, I see.
+Fixes a race condition on the networking receive path that causes all
+received packets to be dropped after 15-60 minutes of heavy network usage.
+Function process_backlog() empties the receive queue, re-enables
+interrupts, then "completes" the softIRQ.  This provides a time window for
+netif_rx() to execute (in IRQ context) and enqueue a received packet
+without re-scheduling the softIRQ.  After this, the receive queue is never
+processed and the system eventually begins to drop all received packets.
 
-> There is nothing that makes to parallel enters impossible in that.
-> Even today we have one thread per cpu that has task->pid == &init_struct_pid
-> which is pid 0.
+The fix has netif_rx() calling napi_schedule(), whether or not the
+receive queue is empty.  There are two questions that must be addressed:
+  1) Is the fix correct?  Or, is it safe to always call napi_schedule()?
+  2) Does the fix result in a performance degradation?
 
-How about the forked processes then? Who will be their parent?
+With respect to correctness, the napi softIRQ routine should NOT be
+scheduled if it is already running.  This is controlled by the bit flag
+NAPI_STATE_SCHED in the "state" field of struct napi_struct.  When this
+flag is set, it means the softIRQ routine is either already pending or
+currently running.  When the softIRQ is finished, the bit is cleared via
+__napi_complete(), which is called by napi_complete(), which is called by
+process_backlog() after re-enabling interrupts and just prior to
+returning.
 
-> For the case of unshare where we are designed to be used with PAM I don't
-> think my proposed semantics work.  For a join needed an extra fork before
-> you are really in the pid namespace should be minor.
+When netif_rx() calls napi_schedule(), that routine checks the
+NAPI_STATE_SCHED bit flag by calling napi_schedule_prep(), which calls
+test_and_set_bit(); if the flag is already set, napi_schedule() returns
+without doing anything.  Note that test_and_set_bit() implements an
+atomic "test and set" operation that is commonly used as the foundation
+of mutual exclusion mechanisms.
 
-Hm... One more proposal - can we adopt the planned new fork_with_pids system
-call to fork the process right into a new pid namespace?
+So it is safe for netif_rx() to call napi_schedule(), whether or not the
+receive queue is empty.
 
-> That doesn't handle the case of cached struct pids.  A good example is
-> waitpid, where it waits for a specific struct pid.  Which means that
-> allocating a new struct pid and changing task->pid will cause
-> waitpid(pid) to wait forever...
+With respect to performance, the following behavior was observed using an
+ARM CPU and cross-compiling for ARM using gcc.  Removing the test of
+whether the receive queue is empty saves 2 assembly instructions.  The
+addition of calling napi_schedule(), when that routine does nothing
+(because the NAPI_STATE_SCHED flag is set) adds 11 assembly instructions.
+Thus, there is a net addition of 9 assembly instructions.  Furthermore,
+we observe in our testing that even under heavy network load, the receive
+queue is empty on at least 95% of netif_rx() invocations.  The 9 assembly
+instructions amortized over all netif_rx() invocations yield an average
+performance penalty of less than 1 assembly instruction per invocation of
+netif_rx().  Finally, the test-and-set operation does not entail testing
+common memory shared by multiple CPU cores (which can be costly), because
+the data structures in question are specific to a single CPU by design.
 
-OK. Good example. Thanks.
+So calling napi_schedule() at every invocation of netif_rx() does not
+impair performance.
 
-> To change struct pid would require the refcount on struct pid to show
-> no references from anywhere except the task_struct.
+CRs-fixed: 184599
+Signed-off-by: Jim Harford <c_jharfo@quicinc.com>
+Signed-off-by: Daniel Walker <dwalker@codeaurora.org>
+---
+ net/core/dev.c |   11 +++--------
+ 1 files changed, 3 insertions(+), 8 deletions(-)
 
-I think this is OK to return -EBUSY for this. And fix the waitpid
-respectively not to block this common case. All the others I think
-can be stayed as is.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index be9924f..43161c6 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2150,15 +2150,10 @@ int netif_rx(struct sk_buff *skb)
+ 
+ 	__get_cpu_var(netdev_rx_stat).total++;
+ 	if (queue->input_pkt_queue.qlen <= netdev_max_backlog) {
+-		if (queue->input_pkt_queue.qlen) {
+-enqueue:
+-			__skb_queue_tail(&queue->input_pkt_queue, skb);
+-			local_irq_restore(flags);
+-			return NET_RX_SUCCESS;
+-		}
+-
++		__skb_queue_tail(&queue->input_pkt_queue, skb);
+ 		napi_schedule(&queue->backlog);
+-		goto enqueue;
++		local_irq_restore(flags);
++		return NET_RX_SUCCESS;
+ 	}
+ 
+ 	__get_cpu_var(netdev_rx_stat).dropped++;
+-- 
+1.6.3.3
 
-> At the cost of a little memory we can solve that problem for unshare
-> if we have a an extra upid in struct pid, how we verify there is space
-> in struct pid I'm not certain.
-> 
-> I do think that at least until someone calls exec the namespace pids are
-> reported to the process itself should not change.  That is kill and
 
-Wait a second - in that case the wait will be blocked too! No?
 
-> waitpid etc.  Which suggests an implementation the opposite of what
-> I proposed.  With ns_of_pid(task_pid(current)) being used as the
-> pid namespace of children, and current->nsproxy->pid_ns not changing
-> in the case of unshare.
-> 
-> Shrug.
-> 
-> Or perhaps this is a case where we use we can implement join with
-> an extra process but we can't implement unshare, because the effect
-> cannot be immediate.
-
-Well, I'm talking only about the join now.
-
-> Eric
-> 
 
