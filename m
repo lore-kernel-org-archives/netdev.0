@@ -1,55 +1,68 @@
-From: "Figo.zhang" <figo1802@gmail.com>
-Subject: Re: KS8695: possible NAPI issue
-Date: Fri, 05 Mar 2010 22:07:57 +0800
-Message-ID: <1267798077.2576.17.camel@myhost>
-References: <f69abfc31003020404y7af77fe5icefeee4644c7d08e@mail.gmail.com>
-	 <4B8D1C02.1010204@softplc.com>
-	 <c6ed1ac51003021746n2b246591g880b584550ec5e84@mail.gmail.com>
-	 <f69abfc31003040210i7e8a136am4b4a97306ba770cf@mail.gmail.com>
-	 <c6ed1ac51003042254g27f65f9dhd9bd731e05a9518@mail.gmail.com>
-	 <f69abfc31003050206h4f9ffe65s2b90e6acea014ec2@mail.gmail.com>
+From: Breno Leitao <leitao@linux.vnet.ibm.com>
+Subject: Re: [PATCH] s2io: fixing DBG_PRINT() macro
+Date: Fri, 05 Mar 2010 11:21:06 -0300
+Message-ID: <4B911352.2000407@linux.vnet.ibm.com>
+References: <1267623697-14781-1-git-send-email-leitao@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Dick Hollenbeck <dick@softplc.com>, netdev@vger.kernel.org,
-	zealcook@gmail.com
-To: Yegor Yefremov <yegorslists@googlemail.com>
+Cc: sreenivasa.honnur@neterion.com, joe@perches.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f194.google.com ([209.85.222.194]:36791 "EHLO
-	mail-pz0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752516Ab0CEOIH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Mar 2010 09:08:07 -0500
-Received: by pzk32 with SMTP id 32so1373575pzk.4
-        for <netdev@vger.kernel.org>; Fri, 05 Mar 2010 06:08:05 -0800 (PST)
-In-Reply-To: <f69abfc31003050206h4f9ffe65s2b90e6acea014ec2@mail.gmail.com>
+Received: from e24smtp02.br.ibm.com ([32.104.18.86]:53636 "EHLO
+	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750874Ab0CEOVO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Mar 2010 09:21:14 -0500
+Received: from mailhub1.br.ibm.com (mailhub1.br.ibm.com [9.18.232.109])
+	by e24smtp02.br.ibm.com (8.14.3/8.13.1) with ESMTP id o25EZnUS010736
+	for <netdev@vger.kernel.org>; Fri, 5 Mar 2010 11:35:49 -0300
+Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
+	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o25EO5uZ1044984
+	for <netdev@vger.kernel.org>; Fri, 5 Mar 2010 11:24:07 -0300
+Received: from d24av04.br.ibm.com (loopback [127.0.0.1])
+	by d24av04.br.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o25EL7xj002735
+	for <netdev@vger.kernel.org>; Fri, 5 Mar 2010 11:21:08 -0300
+In-Reply-To: <1267623697-14781-1-git-send-email-leitao@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David, 
 
-> 
-> My tests look like following:
-> 
-> 1. system start
-> 2. ping one host: O.K.
-> 3. nc -l -p 5000 > /var/test (about 1Mb): O.K.
-> 4. ping the same host: failed
-1. type "arp" command, see the arp is exit or expire?
-2. at this point, see is it still have RX interrpt and receive packet in
-ks8695_rx()? (in some watchpoint add printk). 
+Due my mistake I didn't send this patch to Sreenivasa. After
+sending this patch to netdev, I forward to him, and
+he acked it privately.
 
-> 
-> and even if the fourth test succeeds, if I then send a file from other
-> host the next ping or any other communication fails. I just tried to
-> make some SSH sessions. It goes without a problem till I issue a ping
-> after that.
-> 
-> If I test the system with nuttcp I have no problem.
-> 
-> Do you have any idea how to debug this? If I remove the NAPI support I
-> have no problem with the same kernel and environment. I'd really like
-> to get the whole stuff working.
-> 
-> Regards,
-> Yegor
+Sorry for the confusion. 
+Thanks, 
+Breno
 
-
+leitao@linux.vnet.ibm.com wrote:
+> Patch 9e39f7c5b311a306977c5471f9e2ce4c456aa038 changed the
+> DBG_PRINT() macro and the if clause was changed. It means
+> that currently all the DBG_PRINT are being printed, flooding
+> the kernel log buffer with thinkgs like:
+> 
+> s2io: eth6: Next block at: c0000000b9c90000
+> s2io: eth6: In Neterion Tx routine
+> 
+> This patch just fixes the if clause condition.
+> 
+> Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+> ---
+>  drivers/net/s2io.h |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/s2io.h b/drivers/net/s2io.h
+> index 47c36e0..3b6f45d 100644
+> --- a/drivers/net/s2io.h
+> +++ b/drivers/net/s2io.h
+> @@ -65,7 +65,7 @@ static int debug_level = ERR_DBG;
+> 
+>  /* DEBUG message print. */
+>  #define DBG_PRINT(dbg_level, fmt, args...) do {			\
+> -	if (dbg_level >= debug_level)				\
+> +	if (dbg_level <= debug_level)				\
+>  		pr_info(fmt, ##args);				\
+>  	} while (0)
+> 
