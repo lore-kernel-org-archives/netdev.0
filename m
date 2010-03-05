@@ -1,54 +1,39 @@
 From: Andrew Morton <akpm@linux-foundation.org>
 Subject: Re: [PATCH 2/2] device.h drivers/base/core.c Convert dev_<level>
  macros to functions
-Date: Thu, 4 Mar 2010 17:00:30 -0800
-Message-ID: <20100304170030.f97c6630.akpm@linux-foundation.org>
+Date: Thu, 4 Mar 2010 16:56:09 -0800
+Message-ID: <20100304165609.20849b93.akpm@linux-foundation.org>
 References: <cover.1267682641.git.joe@perches.com>
 	<f2b24d484347c083fa87856a75c1d96102af9005.1267682641.git.joe@perches.com>
-	<20100304165609.20849b93.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: Joe Perches <joe@perches.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
 	Nick Andrew <nick@nick-andrew.net>,
 	linux-kernel@vger.kernel.org, Greg Kroah-Hartman <gregkh@suse.de>,
+	netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:60421 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:52688 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754505Ab0CEBAi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 20:00:38 -0500
-In-Reply-To: <20100304165609.20849b93.akpm@linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1754189Ab0CEA4U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Mar 2010 19:56:20 -0500
+In-Reply-To: <f2b24d484347c083fa87856a75c1d96102af9005.1267682641.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 4 Mar 2010 16:56:09 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
+On Wed,  3 Mar 2010 22:27:23 -0800 Joe Perches <joe@perches.com> wrote:
 
-> On Wed,  3 Mar 2010 22:27:23 -0800 Joe Perches <joe@perches.com> wrote:
+> Save ~60k in a defconfig
 > 
-> > Save ~60k in a defconfig
-> > 
-> > Use %pV and struct va_format
-> > Format arguments are verified before printk
-> 
-> Well that doesn't work very well.
-> 
-> drivers/net/pcmcia/pcnet_cs.c:117: error: 'dev_info' redeclared as different kind of symbol
-> include/linux/device.h:645: error: previous declaration of 'dev_info' was here
-> 
-> there are lots of other dev_info's which will fail plus perhaps
-> dev_err's, etc.
-> 
+> Use %pV and struct va_format
+> Format arguments are verified before printk
 
-btw, this may be kludgeable aroundable by doing
+Well that doesn't work very well.
 
-int _dev_info(const struct device *dev, const char *fmt, ...);
+drivers/net/pcmcia/pcnet_cs.c:117: error: 'dev_info' redeclared as different kind of symbol
+include/linux/device.h:645: error: previous declaration of 'dev_info' was here
 
-#define dev_info(...) _dev_info(...)
-
-which will use the preprocessor's separation of `foo' from `foo()' to
-fix things up.
-
-But it would be better to rename all those dev_info's to device_info or
-whatever, IMO.
+there are lots of other dev_info's which will fail plus perhaps
+dev_err's, etc.
 
