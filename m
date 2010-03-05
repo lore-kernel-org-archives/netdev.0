@@ -1,55 +1,66 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] Fix netdev_printk null dereference
-Date: Fri, 05 Mar 2010 06:50:20 -0800
-Message-ID: <1267800620.3832.17.camel@Joe-Laptop.home>
-References: <1267793225-426-1-git-send-email-steve.glendinning@smsc.com>
-	 <20100305.063909.26489418.davem@davemloft.net>
+From: Yegor Yefremov <yegorslists@googlemail.com>
+Subject: Re: KS8695: possible NAPI issue
+Date: Fri, 5 Mar 2010 16:00:11 +0100
+Message-ID: <f69abfc31003050700y57718a6aje3c1ff41d04748ae@mail.gmail.com>
+References: <f69abfc31003020404y7af77fe5icefeee4644c7d08e@mail.gmail.com>
+	 <4B8D1C02.1010204@softplc.com>
+	 <c6ed1ac51003021746n2b246591g880b584550ec5e84@mail.gmail.com>
+	 <f69abfc31003040210i7e8a136am4b4a97306ba770cf@mail.gmail.com>
+	 <c6ed1ac51003042254g27f65f9dhd9bd731e05a9518@mail.gmail.com>
+	 <f69abfc31003050206h4f9ffe65s2b90e6acea014ec2@mail.gmail.com>
+	 <1267798077.2576.17.camel@myhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning@smsc.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Dick Hollenbeck <dick@softplc.com>, netdev@vger.kernel.org,
+	zealcook@gmail.com
+To: "Figo.zhang" <figo1802@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1429 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751611Ab0CEOuV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Mar 2010 09:50:21 -0500
-In-Reply-To: <20100305.063909.26489418.davem@davemloft.net>
+Received: from ey-out-2122.google.com ([74.125.78.25]:59444 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753318Ab0CEPAN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Mar 2010 10:00:13 -0500
+Received: by ey-out-2122.google.com with SMTP id 25so606826eya.19
+        for <netdev@vger.kernel.org>; Fri, 05 Mar 2010 07:00:11 -0800 (PST)
+In-Reply-To: <1267798077.2576.17.camel@myhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-03-05 at 06:39 -0800, David Miller wrote:
-> From: Steve Glendinning <steve.glendinning@smsc.com>
-> Date: Fri,  5 Mar 2010 12:47:05 +0000
-> 
-> > This patch fixes a reproducible null dereference in smsc95xx (and I
-> > suspect others) when the device is removed during a control register
-> > access.  This can be reproduced by rapidly plugging and unplugging
-> > the device during its initialisation.
-> > 
-> > Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
-> 
-> The parent shouldn't become NULL until the device is totally quiesced
-> and is no longer accesses.
-> 
-> Maybe you can instead fix the smsc95xx driver to abide by this rule
-> instead of adding a conditional check to thousands of other drivers in
-> the tree that do not need this?
-> 
-> I really have no intention of adding your change, please fix this
-> properly, thanks.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> My tests look like following:
+>>
+>> 1. system start
+>> 2. ping one host: O.K.
+>> 3. nc -l -p 5000 > /var/test (about 1Mb): O.K.
+>> 4. ping the same host: failed
+> 1. type "arp" command, see the arp is exit or expire?
 
-Perhaps something like this is appropriate in the mean time:
+debian:~# nc -l -p 5000 > /var/zImage
 
-const char *get_netdev_parent_name(const struct net_device *dev)
-{
-	if (!dev->dev.parent)
-		return "Unparented net_device, please report this";
-	return netdev->dev.parent;
-}
+debian:~# ping -c 1 192.168.1.38
+
+PING 192.168.1.38 (192.168.1.38) 56(84) bytes of data.
+
+>From 192.168.1.66 icmp_seq=1 Destination Host Unreachable
 
 
+
+--- 192.168.1.38 ping statistics ---
+
+1 packets transmitted, 0 received, +1 errors, 100% packet loss, time 0ms
+
+
+
+debian:~# arp
+
+Address                  HWtype  HWaddress           Flags Mask            Iface
+192.168.1.38          (incomplete)                              eth0
+
+192.168.1.36             ether   00:10:18:39:19:aa   C                     eth0
+
+
+> 2. at this point, see is it still have RX interrpt and receive packet in
+> ks8695_rx()? (in some watchpoint add printk).
+
+I've inserted some printks and I can see that interrupts are coming
+and the received count will be increased. I can also see my system
+sending arp requests. Even this ping request is visible in wireshark
+and its reply, but the ping utility sees nothing of it.
