@@ -1,59 +1,64 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: Problems with remote-wakeup settings
-Date: Sat, 6 Mar 2010 22:25:09 +0100
-Message-ID: <201003062225.09514.rjw@sisk.pl>
-References: <Pine.LNX.4.44L0.1003061601520.23895-100000@netrider.rowland.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [patch] bluetooth: debugfs changes use too much stack
+Date: Sat, 06 Mar 2010 09:49:43 -0800
+Message-ID: <1267897783.3712.0.camel@localhost.localdomain>
+References: <20100306111552.GK4958@bicker> <4B92695F.60601@computer.org>
+	 <20100306153030.GU4958@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>, USB list <linux-usb@vger.kernel.org>,
-        linux-hotplug@vger.kernel.org,
-        Kernel development list <linux-kernel@vger.kernel.org>,
-        linux-input@vger.kernel.org,
-        Linux-pm mailing list <linux-pm@lists.linux-foundation.org>
-To: Alan Stern <stern@rowland.harvard.edu>
-Return-path: <linux-pm-bounces@lists.linux-foundation.org>
-In-Reply-To: <Pine.LNX.4.44L0.1003061601520.23895-100000@netrider.rowland.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
-List-Post: <mailto:linux-pm@lists.linux-foundation.org>
-List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.linux-foundation.org
-Errors-To: linux-pm-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Jan Ceuleers <jan.ceuleers@computer.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Dave Young <hidave.darkstar@gmail.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Roger Quadros <ext-roger.quadros@nokia.com>,
+	Bing Zhao <bzhao@marvell.com>, linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from senator.holtmann.net ([87.106.208.187]:57264 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753858Ab0CFRvc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Mar 2010 12:51:32 -0500
+In-Reply-To: <20100306153030.GU4958@bicker>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday 06 March 2010, Alan Stern wrote:
-> On Sat, 6 Mar 2010, Rafael J. Wysocki wrote:
-> 
-> > > It's not difficult in theory to tie together the WoL setting and the
-> > > wakeup flag:
-> > > 
-> > > 	If ethtool changes the WoL setting, the driver's ioctl handler
-> > > 	should make the corresponding change to the wakeup flag.
-> > > 
-> > > 	If ethtool queries the WoL setting, the ioctl handler should
-> > > 	check the wakeup flag.  If the flag is off, it should report 
-> > > 	that WoL is disabled; if the flag is on, it should report that 
-> > > 	WoL is enabled.  (The same check should be made in the suspend
-> > > 	routine.)
+Hi Dan,
+
+> > Error handling?
 > > 
-> > That's done this way already in all drivers I know, but we need a hook
-> > from wake_store() back to the driver.
+> > > The original code would break with a 4K stack.
+> > > 
+> > > Signed-off-by: Dan Carpenter <error27@gmail.com>
+> > > ---
+> > > This was compile tested only.  Sorry about that.
+> > > 
+> > > diff --git a/net/bluetooth/hci_sysfs.c b/net/bluetooth/hci_sysfs.c
+> > > index 1a79a6c..835758f 100644
+> > > --- a/net/bluetooth/hci_sysfs.c
+> > > +++ b/net/bluetooth/hci_sysfs.c
+> > > @@ -417,9 +417,11 @@ static ssize_t inquiry_cache_read(struct file *file, char __user *userbuf,
+> > >  	struct hci_dev *hdev = file->private_data;
+> > >  	struct inquiry_cache *cache = &hdev->inq_cache;
+> > >  	struct inquiry_entry *e;
+> > > -	char buf[4096];
+> > > +	char *buf;
+> > >  	int n = 0;
+> > > +	ssize_t ret;
+> > >  
+> > > +	buf = kmalloc(4096, GFP_KERNEL);
+> > 
+> > Could this kmalloc not fail?
 > 
-> What for?  wake_store() can't be called during a sleep transition
-> (because tasks are frozen) or while the system is asleep.  And if it is
-> called at any other time, the driver doesn't need to know until either
-> its ioctl handler or its suspend method runs.
+> Grr...  I'm really sorry about that.
+> 
+> I will send an updated patch tomorrow.
 
-Right.
+please don't since we fixed this already in the net-2.6 tree.
 
-That means, though, that the network adapter drivers' "get WoL" routines
-should check should_wakeup too.  They don't do that right now, but IMO it's
-reasonable to request that they be modified.
+Regards
 
-Adding netdev to the Cc list.
+Marcel
 
-Rafael
+
