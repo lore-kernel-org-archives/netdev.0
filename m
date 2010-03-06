@@ -1,7 +1,7 @@
 From: Samir Bellabes <sam@synack.fr>
 Subject: Re: [RFC v2 00/10] snet: Security for NETwork syscalls
-Date: Sat, 06 Mar 2010 19:17:42 +0100
-Message-ID: <m2aaulqpq1.fsf@ssh.synack.fr>
+Date: Sat, 06 Mar 2010 19:47:56 +0100
+Message-ID: <m2vdd9p9r7.fsf@ssh.synack.fr>
 References: <1267561394-13626-1-git-send-email-sam@synack.fr>
 	<201003030156.o231udx1023055@www262.sakura.ne.jp>
 Mime-Version: 1.0
@@ -11,52 +11,46 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	zbr@ioremap.net, nhorman@tuxdriver.com, root@localdomain.pl,
 	linux-security-module@vger.kernel.org
 To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Return-path: <linux-security-module-owner@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <201003030156.o231udx1023055@www262.sakura.ne.jp> (Tetsuo Handa's
 	message of "Wed, 03 Mar 2010 10:56:39 +0900")
-Sender: linux-security-module-owner@vger.kernel.org
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp> writes:
 
-> Regarding [RFC v2 05/10] snet: introduce snet_event
-> +static rwlock_t snet_evh_lock = __RW_LOCK_UNLOCKED();
+> Regarding [RFC v2 09/10] snet: introduce snet_ticket
+> +enum snet_verdict snet_ticket_check(struct snet_info *info)
+> +{
+> +       struct snet_ticket *st = NULL;
+> +       unsigned int h = 0, verdict = SNET_VERDICT_NONE;
+> +       struct list_head *l = NULL;
+> +       struct snet_task_security *tsec = NULL;
+> +
+> +       if (snet_ticket_mode == SNET_TICKET_OFF)
+> +               goto out;
+> +
+> +       tsec = (struct snet_task_security*) current_security();
+> +
+> +       h = jhash_2words(info->syscall, info->protocol, 0) % HSIZE;
+> +       l = &tsec->hash[h];
+> +
+> +       read_lock_bh(&tsec->lock);
 >
-> You can use "static DEFINE_RWLOCK(snet_evh_lock);".
->
-> +int snet_event_is_registered(const enum snet_syscall syscall, const u8 protocol)
->
-> Maybe rcu_read_lock() is better than rw spinlock because this function is
-> frequently called.
+> Credentials are allocated for copy-on-write basis.
+> Sharing "tsec" among multiple "struct task_struct" is what you intended?
 
-here is the patch.
-thank you Tetsuo
+No, there is no shared "tsec".
+snet_ticket_check() is called from the process context. So "tsec" is
+a pointer to the "void *security" pointer from its own "struct
+task_struct".
 
->From 34715d4d900aee2d3759e3008313b65dc2f130fd Mon Sep 17 00:00:00 2001
-From: Samir Bellabes <sam@synack.fr>
-Date: Sat, 6 Mar 2010 15:44:42 +0100
-Subject: [PATCH 1/3] snet: use proper rwlock_t declaration
+every task_struct have a "tsec" allocated to its "void *security"
+pointer. 
 
-Noticed by Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+I will take a second look on how to access the credentials COW.
 
-Signed-off-by: Samir Bellabes <sam@synack.fr>
----
- security/snet/snet_event.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> Regards.
 
-diff --git a/security/snet/snet_event.c b/security/snet/snet_event.c
-index 9e3f7d2..5f708d0 100644
---- a/security/snet/snet_event.c
-+++ b/security/snet/snet_event.c
-@@ -9,7 +9,7 @@
- #include "snet_utils.h"
- 
- static struct list_head *snet_evh;
--static rwlock_t snet_evh_lock = __RW_LOCK_UNLOCKED();
-+static DEFINE_RWLOCK(snet_evh_lock);
- 
- struct snet_event_entry {
- 	struct list_head list;
--- 
-1.6.3.3
-
+Tetsuo, thank you again for reviewing.
+sam
