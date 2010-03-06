@@ -1,172 +1,40 @@
-From: Samir Bellabes <sam@synack.fr>
-Subject: Re: [RFC v2 00/10] snet: Security for NETwork syscalls
-Date: Sat, 06 Mar 2010 19:20:26 +0100
-Message-ID: <m26359qplh.fsf@ssh.synack.fr>
-References: <1267561394-13626-1-git-send-email-sam@synack.fr>
-	<201003030156.o231udx1023055@www262.sakura.ne.jp>
+From: Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2/6] C/R: Basic support for network namespaces and devices
+	(v5)
+Date: Sat, 06 Mar 2010 09:09:30 -0800
+Message-ID: <877hppidh1.fsf@caffeine.danplanet.com>
+References: <1267130595-23637-1-git-send-email-danms@us.ibm.com>
+	<1267130595-23637-3-git-send-email-danms@us.ibm.com>
+	<20100226.040855.158431085.davem@davemloft.net>
+	<87iq9kkptz.fsf@caffeine.danplanet.com>
+	<4B91D234.2020003@cs.columbia.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, hadi@cyberus.ca, kaber@trash.net,
-	zbr@ioremap.net, nhorman@tuxdriver.com, root@localdomain.pl,
-	linux-security-module@vger.kernel.org
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <201003030156.o231udx1023055@www262.sakura.ne.jp> (Tetsuo Handa's
-	message of "Wed, 03 Mar 2010 10:56:39 +0900")
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org,
+        den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        benjamin.thery-6ktuUTfB/bM@public.gmane.org
+To: Oren Laadan <orenl-eQaUEPhvms7ENvBUuze7eA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <4B91D234.2020003-eQaUEPhvms7ENvBUuze7eA@public.gmane.org> (Oren Laadan's message of
+	"Fri\, 05 Mar 2010 22\:55\:32 -0500")
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp> writes:
+OL> Ditto for the existing ipv4 (socket) c/r code ... ?
 
-> Regarding [RFC v2 06/10] snet: introduce snet_hooks
-> +                       if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
->
-> Please avoid assignment in "if" statement, as scripts/checkpatch.pl suggests.
+Yes.  I've got a couple of header format changes lined up for IPv6
+stuff, so I can add a patch to do this in that set, if it's okay.
 
-Right, I should have run script/checkpatch.pl on this set of patches. I
-won't miss it next time. 
-
-Thanks Tetsuo.
-sam
-
->From ea2234c07ea1bf76579ba127c8a8be6ab276515f Mon Sep 17 00:00:00 2001
-From: Samir Bellabes <sam@synack.fr>
-Date: Sat, 6 Mar 2010 17:49:22 +0100
-Subject: [PATCH 3/3] snet: avoid assigment in if statement
-
-Noticed by Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-
-Signed-off-by: Samir Bellabes <sam@synack.fr>
----
- security/snet/snet_hooks.c |   37 +++++++++++++++++++++++++------------
- 1 files changed, 25 insertions(+), 12 deletions(-)
-
-diff --git a/security/snet/snet_hooks.c b/security/snet/snet_hooks.c
-index 689babe..d9cf0b9 100644
---- a/security/snet/snet_hooks.c
-+++ b/security/snet/snet_hooks.c
-@@ -160,7 +160,8 @@ static int snet_socket_bind(struct socket *sock,
- 			info.dst.u3.ip = inet->inet_daddr;
- 			info.src.u.port = ntohs(a->sin_port);
- 			/* check tickets */
--			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+			verdict = snet_ticket_check(&info) ;
-+			if (verdict != SNET_VERDICT_NONE)
- 				goto out;
- 			/* inserting verdict PENDING */
- 			info.verdict_id = snet_verdict_insert();
-@@ -173,7 +174,8 @@ static int snet_socket_bind(struct socket *sock,
- 			       sizeof(info.dst.u3.ip6));
- 			info.src.u.port = ntohs(a6->sin6_port);
- 			/* check tickets */
--			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+			verdict = snet_ticket_check(&info);
-+			if (verdict != SNET_VERDICT_NONE)
- 				goto out;
- 			/* inserting verdict PENDING */
- 			info.verdict_id = snet_verdict_insert();
-@@ -229,7 +231,8 @@ static int snet_socket_connect(struct socket *sock,
- 			info.dst.u3.ip = a->sin_addr.s_addr;
- 			info.dst.u.port = ntohs(a->sin_port);
- 			/* check tickets */
--			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+			verdict = snet_ticket_check(&info);
-+			if (verdict != SNET_VERDICT_NONE)
- 				goto out;
- 			/* inserting verdict PENDING */
- 			info.verdict_id = snet_verdict_insert();
-@@ -242,7 +245,8 @@ static int snet_socket_connect(struct socket *sock,
- 			       sizeof(info.dst.u3.ip6));
- 			info.dst.u.port = ntohs(a6->sin6_port);
- 			/* check tickets */
--			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+			verdict = snet_ticket_check(&info);
-+			if (verdict != SNET_VERDICT_NONE)
- 				goto out;
- 			/* inserting verdict PENDING */
- 			info.verdict_id = snet_verdict_insert();
-@@ -295,7 +299,8 @@ static int snet_socket_listen(struct socket *sock, int backlog)
- 			info.src.u3.ip = inet->inet_saddr;
- 			info.dst.u3.ip = inet->inet_daddr;
- 			/* check tickets */
--			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+			verdict = snet_ticket_check(&info);
-+			if (verdict != SNET_VERDICT_NONE)
- 				goto out;
- 			/* inserting verdict PENDING */
- 			info.verdict_id = snet_verdict_insert();
-@@ -306,7 +311,9 @@ static int snet_socket_listen(struct socket *sock, int backlog)
- 			       sizeof(info.src.u3.ip6));
- 			memcpy(&info.dst.u3.ip6, (void *)&inet->pinet6->daddr,
- 			       sizeof(info.dst.u3.ip6));
--			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+			/* check tickets */
-+			verdict = snet_ticket_check(&info);
-+			if (verdict != SNET_VERDICT_NONE)
- 				goto out;
- 			/* inserting verdict PENDING */
- 			info.verdict_id = snet_verdict_insert();
-@@ -358,7 +365,8 @@ static int snet_socket_accept(struct socket *sock, struct socket *newsock)
- 			info.src.u3.ip = inet->inet_saddr;
- 			info.dst.u3.ip = inet->inet_daddr;
- 			/* check tickets */
--			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+			verdict = snet_ticket_check(&info);
-+			if (verdict != SNET_VERDICT_NONE)
- 				goto out;
- 			/* inserting verdict PENDING */
- 			info.verdict_id = snet_verdict_insert();
-@@ -370,7 +378,8 @@ static int snet_socket_accept(struct socket *sock, struct socket *newsock)
- 			memcpy(&info.dst.u3.ip6, (void *)&inet->pinet6->daddr,
- 			       sizeof(info.dst.u3.ip6));
- 			/* check tickets */
--			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+			verdict = snet_ticket_check(&info);
-+			if (verdict != SNET_VERDICT_NONE)
- 				goto out;
- 			/* inserting verdict PENDING */
- 			info.verdict_id = snet_verdict_insert();
-@@ -470,7 +479,8 @@ static int snet_socket_sendmsg(struct socket *sock,
- 			info.src.u3.ip = inet->inet_saddr;
- 			info.dst.u3.ip = inet->inet_daddr;
- 			/* check tickets */
--			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+			verdict = snet_ticket_check(&info);
-+			if (verdict != SNET_VERDICT_NONE)
- 				goto out;
- 			/* inserting verdict PENDING */
- 			info.verdict_id = snet_verdict_insert();
-@@ -482,7 +492,8 @@ static int snet_socket_sendmsg(struct socket *sock,
- 			memcpy(&info.dst.u3.ip6, (void *)&inet->pinet6->daddr,
- 			       sizeof(info.dst.u3.ip6));
- 			/* check tickets */
--			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+			verdict = snet_ticket_check(&info);
-+			if (verdict != SNET_VERDICT_NONE)
- 				goto out;
- 			/* inserting verdict PENDING */
- 			info.verdict_id = snet_verdict_insert();
-@@ -535,7 +546,8 @@ static int snet_socket_recvmsg(struct socket *sock,
- 			info.src.u3.ip = inet->inet_saddr;
- 			info.dst.u3.ip = inet->inet_daddr;
- 			/* check tickets */
--			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+			verdict = snet_ticket_check(&info);
-+			if (verdict != SNET_VERDICT_NONE)
- 				goto out;
- 			/* inserting verdict PENDING */
- 			info.verdict_id = snet_verdict_insert();
-@@ -547,7 +559,8 @@ static int snet_socket_recvmsg(struct socket *sock,
- 			memcpy(&info.dst.u3.ip6, (void *)&inet->pinet6->daddr,
- 			       sizeof(info.dst.u3.ip6));
- 			/* check tickets */
--			if ((verdict = snet_ticket_check(&info)) != SNET_VERDICT_NONE)
-+			verdict = snet_ticket_check(&info);
-+			if (verdict != SNET_VERDICT_NONE)
- 				goto out;
- 			/* inserting verdict PENDING */
- 			info.verdict_id = snet_verdict_insert();
 -- 
-1.6.3.3
-
+Dan Smith
+IBM Linux Technology Center
+email: danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org
