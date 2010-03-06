@@ -1,50 +1,41 @@
-From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
-Subject: Re: Help On function to get IPV6 address of an interface in kernel
-Date: Sun, 7 Mar 2010 09:53:02 +1030
-Message-ID: <20100307095302.634fd08f@opy.nosense.org>
-References: <20100304094103.GA6599@mohan-laptop>
-	<4B8FDD23.3070000@hp.com>
-	<20100305154932.GA5139@mohan-laptop>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RESEND PATCH 0/2] Make functions of dev_<level> macros,
+ recursive vsnprintf
+Date: Sat, 06 Mar 2010 15:57:21 -0800
+Message-ID: <1267919841.1937.2.camel@Joe-Laptop.home>
+References: <cover.1267682641.git.joe@perches.com>
+	 <20100304143837.af39845d.akpm@linux-foundation.org>
+	 <alpine.LFD.2.00.1003041504080.3751@localhost.localdomain>
+	 <1267911399.849.39.camel@Joe-Laptop.home>
+	 <alpine.LFD.2.00.1003061356420.31447@localhost.localdomain>
+	 <1267914654.849.81.camel@Joe-Laptop.home>
+	 <alpine.LFD.2.00.1003061445490.31447@localhost.localdomain>
+	 <alpine.LFD.2.00.1003061455590.31447@localhost.localdomain>
+	 <1267918554.849.89.camel@Joe-Laptop.home>
+	 <alpine.LFD.2.00.1003061540470.23804@localhost.localdomain>
+	 <alpine.LFD.2.00.1003061547490.23804@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org
-To: Venkata Mohan Reddy <mohanreddykv@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.adam.net.au ([202.136.110.251]:54775 "EHLO
-	smtp2.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752506Ab0CFXta (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Mar 2010 18:49:30 -0500
-In-Reply-To: <20100305154932.GA5139@mohan-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Nick Andrew <nick@nick-andrew.net>,
+	linux-kernel@vger.kernel.org, Greg Kroah-Hartman <gregkh@suse.de>,
+	netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.1003061547490.23804@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 5 Mar 2010 21:19:34 +0530
-Venkata Mohan Reddy <mohanreddykv@gmail.com> wrote:
+On Sat, 2010-03-06 at 15:48 -0800, Linus Torvalds wrote:
+> On Sat, 6 Mar 2010, Linus Torvalds wrote:
+> > width: 5 (make it 6 bits and signed)
+> > precision: 5 (make it 6 bits, and signed)
+> Oh, actually, no, we do that whole left-justification with the flags, we 
+> don't need that signed stuff. We do need one special value for the "no 
+> width, no precision", though.
 
-> Thanks a lot Brain. ipv6_get_lladdr()  helped me. Actually I want to get site-local or univeral(global) address. Though there is no direct function to get theseaddresses, ipv6_get_lladdr() shows how we can get the other addresses too.
-> 
+What I posted is pretty simple.
+I think the added complexity isn't worth it.
 
-Site-locals are deprecated (http://www.rfc-editor.org/rfc/rfc3879.txt),
-so I wouldn't think you'll ever find a site-local specific address
-function. If you do find one, I'd be fairly sure it'd go away.
-
-> Thanks,
-> Mohan Reddy
->   
-> On Thu, Mar 04, 2010 at 11:17:39AM -0500, Brian Haley wrote:
-> > Mohan Reddy wrote:
-> > > Hi,
-> > > 
-> > > Is there a function or a way in kernel to get an interface ipv6 address if interface name or net_device object is known? I searched in the kernel i got a function ipv6_get_ifaddr(). But it is expecting an ipv6 address as a parameter. 
-> > 
-> > What type of IPv6 address?  For link-locals you can use ipv6_get_lladdr(), but
-> > for others ipv6_dev_get_saddr() is more comprehensive, but you'll need a
-> > destination address.  There's lots of reference code in addrconf.c to do
-> > other things.
-> > 
-> > -Brian
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If you or anyone else does, all yours.
