@@ -1,53 +1,79 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RESEND PATCH 0/2] Make functions of dev_<level> macros,
- recursive vsnprintf
-Date: Sat, 06 Mar 2010 14:30:54 -0800
-Message-ID: <1267914654.849.81.camel@Joe-Laptop.home>
-References: <cover.1267682641.git.joe@perches.com>
-	 <20100304143837.af39845d.akpm@linux-foundation.org>
-	 <alpine.LFD.2.00.1003041504080.3751@localhost.localdomain>
-	 <1267911399.849.39.camel@Joe-Laptop.home>
-	 <alpine.LFD.2.00.1003061356420.31447@localhost.localdomain>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH] MAINTAINER: Correct CAN Maintainer responsibilities and
+	paths
+Date: Sat, 06 Mar 2010 18:48:01 +0100
+Message-ID: <4B929551.3000901@grandegger.com>
+References: <4B929F96.1030402@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Nick Andrew <nick@nick-andrew.net>,
-	linux-kernel@vger.kernel.org, Greg Kroah-Hartman <gregkh@suse.de>,
-	netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.1003061356420.31447@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Urs Thuermann <urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Oliver Hartkopp <oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>
+To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4B929F96.1030402-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2010-03-06 at 14:03 -0800, Linus Torvalds wrote:
-> On Sat, 6 Mar 2010, Joe Perches wrote:
-> > Is that an ack, a nack or a get the hell out?
-> It's mostly an Ack. I think the concept is great. I'd love to have some 
-> way to limit recursion,
+Oliver Hartkopp wrote:
+> Update the CAN Maintainer responsibilities and add source paths.
+> Additional the SocketCAN core ML is not subscribers-only anymore.
+> 
+> Signed-off-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+> 
+> ---
+> 
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 34f52a1..9ee1f78 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -1372,20 +1372,28 @@ F:	arch/x86/include/asm/calgary.h
+>  F:	arch/x86/include/asm/tce.h
+> 
+>  CAN NETWORK LAYER
+> -M:	Urs Thuermann <urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>
+> +M:	Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+>  M:	Oliver Hartkopp <oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>
+> -L:	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org (subscribers-only)
+> +M:	Urs Thuermann <urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>
+> +L:	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+>  W:	http://developer.berlios.de/projects/socketcan/
+>  S:	Maintained
+> -F:	drivers/net/can/
+> -F:	include/linux/can/
+> +F:	net/can/
+>  F:	include/linux/can.h
+> +F:	include/linux/can/core.h
+> +F:	include/linux/can/bcm.h
+> +F:	include/linux/can/raw.h
+> 
+>  CAN NETWORK DRIVERS
+>  M:	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+> -L:	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org (subscribers-only)
+> +L:	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+>  W:	http://developer.berlios.de/projects/socketcan/
+>  S:	Maintained
+> +F:	drivers/net/can/
+> +F:	include/linux/can/dev.h
+> +F:	include/linux/can/error.h
+> +F:	include/linux/can/netlink.h
+> +F:	include/linux/can/platform/
+> 
+>  CELL BROADBAND ENGINE ARCHITECTURE
+>  M:	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+> 
 
-Maybe limit the %pV recursion depth to 1 with something like:
-(in vsprintf.c: pointer() )
+Looks good ==>
 
-	case 'V': {
-		char *rtn;
-		static int rcount++;
-
-		if (rcount > 1) {	/* Don't recurse more than once */
-			rcount--;
-			break;		/* Use print the pointer */
-		}
-		rtn = buf + vsnprintf(buf, end - buf,
-				      ((struct va_format *)ptr)->fmt,
-				      *(((struct va_format *)ptr)->va));
-		rcount--;
-		return rtn;
-	}
-	
-> and I'd also love to see some actual numbers of 
-> how deep the vsnprintf stack frame is, but I don't see how to do the 
-> first, and I'm hoping the second isn't too horrible.
-
-I believe it's the arguments, a long long, a couple of pointers,
-and a struct printf_spec.  Not too bad.
+Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
