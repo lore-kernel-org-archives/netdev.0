@@ -1,104 +1,78 @@
-From: Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2/6] C/R: Basic support for network namespaces and devices
-	(v5)
-Date: Sat, 06 Mar 2010 09:08:43 -0800
-Message-ID: <87bpf1idic.fsf@caffeine.danplanet.com>
-References: <1267130595-23637-1-git-send-email-danms@us.ibm.com>
-	<1267130595-23637-3-git-send-email-danms@us.ibm.com>
-	<4B91D1A3.9030404@cs.columbia.edu>
+From: Michele Petrazzo - Unipex <michele.petrazzo@unipex.it>
+Subject: Re: [patch] [iproute] ip exit, ip and tc line number
+Date: Sat, 06 Mar 2010 19:56:53 +0100
+Message-ID: <4B92A575.1030801@unipex.it>
+References: <4B8D58D9.7050202@unipex.it> <20100303163028.21ef4194@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: multipart/mixed;
+ boundary="------------030900050609040702010500"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.go-wipex.it ([89.202.235.7]:53379 "EHLO smtp.go-wipex.it"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754227Ab0CFS46 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Mar 2010 13:56:58 -0500
+Received: from unipex-local-server (unipex.wipex [172.16.20.247])
+	by smtp.go-wipex.it (Postfix) with ESMTP id 16E2110B0073
+	for <netdev@vger.kernel.org>; Sat,  6 Mar 2010 19:56:56 +0100 (CET)
+Received: from [192.168.25.2] (unknown [192.168.25.2])
+	by unipex-local-server (Postfix) with ESMTP id 496C8450867
+	for <netdev@vger.kernel.org>; Sat,  6 Mar 2010 19:56:55 +0100 (CET)
+In-Reply-To: <20100303163028.21ef4194@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------030900050609040702010500
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org,
-        den-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, benjamin.thery-6ktuUTfB/bM@public.gmane.org
-To: Oren Laadan <orenl-eQaUEPhvms7ENvBUuze7eA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <4B91D1A3.9030404-eQaUEPhvms7ENvBUuze7eA@public.gmane.org> (Oren Laadan's message of
-	"Fri\, 05 Mar 2010 22\:53\:07 -0500")
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
 
-OL> What about leak detection ?
-OL> Aren't we missing {netns,netdev}_users()?
+Stephen Hemminger wrote:
+> The force issue is a different problem so please split out that part
+> and resubmit.
 
-This is something I need to give more thought to, but it's not as easy
-as it sounds.  Network devices aren't released at the last put() like
-a lot of other things, and my initial attempts to reconcile the
-refcount after a checkpoint operation have not been successful.
 
-However, I'm not sure that it's as important here, because AFAIK, a
-network device can only exist in one network namespace at a time.  If
-we're checkpointing a netdev, it's because we are checkpointing the
-namespace that it lives in.  Making sure the netns isn't leaked out of
-the process tree would be much easier and just as effective, no?
+Attached.
 
->> +config CHECKPOINT_NETNS
->> +       bool
->> +       default y if NET && NET_NS && CHECKPOINT
->> +
+Michele
 
-OL> Did you mean this to be visible (settable) by the user ?
+--------------030900050609040702010500
+Content-Type: text/x-diff;
+ name="iproute.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="iproute.diff"
 
-No, it was specifically supposed to enable itself when those other
-items are enabled, but not be a user adjustable toggle.  I had a
-discussion with Serge about it and we came to this as a solution,
-although I don't remember what the problem we started with was.  I'll
-dig through my IRC logs to see if I can figure it out.
+commit b1875eb9564da302ba79c01746ec9cf391d0d593
+Author: Michele Petrazzo <michele.petrazzo@unipex.it>
+Date:   Sat Mar 6 19:45:27 2010 +0100
 
->> + retry:
->> +	if (++pages > 4) {
->> +		addrs = -E2BIG;
->> +		goto out;
->> +	}
+    Allow ip to process all the file passed with the -batch argument when
+    is passed also the -force switch
 
-OL> Why 4 ?
+    Signed-off-by: Michele Petrazzo <michele.petrazzo@unipex.it>
 
-It's just a sanity limit.
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index e9256d9..8ec6cfd 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -1014,7 +1014,7 @@ static int ipaddr_modify(int cmd, int flags, int argc, char **argv)
+ 	}
+ 	if (l && matches(d, l) != 0) {
+ 		fprintf(stderr, "\"dev\" (%s) must match \"label\" (%s).\n", d, l);
+-		exit(1);
++		return -1;
+ 	}
+ 
+ 	if (peer_len == 0 && local_len) {
+@@ -1079,7 +1079,7 @@ static int ipaddr_modify(int cmd, int flags, int argc, char **argv)
+ 	}
+ 
+ 	if (rtnl_talk(&rth, &req.n, 0, 0, NULL, NULL, NULL) < 0)
+-		exit(2);
++		return -2;
+ 
+ 	return 0;
+ }
 
-OL> Do we really need this special case ?  I'd be happy with a ckpt_err()
-OL> for any error - and the actual error number would be useful to tell
-OL> which case it was.
-
-Unless I'm missing something, you asked for this specifically:
-
-https://lists.linux-foundation.org/pipermail/containers/2010-February/022844.html
-
-OL> Isn't this check redundant ?  I expect it to fail promptly in
-OL> checkpoint_netdev() above.
-
-No, as I've said a couple of times previously, this isn't the only way
-we can arrive at a netdev for checkpointing.  This case is the one
-where we're marching through the netns and find a netdev that is not
-supported.  The other is where we arrive at a device as a peer of
-another device, so the other check may come into play at times where
-this one doesn't and vice versa.
-
-OL> This may be a bit simpler if you move the first deferqueue_add()
-OL> forward to just before the other one. Or better: change dq_netdev
-OL> to have two pointers, dev and peer (if any is null, the cleanup
-OL> function will skip).
-
-The reason it is this messy is because of the way network devices are
-deallocated.  Since they don't destroy themselves on the final put(),
-we have to explicitly call unregister_netdev() on them when we know
-they're no longer used (else we block).  Once we've added them to the
-deferqueue, we can no longer destroy them here because a reference is
-held and the deferqueue will run afterwards.
-
-The ordering of this is a result of me injecting failures at each step
-and working it out until I got it to not block on unregistering either
-of the devices in all of the error paths.  That's not to say it's the
-best way, but there is a reason it's ordered the way it is.
-
--- 
-Dan Smith
-IBM Linux Technology Center
-email: danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org
+--------------030900050609040702010500--
