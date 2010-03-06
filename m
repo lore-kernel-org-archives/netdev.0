@@ -1,90 +1,112 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: drivers/net/mac8390.c: Remove useless memcpy casting
-Date: Sun, 7 Mar 2010 10:19:40 +0100
-Message-ID: <10f740e81003070119s3eb433d9r4f1cc79e59d56316@mail.gmail.com>
-References: <201003022001.o22K16vJ011337@hera.kernel.org>
+From: Daniel Lezcano <daniel.lezcano-GANU6spQydw@public.gmane.org>
+Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
+Date: Sat, 06 Mar 2010 22:26:30 +0100
+Message-ID: <4B92C886.9020507@free.fr>
+References: <4B88E431.6040609@parallels.com>	<m1bpfbqajn.fsf@fess.ebiederm.org>
+	<4B894564.7080104@parallels.com>	<m1iq9io5sc.fsf@fess.ebiederm.org>
+	<4B89727C.9040602@parallels.com>	<m1ljeempk6.fsf@fess.ebiederm.org>
+	<4B8AE8C1.1030305@free.fr>	<4B8D28CF.8060304@parallels.com>
+	<20100302211942.GA17816@us.ibm.com>	<m1y6iaqsmm.fsf@fess.ebiederm.org>
+	<20100303000743.GA13744@us.ibm.com>	<m1ocj6qljj.fsf@fess.ebiederm.org>
+	<4B8E9370.3050300@parallels.com>	<m17hptjh3m.fsf@fess.ebiederm.org>
+	<4B9158F5.5040205@parallels.com>	<m1vdda1pmx.fsf@fess.ebiederm.org>
+	<4B926B1B.5070207@free.fr> <m1aaulyy5c.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Linux/m68k" <linux-m68k@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <201003022001.o22K16vJ011337@hera.kernel.org>
-Sender: linux-m68k-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+        Netfilter Development Mailinglist <netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>,
+        Sukadev Bhattiprolu <sukadev-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <m1aaulyy5c.fsf-+imSwln9KH6u2/kzUuoCbdi2O/JbrIOy@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 2, 2010 at 21:01, Linux Kernel Mailing List
-<linux-kernel@vger.kernel.org> wrote:
-> Gitweb: =C2=A0 =C2=A0 http://git.kernel.org/linus/5c7fffd0e3b57cb63f5=
-0bbd710868f012d67654f
-> Commit: =C2=A0 =C2=A0 5c7fffd0e3b57cb63f50bbd710868f012d67654f
-> Parent: =C2=A0 =C2=A0 35076402a9936fa8a73b57a1f97fecbeceeec34a
-> Author: =C2=A0 =C2=A0 Joe Perches <joe@perches.com>
-> AuthorDate: Mon Jan 4 11:53:00 2010 +0000
-> Committer: =C2=A0David S. Miller <davem@davemloft.net>
-> CommitDate: Wed Jan 6 20:44:02 2010 -0800
+Eric W. Biederman wrote:
+> Daniel Lezcano <daniel.lezcano-GANU6spQydw@public.gmane.org> writes:
 >
-> =C2=A0 =C2=A0drivers/net/mac8390.c: Remove useless memcpy casting
+>   
+>> Eric W. Biederman wrote:
+>>     
 >
-> =C2=A0 =C2=A0Signed-off-by: Joe Perches <joe@perches.com>
-> =C2=A0 =C2=A0Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
-> =C2=A0drivers/net/mac8390.c | =C2=A0 19 ++++++++++---------
-> =C2=A01 files changed, 10 insertions(+), 9 deletions(-)
+>   
+>> If the normal rules of parentage apply, that means pid 0 has to wait it's child.
+>> If we are in the scenario of pid 0, it's child pid 1234 and we kill the pid 1 of
+>> the pid namespace, I suppose pid 1234 will be killed too.
+>> The pid 0 will stay in the pid namespace and will able to fork again a new pid
+>> 1.
+>>
+>> I think Serge already reported that...
+>>
+>> That sounds good :)
+>>     
 >
-> diff --git a/drivers/net/mac8390.c b/drivers/net/mac8390.c
-> index 6b6f375..517cee4 100644
-> --- a/drivers/net/mac8390.c
-> +++ b/drivers/net/mac8390.c
-> @@ -237,14 +237,14 @@ static enum mac8390_access __init mac8390_testi=
-o(volatile unsigned long membase)
+> I expect zap_pid_ns_processes should also arrange so we cannot allocate any
+> more processes.  We certainly need to do something explicit or pid 1 won't
+> be allocated.  It might make sense to resurrect a pid namespace after it's
+> death but it is definitely weird.
+>   
+Mmh, yes. But that was just an idea, maybe a bit out of the scope you 
+are aiming.
 
-As indicated by the prototype above, membase is not a pointer...
+>>> In a lot of ways I like this idea of sys_hijack/sys_cloneat, and I
+>>> don't think anything I am doing fundamentally undermines it.  The use
+>>> case of doing things in fork is that there is automatic inheritance of
+>>> everything.  All of the namespaces and all of the control groups, and
+>>> possibly also the parent process.  
+>>>       
+>> And also the rootfs for executing the command inside the container
+>> (eg. shutdown), the uid/gid (if there is a user namespace), the mount points,
+>> ...
+>> But I suppose we can do the same with setns for all the namespaces and chrooting
+>> within the container rootfs.
+>>
+>> What I see is a problem with the tty. For example, we cloneat the init process
+>> of the container which is usually /sbin/init but this one has its tty mapped to
+>> /dev/console, so the output of the exec'ed command will go to the console.
+>>     
+>
+> My original thinking was that the fd's would come from the caller of sys_cloneat....
+Oh, ok :s
 
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0unsigned long outdata =3D 0xA5A0B5B0;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0unsigned long indata =3D =C2=A00x00000000;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Try writing 32 bits */
-> - =C2=A0 =C2=A0 =C2=A0 memcpy((char *)membase, (char *)&outdata, 4);
-> + =C2=A0 =C2=A0 =C2=A0 memcpy(membase, &outdata, 4);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Now compare them */
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (memcmp((char *)&outdata, (char *)memba=
-se, 4) =3D=3D 0)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return ACCESS_=
-32;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Write 16 bit output */
-> - =C2=A0 =C2=A0 =C2=A0 word_memcpy_tocard((char *)membase, (char *)&o=
-utdata, 4);
-> + =C2=A0 =C2=A0 =C2=A0 word_memcpy_tocard(membase, &outdata, 4);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Now read it back */
-> - =C2=A0 =C2=A0 =C2=A0 word_memcpy_fromcard((char *)&indata, (char *)=
-membase, 4);
-> + =C2=A0 =C2=A0 =C2=A0 word_memcpy_fromcard(&indata, membase, 4);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (outdata =3D=3D indata)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return ACCESS_=
-16;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0return ACCESS_UNKNOWN;
+>>> Overall it sounds like the semantics I have proposed with
+>>> unshare(CLONE_NEWPID) are workable, and simple to implement.  The
+>>> extra fork is a bit surprising but it certainly does not
+>>> look like a show stopper for implementing a pid namespace join.
+>>>   
+>>>       
+>> I agree, it's some kind of "ghost" process.
+>> IMO, with a bit of userspace code it would be possible to enter or exec a
+>> command inside a container with nsfd, setns.
+>>
+>> +1 to test your patchset Eric :)
+>>     
+>
+> I will see about reposting sometime soon.
+>   
+Great ! thanks.
 
-=2E.. hence you introduced 3 compiler warnings:
-
-drivers/net/mac8390.c:249: warning: passing argument 1 of
-'__builtin_memcpy' makes pointer from integer without a cast
-drivers/net/mac8390.c:254: warning: passing argument 1 of
-'word_memcpy_tocard' makes pointer from integer without a cast
-drivers/net/mac8390.c:256: warning: passing argument 2 of
-'word_memcpy_fromcard' makes pointer from integer without a cast
-
-Gr{oetje,eeting}s,
-
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
-
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-							    -- Linus Torvalds
+>> Just a mindless suggestion, the "nsopen" / "nsattach" syscall names should be
+>> more clear no ?
+>>     
+>
+> Not bad suggestions.
+>
+> I am going to explore a bit more.  Given that nsfd is using the same
+> permission checks as a proc file, I think I can just make it a proc
+> file.  Something like "/proc/<pid>/ns/net".  With a little luck that
+> won't suck too badly.
+>   
+Ah ! yes. Good idea.
