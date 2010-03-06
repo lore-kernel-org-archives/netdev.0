@@ -1,56 +1,59 @@
-From: Samir Bellabes <sam@synack.fr>
-Subject: Re: [RFC v2 00/10] snet: Security for NETwork syscalls
-Date: Sat, 06 Mar 2010 19:47:56 +0100
-Message-ID: <m2vdd9p9r7.fsf@ssh.synack.fr>
-References: <1267561394-13626-1-git-send-email-sam@synack.fr>
-	<201003030156.o231udx1023055@www262.sakura.ne.jp>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: Problems with remote-wakeup settings
+Date: Sat, 6 Mar 2010 22:25:09 +0100
+Message-ID: <201003062225.09514.rjw@sisk.pl>
+References: <Pine.LNX.4.44L0.1003061601520.23895-100000@netrider.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, hadi@cyberus.ca, kaber@trash.net,
-	zbr@ioremap.net, nhorman@tuxdriver.com, root@localdomain.pl,
-	linux-security-module@vger.kernel.org
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <201003030156.o231udx1023055@www262.sakura.ne.jp> (Tetsuo Handa's
-	message of "Wed, 03 Mar 2010 10:56:39 +0900")
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: NetDev <netdev@vger.kernel.org>, USB list <linux-usb@vger.kernel.org>,
+        linux-hotplug@vger.kernel.org,
+        Kernel development list <linux-kernel@vger.kernel.org>,
+        linux-input@vger.kernel.org,
+        Linux-pm mailing list <linux-pm@lists.linux-foundation.org>
+To: Alan Stern <stern@rowland.harvard.edu>
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+In-Reply-To: <Pine.LNX.4.44L0.1003061601520.23895-100000@netrider.rowland.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp> writes:
+On Saturday 06 March 2010, Alan Stern wrote:
+> On Sat, 6 Mar 2010, Rafael J. Wysocki wrote:
+> 
+> > > It's not difficult in theory to tie together the WoL setting and the
+> > > wakeup flag:
+> > > 
+> > > 	If ethtool changes the WoL setting, the driver's ioctl handler
+> > > 	should make the corresponding change to the wakeup flag.
+> > > 
+> > > 	If ethtool queries the WoL setting, the ioctl handler should
+> > > 	check the wakeup flag.  If the flag is off, it should report 
+> > > 	that WoL is disabled; if the flag is on, it should report that 
+> > > 	WoL is enabled.  (The same check should be made in the suspend
+> > > 	routine.)
+> > 
+> > That's done this way already in all drivers I know, but we need a hook
+> > from wake_store() back to the driver.
+> 
+> What for?  wake_store() can't be called during a sleep transition
+> (because tasks are frozen) or while the system is asleep.  And if it is
+> called at any other time, the driver doesn't need to know until either
+> its ioctl handler or its suspend method runs.
 
-> Regarding [RFC v2 09/10] snet: introduce snet_ticket
-> +enum snet_verdict snet_ticket_check(struct snet_info *info)
-> +{
-> +       struct snet_ticket *st = NULL;
-> +       unsigned int h = 0, verdict = SNET_VERDICT_NONE;
-> +       struct list_head *l = NULL;
-> +       struct snet_task_security *tsec = NULL;
-> +
-> +       if (snet_ticket_mode == SNET_TICKET_OFF)
-> +               goto out;
-> +
-> +       tsec = (struct snet_task_security*) current_security();
-> +
-> +       h = jhash_2words(info->syscall, info->protocol, 0) % HSIZE;
-> +       l = &tsec->hash[h];
-> +
-> +       read_lock_bh(&tsec->lock);
->
-> Credentials are allocated for copy-on-write basis.
-> Sharing "tsec" among multiple "struct task_struct" is what you intended?
+Right.
 
-No, there is no shared "tsec".
-snet_ticket_check() is called from the process context. So "tsec" is
-a pointer to the "void *security" pointer from its own "struct
-task_struct".
+That means, though, that the network adapter drivers' "get WoL" routines
+should check should_wakeup too.  They don't do that right now, but IMO it's
+reasonable to request that they be modified.
 
-every task_struct have a "tsec" allocated to its "void *security"
-pointer. 
+Adding netdev to the Cc list.
 
-I will take a second look on how to access the credentials COW.
-
-> Regards.
-
-Tetsuo, thank you again for reviewing.
-sam
+Rafael
