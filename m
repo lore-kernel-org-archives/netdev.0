@@ -1,106 +1,89 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
-Date: Sat, 06 Mar 2010 12:48:31 -0800
-Message-ID: <m1aaulyy5c.fsf@fess.ebiederm.org>
-References: <4B88E431.6040609@parallels.com>
-	<m1bpfbqajn.fsf@fess.ebiederm.org> <4B894564.7080104@parallels.com>
-	<m1iq9io5sc.fsf@fess.ebiederm.org> <4B89727C.9040602@parallels.com>
-	<m1ljeempk6.fsf@fess.ebiederm.org> <4B8AE8C1.1030305@free.fr>
-	<4B8D28CF.8060304@parallels.com> <20100302211942.GA17816@us.ibm.com>
-	<m1y6iaqsmm.fsf@fess.ebiederm.org> <20100303000743.GA13744@us.ibm.com>
-	<m1ocj6qljj.fsf@fess.ebiederm.org> <4B8E9370.3050300@parallels.com>
-	<m17hptjh3m.fsf@fess.ebiederm.org> <4B9158F5.5040205@parallels.com>
-	<m1vdda1pmx.fsf@fess.ebiederm.org> <4B926B1B.5070207@free.fr>
+From: Stefani Seibold <stefani@seibold.net>
+Subject: [PATCH] fix PHY polling system blocking
+Date: Sat, 06 Mar 2010 17:50:58 +0100
+Message-ID: <1267894258.18869.2.camel@wall-e>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-        Netfilter Development Mailinglist <netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>,
-        Sukadev Bhattiprolu <sukadev-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-To: Daniel Lezcano <daniel.lezcano-GANU6spQydw@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <4B926B1B.5070207-GANU6spQydw@public.gmane.org> (Daniel Lezcano's message of "Sat\,
-	06 Mar 2010 15\:47\:55 +0100")
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: linux-kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www84.your-server.de ([213.133.104.84]:47684 "EHLO
+	www84.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753049Ab0CFRR4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Mar 2010 12:17:56 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Daniel Lezcano <daniel.lezcano-GANU6spQydw@public.gmane.org> writes:
+This patch fix the PHY poller, which can block the whole system. On a
+Freescale PPC 834x this result in a delay of 450 us due the slow
+communication with the PHY chip.
 
-> Eric W. Biederman wrote:
+For PHY chips without interrupts, the status of the ethernet will be
+polled every 2 sec. The poll function will read some register of the MII
+PHY. The time between the sending the MII_READ_COMMAND and receiving the
+result is more the 100 us on a PPC 834x.
+   
+The patch modifies the poller a lit bit. Only a link status state change
+will result in a successive detection of the connection type. The poll
+cycle on the other hand will be increased to every seconds.
 
-> If the normal rules of parentage apply, that means pid 0 has to wait it's child.
-> If we are in the scenario of pid 0, it's child pid 1234 and we kill the pid 1 of
-> the pid namespace, I suppose pid 1234 will be killed too.
-> The pid 0 will stay in the pid namespace and will able to fork again a new pid
-> 1.
->
-> I think Serge already reported that...
->
-> That sounds good :)
+Together this patch will prevent a blocking of nearly 400 us every two
+seconds of the whole system on a PPC 834x.
 
-I expect zap_pid_ns_processes should also arrange so we cannot allocate any
-more processes.  We certainly need to do something explicit or pid 1 won't
-be allocated.  It might make sense to resurrect a pid namespace after it's
-death but it is definitely weird.
+The patch is against kernel 2.6.33. Please merge it.
 
->> In a lot of ways I like this idea of sys_hijack/sys_cloneat, and I
->> don't think anything I am doing fundamentally undermines it.  The use
->> case of doing things in fork is that there is automatic inheritance of
->> everything.  All of the namespaces and all of the control groups, and
->> possibly also the parent process.  
-> And also the rootfs for executing the command inside the container
-> (eg. shutdown), the uid/gid (if there is a user namespace), the mount points,
-> ...
-> But I suppose we can do the same with setns for all the namespaces and chrooting
-> within the container rootfs.
->
-> What I see is a problem with the tty. For example, we cloneat the init process
-> of the container which is usually /sbin/init but this one has its tty mapped to
-> /dev/console, so the output of the exec'ed command will go to the console.
+Signed-off-by: Stefani Seibold <stefani@seibold.net>
+---
+ phy.c        |    5 ++---
+ phy_device.c |   12 +++++++++---
+ 2 files changed, 11 insertions(+), 6 deletions(-)
 
-My original thinking was that the fd's would come from the caller of sys_cloneat....
+diff -u -N -r -p linux-2.6.33.orig/drivers/net/phy/phy.c linux-2.6.33/drivers/net//phy/phy.c
+--- linux-2.6.33.orig/drivers/net/phy/phy.c	2010-02-24 19:52:17.000000000 +0100
++++ linux-2.6.33/drivers/net//phy/phy.c	2010-02-28 22:53:14.725464101 +0100
+@@ -871,9 +871,8 @@ void phy_state_machine(struct work_struc
+ 		case PHY_RUNNING:
+ 			/* Only register a CHANGE if we are
+ 			 * polling */
+-			if (PHY_POLL == phydev->irq)
+-				phydev->state = PHY_CHANGELINK;
+-			break;
++			if (PHY_POLL != phydev->irq)
++				break;
+ 		case PHY_CHANGELINK:
+ 			err = phy_read_status(phydev);
+ 
+diff -u -N -r -p linux-2.6.33.orig/drivers/net/phy/phy_device.c linux-2.6.33/drivers/net//phy/phy_device.c
+--- linux-2.6.33.orig/drivers/net/phy/phy_device.c	2010-02-24 19:52:17.000000000 +0100
++++ linux-2.6.33/drivers/net//phy/phy_device.c	2010-02-28 22:53:14.726464145 +0100
+@@ -161,7 +161,7 @@ struct phy_device* phy_device_create(str
+ 	dev->speed = 0;
+ 	dev->duplex = -1;
+ 	dev->pause = dev->asym_pause = 0;
+-	dev->link = 1;
++	dev->link = 0;
+ 	dev->interface = PHY_INTERFACE_MODE_GMII;
+ 
+ 	dev->autoneg = AUTONEG_ENABLE;
+@@ -694,10 +694,16 @@ int genphy_update_link(struct phy_device
+ 	if (status < 0)
+ 		return status;
+ 
+-	if ((status & BMSR_LSTATUS) == 0)
++	if ((status & BMSR_LSTATUS) == 0) {
++		if (phydev->link==0)
++			return 1;
+ 		phydev->link = 0;
+-	else
++	}
++	else {
++		if (phydev->link==1)
++			return 1;
+ 		phydev->link = 1;
++	}
+ 
+ 	return 0;
+ }
 
->> Overall it sounds like the semantics I have proposed with
->> unshare(CLONE_NEWPID) are workable, and simple to implement.  The
->> extra fork is a bit surprising but it certainly does not
->> look like a show stopper for implementing a pid namespace join.
->>   
-> I agree, it's some kind of "ghost" process.
-> IMO, with a bit of userspace code it would be possible to enter or exec a
-> command inside a container with nsfd, setns.
->
-> +1 to test your patchset Eric :)
 
-I will see about reposting sometime soon.
 
-> Just a mindless suggestion, the "nsopen" / "nsattach" syscall names should be
-> more clear no ?
-
-Not bad suggestions.
-
-I am going to explore a bit more.  Given that nsfd is using the same
-permission checks as a proc file, I think I can just make it a proc
-file.  Something like "/proc/<pid>/ns/net".  With a little luck that
-won't suck too badly.
-
-> Jumping back, one question about the nsfd and the poll for waiting the end of
-> the namespace.
-> If we have an openened file descriptor on a specific namespace, we grab a
-> reference on this one, so the namespace won't be destroyed until we close the fd
-> which is used to poll the end of the namespace, no ? Did I miss something ?
-
-Not really.  The assumption was that there would be a very similar
-file descriptor that we could use with poll.
-
-Eric
