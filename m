@@ -1,57 +1,90 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 6/13] bridge: Add core IGMP snooping support
-Date: Sat, 6 Mar 2010 15:07:39 +0800
-Message-ID: <20100306070739.GB14470@gondor.apana.org.au>
-References: <20100228054012.GA7583@gondor.apana.org.au> <E1NlbuT-00021C-0b@gondolin.me.apana.org.au> <20100305234327.GJ6764@linux.vnet.ibm.com> <20100306011718.GA12812@gondor.apana.org.au> <20100306050656.GA6812@linux.vnet.ibm.com> <20100306065655.GA14326@gondor.apana.org.au>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: drivers/net/mac8390.c: Remove useless memcpy casting
+Date: Sun, 7 Mar 2010 10:19:40 +0100
+Message-ID: <10f740e81003070119s3eb433d9r4f1cc79e59d56316@mail.gmail.com>
+References: <201003022001.o22K16vJ011337@hera.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:52507 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751368Ab0CFHHp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Mar 2010 02:07:45 -0500
-Content-Disposition: inline
-In-Reply-To: <20100306065655.GA14326@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"Linux/m68k" <linux-m68k@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <201003022001.o22K16vJ011337@hera.kernel.org>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 06, 2010 at 02:56:55PM +0800, Herbert Xu wrote:
-> On Fri, Mar 05, 2010 at 09:06:56PM -0800, Paul E. McKenney wrote:
+On Tue, Mar 2, 2010 at 21:01, Linux Kernel Mailing List
+<linux-kernel@vger.kernel.org> wrote:
+> Gitweb: =C2=A0 =C2=A0 http://git.kernel.org/linus/5c7fffd0e3b57cb63f5=
+0bbd710868f012d67654f
+> Commit: =C2=A0 =C2=A0 5c7fffd0e3b57cb63f50bbd710868f012d67654f
+> Parent: =C2=A0 =C2=A0 35076402a9936fa8a73b57a1f97fecbeceeec34a
+> Author: =C2=A0 =C2=A0 Joe Perches <joe@perches.com>
+> AuthorDate: Mon Jan 4 11:53:00 2010 +0000
+> Committer: =C2=A0David S. Miller <davem@davemloft.net>
+> CommitDate: Wed Jan 6 20:44:02 2010 -0800
 >
-> > Shouldn't the br_mdb_get() code path be using hlist_for_each_entry_rcu()
-> > in __br_mdb_ip_get(), then?  Or is something else going on here?
-> 
-> Indeed it should, I'll fix this up too.
+> =C2=A0 =C2=A0drivers/net/mac8390.c: Remove useless memcpy casting
+>
+> =C2=A0 =C2=A0Signed-off-by: Joe Perches <joe@perches.com>
+> =C2=A0 =C2=A0Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+> =C2=A0drivers/net/mac8390.c | =C2=A0 19 ++++++++++---------
+> =C2=A01 files changed, 10 insertions(+), 9 deletions(-)
+>
+> diff --git a/drivers/net/mac8390.c b/drivers/net/mac8390.c
+> index 6b6f375..517cee4 100644
+> --- a/drivers/net/mac8390.c
+> +++ b/drivers/net/mac8390.c
+> @@ -237,14 +237,14 @@ static enum mac8390_access __init mac8390_testi=
+o(volatile unsigned long membase)
 
-bridge: Use RCU list primitive in __br_mdb_ip_get
+As indicated by the prototype above, membase is not a pointer...
 
-As Paul McKenney correctly pointed out, __br_mdb_ip_get needs
-to use the RCU list walking primitive in order to work correctly
-on platforms where data-dependency ordering is not guaranteed.
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0unsigned long outdata =3D 0xA5A0B5B0;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0unsigned long indata =3D =C2=A00x00000000;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Try writing 32 bits */
+> - =C2=A0 =C2=A0 =C2=A0 memcpy((char *)membase, (char *)&outdata, 4);
+> + =C2=A0 =C2=A0 =C2=A0 memcpy(membase, &outdata, 4);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Now compare them */
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (memcmp((char *)&outdata, (char *)memba=
+se, 4) =3D=3D 0)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return ACCESS_=
+32;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Write 16 bit output */
+> - =C2=A0 =C2=A0 =C2=A0 word_memcpy_tocard((char *)membase, (char *)&o=
+utdata, 4);
+> + =C2=A0 =C2=A0 =C2=A0 word_memcpy_tocard(membase, &outdata, 4);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Now read it back */
+> - =C2=A0 =C2=A0 =C2=A0 word_memcpy_fromcard((char *)&indata, (char *)=
+membase, 4);
+> + =C2=A0 =C2=A0 =C2=A0 word_memcpy_fromcard(&indata, membase, 4);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (outdata =3D=3D indata)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return ACCESS_=
+16;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0return ACCESS_UNKNOWN;
 
-Reported-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+=2E.. hence you introduced 3 compiler warnings:
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 2559fb5..ba30f41 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -38,7 +38,7 @@ static struct net_bridge_mdb_entry *__br_mdb_ip_get(
- 	struct net_bridge_mdb_entry *mp;
- 	struct hlist_node *p;
- 
--	hlist_for_each_entry(mp, p, &mdb->mhash[hash], hlist[mdb->ver]) {
-+	hlist_for_each_entry_rcu(mp, p, &mdb->mhash[hash], hlist[mdb->ver]) {
- 		if (dst == mp->addr)
- 			return mp;
- 	}
+drivers/net/mac8390.c:249: warning: passing argument 1 of
+'__builtin_memcpy' makes pointer from integer without a cast
+drivers/net/mac8390.c:254: warning: passing argument 1 of
+'word_memcpy_tocard' makes pointer from integer without a cast
+drivers/net/mac8390.c:256: warning: passing argument 2 of
+'word_memcpy_fromcard' makes pointer from integer without a cast
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
+m68k.org
+
+In personal conversations with technical people, I call myself a hacker=
+=2E But
+when I'm talking to journalists I just say "programmer" or something li=
+ke that.
+							    -- Linus Torvalds
