@@ -1,44 +1,66 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 2/3] cpmac: fallback to switch mode if no PHY chip found
-Date: Sun, 7 Mar 2010 11:55:47 +0100
-Message-ID: <201003071155.48462.florian@openwrt.org>
-Reply-To: Florian Fainelli <florian@openwrt.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v1 0/3] Provide a zero-copy method on KVM virtio-net.
+Date: Sun, 7 Mar 2010 12:50:31 +0200
+Message-ID: <20100307105031.GA20004@redhat.com>
+References: <1267868318-19268-1-git-send-email-xiaohui.xin@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f222.google.com ([209.85.218.222]:63171 "EHLO
-	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751078Ab0CGKzv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Mar 2010 05:55:51 -0500
-Received: by mail-bw0-f222.google.com with SMTP id 22so2144929bwz.28
-        for <netdev@vger.kernel.org>; Sun, 07 Mar 2010 02:55:50 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@elte.hu,
+	jdike@c2.user-mode-linux.org
+To: xiaohui.xin@intel.com
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1267868318-19268-1-git-send-email-xiaohui.xin@intel.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If we were unable to detect a PHY on any of the MDIO bus id we tried instead of
-bailing out with -ENODEV, assume the MAC is connected to a switch and use MDIO
-bus 0. This unbreaks quite a lot of devices out there whose switch cannot be
-detected.
+On Sat, Mar 06, 2010 at 05:38:35PM +0800, xiaohui.xin@intel.com wrote:
+> The idea is simple, just to pin the guest VM user space and then
+> let host NIC driver has the chance to directly DMA to it. 
+> The patches are based on vhost-net backend driver. We add a device
+> which provides proto_ops as sendmsg/recvmsg to vhost-net to
+> send/recv directly to/from the NIC driver. KVM guest who use the
+> vhost-net backend may bind any ethX interface in the host side to
+> get copyless data transfer thru guest virtio-net frontend.
+> 
+> We provide multiple submits and asynchronous notifiicaton to 
+> vhost-net too.
+> 
+> Our goal is to improve the bandwidth and reduce the CPU usage.
+> Exact performance data will be provided later. But for simple
+> test with netperf, we found bindwidth up and CPU % up too,
+> but the bindwidth up ratio is much more than CPU % up ratio.
+> 
+> What we have not done yet:
+> 	packet split support
+> 	To support GRO
+> 	Performance tuning
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
-diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
-index 722a196..4051e81 100644
---- a/drivers/net/cpmac.c
-+++ b/drivers/net/cpmac.c
-@@ -1137,8 +1137,9 @@ static int __devinit cpmac_probe(struct platform_device *pdev)
- 	}
- 
- 	if (phy_id == PHY_MAX_ADDR) {
--		dev_err(&pdev->dev, "no PHY present\n");
--		return -ENODEV;
-+		dev_err(&pdev->dev, "no PHY present, falling back to switch on MDIO bus 0\n");
-+		strncpy(mdio_bus_id, "0", MII_BUS_ID_SIZE); /* fixed phys bus */
-+		phy_id = pdev->id;
- 	}
- 
- 	dev = alloc_etherdev_mq(sizeof(*priv), CPMAC_QUEUES);
+Am I right to say that nic driver needs changes for these patches
+to work? If so, please publish nic driver patches as well.
 
+> what we have done in v1:
+> 	polish the RCU usage
+> 	deal with write logging in asynchroush mode in vhost
+> 	add notifier block for mp device
+> 	rename page_ctor to mp_port in netdevice.h to make it looks generic
+> 	add mp_dev_change_flags() for mp device to change NIC state
+> 	add CONIFG_VHOST_MPASSTHRU to limit the usage when module is not load
+> 	a small fix for missing dev_put when fail
+> 	using dynamic minor instead of static minor number
+> 	a __KERNEL__ protect to mp_get_sock()
+> 
+> performance:
+> 	using netperf with GSO/TSO disabled, 10G NIC, 
+> 	disabled packet split mode, with raw socket case compared to vhost.
+> 
+> 	bindwidth will be from 1.1Gbps to 1.7Gbps
+> 	CPU % from 120%-140% to 140%-160%
+
+That's pretty low for a 10Gb nic. Are you hitting some other bottleneck,
+like high interrupt rate? Also, GSO support and performance tuning
+for raw are incomplete. Try comparing with e.g. tap with GSO.
+
+-- 
+MST
