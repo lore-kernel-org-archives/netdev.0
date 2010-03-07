@@ -1,75 +1,27 @@
-From: Petko Manolov <petkan@nucleusys.com>
-Subject: [patch] another pegasus usb net device
-Date: Sun, 7 Mar 2010 18:10:01 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.1003071748580.4222@fry.nucleusys.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [kernel,2.6.33-git11] lib8390: use spin_lock_irqsave for
+ locking
+Date: Sun, 07 Mar 2010 15:22:30 -0800 (PST)
+Message-ID: <20100307.152230.09914483.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1463751958-1069923093-1267977798=:4222"
-Cc: davem@davemloft.net, julian@codesourcery.com, petkan@users.sf.net
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ken_kawasaki@spring.nifty.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lan.nucleusys.com ([78.83.248.164]:41806 "EHLO
-	zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754014Ab0CGQom (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Mar 2010 11:44:42 -0500
-Content-ID: <alpine.DEB.2.00.1003071803310.4222@fry.nucleusys.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52999
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750832Ab0CGXWL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Mar 2010 18:22:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
----1463751958-1069923093-1267977798=:4222
-Content-Type: TEXT/PLAIN; FORMAT=flowed; CHARSET=US-ASCII
-Content-ID: <alpine.DEB.2.00.1003071803311.4222@fry.nucleusys.com>
+This change is not correct.
 
-This one removes trailing whitespace in pegasus.h and more importantly 
-adds new Pegasus compatible device.
+disable_irq is being intentionally used because the reset
+sequence can take a very long time and we don't want to
+have cpu interrupts disabled during the entire sequence.
 
-Signed-off-by: Julian Brown <julian@codesourcery.com>
-Signed-off-by: Petko Manolov <petkan@nucleusys.com>
----1463751958-1069923093-1267977798=:4222
-Content-Type: TEXT/X-DIFF; NAME=pegasus-belkin-f5u122-1.diff
-Content-Transfer-Encoding: BASE64
-Content-ID: <alpine.DEB.2.00.1003071803180.4222@fry.nucleusys.com>
-Content-Description: 
-Content-Disposition: ATTACHMENT; FILENAME=pegasus-belkin-f5u122-1.diff
-
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3VzYi9wZWdhc3VzLmggYi9kcml2
-ZXJzL25ldC91c2IvcGVnYXN1cy5oDQppbmRleCA1ZDAyZjAyLi5iOTBkODc2
-IDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvdXNiL3BlZ2FzdXMuaA0KKysr
-IGIvZHJpdmVycy9uZXQvdXNiL3BlZ2FzdXMuaA0KQEAgLTE3Nyw3ICsxNzcs
-NyBAQCBQRUdBU1VTX0RFViggIlVTQiAxMC8xMDAgRmFzdCBFdGhlcm5ldCIs
-IFZFTkRPUl9BQk9DT00sIDB4NDAwYywNCiBQRUdBU1VTX0RFViggIlVTQiAx
-MC8xMDAgRmFzdCBFdGhlcm5ldCIsIFZFTkRPUl9BQk9DT00sIDB4YWJjMSwN
-CiAJCURFRkFVTFRfR1BJT19SRVNFVCApDQogUEVHQVNVU19ERVYoICJVU0Ig
-MTAvMTAwIEZhc3QgRXRoZXJuZXQiLCBWRU5ET1JfQUJPQ09NLCAweDIwMGMs
-DQotCQlERUZBVUxUX0dQSU9fUkVTRVQgfCBQRUdBU1VTX0lJICkgCQ0KKwkJ
-REVGQVVMVF9HUElPX1JFU0VUIHwgUEVHQVNVU19JSSApDQogUEVHQVNVU19E
-RVYoICJBY2N0b24gVVNCIDEwLzEwMCBFdGhlcm5ldCBBZGFwdGVyIiwgVkVO
-RE9SX0FDQ1RPTiwgMHgxMDQ2LA0KIAkJREVGQVVMVF9HUElPX1JFU0VUICkN
-CiBQRUdBU1VTX0RFViggIlNwZWVkU3RyZWFtIFVTQiAxMC8xMDAgRXRoZXJu
-ZXQiLCBWRU5ET1JfQUNDVE9OLCAweDUwNDYsDQpAQCAtMjA4LDYgKzIwOCw4
-IEBAIFBFR0FTVVNfREVWKCAiQWxsaWVkIFRlbGVzeW4gSW50LiBBVC1VU0Ix
-MDAiLCBWRU5ET1JfQUxMSUVEVEVMLCAweGIxMDAsDQogICovDQogUEVHQVNV
-U19ERVZfQ0xBU1MoICJCZWxraW4gRjVENTA1MCBVU0IgRXRoZXJuZXQiLCBW
-RU5ET1JfQkVMS0lOLCAweDAxMjEsIDB4MDAsDQogCQlERUZBVUxUX0dQSU9f
-UkVTRVQgfCBQRUdBU1VTX0lJICkNCitQRUdBU1VTX0RFViggIkJlbGtpbiBG
-NVUxMjIgMTAvMTAwIFVTQiBFdGhlcm5ldCIsIFZFTkRPUl9CRUxLSU4sIDB4
-MDEyMiwNCisJCURFRkFVTFRfR1BJT19SRVNFVCB8IFBFR0FTVVNfSUkgKQ0K
-IFBFR0FTVVNfREVWKCAiQmlsbGlvbnRvbiBVU0ItMTAwIiwgVkVORE9SX0JJ
-TExJT05UT04sIDB4MDk4NiwNCiAJCURFRkFVTFRfR1BJT19SRVNFVCApDQog
-UEVHQVNVU19ERVYoICJCaWxsaW9udG9uIFVTQkxQLTEwMCIsIFZFTkRPUl9C
-SUxMSU9OVE9OLCAweDA5ODcsDQpAQCAtMjQ5LDcgKzI1MSw3IEBAIFBFR0FT
-VVNfREVWKCAiR0lHQUJZVEUgR04tQlI0MDJXIFdpcmVsZXNzIFJvdXRlciIs
-IFZFTkRPUl9HSUdBQllURSwgMHg4MDAyLA0KIFBFR0FTVVNfREVWKCAiSGF3
-a2luZyBVRjEwMCAxMC8xMDAgRXRoZXJuZXQiLCBWRU5ET1JfSEFXS0lORywg
-MHg0MDBjLA0KIAkJREVGQVVMVF9HUElPX1JFU0VUIHwgUEVHQVNVU19JSSAp
-DQogUEVHQVNVU19ERVYoICJIUCBobjIxMGMgRXRoZXJuZXQgVVNCIiwgVkVO
-RE9SX0hQLCAweDgxMWMsDQotCQlERUZBVUxUX0dQSU9fUkVTRVQgfCBQRUdB
-U1VTX0lJICkJDQorCQlERUZBVUxUX0dQSU9fUkVTRVQgfCBQRUdBU1VTX0lJ
-ICkNCiBQRUdBU1VTX0RFViggIklPIERBVEEgVVNCIEVUL1RYIiwgVkVORE9S
-X0lPREFUQSwgMHgwOTA0LA0KIAkJREVGQVVMVF9HUElPX1JFU0VUICkNCiBQ
-RUdBU1VTX0RFViggIklPIERBVEEgVVNCIEVUL1RYLVMiLCBWRU5ET1JfSU9E
-QVRBLCAweDA5MTMsDQo=
-
----1463751958-1069923093-1267977798=:4222--
+Otherwise slow serial devices will drop characters and
+stuff like that.
