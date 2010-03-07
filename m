@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] bridge: cleanup: remove unneed check
-Date: Sun, 07 Mar 2010 15:27:57 -0800 (PST)
-Message-ID: <20100307.152757.142897943.davem@davemloft.net>
-References: <20100306111408.GJ4958@bicker>
-	<20100306122031.GA15864@gondor.apana.org.au>
+Subject: Re: [patch] ems_usb: cleanup: remove uneeded check
+Date: Sun, 07 Mar 2010 15:28:05 -0800 (PST)
+Message-ID: <20100307.152805.244203159.davem@davemloft.net>
+References: <20100306111138.GH4958@bicker>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: error27@gmail.com, shemminger@linux-foundation.org,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
+	wg@grandegger.com, haas@ems-wuensche.com, kurt.van.dijck@eia.be,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: error27@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50926
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50933
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751063Ab0CGX1h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Mar 2010 18:27:37 -0500
-In-Reply-To: <20100306122031.GA15864@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1751063Ab0CGX1p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Mar 2010 18:27:45 -0500
+In-Reply-To: <20100306111138.GH4958@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sat, 6 Mar 2010 20:20:32 +0800
+From: Dan Carpenter <error27@gmail.com>
+Date: Sat, 6 Mar 2010 14:11:38 +0300
 
-> On Sat, Mar 06, 2010 at 02:14:09PM +0300, Dan Carpenter wrote:
->> We dereference "port" on the lines immediately before and immediately 
->> after the test so port should hopefully never be null here.
->> 
->> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> "skb" is alway non-null here, but even if it were null the check isn't
+> needed because dev_kfree_skb() can handle it.
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> This eliminates a smatch warning about dereferencing a variable before
+> checking that it is non-null.
 > 
-> Yes this looks correct to me.
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
 Applied.
