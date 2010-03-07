@@ -1,51 +1,55 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [net-next-2.6 PATCH v2] net: consolidate netif_needs_gso()
-	checks
-Date: Sun, 7 Mar 2010 09:43:24 +0800
-Message-ID: <20100307014324.GA19589@gondor.apana.org.au>
-References: <20100227001954.32474.62766.stgit@localhost.localdomain> <20100227.032725.158512690.davem@davemloft.net> <20100227155245.GB3176@gondor.apana.org.au> <4B92ACB6.1090909@intel.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH] vsprintf.c: Reduce sizeof struct printf_spec from 24 to
+ 8 bytes
+Date: Sat, 6 Mar 2010 18:03:33 -0800 (PST)
+Message-ID: <alpine.LFD.2.00.1003061755400.23804@localhost.localdomain>
+References: <cover.1267682641.git.joe@perches.com>  <20100304143837.af39845d.akpm@linux-foundation.org>  <alpine.LFD.2.00.1003041504080.3751@localhost.localdomain>  <1267911399.849.39.camel@Joe-Laptop.home>  <alpine.LFD.2.00.1003061356420.31447@localhost.localdomain>
+  <1267914654.849.81.camel@Joe-Laptop.home>  <alpine.LFD.2.00.1003061445490.31447@localhost.localdomain>  <alpine.LFD.2.00.1003061455590.31447@localhost.localdomain>  <1267918554.849.89.camel@Joe-Laptop.home>  <alpine.LFD.2.00.1003061540470.23804@localhost.localdomain>
+  <alpine.LFD.2.00.1003061547490.23804@localhost.localdomain>  <alpine.LFD.2.00.1003061556420.23804@localhost.localdomain> <1267924214.1937.12.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: John Fastabend <john.r.fastabend@intel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Nick Andrew <nick@nick-andrew.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@suse.de>, netdev@vger.kernel.org,
+	Bjorn Helgaas <bjorn.helgaas@hp.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:48813 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752950Ab0CGBnd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Mar 2010 20:43:33 -0500
-Content-Disposition: inline
-In-Reply-To: <4B92ACB6.1090909@intel.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:53189 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752638Ab0CGCDr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Mar 2010 21:03:47 -0500
+In-Reply-To: <1267924214.1937.12.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 06, 2010 at 11:27:50AM -0800, John Fastabend wrote:
->
-> It looks like dev_gso_segment() could be used to "Verify header  
-> integrity only" according to the comment?  If this is true I think the  
-> logic should probably be
->
-> 		if (netif_needs_gso(dev, skb)) {
-> 			if (unlikely(dev_gso_segment(skb)))
-> 				goto out_kfree_skb;
-> 			if (skb->next)
-> 				goto gso;
-> 		} 		do your thing
->
-> 		
->
-> That way we linearize the skb if necessary in the case were  
-> dev_gso_segment() only verifies the header and does not return a list of  
-> segments.
 
-If we needed to linearise the skb then dev_gso_segment should
-perform the segmentation.  Is there a case where it doesn't?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+On Sat, 6 Mar 2010, Joe Perches wrote:
+> 
+> Reducing the size of struct printf_spec is a good thing
+> because multiple instances are commonly passed on stack.
+
+Sadly, this is not enough.
+
+the 'pointer()' function has a 200+ byte stack footprint on x86-64. And 
+vsnprintf itself is about 100+ bytes. So that stack depth is way bigger 
+than I would have expected.
+
+I'm not sure _why_ that stack footprint for 'pointer()' is so big, but I 
+bet it's due to some simple inlining, and gcc (once more) sucking at it 
+and not being able to combine stack frames. It's a damn shame.
+
+I suspect it's mac_address_string() having 20-odd bytes of temporary data, 
+ip6_compressed_string() having some more, ip6_addr_string() having 50 
+bytes, uuid_string() adding thirty-odd bytes etc. Inline them all, suck up 
+merging stack slots, and 200 bytes is easy.
+
+So no, I don't think we can do the recursion as things stand. I've applied 
+your cleanup patch, along with the two from Bjorn Helgaas (which he did 
+for his pnp set), but they don't help this fundamental problem.
+
+A few noinlines might be appropriate. As would a good gcc cluestick about 
+inlining and stack usage. The latter is unlikely to materialize, I guess.
+
+		Linus
