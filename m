@@ -1,42 +1,50 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [RESEND PATCH 0/2] Make functions of dev_<level> macros, recursive
- vsnprintf
-Date: Sat, 6 Mar 2010 15:58:28 -0800 (PST)
-Message-ID: <alpine.LFD.2.00.1003061556420.23804@localhost.localdomain>
-References: <cover.1267682641.git.joe@perches.com>  <20100304143837.af39845d.akpm@linux-foundation.org>  <alpine.LFD.2.00.1003041504080.3751@localhost.localdomain>  <1267911399.849.39.camel@Joe-Laptop.home>  <alpine.LFD.2.00.1003061356420.31447@localhost.localdomain>
-  <1267914654.849.81.camel@Joe-Laptop.home>  <alpine.LFD.2.00.1003061445490.31447@localhost.localdomain>  <alpine.LFD.2.00.1003061455590.31447@localhost.localdomain> <1267918554.849.89.camel@Joe-Laptop.home> <alpine.LFD.2.00.1003061540470.23804@localhost.localdomain>
- <alpine.LFD.2.00.1003061547490.23804@localhost.localdomain>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: [PATCH 1/3] cpmac: fix the receiving of 802.1q frames
+Date: Sun, 7 Mar 2010 11:55:26 +0100
+Message-ID: <201003071155.27947.florian@openwrt.org>
+Reply-To: Florian Fainelli <florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Nick Andrew <nick@nick-andrew.net>,
-	linux-kernel@vger.kernel.org, Greg Kroah-Hartman <gregkh@suse.de>,
-	netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.1003061547490.23804@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f222.google.com ([209.85.218.222]:63171 "EHLO
+	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750951Ab0CGKza (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Mar 2010 05:55:30 -0500
+Received: by mail-bw0-f222.google.com with SMTP id 22so2144929bwz.28
+        for <netdev@vger.kernel.org>; Sun, 07 Mar 2010 02:55:29 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Despite what the comment above CPMAC_SKB_SIZE says, the hardware also
+needs to account for the FCS length in a received frame. This patch fix
+the receiving of 802.1q frames which have 4 more bytes. While at it
+unhardcode the definition and use the one from if_vlan.h.
 
-
-On Sat, 6 Mar 2010, Linus Torvalds wrote:
-
-> 
-> 
-> On Sat, 6 Mar 2010, Linus Torvalds wrote:
-> >
-> > width: 5 (make it 6 bits and signed)
-> > precision: 5 (make it 6 bits, and signed)
-> 
-> Oh, actually, no, we do that whole left-justification with the flags, we 
-> don't need that signed stuff. We do need one special value for the "no 
-> width, no precision", though.
-
-Btw, yeah, we do have a couple of "%.100s" etc, but we could fix those if 
-we really wanted to do this.
-
-And no, I guess we don't really need to make it 32-bit. Fitting in 64 bits 
-would already be a big improvement over what we have now.
-
-				Linus
+Signed-off-by: Florian Fainelli <florian@openwrt.org>
+---
+diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
+index b85c81f..722a196 100644
+--- a/drivers/net/cpmac.c
++++ b/drivers/net/cpmac.c
+@@ -28,6 +28,7 @@
+ #include <linux/delay.h>
+ 
+ #include <linux/netdevice.h>
++#include <linux/if_vlan.h>
+ #include <linux/etherdevice.h>
+ #include <linux/ethtool.h>
+ #include <linux/skbuff.h>
+@@ -56,8 +57,8 @@ MODULE_PARM_DESC(debug_level, "Number of NETIF_MSG bits to enable");
+ MODULE_PARM_DESC(dumb_switch, "Assume switch is not connected to MDIO bus");
+ 
+ #define CPMAC_VERSION "0.5.1"
+-/* frame size + 802.1q tag */
+-#define CPMAC_SKB_SIZE		(ETH_FRAME_LEN + 4)
++/* frame size + 802.1q tag + FCS size */
++#define CPMAC_SKB_SIZE		(ETH_FRAME_LEN + ETH_FCS_LEN + VLAN_HLEN)
+ #define CPMAC_QUEUES	8
+ 
+ /* Ethernet registers */
