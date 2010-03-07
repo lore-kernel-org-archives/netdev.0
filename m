@@ -1,37 +1,40 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RESEND PATCH 0/2] Make functions of dev_<level> macros,
- recursive vsnprintf
-Date: Sat, 06 Mar 2010 13:36:39 -0800
-Message-ID: <1267911399.849.39.camel@Joe-Laptop.home>
-References: <cover.1267682641.git.joe@perches.com>
-	 <20100304143837.af39845d.akpm@linux-foundation.org>
-	 <alpine.LFD.2.00.1003041504080.3751@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Nick Andrew <nick@nick-andrew.net>,
-	linux-kernel@vger.kernel.org, Greg Kroah-Hartman <gregkh@suse.de>,
-	netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.1003041504080.3751@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [PATCH net-2.6] netfilter: Remove stale declaration for ip6_masked_addrcmp().
+Date: Sun, 7 Mar 2010 17:39:13 +0900
+Message-ID: <201003070918.o279IfCk029612@94.43.138.210.xn.2iij.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: kaber@trash.net, davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2010-03-04 at 15:06 -0800, Linus Torvalds wrote:
-> On Thu, 4 Mar 2010, Andrew Morton wrote:
-> > What would I need to do to make it recur more than once?  Include a %pV
-> > in a string, like dev_printk("%s", %%pV")?
-> 
-> I would argue that if somebody does that, they're just broken.
-> 
-> The single level of recursion is really nice - it solves a real annoyance. 
-> But if somebody starts trying to do multiple levels, that's just crazy.
-> 
-> Of course, I guess we don't relly have any way of sanely _counting_ the 
-> recursion level, so we'd have to just trust people to not do crazy things. 
-> 
-> And that's a big thing to take on trust ;)
+Commit f2ffd9ee... ("[NETFILTER]: Move ip6_masked_addrcmp to
+include/net/ipv6.h") replaced ip6_masked_addrcmp() with
+ipv6_masked_addr_cmp().  Function definition went away.
 
-Is that an ack, a nack or a get the hell out?
+Let's remove its declaration as well in header file.
+
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ include/linux/netfilter_ipv6/ip6_tables.h |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/netfilter_ipv6/ip6_tables.h b/include/linux/netfilter_ipv6/ip6_tables.h
+index e5ba03d..18442ff 100644
+--- a/include/linux/netfilter_ipv6/ip6_tables.h
++++ b/include/linux/netfilter_ipv6/ip6_tables.h
+@@ -316,10 +316,6 @@ extern int ip6t_ext_hdr(u8 nexthdr);
+ extern int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
+ 			 int target, unsigned short *fragoff);
+ 
+-extern int ip6_masked_addrcmp(const struct in6_addr *addr1,
+-			      const struct in6_addr *mask,
+-			      const struct in6_addr *addr2);
+-
+ #define IP6T_ALIGN(s) XT_ALIGN(s)
+ 
+ #ifdef CONFIG_COMPAT
+-- 
+1.5.6.5
+
