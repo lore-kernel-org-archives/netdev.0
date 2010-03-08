@@ -1,162 +1,99 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
-Date: Mon, 08 Mar 2010 12:47:44 -0800
-Message-ID: <m1sk8ar15b.fsf@fess.ebiederm.org>
-References: <4B88E431.6040609@parallels.com>
-	<m1ljeempk6.fsf@fess.ebiederm.org> <4B8AE8C1.1030305@free.fr>
-	<4B8D28CF.8060304@parallels.com> <20100302211942.GA17816@us.ibm.com>
-	<m1y6iaqsmm.fsf@fess.ebiederm.org> <20100303000743.GA13744@us.ibm.com>
-	<m1ocj6qljj.fsf@fess.ebiederm.org> <4B8E9370.3050300@parallels.com>
-	<m17hptjh3m.fsf@fess.ebiederm.org> <4B9158F5.5040205@parallels.com>
-	<m1vdda1pmx.fsf@fess.ebiederm.org> <4B926B1B.5070207@free.fr>
-	<m1aaulyy5c.fsf@fess.ebiederm.org> <4B92C886.9020507@free.fr>
-	<m1fx4bxlfy.fsf@fess.ebiederm.org> <4B952BBE.6070507@free.fr>
-	<m11vfuvi1t.fsf@fess.ebiederm.org> <4B9556A9.60206@free.fr>
-	<m11vfusgsa.fsf@fess.ebiederm.org> <4B95611C.5060403@free.fr>
+From: Jeff Mahoney <jeffm@suse.com>
+Subject: [PATCH RESEND] ipg: Remove device claimed by dl2k from pci id table
+Date: Mon, 08 Mar 2010 15:48:03 -0500
+Message-ID: <4B956283.3000007@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Emelyanov <xemul@parallels.com>,
-	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
-	Serge Hallyn <serue@us.ibm.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>
-To: Daniel Lezcano <daniel.lezcano@free.fr>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B95611C.5060403@free.fr> (Daniel Lezcano's message of "Mon\, 08 Mar 2010 21\:42\:04 +0100")
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Network Development <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>,
+	Sorbica Shieh <sorbica@icplus.com.tw>,
+	Jesse Huang <jesse@icplus.com.tw>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor.suse.de ([195.135.220.2]:42561 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755482Ab0CHUsH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Mar 2010 15:48:07 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Daniel Lezcano <daniel.lezcano@free.fr> writes:
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-> Eric W. Biederman wrote:
->> Daniel Lezcano <daniel.lezcano@free.fr> writes:
->>
->>   
->>> Eric W. Biederman wrote:
->>>     
->>>> Daniel Lezcano <daniel.lezcano@free.fr> writes:
->>>>
->>>>         
->>>>> Eric W. Biederman wrote:
->>>>>             
->>>>>> I have take an snapshot of my development tree and placed it at.
->>>>>>
->>>>>>
->>>>>> git://git.kernel.org/pub/scm/linux/people/ebiederm/linux-2.6.33-nsfd-v5.git
->>>>>>                   
->>>>> Hi Eric,
->>>>>
->>>>> thanks for the pointer.
->>>>>
->>>>> I tried to boot the kernel under qemu and I got this oops:
->>>>>             
->>>> I am clearly running an old userspace on my test machine.  No udev.
->>>> It looks like udev has a long standing netlink misfeature, where
->>>> it does not initializing NETLINK_CB....
->>>>
->>>>
->>>> >From 8d85e3ab88718eda3d94cf8e1be14b69dae2b8f1 Mon Sep 17 00:00:00 2001
->>>> From: Eric W. Biederman <ebiederm@xmission.com>
->>>> Date: Mon, 8 Mar 2010 09:25:20 -0800
->>>> Subject: [PATCH] kobject_uevent:  Use the netlink allocator helper...
->>>>
->>>> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
->>>>         
->>> Thanks.
->>>
->>> I was able to boot but I have the following warning:
->>>     
->>
->> Thanks for the bug report.
->>   
-> Thanks to you for the patchset :)
->
->> For the moment you might want to drop:
->> af_netlink:  Allow credentials to work across namespaces.
->> af_netlink: Debugging in case I have missed something.
->>
->> Although I am curious if you hit my debugging messages in
->> netlink recv.
->>   
-> No, it does not appear (looked for "missing NETLINK_CB proto").
->
->> I guess if the goal is to test my nsfd bits you can drop everything
->> starting with my 'scm: Reorder scm_cookie.' commit.  The rest is what
->> it takes to get get uids, gid and pids translated when the cross
->> namespaces on an af_unix of an af_netlink socket.
->>
->> At least in the af_netlink case it appears clear I am have missed
->> something.
->>
->> This is a warning that netlink throws when the packet accounting messed
->> up.  So it sounds like you are exercising another path that I failed
->> to exercise and fix.
->>   
-> I will look forward if I find more clues for this warning.
->
-> In the meantime  was able to enter the container with the ugly following
-> program:
->
-> #include <unistd.h>
-> #include <stdlib.h>
-> #include <stdio.h>
-> #include <syscall.h>
-> #include <sys/types.h>
-> #include <sys/stat.h>
-> #include <fcntl.h>
-> #include <sys/param.h>
->
-> #define __NR_setns 300
->
-> int setns(int nstype, int fd)
-> {
->    return syscall (__NR_setns, nstype, fd);
-> }
->
-> int main(int argc, char *argv[])
-> {
->    char path[MAXPATHLEN];
->    char *ns[] = { "pid", "mnt", "net", "pid", "uts" };
->    const int size = sizeof(ns) / sizeof(char *);
->    int fd[size];
->    int i;
->
->    if (argc != 3) {
->        fprintf(stderr, "mynsenter <pid> <command>\n");
->        exit(1);
->    }
->
->    for (i = 0; i < size; i++) {
->            sprintf(path, "/proc/%s/ns/%s", argv[1], ns[i]);
->
->        fd[i] = open(path, O_RDONLY);
->        if (fd[i] < 0) {
->            perror("open");
->            return -1;
->        }
->
->    }
->
->    for (i = 0; i < size; i++) {
->
->        if (setns(0, fd[i])) {
->            perror("setns");
->            return -1;
->        }
->    }
->
->    execve(argv[2], &argv[2], NULL);
->    perror("execve");
->
->    return 0;
-> }
->
-> At the fist glance, no problem :)
 
-No fork() so your processes is completely in the pid namespace?
+Hi all -
 
-Eric
+This is a re-send of a patch I sent out nearly a month ago but didn't
+get a response[2].
 
+I've seen this report a bunch of times but google didn't point to any
+resolution. I'm not really involved with network driver development, so
+I'm hoping that someone who knows the history here can speak up.
+
+I have a report[1] where the D-Link DGE-550T is being associated with the
+ipg driver. It works for a very short amount of time and then fails.
+Unloading the driver and loading dl2k instead results in a working
+system. The DGE-550T is a DL2000 based card, but the ipg (IP1000)
+driver is claiming it and has been since the driver was added to the
+kernel in 2.6.24. dl2k has been claiming this ID since the 2.4 days.
+
+Which driver is correct? Can we remove the PCI IDs associated with the
+wrong driver? Users keep working around this with module blacklisting
+but they shouldn't have to.
+
+Thanks.
+
+- -Jeff
+
+[1] https://bugzilla.novell.com/show_bug.cgi?id=579219
+[2] http://marc.info/?l=linux-netdev&m=126592001219784&w=2
+
+- ---
+
+ipg: Remove device claimed by dl2k from pci id table
+
+ This patch removes D-Link DGE-550T PCI ID (1186:4000) from the ipg
+ driver. The ipg driver is for IP2000-based cards and the DGE-550T is
+ a DL2000-based card. The driver loads and works for a few moments, but
+ once a real workload is applied it stops operating. The ipg driver
+ claimed this ID since it was introduced in 2.6.24 and it's forced many
+ users to blacklist it.
+
+ The correct driver for this hardware is the dl2k driver, which has been
+ claiming this PCI ID since the 2.4 days.
+
+Signed-off-by: Jeff Mahoney <jeffm@suse.com>
+- ---
+ drivers/net/ipg.c |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+- --- a/drivers/net/ipg.c
++++ b/drivers/net/ipg.c
+@@ -88,7 +88,6 @@ static const char *ipg_brand_name[] = {
+ 	"Sundance Technology ST2021 based NIC",
+ 	"Tamarack Microelectronics TC9020/9021 based NIC",
+ 	"Tamarack Microelectronics TC9020/9021 based NIC",
+- -	"D-Link NIC",
+ 	"D-Link NIC IP1000A"
+ };
+ @@ -97,8 +96,7 @@ static struct pci_device_id ipg_pci_tbl[
+ 	{ PCI_VDEVICE(SUNDANCE,	0x2021), 1 },
+ 	{ PCI_VDEVICE(SUNDANCE,	0x1021), 2 },
+ 	{ PCI_VDEVICE(DLINK,	0x9021), 3 },
+- -	{ PCI_VDEVICE(DLINK,	0x4000), 4 },
+- -	{ PCI_VDEVICE(DLINK,	0x4020), 5 },
++	{ PCI_VDEVICE(DLINK,	0x4020), 4 },
+ 	{ 0, }
+ };
+
+- -- 
+Jeff Mahoney
+SUSE Labs
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.13 (GNU/Linux)
+Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAkuVYoMACgkQLPWxlyuTD7LGZwCcCjktCbVANOJcnT20Hn7FRvWf
+WmcAn3fFOMOIZnwtehy0njdy0Bc+i4ge
+=2rTZ
+-----END PGP SIGNATURE-----
