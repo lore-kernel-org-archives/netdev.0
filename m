@@ -1,118 +1,125 @@
-From: figo zhang <figo1802@gmail.com>
-Subject: Re: KS8695: possible NAPI issue
-Date: Mon, 8 Mar 2010 17:04:09 +0800
-Message-ID: <c6ed1ac51003080104l4d67d72aybd3909ac12b54e3b@mail.gmail.com>
-References: <f69abfc31003020404y7af77fe5icefeee4644c7d08e@mail.gmail.com>
-	 <4B8D1C02.1010204@softplc.com>
-	 <c6ed1ac51003021746n2b246591g880b584550ec5e84@mail.gmail.com>
-	 <f69abfc31003040210i7e8a136am4b4a97306ba770cf@mail.gmail.com>
-	 <c6ed1ac51003042254g27f65f9dhd9bd731e05a9518@mail.gmail.com>
-	 <f69abfc31003050206h4f9ffe65s2b90e6acea014ec2@mail.gmail.com>
-	 <1267798077.2576.17.camel@myhost>
-	 <f69abfc31003050700y57718a6aje3c1ff41d04748ae@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH V3 2/8] tcp: use limited socket backlog
+Date: Mon, 08 Mar 2010 10:21:57 +0100
+Message-ID: <1268040117.6148.68.camel@edumazet-laptop>
+References: <1267761707-15605-1-git-send-email-yi.zhu@intel.com>
+	 <1267761707-15605-2-git-send-email-yi.zhu@intel.com>
+	 <1267769972.2867.1.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dick Hollenbeck <dick@softplc.com>, netdev@vger.kernel.org,
-	zealcook@gmail.com
-To: Yegor Yefremov <yegorslists@googlemail.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Zhu Yi <yi.zhu@intel.com>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f202.google.com ([209.85.223.202]:33798 "EHLO
-	mail-iw0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752676Ab0CHJEK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 04:04:10 -0500
-Received: by iwn40 with SMTP id 40so804944iwn.1
-        for <netdev@vger.kernel.org>; Mon, 08 Mar 2010 01:04:09 -0800 (PST)
-In-Reply-To: <f69abfc31003050700y57718a6aje3c1ff41d04748ae@mail.gmail.com>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:64526 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752926Ab0CHJWG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 04:22:06 -0500
+Received: by bwz1 with SMTP id 1so2590031bwz.21
+        for <netdev@vger.kernel.org>; Mon, 08 Mar 2010 01:22:03 -0800 (PST)
+In-Reply-To: <1267769972.2867.1.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2010/3/5 Yegor Yefremov <yegorslists@googlemail.com>:
->>> My tests look like following:
->>>
->>> 1. system start
->>> 2. ping one host: O.K.
->>> 3. nc -l -p 5000 > /var/test (about 1Mb): O.K.
->>> 4. ping the same host: failed
->> 1. type "arp" command, see the arp is exit or expire?
->
-> debian:~# nc -l -p 5000 > /var/zImage
->
-> debian:~# ping -c 1 192.168.1.38
->
-> PING 192.168.1.38 (192.168.1.38) 56(84) bytes of data.
->
-> From 192.168.1.66 icmp_seq=3D1 Destination Host Unreachable
->
->
->
-> --- 192.168.1.38 ping statistics ---
->
-> 1 packets transmitted, 0 received, +1 errors, 100% packet loss, time =
-0ms
->
->
->
-> debian:~# arp
->
-> Address =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0HWtype =A0HWaddress =A0 =A0=
- =A0 =A0 =A0 Flags Mask =A0 =A0 =A0 =A0 =A0 =A0Iface
-> 192.168.1.38 =A0 =A0 =A0 =A0 =A0(incomplete) =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0eth0
->
-> 192.168.1.36 =A0 =A0 =A0 =A0 =A0 =A0 ether =A0 00:10:18:39:19:aa =A0 =
-C =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 eth0
->
->
->> 2. at this point, see is it still have RX interrpt and receive packe=
-t in
->> ks8695_rx()? (in some watchpoint add printk).
->
-> I've inserted some printks and I can see that interrupts are coming
-> and the received count will be increased. I can also see my system
-> sending arp requests. Even this ping request is visible in wireshark
-> and its reply, but the ping utility sees nothing of it.
->
+Le vendredi 05 mars 2010 =C3=A0 07:19 +0100, Eric Dumazet a =C3=A9crit =
+:
 
-when you netcat finished, it cannot ping, right? at this point, would
-you like to add some printk at RX and TX?
-i want to see the target board have send arp packet, or have receive
-arp reply packet.
+> I'll submit a followup patch to add a MIB counter if your patch gets =
+in.
+>=20
 
-you can add such funtion to print the packet buffer:
+As promised, here it is.
 
-void print_mem(unsigned char *p,u32 len, u8 * s)
-{
-	u32 i;
-	printk("  %s   ram addr =3D %x , data len =3D %x",s, p, len);
+[PATCH] tcp: Add SNMP counters for backlog and min_ttl drops
 
-	for (i=3D0;i<len;i++) {
-		if (0=3D=3Di%16) {
-			printk("\n  0x%02x : ",(p+i));
-		}
-		printk("%02x",*(u8 *)(p+i));
-		printk(" ");
-	}
-	printk("\n\n");
-}
+Commit 6b03a53a (tcp: use limited socket backlog) added the possibility
+of dropping frames when backlog queue is full.
 
-for TX: ks8695_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+Commit d218d111 (tcp: Generalized TTL Security Mechanism) added the
+possibility of dropping frames when TTL is under a given limit.
 
-=3D>
-    	ksp->tx_ring[buff_n].status =3D
-		cpu_to_le32(TDES_IC | TDES_FS | TDES_LS |
-			    (skb->len & TDES_TBS));
+This patch adds new SNMP MIB entries, named TCPBacklogDrop and=20
+TCPMinTTLDrop, published in /proc/net/netstat in TcpExt: line
 
-	print_mem(skb->data, skb->len, "tx");
+netstat -s | egrep "TCPBacklogDrop|TCPMinTTLDrop"
+    TCPBacklogDrop: 0
+    TCPMinTTLDrop: 0
 
-	wmb();
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/linux/snmp.h |    2 ++
+ net/ipv4/proc.c      |    2 ++
+ net/ipv4/tcp_ipv4.c  |    7 +++++--
+ net/ipv6/tcp_ipv6.c  |    3 ++-
+ 4 files changed, 11 insertions(+), 3 deletions(-)
 
-for RX: static int ks8695_rx(struct ks8695_priv *ksp, int budget)
-=3D>
-  			/* Retrieve the sk_buff */
-			skb =3D ksp->rx_buffers[buff_n].skb;
+diff --git a/include/linux/snmp.h b/include/linux/snmp.h
+index e28f5a0..4435d10 100644
+--- a/include/linux/snmp.h
++++ b/include/linux/snmp.h
+@@ -225,6 +225,8 @@ enum
+ 	LINUX_MIB_SACKSHIFTED,
+ 	LINUX_MIB_SACKMERGED,
+ 	LINUX_MIB_SACKSHIFTFALLBACK,
++	LINUX_MIB_TCPBACKLOGDROP,
++	LINUX_MIB_TCPMINTTLDROP, /* RFC 5082 */
+ 	__LINUX_MIB_MAX
+ };
+=20
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 242ed23..4f1f337 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -249,6 +249,8 @@ static const struct snmp_mib snmp4_net_list[] =3D {
+ 	SNMP_MIB_ITEM("TCPSackShifted", LINUX_MIB_SACKSHIFTED),
+ 	SNMP_MIB_ITEM("TCPSackMerged", LINUX_MIB_SACKMERGED),
+ 	SNMP_MIB_ITEM("TCPSackShiftFallback", LINUX_MIB_SACKSHIFTFALLBACK),
++	SNMP_MIB_ITEM("TCPBacklogDrop", LINUX_MIB_TCPBACKLOGDROP),
++	SNMP_MIB_ITEM("TCPMinTTLDrop", LINUX_MIB_TCPMINTTLDROP),
+ 	SNMP_MIB_SENTINEL
+ };
+=20
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 1915f7d..8d51d39 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1651,8 +1651,10 @@ int tcp_v4_rcv(struct sk_buff *skb)
+ 	if (!sk)
+ 		goto no_tcp_socket;
+=20
+-	if (iph->ttl < inet_sk(sk)->min_ttl)
++	if (unlikely(iph->ttl < inet_sk(sk)->min_ttl)) {
++		NET_INC_STATS_BH(net, LINUX_MIB_TCPMINTTLDROP);
+ 		goto discard_and_relse;
++	}
+=20
+ process:
+ 	if (sk->sk_state =3D=3D TCP_TIME_WAIT)
+@@ -1682,8 +1684,9 @@ process:
+ 			if (!tcp_prequeue(sk, skb))
+ 				ret =3D tcp_v4_do_rcv(sk, skb);
+ 		}
+-	} else if (sk_add_backlog(sk, skb)) {
++	} else if (unlikely(sk_add_backlog(sk, skb))) {
+ 		bh_unlock_sock(sk);
++		NET_INC_STATS_BH(net, LINUX_MIB_TCPBACKLOGDROP);
+ 		goto discard_and_relse;
+ 	}
+ 	bh_unlock_sock(sk);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 2c378b1..9b6dbba 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1740,8 +1740,9 @@ process:
+ 			if (!tcp_prequeue(sk, skb))
+ 				ret =3D tcp_v6_do_rcv(sk, skb);
+ 		}
+-	} else if (sk_add_backlog(sk, skb)) {
++	} else if (unlikely(sk_add_backlog(sk, skb))) {
+ 		bh_unlock_sock(sk);
++		NET_INC_STATS_BH(net, LINUX_MIB_TCPBACKLOGDROP);
+ 		goto discard_and_relse;
+ 	}
+ 	bh_unlock_sock(sk);
 
-			print_mem(skb->data, skb->len, "rx");
 
-			/* Clear it from the ring */
-			ksp->rx_buffers[buff_n].skb =3D NULL;
