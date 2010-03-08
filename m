@@ -1,71 +1,453 @@
-From: "Fischer, Anna" <anna.fischer@hp.com>
-Subject: RE: bnx2x crash dump on high  network load
-Date: Mon, 8 Mar 2010 11:02:20 +0000
-Message-ID: <0199E0D51A61344794750DC57738F58E6D79C1326A@GVW1118EXC.americas.hpqcorp.net>
-References: <0199E0D51A61344794750DC57738F58E6D79C12E3E@GVW1118EXC.americas.hpqcorp.net>
- <BD3F7F1EFBA6D54DB056C4FFA451400803A1F8F2F7@SJEXCHCCR01.corp.ad.broadcom.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v1 3/3] Let host NIC driver to DMA to guest user space.
+Date: Mon, 8 Mar 2010 13:18:26 +0200
+Message-ID: <20100308111826.GH7482@redhat.com>
+References: <1267868318-19268-1-git-send-email-xiaohui.xin@intel.com> <1267868318-19268-2-git-send-email-xiaohui.xin@intel.com> <1267868318-19268-3-git-send-email-xiaohui.xin@intel.com> <1267868318-19268-4-git-send-email-xiaohui.xin@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: eliezert <eliezert@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eilon Greenstein <eilong@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:32806 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753510Ab0CHLEA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 06:04:00 -0500
-In-Reply-To: <BD3F7F1EFBA6D54DB056C4FFA451400803A1F8F2F7@SJEXCHCCR01.corp.ad.broadcom.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@elte.hu,
+	jdike@c2.user-mode-linux.org, Zhao Yu <yzhao81@gmail.com>
+To: xiaohui.xin@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1267868318-19268-4-git-send-email-xiaohui.xin@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I have this option set in my /etc/modprobe.conf.local. The problem must be something else.
+On Sat, Mar 06, 2010 at 05:38:38PM +0800, xiaohui.xin@intel.com wrote:
+> From: Xin Xiaohui <xiaohui.xin@intel.com>
+> 
+> The patch let host NIC driver to receive user space skb,
+> then the driver has chance to directly DMA to guest user
+> space buffers thru single ethX interface.
+> 
+> Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+> Signed-off-by: Zhao Yu <yzhao81@gmail.com>
+> Sigend-off-by: Jeff Dike <jdike@c2.user-mode-linux.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Eilon Greenstein
-> Sent: 05 March 2010 17:32
-> To: Fischer, Anna
-> Cc: eliezert; Michael Chan; netdev@vger.kernel.org
-> Subject: RE: bnx2x crash dump on high network load
+
+I have a feeling I commented on some of the below issues already.
+Do you plan to send a version with comments addressed?
+
+> ---
+>  include/linux/netdevice.h |   76 ++++++++++++++++++++++++++++++++++++++++++-
+>  include/linux/skbuff.h    |   30 +++++++++++++++--
+>  net/core/dev.c            |   32 ++++++++++++++++++
+>  net/core/skbuff.c         |   79 +++++++++++++++++++++++++++++++++++++++++----
+>  4 files changed, 205 insertions(+), 12 deletions(-)
 > 
-> Hi Anna,
-> 
-> On this kernel, enabling bridging (like you do on virtualization) does
-> not turn off LRO automatically. Please try to load the bnx2x with
-> disable_tpa=1 (TPA is the HW based LRO feature).
-> 
-> Regards,
-> Eilon
-> 
-> -----Original Message-----
-> From: Fischer, Anna [mailto:anna.fischer@hp.com]
-> Sent: Friday, March 05, 2010 7:08 PM
-> To: netdev@vger.kernel.org
-> Cc: eliezert; Eilon Greenstein; Michael Chan
-> Subject: bnx2x crash dump on high network load
-> 
-> I am seeing driver crashes with a bnx2x version 1.50.16. I have attached
-> two crash dumps that I have captured.
-> 
-> I run Linux with the following kernel:
-> 
-> # uname -a
-> Linux sup-prj-441106 2.6.16.60-0.54.5-debug #1 SMP Fri Sep 4 01:28:03
-> UTC 2009 x86_64 x86_64 x86_64 GNU/Linux
-> 
-> I am seeing these driver crashes when I run virtual machines (VMware
-> Server) and those VMs do high bandwidth network I/O, so there are a lot
-> of packets going through the NIC.
-> 
-> Can you give me any hints for what the problem here could be?
-> 
-> Thanks,
-> Anna
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 94958c1..97bf12c 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -485,6 +485,17 @@ struct netdev_queue {
+>  	unsigned long		tx_dropped;
+>  } ____cacheline_aligned_in_smp;
+>  
+> +#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
+> +struct mpassthru_port	{
+> +	int		hdr_len;
+> +	int		data_len;
+> +	int		npages;
+> +	unsigned	flags;
+> +	struct socket	*sock;
+> +	struct skb_user_page	*(*ctor)(struct mpassthru_port *,
+> +				struct sk_buff *, int);
+> +};
+> +#endif
+>  
+>  /*
+>   * This structure defines the management hooks for network devices.
+> @@ -636,6 +647,10 @@ struct net_device_ops {
+>  	int			(*ndo_fcoe_ddp_done)(struct net_device *dev,
+>  						     u16 xid);
+>  #endif
+> +#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
+> +	int			(*ndo_mp_port_prep)(struct net_device *dev,
+> +						struct mpassthru_port *port);
+> +#endif
+>  };
+>  
+>  /*
+> @@ -891,7 +906,8 @@ struct net_device
+>  	struct macvlan_port	*macvlan_port;
+>  	/* GARP */
+>  	struct garp_port	*garp_port;
+> -
+> +	/* mpassthru */
+> +	struct mpassthru_port	*mp_port;
+>  	/* class/net/name entry */
+>  	struct device		dev;
+>  	/* space for optional statistics and wireless sysfs groups */
+> @@ -2013,6 +2029,62 @@ static inline u32 dev_ethtool_get_flags(struct net_device *dev)
+>  		return 0;
+>  	return dev->ethtool_ops->get_flags(dev);
+>  }
+> -#endif /* __KERNEL__ */
+>  
+> +#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
+> +static inline int netdev_mp_port_prep(struct net_device *dev,
+> +		struct mpassthru_port *port)
+> +{
+
+This function lacks documentation.
+
+> +	int rc;
+> +	int npages, data_len;
+> +	const struct net_device_ops *ops = dev->netdev_ops;
+> +
+> +	/* needed by packet split */
+> +	if (ops->ndo_mp_port_prep) {
+> +		rc = ops->ndo_mp_port_prep(dev, port);
+> +		if (rc)
+> +			return rc;
+> +	} else {  /* should be temp */
+> +		port->hdr_len = 128;
+> +		port->data_len = 2048;
+> +		port->npages = 1;
+
+where do the numbers come from?
+
+> +	}
+> +
+> +	if (port->hdr_len <= 0)
+> +		goto err;
+> +
+> +	npages = port->npages;
+> +	data_len = port->data_len;
+> +	if (npages <= 0 || npages > MAX_SKB_FRAGS ||
+> +			(data_len < PAGE_SIZE * (npages - 1) ||
+> +			 data_len > PAGE_SIZE * npages))
+> +		goto err;
+> +
+> +	return 0;
+> +err:
+> +	dev_warn(&dev->dev, "invalid page constructor parameters\n");
+> +
+> +	return -EINVAL;
+> +}
+> +
+> +static inline int netdev_mp_port_attach(struct net_device *dev,
+> +		struct mpassthru_port *port)
+> +{
+> +	if (rcu_dereference(dev->mp_port))
+> +		return -EBUSY;
+> +
+> +	rcu_assign_pointer(dev->mp_port, port);
+> +
+> +	return 0;
+> +}
+> +
+> +static inline void netdev_mp_port_detach(struct net_device *dev)
+> +{
+> +	if (!rcu_dereference(dev->mp_port))
+> +		return;
+> +
+> +	rcu_assign_pointer(dev->mp_port, NULL);
+> +	synchronize_rcu();
+> +}
+
+The above looks wrong, rcu_dereference should be called
+under rcu read side, rcu_assign_pointer usually should not,
+synchronize_rcu definitely should not.
+
+As I suggested already, these functions are better opencoded,
+rcu is tricky as is without hiding it in inline helpers.
+
+> +#endif /* CONFIG_VHOST_PASSTHRU */
+> +#endif /* __KERNEL__ */
+>  #endif	/* _LINUX_NETDEVICE_H */
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index df7b23a..e59fa57 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -209,6 +209,13 @@ struct skb_shared_info {
+>  	void *		destructor_arg;
+>  };
+>  
+> +struct skb_user_page {
+> +	u8              *start;
+> +	int             size;
+> +	struct skb_frag_struct *frags;
+> +	struct skb_shared_info *ushinfo;
+> +	void		(*dtor)(struct skb_user_page *);
+> +};
+>  /* We divide dataref into two halves.  The higher 16 bits hold references
+>   * to the payload part of skb->data.  The lower 16 bits hold references to
+>   * the entire skb->data.  A clone of a headerless skb holds the length of
+> @@ -441,17 +448,18 @@ extern void kfree_skb(struct sk_buff *skb);
+>  extern void consume_skb(struct sk_buff *skb);
+>  extern void	       __kfree_skb(struct sk_buff *skb);
+>  extern struct sk_buff *__alloc_skb(unsigned int size,
+> -				   gfp_t priority, int fclone, int node);
+> +				   gfp_t priority, int fclone,
+> +				   int node, struct net_device *dev);
+>  static inline struct sk_buff *alloc_skb(unsigned int size,
+>  					gfp_t priority)
+>  {
+> -	return __alloc_skb(size, priority, 0, -1);
+> +	return __alloc_skb(size, priority, 0, -1, NULL);
+>  }
+>  
+>  static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
+>  					       gfp_t priority)
+>  {
+> -	return __alloc_skb(size, priority, 1, -1);
+> +	return __alloc_skb(size, priority, 1, -1, NULL);
+>  }
+>  
+>  extern int skb_recycle_check(struct sk_buff *skb, int skb_size);
+> @@ -1509,6 +1517,22 @@ static inline void netdev_free_page(struct net_device *dev, struct page *page)
+>  	__free_page(page);
+>  }
+>  
+> +extern struct skb_user_page *netdev_alloc_user_pages(struct net_device *dev,
+> +			struct sk_buff *skb, int npages);
+> +
+> +static inline struct skb_user_page *netdev_alloc_user_page(
+> +		struct net_device *dev,
+> +		struct sk_buff *skb, unsigned int size)
+> +{
+> +	struct skb_user_page *user;
+> +	int npages = (size < PAGE_SIZE) ? 1 : (size / PAGE_SIZE);
+
+Should round up to full pages?
+
+> +
+> +	user = netdev_alloc_user_pages(dev, skb, npages);
+> +	if (likely(user))
+> +		return user;
+> +	return NULL;
+> +}
+> +
+>  /**
+>   *	skb_clone_writable - is the header of a clone writable
+>   *	@skb: buffer to check
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index b8f74cf..ab8b082 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2265,6 +2265,30 @@ void netif_nit_deliver(struct sk_buff *skb)
+>  	rcu_read_unlock();
+>  }
+>  
+> +#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
+> +static inline struct sk_buff *handle_mpassthru(struct sk_buff *skb,
+> +					struct packet_type **pt_prev,
+> +					int *ret, struct net_device *orig_dev)
+
+please document
+
+pt_prev, orig_dev and ret seem unused?
+
+> +{
+> +	struct mpassthru_port *ctor = NULL;
+
+Why do you call the port "ctor"?
+
+> +	struct sock *sk = NULL;
+> +
+> +	if (skb->dev)
+> +		ctor = skb->dev->mp_port;
+> +	if (!ctor)
+> +		return skb;
+> +
+> +	sk = ctor->sock->sk;
+> +
+> +	skb_queue_tail(&sk->sk_receive_queue, skb);
+> +
+> +	sk->sk_data_ready(sk, skb->len);
+> +	return NULL;
+> +}
+> +#else
+> +#define handle_mpassthru(skb, pt_prev, ret, orig_dev)      (skb)
+> +#endif
+> +
+>  /**
+>   *	netif_receive_skb - process receive buffer from network
+>   *	@skb: buffer to process
+> @@ -2342,6 +2366,9 @@ int netif_receive_skb(struct sk_buff *skb)
+>  		goto out;
+>  ncls:
+>  #endif
+> +	skb = handle_mpassthru(skb, &pt_prev, &ret, orig_dev);
+> +	if (!skb)
+> +		goto out;
+>  
+>  	skb = handle_bridge(skb, &pt_prev, &ret, orig_dev);
+>  	if (!skb)
+> @@ -2455,6 +2482,11 @@ int dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+>  	if (skb_is_gso(skb) || skb_has_frags(skb))
+>  		goto normal;
+>  
+> +#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
+> +	if (skb->dev && skb->dev->mp_port)
+> +		goto normal;
+> +#endif
+> +
+>  	rcu_read_lock();
+>  	list_for_each_entry_rcu(ptype, head, list) {
+>  		if (ptype->type != type || ptype->dev || !ptype->gro_receive)
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 80a9616..6510e5b 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -170,13 +170,15 @@ EXPORT_SYMBOL(skb_under_panic);
+>   *	%GFP_ATOMIC.
+>   */
+>  struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+> -			    int fclone, int node)
+> +			    int fclone, int node, struct net_device *dev)
+>  {
+>  	struct kmem_cache *cache;
+>  	struct skb_shared_info *shinfo;
+>  	struct sk_buff *skb;
+>  	u8 *data;
+> -
+> +#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
+> +	struct skb_user_page *user = NULL;
+> +#endif
+>  	cache = fclone ? skbuff_fclone_cache : skbuff_head_cache;
+>  
+>  	/* Get the HEAD */
+> @@ -185,8 +187,26 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+>  		goto out;
+>  
+>  	size = SKB_DATA_ALIGN(size);
+> -	data = kmalloc_node_track_caller(size + sizeof(struct skb_shared_info),
+> -			gfp_mask, node);
+> +#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
+> +	if (!dev || !dev->mp_port) { /* Legacy alloc func */
+> +#endif
+> +		data = kmalloc_node_track_caller(
+> +				size + sizeof(struct skb_shared_info),
+> +				gfp_mask, node);
+> +#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
+> +	} else { /* Allocation may from page constructor of device */
+
+what does the comment mean?
+
+> +		user = netdev_alloc_user_page(dev, skb, size);
+> +		if (!user) {
+> +			data = kmalloc_node_track_caller(
+> +				size + sizeof(struct skb_shared_info),
+> +				gfp_mask, node);
+> +			printk(KERN_INFO "can't alloc user buffer.\n");
+> +		} else {
+> +			data = user->start;
+> +			size = SKB_DATA_ALIGN(user->size);
+> +		}
+> +	}
+> +#endif
+>  	if (!data)
+>  		goto nodata;
+>  
+> @@ -208,6 +228,11 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+>  	skb->mac_header = ~0U;
+>  #endif
+>  
+> +#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
+> +	if (user)
+> +		memcpy(user->ushinfo, skb_shinfo(skb),
+> +				sizeof(struct skb_shared_info));
+> +#endif
+>  	/* make sure we initialize shinfo sequentially */
+>  	shinfo = skb_shinfo(skb);
+>  	atomic_set(&shinfo->dataref, 1);
+> @@ -231,6 +256,10 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+>  
+>  		child->fclone = SKB_FCLONE_UNAVAILABLE;
+>  	}
+> +#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
+> +	shinfo->destructor_arg = user;
+> +#endif
+> +
+>  out:
+>  	return skb;
+>  nodata:
+> @@ -259,7 +288,7 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
+>  	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
+>  	struct sk_buff *skb;
+>  
+> -	skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask, 0, node);
+> +	skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask, 0, node, dev);
+>  	if (likely(skb)) {
+>  		skb_reserve(skb, NET_SKB_PAD);
+>  		skb->dev = dev;
+> @@ -278,6 +307,29 @@ struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask)
+>  }
+>  EXPORT_SYMBOL(__netdev_alloc_page);
+>  
+> +#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
+> +struct skb_user_page *netdev_alloc_user_pages(struct net_device *dev,
+> +			struct sk_buff *skb, int npages)
+> +{
+> +	struct mpassthru_port *ctor;
+> +	struct skb_user_page *user = NULL;
+> +
+> +	rcu_read_lock();
+> +	ctor = rcu_dereference(dev->mp_port);
+> +	if (!ctor)
+> +		goto out;
+> +
+> +	BUG_ON(npages > ctor->npages);
+> +
+> +	user = ctor->ctor(ctor, skb, npages);
+
+With the assumption that "ctor" pins userspace pages,
+can't it sleep? If yes you can't call it under rcu read side
+critical section.
+
+> +out:
+> +	rcu_read_unlock();
+> +
+> +	return user;
+> +}
+> +EXPORT_SYMBOL(netdev_alloc_user_pages);
+> +#endif
+> +
+>  void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
+>  		int size)
+>  {
+> @@ -338,6 +390,10 @@ static void skb_clone_fraglist(struct sk_buff *skb)
+>  
+>  static void skb_release_data(struct sk_buff *skb)
+>  {
+> +#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
+> +	struct skb_user_page *user = skb_shinfo(skb)->destructor_arg;
+> +#endif
+> +
+>  	if (!skb->cloned ||
+>  	    !atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
+>  			       &skb_shinfo(skb)->dataref)) {
+> @@ -349,7 +405,10 @@ static void skb_release_data(struct sk_buff *skb)
+>  
+>  		if (skb_has_frags(skb))
+>  			skb_drop_fraglist(skb);
+> -
+> +#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
+> +		if (skb->dev && skb->dev->mp_port && user && user->dtor)
+> +			user->dtor(user);
+> +#endif
+>  		kfree(skb->head);
+>  	}
+>  }
+> @@ -503,8 +562,14 @@ int skb_recycle_check(struct sk_buff *skb, int skb_size)
+>  	if (skb_shared(skb) || skb_cloned(skb))
+>  		return 0;
+>  
+> -	skb_release_head_state(skb);
+> +#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
+> +	if (skb->dev && skb->dev->mp_port)
+> +		return 0;
+> +#endif
+> +
+>  	shinfo = skb_shinfo(skb);
+> +
+> +	skb_release_head_state(skb);
+>  	atomic_set(&shinfo->dataref, 1);
+>  	shinfo->nr_frags = 0;
+>  	shinfo->gso_size = 0;
+> -- 
+> 1.5.4.4
