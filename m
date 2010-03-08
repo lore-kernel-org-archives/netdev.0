@@ -1,297 +1,190 @@
 From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [RFC][ PATCH 2/3] vhost-net: handle vnet_hdr processing for	MRG_RX_BUF
-Date: Sun, 7 Mar 2010 17:28:02 -0800
-Message-ID: <OF8A4807F2.DE42C086-ON882576E0.00033A96-882576E0.00080FCA@us.ibm.com>
-References: <20100307161229.GB24997@redhat.com>
+Subject: Re: [RFC][ PATCH 3/3] vhost-net: Add mergeable RX buffer support	to vhost-net
+Date: Sun, 7 Mar 2010 18:06:51 -0800
+Message-ID: <OF8D4A9381.FF5A483F-ON882576E0.0008221D-882576E0.000B9D4A@us.ibm.com>
+References: <20100307162633.GC24997@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="US-ASCII"
 Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, rusty@rustcorp.com.au,
 	virtualization@lists.osdl.org
 To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20100307161229.GB24997@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:57969 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751796Ab0CHCG4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Mar 2010 21:06:56 -0500
+In-Reply-To: <20100307162633.GC24997@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> wrote on 03/07/2010 08:12:29 AM:
+"Michael S. Tsirkin" <mst@redhat.com> wrote on 03/07/2010 08:26:33 AM:
 
-> On Tue, Mar 02, 2010 at 05:20:26PM -0700, David Stevens wrote:
-> > This patch adds vnet_hdr processing for mergeable buffer
-> > support to vhost-net.
+> On Tue, Mar 02, 2010 at 05:20:34PM -0700, David Stevens wrote:
+> > This patch glues them all together and makes sure we
+> > notify whenever we don't have enough buffers to receive
+> > a max-sized packet, and adds the feature bit.
 > > 
 > > Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
-> > 
-> > diff -ruN net-next-p1/drivers/vhost/net.c 
-net-next-p2/drivers/vhost/net.c
 > 
-> Could you please add -p to diff flags so that it's easier
-> to figure out which function is changes?
+> Maybe split this up?
 
-Sure.
+        I can. I was looking mostly at size (and this is the smallest
+of the bunch). But the feature requires all of them together, of course.
+This last one is just "everything left over" from the other two.
 
+> > @@ -110,6 +90,7 @@
+> >         size_t len, total_len = 0;
+> >         int err, wmem;
+> >         struct socket *sock = rcu_dereference(vq->private_data);
+> > +
+> 
+> I tend not to add empty lines if line below it is already short.
 
-> > @@ -148,25 +146,45 @@
-> >                                "out %d, int %d\n", out, in);
+        This leaves no blank line between the declarations and the start
+of code. It's habit for me-- not sure of kernel coding standards address
+that or not, but I don't think I've seen it anywhere else.
+
+> 
+> >         if (!sock)
+> >                 return;
+> > 
+> > @@ -166,11 +147,11 @@
+> >                 /* Skip header. TODO: support TSO. */
+> >                 msg.msg_iovlen = out;
+> >                 head.iov_len = len = iov_length(vq->iov, out);
+> > +
+> 
+> I tend not to add empty lines if line below it is a comment.
+
+        I added this to separate the logical "skip header" block from
+the next, unrelated piece. Not important to me, though.
+
+> 
+> >                 /* Sanity check */
+> >                 if (!len) {
+> >                         vq_err(vq, "Unexpected header len for TX: "
+> > -                              "%zd expected %zd\n",
+> > -                              len, vq->guest_hlen);
+> > +                              "%zd expected %zd\n", len, 
+vq->guest_hlen);
 > >                         break;
 > >                 }
-> > +               if (vq->guest_hlen > vq->sock_hlen) {
-> > +                       if (msg.msg_iov[0].iov_len == vq->guest_hlen)
-> > +                               msg.msg_iov[0].iov_len = 
-vq->sock_hlen;
-> > +                       else if (out == ARRAY_SIZE(vq->iov))
-> > +                               vq_err(vq, "handle_tx iov overflow!");
-> > +                       else {
-> > +                               int i;
-> > +
-> > +                               /* give header its own iov */
-> > +                               for (i=out; i>0; ++i)
-> > +                                       msg.msg_iov[i+1] = 
-msg.msg_iov[i];
-> > +                               msg.msg_iov[0].iov_len = 
-vq->sock_hlen;
-> > +                               msg.msg_iov[1].iov_base += 
-vq->guest_hlen;
-> > +                               msg.msg_iov[1].iov_len -= 
-vq->guest_hlen;
-> > +                               out++;
-> 
-> We seem to spend a fair bit of code here and elsewhere trying to cover
-> the diff between header size in guest and host.  In hindsight, it was
-> not a good idea to put new padding between data and the header:
-> virtio-net should have added it *before*. But it is what it is.
-> 
-> Wouldn't it be easier to just add an ioctl to tap so that
-> vnet header size is made bigger by 4 bytes?
-
-        I'd be ok with that, but if we support raw sockets, we have
-some of the issues (easier, since it's 0). "num_buffers" is only
-16 bits, so just add 2 bytes, but yeah-- pushing it to tap would
-be easier for vhost.
-
-
 > >                 /* TODO: Check specific error and bomb out unless 
 ENOBUFS? 
 > > */
-> >                 err = sock->ops->sendmsg(NULL, sock, &msg, len);
-> >                 if (unlikely(err < 0)) {
-> > -                       vhost_discard(vq, 1);
-> > -                       tx_poll_start(net, sock);
-> > +                       if (err == -EAGAIN) {
-> 
-> The comment mentions ENOBUFS. Are you sure it's EAGAIN?
-
-        The comment's from the original -- the code changes should do
-the "TODO", so probably should remove the comment.
-> 
-> > +                               tx_poll_start(net, sock);
-> 
-> Don't we need to call discard to move the last avail header back?
-
-        Yes, I think you're right. We might consider dropping the packet
-in the EAGAIN case here instead, though. It's not clear retrying the
-same packet with a delay here is better than getting new ones when the
-socket buffer is full (esp. with queues on both sides already). Maybe
-we should fold EAGAIN into the other error cases? Otherwise, you're
-right, it looks like it should have a discard here.
-
-> 
-> > +                       } else {
-> > +                               vq_err(vq, "sendmsg: errno %d\n", 
--err);
-> > +                               /* drop packet; do not discard/resend 
-*/
-> > + vhost_add_used_and_signal(&net->dev,vq,&head,1);
-> > +                       }
-> >                         break;
-> > -               }
-> > -               if (err != len)
-> > +               } else if (err != len)
-> 
-> 
-> Previous if ends with break so no need for else here.
-
-        Yes.
 
 
-> > @@ -232,25 +243,18 @@
-> >                 headcount = vhost_get_heads(vq, datalen, &in, vq_log, 
-> > &log);
-> >                 /* OK, now we need to know about added descriptors. */
-> >                 if (!headcount) {
-> > -                       if (unlikely(vhost_enable_notify(vq))) {
-> > -                               /* They have slipped one in as we were
-> > -                                * doing that: check again. */
-> > -                               vhost_disable_notify(vq);
-> > -                               continue;
-> > -                       }
-> > -                       /* Nothing new?  Wait for eventfd to tell us
-> > -                        * they refilled. */
-> > +                       vhost_enable_notify(vq);
-> 
-> 
-> You don't think this race can happen?
-
-        The notify case has to allow for multiple heads, not just the one,
-so if he added just one head, it doesn't mean we're ok to continue-- the
-packet may require multiple. Instead, the notifier now checks for enough
-to handle a max-sized packet (whether or not NONOTIFY is set). I'll think
-about this some more, but I concluded it wasn't needed at the time. :-)
-
-
-> > @@ -519,6 +524,20 @@
-> > 
-> >         vhost_net_disable_vq(n, vq);
-> >         rcu_assign_pointer(vq->private_data, sock);
-> > +
-> > +       if (sock && sock->sk) {
-> > +               if (!vhost_sock_is_raw(sock) ||
-> 
-> I dislike this backend-specific code, it ties us with specifics of
-> backend implementations, which change without notice.  Ideally all
-> backend-specific stuff should live in userspace, userspace programs
-> vhost device appropriately.
-
-        We could do that; we need to know whether the socket has a
-vnet header on it or not and the existing flags don't tell us. If
-qemu sets a flag telling us the socket is has or doesn't have vnet,
-that'd be equivalent.
-
-> > +                   vhost_has_feature(&n->dev, 
-> > VHOST_NET_F_VIRTIO_NET_HDR)) {
-> > +                       vq->sock_hlen = sizeof(struct virtio_net_hdr);
-> > +                       if (vhost_has_feature(&n->dev, 
-> > VIRTIO_NET_F_MRG_RXBUF))
-> > +                               vq->guest_hlen =
-> > +                                       sizeof(struct 
-> > virtio_net_hdr_mrg_rxbuf);
-> > +                       else
-> > +                               vq->guest_hlen = sizeof(struct 
-> > virtio_net_hdr);
-> > +               } else
-> > +                       vq->guest_hlen = vq->sock_hlen = 0;
-> > +       } else
-> > +               vq_err(vq, "vhost_net_set_backend: sock->sk is NULL");
-> 
-> As proposed above, IMO it would be nicer to add an ioctl in tap
-> that let us program header size.
-
-        Do you know if Herbert or Dave have an opinion on that solution?
- 
-> > +static int
-> > +vhost_get_hdr(struct vhost_virtqueue *vq, int *in, struct vhost_log 
-*log,
-> > +       int *log_num)
-> > +{
-> > +       struct iovec *heads = vq->heads;
-> > +       struct iovec *iov = vq->iov;
-> > +       int out;
-> > +
-> > +       *in = 0;
-> > +       iov[0].iov_len = 0;
-> > +
-> > +       /* get buffer, starting from iov[1] */
-> > +       heads[0].iov_base = (void *)vhost_get_vq_desc(vq->dev, vq,
-> > +               vq->iov+1, ARRAY_SIZE(vq->iov)-1, &out, in, log, 
-log_num);
-> > +       if (out || *in <= 0) {
-> > +               vq_err(vq, "unexpected descriptor format for RX: out 
-%d, "
-> > +                       "in %d\n", out, *in);
-> > +               return 0;
-> > +       }
-> > +       if (heads[0].iov_base == (void *)vq->num)
-> > +               return 0;
-> > +
-> > +       /* make iov[0] the header */
-> > +       if (!vq->guest_hlen) {
-> > +               if (vq->sock_hlen) {
-> > +                       static struct virtio_net_hdr junk; /* bit 
-bucket 
-> > */
-> > +
-> > +                       iov[0].iov_base = &junk;
-> > +                       iov[0].iov_len = sizeof(junk);
-> > +               } else
-> > +                       iov[0].iov_len = 0;
-> > +       }
-> > +       if (vq->sock_hlen < vq->guest_hlen) {
-> > +               iov[0].iov_base = iov[1].iov_base;
-> > +               iov[0].iov_len = vq->sock_hlen;
-> > +
-> > +               if (iov[1].iov_len < vq->sock_hlen) {
-> > +                       vq_err(vq, "can't fit header in one buffer!");
-> > +                       vhost_discard(vq, 1);
-> > +                       return 0;
-> > +               }
-> > +               if (!vq->sock_hlen) {
-> > +                       static const struct virtio_net_hdr_mrg_rxbuf 
-hdr = 
+> >                 /* TODO: Should check and handle checksum. */
+> > +               if (vhost_has_feature(&net->dev, 
+VIRTIO_NET_F_MRG_RXBUF)) 
 > > {
-> > +                               .hdr.flags = 0,
-> > +                               .hdr.gso_type = 
-VIRTIO_NET_HDR_GSO_NONE
-> > +                       };
-> > +                       memcpy(iov[0].iov_base, &hdr, vq->guest_hlen);
-> > +               }
-> > +               iov[1].iov_base += vq->guest_hlen;
-> > +               iov[1].iov_len -= vq->guest_hlen;
-> > +       }
-> > +       return 1;
+> > +                       struct virtio_net_hdr_mrg_rxbuf *vhdr =
+> > +                               (struct virtio_net_hdr_mrg_rxbuf *)
+> > +                               vq->iov[0].iov_base;
+> > +                       /* add num_bufs */
+> > +                       vq->iov[0].iov_len = vq->guest_hlen;
+> > +                       vhdr->num_buffers = headcount;
 > 
-> The above looks kind of scary, lots of special-casing.  I'll send a
-> patch for tap to set vnet header size, let's see if it makes life easier
-> for us.
-
-        Yes, I try to handle all combinations of differing guest and 
-socket
-header lengths (including 0-lengths). If we don't support raw sockets 
-and/or
-we make the tap vnet header bigger in the MRXB case, it'll simplify this 
-code.
-
+> I don't understand this. iov_base is a userspace pointer, isn't it.
+> How can you assign values to it like that?
+> Rusty also commented earlier that it's not a good idea to assume
+> specific layout, such as first chunk being large enough to
+> include virtio_net_hdr_mrg_rxbuf.
 > 
-> > +}
-> > +
-> >  unsigned vhost_get_heads(struct vhost_virtqueue *vq, int datalen, int 
+> I think we need to use memcpy to/from iovec etc.
 
-> > *iovcount,
-> >         struct vhost_log *log, unsigned int *log_num)
+        I guess you mean put_user() or copy_to_user(); yes, I suppose
+it could be paged since we read it.
+        The code doesn't assume that it'll fit so much as arranged for
+it to fit. We allocate guest_hlen bytes in the buffer, but set the
+iovec to the (smaller) sock_hlen; do the read, then this code adds
+back the 2 bytes in the middle that we didn't read into (where
+num_buffers goes). But the allocator does require that guest_hlen
+will fit in a single buffer (and reports error if it doesn't). The
+alternative is significantly more complicated, and only fails if
+the guest doesn't give us at least the buffer size the guest header
+requires (a truly lame guest). I'm not sure it's worth a lot of
+complexity in vhost to support the guest giving us <12 byte buffers;
+those guests don't exist now and maybe they never should?
+
+
+> >  /* This actually signals the guest, using eventfd. */
+> >  void vhost_signal(struct vhost_dev *dev, struct vhost_virtqueue *vq)
 > >  {
-> >         struct iovec *heads = vq->heads;
-> > -       int out, in;
-> > +       int out, in = 0;
-> > +       int seg = 0;
-> >         int hc = 0;
+> >         __u16 flags = 0;
+> > +
 > 
-> I think it's better to stick to simple names like i
-> for index variables, alternatively give it a meaningful
-> name like "count".
+> I tend not to add empty lines if a line above it is already short.
 
-        I'm not sure which one you're talking about. "in & out"
-are inherited from the original, "seg" is an iovec segment index, and
-"hc" is a head counter. "headcount" or "count" (if that's the
-one you mean) instead of "hc" would probably cause some line wraps.
-I think "i" is too generic here, but if you mean "hc", I could stick
-a comment on the declaration:
-
-        int hc = 0;     /* head count */
-
-Does that address your concern, or do you mean something else?
+        Again, separating declarations from code-- never seen different
+in any other kernel code.
 
 > 
+> >         if (get_user(flags, &vq->avail->flags)) {
+> >                 vq_err(vq, "Failed to get flags");
+> >                 return;
+> > @@ -1125,7 +1140,7 @@
 > > 
-> > +       if (vq->guest_hlen != vq->sock_hlen) {
+> >         /* If they don't want an interrupt, don't signal, unless 
+empty. */
+> >         if ((flags & VRING_AVAIL_F_NO_INTERRUPT) &&
+> > -           (vq->avail_idx != vq->last_avail_idx ||
+> > +           (vhost_available(vq) > vq->maxheadcount ||
 > 
-> Sticking guest_hlen/sock_hlen in vhost is somewhat ugly.
+> I don't understand this change. It seems to make
+> code not match the comments.
 
-        Do you mean in the struct? This essentially splits the
-original "hdrsize" into the two (possibly different) header
-sizes and allows removing the "hdr" iovec and reading the
-(partial) header directly into the extended header mergeable
-buffers needs. Unless we remove raw socket support and add the
-ioctl to tap you suggested, I'm not sure it can be much cleaner.
-For me, the ugliness comes from tap, raw and guest headers not
-being the same.
+        It redefines "empty". Without mergeable buffers, we can empty
+the ring down to nothing before we require notification. With
+mergeable buffers, if the packet requires, say, 3 buffers, and we
+have only 2 left, we are empty and require notification and new
+buffers to read anything. In both cases, we notify when we can't
+read another packet without more buffers.
+        I can think about changing the comment to reflect this more
+clearly.
 
-                                                        +-DLS
+> 
+> >              !vhost_has_feature(dev, VIRTIO_F_NOTIFY_ON_EMPTY)))
+> >                 return;
+> > 
+> > diff -ruN net-next-p2/drivers/vhost/vhost.h 
+> > net-next-p3/drivers/vhost/vhost.h
+> > --- net-next-p2/drivers/vhost/vhost.h   2010-03-02 13:02:03.000000000 
+> > -0800
+> > +++ net-next-p3/drivers/vhost/vhost.h   2010-03-02 14:29:44.000000000 
+> > -0800
+> > @@ -85,6 +85,7 @@
+> >         struct iovec iov[VHOST_NET_MAX_SG+1]; /* an extra for vnet hdr 
+*/
+> >         struct iovec heads[VHOST_NET_MAX_SG];
+> >         size_t guest_hlen, sock_hlen;
+> > +       int maxheadcount;
+> 
+> I don't completely understand what does this field does.
+> It seems to be only set on rx? Maybe name should reflect this?
+
+        This is a way for me to dynamically guess how many heads I need 
+for a
+max-sized packet for whatever the MTU/GRO settings are without waiting to
+detect the need for more buffers until a read fails. Without mergeable 
+buffers,
+we can always fit a max-sized packet in 1 head, but with, we need more 
+than
+one head to do the read.
+
+I didn't want to hard-code 64K (which it usually is, but not always), and
+I didn't want to wait until a read fails every time the ring is near full.
+I played with re-enabling notify on 1/4 available or some such, but that 
+delays
+reads unnecessarily, so I came up with this method: use maxheadcount to 
+track
+the biggest packet we've ever seen and always make sure we have at least 
+that
+many available for the next read. If it increases, we may fail the read, 
+which'll
+notify, but this allows us to notify before we try and fail in normal 
+operation,
+while still not doing a notify on every read.
+
+                                                                +-DLS
 
