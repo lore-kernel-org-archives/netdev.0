@@ -1,44 +1,73 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [tcpdump-workers] Current wireless-testing breaks libpcap:
- mr_alen should be set
-Date: Mon, 8 Mar 2010 09:11:35 +0100
-Message-ID: <20100308081134.GA2816@psychotron.redhat.com>
-References: <1267578048.14049.11.camel@mj>
- <7D621661-59E7-46C4-9E86-1D9654A626E7@alum.mit.edu>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: [PATCH net-2.6] netfilter: ebt_ip6: Use ipv6_masked_addr_cmp().
+Date: Mon, 08 Mar 2010 09:25:03 +0100
+Message-ID: <4B94B45F.4070804@pandora.be>
+References: <201003070918.o279IXtq029570@94.43.138.210.xn.2iij.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tcpdump-workers@lists.tcpdump.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Guy Harris <guy@alum.mit.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16103 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751681Ab0CHILp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Mar 2010 03:11:45 -0500
-Content-Disposition: inline
-In-Reply-To: <7D621661-59E7-46C4-9E86-1D9654A626E7@alum.mit.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: bart.de.schuymer@pandora.be, kaber@trash.net, davem@davemloft.net,
+	ebtables-devel@lists.sourceforge.net,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <201003070918.o279IXtq029570@94.43.138.210.xn.2iij.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sat, Mar 06, 2010 at 10:23:12PM CET, guy@alum.mit.edu wrote:
+YOSHIFUJI Hideaki schreef:
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> ---
+>  net/bridge/netfilter/ebt_ip6.c |   18 ++++--------------
+>  1 files changed, 4 insertions(+), 14 deletions(-)
 >
->On Mar 2, 2010, at 5:00 PM, Pavel Roskin wrote:
->
->> This patch to libpcap helps:
->> 
->> --- a/pcap-linux.c
->> +++ b/pcap-linux.c
->> @@ -1563,6 +1563,7 @@ live_open_new(pcap_t *handle, const char
->> 			memset(&mr, 0, sizeof(mr));
->> 			mr.mr_ifindex = handle->md.ifindex;
->> 			mr.mr_type    = PACKET_MR_PROMISC;
->> +			mr.mr_alen    = 6;
->
->If there are any network types that support promiscuous mode and have link-layer addresses that aren't 6 octets long, that would still fail.
->
->It sounds as if the fix is not to care about the address length if the address isn't used, so you don't need to get the length right for PACKET_MR_PROMISC or PACKET_MR_ALLMULTI, so libpcap, and other clients setting promiscuous or "show me all multicast packets" mode, don't need to change.  Is that the case?
+> diff --git a/net/bridge/netfilter/ebt_ip6.c b/net/bridge/netfilter/ebt_ip6.c
+> index bbf2534..4644cc9 100644
+> --- a/net/bridge/netfilter/ebt_ip6.c
+> +++ b/net/bridge/netfilter/ebt_ip6.c
+> @@ -35,8 +35,6 @@ ebt_ip6_mt(const struct sk_buff *skb, const struct xt_match_param *par)
+>  	struct ipv6hdr _ip6h;
+>  	const struct tcpudphdr *pptr;
+>  	struct tcpudphdr _ports;
+> -	struct in6_addr tmp_addr;
+> -	int i;
+>  
+>  	ih6 = skb_header_pointer(skb, 0, sizeof(_ip6h), &_ip6h);
+>  	if (ih6 == NULL)
+> @@ -44,18 +42,10 @@ ebt_ip6_mt(const struct sk_buff *skb, const struct xt_match_param *par)
+>  	if (info->bitmask & EBT_IP6_TCLASS &&
+>  	   FWINV(info->tclass != ipv6_get_dsfield(ih6), EBT_IP6_TCLASS))
+>  		return false;
+> -	for (i = 0; i < 4; i++)
+> -		tmp_addr.in6_u.u6_addr32[i] = ih6->saddr.in6_u.u6_addr32[i] &
+> -			info->smsk.in6_u.u6_addr32[i];
+> -	if (info->bitmask & EBT_IP6_SOURCE &&
+> -		FWINV((ipv6_addr_cmp(&tmp_addr, &info->saddr) != 0),
+> -			EBT_IP6_SOURCE))
+> -		return false;
+> -	for (i = 0; i < 4; i++)
+> -		tmp_addr.in6_u.u6_addr32[i] = ih6->daddr.in6_u.u6_addr32[i] &
+> -			info->dmsk.in6_u.u6_addr32[i];
+> -	if (info->bitmask & EBT_IP6_DEST &&
+> -	   FWINV((ipv6_addr_cmp(&tmp_addr, &info->daddr) != 0), EBT_IP6_DEST))
+> +	if (FWINV(ipv6_masked_addr_cmp(&ih6->saddr, &info->smsk,
+> +				       &info->saddr), EBT_IP6_SOURCE) ||
+> +	    FWINV(ipv6_masked_addr_cmp(&ih6->daddr, &info->dmsk,
+> +				       &info->daddr), EBT_IP6_DEST))
+>  		return false;
+>  	if (info->bitmask & EBT_IP6_PROTO) {
+>  		uint8_t nexthdr = ih6->nexthdr;
+>   
+Signed-off-by: Bart De Schuymer <bdschuym@pandora.be>
 
-This should be fixed in kernel (net-2.6
-1162563f82b434e3099c9e6c1bbdba846d792f0d)
+Looks OK to me.
 
-Jirka
+
+cheers,
+Bart
+
+
+-- 
+Bart De Schuymer
+www.artinalgorithms.be
+
