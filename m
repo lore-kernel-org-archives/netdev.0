@@ -1,47 +1,52 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [net-next-2.6 PATCH] bonding: refuse to change bond type if it's
- used
-Date: Mon, 8 Mar 2010 22:35:10 +0100
-Message-ID: <20100308213509.GA2875@psychotron.redhat.com>
-References: <20100308175406.GA2834@psychotron.lab.eng.brq.redhat.com>
- <20100308102448.7acfe7c0@nehalam>
- <20100308.121632.232613075.davem@davemloft.net>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
+Date: Mon, 8 Mar 2010 15:49:45 -0600
+Message-ID: <20100308214945.GA26617@us.ibm.com>
+References: <4B92C886.9020507@free.fr>
+ <m1fx4bxlfy.fsf@fess.ebiederm.org>
+ <4B952BBE.6070507@free.fr>
+ <m11vfuvi1t.fsf@fess.ebiederm.org>
+ <4B9556A9.60206@free.fr>
+ <m11vfusgsa.fsf@fess.ebiederm.org>
+ <4B95611C.5060403@free.fr>
+ <m1sk8ar15b.fsf@fess.ebiederm.org>
+ <4B956852.7050804@free.fr>
+ <m1lje2qzf4.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	fubar@us.ibm.com, bonding-devel@lists.sourceforge.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2131 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755600Ab0CHVf1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Mar 2010 16:35:27 -0500
+Cc: Daniel Lezcano <daniel.lezcano@free.fr>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	containers@lists.linux-foundation.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20100308.121632.232613075.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <m1lje2qzf4.fsf@fess.ebiederm.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Mar 08, 2010 at 09:16:32PM CET, davem@davemloft.net wrote:
->From: Stephen Hemminger <shemminger@linux-foundation.org>
->Date: Mon, 8 Mar 2010 10:24:48 -0800
->
->> On Mon, 8 Mar 2010 18:54:06 +0100
->> Jiri Pirko <jpirko@redhat.com> wrote:
->> 
->>> It's not desirable to be able to change the type of net_device in bond device if
->>> it's in use by bridge, or vlan, or so. At the moment, there is possible for
->>> example to have INFINIBAND bond type in bridge (by adding bond with eth type to
->>> a bridge first and then enslave INFINIBAND device).
->> 
->> Rather than building lots of back pointer dependencies, why not
->> have another netdevice notifier that allows other subsystems to
->> see the type change and reject it if they care? That way the code
->> would be more modular and expandable.
->
->Agreed.
+Quoting Eric W. Biederman (ebiederm@xmission.com):
+> Daniel Lezcano <daniel.lezcano@free.fr> writes:
+> I guess my meaning is I was expecting.
+> child = fork();
+> if (child == 0) {
+> 	execve(...);
+> }
+> waitpid(child);
+> 
+> This puts /bin/sh in the container as well.
+> 
+> I'm not certain about the /proc/self thing I have never encountered that.
+> But I guess if your pid is outside of the pid namespace of that instance
+> of proc /proc/self will be a broken symlink.
+> 
+> Eric
 
-Fair enough, I will rework this.
+Hmm, worse than a broken symlink, will it be a wrong symlink if just
+the right pid is created in the container?
 
-Thanks a lot guys for looking at this.
-
-Jirka
+-serge
