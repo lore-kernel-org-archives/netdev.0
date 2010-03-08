@@ -1,90 +1,113 @@
-From: Dan Smith <danms@us.ibm.com>
-Subject: Re: [PATCH 2/6] C/R: Basic support for network namespaces and devices (v5)
-Date: Mon, 08 Mar 2010 09:36:37 -0800
-Message-ID: <871vfuiul6.fsf@caffeine.danplanet.com>
-References: <1267130595-23637-1-git-send-email-danms@us.ibm.com>
-	<1267130595-23637-3-git-send-email-danms@us.ibm.com>
-	<4B91D1A3.9030404@cs.columbia.edu>
-	<87bpf1idic.fsf@caffeine.danplanet.com>
-	<4B92D574.1090006@cs.columbia.edu>
+From: Alex Chiang <achiang@hp.com>
+Subject: Re: [PATCH] Export smbios strings associated with onboard devices
+	to sysfs
+Date: Mon, 8 Mar 2010 10:38:38 -0700
+Message-ID: <20100308173838.GC20953@ldl.fc.hp.com>
+References: <20100225202941.GA19404@mock.linuxdev.us.dell.com> <20100225204905.GC20147@mdomsch-pws380.aus.amer.dell.com> <EDA0A4495861324DA2618B4C45DCB3EE6122A2@blrx3m08.blr.amer.dell.com> <20100302173302.GA20936@mock.linuxdev.us.dell.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: containers@lists.osdl.org, den@openvz.org, netdev@vger.kernel.org,
-	davem@davemloft.net, ebiederm@xmission.com, benjamin.thery@bull.net
-To: Oren Laadan <orenl@cs.columbia.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw0.danplanet.com ([71.245.107.82]:40722 "EHLO
-	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753194Ab0CHRgl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 12:36:41 -0500
-In-Reply-To: <4B92D574.1090006@cs.columbia.edu> (Oren Laadan's message of "Sat\, 06 Mar 2010 17\:21\:40 -0500")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: matt_domsch@dell.com, netdev@vger.kernel.org,
+	linux-hotplug@vger.kernel.org, linux-pci@vger.kernel.org,
+	jordan_hargrave@dell.com, sandeep_k_shandilya@dell.com,
+	charles_rose@dell.com, shyam_iyer@dell.com
+To: Narendra K <Narendra_K@dell.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100302173302.GA20936@mock.linuxdev.us.dell.com>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-OL> I'm confused: in checkpoint_ns() inside the for_each_netdev() loop
-OL> you first test for dev->netdev_ops->ndo_checkpoint and then call
-OL> checkpoint_obj(... CKPT_OBJ_NETDEV) - which in turn will call
-OL> checkpoint_netdev(), which will again test for
-dev-> netdev_ops->ndo_checkpoint ...  am I reading it wrongly ?
+* Narendra K <Narendra_K@dell.com>:
+> 
+> Resending the patch with review comments incorporated.
+> 
+> Signed-off-by: Jordan Hargrave <Jordan_Hargrave@dell.com>
+> Signed-off-by: Narendra K <Narendra_K@dell.com>
 
-In the case of veth, yes.  It goes something like this:
+Here is a patch I wrote that would be nice if you could
+incorporate into your patch series.
 
-checkpoint_netns() {
-  foreach netdev in netns {
-    checkpoint_netdev {
-      if netdev is veth {
-        checkpoint_peer(); // Will call checkpoint_netdev again
-      }
-    }
-  }
-}
+It adds support for HP OEM SMBIOS record Type 209, so that you
+can populate the 'label' attribute on existing HP platforms.
 
-It shouldn't happen, but it seems like since we could potentially add
-another checkpoint_obj(mydev) somewhere other than in
-checkpoint_netdev(), it is reasonable to check that there is actually
-something to call before we call it.
+It needs that hunk I suggested in my previous mail to apply
+cleanly.
 
-Would you prefer a BUG()?
+Thanks,
+/ac
 
-OL> How about this - to me it feels simpler:
+From: Alex Chiang <achiang@hp.com>
 
-OL> 	dev = rtnl_newlink(veth_new_link_msg, &veth, this_name);
-OL> 	if (IS_ERR(dev))
-OL> 		return dev;
+dmi: save OEM defined slot information
 
-OL> 	peer = dev_get_by_name(current->nsproxy->net_ns, peer_name);
-OL> 	if (!peer) {
-OL> 		ret = -EINVAL;
-OL> 		goto err_dev;
-OL> 	}
-OL> 	ret = ckpt_obj_insert(ctx, peer, h->veth.peer_ref,
-OL> 			      CKPT_OBJ_NETDEV);
-OL> 	if (ret < 0)
-OL> 		goto err_peer;
+Some legacy platforms provide onboard device information in an SMBIOS
+OEM-defined field, notably HP Proliants.
 
-OL> 	dev_put(peer);
+This information can be used to provide information to userspace that
+allows correlation between a Linux PCI device and a chassis label.
 
-OL> 	dq.dev = dev;
-OL> 	dq.peer = peer;
-OL> 	ret = deferqueue_add(ctx->deferqueue, &dq, sizeof(dq),
-OL> 			     netdev_noop, netdev_cleanup);
-OL> 	if (ret)
-OL> 		goto err_peer;
+Save this information so that it can be exposed to userspace. We choose
+the string "Embedded NIC %d" since there are known platforms from other
+vendors (Dell) that provide a string in this format for their onboard
+NICs (although theirs is provided by a Type 41 record). This consistency
+will help simplify life for userspace tools.
 
-If you fail here you need to unregister_netdev() because the dev_put()
-that the objhash will not cause it to happen.  Unless we add something
-to allow you to remove your object from the hash, you can't prevent
-that final put, so you have to have it in the deferqueue for
-later.  You can't check the refcount in the objhash function because it
-will differ depending on the number of addresses and protocols the
-device has, and those don't get released until unregister_netdev()
-which will block if you call it before you've released all of your
-references.  If the objhash put function could examine ctx->errno,
-then it could drop its reference and then call unregister_netdev(),
-but that would involve changing all the drop functions.  What am I
-missing?
+Only support HP platforms for now. If we need support for another vendor
+in the future, we can write a fancier implementation then.
 
--- 
-Dan Smith
-IBM Linux Technology Center
-email: danms@us.ibm.com
+This code was inspired by the implementation in the userspace dmidecode
+tool, which was originally written by John Cagle.
+
+Signed-off-by: Alex Chiang <achiang@hp.com>
+---
+ dmi_scan.c |   30 ++++++++++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
+---
+diff --git a/drivers/firmware/dmi_scan.c b/drivers/firmware/dmi_scan.c
+index 5a81a8b..cb2a57a 100644
+--- a/drivers/firmware/dmi_scan.c
++++ b/drivers/firmware/dmi_scan.c
+@@ -314,6 +314,33 @@ static void __init dmi_save_extended_devices(const struct dmi_header *dm)
+ 	dmi_save_one_device(*d & 0x7f, dmi_string_nosave(dm, *(d - 1)));
+ }
+ 
++static void __init dmi_save_oem_devices(const struct dmi_header *dm)
++{
++	int bus, devfn, count;
++	const u8 *d = (u8 *)dm + 4;
++	char name[20];
++
++	/* Only handle HP extensions for now */
++	if (strcmp(dmi_ident[DMI_BIOS_VENDOR], "HP"))
++		return;
++
++	count = 1;
++	while ((d + 8) <= ((u8 *)dm + dm->length)) {
++		if ((*d == 0x00 && *(d + 1) == 0x00) ||
++		    (*d == 0xff && *(d + 1) == 0xff))
++			goto next;
++
++		bus = *(d + 1);
++		devfn = *d;
++		sprintf(name, "Embedded NIC %d", count);
++		dmi_save_devslot(-1, 0, bus, devfn, name);
++
++next:
++		count++;
++		d += 8;
++	}
++}
++
+ /*
+  *	Process a DMI table entry. Right now all we care about are the BIOS
+  *	and machine entries. For 2.5 we should pull the smbus controller info
+@@ -360,6 +387,9 @@ static void __init dmi_decode(const struct dmi_header *dm, void *dummy)
+ 	case 41:	/* Onboard Devices Extended Information */
+ 		dmi_save_extended_devices(dm);
+ 		break;
++	case 209:
++		dmi_save_oem_devices(dm);
++		break;
+ 	}
+ }
+ 
