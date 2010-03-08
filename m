@@ -1,113 +1,115 @@
-From: Alex Chiang <achiang@hp.com>
-Subject: Re: [PATCH] Export smbios strings associated with onboard devices
-	to sysfs
-Date: Mon, 8 Mar 2010 10:38:38 -0700
-Message-ID: <20100308173838.GC20953@ldl.fc.hp.com>
-References: <20100225202941.GA19404@mock.linuxdev.us.dell.com> <20100225204905.GC20147@mdomsch-pws380.aus.amer.dell.com> <EDA0A4495861324DA2618B4C45DCB3EE6122A2@blrx3m08.blr.amer.dell.com> <20100302173302.GA20936@mock.linuxdev.us.dell.com>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
+Date: Mon, 8 Mar 2010 11:47:07 -0600
+Message-ID: <20100308174707.GA13929@us.ibm.com>
+References: <4B8E9370.3050300@parallels.com>
+ <m17hptjh3m.fsf@fess.ebiederm.org>
+ <4B9158F5.5040205@parallels.com>
+ <m1vdda1pmx.fsf@fess.ebiederm.org>
+ <4B926B1B.5070207@free.fr>
+ <m1aaulyy5c.fsf@fess.ebiederm.org>
+ <4B92C886.9020507@free.fr>
+ <m1fx4bxlfy.fsf@fess.ebiederm.org>
+ <20100308170719.GD6399@us.ibm.com>
+ <m1pr3eu36u.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: matt_domsch@dell.com, netdev@vger.kernel.org,
-	linux-hotplug@vger.kernel.org, linux-pci@vger.kernel.org,
-	jordan_hargrave@dell.com, sandeep_k_shandilya@dell.com,
-	charles_rose@dell.com, shyam_iyer@dell.com
-To: Narendra K <Narendra_K@dell.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
+Cc: Daniel Lezcano <daniel.lezcano@free.fr>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	containers@lists.linux-foundation.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:44610 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754194Ab0CHRrT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 12:47:19 -0500
 Content-Disposition: inline
-In-Reply-To: <20100302173302.GA20936@mock.linuxdev.us.dell.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <m1pr3eu36u.fsf@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Narendra K <Narendra_K@dell.com>:
+Quoting Eric W. Biederman (ebiederm@xmission.com):
+> "Serge E. Hallyn" <serue@us.ibm.com> writes:
 > 
-> Resending the patch with review comments incorporated.
+> > Quoting Eric W. Biederman (ebiederm@xmission.com):
+> >> 
+> >> I have take an snapshot of my development tree and placed it at.
+> >> 
+> >> 
+> >> git://git.kernel.org/pub/scm/linux/people/ebiederm/linux-2.6.33-nsfd-v5.git
+> >> 
+> >> 
+> >> >> I am going to explore a bit more.  Given that nsfd is using the same
+> >> >> permission checks as a proc file, I think I can just make it a proc
+> >> >> file.  Something like "/proc/<pid>/ns/net".  With a little luck that
+> >> >> won't suck too badly.
+> >> >>   
+> >> > Ah ! yes. Good idea.
+> >> 
+> >> It is a hair more code to use proc files but nothing worth counting.
+> >> 
+> >> Probably the biggest thing I am aware of right now in my development
+> >> tree is in getting uids to pass properly between unix domain sockets
+> >> I would up writing this cred_to_ucred function.
+> >> 
+> >> Serge can you take a look and check my logic, and do you have
+> >> any idea of where we should place something like pid_vnr but
+> >> for the uid namespace?
+> >
+> > Well my first thought was user_namespace, but I'm thinking kernel/cred.c is
+> > the best place for it.
 > 
-> Signed-off-by: Jordan Hargrave <Jordan_Hargrave@dell.com>
-> Signed-off-by: Narendra K <Narendra_K@dell.com>
+> Thanks.
+> 
+> >> void cred_to_ucred(struct pid *pid, const struct cred *cred,
+> >> 		   struct ucred *ucred)
+> >> {
+> >> 	ucred->pid = pid_vnr(pid);
+> >> 	ucred->uid = ucred->gid = -1;
+> >> 	if (cred) {
+> >> 		struct user_namespace *cred_ns = cred->user->user_ns;
+> >> 		struct user_namespace *current_ns = current_user_ns();
+> >> 		struct user_namespace *tmp;
+> >> 
+> >> 		if (likely(cred_ns == current_ns)) {
+> >> 			ucred->uid = cred->euid;
+> >> 			ucred->gid = cred->egid;
+> >> 		} else {
+> >> 			/* Is cred in a child user namespace */
+> >> 			tmp = cred_ns;
+> >> 			do {
+> >> 				tmp = tmp->creator->user_ns;
+> >> 				if (tmp == current_ns) {
+> >
+> > 	Hmm, I think you want to catch one level up - so the creator itself
+> > 	is in current_user_ns, so
+> 
+> >
+> > 	do {
+> > 		if (tmp->creator->user_ns == current_ns) {
+> > 			ucred->uid = tmp->creator->uid;
+> > 			ucred->gid = tmp->creator_gid;
+> > 			return;
+> > 		}
+> > 		tmp = tmp->creator->user_ns;
+> > 	} while (tmp != &init_user_ns);
+> 
+> Good catch.  
+> 
+> >> 					ucred->uid = tmp->creator->uid;
+> >> 					ucred->gid = overflowgid;
+> >
+> > 			should we start recording a user_ns->creator_gid
+> > 			instead?
+> 
+> I had a similar question.  Possibly we can just grab the creators cred.
 
-Here is a patch I wrote that would be nice if you could
-incorporate into your patch series.
+Oh, yeah, make user_ns->creator a cred, excellent idea - then we have
+the LSM and capability fields cached as well.
 
-It adds support for HP OEM SMBIOS record Type 209, so that you
-can populate the 'label' attribute on existing HP platforms.
-
-It needs that hunk I suggested in my previous mail to apply
-cleanly.
-
-Thanks,
-/ac
-
-From: Alex Chiang <achiang@hp.com>
-
-dmi: save OEM defined slot information
-
-Some legacy platforms provide onboard device information in an SMBIOS
-OEM-defined field, notably HP Proliants.
-
-This information can be used to provide information to userspace that
-allows correlation between a Linux PCI device and a chassis label.
-
-Save this information so that it can be exposed to userspace. We choose
-the string "Embedded NIC %d" since there are known platforms from other
-vendors (Dell) that provide a string in this format for their onboard
-NICs (although theirs is provided by a Type 41 record). This consistency
-will help simplify life for userspace tools.
-
-Only support HP platforms for now. If we need support for another vendor
-in the future, we can write a fancier implementation then.
-
-This code was inspired by the implementation in the userspace dmidecode
-tool, which was originally written by John Cagle.
-
-Signed-off-by: Alex Chiang <achiang@hp.com>
----
- dmi_scan.c |   30 ++++++++++++++++++++++++++++++
- 1 file changed, 30 insertions(+)
----
-diff --git a/drivers/firmware/dmi_scan.c b/drivers/firmware/dmi_scan.c
-index 5a81a8b..cb2a57a 100644
---- a/drivers/firmware/dmi_scan.c
-+++ b/drivers/firmware/dmi_scan.c
-@@ -314,6 +314,33 @@ static void __init dmi_save_extended_devices(const struct dmi_header *dm)
- 	dmi_save_one_device(*d & 0x7f, dmi_string_nosave(dm, *(d - 1)));
- }
- 
-+static void __init dmi_save_oem_devices(const struct dmi_header *dm)
-+{
-+	int bus, devfn, count;
-+	const u8 *d = (u8 *)dm + 4;
-+	char name[20];
-+
-+	/* Only handle HP extensions for now */
-+	if (strcmp(dmi_ident[DMI_BIOS_VENDOR], "HP"))
-+		return;
-+
-+	count = 1;
-+	while ((d + 8) <= ((u8 *)dm + dm->length)) {
-+		if ((*d == 0x00 && *(d + 1) == 0x00) ||
-+		    (*d == 0xff && *(d + 1) == 0xff))
-+			goto next;
-+
-+		bus = *(d + 1);
-+		devfn = *d;
-+		sprintf(name, "Embedded NIC %d", count);
-+		dmi_save_devslot(-1, 0, bus, devfn, name);
-+
-+next:
-+		count++;
-+		d += 8;
-+	}
-+}
-+
- /*
-  *	Process a DMI table entry. Right now all we care about are the BIOS
-  *	and machine entries. For 2.5 we should pull the smbus controller info
-@@ -360,6 +387,9 @@ static void __init dmi_decode(const struct dmi_header *dm, void *dummy)
- 	case 41:	/* Onboard Devices Extended Information */
- 		dmi_save_extended_devices(dm);
- 		break;
-+	case 209:
-+		dmi_save_oem_devices(dm);
-+		break;
- 	}
- }
- 
+-serge
