@@ -1,180 +1,104 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
-Date: Mon, 08 Mar 2010 12:24:37 -0800
-Message-ID: <m11vfusgsa.fsf@fess.ebiederm.org>
-References: <4B88E431.6040609@parallels.com>
-	<m1iq9io5sc.fsf@fess.ebiederm.org> <4B89727C.9040602@parallels.com>
-	<m1ljeempk6.fsf@fess.ebiederm.org> <4B8AE8C1.1030305@free.fr>
-	<4B8D28CF.8060304@parallels.com> <20100302211942.GA17816@us.ibm.com>
-	<m1y6iaqsmm.fsf@fess.ebiederm.org> <20100303000743.GA13744@us.ibm.com>
-	<m1ocj6qljj.fsf@fess.ebiederm.org> <4B8E9370.3050300@parallels.com>
-	<m17hptjh3m.fsf@fess.ebiederm.org> <4B9158F5.5040205@parallels.com>
-	<m1vdda1pmx.fsf@fess.ebiederm.org> <4B926B1B.5070207@free.fr>
-	<m1aaulyy5c.fsf@fess.ebiederm.org> <4B92C886.9020507@free.fr>
-	<m1fx4bxlfy.fsf@fess.ebiederm.org> <4B952BBE.6070507@free.fr>
-	<m11vfuvi1t.fsf@fess.ebiederm.org> <4B9556A9.60206@free.fr>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] tipc: filter out messages not intended for this host
+Date: Mon, 8 Mar 2010 15:39:24 -0500
+Message-ID: <20100308203924.GF23634@hmsreliant.think-freely.org>
+References: <20100308194149.GD23634@hmsreliant.think-freely.org>
+ <20100308.122030.112176481.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Emelyanov <xemul@parallels.com>,
-	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
-	Serge Hallyn <serue@us.ibm.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>
-To: Daniel Lezcano <daniel.lezcano@free.fr>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B9556A9.60206@free.fr> (Daniel Lezcano's message of "Mon\, 08 Mar 2010 20\:57\:29 +0100")
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43829 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755362Ab0CHUj1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 15:39:27 -0500
+Content-Disposition: inline
+In-Reply-To: <20100308.122030.112176481.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Daniel Lezcano <daniel.lezcano@free.fr> writes:
+On Mon, Mar 08, 2010 at 12:20:30PM -0800, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Mon, 8 Mar 2010 14:41:49 -0500
+> 
+> > Port commit 20deb48d16fdd07ce2fdc8d03ea317362217e085
+> > from git://tipc.cslab.ericsson.net/pub/git/people/allan/tipc.git
+> > 
+> > Part of the larger effort I'm trying to help with getting all the downstreamed
+> > code from windriver forward ported to the upstream tree
+> > 
+> > Origional commit message
+> > Restore check to filter out inadverdently received messages
+> > This patch reimplements a check that allows TIPC to discard messages
+> > that are not intended for it.  This check was present in TIPC 1.5/1.6,
+> > but was removed by accident during the development of TIPC 1.7; it has
+> > now been updated to account for new features present in TIPC 1.7 and
+> > reinserted into TIPC.  The main benefit of this check is to filter
+> > out messages arriving from orphaned link endpoints, which can arise
+> > when a node exits the network and then re-enters it with a different
+> > TIPC network address (i.e. <Z.C.N> value).
+> > 
+> > tested with the tipc sanity test suite.
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> > Origionally-authored-by: Allan Stephens <allan.stephens@windriver.com>
+> 
+> Adds trailing whitespace, please fix:
+> 
+> davem@sunset:~/src/GIT/net-2.6$ pcheck diff
+> + git apply --check --whitespace=error-all diff
+> diff:11: trailing whitespace.
+> 		if (unlikely(!msg_isdata(msg) && 
+> fatal: 1 line adds whitespace errors.
+> 
+> 
 
-> Eric W. Biederman wrote:
->> Daniel Lezcano <daniel.lezcano@free.fr> writes:
->>
->>   
->>> Eric W. Biederman wrote:
->>>     
->>>> I have take an snapshot of my development tree and placed it at.
->>>>
->>>>
->>>> git://git.kernel.org/pub/scm/linux/people/ebiederm/linux-2.6.33-nsfd-v5.git
->>>>         
->>> Hi Eric,
->>>
->>> thanks for the pointer.
->>>
->>> I tried to boot the kernel under qemu and I got this oops:
->>>     
->>
->> I am clearly running an old userspace on my test machine.  No udev.
->> It looks like udev has a long standing netlink misfeature, where
->> it does not initializing NETLINK_CB....
->>
->>
->> >From 8d85e3ab88718eda3d94cf8e1be14b69dae2b8f1 Mon Sep 17 00:00:00 2001
->> From: Eric W. Biederman <ebiederm@xmission.com>
->> Date: Mon, 8 Mar 2010 09:25:20 -0800
->> Subject: [PATCH] kobject_uevent:  Use the netlink allocator helper...
->>
->> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
->>   
-> Thanks.
->
-> I was able to boot but I have the following warning:
 
-Thanks for the bug report.
+Apologies, heres the repost, whitespace fixed
 
-For the moment you might want to drop:
-af_netlink:  Allow credentials to work across namespaces.
-af_netlink: Debugging in case I have missed something.
 
-Although I am curious if you hit my debugging messages in
-netlink recv.
+Port commit 20deb48d16fdd07ce2fdc8d03ea317362217e085
+from git://tipc.cslab.ericsson.net/pub/git/people/allan/tipc.git
 
-I guess if the goal is to test my nsfd bits you can drop everything
-starting with my 'scm: Reorder scm_cookie.' commit.  The rest is what
-it takes to get get uids, gid and pids translated when the cross
-namespaces on an af_unix of an af_netlink socket.
+Part of the large effort I'm trying to help with getting all the downstreamed
+code from windriver forward ported to the upstream tree
 
-At least in the af_netlink case it appears clear I am have missed
-something.
+Origional commit message
+Restore check to filter out inadverdently received messages
+This patch reimplements a check that allows TIPC to discard messages
+that are not intended for it.  This check was present in TIPC 1.5/1.6,
+but was removed by accident during the development of TIPC 1.7; it has
+now been updated to account for new features present in TIPC 1.7 and
+reinserted into TIPC.  The main benefit of this check is to filter
+out messages arriving from orphaned link endpoints, which can arise
+when a node exits the network and then re-enters it with a different
+TIPC network address (i.e. <Z.C.N> value).
 
-This is a warning that netlink throws when the packet accounting messed
-up.  So it sounds like you are exercising another path that I failed
-to exercise and fix.
-> ------------[ cut here ]------------
-> WARNING: at net/netlink/af_netlink.c:198 netlink_sock_destruct+0x72/0xac()
-> Hardware name:
-> Modules linked in: [last unloaded: scsi_wait_scan]
-> Pid: 840, comm: nash-hotplug Tainted: G        W  2.6.33 #2
-> Call Trace:
-> [<ffffffff812df182>] ? netlink_sock_destruct+0x72/0xac
-> [<ffffffff8102ca29>] warn_slowpath_common+0x77/0xa4
-> [<ffffffff8102ca65>] warn_slowpath_null+0xf/0x11
-> [<ffffffff812df182>] netlink_sock_destruct+0x72/0xac
-> [<ffffffff812bb2a4>] __sk_free+0x1e/0x118
-> [<ffffffff812bb40d>] sk_free+0x19/0x1b
-> [<ffffffff812e0dc2>] netlink_release+0x246/0x253
-> [<ffffffff812b825a>] sock_release+0x1a/0x6b
-> [<ffffffff812b82cd>] sock_close+0x22/0x26
-> [<ffffffff810c7823>] __fput+0x11b/0x1d7
-> [<ffffffff810c78f6>] fput+0x17/0x19
-> [<ffffffff810c4ae2>] filp_close+0x67/0x72
-> [<ffffffff8102e75c>] put_files_struct+0x6a/0xd4
-> [<ffffffff8102e80d>] exit_files+0x47/0x4f
-> [<ffffffff8102fe59>] do_exit+0x1eb/0x693
-> [<ffffffff813864c2>] ? _raw_spin_unlock_irq+0x2b/0x31
-> [<ffffffff81030373>] do_group_exit+0x72/0x9b
-> [<ffffffff8103f37c>] get_signal_to_deliver+0x3a1/0x3c1
-> [<ffffffff81001e8e>] do_notify_resume+0x8d/0x6ea
-> [<ffffffff810538c9>] ? trace_hardirqs_on_caller+0x110/0x13a
-> [<ffffffff8102851e>] ? finish_task_switch+0x6a/0xb3
-> [<ffffffff810284b4>] ? finish_task_switch+0x0/0xb3
-> [<ffffffff813867aa>] ? retint_signal+0x11/0x87
-> [<ffffffff810538c9>] ? trace_hardirqs_on_caller+0x110/0x13a
-> [<ffffffff813867df>] retint_signal+0x46/0x87
-> ---[ end trace d4a1e4cbaa70d63d ]---
->
->
-> And I have a kernel panic when exiting a network namespace using a macvlan:
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Origionally-authored-by: Allan Stephens <allan.stephens@windriver.com>
 
-I wonder/hope this is simply the result of corruption from earlier problems.
-I haven't touched anything that should affect the macvlan driver in 2.6.33.
 
-> linux-swk0 login: BUG: unable to handle kernel paging request at
-> ffff880035475678
-> IP: [<ffffffff8128dbef>] macvlan_stop+0x54/0x7a
-> PGD 160b063 PUD 160f063 PMD 2aa067 PTE 35475160
-> Oops: 0002 [#1] DEBUG_PAGEALLOC
-> last sysfs file: /sys/devices/pci0000:00/0000:00:03.0/net/eth0/flags
-> CPU 0
-> Pid: 10, comm: netns Tainted: G        W  2.6.33 #2 /
-> RIP: 0010:[<ffffffff8128dbef>]  [<ffffffff8128dbef>] macvlan_stop+0x54/0x7a
-> RSP: 0018:ffff88003f92bc50  EFLAGS: 00010246
-> RAX: 0000000000000000 RBX: ffff880035440800 RCX: ffff880035440800
-> RDX: ffff880035475678 RSI: ffff88003f913710 RDI: ffff88003cde9800
-> RBP: ffff88003f92bc70 R08: 0000000000000004 R09: 0000000000000000
-> R10: 0080000000000000 R11: ffff88003f92bbf0 R12: ffff88003cde9800
-> R13: ffff880035440de0 R14: 0080000000000000 R15: 0000000800000000
-> FS:  0000000000000000(0000) GS:ffffffff8161b000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> CR2: ffff880035475678 CR3: 000000003eb41000 CR4: 00000000000006f0
-> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> Process netns (pid: 10, threadinfo ffff88003f92a000, task ffff88003f913058)
-> Stack:
-> ffffffff814328a0 ffff880035440800 ffffffff814328a0 ffff88003553a800
-> <0> ffff88003f92bc90 ffffffff812c9150 ffff880035440800 ffff88003f92bd00
-> <0> ffff88003f92bcd0 ffffffff812c9259 ffff88003f92bcd0 ffff88003f92bd00
-> Call Trace:
-> [<ffffffff812c9150>] dev_close+0x86/0xa8
-> [<ffffffff812c9259>] rollback_registered_many+0xe7/0x208
-> [<ffffffff812c9390>] unregister_netdevice_many+0x16/0x62
-> [<ffffffff812c952d>] default_device_exit_batch+0x9f/0xb3
-> [<ffffffff812c3906>] ops_exit_list+0x4e/0x56
-> [<ffffffff812c40f4>] cleanup_net+0xfe/0x1b7
-> [<ffffffff81042db6>] worker_thread+0x227/0x32d
-> [<ffffffff81042d60>] ? worker_thread+0x1d1/0x32d
-> [<ffffffff813864c2>] ? _raw_spin_unlock_irq+0x2b/0x31
-> [<ffffffff812c3ff6>] ? cleanup_net+0x0/0x1b7
-> [<ffffffff810466ae>] ? autoremove_wake_function+0x0/0x38
-> [<ffffffff81042b8f>] ? worker_thread+0x0/0x32d
-> [<ffffffff810462e0>] kthread+0x7c/0x84
-> [<ffffffff810035b4>] kernel_thread_helper+0x4/0x10
-> [<ffffffff8138673a>] ? restore_args+0x0/0x30
-> [<ffffffff81046264>] ? kthread+0x0/0x84
-> [<ffffffff810035b0>] ? kernel_thread_helper+0x0/0x10
-> Code: 01 00 00 02 74 0b 83 ce ff 4c 89 e7 e8 a1 8f 03 00 48 8b b3 50 02 00 00 4c
-> 89 e7 e8 df 8e 03 00 49 8b 45 18 49 8b 55 20 48 85 c0 <48> 89 02 74 04 48 89 50
-> 08 48 be 00 02 20 00 00 00 ad de 49 89
-> RIP  [<ffffffff8128dbef>] macvlan_stop+0x54/0x7a
-> RSP <ffff88003f92bc50>
-> CR2: ffff880035475678
-> ---[ end trace d4a1e4cbaa70d63e ]---
->
-> addr2line -e ./vmlinux ffffffff812c9150 gives net/core/dev.c:1252
+ link.c |    9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-Eric
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 6f50f64..da3a384 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1882,6 +1882,15 @@ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *tb_ptr)
+ 			     (msg_destnode(msg) != tipc_own_addr)))
+ 			goto cont;
+ 
++		/* Discard non-routeable messages destined for another node */
++
++		if (unlikely(!msg_isdata(msg) &&
++			     (msg_destnode(msg) != tipc_own_addr))) {
++			if ((msg_user(msg) != CONN_MANAGER) &&
++			    (msg_user(msg) != MSG_FRAGMENTER))
++				goto cont;
++		}
++
+ 		/* Locate unicast link endpoint that should handle message */
+ 
+ 		n_ptr = tipc_node_find(msg_prevnode(msg));
