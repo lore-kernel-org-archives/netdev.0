@@ -1,57 +1,60 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] net/netfilter/ipvs/ip_vs_ftp.c: Remove use of NIPQUAD
-Date: Mon, 08 Mar 2010 16:31:39 -0800
-Message-ID: <1268094699.1617.5.camel@Joe-Laptop.home>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: [PATCH] ar9170: fix for driver-core ABI change
+Date: Tue, 9 Mar 2010 10:42:21 +1100
+Message-ID: <20100309104221.aedc5e7e.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lvs-devel <lvs-devel@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1530 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753884Ab0CIAbk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Mar 2010 19:31:40 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	LKML <linux-kernel@vger.kernel.org>, linux-next@vger.kernel.org
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-NIPQUAD has very few uses left.
 
-Remove this use and make the code have the identical form of the only
-other use of "%u,%u,%u,%u,%u,%u" in net/ipv4/netfilter/nf_nat_ftp.c
-
-Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 ---
- net/netfilter/ipvs/ip_vs_ftp.c |   10 ++++++++--
- 1 files changed, 8 insertions(+), 2 deletions(-)
+ drivers/net/wireless/ath/ar9170/usb.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c
-b/net/netfilter/ipvs/ip_vs_ftp.c
-index 73f38ea..9f63283 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -208,8 +208,14 @@ static int ip_vs_ftp_out(struct ip_vs_app *app,
-struct ip_vs_conn *cp,
- 		 */
- 		from.ip = n_cp->vaddr.ip;
- 		port = n_cp->vport;
--		sprintf(buf, "%u,%u,%u,%u,%u,%u", NIPQUAD(from.ip),
--			(ntohs(port)>>8)&255, ntohs(port)&255);
-+		snprintf(buf, sizeof(buf), "%u,%u,%u,%u,%u,%u",
-+			 ((unsigned char *)&from.ip)[0],
-+			 ((unsigned char *)&from.ip)[1],
-+			 ((unsigned char *)&from.ip)[2],
-+			 ((unsigned char *)&from.ip)[3],
-+			 ntohs(port) >> 8,
-+			 ntohs(port) & 0xFF);
-+
- 		buf_len = strlen(buf);
+Hi Dave,
+
+I have been carrying this patch in linux-next for some time as a fixup
+for the driver-core tree.  It is now needed in net-2.6 (i.e. my
+net-current) (since you merged the wireless tree) *after* you merge with
+Linus' tree i.e. the down()/up() are present in the net-2.6 tree and the
+changes to the driver core to use mutexes are in Linus' tree.
+
+diff --git a/drivers/net/wireless/ath/ar9170/usb.c b/drivers/net/wireless/ath/ar9170/usb.c
+index 4e30197..7fc1034 100644
+--- a/drivers/net/wireless/ath/ar9170/usb.c
++++ b/drivers/net/wireless/ath/ar9170/usb.c
+@@ -41,6 +41,7 @@
+ #include <linux/usb.h>
+ #include <linux/firmware.h>
+ #include <linux/etherdevice.h>
++#include <linux/mutex.h>
+ #include <net/mac80211.h>
+ #include "ar9170.h"
+ #include "cmd.h"
+@@ -726,10 +727,10 @@ static void ar9170_usb_firmware_failed(struct ar9170_usb *aru)
  
- 		/*
+ 	/* unbind anything failed */
+ 	if (parent)
+-		down(&parent->sem);
++		device_lock(parent);
+ 	device_release_driver(&aru->udev->dev);
+ 	if (parent)
+-		up(&parent->sem);
++		device_unlock(parent);
+ }
+ 
+ static void ar9170_usb_firmware_finish(const struct firmware *fw, void *context)
+-- 
+1.7.0
 
-
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
