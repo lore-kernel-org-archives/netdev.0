@@ -1,36 +1,33 @@
-From: Dan Smith <danms@us.ibm.com>
-Subject: Re: [PATCH 2/6] C/R: Basic support for network namespaces and devices (v5)
-Date: Mon, 08 Mar 2010 10:07:47 -0800
-Message-ID: <87tysqheks.fsf@caffeine.danplanet.com>
-References: <1267130595-23637-1-git-send-email-danms@us.ibm.com>
-	<1267130595-23637-3-git-send-email-danms@us.ibm.com>
-	<4B91D1A3.9030404@cs.columbia.edu>
-	<87bpf1idic.fsf@caffeine.danplanet.com>
-	<4B92D574.1090006@cs.columbia.edu>
-	<871vfuiul6.fsf@caffeine.danplanet.com>
-	<m1hboqu2cv.fsf@fess.ebiederm.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [net-next-2.6 PATCH] bonding: refuse to change bond type if
+ it's used
+Date: Mon, 8 Mar 2010 10:24:48 -0800
+Message-ID: <20100308102448.7acfe7c0@nehalam>
+References: <20100308175406.GA2834@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oren Laadan <orenl@cs.columbia.edu>, containers@lists.osdl.org,
-	den@openvz.org, netdev@vger.kernel.org, davem@davemloft.net,
-	benjamin.thery@bull.net
-To: ebiederm@xmission.com (Eric W. Biederman)
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net, davem@davemloft.net
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw0.danplanet.com ([71.245.107.82]:40821 "EHLO
-	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752241Ab0CHSHu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 13:07:50 -0500
-In-Reply-To: <m1hboqu2cv.fsf@fess.ebiederm.org> (Eric W. Biederman's message of "Mon\, 08 Mar 2010 09\:53\:20 -0800")
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:40180 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752418Ab0CHSZv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 13:25:51 -0500
+In-Reply-To: <20100308175406.GA2834@psychotron.lab.eng.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-EB> Can we take advantage of the fact that when you destroy a network
-EB> namespace the virtual devices in that network namespace are also
-EB> destroyed?
+On Mon, 8 Mar 2010 18:54:06 +0100
+Jiri Pirko <jpirko@redhat.com> wrote:
 
-Hmm, that kinda seems like cheating, but maybe so.  I'll take a look :)
+> It's not desirable to be able to change the type of net_device in bond device if
+> it's in use by bridge, or vlan, or so. At the moment, there is possible for
+> example to have INFINIBAND bond type in bridge (by adding bond with eth type to
+> a bridge first and then enslave INFINIBAND device).
 
--- 
-Dan Smith
-IBM Linux Technology Center
-email: danms@us.ibm.com
+Rather than building lots of back pointer dependencies, why not
+have another netdevice notifier that allows other subsystems to
+see the type change and reject it if they care? That way the code
+would be more modular and expandable.
