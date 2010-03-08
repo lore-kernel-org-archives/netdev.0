@@ -1,129 +1,90 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
-Date: Mon, 08 Mar 2010 09:35:21 -0800
-Message-ID: <m1pr3eu36u.fsf@fess.ebiederm.org>
-References: <20100303000743.GA13744@us.ibm.com>
-	<m1ocj6qljj.fsf@fess.ebiederm.org> <4B8E9370.3050300@parallels.com>
-	<m17hptjh3m.fsf@fess.ebiederm.org> <4B9158F5.5040205@parallels.com>
-	<m1vdda1pmx.fsf@fess.ebiederm.org> <4B926B1B.5070207@free.fr>
-	<m1aaulyy5c.fsf@fess.ebiederm.org> <4B92C886.9020507@free.fr>
-	<m1fx4bxlfy.fsf@fess.ebiederm.org> <20100308170719.GD6399@us.ibm.com>
+From: Dan Smith <danms@us.ibm.com>
+Subject: Re: [PATCH 2/6] C/R: Basic support for network namespaces and devices (v5)
+Date: Mon, 08 Mar 2010 09:36:37 -0800
+Message-ID: <871vfuiul6.fsf@caffeine.danplanet.com>
+References: <1267130595-23637-1-git-send-email-danms@us.ibm.com>
+	<1267130595-23637-3-git-send-email-danms@us.ibm.com>
+	<4B91D1A3.9030404@cs.columbia.edu>
+	<87bpf1idic.fsf@caffeine.danplanet.com>
+	<4B92D574.1090006@cs.columbia.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <daniel.lezcano@free.fr>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>
-To: "Serge E. Hallyn" <serue@us.ibm.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100308170719.GD6399@us.ibm.com> (Serge E. Hallyn's message of "Mon\, 8 Mar 2010 11\:07\:19 -0600")
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: containers@lists.osdl.org, den@openvz.org, netdev@vger.kernel.org,
+	davem@davemloft.net, ebiederm@xmission.com, benjamin.thery@bull.net
+To: Oren Laadan <orenl@cs.columbia.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw0.danplanet.com ([71.245.107.82]:40722 "EHLO
+	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753194Ab0CHRgl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 12:36:41 -0500
+In-Reply-To: <4B92D574.1090006@cs.columbia.edu> (Oren Laadan's message of "Sat\, 06 Mar 2010 17\:21\:40 -0500")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Serge E. Hallyn" <serue@us.ibm.com> writes:
+OL> I'm confused: in checkpoint_ns() inside the for_each_netdev() loop
+OL> you first test for dev->netdev_ops->ndo_checkpoint and then call
+OL> checkpoint_obj(... CKPT_OBJ_NETDEV) - which in turn will call
+OL> checkpoint_netdev(), which will again test for
+dev-> netdev_ops->ndo_checkpoint ...  am I reading it wrongly ?
 
-> Quoting Eric W. Biederman (ebiederm@xmission.com):
->> 
->> I have take an snapshot of my development tree and placed it at.
->> 
->> 
->> git://git.kernel.org/pub/scm/linux/people/ebiederm/linux-2.6.33-nsfd-v5.git
->> 
->> 
->> >> I am going to explore a bit more.  Given that nsfd is using the same
->> >> permission checks as a proc file, I think I can just make it a proc
->> >> file.  Something like "/proc/<pid>/ns/net".  With a little luck that
->> >> won't suck too badly.
->> >>   
->> > Ah ! yes. Good idea.
->> 
->> It is a hair more code to use proc files but nothing worth counting.
->> 
->> Probably the biggest thing I am aware of right now in my development
->> tree is in getting uids to pass properly between unix domain sockets
->> I would up writing this cred_to_ucred function.
->> 
->> Serge can you take a look and check my logic, and do you have
->> any idea of where we should place something like pid_vnr but
->> for the uid namespace?
->
-> Well my first thought was user_namespace, but I'm thinking kernel/cred.c is
-> the best place for it.
+In the case of veth, yes.  It goes something like this:
 
-Thanks.
+checkpoint_netns() {
+  foreach netdev in netns {
+    checkpoint_netdev {
+      if netdev is veth {
+        checkpoint_peer(); // Will call checkpoint_netdev again
+      }
+    }
+  }
+}
 
->> void cred_to_ucred(struct pid *pid, const struct cred *cred,
->> 		   struct ucred *ucred)
->> {
->> 	ucred->pid = pid_vnr(pid);
->> 	ucred->uid = ucred->gid = -1;
->> 	if (cred) {
->> 		struct user_namespace *cred_ns = cred->user->user_ns;
->> 		struct user_namespace *current_ns = current_user_ns();
->> 		struct user_namespace *tmp;
->> 
->> 		if (likely(cred_ns == current_ns)) {
->> 			ucred->uid = cred->euid;
->> 			ucred->gid = cred->egid;
->> 		} else {
->> 			/* Is cred in a child user namespace */
->> 			tmp = cred_ns;
->> 			do {
->> 				tmp = tmp->creator->user_ns;
->> 				if (tmp == current_ns) {
->
-> 	Hmm, I think you want to catch one level up - so the creator itself
-> 	is in current_user_ns, so
+It shouldn't happen, but it seems like since we could potentially add
+another checkpoint_obj(mydev) somewhere other than in
+checkpoint_netdev(), it is reasonable to check that there is actually
+something to call before we call it.
 
->
-> 	do {
-> 		if (tmp->creator->user_ns == current_ns) {
-> 			ucred->uid = tmp->creator->uid;
-> 			ucred->gid = tmp->creator_gid;
-> 			return;
-> 		}
-> 		tmp = tmp->creator->user_ns;
-> 	} while (tmp != &init_user_ns);
+Would you prefer a BUG()?
 
-Good catch.  
+OL> How about this - to me it feels simpler:
 
->> 					ucred->uid = tmp->creator->uid;
->> 					ucred->gid = overflowgid;
->
-> 			should we start recording a user_ns->creator_gid
-> 			instead?
+OL> 	dev = rtnl_newlink(veth_new_link_msg, &veth, this_name);
+OL> 	if (IS_ERR(dev))
+OL> 		return dev;
 
-I had a similar question.  Possibly we can just grab the creators cred.
+OL> 	peer = dev_get_by_name(current->nsproxy->net_ns, peer_name);
+OL> 	if (!peer) {
+OL> 		ret = -EINVAL;
+OL> 		goto err_dev;
+OL> 	}
+OL> 	ret = ckpt_obj_insert(ctx, peer, h->veth.peer_ref,
+OL> 			      CKPT_OBJ_NETDEV);
+OL> 	if (ret < 0)
+OL> 		goto err_peer;
 
+OL> 	dev_put(peer);
 
->> 					return;
->> 				}
->> 			} while (tmp != &init_user_ns);
->> 
->> 			/* Is cred the creator of my user namespace,
->> 			 * or the creator of one of it's parents?
->> 			 */
->> 			for( tmp = current_ns; tmp != &init_user_ns;
->> 			     tmp = tmp->creator->user_ns) {
->> 				if (cred->user == tmp->creator) {
->> 					ucred->uid = 0;
->> 					ucred->gid = 0;
->> 					return;
->> 				}
->> 			}
->
-> That looks right.
->
->> 			/* No user namespace relationship so no mapping */
->> 			ucred->uid = overflowuid;
->> 			ucred->gid = overflowgid;
->> 		}
->> 	}
->> }
+OL> 	dq.dev = dev;
+OL> 	dq.peer = peer;
+OL> 	ret = deferqueue_add(ctx->deferqueue, &dq, sizeof(dq),
+OL> 			     netdev_noop, netdev_cleanup);
+OL> 	if (ret)
+OL> 		goto err_peer;
 
-Eric
+If you fail here you need to unregister_netdev() because the dev_put()
+that the objhash will not cause it to happen.  Unless we add something
+to allow you to remove your object from the hash, you can't prevent
+that final put, so you have to have it in the deferqueue for
+later.  You can't check the refcount in the objhash function because it
+will differ depending on the number of addresses and protocols the
+device has, and those don't get released until unregister_netdev()
+which will block if you call it before you've released all of your
+references.  If the objhash put function could examine ctx->errno,
+then it could drop its reference and then call unregister_netdev(),
+but that would involve changing all the drop functions.  What am I
+missing?
 
+-- 
+Dan Smith
+IBM Linux Technology Center
+email: danms@us.ibm.com
