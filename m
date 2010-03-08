@@ -1,73 +1,103 @@
-From: Bart De Schuymer <bdschuym@pandora.be>
-Subject: Re: [PATCH net-2.6] netfilter: ebt_ip6: Use ipv6_masked_addr_cmp().
-Date: Mon, 08 Mar 2010 09:25:03 +0100
-Message-ID: <4B94B45F.4070804@pandora.be>
-References: <201003070918.o279IXtq029570@94.43.138.210.xn.2iij.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
+Date: Mon, 08 Mar 2010 00:32:49 -0800
+Message-ID: <m1fx4bxlfy.fsf@fess.ebiederm.org>
+References: <4B88E431.6040609@parallels.com>
+	<m1bpfbqajn.fsf@fess.ebiederm.org> <4B894564.7080104@parallels.com>
+	<m1iq9io5sc.fsf@fess.ebiederm.org> <4B89727C.9040602@parallels.com>
+	<m1ljeempk6.fsf@fess.ebiederm.org> <4B8AE8C1.1030305@free.fr>
+	<4B8D28CF.8060304@parallels.com> <20100302211942.GA17816@us.ibm.com>
+	<m1y6iaqsmm.fsf@fess.ebiederm.org> <20100303000743.GA13744@us.ibm.com>
+	<m1ocj6qljj.fsf@fess.ebiederm.org> <4B8E9370.3050300@parallels.com>
+	<m17hptjh3m.fsf@fess.ebiederm.org> <4B9158F5.5040205@parallels.com>
+	<m1vdda1pmx.fsf@fess.ebiederm.org> <4B926B1B.5070207@free.fr>
+	<m1aaulyy5c.fsf@fess.ebiederm.org> <4B92C886.9020507@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: bart.de.schuymer@pandora.be, kaber@trash.net, davem@davemloft.net,
-	ebtables-devel@lists.sourceforge.net,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <201003070918.o279IXtq029570@94.43.138.210.xn.2iij.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-YOSHIFUJI Hideaki schreef:
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> ---
->  net/bridge/netfilter/ebt_ip6.c |   18 ++++--------------
->  1 files changed, 4 insertions(+), 14 deletions(-)
->
-> diff --git a/net/bridge/netfilter/ebt_ip6.c b/net/bridge/netfilter/ebt_ip6.c
-> index bbf2534..4644cc9 100644
-> --- a/net/bridge/netfilter/ebt_ip6.c
-> +++ b/net/bridge/netfilter/ebt_ip6.c
-> @@ -35,8 +35,6 @@ ebt_ip6_mt(const struct sk_buff *skb, const struct xt_match_param *par)
->  	struct ipv6hdr _ip6h;
->  	const struct tcpudphdr *pptr;
->  	struct tcpudphdr _ports;
-> -	struct in6_addr tmp_addr;
-> -	int i;
->  
->  	ih6 = skb_header_pointer(skb, 0, sizeof(_ip6h), &_ip6h);
->  	if (ih6 == NULL)
-> @@ -44,18 +42,10 @@ ebt_ip6_mt(const struct sk_buff *skb, const struct xt_match_param *par)
->  	if (info->bitmask & EBT_IP6_TCLASS &&
->  	   FWINV(info->tclass != ipv6_get_dsfield(ih6), EBT_IP6_TCLASS))
->  		return false;
-> -	for (i = 0; i < 4; i++)
-> -		tmp_addr.in6_u.u6_addr32[i] = ih6->saddr.in6_u.u6_addr32[i] &
-> -			info->smsk.in6_u.u6_addr32[i];
-> -	if (info->bitmask & EBT_IP6_SOURCE &&
-> -		FWINV((ipv6_addr_cmp(&tmp_addr, &info->saddr) != 0),
-> -			EBT_IP6_SOURCE))
-> -		return false;
-> -	for (i = 0; i < 4; i++)
-> -		tmp_addr.in6_u.u6_addr32[i] = ih6->daddr.in6_u.u6_addr32[i] &
-> -			info->dmsk.in6_u.u6_addr32[i];
-> -	if (info->bitmask & EBT_IP6_DEST &&
-> -	   FWINV((ipv6_addr_cmp(&tmp_addr, &info->daddr) != 0), EBT_IP6_DEST))
-> +	if (FWINV(ipv6_masked_addr_cmp(&ih6->saddr, &info->smsk,
-> +				       &info->saddr), EBT_IP6_SOURCE) ||
-> +	    FWINV(ipv6_masked_addr_cmp(&ih6->daddr, &info->dmsk,
-> +				       &info->daddr), EBT_IP6_DEST))
->  		return false;
->  	if (info->bitmask & EBT_IP6_PROTO) {
->  		uint8_t nexthdr = ih6->nexthdr;
->   
-Signed-off-by: Bart De Schuymer <bdschuym@pandora.be>
-
-Looks OK to me.
+Content-Type: text/plain; charset=us-ascii
+Cc: Pavel Emelyanov <xemul@parallels.com>,
+	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
+	Serge Hallyn <serue@us.ibm.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	containers@lists.linux-foundation.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>
+To: Daniel Lezcano <daniel.lezcano@free.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:37738 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750950Ab0CHIcz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 03:32:55 -0500
+In-Reply-To: <4B92C886.9020507@free.fr> (Daniel Lezcano's message of "Sat\, 06 Mar 2010 22\:26\:30 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-cheers,
-Bart
+I have take an snapshot of my development tree and placed it at.
 
 
--- 
-Bart De Schuymer
-www.artinalgorithms.be
+git://git.kernel.org/pub/scm/linux/people/ebiederm/linux-2.6.33-nsfd-v5.git
 
+
+>> I am going to explore a bit more.  Given that nsfd is using the same
+>> permission checks as a proc file, I think I can just make it a proc
+>> file.  Something like "/proc/<pid>/ns/net".  With a little luck that
+>> won't suck too badly.
+>>   
+> Ah ! yes. Good idea.
+
+It is a hair more code to use proc files but nothing worth counting.
+
+Probably the biggest thing I am aware of right now in my development
+tree is in getting uids to pass properly between unix domain sockets
+I would up writing this cred_to_ucred function.
+
+Serge can you take a look and check my logic, and do you have
+any idea of where we should place something like pid_vnr but
+for the uid namespace?
+
+void cred_to_ucred(struct pid *pid, const struct cred *cred,
+		   struct ucred *ucred)
+{
+	ucred->pid = pid_vnr(pid);
+	ucred->uid = ucred->gid = -1;
+	if (cred) {
+		struct user_namespace *cred_ns = cred->user->user_ns;
+		struct user_namespace *current_ns = current_user_ns();
+		struct user_namespace *tmp;
+
+		if (likely(cred_ns == current_ns)) {
+			ucred->uid = cred->euid;
+			ucred->gid = cred->egid;
+		} else {
+			/* Is cred in a child user namespace */
+			tmp = cred_ns;
+			do {
+				tmp = tmp->creator->user_ns;
+				if (tmp == current_ns) {
+					ucred->uid = tmp->creator->uid;
+					ucred->gid = overflowgid;
+					return;
+				}
+			} while (tmp != &init_user_ns);
+
+			/* Is cred the creator of my user namespace,
+			 * or the creator of one of it's parents?
+			 */
+			for( tmp = current_ns; tmp != &init_user_ns;
+			     tmp = tmp->creator->user_ns) {
+				if (cred->user == tmp->creator) {
+					ucred->uid = 0;
+					ucred->gid = 0;
+					return;
+				}
+			}
+
+			/* No user namespace relationship so no mapping */
+			ucred->uid = overflowuid;
+			ucred->gid = overflowgid;
+		}
+	}
+}
+
+Eric
