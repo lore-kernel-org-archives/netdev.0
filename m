@@ -1,64 +1,128 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] tipc: filter out messages not intended for this host
-Date: Mon, 8 Mar 2010 14:41:49 -0500
-Message-ID: <20100308194149.GD23634@hmsreliant.think-freely.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] ethtool: Use noinline_for_stack
+Date: Mon, 08 Mar 2010 20:46:03 +0100
+Message-ID: <1268077563.2819.61.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: allan.stephens@windriver.com, nhorman@tuxdriver.com,
-	davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59265 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754245Ab0CHTlz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 14:41:55 -0500
-Content-Disposition: inline
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:58465 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754623Ab0CHTqK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 14:46:10 -0500
+Received: by bwz1 with SMTP id 1so3169726bwz.21
+        for <netdev@vger.kernel.org>; Mon, 08 Mar 2010 11:46:07 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Port commit 20deb48d16fdd07ce2fdc8d03ea317362217e085
-from git://tipc.cslab.ericsson.net/pub/git/people/allan/tipc.git
+Use self documenting noinline_for_stack instead of duplicated comments.
 
-Part of the larger effort I'm trying to help with getting all the downstreamed
-code from windriver forward ported to the upstream tree
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/core/ethtool.c |   40 ++++++++--------------------------------
+ 1 file changed, 8 insertions(+), 32 deletions(-)
 
-Origional commit message
-Restore check to filter out inadverdently received messages
-This patch reimplements a check that allows TIPC to discard messages
-that are not intended for it.  This check was present in TIPC 1.5/1.6,
-but was removed by accident during the development of TIPC 1.7; it has
-now been updated to account for new features present in TIPC 1.7 and
-reinserted into TIPC.  The main benefit of this check is to filter
-out messages arriving from orphaned link endpoints, which can arise
-when a node exits the network and then re-enters it with a different
-TIPC network address (i.e. <Z.C.N> value).
-
-tested with the tipc sanity test suite.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-Origionally-authored-by: Allan Stephens <allan.stephens@windriver.com>
-
-
- link.c |    9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 6f50f64..da3a384 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -1882,6 +1882,15 @@ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *tb_ptr)
- 			     (msg_destnode(msg) != tipc_own_addr)))
- 			goto cont;
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 33d2ded..f4cb6b6 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -200,10 +200,7 @@ static int ethtool_set_settings(struct net_device *dev, void __user *useraddr)
+ 	return dev->ethtool_ops->set_settings(dev, &cmd);
+ }
  
-+		/* Discard non-routeable messages destined for another node */
-+
-+		if (unlikely(!msg_isdata(msg) && 
-+			     (msg_destnode(msg) != tipc_own_addr))) {
-+			if ((msg_user(msg) != CONN_MANAGER) &&
-+			    (msg_user(msg) != MSG_FRAGMENTER))
-+				goto cont;
-+		}
-+
- 		/* Locate unicast link endpoint that should handle message */
+-/*
+- * noinline attribute so that gcc doesnt use too much stack in dev_ethtool()
+- */
+-static noinline int ethtool_get_drvinfo(struct net_device *dev, void __user *useraddr)
++static noinline_for_stack int ethtool_get_drvinfo(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_drvinfo info;
+ 	const struct ethtool_ops *ops = dev->ethtool_ops;
+@@ -242,10 +239,7 @@ static noinline int ethtool_get_drvinfo(struct net_device *dev, void __user *use
+ 	return 0;
+ }
  
- 		n_ptr = tipc_node_find(msg_prevnode(msg));
+-/*
+- * noinline attribute so that gcc doesnt use too much stack in dev_ethtool()
+- */
+-static noinline int ethtool_get_sset_info(struct net_device *dev,
++static noinline_for_stack int ethtool_get_sset_info(struct net_device *dev,
+                                           void __user *useraddr)
+ {
+ 	struct ethtool_sset_info info;
+@@ -305,10 +299,7 @@ out:
+ 	return ret;
+ }
+ 
+-/*
+- * noinline attribute so that gcc doesnt use too much stack in dev_ethtool()
+- */
+-static noinline int ethtool_set_rxnfc(struct net_device *dev, void __user *useraddr)
++static noinline_for_stack int ethtool_set_rxnfc(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_rxnfc cmd;
+ 
+@@ -321,10 +312,7 @@ static noinline int ethtool_set_rxnfc(struct net_device *dev, void __user *usera
+ 	return dev->ethtool_ops->set_rxnfc(dev, &cmd);
+ }
+ 
+-/*
+- * noinline attribute so that gcc doesnt use too much stack in dev_ethtool()
+- */
+-static noinline int ethtool_get_rxnfc(struct net_device *dev, void __user *useraddr)
++static noinline_for_stack int ethtool_get_rxnfc(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_rxnfc info;
+ 	const struct ethtool_ops *ops = dev->ethtool_ops;
+@@ -396,10 +384,7 @@ static void __rx_ntuple_filter_add(struct ethtool_rx_ntuple_list *list,
+ 	list->count++;
+ }
+ 
+-/*
+- * noinline attribute so that gcc doesnt use too much stack in dev_ethtool()
+- */
+-static noinline int ethtool_set_rx_ntuple(struct net_device *dev, void __user *useraddr)
++static noinline_for_stack int ethtool_set_rx_ntuple(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_rx_ntuple cmd;
+ 	const struct ethtool_ops *ops = dev->ethtool_ops;
+@@ -867,10 +852,7 @@ static int ethtool_set_eeprom(struct net_device *dev, void __user *useraddr)
+ 	return ret;
+ }
+ 
+-/*
+- * noinline attribute so that gcc doesnt use too much stack in dev_ethtool()
+- */
+-static noinline int ethtool_get_coalesce(struct net_device *dev, void __user *useraddr)
++static noinline_for_stack int ethtool_get_coalesce(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_coalesce coalesce = { .cmd = ETHTOOL_GCOALESCE };
+ 
+@@ -884,10 +866,7 @@ static noinline int ethtool_get_coalesce(struct net_device *dev, void __user *us
+ 	return 0;
+ }
+ 
+-/*
+- * noinline attribute so that gcc doesnt use too much stack in dev_ethtool()
+- */
+-static noinline int ethtool_set_coalesce(struct net_device *dev, void __user *useraddr)
++static noinline_for_stack int ethtool_set_coalesce(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_coalesce coalesce;
+ 
+@@ -1297,10 +1276,7 @@ static int ethtool_set_value(struct net_device *dev, char __user *useraddr,
+ 	return actor(dev, edata.data);
+ }
+ 
+-/*
+- * noinline attribute so that gcc doesnt use too much stack in dev_ethtool()
+- */
+-static noinline int ethtool_flash_device(struct net_device *dev, char __user *useraddr)
++static noinline_for_stack int ethtool_flash_device(struct net_device *dev, char __user *useraddr)
+ {
+ 	struct ethtool_flash efl;
+ 
+
+
