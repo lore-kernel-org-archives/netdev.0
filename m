@@ -1,27 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ethtool: Use noinline_for_stack
-Date: Mon, 08 Mar 2010 12:17:12 -0800 (PST)
-Message-ID: <20100308.121712.85419280.davem@davemloft.net>
-References: <1268077563.2819.61.camel@edumazet-laptop>
+Subject: Re: [PATCH]: tipc: Fix oops on send prior to entering networked
+ mode (v2)
+Date: Mon, 08 Mar 2010 12:19:42 -0800 (PST)
+Message-ID: <20100308.121942.67584963.davem@davemloft.net>
+References: <20100219194033.GA28743@hmsreliant.think-freely.org>
+	<20100302183312.GB22294@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, jon.maloy@ericsson.com,
+	allan.stephens@windriver.com, tipc-discussion@lists.sourceforge.net
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36413
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54859
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755563Ab0CHUQw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 15:16:52 -0500
-In-Reply-To: <1268077563.2819.61.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1755614Ab0CHUTX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 15:19:23 -0500
+In-Reply-To: <20100302183312.GB22294@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 08 Mar 2010 20:46:03 +0100
 
-> Use self documenting noinline_for_stack instead of duplicated comments.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-Applied, thanks Eric.
+Doesn't apply to net-2.6, Neil please respin.
