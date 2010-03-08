@@ -1,95 +1,68 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 2/6] C/R: Basic support for network namespaces and devices (v5)
-Date: Mon, 08 Mar 2010 09:53:20 -0800
-Message-ID: <m1hboqu2cv.fsf@fess.ebiederm.org>
-References: <1267130595-23637-1-git-send-email-danms@us.ibm.com>
-	<1267130595-23637-3-git-send-email-danms@us.ibm.com>
-	<4B91D1A3.9030404@cs.columbia.edu>
-	<87bpf1idic.fsf@caffeine.danplanet.com>
-	<4B92D574.1090006@cs.columbia.edu>
-	<871vfuiul6.fsf@caffeine.danplanet.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [net-next-2.6 PATCH] bonding: refuse to change bond type if it's used
+Date: Mon, 8 Mar 2010 18:54:06 +0100
+Message-ID: <20100308175406.GA2834@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Oren Laadan <orenl@cs.columbia.edu>, containers@lists.osdl.org,
-	den@openvz.org, netdev@vger.kernel.org, davem@davemloft.net,
-	benjamin.thery@bull.net
-To: Dan Smith <danms@us.ibm.com>
+Cc: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
+	davem@davemloft.net, shemminger@linux-foundation.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:58413 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751136Ab0CHRxb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 12:53:31 -0500
-In-Reply-To: <871vfuiul6.fsf@caffeine.danplanet.com> (Dan Smith's message of "Mon\, 08 Mar 2010 09\:36\:37 -0800")
+Received: from mx1.redhat.com ([209.132.183.28]:49956 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753458Ab0CHRyx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Mar 2010 12:54:53 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dan Smith <danms@us.ibm.com> writes:
+It's not desirable to be able to change the type of net_device in bond device if
+it's in use by bridge, or vlan, or so. At the moment, there is possible for
+example to have INFINIBAND bond type in bridge (by adding bond with eth type to
+a bridge first and then enslave INFINIBAND device).
 
-> OL> I'm confused: in checkpoint_ns() inside the for_each_netdev() loop
-> OL> you first test for dev->netdev_ops->ndo_checkpoint and then call
-> OL> checkpoint_obj(... CKPT_OBJ_NETDEV) - which in turn will call
-> OL> checkpoint_netdev(), which will again test for
-> dev-> netdev_ops->ndo_checkpoint ...  am I reading it wrongly ?
->
-> In the case of veth, yes.  It goes something like this:
->
-> checkpoint_netns() {
->   foreach netdev in netns {
->     checkpoint_netdev {
->       if netdev is veth {
->         checkpoint_peer(); // Will call checkpoint_netdev again
->       }
->     }
->   }
-> }
->
-> It shouldn't happen, but it seems like since we could potentially add
-> another checkpoint_obj(mydev) somewhere other than in
-> checkpoint_netdev(), it is reasonable to check that there is actually
-> something to call before we call it.
->
-> Would you prefer a BUG()?
->
-> OL> How about this - to me it feels simpler:
->
-> OL> 	dev = rtnl_newlink(veth_new_link_msg, &veth, this_name);
-> OL> 	if (IS_ERR(dev))
-> OL> 		return dev;
->
-> OL> 	peer = dev_get_by_name(current->nsproxy->net_ns, peer_name);
-> OL> 	if (!peer) {
-> OL> 		ret = -EINVAL;
-> OL> 		goto err_dev;
-> OL> 	}
-> OL> 	ret = ckpt_obj_insert(ctx, peer, h->veth.peer_ref,
-> OL> 			      CKPT_OBJ_NETDEV);
-> OL> 	if (ret < 0)
-> OL> 		goto err_peer;
->
-> OL> 	dev_put(peer);
->
-> OL> 	dq.dev = dev;
-> OL> 	dq.peer = peer;
-> OL> 	ret = deferqueue_add(ctx->deferqueue, &dq, sizeof(dq),
-> OL> 			     netdev_noop, netdev_cleanup);
-> OL> 	if (ret)
-> OL> 		goto err_peer;
->
-> If you fail here you need to unregister_netdev() because the dev_put()
-> that the objhash will not cause it to happen.  Unless we add something
-> to allow you to remove your object from the hash, you can't prevent
-> that final put, so you have to have it in the deferqueue for
-> later.  You can't check the refcount in the objhash function because it
-> will differ depending on the number of addresses and protocols the
-> device has, and those don't get released until unregister_netdev()
-> which will block if you call it before you've released all of your
-> references.  If the objhash put function could examine ctx->errno,
-> then it could drop its reference and then call unregister_netdev(),
-> but that would involve changing all the drop functions.  What am I
-> missing?
+This patch adds netdev_is_independent() function to check if device is not
+"enslaved" and use this function to do the check before type change is performed.
 
-Can we take advantage of the fact that when you destroy a network
-namespace the virtual devices in that network namespace are also destroyed?
+>From now on, the type change is allowed only for those bond devices not used by
+any other net dev.
 
-Eric
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 430c022..4e64af1 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1476,6 +1476,15 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	 */
+ 	if (bond->slave_cnt == 0) {
+ 		if (bond_dev->type != slave_dev->type) {
++			/* check if device is not used by bridge, vlan, etc */
++			if (!netdev_is_independent(bond_dev)) {
++				pr_debug("%s: can't change device type from "
++					 "%d to %d, device is busy\n",
++					 bond_dev->name,
++					 bond_dev->type, slave_dev->type);
++				res = -EBUSY;
++				goto err_undo_flags;
++			}
+ 			pr_debug("%s: change device type from %d to %d\n",
+ 				 bond_dev->name,
+ 				 bond_dev->type, slave_dev->type);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c79a88b..0c90a57 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -984,6 +984,12 @@ struct net_device {
+ 
+ #define	NETDEV_ALIGN		32
+ 
++static inline int netdev_is_independent(const struct net_device *dev)
++{
++	return dev->master == NULL && dev->br_port == NULL &&
++	       dev->macvlan_port == NULL && dev->garp_port == NULL;
++}
++
+ static inline
+ struct netdev_queue *netdev_get_tx_queue(const struct net_device *dev,
+ 					 unsigned int index)
