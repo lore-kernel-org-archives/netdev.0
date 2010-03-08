@@ -1,41 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tipc: fix endianness on tipc subscriber messages
-Date: Mon, 08 Mar 2010 15:38:11 -0800 (PST)
-Message-ID: <20100308.153811.109635961.davem@davemloft.net>
-References: <20100308200315.GE23634@hmsreliant.think-freely.org>
-	<29C1DC0826876849BDD9F1C67ABA29430728D116@ala-mail09.corp.ad.wrs.com>
-	<20100308.125429.14323494.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] vsprintf.c: Use noinline_for_stack
+Date: Mon, 08 Mar 2010 15:39:35 -0800
+Message-ID: <1268091575.1925.61.camel@Joe-Laptop.home>
+References: <cover.1267682641.git.joe@perches.com>
+	 <20100304143837.af39845d.akpm@linux-foundation.org>
+	 <alpine.LFD.2.00.1003041504080.3751@localhost.localdomain>
+	 <1267911399.849.39.camel@Joe-Laptop.home>
+	 <alpine.LFD.2.00.1003061356420.31447@localhost.localdomain>
+	 <1267914654.849.81.camel@Joe-Laptop.home>
+	 <alpine.LFD.2.00.1003061445490.31447@localhost.localdomain>
+	 <alpine.LFD.2.00.1003061455590.31447@localhost.localdomain>
+	 <1267918554.849.89.camel@Joe-Laptop.home>
+	 <alpine.LFD.2.00.1003061540470.23804@localhost.localdomain>
+	 <alpine.LFD.2.00.1003061547490.23804@localhost.localdomain>
+	 <alpine.LFD.2.00.1003061556420.23804@localhost.localdomain>
+	 <1267924214.1937.12.camel@Joe-Laptop.home>
+	 <alpine.LFD.2.00.1003061755400.23804@localhost.localdomain>
+	 <1267929215.1937.18.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org
-To: allan.stephens@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51765
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755893Ab0CHXhw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 18:37:52 -0500
-In-Reply-To: <20100308.125429.14323494.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Nick Andrew <nick@nick-andrew.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@suse.de>, netdev@vger.kernel.org,
+	Bjorn Helgaas <bjorn.helgaas@hp.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1267929215.1937.18.camel@Joe-Laptop.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Sat, 2010-03-06 at 18:33 -0800, Joe Perches wrote:
+> On Sat, 2010-03-06 at 18:03 -0800, Linus Torvalds wrote:
+> > A few noinlines might be appropriate.
+> Mark static functions with noinline_for_stack
 
-Allan, I don't think you're being reasonable at all.
+It's fine by me that the vsnprintf recursion and
+(pr|dev|netdev)_<level> text reduction patches didn't make .34.
 
-You tell Neil he's breaking things, and that his code isn't following
-the current spec.
+I'd like to know what you think necessary to get them into .35.
 
-Neil asks where the spec is.
+Perhaps it'd be useful if they could go into -next as-is for a
+bit of wider testing.
 
-And you tell him your out-of-tree code is the spec.
-
-That's absolutely rediculious.  It is totally unreasonable to require
-Neil to unravel the mess that is the out-of-tree TIPC implementation
-in order to figure out what the current protocol "spec" is.
-
-You're doing a lot of "oh crap, don't do this, you'll break this or
-that."  But frankly, you really don't care what's in the upstream
-kernel.  If you did, your stuff wouldn't be out of tree.
-
-Therefore I take every piece of feedback you give to Neil's
-patches with a grain of salt, at best.
+http://patchwork.kernel.org/patch/83940/
+http://patchwork.kernel.org/patch/83724/
+http://patchwork.kernel.org/patch/83726/
+http://patchwork.kernel.org/patch/83725/
