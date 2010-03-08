@@ -1,38 +1,39 @@
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Subject: Re: [kernel,2.6.33-git11] lib8390: use spin_lock_irqsave for
- locking
-Date: Mon, 8 Mar 2010 21:24:33 +0900
-Message-ID: <20100308212433.0fa3e453.ken_kawasaki@spring.nifty.jp>
-References: <20100307.152230.09914483.davem@davemloft.net>
+From: "Williams, June" <June.Williams1@rotherham.gov.uk>
+Subject: System Administrator
+Date: Mon, 8 Mar 2010 12:21:55 -0000
+Message-ID: <491113544C53B94C81B74FF274C594410264AC18@xbk6.rotherham.gov.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: 7BIT
+To: <info@notice.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userg507.nifty.com ([202.248.238.87]:47312 "EHLO
-	userg507.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755030Ab0CHMZL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 07:25:11 -0500
-In-Reply-To: <20100307.152230.09914483.davem@davemloft.net>
+Received: from mailhost3.rotherham.gov.uk ([195.188.200.155]:4223 "HELO
+	mailhost3.rotherham.gov.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750880Ab0CHMor convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Mar 2010 07:44:47 -0500
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Your mailbox has exceeded the storage limit which is 20GB as set by your
+administrator, you are currently running on 20.9GB, you may not be able to
+send or receive new mail until you re-validate your mailbox.
+To re-validate your mailbox please
+CLICK HERE <http://icebrrg.com/Public/ViewForm.aspx?formID=49265> 
+Thanks
+System Administrator.
+WebCT Administrator.
+#####################################################################################
 
-> This change is not correct.
-> 
-> disable_irq is being intentionally used because the reset
-> sequence can take a very long time and we don't want to
-> have cpu interrupts disabled during the entire sequence.
-> 
-> Otherwise slow serial devices will drop characters and
-> stuff like that.
+The information in this e-mail is confidential and intended solely for the use of the
+individual to whom it was addressed. If you are not the intended recipient, be
+advised that you have received this e-mail in error and that any use, dissemination,
+forwarding, printing or copying of this e-mail is strictly prohibited. If you have
+received this e-mail in error, please advise the sender by using the reply facility
+in your e-mail software, and then delete it from your system. Rotherham MBC may 
+monitor the content of the e-mails sent and received via its network for the purposes
+of ensuring compliance with the law and with RMBC policies.  Any views or opinions
+presented are only those of the author and not those of Rotherham MBC.
 
-
-Actually, disable_irq is _not_ safe for lib8390 on SMP system.
-Same CPU or other CPU can call enable_irq.
-
-so lib8390 does not work properly on my SMP system.
-
-Ken.
-
+#####################################################################################
