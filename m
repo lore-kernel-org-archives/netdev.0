@@ -1,178 +1,36 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] net: fix route cache rebuilds
-Date: Mon, 8 Mar 2010 13:06:03 -0500
-Message-ID: <20100308180603.GC23634@hmsreliant.think-freely.org>
-References: <1268054400.6148.99.camel@edumazet-laptop>
+From: Dan Smith <danms@us.ibm.com>
+Subject: Re: [PATCH 2/6] C/R: Basic support for network namespaces and devices (v5)
+Date: Mon, 08 Mar 2010 10:07:47 -0800
+Message-ID: <87tysqheks.fsf@caffeine.danplanet.com>
+References: <1267130595-23637-1-git-send-email-danms@us.ibm.com>
+	<1267130595-23637-3-git-send-email-danms@us.ibm.com>
+	<4B91D1A3.9030404@cs.columbia.edu>
+	<87bpf1idic.fsf@caffeine.danplanet.com>
+	<4B92D574.1090006@cs.columbia.edu>
+	<871vfuiul6.fsf@caffeine.danplanet.com>
+	<m1hboqu2cv.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	=?utf-8?B?UGF3ZcWC?= Staszewski <pstaszewski@itcare.pl>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Oren Laadan <orenl@cs.columbia.edu>, containers@lists.osdl.org,
+	den@openvz.org, netdev@vger.kernel.org, davem@davemloft.net,
+	benjamin.thery@bull.net
+To: ebiederm@xmission.com (Eric W. Biederman)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:41460 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753421Ab0CHSGM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 13:06:12 -0500
-Content-Disposition: inline
-In-Reply-To: <1268054400.6148.99.camel@edumazet-laptop>
+Received: from gw0.danplanet.com ([71.245.107.82]:40821 "EHLO
+	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752241Ab0CHSHu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 13:07:50 -0500
+In-Reply-To: <m1hboqu2cv.fsf@fess.ebiederm.org> (Eric W. Biederman's message of "Mon\, 08 Mar 2010 09\:53\:20 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 08, 2010 at 02:20:00PM +0100, Eric Dumazet wrote:
-> We added an automatic route cache rebuilding in commit 1080d709fb9d8c=
-d43
-> but had to correct few bugs. One of the assumption of original patch,
-> was that entries where kept sorted in a given way.
->=20
-> This assumption is known to be wrong (commit 1ddbcb005c395518 gave an
-> explanation of this and corrected a leak) and expensive to respect.
->=20
-> Pawe=C5=82 Staszewski reported to me one of his machine got its routi=
-ng cache
-> disabled after few messages like :
->=20
-> [ 2677.850065] Route hash chain too long!
-> [ 2677.850080] Adjust your secret_interval!
-> [82839.662993] Route hash chain too long!
-> [82839.662996] Adjust your secret_interval!
-> [155843.731650] Route hash chain too long!
-> [155843.731664] Adjust your secret_interval!
-> [155843.811881] Route hash chain too long!
-> [155843.811891] Adjust your secret_interval!
-> [155843.858209] vlan0811: 5 rebuilds is over limit, route caching
-> disabled
-> [155843.858212] Route hash chain too long!
-> [155843.858213] Adjust your secret_interval!
->=20
-> This is because rt_intern_hash() might be fooled when computing a cha=
-in
-> length, because multiple entries with same keys can differ because of
-> TOS (or mark/oif) bits.
->=20
-> In the rare case the fast algorithm see a too long chain, and before
-> taking expensive path, we call a helper function in order to not coun=
-t
-> duplicates of same routes, that only differ with tos/mark/oif bits. T=
-his
-> helper works with data already in cpu cache and is not be very
-> expensive, despite its O(N^2) implementation.
->=20
-> Pawe=C5=82 Staszewski sucessfully tested this patch on his loaded rou=
-ter.
->=20
-> Reported-and-tested-by: Pawe=C5=82 Staszewski <pstaszewski@itcare.pl>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
->  net/ipv4/route.c |   50 ++++++++++++++++++++++++++++++++++----------=
--
->  1 file changed, 38 insertions(+), 12 deletions(-)
->=20
+EB> Can we take advantage of the fact that when you destroy a network
+EB> namespace the virtual devices in that network namespace are also
+EB> destroyed?
 
+Hmm, that kinda seems like cheating, but maybe so.  I'll take a look :)
 
-This looks pretty reasonable to me, Thanks Eric!
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
-
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index b2ba558..d9b4024 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -146,7 +146,6 @@ static struct dst_entry *ipv4_negative_advice(str=
-uct dst_entry *dst);
->  static void		 ipv4_link_failure(struct sk_buff *skb);
->  static void		 ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu);
->  static int rt_garbage_collect(struct dst_ops *ops);
-> -static void rt_emergency_hash_rebuild(struct net *net);
-> =20
-> =20
->  static struct dst_ops ipv4_dst_ops =3D {
-> @@ -780,11 +779,30 @@ static void rt_do_flush(int process_context)
->  #define FRACT_BITS 3
->  #define ONE (1UL << FRACT_BITS)
-> =20
-> +/*
-> + * Given a hash chain and an item in this hash chain,
-> + * find if a previous entry has the same hash_inputs
-> + * (but differs on tos, mark or oif)
-> + * Returns 0 if an alias is found.
-> + * Returns ONE if rth has no alias before itself.
-> + */
-> +static int has_noalias(const struct rtable *head, const struct rtabl=
-e *rth)
-> +{
-> +	const struct rtable *aux =3D head;
-> +
-> +	while (aux !=3D rth) {
-> +		if (compare_hash_inputs(&aux->fl, &rth->fl))
-> +			return 0;
-> +		aux =3D aux->u.dst.rt_next;
-> +	}
-> +	return ONE;
-> +}
-> +
->  static void rt_check_expire(void)
->  {
->  	static unsigned int rover;
->  	unsigned int i =3D rover, goal;
-> -	struct rtable *rth, *aux, **rthp;
-> +	struct rtable *rth, **rthp;
->  	unsigned long samples =3D 0;
->  	unsigned long sum =3D 0, sum2 =3D 0;
->  	unsigned long delta;
-> @@ -835,15 +853,7 @@ nofree:
->  					 * attributes don't unfairly skew
->  					 * the length computation
->  					 */
-> -					for (aux =3D rt_hash_table[i].chain;;) {
-> -						if (aux =3D=3D rth) {
-> -							length +=3D ONE;
-> -							break;
-> -						}
-> -						if (compare_hash_inputs(&aux->fl, &rth->fl))
-> -							break;
-> -						aux =3D aux->u.dst.rt_next;
-> -					}
-> +					length +=3D has_noalias(rt_hash_table[i].chain, rth);
->  					continue;
->  				}
->  			} else if (!rt_may_expire(rth, tmo, ip_rt_gc_timeout))
-> @@ -1073,6 +1083,21 @@ work_done:
->  out:	return 0;
->  }
-> =20
-> +/*
-> + * Returns number of entries in a hash chain that have different has=
-h_inputs
-> + */
-> +static int slow_chain_length(const struct rtable *head)
-> +{
-> +	int length =3D 0;
-> +	const struct rtable *rth =3D head;
-> +
-> +	while (rth) {
-> +		length +=3D has_noalias(head, rth);
-> +		rth =3D rth->u.dst.rt_next;
-> +	}
-> +	return length >> FRACT_BITS;
-> +}
-> +
->  static int rt_intern_hash(unsigned hash, struct rtable *rt,
->  			  struct rtable **rp, struct sk_buff *skb)
->  {
-> @@ -1185,7 +1210,8 @@ restart:
->  			rt_free(cand);
->  		}
->  	} else {
-> -		if (chain_length > rt_chain_length_max) {
-> +		if (chain_length > rt_chain_length_max &&
-> +		    slow_chain_length(rt_hash_table[hash].chain) > rt_chain_length=
-_max) {
->  			struct net *net =3D dev_net(rt->u.dst.dev);
->  			int num =3D ++net->ipv4.current_rt_cache_rebuild_count;
->  			if (!rt_caching(dev_net(rt->u.dst.dev))) {
->=20
->=20
->=20
->=20
->=20
+-- 
+Dan Smith
+IBM Linux Technology Center
+email: danms@us.ibm.com
