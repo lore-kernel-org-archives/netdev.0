@@ -1,134 +1,129 @@
-From: Alex Chiang <achiang@hp.com>
-Subject: Re: [PATCH] Export smbios strings associated with onboard devices
-	to sysfs
-Date: Mon, 8 Mar 2010 10:34:00 -0700
-Message-ID: <20100308173400.GB20953@ldl.fc.hp.com>
-References: <20100225202941.GA19404@mock.linuxdev.us.dell.com> <20100225204905.GC20147@mdomsch-pws380.aus.amer.dell.com> <EDA0A4495861324DA2618B4C45DCB3EE6122A2@blrx3m08.blr.amer.dell.com> <20100302173302.GA20936@mock.linuxdev.us.dell.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
+Date: Mon, 08 Mar 2010 09:35:21 -0800
+Message-ID: <m1pr3eu36u.fsf@fess.ebiederm.org>
+References: <20100303000743.GA13744@us.ibm.com>
+	<m1ocj6qljj.fsf@fess.ebiederm.org> <4B8E9370.3050300@parallels.com>
+	<m17hptjh3m.fsf@fess.ebiederm.org> <4B9158F5.5040205@parallels.com>
+	<m1vdda1pmx.fsf@fess.ebiederm.org> <4B926B1B.5070207@free.fr>
+	<m1aaulyy5c.fsf@fess.ebiederm.org> <4B92C886.9020507@free.fr>
+	<m1fx4bxlfy.fsf@fess.ebiederm.org> <20100308170719.GD6399@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: matt_domsch@dell.com, netdev@vger.kernel.org,
-	linux-hotplug@vger.kernel.org, linux-pci@vger.kernel.org,
-	jordan_hargrave@dell.com, sandeep_k_shandilya@dell.com,
-	charles_rose@dell.com, shyam_iyer@dell.com
-To: Narendra K <Narendra_K@dell.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100302173302.GA20936@mock.linuxdev.us.dell.com>
-Sender: linux-pci-owner@vger.kernel.org
+Cc: Daniel Lezcano <daniel.lezcano@free.fr>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	containers@lists.linux-foundation.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>
+To: "Serge E. Hallyn" <serue@us.ibm.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20100308170719.GD6399@us.ibm.com> (Serge E. Hallyn's message of "Mon\, 8 Mar 2010 11\:07\:19 -0600")
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Narendra K <Narendra_K@dell.com>:
-> 
-> Resending the patch with review comments incorporated.
-> 
-> Signed-off-by: Jordan Hargrave <Jordan_Hargrave@dell.com>
-> Signed-off-by: Narendra K <Narendra_K@dell.com>
-> ---
->  drivers/firmware/dmi_scan.c |   23 ++++++++++++++++++
->  drivers/pci/pci-sysfs.c     |   54 +++++++++++++++++++++++++++++++++++++++++++
->  include/linux/dmi.h         |    9 +++++++
->  3 files changed, 86 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/firmware/dmi_scan.c b/drivers/firmware/dmi_scan.c
-> index 31b983d..1d10663 100644
-> --- a/drivers/firmware/dmi_scan.c
-> +++ b/drivers/firmware/dmi_scan.c
-> @@ -278,6 +278,28 @@ static void __init dmi_save_ipmi_device(const struct dmi_header *dm)
->  	list_add_tail(&dev->list, &dmi_devices);
->  }
->  
-> +static void __init dmi_save_devslot(int id, int seg, int bus, int devfn, const char *name)
-> +{
-> +	struct dmi_devslot *slot;
-> +
-> +	slot = dmi_alloc(sizeof(*slot) + strlen(name) + 1);
-> +	if (!slot) {
-> +		printk(KERN_ERR "dmi_save_devslot: out of memory.\n");
-> +		return;
-> +	}	
-> +	slot->id = id;
-> +	slot->seg = seg;
-> +	slot->bus = bus;
-> +	slot->devfn = devfn;
-> +
-> +	strcpy((char *)&slot[1], name);
-> +	slot->dev.type = DMI_DEV_TYPE_DEVSLOT;
-> +	slot->dev.name = &slot[1];
+"Serge E. Hallyn" <serue@us.ibm.com> writes:
 
-This needs a cast, else you'll get a warning:
+> Quoting Eric W. Biederman (ebiederm@xmission.com):
+>> 
+>> I have take an snapshot of my development tree and placed it at.
+>> 
+>> 
+>> git://git.kernel.org/pub/scm/linux/people/ebiederm/linux-2.6.33-nsfd-v5.git
+>> 
+>> 
+>> >> I am going to explore a bit more.  Given that nsfd is using the same
+>> >> permission checks as a proc file, I think I can just make it a proc
+>> >> file.  Something like "/proc/<pid>/ns/net".  With a little luck that
+>> >> won't suck too badly.
+>> >>   
+>> > Ah ! yes. Good idea.
+>> 
+>> It is a hair more code to use proc files but nothing worth counting.
+>> 
+>> Probably the biggest thing I am aware of right now in my development
+>> tree is in getting uids to pass properly between unix domain sockets
+>> I would up writing this cred_to_ucred function.
+>> 
+>> Serge can you take a look and check my logic, and do you have
+>> any idea of where we should place something like pid_vnr but
+>> for the uid namespace?
+>
+> Well my first thought was user_namespace, but I'm thinking kernel/cred.c is
+> the best place for it.
 
-	slot->dev.name = (char *)&slot[1];
+Thanks.
 
-Also, when I was playing with your patchset, I noticed that you
-should probably add this hunk too:
+>> void cred_to_ucred(struct pid *pid, const struct cred *cred,
+>> 		   struct ucred *ucred)
+>> {
+>> 	ucred->pid = pid_vnr(pid);
+>> 	ucred->uid = ucred->gid = -1;
+>> 	if (cred) {
+>> 		struct user_namespace *cred_ns = cred->user->user_ns;
+>> 		struct user_namespace *current_ns = current_user_ns();
+>> 		struct user_namespace *tmp;
+>> 
+>> 		if (likely(cred_ns == current_ns)) {
+>> 			ucred->uid = cred->euid;
+>> 			ucred->gid = cred->egid;
+>> 		} else {
+>> 			/* Is cred in a child user namespace */
+>> 			tmp = cred_ns;
+>> 			do {
+>> 				tmp = tmp->creator->user_ns;
+>> 				if (tmp == current_ns) {
+>
+> 	Hmm, I think you want to catch one level up - so the creator itself
+> 	is in current_user_ns, so
 
-@@ -334,6 +359,7 @@ static void __init dmi_decode(const struct dmi_header *dm, v
-                break;
-        case 41:        /* Onboard Devices Extended Information */
-                dmi_save_extended_devices(dm);
-+               break;
-        }
- }
- 
+>
+> 	do {
+> 		if (tmp->creator->user_ns == current_ns) {
+> 			ucred->uid = tmp->creator->uid;
+> 			ucred->gid = tmp->creator_gid;
+> 			return;
+> 		}
+> 		tmp = tmp->creator->user_ns;
+> 	} while (tmp != &init_user_ns);
 
-> +#ifdef CONFIG_DMI
-> +#include <linux/dmi.h>
-> +static ssize_t
-> +smbiosname_string_is_valid(struct device *dev, char *buf)
-> +{
-> +	struct pci_dev *pdev = to_pci_dev(dev);
-> +  	struct dmi_device *dmi;
+Good catch.  
 
-This needs to be a const struct dmi_device, else you get a
-warning.
+>> 					ucred->uid = tmp->creator->uid;
+>> 					ucred->gid = overflowgid;
+>
+> 			should we start recording a user_ns->creator_gid
+> 			instead?
 
-> +  	struct dmi_devslot *dslot;
-> +  	int bus;
-> +  	int devfn;
-> +
-> +  	bus = pdev->bus->number;
-> +  	devfn = pdev->devfn;
-> +
-> +  	dmi = NULL;
-> +  	while ((dmi = dmi_find_device(DMI_DEV_TYPE_DEVSLOT, NULL, dmi)) != NULL) {
-> +    		dslot = dmi->device_data;
-> +    		if (dslot && dslot->bus == bus && dslot->devfn == devfn) {
-> +			if (buf)
-> +      				return scnprintf(buf, PAGE_SIZE, "%s\n", dmi->name);
+I had a similar question.  Possibly we can just grab the creators cred.
 
-Whitespace seems messed up here?
 
-> +			return strlen(dmi->name);
-> +		}
-> +	}
-> +}
-> +
-> +static ssize_t
-> +smbiosname_show(struct device *dev, struct device_attribute *attr, char *buf)
-> +{
-> +	return smbiosname_string_is_valid(dev, buf);
-> +
-> +}
-> +
-> +struct smbios_attribute {
-> +	struct attribute attr;
-> +	ssize_t(*show) (struct device * edev, char *buf);
-> +	int (*test) (struct device * edev, char *buf);
-> +};
-> +
-> +#define SMBIOSNAME_DEVICE_ATTR(_name, _mode, _show, _test) \
-> +struct smbios_attribute smbios_attr_##_name = { 	\
-> +	.attr = {.name = __stringify(_name), .mode = _mode },	\
-> +	.show	= _show,				\
-> +	.test	= _test,				\
-> +};
-> +
-> +static SMBIOSNAME_DEVICE_ATTR(smbiosname, 0444, smbiosname_show, smbiosname_string_is_valid);
-> +#endif
-> +
+>> 					return;
+>> 				}
+>> 			} while (tmp != &init_user_ns);
+>> 
+>> 			/* Is cred the creator of my user namespace,
+>> 			 * or the creator of one of it's parents?
+>> 			 */
+>> 			for( tmp = current_ns; tmp != &init_user_ns;
+>> 			     tmp = tmp->creator->user_ns) {
+>> 				if (cred->user == tmp->creator) {
+>> 					ucred->uid = 0;
+>> 					ucred->gid = 0;
+>> 					return;
+>> 				}
+>> 			}
+>
+> That looks right.
+>
+>> 			/* No user namespace relationship so no mapping */
+>> 			ucred->uid = overflowuid;
+>> 			ucred->gid = overflowgid;
+>> 		}
+>> 	}
+>> }
 
-After a discussion on irc, some folks thought that changing the
-name of this attribute to 'label' would be a much better name
-than smbiosname.
+Eric
 
-/ac
