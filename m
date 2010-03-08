@@ -1,123 +1,76 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
-Date: Mon, 8 Mar 2010 11:07:19 -0600
-Message-ID: <20100308170719.GD6399@us.ibm.com>
-References: <20100303000743.GA13744@us.ibm.com>
- <m1ocj6qljj.fsf@fess.ebiederm.org>
- <4B8E9370.3050300@parallels.com>
- <m17hptjh3m.fsf@fess.ebiederm.org>
- <4B9158F5.5040205@parallels.com>
- <m1vdda1pmx.fsf@fess.ebiederm.org>
- <4B926B1B.5070207@free.fr>
- <m1aaulyy5c.fsf@fess.ebiederm.org>
- <4B92C886.9020507@free.fr>
- <m1fx4bxlfy.fsf@fess.ebiederm.org>
+Date: Mon, 08 Mar 2010 09:29:02 -0800
+Message-ID: <m11vfuvi1t.fsf@fess.ebiederm.org>
+References: <4B88E431.6040609@parallels.com>
+	<m1bpfbqajn.fsf@fess.ebiederm.org> <4B894564.7080104@parallels.com>
+	<m1iq9io5sc.fsf@fess.ebiederm.org> <4B89727C.9040602@parallels.com>
+	<m1ljeempk6.fsf@fess.ebiederm.org> <4B8AE8C1.1030305@free.fr>
+	<4B8D28CF.8060304@parallels.com> <20100302211942.GA17816@us.ibm.com>
+	<m1y6iaqsmm.fsf@fess.ebiederm.org> <20100303000743.GA13744@us.ibm.com>
+	<m1ocj6qljj.fsf@fess.ebiederm.org> <4B8E9370.3050300@parallels.com>
+	<m17hptjh3m.fsf@fess.ebiederm.org> <4B9158F5.5040205@parallels.com>
+	<m1vdda1pmx.fsf@fess.ebiederm.org> <4B926B1B.5070207@free.fr>
+	<m1aaulyy5c.fsf@fess.ebiederm.org> <4B92C886.9020507@free.fr>
+	<m1fx4bxlfy.fsf@fess.ebiederm.org> <4B952BBE.6070507@free.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <daniel.lezcano@free.fr>,
-	Pavel Emelyanov <xemul@parallels.com>,
+Cc: Pavel Emelyanov <xemul@parallels.com>,
 	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
+	Serge Hallyn <serue@us.ibm.com>,
 	Linux Netdev List <netdev@vger.kernel.org>,
 	containers@lists.linux-foundation.org,
 	Netfilter Development Mailinglist
 	<netfilter-devel@vger.kernel.org>,
 	Ben Greear <greearb@candelatech.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+To: Daniel Lezcano <daniel.lezcano@free.fr>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <m1fx4bxlfy.fsf@fess.ebiederm.org>
+In-Reply-To: <4B952BBE.6070507@free.fr> (Daniel Lezcano's message of "Mon\, 08 Mar 2010 17\:54\:22 +0100")
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Eric W. Biederman (ebiederm@xmission.com):
-> 
-> I have take an snapshot of my development tree and placed it at.
-> 
-> 
-> git://git.kernel.org/pub/scm/linux/people/ebiederm/linux-2.6.33-nsfd-v5.git
-> 
-> 
-> >> I am going to explore a bit more.  Given that nsfd is using the same
-> >> permission checks as a proc file, I think I can just make it a proc
-> >> file.  Something like "/proc/<pid>/ns/net".  With a little luck that
-> >> won't suck too badly.
-> >>   
-> > Ah ! yes. Good idea.
-> 
-> It is a hair more code to use proc files but nothing worth counting.
-> 
-> Probably the biggest thing I am aware of right now in my development
-> tree is in getting uids to pass properly between unix domain sockets
-> I would up writing this cred_to_ucred function.
-> 
-> Serge can you take a look and check my logic, and do you have
-> any idea of where we should place something like pid_vnr but
-> for the uid namespace?
+Daniel Lezcano <daniel.lezcano@free.fr> writes:
 
-Well my first thought was user_namespace, but I'm thinking kernel/cred.c is
-the best place for it.
+> Eric W. Biederman wrote:
+>> I have take an snapshot of my development tree and placed it at.
+>>
+>>
+>> git://git.kernel.org/pub/scm/linux/people/ebiederm/linux-2.6.33-nsfd-v5.git
+>>   
+>
+> Hi Eric,
+>
+> thanks for the pointer.
+>
+> I tried to boot the kernel under qemu and I got this oops:
 
-> void cred_to_ucred(struct pid *pid, const struct cred *cred,
-> 		   struct ucred *ucred)
-> {
-> 	ucred->pid = pid_vnr(pid);
-> 	ucred->uid = ucred->gid = -1;
-> 	if (cred) {
-> 		struct user_namespace *cred_ns = cred->user->user_ns;
-> 		struct user_namespace *current_ns = current_user_ns();
-> 		struct user_namespace *tmp;
-> 
-> 		if (likely(cred_ns == current_ns)) {
-> 			ucred->uid = cred->euid;
-> 			ucred->gid = cred->egid;
-> 		} else {
-> 			/* Is cred in a child user namespace */
-> 			tmp = cred_ns;
-> 			do {
-> 				tmp = tmp->creator->user_ns;
-> 				if (tmp == current_ns) {
+I am clearly running an old userspace on my test machine.  No udev.
+It looks like udev has a long standing netlink misfeature, where
+it does not initializing NETLINK_CB....
 
-	Hmm, I think you want to catch one level up - so the creator itself
-	is in current_user_ns, so
 
-	do {
-		if (tmp->creator->user_ns == current_ns) {
-			ucred->uid = tmp->creator->uid;
-			ucred->gid = tmp->creator_gid;
-			return;
-		}
-		tmp = tmp->creator->user_ns;
-	} while (tmp != &init_user_ns);
+>From 8d85e3ab88718eda3d94cf8e1be14b69dae2b8f1 Mon Sep 17 00:00:00 2001
+From: Eric W. Biederman <ebiederm@xmission.com>
+Date: Mon, 8 Mar 2010 09:25:20 -0800
+Subject: [PATCH] kobject_uevent:  Use the netlink allocator helper...
 
-> 					ucred->uid = tmp->creator->uid;
-> 					ucred->gid = overflowgid;
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ lib/kobject_uevent.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-			should we start recording a user_ns->creator_gid
-			instead?
-
-> 					return;
-> 				}
-> 			} while (tmp != &init_user_ns);
-> 
-> 			/* Is cred the creator of my user namespace,
-> 			 * or the creator of one of it's parents?
-> 			 */
-> 			for( tmp = current_ns; tmp != &init_user_ns;
-> 			     tmp = tmp->creator->user_ns) {
-> 				if (cred->user == tmp->creator) {
-> 					ucred->uid = 0;
-> 					ucred->gid = 0;
-> 					return;
-> 				}
-> 			}
-
-That looks right.
-
-> 			/* No user namespace relationship so no mapping */
-> 			ucred->uid = overflowuid;
-> 			ucred->gid = overflowgid;
-> 		}
-> 	}
-> }
-> 
-> Eric
+diff --git a/lib/kobject_uevent.c b/lib/kobject_uevent.c
+index 920a3ca..b8229cc 100644
+--- a/lib/kobject_uevent.c
++++ b/lib/kobject_uevent.c
+@@ -216,7 +216,7 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
+ 
+ 		/* allocate message with the maximum possible size */
+ 		len = strlen(action_string) + strlen(devpath) + 2;
+-		skb = alloc_skb(len + env->buflen, GFP_KERNEL);
++		skb = nlmsg_new(len + env->buflen, GFP_KERNEL);
+ 		if (skb) {
+ 			char *scratch;
+ 
+-- 
+1.6.5.2.143.g8cc62
