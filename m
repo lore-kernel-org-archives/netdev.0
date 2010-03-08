@@ -1,68 +1,42 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [net-next-2.6 PATCH] bonding: refuse to change bond type if it's used
-Date: Mon, 8 Mar 2010 18:54:06 +0100
-Message-ID: <20100308175406.GA2834@psychotron.lab.eng.brq.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [kernel,2.6.33-git11] lib8390: use spin_lock_irqsave for
+ locking
+Date: Mon, 08 Mar 2010 09:56:37 -0800 (PST)
+Message-ID: <20100308.095637.175882761.davem@davemloft.net>
+References: <20100307.152230.09914483.davem@davemloft.net>
+	<20100308212433.0fa3e453.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
-	davem@davemloft.net, shemminger@linux-foundation.org
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ken_kawasaki@spring.nifty.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49956 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753458Ab0CHRyx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Mar 2010 12:54:53 -0500
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52724
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752412Ab0CHR4T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 12:56:19 -0500
+In-Reply-To: <20100308212433.0fa3e453.ken_kawasaki@spring.nifty.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's not desirable to be able to change the type of net_device in bond device if
-it's in use by bridge, or vlan, or so. At the moment, there is possible for
-example to have INFINIBAND bond type in bridge (by adding bond with eth type to
-a bridge first and then enslave INFINIBAND device).
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Date: Mon, 8 Mar 2010 21:24:33 +0900
 
-This patch adds netdev_is_independent() function to check if device is not
-"enslaved" and use this function to do the check before type change is performed.
+> 
+>> This change is not correct.
+>> 
+>> disable_irq is being intentionally used because the reset
+>> sequence can take a very long time and we don't want to
+>> have cpu interrupts disabled during the entire sequence.
+>> 
+>> Otherwise slow serial devices will drop characters and
+>> stuff like that.
+> 
+> 
+> Actually, disable_irq is _not_ safe for lib8390 on SMP system.
+> Same CPU or other CPU can call enable_irq.
+> 
+> so lib8390 does not work properly on my SMP system.
 
->From now on, the type change is allowed only for those bond devices not used by
-any other net dev.
-
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 430c022..4e64af1 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1476,6 +1476,15 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	 */
- 	if (bond->slave_cnt == 0) {
- 		if (bond_dev->type != slave_dev->type) {
-+			/* check if device is not used by bridge, vlan, etc */
-+			if (!netdev_is_independent(bond_dev)) {
-+				pr_debug("%s: can't change device type from "
-+					 "%d to %d, device is busy\n",
-+					 bond_dev->name,
-+					 bond_dev->type, slave_dev->type);
-+				res = -EBUSY;
-+				goto err_undo_flags;
-+			}
- 			pr_debug("%s: change device type from %d to %d\n",
- 				 bond_dev->name,
- 				 bond_dev->type, slave_dev->type);
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index c79a88b..0c90a57 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -984,6 +984,12 @@ struct net_device {
- 
- #define	NETDEV_ALIGN		32
- 
-+static inline int netdev_is_independent(const struct net_device *dev)
-+{
-+	return dev->master == NULL && dev->br_port == NULL &&
-+	       dev->macvlan_port == NULL && dev->garp_port == NULL;
-+}
-+
- static inline
- struct netdev_queue *netdev_get_tx_queue(const struct net_device *dev,
- 					 unsigned int index)
+Then you need to fix that bug, because your patch here, again,
+is not correct.
