@@ -1,42 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [kernel,2.6.33-git11] lib8390: use spin_lock_irqsave for
- locking
-Date: Mon, 08 Mar 2010 09:56:37 -0800 (PST)
-Message-ID: <20100308.095637.175882761.davem@davemloft.net>
-References: <20100307.152230.09914483.davem@davemloft.net>
-	<20100308212433.0fa3e453.ken_kawasaki@spring.nifty.jp>
+From: <Narendra_K@Dell.com>
+Subject: RE: [PATCH] Export smbios strings associated with onboard devicesto sysfs
+Date: Mon, 8 Mar 2010 23:27:10 +0530
+Message-ID: <EDA0A4495861324DA2618B4C45DCB3EE612306@blrx3m08.blr.amer.dell.com>
+References: <20100225202941.GA19404@mock.linuxdev.us.dell.com> <20100225204905.GC20147@mdomsch-pws380.aus.amer.dell.com> <EDA0A4495861324DA2618B4C45DCB3EE6122A2@blrx3m08.blr.amer.dell.com> <20100302173302.GA20936@mock.linuxdev.us.dell.com> <20100308173838.GC20953@ldl.fc.hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ken_kawasaki@spring.nifty.jp
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52724
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752412Ab0CHR4T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 12:56:19 -0500
-In-Reply-To: <20100308212433.0fa3e453.ken_kawasaki@spring.nifty.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <Matt_Domsch@Dell.com>, <netdev@vger.kernel.org>,
+	<linux-hotplug@vger.kernel.org>, <linux-pci@vger.kernel.org>,
+	<Jordan_Hargrave@Dell.com>, <Sandeep_K_Shandilya@Dell.com>,
+	<Charles_Rose@Dell.com>, <Shyam_Iyer@Dell.com>
+To: <achiang@hp.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20100308173838.GC20953@ldl.fc.hp.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Date: Mon, 8 Mar 2010 21:24:33 +0900
+> -----Original Message-----
+> From: Alex Chiang [mailto:achiang@hp.com]
+> Sent: Monday, March 08, 2010 11:09 PM
+> To: K, Narendra
+> Cc: Domsch, Matt; netdev@vger.kernel.org; linux-
+> hotplug@vger.kernel.org; linux-pci@vger.kernel.org; Hargrave, Jordan;
+> Shandilya, Sandeep K; Rose, Charles; Iyer, Shyam
+> Subject: Re: [PATCH] Export smbios strings associated with onboard
+> devicesto sysfs
+> 
+> * Narendra K <Narendra_K@dell.com>:
+> >
+> > Resending the patch with review comments incorporated.
+> >
+> > Signed-off-by: Jordan Hargrave <Jordan_Hargrave@dell.com>
+> > Signed-off-by: Narendra K <Narendra_K@dell.com>
+> 
+> Here is a patch I wrote that would be nice if you could
+> incorporate into your patch series.
+> 
+> It adds support for HP OEM SMBIOS record Type 209, so that you
+> can populate the 'label' attribute on existing HP platforms.
+> 
+> It needs that hunk I suggested in my previous mail to apply
+> cleanly.
+> 
 
-> 
->> This change is not correct.
->> 
->> disable_irq is being intentionally used because the reset
->> sequence can take a very long time and we don't want to
->> have cpu interrupts disabled during the entire sequence.
->> 
->> Otherwise slow serial devices will drop characters and
->> stuff like that.
-> 
-> 
-> Actually, disable_irq is _not_ safe for lib8390 on SMP system.
-> Same CPU or other CPU can call enable_irq.
-> 
-> so lib8390 does not work properly on my SMP system.
+Sure, thanks.
 
-Then you need to fix that bug, because your patch here, again,
-is not correct.
+With regards,
+Narendra K
