@@ -1,86 +1,98 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: how to tweak ARP timer on kernel 2.6.9
-Date: Tue, 09 Mar 2010 23:10:14 +0100
-Message-ID: <1268172614.2872.122.camel@edumazet-laptop>
-References: <4B96A24A.6060405@utah.edu>
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Subject: [PATCH] asix: fix setting mac address for AX88772
+Date: Wed, 10 Mar 2010 00:24:38 +0200
+Message-ID: <20100309222438.10684.46211.stgit@fate.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Tom Ammon <tom.ammon@utah.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B96A24A.6060405@utah.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Hollis <dhollis@davehollis.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from saarni.dnainternet.net ([83.102.40.136]:57994 "EHLO
+	saarni.dnainternet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751494Ab0CIXNt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Mar 2010 18:13:49 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 09 mars 2010 =C3=A0 12:32 -0700, Tom Ammon a =C3=A9crit :
-> Hi,
->=20
-> I've been trying to figure out how to adjust the ARP timeout on kerne=
-l=20
-> 2.6.9 and I found the following in /proc/sys/net/ipv4/neigh/ib0 (its =
-an=20
-> IB interface I am interested in changing) with the following values.=20
-> This is on kernel 2.6.9-89ELsmp (RHEL4) :
->=20
+Setting new MAC address only worked when device was set to promiscuous mode.
+Fix MAC address by writing new address to device using undocumented command
+AX_CMD_READ_NODE_ID+1. Patch is tested with AX88772 device.
 
-> When I test this, along with per-flow ECMP (using the iproute2 utils)=
-, I=20
-> see that the ARP cache is timing out about every 10 minutes (I observ=
-e=20
-> this by load balancing an iperf flow between two different gateway=20
-> machines and then graphing the interface traffic)
->=20
+Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+---
 
-10 minutes seems out of specs.
+ drivers/net/usb/asix.c |   30 ++++++++++++++++++++++++++++--
+ 1 files changed, 28 insertions(+), 2 deletions(-)
 
-> On a newer kernel, 2.6.18-164.11.1.el5 (RHEL5), I see mostly the same=
-=20
-> parms available, but a few new ones have been added. However, all of =
-the=20
-> parms that are the same name between the two kernels are the same val=
-ues:
->=20
+diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
+index 20e3460..9e05639 100644
+--- a/drivers/net/usb/asix.c
++++ b/drivers/net/usb/asix.c
+@@ -54,6 +54,7 @@ static const char driver_name [] = "asix";
+ #define AX_CMD_WRITE_IPG0		0x12
+ #define AX_CMD_WRITE_IPG1		0x13
+ #define AX_CMD_READ_NODE_ID		0x13
++#define AX_CMD_WRITE_NODE_ID		0x14
+ #define AX_CMD_WRITE_IPG2		0x14
+ #define AX_CMD_WRITE_MULTI_FILTER	0x16
+ #define AX88172_CMD_READ_NODE_ID	0x17
+@@ -165,6 +166,7 @@ static const char driver_name [] = "asix";
+ /* This structure cannot exceed sizeof(unsigned long [5]) AKA 20 bytes */
+ struct asix_data {
+ 	u8 multi_filter[AX_MCAST_FILTER_SIZE];
++	u8 mac_addr[ETH_ALEN];
+ 	u8 phymode;
+ 	u8 ledmode;
+ 	u8 eeprom_len;
+@@ -732,6 +734,30 @@ static int asix_ioctl (struct net_device *net, struct ifreq *rq, int cmd)
+ 	return generic_mii_ioctl(&dev->mii, if_mii(rq), cmd, NULL);
+ }
+ 
++static int asix_set_mac_address(struct net_device *net, void *p)
++{
++	struct usbnet *dev = netdev_priv(net);
++	struct asix_data *data = (struct asix_data *)&dev->data;
++	struct sockaddr *addr = p;
++
++	if (netif_running(net))
++		return -EBUSY;
++	if (!is_valid_ether_addr(addr->sa_data))
++		return -EADDRNOTAVAIL;
++
++	memcpy(net->dev_addr, addr->sa_data, ETH_ALEN);
++
++	/* We use the 20 byte dev->data
++	 * for our 6 byte mac buffer
++	 * to avoid allocating memory that
++	 * is tricky to free later */
++	memcpy(data->mac_addr, addr->sa_data, ETH_ALEN);
++	asix_write_cmd_async(dev, AX_CMD_WRITE_NODE_ID, 0, 0, ETH_ALEN,
++							data->mac_addr);
++
++	return 0;
++}
++
+ /* We need to override some ethtool_ops so we require our
+    own structure so we don't interfere with other usbnet
+    devices that may be connected at the same time. */
+@@ -919,7 +945,7 @@ static const struct net_device_ops ax88772_netdev_ops = {
+ 	.ndo_start_xmit		= usbnet_start_xmit,
+ 	.ndo_tx_timeout		= usbnet_tx_timeout,
+ 	.ndo_change_mtu		= usbnet_change_mtu,
+-	.ndo_set_mac_address 	= eth_mac_addr,
++	.ndo_set_mac_address 	= asix_set_mac_address,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_do_ioctl		= asix_ioctl,
+ 	.ndo_set_multicast_list = asix_set_multicast,
+@@ -1213,7 +1239,7 @@ static const struct net_device_ops ax88178_netdev_ops = {
+ 	.ndo_stop		= usbnet_stop,
+ 	.ndo_start_xmit		= usbnet_start_xmit,
+ 	.ndo_tx_timeout		= usbnet_tx_timeout,
+-	.ndo_set_mac_address 	= eth_mac_addr,
++	.ndo_set_mac_address 	= asix_set_mac_address,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_multicast_list = asix_set_multicast,
+ 	.ndo_do_ioctl 		= asix_ioctl,
 
-> Yet when I observe the same traffic flow with this machine, the ARP=20
-> cache times out about once per minute.
->=20
-
-This seems normal, old kernels were a bit lazy about arp.
-
-
-> Is there another set of parameters somewhere that govern how often th=
-e=20
-> kernel times out the ARP cache? If so, where might I find that? Is th=
-ere=20
-> any kernel documentation that talks about changing ARP timers on the=20
-> linux kernel?
->=20
-
-I would suggest :
-
-man 7 arp
-
-http://linux.die.net/man/7/arp
-
-
-
-base_reachable_time
-        Once a neighbour has been found, the entry is considered to be
-        valid for at least a random value between base_reachable_time/2
-        and 3*base_reachable_time/2. An entry's validity will be
-        extended if it receives positive feedback from higher level
-        protocols. Defaults to 30 seconds.
-
-gc_interval
-        How frequently the garbage collector for neighbour entries
-        should attempt to run. Defaults to 30 seconds.
-
-gc_stale_time
-        Determines how often to check for stale neighbour entries. When
-        a neighbour entry is considered stale it is resolved again
-        before sending data to it. Defaults to 60 seconds.
-       =20
-
-
-and "ip -s neigh"
