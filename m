@@ -1,131 +1,176 @@
-From: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
-Subject: Kernel panic in fib_rules_lookup (kernel 2.6.32)
-Date: Tue, 09 Mar 2010 10:44:34 +0300
-Message-ID: <119601268120674@webmail87.yandex.ru>
+From: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
+Subject: [PATCH] net: davinci emac: use dma_{map,
+	unmap}_single API for cache coherency
+Date: Tue,  9 Mar 2010 16:50:37 +0530
+Message-ID: <1268133637-23399-1-git-send-email-nsekhar@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward15.mail.yandex.net ([95.108.130.119]:35114 "EHLO
-	forward15.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751027Ab0CIHoi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Mar 2010 02:44:38 -0500
-Received: from webmail87.yandex.ru (webmail87.yandex.ru [77.88.47.161])
-	by forward15.mail.yandex.net (Yandex) with ESMTP id 9612DC0F71
-	for <netdev@vger.kernel.org>; Tue,  9 Mar 2010 10:44:36 +0300 (MSK)
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by webmail87.yandex.ru (Yandex) with ESMTP id 89793234014
-	for <netdev@vger.kernel.org>; Tue,  9 Mar 2010 10:44:36 +0300 (MSK)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: srk-l0cyMroinI0@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
+List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
+List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
+Sender: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+The davinci emac driver uses some ARM specific DMA APIs
+for cache coherency which have been removed from kernel
+with the 2.6.34 merge.
 
-Got this kernel panic tomorrow. This PC is rather heavy loaded router with BGP full view (> 300K routes).
-We're using FIB_TRIE. Last time we got similar panic about 1 month ago. Please, let me know if you
-need additional information to debug (e.g. objdump). Thanks!
+Modify the driver to use the dma_{map, unmap}_single() APIs
+defined in dma-mapping.h
 
-Mar  9 10:08:55 bras-1 kernel: BUG: unable to handle kernel NULL pointer dereference at (null)
-Mar  9 10:08:55 bras-1 kernel: IP: [<c11fa012>] fib_rules_lookup+0xa2/0xd0
-Mar  9 10:08:55 bras-1 kernel: *pde = 00000000
-Mar  9 10:08:55 bras-1 kernel: Thread overran stack, or stack corrupted
-Mar  9 10:08:55 bras-1 kernel: Oops: 0000 [#1] SMP
-Mar  9 10:08:55 bras-1 kernel: Modules linked in: ipt_NETFLOW iTCO_wdt xt_tcpudp iptable_filter iptable_nat ip_tables ipt_ISG x_tables ipmi_watchdog ipmi_msghandler nf_nat_ftp nf_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_conntrack_ftp nf_conntrack 8021q e1000 e1000e
-Mar  9 10:08:55 bras-1 kernel:
-Mar  9 10:08:55 bras-1 kernel: Pid: 0, comm: swapper Not tainted (2.6.32 #3)
-Mar  9 10:08:55 bras-1 kernel: EIP: 0060:[<c11fa012>] EFLAGS: 00010246 CPU: 0
-Mar  9 10:08:55 bras-1 kernel: EIP is at fib_rules_lookup+0xa2/0xd0
-Mar  9 10:08:55 bras-1 kernel: EAX: 00000000 EBX: 00000000 ECX: f897a000 EDX: fffffff5
-Mar  9 10:08:55 bras-1 kernel: ESI: c1305ce4 EDI: f729d420 EBP: c1305cb8 ESP: c1305ca0
-Mar  9 10:08:55 bras-1 kernel:  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
-Mar  9 10:08:55 bras-1 kernel: Process swapper (pid: 0, ti=c1304000 task=c1319ba0 task.ti=c1304000)
-Mar  9 10:08:55 bras-1 kernel: Stack:
-Mar  9 10:08:55 bras-1 kernel:  c1305cc4 00000000 f729d464 c1305d20 c1305d20 f5719740 c1305cd4 c1242cfd
-Mar  9 10:08:55 bras-1 kernel: <0> c1305cc4 00000000 c1305d20 00000000 00000000 c1305d3c c123b985 f5719740
-Mar  9 10:08:55 bras-1 kernel: <0> c1305ce4 00000008 00000003 00000000 f090195e 1816640a 00000000 00000000
-Mar  9 10:08:55 bras-1 kernel: Call Trace:
-Mar  9 10:08:55 bras-1 kernel:  [<c1242cfd>] ? fib_lookup+0x2d/0x40
-Mar  9 10:08:55 bras-1 kernel:  [<c123b985>] ? fib_validate_source+0x295/0x2f0
-Mar  9 10:08:55 bras-1 kernel:  [<c120b981>] ? ip_route_input+0x8b1/0xf30
-Mar  9 10:08:55 bras-1 kernel:  [<c120d0b0>] ? ip_rcv_finish+0x0/0x350
-Mar  9 10:08:55 bras-1 kernel:  [<c120d2f3>] ? ip_rcv_finish+0x243/0x350
-Mar  9 10:08:55 bras-1 kernel:  [<c120d0b0>] ? ip_rcv_finish+0x0/0x350
-Mar  9 10:08:55 bras-1 kernel:  [<c120d66e>] ? ip_rcv+0x26e/0x2b0
-Mar  9 10:08:55 bras-1 kernel:  [<c120d0b0>] ? ip_rcv_finish+0x0/0x350
-Mar  9 10:08:55 bras-1 kernel:  [<c11ec354>] ? netif_receive_skb+0x314/0x4d0
-Mar  9 10:08:55 bras-1 kernel:  [<c1085182>] ? __slab_free+0x112/0x2d0
-Mar  9 10:08:55 bras-1 kernel:  [<c11ec572>] ? process_backlog+0x62/0xa0
-Mar  9 10:08:55 bras-1 kernel:  [<c11ecbbd>] ? net_rx_action+0x7d/0x100
-Mar  9 10:08:55 bras-1 kernel:  [<c1031b35>] ? __do_softirq+0x85/0x110
-Mar  9 10:08:55 bras-1 kernel:  [<c1055c56>] ? handle_IRQ_event+0x36/0xd0
-Mar  9 10:08:55 bras-1 kernel:  [<c1058564>] ? move_native_irq+0x14/0x50
-Mar  9 10:08:55 bras-1 kernel:  [<c1031bed>] ? do_softirq+0x2d/0x40
-Mar  9 10:08:55 bras-1 kernel:  [<c1031d1d>] ? irq_exit+0x2d/0x40
-Mar  9 10:08:55 bras-1 kernel:  [<c1004c6f>] ? do_IRQ+0x4f/0xc0
-Mar  9 10:08:55 bras-1 kernel:  [<c1031d1d>] ? irq_exit+0x2d/0x40
-Mar  9 10:08:55 bras-1 kernel:  [<c10162c7>] ? smp_apic_timer_interrupt+0x57/0x90
-Mar  9 10:08:55 bras-1 kernel:  [<c1003429>] ? common_interrupt+0x29/0x30
-Mar  9 10:08:55 bras-1 kernel:  [<c10090e6>] ? mwait_idle+0x56/0x60
-Mar  9 10:08:55 bras-1 kernel:  [<c1001e44>] ? cpu_idle+0x54/0x70
-Mar  9 10:08:55 bras-1 kernel:  [<c124d2d3>] ? rest_init+0x53/0x60
-Mar  9 10:08:55 bras-1 kernel:  [<c1337895>] ? start_kernel+0x2b2/0x315
-Mar  9 10:08:55 bras-1 kernel:  [<c13373ae>] ? unknown_bootoption+0x0/0x1e4
-Mar  9 10:08:55 bras-1 kernel:  [<c133707e>] ? i386_start_kernel+0x7e/0xa8
-Mar  9 10:08:55 bras-1 kernel: Code: bf 3c 03 8d b6 00 00 00 00 74 1e 8b 45 08 89 f2 8b 4d ec 89 04 24 89 d8 ff 57 1c 83 f8 f5 89 c2 75 27 8d b4 26 00 00 00 00 8b 1b <8b> 03 0f 18 00 90 3b 5d f0 0f 85 77 ff ff ff ba fd ff ff ff 83
-Mar  9 10:08:55 bras-1 kernel: EIP: [<c11fa012>] fib_rules_lookup+0xa2/0xd0 SS:ESP 0068:c1305ca0
-Mar  9 10:08:55 bras-1 kernel: CR2: 0000000000000000
-Mar  9 10:08:55 bras-1 kernel: ---[ end trace 51f5fed99e546606 ]---
-Mar  9 10:08:55 bras-1 kernel: Kernel panic - not syncing: Fatal exception in interrupt
-Mar  9 10:08:55 bras-1 kernel: Pid: 0, comm: swapper Tainted: G      D    2.6.32 #3
-Mar  9 10:08:55 bras-1 kernel: Call Trace:
-Mar  9 10:08:55 bras-1 kernel:  [<c1252fb3>] ? printk+0x18/0x1d
-Mar  9 10:08:55 bras-1 kernel:  [<c1252ee9>] panic+0x43/0xf5
-Mar  9 10:08:55 bras-1 kernel:  [<c1006739>] oops_end+0xb9/0xc0
-Mar  9 10:08:55 bras-1 kernel:  [<c101bcf6>] no_context+0xb6/0x150
-Mar  9 10:08:55 bras-1 kernel:  [<f8058576>] ? e1000_set_itr+0xb6/0x170 [e1000e]
-Mar  9 10:08:55 bras-1 kernel:  [<c101bddf>] __bad_area_nosemaphore+0x4f/0x180
-Mar  9 10:08:55 bras-1 kernel:  [<c1055c56>] ? handle_IRQ_event+0x36/0xd0
-Mar  9 10:08:55 bras-1 kernel:  [<c1058564>] ? move_native_irq+0x14/0x50
-Mar  9 10:08:55 bras-1 kernel:  [<c105758d>] ? handle_edge_irq+0x6d/0x140
-Mar  9 10:08:55 bras-1 kernel:  [<c100569a>] ? handle_irq+0x1a/0x30
-Mar  9 10:08:55 bras-1 kernel:  [<c1086195>] ? __slab_alloc+0x315/0x560
-Mar  9 10:08:55 bras-1 kernel:  [<c1035fc5>] ? lock_timer_base+0x25/0x50
-Mar  9 10:08:55 bras-1 kernel:  [<c101bf22>] bad_area_nosemaphore+0x12/0x20
-Mar  9 10:08:55 bras-1 kernel:  [<c101c30c>] do_page_fault+0x25c/0x300
-Mar  9 10:08:55 bras-1 kernel:  [<c1241cf9>] ? check_leaf+0x59/0x80
-Mar  9 10:08:55 bras-1 kernel:  [<c101c0b0>] ? do_page_fault+0x0/0x300
-Mar  9 10:08:55 bras-1 kernel:  [<c125570e>] error_code+0x66/0x6c
-Mar  9 10:08:55 bras-1 kernel:  [<c101c0b0>] ? do_page_fault+0x0/0x300
-Mar  9 10:08:55 bras-1 kernel:  [<c11fa012>] ? fib_rules_lookup+0xa2/0xd0
-Mar  9 10:08:55 bras-1 kernel:  [<c1242cfd>] fib_lookup+0x2d/0x40
-Mar  9 10:08:55 bras-1 kernel:  [<c123b985>] fib_validate_source+0x295/0x2f0
-Mar  9 10:08:55 bras-1 kernel:  [<c120b981>] ip_route_input+0x8b1/0xf30
-Mar  9 10:08:55 bras-1 kernel:  [<c120d0b0>] ? ip_rcv_finish+0x0/0x350
-Mar  9 10:08:55 bras-1 kernel:  [<c120d2f3>] ip_rcv_finish+0x243/0x350
-Mar  9 10:08:55 bras-1 kernel:  [<c120d0b0>] ? ip_rcv_finish+0x0/0x350
-Mar  9 10:08:55 bras-1 kernel:  [<c120d66e>] ip_rcv+0x26e/0x2b0
-Mar  9 10:08:55 bras-1 kernel:  [<c120d0b0>] ? ip_rcv_finish+0x0/0x350
-Mar  9 10:08:55 bras-1 kernel:  [<c11ec354>] netif_receive_skb+0x314/0x4d0
-Mar  9 10:08:55 bras-1 kernel:  [<c1085182>] ? __slab_free+0x112/0x2d0
-Mar  9 10:08:55 bras-1 kernel:  [<c11ec572>] process_backlog+0x62/0xa0
-Mar  9 10:08:55 bras-1 kernel:  [<c11ecbbd>] net_rx_action+0x7d/0x100
-Mar  9 10:08:55 bras-1 kernel:  [<c1031b35>] __do_softirq+0x85/0x110
-Mar  9 10:08:55 bras-1 kernel:  [<c1055c56>] ? handle_IRQ_event+0x36/0xd0
-Mar  9 10:08:55 bras-1 kernel:  [<c1058564>] ? move_native_irq+0x14/0x50
-Mar  9 10:08:55 bras-1 kernel:  [<c1031bed>] do_softirq+0x2d/0x40
-Mar  9 10:08:55 bras-1 kernel:  [<c1031d1d>] irq_exit+0x2d/0x40
-Mar  9 10:08:55 bras-1 kernel:  [<c1004c6f>] do_IRQ+0x4f/0xc0
-Mar  9 10:08:55 bras-1 kernel:  [<c1031d1d>] ? irq_exit+0x2d/0x40
-Mar  9 10:08:55 bras-1 kernel:  [<c10162c7>] ? smp_apic_timer_interrupt+0x57/0x90
-Mar  9 10:08:55 bras-1 kernel:  [<c1003429>] common_interrupt+0x29/0x30
-Mar  9 10:08:55 bras-1 kernel:  [<c10090e6>] ? mwait_idle+0x56/0x60
-Mar  9 10:08:55 bras-1 kernel:  [<c1001e44>] cpu_idle+0x54/0x70
-Mar  9 10:08:55 bras-1 kernel:  [<c124d2d3>] rest_init+0x53/0x60
-Mar  9 10:08:55 bras-1 kernel:  [<c1337895>] start_kernel+0x2b2/0x315
-Mar  9 10:08:55 bras-1 kernel:  [<c13373ae>] ? unknown_bootoption+0x0/0x1e4
-Mar  9 10:08:55 bras-1 kernel:  [<c133707e>] i386_start_kernel+0x7e/0xa8
+Without this fix, the driver fails to compile on Linus's
+tree.
 
+Tested on DM365 and OMAP-L138 EVMs.
 
+Signed-off-by: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
+---
+Applies to latest of Linus's tree.
+
+ drivers/net/davinci_emac.c |   45 +++++++++++++++++++++++++------------------
+ 1 files changed, 26 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+index 1ac9440..ef0dacf 100644
+--- a/drivers/net/davinci_emac.c
++++ b/drivers/net/davinci_emac.c
+@@ -29,10 +29,6 @@
+  *     PHY layer usage
+  */
+ 
+-/** Pending Items in this driver:
+- * 1. Use Linux cache infrastcture for DMA'ed memory (dma_xxx functions)
+- */
+-
+ #include <linux/module.h>
+ #include <linux/kernel.h>
+ #include <linux/sched.h>
+@@ -504,12 +500,6 @@ static unsigned long mdio_max_freq;
+ 
+ /* Cache macros - Packet buffers would be from skb pool which is cached */
+ #define EMAC_VIRT_NOCACHE(addr) (addr)
+-#define EMAC_CACHE_INVALIDATE(addr, size) \
+-	dma_cache_maint((void *)addr, size, DMA_FROM_DEVICE)
+-#define EMAC_CACHE_WRITEBACK(addr, size) \
+-	dma_cache_maint((void *)addr, size, DMA_TO_DEVICE)
+-#define EMAC_CACHE_WRITEBACK_INVALIDATE(addr, size) \
+-	dma_cache_maint((void *)addr, size, DMA_BIDIRECTIONAL)
+ 
+ /* DM644x does not have BD's in cached memory - so no cache functions */
+ #define BD_CACHE_INVALIDATE(addr, size)
+@@ -1235,6 +1225,10 @@ static void emac_txch_teardown(struct emac_priv *priv, u32 ch)
+ 	if (1 == txch->queue_active) {
+ 		curr_bd = txch->active_queue_head;
+ 		while (curr_bd != NULL) {
++			dma_unmap_single(emac_dev, curr_bd->buff_ptr,
++				curr_bd->off_b_len & EMAC_RX_BD_BUF_SIZE,
++				DMA_TO_DEVICE);
++
+ 			emac_net_tx_complete(priv, (void __force *)
+ 					&curr_bd->buf_token, 1, ch);
+ 			if (curr_bd != txch->active_queue_tail)
+@@ -1327,6 +1321,11 @@ static int emac_tx_bdproc(struct emac_priv *priv, u32 ch, u32 budget)
+ 				txch->queue_active = 0; /* end of queue */
+ 			}
+ 		}
++
++		dma_unmap_single(emac_dev, curr_bd->buff_ptr,
++				curr_bd->off_b_len & EMAC_RX_BD_BUF_SIZE,
++				DMA_TO_DEVICE);
++
+ 		*tx_complete_ptr = (u32) curr_bd->buf_token;
+ 		++tx_complete_ptr;
+ 		++tx_complete_cnt;
+@@ -1387,8 +1386,8 @@ static int emac_send(struct emac_priv *priv, struct emac_netpktobj *pkt, u32 ch)
+ 
+ 	txch->bd_pool_head = curr_bd->next;
+ 	curr_bd->buf_token = buf_list->buf_token;
+-	/* FIXME buff_ptr = dma_map_single(... data_ptr ...) */
+-	curr_bd->buff_ptr = virt_to_phys(buf_list->data_ptr);
++	curr_bd->buff_ptr = dma_map_single(&priv->ndev->dev, buf_list->data_ptr,
++			buf_list->length, DMA_TO_DEVICE);
+ 	curr_bd->off_b_len = buf_list->length;
+ 	curr_bd->h_next = 0;
+ 	curr_bd->next = NULL;
+@@ -1468,7 +1467,6 @@ static int emac_dev_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	tx_buf.length = skb->len;
+ 	tx_buf.buf_token = (void *)skb;
+ 	tx_buf.data_ptr = skb->data;
+-	EMAC_CACHE_WRITEBACK((unsigned long)skb->data, skb->len);
+ 	ndev->trans_start = jiffies;
+ 	ret_code = emac_send(priv, &tx_packet, EMAC_DEF_TX_CH);
+ 	if (unlikely(ret_code != 0)) {
+@@ -1543,7 +1541,6 @@ static void *emac_net_alloc_rx_buf(struct emac_priv *priv, int buf_size,
+ 	p_skb->dev = ndev;
+ 	skb_reserve(p_skb, NET_IP_ALIGN);
+ 	*data_token = (void *) p_skb;
+-	EMAC_CACHE_WRITEBACK_INVALIDATE((unsigned long)p_skb->data, buf_size);
+ 	return p_skb->data;
+ }
+ 
+@@ -1612,8 +1609,8 @@ static int emac_init_rxch(struct emac_priv *priv, u32 ch, char *param)
+ 		/* populate the hardware descriptor */
+ 		curr_bd->h_next = emac_virt_to_phys(rxch->active_queue_head,
+ 				priv);
+-		/* FIXME buff_ptr = dma_map_single(... data_ptr ...) */
+-		curr_bd->buff_ptr = virt_to_phys(curr_bd->data_ptr);
++		curr_bd->buff_ptr = dma_map_single(emac_dev, curr_bd->data_ptr,
++				rxch->buf_size, DMA_FROM_DEVICE);
+ 		curr_bd->off_b_len = rxch->buf_size;
+ 		curr_bd->mode = EMAC_CPPI_OWNERSHIP_BIT;
+ 
+@@ -1697,6 +1694,12 @@ static void emac_cleanup_rxch(struct emac_priv *priv, u32 ch)
+ 		curr_bd = rxch->active_queue_head;
+ 		while (curr_bd) {
+ 			if (curr_bd->buf_token) {
++				dma_unmap_single(&priv->ndev->dev,
++					curr_bd->buff_ptr,
++					curr_bd->off_b_len
++						& EMAC_RX_BD_BUF_SIZE,
++					DMA_FROM_DEVICE);
++
+ 				dev_kfree_skb_any((struct sk_buff *)\
+ 						  curr_bd->buf_token);
+ 			}
+@@ -1871,8 +1874,8 @@ static void emac_addbd_to_rx_queue(struct emac_priv *priv, u32 ch,
+ 
+ 	/* populate the hardware descriptor */
+ 	curr_bd->h_next = 0;
+-	/* FIXME buff_ptr = dma_map_single(... buffer ...) */
+-	curr_bd->buff_ptr = virt_to_phys(buffer);
++	curr_bd->buff_ptr = dma_map_single(&priv->ndev->dev, buffer,
++				rxch->buf_size, DMA_FROM_DEVICE);
+ 	curr_bd->off_b_len = rxch->buf_size;
+ 	curr_bd->mode = EMAC_CPPI_OWNERSHIP_BIT;
+ 	curr_bd->next = NULL;
+@@ -1927,7 +1930,6 @@ static int emac_net_rx_cb(struct emac_priv *priv,
+ 	p_skb = (struct sk_buff *)net_pkt_list->pkt_token;
+ 	/* set length of packet */
+ 	skb_put(p_skb, net_pkt_list->pkt_length);
+-	EMAC_CACHE_INVALIDATE((unsigned long)p_skb->data, p_skb->len);
+ 	p_skb->protocol = eth_type_trans(p_skb, priv->ndev);
+ 	netif_receive_skb(p_skb);
+ 	priv->net_dev_stats.rx_bytes += net_pkt_list->pkt_length;
+@@ -1990,6 +1992,11 @@ static int emac_rx_bdproc(struct emac_priv *priv, u32 ch, u32 budget)
+ 		rx_buf_obj->data_ptr = (char *)curr_bd->data_ptr;
+ 		rx_buf_obj->length = curr_bd->off_b_len & EMAC_RX_BD_BUF_SIZE;
+ 		rx_buf_obj->buf_token = curr_bd->buf_token;
++
++		dma_unmap_single(&priv->ndev->dev, curr_bd->buff_ptr,
++				curr_bd->off_b_len & EMAC_RX_BD_BUF_SIZE,
++				DMA_FROM_DEVICE);
++
+ 		curr_pkt->pkt_token = curr_pkt->buf_list->buf_token;
+ 		curr_pkt->num_bufs = 1;
+ 		curr_pkt->pkt_length =
 -- 
-wbr, Oleg.
+1.6.2.4
