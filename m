@@ -1,106 +1,57 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: [PATCH 4/4] bnx2x: merge common code when stopping queue
-Date: Tue,  9 Mar 2010 17:55:03 +0100
-Message-ID: <1268153703-4186-4-git-send-email-sgruszka@redhat.com>
-References: <1268153703-4186-1-git-send-email-sgruszka@redhat.com>
- <1268153703-4186-2-git-send-email-sgruszka@redhat.com>
- <1268153703-4186-3-git-send-email-sgruszka@redhat.com>
-Cc: Vladislav Zolotarov <vladz@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Stanislaw Gruszka <sgruszka@redhat.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Kernel panic in fib_rules_lookup (kernel 2.6.32)
+Date: Tue, 09 Mar 2010 18:09:28 +0100
+Message-ID: <1268154568.3113.19.camel@edumazet-laptop>
+References: <119601268120674@webmail87.yandex.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8307 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755227Ab0CIQ46 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Mar 2010 11:56:58 -0500
-In-Reply-To: <1268153703-4186-3-git-send-email-sgruszka@redhat.com>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:64152 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755103Ab0CIRJd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Mar 2010 12:09:33 -0500
+Received: by bwz1 with SMTP id 1so4100131bwz.21
+        for <netdev@vger.kernel.org>; Tue, 09 Mar 2010 09:09:32 -0800 (PST)
+In-Reply-To: <119601268120674@webmail87.yandex.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Main reason for merge code is willingness to use memory barrier to avoid
-races with bnx2x_tx_int(). There is no real situation possible to
-trigger the races. But if we assume that bug of not stopped and full
-queue can happen, we should also stop queue then in the safe way.
+Le mardi 09 mars 2010 =C3=A0 10:44 +0300, "Oleg A. Arkhangelsky" a =C3=A9=
+crit :
+> Hello,
+>=20
+> Got this kernel panic tomorrow. This PC is rather heavy loaded router=
+ with BGP full view (> 300K routes).
+> We're using FIB_TRIE. Last time we got similar panic about 1 month ag=
+o. Please, let me know if you
+> need additional information to debug (e.g. objdump). Thanks!
+>=20
+> Mar  9 10:08:55 bras-1 kernel: BUG: unable to handle kernel NULL poin=
+ter dereference at (null)
+> Mar  9 10:08:55 bras-1 kernel: IP: [<c11fa012>] fib_rules_lookup+0xa2=
+/0xd0
+> Mar  9 10:08:55 bras-1 kernel: *pde =3D 00000000
+> Mar  9 10:08:55 bras-1 kernel: Thread overran stack, or stack corrupt=
+ed
 
-Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
----
-I have no strong fillings that patch should be applied, if Vladislav
-do not want the patch, I'll will not argue.
+Hmm...
 
- drivers/net/bnx2x_main.c |   37 ++++++++++++++++++++-----------------
- 1 files changed, 20 insertions(+), 17 deletions(-)
+> Mar  9 10:08:55 bras-1 kernel: Oops: 0000 [#1] SMP
+> Mar  9 10:08:55 bras-1 kernel: Modules linked in: ipt_NETFLOW iTCO_wd=
+t xt_tcpudp iptable_filter iptable_nat ip_tables ipt_ISG x_tables ipmi_=
+watchdog ipmi_msghandler nf_nat_ftp nf_nat nf_conntrack_ipv4 nf_defrag_=
+ipv4 nf_conntrack_ftp nf_conntrack 8021q e1000 e1000e
+> Mar  9 10:08:55 bras-1 kernel:
+> Mar  9 10:08:55 bras-1 kernel: Pid: 0, comm: swapper Not tainted (2.6=
+=2E32 #3)
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 6c042a7..6751ca2 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -11176,10 +11176,9 @@ static netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct eth_tx_bd *tx_data_bd, *total_pkt_bd = NULL;
- 	struct eth_tx_parse_bd *pbd = NULL;
- 	u16 pkt_prod, bd_prod;
--	int nbd, fp_index;
-+	int i, ret, nbd, fp_index;
- 	dma_addr_t mapping;
- 	u32 xmit_type = bnx2x_xmit_type(bp, skb);
--	int i;
- 	u8 hlen = 0;
- 	__le16 pkt_size = 0;
- 
-@@ -11194,10 +11193,9 @@ static netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	fp = &bp->fp[fp_index];
- 
- 	if (unlikely(bnx2x_tx_avail(fp) < (skb_shinfo(skb)->nr_frags + 3))) {
--		fp->eth_q_stats.driver_xoff++;
--		netif_tx_stop_queue(txq);
- 		BNX2X_ERR("BUG! Tx ring full when queue awake!\n");
--		return NETDEV_TX_BUSY;
-+		ret = NETDEV_TX_BUSY;
-+		goto stop_queue;
- 	}
- 
- 	DP(NETIF_MSG_TX_QUEUED, "SKB: summed %x  protocol %x  protocol(%x,%x)"
-@@ -11425,22 +11423,27 @@ static netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	mmiowb();
- 
- 	fp->tx_bd_prod += nbd;
-+	fp->tx_pkt++;
- 
--	if (unlikely(bnx2x_tx_avail(fp) < MAX_SKB_FRAGS + 3)) {
--		netif_tx_stop_queue(txq);
-+	ret = NETDEV_TX_OK;
-+	if (unlikely(bnx2x_tx_avail(fp) < MAX_SKB_FRAGS + 3))
-+		goto stop_queue;
- 
--		/* paired memory barrier is in bnx2x_tx_int(), we have to keep
--		 * ordering of set_bit() in netif_tx_stop_queue() and read of
--		 * fp->bd_tx_cons */
--		smp_mb();
-+	return ret;
- 
--		fp->eth_q_stats.driver_xoff++;
--		if (bnx2x_tx_avail(fp) >= MAX_SKB_FRAGS + 3)
--			netif_tx_wake_queue(txq);
--	}
--	fp->tx_pkt++;
-+stop_queue:
-+	netif_tx_stop_queue(txq);
-+
-+	/* paired memory barrier is in bnx2x_tx_int(), we have to keep
-+	 * ordering of set_bit() in netif_tx_stop_queue() and read of
-+	 * fp->bd_tx_cons */
-+	smp_mb();
- 
--	return NETDEV_TX_OK;
-+	fp->eth_q_stats.driver_xoff++;
-+	if (bnx2x_tx_avail(fp) >= MAX_SKB_FRAGS + 3)
-+		netif_tx_wake_queue(txq);
-+
-+	return ret;
- }
- 
- /* called with rtnl_lock */
--- 
-1.6.2.5
+Is it an unpatched kernel ?
+
+Could you send us your .config ?
+
+gcc -v ?
+
 
