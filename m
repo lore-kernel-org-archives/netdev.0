@@ -1,59 +1,76 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH] ar9170: fix for driver-core ABI change
-Date: Tue, 9 Mar 2010 12:52:45 +1100
-Message-ID: <20100309125245.c25e5ca4.sfr@canb.auug.org.au>
-References: <20100309104221.aedc5e7e.sfr@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__9_Mar_2010_12_52_45_+1100_Ay92DLu+zl5zo5f."
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	LKML <linux-kernel@vger.kernel.org>, linux-next@vger.kernel.org
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100309104221.aedc5e7e.sfr@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: frank.blaschka@de.ibm.com
+Subject: [patch 2/5] [PATCH] qeth: l3 send dhcp in non pass thru mode
+Date: Tue, 09 Mar 2010 07:36:54 +0100
+Message-ID: <20100309063936.560827000@de.ibm.com>
+References: <20100309063652.706791000@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate2.de.ibm.com ([195.212.17.162]:35966 "EHLO
+	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751791Ab0CIGji (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Mar 2010 01:39:38 -0500
+Content-Disposition: inline; filename=602-qeth-dhcp.diff
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Tue__9_Mar_2010_12_52_45_+1100_Ay92DLu+zl5zo5f.
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+From: Frank Blaschka <frank.blaschka@de.ibm.com>
 
-Hi Dave,
+dhcp frames are valid IPv4 packets so there is no need to send them
+in pass thru mode. This allows dhcp packets to pass HiperSockets.
+Also the dhcp release frame is send out correctly with this patch.
 
-On Tue, 9 Mar 2010 10:42:21 +1100 Stephen Rothwell <sfr@canb.auug.org.au> w=
-rote:
->
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> ---
->  drivers/net/wireless/ath/ar9170/usb.c |    5 +++--
->  1 files changed, 3 insertions(+), 2 deletions(-)
->=20
-> I have been carrying this patch in linux-next for some time as a fixup
-> for the driver-core tree.  It is now needed in net-2.6 (i.e. my
-> net-current) (since you merged the wireless tree) *after* you merge with
-> Linus' tree i.e. the down()/up() are present in the net-2.6 tree and the
-> changes to the driver core to use mutexes are in Linus' tree.
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+Signed-off-by: Martin Schwidefsky <schwidefsky@de.ibm.com>
+---
 
-Greg tells me that the semaphore to mutex change didn't go into Linus'
-tree.  However, this patch can still be applied as the device_lock/unlock
-primitives did go in.  I guess that the include of mutex.h is not needed.
+ drivers/s390/net/qeth_core.h    |    3 ++-
+ drivers/s390/net/qeth_l3_main.c |   10 ++++------
+ 2 files changed, 6 insertions(+), 7 deletions(-)
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+--- a/drivers/s390/net/qeth_core.h
++++ b/drivers/s390/net/qeth_core.h
+@@ -763,7 +763,8 @@ static inline int qeth_get_micros(void)
+ 
+ static inline int qeth_get_ip_version(struct sk_buff *skb)
+ {
+-	switch (skb->protocol) {
++	struct ethhdr *ehdr = (struct ethhdr *)skb->data;
++	switch (ehdr->h_proto) {
+ 	case ETH_P_IPV6:
+ 		return 6;
+ 	case ETH_P_IP:
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -2900,10 +2900,8 @@ static int qeth_l3_hard_start_xmit(struc
+ 	int data_offset = -1;
+ 	int nr_frags;
+ 
+-	if ((card->info.type == QETH_CARD_TYPE_IQD) &&
+-	    (((skb->protocol != htons(ETH_P_IPV6)) &&
+-	      (skb->protocol != htons(ETH_P_IP))) ||
+-	     card->options.sniffer))
++	if (((card->info.type == QETH_CARD_TYPE_IQD) && (!ipv)) ||
++	     card->options.sniffer)
+ 			goto tx_drop;
+ 
+ 	if ((card->state != CARD_STATE_UP) || !card->lan_online) {
+@@ -2949,14 +2947,14 @@ static int qeth_l3_hard_start_xmit(struc
+ 		if (data_offset < 0)
+ 			skb_pull(new_skb, ETH_HLEN);
+ 	} else {
+-		if (new_skb->protocol == htons(ETH_P_IP)) {
++		if (ipv == 4) {
+ 			if (card->dev->type == ARPHRD_IEEE802_TR)
+ 				skb_pull(new_skb, TR_HLEN);
+ 			else
+ 				skb_pull(new_skb, ETH_HLEN);
+ 		}
+ 
+-		if (new_skb->protocol == ETH_P_IPV6 && card->vlangrp &&
++		if (ipv == 6 && card->vlangrp &&
+ 				vlan_tx_tag_present(new_skb)) {
+ 			skb_push(new_skb, VLAN_HLEN);
+ 			skb_copy_to_linear_data(new_skb, new_skb->data + 4, 4);
 
---Signature=_Tue__9_Mar_2010_12_52_45_+1100_Ay92DLu+zl5zo5f.
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAkuVqe0ACgkQjjKRsyhoI8y6ogCggC5fH9B98EKDHvLEM5it76al
-ZrMAn2xyC2pw9bepvBAoWMLxD2tBgHei
-=tAvG
------END PGP SIGNATURE-----
-
---Signature=_Tue__9_Mar_2010_12_52_45_+1100_Ay92DLu+zl5zo5f.--
