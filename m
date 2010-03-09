@@ -1,65 +1,86 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH] ar9170: fix for driver-core ABI change
-Date: Wed, 10 Mar 2010 09:08:27 +1100
-Message-ID: <20100310090827.096134f5.sfr@canb.auug.org.au>
-References: <20100309104221.aedc5e7e.sfr@canb.auug.org.au>
-	<20100309125245.c25e5ca4.sfr@canb.auug.org.au>
-	<4B968CA2.4040000@s5r6.in-berlin.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: how to tweak ARP timer on kernel 2.6.9
+Date: Tue, 09 Mar 2010 23:10:14 +0100
+Message-ID: <1268172614.2872.122.camel@edumazet-laptop>
+References: <4B96A24A.6060405@utah.edu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__10_Mar_2010_09_08_27_+1100_H4EZ2_FZvyHQX9rP"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	LKML <linux-kernel@vger.kernel.org>, linux-next@vger.kernel.org
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:42395 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751785Ab0CIWIc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Mar 2010 17:08:32 -0500
-In-Reply-To: <4B968CA2.4040000@s5r6.in-berlin.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Tom Ammon <tom.ammon@utah.edu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4B96A24A.6060405@utah.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---Signature=_Wed__10_Mar_2010_09_08_27_+1100_H4EZ2_FZvyHQX9rP
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hi Stefan,
-
-On Tue, 09 Mar 2010 19:00:02 +0100 Stefan Richter <stefanr@s5r6.in-berlin.d=
-e> wrote:
->
-> Stephen Rothwell wrote:
-> > Greg tells me that the semaphore to mutex change didn't go into Linus'
-> > tree.  However, this patch can still be applied as the device_lock/unlo=
-ck
-> > primitives did go in.  I guess that the include of mutex.h is not neede=
-d.
+Le mardi 09 mars 2010 =C3=A0 12:32 -0700, Tom Ammon a =C3=A9crit :
+> Hi,
 >=20
-> An #include <linux/device.h> seems to be in order though.  It is pulled
-> in via linux/usb.h and this is surely not bound to change anytime soon,
-> but still.
+> I've been trying to figure out how to adjust the ARP timeout on kerne=
+l=20
+> 2.6.9 and I found the following in /proc/sys/net/ipv4/neigh/ib0 (its =
+an=20
+> IB interface I am interested in changing) with the following values.=20
+> This is on kernel 2.6.9-89ELsmp (RHEL4) :
+>=20
 
-Damn! Caught by my own "Rule #1" :-)
+> When I test this, along with per-flow ECMP (using the iproute2 utils)=
+, I=20
+> see that the ARP cache is timing out about every 10 minutes (I observ=
+e=20
+> this by load balancing an iperf flow between two different gateway=20
+> machines and then graphing the interface traffic)
+>=20
 
-Thanks.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+10 minutes seems out of specs.
 
---Signature=_Wed__10_Mar_2010_09_08_27_+1100_H4EZ2_FZvyHQX9rP
-Content-Type: application/pgp-signature
+> On a newer kernel, 2.6.18-164.11.1.el5 (RHEL5), I see mostly the same=
+=20
+> parms available, but a few new ones have been added. However, all of =
+the=20
+> parms that are the same name between the two kernels are the same val=
+ues:
+>=20
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+> Yet when I observe the same traffic flow with this machine, the ARP=20
+> cache times out about once per minute.
+>=20
 
-iEYEARECAAYFAkuWxtsACgkQjjKRsyhoI8xTTACguLoq3b4GVnlTapZTwWGBf3iu
-7ucAn1Krfd/LAY8FF4/k0s0yjXQxbaUs
-=Yc/u
------END PGP SIGNATURE-----
+This seems normal, old kernels were a bit lazy about arp.
 
---Signature=_Wed__10_Mar_2010_09_08_27_+1100_H4EZ2_FZvyHQX9rP--
+
+> Is there another set of parameters somewhere that govern how often th=
+e=20
+> kernel times out the ARP cache? If so, where might I find that? Is th=
+ere=20
+> any kernel documentation that talks about changing ARP timers on the=20
+> linux kernel?
+>=20
+
+I would suggest :
+
+man 7 arp
+
+http://linux.die.net/man/7/arp
+
+
+
+base_reachable_time
+        Once a neighbour has been found, the entry is considered to be
+        valid for at least a random value between base_reachable_time/2
+        and 3*base_reachable_time/2. An entry's validity will be
+        extended if it receives positive feedback from higher level
+        protocols. Defaults to 30 seconds.
+
+gc_interval
+        How frequently the garbage collector for neighbour entries
+        should attempt to run. Defaults to 30 seconds.
+
+gc_stale_time
+        Determines how often to check for stale neighbour entries. When
+        a neighbour entry is considered stale it is resolved again
+        before sending data to it. Defaults to 60 seconds.
+       =20
+
+
+and "ip -s neigh"
