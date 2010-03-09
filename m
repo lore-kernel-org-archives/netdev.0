@@ -1,44 +1,59 @@
-From: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
-Subject: Re: Re: Kernel panic in fib_rules_lookup (kernel 2.6.32)
-Date: Tue, 09 Mar 2010 21:39:31 +0300
-Message-ID: <110261268159971@webmail88.yandex.ru>
-References: <76131268155285@webmail84.yandex.ru> <9847503.232911268158922219.JavaMail.root@tahiti.vyatta.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [2.6.34-rc1] CPU stalls when closing TCP sockets.
+Date: Tue, 9 Mar 2010 11:58:19 -0700
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FE46FA932@rrsmsx501.amr.corp.intel.com>
+References: <201003090319.o293J6WF026448@www262.sakura.ne.jp>
+	 <1268116647.2819.64.camel@edumazet-laptop>
+	 <201003090654.o296sCnh065487@www262.sakura.ne.jp>
+ <1268150156.3113.12.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward11.mail.yandex.net ([95.108.130.93]:46634 "EHLO
-	forward11.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751643Ab0CISje (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Mar 2010 13:39:34 -0500
-In-Reply-To: <9847503.232911268158922219.JavaMail.root@tahiti.vyatta.com>
+Received: from mga01.intel.com ([192.55.52.88]:58912 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753447Ab0CIS60 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Mar 2010 13:58:26 -0500
+In-Reply-To: <1268150156.3113.12.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, Stephen
-
-09.03.10, 10:22, "Stephen Hemminger" <stephen.hemminger@vyatta.com>:
-
->  > Yes. Vanilla 2.6.32. We saw the same issue on at least 2.6.30.1 (as
->  > far as I know).
->  > 
->  
->  
->  iptables NETFLOW and ISG modules aren't in standard kernel (yet)
->     http://www.progtech.ru/~oleg/lISG/
-
-Agreed. But they are only iptables modules, not patches. How can they
-be related to functionality of routing (especially routing rules) subsystem?
-
-Thank you.
-
-P.S.: By the way, we're not using rules at all on this router:
-
-0:      from all lookup local
-32766:  from all lookup main
-32767:  from all lookup default
-
--- 
-wbr, Oleg.
+RXJpYyBEdW1hemV0IHdyb3RlOg0KPiBMZSBtYXJkaSAwOSBtYXJzIDIwMTAgw6AgMTU6NTQgKzA5
+MDAsIFRldHN1byBIYW5kYSBhIMOpY3JpdCA6DQo+PiBFcmljIER1bWF6ZXQgd3JvdGU6DQo+Pj4g
+Tm90aGluZyBjb21lcyB0byBteSBtaW5kLCBJJ2xsIHRyeSB0byByZXByb2R1Y2UgdGhpcyBoZXJl
+Lg0KPj4gDQo+PiBXaGVuIHN0b3BwZWQgYXQgKDgpLCBDdHJsLUMgZG9lc24ndCB3b3JrLg0KPj4g
+DQo+Pj4gSXMgMi42LjMzIE9LID8NCj4+IA0KPj4gWWVzLiAyLjYuMzMgYW5kIGVhcmxpZXIgYXJl
+IE9LLg0KPiANCj4gT0sgdGhhbmtzICENCj4gDQo+IEkgYmVsaWV2ZSBjb21taXQgZDIxOGQxMTEz
+M2Q4ODhmOTc0NTgwMjE0NmE1MDI1NWE0NzgxZDM3YQ0KPiAodGNwOiBHZW5lcmFsaXplZCBUVEwg
+U2VjdXJpdHkgTWVjaGFuaXNtKSBtaWdodCBiZSB0aGUgYnVnIG9yaWdpbi4NCj4gDQo+IEkgYW0g
+dGVzdGluZyBmb2xsb3dpbmcgcGF0Y2gsIGJhc2VkIG9uIGxhdGVzdCBuZXQtMi42IHRyZWUgKGlu
+Y2x1ZGluZw0KPiB0aGUgTElOVVhfTUlCX1RDUE1JTlRUTERST1AgYml0KQ0KPiANCj4gW1BBVENI
+XSB0Y3A6IEZpeCB0Y3BfdjRfcmN2KCkNCj4gDQo+IENvbW1pdCBkMjE4ZDExMSAodGNwOiBHZW5l
+cmFsaXplZCBUVEwgU2VjdXJpdHkgTWVjaGFuaXNtKSBhZGRlZCBhIGJ1Zw0KPiBmb3IgVElNRVdB
+SVQgc29ja2V0cy4gV2Ugc2hvdWxkIG5vdCB0ZXN0IG1pbl90dGwgZm9yIFRXIHNvY2tldHMuDQo+
+IA0KPiBSZXBvcnRlZC1ieTogVGV0c3VvIEhhbmRhIDxwZW5ndWluLWtlcm5lbEBJLWxvdmUuU0FL
+VVJBLm5lLmpwPg0KPiBTaWduZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVyaWMuZHVtYXpldEBn
+bWFpbC5jb20+DQo+IC0tLQ0KPiBkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvdGNwX2lwdjQuYyBiL25l
+dC9pcHY0L3RjcF9pcHY0LmMNCj4gaW5kZXggOGQ1MWQzOS4uNzBkZjQwOSAxMDA2NDQNCj4gLS0t
+IGEvbmV0L2lwdjQvdGNwX2lwdjQuYw0KPiArKysgYi9uZXQvaXB2NC90Y3BfaXB2NC5jDQo+IEBA
+IC0xNjUxLDE1ICsxNjUxLDE1IEBAIGludCB0Y3BfdjRfcmN2KHN0cnVjdCBza19idWZmICpza2Ip
+DQo+ICAJaWYgKCFzaykNCj4gIAkJZ290byBub190Y3Bfc29ja2V0Ow0KPiANCj4gK3Byb2Nlc3M6
+DQo+ICsJaWYgKHNrLT5za19zdGF0ZSA9PSBUQ1BfVElNRV9XQUlUKQ0KPiArCQlnb3RvIGRvX3Rp
+bWVfd2FpdDsNCj4gKw0KPiAgCWlmICh1bmxpa2VseShpcGgtPnR0bCA8IGluZXRfc2soc2spLT5t
+aW5fdHRsKSkgew0KPiAgCQlORVRfSU5DX1NUQVRTX0JIKG5ldCwgTElOVVhfTUlCX1RDUE1JTlRU
+TERST1ApOw0KPiAgCQlnb3RvIGRpc2NhcmRfYW5kX3JlbHNlOw0KPiAgCX0NCj4gDQo+IC1wcm9j
+ZXNzOg0KPiAtCWlmIChzay0+c2tfc3RhdGUgPT0gVENQX1RJTUVfV0FJVCkNCj4gLQkJZ290byBk
+b190aW1lX3dhaXQ7DQo+IC0NCj4gIAlpZiAoIXhmcm00X3BvbGljeV9jaGVjayhzaywgWEZSTV9Q
+T0xJQ1lfSU4sIHNrYikpDQo+ICAJCWdvdG8gZGlzY2FyZF9hbmRfcmVsc2U7DQo+ICAJbmZfcmVz
+ZXQoc2tiKTsNCg0KVGhpcyBwYXRjaCBmaXhlcyBoYW5ncyB3aXRoIGZ0cCBhbmQgcnNoIHNlc3Np
+b25zIEkgaGF2ZSBiZWVuIGV4cGVyaWVuY2luZyBmb3Igc29tZSB0aW1lIG5vdyB3aXRoIHRoZSBu
+ZXQtbmV4dCB0cmVlLiBIdW5kcmVkcyBvZiBpdGVyYXRpb25zIHBhc3NlZCB3aXRob3V0IHByb2Js
+ZW1zLg0KDQpUaGFua3MhDQpFbWls
