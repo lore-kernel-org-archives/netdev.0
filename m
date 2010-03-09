@@ -1,41 +1,57 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 6/13] bridge: Add core IGMP snooping support
-Date: Tue, 9 Mar 2010 22:12:59 +0100
-Message-ID: <201003092212.59627.arnd@arndb.de>
-References: <20100228054012.GA7583@gondor.apana.org.au> <20100307024500.GA20126@gondor.apana.org.au> <20100307031151.GA7546@linux.vnet.ibm.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 2/5] drivers/net: drop redundant memset
+Date: Tue, 9 Mar 2010 22:14:11 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.1003092213500.4974__35415.0941050195$1268169320$gmane$org@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: paulmck@linux.vnet.ibm.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: Ramkrishna Vepa <ram.vepa@neterion.com>,
+	Rastapur Santosh <santosh.rastapur@neterion.com>,
+	Sivakumar Subramani <sivakumar.subramani@neterion.com>,
+	Sreenivasa Honnur <sreenivasa.honnur
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.9]:53880 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751326Ab0CIVNS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Mar 2010 16:13:18 -0500
-In-Reply-To: <20100307031151.GA7546@linux.vnet.ibm.com>
+Received: from mgw1.diku.dk ([130.225.96.91]:55274 "EHLO mgw1.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752963Ab0CIVOR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Mar 2010 16:14:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 07 March 2010, Paul E. McKenney wrote:
-> On Sun, Mar 07, 2010 at 10:45:00AM +0800, Herbert Xu wrote:
-> > On Sat, Mar 06, 2010 at 11:00:00AM -0800, Paul E. McKenney wrote:
-> 
-> Arnd, would it be reasonable to extend your RCU-sparse changes to have
-> four different pointer namespaces, one for each flavor of RCU?  (RCU,
-> RCU-bh, RCU-sched, and SRCU)?  Always a fan of making the computer do
-> the auditing where reasonable.  ;-)
-> 
-> This could potentially catch the mismatched call_rcu()s, at least if the
-> rcu_head could be labeled.
-> 
-> Other thoughts?
+From: Julia Lawall <julia@diku.dk>
 
-I've just tried annotating net/ipv4/route.c like this and did not get
-very far, because the same pointers are used for rcu and rcu_bh.
-Could you check if this is a false positive or an actual finding?
+The region set by the call to memset is immediately overwritten by the
+subsequent call to memcpy.
 
-	Arnd
+The semantic patch that makes this change is as follows:
+(http://coccinelle.lip6.fr/)
+
+// <smpl>
+@@
+expression e1,e2,e3,e4;
+@@
+
+- memset(e1,e2,e3);
+  memcpy(e1,e4,e3);
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+ drivers/net/s2io.c                  |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index df70657..2eb7f8a 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -5819,10 +5819,8 @@ static void s2io_vpd_read(struct s2io_nic *nic)
+ 		}
+ 	}
+ 
+-	if ((!fail) && (vpd_data[1] < VPD_STRING_LEN)) {
+-		memset(nic->product_name, 0, vpd_data[1]);
++	if ((!fail) && (vpd_data[1] < VPD_STRING_LEN))
+ 		memcpy(nic->product_name, &vpd_data[3], vpd_data[1]);
+-	}
+ 	kfree(vpd_data);
+ 	swstats->mem_freed += 256;
+ }
