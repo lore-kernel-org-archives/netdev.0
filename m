@@ -1,166 +1,114 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] gaiconf: /etc/gai.conf configuration helper.
-Date: Tue, 9 Mar 2010 12:12:53 +0900
-Message-ID: <201003090312.o293Crf2004455@94.43.138.210.xn.2iij.net>
-Cc: yoshfuji@linux-ipv6.org
-To: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 6/13] bridge: Add core IGMP snooping support
+Date: Mon, 8 Mar 2010 19:15:46 -0800
+Message-ID: <20100309031546.GE6739@linux.vnet.ibm.com>
+References: <20100228054012.GA7583@gondor.apana.org.au> <20100307024500.GA20126@gondor.apana.org.au> <20100307031151.GA7546@linux.vnet.ibm.com> <201003081950.48384.arnd@arndb.de>
+Reply-To: paulmck@linux.vnet.ibm.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:36538 "EHLO
-	94.43.138.210.xn.2iij.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756626Ab0CIDM4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Mar 2010 22:12:56 -0500
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:43954 "EHLO e2.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932135Ab0CIDPz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Mar 2010 22:15:55 -0500
+Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
+	by e2.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o2935POF023030
+	for <netdev@vger.kernel.org>; Mon, 8 Mar 2010 22:05:25 -0500
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o293FqCA165948
+	for <netdev@vger.kernel.org>; Mon, 8 Mar 2010 22:15:52 -0500
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o293Fqor022830
+	for <netdev@vger.kernel.org>; Mon, 8 Mar 2010 22:15:52 -0500
+Content-Disposition: inline
+In-Reply-To: <201003081950.48384.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This tool reads /etc/gai.conf, configuration for getaddrinfo(3), and
-set up kernel parameter.
+On Mon, Mar 08, 2010 at 07:50:48PM +0100, Arnd Bergmann wrote:
+> On Sunday 07 March 2010, Paul E. McKenney wrote:
+> > On Sun, Mar 07, 2010 at 10:45:00AM +0800, Herbert Xu wrote:
+> > > On Sat, Mar 06, 2010 at 11:00:00AM -0800, Paul E. McKenney wrote:
+> > 
+> > OK, just re-checked your patch, and it looks OK.
+> > 
+> > Also adding Arnd to CC.
+> > 
+> > Arnd, would it be reasonable to extend your RCU-sparse changes to have
+> > four different pointer namespaces, one for each flavor of RCU?  (RCU,
+> > RCU-bh, RCU-sched, and SRCU)?  Always a fan of making the computer do
+> > the auditing where reasonable.  ;-)
+> 
+> Yes, I guess that would be possible. I'd still leave out the rculist
+> from any annotations for now, as this would get even more complex then.
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- examples/gaiconf |  134 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 134 insertions(+), 0 deletions(-)
- create mode 100644 examples/gaiconf
+Understood!
 
-diff --git a/examples/gaiconf b/examples/gaiconf
-new file mode 100644
-index 0000000..d75292b
---- /dev/null
-+++ b/examples/gaiconf
-@@ -0,0 +1,134 @@
-+#!/bin/sh
-+
-+#
-+# Setup address label from /etc/gai.conf
-+#
-+# Written by YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, 2010.
-+#
-+
-+IP=ip
-+DEFAULT_GAICONF=/etc/gai.conf
-+verbose=
-+debug=
-+
-+function run ()
-+{
-+	if [ x"$verbose" != x"" ]; then
-+		echo "$@"
-+	fi
-+	if [ x"$debug" = x"" ]; then
-+		"$@"
-+	fi
-+}
-+
-+function do_load_config ()
-+{
-+	file=$1; shift
-+	flush=1
-+	cat $file | while read command prefix label; do
-+		if [ x"$command" = x"#label" ]; then
-+			if [ ${flush} = 1 ]; then
-+				run ${IP} -6 addrlabel flush
-+				flush=0
-+			fi
-+			run ${IP} -6 addrlabel add prefix $prefix label $label
-+		fi
-+	done
-+}
-+
-+function do_list_config ()
-+{
-+	${IP} -6 addrlabel list | while read p pfx l lbl; do
-+		echo label ${pfx} ${lbl}
-+	done
-+}
-+
-+function help ()
-+{
-+	echo "Usage: $0 [-v] {--list | --config [ ${DEFAULT_GAICONF} ] | --default}"
-+	exit 1
-+}
-+
-+TEMP=`getopt -o c::dlv -l config::,default,list,verbose -n gaiconf -- "$@"`
-+
-+if [ $? != 0 ]; then
-+	echo "Terminating..." >&2
-+	exit 1
-+fi
-+
-+TEMPFILE=`mktemp`
-+
-+eval set -- "$TEMP"
-+
-+while true ; do
-+	case "$1" in
-+		-c|--config)
-+			if [ x"$cmd" != x"" ]; then
-+				help
-+			fi
-+			case "$2" in
-+			"")	gai_conf="${DEFAULT_GAICONF}"
-+				shift 2
-+				;;
-+			*)	gai_conf="$2"
-+				shift 2
-+			esac
-+			cmd=config
-+			;;
-+		-d|--default)
-+			if [ x"$cmd" != x"" ]; then
-+				help
-+			fi
-+			gai_conf=${TEMPFILE}
-+			cmd=config
-+			;;
-+		-l|--list)
-+			if [ x"$cmd" != x"" ]; then
-+				help
-+			fi
-+			cmd=list
-+			shift
-+			;;
-+		-v)
-+			verbose=1
-+			shift
-+			;;
-+		--)
-+			shift;
-+			break
-+			;;
-+		*)
-+			echo "Internal error!" >&2
-+			exit 1
-+			;;
-+	esac
-+done
-+
-+case "$cmd" in
-+	config)
-+		if [ x"$gai_conf" = x"${TEMPFILE}" ]; then
-+			sed -e 's/^[[:space:]]*//' <<END_OF_DEFAULT >${TEMPFILE}
-+				label ::1/128       0
-+				label ::/0          1
-+				label 2002::/16     2
-+				label ::/96         3
-+				label ::ffff:0:0/96 4
-+				label fec0::/10     5
-+				label fc00::/7      6
-+				label 2001:0::/32   7
-+END_OF_DEFAULT
-+		fi
-+		do_load_config "$gai_conf"
-+		;;
-+	list)
-+		do_list_config
-+		;;
-+	*)
-+		help
-+		;;
-+esac
-+
-+rm -f "${TEMPFILE}"
-+
-+exit 0
-+
--- 
-1.5.6.5
+> One consequence will be the need for new rcu_assign_pointer{,_bh,_sched}
+> macros that check the address space of the first argument, otherwise
+> you'd be able to stick anything in there, including non-__rcu pointers.
+> 
+> I've also found a few places (less than a handful) that use RCU to
+> protect per-CPU data. Not sure how to deal with that, because now
+> this also has its own named address space (__percpu), and it's probably
+> a bit too much to introduce all combinations of
+> {s,}rcu_{assign_pointer,dereference}{,_bh,_sched}{,_const}{,_percpu},
+> so I'm ignoring them for now.
 
+Ouch!!!
+
+> > This could potentially catch the mismatched call_rcu()s, at least if the
+> > rcu_head could be labeled.
+> 
+> I haven't labeled the rcu_head at all so far, and I'm not sure if that's
+> necessary. What I've been thinking about is replacing typical code like
+> 
+> /* this is called with the writer-side lock held */
+> void foo_assign(struct foo *foo, struct bar *newbar)
+> {
+> 	struct bar *bar = rcu_dereference_const(foo->bar); /* I just had to add 
+> 							    this dereference */
+> 	rcu_assign_pointer(foo->bar, newbar);
+> 	if (bar)
+> 		call_rcu(&bar->rcu, bar_destructor);
+> }
+> 
+> with the shorter
+> 
+> void foo_assign(struct foo *foo, struct bar *newbar)
+> {
+> 	struct bar *bar = rcu_exchange(foo->bar, newbar);
+> 	if (bar)
+> 		call_rcu(&bar->rcu, bar_destructor);
+> }
+> 
+> Now we could combine this to
+> 
+> void foo_assign(struct foo *foo, struct bar *newbar)
+> {
+> 	rcu_exchange_call(foo->bar, newbar, rcu, bar_destructor);
+> }
+> 
+> #define rcu_exchange_call(ptr, new, member, func) \
+> ({ \
+> 	typeof(new) old = rcu_exchange((ptr),(new)); \
+> 	if (old) \
+> 		call_rcu(&(old)->member, (func));	\
+> 	old; \
+> })
+> 
+> and make appropriate versions of all the above rcu methods for this.
+> With some extra macro magic, this could even become type safe and
+> accept a function that takes a typeof(ptr) argument instead of the
+> rcu_head.
+
+This approach does look promising!  And probably a lot simpler than
+attempting to label the rcu_head structure.  I am not yet convinced
+about the typesafe function taking typeof(ptr), but possibly I am
+suffering a failure of C-preprocessor imagination?
+
+							Thanx, Paul
