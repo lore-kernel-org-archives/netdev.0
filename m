@@ -1,176 +1,81 @@
-From: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-Subject: [PATCH] net: davinci emac: use dma_{map,
-	unmap}_single API for cache coherency
-Date: Tue,  9 Mar 2010 16:50:37 +0530
-Message-ID: <1268133637-23399-1-git-send-email-nsekhar@ti.com>
+From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Subject: RE: [PATCH v1 0/3] Provide a zero-copy method on KVM virtio-net.
+Date: Tue, 9 Mar 2010 15:47:46 +0800
+Message-ID: <97F6D3BD476C464182C1B7BABF0B0AF5C15FE38E@shzsmsx502.ccr.corp.intel.com>
+References: <1267868318-19268-1-git-send-email-xiaohui.xin@intel.com>
+ <20100307105031.GA20004@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: srk-l0cyMroinI0@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mingo@elte.hu" <mingo@elte.hu>,
+	"jdike@c2.user-mode-linux.org" <jdike@c2.user-mode-linux.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100307105031.GA20004@redhat.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The davinci emac driver uses some ARM specific DMA APIs
-for cache coherency which have been removed from kernel
-with the 2.6.34 merge.
+>On Sat, Mar 06, 2010 at 05:38:35PM +0800, xiaohui.xin@intel.com wrote:
+>> The idea is simple, just to pin the guest VM user space and then
+> >let host NIC driver has the chance to directly DMA to it. 
+> >The patches are based on vhost-net backend driver. We add a device
+> >which provides proto_ops as sendmsg/recvmsg to vhost-net to
+> >send/recv directly to/from the NIC driver. KVM guest who use the
+> >vhost-net backend may bind any ethX interface in the host side to
+> >get copyless data transfer thru guest virtio-net frontend.
+> >
+> >We provide multiple submits and asynchronous notifiicaton to 
+> >vhost-net too.
+> > 
+> >Our goal is to improve the bandwidth and reduce the CPU usage.
+> >Exact performance data will be provided later. But for simple
+> >test with netperf, we found bindwidth up and CPU % up too,
+> >but the bindwidth up ratio is much more than CPU % up ratio.
+> >
+> >What we have not done yet:
+> >	packet split support
+> >	To support GRO
+> >	Performance tuning
+> >
+>Am I right to say that nic driver needs changes for these patches
+>to work? If so, please publish nic driver patches as well.
 
-Modify the driver to use the dma_{map, unmap}_single() APIs
-defined in dma-mapping.h
+For drivers not support packet split mode, the NIC drivers don't need to change.
+For packet split support drivers, we plan to add the drivers API in updated versions.
+Now for PS support drivers, just disable the PS mode, it also works.
 
-Without this fix, the driver fails to compile on Linus's
-tree.
+> > what we have done in v1:
+> > 	polish the RCU usage
+> >	deal with write logging in asynchroush mode in vhost
+> >	add notifier block for mp device
+> >	rename page_ctor to mp_port in netdevice.h to make it looks generic
+> >	add mp_dev_change_flags() for mp device to change NIC state
+> >	add CONIFG_VHOST_MPASSTHRU to limit the usage when module is not load
+> >	a small fix for missing dev_put when fail
+> >	using dynamic minor instead of static minor number
+> >	a __KERNEL__ protect to mp_get_sock()
+> >
+> >performance:
+> >	using netperf with GSO/TSO disabled, 10G NIC, 
+> >	disabled packet split mode, with raw socket case compared to vhost.
+> >
+> >	bindwidth will be from 1.1Gbps to 1.7Gbps
+> >	CPU % from 120%-140% to 140%-160%
 
-Tested on DM365 and OMAP-L138 EVMs.
+> That's pretty low for a 10Gb nic. Are you hitting some other bottleneck,
+> like high interrupt rate? Also, GSO support and performance tuning
+> for raw are incomplete. Try comparing with e.g. tap with GSO.
 
-Signed-off-by: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
----
-Applies to latest of Linus's tree.
+I'm curious too. 
+I have tested vhost-net without zero-copy patch at first in RAW socket case with ixgbe driver, with that driver GRO feature is enabled default, but netperf data is extremely low, after disabled GRO, then I can get more than 1Gbps. So I thought I have missed something there, but I had send 2 emails to you about this before and got no reply from you.
+Have you got some perf data in raw socket case with vhost-net? 
+The data I have got from your web page is always tap with GSO case.
 
- drivers/net/davinci_emac.c |   45 +++++++++++++++++++++++++------------------
- 1 files changed, 26 insertions(+), 19 deletions(-)
+If GSO is not supported, I think the data cannot compare with tap with GSO case in 1500 MTU. 
+Maybe mergable buffers may help the performance in raw socket case?
 
-diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
-index 1ac9440..ef0dacf 100644
---- a/drivers/net/davinci_emac.c
-+++ b/drivers/net/davinci_emac.c
-@@ -29,10 +29,6 @@
-  *     PHY layer usage
-  */
- 
--/** Pending Items in this driver:
-- * 1. Use Linux cache infrastcture for DMA'ed memory (dma_xxx functions)
-- */
--
- #include <linux/module.h>
- #include <linux/kernel.h>
- #include <linux/sched.h>
-@@ -504,12 +500,6 @@ static unsigned long mdio_max_freq;
- 
- /* Cache macros - Packet buffers would be from skb pool which is cached */
- #define EMAC_VIRT_NOCACHE(addr) (addr)
--#define EMAC_CACHE_INVALIDATE(addr, size) \
--	dma_cache_maint((void *)addr, size, DMA_FROM_DEVICE)
--#define EMAC_CACHE_WRITEBACK(addr, size) \
--	dma_cache_maint((void *)addr, size, DMA_TO_DEVICE)
--#define EMAC_CACHE_WRITEBACK_INVALIDATE(addr, size) \
--	dma_cache_maint((void *)addr, size, DMA_BIDIRECTIONAL)
- 
- /* DM644x does not have BD's in cached memory - so no cache functions */
- #define BD_CACHE_INVALIDATE(addr, size)
-@@ -1235,6 +1225,10 @@ static void emac_txch_teardown(struct emac_priv *priv, u32 ch)
- 	if (1 == txch->queue_active) {
- 		curr_bd = txch->active_queue_head;
- 		while (curr_bd != NULL) {
-+			dma_unmap_single(emac_dev, curr_bd->buff_ptr,
-+				curr_bd->off_b_len & EMAC_RX_BD_BUF_SIZE,
-+				DMA_TO_DEVICE);
-+
- 			emac_net_tx_complete(priv, (void __force *)
- 					&curr_bd->buf_token, 1, ch);
- 			if (curr_bd != txch->active_queue_tail)
-@@ -1327,6 +1321,11 @@ static int emac_tx_bdproc(struct emac_priv *priv, u32 ch, u32 budget)
- 				txch->queue_active = 0; /* end of queue */
- 			}
- 		}
-+
-+		dma_unmap_single(emac_dev, curr_bd->buff_ptr,
-+				curr_bd->off_b_len & EMAC_RX_BD_BUF_SIZE,
-+				DMA_TO_DEVICE);
-+
- 		*tx_complete_ptr = (u32) curr_bd->buf_token;
- 		++tx_complete_ptr;
- 		++tx_complete_cnt;
-@@ -1387,8 +1386,8 @@ static int emac_send(struct emac_priv *priv, struct emac_netpktobj *pkt, u32 ch)
- 
- 	txch->bd_pool_head = curr_bd->next;
- 	curr_bd->buf_token = buf_list->buf_token;
--	/* FIXME buff_ptr = dma_map_single(... data_ptr ...) */
--	curr_bd->buff_ptr = virt_to_phys(buf_list->data_ptr);
-+	curr_bd->buff_ptr = dma_map_single(&priv->ndev->dev, buf_list->data_ptr,
-+			buf_list->length, DMA_TO_DEVICE);
- 	curr_bd->off_b_len = buf_list->length;
- 	curr_bd->h_next = 0;
- 	curr_bd->next = NULL;
-@@ -1468,7 +1467,6 @@ static int emac_dev_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	tx_buf.length = skb->len;
- 	tx_buf.buf_token = (void *)skb;
- 	tx_buf.data_ptr = skb->data;
--	EMAC_CACHE_WRITEBACK((unsigned long)skb->data, skb->len);
- 	ndev->trans_start = jiffies;
- 	ret_code = emac_send(priv, &tx_packet, EMAC_DEF_TX_CH);
- 	if (unlikely(ret_code != 0)) {
-@@ -1543,7 +1541,6 @@ static void *emac_net_alloc_rx_buf(struct emac_priv *priv, int buf_size,
- 	p_skb->dev = ndev;
- 	skb_reserve(p_skb, NET_IP_ALIGN);
- 	*data_token = (void *) p_skb;
--	EMAC_CACHE_WRITEBACK_INVALIDATE((unsigned long)p_skb->data, buf_size);
- 	return p_skb->data;
- }
- 
-@@ -1612,8 +1609,8 @@ static int emac_init_rxch(struct emac_priv *priv, u32 ch, char *param)
- 		/* populate the hardware descriptor */
- 		curr_bd->h_next = emac_virt_to_phys(rxch->active_queue_head,
- 				priv);
--		/* FIXME buff_ptr = dma_map_single(... data_ptr ...) */
--		curr_bd->buff_ptr = virt_to_phys(curr_bd->data_ptr);
-+		curr_bd->buff_ptr = dma_map_single(emac_dev, curr_bd->data_ptr,
-+				rxch->buf_size, DMA_FROM_DEVICE);
- 		curr_bd->off_b_len = rxch->buf_size;
- 		curr_bd->mode = EMAC_CPPI_OWNERSHIP_BIT;
- 
-@@ -1697,6 +1694,12 @@ static void emac_cleanup_rxch(struct emac_priv *priv, u32 ch)
- 		curr_bd = rxch->active_queue_head;
- 		while (curr_bd) {
- 			if (curr_bd->buf_token) {
-+				dma_unmap_single(&priv->ndev->dev,
-+					curr_bd->buff_ptr,
-+					curr_bd->off_b_len
-+						& EMAC_RX_BD_BUF_SIZE,
-+					DMA_FROM_DEVICE);
-+
- 				dev_kfree_skb_any((struct sk_buff *)\
- 						  curr_bd->buf_token);
- 			}
-@@ -1871,8 +1874,8 @@ static void emac_addbd_to_rx_queue(struct emac_priv *priv, u32 ch,
- 
- 	/* populate the hardware descriptor */
- 	curr_bd->h_next = 0;
--	/* FIXME buff_ptr = dma_map_single(... buffer ...) */
--	curr_bd->buff_ptr = virt_to_phys(buffer);
-+	curr_bd->buff_ptr = dma_map_single(&priv->ndev->dev, buffer,
-+				rxch->buf_size, DMA_FROM_DEVICE);
- 	curr_bd->off_b_len = rxch->buf_size;
- 	curr_bd->mode = EMAC_CPPI_OWNERSHIP_BIT;
- 	curr_bd->next = NULL;
-@@ -1927,7 +1930,6 @@ static int emac_net_rx_cb(struct emac_priv *priv,
- 	p_skb = (struct sk_buff *)net_pkt_list->pkt_token;
- 	/* set length of packet */
- 	skb_put(p_skb, net_pkt_list->pkt_length);
--	EMAC_CACHE_INVALIDATE((unsigned long)p_skb->data, p_skb->len);
- 	p_skb->protocol = eth_type_trans(p_skb, priv->ndev);
- 	netif_receive_skb(p_skb);
- 	priv->net_dev_stats.rx_bytes += net_pkt_list->pkt_length;
-@@ -1990,6 +1992,11 @@ static int emac_rx_bdproc(struct emac_priv *priv, u32 ch, u32 budget)
- 		rx_buf_obj->data_ptr = (char *)curr_bd->data_ptr;
- 		rx_buf_obj->length = curr_bd->off_b_len & EMAC_RX_BD_BUF_SIZE;
- 		rx_buf_obj->buf_token = curr_bd->buf_token;
-+
-+		dma_unmap_single(&priv->ndev->dev, curr_bd->buff_ptr,
-+				curr_bd->off_b_len & EMAC_RX_BD_BUF_SIZE,
-+				DMA_FROM_DEVICE);
-+
- 		curr_pkt->pkt_token = curr_pkt->buf_list->buf_token;
- 		curr_pkt->num_bufs = 1;
- 		curr_pkt->pkt_length =
--- 
-1.6.2.4
+Thanks Xiaohui
