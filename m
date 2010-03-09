@@ -1,81 +1,78 @@
-From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Subject: RE: [PATCH v1 0/3] Provide a zero-copy method on KVM virtio-net.
-Date: Tue, 9 Mar 2010 15:47:46 +0800
-Message-ID: <97F6D3BD476C464182C1B7BABF0B0AF5C15FE38E@shzsmsx502.ccr.corp.intel.com>
-References: <1267868318-19268-1-git-send-email-xiaohui.xin@intel.com>
- <20100307105031.GA20004@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mingo@elte.hu" <mingo@elte.hu>,
-	"jdike@c2.user-mode-linux.org" <jdike@c2.user-mode-linux.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100307105031.GA20004@redhat.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Greg Ungerer <gerg@snapgear.com>
+Subject: [PATCH] net: add ColdFire support to the smc91x driver
+Date: Tue, 9 Mar 2010 17:03:51 +1000
+Message-ID: <201003090703.o2973pbP013668@goober.internal.moreton.com.au>
+Cc: <gerg@uclinux.org>, <netdev@vger.kernel.org>
+To: <nico@fluxnic.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rex.securecomputing.com ([203.24.151.4]:53062 "EHLO
+	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751873Ab0CIG7p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Mar 2010 01:59:45 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->On Sat, Mar 06, 2010 at 05:38:35PM +0800, xiaohui.xin@intel.com wrote:
->> The idea is simple, just to pin the guest VM user space and then
-> >let host NIC driver has the chance to directly DMA to it. 
-> >The patches are based on vhost-net backend driver. We add a device
-> >which provides proto_ops as sendmsg/recvmsg to vhost-net to
-> >send/recv directly to/from the NIC driver. KVM guest who use the
-> >vhost-net backend may bind any ethX interface in the host side to
-> >get copyless data transfer thru guest virtio-net frontend.
-> >
-> >We provide multiple submits and asynchronous notifiicaton to 
-> >vhost-net too.
-> > 
-> >Our goal is to improve the bandwidth and reduce the CPU usage.
-> >Exact performance data will be provided later. But for simple
-> >test with netperf, we found bindwidth up and CPU % up too,
-> >but the bindwidth up ratio is much more than CPU % up ratio.
-> >
-> >What we have not done yet:
-> >	packet split support
-> >	To support GRO
-> >	Performance tuning
-> >
->Am I right to say that nic driver needs changes for these patches
->to work? If so, please publish nic driver patches as well.
+net: add ColdFire support to the smc91x driver
 
-For drivers not support packet split mode, the NIC drivers don't need to change.
-For packet split support drivers, we plan to add the drivers API in updated versions.
-Now for PS support drivers, just disable the PS mode, it also works.
+Some embedded ColdFire based boards use the SMC 91x family of ethernet
+devices. (For example the Freescale M5249C3 and MoretonBay NETtel).
 
-> > what we have done in v1:
-> > 	polish the RCU usage
-> >	deal with write logging in asynchroush mode in vhost
-> >	add notifier block for mp device
-> >	rename page_ctor to mp_port in netdevice.h to make it looks generic
-> >	add mp_dev_change_flags() for mp device to change NIC state
-> >	add CONIFG_VHOST_MPASSTHRU to limit the usage when module is not load
-> >	a small fix for missing dev_put when fail
-> >	using dynamic minor instead of static minor number
-> >	a __KERNEL__ protect to mp_get_sock()
-> >
-> >performance:
-> >	using netperf with GSO/TSO disabled, 10G NIC, 
-> >	disabled packet split mode, with raw socket case compared to vhost.
-> >
-> >	bindwidth will be from 1.1Gbps to 1.7Gbps
-> >	CPU % from 120%-140% to 140%-160%
+Add IO access support to the SMC91x driver, and allow this driver to
+be configured for ColdFire platforms.
 
-> That's pretty low for a 10Gb nic. Are you hitting some other bottleneck,
-> like high interrupt rate? Also, GSO support and performance tuning
-> for raw are incomplete. Try comparing with e.g. tap with GSO.
+Signed-off-by: Greg Ungerer <gerg@uclinux.org>
+---
 
-I'm curious too. 
-I have tested vhost-net without zero-copy patch at first in RAW socket case with ixgbe driver, with that driver GRO feature is enabled default, but netperf data is extremely low, after disabled GRO, then I can get more than 1Gbps. So I thought I have missed something there, but I had send 2 emails to you about this before and got no reply from you.
-Have you got some perf data in raw socket case with vhost-net? 
-The data I have got from your web page is always tap with GSO case.
 
-If GSO is not supported, I think the data cannot compare with tap with GSO case in 1500 MTU. 
-Maybe mergable buffers may help the performance in raw socket case?
-
-Thanks Xiaohui
+diff --git a/drivers/net/smc91x.h b/drivers/net/smc91x.h
+index 5479954..5af3dcd 100644
+--- a/drivers/net/smc91x.h
++++ b/drivers/net/smc91x.h
+@@ -330,6 +330,34 @@ static inline void LPD7_SMC_outsw (unsigned char* a, int r,
+ 
+ #include <unit/smc91111.h>
+ 
++#elif defined(CONFIG_COLDFIRE)
++
++#define SMC_CAN_USE_8BIT	0
++#define SMC_CAN_USE_16BIT	1
++#define SMC_CAN_USE_32BIT	0
++#define SMC_NOWAIT		1
++
++static inline void mcf_insw(void *a, unsigned char *p, int l)
++{
++	u16 *wp = (u16 *) p;
++	while (l-- > 0)
++		*wp++ = readw(a);
++}
++
++static inline void mcf_outsw(void *a, unsigned char *p, int l)
++{
++	u16 *wp = (u16 *) p;
++	while (l-- > 0)
++		writew(*wp++, a);
++}
++
++#define SMC_inw(a, r)		_swapw(readw((a) + (r)))
++#define SMC_outw(v, a, r)	writew(_swapw(v), (a) + (r))
++#define SMC_insw(a, r, p, l)	mcf_insw(a + r, p, l)
++#define SMC_outsw(a, r, p, l)	mcf_outsw(a + r, p, l)
++
++#define SMC_IRQ_FLAGS		(IRQF_DISABLED)
++
+ #else
+ 
+ /*
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index dd9a09c..44142d8 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -895,7 +895,7 @@ config SMC91X
+ 	select CRC32
+ 	select MII
+ 	depends on ARM || REDWOOD_5 || REDWOOD_6 || M32R || SUPERH || \
+-		MIPS || BLACKFIN || MN10300
++		MIPS || BLACKFIN || MN10300 || COLDFIRE
+ 	help
+ 	  This is a driver for SMC's 91x series of Ethernet chipsets,
+ 	  including the SMC91C94 and the SMC91C111. Say Y if you want it
