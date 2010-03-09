@@ -1,37 +1,41 @@
-From: "Steven J. Magnani" <steve@digidescorp.com>
-Subject: tcp_recvmesg hang under NET_DMA
-Date: Tue, 09 Mar 2010 14:44:59 -0600
-Message-ID: <1268167499.2985.32.camel@iscandar.digidescorp.com>
-Reply-To: steve@digidescorp.com
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 6/13] bridge: Add core IGMP snooping support
+Date: Tue, 9 Mar 2010 22:12:59 +0100
+Message-ID: <201003092212.59627.arnd@arndb.de>
+References: <20100228054012.GA7583@gondor.apana.org.au> <20100307024500.GA20126@gondor.apana.org.au> <20100307031151.GA7546@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: paulmck@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.9]:53880 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751326Ab0CIVNS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Mar 2010 16:13:18 -0500
+In-Reply-To: <20100307031151.GA7546@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Sunday 07 March 2010, Paul E. McKenney wrote:
+> On Sun, Mar 07, 2010 at 10:45:00AM +0800, Herbert Xu wrote:
+> > On Sat, Mar 06, 2010 at 11:00:00AM -0800, Paul E. McKenney wrote:
+> 
+> Arnd, would it be reasonable to extend your RCU-sparse changes to have
+> four different pointer namespaces, one for each flavor of RCU?  (RCU,
+> RCU-bh, RCU-sched, and SRCU)?  Always a fan of making the computer do
+> the auditing where reasonable.  ;-)
+> 
+> This could potentially catch the mismatched call_rcu()s, at least if the
+> rcu_head could be labeled.
+> 
+> Other thoughts?
 
-I've run into a case where using NET_DMA seems to cause a PUT to a
-modified ftpd to hang. AFAICT this is because the NET_DMA design queues
-up lots of memcpy operations, but doesn't issue or wait for them (and
-thus free the associated skbs) until it is time for tcp_recvmesg() to
-return. In a case where userland requests a large read (as is the case
-in my modified ftpd), packet transfer can grind to a halt because so
-many packets are buffered up and there is no event that causes them to
-be freed.
+I've just tried annotating net/ipv4/route.c like this and did not get
+very far, because the same pointers are used for rcu and rcu_bh.
+Could you check if this is a false positive or an actual finding?
 
-I can submit a patch that would issue pending memcpys and clean up
-completed ones around tcp_recvmsg's call to sk_wait_data(), but first I
-wanted to understand the design better. Were there specific reasons for
-deferring the async operations so long?
-
-Thanks,
-------------------------------------------------------------------------
- Steven J. Magnani               "I claim this network for MARS!
- www.digidescorp.com              Earthling, return my space modulator!"
-
- #include <standard.disclaimer>
+	Arnd
