@@ -1,59 +1,213 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [2.6.34-rc1] CPU stalls when closing TCP sockets.
-Date: Tue, 9 Mar 2010 11:58:19 -0700
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FE46FA932@rrsmsx501.amr.corp.intel.com>
-References: <201003090319.o293J6WF026448@www262.sakura.ne.jp>
-	 <1268116647.2819.64.camel@edumazet-laptop>
-	 <201003090654.o296sCnh065487@www262.sakura.ne.jp>
- <1268150156.3113.12.camel@edumazet-laptop>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: [PATCH] NET: Support clause 45 MDIO commands at the MDIO bus level
+Date: Tue, 9 Mar 2010 12:17:42 -0700
+Message-ID: <20100309191742.GB30462@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:58912 "EHLO mga01.intel.com"
+Received: from quartz.orcorp.ca ([139.142.54.143]:55624 "EHLO quartz.orcorp.ca"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753447Ab0CIS60 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Mar 2010 13:58:26 -0500
-In-Reply-To: <1268150156.3113.12.camel@edumazet-laptop>
-Content-Language: en-US
+	id S1753227Ab0CITRn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Mar 2010 14:17:43 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RXJpYyBEdW1hemV0IHdyb3RlOg0KPiBMZSBtYXJkaSAwOSBtYXJzIDIwMTAgw6AgMTU6NTQgKzA5
-MDAsIFRldHN1byBIYW5kYSBhIMOpY3JpdCA6DQo+PiBFcmljIER1bWF6ZXQgd3JvdGU6DQo+Pj4g
-Tm90aGluZyBjb21lcyB0byBteSBtaW5kLCBJJ2xsIHRyeSB0byByZXByb2R1Y2UgdGhpcyBoZXJl
-Lg0KPj4gDQo+PiBXaGVuIHN0b3BwZWQgYXQgKDgpLCBDdHJsLUMgZG9lc24ndCB3b3JrLg0KPj4g
-DQo+Pj4gSXMgMi42LjMzIE9LID8NCj4+IA0KPj4gWWVzLiAyLjYuMzMgYW5kIGVhcmxpZXIgYXJl
-IE9LLg0KPiANCj4gT0sgdGhhbmtzICENCj4gDQo+IEkgYmVsaWV2ZSBjb21taXQgZDIxOGQxMTEz
-M2Q4ODhmOTc0NTgwMjE0NmE1MDI1NWE0NzgxZDM3YQ0KPiAodGNwOiBHZW5lcmFsaXplZCBUVEwg
-U2VjdXJpdHkgTWVjaGFuaXNtKSBtaWdodCBiZSB0aGUgYnVnIG9yaWdpbi4NCj4gDQo+IEkgYW0g
-dGVzdGluZyBmb2xsb3dpbmcgcGF0Y2gsIGJhc2VkIG9uIGxhdGVzdCBuZXQtMi42IHRyZWUgKGlu
-Y2x1ZGluZw0KPiB0aGUgTElOVVhfTUlCX1RDUE1JTlRUTERST1AgYml0KQ0KPiANCj4gW1BBVENI
-XSB0Y3A6IEZpeCB0Y3BfdjRfcmN2KCkNCj4gDQo+IENvbW1pdCBkMjE4ZDExMSAodGNwOiBHZW5l
-cmFsaXplZCBUVEwgU2VjdXJpdHkgTWVjaGFuaXNtKSBhZGRlZCBhIGJ1Zw0KPiBmb3IgVElNRVdB
-SVQgc29ja2V0cy4gV2Ugc2hvdWxkIG5vdCB0ZXN0IG1pbl90dGwgZm9yIFRXIHNvY2tldHMuDQo+
-IA0KPiBSZXBvcnRlZC1ieTogVGV0c3VvIEhhbmRhIDxwZW5ndWluLWtlcm5lbEBJLWxvdmUuU0FL
-VVJBLm5lLmpwPg0KPiBTaWduZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVyaWMuZHVtYXpldEBn
-bWFpbC5jb20+DQo+IC0tLQ0KPiBkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvdGNwX2lwdjQuYyBiL25l
-dC9pcHY0L3RjcF9pcHY0LmMNCj4gaW5kZXggOGQ1MWQzOS4uNzBkZjQwOSAxMDA2NDQNCj4gLS0t
-IGEvbmV0L2lwdjQvdGNwX2lwdjQuYw0KPiArKysgYi9uZXQvaXB2NC90Y3BfaXB2NC5jDQo+IEBA
-IC0xNjUxLDE1ICsxNjUxLDE1IEBAIGludCB0Y3BfdjRfcmN2KHN0cnVjdCBza19idWZmICpza2Ip
-DQo+ICAJaWYgKCFzaykNCj4gIAkJZ290byBub190Y3Bfc29ja2V0Ow0KPiANCj4gK3Byb2Nlc3M6
-DQo+ICsJaWYgKHNrLT5za19zdGF0ZSA9PSBUQ1BfVElNRV9XQUlUKQ0KPiArCQlnb3RvIGRvX3Rp
-bWVfd2FpdDsNCj4gKw0KPiAgCWlmICh1bmxpa2VseShpcGgtPnR0bCA8IGluZXRfc2soc2spLT5t
-aW5fdHRsKSkgew0KPiAgCQlORVRfSU5DX1NUQVRTX0JIKG5ldCwgTElOVVhfTUlCX1RDUE1JTlRU
-TERST1ApOw0KPiAgCQlnb3RvIGRpc2NhcmRfYW5kX3JlbHNlOw0KPiAgCX0NCj4gDQo+IC1wcm9j
-ZXNzOg0KPiAtCWlmIChzay0+c2tfc3RhdGUgPT0gVENQX1RJTUVfV0FJVCkNCj4gLQkJZ290byBk
-b190aW1lX3dhaXQ7DQo+IC0NCj4gIAlpZiAoIXhmcm00X3BvbGljeV9jaGVjayhzaywgWEZSTV9Q
-T0xJQ1lfSU4sIHNrYikpDQo+ICAJCWdvdG8gZGlzY2FyZF9hbmRfcmVsc2U7DQo+ICAJbmZfcmVz
-ZXQoc2tiKTsNCg0KVGhpcyBwYXRjaCBmaXhlcyBoYW5ncyB3aXRoIGZ0cCBhbmQgcnNoIHNlc3Np
-b25zIEkgaGF2ZSBiZWVuIGV4cGVyaWVuY2luZyBmb3Igc29tZSB0aW1lIG5vdyB3aXRoIHRoZSBu
-ZXQtbmV4dCB0cmVlLiBIdW5kcmVkcyBvZiBpdGVyYXRpb25zIHBhc3NlZCB3aXRob3V0IHByb2Js
-ZW1zLg0KDQpUaGFua3MhDQpFbWls
+IEEE 802.3ae clause 45 specifies a somewhat modified MDIO protocol
+for use by 10GIGE phys. The main change is a 21 bit address split into
+a 5 bit device ID and a 16 bit register offset. The definition is designed
+so that normal and extended devices can run on the same MDIO bus.
+
+Extend mdio-bitbang to do the new protocol. At the MDIO bus level the
+protocol is requested by or'ing MII_ADDR_C45 into the register offset.
+
+Make phy_read/phy_write/etc pass a full 32 bit register offset.
+
+This does not attempt to make the phy layer support C45 style PHYs, just
+to provide the MDIO bus support.
+
+Tested against a Broadcom 10GE phy with ID 0x206034, and several
+Broadcom 10/100/1000 Phys in normal mode.
+
+Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+---
+ drivers/net/phy/mdio-bitbang.c |   60 ++++++++++++++++++++++++++++++++++------
+ drivers/net/phy/mdio_bus.c     |    4 +-
+ include/linux/phy.h            |   12 +++++--
+ 3 files changed, 61 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/phy/mdio-bitbang.c b/drivers/net/phy/mdio-bitbang.c
+index 2576055..0ff0661 100644
+--- a/drivers/net/phy/mdio-bitbang.c
++++ b/drivers/net/phy/mdio-bitbang.c
+@@ -23,8 +23,13 @@
+ #include <linux/types.h>
+ #include <linux/delay.h>
+ 
+-#define MDIO_READ 1
+-#define MDIO_WRITE 0
++#define MDIO_READ 2
++#define MDIO_WRITE 1
++
++#define MDIO_C45 (1<<15)
++#define MDIO_C45_ADDR (MDIO_C45 | 0)
++#define MDIO_C45_READ (MDIO_C45 | 3)
++#define MDIO_C45_WRITE (MDIO_C45 | 1)
+ 
+ #define MDIO_SETUP_TIME 10
+ #define MDIO_HOLD_TIME 10
+@@ -90,7 +95,7 @@ static u16 mdiobb_get_num(struct mdiobb_ctrl *ctrl, int bits)
+ /* Utility to send the preamble, address, and
+  * register (common to read and write).
+  */
+-static void mdiobb_cmd(struct mdiobb_ctrl *ctrl, int read, u8 phy, u8 reg)
++static void mdiobb_cmd(struct mdiobb_ctrl *ctrl, int op, u8 phy, u8 reg)
+ {
+ 	const struct mdiobb_ops *ops = ctrl->ops;
+ 	int i;
+@@ -109,23 +114,56 @@ static void mdiobb_cmd(struct mdiobb_ctrl *ctrl, int read, u8 phy, u8 reg)
+ 	for (i = 0; i < 32; i++)
+ 		mdiobb_send_bit(ctrl, 1);
+ 
+-	/* send the start bit (01) and the read opcode (10) or write (10) */
++	/* send the start bit (01) and the read opcode (10) or write (10).
++	   Clause 45 operation uses 00 for the start and 11, 10 for
++	   read/write */
+ 	mdiobb_send_bit(ctrl, 0);
+-	mdiobb_send_bit(ctrl, 1);
+-	mdiobb_send_bit(ctrl, read);
+-	mdiobb_send_bit(ctrl, !read);
++	if (op & MDIO_C45)
++		mdiobb_send_bit(ctrl, 0);
++	else
++		mdiobb_send_bit(ctrl, 1);
++	mdiobb_send_bit(ctrl, (op >> 1) & 1);
++	mdiobb_send_bit(ctrl, (op >> 0) & 1);
+ 
+ 	mdiobb_send_num(ctrl, phy, 5);
+ 	mdiobb_send_num(ctrl, reg, 5);
+ }
+ 
++/* In clause 45 mode all commands are prefixed by MDIO_ADDR to specify the
++   lower 16 bits of the 21 bit address. This transfer is done identically to a
++   MDIO_WRITE except for a different code. To enable clause 45 mode or
++   MII_ADDR_C45 into the address. Theoretically clause 45 and normal devices
++   can exist on the same bus. Normal devices should ignore the MDIO_ADDR
++   phase. */
++static int mdiobb_cmd_addr(struct mdiobb_ctrl *ctrl, int phy, u32 addr)
++{
++	unsigned int dev_addr = (addr >> 16) & 0x1F;
++	unsigned int reg = addr & 0xFFFF;
++	mdiobb_cmd(ctrl, MDIO_C45_ADDR, phy, dev_addr);
++
++	/* send the turnaround (10) */
++	mdiobb_send_bit(ctrl, 1);
++	mdiobb_send_bit(ctrl, 0);
++
++	mdiobb_send_num(ctrl, reg, 16);
++
++	ctrl->ops->set_mdio_dir(ctrl, 0);
++	mdiobb_get_bit(ctrl);
++
++	return dev_addr;
++}
+ 
+ static int mdiobb_read(struct mii_bus *bus, int phy, int reg)
+ {
+ 	struct mdiobb_ctrl *ctrl = bus->priv;
+ 	int ret, i;
+ 
+-	mdiobb_cmd(ctrl, MDIO_READ, phy, reg);
++	if (reg & MII_ADDR_C45) {
++		reg = mdiobb_cmd_addr(ctrl, phy, reg);
++		mdiobb_cmd(ctrl, MDIO_C45_READ, phy, reg);
++	} else
++		mdiobb_cmd(ctrl, MDIO_READ, phy, reg);
++
+ 	ctrl->ops->set_mdio_dir(ctrl, 0);
+ 
+ 	/* check the turnaround bit: the PHY should be driving it to zero */
+@@ -148,7 +186,11 @@ static int mdiobb_write(struct mii_bus *bus, int phy, int reg, u16 val)
+ {
+ 	struct mdiobb_ctrl *ctrl = bus->priv;
+ 
+-	mdiobb_cmd(ctrl, MDIO_WRITE, phy, reg);
++	if (reg & MII_ADDR_C45) {
++		reg = mdiobb_cmd_addr(ctrl, phy, reg);
++		mdiobb_cmd(ctrl, MDIO_C45_WRITE, phy, reg);
++	} else
++		mdiobb_cmd(ctrl, MDIO_WRITE, phy, reg);
+ 
+ 	/* send the turnaround (10) */
+ 	mdiobb_send_bit(ctrl, 1);
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index e17b702..6a6b819 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -208,7 +208,7 @@ EXPORT_SYMBOL(mdiobus_scan);
+  * because the bus read/write functions may wait for an interrupt
+  * to conclude the operation.
+  */
+-int mdiobus_read(struct mii_bus *bus, int addr, u16 regnum)
++int mdiobus_read(struct mii_bus *bus, int addr, u32 regnum)
+ {
+ 	int retval;
+ 
+@@ -233,7 +233,7 @@ EXPORT_SYMBOL(mdiobus_read);
+  * because the bus read/write functions may wait for an interrupt
+  * to conclude the operation.
+  */
+-int mdiobus_write(struct mii_bus *bus, int addr, u16 regnum, u16 val)
++int mdiobus_write(struct mii_bus *bus, int addr, u32 regnum, u16 val)
+ {
+ 	int err;
+ 
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 6a7eb40..5069739 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -81,6 +81,10 @@ typedef enum {
+  */
+ #define MII_BUS_ID_SIZE	(20 - 3)
+ 
++/* Or MII_ADDR_C45 into regnum for read/write on mii_bus to enable the 21 bit
++   IEEE 802.3ae clause 45 addressing mode used by 10GIGE phy chips. */
++#define MII_ADDR_C45 (1<<30)
++
+ /*
+  * The Bus class for PHYs.  Devices which provide access to
+  * PHYs should register using this structure
+@@ -127,8 +131,8 @@ int mdiobus_register(struct mii_bus *bus);
+ void mdiobus_unregister(struct mii_bus *bus);
+ void mdiobus_free(struct mii_bus *bus);
+ struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr);
+-int mdiobus_read(struct mii_bus *bus, int addr, u16 regnum);
+-int mdiobus_write(struct mii_bus *bus, int addr, u16 regnum, u16 val);
++int mdiobus_read(struct mii_bus *bus, int addr, u32 regnum);
++int mdiobus_write(struct mii_bus *bus, int addr, u32 regnum, u16 val);
+ 
+ 
+ #define PHY_INTERRUPT_DISABLED	0x0
+@@ -422,7 +426,7 @@ struct phy_fixup {
+  * because the bus read/write functions may wait for an interrupt
+  * to conclude the operation.
+  */
+-static inline int phy_read(struct phy_device *phydev, u16 regnum)
++static inline int phy_read(struct phy_device *phydev, u32 regnum)
+ {
+ 	return mdiobus_read(phydev->bus, phydev->addr, regnum);
+ }
+@@ -437,7 +441,7 @@ static inline int phy_read(struct phy_device *phydev, u16 regnum)
+  * because the bus read/write functions may wait for an interrupt
+  * to conclude the operation.
+  */
+-static inline int phy_write(struct phy_device *phydev, u16 regnum, u16 val)
++static inline int phy_write(struct phy_device *phydev, u32 regnum, u16 val)
+ {
+ 	return mdiobus_write(phydev->bus, phydev->addr, regnum, val);
+ }
+-- 
+1.5.4.2
+
