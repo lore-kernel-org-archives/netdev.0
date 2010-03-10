@@ -1,34 +1,41 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: When best to submit patches with small changes in multiple files?
-Date: Wed, 10 Mar 2010 04:49:12 +0100
-Message-ID: <201003100449.12952.elendil@planet.nl>
+From: Mike Frysinger <vapier.adi@gmail.com>
+Subject: Re: [Uclinux-dist-devel] [PATCH] can: bfin_can: switch to common
+	Blackfin can header
+Date: Wed, 10 Mar 2010 07:17:09 -0500
+Message-ID: <8bd0f97a1003100417x6e9830dav949fd6b0511d99d0@mail.gmail.com>
+References: <1268150589-27123-1-git-send-email-vapier@gentoo.org>
+	<4B974D38.6000501@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Urs Thuermann <urs.thuermann@volkswagen.de>,
+	netdev@vger.kernel.org, socketcan-core@lists.berlios.de,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	uclinux-dist-devel@blackfin.uclinux.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpsmtpm-eml104.kpnxchange.com ([195.121.3.8]:63089 "EHLO
-	CPSMTPM-EML104.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756028Ab0CJDtP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Mar 2010 22:49:15 -0500
-Content-Disposition: inline
+Received: from mail-yx0-f200.google.com ([209.85.210.200]:44845 "EHLO
+	mail-yx0-f200.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751147Ab0CJMR3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 07:17:29 -0500
+Received: by yxe38 with SMTP id 38so1540418yxe.22
+        for <netdev@vger.kernel.org>; Wed, 10 Mar 2010 04:17:29 -0800 (PST)
+In-Reply-To: <4B974D38.6000501@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have patches prepared to remove trailing spaces from kernel messages 
-for ./net and ./drivers/net (including wireless).
+On Wed, Mar 10, 2010 at 02:41, Wolfgang Grandegger wrote:
+> Mike Frysinger wrote:
+>> The MMR bits are being moved to this header, so include it.
+>>
+>> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+>
+> Acked-by: Wolfgang Grandegger <wg@grandegger.com>
+>
+>> ---
+>> note: this can be merged for 2.6.34 or 2.6.35
+>
+> Is it required to make the driver working under 2.6.34?
 
-In total 15 patches with
-   81 files changed, 351 insertions(+), 351 deletions(-)
-
-When would be the best time to submit:
-- now, to be included in .34
-- now, for -next
-- any time
-- near beginning of merge window (rebased against netdev-next)
-- not at all ;-)
-?
-
-Cheers,
-FJP
+not for 2.6.34, but it will be for 2.6.35
+-mike
