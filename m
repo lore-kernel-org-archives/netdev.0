@@ -1,93 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: remove rcu locking from fib_rules_event()
-Date: Wed, 10 Mar 2010 07:03:38 +0100
-Message-ID: <1268201018.2872.139.camel@edumazet-laptop>
+From: Julien Vehent <julien@linuxwall.info>
+Subject: can SFQ and perturb break paquet ordering =?UTF-8?Q?=3F?=
+Date: Wed, 10 Mar 2010 13:22:50 +0100
+Message-ID: <ca4f1a12b3ba9c81f3276c091063613f@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:35368 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754325Ab0CJGDo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 01:03:44 -0500
-Received: by bwz1 with SMTP id 1so4632992bwz.21
-        for <netdev@vger.kernel.org>; Tue, 09 Mar 2010 22:03:42 -0800 (PST)
+Received: from smtp3-g21.free.fr ([212.27.42.3]:37701 "EHLO smtp3-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751147Ab0CJMW7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Mar 2010 07:22:59 -0500
+Received: from smtp3-g21.free.fr (localhost [127.0.0.1])
+	by smtp3-g21.free.fr (Postfix) with ESMTP id 9A3A3818050
+	for <netdev@vger.kernel.org>; Wed, 10 Mar 2010 13:22:53 +0100 (CET)
+Received: from ptichoun.linuxwall.info (ver44-2-82-242-128-240.fbx.proxad.net [82.242.128.240])
+	by smtp3-g21.free.fr (Postfix) with ESMTP id BBBFD818141
+	for <netdev@vger.kernel.org>; Wed, 10 Mar 2010 13:22:50 +0100 (CET)
+Received: from ptichoun.linuxwall.info (localhost [127.0.0.1])
+	by ptichoun.linuxwall.info (Postfix) with ESMTP id 6FCD2123042
+	for <netdev@vger.kernel.org>; Wed, 10 Mar 2010 13:22:50 +0100 (CET)
+Received: from njm.linuxwall.info (localhost [127.0.0.1])
+	by ptichoun.linuxwall.info (Postfix) with ESMTP
+	for <netdev@vger.kernel.org>; Wed, 10 Mar 2010 13:22:50 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We hold RTNL at this point and dont use RCU variants of list traversals,
-we dont need rcu_read_lock()/rcu_read_unlock()
+Hi netdev folks,
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/core/fib_rules.c |   10 ++--------
- 1 file changed, 2 insertions(+), 8 deletions(-)
+I was digging into the sch_sfq code and I was wondering the following (I
+assume it's nothing new, I'm just trying to get it right):
 
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 9a24377..2ff3489 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -108,7 +108,7 @@ fib_rules_register(struct fib_rules_ops *tmpl, struct net *net)
- 	struct fib_rules_ops *ops;
- 	int err;
- 
--	ops = kmemdup(tmpl, sizeof (*ops), GFP_KERNEL);
-+	ops = kmemdup(tmpl, sizeof(*ops), GFP_KERNEL);
- 	if (ops == NULL)
- 		return ERR_PTR(-ENOMEM);
- 
-@@ -123,7 +123,6 @@ fib_rules_register(struct fib_rules_ops *tmpl, struct net *net)
- 
- 	return ops;
- }
--
- EXPORT_SYMBOL_GPL(fib_rules_register);
- 
- void fib_rules_cleanup_ops(struct fib_rules_ops *ops)
-@@ -157,7 +156,6 @@ void fib_rules_unregister(struct fib_rules_ops *ops)
- 
- 	call_rcu(&ops->rcu, fib_rules_put_rcu);
- }
--
- EXPORT_SYMBOL_GPL(fib_rules_unregister);
- 
- static int fib_rule_match(struct fib_rule *rule, struct fib_rules_ops *ops,
-@@ -220,7 +218,6 @@ out:
- 
- 	return err;
- }
--
- EXPORT_SYMBOL_GPL(fib_rules_lookup);
- 
- static int validate_rulemsg(struct fib_rule_hdr *frh, struct nlattr **tb,
-@@ -613,7 +610,7 @@ static int fib_nl_dumprule(struct sk_buff *skb, struct netlink_callback *cb)
- 			break;
- 
- 		cb->args[1] = 0;
--	skip:
-+skip:
- 		idx++;
- 	}
- 	rcu_read_unlock();
-@@ -685,7 +682,6 @@ static int fib_rules_event(struct notifier_block *this, unsigned long event,
- 	struct fib_rules_ops *ops;
- 
- 	ASSERT_RTNL();
--	rcu_read_lock();
- 
- 	switch (event) {
- 	case NETDEV_REGISTER:
-@@ -699,8 +695,6 @@ static int fib_rules_event(struct notifier_block *this, unsigned long event,
- 		break;
- 	}
- 
--	rcu_read_unlock();
--
- 	return NOTIFY_DONE;
- }
- 
+Let's consider one UDP connection that has two packets. Packet#1 goes to
+bucket#1, then perturb modifies the hashing algorithms and thus Packet#2
+goes to bucket#800.
+
+If the round robin was positionned after bucket#1 but before bucket#800
+when perturb occured, then Packet#2 will be sent before Packet#1. And since
+UDP can't reordered, it will be processed before on the received end.
+
+Am I getting this right or is there something in the code that I missed ?
 
 
+Thanks for your help.
+
+Julien Vehent
