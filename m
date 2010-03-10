@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
 Subject: Re: [PATCH 6/13] bridge: Add core IGMP snooping support
-Date: Wed, 10 Mar 2010 14:27:42 +0100
-Message-ID: <201003101427.42663.arnd@arndb.de>
+Date: Wed, 10 Mar 2010 14:39:29 +0100
+Message-ID: <201003101439.30185.arnd@arndb.de>
 References: <20100228054012.GA7583@gondor.apana.org.au> <1268217583.2880.2.camel@edumazet-laptop> <20100310104907.GA23752@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
@@ -12,10 +12,10 @@ Cc: Eric Dumazet <eric.dumazet@gmail.com>, paulmck@linux.vnet.ibm.com,
 	Stephen Hemminger <shemminger@vyatta.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:49546 "EHLO
+Received: from moutng.kundenserver.de ([212.227.126.186]:60943 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756561Ab0CJNkP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 08:40:15 -0500
+	with ESMTP id S1756580Ab0CJNmM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 08:42:12 -0500
 In-Reply-To: <20100310104907.GA23752@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
