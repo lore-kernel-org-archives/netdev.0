@@ -1,42 +1,66 @@
 From: Arnd Bergmann <arnd@arndb.de>
 Subject: Re: [PATCH 6/13] bridge: Add core IGMP snooping support
-Date: Wed, 10 Mar 2010 14:30:06 +0100
-Message-ID: <201003101430.06736.arnd@arndb.de>
-References: <20100228054012.GA7583@gondor.apana.org.au> <201003101041.32518.arnd@arndb.de> <20100310131946.GB6267@linux.vnet.ibm.com>
+Date: Wed, 10 Mar 2010 14:27:42 +0100
+Message-ID: <201003101427.42663.arnd@arndb.de>
+References: <20100228054012.GA7583@gondor.apana.org.au> <1268217583.2880.2.camel@edumazet-laptop> <20100310104907.GA23752@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, paulmck@linux.vnet.ibm.com,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Stephen Hemminger <shemminger@vyatta.com>
-To: paulmck@linux.vnet.ibm.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:56859 "EHLO
+Received: from moutng.kundenserver.de ([212.227.126.187]:49546 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756532Ab0CJNkP (ORCPT
+	with ESMTP id S1756561Ab0CJNkP (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 08:40:15 -0500
-In-Reply-To: <20100310131946.GB6267@linux.vnet.ibm.com>
+In-Reply-To: <20100310104907.GA23752@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 10 March 2010, Paul E. McKenney wrote:
-> > When rt_hash_table[h].chain gets the __rcu_bh annotation, we'd have to
-> > turn first rcu_dereference into rcu_dereference_bh in order to have a clean
-> > build with sparse. Would that change be
-> > a) correct from RCU perspective,
-> > b) desirable for code inspection, and
-> > c) lockdep-clean?
+On Wednesday 10 March 2010, Herbert Xu wrote:
+> >
+> > Its really rcu_dereference_bh() that could/should be used:
+> > I see no problem changing
+> > 
+> > 
+> >         local_bh_disable();
+> >         ...
+> >         rcu_read_lock();
+> >         rcu_dereference(rt_hash_table[h].chain);
+> >         rcu_read_unlock();
+> >         ...
+> >         local_bh_enable();
 > 
-> I have a patch queued up that will make rcu_dereference_bh() handle this
-> correctly -- current -tip and mainline would complain.  Please see below
-> for a sneak preview.
+> Why don't we just ignore the bh part for rcu_dereference?
 > 
-> Thoughts?
+> After all it's call_rcu_bh and the other primitives that we really
+> care about.  For rcu_dereference bh should make no difference
+> whatsoever.
 
-Ok, so that would mean we can convert it all to rcu_dereference_bh().
-I guess an alternative to this would be to also change the rcu_read_lock()
-inside local_bh_disable() sections to rcu_read_lock_bh(), which is not
-necessary but also not harmful, right?
+To add some background on what I'm doing, I'm currently adding
+new address space modifier __rcu, __rcu_bh, __rcu_sched and __srcu
+to the sparse annotations along the same lines that our __iomem,
+__user and __percpu annotations work [1].
+
+In order to check all cases, I want to ensure that you can not
+use any of those pointers outside of rcu_dereference* and
+rcu_assign_pointer, as well as making sure that you cannot pass
+a pointer without these annotations in there, so we can catch
+code that uses rcu_dereference without rcu_assign_pointer or
+call_rcu.
+
+Consequently, rcu_dereference also checks that the pointer is actually
+__rcu, and passing an __rcu_bh pointer in would be considered as
+wrong as passing a regular pointer by sparse.
+
+With the work that Paul has done on lockdep, rcu_dereference_bh
+now also checks that bottom halves are really disabled, which is
+a very useful thing to check if you want to prove that the
+call_rcu is really serialized with the use of the data.
 
 	Arnd
+
+[1] http://git.kernel.org/?p=linux/kernel/git/arnd/playground.git;a=shortlog;h=refs/heads/rcu-annotate
