@@ -1,44 +1,33 @@
-From: Curtis Doty <Curtis@GreenKey.net>
-Subject: bug: route metric signing
-Date: Wed, 10 Mar 2010 07:41:01 -0800 (PST)
-Message-ID: <20100310154101.EB84C6F101@alopias.GreenKey.net>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH 1/4] bnx2x: use smp_mb() to keep ordering of read
+ write operations
+Date: Wed, 10 Mar 2010 17:59:44 +0200
+Message-ID: <1268236784.30985.0.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1268153703-4186-1-git-send-email-sgruszka@redhat.com>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-To: Linux Network Development <netdev@vger.kernel.org>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Vladislav Zolotarov" <vladz@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>
+To: "Stanislaw Gruszka" <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alopias.GreenKey.net ([209.209.60.60]:34439 "EHLO
-	alopias.GreenKey.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756783Ab0CJP7B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 10:59:01 -0500
+Received: from mms2.broadcom.com ([216.31.210.18]:3275 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756783Ab0CJQAF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Mar 2010 11:00:05 -0500
+In-Reply-To: <1268153703-4186-1-git-send-email-sgruszka@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The metric set is not the metric displayed. I'm presuming it's a cosmetic 
-error in iproute2?
+On Tue, 2010-03-09 at 08:55 -0800, Stanislaw Gruszka wrote:
+> Since we want to keep ordering of write to fp->bd_tx_cons and
+> netif_tx_queue_stopped(txq), what is read of txq->state, we have to use
+> general memory barrier.
+> 
+> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+Singed-of-by: Eilon Greenstein <eilong@broadcom.com>
 
-# ip route add 192.0.2.42 via 127.0.0.1 metric 4294967295
-# ip route ls 192.0.2.42
-192.0.2.42 via 127.0.0.1 dev lo  metric -1
-
-And...
-
-# ip route add 192.0.2.42 via 127.0.0.1 metric 2147483648
-# ip route ls 192.0.2.42
-192.0.2.42 via 127.0.0.1 dev lo  metric -2147483648
-
-But this one appears OK...
-
-# ip route add 192.0.2.42 via 127.0.0.1 metric 2147483647
-# ip route ls 192.0.2.42
-192.0.2.42 via 127.0.0.1 dev lo  metric 2147483647
-
-Test platform is Fedora 12.
-
-# rpm -q iproute
-iproute-2.6.29-4.fc12.x86_64
-
-# rpm -q kernel
-kernel-2.6.32.9-70.fc12.x86_64
-
-../C
 
