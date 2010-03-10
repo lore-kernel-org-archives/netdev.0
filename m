@@ -1,146 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: problem with kernel ipconfig over usb ethernet on v.2.6.33-rc3
-Date: Wed, 10 Mar 2010 14:33:23 -0800 (PST)
-Message-ID: <20100310.143323.248163124.davem@davemloft.net>
-References: <cabda6421001100027u1ca339a6ka46470431caa21ba@mail.gmail.com>
-	<20100110.133848.200626367.davem@davemloft.net>
-	<cabda6421001102318m972e0bdw3f44962b5307d4b@mail.gmail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [Bonding-devel] [net-next-2.6 PATCH 2/3] bonding: check return
+ value of nofitier when changing type
+Date: Wed, 10 Mar 2010 14:47:10 -0800
+Message-ID: <20100310144710.605ef033@nehalam>
+References: <20100310202804.GC2834@psychotron.redhat.com>
+	<20100310202935.GE2834@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: chripell@gmail.com
+Cc: netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net, davem@davemloft.net
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47036
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757373Ab0CJWdH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 17:33:07 -0500
-In-Reply-To: <cabda6421001102318m972e0bdw3f44962b5307d4b@mail.gmail.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:51035 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757385Ab0CJWrw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 17:47:52 -0500
+In-Reply-To: <20100310202935.GE2834@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: christian pellegrin <chripell@gmail.com>
-Date: Mon, 11 Jan 2010 08:18:13 +0100
+On Wed, 10 Mar 2010 21:29:35 +0100
+Jiri Pirko <jpirko@redhat.com> wrote:
 
-> I can try more elaborate schemes like: if the ethX specified by ip=
-> is not present at the first try just wait 10 seconds and try again
-> (perhaps repeat this two time just to be sure).
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index bcc490c..5de4a15 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1084,9 +1084,9 @@ void netdev_state_change(struct net_device *dev)
+>  }
+>  EXPORT_SYMBOL(netdev_state_change);
+>  
+> -void netdev_bonding_change(struct net_device *dev, unsigned long event)
+> +int netdev_bonding_change(struct net_device *dev, unsigned long event)
+>  {
+> -	call_netdevice_notifiers(event, dev);
+> +	return call_netdevice_notifiers(event, dev);
+>  }
+>  EXPORT_SYMBOL(netdev_bonding_change);
+>  
 
-Please let me know if this patch makes your setup work
-properly.
+I don't think all this pre-post stuff needed.
+Since this is general (not just bonding) how about
 
-It loops one second at a time, for up to 12 seconds, waiting
-for a usable non-loopback device to appear.
+int netdev_change_type(struct net_device *dev, int newtype)
+{
+	int ret, oldtype;
 
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 10a6a60..6789092 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -187,6 +187,16 @@ struct ic_device {
- static struct ic_device *ic_first_dev __initdata = NULL;/* List of open device */
- static struct net_device *ic_dev __initdata = NULL;	/* Selected device */
- 
-+static bool __init ic_device_match(struct net_device *dev)
-+{
-+	if (user_dev_name[0] ? !strcmp(dev->name, user_dev_name) :
-+	    (!(dev->flags & IFF_LOOPBACK) &&
-+	     (dev->flags & (IFF_POINTOPOINT|IFF_BROADCAST)) &&
-+	     strncmp(dev->name, "dummy", 5)))
-+		return true;
-+	return false;
-+}
-+
- static int __init ic_open_devs(void)
- {
- 	struct ic_device *d, **last;
-@@ -207,10 +217,7 @@ static int __init ic_open_devs(void)
- 	for_each_netdev(&init_net, dev) {
- 		if (dev->flags & IFF_LOOPBACK)
- 			continue;
--		if (user_dev_name[0] ? !strcmp(dev->name, user_dev_name) :
--		    (!(dev->flags & IFF_LOOPBACK) &&
--		     (dev->flags & (IFF_POINTOPOINT|IFF_BROADCAST)) &&
--		     strncmp(dev->name, "dummy", 5))) {
-+		if (ic_device_match(dev)) {
- 			int able = 0;
- 			if (dev->mtu >= 364)
- 				able |= IC_BOOTP;
-@@ -228,7 +235,7 @@ static int __init ic_open_devs(void)
- 			}
- 			if (!(d = kmalloc(sizeof(struct ic_device), GFP_KERNEL))) {
- 				rtnl_unlock();
--				return -1;
-+				return -ENOMEM;
- 			}
- 			d->dev = dev;
- 			*last = d;
-@@ -253,7 +260,7 @@ static int __init ic_open_devs(void)
- 			printk(KERN_ERR "IP-Config: Device `%s' not found.\n", user_dev_name);
- 		else
- 			printk(KERN_ERR "IP-Config: No network devices available.\n");
--		return -1;
-+		return -ENODEV;
- 	}
- 	return 0;
- }
-@@ -1303,6 +1310,32 @@ __be32 __init root_nfs_parse_addr(char *name)
- 	return addr;
- }
- 
-+#define DEVICE_WAIT_MAX		12 /* 12 seconds */
-+
-+static int __init wait_for_devices(void)
-+{
-+	int i;
-+
-+	msleep(CONF_PRE_OPEN);
-+	for (i = 0; i < DEVICE_WAIT_MAX; i++) {
-+		struct net_device *dev;
-+		int found = 0;
-+
-+		rtnl_lock();
-+		for_each_netdev(&init_net, dev) {
-+			if (ic_device_match(dev)) {
-+				found = 1;
-+				break;
-+			}
-+		}
-+		rtnl_unlock();
-+		if (found)
-+			return 0;
-+		ssleep(1);
-+	}
-+	return -ENODEV;
-+}
-+
- /*
-  *	IP Autoconfig dispatcher.
-  */
-@@ -1313,6 +1346,7 @@ static int __init ip_auto_config(void)
- #ifdef IPCONFIG_DYNAMIC
- 	int retries = CONF_OPEN_RETRIES;
- #endif
-+	int err;
- 
- #ifdef CONFIG_PROC_FS
- 	proc_net_fops_create(&init_net, "pnp", S_IRUGO, &pnp_seq_fops);
-@@ -1325,12 +1359,15 @@ static int __init ip_auto_config(void)
- #ifdef IPCONFIG_DYNAMIC
-  try_try_again:
- #endif
--	/* Give hardware a chance to settle */
--	msleep(CONF_PRE_OPEN);
-+	/* Wait for devices to appear */
-+	err = wait_for_devices();
-+	if (err)
-+		return err;
- 
- 	/* Setup all network devices */
--	if (ic_open_devs() < 0)
--		return -1;
-+	err = ic_open_devs();
-+	if (err)
-+		return err;
- 
- 	/* Give drivers a chance to settle */
- 	ssleep(CONF_POST_OPEN);
+	if (dev->flags & IFF_UP)
+		return -EBUSY;
+
+	oldtype = dev->type;
+	dev->type = newtype;
+	ret = call_netdevice_notifier(NETDEV_CHANGETYPE, dev);
+	ret = notifier_to_errno(ret);
+	if (ret)
+	     dev->type = oldtype;
+
+	return ret;
+}
+	     
