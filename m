@@ -1,33 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: add ColdFire support to the smc91x driver
-Date: Wed, 10 Mar 2010 07:33:05 -0800 (PST)
-Message-ID: <20100310.073305.196426430.davem@davemloft.net>
-References: <201003090703.o2973pbP013668@goober.internal.moreton.com.au>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] can: bfin_can: switch to common
+ Blackfin can header
+Date: Wed, 10 Mar 2010 07:35:33 -0800 (PST)
+Message-ID: <20100310.073533.34570454.davem@davemloft.net>
+References: <1268150589-27123-1-git-send-email-vapier@gentoo.org>
+	<4B974D38.6000501@grandegger.com>
+	<8bd0f97a1003100417x6e9830dav949fd6b0511d99d0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: nico@fluxnic.net, gerg@uclinux.org, netdev@vger.kernel.org
-To: gerg@snapgear.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41013
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754002Ab0CJPcp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 10:32:45 -0500
-In-Reply-To: <201003090703.o2973pbP013668@goober.internal.moreton.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org,
+        uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+To: vapier.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+In-Reply-To: <8bd0f97a1003100417x6e9830dav949fd6b0511d99d0-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://blackfin.uclinux.org/mailman/options/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
+List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
+List-Subscribe: <https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
+Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Greg Ungerer <gerg@snapgear.com>
-Date: Tue, 9 Mar 2010 17:03:51 +1000
+From: Mike Frysinger <vapier.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Wed, 10 Mar 2010 07:17:09 -0500
 
-> net: add ColdFire support to the smc91x driver
+> On Wed, Mar 10, 2010 at 02:41, Wolfgang Grandegger wrote:
+>> Mike Frysinger wrote:
+>>> The MMR bits are being moved to this header, so include it.
+>>>
+>>> Signed-off-by: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+>>
+>> Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+>>
+>>> ---
+>>> note: this can be merged for 2.6.34 or 2.6.35
+>>
+>> Is it required to make the driver working under 2.6.34?
 > 
-> Some embedded ColdFire based boards use the SMC 91x family of ethernet
-> devices. (For example the Freescale M5249C3 and MoretonBay NETtel).
-> 
-> Add IO access support to the SMC91x driver, and allow this driver to
-> be configured for ColdFire platforms.
-> 
-> Signed-off-by: Greg Ungerer <gerg@uclinux.org>
+> not for 2.6.34, but it will be for 2.6.35
 
-Applied.
+I'll apply this to net-next-2.6 once I open it up, therefore.
