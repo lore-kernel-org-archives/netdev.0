@@ -1,44 +1,29 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH RFC] fix problems with NETIF_F_HIGHDMA in networking drivers v2
-Date: Wed, 10 Mar 2010 12:17:00 -0800
-Message-ID: <adar5nshqyr.fsf@roland-alpha.cisco.com>
-References: <4B8F213B.40603@gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [net-next-2.6 PATCH 0/3] bonding: refuse to change bond type if it's
+ used V3
+Date: Wed, 10 Mar 2010 21:28:04 +0100
+Message-ID: <20100310202804.GC2834@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Linux-usb <linux-usb@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-To: Robert Hancock <hancockrwd@gmail.com>
+Cc: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
+	davem@davemloft.net, shemminger@linux-foundation.org,
+	kaber@trash.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:54918 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756976Ab0CJURG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 15:17:06 -0500
-In-Reply-To: <4B8F213B.40603@gmail.com> (Robert Hancock's message of "Wed, 03
-	Mar 2010 20:55:55 -0600")
+Received: from mx1.redhat.com ([209.132.183.28]:13563 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752593Ab0CJU2W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Mar 2010 15:28:22 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- > diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
- > index df3eb8c..53be462 100644
- > --- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
- > +++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
- > @@ -1058,7 +1058,7 @@ static void ipoib_setup(struct net_device *dev)
- >  	dev->type		 = ARPHRD_INFINIBAND;
- >  	dev->tx_queue_len	 = ipoib_sendq_size * 2;
- >  	dev->features		 = (NETIF_F_VLAN_CHALLENGED	|
- > -				    NETIF_F_HIGHDMA);
- > +				    NETIF_F_DMA_HIGH);
- >  	dev->priv_flags		&= ~IFF_XMIT_DST_RELEASE;
- >  
- >  	memcpy(dev->broadcast, ipv4_bcast_addr, INFINIBAND_ALEN);
+v2->v3:
+-changed defines name to NETDEV_[PRE/POST]_TYPE_CHANGE
+-added bits for vlan and macvlan
 
-Been meaning to mention this for a bit, but ipoib is capable of handling
-any DMA address, so if I understand your patch correctly, this can be
-NETIF_F_DMA_64BIT instead of just DMA_HIGH.
--- 
-Roland Dreier  <rolandd@cisco.com>
-For corporate legal information go to:
-http://www.cisco.com/web/about/doing_business/legal/cri/index.html
+Reworked version of patch/patchset. This time I use netdevice notifier as
+Stephen suggested. Changed the name of the original ones (NETDEV_BONDING_*TYPE)
+to be more general and reused them.
+
+Jirka
