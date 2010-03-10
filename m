@@ -1,8 +1,8 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [net-next-2.6 PATCH 2/3] bonding: check return value of nofitier
- when changing type
-Date: Wed, 10 Mar 2010 21:29:35 +0100
-Message-ID: <20100310202935.GE2834@psychotron.redhat.com>
+Subject: [net-next-2.6 PATCH 3/3] net: forbid underlaying devices to change
+ its type
+Date: Wed, 10 Mar 2010 21:30:19 +0100
+Message-ID: <20100310203019.GF2834@psychotron.redhat.com>
 References: <20100310202804.GC2834@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,76 +11,70 @@ Cc: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
 	kaber@trash.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63220 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:42160 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754768Ab0CJU3y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Mar 2010 15:29:54 -0500
+	id S1757044Ab0CJUah (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Mar 2010 15:30:37 -0500
 Content-Disposition: inline
 In-Reply-To: <20100310202804.GC2834@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the possibility to refuse the bonding type change for other
-subsystems (such as for example bridge, vlan, etc.)
+It's not desired for underlaying devices to change type. At the time, there is
+for example possible to have bond with changed type from Ethernet to Infiniband
+as a port of a bridge. This patch fixes this.
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/bonding/bond_main.c |   11 +++++++++--
- include/linux/netdevice.h       |    2 +-
- net/core/dev.c                  |    4 ++--
- 3 files changed, 12 insertions(+), 5 deletions(-)
+ drivers/net/macvlan.c  |    3 +++
+ net/8021q/vlan.c       |    4 ++++
+ net/bridge/br_notify.c |    4 ++++
+ 3 files changed, 11 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 7eeb187..cbe9e35 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1480,8 +1480,15 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 				 bond_dev->name,
- 				 bond_dev->type, slave_dev->type);
- 
--			netdev_bonding_change(bond_dev,
--					      NETDEV_PRE_TYPE_CHANGE);
-+			res = netdev_bonding_change(bond_dev,
-+						    NETDEV_PRE_TYPE_CHANGE);
-+			res = notifier_to_errno(res);
-+			if (res) {
-+				pr_err("%s: refused to change device type\n",
-+				       bond_dev->name);
-+				res = -EBUSY;
-+				goto err_undo_flags;
-+			}
- 
- 			if (slave_dev->type != ARPHRD_ETHER)
- 				bond_setup_by_slave(bond_dev, slave_dev);
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index c79a88b..8cf1d50 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1975,7 +1975,7 @@ extern void		__dev_addr_unsync(struct dev_addr_list **to, int *to_count, struct
- extern int		dev_set_promiscuity(struct net_device *dev, int inc);
- extern int		dev_set_allmulti(struct net_device *dev, int inc);
- extern void		netdev_state_change(struct net_device *dev);
--extern void		netdev_bonding_change(struct net_device *dev,
-+extern int		netdev_bonding_change(struct net_device *dev,
- 					      unsigned long event);
- extern void		netdev_features_change(struct net_device *dev);
- /* Load a device via the kmod */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index bcc490c..5de4a15 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1084,9 +1084,9 @@ void netdev_state_change(struct net_device *dev)
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 40faa36..445e73c 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -748,6 +748,9 @@ static int macvlan_device_event(struct notifier_block *unused,
+ 		list_for_each_entry_safe(vlan, next, &port->vlans, list)
+ 			vlan->dev->rtnl_link_ops->dellink(vlan->dev, NULL);
+ 		break;
++	case NETDEV_PRE_TYPE_CHANGE:
++		/* Forbid underlaying device to change its type. */
++		return NOTIFY_BAD;
+ 	}
+ 	return NOTIFY_DONE;
  }
- EXPORT_SYMBOL(netdev_state_change);
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 4535122..c39a5f4 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -530,6 +530,10 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+ 		}
+ 		unregister_netdevice_many(&list);
+ 		break;
++
++	case NETDEV_PRE_TYPE_CHANGE:
++		/* Forbid underlaying device to change its type. */
++		return NOTIFY_BAD;
+ 	}
  
--void netdev_bonding_change(struct net_device *dev, unsigned long event)
-+int netdev_bonding_change(struct net_device *dev, unsigned long event)
- {
--	call_netdevice_notifiers(event, dev);
-+	return call_netdevice_notifiers(event, dev);
- }
- EXPORT_SYMBOL(netdev_bonding_change);
+ out:
+diff --git a/net/bridge/br_notify.c b/net/bridge/br_notify.c
+index 763a3ec..1413b72 100644
+--- a/net/bridge/br_notify.c
++++ b/net/bridge/br_notify.c
+@@ -82,6 +82,10 @@ static int br_device_event(struct notifier_block *unused, unsigned long event, v
+ 	case NETDEV_UNREGISTER:
+ 		br_del_if(br, dev);
+ 		break;
++
++	case NETDEV_PRE_TYPE_CHANGE:
++		/* Forbid underlaying device to change its type. */
++		return NOTIFY_BAD;
+ 	}
  
+ 	/* Events that may cause spanning tree to refresh */
 -- 
 1.6.6.1
 
