@@ -1,59 +1,39 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH 6/13] bridge: Add core IGMP snooping support
-Date: Wed, 10 Mar 2010 05:57:33 -0800
-Message-ID: <20100310135733.GH6267@linux.vnet.ibm.com>
-References: <20100228054012.GA7583@gondor.apana.org.au> <201003101041.32518.arnd@arndb.de> <20100310131946.GB6267@linux.vnet.ibm.com> <201003101430.06736.arnd@arndb.de>
-Reply-To: paulmck@linux.vnet.ibm.com
+Date: Wed, 10 Mar 2010 22:07:29 +0800
+Message-ID: <20100310140729.GA25704@gondor.apana.org.au>
+References: <20100228054012.GA7583@gondor.apana.org.au> <201003092212.59627.arnd@arndb.de> <20100310021410.GD6203@linux.vnet.ibm.com> <201003101041.32518.arnd@arndb.de> <1268217583.2880.2.camel@edumazet-laptop> <20100310104907.GA23752@gondor.apana.org.au> <20100310131317.GA6267@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Stephen Hemminger <shemminger@vyatta.com>
-To: Arnd Bergmann <arnd@arndb.de>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:41333 "EHLO e8.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932254Ab0CJN5g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Mar 2010 08:57:36 -0500
-Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
-	by e8.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o2ADnTpY019858
-	for <netdev@vger.kernel.org>; Wed, 10 Mar 2010 08:49:30 -0500
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o2ADvZKS095682
-	for <netdev@vger.kernel.org>; Wed, 10 Mar 2010 08:57:35 -0500
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o2ADvYDN021090
-	for <netdev@vger.kernel.org>; Wed, 10 Mar 2010 08:57:35 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:33381 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932198Ab0CJOHm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 09:07:42 -0500
 Content-Disposition: inline
-In-Reply-To: <201003101430.06736.arnd@arndb.de>
+In-Reply-To: <20100310131317.GA6267@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 10, 2010 at 02:30:06PM +0100, Arnd Bergmann wrote:
-> On Wednesday 10 March 2010, Paul E. McKenney wrote:
-> > > When rt_hash_table[h].chain gets the __rcu_bh annotation, we'd have to
-> > > turn first rcu_dereference into rcu_dereference_bh in order to have a clean
-> > > build with sparse. Would that change be
-> > > a) correct from RCU perspective,
-> > > b) desirable for code inspection, and
-> > > c) lockdep-clean?
-> > 
-> > I have a patch queued up that will make rcu_dereference_bh() handle this
-> > correctly -- current -tip and mainline would complain.  Please see below
-> > for a sneak preview.
-> > 
-> > Thoughts?
-> 
-> Ok, so that would mean we can convert it all to rcu_dereference_bh().
-> I guess an alternative to this would be to also change the rcu_read_lock()
-> inside local_bh_disable() sections to rcu_read_lock_bh(), which is not
-> necessary but also not harmful, right?
+On Wed, Mar 10, 2010 at 05:13:18AM -0800, Paul E. McKenney wrote:
+>
+> If CONFIG_PROVE_RCU is set, rcu_dereference() checks for rcu_read_lock()
+> and rcu_dereference_bh() checks for either rcu_read_lock_bh() or BH
+> being disabled.  Yes, this is a bit restrictive, but there are a few too
+> many to check by hand these days.
 
-It does impose additional overhead, which the networking guys are eager
-to avoid, given that network links speeds are continuing to increase.  ;-)
-So moving to rcu_dereference_bh() seems better to me.
+Fair enough.  We should get those fixed then.  In fact I reckon
+most of them should be using the BH variant so we might be able
+to kill a few rcu_read_lock's which would be a real gain.
 
-(Please note that rcu_dereference_bh() imposes checking overhead only
-in the presence of both CONFIG_PROVE_LOCKING and CONFIG_PROVE_RCU.)
-
-							Thanx, Paul
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
