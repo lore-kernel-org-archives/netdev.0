@@ -1,36 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: can SFQ and perturb break paquet ordering ?
-Date: Wed, 10 Mar 2010 13:30:10 +0100
-Message-ID: <4B9790D2.7030005@trash.net>
-References: <ca4f1a12b3ba9c81f3276c091063613f@localhost>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [net-next PATCH v6 0/3] net: reserve ports for applications using fixed port numbers
+Date: Wed, 10 Mar 2010 14:42:47 +0200
+Message-ID: <201003101442.47192.opurdila@ixiacom.com>
+References: <1267233952-5856-1-git-send-email-opurdila@ixiacom.com> <m1vddbdhmo.fsf@fess.ebiederm.org> <4B976503.4050702@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Julien Vehent <julien@linuxwall.info>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56536 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751147Ab0CJMaL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 07:30:11 -0500
-In-Reply-To: <ca4f1a12b3ba9c81f3276c091063613f@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, nhorman@tuxdriver.com,
+	eric.dumazet@gmail.com
+To: Cong Wang <amwang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4B976503.4050702@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Julien Vehent wrote:
-> Hi netdev folks,
+On Wednesday 10 March 2010 11:23:15 you wrote:
+> Eric W. Biederman wrote:
+> > I would add the restriction that the values in the list of ranges
+> > always must be increasing, and in general restrict the set of accepted
+> > values as much as possible.  If we don't accept it now we don't have
+> > to worry about some userspace application relying on some unitended
+> > side effect a few years into the future.
 > 
-> I was digging into the sch_sfq code and I was wondering the following (I
-> assume it's nothing new, I'm just trying to get it right):
+> I don't think this is good.
 > 
-> Let's consider one UDP connection that has two packets. Packet#1 goes to
-> bucket#1, then perturb modifies the hashing algorithms and thus Packet#2
-> goes to bucket#800.
+> Suppose that when I just want to add one port into the list and keep the
+> original ones, I want to do this:
 > 
-> If the round robin was positionned after bucket#1 but before bucket#800
-> when perturb occured, then Packet#2 will be sent before Packet#1. And since
-> UDP can't reordered, it will be processed before on the received end.
+> orig=$(cat ip_local_reserved_ports)
+> new_list="$orig, $new_one"
+> echo "$new_list" > ip_local_reserved_ports
 > 
-> Am I getting this right or is there something in the code that I missed ?
+> If we add this restriction, the above could be failed if the new port
+> is lower than the original ones. This will be not convenient.
+> 
+> > I think it is a serious bug that you clear the destination bitmap
+> > in the middle of parsing it.  That will either open or close all
+> > ports in the middle of parsing, and I can't see how that would
+> > ever be a good thing.
+> 
+> Agreed.
+> 
+> By the way, Octavian, any new updates?
+> 
 
-That's correct.
+Sorry, didn't got time to work on this lately, but I will submit a new version 
+I hope end of this week to address Eric's comments.
