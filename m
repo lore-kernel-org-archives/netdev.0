@@ -1,51 +1,59 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [net-next PATCH v6 0/3] net: reserve ports for applications using fixed port numbers
-Date: Wed, 10 Mar 2010 14:42:47 +0200
-Message-ID: <201003101442.47192.opurdila@ixiacom.com>
-References: <1267233952-5856-1-git-send-email-opurdila@ixiacom.com> <m1vddbdhmo.fsf@fess.ebiederm.org> <4B976503.4050702@redhat.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 6/13] bridge: Add core IGMP snooping support
+Date: Wed, 10 Mar 2010 05:13:18 -0800
+Message-ID: <20100310131317.GA6267@linux.vnet.ibm.com>
+References: <20100228054012.GA7583@gondor.apana.org.au> <201003092212.59627.arnd@arndb.de> <20100310021410.GD6203@linux.vnet.ibm.com> <201003101041.32518.arnd@arndb.de> <1268217583.2880.2.camel@edumazet-laptop> <20100310104907.GA23752@gondor.apana.org.au>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, nhorman@tuxdriver.com,
-	eric.dumazet@gmail.com
-To: Cong Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B976503.4050702@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:54840 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755365Ab0CJNNV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Mar 2010 08:13:21 -0500
+Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
+	by e7.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o2AD5Evb001603
+	for <netdev@vger.kernel.org>; Wed, 10 Mar 2010 08:05:14 -0500
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o2ADDKdt153030
+	for <netdev@vger.kernel.org>; Wed, 10 Mar 2010 08:13:20 -0500
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o2ADDJ0h010306
+	for <netdev@vger.kernel.org>; Wed, 10 Mar 2010 08:13:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20100310104907.GA23752@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 10 March 2010 11:23:15 you wrote:
-> Eric W. Biederman wrote:
-> > I would add the restriction that the values in the list of ranges
-> > always must be increasing, and in general restrict the set of accepted
-> > values as much as possible.  If we don't accept it now we don't have
-> > to worry about some userspace application relying on some unitended
-> > side effect a few years into the future.
+On Wed, Mar 10, 2010 at 06:49:07PM +0800, Herbert Xu wrote:
+> On Wed, Mar 10, 2010 at 11:39:43AM +0100, Eric Dumazet wrote:
+> >
+> > Its really rcu_dereference_bh() that could/should be used:
+> > I see no problem changing
+> > 
+> > 
+> >         local_bh_disable();
+> >         ...
+> >         rcu_read_lock();
+> >         rcu_dereference(rt_hash_table[h].chain);
+> >         rcu_read_unlock();
+> >         ...
+> >         local_bh_enable();
 > 
-> I don't think this is good.
+> Why don't we just ignore the bh part for rcu_dereference?
 > 
-> Suppose that when I just want to add one port into the list and keep the
-> original ones, I want to do this:
-> 
-> orig=$(cat ip_local_reserved_ports)
-> new_list="$orig, $new_one"
-> echo "$new_list" > ip_local_reserved_ports
-> 
-> If we add this restriction, the above could be failed if the new port
-> is lower than the original ones. This will be not convenient.
-> 
-> > I think it is a serious bug that you clear the destination bitmap
-> > in the middle of parsing it.  That will either open or close all
-> > ports in the middle of parsing, and I can't see how that would
-> > ever be a good thing.
-> 
-> Agreed.
-> 
-> By the way, Octavian, any new updates?
-> 
+> After all it's call_rcu_bh and the other primitives that we really
+> care about.  For rcu_dereference bh should make no difference
+> whatsoever.
 
-Sorry, didn't got time to work on this lately, but I will submit a new version 
-I hope end of this week to address Eric's comments.
+If CONFIG_PROVE_RCU is set, rcu_dereference() checks for rcu_read_lock()
+and rcu_dereference_bh() checks for either rcu_read_lock_bh() or BH
+being disabled.  Yes, this is a bit restrictive, but there are a few too
+many to check by hand these days.
+
+							Thanx, Paul
