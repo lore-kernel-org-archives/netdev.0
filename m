@@ -1,37 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: When best to submit patches with small changes in multiple
- files?
-Date: Wed, 10 Mar 2010 07:34:48 -0800 (PST)
-Message-ID: <20100310.073448.27419654.davem@davemloft.net>
-References: <201003100449.12952.elendil@planet.nl>
+Subject: Re: [PATCH] net: Annotates neigh_invalidate()
+Date: Wed, 10 Mar 2010 07:35:03 -0800 (PST)
+Message-ID: <20100310.073503.115804633.davem@davemloft.net>
+References: <1268199654.2872.134.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: elendil@planet.nl
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53859
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53867
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756732Ab0CJPe2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 10:34:28 -0500
-In-Reply-To: <201003100449.12952.elendil@planet.nl>
+	by vger.kernel.org with ESMTP id S1756760Ab0CJPen (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 10:34:43 -0500
+In-Reply-To: <1268199654.2872.134.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frans Pop <elendil@planet.nl>
-Date: Wed, 10 Mar 2010 04:49:12 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 10 Mar 2010 06:40:54 +0100
 
-> I have patches prepared to remove trailing spaces from kernel messages 
-> for ./net and ./drivers/net (including wireless).
+> Annotates neigh_invalidate() with __releases() and __acquires() for
+> sparse sake.
 > 
-> In total 15 patches with
->    81 files changed, 351 insertions(+), 351 deletions(-)
-> 
-> When would be the best time to submit:
-> - now, to be included in .34
-> - now, for -next
-> - any time
-> - near beginning of merge window (rebased against netdev-next)
-> - not at all ;-)
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Later, for -next.  Submit them say in a week or two.
+Applied.
