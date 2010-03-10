@@ -1,41 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: Fix tg3_poll_controller() passing wrong pointer
- to tg3_interrupt()
-Date: Wed, 10 Mar 2010 07:33:37 -0800 (PST)
-Message-ID: <20100310.073337.124043070.davem@davemloft.net>
-References: <1268151281-15012-1-git-send-email-louis.rilling@kerlabs.com>
+Subject: Re: [PATCH] asix: fix setting mac address for AX88772
+Date: Wed, 10 Mar 2010 07:34:07 -0800 (PST)
+Message-ID: <20100310.073407.104676652.davem@davemloft.net>
+References: <20100309222438.10684.46211.stgit@fate.lan>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mcarlson@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org,
-	stable@kernel.org
-To: louis.rilling@kerlabs.com
+Cc: netdev@vger.kernel.org, dhollis@davehollis.com
+To: jussi.kivilinna@mbnet.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53843
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53850
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756739Ab0CJPdR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 10:33:17 -0500
-In-Reply-To: <1268151281-15012-1-git-send-email-louis.rilling@kerlabs.com>
+	by vger.kernel.org with ESMTP id S1756755Ab0CJPdr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 10:33:47 -0500
+In-Reply-To: <20100309222438.10684.46211.stgit@fate.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Louis Rilling <louis.rilling@kerlabs.com>
-Date: Tue,  9 Mar 2010 17:14:41 +0100
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Date: Wed, 10 Mar 2010 00:24:38 +0200
 
-> [Resending without buggy address for stable. Sorry.]
+> Setting new MAC address only worked when device was set to promiscuous mode.
+> Fix MAC address by writing new address to device using undocumented command
+> AX_CMD_READ_NODE_ID+1. Patch is tested with AX88772 device.
 > 
-> Commit 09943a1819a240ff4a72f924d0038818fcdd0a90
-> 	Author: Matt Carlson <mcarlson@broadcom.com>
-> 	Date:   Fri Aug 28 14:01:57 2009 +0000
-> 
-> 	tg3: Convert ISR parameter to tnapi
-> 
-> forgot to update tg3_poll_controller(), leading to intermittent crashes with
-> netpoll.
-> 
-> Fix this.
-> 
-> Signed-off-by: Louis Rilling <louis.rilling@kerlabs.com>
-> Cc: stable@kernel.org
+> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 
-Applied, thanks.
+Applied.
