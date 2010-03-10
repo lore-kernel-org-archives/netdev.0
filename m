@@ -1,24 +1,44 @@
-From: "Kwon, Janice [VA]" <Janice.Kwon@vch.ca>
-Subject: WebCT Service Helpdesk
-Date: Wed, 10 Mar 2010 11:19:50 -0800
-Message-ID: <0A18E25F7A10C64A96E827B5F6215D3601BAAE4A24@vchexmbp14.vch.ca>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH RFC] fix problems with NETIF_F_HIGHDMA in networking drivers v2
+Date: Wed, 10 Mar 2010 12:17:00 -0800
+Message-ID: <adar5nshqyr.fsf@roland-alpha.cisco.com>
+References: <4B8F213B.40603@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: "info@webct.com" <info@webct.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Linux-usb <linux-usb@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+To: Robert Hancock <hancockrwd@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay-jpn.vanhosp.bc.ca ([208.181.53.78]:56243 "EHLO
-	relay-vgh.vanhosp.bc.ca" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755742Ab0CJTss convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 14:48:48 -0500
-Content-Language: en-CA
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:54918 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756976Ab0CJURG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 15:17:06 -0500
+In-Reply-To: <4B8F213B.40603@gmail.com> (Robert Hancock's message of "Wed, 03
+	Mar 2010 20:55:55 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your mailbox has exceeded one or more size limits set by your administrator.
-Your mailbox size is 239787 KB. Mailbox size limits:You may not be able to send or receive new mail until you reduce your mailbox size. To re-set your SPACE on our database prior to maintenance on your INBOX:
+ > diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+ > index df3eb8c..53be462 100644
+ > --- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
+ > +++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+ > @@ -1058,7 +1058,7 @@ static void ipoib_setup(struct net_device *dev)
+ >  	dev->type		 = ARPHRD_INFINIBAND;
+ >  	dev->tx_queue_len	 = ipoib_sendq_size * 2;
+ >  	dev->features		 = (NETIF_F_VLAN_CHALLENGED	|
+ > -				    NETIF_F_HIGHDMA);
+ > +				    NETIF_F_DMA_HIGH);
+ >  	dev->priv_flags		&= ~IFF_XMIT_DST_RELEASE;
+ >  
+ >  	memcpy(dev->broadcast, ipv4_bcast_addr, INFINIBAND_ALEN);
 
-CLICK HERE:<http://sissurvey.net/app/survey/survey.aspx?id=952>
-
-Regards
-WebCT Service Helpdesk
+Been meaning to mention this for a bit, but ipoib is capable of handling
+any DMA address, so if I understand your patch correctly, this can be
+NETIF_F_DMA_64BIT instead of just DMA_HIGH.
+-- 
+Roland Dreier  <rolandd@cisco.com>
+For corporate legal information go to:
+http://www.cisco.com/web/about/doing_business/legal/cri/index.html
