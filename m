@@ -1,44 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: Fix dev_mc_add()
-Date: Wed, 10 Mar 2010 06:09:08 +0100
-Message-ID: <1268197748.2872.129.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jiri Pirko <jpirko@redhat.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:60990 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750835Ab0CJFJO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 00:09:14 -0500
-Received: by bwz1 with SMTP id 1so4616936bwz.21
-        for <netdev@vger.kernel.org>; Tue, 09 Mar 2010 21:09:13 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dean Nelson <dnelson@redhat.com>
+Subject: [PATCH 2/3] pci: fix access of PCI_X_CMD by pcix get and set mmrbc functions
+Date: Tue, 9 Mar 2010 22:26:48 -0500
+Message-ID: <20100310032647.6331.70590.send-patch@aqua>
+References: <20100310032632.6331.15414.send-patch@aqua>
+Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org
+To: jbarnes@virtuousgeek.org
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20100310032632.6331.15414.send-patch@aqua>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 6e17d45a (net: add addr len check to dev_mc_add)
-added a bug in dev_mc_add(), since it can now exit with a lock
-imbalance.
+An e1000 driver on a system with a PCI-X bus was always being returned
+a value of 135 from both pcix_get_mmrbc() and pcix_set_mmrbc(). This
+value reflects an error return of PCIBIOS_BAD_REGISTER_NUMBER from
+pci_bus_read_config_dword(,, cap + PCI_X_CMD,).
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Jiri Pirko <jpirko@redhat.com>
+This is because for a dword, the following portion of the PCI_OP_READ()
+macro:
+
+	if (PCI_##size##_BAD) return PCIBIOS_BAD_REGISTER_NUMBER;
+
+expands to:
+
+	if (pos & 3) return PCIBIOS_BAD_REGISTER_NUMBER;
+
+And is always true for 'cap + PCI_X_CMD', which is 0xe4 + 2 = 0xe6. ('cap' is
+the result of calling pci_find_capability(, PCI_CAP_ID_PCIX).)
+
+The same problem exists for pci_bus_write_config_dword(,, cap + PCI_X_CMD,).
+In both cases, instead of calling _dword(), _word() should be called.
+
+Signed-off-by: Dean Nelson <dnelson@redhat.com>
+
 ---
-diff --git a/net/core/dev_mcast.c b/net/core/dev_mcast.c
-index fd91569..3dc295b 100644
---- a/net/core/dev_mcast.c
-+++ b/net/core/dev_mcast.c
-@@ -97,8 +97,9 @@ int dev_mc_add(struct net_device *dev, void *addr, int alen, int glbl)
+
+ drivers/pci/pci.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
+index 1decd4f..cdf201e 100644
+--- a/drivers/pci/pci.c
++++ b/drivers/pci/pci.c
+@@ -2585,13 +2585,13 @@ EXPORT_SYMBOL(pcix_get_max_mmrbc);
+ int pcix_get_mmrbc(struct pci_dev *dev)
+ {
+ 	int ret, cap;
+-	u32 cmd;
++	u16 cmd;
  
- 	netif_addr_lock_bh(dev);
- 	if (alen != dev->addr_len)
--		return -EINVAL;
--	err = __dev_addr_add(&dev->mc_list, &dev->mc_count, addr, alen, glbl);
-+		err = -EINVAL;
-+	else
-+		err = __dev_addr_add(&dev->mc_list, &dev->mc_count, addr, alen, glbl);
- 	if (!err)
- 		__dev_set_rx_mode(dev);
- 	netif_addr_unlock_bh(dev);
-
-
+ 	cap = pci_find_capability(dev, PCI_CAP_ID_PCIX);
+ 	if (!cap)
+ 		return -EINVAL;
+ 
+-	ret = pci_read_config_dword(dev, cap + PCI_X_CMD, &cmd);
++	ret = pci_read_config_word(dev, cap + PCI_X_CMD, &cmd);
+ 	if (!ret)
+ 		ret = 512 << ((cmd & PCI_X_CMD_MAX_READ) >> 2);
+ 
+@@ -2611,7 +2611,8 @@ EXPORT_SYMBOL(pcix_get_mmrbc);
+ int pcix_set_mmrbc(struct pci_dev *dev, int mmrbc)
+ {
+ 	int cap, err = -EINVAL;
+-	u32 stat, cmd, v, o;
++	u32 stat, v, o;
++	u16 cmd;
+ 
+ 	if (mmrbc < 512 || mmrbc > 4096 || !is_power_of_2(mmrbc))
+ 		goto out;
+@@ -2629,7 +2630,7 @@ int pcix_set_mmrbc(struct pci_dev *dev, int mmrbc)
+ 	if (v > (stat & PCI_X_STATUS_MAX_READ) >> 21)
+ 		return -E2BIG;
+ 
+-	err = pci_read_config_dword(dev, cap + PCI_X_CMD, &cmd);
++	err = pci_read_config_word(dev, cap + PCI_X_CMD, &cmd);
+ 	if (err)
+ 		goto out;
+ 
+@@ -2641,7 +2642,7 @@ int pcix_set_mmrbc(struct pci_dev *dev, int mmrbc)
+ 
+ 		cmd &= ~PCI_X_CMD_MAX_READ;
+ 		cmd |= v << 2;
+-		err = pci_write_config_dword(dev, cap + PCI_X_CMD, cmd);
++		err = pci_write_config_word(dev, cap + PCI_X_CMD, cmd);
+ 	}
+ out:
+ 	return err;
