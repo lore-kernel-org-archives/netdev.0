@@ -1,49 +1,114 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: [RFC][PATCH] ns: Syscalls for better namespace sharing control.
-Date: Wed, 10 Mar 2010 22:16:05 +0100
-Message-ID: <4B980C15.9000908@free.fr>
-References: <4B88E431.6040609@parallels.com> <4B8D28CF.8060304@parallels.com>	<20100302211942.GA17816@us.ibm.com> <m1y6iaqsmm.fsf@fess.ebiederm.org>	<20100303000743.GA13744@us.ibm.com> <m1ocj6qljj.fsf@fess.ebiederm.org>	<4B8E9370.3050300@parallels.com> <m17hptjh3m.fsf@fess.ebiederm.org>	<4B9158F5.5040205@parallels.com> <m1vdda1pmx.fsf@fess.ebiederm.org>	<4B926B1B.5070207@free.fr> <m1aaulyy5c.fsf@fess.ebiederm.org>	<4B92C886.9020507@free.fr> <m1fx4bxlfy.fsf@fess.ebiederm.org>	<4B952BBE.6070507@free.fr> <m11vfuvi1t.fsf@fess.ebiederm.org>	<4B9556A9.60206@free.fr> <m11vfusgsa.fsf@fess.ebiederm.org>	<4B95611C.5060403@free.fr> <m1sk8ar15b.fsf@fess.ebiederm.org>	<4B956852.7050804@free.fr> <m1lje2qzf4.fsf@fess.ebiederm.org>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [net-next-2.6 PATCH 3/3] net: forbid underlaying devices to
+ change its type
+Date: Wed, 10 Mar 2010 22:17:09 +0100
+Message-ID: <20100310211708.GG2834@psychotron.redhat.com>
+References: <20100310202804.GC2834@psychotron.redhat.com>
+ <20100310203019.GF2834@psychotron.redhat.com>
+ <23664.1268255050@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Pavel Emelyanov <xemul@parallels.com>,
-	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
-	Serge Hallyn <serue@us.ibm.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	containers@lists.linux-foundation.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Ben Greear <greearb@candelatech.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <m1lje2qzf4.fsf@fess.ebiederm.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
+	davem@davemloft.net, shemminger@linux-foundation.org,
+	kaber@trash.net
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:30664 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751393Ab0CJVR1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Mar 2010 16:17:27 -0500
+Content-Disposition: inline
+In-Reply-To: <23664.1268255050@death.nxdomain.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric W. Biederman wrote:
-> Daniel Lezcano <daniel.lezcano@free.fr> writes:
->   
-
-[ ... ]
-
-> I guess my meaning is I was expecting.
-> child = fork();
-> if (child == 0) {
-> 	execve(...);
-> }
-> waitpid(child);
+Wed, Mar 10, 2010 at 10:04:10PM CET, fubar@us.ibm.com wrote:
+>Jiri Pirko <jpirko@redhat.com> wrote:
 >
-> This puts /bin/sh in the container as well.
->   
+>>It's not desired for underlaying devices to change type. At the time, there is
+>>for example possible to have bond with changed type from Ethernet to Infiniband
+>>as a port of a bridge. This patch fixes this.
+>
+>	Do the current initscripts / sysconfig packages do things such
+>that this restriction won't break things?  I.e., do those packages have
+>a dependency on being able to change the type after setting up, e.g., a
+>VLAN over bonding on Infiniband?
+>
+>	This isn't to suggest that this change should be rejected if the
+>above is true; rather, I'm curious as to how this came up as a problem,
+>and whether initscripts / sysconfig require concurrent changes.
 
-Eric,
+I'm not aware initscripts / sysconfig require type change. In fanc this
+wouldn't make sense. This popped up when I was converting mc_lists, I thought
+if this is possible, tried with infiniband and it was. Therefore I decided
+to fix this.
 
-at this point I did not fall in any obvious bug and I was able to enter 
-/ execute commands directly inside the container.
+Jirka
 
-Excellent !
-
-Thanks
-  -- Daniel
-
-
+>
+>	In any event, it all seems reasonable to me, so, at least for
+>the bonding bits:
+>
+>Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+>
+>	-J
+>
+>
+>>Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>>---
+>> drivers/net/macvlan.c  |    3 +++
+>> net/8021q/vlan.c       |    4 ++++
+>> net/bridge/br_notify.c |    4 ++++
+>> 3 files changed, 11 insertions(+), 0 deletions(-)
+>>
+>>diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+>>index 40faa36..445e73c 100644
+>>--- a/drivers/net/macvlan.c
+>>+++ b/drivers/net/macvlan.c
+>>@@ -748,6 +748,9 @@ static int macvlan_device_event(struct notifier_block *unused,
+>> 		list_for_each_entry_safe(vlan, next, &port->vlans, list)
+>> 			vlan->dev->rtnl_link_ops->dellink(vlan->dev, NULL);
+>> 		break;
+>>+	case NETDEV_PRE_TYPE_CHANGE:
+>>+		/* Forbid underlaying device to change its type. */
+>>+		return NOTIFY_BAD;
+>> 	}
+>> 	return NOTIFY_DONE;
+>> }
+>>diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+>>index 4535122..c39a5f4 100644
+>>--- a/net/8021q/vlan.c
+>>+++ b/net/8021q/vlan.c
+>>@@ -530,6 +530,10 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+>> 		}
+>> 		unregister_netdevice_many(&list);
+>> 		break;
+>>+
+>>+	case NETDEV_PRE_TYPE_CHANGE:
+>>+		/* Forbid underlaying device to change its type. */
+>>+		return NOTIFY_BAD;
+>> 	}
+>>
+>> out:
+>>diff --git a/net/bridge/br_notify.c b/net/bridge/br_notify.c
+>>index 763a3ec..1413b72 100644
+>>--- a/net/bridge/br_notify.c
+>>+++ b/net/bridge/br_notify.c
+>>@@ -82,6 +82,10 @@ static int br_device_event(struct notifier_block *unused, unsigned long event, v
+>> 	case NETDEV_UNREGISTER:
+>> 		br_del_if(br, dev);
+>> 		break;
+>>+
+>>+	case NETDEV_PRE_TYPE_CHANGE:
+>>+		/* Forbid underlaying device to change its type. */
+>>+		return NOTIFY_BAD;
+>> 	}
+>>
+>> 	/* Events that may cause spanning tree to refresh */
+>>-- 
+>>1.6.6.1
+>>
+>>--
+>>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>the body of a message to majordomo@vger.kernel.org
+>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
