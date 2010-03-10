@@ -1,40 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: Annotates neigh_invalidate()
-Date: Wed, 10 Mar 2010 06:40:54 +0100
-Message-ID: <1268199654.2872.134.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:39772 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752403Ab0CJFlC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 00:41:02 -0500
-Received: by bwz1 with SMTP id 1so4626040bwz.21
-        for <netdev@vger.kernel.org>; Tue, 09 Mar 2010 21:40:58 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dean Nelson <dnelson@redhat.com>
+Subject: [PATCH 1/3] pci: fix return value from pcix_get_max_mmrbc()
+Date: Tue, 9 Mar 2010 22:26:40 -0500
+Message-ID: <20100310032640.6331.39506.send-patch@aqua>
+References: <20100310032632.6331.15414.send-patch@aqua>
+Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org
+To: jbarnes@virtuousgeek.org
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20100310032632.6331.15414.send-patch@aqua>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Annotates neigh_invalidate() with __releases() and __acquires() for
-sparse sake.
+For the PCI_X_STATUS register, pcix_get_max_mmrbc() is returning an incorrect
+value, which is based on:
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+	(stat & PCI_X_STATUS_MAX_READ) >> 12
+
+Valid return values are 512, 1024, 2048, 4096, which correspond to a 'stat'
+(masked and right shifted by 21) of 0, 1, 2, 3, respectively.
+
+A right shift by 11 would generate the correct return value when 'stat' (masked
+and right shifted by 21) has a value of 1 or 2. But for a value of 0 or 3 it's
+not possible to generate the correct return value by only right shifting.
+
+Fix is based on pcix_get_mmrbc()'s similar dealings with the PCI_X_CMD register.
+
+Signed-off-by: Dean Nelson <dnelson@redhat.com>
+
 ---
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index d102f6d..6cee643 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -771,6 +771,8 @@ static __inline__ int neigh_max_probes(struct neighbour *n)
+
+ drivers/pci/pci.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
+index 5b548ae..1decd4f 100644
+--- a/drivers/pci/pci.c
++++ b/drivers/pci/pci.c
+@@ -2571,7 +2571,7 @@ int pcix_get_max_mmrbc(struct pci_dev *dev)
+ 	if (err)
+ 		return -EINVAL;
+ 
+-	return (stat & PCI_X_STATUS_MAX_READ) >> 12;
++	return 512 << ((stat & PCI_X_STATUS_MAX_READ) >> 21);
  }
+ EXPORT_SYMBOL(pcix_get_max_mmrbc);
  
- static void neigh_invalidate(struct neighbour *neigh)
-+	__releases(neigh->lock)
-+	__acquires(neigh->lock)
- {
- 	struct sk_buff *skb;
- 
-
-
-
