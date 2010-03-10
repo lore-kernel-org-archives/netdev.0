@@ -1,53 +1,47 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [net-next PATCH v6 0/3] net: reserve ports for applications using
- fixed port numbers
-Date: Wed, 10 Mar 2010 17:23:15 +0800
-Message-ID: <4B976503.4050702@redhat.com>
-References: <1267233952-5856-1-git-send-email-opurdila@ixiacom.com>	<20100227.033230.196838696.davem@davemloft.net>	<4B8F6FF0.5000306@redhat.com> <m1vddbdhmo.fsf@fess.ebiederm.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 6/13] bridge: Add core IGMP snooping support
+Date: Wed, 10 Mar 2010 18:49:07 +0800
+Message-ID: <20100310104907.GA23752@gondor.apana.org.au>
+References: <20100228054012.GA7583@gondor.apana.org.au> <201003092212.59627.arnd@arndb.de> <20100310021410.GD6203@linux.vnet.ibm.com> <201003101041.32518.arnd@arndb.de> <1268217583.2880.2.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, opurdila@ixiacom.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nhorman@tuxdriver.com, eric.dumazet@gmail.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>, paulmck@linux.vnet.ibm.com,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58711 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751142Ab0CJJTr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Mar 2010 04:19:47 -0500
-In-Reply-To: <m1vddbdhmo.fsf@fess.ebiederm.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:39591 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753782Ab0CJKtR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 05:49:17 -0500
+Content-Disposition: inline
+In-Reply-To: <1268217583.2880.2.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric W. Biederman wrote:
-> 
-> I would add the restriction that the values in the list of ranges
-> always must be increasing, and in general restrict the set of accepted
-> values as much as possible.  If we don't accept it now we don't have
-> to worry about some userspace application relying on some unitended
-> side effect a few years into the future.
-
-I don't think this is good.
-
-Suppose that when I just want to add one port into the list and keep the
-original ones, I want to do this:
-
-orig=$(cat ip_local_reserved_ports)
-new_list="$orig, $new_one"
-echo "$new_list" > ip_local_reserved_ports
-
-If we add this restriction, the above could be failed if the new port
-is lower than the original ones. This will be not convenient.
-
+On Wed, Mar 10, 2010 at 11:39:43AM +0100, Eric Dumazet wrote:
+>
+> Its really rcu_dereference_bh() that could/should be used:
+> I see no problem changing
 > 
 > 
-> I think it is a serious bug that you clear the destination bitmap
-> in the middle of parsing it.  That will either open or close all
-> ports in the middle of parsing, and I can't see how that would
-> ever be a good thing.
-> 
+>         local_bh_disable();
+>         ...
+>         rcu_read_lock();
+>         rcu_dereference(rt_hash_table[h].chain);
+>         rcu_read_unlock();
+>         ...
+>         local_bh_enable();
 
-Agreed.
+Why don't we just ignore the bh part for rcu_dereference?
 
-By the way, Octavian, any new updates?
+After all it's call_rcu_bh and the other primitives that we really
+care about.  For rcu_dereference bh should make no difference
+whatsoever.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
