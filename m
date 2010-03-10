@@ -1,47 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 6/13] bridge: Add core IGMP snooping support
-Date: Wed, 10 Mar 2010 18:49:07 +0800
-Message-ID: <20100310104907.GA23752@gondor.apana.org.au>
-References: <20100228054012.GA7583@gondor.apana.org.au> <201003092212.59627.arnd@arndb.de> <20100310021410.GD6203@linux.vnet.ibm.com> <201003101041.32518.arnd@arndb.de> <1268217583.2880.2.camel@edumazet-laptop>
+From: Frans Pop <elendil@planet.nl>
+Subject: When best to submit patches with small changes in multiple files?
+Date: Wed, 10 Mar 2010 04:49:12 +0100
+Message-ID: <201003100449.12952.elendil@planet.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, paulmck@linux.vnet.ibm.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:39591 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753782Ab0CJKtR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 05:49:17 -0500
+Received: from cpsmtpm-eml104.kpnxchange.com ([195.121.3.8]:63089 "EHLO
+	CPSMTPM-EML104.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756028Ab0CJDtP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Mar 2010 22:49:15 -0500
 Content-Disposition: inline
-In-Reply-To: <1268217583.2880.2.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 10, 2010 at 11:39:43AM +0100, Eric Dumazet wrote:
->
-> Its really rcu_dereference_bh() that could/should be used:
-> I see no problem changing
-> 
-> 
->         local_bh_disable();
->         ...
->         rcu_read_lock();
->         rcu_dereference(rt_hash_table[h].chain);
->         rcu_read_unlock();
->         ...
->         local_bh_enable();
+I have patches prepared to remove trailing spaces from kernel messages 
+for ./net and ./drivers/net (including wireless).
 
-Why don't we just ignore the bh part for rcu_dereference?
+In total 15 patches with
+   81 files changed, 351 insertions(+), 351 deletions(-)
 
-After all it's call_rcu_bh and the other primitives that we really
-care about.  For rcu_dereference bh should make no difference
-whatsoever.
+When would be the best time to submit:
+- now, to be included in .34
+- now, for -next
+- any time
+- near beginning of merge window (rebased against netdev-next)
+- not at all ;-)
+?
 
 Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+FJP
