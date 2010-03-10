@@ -1,59 +1,83 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 6/13] bridge: Add core IGMP snooping support
-Date: Wed, 10 Mar 2010 13:25:56 -0800
-Message-ID: <20100310212556.GD6255@linux.vnet.ibm.com>
-References: <20100310131317.GA6267@linux.vnet.ibm.com> <20100310162658.GI6267@linux.vnet.ibm.com> <20100310.083547.213194954.davem@davemloft.net> <201003101856.53525.arnd@arndb.de>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [RFC][ PATCH 1/3] vhost-net: support multiple buffer heads in	receiver
+Date: Wed, 10 Mar 2010 14:17:19 -0800
+Message-ID: <OFB507E769.AEAC2F51-ON882576E2.007806C8-882576E2.007A6F76@us.ibm.com>
+References: <20100308074533.GA7482@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	shemminger@vyatta.com
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:33931 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757290Ab0CJV0A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Mar 2010 16:26:00 -0500
-Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
-	by e9.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o2ALFZXk012901
-	for <netdev@vger.kernel.org>; Wed, 10 Mar 2010 16:15:35 -0500
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o2ALPvoL163586
-	for <netdev@vger.kernel.org>; Wed, 10 Mar 2010 16:25:59 -0500
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o2ALPupt019578
-	for <netdev@vger.kernel.org>; Wed, 10 Mar 2010 16:25:57 -0500
-Content-Disposition: inline
-In-Reply-To: <201003101856.53525.arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, rusty@rustcorp.com.au,
+	virtualization@lists.osdl.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20100308074533.GA7482@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 10, 2010 at 06:56:53PM +0100, Arnd Bergmann wrote:
-> On Wednesday 10 March 2010, David Miller wrote:
-> > From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-> > Date: Wed, 10 Mar 2010 08:26:58 -0800
-> >
-> > > I have -tip commit a898def29e4119bc01ebe7ca97423181f4c0ea2d that
-> > > converts some of the rcu_dereference()s in net/core/filter.c,
-> > > net/core/dev.c, net/decnet/dn_route.c, net/packet/af_packet.c, and
-> > > net/ipv4/route.c to rcu_dereference_bh().
+"Michael S. Tsirkin" <mst@redhat.com> wrote on 03/07/2010 11:45:33 PM:
+
+> > > > +static int skb_head_len(struct sk_buff_head *skq)
+> > > > +{
+> > > > +       struct sk_buff *head;
+> > > > +
+> > > > +       head = skb_peek(skq);
+> > > > +       if (head)
+> > > > +               return head->len;
+> > > > +       return 0;
+> > > > +}
+> > > > +
 > > > 
-> > > How should we coordinate the removal of the rcu_read_lock() calls?
+> > > This is done without locking, which I think can crash
+> > > if skb is consumed after we peek it but before we read the
+> > > length.
 > > 
-> > Paul if you want to do this via your tree, feel free.
-> 
-> My feeling is that this should be combined with the annotations I'm doing,
-> annotating one subsystem at a time, and doing changes like these in the
-> process. I'm still unsure what interface extensions there will have to
-> be, but I guess we can the new interfaces as empty wrappers in the 2.6.34
-> phase, and do all of the conversions where there are potential or real
-> bugs.
-> 
-> All the other annotations can get queued in subsystem maintainer trees
-> where it makes sense or get put in one tree for all the others, to be
-> merged in after 2.6.34 is out.
+> >         This thread is the only legitimate consumer, right? But
+> > qemu has the file descriptor and I guess we shouldn't trust
+> > that it won't give it to someone else; it'd break vhost, but
+> > a crash would be inappropriate, of course. I'd like to avoid
+> > the lock, but I have another idea here, so will investigate.
 
-Makes sense to me -- and thank you, Arnd, for taking this on!!!
+        I looked at this some more and actually, I'm not sure I
+see a crash here.
+        First, without qemu, or something it calls, being broken
+as root, nothing else should ever read from the socket, in which
+case the length will be exactly right for the next packet we
+read. No problem.
+        But if by some error this skb is freed, we'll have valid
+memory address that isn't the length field of the next packet
+we'll read.
+        If the length is negative or more than available in the
+vring, we'll fail the buffer allocation, exit the loop, and
+get the new head length of the receive queue the next time
+around -- no problem.
+        If the length field is 0, we'll exit the loop even
+though we have data to read, but will get that packet the
+next time we get in here, again, with the right length.
+No problem.
+        If the length field is big enough to allocate buffer
+space for it, but smaller than the new head we have to read,
+the recvmsg will fail with EMSGSIZE, drop the packet, exit
+the loop and be back in business with the next packet. No
+problem.
+        Otherwise, the packet will fit and be delivered.
 
-							Thanx, Paul
+        I don't much like the notion of using skb->head when
+it's garbage, but that can only happen if qemu has broken,
+and I don't see a crash unless the skb is not only freed
+but no longer a valid memory address for reading at all,
+and all within the race window.
+        Since the code handles other failure cases (not
+enough ring buffers or packet not fitting in the allocated
+buffers), the actual length value only matters in the
+sense that it prevents us from using buffers unnecessarily--
+something that isn't all that relevant if it's hosed enough
+to have unauthorized readers on the socket.
+
+        Is this case worth the performance penalty we'll no
+doubt pay for either locking the socket or always allocating
+for a max-sized packet? I'll experiment with a couple
+solutions here, but unless I've missed something, we might
+be better off just leaving it as-is.
+
+                                                        +-DLS
+
+
