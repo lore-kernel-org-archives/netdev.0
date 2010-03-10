@@ -1,60 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] mac80211: Fix memory leak in ieee80211_if_write()
-Date: Wed, 10 Mar 2010 17:13:36 +0100
-Message-ID: <1268237616.2880.34.camel@edumazet-laptop>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 6/13] bridge: Add core IGMP snooping support
+Date: Wed, 10 Mar 2010 08:26:58 -0800
+Message-ID: <20100310162658.GI6267@linux.vnet.ibm.com>
+References: <20100228054012.GA7583@gondor.apana.org.au> <201003092212.59627.arnd@arndb.de> <20100310021410.GD6203@linux.vnet.ibm.com> <201003101041.32518.arnd@arndb.de> <1268217583.2880.2.camel@edumazet-laptop> <20100310104907.GA23752@gondor.apana.org.au> <20100310131317.GA6267@linux.vnet.ibm.com> <20100310140729.GA25704@gondor.apana.org.au>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:46732 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756838Ab0CJQNo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 11:13:44 -0500
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:53981 "EHLO e9.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756284Ab0CJQ1B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Mar 2010 11:27:01 -0500
+Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
+	by e9.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o2AGGaYR005240
+	for <netdev@vger.kernel.org>; Wed, 10 Mar 2010 11:16:36 -0500
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o2AGQxxN089742
+	for <netdev@vger.kernel.org>; Wed, 10 Mar 2010 11:26:59 -0500
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o2AGQw1o012828
+	for <netdev@vger.kernel.org>; Wed, 10 Mar 2010 11:26:59 -0500
+Content-Disposition: inline
+In-Reply-To: <20100310140729.GA25704@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix memory leak and use kmalloc() instead of kzalloc() as we are going
-to overwrite the allocated buffer.
+On Wed, Mar 10, 2010 at 10:07:29PM +0800, Herbert Xu wrote:
+> On Wed, Mar 10, 2010 at 05:13:18AM -0800, Paul E. McKenney wrote:
+> >
+> > If CONFIG_PROVE_RCU is set, rcu_dereference() checks for rcu_read_lock()
+> > and rcu_dereference_bh() checks for either rcu_read_lock_bh() or BH
+> > being disabled.  Yes, this is a bit restrictive, but there are a few too
+> > many to check by hand these days.
+> 
+> Fair enough.  We should get those fixed then.  In fact I reckon
+> most of them should be using the BH variant so we might be able
+> to kill a few rcu_read_lock's which would be a real gain.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/mac80211/debugfs_netdev.c |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
+I have -tip commit a898def29e4119bc01ebe7ca97423181f4c0ea2d that
+converts some of the rcu_dereference()s in net/core/filter.c,
+net/core/dev.c, net/decnet/dn_route.c, net/packet/af_packet.c, and
+net/ipv4/route.c to rcu_dereference_bh().
 
-diff --git a/net/mac80211/debugfs_netdev.c b/net/mac80211/debugfs_netdev.c
-index 9affe2c..a55e864 100644
---- a/net/mac80211/debugfs_netdev.c
-+++ b/net/mac80211/debugfs_netdev.c
-@@ -48,20 +48,24 @@ static ssize_t ieee80211_if_write(
- 	ssize_t (*write)(struct ieee80211_sub_if_data *, const char *, int))
- {
- 	u8 *buf;
--	ssize_t ret = -ENODEV;
-+	ssize_t ret;
- 
--	buf = kzalloc(count, GFP_KERNEL);
-+	buf = kmalloc(count, GFP_KERNEL);
- 	if (!buf)
- 		return -ENOMEM;
- 
-+	ret = -EFAULT;
- 	if (copy_from_user(buf, userbuf, count))
--		return -EFAULT;
-+		goto freebuf;
- 
-+	ret = -ENODEV;
- 	rtnl_lock();
- 	if (sdata->dev->reg_state == NETREG_REGISTERED)
- 		ret = (*write)(sdata, buf, count);
- 	rtnl_unlock();
- 
-+freebuf:
-+	kfree(buf);	
- 	return ret;
- }
- 
+How should we coordinate the removal of the rcu_read_lock() calls?
 
-
+							Thanx, Paul
