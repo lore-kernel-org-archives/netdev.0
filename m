@@ -1,39 +1,30 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 6/13] bridge: Add core IGMP snooping support
-Date: Wed, 10 Mar 2010 22:07:29 +0800
-Message-ID: <20100310140729.GA25704@gondor.apana.org.au>
-References: <20100228054012.GA7583@gondor.apana.org.au> <201003092212.59627.arnd@arndb.de> <20100310021410.GD6203@linux.vnet.ibm.com> <201003101041.32518.arnd@arndb.de> <1268217583.2880.2.camel@edumazet-laptop> <20100310104907.GA23752@gondor.apana.org.au> <20100310131317.GA6267@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: bug report: netpoll: allow execution of multiple rx_hooks per
+ interface
+Date: Wed, 10 Mar 2010 06:52:45 -0800 (PST)
+Message-ID: <20100310.065245.04464405.davem@davemloft.net>
+References: <20100306110659.GE4958@bicker>
+	<4B977EDB.5010202@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: error27@gmail.com, netdev@vger.kernel.org
+To: danborkmann@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33381 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932198Ab0CJOHm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 09:07:42 -0500
-Content-Disposition: inline
-In-Reply-To: <20100310131317.GA6267@linux.vnet.ibm.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40837
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756665Ab0CJOw0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 09:52:26 -0500
+In-Reply-To: <4B977EDB.5010202@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 10, 2010 at 05:13:18AM -0800, Paul E. McKenney wrote:
->
-> If CONFIG_PROVE_RCU is set, rcu_dereference() checks for rcu_read_lock()
-> and rcu_dereference_bh() checks for either rcu_read_lock_bh() or BH
-> being disabled.  Yes, this is a bit restrictive, but there are a few too
-> many to check by hand these days.
+From: Daniel Borkmann <danborkmann@googlemail.com>
+Date: Wed, 10 Mar 2010 12:13:31 +0100
 
-Fair enough.  We should get those fixed then.  In fact I reckon
-most of them should be using the BH variant so we might be able
-to kill a few rcu_read_lock's which would be a real gain.
+> Sorry for the late reply, I'm currently on holiday and have hardly
+> access to the Internet. I'll fix the problem as soon as possible.
+> 
+> You'll hear from me.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks.
