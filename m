@@ -1,65 +1,137 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 6/13] bridge: Add core IGMP snooping support
-Date: Wed, 10 Mar 2010 10:41:32 +0100
-Message-ID: <201003101041.32518.arnd@arndb.de>
-References: <20100228054012.GA7583@gondor.apana.org.au> <201003092212.59627.arnd@arndb.de> <20100310021410.GD6203@linux.vnet.ibm.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 1/2] hv: use network device stats
+Date: Tue, 9 Mar 2010 17:42:33 -0800
+Message-ID: <20100309174233.2d7522df@nehalam>
+References: <AD02C96F1FB40A4B896D24F974E9B9D42AA4787A@TK5EX14MBXC139.redmond.corp.microsoft.com>
+ <20100308154549.1c62a33b@nehalam>
+ <8AFC7968D54FB448A30D8F38F259C5621AF725A9@TK5EX14MBXC116.redmond.corp.microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: paulmck@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org
+To: Hank Janssen <hjanssen@microsoft.com>, Greg KH <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.9]:49299 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755391Ab0CJJmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Mar 2010 04:42:20 -0500
-In-Reply-To: <20100310021410.GD6203@linux.vnet.ibm.com>
+Received: from mail.vyatta.com ([76.74.103.46]:52839 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753551Ab0CJBmz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Mar 2010 20:42:55 -0500
+In-Reply-To: <8AFC7968D54FB448A30D8F38F259C5621AF725A9@TK5EX14MBXC116.redmond.corp.microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 10 March 2010 03:14:10 Paul E. McKenney wrote:
-> On Tue, Mar 09, 2010 at 10:12:59PM +0100, Arnd Bergmann wrote:
->
-> > I've just tried annotating net/ipv4/route.c like this and did not get
-> > very far, because the same pointers are used for rcu and rcu_bh.
-> > Could you check if this is a false positive or an actual finding?
-> 
-> Hmmm...  I am only seeing a call_rcu_bh() here, so unless I am missing
-> something, this is a real problem in TREE_PREEMPT_RCU kernels.  The
-> call_rcu_bh() only interacts with the rcu_read_lock_bh() readers, not
-> the rcu_read_lock() readers.
-> 
-> One approach is to run freed blocks through both types of grace periods,
-> I suppose.
+The network device structure has space already reserved for statistics.
 
-Well, if I introduce different __rcu and __rcu_bh address space annotations,
-sparse would still not like that, because then you can only pass the annotated
-pointers into either rcu_dereference or rcu_dereference_bh.
+Compile tested only.
 
-What the code seems to be doing here is in some places
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-	local_bh_disable();
-	...
-	rcu_read_lock();
-	rcu_dereference(rt_hash_table[h].chain);
-	rcu_read_unlock();
-	...
-	local_bh_enable();
+---
+ drivers/staging/hv/TODO         |    1 -
+ drivers/staging/hv/netvsc_drv.c |   31 +++++++++----------------------
+ 2 files changed, 9 insertions(+), 23 deletions(-)
 
-and in others
-
-	rcu_read_lock_bh();
-	rcu_dereference_bh(rt_hash_table[h].chain);
-	rcu_read_unlock_bh();
-
-When rt_hash_table[h].chain gets the __rcu_bh annotation, we'd have to
-turn first rcu_dereference into rcu_dereference_bh in order to have a clean
-build with sparse. Would that change be
-a) correct from RCU perspective,
-b) desirable for code inspection, and
-c) lockdep-clean?
-
-	Arnd
+--- a/drivers/staging/hv/TODO	2010-03-09 17:07:51.483312299 -0800
++++ b/drivers/staging/hv/TODO	2010-03-09 17:08:05.812720241 -0800
+@@ -9,7 +9,6 @@ TODO:
+ 	- see if the vmbus can be merged with the other virtual busses
+ 	  in the kernel
+ 	- audit the network driver
+-	  - use existing net_device_stats struct in network device
+ 	  - checking for carrier inside open is wrong, network device API
+             confusion??
+ 	- audit the block driver
+--- a/drivers/staging/hv/netvsc_drv.c	2010-03-09 17:04:48.453624589 -0800
++++ b/drivers/staging/hv/netvsc_drv.c	2010-03-09 17:25:21.196552131 -0800
+@@ -42,7 +42,6 @@
+ struct net_device_context {
+ 	/* point back to our device context */
+ 	struct vm_device *device_ctx;
+-	struct net_device_stats stats;
+ };
+ 
+ struct netvsc_driver_context {
+@@ -57,13 +56,6 @@ static int netvsc_ringbuffer_size = NETV
+ /* The one and only one */
+ static struct netvsc_driver_context g_netvsc_drv;
+ 
+-static struct net_device_stats *netvsc_get_stats(struct net_device *net)
+-{
+-	struct net_device_context *net_device_ctx = netdev_priv(net);
+-
+-	return &net_device_ctx->stats;
+-}
+-
+ static void netvsc_set_multicast_list(struct net_device *net)
+ {
+ }
+@@ -77,9 +69,6 @@ static int netvsc_open(struct net_device
+ 	DPRINT_ENTER(NETVSC_DRV);
+ 
+ 	if (netif_carrier_ok(net)) {
+-		memset(&net_device_ctx->stats, 0,
+-		       sizeof(struct net_device_stats));
+-
+ 		/* Open up the device */
+ 		ret = RndisFilterOnOpen(device_obj);
+ 		if (ret != 0) {
+@@ -223,8 +212,8 @@ retry_send:
+ 
+ 	if (ret == 0) {
+ 		ret = NETDEV_TX_OK;
+-		net_device_ctx->stats.tx_bytes += skb->len;
+-		net_device_ctx->stats.tx_packets++;
++		net->stats.tx_bytes += skb->len;
++		net->stats.tx_packets++;
+ 	} else {
+ 		retries++;
+ 		if (retries < 4) {
+@@ -240,7 +229,7 @@ retry_send:
+ 		DPRINT_INFO(NETVSC_DRV, "net device (%p) stopping", net);
+ 
+ 		ret = NETDEV_TX_BUSY;
+-		net_device_ctx->stats.tx_dropped++;
++		net->stats.tx_dropped++;
+ 
+ 		netif_stop_queue(net);
+ 
+@@ -258,8 +247,8 @@ retry_send:
+ 	}
+ 
+ 	DPRINT_DBG(NETVSC_DRV, "# of xmits %lu total size %lu",
+-		   net_device_ctx->stats.tx_packets,
+-		   net_device_ctx->stats.tx_bytes);
++		   net->stats.tx_packets,
++		   net->stats.tx_bytes);
+ 
+ 	DPRINT_EXIT(NETVSC_DRV);
+ 	return ret;
+@@ -358,17 +347,16 @@ static int netvsc_recv_callback(struct h
+ 
+ 	switch (ret) {
+ 	case NET_RX_DROP:
+-		net_device_ctx->stats.rx_dropped++;
++		net->stats.rx_dropped++;
+ 		break;
+ 	default:
+-		net_device_ctx->stats.rx_packets++;
+-		net_device_ctx->stats.rx_bytes += skb->len;
++		net->stats.rx_packets++;
++		net->stats.rx_bytes += skb->len;
+ 		break;
+ 
+ 	}
+ 	DPRINT_DBG(NETVSC_DRV, "# of recvs %lu total size %lu",
+-		   net_device_ctx->stats.rx_packets,
+-		   net_device_ctx->stats.rx_bytes);
++		   net->stats.rx_packets, net->stats.rx_bytes);
+ 
+ 	DPRINT_EXIT(NETVSC_DRV);
+ 
+@@ -379,7 +367,6 @@ static const struct net_device_ops devic
+ 	.ndo_open =			netvsc_open,
+ 	.ndo_stop =			netvsc_close,
+ 	.ndo_start_xmit =		netvsc_start_xmit,
+-	.ndo_get_stats =		netvsc_get_stats,
+ 	.ndo_set_multicast_list =	netvsc_set_multicast_list,
+ };
+ 
