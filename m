@@ -1,35 +1,44 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 0/7] tcp: bugs and cleanup for 2.6.34-rc1
-Date: Thu, 11 Mar 2010 10:14:11 -0800
-Message-ID: <1268331251.17462.51.camel@Joe-Laptop.home>
-References: <4B98D592.6040301@gmail.com>
-	 <1268319664.2986.535.camel@edumazet-laptop>  <4B992A89.6040700@gmail.com>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: [PATCH 15/37] drivers/mmc: use .dev.of_node instead of .node in
+	struct of_device
+Date: Thu, 11 Mar 2010 11:05:10 -0700
+Message-ID: <20100311180510.4824.40934.stgit__21774.3480265655$1268331347$gmane$org@angua>
+References: <20100311174830.4824.19820.stgit@angua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	=?ISO-8859-1?Q?Penttil=E4?= Mika <mika.penttila@ixonos.com>
-To: William Allen Simpson <william.allen.simpson@gmail.com>
+To: monstr@monstr.eu, gregkh@suse.de, benh@kernel.crashing.org,
+	akpm@linux-foundation.org, davem@davemloft.net,
+	sfr@canb.auug.org.au, jgarzik@pobox.com, ben-linux@fluff.org,
+	dwmw2@infrade
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1650 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933720Ab0CKSOU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Mar 2010 13:14:20 -0500
-In-Reply-To: <4B992A89.6040700@gmail.com>
+Received: from mail-pz0-f194.google.com ([209.85.222.194]:43634 "EHLO
+	mail-pz0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933659Ab0CKSFY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:05:24 -0500
+In-Reply-To: <20100311174830.4824.19820.stgit@angua>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-03-11 at 12:38 -0500, William Allen Simpson wrote:
-> > http://git2.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=28b2774a0d5852236dab77a4147b8b88548110f1
+.node is being removed
 
-In that patch, it might be  better to use
-	u16 s_data_desired = 0;
-not
-	int s_data_desired = 0;
+Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+---
 
+ drivers/mmc/host/sdhci-of-core.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/mmc/host/sdhci-of-core.c b/drivers/mmc/host/sdhci-of-core.c
+index 55e3313..dfe5cea 100644
+--- a/drivers/mmc/host/sdhci-of-core.c
++++ b/drivers/mmc/host/sdhci-of-core.c
+@@ -118,7 +118,7 @@ static bool __devinit sdhci_of_wp_inverted(struct device_node *np)
+ static int __devinit sdhci_of_probe(struct of_device *ofdev,
+ 				 const struct of_device_id *match)
+ {
+-	struct device_node *np = ofdev->node;
++	struct device_node *np = ofdev->dev.of_node;
+ 	struct sdhci_of_data *sdhci_of_data = match->data;
+ 	struct sdhci_host *host;
+ 	struct sdhci_of_host *of_host;
 
