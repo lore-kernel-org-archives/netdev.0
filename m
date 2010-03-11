@@ -1,8 +1,8 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH 10/37] drivers/video: use .dev.of_node instead of .node in
+Subject: [PATCH 06/37] arch/microblaze: use .dev.of_node instead of .node in
 	struct of_device
-Date: Thu, 11 Mar 2010 11:04:43 -0700
-Message-ID: <20100311180442.4824.14836.stgit__2409.21982699565$1268331525$gmane$org@angua>
+Date: Thu, 11 Mar 2010 11:04:21 -0700
+Message-ID: <20100311180420.4824.30530.stgit__29694.4255278961$1268331563$gmane$org@angua>
 References: <20100311174830.4824.19820.stgit@angua>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,10 +12,10 @@ To: monstr@monstr.eu, gregkh@suse.de, benh@kernel.crashing.org,
 	sfr@canb.auug.org.au, jgarzik@pobox.com, ben-linux@fluff.org,
 	dwmw2@infrade
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f194.google.com ([209.85.222.194]:34774 "EHLO
-	mail-pz0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933606Ab0CKSEu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:04:50 -0500
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:63703 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933551Ab0CKSE2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:04:28 -0500
 In-Reply-To: <20100311174830.4824.19820.stgit@angua>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,34 +25,64 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 ---
 
- drivers/video/cg6.c |    2 +-
- drivers/video/ffb.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ arch/microblaze/kernel/of_device.c   |    8 ++++----
+ arch/microblaze/kernel/of_platform.c |    4 ++--
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/video/cg6.c b/drivers/video/cg6.c
-index 0d47c60..978c15f 100644
---- a/drivers/video/cg6.c
-+++ b/drivers/video/cg6.c
-@@ -741,7 +741,7 @@ static void cg6_unmap_regs(struct of_device *op, struct fb_info *info,
- static int __devinit cg6_probe(struct of_device *op,
- 				const struct of_device_id *match)
+diff --git a/arch/microblaze/kernel/of_device.c b/arch/microblaze/kernel/of_device.c
+index 12371bd..ae165fc 100644
+--- a/arch/microblaze/kernel/of_device.c
++++ b/arch/microblaze/kernel/of_device.c
+@@ -12,7 +12,7 @@
+ void of_device_make_bus_id(struct of_device *dev)
  {
--	struct device_node *dp = op->node;
-+	struct device_node *dp = op->dev.of_node;
- 	struct fb_info *info;
- 	struct cg6_par *par;
- 	int linebytes, err;
-diff --git a/drivers/video/ffb.c b/drivers/video/ffb.c
-index 9dbb964..be0c982 100644
---- a/drivers/video/ffb.c
-+++ b/drivers/video/ffb.c
-@@ -897,7 +897,7 @@ static void ffb_init_fix(struct fb_info *info)
- static int __devinit ffb_probe(struct of_device *op,
- 			       const struct of_device_id *match)
+ 	static atomic_t bus_no_reg_magic;
+-	struct device_node *node = dev->node;
++	struct device_node *node = dev->dev.of_node;
+ 	const u32 *reg;
+ 	u64 addr;
+ 	int magic;
+@@ -76,17 +76,17 @@ int of_device_uevent(struct device *dev, struct kobj_uevent_env *env)
+ 
+ 	ofdev = to_of_device(dev);
+ 
+-	if (add_uevent_var(env, "OF_NAME=%s", ofdev->node->name))
++	if (add_uevent_var(env, "OF_NAME=%s", ofdev->dev.of_node->name))
+ 		return -ENOMEM;
+ 
+-	if (add_uevent_var(env, "OF_TYPE=%s", ofdev->node->type))
++	if (add_uevent_var(env, "OF_TYPE=%s", ofdev->dev.of_node->type))
+ 		return -ENOMEM;
+ 
+ 	/* Since the compatible field can contain pretty much anything
+ 	 * it's not really legal to split it out with commas. We split it
+ 	 * up using a number of environment variables instead. */
+ 
+-	compat = of_get_property(ofdev->node, "compatible", &cplen);
++	compat = of_get_property(ofdev->dev.of_node, "compatible", &cplen);
+ 	while (compat && *compat && cplen > 0) {
+ 		if (add_uevent_var(env, "OF_COMPATIBLE_%d=%s", seen, compat))
+ 			return -ENOMEM;
+diff --git a/arch/microblaze/kernel/of_platform.c b/arch/microblaze/kernel/of_platform.c
+index 1c6d684..ea7d024 100644
+--- a/arch/microblaze/kernel/of_platform.c
++++ b/arch/microblaze/kernel/of_platform.c
+@@ -167,7 +167,7 @@ EXPORT_SYMBOL(of_platform_bus_probe);
+ 
+ static int of_dev_node_match(struct device *dev, void *data)
  {
--	struct device_node *dp = op->node;
-+	struct device_node *dp = op->dev.of_node;
- 	struct ffb_fbc __iomem *fbc;
- 	struct ffb_dac __iomem *dac;
- 	struct fb_info *info;
+-	return to_of_device(dev)->node == data;
++	return to_of_device(dev)->dev.of_node == data;
+ }
+ 
+ struct of_device *of_find_device_by_node(struct device_node *np)
+@@ -185,7 +185,7 @@ EXPORT_SYMBOL(of_find_device_by_node);
+ static int of_dev_phandle_match(struct device *dev, void *data)
+ {
+ 	phandle *ph = data;
+-	return to_of_device(dev)->node->phandle == *ph;
++	return to_of_device(dev)->dev.of_node->phandle == *ph;
+ }
+ 
+ struct of_device *of_find_device_by_phandle(phandle ph)
 
