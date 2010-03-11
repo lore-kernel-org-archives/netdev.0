@@ -1,39 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/37] OF: move device node pointer into struct device.
-Date: Thu, 11 Mar 2010 10:27:40 -0800 (PST)
-Message-ID: <20100311.102740.219949159.davem@davemloft.net>
-References: <20100311.102043.40590962.davem@davemloft.net>
-	<20100311.102347.169562565.davem@davemloft.net>
-	<fa686aa41003111025n7f059995v9263f13fac1bd1ee@mail.gmail.com>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: [PATCH 18/27] drivers/parport/of: don't use deprecated field in
+	of_platform_driver
+Date: Thu, 11 Mar 2010 11:23:27 -0700
+Message-ID: <20100311182327.13103.91141.stgit__5019.04788329757$1268332136$gmane$org@angua>
+References: <20100311181604.13103.30088.stgit@angua>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: monstr@monstr.eu, gregkh@suse.de, benh@kernel.crashing.org,
-	akpm@linux-foundation.org, sfr@canb.auug.org.au, jgarzik@pobox.com,
-	ben-linux@fluff.org, dwmw2@infradead.org,
-	jeremy.kerr@canonical.com, James.Bottomley@suse.de,
-	broonie@opensource.wolfsonmicro.com,
-	microblaze-uclinux@itee.uq.edu.au, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, sparclinux@vger.kernel.org,
-	linux-ide@vger.kernel.org, netdev@vger.kernel.org,
-	linux-i2c@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	linux-scsi@vger.kernel.org, alsa-devel@alsa-project.org
-To: grant.likely@secretlab.ca
+To: monstr@monstr.eu, gregkh@suse.de, benh@kernel.crashing.org,
+	akpm@linux-foundation.org, davem@davemloft.net,
+	sfr@canb.auug.org.au, jgarzik@pobox.com, ben-linux@fluff.org,
+	dwmw2@infrade
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37384
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756404Ab0CKS1V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:27:21 -0500
-In-Reply-To: <fa686aa41003111025n7f059995v9263f13fac1bd1ee@mail.gmail.com>
+Received: from mail-pz0-f194.google.com ([209.85.222.194]:49500 "EHLO
+	mail-pz0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934193Ab0CKSXa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:23:30 -0500
+In-Reply-To: <20100311181604.13103.30088.stgit@angua>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Grant Likely <grant.likely@secretlab.ca>
-Date: Thu, 11 Mar 2010 11:25:46 -0700
+.name, .match_table and .owner are duplicated in both of_platform_driver
+and device_driver, so the of_platform_driver copies will be removed soon.
 
-> Oops, sorry David, I accidentally dropped the top patch.  Give me a
-> moment and I'll send it out.
+Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+---
 
-Sorry, now that you've just bombed us with 27 patches to
-the same area, I've totally lost interest in testing this
-work.
+ drivers/parport/parport_sunbpp.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/parport/parport_sunbpp.c b/drivers/parport/parport_sunbpp.c
+index 065f229..9a5b4b8 100644
+--- a/drivers/parport/parport_sunbpp.c
++++ b/drivers/parport/parport_sunbpp.c
+@@ -382,8 +382,11 @@ static const struct of_device_id bpp_match[] = {
+ MODULE_DEVICE_TABLE(of, bpp_match);
+ 
+ static struct of_platform_driver bpp_sbus_driver = {
+-	.name		= "bpp",
+-	.match_table	= bpp_match,
++	.driver = {
++		.name = "bpp",
++		.owner = THIS_MODULE,
++		.of_match_table = bpp_match,
++	},
+ 	.probe		= bpp_probe,
+ 	.remove		= __devexit_p(bpp_remove),
+ };
+
