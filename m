@@ -1,49 +1,35 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [net-next-2.6 PATCH] ixgbe: convert to use
- netdev_for_each_mc_addr
-Date: Thu, 11 Mar 2010 11:08:09 +0100
-Message-ID: <20100311100809.GB3054@psychotron.lab.eng.brq.redhat.com>
-References: <20100223190505.GA2673@psychotron.redhat.com>
- <9929d2391002240130p17bbc1acj74e3c8306a3f664@mail.gmail.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: ixgbevf: bug in error handling
+Date: Thu, 11 Mar 2010 13:33:29 +0300
+Message-ID: <20100311103329.GO6321@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Greg Rose <gregory.v.rose@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17466 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756548Ab0CKKIN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Mar 2010 05:08:13 -0500
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:50262 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755349Ab0CKKkz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 05:40:55 -0500
 Content-Disposition: inline
-In-Reply-To: <9929d2391002240130p17bbc1acj74e3c8306a3f664@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Feb 24, 2010 at 10:30:54AM CET, jeffrey.t.kirsher@intel.com wrote:
->On Tue, Feb 23, 2010 at 11:05, Jiri Pirko <jpirko@redhat.com> wrote:
->>
->> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->> ---
->> =A0drivers/net/ixgbe/ixgbe_common.c | =A0 16 +++++++---------
->> =A0drivers/net/ixgbe/ixgbe_common.h | =A0 =A05 ++---
->> =A0drivers/net/ixgbe/ixgbe_main.c =A0 | =A0 24 ++-------------------=
----
->> =A0drivers/net/ixgbe/ixgbe_type.h =A0 | =A0 =A03 +--
->> =A04 files changed, 12 insertions(+), 36 deletions(-)
->>
->
->Thanks Jiri, I have added the patch to my queue of ixgbe patches.
+Hi Greg,
 
-Hi Jeff,
+drivers/net/ixgbevf/ixgbevf_main.c +3013 ixgbevf_tx_map(96) warn: unsigned 'i' is never less than zero.
+  3010          while (count >= 0) {
+  3011                  count--;
+  3012                  i--;
+  3013                  if (i < 0)
+  3014                          i += tx_ring->count;
 
-when do you think this and ixgbevf bits will be merged into net-next-2.=
-6?
+	There is a problem here because i is unsigned and just wraps 
+	around instead of being less than 0.
 
-Thanks a lot.
+  3015                  tx_buffer_info = &tx_ring->tx_buffer_info[i];
+  3016                  ixgbevf_unmap_and_free_tx_resource(adapter, tx_buffer_info);
+  3017          }
 
-Jirka
->
->--=20
->Cheers,
->Jeff
+regards,
+dan carpenter
