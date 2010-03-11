@@ -1,83 +1,55 @@
 From: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
-Subject: Re: Network QoS support in applications
-Date: Thu, 11 Mar 2010 12:21:11 -0700
-Message-ID: <4B9942A7.40205@redfish-solutions.com>
-References: <877hr5nkx0.fsf@purkki.valot.fi>	<20100126.041610.226004766.davem@davemloft.net>	<87wrz5m3cd.fsf@purkki.valot.fi>	<20100126.050645.184040277.davem@davemloft.net> <87my01m0zm.fsf@purkki.valot.fi> <4B5EF5DF.2070005@lemonia.org>
+Subject: Re: [PATCH] ipv4: add DiffServ priority based routing
+Date: Thu, 11 Mar 2010 12:25:24 -0700
+Message-ID: <4B9943A4.8040606@redfish-solutions.com>
+References: <201001121432.43301.schmto@hrz.tu-chemnitz.de>	<20100112.121607.39835310.davem@davemloft.net>	<4B4CE2B8.1040702@redfish-solutions.com> <20100112.130355.144803575.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kalle.valo@iki.fi>, David Miller <davem@davemloft.net>,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: Dunc <dunc@lemonia.org>
+Cc: torsten.schmidt@s2006.tu-chemnitz.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:32886 "EHLO
+Received: from mail.redfish-solutions.com ([66.232.79.143]:32888 "EHLO
 	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756338Ab0CKTZa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 14:25:30 -0500
-In-Reply-To: <4B5EF5DF.2070005@lemonia.org>
+	by vger.kernel.org with ESMTP id S1756338Ab0CKTZb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 14:25:31 -0500
+In-Reply-To: <20100112.130355.144803575.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/26/2010 07:02 AM, Dunc wrote:
->   
->> And you are perfectly right, as always. My choise of using the word
->> "universal" was bad. With word "universal" I meant to use same network
->> QoS API with different network technologies: ethernet, wi-fi,
->> bluetooth etc.
+On 01/12/2010 02:03 PM, David Miller wrote:
+> From: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
+> Date: Tue, 12 Jan 2010 12:59:36 -0800
+> 
+>> What has changed is how network equipment is required to interpret
+>> the meaning of those bits.
 >>
->> But we don't need to solve everything in one go, instead we can make
->> small steps. The first step is to start pushing applications to
->> classify their streams. That's the enabler to get some sort of QoS
->> support, at least to inside kernel and to the next hop. With luck, in
->> future it might get more widely used.
->>
->> I was hoping to base the classification on some standard, but there
->> doesn't really seem to be one which would specify a complete solution.
->> But that's ok, we can always create a de facto standard :)
->>
->> I'm curious how other operation systems handle this? Or is it a
->> similar situation, nobody just doesn't use QoS for anything?
->>
->>     
-> If applications set the QoS values, the who's to stop someone (for
-> example) writing a bittorrent client that marks all packets for the
-> highest priority as if they were VoIP or something? At this point all
-> the good work done in the applications is useless and the network admin
-> is going to have to not trust the QoS values and then attempt to
-> classify traffic by themselves, so it was all a waste of time.
->
-> It's probably better to just always leave it up to the network devices IMHO.
->
-> Cheers,
->
-> Dunc
->
->   
+>> Even if we pass the bits "as is" to the network, if the network is
+>> applying entirely new semantics (and when I say "entirely new", I
+>> mean those mandated since 1998), then compatibility in the host
+>> kernel API doesn't matter a hoot since the packets will still be
+>> handled by every transited router according to the modern semantics.
+> 
+> People really don't assign global meaning to bits set by applications
+> in the TOS field.
+> 
+> What they do is they have a set of semantics inside of their cloud of
+> routers and switch points for diffserv, and when packets come in the
+> TOS field is rewritten to whatever scheme is being used inside of that
+> cloud.
+> 
+> And the diffserv bits only have meaning and effect within that cloud.
+> 
+> So really, having a syscall that sets the TOS bits exactly by
+> applications is just fine.
+> 
+> People are doing diffserv right now with Linux and have done so
+> for years.
 
-I disagree.
+Sorry about coming back to this weeks later... but I hadn't seen RFC 4594 previously.
 
-Some protocols are *very* hard to classify without looking into the
-application layer, which I have no interest in having network devices do
-(especially since in a multipath environment, they might not even see
-the entire flow).
+What if boxes (i.e. the OS) and applications can preconfigured to use RFC-4594 guidelines by default, and varying from that required the administrator to make specific changes?
 
-RTP, FTP-DATA, and TFTP are all very hard to classify because they don't
-use fixed port numbers.
-
-And even if you identify RTP, you still don't know if it's voice or
-video since that is signaled out-of-band.
-
-And yes, there will always be misbehaving users.  They are a fact of
-life.  That doesn't mean we should lobotomize the network.  We don't
-have an authentication mechanism on ICMP Redirects or Source-Quench, for
-instance.  Nor is ARP authenticated.
-
-BTW:  Why not have Linux do DSCP/CS to 802.1p priority mapping on
-Ethernet drivers "out-of-the-box", regardless of whatever 802.1p tagging
-is actually being used or not (i.e. make it implied on the sending
-end-system).
+I agree with the notion that certain values should be set side-wide (or at least system-wide) to prevent malicious users from exploiting QoS...  that's why I've been advocating for QoS settings to be specified in a system configuration file, and not a per-user configuration file.
 
 -Philip
-
-
