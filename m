@@ -1,44 +1,55 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH 08/37] drivers/watchdog: use .dev.of_node instead of .node in
-	struct of_device
-Date: Thu, 11 Mar 2010 11:04:32 -0700
-Message-ID: <20100311180431.4824.39881.stgit__21503.7264432342$1268331570$gmane$org@angua>
-References: <20100311174830.4824.19820.stgit@angua>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next-2.6 PATCH] ixgbe: convert to use
+ netdev_for_each_mc_addr
+Date: Thu, 11 Mar 2010 10:18:56 -0800
+Message-ID: <1268331536.3136.2.camel@localhost.localdomain>
+References: <20100223190505.GA2673@psychotron.redhat.com>
+	 <9929d2391002240130p17bbc1acj74e3c8306a3f664@mail.gmail.com>
+	 <20100311100809.GB3054@psychotron.lab.eng.brq.redhat.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: monstr@monstr.eu, gregkh@suse.de, benh@kernel.crashing.org,
-	akpm@linux-foundation.org, davem@davemloft.net,
-	sfr@canb.auug.org.au, jgarzik@pobox.com, ben-linux@fluff.org,
-	dwmw2@infrade
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:63703 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933585Ab0CKSEf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:04:35 -0500
-In-Reply-To: <20100311174830.4824.19820.stgit@angua>
+Received: from mga11.intel.com ([192.55.52.93]:12078 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934007Ab0CKSTI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Mar 2010 13:19:08 -0500
+In-Reply-To: <20100311100809.GB3054@psychotron.lab.eng.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-.node is being removed
+On Thu, 2010-03-11 at 03:08 -0700, Jiri Pirko wrote:
+> Wed, Feb 24, 2010 at 10:30:54AM CET, jeffrey.t.kirsher@intel.com wrote:
+> >On Tue, Feb 23, 2010 at 11:05, Jiri Pirko <jpirko@redhat.com> wrote:
+> >>
+> >> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> >> ---
+> >>  drivers/net/ixgbe/ixgbe_common.c |   16 +++++++---------
+> >>  drivers/net/ixgbe/ixgbe_common.h |    5 ++---
+> >>  drivers/net/ixgbe/ixgbe_main.c   |   24 ++----------------------
+> >>  drivers/net/ixgbe/ixgbe_type.h   |    3 +--
+> >>  4 files changed, 12 insertions(+), 36 deletions(-)
+> >>
+> >
+> >Thanks Jiri, I have added the patch to my queue of ixgbe patches.
+> 
+> Hi Jeff,
+> 
+> when do you think this and ixgbevf bits will be merged into net-next-2.6?
+> 
+> Thanks a lot.
+> 
+> Jirka
 
-Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
----
+I am waiting for when Dave opens up net-next-2.6 to push this and a
+couple other patches.  Usually net-next-2.6 opens up around -rc2 time
+frame.
 
- drivers/watchdog/cpwd.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/watchdog/cpwd.c b/drivers/watchdog/cpwd.c
-index 37ea052..89da14f 100644
---- a/drivers/watchdog/cpwd.c
-+++ b/drivers/watchdog/cpwd.c
-@@ -576,7 +576,7 @@ static int __devinit cpwd_probe(struct of_device *op,
- 	 * interrupt_mask register cannot be written, so no timer
- 	 * interrupts can be masked within the PLD.
- 	 */
--	str_prop = of_get_property(op->node, "model", NULL);
-+	str_prop = of_get_property(op->dev.of_node, "model", NULL);
- 	p->broken = (str_prop && !strcmp(str_prop, WD_BADMODEL));
- 
- 	if (!p->enabled)
+-- 
+Cheers,
+Jeff
 
