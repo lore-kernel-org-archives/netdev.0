@@ -1,65 +1,51 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH 27/27] of: remove obsolete members from of_platform_driver
-Date: Thu, 11 Mar 2010 11:24:17 -0700
-Message-ID: <20100311182416.13103.38891.stgit__9929.91215684942$1268331915$gmane$org@angua>
-References: <20100311181604.13103.30088.stgit@angua>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/37] OF: move device node pointer into
+	struct device.
+Date: Thu, 11 Mar 2010 10:23:47 -0800 (PST)
+Message-ID: <20100311.102347.169562565.davem@davemloft.net>
+References: <20100311174830.4824.19820.stgit@angua>
+	<20100311.102043.40590962.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: monstr@monstr.eu, gregkh@suse.de, benh@kernel.crashing.org,
-	akpm@linux-foundation.org, davem@davemloft.net,
-	sfr@canb.auug.org.au, jgarzik@pobox.com, ben-linux@fluff.org,
-	dwmw2@infrade
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:52515 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934271Ab0CKSYV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:24:21 -0500
-In-Reply-To: <20100311181604.13103.30088.stgit@angua>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, monstr@monstr.eu, broonie@opensource.wolfsonmicro.com,
+	linux-scsi@vger.kernel.org, linux-ide@vger.kernel.org,
+	benh@kernel.crashing.org, devicetree-discuss@lists.ozlabs.org,
+	gregkh@suse.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jeremy.kerr@canonical.com,
+	linuxppc-dev@ozlabs.org, James.Bottomley@suse.de,
+	linux-i2c@vger.kernel.org, ben-linux@fluff.org,
+	microblaze-uclinux@itee.uq.edu.au, sparclinux@vger.kernel.org,
+	akpm@linux-foundation.org, alsa-devel@alsa-project.org,
+	jgarzik@pobox.com, dwmw2@infradead.org
+To: grant.likely@secretlab.ca
+Return-path: <alsa-devel-bounces@alsa-project.org>
+In-Reply-To: <20100311.102043.40590962.davem@davemloft.net>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+	<mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+	<mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Sender: alsa-devel-bounces@alsa-project.org
+Errors-To: alsa-devel-bounces@alsa-project.org
+List-Id: netdev.vger.kernel.org
 
-.name, .match_table and .owner already exist in struct device_driver.
-Remove the duplication from struct of_platform_driver.
+From: David Miller <davem@davemloft.net>
+Date: Thu, 11 Mar 2010 10:20:43 -0800 (PST)
 
-Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
----
+> Three or four of the patches don't apply because only your tree
+> has those "/* temporary */" comments, f.e. in arch/sparc/kernel/pci.c
+> 
+> I took care of this when applying to my tree.
 
- drivers/of/platform.c       |    7 -------
- include/linux/of_platform.h |    4 ----
- 2 files changed, 0 insertions(+), 11 deletions(-)
+It also doesn't build, what the heck is this against
+Grant?
 
-diff --git a/drivers/of/platform.c b/drivers/of/platform.c
-index 9fd7f7d..ba402c6 100644
---- a/drivers/of/platform.c
-+++ b/drivers/of/platform.c
-@@ -385,13 +385,6 @@ int of_bus_type_init(struct bus_type *bus, const char *name)
- 
- int of_register_driver(struct of_platform_driver *drv, struct bus_type *bus)
- {
--	/* initialize common driver fields */
--	if (!drv->driver.name)
--		drv->driver.name = drv->name;
--	if (!drv->driver.owner)
--		drv->driver.owner = drv->owner;
--	if (!drv->driver.of_match_table)
--		drv->driver.of_match_table = drv->match_table;
- 	drv->driver.bus = bus;
- 
- 	/* register with core */
-diff --git a/include/linux/of_platform.h b/include/linux/of_platform.h
-index ac3ae07..1643d37 100644
---- a/include/linux/of_platform.h
-+++ b/include/linux/of_platform.h
-@@ -31,10 +31,6 @@ extern struct bus_type of_platform_bus_type;
-  */
- struct of_platform_driver
- {
--	const char		*name;
--	const struct of_device_id	*match_table;
--	struct module		*owner;
--
- 	int	(*probe)(struct of_device* dev,
- 			 const struct of_device_id *match);
- 	int	(*remove)(struct of_device* dev);
+drivers/of/device.c: In function 'of_match_device':
+drivers/of/device.c:24: error: 'const struct device' has no member named 'of_node'
+drivers/of/device.c:26: error: 'const struct device' has no member named 'of_node'
 
+Please make a patch set against Linus's vanilla tree so
+I and others can test this.
