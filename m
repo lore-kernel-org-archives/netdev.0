@@ -1,46 +1,69 @@
-From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: [PATCH net-2.6] be2net: fix mccq create for big endian
- architectures
-Date: Thu, 11 Mar 2010 17:05:59 +0530
-Message-ID: <20100311113548.GA12029@serverengines.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: [PATCH v3 1/7] net: tcp_header_len_th and tcp_option_len_th
+Date: Thu, 11 Mar 2010 06:41:17 -0500
+Message-ID: <4B98D6DD.2010309@gmail.com>
+References: <4B98D592.6040301@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:56829 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757553Ab0CKLgG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 06:36:06 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------030603020305080906020502"
+Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4B98D592.6040301@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The request to create an mccq was being dispatched without
-doing a byte swap of num_pages. This byte swap is necessary
-for Big Endian systems like PPC. Not having this fix leads
-mccq create to fail on BE ASICs running newer version of
-firmware, thereby causing driver initialization failure.
+This is a multi-part message in MIME format.
+--------------030603020305080906020502
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+Redefine two TCP header functions to accept TCP header pointer.
+When subtracting, return signed int to allow error checking.
+
+These functions will be used in subsequent patches that implement
+additional features.
+
+Signed-off-by: William.Allen.Simpson@gmail.com
 ---
- drivers/net/benet/be_cmds.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+  include/linux/tcp.h |   12 ++++++++++++
+  1 files changed, 12 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index c592153..50e6259 100644
---- a/drivers/net/benet/be_cmds.c
-+++ b/drivers/net/benet/be_cmds.c
-@@ -673,7 +673,7 @@ int be_cmd_mccq_create(struct be_adapter *adapter,
- 	be_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
- 			OPCODE_COMMON_MCC_CREATE, sizeof(*req));
+--------------030603020305080906020502
+Content-Type: text/plain; x-mac-type="54455854"; x-mac-creator="0";
+ name="len_th+2a3+2.6.34-rc1.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="len_th+2a3+2.6.34-rc1.patch"
+
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index a778ee0..48ddeb8 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -225,6 +225,18 @@ static inline unsigned int tcp_optlen(const struct sk_buff *skb)
+ 	return (tcp_hdr(skb)->doff - 5) * 4;
+ }
  
--	req->num_pages = PAGES_4K_SPANNED(q_mem->va, q_mem->size);
-+	req->num_pages = cpu_to_le16(PAGES_4K_SPANNED(q_mem->va, q_mem->size));
- 
- 	AMAP_SET_BITS(struct amap_mcc_context, valid, ctxt, 1);
- 	AMAP_SET_BITS(struct amap_mcc_context, ring_size, ctxt,
++/* Length of fixed header plus standard options. */
++static inline unsigned int tcp_header_len_th(const struct tcphdr *th)
++{
++	return th->doff * 4;
++}
++
++/* Length of standard options only.  This could be negative. */
++static inline int tcp_option_len_th(const struct tcphdr *th)
++{
++	return (int)(th->doff * 4) - sizeof(*th);
++}
++
+ /* This defines a selective acknowledgement block. */
+ struct tcp_sack_block_wire {
+ 	__be32	start_seq;
 -- 
 1.6.3.3
 
+
+--------------030603020305080906020502--
