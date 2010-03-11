@@ -1,9 +1,9 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH 01/37] i2c/of: Allow device node to be passed via
-	i2c_board_info
-Date: Thu, 11 Mar 2010 11:03:52 -0700
-Message-ID: <20100311180352.4824.75457.stgit__24487.8881182105$1268332975$gmane$org@angua>
-References: <20100311174830.4824.19820.stgit@angua>
+Subject: [PATCH 06/27] drivers/block/of: don't use deprecated field in
+	of_platform_driver
+Date: Thu, 11 Mar 2010 11:22:21 -0700
+Message-ID: <20100311182220.13103.76284.stgit__38820.750572677$1268332983$gmane$org@angua>
+References: <20100311181604.13103.30088.stgit@angua>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -12,83 +12,79 @@ To: monstr@monstr.eu, gregkh@suse.de, benh@kernel.crashing.org,
 	sfr@canb.auug.org.au, jgarzik@pobox.com, ben-linux@fluff.org,
 	dwmw2@infrade
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f194.google.com ([209.85.222.194]:34774 "EHLO
-	mail-pz0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933509Ab0CKSD7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:03:59 -0500
-In-Reply-To: <20100311174830.4824.19820.stgit@angua>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:52515 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934085Ab0CKSWd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:22:33 -0500
+In-Reply-To: <20100311181604.13103.30088.stgit@angua>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The struct device_node *of_node pointer is moving out of dev->archdata
-and into the struct device proper.  of_i2c.c needs to set the of_node
-pointer before the device is registered.  Since the i2c subsystem
-doesn't allow 2 stage allocation and registration of i2c devices, the
-of_node pointer needs to be passed via the i2c_board_info structure
-so that it is set prior to registration.
-
-This patch adds of_node to struct i2c_board_info (conditional on
-CONFIG_OF), sets of_node in i2c_new_device(), and modifies of_i2c.c
-to use the new parameter.  The calling of dev_archdata_set_node()
-from of_i2c will be removed in a subsequent patch when of_node is
-removed from archdata and all users are converted over.
+.name, .match_table and .owner are duplicated in both of_platform_driver
+and device_driver, so the of_platform_driver copies will be removed soon.
 
 Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 ---
 
- drivers/i2c/i2c-core.c |    3 +++
- drivers/of/of_i2c.c    |    3 ++-
- include/linux/i2c.h    |    4 ++++
- 3 files changed, 9 insertions(+), 1 deletions(-)
+ drivers/ata/pata_of_platform.c |    7 +++++--
+ drivers/ata/sata_fsl.c         |    7 +++++--
+ drivers/block/xsysace.c        |    5 ++---
+ 3 files changed, 12 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/i2c/i2c-core.c b/drivers/i2c/i2c-core.c
-index 3202a86..4099b2b 100644
---- a/drivers/i2c/i2c-core.c
-+++ b/drivers/i2c/i2c-core.c
-@@ -387,6 +387,9 @@ i2c_new_device(struct i2c_adapter *adap, struct i2c_board_info const *info)
- 	client->dev.parent = &client->adapter->dev;
- 	client->dev.bus = &i2c_bus_type;
- 	client->dev.type = &i2c_client_type;
-+#ifdef CONFIG_OF
-+	client->dev.of_node = info->of_node;
-+#endif
+diff --git a/drivers/ata/pata_of_platform.c b/drivers/ata/pata_of_platform.c
+index 19da29f..5a1b82c 100644
+--- a/drivers/ata/pata_of_platform.c
++++ b/drivers/ata/pata_of_platform.c
+@@ -91,8 +91,11 @@ static struct of_device_id pata_of_platform_match[] = {
+ MODULE_DEVICE_TABLE(of, pata_of_platform_match);
  
- 	dev_set_name(&client->dev, "%d-%04x", i2c_adapter_id(adap),
- 		     client->addr);
-diff --git a/drivers/of/of_i2c.c b/drivers/of/of_i2c.c
-index a3a708e..605bc42 100644
---- a/drivers/of/of_i2c.c
-+++ b/drivers/of/of_i2c.c
-@@ -42,7 +42,8 @@ void of_register_i2c_devices(struct i2c_adapter *adap,
+ static struct of_platform_driver pata_of_platform_driver = {
+-	.name		= "pata_of_platform",
+-	.match_table	= pata_of_platform_match,
++	.driver = {
++		.name = "pata_of_platform",
++		.owner = THIS_MODULE,
++		.of_match_table = pata_of_platform_match,
++	},
+ 	.probe		= pata_of_platform_probe,
+ 	.remove		= __devexit_p(pata_of_platform_remove),
+ };
+diff --git a/drivers/ata/sata_fsl.c b/drivers/ata/sata_fsl.c
+index ce4136e..463fb9c 100644
+--- a/drivers/ata/sata_fsl.c
++++ b/drivers/ata/sata_fsl.c
+@@ -1426,8 +1426,11 @@ static struct of_device_id fsl_sata_match[] = {
+ MODULE_DEVICE_TABLE(of, fsl_sata_match);
  
- 		info.addr = be32_to_cpup(addr);
+ static struct of_platform_driver fsl_sata_driver = {
+-	.name		= "fsl-sata",
+-	.match_table	= fsl_sata_match,
++	.driver = {
++		.name = "fsl-sata",
++		.owner = THIS_MODULE,
++		.of_match_table = fsl_sata_match,
++	},
+ 	.probe		= sata_fsl_probe,
+ 	.remove		= sata_fsl_remove,
+ #ifdef CONFIG_PM
+diff --git a/drivers/block/xsysace.c b/drivers/block/xsysace.c
+index e1c95e2..cffcd71 100644
+--- a/drivers/block/xsysace.c
++++ b/drivers/block/xsysace.c
+@@ -1237,13 +1237,12 @@ static const struct of_device_id ace_of_match[] __devinitconst = {
+ MODULE_DEVICE_TABLE(of, ace_of_match);
  
--		dev_archdata_set_node(&dev_ad, node);
-+		dev_archdata_set_node(&dev_ad, node); /* temporary */
-+		info.of_node = node;
- 		info.archdata = &dev_ad;
- 
- 		request_module("%s", info.type);
-diff --git a/include/linux/i2c.h b/include/linux/i2c.h
-index 0a5da63..4f37ff1 100644
---- a/include/linux/i2c.h
-+++ b/include/linux/i2c.h
-@@ -34,6 +34,7 @@
- #include <linux/device.h>	/* for struct device */
- #include <linux/sched.h>	/* for completion */
- #include <linux/mutex.h>
-+#include <linux/of.h>		/* for struct device_node */
- 
- extern struct bus_type i2c_bus_type;
- 
-@@ -251,6 +252,9 @@ struct i2c_board_info {
- 	unsigned short	addr;
- 	void		*platform_data;
- 	struct dev_archdata	*archdata;
-+#ifdef CONFIG_OF
-+	struct device_node *of_node;
-+#endif
- 	int		irq;
+ static struct of_platform_driver ace_of_driver = {
+-	.owner = THIS_MODULE,
+-	.name = "xsysace",
+-	.match_table = ace_of_match,
+ 	.probe = ace_of_probe,
+ 	.remove = __devexit_p(ace_of_remove),
+ 	.driver = {
+ 		.name = "xsysace",
++		.owner = THIS_MODULE,
++		.of_match_table = ace_of_match,
+ 	},
  };
  
 
