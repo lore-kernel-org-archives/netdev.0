@@ -1,48 +1,97 @@
-From: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
-Subject: Re: [PATCH] ipv4: add DiffServ priority based routing
-Date: Thu, 11 Mar 2010 12:32:56 -0700
-Message-ID: <4B994568.4010003@redfish-solutions.com>
-References: <4B4CE2B8.1040702@redfish-solutions.com>	<20100112.130355.144803575.davem@davemloft.net>	<4B9943A4.8040606@redfish-solutions.com> <20100311.112941.177105216.davem@davemloft.net>
+From: Andreas Henriksson <andreas@fatal.se>
+Subject: [PATCH] iproute2: detect iptables modules dir in configure.
+Date: Thu, 11 Mar 2010 20:07:40 +0100
+Message-ID: <20100311190740.GA28425@amd64.fatal.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: torsten.schmidt@s2006.tu-chemnitz.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:35272 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754729Ab0CKTdA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 14:33:00 -0500
-In-Reply-To: <20100311.112941.177105216.davem@davemloft.net>
+Received: from smtprelay-h12.telenor.se ([62.127.194.5]:54633 "EHLO
+	smtprelay-h12.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756737Ab0CKTdg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 14:33:36 -0500
+Received: from ipb2.telenor.se (ipb2.telenor.se [195.54.127.165])
+	by smtprelay-h12.telenor.se (Postfix) with ESMTP id 0F12DDF9B
+	for <netdev@vger.kernel.org>; Thu, 11 Mar 2010 20:08:33 +0100 (CET)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/11/2010 12:29 PM, David Miller wrote:
-> From: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
-> Date: Thu, 11 Mar 2010 12:25:24 -0700
-> 
->> I agree with the notion that certain values should be set side-wide
->> (or at least system-wide) to prevent malicious users from exploiting
->> QoS...  that's why I've been advocating for QoS settings to be
->> specified in a system configuration file, and not a per-user
->> configuration file.
-> 
-> So I can set whatever I want on my personal workation.
-> 
-> I'm sure sysadmins will be happy about that.
-> 
-> Look, this doesn't work.  QoS handling and policy belongs in the
-> egress point to the network, it's the only way to control this
-> properly and prevent abuse.
+Try to automatically detect iptables modules directory.
 
+Make the configure script look for iptables modules.
+This also makes it possible to specify it on the
+command line while building via "make IPT_LIB_DIR=/foo/bar".
 
-Well, anyone who has 'root' on their workstation can already do a fair amount of damage on a network... we're not letting any new genies out of the bottle... we're just giving them more room to stretch.
+Signed-off-by: Andreas Henriksson <andreas@fatal.se>
 
-"QoS handling and policy belongs in the egress point to the network, it's the only way to control this properly and prevent abuse."
+---
 
-Except that it doesn't.  As I pointed out in another email, TFTP, FTP-Data, and RTP are very hard to categorize correctly.
+Possibly the ifndef check in include/iptables.h
+should be turned into an #error to force the person
+building to manually specify it instead of just silently
+using a probably incorrect path.
 
-For that matter, so is SSH, since it can be an interactive shell session, an SCP file transfer, or a mix of various tunneled protocols like X and LPR.
-
-So by the time packets get to the egress point, oftentimes you've lost sufficient information to adequately categorize them.
-
+diff --git a/configure b/configure
+index 92a0b48..600fa96 100755
+--- a/configure
++++ b/configure
+@@ -3,6 +3,8 @@
+ #
+ INCLUDE=${1:-"$PWD/include"}
+ 
++TABLES=
++
+ check_atm()
+ {
+ cat >/tmp/atmtest.c <<EOF
+@@ -139,9 +141,28 @@ check_ipt()
+ 	if ! grep TC_CONFIG_XT Config > /dev/null
+ 	then
+ 		echo "using iptables"
++		TABLES="iptables"
++	else
++		TABLES="xtables"
+ 	fi
+ }
+ 
++check_ipt_lib_dir()
++{
++	IPT_LIB_DIR=""
++	for dir in /lib /usr/lib /usr/local/lib
++	do
++		for file in $dir/$TABLES/lib*t_*so ; do
++			if [ -f $file ]; then
++				echo $dir/$TABLES
++				echo "IPT_LIB_DIR:=$dir/$TABLES" >> Config
++				return
++			fi
++		done
++	done
++	echo "not found!"
++}
++
+ echo "# Generated config based on" $INCLUDE >Config
+ 
+ echo "TC schedulers"
+@@ -155,3 +176,5 @@ check_xt_old
+ check_xt_old_internal_h
+ check_ipt
+ 
++echo -n "iptables modules directory: "
++check_ipt_lib_dir
+diff --git a/tc/Makefile b/tc/Makefile
+index 0b5d7d3..6508ef3 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -77,6 +77,9 @@ TCLIB += tc_estimator.o
+ TCLIB += tc_stab.o
+ 
+ CFLAGS += -DCONFIG_GACT -DCONFIG_GACT_PROB
++ifneq ($(IPT_LIB_DIR),)
++	CFLAGS += -DIPT_LIB_DIR="$(IPT_LIB_DIR)"
++endif
+ 
+ TCSO :=
+ ifeq ($(TC_CONFIG_ATM),y)
