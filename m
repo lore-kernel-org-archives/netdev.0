@@ -1,35 +1,38 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 3/3] net: core: add IFLA_STATS64 support
-Date: Thu, 11 Mar 2010 12:12:39 -0800
-Message-ID: <20100311121239.14944fd5@nehalam>
-References: <1268337450-6749-1-git-send-email-jengelh@medozas.de>
-	<1268337450-6749-4-git-send-email-jengelh@medozas.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: [PATCH] ip: correctly report tunnel link type
+Date: Thu, 11 Mar 2010 21:22:31 +0100
+Message-ID: <1268338952-6832-1-git-send-email-jengelh@medozas.de>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
+To: stephen.hemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50941 "EHLO mail.vyatta.com"
+Received: from borg.medozas.de ([188.40.89.202]:39176 "EHLO borg.medozas.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754606Ab0CKUUY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Mar 2010 15:20:24 -0500
-In-Reply-To: <1268337450-6749-4-git-send-email-jengelh@medozas.de>
+	id S1754606Ab0CKUWe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Mar 2010 15:22:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 11 Mar 2010 20:57:29 +0100
-Jan Engelhardt <jengelh@medozas.de> wrote:
+Up until now, "tun" tunnels were displayed as link/[65534].
 
-> `ip -s link` shows interface counters truncated to 32 bit. This is
-> because interface statistics are transported only in 32-bit quantity
-> to userspace. This commit adds a new IFLA_STATS64 attribute that
-> exports them in full 64 bit.
-> 
-> References: http://lkml.indiana.edu/hypermail/linux/kernel/0307.3/0215.html
-> Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
-> 
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+---
+ lib/ll_types.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-What is the point since net_device_stats has only 32 bit counters.
-The last time this came up the issue was is that is not possible
-to atomically increment a 64 bit counter on most 32 bit platforms.
+diff --git a/lib/ll_types.c b/lib/ll_types.c
+index 9d75bd2..846cdb0 100644
+--- a/lib/ll_types.c
++++ b/lib/ll_types.c
+@@ -125,6 +125,9 @@ __PF(IEEE80211_PRISM,ieee802.11/prism)
+ #ifdef ARPHRD_IEEE80211_RADIOTAP
+ __PF(IEEE80211_RADIOTAP,ieee802.11/radiotap)
+ #endif
++#ifdef ARPHRD_NONE
++__PF(NONE, none)
++#endif
+ #ifdef ARPHRD_VOID
+ __PF(VOID,void)
+ #endif
+-- 
+1.7.0
+
