@@ -1,8 +1,8 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH 09/37] drivers/atm: use .dev.of_node instead of .node in
-	struct of_device
-Date: Thu, 11 Mar 2010 11:04:37 -0700
-Message-ID: <20100311180437.4824.86345.stgit__9057.57547957382$1268330808$gmane$org@angua>
+Subject: [PATCH 36/37] arch/microblaze: Remove .archdata.of_node and use
+	.of_node in struct device
+Date: Thu, 11 Mar 2010 11:07:06 -0700
+Message-ID: <20100311180706.4824.39674.stgit__40272.2408799038$1268330903$gmane$org@angua>
 References: <20100311174830.4824.19820.stgit@angua>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,71 +12,78 @@ To: monstr@monstr.eu, gregkh@suse.de, benh@kernel.crashing.org,
 	sfr@canb.auug.org.au, jgarzik@pobox.com, ben-linux@fluff.org,
 	dwmw2@infrade
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:63703 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933595Ab0CKSEt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:04:49 -0500
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:44941 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933847Ab0CKSHU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:07:20 -0500
 In-Reply-To: <20100311174830.4824.19820.stgit@angua>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-.node is being removed
+.archdata.of_node is being removed from Microblaze, SPARC and PowerPC
+because it duplicates the struct device .of_node pointer.  This patch
+also removes .node from struct of_device for the same reason.
 
 Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 ---
 
- drivers/atm/fore200e.c |   16 +++++++++-------
- 1 files changed, 9 insertions(+), 7 deletions(-)
+ arch/microblaze/include/asm/device.h    |    8 --------
+ arch/microblaze/include/asm/of_device.h |    1 -
+ arch/microblaze/kernel/of_device.c      |    4 +---
+ 3 files changed, 1 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
-index f7d6eba..593a03a 100644
---- a/drivers/atm/fore200e.c
-+++ b/drivers/atm/fore200e.c
-@@ -789,7 +789,7 @@ static int __init fore200e_sba_map(struct fore200e *fore200e)
- 	fore200e->bus->write(0x02, fore200e->regs.sba.isr); /* XXX hardwired interrupt level */
+diff --git a/arch/microblaze/include/asm/device.h b/arch/microblaze/include/asm/device.h
+index 2370888..8d46822 100644
+--- a/arch/microblaze/include/asm/device.h
++++ b/arch/microblaze/include/asm/device.h
+@@ -12,19 +12,11 @@
+ struct device_node;
  
- 	/* get the supported DVMA burst sizes */
--	bursts = of_getintprop_default(op->node->parent, "burst-sizes", 0x00);
-+	bursts = of_getintprop_default(op->dev.of_node->parent, "burst-sizes", 0x00);
+ struct dev_archdata {
+-	/* Optional pointer to an OF device node */
+-	struct device_node	*of_node;
+ };
  
- 	if (sbus_can_dma_64bit())
- 		sbus_set_sbus64(&op->dev, bursts);
-@@ -820,18 +820,20 @@ static int __init fore200e_sba_prom_read(struct fore200e *fore200e, struct prom_
- 	const u8 *prop;
- 	int len;
+ struct pdev_archdata {
+ };
  
--	prop = of_get_property(op->node, "madaddrlo2", &len);
-+	prop = of_get_property(op->dev.of_node, "madaddrlo2", &len);
- 	if (!prop)
- 		return -ENODEV;
- 	memcpy(&prom->mac_addr[4], prop, 4);
+-static inline void dev_archdata_set_node(struct dev_archdata *ad,
+-					 struct device_node *np)
+-{
+-	ad->of_node = np;
+-}
+-
+ #endif /* _ASM_MICROBLAZE_DEVICE_H */
  
--	prop = of_get_property(op->node, "madaddrhi4", &len);
-+	prop = of_get_property(op->dev.of_node, "madaddrhi4", &len);
- 	if (!prop)
- 		return -ENODEV;
- 	memcpy(&prom->mac_addr[2], prop, 4);
  
--	prom->serial_number = of_getintprop_default(op->node, "serialnumber", 0);
--	prom->hw_revision = of_getintprop_default(op->node, "promversion", 0);
-+	prom->serial_number = of_getintprop_default(op->dev.of_node,
-+						    "serialnumber", 0);
-+	prom->hw_revision = of_getintprop_default(op->dev.of_node,
-+						  "promversion", 0);
-     
- 	return 0;
- }
-@@ -841,10 +843,10 @@ static int fore200e_sba_proc_read(struct fore200e *fore200e, char *page)
- 	struct of_device *op = fore200e->bus_dev;
- 	const struct linux_prom_registers *regs;
+diff --git a/arch/microblaze/include/asm/of_device.h b/arch/microblaze/include/asm/of_device.h
+index ba917cf..ab25a40 100644
+--- a/arch/microblaze/include/asm/of_device.h
++++ b/arch/microblaze/include/asm/of_device.h
+@@ -21,7 +21,6 @@
+  * probed using OF properties.
+  */
+ struct of_device {
+-	struct device_node	*node; /* to be obsoleted */
+ 	u64			dma_mask; /* DMA mask */
+ 	struct device		dev; /* Generic device interface */
+ };
+diff --git a/arch/microblaze/kernel/of_device.c b/arch/microblaze/kernel/of_device.c
+index ae165fc..ac7e6e1 100644
+--- a/arch/microblaze/kernel/of_device.c
++++ b/arch/microblaze/kernel/of_device.c
+@@ -49,12 +49,10 @@ struct of_device *of_device_alloc(struct device_node *np,
+ 	if (!dev)
+ 		return NULL;
  
--	regs = of_get_property(op->node, "reg", NULL);
-+	regs = of_get_property(op->dev.of_node, "reg", NULL);
+-	dev->node = of_node_get(np);
++	dev->dev.of_node = of_node_get(np);
+ 	dev->dev.dma_mask = &dev->dma_mask;
+ 	dev->dev.parent = parent;
+ 	dev->dev.release = of_release_dev;
+-	dev->dev.archdata.of_node = np; /* temporary; remove after merging */
+-	dev->dev.of_node = np;
  
- 	return sprintf(page, "   SBUS slot/device:\t\t%d/'%s'\n",
--		       (regs ? regs->which_io : 0), op->node->name);
-+		       (regs ? regs->which_io : 0), op->dev.of_node->name);
- }
- #endif /* CONFIG_SBUS */
- 
+ 	if (bus_id)
+ 		dev_set_name(&dev->dev, bus_id);
 
