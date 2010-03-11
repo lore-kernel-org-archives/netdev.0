@@ -1,151 +1,83 @@
-From: Stewart Malik <mali0037@gmail.com>
-Subject: [PATCH] DRIVER: Libertas: Fixed coding style in rx.c
-Date: Thu, 11 Mar 2010 20:28:29 +1030
-Message-ID: <1268301509-9247-1-git-send-email-mali0037@gmail.com>
-Cc: libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Stewart Malik <mali0037@gmail.com>
-To: dcbw@redhat.com
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [Bonding-devel] [net-next-2.6 PATCH 2/3] bonding: check return
+ value of nofitier when changing type
+Date: Thu, 11 Mar 2010 10:53:30 +0100
+Message-ID: <20100311095329.GA3054@psychotron.lab.eng.brq.redhat.com>
+References: <20100310202804.GC2834@psychotron.redhat.com>
+ <20100310202935.GE2834@psychotron.redhat.com>
+ <20100310144710.605ef033@nehalam>
+ <20100311075908.GA2785@psychotron.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net, davem@davemloft.net
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:60285 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756564Ab0CKJ6s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 04:58:48 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:16044 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755101Ab0CKJx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Mar 2010 04:53:56 -0500
+Content-Disposition: inline
+In-Reply-To: <20100311075908.GA2785@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
----
- drivers/net/wireless/libertas/rx.c |   50 ++++++++++++++++++------------------
- 1 files changed, 25 insertions(+), 25 deletions(-)
+Thu, Mar 11, 2010 at 08:59:09AM CET, jpirko@redhat.com wrote:
+>Wed, Mar 10, 2010 at 11:47:10PM CET, shemminger@linux-foundation.org wrote:
+>>On Wed, 10 Mar 2010 21:29:35 +0100
+>>Jiri Pirko <jpirko@redhat.com> wrote:
+>>
+>>> diff --git a/net/core/dev.c b/net/core/dev.c
+>>> index bcc490c..5de4a15 100644
+>>> --- a/net/core/dev.c
+>>> +++ b/net/core/dev.c
+>>> @@ -1084,9 +1084,9 @@ void netdev_state_change(struct net_device *dev)
+>>>  }
+>>>  EXPORT_SYMBOL(netdev_state_change);
+>>>  
+>>> -void netdev_bonding_change(struct net_device *dev, unsigned long event)
+>>> +int netdev_bonding_change(struct net_device *dev, unsigned long event)
+>>>  {
+>>> -	call_netdevice_notifiers(event, dev);
+>>> +	return call_netdevice_notifiers(event, dev);
+>>>  }
+>>>  EXPORT_SYMBOL(netdev_bonding_change);
+>>>  
+>>
+>>I don't think all this pre-post stuff needed.
+>>Since this is general (not just bonding) how about
+>
+>Well actually I reused NETDEV_BONDING_OLDTYPE. This and NETDEV_BONDING_NEWTYPE
+>is used in inetdev_event() and addrconf_notify(). These functions apparently
+>need to be notified before and after the change.
+>
+>>
+>>int netdev_change_type(struct net_device *dev, int newtype)
+>>{
+>>	int ret, oldtype;
+>>
+>>	if (dev->flags & IFF_UP)
+>>		return -EBUSY;
+>>
+>>	oldtype = dev->type;
+>>	dev->type = newtype;
 
-diff --git a/drivers/net/wireless/libertas/rx.c b/drivers/net/wireless/libertas/rx.c
-index 2daf8ff..7a867e3 100644
---- a/drivers/net/wireless/libertas/rx.c
-+++ b/drivers/net/wireless/libertas/rx.c
-@@ -38,10 +38,10 @@ static int process_rxed_802_11_packet(struct lbs_private *priv,
- 	struct sk_buff *skb);
- 
- /**
-- *  @brief This function computes the avgSNR .
-+ *  @brief	This function computes the avgSNR .
-  *
-- *  @param priv    A pointer to struct lbs_private structure
-- *  @return 	   avgSNR
-+ *  @param	priv	A pointer to struct lbs_private structure
-+ *  @return	avgSNR
-  */
- static u8 lbs_getavgsnr(struct lbs_private *priv)
- {
-@@ -56,10 +56,10 @@ static u8 lbs_getavgsnr(struct lbs_private *priv)
- }
- 
- /**
-- *  @brief This function computes the AvgNF
-+ *  @brief	This function computes the AvgNF
-  *
-- *  @param priv    A pointer to struct lbs_private structure
-- *  @return 	   AvgNF
-+ *  @param	priv	A pointer to struct lbs_private structure
-+ *  @return	AvgNF
-  */
- static u8 lbs_getavgnf(struct lbs_private *priv)
- {
-@@ -74,11 +74,11 @@ static u8 lbs_getavgnf(struct lbs_private *priv)
- }
- 
- /**
-- *  @brief This function save the raw SNR/NF to our internel buffer
-+ *  @brief	This function save the raw SNR/NF to our internel buffer
-  *
-- *  @param priv    A pointer to struct lbs_private structure
-- *  @param prxpd   A pointer to rxpd structure of received packet
-- *  @return 	   n/a
-+ *  @param	priv	A pointer to struct lbs_private structure
-+ *  @param	prxpd	A pointer to rxpd structure of received packet
-+ *  @return	n/a
-  */
- static void lbs_save_rawSNRNF(struct lbs_private *priv, struct rxpd *p_rx_pd)
- {
-@@ -93,11 +93,11 @@ static void lbs_save_rawSNRNF(struct lbs_private *priv, struct rxpd *p_rx_pd)
- }
- 
- /**
-- *  @brief This function computes the RSSI in received packet.
-+ *  @brief	This function computes the RSSI in received packet.
-  *
-- *  @param priv    A pointer to struct lbs_private structure
-- *  @param prxpd   A pointer to rxpd structure of received packet
-- *  @return 	   n/a
-+ *  @param	priv	A pointer to struct lbs_private structure
-+ *  @param	prxpd	A pointer to rxpd structure of received packet
-+ *  @return	n/a
-  */
- static void lbs_compute_rssi(struct lbs_private *priv, struct rxpd *p_rx_pd)
- {
-@@ -134,9 +134,9 @@ static void lbs_compute_rssi(struct lbs_private *priv, struct rxpd *p_rx_pd)
-  *  @brief This function processes received packet and forwards it
-  *  to kernel/upper layer
-  *
-- *  @param priv    A pointer to struct lbs_private
-- *  @param skb     A pointer to skb which includes the received packet
-- *  @return 	   0 or -1
-+ *  @param	priv	A pointer to struct lbs_private
-+ *  @param	skb		A pointer to skb which includes the received packet
-+ *  @return	0 or -1
-  */
- int lbs_process_rxed_packet(struct lbs_private *priv, struct sk_buff *skb)
- {
-@@ -196,7 +196,7 @@ int lbs_process_rxed_packet(struct lbs_private *priv, struct sk_buff *skb)
- 		 *    before the snap_type.
- 		 */
- 		p_ethhdr = (struct ethhdr *)
--		    ((u8 *) & p_rx_pkt->eth803_hdr
-+		    ((u8 *) &p_rx_pkt->eth803_hdr
- 		     + sizeof(p_rx_pkt->eth803_hdr) + sizeof(p_rx_pkt->rfc1042_hdr)
- 		     - sizeof(p_rx_pkt->eth803_hdr.dest_addr)
- 		     - sizeof(p_rx_pkt->eth803_hdr.src_addr)
-@@ -213,7 +213,7 @@ int lbs_process_rxed_packet(struct lbs_private *priv, struct sk_buff *skb)
- 		hdrchop = (u8 *)p_ethhdr - (u8 *)p_rx_pd;
- 	} else {
- 		lbs_deb_hex(LBS_DEB_RX, "RX Data: LLC/SNAP",
--			(u8 *) & p_rx_pkt->rfc1042_hdr,
-+			(u8 *) &p_rx_pkt->rfc1042_hdr,
- 			sizeof(p_rx_pkt->rfc1042_hdr));
- 
- 		/* Chop off the rxpd */
-@@ -254,8 +254,8 @@ EXPORT_SYMBOL_GPL(lbs_process_rxed_packet);
-  *  @brief This function converts Tx/Rx rates from the Marvell WLAN format
-  *  (see Table 2 in Section 3.1) to IEEE80211_RADIOTAP_RATE units (500 Kb/s)
-  *
-- *  @param rate    Input rate
-- *  @return 	   Output Rate (0 if invalid)
-+ *  @param	rate	Input rate
-+ *  @return	Output Rate (0 if invalid)
-  */
- static u8 convert_mv_rate_to_radiotap(u8 rate)
- {
-@@ -294,9 +294,9 @@ static u8 convert_mv_rate_to_radiotap(u8 rate)
-  *  @brief This function processes a received 802.11 packet and forwards it
-  *  to kernel/upper layer
-  *
-- *  @param priv    A pointer to struct lbs_private
-- *  @param skb     A pointer to skb which includes the received packet
-- *  @return 	   0 or -1
-+ *  @param	priv	A pointer to struct lbs_private
-+ *  @param	skb		A pointer to skb which includes the received packet
-+ *  @return	0 or -1
-  */
- static int process_rxed_802_11_packet(struct lbs_private *priv,
- 	struct sk_buff *skb)
-@@ -313,7 +313,7 @@ static int process_rxed_802_11_packet(struct lbs_private *priv,
- 	p_rx_pkt = (struct rx80211packethdr *) skb->data;
- 	prxpd = &p_rx_pkt->rx_pd;
- 
--	// lbs_deb_hex(LBS_DEB_RX, "RX Data: Before chop rxpd", skb->data, min(skb->len, 100));
-+	/* lbs_deb_hex(LBS_DEB_RX, "RX Data: Before chop rxpd", skb->data, min(skb->len, 100)); */
- 
- 	if (skb->len < (ETH_HLEN + 8 + sizeof(struct rxpd))) {
- 		lbs_deb_rx("rx err: frame received with bad length\n");
--- 
-1.6.0.4
+Also, the type change is not only about dev->type. See for example
+ether_setup(). This function and it's puprose might be misleading...
 
+>>	ret = call_netdevice_notifier(NETDEV_CHANGETYPE, dev);
+>>	ret = notifier_to_errno(ret);
+>>	if (ret)
+>>	     dev->type = oldtype;
+>>
+>>	return ret;
+>>}
+>
+>I see you point here, but that would be another notifier event. Do you suggest
+>to have 3 of them finally? NETDEV_BONDING_OLDTYPE, NETDEV_BONDING_NEWTYPE and
+>NETDEV_CHANGETYPE. Looks a bit redundant to me...
+>
+>Thanks.
+>
+>Jirka
+>
