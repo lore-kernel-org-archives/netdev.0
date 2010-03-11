@@ -1,8 +1,8 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH 23/37] drivers/i2c: use .dev.of_node instead of .node in
+Subject: [PATCH 24/37] drivers/char: use .dev.of_node instead of .node in
 	struct of_device
-Date: Thu, 11 Mar 2010 11:05:55 -0700
-Message-ID: <20100311180554.4824.52872.stgit__14795.7165762366$1268331224$gmane$org@angua>
+Date: Thu, 11 Mar 2010 11:06:00 -0700
+Message-ID: <20100311180600.4824.44001.stgit__23766.9884613299$1268331227$gmane$org@angua>
 References: <20100311174830.4824.19820.stgit@angua>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,8 +14,8 @@ To: monstr@monstr.eu, gregkh@suse.de, benh@kernel.crashing.org,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-pw0-f46.google.com ([209.85.160.46]:63703 "EHLO
 	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933732Ab0CKSF6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:05:58 -0500
+	with ESMTP id S933740Ab0CKSGJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:06:09 -0500
 In-Reply-To: <20100311174830.4824.19820.stgit@angua>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,65 +25,57 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 ---
 
- drivers/i2c/busses/i2c-mpc.c |   17 +++++++++--------
- 1 files changed, 9 insertions(+), 8 deletions(-)
+ drivers/char/hw_random/n2-drv.c     |    2 +-
+ drivers/char/hw_random/pasemi-rng.c |    2 +-
+ drivers/char/ipmi/ipmi_si_intf.c    |    4 ++--
+ 3 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/i2c/busses/i2c-mpc.c b/drivers/i2c/busses/i2c-mpc.c
-index 78a15af..0123a6e 100644
---- a/drivers/i2c/busses/i2c-mpc.c
-+++ b/drivers/i2c/busses/i2c-mpc.c
-@@ -559,14 +559,14 @@ static int __devinit fsl_i2c_probe(struct of_device *op,
- 
- 	init_waitqueue_head(&i2c->queue);
- 
--	i2c->base = of_iomap(op->node, 0);
-+	i2c->base = of_iomap(op->dev.of_node, 0);
- 	if (!i2c->base) {
- 		dev_err(i2c->dev, "failed to map controller\n");
- 		result = -ENOMEM;
- 		goto fail_map;
- 	}
- 
--	i2c->irq = irq_of_parse_and_map(op->node, 0);
-+	i2c->irq = irq_of_parse_and_map(op->dev.of_node, 0);
- 	if (i2c->irq != NO_IRQ) { /* i2c->irq = NO_IRQ implies polling */
- 		result = request_irq(i2c->irq, mpc_i2c_isr,
- 				     IRQF_SHARED, "i2c-mpc", i2c);
-@@ -576,21 +576,22 @@ static int __devinit fsl_i2c_probe(struct of_device *op,
+diff --git a/drivers/char/hw_random/n2-drv.c b/drivers/char/hw_random/n2-drv.c
+index 9b3e09c..4d05003 100644
+--- a/drivers/char/hw_random/n2-drv.c
++++ b/drivers/char/hw_random/n2-drv.c
+@@ -660,7 +660,7 @@ static int __devinit n2rng_probe(struct of_device *op,
+ 				np->hvapi_major);
+ 			goto out_hvapi_unregister;
  		}
- 	}
+-		np->num_units = of_getintprop_default(op->node,
++		np->num_units = of_getintprop_default(op->dev.of_node,
+ 						      "rng-#units", 0);
+ 		if (!np->num_units) {
+ 			dev_err(&op->dev, "VF RNG lacks rng-#units property\n");
+diff --git a/drivers/char/hw_random/pasemi-rng.c b/drivers/char/hw_random/pasemi-rng.c
+index 7fa61dd..b213855 100644
+--- a/drivers/char/hw_random/pasemi-rng.c
++++ b/drivers/char/hw_random/pasemi-rng.c
+@@ -98,7 +98,7 @@ static int __devinit rng_probe(struct of_device *ofdev,
+ 			       const struct of_device_id *match)
+ {
+ 	void __iomem *rng_regs;
+-	struct device_node *rng_np = ofdev->node;
++	struct device_node *rng_np = ofdev->dev.of_node;
+ 	struct resource res;
+ 	int err = 0;
  
--	if (of_get_property(op->node, "fsl,preserve-clocking", NULL)) {
-+	if (of_get_property(op->dev.of_node, "fsl,preserve-clocking", NULL)) {
- 		clock = MPC_I2C_CLOCK_PRESERVE;
- 	} else {
--		prop = of_get_property(op->node, "clock-frequency", &plen);
-+		prop = of_get_property(op->dev.of_node, "clock-frequency",
-+					&plen);
- 		if (prop && plen == sizeof(u32))
- 			clock = *prop;
- 	}
+diff --git a/drivers/char/ipmi/ipmi_si_intf.c b/drivers/char/ipmi/ipmi_si_intf.c
+index 176f175..45305f2 100644
+--- a/drivers/char/ipmi/ipmi_si_intf.c
++++ b/drivers/char/ipmi/ipmi_si_intf.c
+@@ -2406,7 +2406,7 @@ static int __devinit ipmi_of_probe(struct of_device *dev,
+ 	struct smi_info *info;
+ 	struct resource resource;
+ 	const int *regsize, *regspacing, *regshift;
+-	struct device_node *np = dev->node;
++	struct device_node *np = dev->dev.of_node;
+ 	int ret;
+ 	int proplen;
  
- 	if (match->data) {
- 		struct mpc_i2c_data *data = match->data;
--		data->setup(op->node, i2c, clock, data->prescaler);
-+		data->setup(op->dev.of_node, i2c, clock, data->prescaler);
- 	} else {
- 		/* Backwards compatibility */
--		if (of_get_property(op->node, "dfsrr", NULL))
--			mpc_i2c_setup_8xxx(op->node, i2c, clock, 0);
-+		if (of_get_property(op->dev.of_node, "dfsrr", NULL))
-+			mpc_i2c_setup_8xxx(op->dev.of_node, i2c, clock, 0);
- 	}
+@@ -2462,7 +2462,7 @@ static int __devinit ipmi_of_probe(struct of_device *dev,
+ 	info->io.regspacing	= regspacing ? *regspacing : DEFAULT_REGSPACING;
+ 	info->io.regshift	= regshift ? *regshift : 0;
  
- 	dev_set_drvdata(&op->dev, i2c);
-@@ -604,7 +605,7 @@ static int __devinit fsl_i2c_probe(struct of_device *op,
- 		dev_err(i2c->dev, "failed to add adapter\n");
- 		goto fail_add;
- 	}
--	of_register_i2c_devices(&i2c->adap, op->node);
-+	of_register_i2c_devices(&i2c->adap, op->dev.of_node);
+-	info->irq		= irq_of_parse_and_map(dev->node, 0);
++	info->irq		= irq_of_parse_and_map(dev->dev.of_node, 0);
+ 	info->dev		= &dev->dev;
  
- 	return result;
- 
+ 	dev_dbg(&dev->dev, "addr 0x%lx regsize %d spacing %d irq %x\n",
 
