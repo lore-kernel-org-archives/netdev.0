@@ -1,57 +1,95 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: Re: [RFC PATCH net-next 0/7 v2]IPv6:netfilter: defragment
-Date: Thu, 11 Mar 2010 17:16:44 +0800
-Message-ID: <4B98B4FC.50904@cn.fujitsu.com>
-References: <4B88BE30.80206@cn.fujitsu.com> <4B97D34C.4020509@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org,
-	"yoshfuji@linux-ipv6.org >> YOSHIFUJI Hideaki"
-	<yoshfuji@linux-ipv6.org>
-To: YOSHIFUJI Hideaki <hideaki.yoshifuji@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4B97D34C.4020509@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chaithrika U S <chaithrika@ti.com>
+Subject: [PATCH] TI DaVinci EMAC: Convert to dev_pm_ops
+Date: Thu, 11 Mar 2010 14:07:56 +0530
+Message-ID: <1268296676-12514-1-git-send-email-chaithrika@ti.com>
+Cc: davem@davemloft.net, --cc=khilman@deeprootsystems.com,
+	davinci-linux-open-source@linux.davincidsp.com, nsekhar@ti.com,
+	sudhakar.raj@ti.com, Chaithrika U S <chaithrika@ti.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:57180 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754520Ab0CKJVK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Mar 2010 04:21:10 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-yoshifuji-san:
+Migrate from the legacy PM hooks to use dev_pm_ops structure.
 
-YOSHIFUJI Hideaki wrote, at 03/11/2010 01:13 AM:
-> Well, because the context of defragment are different
-> from standard ones (e.g., In netfilter, defragment can
-> happen even on forwarding path, and the result is always
-> thrown away anyway), I think it is not a good idea to
-> touch standard MIB here. However I'm okay to increment
-> other stats like InDiscards, OurDiscards and netfilter
-> specific stats.
+Signed-off-by: Chaithrika U S <chaithrika@ti.com>
+---
 
-Not only on router, but also on host, if conntrack fails to reassemble
-fragments, the fragments will not be forwarded to IPv4/IPv6 stack.
-So, these fragments can't be traced from MIB counter.
+This patch applies to Linus' kernel tree.
+The fixes provided in this patch[1] are needed for EMAC driver to build.
+[1]http://patchwork.kernel.org/patch/84267/
 
-And, IPv4 conntrack records these fragments.
-Is the context of IPv4 defragment different from IPv6?
+ drivers/net/davinci_emac.c |   27 ++++++++++++++++-----------
+ 1 files changed, 16 insertions(+), 11 deletions(-)
 
-> On the other hand, I'd even say we should NOT send
-> icmp here (at least by default) because standard routers
-> never send such packet.
+diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+index 2526a9b..eb67fa6 100644
+--- a/drivers/net/davinci_emac.c
++++ b/drivers/net/davinci_emac.c
+@@ -2829,31 +2829,37 @@ static int __devexit davinci_emac_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-static
+-int davinci_emac_suspend(struct platform_device *pdev, pm_message_t state)
++static int davinci_emac_suspend(struct device *dev)
+ {
+-	struct net_device *dev = platform_get_drvdata(pdev);
++	struct platform_device *pdev = to_platform_device(dev);
++	struct net_device *ndev = platform_get_drvdata(pdev);
+ 
+-	if (netif_running(dev))
+-		emac_dev_stop(dev);
++	if (netif_running(ndev))
++		emac_dev_stop(ndev);
+ 
+ 	clk_disable(emac_clk);
+ 
+ 	return 0;
+ }
+ 
+-static int davinci_emac_resume(struct platform_device *pdev)
++static int davinci_emac_resume(struct device *dev)
+ {
+-	struct net_device *dev = platform_get_drvdata(pdev);
++	struct platform_device *pdev = to_platform_device(dev);
++	struct net_device *ndev = platform_get_drvdata(pdev);
+ 
+ 	clk_enable(emac_clk);
+ 
+-	if (netif_running(dev))
+-		emac_dev_open(dev);
++	if (netif_running(ndev))
++		emac_dev_open(ndev);
+ 
+ 	return 0;
+ }
+ 
++static const struct dev_pm_ops davinci_emac_pm_ops = {
++	.suspend	= davinci_emac_suspend,
++	.resume		= davinci_emac_resume,
++};
++
+ /**
+  * davinci_emac_driver: EMAC platform driver structure
+  */
+@@ -2861,11 +2867,10 @@ static struct platform_driver davinci_emac_driver = {
+ 	.driver = {
+ 		.name	 = "davinci_emac",
+ 		.owner	 = THIS_MODULE,
++		.pm	 = &davinci_emac_pm_ops,
+ 	},
+ 	.probe = davinci_emac_probe,
+ 	.remove = __devexit_p(davinci_emac_remove),
+-	.suspend = davinci_emac_suspend,
+-	.resume = davinci_emac_resume,
+ };
+ 
+ /**
+-- 
+1.5.6
 
-Yes=EF=BC=8Cfor routers, the patch-set does not send icmp message to
-source host. It only does on destination host with IPv6 connection=20
-track enable.
-
---=20
-Best Regards
------
-Shan Wei
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
