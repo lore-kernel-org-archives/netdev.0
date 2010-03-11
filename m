@@ -1,117 +1,104 @@
 From: akpm@linux-foundation.org
-Subject: [patch 3/5] LL TEMAC driver: add non-Virtex 5 support
-Date: Thu, 11 Mar 2010 14:07:51 -0800
-Message-ID: <201003112207.o2BM7qhv013492@imap1.linux-foundation.org>
+Subject: [patch 4/5] obsolete config in kernel source: USE_INTERNAL_TIMER
+Date: Thu, 11 Mar 2010 14:07:52 -0800
+Message-ID: <201003112207.o2BM7rlU013495@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ANSI_X3.4-1968
 Content-Transfer-Encoding: 8bit
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	jtyner@cs.ucr.edu, afleming@freescale.com,
-	grant.likely@secretlab.ca
+	siccegge@stud.informatik.uni-erlangen.de, roel.kluin@gmail.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:44418 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:50528 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758302Ab0CKWH6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 17:07:58 -0500
+	by vger.kernel.org with ESMTP id S1758274Ab0CKWIF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 17:08:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Tyner <jtyner@cs.ucr.edu>
+From: Christoph Egger <siccegge@stud.informatik.uni-erlangen.de>
 
-Add support for using the LL TEMAC Ethernet driver on non-Virtex 5
-platforms by adding support for accessing the Soft DMA registers as if
-they were memory mapped instead of solely through the DCR's (available on
-the Virtex 5).
+CONFIG_USE_INTERNAL_TIMER seems to be the remainings of some experiment. 
+It is explicitely #undef-ed as not working, only referenced from one
+source file and rather aged.
 
-Signed-off-by: John Tyner <jtyner@cs.ucr.edu>
-Cc: Andy Fleming <afleming@freescale.com>
-Cc: Grant Likely <grant.likely@secretlab.ca>
-Cc: David S. Miller <davem@davemloft.net>
+Hereby cleaning it from the kernel tree.
+
+Signed-off-by: Christoph Egger <siccegge@stud.informatik.uni-erlangen.de>
+Acked-by: Roel Kluin <roel.kluin@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/ll_temac.h      |    1 +
- drivers/net/ll_temac_main.c |   31 ++++++++++++++++++++-----------
- 2 files changed, 21 insertions(+), 11 deletions(-)
+ drivers/net/irda/w83977af_ir.c |   36 -------------------------------
+ 1 file changed, 36 deletions(-)
 
-diff -puN drivers/net/ll_temac.h~ll-temac-driver-add-non-virtex-5-support drivers/net/ll_temac.h
---- a/drivers/net/ll_temac.h~ll-temac-driver-add-non-virtex-5-support
-+++ a/drivers/net/ll_temac.h
-@@ -338,6 +338,7 @@ struct temac_local {
- 	/* IO registers and IRQs */
- 	void __iomem *regs;
- 	dcr_host_t sdma_dcrs;
-+	u32 __iomem *sdma_regs;
- 	int tx_irq;
- 	int rx_irq;
- 	int emac_num;
-diff -puN drivers/net/ll_temac_main.c~ll-temac-driver-add-non-virtex-5-support drivers/net/ll_temac_main.c
---- a/drivers/net/ll_temac_main.c~ll-temac-driver-add-non-virtex-5-support
-+++ a/drivers/net/ll_temac_main.c
-@@ -20,9 +20,6 @@
-  *   or rx, so this should be okay.
-  *
-  * TODO:
-- * - Fix driver to work on more than just Virtex5.  Right now the driver
-- *   assumes that the locallink DMA registers are accessed via DCR
-- *   instructions.
-  * - Factor out locallink DMA code into separate driver
-  * - Fix multicast assignment.
-  * - Fix support for hardware checksumming.
-@@ -117,12 +114,20 @@ void temac_indirect_out32(struct temac_l
+diff -puN drivers/net/irda/w83977af_ir.c~obsolete-config-in-kernel-source-use_internal_timer drivers/net/irda/w83977af_ir.c
+--- a/drivers/net/irda/w83977af_ir.c~obsolete-config-in-kernel-source-use_internal_timer
++++ a/drivers/net/irda/w83977af_ir.c
+@@ -65,7 +65,6 @@
+ #undef  CONFIG_NETWINDER_TX_DMA_PROBLEMS /* Not needed */
+ #define CONFIG_NETWINDER_RX_DMA_PROBLEMS /* Must have this one! */
+ #endif
+-#undef  CONFIG_USE_INTERNAL_TIMER  /* Just cannot make that timer work */
+ #define CONFIG_USE_W977_PNP        /* Currently needed */
+ #define PIO_MAX_SPEED       115200 
  
- static u32 temac_dma_in32(struct temac_local *lp, int reg)
- {
--	return dcr_read(lp->sdma_dcrs, reg);
-+	if (lp->sdma_regs) {
-+		return __raw_readl(lp->sdma_regs + reg);
-+	} else {
-+		return dcr_read(lp->sdma_dcrs, reg);
-+	}
- }
- 
- static void temac_dma_out32(struct temac_local *lp, int reg, u32 value)
- {
--	dcr_write(lp->sdma_dcrs, reg, value);
-+	if (lp->sdma_regs) {
-+		__raw_writel(value, lp->sdma_regs + reg);
-+	} else {
-+		dcr_write(lp->sdma_dcrs, reg, value);
-+	}
- }
- 
- /**
-@@ -870,13 +875,17 @@ temac_of_probe(struct of_device *op, con
- 		goto nodev;
- 	}
- 
--	dcrs = dcr_resource_start(np, 0);
--	if (dcrs == 0) {
--		dev_err(&op->dev, "could not get DMA register address\n");
-+	lp->sdma_regs = NULL;
-+
-+	if ((dcrs = dcr_resource_start(np, 0)) != 0) {
-+		lp->sdma_dcrs = dcr_map(np, dcrs, dcr_resource_len(np, 0));
-+		dev_dbg(&op->dev, "DCR base: %x\n", dcrs);
-+	} else if ((lp->sdma_regs = of_iomap(np, 0))) {
-+		dev_dbg(&op->dev, "MEM base: %p\n", lp->sdma_regs);
-+	} else {
-+		dev_err(&op->dev, "unable to map DMA registers\n");
- 		goto nodev;
- 	}
--	lp->sdma_dcrs = dcr_map(np, dcrs, dcr_resource_len(np, 0));
--	dev_dbg(&op->dev, "DCR base: %x\n", dcrs);
- 
- 	lp->rx_irq = irq_of_parse_and_map(np, 0);
- 	lp->tx_irq = irq_of_parse_and_map(np, 1);
-@@ -903,7 +912,7 @@ temac_of_probe(struct of_device *op, con
- 
- 	lp->phy_node = of_parse_phandle(op->node, "phy-handle", 0);
- 	if (lp->phy_node)
--		dev_dbg(lp->dev, "using PHY node %s (%p)\n", np->full_name, np);
-+		dev_dbg(lp->dev, "using PHY node %s (%p)\n", lp->phy_node->full_name, lp->phy_node);
- 
- 	/* Add the device attributes */
- 	rc = sysfs_create_group(&lp->dev->kobj, &temac_attr_group);
+@@ -533,25 +532,6 @@ static netdev_tx_t w83977af_hard_xmit(st
+ 		self->tx_buff.len = skb->len;
+ 		
+ 		mtt = irda_get_mtt(skb);
+-#ifdef CONFIG_USE_INTERNAL_TIMER
+-	        if (mtt > 50) {
+-			/* Adjust for timer resolution */
+-			mtt /= 1000+1;
+-
+-			/* Setup timer */
+-			switch_bank(iobase, SET4);
+-			outb(mtt & 0xff, iobase+TMRL);
+-			outb((mtt >> 8) & 0x0f, iobase+TMRH);
+-			
+-			/* Start timer */
+-			outb(IR_MSL_EN_TMR, iobase+IR_MSL);
+-			self->io.direction = IO_XMIT;
+-			
+-			/* Enable timer interrupt */
+-			switch_bank(iobase, SET0);
+-			outb(ICR_ETMRI, iobase+ICR);
+-		} else {
+-#endif
+ 			IRDA_DEBUG(4, "%s(%ld), mtt=%d\n", __func__ , jiffies, mtt);
+ 			if (mtt)
+ 				udelay(mtt);
+@@ -560,9 +540,6 @@ static netdev_tx_t w83977af_hard_xmit(st
+ 			switch_bank(iobase, SET0);
+ 	 		outb(ICR_EDMAI, iobase+ICR);
+ 	     		w83977af_dma_write(self, iobase);
+-#ifdef CONFIG_USE_INTERNAL_TIMER
+-		}
+-#endif
+ 	} else {
+ 		self->tx_buff.data = self->tx_buff.head;
+ 		self->tx_buff.len = async_wrap_skb(skb, self->tx_buff.data, 
+@@ -876,20 +853,7 @@ static int w83977af_dma_receive_complete
+ 			/* Check if we have transferred all data to memory */
+ 			switch_bank(iobase, SET0);
+ 			if (inb(iobase+USR) & USR_RDR) {
+-#ifdef CONFIG_USE_INTERNAL_TIMER
+-				/* Put this entry back in fifo */
+-				st_fifo->head--;
+-				st_fifo->len++;
+-				st_fifo->entries[st_fifo->head].status = status;
+-				st_fifo->entries[st_fifo->head].len = len;
+-				
+-				/* Restore set register */
+-				outb(set, iobase+SSR);
+-			
+-				return FALSE; 	/* I'll be back! */
+-#else
+ 				udelay(80); /* Should be enough!? */
+-#endif
+ 			}
+ 						
+ 			skb = dev_alloc_skb(len+1);
 _
