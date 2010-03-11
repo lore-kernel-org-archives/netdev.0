@@ -1,8 +1,8 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH 20/37] drivers/input: use .dev.of_node instead of .node in
+Subject: [PATCH 21/37] drivers/ata: use .dev.of_node instead of .node in
 	struct of_device
-Date: Thu, 11 Mar 2010 11:05:38 -0700
-Message-ID: <20100311180538.4824.40399.stgit__41114.9972853766$1268331302$gmane$org@angua>
+Date: Thu, 11 Mar 2010 11:05:44 -0700
+Message-ID: <20100311180543.4824.70491.stgit__19415.4511359104$1268331306$gmane$org@angua>
 References: <20100311174830.4824.19820.stgit@angua>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,10 +12,10 @@ To: monstr@monstr.eu, gregkh@suse.de, benh@kernel.crashing.org,
 	sfr@canb.auug.org.au, jgarzik@pobox.com, ben-linux@fluff.org,
 	dwmw2@infrade
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f194.google.com ([209.85.222.194]:43634 "EHLO
+Received: from mail-pz0-f194.google.com ([209.85.222.194]:34774 "EHLO
 	mail-pz0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933700Ab0CKSFo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:05:44 -0500
+	with ESMTP id S933710Ab0CKSFu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:05:50 -0500
 In-Reply-To: <20100311174830.4824.19820.stgit@angua>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,55 +25,84 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 ---
 
- drivers/input/serio/i8042-sparcio.h |    2 +-
- drivers/input/serio/xilinx_ps2.c    |    8 ++++----
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/ata/pata_macio.c       |    2 +-
+ drivers/ata/pata_of_platform.c |    2 +-
+ drivers/ide/pmac.c             |   10 +++++-----
+ 3 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/input/serio/i8042-sparcio.h b/drivers/input/serio/i8042-sparcio.h
-index 5071af2..29e1769 100644
---- a/drivers/input/serio/i8042-sparcio.h
-+++ b/drivers/input/serio/i8042-sparcio.h
-@@ -51,7 +51,7 @@ static inline void i8042_write_command(int val)
+diff --git a/drivers/ata/pata_macio.c b/drivers/ata/pata_macio.c
+index 4cc7bbd..2cf31e7 100644
+--- a/drivers/ata/pata_macio.c
++++ b/drivers/ata/pata_macio.c
+@@ -1138,7 +1138,7 @@ static int __devinit pata_macio_attach(struct macio_dev *mdev,
+ 			"Failed to allocate private memory\n");
+ 		return -ENOMEM;
+ 	}
+-	priv->node = of_node_get(mdev->ofdev.node);
++	priv->node = of_node_get(mdev->ofdev.dev.of_node);
+ 	priv->mdev = mdev;
+ 	priv->dev = &mdev->ofdev.dev;
  
- static int __devinit sparc_i8042_probe(struct of_device *op, const struct of_device_id *match)
+diff --git a/drivers/ata/pata_of_platform.c b/drivers/ata/pata_of_platform.c
+index 1f18ad9..19da29f 100644
+--- a/drivers/ata/pata_of_platform.c
++++ b/drivers/ata/pata_of_platform.c
+@@ -18,7 +18,7 @@ static int __devinit pata_of_platform_probe(struct of_device *ofdev,
+ 					    const struct of_device_id *match)
  {
--	struct device_node *dp = op->node;
-+	struct device_node *dp = op->dev.of_node;
+ 	int ret;
+-	struct device_node *dn = ofdev->node;
++	struct device_node *dn = ofdev->dev.of_node;
+ 	struct resource io_res;
+ 	struct resource ctl_res;
+ 	struct resource irq_res;
+diff --git a/drivers/ide/pmac.c b/drivers/ide/pmac.c
+index 850ee45..9697de9 100644
+--- a/drivers/ide/pmac.c
++++ b/drivers/ide/pmac.c
+@@ -1152,7 +1152,7 @@ pmac_ide_macio_attach(struct macio_dev *mdev, const struct of_device_id *match)
  
- 	dp = dp->child;
- 	while (dp) {
-diff --git a/drivers/input/serio/xilinx_ps2.c b/drivers/input/serio/xilinx_ps2.c
-index 8298e1f..f154153 100644
---- a/drivers/input/serio/xilinx_ps2.c
-+++ b/drivers/input/serio/xilinx_ps2.c
-@@ -243,17 +243,17 @@ static int __devinit xps2_of_probe(struct of_device *ofdev,
- 	int error;
- 
- 	dev_info(dev, "Device Tree Probing \'%s\'\n",
--			ofdev->node->name);
-+			ofdev->dev.of_node->name);
- 
- 	/* Get iospace for the device */
--	error = of_address_to_resource(ofdev->node, 0, &r_mem);
-+	error = of_address_to_resource(ofdev->dev.of_node, 0, &r_mem);
- 	if (error) {
- 		dev_err(dev, "invalid address\n");
- 		return error;
+ 	if (macio_resource_count(mdev) == 0) {
+ 		printk(KERN_WARNING "ide-pmac: no address for %s\n",
+-				    mdev->ofdev.node->full_name);
++				    mdev->ofdev.dev.of_node->full_name);
+ 		rc = -ENXIO;
+ 		goto out_free_pmif;
  	}
- 
- 	/* Get IRQ for the device */
--	if (of_irq_to_resource(ofdev->node, 0, &r_irq) == NO_IRQ) {
-+	if (of_irq_to_resource(ofdev->dev.of_node, 0, &r_irq) == NO_IRQ) {
- 		dev_err(dev, "no IRQ found\n");
- 		return -ENODEV;
+@@ -1160,7 +1160,7 @@ pmac_ide_macio_attach(struct macio_dev *mdev, const struct of_device_id *match)
+ 	/* Request memory resource for IO ports */
+ 	if (macio_request_resource(mdev, 0, "ide-pmac (ports)")) {
+ 		printk(KERN_ERR "ide-pmac: can't request MMIO resource for "
+-				"%s!\n", mdev->ofdev.node->full_name);
++				"%s!\n", mdev->ofdev.dev.of_node->full_name);
+ 		rc = -EBUSY;
+ 		goto out_free_pmif;
  	}
-@@ -341,7 +341,7 @@ static int __devexit xps2_of_remove(struct of_device *of_dev)
- 	iounmap(drvdata->base_address);
+@@ -1172,7 +1172,7 @@ pmac_ide_macio_attach(struct macio_dev *mdev, const struct of_device_id *match)
+ 	 */
+ 	if (macio_irq_count(mdev) == 0) {
+ 		printk(KERN_WARNING "ide-pmac: no intrs for device %s, using "
+-				    "13\n", mdev->ofdev.node->full_name);
++				    "13\n", mdev->ofdev.dev.of_node->full_name);
+ 		irq = irq_create_mapping(NULL, 13);
+ 	} else
+ 		irq = macio_irq(mdev, 0);
+@@ -1181,7 +1181,7 @@ pmac_ide_macio_attach(struct macio_dev *mdev, const struct of_device_id *match)
+ 	regbase = (unsigned long) base;
  
- 	/* Get iospace of the device */
--	if (of_address_to_resource(of_dev->node, 0, &r_mem))
-+	if (of_address_to_resource(of_dev->dev.of_node, 0, &r_mem))
- 		dev_err(dev, "invalid address\n");
- 	else
- 		release_mem_region(r_mem.start, resource_size(&r_mem));
+ 	pmif->mdev = mdev;
+-	pmif->node = mdev->ofdev.node;
++	pmif->node = mdev->ofdev.dev.of_node;
+ 	pmif->regbase = regbase;
+ 	pmif->irq = irq;
+ 	pmif->kauai_fcr = NULL;
+@@ -1190,7 +1190,7 @@ pmac_ide_macio_attach(struct macio_dev *mdev, const struct of_device_id *match)
+ 		if (macio_request_resource(mdev, 1, "ide-pmac (dma)"))
+ 			printk(KERN_WARNING "ide-pmac: can't request DMA "
+ 					    "resource for %s!\n",
+-					    mdev->ofdev.node->full_name);
++					    mdev->ofdev.dev.of_node->full_name);
+ 		else
+ 			pmif->dma_regs = ioremap(macio_resource_start(mdev, 1), 0x1000);
+ 	} else
 
