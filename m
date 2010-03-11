@@ -1,40 +1,50 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: BNX2: Kernel crashes with 2.6.31 and 2.6.31.9
-Date: Thu, 11 Mar 2010 16:57:58 -0500
-Message-ID: <4B996766.5070509@hp.com>
-References: <1268263973.9775.95.camel@nseg_linux_HP1.broadcom.com> <4B9850DC.9060703@hp.com> <1268329796.9775.125.camel@nseg_linux_HP1.broadcom.com> <20100311.100519.124285161.davem@davemloft.net> <1268332738.9775.133.camel@nseg_linux_HP1.broadcom.com> <4B994714.2040108@hp.com> <1268336848.9775.154.camel@nseg_linux_HP1.broadcom.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 3/3] net: core: add IFLA_STATS64 support
+Date: Thu, 11 Mar 2010 14:04:06 -0800
+Message-ID: <20100311140406.37ee0b83@nehalam>
+References: <1268337450-6749-1-git-send-email-jengelh@medozas.de>
+	<1268337450-6749-4-git-send-email-jengelh@medozas.de>
+	<20100311121239.14944fd5@nehalam>
+	<20100311.122639.258785986.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"bonbons@linux-vserver.org" <bonbons@linux-vserver.org>,
-	Benjamin Li <benli@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1268336848.9775.154.camel@nseg_linux_HP1.broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jengelh@medozas.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:55695 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758243Ab0CKWEe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Mar 2010 17:04:34 -0500
+In-Reply-To: <20100311.122639.258785986.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michael Chan wrote:
-> On Thu, 2010-03-11 at 11:40 -0800, Brian Haley wrote:
->> I can only reproduce this on one system out of many, so it's either a
->> race condition or bad hardware.  The only thing I can confirm at the
->> moment is that it's the code at the bottom of bnx2_set_coalesce()
->> that's causing it, I'm trying to go through all those codepaths now.
+On Thu, 11 Mar 2010 12:26:39 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Thu, 11 Mar 2010 12:12:39 -0800
 > 
-> The NETDEV WATCHDOG is caused by stopping the TX queues with
-> ->trans_start older than dev->watchdog_timeo which is set to 5 seconds
-> in bnx2.  Please try this patch below to update the ->trans_start first
-> before stopping the TX queues:
+> > On Thu, 11 Mar 2010 20:57:29 +0100
+> > Jan Engelhardt <jengelh@medozas.de> wrote:
+> > 
+> >> `ip -s link` shows interface counters truncated to 32 bit. This is
+> >> because interface statistics are transported only in 32-bit quantity
+> >> to userspace. This commit adds a new IFLA_STATS64 attribute that
+> >> exports them in full 64 bit.
+> >> 
+> >> References: http://lkml.indiana.edu/hypermail/linux/kernel/0307.3/0215.html
+> >> Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+> >> 
+> > 
+> > What is the point since net_device_stats has only 32 bit counters.
+> > The last time this came up the issue was is that is not possible
+> > to atomically increment a 64 bit counter on most 32 bit platforms.
+> 
+> On 64-bit it has 64-bit counters, yet we only report 32-bit
+> counters to userspace via netlink even in that case.
 
-Well I'm an idiot.  Someone had cherry-picked commit 4529819c4 (that caused
-the reset_task bnx2 crash), so it was bad code in bnx2_netif_stop()/start()
-that's already been fixed upstream.  I'll merge our bnx2 code up to the
-firmware commit and start testing again to see if we still see the watchdog
-timeouts we've seen in the past.
+That make sense, but maybe we shouldn't send IFLA_STATS64 on
+32bit platforms.
 
-Thanks for your help.
-
--Brian
