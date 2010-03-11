@@ -1,83 +1,49 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [Bonding-devel] [net-next-2.6 PATCH 2/3] bonding: check return
- value of nofitier when changing type
-Date: Thu, 11 Mar 2010 10:53:30 +0100
-Message-ID: <20100311095329.GA3054@psychotron.lab.eng.brq.redhat.com>
-References: <20100310202804.GC2834@psychotron.redhat.com>
- <20100310202935.GE2834@psychotron.redhat.com>
- <20100310144710.605ef033@nehalam>
- <20100311075908.GA2785@psychotron.redhat.com>
+Subject: Re: [net-next-2.6 PATCH] ixgbe: convert to use
+ netdev_for_each_mc_addr
+Date: Thu, 11 Mar 2010 11:08:09 +0100
+Message-ID: <20100311100809.GB3054@psychotron.lab.eng.brq.redhat.com>
+References: <20100223190505.GA2673@psychotron.redhat.com>
+ <9929d2391002240130p17bbc1acj74e3c8306a3f664@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net, davem@davemloft.net
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16044 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:17466 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755101Ab0CKJx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Mar 2010 04:53:56 -0500
+	id S1756548Ab0CKKIN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Mar 2010 05:08:13 -0500
 Content-Disposition: inline
-In-Reply-To: <20100311075908.GA2785@psychotron.redhat.com>
+In-Reply-To: <9929d2391002240130p17bbc1acj74e3c8306a3f664@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Mar 11, 2010 at 08:59:09AM CET, jpirko@redhat.com wrote:
->Wed, Mar 10, 2010 at 11:47:10PM CET, shemminger@linux-foundation.org wrote:
->>On Wed, 10 Mar 2010 21:29:35 +0100
->>Jiri Pirko <jpirko@redhat.com> wrote:
+Wed, Feb 24, 2010 at 10:30:54AM CET, jeffrey.t.kirsher@intel.com wrote:
+>On Tue, Feb 23, 2010 at 11:05, Jiri Pirko <jpirko@redhat.com> wrote:
 >>
->>> diff --git a/net/core/dev.c b/net/core/dev.c
->>> index bcc490c..5de4a15 100644
->>> --- a/net/core/dev.c
->>> +++ b/net/core/dev.c
->>> @@ -1084,9 +1084,9 @@ void netdev_state_change(struct net_device *dev)
->>>  }
->>>  EXPORT_SYMBOL(netdev_state_change);
->>>  
->>> -void netdev_bonding_change(struct net_device *dev, unsigned long event)
->>> +int netdev_bonding_change(struct net_device *dev, unsigned long event)
->>>  {
->>> -	call_netdevice_notifiers(event, dev);
->>> +	return call_netdevice_notifiers(event, dev);
->>>  }
->>>  EXPORT_SYMBOL(netdev_bonding_change);
->>>  
+>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>> ---
+>> =A0drivers/net/ixgbe/ixgbe_common.c | =A0 16 +++++++---------
+>> =A0drivers/net/ixgbe/ixgbe_common.h | =A0 =A05 ++---
+>> =A0drivers/net/ixgbe/ixgbe_main.c =A0 | =A0 24 ++-------------------=
+---
+>> =A0drivers/net/ixgbe/ixgbe_type.h =A0 | =A0 =A03 +--
+>> =A04 files changed, 12 insertions(+), 36 deletions(-)
 >>
->>I don't think all this pre-post stuff needed.
->>Since this is general (not just bonding) how about
 >
->Well actually I reused NETDEV_BONDING_OLDTYPE. This and NETDEV_BONDING_NEWTYPE
->is used in inetdev_event() and addrconf_notify(). These functions apparently
->need to be notified before and after the change.
->
->>
->>int netdev_change_type(struct net_device *dev, int newtype)
->>{
->>	int ret, oldtype;
->>
->>	if (dev->flags & IFF_UP)
->>		return -EBUSY;
->>
->>	oldtype = dev->type;
->>	dev->type = newtype;
+>Thanks Jiri, I have added the patch to my queue of ixgbe patches.
 
-Also, the type change is not only about dev->type. See for example
-ether_setup(). This function and it's puprose might be misleading...
+Hi Jeff,
 
->>	ret = call_netdevice_notifier(NETDEV_CHANGETYPE, dev);
->>	ret = notifier_to_errno(ret);
->>	if (ret)
->>	     dev->type = oldtype;
->>
->>	return ret;
->>}
+when do you think this and ixgbevf bits will be merged into net-next-2.=
+6?
+
+Thanks a lot.
+
+Jirka
 >
->I see you point here, but that would be another notifier event. Do you suggest
->to have 3 of them finally? NETDEV_BONDING_OLDTYPE, NETDEV_BONDING_NEWTYPE and
->NETDEV_CHANGETYPE. Looks a bit redundant to me...
->
->Thanks.
->
->Jirka
->
+>--=20
+>Cheers,
+>Jeff
