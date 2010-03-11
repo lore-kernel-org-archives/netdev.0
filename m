@@ -1,8 +1,8 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH 26/37] drivers/mtd: use .dev.of_node instead of .node in
+Subject: [PATCH 19/37] drivers/serial: use .dev.of_node instead of .node in
 	struct of_device
-Date: Thu, 11 Mar 2010 11:06:11 -0700
-Message-ID: <20100311180611.4824.60029.stgit__12074.6298264296$1268331239$gmane$org@angua>
+Date: Thu, 11 Mar 2010 11:05:33 -0700
+Message-ID: <20100311180532.4824.64755.stgit__28833.0692834736$1268331239$gmane$org@angua>
 References: <20100311174830.4824.19820.stgit@angua>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,8 +14,8 @@ To: monstr@monstr.eu, gregkh@suse.de, benh@kernel.crashing.org,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-pz0-f194.google.com ([209.85.222.194]:34774 "EHLO
 	mail-pz0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933744Ab0CKSGO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:06:14 -0500
+	with ESMTP id S933693Ab0CKSFo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:05:44 -0500
 In-Reply-To: <20100311174830.4824.19820.stgit@angua>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,97 +25,113 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 ---
 
- drivers/mtd/maps/physmap_of.c    |    6 +++---
- drivers/mtd/maps/sun_uflash.c    |    2 +-
- drivers/mtd/nand/fsl_elbc_nand.c |    6 +++---
- drivers/mtd/nand/pasemi_nand.c   |    2 +-
- 4 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/serial/apbuart.c    |    2 +-
+ drivers/serial/nwpserial.c  |    2 +-
+ drivers/serial/of_serial.c  |    4 ++--
+ drivers/serial/pmac_zilog.c |    2 +-
+ drivers/serial/sunhv.c      |    2 +-
+ drivers/serial/sunsab.c     |    6 +++---
+ 6 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/mtd/maps/physmap_of.c b/drivers/mtd/maps/physmap_of.c
-index 61e4eb4..494af8e 100644
---- a/drivers/mtd/maps/physmap_of.c
-+++ b/drivers/mtd/maps/physmap_of.c
-@@ -142,7 +142,7 @@ static int of_flash_remove(struct of_device *dev)
- static struct mtd_info * __devinit obsolete_probe(struct of_device *dev,
- 						  struct map_info *map)
- {
--	struct device_node *dp = dev->node;
-+	struct device_node *dp = dev->dev.of_node;
- 	const char *of_probe;
- 	struct mtd_info *mtd;
- 	static const char *rom_probe_types[]
-@@ -179,7 +179,7 @@ static int __devinit of_flash_probe(struct of_device *dev,
- 	static const char *part_probe_types[]
- 		= { "cmdlinepart", "RedBoot", NULL };
- #endif
--	struct device_node *dp = dev->node;
-+	struct device_node *dp = dev->dev.of_node;
- 	struct resource res;
- 	struct of_flash *info;
- 	const char *probe_type = match->data;
-@@ -203,7 +203,7 @@ static int __devinit of_flash_probe(struct of_device *dev,
- 	p = of_get_property(dp, "reg", &count);
- 	if (count % reg_tuple_size != 0) {
- 		dev_err(&dev->dev, "Malformed reg property on %s\n",
--				dev->node->full_name);
-+				dev->dev.of_node->full_name);
- 		err = -EINVAL;
- 		goto err_flash_remove;
- 	}
-diff --git a/drivers/mtd/maps/sun_uflash.c b/drivers/mtd/maps/sun_uflash.c
-index fd7a101..365811d 100644
---- a/drivers/mtd/maps/sun_uflash.c
-+++ b/drivers/mtd/maps/sun_uflash.c
-@@ -109,7 +109,7 @@ int uflash_devinit(struct of_device *op, struct device_node *dp)
+diff --git a/drivers/serial/apbuart.c b/drivers/serial/apbuart.c
+index fe91319..52015d7 100644
+--- a/drivers/serial/apbuart.c
++++ b/drivers/serial/apbuart.c
+@@ -559,7 +559,7 @@ static int __devinit apbuart_probe(struct of_device *op,
  
- static int __devinit uflash_probe(struct of_device *op, const struct of_device_id *match)
- {
--	struct device_node *dp = op->node;
-+	struct device_node *dp = op->dev.of_node;
- 
- 	/* Flashprom must have the "user" property in order to
- 	 * be used by this driver.
-diff --git a/drivers/mtd/nand/fsl_elbc_nand.c b/drivers/mtd/nand/fsl_elbc_nand.c
-index ae30fb6..4a60795 100644
---- a/drivers/mtd/nand/fsl_elbc_nand.c
-+++ b/drivers/mtd/nand/fsl_elbc_nand.c
-@@ -1030,14 +1030,14 @@ static int __devinit fsl_elbc_ctrl_probe(struct of_device *ofdev,
- 	init_waitqueue_head(&ctrl->controller.wq);
- 	init_waitqueue_head(&ctrl->irq_wait);
- 
--	ctrl->regs = of_iomap(ofdev->node, 0);
-+	ctrl->regs = of_iomap(ofdev->dev.of_node, 0);
- 	if (!ctrl->regs) {
- 		dev_err(&ofdev->dev, "failed to get memory region\n");
- 		ret = -ENODEV;
- 		goto err;
+ 	i = 0;
+ 	for (i = 0; i < grlib_apbuart_port_nr; i++) {
+-		if (op->node == grlib_apbuart_nodes[i])
++		if (op->dev.of_node == grlib_apbuart_nodes[i])
+ 			break;
  	}
  
--	ctrl->irq = of_irq_to_resource(ofdev->node, 0, NULL);
-+	ctrl->irq = of_irq_to_resource(ofdev->dev.of_node, 0, NULL);
- 	if (ctrl->irq == NO_IRQ) {
- 		dev_err(&ofdev->dev, "failed to get irq resource\n");
- 		ret = -ENODEV;
-@@ -1058,7 +1058,7 @@ static int __devinit fsl_elbc_ctrl_probe(struct of_device *ofdev,
- 		goto err;
- 	}
+diff --git a/drivers/serial/nwpserial.c b/drivers/serial/nwpserial.c
+index e1ab8ec..3c02fa9 100644
+--- a/drivers/serial/nwpserial.c
++++ b/drivers/serial/nwpserial.c
+@@ -344,7 +344,7 @@ int nwpserial_register_port(struct uart_port *port)
  
--	for_each_child_of_node(ofdev->node, child)
-+	for_each_child_of_node(ofdev->dev.of_node, child)
- 		if (of_device_is_compatible(child, "fsl,elbc-fcm-nand"))
- 			fsl_elbc_chip_probe(ctrl, child);
+ 	mutex_lock(&nwpserial_mutex);
  
-diff --git a/drivers/mtd/nand/pasemi_nand.c b/drivers/mtd/nand/pasemi_nand.c
-index a8b9376..edfc27b 100644
---- a/drivers/mtd/nand/pasemi_nand.c
-+++ b/drivers/mtd/nand/pasemi_nand.c
-@@ -93,7 +93,7 @@ static int __devinit pasemi_nand_probe(struct of_device *ofdev,
- 				      const struct of_device_id *match)
+-	dn = to_of_device(port->dev)->node;
++	dn = to_of_device(port->dev)->dev.of_node;
+ 	if (dn == NULL)
+ 		goto out;
+ 
+diff --git a/drivers/serial/of_serial.c b/drivers/serial/of_serial.c
+index cdf172e..18bf39b 100644
+--- a/drivers/serial/of_serial.c
++++ b/drivers/serial/of_serial.c
+@@ -30,7 +30,7 @@ static int __devinit of_platform_serial_setup(struct of_device *ofdev,
+ 					int type, struct uart_port *port)
  {
- 	struct pci_dev *pdev;
+ 	struct resource resource;
 -	struct device_node *np = ofdev->node;
 +	struct device_node *np = ofdev->dev.of_node;
- 	struct resource res;
- 	struct nand_chip *chip;
- 	int err = 0;
+ 	const unsigned int *clk, *spd;
+ 	const u32 *prop;
+ 	int ret, prop_size;
+@@ -87,7 +87,7 @@ static int __devinit of_platform_serial_probe(struct of_device *ofdev,
+ 	int port_type;
+ 	int ret;
+ 
+-	if (of_find_property(ofdev->node, "used-by-rtas", NULL))
++	if (of_find_property(ofdev->dev.of_node, "used-by-rtas", NULL))
+ 		return -EBUSY;
+ 
+ 	info = kmalloc(sizeof(*info), GFP_KERNEL);
+diff --git a/drivers/serial/pmac_zilog.c b/drivers/serial/pmac_zilog.c
+index f020de1..8abbbb3 100644
+--- a/drivers/serial/pmac_zilog.c
++++ b/drivers/serial/pmac_zilog.c
+@@ -1610,7 +1610,7 @@ static int pmz_attach(struct macio_dev *mdev, const struct of_device_id *match)
+ 	/* Iterate the pmz_ports array to find a matching entry
+ 	 */
+ 	for (i = 0; i < MAX_ZS_PORTS; i++)
+-		if (pmz_ports[i].node == mdev->ofdev.node) {
++		if (pmz_ports[i].node == mdev->ofdev.dev.of_node) {
+ 			struct uart_pmac_port *uap = &pmz_ports[i];
+ 
+ 			uap->dev = mdev;
+diff --git a/drivers/serial/sunhv.c b/drivers/serial/sunhv.c
+index d14cca7..d1eedf1 100644
+--- a/drivers/serial/sunhv.c
++++ b/drivers/serial/sunhv.c
+@@ -565,7 +565,7 @@ static int __devinit hv_probe(struct of_device *op, const struct of_device_id *m
+ 	if (err)
+ 		goto out_free_con_read_page;
+ 
+-	sunserial_console_match(&sunhv_console, op->node,
++	sunserial_console_match(&sunhv_console, op->dev.of_node,
+ 				&sunhv_reg, port->line, false);
+ 
+ 	err = uart_add_one_port(&sunhv_reg, port);
+diff --git a/drivers/serial/sunsab.c b/drivers/serial/sunsab.c
+index d514e28..2b8b2c2 100644
+--- a/drivers/serial/sunsab.c
++++ b/drivers/serial/sunsab.c
+@@ -883,7 +883,7 @@ static int sunsab_console_setup(struct console *con, char *options)
+ 	printk("Console: ttyS%d (SAB82532)\n",
+ 	       (sunsab_reg.minor - 64) + con->index);
+ 
+-	sunserial_console_termios(con, to_of_device(up->port.dev)->node);
++	sunserial_console_termios(con, to_of_device(up->port.dev)->dev.of_node);
+ 
+ 	switch (con->cflag & CBAUD) {
+ 	case B150: baud = 150; break;
+@@ -1026,11 +1026,11 @@ static int __devinit sab_probe(struct of_device *op, const struct of_device_id *
+ 	if (err)
+ 		goto out1;
+ 
+-	sunserial_console_match(SUNSAB_CONSOLE(), op->node,
++	sunserial_console_match(SUNSAB_CONSOLE(), op->dev.of_node,
+ 				&sunsab_reg, up[0].port.line,
+ 				false);
+ 
+-	sunserial_console_match(SUNSAB_CONSOLE(), op->node,
++	sunserial_console_match(SUNSAB_CONSOLE(), op->dev.of_node,
+ 				&sunsab_reg, up[1].port.line,
+ 				false);
+ 
 
