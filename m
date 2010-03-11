@@ -1,96 +1,142 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: BNX2: Kernel crashes with 2.6.31 and 2.6.31.9
-Date: Thu, 11 Mar 2010 14:40:04 -0500
-Message-ID: <4B994714.2040108@hp.com>
-References: <1268263973.9775.95.camel@nseg_linux_HP1.broadcom.com> <4B9850DC.9060703@hp.com> <1268329796.9775.125.camel@nseg_linux_HP1.broadcom.com> <20100311.100519.124285161.davem@davemloft.net> <1268332738.9775.133.camel@nseg_linux_HP1.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"bonbons@linux-vserver.org" <bonbons@linux-vserver.org>,
-	Benjamin Li <benli@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1268332738.9775.133.camel@nseg_linux_HP1.broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: [PATCH 3/3] net: core: add IFLA_STATS64 support
+Date: Thu, 11 Mar 2010 20:57:29 +0100
+Message-ID: <1268337450-6749-4-git-send-email-jengelh@medozas.de>
+References: <1268337450-6749-1-git-send-email-jengelh@medozas.de>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from borg.medozas.de ([188.40.89.202]:56848 "EHLO borg.medozas.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753135Ab0CKT5h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Mar 2010 14:57:37 -0500
+In-Reply-To: <1268337450-6749-1-git-send-email-jengelh@medozas.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michael Chan wrote:
-> On Thu, 2010-03-11 at 10:05 -0800, David Miller wrote:
->> From: "Michael Chan" <mchan@broadcom.com>
->> Date: Thu, 11 Mar 2010 09:49:56 -0800
->>
->>> On Wed, 2010-03-10 at 18:09 -0800, Brian Haley wrote:
->>>>>> I'm able to cause a netdev_watchdog timeout by changing the coalesce
->>>>>> settings on my bnx2, I built a little test program for it:
->>>>> Do you run this program in a loop?  How quickly do you see the NETDEV
->>>>> WATCHDOG?
->>>> It's run once, and we see it almost immediately after ETHTOOL_SCOALESCE.
->>> What's the difference between running the test program and doing ethtool
->>> -C?  Do you see the issue in either case?  I don't see the issue here
->>> with ethtool -C.
->> Probably because the independent program runs faster and thus
->> can trigger races more easily.
+`ip -s link` shows interface counters truncated to 32 bit. This is
+because interface statistics are transported only in 32-bit quantity
+to userspace. This commit adds a new IFLA_STATS64 attribute that
+exports them in full 64 bit.
 
-A customer provided some test code that triggered this hang, so
-I've just been using it.  I just used ethtool and it happened too:
+References: http://lkml.indiana.edu/hypermail/linux/kernel/0307.3/0215.html
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+---
+ include/linux/if_link.h |   33 +++++++++++++++++++++++++++++++++
+ net/core/rtnetlink.c    |   42 +++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 74 insertions(+), 1 deletions(-)
 
-# ethtool -C eth0 rx-usecs 0 rx-frames 1 rx-usecs-irq 0 rx-frames-irq 1
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index c9bf92c..cfd420b 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -37,6 +37,38 @@ struct rtnl_link_stats {
+ 	__u32	tx_compressed;
+ };
+ 
++struct rtnl_link_stats64 {
++	__u64	rx_packets;		/* total packets received	*/
++	__u64	tx_packets;		/* total packets transmitted	*/
++	__u64	rx_bytes;		/* total bytes received 	*/
++	__u64	tx_bytes;		/* total bytes transmitted	*/
++	__u64	rx_errors;		/* bad packets received		*/
++	__u64	tx_errors;		/* packet transmit problems	*/
++	__u64	rx_dropped;		/* no space in linux buffers	*/
++	__u64	tx_dropped;		/* no space available in linux	*/
++	__u64	multicast;		/* multicast packets received	*/
++	__u64	collisions;
++
++	/* detailed rx_errors: */
++	__u64	rx_length_errors;
++	__u64	rx_over_errors;		/* receiver ring buff overflow	*/
++	__u64	rx_crc_errors;		/* recved pkt with crc error	*/
++	__u64	rx_frame_errors;	/* recv'd frame alignment error */
++	__u64	rx_fifo_errors;		/* recv'r fifo overrun		*/
++	__u64	rx_missed_errors;	/* receiver missed packet	*/
++
++	/* detailed tx_errors */
++	__u64	tx_aborted_errors;
++	__u64	tx_carrier_errors;
++	__u64	tx_fifo_errors;
++	__u64	tx_heartbeat_errors;
++	__u64	tx_window_errors;
++
++	/* for cslip etc */
++	__u64	rx_compressed;
++	__u64	tx_compressed;
++};
++
+ /* The struct should be in sync with struct ifmap */
+ struct rtnl_link_ifmap {
+ 	__u64	mem_start;
+@@ -83,6 +115,7 @@ enum {
+ 	IFLA_VF_VLAN,
+ 	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
+ 	IFLA_VFINFO,
++	IFLA_STATS64,
+ 	__IFLA_MAX
+ };
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 4568120..e1121f0 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -600,7 +600,39 @@ static void copy_rtnl_link_stats(struct rtnl_link_stats *a,
+ 
+ 	a->rx_compressed = b->rx_compressed;
+ 	a->tx_compressed = b->tx_compressed;
+-};
++}
++
++static void copy_rtnl_link_stats64(struct rtnl_link_stats64 *a,
++				   const struct net_device_stats *b)
++{
++	a->rx_packets = b->rx_packets;
++	a->tx_packets = b->tx_packets;
++	a->rx_bytes = b->rx_bytes;
++	a->tx_bytes = b->tx_bytes;
++	a->rx_errors = b->rx_errors;
++	a->tx_errors = b->tx_errors;
++	a->rx_dropped = b->rx_dropped;
++	a->tx_dropped = b->tx_dropped;
++
++	a->multicast = b->multicast;
++	a->collisions = b->collisions;
++
++	a->rx_length_errors = b->rx_length_errors;
++	a->rx_over_errors = b->rx_over_errors;
++	a->rx_crc_errors = b->rx_crc_errors;
++	a->rx_frame_errors = b->rx_frame_errors;
++	a->rx_fifo_errors = b->rx_fifo_errors;
++	a->rx_missed_errors = b->rx_missed_errors;
++
++	a->tx_aborted_errors = b->tx_aborted_errors;
++	a->tx_carrier_errors = b->tx_carrier_errors;
++	a->tx_fifo_errors = b->tx_fifo_errors;
++	a->tx_heartbeat_errors = b->tx_heartbeat_errors;
++	a->tx_window_errors = b->tx_window_errors;
++
++	a->rx_compressed = b->rx_compressed;
++	a->tx_compressed = b->tx_compressed;
++}
+ 
+ static inline int rtnl_vfinfo_size(const struct net_device *dev)
+ {
+@@ -698,6 +730,14 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	stats = dev_get_stats(dev);
+ 	copy_rtnl_link_stats(nla_data(attr), stats);
+ 
++	attr = nla_reserve(skb, IFLA_STATS64,
++			sizeof(struct rtnl_link_stats64));
++	if (attr == NULL)
++		goto nla_put_failure;
++
++	stats = dev_get_stats(dev);
++	copy_rtnl_link_stats64(nla_data(attr), stats);
++
+ 	if (dev->netdev_ops->ndo_get_vf_config && dev->dev.parent) {
+ 		int i;
+ 		struct ifla_vf_info ivi;
+-- 
+1.7.0
 
-If the interface is down, no problem.
-
-> That's what I thought, I thought he was running it in a loop and
-> triggering some race condition.  But he said he only ran it once.  His
-> program gets the coalesce settings, sleeps for 5 seconds, and then sets
-> the coalesce settings.
-
-The 5 seconds was there only because this was a snippet from a larger
-function that was doing a lot of ETHTOOL ioctl()'s, and I wanted to
-wait between each call to see which was causing this.  Removing the
-sleep() still triggers the watchdog.
-
->> In any case, you should be trying to reproduce his problem with
->> his test program since he went through the effort of providing
->> one.
-> 
-> I just tried it and cannot reproduce the problem.
-> 
-> Brian, please provide more information.  Thanks.
-
-I can only reproduce this on one system out of many, so it's either a
-race condition or bad hardware.  The only thing I can confirm at the
-moment is that it's the code at the bottom of bnx2_set_coalesce()
-that's causing it, I'm trying to go through all those codepaths now.
-
-# lspci -vv -s 04:00
-04:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
-	Subsystem: Hewlett-Packard Company NC373i Integrated Multifunction Gigabit Server Adapter
-	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr+ Stepping- SERR+ FastB2B- DisINTx+
-	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
-	Latency: 64 (16000ns min), Cache Line Size: 64 bytes
-	Interrupt: pin A routed to IRQ 65
-	Region 0: Memory at f6000000 (64-bit, non-prefetchable) [size=32M]
-	[virtual] Expansion ROM at d0200000 [disabled] [size=2K]
-	Capabilities: [40] PCI-X non-bridge device
-		Command: DPERE- ERO- RBC=512 OST=8
-		Status: Dev=04:00.0 64bit+ 133MHz+ SCD- USC- DC=simple DMMRBC=512 DMOST=8 DMCRS=32 RSCEM- 266MHz- 533MHz-
-	Capabilities: [48] Power Management version 2
-		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot+,D3cold+)
-		Status: D0 PME-Enable- DSel=0 DScale=1 PME-
-	Capabilities: [50] Vital Product Data <?>
-	Capabilities: [58] Message Signalled Interrupts: Mask- 64bit+ Queue=0/0 Enable+
-		Address: 00000000fee0100c  Data: 4182
-	Kernel driver in use: bnx2
-	Kernel modules: bnx2
-
-# ethtool -i eth0
-driver: bnx2
-version: 2.0.2
-firmware-version: 1.9.6
-bus-info: 0000:04:00.0
-
-What other info would help?
-
--Brian
