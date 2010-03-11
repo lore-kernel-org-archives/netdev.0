@@ -1,35 +1,40 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: ixgbevf: bug in error handling
-Date: Thu, 11 Mar 2010 13:33:29 +0300
-Message-ID: <20100311103329.GO6321@bicker>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: [PATCH 0/7] tcp: bugs and cleanup for 2.6.34-rc1
+Date: Thu, 11 Mar 2010 06:35:46 -0500
+Message-ID: <4B98D592.6040301@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Greg Rose <gregory.v.rose@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:50262 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755349Ab0CKKkz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 05:40:55 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Greg,
+I'd have thought that there would be greater interest about patching
+crashing bugs, signed versus unsigned (underflow) bugs, TCP DoS bugs,
+TCP data corruption, and TCP performance problems....
 
-drivers/net/ixgbevf/ixgbevf_main.c +3013 ixgbevf_tx_map(96) warn: unsigned 'i' is never less than zero.
-  3010          while (count >= 0) {
-  3011                  count--;
-  3012                  i--;
-  3013                  if (i < 0)
-  3014                          i += tx_ring->count;
+There's been ample warning.  Zero-day security issues will be reported
+to the usual announcement lists.  In particular, these 0day exploits
+affect systems as far back as the 2005 changeover to git.
 
-	There is a problem here because i is unsigned and just wraps 
-	around instead of being less than 0.
+Combination of patches reported in October, November, December, January,
+and February, for 2.6.32, 2.6.33, and now 2.6.34.
 
-  3015                  tx_buffer_info = &tx_ring->tx_buffer_info[i];
-  3016                  ixgbevf_unmap_and_free_tx_resource(adapter, tx_buffer_info);
-  3017          }
+This code has had previous review and several months of limited testing.
 
-regards,
-dan carpenter
+Some portions were removed during the various TCPCT part 1 patch splits,
+then were cut off by the sudden unexpected end of that merge window.
+[03 Dec 2009]  I've restarted the sub-numbering (again).
+
+Of particular interest are the TCPCT header extensions that already
+appear in the next phase of testing with other platforms.  These patches
+allow correct reception without data corruption.
+
+The remainder of the original TCPCT part 2 will be merged with part 3.
+
+[Updated to 2010 Mar 08 2.6.34-rc1.]
