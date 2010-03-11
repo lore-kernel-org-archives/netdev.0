@@ -1,450 +1,438 @@
-From: Sriramakrishnan <srk-l0cyMroinI0@public.gmane.org>
-Subject: [PATCH 2/2] davinci: introduce EMAC PHY clock usage
-Date: Thu, 11 Mar 2010 19:54:51 +0530
-Message-ID: <1268317491-3822-3-git-send-email-srk@ti.com>
-References: <1268317491-3822-1-git-send-email-srk@ti.com>
-	<1268317491-3822-2-git-send-email-srk@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v6] rps: Receive Packet Steering
+Date: Thu, 11 Mar 2010 15:45:38 +0100
+Message-ID: <1268318738.2986.518.camel@edumazet-laptop>
+References: <alpine.DEB.1.00.1003102249380.21248@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-In-Reply-To: <1268317491-3822-2-git-send-email-srk-l0cyMroinI0@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, shemminger@vyatta.com
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:62876 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757886Ab0CKOpp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 09:45:45 -0500
+Received: by bwz1 with SMTP id 1so94401bwz.21
+        for <netdev@vger.kernel.org>; Thu, 11 Mar 2010 06:45:43 -0800 (PST)
+In-Reply-To: <alpine.DEB.1.00.1003102249380.21248@pokey.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
+Le mercredi 10 mars 2010 =C3=A0 23:00 -0800, Tom Herbert a =C3=A9crit :
+> Added explicit entries entries in sysfs to set RPS cpus for each devi=
+ce queue.  This includes:
+>=20
+> - Create RX queue instances which are attached to each netdevice (net=
+dev_rx_queue).  These are analogous to the netdev_queue structures whic=
+h are used for transmit.  RX queue instances hold an rps_map.
+> - RX queues are allocated in alloc_netdev_mq for the given queue_coun=
+t (basically we're assuming #RX queues =3D=3D #TX queues).  If a driver=
+ does not call alloc_netdev_mq, a single instance is created in registe=
+r_netdevice.
+> - Added subdrectories in sysfs for per-queue RPS settings.  These are=
+ in /sys/class/net/eth<n>/queues/rx-<n>.  The "queues" directory is not=
+ necessary, but keeps the eth<n> directory clean (I don't have a stong =
+opinion on this).  Presumably, if TX queues needed entries that could g=
+o under tx-<n>
+>=20
+> Also addessed some previous issues raised:
+> - Copy rxhash in skb_clone
+> - Took __netif_receive_skb out of kernel-doc
+> - Removed VLA containing VLA ugliness (rx queues above fixed that)
+> - Copy and clear rps_mask before calling net_rps_action
+>=20
 
-The patch "TI DaVinci EMAC: Add EMAC PHY clock handling" adds
-support for enabling and disabling the EMAC PHY clock.
+Pretty much exciting day began, thanks Tom !
 
-The PHY clock on all DaVinci boards is derived from a fixed
-on board clock. This patch adds the PHY clock definition to
-the clock tree for all the DaVinci boards using EMAC. Also,
-the existing input to EMAC module is differentiated from the
-PHY clock using the clock name "emac_clk".
+I reviewed/tested your V6 patch, and have few comments :
 
-Without this patch ethernet fails to initialize since it cannot
-get the PHY clock and EMAC clock.
+- When a netdevice is freed, I believe you leak rps_maps if they were
+previously allocated. I found following patch necessary to fix it.
 
-Tested on EVM boards for DM365, DM6467, DM644x, DA830 and DA850.
-
-Signed-off-by: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
----
-Though i have made changes for Neuros OSD2 and SFFSDR boards, i
-do not have the hardware to test. Appreciate if folks having this
-hardware ack the patch.
-
- arch/arm/mach-davinci/board-da830-evm.c   |   19 +++++++++++++++++++
- arch/arm/mach-davinci/board-da850-evm.c   |   21 +++++++++++++++++++++
- arch/arm/mach-davinci/board-dm365-evm.c   |   18 ++++++++++++++++++
- arch/arm/mach-davinci/board-dm644x-evm.c  |   18 ++++++++++++++++++
- arch/arm/mach-davinci/board-dm646x-evm.c  |   15 +++++++++++++++
- arch/arm/mach-davinci/board-neuros-osd2.c |   19 +++++++++++++++++++
- arch/arm/mach-davinci/board-sffsdr.c      |   19 +++++++++++++++++++
- arch/arm/mach-davinci/da830.c             |    2 +-
- arch/arm/mach-davinci/da850.c             |    2 +-
- arch/arm/mach-davinci/dm365.c             |    2 +-
- arch/arm/mach-davinci/dm644x.c            |    2 +-
- arch/arm/mach-davinci/dm646x.c            |    2 +-
- 12 files changed, 134 insertions(+), 5 deletions(-)
-
-diff --git a/arch/arm/mach-davinci/board-da830-evm.c b/arch/arm/mach-davinci/board-da830-evm.c
-index dc19870..54e8567 100644
---- a/arch/arm/mach-davinci/board-da830-evm.c
-+++ b/arch/arm/mach-davinci/board-da830-evm.c
-@@ -20,9 +20,11 @@
- #include <linux/i2c/at24.h>
- #include <linux/mtd/mtd.h>
- #include <linux/mtd/partitions.h>
-+#include <linux/clk.h>
- 
- #include <asm/mach-types.h>
- #include <asm/mach/arch.h>
-+#include <mach/clock.h>
- 
- #include <mach/cp_intc.h>
- #include <mach/mux.h>
-@@ -30,6 +32,8 @@
- #include <mach/da8xx.h>
- #include <mach/usb.h>
- 
-+#include "clock.h"
-+
- #define DA830_EVM_PHY_MASK		0x0
- #define DA830_EVM_MDIO_FREQUENCY	2200000	/* PHY bus frequency */
- 
-@@ -557,9 +561,24 @@ static __init void da830_evm_irq_init(void)
- 			soc_info->intc_irq_prios);
- }
- 
-+#define EMAC_PHY_CLK_RATE	50000000
-+
-+static struct clk emac_phy = {
-+	.name	= "emac_phy",
-+	.rate	= EMAC_PHY_CLK_RATE,
-+};
-+
-+static struct clk_lookup emac_phy_clks[] = {
-+	CLK("davinci_emac.1", "phy_clk", &emac_phy),
-+	CLK(NULL, NULL, NULL),
-+};
-+
- static void __init da830_evm_map_io(void)
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index a07d6ec..ef82b9d 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -596,7 +596,10 @@ static struct attribute *rx_queue_default_attrs[] =
+=3D
+{
+ static void rx_queue_release(struct kobject *kobj)
  {
- 	da830_init();
-+
-+	clkdev_add(emac_phy_clks);
-+	clk_register(&emac_phy);
+        struct netdev_rx_queue *queue =3D to_rx_queue(kobj);
++       struct rps_map *map =3D queue->rps_map;
+=20
++       if (map)
++               call_rcu(&map->rcu, rps_map_release);
+        kfree(queue);
  }
- 
- MACHINE_START(DAVINCI_DA830_EVM, "DaVinci DA830/OMAP-L137 EVM")
-diff --git a/arch/arm/mach-davinci/board-da850-evm.c b/arch/arm/mach-davinci/board-da850-evm.c
-index 411284d..c43ae45 100644
---- a/arch/arm/mach-davinci/board-da850-evm.c
-+++ b/arch/arm/mach-davinci/board-da850-evm.c
-@@ -24,6 +24,7 @@
- #include <linux/mtd/partitions.h>
- #include <linux/mtd/physmap.h>
- #include <linux/regulator/machine.h>
-+#include <linux/clk.h>
- 
- #include <asm/mach-types.h>
- #include <asm/mach/arch.h>
-@@ -32,6 +33,9 @@
- #include <mach/da8xx.h>
- #include <mach/nand.h>
- #include <mach/mux.h>
-+#include <mach/clock.h>
-+
-+#include "clock.h"
- 
- #define DA850_EVM_PHY_MASK		0x1
- #define DA850_EVM_MDIO_FREQUENCY	2200000 /* PHY bus frequency */
-@@ -551,6 +555,18 @@ static const short da850_evm_lcdc_pins[] = {
- 	-1
- };
- 
-+#define EMAC_MII_PHY_CLK_RATE	25000000
-+#define EMAC_RMII_PHY_CLK_RATE	50000000
-+
-+static struct clk emac_phy = {
-+	.name	= "emac_phy",
+=20
+- memory leak in alloc_netdev_mq() if dev_addr_init() fails
+	-> must use goto free_rx;
+
+
+- Maybe use max(RPM_MAP_SIZE(x), L1_CACHE_BYTES) for allocations to
+avoid false sharing for small maps. (Or else, other part of cache line
+might be given to a user that might dirty it at high rate)
+
+- "struct netdev_rx_queue" being only read in fast path, I am not sure
+an alignement is necessary, apart the false sharing that can be
+separately addressed.
+
+
+- A double indirection to get a struct netdev_rx_queue pointer is
+expensive, not for heavy load benchmarks, but for latencies in seldom
+used devices. I understand you added this for kobject deferred release
+and kfreeing, but this seems a high price to pay in our fast path. I
+used another solution.
+
+
+- WARN(1, "Recieved packet on %s for queue %u, "
+   -> Received
+
+- Use of cpumask_t for variable on stack is discouraged, we shall use
+cpumask_var_t if possible. Easy for show/store commands. (see my patch)
+
+Yet, adding a memory allocation in net_rx_action() seems overkill, so w=
+e
+might use two static masks per cpu, and perform a flip ? This would hel=
+p
+machines with 4096 cpus : To Be Done ?
+
+
+- RTNL to guard rps map exchange ???
+This sounds like BKL (Big Kernel Lock) syndrom to me :
+Trying to avoid it if possible is better, because it wont exist anymore
+in ten years with 0.99 probability.
+
+
+=46or ease of discussion, I cooked following patch on top of yours :
+
+Thanks !
+
+ include/linux/netdevice.h |    8 ++-
+ net/core/dev.c            |   64 ++++++++++-------------------
+ net/core/net-sysfs.c      |   78 ++++++++++++++++++++++--------------
+ 3 files changed, 77 insertions(+), 73 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 468da0a..3f4a986 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -544,9 +544,11 @@ struct rps_map {
+=20
+ /* This structure contains an instance of an RX queue. */
+ struct netdev_rx_queue {
+-	struct kobject kobj;
+ 	struct rps_map *rps_map;
+-} ____cacheline_aligned_in_smp;
++	struct kobject kobj;
++	struct netdev_rx_queue *first;
++	atomic_t count;
 +};
-+
-+static struct clk_lookup emac_phy_clks[] = {
-+	CLK("davinci_emac.1", "phy_clk", &emac_phy),
-+	CLK(NULL, NULL, NULL),
-+};
-+
- static int __init da850_evm_config_emac(void)
- {
- 	void __iomem *cfg_chip3_base;
-@@ -571,17 +587,22 @@ static int __init da850_evm_config_emac(void)
- 		ret = da8xx_pinmux_setup(da850_rmii_pins);
- 		pr_info("EMAC: RMII PHY configured, MII PHY will not be"
- 							" functional\n");
-+		emac_phy.rate = EMAC_RMII_PHY_CLK_RATE;
- 	} else {
- 		val &= ~BIT(8);
- 		ret = da8xx_pinmux_setup(da850_cpgmac_pins);
- 		pr_info("EMAC: MII PHY configured, RMII PHY will not be"
- 							" functional\n");
-+		emac_phy.rate = EMAC_MII_PHY_CLK_RATE;
- 	}
- 
- 	if (ret)
- 		pr_warning("da850_evm_init: cpgmac/rmii mux setup failed: %d\n",
- 				ret);
- 
-+	clkdev_add(emac_phy_clks);
-+	clk_register(&emac_phy);
-+
- 	/* configure the CFGCHIP3 register for RMII or MII */
- 	__raw_writel(val, cfg_chip3_base);
- 
-diff --git a/arch/arm/mach-davinci/board-dm365-evm.c b/arch/arm/mach-davinci/board-dm365-evm.c
-index d15bece..c36e034 100644
---- a/arch/arm/mach-davinci/board-dm365-evm.c
-+++ b/arch/arm/mach-davinci/board-dm365-evm.c
-@@ -38,9 +38,12 @@
- #include <mach/mmc.h>
- #include <mach/nand.h>
- #include <mach/keyscan.h>
-+#include <mach/clock.h>
- 
- #include <media/tvp514x.h>
- 
-+#include "clock.h"
-+
- static inline int have_imager(void)
- {
- 	/* REVISIT when it's supported, trigger via Kconfig */
-@@ -566,11 +569,26 @@ static struct davinci_uart_config uart_config __initdata = {
- 	.enabled_uarts = (1 << 0),
- };
- 
-+#define EMAC_PHY_CLK_RATE	25000000
-+
-+static struct clk emac_phy = {
-+	.name	= "emac_phy",
-+	.rate	= EMAC_PHY_CLK_RATE,
-+};
-+
-+static struct clk_lookup emac_phy_clks[] = {
-+	CLK("davinci_emac.1", "phy_clk", &emac_phy),
-+	CLK(NULL, NULL, NULL),
-+};
-+
- static void __init dm365_evm_map_io(void)
- {
- 	/* setup input configuration for VPFE input devices */
- 	dm365_set_vpfe_config(&vpfe_cfg);
- 	dm365_init();
-+
-+	clkdev_add(emac_phy_clks);
-+	clk_register(&emac_phy);
- }
- 
- static struct spi_eeprom at25640 = {
-diff --git a/arch/arm/mach-davinci/board-dm644x-evm.c b/arch/arm/mach-davinci/board-dm644x-evm.c
-index 976e11b..ba90181 100644
---- a/arch/arm/mach-davinci/board-dm644x-evm.c
-+++ b/arch/arm/mach-davinci/board-dm644x-evm.c
-@@ -37,6 +37,9 @@
- #include <mach/nand.h>
- #include <mach/mmc.h>
- #include <mach/usb.h>
-+#include <mach/clock.h>
-+
-+#include "clock.h"
- 
- #define DM644X_EVM_PHY_MASK		(0x2)
- #define DM644X_EVM_MDIO_FREQUENCY	(2200000) /* PHY bus frequency */
-@@ -649,12 +652,27 @@ static struct davinci_uart_config uart_config __initdata = {
- 	.enabled_uarts = (1 << 0),
- };
- 
-+#define EMAC_PHY_CLK_RATE	25000000
-+
-+static struct clk emac_phy = {
-+	.name	= "emac_phy",
-+	.rate	= EMAC_PHY_CLK_RATE,
-+};
-+
-+static struct clk_lookup emac_phy_clks[] = {
-+	CLK("davinci_emac.1", "phy_clk", &emac_phy),
-+	CLK(NULL, NULL, NULL),
-+};
-+
- static void __init
- davinci_evm_map_io(void)
- {
- 	/* setup input configuration for VPFE input devices */
- 	dm644x_set_vpfe_config(&vpfe_cfg);
- 	dm644x_init();
-+
-+	clkdev_add(emac_phy_clks);
-+	clk_register(&emac_phy);
- }
- 
- static int davinci_phy_fixup(struct phy_device *phydev)
-diff --git a/arch/arm/mach-davinci/board-dm646x-evm.c b/arch/arm/mach-davinci/board-dm646x-evm.c
-index 5ba3cb2..6241893 100644
---- a/arch/arm/mach-davinci/board-dm646x-evm.c
-+++ b/arch/arm/mach-davinci/board-dm646x-evm.c
-@@ -711,10 +711,25 @@ static void __init cdce_clk_init(void)
- 	}
- }
- 
-+#define EMAC_PHY_CLK_RATE	25000000
-+
-+static struct clk emac_phy = {
-+	.name	= "emac_phy",
-+	.rate	= EMAC_PHY_CLK_RATE,
-+};
-+
-+static struct clk_lookup emac_phy_clks[] = {
-+	CLK("davinci_emac.1", "phy_clk", &emac_phy),
-+	CLK(NULL, NULL, NULL),
-+};
-+
- static void __init davinci_map_io(void)
- {
- 	dm646x_init();
- 	cdce_clk_init();
-+
-+	clkdev_add(emac_phy_clks);
-+	clk_register(&emac_phy);
- }
- 
- static struct davinci_uart_config uart_config __initdata = {
-diff --git a/arch/arm/mach-davinci/board-neuros-osd2.c b/arch/arm/mach-davinci/board-neuros-osd2.c
-index bd9ca07..075962c 100644
---- a/arch/arm/mach-davinci/board-neuros-osd2.c
-+++ b/arch/arm/mach-davinci/board-neuros-osd2.c
-@@ -26,6 +26,7 @@
- #include <linux/platform_device.h>
- #include <linux/gpio.h>
- #include <linux/mtd/partitions.h>
-+#include <linux/clk.h>
- 
- #include <asm/mach-types.h>
- #include <asm/mach/arch.h>
-@@ -37,6 +38,9 @@
- #include <mach/nand.h>
- #include <mach/mmc.h>
- #include <mach/usb.h>
-+#include <mach/clock.h>
-+
-+#include "clock.h"
- 
- #define NEUROS_OSD2_PHY_MASK		0x2
- #define NEUROS_OSD2_MDIO_FREQUENCY	2200000 /* PHY bus frequency */
-@@ -188,9 +192,24 @@ static struct davinci_uart_config uart_config __initdata = {
- 	.enabled_uarts = (1 << 0),
- };
- 
-+#define EMAC_PHY_CLK_RATE	25000000
-+
-+static struct clk emac_phy = {
-+	.name	= "emac_phy",
-+	.rate	= EMAC_PHY_CLK_RATE,
-+};
-+
-+static struct clk_lookup emac_phy_clks[] = {
-+	CLK("davinci_emac.1", "phy_clk", &emac_phy),
-+	CLK(NULL, NULL, NULL),
-+};
-+
- static void __init davinci_ntosd2_map_io(void)
- {
- 	dm644x_init();
-+
-+	clkdev_add(emac_phy_clks);
-+	clk_register(&emac_phy);
- }
- 
+=20
  /*
-diff --git a/arch/arm/mach-davinci/board-sffsdr.c b/arch/arm/mach-davinci/board-sffsdr.c
-index 08d373b..7faa6cf 100644
---- a/arch/arm/mach-davinci/board-sffsdr.c
-+++ b/arch/arm/mach-davinci/board-sffsdr.c
-@@ -30,6 +30,7 @@
- #include <linux/mtd/mtd.h>
- #include <linux/mtd/nand.h>
- #include <linux/mtd/partitions.h>
-+#include <linux/clk.h>
- 
- #include <asm/mach-types.h>
- #include <asm/mach/arch.h>
-@@ -41,6 +42,9 @@
- #include <mach/serial.h>
- #include <mach/mux.h>
- #include <mach/usb.h>
-+#include <mach/clock.h>
-+
-+#include "clock.h"
- 
- #define SFFSDR_PHY_MASK		(0x2)
- #define SFFSDR_MDIO_FREQUENCY	(2200000) /* PHY bus frequency */
-@@ -133,9 +137,24 @@ static struct davinci_uart_config uart_config __initdata = {
- 	.enabled_uarts = (1 << 0),
- };
- 
-+#define EMAC_PHY_CLK_RATE	25000000
-+
-+static struct clk emac_phy = {
-+	.name	= "emac_phy",
-+	.rate	= EMAC_PHY_CLK_RATE,
-+};
-+
-+static struct clk_lookup emac_phy_clks[] = {
-+	CLK("davinci_emac.1", "phy_clk", &emac_phy),
-+	CLK(NULL, NULL, NULL),
-+};
-+
- static void __init davinci_sffsdr_map_io(void)
+  * This structure defines the management hooks for network devices.
+@@ -897,7 +899,7 @@ struct net_device {
+=20
+ 	struct kset		*queues_kset;
+=20
+-	struct netdev_rx_queue	**_rx;
++	struct netdev_rx_queue	*_rx;
+=20
+ 	/* Number of RX queues allocated at alloc_netdev_mq() time  */
+ 	unsigned int		num_rx_queues;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 939b1a2..402f23a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2195,15 +2195,15 @@ static int get_rps_cpu(struct net_device *dev, =
+struct sk_buff *skb)
+ 		u16 index =3D skb_get_rx_queue(skb);
+ 		if (unlikely(index >=3D dev->num_rx_queues)) {
+ 			if (net_ratelimit()) {
+-				WARN(1, "Recieved packet on %s for queue %u, "
++				WARN(1, "Received packet on %s for queue %u, "
+ 				    "but number of RX queues is %u\n",
+ 				     dev->name, index, dev->num_rx_queues);
+ 			}
+ 			goto done;
+ 		}
+-		rxqueue =3D dev->_rx[index];
++		rxqueue =3D dev->_rx + index;
+ 	} else
+-		rxqueue =3D dev->_rx[0];
++		rxqueue =3D dev->_rx;
+=20
+ 	if (!rxqueue->rps_map)
+ 		goto done;
+@@ -5236,20 +5236,17 @@ int register_netdevice(struct net_device *dev)
+ 		 * alloc_netdev_mq
+ 		 */
+=20
+-		dev->_rx =3D kzalloc(sizeof(struct netdev_rx_queue *),
+-		    GFP_KERNEL);
++		dev->_rx =3D kzalloc(max_t(unsigned,
++					 sizeof(struct netdev_rx_queue),
++					 L1_CACHE_BYTES),
++				   GFP_KERNEL);
+ 		if (!dev->_rx) {
+ 			ret =3D -ENOMEM;
+ 			goto out;
+ 		}
+=20
+-		dev->_rx[0] =3D kzalloc(sizeof(struct netdev_rx_queue),
+-		    GFP_KERNEL);
+-		if (!dev->_rx[0]) {
+-			kfree(dev->_rx);
+-			ret =3D -ENOMEM;
+-			goto out;
+-		}
++		dev->_rx[0].first =3D dev->_rx;
++		atomic_set(&dev->_rx[0].count, 1);
+ 		dev->num_rx_queues =3D 1;
+ 	}
+=20
+@@ -5610,7 +5607,7 @@ struct net_device *alloc_netdev_mq(int sizeof_pri=
+v, const char *name,
+ 		void (*setup)(struct net_device *), unsigned int queue_count)
  {
- 	dm644x_init();
-+
-+	clkdev_add(emac_phy_clks);
-+	clk_register(&emac_phy);
+ 	struct netdev_queue *tx;
+-	struct netdev_rx_queue **rx;
++	struct netdev_rx_queue *rx;
+ 	struct net_device *dev;
+ 	size_t alloc_size;
+ 	struct net_device *p;
+@@ -5635,37 +5632,30 @@ struct net_device *alloc_netdev_mq(int sizeof_p=
+riv, const char *name,
+=20
+ 	tx =3D kcalloc(queue_count, sizeof(struct netdev_queue), GFP_KERNEL);
+ 	if (!tx) {
+-		printk(KERN_ERR "alloc_netdev: Unable to allocate "
+-		       "tx qdiscs.\n");
++		pr_err("alloc_netdev: Unable to allocate tx qdiscs.\n");
+ 		goto free_p;
+ 	}
+=20
+-	/*
+-	 * Allocate RX queue structures, this includes an array of pointers
+-	 * and netdev_queue_rx stuctures (individually allocated since
+-	 * each has a kobject).
+-	 */
+-	rx =3D kzalloc(queue_count *
+-	    sizeof(struct netdev_rx_queue *), GFP_KERNEL);
++	rx =3D kzalloc(max_t(unsigned,
++			   queue_count * sizeof(struct netdev_rx_queue),
++			   L1_CACHE_BYTES),
++		     GFP_KERNEL);
+ 	if (!rx) {
+-		printk(KERN_ERR "alloc_netdev: Unable to allocate "
+-		       "rx queues array.\n");
++		pr_err("alloc_netdev: Unable to allocate rx queues.\n");
+ 		goto free_tx;
+ 	}
+-	for (i =3D 0; i < queue_count; i++) {
+-		rx[i] =3D kzalloc(sizeof(struct netdev_rx_queue), GFP_KERNEL);
+-		if (!rx[i]) {
+-			printk(KERN_ERR "alloc_netdev: Unable to allocate "
+-			    "rx queues.\n");
+-			goto free_rx;
+-		}
+-	}
++	atomic_set(&rx->count, queue_count);
++	/*
++	 * Use counter is located in first element of this array
++	 */
++	for (i =3D 0; i < queue_count; i++)
++		rx[i].first =3D rx;
+=20
+ 	dev =3D PTR_ALIGN(p, NETDEV_ALIGN);
+ 	dev->padded =3D (char *)dev - (char *)p;
+=20
+ 	if (dev_addr_init(dev))
+-		goto free_tx;
++		goto free_rx;
+=20
+ 	dev_unicast_init(dev);
+=20
+@@ -5693,8 +5683,6 @@ struct net_device *alloc_netdev_mq(int sizeof_pri=
+v, const char *name,
+ 	return dev;
+=20
+ free_rx:
+-	for (i =3D 0; i < queue_count; i++)
+-		kfree(rx[i]);
+ 	kfree(rx);
+ free_tx:
+ 	kfree(tx);
+@@ -5720,12 +5708,6 @@ void free_netdev(struct net_device *dev)
+=20
+ 	kfree(dev->_tx);
+=20
+-	/*
+-	 * Free RX queue pointer array.  Actual netdev_rx_queue objects are
+-	 * freed by kobject release.
+-	 */
+-	kfree(dev->_rx);
+-
+ 	/* Flush device addresses */
+ 	dev_addr_flush(dev);
+=20
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index a07d6ec..de75258 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -516,24 +516,26 @@ static ssize_t show_rps_map(struct netdev_rx_queu=
+e *queue,
+ 	size_t len =3D 0;
+ 	struct rps_map *map;
+ 	int i;
+-	cpumask_t mask;
++	cpumask_var_t mask;
+=20
+-	cpus_clear(mask);
++	if (!zalloc_cpumask_var(&mask, GFP_KERNEL))
++		return -ENOMEM;
+=20
+ 	rcu_read_lock();
+ 	map =3D rcu_dereference(queue->rps_map);
+ 	if (map) {
+ 		for (i =3D 0; i < map->len; i++)
+-			cpu_set(map->cpus[i], mask);
++			cpumask_set_cpu(map->cpus[i], mask);
+=20
+-		len +=3D cpumask_scnprintf(buf + len, PAGE_SIZE, &mask);
++		len +=3D cpumask_scnprintf(buf + len, PAGE_SIZE, mask);
+ 		if (PAGE_SIZE - len < 3) {
+ 			rcu_read_unlock();
++			free_cpumask_var(mask);
+ 			return -EINVAL;
+ 		}
+ 	}
+ 	rcu_read_unlock();
+-
++	free_cpumask_var(mask);
+ 	len +=3D sprintf(buf + len, "\n");
+ 	return len;
  }
- 
- static __init void davinci_sffsdr_init(void)
-diff --git a/arch/arm/mach-davinci/da830.c b/arch/arm/mach-davinci/da830.c
-index 122e61a..31903e2 100644
---- a/arch/arm/mach-davinci/da830.c
-+++ b/arch/arm/mach-davinci/da830.c
-@@ -414,7 +414,7 @@ static struct clk_lookup da830_clks[] = {
- 	CLK(NULL,		"aemif",	&aemif_clk),
- 	CLK(NULL,		"aintc",	&aintc_clk),
- 	CLK(NULL,		"secu_mgr",	&secu_mgr_clk),
--	CLK("davinci_emac.1",	NULL,		&emac_clk),
-+	CLK("davinci_emac.1",	"emac_clk",	&emac_clk),
- 	CLK(NULL,		"gpio",		&gpio_clk),
- 	CLK("i2c_davinci.2",	NULL,		&i2c1_clk),
- 	CLK(NULL,		"usb11",	&usb11_clk),
-diff --git a/arch/arm/mach-davinci/da850.c b/arch/arm/mach-davinci/da850.c
-index d0fd756..4fd92d9 100644
---- a/arch/arm/mach-davinci/da850.c
-+++ b/arch/arm/mach-davinci/da850.c
-@@ -371,7 +371,7 @@ static struct clk_lookup da850_clks[] = {
- 	CLK(NULL,		"emif3",	&emif3_clk),
- 	CLK(NULL,		"arm",		&arm_clk),
- 	CLK(NULL,		"rmii",		&rmii_clk),
--	CLK("davinci_emac.1",	NULL,		&emac_clk),
-+	CLK("davinci_emac.1",	"emac_clk",	&emac_clk),
- 	CLK("davinci-mcasp.0",	NULL,		&mcasp_clk),
- 	CLK("da8xx_lcdc.0",	NULL,		&lcdc_clk),
- 	CLK("davinci_mmc.0",	NULL,		&mmcsd_clk),
-diff --git a/arch/arm/mach-davinci/dm365.c b/arch/arm/mach-davinci/dm365.c
-index 27772e1..71f773c 100644
---- a/arch/arm/mach-davinci/dm365.c
-+++ b/arch/arm/mach-davinci/dm365.c
-@@ -457,7 +457,7 @@ static struct clk_lookup dm365_clks[] = {
- 	CLK("watchdog", NULL, &timer2_clk),
- 	CLK(NULL, "timer3", &timer3_clk),
- 	CLK(NULL, "usb", &usb_clk),
--	CLK("davinci_emac.1", NULL, &emac_clk),
-+	CLK("davinci_emac.1", "emac_clk", &emac_clk),
- 	CLK("davinci_voicecodec", NULL, &voicecodec_clk),
- 	CLK("davinci-asp.0", NULL, &asp0_clk),
- 	CLK(NULL, "rto", &rto_clk),
-diff --git a/arch/arm/mach-davinci/dm644x.c b/arch/arm/mach-davinci/dm644x.c
-index 2f2ae8b..70948d4 100644
---- a/arch/arm/mach-davinci/dm644x.c
-+++ b/arch/arm/mach-davinci/dm644x.c
-@@ -299,7 +299,7 @@ struct clk_lookup dm644x_clks[] = {
- 	CLK(NULL, "uart0", &uart0_clk),
- 	CLK(NULL, "uart1", &uart1_clk),
- 	CLK(NULL, "uart2", &uart2_clk),
--	CLK("davinci_emac.1", NULL, &emac_clk),
-+	CLK("davinci_emac.1", "emac_clk", &emac_clk),
- 	CLK("i2c_davinci.1", NULL, &i2c_clk),
- 	CLK("palm_bk3710", NULL, &ide_clk),
- 	CLK("davinci-asp", NULL, &asp_clk),
-diff --git a/arch/arm/mach-davinci/dm646x.c b/arch/arm/mach-davinci/dm646x.c
-index 893baf4..464cebc 100644
---- a/arch/arm/mach-davinci/dm646x.c
-+++ b/arch/arm/mach-davinci/dm646x.c
-@@ -342,7 +342,7 @@ struct clk_lookup dm646x_clks[] = {
- 	CLK("davinci-mcasp.0", NULL, &mcasp0_clk),
- 	CLK("davinci-mcasp.1", NULL, &mcasp1_clk),
- 	CLK(NULL, "aemif", &aemif_clk),
--	CLK("davinci_emac.1", NULL, &emac_clk),
-+	CLK("davinci_emac.1", "emac_clk", &emac_clk),
- 	CLK(NULL, "pwm0", &pwm0_clk),
- 	CLK(NULL, "pwm1", &pwm1_clk),
- 	CLK(NULL, "timer0", &timer0_clk),
--- 
-1.6.2.4
+@@ -550,38 +552,48 @@ ssize_t store_rps_map(struct netdev_rx_queue *que=
+ue,
+ 		      const char *buf, size_t len)
+ {
+ 	struct rps_map *old_map, *map;
+-	cpumask_t mask;
+-	int err, cpu, i, weight;
++	cpumask_var_t mask;
++	int err, cpu, i;
++	static DEFINE_SPINLOCK(rps_map_lock);
+=20
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+=20
+-	err =3D bitmap_parse(buf, len, cpumask_bits(&mask), nr_cpumask_bits);
+-	if (err)
++	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
++		return -ENOMEM;
++
++	err =3D bitmap_parse(buf, len, cpumask_bits(mask), nr_cpumask_bits);
++	if (err) {
++		free_cpumask_var(mask);
+ 		return err;
++	}
++	map =3D kzalloc(max_t(unsigned,
++			    RPS_MAP_SIZE(cpumask_weight(mask)),
++			    L1_CACHE_BYTES),
++		      GFP_KERNEL);
++	if (!map) {
++		free_cpumask_var(mask);
++		return -ENOMEM;
++	}
++	i =3D 0;
++	for_each_cpu_and(cpu, mask, cpu_online_mask)
++		map->cpus[i++] =3D cpu;
++	if (i)
++ 		map->len =3D i;
++	else {
++		kfree(map);
++ 		map =3D NULL;
++	}
+=20
+-	weight =3D cpumask_weight(&mask);
+-	if (weight) {
+-		map =3D kzalloc(RPS_MAP_SIZE(weight), GFP_KERNEL);
+-		if (!map)
+-			return -ENOMEM;
+-
+-		cpus_and(mask, mask, cpu_online_map);
+-		i =3D 0;
+-		for_each_cpu_mask(cpu, mask)
+-			map->cpus[i++] =3D cpu;
+-		map->len =3D i;
+-	} else
+-		map =3D NULL;
+-
+-	rtnl_lock();
++	spin_lock(&rps_map_lock);
+ 	old_map =3D queue->rps_map;
+ 	rcu_assign_pointer(queue->rps_map, map);
+-	rtnl_unlock();
++	spin_unlock(&rps_map_lock);
+=20
+ 	if (old_map)
+ 		call_rcu(&old_map->rcu, rps_map_release);
+=20
++	free_cpumask_var(mask);
+ 	return len;
+ }
+=20
+@@ -596,8 +608,16 @@ static struct attribute *rx_queue_default_attrs[] =
+=3D {
+ static void rx_queue_release(struct kobject *kobj)
+ {
+ 	struct netdev_rx_queue *queue =3D to_rx_queue(kobj);
++	struct rps_map *map =3D queue->rps_map;
++	struct netdev_rx_queue *first =3D queue->first;
+=20
+-	kfree(queue);
++	if (map)
++		call_rcu(&map->rcu, rps_map_release);
++	/*
++	 * Free the array containing us only if all elems were released
++	 */
++	if (atomic_dec_and_test(&first->count))
++		kfree(first);
+ }
+=20
+ static struct kobj_type rx_queue_ktype =3D {
+@@ -609,7 +629,7 @@ static struct kobj_type rx_queue_ktype =3D {
+ static int rx_queue_add_kobject(struct net_device *net, int index)
+ {
+ 	int error =3D 0;
+-	struct netdev_rx_queue *queue =3D net->_rx[index];
++	struct netdev_rx_queue *queue =3D net->_rx + index;
+ 	struct kobject *kobj =3D &queue->kobj;
+=20
+ 	kobj->kset =3D net->queues_kset;
+@@ -642,7 +662,7 @@ static int rx_queue_register_kobjects(struct net_de=
+vice *net)
+=20
+ 	if (error)
+ 		while (--i >=3D 0)
+-			kobject_put(&net->_rx[i]->kobj);
++			kobject_put(&net->_rx[i].kobj);
+=20
+ 	return error;
+ }
+@@ -652,7 +672,7 @@ static void rx_queue_remove_kobjects(struct net_dev=
+ice *net)
+ 	int i;
+=20
+ 	for (i =3D 0; i < net->num_rx_queues; i++)
+-		kobject_put(&net->_rx[i]->kobj);
++		kobject_put(&net->_rx[i].kobj);
+ 	kset_unregister(net->queues_kset);
+ }
+=20
+
+
