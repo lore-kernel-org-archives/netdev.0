@@ -1,8 +1,8 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH 29/37] drivers/char: use .of_node instead of .archdata.of_node
+Subject: [PATCH 28/37] drivers/scsi: use .of_node instead of .archdata.of_node
 	in struct device
-Date: Thu, 11 Mar 2010 11:06:28 -0700
-Message-ID: <20100311180627.4824.32286.stgit__11126.1886697777$1268331159$gmane$org@angua>
+Date: Thu, 11 Mar 2010 11:06:22 -0700
+Message-ID: <20100311180622.4824.54684.stgit__19766.5780586705$1268331171$gmane$org@angua>
 References: <20100311174830.4824.19820.stgit@angua>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,10 +12,10 @@ To: monstr@monstr.eu, gregkh@suse.de, benh@kernel.crashing.org,
 	sfr@canb.auug.org.au, jgarzik@pobox.com, ben-linux@fluff.org,
 	dwmw2@infrade
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:63703 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933737Ab0CKSGh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:06:37 -0500
+Received: from mail-pz0-f194.google.com ([209.85.222.194]:34774 "EHLO
+	mail-pz0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933773Ab0CKSGf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 13:06:35 -0500
 In-Reply-To: <20100311174830.4824.19820.stgit@angua>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,20 +25,34 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 ---
 
- drivers/char/viotape.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/scsi/ibmvscsi/ibmvfc.c   |    2 +-
+ drivers/scsi/ibmvscsi/ibmvscsi.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/char/viotape.c b/drivers/char/viotape.c
-index 042c814..f37935c 100644
---- a/drivers/char/viotape.c
-+++ b/drivers/char/viotape.c
-@@ -865,7 +865,7 @@ static int viotape_probe(struct vio_dev *vdev, const struct vio_device_id *id)
+diff --git a/drivers/scsi/ibmvscsi/ibmvfc.c b/drivers/scsi/ibmvscsi/ibmvfc.c
+index 732f6d3..e230cd4 100644
+--- a/drivers/scsi/ibmvscsi/ibmvfc.c
++++ b/drivers/scsi/ibmvscsi/ibmvfc.c
+@@ -1155,7 +1155,7 @@ static void ibmvfc_gather_partition_info(struct ibmvfc_host *vhost)
+ static void ibmvfc_set_login_info(struct ibmvfc_host *vhost)
  {
- 	int i = vdev->unit_address;
- 	int j;
--	struct device_node *node = vdev->dev.archdata.of_node;
-+	struct device_node *node = vdev->dev.of_node;
+ 	struct ibmvfc_npiv_login *login_info = &vhost->login_info;
+-	struct device_node *of_node = vhost->dev->archdata.of_node;
++	struct device_node *of_node = vhost->dev->of_node;
+ 	const char *location;
  
- 	if (i >= VIOTAPE_MAX_TAPE)
- 		return -ENODEV;
+ 	memset(login_info, 0, sizeof(*login_info));
+diff --git a/drivers/scsi/ibmvscsi/ibmvscsi.c b/drivers/scsi/ibmvscsi/ibmvscsi.c
+index e3a18e0..c4b5af3 100644
+--- a/drivers/scsi/ibmvscsi/ibmvscsi.c
++++ b/drivers/scsi/ibmvscsi/ibmvscsi.c
+@@ -955,7 +955,7 @@ static void send_mad_capabilities(struct ibmvscsi_host_data *hostdata)
+ 	struct viosrp_capabilities *req;
+ 	struct srp_event_struct *evt_struct;
+ 	unsigned long flags;
+-	struct device_node *of_node = hostdata->dev->archdata.of_node;
++	struct device_node *of_node = hostdata->dev->of_node;
+ 	const char *location;
+ 
+ 	evt_struct = get_event_struct(&hostdata->pool);
 
