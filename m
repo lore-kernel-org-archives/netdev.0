@@ -1,71 +1,119 @@
 From: Andy Grover <andy.grover@oracle.com>
-Subject: [PATCH 06/13] RDS: Fix send locking issue
-Date: Thu, 11 Mar 2010 15:50:00 -0800
-Message-ID: <1268351407-7394-7-git-send-email-andy.grover@oracle.com>
+Subject: [PATCH 01/13] RDS: Do not BUG() on error returned from ib_post_send
+Date: Thu, 11 Mar 2010 15:49:55 -0800
+Message-ID: <1268351407-7394-2-git-send-email-andy.grover@oracle.com>
 References: <1268351407-7394-1-git-send-email-andy.grover@oracle.com>
-Cc: rds-devel@oss.oracle.com, Tina Yang <Tina.Yang@oracle.com>
+Cc: rds-devel@oss.oracle.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet11.oracle.com ([148.87.113.123]:45107 "EHLO
-	rcsinet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754521Ab0CKXu6 (ORCPT
+Received: from rcsinet12.oracle.com ([148.87.113.124]:56757 "EHLO
+	rcsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754464Ab0CKXu6 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 18:50:58 -0500
-Received: from rcsinet15.oracle.com (rcsinet15.oracle.com [148.87.113.117])
-	by rcsinet11.oracle.com (Switch-3.4.2/Switch-3.4.2) with ESMTP id o2BNovLp023443
+Received: from acsinet15.oracle.com (acsinet15.oracle.com [141.146.126.227])
+	by rcsinet12.oracle.com (Switch-3.4.2/Switch-3.4.2) with ESMTP id o2BNouUQ001372
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
 	for <netdev@vger.kernel.org>; Thu, 11 Mar 2010 23:50:58 GMT
 In-Reply-To: <1268351407-7394-1-git-send-email-andy.grover@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tina Yang <Tina.Yang@oracle.com>
+BUGging on a runtime error code should be avoided. This
+patch also eliminates all other BUG()s that have no real
+reason to exist.
 
-Fix a deadlock between rds_rdma_send_complete() and
-rds_send_remove_from_sock() when rds socket lock and
-rds message lock are acquired out-of-order.
-
-Signed-off-by: Tina Yang <Tina.Yang@oracle.com>
 Signed-off-by: Andy Grover <andy.grover@oracle.com>
 ---
- net/rds/send.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ net/rds/ib_recv.c        |    4 ++--
+ net/rds/ib_send.c        |    7 +++----
+ net/rds/iw_recv.c        |    4 ++--
+ net/rds/iw_send.c        |    3 +--
+ net/rds/rdma_transport.c |    3 +--
+ 5 files changed, 9 insertions(+), 12 deletions(-)
 
-diff --git a/net/rds/send.c b/net/rds/send.c
-index ad2e469..1a2ef24 100644
---- a/net/rds/send.c
-+++ b/net/rds/send.c
-@@ -533,14 +533,13 @@ void rds_send_remove_from_sock(struct list_head *messages, int status)
+diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
+index 04dc0d3..c338881 100644
+--- a/net/rds/ib_recv.c
++++ b/net/rds/ib_recv.c
+@@ -468,8 +468,8 @@ static void rds_ib_send_ack(struct rds_ib_connection *ic, unsigned int adv_credi
+ 		set_bit(IB_ACK_REQUESTED, &ic->i_ack_flags);
  
- 		if (rs != rm->m_rs) {
- 			if (rs) {
--				spin_unlock(&rs->rs_lock);
- 				rds_wake_sk_sleep(rs);
- 				sock_put(rds_rs_to_sk(rs));
- 			}
- 			rs = rm->m_rs;
--			spin_lock(&rs->rs_lock);
- 			sock_hold(rds_rs_to_sk(rs));
+ 		rds_ib_stats_inc(s_ib_ack_send_failure);
+-		/* Need to finesse this later. */
+-		BUG();
++
++		rds_ib_conn_error(ic->conn, "sending ack failed\n");
+ 	} else
+ 		rds_ib_stats_inc(s_ib_ack_sent);
+ }
+diff --git a/net/rds/ib_send.c b/net/rds/ib_send.c
+index a10fab6..f380c3f 100644
+--- a/net/rds/ib_send.c
++++ b/net/rds/ib_send.c
+@@ -574,8 +574,7 @@ int rds_ib_xmit(struct rds_connection *conn, struct rds_message *rm,
+ 		rds_ib_send_grab_credits(ic, 0, &posted, 1, RDS_MAX_ADV_CREDIT - adv_credits);
+ 		adv_credits += posted;
+ 		BUG_ON(adv_credits > 255);
+-	} else if (ic->i_rm != rm)
+-		BUG();
++	}
+ 
+ 	send = &ic->i_sends[pos];
+ 	first = send;
+@@ -714,8 +713,8 @@ add_header:
+ 			ic->i_rm = prev->s_rm;
+ 			prev->s_rm = NULL;
  		}
-+		spin_lock(&rs->rs_lock);
- 
- 		if (test_and_clear_bit(RDS_MSG_ON_SOCK, &rm->m_flags)) {
- 			struct rds_rdma_op *ro = rm->m_rdma_op;
-@@ -560,6 +559,7 @@ void rds_send_remove_from_sock(struct list_head *messages, int status)
- 			rds_message_put(rm);
- 			rm->m_rs = NULL;
- 		}
-+		spin_unlock(&rs->rs_lock);
- 
- unlock_and_drop:
- 		spin_unlock(&rm->m_rs_lock);
-@@ -567,7 +567,6 @@ unlock_and_drop:
+-		/* Finesse this later */
+-		BUG();
++
++		rds_ib_conn_error(ic->conn, "ib_post_send failed\n");
+ 		goto out;
  	}
  
- 	if (rs) {
--		spin_unlock(&rs->rs_lock);
- 		rds_wake_sk_sleep(rs);
- 		sock_put(rds_rs_to_sk(rs));
+diff --git a/net/rds/iw_recv.c b/net/rds/iw_recv.c
+index 54af7d6..337e4e5 100644
+--- a/net/rds/iw_recv.c
++++ b/net/rds/iw_recv.c
+@@ -468,8 +468,8 @@ static void rds_iw_send_ack(struct rds_iw_connection *ic, unsigned int adv_credi
+ 		set_bit(IB_ACK_REQUESTED, &ic->i_ack_flags);
+ 
+ 		rds_iw_stats_inc(s_iw_ack_send_failure);
+-		/* Need to finesse this later. */
+-		BUG();
++
++		rds_iw_conn_error(ic->conn, "sending ack failed\n");
+ 	} else
+ 		rds_iw_stats_inc(s_iw_ack_sent);
+ }
+diff --git a/net/rds/iw_send.c b/net/rds/iw_send.c
+index 1379e9d..52182ff 100644
+--- a/net/rds/iw_send.c
++++ b/net/rds/iw_send.c
+@@ -616,8 +616,7 @@ int rds_iw_xmit(struct rds_connection *conn, struct rds_message *rm,
+ 		rds_iw_send_grab_credits(ic, 0, &posted, 1, RDS_MAX_ADV_CREDIT - adv_credits);
+ 		adv_credits += posted;
+ 		BUG_ON(adv_credits > 255);
+-	} else if (ic->i_rm != rm)
+-		BUG();
++	}
+ 
+ 	send = &ic->i_sends[pos];
+ 	first = send;
+diff --git a/net/rds/rdma_transport.c b/net/rds/rdma_transport.c
+index 9ece910..31f9c72 100644
+--- a/net/rds/rdma_transport.c
++++ b/net/rds/rdma_transport.c
+@@ -109,8 +109,7 @@ int rds_rdma_cm_event_handler(struct rdma_cm_id *cm_id,
+ 
+ 	default:
+ 		/* things like device disconnect? */
+-		printk(KERN_ERR "unknown event %u\n", event->event);
+-		BUG();
++		printk(KERN_ERR "RDS: unknown event %u!\n", event->event);
+ 		break;
  	}
+ 
 -- 
 1.6.3.3
 
