@@ -1,32 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] net: core: add IFLA_STATS64 support
-Date: Thu, 11 Mar 2010 14:54:12 -0800 (PST)
-Message-ID: <20100311.145412.118613343.davem@davemloft.net>
-References: <20100311140406.37ee0b83@nehalam>
-	<alpine.LSU.2.01.1003112305060.11569@obet.zrqbmnf.qr>
-	<20100311145059.1a020e1c@nehalam>
+From: Kevin Hilman <khilman-1D3HCaltpLuhEniVeURVKkEOCMrvLtNR@public.gmane.org>
+Subject: Re: [PATCH] net: davinci emac: use dma_{map,
+	unmap}_single API for cache coherency
+Date: Thu, 11 Mar 2010 14:56:01 -0800
+Message-ID: <87eijqbh8e.fsf@deeprootsystems.com>
+References: <1268133637-23399-1-git-send-email-nsekhar@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jengelh@medozas.de, netdev@vger.kernel.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47687
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753278Ab0CKWxw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 17:53:52 -0500
-In-Reply-To: <20100311145059.1a020e1c@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: srk-l0cyMroinI0@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+To: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
+Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+In-Reply-To: <1268133637-23399-1-git-send-email-nsekhar-l0cyMroinI0@public.gmane.org> (Sekhar Nori's
+	message of "Tue\, 9 Mar 2010 16\:50\:37 +0530")
+List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
+List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
+List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
+Sender: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Thu, 11 Mar 2010 14:50:59 -0800
+Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org> writes:
 
-> But if you send 32bit truncated values when 64 bit is expected
-> then users are going to complain
+> The davinci emac driver uses some ARM specific DMA APIs
+> for cache coherency which have been removed from kernel
+> with the 2.6.34 merge.
+>
+> Modify the driver to use the dma_{map, unmap}_single() APIs
+> defined in dma-mapping.h
+>
+> Without this fix, the driver fails to compile on Linus's
+> tree.
+>
+> Tested on DM365 and OMAP-L138 EVMs.
+>
+> Signed-off-by: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
 
-They already complain, a lot.
+Acked-by: Kevin Hilman <khilman-1D3HCaltpLuhEniVeURVKkEOCMrvLtNR@public.gmane.org>
 
-This isn't going to change the situation at all, and
-I agree with Jan that consistency is the trumping factor
-here.
+Verified that this is compiling/running again with v2.6.34-rc1.
+
+Kevin
