@@ -1,105 +1,154 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 0/7] tcp: bugs and cleanup for 2.6.34-rc1
-Date: Thu, 11 Mar 2010 16:01:04 +0100
-Message-ID: <1268319664.2986.535.camel@edumazet-laptop>
-References: <4B98D592.6040301@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: William Allen Simpson <william.allen.simpson@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B98D592.6040301@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Sriramakrishnan <srk@ti.com>
+Subject: [PATCH 2/4] AM35xx : Platform specific hookup for EMAC module
+Date: Thu, 11 Mar 2010 20:43:40 +0530
+Message-ID: <1268320422-32656-3-git-send-email-srk@ti.com>
+References: <1268320422-32656-1-git-send-email-srk@ti.com>
+ <1268320422-32656-2-git-send-email-srk@ti.com>
+Cc: netdev@vger.kernel.org,
+	davinci-linux-open-source@linux.davincidsp.com,
+	Sriramakrishnan <srk@ti.com>
+To: linux-omap@vger.kernel.org
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1268320422-32656-2-git-send-email-srk@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le jeudi 11 mars 2010 =C3=A0 06:35 -0500, William Allen Simpson a =C3=A9=
-crit :
-> I'd have thought that there would be greater interest about patching
-> crashing bugs, signed versus unsigned (underflow) bugs, TCP DoS bugs,
-> TCP data corruption, and TCP performance problems....
->=20
-> There's been ample warning.  Zero-day security issues will be reporte=
-d
-> to the usual announcement lists.  In particular, these 0day exploits
-> affect systems as far back as the 2005 changeover to git.
->=20
-> Combination of patches reported in October, November, December, Janua=
-ry,
-> and February, for 2.6.32, 2.6.33, and now 2.6.34.
->=20
-> This code has had previous review and several months of limited testi=
-ng.
->=20
-> Some portions were removed during the various TCPCT part 1 patch spli=
-ts,
-> then were cut off by the sudden unexpected end of that merge window.
-> [03 Dec 2009]  I've restarted the sub-numbering (again).
->=20
-> Of particular interest are the TCPCT header extensions that already
-> appear in the next phase of testing with other platforms.  These patc=
-hes
-> allow correct reception without data corruption.
->=20
-> The remainder of the original TCPCT part 2 will be merged with part 3=
-=2E
->=20
-> [Updated to 2010 Mar 08 2.6.34-rc1.]
-> --
+Modified AM35xx EVM init sequence to handle EMAC
+initialization.
 
-Mr William Allen Simpson
+Signed-off-by: Sriramakrishnan <srk@ti.com>
+---
+ arch/arm/mach-omap2/board-am3517evm.c |   98 +++++++++++++++++++++++++++++++++
+ 1 files changed, 98 insertions(+), 0 deletions(-)
 
-It would be nice if you could update your knowledge of how linux
-development works these days.
+diff --git a/arch/arm/mach-omap2/board-am3517evm.c b/arch/arm/mach-omap2/board-am3517evm.c
+index 6ae8805..a454995 100644
+--- a/arch/arm/mach-omap2/board-am3517evm.c
++++ b/arch/arm/mach-omap2/board-am3517evm.c
+@@ -21,6 +21,7 @@
+ #include <linux/platform_device.h>
+ #include <linux/gpio.h>
+ #include <linux/i2c/pca953x.h>
++#include <linux/davinci_emac.h>
+ 
+ #include <mach/hardware.h>
+ #include <mach/am35xx.h>
+@@ -30,11 +31,106 @@
+ 
+ #include <plat/board.h>
+ #include <plat/common.h>
++#include <plat/control.h>
+ #include <plat/usb.h>
+ #include <plat/display.h>
+ 
+ #include "mux.h"
+ 
++#define AM35XX_EVM_PHY_MASK		(0xF)
++#define AM35XX_EVM_MDIO_FREQUENCY	(1000000)
++
++static struct emac_platform_data am3517_evm_emac_pdata = {
++	.phy_mask	= AM35XX_EVM_PHY_MASK,
++	.mdio_max_freq	= AM35XX_EVM_MDIO_FREQUENCY,
++	.rmii_en	= 1,
++};
++
++static struct resource am3517_emac_resources[] = {
++	{
++		.start  = AM35XX_IPSS_EMAC_BASE,
++		.end    = AM35XX_IPSS_EMAC_BASE + 0x3FFFF,
++		.flags  = IORESOURCE_MEM,
++	},
++	{
++		.start  = INT_35XX_EMAC_C0_RXTHRESH_IRQ,
++		.end    = INT_35XX_EMAC_C0_RXTHRESH_IRQ,
++		.flags  = IORESOURCE_IRQ,
++	},
++	{
++		.start  = INT_35XX_EMAC_C0_RX_PULSE_IRQ,
++		.end    = INT_35XX_EMAC_C0_RX_PULSE_IRQ,
++		.flags  = IORESOURCE_IRQ,
++	},
++	{
++		.start  = INT_35XX_EMAC_C0_TX_PULSE_IRQ,
++		.end    = INT_35XX_EMAC_C0_TX_PULSE_IRQ,
++		.flags  = IORESOURCE_IRQ,
++	},
++	{
++		.start  = INT_35XX_EMAC_C0_MISC_PULSE_IRQ,
++		.end    = INT_35XX_EMAC_C0_MISC_PULSE_IRQ,
++		.flags  = IORESOURCE_IRQ,
++	},
++};
++
++static struct platform_device am3517_emac_device = {
++	.name		= "davinci_emac",
++	.id		= -1,
++	.num_resources	= ARRAY_SIZE(am3517_emac_resources),
++	.resource	= am3517_emac_resources,
++};
++
++static void am3517_enable_ethernet_int(void)
++{
++	u32 regval;
++
++	regval = omap_ctrl_readl(AM35XX_CONTROL_LVL_INTR_CLEAR);
++	regval = (regval | AM35XX_CPGMAC_C0_RX_PULSE_CLR |
++		AM35XX_CPGMAC_C0_TX_PULSE_CLR |
++		AM35XX_CPGMAC_C0_MISC_PULSE_CLR |
++		AM35XX_CPGMAC_C0_RX_THRESH_CLR);
++	omap_ctrl_writel(regval, AM35XX_CONTROL_LVL_INTR_CLEAR);
++	regval = omap_ctrl_readl(AM35XX_CONTROL_LVL_INTR_CLEAR);
++}
++
++static void am3517_disable_ethernet_int(void)
++{
++	u32 regval;
++
++	regval = omap_ctrl_readl(AM35XX_CONTROL_LVL_INTR_CLEAR);
++	regval = (regval | AM35XX_CPGMAC_C0_RX_PULSE_CLR |
++		AM35XX_CPGMAC_C0_TX_PULSE_CLR);
++	omap_ctrl_writel(regval, AM35XX_CONTROL_LVL_INTR_CLEAR);
++	regval = omap_ctrl_readl(AM35XX_CONTROL_LVL_INTR_CLEAR);
++}
++
++void am3517_evm_ethernet_init(struct emac_platform_data *pdata)
++{
++	unsigned int regval;
++
++	pdata->ctrl_reg_offset		= AM35XX_EMAC_CNTRL_OFFSET;
++	pdata->ctrl_mod_reg_offset	= AM35XX_EMAC_CNTRL_MOD_OFFSET;
++	pdata->ctrl_ram_offset		= AM35XX_EMAC_CNTRL_RAM_OFFSET;
++	pdata->mdio_reg_offset		= AM35XX_EMAC_MDIO_OFFSET;
++	pdata->ctrl_ram_size		= AM35XX_EMAC_CNTRL_RAM_SIZE;
++	pdata->version			= EMAC_VERSION_2;
++	pdata->hw_ram_addr		= AM35XX_EMAC_HW_RAM_ADDR;
++	pdata->interrupt_enable		= am3517_enable_ethernet_int;
++	pdata->interrupt_disable	= am3517_disable_ethernet_int;
++	am3517_emac_device.dev.platform_data	= pdata;
++	platform_device_register(&am3517_emac_device);
++
++	regval = omap_ctrl_readl(AM35XX_CONTROL_IP_SW_RESET);
++	regval = regval & (~(AM35XX_CPGMACSS_SW_RST));
++	omap_ctrl_writel(regval, AM35XX_CONTROL_IP_SW_RESET);
++	regval = omap_ctrl_readl(AM35XX_CONTROL_IP_SW_RESET);
++
++	return ;
++}
++
++
++
+ #define LCD_PANEL_PWR		176
+ #define LCD_PANEL_BKLIGHT_PWR	182
+ #define LCD_PANEL_PWM		181
+@@ -313,6 +409,8 @@ static void __init am3517_evm_init(void)
+ 
+ 	i2c_register_board_info(1, am3517evm_i2c_boardinfo,
+ 				ARRAY_SIZE(am3517evm_i2c_boardinfo));
++	/*Ethernet*/
++	am3517_evm_ethernet_init(&am3517_evm_emac_pdata);
+ }
+ 
+ static void __init am3517_evm_map_io(void)
+-- 
+1.6.2.4
 
-Please spend few hours for that, it will save us lot of time.
-Our time is valuable as much as yours, I doubt we'll change our habits
-to fit your wills.
-
-You throw too many changes at once to let them being reviewed,
-understood, and accepted.
-
-=46or your information, we had to correct a fatal bug introduced by you=
-r
-last commits, and as far as I know, you didnt help that much.
-
-http://git2.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.git;a=3Dcomm=
-it;h=3D28b2774a0d5852236dab77a4147b8b88548110f1
-
-<at this moment of time>
-
-We are post linux-2.6.34-rc1, so only bug fixes are wanted by Linus and
-David, to be integrated in 2.6.34 (and previous versions if needed)
-
-We are _not_ interested by new stuff at *this* moment, especially if it
-takes lot of time to review.
-
-</at this moment of time>
-
-New network stuff (for 2.6.35 or 2.6.36) should be validated once
-net-next-2.6 re-opens (in about one week I suppose, David will send a
-mail to netdev to let us/you know the exact moment).
-
-So please split your patches again and submit only bug fixes to netdev.
-
-Once accepted by community and maintainer, David will push them
-upstream.
-
-Then, in about 10 days, please submit new stuff that hopefully find
-their way if you accept our reviews and comments.
-
-Last time I made some comments on your patches, you just ignored them o=
-r
-loaned, because obviously who is Eric Dumazet to tell William Allen
-Simpson how things should be done ? Silly me !
-
-I remember this fairly well, this is why I ignored your last submission=
-s
-(and privately explained to you why I did this).
-
-Speaking for myself, but as your previous mails were ignored, I felt it
-was time to clarify the points.
