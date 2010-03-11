@@ -1,40 +1,46 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: [PATCH 0/7] tcp: bugs and cleanup for 2.6.34-rc1
-Date: Thu, 11 Mar 2010 06:35:46 -0500
-Message-ID: <4B98D592.6040301@gmail.com>
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: [PATCH net-2.6] be2net: fix mccq create for big endian
+ architectures
+Date: Thu, 11 Mar 2010 17:05:59 +0530
+Message-ID: <20100311113548.GA12029@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from segment-124-30.sify.net ([124.30.166.146]:56829 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757553Ab0CKLgG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 06:36:06 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I'd have thought that there would be greater interest about patching
-crashing bugs, signed versus unsigned (underflow) bugs, TCP DoS bugs,
-TCP data corruption, and TCP performance problems....
+The request to create an mccq was being dispatched without
+doing a byte swap of num_pages. This byte swap is necessary
+for Big Endian systems like PPC. Not having this fix leads
+mccq create to fail on BE ASICs running newer version of
+firmware, thereby causing driver initialization failure.
 
-There's been ample warning.  Zero-day security issues will be reported
-to the usual announcement lists.  In particular, these 0day exploits
-affect systems as far back as the 2005 changeover to git.
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+---
+ drivers/net/benet/be_cmds.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Combination of patches reported in October, November, December, January,
-and February, for 2.6.32, 2.6.33, and now 2.6.34.
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index c592153..50e6259 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -673,7 +673,7 @@ int be_cmd_mccq_create(struct be_adapter *adapter,
+ 	be_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
+ 			OPCODE_COMMON_MCC_CREATE, sizeof(*req));
+ 
+-	req->num_pages = PAGES_4K_SPANNED(q_mem->va, q_mem->size);
++	req->num_pages = cpu_to_le16(PAGES_4K_SPANNED(q_mem->va, q_mem->size));
+ 
+ 	AMAP_SET_BITS(struct amap_mcc_context, valid, ctxt, 1);
+ 	AMAP_SET_BITS(struct amap_mcc_context, ring_size, ctxt,
+-- 
+1.6.3.3
 
-This code has had previous review and several months of limited testing.
-
-Some portions were removed during the various TCPCT part 1 patch splits,
-then were cut off by the sudden unexpected end of that merge window.
-[03 Dec 2009]  I've restarted the sub-numbering (again).
-
-Of particular interest are the TCPCT header extensions that already
-appear in the next phase of testing with other platforms.  These patches
-allow correct reception without data corruption.
-
-The remainder of the original TCPCT part 2 will be merged with part 3.
-
-[Updated to 2010 Mar 08 2.6.34-rc1.]
