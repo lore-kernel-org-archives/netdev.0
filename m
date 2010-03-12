@@ -1,42 +1,32 @@
-From: Jani Nikula <ext-jani.1.nikula-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] sunrpc: fix error path - actually return ERR_PTR() on error
-Date: Fri, 12 Mar 2010 15:48:24 +0200
-Message-ID: <1268401704-9034-1-git-send-email-ext-jani.1.nikula@nokia.com>
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, ext-jani.1.nikula-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org
-To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: tcpdump broke in 2.6.34-rc1
+Date: Fri, 12 Mar 2010 14:50:31 +0100 (CET)
+Message-ID: <alpine.LSU.2.01.1003121450050.14684@obet.zrqbmnf.qr>
+References: <alpine.LSU.2.01.1003120037050.22042@obet.zrqbmnf.qr> <201003121424.00868.elendil@planet.nl>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Frans Pop <elendil@planet.nl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from borg.medozas.de ([188.40.89.202]:52578 "EHLO borg.medozas.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757656Ab0CLNuc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Mar 2010 08:50:32 -0500
+In-Reply-To: <201003121424.00868.elendil@planet.nl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jani Nikula <ext-jani.1.nikula-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
+On Friday 2010-03-12 14:23, Frans Pop wrote:
 
----
+>Jan Engelhardt wrote:
+>> I am currently on 2.6.34-rc1 and found that tcpdump no
+>> longer works (dies with setsockopt: invalid argument). Bisect-narrowed
+>> it down to somewhere between
+>
+>Probably the same as http://lkml.org/lkml/2010/3/9/439, which has an exact 
+>bisect.
+>
+>Has a follow-up that it's fixed by
+>http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=1162563f82b434e3099c9e6c1bbdba846d792f0d
 
-NOTE: I'm afraid I'm unable to test this; please consider this more a
-bug report than a complete patch.
----
- net/sunrpc/xprtsock.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index 7124129..5b83ff9 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -2481,7 +2481,7 @@ static struct rpc_xprt *xs_setup_bc_tcp(struct xprt_create *args)
- 	struct svc_sock *bc_sock;
- 
- 	if (!args->bc_xprt)
--		ERR_PTR(-EINVAL);
-+		return ERR_PTR(-EINVAL);
- 
- 	xprt = xs_setup_xprt(args, xprt_tcp_slot_table_entries);
- 	if (IS_ERR(xprt))
--- 
-1.6.5.2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks for looking it up. The patch does indeed fix the issue.
