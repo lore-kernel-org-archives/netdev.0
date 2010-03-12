@@ -1,42 +1,50 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v7] rps: Receive Packet Steering
-Date: Fri, 12 Mar 2010 15:08:12 -0800
-Message-ID: <65634d661003121508m3d348973k63a6ae9ca1f12f9f@mail.gmail.com>
-References: <alpine.DEB.1.00.1003121210050.25665@pokey.mtv.corp.google.com>
-	 <1268429319.2947.10.camel@edumazet-laptop>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: [PATCH] sky2: Avoid rtnl_unlock without rtnl_lock
+Date: Sat, 13 Mar 2010 08:11:47 +0900
+Message-ID: <4B9ACA33.5060104@ring3k.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:6467 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933282Ab0CLXIP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Mar 2010 18:08:15 -0500
-Received: from kpbe18.cbf.corp.google.com (kpbe18.cbf.corp.google.com [172.25.105.82])
-	by smtp-out.google.com with ESMTP id o2CN8EFx017983
-	for <netdev@vger.kernel.org>; Fri, 12 Mar 2010 15:08:14 -0800
-Received: from fg-out-1718.google.com (fgae21.prod.google.com [10.86.56.21])
-	by kpbe18.cbf.corp.google.com with ESMTP id o2CN8CsG022303
-	for <netdev@vger.kernel.org>; Fri, 12 Mar 2010 15:08:13 -0800
-Received: by fg-out-1718.google.com with SMTP id e21so556753fga.0
-        for <netdev@vger.kernel.org>; Fri, 12 Mar 2010 15:08:12 -0800 (PST)
-In-Reply-To: <1268429319.2947.10.camel@edumazet-laptop>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:35432 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932279Ab0CLXST (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Mar 2010 18:18:19 -0500
+Received: by pvg7 with SMTP id 7so334054pvg.19
+        for <netdev@vger.kernel.org>; Fri, 12 Mar 2010 15:18:18 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> One last point about placement of rxhash in struct sk_buff, that I
-> missed in my previous review, sorry...
->
-> You put it right before cb[48] which is now aligned to 8 bytes (since
-> commit da3f5cf1 skbuff: align sk_buff::cb to 64 bit and close some
-> potential holes), so this adds a 4 bytes hole.
->
-> Please put it elsewhere, possibly close to fields that are read in
-> get_rps_cpu() (skb->queue_mapping, skb->protocol, skb->data, ...) to
-> minimize number of cache lines that dispatcher cpu has to bring into its
-> cache, before giving skb to another cpu for IP/TCP processing.
->
-Looks like it will fit right before queue_mapping, I'll put it there.
+Make sure we always call rtnl_lock before going down the
+error path in sky2_resume, which unlocks the rtnl lock.
 
-Tom
+Signed-off-by: Mike McCormack <mikem@ring3k.org>
+---
+ drivers/net/sky2.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index 653bdd7..d8ec4c1 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -4863,6 +4863,7 @@ static int sky2_resume(struct pci_dev *pdev)
+ 	if (!hw)
+ 		return 0;
+ 
++	rtnl_lock();
+ 	err = pci_set_power_state(pdev, PCI_D0);
+ 	if (err)
+ 		goto out;
+@@ -4884,7 +4885,6 @@ static int sky2_resume(struct pci_dev *pdev)
+ 	sky2_write32(hw, B0_IMSK, Y2_IS_BASE);
+ 	napi_enable(&hw->napi);
+ 
+-	rtnl_lock();
+ 	for (i = 0; i < hw->ports; i++) {
+ 		err = sky2_reattach(hw->dev[i]);
+ 		if (err)
+-- 
+1.5.6.5
+
