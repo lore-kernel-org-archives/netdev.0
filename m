@@ -1,52 +1,101 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v7] rps: Receive Packet Steering
-Date: Fri, 12 Mar 2010 15:05:35 -0800
-Message-ID: <65634d661003121505u6ad3d6adr50dc0ef8da7c726d@mail.gmail.com>
-References: <alpine.DEB.1.00.1003121210050.25665@pokey.mtv.corp.google.com>
-	 <20100312142302.30def236@nehalam>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [PATCH v4 2/7] net: remove old tcp_optlen function
+Date: Fri, 12 Mar 2010 18:05:41 -0500
+Message-ID: <4B9AC8C5.2010300@gmail.com>
+References: <4B98D592.6040301@gmail.com> <4B98D9A2.8060603@gmail.com> <4B9A40BC.4030301@gmail.com> <20100312174656.GA12175@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Dan Carpenter <error27@gmail.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:5791 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932279Ab0CLXFi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Mar 2010 18:05:38 -0500
-Received: from wpaz17.hot.corp.google.com (wpaz17.hot.corp.google.com [172.24.198.81])
-	by smtp-out.google.com with ESMTP id o2CN5ab1020107
-	for <netdev@vger.kernel.org>; Fri, 12 Mar 2010 15:05:36 -0800
-Received: from fg-out-1718.google.com (fgg19.prod.google.com [10.86.7.19])
-	by wpaz17.hot.corp.google.com with ESMTP id o2CN5ZdG009683
-	for <netdev@vger.kernel.org>; Fri, 12 Mar 2010 15:05:35 -0800
-Received: by fg-out-1718.google.com with SMTP id 19so547961fgg.5
-        for <netdev@vger.kernel.org>; Fri, 12 Mar 2010 15:05:35 -0800 (PST)
-In-Reply-To: <20100312142302.30def236@nehalam>
+Received: from qw-out-2122.google.com ([74.125.92.26]:6080 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932279Ab0CLXFr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Mar 2010 18:05:47 -0500
+In-Reply-To: <20100312174656.GA12175@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 12, 2010 at 2:23 PM, Stephen Hemminger
-<shemminger@vyatta.com> wrote:
-> On Fri, 12 Mar 2010 12:13:12 -0800 (PST)
-> Tom Herbert <therbert@google.com> wrote:
->
->> if (unlikely(index >=3D dev->num_rx_queues)) {
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (net_ratelimit()) {
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 WARN(1, "R=
-eceived packet on %s for queue %u, "
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 "b=
-ut number of RX queues is %u\n",
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
-dev->name, index, dev->num_rx_queues);
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto done;
->
->
-> Use dev_WARN? or invent netdev_WARN?
->
+All the drama is beside the point.  This patch merely removes a *rarely*
+used function (2 drivers).  Not complicated....
 
-netdev_warn looks good.  I'll use that here and also in
-dev_cap_txqueue where WARN is similarly used to be consistent.
+There's a reason that this function isn't used much.  It doesn't work.
 
-Tom
+
+On 3/12/10 12:46 PM, Dan Carpenter wrote:
+> So after you removed the checks this change includes:
+
+I didn't remove any *existing* checks.  I had added *new* checks in my
+earlier patch, then removed *my* checks from this patch as required by
+David Miller.
+
+
+> 1) Random slagging on the networking guys
+
+I had to look up that "random slagging on" colloquialism.  Apparently,
+the "random slagging" target would be *me* -- calling me "anal" and my
+code "rediculious bloat" [sic] probably qualifies....
+
+(Admittedly, I'm rather careful and may be overly cautious at times, after
+some 30+ years of writing network drivers.  Once it's in half a billion
+cell phones, it's hard/impossible to update.)
+
+Since my first unpleasant interactions with David Miller on my very
+earliest (October) netdev posts, I've conspicuously avoided contradicting
+him.  I've merely *obeyed* his injunction here, and moved on....
+
+The patch itself neutrally documents a coding requirement decision by that
+networking maintainer by name.
+
+
+> 2) u32 =>  int to ameliorate your static checker's complaints
+
+Good idea.  Actually, I simply looked at the code and its history.
+
+
+> 3) cleanups
+>
+Removing this function is really a *bug* fix (in several places), with
+cleanups in the vicinity for obviously poor coding (variants in 3 places):
+
+-	mss = 0;
+-	if ((mss = skb_shinfo(skb)->gso_size) != 0) {
+-		int tcp_opt_len, ip_tcp_len;
+
+Cleaner as:
+
++	mss = skb_shinfo(skb)->gso_size;
++	if (mss != 0) {
++		struct tcphdr *th;
+
+But I wouldn't have bothered had I not been changing that immediately
+following line.  30+ years of experience with collaborative projects
+informs me that it's best to make minor cleanups only where I'm already
+improving the code nearby.  Otherwise, it creates patch conflicts.
+
+
+> People have already explained that tcp_optlen() doesn't return
+> negative values.
+
+People?  The fact that the calculation itself can be negative appeared
+the very first time I tested my own code using this bad function!
+
+
+> negative values.  It would really help us if you could show how
+> tcp_hdr(skb)->doff can be less than 5?
+>
+Oh, I've long since given up on lengthy explanations.  Both Eric and
+Ilpo have repeatedly castigated me for being too wordy.
+
+In this particular instance, I suggest that you take a look at all the
+places that gso_size is set, and cross index with all the code paths that
+place these TCP headers onto the txq without a check of doff -- as I did!
+
+I'll specifically mention the tun and virtio_net devices, but I'm also
+particularly concerned with af_packet.c and skbuff.c -- and the general
+problem with inet_lro.c, too.
+
+Amazingly enough, folks sometimes use Linux for routers....
