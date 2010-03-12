@@ -1,50 +1,47 @@
-From: Mike McCormack <mikem@ring3k.org>
-Subject: [PATCH] sky2: Avoid rtnl_unlock without rtnl_lock
-Date: Sat, 13 Mar 2010 08:11:47 +0900
-Message-ID: <4B9ACA33.5060104@ring3k.org>
+From: Kevin Hilman <khilman@deeprootsystems.com>
+Subject: Re: [PATCH 3/4] OMAP3 : clock data: Update name string for EMAC clocks.
+Date: Fri, 12 Mar 2010 15:26:45 -0800
+Message-ID: <8763515dfu.fsf@deeprootsystems.com>
+References: <1268320422-32656-1-git-send-email-srk@ti.com>
+	<1268320422-32656-2-git-send-email-srk@ti.com>
+	<1268320422-32656-3-git-send-email-srk@ti.com>
+	<1268320422-32656-4-git-send-email-srk@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:35432 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932279Ab0CLXST (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Mar 2010 18:18:19 -0500
-Received: by pvg7 with SMTP id 7so334054pvg.19
-        for <netdev@vger.kernel.org>; Fri, 12 Mar 2010 15:18:18 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-omap@vger.kernel.org, netdev@vger.kernel.org,
+	davinci-linux-open-source@linux.davincidsp.com
+To: Sriramakrishnan <srk@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1268320422-32656-4-git-send-email-srk@ti.com> (Sriramakrishnan's message of "Thu\, 11 Mar 2010 20\:43\:41 +0530")
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Make sure we always call rtnl_lock before going down the
-error path in sky2_resume, which unlocks the rtnl lock.
+Sriramakrishnan <srk@ti.com> writes:
 
-Signed-off-by: Mike McCormack <mikem@ring3k.org>
----
- drivers/net/sky2.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> The emac driver uses generic name for the module and phy
+> clocks. Updated the omap3xxx_clks table to match the names
+> used by the Davinci emac driver.
+>
+> Signed-off-by: Sriramakrishnan <srk@ti.com>
+> ---
+>  arch/arm/mach-omap2/clock3xxx_data.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/arch/arm/mach-omap2/clock3xxx_data.c b/arch/arm/mach-omap2/clock3xxx_data.c
+> index d5153b6..989da2e 100644
+> --- a/arch/arm/mach-omap2/clock3xxx_data.c
+> +++ b/arch/arm/mach-omap2/clock3xxx_data.c
+> @@ -3472,8 +3472,8 @@ static struct omap_clk omap3xxx_clks[] = {
+>  	CLK(NULL,	"ipss_ick",	&ipss_ick,	CK_AM35XX),
+>  	CLK(NULL,	"rmii_ck",	&rmii_ck,	CK_AM35XX),
+>  	CLK(NULL,	"pclk_ck",	&pclk_ck,	CK_AM35XX),
+> -	CLK("davinci_emac",	"ick",		&emac_ick,	CK_AM35XX),
+> -	CLK("davinci_emac",	"fck",		&emac_fck,	CK_AM35XX),
+> +	CLK("davinci_emac",	"emac_clk",	&emac_ick,	CK_AM35XX),
+> +	CLK("davinci_emac",	"phy_clk",	&emac_fck,	CK_AM35XX),
 
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 653bdd7..d8ec4c1 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -4863,6 +4863,7 @@ static int sky2_resume(struct pci_dev *pdev)
- 	if (!hw)
- 		return 0;
- 
-+	rtnl_lock();
- 	err = pci_set_power_state(pdev, PCI_D0);
- 	if (err)
- 		goto out;
-@@ -4884,7 +4885,6 @@ static int sky2_resume(struct pci_dev *pdev)
- 	sky2_write32(hw, B0_IMSK, Y2_IS_BASE);
- 	napi_enable(&hw->napi);
- 
--	rtnl_lock();
- 	for (i = 0; i < hw->ports; i++) {
- 		err = sky2_reattach(hw->dev[i]);
- 		if (err)
--- 
-1.5.6.5
+As I mentioned in the review of the equivalent davinci changes,
+I'm not crazy abou the _clk suffixes on the con_id.  I think
+these should be called "main" (or "emac") and "phy".
 
+Kevin
