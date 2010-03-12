@@ -1,61 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 2.6.34-rc1: rcu lockdep bug?
-Date: Fri, 12 Mar 2010 12:11:16 +0100
-Message-ID: <1268392276.3141.4.camel@edumazet-laptop>
-References: <20100311134556.GA6344@linux.vnet.ibm.com>
-	 <20100311161751.GA3804@hack>
-	 <2375c9f91003112356g1b4164e4pb5f63f0e0e2f310a@mail.gmail.com>
-	 <20100312.000705.225033546.davem@davemloft.net>
-	 <2375c9f91003120059g771d162fxefc21beb2ab17b4d@mail.gmail.com>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Re: [PATCH] ipv4: add DiffServ priority based routing
+Date: Fri, 12 Mar 2010 12:18:05 +0100
+Message-ID: <m3tyslyej6.fsf@ursa.amorsen.dk>
+References: <4B4CE2B8.1040702@redfish-solutions.com>
+	<20100112.130355.144803575.davem@davemloft.net>
+	<4B9943A4.8040606@redfish-solutions.com>
+	<20100311.112941.177105216.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
-	peterz@infradead.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: philipp_subx@redfish-solutions.com,
+	torsten.schmidt@s2006.tu-chemnitz.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:54477 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932284Ab0CLLLX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Mar 2010 06:11:23 -0500
-In-Reply-To: <2375c9f91003120059g771d162fxefc21beb2ab17b4d@mail.gmail.com>
+Received: from gate1.ipvision.dk ([94.127.49.2]:42967 "EHLO gate1.ipvision.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932463Ab0CLLSq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Mar 2010 06:18:46 -0500
+In-Reply-To: <20100311.112941.177105216.davem@davemloft.net> (David Miller's
+	message of "Thu, 11 Mar 2010 11:29:41 -0800 (PST)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 12 mars 2010 =C3=A0 16:59 +0800, Am=C3=A9rico Wang a =C3=A9=
-crit :
-> On Fri, Mar 12, 2010 at 4:07 PM, David Miller <davem@davemloft.net> w=
-rote:
-> > From: Am=C3=A9rico Wang <xiyou.wangcong@gmail.com>
-> > Date: Fri, 12 Mar 2010 15:56:03 +0800
-> >
-> >> Ok, after decoding the lockdep output, it looks like that
-> >> netif_receive_skb() should call rcu_read_lock_bh() instead of rcu_=
-read_lock()?
-> >> But I don't know if all callers of netif_receive_skb() are in soft=
-irq context.
-> >
-> > Normally, netif_receive_skb() is invoked from softirq context.
-> >
-> > However, via netpoll it can be invoked essentially from any context=
-=2E
-> >
-> > But, when this happens, the networking receive path makes amends su=
-ch
-> > that this works fine.  That's what the netpoll_receive_skb() check =
-in
-> > netif_receive_skb() is for.  That check makes it bail out early if =
-the
-> > call to netif_receive_skb() is via a netpoll invocation.
-> >
->=20
-> Oh, I see. This means we should call rcu_read_lock_bh() instead.
-> If Paul has no objections, I will send a patch for this.
->=20
+David Miller <davem@davemloft.net> writes:
 
-Nope, its calling rcu_read_lock() from interrupt context and it should
-stay as is (we dont need to disable bh, this has a cpu cost)
+> Look, this doesn't work.  QoS handling and policy belongs in the
+> egress point to the network, it's the only way to control this
+> properly and prevent abuse.
+
+First, QoS is important even within the network. Modern switches come
+pre-configured with sane defaults which ensure that e.g. EF marked
+packets get priority over non-EF-marked packets. Cisco, HP, and
+Linksys-Cisco at least provide a decent out-of-the-box configuration.
+
+This can obviously be abused, but the solution there is the same as in
+network abuses: Either apply the LART or change the configuration of the
+switches to be less trusting. We haven't, so far, had a customer where
+the LART was necessary, much less had to reconfigure a switch.
+
+So why not let Linux provide the same out-of-the-box experience as the
+switches do? If the trust is abused Linux provides lots of tools to make
+it less trusting or even to punish the abusers.
 
 
-
+/Benny
