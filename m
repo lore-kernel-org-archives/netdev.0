@@ -1,10 +1,10 @@
 From: Sean MacLennan <smaclennan@pikatech.com>
-Subject: Re: [PATCH 12/27] drivers/mtd/of: don't use deprecated field in
+Subject: Re: [PATCH 22/27] drivers/i2c/of: don't use deprecated field in
 	of_platform_driver
-Date: Fri, 12 Mar 2010 12:31:02 -0500
-Message-ID: <20100312123102.453ff2d0@lappy.seanm.ca>
+Date: Fri, 12 Mar 2010 12:31:58 -0500
+Message-ID: <20100312123158.7ed9d9a0@lappy.seanm.ca>
 References: <20100311181604.13103.30088.stgit@angua>
-	<20100311182253.13103.92479.stgit@angua>
+	<20100311182349.13103.39322.stgit@angua>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -20,7 +20,7 @@ Cc: alsa-devel@alsa-project.org, gregkh@suse.de, linux-ide@vger.kernel.org,
 	dwmw2@infradead.org, davem@davemloft.net
 To: Grant Likely <grant.likely@secretlab.ca>
 Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20100311182253.13103.92479.stgit@angua>
+In-Reply-To: <20100311182349.13103.39322.stgit@angua>
 List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
 	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
 List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
@@ -32,7 +32,7 @@ Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.
 Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 11 Mar 2010 11:22:54 -0700
+On Thu, 11 Mar 2010 11:23:49 -0700
 Grant Likely <grant.likely@secretlab.ca> wrote:
 
 > .name, .match_table and .owner are duplicated in both
@@ -41,5 +41,5 @@ Grant Likely <grant.likely@secretlab.ca> wrote:
 > 
 > Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 
-NDFC
+i2c-ibm_iic
 Acked-by: Sean MacLennan <smaclennan@pikatech.com>
