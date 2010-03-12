@@ -1,39 +1,38 @@
-From: Alexander Schmidt <alexs@linux.vnet.ibm.com>
-Subject: Re: [PATCH 25/37] drivers/infiniband: use .dev.of_node instead of
- .node in struct of_device
-Date: Fri, 12 Mar 2010 14:30:22 +0100
-Message-ID: <20100312143022.18b954a5@alex-laptop>
-References: <20100311174830.4824.19820.stgit@angua>
-	<20100311180605.4824.3613.stgit@angua>
-	<adavdd2d41q.fsf@roland-alpha.cisco.com>
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCH 5/6] smsc95xx: check return code from control messages
+Date: Fri, 12 Mar 2010 13:32:07 +0000
+Message-ID: <OF7F698D80.1B37FCB1-ON802576E4.004A3343-802576E4.004A6117@smsc.com>
+References: <1268245959-13861-6-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Grant Likely <grant.likely@secretlab.ca>,
-	alsa-devel@alsa-project.org, broonie@opensource.wolfsonmicro.com,
-	linux-ide@vger.kernel.org, James.Bottomley@suse.de,
-	linux-i2c@vger.kernel.org, sparclinux@vger.kernel.org,
-	jeremy.kerr@canonical.com, sfr@canb.auug.org.au,
-	linux-scsi@vger.kernel.org, jgarzik@pobox.com,
-	microblaze-uclinux@itee.uq.edu.au,
-	devicetree-discuss@lists.ozlabs.org,
-	Christoph Raisch <raisch@de.ibm.com>, ben-linux@fluff.org,
-	monstr@monstr.eu, linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	gregkh@suse.de, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org, dwmw2@infradead.org, davem@davemloft.net
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <adavdd2d41q.fsf@roland-alpha.cisco.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org
+To: Steve.Glendinning@smsc.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.smsc.com ([170.129.50.11]:58052 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753346Ab0CLNcJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Mar 2010 08:32:09 -0500
+Received: from mta.smsc.com (mta [170.129.83.113])
+	by internal.smsc.com (8.14.3/8.14.3) with ESMTP id o2CDW7Hk020855
+	for <netdev@vger.kernel.org>; Fri, 12 Mar 2010 08:32:07 -0500
+In-Reply-To: <1268245959-13861-6-git-send-email-steve.glendinning@smsc.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 11 Mar 2010 11:57:53 -0800
-Roland Dreier <rdreier@cisco.com> wrote:
+> +#define check_warn(ret, fmt, args...) \
+> +   ({ if (ret < 0) netdev_warn(dev->net, fmt, ##args); })
+> +
+> +#define check_warn_return(ret, format, args...) \
+> +   ({ if (ret < 0) { netdev_warn(dev->net, fmt, ##args); return ret; } 
+})
+> +
+> +#define check_warn_goto_done(ret, format, args...) \
+> +   ({ if (ret < 0) { netdev_warn(dev->net, fmt, ##args); goto done; } 
+})
+> +
 
-> Seems fine... adding EHCA guys just to make sure.
-> 
->  > .node is being removed
->  > 
->  > Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+Apologies, this patch is broken.
 
-Acked-by: Alexander Schmidt <alexs@linux.vnet.ibm.com>
+Please do not apply this anywhere, I'll send a replacement patch shortly.
+
+Steve
