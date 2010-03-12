@@ -1,32 +1,39 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: tcpdump broke in 2.6.34-rc1
-Date: Fri, 12 Mar 2010 14:50:31 +0100 (CET)
-Message-ID: <alpine.LSU.2.01.1003121450050.14684@obet.zrqbmnf.qr>
-References: <alpine.LSU.2.01.1003120037050.22042@obet.zrqbmnf.qr> <201003121424.00868.elendil@planet.nl>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Frans Pop <elendil@planet.nl>
+From: Huang Weiyi <weiyi.huang@gmail.com>
+Subject: [PATCH 2/6] net: remove unused #include <linux/version.h>
+Date: Fri, 12 Mar 2010 22:12:52 +0800
+Message-ID: <1268403172-3956-1-git-send-email-weiyi.huang@gmail.com>
+Cc: netdev@vger.kernel.org, Huang Weiyi <weiyi.huang@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from borg.medozas.de ([188.40.89.202]:52578 "EHLO borg.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757656Ab0CLNuc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Mar 2010 08:50:32 -0500
-In-Reply-To: <201003121424.00868.elendil@planet.nl>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:60719 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933244Ab0CLONI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Mar 2010 09:13:08 -0500
+Received: by mail-bw0-f209.google.com with SMTP id 1so1060379bwz.21
+        for <netdev@vger.kernel.org>; Fri, 12 Mar 2010 06:13:07 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 2010-03-12 14:23, Frans Pop wrote:
+Remove unused #include <linux/version.h>('s) in
+  drivers/net/ksz884x.c
 
->Jan Engelhardt wrote:
->> I am currently on 2.6.34-rc1 and found that tcpdump no
->> longer works (dies with setsockopt: invalid argument). Bisect-narrowed
->> it down to somewhere between
->
->Probably the same as http://lkml.org/lkml/2010/3/9/439, which has an exact 
->bisect.
->
->Has a follow-up that it's fixed by
->http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=1162563f82b434e3099c9e6c1bbdba846d792f0d
+Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
+---
+ drivers/net/ksz884x.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-Thanks for looking it up. The patch does indeed fix the issue.
+diff --git a/drivers/net/ksz884x.c b/drivers/net/ksz884x.c
+index 7264a3e..f30790b 100644
+--- a/drivers/net/ksz884x.c
++++ b/drivers/net/ksz884x.c
+@@ -17,7 +17,6 @@
+ #include <linux/init.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+-#include <linux/version.h>
+ #include <linux/ioport.h>
+ #include <linux/pci.h>
+ #include <linux/proc_fs.h>
+-- 
+1.6.1.3
+
