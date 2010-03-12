@@ -1,60 +1,36 @@
-From: Paul Walmsley <paul@pwsan.com>
-Subject: Re: [PATCH 3/4] OMAP3 : clock data: Update name string for EMAC
- clocks.
-Date: Thu, 11 Mar 2010 19:02:24 -0700 (MST)
-Message-ID: <alpine.DEB.2.00.1003111901300.23781@utopia.booyaka.com>
-References: <1268320422-32656-1-git-send-email-srk@ti.com> <1268320422-32656-2-git-send-email-srk@ti.com> <1268320422-32656-3-git-send-email-srk@ti.com> <1268320422-32656-4-git-send-email-srk@ti.com>
+From: =?UTF-8?Q?R=C3=A9mi_Denis-Courmont?= <remi@remlab.net>
+Subject: Re: [patch 1/5] phonet: use =?UTF-8?Q?for=5Feach=5Fset=5Fbit=28=29?=
+Date: Fri, 12 Mar 2010 08:34:31 +0100
+Message-ID: <9131ab138d63714dcb5af26d56d0b6e9@chewa.net>
+References: <201003112207.o2BM7nQn013486@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-omap@vger.kernel.org, netdev@vger.kernel.org,
-	davinci-linux-open-source@linux.davincidsp.com
-To: Sriramakrishnan <srk@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1268320422-32656-4-git-send-email-srk@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Thu, 11 Mar 2010, Sriramakrishnan wrote:
-
-> The emac driver uses generic name for the module and phy
-> clocks. Updated the omap3xxx_clks table to match the names
-> used by the Davinci emac driver.
-> 
-> Signed-off-by: Sriramakrishnan <srk@ti.com>
-
-Acked-by: Paul Walmsley <paul@pwsan.com>
-
-At some point, someone should go through that davinci_emac.c driver and 
-change the DaVinci references to "TI" or something generic, now that this 
-core exists on DaVinci, OMAP, etc.
-
-> ---
->  arch/arm/mach-omap2/clock3xxx_data.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/arch/arm/mach-omap2/clock3xxx_data.c b/arch/arm/mach-omap2/clock3xxx_data.c
-> index d5153b6..989da2e 100644
-> --- a/arch/arm/mach-omap2/clock3xxx_data.c
-> +++ b/arch/arm/mach-omap2/clock3xxx_data.c
-> @@ -3472,8 +3472,8 @@ static struct omap_clk omap3xxx_clks[] = {
->  	CLK(NULL,	"ipss_ick",	&ipss_ick,	CK_AM35XX),
->  	CLK(NULL,	"rmii_ck",	&rmii_ck,	CK_AM35XX),
->  	CLK(NULL,	"pclk_ck",	&pclk_ck,	CK_AM35XX),
-> -	CLK("davinci_emac",	"ick",		&emac_ick,	CK_AM35XX),
-> -	CLK("davinci_emac",	"fck",		&emac_fck,	CK_AM35XX),
-> +	CLK("davinci_emac",	"emac_clk",	&emac_ick,	CK_AM35XX),
-> +	CLK("davinci_emac",	"phy_clk",	&emac_fck,	CK_AM35XX),
->  	CLK("vpfe-capture",	"master",	&vpfe_ick,	CK_AM35XX),
->  	CLK("vpfe-capture",	"slave",	&vpfe_fck,	CK_AM35XX),
->  	CLK("musb_hdrc",	"ick",		&hsotgusb_ick_am35xx,	CK_AM35XX),
-> -- 
-> 1.6.2.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-omap" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, akinobu.mita@gmail.com
+To: akpm@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yop.chewa.net ([91.121.105.214]:39519 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751104Ab0CLHef (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Mar 2010 02:34:35 -0500
+In-Reply-To: <201003112207.o2BM7nQn013486@imap1.linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-- Paul
+On Thu, 11 Mar 2010 14:07:49 -0800, akpm@linux-foundation.org wrote:=0D
+> From: Akinobu Mita <akinobu.mita@gmail.com>=0D
+> =0D
+> Replace open-coded loop with for_each_set_bit().=0D
+> =0D
+> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>=0D
+> Cc: "David S. Miller" <davem@davemloft.net>=0D
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>=0D
+=0D
+Acked-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>=0D
+=0D
+-- =0D
+R=C3=A9mi Denis-Courmont=0D
+http://www.remlab.net=0D
+http://fi.linkedin.com/in/remidenis
+
