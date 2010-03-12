@@ -1,940 +1,551 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v7] rps: Receive Packet Steering
-Date: Fri, 12 Mar 2010 12:13:12 -0800 (PST)
-Message-ID: <alpine.DEB.1.00.1003121210050.25665@pokey.mtv.corp.google.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless-2.6 2010-03-12
+Date: Fri, 12 Mar 2010 15:28:48 -0500
+Message-ID: <20100312202848.GC17689@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: eric.dumazet@gmail.com
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:15502 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932176Ab0CLUNU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Mar 2010 15:13:20 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch implements software receive side packet steering (RPS).  RPS
-distributes the load of received packet processing across multiple CPUs.
+Dave,
 
-Problem statement: Protocol processing done in the NAPI context for received
-packets is serialized per device queue and becomes a bottleneck under high
-packet load.  This substantially limits pps that can be achieved on a single
-queue NIC and provides no scaling with multiple cores.
+Here is a round of fixes intended for 2.6.34.  I don't think there is
+anything controversial here -- they are all reasonably small, targeted,
+and are fixes to real problems.  I believe they are all well represented
+by their changelog entries as well.
 
-This solution queues packets early on in the receive path on the backlog queues
-of other CPUs.   This allows protocol processing (e.g. IP and TCP) to be
-performed on packets in parallel.   For each device (or each receive queue in
-a multi-queue device) a mask of CPUs is set to indicate the CPUs that can
-process packets. A CPU is selected on a per packet basis by hashing contents
-of the packet header (e.g. the TCP or UDP 4-tuple) and using the result to index
-into the CPU mask.  The IPI mechanism is used to raise networking receive
-softirqs between CPUs.  This effectively emulates in software what a multi-queue
-NIC can provide, but is generic requiring no device support.
+Please let me know if there are problems!
 
-Many devices now provide a hash over the 4-tuple on a per packet basis
-(e.g. the Toeplitz hash).  This patch allow drivers to set the HW reported hash
-in an skb field, and that value in turn is used to index into the RPS maps.
-Using the HW generated hash can avoid cache misses on the packet when
-steering it to a remote CPU.
+Thanks,
 
-The CPU mask is set on a per device and per queue basis in the sysfs variable
-/sys/class/net/<device>/queues/rx-<n>/rps_cpus.  This is a set of canonical
-bit maps for receive queues in the device (numbered by <n>).  If a device
-does not support multi-queue, a single variable is used for the device (rx-0).
+John
 
-Generally, we have found this technique increases pps capabilities of a single
-queue device with good CPU utilization.  Optimal settings for the CPU mask
-seem to depend on architectures and cache hierarcy.  Below are some results
-running 500 instances of netperf TCP_RR test with 1 byte req. and resp.
-Results show cumulative transaction rate and system CPU utilization.
+---
 
-e1000e on 8 core Intel
-   Without RPS: 108K tps at 33% CPU
-   With RPS:    311K tps at 64% CPU
+The following changes since commit 717ea4b3474852057b1ce2c639ce219f4f8d3a8d:
+  Greg Ungerer (1):
+        net: add ColdFire support to the smc91x driver
 
-forcedeth on 16 core AMD
-   Without RPS: 156K tps at 15% CPU
-   With RPS:    404K tps at 49% CPU
-   
-bnx2x on 16 core AMD
-   Without RPS  567K tps at 61% CPU (4 HW RX queues)
-   Without RPS  738K tps at 96% CPU (8 HW RX queues)
-   With RPS:    854K tps at 76% CPU (4 HW RX queues)
+are available in the git repository at:
 
-Caveats:
-- The benefits of this patch are dependent on architecture and cache hierarchy.
-Tuning the masks to get best performance is probably necessary.
-- This patch adds overhead in the path for processing a single packet.  In
-a lightly loaded server this overhead may eliminate the advantages of
-increased parallelism, and possibly cause some relative performance degradation.
-We have found that masks that are cache aware (share same caches with
-the interrupting CPU) mitigate much of this.
-- The RPS masks can be changed dynamically, however whenever the mask is changed
-this introduces the possibility of generating out of order packets.  It's
-probably best not change the masks too frequently.
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
 
-Signed-off-by: Tom Herbert <therbert@google.com>
+Bruno Randolf (4):
+      ath5k: use fixed antenna for tx descriptors
+      ath5k: fix TSF reset
+      ath5k: fix I/Q calibration (for real)
+      ath5k: read eeprom IQ calibration values correctly for G mode
 
- include/linux/netdevice.h |   32 ++++-
- include/linux/skbuff.h    |    3 +
- net/core/dev.c            |  330 +++++++++++++++++++++++++++++++++++++-------
- net/core/net-sysfs.c      |  225 ++++++++++++++++++++++++++++++-
- net/core/skbuff.c         |    2 +
- 5 files changed, 536 insertions(+), 56 deletions(-)
+Eric Dumazet (1):
+      mac80211: Fix memory leak in ieee80211_if_write()
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index c79a88b..de1a52b 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -223,6 +223,7 @@ struct netif_rx_stats {
- 	unsigned dropped;
- 	unsigned time_squeeze;
- 	unsigned cpu_collision;
-+	unsigned received_rps;
- };
+Helmut Schaa (1):
+      rt2x00: remove KSEG1ADDR define from rt2x00soc.h
+
+John W. Linville (1):
+      Merge branch 'wireless-2.6' of git://git.kernel.org/.../iwlwifi/iwlwifi-2.6
+
+Jouni Malinen (1):
+      mac80211: Fix sta_mtx unlocking on insert STA failure path
+
+Juuso Oikarinen (1):
+      mac80211: Fix (dynamic) power save entry
+
+Reinette Chatre (2):
+      iwl3945: fix memory corruption
+      Revert "iwlwifi: Send broadcast probe request only when asked to"
+
+Zhu Yi (2):
+      libipw: split ieee->networks into small pieces
+      ipw2200: use kmalloc for large local variables
+
+ drivers/net/wireless/ath/ath5k/eeprom.c      |    4 +-
+ drivers/net/wireless/ath/ath5k/phy.c         |   41 +++++++++++----------
+ drivers/net/wireless/ath/ath5k/reg.h         |    1 +
+ drivers/net/wireless/ath/ath5k/reset.c       |   22 ++++++-----
+ drivers/net/wireless/ipw2x00/ipw2200.c       |   19 +++++++++-
+ drivers/net/wireless/ipw2x00/libipw.h        |    2 +-
+ drivers/net/wireless/ipw2x00/libipw_module.c |   37 +++++++++----------
+ drivers/net/wireless/iwlwifi/iwl-3945.c      |    6 ++--
+ drivers/net/wireless/iwlwifi/iwl-agn.c       |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-scan.c      |   49 ++++++++-----------------
+ drivers/net/wireless/rt2x00/rt2x00soc.h      |    2 -
+ net/mac80211/debugfs_netdev.c                |   10 ++++--
+ net/mac80211/mlme.c                          |   13 ++++---
+ net/mac80211/sta_info.c                      |    1 +
+ 14 files changed, 107 insertions(+), 102 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath5k/eeprom.c b/drivers/net/wireless/ath/ath5k/eeprom.c
+index 6a3f4da..10b5226 100644
+--- a/drivers/net/wireless/ath/ath5k/eeprom.c
++++ b/drivers/net/wireless/ath/ath5k/eeprom.c
+@@ -429,8 +429,8 @@ static int ath5k_eeprom_read_modes(struct ath5k_hw *ah, u32 *offset,
+ 			ee->ee_margin_tx_rx[mode] = (val >> 8) & 0x3f;
  
- DECLARE_PER_CPU(struct netif_rx_stats, netdev_rx_stat);
-@@ -530,6 +531,24 @@ struct netdev_queue {
- 	unsigned long		tx_dropped;
- } ____cacheline_aligned_in_smp;
+ 		AR5K_EEPROM_READ(o++, val);
+-		ee->ee_i_cal[mode] = (val >> 8) & 0x3f;
+-		ee->ee_q_cal[mode] = (val >> 3) & 0x1f;
++		ee->ee_i_cal[mode] = (val >> 5) & 0x3f;
++		ee->ee_q_cal[mode] = val & 0x1f;
  
-+/*
-+ * This structure holds an RPS map which can be of variable length.  The
-+ * map is an array of CPUs.
-+ */
-+struct rps_map {
-+	unsigned int len;
-+	struct rcu_head rcu;
-+	u16 cpus[0];
-+};
-+#define RPS_MAP_SIZE(_num) (sizeof(struct rps_map) + (_num * sizeof(u16)))
+ 		if (ah->ah_ee_version >= AR5K_EEPROM_VERSION_4_2) {
+ 			AR5K_EEPROM_READ(o++, val);
+diff --git a/drivers/net/wireless/ath/ath5k/phy.c b/drivers/net/wireless/ath/ath5k/phy.c
+index 72474c0..eff3323 100644
+--- a/drivers/net/wireless/ath/ath5k/phy.c
++++ b/drivers/net/wireless/ath/ath5k/phy.c
+@@ -1386,38 +1386,39 @@ static int ath5k_hw_rf511x_calibrate(struct ath5k_hw *ah,
+ 		goto done;
+ 
+ 	/* Calibration has finished, get the results and re-run */
 +
-+/* This structure contains an instance of an RX queue. */
-+struct netdev_rx_queue {
-+	struct rps_map *rps_map;
-+	struct kobject kobj;
-+	struct netdev_rx_queue *first;
-+	atomic_t count;
-+} ____cacheline_aligned_in_smp;
++	/* work around empty results which can apparently happen on 5212 */
+ 	for (i = 0; i <= 10; i++) {
+ 		iq_corr = ath5k_hw_reg_read(ah, AR5K_PHY_IQRES_CAL_CORR);
+ 		i_pwr = ath5k_hw_reg_read(ah, AR5K_PHY_IQRES_CAL_PWR_I);
+ 		q_pwr = ath5k_hw_reg_read(ah, AR5K_PHY_IQRES_CAL_PWR_Q);
++		ATH5K_DBG_UNLIMIT(ah->ah_sc, ATH5K_DEBUG_CALIBRATE,
++			"iq_corr:%x i_pwr:%x q_pwr:%x", iq_corr, i_pwr, q_pwr);
++		if (i_pwr && q_pwr)
++			break;
+ 	}
  
- /*
-  * This structure defines the management hooks for network devices.
-@@ -878,6 +897,13 @@ struct net_device {
+ 	i_coffd = ((i_pwr >> 1) + (q_pwr >> 1)) >> 7;
+ 	q_coffd = q_pwr >> 7;
  
- 	unsigned char		broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
+-	/* No correction */
+-	if (i_coffd == 0 || q_coffd == 0)
++	/* protect against divide by 0 and loss of sign bits */
++	if (i_coffd == 0 || q_coffd < 2)
+ 		goto done;
  
-+	struct kset		*queues_kset;
-+
-+	struct netdev_rx_queue	*_rx;
-+
-+	/* Number of RX queues allocated at alloc_netdev_mq() time  */
-+	unsigned int		num_rx_queues;
-+
- 	struct netdev_queue	rx_queue;
+-	i_coff = ((-iq_corr) / i_coffd);
+-
+-	/* Boundary check */
+-	if (i_coff > 31)
+-		i_coff = 31;
+-	if (i_coff < -32)
+-		i_coff = -32;
++	i_coff = (-iq_corr) / i_coffd;
++	i_coff = clamp(i_coff, -32, 31); /* signed 6 bit */
  
- 	struct netdev_queue	*_tx ____cacheline_aligned_in_smp;
-@@ -1311,14 +1337,16 @@ static inline int unregister_gifconf(unsigned int family)
+-	q_coff = (((s32)i_pwr / q_coffd) - 128);
++	q_coff = (i_pwr / q_coffd) - 128;
++	q_coff = clamp(q_coff, -16, 15); /* signed 5 bit */
+ 
+-	/* Boundary check */
+-	if (q_coff > 15)
+-		q_coff = 15;
+-	if (q_coff < -16)
+-		q_coff = -16;
++	ATH5K_DBG_UNLIMIT(ah->ah_sc, ATH5K_DEBUG_CALIBRATE,
++			"new I:%d Q:%d (i_coffd:%x q_coffd:%x)",
++			i_coff, q_coff, i_coffd, q_coffd);
+ 
+-	/* Commit new I/Q value */
+-	AR5K_REG_ENABLE_BITS(ah, AR5K_PHY_IQ, AR5K_PHY_IQ_CORR_ENABLE |
+-		((u32)q_coff) | ((u32)i_coff << AR5K_PHY_IQ_CORR_Q_I_COFF_S));
++	/* Commit new I/Q values (set enable bit last to match HAL sources) */
++	AR5K_REG_WRITE_BITS(ah, AR5K_PHY_IQ, AR5K_PHY_IQ_CORR_Q_I_COFF, i_coff);
++	AR5K_REG_WRITE_BITS(ah, AR5K_PHY_IQ, AR5K_PHY_IQ_CORR_Q_Q_COFF, q_coff);
++	AR5K_REG_ENABLE_BITS(ah, AR5K_PHY_IQ, AR5K_PHY_IQ_CORR_ENABLE);
+ 
+ 	/* Re-enable calibration -if we don't we'll commit
+ 	 * the same values again and again */
+@@ -1873,7 +1874,7 @@ ath5k_hw_set_antenna_mode(struct ath5k_hw *ah, u8 ant_mode)
+ 		break;
+ 	case AR5K_ANTMODE_FIXED_A:
+ 		def_ant = 1;
+-		tx_ant = 0;
++		tx_ant = 1;
+ 		use_def_for_tx = true;
+ 		update_def_on_tx = false;
+ 		use_def_for_rts = true;
+@@ -1882,7 +1883,7 @@ ath5k_hw_set_antenna_mode(struct ath5k_hw *ah, u8 ant_mode)
+ 		break;
+ 	case AR5K_ANTMODE_FIXED_B:
+ 		def_ant = 2;
+-		tx_ant = 0;
++		tx_ant = 2;
+ 		use_def_for_tx = true;
+ 		update_def_on_tx = false;
+ 		use_def_for_rts = true;
+diff --git a/drivers/net/wireless/ath/ath5k/reg.h b/drivers/net/wireless/ath/ath5k/reg.h
+index 4cb9c5d..1464f89 100644
+--- a/drivers/net/wireless/ath/ath5k/reg.h
++++ b/drivers/net/wireless/ath/ath5k/reg.h
+@@ -2187,6 +2187,7 @@
   */
- struct softnet_data {
- 	struct Qdisc		*output_queue;
--	struct sk_buff_head	input_pkt_queue;
- 	struct list_head	poll_list;
- 	struct sk_buff		*completion_queue;
+ #define	AR5K_PHY_IQ			0x9920			/* Register Address */
+ #define	AR5K_PHY_IQ_CORR_Q_Q_COFF	0x0000001f	/* Mask for q correction info */
++#define	AR5K_PHY_IQ_CORR_Q_Q_COFF_S	0
+ #define	AR5K_PHY_IQ_CORR_Q_I_COFF	0x000007e0	/* Mask for i correction info */
+ #define	AR5K_PHY_IQ_CORR_Q_I_COFF_S	5
+ #define	AR5K_PHY_IQ_CORR_ENABLE		0x00000800	/* Enable i/q correction */
+diff --git a/drivers/net/wireless/ath/ath5k/reset.c b/drivers/net/wireless/ath/ath5k/reset.c
+index a35a7db..cbf28e3 100644
+--- a/drivers/net/wireless/ath/ath5k/reset.c
++++ b/drivers/net/wireless/ath/ath5k/reset.c
+@@ -851,12 +851,15 @@ static void ath5k_hw_commit_eeprom_settings(struct ath5k_hw *ah,
+ 				AR5K_PHY_OFDM_SELFCORR_CYPWR_THR1,
+ 				AR5K_INIT_CYCRSSI_THR1);
  
-+	/* Elements below can be accessed between CPUs for RPS */
-+	struct call_single_data	csd ____cacheline_aligned_in_smp;
-+	struct sk_buff_head	input_pkt_queue;
- 	struct napi_struct	backlog;
- };
+-	/* I/Q correction
+-	 * TODO: Per channel i/q infos ? */
+-	AR5K_REG_ENABLE_BITS(ah, AR5K_PHY_IQ,
+-		AR5K_PHY_IQ_CORR_ENABLE |
+-		(ee->ee_i_cal[ee_mode] << AR5K_PHY_IQ_CORR_Q_I_COFF_S) |
+-		ee->ee_q_cal[ee_mode]);
++	/* I/Q correction (set enable bit last to match HAL sources) */
++	/* TODO: Per channel i/q infos ? */
++	if (ah->ah_ee_version >= AR5K_EEPROM_VERSION_4_0) {
++		AR5K_REG_WRITE_BITS(ah, AR5K_PHY_IQ, AR5K_PHY_IQ_CORR_Q_I_COFF,
++			    ee->ee_i_cal[ee_mode]);
++		AR5K_REG_WRITE_BITS(ah, AR5K_PHY_IQ, AR5K_PHY_IQ_CORR_Q_Q_COFF,
++			    ee->ee_q_cal[ee_mode]);
++		AR5K_REG_ENABLE_BITS(ah, AR5K_PHY_IQ, AR5K_PHY_IQ_CORR_ENABLE);
++	}
  
--DECLARE_PER_CPU(struct softnet_data,softnet_data);
-+DECLARE_PER_CPU_ALIGNED(struct softnet_data, softnet_data);
+ 	/* Heavy clipping -disable for now */
+ 	if (ah->ah_ee_version >= AR5K_EEPROM_VERSION_5_1)
+@@ -1379,11 +1382,10 @@ int ath5k_hw_reset(struct ath5k_hw *ah, enum nl80211_iftype op_mode,
+ 		ath5k_hw_set_sleep_clock(ah, true);
  
- #define HAVE_NETIF_QUEUE
- 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 03f816a..58e1dda 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -267,6 +267,7 @@ typedef unsigned char *sk_buff_data_t;
-  *	@mac_header: Link layer header
-  *	@_skb_dst: destination entry
-  *	@sp: the security path, used for xfrm
-+ *	@rxhash: the packet hash computed on receive
-  *	@cb: Control buffer. Free for use by every layer. Put private vars here
-  *	@len: Length of actual data
-  *	@data_len: Data length
-@@ -320,6 +321,8 @@ struct sk_buff {
- 	struct sock		*sk;
- 	struct net_device	*dev;
- 
-+	__u32			rxhash;
-+
  	/*
- 	 * This is the control buffer. It is free to use for every
- 	 * layer. Please put your private variables there. If you
-diff --git a/net/core/dev.c b/net/core/dev.c
-index bcc490c..9f0508c 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1931,7 +1931,7 @@ out_kfree_skb:
- 	return rc;
- }
- 
--static u32 skb_tx_hashrnd;
-+static u32 hashrnd __read_mostly;
- 
- u16 skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb)
- {
-@@ -1949,7 +1949,7 @@ u16 skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb)
- 	else
- 		hash = skb->protocol;
- 
--	hash = jhash_1word(hash, skb_tx_hashrnd);
-+	hash = jhash_1word(hash, hashrnd);
- 
- 	return (u16) (((u64) hash * dev->real_num_tx_queues) >> 32);
- }
-@@ -2175,6 +2175,172 @@ int weight_p __read_mostly = 64;            /* old backlog weight */
- 
- DEFINE_PER_CPU(struct netif_rx_stats, netdev_rx_stat) = { 0, };
- 
-+/*
-+ * get_rps_cpu is called from netif_receive_skb and returns the target
-+ * CPU from the RPS map of the receiving queue for a given skb.
-+ */
-+static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb)
-+{
-+	struct ipv6hdr *ip6;
-+	struct iphdr *ip;
-+	struct netdev_rx_queue *rxqueue;
-+	struct rps_map *map;
-+	int cpu = -1;
-+	u8 ip_proto;
-+	u32 addr1, addr2, ports, ihl;
-+
-+	rcu_read_lock();
-+
-+	if (skb_rx_queue_recorded(skb)) {
-+		u16 index = skb_get_rx_queue(skb);
-+		if (unlikely(index >= dev->num_rx_queues)) {
-+			if (net_ratelimit()) {
-+				WARN(1, "Received packet on %s for queue %u, "
-+				    "but number of RX queues is %u\n",
-+				     dev->name, index, dev->num_rx_queues);
-+			}
-+			goto done;
-+		}
-+		rxqueue = dev->_rx + index;
-+	} else
-+		rxqueue = dev->_rx;
-+
-+	if (!rxqueue->rps_map)
-+		goto done;
-+
-+	if (skb->rxhash)
-+		goto got_hash; /* Skip hash computation on packet header */
-+
-+	switch (skb->protocol) {
-+	case __constant_htons(ETH_P_IP):
-+		if (!pskb_may_pull(skb, sizeof(*ip)))
-+			goto done;
-+
-+		ip = (struct iphdr *) skb->data;
-+		ip_proto = ip->protocol;
-+		addr1 = ip->saddr;
-+		addr2 = ip->daddr;
-+		ihl = ip->ihl;
-+		break;
-+	case __constant_htons(ETH_P_IPV6):
-+		if (!pskb_may_pull(skb, sizeof(*ip6)))
-+			goto done;
-+
-+		ip6 = (struct ipv6hdr *) skb->data;
-+		ip_proto = ip6->nexthdr;
-+		addr1 = ip6->saddr.s6_addr32[3];
-+		addr2 = ip6->daddr.s6_addr32[3];
-+		ihl = (40 >> 2);
-+		break;
-+	default:
-+		goto done;
-+	}
-+	ports = 0;
-+	switch (ip_proto) {
-+	case IPPROTO_TCP:
-+	case IPPROTO_UDP:
-+	case IPPROTO_DCCP:
-+	case IPPROTO_ESP:
-+	case IPPROTO_AH:
-+	case IPPROTO_SCTP:
-+	case IPPROTO_UDPLITE:
-+		if (pskb_may_pull(skb, (ihl * 4) + 4))
-+			ports = *((u32 *) (skb->data + (ihl * 4)));
-+		break;
-+
-+	default:
-+		break;
-+	}
-+
-+	skb->rxhash = jhash_3words(addr1, addr2, ports, hashrnd);
-+	if (!skb->rxhash)
-+		skb->rxhash = 1;
-+
-+got_hash:
-+	map = rcu_dereference(rxqueue->rps_map);
-+	if (map) {
-+		u16 tcpu = map->cpus[((u64) skb->rxhash * map->len) >> 32];
-+
-+		if (cpu_online(tcpu)) {
-+			cpu = tcpu;
-+			goto done;
-+		}
-+	}
-+
-+done:
-+	rcu_read_unlock();
-+	return cpu;
-+}
-+
-+/*
-+ * This structure holds the per-CPU mask of CPUs for which IPIs are scheduled
-+ * to be sent to kick remote softirq processing.  There are two masks since
-+ * the sending of IPIs must be done with interrupts enabled.  The select field
-+ * indicates the current mask that enqueue_backlog uses to schedule IPIs.
-+ * select is flipped before net_rps_action is called while still under lock,
-+ * net_rps_action then uses the non-selected mask to send the IPIs and clears
-+ * it without conflicting with enqueue_backlog operation.
-+ */
-+struct rps_remote_softirq_cpus {
-+	cpumask_t mask[2];
-+	int select;
-+};
-+static DEFINE_PER_CPU(struct rps_remote_softirq_cpus, rps_remote_softirq_cpus);
-+
-+/* Called from hardirq (IPI) context */
-+static void trigger_softirq(void *data)
-+{
-+	struct softnet_data *queue = data;
-+	__napi_schedule(&queue->backlog);
-+	__get_cpu_var(netdev_rx_stat).received_rps++;
-+}
-+
-+/*
-+ * enqueue_to_backlog is called to queue an skb to a per CPU backlog
-+ * queue (may be a remote CPU queue).
-+ */
-+static int enqueue_to_backlog(struct sk_buff *skb, int cpu)
-+{
-+	struct softnet_data *queue;
-+	unsigned long flags;
-+
-+	queue = &per_cpu(softnet_data, cpu);
-+
-+	local_irq_save(flags);
-+	__get_cpu_var(netdev_rx_stat).total++;
-+
-+	spin_lock(&queue->input_pkt_queue.lock);
-+	if (queue->input_pkt_queue.qlen <= netdev_max_backlog) {
-+		if (queue->input_pkt_queue.qlen) {
-+enqueue:
-+			__skb_queue_tail(&queue->input_pkt_queue, skb);
-+			spin_unlock_irqrestore(&queue->input_pkt_queue.lock,
-+			    flags);
-+			return NET_RX_SUCCESS;
-+		}
-+
-+		/* Schedule NAPI for backlog device */
-+		if (napi_schedule_prep(&queue->backlog)) {
-+			if (cpu != smp_processor_id()) {
-+				struct rps_remote_softirq_cpus *rcpus =
-+				    &__get_cpu_var(rps_remote_softirq_cpus);
-+
-+				cpu_set(cpu, rcpus->mask[rcpus->select]);
-+				__raise_softirq_irqoff(NET_RX_SOFTIRQ);
-+			} else
-+				__napi_schedule(&queue->backlog);
-+		}
-+		goto enqueue;
-+	}
-+
-+	spin_unlock(&queue->input_pkt_queue.lock);
-+
-+	__get_cpu_var(netdev_rx_stat).dropped++;
-+	local_irq_restore(flags);
-+
-+	kfree_skb(skb);
-+	return NET_RX_DROP;
-+}
- 
- /**
-  *	netif_rx	-	post buffer to the network code
-@@ -2193,8 +2359,7 @@ DEFINE_PER_CPU(struct netif_rx_stats, netdev_rx_stat) = { 0, };
- 
- int netif_rx(struct sk_buff *skb)
- {
--	struct softnet_data *queue;
--	unsigned long flags;
-+	int cpu;
- 
- 	/* if netpoll wants it, pretend we never saw it */
- 	if (netpoll_rx(skb))
-@@ -2203,31 +2368,11 @@ int netif_rx(struct sk_buff *skb)
- 	if (!skb->tstamp.tv64)
- 		net_timestamp(skb);
- 
--	/*
--	 * The code is rearranged so that the path is the most
--	 * short when CPU is congested, but is still operating.
--	 */
--	local_irq_save(flags);
--	queue = &__get_cpu_var(softnet_data);
+-	 * Disable beacons and reset the register
++	 * Disable beacons and reset the TSF
+ 	 */
+-	AR5K_REG_DISABLE_BITS(ah, AR5K_BEACON, AR5K_BEACON_ENABLE |
+-			AR5K_BEACON_RESET_TSF);
 -
--	__get_cpu_var(netdev_rx_stat).total++;
--	if (queue->input_pkt_queue.qlen <= netdev_max_backlog) {
--		if (queue->input_pkt_queue.qlen) {
--enqueue:
--			__skb_queue_tail(&queue->input_pkt_queue, skb);
--			local_irq_restore(flags);
--			return NET_RX_SUCCESS;
--		}
--
--		napi_schedule(&queue->backlog);
--		goto enqueue;
--	}
--
--	__get_cpu_var(netdev_rx_stat).dropped++;
--	local_irq_restore(flags);
-+	cpu = get_rps_cpu(skb->dev, skb);
-+	if (cpu < 0)
-+		cpu = smp_processor_id();
- 
--	kfree_skb(skb);
--	return NET_RX_DROP;
-+	return enqueue_to_backlog(skb, cpu);
- }
- EXPORT_SYMBOL(netif_rx);
- 
-@@ -2464,22 +2609,7 @@ void netif_nit_deliver(struct sk_buff *skb)
- 	rcu_read_unlock();
++	AR5K_REG_DISABLE_BITS(ah, AR5K_BEACON, AR5K_BEACON_ENABLE);
++	ath5k_hw_reset_tsf(ah);
+ 	return 0;
  }
  
--/**
-- *	netif_receive_skb - process receive buffer from network
-- *	@skb: buffer to process
-- *
-- *	netif_receive_skb() is the main receive data processing function.
-- *	It always succeeds. The buffer may be dropped during processing
-- *	for congestion control or by the protocol layers.
-- *
-- *	This function may only be called from softirq context and interrupts
-- *	should be enabled.
-- *
-- *	Return values (usually ignored):
-- *	NET_RX_SUCCESS: no congestion
-- *	NET_RX_DROP: packet was dropped
-- */
--int netif_receive_skb(struct sk_buff *skb)
-+int __netif_receive_skb(struct sk_buff *skb)
- {
- 	struct packet_type *ptype, *pt_prev;
- 	struct net_device *orig_dev;
-@@ -2588,6 +2718,33 @@ out:
- 	rcu_read_unlock();
+diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
+index 63c2a7a..5c7aa1b 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/ipw2x00/ipw2200.c
+@@ -3177,14 +3177,27 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+ 	int total_nr = 0;
+ 	int i;
+ 	struct pci_pool *pool;
+-	u32 *virts[CB_NUMBER_OF_ELEMENTS_SMALL];
+-	dma_addr_t phys[CB_NUMBER_OF_ELEMENTS_SMALL];
++	void **virts;
++	dma_addr_t *phys;
+ 
+ 	IPW_DEBUG_TRACE("<< : \n");
+ 
++	virts = kmalloc(sizeof(void *) * CB_NUMBER_OF_ELEMENTS_SMALL,
++			GFP_KERNEL);
++	if (!virts)
++		return -ENOMEM;
++
++	phys = kmalloc(sizeof(dma_addr_t) * CB_NUMBER_OF_ELEMENTS_SMALL,
++			GFP_KERNEL);
++	if (!phys) {
++		kfree(virts);
++		return -ENOMEM;
++	}
+ 	pool = pci_pool_create("ipw2200", priv->pci_dev, CB_MAX_LENGTH, 0, 0);
+ 	if (!pool) {
+ 		IPW_ERROR("pci_pool_create failed\n");
++		kfree(phys);
++		kfree(virts);
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -3254,6 +3267,8 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+ 		pci_pool_free(pool, virts[i], phys[i]);
+ 
+ 	pci_pool_destroy(pool);
++	kfree(phys);
++	kfree(virts);
+ 
  	return ret;
  }
-+
-+/**
-+ *	netif_receive_skb - process receive buffer from network
-+ *	@skb: buffer to process
-+ *
-+ *	netif_receive_skb() is the main receive data processing function.
-+ *	It always succeeds. The buffer may be dropped during processing
-+ *	for congestion control or by the protocol layers.
-+ *
-+ *	This function may only be called from softirq context and interrupts
-+ *	should be enabled.
-+ *
-+ *	Return values (usually ignored):
-+ *	NET_RX_SUCCESS: no congestion
-+ *	NET_RX_DROP: packet was dropped
-+ */
-+int netif_receive_skb(struct sk_buff *skb)
-+{
-+	int cpu;
-+
-+	cpu = get_rps_cpu(skb->dev, skb);
-+
-+	if (cpu < 0)
-+		return __netif_receive_skb(skb);
-+	else
-+		return enqueue_to_backlog(skb, cpu);
-+}
- EXPORT_SYMBOL(netif_receive_skb);
+diff --git a/drivers/net/wireless/ipw2x00/libipw.h b/drivers/net/wireless/ipw2x00/libipw.h
+index bf45391..a6d5e42 100644
+--- a/drivers/net/wireless/ipw2x00/libipw.h
++++ b/drivers/net/wireless/ipw2x00/libipw.h
+@@ -797,7 +797,7 @@ struct libipw_device {
+ 	/* Probe / Beacon management */
+ 	struct list_head network_free_list;
+ 	struct list_head network_list;
+-	struct libipw_network *networks;
++	struct libipw_network *networks[MAX_NETWORK_COUNT];
+ 	int scans;
+ 	int scan_age;
  
- /* Network device is going away, flush any packets still pending  */
-@@ -2914,16 +3071,16 @@ static int process_backlog(struct napi_struct *napi, int quota)
- 	do {
- 		struct sk_buff *skb;
+diff --git a/drivers/net/wireless/ipw2x00/libipw_module.c b/drivers/net/wireless/ipw2x00/libipw_module.c
+index 1ae0b2b..2fa5586 100644
+--- a/drivers/net/wireless/ipw2x00/libipw_module.c
++++ b/drivers/net/wireless/ipw2x00/libipw_module.c
+@@ -67,16 +67,17 @@ void *libipw_wiphy_privid = &libipw_wiphy_privid;
  
--		local_irq_disable();
-+		spin_lock_irq(&queue->input_pkt_queue.lock);
- 		skb = __skb_dequeue(&queue->input_pkt_queue);
- 		if (!skb) {
- 			__napi_complete(napi);
--			local_irq_enable();
-+			spin_unlock_irq(&queue->input_pkt_queue.lock);
- 			break;
- 		}
--		local_irq_enable();
-+		spin_unlock_irq(&queue->input_pkt_queue.lock);
- 
--		netif_receive_skb(skb);
-+		__netif_receive_skb(skb);
- 	} while (++work < quota && jiffies == start_time);
- 
- 	return work;
-@@ -3012,6 +3169,22 @@ void netif_napi_del(struct napi_struct *napi)
- }
- EXPORT_SYMBOL(netif_napi_del);
- 
-+/*
-+ * net_rps_action sends any pending IPI's for rps.  This is only called from
-+ * softirq and interrupts must be enabled.
-+ */
-+static void net_rps_action(cpumask_t *mask)
-+{
-+	int cpu;
-+
-+	/* Send pending IPI's to kick RPS processing on remote cpus. */
-+	for_each_cpu_mask_nr(cpu, *mask) {
-+		struct softnet_data *queue = &per_cpu(softnet_data, cpu);
-+		if (cpu_online(cpu))
-+			__smp_call_function_single(cpu, &queue->csd, 0);
-+	}
-+	cpus_clear(*mask);
-+}
- 
- static void net_rx_action(struct softirq_action *h)
+ static int libipw_networks_allocate(struct libipw_device *ieee)
  {
-@@ -3019,6 +3192,8 @@ static void net_rx_action(struct softirq_action *h)
- 	unsigned long time_limit = jiffies + 2;
- 	int budget = netdev_budget;
- 	void *have;
-+	int select;
-+	struct rps_remote_softirq_cpus *rcpus;
- 
- 	local_irq_disable();
- 
-@@ -3081,8 +3256,14 @@ static void net_rx_action(struct softirq_action *h)
- 		netpoll_poll_unlock(have);
- 	}
- out:
-+	rcpus = &__get_cpu_var(rps_remote_softirq_cpus);
-+	select = rcpus->select;
-+	rcpus->select ^= 1;
-+
- 	local_irq_enable();
- 
-+	net_rps_action(&rcpus->mask[select]);
-+
- #ifdef CONFIG_NET_DMA
- 	/*
- 	 * There may not be any more sk_buffs coming right now, so push
-@@ -3327,10 +3508,10 @@ static int softnet_seq_show(struct seq_file *seq, void *v)
- {
- 	struct netif_rx_stats *s = v;
- 
--	seq_printf(seq, "%08x %08x %08x %08x %08x %08x %08x %08x %08x\n",
-+	seq_printf(seq, "%08x %08x %08x %08x %08x %08x %08x %08x %08x %08x\n",
- 		   s->total, s->dropped, s->time_squeeze, 0,
- 		   0, 0, 0, 0, /* was fastroute */
--		   s->cpu_collision);
-+		   s->cpu_collision, s->received_rps);
- 	return 0;
- }
- 
-@@ -5067,6 +5248,23 @@ int register_netdevice(struct net_device *dev)
- 
- 	dev->iflink = -1;
- 
-+	if (!dev->num_rx_queues) {
-+		/*
-+		 * Allocate a single RX queue if driver never called
-+		 * alloc_netdev_mq
-+		 */
-+
-+		dev->_rx = kzalloc(sizeof(struct netdev_rx_queue), GFP_KERNEL);
-+		if (!dev->_rx) {
-+			ret = -ENOMEM;
-+			goto out;
-+		}
-+
-+		dev->_rx->first = dev->_rx;
-+		atomic_set(&dev->_rx->count, 1);
-+		dev->num_rx_queues = 1;
-+	}
-+
- 	/* Init, if this function is available */
- 	if (dev->netdev_ops->ndo_init) {
- 		ret = dev->netdev_ops->ndo_init(dev);
-@@ -5424,9 +5622,11 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- 		void (*setup)(struct net_device *), unsigned int queue_count)
- {
- 	struct netdev_queue *tx;
-+	struct netdev_rx_queue *rx;
- 	struct net_device *dev;
- 	size_t alloc_size;
- 	struct net_device *p;
-+	int i;
- 
- 	BUG_ON(strlen(name) >= sizeof(dev->name));
- 
-@@ -5452,11 +5652,27 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- 		goto free_p;
- 	}
- 
-+	rx = kcalloc(queue_count, sizeof(struct netdev_rx_queue), GFP_KERNEL);
-+	if (!rx) {
-+		printk(KERN_ERR "alloc_netdev: Unable to allocate "
-+		       "rx queues.\n");
-+		goto free_tx;
-+	}
-+
-+	atomic_set(&rx->count, queue_count);
-+
-+	/*
-+	 * Set a pointer to first element in the array which holds the
-+	 * reference count.
-+	 */
-+	for (i = 0; i < queue_count; i++)
-+		rx[i].first = rx;
-+
- 	dev = PTR_ALIGN(p, NETDEV_ALIGN);
- 	dev->padded = (char *)dev - (char *)p;
- 
- 	if (dev_addr_init(dev))
--		goto free_tx;
-+		goto free_rx;
- 
- 	dev_unicast_init(dev);
- 
-@@ -5466,6 +5682,9 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- 	dev->num_tx_queues = queue_count;
- 	dev->real_num_tx_queues = queue_count;
- 
-+	dev->_rx = rx;
-+	dev->num_rx_queues = queue_count;
-+
- 	dev->gso_max_size = GSO_MAX_SIZE;
- 
- 	netdev_init_queues(dev);
-@@ -5480,9 +5699,10 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- 	strcpy(dev->name, name);
- 	return dev;
- 
-+free_rx:
-+	kfree(rx);
- free_tx:
- 	kfree(tx);
+-	if (ieee->networks)
+-		return 0;
 -
- free_p:
- 	kfree(p);
- 	return NULL;
-@@ -5985,6 +6205,10 @@ static int __init net_dev_init(void)
- 		queue->completion_queue = NULL;
- 		INIT_LIST_HEAD(&queue->poll_list);
- 
-+		queue->csd.func = trigger_softirq;
-+		queue->csd.info = queue;
-+		queue->csd.flags = 0;
+-	ieee->networks =
+-	    kzalloc(MAX_NETWORK_COUNT * sizeof(struct libipw_network),
+-		    GFP_KERNEL);
+-	if (!ieee->networks) {
+-		printk(KERN_WARNING "%s: Out of memory allocating beacons\n",
+-		       ieee->dev->name);
+-		return -ENOMEM;
++	int i, j;
 +
- 		queue->backlog.poll = process_backlog;
- 		queue->backlog.weight = weight_p;
- 		queue->backlog.gro_list = NULL;
-@@ -6023,7 +6247,7 @@ subsys_initcall(net_dev_init);
++	for (i = 0; i < MAX_NETWORK_COUNT; i++) {
++		ieee->networks[i] = kzalloc(sizeof(struct libipw_network),
++					    GFP_KERNEL);
++		if (!ieee->networks[i]) {
++			LIBIPW_ERROR("Out of memory allocating beacons\n");
++			for (j = 0; j < i; j++)
++				kfree(ieee->networks[j]);
++			return -ENOMEM;
++		}
+ 	}
  
- static int __init initialize_hashrnd(void)
- {
--	get_random_bytes(&skb_tx_hashrnd, sizeof(skb_tx_hashrnd));
-+	get_random_bytes(&hashrnd, sizeof(hashrnd));
  	return 0;
- }
- 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 099c753..7a46343 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -466,6 +466,216 @@ static struct attribute_group wireless_group = {
- };
- #endif
- 
-+/*
-+ * RX queue sysfs structures and functions.
-+ */
-+struct rx_queue_attribute {
-+	struct attribute attr;
-+	ssize_t (*show)(struct netdev_rx_queue *queue,
-+	    struct rx_queue_attribute *attr, char *buf);
-+	ssize_t (*store)(struct netdev_rx_queue *queue,
-+	    struct rx_queue_attribute *attr, const char *buf, size_t len);
-+};
-+#define to_rx_queue_attr(_attr) container_of(_attr,		\
-+    struct rx_queue_attribute, attr)
-+
-+#define to_rx_queue(obj) container_of(obj, struct netdev_rx_queue, kobj)
-+
-+static ssize_t rx_queue_attr_show(struct kobject *kobj, struct attribute *attr,
-+				  char *buf)
-+{
-+	struct rx_queue_attribute *attribute = to_rx_queue_attr(attr);
-+	struct netdev_rx_queue *queue = to_rx_queue(kobj);
-+
-+	if (!attribute->show)
-+		return -EIO;
-+
-+	return attribute->show(queue, attribute, buf);
-+}
-+
-+static ssize_t rx_queue_attr_store(struct kobject *kobj, struct attribute *attr,
-+				   const char *buf, size_t count)
-+{
-+	struct rx_queue_attribute *attribute = to_rx_queue_attr(attr);
-+	struct netdev_rx_queue *queue = to_rx_queue(kobj);
-+
-+	if (!attribute->store)
-+		return -EIO;
-+
-+	return attribute->store(queue, attribute, buf, count);
-+}
-+
-+static struct sysfs_ops rx_queue_sysfs_ops = {
-+	.show = rx_queue_attr_show,
-+	.store = rx_queue_attr_store,
-+};
-+
-+static ssize_t show_rps_map(struct netdev_rx_queue *queue,
-+			    struct rx_queue_attribute *attribute, char *buf)
-+{
-+	struct rps_map *map;
-+	cpumask_var_t mask;
-+	size_t len = 0;
-+	int i;
-+
-+	if (!zalloc_cpumask_var(&mask, GFP_KERNEL))
-+		return -ENOMEM;
-+
-+	rcu_read_lock();
-+	map = rcu_dereference(queue->rps_map);
-+	if (map)
-+		for (i = 0; i < map->len; i++)
-+			cpumask_set_cpu(map->cpus[i], mask);
-+
-+	len += cpumask_scnprintf(buf + len, PAGE_SIZE, mask);
-+	if (PAGE_SIZE - len < 3) {
-+		rcu_read_unlock();
-+		free_cpumask_var(mask);
-+		return -EINVAL;
-+	}
-+	rcu_read_unlock();
-+
-+	free_cpumask_var(mask);
-+	len += sprintf(buf + len, "\n");
-+	return len;
-+}
-+
-+static void rps_map_release(struct rcu_head *rcu)
-+{
-+	struct rps_map *map = container_of(rcu, struct rps_map, rcu);
-+
-+	kfree(map);
-+}
-+
-+ssize_t store_rps_map(struct netdev_rx_queue *queue,
-+		      struct rx_queue_attribute *attribute,
-+		      const char *buf, size_t len)
-+{
-+	struct rps_map *old_map, *map;
-+	cpumask_var_t mask;
-+	int err, cpu, i;
-+	static DEFINE_SPINLOCK(rps_map_lock);
-+
-+	if (!capable(CAP_NET_ADMIN))
-+		return -EPERM;
-+
-+	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
-+		return -ENOMEM;
-+
-+	err = bitmap_parse(buf, len, cpumask_bits(mask), nr_cpumask_bits);
-+	if (err) {
-+		free_cpumask_var(mask);
-+		return err;
-+	}
-+
-+	map = kzalloc(max_t(unsigned,
-+	    RPS_MAP_SIZE(cpumask_weight(mask)), L1_CACHE_BYTES),
-+	    GFP_KERNEL);
-+	if (!map) {
-+		free_cpumask_var(mask);
-+		return -ENOMEM;
-+	}
-+
-+	i = 0;
-+	for_each_cpu_and(cpu, mask, cpu_online_mask)
-+		map->cpus[i++] = cpu;
-+
-+	if (i)
-+		map->len = i;
-+	else {
-+		kfree(map);
-+		map = NULL;
-+	}
-+
-+	spin_lock(&rps_map_lock);
-+	old_map = queue->rps_map;
-+	rcu_assign_pointer(queue->rps_map, map);
-+	spin_unlock(&rps_map_lock);
-+
-+	if (old_map)
-+		call_rcu(&old_map->rcu, rps_map_release);
-+
-+	free_cpumask_var(mask);
-+	return len;
-+}
-+
-+static struct rx_queue_attribute rps_cpus_attribute =
-+	__ATTR(rps_cpus, S_IRUGO | S_IWUSR, show_rps_map, store_rps_map);
-+
-+static struct attribute *rx_queue_default_attrs[] = {
-+	&rps_cpus_attribute.attr,
-+	NULL
-+};
-+
-+static void rx_queue_release(struct kobject *kobj)
-+{
-+	struct netdev_rx_queue *queue = to_rx_queue(kobj);
-+	struct rps_map *map = queue->rps_map;
-+	struct netdev_rx_queue *first = queue->first;
-+
-+	if (map)
-+		call_rcu(&map->rcu, rps_map_release);
-+
-+	if (atomic_dec_and_test(&first->count))
-+		kfree(first);
-+}
-+
-+static struct kobj_type rx_queue_ktype = {
-+	.sysfs_ops = &rx_queue_sysfs_ops,
-+	.release = rx_queue_release,
-+	.default_attrs = rx_queue_default_attrs,
-+};
-+
-+static int rx_queue_add_kobject(struct net_device *net, int index)
-+{
-+	struct netdev_rx_queue *queue = net->_rx + index;
-+	struct kobject *kobj = &queue->kobj;
-+	int error = 0;
-+
-+	kobj->kset = net->queues_kset;
-+	error = kobject_init_and_add(kobj, &rx_queue_ktype, NULL,
-+	    "rx-%u", index);
-+	if (error) {
-+		kobject_put(kobj);
-+		return error;
-+	}
-+
-+	kobject_uevent(kobj, KOBJ_ADD);
-+
-+	return error;
-+}
-+
-+static int rx_queue_register_kobjects(struct net_device *net)
-+{
-+	int i;
-+	int error = 0;
-+
-+	net->queues_kset = kset_create_and_add("queues",
-+	    NULL, &net->dev.kobj);
-+	if (!net->queues_kset)
-+		return -ENOMEM;
-+	for (i = 0; i < net->num_rx_queues; i++) {
-+		error = rx_queue_add_kobject(net, i);
-+		if (error)
-+			break;
-+	}
-+
-+	if (error)
-+		while (--i >= 0)
-+			kobject_put(&net->_rx[i].kobj);
-+
-+	return error;
-+}
-+
-+static void rx_queue_remove_kobjects(struct net_device *net)
-+{
-+	int i;
-+
-+	for (i = 0; i < net->num_rx_queues; i++)
-+		kobject_put(&net->_rx[i].kobj);
-+	kset_unregister(net->queues_kset);
-+}
-+
- #endif /* CONFIG_SYSFS */
- 
- #ifdef CONFIG_HOTPLUG
-@@ -529,6 +739,8 @@ void netdev_unregister_kobject(struct net_device * net)
- 	if (!net_eq(dev_net(net), &init_net))
- 		return;
- 
-+	rx_queue_remove_kobjects(net);
-+
- 	device_del(dev);
- }
- 
-@@ -537,6 +749,7 @@ int netdev_register_kobject(struct net_device *net)
+@@ -97,15 +98,11 @@ static inline void libipw_networks_free(struct libipw_device *ieee)
  {
- 	struct device *dev = &(net->dev);
- 	const struct attribute_group **groups = net->sysfs_groups;
-+	int error = 0;
+ 	int i;
  
- 	dev->class = &net_class;
- 	dev->platform_data = net;
-@@ -563,7 +776,17 @@ int netdev_register_kobject(struct net_device *net)
- 	if (!net_eq(dev_net(net), &init_net))
- 		return 0;
- 
--	return device_add(dev);
-+	error = device_add(dev);
-+	if (error)
-+		return error;
-+
-+	error = rx_queue_register_kobjects(net);
-+	if (error) {
-+		device_del(dev);
-+		return error;
+-	if (!ieee->networks)
+-		return;
+-
+-	for (i = 0; i < MAX_NETWORK_COUNT; i++)
+-		if (ieee->networks[i].ibss_dfs)
+-			kfree(ieee->networks[i].ibss_dfs);
+-
+-	kfree(ieee->networks);
+-	ieee->networks = NULL;
++	for (i = 0; i < MAX_NETWORK_COUNT; i++) {
++		if (ieee->networks[i]->ibss_dfs)
++			kfree(ieee->networks[i]->ibss_dfs);
++		kfree(ieee->networks[i]);
 +	}
-+
-+	return error;
  }
  
- int netdev_class_create_file(struct class_attribute *class_attr)
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 93c4e06..bdea0ef 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -534,6 +534,7 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
- 	new->network_header	= old->network_header;
- 	new->mac_header		= old->mac_header;
- 	skb_dst_set(new, dst_clone(skb_dst(old)));
-+	new->rxhash		= old->rxhash;
- #ifdef CONFIG_XFRM
- 	new->sp			= secpath_get(old->sp);
- #endif
-@@ -581,6 +582,7 @@ static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
- 	C(len);
- 	C(data_len);
- 	C(mac_len);
-+	C(rxhash);
- 	n->hdr_len = skb->nohdr ? skb_headroom(skb) : skb->hdr_len;
- 	n->cloned = 1;
- 	n->nohdr = 0;
+ void libipw_networks_age(struct libipw_device *ieee,
+@@ -130,7 +127,7 @@ static void libipw_networks_initialize(struct libipw_device *ieee)
+ 	INIT_LIST_HEAD(&ieee->network_free_list);
+ 	INIT_LIST_HEAD(&ieee->network_list);
+ 	for (i = 0; i < MAX_NETWORK_COUNT; i++)
+-		list_add_tail(&ieee->networks[i].list,
++		list_add_tail(&ieee->networks[i]->list,
+ 			      &ieee->network_free_list);
+ }
+ 
+diff --git a/drivers/net/wireless/iwlwifi/iwl-3945.c b/drivers/net/wireless/iwlwifi/iwl-3945.c
+index 303cc81..e0678d9 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-3945.c
++++ b/drivers/net/wireless/iwlwifi/iwl-3945.c
+@@ -184,7 +184,7 @@ static int iwl3945_hwrate_to_plcp_idx(u8 plcp)
+ {
+ 	int idx;
+ 
+-	for (idx = 0; idx < IWL_RATE_COUNT; idx++)
++	for (idx = 0; idx < IWL_RATE_COUNT_3945; idx++)
+ 		if (iwl3945_rates[idx].plcp == plcp)
+ 			return idx;
+ 	return -1;
+@@ -805,7 +805,7 @@ void iwl3945_hw_build_tx_cmd_rate(struct iwl_priv *priv,
+ 				  int sta_id, int tx_id)
+ {
+ 	u16 hw_value = ieee80211_get_tx_rate(priv->hw, info)->hw_value;
+-	u16 rate_index = min(hw_value & 0xffff, IWL_RATE_COUNT - 1);
++	u16 rate_index = min(hw_value & 0xffff, IWL_RATE_COUNT_3945);
+ 	u16 rate_mask;
+ 	int rate;
+ 	u8 rts_retry_limit;
+@@ -2146,7 +2146,7 @@ static void iwl3945_hw_reg_init_channel_groups(struct iwl_priv *priv)
+ 
+ 		/* fill in channel group's nominal powers for each rate */
+ 		for (rate_index = 0;
+-		     rate_index < IWL_RATE_COUNT; rate_index++, clip_pwrs++) {
++		     rate_index < IWL_RATE_COUNT_3945; rate_index++, clip_pwrs++) {
+ 			switch (rate_index) {
+ 			case IWL_RATE_36M_INDEX_TABLE:
+ 				if (i == 0)	/* B/G */
+diff --git a/drivers/net/wireless/iwlwifi/iwl-agn.c b/drivers/net/wireless/iwlwifi/iwl-agn.c
+index 47b0214..818367b 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-agn.c
++++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
+@@ -2653,7 +2653,7 @@ static int iwl_mac_setup_register(struct iwl_priv *priv)
+ 	 */
+ 	hw->wiphy->flags &= ~WIPHY_FLAG_PS_ON_BY_DEFAULT;
+ 
+-	hw->wiphy->max_scan_ssids = PROBE_OPTION_MAX + 1;
++	hw->wiphy->max_scan_ssids = PROBE_OPTION_MAX;
+ 	/* we create the 802.11 header and a zero-length SSID element */
+ 	hw->wiphy->max_scan_ie_len = IWL_MAX_PROBE_REQUEST - 24 - 2;
+ 
+diff --git a/drivers/net/wireless/iwlwifi/iwl-scan.c b/drivers/net/wireless/iwlwifi/iwl-scan.c
+index dd9ff2e..bd2f7c4 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-scan.c
++++ b/drivers/net/wireless/iwlwifi/iwl-scan.c
+@@ -638,20 +638,9 @@ u16 iwl_fill_probe_req(struct iwl_priv *priv, struct ieee80211_mgmt *frame,
+ 	if (left < 0)
+ 		return 0;
+ 	*pos++ = WLAN_EID_SSID;
+-	if (!priv->is_internal_short_scan &&
+-	    priv->scan_request->n_ssids) {
+-		struct cfg80211_ssid *ssid =
+-			priv->scan_request->ssids;
+-
+-		/* Broadcast if ssid_len is 0 */
+-		*pos++ = ssid->ssid_len;
+-		memcpy(pos, ssid->ssid, ssid->ssid_len);
+-		pos += ssid->ssid_len;
+-		len += 2 + ssid->ssid_len;
+-	} else {
+-		*pos++ = 0;
+-		len += 2;
+-	}
++	*pos++ = 0;
++
++	len += 2;
+ 
+ 	if (WARN_ON(left < ie_len))
+ 		return len;
+@@ -780,26 +769,20 @@ static void iwl_bg_request_scan(struct work_struct *data)
+ 	if (priv->is_internal_short_scan) {
+ 		IWL_DEBUG_SCAN(priv, "Start internal passive scan.\n");
+ 	} else if (priv->scan_request->n_ssids) {
++		int i, p = 0;
+ 		IWL_DEBUG_SCAN(priv, "Kicking off active scan\n");
+-		/*
+-		 * The first SSID to scan is stuffed into the probe request
+-		 * template and the remaining ones are handled through the
+-		 * direct_scan array.
+-		 */
+-		if (priv->scan_request->n_ssids > 1) {
+-			int i, p = 0;
+-			for (i = 1; i < priv->scan_request->n_ssids; i++) {
+-				if (!priv->scan_request->ssids[i].ssid_len)
+-					continue;
+-				scan->direct_scan[p].id = WLAN_EID_SSID;
+-				scan->direct_scan[p].len =
+-					priv->scan_request->ssids[i].ssid_len;
+-				memcpy(scan->direct_scan[p].ssid,
+-				       priv->scan_request->ssids[i].ssid,
+-				       priv->scan_request->ssids[i].ssid_len);
+-				n_probes++;
+-				p++;
+-			}
++		for (i = 0; i < priv->scan_request->n_ssids; i++) {
++			/* always does wildcard anyway */
++			if (!priv->scan_request->ssids[i].ssid_len)
++				continue;
++			scan->direct_scan[p].id = WLAN_EID_SSID;
++			scan->direct_scan[p].len =
++				priv->scan_request->ssids[i].ssid_len;
++			memcpy(scan->direct_scan[p].ssid,
++			       priv->scan_request->ssids[i].ssid,
++			       priv->scan_request->ssids[i].ssid_len);
++			n_probes++;
++			p++;
+ 		}
+ 		is_active = true;
+ 	} else
+diff --git a/drivers/net/wireless/rt2x00/rt2x00soc.h b/drivers/net/wireless/rt2x00/rt2x00soc.h
+index 4739edf..474cbfc 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00soc.h
++++ b/drivers/net/wireless/rt2x00/rt2x00soc.h
+@@ -26,8 +26,6 @@
+ #ifndef RT2X00SOC_H
+ #define RT2X00SOC_H
+ 
+-#define KSEG1ADDR(__ptr) __ptr
+-
+ /*
+  * SoC driver handlers.
+  */
+diff --git a/net/mac80211/debugfs_netdev.c b/net/mac80211/debugfs_netdev.c
+index 9affe2c..b4ddb2f 100644
+--- a/net/mac80211/debugfs_netdev.c
++++ b/net/mac80211/debugfs_netdev.c
+@@ -48,20 +48,24 @@ static ssize_t ieee80211_if_write(
+ 	ssize_t (*write)(struct ieee80211_sub_if_data *, const char *, int))
+ {
+ 	u8 *buf;
+-	ssize_t ret = -ENODEV;
++	ssize_t ret;
+ 
+-	buf = kzalloc(count, GFP_KERNEL);
++	buf = kmalloc(count, GFP_KERNEL);
+ 	if (!buf)
+ 		return -ENOMEM;
+ 
++	ret = -EFAULT;
+ 	if (copy_from_user(buf, userbuf, count))
+-		return -EFAULT;
++		goto freebuf;
+ 
++	ret = -ENODEV;
+ 	rtnl_lock();
+ 	if (sdata->dev->reg_state == NETREG_REGISTERED)
+ 		ret = (*write)(sdata, buf, count);
+ 	rtnl_unlock();
+ 
++freebuf:
++	kfree(buf);
+ 	return ret;
+ }
+ 
+diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
+index 0ab284c..be5f723 100644
+--- a/net/mac80211/mlme.c
++++ b/net/mac80211/mlme.c
+@@ -436,10 +436,12 @@ static void ieee80211_enable_ps(struct ieee80211_local *local,
+ 		if (local->hw.flags & IEEE80211_HW_PS_NULLFUNC_STACK)
+ 			ieee80211_send_nullfunc(local, sdata, 1);
+ 
+-		if (!(local->hw.flags & IEEE80211_HW_REPORTS_TX_ACK_STATUS)) {
+-			conf->flags |= IEEE80211_CONF_PS;
+-			ieee80211_hw_config(local, IEEE80211_CONF_CHANGE_PS);
+-		}
++		if ((local->hw.flags & IEEE80211_HW_PS_NULLFUNC_STACK) &&
++		    (local->hw.flags & IEEE80211_HW_REPORTS_TX_ACK_STATUS))
++			return;
++
++		conf->flags |= IEEE80211_CONF_PS;
++		ieee80211_hw_config(local, IEEE80211_CONF_CHANGE_PS);
+ 	}
+ }
+ 
+@@ -558,7 +560,8 @@ void ieee80211_dynamic_ps_enable_work(struct work_struct *work)
+ 	    (!(ifmgd->flags & IEEE80211_STA_NULLFUNC_ACKED)))
+ 		ieee80211_send_nullfunc(local, sdata, 1);
+ 
+-	if (!(local->hw.flags & IEEE80211_HW_REPORTS_TX_ACK_STATUS) ||
++	if (!((local->hw.flags & IEEE80211_HW_REPORTS_TX_ACK_STATUS) &&
++	      (local->hw.flags & IEEE80211_HW_PS_NULLFUNC_STACK)) ||
+ 	    (ifmgd->flags & IEEE80211_STA_NULLFUNC_ACKED)) {
+ 		ifmgd->flags &= ~IEEE80211_STA_NULLFUNC_ACKED;
+ 		local->hw.conf.flags |= IEEE80211_CONF_PS;
+diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
+index 211c475..56422d8 100644
+--- a/net/mac80211/sta_info.c
++++ b/net/mac80211/sta_info.c
+@@ -434,6 +434,7 @@ int sta_info_insert_rcu(struct sta_info *sta) __acquires(RCU)
+ 	/* check if STA exists already */
+ 	if (sta_info_get_bss(sdata, sta->sta.addr)) {
+ 		spin_unlock_irqrestore(&local->sta_lock, flags);
++		mutex_unlock(&local->sta_mtx);
+ 		rcu_read_lock();
+ 		err = -EEXIST;
+ 		goto out_free;
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
