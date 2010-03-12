@@ -1,64 +1,79 @@
-From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
-Subject: Re: 2.6.34-rc1: rcu lockdep bug?
-Date: Fri, 12 Mar 2010 21:11:02 +0800
-Message-ID: <2375c9f91003120511j6f33592cl12cb2617a27351ec@mail.gmail.com>
-References: <20100311134556.GA6344@linux.vnet.ibm.com>
-	 <20100311161751.GA3804@hack>
-	 <2375c9f91003112356g1b4164e4pb5f63f0e0e2f310a@mail.gmail.com>
-	 <20100312.000705.225033546.davem@davemloft.net>
-	 <2375c9f91003120059g771d162fxefc21beb2ab17b4d@mail.gmail.com>
-	 <1268392276.3141.4.camel@edumazet-laptop>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [PATCH v4 2/7] net: remove old tcp_optlen function
+Date: Fri, 12 Mar 2010 08:21:49 -0500
+Message-ID: <4B9A3FED.7060101@gmail.com>
+References: <4B98D592.6040301@gmail.com> <4B98D9A2.8060603@gmail.com> <20100312002628.GB20795@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
-	peterz@infradead.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Michael Chan <mchan@broadcom.com>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1268392276.3141.4.camel@edumazet-laptop>
+In-Reply-To: <20100312002628.GB20795@verge.net.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 12, 2010 at 7:11 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le vendredi 12 mars 2010 =C3=A0 16:59 +0800, Am=C3=A9rico Wang a =C3=A9=
-crit :
->> On Fri, Mar 12, 2010 at 4:07 PM, David Miller <davem@davemloft.net> =
-wrote:
->> > From: Am=C3=A9rico Wang <xiyou.wangcong@gmail.com>
->> > Date: Fri, 12 Mar 2010 15:56:03 +0800
->> >
->> >> Ok, after decoding the lockdep output, it looks like that
->> >> netif_receive_skb() should call rcu_read_lock_bh() instead of rcu=
-_read_lock()?
->> >> But I don't know if all callers of netif_receive_skb() are in sof=
-tirq context.
->> >
->> > Normally, netif_receive_skb() is invoked from softirq context.
->> >
->> > However, via netpoll it can be invoked essentially from any contex=
-t.
->> >
->> > But, when this happens, the networking receive path makes amends s=
-uch
->> > that this works fine. =C2=A0That's what the netpoll_receive_skb() =
-check in
->> > netif_receive_skb() is for. =C2=A0That check makes it bail out ear=
-ly if the
->> > call to netif_receive_skb() is via a netpoll invocation.
->> >
+On 3/11/10 7:26 PM, Simon Horman wrote:
+> On Thu, Mar 11, 2010 at 06:53:06AM -0500, William Allen Simpson wrote:
+>> The tcp_optlen() function returns a potential *negative* unsigned.
 >>
->> Oh, I see. This means we should call rcu_read_lock_bh() instead.
->> If Paul has no objections, I will send a patch for this.
->>
+>> In the only two existing files using the old tcp_optlen() function,
+>> clean up confusing and inconsistent mixing of both byte and word
+>> offsets, and other coding style issues.  Document assumptions.
 >
-> Nope, its calling rcu_read_lock() from interrupt context and it shoul=
-d
-> stay as is (we dont need to disable bh, this has a cpu cost)
+> IIRC, Dave already pointed out that this quoting style which singles him
+> out isn't appropriate. Perhaps you should consider updating it if you want
+> him to consider merging this and other changes with similar quotes in the
+> changelog.
 >
+Thanks!  I'm primarily concerned with fixing the bug(s) introduced by
+commit ab6a5bb6b28a970104a34f0f6959b73cf61bdc72 that stuffs a negative
+number (after subtraction) into an unsigned result.  At the time, the
+unsigned result was then stuffed back into int again.  Later folks
+changed the int to u32 (in some places, inconsistently).
 
-Oh, but lockdep complains about rcu_read_lock(), it said
-rcu_read_lock() can't be used in softirq context.
+However, Dave's requirement that there be no TCP or IP length checking
+needs to be documented.  Anybody coming to the code later will wonder why
+that has not been done (eliminated from earlier versions of my patch).
 
-Am I missing something?
+Rather than spend valuable time refuting Dave and fixing all of the many
+problems with TCP and IP lengths elsewhere in the tree (those are more
+appropriate to other patches), just document his existing assumptions, and
+move on....
+
+Documentation/CodingStyle:
+   ... put the comments at the head of the function, telling people what it
+   does, and possibly WHY it does it.
+
+The short requirement statement is in the function header comment(s).
+
+The full quote is in the commit log.  Folks researching the "git blame"
+for this patch in the future can read his rationale and hyperbole.
+
+On Feb 17th, Dave mandated that "(see commit log)" in the source code
+comments be removed:
+
+   "We do not refer to commit log messages from the source code."
+
+That has been done, causing the patch version to increment.
+
+
+> I suggest moving the "No response from testers in 21+ weeks." to
+> below the "--- " somewhere and dropping everything else except
+> the Signed-off line that appears after this point.
+>
+Thanks!  I was unaware that putting such things after "--- " was allowed,
+but checking Documentation/SubmittingPatches:
+
+   - A marker line containing simply "---".
+
+   - Any additional comments not suitable for the changelog.
+
+In my next message, I'll update the change log.
+
+Thanks again!
