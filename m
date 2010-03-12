@@ -1,32 +1,39 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Re: [PATCH 0/7] tcp: bugs and cleanup for 2.6.34-rc1
-Date: Fri, 12 Mar 2010 08:27:26 -0500
-Message-ID: <4B9A413E.1030101@gmail.com>
-References: <4B98D592.6040301@gmail.com>	 <1268319664.2986.535.camel@edumazet-laptop>  <4B992A89.6040700@gmail.com> <1268331251.17462.51.camel@Joe-Laptop.home>
+From: Alexander Schmidt <alexs@linux.vnet.ibm.com>
+Subject: Re: [PATCH 25/37] drivers/infiniband: use .dev.of_node instead of
+ .node in struct of_device
+Date: Fri, 12 Mar 2010 14:30:22 +0100
+Message-ID: <20100312143022.18b954a5@alex-laptop>
+References: <20100311174830.4824.19820.stgit@angua>
+	<20100311180605.4824.3613.stgit@angua>
+	<adavdd2d41q.fsf@roland-alpha.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	=?UTF-8?B?UGVudHRpbMOkIE1pa2E=?= <mika.penttila@ixonos.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1268331251.17462.51.camel@Joe-Laptop.home>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Grant Likely <grant.likely@secretlab.ca>,
+	alsa-devel@alsa-project.org, broonie@opensource.wolfsonmicro.com,
+	linux-ide@vger.kernel.org, James.Bottomley@suse.de,
+	linux-i2c@vger.kernel.org, sparclinux@vger.kernel.org,
+	jeremy.kerr@canonical.com, sfr@canb.auug.org.au,
+	linux-scsi@vger.kernel.org, jgarzik@pobox.com,
+	microblaze-uclinux@itee.uq.edu.au,
+	devicetree-discuss@lists.ozlabs.org,
+	Christoph Raisch <raisch@de.ibm.com>, ben-linux@fluff.org,
+	monstr@monstr.eu, linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	gregkh@suse.de, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org, dwmw2@infradead.org, davem@davemloft.net
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <adavdd2d41q.fsf@roland-alpha.cisco.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 3/11/10 1:14 PM, Joe Perches wrote:
-> On Thu, 2010-03-11 at 12:38 -0500, William Allen Simpson wrote:
->>> http://git2.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=28b2774a0d5852236dab77a4147b8b88548110f1
->
-> In that patch, it might be  better to use
-> 	u16 s_data_desired = 0;
-> not
-> 	int s_data_desired = 0;
->
-Actually, Eric wrote that part of the message, and that patch.  I expect
-that ship has sailed, but you could submit a patch....
+On Thu, 11 Mar 2010 11:57:53 -0800
+Roland Dreier <rdreier@cisco.com> wrote:
+
+> Seems fine... adding EHCA guys just to make sure.
+> 
+>  > .node is being removed
+>  > 
+>  > Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+
+Acked-by: Alexander Schmidt <alexs@linux.vnet.ibm.com>
