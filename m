@@ -1,124 +1,102 @@
-From: Kevin Hilman <khilman@deeprootsystems.com>
-Subject: Re: [PATCH 2/2] davinci: introduce EMAC PHY clock usage
-Date: Fri, 12 Mar 2010 14:38:20 -0800
-Message-ID: <87wrxh5foj.fsf@deeprootsystems.com>
-References: <1268317491-3822-1-git-send-email-srk@ti.com>
-	<1268317491-3822-2-git-send-email-srk@ti.com>
-	<1268317491-3822-3-git-send-email-srk@ti.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] fix PHY polling system blocking
+Date: Fri, 12 Mar 2010 14:42:48 -0800
+Message-ID: <20100312144248.ade8b700.akpm@linux-foundation.org>
+References: <1267894258.18869.2.camel@wall-e>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	davinci-linux-open-source@linux.davincidsp.com
-To: Sriramakrishnan <srk@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:34882 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750839Ab0CLWiX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Mar 2010 17:38:23 -0500
-Received: by pwi1 with SMTP id 1so1048386pwi.19
-        for <netdev@vger.kernel.org>; Fri, 12 Mar 2010 14:38:23 -0800 (PST)
-In-Reply-To: <1268317491-3822-3-git-send-email-srk@ti.com> (Sriramakrishnan's message of "Thu\, 11 Mar 2010 19\:54\:51 +0530")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Stefani Seibold <stefani@seibold.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1267894258.18869.2.camel@wall-e>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sriramakrishnan <srk@ti.com> writes:
+On Sat, 06 Mar 2010 17:50:58 +0100
+Stefani Seibold <stefani@seibold.net> wrote:
 
-> From: Sekhar Nori <nsekhar@ti.com>
->
-> The patch "TI DaVinci EMAC: Add EMAC PHY clock handling" adds
-> support for enabling and disabling the EMAC PHY clock.
->
-> The PHY clock on all DaVinci boards is derived from a fixed
-> on board clock. This patch adds the PHY clock definition to
-> the clock tree for all the DaVinci boards using EMAC. Also,
-> the existing input to EMAC module is differentiated from the
-> PHY clock using the clock name "emac_clk".
->
-> Without this patch ethernet fails to initialize since it cannot
-> get the PHY clock and EMAC clock.
->
-> Tested on EVM boards for DM365, DM6467, DM644x, DA830 and DA850.
->
-> Signed-off-by: Sekhar Nori <nsekhar@ti.com>
-> ---
-> Though i have made changes for Neuros OSD2 and SFFSDR boards, i
-> do not have the hardware to test. Appreciate if folks having this
-> hardware ack the patch.
->
->  arch/arm/mach-davinci/board-da830-evm.c   |   19 +++++++++++++++++++
->  arch/arm/mach-davinci/board-da850-evm.c   |   21 +++++++++++++++++++++
->  arch/arm/mach-davinci/board-dm365-evm.c   |   18 ++++++++++++++++++
->  arch/arm/mach-davinci/board-dm644x-evm.c  |   18 ++++++++++++++++++
->  arch/arm/mach-davinci/board-dm646x-evm.c  |   15 +++++++++++++++
->  arch/arm/mach-davinci/board-neuros-osd2.c |   19 +++++++++++++++++++
->  arch/arm/mach-davinci/board-sffsdr.c      |   19 +++++++++++++++++++
->  arch/arm/mach-davinci/da830.c             |    2 +-
->  arch/arm/mach-davinci/da850.c             |    2 +-
->  arch/arm/mach-davinci/dm365.c             |    2 +-
->  arch/arm/mach-davinci/dm644x.c            |    2 +-
->  arch/arm/mach-davinci/dm646x.c            |    2 +-
->  12 files changed, 134 insertions(+), 5 deletions(-)
->
-> diff --git a/arch/arm/mach-davinci/board-da830-evm.c b/arch/arm/mach-davinci/board-da830-evm.c
-> index dc19870..54e8567 100644
-> --- a/arch/arm/mach-davinci/board-da830-evm.c
-> +++ b/arch/arm/mach-davinci/board-da830-evm.c
-> @@ -20,9 +20,11 @@
->  #include <linux/i2c/at24.h>
->  #include <linux/mtd/mtd.h>
->  #include <linux/mtd/partitions.h>
-> +#include <linux/clk.h>
+> This patch fix the PHY poller, which can block the whole system. On a
+> Freescale PPC 834x this result in a delay of 450 us due the slow
+> communication with the PHY chip.
+> 
+> For PHY chips without interrupts, the status of the ethernet will be
+> polled every 2 sec. The poll function will read some register of the MII
+> PHY. The time between the sending the MII_READ_COMMAND and receiving the
+> result is more the 100 us on a PPC 834x.
+>    
+> The patch modifies the poller a lit bit. Only a link status state change
+> will result in a successive detection of the connection type. The poll
+> cycle on the other hand will be increased to every seconds.
+
+You didn't tell us how many seconds.  That would be important?
+
+> Together this patch will prevent a blocking of nearly 400 us every two
+> seconds of the whole system on a PPC 834x.
+> 
+
+I can't say that I really understand what you did - what functionality
+did we lose?
+
+Would it not be better to extend the phy state machine a bit?  When we
+detect the link status change, issue the MII command then arm the
+delayed-work timer to expire in a millisecond, then go in next time and
+read the result?
+
+That might require fancy locking to prevent other threads of control
+from going in and mucking up the MII state.  Possibly leave phydev_lock
+held across that millisecond to keep other people away?
+
+> 
+> ...
+> 
+> diff -u -N -r -p linux-2.6.33.orig/drivers/net/phy/phy.c linux-2.6.33/drivers/net//phy/phy.c
+> --- linux-2.6.33.orig/drivers/net/phy/phy.c	2010-02-24 19:52:17.000000000 +0100
+> +++ linux-2.6.33/drivers/net//phy/phy.c	2010-02-28 22:53:14.725464101 +0100
+
+erp, your weird patch headers ("//") broke my seven-year-old script. 
+But I fixed it!
+
+> @@ -871,9 +871,8 @@ void phy_state_machine(struct work_struc
+>  		case PHY_RUNNING:
+>  			/* Only register a CHANGE if we are
+>  			 * polling */
+> -			if (PHY_POLL == phydev->irq)
+> -				phydev->state = PHY_CHANGELINK;
+> -			break;
+> +			if (PHY_POLL != phydev->irq)
+> +				break;
+>  		case PHY_CHANGELINK:
+>  			err = phy_read_status(phydev);
 >  
->  #include <asm/mach-types.h>
->  #include <asm/mach/arch.h>
-> +#include <mach/clock.h>
+> diff -u -N -r -p linux-2.6.33.orig/drivers/net/phy/phy_device.c linux-2.6.33/drivers/net//phy/phy_device.c
+> --- linux-2.6.33.orig/drivers/net/phy/phy_device.c	2010-02-24 19:52:17.000000000 +0100
+> +++ linux-2.6.33/drivers/net//phy/phy_device.c	2010-02-28 22:53:14.726464145 +0100
+> @@ -161,7 +161,7 @@ struct phy_device* phy_device_create(str
+>  	dev->speed = 0;
+>  	dev->duplex = -1;
+>  	dev->pause = dev->asym_pause = 0;
+> -	dev->link = 1;
+> +	dev->link = 0;
+>  	dev->interface = PHY_INTERFACE_MODE_GMII;
 >  
->  #include <mach/cp_intc.h>
->  #include <mach/mux.h>
-> @@ -30,6 +32,8 @@
->  #include <mach/da8xx.h>
->  #include <mach/usb.h>
+>  	dev->autoneg = AUTONEG_ENABLE;
+> @@ -694,10 +694,16 @@ int genphy_update_link(struct phy_device
+>  	if (status < 0)
+>  		return status;
 >  
-> +#include "clock.h"
-> +
->  #define DA830_EVM_PHY_MASK		0x0
->  #define DA830_EVM_MDIO_FREQUENCY	2200000	/* PHY bus frequency */
->  
-> @@ -557,9 +561,24 @@ static __init void da830_evm_irq_init(void)
->  			soc_info->intc_irq_prios);
->  }
->  
-> +#define EMAC_PHY_CLK_RATE	50000000
-> +
-> +static struct clk emac_phy = {
-> +	.name	= "emac_phy",
-> +	.rate	= EMAC_PHY_CLK_RATE,
-> +};
-> +
-> +static struct clk_lookup emac_phy_clks[] = {
-> +	CLK("davinci_emac.1", "phy_clk", &emac_phy),
+> -	if ((status & BMSR_LSTATUS) == 0)
+> +	if ((status & BMSR_LSTATUS) == 0) {
+> +		if (phydev->link==0)
+> +			return 1;
+>  		phydev->link = 0;
+> -	else
+> +	}
+> +	else {
+> +		if (phydev->link==1)
+> +			return 1;
+>  		phydev->link = 1;
+> +	}
 
-Just make it "phy" instead of "phy_clk".  The con_id field is just
-a handle to differentiate between multiple clocks per device.
-
-The same for the emac_clk change.  I'd call that one "main" (or "emac"
-if you prefer.)  Doing this change will require an update do PATCH 1/2
-as well.
-
-> +	CLK(NULL, NULL, NULL),
-> +};
-> +
-
-I'm not crazy about the clock definitions in the board files.  I
-assume you put it here instead of <soc>.c is because each clock
-has a board specific rate.
-
-Instead, what I'd rather see is the clock defined once for each
-<soc>.c with a custom set_rate hook.  The default rate could
-be a per-SoC default (25MHz looks common) and any board files
-that don't use the default can use clk_set_rate() to change it.
-
-This approach should simplfy things and minimize changes to board
-files.
-
-Kevin
+Please don't invent new coding styles.  scripts/checkpatch.pl is here
+to help.
