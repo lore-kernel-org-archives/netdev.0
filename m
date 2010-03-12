@@ -1,39 +1,38 @@
-From: Huang Weiyi <weiyi.huang@gmail.com>
-Subject: [PATCH 2/6] net: remove unused #include <linux/version.h>
-Date: Fri, 12 Mar 2010 22:12:52 +0800
-Message-ID: <1268403172-3956-1-git-send-email-weiyi.huang@gmail.com>
-Cc: netdev@vger.kernel.org, Huang Weiyi <weiyi.huang@gmail.com>
-To: davem@davemloft.net
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH] sunrpc: fix error path - actually return ERR_PTR() on error
+Date: Fri, 12 Mar 2010 23:14:13 +0900
+Message-ID: <201003122314.IAD17160.OtJLHVMFOOSFFQ@I-love.SAKURA.ne.jp>
+References: <1268401704-9034-1-git-send-email-ext-jani.1.nikula@nokia.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: ext-jani.1.nikula@nokia.com, Trond.Myklebust@netapp.com,
+	bfields@fieldses.org, neilb@suse.de, davem@davemloft.net,
+	batsakis@netapp.com, bhalevy@panasas.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:60719 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933244Ab0CLONI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Mar 2010 09:13:08 -0500
-Received: by mail-bw0-f209.google.com with SMTP id 1so1060379bwz.21
-        for <netdev@vger.kernel.org>; Fri, 12 Mar 2010 06:13:07 -0800 (PST)
+Received: from wine.ocn.ne.jp ([122.1.235.145]:65094 "EHLO smtp.wine.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754692Ab0CLOOU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Mar 2010 09:14:20 -0500
+In-Reply-To: <1268401704-9034-1-git-send-email-ext-jani.1.nikula@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove unused #include <linux/version.h>('s) in
-  drivers/net/ksz884x.c
+Jani Nikula wrote:
+> Signed-off-by: Jani Nikula <ext-jani.1.nikula@nokia.com>
+> 
+> ---
+> 
+> NOTE: I'm afraid I'm unable to test this; please consider this more a
+> bug report than a complete patch.
+> ---
+Indeed, it has to be "return ERR_PTR(-EINVAL);".
+Otherwise, it will trigger NULL pointer dereference some lines later.
 
-Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
----
- drivers/net/ksz884x.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+    bc_sock = container_of(args->bc_xprt, struct svc_sock, sk_xprt);
+    bc_sock->sk_bc_xprt = xprt;
 
-diff --git a/drivers/net/ksz884x.c b/drivers/net/ksz884x.c
-index 7264a3e..f30790b 100644
---- a/drivers/net/ksz884x.c
-+++ b/drivers/net/ksz884x.c
-@@ -17,7 +17,6 @@
- #include <linux/init.h>
- #include <linux/kernel.h>
- #include <linux/module.h>
--#include <linux/version.h>
- #include <linux/ioport.h>
- #include <linux/pci.h>
- #include <linux/proc_fs.h>
--- 
-1.6.1.3
-
+This bug was introduced by f300baba5a1536070d6d77bf0c8c4ca999bb4f0f
+"nfsd41: sunrpc: add new xprt class for nfsv4.1 backchannel" and
+exists in 2.6.32 and later.
