@@ -1,36 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: problem with kernel ipconfig over usb ethernet on v.2.6.33-rc3
-Date: Thu, 11 Mar 2010 23:55:21 -0800 (PST)
-Message-ID: <20100311.235521.225417062.davem@davemloft.net>
-References: <cabda6421001102318m972e0bdw3f44962b5307d4b@mail.gmail.com>
-	<20100310.143323.248163124.davem@davemloft.net>
-	<cabda6421003112350l518aab1cxe70d5ffe056914dd@mail.gmail.com>
+From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
+Subject: Re: 2.6.34-rc1: rcu lockdep bug?
+Date: Fri, 12 Mar 2010 15:56:03 +0800
+Message-ID: <2375c9f91003112356g1b4164e4pb5f63f0e0e2f310a@mail.gmail.com>
+References: <2375c9f91003110205v1d7f00bfk89472cb11bd985d3@mail.gmail.com>
+	 <20100311134556.GA6344@linux.vnet.ibm.com>
+	 <20100311161751.GA3804@hack>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: chripell@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47514
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752756Ab0CLHzB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Mar 2010 02:55:01 -0500
-In-Reply-To: <cabda6421003112350l518aab1cxe70d5ffe056914dd@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100311161751.GA3804@hack>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: christian pellegrin <chripell@gmail.com>
-Date: Fri, 12 Mar 2010 08:50:25 +0100
+(Cc'ing netdev)
 
-> Hi,
-> 
-> On Wed, Mar 10, 2010 at 11:33 PM, David Miller <davem@davemloft.net> wrote:
+On Fri, Mar 12, 2010 at 12:17 AM, Am=C3=A9rico Wang <xiyou.wangcong@gma=
+il.com> wrote:
+> On Thu, Mar 11, 2010 at 05:45:56AM -0800, Paul E. McKenney wrote:
+>>On Thu, Mar 11, 2010 at 06:05:38PM +0800, Am=C3=A9rico Wang wrote:
+>>> Hello, Paul and Peter,
+>>>
+>>> Attached is the lockdep warning that I triggered today.
+>>>
+>>> I am not sure if this is a bug of rcu lockdep, because I am
+>>> testing my patch when this occurred. However, in the backtrace,
+>>> there is none of the functions that I touched, weird.
+>>>
+>>> So, please help to check if this is a bug of rcu lockdep.
 >>
->> Please let me know if this patch makes your setup work
->> properly.
-> 
-> tested and it works, thanks.
-> 
-> Tested-by: Christian Pellegrin <chripell@fsfe.org>
+>>This sort of thing is caused by acquiring the same lock with softirq
+>>(AKA BH) blocked and not, which can result in self-deadlock.
+>>
+>>There was such a bug in the RCU lockdep stuff in -tip, but it has lon=
+g
+>>since been fixed. =C2=A0If you were seeing that bug, rcu_do_batch() w=
+ould
+>>be on the stack, which it does not appear to be.
+>>
+>>So does your patch involve the usbfs_mutex? =C2=A0Or attempt to manip=
+ulate
+>>vfs/fs state from withing networking softirq/BH context?
+>>
+>
+> Nope, it is a patch for netpoll, nothing related with usb, nor vfs.
+>
 
-Thanks a lot for testing, I'll push this around.
+Ok, after decoding the lockdep output, it looks like that
+netif_receive_skb() should call rcu_read_lock_bh() instead of rcu_read_=
+lock()?
+But I don't know if all callers of netif_receive_skb() are in softirq c=
+ontext.
+
+Paul, what do you think?
+
+Thank you.
