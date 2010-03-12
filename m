@@ -1,46 +1,67 @@
-From: Andy Grover <andy.grover@oracle.com>
-Subject: [PATCH 13/13] RDS: Enable per-cpu workqueue threads
-Date: Thu, 11 Mar 2010 15:50:07 -0800
-Message-ID: <1268351407-7394-14-git-send-email-andy.grover@oracle.com>
-References: <1268351407-7394-1-git-send-email-andy.grover@oracle.com>
-Cc: rds-devel@oss.oracle.com, Tina Yang <tina.yang@oracle.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet12.oracle.com ([148.87.113.124]:17884 "EHLO
-	rcsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754885Ab0CKXwY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Mar 2010 18:52:24 -0500
-Received: from acsinet15.oracle.com (acsinet15.oracle.com [141.146.126.227])
-	by rcsinet12.oracle.com (Switch-3.4.2/Switch-3.4.2) with ESMTP id o2BNqMWv004166
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 11 Mar 2010 23:52:24 GMT
-In-Reply-To: <1268351407-7394-1-git-send-email-andy.grover@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v4 2/7] net: remove old tcp_optlen function
+Date: Fri, 12 Mar 2010 11:26:41 +1100
+Message-ID: <20100312002628.GB20795@verge.net.au>
+References: <4B98D592.6040301@gmail.com>
+ <4B98D9A2.8060603@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Michael Chan <mchan@broadcom.com>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4B98D9A2.8060603@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tina Yang <tina.yang@oracle.com>
+On Thu, Mar 11, 2010 at 06:53:06AM -0500, William Allen Simpson wrote:
+> The tcp_optlen() function returns a potential *negative* unsigned.
+> 
+> In the only two existing files using the old tcp_optlen() function,
+> clean up confusing and inconsistent mixing of both byte and word
+> offsets, and other coding style issues.  Document assumptions.
 
-Create per-cpu workqueue threads instead of a single
-krdsd thread. This is a step towards better scalability.
+IIRC, Dave already pointed out that this quoting style which singles him
+out isn't appropriate. Perhaps you should consider updating it if you want
+him to consider merging this and other changes with similar quotes in the
+changelog.
 
-Signed-off-by: Andy Grover <andy.grover@oracle.com>
----
- net/rds/threads.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+I suggest moving the "No response from testers in 21+ weeks." to
+below the "--- " somewhere and dropping everything else except
+the Signed-off line that appears after this point.
 
-diff --git a/net/rds/threads.c b/net/rds/threads.c
-index 00fa10e..786c20e 100644
---- a/net/rds/threads.c
-+++ b/net/rds/threads.c
-@@ -259,7 +259,7 @@ void rds_threads_exit(void)
- 
- int __init rds_threads_init(void)
- {
--	rds_wq = create_singlethread_workqueue("krdsd");
-+	rds_wq = create_workqueue("krdsd");
- 	if (rds_wq == NULL)
- 		return -ENOMEM;
- 
--- 
-1.6.3.3
+> Quoth David Miller:
+>    This is transmit, and the packets can only come from the Linux
+>    TCP stack, not some external entity.
+> 
+>    You're being way too anal here, and adding these checks to
+>    drivers would be just a lot of rediculious bloat. [sic]
+> 
+> Therefore, there are *no* checks for bad TCP and IP header sizes, nor
+> any semantic changes.  The drivers should function exactly as existing,
+> although usage of int should ameliorate the issues.
 
+> No response from testers in 21+ weeks.
+> 
+> [removed comment references to commit log]
+> 
+> Requires:
+>   net: tcp_header_len_th and tcp_option_len_th
+> 
+> Signed-off-by: William.Allen.Simpson@gmail.com
+> CC: Michael Chan <mchan@broadcom.com>
+> ---
+>  drivers/net/bnx2.c  |   29 +++++++++++++-----------
+>  drivers/net/tg3.c   |   60 +++++++++++++++++++++++---------------------------
+>  include/linux/tcp.h |    5 ----
+>  3 files changed, 44 insertions(+), 50 deletions(-)
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
