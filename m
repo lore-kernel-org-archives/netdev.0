@@ -1,64 +1,93 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Linux support for 802.3af?
-Date: Sat, 13 Mar 2010 04:40:03 +0000
-Message-ID: <1268455203.7439.78.camel@localhost>
-References: <4B9AD5CA.7000303@redfish-solutions.com>
-	 <1268440985.7439.23.camel@localhost>
-	 <4B9AE62B.6050502@redfish-solutions.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH] timestamping: fix example build
+Date: Fri, 12 Mar 2010 21:23:27 -0800
+Message-ID: <4B9B214F.4040005@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
+Cc: David Miller <davem@davemloft.net>,
+	Patrick Ohly <patrick.ohly@intel.com>
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:3803 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754720Ab0CMEkI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Mar 2010 23:40:08 -0500
-In-Reply-To: <4B9AE62B.6050502@redfish-solutions.com>
+Received: from acsinet12.oracle.com ([141.146.126.234]:62275 "EHLO
+	acsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750820Ab0CMFY5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Mar 2010 00:24:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-03-12 at 18:11 -0700, Philip A. Prindeville wrote:
-> On 03/12/2010 05:43 PM, Ben Hutchings wrote:
-> > On Fri, 2010-03-12 at 17:01 -0700, Philip A. Prindeville wrote:
-> >> I was looking at this Marvell-based 4-port PCI card with PoE and
-> >> thinking it would be handy for powering cameras and ip-phones, but don't
-> >> remember seeing any kernel support for 802.3af...
-> >>
-> >> http://www.korenix.com/jetcard-PoE_Universal_PCI_Card-2215-overview.htm
-> >>
-> >> There's no support for 802.3af, right?
-> > 
-> > The standard MDIO ioctls can be used to access registers 11 and 12 on
-> > PHYs with integrated PSE functionality.  There is no way of indicating
-> > whether a PHY has such functionality, but a flag for this could be added
-> > to the mdio_support field of struct ethtool_cmd.
-> > 
-> > Ben.
-> 
-> Well, there's more to it than that, right?
-> 
-> There's a software state machine that's required to go through the
-> handshake, there's prioritization and power budgeting, etc.  Yes?
-> 
-> What am I missing?
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-We seem to have contrary expectations of how a PSE would be implemented.
-You assume that the CPU would be involved at quite a low level.  I
-assume that a PSE in a Linux system would be implemented on a peripheral
-device and that it would be managed from the host via MDIO (though this
-is specified as an optional feature).
+Fix Makefiles so that Documentation/networking/timestamping/timestamping.c
+will build when using the CONFIG_BUILD_DOCSRC kconfig option.
+(timestamping.c does not build currently with its simple Makefile.)
 
-Looking at the specs, that particular card is using a Marvell switch
-chip which doesn't have any PoE support, so management via MDIO seems
-unlikely.  If you're curious I suppose you should try to get the driver
-from this vendor.
+Also fix printf format warnings.
 
-Ben.
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+Cc: Patrick Ohly <patrick.ohly@intel.com>
+---
+ Documentation/networking/Makefile                    |    2 +
+ Documentation/networking/timestamping/Makefile       |   11 ++++++++--
+ Documentation/networking/timestamping/timestamping.c |   10 ++++-----
+ 3 files changed, 16 insertions(+), 7 deletions(-)
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+--- lnx-2634-rc1.orig/Documentation/networking/Makefile
++++ lnx-2634-rc1/Documentation/networking/Makefile
+@@ -6,3 +6,5 @@ hostprogs-y := ifenslave
+ 
+ # Tell kbuild to always build the programs
+ always := $(hostprogs-y)
++
++obj-m := timestamping/
+--- lnx-2634-rc1.orig/Documentation/networking/timestamping/Makefile
++++ lnx-2634-rc1/Documentation/networking/timestamping/Makefile
+@@ -1,6 +1,13 @@
+-CPPFLAGS = -I../../../include
++# kbuild trick to avoid linker error. Can be omitted if a module is built.
++obj- := dummy.o
+ 
+-timestamping: timestamping.c
++# List of programs to build
++hostprogs-y := timestamping
++
++# Tell kbuild to always build the programs
++always := $(hostprogs-y)
++
++HOSTCFLAGS_timestamping.o += -I$(objtree)/usr/include
+ 
+ clean:
+ 	rm -f timestamping
+--- lnx-2634-rc1.orig/Documentation/networking/timestamping/timestamping.c
++++ lnx-2634-rc1/Documentation/networking/timestamping/timestamping.c
+@@ -41,9 +41,9 @@
+ #include <arpa/inet.h>
+ #include <net/if.h>
+ 
+-#include "asm/types.h"
+-#include "linux/net_tstamp.h"
+-#include "linux/errqueue.h"
++#include <asm/types.h>
++#include <linux/net_tstamp.h>
++#include <linux/errqueue.h>
+ 
+ #ifndef SO_TIMESTAMPING
+ # define SO_TIMESTAMPING         37
+@@ -164,7 +164,7 @@ static void printpacket(struct msghdr *m
+ 
+ 	gettimeofday(&now, 0);
+ 
+-	printf("%ld.%06ld: received %s data, %d bytes from %s, %d bytes control messages\n",
++	printf("%ld.%06ld: received %s data, %d bytes from %s, %zu bytes control messages\n",
+ 	       (long)now.tv_sec, (long)now.tv_usec,
+ 	       (recvmsg_flags & MSG_ERRQUEUE) ? "error" : "regular",
+ 	       res,
+@@ -173,7 +173,7 @@ static void printpacket(struct msghdr *m
+ 	for (cmsg = CMSG_FIRSTHDR(msg);
+ 	     cmsg;
+ 	     cmsg = CMSG_NXTHDR(msg, cmsg)) {
+-		printf("   cmsg len %d: ", cmsg->cmsg_len);
++		printf("   cmsg len %zu: ", cmsg->cmsg_len);
+ 		switch (cmsg->cmsg_level) {
+ 		case SOL_SOCKET:
+ 			printf("SOL_SOCKET ");
