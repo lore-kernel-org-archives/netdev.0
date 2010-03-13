@@ -1,45 +1,35 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] NET: tg3: fix brace, switch, and comma spacing coding
- style in tg3.c This is a patch to the tg3.c file that aligns switch and
- case statements, else statements following braces, and inserts a space
- after commas listed in the coding style g
-Date: Sat, 13 Mar 2010 12:22:22 -0800
-Message-ID: <1268511742.30289.74.camel@Joe-Laptop.home>
-References: <b6bf7b051003131152t38c8b1e1m33e8844468b9e46a@mail.gmail.com>
-	 <20100313.115555.209991546.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ipv6: Send netlink notification when DAD fails
+Date: Sat, 13 Mar 2010 12:23:40 -0800 (PST)
+Message-ID: <20100313.122340.214239484.davem@davemloft.net>
+References: <20100313111117.GA25903@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: thisdyingdream@gmail.com, sjharms@gmail.com, mcarlson@broadcom.com,
-	mchan@broadcom.com, benli@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sharms@ubuntu.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1691 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933030Ab0CMUWY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Mar 2010 15:22:24 -0500
-In-Reply-To: <20100313.115555.209991546.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53222
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932971Ab0CMUXT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Mar 2010 15:23:19 -0500
+In-Reply-To: <20100313111117.GA25903@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2010-03-13 at 11:55 -0800, David Miller wrote:
-> From: Steven Harms <thisdyingdream@gmail.com>
-> Date: Sat, 13 Mar 2010 14:52:26 -0500
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sat, 13 Mar 2010 19:11:17 +0800
+
+> ipv6: Send netlink notification when DAD fails
 > 
-> > Would you like me to submit the patch adding only the spaces after
-> > commas and leave the rest of the defines as is, or discard the changes
-> > all together?
+> If we are managing IPv6 addresses using DHCP, it would be nice
+> for user-space to be notified if an address configured through
+> DHCP fails DAD.  Otherwise user-space would have to poll to see
+> whether DAD succeeds.
 > 
-> I would like you to toss them altogether.
+> This patch uses the existing notification mechanism and simply
+> hooks it into the DAD failure code path.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I think that Steven got off on the wrong foot
-a bit by adding the parentheses to the defines.
-
-I think the other changes he suggested are
-tree-wide style consistency only and are ok.
-
-Perhaps you might reconsider later, after
-net-next reopens.
-
-
+Applied, thanks Herbert.
