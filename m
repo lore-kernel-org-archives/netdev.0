@@ -1,37 +1,45 @@
-From: William Allen Simpson <william.allen.simpson@gmail.com>
-Subject: Code paths setting gso_size
-Date: Sat, 13 Mar 2010 06:22:57 -0500
-Message-ID: <4B9B7591.9080706@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4 2/7] net: remove old tcp_optlen function
+Date: Sat, 13 Mar 2010 12:24:30 +0100
+Message-ID: <1268479470.2947.33.camel@edumazet-laptop>
+References: <4B98D592.6040301@gmail.com> <4B98D9A2.8060603@gmail.com>
+	 <4B9A40BC.4030301@gmail.com> <20100312174656.GA12175@bicker>
+	 <4B9AC8C5.2010300@gmail.com> <1268471488.2947.26.camel@edumazet-laptop>
+	 <4B9B7312.80301@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Dan Carpenter <error27@gmail.com>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dan Carpenter <error27@gmail.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
+	Michael Chan <mchan@broadcom.com>,
 	Simon Horman <horms@verge.net.au>
-To: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4B9B7312.80301@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a new thread dedicated to a specific topic, spawned by an
-earlier discussion.  I've CC'd only those that participated recently.
+Le samedi 13 mars 2010 =C3=A0 06:12 -0500, William Allen Simpson a =C3=A9=
+crit :
 
-I've written:
-# In this particular instance, I suggest that you take a look at all the
-# places that gso_size is set, and cross index with all the code paths that
-# place these TCP headers onto the txq without a check of doff -- as I did!
-#
-# I'll specifically mention the tun and virtio_net devices, but I'm also
-# particularly concerned with af_packet.c and skbuff.c -- and the general
-# problem with inet_lro.c, too.
-#
-# Amazingly enough, folks sometimes use Linux for routers....
-#
+> Since you agree with David, perhaps you could kindly point out exactl=
+y
+> how your statement is true?  Proof by assertion is generally not good
+> argumentation.
+>=20
 
-Eric (and David) have written:
-# Only *locally* generated trafic by linux kernel can enter this path.
-#
 
-So, let us begin with the tun device, and work our way through the others.
+You have to bring proof of your claims, not the reverse.
+
+You started the whole game, adding whole universe into this minor netde=
+v
+discussion for an obscure and yet to be aknowledged bug, not me.
+
+Therefore, I wont continue this trolling. You apparently want some
+public exposure I have no idea why.
+
+Have a good week end.
