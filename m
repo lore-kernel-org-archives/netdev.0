@@ -1,28 +1,33 @@
-From: Kevin Hilman <khilman@deeprootsystems.com>
-Subject: Re: [PATCH] TI DaVinci EMAC: Convert to dev_pm_ops
-Date: Fri, 12 Mar 2010 15:28:47 -0800
-Message-ID: <87zl2d3ys0.fsf@deeprootsystems.com>
-References: <1268296676-12514-1-git-send-email-chaithrika@ti.com>
+From: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
+Subject: Linux support for 802.3af?
+Date: Fri, 12 Mar 2010 17:01:14 -0700
+Message-ID: <4B9AD5CA.7000303@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	davinci-linux-open-source@linux.davincidsp.com, davem@davemloft.net
-To: Chaithrika U S <chaithrika@ti.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f176.google.com ([209.85.223.176]:48007 "EHLO
-	mail-iw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934713Ab0CLX2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Mar 2010 18:28:49 -0500
-Received: by iwn6 with SMTP id 6so155797iwn.4
-        for <netdev@vger.kernel.org>; Fri, 12 Mar 2010 15:28:49 -0800 (PST)
-In-Reply-To: <1268296676-12514-1-git-send-email-chaithrika@ti.com> (Chaithrika U. S.'s message of "Thu\, 11 Mar 2010 14\:07\:56 +0530")
+Received: from mail.redfish-solutions.com ([66.232.79.143]:35513 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932782Ab0CMABP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Mar 2010 19:01:15 -0500
+Received: from [192.168.1.10] (builder.redfish-solutions.com [192.168.1.10])
+	(authenticated bits=0)
+	by mail.redfish-solutions.com (8.14.3/8.14.3) with ESMTP id o2D01E4N029288
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-CAMELLIA256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Fri, 12 Mar 2010 17:01:14 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chaithrika U S <chaithrika@ti.com> writes:
+I was looking at this Marvell-based 4-port PCI card with PoE and
+thinking it would be handy for powering cameras and ip-phones, but don't
+remember seeing any kernel support for 802.3af...
 
-> Migrate from the legacy PM hooks to use dev_pm_ops structure.
->
-> Signed-off-by: Chaithrika U S <chaithrika@ti.com>
+http://www.korenix.com/jetcard-PoE_Universal_PCI_Card-2215-overview.htm
 
-Acked-by: Kevin Hilman <khilman@deeprootsystems.com>
+There's no support for 802.3af, right?
+
+Thanks,
+
+-Philip
+
