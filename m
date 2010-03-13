@@ -1,75 +1,40 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] vsprintf.c: Use noinline_for_stack
-Date: Fri, 12 Mar 2010 16:25:59 -0800
-Message-ID: <20100312162559.a8e51777.akpm@linux-foundation.org>
-References: <cover.1267682641.git.joe@perches.com>
-	<20100304143837.af39845d.akpm@linux-foundation.org>
-	<alpine.LFD.2.00.1003041504080.3751@localhost.localdomain>
-	<1267911399.849.39.camel@Joe-Laptop.home>
-	<alpine.LFD.2.00.1003061356420.31447@localhost.localdomain>
-	<1267914654.849.81.camel@Joe-Laptop.home>
-	<alpine.LFD.2.00.1003061445490.31447@localhost.localdomain>
-	<alpine.LFD.2.00.1003061455590.31447@localhost.localdomain>
-	<1267918554.849.89.camel@Joe-Laptop.home>
-	<alpine.LFD.2.00.1003061540470.23804@localhost.localdomain>
-	<alpine.LFD.2.00.1003061547490.23804@localhost.localdomain>
-	<alpine.LFD.2.00.1003061556420.23804@localhost.localdomain>
-	<1267924214.1937.12.camel@Joe-Laptop.home>
-	<alpine.LFD.2.00.1003061755400.23804@localhost.localdomain>
-	<1267929215.1937.18.camel@Joe-Laptop.home>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Linux support for 802.3af?
+Date: Sat, 13 Mar 2010 00:43:05 +0000
+Message-ID: <1268440985.7439.23.camel@localhost>
+References: <4B9AD5CA.7000303@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Nick Andrew <nick@nick-andrew.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@suse.de>, netdev@vger.kernel.org,
-	Bjorn Helgaas <bjorn.helgaas@hp.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1267929215.1937.18.camel@Joe-Laptop.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:53314 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935115Ab0CMAnM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Mar 2010 19:43:12 -0500
+In-Reply-To: <4B9AD5CA.7000303@redfish-solutions.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 06 Mar 2010 18:33:35 -0800
-Joe Perches <joe@perches.com> wrote:
-
-> On Sat, 2010-03-06 at 18:03 -0800, Linus Torvalds wrote:
-> > A few noinlines might be appropriate.
+On Fri, 2010-03-12 at 17:01 -0700, Philip A. Prindeville wrote:
+> I was looking at this Marvell-based 4-port PCI card with PoE and
+> thinking it would be handy for powering cameras and ip-phones, but don't
+> remember seeing any kernel support for 802.3af...
 > 
-> Mark static functions with noinline_for_stack
+> http://www.korenix.com/jetcard-PoE_Universal_PCI_Card-2215-overview.htm
 > 
+> There's no support for 802.3af, right?
 
--ENOTESTINGRESULTS.
+The standard MDIO ioctls can be used to access registers 11 and 12 on
+PHYs with integrated PSE functionality.  There is no way of indicating
+whether a PHY has such functionality, but a flag for this could be added
+to the mdio_support field of struct ethtool_cmd.
 
+Ben.
 
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-Before:
-
-akpm:/usr/src/25> objdump -d lib/vsprintf.o | perl scripts/checkstack.pl
-0x00000e82 pointer [vsprintf.o]:                        344
-0x0000198c pointer [vsprintf.o]:                        344
-0x000025d6 scnprintf [vsprintf.o]:                      216
-0x00002648 scnprintf [vsprintf.o]:                      216
-0x00002565 snprintf [vsprintf.o]:                       208
-0x0000267c sprintf [vsprintf.o]:                        208
-0x000030a3 bprintf [vsprintf.o]:                        208
-0x00003b1e sscanf [vsprintf.o]:                         208
-0x00000608 number [vsprintf.o]:                         136
-0x00000937 number [vsprintf.o]:                         136
-
-After:
-
-akpm:/usr/src/25> objdump -d lib/vsprintf.o | perl scripts/checkstack.pl  
-0x00000a7c symbol_string [vsprintf.o]:                  248
-0x00000ae8 symbol_string [vsprintf.o]:                  248
-0x00002310 scnprintf [vsprintf.o]:                      216
-0x00002382 scnprintf [vsprintf.o]:                      216
-0x0000229f snprintf [vsprintf.o]:                       208
-0x000023b6 sprintf [vsprintf.o]:                        208
-0x00002ddd bprintf [vsprintf.o]:                        208
-0x00003858 sscanf [vsprintf.o]:                         208
-0x00000625 number [vsprintf.o]:                         136
-0x00000954 number [vsprintf.o]:                         136
-
-nice.
