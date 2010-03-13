@@ -1,28 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sky2: Avoid rtnl_unlock without rtnl_lock
-Date: Sat, 13 Mar 2010 12:24:26 -0800 (PST)
-Message-ID: <20100313.122426.98704617.davem@davemloft.net>
-References: <4B9ACA33.5060104@ring3k.org>
+Subject: Re: [PATCH] drivers/net/tulip/eeprom.c: fix bogus "(null)" in
+ tulip init messages
+Date: Sat, 13 Mar 2010 12:26:31 -0800 (PST)
+Message-ID: <20100313.122631.129768465.davem@davemloft.net>
+References: <20100310.084104.201710892.davem@davemloft.net>
+	<1268242457.1545.347.camel@Joe-Laptop.home>
+	<19351.61461.545790.609086@pilspetsen.it.uu.se>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: mikem@ring3k.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36576
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932971Ab0CMUYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Mar 2010 15:24:05 -0500
-In-Reply-To: <4B9ACA33.5060104@ring3k.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: joe@perches.com, netdev@vger.kernel.org, grundler@parisc-linux.org,
+	kyle@mcmartin.ca, linux-kernel@vger.kernel.org
+To: mikpe@it.uu.se
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <19351.61461.545790.609086@pilspetsen.it.uu.se>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mike McCormack <mikem@ring3k.org>
-Date: Sat, 13 Mar 2010 08:11:47 +0900
+From: Mikael Pettersson <mikpe@it.uu.se>
+Date: Wed, 10 Mar 2010 20:16:37 +0100
 
-> Make sure we always call rtnl_lock before going down the
-> error path in sky2_resume, which unlocks the rtnl lock.
-> 
-> Signed-off-by: Mike McCormack <mikem@ring3k.org>
+> Joe Perches writes:
+>  > Signed-off-by: Joe Perches <joe@perches.com>
+ ...
+> Tested-by: Mikael Pettersson <mikpe@it.uu.se>
 
-Applied, thanks Mike.
+Applied, thanks everyone.
