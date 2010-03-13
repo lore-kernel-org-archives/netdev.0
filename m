@@ -1,40 +1,54 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Linux support for 802.3af?
-Date: Sat, 13 Mar 2010 00:43:05 +0000
-Message-ID: <1268440985.7439.23.camel@localhost>
-References: <4B9AD5CA.7000303@redfish-solutions.com>
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Subject: Re: [PATCH 0/3] pci: fix/cleanup pcix get and set mmrbc functions
+Date: Fri, 12 Mar 2010 17:00:00 -0800
+Message-ID: <20100312170000.55cc055a@jbarnes-piketon>
+References: <20100310032632.6331.15414.send-patch@aqua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:53314 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935115Ab0CMAnM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Mar 2010 19:43:12 -0500
-In-Reply-To: <4B9AD5CA.7000303@redfish-solutions.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org
+To: Dean Nelson <dnelson@redhat.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20100310032632.6331.15414.send-patch@aqua>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2010-03-12 at 17:01 -0700, Philip A. Prindeville wrote:
-> I was looking at this Marvell-based 4-port PCI card with PoE and
-> thinking it would be handy for powering cameras and ip-phones, but don't
-> remember seeing any kernel support for 802.3af...
+On Tue, 9 Mar 2010 22:26:33 -0500
+Dean Nelson <dnelson@redhat.com> wrote:
+
+> A customer running RHEL4.8 encountered
 > 
-> http://www.korenix.com/jetcard-PoE_Universal_PCI_Card-2215-overview.htm
+>  "e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang"
 > 
-> There's no support for 802.3af, right?
+> type errors, which were determined to be the result of a bad return value
+> from e1000_pcix_get_mmrbc() causing the call to e1000_pcix_set_mmrbc() to
+> be skipped in the following snippet of code from e1000_init_hw().
+> 
+> 	switch (hw->mac_type) {
+> 	case e1000_82545_rev_3:
+> 	case e1000_82546_rev_3:
+> 		break;
+> 	default:
+> 		/* Workaround for PCI-X problem when BIOS sets MMRBC incorrectly. */
+> 		if (hw->bus_type == e1000_bus_type_pcix
+> 		    && e1000_pcix_get_mmrbc(hw) > 2048)
+> 			e1000_pcix_set_mmrbc(hw, 2048);
+> 		break;
+> 	}
+> 
+> e1000_pcix_get_mmrbc() is basically a wrapper for a call to pcix_get_mmrbc().
+> e1000_pcix_set_mmrbc() is the same for pcix_set_mmrbc().
+> 
+> The following three patches are a response to the problems that were found to
+> exist with pcix_get_max_mmrbc(), pcix_get_mmrbc() and pcix_set_mmrbc().
+> 
+> Versions of these patches applicable to RHEL4 were verified by the customer to
+> solve their problem.
 
-The standard MDIO ioctls can be used to access registers 11 and 12 on
-PHYs with integrated PSE functionality.  There is no way of indicating
-whether a PHY has such functionality, but a flag for this could be added
-to the mdio_support field of struct ethtool_cmd.
+Thanks Dean, I'll pull these in and send them to Linus for 2.6.34.  I
+assume they should also be included in the stable kernel series?  If
+so, I'll add a cc: stable@kernel.org when I commit them.
 
-Ben.
-
+Thanks,
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Jesse Barnes, Intel Open Source Technology Center
