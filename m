@@ -1,50 +1,78 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: ipv6: Send netlink notification when DAD fails
-Date: Sat, 13 Mar 2010 19:11:17 +0800
-Message-ID: <20100313111117.GA25903@gondor.apana.org.au>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [PATCH v4 2/7] net: remove old tcp_optlen function
+Date: Sat, 13 Mar 2010 06:12:18 -0500
+Message-ID: <4B9B7312.80301@gmail.com>
+References: <4B98D592.6040301@gmail.com> <4B98D9A2.8060603@gmail.com>	 <4B9A40BC.4030301@gmail.com> <20100312174656.GA12175@bicker>	 <4B9AC8C5.2010300@gmail.com> <1268471488.2947.26.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:40916 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758997Ab0CMLLV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Mar 2010 06:11:21 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dan Carpenter <error27@gmail.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Michael Chan <mchan@broadcom.com>,
+	Simon Horman <horms@verge.net.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1268471488.2947.26.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi:
+On 3/13/10 4:11 AM, Eric Dumazet wrote:
+> David already pointed out fact that this code path is not used in
+> forwardind / routing path. Your assumptions are clearly wrong.
+>
+> Can you sit down and understand this difference ?
+>
+> Only *locally* generated trafic by linux kernel can enter this path.
+>
+Since you agree with David, perhaps you could kindly point out exactly
+how your statement is true?  Proof by assertion is generally not good
+argumentation.  I'll start a new thread for you to discuss.
 
-ipv6: Send netlink notification when DAD fails
+More importantly, how is this relevant to this patch?
 
-If we are managing IPv6 addresses using DHCP, it would be nice
-for user-space to be notified if an address configured through
-DHCP fails DAD.  Otherwise user-space would have to poll to see
-whether DAD succeeds.
+This patch removes a seldom used function that generates bad code, and
+MUST NOT be used elsewhere in the code base -- an attractive nuisance,
+speaking in legal terms.
 
-This patch uses the existing notification mechanism and simply
-hooks it into the DAD failure code path.
+This patch is also more elegant, and generates faster code.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Are you saying this patch is incorrect in any way?
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 88fd8c5..01d142e 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1380,6 +1380,8 @@ static void addrconf_dad_stop(struct inet6_ifaddr *ifp, int dad_failed)
- 		if (dad_failed)
- 			ifp->flags |= IFA_F_DADFAILED;
- 		spin_unlock_bh(&ifp->lock);
-+		if (dad_failed)
-+			ipv6_ifa_notify(0, ifp);
- 		in6_ifa_put(ifp);
- #ifdef CONFIG_IPV6_PRIVACY
- 	} else if (ifp->flags&IFA_F_TEMPORARY) {
+Please point to the bad line of code (not David's comments or diatribe).
+Certainly, I'll be happy to correct it!
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+> And if a bug in linux core network stack can feed any driver a buggy
+> skb, bad things can happen, even if a driver is perfect.
+>
+Certainly.  But a driver cannot depend on the entirety of a large
+project being perfect.  It *should* be perfect in and of itself!
+
+
+> Please point out _this_ bug _if_ it really exists, so that we can
+> correct this bug instead of hiding it in one thousand of drivers.
+>
+Again, I'll start a new thread for your edification.
+
+
+> Your attacks make no sense, you know nothing about linux kernel
+> internals and assume it was written like other projects you were
+> involved to.
+>
+I've made no "attacks".  The above is a personal /ad hominem/ attack,
+evidently the raison d'etre for Linux email lists.  :-(
+
+Yes, I've been involved in many other projects, and am arguably the
+most widely experienced TCP/IP implementer in the world.  I've been
+programming in C since 1977, and my first TCP/IP implementation was
+started in 1979 (in assembly).  Probably before you were born.
+
+Why are you so threatened by that?
+
+Why are you insulting and trying to drive me away?
+
+Why, oh why, is there such a lack of community spirit here?!?!
