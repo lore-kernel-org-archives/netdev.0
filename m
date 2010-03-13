@@ -1,44 +1,48 @@
-From: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
-Subject: Re: Linux support for 802.3af?
-Date: Fri, 12 Mar 2010 18:11:07 -0700
-Message-ID: <4B9AE62B.6050502@redfish-solutions.com>
-References: <4B9AD5CA.7000303@redfish-solutions.com> <1268440985.7439.23.camel@localhost>
+From: Alexei Colin <acolin10@college.harvard.edu>
+Subject: sungem on PowerMac G4: RX MAC fifo overflow
+Date: Fri, 12 Mar 2010 23:17:35 -0500
+Message-ID: <9fa5f2891003122017x72c92682md32c62e272f64380@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:38864 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S935357Ab0CMBLj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Mar 2010 20:11:39 -0500
-In-Reply-To: <1268440985.7439.23.camel@localhost>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:49354 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758800Ab0CMER4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Mar 2010 23:17:56 -0500
+Received: by bwz1 with SMTP id 1so1600146bwz.21
+        for <netdev@vger.kernel.org>; Fri, 12 Mar 2010 20:17:55 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/12/2010 05:43 PM, Ben Hutchings wrote:
-> On Fri, 2010-03-12 at 17:01 -0700, Philip A. Prindeville wrote:
->> I was looking at this Marvell-based 4-port PCI card with PoE and
->> thinking it would be handy for powering cameras and ip-phones, but don't
->> remember seeing any kernel support for 802.3af...
->>
->> http://www.korenix.com/jetcard-PoE_Universal_PCI_Card-2215-overview.htm
->>
->> There's no support for 802.3af, right?
-> 
-> The standard MDIO ioctls can be used to access registers 11 and 12 on
-> PHYs with integrated PSE functionality.  There is no way of indicating
-> whether a PHY has such functionality, but a flag for this could be added
-> to the mdio_support field of struct ethtool_cmd.
-> 
-> Ben.
+Hi,
 
-Well, there's more to it than that, right?
+Any help on this issue would be greatly appreciated. I am emailing
+netdev because I couldn't find anything relevant online (except
+ancient inconclusive reports of the same error message).
 
-There's a software state machine that's required to go through the handshake, there's prioritization and power budgeting, etc.  Yes?
+Issue: system loses Ethernet connectivity after several hours usually
+or sooner occasionally. This message gets written to the log multiple
+times:
+eht0: RX MAC fifo overflow smac[<a mem address>]
 
-What am I missing?
+Machine: PowerMac G4 (no more firmware updates applicable)
+Ethernet: 0002:20:0f.0 Ethernet controller: Apple Computer Inc.
+UniNorth GMAC (Sun GEM) (rev 01)
+System: Linux 2.6.31-19-powerpc #56-Ubuntu Thu Jan 28 00:50:48 UTC
+2010 GNU/Linux
+Driver: sungem (srcversion: 9C4DDFB8D2201E852413F4F)
 
+I'd like to think that it started after I updated to Ubuntu 9.10
+(different version of sungem), but booting into 2.6.28-6-powerpc
+(after the dist upgrade, though) the same is observed.
 
+This does bring back the network:
+ifdown eth0; rmmod sungem; modprobe sungem; ifup eth0
+(I never tried without reloading the module)
 
+Please let me know if you would like me to get debugging info and
+which. Thank you in advance!
+
+Regards,
+Alexei
