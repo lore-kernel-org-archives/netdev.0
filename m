@@ -1,59 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4 2/7] net: remove old tcp_optlen function
-Date: Sat, 13 Mar 2010 10:11:28 +0100
-Message-ID: <1268471488.2947.26.camel@edumazet-laptop>
-References: <4B98D592.6040301@gmail.com> <4B98D9A2.8060603@gmail.com>
-	 <4B9A40BC.4030301@gmail.com> <20100312174656.GA12175@bicker>
-	 <4B9AC8C5.2010300@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: ipv6: Send netlink notification when DAD fails
+Date: Sat, 13 Mar 2010 19:11:17 +0800
+Message-ID: <20100313111117.GA25903@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dan Carpenter <error27@gmail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Michael Chan <mchan@broadcom.com>,
-	Simon Horman <horms@verge.net.au>
-To: William Allen Simpson <william.allen.simpson@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4B9AC8C5.2010300@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:40916 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758997Ab0CMLLV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Mar 2010 06:11:21 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 12 mars 2010 =C3=A0 18:05 -0500, William Allen Simpson a =C3=
-=A9crit :
+Hi:
 
-> In this particular instance, I suggest that you take a look at all th=
-e
-> places that gso_size is set, and cross index with all the code paths =
-that
-> place these TCP headers onto the txq without a check of doff -- as I =
-did!
->=20
-> I'll specifically mention the tun and virtio_net devices, but I'm als=
-o
-> particularly concerned with af_packet.c and skbuff.c -- and the gener=
-al
-> problem with inet_lro.c, too.
->=20
-> Amazingly enough, folks sometimes use Linux for routers....
-> --
+ipv6: Send netlink notification when DAD fails
 
-David already pointed out fact that this code path is not used in
-forwardind / routing path. Your assumptions are clearly wrong.
+If we are managing IPv6 addresses using DHCP, it would be nice
+for user-space to be notified if an address configured through
+DHCP fails DAD.  Otherwise user-space would have to poll to see
+whether DAD succeeds.
 
-Can you sit down and understand this difference ?
+This patch uses the existing notification mechanism and simply
+hooks it into the DAD failure code path.
 
-Only *locally* generated trafic by linux kernel can enter this path.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-And if a bug in linux core network stack can feed any driver a buggy
-skb, bad things can happen, even if a driver is perfect.
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 88fd8c5..01d142e 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1380,6 +1380,8 @@ static void addrconf_dad_stop(struct inet6_ifaddr *ifp, int dad_failed)
+ 		if (dad_failed)
+ 			ifp->flags |= IFA_F_DADFAILED;
+ 		spin_unlock_bh(&ifp->lock);
++		if (dad_failed)
++			ipv6_ifa_notify(0, ifp);
+ 		in6_ifa_put(ifp);
+ #ifdef CONFIG_IPV6_PRIVACY
+ 	} else if (ifp->flags&IFA_F_TEMPORARY) {
 
-Please point out _this_ bug _if_ it really exists, so that we can
-correct this bug instead of hiding it in one thousand of drivers.
-
-Your attacks make no sense, you know nothing about linux kernel
-internals and assume it was written like other projects you were
-involved to.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
