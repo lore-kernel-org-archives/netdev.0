@@ -1,28 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net/tulip/eeprom.c: fix bogus "(null)" in
- tulip init messages
-Date: Sat, 13 Mar 2010 12:26:31 -0800 (PST)
-Message-ID: <20100313.122631.129768465.davem@davemloft.net>
-References: <20100310.084104.201710892.davem@davemloft.net>
-	<1268242457.1545.347.camel@Joe-Laptop.home>
-	<19351.61461.545790.609086@pilspetsen.it.uu.se>
+Subject: Re: [PATCH net-next-2.6] bridge: ensure to unlock in error path in
+ br_multicast_query().
+Date: Sat, 13 Mar 2010 12:27:28 -0800 (PST)
+Message-ID: <20100313.122728.182606252.davem@davemloft.net>
+References: <201003101524.o2AFO75x027843@94.43.138.210.xn.2iij.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org, grundler@parisc-linux.org,
-	kyle@mcmartin.ca, linux-kernel@vger.kernel.org
-To: mikpe@it.uu.se
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <19351.61461.545790.609086@pilspetsen.it.uu.se>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36587
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759075Ab0CMU1H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Mar 2010 15:27:07 -0500
+In-Reply-To: <201003101524.o2AFO75x027843@94.43.138.210.xn.2iij.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mikael Pettersson <mikpe@it.uu.se>
-Date: Wed, 10 Mar 2010 20:16:37 +0100
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Thu, 11 Mar 2010 00:07:34 +0900
 
-> Joe Perches writes:
->  > Signed-off-by: Joe Perches <joe@perches.com>
- ...
-> Tested-by: Mikael Pettersson <mikpe@it.uu.se>
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Applied, thanks everyone.
+Applied, thanks.
