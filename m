@@ -1,61 +1,33 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] ethtool.h: Add "structs are public" disclaimer comment
-Date: Sun, 14 Mar 2010 14:38:19 -0400
-Message-ID: <4B9D2D1B.2080004@garzik.org>
-References: <20100314014335.GA17208@serverengines.com>	 <20100313.181145.211264593.davem@davemloft.net>	 <1268583478.30289.94.camel@Joe-Laptop.home> <1268589034.2664.68.camel@localhost>
+From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+Subject: Re: 2.6.34-rc1: bluetooth oops
+Date: Sun, 14 Mar 2010 21:44:34 +0100
+Message-ID: <20100314204434.GB5208@elf.ucw.cz>
+References: <20100314201434.GE22059@elf.ucw.cz>
+ <1268598500.3897.36.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
-	ajitk@serverengines.com, ajitkhaparde@gmail.com,
-	netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:59467 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759569Ab0CNSiY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Mar 2010 14:38:24 -0400
-Received: by gyg8 with SMTP id 8so1069638gyg.19
-        for <netdev@vger.kernel.org>; Sun, 14 Mar 2010 11:38:22 -0700 (PDT)
-In-Reply-To: <1268589034.2664.68.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1268598500.3897.36.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 03/14/2010 01:50 PM, Ben Hutchings wrote:
-> On Sun, 2010-03-14 at 09:17 -0700, Joe Perches wrote:
->> On Sat, 2010-03-13 at 18:11 -0800, David Miller wrote:
->>> For the millionth time, you cannot change these datastructures
->>> like this without breaking all existing userspace applications
->>> out there.
->>
->> Maybe this might help reduce the broken record repetitiveness.
->>
->> Signed-off-by: Joe Perches<joe@perches.com>
->> ---
->> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
->> index b33f316..9bd7583 100644
->> --- a/include/linux/ethtool.h
->> +++ b/include/linux/ethtool.h
->> @@ -10,6 +10,15 @@
->>    * Portions Copyright (C) Sun Microsystems 2008
->>    */
->>
->> +/*
->> + * Do not submit patches that change the public structs not guarded by
->> + * #ifdef __KERNEL__ in this file.
->> + *
->> + * In case the use of __u8, __u16, __u32 and other reserved types don't
->> + * mean much to you, these structs are used by user-space applications
->> + * and must not be changed.
->> + */
->
-> This comment is not quite correct: reserved fields may be replaced so
-> long as the structure size and offsets of other fields stay the same.
+Hi!
 
-I don't think we need this in every ABI-related header, though, do we?
+> > I got this after trying to use bnep for few minutes... Machine locked
+> > after that, not sure if it is related.
+> 
+> I can't explain it since we haven't changed the BNEP code. So that might
+> be a problem in the networking layer. So posting it to netdev might be a
+> good idea.
 
-	Jeff
-
-
-
-
+Ok, I'll try using bnep some more. I had bad problems with cellphone
+connection at that point, so maybe it is not easy to repeat, and it
+the fact I have not seen it before may not mean much...
+									Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
