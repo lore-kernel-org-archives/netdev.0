@@ -1,40 +1,44 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 0/3] gigaset fixes for 2.6.34-rc1
+Subject: [PATCH 3/3] gigaset: prune use of tty_buffer_request_room
 Date: Sun, 14 Mar 2010 23:58:05 +0100 (CET)
-Message-ID: <cover.1268580322.git.tilman@imap.cc>
+Message-ID: <3ba816ff92f2dad24a5265f8f213a63debe9c6e6.1268580322.git.tilman@imap.cc>
+References: <cover.1268580322.git.tilman@imap.cc>
 Cc: Hansjoerg Lipp <hjlipp@web.de>,
 	Alan Cox <alan@lxorguk.ukuu.org.uk>,
 	isdn4linux <isdn4linux@listserv.isdn4linux.de>,
 	i4ldeveloper <i4ldeveloper@listserv.isdn4linux.de>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stable@vger.kernel.org
 To: Karsten Keil <isdn@linux-pingi.de>,
 	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pxnet.com ([195.227.45.7]:59831 "EHLO mail.pxnet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934304Ab0CNXBG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Mar 2010 19:01:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1268580322.git.tilman@imap.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Karsten, David,
+Calling tty_buffer_request_room() before tty_insert_flip_string()
+is unnecessary, costs CPU and for big buffers can mess up the
+multi-page allocation avoidance.
 
-following are three bugfix patches to the Gigaset driver which should
-still go into 2.6.34 if possible, and also into the 2.6.33 stable branch.
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+CC: Alan Cox <alan@lxorguk.ukuu.org.uk>, stable@kernel.org
+---
+Note to -stable: applies correctly to 2.6.33 with fuzz 2.
 
-Thanks,
-Tilman
-
-Tilman Schmidt (3):
-  gigaset: avoid registering CAPI driver more than once
-  gigaset: correct clearing of at_state strings on RING
-  gigaset: prune use of tty_buffer_request_room
-
- drivers/isdn/gigaset/capi.c      |   44 +++++++++++++++++++++----------------
- drivers/isdn/gigaset/common.c    |    6 +++-
- drivers/isdn/gigaset/ev-layer.c  |   12 +++-------
- drivers/isdn/gigaset/gigaset.h   |    6 +++-
- drivers/isdn/gigaset/i4l.c       |   28 +++++++++++++++++-------
  drivers/isdn/gigaset/interface.c |    1 -
- 6 files changed, 57 insertions(+), 40 deletions(-)
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
+diff --git a/drivers/isdn/gigaset/interface.c b/drivers/isdn/gigaset/interface.c
+index a1bcbc2..f0dc6c9 100644
+--- a/drivers/isdn/gigaset/interface.c
++++ b/drivers/isdn/gigaset/interface.c
+@@ -628,7 +628,6 @@ void gigaset_if_receive(struct cardstate *cs,
+ 	if (tty == NULL)
+ 		gig_dbg(DEBUG_IF, "receive on closed device");
+ 	else {
+-		tty_buffer_request_room(tty, len);
+ 		tty_insert_flip_string(tty, buffer, len);
+ 		tty_flip_buffer_push(tty);
+ 	}
+-- 
+1.6.5.3.298.g39add
