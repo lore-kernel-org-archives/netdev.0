@@ -1,44 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ethtool.h: Add "structs are public" disclaimer comment
-Date: Sun, 14 Mar 2010 15:08:18 -0700 (PDT)
-Message-ID: <20100314.150818.124884915.davem@davemloft.net>
-References: <20100314014335.GA17208@serverengines.com>
-	<20100313.181145.211264593.davem@davemloft.net>
-	<1268583478.30289.94.camel@Joe-Laptop.home>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ajitk@serverengines.com, ajitkhaparde@gmail.com, jeff@garzik.org,
-	netdev@vger.kernel.org
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58574
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934132Ab0CNWH4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Mar 2010 18:07:56 -0400
-In-Reply-To: <1268583478.30289.94.camel@Joe-Laptop.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: [PATCH 2/3] gigaset: correct clearing of at_state strings on RING
+Date: Sun, 14 Mar 2010 23:58:05 +0100 (CET)
+Message-ID: <6064316e1863fe50dc7cb9c47b6d64728b878f06.1268580322.git.tilman@imap.cc>
+References: <cover.1268580322.git.tilman@imap.cc>
+Cc: Hansjoerg Lipp <hjlipp@web.de>,
+	isdn4linux <isdn4linux@listserv.isdn4linux.de>,
+	i4ldeveloper <i4ldeveloper@listserv.isdn4linux.de>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stable@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1268580322.git.tilman@imap.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Sun, 14 Mar 2010 09:17:58 -0700
+In RING handling, clear the table of received parameter strings in
+a loop like everywhere else, instead of by enumeration which had
+already gotten out of sync.
 
-> On Sat, 2010-03-13 at 18:11 -0800, David Miller wrote:
->> For the millionth time, you cannot change these datastructures
->> like this without breaking all existing userspace applications
->> out there.
-> 
-> Maybe this might help reduce the broken record repetitiveness.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+Impact: minor bugfix
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+CC: stable@kernel.org
+---
+Note to -stable: applies correctly to 2.6.33.
 
-That's rediculious.  Just about every single file in
-include/linux/foo.h has similar stuff.
+ drivers/isdn/gigaset/ev-layer.c |   12 ++++--------
+ 1 files changed, 4 insertions(+), 8 deletions(-)
 
-And we already have a way to document this, the fact that a header
-file appears in include/linux/Kbuild shows that it provides userland
-interfaces.
-
-And your comment wouldn't help this person at all, they _KNEW_ it
-changed userspace, because in the very next patch they patch the
-userland tool to change the datastructures too!
+diff --git a/drivers/isdn/gigaset/ev-layer.c b/drivers/isdn/gigaset/ev-layer.c
+index c8f89b7..206c380 100644
+--- a/drivers/isdn/gigaset/ev-layer.c
++++ b/drivers/isdn/gigaset/ev-layer.c
+@@ -1258,14 +1258,10 @@ static void do_action(int action, struct cardstate *cs,
+ 		 * note that bcs may be NULL if no B channel is free
+ 		 */
+ 		at_state2->ConState = 700;
+-		kfree(at_state2->str_var[STR_NMBR]);
+-		at_state2->str_var[STR_NMBR] = NULL;
+-		kfree(at_state2->str_var[STR_ZCPN]);
+-		at_state2->str_var[STR_ZCPN] = NULL;
+-		kfree(at_state2->str_var[STR_ZBC]);
+-		at_state2->str_var[STR_ZBC] = NULL;
+-		kfree(at_state2->str_var[STR_ZHLC]);
+-		at_state2->str_var[STR_ZHLC] = NULL;
++		for (i = 0; i < STR_NUM; ++i) {
++			kfree(at_state2->str_var[i]);
++			at_state2->str_var[i] = NULL;
++		}
+ 		at_state2->int_var[VAR_ZCTP] = -1;
+ 
+ 		spin_lock_irqsave(&cs->lock, flags);
+-- 
+1.6.5.3.298.g39add
