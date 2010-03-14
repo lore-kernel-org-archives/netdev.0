@@ -1,49 +1,57 @@
 From: michael-dev@fami-braun.de
 Subject: [PATCH] BUG: unable to handle kernel NULL pointer dereference at
- br_multicast_leave_group
-Date: Sun, 14 Mar 2010 03:28:55 +0100
-Message-ID: <4B9C49E7.1080703@fami-braun.de>
+ br_pass_frame_up
+Date: Sun, 14 Mar 2010 03:30:07 +0100
+Message-ID: <4B9C4A2F.8040203@fami-braun.de>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
  protocol="application/pgp-signature";
- boundary="------------enig30C71BC04313DF95D331E089"
+ boundary="------------enig1F1E2C4FE5470F285BEFBE2E"
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.9]:50530 "EHLO
+Received: from moutng.kundenserver.de ([212.227.17.9]:64598 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753756Ab0CNC3D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Mar 2010 21:29:03 -0500
+	with ESMTP id S1753772Ab0CNCaL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Mar 2010 21:30:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig30C71BC04313DF95D331E089
+--------------enig1F1E2C4FE5470F285BEFBE2E
 Content-Type: multipart/mixed;
- boundary="------------010108080208000901000501"
+ boundary="------------020509030608030006030109"
 
 This is a multi-part message in MIME format.
---------------010108080208000901000501
+--------------020509030608030006030109
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
 
 Hi,
 
 I'm currently using linux-next and have been running into an OOPs which
-I think might be caused by a patch you submitted on 2010-02-27.
+I think might be caused by a patch submitted on 2010-02-27.
 
 It's a linux-next kernel from 2010-03-12 on an x86 system and it
-OOPs in the bridge module in br_mdp_ip_get (called by
-br_multicast_leave_group) because the br->mdb is null.
+OOPs in the bridge module in br_pass_frame_up (called by
+br_handle_frame_finish) because brdev cannot be dereferenced (its set to
+a non-null value).
 
-Digging deeper it seems that when a igmp leave packet is received, it is
-not checked wether mdb has been populated yet. Though, if the group does
-not exist, the code just skips leaving. So it seems the same action cna
-be taken if mdb is still NULL. As far as I can see, commit
-eb1d16414339a6e113d89e2cca2556005d7ce919 added multicast code to bridge
-and so likely causes this crash. This crash does not happen on 2.6.33.
+Adding some BUG_ON statements revealed that
+ BR_INPUT_SKB_CB(skb)->brdev =3D=3D br-dev
+(as set in br_handle_frame_finish first)
+only holds until br_forward is called.
+The next call to br_pass_frame_up then fails.
 
-I've therefore modified br_multicast so that the leave is skipped if mdb
-is empty.
+Digging deeper it seems that br_forward either frees the skb or passes
+it to NF_HOOK which will in turn take care of freeing the skb. The same
+is holds for br_pass_frame_ip. So it seems as if two independent skb
+allocations are required. As far as I can see, commit
+b33084be192ee1e347d98bb5c9e38a53d98d35e2 removed skb duplication and so
+likely causes this crash. This crash does not happen on 2.6.33.
+
+I've therefore modified br_forward the same way br_flood has been
+modified so that the skb is not freed if skb0 is going to be used
+and I can confirm that the attached patch resolves the issue for me.
 
 Please don't hesitate to contact me if there are any questions.
 
@@ -51,205 +59,220 @@ Sincerely,
  M. Braun
 
 // gdb output //
-(gdb) print *((struct net_bridge*) 0xcec68800)
-$3 =3D {lock =3D {{rlock =3D {raw_lock =3D {<No data fields>}}}}, port_li=
-st =3D
-{next =3D 0xcec41790, prev =3D 0xcfb209f8}, dev =3D 0xcec68520, hash_lock=
- =3D
-{{rlock =3D {raw_lock =3D {<No data fields>}}}}, hash =3D {{first =3D 0x0=
-},
-{first =3D 0x0}, {first =3D 0x0}, {first =3D 0x0}, {
-      first =3D 0xcfb4d980}, {first =3D 0x0} <repeats 19 times>, {first =3D=
 
-0xcec41200}, {first =3D 0x0} <repeats 119 times>, {first =3D 0xcf00ea80},=
+(gdb) bt full
 
-{first =3D 0x0} <repeats 29 times>, {first =3D 0xcfb6d680}, {first =3D 0x=
-0}
-<repeats 52 times>, {first =3D 0xcec40b00}, {first =3D 0x0}, {
-      first =3D 0x0}, {first =3D 0x0}, {first =3D 0x0}, {first =3D 0x0}, =
-{first
-=3D 0x0}, {first =3D 0x0}, {first =3D 0xcf00d1c0}, {first =3D 0x0} <repea=
-ts 20
-times>}, feature_mask =3D 16726117, fake_rtable =3D {u =3D {dst =3D {rcu_=
-head =3D
-{next =3D 0x0, func =3D 0}, child =3D 0x0, dev =3D 0xcec68520,
-        error =3D 0, obsolete =3D 0, flags =3D 2, expires =3D 0, header_l=
-en =3D 0,
-trailer_len =3D 0, rate_tokens =3D 0, rate_last =3D 0, path =3D 0xcec68c1=
-0,
-neighbour =3D 0x0, hh =3D 0x0, xfrm =3D 0x0, input =3D 0, output =3D 0, o=
-ps =3D
-0xd0cc2a40, metrics =3D {0, 1500, 0 <repeats 12 times>},
-        tclassid =3D 0, __refcnt =3D {counter =3D 2}, __use =3D 0, lastus=
-e =3D 0,
-{next =3D 0x0, rt_next =3D 0x0, rt6_next =3D 0x0, dn_next =3D 0x0}}}, fl =
-=3D {oif
-=3D 0, iif =3D 0, mark =3D 0, nl_u =3D {ip4_u =3D {daddr =3D 0, saddr =3D=
- 0, tos =3D 0
-'\000', scope =3D 0 '\000'}, ip6_u =3D {daddr =3D {in6_u =3D {
-              u6_addr8 =3D '\000' <repeats 15 times>, u6_addr16 =3D {0, 0=
-,
-0, 0, 0, 0, 0, 0}, u6_addr32 =3D {0, 0, 0, 0}}}, saddr =3D {in6_u =3D
-{u6_addr8 =3D '\000' <repeats 15 times>, u6_addr16 =3D {0, 0, 0, 0, 0, 0,=
- 0,
-0}, u6_addr32 =3D {0, 0, 0, 0}}}, flowlabel =3D 0}, dn_u =3D {
-          daddr =3D 0, saddr =3D 0, scope =3D 0 '\000'}}, proto =3D 0 '\0=
-00',
-flags =3D 0 '\000', uli_u =3D {ports =3D {sport =3D 0, dport =3D 0}, icmp=
-t =3D {type
-=3D 0 '\000', code =3D 0 '\000'}, dnports =3D {sport =3D 0, dport =3D 0},=
- spi =3D 0,
-mht =3D {type =3D 0 '\000'}}, secid =3D 0}, idev =3D 0x0,
-    rt_genid =3D 0, rt_flags =3D 0, rt_type =3D 0, rt_dst =3D 0, rt_src =3D=
- 0,
-rt_iif =3D 0, rt_gateway =3D 0, rt_spec_dst =3D 0, peer =3D 0x0}, flags =3D=
- 0,
-designated_root =3D {prio =3D "\200", addr =3D "\000\016\216\031\356v"},
-bridge_id =3D {prio =3D "\200", addr =3D "\000\016\216\031\356v"},
-  root_path_cost =3D 0, max_age =3D 20000, hello_time =3D 2000, forward_d=
-elay
-=3D 15000, bridge_max_age =3D 20000, ageing_time =3D 300000, bridge_hello=
-_time
-=3D 2000, bridge_forward_delay =3D 15000, group_addr =3D
-"\001\200\302\000\000", root_port =3D 0, stp_enabled =3D BR_KERNEL_STP,
-  topology_change =3D 0 '\000', topology_change_detected =3D 0 '\000',
-multicast_router =3D 1 '\001', multicast_disabled =3D 0 '\000',
-hash_elasticity =3D 4, hash_max =3D 512, multicast_last_member_count =3D =
-2,
-multicast_startup_queries_sent =3D 2, multicast_startup_query_count =3D 2=
-,
-  multicast_last_member_interval =3D 1000, multicast_membership_interval =
-=3D
-260000, multicast_querier_interval =3D 255000, multicast_query_interval =3D=
+#0  br_pass_frame_up (skb=3D0xcf9627c0) at net/bridge/br_input.c:27
 
-125000, multicast_query_response_interval =3D 10000,
-multicast_startup_query_interval =3D 31250, multicast_lock =3D {{rlock =3D=
- {
-        raw_lock =3D {<No data fields>}}}}, mdb =3D 0x0, router_list =3D
-{first =3D 0x0}, mglist =3D {first =3D 0x0}, multicast_router_timer =3D {=
-entry =3D
-{next =3D 0x0, prev =3D 0x0}, expires =3D 0, function =3D 0xd0cbf264
-<br_multicast_local_router_expired>, data =3D 0, base =3D 0xc0579640},
-  multicast_querier_timer =3D {entry =3D {next =3D 0x0, prev =3D 0x0}, ex=
-pires =3D
-0, function =3D 0xd0cbf264 <br_multicast_local_router_expired>, data =3D =
-0,
-base =3D 0xc0579640}, multicast_query_timer =3D {entry =3D {next =3D 0xd0=
-a1f630,
-prev =3D 0xc057a1a4}, expires =3D 1756782,
-    function =3D 0xd0cc01e1 <br_multicast_query_expired>, data =3D
-3469117440, base =3D 0xc0579640}, hello_timer =3D {entry =3D {next =3D
-0xc0579f14, prev =3D 0xcfcb6e10}, expires =3D 1694000, function =3D 0xd0c=
-bc75b
-<br_hello_timer_expired>, data =3D 3469117440, base =3D 0xc0579640},
-  tcn_timer =3D {entry =3D {next =3D 0x0, prev =3D 0x0}, expires =3D 0, f=
-unction =3D
-0xd0cbc6ce <br_tcn_timer_expired>, data =3D 3469117440, base =3D
-0xc0579640}, topology_change_timer =3D {entry =3D {next =3D 0x0, prev =3D=
+        indev =3D <value optimised out>
 
-0x200200}, expires =3D 225844,
-    function =3D 0xd0cbc42c <br_topology_change_timer_expired>, data =3D
-3469117440, base =3D 0xc0579640}, gc_timer =3D {entry =3D {next =3D 0xcfc=
-b6e10,
-prev =3D 0xc0579f14}, expires =3D 1694000, function =3D 0xd0cb8d8f
-<br_fdb_cleanup>, data =3D 3469117440, base =3D 0xc0579640},
-  ifobj =3D 0xcfca1164}
-(gdb) print ((struct net_bridge*) 0xcec68800)->mdb
-$4 =3D (struct net_bridge_mdb_htable *) 0x0
-(gdb) bt
-#0  jhash_3words (mdb=3D0x0, dst=3D0) at include/linux/jhash.h:128
-#1  jhash_1word (mdb=3D0x0, dst=3D0) at include/linux/jhash.h:140
-#2  br_ip_hash (mdb=3D0x0, dst=3D0) at net/bridge/br_multicast.c:32
-#3  br_mdb_ip_get (mdb=3D0x0, dst=3D0) at net/bridge/br_multicast.c:52
-#4  0xd0cc0ec8 in br_multicast_leave_group (br=3D0xcec68800, port=3D<valu=
-e
-optimised out>, skb=3D0xcf00e580) at net/bridge/br_multicast.c:902
-#5  br_multicast_ipv4_rcv (br=3D0xcec68800, port=3D<value optimised out>,=
+        brdev =3D 0x1012
+#1  br_handle_frame_finish (skb=3D0xcf9627c0) at net/bridge/br_input.c:99=
 
-skb=3D0xcf00e580) at net/bridge/br_multicast.c:1033
-#6  br_multicast_rcv (br=3D0xcec68800, port=3D<value optimised out>,
-skb=3D0xcf00e580) at net/bridge/br_multicast.c:1052
-#7  0xd0cb9c06 in br_handle_frame_finish (skb=3D0xcf00e580) at
-net/bridge/br_input.c:55
-#8  0xd0cbea59 in NF_HOOK_THRESH (skb=3D0xcf00e580) at
+        dest =3D 0xcfa59dae "=C9=8AU", <incomplete sequence \307>
+        br =3D 0xcec46300
+        dst =3D <value optimised out>
+        mdst =3D <value optimised out>
+        skb2 =3D 0xcf9627c0
+#2  0xd0cbfef8 in NF_HOOK_THRESH (p=3D0xcfb3b620, skb=3D0xcf9627c0) at
 include/linux/netfilter.h:206
-#9  br_nf_pre_routing_finish (skb=3D0xcf00e580) at
-net/bridge/br_netfilter.c:420
-#10 0xd0cbf015 in NF_HOOK_THRESH (hook=3D<value optimised out>,
-skb=3D0xcf00e580, in=3D<value optimised out>, out=3D0x0, okfn=3D0xd0cb9ba=
+        ret =3D <value optimised out>
+#3  NF_HOOK (p=3D0xcfb3b620, skb=3D0xcf9627c0) at include/linux/netfilter=
+=2Eh:228
+No locals.
+#4  br_handle_frame (p=3D0xcfb3b620, skb=3D0xcf9627c0) at
+net/bridge/br_input.c:177
+        dest =3D 0xcfa59dae "=C9=8AU", <incomplete sequence \307>
+#5  0xc035d70f in handle_bridge (skb=3D0xcf9627c0) at net/core/dev.c:2344=
+
+No locals.
+#6  netif_receive_skb (skb=3D0xcf9627c0) at net/core/dev.c:2546
+        ptype =3D <value optimised out>
+        pt_prev =3D 0x0
+        orig_dev =3D 0xcfb65020
+        null_or_orig =3D 0x0
+        null_or_bond =3D 0x0
+        ret =3D -810209540
+        type =3D <value optimised out>
+#7  0xc035d8c5 in process_backlog (napi=3D<value optimised out>,
+quota=3D<value optimised out>) at net/core/dev.c:2926
+        skb =3D 0x1012
+        work =3D 1
+        start_time =3D 487863
+#8  0xc035da70 in net_rx_action (h=3D<value optimised out>) at
+net/core/dev.c:3057
+        n =3D 0xc04fea5c
+        work =3D 0
+        weight =3D 64
+        time_limit =3D 487865
+        budget =3D 300
+#9  0xc0126041 in __do_softirq () at kernel/softirq.c:219
+        prev_count =3D 257
+        h =3D 0x1012
+        pending =3D 1
+        max_restart =3D 10
+        cpu =3D 0
+#10 0xc01260f2 in do_softirq () at kernel/softirq.c:266
+        flags =3D 582
+#11 0xc035df5f in netif_rx_ni (skb=3D<value optimised out>) at
+net/core/dev.c:2241
+        err =3D 0
+#12 0xd0cdc226 in tun_get_user (iocb=3D<value optimised out>,
+iv=3D0xcfb2ff54, count=3D<value optimised out>, pos=3D0) at drivers/net/t=
+un.c:666
+        len =3D 64
+        align =3D 2
+        gso =3D {flags =3D 0 '\000', gso_type =3D 0 '\000', hdr_len =3D 0=
+,
+gso_size =3D 0, csum_start =3D 0, csum_offset =3D 0}
+        pi =3D {flags =3D 0, proto =3D 8}
+        skb =3D 0xcf9627c0
+        offset =3D 0
+#13 tun_chr_aio_write (iocb=3D<value optimised out>, iv=3D0xcfb2ff54,
+count=3D<value optimised out>, pos=3D0) at drivers/net/tun.c:686
+        file =3D <value optimised out>
+        tun =3D 0xcfb10300
+        result =3D 64
+#14 0xc017bb12 in do_sync_write (filp=3D0xcf978300, buf=3D<value optimise=
 d
-<br_handle_frame_finish>) at include/linux/netfilter.h:206
-#11 NF_HOOK (hook=3D<value optimised out>, skb=3D0xcf00e580, in=3D<value
-optimised out>, out=3D0x0, okfn=3D0xd0cb9bad <br_handle_frame_finish>) at=
+out>, len=3D<value optimised out>, ppos=3D0xcfb2ff98) at fs/read_write.c:=
+318
+        iov =3D {iov_base =3D 0xbfb4b478, iov_len =3D 64}
+        kiocb =3D {ki_run_list =3D {next =3D 0xcfb2fee0, prev =3D 0x4}, k=
+i_flags
+=3D 0, ki_users =3D 1, ki_key =3D 4294967295, ki_filp =3D 0xcf978300, ki_=
+ctx =3D
+0x0, ki_cancel =3D 0, ki_retry =3D 0, ki_dtor =3D 0, ki_obj =3D {user =3D=
 
-include/linux/netfilter.h:228
-#12 br_nf_pre_routing (hook=3D<value optimised out>, skb=3D0xcf00e580,
-in=3D<value optimised out>, out=3D0x0, okfn=3D0xd0cb9bad
-<br_handle_frame_finish>) at net/bridge/br_netfilter.c:610
-#13 0xc0377247 in ?? ()
+0xcfb089c0, tsk =3D 0xcfb089c0}, ki_user_data =3D 0, ki_pos =3D 0,
+          private =3D 0xc04d9e40, ki_opcode =3D 787, ki_nbytes =3D 348461=
+4480,
+ki_buf =3D 0xc013c430
+"\203\304\024[^_]\303U\211\345WVS\203\354\020\203=3D\fdP\300", ki_left =3D=
 
+64, ki_inline_vec =3D {iov_base =3D 0xcfb2e000, iov_len =3D 0}, ki_iovec =
+=3D
+0xcfb2ff50, ki_nr_segs =3D 3484614336,
+          ki_cur_seg =3D 16, ki_list =3D {next =3D 0xcfb2ff5c, prev =3D 0=
+x1},
+ki_eventfd =3D 0xcf382730}
+        ret =3D <value optimised out>
+#15 0xc017c43c in vfs_write (file=3D0xcf978300, buf=3D0xbfb4b478 "",
+count=3D3484757756, pos=3D0xcfb2ff98) at fs/read_write.c:347
+        ret =3D <value optimised out>
+#16 0xc017c561 in sys_write (fd=3D4, buf=3D0xbfb4b478 "", count=3D64) at
+fs/read_write.c:399
+        pos =3D 0
+        file =3D 0xcf978300
+        ret =3D -9
+        fput_needed =3D 0
+#17 0xc03e8471 in ?? () at arch/x86/kernel/entry_32.S:541
+No locals.
+Backtrace stopped: previous frame inner to this frame (corrupt stack?)
+(gdb) print *brdev
+**Cannot access memory at address 0x1012**
 
 
 // commit //
-commit eb1d16414339a6e113d89e2cca2556005d7ce919
-Author: Herbert Xu <herbert@gondor.apana.org.au>
-Date:   Sat Feb 27 19:41:45 2010 +0000
+  commit b33084be192ee1e347d98bb5c9e38a53d98d35e2
+  Author: Herbert Xu <herbert@gondor.apana.org.au>
+  Date:   Sat Feb 27 19:41:41 2010 +0000
 
-    bridge: Add core IGMP snooping support
+    bridge: Avoid unnecessary clone on forward path
 
-    This patch adds the core functionality of IGMP snooping support
-    without actually hooking it up.  So this patch should be a no-op
-    as far as the bridge's external behaviour is concerned.
+    When the packet is delivered to the local bridge device we may
+    end up cloning it unnecessarily if no bridge port can receive
+    the packet in br_flood.
 
-    All the new code and data is controlled by the Kconfig option
-    BRIDGE_IGMP_SNOOPING.  A run-time toggle is also available.
-
-    The multicast switching is done using an hash table that is
-    lockless on the read-side through RCU.  On the write-side the
-    new multicast_lock is used for all operations.  The hash table
-    supports dynamic growth/rehashing.
-
-    The hash table will be rehashed if any chain length exceeds a
-    preset limit.  If rehashing does not reduce the maximum chain
-    length then snooping will be disabled.
-
-    These features may be added in future (in no particular order):
-
-    * IGMPv3 source support
-    * Non-querier router detection
-    * IPv6
+    This patch avoids this by moving the skb_clone into br_flood.
 
     Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
     Signed-off-by: David S. Miller <davem@davemloft.net>
 
 
 
---------------010108080208000901000501
+--------------020509030608030006030109
 Content-Type: text/x-patch;
- name="linux-next-20100313-bridge-multicast.diff"
+ name="linux-next-20100313-bridge-utils.diff"
 Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline;
- filename="linux-next-20100313-bridge-multicast.diff"
+ filename="linux-next-20100313-bridge-utils.diff"
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 12ce1ea..85ca985 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -899,6 +899,8 @@ static void br_multicast_leave_group(struct net_bridg=
-e *br,
- 		goto out;
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index d61e6f7..8347916 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -19,6 +19,10 @@
+ #include <linux/netfilter_bridge.h>
+ #include "br_private.h"
 =20
- 	mdb =3D br->mdb;
-+	if (!mdb)
-+		goto out;
- 	mp =3D br_mdb_ip_get(mdb, group);
- 	if (!mp)
- 		goto out;
++static int deliver_clone(struct net_bridge_port *prev, struct sk_buff *s=
+kb,
++			 void (*__packet_hook)(const struct net_bridge_port *p,
++					       struct sk_buff *skb));
++
+ /* Don't forward packets to originating port or forwarding diasabled */
+ static inline int should_deliver(const struct net_bridge_port *p,
+ 				 const struct sk_buff *skb)
+@@ -94,14 +98,18 @@ void br_deliver(const struct net_bridge_port *to, str=
+uct sk_buff *skb)
+ }
+=20
+ /* called with rcu_read_lock */
+-void br_forward(const struct net_bridge_port *to, struct sk_buff *skb)
++void br_forward(const struct net_bridge_port *to, struct sk_buff *skb, s=
+truct sk_buff *skb0)
+ {
+ 	if (should_deliver(to, skb)) {
+-		__br_forward(to, skb);
++		if (skb0)
++			deliver_clone(to, skb, __br_forward);
++		else
++			__br_forward(to, skb);
+ 		return;
+ 	}
+=20
+-	kfree_skb(skb);
++	if (!skb0)
++		kfree_skb(skb);
+ }
+=20
+ static int deliver_clone(struct net_bridge_port *prev, struct sk_buff *s=
+kb,
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 53b3985..08a72e6 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -90,7 +90,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
+=20
+ 	if (skb) {
+ 		if (dst)
+-			br_forward(dst->dst, skb);
++			br_forward(dst->dst, skb, skb2);
+ 		else
+ 			br_flood_forward(br, skb, skb2);
+ 	}
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index fef0384..bfb8feb 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -252,7 +252,7 @@ extern void br_deliver(const struct net_bridge_port *=
+to,
+ 		struct sk_buff *skb);
+ extern int br_dev_queue_push_xmit(struct sk_buff *skb);
+ extern void br_forward(const struct net_bridge_port *to,
+-		struct sk_buff *skb);
++		struct sk_buff *skb, struct sk_buff *skb0);
+ extern int br_forward_finish(struct sk_buff *skb);
+ extern void br_flood_deliver(struct net_bridge *br, struct sk_buff *skb)=
+;
+ extern void br_flood_forward(struct net_bridge *br, struct sk_buff *skb,=
 
 
---------------010108080208000901000501--
 
---------------enig30C71BC04313DF95D331E089
+--------------020509030608030006030109--
+
+--------------enig1F1E2C4FE5470F285BEFBE2E
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -258,9 +281,9 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG v1.4.9 (GNU/Linux)
 Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
 
-iEYEARECAAYFAkucSecACgkQ+6sI4XSM4u2z8wCeNel9pTLH7oTbW8EwCfvSkzrH
-I8UAnjPsDiOSqqMpEC9PgIKMSio6SsU1
-=aweS
+iEYEARECAAYFAkucSi8ACgkQ+6sI4XSM4u1MHgCffQ61z+3G1IOon7XQ3jKWxQLl
+C/QAn29u5gDCbTeWl2LbsL7qWOwtaGUR
+=atw9
 -----END PGP SIGNATURE-----
 
---------------enig30C71BC04313DF95D331E089--
+--------------enig1F1E2C4FE5470F285BEFBE2E--
