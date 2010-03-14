@@ -1,33 +1,44 @@
-From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Subject: Re: 2.6.34-rc1: bluetooth oops
-Date: Sun, 14 Mar 2010 21:44:34 +0100
-Message-ID: <20100314204434.GB5208@elf.ucw.cz>
-References: <20100314201434.GE22059@elf.ucw.cz>
- <1268598500.3897.36.camel@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ethtool.h: Add "structs are public" disclaimer comment
+Date: Sun, 14 Mar 2010 15:08:18 -0700 (PDT)
+Message-ID: <20100314.150818.124884915.davem@davemloft.net>
+References: <20100314014335.GA17208@serverengines.com>
+	<20100313.181145.211264593.davem@davemloft.net>
+	<1268583478.30289.94.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kernel list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1268598500.3897.36.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ajitk@serverengines.com, ajitkhaparde@gmail.com, jeff@garzik.org,
+	netdev@vger.kernel.org
+To: joe@perches.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58574
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934132Ab0CNWH4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Mar 2010 18:07:56 -0400
+In-Reply-To: <1268583478.30289.94.camel@Joe-Laptop.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
+From: Joe Perches <joe@perches.com>
+Date: Sun, 14 Mar 2010 09:17:58 -0700
 
-> > I got this after trying to use bnep for few minutes... Machine locked
-> > after that, not sure if it is related.
+> On Sat, 2010-03-13 at 18:11 -0800, David Miller wrote:
+>> For the millionth time, you cannot change these datastructures
+>> like this without breaking all existing userspace applications
+>> out there.
 > 
-> I can't explain it since we haven't changed the BNEP code. So that might
-> be a problem in the networking layer. So posting it to netdev might be a
-> good idea.
+> Maybe this might help reduce the broken record repetitiveness.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Ok, I'll try using bnep some more. I had bad problems with cellphone
-connection at that point, so maybe it is not easy to repeat, and it
-the fact I have not seen it before may not mean much...
-									Pavel
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+That's rediculious.  Just about every single file in
+include/linux/foo.h has similar stuff.
+
+And we already have a way to document this, the fact that a header
+file appears in include/linux/Kbuild shows that it provides userland
+interfaces.
+
+And your comment wouldn't help this person at all, they _KNEW_ it
+changed userspace, because in the very next patch they patch the
+userland tool to change the datastructures too!
