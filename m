@@ -1,29 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6 2/3] jme: Adding lock to protect vlgrp
- structure.
-Date: Mon, 15 Mar 2010 15:54:53 -0700 (PDT)
-Message-ID: <20100315.155453.143098808.davem@davemloft.net>
-References: <1268630108-10374-1-git-send-email-cooldavid@cooldavid.org>
-	<1268630108-10374-2-git-send-email-cooldavid@cooldavid.org>
+Subject: Re: [PATCH] ISDN: Add PCI ID for HFC-2S/4S Beronet Card PCIe
+Date: Mon, 15 Mar 2010 16:01:33 -0700 (PDT)
+Message-ID: <20100315.160133.67908104.davem@davemloft.net>
+References: <1268668176.12629@pingi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ethanhsiao@jmicron.com
-To: cooldavid@cooldavid.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57750
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S937023Ab0COWyc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Mar 2010 18:54:32 -0400
-In-Reply-To: <1268630108-10374-2-git-send-email-cooldavid@cooldavid.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: torvalds@linux-foundation.org, lars.ellenberg@linbit.com,
+	netdev@vger.kernel.org, andreas@eversberg.eu,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org
+To: keil@b1-systems.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1268668176.12629@pingi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Karsten Keil <keil@b1-systems.de>
+Date: Mon, 15 Mar 2010 14:18:41 +0100
 
-Please respin this whole patch set when you fix this
-vlgrp locking the way I told you to.
+> A few subdevice IDs seem to have been dropped when hfc_multi was
+> included upstream, just compare the list at
+> http://www.openvox.cn/viewvc/misdn/trunk/hfc_multi.c?revision=75&view=annotate#l175
+> with the IDs in drivers/isdn/hardware/mISDN/hfcmulti.c
+> 
+> Added PCIe 2 Port card and LED settings (same as PCI) /KKe
+> 
+> Signed-off-by: Lars Ellenberg <lars.ellenberg@linbit.com>
+> Signed-off-by: Karsten Keil <keil@b1-systems.de>
 
-Also, please don't submit a seperate series for 2.6.33 it only creates
-confusion.  Just add a "CC: stable@kernel.org" right after your
-signoff line and it'll get sorted out automatically once the patch
-reaches Linus's tree.
+We don't add new defines to linux/pci_ids.h, it is deprecated.
+Simply add the device ID constants to the table.
+
+The only exception is the case where a device ID is used in
+more than one driver, but even that scenerio is heavily
+discouraged.
