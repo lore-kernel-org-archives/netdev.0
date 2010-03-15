@@ -1,42 +1,121 @@
-From: cooldavid@cooldavid.org
-Subject: [PATCH v2.6.33 1/2] jme: Fix VLAN memory leak
-Date: Mon, 15 Mar 2010 13:15:31 +0800
-Message-ID: <1268630132-10410-1-git-send-email-cooldavid@cooldavid.org>
-Cc: Guo-Fu Tseng <cooldavid@cooldavid.org>,
-	"linux-netdev" <netdev@vger.kernel.org>,
-	"Ethan Hsiao" <ethanhsiao@jmicron.com>
-To: "David Miller" <davem@davemloft.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: net-2.6 [Bug-Fix][dccp]: fix oops caused after failed
+	initialisation
+Date: Mon, 15 Mar 2010 07:13:19 +0100
+Message-ID: <20100315061318.GA6110@gerrit.erg.abdn.ac.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dccp@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>, Arnaldo <acme@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cooldavid.org ([114.33.45.68]:35635 "EHLO cooldavid.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932491Ab0COF0J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Mar 2010 01:26:09 -0400
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:56099 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933125Ab0COGNp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Mar 2010 02:13:45 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guo-Fu Tseng <cooldavid@cooldavid.org>
+dccp: fix panic caused by failed initialisation
 
-Fix memory leak while receiving 8021q tagged packet which is not
-registered by user.
+This fixes a kernel panic reported thanks to Andre Noll:
 
-Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
+if DCCP is compiled into the kernel and any out of the initialisation
+steps in net/dccp/proto.c:dccp_init() fail, a subsequent attempt to create
+a SOCK_DCCP socket will panic, since inet{,6}_create() are not prevented
+from creating DCCP sockets.
+
+This patch fixes the problem by propagating a failure in dccp_init() to
+dccp_v{4,6}_init_net(), and from there to dccp_v{4,6}_init(), so that the
+DCCP protocol is not made available if its initialisation fails.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- drivers/net/jme.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ net/dccp/ipv4.c  |    8 ++++----
+ net/dccp/ipv6.c  |    8 ++++----
+ net/dccp/proto.c |   16 +++++++++-------
+ 3 files changed, 17 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/jme.c b/drivers/net/jme.c
-index 792b88f..3da390a 100644
---- a/drivers/net/jme.c
-+++ b/drivers/net/jme.c
-@@ -946,6 +946,8 @@ jme_alloc_and_feed_skb(struct jme_adapter *jme, int idx)
- 				jme->jme_vlan_rx(skb, jme->vlgrp,
- 					le16_to_cpu(rxdesc->descwb.vlan));
- 				NET_STAT(jme).rx_bytes += 4;
-+			} else {
-+				dev_kfree_skb(skb);
- 			}
- 		} else {
- 			jme->jme_rx(skb);
--- 
-1.6.4.4
-
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -998,11 +998,11 @@ static struct inet_protosw dccp_v4_proto
+ 
+ static int __net_init dccp_v4_init_net(struct net *net)
+ {
+-	int err;
++	if (dccp_hashinfo.bhash == NULL)
++		return -ESOCKTNOSUPPORT;
+ 
+-	err = inet_ctl_sock_create(&net->dccp.v4_ctl_sk, PF_INET,
+-				   SOCK_DCCP, IPPROTO_DCCP, net);
+-	return err;
++	return inet_ctl_sock_create(&net->dccp.v4_ctl_sk, PF_INET,
++				    SOCK_DCCP, IPPROTO_DCCP, net);
+ }
+ 
+ static void __net_exit dccp_v4_exit_net(struct net *net)
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -1191,11 +1191,11 @@ static struct inet_protosw dccp_v6_proto
+ 
+ static int __net_init dccp_v6_init_net(struct net *net)
+ {
+-	int err;
++	if (dccp_hashinfo.bhash == NULL)
++		return -ESOCKTNOSUPPORT;
+ 
+-	err = inet_ctl_sock_create(&net->dccp.v6_ctl_sk, PF_INET6,
+-				   SOCK_DCCP, IPPROTO_DCCP, net);
+-	return err;
++	return inet_ctl_sock_create(&net->dccp.v6_ctl_sk, PF_INET6,
++				    SOCK_DCCP, IPPROTO_DCCP, net);
+ }
+ 
+ static void __net_exit dccp_v6_exit_net(struct net *net)
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -1036,7 +1036,7 @@ static int __init dccp_init(void)
+ 		     FIELD_SIZEOF(struct sk_buff, cb));
+ 	rc = percpu_counter_init(&dccp_orphan_count, 0);
+ 	if (rc)
+-		goto out;
++		goto out_fail;
+ 	rc = -ENOBUFS;
+ 	inet_hashinfo_init(&dccp_hashinfo);
+ 	dccp_hashinfo.bind_bucket_cachep =
+@@ -1125,8 +1125,9 @@ static int __init dccp_init(void)
+ 		goto out_sysctl_exit;
+ 
+ 	dccp_timestamping_init();
+-out:
+-	return rc;
++
++	return 0;
++
+ out_sysctl_exit:
+ 	dccp_sysctl_exit();
+ out_ackvec_exit:
+@@ -1135,18 +1136,19 @@ out_free_dccp_mib:
+ 	dccp_mib_exit();
+ out_free_dccp_bhash:
+ 	free_pages((unsigned long)dccp_hashinfo.bhash, bhash_order);
+-	dccp_hashinfo.bhash = NULL;
+ out_free_dccp_locks:
+ 	inet_ehash_locks_free(&dccp_hashinfo);
+ out_free_dccp_ehash:
+ 	free_pages((unsigned long)dccp_hashinfo.ehash, ehash_order);
+-	dccp_hashinfo.ehash = NULL;
+ out_free_bind_bucket_cachep:
+ 	kmem_cache_destroy(dccp_hashinfo.bind_bucket_cachep);
+-	dccp_hashinfo.bind_bucket_cachep = NULL;
+ out_free_percpu:
+ 	percpu_counter_destroy(&dccp_orphan_count);
+-	goto out;
++out_fail:
++	dccp_hashinfo.bhash = NULL;
++	dccp_hashinfo.ehash = NULL;
++	dccp_hashinfo.bind_bucket_cachep = NULL;
++	return rc;
+ }
+ 
+ static void __exit dccp_fini(void)
