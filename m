@@ -1,48 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [1/3] gigaset: avoid registering CAPI driver more than once
-Date: Mon, 15 Mar 2010 14:20:40 -0700 (PDT)
-Message-ID: <20100315.142040.58983190.davem@davemloft.net>
-References: <1268664986.25524@pingi>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH net-next-2.6 v6 08/12] net-caif: add CAIF socket
+ implementation
+Date: Mon, 15 Mar 2010 14:53:51 -0700
+Message-ID: <1268690031.2700.9.camel@localhost.localdomain>
+References: <1267445559-1911-1-git-send-email-sjur.brandeland@stericsson.com>
+	 <1267445559-1911-2-git-send-email-sjur.brandeland@stericsson.com>
+	 <1267445559-1911-3-git-send-email-sjur.brandeland@stericsson.com>
+	 <1267445559-1911-4-git-send-email-sjur.brandeland@stericsson.com>
+	 <1267445559-1911-5-git-send-email-sjur.brandeland@stericsson.com>
+	 <1267445559-1911-6-git-send-email-sjur.brandeland@stericsson.com>
+	 <1267445559-1911-7-git-send-email-sjur.brandeland@stericsson.com>
+	 <1267445559-1911-8-git-send-email-sjur.brandeland@stericsson.com>
+	 <1267445559-1911-9-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: tilman@imap.cc, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	isdn4linux@listserv.isdn4linux.de, hjlipp@web.de,
-	i4ldeveloper@listserv.isdn4linux.de
-To: isdn@linux-pingi.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1268664986.25524@pingi>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	daniel.martensson@stericsson.com, kaber@trash.net,
+	stefano.babic@babic.homelinux.org, randy.dunlap@oracle.com
+To: sjur.brandeland@stericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from senator.holtmann.net ([87.106.208.187]:43312 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936880Ab0COVzw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Mar 2010 17:55:52 -0400
+In-Reply-To: <1267445559-1911-9-git-send-email-sjur.brandeland@stericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Hi Sjur,
+
+> +	/*
+> +	 * The sock->type specifies the socket type to use. The CAIF socket is
+> +	 * a packet stream in the sence that it is packet based.
+> +	 * CAIF trusts the reliability of the link, no resending is implemented.
+> +	 */
+> +	if (sock->type != SOCK_SEQPACKET)
+> +		return -ESOCKTNOSUPPORT;
+
+we came to an interesting detail here when testing with a STE modem. Why
+is this SEQPACKET and not a STREAM. Especially with the AT command
+channels it is kinda weird that you have an MTU. The AT specification
+doesn't really have any defined behavior when using a sequential packet
+transport. It is more a stream based socket.
+
+Regards
+
+Marcel
 
 
-Karsten the way you reforward patches does not work.
-
-And I've told you about this last time you submitted ISDN patches.
-
-You don't add an extra "From: " line in the message body, so when the
-patch gets applied the author gets set to _you_ instead of the person
-who actually wrote the change.
-
-All you're doing is ACK'ing this person's work, so simply reply to the
-patch they posted and with your "Acked-by" line.  This way patchwork
-and friends will figure out the rest when the patch gets integrated
-into the net-2.6 tree.
-
-By reposting the patches the way you are we're losing information.
-
-Add to this the fact that you never have the time to properly take
-care of ISDN patches, and when you do finally "get to it" you make all
-kinds of submission errors.
-
-This is not the first time either, it happens over and over again.
-It's incredibly frustrating, especially for me.
-
-Please seriously consider handing ISDN maintainership over to someone
-who unlike you 1) has the time and the desire and 2) knows how to
-submit patches properly.  Probably Tilman is the person who most meets
-these criteria based upon what I've seen.
-
-Meanwhile, I'm going to apply the original patches as posted by
-Tilman so that the proper authorship gets set.
