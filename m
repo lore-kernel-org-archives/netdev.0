@@ -1,112 +1,62 @@
-From: Stephen Neuendorffer <stephen.neuendorffer@xilinx.com>
-Subject: RE: [PATCH] [V2] Add non-Virtex5 support for LL TEMAC driver
-Date: Mon, 15 Mar 2010 10:03:21 -0700
-Message-ID: <f317aea4-8499-4830-b4d0-58fd67b8f354@VA3EHSMHS020.ehs.local>
-References: <bda26c8d-00b2-411d-b4b7-ad6954b9049e@SG2EHSMHS005.ehs.local>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] net/netfilter/ipvs/ip_vs_ftp.c: Remove use of NIPQUAD
+Date: Mon, 15 Mar 2010 18:04:32 +0100
+Message-ID: <4B9E68A0.3060405@trash.net>
+References: <1268094699.1617.5.camel@Joe-Laptop.home>	 <4B9E5E43.9060206@trash.net> <1268672314.4027.46.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <michal.simek@petalogix.com>, "John Tyner" <jtyner@cs.ucr.edu>,
-	<john.williams@petalogix.com>
-To: "John Linn" <john.linn@xilinx.com>, <netdev@vger.kernel.org>,
-	<linuxppc-dev@ozlabs.org>, <grant.likely@secretlab.ca>,
-	<jwboyer@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe001.messaging.microsoft.com ([216.32.180.11]:25818
-	"EHLO VA3EHSOBE001.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S965439Ab0CORE3 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Mar 2010 13:04:29 -0400
-Content-Class: urn:content-classes:message
-In-Reply-To: <bda26c8d-00b2-411d-b4b7-ad6954b9049e@SG2EHSMHS005.ehs.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel <lvs-devel@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1268672314.4027.46.camel@Joe-Laptop.home>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Joe Perches wrote:
+> On Mon, 2010-03-15 at 17:20 +0100, Patrick McHardy wrote:
+>> Joe Perches wrote:
+>>> NIPQUAD has very few uses left.
+>>> Remove this use and make the code have the identical form of the only
+>>> other use of "%u,%u,%u,%u,%u,%u" in net/ipv4/netfilter/nf_nat_ftp.c
+>> Are we trying to remove NIPQUAD? 
+> 
+> That is a goal for me yes.
+> Elimination of unnecessary stuff from kernel.h is useful.
+> 
+>> In my opinion the current code is
+>> preferrable to open-coding NIPQUAD.
+> 
+> $ grep -r --include=*.[ch] NIPQUAD *
+> include/linux/kernel.h:#define NIPQUAD(addr) \
+> include/linux/kernel.h:#define NIPQUAD_FMT "%u.%u.%u.%u"
+> net/netfilter/ipvs/ip_vs_ftp.c:		sprintf(buf, "%u,%u,%u,%u,%u,%u", NIPQUAD(from.ip),
+> 
+> As of right now NIPQUAD_FMT is unused and
+> could be removed from kernel.h
+> 
+> There's 1 use of NIPQUAD.
+> 
+> Maybe instead of removal the #define could be
+> moved to netfilter.h or netfilter_ipv4.h
+> 
+> Another is to consolidate the two uses of
+> "%u,%u,%u,%u,%u,%u"
+> 
+> $ grep -r --include=*.[ch] "%u,%u,%u,%u,%u,u%" *
+> fs/cachefiles/bind.c:	_enter("{%u,%u,%u,%u,%u,%u},%s",
+> net/ipv4/netfilter/nf_nat_ftp.c:		return snprintf(buffer, buflen, "%u,%u,%u,%u,%u,%u",
+> net/netfilter/ipvs/ip_vs_ftp.c:		sprintf(buf, "%u,%u,%u,%u,%u,%u", NIPQUAD(from.ip),
+> 
+> Maybe these 2 open coded sprintf/snprintf could be
+> consolidated and moved to an appropriate include
+> like netfilter_ipv4 or another.
+> 
+> What do you suggest?
 
-
-> -----Original Message-----
-> From: linuxppc-dev-bounces+stephen=neuendorffer.name@lists.ozlabs.org
-[mailto:linuxppc-dev-
-> bounces+stephen=neuendorffer.name@lists.ozlabs.org] On Behalf Of John
-Linn
-> Sent: Friday, March 12, 2010 5:06 PM
-> To: netdev@vger.kernel.org; linuxppc-dev@ozlabs.org;
-grant.likely@secretlab.ca;
-> jwboyer@linux.vnet.ibm.com
-> Cc: michal.simek@petalogix.com; John Tyner; John Linn;
-john.williams@petalogix.com
-> Subject: [PATCH] [V2] Add non-Virtex5 support for LL TEMAC driver
-> 
-> This patch adds support for using the LL TEMAC Ethernet driver on
-> non-Virtex 5 platforms by adding support for accessing the Soft DMA
-> registers as if they were memory mapped instead of solely through the
-> DCR's (available on the Virtex 5).
-> 
-> The patch also updates the driver so that it runs on the MicroBlaze.
-> The changes were tested on the PowerPC 440, PowerPC 405, and the
-> MicroBlaze platforms.
-> 
-> Signed-off-by: John Tyner <jtyner@cs.ucr.edu>
-> Signed-off-by: John Linn <john.linn@xilinx.com>
-> ---
-> 
-> V2 - Incorporated comments from Grant and added more logic to allow
-the driver
-> to work on MicroBlaze.
-> 
->  drivers/net/Kconfig         |    1 -
->  drivers/net/ll_temac.h      |   17 +++++-
->  drivers/net/ll_temac_main.c |  124
-++++++++++++++++++++++++++++++++++---------
->  3 files changed, 113 insertions(+), 29 deletions(-)
-> 
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index 9b6efe1..5402105 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -2443,7 +2443,6 @@ config MV643XX_ETH
->  config XILINX_LL_TEMAC
->  	tristate "Xilinx LL TEMAC (LocalLink Tri-mode Ethernet MAC)
-driver"
->  	select PHYLIB
-> -	depends on PPC_DCR_NATIVE
->  	help
->  	  This driver supports the Xilinx 10/100/1000 LocalLink TEMAC
->  	  core used in Xilinx Spartan and Virtex FPGAs
-> diff --git a/drivers/net/ll_temac.h b/drivers/net/ll_temac.h
-> index 1af66a1..915aa34 100644
-> --- a/drivers/net/ll_temac.h
-> +++ b/drivers/net/ll_temac.h
-> @@ -5,8 +5,11 @@
->  #include <linux/netdevice.h>
->  #include <linux/of.h>
->  #include <linux/spinlock.h>
-> +
-> +#ifdef CONFIG_PPC_DCR
->  #include <asm/dcr.h>
->  #include <asm/dcr-regs.h>
-> +#endif
-> 
->  /* packet size info */
->  #define XTE_HDR_SIZE			14      /* size of Ethernet
-header */
-> @@ -290,8 +293,12 @@ This option defaults to enabled (set) */
-> 
->  #define TX_CONTROL_CALC_CSUM_MASK   1
-> 
-> +/* Align the IP data in the packet on word boundaries as MicroBlaze
-> + * needs it.
-> + */
-> +
->  #define XTE_ALIGN       32
-> -#define BUFFER_ALIGN(adr) ((XTE_ALIGN - ((u32) adr)) % XTE_ALIGN)
-> +#define BUFFER_ALIGN(adr) ((34 - ((u32) adr)) % XTE_ALIGN)
-
-Is '34' really XTE_ALIGN + 2?  (I really have no idea.... it just looks
-like a suspicious change.)
-
-Steve
-
-This email and any attachments are intended for the sole use of the named recipient(s) and contain(s) confidential information that may be proprietary, privileged or copyrighted under applicable law. If you are not the intended recipient, do not read, copy, or forward this email message or any attachments. Delete this email message and any attachments immediately.
-
-
+Well, removing the last user sounds acceptable :) Applied, thanks.
