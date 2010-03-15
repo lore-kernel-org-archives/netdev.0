@@ -1,69 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 2.6.34-rc1: rcu lockdep bug?
-Date: Mon, 15 Mar 2010 11:41:03 +0100
-Message-ID: <1268649663.3154.9.camel@edumazet-laptop>
-References: <20100311134556.GA6344@linux.vnet.ibm.com>
-	 <1268392276.3141.4.camel@edumazet-laptop>
-	 <2375c9f91003120511j6f33592cl12cb2617a27351ec@mail.gmail.com>
-	 <1268401058.3141.9.camel@edumazet-laptop> <20100313053356.GC3704@hack>
-	 <20100313215838.GB6805@linux.vnet.ibm.com> <20100315010802.GB2735@hack>
-	 <2375c9f91003142010g61841666iad53c24f39036acf@mail.gmail.com>
-	 <2375c9f91003150239m1abc765bh59eb51c948eed592@mail.gmail.com>
-	 <1268647460.3154.1.camel@edumazet-laptop>
-	 <2375c9f91003150312u37dfd70fk55a4b8820e13590e@mail.gmail.com>
+From: Dean Nelson <dnelson@redhat.com>
+Subject: Re: [PATCH 0/3] pci: fix/cleanup pcix get and set mmrbc functions
+Date: Mon, 15 Mar 2010 05:59:55 -0500
+Message-ID: <4B9E132B.4050105@redhat.com>
+References: <20100310032632.6331.15414.send-patch@aqua> <20100312170000.55cc055a@jbarnes-piketon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	David Miller <davem@davemloft.net>, peterz@infradead.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2375c9f91003150312u37dfd70fk55a4b8820e13590e@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org
+To: Jesse Barnes <jbarnes@virtuousgeek.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20100312170000.55cc055a@jbarnes-piketon>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le lundi 15 mars 2010 =C3=A0 18:12 +0800, Am=C3=A9rico Wang a =C3=A9cri=
-t :
-> On Mon, Mar 15, 2010 at 6:04 PM, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
-> > Le lundi 15 mars 2010 =C3=A0 17:39 +0800, Am=C3=A9rico Wang a =C3=A9=
-crit :
-> >
-> >>
-> >> Ok, I think I found what lockdep really complains about, it is tha=
-t we took
-> >> spin_lock in netpoll_poll_lock() which is in hardirq-enabled envir=
-onment,
-> >> later, we took another spin_lock with spin_lock_irqsave() in netpo=
-ll_rx(),
-> >> so lockdep thought we broke the locking rule.
-> >>
-> >> I don't know why netpoll_rx() needs irq disabled, it looks like th=
-at no one
-> >> takes rx_lock in hardirq context. So can we use spin_lock(&rx_lock=
-)
-> >> instead? Or am I missing something here? Eric? David?
-> >
-> > I am a bit lost.
-> >
-> > Could you give the complete picture, because I cannot find it in my
-> > netdev archives.
-> >
->=20
-> Sure, sorry for this.
->=20
-> Here is the whole thread:
->=20
-> http://lkml.org/lkml/2010/3/11/100
+On 03/12/2010 07:00 PM, Jesse Barnes wrote:
+> On Tue, 9 Mar 2010 22:26:33 -0500
+> Dean Nelson<dnelson@redhat.com>  wrote:
+>
+>> A customer running RHEL4.8 encountered
+>>
+>>   "e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang"
+>>
+>> type errors, which were determined to be the result of a bad return value
+>> from e1000_pcix_get_mmrbc() causing the call to e1000_pcix_set_mmrbc() to
+>> be skipped in the following snippet of code from e1000_init_hw().
+>>
+>> 	switch (hw->mac_type) {
+>> 	case e1000_82545_rev_3:
+>> 	case e1000_82546_rev_3:
+>> 		break;
+>> 	default:
+>> 		/* Workaround for PCI-X problem when BIOS sets MMRBC incorrectly. */
+>> 		if (hw->bus_type == e1000_bus_type_pcix
+>> 		&&  e1000_pcix_get_mmrbc(hw)>  2048)
+>> 			e1000_pcix_set_mmrbc(hw, 2048);
+>> 		break;
+>> 	}
+>>
+>> e1000_pcix_get_mmrbc() is basically a wrapper for a call to pcix_get_mmrbc().
+>> e1000_pcix_set_mmrbc() is the same for pcix_set_mmrbc().
+>>
+>> The following three patches are a response to the problems that were found to
+>> exist with pcix_get_max_mmrbc(), pcix_get_mmrbc() and pcix_set_mmrbc().
+>>
+>> Versions of these patches applicable to RHEL4 were verified by the customer to
+>> solve their problem.
+>
+> Thanks Dean, I'll pull these in and send them to Linus for 2.6.34.  I
+> assume they should also be included in the stable kernel series?  If
+> so, I'll add a cc: stable@kernel.org when I commit them.
 
-OK thanks
+Yes, they should also be included in the stable kernel series. Thanks so 
+much Jesse.
 
-netpoll_rx() can be called from hard irqs (netif_rx()), so rx_lock
-definitly needs irq care.
-
-netpoll_poll_lock() does take a spinlock with irq enabled, but its not
-rx_lock, its napi->poll_lock.
-
-I dont see what could be the problem, is it reproductible with vanilla
-kernel ?
+Dean
