@@ -1,18 +1,18 @@
 From: cooldavid@cooldavid.org
-Subject: [PATCH net-2.6 2/3] jme: Adding lock to protect vlgrp structure.
-Date: Mon, 15 Mar 2010 13:15:07 +0800
-Message-ID: <1268630108-10374-2-git-send-email-cooldavid@cooldavid.org>
-References: <1268630108-10374-1-git-send-email-cooldavid@cooldavid.org>
+Subject: [PATCH v2.6.33 2/2] jme: Adding lock to protect vlgrp structure.
+Date: Mon, 15 Mar 2010 13:15:32 +0800
+Message-ID: <1268630132-10410-2-git-send-email-cooldavid@cooldavid.org>
+References: <1268630132-10410-1-git-send-email-cooldavid@cooldavid.org>
 Cc: Guo-Fu Tseng <cooldavid@cooldavid.org>,
 	"linux-netdev" <netdev@vger.kernel.org>,
 	"Ethan Hsiao" <ethanhsiao@jmicron.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cooldavid.org ([114.33.45.68]:53308 "EHLO cooldavid.org"
+Received: from cooldavid.org ([114.33.45.68]:35637 "EHLO cooldavid.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932496Ab0COFVK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Mar 2010 01:21:10 -0400
-In-Reply-To: <1268630108-10374-1-git-send-email-cooldavid@cooldavid.org>
+	id S932620Ab0COF0K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Mar 2010 01:26:10 -0400
+In-Reply-To: <1268630132-10410-1-git-send-email-cooldavid@cooldavid.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -28,7 +28,7 @@ Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
  2 files changed, 7 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/jme.c b/drivers/net/jme.c
-index cfc7b98..9096bbd 100644
+index 3da390a..f10d9db 100644
 --- a/drivers/net/jme.c
 +++ b/drivers/net/jme.c
 @@ -942,11 +942,14 @@ jme_alloc_and_feed_skb(struct jme_adapter *jme, int idx)
@@ -46,7 +46,7 @@ index cfc7b98..9096bbd 100644
  				dev_kfree_skb(skb);
  			}
  		} else {
-@@ -2088,7 +2091,9 @@ jme_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
+@@ -2092,7 +2095,9 @@ jme_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
  {
  	struct jme_adapter *jme = netdev_priv(netdev);
  
@@ -56,7 +56,7 @@ index cfc7b98..9096bbd 100644
  }
  
  static void
-@@ -2755,6 +2760,7 @@ jme_init_one(struct pci_dev *pdev,
+@@ -2759,6 +2764,7 @@ jme_init_one(struct pci_dev *pdev,
  	spin_lock_init(&jme->phy_lock);
  	spin_lock_init(&jme->macaddr_lock);
  	spin_lock_init(&jme->rxmcs_lock);
@@ -65,10 +65,10 @@ index cfc7b98..9096bbd 100644
  	atomic_set(&jme->link_changing, 1);
  	atomic_set(&jme->rx_cleaning, 1);
 diff --git a/drivers/net/jme.h b/drivers/net/jme.h
-index c19db91..0ed4924 100644
+index 251abed..fbde5c5 100644
 --- a/drivers/net/jme.h
 +++ b/drivers/net/jme.h
-@@ -393,6 +393,7 @@ struct jme_adapter {
+@@ -420,6 +420,7 @@ struct jme_adapter {
  	spinlock_t		phy_lock;
  	spinlock_t		macaddr_lock;
  	spinlock_t		rxmcs_lock;
