@@ -1,50 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Regression] r8169: enable 64-bit DMA by default for PCI
- Express devices (v2)
-Date: Mon, 15 Mar 2010 11:57:48 -0700 (PDT)
-Message-ID: <20100315.115748.13754030.davem@davemloft.net>
-References: <20100315150806.GA15354@Dublin.logfs.org>
-	<20100315151041.GA15667@Dublin.logfs.org>
+Subject: Re: [PATCH] net/netfilter/ipvs/ip_vs_ftp.c: Remove use of NIPQUAD
+Date: Mon, 15 Mar 2010 12:01:42 -0700 (PDT)
+Message-ID: <20100315.120142.113006088.davem@davemloft.net>
+References: <1268094699.1617.5.camel@Joe-Laptop.home>
+	<4B9E5E43.9060206@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: hancockrwd@gmail.com, torvalds@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: joern@dublin.logfs.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57538
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965653Ab0COS51 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Mar 2010 14:57:27 -0400
-In-Reply-To: <20100315151041.GA15667@Dublin.logfs.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: joe@perches.com, wensong@linux-vs.org, horms@verge.net.au,
+	ja@ssi.bg, netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: kaber@trash.net
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <4B9E5E43.9060206@trash.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogSsO2cm4gRW5nZWwgPGpvZXJuQGR1Ymxpbi5sb2dmcy5vcmc+DQpEYXRlOiBNb24sIDE1
-IE1hciAyMDEwIDE2OjEwOjQxICswMTAwDQoNCj4gRm9yZ290IHRvIENjOiBsa21sLg0KDQpBY3R1
-YWxseSwgd2hhdCB5b3UgcmVhbGx5IG5lZWQgdG8gQ0M6IGlzIG5ldGRldiwgYWRkZWQuDQo+IE9u
-IE1vbiwgMTUgTWFyY2ggMjAxMCAxNjowODowNiArMDEwMCwgSu+/vXJuIEVuZ2VsIHdyb3RlOg0K
-Pj4gDQo+PiBIZWxsbyBSb2JlcnQhDQo+PiANCj4+IExvb2tzIGxpa2UgMzUzMTc2ODg4Mzg2ZDkw
-MjUwNjJhMTJkY2VjMDhkNDlhZjEwY2YyYyBicm9rZSBvbmUgb2YgbXkNCj4+IG1hY2hpbmVzLiAg
-UmV2ZXJ0aW5nIHRoYXQgcGF0Y2ggZml4ZXMgdGhpbmdzIGFnYWluLiAgTWFjaGluZSBpcw0KPj4g
-cnVubmluZyBhbiB4ODZfNjQga2VybmVsLiAgTHNwY2kgZ2l2ZXMgbWUgdGhpczoNCj4+IA0KPj4g
-MDE6MDAuMCBFdGhlcm5ldCBjb250cm9sbGVyOiBSZWFsdGVrIFNlbWljb25kdWN0b3IgQ28uLCBM
-dGQuIFJUTDgxMDFFL1JUTDgxMDJFIFBDSSBFeHByZXNzIEZhc3QgRXRoZXJuZXQgY29udHJvbGxl
-ciAocmV2IDAyKQ0KPj4gICAgICAgICBTdWJzeXN0ZW06IEFTUm9jayBJbmNvcnBvcmF0aW9uIERl
-dmljZSA4MTM2DQo+PiAgICAgICAgIEZsYWdzOiBidXMgbWFzdGVyLCBmYXN0IGRldnNlbCwgbGF0
-ZW5jeSAwLCBJUlEgMjYNCj4+ICAgICAgICAgSS9PIHBvcnRzIGF0IGU4MDAgW3NpemU9MjU2XQ0K
-Pj4gICAgICAgICBNZW1vcnkgYXQgZmRlZmYwMDAgKDY0LWJpdCwgcHJlZmV0Y2hhYmxlKSBbc2l6
-ZT00S10NCj4+ICAgICAgICAgTWVtb3J5IGF0IGZkZWUwMDAwICg2NC1iaXQsIHByZWZldGNoYWJs
-ZSkgW3NpemU9NjRLXQ0KPj4gICAgICAgICBbdmlydHVhbF0gRXhwYW5zaW9uIFJPTSBhdCBmZGUw
-MDAwMCBbZGlzYWJsZWRdIFtzaXplPTEyOEtdDQo+PiAgICAgICAgIENhcGFiaWxpdGllczogWzQw
-XSBQb3dlciBNYW5hZ2VtZW50IHZlcnNpb24gMw0KPj4gICAgICAgICBDYXBhYmlsaXRpZXM6IFs1
-MF0gTVNJOiBFbmFibGUrIENvdW50PTEvMSBNYXNrYWJsZS0gNjRiaXQrDQo+PiAgICAgICAgIENh
-cGFiaWxpdGllczogWzcwXSBFeHByZXNzIEVuZHBvaW50LCBNU0kgMDENCj4+ICAgICAgICAgQ2Fw
-YWJpbGl0aWVzOiBbYWNdIE1TSS1YOiBFbmFibGUtIENvdW50PTIgTWFza2VkLQ0KPj4gICAgICAg
-ICBDYXBhYmlsaXRpZXM6IFtjY10gVml0YWwgUHJvZHVjdCBEYXRhDQo+PiAgICAgICAgIENhcGFi
-aWxpdGllczogWzEwMF0gQWR2YW5jZWQgRXJyb3IgUmVwb3J0aW5nDQo+PiAgICAgICAgIENhcGFi
-aWxpdGllczogWzE0MF0gVmlydHVhbCBDaGFubmVsIDw/Pg0KPj4gICAgICAgICBDYXBhYmlsaXRp
-ZXM6IFsxNjBdIERldmljZSBTZXJpYWwgTnVtYmVyIDA4LTAwLTAwLTAwLWZmLWZmLTAwLTAwDQo+
-PiAgICAgICAgIEtlcm5lbCBkcml2ZXIgaW4gdXNlOiByODE2OQ0KPj4gDQo+PiBJZiB5b3UgaGF2
-ZSBhbnkgdGVzdCBwYXRjaGVzIHRvIHRyeSwgcGxlYXNlIHNlbmQgdGhlbSBteSB3YXkuIDopDQo+
-PiANCj4+IErvv71ybg0K
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 15 Mar 2010 17:20:19 +0100
+
+> Joe Perches wrote:
+>> NIPQUAD has very few uses left.
+>> 
+>> Remove this use and make the code have the identical form of the only
+>> other use of "%u,%u,%u,%u,%u,%u" in net/ipv4/netfilter/nf_nat_ftp.c
+> 
+> Are we trying to remove NIPQUAD?
+
+Yes.
+
