@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] SMSC LAN75xx USB gigabit ethernet adapter driver
-Date: Mon, 15 Mar 2010 15:40:04 -0700 (PDT)
-Message-ID: <20100315.154004.24077458.davem@davemloft.net>
-References: <1268245617-13698-1-git-send-email-steve.glendinning@smsc.com>
+Subject: Re: [PATCH 2/5] drivers/net: drop redundant memset
+Date: Mon, 15 Mar 2010 15:47:14 -0700 (PDT)
+Message-ID: <20100315.154714.23695928.davem@davemloft.net>
+References: <Pine.LNX.4.64.1003092213500.4974@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: steve.glendinning@smsc.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43094
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932386Ab0COWjm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Mar 2010 18:39:42 -0400
-In-Reply-To: <1268245617-13698-1-git-send-email-steve.glendinning@smsc.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ram.vepa@neterion.com, santosh.rastapur@neterion.com,
+	sivakumar.subramani@neterion.com, sreenivasa.honnur@neterion.com,
+	anil.murthy@neterion.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: julia@diku.dk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.1003092213500.4974@ask.diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Date: Wed, 10 Mar 2010 18:26:53 +0000
+From: Julia Lawall <julia@diku.dk>
+Date: Tue, 9 Mar 2010 22:14:11 +0100 (CET)
 
-> This patchset adds a driver for SMSC's new LAN7500 USB 2.0 to Gigabit
-> Ethernet controller.
+> From: Julia Lawall <julia@diku.dk>
+> 
+> The region set by the call to memset is immediately overwritten by the
+> subsequent call to memcpy.
+> 
+> The semantic patch that makes this change is as follows:
+> (http://coccinelle.lip6.fr/)
+> 
+> // <smpl>
+> @@
+> expression e1,e2,e3,e4;
+> @@
+> 
+> - memset(e1,e2,e3);
+>   memcpy(e1,e4,e3);
+> // </smpl>
+> 
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
-Please combine all of these changes into one big commit that simply
-adds the new driver.  It's just commit noice the way you have
-submitted this currently.
-
-Thanks.
-
+Applied, thanks!
