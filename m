@@ -1,51 +1,45 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH net-next-2.6 v6 08/12] net-caif: add CAIF socket
- implementation
-Date: Mon, 15 Mar 2010 14:53:51 -0700
-Message-ID: <1268690031.2700.9.camel@localhost.localdomain>
-References: <1267445559-1911-1-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267445559-1911-2-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267445559-1911-3-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267445559-1911-4-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267445559-1911-5-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267445559-1911-6-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267445559-1911-7-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267445559-1911-8-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267445559-1911-9-git-send-email-sjur.brandeland@stericsson.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [1/1] ARC vmac ethernet driver.
+Date: Mon, 15 Mar 2010 15:35:33 -0700 (PDT)
+Message-ID: <20100315.153533.78183177.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	daniel.martensson@stericsson.com, kaber@trash.net,
-	stefano.babic@babic.homelinux.org, randy.dunlap@oracle.com
-To: sjur.brandeland@stericsson.com
+Cc: netdev@vger.kernel.org
+To: andreas.fenkart@streamunlimited.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:43312 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936880Ab0COVzw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Mar 2010 17:55:52 -0400
-In-Reply-To: <1267445559-1911-9-git-send-email-sjur.brandeland@stericsson.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35042
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932149Ab0COWfN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Mar 2010 18:35:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Sjur,
 
-> +	/*
-> +	 * The sock->type specifies the socket type to use. The CAIF socket is
-> +	 * a packet stream in the sence that it is packet based.
-> +	 * CAIF trusts the reliability of the link, no resending is implemented.
-> +	 */
-> +	if (sock->type != SOCK_SEQPACKET)
-> +		return -ESOCKTNOSUPPORT;
+This needs some changes.
 
-we came to an interesting detail here when testing with a STE modem. Why
-is this SEQPACKET and not a STREAM. Especially with the AT command
-channels it is kinda weird that you have an MTU. The AT specification
-doesn't really have any defined behavior when using a sequential packet
-transport. It is more a stream based socket.
+First, you'll need to add some proper dependencies to the Kconfig for
+this driver before we can apply it.
 
-Regards
+At a minimum you have to depend upon HAS_DMA otherwise the
+dma_*() interface calls won't link on platforms such as s390.
 
-Marcel
+Also:
 
++static char *mac_addr;
++module_param(mac_addr, charp, 0644);
++MODULE_PARM_DESC(mac_addr, "MAC address as colon separated hexadecimals");
 
+Please remove this, we have interfaces for setting the ethernet
+address.  If the device address can't be probed, use
+a random ethernet address as a default (by using linux/etherdevice.h's
+random_ether_addr())
+
+If the user wants to override they can do so with the 'ifconfig'
+command.
+
+This is how we consistently handle this situation in every ethernet
+driver, so please don't try to make arguments as to why your driver
+should handle this differently.
+
+Thanks.
