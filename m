@@ -1,80 +1,104 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] tipc: Allow retransmission of cloned buffers
-Date: Mon, 15 Mar 2010 13:58:45 -0400
-Message-ID: <20100315175845.GB24528@hmsreliant.think-freely.org>
+Subject: [PATCH] tipc: Increase frequency of load distribution over broadcast
+ link
+Date: Mon, 15 Mar 2010 14:02:24 -0400
+Message-ID: <20100315180223.GC24528@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, allan.stephens@windriver.com,
-	nhorman@tuxdriver.com
+Cc: davem@davemloft.net, nhorman@tuxdriver.com,
+	allan.stephens@windriver.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:51588 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:51604 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932963Ab0COR6v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Mar 2010 13:58:51 -0400
+	with ESMTP id S933721Ab0COSC1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Mar 2010 14:02:27 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Forward port commit
-fc477e160af086f6e30c3d4fdf5f5c000d29beb5
+Forward port commit 29eb572941501c40ac6e62dbc5043bf9ee76ee56
 from git://tipc.cslab.ericsson.net/pub/git/people/allan/tipc.git
 
 Origional commit message:
+Increase frequency of load distribution over broadcast link
 
-Allow retransmission of cloned buffers
+This patch enhances the behavior of TIPC's broadcast link so that it
+alternates between redundant bearers (if available) after every
+message sent, rather than after every 10 messages.  This change helps
+to speed up delivery of retransmitted messages by ensuring that
+they are not sent repeatedly over a bearer that is no longer working,
+but not yet recognized as failed.
 
-This patch fixes an issue with TIPC's message retransmission logic
-that prevented retransmission of clone sk_buffs.  Originally intended
-as a means of avoiding wasted work in retransmitting messages that
-were still on the driver's outbound queue, it also prevented TIPC
-from retransmitting messages through other means -- such as the
-secondary bearer of the broadcast link, or another interface in a
-set of bonded interfaces.  This fix removes existing checks for
-cloned sk_buffs that prevented such retransmission.
+Tested by myself in the latest net-2.6 tree using the tipc sanity test suite
 
-Origionally-Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+Origionally-signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 1a7e466..49f2be8 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -1553,7 +1553,7 @@ u32 tipc_link_push_packet(struct link *l_ptr)
+
+bcast.c |   35 ++++++++++++++---------------------
+1 file changed, 14 insertions(+), 21 deletions(-)
+
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index a3bfd40..90a0519 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -558,10 +558,7 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
+ 			      struct tipc_bearer *unused1,
+ 			      struct tipc_media_addr *unused2)
+ {
+-	static int send_count = 0;
+-
+ 	int bp_index;
+-	int swap_time;
  
- 	/* Continue retransmission now, if there is anything: */
+ 	/* Prepare buffer for broadcasting (if first time trying to send it) */
  
--	if (r_q_size && buf && !skb_cloned(buf)) {
-+	if (r_q_size && buf) {
- 		msg_set_ack(buf_msg(buf), mod(l_ptr->next_in_no - 1));
- 		msg_set_bcast_ack(buf_msg(buf), l_ptr->owner->bclink.last_in);
- 		if (tipc_bearer_send(l_ptr->b_ptr, buf, &l_ptr->media_addr)) {
-@@ -1722,15 +1722,16 @@ void tipc_link_retransmit(struct link *l_ptr, struct sk_buff *buf,
- 	dbg("Retransmitting %u in link %x\n", retransmits, l_ptr);
- 
- 	if (tipc_bearer_congested(l_ptr->b_ptr, l_ptr)) {
--		if (!skb_cloned(buf)) {
-+		if (l_ptr->retransm_queue_size == 0) {
- 			msg_dbg(msg, ">NO_RETR->BCONG>");
- 			dbg_print_link(l_ptr, "   ");
- 			l_ptr->retransm_queue_head = msg_seqno(msg);
- 			l_ptr->retransm_queue_size = retransmits;
--			return;
- 		} else {
--			/* Don't retransmit if driver already has the buffer */
-+			err("Unexpected retransmit on link %s (qsize=%d)\n",
-+			    l_ptr->name, l_ptr->retransm_queue_size);
- 		}
-+		return;
- 	} else {
- 		/* Detect repeated retransmit failures on uncongested bearer */
- 
-@@ -1745,7 +1746,7 @@ void tipc_link_retransmit(struct link *l_ptr, struct sk_buff *buf,
- 		}
+@@ -575,11 +572,6 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
+ 		msg_set_mc_netid(msg, tipc_net_id);
  	}
  
--	while (retransmits && (buf != l_ptr->next_out) && buf && !skb_cloned(buf)) {
-+	while (retransmits && (buf != l_ptr->next_out) && buf) {
- 		msg = buf_msg(buf);
- 		msg_set_ack(msg, mod(l_ptr->next_in_no - 1));
- 		msg_set_bcast_ack(msg, l_ptr->owner->bclink.last_in);
+-	/* Determine if bearer pairs should be swapped following this attempt */
+-
+-	if ((swap_time = (++send_count >= 10)))
+-		send_count = 0;
+-
+ 	/* Send buffer over bearers until all targets reached */
+ 
+ 	bcbearer->remains = tipc_cltr_bcast_nodes;
+@@ -595,21 +587,22 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
+ 		if (bcbearer->remains_new.count == bcbearer->remains.count)
+ 			continue;	/* bearer pair doesn't add anything */
+ 
+-		if (!p->publ.blocked &&
+-		    !p->media->send_msg(buf, &p->publ, &p->media->bcast_addr)) {
+-			if (swap_time && s && !s->publ.blocked)
+-				goto swap;
+-			else
+-				goto update;
++		if (p->publ.blocked ||
++		    p->media->send_msg(buf, &p->publ, &p->media->bcast_addr)) {
++			/* unable to send on primary bearer */
++			if (!s || s->publ.blocked ||
++			    s->media->send_msg(buf, &s->publ,
++					       &s->media->bcast_addr)) {
++				/* unable to send on either bearer */
++				continue;
++			}
++		}
++
++		if (s) {
++			bcbearer->bpairs[bp_index].primary = s;
++			bcbearer->bpairs[bp_index].secondary = p;
+ 		}
+ 
+-		if (!s || s->publ.blocked ||
+-		    s->media->send_msg(buf, &s->publ, &s->media->bcast_addr))
+-			continue;	/* unable to send using bearer pair */
+-swap:
+-		bcbearer->bpairs[bp_index].primary = s;
+-		bcbearer->bpairs[bp_index].secondary = p;
+-update:
+ 		if (bcbearer->remains_new.count == 0)
+ 			return 0;
+ 
