@@ -1,51 +1,123 @@
-From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Subject: RE: [PATCH v1 2/3] Provides multiple submits and asynchronous
-	notifications.
-Date: Mon, 15 Mar 2010 16:46:50 +0800
-Message-ID: <97F6D3BD476C464182C1B7BABF0B0AF5C164CEED@shzsmsx502.ccr.corp.intel.com>
-References: <1267868318-19268-1-git-send-email-xiaohui.xin@intel.com>
- <1267868318-19268-2-git-send-email-xiaohui.xin@intel.com>
- <1267868318-19268-3-git-send-email-xiaohui.xin@intel.com>
- <20100307111816.GC20004@redhat.com>
+From: Yegor Yefremov <yegorslists@googlemail.com>
+Subject: Re: KS8695: possible NAPI issue
+Date: Mon, 15 Mar 2010 10:19:56 +0100
+Message-ID: <f69abfc31003150219u4e103b0fg3dc22628054e4327@mail.gmail.com>
+References: <f69abfc31003020404y7af77fe5icefeee4644c7d08e@mail.gmail.com>
+	 <f69abfc31003040210i7e8a136am4b4a97306ba770cf@mail.gmail.com>
+	 <c6ed1ac51003042254g27f65f9dhd9bd731e05a9518@mail.gmail.com>
+	 <f69abfc31003050206h4f9ffe65s2b90e6acea014ec2@mail.gmail.com>
+	 <1267798077.2576.17.camel@myhost>
+	 <f69abfc31003050700y57718a6aje3c1ff41d04748ae@mail.gmail.com>
+	 <c6ed1ac51003080104l4d67d72aybd3909ac12b54e3b@mail.gmail.com>
+	 <f69abfc31003080610m2701309ekd1a4a38ac2685703@mail.gmail.com>
+	 <f69abfc31003080611xde6fe26v150dd1fa90b82928@mail.gmail.com>
+	 <c6ed1ac51003081750v19f9d5fuf07ad0cc2478005d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mingo@elte.hu" <mingo@elte.hu>,
-	"jdike@c2.user-mode-linux.org" <jdike@c2.user-mode-linux.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100307111816.GC20004@redhat.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dick Hollenbeck <dick@softplc.com>, netdev@vger.kernel.org,
+	zealcook@gmail.com
+To: figo zhang <figo1802@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ey-out-2122.google.com ([74.125.78.24]:45274 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935892Ab0COJT7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Mar 2010 05:19:59 -0400
+Received: by ey-out-2122.google.com with SMTP id 25so183983eya.5
+        for <netdev@vger.kernel.org>; Mon, 15 Mar 2010 02:19:57 -0700 (PDT)
+In-Reply-To: <c6ed1ac51003081750v19f9d5fuf07ad0cc2478005d@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> +/* The structure to notify the virtqueue for async socket */
->> +struct vhost_notifier {
->> +	struct list_head list;
-> >+	struct vhost_virtqueue *vq;
-> >+	int head;
-> >+	int size;
-> >+	int log;
-> >+	void *ctrl;
-> >+	void (*dtor)(struct vhost_notifier *);
-> >+};
-> >+
-
->So IMO, this is not the best interface between vhost
->and your driver, exposing them to each other unnecessarily.
+On Tue, Mar 9, 2010 at 2:50 AM, figo zhang <figo1802@gmail.com> wrote:
+> 2010/3/8 Yegor Yefremov <yegorslists@googlemail.com>:
+>> This is ping afterwards:
+>>
+>> debian:~# ping -c 1 192.168.1.38
+>>
+>> PING 192.168.1.38 (192.168.1.38) 56(84) bytes of data.
+>>
+>>
+>> =C2=A0tx =C2=A0 ram addr =3D c371c202 , data len =3D 62
+>>
+>> =C2=A0dst:00:18:f3:fe:84:84 src:00:04:d9:80:94:cd type: 0x0800
 >
->If you think about it, your driver should not care about this structure.
->It could get e.g. a kiocb (sendmsg already gets one), and call ki_dtor
->on completion.  vhost could save it's state in ki_user_data.  If your
->driver needs to add more data to do more tracking, I think it can put
->skb pointer in the private pointer.
+> =3D> the print info is not clear, it had better just keep "print_mem(=
+)",
+> and remove other printk.
+>
+>>
+>> =C2=A00xc371c20e : 45 00
+>>
+>> =C2=A00xc371c212 : 00 54 00 00 40 00 40 01 b6 f0 c0 a8 01 42 c0 a8
+>>
+>> =C2=A00xc371c222 : 01 26 08 00 65 51 1a 07 00 01 92 00 95 4b 5f 57
+>>
+>> =C2=A00xc371c232 : 07 00 08 09 0a 0b 0c 0d 0e 0f 10 11 12 13 14 15
+>>
+>> =C2=A00xc371c242 : 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23 24 25
+>>
+>> =C2=A00xc371c252 : 26 27 28 29 2a 2b 2c 2d 2e 2f 30 31 32 33 34 35
+>>
+>> =C2=A00xc371c262 : 36 37
+>>
+>>
+>>
+>> =C2=A0tx =C2=A0 ram addr =3D c371c202 , data len =3D 2a
+>>
+>> =C2=A0dst:00:18:f3:fe:84:84 src:00:04:d9:80:94:cd type: 0x0806
+>>
+>> =C2=A00xc371c20e : 00 01
+>>
+>> =C2=A00xc371c212 : 08 00 06 04 00 01 00 04 d9 80 94 cd c0 a8 01 42
+> =3D> it is a send arp packet, "c0 a8 01 42" is your curr ip addr
+> 192.168.1.66, tell the other side it's ip addr.
+>>
+>> =C2=A00xc371c222 : 00 00 00 00 00 00 c0 a8 01 26
+>>
+>>
+>>
+>> =C2=A0rx =C2=A0 ram addr =3D c35d2020 , data len =3D 3c
+>>
+>> =C2=A0dst:00:04:d9:80:94:cd src:00:18:f3:fe:84:84 type: 0x0806
+>>
+>> =C2=A00xc35d202c : 00 01
+>>
+>> =C2=A00xc35d2030 : 08 00 06 04 00 02 00 18 f3 fe 84 84 c0 a8 01 26
+>
+> =3D> it is a reply arp packet, "c0 a8 01 26" (192.168.1.38 ) is other
+> side ip addr. so the arp
+> request is finished.
+>
+>>
+>> =C2=A00xc35d2040 : 00 04 d9 80 94 cd c0 a8 01 42 00 00 00 00 00 00
+>>
+>> =C2=A00xc35d2050 : 00 00 00 00 00 00 00 00 00 00 00 00
+>>
+> =3D> so , it should still send =C2=A0"IMCP" packet, you using "ping -=
+c 1", it
+> send one IMCP packet , and wait for reply. =C2=A0at this point, it ha=
+ve not
+> send packet?
 
-Then if I remove the struct vhost_notifier, and just use struct kiocb, but don't use the one got from sendmsg or recvmsg, but allocated within the page_info structure, and don't implement any aio logic related to it, is that ok?
+I made some tests on Fr with a Netbook connected directly to our
+ks8695 based device and not to the companies network. During the test
+I couldn't encounter any problem. Than I connected ks8695 again to the
+companies network and the issue was there right away. So I decided to
+check how many broadcast I get and it turned out that I have one
+device on the network that is sending broadcast almost every second if
+not more frequent. It turned out that the network on ks8695 was not
+completely down, but very slow and many packets got lost. As soon as I
+removed the broadcast sending device I could ping ks8695. The
+consequences:
 
-Sorry, I made a patch, but don't know how to reply mail with a good formatted patch here....
+1. as long as I make no netcat transfer, the network responses are as
+usual regardless of many broadcasts
+2. if during netcat a broadcast occurs, than the network is getting
+slow, so that if during a constant ping you get a broadcast that ping
+response gets lost
 
-Thanks
-Xiaohui
+Any idea how broadcast during transfer could affect NAPI in that way?
+
+Regards,
+Yeor
