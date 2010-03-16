@@ -1,7 +1,8 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/3] netlink: fix NETLINK_RECV_NO_ENOBUFS in netlink_set_err()
-Date: Wed, 17 Mar 2010 00:29:57 +0100
-Message-ID: <20100316232957.4185.46217.stgit@decadence>
+Subject: [PATCH 2/3] netfilter: ctnetlink: fix reliable event delivery if
+	message building fails
+Date: Wed, 17 Mar 2010 00:30:21 +0100
+Message-ID: <20100316233021.4185.8786.stgit@decadence>
 References: <20100316232247.4185.19426.stgit@decadence>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,85 +10,67 @@ Content-Transfer-Encoding: 7bit
 Cc: kaber@trash.net, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58967 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:59027 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751143Ab0CPXaE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Mar 2010 19:30:04 -0400
+	id S1751143Ab0CPXa2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Mar 2010 19:30:28 -0400
 In-Reply-To: <20100316232247.4185.19426.stgit@decadence>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, ENOBUFS errors are reported to the socket via
-netlink_set_err() even if NETLINK_RECV_NO_ENOBUFS is set. However,
-that should not happen. This fixes this problem and it changes the
-prototype of netlink_set_err() to return the number of sockets whose
-error has been set. This allows to know if any error has been set.
-This return value is used in the next patch in these bugfix series.
+This patch fixes a bug that allows to lose events when reliable
+event delivery mode is used, ie. if NETLINK_BROADCAST_SEND_ERROR
+and NETLINK_RECV_NO_ENOBUFS socket options are set.
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netlink.h  |    2 +-
- net/netlink/af_netlink.c |   13 +++++++++++--
- 2 files changed, 12 insertions(+), 3 deletions(-)
+ include/linux/netfilter/nfnetlink.h  |    2 +-
+ net/netfilter/nf_conntrack_netlink.c |    4 +++-
+ net/netfilter/nfnetlink.c            |    4 ++--
+ 3 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index fde27c0..6eaca5e 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -188,7 +188,7 @@ extern int netlink_has_listeners(struct sock *sk, unsigned int group);
- extern int netlink_unicast(struct sock *ssk, struct sk_buff *skb, __u32 pid, int nonblock);
- extern int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, __u32 pid,
- 			     __u32 group, gfp_t allocation);
--extern void netlink_set_err(struct sock *ssk, __u32 pid, __u32 group, int code);
-+extern int netlink_set_err(struct sock *ssk, __u32 pid, __u32 group, int code);
- extern int netlink_register_notifier(struct notifier_block *nb);
- extern int netlink_unregister_notifier(struct notifier_block *nb);
+diff --git a/include/linux/netfilter/nfnetlink.h b/include/linux/netfilter/nfnetlink.h
+index 5392386..361d6b5 100644
+--- a/include/linux/netfilter/nfnetlink.h
++++ b/include/linux/netfilter/nfnetlink.h
+@@ -76,7 +76,7 @@ extern int nfnetlink_subsys_unregister(const struct nfnetlink_subsystem *n);
+ extern int nfnetlink_has_listeners(struct net *net, unsigned int group);
+ extern int nfnetlink_send(struct sk_buff *skb, struct net *net, u32 pid, unsigned group,
+ 			  int echo, gfp_t flags);
+-extern void nfnetlink_set_err(struct net *net, u32 pid, u32 group, int error);
++extern int nfnetlink_set_err(struct net *net, u32 pid, u32 group, int error);
+ extern int nfnetlink_unicast(struct sk_buff *skb, struct net *net, u_int32_t pid, int flags);
  
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 4c5972b..24ec840 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1104,8 +1104,12 @@ static inline int do_one_set_err(struct sock *sk,
- 	    !test_bit(p->group - 1, nlk->groups))
- 		goto out;
- 
-+	if (p->code == ENOBUFS && nlk->flags & NETLINK_RECV_NO_ENOBUFS) {
-+		goto out;
+ extern void nfnl_lock(void);
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 8b05f36..00016e0 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -582,7 +582,9 @@ nla_put_failure:
+ nlmsg_failure:
+ 	kfree_skb(skb);
+ errout:
+-	nfnetlink_set_err(net, 0, group, -ENOBUFS);
++	if (nfnetlink_set_err(net, 0, group, -ENOBUFS) > 0)
++		return -ENOBUFS;
 +
- 	sk->sk_err = p->code;
- 	sk->sk_error_report(sk);
-+	return 1;
- out:
  	return 0;
  }
-@@ -1116,12 +1120,16 @@ out:
-  * @pid: the PID of a process that we want to skip (if any)
-  * @groups: the broadcast group that will notice the error
-  * @code: error code, must be negative (as usual in kernelspace)
-+ *
-+ * This function returns the number of broadcast listeners whose error code
-+ * has been set.
-  */
--void netlink_set_err(struct sock *ssk, u32 pid, u32 group, int code)
-+int netlink_set_err(struct sock *ssk, u32 pid, u32 group, int code)
- {
- 	struct netlink_set_err_data info;
- 	struct hlist_node *node;
- 	struct sock *sk;
-+	int ret = 0;
- 
- 	info.exclude_sk = ssk;
- 	info.pid = pid;
-@@ -1132,9 +1140,10 @@ void netlink_set_err(struct sock *ssk, u32 pid, u32 group, int code)
- 	read_lock(&nl_table_lock);
- 
- 	sk_for_each_bound(sk, node, &nl_table[ssk->sk_protocol].mc_list)
--		do_one_set_err(sk, &info);
-+		ret += do_one_set_err(sk, &info);
- 
- 	read_unlock(&nl_table_lock);
-+	return ret;
+ #endif /* CONFIG_NF_CONNTRACK_EVENTS */
+diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+index 8eb0cc2..6afa3d5 100644
+--- a/net/netfilter/nfnetlink.c
++++ b/net/netfilter/nfnetlink.c
+@@ -113,9 +113,9 @@ int nfnetlink_send(struct sk_buff *skb, struct net *net, u32 pid,
  }
- EXPORT_SYMBOL(netlink_set_err);
+ EXPORT_SYMBOL_GPL(nfnetlink_send);
+ 
+-void nfnetlink_set_err(struct net *net, u32 pid, u32 group, int error)
++int nfnetlink_set_err(struct net *net, u32 pid, u32 group, int error)
+ {
+-	netlink_set_err(net->nfnl, pid, group, error);
++	return netlink_set_err(net->nfnl, pid, group, error);
+ }
+ EXPORT_SYMBOL_GPL(nfnetlink_set_err);
  
 
