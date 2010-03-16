@@ -1,49 +1,77 @@
-From: =?iso-8859-1?Q?Sjur_Br=E6ndeland?= <sjur.brandeland@stericsson.com>
-Subject: RE: [PATCH net-next-2.6 v6 08/12] net-caif: add CAIF socket implementation
-Date: Tue, 16 Mar 2010 14:27:21 +0100
-Message-ID: <61D8D34BB13CFE408D154529C120E079033D51A2@eseldmw101.eemea.ericsson.se>
-References: <1267445559-1911-1-git-send-email-sjur.brandeland@stericsson.com> <1267445559-1911-2-git-send-email-sjur.brandeland@stericsson.com> <1267445559-1911-3-git-send-email-sjur.brandeland@stericsson.com> <1267445559-1911-4-git-send-email-sjur.brandeland@stericsson.com> <1267445559-1911-5-git-send-email-sjur.brandeland@stericsson.com> <1267445559-1911-6-git-send-email-sjur.brandeland@stericsson.com> <1267445559-1911-7-git-send-email-sjur.brandeland@stericsson.com> <1267445559-1911-8-git-send-email-sjur.brandeland@stericsson.com> <1267445559-1911-9-git-send-email-sjur.brandeland@stericsson.com> <1268690031.2700.9.camel@localhost.localdomain>
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: locking issue in vhost_net_set_backend
+Date: Tue, 16 Mar 2010 14:58:23 +0100
+Message-ID: <4B9F8E7F.7070709@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	"Daniel Martensson" <daniel.martensson@stericsson.com>,
-	<kaber@trash.net>, <stefano.babic@babic.homelinux.org>,
-	<randy.dunlap@oracle.com>
-To: "Marcel Holtmann" <marcel@holtmann.org>
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw9.se.ericsson.net ([193.180.251.57]:44475 "EHLO
-	mailgw9.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966190Ab0CPN1Y convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Mar 2010 09:27:24 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <1268690031.2700.9.camel@localhost.localdomain>
+Received: from mail-fx0-f227.google.com ([209.85.220.227]:43450 "EHLO
+	mail-fx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752728Ab0CPN63 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Mar 2010 09:58:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Marcel.
+Hi,
 
-Marcel Holtmann wrote:
->> +	/*
->> +	 * The sock->type specifies the socket type to use. The CAIF
->> socket is +	 * a packet stream in the sence that it is packet based.
->> +	 * CAIF trusts the reliability of the link, no resending is
->> implemented. +	 */ +	if (sock->type != SOCK_SEQPACKET)
->> +		return -ESOCKTNOSUPPORT;
-> 
-> we came to an interesting detail here when testing with a STE modem.
-> Why is this SEQPACKET and not a STREAM.
+Stanse found a locking problem in the following function:
 
-The reason is that CAIF provides different services not just AT,
-and some of them are really packet oriented such as Utility links and
-Video. It would not be right to provide a stream based solution in this case.
+static long vhost_net_set_backend(struct vhost_net *n, unsigned index, 
+int fd)
+{
+         struct socket *sock, *oldsock;
+         struct vhost_virtqueue *vq;
+         int r;
 
-> Especially with the AT
-> command channels it is kinda weird that you have an MTU. The AT
-> specification doesn't really have any defined behavior when using a
-> sequential packet transport. It is more a stream based socket.
+         mutex_lock(&n->dev.mutex);
+         r = vhost_dev_check_owner(&n->dev);
+         if (r)
+                 goto err;
 
-Yes I see your point. In order to limit the effort and simplify
-caif_socket we ended up implementing only SEQPACKET. 
+         if (index >= VHOST_NET_VQ_MAX) {
+                 r = -ENOBUFS;
+                 goto err;
+         }
+         vq = n->vqs + index;
+         mutex_lock(&vq->mutex);        <---  locked
 
-BR/Sjur
+         /* Verify that ring has been setup correctly. */
+         if (!vhost_vq_access_ok(vq)) {
+                 r = -EFAULT;
+                 goto err;              <--- not unlocked
+         }
+         sock = get_socket(fd);
+         if (IS_ERR(sock)) {
+                 r = PTR_ERR(sock);
+                 goto err;              <--- not unlocked
+         }
+
+         /* start polling new socket */
+         oldsock = vq->private_data;
+         if (sock == oldsock)
+                 goto done;             <--- not unlocked
+
+         vhost_net_disable_vq(n, vq);
+         rcu_assign_pointer(vq->private_data, sock);
+         vhost_net_enable_vq(n, vq);
+         mutex_unlock(&vq->mutex);
+done:
+         if (oldsock) {
+                 vhost_net_flush_vq(n, index);
+                 fput(oldsock->file);
+         }
+err:
+         mutex_unlock(&n->dev.mutex);
+         return r;
+}
+
+
+I don't see how the lock is unlocked on the error paths and as it is not 
+on none of the them maybe I'm missing something?
+
+thanks,
+-- 
+js
