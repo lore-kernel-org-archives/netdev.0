@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] smsc95xx: wait for PHY to complete reset during init
-Date: Tue, 16 Mar 2010 14:28:54 -0700 (PDT)
-Message-ID: <20100316.142854.189438468.davem@davemloft.net>
-References: <1268766186-16014-1-git-send-email-steve.glendinning@smsc.com>
-	<1268766186-16014-2-git-send-email-steve.glendinning@smsc.com>
+Subject: Re: [RESEND: PATCH] l2tp: Fix UDP socket reference count bugs in
+ the pppol2tp driver
+Date: Tue, 16 Mar 2010 14:29:13 -0700 (PDT)
+Message-ID: <20100316.142913.145795333.davem@davemloft.net>
+References: <20100316162920.20459.11487.stgit@bert.katalix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: steve.glendinning@smsc.com
+To: jchapman@katalix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41931
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41935
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758032Ab0CPV2c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Mar 2010 17:28:32 -0400
-In-Reply-To: <1268766186-16014-2-git-send-email-steve.glendinning@smsc.com>
+	by vger.kernel.org with ESMTP id S1758113Ab0CPV2v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Mar 2010 17:28:51 -0400
+In-Reply-To: <20100316162920.20459.11487.stgit@bert.katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Date: Tue, 16 Mar 2010 19:03:06 +0000
+From: James Chapman <jchapman@katalix.com>
+Date: Tue, 16 Mar 2010 16:29:20 +0000
 
-> This patch ensures the PHY correctly completes its reset before
-> setting register values.
-> 
-> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+> This patch fixes UDP socket refcnt bugs in the pppol2tp driver.
 
-Applied.
+Sorry for not getting to this sooner, thanks for resubmitting.
+
+Applied, thanks!
