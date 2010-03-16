@@ -1,197 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Tue, 16 Mar 2010 14:54:44 -0700 (PDT)
-Message-ID: <20100316.145444.71951587.davem@davemloft.net>
+From: Abraham Arce <abraham.arce.moreno@gmail.com>
+Subject: [PATCH] KS8851: Avoid NULL pointer in set rx mode
+Date: Tue, 16 Mar 2010 16:24:54 -0600
+Message-ID: <cb8016981003161524w6601d5e7i3885f77219582a0a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-px0-f198.google.com ([209.85.216.198]:41904 "EHLO
+	mail-px0-f198.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751104Ab0CPWYy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Mar 2010 18:24:54 -0400
+Received: by pxi36 with SMTP id 36so133348pxi.21
+        for <netdev@vger.kernel.org>; Tue, 16 Mar 2010 15:24:54 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Kernel NULL pointer dereference when setting mode for IFF_MULTICAST.
+Tested on SDP OMAP4430 board.
 
-1) Several bridging fixes from YOSHIFUJI Hideaki, Herbert Xu,
-   and Michael Braun.
+ks8851 spi1.0: message enable is 0
+ks8851 spi1.0: revision 0, MAC f2:f4:2f:56:37:de, IRQ 194
+Unable to handle kernel NULL pointer dereference at virtual address 00000000
+pgd = c0004000
+[00000000] *pgd=00000000
+Internal error: Oops: 5 [#1] PREEMPT SMP
+last sysfs file:
+Modules linked in:
+CPU: 0    Not tainted  (2.6.34-rc1-01039-g38d7ed1-dirty #3)
+PC is at ks8851_set_rx_mode+0x88/0x124
+LR is at bitrev32+0x24/0x2c
 
-2) Gigaset ISDN driver fixes from Tilman Schmidt.
+<snip>
 
-3) Several fixes via Andrew Morton including:
+Backtrace:
+[<c01bfbd8>] ? (ks8851_set_rx_mode+0x0/0x124)
+[<c01d4164>] (__dev_set_rx_mode+0x0/0x90)
+[<c01dc460>] (dev_mc_add+0x0/0x78)
+[<c021f0bc>] (igmp_group_added+0x0/0x64)
+[<c021f174>] (ip_mc_inc_group+0x0/0x150)
+[<c021f3b8>] (ip_mc_up+0x0/0x64)
+[<c0219eb0>] (inetdev_event+0x0/0x3d4)
+[<c0066818>] (notifier_call_chain+0x0/0x78)
+[<c00668b8>] (__raw_notifier_call_chain+0x0/0x24)
+[<c00668dc>] (raw_notifier_call_chain+0x0/0x28)
+[<c01d7484>] (call_netdevice_notifiers+0x0/0x24)
+[<c01d7780>] (__dev_notify_flags+0x0/0x68)
+[<c01d77e8>] (dev_change_flags+0x0/0x4c)
+[<c001f0bc>] (ip_auto_config+0x0/0xf1c)
+[<c0028490>] (do_one_initcall+0x0/0x1bc)
+ [<c00084dc>] (kernel_init+0x0/0x234)
+Code: e15130bc e1833012 e14130bc e5943000 (e5934000)
+---[ end trace ed0fb00a94142792 ]---
+Kernel panic - not syncing: Fatal exception in interrupt
 
-	Two Isdn4Linux fixes from Ian Munsie.
-	Remove obsolete kconfig references from Christoph Egger
-	Use for_each_set_bit() in phonet and atm from Akinobu Mita
+Signed-off-by: Abraham Arce <x0066660@ti.com>
+---
+ drivers/net/ks8851.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-4) L2TP OOPS and socket refcount bug fixes from James Chapman.
+diff --git a/drivers/net/ks8851.c b/drivers/net/ks8851.c
+index 0573e0b..13cc1ca 100644
+--- a/drivers/net/ks8851.c
++++ b/drivers/net/ks8851.c
+@@ -976,7 +976,6 @@ static void ks8851_set_rx_mode(struct net_device *dev)
+ 			crc >>= (32 - 6);  /* get top six bits */
 
-5) procfs rejects slashes in request_irq() names, fix for NE
-   driver from Atsushi Nemoto.
+ 			rxctrl.mchash[crc >> 4] |= (1 << (crc & 0xf));
+-			mcptr = mcptr->next;
+ 		}
 
-6) Remove dead code in myri driver, from Dan Carpenter.
-
-7) DCCP oopses if initialization fails, fix from Gerrit Renker.
-
-8) Fix lock imbalance in ksz884x and NULL deref fix in netpoll
-   from Jiri Slaby.
-
-9) be2net big-endian bug fix from Ajit Khaparde.
-
-10) Add SMSC97xx USB gigabit driver from Steve Glandinning.
-
-    Fix PHY reset completion in SMSX95xx driver, also from Steve.
-
-11) davinci driver build broke due to removal of deprecated
-    DMA cache flushing interfaces, use dma_{map,unmap}_*() instead.
-    From Sekhar Nori.
-
-12) Add missing ISDN PCI device IDs, from Lars Ellenberg.
-
-13) bnx2x memory barrier fixes from Stanislaw Gruszka.
-
-14) Routing cache timer can crash in timer code due to missed
-    synchronization, fix by using mod_timer(), from Vitaliy Gusev.
-
-Please pull, thanks a lot!
-
-The following changes since commit a3d3203e4bb40f253b1541e310dc0f9305be7c84:
-  Linus Torvalds (1):
-        Merge branch 'release' of git://git.kernel.org/.../lenb/linux-acpi-2.6
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Ajit Khaparde (1):
-      be2net: fix mccq create for big endian architectures
-
-Akinobu Mita (2):
-      phonet: use for_each_set_bit()
-      atm: use for_each_set_bit()
-
-Atsushi Nemoto (1):
-      ne: Do not use slashes in irq name string
-
-Christoph Egger (2):
-      obsolete config in kernel source: USE_INTERNAL_TIMER
-      obsolete config in kernel source: HSO_AUTOPM
-
-Dan Carpenter (1):
-      myri: remove dead code
-
-David S. Miller (3):
-      e100: Fix ring parameter change handling regression.
-      Merge branch 'master' of /home/davem/src/GIT/linux-2.6/
-      bridge: Make first arg to deliver_clone const.
-
-Gerrit Renker (1):
-      net-2.6 [Bug-Fix][dccp]: fix oops caused after failed initialisation
-
-Herbert Xu (1):
-      bridge: Move NULL mdb check into br_mdb_ip_get
-
-Ian Munsie (2):
-      i4l: silence compiler warnings for array access in Eicon DIVA ISDN driver
-      i4l: change magic numbers in Eicon DIVA ISDN driver to symbolic names
-
-James Chapman (2):
-      l2tp: Fix oops in pppol2tp_xmit
-      l2tp: Fix UDP socket reference count bugs in the pppol2tp driver
-
-Jiri Slaby (2):
-      NET: ksz884x, fix lock imbalance
-      NET: netpoll, fix potential NULL ptr dereference
-
-Julia Lawall (1):
-      drivers/net: drop redundant memset
-
-Lars Ellenberg (1):
-      ISDN: Add PCI ID for HFC-2S/4S Beronet Card PCIe
-
-Michael Braun (1):
-      bridge: Fix br_forward crash in promiscuous mode
-
-Neil Horman (1):
-      tipc: fix lockdep warning on address assignment
-
-Randy Dunlap (1):
-      timestamping: fix example build
-
-Roel Kluin (1):
-      isdn: misplaced parenthesis in pof_handle_data()
-
-Sekhar Nori (1):
-      net: davinci emac: use dma_{map, unmap}_single API for cache coherency
-
-Stanislaw Gruszka (3):
-      bnx2x: use smp_mb() to keep ordering of read write operations
-      bnx2x: remove not necessary compiler barrier
-      bnx2x: change smp_mb() comment to conform the true
-
-Steve Glendinning (2):
-      smsc75xx: SMSC LAN75xx USB gigabit ethernet adapter driver
-      smsc95xx: wait for PHY to complete reset during init
-
-Tilman Schmidt (4):
-      gigaset: avoid registering CAPI driver more than once
-      gigaset: correct clearing of at_state strings on RING
-      gigaset: prune use of tty_buffer_request_room
-      gigaset: correct range checking off by one error
-
-Vitaliy Gusev (1):
-      route: Fix caught BUG_ON during rt_secret_rebuild_oneshot()
-
-YOSHIFUJI Hideaki (3):
-      bridge br_multicast: Fix handling of Max Response Code in IGMPv3 message.
-      bridge br_multicast: Fix skb leakage in error path.
-      bridge br_multicast: Don't refer to BR_INPUT_SKB_CB(skb)->mrouters_only without IGMP snooping.
-
-chaithrika@ti.com (1):
-      TI DaVinci EMAC: Convert to dev_pm_ops
-
- Documentation/networking/Makefile                  |    2 +
- Documentation/networking/timestamping/Makefile     |   11 +-
- .../networking/timestamping/timestamping.c         |   10 +-
- drivers/atm/lanai.c                                |    7 +-
- drivers/isdn/gigaset/capi.c                        |   46 +-
- drivers/isdn/gigaset/common.c                      |    6 +-
- drivers/isdn/gigaset/ev-layer.c                    |   12 +-
- drivers/isdn/gigaset/gigaset.h                     |    6 +-
- drivers/isdn/gigaset/i4l.c                         |   28 +-
- drivers/isdn/gigaset/interface.c                   |    1 -
- drivers/isdn/hardware/eicon/message.c              |   35 +-
- drivers/isdn/hardware/mISDN/hfcmulti.c             |    6 +
- drivers/isdn/hysdn/hysdn_boot.c                    |    2 +-
- drivers/net/benet/be_cmds.c                        |    2 +-
- drivers/net/bnx2x_main.c                           |   10 +-
- drivers/net/davinci_emac.c                         |   72 +-
- drivers/net/e100.c                                 |    2 +-
- drivers/net/irda/w83977af_ir.c                     |   36 -
- drivers/net/ksz884x.c                              |    8 +-
- drivers/net/myri10ge/myri10ge.c                    |    1 -
- drivers/net/ne.c                                   |    2 +-
- drivers/net/pppol2tp.c                             |    6 +-
- drivers/net/s2io.c                                 |    4 +-
- drivers/net/usb/Kconfig                            |    8 +
- drivers/net/usb/Makefile                           |    1 +
- drivers/net/usb/hso.c                              |    3 -
- drivers/net/usb/smsc75xx.c                         | 1288 ++++++++++++++++++++
- drivers/net/usb/smsc75xx.h                         |  421 +++++++
- drivers/net/usb/smsc95xx.c                         |   15 +
- net/bridge/br_device.c                             |    2 +-
- net/bridge/br_forward.c                            |   18 +-
- net/bridge/br_input.c                              |    4 +-
- net/bridge/br_multicast.c                          |   18 +-
- net/bridge/br_private.h                            |   10 +-
- net/core/netpoll.c                                 |    4 +-
- net/dccp/ipv4.c                                    |    8 +-
- net/dccp/ipv6.c                                    |    8 +-
- net/dccp/proto.c                                   |   16 +-
- net/ipv4/route.c                                   |   16 +-
- net/phonet/pn_dev.c                                |    3 +-
- net/phonet/pn_netlink.c                            |    3 +-
- net/tipc/ref.c                                     |   26 +-
- 42 files changed, 1975 insertions(+), 212 deletions(-)
- create mode 100644 drivers/net/usb/smsc75xx.c
- create mode 100644 drivers/net/usb/smsc75xx.h
+ 		rxctrl.rxcr1 = RXCR1_RXME | RXCR1_RXPAFMA;
+-- 
+1.5.4.3
