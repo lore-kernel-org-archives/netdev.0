@@ -1,45 +1,40 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: Re: [PATCH 1/1] NET: netpoll, fix potential NULL ptr dereference
-Date: Tue, 16 Mar 2010 18:22:17 +0100
-Message-ID: <4B9FBE49.6010709@gmail.com>
-References: <1268753394-17765-1-git-send-email-jslaby@suse.cz> <1268759527.25503.2980.camel@calx>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Slaby <jslaby@suse.cz>, davem@davemloft.net,
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: [PATCH] gigaset: correct range checking off by one error
+Date: Tue, 16 Mar 2010 18:04:01 +0100
+Message-ID: <20100316172048.CBC5240116@xenon.ts.pxnet.com>
+Cc: Dan Carpenter <error27@gmail.com>, Hansjoerg Lipp <hjlipp@web.de>,
+	isdn4linux <isdn4linux@listserv.isdn4linux.de>,
+	i4ldeveloper <i4ldeveloper@listserv.isdn4linux.de>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Daniel Borkmann <danborkmann@googlemail.com>
-To: Matt Mackall <mpm@selenic.com>
+	stable@kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>,
+	David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1268759527.25503.2980.camel@calx>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/16/2010 06:12 PM, Matt Mackall wrote:
-> I don't get it. The source of the branch tests for !ndev->npinfo and the
-> original destination of the branch also tests for !ndev->npinfo. I don't
-> see how it gets dereferenced.
+Correct a potential array overrun due to an off by one error in the
+range check on the CAPI CONNECT_REQ CIPValue parameter.
+Found and reported by Dan Carpenter using smatch.
 
-Let's look at more of the context:
-         if (!ndev->npinfo) {
-                 npinfo = kmalloc(sizeof(*npinfo), GFP_KERNEL);
-                 if (!npinfo) {         // npinfo is NULL
-                         err = -ENOMEM;
-                         goto release;
-                 }
-...
-release:                           // npinfo is still NULL
-         if (!ndev->npinfo) {       // condition is the same (holds)
-              // dereference below: vvvvvvvvvvvvvvv
-                 spin_lock_irqsave(&npinfo->rx_lock, flags);
-                 list_for_each_entry_safe(npe, tmp, &npinfo->rx_np, rx) {
-                         npe->dev = NULL;
-                 }
-                 spin_unlock_irqrestore(&npinfo->rx_lock, flags);
+Impact: bugfix
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+---
+ drivers/isdn/gigaset/capi.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-                 kfree(npinfo);
-         }
-
-thanks,
+diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
+index 4a31962..0220c19 100644
+--- a/drivers/isdn/gigaset/capi.c
++++ b/drivers/isdn/gigaset/capi.c
+@@ -1301,7 +1301,7 @@ static void do_connect_req(struct gigaset_capi_ctr *iif,
+ 	}
+ 
+ 	/* check parameter: CIP Value */
+-	if (cmsg->CIPValue > ARRAY_SIZE(cip2bchlc) ||
++	if (cmsg->CIPValue >= ARRAY_SIZE(cip2bchlc) ||
+ 	    (cmsg->CIPValue > 0 && cip2bchlc[cmsg->CIPValue].bc == NULL)) {
+ 		dev_notice(cs->dev, "%s: unknown CIP value %d\n",
+ 			   "CONNECT_REQ", cmsg->CIPValue);
 -- 
-js
+1.6.5.3.298.g39add
