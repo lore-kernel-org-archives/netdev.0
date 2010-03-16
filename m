@@ -1,14 +1,14 @@
 From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
 Subject: Re: [PATCH] r8169: Fix rtl8169_rx_interrupt()
-Date: Tue, 16 Mar 2010 16:50:33 +0200
-Message-ID: <20100316145033.GA3332@swordfish.minsk.epam.com>
+Date: Tue, 16 Mar 2010 17:00:39 +0200
+Message-ID: <20100316145914.GB3332@swordfish.minsk.epam.com>
 References: <20100307192305.GA598@elte.hu>
  <20100308125122.GA11242@redhat.com>
  <1268686865.2824.4.camel@edumazet-laptop>
  <1268699602.2824.14.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="u3/rZRmxL6MmkK24"
+	protocol="application/pgp-signature"; boundary="8X7/QrJGcKSMr1RN"
 Cc: Oleg Nesterov <oleg@redhat.com>,
 	David Miller <davem@davemloft.net>,
 	Ingo Molnar <mingo@elte.hu>,
@@ -23,45 +23,62 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---u3/rZRmxL6MmkK24
+--8X7/QrJGcKSMr1RN
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-Hello,
-
-Eric, I did pktgen testing (3 times).
-
-sudo cat /proc/net/pktgen/eth0=20
-Params: count 1000000000  min_pkt_size: 42  max_pkt_size: 42
-     frags: 0  delay: 0  clone_skb: 4000000  ifname: eth0
-     flows: 0 flowlen: 0
-     queue_map_min: 0  queue_map_max: 0
-     dst_min: 10.6.22.59  dst_max:=20
-        src_min:   src_max:=20
-     src_mac: 00:1a:92:c9:a0:68 dst_mac: 00:1a:92:c9:a0:68
-     udp_src_min: 9  udp_src_max: 9  udp_dst_min: 9  udp_dst_max: 9
-     src_mac_count: 0  dst_mac_count: 0
-     Flags:=20
-Current:
-     pkts-sofar: 1000000000  errors: 0
-     started: 9957912410us  stopped: 16682620361us idle: 1231us
-     seq_num: 1000000001  cur_dst_mac_offset: 0  cur_src_mac_offset: 0
-     cur_saddr: 0x3b16060a  cur_daddr: 0x3b16060a
-     cur_udp_dst: 9  cur_udp_src: 9
-     cur_queue_map: 0
-     flows: 0
-Result: OK: 6724707951(c6724706719+d1231) nsec, 1000000000 (42byte,0frags)
-  148705pps 49Mb/sec (49964880bps) errors: 0
+Nope!
+Here it is:
 
 
-Without any errors from the r8169 side. Can we consider testing successful?
-If so, fell free to add Tested-by: Sergey Senozhatsky <sergey.senozhatsky@g=
-mail.com>
+[17250.998293] ------------[ cut here ]------------
+[17250.998305] WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0xc1/0x=
+125()
+[17250.998308] Hardware name: F3JC               =20
+[17250.998312] NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
+[17250.998315] Modules linked in: pktgen ppp_async crc_ccitt ipv6 ppp_gener=
+ic slhc snd_hwdep snd_hda_codec_si3054 snd_hda_codec_realtek sdhci_pci sdhc=
+i asus_laptop sparse_keymap
+mmc_core led_class snd_hda_intel snd_hda_codec snd_pcm snd_timer snd_page_a=
+lloc rng_core sg evdev i2c_i801 snd soundcore psmouse r8169 serio_raw mii u=
+hci_hcd ehci_hcd sr_mod
+usbcore cdrom sd_mod ata_piix
+[17250.998371] Pid: 3985, comm: kpktgend_0 Tainted: G        W  2.6.34-rc1-=
+dbg-git6-r8169 #46
+[17250.998375] Call Trace:
+[17250.998383]  [<c102e353>] warn_slowpath_common+0x65/0x7c
+[17250.998388]  [<c126b654>] ? dev_watchdog+0xc1/0x125
+[17250.998393]  [<c102e39e>] warn_slowpath_fmt+0x24/0x27
+[17250.998398]  [<c126b654>] dev_watchdog+0xc1/0x125
+[17250.998405]  [<c1036bbb>] ? run_timer_softirq+0x120/0x1eb
+[17250.998411]  [<c1036c11>] run_timer_softirq+0x176/0x1eb
+[17250.998416]  [<c1036bbb>] ? run_timer_softirq+0x120/0x1eb
+[17250.998421]  [<c126b593>] ? dev_watchdog+0x0/0x125
+[17250.998426]  [<c1032df9>] __do_softirq+0x8d/0x117
+[17250.998431]  [<c1032eae>] do_softirq+0x2b/0x43
+[17250.998436]  [<c1032fd3>] irq_exit+0x38/0x75
+[17250.998442]  [<c1014e75>] smp_apic_timer_interrupt+0x66/0x74
+[17250.998448]  [<c12c812a>] apic_timer_interrupt+0x36/0x3c
+[17250.998457]  [<c1185d18>] ? do_raw_spin_trylock+0x28/0x37
+[17250.998464]  [<c12c7101>] _raw_spin_lock+0x2f/0x58
+[17250.998472]  [<f80855ca>] ? spin_lock+0x8/0xa [pktgen]
+[17250.998478]  [<f80855ca>] spin_lock+0x8/0xa [pktgen]
+[17250.998484]  [<f80873b6>] pktgen_thread_worker+0x9b/0x631 [pktgen]
+[17250.998491]  [<c103f9f1>] ? autoremove_wake_function+0x0/0x2f
+[17250.998497]  [<c103f9f1>] ? autoremove_wake_function+0x0/0x2f
+[17250.998503]  [<f808731b>] ? pktgen_thread_worker+0x0/0x631 [pktgen]
+[17250.998508]  [<c103f6ce>] kthread+0x6a/0x6f
+[17250.998514]  [<c103f664>] ? kthread+0x0/0x6f
+[17250.998520]  [<c1002e42>] kernel_thread_helper+0x6/0x1a
+[17250.998523] ---[ end trace a22d306b065d4a68 ]---
+[17251.011663] r8169 0000:02:00.0: eth0: link up
+
+[17419.011748] NOHZ: local_softirq_pending 08
+
 
 
 	Sergey
-
 
 
 On (03/16/10 01:33), Eric Dumazet wrote:
@@ -161,18 +178,18 @@ evice *dev,
 >=20
 >=20
 
---u3/rZRmxL6MmkK24
+--8X7/QrJGcKSMr1RN
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.10 (GNU/Linux)
 
-iJwEAQECAAYFAkufmrkACgkQfKHnntdSXjT0zgP/eycACnlxJzjDlrNqyFgb9hC/
-HOgxTL2+eVi7wqgrurxIwCDMiHmuyRd86Yrwk3xo5rRyAl3UbE/ysCriozw59Kwk
-Ag1LYov18AY//sEzSvWOE3veR0JGMymwEUBdnv8HxpDnyPXgp4ddQZFGHhGGzFp3
-SDgLfrU/yP8yzaefORk=
-=TrtZ
+iJwEAQECAAYFAkufnRcACgkQfKHnntdSXjQGNAQA3UoUtzDpz3n9BVH435ZiAtwM
+eo2HlI+BfYyypiG0qwGAL6hqahT1vGrgBTXQVsIU+rDLxEli26JOGpQfqtMhPV2W
+yiApBr2w3+47pcWOdDrGZqftCpmVOtvpCGQBUGZ+Z2ax5GA252sJ2Ybcd7ziu3Bg
+Ge0lcfQzlO/rImicX18=
+=reK7
 -----END PGP SIGNATURE-----
 
---u3/rZRmxL6MmkK24--
+--8X7/QrJGcKSMr1RN--
