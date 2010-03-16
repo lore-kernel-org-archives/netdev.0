@@ -1,42 +1,46 @@
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: [PATCH] ne: Do not use slashes in irq name string
-Date: Wed, 17 Mar 2010 00:27:40 +0900
-Message-ID: <1268753260-5632-1-git-send-email-anemo@mba.ocn.ne.jp>
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mv-drv-hcb004.ocn.ad.jp ([118.23.109.134]:53653 "EHLO
-	mv-drv-hcb004.ocn.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966335Ab0CPP1r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Mar 2010 11:27:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH 1/1] NET: netpoll, fix potential NULL ptr dereference
+Date: Tue, 16 Mar 2010 16:29:54 +0100
+Message-ID: <1268753394-17765-1-git-send-email-jslaby@suse.cz>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jirislaby@gmail.com, Daniel Borkmann <danborkmann@googlemail.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes following warning introduced by commit
-12bac0d9f4dbf3445a0319beee848d15fa32775e ("proc: warn on non-existing
-proc entries"):
+Stanse found that one error path in netpoll_setup dereferences npinfo
+even though it is NULL. Avoid that by adding new label and go to that
+instead.
 
-WARNING: at /work/mips-linux/make/linux/fs/proc/generic.c:316 __xlate_proc_name+0xe0/0xe8()
-name 'RBHMA4X00/RTL8019'
-
-Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: Daniel Borkmann <danborkmann@googlemail.com>
+Cc: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/ne.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/core/netpoll.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ne.c b/drivers/net/ne.c
-index 992dbff..f4347f8 100644
---- a/drivers/net/ne.c
-+++ b/drivers/net/ne.c
-@@ -142,7 +142,7 @@ bad_clone_list[] __initdata = {
-     {"PCM-4823", "PCM-4823", {0x00, 0xc0, 0x6c}}, /* Broken Advantech MoBo */
-     {"REALTEK", "RTL8019", {0x00, 0x00, 0xe8}}, /* no-name with Realtek chip */
- #ifdef CONFIG_MACH_TX49XX
--    {"RBHMA4X00-RTL8019", "RBHMA4X00/RTL8019", {0x00, 0x60, 0x0a}},  /* Toshiba built-in */
-+    {"RBHMA4X00-RTL8019", "RBHMA4X00-RTL8019", {0x00, 0x60, 0x0a}},  /* Toshiba built-in */
- #endif
-     {"LCS-8834", "LCS-8836", {0x04, 0x04, 0x37}}, /* ShinyNet (SET) */
-     {NULL,}
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 7aa6972..d4ec38f 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -735,7 +735,7 @@ int netpoll_setup(struct netpoll *np)
+ 		npinfo = kmalloc(sizeof(*npinfo), GFP_KERNEL);
+ 		if (!npinfo) {
+ 			err = -ENOMEM;
+-			goto release;
++			goto put;
+ 		}
+ 
+ 		npinfo->rx_flags = 0;
+@@ -845,7 +845,7 @@ int netpoll_setup(struct netpoll *np)
+ 
+ 		kfree(npinfo);
+ 	}
+-
++put:
+ 	dev_put(ndev);
+ 	return err;
+ }
 -- 
-1.5.6.5
-
+1.7.0.1
