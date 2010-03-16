@@ -1,125 +1,104 @@
 From: James Chapman <jchapman@katalix.com>
-Subject: [RESEND: PATCH] l2tp: Fix UDP socket reference count bugs in the
-	pppol2tp driver
-Date: Tue, 16 Mar 2010 16:29:20 +0000
-Message-ID: <20100316162920.20459.11487.stgit@bert.katalix.com>
+Subject: [PATCH] l2tp: Fix oops in pppol2tp_xmit
+Date: Tue, 16 Mar 2010 16:46:31 +0000
+Message-ID: <20100316164631.21463.99826.stgit@bert.katalix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:57912 "EHLO mail.katalix.com"
+Received: from katalix.com ([82.103.140.233]:37354 "EHLO mail.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933080Ab0CPQVg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Mar 2010 12:21:36 -0400
+	id S1759282Ab0CPQis (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Mar 2010 12:38:48 -0400
 Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.katalix.com (Postfix) with ESMTP id 4C71DA62098
-	for <netdev@vger.kernel.org>; Tue, 16 Mar 2010 16:29:20 +0000 (GMT)
+	by mail.katalix.com (Postfix) with ESMTP id 93FA5A62098
+	for <netdev@vger.kernel.org>; Tue, 16 Mar 2010 16:46:32 +0000 (GMT)
 Received: from mail.katalix.com ([127.0.0.1])
 	by localhost (mail.katalix.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id fxmLQvutdERq for <netdev@vger.kernel.org>;
-	Tue, 16 Mar 2010 16:29:20 +0000 (GMT)
+	with ESMTP id a8dcsfuhnsh5 for <netdev@vger.kernel.org>;
+	Tue, 16 Mar 2010 16:46:32 +0000 (GMT)
 Received: from bert.katalix.com (localhost.localdomain [127.0.0.1])
-	by mail.katalix.com (Postfix) with ESMTP id 2BBADA62087
-	for <netdev@vger.kernel.org>; Tue, 16 Mar 2010 16:29:20 +0000 (GMT)
+	by mail.katalix.com (Postfix) with ESMTP id 40B9DA62087
+	for <netdev@vger.kernel.org>; Tue, 16 Mar 2010 16:46:32 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes UDP socket refcnt bugs in the pppol2tp driver.
+When transmitting L2TP frames, we derive the outgoing interface's UDP
+checksum hardware assist capabilities from the tunnel dst dev. This
+can sometimes be NULL, especially when routing protocols are used and
+routing changes occur. This patch just checks for NULL dst or dev
+pointers when checking for netdev hardware assist features.
 
-A bug can cause a kernel stack trace when a tunnel socket is closed.
+BUG: unable to handle kernel NULL pointer dereference at 0000000c
+IP: [<f89d074c>] pppol2tp_xmit+0x341/0x4da [pppol2tp]
+*pde = 00000000
+Oops: 0000 [#1] SMP
+last sysfs file: /sys/class/net/lo/operstate
+Modules linked in: pppol2tp pppox ppp_generic slhc ipv6 dummy loop snd_hda_codec_atihdmi snd_hda_intel snd_hda_codec snd_pcm snd_timer snd soundcore snd_page_alloc evdev psmouse serio_raw processor button i2c_piix4 i2c_core ati_agp agpgart pcspkr ext3 jbd mbcache sd_mod ide_pci_generic atiixp ide_core ahci ata_generic floppy ehci_hcd ohci_hcd libata e1000e scsi_mod usbcore nls_base thermal fan thermal_sys [last unloaded: scsi_wait_scan]
 
-A way to reproduce the issue is to prepare the UDP socket for L2TP (by
-opening a tunnel pppol2tp socket) and then close it before any L2TP
-sessions are added to it. The sequence is
-
-Create UDP socket
-Create tunnel pppol2tp socket to prepare UDP socket for L2TP
-  pppol2tp_connect: session_id=0, peer_session_id=0
-L2TP SCCRP control frame received (tunnel_id==0)
-  pppol2tp_recv_core: sock_hold()
-  pppol2tp_recv_core: sock_put
-L2TP ZLB control frame received (tunnel_id=nnn)
-  pppol2tp_recv_core: sock_hold()
-  pppol2tp_recv_core: sock_put
-Close tunnel management socket
-  pppol2tp_release: session_id=0, peer_session_id=0
-Close UDP socket
-  udp_lib_close: BUG
-
-The addition of sock_hold() in pppol2tp_connect() solves the problem.
-
-For data frames, two sock_put() calls were added to plug a refcnt leak
-per received data frame. The ref that is grabbed at the top of
-pppol2tp_recv_core() must always be released, but this wasn't done for
-accepted data frames or data frames discarded because of bad UDP
-checksums. This leak meant that any UDP socket that had passed L2TP
-data traffic (i.e. L2TP data frames, not just L2TP control frames)
-using pppol2tp would not be released by the kernel.
-
-
-WARNING: at include/net/sock.h:435 udp_lib_unhash+0x117/0x120()
-Pid: 1086, comm: openl2tpd Not tainted 2.6.33-rc1 #8
+Pid: 0, comm: swapper Not tainted (2.6.32.8 #1)
+EIP: 0060:[<f89d074c>] EFLAGS: 00010297 CPU: 3
+EIP is at pppol2tp_xmit+0x341/0x4da [pppol2tp]
+EAX: 00000000 EBX: f64d1680 ECX: 000005b9 EDX: 00000000
+ESI: f6b91850 EDI: f64d16ac EBP: f6a0c4c0 ESP: f70a9cac
+ DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+Process swapper (pid: 0, ti=f70a8000 task=f70a31c0 task.ti=f70a8000)
+Stack:
+ 000005a9 000005b9 f734c400 f66652c0 f7352e00 f67dc800 00000000 f6b91800
+<0> 000005a3 f70ef6c4 f67dcda9 000005a3 f89b192e 00000246 000005a3 f64d1680
+<0> f63633e0 f6363320 f64d1680 f65a7320 f65a7364 f65856c0 f64d1680 f679f02f
 Call Trace:
- [<c119e9b7>] ? udp_lib_unhash+0x117/0x120
- [<c101b871>] ? warn_slowpath_common+0x71/0xd0
- [<c119e9b7>] ? udp_lib_unhash+0x117/0x120
- [<c101b8e3>] ? warn_slowpath_null+0x13/0x20
- [<c119e9b7>] ? udp_lib_unhash+0x117/0x120
- [<c11598a7>] ? sk_common_release+0x17/0x90
- [<c11a5e33>] ? inet_release+0x33/0x60
- [<c11577b0>] ? sock_release+0x10/0x60
- [<c115780f>] ? sock_close+0xf/0x30
- [<c106e542>] ? __fput+0x52/0x150
- [<c106b68e>] ? filp_close+0x3e/0x70
- [<c101d2e2>] ? put_files_struct+0x62/0xb0
- [<c101eaf7>] ? do_exit+0x5e7/0x650
- [<c1081623>] ? mntput_no_expire+0x13/0x70
- [<c106b68e>] ? filp_close+0x3e/0x70
- [<c101eb8a>] ? do_group_exit+0x2a/0x70
- [<c101ebe1>] ? sys_exit_group+0x11/0x20
- [<c10029b0>] ? sysenter_do_call+0x12/0x26
+ [<f89b192e>] ? ppp_push+0x459/0x50e [ppp_generic]
+ [<f89b217f>] ? ppp_xmit_process+0x3b6/0x430 [ppp_generic]
+ [<f89b2306>] ? ppp_start_xmit+0x10d/0x120 [ppp_generic]
+ [<c11c15cb>] ? dev_hard_start_xmit+0x21f/0x2b2
+ [<c11d0947>] ? sch_direct_xmit+0x48/0x10e
+ [<c11c19a0>] ? dev_queue_xmit+0x263/0x3a6
+ [<c11e2a9f>] ? ip_finish_output+0x1f7/0x221
+ [<c11df682>] ? ip_forward_finish+0x2e/0x30
+ [<c11de645>] ? ip_rcv_finish+0x295/0x2a9
+ [<c11c0b19>] ? netif_receive_skb+0x3e9/0x404
+ [<f814b791>] ? e1000_clean_rx_irq+0x253/0x2fc [e1000e]
+ [<f814cb7a>] ? e1000_clean+0x63/0x1fc [e1000e]
+ [<c1047eff>] ? sched_clock_local+0x15/0x11b
+ [<c11c1095>] ? net_rx_action+0x96/0x195
+ [<c1035750>] ? __do_softirq+0xaa/0x151
+ [<c1035828>] ? do_softirq+0x31/0x3c
+ [<c10358fe>] ? irq_exit+0x26/0x58
+ [<c1004b21>] ? do_IRQ+0x78/0x89
+ [<c1003729>] ? common_interrupt+0x29/0x30
+ [<c101ac28>] ? native_safe_halt+0x2/0x3
+ [<c1008c54>] ? default_idle+0x55/0x75
+ [<c1009045>] ? c1e_idle+0xd2/0xd5
+ [<c100233c>] ? cpu_idle+0x46/0x62
+Code: 8d 45 08 f0 ff 45 08 89 6b 08 c7 43 68 7e fb 9c f8 8a 45 24 83 e0 0c 3c 04 75 09 80 63 64 f3 e9 b4 00 00 00 8b 43 18 8b 4c 24 04 <8b> 40 0c 8d 79 11 f6 40 44 0e 8a 43 64 75 51 6a 00 8b 4c 24 08
+EIP: [<f89d074c>] pppol2tp_xmit+0x341/0x4da [pppol2tp] SS:ESP 0068:f70a9cac
+CR2: 000000000000000c
 
 Signed-off-by: James Chapman <jchapman@katalix.com>
 
 ---
 
-This patch was originally submitted 21-jan-2010,
-http://marc.info/?l=linux-netdev&m=126409025900561&w=2. Its
-description has since been updated and it has been refreshed against
-latest netdev git.
+This patch has been verified in several ISP setups (heavy L2TP users).
 
 This patch may be a candidate for -stable.
 ---
- drivers/net/pppol2tp.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ drivers/net/pppol2tp.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
-index 5861ee9..449a982 100644
+index 9fbb2eb..5861ee9 100644
 --- a/drivers/net/pppol2tp.c
 +++ b/drivers/net/pppol2tp.c
-@@ -756,6 +756,7 @@ static int pppol2tp_recv_core(struct sock *sock, struct sk_buff *skb)
- 
- 	/* Try to dequeue as many skbs from reorder_q as we can. */
- 	pppol2tp_recv_dequeue(session);
-+	sock_put(sock);
- 
- 	return 0;
- 
-@@ -772,6 +773,7 @@ discard_bad_csum:
- 	UDP_INC_STATS_USER(&init_net, UDP_MIB_INERRORS, 0);
- 	tunnel->stats.rx_errors++;
- 	kfree_skb(skb);
-+	sock_put(sock);
- 
- 	return 0;
- 
-@@ -1662,6 +1664,7 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
- 		if (tunnel_sock == NULL)
- 			goto end;
- 
-+		sock_hold(tunnel_sock);
- 		tunnel = tunnel_sock->sk_user_data;
- 	} else {
- 		tunnel = pppol2tp_tunnel_find(sock_net(sk), sp->pppol2tp.s_tunnel);
+@@ -1180,7 +1180,8 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
+ 	/* Calculate UDP checksum if configured to do so */
+ 	if (sk_tun->sk_no_check == UDP_CSUM_NOXMIT)
+ 		skb->ip_summed = CHECKSUM_NONE;
+-	else if (!(skb_dst(skb)->dev->features & NETIF_F_V4_CSUM)) {
++	else if ((skb_dst(skb) && skb_dst(skb)->dev) &&
++		 (!(skb_dst(skb)->dev->features & NETIF_F_V4_CSUM))) {
+ 		skb->ip_summed = CHECKSUM_COMPLETE;
+ 		csum = skb_checksum(skb, 0, udp_len, 0);
+ 		uh->check = csum_tcpudp_magic(inet->inet_saddr,
 
