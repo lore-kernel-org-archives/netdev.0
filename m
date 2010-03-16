@@ -1,39 +1,56 @@
-From: Mr Shun Yin <yinshun7755@yahoo.com.hk>
-Subject: GET BACK TO ME,
-Date: Tue, 16 Mar 2010 21:41:22 +0800
-Message-ID: <20100316214122.286jen41csg8okw8__34329.7642226846$1268761426$gmane$org@mycu.cu-cdo.edu.ph>
-Reply-To: yinshun66887@yahoo.com.hk
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [PATCH 1/1] NET: netpoll, fix potential NULL ptr dereference
+Date: Tue, 16 Mar 2010 12:56:00 -0500
+Message-ID: <1268762160.25503.2988.camel@calx>
+References: <1268753394-17765-1-git-send-email-jslaby@suse.cz>
+	 <1268759527.25503.2980.camel@calx>  <4B9FBE49.6010709@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	format="flowed"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Cc: Jiri Slaby <jslaby@suse.cz>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Daniel Borkmann <danborkmann@googlemail.com>
+To: Jiri Slaby <jirislaby@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [203.177.104.171] ([203.177.104.171]:60776 "HELO
-	mycu.cu-cdo.edu.ph" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with SMTP id S1757120Ab0CPRnX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Mar 2010 13:43:23 -0400
-Content-Disposition: inline
+Received: from waste.org ([173.11.57.241]:44532 "EHLO waste.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S966159Ab0CPR4D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Mar 2010 13:56:03 -0400
+In-Reply-To: <4B9FBE49.6010709@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2010-03-16 at 18:22 +0100, Jiri Slaby wrote:
+> On 03/16/2010 06:12 PM, Matt Mackall wrote:
+> > I don't get it. The source of the branch tests for !ndev->npinfo and the
+> > original destination of the branch also tests for !ndev->npinfo. I don't
+> > see how it gets dereferenced.
+> 
+> Let's look at more of the context:
+>          if (!ndev->npinfo) {
+>                  npinfo = kmalloc(sizeof(*npinfo), GFP_KERNEL);
+>                  if (!npinfo) {         // npinfo is NULL
+>                          err = -ENOMEM;
+>                          goto release;
+>                  }
+> ...
+> release:                           // npinfo is still NULL
+>          if (!ndev->npinfo) {       // condition is the same (holds)
+>               // dereference below: vvvvvvvvvvvvvvv
+>                  spin_lock_irqsave(&npinfo->rx_lock, flags);
+>                  list_for_each_entry_safe(npe, tmp, &npinfo->rx_np, rx) {
+>                          npe->dev = NULL;
+>                  }
+>                  spin_unlock_irqrestore(&npinfo->rx_lock, flags);
+> 
+>                  kfree(npinfo);
+>          }
+
+Ok, you're correct, I read the second test backwards.
+
+Acked-by: Matt Mackall <mpm@selenic.com>
 
 -- 
-Hello Friend,
+http://selenic.com : development and support for Mercurial and Linux
 
-I am Mr. Shun Yin, I have a business proposal of $17,300.000.00 for you 
-to handle with me from my bank. If you are interested, please send me 
-your full contact details and after that I shall provide you with more 
-details of the business. Email: yinshun66887@yahoo.com.hk
-
-Regards,
-Shun.
-
-
-
-
-
-----------------------------------------------------------------
-This message was sent using IMP, the Internet Messaging Program.
 
