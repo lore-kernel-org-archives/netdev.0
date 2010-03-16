@@ -1,87 +1,63 @@
-From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
-Subject: Re: 2.6.34-rc1: rcu lockdep bug?
-Date: Tue, 16 Mar 2010 18:26:26 +0800
-Message-ID: <2375c9f91003160326j4a088701y9f0b923a9776a39e@mail.gmail.com>
-References: <20100311134556.GA6344@linux.vnet.ibm.com>
-	 <1268401058.3141.9.camel@edumazet-laptop> <20100313053356.GC3704@hack>
-	 <20100313215838.GB6805@linux.vnet.ibm.com>
-	 <20100315010802.GB2735@hack>
-	 <2375c9f91003142010g61841666iad53c24f39036acf@mail.gmail.com>
-	 <2375c9f91003150239m1abc765bh59eb51c948eed592@mail.gmail.com>
-	 <1268647460.3154.1.camel@edumazet-laptop>
-	 <2375c9f91003150312u37dfd70fk55a4b8820e13590e@mail.gmail.com>
-	 <1268649663.3154.9.camel@edumazet-laptop>
+From: Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>
+Subject: Re: [PATCH 0/4] Some typo fixing
+Date: Tue, 16 Mar 2010 11:32:24 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1003161127340.18642@pobox.suse.cz>
+References: <1268686558-28171-1-git-send-email-swirl@gmx.li>
+	<4B9EA214.7010203@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	David Miller <davem@davemloft.net>, peterz@infradead.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1268649663.3154.9.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Karsten Keil <isdn-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org>, Lin Ming <ming.m.lin-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>,
+        Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
+        Jaroslav Kysela <perex-/Fr2/VpizcU@public.gmane.org>, Pavel Machek <pavel-AlSwsSmVLrQ@public.gmane.org>,
+        David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+        linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+        Bjorn Helgaas <bjorn.helgaas-VXdhtT5mjnY@public.gmane.org>,
+        Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>,
+        "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+        Steve Conklin <sconklin-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+        Ralph Campbell <infinipath-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+        Anton Vorontsov <avorontsov-hkdhdckH98+B+jHODAdFcQ@public.gmane.org>, cbe-oss-dev-mnsaURCQ41sdnm+yROfE0A@public.gmane.org,
+        Liam Girdwood <lrg-kDsPt+C1G03kYMGBc/C6ZA@public.gmane.org>,
+        Anthony Liguori <aliguori-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+        Andrew Morton <akpm
+To: Randy Dunlap <rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <4B9EA214.7010203-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 15, 2010 at 6:41 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le lundi 15 mars 2010 =C3=A0 18:12 +0800, Am=C3=A9rico Wang a =C3=A9c=
-rit :
->> On Mon, Mar 15, 2010 at 6:04 PM, Eric Dumazet <eric.dumazet@gmail.co=
-m> wrote:
->> > Le lundi 15 mars 2010 =C3=A0 17:39 +0800, Am=C3=A9rico Wang a =C3=A9=
-crit :
->> >
->> >>
->> >> Ok, I think I found what lockdep really complains about, it is th=
-at we took
->> >> spin_lock in netpoll_poll_lock() which is in hardirq-enabled envi=
-ronment,
->> >> later, we took another spin_lock with spin_lock_irqsave() in netp=
-oll_rx(),
->> >> so lockdep thought we broke the locking rule.
->> >>
->> >> I don't know why netpoll_rx() needs irq disabled, it looks like t=
-hat no one
->> >> takes rx_lock in hardirq context. So can we use spin_lock(&rx_loc=
-k)
->> >> instead? Or am I missing something here? Eric? David?
->> >
->> > I am a bit lost.
->> >
->> > Could you give the complete picture, because I cannot find it in m=
-y
->> > netdev archives.
->> >
->>
->> Sure, sorry for this.
->>
->> Here is the whole thread:
->>
->> http://lkml.org/lkml/2010/3/11/100
->
-> OK thanks
->
-> netpoll_rx() can be called from hard irqs (netif_rx()), so rx_lock
-> definitly needs irq care.
->
-> netpoll_poll_lock() does take a spinlock with irq enabled, but its no=
-t
-> rx_lock, its napi->poll_lock.
+On Mon, 15 Mar 2010, Randy Dunlap wrote:
 
-Yeah, I knew, but besides rcu locks, these two locks are the only
-locks that can be taken in the call chain. I suspect lockdep got
-something wrong.
+> > I have fixed some typos.
+> 
+> Acked-by: Randy Dunlap <rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>
+> 
+> Jiri, can you merge these, please, unless someone objects (?).
 
->
-> I dont see what could be the problem, is it reproductible with vanill=
-a
-> kernel ?
->
+Yes, I will take it, thanks. A couple comments though:
 
-No. I don't know why, my patch doesn't touch any function in the
-call chain.
+- [important!] Thomas, it's not necessary to CC zillions of people on such 
+  patches. Just submit them to trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org (and eventually CC 
+  lkml), and that's it. I believe many people might get annoyed by this.
+- I will not be applying the drivers/staging hunks. Staging patches are 
+  moving target, the code is changing quickly (including complete 
+  drops/rewrites) so we'll likely be getting conflicts there. I will 
+  reroute them to Greg.
+- I will fold all the patches into one. We don't need one commit per one 
+  specific typo.
 
-I already "fix" this in another way, so no need to worry this any more.
-
-Thanks for your help!
+-- 
+Jiri Kosina
+SUSE Labs, Novell Inc.
