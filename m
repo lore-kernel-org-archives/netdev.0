@@ -1,50 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] BUG: unable to handle kernel NULL pointer dereference
- at br_multicast_leave_group
-Date: Mon, 15 Mar 2010 20:38:33 -0700 (PDT)
-Message-ID: <20100315.203833.165440357.davem@davemloft.net>
-References: <4B9C49E7.1080703@fami-braun.de>
-	<20100316031005.GA17727@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: michael-dev@fami-braun.de, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [PATCH net-2.6] bridge br_multicast: Fix skb leakage in error path.
+Date: Tue, 16 Mar 2010 14:26:56 +0900
+Message-ID: <201003160526.o2G5QuVN010801@94.43.138.210.xn.2iij.net>
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39419
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S964992Ab0CPDiO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Mar 2010 23:38:14 -0400
-In-Reply-To: <20100316031005.GA17727@gondor.apana.org.au>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:36768 "EHLO
+	94.43.138.210.xn.2iij.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753456Ab0CPF1E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Mar 2010 01:27:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 16 Mar 2010 11:10:05 +0800
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/bridge/br_multicast.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-> michael-dev@fami-braun.de wrote:
->> 
->> I'm currently using linux-next and have been running into an OOPs which
->> I think might be caused by a patch you submitted on 2010-02-27.
->> 
->> It's a linux-next kernel from 2010-03-12 on an x86 system and it
->> OOPs in the bridge module in br_mdp_ip_get (called by
->> br_multicast_leave_group) because the br->mdb is null.
-> 
-> Thanks, there's actually another spot (the query handler) where
-> the same thing can happen.
-> 
-> Here's a patch to fix them both.
-> 
-> bridge: Move NULL mdb check into br_mdb_ip_get
-> 
-> Since all callers of br_mdb_ip_get need to check whether the
-> hash table is NULL, this patch moves the check into the function.
-> 
-> This fixes the two callers (query/leave handler) that didn't
-> check it.
-> 
-> Reported-by: Michael Braun <michael-dev@fami-braun.de>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index fd96a8d..4095192 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -990,7 +990,7 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
+ 
+ 		err = pskb_trim_rcsum(skb2, len);
+ 		if (err)
+-			return err;
++			goto err_out;
+ 	}
+ 
+ 	len -= ip_hdrlen(skb2);
+@@ -1012,7 +1012,7 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
+ 	case CHECKSUM_NONE:
+ 		skb2->csum = 0;
+ 		if (skb_checksum_complete(skb2))
+-			return -EINVAL;
++			goto out;
+ 	}
+ 
+ 	err = 0;
+@@ -1039,6 +1039,7 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
+ 
+ out:
+ 	__skb_push(skb2, offset);
++err_out:
+ 	if (skb2 != skb)
+ 		kfree_skb(skb2);
+ 	return err;
+-- 
+1.5.6.5
 
-Applied, thanks Herbert.
