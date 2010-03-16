@@ -1,50 +1,49 @@
-From: Darren Jenkins <darrenrjenkins@gmail.com>
-Subject: [PATCH] drivers/net/wimax/i2400m/fw.c fix possible double free
-Date: Tue, 16 Mar 2010 22:46:28 +1100
-Message-ID: <1268739988.17270.8.camel@ICE-BOX>
+From: =?iso-8859-1?Q?Sjur_Br=E6ndeland?= <sjur.brandeland@stericsson.com>
+Subject: RE: [PATCH net-next-2.6 v6 08/12] net-caif: add CAIF socket implementation
+Date: Tue, 16 Mar 2010 14:27:21 +0100
+Message-ID: <61D8D34BB13CFE408D154529C120E079033D51A2@eseldmw101.eemea.ericsson.se>
+References: <1267445559-1911-1-git-send-email-sjur.brandeland@stericsson.com> <1267445559-1911-2-git-send-email-sjur.brandeland@stericsson.com> <1267445559-1911-3-git-send-email-sjur.brandeland@stericsson.com> <1267445559-1911-4-git-send-email-sjur.brandeland@stericsson.com> <1267445559-1911-5-git-send-email-sjur.brandeland@stericsson.com> <1267445559-1911-6-git-send-email-sjur.brandeland@stericsson.com> <1267445559-1911-7-git-send-email-sjur.brandeland@stericsson.com> <1267445559-1911-8-git-send-email-sjur.brandeland@stericsson.com> <1267445559-1911-9-git-send-email-sjur.brandeland@stericsson.com> <1268690031.2700.9.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Cindy H Kao <cindy.h.kao@intel.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	wimax@linuxwimax.org, netdev@vger.kernel.org
-To: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>,
-	linux-wimax@intel.com, Kernel Janitors <kernel-janitors@vger.kernel.org>
-Return-path: <wimax-bounces@linuxwimax.org>
-List-Unsubscribe: <http://lists.linuxwimax.org/options/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxwimax.org/pipermail/wimax>
-List-Post: <mailto:wimax@linuxwimax.org>
-List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
-List-Subscribe: <http://lists.linuxwimax.org/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
-Sender: wimax-bounces@linuxwimax.org
-Errors-To: wimax-bounces@linuxwimax.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	"Daniel Martensson" <daniel.martensson@stericsson.com>,
+	<kaber@trash.net>, <stefano.babic@babic.homelinux.org>,
+	<randy.dunlap@oracle.com>
+To: "Marcel Holtmann" <marcel@holtmann.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw9.se.ericsson.net ([193.180.251.57]:44475 "EHLO
+	mailgw9.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966190Ab0CPN1Y convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Mar 2010 09:27:24 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1268690031.2700.9.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-i2400m_fw_check() can free i2400m->fw_hdrs if krealloc() fails causing a double free
-Add a check so we don't free the memory a second time.
+Hi Marcel.
 
-coverity CID: 13455
+Marcel Holtmann wrote:
+>> +	/*
+>> +	 * The sock->type specifies the socket type to use. The CAIF
+>> socket is +	 * a packet stream in the sence that it is packet based.
+>> +	 * CAIF trusts the reliability of the link, no resending is
+>> implemented. +	 */ +	if (sock->type != SOCK_SEQPACKET)
+>> +		return -ESOCKTNOSUPPORT;
+> 
+> we came to an interesting detail here when testing with a STE modem.
+> Why is this SEQPACKET and not a STREAM.
 
-Signed-off-by: Darren Jenkins <darrenrjenkins@gmail.com>
----
- drivers/net/wimax/i2400m/fw.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+The reason is that CAIF provides different services not just AT,
+and some of them are really packet oriented such as Utility links and
+Video. It would not be right to provide a stream based solution in this case.
 
-diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
-index 25c24f0..a97c413 100644
---- a/drivers/net/wimax/i2400m/fw.c
-+++ b/drivers/net/wimax/i2400m/fw.c
-@@ -1490,7 +1490,8 @@ int i2400m_fw_bootstrap(struct i2400m *i2400m, const struct firmware *fw,
- 	if (ret < 0)
- 		dev_err(dev, "%s: cannot use: %d, skipping\n",
- 			i2400m->fw_name, ret);
--	kfree(i2400m->fw_hdrs);
-+	if (ret != -ENOMEM)
-+		kfree(i2400m->fw_hdrs);
- 	i2400m->fw_hdrs = NULL;
- 	d_fnend(5, dev, "(i2400m %p) = %d\n", i2400m, ret);
- 	return ret;
--- 
-1.6.3.3
+> Especially with the AT
+> command channels it is kinda weird that you have an MTU. The AT
+> specification doesn't really have any defined behavior when using a
+> sequential packet transport. It is more a stream based socket.
+
+Yes I see your point. In order to limit the effort and simplify
+caif_socket we ended up implementing only SEQPACKET. 
+
+BR/Sjur
