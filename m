@@ -1,56 +1,48 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [PATCH 1/1] NET: netpoll, fix potential NULL ptr dereference
-Date: Tue, 16 Mar 2010 12:56:00 -0500
-Message-ID: <1268762160.25503.2988.camel@calx>
-References: <1268753394-17765-1-git-send-email-jslaby@suse.cz>
-	 <1268759527.25503.2980.camel@calx>  <4B9FBE49.6010709@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] route: Fix caught BUG_ON during
+ rt_secret_rebuild_oneshot()
+Date: Tue, 16 Mar 2010 19:08:42 +0100
+Message-ID: <1268762922.2932.3.camel@edumazet-laptop>
+References: <201003161407.51925.vgusev@openvz.org>
+	 <20100316143437.GA8225@hmsreliant.think-freely.org>
+	 <201003161827.08595.vgusev@openvz.org>
+	 <20100316173543.GA13529@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Slaby <jslaby@suse.cz>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Daniel Borkmann <danborkmann@googlemail.com>
-To: Jiri Slaby <jirislaby@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Vitaliy Gusev <vgusev@openvz.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([173.11.57.241]:44532 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966159Ab0CPR4D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Mar 2010 13:56:03 -0400
-In-Reply-To: <4B9FBE49.6010709@gmail.com>
+Received: from mail-bw0-f211.google.com ([209.85.218.211]:60527 "EHLO
+	mail-bw0-f211.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751479Ab0CPSIq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Mar 2010 14:08:46 -0400
+Received: by bwz3 with SMTP id 3so266628bwz.29
+        for <netdev@vger.kernel.org>; Tue, 16 Mar 2010 11:08:44 -0700 (PDT)
+In-Reply-To: <20100316173543.GA13529@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-03-16 at 18:22 +0100, Jiri Slaby wrote:
-> On 03/16/2010 06:12 PM, Matt Mackall wrote:
-> > I don't get it. The source of the branch tests for !ndev->npinfo and the
-> > original destination of the branch also tests for !ndev->npinfo. I don't
-> > see how it gets dereferenced.
-> 
-> Let's look at more of the context:
->          if (!ndev->npinfo) {
->                  npinfo = kmalloc(sizeof(*npinfo), GFP_KERNEL);
->                  if (!npinfo) {         // npinfo is NULL
->                          err = -ENOMEM;
->                          goto release;
->                  }
-> ...
-> release:                           // npinfo is still NULL
->          if (!ndev->npinfo) {       // condition is the same (holds)
->               // dereference below: vvvvvvvvvvvvvvv
->                  spin_lock_irqsave(&npinfo->rx_lock, flags);
->                  list_for_each_entry_safe(npe, tmp, &npinfo->rx_np, rx) {
->                          npe->dev = NULL;
->                  }
->                  spin_unlock_irqrestore(&npinfo->rx_lock, flags);
-> 
->                  kfree(npinfo);
->          }
+Le mardi 16 mars 2010 =C3=A0 13:35 -0400, Neil Horman a =C3=A9crit :
+> >=20
+> Dave, Eric, Herbert, what are your opinions on this?  Is the statisti=
+cal analysis code
+> mature enough at this point to warrant the removal of the rebuild tim=
+er, or
+> should we still keep it as a fallback mechanism?
+> Neil
 
-Ok, you're correct, I read the second test backwards.
+I believe most heavy duty users dont use newest kernels yet.
 
-Acked-by: Matt Mackall <mpm@selenic.com>
+(I had to make some changes last month because Pawe=C5=82 Staszewski ha=
+d
+problems to get a working route cache)
 
--- 
-http://selenic.com : development and support for Mercurial and Linux
+We should wait a bit (one year or two) before removing this timer.
+
+Thanks
 
 
