@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gigaset: correct range checking off by one error
-Date: Tue, 16 Mar 2010 14:27:58 -0700 (PDT)
-Message-ID: <20100316.142758.231155261.davem@davemloft.net>
-References: <20100316172048.CBC5240116@xenon.ts.pxnet.com>
+Subject: Re: [PATCH 1/1] NET: ksz884x, fix lock imbalance
+Date: Tue, 16 Mar 2010 14:28:26 -0700 (PDT)
+Message-ID: <20100316.142826.115796003.davem@davemloft.net>
+References: <1268751230-14416-1-git-send-email-jslaby@suse.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, error27@gmail.com, hjlipp@web.de,
-	isdn4linux@listserv.isdn4linux.de,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@kernel.org
-To: tilman@imap.cc
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jirislaby@gmail.com, Tristram.Ha@micrel.com
+To: jslaby@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41910
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41918
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754364Ab0CPV1i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Mar 2010 17:27:38 -0400
-In-Reply-To: <20100316172048.CBC5240116@xenon.ts.pxnet.com>
+	by vger.kernel.org with ESMTP id S1754364Ab0CPV2E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Mar 2010 17:28:04 -0400
+In-Reply-To: <1268751230-14416-1-git-send-email-jslaby@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tilman Schmidt <tilman@imap.cc>
-Date: Tue, 16 Mar 2010 18:04:01 +0100
+From: Jiri Slaby <jslaby@suse.cz>
+Date: Tue, 16 Mar 2010 15:53:50 +0100
 
-> Correct a potential array overrun due to an off by one error in the
-> range check on the CAPI CONNECT_REQ CIPValue parameter.
-> Found and reported by Dan Carpenter using smatch.
+> Stanse found that one error path (when alloc_skb fails) in netdev_tx
+> omits to unlock hw_priv->hwlock. Fix that.
 > 
-> Impact: bugfix
-> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+> Cc: Tristram Ha <Tristram.Ha@micrel.com>
+> Cc: David S. Miller <davem@davemloft.net>
 
-Applied.
+Applied, thanks.
