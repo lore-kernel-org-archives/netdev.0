@@ -1,33 +1,49 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: locking issue in vhost_net_set_backend
-Date: Tue, 16 Mar 2010 16:48:24 +0200
-Message-ID: <20100316144824.GA12793@redhat.com>
-References: <4B9F8E7F.7070709@gmail.com> <4B9F8F4F.7010103@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Jiri Slaby <jirislaby@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2159 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966284Ab0CPOvv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Mar 2010 10:51:51 -0400
-Content-Disposition: inline
-In-Reply-To: <4B9F8F4F.7010103@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH 1/1] NET: ksz884x, fix lock imbalance
+Date: Tue, 16 Mar 2010 15:53:50 +0100
+Message-ID: <1268751230-14416-1-git-send-email-jslaby@suse.cz>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jirislaby@gmail.com, Tristram Ha <Tristram.Ha@micrel.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 16, 2010 at 03:01:51PM +0100, Jiri Slaby wrote:
-> On 03/16/2010 02:58 PM, Jiri Slaby wrote:
->> I don't see how the lock is unlocked on the error paths and as it is not
->> on none of the them maybe I'm missing something?
->
-> And there is one more issue in vhost_set_vring, several returns from  
-> VHOST_SET_VRING_KICK, VHOST_SET_VRING_CALL, VHOST_SET_VRING_ERR with the  
-> vq->mutex held.
+Stanse found that one error path (when alloc_skb fails) in netdev_tx
+omits to unlock hw_priv->hwlock. Fix that.
 
-Thanks!
-I have patches for these that I'll push out shortly.
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: Tristram Ha <Tristram.Ha@micrel.com>
+Cc: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ksz884x.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
 
-> -- 
-> js
+diff --git a/drivers/net/ksz884x.c b/drivers/net/ksz884x.c
+index 7264a3e..0f59099 100644
+--- a/drivers/net/ksz884x.c
++++ b/drivers/net/ksz884x.c
+@@ -4899,8 +4899,10 @@ static int netdev_tx(struct sk_buff *skb, struct net_device *dev)
+ 			struct sk_buff *org_skb = skb;
+ 
+ 			skb = dev_alloc_skb(org_skb->len);
+-			if (!skb)
+-				return NETDEV_TX_BUSY;
++			if (!skb) {
++				rc = NETDEV_TX_BUSY;
++				goto unlock;
++			}
+ 			skb_copy_and_csum_dev(org_skb, skb->data);
+ 			org_skb->ip_summed = 0;
+ 			skb->len = org_skb->len;
+@@ -4914,7 +4916,7 @@ static int netdev_tx(struct sk_buff *skb, struct net_device *dev)
+ 		netif_stop_queue(dev);
+ 		rc = NETDEV_TX_BUSY;
+ 	}
+-
++unlock:
+ 	spin_unlock_irq(&hw_priv->hwlock);
+ 
+ 	return rc;
+-- 
+1.7.0.1
