@@ -1,39 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] r8169: Fix rtl8169_rx_interrupt()
-Date: Tue, 16 Mar 2010 08:12:57 +0100
-Message-ID: <1268723577.2824.17.camel@edumazet-laptop>
-References: <20100307192305.GA598@elte.hu>
-	 <20100308125122.GA11242@redhat.com>
-	 <1268686865.2824.4.camel@edumazet-laptop>
-	 <1268699602.2824.14.camel@edumazet-laptop>
-	 <20100316065015.GA3336@swordfish.minsk.epam.com>
+From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+Subject: Re: [PATCH v2.6.33 2/2] jme: Adding lock to protect vlgrp structure.
+Date: Tue, 16 Mar 2010 15:15:50 +0800
+Message-ID: <20100316071242.M65171@cooldavid.org>
+References: <1268630132-10410-2-git-send-email-cooldavid@cooldavid.org> <97949e3e1003151122q68ce19f4ja7f53ad380d3033f@mail.gmail.com> <20100315191339.M2560@cooldavid.org> <20100315.155350.26952440.davem@davemloft.net>
+Reply-To: cooldavid@cooldavid.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Ingo Molnar <mingo@elte.hu>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
-To: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100316065015.GA3336@swordfish.minsk.epam.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset=big5
+Cc: chavey@google.com, ethanhsiao@jmicron.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cooldavid.org ([114.33.45.68]:38230 "EHLO cooldavid.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S937470Ab0CPHQI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Mar 2010 03:16:08 -0400
+In-Reply-To: <20100315.155350.26952440.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 16 mars 2010 =C3=A0 08:50 +0200, Sergey Senozhatsky a =C3=A9cr=
-it :
-> Hello,
->=20
-> Sure. Give me a couple of days. By the way, should I test against .34
-> or .33?
->=20
+On Mon, 15 Mar 2010 15:53:50 -0700 (PDT), David Miller wrote
+> From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+> Date: Tue, 16 Mar 2010 03:13:33 +0800
+> 
+> > The vlan_rx_register is called through ioctl.
+> > And the packet feeding is called in the tasklet.
+> > I see no lock in register_vlan_dev(), register_vlan_device(), and vlan_ioctl_handler()
+> > which is related to the vlan_hwaccel_receive_skb(), vlan_hwaccel_rx().
+> > 
+> > It prevents the vlgrp pointer be modified while trying to feed the packet.
+> 
+> This is not how you fix this.  Adding a new lock to your hot code
+> path of packet receiving is the last thing you should be doing.
+> 
+> Instead, do what other drivers do, take down the device and bring it
+> back up again when changing the ->vlgrp pointer.
+> 
+> See drivers/net/tg3.c:tg3_vlan_rx_register() for an example.
+I see. I'll work on it.
 
-It's an old bug anyway, so you can pick up whats is the best for you.
-My personal pref would be current kernel.
+--
+Guo-Fu Tseng
 
-To trigger the original condition (fifo overflow), you might flood your
-machine from another one with small packets, for example using pktgen.
-
-Thanks
