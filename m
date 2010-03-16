@@ -1,34 +1,62 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v7] rps: Receive Packet Steering
-Date: Tue, 16 Mar 2010 14:13:11 -0700 (PDT)
-Message-ID: <20100316.141311.262178287.davem@davemloft.net>
-References: <65634d661003121508m3d348973k63a6ae9ca1f12f9f@mail.gmail.com>
-	<4B9FC7F1.5010507@google.com>
-	<1268773227.2932.34.camel@edumazet-laptop>
+Subject: Re: [PATCH] drivers/net/wimax/i2400m/fw.c fix possible double free
+Date: Tue, 16 Mar 2010 14:14:45 -0700 (PDT)
+Message-ID: <20100316.141445.27416807.davem@davemloft.net>
+References: <1268739988.17270.8.camel@ICE-BOX>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: inaky.perez-gonzalez@intel.com, linux-wimax@intel.com,
+	kernel-janitors@vger.kernel.org, cindy.h.kao@intel.com,
+	dirk.j.brandewie@intel.com, wimax@linuxwimax.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: darrenrjenkins@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53772
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46828
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751157Ab0CPVMt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Mar 2010 17:12:49 -0400
-In-Reply-To: <1268773227.2932.34.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1754364Ab0CPVOX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Mar 2010 17:14:23 -0400
+In-Reply-To: <1268739988.17270.8.camel@ICE-BOX>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 16 Mar 2010 22:00:27 +0100
+From: Darren Jenkins <darrenrjenkins@gmail.com>
+Date: Tue, 16 Mar 2010 22:46:28 +1100
 
-> Well, I tested this on my dev machine, with a vlan over bonding setup,
-> tg3 and bnx2 drivers (mono queue), and all is good. UDP bench not
-> anymore using 100% of one cpu and dropping frames.
+> i2400m_fw_check() can free i2400m->fw_hdrs if krealloc() fails causing a double free
+> Add a check so we don't free the memory a second time.
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> coverity CID: 13455
 > 
-> Thanks Herbert, this gives a very good fanout of network load on cpus,
-> this is a huge improvement, I cannot wait 2.6.35 :)
+> Signed-off-by: Darren Jenkins <darrenrjenkins@gmail.com>
 
-I'll integrate this as soon as I open up net-next-2.6
+Please don't fix it like this, the check is obscure and it's
+allowing other bugs to happen.
+
+If krealloc() fails, any refrence to i2400m->fw_hdrs is
+referencing freed memory.
+
+Therefore the krealloc() failure handling in this driver should NULL
+out i2400m->fw_hdrs and that will fix the double kfree problem as well
+as trap any stray references.
+
+> ---
+>  drivers/net/wimax/i2400m/fw.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
+> index 25c24f0..a97c413 100644
+> --- a/drivers/net/wimax/i2400m/fw.c
+> +++ b/drivers/net/wimax/i2400m/fw.c
+> @@ -1490,7 +1490,8 @@ int i2400m_fw_bootstrap(struct i2400m *i2400m, const struct firmware *fw,
+>  	if (ret < 0)
+>  		dev_err(dev, "%s: cannot use: %d, skipping\n",
+>  			i2400m->fw_name, ret);
+> -	kfree(i2400m->fw_hdrs);
+> +	if (ret != -ENOMEM)
+> +		kfree(i2400m->fw_hdrs);
+>  	i2400m->fw_hdrs = NULL;
+>  	d_fnend(5, dev, "(i2400m %p) = %d\n", i2400m, ret);
+>  	return ret;
+> -- 
+> 1.6.3.3
