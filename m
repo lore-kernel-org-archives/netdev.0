@@ -1,46 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] r8169: Fix rtl8169_rx_interrupt()
-Date: Tue, 16 Mar 2010 16:20:26 +0100
-Message-ID: <1268752826.3094.48.camel@edumazet-laptop>
-References: <20100307192305.GA598@elte.hu>
-	 <20100308125122.GA11242@redhat.com>
-	 <1268686865.2824.4.camel@edumazet-laptop>
-	 <1268699602.2824.14.camel@edumazet-laptop>
-	 <20100316145914.GB3332@swordfish.minsk.epam.com>
-	 <1268751933.3094.45.camel@edumazet-laptop>
-	 <20100316151023.GC3332@swordfish.minsk.epam.com>
+From: Vitaliy Gusev <vgusev@openvz.org>
+Subject: Re: [PATCH] route: Fix caught BUG_ON during rt_secret_rebuild_oneshot()
+Date: Tue, 16 Mar 2010 18:27:08 +0300
+Message-ID: <201003161827.08595.vgusev@openvz.org>
+References: <201003161407.51925.vgusev@openvz.org> <20100316143437.GA8225@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Ingo Molnar <mingo@elte.hu>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
-To: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100316151023.GC3332@swordfish.minsk.epam.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:48394 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756383Ab0CPPWS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Mar 2010 11:22:18 -0400
+In-Reply-To: <20100316143437.GA8225@hmsreliant.think-freely.org>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 16 mars 2010 =C3=A0 17:10 +0200, Sergey Senozhatsky a =C3=A9cr=
-it :
+On Tuesday 16 March 2010 05:34:37 pm Neil Horman wrote:
+...
+> Yeah, this seems reasonable.  Although this might be a good time to bring up the
+> subject of deprecating or removing the secret interval.  We've had our
+> statistical analysis bits in place to drive the rebuilding of the cache in the
+> event that any one chain gets too long, and in the year or so that we've had it,
+> it seems we've shaken out a few bugs with it (which suggests that people are
+> using it routinely).  As such, might it be time to just drop the rebuild timer
+> in its entirety?
 
-> [...]
-> >> NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
-> Isn't it r8169 related?
->=20
+Rebuild timer was introduced by secure reason when there was no analysis for
+chain lenght. Now it seems that rebuild timer can be removed.
 
-This is tx side which seems blocked for more than 6 seconds.
 
-To really test the patch, you need following setup :
+> 
+> Until that decision is made of course, the above seems like a sane fix for it.
+> Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> 
+> 
 
-machine A with r8169 NIC, patch applied, receiver of pktgen flood.
 
-machine B with any NIC, preferably a not buggy one, doing the pktgen
-flood to machine A
 
-If machine A survives, my patch is tested and ok.
-
-If machine B crashes, we have another problem to investigate
+Thanks,
+Vitaliy Gusev
