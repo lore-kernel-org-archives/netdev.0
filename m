@@ -1,98 +1,87 @@
-From: Julien Vehent <julien@linuxwall.info>
-Subject: Re: TBF parameters: overhead and linklayer =?UTF-8?Q?=20=3F?=
-Date: Tue, 16 Mar 2010 11:21:34 +0100
-Message-ID: <398abc5c97bf8b552252ad85cda742cf@localhost>
-References: <7370d7aa62d806f62f2a22b4095dd0ec@localhost> <cone.1268730409.349704.27722.1001@bork.lsof.org> <4b0881d1e12a25816f9efac65c4c54ec@localhost>
+From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
+Subject: Re: 2.6.34-rc1: rcu lockdep bug?
+Date: Tue, 16 Mar 2010 18:26:26 +0800
+Message-ID: <2375c9f91003160326j4a088701y9f0b923a9776a39e@mail.gmail.com>
+References: <20100311134556.GA6344@linux.vnet.ibm.com>
+	 <1268401058.3141.9.camel@edumazet-laptop> <20100313053356.GC3704@hack>
+	 <20100313215838.GB6805@linux.vnet.ibm.com>
+	 <20100315010802.GB2735@hack>
+	 <2375c9f91003142010g61841666iad53c24f39036acf@mail.gmail.com>
+	 <2375c9f91003150239m1abc765bh59eb51c948eed592@mail.gmail.com>
+	 <1268647460.3154.1.camel@edumazet-laptop>
+	 <2375c9f91003150312u37dfd70fk55a4b8820e13590e@mail.gmail.com>
+	 <1268649663.3154.9.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: Roel van Meer <rolek@bokxing.nl>, <ahu@ds9a.nl>
-To: Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3-g21.free.fr ([212.27.42.3]:36283 "EHLO smtp3-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966062Ab0CPKVn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Mar 2010 06:21:43 -0400
-In-Reply-To: <4b0881d1e12a25816f9efac65c4c54ec@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	David Miller <davem@davemloft.net>, peterz@infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1268649663.3154.9.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Gotcha !
-
-in iproute2-2.6.33/tc/tc_util.c
-
-442 int get_linklayer(unsigned int *val, const char *arg)
-443 {
-444         int res;
-445  
-446         if (matches(arg, "ethernet") == 0)
-447                 res = LINKLAYER_ETHERNET;
-448         else if (matches(arg, "atm") == 0)
-449                 res = LINKLAYER_ATM;
-450         else if (matches(arg, "adsl") == 0)
-451                 res = LINKLAYER_ATM;
-452         else 
-453                 return -1; /* Indicate error */ 
-454  
-455         *val = res;
-456         return 0;
-457 }
-
-Now, if I try this, it works:
-
-ses0gnoc:~# tc qdisc add dev eth0 root tbf rate 1mbit burst 10000 latency
-10ms linklayer atm
-
-ses0gnoc:~# tc -s qdisc show dev eth0
-qdisc tbf 8004: root rate 1000Kbit burst 10000b lat 10.0ms
- Sent 754 bytes 5 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
-
-
-No ongoing taskforce to rewrite those manpages ? TC is a great tool, but
-documentation severely suck...
-
-
-
-On Tue, 16 Mar 2010 11:03:28 +0100, Julien Vehent <julien@linuxwall.info>
+On Mon, Mar 15, 2010 at 6:41 PM, Eric Dumazet <eric.dumazet@gmail.com> =
 wrote:
-> Thanks Roel,
-> 
-> I then found this wwebsite from your link http://www.adsl-optimizer.dk
-> 
-> I'm trying to find more information on how to use this... documentation
-is
-> really not easily accessible.
-> 
-> (currently reading latest iproute2 source code available)
-> 
-> On Tue, 16 Mar 2010 10:06:49 +0100, Roel van Meer <rolek@bokxing.nl>
-> wrote:
->> Julien Vehent writes:
->> 
->>> TC_TBF man page seem outdated (even in latest version of iproute2) and
->>> doesn't explain what those two parameters do:
->>> 
->>> # tc qdisc add tbf help
->>> Usage: ... tbf limit BYTES burst BYTES[/BYTES] rate KBPS [ mtu
->>> BYTES[/BYTES] ]
->>>         [ peakrate KBPS ] [ latency TIME ] [ overhead BYTES ] [
-> linklayer
->>> TYPE ]
->>> 
->>> 
->>>  - overhead ?
->>>  - linklayer ?
->>> 
->>> Or did I miss something ?
->> 
->> No, you're right. You might want to have a look at this page:
->> http://ace-host.stuart.id.au/russell/files/tc/tc-atm/
->> 
->> Regards,
->> 
->> roel
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Le lundi 15 mars 2010 =C3=A0 18:12 +0800, Am=C3=A9rico Wang a =C3=A9c=
+rit :
+>> On Mon, Mar 15, 2010 at 6:04 PM, Eric Dumazet <eric.dumazet@gmail.co=
+m> wrote:
+>> > Le lundi 15 mars 2010 =C3=A0 17:39 +0800, Am=C3=A9rico Wang a =C3=A9=
+crit :
+>> >
+>> >>
+>> >> Ok, I think I found what lockdep really complains about, it is th=
+at we took
+>> >> spin_lock in netpoll_poll_lock() which is in hardirq-enabled envi=
+ronment,
+>> >> later, we took another spin_lock with spin_lock_irqsave() in netp=
+oll_rx(),
+>> >> so lockdep thought we broke the locking rule.
+>> >>
+>> >> I don't know why netpoll_rx() needs irq disabled, it looks like t=
+hat no one
+>> >> takes rx_lock in hardirq context. So can we use spin_lock(&rx_loc=
+k)
+>> >> instead? Or am I missing something here? Eric? David?
+>> >
+>> > I am a bit lost.
+>> >
+>> > Could you give the complete picture, because I cannot find it in m=
+y
+>> > netdev archives.
+>> >
+>>
+>> Sure, sorry for this.
+>>
+>> Here is the whole thread:
+>>
+>> http://lkml.org/lkml/2010/3/11/100
+>
+> OK thanks
+>
+> netpoll_rx() can be called from hard irqs (netif_rx()), so rx_lock
+> definitly needs irq care.
+>
+> netpoll_poll_lock() does take a spinlock with irq enabled, but its no=
+t
+> rx_lock, its napi->poll_lock.
+
+Yeah, I knew, but besides rcu locks, these two locks are the only
+locks that can be taken in the call chain. I suspect lockdep got
+something wrong.
+
+>
+> I dont see what could be the problem, is it reproductible with vanill=
+a
+> kernel ?
+>
+
+No. I don't know why, my patch doesn't touch any function in the
+call chain.
+
+I already "fix" this in another way, so no need to worry this any more.
+
+Thanks for your help!
