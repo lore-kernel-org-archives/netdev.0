@@ -1,32 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bridge] [PATCH] bridge: per-cpu packet statistics (v3)
-Date: Tue, 16 Mar 2010 21:27:21 -0700 (PDT)
-Message-ID: <20100316.212721.40843802.davem@davemloft.net>
-References: <20100302095831.151c8bb5@nehalam>
-	<1267553173.2839.9.camel@edumazet-laptop>
-	<20100302153209.74742a96@nehalam>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] can: bfin_can: switch to common Blackfin can header
+Date: Tue, 16 Mar 2010 21:28:30 -0700 (PDT)
+Message-ID: <20100316.212830.50212878.davem@davemloft.net>
+References: <1268150589-27123-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36005
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752792Ab0CQE07 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 00:26:59 -0400
-In-Reply-To: <20100302153209.74742a96@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
+	oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org, urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org
+To: vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1268150589-27123-1-git-send-email-vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 2 Mar 2010 15:32:09 -0800
+From: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Date: Tue,  9 Mar 2010 11:03:09 -0500
 
-> The shared packet statistics are a potential source of slow down
-> on bridged traffic. Convert to per-cpu array, but only keep those
-> statistics which change per-packet.
+> The MMR bits are being moved to this header, so include it.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
 
-Applied.
+I can't actually apply this since this asm/bfin_can.h header
+doesn't even exist in the tree yet so this change will
+break the build.
+
+This doesn't make any sense at all, it's impossible to
+prevent breaking the build unless you add the asm/bfin_can.h
+header at the same time you do these changes.
+
+Why not submit those two things together as one commit
+instead?
+
+Thanks.
