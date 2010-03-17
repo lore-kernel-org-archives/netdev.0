@@ -1,137 +1,90 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] r8169: Fix rtl8169_rx_interrupt()
-Date: Wed, 17 Mar 2010 14:54:28 +0100
-Message-ID: <1268834068.2899.336.camel@edumazet-laptop>
-References: <1268686865.2824.4.camel@edumazet-laptop>
-	 <1268699602.2824.14.camel@edumazet-laptop>
-	 <20100316145914.GB3332@swordfish.minsk.epam.com>
-	 <1268751933.3094.45.camel@edumazet-laptop>
-	 <20100316151023.GC3332@swordfish.minsk.epam.com>
-	 <1268752826.3094.48.camel@edumazet-laptop>
-	 <20100316182619.GA3451@swordfish>
-	 <1268765284.2932.17.camel@edumazet-laptop>
-	 <20100317072539.GA3579@swordfish>
-	 <1268811437.2932.66.camel@edumazet-laptop>
-	 <20100317105856.GB3322@swordfish>
+Subject: Re: [PATCH v7] rps: Receive Packet Steering
+Date: Wed, 17 Mar 2010 15:09:17 +0100
+Message-ID: <1268834957.2899.352.camel@edumazet-laptop>
+References: <65634d661003121508m3d348973k63a6ae9ca1f12f9f@mail.gmail.com>
+	 <4B9FC7F1.5010507@google.com> <1268773227.2932.34.camel@edumazet-laptop>
+	 <20100316.141311.262178287.davem@davemloft.net>
+	 <412e6f7f1003161854w32ed4516w2e52003097051fc7@mail.gmail.com>
+	 <1268809673.2932.62.camel@edumazet-laptop>
+	 <412e6f7f1003170059r1f0fa4cfrbe8b3f22102ee9d9@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-To: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Cc: David Miller <davem@davemloft.net>, therbert@google.com,
+	netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f212.google.com ([209.85.218.212]:60445 "EHLO
+Received: from mail-bw0-f212.google.com ([209.85.218.212]:33568 "EHLO
 	mail-bw0-f212.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754103Ab0CQNyf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 09:54:35 -0400
-Received: by bwz4 with SMTP id 4so1046569bwz.39
-        for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 06:54:33 -0700 (PDT)
-In-Reply-To: <20100317105856.GB3322@swordfish>
+	with ESMTP id S1755013Ab0CQOJZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 10:09:25 -0400
+Received: by bwz4 with SMTP id 4so1065483bwz.39
+        for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 07:09:23 -0700 (PDT)
+In-Reply-To: <412e6f7f1003170059r1f0fa4cfrbe8b3f22102ee9d9@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 17 mars 2010 =C3=A0 12:58 +0200, Sergey Senozhatsky a =C3=A9=
-crit :
-> Hello,
+Le mercredi 17 mars 2010 =C3=A0 15:59 +0800, Changli Gao a =C3=A9crit :
+> On Wed, Mar 17, 2010 at 3:07 PM, Eric Dumazet <eric.dumazet@gmail.com=
+> wrote:
+> > Le mercredi 17 mars 2010 =C3=A0 09:54 +0800, Changli Gao a =C3=A9cr=
+it :
+> >> On Wed, Mar 17, 2010 at 5:13 AM, David Miller <davem@davemloft.net=
+> wrote:
+> >> >
+> >> > I'll integrate this as soon as I open up net-next-2.6
+> >>
+> >> It is really a good news. Now linux also can dispatch packets as
+> >> FreeBSD does via netisr. Can we walk farer, and support weighted
+> >> distribution?
+> >>
+> >
+> > May I ask why ? What would be the goal ?
+> >
 >=20
-> We did pktgen over LAN testing for several hours:
->=20
-> iftop
->                        19.1Mb                 38.1Mb                 =
- 57.2Mb                 76.3Mb            95.4Mb
-> =E2=94=94=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=B4=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=B4=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=B4=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=B4=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80
-> xxxxxxxx0007t2                               =3D> xxxxxxxxxxxxxx.xxxx=
-x.xxxx.xxx                    0b   3.60Kb  4.28Kb
->                                              <=3D                    =
-                           92.7Mb  92.7Mb  92.5Mb
->=20
-> =E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
-=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80
-> TX:             cumm:  2.50MB   peak:   57.7Kb                       =
-                rates:   7.71Kb  5.97Kb  10.7Kb
-> RX:                    28.0GB           92.9Mb                       =
-                         92.7Mb  92.8Mb  92.6Mb
-> TOTAL:                 28.0GB           92.9Mb                       =
-                         92.7Mb  92.8Mb  92.6M
->=20
-> Without any problems.
->=20
->=20
-> As soon as I switched back to localhost "pollution":
->=20
-> [ 7343.999279] ------------[ cut here ]------------
-> [ 7343.999292] WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0=
-xc1/0x125()
-> [ 7343.999295] Hardware name: F3JC               =20
-> [ 7343.999298] NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed =
-out
-> [ 7343.999301] Modules linked in: pktgen ppp_async crc_ccitt ipv6 ppp=
-_generic slhc snd_hwdep snd_hda_codec_si3054 snd_hda_codec_realtek sdhc=
-i_pci sdhci snd_hda_intel mmc_core
-> asus_laptop sparse_keymap snd_hda_codec led_class snd_pcm rng_core sg=
- psmouse snd_timer snd_page_alloc i2c_i801 evdev snd soundcore serio_ra=
-w r8169 mii usbhid hid uhci_hcd
-> ehci_hcd sr_mod cdrom sd_mod usbcore ata_piix
-> [ 7343.999361] Pid: 4801, comm: kpktgend_0 Tainted: G        W  2.6.3=
-4-rc1-dbg-git6-r8169 #47
-> [ 7343.999364] Call Trace:
-> [ 7343.999372]  [<c102e293>] warn_slowpath_common+0x65/0x7c
-> [ 7343.999378]  [<c126ac34>] ? dev_watchdog+0xc1/0x125
-> [ 7343.999383]  [<c102e2de>] warn_slowpath_fmt+0x24/0x27
-> [ 7343.999388]  [<c126ac34>] dev_watchdog+0xc1/0x125
-> [ 7343.999395]  [<c1036afb>] ? run_timer_softirq+0x120/0x1eb
-> [ 7343.999401]  [<c1036b51>] run_timer_softirq+0x176/0x1eb
-> [ 7343.999406]  [<c1036afb>] ? run_timer_softirq+0x120/0x1eb
-> [ 7343.999411]  [<c126ab73>] ? dev_watchdog+0x0/0x125
-> [ 7343.999417]  [<c1032d39>] __do_softirq+0x8d/0x117
-> [ 7343.999422]  [<c1032dee>] do_softirq+0x2b/0x43
-> [ 7343.999426]  [<c1032f13>] irq_exit+0x38/0x75
-> [ 7343.999433]  [<c1014e75>] smp_apic_timer_interrupt+0x66/0x74
-> [ 7343.999438]  [<c12c770a>] apic_timer_interrupt+0x36/0x3c
-> [ 7343.999447]  [<f80878df>] ? pktgen_thread_worker+0x5c4/0x631 [pktg=
-en]
-> [ 7343.999454]  [<c103f931>] ? autoremove_wake_function+0x0/0x2f
-> [ 7343.999459]  [<c103f931>] ? autoremove_wake_function+0x0/0x2f
-> [ 7343.999465]  [<f808731b>] ? pktgen_thread_worker+0x0/0x631 [pktgen=
-]
-> [ 7343.999470]  [<c103f60e>] kthread+0x6a/0x6f
-> [ 7343.999476]  [<c103f5a4>] ? kthread+0x0/0x6f
-> [ 7343.999481]  [<c1002e42>] kernel_thread_helper+0x6/0x1a
-> [ 7343.999485] ---[ end trace a22d306b065d4a68 ]---
-> [ 7344.012654] r8169 0000:02:00.0: eth0: link up
-> [ 7356.012657] r8169 0000:02:00.0: eth0: link up
-> [ 7368.013545] r8169 0000:02:00.0: eth0: link up
->=20
->=20
+> For example, I have a firewall with dual core CPU, and use core 0 for
+> IRQ and dispatching. If I use both core 0 and core 1 for the left
+> processing, core 0 will be overloaded, and if I use core 1 for the
+> left processing, core 0 will be light load. In order to take full of
+> advantage of hardware, I need weighted the packet distribution.
 
-What do you exactly mean by 'localhost pollution' ?
+I would not use RPS at all, weighted or not, unless your firewall must
+perform heavy duty work (l7 or complex rules)
+
+If the firewall setup is expensive, then IRQ processing has minor cost,
+and RPS fits the bill (cpu handling IRQ will be a bit more loaded than
+its buddy).
+
+RPS is a win when _some_ TCP/UDP processing occurs, and we try to do
+this processing on a cpu that will also run user space thread with data
+in cpu cache (if process scheduler does a good job)
+Not much applicable for routers...
+
+
+Anyway, current sysfs RPS interface exposes
+a /sys/class/net/eth0/queues/rx-0/rps_cpus bitmap,
+
+I guess we could expose another file,
+/sys/class/net/eth0/queues/rx-0/rps_map
+to give different weight to cpus :
+
+echo "0 1 0 1 0 1 1 1 1 1" >/sys/class/net/eth0/queues/rx-0/rps_map
+
+cpu0 would get 30% of the postprocessing load, cpu1 70%
+
+Using /sys/class/net/eth0/queues/rx-0/rps_cpus interface would give an
+equal weight to each cpu :
+
+
+# echo "0 1 0 1 0 1 1 1 1 1" >/sys/class/net/eth0/queues/rx-0/rps_map
+# cat /sys/class/net/eth0/queues/rx-0/rps_cpus
+3
+# cat /sys/class/net/eth0/queues/rx-0/rps_map
+0 1 0 1 0 1 1 1 1 1
+# echo 3 >/sys/class/net/eth0/queues/rx-0/rps_cpus
+# cat /sys/class/net/eth0/queues/rx-0/rps_map
+0 1
+
 
 
