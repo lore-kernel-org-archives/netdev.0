@@ -1,53 +1,220 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC] tun: add ioctl to modify vnet header size
-Date: Thu, 18 Mar 2010 00:11:17 +0200
-Message-ID: <20100317221117.GA7541@redhat.com>
-References: <20100317213504.GA7433@redhat.com> <OFB24B6EEE.B788B01F-ON882576E9.00789167-882576E9.0079198A@us.ibm.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: e1000e: Fix build with CONFIG_PM disabled.
+Date: Wed, 17 Mar 2010 23:39:15 +0100
+Message-ID: <201003172339.15494.rjw@sisk.pl>
+References: <20100316.234100.133957798.davem@davemloft.net> <EA929A9653AAE14F841771FB1DE5A1365FE4909419@rrsmsx501.amr.corp.intel.com> <20100317.111717.85209898.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	David Woodhouse <David.Woodhouse@intel.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, Paul Moore <paul.moore@hp.com>,
-	sri@linux.vnet.ibm.com
-To: David Stevens <dlstevens@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <OFB24B6EEE.B788B01F-ON882576E9.00789167-882576E9.0079198A@us.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: emil.s.tantilov@intel.com, netdev@vger.kernel.org,
+	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
+	jeffrey.t.kirsher@intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ogre.sisk.pl ([217.79.144.158]:47375 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756160Ab0CQWg1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Mar 2010 18:36:27 -0400
+In-Reply-To: <20100317.111717.85209898.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 17, 2010 at 03:02:44PM -0700, David Stevens wrote:
-> netdev-owner@vger.kernel.org wrote on 03/17/2010 02:35:04 PM:
+On Wednesday 17 March 2010, David Miller wrote:
+> From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+> Date: Wed, 17 Mar 2010 11:57:59 -0600
 > 
-> > On Wed, Mar 17, 2010 at 02:10:11PM -0700, David Stevens wrote:
-> > > Shouldn't we enforce a maximum too? Esp. if overflow/underflow
-> > > will break any of the checks when it's used.
-> > > 
-> > >                                 +-DLS
+> > But then the driver build fails again when CONFIG_PM_RUNTIME is not set.
 > > 
-> > So the maximum is MAX_INT :)
-> > I don't think it can break any checks that aren't
-> > already broken - what do you have in mind?
+> > drivers/net/e1000e/netdev.c: In function `e1000_runtime_resume`:
+> > drivers/net/e1000e/netdev.c:4807: error: `struct dev_pm_info` has no member named `runtime_auto`
 > 
->         I was thinking more like a page. At least, it'd be better
-> to fail when trying to set it large than failing allocations
-> later. As a header, it really ought to be small.
->         But if it works, or fails gracefully, at 2^31-1 on 32-bit
-> machines, negative values, etc, then it's ok. Just a suggestion.
-> 
->                                                         +-DLS
+> Ugh, can someone send me a fix for that?
 
-All this does is set how much of the buffer to skip, this option does
-not allocate any memory.  So if you set it to a value > length that you
-passed in, you get -EINVAL. Anything else should work.  Negative values
-are checked for and return -EINVAL when you try to set it.  At least,
-all that's by design - pls take a look at the code and if you see any
-issues, speak up please.
+Appended, on top of your patch.  It only moves the code around and adds
+#ifdefs.
 
-I agree we don't really need to support very large values here,
-it just seemed less work.
+Thanks,
+Rafael
 
--- 
-MST
+---
+From: Rafael J. Wysocki <rjw@sisk.pl>
+Subject: Net / e1000e: Fix build issue introduced by runtime PM patch
+
+The recent PCI runtime PM patch broke build for CONFIG_PM_RUNTIME
+and CONFIG_PM_SLEEP undefined.  Fix that by moving the PM callbacks
+under suitable #ifdefs.
+
+Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+---
+ drivers/net/e1000e/netdev.c |  116 +++++++++++++++++++++-----------------------
+ 1 file changed, 57 insertions(+), 59 deletions(-)
+
+Index: linux-2.6/drivers/net/e1000e/netdev.c
+===================================================================
+--- linux-2.6.orig/drivers/net/e1000e/netdev.c
++++ linux-2.6/drivers/net/e1000e/netdev.c
+@@ -4664,58 +4664,12 @@ static void e1000e_disable_l1aspm(struct
+ 	}
+ }
+ 
+-#ifdef CONFIG_PM
++#ifdef CONFIG_PM_OPS
+ static bool e1000e_pm_ready(struct e1000_adapter *adapter)
+ {
+ 	return !!adapter->tx_ring->buffer_info;
+ }
+ 
+-static int e1000_idle(struct device *dev)
+-{
+-	struct pci_dev *pdev = to_pci_dev(dev);
+-	struct net_device *netdev = pci_get_drvdata(pdev);
+-	struct e1000_adapter *adapter = netdev_priv(netdev);
+-
+-	if (!e1000e_pm_ready(adapter))
+-		return 0;
+-
+-	if (adapter->idle_check) {
+-		adapter->idle_check = false;
+-		if (!e1000e_has_link(adapter))
+-			pm_schedule_suspend(dev, MSEC_PER_SEC);
+-	}
+-
+-	return -EBUSY;
+-}
+-
+-static int e1000_suspend(struct device *dev)
+-{
+-	struct pci_dev *pdev = to_pci_dev(dev);
+-	int retval;
+-	bool wake;
+-
+-	retval = __e1000_shutdown(pdev, &wake, false);
+-	if (!retval)
+-		e1000_complete_shutdown(pdev, true, wake);
+-
+-	return retval;
+-}
+-
+-static int e1000_runtime_suspend(struct device *dev)
+-{
+-	struct pci_dev *pdev = to_pci_dev(dev);
+-	struct net_device *netdev = pci_get_drvdata(pdev);
+-	struct e1000_adapter *adapter = netdev_priv(netdev);
+-
+-	if (e1000e_pm_ready(adapter)) {
+-		bool wake;
+-
+-		__e1000_shutdown(pdev, &wake, true);
+-	}
+-
+-	return 0;
+-}
+-
+ static int __e1000_resume(struct pci_dev *pdev)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+@@ -4783,6 +4737,20 @@ static int __e1000_resume(struct pci_dev
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_PM_SLEEP
++static int e1000_suspend(struct device *dev)
++{
++	struct pci_dev *pdev = to_pci_dev(dev);
++	int retval;
++	bool wake;
++
++	retval = __e1000_shutdown(pdev, &wake, false);
++	if (!retval)
++		e1000_complete_shutdown(pdev, true, wake);
++
++	return retval;
++}
++
+ static int e1000_resume(struct device *dev)
+ {
+ 	struct pci_dev *pdev = to_pci_dev(dev);
+@@ -4794,6 +4762,41 @@ static int e1000_resume(struct device *d
+ 
+ 	return __e1000_resume(pdev);
+ }
++#endif /* CONFIG_PM_SLEEP */
++
++#ifdef CONFIG_PM_RUNTIME
++static int e1000_runtime_suspend(struct device *dev)
++{
++	struct pci_dev *pdev = to_pci_dev(dev);
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	struct e1000_adapter *adapter = netdev_priv(netdev);
++
++	if (e1000e_pm_ready(adapter)) {
++		bool wake;
++
++		__e1000_shutdown(pdev, &wake, true);
++	}
++
++	return 0;
++}
++
++static int e1000_idle(struct device *dev)
++{
++	struct pci_dev *pdev = to_pci_dev(dev);
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	struct e1000_adapter *adapter = netdev_priv(netdev);
++
++	if (!e1000e_pm_ready(adapter))
++		return 0;
++
++	if (adapter->idle_check) {
++		adapter->idle_check = false;
++		if (!e1000e_has_link(adapter))
++			pm_schedule_suspend(dev, MSEC_PER_SEC);
++	}
++
++	return -EBUSY;
++}
+ 
+ static int e1000_runtime_resume(struct device *dev)
+ {
+@@ -4807,7 +4810,8 @@ static int e1000_runtime_resume(struct d
+ 	adapter->idle_check = !dev->power.runtime_auto;
+ 	return __e1000_resume(pdev);
+ }
+-#endif
++#endif /* CONFIG_PM_RUNTIME */
++#endif /* CONFIG_PM_OPS */
+ 
+ static void e1000_shutdown(struct pci_dev *pdev)
+ {
+@@ -5475,17 +5479,11 @@ static DEFINE_PCI_DEVICE_TABLE(e1000_pci
+ };
+ MODULE_DEVICE_TABLE(pci, e1000_pci_tbl);
+ 
+-#ifdef CONFIG_PM
++#ifdef CONFIG_PM_OPS
+ static const struct dev_pm_ops e1000_pm_ops = {
+-	.suspend  = e1000_suspend,
+-	.resume   = e1000_resume,
+-	.freeze = e1000_suspend,
+-	.thaw = e1000_resume,
+-	.poweroff = e1000_suspend,
+-	.restore = e1000_resume,
+-	.runtime_suspend = e1000_runtime_suspend,
+-	.runtime_resume = e1000_runtime_resume,
+-	.runtime_idle = e1000_idle,
++	SET_SYSTEM_SLEEP_PM_OPS(e1000_suspend, e1000_resume)
++	SET_RUNTIME_PM_OPS(e1000_runtime_suspend,
++				e1000_runtime_resume, e1000_idle)
+ };
+ #endif
+ 
+@@ -5495,7 +5493,7 @@ static struct pci_driver e1000_driver = 
+ 	.id_table = e1000_pci_tbl,
+ 	.probe    = e1000_probe,
+ 	.remove   = __devexit_p(e1000_remove),
+-#ifdef CONFIG_PM
++#ifdef CONFIG_PM_OPS
+ 	.driver.pm = &e1000_pm_ops,
+ #endif
+ 	.shutdown = e1000_shutdown,
