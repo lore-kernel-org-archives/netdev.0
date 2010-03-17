@@ -1,69 +1,31 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: RE: [PATCH net-next-2.6 v6 08/12] net-caif: add CAIF socket
- implementation
-Date: Tue, 16 Mar 2010 23:03:01 -0700
-Message-ID: <1268805781.2700.46.camel@localhost.localdomain>
-References: <1267445559-1911-1-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267445559-1911-2-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267445559-1911-3-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267445559-1911-4-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267445559-1911-5-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267445559-1911-6-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267445559-1911-7-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267445559-1911-8-git-send-email-sjur.brandeland@stericsson.com>
-	 <1267445559-1911-9-git-send-email-sjur.brandeland@stericsson.com>
-	 <1268690031.2700.9.camel@localhost.localdomain>
-	 <61D8D34BB13CFE408D154529C120E079033D51A2@eseldmw101.eemea.ericsson.se>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch] netpoll: allow spaces in its parameter
+Date: Wed, 17 Mar 2010 14:07:57 +0800
+Message-ID: <4BA071BD.5040900@redhat.com>
+References: <20100317055707.5013.72217.sendpatchset@localhost.localdomain>	<20100316.225431.200776775.davem@davemloft.net>	<4BA07022.1040702@redhat.com> <20100316.225950.222623826.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Daniel Martensson <daniel.martensson@stericsson.com>,
-	kaber@trash.net, stefano.babic@babic.homelinux.org,
-	randy.dunlap@oracle.com
-To: Sjur =?ISO-8859-1?Q?Br=E6ndeland?=
-	<sjur.brandeland@stericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:40421 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752831Ab0CQGDH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 02:03:07 -0400
-In-Reply-To: <61D8D34BB13CFE408D154529C120E079033D51A2@eseldmw101.eemea.ericsson.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100316.225950.222623826.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Sjur,
-
-> >> +	 * The sock->type specifies the socket type to use. The CAIF
-> >> socket is +	 * a packet stream in the sence that it is packet based.
-> >> +	 * CAIF trusts the reliability of the link, no resending is
-> >> implemented. +	 */ +	if (sock->type != SOCK_SEQPACKET)
-> >> +		return -ESOCKTNOSUPPORT;
-> > 
-> > we came to an interesting detail here when testing with a STE modem.
-> > Why is this SEQPACKET and not a STREAM.
+David Miller wrote:
+> From: Cong Wang <amwang@redhat.com>
+> Date: Wed, 17 Mar 2010 14:01:06 +0800
 > 
-> The reason is that CAIF provides different services not just AT,
-> and some of them are really packet oriented such as Utility links and
-> Video. It would not be right to provide a stream based solution in this case.
+>> The problem is that the dst port is 0 when I even use:
+>>
+>> "netconsole=@192.168.0.1/eth0, 66666@192.168.0.2/"
+>>
+>> This is awful too? I don't think so...
 > 
-> > Especially with the AT
-> > command channels it is kinda weird that you have an MTU. The AT
-> > specification doesn't really have any defined behavior when using a
-> > sequential packet transport. It is more a stream based socket.
+> It's very simple, don't use spaces.  Is it so difficult
+> to follow this rule?
 > 
-> Yes I see your point. In order to limit the effort and simplify
-> caif_socket we ended up implementing only SEQPACKET. 
 
-I think we need to split this. Use SEQPACKET for packet based services
-and have STREAM for AT command channel.
-
-So while this might cause internally some more code. It would take away
-the complexity from userspace to turn it into a stream. And that is what
-the userspace is expecting.
-
-Regards
-
-Marcel
-
-
+No, but silently accepting it as 0 is not correct, why don't
+reject it if it is not allowed?
