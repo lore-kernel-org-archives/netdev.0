@@ -1,79 +1,146 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v7] rps: Receive Packet Steering
-Date: Wed, 17 Mar 2010 16:34:44 +0100
-Message-ID: <1268840084.2899.363.camel@edumazet-laptop>
-References: <65634d661003121508m3d348973k63a6ae9ca1f12f9f@mail.gmail.com>
-	 <4B9FC7F1.5010507@google.com> <1268773227.2932.34.camel@edumazet-laptop>
-	 <20100316.141311.262178287.davem@davemloft.net>
-	 <412e6f7f1003161854w32ed4516w2e52003097051fc7@mail.gmail.com>
-	 <1268809673.2932.62.camel@edumazet-laptop>
-	 <412e6f7f1003170059r1f0fa4cfrbe8b3f22102ee9d9@mail.gmail.com>
-	 <1268834957.2899.352.camel@edumazet-laptop>
-	 <65634d661003170801x1042a6am563c9d937ba672a4@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH RFC] tun: add ioctl to modify vnet header size
+Date: Wed, 17 Mar 2010 17:45:02 +0200
+Message-ID: <20100317154501.GA5244@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f212.google.com ([209.85.218.212]:48234 "EHLO
-	mail-bw0-f212.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751942Ab0CQPeu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 11:34:50 -0400
-Received: by bwz4 with SMTP id 4so1179168bwz.39
-        for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 08:34:48 -0700 (PDT)
-In-Reply-To: <65634d661003170801x1042a6am563c9d937ba672a4@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Paul Moore <paul.moore@hp.com>,
+	David Woodhouse <David.Woodhouse@intel.com>,
+	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Stevens <dlstevens@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 17 mars 2010 =C3=A0 08:01 -0700, Tom Herbert a =C3=A9crit :
-> On Wed, Mar 17, 2010 at 7:09 AM, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
+virtio added mergeable buffers mode where 2 bytes of extra info is put
+after vnet header but before actual data (tun does not need this data).
+In hindsight, it would have been better to add the new info *before* the
+packet: as it is, users need a lot of tricky code to skip the extra 2
+bytes in the middle of the iovec, and in fact applications seem to get
+it wrong, and only work with specific iovec layout.  The fact we might
+need to split iovec also means we might in theory overflow iovec max
+size.
 
-> > Anyway, current sysfs RPS interface exposes
-> > a /sys/class/net/eth0/queues/rx-0/rps_cpus bitmap,
-> >
-> > I guess we could expose another file,
-> > /sys/class/net/eth0/queues/rx-0/rps_map
-> > to give different weight to cpus :
-> >
-> > echo "0 1 0 1 0 1 1 1 1 1" >/sys/class/net/eth0/queues/rx-0/rps_map
-> >
-> > cpu0 would get 30% of the postprocessing load, cpu1 70%
-> >
-> > Using /sys/class/net/eth0/queues/rx-0/rps_cpus interface would give=
- an
-> > equal weight to each cpu :
-> >
-> >
-> > # echo "0 1 0 1 0 1 1 1 1 1" >/sys/class/net/eth0/queues/rx-0/rps_m=
-ap
-> > # cat /sys/class/net/eth0/queues/rx-0/rps_cpus
-> > 3
-> > # cat /sys/class/net/eth0/queues/rx-0/rps_map
-> > 0 1 0 1 0 1 1 1 1 1
-> > # echo 3 >/sys/class/net/eth0/queues/rx-0/rps_cpus
-> > # cat /sys/class/net/eth0/queues/rx-0/rps_map
-> > 0 1
->=20
-> Alternatively, the rps_map could be specified explicitly, which will
-> allow weighting.  For example "0 0 0 0 2 10 10 10"  would select CPUs
-> 0, 2, 10 for the map with weights four, one, and three respectively.
-> This would go back to have sysfs files with multiple values in them,
-> so it might not be the right interface.
->=20
+This patch adds a simpler way for applications to handle this,
+and future proofs the interface against further extensions,
+by making the size of the virtio net header configurable
+from userspace. As a result, tun driver will simply
+skip the extra 2 bytes on both input and output.
 
-Well, you describe same idea... being able to do
-echo "0 1 0 1 0 1 1 1 1 1" >rps_map
-or
-echo "0 0 0 1 1 1 1 1 1 1" >rps_map
-or
-echo "0 1 1 0 1 1 0 1 1 1" >rps_map
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/net/tun.c      |   31 +++++++++++++++++++++++++++----
+ include/linux/if_tun.h |    2 ++
+ 2 files changed, 29 insertions(+), 4 deletions(-)
 
-(filling the real map[] with given cpu numbers)
-
-I was interleaving my cpus because I found it cool :)
-
-
-
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index ce1efa4..0b11222 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -110,6 +110,8 @@ struct tun_struct {
+ 	struct tap_filter       txflt;
+ 	struct socket		socket;
+ 
++	int			vnet_hdr_sz;
++
+ #ifdef TUN_DEBUG
+ 	int debug;
+ #endif
+@@ -559,7 +561,7 @@ static __inline__ ssize_t tun_get_user(struct tun_struct *tun,
+ 	}
+ 
+ 	if (tun->flags & TUN_VNET_HDR) {
+-		if ((len -= sizeof(gso)) > count)
++		if ((len -= tun->vnet_hdr_sz) > count)
+ 			return -EINVAL;
+ 
+ 		if (memcpy_fromiovecend((void *)&gso, iv, offset, sizeof(gso)))
+@@ -571,7 +573,7 @@ static __inline__ ssize_t tun_get_user(struct tun_struct *tun,
+ 
+ 		if (gso.hdr_len > len)
+ 			return -EINVAL;
+-		offset += sizeof(gso);
++		offset += tun->vnet_hdr_sz;
+ 	}
+ 
+ 	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV) {
+@@ -714,7 +716,7 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
+ 
+ 	if (tun->flags & TUN_VNET_HDR) {
+ 		struct virtio_net_hdr gso = { 0 }; /* no info leak */
+-		if ((len -= sizeof(gso)) < 0)
++		if ((len -= tun->vnet_hdr_sz) < 0)
+ 			return -EINVAL;
+ 
+ 		if (skb_is_gso(skb)) {
+@@ -745,7 +747,7 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
+ 		if (unlikely(memcpy_toiovecend(iv, (void *)&gso, total,
+ 					       sizeof(gso))))
+ 			return -EFAULT;
+-		total += sizeof(gso);
++		total += tun->vnet_hdr_sz;
+ 	}
+ 
+ 	len = min_t(int, skb->len, len);
+@@ -1029,6 +1031,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 		tun->dev = dev;
+ 		tun->flags = flags;
+ 		tun->txflt.count = 0;
++		tun->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
+ 
+ 		err = -ENOMEM;
+ 		sk = sk_alloc(net, AF_UNSPEC, GFP_KERNEL, &tun_proto);
+@@ -1170,6 +1173,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+ 	struct sock_fprog fprog;
+ 	struct ifreq ifr;
+ 	int sndbuf;
++	int vnet_hdr_sz;
+ 	int ret;
+ 
+ 	if (cmd == TUNSETIFF || _IOC_TYPE(cmd) == 0x89)
+@@ -1315,6 +1319,25 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+ 		tun->socket.sk->sk_sndbuf = sndbuf;
+ 		break;
+ 
++	case TUNGETVNETHDRSZ:
++		vnet_hdr_sz = tun->vnet_hdr_sz;
++		if (copy_to_user(argp, &vnet_hdr_sz, sizeof(vnet_hdr_sz)))
++			ret = -EFAULT;
++		break;
++
++	case TUNSETVNETHDRSZ:
++		if (copy_from_user(&vnet_hdr_sz, argp, sizeof(vnet_hdr_sz))) {
++			ret = -EFAULT;
++			break;
++		}
++		if (vnet_hdr_sz < (int)sizeof(struct virtio_net_hdr)) {
++			ret = -EINVAL;
++			break;
++		}
++
++		tun->vnet_hdr_sz = vnet_hdr_sz;
++		break;
++
+ 	case TUNATTACHFILTER:
+ 		/* Can be set only for TAPs */
+ 		ret = -EINVAL;
+diff --git a/include/linux/if_tun.h b/include/linux/if_tun.h
+index 1350a24..06b1829 100644
+--- a/include/linux/if_tun.h
++++ b/include/linux/if_tun.h
+@@ -51,6 +51,8 @@
+ #define TUNSETSNDBUF   _IOW('T', 212, int)
+ #define TUNATTACHFILTER _IOW('T', 213, struct sock_fprog)
+ #define TUNDETACHFILTER _IOW('T', 214, struct sock_fprog)
++#define TUNGETVNETHDRSZ _IOR('T', 215, int)
++#define TUNSETVNETHDRSZ _IOW('T', 216, int)
+ 
+ /* TUNSETIFF ifr flags */
+ #define IFF_TUN		0x0001
+-- 
+1.7.0.18.g0d53a5
