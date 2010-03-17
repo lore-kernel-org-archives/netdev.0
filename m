@@ -1,84 +1,94 @@
 From: Yegor Yefremov <yegorslists@googlemail.com>
 Subject: Re: [PATCH 1/1] KS8695: update ksp->next_rx_desc_read at the end of
 	rx loop
-Date: Wed, 17 Mar 2010 10:39:30 +0100
-Message-ID: <f69abfc31003170239k2d64aa8bgbe3f3ae59a074a05@mail.gmail.com>
+Date: Wed, 17 Mar 2010 10:40:10 +0100
+Message-ID: <f69abfc31003170240u717283egf2c66adfaaa9aca7@mail.gmail.com>
 References: <f69abfc31003160842r59c25bbdl2029d3f20e668e53@mail.gmail.com>
 	 <1268754720.3094.55.camel@edumazet-laptop>
+	 <f69abfc31003170239k2d64aa8bgbe3f3ae59a074a05@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
 Cc: netdev <netdev@vger.kernel.org>, davem@davemloft.net
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f220.google.com ([209.85.219.220]:55221 "EHLO
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:43940 "EHLO
 	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753835Ab0CQJjc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 05:39:32 -0400
-Received: by ewy20 with SMTP id 20so308556ewy.1
-        for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 02:39:30 -0700 (PDT)
-In-Reply-To: <1268754720.3094.55.camel@edumazet-laptop>
+	with ESMTP id S1753860Ab0CQJkM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 05:40:12 -0400
+Received: by ewy20 with SMTP id 20so308737ewy.1
+        for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 02:40:10 -0700 (PDT)
+In-Reply-To: <f69abfc31003170239k2d64aa8bgbe3f3ae59a074a05@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCBNYXIgMTYsIDIwMTAgYXQgNDo1MiBQTSwgRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6
-ZXRAZ21haWwuY29tPiB3cm90ZToKPiBMZSBtYXJkaSAxNiBtYXJzIDIwMTAgw6AgMTY6NDIgKzAx
-MDAsIFllZ29yIFllZnJlbW92IGEgw6ljcml0IDoKPj4gS1M4Njk1OiB1cGRhdGUga3NwLT5uZXh0
-X3J4X2Rlc2NfcmVhZCBhdCB0aGUgZW5kIG9mIHJ4IGxvb3AKPj4KPj4gVGhlcmUgaXMgbm8gbmVl
-ZCB0byBhZGp1c3QgdGhlIG5leHQgcnggZGVzY3JpcHRvciBhZnRlciBlYWNoIHBhY2tldCwKPj4g
-c28gZG8gaXQgb25seSBvbmNlIGF0IHRoZSBlbmQgb2YgdGhlIHJvdXRpbmUuCj4+Cj4+IFNpZ25l
-ZC1vZmYtYnk6IFllZ29yIFllZnJlbW92IDx5ZWdvcnNsaXN0c0Bnb29nbGVtYWlsLmNvbT4KPj4K
-Pj4gSW5kZXg6IGxpbnV4LTIuNi4zNC1yYzEvZHJpdmVycy9uZXQvYXJtL2tzODY5NW5ldC5jCj4+
-ID09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT0KPj4gLS0tIGxpbnV4LTIuNi4zNC1yYzEub3JpZy9kcml2ZXJzL25ldC9hcm0v
-a3M4Njk1bmV0LmMKPj4gKysrIGxpbnV4LTIuNi4zNC1yYzEvZHJpdmVycy9uZXQvYXJtL2tzODY5
-NW5ldC5jCj4+IEBAIC01MzgsMTIgKzUzOCwxMyBAQCByeF9maW5pc2hlZDoKPj4gwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAqLwo+PiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCBsYXN0X3J4X3Byb2Nlc3NlZCA9IGJ1ZmZfbjsKPj4gwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgYnVmZl9uID0gKGJ1ZmZfbiArIDEpICYgTUFYX1JYX0RFU0NfTUFTSzsK
-Pj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCAvKkFuZCBub3RlIHdoaWNoIFJYIGRl
-c2NyaXB0b3Igd2UgbGFzdCBkaWQgKi8KPj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCBpZiAobGlrZWx5KGxhc3RfcnhfcHJvY2Vzc2VkICE9IC0xKSkKPj4gLSDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBrc3AtPm5leHRfcnhfZGVzY19yZWFkID0KPj4g
-LSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCAo
-bGFzdF9yeF9wcm9jZXNzZWQgKyAxKSAmCj4+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgTUFYX1JYX0RFU0NfTUFTSzsKPj4gwqAgwqAgwqAg
-fQo+PiArCj4+ICsgwqAgwqAgLypBbmQgbm90ZSB3aGljaCBSWCBkZXNjcmlwdG9yIHdlIGxhc3Qg
-ZGlkICovCj4+ICsgwqAgwqAgaWYgKGxpa2VseShsYXN0X3J4X3Byb2Nlc3NlZCAhPSAtMSkpCj4+
-ICsgwqAgwqAgwqAgwqAgwqAgwqAga3NwLT5uZXh0X3J4X2Rlc2NfcmVhZCA9Cj4+ICsgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgKGxhc3RfcnhfcHJvY2Vzc2VkICsgMSkgJiBNQVhfUlhf
-REVTQ19NQVNLOwo+PiArCj4KPiBWZXJ5IHN0cmFuZ2UgdG8gc2VlIGFsbCB0aGVzZSBjb21wdXRh
-dGlvbnMuLi4KPgo+IEF0IHRoaXMgcG9pbnQsIHdoeSBub3QgdXNlCj4KPiBpZiAobGlrZWx5KGxh
-c3RfcnhfcHJvY2Vzc2VkICE9IC0xKSkKPiDCoCDCoCDCoCDCoGtzcC0+bmV4dF9yeF9kZXNjX3Jl
-YWQgPSBidWZmX247Cj4KPiBvciBldmVuIGdldCByaWQgb2YgbGFzdF9yeF9wcm9jZXNzZWQgY29t
-cGxldGVseSBhbmQgZG8gOgo+Cj4KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvYXJtL2tzODY5
-NW5ldC5jIGIvZHJpdmVycy9uZXQvYXJtL2tzODY5NW5ldC5jCj4gaW5kZXggYTFkNDE4OC4uYWM2
-YWIwNCAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL25ldC9hcm0va3M4Njk1bmV0LmMKPiArKysgYi9k
-cml2ZXJzL25ldC9hcm0va3M4Njk1bmV0LmMKPiBAQCAtNDYxLDcgKzQ2MSw2IEBAIHN0YXRpYyBp
-bnQga3M4Njk1X3J4KHN0cnVjdCBrczg2OTVfcHJpdiAqa3NwLCBpbnQgYnVkZ2V0KQo+IMKgIMKg
-IMKgIMKgaW50IGJ1ZmZfbjsKPiDCoCDCoCDCoCDCoHUzMiBmbGFnczsKPiDCoCDCoCDCoCDCoGlu
-dCBwa3RsZW47Cj4gLSDCoCDCoCDCoCBpbnQgbGFzdF9yeF9wcm9jZXNzZWQgPSAtMTsKPiDCoCDC
-oCDCoCDCoGludCByZWNlaXZlZCA9IDA7Cj4KPiDCoCDCoCDCoCDCoGJ1ZmZfbiA9IGtzcC0+bmV4
-dF9yeF9kZXNjX3JlYWQ7Cj4gQEAgLTUzMywxNyArNTMyLDkgQEAgcnhfZmFpbHVyZToKPiDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGtzcC0+cnhfcmluZ1tidWZmX25dLnN0YXR1
-cyA9IGNwdV90b19sZTMyKFJERVNfT1dOKTsKPiDCoHJ4X2ZpbmlzaGVkOgo+IMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgcmVjZWl2ZWQrKzsKPiAtIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIC8qIEFuZCBub3RlIHRoaXMgYXMgcHJvY2Vzc2VkIHNvIHdlIGNhbiBz
-dGFydAo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAqIGZyb20gaGVyZSBu
-ZXh0IHRpbWUKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgKi8KPiAtIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGxhc3RfcnhfcHJvY2Vzc2VkID0gYnVmZl9u
-Owo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgYnVmZl9uID0gKGJ1ZmZfbiAr
-IDEpICYgTUFYX1JYX0RFU0NfTUFTSzsKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIC8qQW5kIG5vdGUgd2hpY2ggUlggZGVzY3JpcHRvciB3ZSBsYXN0IGRpZCAqLwo+IC0gwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgaWYgKGxpa2VseShsYXN0X3J4X3Byb2Nlc3Nl
-ZCAhPSAtMSkpCj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCBrc3AtPm5leHRfcnhfZGVzY19yZWFkID0KPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIChsYXN0X3J4X3Byb2Nlc3NlZCArIDEpICYK
-PiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIE1BWF9SWF9ERVNDX01BU0s7Cj4gwqAgwqAgwqAgwqB9Cj4gKyDCoCDCoCDCoCBrc3AtPm5l
-eHRfcnhfZGVzY19yZWFkID0gYnVmZl9uOwo+IMKgIMKgIMKgIMKgLyogQW5kIHJlZmlsbCB0aGUg
-YnVmZmVycyAqLwo+IMKgIMKgIMKgIMKga3M4Njk1X3JlZmlsbF9yeGJ1ZmZlcnMoa3NwKTsKClRo
-YW5rIHlvdSBmb3IgcmV2aWV3aW5nLiBHcmVhdCBpZGVhLiBUaGlzIHNpbXBsaWZpZXMgdGhlIGRy
-aXZlciBhCmxpdHRsZS4gSSB0ZXN0ZWQgeW91ciBwYXRjaCBhbmQgZXZlcnl0aGluZyBpcyB3b3Jr
-aW5nIGFzIGJlZm9yZS4gSQphbHNvIGFkZGVkIHlvdXIgc2lnbmVkLW9mZi1ieSBhbmQgbWFkZSBz
-b21lIGJlYXRpZmljYXRpb25zLgoKWWVnb3IK
+KS8695: update ksp->next_rx_desc_read at the end of rx loop
+
+There is no need to adjust the next rx descriptor after each packet,
+so do it only once at the end of the routine.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
+
+Index: linux-2.6.34-rc1/drivers/net/arm/ks8695net.c
+===================================================================
+--- linux-2.6.34-rc1.orig/drivers/net/arm/ks8695net.c
++++ linux-2.6.34-rc1/drivers/net/arm/ks8695net.c
+@@ -449,11 +449,10 @@ ks8695_rx_irq(int irq, void *dev_id)
+ }
+
+ /**
+- *	ks8695_rx - Receive packets  called by NAPI poll method
++ *	ks8695_rx - Receive packets called by NAPI poll method
+  *	@ksp: Private data for the KS8695 Ethernet
+- *	@budget: The max packets would be receive
++ *	@budget: Number of packets allowed to process
+  */
+-
+ static int ks8695_rx(struct ks8695_priv *ksp, int budget)
+ {
+ 	struct net_device *ndev = ksp->ndev;
+@@ -461,7 +460,6 @@ static int ks8695_rx(struct ks8695_priv
+ 	int buff_n;
+ 	u32 flags;
+ 	int pktlen;
+-	int last_rx_processed = -1;
+ 	int received = 0;
+
+ 	buff_n = ksp->next_rx_desc_read;
+@@ -471,6 +469,7 @@ static int ks8695_rx(struct ks8695_priv
+ 					cpu_to_le32(RDES_OWN)))) {
+ 			rmb();
+ 			flags = le32_to_cpu(ksp->rx_ring[buff_n].status);
++
+ 			/* Found an SKB which we own, this means we
+ 			 * received a packet
+ 			 */
+@@ -533,23 +532,18 @@ rx_failure:
+ 			ksp->rx_ring[buff_n].status = cpu_to_le32(RDES_OWN);
+ rx_finished:
+ 			received++;
+-			/* And note this as processed so we can start
+-			 * from here next time
+-			 */
+-			last_rx_processed = buff_n;
+ 			buff_n = (buff_n + 1) & MAX_RX_DESC_MASK;
+-			/*And note which RX descriptor we last did */
+-			if (likely(last_rx_processed != -1))
+-				ksp->next_rx_desc_read =
+-					(last_rx_processed + 1) &
+-					MAX_RX_DESC_MASK;
+ 	}
++
++	/* And note which RX descriptor we last did */
++	ksp->next_rx_desc_read = buff_n;
++
+ 	/* And refill the buffers */
+ 	ks8695_refill_rxbuffers(ksp);
+
+-	/* Kick the RX DMA engine, in case it became
+-	 *  suspended */
++	/* Kick the RX DMA engine, in case it became suspended */
+ 	ks8695_writereg(ksp, KS8695_DRSC, 0);
++
+ 	return received;
+ }
