@@ -1,53 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: e1000e: Fix build with CONFIG_PM disabled.
-Date: Tue, 16 Mar 2010 23:41:00 -0700 (PDT)
-Message-ID: <20100316.234100.133957798.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v7] rps: Receive Packet Steering
+Date: Wed, 17 Mar 2010 08:07:53 +0100
+Message-ID: <1268809673.2932.62.camel@edumazet-laptop>
+References: <65634d661003121508m3d348973k63a6ae9ca1f12f9f@mail.gmail.com>
+	 <4B9FC7F1.5010507@google.com> <1268773227.2932.34.camel@edumazet-laptop>
+	 <20100316.141311.262178287.davem@davemloft.net>
+	 <412e6f7f1003161854w32ed4516w2e52003097051fc7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: rjw@sisk.pl
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, therbert@google.com,
+	netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58590
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753264Ab0CQGki (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 02:40:38 -0400
+Received: from mail-bw0-f211.google.com ([209.85.218.211]:54300 "EHLO
+	mail-bw0-f211.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752658Ab0CQHH7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 03:07:59 -0400
+Received: by bwz3 with SMTP id 3so844785bwz.29
+        for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 00:07:57 -0700 (PDT)
+In-Reply-To: <412e6f7f1003161854w32ed4516w2e52003097051fc7@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le mercredi 17 mars 2010 =C3=A0 09:54 +0800, Changli Gao a =C3=A9crit :
+> On Wed, Mar 17, 2010 at 5:13 AM, David Miller <davem@davemloft.net> w=
+rote:
+> >
+> > I'll integrate this as soon as I open up net-next-2.6
+>=20
+> It is really a good news. Now linux also can dispatch packets as
+> FreeBSD does via netisr. Can we walk farer, and support weighted
+> distribution?
+>=20
 
-I had to add the following patch to fix the build after
-your changes.
+May I ask why ? What would be the goal ?
 
-Thanks.
+If you perform too much work behalf the first cpu (the one actually
+dealing with the device and dispatching packets to other cpus), you ris=
+k
+bringing into its cache whole packet and consuming too many cpu cycles.
 
-e1000e: Fix build with CONFIG_PM disabled.
+=46or instance, I would prefer a basic spreading, and try to reorganise
+sk_buffs to that this cpu touches only one cache line in sk_buff, and
+read one cache line in packet data to compute rxhash.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/e1000e/netdev.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+Then some NIC could compute rxhash themselves and provide it in their
+rx_desc. Of course multiqueue support is much better and current
+hardware prefer to implement the real thing.
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 79b33c5..b96532a 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -5475,6 +5475,7 @@ static DEFINE_PCI_DEVICE_TABLE(e1000_pci_tbl) = {
- };
- MODULE_DEVICE_TABLE(pci, e1000_pci_tbl);
- 
-+#ifdef CONFIG_PM
- static const struct dev_pm_ops e1000_pm_ops = {
- 	.suspend  = e1000_suspend,
- 	.resume   = e1000_resume,
-@@ -5486,6 +5487,7 @@ static const struct dev_pm_ops e1000_pm_ops = {
- 	.runtime_resume = e1000_runtime_resume,
- 	.runtime_idle = e1000_idle,
- };
-+#endif
- 
- /* PCI Device API Driver */
- static struct pci_driver e1000_driver = {
--- 
-1.6.6.1
+
 
