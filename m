@@ -1,440 +1,208 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v1 2/3] Provides multiple submits and asynchronous
-	notifications.
-Date: Wed, 17 Mar 2010 12:27:10 +0200
-Message-ID: <20100317102710.GB9782@redhat.com>
-References: <20100315092301.GC14999@redhat.com> <1268731937-5070-1-git-send-email-xiaohui.xin@intel.com> <20100316113316.GA7137@redhat.com> <97F6D3BD476C464182C1B7BABF0B0AF5C16AB126@shzsmsx502.ccr.corp.intel.com>
+From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Subject: Re: [PATCH] r8169: Fix rtl8169_rx_interrupt()
+Date: Wed, 17 Mar 2010 12:58:56 +0200
+Message-ID: <20100317105856.GB3322@swordfish>
+References: <1268686865.2824.4.camel@edumazet-laptop>
+ <1268699602.2824.14.camel@edumazet-laptop>
+ <20100316145914.GB3332@swordfish.minsk.epam.com>
+ <1268751933.3094.45.camel@edumazet-laptop>
+ <20100316151023.GC3332@swordfish.minsk.epam.com>
+ <1268752826.3094.48.camel@edumazet-laptop>
+ <20100316182619.GA3451@swordfish>
+ <1268765284.2932.17.camel@edumazet-laptop>
+ <20100317072539.GA3579@swordfish>
+ <1268811437.2932.66.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mingo@elte.hu" <mingo@elte.hu>,
-	"jdike@addtoit.com" <jdike@addtoit.com>
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="GID0FwUMdk1T2AWN"
+Cc: Oleg Nesterov <oleg@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f201.google.com ([209.85.211.201]:39337 "EHLO
+	mail-yw0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754116Ab0CQK6J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 06:58:09 -0400
+Received: by ywh39 with SMTP id 39so352104ywh.21
+        for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 03:58:08 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <97F6D3BD476C464182C1B7BABF0B0AF5C16AB126@shzsmsx502.ccr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Wed, Mar 17, 2010 at 05:48:10PM +0800, Xin, Xiaohui wrote:
-> >> Michael,
-> >> I don't use the kiocb comes from the sendmsg/recvmsg,
-> > >since I have embeded the kiocb in page_info structure,
-> > >and allocate it when page_info allocated.
-> 
-> >So what I suggested was that vhost allocates and tracks the iocbs, and
-> >passes them to your device with sendmsg/ recvmsg calls. This way your
-> >device won't need to share structures and locking strategy with vhost:
-> >you get an iocb, handle it, invoke a callback to notify vhost about
-> >completion.
-> 
-> >This also gets rid of the 'receiver' callback
-> 
-> I'm not sure receiver callback can be removed here:
-> The patch describes a work flow like this:
-> netif_receive_skb() gets the packet, it does nothing but just queue the skb
-> and wakeup the handle_rx() of vhost. handle_rx() then calls the receiver callback
-> to deal with skb and and get the necessary notify info into a list, vhost owns the 
-> list and in the same handle_rx() context use it to complete.
-> 
-> We use "receiver" callback here is because only handle_rx() is waked up from
-> netif_receive_skb(), and we need mp device context to deal with the skb and
-> notify info attached to it. We also have some lock in the callback function.
-> 
-> If I remove the receiver callback, I can only deal with the skb and notify
-> info in netif_receive_skb(), but this function is in an interrupt context,
-> which I think lock is not allowed there. But I cannot remove the lock there.
-> 
-
-The basic idea is that vhost passes iocb to recvmsg and backend
-completes the iocb to signal that data is ready. That completion could
-be in interrupt context and so we need to switch to workqueue to handle
-the event, it is true, but the code to do this would live in vhost.c or
-net.c.
-
-With this structure your device won't depend on
-vhost, and can go under drivers/net/, opening up possibility
-to use it for zero copy without vhost in the future.
+In-Reply-To: <1268811437.2932.66.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+--GID0FwUMdk1T2AWN
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> >> Please have a review and thanks for the instruction
-> >> for replying email which helps me a lot.
-> >> 
-> > >Thanks,
-> > >Xiaohui
-> > >
-> > > drivers/vhost/net.c   |  159 +++++++++++++++++++++++++++++++++++++++++++++++--
-> >>  drivers/vhost/vhost.h |   12 ++++
-> >>  2 files changed, 166 insertions(+), 5 deletions(-)
-> >> 
-> >> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> > >index 22d5fef..5483848 100644
-> > >--- a/drivers/vhost/net.c
-> > >+++ b/drivers/vhost/net.c
-> > >@@ -17,11 +17,13 @@
-> > > #include <linux/workqueue.h>
-> > > #include <linux/rcupdate.h>
-> > > #include <linux/file.h>
-> > >+#include <linux/aio.h>
-> > > 
-> > > #include <linux/net.h>
-> > > #include <linux/if_packet.h>
-> > > #include <linux/if_arp.h>
-> > > #include <linux/if_tun.h>
-> > >+#include <linux/mpassthru.h>
-> > > 
-> > > #include <net/sock.h>
-> > > 
-> > >@@ -91,6 +93,12 @@ static void tx_poll_start(struct vhost_net *net, struct socket *sock)
-> > > 	net->tx_poll_state = VHOST_NET_POLL_STARTED;
-> > > }
-> > > 
-> > >+static void handle_async_rx_events_notify(struct vhost_net *net,
-> > >+					struct vhost_virtqueue *vq);
-> > >+
-> > >+static void handle_async_tx_events_notify(struct vhost_net *net,
-> > >+					struct vhost_virtqueue *vq);
-> > >+
-> 
-> >A couple of style comments:
-> >
-> >- It's better to arrange functions in such order that forward declarations
-> >aren't necessary.  Since we don't have recursion, this should always be
-> >possible.
-> 
-> >- continuation lines should be idented at least at the position of '('
-> >on the previous line.
-> 
-> Thanks. I'd correct that.
-> 
-> >>  /* Expects to be always run from workqueue - which acts as
-> >>   * read-size critical section for our kind of RCU. */
-> >>  static void handle_tx(struct vhost_net *net)
-> >> @@ -124,6 +132,8 @@ static void handle_tx(struct vhost_net *net)
-> >>  		tx_poll_stop(net);
-> >>  	hdr_size = vq->hdr_size;
-> >>  
-> >> +	handle_async_tx_events_notify(net, vq);
-> > >+
-> >>  	for (;;) {
-> >>  		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
-> >>  					 ARRAY_SIZE(vq->iov),
-> > >@@ -151,6 +161,12 @@ static void handle_tx(struct vhost_net *net)
-> >>  		/* Skip header. TODO: support TSO. */
-> >>  		s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, out);
-> >>  		msg.msg_iovlen = out;
-> > >+
-> > >+		if (vq->link_state == VHOST_VQ_LINK_ASYNC) {
-> > >+			vq->head = head;
-> > >+			msg.msg_control = (void *)vq;
-> 
-> >So here a device gets a pointer to vhost_virtqueue structure. If it gets
-> >an iocb and invokes a callback, it would not care about vhost internals.
-> 
-> >> +		}
-> >> +
-> >> 		len = iov_length(vq->iov, out);
-> >>  		/* Sanity check */
-> >>  		if (!len) {
-> >> @@ -166,6 +182,10 @@ static void handle_tx(struct vhost_net *net)
-> >>  			tx_poll_start(net, sock);
-> >>  			break;
-> >>  		}
-> >> +
-> >> +		if (vq->link_state == VHOST_VQ_LINK_ASYNC)
-> >> +			continue;
-> >>+
-> >>  		if (err != len)
-> >>  			pr_err("Truncated TX packet: "
-> >>  			       " len %d != %zd\n", err, len);
-> >> @@ -177,6 +197,8 @@ static void handle_tx(struct vhost_net *net)
-> >>  		}
-> >>  	}
-> >>  
-> >> +	handle_async_tx_events_notify(net, vq);
-> >> +
-> >>  	mutex_unlock(&vq->mutex);
-> >>  	unuse_mm(net->dev.mm);
-> >>  }
-> >>@@ -206,7 +228,8 @@ static void handle_rx(struct vhost_net *net)
-> >>  	int err;
-> >>  	size_t hdr_size;
-> >>  	struct socket *sock = rcu_dereference(vq->private_data);
-> >> -	if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
-> >> +	if (!sock || (skb_queue_empty(&sock->sk->sk_receive_queue) &&
-> >> +			vq->link_state == VHOST_VQ_LINK_SYNC))
-> >>  		return;
-> >>  
-> >>  	use_mm(net->dev.mm);
-> >> @@ -214,9 +237,18 @@ static void handle_rx(struct vhost_net *net)
-> >>  	vhost_disable_notify(vq);
-> >>  	hdr_size = vq->hdr_size;
-> >>  
-> >> -	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
-> >> +	/* In async cases, for write logging, the simple way is to get
-> >> +	 * the log info always, and really logging is decided later.
-> >>+	 * Thus, when logging enabled, we can get log, and when logging
-> >> +	 * disabled, we can get log disabled accordingly.
-> >> +	 */
-> >> +
-> 
-> 
-> >This adds overhead and might be one of the reasons
-> >your patch does not perform that well. A better way
-> >would be to flush outstanding requests or reread the vq
-> >when logging is enabled.
-> 
-> Since the guest may submit a lot of buffers and h/w have already used them
-> to allocate host skb, it's difficult to know how many and which one is the
-> outstanding request, it's not just only inside in notifier list or sk->receive_queue.
+Hello,
 
-Well, that was just a thought.  I guess there needs to be some way to
-recover outstanding requests at least for cleanup when device is closed?
-Maybe we could put in a special request marked "flush" and wait until it
-completes?
+We did pktgen over LAN testing for several hours:
 
-> But what does reread mean? 
+iftop
+                       19.1Mb                 38.1Mb                  57.2M=
+b                 76.3Mb            95.4Mb
+=E2=94=94=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=
+=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
+=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=B4=E2=94=80=
+=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=
+=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
+=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=B4=E2=94=80=E2=94=80=E2=94=80=
+=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=
+=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
+=80=E2=94=80=E2=94=80=E2=94=80=E2=94=B4=E2=94=80=E2=94=80=E2=94=80=E2=94=80=
+=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=
+=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
+=80=E2=94=80=E2=94=B4=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=
+=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=
+=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
+=80
+xxxxxxxx0007t2                               =3D> xxxxxxxxxxxxxx.xxxxx.xxxx=
+=2Exxx                    0b   3.60Kb  4.28Kb
+                                             <=3D                          =
+                     92.7Mb  92.7Mb  92.5Mb
 
-If we want to know the physical address of the iovec, we can look in the
-virtqueue to find it. I do this in one go when building up the iovec
-now, but logged mode is not a common case so it is not a must.
+=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=
+=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
+=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=
+=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=
+=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
+=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=
+=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=
+=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
+=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=
+=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=
+=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
+=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=
+=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=
+=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=80=E2=94=
+=80
+TX:             cumm:  2.50MB   peak:   57.7Kb                             =
+          rates:   7.71Kb  5.97Kb  10.7Kb
+RX:                    28.0GB           92.9Mb                             =
+                   92.7Mb  92.8Mb  92.6Mb
+TOTAL:                 28.0GB           92.9Mb                             =
+                   92.7Mb  92.8Mb  92.6M
 
-> > +	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) |
-> > +		(vq->link_state == VHOST_VQ_LINK_ASYNC) ?
-> >  		vq->log : NULL;
-> >  
-> > +	handle_async_rx_events_notify(net, vq);
-> > +
-> >  	for (;;) {
-> >  		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
-> >  					 ARRAY_SIZE(vq->iov),
-> > @@ -245,6 +277,11 @@ static void handle_rx(struct vhost_net *net)
-> >  		s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, in);
-> >  		msg.msg_iovlen = in;
-> >  		len = iov_length(vq->iov, in);
-> > +		if (vq->link_state == VHOST_VQ_LINK_ASYNC) {
-> > +			vq->head = head;
-> > +			vq->_log = log;
-> > +			msg.msg_control = (void *)vq;
-> > +		}
-> >  		/* Sanity check */
-> >  		if (!len) {
-> >  			vq_err(vq, "Unexpected header len for RX: "
-> > @@ -259,6 +296,10 @@ static void handle_rx(struct vhost_net *net)
-> >  			vhost_discard_vq_desc(vq);
-> >  			break;
-> >  		}
-> > +
-> > +		if (vq->link_state == VHOST_VQ_LINK_ASYNC)
-> > +			continue;
-> > +
-> >  		/* TODO: Should check and handle checksum. */
-> >  		if (err > len) {
-> >  			pr_err("Discarded truncated rx packet: "
-> > @@ -284,10 +325,85 @@ static void handle_rx(struct vhost_net *net)
-> >  		}
-> >  	}
-> >  
-> > +	handle_async_rx_events_notify(net, vq);
-> > +
-> >  	mutex_unlock(&vq->mutex);
-> >  	unuse_mm(net->dev.mm);
-> >  }
-> >  
-> > +struct kiocb *notify_dequeue(struct vhost_virtqueue *vq)
-> > +{
-> > +	struct kiocb *iocb = NULL;
-> > +	unsigned long flags;
-> > +
-> > +	spin_lock_irqsave(&vq->notify_lock, flags);
-> > +	if (!list_empty(&vq->notifier)) {
-> > +		iocb = list_first_entry(&vq->notifier,
-> > +				struct kiocb, ki_list);
-> > +		list_del(&iocb->ki_list);
-> > +	}
-> > +	spin_unlock_irqrestore(&vq->notify_lock, flags);
-> > +	return iocb;
-> > +}
-> > +
-> > +static void handle_async_rx_events_notify(struct vhost_net *net,
-> > +				struct vhost_virtqueue *vq)
-> > +{
-> > +	struct kiocb *iocb = NULL;
-> > +	struct vhost_log *vq_log = NULL;
-> > +	int rx_total_len = 0;
-> > +	int log, size;
-> > +
-> > +	if (vq->link_state != VHOST_VQ_LINK_ASYNC)
-> > +		return;
-> > +	if (vq != &net->dev.vqs[VHOST_NET_VQ_RX])
-> > +		return;
-> > +
-> > +	if (vq->receiver)
-> > +		vq->receiver(vq);
-> > +	vq_log = unlikely(vhost_has_feature(
-> > +				&net->dev, VHOST_F_LOG_ALL)) ? vq->log : NULL;
-> > +	while ((iocb = notify_dequeue(vq)) != NULL) {
-> > +		vhost_add_used_and_signal(&net->dev, vq,
-> > +				iocb->ki_pos, iocb->ki_nbytes);
-> > +		log = (int)iocb->ki_user_data;
-> > +		size = iocb->ki_nbytes;
-> > +		rx_total_len += iocb->ki_nbytes;
-> > +		if (iocb->ki_dtor)
-> > +			iocb->ki_dtor(iocb);
-> > +		if (unlikely(vq_log))
-> > +			vhost_log_write(vq, vq_log, log, size);
-> > +		if (unlikely(rx_total_len >= VHOST_NET_WEIGHT)) {
-> > +			vhost_poll_queue(&vq->poll);
-> > +			break;
-> > +		}
-> > +	}
-> > +}
-> > +
-> > +static void handle_async_tx_events_notify(struct vhost_net *net,
-> > +		struct vhost_virtqueue *vq)
-> > +{
-> > +	struct kiocb *iocb = NULL;
-> > +	int tx_total_len = 0;
-> > +
-> > +	if (vq->link_state != VHOST_VQ_LINK_ASYNC)
-> > +		return;
-> > +	if (vq != &net->dev.vqs[VHOST_NET_VQ_TX])
-> > +		return;
-> > +
-> 
-> Hard to see why the second check would be necessary
-> 
-> > +	while ((iocb = notify_dequeue(vq)) != NULL) {
-> > +		vhost_add_used_and_signal(&net->dev, vq,
-> > +				iocb->ki_pos, 0);
-> > +		tx_total_len += iocb->ki_nbytes;
-> > +		if (iocb->ki_dtor)
-> > +			iocb->ki_dtor(iocb);
-> > +		if (unlikely(tx_total_len >= VHOST_NET_WEIGHT)) {
-> > +			vhost_poll_queue(&vq->poll);
-> > +			break;
-> > +		}
-> > +	}
-> > +}
-> > +
-> >  static void handle_tx_kick(struct work_struct *work)
-> >  {
-> >  	struct vhost_virtqueue *vq;
-> > @@ -462,7 +578,19 @@ static struct socket *get_tun_socket(int fd)
-> >  	return sock;
-> >  }
-> >  
-> > -static struct socket *get_socket(int fd)
-> > +static struct socket *get_mp_socket(int fd)
-> > +{
-> > +	struct file *file = fget(fd);
-> > +	struct socket *sock;
-> > +	if (!file)
-> > +		return ERR_PTR(-EBADF);
-> > +	sock = mp_get_socket(file);
-> > +	if (IS_ERR(sock))
-> > +		fput(file);
-> > +	return sock;
-> > +}
-> > +
-> > +static struct socket *get_socket(struct vhost_virtqueue *vq, int fd)
-> >  {
-> >  	struct socket *sock;
-> >  	if (fd == -1)
-> > @@ -473,9 +601,26 @@ static struct socket *get_socket(int fd)
-> >  	sock = get_tun_socket(fd);
-> >  	if (!IS_ERR(sock))
-> >  		return sock;
-> > +	sock = get_mp_socket(fd);
-> > +	if (!IS_ERR(sock)) {
-> > +		vq->link_state = VHOST_VQ_LINK_ASYNC;
-> > +		return sock;
-> > +	}
-> >  	return ERR_PTR(-ENOTSOCK);
-> >  }
-> >  
-> > +static void vhost_init_link_state(struct vhost_net *n, int index)
-> > +{
-> > +	struct vhost_virtqueue *vq = n->vqs + index;
-> > +
-> > +	WARN_ON(!mutex_is_locked(&vq->mutex));
-> > +	if (vq->link_state == VHOST_VQ_LINK_ASYNC) {
-> > +		vq->receiver = NULL;
-> > +		INIT_LIST_HEAD(&vq->notifier);
-> > +		spin_lock_init(&vq->notify_lock);
-> > +	}
-> > +}
-> > +
-> >  static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
-> >  {
-> >  	struct socket *sock, *oldsock;
-> > @@ -493,12 +638,15 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
-> >  	}
-> >  	vq = n->vqs + index;
-> >  	mutex_lock(&vq->mutex);
-> > -	sock = get_socket(fd);
-> > +	vq->link_state = VHOST_VQ_LINK_SYNC;
-> > +	sock = get_socket(vq, fd);
-> >  	if (IS_ERR(sock)) {
-> >  		r = PTR_ERR(sock);
-> >  		goto err;
-> >  	}
-> >  
-> > +	vhost_init_link_state(n, index);
-> > +
-> >  	/* start polling new socket */
-> >  	oldsock = vq->private_data;
-> >  	if (sock == oldsock)
-> > @@ -507,8 +655,8 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
-> >  	vhost_net_disable_vq(n, vq);
-> >  	rcu_assign_pointer(vq->private_data, sock);
-> >  	vhost_net_enable_vq(n, vq);
-> > -	mutex_unlock(&vq->mutex);
-> >  done:
-> > +	mutex_unlock(&vq->mutex);
-> >  	mutex_unlock(&n->dev.mutex);
-> >  	if (oldsock) {
-> >  		vhost_net_flush_vq(n, index);
-> > @@ -516,6 +664,7 @@ done:
-> >  	}
-> >  	return r;
-> >  err:
-> > +	mutex_unlock(&vq->mutex);
-> >  	mutex_unlock(&n->dev.mutex);
-> >  	return r;
-> >  }
-> > diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> > index d1f0453..297af1c 100644
-> > --- a/drivers/vhost/vhost.h
-> > +++ b/drivers/vhost/vhost.h
-> > @@ -43,6 +43,11 @@ struct vhost_log {
-> >  	u64 len;
-> >  };
-> >  
-> > +enum vhost_vq_link_state {
-> > +	VHOST_VQ_LINK_SYNC = 	0,
-> > +	VHOST_VQ_LINK_ASYNC = 	1,
-> > +};
-> > +
-> >  /* The virtqueue structure describes a queue attached to a device. */
-> >  struct vhost_virtqueue {
-> >  	struct vhost_dev *dev;
-> > @@ -96,6 +101,13 @@ struct vhost_virtqueue {
-> >  	/* Log write descriptors */
-> >  	void __user *log_base;
-> >  	struct vhost_log log[VHOST_NET_MAX_SG];
-> > +	/*Differiate async socket for 0-copy from normal*/
-> > +	enum vhost_vq_link_state link_state;
-> > +	int head;
-> > +	int _log;
-> > +	struct list_head notifier;
-> > +	spinlock_t notify_lock;
-> > +	void (*receiver)(struct vhost_virtqueue *);
-> >  };
-> >  
-> >  struct vhost_dev {
-> > -- 
-> > 1.5.4.4
+Without any problems.
+
+
+As soon as I switched back to localhost "pollution":
+
+[ 7343.999279] ------------[ cut here ]------------
+[ 7343.999292] WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0xc1/0x=
+125()
+[ 7343.999295] Hardware name: F3JC               =20
+[ 7343.999298] NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
+[ 7343.999301] Modules linked in: pktgen ppp_async crc_ccitt ipv6 ppp_gener=
+ic slhc snd_hwdep snd_hda_codec_si3054 snd_hda_codec_realtek sdhci_pci sdhc=
+i snd_hda_intel mmc_core
+asus_laptop sparse_keymap snd_hda_codec led_class snd_pcm rng_core sg psmou=
+se snd_timer snd_page_alloc i2c_i801 evdev snd soundcore serio_raw r8169 mi=
+i usbhid hid uhci_hcd
+ehci_hcd sr_mod cdrom sd_mod usbcore ata_piix
+[ 7343.999361] Pid: 4801, comm: kpktgend_0 Tainted: G        W  2.6.34-rc1-=
+dbg-git6-r8169 #47
+[ 7343.999364] Call Trace:
+[ 7343.999372]  [<c102e293>] warn_slowpath_common+0x65/0x7c
+[ 7343.999378]  [<c126ac34>] ? dev_watchdog+0xc1/0x125
+[ 7343.999383]  [<c102e2de>] warn_slowpath_fmt+0x24/0x27
+[ 7343.999388]  [<c126ac34>] dev_watchdog+0xc1/0x125
+[ 7343.999395]  [<c1036afb>] ? run_timer_softirq+0x120/0x1eb
+[ 7343.999401]  [<c1036b51>] run_timer_softirq+0x176/0x1eb
+[ 7343.999406]  [<c1036afb>] ? run_timer_softirq+0x120/0x1eb
+[ 7343.999411]  [<c126ab73>] ? dev_watchdog+0x0/0x125
+[ 7343.999417]  [<c1032d39>] __do_softirq+0x8d/0x117
+[ 7343.999422]  [<c1032dee>] do_softirq+0x2b/0x43
+[ 7343.999426]  [<c1032f13>] irq_exit+0x38/0x75
+[ 7343.999433]  [<c1014e75>] smp_apic_timer_interrupt+0x66/0x74
+[ 7343.999438]  [<c12c770a>] apic_timer_interrupt+0x36/0x3c
+[ 7343.999447]  [<f80878df>] ? pktgen_thread_worker+0x5c4/0x631 [pktgen]
+[ 7343.999454]  [<c103f931>] ? autoremove_wake_function+0x0/0x2f
+[ 7343.999459]  [<c103f931>] ? autoremove_wake_function+0x0/0x2f
+[ 7343.999465]  [<f808731b>] ? pktgen_thread_worker+0x0/0x631 [pktgen]
+[ 7343.999470]  [<c103f60e>] kthread+0x6a/0x6f
+[ 7343.999476]  [<c103f5a4>] ? kthread+0x0/0x6f
+[ 7343.999481]  [<c1002e42>] kernel_thread_helper+0x6/0x1a
+[ 7343.999485] ---[ end trace a22d306b065d4a68 ]---
+[ 7344.012654] r8169 0000:02:00.0: eth0: link up
+[ 7356.012657] r8169 0000:02:00.0: eth0: link up
+[ 7368.013545] r8169 0000:02:00.0: eth0: link up
+
+
+	Sergey
+
+
+
+On (03/17/10 08:37), Eric Dumazet wrote:
+> trimming some cc
+>=20
+> Le mercredi 17 mars 2010 =C3=A0 09:25 +0200, Sergey Senozhatsky a =C3=A9c=
+rit :
+> > Hello,
+> >=20
+> > cumulative patch:
+> >=20
+> > [  155.337373] ------------[ cut here ]------------
+> > [  155.337386] WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0xc=
+1/0x125()
+> > [  155.337390] Hardware name: F3JC               =20
+> > [  155.337394] NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
+> > [  155.337397] Modules linked in: pktgen ppp_async crc_ccitt ipv6 ppp_g=
+eneric slhc snd_hwdep snd_hda_codec_si3054 snd_hda_codec_realtek sdhci_pci =
+sdhci snd_hda_intel snd_hda_codec
+> > asus_laptop sparse_keymap mmc_core led_class snd_pcm snd_timer snd_page=
+_alloc psmouse rng_core snd soundcore sg i2c_i801 evdev serio_raw r8169 mii=
+ usbhid hid uhci_hcd ehci_hcd
+> > sr_mod cdrom sd_mod usbcore ata_piix
+> > [  155.337468] Pid: 7, comm: ksoftirqd/1 Tainted: G        W  2.6.34-rc=
+1-dbg-git6-r8169 #47
+> > [  155.337472] Call Trace:
+> > [  155.337481]  [<c102e293>] warn_slowpath_common+0x65/0x7c
+> > [  155.337506]  [<c126ac34>] ? dev_watchdog+0xc1/0x125
+> > [  155.337512]  [<c102e2de>] warn_slowpath_fmt+0x24/0x27
+> > [  155.337517]  [<c126ac34>] dev_watchdog+0xc1/0x125
+> > [  155.337525]  [<c1036afb>] ? run_timer_softirq+0x120/0x1eb
+> > [  155.337530]  [<c1036b51>] run_timer_softirq+0x176/0x1eb
+> > [  155.337536]  [<c1036afb>] ? run_timer_softirq+0x120/0x1eb
+> > [  155.337566]  [<c126ab73>] ? dev_watchdog+0x0/0x125
+> > [  155.337576]  [<c1032d39>] __do_softirq+0x8d/0x117
+> > [  155.337667]  [<c1032dee>] do_softirq+0x2b/0x43
+> > [  155.337729]  [<c1032fc1>] run_ksoftirqd+0x71/0x140
+> > [  155.337745]  [<c1032f50>] ? run_ksoftirqd+0x0/0x140
+> > [  155.337810]  [<c103f60e>] kthread+0x6a/0x6f
+> > [  155.337832]  [<c103f5a4>] ? kthread+0x0/0x6f
+> > [  155.337903]  [<c1002e42>] kernel_thread_helper+0x6/0x1a
+> > [  155.337907] ---[ end trace a22d306b065d4a68 ]---
+> > [  155.350902] r8169 0000:02:00.0: eth0: link up
+> > [  167.350892] r8169 0000:02:00.0: eth0: link up
+> >=20
+> >=20
+> >=20
+>=20
+> On receiver ?
+>=20
+> I suspect lot of work is needed on this driver to make it working, but I
+> dont have a machine with said adapter.
+>=20
+> Are you in 100 Mb full duplex mode ?
+>=20
+>=20
+
+--GID0FwUMdk1T2AWN
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iJwEAQECAAYFAkugtfAACgkQfKHnntdSXjTSFwP9GPuFRn2h48og28ASq2+f2dXX
+X3sc6UBBp2/QySlBiZd3TnGe1SHrwLIB5kRRD22qib3jCYPG0TA+i8SAi83X1yQW
+JFiAoNKrw79xrGahLnNyY9uH08k7r1DcBnLXRd8MaGzZ8kj58N5Xp2TzonCfAJkt
+duviiV8asbtoriBMf0w=
+=VXaE
+-----END PGP SIGNATURE-----
+
+--GID0FwUMdk1T2AWN--
