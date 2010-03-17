@@ -1,34 +1,50 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: e1000e: Fix build with CONFIG_PM disabled.
-Date: Wed, 17 Mar 2010 21:34:55 +0100
-Message-ID: <201003172134.55361.rjw@sisk.pl>
-References: <20100316.234100.133957798.davem@davemloft.net> <EA929A9653AAE14F841771FB1DE5A1365FE4909419@rrsmsx501.amr.corp.intel.com> <20100317.111717.85209898.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [Regression] r8169: enable 64-bit DMA by default for PCI Express
+ devices (v2)
+Date: Wed, 17 Mar 2010 21:52:06 +0100
+Message-ID: <20100317205206.GA2699@electric-eye.fr.zoreil.com>
+References: <20100315150806.GA15354@Dublin.logfs.org>
+ <20100315151041.GA15667@Dublin.logfs.org>
+ <20100315.115748.13754030.davem@davemloft.net>
+ <51f3faa71003151628g5edc4d7av8916ac76cb337bfe@mail.gmail.com>
+ <20100316083501.GA3489@Dublin.logfs.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: emil.s.tantilov@intel.com, netdev@vger.kernel.org,
-	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
-	jeffrey.t.kirsher@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:47087 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753240Ab0CQUcJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Mar 2010 16:32:09 -0400
-In-Reply-To: <20100317.111717.85209898.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Robert Hancock <hancockrwd@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: =?utf-8?B?Su+/vXJu?= Engel <joern@dublin.logfs.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100316083501.GA3489@Dublin.logfs.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 17 March 2010, David Miller wrote:
-> From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-> Date: Wed, 17 Mar 2010 11:57:59 -0600
-> 
-> > But then the driver build fails again when CONFIG_PM_RUNTIME is not set.
-> > 
-> > drivers/net/e1000e/netdev.c: In function `e1000_runtime_resume`:
-> > drivers/net/e1000e/netdev.c:4807: error: `struct dev_pm_info` has no member named `runtime_auto`
-> 
-> Ugh, can someone send me a fix for that?
+On Tue, Mar 16, 2010 at 09:35:01AM +0100, J=EF=BF=BDrn Engel wrote:
+[...]
+> I just noticed lspci is also unhappy.
+>=20
+> With patch in:
+> Bikini:~# lspci -vv > lspci
+> pcilib: sysfs_read_vpd: read failed: Connection timed out.
+>
+> With patch reverted:
+> Bikini:~# lspci -vv > lspci2
+> Bikini:~# diff -u lspci*
+> --- lspci       2010-03-16 09:03:02.000000000 +0100
+> +++ lspci2      2010-03-16 09:09:36.000000000 +0100
+> @@ -246,7 +246,7 @@
+>                 Vector table: BAR=3D4 offset=3D00000000
+>                 PBA: BAR=3D4 offset=3D00000800
+>         Capabilities: [cc] Vital Product Data
+> -               Not readable
+> +               Unknown small resource type 00, will not decode more.
 
-I will in a while.
+Neither looks good.
+
+Did lspci output look different with an older kernel ?
+
+--=20
+Ueimor
