@@ -1,45 +1,49 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [Uclinux-dist-devel] [PATCH] can: bfin_can: switch to common
-	Blackfin can header
-Date: Tue, 16 Mar 2010 22:51:50 -0700 (PDT)
-Message-ID: <20100316.225150.213941689.davem@davemloft.net>
-References: <8bd0f97a1003162145i77f65158ne255b28239e1b595@mail.gmail.com>
-	<20100316.220232.170244945.davem@davemloft.net>
-	<8bd0f97a1003162225i439d9900mfdc03eca5de0ff6e@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org, oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org,
-	uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-To: vapier.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <8bd0f97a1003162225i439d9900mfdc03eca5de0ff6e-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+From: Amerigo Wang <amwang@redhat.com>
+Subject: [Patch] netpoll: allow spaces in its parameter
+Date: Wed, 17 Mar 2010 01:53:26 -0400
+Message-ID: <20100317055707.5013.72217.sendpatchset@localhost.localdomain>
+Cc: netdev@vger.kernel.org, Amerigo Wang <amwang@redhat.com>,
+	David Miller <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mike Frysinger <vapier.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Wed, 17 Mar 2010 01:25:39 -0400
 
-> if the next tree is merged into linux-next, then the header is already there
+It would be nice if we allow spaces in netconsole parameters,
+otherwise we get weird results if there are spaces in it.
 
-One of the highest priority trees in -next is net-next-2.6,
-because so much other stuff ends up depending upon it.
+After this patch, we will allow things like:
+ "netconsole= @192.168.0.1/eth0 , 66666@192.168.0.2/".
 
-Therefore I keep it building independently, so no matter what Stephen
-Rothwell does the build isn't likely to break.
+Signed-off-by: WANG Cong <amwang@redhat.com>
+Cc: David Miller <davem@davemloft.net>
 
-Just get your stuff merged properly to Linus then resubmit
-your patch.
-
-Else, resubmit with the header addition included.
-
-Your choice :-)
+---
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 7aa6972..bf3b2f0 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -629,6 +629,7 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
+ 	char *cur=opt, *delim;
+ 
+ 	if (*cur != '@') {
++		cur = skip_spaces(cur);
+ 		if ((delim = strchr(cur, '@')) == NULL)
+ 			goto parse_failed;
+ 		*delim = 0;
+@@ -651,12 +652,14 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
+ 		if ((delim = strchr(cur, ',')) == NULL)
+ 			goto parse_failed;
+ 		*delim = 0;
++		strim(cur);
+ 		strlcpy(np->dev_name, cur, sizeof(np->dev_name));
+ 		cur = delim;
+ 	}
+ 	cur++;
+ 
+ 	if (*cur != '@') {
++		cur = skip_spaces(cur);
+ 		/* dst port */
+ 		if ((delim = strchr(cur, '@')) == NULL)
+ 			goto parse_failed;
