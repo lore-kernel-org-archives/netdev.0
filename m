@@ -1,66 +1,38 @@
-From: Darren Jenkins <darrenrjenkins@gmail.com>
-Subject: Re: [PATCH] drivers/net/wimax/i2400m/fw.c fix possible double free
-Date: Wed, 17 Mar 2010 23:40:38 +1100
-Message-ID: <1268829638.10618.28.camel@ICE-BOX>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] xfrm: cache bundle lookup results in flow cache
+Date: Wed, 17 Mar 2010 21:07:04 +0800
+Message-ID: <20100317130704.GA2601@gondor.apana.org.au>
+References: <1268655610-7845-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: inaky.perez-gonzalez@intel.com, linux-wimax@intel.com,
-	kernel-janitors@vger.kernel.org, cindy.h.kao@intel.com,
-	dirk.j.brandewie@intel.com, wimax@linuxwimax.org,
-	netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:35867 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754742Ab0CQMkt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 08:40:49 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:39450 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753353Ab0CQNHJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 09:07:09 -0400
+Content-Disposition: inline
+In-Reply-To: <1268655610-7845-1-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Mar 15, 2010 at 02:20:10PM +0200, Timo Teras wrote:
+> Instead of doing O(n) xfrm_find_bundle() call per-packet, cache
+> the previous lookup results in flow cache. The flow cache is
+> updated to be per-netns and more generic.
 
-On Wed, Mar 17, 2010 at 8:14 AM, David Miller <davem@davemloft.net>
-wrote:
+This only works well if the traffic doesn't switch bundles much.
+But if that were the case then the number of bundles is likely
+to be small anyway.
 
-> Therefore the krealloc() failure handling in this driver should NULL
-> out i2400m->fw_hdrs and that will fix the double kfree problem as well
-> as trap any stray references.
+IOW I think if we're doing this then we should go the whole
+distance and directly cache bundles instead of policies in the
+flow cache.
 
-Yes that is a much better Idea. Thanks for the advice. 
-It also fixes the i2400m_barker_db problem that I didn't notice before.
-
-
-Fix double free on krealloc() failure by zeroing pointer
-
-coverity CID: 13455
-
-Signed-off-by: Darren Jenkins <darrenrjenkins@gmail.com>
----
- drivers/net/wimax/i2400m/fw.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
-index 25c24f0..9f3b594 100644
---- a/drivers/net/wimax/i2400m/fw.c
-+++ b/drivers/net/wimax/i2400m/fw.c
-@@ -232,8 +232,9 @@ int i2400m_zrealloc_2x(void **ptr, size_t *_count, size_t el_size,
- 		*_count = new_count;
- 		*ptr = nptr;
- 		return 0;
--	} else
--		return -ENOMEM;
-+	}
-+	*ptr = NULL;
-+	return -ENOMEM;
- }
- 
- 
+Cheers,
 -- 
-1.6.3.3
-
- 
-
-
-
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
