@@ -1,98 +1,66 @@
-From: Laurent Chavey <chavey@google.com>
-Subject: Re: [PATCH] vhost: fix error handling in vring ioctls
-Date: Wed, 17 Mar 2010 10:54:57 -0700
-Message-ID: <97949e3e1003171054q3bee27d5yce0d92ae33e5b5ca@mail.gmail.com>
-References: <20100317144249.GA3984@redhat.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: e1000e: Fix build with CONFIG_PM disabled.
+Date: Wed, 17 Mar 2010 11:57:59 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FE4909419@rrsmsx501.amr.corp.intel.com>
+References: <20100316.234100.133957798.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Slaby <jirislaby@gmail.com>, kvm@vger.kernel.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: David Miller <davem@davemloft.net>, "rjw@sisk.pl" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:61627 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754040Ab0CQRzW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 13:55:22 -0400
-In-Reply-To: <20100317144249.GA3984@redhat.com>
+Received: from mga09.intel.com ([134.134.136.24]:45377 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754917Ab0CQR6D convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 13:58:03 -0400
+In-Reply-To: <20100316.234100.133957798.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Acked-by: chavey@google.com
-
-
-On Wed, Mar 17, 2010 at 7:42 AM, Michael S. Tsirkin <mst@redhat.com> wr=
-ote:
-> Stanse found a locking problem in vhost_set_vring:
-> several returns from VHOST_SET_VRING_KICK, VHOST_SET_VRING_CALL,
-> VHOST_SET_VRING_ERR with the vq->mutex held.
-> Fix these up.
->
-> Reported-by: Jiri Slaby <jirislaby@gmail.com>
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+David Miller wrote:
+> I had to add the following patch to fix the build after
+> your changes.
+> 
+> Thanks.
+> 
+> e1000e: Fix build with CONFIG_PM disabled.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 > ---
-> =A0drivers/vhost/vhost.c | =A0 18 ++++++++++++------
-> =A01 files changed, 12 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index 7cd55e0..7bd7a1e 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -476,8 +476,10 @@ static long vhost_set_vring(struct vhost_dev *d,=
- int ioctl, void __user *argp)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (r < 0)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0eventfp =3D f.fd =3D=3D -1 ? NULL : ev=
-entfd_fget(f.fd);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (IS_ERR(eventfp))
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return PTR_ERR(eventfp)=
-;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (IS_ERR(eventfp)) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 r =3D PTR_ERR(eventfp);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (eventfp !=3D vq->kick) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0pollstop =3D filep =3D=
- vq->kick;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0pollstart =3D vq->kick=
- =3D eventfp;
-> @@ -489,8 +491,10 @@ static long vhost_set_vring(struct vhost_dev *d,=
- int ioctl, void __user *argp)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (r < 0)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0eventfp =3D f.fd =3D=3D -1 ? NULL : ev=
-entfd_fget(f.fd);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (IS_ERR(eventfp))
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return PTR_ERR(eventfp)=
-;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (IS_ERR(eventfp)) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 r =3D PTR_ERR(eventfp);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (eventfp !=3D vq->call) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0filep =3D vq->call;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ctx =3D vq->call_ctx;
-> @@ -505,8 +509,10 @@ static long vhost_set_vring(struct vhost_dev *d,=
- int ioctl, void __user *argp)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (r < 0)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0eventfp =3D f.fd =3D=3D -1 ? NULL : ev=
-entfd_fget(f.fd);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (IS_ERR(eventfp))
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return PTR_ERR(eventfp)=
-;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (IS_ERR(eventfp)) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 r =3D PTR_ERR(eventfp);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (eventfp !=3D vq->error) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0filep =3D vq->error;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0vq->error =3D eventfp;
+>  drivers/net/e1000e/netdev.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+> index 79b33c5..b96532a 100644
+> --- a/drivers/net/e1000e/netdev.c
+> +++ b/drivers/net/e1000e/netdev.c
+> @@ -5475,6 +5475,7 @@ static DEFINE_PCI_DEVICE_TABLE(e1000_pci_tbl) =
+>  { };
+>  MODULE_DEVICE_TABLE(pci, e1000_pci_tbl);
+> 
+> +#ifdef CONFIG_PM
+>  static const struct dev_pm_ops e1000_pm_ops = {
+>  	.suspend  = e1000_suspend,
+>  	.resume   = e1000_resume,
+> @@ -5486,6 +5487,7 @@ static const struct dev_pm_ops e1000_pm_ops = {
+>  	.runtime_resume = e1000_runtime_resume,
+>  	.runtime_idle = e1000_idle,
+>  };
+> +#endif
+> 
+>  /* PCI Device API Driver */
+>  static struct pci_driver e1000_driver = {
 > --
-> 1.7.0.18.g0d53a5
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+> 1.6.6.1
+
+But then the driver build fails again when CONFIG_PM_RUNTIME is not set.
+
+drivers/net/e1000e/netdev.c: In function `e1000_runtime_resume`:
+drivers/net/e1000e/netdev.c:4807: error: `struct dev_pm_info` has no member named `runtime_auto`
+
+Thanks,
+Emil
