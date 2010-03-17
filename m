@@ -1,38 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET: Support clause 45 MDIO commands at the MDIO bus
- level
-Date: Tue, 16 Mar 2010 21:28:40 -0700 (PDT)
-Message-ID: <20100316.212840.211879050.davem@davemloft.net>
-References: <20100309191742.GB30462@obsidianresearch.com>
+Subject: Re: [PATCH] net: remove rcu locking from fib_rules_event()
+Date: Tue, 16 Mar 2010 21:28:46 -0700 (PDT)
+Message-ID: <20100316.212846.160081359.davem@davemloft.net>
+References: <1268201018.2872.139.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jgunthorpe@obsidianresearch.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100309191742.GB30462@obsidianresearch.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36022
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752831Ab0CQE2Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 00:28:24 -0400
+In-Reply-To: <1268201018.2872.139.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Date: Tue, 9 Mar 2010 12:17:42 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 10 Mar 2010 07:03:38 +0100
 
-> IEEE 802.3ae clause 45 specifies a somewhat modified MDIO protocol
-> for use by 10GIGE phys. The main change is a 21 bit address split into
-> a 5 bit device ID and a 16 bit register offset. The definition is designed
-> so that normal and extended devices can run on the same MDIO bus.
+> We hold RTNL at this point and dont use RCU variants of list traversals,
+> we dont need rcu_read_lock()/rcu_read_unlock()
 > 
-> Extend mdio-bitbang to do the new protocol. At the MDIO bus level the
-> protocol is requested by or'ing MII_ADDR_C45 into the register offset.
-> 
-> Make phy_read/phy_write/etc pass a full 32 bit register offset.
-> 
-> This does not attempt to make the phy layer support C45 style PHYs, just
-> to provide the MDIO bus support.
-> 
-> Tested against a Broadcom 10GE phy with ID 0x206034, and several
-> Broadcom 10/100/1000 Phys in normal mode.
-> 
-> Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
 Applied.
