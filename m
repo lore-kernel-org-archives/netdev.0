@@ -1,53 +1,84 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH v7] rps: Receive Packet Steering
-Date: Wed, 17 Mar 2010 15:59:05 +0800
-Message-ID: <412e6f7f1003170059r1f0fa4cfrbe8b3f22102ee9d9@mail.gmail.com>
-References: <65634d661003121508m3d348973k63a6ae9ca1f12f9f@mail.gmail.com>
-	<4B9FC7F1.5010507@google.com> <1268773227.2932.34.camel@edumazet-laptop>
-	<20100316.141311.262178287.davem@davemloft.net> <412e6f7f1003161854w32ed4516w2e52003097051fc7@mail.gmail.com>
-	<1268809673.2932.62.camel@edumazet-laptop>
+From: Yegor Yefremov <yegorslists@googlemail.com>
+Subject: Re: [PATCH 1/1] KS8695: update ksp->next_rx_desc_read at the end of
+	rx loop
+Date: Wed, 17 Mar 2010 10:39:30 +0100
+Message-ID: <f69abfc31003170239k2d64aa8bgbe3f3ae59a074a05@mail.gmail.com>
+References: <f69abfc31003160842r59c25bbdl2029d3f20e668e53@mail.gmail.com>
+	 <1268754720.3094.55.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, therbert@google.com,
-	netdev@vger.kernel.org
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>, davem@davemloft.net
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f176.google.com ([209.85.223.176]:43716 "EHLO
-	mail-iw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753445Ab0CQH70 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 03:59:26 -0400
-Received: by iwn6 with SMTP id 6so725170iwn.4
-        for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 00:59:25 -0700 (PDT)
-In-Reply-To: <1268809673.2932.62.camel@edumazet-laptop>
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:55221 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753835Ab0CQJjc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 05:39:32 -0400
+Received: by ewy20 with SMTP id 20so308556ewy.1
+        for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 02:39:30 -0700 (PDT)
+In-Reply-To: <1268754720.3094.55.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 17, 2010 at 3:07 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le mercredi 17 mars 2010 =C3=A0 09:54 +0800, Changli Gao a =C3=A9crit=
- :
->> On Wed, Mar 17, 2010 at 5:13 AM, David Miller <davem@davemloft.net> =
-wrote:
->> >
->> > I'll integrate this as soon as I open up net-next-2.6
->>
->> It is really a good news. Now linux also can dispatch packets as
->> FreeBSD does via netisr. Can we walk farer, and support weighted
->> distribution?
->>
->
-> May I ask why ? What would be the goal ?
->
-
-=46or example, I have a firewall with dual core CPU, and use core 0 for
-IRQ and dispatching. If I use both core 0 and core 1 for the left
-processing, core 0 will be overloaded, and if I use core 1 for the
-left processing, core 0 will be light load. In order to take full of
-advantage of hardware, I need weighted the packet distribution.
-
-
-
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+T24gVHVlLCBNYXIgMTYsIDIwMTAgYXQgNDo1MiBQTSwgRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6
+ZXRAZ21haWwuY29tPiB3cm90ZToKPiBMZSBtYXJkaSAxNiBtYXJzIDIwMTAgw6AgMTY6NDIgKzAx
+MDAsIFllZ29yIFllZnJlbW92IGEgw6ljcml0IDoKPj4gS1M4Njk1OiB1cGRhdGUga3NwLT5uZXh0
+X3J4X2Rlc2NfcmVhZCBhdCB0aGUgZW5kIG9mIHJ4IGxvb3AKPj4KPj4gVGhlcmUgaXMgbm8gbmVl
+ZCB0byBhZGp1c3QgdGhlIG5leHQgcnggZGVzY3JpcHRvciBhZnRlciBlYWNoIHBhY2tldCwKPj4g
+c28gZG8gaXQgb25seSBvbmNlIGF0IHRoZSBlbmQgb2YgdGhlIHJvdXRpbmUuCj4+Cj4+IFNpZ25l
+ZC1vZmYtYnk6IFllZ29yIFllZnJlbW92IDx5ZWdvcnNsaXN0c0Bnb29nbGVtYWlsLmNvbT4KPj4K
+Pj4gSW5kZXg6IGxpbnV4LTIuNi4zNC1yYzEvZHJpdmVycy9uZXQvYXJtL2tzODY5NW5ldC5jCj4+
+ID09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
+PT09PT09PT09PT0KPj4gLS0tIGxpbnV4LTIuNi4zNC1yYzEub3JpZy9kcml2ZXJzL25ldC9hcm0v
+a3M4Njk1bmV0LmMKPj4gKysrIGxpbnV4LTIuNi4zNC1yYzEvZHJpdmVycy9uZXQvYXJtL2tzODY5
+NW5ldC5jCj4+IEBAIC01MzgsMTIgKzUzOCwxMyBAQCByeF9maW5pc2hlZDoKPj4gwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAqLwo+PiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCBsYXN0X3J4X3Byb2Nlc3NlZCA9IGJ1ZmZfbjsKPj4gwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgYnVmZl9uID0gKGJ1ZmZfbiArIDEpICYgTUFYX1JYX0RFU0NfTUFTSzsK
+Pj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCAvKkFuZCBub3RlIHdoaWNoIFJYIGRl
+c2NyaXB0b3Igd2UgbGFzdCBkaWQgKi8KPj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCBpZiAobGlrZWx5KGxhc3RfcnhfcHJvY2Vzc2VkICE9IC0xKSkKPj4gLSDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBrc3AtPm5leHRfcnhfZGVzY19yZWFkID0KPj4g
+LSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCAo
+bGFzdF9yeF9wcm9jZXNzZWQgKyAxKSAmCj4+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgTUFYX1JYX0RFU0NfTUFTSzsKPj4gwqAgwqAgwqAg
+fQo+PiArCj4+ICsgwqAgwqAgLypBbmQgbm90ZSB3aGljaCBSWCBkZXNjcmlwdG9yIHdlIGxhc3Qg
+ZGlkICovCj4+ICsgwqAgwqAgaWYgKGxpa2VseShsYXN0X3J4X3Byb2Nlc3NlZCAhPSAtMSkpCj4+
+ICsgwqAgwqAgwqAgwqAgwqAgwqAga3NwLT5uZXh0X3J4X2Rlc2NfcmVhZCA9Cj4+ICsgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgKGxhc3RfcnhfcHJvY2Vzc2VkICsgMSkgJiBNQVhfUlhf
+REVTQ19NQVNLOwo+PiArCj4KPiBWZXJ5IHN0cmFuZ2UgdG8gc2VlIGFsbCB0aGVzZSBjb21wdXRh
+dGlvbnMuLi4KPgo+IEF0IHRoaXMgcG9pbnQsIHdoeSBub3QgdXNlCj4KPiBpZiAobGlrZWx5KGxh
+c3RfcnhfcHJvY2Vzc2VkICE9IC0xKSkKPiDCoCDCoCDCoCDCoGtzcC0+bmV4dF9yeF9kZXNjX3Jl
+YWQgPSBidWZmX247Cj4KPiBvciBldmVuIGdldCByaWQgb2YgbGFzdF9yeF9wcm9jZXNzZWQgY29t
+cGxldGVseSBhbmQgZG8gOgo+Cj4KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvYXJtL2tzODY5
+NW5ldC5jIGIvZHJpdmVycy9uZXQvYXJtL2tzODY5NW5ldC5jCj4gaW5kZXggYTFkNDE4OC4uYWM2
+YWIwNCAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL25ldC9hcm0va3M4Njk1bmV0LmMKPiArKysgYi9k
+cml2ZXJzL25ldC9hcm0va3M4Njk1bmV0LmMKPiBAQCAtNDYxLDcgKzQ2MSw2IEBAIHN0YXRpYyBp
+bnQga3M4Njk1X3J4KHN0cnVjdCBrczg2OTVfcHJpdiAqa3NwLCBpbnQgYnVkZ2V0KQo+IMKgIMKg
+IMKgIMKgaW50IGJ1ZmZfbjsKPiDCoCDCoCDCoCDCoHUzMiBmbGFnczsKPiDCoCDCoCDCoCDCoGlu
+dCBwa3RsZW47Cj4gLSDCoCDCoCDCoCBpbnQgbGFzdF9yeF9wcm9jZXNzZWQgPSAtMTsKPiDCoCDC
+oCDCoCDCoGludCByZWNlaXZlZCA9IDA7Cj4KPiDCoCDCoCDCoCDCoGJ1ZmZfbiA9IGtzcC0+bmV4
+dF9yeF9kZXNjX3JlYWQ7Cj4gQEAgLTUzMywxNyArNTMyLDkgQEAgcnhfZmFpbHVyZToKPiDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGtzcC0+cnhfcmluZ1tidWZmX25dLnN0YXR1
+cyA9IGNwdV90b19sZTMyKFJERVNfT1dOKTsKPiDCoHJ4X2ZpbmlzaGVkOgo+IMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgcmVjZWl2ZWQrKzsKPiAtIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIC8qIEFuZCBub3RlIHRoaXMgYXMgcHJvY2Vzc2VkIHNvIHdlIGNhbiBz
+dGFydAo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAqIGZyb20gaGVyZSBu
+ZXh0IHRpbWUKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgKi8KPiAtIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGxhc3RfcnhfcHJvY2Vzc2VkID0gYnVmZl9u
+Owo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgYnVmZl9uID0gKGJ1ZmZfbiAr
+IDEpICYgTUFYX1JYX0RFU0NfTUFTSzsKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIC8qQW5kIG5vdGUgd2hpY2ggUlggZGVzY3JpcHRvciB3ZSBsYXN0IGRpZCAqLwo+IC0gwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgaWYgKGxpa2VseShsYXN0X3J4X3Byb2Nlc3Nl
+ZCAhPSAtMSkpCj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCBrc3AtPm5leHRfcnhfZGVzY19yZWFkID0KPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIChsYXN0X3J4X3Byb2Nlc3NlZCArIDEpICYK
+PiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIE1BWF9SWF9ERVNDX01BU0s7Cj4gwqAgwqAgwqAgwqB9Cj4gKyDCoCDCoCDCoCBrc3AtPm5l
+eHRfcnhfZGVzY19yZWFkID0gYnVmZl9uOwo+IMKgIMKgIMKgIMKgLyogQW5kIHJlZmlsbCB0aGUg
+YnVmZmVycyAqLwo+IMKgIMKgIMKgIMKga3M4Njk1X3JlZmlsbF9yeGJ1ZmZlcnMoa3NwKTsKClRo
+YW5rIHlvdSBmb3IgcmV2aWV3aW5nLiBHcmVhdCBpZGVhLiBUaGlzIHNpbXBsaWZpZXMgdGhlIGRy
+aXZlciBhCmxpdHRsZS4gSSB0ZXN0ZWQgeW91ciBwYXRjaCBhbmQgZXZlcnl0aGluZyBpcyB3b3Jr
+aW5nIGFzIGJlZm9yZS4gSQphbHNvIGFkZGVkIHlvdXIgc2lnbmVkLW9mZi1ieSBhbmQgbWFkZSBz
+b21lIGJlYXRpZmljYXRpb25zLgoKWWVnb3IK
