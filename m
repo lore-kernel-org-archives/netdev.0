@@ -1,72 +1,66 @@
-From: raj ravi <mekaviraj@gmail.com>
-Subject: Re: tcp_reordering as 0 possible?
-Date: Wed, 17 Mar 2010 17:53:43 +0530
-Message-ID: <de0a9dcb1003170523v104ec57bs6ab31161c75131f1@mail.gmail.com>
-References: <de0a9dcb1003150725h367d0548j35037441fdb2f5df@mail.gmail.com>
-	 <alpine.DEB.2.00.1003171333250.19416@melkinpaasi.cs.helsinki.fi>
+From: Darren Jenkins <darrenrjenkins@gmail.com>
+Subject: Re: [PATCH] drivers/net/wimax/i2400m/fw.c fix possible double free
+Date: Wed, 17 Mar 2010 23:40:38 +1100
+Message-ID: <1268829638.10618.28.camel@ICE-BOX>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: inaky.perez-gonzalez@intel.com, linux-wimax@intel.com,
+	kernel-janitors@vger.kernel.org, cindy.h.kao@intel.com,
+	dirk.j.brandewie@intel.com, wimax@linuxwimax.org,
+	netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f198.google.com ([209.85.216.198]:39668 "EHLO
-	mail-px0-f198.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754720Ab0CQMXn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 08:23:43 -0400
-Received: by pxi36 with SMTP id 36so454884pxi.21
-        for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 05:23:43 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.00.1003171333250.19416@melkinpaasi.cs.helsinki.fi>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:35867 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754742Ab0CQMkt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 08:40:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 17, 2010 at 5:08 PM, Ilpo J=E4rvinen
-<ilpo.jarvinen@helsinki.fi> wrote:
-> On Mon, 15 Mar 2010, raj ravi wrote:
->
->> what is the behaviour in TCP stack if I set tcp_reordering as 0.
->> So , sender will =A0start retransmission without waiting for any dup=
-licate ACK ?
->> /proc/sys/net/ipv4/tcp_reordering =A0 - Please clarify.
->> The default value is 3 which means it waits until 3 duplicate ack's
->> arrive and then start retransmission.
->>
->> "The TCP sender should use the fast retransmit algorithm to detect a=
-nd
->> repair loss based on incoming duplicate ACKs. After the arrival of 3
->> duplicate ACKs (4 identical ACKs without the arrival of any other
->> intervening packet), TCP performs a retransmission of what appears t=
-o
->> be the missing segment, without waiting for the retransmission timer
->> to expire."
->
-> Depends on other things quite much but for a typical transfer you'd s=
-till
-> need one duplicate ACK to trigger actual recovery. However, in genera=
-l
-> root is not (always) forbidden to set non-sensical values for sysctls=
-=2E
->
-> --
-> =A0i.
->
 
-Hmm....Is that mean setting the value as 0 is non-sensical ?
+On Wed, Mar 17, 2010 at 8:14 AM, David Miller <davem@davemloft.net>
+wrote:
 
-OR
+> Therefore the krealloc() failure handling in this driver should NULL
+> out i2400m->fw_hdrs and that will fix the double kfree problem as well
+> as trap any stray references.
 
-After setting the value as 0,  TCP Stack doesn't expect any drops to
-occur, so that there won't be any recovery required and if any drops
-occur it leads to chaos from application point of view as it expects
-all the packets  ...correct?
+Yes that is a much better Idea. Thanks for the advice. 
+It also fixes the i2400m_barker_db problem that I didn't notice before.
 
 
-Actually I set the value as 0 and tried running firefox with few URLs
-=2E..but my machine Crashed !
-I think this is expected as This lead to chaos in the stack...
-But If the same  value is tried between two machines connected
-together directly  running iperf , There wont be any issues.
+Fix double free on krealloc() failure by zeroing pointer
+
+coverity CID: 13455
+
+Signed-off-by: Darren Jenkins <darrenrjenkins@gmail.com>
+---
+ drivers/net/wimax/i2400m/fw.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
+index 25c24f0..9f3b594 100644
+--- a/drivers/net/wimax/i2400m/fw.c
++++ b/drivers/net/wimax/i2400m/fw.c
+@@ -232,8 +232,9 @@ int i2400m_zrealloc_2x(void **ptr, size_t *_count, size_t el_size,
+ 		*_count = new_count;
+ 		*ptr = nptr;
+ 		return 0;
+-	} else
+-		return -ENOMEM;
++	}
++	*ptr = NULL;
++	return -ENOMEM;
+ }
+ 
+ 
+-- 
+1.6.3.3
+
+ 
 
 
-Thx,
-Kavi
+
+
