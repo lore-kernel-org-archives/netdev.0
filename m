@@ -1,60 +1,110 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] xfrm: cache bundle lookup results in flow cache
-Date: Wed, 17 Mar 2010 22:58:50 +0800
-Message-ID: <20100317145850.GA4257@gondor.apana.org.au>
-References: <1268655610-7845-1-git-send-email-timo.teras@iki.fi> <20100317130704.GA2601@gondor.apana.org.au> <4BA0E435.6090801@iki.fi>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH v7] rps: Receive Packet Steering
+Date: Wed, 17 Mar 2010 08:01:22 -0700
+Message-ID: <65634d661003170801x1042a6am563c9d937ba672a4@mail.gmail.com>
+References: <65634d661003121508m3d348973k63a6ae9ca1f12f9f@mail.gmail.com>
+	 <4B9FC7F1.5010507@google.com>
+	 <1268773227.2932.34.camel@edumazet-laptop>
+	 <20100316.141311.262178287.davem@davemloft.net>
+	 <412e6f7f1003161854w32ed4516w2e52003097051fc7@mail.gmail.com>
+	 <1268809673.2932.62.camel@edumazet-laptop>
+	 <412e6f7f1003170059r1f0fa4cfrbe8b3f22102ee9d9@mail.gmail.com>
+	 <1268834957.2899.352.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:34159 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750731Ab0CQO6w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 10:58:52 -0400
-Content-Disposition: inline
-In-Reply-To: <4BA0E435.6090801@iki.fi>
+Received: from smtp-out.google.com ([74.125.121.35]:16557 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751064Ab0CQPB1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 11:01:27 -0400
+Received: from wpaz1.hot.corp.google.com (wpaz1.hot.corp.google.com [172.24.198.65])
+	by smtp-out.google.com with ESMTP id o2HF1Pwt028632
+	for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 16:01:25 +0100
+Received: from fxm1 (fxm1.prod.google.com [10.184.13.1])
+	by wpaz1.hot.corp.google.com with ESMTP id o2HF1NT8003997
+	for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 08:01:24 -0700
+Received: by fxm1 with SMTP id 1so1175054fxm.33
+        for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 08:01:23 -0700 (PDT)
+In-Reply-To: <1268834957.2899.352.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 17, 2010 at 04:16:21PM +0200, Timo Ter=E4s wrote:
+On Wed, Mar 17, 2010 at 7:09 AM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le mercredi 17 mars 2010 =E0 15:59 +0800, Changli Gao a =E9crit :
+>> On Wed, Mar 17, 2010 at 3:07 PM, Eric Dumazet <eric.dumazet@gmail.co=
+m> wrote:
+>> > Le mercredi 17 mars 2010 =E0 09:54 +0800, Changli Gao a =E9crit :
+>> >> On Wed, Mar 17, 2010 at 5:13 AM, David Miller <davem@davemloft.ne=
+t> wrote:
+>> >> >
+>> >> > I'll integrate this as soon as I open up net-next-2.6
+>> >>
+>> >> It is really a good news. Now linux also can dispatch packets as
+>> >> FreeBSD does via netisr. Can we walk farer, and support weighted
+>> >> distribution?
+>> >>
+>> >
+>> > May I ask why ? What would be the goal ?
+>> >
+>>
+>> For example, I have a firewall with dual core CPU, and use core 0 fo=
+r
+>> IRQ and dispatching. If I use both core 0 and core 1 for the left
+>> processing, core 0 will be overloaded, and if I use core 1 for the
+>> left processing, core 0 will be light load. In order to take full of
+>> advantage of hardware, I need weighted the packet distribution.
 >
-> The problem is if I have multipoint gre1 and policy that says
-> "encrypt all gre in transport mode".
+> I would not use RPS at all, weighted or not, unless your firewall mus=
+t
+> perform heavy duty work (l7 or complex rules)
 >
-> Thus for each public address, I get one bundle. But the
-> xfrm_lookup() is called for each packet because ipgre_tunnel_xmit()
-> calls ip_route_output_key() on per-packet basis.
+> If the firewall setup is expensive, then IRQ processing has minor cos=
+t,
+> and RPS fits the bill (cpu handling IRQ will be a bit more loaded tha=
+n
+> its buddy).
 >
-> For my use-case it makes a huge difference.
+> RPS is a win when _some_ TCP/UDP processing occurs, and we try to do
+> this processing on a cpu that will also run user space thread with da=
+ta
+> in cpu cache (if process scheduler does a good job)
+> Not much applicable for routers...
+>
+>
+> Anyway, current sysfs RPS interface exposes
+> a /sys/class/net/eth0/queues/rx-0/rps_cpus bitmap,
+>
+> I guess we could expose another file,
+> /sys/class/net/eth0/queues/rx-0/rps_map
+> to give different weight to cpus :
+>
+> echo "0 1 0 1 0 1 1 1 1 1" >/sys/class/net/eth0/queues/rx-0/rps_map
+>
+> cpu0 would get 30% of the postprocessing load, cpu1 70%
+>
+> Using /sys/class/net/eth0/queues/rx-0/rps_cpus interface would give a=
+n
+> equal weight to each cpu :
+>
+>
+> # echo "0 1 0 1 0 1 1 1 1 1" >/sys/class/net/eth0/queues/rx-0/rps_map
+> # cat /sys/class/net/eth0/queues/rx-0/rps_cpus
+> 3
+> # cat /sys/class/net/eth0/queues/rx-0/rps_map
+> 0 1 0 1 0 1 1 1 1 1
+> # echo 3 >/sys/class/net/eth0/queues/rx-0/rps_cpus
+> # cat /sys/class/net/eth0/queues/rx-0/rps_map
+> 0 1
 
-But if your traffic switches between those tunnels on each packet,
-we're back to square one, right?
+Alternatively, the rps_map could be specified explicitly, which will
+allow weighting.  For example "0 0 0 0 2 10 10 10"  would select CPUs
+0, 2, 10 for the map with weights four, one, and three respectively.
+This would go back to have sysfs files with multiple values in them,
+so it might not be the right interface.
 
-> Then we cannot maintain policy use time. But if it's not a
-> requirement, we could drop the policy from cache.
-
-I don't see why we can't maintain the policy use time if we did
-this, all you need is a back-pointer from the top xfrm_dst.
-
-> Also. With this and your recent flowi patch, I'm seeing pmtu
-> issues. Seems like xfrm_bundle_ok uses the original dst which
-> resulted in the creation of the bundle. Somehow that dst
-> does not get updated with pmtu... but the new dst used in
-> next xfrm_lookup for same target does have proper mtu.
-> I'm debugging right now why this is happening. Any ideas?
-
-The dynamic MTU is always maintained in a normal dst object in
-the IPv4 routing cache.  Each xfrm_dst points to such a dst
-through xdst->route.
-
-If you were looking at the xfrm_dst's own MTU then that may well
-cause problems.
-
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Tom
