@@ -1,44 +1,38 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] can: bfin_can: switch to common Blackfin can header
-Date: Tue, 16 Mar 2010 21:28:30 -0700 (PDT)
-Message-ID: <20100316.212830.50212878.davem@davemloft.net>
-References: <1268150589-27123-1-git-send-email-vapier@gentoo.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] NET: Support clause 45 MDIO commands at the MDIO bus
+ level
+Date: Tue, 16 Mar 2010 21:28:40 -0700 (PDT)
+Message-ID: <20100316.212840.211879050.davem@davemloft.net>
+References: <20100309191742.GB30462@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
-	oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org, urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org
-To: vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1268150589-27123-1-git-send-email-vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jgunthorpe@obsidianresearch.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100309191742.GB30462@obsidianresearch.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Date: Tue,  9 Mar 2010 11:03:09 -0500
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Date: Tue, 9 Mar 2010 12:17:42 -0700
 
-> The MMR bits are being moved to this header, so include it.
+> IEEE 802.3ae clause 45 specifies a somewhat modified MDIO protocol
+> for use by 10GIGE phys. The main change is a 21 bit address split into
+> a 5 bit device ID and a 16 bit register offset. The definition is designed
+> so that normal and extended devices can run on the same MDIO bus.
 > 
-> Signed-off-by: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+> Extend mdio-bitbang to do the new protocol. At the MDIO bus level the
+> protocol is requested by or'ing MII_ADDR_C45 into the register offset.
+> 
+> Make phy_read/phy_write/etc pass a full 32 bit register offset.
+> 
+> This does not attempt to make the phy layer support C45 style PHYs, just
+> to provide the MDIO bus support.
+> 
+> Tested against a Broadcom 10GE phy with ID 0x206034, and several
+> Broadcom 10/100/1000 Phys in normal mode.
+> 
+> Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 
-I can't actually apply this since this asm/bfin_can.h header
-doesn't even exist in the tree yet so this change will
-break the build.
-
-This doesn't make any sense at all, it's impossible to
-prevent breaking the build unless you add the asm/bfin_can.h
-header at the same time you do these changes.
-
-Why not submit those two things together as one commit
-instead?
-
-Thanks.
+Applied.
