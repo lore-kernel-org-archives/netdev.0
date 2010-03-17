@@ -1,182 +1,153 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v7] rps: Receive Packet Steering
-Date: Wed, 17 Mar 2010 16:50:16 -0700
-Message-ID: <4BA16AB8.3090800@google.com>
-References: <65634d661003121508m3d348973k63a6ae9ca1f12f9f@mail.gmail.com>	 <4B9FC7F1.5010507@google.com>	 <1268773227.2932.34.camel@edumazet-laptop>	 <20100316.141311.262178287.davem@davemloft.net>	 <412e6f7f1003161854w32ed4516w2e52003097051fc7@mail.gmail.com>	 <1268809673.2932.62.camel@edumazet-laptop>	 <412e6f7f1003170059r1f0fa4cfrbe8b3f22102ee9d9@mail.gmail.com>	 <1268834957.2899.352.camel@edumazet-laptop> <65634d661003170801x1042a6am563c9d937ba672a4@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: Fix rtl8169_rx_interrupt()
+Date: Thu, 18 Mar 2010 00:55:05 +0100
+Message-ID: <20100317235505.GA6674@electric-eye.fr.zoreil.com>
+References: <1268686865.2824.4.camel@edumazet-laptop>
+ <1268699602.2824.14.camel@edumazet-laptop>
+ <20100316145914.GB3332@swordfish.minsk.epam.com>
+ <1268751933.3094.45.camel@edumazet-laptop>
+ <20100316151023.GC3332@swordfish.minsk.epam.com>
+ <1268752826.3094.48.camel@edumazet-laptop>
+ <20100316182619.GA3451@swordfish>
+ <1268765284.2932.17.camel@edumazet-laptop>
+ <20100317072539.GA3579@swordfish>
+ <1268811437.2932.66.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Changli Gao <xiaosuo@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>,
+	Oleg Nesterov <oleg@redhat.com>,
 	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:8239 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754320Ab0CQXuX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 19:50:23 -0400
-Received: from kpbe14.cbf.corp.google.com (kpbe14.cbf.corp.google.com [172.25.105.78])
-	by smtp-out.google.com with ESMTP id o2HNoM1N022857
-	for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 16:50:22 -0700
-Received: from qw-out-1920.google.com (qwc5.prod.google.com [10.241.193.133])
-	by kpbe14.cbf.corp.google.com with ESMTP id o2HNo0T4006964
-	for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 16:50:21 -0700
-Received: by qw-out-1920.google.com with SMTP id 5so239323qwc.34
-        for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 16:50:20 -0700 (PDT)
-In-Reply-To: <65634d661003170801x1042a6am563c9d937ba672a4@mail.gmail.com>
+Received: from 16.239.115-78.rev.gaoland.net ([78.115.239.16]:56068 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751294Ab0CRAGJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 20:06:09 -0400
+Content-Disposition: inline
+In-Reply-To: <1268811437.2932.66.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Mar 17, 2010 at 08:37:17AM +0100, Eric Dumazet wrote:
+[...]
+> I suspect lot of work is needed on this driver to make it working, but I
+> dont have a machine with said adapter.
 
->>
->> # echo "0 1 0 1 0 1 1 1 1 1" >/sys/class/net/eth0/queues/rx-0/rps_map
->> # cat /sys/class/net/eth0/queues/rx-0/rps_cpus
->> 3
->> # cat /sys/class/net/eth0/queues/rx-0/rps_map
->> 0 1 0 1 0 1 1 1 1 1
->> # echo 3 >/sys/class/net/eth0/queues/rx-0/rps_cpus
->> # cat /sys/class/net/eth0/queues/rx-0/rps_map
->> 0 1
-> 
-> Alternatively, the rps_map could be specified explicitly, which will
-> allow weighting.  For example "0 0 0 0 2 10 10 10"  would select CPUs
-> 0, 2, 10 for the map with weights four, one, and three respectively.
-> This would go back to have sysfs files with multiple values in them,
-> so it might not be the right interface.
+This one should help too if Sergey owns a (MSI) 8168.
 
-Here is a patch for this...
-
-Allow specification of CPUs in rps to be done with a vector instead of a bit map.  This allows relative weighting of CPUs in the map by repeating ones to give higher weight.
-
-For example "echo 0 0 0 3 4 4 4 4 > /sys/class/net/eth0/queues/rx-0/rps_cpus"
-
-assigns CPUs 0, 3, and 4 to the RPS mask with relative weights 3, 1, and 4 respectively.
-
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 7a46343..41956a5 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -17,6 +17,7 @@
- #include <linux/rtnetlink.h>
- #include <linux/wireless.h>
- #include <net/wext.h>
-+#include <linux/ctype.h>
- 
- #include "net-sysfs.h"
- 
-@@ -514,30 +515,20 @@ static ssize_t show_rps_map(struct netdev_rx_queue *queue,
- 			    struct rx_queue_attribute *attribute, char *buf)
- {
- 	struct rps_map *map;
--	cpumask_var_t mask;
- 	size_t len = 0;
- 	int i;
- 
--	if (!zalloc_cpumask_var(&mask, GFP_KERNEL))
--		return -ENOMEM;
--
- 	rcu_read_lock();
-+
- 	map = rcu_dereference(queue->rps_map);
- 	if (map)
- 		for (i = 0; i < map->len; i++)
--			cpumask_set_cpu(map->cpus[i], mask);
-+			len += snprintf(buf + len, PAGE_SIZE - len, "%u%s",
-+			    map->cpus[i], i + 1 < map->len ? " " : "\n");
- 
--	len += cpumask_scnprintf(buf + len, PAGE_SIZE, mask);
--	if (PAGE_SIZE - len < 3) {
--		rcu_read_unlock();
--		free_cpumask_var(mask);
--		return -EINVAL;
--	}
- 	rcu_read_unlock();
- 
--	free_cpumask_var(mask);
--	len += sprintf(buf + len, "\n");
--	return len;
-+	return len < PAGE_SIZE ? len : -EINVAL;
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index dfc3573..721e7f3 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -4532,21 +4532,39 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
+ 	return count;
  }
  
- static void rps_map_release(struct rcu_head *rcu)
-@@ -552,41 +543,50 @@ ssize_t store_rps_map(struct netdev_rx_queue *queue,
- 		      const char *buf, size_t len)
++static void rtl_napi_cond_schedule(struct rtl8169_private *tp, u16 status)
++{
++	if (status & tp->napi_event) {
++		void __iomem *ioaddr = tp->mmio_addr;
++
++		RTL_W16(IntrMask, tp->intr_event & ~tp->napi_event);
++		mmiowb();
++		napi_schedule(&tp->napi);
++	}
++}
++
+ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
  {
- 	struct rps_map *old_map, *map;
--	cpumask_var_t mask;
--	int err, cpu, i;
-+	int i, count = 0;
-+	unsigned int val;
- 	static DEFINE_SPINLOCK(rps_map_lock);
-+	char *tbuf;
+ 	struct net_device *dev = dev_instance;
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 	void __iomem *ioaddr = tp->mmio_addr;
+ 	int handled = 0;
+-	int status;
++	u16 status;
  
- 	if (!capable(CAP_NET_ADMIN))
- 		return -EPERM;
+ 	/* loop handling interrupts until we have no new ones or
+ 	 * we hit a invalid/hotplug case.
+ 	 */
+ 	status = RTL_R16(IntrStatus);
+ 	while (status && status != 0xffff) {
++		u16 acked;
++
+ 		handled = 1;
  
--	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
--		return -ENOMEM;
-+	/* Validate and count the number of CPUs in the input list. */
-+	tbuf = (char *)buf;
-+	while (tbuf < buf + len) {
-+		char *rbuf;
++		acked = (status & RxFIFOOver) ? (status | RxOverflow) : status;
++		acked &= ~tp->napi_event;
++
++		RTL_W16(IntrStatus, acked);
++
+ 		/* Handle all of the error cases first. These will reset
+ 		 * the chip, so just exit the loop.
+ 		 */
+@@ -4557,7 +4575,7 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
  
--	err = bitmap_parse(buf, len, cpumask_bits(mask), nr_cpumask_bits);
--	if (err) {
--		free_cpumask_var(mask);
--		return err;
--	}
-+		if (isspace(*tbuf)) {
-+			tbuf++;
-+			continue;
-+		}
+ 		/* Work around for rx fifo overflow */
+ 		if (unlikely(status & RxFIFOOver) &&
+-		(tp->mac_version == RTL_GIGA_MAC_VER_11)) {
++		    (tp->mac_version == RTL_GIGA_MAC_VER_11)) {
+ 			netif_stop_queue(dev);
+ 			rtl8169_tx_timeout(dev);
+ 			break;
+@@ -4571,30 +4589,9 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+ 		if (status & LinkChg)
+ 			rtl8169_check_link_status(dev, tp, ioaddr);
  
--	map = kzalloc(max_t(unsigned,
--	    RPS_MAP_SIZE(cpumask_weight(mask)), L1_CACHE_BYTES),
--	    GFP_KERNEL);
--	if (!map) {
--		free_cpumask_var(mask);
--		return -ENOMEM;
--	}
-+		val = simple_strtoul(tbuf, &rbuf, 0);
+-		/* We need to see the lastest version of tp->intr_mask to
+-		 * avoid ignoring an MSI interrupt and having to wait for
+-		 * another event which may never come.
+-		 */
+-		smp_rmb();
+-		if (status & tp->intr_mask & tp->napi_event) {
+-			RTL_W16(IntrMask, tp->intr_event & ~tp->napi_event);
+-			tp->intr_mask = ~tp->napi_event;
+-
+-			if (likely(napi_schedule_prep(&tp->napi)))
+-				__napi_schedule(&tp->napi);
+-			else
+-				netif_info(tp, intr, dev,
+-					   "interrupt %04x in poll\n", status);
+-		}
++		rtl_napi_cond_schedule(tp, status);
  
--	i = 0;
--	for_each_cpu_and(cpu, mask, cpu_online_mask)
--		map->cpus[i++] = cpu;
-+		if ((tbuf == rbuf) || (val >= num_possible_cpus()))
-+			return -EINVAL;
- 
--	if (i)
--		map->len = i;
--	else {
--		kfree(map);
--		map = NULL;
-+		tbuf = rbuf;
-+		count++;
+-		/* We only get a new MSI interrupt when all active irq
+-		 * sources on the chip have been acknowledged. So, ack
+-		 * everything we've seen and check if new sources have become
+-		 * active to avoid blocking all interrupts from the chip.
+-		 */
+-		RTL_W16(IntrStatus,
+-			(status & RxFIFOOver) ? (status | RxOverflow) : status);
+-		status = RTL_R16(IntrStatus);
++		break;
  	}
  
-+	if (count) {
-+		map = kzalloc(max_t(unsigned, RPS_MAP_SIZE(count),
-+		    L1_CACHE_BYTES), GFP_KERNEL);
-+		if (!map)
-+			return -ENOMEM;
-+
-+		tbuf = (char *)buf;
-+		for (i = 0; i < count; i++) {
-+			while (isspace(*tbuf))
-+				tbuf++;
-+			map->cpus[i] = simple_strtoul(tbuf, &tbuf, 0);
-+		}
-+		map->len = count;
-+	} else
-+		map = NULL;
-+
-+
- 	spin_lock(&rps_map_lock);
- 	old_map = queue->rps_map;
- 	rcu_assign_pointer(queue->rps_map, map);
-@@ -595,7 +595,6 @@ ssize_t store_rps_map(struct netdev_rx_queue *queue,
- 	if (old_map)
- 		call_rcu(&old_map->rcu, rps_map_release);
+ 	return IRQ_RETVAL(handled);
+@@ -4607,22 +4604,19 @@ static int rtl8169_poll(struct napi_struct *napi, int budget)
+ 	void __iomem *ioaddr = tp->mmio_addr;
+ 	int work_done;
  
--	free_cpumask_var(mask);
- 	return len;
- }
++
++	RTL_W16(IntrStatus, tp->napi_event);
++
+ 	work_done = rtl8169_rx_interrupt(dev, tp, ioaddr, (u32) budget);
+ 	rtl8169_tx_interrupt(dev, tp, ioaddr);
+ 
+ 	if (work_done < budget) {
+ 		napi_complete(napi);
+ 
+-		/* We need for force the visibility of tp->intr_mask
+-		 * for other CPUs, as we can loose an MSI interrupt
+-		 * and potentially wait for a retransmit timeout if we don't.
+-		 * The posted write to IntrMask is safe, as it will
+-		 * eventually make it to the chip and we won't loose anything
+-		 * until it does.
+-		 */
+-		tp->intr_mask = 0xffff;
+-		smp_wmb();
+ 		RTL_W16(IntrMask, tp->intr_event);
++		mmiowb();
++
++		rtl_napi_cond_schedule(tp, RTL_R16(IntrStatus));
+ 	}
+ 
+ 	return work_done;
