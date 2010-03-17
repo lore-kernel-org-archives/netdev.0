@@ -1,29 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch] netpoll: allow spaces in its parameter
-Date: Tue, 16 Mar 2010 23:14:34 -0700 (PDT)
-Message-ID: <20100316.231434.177653499.davem@davemloft.net>
-References: <4BA07022.1040702@redhat.com>
-	<20100316.225950.222623826.davem@davemloft.net>
-	<4BA071BD.5040900@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: remove rcu locking from fib_rules_event()
+Date: Wed, 17 Mar 2010 07:32:39 +0100
+Message-ID: <1268807559.2932.35.camel@edumazet-laptop>
+References: <1268201018.2872.139.camel@edumazet-laptop>
+	 <20100316.212846.160081359.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: amwang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4BA071BD.5040900@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f211.google.com ([209.85.218.211]:55658 "EHLO
+	mail-bw0-f211.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753264Ab0CQGcp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 02:32:45 -0400
+Received: by bwz3 with SMTP id 3so825896bwz.29
+        for <netdev@vger.kernel.org>; Tue, 16 Mar 2010 23:32:43 -0700 (PDT)
+In-Reply-To: <20100316.212846.160081359.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
-Date: Wed, 17 Mar 2010 14:07:57 +0800
+Le mardi 16 mars 2010 =C3=A0 21:28 -0700, David Miller a =C3=A9crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 10 Mar 2010 07:03:38 +0100
+>=20
+> > We hold RTNL at this point and dont use RCU variants of list traver=
+sals,
+> > we dont need rcu_read_lock()/rcu_read_unlock()
+> >=20
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> Applied.
 
-> No, but silently accepting it as 0 is not correct, why don't
-> reject it if it is not allowed?
+Thanks David.
 
-You have to be careful even with that.  For example, if two
-netconsoles are specified, seeing the space shouldn't
-kill the first netconsole specification we parsed.
+I believe the synchronize_rcu() we have in this file is useless too,
+I'll submit a patch.
 
-A warning perhaps, but outright rejection of all specifications is
-really bad behavior.
+
+
