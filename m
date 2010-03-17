@@ -1,28 +1,110 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Regression] r8169: enable 64-bit DMA by default for PCI
- Express devices (v2)
-Date: Tue, 16 Mar 2010 16:40:47 -0700 (PDT)
-Message-ID: <20100316.164047.00470829.davem@davemloft.net>
-References: <51f3faa71003151628g5edc4d7av8916ac76cb337bfe@mail.gmail.com>
-	<20100316083501.GA3489@Dublin.logfs.org>
-	<51f3faa71003161630g69160ea9tc1a2d448682632e5@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/3] netlink: fix NETLINK_RECV_NO_ENOBUFS in netlink_set_err()
+Date: Wed, 17 Mar 2010 01:04:20 +0100
+Message-ID: <4BA01C84.2040701@netfilter.org>
+References: <20100316232247.4185.19426.stgit@decadence> <20100316232957.4185.46217.stgit@decadence>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/mixed;
+ boundary="------------090103050401060309020708"
+Cc: kaber@trash.net, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:46843 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751347Ab0CQAE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Mar 2010 20:04:29 -0400
+In-Reply-To: <20100316232957.4185.46217.stgit@decadence>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------090103050401060309020708
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: joern@dublin.logfs.org, torvalds@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	romieu@fr.zoreil.com
-To: hancockrwd@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51f3faa71003161630g69160ea9tc1a2d448682632e5@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-From: Robert Hancock <hancockrwd@gmail.com>
-Date: Tue, 16 Mar 2010 17:30:53 -0600
+The previous patch was broken, sorry. Please, take this one instead. Thanks!
 
-> In the meantime, I don't object to reverting the patch for now unless
-> we get this sorted out quickly..
+--------------090103050401060309020708
+Content-Type: text/x-patch;
+ name="netlink.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="netlink.patch"
 
-Yes if we can't sort this out soon, that's exactly what we should
-do.
+netlink: fix NETLINK_RECV_NO_ENOBUFS in netlink_set_err()
+
+Currently, ENOBUFS errors are reported to the socket via
+netlink_set_err() even if NETLINK_RECV_NO_ENOBUFS is set. However,
+that should not happen. This fixes this problem and it changes the
+prototype of netlink_set_err() to return the number of sockets whose
+error has been set. This allows to know if any error has been set.
+This return value is used in the next patch in these bugfix series.
+
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ include/linux/netlink.h  |    2 +-
+ net/netlink/af_netlink.c |   13 +++++++++++--
+ 2 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index fde27c0..6eaca5e 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -188,7 +188,7 @@ extern int netlink_has_listeners(struct sock *sk, unsigned int group);
+ extern int netlink_unicast(struct sock *ssk, struct sk_buff *skb, __u32 pid, int nonblock);
+ extern int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, __u32 pid,
+ 			     __u32 group, gfp_t allocation);
+-extern void netlink_set_err(struct sock *ssk, __u32 pid, __u32 group, int code);
++extern int netlink_set_err(struct sock *ssk, __u32 pid, __u32 group, int code);
+ extern int netlink_register_notifier(struct notifier_block *nb);
+ extern int netlink_unregister_notifier(struct notifier_block *nb);
+ 
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 4c5972b..4ae2e8f 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1104,8 +1104,12 @@ static inline int do_one_set_err(struct sock *sk,
+ 	    !test_bit(p->group - 1, nlk->groups))
+ 		goto out;
+ 
++	if (p->code == ENOBUFS && nlk->flags & NETLINK_RECV_NO_ENOBUFS)
++		goto out;
++
+ 	sk->sk_err = p->code;
+ 	sk->sk_error_report(sk);
++	return 1;
+ out:
+ 	return 0;
+ }
+@@ -1116,12 +1120,16 @@ out:
+  * @pid: the PID of a process that we want to skip (if any)
+  * @groups: the broadcast group that will notice the error
+  * @code: error code, must be negative (as usual in kernelspace)
++ *
++ * This function returns the number of broadcast listeners whose error code
++ * has been set.
+  */
+-void netlink_set_err(struct sock *ssk, u32 pid, u32 group, int code)
++int netlink_set_err(struct sock *ssk, u32 pid, u32 group, int code)
+ {
+ 	struct netlink_set_err_data info;
+ 	struct hlist_node *node;
+ 	struct sock *sk;
++	int ret = 0;
+ 
+ 	info.exclude_sk = ssk;
+ 	info.pid = pid;
+@@ -1132,9 +1140,10 @@ void netlink_set_err(struct sock *ssk, u32 pid, u32 group, int code)
+ 	read_lock(&nl_table_lock);
+ 
+ 	sk_for_each_bound(sk, node, &nl_table[ssk->sk_protocol].mc_list)
+-		do_one_set_err(sk, &info);
++		ret += do_one_set_err(sk, &info);
+ 
+ 	read_unlock(&nl_table_lock);
++	return ret;
+ }
+ EXPORT_SYMBOL(netlink_set_err);
+ 
+
+--------------090103050401060309020708--
