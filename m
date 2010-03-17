@@ -1,66 +1,45 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: e1000e: Fix build with CONFIG_PM disabled.
-Date: Wed, 17 Mar 2010 11:57:59 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FE4909419@rrsmsx501.amr.corp.intel.com>
-References: <20100316.234100.133957798.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] 3c59x: Acquire vortex lock instead of disabling irq
+Date: Wed, 17 Mar 2010 11:03:20 -0700 (PDT)
+Message-ID: <20100317.110320.15445884.davem@davemloft.net>
+References: <1268836396-23943-1-git-send-email-chase.douglas@canonical.com>
+	<1268836396-23943-2-git-send-email-chase.douglas@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>, "rjw@sisk.pl" <rjw@sisk.pl>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: chase.douglas@canonical.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:45377 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754917Ab0CQR6D convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 13:58:03 -0400
-In-Reply-To: <20100316.234100.133957798.davem@davemloft.net>
-Content-Language: en-US
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57173
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755286Ab0CQSC6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 14:02:58 -0400
+In-Reply-To: <1268836396-23943-2-git-send-email-chase.douglas@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> I had to add the following patch to fix the build after
-> your changes.
-> 
-> Thanks.
-> 
-> e1000e: Fix build with CONFIG_PM disabled.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  drivers/net/e1000e/netdev.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-> index 79b33c5..b96532a 100644
-> --- a/drivers/net/e1000e/netdev.c
-> +++ b/drivers/net/e1000e/netdev.c
-> @@ -5475,6 +5475,7 @@ static DEFINE_PCI_DEVICE_TABLE(e1000_pci_tbl) =
->  { };
->  MODULE_DEVICE_TABLE(pci, e1000_pci_tbl);
-> 
-> +#ifdef CONFIG_PM
->  static const struct dev_pm_ops e1000_pm_ops = {
->  	.suspend  = e1000_suspend,
->  	.resume   = e1000_resume,
-> @@ -5486,6 +5487,7 @@ static const struct dev_pm_ops e1000_pm_ops = {
->  	.runtime_resume = e1000_runtime_resume,
->  	.runtime_idle = e1000_idle,
->  };
-> +#endif
-> 
->  /* PCI Device API Driver */
->  static struct pci_driver e1000_driver = {
-> --
-> 1.6.6.1
+From: Chase Douglas <chase.douglas@canonical.com>
+Date: Wed, 17 Mar 2010 10:33:16 -0400
 
-But then the driver build fails again when CONFIG_PM_RUNTIME is not set.
+> Last year, threaded IRQ handlers were introduced to the mainline kernel.
+> This change requires the disable_irq function to sleep if any IRQ
+> handler threads for a given IRQ line are running.
+> 
+> Back in 2006, while working on the -rt patch set that had threaded IRQ
+> handlers, the vortex_timer function was causing scheduling bugs because
+> it is run in softirq context and called disable_irq. This patch was the
+> best fix determined at the time, and still exists in the .33 -rt
+> patchset. Now that threaded IRQ handlers are present in the mainline
+> kernel we need to apply the patch there as well.
+> 
+> http://lkml.org/lkml/2006/5/12/178
+> 
+> BugLink: http://bugs.launchpad.net/bugs/533335
+> 
+> Signed-off-by: Chase Douglas <chase.douglas@canonical.com>
 
-drivers/net/e1000e/netdev.c: In function `e1000_runtime_resume`:
-drivers/net/e1000e/netdev.c:4807: error: `struct dev_pm_info` has no member named `runtime_auto`
+This code is very much intentionally using disable_irq*().
 
-Thanks,
-Emil
+The operation being performed here is extremely expensive,
+and during that time if we have cpu interrupts disabled
+serial devices will drop characters etc.
