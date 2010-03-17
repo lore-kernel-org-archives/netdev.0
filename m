@@ -1,55 +1,45 @@
-From: Amerigo Wang <amwang@redhat.com>
-Subject: [Patch] netpoll: warn when there are spaces in parameters
-Date: Wed, 17 Mar 2010 06:12:55 -0400
-Message-ID: <20100317101635.5948.23485.sendpatchset@localhost.localdomain>
-Cc: netdev@vger.kernel.org, Amerigo Wang <amwang@redhat.com>,
-	David Miller <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: cooldavid@cooldavid.org
+Subject: [PATCH net-2.6 1/3] jme: Fix VLAN memory leak
+Date: Wed, 17 Mar 2010 18:09:29 +0800
+Message-ID: <1268820571-2092-1-git-send-email-cooldavid@cooldavid.org>
+Cc: Guo-Fu Tseng <cooldavid@cooldavid.org>,
+	"linux-netdev" <netdev@vger.kernel.org>,
+	"Ethan Hsiao" <ethanhsiao@jmicron.com>,
+	"Devinchiu" <devinchiu@jmicron.com>,
+	"Hsiu-Che Chao" <hcchao@jmicron.com>, stable@kernel.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cooldavid.org ([114.33.45.68]:35758 "EHLO cooldavid.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754111Ab0CQKPx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Mar 2010 06:15:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Guo-Fu Tseng <cooldavid@cooldavid.org>
 
-Currently, if we leave spaces before dst port,
-netconsole will silently accept it as 0. Warn about this.
+Fix memory leak while receiving 8021q tagged packet which is not
+registered by user.
 
-Also, when spaces appear in other places, make them
-visible in error messages.
-
-Signed-off-by: WANG Cong <amwang@redhat.com>
-Cc: David Miller <davem@davemloft.net>
-
+Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
+Cc: stable@kernel.org
 ---
+ drivers/net/jme.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 7aa6972..6df1863 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -614,7 +614,7 @@ void netpoll_print_options(struct netpoll *np)
- 			 np->name, np->local_port);
- 	printk(KERN_INFO "%s: local IP %pI4\n",
- 			 np->name, &np->local_ip);
--	printk(KERN_INFO "%s: interface %s\n",
-+	printk(KERN_INFO "%s: interface '%s'\n",
- 			 np->name, np->dev_name);
- 	printk(KERN_INFO "%s: remote port %d\n",
- 			 np->name, np->remote_port);
-@@ -661,6 +661,9 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
- 		if ((delim = strchr(cur, '@')) == NULL)
- 			goto parse_failed;
- 		*delim = 0;
-+		if (*cur == ' ' || *cur == '\t')
-+			printk(KERN_INFO "%s: warning: white spaces"
-+					"are not allowed.\n", np->name);
- 		np->remote_port = simple_strtol(cur, NULL, 10);
- 		cur = delim;
- 	}
-@@ -708,7 +711,7 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
- 	return 0;
- 
-  parse_failed:
--	printk(KERN_INFO "%s: couldn't parse config at %s!\n",
-+	printk(KERN_INFO "%s: couldn't parse config at '%s'!\n",
- 	       np->name, cur);
- 	return -1;
- }
+diff --git a/drivers/net/jme.c b/drivers/net/jme.c
+index 0f31497..cfc7b98 100644
+--- a/drivers/net/jme.c
++++ b/drivers/net/jme.c
+@@ -946,6 +946,8 @@ jme_alloc_and_feed_skb(struct jme_adapter *jme, int idx)
+ 				jme->jme_vlan_rx(skb, jme->vlgrp,
+ 					le16_to_cpu(rxdesc->descwb.vlan));
+ 				NET_STAT(jme).rx_bytes += 4;
++			} else {
++				dev_kfree_skb(skb);
+ 			}
+ 		} else {
+ 			jme->jme_rx(skb);
+-- 
+1.6.4.4
+
