@@ -1,40 +1,49 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: tcp_reordering as 0 possible?
-Date: Wed, 17 Mar 2010 13:38:15 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.1003171333250.19416@melkinpaasi.cs.helsinki.fi>
-References: <de0a9dcb1003150725h367d0548j35037441fdb2f5df@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: raj ravi <mekaviraj@gmail.com>
+From: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>
+Subject: [PATCH] tcp: Fix tcp_mark_head_lost() with packets == 0
+Date: Wed, 17 Mar 2010 13:16:29 +0100
+Message-ID: <1268828189-22182-1-git-send-email-lennart.schulte@nets.rwth-aachen.de>
+Content-Transfer-Encoding: 7BIT
+Cc: ilpo.jarvinen@helsinki.fi,
+	Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>,
+	Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:60390 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754471Ab0CQLiR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 07:38:17 -0400
-In-Reply-To: <de0a9dcb1003150725h367d0548j35037441fdb2f5df@mail.gmail.com>
+Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:62202 "EHLO
+	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754710Ab0CQMPr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 08:15:47 -0400
+Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
+ by mta-2.ms.rz.RWTH-Aachen.de
+ (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
+ with ESMTP id <0KZF0028QE29CVB0@mta-2.ms.rz.RWTH-Aachen.de> for
+ netdev@vger.kernel.org; Wed, 17 Mar 2010 13:15:45 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 15 Mar 2010, raj ravi wrote:
+A packet is marked as lost in case packets == 0, although nothing should be done.
+This results in a too early retransmitted packet during recovery in some cases.
+This small patch fixes this issue by returning immediately.
 
-> what is the behaviour in TCP stack if I set tcp_reordering as 0.
-> So , sender will  start retransmission without waiting for any duplicate ACK ?
-> /proc/sys/net/ipv4/tcp_reordering   - Please clarify.
-> The default value is 3 which means it waits until 3 duplicate ack's
-> arrive and then start retransmission.
-> 
-> "The TCP sender should use the fast retransmit algorithm to detect and
-> repair loss based on incoming duplicate ACKs. After the arrival of 3
-> duplicate ACKs (4 identical ACKs without the arrival of any other
-> intervening packet), TCP performs a retransmission of what appears to
-> be the missing segment, without waiting for the retransmission timer
-> to expire."
+Signed-off-by: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>
+Signed-off-by: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+---
+ net/ipv4/tcp_input.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-Depends on other things quite much but for a typical transfer you'd still 
-need one duplicate ACK to trigger actual recovery. However, in general 
-root is not (always) forbidden to set non-sensical values for sysctls.
-
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 788851c..c096a42 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2511,6 +2511,9 @@ static void tcp_mark_head_lost(struct sock *sk, int packets)
+ 	int err;
+ 	unsigned int mss;
+ 
++	if (packets == 0)
++		return;
++
+ 	WARN_ON(packets > tp->packets_out);
+ 	if (tp->lost_skb_hint) {
+ 		skb = tp->lost_skb_hint;
 -- 
- i.
+1.6.4.1
+
