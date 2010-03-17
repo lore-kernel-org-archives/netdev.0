@@ -1,146 +1,71 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH RFC] tun: add ioctl to modify vnet header size
-Date: Wed, 17 Mar 2010 17:45:02 +0200
-Message-ID: <20100317154501.GA5244@redhat.com>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH] xfrm: cache bundle lookup results in flow cache
+Date: Wed, 17 Mar 2010 17:56:38 +0200
+Message-ID: <4BA0FBB6.10208@iki.fi>
+References: <1268655610-7845-1-git-send-email-timo.teras@iki.fi> <20100317130704.GA2601@gondor.apana.org.au> <4BA0E435.6090801@iki.fi> <20100317145850.GA4257@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Paul Moore <paul.moore@hp.com>,
-	David Woodhouse <David.Woodhouse@intel.com>,
-	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ey-out-2122.google.com ([74.125.78.26]:15180 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752711Ab0CQP4y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 11:56:54 -0400
+Received: by ey-out-2122.google.com with SMTP id d26so87072eyd.19
+        for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 08:56:53 -0700 (PDT)
+In-Reply-To: <20100317145850.GA4257@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-virtio added mergeable buffers mode where 2 bytes of extra info is put
-after vnet header but before actual data (tun does not need this data).
-In hindsight, it would have been better to add the new info *before* the
-packet: as it is, users need a lot of tricky code to skip the extra 2
-bytes in the middle of the iovec, and in fact applications seem to get
-it wrong, and only work with specific iovec layout.  The fact we might
-need to split iovec also means we might in theory overflow iovec max
-size.
+Herbert Xu wrote:
+> On Wed, Mar 17, 2010 at 04:16:21PM +0200, Timo Ter=E4s wrote:
+>> The problem is if I have multipoint gre1 and policy that says
+>> "encrypt all gre in transport mode".
+>>
+>> Thus for each public address, I get one bundle. But the
+>> xfrm_lookup() is called for each packet because ipgre_tunnel_xmit()
+>> calls ip_route_output_key() on per-packet basis.
+>>
+>> For my use-case it makes a huge difference.
+>=20
+> But if your traffic switches between those tunnels on each packet,
+> we're back to square one, right?
 
-This patch adds a simpler way for applications to handle this,
-and future proofs the interface against further extensions,
-by making the size of the virtio net header configurable
-from userspace. As a result, tun driver will simply
-skip the extra 2 bytes on both input and output.
+Not to my understanding. Why would it change?
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/net/tun.c      |   31 +++++++++++++++++++++++++++----
- include/linux/if_tun.h |    2 ++
- 2 files changed, 29 insertions(+), 4 deletions(-)
+>> Then we cannot maintain policy use time. But if it's not a
+>> requirement, we could drop the policy from cache.
+>=20
+> I don't see why we can't maintain the policy use time if we did
+> this, all you need is a back-pointer from the top xfrm_dst.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index ce1efa4..0b11222 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -110,6 +110,8 @@ struct tun_struct {
- 	struct tap_filter       txflt;
- 	struct socket		socket;
- 
-+	int			vnet_hdr_sz;
-+
- #ifdef TUN_DEBUG
- 	int debug;
- #endif
-@@ -559,7 +561,7 @@ static __inline__ ssize_t tun_get_user(struct tun_struct *tun,
- 	}
- 
- 	if (tun->flags & TUN_VNET_HDR) {
--		if ((len -= sizeof(gso)) > count)
-+		if ((len -= tun->vnet_hdr_sz) > count)
- 			return -EINVAL;
- 
- 		if (memcpy_fromiovecend((void *)&gso, iv, offset, sizeof(gso)))
-@@ -571,7 +573,7 @@ static __inline__ ssize_t tun_get_user(struct tun_struct *tun,
- 
- 		if (gso.hdr_len > len)
- 			return -EINVAL;
--		offset += sizeof(gso);
-+		offset += tun->vnet_hdr_sz;
- 	}
- 
- 	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV) {
-@@ -714,7 +716,7 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
- 
- 	if (tun->flags & TUN_VNET_HDR) {
- 		struct virtio_net_hdr gso = { 0 }; /* no info leak */
--		if ((len -= sizeof(gso)) < 0)
-+		if ((len -= tun->vnet_hdr_sz) < 0)
- 			return -EINVAL;
- 
- 		if (skb_is_gso(skb)) {
-@@ -745,7 +747,7 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
- 		if (unlikely(memcpy_toiovecend(iv, (void *)&gso, total,
- 					       sizeof(gso))))
- 			return -EFAULT;
--		total += sizeof(gso);
-+		total += tun->vnet_hdr_sz;
- 	}
- 
- 	len = min_t(int, skb->len, len);
-@@ -1029,6 +1031,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		tun->dev = dev;
- 		tun->flags = flags;
- 		tun->txflt.count = 0;
-+		tun->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
- 
- 		err = -ENOMEM;
- 		sk = sk_alloc(net, AF_UNSPEC, GFP_KERNEL, &tun_proto);
-@@ -1170,6 +1173,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	struct sock_fprog fprog;
- 	struct ifreq ifr;
- 	int sndbuf;
-+	int vnet_hdr_sz;
- 	int ret;
- 
- 	if (cmd == TUNSETIFF || _IOC_TYPE(cmd) == 0x89)
-@@ -1315,6 +1319,25 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 		tun->socket.sk->sk_sndbuf = sndbuf;
- 		break;
- 
-+	case TUNGETVNETHDRSZ:
-+		vnet_hdr_sz = tun->vnet_hdr_sz;
-+		if (copy_to_user(argp, &vnet_hdr_sz, sizeof(vnet_hdr_sz)))
-+			ret = -EFAULT;
-+		break;
-+
-+	case TUNSETVNETHDRSZ:
-+		if (copy_from_user(&vnet_hdr_sz, argp, sizeof(vnet_hdr_sz))) {
-+			ret = -EFAULT;
-+			break;
-+		}
-+		if (vnet_hdr_sz < (int)sizeof(struct virtio_net_hdr)) {
-+			ret = -EINVAL;
-+			break;
-+		}
-+
-+		tun->vnet_hdr_sz = vnet_hdr_sz;
-+		break;
-+
- 	case TUNATTACHFILTER:
- 		/* Can be set only for TAPs */
- 		ret = -EINVAL;
-diff --git a/include/linux/if_tun.h b/include/linux/if_tun.h
-index 1350a24..06b1829 100644
---- a/include/linux/if_tun.h
-+++ b/include/linux/if_tun.h
-@@ -51,6 +51,8 @@
- #define TUNSETSNDBUF   _IOW('T', 212, int)
- #define TUNATTACHFILTER _IOW('T', 213, struct sock_fprog)
- #define TUNDETACHFILTER _IOW('T', 214, struct sock_fprog)
-+#define TUNGETVNETHDRSZ _IOR('T', 215, int)
-+#define TUNSETVNETHDRSZ _IOW('T', 216, int)
- 
- /* TUNSETIFF ifr flags */
- #define IFF_TUN		0x0001
--- 
-1.7.0.18.g0d53a5
+Sure.
+
+>> Also. With this and your recent flowi patch, I'm seeing pmtu
+>> issues. Seems like xfrm_bundle_ok uses the original dst which
+>> resulted in the creation of the bundle. Somehow that dst
+>> does not get updated with pmtu... but the new dst used in
+>> next xfrm_lookup for same target does have proper mtu.
+>> I'm debugging right now why this is happening. Any ideas?
+>=20
+> The dynamic MTU is always maintained in a normal dst object in
+> the IPv4 routing cache.  Each xfrm_dst points to such a dst
+> through xdst->route.
+>=20
+> If you were looking at the xfrm_dst's own MTU then that may well
+> cause problems.
+
+I figured the root cause. The original dst gets expired
+rt_genid goes old. But xfrm_dst does not notice that so it
+won't create a new bundle. xfrm_bundle_ok calls dst_check,
+but dst->obsolete =3D 0, and ipv4_dst_check is a no-op anyway.
+
+Somehow the rtable object should be able to tell back to
+xfrm that the dst is not good anymore. Any ideas?
+
+- Timo
+
+
