@@ -1,53 +1,98 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH] xfrm: cache bundle lookup results in flow cache
-Date: Wed, 17 Mar 2010 18:32:53 +0200
-Message-ID: <4BA10435.9050300@iki.fi>
-References: <1268655610-7845-1-git-send-email-timo.teras@iki.fi> <20100317130704.GA2601@gondor.apana.org.au> <4BA0E435.6090801@iki.fi> <20100317145850.GA4257@gondor.apana.org.au> <4BA0FBB6.10208@iki.fi>
+From: Laurent Chavey <chavey@google.com>
+Subject: Re: [PATCH] vhost: fix error handling in vring ioctls
+Date: Wed, 17 Mar 2010 10:54:57 -0700
+Message-ID: <97949e3e1003171054q3bee27d5yce0d92ae33e5b5ca@mail.gmail.com>
+References: <20100317144249.GA3984@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Jiri Slaby <jirislaby@gmail.com>, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f209.google.com ([209.85.219.209]:55340 "EHLO
-	mail-ew0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755818Ab0CQQc5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 12:32:57 -0400
-Received: by ewy1 with SMTP id 1so607812ewy.38
-        for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 09:32:55 -0700 (PDT)
-In-Reply-To: <4BA0FBB6.10208@iki.fi>
+Received: from smtp-out.google.com ([74.125.121.35]:61627 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754040Ab0CQRzW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 13:55:22 -0400
+In-Reply-To: <20100317144249.GA3984@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Timo Ter=E4s wrote:
->>> Also. With this and your recent flowi patch, I'm seeing pmtu
->>> issues. Seems like xfrm_bundle_ok uses the original dst which
->>> resulted in the creation of the bundle. Somehow that dst
->>> does not get updated with pmtu... but the new dst used in
->>> next xfrm_lookup for same target does have proper mtu.
->>> I'm debugging right now why this is happening. Any ideas?
->>
->> The dynamic MTU is always maintained in a normal dst object in
->> the IPv4 routing cache.  Each xfrm_dst points to such a dst
->> through xdst->route.
->>
->> If you were looking at the xfrm_dst's own MTU then that may well
->> cause problems.
->=20
-> I figured the root cause. The original dst gets expired
-> rt_genid goes old. But xfrm_dst does not notice that so it
-> won't create a new bundle. xfrm_bundle_ok calls dst_check,
-> but dst->obsolete =3D 0, and ipv4_dst_check is a no-op anyway.
->=20
-> Somehow the rtable object should be able to tell back to
-> xfrm that the dst is not good anymore. Any ideas?
+Acked-by: chavey@google.com
 
-Checked ipv6, it does like xfrm: sets obsolote to -1 and
-on dst_check checks the genid. We need to do same in for
-ipv4. I just wrote an hack, and tested it. It solves the
-pmtu issues.
 
-I will post a proper patch soon.
-
-- Timo
+On Wed, Mar 17, 2010 at 7:42 AM, Michael S. Tsirkin <mst@redhat.com> wr=
+ote:
+> Stanse found a locking problem in vhost_set_vring:
+> several returns from VHOST_SET_VRING_KICK, VHOST_SET_VRING_CALL,
+> VHOST_SET_VRING_ERR with the vq->mutex held.
+> Fix these up.
+>
+> Reported-by: Jiri Slaby <jirislaby@gmail.com>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+> =A0drivers/vhost/vhost.c | =A0 18 ++++++++++++------
+> =A01 files changed, 12 insertions(+), 6 deletions(-)
+>
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index 7cd55e0..7bd7a1e 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -476,8 +476,10 @@ static long vhost_set_vring(struct vhost_dev *d,=
+ int ioctl, void __user *argp)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (r < 0)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0eventfp =3D f.fd =3D=3D -1 ? NULL : ev=
+entfd_fget(f.fd);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (IS_ERR(eventfp))
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return PTR_ERR(eventfp)=
+;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (IS_ERR(eventfp)) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 r =3D PTR_ERR(eventfp);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (eventfp !=3D vq->kick) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0pollstop =3D filep =3D=
+ vq->kick;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0pollstart =3D vq->kick=
+ =3D eventfp;
+> @@ -489,8 +491,10 @@ static long vhost_set_vring(struct vhost_dev *d,=
+ int ioctl, void __user *argp)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (r < 0)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0eventfp =3D f.fd =3D=3D -1 ? NULL : ev=
+entfd_fget(f.fd);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (IS_ERR(eventfp))
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return PTR_ERR(eventfp)=
+;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (IS_ERR(eventfp)) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 r =3D PTR_ERR(eventfp);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (eventfp !=3D vq->call) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0filep =3D vq->call;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ctx =3D vq->call_ctx;
+> @@ -505,8 +509,10 @@ static long vhost_set_vring(struct vhost_dev *d,=
+ int ioctl, void __user *argp)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (r < 0)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0eventfp =3D f.fd =3D=3D -1 ? NULL : ev=
+entfd_fget(f.fd);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (IS_ERR(eventfp))
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return PTR_ERR(eventfp)=
+;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (IS_ERR(eventfp)) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 r =3D PTR_ERR(eventfp);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (eventfp !=3D vq->error) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0filep =3D vq->error;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0vq->error =3D eventfp;
+> --
+> 1.7.0.18.g0d53a5
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
