@@ -1,475 +1,106 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: [PATCH 10/12] l2tp: Add L2TP ethernet pseudowire support
-Date: Thu, 18 Mar 2010 10:22:20 +0000
-Message-ID: <20100318102220.14576.91391.stgit@bert.katalix.com>
-References: <20100318102127.14576.98388.stgit@bert.katalix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
+From: Timo Teras <timo.teras@iki.fi>
+Subject: [PATCH] ipv4: check rt_genid in dst_check
+Date: Thu, 18 Mar 2010 13:48:22 +0200
+Message-ID: <1268912902-27050-1-git-send-email-timo.teras@iki.fi>
+Cc: Timo Teras <timo.teras@iki.fi>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:58080 "EHLO mail.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752402Ab0CRKWo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Mar 2010 06:22:44 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.katalix.com (Postfix) with ESMTP id B6210A62087
-	for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 10:22:43 +0000 (GMT)
-Received: from mail.katalix.com ([127.0.0.1])
-	by localhost (mail.katalix.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id d1auJKwA-mo7 for <netdev@vger.kernel.org>;
-	Thu, 18 Mar 2010 10:22:37 +0000 (GMT)
-Received: from bert.katalix.com (localhost.localdomain [127.0.0.1])
-	by mail.katalix.com (Postfix) with ESMTP id 9DF58A620A4
-	for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 10:22:20 +0000 (GMT)
-In-Reply-To: <20100318102127.14576.98388.stgit@bert.katalix.com>
+Received: from mail-ew0-f216.google.com ([209.85.219.216]:63936 "EHLO
+	mail-ew0-f216.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751648Ab0CRLsa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Mar 2010 07:48:30 -0400
+Received: by ewy8 with SMTP id 8so1082711ewy.28
+        for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 04:48:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This driver presents a regular net_device for each L2TP ethernet
-pseudowire instance. These interfaces are named l2tpethN by default,
-though userspace can specify an alternative name when the L2TP
-session is created, if preferred. When the pseudowire is established,
-regular Linux networking utilities may be used to configure the
-interface, i.e. give it IP address info or add it to a bridge. Any
-data passed over the interface is carried over an L2TP tunnel.
+Xfrm_dst keeps a reference to ipv4 rtable entries on each
+cached bundle. The only we to renew xfrm_dst when the underlying
+route has changed, is to implement dst_check for this. This is
+what ipv6 side does too.
 
-Signed-off-by: James Chapman <jchapman@katalix.com>
+The problems started after 87c1e12b5eeb7b30b4b41291bef8e0b41fc3dde9
+which fixed a bug causing xfrm_dst to not get reused, until that all
+lookups always generated new xfrm_dst with new route reference
+and path mtu worked. But after the fix, the old routes started
+to get reused even after they were expired causing pmtu to break
+(well it would occationally work if the rtable gc has ran recently
+and marked the route obsolete causing dst_check to get called).
+
+Signed-off-by: Timo Teras <timo.teras@iki.fi>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
 ---
- net/l2tp/Kconfig    |   24 +++
- net/l2tp/Makefile   |    1 
- net/l2tp/l2tp_eth.c |  383 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 408 insertions(+), 0 deletions(-)
- create mode 100644 net/l2tp/l2tp_eth.c
+ net/ipv4/route.c |   14 ++++++++++----
+ 1 files changed, 10 insertions(+), 4 deletions(-)
 
-diff --git a/net/l2tp/Kconfig b/net/l2tp/Kconfig
-index edc2c6e..9cfca8f 100644
---- a/net/l2tp/Kconfig
-+++ b/net/l2tp/Kconfig
-@@ -69,3 +69,27 @@ config L2TP_IP
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called l2tp_ip.
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index a770df2..59449a3 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1441,7 +1441,7 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
+ 					dev_hold(rt->u.dst.dev);
+ 				if (rt->idev)
+ 					in_dev_hold(rt->idev);
+-				rt->u.dst.obsolete	= 0;
++				rt->u.dst.obsolete	= -1;
+ 				rt->u.dst.lastuse	= jiffies;
+ 				rt->u.dst.path		= &rt->u.dst;
+ 				rt->u.dst.neighbour	= NULL;
+@@ -1506,7 +1506,7 @@ static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst)
+ 	struct dst_entry *ret = dst;
  
-+config L2TP_ETH
-+	tristate "L2TP ethernet pseudowire support for L2TPv3"
-+	depends on L2TP_V3
-+	help
-+	  Support for carrying raw ethernet frames over L2TPv3.
-+
-+	  From RFC 4719 <http://www.ietf.org/rfc/rfc4719.txt>.
-+
-+	  The Layer 2 Tunneling Protocol, Version 3 (L2TPv3) can be
-+   	  used as a control protocol and for data encapsulation to set
-+   	  up Pseudowires for transporting layer 2 Packet Data Units
-+   	  across an IP network [RFC3931].
-+
-+	  This driver provides an ethernet virtual interface for each
-+	  L2TP ethernet pseudowire instance. Standard Linux tools may
-+	  be used to assign an IP address to the local virtual
-+	  interface, or add the interface to a bridge.
-+
-+	  If you are using L2TPv3, you will almost certainly want to
-+	  enable this option.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called l2tp_eth.
-+
-diff --git a/net/l2tp/Makefile b/net/l2tp/Makefile
-index 2c4a14b..bddbf04 100644
---- a/net/l2tp/Makefile
-+++ b/net/l2tp/Makefile
-@@ -8,3 +8,4 @@ obj-$(CONFIG_L2TP) += l2tp_core.o
- obj-$(subst y,$(CONFIG_L2TP),$(CONFIG_PPPOL2TP)) += l2tp_ppp.o
- obj-$(subst y,$(CONFIG_L2TP),$(CONFIG_L2TP_IP)) += l2tp_ip.o
- obj-$(subst y,$(CONFIG_L2TP),$(CONFIG_L2TP_V3)) += l2tp_netlink.o
-+obj-$(subst y,$(CONFIG_L2TP),$(CONFIG_L2TP_ETH)) += l2tp_eth.o
-diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-new file mode 100644
-index 0000000..8b87280
---- /dev/null
-+++ b/net/l2tp/l2tp_eth.c
-@@ -0,0 +1,383 @@
-+/*
-+ * L2TPv3 ethernet pseudowire driver
-+ *
-+ * Copyright (c) 2008,2009,2010 Katalix Systems Ltd
-+ *
-+ *	This program is free software; you can redistribute it and/or
-+ *	modify it under the terms of the GNU General Public License
-+ *	as published by the Free Software Foundation; either version
-+ *	2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/socket.h>
-+#include <linux/hash.h>
-+#include <linux/l2tp.h>
-+#include <linux/in.h>
-+#include <linux/etherdevice.h>
-+#include <net/sock.h>
-+#include <net/ip.h>
-+#include <net/icmp.h>
-+#include <net/udp.h>
-+#include <net/inet_common.h>
-+#include <net/inet_hashtables.h>
-+#include <net/tcp_states.h>
-+#include <net/protocol.h>
-+#include <net/xfrm.h>
-+#include <net/net_namespace.h>
-+#include <net/netns/generic.h>
-+
-+#include "l2tp_core.h"
-+
-+/* Default device name. May be overridden by name specified by user */
-+#define L2TP_ETH_DEV_NAME	"l2tpeth%d"
-+
-+/* via netdev_priv() */
-+struct l2tp_eth {
-+	struct net_device	*dev;
-+	struct sock		*tunnel_sock;
-+	struct l2tp_session	*session;
-+	struct list_head	list;
-+};
-+
-+/* via l2tp_session_priv() */
-+struct l2tp_eth_sess {
-+	struct net_device	*dev;
-+};
-+
-+/* per-net private data for this module */
-+static unsigned int l2tp_eth_net_id;
-+struct l2tp_eth_net {
-+	struct list_head l2tp_eth_dev_list;
-+	rwlock_t l2tp_eth_lock;
-+};
-+
-+static inline struct l2tp_eth_net *l2tp_eth_pernet(struct net *net)
-+{
-+	BUG_ON(!net);
-+
-+	return net_generic(net, l2tp_eth_net_id);
-+}
-+
-+static struct l2tp_session *l2tp_eth_session_find_by_ifname(struct net *net, char *ifname)
-+{
-+	struct net_device *dev;
-+
-+	dev = dev_get_by_name(net, ifname);
-+	if (dev) {
-+		struct l2tp_eth *priv = netdev_priv(dev);
-+		return priv->session;
-+	}
-+
-+	return NULL;
-+}
-+
-+static int l2tp_eth_dev_init(struct net_device *dev)
-+{
-+	struct l2tp_eth *priv = netdev_priv(dev);
-+	struct l2tp_session *session = priv->session;
-+	__be32 sid = htonl(session->session_id);
-+
-+	priv->dev = dev;
-+
-+	/* Derive a MAC address for the new interface. We use the L2TP
-+	 * session's session-id to guarantee a system-wide unique
-+	 * address. This MAC is only visible within the L2TP session.
-+	 */
-+	dev->dev_addr[0] = 0x02; /* IEEE 802 local */
-+	dev->dev_addr[1] = 'L';
-+	memcpy(&dev->dev_addr[2], &sid, 4);
-+	memset(&dev->broadcast[0], 0xff, 6);
-+
-+	return 0;
-+}
-+
-+static void l2tp_eth_dev_uninit(struct net_device *dev)
-+{
-+	struct l2tp_eth *priv = netdev_priv(dev);
-+	struct l2tp_eth_net *pn = l2tp_eth_pernet(dev_net(dev));
-+
-+	write_lock(&pn->l2tp_eth_lock);
-+	list_del_init(&priv->list);
-+	write_unlock(&pn->l2tp_eth_lock);
-+	dev_put(dev);
-+}
-+
-+static int l2tp_eth_dev_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct l2tp_eth *priv = netdev_priv(dev);
-+	struct l2tp_session *session = priv->session;
-+
-+	l2tp_xmit_skb(session, skb, session->hdr_len);
-+
-+	dev->stats.tx_bytes += skb->len;
-+	dev->stats.tx_packets++;
-+
-+	return 0;
-+}
-+
-+static struct net_device_ops l2tp_eth_netdev_ops = {
-+	.ndo_init		= l2tp_eth_dev_init,
-+	.ndo_uninit		= l2tp_eth_dev_uninit,
-+	.ndo_start_xmit		= l2tp_eth_dev_xmit,
-+};
-+
-+static void l2tp_eth_dev_setup(struct net_device *dev)
-+{
-+	ether_setup(dev);
-+
-+	dev->netdev_ops		= &l2tp_eth_netdev_ops;
-+	dev->destructor		= free_netdev;
-+}
-+
-+static void l2tp_eth_dev_recv(struct l2tp_session *session, struct sk_buff *skb, int data_len)
-+{
-+	struct l2tp_eth_sess *spriv = l2tp_session_priv(session);
-+	struct net_device *dev = spriv->dev;
-+
-+	if (session->debug & L2TP_MSG_DATA) {
-+		unsigned int length;
-+		int offset;
-+		u8 *ptr = skb->data;
-+
-+		length = min(32u, skb->len);
-+		if (!pskb_may_pull(skb, length))
-+			goto error;
-+
-+		printk(KERN_DEBUG "%s: eth recv: ", session->name);
-+
-+		offset = 0;
-+		do {
-+			printk(" %02X", ptr[offset]);
-+		} while (++offset < length);
-+
-+		printk("\n");
-+	}
-+
-+	if (data_len < ETH_HLEN)
-+		goto error;
-+
-+	secpath_reset(skb);
-+
-+	skb->protocol = eth_type_trans(skb, dev);
-+
-+	dev->last_rx = jiffies;
-+	dev->stats.rx_packets++;
-+	dev->stats.rx_bytes += data_len;
-+
-+	/* checksums verified by L2TP */
-+	skb->ip_summed = CHECKSUM_NONE;
-+
-+	skb_dst_drop(skb);
-+	nf_reset(skb);
-+	netif_receive_skb(skb);
-+
-+	return;
-+
-+error:
-+	dev->stats.rx_errors++;
-+	kfree_skb(skb);
-+}
-+
-+static void l2tp_eth_delete(struct l2tp_session *session)
-+{
-+	struct l2tp_eth_sess *spriv;
-+	struct net_device *dev;
-+
-+	if (session) {
-+		spriv = l2tp_session_priv(session);
-+		dev = spriv->dev;
-+		if (dev) {
-+			unregister_netdev(dev);
-+			spriv->dev = NULL;
-+		}
-+	}
-+}
-+
-+#ifdef CONFIG_PROC_FS
-+static void l2tp_eth_show(struct seq_file *m, void *arg)
-+{
-+	struct l2tp_session *session = arg;
-+	struct l2tp_eth_sess *spriv = l2tp_session_priv(session);
-+	struct net_device *dev = spriv->dev;
-+
-+	seq_printf(m, "   interface %s\n", dev->name);
-+}
-+#endif
-+
-+static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
-+{
-+	struct net_device *dev;
-+	char name[IFNAMSIZ];
-+	struct l2tp_tunnel *tunnel;
-+	struct l2tp_session *session;
-+	struct l2tp_eth *priv;
-+	struct l2tp_eth_sess *spriv;
-+	int rc;
-+	struct l2tp_eth_net *pn;
-+
-+	tunnel = l2tp_tunnel_find(net, tunnel_id);
-+	if (!tunnel) {
-+		rc = -ENODEV;
-+		goto out;
-+	}
-+
-+	session = l2tp_session_find(net, tunnel, session_id);
-+	if (session) {
-+		rc = -EEXIST;
-+		goto out;
-+	}
-+
-+	if (cfg->ifname) {
-+		session = l2tp_eth_session_find_by_ifname(net, cfg->ifname);
-+		if (session) {
-+			rc = -EEXIST;
-+			goto out;
-+		}
-+		strlcpy(name, cfg->ifname, IFNAMSIZ);
-+	} else
-+		strcpy(name, L2TP_ETH_DEV_NAME);
-+
-+	session = l2tp_session_create(sizeof(*spriv), tunnel, session_id,
-+				      peer_session_id, cfg);
-+	if (!session) {
-+		rc = -ENOMEM;
-+		goto out;
-+	}
-+
-+	dev = alloc_netdev(sizeof(*priv), name, l2tp_eth_dev_setup);
-+	if (!dev) {
-+		rc = -ENOMEM;
-+		goto out_del_session;
-+	}
-+
-+	dev_net_set(dev, net);
-+	if (session->mtu == 0)
-+		session->mtu = dev->mtu - session->hdr_len;
-+	dev->mtu = session->mtu;
-+	dev->needed_headroom += session->hdr_len;
-+
-+	priv = netdev_priv(dev);
-+	priv->dev = dev;
-+	priv->session = session;
-+	INIT_LIST_HEAD(&priv->list);
-+
-+	priv->tunnel_sock = tunnel->sock;
-+	session->recv_skb = l2tp_eth_dev_recv;
-+	session->session_close = l2tp_eth_delete;
-+#ifdef CONFIG_PROC_FS
-+	session->show = l2tp_eth_show;
-+#endif
-+
-+	spriv = l2tp_session_priv(session);
-+	spriv->dev = dev;
-+
-+	rc = register_netdev(dev);
-+	if (rc < 0)
-+		goto out_del_dev;
-+
-+	/* Must be done after register_netdev() */
-+	strlcpy(session->ifname, dev->name, IFNAMSIZ);
-+
-+	dev_hold(dev);
-+	pn = l2tp_eth_pernet(dev_net(dev));
-+	write_lock(&pn->l2tp_eth_lock);
-+	list_add(&priv->list, &pn->l2tp_eth_dev_list);
-+	write_unlock(&pn->l2tp_eth_lock);
-+
-+	return 0;
-+
-+out_del_dev:
-+	free_netdev(dev);
-+out_del_session:
-+	l2tp_session_delete(session);
-+out:
-+	return rc;
-+}
-+
-+static __net_init int l2tp_eth_init_net(struct net *net)
-+{
-+	struct l2tp_eth_net *pn;
-+	int err;
-+
-+	pn = kzalloc(sizeof(*pn), GFP_KERNEL);
-+	if (!pn)
-+		return -ENOMEM;
-+
-+	INIT_LIST_HEAD(&pn->l2tp_eth_dev_list);
-+	rwlock_init(&pn->l2tp_eth_lock);
-+
-+	err = net_assign_generic(net, l2tp_eth_net_id, pn);
-+	if (err)
-+		goto out;
-+
-+	return 0;
-+
-+out:
-+	kfree(pn);
-+	return err;
-+}
-+
-+static __net_exit void l2tp_eth_exit_net(struct net *net)
-+{
-+	struct l2tp_eth_net *pn;
-+
-+	pn = net_generic(net, l2tp_eth_net_id);
-+	/*
-+	 * if someone has cached our net then
-+	 * further net_generic call will return NULL
-+	 */
-+	net_assign_generic(net, l2tp_eth_net_id, NULL);
-+	kfree(pn);
-+}
-+
-+static __net_initdata struct pernet_operations l2tp_eth_net_ops = {
-+	.init = l2tp_eth_init_net,
-+	.exit = l2tp_eth_exit_net,
-+	.id   = &l2tp_eth_net_id,
-+	.size = sizeof(struct l2tp_eth_net),
-+};
-+
-+
-+static const struct l2tp_nl_cmd_ops l2tp_eth_nl_cmd_ops = {
-+	.session_create	= l2tp_eth_create,
-+	.session_delete	= l2tp_session_delete,
-+};
-+
-+
-+static int __init l2tp_eth_init(void)
-+{
-+	int err = 0;
-+
-+	err = l2tp_nl_register_ops(L2TP_PWTYPE_ETH, &l2tp_eth_nl_cmd_ops);
-+	if (err)
-+		goto out;
-+
-+	err = register_pernet_device(&l2tp_eth_net_ops);
-+	if (err)
-+		goto out_unreg;
-+
-+	printk(KERN_INFO "L2TP ethernet pseudowire support (L2TPv3)\n");
-+
-+	return 0;
-+
-+out_unreg:
-+	l2tp_nl_unregister_ops(L2TP_PWTYPE_ETH);
-+out:
-+	return err;
-+}
-+
-+static void __exit l2tp_eth_exit(void)
-+{
-+	unregister_pernet_device(&l2tp_eth_net_ops);
-+	l2tp_nl_unregister_ops(L2TP_PWTYPE_ETH);
-+}
-+
-+module_init(l2tp_eth_init);
-+module_exit(l2tp_eth_exit);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("James Chapman <jchapman@katalix.com>");
-+MODULE_DESCRIPTION("L2TP ethernet pseudowire driver");
-+MODULE_VERSION("1.0");
+ 	if (rt) {
+-		if (dst->obsolete) {
++		if (dst->obsolete > 0) {
+ 			ip_rt_put(rt);
+ 			ret = NULL;
+ 		} else if ((rt->rt_flags & RTCF_REDIRECTED) ||
+@@ -1726,7 +1726,9 @@ static void ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu)
+ 
+ static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
+ {
+-	return NULL;
++	if (dst && dst->dev && rt_is_expired((struct rtable *) dst))
++		return NULL;
++	return dst;
+ }
+ 
+ static void ipv4_dst_destroy(struct dst_entry *dst)
+@@ -1888,7 +1890,8 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	if (!rth)
+ 		goto e_nobufs;
+ 
+-	rth->u.dst.output= ip_rt_bug;
++	rth->u.dst.output = ip_rt_bug;
++	rth->u.dst.obsolete = -1;
+ 
+ 	atomic_set(&rth->u.dst.__refcnt, 1);
+ 	rth->u.dst.flags= DST_HOST;
+@@ -2054,6 +2057,7 @@ static int __mkroute_input(struct sk_buff *skb,
+ 	rth->fl.oif 	= 0;
+ 	rth->rt_spec_dst= spec_dst;
+ 
++	rth->u.dst.obsolete = -1;
+ 	rth->u.dst.input = ip_forward;
+ 	rth->u.dst.output = ip_output;
+ 	rth->rt_genid = rt_genid(dev_net(rth->u.dst.dev));
+@@ -2218,6 +2222,7 @@ local_input:
+ 		goto e_nobufs;
+ 
+ 	rth->u.dst.output= ip_rt_bug;
++	rth->u.dst.obsolete = -1;
+ 	rth->rt_genid = rt_genid(net);
+ 
+ 	atomic_set(&rth->u.dst.__refcnt, 1);
+@@ -2444,6 +2449,7 @@ static int __mkroute_output(struct rtable **result,
+ 	rth->rt_spec_dst= fl->fl4_src;
+ 
+ 	rth->u.dst.output=ip_output;
++	rth->u.dst.obsolete = -1;
+ 	rth->rt_genid = rt_genid(dev_net(dev_out));
+ 
+ 	RT_CACHE_STAT_INC(out_slow_tot);
+-- 
+1.6.3.3
 
