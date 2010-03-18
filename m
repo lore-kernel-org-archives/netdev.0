@@ -1,46 +1,34 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH v2 0/7] wireless: Use macros from wireless.h
-Date: Wed, 17 Mar 2010 23:21:33 -0700
-Message-ID: <cover.1268892663.git.joe@perches.com>
-Cc: Richard Kennedy <richard@rsk.demon.co.uk>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Geoff Levand <geoffrey.levand@am.sony.com>,
-	Zhu Yi <yi.zhu@intel.com>,
-	Reinette Chatre <reinette.chatre@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Pavel Roskin <proski@gnu.org>,
-	David Gibson <hermes@gibson.dropbear.id.au>,
-	Corey Thomas <coreythomas@charter.net>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	"David S. Miller" <davem@davemloft.net>, linuxppc-dev@ozlabs.org,
-	cbe-oss-dev@ozlabs.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	orinoco-users@lists.sourceforge.net,
-	orinoco-devel@lists.sourceforge.net
-To: linux-kernel@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the final tree (net
+ tree related)
+Date: Wed, 17 Mar 2010 23:23:00 -0700 (PDT)
+Message-ID: <20100317.232300.39195654.davem@davemloft.net>
+References: <20100318152351.df9e11a3.sfr@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, therbert@google.com
+To: sfr@canb.auug.org.au
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100318152351.df9e11a3.sfr@canb.auug.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move the STD_IW_HANDLER macro from orinoco to wireless.h
-Use the wireless.h macros in various wireless files
-Remove local #defines of IW_IOCTL
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 18 Mar 2010 15:23:51 +1100
 
-Joe Perches (7):
-  wireless.h: Add STD_IW_HANDLER macro
-  net/wireless/wext_core.c: Use IW_IOCTL_IDX macro
-  net/wireless/wext-core.c: Use IW_EVENT_IDX macro
-  drivers/net/wireless: Use STD_IW_HANDLER macro
-  drivers/net: Remove local #define IW_IOCTL, use STD_IW_HANDLER
-  orinoco/wext.c: Remove local #define STD_IW_HANDLER
-  wireless.h: Use SIOCIWFIRST not SIOCSIWCOMMIT for range check
+> After merging the final tree, today's linux-next build (powerpc
+> ppc44x_defconfig) failed like this:
+> 
+> net/core/dev.c: In function 'net_rps_action':
+> net/core/dev.c:3183: error: implicit declaration of function '__smp_call_function_single'
+> 
+> Caused by commit 0a9627f2649a02bea165cfd529d7bcb625c2fcad ("rps: Receive
+> Packet Steering") from the net tree.   This config does not have
+> CONFIG_SMP set.  __smp_call_function_single is only available when
+> CONFIG_SMP is set.
 
- drivers/net/ps3_gelic_wireless.c       |   35 ++++----
- drivers/net/wireless/ipw2x00/ipw2200.c |   83 ++++++++++----------
- drivers/net/wireless/orinoco/wext.c    |    2 -
- drivers/net/wireless/ray_cs.c          |   40 +++++-----
- drivers/net/wireless/wl3501_cs.c       |   52 ++++++------
- include/linux/wireless.h               |    4 +-
- net/wireless/wext-core.c               |  134 ++++++++++++++++----------------
- 7 files changed, 174 insertions(+), 176 deletions(-)
+Tom, please send me a fix for this soon.
+
+Thanks!
