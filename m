@@ -1,92 +1,82 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: ixgbe_clean_tx_irq: tx hang 1 detected, resetting adapter
- (2.6.32.8)
-Date: Wed, 17 Mar 2010 17:44:44 -0700
-Message-ID: <1268873084.16811.4.camel@jbrandeb-mobl3.amr.corp.intel.com>
-References: <4B7824F1.6000202@krogh.cc>
-	 <4807377b1002171453n277cfea3s6d7f3629bd43f674@mail.gmail.com>
-	 <4B82CF94.5070903@krogh.cc>
+From: "Edgar E. Iglesias" <edgar.iglesias@gmail.com>
+Subject: Re: [PATCH] [V2] Add non-Virtex5 support for LL TEMAC driver
+Date: Thu, 18 Mar 2010 01:46:35 +0100
+Message-ID: <20100318004635.GB3201@laped.iglesias.mooo.com>
+References: <bda26c8d-00b2-411d-b4b7-ad6954b9049e@SG2EHSMHS005.ehs.local>
+ <4B9DF254.2030402@petalogix.com>
+ <2d2cb4b6-627a-4e42-bc59-7845bbb6b680@SG2EHSMHS004.ehs.local>
+ <4B9E46B5.1060508@petalogix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jesper Krogh <jesper@krogh.cc>
+Content-Type: text/plain; charset=us-ascii
+Cc: John Linn <John.Linn@xilinx.com>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, grant.likely@secretlab.ca,
+	jwboyer@linux.vnet.ibm.com, john.williams@petalogix.com,
+	John Tyner <jtyner@cs.ucr.edu>
+To: Michal Simek <michal.simek@petalogix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:41358 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752129Ab0CRAoJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Mar 2010 20:44:09 -0400
-In-Reply-To: <4B82CF94.5070903@krogh.cc>
+Received: from ey-out-2122.google.com ([74.125.78.27]:26416 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753242Ab0CRAqk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Mar 2010 20:46:40 -0400
+Received: by ey-out-2122.google.com with SMTP id d26so165083eyd.19
+        for <netdev@vger.kernel.org>; Wed, 17 Mar 2010 17:46:38 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4B9E46B5.1060508@petalogix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-02-22 at 10:40 -0800, Jesper Krogh wrote:
-> Jesse Brandeburg wrote:
-> > On Sun, Feb 14, 2010 at 8:29 AM, Jesper Krogh <jesper@krogh.cc> wrote:
-> >> Hi List.
+On Mon, Mar 15, 2010 at 03:39:49PM +0100, Michal Simek wrote:
+> John Linn wrote:
+> >> -----Original Message-----
+> >> From: Michal Simek [mailto:michal.simek@petalogix.com]
+> >> Sent: Monday, March 15, 2010 2:40 AM
+> >> To: John Linn
+> >> Cc: netdev@vger.kernel.org; linuxppc-dev@ozlabs.org;
+> > grant.likely@secretlab.ca;
+> >> jwboyer@linux.vnet.ibm.com; john.williams@petalogix.com; John Tyner
+> >> Subject: Re: [PATCH] [V2] Add non-Virtex5 support for LL TEMAC driver
 > >>
-> >> I have tried to get a dual bond of 2 x 10G NICs using the
-> >> Intel Corporation 82598EB 10-Gigabit AT2 Server Adapter (rev 01)
-> >> going. As first it looked like it "just worked" but when tried to fill
-> >> the links with data one of the NIC's (eth7) hang and did a reset of
-> >> itself, so all data was pushed through the other NIC in the bond (eth8)
-> >>
-> >> Full dmesg below, but I think the important part is this:
-> >>
-> >> [ 2162.745354] ixgbe: eth7: ixgbe_check_tx_hang: Detected Tx Unit Hang
-> >> [ 2162.745356]   Tx Queue             <4>
-> >> [ 2162.745356]   TDH, TDT             <e1>, <cc>
-> >> [ 2162.745357]   next_to_use          <cc>
-> >> [ 2162.745358]   next_to_clean        <e1>
-> >> [ 2162.745359] tx_buffer_info[next_to_clean]
-> >> [ 2162.745359]   time_stamp           <1000713d3>
-> >> [ 2162.745360]   jiffies              <10007152e>
-> >> [ 2163.162478] ixgbe: eth7: ixgbe_clean_tx_irq: tx hang 1 detected,
-> >> resetting adapter
-> >> [ 2163.357333] bonding: bond0: link status definitely down for interface
-> >> eth7, disabling it
-> >> [ 2168.670342] ixgbe: eth7 NIC Link is Up 10 Gbps, Flow Control: None
+> >> John Linn wrote:
+> >>> This patch adds support for using the LL TEMAC Ethernet driver on
+> >>> non-Virtex 5 platforms by adding support for accessing the Soft DMA
+> >>> registers as if they were memory mapped instead of solely through
+> > the
+> >>> DCR's (available on the Virtex 5).
+> >>>
+> >>> The patch also updates the driver so that it runs on the MicroBlaze.
+> >>> The changes were tested on the PowerPC 440, PowerPC 405, and the
+> >>> MicroBlaze platforms.
+> >> Which git-tree have you tested on? (Of course microblaze)
 > > 
-> > Hi Jesper, my first thought was flow control, but I can see you have it off.
+> > It was tested on the Xilinx tree for MicroBlaze which is based on the
+> > mainline and the Petalogix tree as DMA was needed. I tried to build
+> > against the mainline head but got errors with the DMA routines. I guess
+> > it's possible that it was a configuration issue there as I didn't dig
+> > real deep.
 > 
-> I didnt change it, so its default.
+> New dma api is in for-linus branch.
+> I tested it on that version and I am seeing some weird things. :-(
+> Access to bad area. I will try your tree.
 > 
-> > Can we get some more details on the hardware and bios version?  
+> The second thing which I see is in ll_temac_recv function.
+> On the following line is read a packet length which could be 0-16k.
+> 		length = cur_p->app4 & 0x3FFF;
 > 
-> Sun X4600, 128GB, 16 cores..
+> But allocated skb has max size XTE_MAX_JUMBO_FRAME_SIZE + XTE_ALIGN.
 > 
-> > What
-> > about some dmidecode output.  I'm checking here if we have any
-> > hardware like this.
+> What happen if driver get packet greater than 9kB?
+> I got it (I don't know how) but skb_put has one checking mechanism which 
+> will cal skb_over_panic which caused panic.
+> That's why I think that will be good always to check that length is less 
+> than XTE_MAX_JUMBO_FRAME_SIZE + XTE_ALIGN.
 > 
-> http://shrek.krogh.cc/~jesper/dmidecode.txt
-> 
-> 
-> > are you running ubuntu 9.10 or something else?
-> 
-> We're on Ubuntu 8.04 but we basically "only" use a filesystem, kernel
-> with a well-performing NFS-server and some NIC that work well :-)
-> 
-> > Wow, thats a monster machine, 8 nodes, 128GB ram.  Can we get a full
-> > lspci -vvv output, as well as ethtool -e eth7 and eth8
-> 
-> http://shrek.krogh.cc/~jesper/lspci.txt
-> 
-> http://shrek.krogh.cc/~jesper/ethtool-eth7.txt
-> http://shrek.krogh.cc/~jesper/ethtool-eth8.txt
-> 
-> > 32 has ixgbe with a known issue of multiple mappings on transmit
-> > possibly causing some problems, could it be that you're running into
-> > this?  can you apply commit e5a43549f7a58509a91b299a51337d386697b92c
-> > and see if it fixes your issue?
-> 
-> I'll do that the next time I can push a reboot through.
-> 
+> What do you think?
 
-including full email for context, did this solve your issue?
+I agree. IIRC the LLTEMAC when configured to accept jumboframes will
+accepts packets up to 16K and the driver should handle that without
+raising panics.
 
--- 
-Jesse Brandeburg
-This email sent via Evolution, powered by Linux
+I remeber beeing a bit surprised about that when hacking the QEMU model.
+Not sure if I remember correctly though.
 
+Cheers
