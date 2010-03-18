@@ -1,34 +1,66 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH 12/12] l2tp: Update documentation
-Date: Thu, 18 Mar 2010 08:52:39 -0700
-Message-ID: <4BA24C47.6030101@oracle.com>
-References: <20100318102127.14576.98388.stgit@bert.katalix.com> <20100318102230.14576.20800.stgit@bert.katalix.com>
+From: "Ira W. Snyder" <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
+Subject: [PATCH 0/3] add support for Janz MODULbus devices
+Date: Thu, 18 Mar 2010 09:38:41 -0700
+Message-ID: <1268930324-29841-1-git-send-email-iws@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet12.oracle.com ([141.146.126.234]:17820 "EHLO
-	acsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751191Ab0CRPyo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Mar 2010 11:54:44 -0400
-In-Reply-To: <20100318102230.14576.20800.stgit@bert.katalix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <>
+References: <>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 03/18/10 03:22, James Chapman wrote:
-> This patch adds documentation about the L2TPv3 functionality.
-> 
-> Signed-off-by: James Chapman <jchapman@katalix.com>
-> ---
->  Documentation/networking/l2tp.txt |  233 ++++++++++++++++++++++++++++++++-----
->  1 files changed, 199 insertions(+), 34 deletions(-)
+This patch series adds support for the Janz CMOD-IO carrier board, as well
+as the Janz VMOD-ICAN3 Intelligent CAN controller and the Janz VMOD-TTL
+Digital IO controller. The CMOD-IO carrier board is a PCI to MODULbus
+bridge, into which plug MODULbus daughterboards.  I only have access to two
+types of daughtercards, the VMOD-ICAN3 and VMOD-TTL boards mentioned above.
 
-Nice job.
+The CAN driver has been tested under high loads. I am able to generate ~60%
+bus utilization. With two VMOD-ICAN3 boards looped back to each other,
+neither one loses any packets when only a single board is generating
+packets at maximum speed. Once both boards start generating packets, one
+board will sometimes loose arbitration, and cause some lost packets.
 
-Reviewed-by: Randy Dunlap <randy.dunlap@oracle.com>
+RFCv3 -> RFCv4:
+- addressed many review comments
+- switch to NAPI
+- add TX flow control
+- mark functions with __devinit and __devexit
+- add sysfs readout of MODULbus number (hex switch)
+- implement GPIO driver for VMOD-TTL
 
-thanks,
--- 
-~Randy
+RFCv2 -> RFCv3:
+- addressed many review comments
+- correct CAN bus error handling
+- use struct device to track subdevices
+- use structures for register layout
+- add lots of #defines for register values
+- use better function prefixes
+
+RFCv1 -> RFCv2:
+- converted to a multi-driver model
+- addressed many review comments
+- added CAN bus error handling
+- use a work function only instead of work + NAPI
+- use SJA1000 bittiming calculation code
+
+I apologize if I've CC'd too many people here, but I'm unsure if people
+would rather see the whole patch series, or just each part.
+
+I appreciate any review you can offer.
+
+Thanks,
+Ira
