@@ -1,60 +1,40 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 9/9] IPv6: addrconf cleanup addrconf_verify
-Date: Wed, 17 Mar 2010 23:31:17 -0700
-Message-ID: <20100318063123.441975388@vyatta.com>
-References: <20100318063108.109693694@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: [PATCH] tcp: Generalized TTL Security Mechanism
+Date: Thu, 18 Mar 2010 08:36:48 +0200 (EET)
+Message-ID: <alpine.LRH.2.00.1003180833420.24946@netcore.fi>
+References: <20100110220034.4d46ba8a@nehalam>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:33134 "EHLO suva.vyatta.com"
+Received: from netcore.fi ([193.94.160.1]:40400 "EHLO netcore.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753194Ab0CRGgo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Mar 2010 02:36:44 -0400
-Content-Disposition: inline; filename=addrconf-verify-clean.patch
+	id S1753191Ab0CRGha (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Mar 2010 02:37:30 -0400
+In-Reply-To: <20100110220034.4d46ba8a@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The variable regen_advance is only used in the privacy case.
-Move it to simplify code and eliminate ifdef's
+Hi,
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+On Sun, 10 Jan 2010, Stephen Hemminger wrote:
+> This patch adds the kernel portions needed to implement
+> RFC 5082 Generalized TTL Security Mechanism (GTSM).
+> It is a lightweight security measure against forged
+> packets causing DoS attacks (for BGP).
+...
 
---- a/net/ipv6/addrconf.c	2010-03-15 16:10:27.079211696 -0700
-+++ b/net/ipv6/addrconf.c	2010-03-15 16:10:27.818899265 -0700
-@@ -3124,9 +3124,6 @@ restart:
- 		hlist_for_each_entry_rcu(ifp, node,
- 					 &inet6_addr_lst[i], addr_lst) {
- 			unsigned long age;
--#ifdef CONFIG_IPV6_PRIVACY
--			unsigned long regen_advance;
--#endif
- 
- 			if (ifp->flags & IFA_F_PERMANENT)
- 				continue;
-@@ -3134,12 +3131,6 @@ restart:
- 			spin_lock(&ifp->lock);
- 			age = (now - ifp->tstamp) / HZ;
- 
--#ifdef CONFIG_IPV6_PRIVACY
--			regen_advance = ifp->idev->cnf.regen_max_retry *
--					ifp->idev->cnf.dad_transmits *
--					ifp->idev->nd_parms->retrans_time / HZ;
--#endif
--
- 			if (ifp->valid_lft != INFINITY_LIFE_TIME &&
- 			    age >= ifp->valid_lft) {
- 				spin_unlock(&ifp->lock);
-@@ -3173,6 +3164,10 @@ restart:
- #ifdef CONFIG_IPV6_PRIVACY
- 			} else if ((ifp->flags&IFA_F_TEMPORARY) &&
- 				   !(ifp->flags&IFA_F_TENTATIVE)) {
-+				unsigned long regen_advance = ifp->idev->cnf.regen_max_retry *
-+					ifp->idev->cnf.dad_transmits *
-+					ifp->idev->nd_parms->retrans_time / HZ;
-+
- 				if (age >= ifp->prefered_lft - regen_advance) {
- 					struct inet6_ifaddr *ifpub = ifp->ifpub;
- 					if (time_before(ifp->tstamp + ifp->prefered_lft * HZ, next))
+It's nice to see this added.  However, I must add that a compliant RFC 
+5082 implementation is required to have similar TTL treatment for ICMP 
+errors which relate to the protected session.  AFAIK this does not 
+support that.
+
+The experimental, earlier spec (GTSH, RFC3682) did not have this 
+requirement.  Most if not all implementations support only GTSH mode. 
+So a backward-compatibility option may be desirable.
 
 -- 
-
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
