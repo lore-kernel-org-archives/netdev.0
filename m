@@ -1,58 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] atm: Use kasprintf
-Date: Fri, 19 Mar 2010 00:48:26 +0100
-Message-ID: <1268956106.2894.211.camel@edumazet-laptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] TCP: check min TTL on received ICMP packets
+Date: Thu, 18 Mar 2010 14:27:32 -0700
+Message-ID: <20100318142732.4de0f8d7@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, Pekka Savola <pekkas@netcore.fi>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:56593 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751027Ab0CRXsa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Mar 2010 19:48:30 -0400
-Received: by bwz1 with SMTP id 1so2568252bwz.21
-        for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 16:48:28 -0700 (PDT)
+Received: from mail.vyatta.com ([76.74.103.46]:47034 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752451Ab0CRXve (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Mar 2010 19:51:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use kasprintf in atm_proc_dev_register()
+This adds RFC5082 checks for TTL on received ICMP packets.
+It adds some security against spoofed ICMP packets
+disrupting GTSM protected sessions.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
 ---
- net/atm/proc.c |   10 +---------
- 1 file changed, 1 insertion(+), 9 deletions(-)
+Please apply to 2.6.33 since it basically a "follow correct RFC"
+fix to original GTSM patch.
 
-diff --git a/net/atm/proc.c b/net/atm/proc.c
-index 7a96b23..f188a39 100644
---- a/net/atm/proc.c
-+++ b/net/atm/proc.c
-@@ -406,7 +406,6 @@ EXPORT_SYMBOL(atm_proc_root);
+--- a/net/ipv4/tcp_ipv4.c	2010-03-18 11:10:14.396384060 -0700
++++ b/net/ipv4/tcp_ipv4.c	2010-03-18 11:13:09.115759682 -0700
+@@ -370,6 +370,11 @@ void tcp_v4_err(struct sk_buff *icmp_skb
+ 	if (sk->sk_state == TCP_CLOSE)
+ 		goto out;
  
- int atm_proc_dev_register(struct atm_dev *dev)
- {
--	int digits, num;
- 	int error;
- 
- 	/* No proc info */
-@@ -414,16 +413,9 @@ int atm_proc_dev_register(struct atm_dev *dev)
- 		return 0;
- 
- 	error = -ENOMEM;
--	digits = 0;
--	for (num = dev->number; num; num /= 10)
--		digits++;
--	if (!digits)
--		digits++;
--
--	dev->proc_name = kmalloc(strlen(dev->type) + digits + 2, GFP_KERNEL);
-+	dev->proc_name = kasprintf(GFP_KERNEL, "%s:%d", dev->type, dev->number);
- 	if (!dev->proc_name)
- 		goto err_out;
--	sprintf(dev->proc_name, "%s:%d", dev->type, dev->number);
- 
- 	dev->proc_entry = proc_create_data(dev->proc_name, 0, atm_proc_root,
- 					   &proc_atm_dev_ops, dev);
-
-
++	if (unlikely(iph->ttl < inet_sk(sk)->min_ttl)) {
++		NET_INC_STATS_BH(net, LINUX_MIB_TCPMINTTLDROP);
++		goto out;
++	}
++
+ 	icsk = inet_csk(sk);
+ 	tp = tcp_sk(sk);
+ 	seq = ntohl(th->seq);
