@@ -1,45 +1,54 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bug 14470] New: freez in TCP stack
-Date: Thu, 18 Mar 2010 14:04:24 -0700
-Message-ID: <20100318140424.aaf3ec24.akpm@linux-foundation.org>
-References: <4AE92F4D.6070101@gmail.com>
-	<20091029.010009.175904855.davem@davemloft.net>
-	<alpine.DEB.2.00.0911262352050.24189@melkinpaasi.cs.helsinki.fi>
-	<20091202.222446.10943991.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: dev_getfirstbyhwtype() optimization
+Date: Thu, 18 Mar 2010 22:27:25 +0100
+Message-ID: <1268947645.2894.166.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, eric.dumazet@gmail.com,
-	shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	kolo@albatani.cz, bugzilla-daemon@bugzilla.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:54166 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751401Ab0CRVFv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Mar 2010 17:05:51 -0400
-In-Reply-To: <20091202.222446.10943991.davem@davemloft.net>
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:42486 "EHLO
+	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751027Ab0CRV1a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Mar 2010 17:27:30 -0400
+Received: by bwz25 with SMTP id 25so1175445bwz.28
+        for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 14:27:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 02 Dec 2009 22:24:46 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+Use RCU to avoid RTNL use in dev_getfirstbyhwtype()
 
-> From: "Ilpo J__rvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Thu, 26 Nov 2009 23:54:53 +0200 (EET)
-> 
-> > [PATCH] tcp: clear hints to avoid a stale one (nfs only affected?)
-> 
-> Ok, since Linus just released 2.6.32 I'm tossing this into net-next-2.6
-> so it gets wider exposure.
-> 
-> I still want to see test results from the bug reporter, and if it fixes
-> things we can toss this into -stable too.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 17b1686..0f2e9fc 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -772,14 +772,17 @@ EXPORT_SYMBOL(__dev_getfirstbyhwtype);
+ 
+ struct net_device *dev_getfirstbyhwtype(struct net *net, unsigned short type)
+ {
+-	struct net_device *dev;
++	struct net_device *dev, *ret = NULL;
+ 
+-	rtnl_lock();
+-	dev = __dev_getfirstbyhwtype(net, type);
+-	if (dev)
+-		dev_hold(dev);
+-	rtnl_unlock();
+-	return dev;
++	rcu_read_lock();
++	for_each_netdev_rcu(net, dev)
++		if (dev->type == type) {
++			dev_hold(dev);
++			ret = dev;
++			break;
++		}
++	rcu_read_unlock();
++	return ret;
+ }
+ EXPORT_SYMBOL(dev_getfirstbyhwtype);
+ 
 
-Despite my request to take this to email, quite a few people have been
-jumping onto this report via bugzilla:
-http://bugzilla.kernel.org/show_bug.cgi?id=14470
-
-Bit of a pita, but it'd be worth someone taking a look to ensure that
-we're all talking about the same bug.
 
