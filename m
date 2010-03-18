@@ -1,68 +1,46 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 6/9] ipv6: addrconf timer changes
-Date: Thu, 18 Mar 2010 16:37:43 +0900
-Message-ID: <1268897863.10592.38.camel@cirrhata.linux-ipv6.org>
-References: <20100318063108.109693694@vyatta.com>
-	 <20100318063123.232844056@vyatta.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] netxen: The driver doesn't work on NX_P3_B1 so cause probe to fail.
+Date: Thu, 18 Mar 2010 01:24:39 -0700
+Message-ID: <m1y6hqdol4.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: <netdev@vger.kernel.org>,
+	Amit Kumar Salecha <amit.salecha@qlogic.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:49397 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753191Ab0CRHke (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Mar 2010 03:40:34 -0400
-In-Reply-To: <20100318063123.232844056@vyatta.com>
+Received: from out01.mta.xmission.com ([166.70.13.231]:59018 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751381Ab0CRIYo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Mar 2010 04:24:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
 
-Stephen Hemminger wrote:
+I haven't been able to get link up on a NX_P3_B1 since 2.6.31.  The
+driver complains about a firmware hang instead.  When I asked I was
+told rev 0x41 was a preproduction rev.  So disable support in the
+driver so no one is surprised the code doesn't work.
 
-> For addrconf timer use round_jiffies to round off to next interval
-> (rather than manual rounding).
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> 
-> ---
->  net/ipv6/addrconf.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> --- a/net/ipv6/addrconf.c	2010-03-15 16:10:25.069213714 -0700
-> +++ b/net/ipv6/addrconf.c	2010-03-15 16:10:25.709836446 -0700
-> @@ -3194,7 +3194,7 @@ restart:
->  		}
->  	}
->  
-> -	addr_chk_timer.expires = time_before(next, jiffies + HZ) ? jiffies + HZ : next;
-> +	addr_chk_timer.expires = round_jiffies(next);
->  	add_timer(&addr_chk_timer);
->  	spin_unlock(&addrconf_verify_lock);
->  	rcu_read_unlock_bh();
-> 
+Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
+---
+ drivers/net/netxen/netxen_nic_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-I'd like to NAK this.
-
-This could round down, but in this routine, the time
-is checked.  If the time is not yet, no process and reschedule
-happens again.  So, I don't think it is useful.
-
-Well,
-   addr_chk_timer.expires = next + HZ;
-or
-   addr_chk_timer.expires = jiffies_round_up(next);
-
-could be an answer, but it is too lazy and not acceptable for me.
-(Well, I don't need 100Hz but I want to have 3-10Hz at least.)
-
-I'll make an alternative patch.
-
-Regards,
-
---yoshfuji
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 08780ef..9a7a0f3 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -1246,8 +1246,8 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	int pci_func_id = PCI_FUNC(pdev->devfn);
+ 	uint8_t revision_id;
+ 
+-	if (pdev->revision >= NX_P3_A0 && pdev->revision < NX_P3_B1) {
+-		pr_warning("%s: chip revisions between 0x%x-0x%x"
++	if (pdev->revision >= NX_P3_A0 && pdev->revision <= NX_P3_B1) {
++		pr_warning("%s: chip revisions between 0x%x-0x%x "
+ 				"will not be enabled.\n",
+ 				module_name(THIS_MODULE), NX_P3_A0, NX_P3_B1);
+ 		return -ENODEV;
+-- 
+1.6.6.1
 
