@@ -1,66 +1,47 @@
-From: "Ira W. Snyder" <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
-Subject: [PATCH 0/3] add support for Janz MODULbus devices
-Date: Thu, 18 Mar 2010 09:38:41 -0700
-Message-ID: <1268930324-29841-1-git-send-email-iws@ovro.caltech.edu>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/3] netlink: fix NETLINK_RECV_NO_ENOBUFS in netlink_set_err()
+Date: Thu, 18 Mar 2010 17:46:46 +0100
+Message-ID: <4BA258F6.1050909@trash.net>
+References: <20100316232247.4185.19426.stgit@decadence> <20100316232957.4185.46217.stgit@decadence> <4BA0F4C0.8050901@trash.net> <4BA10095.2030905@netfilter.org> <4BA22463.6050601@trash.net> <4BA25612.3080804@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <>
-References: <>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:52395 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751182Ab0CRQqs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Mar 2010 12:46:48 -0400
+In-Reply-To: <4BA25612.3080804@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch series adds support for the Janz CMOD-IO carrier board, as well
-as the Janz VMOD-ICAN3 Intelligent CAN controller and the Janz VMOD-TTL
-Digital IO controller. The CMOD-IO carrier board is a PCI to MODULbus
-bridge, into which plug MODULbus daughterboards.  I only have access to two
-types of daughtercards, the VMOD-ICAN3 and VMOD-TTL boards mentioned above.
+Pablo Neira Ayuso wrote:
+> Patrick McHardy wrote:
+>> Pablo Neira Ayuso wrote:
+>>> Yes, allocation is a different situation but we still report ENOBUFS to
+>>> user-space. I think that NETLINK_RECV_NO_ENOBUFS is there to a) disable
+>>> ENOBUFS reports to user-space and b) disable Netlink congestion.
+>>>
+>>>> Is there any problem with these errors?
+>>> Specifically in ctnetlink, if we fail to allocate a message in ctnetlink
+>>> and NETLINK_RECV_NO_ENOBUFS is set, we still lose an event and that
+>>> should not happen.
+>> I assume you mean "not set"? Otherwise I fail to follow :)
+> 
+> OK, I'll try again :-)
+> 
+> Currently, no matter if NETLINK_RECV_NO_ENOBUFS is set or not: if we
+> fail to allocate the netlink message, then ctnetlink_conntrack_event()
+> returns 0. Thus, we report ENOBUFS to user-space and we lose the event.
+> 
+> With my patches, if NETLINK_RECV_NO_ENOBUFS is set and we fail to
+> allocate the message, we don't report ENOBUFS and we don't lose the event.
 
-The CAN driver has been tested under high loads. I am able to generate ~60%
-bus utilization. With two VMOD-ICAN3 boards looped back to each other,
-neither one loses any packets when only a single board is generating
-packets at maximum speed. Once both boards start generating packets, one
-board will sometimes loose arbitration, and cause some lost packets.
+That last part is what keeps confusing me. With your patch, if the
+ENOBUFS options is set, we don't report the error to userspace
+and therefore don't return it to conntrack, thus we *do* loose the
+event. Which is correct however.
 
-RFCv3 -> RFCv4:
-- addressed many review comments
-- switch to NAPI
-- add TX flow control
-- mark functions with __devinit and __devexit
-- add sysfs readout of MODULbus number (hex switch)
-- implement GPIO driver for VMOD-TTL
-
-RFCv2 -> RFCv3:
-- addressed many review comments
-- correct CAN bus error handling
-- use struct device to track subdevices
-- use structures for register layout
-- add lots of #defines for register values
-- use better function prefixes
-
-RFCv1 -> RFCv2:
-- converted to a multi-driver model
-- addressed many review comments
-- added CAN bus error handling
-- use a work function only instead of work + NAPI
-- use SJA1000 bittiming calculation code
-
-I apologize if I've CC'd too many people here, but I'm unsure if people
-would rather see the whole patch series, or just each part.
-
-I appreciate any review you can offer.
-
-Thanks,
-Ira
+Did I get it right this time? :)
