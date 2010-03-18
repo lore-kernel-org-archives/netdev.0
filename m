@@ -1,158 +1,79 @@
-From: =?utf-8?Q?J=F6rn?= Engel <joern@dublin.logfs.org>
-Subject: Re: [Regression] r8169: enable 64-bit DMA by default for PCI
-	Express devices (v2)
-Date: Thu, 18 Mar 2010 10:03:08 +0100
-Message-ID: <20100318090308.GA3697__25844.9814202779$1268903023$gmane$org@Dublin.logfs.org>
-References: <20100315150806.GA15354@Dublin.logfs.org> <20100315151041.GA15667@Dublin.logfs.org> <20100315.115748.13754030.davem@davemloft.net> <51f3faa71003151628g5edc4d7av8916ac76cb337bfe@mail.gmail.com> <20100316083501.GA3489@Dublin.logfs.org> <20100317205206.GA2699@electric-eye.fr.zoreil.com>
+From: Amit Salecha <amit.salecha@qlogic.com>
+Subject: RE: [PATCH] netxen: The driver doesn't work on NX_P3_B1 so cause
+ probe to fail.
+Date: Thu, 18 Mar 2010 04:28:19 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80CFEFED052@MNEXMB2.qlogic.org>
+References: <m1y6hqdol4.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	Robert Hancock <hancockrwd@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>
+To: Amit Salecha <amit.salecha@qlogic.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [85.183.11.32] ([85.183.11.32]:54150 "EHLO Dublin.logfs.org"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751171Ab0CRJDV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Mar 2010 05:03:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20100317205206.GA2699@electric-eye.fr.zoreil.com>
+Received: from avexch1.qlogic.com ([198.70.193.115]:19547 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751261Ab0CRJ22 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Mar 2010 05:28:28 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 17 March 2010 21:52:06 +0100, Francois Romieu wrote:
-> On Tue, Mar 16, 2010 at 09:35:01AM +0100, J=EF=BF=BDrn Engel wrote:
-> [...]
-> > I just noticed lspci is also unhappy.
-> >=20
-> > With patch in:
-> > Bikini:~# lspci -vv > lspci
-> > pcilib: sysfs_read_vpd: read failed: Connection timed out.
-> >
-> > With patch reverted:
-> > Bikini:~# lspci -vv > lspci2
-> > Bikini:~# diff -u lspci*
-> > --- lspci       2010-03-16 09:03:02.000000000 +0100
-> > +++ lspci2      2010-03-16 09:09:36.000000000 +0100
-> > @@ -246,7 +246,7 @@
-> >                 Vector table: BAR=3D4 offset=3D00000000
-> >                 PBA: BAR=3D4 offset=3D00000800
-> >         Capabilities: [cc] Vital Product Data
-> > -               Not readable
-> > +               Unknown small resource type 00, will not decode mor=
-e.
->=20
-> Neither looks good.
+>> But you shouldn't add support of device which is not supported.
+Sorry for confusion. I don't know, what I was thinking
 
-Agreed.
+Actually you may be right, let me verify. 
 
-> Did lspci output look different with an older kernel ?
+-----Original Message-----
+From: Amit Salecha 
+Sent: Thursday, March 18, 2010 2:26 PM
+To: 'Eric W. Biederman'; David Miller
+Cc: netdev@vger.kernel.org; Ameen Rahman
+Subject: RE: [PATCH] netxen: The driver doesn't work on NX_P3_B1 so cause probe to fail.
 
-Yes.  The relevant hunk is this one.  Different obviously doesn't
-mean better. :)
+Sorry for all the problem you faced.
 
-@@ -223,7 +221,7 @@
-                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=3D375mA PME(D0+,=
-D1+,D2+,D3hot+,D3cold+)
-                Status: D0 NoSoftRst+ PME-Enable- DSel=3D0 DScale=3D0 P=
-ME-
-        Capabilities: [50] MSI: Enable+ Count=3D1/1 Maskable- 64bit+
--               Address: 00000000fee0300c  Data: 4169
-+               Address: 00000000fee0300c  Data: 4179
-        Capabilities: [70] Express (v2) Endpoint, MSI 01
-                DevCap: MaxPayload 256 bytes, PhantFunc 0, Latency L0s =
-<512ns, L1 <64us
-                        ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
+But you shouldn't add support of device which is not supported.
+Netxen is now owned by Qlogic. You should first contact Qlogic to solve your problem.
+Qlogic will take needed action based on problem.
 
-And for completeness he is the full diff.  The machine was bought on
-16 Jun 2009, so this is the oldest kernel I have.  If you want any
-specific kernels tested, please tell me which ones.
+Please write to me, with detail problem description.
 
-Bikini:~# uname -a
-Linux Bikini 2.6.31-rc2 #193 SMP Sun Mar 14 17:00:08 CET 2010 x86_64 GN=
-U/Linux
-Bikini:~# lspci -vv > lspci3
-Bikini:~# diff -u lspci[23]
---- lspci2      2010-03-16 09:09:46.000000000 +0100
-+++ lspci3      2010-03-18 09:49:21.000000000 +0100
-@@ -24,14 +24,12 @@
-                Status: D0 NoSoftRst- PME-Enable- DSel=3D0 DScale=3D0 P=
-ME-
-=20
- 00:1c.0 PCI bridge: Intel Corporation 82801G (ICH7 Family) PCI Express=
- Port 1 (rev 01) (prog-if 00 [Normal decode])
--       Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- Par=
-Err- Stepping- SERR+ FastB2B- DisINTx+
-+       Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- Par=
-Err- Stepping- SERR+ FastB2B- DisINTx+
-        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=3Dfast >TAbort=
-- <TAbort- <MAbort- >SERR- <PERR- INTx-
-        Latency: 0, Cache Line Size: 32 bytes
-        Bus: primary=3D00, secondary=3D02, subordinate=3D02, sec-latenc=
-y=3D0
--       I/O behind bridge: 00001000-00001fff
--       Memory behind bridge: bf700000-bfafffff
-        Prefetchable memory behind bridge: 00000000fdf00000-00000000fdf=
-fffff
--       Secondary status: 66MHz- FastB2B- ParErr- DEVSEL=3Dfast >TAbort=
-- <TAbort- <MAbort- <SERR- <PERR-
-+       Secondary status: 66MHz- FastB2B- ParErr- DEVSEL=3Dfast >TAbort=
-- <TAbort- <MAbort+ <SERR- <PERR-
-        BridgeCtl: Parity- SERR+ NoISA- VGA- MAbort- >Reset- FastB2B-
-                PriDiscTmr- SecDiscTmr- DiscTmrStat- DiscTmrSERREn-
-        Capabilities: [40] Express (v1) Root Port (Slot+), MSI 00
-@@ -56,14 +54,14 @@
-                RootCap: CRSVisible-
-                RootSta: PME ReqID 0000, PMEStatus- PMEPending-
-        Capabilities: [80] MSI: Enable+ Count=3D1/1 Maskable- 64bit-
--               Address: fee0300c  Data: 4149
-+               Address: fee0300c  Data: 4159
-        Capabilities: [90] Subsystem: ASRock Incorporation Device 27d0
-        Capabilities: [a0] Power Management version 2
-                Flags: PMEClk- DSI- D1- D2- AuxCurrent=3D0mA PME(D0+,D1=
--,D2-,D3hot+,D3cold+)
-                Status: D0 NoSoftRst- PME-Enable- DSel=3D0 DScale=3D0 P=
-ME-
-        Capabilities: [100] Virtual Channel <?>
-        Capabilities: [180] Root Complex Link <?>
--       Kernel driver in use: pcieport
-+       Kernel driver in use: pcieport-driver
-=20
- 00:1c.1 PCI bridge: Intel Corporation 82801G (ICH7 Family) PCI Express=
- Port 2 (rev 01) (prog-if 00 [Normal decode])
-        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- Par=
-Err- Stepping- SERR+ FastB2B- DisINTx+
-@@ -98,14 +96,14 @@
-                RootCap: CRSVisible-
-                RootSta: PME ReqID 0000, PMEStatus- PMEPending-
-        Capabilities: [80] MSI: Enable+ Count=3D1/1 Maskable- 64bit-
--               Address: fee0300c  Data: 4151
-+               Address: fee0300c  Data: 4161
-        Capabilities: [90] Subsystem: ASRock Incorporation Device 27d2
-        Capabilities: [a0] Power Management version 2
-                Flags: PMEClk- DSI- D1- D2- AuxCurrent=3D0mA PME(D0+,D1=
--,D2-,D3hot+,D3cold+)
-                Status: D0 NoSoftRst- PME-Enable- DSel=3D0 DScale=3D0 P=
-ME-
-        Capabilities: [100] Virtual Channel <?>
-        Capabilities: [180] Root Complex Link <?>
--       Kernel driver in use: pcieport
-+       Kernel driver in use: pcieport-driver
-=20
- 00:1d.0 USB Controller: Intel Corporation 82801G (ICH7 Family) USB UHC=
-I Controller #1 (rev 01) (prog-if 00 [UHCI])
-        Subsystem: ASRock Incorporation Device 27c8
-@@ -223,7 +221,7 @@
-                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=3D375mA PME(D0+,=
-D1+,D2+,D3hot+,D3cold+)
-                Status: D0 NoSoftRst+ PME-Enable- DSel=3D0 DScale=3D0 P=
-ME-
-        Capabilities: [50] MSI: Enable+ Count=3D1/1 Maskable- 64bit+
--               Address: 00000000fee0300c  Data: 4169
-+               Address: 00000000fee0300c  Data: 4179
-        Capabilities: [70] Express (v2) Endpoint, MSI 01
-                DevCap: MaxPayload 256 bytes, PhantFunc 0, Latency L0s =
-<512ns, L1 <64us
-                        ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
+-----Original Message-----
+From: Eric W. Biederman [mailto:ebiederm@xmission.com] 
+Sent: Thursday, March 18, 2010 1:55 PM
+To: David Miller
+Cc: netdev@vger.kernel.org; Amit Salecha
+Subject: [PATCH] netxen: The driver doesn't work on NX_P3_B1 so cause probe to fail.
+
+
+I haven't been able to get link up on a NX_P3_B1 since 2.6.31.  The
+driver complains about a firmware hang instead.  When I asked I was
+told rev 0x41 was a preproduction rev.  So disable support in the
+driver so no one is surprised the code doesn't work.
+
+Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
+---
+ drivers/net/netxen/netxen_nic_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 08780ef..9a7a0f3 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -1246,8 +1246,8 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	int pci_func_id = PCI_FUNC(pdev->devfn);
+ 	uint8_t revision_id;
+ 
+-	if (pdev->revision >= NX_P3_A0 && pdev->revision < NX_P3_B1) {
+-		pr_warning("%s: chip revisions between 0x%x-0x%x"
++	if (pdev->revision >= NX_P3_A0 && pdev->revision <= NX_P3_B1) {
++		pr_warning("%s: chip revisions between 0x%x-0x%x "
+ 				"will not be enabled.\n",
+ 				module_name(THIS_MODULE), NX_P3_A0, NX_P3_B1);
+ 		return -ENODEV;
+-- 
+1.6.6.1
+
