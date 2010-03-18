@@ -1,51 +1,127 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [GIT PULL] vhost-net fixes for issues in 2.6.34-rc1
-Date: Thu, 18 Mar 2010 11:53:55 +0200
-Message-ID: <20100318095355.GA24194@redhat.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: [PATCH 00/12] l2tp: Introduce L2TPv3 support
+Date: Thu, 18 Mar 2010 10:21:28 +0000
+Message-ID: <20100318102127.14576.98388.stgit@bert.katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: samudrala@us.ibm.com, kvm@vger.kernel.org,
-        Juan Quintela <quintela@redhat.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Laurent Chavey <chavey@google.com>,
-        virtualization@lists.osdl.org,
-        Unai Uribarri <unai.uribarri@optenet.com>,
-        Jeff Dike <jdike@linux.intel.com>, Jiri Slaby <jirislaby@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from katalix.com ([82.103.140.233]:58021 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751854Ab0CRKVf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Mar 2010 06:21:35 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mail.katalix.com (Postfix) with ESMTP id 5DC00A620A4
+	for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 10:21:34 +0000 (GMT)
+Received: from mail.katalix.com ([127.0.0.1])
+	by localhost (mail.katalix.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id jB8zKE3Mm6oI for <netdev@vger.kernel.org>;
+	Thu, 18 Mar 2010 10:21:28 +0000 (GMT)
+Received: from bert.katalix.com (localhost.localdomain [127.0.0.1])
+	by mail.katalix.com (Postfix) with ESMTP id 90C68A62087
+	for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 10:21:28 +0000 (GMT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David,
-The following tree includes patches fixing issues with vhost-net in
-2.6.34-rc1.  Please pull them for 2.6.34.
- 
-Thanks!
+This patch series adds L2TPv3 support. It splits the existing pppol2tp
+driver to separate its L2TP and PPP parts, then adds new L2TPv3
+functionality. The patches implement a new socket family for L2TPv3 IP
+encapsulation, expose virtual netdevices for each L2TPv3 ethernet
+pseudowire and add a netlink interface.
 
-The following changes since commit a3d3203e4bb40f253b1541e310dc0f9305be7c84:
+The following drivers are provided:-
 
-  Merge branch 'release' of git://git.kernel.org/pub/scm/linux/kernel/git/lenb/linux-acpi-2.6 (2010-03-14 20:29:21 -0700)
+l2tp_core    - L2TP driver core. Always required.
+l2tp_ppp     - L2TP PPP (PPPoL2TP). L2TPv2 and L2TPv3.
+l2tp_eth     - L2TPv3 ethernet pseudowire.
+l2tp_ip      - L2TPv3 IP encapsulation.
+l2tp_netlink - L2TPv3 netlink API.
 
-are available in the git repository at:
+The combination of l2tp_core and l2tp_ppp provides
+backwards-compatible L2TPv2 pppol2tp functionality. Userspace L2TPv2
+applications using the existing pppol2tp driver should not need to
+change.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost
+The implementation is as I described in a previous posting to netdev,
+archived at
+http://marc.info/?l=linux-netdev&m=120845482320143&w=4. Unfortunately,
+splitting the existing pppol2tp driver into l2tp_core and l2tp_ppp
+makes the changes difficult to review. The split is needed to separate
+PPP from L2TP, since in L2TPv3, protocols other than PPP can be
+carried. I have organised the patches so that the split is done first,
+with new features added in separate patches.
 
-Jeff Dike (1):
-      vhost: fix error path in vhost_net_set_backend
+Relevant RFCs are:-
+- http://www.ietf.org/rfc/rfc3931.txt (L2TPv3)
+- http://www.ietf.org/rfc/rfc4719.txt (L2TPv3 ethernet pseudowire)
 
-Michael S. Tsirkin (2):
-      vhost: fix interrupt mitigation with raw sockets
-      vhost: fix error handling in vring ioctls
+A patchset is available to iproute2 which adds a number of commands
+for unmanaged L2TPv3 tunnels. This will be submitted separately.
 
- drivers/vhost/net.c   |   10 ++++++----
- drivers/vhost/vhost.c |   18 ++++++++++++------
- 2 files changed, 18 insertions(+), 10 deletions(-)
+TODO:-
+- Add IP pseudowires. These carry only IP frames (no L2 header).
+- Add VLAN pseudowires.
+- Add L2TP tunnel switching.
+- Add ATM pseudowires - RFC3355 and RFC4454.
+
+Signed-off-by: James Chapman <jchapman@katalix.com>
+
+---
+
+Some changes have been made since I posted initial RFC versions a
+while ago. The changes are to merge in kernel features that have been
+added since the work started. There are also some bugfixes and new
+support for unmanaged L2TPv3 tunnels.
+
+James Chapman (12):
+      l2tp: Relocate pppol2tp driver to new net/l2tp directory
+      l2tp: Split pppol2tp patch into separate l2tp and ppp parts
+      ppp: Add ppp_dev_name() exported function
+      l2tp: Add ppp device name to L2TP ppp session data
+      l2tp: Add L2TPv3 protocol support
+      l2tp: Update PPP-over-L2TP driver to work over L2TPv3
+      l2tp: Add L2TPv3 IP encapsulation (no UDP) support
+      netlink: Export genl_lock() API for use by modules
+      l2tp: Add netlink control API for L2TP
+      l2tp: Add L2TP ethernet pseudowire support
+      l2tp: Add support for static unmanaged L2TPv3 tunnels
+      l2tp: Update documentation
+
+
+
+ Documentation/networking/l2tp.txt |  233 +++
+ drivers/net/Kconfig               |    7 
+ drivers/net/Makefile              |    2 
+ drivers/net/ppp_generic.c         |   19 
+ drivers/net/pppol2tp.c            | 2680 -------------------------------------
+ include/linux/genetlink.h         |    8 
+ include/linux/if_pppol2tp.h       |   16 
+ include/linux/if_pppox.h          |    9 
+ include/linux/l2tp.h              |  164 ++
+ include/linux/ppp_channel.h       |    3 
+ net/Kconfig                       |    1 
+ net/Makefile                      |    1 
+ net/l2tp/Kconfig                  |   95 +
+ net/l2tp/Makefile                 |   11 
+ net/l2tp/l2tp_core.c              | 2015 ++++++++++++++++++++++++++++
+ net/l2tp/l2tp_core.h              |  306 ++++
+ net/l2tp/l2tp_eth.c               |  383 +++++
+ net/l2tp/l2tp_ip.c                |  679 +++++++++
+ net/l2tp/l2tp_netlink.c           |  844 ++++++++++++
+ net/l2tp/l2tp_ppp.c               | 1602 ++++++++++++++++++++++
+ net/netlink/genetlink.c           |    6 
+ 21 files changed, 6360 insertions(+), 2724 deletions(-)
+ delete mode 100644 drivers/net/pppol2tp.c
+ create mode 100644 include/linux/l2tp.h
+ create mode 100644 net/l2tp/Kconfig
+ create mode 100644 net/l2tp/Makefile
+ create mode 100644 net/l2tp/l2tp_core.c
+ create mode 100644 net/l2tp/l2tp_core.h
+ create mode 100644 net/l2tp/l2tp_eth.c
+ create mode 100644 net/l2tp/l2tp_ip.c
+ create mode 100644 net/l2tp/l2tp_netlink.c
+ create mode 100644 net/l2tp/l2tp_ppp.c
+
+
+
