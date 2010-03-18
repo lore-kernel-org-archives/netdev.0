@@ -1,89 +1,120 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v7] rps: Receive Packet Steering
-Date: Thu, 18 Mar 2010 21:37:01 +0100
-Message-ID: <1268944621.2894.160.camel@edumazet-laptop>
-References: <65634d661003121508m3d348973k63a6ae9ca1f12f9f@mail.gmail.com>
-	 <1268773227.2932.34.camel@edumazet-laptop>
-	 <20100316.141311.262178287.davem@davemloft.net>
-	 <412e6f7f1003161854w32ed4516w2e52003097051fc7@mail.gmail.com>
-	 <1268809673.2932.62.camel@edumazet-laptop>
-	 <412e6f7f1003170059r1f0fa4cfrbe8b3f22102ee9d9@mail.gmail.com>
-	 <1268834957.2899.352.camel@edumazet-laptop>
-	 <65634d661003170801x1042a6am563c9d937ba672a4@mail.gmail.com>
-	 <4BA16AB8.3090800@google.com> <1268893232.2894.65.camel@edumazet-laptop>
-	 <412e6f7f1003172348s1f113734h882779d9acd08ddc@mail.gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless-2.6 2010-03-18
+Date: Thu, 18 Mar 2010 16:35:32 -0400
+Message-ID: <20100318203532.GE17357@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tom Herbert <therbert@google.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:49618 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751261Ab0CRUhJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Mar 2010 16:37:09 -0400
-Received: by bwz25 with SMTP id 25so1126823bwz.28
-        for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 13:37:05 -0700 (PDT)
-In-Reply-To: <412e6f7f1003172348s1f113734h882779d9acd08ddc@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 18 mars 2010 =C3=A0 14:48 +0800, Changli Gao a =C3=A9crit :
-> sigh! How about adding file for each cpu weight setting.
->=20
-> .../rx-0/rps_cpu0...n
->=20
-> BTW: I think exporting the hook of hash function will help in some
-> case. So users can choose which hash to use depend on their
-> applications. I know FreeBSD supports hash based on flow, source or
-> CPU. Some network application have multiple instances for taking full
-> advantage of the SMP/C hardware, and each instance binds to a special
-> CPU/Core, so they need some kind of load distributing algorithm for
-> load balancing.
->=20
+Dave,
 
-exporting skb->rxhash would not be that interesting, but the cpu number
-of last cpu handling the skb and queuing it on socket might be usefull.
+Three more intended for 2.6.34...  The biggest one is for ath9k, which
+removes some unused code along with the one-liner that makes the code
+unused.  (Did you follow that?)  The others are a null-pointer fix and a
+"hush dawg" for a noisy warning message.
 
-> For example, memcached uses hash based on key, and its developer may
-> implement a hash function for RPS. Then it apply the following
-> iptables rule:
->=20
-> iptables -A PREROUTING -t nat -m cpu --cpuid 0 -m tcp --dport 1234
-> --REDIRECT 8081
-> iptables -A PREROUTING -t nat -m cpu --cpuid 0 -m tcp --dport 1234
-> --REDIRECT 8082
+Please let me know if there are problems!
 
-Well, this would work only if load is evenly distributed to all cpus.
-But you understand this kind of setup has nothing to do with RPS.
-Going through REDIRECT (and conntrack) would kill performance, and woul=
-d
-not work for unpriviledged users (iptables changes forbidden).
-It wont scale for future machines with 64 or 128 cores.
+Thanks,
 
-maybe some extension of REDIRECT target, being able to add cpu number t=
-o
-destination port :
+John
 
-iptables -A PREROUTING -t nat -m tcp --dport 1234 --REDIRECT 1234+cpu
+---
 
+The following changes since commit 22001a13d09d82772e831dcdac0553994a4bac5d:
+  Tilman Schmidt (1):
+        gigaset: fix build failure
 
-> ...
->=20
-> No other things to change, it can take full advantage of the
-> underlying hardware transparently.
->=20
+are available in the git repository at:
 
-Coming to mind would be a new socket operation, "bind to cpu", like the
-"bind to device" operation.
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
 
-This would work without need for netfilter (and permission to change it=
-s
-rules)
+Adel Gadllah (1):
+      iwlwifi: Silence tfds_in_queue message
 
-But it would require changes to applications, to fully exploit SMP
-capabilities of machine.
+Felix Fietkau (1):
+      ath9k: fix BUG_ON triggered by PAE frames
 
+Grazvydas Ignotas (1):
+      wl1251: fix potential crash
 
+ drivers/net/wireless/ath/ath9k/xmit.c        |   21 +--------------------
+ drivers/net/wireless/iwlwifi/iwl-tx.c        |    2 +-
+ drivers/net/wireless/wl12xx/wl1251_debugfs.c |    3 ++-
+ 3 files changed, 4 insertions(+), 22 deletions(-)
 
+diff --git a/drivers/net/wireless/ath/ath9k/xmit.c b/drivers/net/wireless/ath/ath9k/xmit.c
+index b2c8207..294b486 100644
+--- a/drivers/net/wireless/ath/ath9k/xmit.c
++++ b/drivers/net/wireless/ath/ath9k/xmit.c
+@@ -1353,25 +1353,6 @@ static enum ath9k_pkt_type get_hw_packet_type(struct sk_buff *skb)
+ 	return htype;
+ }
+ 
+-static bool is_pae(struct sk_buff *skb)
+-{
+-	struct ieee80211_hdr *hdr;
+-	__le16 fc;
+-
+-	hdr = (struct ieee80211_hdr *)skb->data;
+-	fc = hdr->frame_control;
+-
+-	if (ieee80211_is_data(fc)) {
+-		if (ieee80211_is_nullfunc(fc) ||
+-		    /* Port Access Entity (IEEE 802.1X) */
+-		    (skb->protocol == cpu_to_be16(ETH_P_PAE))) {
+-			return true;
+-		}
+-	}
+-
+-	return false;
+-}
+-
+ static int get_hw_crypto_keytype(struct sk_buff *skb)
+ {
+ 	struct ieee80211_tx_info *tx_info = IEEE80211_SKB_CB(skb);
+@@ -1696,7 +1677,7 @@ static void ath_tx_start_dma(struct ath_softc *sc, struct ath_buf *bf,
+ 			goto tx_done;
+ 		}
+ 
+-		if ((tx_info->flags & IEEE80211_TX_CTL_AMPDU) && !is_pae(skb)) {
++		if (tx_info->flags & IEEE80211_TX_CTL_AMPDU) {
+ 			/*
+ 			 * Try aggregation if it's a unicast data frame
+ 			 * and the destination is HT capable.
+diff --git a/drivers/net/wireless/iwlwifi/iwl-tx.c b/drivers/net/wireless/iwlwifi/iwl-tx.c
+index 1ed5206..8c12311 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-tx.c
++++ b/drivers/net/wireless/iwlwifi/iwl-tx.c
+@@ -124,7 +124,7 @@ void iwl_free_tfds_in_queue(struct iwl_priv *priv,
+ 	if (priv->stations[sta_id].tid[tid].tfds_in_queue >= freed)
+ 		priv->stations[sta_id].tid[tid].tfds_in_queue -= freed;
+ 	else {
+-		IWL_ERR(priv, "free more than tfds_in_queue (%u:%d)\n",
++		IWL_DEBUG_TX(priv, "free more than tfds_in_queue (%u:%d)\n",
+ 			priv->stations[sta_id].tid[tid].tfds_in_queue,
+ 			freed);
+ 		priv->stations[sta_id].tid[tid].tfds_in_queue = 0;
+diff --git a/drivers/net/wireless/wl12xx/wl1251_debugfs.c b/drivers/net/wireless/wl12xx/wl1251_debugfs.c
+index 0ccba57..05e4d68 100644
+--- a/drivers/net/wireless/wl12xx/wl1251_debugfs.c
++++ b/drivers/net/wireless/wl12xx/wl1251_debugfs.c
+@@ -466,7 +466,8 @@ out:
+ 
+ void wl1251_debugfs_reset(struct wl1251 *wl)
+ {
+-	memset(wl->stats.fw_stats, 0, sizeof(*wl->stats.fw_stats));
++	if (wl->stats.fw_stats != NULL)
++		memset(wl->stats.fw_stats, 0, sizeof(*wl->stats.fw_stats));
+ 	wl->stats.retry_count = 0;
+ 	wl->stats.excessive_retries = 0;
+ }
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
