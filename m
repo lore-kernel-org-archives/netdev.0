@@ -1,64 +1,49 @@
-From: "Hartkopp, Oliver (K-EFFI/P)" <oliver.hartkopp@volkswagen.de>
-Subject: AW: [Uclinux-dist-devel] [PATCH] can: bfin_can: switch to common Blackfin can header
-Date: Fri, 19 Mar 2010 07:56:29 +0100
-Message-ID: <26B4E6A46012A1469B4EB3BC2A7CAAEC44EF47@vwagwox00084.vw.vwg>
-References: <8bd0f97a1003162145i77f65158ne255b28239e1b595@mail.gmail.com> <20100316.220232.170244945.davem@davemloft.net> <8bd0f97a1003162225i439d9900mfdc03eca5de0ff6e@mail.gmail.com> <20100316.225150.213941689.davem@davemloft.net> <8bd0f97a1003182335l3c121d87v9369145852c9545d@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] xfrm: cache bundle lookup results in flow cache
+Date: Fri, 19 Mar 2010 15:17:47 +0800
+Message-ID: <20100319071747.GB22809@gondor.apana.org.au>
+References: <1268655610-7845-1-git-send-email-timo.teras@iki.fi> <20100317130704.GA2601@gondor.apana.org.au> <4BA0E435.6090801@iki.fi> <20100317145850.GA4257@gondor.apana.org.au> <4BA0FBB6.10208@iki.fi> <4BA27F72.40901@iki.fi> <20100319003130.GA20227@gondor.apana.org.au> <4BA31049.7030005@iki.fi> <20100319060322.GA22319@gondor.apana.org.au> <4BA317CE.4050503@iki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <socketcan-core@lists.berlios.de>, <netdev@vger.kernel.org>,
-	<uclinux-dist-devel@blackfin.uclinux.org>,
-	"Thuermann, Urs, Dr. (K-EFFI/I)" <urs.thuermann@volkswagen.de>
-To: "Mike Frysinger" <vapier.adi@gmail.com>,
-	"David Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxout1.volkswagen.de ([194.114.62.41]:23592 "EHLO
-	mxout1.volkswagen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751013Ab0CSHDd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 03:03:33 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <8bd0f97a1003182335l3c121d87v9369145852c9545d@mail.gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:60759 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751021Ab0CSHRt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 03:17:49 -0400
+Content-Disposition: inline
+In-Reply-To: <4BA317CE.4050503@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Mike,
-
-your patch is just a cleanup and definitely not mission-critical.
-
-Please wait until your needed environment emerges in Dave's net-2.6 or
-net-next-2.6 tree until you post your patch for the specific tree then.
-
-This makes it much easier - at least for Dave.
-
-Thanks,
-Oliver
-
-
-
------Urspr=FCngliche Nachricht-----
-Von: Mike Frysinger [mailto:vapier.adi@gmail.com]=20
-Gesendet: Freitag, 19. M=E4rz 2010 07:35
-An: David Miller
-Cc: socketcan-core@lists.berlios.de; netdev@vger.kernel.org; uclinux-di=
-st-devel@blackfin.uclinux.org; Hartkopp, Oliver (K-EFFI/P); Thuermann, =
-Urs, Dr. (K-EFFI/I)
-Betreff: Re: [Uclinux-dist-devel] [PATCH] can: bfin_can: switch to comm=
-on Blackfin can header
-
-On Wed, Mar 17, 2010 at 01:51, David Miller wrote:
-> From: Mike Frysinger <vapier.adi@gmail.com>
->> if the next tree is merged into linux-next, then the header is alrea=
-dy there
+On Fri, Mar 19, 2010 at 08:21:02AM +0200, Timo Ter=E4s wrote:
 >
-> One of the highest priority trees in -next is net-next-2.6,
-> because so much other stuff ends up depending upon it.
+>> Or have I misread your patch? You *are* proposing to cache the last
+>> used bundle in the policy, right?
 >
-> Therefore I keep it building independently, so no matter what Stephen
-> Rothwell does the build isn't likely to break.
->
-> Just get your stuff merged properly to Linus then resubmit
-> your patch.
+> Yes and no. The bundle used is cached on per-flow basis.
+> The flow cache can have lot of entries each referring to
+> same policy but separate bundle.
 
-Linus has pulled my tree, so there shouldnt be any reason to not merge
-this patch now
--mike
+OK so I did misread your patch.
+
+In fact it is already doing exactly what I was suggesting, I'll
+review your patch again with this new insignt :)
+
+> But keeping policy and bundle in cache is still a win. If we
+> kill the xfrm_dst due to GC, we will also lose the policy
+> the flow matched. We might need to kill xfrm_dst due to the
+> inside dst going old, but the flow cache would still give
+> hit with policy info (but no bundle) the next a packet comes
+> in using the same flow.
+
+We were in complete agreement all along :)
+
+Cheers,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
