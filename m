@@ -1,42 +1,42 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] net: rtnetlink: ignore NETDEV_PRE_TYPE_CHANGE in rtnetlink_event()
-Date: Fri, 19 Mar 2010 15:56:10 +0100
-Message-ID: <4BA3908A.1070008@trash.net>
-References: <4BA38D50.4090909@trash.net> <20100319144707.GD2811@psychotron.redhat.com>
+From: Paulius Zaleckas <paulius.zaleckas@gmail.com>
+Subject: [PATCH] if_tunnel.h: add missing ams/byteorder.h include
+Date: Fri, 19 Mar 2010 17:04:57 +0200
+Message-ID: <20100319150457.10959.60396.stgit@pauliusz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39523 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751668Ab0CSO4M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 10:56:12 -0400
-In-Reply-To: <20100319144707.GD2811@psychotron.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: contact@saschahlusiak.de, eric.dumazet@gmail.com,
+	Fred.L.Templin@boeing.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jiri Pirko wrote:
-> Fri, Mar 19, 2010 at 03:42:24PM CET, kaber@trash.net wrote:
->   
->
->   
->> Ignore the new NETDEV_PRE_TYPE_CHANGE event in rtnetlink_event() since
->> there have been no changes userspace needs to be notified of.
->>
->> Also add a comment to the netdev notifier event definitions to remind
->> people to update the exclusion list when adding new event types.
->
-> Hmm, didn't have a clue this is needed. Anyway, original
-> "NETDEV_BONDING_OLDTYPE" and "NETDEV_BONDING_NEWTYPE" weren't here either.
+From: None <None>
 
-Its not strictly needed, it just avoids sending events without new
-information.
+When compiling userspace application which includes
+if_tunnel.h and uses GRE_* defines you will get undefined
+reference to __cpu_to_be16.
 
+Fix this by adding missing #include <asm/byteorder.h>
 
-> Also you might want to add "NETDEV_POST_TYPE_CHANGE".
+Cc: stable@kernel.org
+Signed-off-by: Paulius Zaleckas <paulius.zaleckas@gmail.com>
+---
 
-I left this out on purpose since userspace might be interested in the
-type change.
+ include/linux/if_tunnel.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/if_tunnel.h b/include/linux/if_tunnel.h
+index 1822d63..16b92d0 100644
+--- a/include/linux/if_tunnel.h
++++ b/include/linux/if_tunnel.h
+@@ -2,6 +2,7 @@
+ #define _IF_TUNNEL_H_
+ 
+ #include <linux/types.h>
++#include <asm/byteorder.h>
+ 
+ #ifdef __KERNEL__
+ #include <linux/ip.h>
