@@ -1,45 +1,52 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH] ipv4: check rt_genid in dst_check
-Date: Fri, 19 Mar 2010 16:56:00 +0800
-Message-ID: <20100319085600.GA23705@gondor.apana.org.au>
-References: <1268978083-32070-1-git-send-email-timo.teras@iki.fi>
+Date: Fri, 19 Mar 2010 17:00:22 +0800
+Message-ID: <20100319090022.GA23751@gondor.apana.org.au>
+References: <1268978083-32070-1-git-send-email-timo.teras@iki.fi> <20100319085600.GA23705@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, timo.teras@iki.fi
-To: Timo Teras <timo.teras@iki.fi>
+Cc: netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:37134 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:48057 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751329Ab0CSI4C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 04:56:02 -0400
+	with ESMTP id S1752208Ab0CSJA2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 05:00:28 -0400
 Content-Disposition: inline
-In-Reply-To: <1268978083-32070-1-git-send-email-timo.teras@iki.fi>
+In-Reply-To: <20100319085600.GA23705@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Timo Teras <timo.teras@iki.fi> wrote:
->
-> @@ -1726,7 +1726,9 @@ static void ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu)
+On Fri, Mar 19, 2010 at 04:56:00PM +0800, Herbert Xu wrote:
 > 
-> static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
-> {
-> -       return NULL;
-> +       if (dst && rt_is_expired((struct rtable *)dst))
-> +               return NULL;
+> I'll send a patch to remove the same check on the IPv6 path.
 
-Sorry I didn't spot this the first time around, but the dst check
-is redundant too.  Since the only path leading to this code is
+ipv6: Remove redundant dst NULL check in ip6_dst_check
 
-static inline struct dst_entry *dst_check(struct dst_entry *dst, u32 cookie)
-{
-	if (dst->obsolete)
-		dst = dst->ops->check(dst, cookie);
-	return dst;
-}
+As the only path leading to ip6_dst_check makes an indirect call
+through dst->ops, dst cannot be NULL in ip6_dst_check.
 
-I'll send a patch to remove the same check on the IPv6 path.
+This patch removes this check in case it misleads people who
+come across this code.
 
-Cheers,
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 52cd3ef..7fcb0e5 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -879,7 +879,7 @@ static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
+ 
+ 	rt = (struct rt6_info *) dst;
+ 
+-	if (rt && rt->rt6i_node && (rt->rt6i_node->fn_sernum == cookie))
++	if (rt->rt6i_node && (rt->rt6i_node->fn_sernum == cookie))
+ 		return dst;
+ 
+ 	return NULL;
+
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
