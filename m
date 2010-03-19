@@ -1,88 +1,118 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH] xfrm: cache bundle lookup results in flow cache
-Date: Fri, 19 Mar 2010 11:12:21 +0200
-Message-ID: <4BA33FF5.8010104@iki.fi>
-References: <1268655610-7845-1-git-send-email-timo.teras@iki.fi> <20100319072053.GA22913@gondor.apana.org.au> <4BA32C41.2020000@iki.fi> <20100319082909.GA23363@gondor.apana.org.au> <4BA337E6.4010508@iki.fi> <20100319084717.GA23567@gondor.apana.org.au>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH 1/3] mfd: add support for Janz CMOD-IO PCI MODULbus Carrier
+ Board
+Date: Fri, 19 Mar 2010 10:13:10 +0100
+Message-ID: <4BA34026.8010806@grandegger.com>
+References: <> <1268930324-29841-2-git-send-email-iws@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f216.google.com ([209.85.219.216]:41058 "EHLO
-	mail-ew0-f216.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751924Ab0CSJMZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 05:12:25 -0400
-Received: by ewy8 with SMTP id 8so1613441ewy.28
-        for <netdev@vger.kernel.org>; Fri, 19 Mar 2010 02:12:24 -0700 (PDT)
-In-Reply-To: <20100319084717.GA23567@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, socketcan-core@lists.berlios.de,
+	netdev@vger.kernel.org, sameo@linux.intel.com
+To: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1268930324-29841-2-git-send-email-iws@ovro.caltech.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Fri, Mar 19, 2010 at 10:37:58AM +0200, Timo Ter=E4s wrote:
->> But I changed that. the flow cache now does *not* call local_bh_enab=
-le
->> if it returns something. This is deferred until corresponding _put
->> call. So bh's are disable while we are touching the lookup results.
->=20
-> I'm sorry but making a function like flow_cache_lookup return with
-> BH disabled is just wrong!
->=20
->> It'd probably make sense to remove that. And require _lookup to
->> be called with bh disabled so it's more obvious that bh's are
->> disabled when touching the cache entry.
->=20
-> That would be better but it's still hacky.  Proper reference
-> counting like we had before would be my preference.
+Ira W. Snyder wrote:
+> The Janz CMOD-IO PCI MODULbus carrier board is a PCI to MODULbus bridge,
+> which may host many different types of MODULbus daughterboards, including
+> CAN and GPIO controllers.
+> 
+> Signed-off-by: Ira W. Snyder <iws@ovro.caltech.edu>
+> Cc: Samuel Ortiz <sameo@linux.intel.com>
 
-Well, the cache entry is still referenced only very shortly,
-I don't see why keeping bh disabled why doing it is considered
-a hack. Refcounting the cache entries is trickier. Though,
-it could be used to optimize the update process: we could safely
-update it instead of doing now lookup later.
+You can add my "Reviewed-by: Wolfgang Grandegger <wg@grandegger.com>".
 
->> Not a race. We need to keep bh's disabled while touching fce
->> for various reasons.
->=20
-> What are those reasons (apart from this race)?
+Just one concern:
 
-This. And that the cache is synchronized by flow_cache_flush
-executing stuff on other cpu's, ensuring that it's not running
-any protected cache accessing code. See below.
+> ---
+>  drivers/mfd/Kconfig       |    8 +
+>  drivers/mfd/Makefile      |    1 +
+>  drivers/mfd/janz-cmodio.c |  339 +++++++++++++++++++++++++++++++++++++++++++++
+>  include/linux/mfd/janz.h  |   54 +++++++
+>  4 files changed, 402 insertions(+), 0 deletions(-)
+>  create mode 100644 drivers/mfd/janz-cmodio.c
+>  create mode 100644 include/linux/mfd/janz.h
+> 
+> diff --git a/drivers/mfd/Kconfig b/drivers/mfd/Kconfig
+> index 8782978..f1858d7 100644
+> --- a/drivers/mfd/Kconfig
+> +++ b/drivers/mfd/Kconfig
+> @@ -27,6 +27,14 @@ config MFD_SM501_GPIO
+>  	 lines on the SM501. The platform data is used to supply the
+>  	 base number for the first GPIO line to register.
+>  
+> +config MFD_JANZ_CMODIO
+> +	tristate "Support for Janz CMOD-IO PCI MODULbus Carrier Board"
+> +	---help---
+> +	  This is the core driver for the Janz CMOD-IO PCI MODULbus
+> +	  carrier board. This device is a PCI to MODULbus bridge which may
+> +	  host many different types of MODULbus daughterboards, including
+> +	  CAN and GPIO controllers.
+> +
+>  config MFD_ASIC3
+>  	bool "Support for Compaq ASIC3"
+>  	depends on GENERIC_HARDIRQS && GPIOLIB && ARM
+> diff --git a/drivers/mfd/Makefile b/drivers/mfd/Makefile
+> index e09eb48..e8fa905 100644
+> --- a/drivers/mfd/Makefile
+> +++ b/drivers/mfd/Makefile
+> @@ -3,6 +3,7 @@
+>  #
+>  
+>  obj-$(CONFIG_MFD_SM501)		+= sm501.o
+> +obj-$(CONFIG_MFD_JANZ_CMODIO)	+= janz-cmodio.o
+>  obj-$(CONFIG_MFD_ASIC3)		+= asic3.o tmio_core.o
+>  obj-$(CONFIG_MFD_SH_MOBILE_SDHI)		+= sh_mobile_sdhi.o
+>  
+> diff --git a/drivers/mfd/janz-cmodio.c b/drivers/mfd/janz-cmodio.c
+> new file mode 100644
+> index 0000000..914280e
+> --- /dev/null
+> +++ b/drivers/mfd/janz-cmodio.c
+> @@ -0,0 +1,339 @@
+> +/*
+> + * Janz CMOD-IO MODULbus Carrier Board PCI Driver
+> + *
+> + * Copyright (c) 2010 Ira W. Snyder <iws@ovro.caltech.edu>
+> + *
+> + * Lots of inspiration and code was copied from drivers/mfd/sm501.c
+> + *
+> + * This program is free software; you can redistribute it and/or modify it
+> + * under the terms of the GNU General Public License as published by the
+> + * Free Software Foundation; either version 2 of the License, or (at your
+> + * option) any later version.
+> + */
+> +
+> +#include <linux/kernel.h>
+> +#include <linux/module.h>
+> +#include <linux/init.h>
+> +#include <linux/pci.h>
+> +#include <linux/interrupt.h>
+> +#include <linux/delay.h>
+> +#include <linux/platform_device.h>
+> +
+> +#include <linux/mfd/janz.h>
+> +
+> +#define DRV_NAME "janz-cmodio"
+> +
+> +/* Size of each MODULbus module in PCI BAR4 */
+> +#define CMODIO_MODULBUS_SIZE	0x200
+> +
+> +/* Maximum number of MODULbus modules on a CMOD-IO carrier board */
+> +#define CMODIO_MAX_MODULES	4
+> +
+> +/* Module Parameters */
+> +static unsigned int num_modules = CMODIO_MAX_MODULES;
+> +static unsigned char *modules[CMODIO_MAX_MODULES] = {
+> +	"janz-ican3",
+> +	"janz-ican3",
+> +	"",
+> +	"janz-ttl",
+> +};
 
->=20
->> Noone. When policy and dst is on cache there's no reference.
->> The cache generation id's ensure that the object exists when
->> they are in cache. It might make sense to add references to
->> both objects and do a BUG_ON if the flow cache flusher would
->> need to delete an object. I guess this would be the proper
->> way, since that's how the dst stuff works too.
->=20
-> The cache genid is not enough:
->=20
-> CPU1			CPU2
-> check genid =3D=3D OK
-> 			update genid
-> 			kill policy
-> 			kfree on policy
-> use policy =3D=3D BOOM
+This is probably not a good default but just your private configuration.
 
-The sequence goes currently.
-
-CPU1			CPU2
-disable_bh
-check genid =3D=3D OK
-			update genid
-			call cache_flush
-			blocks
-use policy =3D=3D OK
-and take refcount
-enable_bh
-cache_flush smpcall executes and ublocks cpu2
-			returns from cache_flush
-			kill policy
-			kfree on policy
-
-- Timo
+Wolfgang.
