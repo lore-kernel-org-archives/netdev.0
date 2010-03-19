@@ -1,56 +1,35 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: [PATCH] netxen: The driver doesn't work on NX_P3_B1 so cause
- probe to fail.
-Date: Fri, 19 Mar 2010 00:36:47 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80CFEFED0EA@MNEXMB2.qlogic.org>
-References: <m1y6hqdol4.fsf@fess.ebiederm.org>
-	<99737F4847ED0A48AECC9F4A1974A4B80CFEFED04B@MNEXMB2.qlogic.org>
-	<m11vfic6d0.fsf@fess.ebiederm.org>
- <20100318.222126.27823381.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: speedup netdev_set_master()
+Date: Fri, 19 Mar 2010 06:45:13 +0100
+Message-ID: <1268977513.2894.223.camel@edumazet-laptop>
+References: <1268955460.2894.207.camel@edumazet-laptop>
+	 <20100318.222226.191403090.davem@davemloft.net>
+	 <1268976491.2894.221.camel@edumazet-laptop>
+	 <20100318.223658.241427584.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>
-To: David Miller <davem@davemloft.net>,
-	"ebiederm@xmission.com" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:25850 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750992Ab0CSFgw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 01:36:52 -0400
-In-Reply-To: <20100318.222126.27823381.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:44314 "EHLO
+	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751244Ab0CSFpT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 01:45:19 -0400
+Received: by bwz25 with SMTP id 25so1396142bwz.28
+        for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 22:45:16 -0700 (PDT)
+In-Reply-To: <20100318.223658.241427584.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We are working on this problem, will let you know our decision by end of day.
+Le jeudi 18 mars 2010 =C3=A0 22:36 -0700, David Miller a =C3=A9crit :
+> It was not an issue of related, but rather "B won't apply cleanly
+> without A". Even line offsets can make "git apply" reject.
+> --
 
--Thanks
+I see, I can resubmit later if you prefer, once net-2.6 fix is pulled i=
+n
+net-next, there is no hurry :)
 
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net] 
-Sent: Friday, March 19, 2010 10:51 AM
-To: ebiederm@xmission.com
-Cc: Amit Salecha; netdev@vger.kernel.org; Ameen Rahman
-Subject: Re: [PATCH] netxen: The driver doesn't work on NX_P3_B1 so cause probe to fail.
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Thu, 18 Mar 2010 02:43:39 -0700
 
-> Amit Salecha <amit.salecha@qlogic.com> writes:
-> 
->> Sorry for all the problem you faced.
->>
->> But you shouldn't add support of device which is not supported.
->> Netxen is now owned by Qlogic. You should first contact Qlogic to solve your problem.
->> Qlogic will take needed action based on problem.
-> 
-> I'm not adding support.  I am sending a patch removing support for cards
-> that do not work with the current driver and have not worked since 2.6.31.
-
-You qlogic folks better resolve this _FAST_ or else I'll
-make an executive decision about how to handle this and
-I guarentee I'll make a decision that you will not like.
-
-Thanks. :-)
