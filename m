@@ -1,95 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bugme-new] [Bug 15507] New: kernel misses 3rd part of tcp
- handshake (ACK), stays in SYN_RECV state
-Date: Fri, 19 Mar 2010 15:46:39 +0100
-Message-ID: <1269009999.3048.45.camel@edumazet-laptop>
-References: <bug-15507-10286@http.bugzilla.kernel.org/>
-	 <20100318160103.cc28c367.akpm@linux-foundation.org>
-	 <1268953951.2894.194.camel@edumazet-laptop>  <4BA365BA.4040309@gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH] net: rtnetlink: ignore NETDEV_PRE_TYPE_CHANGE in
+ rtnetlink_event()
+Date: Fri, 19 Mar 2010 15:47:08 +0100
+Message-ID: <20100319144707.GD2811@psychotron.redhat.com>
+References: <4BA38D50.4090909@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: Joshua Roys <roysjosh@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:36946 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750968Ab0CSOqp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 10:46:45 -0400
-Received: by bwz1 with SMTP id 1so96418bwz.21
-        for <netdev@vger.kernel.org>; Fri, 19 Mar 2010 07:46:43 -0700 (PDT)
-In-Reply-To: <4BA365BA.4040309@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:61923 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750968Ab0CSOrO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Mar 2010 10:47:14 -0400
+Content-Disposition: inline
+In-Reply-To: <4BA38D50.4090909@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 19 mars 2010 =C3=A0 07:53 -0400, Joshua Roys a =C3=A9crit :
+Fri, Mar 19, 2010 at 03:42:24PM CET, kaber@trash.net wrote:
+>
 
->=20
-> Gah!  You've got to be kidding :)  If that's what it is, close the=20
-> bug...  and I'll go read some man-pages!
+>Ignore the new NETDEV_PRE_TYPE_CHANGE event in rtnetlink_event() since
+>there have been no changes userspace needs to be notified of.
+>
+>Also add a comment to the netdev notifier event definitions to remind
+>people to update the exclusion list when adding new event types.
 
-So I checked FC12 httpd and yes, it does use DEFER_ACCEPT (setting val
-to 1 second).
+Hmm, didn't have a clue this is needed. Anyway, original
+"NETDEV_BONDING_OLDTYPE" and "NETDEV_BONDING_NEWTYPE" weren't here either.
+Also you might want to add "NETDEV_POST_TYPE_CHANGE".
 
+Jirka
 
-So you hit a problem that was corrected by following commit.
-
-Time to bug RedHat I suppose...
-
-
-
-commit d1b99ba41d6c5aa1ed2fc634323449dd656899e9
-Author: Julian Anastasov <ja@ssi.bg>
-Date:   Mon Oct 19 10:01:56 2009 +0000
-
-    tcp: accept socket after TCP_DEFER_ACCEPT period
-   =20
-    Willy Tarreau and many other folks in recent years
-    were concerned what happens when the TCP_DEFER_ACCEPT period
-    expires for clients which sent ACK packet. They prefer clients
-    that actively resend ACK on our SYN-ACK retransmissions to be
-    converted from open requests to sockets and queued to the
-    listener for accepting after the deferring period is finished.
-    Then application server can decide to wait longer for data
-    or to properly terminate the connection with FIN if read()
-    returns EAGAIN which is an indication for accepting after
-    the deferring period. This change still can have side effects
-    for applications that expect always to see data on the accepted
-    socket. Others can be prepared to work in both modes (with or
-    without TCP_DEFER_ACCEPT period) and their data processing can
-    ignore the read=3DEAGAIN notification and to allocate resources for
-    clients which proved to have no data to send during the deferring
-    period. OTOH, servers that use TCP_DEFER_ACCEPT=3D1 as flag (not
-    as a timeout) to wait for data will notice clients that didn't
-    send data for 3 seconds but that still resend ACKs.
-    Thanks to Willy Tarreau for the initial idea and to
-    Eric Dumazet for the review and testing the change.
-   =20
-    Signed-off-by: Julian Anastasov <ja@ssi.bg>
-    Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 624c3c9..4c03598 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -641,8 +641,8 @@ struct sock *tcp_check_req(struct sock *sk, struct =
-sk_buff *skb,
-        if (!(flg & TCP_FLAG_ACK))
-                return NULL;
-=20
--       /* If TCP_DEFER_ACCEPT is set, drop bare ACK. */
--       if (inet_csk(sk)->icsk_accept_queue.rskq_defer_accept &&
-+       /* While TCP_DEFER_ACCEPT is active, drop bare ACK. */
-+       if (req->retrans < inet_csk(sk)->icsk_accept_queue.rskq_defer_a=
-ccept &&
-            TCP_SKB_CB(skb)->end_seq =3D=3D tcp_rsk(req)->rcv_isn + 1) =
-{
-                inet_rsk(req)->acked =3D 1;
-                return NULL;
-
-
+>
+>Signed-off-by: Patrick McHardy <kaber@trash.net>
+>---
+> include/linux/notifier.h |    5 ++++-
+> net/core/rtnetlink.c     |    1 +
+> 2 files changed, 5 insertions(+), 1 deletions(-)
+>
+>diff --git a/include/linux/notifier.h b/include/linux/notifier.h
+>index f3635fc..9c5d3fa 100644
+>--- a/include/linux/notifier.h
+>+++ b/include/linux/notifier.h
+>@@ -182,7 +182,10 @@ static inline int notifier_to_errno(int ret)
+>  *	VC switch chains (for loadable kernel svgalib VC switch helpers) etc...
+>  */
+>  
+>-/* netdevice notifier chain */
+>+/* netdevice notifier chain. Please remember to update the rtnetlink
+>+ * notification exclusion list in rtnetlink_event() when adding new
+>+ * types.
+>+ */
+> #define NETDEV_UP	0x0001	/* For now you can't veto a device up/down */
+> #define NETDEV_DOWN	0x0002
+> #define NETDEV_REBOOT	0x0003	/* Tell a protocol stack a network interface
+>diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+>index e1121f0..ffc6cf3 100644
+>--- a/net/core/rtnetlink.c
+>+++ b/net/core/rtnetlink.c
+>@@ -1513,6 +1513,7 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
+> 	case NETDEV_POST_INIT:
+> 	case NETDEV_REGISTER:
+> 	case NETDEV_CHANGE:
+>+	case NETDEV_PRE_TYPE_CHANGE:
+> 	case NETDEV_GOING_DOWN:
+> 	case NETDEV_UNREGISTER:
+> 	case NETDEV_UNREGISTER_BATCH:
+>-- 
+>1.6.5.7
+>
 
