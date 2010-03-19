@@ -1,36 +1,30 @@
-From: Sridhar Samudrala <samudrala.sridhar@gmail.com>
-Subject: Unable to create more than 1 guest virtio-net device using
- vhost-net backend
-Date: Fri, 19 Mar 2010 15:19:27 -0700
-Message-ID: <1269037167.5127.12.camel@w-sridhar.beaverton.ibm.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: Add PGM protocol support to the IP stack
+Date: Fri, 19 Mar 2010 15:26:37 -0700
+Message-ID: <4BA3FA1D.8050204@zytor.com>
+References: <alpine.DEB.2.00.1003181245050.23010@router.home>	<87tysccjrn.fsf@basil.nowhere.org> <20100319.145336.226782717.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: andi@firstfloor.org, cl@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:49190 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751079Ab0CSWZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 18:25:43 -0400
+Received: from terminus.zytor.com ([198.137.202.10]:47913 "EHLO mail.zytor.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751695Ab0CSW0t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Mar 2010 18:26:49 -0400
+In-Reply-To: <20100319.145336.226782717.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When creating a guest with 2 virtio-net interfaces, i am running
-into a issue causing the 2nd i/f falling back to userpace virtio
-even when vhost is enabled.
+On 03/19/2010 02:53 PM, David Miller wrote:
+> But I also don't consider what openpbm has to do right now to
+> be all that much of a restriction.  You need privileges to
+> add the protocol to the kernel, you need privileges to run
+> the userspace variant, there is no real difference.
 
-After some debugging, it turned out that KVM_IOEVENTFD ioctl() 
-call in qemu is failing with ENOSPC.
-This is because of the NR_IOBUS_DEVS(6) limit in kvm_io_bus_register_dev()
-routine in the host kernel.
+The real difference is if multiplex is needed between multiple
+unprivileged users.
 
-I think we need to increase this limit if we want to support multiple
-network interfaces using vhost-net.
-Is there an alternate solution?
-
-Thanks
-Sridhar
-
-
+	-hpa
