@@ -1,98 +1,75 @@
-From: Vasanthy Kolluri <vkolluri@cisco.com>
-Subject: [net-next PATCH 5/5] enic: Clean up: Change driver description;
-	Fix tab space; Update MAINTAINERS
-Date: Thu, 18 Mar 2010 19:20:04 -0700
-Message-ID: <20100319022004.10527.77863.stgit@savbu-pc100.cisco.com>
-References: <20100319021901.10527.9869.stgit@savbu-pc100.cisco.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] net: dev_getfirstbyhwtype() optimization
+Date: Thu, 18 Mar 2010 19:32:56 -0700
+Message-ID: <20100319023256.GD2894@linux.vnet.ibm.com>
+References: <1268947645.2894.166.camel@edumazet-laptop>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-5.cisco.com ([171.68.10.87]:42826 "EHLO
-	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752162Ab0CSCUF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Mar 2010 22:20:05 -0400
-In-Reply-To: <20100319021901.10527.9869.stgit@savbu-pc100.cisco.com>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:41164 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751581Ab0CSCc6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Mar 2010 22:32:58 -0400
+Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
+	by e3.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o2J2LUBq006624
+	for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 22:21:30 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o2J2WwI8133082
+	for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 22:32:58 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o2J2WvRf003209
+	for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 22:32:57 -0400
+Content-Disposition: inline
+In-Reply-To: <1268947645.2894.166.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasanthy Kolluri <vkolluri@cisco.com>
+On Thu, Mar 18, 2010 at 10:27:25PM +0100, Eric Dumazet wrote:
+> Use RCU to avoid RTNL use in dev_getfirstbyhwtype()
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 17b1686..0f2e9fc 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -772,14 +772,17 @@ EXPORT_SYMBOL(__dev_getfirstbyhwtype);
+> 
+>  struct net_device *dev_getfirstbyhwtype(struct net *net, unsigned short type)
+>  {
+> -	struct net_device *dev;
+> +	struct net_device *dev, *ret = NULL;
+> 
+> -	rtnl_lock();
+> -	dev = __dev_getfirstbyhwtype(net, type);
+> -	if (dev)
+> -		dev_hold(dev);
+> -	rtnl_unlock();
+> -	return dev;
+> +	rcu_read_lock();
+> +	for_each_netdev_rcu(net, dev)
+> +		if (dev->type == type) {
+> +			dev_hold(dev);
+> +			ret = dev;
+> +			break;
+> +		}
+> +	rcu_read_unlock();
+> +	return ret;
 
-1) Change enic driver description to "Cisco VIC Ethernet NIC Driver"
-2) Fix tab space
-3) Update MAINTAINERS list
+Looks good, but I don't understand how it helps to introduce the
+local variable "ret".
 
-Signed-off-by: Scott Feldman <scofeldm@cisco.com>
-Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
-Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
----
- MAINTAINERS                  |    5 +++--
- drivers/net/Kconfig          |    4 ++--
- drivers/net/enic/enic.h      |    2 +-
- drivers/net/enic/enic_main.c |    2 +-
- 4 files changed, 7 insertions(+), 6 deletions(-)
+							Thanx, Paul
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 47cc449..34f09e4 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -1482,9 +1482,10 @@ M:	Andy Whitcroft <apw@canonical.com>
- S:	Supported
- F:	scripts/checkpatch.pl
- 
--CISCO 10G ETHERNET DRIVER
-+CISCO VIC ETHERNET NIC DRIVER
- M:	Scott Feldman <scofeldm@cisco.com>
--M:	Joe Eykholt <jeykholt@cisco.com>
-+M:	Vasanthy Kolluri <vkolluri@cisco.com>
-+M:	Roopa Prabhu <roprabhu@cisco.com>
- S:	Supported
- F:	drivers/net/enic/
- 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 0ba5b8e..bf223fb 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2593,11 +2593,11 @@ config EHEA
- 	  will be called ehea.
- 
- config ENIC
--	tristate "Cisco 10G Ethernet NIC support"
-+	tristate "Cisco VIC Ethernet NIC Support"
- 	depends on PCI && INET
- 	select INET_LRO
- 	help
--	  This enables the support for the Cisco 10G Ethernet card.
-+	  This enables the support for the Cisco VIC Ethernet card.
- 
- config IXGBE
- 	tristate "Intel(R) 10GbE PCI Express adapters support"
-diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
-index 9f5ed3e..5fa56f1 100644
---- a/drivers/net/enic/enic.h
-+++ b/drivers/net/enic/enic.h
-@@ -33,7 +33,7 @@
- #include "vnic_rss.h"
- 
- #define DRV_NAME		"enic"
--#define DRV_DESCRIPTION		"Cisco 10G Ethernet Driver"
-+#define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
- #define DRV_VERSION		"1.3.1.1"
- #define DRV_COPYRIGHT		"Copyright 2008-2009 Cisco Systems, Inc"
- #define PFX			DRV_NAME ": "
-diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
-index 18c043a..6d70c34 100644
---- a/drivers/net/enic/enic_main.c
-+++ b/drivers/net/enic/enic_main.c
-@@ -829,7 +829,7 @@ static void enic_set_multicast_list(struct net_device *netdev)
- 	int promisc = (netdev->flags & IFF_PROMISC) ? 1 : 0;
- 	unsigned int mc_count = netdev_mc_count(netdev);
- 	int allmulti = (netdev->flags & IFF_ALLMULTI) ||
--		       mc_count > ENIC_MULTICAST_PERFECT_FILTERS;
-+		mc_count > ENIC_MULTICAST_PERFECT_FILTERS;
- 	unsigned int flags = netdev->flags | (allmulti ? IFF_ALLMULTI : 0);
- 	u8 mc_addr[ENIC_MULTICAST_PERFECT_FILTERS][ETH_ALEN];
- 	unsigned int i, j;
-
+>  }
+>  EXPORT_SYMBOL(dev_getfirstbyhwtype);
+> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
