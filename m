@@ -1,7 +1,7 @@
 From: Paulius Zaleckas <paulius.zaleckas@gmail.com>
-Subject: [PATCH] if_tunnel.h: add missing ams/byteorder.h include
-Date: Fri, 19 Mar 2010 17:04:57 +0200
-Message-ID: <20100319150457.10959.60396.stgit@pauliusz>
+Subject: [PATCH v2] if_tunnel.h: add missing ams/byteorder.h include
+Date: Fri, 19 Mar 2010 17:09:26 +0200
+Message-ID: <20100319150926.11037.39136.stgit@pauliusz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -12,8 +12,6 @@ To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
-
-From: None <None>
 
 When compiling userspace application which includes
 if_tunnel.h and uses GRE_* defines you will get undefined
