@@ -1,75 +1,57 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: [E1000-devel] recent e100 fixes cause kernel panic?
-Date: Fri, 19 Mar 2010 12:42:20 -0700
-Message-ID: <1269027740.3029.33.camel@jbrandeb-mobl3.amr.corp.intel.com>
-References: <12968172.251031268372359953.JavaMail.root@tahiti.vyatta.com>
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Subject: Re: [PATCH 1/3] pci: fix return value from pcix_get_max_mmrbc()
+Date: Fri, 19 Mar 2010 12:42:21 -0700
+Message-ID: <20100319124221.13d3d914@jbarnes-piketon>
+References: <20100310032632.6331.15414.send-patch@aqua>
+	<20100310032640.6331.39506.send-patch@aqua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ed Ravin <eravin@panix.com>, roger.oksanen@cs.helsinki.fi
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:25543 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751253Ab0CSTlu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Mar 2010 15:41:50 -0400
-In-Reply-To: <12968172.251031268372359953.JavaMail.root@tahiti.vyatta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org
+To: Dean Nelson <dnelson@redhat.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20100310032640.6331.39506.send-patch@aqua>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Added netdev, the place to talk about in-kernel driver problems.
+On Tue, 9 Mar 2010 22:26:40 -0500
+Dean Nelson <dnelson@redhat.com> wrote:
 
-On Thu, 2010-03-11 at 22:39 -0700, Stephen Hemminger wrote:
-> ----- "Ed Ravin" <eravin@panix.com> wrote:
+> For the PCI_X_STATUS register, pcix_get_max_mmrbc() is returning an incorrect
+> value, which is based on:
 > 
-> > I'm using the Vyatta "kenwood" Linux distribution, which is currently
-> > at 2.6.31-1.  I upgraded to their latest version, and began seeing
-> > kernel
-> > panics shortly after starting to use ssh/scp on the network connected
-> > to
-> > an e100 NIC.  I was able to reproduce the problem immediately after
-> > booting up - sometimes it even crashed during the boot.
-> > 
-> > One of the crash logs is attached.
+> 	(stat & PCI_X_STATUS_MAX_READ) >> 12
+> 
+> Valid return values are 512, 1024, 2048, 4096, which correspond to a 'stat'
+> (masked and right shifted by 21) of 0, 1, 2, 3, respectively.
+> 
+> A right shift by 11 would generate the correct return value when 'stat' (masked
+> and right shifted by 21) has a value of 1 or 2. But for a value of 0 or 3 it's
+> not possible to generate the correct return value by only right shifting.
+> 
+> Fix is based on pcix_get_mmrbc()'s similar dealings with the PCI_X_CMD register.
+> 
+> Signed-off-by: Dean Nelson <dnelson@redhat.com>
+> 
+> ---
+> 
+>  drivers/pci/pci.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
+> index 5b548ae..1decd4f 100644
+> --- a/drivers/pci/pci.c
+> +++ b/drivers/pci/pci.c
+> @@ -2571,7 +2571,7 @@ int pcix_get_max_mmrbc(struct pci_dev *dev)
+>  	if (err)
+>  		return -EINVAL;
+>  
+> -	return (stat & PCI_X_STATUS_MAX_READ) >> 12;
+> +	return 512 << ((stat & PCI_X_STATUS_MAX_READ) >> 21);
+>  }
+>  EXPORT_SYMBOL(pcix_get_max_mmrbc);
 
-Ed, thanks for the report, looks like these patches introduced a new
-problem.  e100 hardware has a tricky data structure that seems to cause
-some problems for (particularly arm) some cpu architectures.
-
-> > 
-> > Since the problem seemed to be related to e100.c, I reverted the two
-> > commits to e100.c that had taken place since I last built the kernel
-> > for this box:
-> > 
-> >   Author: Roger Oksanen <roger.oksanen@cs.helsinki.fi>
-> >   Date:   Fri Dec 18 20:18:21 2009 -0800
-> >   e100: Fix broken cbs accounting due to missing memset.
-> > 
-> >   Author: Roger Oksanen <roger.oksanen@cs.helsinki.fi>
-> >   Date:   Sun Nov 29 17:17:29 2009 -0800
-> >   e100: Use pci pool to work around GFP_ATOMIC order 5 memory
-> > allocation failu
-> > 
-> > I rebuilt the kernel and it's not panicking anymore.
-
-so you just reverted both, and its good news things are working again,
-but can you try one or the other and let us know if things still break
-for you?
-
-> The Vyatta kernel for 2.6.31 is based on the 2.6.31.10 + unionfs.
-> These two patches came from the 2.6.31.10 -stable update.
-
-This is the only report of this issue I have heard so far, so something
-must be a little unique to your system or workload such that the driver
-works mostly.
-
-I'm looking more closely into the panic trace now, maybe I can figure it
-out from there.
+Applied this series, thanks Dean.
 
 -- 
-Jesse Brandeburg
-This email sent via Evolution, powered by Linux
-
+Jesse Barnes, Intel Open Source Technology Center
