@@ -1,53 +1,67 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [Bug 14470] New: freez in TCP stack
-Date: Fri, 19 Mar 2010 17:52:11 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.1003191750500.2350@melkinpaasi.cs.helsinki.fi>
-References: <4AE92F4D.6070101@gmail.com> <20091029.010009.175904855.davem@davemloft.net> <alpine.DEB.2.00.0911262352050.24189@melkinpaasi.cs.helsinki.fi> <20091202.222446.10943991.davem@davemloft.net> <20100318140424.aaf3ec24.akpm@linux-foundation.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [PATCH] igb: Add support for 82576 ET2 Quad Port Server Adapter
+Date: Fri, 19 Mar 2010 09:07:48 -0700
+Message-ID: <20100319160747.10902.61121.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Netdev <netdev@vger.kernel.org>, kolo@albatani.cz,
-	bugzilla-daemon@bugzilla.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:46346 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751323Ab0CSPwM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 11:52:12 -0400
-In-Reply-To: <20100318140424.aaf3ec24.akpm@linux-foundation.org>
+Received: from qmta09.westchester.pa.mail.comcast.net ([76.96.62.96]:60091
+	"EHLO qmta09.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751323Ab0CSQII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 12:08:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 18 Mar 2010, Andrew Morton wrote:
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-> On Wed, 02 Dec 2009 22:24:46 -0800 (PST)
-> David Miller <davem@davemloft.net> wrote:
-> 
-> > From: "Ilpo J__rvinen" <ilpo.jarvinen@helsinki.fi>
-> > Date: Thu, 26 Nov 2009 23:54:53 +0200 (EET)
-> > 
-> > > [PATCH] tcp: clear hints to avoid a stale one (nfs only affected?)
-> > 
-> > Ok, since Linus just released 2.6.32 I'm tossing this into net-next-2.6
-> > so it gets wider exposure.
-> > 
-> > I still want to see test results from the bug reporter, and if it fixes
-> > things we can toss this into -stable too.
-> 
-> Despite my request to take this to email, quite a few people have been
-> jumping onto this report via bugzilla:
-> http://bugzilla.kernel.org/show_bug.cgi?id=14470
-> 
-> Bit of a pita, but it'd be worth someone taking a look to ensure that
-> we're all talking about the same bug.
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-Could one try with this debug patch:
+ drivers/net/igb/e1000_82575.c |    1 +
+ drivers/net/igb/e1000_hw.h    |    1 +
+ drivers/net/igb/igb_main.c    |    1 +
+ 3 files changed, 3 insertions(+), 0 deletions(-)
 
-http://marc.info/?l=linux-kernel&m=126624014117610&w=2
+diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
+index 9d7fa2f..0bc990e 100644
+--- a/drivers/net/igb/e1000_82575.c
++++ b/drivers/net/igb/e1000_82575.c
+@@ -94,6 +94,7 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
+ 	case E1000_DEV_ID_82576_FIBER:
+ 	case E1000_DEV_ID_82576_SERDES:
+ 	case E1000_DEV_ID_82576_QUAD_COPPER:
++	case E1000_DEV_ID_82576_QUAD_COPPER_ET2:
+ 	case E1000_DEV_ID_82576_SERDES_QUAD:
+ 		mac->type = e1000_82576;
+ 		break;
+diff --git a/drivers/net/igb/e1000_hw.h b/drivers/net/igb/e1000_hw.h
+index 4480052..82a533f 100644
+--- a/drivers/net/igb/e1000_hw.h
++++ b/drivers/net/igb/e1000_hw.h
+@@ -41,6 +41,7 @@ struct e1000_hw;
+ #define E1000_DEV_ID_82576_FIBER              0x10E6
+ #define E1000_DEV_ID_82576_SERDES             0x10E7
+ #define E1000_DEV_ID_82576_QUAD_COPPER        0x10E8
++#define E1000_DEV_ID_82576_QUAD_COPPER_ET2    0x1526
+ #define E1000_DEV_ID_82576_NS                 0x150A
+ #define E1000_DEV_ID_82576_NS_SERDES          0x1518
+ #define E1000_DEV_ID_82576_SERDES_QUAD        0x150D
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 0ed25f0..45a0e4f 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -72,6 +72,7 @@ static DEFINE_PCI_DEVICE_TABLE(igb_pci_tbl) = {
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_FIBER), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_SERDES), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_SERDES_QUAD), board_82575 },
++	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_QUAD_COPPER_ET2), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_QUAD_COPPER), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82575EB_COPPER), board_82575 },
+ 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82575EB_FIBER_SERDES), board_82575 },
 
-It should prevent crashing too.
-
--- 
- i.
