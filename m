@@ -1,42 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Add PGM protocol support to the IP stack
-Date: Fri, 19 Mar 2010 14:53:36 -0700 (PDT)
-Message-ID: <20100319.145336.226782717.davem@davemloft.net>
-References: <alpine.DEB.2.00.1003181245050.23010@router.home>
-	<87tysccjrn.fsf@basil.nowhere.org>
+From: Sridhar Samudrala <samudrala.sridhar@gmail.com>
+Subject: Unable to create more than 1 guest virtio-net device using
+ vhost-net backend
+Date: Fri, 19 Mar 2010 15:19:27 -0700
+Message-ID: <1269037167.5127.12.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: cl@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: andi@firstfloor.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87tysccjrn.fsf@basil.nowhere.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:49190 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751079Ab0CSWZn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 18:25:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Fri, 19 Mar 2010 18:18:36 +0100
+When creating a guest with 2 virtio-net interfaces, i am running
+into a issue causing the 2nd i/f falling back to userpace virtio
+even when vhost is enabled.
 
-> Christoph Lameter <cl@linux-foundation.org> writes:
->>
->> I know about the openpgm implementation. Openpbm does this at the user
->> level and requires linking to a library. It is essentially a communication
->> protocol done in user space. It has privilege issues because it has to
->> create PGM packets via a raw socket.
-> 
-> That seems like a poor reason alone to put something into the kernel
-> Perhaps you rather need some way to have unpriviledged raw sockets?
-> 
-> The classical way to do this is to start suid root, only open
-> the socket and then drop privileges.
+After some debugging, it turned out that KVM_IOEVENTFD ioctl() 
+call in qemu is failing with ENOSPC.
+This is because of the NR_IOBUS_DEVS(6) limit in kvm_io_bus_register_dev()
+routine in the host kernel.
 
-I completely agree.
+I think we need to increase this limit if we want to support multiple
+network interfaces using vhost-net.
+Is there an alternate solution?
 
-We should be able to make a way for unprivileged users to
-use RAW sockets in some limited capacity, for cases like this.
+Thanks
+Sridhar
 
-But I also don't consider what openpbm has to do right now to
-be all that much of a restriction.  You need privileges to
-add the protocol to the kernel, you need privileges to run
-the userspace variant, there is no real difference.
+
