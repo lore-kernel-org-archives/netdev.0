@@ -1,139 +1,78 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH 1/3] mfd: add support for Janz CMOD-IO PCI MODULbus Carrier
-	Board
-Date: Fri, 19 Mar 2010 16:35:29 +0100
-Message-ID: <4BA399C1.4040904@grandegger.com>
-References: <> <1268930324-29841-2-git-send-email-iws@ovro.caltech.edu>
-	<4BA34026.8010806@grandegger.com>
-	<20100319151326.GA13672@ovro.caltech.edu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] tcp: Add SNMP counter for DEFER_ACCEPT
+Date: Fri, 19 Mar 2010 16:37:18 +0100
+Message-ID: <1269013038.3048.58.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
-To: "Ira W. Snyder" <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20100319151326.GA13672-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:33873 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750873Ab0CSPhX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 11:37:23 -0400
+Received: by bwz1 with SMTP id 1so143520bwz.21
+        for <netdev@vger.kernel.org>; Fri, 19 Mar 2010 08:37:21 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ira W. Snyder wrote:
-> On Fri, Mar 19, 2010 at 10:13:10AM +0100, Wolfgang Grandegger wrote:
->> Ira W. Snyder wrote:
->>> The Janz CMOD-IO PCI MODULbus carrier board is a PCI to MODULbus bridge,
->>> which may host many different types of MODULbus daughterboards, including
->>> CAN and GPIO controllers.
->>>
->>> Signed-off-by: Ira W. Snyder <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
->>> Cc: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
->> You can add my "Reviewed-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>".
->>
->> Just one concern:
->>
->>> ---
->>>  drivers/mfd/Kconfig       |    8 +
->>>  drivers/mfd/Makefile      |    1 +
->>>  drivers/mfd/janz-cmodio.c |  339 +++++++++++++++++++++++++++++++++++++++++++++
->>>  include/linux/mfd/janz.h  |   54 +++++++
->>>  4 files changed, 402 insertions(+), 0 deletions(-)
->>>  create mode 100644 drivers/mfd/janz-cmodio.c
->>>  create mode 100644 include/linux/mfd/janz.h
->>>
->>> diff --git a/drivers/mfd/Kconfig b/drivers/mfd/Kconfig
->>> index 8782978..f1858d7 100644
->>> --- a/drivers/mfd/Kconfig
->>> +++ b/drivers/mfd/Kconfig
->>> @@ -27,6 +27,14 @@ config MFD_SM501_GPIO
->>>  	 lines on the SM501. The platform data is used to supply the
->>>  	 base number for the first GPIO line to register.
->>>  
->>> +config MFD_JANZ_CMODIO
->>> +	tristate "Support for Janz CMOD-IO PCI MODULbus Carrier Board"
->>> +	---help---
->>> +	  This is the core driver for the Janz CMOD-IO PCI MODULbus
->>> +	  carrier board. This device is a PCI to MODULbus bridge which may
->>> +	  host many different types of MODULbus daughterboards, including
->>> +	  CAN and GPIO controllers.
->>> +
->>>  config MFD_ASIC3
->>>  	bool "Support for Compaq ASIC3"
->>>  	depends on GENERIC_HARDIRQS && GPIOLIB && ARM
->>> diff --git a/drivers/mfd/Makefile b/drivers/mfd/Makefile
->>> index e09eb48..e8fa905 100644
->>> --- a/drivers/mfd/Makefile
->>> +++ b/drivers/mfd/Makefile
->>> @@ -3,6 +3,7 @@
->>>  #
->>>  
->>>  obj-$(CONFIG_MFD_SM501)		+= sm501.o
->>> +obj-$(CONFIG_MFD_JANZ_CMODIO)	+= janz-cmodio.o
->>>  obj-$(CONFIG_MFD_ASIC3)		+= asic3.o tmio_core.o
->>>  obj-$(CONFIG_MFD_SH_MOBILE_SDHI)		+= sh_mobile_sdhi.o
->>>  
->>> diff --git a/drivers/mfd/janz-cmodio.c b/drivers/mfd/janz-cmodio.c
->>> new file mode 100644
->>> index 0000000..914280e
->>> --- /dev/null
->>> +++ b/drivers/mfd/janz-cmodio.c
->>> @@ -0,0 +1,339 @@
->>> +/*
->>> + * Janz CMOD-IO MODULbus Carrier Board PCI Driver
->>> + *
->>> + * Copyright (c) 2010 Ira W. Snyder <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
->>> + *
->>> + * Lots of inspiration and code was copied from drivers/mfd/sm501.c
->>> + *
->>> + * This program is free software; you can redistribute it and/or modify it
->>> + * under the terms of the GNU General Public License as published by the
->>> + * Free Software Foundation; either version 2 of the License, or (at your
->>> + * option) any later version.
->>> + */
->>> +
->>> +#include <linux/kernel.h>
->>> +#include <linux/module.h>
->>> +#include <linux/init.h>
->>> +#include <linux/pci.h>
->>> +#include <linux/interrupt.h>
->>> +#include <linux/delay.h>
->>> +#include <linux/platform_device.h>
->>> +
->>> +#include <linux/mfd/janz.h>
->>> +
->>> +#define DRV_NAME "janz-cmodio"
->>> +
->>> +/* Size of each MODULbus module in PCI BAR4 */
->>> +#define CMODIO_MODULBUS_SIZE	0x200
->>> +
->>> +/* Maximum number of MODULbus modules on a CMOD-IO carrier board */
->>> +#define CMODIO_MAX_MODULES	4
->>> +
->>> +/* Module Parameters */
->>> +static unsigned int num_modules = CMODIO_MAX_MODULES;
->>> +static unsigned char *modules[CMODIO_MAX_MODULES] = {
->>> +	"janz-ican3",
->>> +	"janz-ican3",
->>> +	"",
->>> +	"janz-ttl",
->>> +};
->> This is probably not a good default but just your private configuration.
->>
-> 
-> Yep, that's the configuration I have. Do you have any suggestions for a
-> better default? I could make them all blank strings, which means "no
-> daughtercard in this slot". That is my only idea for a different
-> default.
+Its currently hard to diagnose when ACK frames are dropped because an
+application set TCP_DEFER_ACCEPT on its listening socket.
 
-That's probably better. And if no boards are defined via module
-parameter, return with an error and print an error message telling the
-user what to do. Also maybe s/""/"empty"/ and a better the
-MODULE_DESCRIPTION could be useful.
+See http://bugzilla.kernel.org/show_bug.cgi?id=15507
 
-Wolfgang.
+This patch adds a SNMP value, named TCPDeferAcceptDrop
+
+netstat -s | grep TCPDeferAcceptDrop
+    TCPDeferAcceptDrop: 0
+
+This counter is incremented every time we drop a pure ACK frame received
+by a socket in SYN_RECV state because its SYNACK retrans count is lower
+than defer_accept value.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/linux/snmp.h     |    1 +
+ net/ipv4/proc.c          |    1 +
+ net/ipv4/tcp_minisocks.c |    1 +
+ 3 files changed, 3 insertions(+)
+
+diff --git a/include/linux/snmp.h b/include/linux/snmp.h
+index 4435d10..d2a9aa3 100644
+--- a/include/linux/snmp.h
++++ b/include/linux/snmp.h
+@@ -227,6 +227,7 @@ enum
+ 	LINUX_MIB_SACKSHIFTFALLBACK,
+ 	LINUX_MIB_TCPBACKLOGDROP,
+ 	LINUX_MIB_TCPMINTTLDROP, /* RFC 5082 */
++	LINUX_MIB_TCPDEFERACCEPTDROP,
+ 	__LINUX_MIB_MAX
+ };
+ 
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 4f1f337..3dc9914 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -251,6 +251,7 @@ static const struct snmp_mib snmp4_net_list[] = {
+ 	SNMP_MIB_ITEM("TCPSackShiftFallback", LINUX_MIB_SACKSHIFTFALLBACK),
+ 	SNMP_MIB_ITEM("TCPBacklogDrop", LINUX_MIB_TCPBACKLOGDROP),
+ 	SNMP_MIB_ITEM("TCPMinTTLDrop", LINUX_MIB_TCPMINTTLDROP),
++	SNMP_MIB_ITEM("TCPDeferAcceptDrop", LINUX_MIB_TCPDEFERACCEPTDROP),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 4199bc6..32f9627 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -671,6 +671,7 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
+ 	if (req->retrans < inet_csk(sk)->icsk_accept_queue.rskq_defer_accept &&
+ 	    TCP_SKB_CB(skb)->end_seq == tcp_rsk(req)->rcv_isn + 1) {
+ 		inet_rsk(req)->acked = 1;
++		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPDEFERACCEPTDROP);
+ 		return NULL;
+ 	}
+ 
+
+
