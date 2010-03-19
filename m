@@ -1,67 +1,71 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH] ixgbe: Set IXGBE_RSC_CB(skb)->DMA field to zero after
-	unmapping the address
-Date: Fri, 19 Mar 2010 07:41:33 -0700
-Message-ID: <20100319144132.10528.79305.stgit@localhost.localdomain>
+From: Guenter Roeck <guenter.roeck@ericsson.com>
+Subject: [PATCH] net: Don't drop route cache entry in ipv4_negative_advice unless PTMU expired
+Date: Fri, 19 Mar 2010 07:41:13 -0700
+Message-ID: <1269009673-25497-1-git-send-email-guenter.roeck@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>,
+	"Denis V. Lunev" <den@openvz.org>,
+	Guenter Roeck <guenter.roeck@ericsson.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta01.emeryville.ca.mail.comcast.net ([76.96.30.16]:48523 "EHLO
-	qmta01.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752450Ab0CSOlx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 10:41:53 -0400
+Received: from imr2.ericy.com ([198.24.6.3]:34750 "EHLO imr2.ericy.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751705Ab0CSOlw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Mar 2010 10:41:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
+TCP sessions over IPv4 can get stuck if routers between endpoints
+do not fragment packets but implement PMTU instead.
 
-As per Simon Horman's feedback set IXGBE_RSC_CB(skb)->dma to zero
-after unmapping HWRSC DMA address to avoid double freeing.
+Setup is as follows
 
-Signed-off-by:  Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
-Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+       MTU1    MTU2   MTU1
+    A--------B------C------D
+
+with MTU1 > MTU2. A and D are endpoints, B and C are routers. B and C
+implement PMTU and drop packets larger than MTU2 (for example because
+DF is set on all packets). TCP sessions are initiated between A and D.
+There is packet loss between A and D, causing frequent TCP retransmits.
+
+After the number of retransmits on a TCP session reaches tcp_retries1,
+tcp calls dst_negative_advice() prior to each retransmit. This results
+in route cache entries for the peer to be deleted in ipv4_negative_advice()
+if the Path MTU is set.
+
+If the outstanding data on an affected TCP session is larger than MTU2, packets
+sent from the endpoints will be dropped by B or C, and ICMP NEEDFRAG will be
+returned. A and D receive NEEDFRAG messages and update PMTU.
+
+Before the next retransmit, tcp will again call dst_negative_advice(), causing
+the route cache entry (with correct PMTU) to be deleted. The retransmitted
+packet will be larger than MTU2, causing it to be dropped again.
+
+This sequence repeats until the TCP session aborts or is terminated.
+
+Problem is fixed by removing route cache entries in ipv4_negative_advice()
+only if the PMTU is expired.
+
+Signed-off-by: Guenter Roeck <guenter.roeck@ericsson.com>
 ---
+ net/ipv4/route.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
- drivers/net/ixgbe/ixgbe_main.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 18b5b21..d75c46f 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -935,10 +935,12 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 			if (skb->prev)
- 				skb = ixgbe_transform_rsc_queue(skb, &(rx_ring->rsc_count));
- 			if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED) {
--				if (IXGBE_RSC_CB(skb)->dma)
-+				if (IXGBE_RSC_CB(skb)->dma) {
- 					pci_unmap_single(pdev, IXGBE_RSC_CB(skb)->dma,
- 					                 rx_ring->rx_buf_len,
- 					                 PCI_DMA_FROMDEVICE);
-+					IXGBE_RSC_CB(skb)->dma = 0;
-+				}
- 				if (rx_ring->flags & IXGBE_RING_RX_PS_ENABLED)
- 					rx_ring->rsc_count += skb_shinfo(skb)->nr_frags;
- 				else
-@@ -3126,10 +3128,12 @@ static void ixgbe_clean_rx_ring(struct ixgbe_adapter *adapter,
- 			rx_buffer_info->skb = NULL;
- 			do {
- 				struct sk_buff *this = skb;
--				if (IXGBE_RSC_CB(this)->dma)
-+				if (IXGBE_RSC_CB(this)->dma) {
- 					pci_unmap_single(pdev, IXGBE_RSC_CB(this)->dma,
- 					                 rx_ring->rx_buf_len,
- 					                 PCI_DMA_FROMDEVICE);
-+					IXGBE_RSC_CB(this)->dma = 0;
-+				}
- 				skb = skb->prev;
- 				dev_kfree_skb(this);
- 			} while (skb);
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index d9b4024..7e1c9e4 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1512,7 +1512,8 @@ static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst)
+ 			ip_rt_put(rt);
+ 			ret = NULL;
+ 		} else if ((rt->rt_flags & RTCF_REDIRECTED) ||
+-			   rt->u.dst.expires) {
++			   (rt->u.dst.expires &&
++			    time_after_eq(jiffies, rt->u.dst.expires))) {
+ 			unsigned hash = rt_hash(rt->fl.fl4_dst, rt->fl.fl4_src,
+ 						rt->fl.oif,
+ 						rt_genid(dev_net(dst->dev)));
+-- 
+1.6.0.4
 
