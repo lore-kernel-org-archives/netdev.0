@@ -1,45 +1,105 @@
-From: thomas yang <lampsu@gmail.com>
-Subject: Re: [iproute2] iproute2 question
-Date: Fri, 19 Mar 2010 13:53:23 +0800
-Message-ID: <f4f837ab1003182253x12727855k118f7d67115daf23@mail.gmail.com>
-References: <f4f837ab1003180202h6b2d5ed0ledd2a24dfd2627df@mail.gmail.com>
-	 <20100318085919.05328127@nehalam>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: [PATCH] ipv4: check rt_genid in dst_check
+Date: Fri, 19 Mar 2010 07:54:43 +0200
+Message-ID: <1268978083-32070-1-git-send-email-timo.teras@iki.fi>
+Cc: Timo Teras <timo.teras@iki.fi>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f198.google.com ([209.85.216.198]:62560 "EHLO
-	mail-px0-f198.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750986Ab0CSFxX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 01:53:23 -0400
-Received: by pxi36 with SMTP id 36so2035520pxi.21
-        for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 22:53:23 -0700 (PDT)
-In-Reply-To: <20100318085919.05328127@nehalam>
+Received: from mail-ew0-f216.google.com ([209.85.219.216]:61325 "EHLO
+	mail-ew0-f216.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751037Ab0CSFys (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 01:54:48 -0400
+Received: by ewy8 with SMTP id 8so1571211ewy.28
+        for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 22:54:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2010/3/18 Stephen Hemminger <shemminger@vyatta.com>:
-> On Thu, 18 Mar 2010 17:02:16 +0800
-> thomas yang <lampsu@gmail.com> wrote:
->
->> Hi,
->>
->> Linux router R (has some interfaces) =A0use the table "main" as defa=
-ult
->> routing table to route packets. =A0If =A0some link connected to R fa=
-iled,
->> I want to use another table "backup_tbl" to route packets; if the
->> broken link repaired , go back to use table "main" =A0. =A0How to do=
- this?
->
-> That's now it works. Use a real routing daemon.
->
+Xfrm_dst keeps a reference to ipv4 rtable entries on each
+cached bundle. The only way to renew xfrm_dst when the underlying
+route has changed, is to implement dst_check for this. This is
+what ipv6 side does too.
 
-I want to reduce the packet loss that happens while routers converge
-after a topology change due to a failure, use precalculated backup
-table to do rapid failure repair  (repair faster than routing daemon,
-fast reroute).
-I do static routing on my linux routers.  When  some link  failed,
- I want to  use backup tables to route packets.  Can iproute2 do this?
+The problems started after 87c1e12b5eeb7b30b4b41291bef8e0b41fc3dde9
+which fixed a bug causing xfrm_dst to not get reused, until that all
+lookups always generated new xfrm_dst with new route reference
+and path mtu worked. But after the fix, the old routes started
+to get reused even after they were expired causing pmtu to break
+(well it would occationally work if the rtable gc had run recently
+and marked the route obsolete causing dst_check to get called).
+
+Signed-off-by: Timo Teras <timo.teras@iki.fi>
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
+ net/ipv4/route.c |   14 ++++++++++----
+ 1 files changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index a770df2..8c9d06e 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1441,7 +1441,7 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
+ 					dev_hold(rt->u.dst.dev);
+ 				if (rt->idev)
+ 					in_dev_hold(rt->idev);
+-				rt->u.dst.obsolete	= 0;
++				rt->u.dst.obsolete	= -1;
+ 				rt->u.dst.lastuse	= jiffies;
+ 				rt->u.dst.path		= &rt->u.dst;
+ 				rt->u.dst.neighbour	= NULL;
+@@ -1506,7 +1506,7 @@ static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst)
+ 	struct dst_entry *ret = dst;
+ 
+ 	if (rt) {
+-		if (dst->obsolete) {
++		if (dst->obsolete > 0) {
+ 			ip_rt_put(rt);
+ 			ret = NULL;
+ 		} else if ((rt->rt_flags & RTCF_REDIRECTED) ||
+@@ -1726,7 +1726,9 @@ static void ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu)
+ 
+ static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
+ {
+-	return NULL;
++	if (dst && rt_is_expired((struct rtable *)dst))
++		return NULL;
++	return dst;
+ }
+ 
+ static void ipv4_dst_destroy(struct dst_entry *dst)
+@@ -1888,7 +1890,8 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	if (!rth)
+ 		goto e_nobufs;
+ 
+-	rth->u.dst.output= ip_rt_bug;
++	rth->u.dst.output = ip_rt_bug;
++	rth->u.dst.obsolete = -1;
+ 
+ 	atomic_set(&rth->u.dst.__refcnt, 1);
+ 	rth->u.dst.flags= DST_HOST;
+@@ -2054,6 +2057,7 @@ static int __mkroute_input(struct sk_buff *skb,
+ 	rth->fl.oif 	= 0;
+ 	rth->rt_spec_dst= spec_dst;
+ 
++	rth->u.dst.obsolete = -1;
+ 	rth->u.dst.input = ip_forward;
+ 	rth->u.dst.output = ip_output;
+ 	rth->rt_genid = rt_genid(dev_net(rth->u.dst.dev));
+@@ -2218,6 +2222,7 @@ local_input:
+ 		goto e_nobufs;
+ 
+ 	rth->u.dst.output= ip_rt_bug;
++	rth->u.dst.obsolete = -1;
+ 	rth->rt_genid = rt_genid(net);
+ 
+ 	atomic_set(&rth->u.dst.__refcnt, 1);
+@@ -2444,6 +2449,7 @@ static int __mkroute_output(struct rtable **result,
+ 	rth->rt_spec_dst= fl->fl4_src;
+ 
+ 	rth->u.dst.output=ip_output;
++	rth->u.dst.obsolete = -1;
+ 	rth->rt_genid = rt_genid(dev_net(dev_out));
+ 
+ 	RT_CACHE_STAT_INC(out_slow_tot);
+-- 
+1.6.3.3
+
