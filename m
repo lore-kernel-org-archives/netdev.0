@@ -1,71 +1,76 @@
-From: Guenter Roeck <guenter.roeck@ericsson.com>
-Subject: [PATCH] net: Don't drop route cache entry in ipv4_negative_advice unless PTMU expired
-Date: Fri, 19 Mar 2010 07:41:13 -0700
-Message-ID: <1269009673-25497-1-git-send-email-guenter.roeck@ericsson.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH] net: rtnetlink: ignore NETDEV_PRE_TYPE_CHANGE in rtnetlink_event()
+Date: Fri, 19 Mar 2010 15:42:24 +0100
+Message-ID: <4BA38D50.4090909@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>,
-	"Denis V. Lunev" <den@openvz.org>,
-	Guenter Roeck <guenter.roeck@ericsson.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: multipart/mixed;
+ boundary="------------050902030907010302060507"
+Cc: jpirko@redhat.com, Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imr2.ericy.com ([198.24.6.3]:34750 "EHLO imr2.ericy.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751705Ab0CSOlw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Mar 2010 10:41:52 -0400
+Received: from stinky.trash.net ([213.144.137.162]:39250 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752440Ab0CSOm0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 10:42:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-TCP sessions over IPv4 can get stuck if routers between endpoints
-do not fragment packets but implement PMTU instead.
+This is a multi-part message in MIME format.
+--------------050902030907010302060507
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Setup is as follows
 
-       MTU1    MTU2   MTU1
-    A--------B------C------D
 
-with MTU1 > MTU2. A and D are endpoints, B and C are routers. B and C
-implement PMTU and drop packets larger than MTU2 (for example because
-DF is set on all packets). TCP sessions are initiated between A and D.
-There is packet loss between A and D, causing frequent TCP retransmits.
+--------------050902030907010302060507
+Content-Type: text/x-diff;
+ name="01.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="01.diff"
 
-After the number of retransmits on a TCP session reaches tcp_retries1,
-tcp calls dst_negative_advice() prior to each retransmit. This results
-in route cache entries for the peer to be deleted in ipv4_negative_advice()
-if the Path MTU is set.
+Ignore the new NETDEV_PRE_TYPE_CHANGE event in rtnetlink_event() since
+there have been no changes userspace needs to be notified of.
 
-If the outstanding data on an affected TCP session is larger than MTU2, packets
-sent from the endpoints will be dropped by B or C, and ICMP NEEDFRAG will be
-returned. A and D receive NEEDFRAG messages and update PMTU.
+Also add a comment to the netdev notifier event definitions to remind
+people to update the exclusion list when adding new event types.
 
-Before the next retransmit, tcp will again call dst_negative_advice(), causing
-the route cache entry (with correct PMTU) to be deleted. The retransmitted
-packet will be larger than MTU2, causing it to be dropped again.
-
-This sequence repeats until the TCP session aborts or is terminated.
-
-Problem is fixed by removing route cache entries in ipv4_negative_advice()
-only if the PMTU is expired.
-
-Signed-off-by: Guenter Roeck <guenter.roeck@ericsson.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/ipv4/route.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ include/linux/notifier.h |    5 ++++-
+ net/core/rtnetlink.c     |    1 +
+ 2 files changed, 5 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index d9b4024..7e1c9e4 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1512,7 +1512,8 @@ static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst)
- 			ip_rt_put(rt);
- 			ret = NULL;
- 		} else if ((rt->rt_flags & RTCF_REDIRECTED) ||
--			   rt->u.dst.expires) {
-+			   (rt->u.dst.expires &&
-+			    time_after_eq(jiffies, rt->u.dst.expires))) {
- 			unsigned hash = rt_hash(rt->fl.fl4_dst, rt->fl.fl4_src,
- 						rt->fl.oif,
- 						rt_genid(dev_net(dst->dev)));
+diff --git a/include/linux/notifier.h b/include/linux/notifier.h
+index f3635fc..9c5d3fa 100644
+--- a/include/linux/notifier.h
++++ b/include/linux/notifier.h
+@@ -182,7 +182,10 @@ static inline int notifier_to_errno(int ret)
+  *	VC switch chains (for loadable kernel svgalib VC switch helpers) etc...
+  */
+  
+-/* netdevice notifier chain */
++/* netdevice notifier chain. Please remember to update the rtnetlink
++ * notification exclusion list in rtnetlink_event() when adding new
++ * types.
++ */
+ #define NETDEV_UP	0x0001	/* For now you can't veto a device up/down */
+ #define NETDEV_DOWN	0x0002
+ #define NETDEV_REBOOT	0x0003	/* Tell a protocol stack a network interface
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index e1121f0..ffc6cf3 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1513,6 +1513,7 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
+ 	case NETDEV_POST_INIT:
+ 	case NETDEV_REGISTER:
+ 	case NETDEV_CHANGE:
++	case NETDEV_PRE_TYPE_CHANGE:
+ 	case NETDEV_GOING_DOWN:
+ 	case NETDEV_UNREGISTER:
+ 	case NETDEV_UNREGISTER_BATCH:
 -- 
-1.6.0.4
+1.6.5.7
 
+
+--------------050902030907010302060507--
