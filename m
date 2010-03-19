@@ -1,461 +1,168 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH 2/3] can: add support for Janz VMOD-ICAN3 Intelligent
-	CAN	module
-Date: Fri, 19 Mar 2010 10:01:14 +0100
-Message-ID: <4BA33D5A.8070000@grandegger.com>
-References: <> <1268930324-29841-3-git-send-email-iws@ovro.caltech.edu>
+From: Robert Olsson <robert@herjulf.net>
+Subject: [PATCH] pktgen node allocation
+Date: Fri, 19 Mar 2010 09:44:30 +0100
+Message-ID: <19363.14702.909265.380669@gargle.gargle.HOWL>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
-To: "Ira W. Snyder" <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1268930324-29841-3-git-send-email-iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-Hi Ira,
-
-we already discussed this patch on the SocketCAN mailing list and there
-are just a few minor issues and the request to add support for the new
-"berr-reporting" option, if feasible. See:
-
-  commit 52c793f24054f5dc30d228e37e0e19cc8313f086
-  Author: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-  Date:   Mon Feb 22 22:21:17 2010 +0000
-
-    can: netlink support for bus-error reporting and counters
-    
-    This patch makes the bus-error reporting configurable and allows to
-    retrieve the CAN TX and RX bus error counters via netlink interface.
-    I have added support for the SJA1000. The TX and RX bus error counters
-    are also copied to the data fields 6..7 of error messages when state
-    changes are reported.
-
-Should not be a big deal.
-
-More inline...
-
-Ira W. Snyder wrote:
-> The Janz VMOD-ICAN3 is a MODULbus daughterboard which fits onto any
-> MODULbus carrier board. It is an intelligent CAN controller with a
-> microcontroller and associated firmware.
-> 
-> Signed-off-by: Ira W. Snyder <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
-> Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> ---
->  drivers/net/can/Kconfig      |   10 +
->  drivers/net/can/Makefile     |    1 +
->  drivers/net/can/janz-ican3.c | 1659 ++++++++++++++++++++++++++++++++++++++++++
->  3 files changed, 1670 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/net/can/janz-ican3.c
-> 
-> diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
-> index 05b7517..2c5227c 100644
-> --- a/drivers/net/can/Kconfig
-> +++ b/drivers/net/can/Kconfig
-> @@ -63,6 +63,16 @@ config CAN_BFIN
->  	  To compile this driver as a module, choose M here: the
->  	  module will be called bfin_can.
->  
-> +config CAN_JANZ_ICAN3
-> +	tristate "Janz VMOD-ICAN3 Intelligent CAN controller"
-> +	depends on CAN_DEV && MFD_JANZ_CMODIO
-> +	---help---
-> +	  Driver for Janz VMOD-ICAN3 Intelligent CAN controller module, which
-> +	  connects to a MODULbus carrier board.
-> +
-> +	  This driver can also be built as a module. If so, the module will be
-> +	  called janz-ican3.ko.
-> +
->  source "drivers/net/can/mscan/Kconfig"
->  
->  source "drivers/net/can/sja1000/Kconfig"
-> diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile
-> index 7a702f2..9047cd0 100644
-> --- a/drivers/net/can/Makefile
-> +++ b/drivers/net/can/Makefile
-> @@ -15,5 +15,6 @@ obj-$(CONFIG_CAN_AT91)		+= at91_can.o
->  obj-$(CONFIG_CAN_TI_HECC)	+= ti_hecc.o
->  obj-$(CONFIG_CAN_MCP251X)	+= mcp251x.o
->  obj-$(CONFIG_CAN_BFIN)		+= bfin_can.o
-> +obj-$(CONFIG_CAN_JANZ_ICAN3)	+= janz-ican3.o
->  
->  ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
-> diff --git a/drivers/net/can/janz-ican3.c b/drivers/net/can/janz-ican3.c
-> new file mode 100644
-> index 0000000..94d4995
-> --- /dev/null
-> +++ b/drivers/net/can/janz-ican3.c
-[snip]
- +struct ican3_dev {
-> +
-> +	/* must be the first member */
-> +	struct can_priv can;
-> +
-> +	/* CAN network device */
-> +	struct net_device *ndev;
-> +	struct napi_struct napi;
-> +
-> +	/* Device for printing */
-> +	struct device *dev;
-> +
-> +	/* module number */
-> +	unsigned int num;
-> +
-> +	/* base address of registers and IRQ */
-> +	struct janz_cmodio_onboard_regs __iomem *ctrl;
-> +	struct ican3_dpm_control *dpmctrl;
-> +	void __iomem *dpm;
-> +	int irq;
-> +
-> +	/* old and new style host interface */
-> +	unsigned int iftype;
-> +	spinlock_t lock;
-
-Please describe what the lock is used for.
-
-> +	/* new host interface */
-> +	unsigned int rx_int;
-> +	unsigned int rx_num;
-> +	unsigned int tx_num;
-> +
-> +	/* fast host interface */
-> +	unsigned int fastrx_start;
-> +	unsigned int fastrx_int;
-> +	unsigned int fastrx_num;
-> +	unsigned int fasttx_start;
-> +	unsigned int fasttx_num;
-> +
-> +	/* first free DPM page */
-> +	unsigned int free_page;
-> +};
-
-[snip]
-> +static void ican3_to_can_frame(struct ican3_dev *mod,
-> +			       struct ican3_fast_desc *desc,
-> +			       struct can_frame *cf)
-> +{
-> +	if ((desc->command & ICAN3_CAN_TYPE_MASK) == ICAN3_CAN_TYPE_SFF) {
-> +		dev_dbg(mod->dev, "%s: old frame format\n", __func__);
-
-This prints a debug message for every message which is not really
-useful for the user. Please remove.
-
-> +		if (desc->data[1] & ICAN3_SFF_RTR)
-> +			cf->can_id |= CAN_RTR_FLAG;
-> +
-> +		cf->can_id |= desc->data[0] << 3;
-> +		cf->can_id |= (desc->data[1] & 0xe0) >> 5;
-> +		cf->can_dlc = desc->data[1] & ICAN3_CAN_DLC_MASK;
-> +		memcpy(cf->data, &desc->data[2], sizeof(cf->data));
-> +	} else {
-> +		dev_dbg(mod->dev, "%s: new frame format\n", __func__);
-
-Ditto.
-
-> +		cf->can_dlc = desc->data[0] & ICAN3_CAN_DLC_MASK;
-> +		if (desc->data[0] & ICAN3_EFF_RTR)
-> +			cf->can_id |= CAN_RTR_FLAG;
-> +
-> +		if (desc->data[0] & ICAN3_EFF) {
-> +			cf->can_id |= CAN_EFF_FLAG;
-> +			cf->can_id |= desc->data[2] << 21; /* 28-21 */
-> +			cf->can_id |= desc->data[3] << 13; /* 20-13 */
-> +			cf->can_id |= desc->data[4] << 5;  /* 12-5  */
-> +			cf->can_id |= (desc->data[5] & 0xf8) >> 3;
-> +		} else {
-> +			cf->can_id |= desc->data[2] << 3;  /* 10-3  */
-> +			cf->can_id |= desc->data[3] >> 5;  /* 2-0   */
-> +		}
-> +
-> +		memcpy(cf->data, &desc->data[6], sizeof(cf->data));
-> +	}
-> +}
-> +
-> +static void can_frame_to_ican3(struct ican3_dev *mod,
-> +			       struct can_frame *cf,
-> +			       struct ican3_fast_desc *desc)
-> +{
-> +	/* clear out any stale data in the descriptor */
-> +	memset(desc->data, 0, sizeof(desc->data));
-> +
-> +	/* we always use the extended format, with the ECHO flag set */
-> +	desc->command = ICAN3_CAN_TYPE_EFF;
-> +	desc->data[0] |= cf->can_dlc;
-> +	desc->data[1] |= ICAN3_ECHO;
-> +
-> +	if (cf->can_id & CAN_RTR_FLAG)
-> +		desc->data[0] |= ICAN3_EFF_RTR;
-> +
-> +	/* pack the id into the correct places */
-> +	if (cf->can_id & CAN_EFF_FLAG) {
-> +		dev_dbg(mod->dev, "%s: extended frame\n", __func__);
-
-Ditto.
-
-> +		desc->data[0] |= ICAN3_EFF;
-> +		desc->data[2] = (cf->can_id & 0x1fe00000) >> 21; /* 28-21 */
-> +		desc->data[3] = (cf->can_id & 0x001fe000) >> 13; /* 20-13 */
-> +		desc->data[4] = (cf->can_id & 0x00001fe0) >> 5;  /* 12-5  */
-> +		desc->data[5] = (cf->can_id & 0x0000001f) << 3;  /* 4-0   */
-> +	} else {
-> +		dev_dbg(mod->dev, "%s: standard frame\n", __func__);
-
-Ditto.
-
-> +		desc->data[2] = (cf->can_id & 0x7F8) >> 3; /* bits 10-3 */
-> +		desc->data[3] = (cf->can_id & 0x007) << 5; /* bits 2-0  */
-> +	}
-> +
-> +	/* copy the data bits into the descriptor */
-> +	memcpy(&desc->data[6], cf->data, sizeof(cf->data));
-> +}
-
-[snip]
-> +/*
-> + * Handle CAN Event Indication Messages from the firmware
-> + *
-> + * The ICAN3 firmware provides the values of some SJA1000 registers when it
-> + * generates this message. The code below is largely copied from the
-> + * drivers/net/can/sja1000/sja1000.c file, and adapted as necessary
-> + */
-> +static int ican3_handle_cevtind(struct ican3_dev *mod, struct ican3_msg *msg)
-> +{
-> +	struct net_device *dev = mod->ndev;
-> +	struct net_device_stats *stats = &dev->stats;
-> +	enum can_state state = mod->can.state;
-> +	struct can_frame *cf;
-> +	struct sk_buff *skb;
-> +	u8 status, isrc;
-> +
-> +	/* we can only handle the SJA1000 part */
-> +	if (msg->data[1] != CEVTIND_CHIP_SJA1000) {
-> +		dev_err(mod->dev, "unable to handle errors on non-SJA1000\n");
-> +		return -ENODEV;
-> +	}
-> +
-> +	/* check the message length for sanity */
-> +	if (msg->len < 6) {
-> +		dev_err(mod->dev, "error message too short\n");
-> +		return -EINVAL;
-> +	}
-> +
-> +	skb = alloc_can_err_skb(dev, &cf);
-> +	if (skb == NULL)
-> +		return -ENOMEM;
-> +
-> +	isrc = msg->data[0];
-> +	status = msg->data[3];
-> +
-> +	/* data overrun interrupt */
-> +	if (isrc == CEVTIND_DOI || isrc == CEVTIND_LOST) {
-
-Here and for the other errors below a dev_dbg() would be useful. Please
-check sja1000.c.
-
-> +		cf->can_id |= CAN_ERR_CRTL;
-> +		cf->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
-> +		stats->rx_over_errors++;
-> +		stats->rx_errors++;
-> +		dev_info(mod->dev, "%s: overflow frame generated\n", __func__);
-
-s/dev_info/dev_dbg/ ?
-
-> +	}
-> +
-> +	/* error warning interrupt */
-> +	if (isrc == CEVTIND_EI) {
-> +		if (status & SR_BS) {
-> +			state = CAN_STATE_BUS_OFF;
-> +			cf->can_id |= CAN_ERR_BUSOFF;
-> +			can_bus_off(dev);
-> +		} else if (status & SR_ES) {
-> +			state = CAN_STATE_ERROR_WARNING;
-> +		} else {
-> +			state = CAN_STATE_ERROR_ACTIVE;
-> +		}
-> +	}
-> +
-> +	/* bus error interrupt */
-> +	if (isrc == CEVTIND_BEI) {
-> +		u8 ecc = msg->data[2];
-
-Add an empty line, please.
-
-> +		mod->can.can_stats.bus_error++;
-> +		stats->rx_errors++;
-> +		cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
-> +
-> +		switch (ecc & ECC_MASK) {
-> +		case ECC_BIT:
-> +			cf->data[2] |= CAN_ERR_PROT_BIT;
-> +			break;
-> +		case ECC_FORM:
-> +			cf->data[2] |= CAN_ERR_PROT_FORM;
-> +			break;
-> +		case ECC_STUFF:
-> +			cf->data[2] |= CAN_ERR_PROT_STUFF;
-> +			break;
-> +		default:
-> +			cf->data[2] |= CAN_ERR_PROT_UNSPEC;
-> +			cf->data[3] = ecc & ECC_SEG;
-> +			break;
-> +		}
-> +
-> +		if ((ecc & ECC_DIR) == 0)
-> +			cf->data[2] |= CAN_ERR_PROT_TX;
-> +	}
-> +
-> +	if (state != mod->can.state && (state == CAN_STATE_ERROR_WARNING ||
-> +					state == CAN_STATE_ERROR_PASSIVE)) {
-> +		u8 rxerr = msg->data[4];
-> +		u8 txerr = msg->data[5];
-
-Ditto.
-
-> +		cf->can_id |= CAN_ERR_CRTL;
-> +		if (state == CAN_STATE_ERROR_WARNING) {
-> +			mod->can.can_stats.error_warning++;
-> +			cf->data[1] = (txerr > rxerr) ?
-> +				CAN_ERR_CRTL_TX_WARNING :
-> +				CAN_ERR_CRTL_RX_WARNING;
-> +		} else {
-> +			mod->can.can_stats.error_passive++;
-> +			cf->data[1] = (txerr > rxerr) ?
-> +				CAN_ERR_CRTL_TX_PASSIVE :
-> +				CAN_ERR_CRTL_RX_PASSIVE;
-> +		}
-> +	}
-> +
-> +	mod->can.state = state;
-> +	stats->rx_errors++;
-> +	stats->rx_bytes += cf->can_dlc;
-> +	netif_rx(skb);
-> +	return 0;
-> +}
-
-[snip]
-> +static irqreturn_t ican3_irq(int irq, void *dev_id)
-> +{
-> +	struct ican3_dev *mod = dev_id;
-> +	u8 stat;
-> +
-> +	/*
-> +	 * The interrupt status register on this device reports interrupts
-> +	 * as zeroes instead of using ones like most other devices
-> +	 */
-> +	stat = ioread8(&mod->ctrl->int_disable) & (1 << mod->num);
-> +	if (stat == (1 << mod->num))
-> +		return IRQ_NONE;
-> +
-> +	dev_dbg(mod->dev, "IRQ: module %d\n", mod->num);
-
-Please remove this dev_dbg() as well.
-
-[snip]
-> +/*
-> + * Startup an ICAN module, bringing it into fast mode
-> + */
-> +static int __devinit ican3_startup_module(struct ican3_dev *mod)
-> +{
-> +	int ret;
-> +
-> +	ret = ican3_reset_module(mod);
-> +	if (ret) {
-> +		dev_err(mod->dev, "unable to reset module\n");
-> +		return ret;
-> +	}
-> +
-> +	/* re-enable interrupts so we can send messages */
-> +	iowrite8(1 << mod->num, &mod->ctrl->int_enable);
-> +
-> +	ret = ican3_msg_connect(mod);
-> +	if (ret) {
-> +		dev_err(mod->dev, "unable to connect to module\n");
-> +		return ret;
-> +	}
-> +
-> +	ican3_init_new_host_interface(mod);
-> +	ret = ican3_msg_newhostif(mod);
-> +	if (ret) {
-> +		dev_err(mod->dev, "unable to switch to new-style interface\n");
-> +		return ret;
-> +	}
-> +
-> +	ret = ican3_set_termination(mod, true);
-> +	if (ret) {
-> +		dev_err(mod->dev, "unable to enable termination\n");
-> +		return ret;
-> +	}
+Cc: netdev@vger.kernel.org, robert@herjulf.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from av9-1-sn2.hy.skanova.net ([81.228.8.179]:35985 "EHLO
+	av9-1-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751965Ab0CSJFg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 05:05:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Could you please allow the user to disable termination, e.g. via module parameter
-"bus_termination=0" in case he uses a cable with built-in termination.
 
-[snip]
-> +static int __devinit ican3_probe(struct platform_device *pdev)
-> +{
-> +	struct janz_platform_data *pdata;
-> +	struct net_device *ndev;
-> +	struct ican3_dev *mod;
-> +	struct resource *res;
-> +	struct device *dev;
-> +	int ret;
-> +
-> +	pdata = pdev->dev.platform_data;
-> +	if (!pdata)
-> +		return -ENXIO;
-> +
-> +	dev_dbg(&pdev->dev, "probe: module number %d\n", pdata->modno);
-> +
-> +	/* save the struct device for printing */
-> +	dev = &pdev->dev;
-> +
-> +	/* allocate the CAN device and private data */
-> +	ndev = alloc_candev(sizeof(*mod), 0);
-> +	if (!ndev) {
-> +		dev_err(dev, "unable to allocate CANdev\n");
-> +		ret = -ENOMEM;
-> +		goto out_return;
-> +	}
-> +
-> +	platform_set_drvdata(pdev, ndev);
-> +	mod = netdev_priv(ndev);
-> +	mod->ndev = ndev;
-> +	mod->dev = &pdev->dev;
-> +	mod->num = pdata->modno;
-> +	netif_napi_add(ndev, &mod->napi, ican3_napi, ICAN3_RX_BUFFERS);
-> +	spin_lock_init(&mod->lock);
-> +
-> +	/* the first unallocated page in the DPM is 9 */
-> +	mod->free_page = DPM_FREE_START;
-> +
-> +	ndev->netdev_ops = &ican3_netdev_ops;
-> +	ndev->flags |= IFF_ECHO;
-> +	SET_NETDEV_DEV(ndev, &pdev->dev);
-> +
-> +	mod->can.clock.freq = 8000000;
+Hi,
+Here is patch to manipulate packet node allocation and implicitly 
+how packets are DMA'd etc.
 
-Please use a constant here.
-[snip]
+The flag NODE_ALLOC enables the function and numa_node_id();
+when enabled it can also be explicitly controlled via a new 
+node parameter
 
-Please fix and resubmit with my:
+Tested this with 10 Intel 82599 ports w. TYAN S7025 E5520 CPU's.
+Was able to TX/DMA ~80 Gbit/s to Ethernet wires.
 
-"Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>"
+Cheers
+					--ro
 
-for the SocketCAN part.
 
-Thanks,
+Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
 
-Wolfgang.
+
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 4392381..c195fd0 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -169,7 +169,7 @@
+ #include <asm/dma.h>
+ #include <asm/div64.h>		/* do_div */
+ 
+-#define VERSION 	"2.72"
++#define VERSION 	"2.73"
+ #define IP_NAME_SZ 32
+ #define MAX_MPLS_LABELS 16 /* This is the max label stack depth */
+ #define MPLS_STACK_BOTTOM htonl(0x00000100)
+@@ -190,6 +190,7 @@
+ #define F_IPSEC_ON    (1<<12)	/* ipsec on for flows */
+ #define F_QUEUE_MAP_RND (1<<13)	/* queue map Random */
+ #define F_QUEUE_MAP_CPU (1<<14)	/* queue map mirrors smp_processor_id() */
++#define F_NODE          (1<<15)	/* Node memory alloc*/
+ 
+ /* Thread control flag bits */
+ #define T_STOP        (1<<0)	/* Stop run */
+@@ -372,6 +373,7 @@ struct pktgen_dev {
+ 
+ 	u16 queue_map_min;
+ 	u16 queue_map_max;
++	int node;               /* Memory node */
+ 
+ #ifdef CONFIG_XFRM
+ 	__u8	ipsmode;		/* IPSEC mode (config) */
+@@ -607,6 +609,9 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
+ 	if (pkt_dev->traffic_class)
+ 		seq_printf(seq, "     traffic_class: 0x%02x\n", pkt_dev->traffic_class);
+ 
++	if (pkt_dev->node >= 0)
++		seq_printf(seq, "     node: %d\n", pkt_dev->node);
++
+ 	seq_printf(seq, "     Flags: ");
+ 
+ 	if (pkt_dev->flags & F_IPV6)
+@@ -660,6 +665,9 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
+ 	if (pkt_dev->flags & F_SVID_RND)
+ 		seq_printf(seq, "SVID_RND  ");
+ 
++	if (pkt_dev->flags & F_NODE)
++		seq_printf(seq, "NODE_ALLOC  ");
++
+ 	seq_puts(seq, "\n");
+ 
+ 	/* not really stopped, more like last-running-at */
+@@ -1074,6 +1082,21 @@ static ssize_t pktgen_if_write(struct file *file,
+ 			pkt_dev->dst_mac_count);
+ 		return count;
+ 	}
++	if (!strcmp(name, "node")) {
++		len = num_arg(&user_buffer[i], 10, &value);
++		if (len < 0)
++			return len;
++
++		i += len;
++
++		if(node_possible(value)) {
++			pkt_dev->node = value;
++			sprintf(pg_result, "OK: node=%d", pkt_dev->node);
++		}
++		else
++			sprintf(pg_result, "ERROR: node not possible");
++		return count;
++	}
+ 	if (!strcmp(name, "flag")) {
+ 		char f[32];
+ 		memset(f, 0, 32);
+@@ -1166,12 +1189,18 @@ static ssize_t pktgen_if_write(struct file *file,
+ 		else if (strcmp(f, "!IPV6") == 0)
+ 			pkt_dev->flags &= ~F_IPV6;
+ 
++		else if (strcmp(f, "NODE_ALLOC") == 0)
++			pkt_dev->flags |= F_NODE;
++
++		else if (strcmp(f, "!NODE_ALLOC") == 0)
++			pkt_dev->flags &= ~F_NODE;
++
+ 		else {
+ 			sprintf(pg_result,
+ 				"Flag -:%s:- unknown\nAvailable flags, (prepend ! to un-set flag):\n%s",
+ 				f,
+ 				"IPSRC_RND, IPDST_RND, UDPSRC_RND, UDPDST_RND, "
+-				"MACSRC_RND, MACDST_RND, TXSIZE_RND, IPV6, MPLS_RND, VID_RND, SVID_RND, FLOW_SEQ, IPSEC\n");
++				"MACSRC_RND, MACDST_RND, TXSIZE_RND, IPV6, MPLS_RND, VID_RND, SVID_RND, FLOW_SEQ, IPSEC, NODE_ALLOC\n");
+ 			return count;
+ 		}
+ 		sprintf(pg_result, "OK: flags=0x%x", pkt_dev->flags);
+@@ -2572,9 +2601,27 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ 	mod_cur_headers(pkt_dev);
+ 
+ 	datalen = (odev->hard_header_len + 16) & ~0xf;
+-	skb = __netdev_alloc_skb(odev,
+-				 pkt_dev->cur_pkt_size + 64
+-				 + datalen + pkt_dev->pkt_overhead, GFP_NOWAIT);
++
++	if(pkt_dev->flags & F_NODE) {
++		int node;
++
++		if(pkt_dev->node >= 0)
++			node = pkt_dev->node;
++		else
++			node =  numa_node_id();
++
++		skb = __alloc_skb(NET_SKB_PAD + pkt_dev->cur_pkt_size + 64
++				  + datalen + pkt_dev->pkt_overhead, GFP_NOWAIT, 0, node);
++		if (likely(skb)) {
++			skb_reserve(skb, NET_SKB_PAD);
++			skb->dev = odev;
++		}
++	}
++	else
++	  skb = __netdev_alloc_skb(odev,
++				   pkt_dev->cur_pkt_size + 64
++				   + datalen + pkt_dev->pkt_overhead, GFP_NOWAIT);
++
+ 	if (!skb) {
+ 		sprintf(pkt_dev->result, "No memory");
+ 		return NULL;
+@@ -3674,6 +3721,7 @@ static int pktgen_add_device(struct pktgen_thread *t, const char *ifname)
+ 	pkt_dev->svlan_p = 0;
+ 	pkt_dev->svlan_cfi = 0;
+ 	pkt_dev->svlan_id = 0xffff;
++	pkt_dev->node = -1;
+ 
+ 	err = pktgen_setup_dev(pkt_dev, ifname);
+ 	if (err)
+
