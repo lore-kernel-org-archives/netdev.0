@@ -1,67 +1,37 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH] igb: Add support for 82576 ET2 Quad Port Server Adapter
-Date: Fri, 19 Mar 2010 09:07:48 -0700
-Message-ID: <20100319160747.10902.61121.stgit@localhost.localdomain>
+From: Mike Frysinger <vapier.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [Uclinux-dist-devel] [PATCH] can: bfin_can: switch to common
+	Blackfin can header
+Date: Fri, 19 Mar 2010 12:23:36 -0400
+Message-ID: <8bd0f97a1003190923s6bb313e9k854ee2b7289ac066@mail.gmail.com>
+References: <8bd0f97a1003162145i77f65158ne255b28239e1b595@mail.gmail.com>
+	<20100316.220232.170244945.davem@davemloft.net>
+	<8bd0f97a1003162225i439d9900mfdc03eca5de0ff6e@mail.gmail.com>
+	<20100316.225150.213941689.davem@davemloft.net>
+	<8bd0f97a1003182335l3c121d87v9369145852c9545d@mail.gmail.com>
+	<26B4E6A46012A1469B4EB3BC2A7CAAEC44EF47@vwagwox00084.vw.vwg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.westchester.pa.mail.comcast.net ([76.96.62.96]:60091
-	"EHLO qmta09.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751323Ab0CSQII (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 12:08:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Thuermann, Urs,
+	Dr. \(K-EFFI/I\)" <urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+To: "Hartkopp, Oliver (K-EFFI/P)" <oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <26B4E6A46012A1469B4EB3BC2A7CAAEC44EF47-2ISBvSz7ubqzqAecw3LaLo+MsED4In1V@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+On Fri, Mar 19, 2010 at 02:56, Hartkopp, Oliver (K-EFFI/P) wrote:
+> your patch is just a cleanup and definitely not mission-critical.
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- drivers/net/igb/e1000_82575.c |    1 +
- drivers/net/igb/e1000_hw.h    |    1 +
- drivers/net/igb/igb_main.c    |    1 +
- 3 files changed, 3 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
-index 9d7fa2f..0bc990e 100644
---- a/drivers/net/igb/e1000_82575.c
-+++ b/drivers/net/igb/e1000_82575.c
-@@ -94,6 +94,7 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
- 	case E1000_DEV_ID_82576_FIBER:
- 	case E1000_DEV_ID_82576_SERDES:
- 	case E1000_DEV_ID_82576_QUAD_COPPER:
-+	case E1000_DEV_ID_82576_QUAD_COPPER_ET2:
- 	case E1000_DEV_ID_82576_SERDES_QUAD:
- 		mac->type = e1000_82576;
- 		break;
-diff --git a/drivers/net/igb/e1000_hw.h b/drivers/net/igb/e1000_hw.h
-index 4480052..82a533f 100644
---- a/drivers/net/igb/e1000_hw.h
-+++ b/drivers/net/igb/e1000_hw.h
-@@ -41,6 +41,7 @@ struct e1000_hw;
- #define E1000_DEV_ID_82576_FIBER              0x10E6
- #define E1000_DEV_ID_82576_SERDES             0x10E7
- #define E1000_DEV_ID_82576_QUAD_COPPER        0x10E8
-+#define E1000_DEV_ID_82576_QUAD_COPPER_ET2    0x1526
- #define E1000_DEV_ID_82576_NS                 0x150A
- #define E1000_DEV_ID_82576_NS_SERDES          0x1518
- #define E1000_DEV_ID_82576_SERDES_QUAD        0x150D
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 0ed25f0..45a0e4f 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -72,6 +72,7 @@ static DEFINE_PCI_DEVICE_TABLE(igb_pci_tbl) = {
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_FIBER), board_82575 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_SERDES), board_82575 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_SERDES_QUAD), board_82575 },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_QUAD_COPPER_ET2), board_82575 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82576_QUAD_COPPER), board_82575 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82575EB_COPPER), board_82575 },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_82575EB_FIBER_SERDES), board_82575 },
-
+ive already explained the background for when the patch can be merged.
+ please read the whole thread before jumping in.
+-mike
