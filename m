@@ -1,75 +1,41 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] net: dev_getfirstbyhwtype() optimization
-Date: Thu, 18 Mar 2010 19:32:56 -0700
-Message-ID: <20100319023256.GD2894@linux.vnet.ibm.com>
-References: <1268947645.2894.166.camel@edumazet-laptop>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH 0/3] bonding: refuse to change bond type
+ if it's used V3
+Date: Thu, 18 Mar 2010 20:05:14 -0700 (PDT)
+Message-ID: <20100318.200514.48485837.davem@davemloft.net>
+References: <20100310202804.GC2834@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net,
+	shemminger@linux-foundation.org, kaber@trash.net
+To: jpirko@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:41164 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751581Ab0CSCc6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Mar 2010 22:32:58 -0400
-Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
-	by e3.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o2J2LUBq006624
-	for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 22:21:30 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o2J2WwI8133082
-	for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 22:32:58 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o2J2WvRf003209
-	for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 22:32:57 -0400
-Content-Disposition: inline
-In-Reply-To: <1268947645.2894.166.camel@edumazet-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46337
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750999Ab0CSDEw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Mar 2010 23:04:52 -0400
+In-Reply-To: <20100310202804.GC2834@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 18, 2010 at 10:27:25PM +0100, Eric Dumazet wrote:
-> Use RCU to avoid RTNL use in dev_getfirstbyhwtype()
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 17b1686..0f2e9fc 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -772,14 +772,17 @@ EXPORT_SYMBOL(__dev_getfirstbyhwtype);
-> 
->  struct net_device *dev_getfirstbyhwtype(struct net *net, unsigned short type)
->  {
-> -	struct net_device *dev;
-> +	struct net_device *dev, *ret = NULL;
-> 
-> -	rtnl_lock();
-> -	dev = __dev_getfirstbyhwtype(net, type);
-> -	if (dev)
-> -		dev_hold(dev);
-> -	rtnl_unlock();
-> -	return dev;
-> +	rcu_read_lock();
-> +	for_each_netdev_rcu(net, dev)
-> +		if (dev->type == type) {
-> +			dev_hold(dev);
-> +			ret = dev;
-> +			break;
-> +		}
-> +	rcu_read_unlock();
-> +	return ret;
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Wed, 10 Mar 2010 21:28:04 +0100
 
-Looks good, but I don't understand how it helps to introduce the
-local variable "ret".
+> v2->v3:
+> -changed defines name to NETDEV_[PRE/POST]_TYPE_CHANGE
+> -added bits for vlan and macvlan
+> 
+> Reworked version of patch/patchset. This time I use netdevice notifier as
+> Stephen suggested. Changed the name of the original ones (NETDEV_BONDING_*TYPE)
+> to be more general and reused them.
 
-							Thanx, Paul
+This looks really nice, applied thanks Jiri.
 
->  }
->  EXPORT_SYMBOL(dev_getfirstbyhwtype);
-> 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I know a lot of people who would have noticed this and
+just said "not my problem" and gone on to work on something
+else.  Instead you stopped and fixed it, and this is very
+much appreciated.
+
+Thanks again!
