@@ -1,47 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: speedup netdev_set_master()
-Date: Thu, 18 Mar 2010 22:36:58 -0700 (PDT)
-Message-ID: <20100318.223658.241427584.davem@davemloft.net>
-References: <1268955460.2894.207.camel@edumazet-laptop>
-	<20100318.222226.191403090.davem@davemloft.net>
-	<1268976491.2894.221.camel@edumazet-laptop>
+From: Amit Salecha <amit.salecha@qlogic.com>
+Subject: RE: [PATCH] netxen: The driver doesn't work on NX_P3_B1 so cause
+ probe to fail.
+Date: Fri, 19 Mar 2010 00:36:47 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80CFEFED0EA@MNEXMB2.qlogic.org>
+References: <m1y6hqdol4.fsf@fess.ebiederm.org>
+	<99737F4847ED0A48AECC9F4A1974A4B80CFEFED04B@MNEXMB2.qlogic.org>
+	<m11vfic6d0.fsf@fess.ebiederm.org>
+ <20100318.222126.27823381.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>
+To: David Miller <davem@davemloft.net>,
+	"ebiederm@xmission.com" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51469
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750705Ab0CSFgg convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Mar 2010 01:36:36 -0400
-In-Reply-To: <1268976491.2894.221.camel@edumazet-laptop>
+Received: from avexch1.qlogic.com ([198.70.193.115]:25850 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750992Ab0CSFgw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 01:36:52 -0400
+In-Reply-To: <20100318.222126.27823381.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 19 Mar 2010 06:28:11 +0100
+We are working on this problem, will let you know our decision by end of day.
 
-> Le jeudi 18 mars 2010 =E0 22:22 -0700, David Miller a =E9crit :
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Fri, 19 Mar 2010 00:37:40 +0100
->>=20
->> > We currently force a synchronize_net() in netdev_set_master()
->> >=20
->> > This seems necessary only when a slave had a master and we dismant=
-le it.
->> >=20
->> > In the other case ("ifenslave bond0 ethO"), we dont need this long
->> > delay.
->> >=20
->> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->>=20
->> Depends upon the net-2.6 race fix?
->>=20
->> Thanks for telling me :-/
->=20
-> I believe it's not related. It's net-next-2.6 material, for sure :)
+-Thanks
 
-It was not an issue of related, but rather "B won't apply cleanly
-without A". Even line offsets can make "git apply" reject.
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Friday, March 19, 2010 10:51 AM
+To: ebiederm@xmission.com
+Cc: Amit Salecha; netdev@vger.kernel.org; Ameen Rahman
+Subject: Re: [PATCH] netxen: The driver doesn't work on NX_P3_B1 so cause probe to fail.
+
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Thu, 18 Mar 2010 02:43:39 -0700
+
+> Amit Salecha <amit.salecha@qlogic.com> writes:
+> 
+>> Sorry for all the problem you faced.
+>>
+>> But you shouldn't add support of device which is not supported.
+>> Netxen is now owned by Qlogic. You should first contact Qlogic to solve your problem.
+>> Qlogic will take needed action based on problem.
+> 
+> I'm not adding support.  I am sending a patch removing support for cards
+> that do not work with the current driver and have not worked since 2.6.31.
+
+You qlogic folks better resolve this _FAST_ or else I'll
+make an executive decision about how to handle this and
+I guarentee I'll make a decision that you will not like.
+
+Thanks. :-)
