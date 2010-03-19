@@ -1,56 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] pktgen node allocation
-Date: Fri, 19 Mar 2010 10:28:53 +0100
-Message-ID: <1268990933.3048.15.camel@edumazet-laptop>
-References: <19363.14702.909265.380669@gargle.gargle.HOWL>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] xfrm: cache bundle lookup results in flow cache
+Date: Fri, 19 Mar 2010 17:32:10 +0800
+Message-ID: <20100319093210.GA23895@gondor.apana.org.au>
+References: <1268655610-7845-1-git-send-email-timo.teras@iki.fi> <20100319072053.GA22913@gondor.apana.org.au> <4BA32C41.2020000@iki.fi> <20100319082909.GA23363@gondor.apana.org.au> <4BA337E6.4010508@iki.fi> <20100319084717.GA23567@gondor.apana.org.au> <4BA33FF5.8010104@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Robert Olsson <robert@herjulf.net>
+Cc: netdev@vger.kernel.org
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:62664 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750736Ab0CSJ25 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 05:28:57 -0400
-Received: by bwz1 with SMTP id 1so2780246bwz.21
-        for <netdev@vger.kernel.org>; Fri, 19 Mar 2010 02:28:55 -0700 (PDT)
-In-Reply-To: <19363.14702.909265.380669@gargle.gargle.HOWL>
+Received: from rhun.apana.org.au ([64.62.148.172]:39556 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750747Ab0CSJcO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 05:32:14 -0400
+Content-Disposition: inline
+In-Reply-To: <4BA33FF5.8010104@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 19 mars 2010 =C3=A0 09:44 +0100, Robert Olsson a =C3=A9crit=
- :
->=20
-> Hi,
-> Here is patch to manipulate packet node allocation and implicitly=20
-> how packets are DMA'd etc.
->=20
-> The flag NODE_ALLOC enables the function and numa_node_id();
-> when enabled it can also be explicitly controlled via a new=20
-> node parameter
->=20
-> Tested this with 10 Intel 82599 ports w. TYAN S7025 E5520 CPU's.
-> Was able to TX/DMA ~80 Gbit/s to Ethernet wires.
->=20
-> Cheers
-> 					--ro
->=20
+On Fri, Mar 19, 2010 at 11:12:21AM +0200, Timo Ter=E4s wrote:
+>
+>> That would be better but it's still hacky.  Proper reference
+>> counting like we had before would be my preference.
+>
+> Well, the cache entry is still referenced only very shortly,
+> I don't see why keeping bh disabled why doing it is considered
+> a hack. Refcounting the cache entries is trickier. Though,
+> it could be used to optimize the update process: we could safely
+> update it instead of doing now lookup later.
 
-I cannot understand how this can help.
+Well we had a nicely type-agnostic cache which is self-contained,
+but your patch is bleeding generic code into xfrm_policy.c, that's
+why I felt it to be hacky :)
 
-__netdev_alloc_skb() is supposed to already take into account NUMA
-properties :
+Anyway I see how your scheme works now as far as object life
+is concerned, and I agree that it is safe.
 
-int node =3D dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
+However, I wonder if we could do it while still leaving all the
+object life-cycle management stuff (and the BH disabling bits)
+in flow.c
 
-If this doesnt work, we should correct core stack, not only pktgen :)
+The crux of the issue is that you now have two objects to track
+instead of one.  As the direction is a key in the lookup, we're
+really only worried about the outbound case here.
 
-Are you allocating memory in the node where pktgen CPU is running or th=
-e
-node close to the NIC ?
+So how about going back to what I suggested earlier, and keeping
+a back-pointer from xfrm_dst to the policy? Of course xfrm_dst
+would also hold a ref count on the policy.  You'd only have to
+do it for the top-level xfrm_dst.
 
+It does mean that you'll need to write a different resolver for
+outbound vs. inbound/forward, but that makes sense because we
+only use bundles for outbound policies.
 
-Thanks
+What do you think?
 
-
+Cheers,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
