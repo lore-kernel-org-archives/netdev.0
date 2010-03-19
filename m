@@ -1,105 +1,60 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: [PATCH] ipv4: check rt_genid in dst_check
-Date: Fri, 19 Mar 2010 07:54:43 +0200
-Message-ID: <1268978083-32070-1-git-send-email-timo.teras@iki.fi>
-Cc: Timo Teras <timo.teras@iki.fi>
-To: netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] xfrm: cache bundle lookup results in flow cache
+Date: Fri, 19 Mar 2010 14:03:22 +0800
+Message-ID: <20100319060322.GA22319@gondor.apana.org.au>
+References: <1268655610-7845-1-git-send-email-timo.teras@iki.fi> <20100317130704.GA2601@gondor.apana.org.au> <4BA0E435.6090801@iki.fi> <20100317145850.GA4257@gondor.apana.org.au> <4BA0FBB6.10208@iki.fi> <4BA27F72.40901@iki.fi> <20100319003130.GA20227@gondor.apana.org.au> <4BA31049.7030005@iki.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f216.google.com ([209.85.219.216]:61325 "EHLO
-	mail-ew0-f216.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751037Ab0CSFys (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 01:54:48 -0400
-Received: by ewy8 with SMTP id 8so1571211ewy.28
-        for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 22:54:47 -0700 (PDT)
+Received: from rhun.apana.org.au ([64.62.148.172]:43306 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750865Ab0CSGDZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 02:03:25 -0400
+Content-Disposition: inline
+In-Reply-To: <4BA31049.7030005@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Xfrm_dst keeps a reference to ipv4 rtable entries on each
-cached bundle. The only way to renew xfrm_dst when the underlying
-route has changed, is to implement dst_check for this. This is
-what ipv6 side does too.
+On Fri, Mar 19, 2010 at 07:48:57AM +0200, Timo Ter=E4s wrote:
+>
+> But it always matches. The caching happens using the inner
+> flow. Inner flow always matches with the same bundle unless
+> the bundle expires or goes stale. What happens is that I get
+> multiple cache entries per-inner flow each referencing to the
+> same bundle.
 
-The problems started after 87c1e12b5eeb7b30b4b41291bef8e0b41fc3dde9
-which fixed a bug causing xfrm_dst to not get reused, until that all
-lookups always generated new xfrm_dst with new route reference
-and path mtu worked. But after the fix, the old routes started
-to get reused even after they were expired causing pmtu to break
-(well it would occationally work if the rtable gc had run recently
-and marked the route obsolete causing dst_check to get called).
+Sorry for being slow, but if it always matches, doesn't that mean
+you'll only have a single bundle in the policy bundle list? IOW
+why do we need this at all?
 
-Signed-off-by: Timo Teras <timo.teras@iki.fi>
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
----
- net/ipv4/route.c |   14 ++++++++++----
- 1 files changed, 10 insertions(+), 4 deletions(-)
+Or have I misread your patch? You *are* proposing to cache the last
+used bundle in the policy, right?
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index a770df2..8c9d06e 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1441,7 +1441,7 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
- 					dev_hold(rt->u.dst.dev);
- 				if (rt->idev)
- 					in_dev_hold(rt->idev);
--				rt->u.dst.obsolete	= 0;
-+				rt->u.dst.obsolete	= -1;
- 				rt->u.dst.lastuse	= jiffies;
- 				rt->u.dst.path		= &rt->u.dst;
- 				rt->u.dst.neighbour	= NULL;
-@@ -1506,7 +1506,7 @@ static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst)
- 	struct dst_entry *ret = dst;
- 
- 	if (rt) {
--		if (dst->obsolete) {
-+		if (dst->obsolete > 0) {
- 			ip_rt_put(rt);
- 			ret = NULL;
- 		} else if ((rt->rt_flags & RTCF_REDIRECTED) ||
-@@ -1726,7 +1726,9 @@ static void ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu)
- 
- static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
- {
--	return NULL;
-+	if (dst && rt_is_expired((struct rtable *)dst))
-+		return NULL;
-+	return dst;
- }
- 
- static void ipv4_dst_destroy(struct dst_entry *dst)
-@@ -1888,7 +1890,8 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	if (!rth)
- 		goto e_nobufs;
- 
--	rth->u.dst.output= ip_rt_bug;
-+	rth->u.dst.output = ip_rt_bug;
-+	rth->u.dst.obsolete = -1;
- 
- 	atomic_set(&rth->u.dst.__refcnt, 1);
- 	rth->u.dst.flags= DST_HOST;
-@@ -2054,6 +2057,7 @@ static int __mkroute_input(struct sk_buff *skb,
- 	rth->fl.oif 	= 0;
- 	rth->rt_spec_dst= spec_dst;
- 
-+	rth->u.dst.obsolete = -1;
- 	rth->u.dst.input = ip_forward;
- 	rth->u.dst.output = ip_output;
- 	rth->rt_genid = rt_genid(dev_net(rth->u.dst.dev));
-@@ -2218,6 +2222,7 @@ local_input:
- 		goto e_nobufs;
- 
- 	rth->u.dst.output= ip_rt_bug;
-+	rth->u.dst.obsolete = -1;
- 	rth->rt_genid = rt_genid(net);
- 
- 	atomic_set(&rth->u.dst.__refcnt, 1);
-@@ -2444,6 +2449,7 @@ static int __mkroute_output(struct rtable **result,
- 	rth->rt_spec_dst= fl->fl4_src;
- 
- 	rth->u.dst.output=ip_output;
-+	rth->u.dst.obsolete = -1;
- 	rth->rt_genid = rt_genid(dev_net(dev_out));
- 
- 	RT_CACHE_STAT_INC(out_slow_tot);
--- 
-1.6.3.3
+> True. But if we go and prune a bundle due to it being bad or
+> needing garbage collection we need to invalidate all bundles
+> pointers, and we cannot access the back-pointer. Alternatively
 
+Why can't you access the back-pointer? You should always have
+a reference held on the policy, either explicit or implicit.
+
+> we need to keep xfrm_dst references again in the flow cache
+> requiring an expensive iteration of all flow cache entries
+> whenever a xfrm_dst needs to be deleted (which happens often).
+
+So does the IPv4 routing cache.  I think what this reflects is
+just that the IPsec garbage collection mechanism is broken.
+
+There is no point in doing a GC on every dst_alloc if we know
+that it isn't going to go below the threshold.  It should gain
+a minimum GC interval like IPv4.  Or perhaps we can move the
+minimum GC interval check into the dst core.
+
+Cheers,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
