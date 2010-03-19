@@ -1,60 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] xfrm: cache bundle lookup results in flow cache
-Date: Fri, 19 Mar 2010 14:03:22 +0800
-Message-ID: <20100319060322.GA22319@gondor.apana.org.au>
-References: <1268655610-7845-1-git-send-email-timo.teras@iki.fi> <20100317130704.GA2601@gondor.apana.org.au> <4BA0E435.6090801@iki.fi> <20100317145850.GA4257@gondor.apana.org.au> <4BA0FBB6.10208@iki.fi> <4BA27F72.40901@iki.fi> <20100319003130.GA20227@gondor.apana.org.au> <4BA31049.7030005@iki.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] net: speedup netdev_set_master()
+Date: Thu, 18 Mar 2010 23:11:43 -0700 (PDT)
+Message-ID: <20100318.231143.52206723.davem@davemloft.net>
+References: <1268976491.2894.221.camel@edumazet-laptop>
+	<20100318.223658.241427584.davem@davemloft.net>
+	<1268977513.2894.223.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:43306 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750865Ab0CSGDZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 02:03:25 -0400
-Content-Disposition: inline
-In-Reply-To: <4BA31049.7030005@iki.fi>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39090
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750865Ab0CSGLV convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Mar 2010 02:11:21 -0400
+In-Reply-To: <1268977513.2894.223.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 19, 2010 at 07:48:57AM +0200, Timo Ter=E4s wrote:
->
-> But it always matches. The caching happens using the inner
-> flow. Inner flow always matches with the same bundle unless
-> the bundle expires or goes stale. What happens is that I get
-> multiple cache entries per-inner flow each referencing to the
-> same bundle.
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 19 Mar 2010 06:45:13 +0100
 
-Sorry for being slow, but if it always matches, doesn't that mean
-you'll only have a single bundle in the policy bundle list? IOW
-why do we need this at all?
+> Le jeudi 18 mars 2010 =E0 22:36 -0700, David Miller a =E9crit :
+>> It was not an issue of related, but rather "B won't apply cleanly
+>> without A". Even line offsets can make "git apply" reject.
+>> --
+>=20
+> I see, I can resubmit later if you prefer, once net-2.6 fix is pulled=
+ in
+> net-next, there is no hurry :)
 
-Or have I misread your patch? You *are* proposing to cache the last
-used bundle in the policy, right?
-
-> True. But if we go and prune a bundle due to it being bad or
-> needing garbage collection we need to invalidate all bundles
-> pointers, and we cannot access the back-pointer. Alternatively
-
-Why can't you access the back-pointer? You should always have
-a reference held on the policy, either explicit or implicit.
-
-> we need to keep xfrm_dst references again in the flow cache
-> requiring an expensive iteration of all flow cache entries
-> whenever a xfrm_dst needs to be deleted (which happens often).
-
-So does the IPv4 routing cache.  I think what this reflects is
-just that the IPsec garbage collection mechanism is broken.
-
-There is no point in doing a GC on every dst_alloc if we know
-that it isn't going to go below the threshold.  It should gain
-a minimum GC interval like IPv4.  Or perhaps we can move the
-minimum GC interval check into the dst core.
-
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+No need, just let me know about this stuff in the future, that's
+all :-)
