@@ -1,35 +1,94 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 0/5] enic: updates to version 1.3.1.1
-Date: Thu, 18 Mar 2010 21:23:31 -0700 (PDT)
-Message-ID: <20100318.212331.242120067.davem@davemloft.net>
-References: <20100319021901.10527.9869.stgit@savbu-pc100.cisco.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: dev_getfirstbyhwtype() optimization
+Date: Fri, 19 Mar 2010 06:14:02 +0100
+Message-ID: <1268975642.2894.218.camel@edumazet-laptop>
+References: <1268947645.2894.166.camel@edumazet-laptop>
+	 <20100319023256.GD2894@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: vkolluri@cisco.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40516
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750729Ab0CSEXI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 00:23:08 -0400
-In-Reply-To: <20100319021901.10527.9869.stgit@savbu-pc100.cisco.com>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:41636 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751139Ab0CSFOJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 01:14:09 -0400
+Received: by bwz1 with SMTP id 1so2677357bwz.21
+        for <netdev@vger.kernel.org>; Thu, 18 Mar 2010 22:14:06 -0700 (PDT)
+In-Reply-To: <20100319023256.GD2894@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasanthy Kolluri <vkolluri@cisco.com>
-Date: Thu, 18 Mar 2010 19:19:38 -0700
+Le jeudi 18 mars 2010 =C3=A0 19:32 -0700, Paul E. McKenney a =C3=A9crit=
+ :
+> On Thu, Mar 18, 2010 at 10:27:25PM +0100, Eric Dumazet wrote:
+> > Use RCU to avoid RTNL use in dev_getfirstbyhwtype()
+> >=20
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> > ---
+> > diff --git a/net/core/dev.c b/net/core/dev.c
+> > index 17b1686..0f2e9fc 100644
+> > --- a/net/core/dev.c
+> > +++ b/net/core/dev.c
+> > @@ -772,14 +772,17 @@ EXPORT_SYMBOL(__dev_getfirstbyhwtype);
+> >=20
+> >  struct net_device *dev_getfirstbyhwtype(struct net *net, unsigned =
+short type)
+> >  {
+> > -	struct net_device *dev;
+> > +	struct net_device *dev, *ret =3D NULL;
+> >=20
+> > -	rtnl_lock();
+> > -	dev =3D __dev_getfirstbyhwtype(net, type);
+> > -	if (dev)
+> > -		dev_hold(dev);
+> > -	rtnl_unlock();
+> > -	return dev;
+> > +	rcu_read_lock();
+> > +	for_each_netdev_rcu(net, dev)
+> > +		if (dev->type =3D=3D type) {
+> > +			dev_hold(dev);
+> > +			ret =3D dev;
+> > +			break;
+> > +		}
+> > +	rcu_read_unlock();
+> > +	return ret;
+>=20
+> Looks good, but I don't understand how it helps to introduce the
+> local variable "ret".
+>=20
 
-> The following series implements enic driver updates:
-> 
-> 1/5 - Bug Fix: Fix hardware descriptor reads
-> 2/5 - Bug Fix: Fix timeout for hardware Tx and Rx queue disable operations
-> 3/5 - Do not advertise NETIF_F_HW_VLAN_RX
-> 4/5 - Clean up: Add wrapper functions
-> 5/5 - Clean up: Change driver description; Fix tab space; Update MAINTAINERS
-> 
-> Signed-off-by: Scott Feldman <scofeldm@cisco.com>
-> Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
-> Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+Thanks for reviewing Paul !
 
-All applied to net-next-2.6, thanks.
+Not only it helps, its necessary :)
+
+for_each_netdev_rcu(net, dev) {
+	if (cond) {
+	   dev_hold(dev);
+	   break;
+	}
+}
+makes no guarantee dev is NULL if we hit the list end :
+
+
+/**
+ * list_for_each_entry_rcu      -       iterate over rcu list of given =
+type
+ * @pos:        the type * to use as a loop cursor.
+ * @head:       the head for your list.
+ * @member:     the name of the list_struct within the struct.
+ *
+ * This list-traversal primitive may safely run concurrently with
+ * the _rcu list-mutation primitives such as list_add_rcu()
+ * as long as the traversal is guarded by rcu_read_lock().
+ */
+#define list_for_each_entry_rcu(pos, head, member) \
+        for (pos =3D list_entry_rcu((head)->next, typeof(*pos), member)=
+; \
+                prefetch(pos->member.next), &pos->member !=3D (head); \
+                pos =3D list_entry_rcu(pos->member.next, typeof(*pos), =
+member))
+
+
+
