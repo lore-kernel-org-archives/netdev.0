@@ -1,43 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net/wimax/i2400m/fw.c fix possible double free
-Date: Sat, 20 Mar 2010 14:24:13 -0700 (PDT)
-Message-ID: <20100320.142413.15249200.davem@davemloft.net>
-References: <1268902008.10536.41.camel@ICE-BOX>
+Subject: Re: [PATCH] NET_DMA: free skbs periodically
+Date: Sat, 20 Mar 2010 14:29:20 -0700 (PDT)
+Message-ID: <20100320.142920.242147630.davem@davemloft.net>
+References: <1268752964-4397-1-git-send-email-steve@digidescorp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cindy.h.kao@intel.com, wimax@linuxwimax.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-wimax@intel.com
-To: darrenrjenkins@gmail.com
-Return-path: <wimax-bounces@linuxwimax.org>
-In-Reply-To: <1268902008.10536.41.camel@ICE-BOX>
-List-Unsubscribe: <http://lists.linuxwimax.org/options/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxwimax.org/pipermail/wimax>
-List-Post: <mailto:wimax@linuxwimax.org>
-List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
-List-Subscribe: <http://lists.linuxwimax.org/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
-Sender: wimax-bounces@linuxwimax.org
-Errors-To: wimax-bounces@linuxwimax.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	linux-kernel@vger.kernel.org
+To: steve@digidescorp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46934
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751231Ab0CTV25 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Mar 2010 17:28:57 -0400
+In-Reply-To: <1268752964-4397-1-git-send-email-steve@digidescorp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Darren Jenkins <darrenrjenkins@gmail.com>
-Date: Thu, 18 Mar 2010 19:46:48 +1100
+From: "Steven J. Magnani" <steve@digidescorp.com>
+Date: Tue, 16 Mar 2010 10:22:44 -0500
 
+> Under NET_DMA, data transfer can grind to a halt when userland issues a
+> large read on a socket with a high RCVLOWAT (i.e., 512 KB for both).
+> This appears to be because the NET_DMA design queues up lots of memcpy 
+> operations, but doesn't issue or wait for them (and thus free the 
+> associated skbs) until it is time for tcp_recvmesg() to return. 
+> The socket hangs when its TCP window goes to zero before enough data is 
+> available to satisfy the read.
 > 
-> On Thu, Mar 18, 2010 at 9:10 AM, Inaky Perez-Gonzalez
-> <inaky.perez-gonzalez@intel.com> wrote:
+> Periodically issue asynchronous memcpy operations, and free skbs for ones 
+> that have completed, to prevent sockets from going into zero-window mode.
 > 
->> If krealloc() fails to aallocate a new pointer, the old block is
->> unmodified, so by doing this you are leaking a buffer allocation.
-> 
-> It seems you are right.
-> So now understanding correctly how krealloc() works I can see that the
-> double kfree() can only actually happen if the el_size parameter to
-> i2400m_zrealloc_2x() is zero, and it isn't at the two call sites.
-> 
-> So this was a false positive and I am sorry for the noise.
+> Signed-off-by: Steven J. Magnani <steve@digidescorp.com>
 
-No problem, at least the code got audited :-)
+Applied, thanks for fixing this bug Steven.
