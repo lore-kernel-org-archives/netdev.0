@@ -1,92 +1,54 @@
 From: Timo Teras <timo.teras@iki.fi>
-Subject: [PATCH] xfrm: implement basic garbage collection for bundles
-Date: Sat, 20 Mar 2010 14:15:41 +0200
-Message-ID: <1269087341-7009-1-git-send-email-timo.teras@iki.fi>
+Subject: [PATCH] ip_gre: include route header_len in max_headroom calculation
+Date: Sat, 20 Mar 2010 14:27:58 +0200
+Message-ID: <1269088078-7343-1-git-send-email-timo.teras@iki.fi>
 Cc: Timo Teras <timo.teras@iki.fi>,
-	Neil Horman <nhorman@tuxdriver.com>,
 	Herbert Xu <herbert@gondor.apana.org.au>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f216.google.com ([209.85.219.216]:43957 "EHLO
-	mail-ew0-f216.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751032Ab0CTMPw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Mar 2010 08:15:52 -0400
-Received: by ewy8 with SMTP id 8so231112ewy.28
-        for <netdev@vger.kernel.org>; Sat, 20 Mar 2010 05:15:51 -0700 (PDT)
+Received: from ey-out-2122.google.com ([74.125.78.24]:53265 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751965Ab0CTM2E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Mar 2010 08:28:04 -0400
+Received: by ey-out-2122.google.com with SMTP id d26so359442eyd.19
+        for <netdev@vger.kernel.org>; Sat, 20 Mar 2010 05:28:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The dst core calls garbage collection only from dst_alloc when
-the dst entry threshold is exceeded. Xfrm core currently checks
-bundles only on NETDEV_DOWN event.
-
-Previously this has not been a big problem since xfrm gc threshold
-was small, and they were generated all the time due to another bug.
-
-Since after a33bc5c15154c835aae26f16e6a3a7d9ad4acb45
-("xfrm: select sane defaults for xfrm[4|6] gc_thresh") we can have
-large gc threshold sizes (>200000 on machines with normal amount
-of memory) the garbage collection does not get triggered under
-normal circumstances. This can result in enormous amount of stale
-bundles. Further more, each of these stale bundles keep a reference
-to ipv4/ipv6 rtable entries which are already gargage collected and
-put to dst core "destroy free'd dst's" list. Now this list can grow
-to be very large, and the dst core periodic job can bring even a fast
-machine to it's knees.
+Taking route's header_len into account, and updating gre device
+needed_headroom will give better hints on upper bound of required
+headroom. This is useful if the gre traffic is xfrm'ed.
 
 Signed-off-by: Timo Teras <timo.teras@iki.fi>
-Cc: Neil Horman <nhorman@tuxdriver.com>
 Cc: Herbert Xu <herbert@gondor.apana.org.au>
 ---
- net/xfrm/xfrm_policy.c |   20 +++++++++++++++++++-
- 1 files changed, 19 insertions(+), 1 deletions(-)
+ net/ipv4/ip_gre.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 843e066..f3f3d36 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -44,6 +44,9 @@ static struct xfrm_policy_afinfo *xfrm_policy_afinfo[NPROTO];
+This was earlier discussed in netdev thread:
+  http://marc.info/?t=124470870200004&r=1&w=2
+
+I just never got to writing the patch until now.
+
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index f47c9f7..f78402d 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -810,11 +810,13 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+ 			tunnel->err_count = 0;
+ 	}
  
- static struct kmem_cache *xfrm_dst_cache __read_mostly;
+-	max_headroom = LL_RESERVED_SPACE(tdev) + gre_hlen;
++	max_headroom = LL_RESERVED_SPACE(tdev) + gre_hlen + rt->u.dst.header_len;
  
-+static int xfrm_gc_interval __read_mostly = 5 * 60 * HZ;
-+static struct delayed_work expires_work;
-+
- static HLIST_HEAD(xfrm_policy_gc_list);
- static DEFINE_SPINLOCK(xfrm_policy_gc_lock);
- 
-@@ -2203,6 +2206,16 @@ static int xfrm_flush_bundles(struct net *net)
- 	return 0;
- }
- 
-+static void xfrm_gc_worker_func(struct work_struct *work)
-+{
-+	struct net *net;
-+
-+	for_each_net(net)
-+		xfrm_flush_bundles(net);
-+
-+	schedule_delayed_work(&expires_work, xfrm_gc_interval);
-+}
-+
- static void xfrm_init_pmtu(struct dst_entry *dst)
- {
- 	do {
-@@ -2498,8 +2511,13 @@ static int __net_init xfrm_policy_init(struct net *net)
- 
- 	INIT_LIST_HEAD(&net->xfrm.policy_all);
- 	INIT_WORK(&net->xfrm.policy_hash_work, xfrm_hash_resize);
--	if (net_eq(net, &init_net))
-+	if (net_eq(net, &init_net)) {
- 		register_netdevice_notifier(&xfrm_dev_notifier);
-+
-+		INIT_DELAYED_WORK_DEFERRABLE(&expires_work, xfrm_gc_worker_func);
-+		schedule_delayed_work(&expires_work,
-+			net_random() % xfrm_gc_interval + xfrm_gc_interval);
-+	}
- 	return 0;
- 
- out_bydst:
+ 	if (skb_headroom(skb) < max_headroom || skb_shared(skb)||
+ 	    (skb_cloned(skb) && !skb_clone_writable(skb, 0))) {
+ 		struct sk_buff *new_skb = skb_realloc_headroom(skb, max_headroom);
++		if (max_headroom > dev->needed_headroom)
++			dev->needed_headroom = max_headroom;
+ 		if (!new_skb) {
+ 			ip_rt_put(rt);
+ 			txq->tx_dropped++;
 -- 
 1.6.3.3
 
