@@ -1,120 +1,32 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH 2/3] can: add support for Janz VMOD-ICAN3 Intelligent
-	CAN	module
-Date: Sat, 20 Mar 2010 08:55:16 +0100
-Message-ID: <4BA47F64.8030108@grandegger.com>
-References: <> <1268930324-29841-3-git-send-email-iws@ovro.caltech.edu>
-	<4BA33D5A.8070000@grandegger.com>
-	<20100319151914.GB13672@ovro.caltech.edu>
-	<4BA39C05.8050800@grandegger.com>
-	<20100319200325.GE13672@ovro.caltech.edu>
-	<4BA3DAF1.4090206@grandegger.com>
-	<20100319215227.GF13672@ovro.caltech.edu>
+From: Mark Ryden <markryde@gmail.com>
+Subject: LRO (Large Receice Offload) and UDP
+Date: Sat, 20 Mar 2010 13:15:34 +0200
+Message-ID: <dac45061003200415o1fcb1771xb2c43a98c2232c5d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
-To: "Ira W. Snyder" <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20100319215227.GF13672-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: themann@de.ibm.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:42868 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751305Ab0CTLPg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Mar 2010 07:15:36 -0400
+Received: by bwz1 with SMTP id 1so656531bwz.21
+        for <netdev@vger.kernel.org>; Sat, 20 Mar 2010 04:15:34 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ira W. Snyder wrote:
-> On Fri, Mar 19, 2010 at 09:13:37PM +0100, Wolfgang Grandegger wrote:
->> Ira W. Snyder wrote:
->>> On Fri, Mar 19, 2010 at 04:45:09PM +0100, Wolfgang Grandegger wrote:
->>>> Ira W. Snyder wrote:
->>>>> On Fri, Mar 19, 2010 at 10:01:14AM +0100, Wolfgang Grandegger wrote:
->>>>>> Hi Ira,
->>>>>>
->>>>>> we already discussed this patch on the SocketCAN mailing list and there
->>>>>> are just a few minor issues and the request to add support for the new
->>>>>> "berr-reporting" option, if feasible. See:
->>>>>>
->>>>>>   commit 52c793f24054f5dc30d228e37e0e19cc8313f086
->>>>>>   Author: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
->>>>>>   Date:   Mon Feb 22 22:21:17 2010 +0000
->>>>>>
->>>>>>     can: netlink support for bus-error reporting and counters
->>>>>>     
->>>>>>     This patch makes the bus-error reporting configurable and allows to
->>>>>>     retrieve the CAN TX and RX bus error counters via netlink interface.
->>>>>>     I have added support for the SJA1000. The TX and RX bus error counters
->>>>>>     are also copied to the data fields 6..7 of error messages when state
->>>>>>     changes are reported.
->>>>>>
->>>>>> Should not be a big deal.
->>>>>>
->>>>> I think this patch came along since my last post of the driver. I must
->>>>> have missed it. I'll try and add support.
->>>> No problem, it's really new. Just just need to enable BEI depending on
->>>> CAN_CTRLMODE_BERR_REPORTING.
->>>>
->>> I have one final question about this.
->>>
->>> The documentation for the firmware isn't very specific here. I believe
->>> that in order to get any kind of error messages, I need the bus error
->>> feature turned on. What is the expected behavior of an SJA1000 with the
->>> BEI (bus error interrupt) turned off? Will you still get warning
->>> messages for ERROR_ACTIVE -> ERROR_PASSIVE state transitions?
->> Yes. State transitions are enabled with EI and EPI.
->>
-> 
-> I cannot set the registers directly, but I think I got it right. See
-> below.
-> 
->>> I'm not sure how I would go about testing this feature, either. Ideas?
->> Send messages without cable connected and watch the error messages with
->> "candump any,0:0,#ffffffff". With "ip ... berr-reporting on" you should
->> see additional bus-errors.
->>
-> 
-> Ok, I tried this. On one controller, I turned on bus-error reporting. On
-> the other, I turn off bus-error reporting. I then tried sending lots of
-> messages with the cable unplugged. Here is what happened:
-> 
-> bus-error reporting on:
-> Lots of CAN_ERR_BUSERR messages are flooded in candump. There is also a
-> CAN_ERR_CRTL_TX_WARNING message, when there are too many TX errors.
+Hello,
 
-OK, you will now also understand why bus-error reporting is off by
-default. On low-end systems bus-error flooding may even hang the system.
+I have a question about LRO ("Large Receive Offload") and I will
+appreciate if somebody can answer in short (for me, 2-3 sentences are
+enough). I have
+noticed that LRO handles only TCP packets. Thus, the TCP flag is checked and
+non TCP packets are not handled by LRO.
+(see the check of LRO_TCP in __lro_proc_skb(), net/ipv4/inet_lro.c).
 
-> bus-error reporting off:
-> There was only one message reported before the controller went into
-> ERROR-WARNING state. It was the same CAN_ERR_CRTL_TX_WARNING message as
-> above. There was no flooding of CAN_ERR_BUSERR messages.
-> 
-> Does this seem right? It seems pretty good to me.
+My question is: why can't the LRO mechanism be applied to UDP ? Or can
+it be applied, but is not implemented yet or does not worth to be applied ?
 
-Yes, I'm just missing an error-passive message. What state does "ip -d
-link show can0" report.
-
->>> I also noticed that I can enable "self test mode" and "listen only mode"
->>> using the same firmware command. It appears that there are netlink
->>> messages for this as well. Should I try and support these, too? I don't
->>> really have any use for them (yet). I assume "self test mode" is
->>> equivalent to "loopback mode" in the netlink messages.
->> List-only is straight forward while "self test mode" is not exactly like
->> "loopback mode", IIRC. Feel free to send a follow-up patch when you have
->> time for a thorough implementation and testing. It's also on my to-do
->> list for the SJA1000.
->>
-> 
-> Ok, then I'll put this off for a while. Feel free to pester me about it
-> when there is a working implementation in the SJA1000 driver for me to
-> borrow from. :)
-
-I will let you know when I have something working.
-
-Wolfgang.
+Rgs,
+Mark
