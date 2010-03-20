@@ -1,28 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 15541] New: POLLIN bit is set when there is
- OOB data only
-Date: Fri, 19 Mar 2010 19:42:47 -0700 (PDT)
-Message-ID: <20100319.194247.193697670.davem@davemloft.net>
-References: <bug-15541-10286@http.bugzilla.kernel.org/>
-	<20100319155541.731eec28.akpm@linux-foundation.org>
+From: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 2/2] can: sja1000: add read/write routines
+	for 8, 16 and 32-bit register access
+Date: Sat, 20 Mar 2010 04:56:39 +0100
+Message-ID: <20100320035639.GB26934@pengutronix.de>
+References: <4BA3565F.6040907@visionsystems.de>
+	<4BA356A4.5040205@visionsystems.de>
+	<4BA35704.2060909@visionsystems.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/mixed; boundary="===============2647106025730886810=="
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Yegor Yefremov <yegor_sub1-ZJVcf1zZPRSebONBosFW4Q@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4BA35704.2060909-ZJVcf1zZPRSebONBosFW4Q@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+
+--===============2647106025730886810==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="DBIVS5p969aUjpLe"
+Content-Disposition: inline
+
+
+--DBIVS5p969aUjpLe
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, Mar 19, 2010 at 11:50:44AM +0100, Yegor Yefremov wrote:
+> SJA1000: add read/write routines for 8, 16 and 32-bit register access
+>=20
+> add routines for 8, 16 and 32-bit access like in=20
+> drivers/i2c/busses/i2c-pca-platform.c
+>=20
+> Signed-off-by: Yegor Yefremov <yegorslists-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+
+Acked-by: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+
+--=20
+Pengutronix e.K.                           | Wolfram Sang                |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+
+--DBIVS5p969aUjpLe
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkukR3cACgkQD27XaX1/VRtiTgCfYi1zBxsDdVToOuPoDvV/UcXI
+d1YAn1YL9kB5nP2PXOef2HYv0GfAezvG
+=r01p
+-----END PGP SIGNATURE-----
+
+--DBIVS5p969aUjpLe--
+
+--===============2647106025730886810==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Cc: Alexandra.Kossovsky@oktetlabs.ru,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
-To: akpm@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33817
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752466Ab0CTCmZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 22:42:25 -0400
-In-Reply-To: <20100319155541.731eec28.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
 
+_______________________________________________
+Socketcan-core mailing list
+Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-core
 
-The patch is already in Linus's tree Andrew.
-
-Stephen Hemminger forwarded this bugzilla entry to netdev
-an I applied the patch a few days ago.
+--===============2647106025730886810==--
