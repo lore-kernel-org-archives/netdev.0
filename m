@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] TCP: check min TTL on received ICMP packets
-Date: Fri, 19 Mar 2010 21:08:01 -0700 (PDT)
-Message-ID: <20100319.210801.39166378.davem@davemloft.net>
-References: <20100318142732.4de0f8d7@nehalam>
+Subject: Re: [PATCH] ipv4: check rt_genid in dst_check
+Date: Fri, 19 Mar 2010 21:08:25 -0700 (PDT)
+Message-ID: <20100319.210825.59665638.davem@davemloft.net>
+References: <1268978083-32070-1-git-send-email-timo.teras@iki.fi>
+	<20100319085600.GA23705@gondor.apana.org.au>
+	<20100319090022.GA23751@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pekkas@netcore.fi
-To: shemminger@vyatta.com
+Cc: timo.teras@iki.fi, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44626
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44632
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751056Ab0CTEHi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Mar 2010 00:07:38 -0400
-In-Reply-To: <20100318142732.4de0f8d7@nehalam>
+	by vger.kernel.org with ESMTP id S1751056Ab0CTEIC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Mar 2010 00:08:02 -0400
+In-Reply-To: <20100319090022.GA23751@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Thu, 18 Mar 2010 14:27:32 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 19 Mar 2010 17:00:22 +0800
 
-> This adds RFC5082 checks for TTL on received ICMP packets.
-> It adds some security against spoofed ICMP packets
-> disrupting GTSM protected sessions.
+> On Fri, Mar 19, 2010 at 04:56:00PM +0800, Herbert Xu wrote:
+>> 
+>> I'll send a patch to remove the same check on the IPv6 path.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-  
+> ipv6: Remove redundant dst NULL check in ip6_dst_check
+> 
+> As the only path leading to ip6_dst_check makes an indirect call
+> through dst->ops, dst cannot be NULL in ip6_dst_check.
+> 
+> This patch removes this check in case it misleads people who
+> come across this code.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
 Applied.
-
-> Please apply to 2.6.33 since it basically a "follow correct RFC"
-> fix to original GTSM patch.
-
-Queued up for -stable, thanks!
