@@ -1,49 +1,65 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Neil Horman <nhorman@tuxdriver.com>
 Subject: Re: [PATCH] xfrm: implement basic garbage collection for bundles
-Date: Sat, 20 Mar 2010 21:13:40 +0800
-Message-ID: <20100320131340.GB2243@gondor.apana.org.au>
-References: <1269087341-7009-1-git-send-email-timo.teras@iki.fi> <20100320123247.GB1930@gondor.apana.org.au> <4BA4C29A.8000806@iki.fi> <20100320124919.GA2243@gondor.apana.org.au> <4BA4C587.60504@iki.fi>
+Date: Sat, 20 Mar 2010 09:26:33 -0400
+Message-ID: <20100320132633.GB30349@hmsreliant.think-freely.org>
+References: <1269087341-7009-1-git-send-email-timo.teras@iki.fi>
+ <20100320123247.GB1930@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: Timo Teras <timo.teras@iki.fi>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:44261 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751718Ab0CTNNp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Mar 2010 09:13:45 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38281 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751808Ab0CTN0o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Mar 2010 09:26:44 -0400
 Content-Disposition: inline
-In-Reply-To: <4BA4C587.60504@iki.fi>
+In-Reply-To: <20100320123247.GB1930@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 20, 2010 at 02:54:31PM +0200, Timo Ter=E4s wrote:
->
-> Those are more or less timer based too. I guess it would be
-> better to put to dst core's function then. It can see hanging
-> refs, and call xfrm gc in that case.
+On Sat, Mar 20, 2010 at 08:32:48PM +0800, Herbert Xu wrote:
+> On Sat, Mar 20, 2010 at 02:15:41PM +0200, Timo Teras wrote:
+> > The dst core calls garbage collection only from dst_alloc when
+> > the dst entry threshold is exceeded. Xfrm core currently checks
+> > bundles only on NETDEV_DOWN event.
+> > 
+> > Previously this has not been a big problem since xfrm gc threshold
+> > was small, and they were generated all the time due to another bug.
+> > 
+> > Since after a33bc5c15154c835aae26f16e6a3a7d9ad4acb45
+> > ("xfrm: select sane defaults for xfrm[4|6] gc_thresh") we can have
+> > large gc threshold sizes (>200000 on machines with normal amount
+> > of memory) the garbage collection does not get triggered under
+> > normal circumstances. This can result in enormous amount of stale
+> > bundles. Further more, each of these stale bundles keep a reference
+> > to ipv4/ipv6 rtable entries which are already gargage collected and
+> > put to dst core "destroy free'd dst's" list. Now this list can grow
+> > to be very large, and the dst core periodic job can bring even a fast
+> > machine to it's knees.
+> 
+> So why do we need this larger threshold in the first place? Neil?
+My initial reasoning is here:
+http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commit;h=a33bc5c15154c835aae26f16e6a3a7d9ad4acb45
+I'd had a bug  claiming that ipsec didn't scale to thousands of SA's, and the
+reason turned out to be that xfrm code capped their entry threshold at 1024
+entries:
+https://bugzilla.redhat.com/show_bug.cgi?id=253053
 
-The IPv4 one appears to be invoked from dst_alloc just like
-xfrm.
+I exported the gc thresholds via sysctls, and then used the above commit to
+select sane values, reasoning that we should be able to support as many tunnels
+as routes when possible.
 
-> To even minimize that it would help a lot if xfrm_bundle_ok
-> could release (or swap to dummies) the referenced dst->route
-> and dst->child entries. xfrm_bundle_ok is mostly called for
-> all bundles regularly by xfrm_find_bundle before new ones are
-> created.
+If its too high, I have no qualm with lowering it, given that those that need it
+can bump it up higher via the sysctl.
 
-Yes I agree that's what we should do once your other patch is
-applied.
+Regards
+Neil
 
-So every top-level xfrm_dst that's not referenced by some user
-should sit in the flow cache.  When it's needed and we find it
-to be stale we kick it out of the cache and free it along with
-the rest of its constituents.
-
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> -- 
+> Visit Openswan at http://www.openswan.org/
+> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> 
+> 
