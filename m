@@ -1,31 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: Fix tcp_mark_head_lost() with packets == 0
-Date: Fri, 19 Mar 2010 22:44:57 -0700 (PDT)
-Message-ID: <20100319.224457.179950657.davem@davemloft.net>
-References: <1268828189-22182-1-git-send-email-lennart.schulte@nets.rwth-aachen.de>
+Subject: Re: [PATCH 00/12] l2tp: Introduce L2TPv3 support
+Date: Fri, 19 Mar 2010 23:23:49 -0700 (PDT)
+Message-ID: <20100319.232349.70207451.davem@davemloft.net>
+References: <20100318102127.14576.98388.stgit@bert.katalix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
-	hannemann@nets.rwth-aachen.de
-To: lennart.schulte@nets.rwth-aachen.de
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: jchapman@katalix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42156
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39066
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751349Ab0CTFof (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Mar 2010 01:44:35 -0400
-In-Reply-To: <1268828189-22182-1-git-send-email-lennart.schulte@nets.rwth-aachen.de>
+	by vger.kernel.org with ESMTP id S1751818Ab0CTGX1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Mar 2010 02:23:27 -0400
+In-Reply-To: <20100318102127.14576.98388.stgit@bert.katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>
-Date: Wed, 17 Mar 2010 13:16:29 +0100
-
-> A packet is marked as lost in case packets == 0, although nothing should be done.
-> This results in a too early retransmitted packet during recovery in some cases.
-> This small patch fixes this issue by returning immediately.
-> 
-> Signed-off-by: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>
-> Signed-off-by: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
-
-Applied, thanks.
+DQpEb2Vzbid0IGV2ZW4gYnVpbGQ6DQoNCm5ldC9sMnRwL2wydHBfaXAuYzo2MDA6IGVycm9yOiCh
+Y29tcGF0X3VkcF9zZXRzb2Nrb3B0oiB1bmRlY2xhcmVkIGhlcmUgKG5vdCBpbiBhIGZ1bmN0aW9u
+KQ0KbmV0L2wydHAvbDJ0cF9pcC5jOjYwMTogZXJyb3I6IKFjb21wYXRfdWRwX2dldHNvY2tvcHSi
+IHVuZGVjbGFyZWQgaGVyZSAobm90IGluIGEgZnVuY3Rpb24pDQoNCllvdSBjYW4ndCBkbyB0aGlz
+IGxpa2UgdGhpcywgYXMgdGhlIGhlYWRlciBwcm92aWRpbmcgdGhlc2UNCmRlY2xhcmF0aW9ucyBp
+cyBwcml2YXRlIHRvIG5ldC9pcHY0Lw0KDQpSZXNwaW4geW91ciBlbnRpcmUgcGF0Y2ggc2V0IG9u
+Y2UgeW91J3ZlIHJlc29sdmVkIHRoaXMgYW5kDQphbHNvIHBsZWFzZSBmaXggdGhlc2UgZnVuZGFt
+ZW50YWwgd2hpdGVzcGFjZSBlcnJvcnMgZW1pdHRlZA0KYnkgZ2l0IHdoZW4gSSBhcHBseSB5b3Vy
+IHBhdGNoZXM6DQoNCkFwcGx5aW5nOiBsMnRwOiBSZWxvY2F0ZSBwcHBvbDJ0cCBkcml2ZXIgdG8g
+bmV3IG5ldC9sMnRwIGRpcmVjdG9yeQ0KQXBwbHlpbmc6IGwydHA6IFNwbGl0IHBwcG9sMnRwIGRy
+aXZlciBpbnRvIHNlcGFyYXRlIGwydHAgYW5kIHBwcCBwYXJ0cw0KL2hvbWUvZGF2ZW0vc3JjL0dJ
+VC9uZXQtbmV4dC0yLjYvLmdpdC9yZWJhc2UtYXBwbHkvcGF0Y2g6MTE4OiBuZXcgYmxhbmsgbGlu
+ZSBhdCBFT0YuDQorDQovaG9tZS9kYXZlbS9zcmMvR0lUL25ldC1uZXh0LTIuNi8uZ2l0L3JlYmFz
+ZS1hcHBseS9wYXRjaDoxMzM6IG5ldyBibGFuayBsaW5lIGF0IEVPRi4NCisNCndhcm5pbmc6IDIg
+bGluZXMgYWRkIHdoaXRlc3BhY2UgZXJyb3JzLg0KQXBwbHlpbmc6IHBwcDogQWRkIHBwcF9kZXZf
+bmFtZSgpIGV4cG9ydGVkIGZ1bmN0aW9uDQpBcHBseWluZzogbDJ0cDogQWRkIHBwcCBkZXZpY2Ug
+bmFtZSB0byBMMlRQIHBwcCBzZXNzaW9uIGRhdGENCkFwcGx5aW5nOiBsMnRwOiBBZGQgTDJUUHYz
+IHByb3RvY29sIHN1cHBvcnQNCkFwcGx5aW5nOiBsMnRwOiBVcGRhdGUgUFBQLW92ZXItTDJUUCBk
+cml2ZXIgdG8gd29yayBvdmVyIEwyVFB2Mw0KQXBwbHlpbmc6IGwydHA6IEFkZCBMMlRQdjMgSVAg
+ZW5jYXBzdWxhdGlvbiAobm8gVURQKSBzdXBwb3J0DQovaG9tZS9kYXZlbS9zcmMvR0lUL25ldC1u
+ZXh0LTIuNi8uZ2l0L3JlYmFzZS1hcHBseS9wYXRjaDo2MTogbmV3IGJsYW5rIGxpbmUgYXQgRU9G
+Lg0KKw0Kd2FybmluZzogMSBsaW5lIGFkZHMgd2hpdGVzcGFjZSBlcnJvcnMuDQpBcHBseWluZzog
+bmV0bGluazogRXhwb3J0IGdlbmxfbG9jaygpIEFQSSBmb3IgdXNlIGJ5IG1vZHVsZXMNCkFwcGx5
+aW5nOiBsMnRwOiBBZGQgbmV0bGluayBjb250cm9sIEFQSSBmb3IgTDJUUA0KQXBwbHlpbmc6IGwy
+dHA6IEFkZCBMMlRQIGV0aGVybmV0IHBzZXVkb3dpcmUgc3VwcG9ydA0KL2hvbWUvZGF2ZW0vc3Jj
+L0dJVC9uZXQtbmV4dC0yLjYvLmdpdC9yZWJhc2UtYXBwbHkvcGF0Y2g6MjU6IHNwYWNlIGJlZm9y
+ZSB0YWIgaW4gaW5kZW50Lg0KICAgCSAgdXNlZCBhcyBhIGNvbnRyb2wgcHJvdG9jb2wgYW5kIGZv
+ciBkYXRhIGVuY2Fwc3VsYXRpb24gdG8gc2V0DQovaG9tZS9kYXZlbS9zcmMvR0lUL25ldC1uZXh0
+LTIuNi8uZ2l0L3JlYmFzZS1hcHBseS9wYXRjaDoyNjogc3BhY2UgYmVmb3JlIHRhYiBpbiBpbmRl
+bnQuDQogICAJICB1cCBQc2V1ZG93aXJlcyBmb3IgdHJhbnNwb3J0aW5nIGxheWVyIDIgUGFja2V0
+IERhdGEgVW5pdHMNCi9ob21lL2RhdmVtL3NyYy9HSVQvbmV0LW5leHQtMi42Ly5naXQvcmViYXNl
+LWFwcGx5L3BhdGNoOjI3OiBzcGFjZSBiZWZvcmUgdGFiIGluIGluZGVudC4NCiAgIAkgIGFjcm9z
+cyBhbiBJUCBuZXR3b3JrIFtSRkMzOTMxXS4NCi9ob21lL2RhdmVtL3NyYy9HSVQvbmV0LW5leHQt
+Mi42Ly5naXQvcmViYXNlLWFwcGx5L3BhdGNoOjEyOiBuZXcgYmxhbmsgbGluZSBhdCBFT0YuDQor
+DQp3YXJuaW5nOiA0IGxpbmVzIGFkZCB3aGl0ZXNwYWNlIGVycm9ycy4NCkFwcGx5aW5nOiBsMnRw
+OiBBZGQgc3VwcG9ydCBmb3Igc3RhdGljIHVubWFuYWdlZCBMMlRQdjMgdHVubmVscw0KQXBwbHlp
+bmc6IGwydHA6IFVwZGF0ZSBkb2N1bWVudGF0aW9uDQoNClRoYW5rcy4NCg==
