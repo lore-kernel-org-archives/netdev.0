@@ -1,78 +1,42 @@
-From: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 2/2] can: sja1000: add read/write routines
-	for 8, 16 and 32-bit register access
-Date: Sat, 20 Mar 2010 04:56:39 +0100
-Message-ID: <20100320035639.GB26934@pengutronix.de>
-References: <4BA3565F.6040907@visionsystems.de>
-	<4BA356A4.5040205@visionsystems.de>
-	<4BA35704.2060909@visionsystems.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-2.6 PATCH 1/3] ixgbevf: Fix VF Stats accounting after
+ reset
+Date: Fri, 19 Mar 2010 21:06:11 -0700 (PDT)
+Message-ID: <20100319.210611.71090762.davem@davemloft.net>
+References: <20100319125950.9799.70157.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============2647106025730886810=="
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Yegor Yefremov <yegor_sub1-ZJVcf1zZPRSebONBosFW4Q@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4BA35704.2060909-ZJVcf1zZPRSebONBosFW4Q@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-
---===============2647106025730886810==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="DBIVS5p969aUjpLe"
-Content-Disposition: inline
-
-
---DBIVS5p969aUjpLe
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Fri, Mar 19, 2010 at 11:50:44AM +0100, Yegor Yefremov wrote:
-> SJA1000: add read/write routines for 8, 16 and 32-bit register access
->=20
-> add routines for 8, 16 and 32-bit access like in=20
-> drivers/i2c/busses/i2c-pca-platform.c
->=20
-> Signed-off-by: Yegor Yefremov <yegorslists-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-
-Acked-by: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-
---=20
-Pengutronix e.K.                           | Wolfram Sang                |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-
---DBIVS5p969aUjpLe
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAkukR3cACgkQD27XaX1/VRtiTgCfYi1zBxsDdVToOuPoDvV/UcXI
-d1YAn1YL9kB5nP2PXOef2HYv0GfAezvG
-=r01p
------END PGP SIGNATURE-----
-
---DBIVS5p969aUjpLe--
-
---===============2647106025730886810==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: netdev@vger.kernel.org, gospo@redhat.com, gregory.v.rose@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44603
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750772Ab0CTEFt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Mar 2010 00:05:49 -0400
+In-Reply-To: <20100319125950.9799.70157.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 19 Mar 2010 05:59:52 -0700
 
---===============2647106025730886810==--
+> From: Greg Rose <gregory.v.rose@intel.com>
+> 
+> The counters in the 82599 Virtual Function are not clear on read.  They
+> accumulate to the maximum value and then roll over.  They are also not
+> cleared when the VF executes a soft reset, so it is possible they are
+> non-zero when the driver loads and starts.  This has all been accounted
+> for in the code that keeps the stats up to date but there is one case
+> that is not.  When the PF driver is reset the counters in the VF are
+> all reset to zero.  This adds an additional accounting overhead into
+> the VF driver when the PF is reset under its feet.  This patch adds
+> additional counters that are used by the VF driver to accumulate and
+> save stats after a PF reset has been detected.  Prior to this patch
+> displaying the stats in the VF after the PF has reset would show
+> bogus data.
+> 
+> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+
+Applied.
