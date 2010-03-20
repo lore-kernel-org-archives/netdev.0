@@ -1,38 +1,26 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [patch] bridge: cleanup: remove unused assignment
-Date: Sat, 20 Mar 2010 19:57:47 +0800
-Message-ID: <20100320115747.GA1849@gondor.apana.org.au>
-References: <20100320112049.GU5331@bicker>
+From: ctxspi@gmail.com
+Subject: Re: lartc is dead?
+Date: Sat, 20 Mar 2010 13:04:45 +0100
+Message-ID: <20100320120445.GA15030@alice.it>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Michael Braun <michael-dev@fami-braun.de>,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
+Cc: ahu@ds9a.nl
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:41297 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750797Ab0CTL6I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Mar 2010 07:58:08 -0400
+Received: from mail-fx0-f219.google.com ([209.85.220.219]:64477 "EHLO
+	mail-fx0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750833Ab0CTMEl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Mar 2010 08:04:41 -0400
+Received: by fxm19 with SMTP id 19so1299260fxm.21
+        for <netdev@vger.kernel.org>; Sat, 20 Mar 2010 05:04:40 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20100320112049.GU5331@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 20, 2010 at 02:20:49PM +0300, Dan Carpenter wrote:
-> We never actually use iph again so this assignment can be removed.
-> 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+Hi, my name is Marco.
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+I want know how I can have help for small question about bug (nexthdr in u32).
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Can you give me a small help?
+
+Thanks
