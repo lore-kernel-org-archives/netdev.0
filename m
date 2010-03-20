@@ -1,272 +1,589 @@
-From: "Justin P. Mattock" <justinmattock@gmail.com>
-Subject: Re: [PATCH] Cosmetic:Partially remove deprecated __initcall() and
- change to
-Date: Fri, 19 Mar 2010 16:24:28 -0700
-Message-ID: <4BA407AC.5030506@gmail.com>
-References: <1269028291-9103-1-git-send-email-justinmattock@gmail.com> <4BA40115.2000509@xenotime.net>
+From: Tom Goff <thomas.goff@boeing.com>
+Subject: [PATCH] net_sched: make traffic control network namespace aware
+Date: Fri, 19 Mar 2010 18:40:13 -0700
+Message-ID: <20100320014013.GC13239@boeing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: trivial@kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-audit@redhat.com, uclinux-dist-devel@blackfin.uclinux.org,
-        linux-cris-kernel@axis.com, linux-ia64@vger.kernel.org,
-        linux-mips@linux-mips.org, linux-parisc@vger.kernel.org,
-        linux-s390@vger.kernel.org, selinux@tycho.nsa.gov,
-        sparclinux@vger.kernel.org, x86@kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Randy Dunlap <rdunlap@xenotime.net>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <4BA40115.2000509@xenotime.net>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from blv-smtpout-01.boeing.com ([130.76.32.69]:55805 "EHLO
+	blv-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751867Ab0CTByh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Mar 2010 21:54:37 -0400
+Received: from stl-av-01.boeing.com (stl-av-01.boeing.com [192.76.190.6])
+	by blv-smtpout-01.ns.cs.boeing.com (8.14.4/8.14.4/8.14.4/SMTPOUT) with ESMTP id o2K1eFHx017055
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Fri, 19 Mar 2010 18:40:16 -0700 (PDT)
+Received: from stl-av-01.boeing.com (localhost [127.0.0.1])
+	by stl-av-01.boeing.com (8.14.4/8.14.4/DOWNSTREAM_RELAY) with ESMTP id o2K1eFwH016842
+	for <netdev@vger.kernel.org>; Fri, 19 Mar 2010 20:40:15 -0500 (CDT)
+Received: from packet.blv.boeing.com (packet.blv.boeing.com [130.42.97.136])
+	by stl-av-01.boeing.com (8.14.4/8.14.4/UPSTREAM_RELAY) with SMTP id o2K1eDhl016822
+	for <netdev@vger.kernel.org>; Fri, 19 Mar 2010 20:40:13 -0500 (CDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/19/2010 03:56 PM, Randy Dunlap wrote:
-> On 03/19/10 12:51, Justin P. Mattock wrote:
->> After doing some things on a small issue,
->> I noticed through web surfing, that there were patches
->> submitted pertaining that __initcall is deprecated,
->> and device_initcall should be used.
->
-> Where was this discussion?  Do you have any pointers to it?
->
+Mostly minor changes to add a net argument to various functions and
+remove initial network namespace checks.
 
-The best info on this is scripts/checkpatch.pl
-line #2664
+Make /proc/net/psched per network namespace.
 
-when I found this I just did a quick search of __initcall
-(which gives hits here and there)
-https://patchwork.kernel.org/patch/23344/
-(also found others at around 2008 or so)
+Signed-off-by: Tom Goff <thomas.goff@boeing.com>
+---
+ net/sched/act_api.c |   45 ++++++++++----------
+ net/sched/cls_api.c |   30 ++++++--------
+ net/sched/sch_api.c |  112 ++++++++++++++++++++++++++++++++------------------
+ 3 files changed, 107 insertions(+), 80 deletions(-)
 
-> I don't see any mention of __initcall being deprecated in
-> Linus' mainline git tree, or in linux-next, or in mmotm.
-> Where are those patches?
->
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 64f5e32..7a558da 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -667,7 +667,8 @@ nlmsg_failure:
+ }
+ 
+ static int
+-act_get_notify(u32 pid, struct nlmsghdr *n, struct tc_action *a, int event)
++act_get_notify(struct net *net, u32 pid, struct nlmsghdr *n,
++	       struct tc_action *a, int event)
+ {
+ 	struct sk_buff *skb;
+ 
+@@ -679,7 +680,7 @@ act_get_notify(u32 pid, struct nlmsghdr *n, struct tc_action *a, int event)
+ 		return -EINVAL;
+ 	}
+ 
+-	return rtnl_unicast(skb, &init_net, pid);
++	return rtnl_unicast(skb, net, pid);
+ }
+ 
+ static struct tc_action *
+@@ -749,7 +750,8 @@ static struct tc_action *create_a(int i)
+ 	return act;
+ }
+ 
+-static int tca_action_flush(struct nlattr *nla, struct nlmsghdr *n, u32 pid)
++static int tca_action_flush(struct net *net, struct nlattr *nla,
++			    struct nlmsghdr *n, u32 pid)
+ {
+ 	struct sk_buff *skb;
+ 	unsigned char *b;
+@@ -808,7 +810,7 @@ static int tca_action_flush(struct nlattr *nla, struct nlmsghdr *n, u32 pid)
+ 	nlh->nlmsg_flags |= NLM_F_ROOT;
+ 	module_put(a->ops->owner);
+ 	kfree(a);
+-	err = rtnetlink_send(skb, &init_net, pid, RTNLGRP_TC, n->nlmsg_flags&NLM_F_ECHO);
++	err = rtnetlink_send(skb, net, pid, RTNLGRP_TC, n->nlmsg_flags&NLM_F_ECHO);
+ 	if (err > 0)
+ 		return 0;
+ 
+@@ -825,7 +827,8 @@ noflush_out:
+ }
+ 
+ static int
+-tca_action_gd(struct nlattr *nla, struct nlmsghdr *n, u32 pid, int event)
++tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
++	      u32 pid, int event)
+ {
+ 	int i, ret;
+ 	struct nlattr *tb[TCA_ACT_MAX_PRIO+1];
+@@ -837,7 +840,7 @@ tca_action_gd(struct nlattr *nla, struct nlmsghdr *n, u32 pid, int event)
+ 
+ 	if (event == RTM_DELACTION && n->nlmsg_flags&NLM_F_ROOT) {
+ 		if (tb[1] != NULL)
+-			return tca_action_flush(tb[1], n, pid);
++			return tca_action_flush(net, tb[1], n, pid);
+ 		else
+ 			return -EINVAL;
+ 	}
+@@ -858,7 +861,7 @@ tca_action_gd(struct nlattr *nla, struct nlmsghdr *n, u32 pid, int event)
+ 	}
+ 
+ 	if (event == RTM_GETACTION)
+-		ret = act_get_notify(pid, n, head, event);
++		ret = act_get_notify(net, pid, n, head, event);
+ 	else { /* delete */
+ 		struct sk_buff *skb;
+ 
+@@ -877,7 +880,7 @@ tca_action_gd(struct nlattr *nla, struct nlmsghdr *n, u32 pid, int event)
+ 
+ 		/* now do the delete */
+ 		tcf_action_destroy(head, 0);
+-		ret = rtnetlink_send(skb, &init_net, pid, RTNLGRP_TC,
++		ret = rtnetlink_send(skb, net, pid, RTNLGRP_TC,
+ 				     n->nlmsg_flags&NLM_F_ECHO);
+ 		if (ret > 0)
+ 			return 0;
+@@ -888,8 +891,8 @@ err:
+ 	return ret;
+ }
+ 
+-static int tcf_add_notify(struct tc_action *a, u32 pid, u32 seq, int event,
+-			  u16 flags)
++static int tcf_add_notify(struct net *net, struct tc_action *a,
++			  u32 pid, u32 seq, int event, u16 flags)
+ {
+ 	struct tcamsg *t;
+ 	struct nlmsghdr *nlh;
+@@ -922,7 +925,7 @@ static int tcf_add_notify(struct tc_action *a, u32 pid, u32 seq, int event,
+ 	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
+ 	NETLINK_CB(skb).dst_group = RTNLGRP_TC;
+ 
+-	err = rtnetlink_send(skb, &init_net, pid, RTNLGRP_TC, flags&NLM_F_ECHO);
++	err = rtnetlink_send(skb, net, pid, RTNLGRP_TC, flags&NLM_F_ECHO);
+ 	if (err > 0)
+ 		err = 0;
+ 	return err;
+@@ -935,7 +938,8 @@ nlmsg_failure:
+ 
+ 
+ static int
+-tcf_action_add(struct nlattr *nla, struct nlmsghdr *n, u32 pid, int ovr)
++tcf_action_add(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
++	       u32 pid, int ovr)
+ {
+ 	int ret = 0;
+ 	struct tc_action *act;
+@@ -953,7 +957,7 @@ tcf_action_add(struct nlattr *nla, struct nlmsghdr *n, u32 pid, int ovr)
+ 	/* dump then free all the actions after update; inserted policy
+ 	 * stays intact
+ 	 * */
+-	ret = tcf_add_notify(act, pid, seq, RTM_NEWACTION, n->nlmsg_flags);
++	ret = tcf_add_notify(net, act, pid, seq, RTM_NEWACTION, n->nlmsg_flags);
+ 	for (a = act; a; a = act) {
+ 		act = a->next;
+ 		kfree(a);
+@@ -969,9 +973,6 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 	u32 pid = skb ? NETLINK_CB(skb).pid : 0;
+ 	int ret = 0, ovr = 0;
+ 
+-	if (!net_eq(net, &init_net))
+-		return -EINVAL;
+-
+ 	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCA_ACT_MAX, NULL);
+ 	if (ret < 0)
+ 		return ret;
+@@ -994,15 +995,17 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 		if (n->nlmsg_flags&NLM_F_REPLACE)
+ 			ovr = 1;
+ replay:
+-		ret = tcf_action_add(tca[TCA_ACT_TAB], n, pid, ovr);
++		ret = tcf_action_add(net, tca[TCA_ACT_TAB], n, pid, ovr);
+ 		if (ret == -EAGAIN)
+ 			goto replay;
+ 		break;
+ 	case RTM_DELACTION:
+-		ret = tca_action_gd(tca[TCA_ACT_TAB], n, pid, RTM_DELACTION);
++		ret = tca_action_gd(net, tca[TCA_ACT_TAB], n,
++				    pid, RTM_DELACTION);
+ 		break;
+ 	case RTM_GETACTION:
+-		ret = tca_action_gd(tca[TCA_ACT_TAB], n, pid, RTM_GETACTION);
++		ret = tca_action_gd(net, tca[TCA_ACT_TAB], n,
++				    pid, RTM_GETACTION);
+ 		break;
+ 	default:
+ 		BUG();
+@@ -1042,7 +1045,6 @@ find_dump_kind(const struct nlmsghdr *n)
+ static int
+ tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+-	struct net *net = sock_net(skb->sk);
+ 	struct nlmsghdr *nlh;
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct nlattr *nest;
+@@ -1052,9 +1054,6 @@ tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct tcamsg *t = (struct tcamsg *) NLMSG_DATA(cb->nlh);
+ 	struct nlattr *kind = find_dump_kind(cb->nlh);
+ 
+-	if (!net_eq(net, &init_net))
+-		return 0;
+-
+ 	if (kind == NULL) {
+ 		printk("tc_dump_action: action bad kind\n");
+ 		return 0;
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 3725d8f..4a795d9 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -98,8 +98,9 @@ out:
+ }
+ EXPORT_SYMBOL(unregister_tcf_proto_ops);
+ 
+-static int tfilter_notify(struct sk_buff *oskb, struct nlmsghdr *n,
+-			  struct tcf_proto *tp, unsigned long fh, int event);
++static int tfilter_notify(struct net *net, struct sk_buff *oskb,
++			  struct nlmsghdr *n, struct tcf_proto *tp,
++			  unsigned long fh, int event);
+ 
+ 
+ /* Select new prio value from the range, managed by kernel. */
+@@ -137,9 +138,6 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 	int err;
+ 	int tp_created = 0;
+ 
+-	if (!net_eq(net, &init_net))
+-		return -EINVAL;
+-
+ replay:
+ 	t = NLMSG_DATA(n);
+ 	protocol = TC_H_MIN(t->tcm_info);
+@@ -158,7 +156,7 @@ replay:
+ 	/* Find head of filter chain. */
+ 
+ 	/* Find link */
+-	dev = __dev_get_by_index(&init_net, t->tcm_ifindex);
++	dev = __dev_get_by_index(net, t->tcm_ifindex);
+ 	if (dev == NULL)
+ 		return -ENODEV;
+ 
+@@ -282,7 +280,7 @@ replay:
+ 			*back = tp->next;
+ 			spin_unlock_bh(root_lock);
+ 
+-			tfilter_notify(skb, n, tp, fh, RTM_DELTFILTER);
++			tfilter_notify(net, skb, n, tp, fh, RTM_DELTFILTER);
+ 			tcf_destroy(tp);
+ 			err = 0;
+ 			goto errout;
+@@ -305,10 +303,10 @@ replay:
+ 		case RTM_DELTFILTER:
+ 			err = tp->ops->delete(tp, fh);
+ 			if (err == 0)
+-				tfilter_notify(skb, n, tp, fh, RTM_DELTFILTER);
++				tfilter_notify(net, skb, n, tp, fh, RTM_DELTFILTER);
+ 			goto errout;
+ 		case RTM_GETTFILTER:
+-			err = tfilter_notify(skb, n, tp, fh, RTM_NEWTFILTER);
++			err = tfilter_notify(net, skb, n, tp, fh, RTM_NEWTFILTER);
+ 			goto errout;
+ 		default:
+ 			err = -EINVAL;
+@@ -324,7 +322,7 @@ replay:
+ 			*back = tp;
+ 			spin_unlock_bh(root_lock);
+ 		}
+-		tfilter_notify(skb, n, tp, fh, RTM_NEWTFILTER);
++		tfilter_notify(net, skb, n, tp, fh, RTM_NEWTFILTER);
+ 	} else {
+ 		if (tp_created)
+ 			tcf_destroy(tp);
+@@ -370,8 +368,9 @@ nla_put_failure:
+ 	return -1;
+ }
+ 
+-static int tfilter_notify(struct sk_buff *oskb, struct nlmsghdr *n,
+-			  struct tcf_proto *tp, unsigned long fh, int event)
++static int tfilter_notify(struct net *net, struct sk_buff *oskb,
++			  struct nlmsghdr *n, struct tcf_proto *tp,
++			  unsigned long fh, int event)
+ {
+ 	struct sk_buff *skb;
+ 	u32 pid = oskb ? NETLINK_CB(oskb).pid : 0;
+@@ -385,7 +384,7 @@ static int tfilter_notify(struct sk_buff *oskb, struct nlmsghdr *n,
+ 		return -EINVAL;
+ 	}
+ 
+-	return rtnetlink_send(skb, &init_net, pid, RTNLGRP_TC,
++	return rtnetlink_send(skb, net, pid, RTNLGRP_TC,
+ 			      n->nlmsg_flags & NLM_F_ECHO);
+ }
+ 
+@@ -418,12 +417,9 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
+ 	const struct Qdisc_class_ops *cops;
+ 	struct tcf_dump_args arg;
+ 
+-	if (!net_eq(net, &init_net))
+-		return 0;
+-
+ 	if (cb->nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*tcm)))
+ 		return skb->len;
+-	if ((dev = __dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
++	if ((dev = __dev_get_by_index(net, tcm->tcm_ifindex)) == NULL)
+ 		return skb->len;
+ 
+ 	if (!tcm->tcm_parent)
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 6cd4910..6d6fe16 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -34,10 +34,12 @@
+ #include <net/netlink.h>
+ #include <net/pkt_sched.h>
+ 
+-static int qdisc_notify(struct sk_buff *oskb, struct nlmsghdr *n, u32 clid,
++static int qdisc_notify(struct net *net, struct sk_buff *oskb,
++			struct nlmsghdr *n, u32 clid,
+ 			struct Qdisc *old, struct Qdisc *new);
+-static int tclass_notify(struct sk_buff *oskb, struct nlmsghdr *n,
+-			 struct Qdisc *q, unsigned long cl, int event);
++static int tclass_notify(struct net *net, struct sk_buff *oskb,
++			 struct nlmsghdr *n, struct Qdisc *q,
++			 unsigned long cl, int event);
+ 
+ /*
+ 
+@@ -638,11 +640,12 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
+ }
+ EXPORT_SYMBOL(qdisc_tree_decrease_qlen);
+ 
+-static void notify_and_destroy(struct sk_buff *skb, struct nlmsghdr *n, u32 clid,
++static void notify_and_destroy(struct net *net, struct sk_buff *skb,
++			       struct nlmsghdr *n, u32 clid,
+ 			       struct Qdisc *old, struct Qdisc *new)
+ {
+ 	if (new || old)
+-		qdisc_notify(skb, n, clid, old, new);
++		qdisc_notify(net, skb, n, clid, old, new);
+ 
+ 	if (old)
+ 		qdisc_destroy(old);
+@@ -662,6 +665,7 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
+ 		       struct Qdisc *new, struct Qdisc *old)
+ {
+ 	struct Qdisc *q = old;
++	struct net *net = dev_net(dev);
+ 	int err = 0;
+ 
+ 	if (parent == NULL) {
+@@ -698,12 +702,13 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
+ 		}
+ 
+ 		if (!ingress) {
+-			notify_and_destroy(skb, n, classid, dev->qdisc, new);
++			notify_and_destroy(net, skb, n, classid,
++					   dev->qdisc, new);
+ 			if (new && !new->ops->attach)
+ 				atomic_inc(&new->refcnt);
+ 			dev->qdisc = new ? : &noop_qdisc;
+ 		} else {
+-			notify_and_destroy(skb, n, classid, old, new);
++			notify_and_destroy(net, skb, n, classid, old, new);
+ 		}
+ 
+ 		if (dev->flags & IFF_UP)
+@@ -721,7 +726,7 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
+ 				err = -ENOENT;
+ 		}
+ 		if (!err)
+-			notify_and_destroy(skb, n, classid, old, new);
++			notify_and_destroy(net, skb, n, classid, old, new);
+ 	}
+ 	return err;
+ }
+@@ -947,10 +952,7 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 	struct Qdisc *p = NULL;
+ 	int err;
+ 
+-	if (!net_eq(net, &init_net))
+-		return -EINVAL;
+-
+-	if ((dev = __dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
++	if ((dev = __dev_get_by_index(net, tcm->tcm_ifindex)) == NULL)
+ 		return -ENODEV;
+ 
+ 	err = nlmsg_parse(n, sizeof(*tcm), tca, TCA_MAX, NULL);
+@@ -990,7 +992,7 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 		if ((err = qdisc_graft(dev, p, skb, n, clid, NULL, q)) != 0)
+ 			return err;
+ 	} else {
+-		qdisc_notify(skb, n, clid, NULL, q);
++		qdisc_notify(net, skb, n, clid, NULL, q);
+ 	}
+ 	return 0;
+ }
+@@ -1009,16 +1011,13 @@ static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 	struct Qdisc *q, *p;
+ 	int err;
+ 
+-	if (!net_eq(net, &init_net))
+-		return -EINVAL;
+-
+ replay:
+ 	/* Reinit, just in case something touches this. */
+ 	tcm = NLMSG_DATA(n);
+ 	clid = tcm->tcm_parent;
+ 	q = p = NULL;
+ 
+-	if ((dev = __dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
++	if ((dev = __dev_get_by_index(net, tcm->tcm_ifindex)) == NULL)
+ 		return -ENODEV;
+ 
+ 	err = nlmsg_parse(n, sizeof(*tcm), tca, TCA_MAX, NULL);
+@@ -1105,7 +1104,7 @@ replay:
+ 		return -EINVAL;
+ 	err = qdisc_change(q, tca);
+ 	if (err == 0)
+-		qdisc_notify(skb, n, clid, NULL, q);
++		qdisc_notify(net, skb, n, clid, NULL, q);
+ 	return err;
+ 
+ create_n_graft:
+@@ -1195,8 +1194,9 @@ nla_put_failure:
+ 	return -1;
+ }
+ 
+-static int qdisc_notify(struct sk_buff *oskb, struct nlmsghdr *n,
+-			u32 clid, struct Qdisc *old, struct Qdisc *new)
++static int qdisc_notify(struct net *net, struct sk_buff *oskb,
++			struct nlmsghdr *n, u32 clid,
++			struct Qdisc *old, struct Qdisc *new)
+ {
+ 	struct sk_buff *skb;
+ 	u32 pid = oskb ? NETLINK_CB(oskb).pid : 0;
+@@ -1215,7 +1215,7 @@ static int qdisc_notify(struct sk_buff *oskb, struct nlmsghdr *n,
+ 	}
+ 
+ 	if (skb->len)
+-		return rtnetlink_send(skb, &init_net, pid, RTNLGRP_TC, n->nlmsg_flags&NLM_F_ECHO);
++		return rtnetlink_send(skb, net, pid, RTNLGRP_TC, n->nlmsg_flags&NLM_F_ECHO);
+ 
+ err_out:
+ 	kfree_skb(skb);
+@@ -1274,15 +1274,12 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
+ 	int s_idx, s_q_idx;
+ 	struct net_device *dev;
+ 
+-	if (!net_eq(net, &init_net))
+-		return 0;
+-
+ 	s_idx = cb->args[0];
+ 	s_q_idx = q_idx = cb->args[1];
+ 
+ 	rcu_read_lock();
+ 	idx = 0;
+-	for_each_netdev_rcu(&init_net, dev) {
++	for_each_netdev_rcu(net, dev) {
+ 		struct netdev_queue *dev_queue;
+ 
+ 		if (idx < s_idx)
+@@ -1334,10 +1331,7 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 	u32 qid = TC_H_MAJ(clid);
+ 	int err;
+ 
+-	if (!net_eq(net, &init_net))
+-		return -EINVAL;
+-
+-	if ((dev = __dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
++	if ((dev = __dev_get_by_index(net, tcm->tcm_ifindex)) == NULL)
+ 		return -ENODEV;
+ 
+ 	err = nlmsg_parse(n, sizeof(*tcm), tca, TCA_MAX, NULL);
+@@ -1418,10 +1412,10 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 			if (cops->delete)
+ 				err = cops->delete(q, cl);
+ 			if (err == 0)
+-				tclass_notify(skb, n, q, cl, RTM_DELTCLASS);
++				tclass_notify(net, skb, n, q, cl, RTM_DELTCLASS);
+ 			goto out;
+ 		case RTM_GETTCLASS:
+-			err = tclass_notify(skb, n, q, cl, RTM_NEWTCLASS);
++			err = tclass_notify(net, skb, n, q, cl, RTM_NEWTCLASS);
+ 			goto out;
+ 		default:
+ 			err = -EINVAL;
+@@ -1434,7 +1428,7 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 	if (cops->change)
+ 		err = cops->change(q, clid, pid, tca, &new_cl);
+ 	if (err == 0)
+-		tclass_notify(skb, n, q, new_cl, RTM_NEWTCLASS);
++		tclass_notify(net, skb, n, q, new_cl, RTM_NEWTCLASS);
+ 
+ out:
+ 	if (cl)
+@@ -1486,8 +1480,9 @@ nla_put_failure:
+ 	return -1;
+ }
+ 
+-static int tclass_notify(struct sk_buff *oskb, struct nlmsghdr *n,
+-			  struct Qdisc *q, unsigned long cl, int event)
++static int tclass_notify(struct net *net, struct sk_buff *oskb,
++			 struct nlmsghdr *n, struct Qdisc *q,
++			 unsigned long cl, int event)
+ {
+ 	struct sk_buff *skb;
+ 	u32 pid = oskb ? NETLINK_CB(oskb).pid : 0;
+@@ -1501,7 +1496,7 @@ static int tclass_notify(struct sk_buff *oskb, struct nlmsghdr *n,
+ 		return -EINVAL;
+ 	}
+ 
+-	return rtnetlink_send(skb, &init_net, pid, RTNLGRP_TC, n->nlmsg_flags&NLM_F_ECHO);
++	return rtnetlink_send(skb, net, pid, RTNLGRP_TC, n->nlmsg_flags&NLM_F_ECHO);
+ }
+ 
+ struct qdisc_dump_args
+@@ -1576,12 +1571,9 @@ static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct net_device *dev;
+ 	int t, s_t;
+ 
+-	if (!net_eq(net, &init_net))
+-		return 0;
+-
+ 	if (cb->nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*tcm)))
+ 		return 0;
+-	if ((dev = dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
++	if ((dev = dev_get_by_index(net, tcm->tcm_ifindex)) == NULL)
+ 		return 0;
+ 
+ 	s_t = cb->args[0];
+@@ -1701,15 +1693,55 @@ static const struct file_operations psched_fops = {
+ 	.llseek = seq_lseek,
+ 	.release = single_release,
+ };
++
++static int __net_init psched_net_init(struct net *net)
++{
++	struct proc_dir_entry *e;
++
++	e = proc_net_fops_create(net, "psched", 0, &psched_fops);
++	if (e == NULL)
++		return -ENOMEM;
++
++	return 0;
++}
++
++static void __net_exit psched_net_exit(struct net *net)
++{
++	proc_net_remove(net, "psched");
++
++	return;
++}
++#else
++static int __net_init psched_net_init(struct net *net)
++{
++	return 0;
++}
++
++static void __net_exit psched_net_exit(struct net *net)
++{
++}
+ #endif
+ 
++static struct pernet_operations psched_net_ops = {
++	.init = psched_net_init,
++	.exit = psched_net_exit,
++};
++
+ static int __init pktsched_init(void)
+ {
++	int err;
++
++	err = register_pernet_subsys(&psched_net_ops);
++	if (err) {
++		printk(KERN_ERR "pktsched_init: "
++		       "cannot initialize per netns operations\n");
++		return err;
++	}
++
+ 	register_qdisc(&pfifo_qdisc_ops);
+ 	register_qdisc(&bfifo_qdisc_ops);
+ 	register_qdisc(&pfifo_head_drop_qdisc_ops);
+ 	register_qdisc(&mq_qdisc_ops);
+-	proc_net_fops_create(&init_net, "psched", 0, &psched_fops);
+ 
+ 	rtnl_register(PF_UNSPEC, RTM_NEWQDISC, tc_modify_qdisc, NULL);
+ 	rtnl_register(PF_UNSPEC, RTM_DELQDISC, tc_get_qdisc, NULL);
+-- 
+1.6.3.3
 
-I don't know(I'm out of the social pipeline when it comes to Linux news, 
-and updates)..
-like in the explanation part of the patch
-I was looking into something else, then ran into this,
-so as a break(from what I was originally doing)
-decided to do this and submit.
-
->
->> So as a change of subject(since what I was looking at
->> was frustrating me),I decided to grep the whole tree
->> and make the change(partially).
->>
->> Currently I'm running this patch on my system, kernel compiles
->> without any errors or warnings.(thought there would be a speed increase
->> but didn't see much(if any)).
->
-> No, __initcall(x) is just a shorthand version of typing
-> device_initcall(x).  They do the same thing.
->
-
-yep, that's what I found out as well(reason for the cosmetic
-in the subject line).
-
->> Biggest problem I have though is testing this on other hardware types
->> (I only have a macbook,and an iMac).
->> So please if you have the access to other arch/hardware types please
->> test.
->>
->> Now what I mean by partially is the __initcall function is still
->> there, so(if any) userspace apps/libs depend on this it's there
->> so they dont break and/or any other subsystem, that needs time
->> to make the changes.
->
-> The only thing that might be affected is building out-of-tree drivers,
-> but those are easy to fix.
->
-
-alright..main concern is making sure things don't break in the 
-kernel(even though things do).
-
-I can have a go at the header files, submit
-then if it's something people agree they want to do, then they
-can go from there(if not it's fine as well).
-
->> Note:
->> the remaining files that still have __initcall in them are:
->> (according to grep)
->>
->> arch/um/include/shared/init.h
->> include/linux/init.h
->> scripts/checkpatch.pl
->>
->> either I or somebody else, can change this(although a bit
->> concerned about breaking things).
->>
->> Signed-off-by: Justin P. Mattock<justinmattock@gmail.com>
->> ---
->>   Documentation/DocBook/kernel-hacking.tmpl    |    4 ++--
->>   Documentation/cpu-freq/cpu-drivers.txt       |    2 +-
->>   Documentation/kbuild/makefiles.txt           |    2 +-
->>   arch/arm/mach-at91/leds.c                    |    2 +-
->>   arch/arm/mach-clps711x/p720t.c               |    2 +-
->>   arch/arm/mach-ebsa110/leds.c                 |    2 +-
->>   arch/arm/mach-footbridge/cats-hw.c           |    2 +-
->>   arch/arm/mach-footbridge/ebsa285-leds.c      |    2 +-
->>   arch/arm/mach-footbridge/netwinder-hw.c      |    2 +-
->>   arch/arm/mach-footbridge/netwinder-leds.c    |    2 +-
->>   arch/arm/mach-ks8695/leds.c                  |    2 +-
->>   arch/arm/mach-omap1/leds.c                   |    2 +-
->>   arch/arm/mach-omap1/pm.c                     |    2 +-
->>   arch/arm/mach-orion5x/db88f5281-setup.c      |    2 +-
->>   arch/arm/mach-orion5x/rd88f5182-setup.c      |    2 +-
->>   arch/arm/mach-pxa/generic.c                  |    2 +-
->>   arch/arm/mach-pxa/pxa25x.c                   |    2 +-
->>   arch/arm/mach-shark/leds.c                   |    2 +-
->>   arch/blackfin/kernel/bfin_gpio.c             |    2 +-
->>   arch/blackfin/mach-common/pm.c               |    2 +-
->>   arch/cris/arch-v10/kernel/debugport.c        |    2 +-
->>   arch/cris/arch-v10/kernel/fasttimer.c        |    2 +-
->>   arch/cris/arch-v10/mm/init.c                 |    2 +-
->>   arch/cris/arch-v32/kernel/fasttimer.c        |    2 +-
->>   arch/cris/arch-v32/kernel/pinmux.c           |    2 +-
->>   arch/cris/arch-v32/kernel/signal.c           |    2 +-
->>   arch/cris/arch-v32/mach-a3/io.c              |    2 +-
->>   arch/cris/arch-v32/mach-a3/pinmux.c          |    2 +-
->>   arch/cris/arch-v32/mach-fs/io.c              |    2 +-
->>   arch/cris/arch-v32/mach-fs/pinmux.c          |    2 +-
->>   arch/cris/kernel/profile.c                   |    2 +-
->>   arch/cris/kernel/time.c                      |    2 +-
->>   arch/cris/kernel/traps.c                     |    2 +-
->>   arch/frv/kernel/gdb-stub.c                   |    2 +-
->>   arch/frv/kernel/pm-mb93093.c                 |    2 +-
->>   arch/frv/kernel/pm.c                         |    2 +-
->>   arch/frv/kernel/sysctl.c                     |    2 +-
->>   arch/h8300/kernel/gpio.c                     |    2 +-
->>   arch/ia64/hp/sim/simeth.c                    |    2 +-
->>   arch/ia64/hp/sim/simserial.c                 |    2 +-
->>   arch/ia64/kernel/audit.c                     |    2 +-
->>   arch/ia64/kernel/crash.c                     |    2 +-
->>   arch/ia64/kernel/cyclone.c                   |    2 +-
->>   arch/ia64/kernel/perfmon.c                   |    2 +-
->>   arch/ia64/kernel/setup.c                     |    2 +-
->>   arch/ia64/kernel/uncached.c                  |    2 +-
->>   arch/ia64/kernel/unwind.c                    |    2 +-
->>   arch/ia64/mm/init.c                          |    2 +-
->>   arch/mips/Makefile                           |    2 +-
->>   arch/mips/kernel/unaligned.c                 |    2 +-
->>   arch/mips/lasat/sysctl.c                     |    2 +-
->>   arch/mips/math-emu/cp1emu.c                  |    2 +-
->>   arch/mips/nxp/pnx8550/common/proc.c          |    2 +-
->>   arch/mips/sibyte/sb1250/bus_watcher.c        |    2 +-
->>   arch/mn10300/kernel/gdb-stub.c               |    2 +-
->>   arch/mn10300/kernel/mn10300-serial.c         |    2 +-
->>   arch/mn10300/kernel/profile.c                |    2 +-
->>   arch/parisc/kernel/pci-dma.c                 |    2 +-
->>   arch/parisc/kernel/pdc_chassis.c             |    2 +-
->>   arch/powerpc/kernel/audit.c                  |    2 +-
->>   arch/powerpc/kernel/idle.c                   |    2 +-
->>   arch/powerpc/kernel/irq.c                    |    2 +-
->>   arch/powerpc/kernel/proc_powerpc.c           |    2 +-
->>   arch/powerpc/kernel/prom.c                   |    4 ++--
->>   arch/powerpc/kernel/rtas-proc.c              |    2 +-
->>   arch/powerpc/kernel/rtasd.c                  |    2 +-
->>   arch/powerpc/kernel/sysfs.c                  |    2 +-
->>   arch/powerpc/kernel/tau_6xx.c                |    2 +-
->>   arch/powerpc/kernel/vio.c                    |    2 +-
->>   arch/powerpc/platforms/iseries/lpevents.c    |    2 +-
->>   arch/powerpc/platforms/iseries/mf.c          |    2 +-
->>   arch/powerpc/platforms/iseries/proc.c        |    2 +-
->>   arch/powerpc/platforms/iseries/viopath.c     |    2 +-
->>   arch/powerpc/platforms/pseries/eeh.c         |    2 +-
->>   arch/powerpc/platforms/pseries/hvCall_inst.c |    2 +-
->>   arch/powerpc/platforms/pseries/power.c       |    2 +-
->>   arch/powerpc/platforms/pseries/ras.c         |    2 +-
->>   arch/powerpc/platforms/pseries/reconfig.c    |    2 +-
->>   arch/powerpc/xmon/xmon.c                     |    2 +-
->>   arch/s390/appldata/appldata_base.c           |    2 +-
->>   arch/s390/kernel/audit.c                     |    2 +-
->>   arch/s390/kernel/compat_exec_domain.c        |    2 +-
->>   arch/s390/kernel/ipl.c                       |    2 +-
->>   arch/s390/kernel/topology.c                  |    2 +-
->>   arch/sh/boards/board-edosk7760.c             |    2 +-
->>   arch/sh/boards/board-sh7785lcr.c             |    2 +-
->>   arch/sh/boards/mach-cayman/setup.c           |    2 +-
->>   arch/sh/boards/mach-landisk/setup.c          |    2 +-
->>   arch/sh/boards/mach-r2d/setup.c              |    2 +-
->>   arch/sh/boards/mach-sdk7786/setup.c          |    2 +-
->>   arch/sh/boards/mach-se/7206/setup.c          |    2 +-
->>   arch/sh/boards/mach-se/7751/setup.c          |    2 +-
->>   arch/sh/boards/mach-sh03/setup.c             |    2 +-
->>   arch/sh/kernel/traps_64.c                    |    2 +-
->>   arch/sparc/kernel/apc.c                      |    2 +-
->>   arch/sparc/kernel/audit.c                    |    2 +-
->>   arch/sparc/kernel/mdesc.c                    |    2 +-
->>   arch/sparc/kernel/pmc.c                      |    2 +-
->>   arch/um/drivers/mconsole_kern.c              |    8 ++++----
->>   arch/um/drivers/net_kern.c                   |    2 +-
->>   arch/um/drivers/stderr_console.c             |    2 +-
->>   arch/um/drivers/ubd_kern.c                   |    4 ++--
->>   arch/um/kernel/exitcode.c                    |    2 +-
->>   arch/um/kernel/physmem.c                     |    2 +-
->>   arch/um/os-Linux/aio.c                       |    4 ++--
->>   arch/um/os-Linux/skas/mem.c                  |    2 +-
->>   arch/um/os-Linux/skas/process.c              |    2 +-
->>   arch/um/os-Linux/umid.c                      |    2 +-
->>   arch/um/sys-i386/tls.c                       |    2 +-
->>   arch/x86/kernel/audit_64.c                   |    2 +-
->>   arch/x86/kernel/tlb_uv.c                     |    4 ++--
->>   arch/x86/kernel/vsyscall_64.c                |    4 ++--
->>   arch/x86/mm/dump_pagetables.c                |    2 +-
->>   arch/x86/vdso/vdso32-setup.c                 |    4 ++--
->>   arch/x86/vdso/vma.c                          |    2 +-
->>   arch/xtensa/platforms/iss/console.c          |    2 +-
->>   drivers/net/arm/am79c961a.c                  |    2 +-
->>   drivers/net/hamradio/baycom_epp.c            |    1 +
->>   drivers/net/hamradio/baycom_par.c            |    1 +
->>   drivers/net/hamradio/baycom_ser_fdx.c        |    1 +
->>   drivers/net/hamradio/baycom_ser_hdx.c        |    1 +
->>   drivers/s390/char/sclp_cmd.c                 |    2 +-
->>   drivers/s390/char/sclp_config.c              |    2 +-
->>   drivers/s390/char/sclp_cpi_sys.c             |    2 +-
->>   drivers/s390/char/sclp_vt220.c               |    2 +-
->>   drivers/s390/cio/blacklist.c                 |    2 +-
->>   drivers/staging/rtl8192u/ieee80211/api.c     |    2 +-
->>   fs/aio.c                                     |    2 +-
->>   fs/compat_ioctl.c                            |    2 +-
->>   ipc/ipc_sysctl.c                             |    2 +-
->>   ipc/mqueue.c                                 |    2 +-
->>   ipc/util.c                                   |    2 +-
->>   kernel/audit.c                               |    2 +-
->>   kernel/audit_tree.c                          |    2 +-
->>   kernel/dma.c                                 |    2 +-
->>   kernel/futex.c                               |    2 +-
->>   kernel/lockdep_proc.c                        |    2 +-
->>   kernel/pid_namespace.c                       |    2 +-
->>   kernel/posix-cpu-timers.c                    |    2 +-
->>   kernel/posix-timers.c                        |    2 +-
->>   kernel/resource.c                            |    2 +-
->>   kernel/sched_debug.c                         |    2 +-
->>   kernel/time/timer_list.c                     |    2 +-
->>   kernel/time/timer_stats.c                    |    2 +-
->>   kernel/tracepoint.c                          |    2 +-
->>   kernel/utsname_sysctl.c                      |    2 +-
->>   lib/audit.c                                  |    2 +-
->>   lib/debugobjects.c                           |    2 +-
->>   mm/bounce.c                                  |    2 +-
->>   mm/memory.c                                  |    2 +-
->>   mm/mm_init.c                                 |    2 +-
->>   mm/slab.c                                    |    2 +-
->>   mm/slub.c                                    |    2 +-
->>   mm/swapfile.c                                |    2 +-
->>   net/ipv4/syncookies.c                        |    2 +-
->>   net/ipv4/sysctl_net_ipv4.c                   |    2 +-
->>   security/keys/proc.c                         |    2 +-
->>   security/selinux/hooks.c                     |    2 +-
->>   security/selinux/netif.c                     |    2 +-
->>   security/selinux/netlink.c                   |    2 +-
->>   security/selinux/netnode.c                   |    2 +-
->>   security/selinux/netport.c                   |    2 +-
->>   security/selinux/selinuxfs.c                 |    2 +-
->>   security/selinux/ss/services.c               |    2 +-
->>   security/smack/smackfs.c                     |    2 +-
->>   sound/last.c                                 |    2 +-
->>   166 files changed, 176 insertions(+), 172 deletions(-)
->
->
