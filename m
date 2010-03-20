@@ -1,38 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET_DMA: free skbs periodically
-Date: Sat, 20 Mar 2010 14:29:20 -0700 (PDT)
-Message-ID: <20100320.142920.242147630.davem@davemloft.net>
-References: <1268752964-4397-1-git-send-email-steve@digidescorp.com>
+Subject: Re: [PATCH 1/3] netlink: fix NETLINK_RECV_NO_ENOBUFS in
+ netlink_set_err()
+Date: Sat, 20 Mar 2010 14:30:27 -0700 (PDT)
+Message-ID: <20100320.143027.116368032.davem@davemloft.net>
+References: <4BA25C82.7000301@netfilter.org>
+	<4BA26138.6070709@trash.net>
+	<4BA2C44A.1000100@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	linux-kernel@vger.kernel.org
-To: steve@digidescorp.com
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46934
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35231
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751231Ab0CTV25 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Mar 2010 17:28:57 -0400
-In-Reply-To: <1268752964-4397-1-git-send-email-steve@digidescorp.com>
+	by vger.kernel.org with ESMTP id S1751403Ab0CTVaE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Mar 2010 17:30:04 -0400
+In-Reply-To: <4BA2C44A.1000100@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Steven J. Magnani" <steve@digidescorp.com>
-Date: Tue, 16 Mar 2010 10:22:44 -0500
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Fri, 19 Mar 2010 01:24:42 +0100
 
-> Under NET_DMA, data transfer can grind to a halt when userland issues a
-> large read on a socket with a high RCVLOWAT (i.e., 512 KB for both).
-> This appears to be because the NET_DMA design queues up lots of memcpy 
-> operations, but doesn't issue or wait for them (and thus free the 
-> associated skbs) until it is time for tcp_recvmesg() to return. 
-> The socket hangs when its TCP window goes to zero before enough data is 
-> available to satisfy the read.
+> Patrick McHardy wrote:
+>> Generally the logic seems inverted, you should return an error
+>> to conntrack if userspace wasn't notified of the error.
 > 
-> Periodically issue asynchronous memcpy operations, and free skbs for ones 
-> that have completed, to prevent sockets from going into zero-window mode.
-> 
-> Signed-off-by: Steven J. Magnani <steve@digidescorp.com>
+> Indeed, thanks. Are you OK with this patch instead?
 
-Applied, thanks for fixing this bug Steven.
+I went over all of this and now the patches #1 and #2 look
+correct to me, so I've applied them to net-2.6
+
+Patrick let me know if you think any follow-on tidy ups
+are still necessary and we can add them.
+
+Thanks Pablo!
