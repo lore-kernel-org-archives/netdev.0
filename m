@@ -1,56 +1,120 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/12] l2tp: Introduce L2TPv3 support
-Date: Fri, 19 Mar 2010 23:23:49 -0700 (PDT)
-Message-ID: <20100319.232349.70207451.davem@davemloft.net>
-References: <20100318102127.14576.98388.stgit@bert.katalix.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH 2/3] can: add support for Janz VMOD-ICAN3 Intelligent
+	CAN	module
+Date: Sat, 20 Mar 2010 08:55:16 +0100
+Message-ID: <4BA47F64.8030108@grandegger.com>
+References: <> <1268930324-29841-3-git-send-email-iws@ovro.caltech.edu>
+	<4BA33D5A.8070000@grandegger.com>
+	<20100319151914.GB13672@ovro.caltech.edu>
+	<4BA39C05.8050800@grandegger.com>
+	<20100319200325.GE13672@ovro.caltech.edu>
+	<4BA3DAF1.4090206@grandegger.com>
+	<20100319215227.GF13672@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: jchapman@katalix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39066
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751818Ab0CTGX1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Mar 2010 02:23:27 -0400
-In-Reply-To: <20100318102127.14576.98388.stgit@bert.katalix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
+To: "Ira W. Snyder" <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20100319215227.GF13672-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-DQpEb2Vzbid0IGV2ZW4gYnVpbGQ6DQoNCm5ldC9sMnRwL2wydHBfaXAuYzo2MDA6IGVycm9yOiCh
-Y29tcGF0X3VkcF9zZXRzb2Nrb3B0oiB1bmRlY2xhcmVkIGhlcmUgKG5vdCBpbiBhIGZ1bmN0aW9u
-KQ0KbmV0L2wydHAvbDJ0cF9pcC5jOjYwMTogZXJyb3I6IKFjb21wYXRfdWRwX2dldHNvY2tvcHSi
-IHVuZGVjbGFyZWQgaGVyZSAobm90IGluIGEgZnVuY3Rpb24pDQoNCllvdSBjYW4ndCBkbyB0aGlz
-IGxpa2UgdGhpcywgYXMgdGhlIGhlYWRlciBwcm92aWRpbmcgdGhlc2UNCmRlY2xhcmF0aW9ucyBp
-cyBwcml2YXRlIHRvIG5ldC9pcHY0Lw0KDQpSZXNwaW4geW91ciBlbnRpcmUgcGF0Y2ggc2V0IG9u
-Y2UgeW91J3ZlIHJlc29sdmVkIHRoaXMgYW5kDQphbHNvIHBsZWFzZSBmaXggdGhlc2UgZnVuZGFt
-ZW50YWwgd2hpdGVzcGFjZSBlcnJvcnMgZW1pdHRlZA0KYnkgZ2l0IHdoZW4gSSBhcHBseSB5b3Vy
-IHBhdGNoZXM6DQoNCkFwcGx5aW5nOiBsMnRwOiBSZWxvY2F0ZSBwcHBvbDJ0cCBkcml2ZXIgdG8g
-bmV3IG5ldC9sMnRwIGRpcmVjdG9yeQ0KQXBwbHlpbmc6IGwydHA6IFNwbGl0IHBwcG9sMnRwIGRy
-aXZlciBpbnRvIHNlcGFyYXRlIGwydHAgYW5kIHBwcCBwYXJ0cw0KL2hvbWUvZGF2ZW0vc3JjL0dJ
-VC9uZXQtbmV4dC0yLjYvLmdpdC9yZWJhc2UtYXBwbHkvcGF0Y2g6MTE4OiBuZXcgYmxhbmsgbGlu
-ZSBhdCBFT0YuDQorDQovaG9tZS9kYXZlbS9zcmMvR0lUL25ldC1uZXh0LTIuNi8uZ2l0L3JlYmFz
-ZS1hcHBseS9wYXRjaDoxMzM6IG5ldyBibGFuayBsaW5lIGF0IEVPRi4NCisNCndhcm5pbmc6IDIg
-bGluZXMgYWRkIHdoaXRlc3BhY2UgZXJyb3JzLg0KQXBwbHlpbmc6IHBwcDogQWRkIHBwcF9kZXZf
-bmFtZSgpIGV4cG9ydGVkIGZ1bmN0aW9uDQpBcHBseWluZzogbDJ0cDogQWRkIHBwcCBkZXZpY2Ug
-bmFtZSB0byBMMlRQIHBwcCBzZXNzaW9uIGRhdGENCkFwcGx5aW5nOiBsMnRwOiBBZGQgTDJUUHYz
-IHByb3RvY29sIHN1cHBvcnQNCkFwcGx5aW5nOiBsMnRwOiBVcGRhdGUgUFBQLW92ZXItTDJUUCBk
-cml2ZXIgdG8gd29yayBvdmVyIEwyVFB2Mw0KQXBwbHlpbmc6IGwydHA6IEFkZCBMMlRQdjMgSVAg
-ZW5jYXBzdWxhdGlvbiAobm8gVURQKSBzdXBwb3J0DQovaG9tZS9kYXZlbS9zcmMvR0lUL25ldC1u
-ZXh0LTIuNi8uZ2l0L3JlYmFzZS1hcHBseS9wYXRjaDo2MTogbmV3IGJsYW5rIGxpbmUgYXQgRU9G
-Lg0KKw0Kd2FybmluZzogMSBsaW5lIGFkZHMgd2hpdGVzcGFjZSBlcnJvcnMuDQpBcHBseWluZzog
-bmV0bGluazogRXhwb3J0IGdlbmxfbG9jaygpIEFQSSBmb3IgdXNlIGJ5IG1vZHVsZXMNCkFwcGx5
-aW5nOiBsMnRwOiBBZGQgbmV0bGluayBjb250cm9sIEFQSSBmb3IgTDJUUA0KQXBwbHlpbmc6IGwy
-dHA6IEFkZCBMMlRQIGV0aGVybmV0IHBzZXVkb3dpcmUgc3VwcG9ydA0KL2hvbWUvZGF2ZW0vc3Jj
-L0dJVC9uZXQtbmV4dC0yLjYvLmdpdC9yZWJhc2UtYXBwbHkvcGF0Y2g6MjU6IHNwYWNlIGJlZm9y
-ZSB0YWIgaW4gaW5kZW50Lg0KICAgCSAgdXNlZCBhcyBhIGNvbnRyb2wgcHJvdG9jb2wgYW5kIGZv
-ciBkYXRhIGVuY2Fwc3VsYXRpb24gdG8gc2V0DQovaG9tZS9kYXZlbS9zcmMvR0lUL25ldC1uZXh0
-LTIuNi8uZ2l0L3JlYmFzZS1hcHBseS9wYXRjaDoyNjogc3BhY2UgYmVmb3JlIHRhYiBpbiBpbmRl
-bnQuDQogICAJICB1cCBQc2V1ZG93aXJlcyBmb3IgdHJhbnNwb3J0aW5nIGxheWVyIDIgUGFja2V0
-IERhdGEgVW5pdHMNCi9ob21lL2RhdmVtL3NyYy9HSVQvbmV0LW5leHQtMi42Ly5naXQvcmViYXNl
-LWFwcGx5L3BhdGNoOjI3OiBzcGFjZSBiZWZvcmUgdGFiIGluIGluZGVudC4NCiAgIAkgIGFjcm9z
-cyBhbiBJUCBuZXR3b3JrIFtSRkMzOTMxXS4NCi9ob21lL2RhdmVtL3NyYy9HSVQvbmV0LW5leHQt
-Mi42Ly5naXQvcmViYXNlLWFwcGx5L3BhdGNoOjEyOiBuZXcgYmxhbmsgbGluZSBhdCBFT0YuDQor
-DQp3YXJuaW5nOiA0IGxpbmVzIGFkZCB3aGl0ZXNwYWNlIGVycm9ycy4NCkFwcGx5aW5nOiBsMnRw
-OiBBZGQgc3VwcG9ydCBmb3Igc3RhdGljIHVubWFuYWdlZCBMMlRQdjMgdHVubmVscw0KQXBwbHlp
-bmc6IGwydHA6IFVwZGF0ZSBkb2N1bWVudGF0aW9uDQoNClRoYW5rcy4NCg==
+Ira W. Snyder wrote:
+> On Fri, Mar 19, 2010 at 09:13:37PM +0100, Wolfgang Grandegger wrote:
+>> Ira W. Snyder wrote:
+>>> On Fri, Mar 19, 2010 at 04:45:09PM +0100, Wolfgang Grandegger wrote:
+>>>> Ira W. Snyder wrote:
+>>>>> On Fri, Mar 19, 2010 at 10:01:14AM +0100, Wolfgang Grandegger wrote:
+>>>>>> Hi Ira,
+>>>>>>
+>>>>>> we already discussed this patch on the SocketCAN mailing list and there
+>>>>>> are just a few minor issues and the request to add support for the new
+>>>>>> "berr-reporting" option, if feasible. See:
+>>>>>>
+>>>>>>   commit 52c793f24054f5dc30d228e37e0e19cc8313f086
+>>>>>>   Author: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+>>>>>>   Date:   Mon Feb 22 22:21:17 2010 +0000
+>>>>>>
+>>>>>>     can: netlink support for bus-error reporting and counters
+>>>>>>     
+>>>>>>     This patch makes the bus-error reporting configurable and allows to
+>>>>>>     retrieve the CAN TX and RX bus error counters via netlink interface.
+>>>>>>     I have added support for the SJA1000. The TX and RX bus error counters
+>>>>>>     are also copied to the data fields 6..7 of error messages when state
+>>>>>>     changes are reported.
+>>>>>>
+>>>>>> Should not be a big deal.
+>>>>>>
+>>>>> I think this patch came along since my last post of the driver. I must
+>>>>> have missed it. I'll try and add support.
+>>>> No problem, it's really new. Just just need to enable BEI depending on
+>>>> CAN_CTRLMODE_BERR_REPORTING.
+>>>>
+>>> I have one final question about this.
+>>>
+>>> The documentation for the firmware isn't very specific here. I believe
+>>> that in order to get any kind of error messages, I need the bus error
+>>> feature turned on. What is the expected behavior of an SJA1000 with the
+>>> BEI (bus error interrupt) turned off? Will you still get warning
+>>> messages for ERROR_ACTIVE -> ERROR_PASSIVE state transitions?
+>> Yes. State transitions are enabled with EI and EPI.
+>>
+> 
+> I cannot set the registers directly, but I think I got it right. See
+> below.
+> 
+>>> I'm not sure how I would go about testing this feature, either. Ideas?
+>> Send messages without cable connected and watch the error messages with
+>> "candump any,0:0,#ffffffff". With "ip ... berr-reporting on" you should
+>> see additional bus-errors.
+>>
+> 
+> Ok, I tried this. On one controller, I turned on bus-error reporting. On
+> the other, I turn off bus-error reporting. I then tried sending lots of
+> messages with the cable unplugged. Here is what happened:
+> 
+> bus-error reporting on:
+> Lots of CAN_ERR_BUSERR messages are flooded in candump. There is also a
+> CAN_ERR_CRTL_TX_WARNING message, when there are too many TX errors.
+
+OK, you will now also understand why bus-error reporting is off by
+default. On low-end systems bus-error flooding may even hang the system.
+
+> bus-error reporting off:
+> There was only one message reported before the controller went into
+> ERROR-WARNING state. It was the same CAN_ERR_CRTL_TX_WARNING message as
+> above. There was no flooding of CAN_ERR_BUSERR messages.
+> 
+> Does this seem right? It seems pretty good to me.
+
+Yes, I'm just missing an error-passive message. What state does "ip -d
+link show can0" report.
+
+>>> I also noticed that I can enable "self test mode" and "listen only mode"
+>>> using the same firmware command. It appears that there are netlink
+>>> messages for this as well. Should I try and support these, too? I don't
+>>> really have any use for them (yet). I assume "self test mode" is
+>>> equivalent to "loopback mode" in the netlink messages.
+>> List-only is straight forward while "self test mode" is not exactly like
+>> "loopback mode", IIRC. Feel free to send a follow-up patch when you have
+>> time for a thorough implementation and testing. It's also on my to-do
+>> list for the SJA1000.
+>>
+> 
+> Ok, then I'll put this off for a while. Feel free to pester me about it
+> when there is a working implementation in the SJA1000 driver for me to
+> borrow from. :)
+
+I will let you know when I have something working.
+
+Wolfgang.
