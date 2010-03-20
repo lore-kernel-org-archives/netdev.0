@@ -1,54 +1,44 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: [PATCH] ip_gre: include route header_len in max_headroom calculation
-Date: Sat, 20 Mar 2010 14:27:58 +0200
-Message-ID: <1269088078-7343-1-git-send-email-timo.teras@iki.fi>
-Cc: Timo Teras <timo.teras@iki.fi>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] xfrm: implement basic garbage collection for bundles
+Date: Sat, 20 Mar 2010 20:32:48 +0800
+Message-ID: <20100320123247.GB1930@gondor.apana.org.au>
+References: <1269087341-7009-1-git-send-email-timo.teras@iki.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:53265 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751965Ab0CTM2E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Mar 2010 08:28:04 -0400
-Received: by ey-out-2122.google.com with SMTP id d26so359442eyd.19
-        for <netdev@vger.kernel.org>; Sat, 20 Mar 2010 05:28:03 -0700 (PDT)
+Received: from rhun.apana.org.au ([64.62.148.172]:47540 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751824Ab0CTMcv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Mar 2010 08:32:51 -0400
+Content-Disposition: inline
+In-Reply-To: <1269087341-7009-1-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Taking route's header_len into account, and updating gre device
-needed_headroom will give better hints on upper bound of required
-headroom. This is useful if the gre traffic is xfrm'ed.
+On Sat, Mar 20, 2010 at 02:15:41PM +0200, Timo Teras wrote:
+> The dst core calls garbage collection only from dst_alloc when
+> the dst entry threshold is exceeded. Xfrm core currently checks
+> bundles only on NETDEV_DOWN event.
+> 
+> Previously this has not been a big problem since xfrm gc threshold
+> was small, and they were generated all the time due to another bug.
+> 
+> Since after a33bc5c15154c835aae26f16e6a3a7d9ad4acb45
+> ("xfrm: select sane defaults for xfrm[4|6] gc_thresh") we can have
+> large gc threshold sizes (>200000 on machines with normal amount
+> of memory) the garbage collection does not get triggered under
+> normal circumstances. This can result in enormous amount of stale
+> bundles. Further more, each of these stale bundles keep a reference
+> to ipv4/ipv6 rtable entries which are already gargage collected and
+> put to dst core "destroy free'd dst's" list. Now this list can grow
+> to be very large, and the dst core periodic job can bring even a fast
+> machine to it's knees.
 
-Signed-off-by: Timo Teras <timo.teras@iki.fi>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
----
- net/ipv4/ip_gre.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-This was earlier discussed in netdev thread:
-  http://marc.info/?t=124470870200004&r=1&w=2
-
-I just never got to writing the patch until now.
-
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index f47c9f7..f78402d 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -810,11 +810,13 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
- 			tunnel->err_count = 0;
- 	}
- 
--	max_headroom = LL_RESERVED_SPACE(tdev) + gre_hlen;
-+	max_headroom = LL_RESERVED_SPACE(tdev) + gre_hlen + rt->u.dst.header_len;
- 
- 	if (skb_headroom(skb) < max_headroom || skb_shared(skb)||
- 	    (skb_cloned(skb) && !skb_clone_writable(skb, 0))) {
- 		struct sk_buff *new_skb = skb_realloc_headroom(skb, max_headroom);
-+		if (max_headroom > dev->needed_headroom)
-+			dev->needed_headroom = max_headroom;
- 		if (!new_skb) {
- 			ip_rt_put(rt);
- 			txq->tx_dropped++;
+So why do we need this larger threshold in the first place? Neil?
 -- 
-1.6.3.3
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
