@@ -1,59 +1,74 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Pull request: bluetooth-2.6 2010-03-21
-Date: Sun, 21 Mar 2010 06:41:34 +0100
-Message-ID: <cover.1269149354.git.marcel@holtmann.org>
+Subject: [PATCH 3/3] Bluetooth: Fix kernel crash on L2CAP stress tests
+Date: Sun, 21 Mar 2010 06:41:37 +0100
+Message-ID: <c2c77ec83bdad17fb688557b5b3fdc36661dd1c6.1269149356.git.marcel@holtmann.org>
+References: <cover.1269149354.git.marcel@holtmann.org>
+ <101545f6fef4a0a3ea8daf0b5b880df2c6a92a69.1269149356.git.marcel@holtmann.org>
+ <aef7d97cc604309b66f6f45cce02cd734934cd4e.1269149356.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>,
 	Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:35324 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:35332 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750981Ab0CUFlq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 01:41:46 -0400
+	with ESMTP id S1750981Ab0CUFls (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 01:41:48 -0400
+In-Reply-To: <aef7d97cc604309b66f6f45cce02cd734934cd4e.1269149356.git.marcel@holtmann.org>
+In-Reply-To: <cover.1269149354.git.marcel@holtmann.org>
+References: <cover.1269149354.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Andrei Emeltchenko <andrei.emeltchenko@nokia.com>
 
-these patches fix a potential remote denial of service in the L2CAP
-layer and a potential bad memory access with some sysfs files.
+Added very simple check that req buffer has enough space to
+fit configuration parameters. Shall be enough to reject packets
+with configuration size more than req buffer.
 
-As agreed with Linus, I fixed the sysfs issue in two steps. The first
-patch just avoids the invalid memory access while accepting that the
-content might be truncated. The second patch moves everything over to
-debugfs (where these files belong anyway) and switches to seq_file.
+Crash trace below
 
-This two step approach allows an easy backport to -stable kernel by
-only picking the first patch.
+[ 6069.659393] Unable to handle kernel paging request at virtual address 02000205
+[ 6069.673034] Internal error: Oops: 805 [#1] PREEMPT
+...
+[ 6069.727172] PC is at l2cap_add_conf_opt+0x70/0xf0 [l2cap]
+[ 6069.732604] LR is at l2cap_recv_frame+0x1350/0x2e78 [l2cap]
+...
+[ 6070.030303] Backtrace:
+[ 6070.032806] [<bf1c2880>] (l2cap_add_conf_opt+0x0/0xf0 [l2cap]) from
+[<bf1c6624>] (l2cap_recv_frame+0x1350/0x2e78 [l2cap])
+[ 6070.043823]  r8:dc5d3100 r7:df2a91d6 r6:00000001 r5:df2a8000 r4:00000200
+[ 6070.050659] [<bf1c52d4>] (l2cap_recv_frame+0x0/0x2e78 [l2cap]) from
+[<bf1c8408>] (l2cap_recv_acldata+0x2bc/0x350 [l2cap])
+[ 6070.061798] [<bf1c814c>] (l2cap_recv_acldata+0x0/0x350 [l2cap]) from
+[<bf0037a4>] (hci_rx_task+0x244/0x478 [bluetooth])
+[ 6070.072631]  r6:dc647700 r5:00000001 r4:df2ab740
+[ 6070.077362] [<bf003560>] (hci_rx_task+0x0/0x478 [bluetooth]) from
+[<c006b9fc>] (tasklet_action+0x78/0xd8)
+[ 6070.087005] [<c006b984>] (tasklet_action+0x0/0xd8) from [<c006c160>]
 
-Linus, feel free to pull directly since both patches are security
-related and should be merged as quickly as possible.
+Signed-off-by: Andrei Emeltchenko <andrei.emeltchenko@nokia.com>
+Acked-by: Gustavo F. Padovan <gustavo@padovan.org>
+Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+---
+ net/bluetooth/l2cap.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-Regards
-
-Marcel
-
-
-Please pull from
-
-    git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git master
-
-This will update the following files:
-
- include/net/bluetooth/bluetooth.h |    2 +-
- net/bluetooth/hci_sysfs.c         |    3 +-
- net/bluetooth/l2cap.c             |   48 +++++++++++++++++++++++++++----------
- net/bluetooth/rfcomm/core.c       |   41 ++++++++++++++++++++++---------
- net/bluetooth/rfcomm/sock.c       |   38 ++++++++++++++++++++--------
- net/bluetooth/sco.c               |   38 ++++++++++++++++++++---------
- 6 files changed, 119 insertions(+), 51 deletions(-)
-
-through these ChangeSets:
-
-Andrei Emeltchenko (1):
-    Bluetooth: Fix kernel crash on L2CAP stress tests
-
-Marcel Holtmann (2):
-    Bluetooth: Fix potential bad memory access with sysfs files
-    Bluetooth: Convert debug files to actually use debugfs instead of sysfs
+diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
+index 43e17f7..7794a2e 100644
+--- a/net/bluetooth/l2cap.c
++++ b/net/bluetooth/l2cap.c
+@@ -2832,6 +2832,11 @@ static inline int l2cap_config_rsp(struct l2cap_conn *conn, struct l2cap_cmd_hdr
+ 			int len = cmd->len - sizeof(*rsp);
+ 			char req[64];
+ 
++			if (len > sizeof(req) - sizeof(struct l2cap_conf_req)) {
++				l2cap_send_disconn_req(conn, sk);
++				goto done;
++			}
++
+ 			/* throw out any old stored conf requests */
+ 			result = L2CAP_CONF_SUCCESS;
+ 			len = l2cap_parse_conf_rsp(sk, rsp->data,
+-- 
+1.6.6.1
 
