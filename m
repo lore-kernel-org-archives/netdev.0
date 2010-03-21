@@ -1,78 +1,55 @@
-From: James Morris <jmorris@namei.org>
-Subject: [PATCH] Netfilter: Fix integer overflow in net/ipv6/netfilter/ip6_tables.c
- (fwd)
-Date: Mon, 22 Mar 2010 08:50:24 +1100 (EST)
-Message-ID: <alpine.LRH.2.00.1003220850180.3232@tundra.namei.org>
+From: Stefani Seibold <stefani@seibold.net>
+Subject: Re: [PATCH] fix PHY polling system blocking
+Date: Sun, 21 Mar 2010 22:54:50 +0100
+Message-ID: <1269208490.5748.44.camel@wall-e.seibold.net>
+References: <1267894258.18869.2.camel@wall-e>
+	 <20100312144248.ade8b700.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tundra.namei.org ([65.99.196.166]:34220 "EHLO tundra.namei.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753168Ab0CUVuY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 Mar 2010 17:50:24 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by tundra.namei.org (8.13.1/8.13.1) with ESMTP id o2LLoOw9003428
-	for <netdev@vger.kernel.org>; Sun, 21 Mar 2010 17:50:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
+	David Miller <davem@davemloft.net>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100312144248.ade8b700.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
----------- Forwarded message ----------
-Date: Sat, 20 Mar 2010 22:32:40 +0800
-From: wzt.wzt@gmail.com
-To: linux-kernel@vger.kernel.org
-Cc: netfilter-devel@vger.kernel.org, kaber@trash.net
-Subject: [PATCH] Netfilter: Fix integer overflow in
-    net/ipv6/netfilter/ip6_tables.c
+I had now analyzed the PHY handling in most of the network drivers. Most
+of the PHY communication will be handled in a polling/blocking way,
+write  a command word and then wait for the results. Due the nature of
+the PHY attachment, this will take some time.
 
-The get.size field in the get_entries() interface is not bounded
-correctly. The size is used to determine the total entry size.
-The size is bounded, but can overflow and so the size checks may
-not be sufficient to catch invalid size. Fix it by catching size
-values that would cause overflows before calculating the size.
+Some of the network drivers do this polling/blocking also in atomic code
+paths, like interrupts or timer. So activities on the PHY can cause huge
+latency jitters.
 
-Signed-off-by: Zhitong Wang <zhitong.wangzt@alibaba-inc.com>
+On the other side, most of the network driver handle the PHY without
+using or only partially using the phylib.
 
----
- net/ipv4/netfilter/ip_tables.c  |    4 ++++
- net/ipv6/netfilter/ip6_tables.c |    4 ++++
- 2 files changed, 8 insertions(+), 0 deletions(-)
+The phylib has also a drawback, because it polls the PHY despite if it
+has interrupt support for it or not. I can't see a reason for this
+behavior.
 
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 4e7c719..6abd3d2 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -1164,6 +1164,10 @@ get_entries(struct net *net, struct ipt_get_entries __user *uptr, int *len)
- 	}
- 	if (copy_from_user(&get, uptr, sizeof(get)) != 0)
- 		return -EFAULT;
-+
-+	if (get.size >= INT_MAX / sizeof(struct ipt_get_entries))
-+		return -EINVAL;
-+
- 	if (*len != sizeof(struct ipt_get_entries) + get.size) {
- 		duprintf("get_entries: %u != %zu\n",
- 			 *len, sizeof(get) + get.size);
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 0b4557e..5185822 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -1190,6 +1190,10 @@ get_entries(struct net *net, struct ip6t_get_entries __user *uptr, int *len)
- 	}
- 	if (copy_from_user(&get, uptr, sizeof(get)) != 0)
- 		return -EFAULT;
-+
-+	if (get.size >= INT_MAX / sizeof(struct ip6t_get_entries))
-+		return -EINVAL;
-+
- 	if (*len != sizeof(struct ip6t_get_entries) + get.size) {
- 		duprintf("get_entries: %u != %zu\n",
- 			 *len, sizeof(get) + get.size);
--- 
-1.6.5.3
+So the problem of huge latencies by polling the PHY occurs in most of
+the network drivers. For example have a look at the e100 network driver
+in the file drivers/net/e100.c, function mdio_ctrl_hw(): This function
+will poll for max. of 4000 us or 4 ms.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
+To fix this latency jitter problem with the PHY polling there are the
+following steps to do:
+
+- disable polling in driver/net/phy.c if an interrupt for the PHY is
+available
+- create an own single or per cpu workqueue for the phylib, so that the
+PHY specific code can temporary schedule or block
+- prevent all current user of the phylib to access the PHY in a atomic
+code path
+- modify all current users of the phylib from using cpu_relax() to
+cond_resched() and replace the counters against inquiring a timeout 
+- modify all other network drivers to use the phylib
+
+What do you think?
+
+Stefani
