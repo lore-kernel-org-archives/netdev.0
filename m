@@ -1,121 +1,112 @@
 From: Robert Olsson <robert@herjulf.net>
-Subject: RCU problems in fib_table_insert
-Date: Mon, 22 Mar 2010 07:18:34 +0100
-Message-ID: <19367.3002.324694.563877@gargle.gargle.HOWL>
-References: <20100321202525.GA966@basil.fritz.box>
+Subject: Re: [PATCH] pktgen node allocation
+Date: Mon, 22 Mar 2010 07:24:18 +0100
+Message-ID: <19367.3346.643084.604021@gargle.gargle.HOWL>
+References: <19363.14702.909265.380669@gargle.gargle.HOWL>
+	<1268990933.3048.15.camel@edumazet-laptop>
+	<19363.32154.39665.185451@gargle.gargle.HOWL>
+	<1269006465.3048.39.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robert.olsson@its.uu.se, netdev@vger.kernel.org,
-	paulmck@linux.vnet.ibm.com
-To: Andi Kleen <andi@firstfloor.org>
+Cc: robert@herjulf.net, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, olofh@kth.se
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from av12-2-sn2.hy.skanova.net ([81.228.8.186]:47829 "EHLO
-	av12-2-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751538Ab0CVGRH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 02:17:07 -0400
-In-Reply-To: <20100321202525.GA966@basil.fritz.box>
+Received: from av10-2-sn2.hy.skanova.net ([81.228.8.182]:36795 "EHLO
+	av10-2-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751538Ab0CVGWs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 02:22:48 -0400
+In-Reply-To: <1269006465.3048.39.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+Eric Dumazet writes:
 
-Seems like Paul and Eric fixed this problem... We use fib_trie with 
-major infrastructure but always disable preempt. It was unsafe w.
-preempt at least before Jareks P. patches about a year ago. I havn't
-tested w. preempt after that but maybe someone else have...
+ > Well, you said "Tested this with 10 Intel 82599 ports w. TYAN S7025
+ > E5520 CPU's. Was able to TX/DMA ~80 Gbit/s to Ethernet wires."
+ > 
+ > I am interested to know what particular setup you did to maximize
+ > throughput then, or are you saing you managed to reduce it ? :)
+
+
+Some notes from the experiment, It's getting
+complex and hairy. Anyway results from the first
+tests to give you an idea... My colleague Olof 
+might have some comments/details
+
+pktgen sending on 10 * 10g interfaces. 
+
+[From pktgen script]
+fn()
+{
+  i=$1  #ifname
+  c=$2  #queue / cpu core
+  n=$3  # numa node
+  PGDEV=/proc/net/pktgen/kpktgend_$c
+  pgset "add_device eth$i@$c  "
+  PGDEV=/proc/net/pktgen/eth$i@$c
+  pgset "node $n"
+  pgset "$COUNT"
+  pgset "flag NODE_ALLOC"
+  pgset "$CLONE_SKB"
+  pgset "$PKT_SIZE"
+  pgset "$DELAY"
+  pgset "dst 10.0.0.0" 
+}      
+
+remove_all
+# Setup
+
+# TYAN S7025 with two nodes.
+# Each node has own bus with it's own TYLERSBURG bridge
+# so eth0-eth3 is closest to node0 which in turn "owns"
+# CPU-cores 0-3 in this HW setup. So we setup so 
+# pktgen according to this. clone_skb=1000000.
+# Used slots are PCIe-x16 except when PCIe-x8 is indicated.
+
+# eth0 queue=0(CPU) node=0
+fn 0 0 0
+fn 1 1 0
+fn 2 2 0
+fn 3 3 0
+fn 4 4 1
+fn 5 5 1
+fn 6 6 1
+fn 7 7 1
+fn 8 12 1
+fn 9 13 1
+
+Result "manually" tuned. 
+
+eth0 9617.7 M bit/s      822 k pps 
+eth1 9619.1 M bit/s      823 k pps 
+eth2 9619.1 M bit/s      823 k pps 
+eth3 9619.2 M bit/s      823 k pps 
+eth4 5995.2 M bit/s      512 k pps  <-  PCIe-x8
+eth5 5995.3 M bit/s      512 k pps  <-  PCIe-x8
+eth6 9619.2 M bit/s      823 k pps 
+eth7 9619.2 M bit/s      823 k pps 
+eth8 9619.1 M bit/s      823 k pps 
+eth9 9619.0 M bit/s      823 k pps 
+
+> 90 Gbit/s
+
+Result "manually" mistuned by switching node 0 and 1. 
+
+eth0 9613.6 M bit/s      822 k pps 
+eth1 9614.9 M bit/s      822 k pps 
+eth2 9615.0 M bit/s      822 k pps 
+eth3 9615.1 M bit/s      822 k pps 
+eth4 2918.5 M bit/s      249 k pps  <-  PCIe-x8
+eth5 2918.4 M bit/s      249 k pps  <-  PCIe-x8
+eth6 8597.0 M bit/s      735 k pps 
+eth7 8597.0 M bit/s      735 k pps 
+eth8 8568.3 M bit/s      733 k pps 
+eth9 8568.3 M bit/s      733 k pps 
+
+A lot things is to be investgated...
 
 Cheers
 					--ro
-
-Andi Kleen writes:
- > Hi,
- > 
- > I got the following warning at boot with a 2.6.34-rc2ish git kernel
- > with RCU debugging and preemption enabled.
- > 
- > It seems the problem is that not all callers of fib_find_node
- > call it with rcu_read_lock() to stabilize access to the fib. 
- > 
- > I tried to fix it, but especially for fib_table_insert() that's rather 
- > tricky: it does a lot of memory allocations and also route flushing and 
- > other blocking operations while assuming the original fa is RCU stable.
- > 
- > I first tried to move some allocations to the beginning and keep
- > preemption disabled in the rest, but it's difficult with all of them.
- > No patch because of that.
- > 
- > Does the fa need an additional reference count for this problem?
- > Or perhaps some optimistic locking?
- > 
- > -Andi
- > 
- > 
- > ==================================================
- > [ INFO: suspicious rcu_dereference_check() usage. ]
- > ---------------------------------------------------
- > /home/lsrc/git/linux-2.6/net/ipv4/fib_trie.c:964 invoked rcu_dereference_check() without protection!
- > 
- > other info that might help us debug this:
- > 
- > 
- > rcu_scheduler_active = 1, debug_locks = 0
- > 2 locks held by ip/4521:
- >  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff816466af>] rtnetlink_rcv+0x1f/0x40
- >  #1:  ((inetaddr_chain).rwsem){.+.+.+}, at: [<ffffffff8107cde7>] __blocking_notifier_call_chain+0x47/0x90
- > 
- > stack backtrace:
- > Pid: 4521, comm: ip Not tainted 2.6.34-rc2 #5
- > Call Trace:
- >  [<ffffffff8108b7e9>] lockdep_rcu_dereference+0xb9/0xc0
- >  [<ffffffff81696a05>] fib_find_node+0x185/0x1b0
- >  [<ffffffff8101155f>] ? save_stack_trace+0x2f/0x50
- >  [<ffffffff81699b1c>] fib_table_insert+0xdc/0xa90
- >  [<ffffffff8107cde7>] ? __blocking_notifier_call_chain+0x47/0x90
- >  [<ffffffff8108edb5>] ? __lock_acquire+0x1485/0x1d50
- >  [<ffffffff816926b0>] fib_magic+0xc0/0xd0
- >  [<ffffffff81692738>] fib_add_ifaddr+0x78/0x1a0
- >  [<ffffffff81692e60>] fib_inetaddr_event+0x50/0x2a0
- >  [<ffffffff8173152d>] notifier_call_chain+0x6d/0xb0
- >  [<ffffffff8107cdfd>] __blocking_notifier_call_chain+0x5d/0x90
- >  [<ffffffff8107ce46>] blocking_notifier_call_chain+0x16/0x20
- >  [<ffffffff81688c0a>] __inet_insert_ifa+0xea/0x180
- >  [<ffffffff8168971d>] inetdev_event+0x43d/0x490
- >  [<ffffffff8173152d>] notifier_call_chain+0x6d/0xb0
- >  [<ffffffff8107cb06>] raw_notifier_call_chain+0x16/0x20
- >  [<ffffffff81639f00>] __dev_notify_flags+0x40/0xa0
- >  [<ffffffff81639fa5>] dev_change_flags+0x45/0x70
- >  [<ffffffff81645c2c>] do_setlink+0x2fc/0x4a0
- >  [<ffffffff81294176>] ? nla_parse+0x36/0x110
- >  [<ffffffff81646d54>] rtnl_newlink+0x444/0x540
- >  [<ffffffff8108c44d>] ? mark_held_locks+0x6d/0x90
- >  [<ffffffff8172b8c5>] ? mutex_lock_nested+0x335/0x3c0
- >  [<ffffffff8164685e>] rtnetlink_rcv_msg+0x18e/0x240
- >  [<ffffffff816466d0>] ? rtnetlink_rcv_msg+0x0/0x240
- >  [<ffffffff816520b9>] netlink_rcv_skb+0x89/0xb0
- >  [<ffffffff816466be>] rtnetlink_rcv+0x2e/0x40
- >  [<ffffffff81651b6b>] ? netlink_unicast+0x11b/0x2f0
- >  [<ffffffff81651d2c>] netlink_unicast+0x2dc/0x2f0
- >  [<ffffffff81630a3c>] ? memcpy_fromiovec+0x7c/0xa0
- >  [<ffffffff81652643>] netlink_sendmsg+0x1d3/0x2e0
- >  [<ffffffff81624e20>] sock_sendmsg+0xc0/0xf0
- >  [<ffffffff8108f9cd>] ? lock_release_non_nested+0x9d/0x340
- >  [<ffffffff810fa33b>] ? might_fault+0x7b/0xd0
- >  [<ffffffff810fa33b>] ? might_fault+0x7b/0xd0
- >  [<ffffffff810fa386>] ? might_fault+0xc6/0xd0
- >  [<ffffffff810fa33b>] ? might_fault+0x7b/0xd0
- >  [<ffffffff81630bfc>] ? verify_iovec+0x4c/0xe0
- >  [<ffffffff81625c3e>] sys_sendmsg+0x1ae/0x360
- >  [<ffffffff810fadf9>] ? __do_fault+0x3f9/0x550
- >  [<ffffffff810fd143>] ? handle_mm_fault+0x1a3/0x790
- >  [<ffffffff8112cc77>] ? fget_light+0xe7/0x2f0
- >  [<ffffffff8108c735>] ? trace_hardirqs_on_caller+0x135/0x180
- >  [<ffffffff8172ccc2>] ? trace_hardirqs_on_thunk+0x3a/0x3f
- >  [<ffffffff810030db>] system_call_fastpath+0x16/0x1b
- > 
- > 
- > 
- > 
- > 
- > -- 
- > ak@linux.intel.com -- Speaking for myself only.
