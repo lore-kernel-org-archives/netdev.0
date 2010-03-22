@@ -1,39 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] tcp: Add SNMP counter for DEFER_ACCEPT
-Date: Sun, 21 Mar 2010 18:32:32 -0700 (PDT)
-Message-ID: <20100321.183232.123981427.davem@davemloft.net>
-References: <1269013038.3048.58.camel@edumazet-laptop>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] xfrm: cache bundle lookup results in flow cache
+Date: Mon, 22 Mar 2010 09:32:57 +0800
+Message-ID: <20100322013257.GA14080@gondor.apana.org.au>
+References: <20100319093210.GA23895@gondor.apana.org.au> <4BA349A8.9050105@iki.fi> <20100320151751.GB2950@gondor.apana.org.au> <20100321.182846.232914131.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: timo.teras@iki.fi, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39757
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753744Ab0CVBcJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 21:32:09 -0400
-In-Reply-To: <1269013038.3048.58.camel@edumazet-laptop>
+Received: from rhun.apana.org.au ([64.62.148.172]:40835 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753744Ab0CVBdG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 21:33:06 -0400
+Content-Disposition: inline
+In-Reply-To: <20100321.182846.232914131.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 19 Mar 2010 16:37:18 +0100
+On Sun, Mar 21, 2010 at 06:28:46PM -0700, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Sat, 20 Mar 2010 23:17:51 +0800
+> 
+> > Actually I just realised that the other way we can fix this is
+> > to make xfrm_dst objects per-cpu just like IPv4 routes.  That
+> > is, when you fail to find an xfrm_dst object in the per-cpu
+> > cache, you dont' bother calling xfrm_find_bundle but just make
+> > a new bundle.
+> 
+> How are ipv4 routing cache entries per-cpu?  That would screw up route
+> metrics for TCP sockets quite a lot if they were.
 
-> Its currently hard to diagnose when ACK frames are dropped because an
-> application set TCP_DEFER_ACCEPT on its listening socket.
-> 
-> See http://bugzilla.kernel.org/show_bug.cgi?id=15507
-> 
-> This patch adds a SNMP value, named TCPDeferAcceptDrop
-> 
-> netstat -s | grep TCPDeferAcceptDrop
->     TCPDeferAcceptDrop: 0
-> 
-> This counter is incremented every time we drop a pure ACK frame received
-> by a socket in SYN_RECV state because its SYNACK retrans count is lower
-> than defer_accept value.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-Applied, thanks Eric.
+You're right of course, s/just like IPv4 routes// :)
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
