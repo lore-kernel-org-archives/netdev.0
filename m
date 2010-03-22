@@ -1,58 +1,60 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 15571] New: TCP madness - some packets are
- shunned.
-Date: Mon, 22 Mar 2010 14:37:11 -0700
-Message-ID: <20100322143711.b78c7a93.akpm@linux-foundation.org>
-References: <bug-15571-10286@http.bugzilla.kernel.org/>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: rps: Fix build with CONFIG_SYSFS enabled
+Date: Mon, 22 Mar 2010 14:48:47 -0700
+Message-ID: <4BA7E5BF.1080805@oracle.com>
+References: <alpine.DEB.1.00.1003221355380.25849@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, jasen@treshna.com
-To: netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:56252 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755575Ab0CVVie (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 17:38:34 -0400
-In-Reply-To: <bug-15571-10286@http.bugzilla.kernel.org/>
+Received: from acsinet12.oracle.com ([141.146.126.234]:32972 "EHLO
+	acsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756424Ab0CVVtB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 17:49:01 -0400
+In-Reply-To: <alpine.DEB.1.00.1003221355380.25849@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
-
-On Thu, 18 Mar 2010 02:46:29 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
-
-> http://bugzilla.kernel.org/show_bug.cgi?id=15571
-> 
->                URL: http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=53646
->                     2
->            Summary: TCP madness - some packets are shunned.
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 2.6.30
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: jasen@treshna.com
->         Regression: No
+On 03/22/10 13:57, Tom Herbert wrote:
+> Fix build with CONFIG_SYSFS not enabled.
 > 
 > 
-> The host http://www.cv-it.com is virtually unreachable with kernel 2.6.26 
-> (and later) slow with kernel 2.6.18 and just fine with windows XP.
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
+> diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+> index 7a46343..f6b6bfe 100644
+> --- a/net/core/net-sysfs.c
+> +++ b/net/core/net-sysfs.c
+> @@ -739,7 +739,9 @@ void netdev_unregister_kobject(struct net_device * net)
+>  	if (!net_eq(dev_net(net), &init_net))
+>  		return;
+>  
+> +#ifdef CONFIG_SYSFS
+>  	rx_queue_remove_kobjects(net);
+> +#endif
+>  
+>  	device_del(dev);
+>  }
+> @@ -780,11 +782,13 @@ int netdev_register_kobject(struct net_device *net)
+>  	if (error)
+>  		return error;
+>  
+> +#ifdef CONFIG_SYSFS
+>  	error = rx_queue_register_kobjects(net);
+>  	if (error) {
+>  		device_del(dev);
+>  		return error;
+>  	}
+> +#endif
+>  
+>  	return error;
+>  }
 > 
-> I used telnet to port 80 for testing.
-> 
-> it seems to be a TCP issue, as the having the XP machine behind a linux based
-> iptables firewall pc causes no problems, but telnet from the firewall pc itself
-> to port 80 on www.cv-it.com does not work
+> --
 
+Dave, this patch and Eric's patch both build OK.  Your choice...
 
+-- 
+~Randy
