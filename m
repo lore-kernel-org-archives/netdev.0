@@ -1,112 +1,58 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH] Cosmetic:Partially remove deprecated __initcall() and
- change to
-Date: Sun, 21 Mar 2010 17:33:55 -0700
-Message-ID: <4BA6BAF3.10603@xenotime.net>
-References: <1269028291-9103-1-git-send-email-justinmattock@gmail.com> <4BA40115.2000509@xenotime.net> <4BA407AC.5030506@gmail.com>
+From: =?UTF-8?B?5p2o56GV?= <shanqn@gmail.com>
+Subject: why does there need to lock?
+Date: Mon, 22 Mar 2010 08:41:04 +0800
+Message-ID: <ffe582101003211741v59da3c56yaffdaa151a6821be@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: trivial@kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-audit@redhat.com, uclinux-dist-devel@blackfin.uclinux.org,
-	linux-cris-kernel@axis.com, linux-ia64@vger.kernel.org,
-	linux-mips@linux-mips.org, linux-parisc@vger.kernel.org,
-	linux-s390@vger.kernel.org, selinux@tycho.nsa.gov,
-	sparclinux@vger.kernel.org, x86@kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Justin P. Mattock" <justinmattock@gmail.com>
-Return-path: <linux-ia64-owner@vger.kernel.org>
-In-Reply-To: <4BA407AC.5030506@gmail.com>
-Sender: linux-ia64-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:45910 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753404Ab0CVAlH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 20:41:07 -0400
+Received: by wyb38 with SMTP id 38so2248616wyb.19
+        for <netdev@vger.kernel.org>; Sun, 21 Mar 2010 17:41:04 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/19/10 16:24, Justin P. Mattock wrote:
-> On 03/19/2010 03:56 PM, Randy Dunlap wrote:
->> On 03/19/10 12:51, Justin P. Mattock wrote:
->>> After doing some things on a small issue,
->>> I noticed through web surfing, that there were patches
->>> submitted pertaining that __initcall is deprecated,
->>> and device_initcall should be used.
->>
->> Where was this discussion?  Do you have any pointers to it?
->>
-> 
-> The best info on this is scripts/checkpatch.pl
-> line #2664
-> 
-> when I found this I just did a quick search of __initcall
-> (which gives hits here and there)
-> https://patchwork.kernel.org/patch/23344/
-> (also found others at around 2008 or so)
+Hi, i'm confused about why does "rcu_assign_pointer(dev->ip_ptr,
+in_dev);" need to rcu lock?
 
-Thanks.  IMO there should be something in the kernel source tree
-that says explicitly that __initcall is deprecated and should be
-replaced by using <whatever should be used>.  That's missing.
+TIA :)
 
+static struct in_device *inetdev_init(struct net_device *dev)
+{
+	struct in_device *in_dev;
 
->> I don't see any mention of __initcall being deprecated in
->> Linus' mainline git tree, or in linux-next, or in mmotm.
->> Where are those patches?
->>
-> 
-> I don't know(I'm out of the social pipeline when it comes to Linux news,
-> and updates)..
-> like in the explanation part of the patch
-> I was looking into something else, then ran into this,
-> so as a break(from what I was originally doing)
-> decided to do this and submit.
-> 
->>
->>> So as a change of subject(since what I was looking at
->>> was frustrating me),I decided to grep the whole tree
->>> and make the change(partially).
->>>
->>> Currently I'm running this patch on my system, kernel compiles
->>> without any errors or warnings.(thought there would be a speed increase
->>> but didn't see much(if any)).
->>
->> No, __initcall(x) is just a shorthand version of typing
->> device_initcall(x).  They do the same thing.
->>
-> 
-> yep, that's what I found out as well(reason for the cosmetic
-> in the subject line).
-> 
->>> Biggest problem I have though is testing this on other hardware types
->>> (I only have a macbook,and an iMac).
->>> So please if you have the access to other arch/hardware types please
->>> test.
->>>
->>> Now what I mean by partially is the __initcall function is still
->>> there, so(if any) userspace apps/libs depend on this it's there
->>> so they dont break and/or any other subsystem, that needs time
->>> to make the changes.
->>
->> The only thing that might be affected is building out-of-tree drivers,
->> but those are easy to fix.
->>
-> 
-> alright..main concern is making sure things don't break in the
-> kernel(even though things do).
-> 
-> I can have a go at the header files, submit
-> then if it's something people agree they want to do, then they
-> can go from there(if not it's fine as well).
-> 
->>> Note:
->>> the remaining files that still have __initcall in them are:
->>> (according to grep)
->>>
->>> arch/um/include/shared/init.h
->>> include/linux/init.h
->>> scripts/checkpatch.pl
->>>
->>> either I or somebody else, can change this(although a bit
->>> concerned about breaking things).
->>>
->>> Signed-off-by: Justin P. Mattock<justinmattock@gmail.com>
->>> ---
+	ASSERT_RTNL();
 
+	in_dev = kzalloc(sizeof(*in_dev), GFP_KERNEL);
+	if (!in_dev)
+		goto out;
+	memcpy(&in_dev->cnf, dev_net(dev)->ipv4.devconf_dflt,
+			sizeof(in_dev->cnf));
+	in_dev->cnf.sysctl = NULL;
+	in_dev->dev = dev;
+	if ((in_dev->arp_parms = neigh_parms_alloc(dev, &arp_tbl)) == NULL)
+		goto out_kfree;
+	if (IPV4_DEVCONF(in_dev->cnf, FORWARDING))
+		dev_disable_lro(dev);
+	/* Reference in_dev->dev */
+	dev_hold(dev);
+	/* Account for reference dev->ip_ptr (below) */
+	in_dev_hold(in_dev);
 
--- 
-~Randy
+	devinet_sysctl_register(in_dev);
+	ip_mc_init_dev(in_dev);
+	if (dev->flags & IFF_UP)
+		ip_mc_up(in_dev);
+
+	/* we can receive as soon as ip_ptr is set -- do this last */
+	rcu_assign_pointer(dev->ip_ptr, in_dev);
+out:
+	return in_dev;
+out_kfree:
+	kfree(in_dev);
+	in_dev = NULL;
+	goto out;
+}
