@@ -1,45 +1,63 @@
-From: "Kristian Evensen" <kristrev@simula.no>
-Subject: Performance hit with IP-tunnels
-Date: Mon, 22 Mar 2010 11:17:17 +0100
-Message-ID: <000301cac9a8$dcd53750$967fa5f0$@no>
+From: Mihamina Rakotomandimby <mihamina@gulfsat.mg>
+Subject: tc download always to "default"
+Date: Mon, 22 Mar 2010 13:44:39 +0300
+Message-ID: <20100322134439.517b4447@pbmiha.malagasy.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>, <linux-ppp@vger.kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-forward1.uio.no ([129.240.10.70]:57018 "EHLO
-	mail-forward1.uio.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753560Ab0CVKpa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 06:45:30 -0400
-Received: from exim by mail-out1.uio.no with local-bsmtp (Exim 4.69)
-	(envelope-from <kristrev@simula.no>)
-	id 1NtekV-0007W8-64
-	for netdev@vger.kernel.org; Mon, 22 Mar 2010 11:20:43 +0100
-Content-Language: no
+Received: from static-104-36.blueline.mg ([41.204.104.36]:53823 "EHLO
+	mail.blueline.mg" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754203Ab0CVLFM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 07:05:12 -0400
+Received: from localhost (spamassassin.malagasy.com [41.204.104.47])
+	by mail.blueline.mg (Postfix) with ESMTP id 0B76FF821
+	for <netdev@vger.kernel.org>; Mon, 22 Mar 2010 13:44:47 +0300 (EAT)
+Received: from mail.blueline.mg ([41.204.104.38])
+	by localhost (spamassassin.malagasy.com [41.204.104.47]) (amavisd-new, port 10024)
+	with ESMTP id A15ZtUI5I8ov for <netdev@vger.kernel.org>;
+	Mon, 22 Mar 2010 13:50:32 +0300 (EAT)
+Received: from pbmiha.malagasy.com (sysadmin-cnc.malagasy.com [41.204.104.9])
+	by mail.blueline.mg (Postfix) with ESMTP id E053FF820
+	for <netdev@vger.kernel.org>; Mon, 22 Mar 2010 13:44:46 +0300 (EAT)
+Received: from localhost ([127.0.0.1] helo=pbmiha.malagasy.com)
+	by pbmiha.malagasy.com with esmtp (Exim 4.69)
+	(envelope-from <mihamina@gulfsat.mg>)
+	id 1Ntf7f-0001cl-Ln
+	for netdev@vger.kernel.org; Mon, 22 Mar 2010 13:44:39 +0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Manao ahoana, Hello, Bonjour,
 
-I am currently comparing different IP-tunneling protocols/implementations,
-and have stumbled upon something I am not able to explain. Regardless of
-which tunneling technology I use, the latency increases with a couple of 10s
-of ms and I see a significant degradation of throughput (compared to when no
-tunnels are used). The only exception is IP-in-IP, where I get similar
-performance with and without tunnels, but it does unfortunately not work in
-my scenario.
+This is my simple topology:
 
-First, I thought this was caused by the different tunneling software, but
-after measuring the processing time of the applications (xl2tp and
-pptp-client) and when the packets are seen by the different iptables chains
-(using LOG), these delays seem to be acceptable. However, one delay sticks
-out. After the packet has been decapsulated and fed to PPP, it takes a
-"long" time before it is seen again. My question is, can PPP be the cause of
-the higher latency and lower throughput? 
+  LAN <--> (eth1)[gateway](eth2) <--> Internet
 
-Similar observations are made at both ends of the tunnel.
+The gataway NATs (Masquerade) but there is no trouble about this.
 
-Thanks in advance for any help,
-Kristian
+I would like to limit the DOWNLOAD bandwidth per host.
+Download is:
 
+  Internet -> gateway -> eth1 -> LAN Host
+
+LAN is 10.150.0.128/25
+
+There are sample lines of my "tc" ruleset: 
+http://pastebin.org/119806
+
+
+My problem is all the traffic is caught by "classid 1:10", the default
+class.
+
+Nothing is trapped by "classid 1:301" -> "classid 1:426"
+
+At a first glance, would you see something wrong in these?
+
+Misaotra, Thanks, Merci.
+
+-- 
+       Architecte Informatique chez Blueline/Gulfsat:
+    Administration Systeme, Recherche & Developpement
+                +261 34 29 155 34 / +261 33 11 207 36
