@@ -1,40 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xfrm: cache bundle lookup results in flow cache
-Date: Sun, 21 Mar 2010 20:12:58 -0700 (PDT)
-Message-ID: <20100321.201258.184825751.davem@davemloft.net>
-References: <20100322013257.GA14080@gondor.apana.org.au>
-	<20100321.183656.173864141.davem@davemloft.net>
-	<20100322014010.GA14182@gondor.apana.org.au>
+Subject: Re: [RFC] GTSM for IPv6
+Date: Sun, 21 Mar 2010 20:16:08 -0700 (PDT)
+Message-ID: <20100321.201608.124071215.davem@davemloft.net>
+References: <20100319095640.42c8d82d@nehalam>
+	<alpine.LRH.2.00.1003191959050.31512@netcore.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: timo.teras@iki.fi, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: shemminger@vyatta.com, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org
+To: pekkas@netcore.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49305
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59880
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753711Ab0CVDMf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 23:12:35 -0400
-In-Reply-To: <20100322014010.GA14182@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1753726Ab0CVDPq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 23:15:46 -0400
+In-Reply-To: <alpine.LRH.2.00.1003191959050.31512@netcore.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 22 Mar 2010 09:40:10 +0800
+From: Pekka Savola <pekkas@netcore.fi>
+Date: Fri, 19 Mar 2010 20:02:48 +0200 (EET)
 
-> On Sun, Mar 21, 2010 at 06:36:56PM -0700, David Miller wrote:
->>
->> And as a consequence, making the xfrm_dst's be per-cpu would mess with
->> route metrics for TCP.
+> On Fri, 19 Mar 2010, Stephen Hemminger wrote:
+>> Also RFC doesn't explicitly address GTSM on IPV6.
+>> Maybe the RFC editors think the problem will magically no longer exist
+>> in IPv6 world because everyone will be using IPsec.
 > 
-> Actually xfrm_dst currently relies on IPv4 rt objects to maintain
-> the metrics.  So as long as IPv4 routes are still global, then the
-> metrics won't be affected as far as can I see.
+> Hmm. When I was editing the RFC, I seem to have put in some text about
+> IPv6 (i.e. difference in TTL vs Hop Count naming).  As far as I know,
+> there is no other difference :-)
 > 
-> Did I miss something?
+> In IPV6_MIN_HOPS hops would seem to point toward the "number of hops"
+> which is logically the opposite: 255-$value.  So maybe
+> IPV6_MIN_HOPCOUNT is better. But I can live with it either way :-)
 
-Good point, I was misunderstanding how things work now and how
-that would change with your proposal.
-
-Having multiple xfrm_dsts exist for an IPSEC route seems fine
-to me.
+Stephen, make whatever decision your deem appropriate about
+the name and resubmit this for net-next-2.6, thanks!
