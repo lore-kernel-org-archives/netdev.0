@@ -1,7 +1,8 @@
 From: Amerigo Wang <amwang@redhat.com>
-Subject: [RFC Patch 1/3] netpoll: add generic support for bridge and bonding devices
-Date: Mon, 22 Mar 2010 04:17:17 -0400
-Message-ID: <20100322082059.4967.63492.sendpatchset@localhost.localdomain>
+Subject: [RFC Patch 2/3] bridge: make bridge support netpoll
+Date: Mon, 22 Mar 2010 04:17:30 -0400
+Message-ID: <20100322082112.4967.5504.sendpatchset@localhost.localdomain>
+References: <20100322082059.4967.63492.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
 	Andy Gospodarek <gospo@redhat.com>,
 	Neil Horman <nhorman@tuxdriver.com>,
@@ -12,188 +13,242 @@ Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
 	David Miller <davem@davemloft.net>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100322082059.4967.63492.sendpatchset@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-This whole patchset is for adding netpoll support to bridge and bonding
-devices. I already tested it for bridge, bonding, bridge over bonding,
-and bonding over bridge. It looks fine now.
+Based on the previous patch, make bridge support netpoll by:
 
-Please comment.
+1) implement the 4 methods to support netpoll for bridge;
 
+2) modify netpoll during forwarding packets in bridge;
 
-To make bridge and bonding support netpoll, we need to adjust
-some netpoll generic code. This patch does the following things:
+3) disable netpoll support of bridge when a netpoll-unabled device
+   is added to bridge;
 
-1) introduce two new priv_flags for struct net_device:
-   IFF_IN_NETPOLL which identifies we are processing a netpoll;
-   IFF_DISABLE_NETPOLL is used to disable netpoll support for a device
-   at run-time;
-
-2) introduce three new methods for netdev_ops:
-   ->ndo_netpoll_setup() is used to setup netpoll for a device;
-   ->ndo_netpoll_xmit() is used to transmit netpoll requests;
-   ->ndo_netpoll_cleanup() is used to clean up netpoll when a device is
-     removed.
-
-3) introduce netpoll_poll_dev() which takes a struct net_device * parameter;
-
-4) export netpoll_send_skb() and netpoll_poll_dev() which will be used later;
-
-5) hide a pointer to struct netpoll in struct netpoll_info, ditto.
+4) enable netpoll support when all underlying devices support netpoll.
 
 Cc: David Miller <davem@davemloft.net>
 Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>
 Signed-off-by: WANG Cong <amwang@redhat.com>
 
 ---
-Index: linux-2.6/include/linux/if.h
+Index: linux-2.6/net/bridge/br_device.c
 ===================================================================
---- linux-2.6.orig/include/linux/if.h
-+++ linux-2.6/include/linux/if.h
-@@ -71,6 +71,8 @@
- 					 * release skb->dst
- 					 */
- #define IFF_DONT_BRIDGE 0x800		/* disallow bridging this ether dev */
-+#define IFF_IN_NETPOLL	0x1000		/* whether we are processing netpoll */
-+#define IFF_DISABLE_NETPOLL	0x2000	/* disable netpoll at run-time */
+--- linux-2.6.orig/net/bridge/br_device.c
++++ linux-2.6/net/bridge/br_device.c
+@@ -13,6 +13,7 @@
  
- #define IF_GET_IFACE	0x0001		/* for querying only */
- #define IF_GET_PROTO	0x0002
-Index: linux-2.6/include/linux/netdevice.h
-===================================================================
---- linux-2.6.orig/include/linux/netdevice.h
-+++ linux-2.6/include/linux/netdevice.h
-@@ -530,6 +530,8 @@ struct netdev_queue {
- 	unsigned long		tx_dropped;
- } ____cacheline_aligned_in_smp;
+ #include <linux/kernel.h>
+ #include <linux/netdevice.h>
++#include <linux/netpoll.h>
+ #include <linux/etherdevice.h>
+ #include <linux/ethtool.h>
  
-+struct netpoll;
-+struct netpoll_info;
- 
- /*
-  * This structure defines the management hooks for network devices.
-@@ -667,6 +669,12 @@ struct net_device_ops {
- 						        unsigned short vid);
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	void                    (*ndo_poll_controller)(struct net_device *dev);
-+	void			(*ndo_netpoll_setup)(struct net_device *dev,
-+						     struct netpoll_info *npinfo);
-+	int			(*ndo_netpoll_xmit)(struct netpoll *np,
-+						    struct sk_buff *skb,
-+						    struct net_device *dev);
-+	void			(*ndo_netpoll_cleanup)(struct net_device *dev);
- #endif
- 	int			(*ndo_set_vf_mac)(struct net_device *dev,
- 						  int queue, u8 *mac);
-Index: linux-2.6/include/linux/netpoll.h
-===================================================================
---- linux-2.6.orig/include/linux/netpoll.h
-+++ linux-2.6/include/linux/netpoll.h
-@@ -36,8 +36,11 @@ struct netpoll_info {
- 	struct sk_buff_head txq;
- 
- 	struct delayed_work tx_work;
-+
-+	struct netpoll *netpoll;
- };
- 
-+void netpoll_poll_dev(struct net_device *dev);
- void netpoll_poll(struct netpoll *np);
- void netpoll_send_udp(struct netpoll *np, const char *msg, int len);
- void netpoll_print_options(struct netpoll *np);
-@@ -47,6 +50,7 @@ int netpoll_trap(void);
- void netpoll_set_trap(int trap);
- void netpoll_cleanup(struct netpoll *np);
- int __netpoll_rx(struct sk_buff *skb);
-+void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb);
- 
- 
- #ifdef CONFIG_NETPOLL
-Index: linux-2.6/net/core/netpoll.c
-===================================================================
---- linux-2.6.orig/net/core/netpoll.c
-+++ linux-2.6/net/core/netpoll.c
-@@ -178,9 +178,8 @@ static void service_arp_queue(struct net
- 	}
- }
- 
--void netpoll_poll(struct netpoll *np)
-+void netpoll_poll_dev(struct net_device *dev)
- {
--	struct net_device *dev = np->dev;
- 	const struct net_device_ops *ops;
- 
- 	if (!dev || !netif_running(dev))
-@@ -200,6 +199,13 @@ void netpoll_poll(struct netpoll *np)
- 	zap_completion_queue();
- }
- 
-+void netpoll_poll(struct netpoll *np)
-+{
-+	if (!np->dev)
-+		return;
-+	netpoll_poll_dev(np->dev);
-+}
-+
- static void refill_skbs(void)
- {
- 	struct sk_buff *skb;
-@@ -281,7 +287,7 @@ static int netpoll_owner_active(struct n
+@@ -162,6 +163,87 @@ static int br_set_tx_csum(struct net_dev
  	return 0;
  }
  
--static void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
-+void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
- {
- 	int status = NETDEV_TX_BUSY;
- 	unsigned long tries;
-@@ -307,7 +313,10 @@ static void netpoll_send_skb(struct netp
- 		     tries > 0; --tries) {
- 			if (__netif_tx_trylock(txq)) {
- 				if (!netif_tx_queue_stopped(txq)) {
--					status = ops->ndo_start_xmit(skb, dev);
-+					if (ops->ndo_netpoll_xmit)
-+						status = ops->ndo_netpoll_xmit(np, skb, dev);
-+					else
-+						status = ops->ndo_start_xmit(skb, dev);
- 					if (status == NETDEV_TX_OK)
- 						txq_trans_update(txq);
- 				}
-@@ -752,7 +761,10 @@ int netpoll_setup(struct netpoll *np)
- 		atomic_inc(&npinfo->refcnt);
++#ifdef CONFIG_NET_POLL_CONTROLLER
++bool br_devices_support_netpoll(struct net_bridge *br)
++{
++	struct net_bridge_port *p;
++	bool ret = true;
++	int count = 0;
++	unsigned long flags;
++
++	spin_lock_irqsave(&br->lock, flags);
++	list_for_each_entry(p, &br->port_list, list) {
++		count++;
++		if (p->dev->priv_flags & IFF_DISABLE_NETPOLL
++				|| !p->dev->netdev_ops->ndo_poll_controller)
++			ret = false;
++	}
++	spin_unlock_irqrestore(&br->lock, flags);
++	return count != 0 && ret;
++}
++
++static void br_poll_controller(struct net_device *br_dev)
++{
++	struct net_bridge *br = netdev_priv(br_dev);
++	struct net_bridge_port *p;
++	unsigned long flags;
++
++	spin_lock_irqsave(&br->lock, flags);
++	list_for_each_entry(p, &br->port_list, list) {
++		if (p->dev->netdev_ops->ndo_poll_controller)
++			netpoll_poll_dev(p->dev);
++	}
++	spin_unlock_irqrestore(&br->lock, flags);
++}
++
++static void br_netpoll_setup(struct net_device *br_dev, struct netpoll_info *npinfo)
++{
++	struct net_bridge *br = netdev_priv(br_dev);
++	struct net_bridge_port *p;
++	unsigned long flags;
++
++	spin_lock_irqsave(&br->lock, flags);
++	list_for_each_entry(p, &br->port_list, list) {
++		if (p->dev)
++			p->dev->npinfo = npinfo;
++	}
++	spin_unlock_irqrestore(&br->lock, flags);
++}
++
++static void br_netpoll_cleanup(struct net_device *br_dev)
++{
++	struct net_bridge *br = netdev_priv(br_dev);
++	struct net_bridge_port *p;
++	const struct net_device_ops *ops;
++	unsigned long flags;
++
++	spin_lock_irqsave(&br->lock, flags);
++	br->dev->npinfo = NULL;
++	list_for_each_entry(p, &br->port_list, list) {
++		if (p->dev) {
++			ops = p->dev->netdev_ops;
++			if (ops->ndo_netpoll_cleanup)
++				ops->ndo_netpoll_cleanup(p->dev);
++			else
++				p->dev->npinfo = NULL;
++		}
++	}
++	spin_unlock_irqrestore(&br->lock, flags);
++}
++
++static int br_netpoll_xmit(struct netpoll *np, struct sk_buff *skb, struct net_device *dev)
++{
++	int ret;
++
++	dev->priv_flags |= IFF_IN_NETPOLL;
++	ret = dev->netdev_ops->ndo_start_xmit(skb, dev);
++	np->dev = dev;
++	dev->priv_flags &= ~IFF_IN_NETPOLL;
++	return ret;
++}
++
++#endif
++
+ static const struct ethtool_ops br_ethtool_ops = {
+ 	.get_drvinfo    = br_getinfo,
+ 	.get_link	= ethtool_op_get_link,
+@@ -184,6 +266,12 @@ static const struct net_device_ops br_ne
+ 	.ndo_set_multicast_list	 = br_dev_set_multicast_list,
+ 	.ndo_change_mtu		 = br_change_mtu,
+ 	.ndo_do_ioctl		 = br_dev_ioctl,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_netpoll_setup	 = br_netpoll_setup,
++	.ndo_netpoll_xmit	 = br_netpoll_xmit,
++	.ndo_netpoll_cleanup	 = br_netpoll_cleanup,
++	.ndo_poll_controller	 = br_poll_controller,
++#endif
+ };
+ 
+ void br_dev_setup(struct net_device *dev)
+Index: linux-2.6/net/bridge/br_forward.c
+===================================================================
+--- linux-2.6.orig/net/bridge/br_forward.c
++++ linux-2.6/net/bridge/br_forward.c
+@@ -14,6 +14,7 @@
+ #include <linux/err.h>
+ #include <linux/kernel.h>
+ #include <linux/netdevice.h>
++#include <linux/netpoll.h>
+ #include <linux/skbuff.h>
+ #include <linux/if_vlan.h>
+ #include <linux/netfilter_bridge.h>
+@@ -44,7 +45,13 @@ int br_dev_queue_push_xmit(struct sk_buf
+ 		else {
+ 			skb_push(skb, ETH_HLEN);
+ 
+-			dev_queue_xmit(skb);
++#ifdef CONFIG_NET_POLL_CONTROLLER
++			if (skb->dev->priv_flags & IFF_IN_NETPOLL) {
++				netpoll_send_skb(skb->dev->npinfo->netpoll, skb);
++				skb->dev->priv_flags &= ~IFF_IN_NETPOLL;
++			} else
++#endif
++				dev_queue_xmit(skb);
+ 		}
  	}
  
--	if (!ndev->netdev_ops->ndo_poll_controller) {
-+	npinfo->netpoll = np;
-+
-+	if (ndev->priv_flags & IFF_DISABLE_NETPOLL
-+			|| !ndev->netdev_ops->ndo_poll_controller) {
- 		printk(KERN_ERR "%s: %s doesn't support polling, aborting.\n",
- 		       np->name, np->dev_name);
- 		err = -ENOTSUPP;
-@@ -830,6 +842,9 @@ int netpoll_setup(struct netpoll *np)
- 	/* last thing to do is link it to the net device structure */
- 	ndev->npinfo = npinfo;
+@@ -60,6 +67,16 @@ int br_forward_finish(struct sk_buff *sk
  
-+	if (ndev->netdev_ops->ndo_netpoll_setup)
-+		ndev->netdev_ops->ndo_netpoll_setup(ndev, npinfo);
+ static void __br_deliver(const struct net_bridge_port *to, struct sk_buff *skb)
+ {
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	struct net_bridge *br = to->br;
++	if (br->dev->priv_flags & IFF_IN_NETPOLL) {
++		skb->dev->npinfo->netpoll->dev = to->dev;
++		if (!to->dev->npinfo)
++			to->dev->npinfo = skb->dev->npinfo;
 +
- 	/* avoid racing with NAPI reading npinfo */
- 	synchronize_rcu();
++		to->dev->priv_flags |= IFF_IN_NETPOLL;
++	}
++#endif
+ 	skb->dev = to->dev;
+ 	NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_OUT, skb, NULL, skb->dev,
+ 			br_forward_finish);
+Index: linux-2.6/net/bridge/br_if.c
+===================================================================
+--- linux-2.6.orig/net/bridge/br_if.c
++++ linux-2.6/net/bridge/br_if.c
+@@ -19,6 +19,7 @@
+ #include <linux/init.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/if_ether.h>
++#include <linux/netpoll.h>
+ #include <net/sock.h>
  
-@@ -904,6 +919,7 @@ void netpoll_set_trap(int trap)
- 		atomic_dec(&trapped);
+ #include "br_private.h"
+@@ -152,6 +153,14 @@ static void del_nbp(struct net_bridge_po
+ 	kobject_uevent(&p->kobj, KOBJ_REMOVE);
+ 	kobject_del(&p->kobj);
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	if (br_devices_support_netpoll(br))
++		br->dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
++	if (br->dev->netdev_ops->ndo_netpoll_cleanup)
++		br->dev->netdev_ops->ndo_netpoll_cleanup(br->dev);
++	else
++		dev->npinfo = NULL;
++#endif
+ 	call_rcu(&p->rcu, destroy_nbp_rcu);
  }
  
-+EXPORT_SYMBOL(netpoll_send_skb);
- EXPORT_SYMBOL(netpoll_set_trap);
- EXPORT_SYMBOL(netpoll_trap);
- EXPORT_SYMBOL(netpoll_print_options);
-@@ -911,4 +927,5 @@ EXPORT_SYMBOL(netpoll_parse_options);
- EXPORT_SYMBOL(netpoll_setup);
- EXPORT_SYMBOL(netpoll_cleanup);
- EXPORT_SYMBOL(netpoll_send_udp);
-+EXPORT_SYMBOL(netpoll_poll_dev);
- EXPORT_SYMBOL(netpoll_poll);
+@@ -437,6 +446,20 @@ int br_add_if(struct net_bridge *br, str
+ 
+ 	kobject_uevent(&p->kobj, KOBJ_ADD);
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	if (br_devices_support_netpoll(br)) {
++		br->dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
++		if (br->dev->npinfo)
++			dev->npinfo = br->dev->npinfo;
++	} else if (!(br->dev->priv_flags & IFF_DISABLE_NETPOLL)) {
++		br->dev->priv_flags |= IFF_DISABLE_NETPOLL;
++		printk(KERN_INFO "New device %s does not support netpoll\n",
++			dev->name);
++		printk(KERN_INFO "Disabling netpoll for %s\n",
++			br->dev->name);
++	}
++#endif
++
+ 	return 0;
+ err2:
+ 	br_fdb_delete_by_port(br, p, 1);
+Index: linux-2.6/net/bridge/br_private.h
+===================================================================
+--- linux-2.6.orig/net/bridge/br_private.h
++++ linux-2.6/net/bridge/br_private.h
+@@ -225,6 +225,7 @@ static inline int br_is_root_bridge(cons
+ extern void br_dev_setup(struct net_device *dev);
+ extern netdev_tx_t br_dev_xmit(struct sk_buff *skb,
+ 			       struct net_device *dev);
++extern bool br_devices_support_netpoll(struct net_bridge *br);
+ 
+ /* br_fdb.c */
+ extern int br_fdb_init(void);
