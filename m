@@ -1,35 +1,37 @@
-From: Karsten Keil <isdn@linux-pingi.de>
-Subject: Re: [RFC PATCH 10/19] pcmcia: dev_node removal (drivers with updated printk call)
-Date: Mon, 22 Mar 2010 06:22:28 +0100
-Message-ID: <201003220622.28507.isdn@linux-pingi.de>
-References: <20100321230617.GA24791@comet.dominikbrodowski.net> <1269212857-25364-10-git-send-email-linux@dominikbrodowski.net>
-Reply-To: isdn@linux-pingi.de
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: [PATCH 2.6.34-rc2] rxrpc: Check allocation failure.
+Date: Mon, 22 Mar 2010 14:44:31 +0900
+Message-ID: <201003221444.JID21821.FQJOSLFMOFtHOV@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-pcmcia@lists.infradead.org,
-	Harald Welte <laforge@gnumonks.org>, linux-ide@vger.kernel.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: Dominik Brodowski <linux@dominikbrodowski.net>
-Return-path: <linux-ide-owner@vger.kernel.org>
-In-Reply-To: <1269212857-25364-10-git-send-email-linux@dominikbrodowski.net>
-Sender: linux-ide-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wine.ocn.ne.jp ([122.1.235.145]:62522 "EHLO smtp.wine.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753234Ab0CVFod (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Mar 2010 01:44:33 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Montag, 22. M=E4rz 2010 00:07:28 Dominik Brodowski wrote:
-> As a second step, remove any usage of dev_node_t from drivers which
-> only wrote to this typedef/struct, except one printk() which can
-> easily be replaced by a dev_info()/dev_warn() call.
->=20
-> CC: Harald Welte <laforge@gnumonks.org>
-> CC: linux-ide@vger.kernel.org
-> CC: Karsten Keil <isdn@linux-pingi.de>
-> CC: linux-wireless@vger.kernel.org
-> CC: netdev@vger.kernel.org
-> CC: linux-usb@vger.kernel.org
-> Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
+alloc_skb() can return NULL.
 
-Acked-by: Karsten Keil  <isdn@linux-pingi.de>
+Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+---
+ net/rxrpc/ar-accept.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
-Thanks.
+--- linux-2.6.34-rc2.orig/net/rxrpc/ar-accept.c
++++ linux-2.6.34-rc2/net/rxrpc/ar-accept.c
+@@ -88,6 +88,11 @@ static int rxrpc_accept_incoming_call(st
+ 
+ 	/* get a notification message to send to the server app */
+ 	notification = alloc_skb(0, GFP_NOFS);
++	if (!notification) {
++		_debug("no memory");
++		ret = -ENOMEM;
++		goto error;
++	}
+ 	rxrpc_new_skb(notification);
+ 	notification->mark = RXRPC_SKB_MARK_NEW_CALL;
+ 
