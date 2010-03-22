@@ -1,37 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 2/2] can: sja1000: add read/write routines
- for 8, 16 and 32-bit register access
-Date: Sun, 21 Mar 2010 20:37:15 -0700 (PDT)
-Message-ID: <20100321.203715.137820424.davem@davemloft.net>
-References: <4BA356A4.5040205@visionsystems.de>
-	<4BA35704.2060909@visionsystems.de>
-	<20100320035639.GB26934@pengutronix.de>
+Subject: Re: [PATCH] pktgen node allocation
+Date: Sun, 21 Mar 2010 20:37:44 -0700 (PDT)
+Message-ID: <20100321.203744.43021126.davem@davemloft.net>
+References: <19363.14702.909265.380669@gargle.gargle.HOWL>
+	<1268990933.3048.15.camel@edumazet-laptop>
+	<19363.32154.39665.185451@gargle.gargle.HOWL>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yegor_sub1@visionsystems.de, netdev@vger.kernel.org,
-	socketcan-core@lists.berlios.de
-To: w.sang@pengutronix.de
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: robert@herjulf.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52901
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52905
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753949Ab0CVDgw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 23:36:52 -0400
-In-Reply-To: <20100320035639.GB26934@pengutronix.de>
+	by vger.kernel.org with ESMTP id S1754063Ab0CVDhW convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 Mar 2010 23:37:22 -0400
+In-Reply-To: <19363.32154.39665.185451@gargle.gargle.HOWL>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wolfram Sang <w.sang@pengutronix.de>
-Date: Sat, 20 Mar 2010 04:56:39 +0100
+=46rom: robert@herjulf.net
+Date: Fri, 19 Mar 2010 14:35:22 +0100
 
-> On Fri, Mar 19, 2010 at 11:50:44AM +0100, Yegor Yefremov wrote:
->> SJA1000: add read/write routines for 8, 16 and 32-bit register access
->> 
->> add routines for 8, 16 and 32-bit access like in 
->> drivers/i2c/busses/i2c-pca-platform.c
->> 
->> Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
-> 
-> Acked-by: Wolfram Sang <w.sang@pengutronix.de>
+>=20
+> Eric Dumazet writes:
+>  > Le vendredi 19 mars 2010 =E0 09:44 +0100, Robert Olsson a =E9crit =
+:
+>  >=20
+>  > I cannot understand how this can help.
+>  >=20
+>  > __netdev_alloc_skb() is supposed to already take into account NUMA
+>  > properties :
+>  >=20
+>  > int node =3D dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
+>  >=20
+>  > If this doesnt work, we should correct core stack, not only pktgen=
+ :)
+>  >=20
+>  > Are you allocating memory in the node where pktgen CPU is running =
+or the
+>  > node close to the NIC ?
+>=20
+>  I didn't say it should help the idea was to give some hooks to=20
+>  experiment and see effects with different node memory allocations.
+>  There are many degrees of freedom wrt buses(device)/CPU/menory.
 
-Applied.
+I think it's a useful feature and by default the netdev alloc
+is still used, so... applied to net-next-2.6
