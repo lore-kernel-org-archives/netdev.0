@@ -1,98 +1,36 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH] xfrm: cache bundle lookup results in flow cache
-Date: Mon, 22 Mar 2010 11:52:01 +0800
-Message-ID: <20100322035201.GA14457@gondor.apana.org.au>
-References: <4BA337E6.4010508@iki.fi> <20100319084717.GA23567@gondor.apana.org.au> <4BA33FF5.8010104@iki.fi> <20100319093210.GA23895@gondor.apana.org.au> <4BA349A8.9050105@iki.fi> <20100320151751.GB2950@gondor.apana.org.au> <4BA4F718.3020700@iki.fi> <20100321004659.GA5895@gondor.apana.org.au> <4BA5CC16.9040606@iki.fi> <4BA5D95B.4020004@iki.fi>
+Date: Mon, 22 Mar 2010 11:52:41 +0800
+Message-ID: <20100322035241.GB14457@gondor.apana.org.au>
+References: <20100322013257.GA14080@gondor.apana.org.au> <20100321.183656.173864141.davem@davemloft.net> <20100322014010.GA14182@gondor.apana.org.au> <20100321.201258.184825751.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: timo.teras@iki.fi, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:45175 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:49875 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753690Ab0CVDwG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 23:52:06 -0400
+	with ESMTP id S1753865Ab0CVDwq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 23:52:46 -0400
 Content-Disposition: inline
-In-Reply-To: <4BA5D95B.4020004@iki.fi>
+In-Reply-To: <20100321.201258.184825751.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 21, 2010 at 10:31:23AM +0200, Timo Ter=E4s wrote:
->
->> Ok, we can do that to skip 2. But I think 1 would be still useful.
->> It'd probably be good to actually have flow_cache_ops pointer in
->> each entry instead of the atomic_t pointer.
->>
->> The reasoning:
->> - we can then have type-based checks that the reference count
->>  is valid (e.g. policy's refcount must not go to zero, it's bug,
->>  and we can call dst_release which warns if refcount goes to
->>  negative); imho it's hack to call atomic_dec instead of the
->>  real type's xxx_put
->> - the flow cache needs to somehow know if the entry is stale so
->>  it'll try to refresh it atomically; e.g. if there's no
->>  check for 'stale', the lookup returns stale xfrm_dst. we'd
->>  then need new api to update the stale entry, or flush it out
->>  and repeat the lookup. the virtual get could check for it being
->>  stale (if so release the entry) and then return null for the
->>  generic code to call the resolver atomically
->> - for paranoia we can actually check the type of the object in
->>  cache via the ops (if needed)
+On Sun, Mar 21, 2010 at 08:12:58PM -0700, David Miller wrote:
+> 
+> Good point, I was misunderstanding how things work now and how
+> that would change with your proposal.
+> 
+> Having multiple xfrm_dsts exist for an IPSEC route seems fine
+> to me.
 
-The reason I'd prefer to keep the current scheme is to avoid
-an additional indirect function call on each packet.
+Thanks for the confirmation.
 
-The way it would work is (we need flow_cache_lookup to return
-fle instead of the object):
-
-	fle =3D flow_cache_lookup
-	xdst =3D fle->object
-	if (xdst is stale) {
-		flow_cache_mark_obsolete(fle)
-		fle =3D flow_cache_lookup
-		xdst =3D fle->object
-		if (xdst is stale)
-			return error
-	}
-
-Where flow_cache_mark_obsolete would set a flag in the fle that's
-checked by flow_cache_lookup.  To prevent the very rare case
-where we mark an entry obsolete incorrectly, the resolver function
-should double-check that the existing entry is indeed obsolete
-before making a new one.
-
-This way we give the overhead over to the slow path where the
-bundle is stale.
-
-You were saying that our bundles are going stale very frequently,
-that would sound like a bug that we should look into.  The whole
-caching scheme is pointless if the bundle is going stale every
-other packet.
-
-> - could cache bundle OR policy for outgoing stuff. it's useful
->  to cache the policy in case we need to sleep, or if it's a
->  policy forbidding traffic. in those cases there's no bundle
->  to cache at all. alternatively we can make dummy bundles that
->  are marked invalid and are just used to keep a reference to
->  the policy.
-
-My instinct is to go with dummy bundles.  That way given the
-direction we know exactly what object type it is.  Having mixed
-object types is just too much of a pain.
-
-> Oh, this also implies that the resolver function should be
-> changed to get the old stale object so it can re-use it to
-> get the policy object instead of searching it all over again.
-
-That should be easy to implement.  Just prefill the obj argument
-to the resolver with either NULL or the stale object.
-
-=46or the bundle resolver, it should also remove the stale bundle
-from the policy bundle list and drop its reference.
+Timo, let's roll along with the per-cpu xfrm_dst approach.
 
 Cheers,
---=20
+-- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
