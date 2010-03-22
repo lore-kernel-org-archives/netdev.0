@@ -1,39 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] GTSM for IPv6
-Date: Sun, 21 Mar 2010 20:16:08 -0700 (PDT)
-Message-ID: <20100321.201608.124071215.davem@davemloft.net>
-References: <20100319095640.42c8d82d@nehalam>
-	<alpine.LRH.2.00.1003191959050.31512@netcore.fi>
+Subject: Re: [PATCH RFC] tun: add ioctl to modify vnet header size
+Date: Sun, 21 Mar 2010 20:17:32 -0700 (PDT)
+Message-ID: <20100321.201732.186318609.davem@davemloft.net>
+References: <20100317213504.GA7433@redhat.com>
+	<OFB24B6EEE.B788B01F-ON882576E9.00789167-882576E9.0079198A@us.ibm.com>
+	<20100317221117.GA7541@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org
-To: pekkas@netcore.fi
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59880
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753726Ab0CVDPq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 23:15:46 -0400
-In-Reply-To: <alpine.LRH.2.00.1003191959050.31512@netcore.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dlstevens@us.ibm.com, David.Woodhouse@intel.com,
+	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	paul.moore@hp.com, sri@linux.vnet.ibm.com
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100317221117.GA7541@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pekka Savola <pekkas@netcore.fi>
-Date: Fri, 19 Mar 2010 20:02:48 +0200 (EET)
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 18 Mar 2010 00:11:17 +0200
 
-> On Fri, 19 Mar 2010, Stephen Hemminger wrote:
->> Also RFC doesn't explicitly address GTSM on IPV6.
->> Maybe the RFC editors think the problem will magically no longer exist
->> in IPv6 world because everyone will be using IPsec.
+> All this does is set how much of the buffer to skip, this option does
+> not allocate any memory.  So if you set it to a value > length that you
+> passed in, you get -EINVAL. Anything else should work.  Negative values
+> are checked for and return -EINVAL when you try to set it.  At least,
+> all that's by design - pls take a look at the code and if you see any
+> issues, speak up please.
 > 
-> Hmm. When I was editing the RFC, I seem to have put in some text about
-> IPv6 (i.e. difference in TTL vs Hop Count naming).  As far as I know,
-> there is no other difference :-)
-> 
-> In IPV6_MIN_HOPS hops would seem to point toward the "number of hops"
-> which is logically the opposite: 255-$value.  So maybe
-> IPV6_MIN_HOPCOUNT is better. But I can live with it either way :-)
+> I agree we don't really need to support very large values here,
+> it just seemed less work.
 
-Stephen, make whatever decision your deem appropriate about
-the name and resubmit this for net-next-2.6, thanks!
+This all looks fine to me, submit a final version to me via
+whatever means you feel is appropriate.
