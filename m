@@ -1,43 +1,82 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Uclinux-dist-devel] [PATCH] can: bfin_can: switch to common
- Blackfin can header
-Date: Mon, 22 Mar 2010 16:36:37 -0700 (PDT)
-Message-ID: <20100322.163637.73665927.davem@davemloft.net>
-References: <8bd0f97a1003220004q15ad498fg49914ea06c1b9a8d@mail.gmail.com>
-	<20100322.101720.133896229.davem@davemloft.net>
-	<8bd0f97a1003221409w24437f85ke27f4338e82ba44e@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
-	uclinux-dist-devel@blackfin.uclinux.org,
-	oliver.hartkopp@volkswagen.de, urs.thuermann@volkswagen.de
-To: vapier.adi@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33069
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752146Ab0CVXgO convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Mar 2010 19:36:14 -0400
-In-Reply-To: <8bd0f97a1003221409w24437f85ke27f4338e82ba44e@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [RFC Patch 3/3] bonding: make bonding support netpoll
+Date: Mon, 22 Mar 2010 16:36:55 -0700
+Message-ID: <12061.1269301015@death.nxdomain.ibm.com>
+References: <20100322082059.4967.63492.sendpatchset@localhost.localdomain> <20100322082123.4967.77433.sendpatchset@localhost.localdomain> <1269297485.3552.26.camel@calx>
+Cc: Amerigo Wang <amwang@redhat.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	Andy Gospodarek <gospo@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	bonding-devel@lists.sourceforge.net,
+	David Miller <davem@davemloft.net>
+To: Matt Mackall <mpm@selenic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <1269297485.3552.26.camel@calx>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Mike Frysinger <vapier.adi@gmail.com>
-Date: Mon, 22 Mar 2010 17:09:55 -0400
+Matt Mackall <mpm@selenic.com> wrote:
 
-> On Mon, Mar 22, 2010 at 13:17, David Miller wrote:
->> From: Mike Frysinger <vapier.adi@gmail.com>
->> Do you still feel this way after people other than me also asked you
->> to do the same exact thing for me? =A0Do you think they are making
->> arbitrary requests as well?
->=20
-> the only other person to say anything did not say "you now need to
-> resend your patch".  it was "please wait until Linus has pulled thing=
-s
-> and then Dave has pulled things".  which was not relevant at the poin=
-t
-> it was sent.
+>On Mon, 2010-03-22 at 04:17 -0400, Amerigo Wang wrote:
+>> Based on Andy's work, but I modify a lot.
+>> 
+>> Similar to the patch for bridge, this patch does:
+>> 
+>> 1) implement the 4 methods to support netpoll for bonding;
+>> 
+>> 2) modify netpoll during forwarding packets in bonding;
+>> 
+>> 3) disable netpoll support of bridge when a netpoll-unabled device
+>>    is added to bonding;
+>> 
+>> 4) enable netpoll support when all underlying devices support netpoll.
+>
+>Again, not sure if this is the right policy. Seems to me that on a
+>bonding device we should simply pick an interface to send netpoll
+>messages on, without reference to balancing, etc. Thus, if any of the
+>bonded devices supports polling, it should work.
 
-Wolfgang told you to "just resubmit the patch", just like I asked you
-to, when you said "the code is there just apply the old one."
+	For some of the modes, the above is pretty straighforward.
+Others, 802.3ad and balance-alb, are a bit more complicated.
+
+	The risk is that the network peers and switches may see the same
+MAC address on multiple ports, or different MAC addresses for the same
+IP address.
+
+	To implement the above suggestion, I think a "current netpoll
+slave" would have to be tracked, and kept up to date (as slaves become
+active or inactive, etc).  Reusing the existing "current active slave"
+won't work for the case that the active slave is not netpoll-capable,
+but a different slave is; also, not all modes use the current active
+slave.
+
+	In 802.3ad, the "current netpoll slave" selector will have to
+poke into the aggregator status to choose the netpoll slave.  It's not a
+simple matter of picking one and then sticking with it forever; if the
+aggregator containing the netpoll slave is deactivated, then peers may
+not receive the traffic, etc.
+
+	In the active-backup mode, only the active slave can send or
+receive, so if it's not netpoll capable, but a backup slave is, you're
+still out of luck (unless netpoll awareness is added to the "best slave"
+selection logic, and even then it'd have to be a secondary criteria).
+Or, the inactive slave can be transmitted on, but if the same MAC comes
+out of the active and a backup slave, it can confuse switches.
+
+	In one mode (balance-alb), slaves keep their own MAC addresses,
+and are matched with peers.  Bypassing the balance algorithm could again
+confuse peers or switches, who could see two MAC addresses for the same
+IP address, if netpoll traffic goes out a different slave than the
+balance algorithm picks for the same destination.
+
+	I think, then, the question becomes: is this extra complexity
+worth it to cover the cases of netpoll over bonding wherein one or more
+slaves don't support netpoll?  
+
+	How many network drivers don't support netpoll nowadays?
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
