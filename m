@@ -1,32 +1,37 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [net-next-2.6 PATCH] ipoib: remove addrlen check for mc
-	addresses
-Date: Mon, 22 Mar 2010 10:59:16 -0600
-Message-ID: <20100322165916.GE29129@obsidianresearch.com>
-References: <20100322132138.GC2780@psychotron.lab.eng.brq.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: -next Mar 22: s390 build failure (drivers/s390/net/qeth_l3)
+Date: Mon, 22 Mar 2010 10:00:05 -0700 (PDT)
+Message-ID: <20100322.100005.84370671.davem@davemloft.net>
+References: <20100322171937.d753bdba.sfr@canb.auug.org.au>
+	<4BA73423.6080101@in.ibm.com>
+	<20100322130025.GA8558@tuxmaker.boeblingen.de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, ogerlitz-smomgflXvOZWk0Htik3J/w@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, monis-smomgflXvOZWk0Htik3J/w@public.gmane.org
-To: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20100322132138.GC2780-YzwxZg+R7evMbnheQZGK0N5OCZ2W11yPFxja6HXR22MAvxtiuMwx3w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sachinp@in.ibm.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org
+To: frank.blaschka@de.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49004
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754753Ab0CVQ7m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 12:59:42 -0400
+In-Reply-To: <20100322130025.GA8558@tuxmaker.boeblingen.de.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 22, 2010 at 02:21:39PM +0100, Jiri Pirko wrote:
-> Finally this bit can be removed. Currently, after the bonding driver is
-> changed/fixed (32a806c194ea112cfab00f558482dd97bee5e44e net-next-2.6),
-> that's not possible for an addr with different length than dev->addr_len
-> to be present in list. Removing this check as in new mc_list there will be
-> no addrlen in the record.
+From: Blaschka <frank.blaschka@de.ibm.com>
+Date: Mon, 22 Mar 2010 14:00:25 +0100
 
-Maybe just make this check a WARN_ON? Can userspace create a mc_list
-entry with the wrong size via netlink?
+> [PATCH] qeth: l3 fix build error in ipv6 addr list handling
+> 
+> From: Frank Blaschka <frank.blaschka@de.ibm.com>
+> 
+> Adapt qeth l3 to:
+> commit c2e21293c054817c42eb5fa9c613d2ad51954136
+> (ipv6: convert addrconf list to hlist)
+> converted lst_next member of inet6_ifaddr struct to a hlist.
+> 
+> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks for fixing this Frank.
