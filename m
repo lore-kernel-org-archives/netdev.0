@@ -1,37 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] xfrm: cache bundle lookup results in flow cache
-Date: Mon, 22 Mar 2010 11:52:41 +0800
-Message-ID: <20100322035241.GB14457@gondor.apana.org.au>
-References: <20100322013257.GA14080@gondor.apana.org.au> <20100321.183656.173864141.davem@davemloft.net> <20100322014010.GA14182@gondor.apana.org.au> <20100321.201258.184825751.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Don't drop route cache entry in
+ ipv4_negative_advice unless PTMU expired
+Date: Sun, 21 Mar 2010 20:53:30 -0700 (PDT)
+Message-ID: <20100321.205330.25144309.davem@davemloft.net>
+References: <1269009673-25497-1-git-send-email-guenter.roeck@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: timo.teras@iki.fi, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, viro@zeniv.linux.org.uk, den@openvz.org
+To: guenter.roeck@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:49875 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753865Ab0CVDwq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 23:52:46 -0400
-Content-Disposition: inline
-In-Reply-To: <20100321.201258.184825751.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34106
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754057Ab0CVDxI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 23:53:08 -0400
+In-Reply-To: <1269009673-25497-1-git-send-email-guenter.roeck@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 21, 2010 at 08:12:58PM -0700, David Miller wrote:
-> 
-> Good point, I was misunderstanding how things work now and how
-> that would change with your proposal.
-> 
-> Having multiple xfrm_dsts exist for an IPSEC route seems fine
-> to me.
+From: Guenter Roeck <guenter.roeck@ericsson.com>
+Date: Fri, 19 Mar 2010 07:41:13 -0700
 
-Thanks for the confirmation.
+> TCP sessions over IPv4 can get stuck if routers between endpoints
+> do not fragment packets but implement PMTU instead.
 
-Timo, let's roll along with the per-cpu xfrm_dst approach.
+This bug actually only applies to a much more specific case.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+It only occurs when the router we end up using is the result of
+receiving a redirect to it.
+
+If we use the configured route, and do not get redirected, the problem
+never happens.
+
+In any case, your patch is correct, and I'll add some clarification to
+the commit message when I check this in.
+
+Thanks a lot!
