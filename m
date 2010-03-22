@@ -1,44 +1,45 @@
-From: Amerigo Wang <amwang@redhat.com>
-Subject: [Patch] netconsole: do not depend on experimental
-Date: Mon, 22 Mar 2010 05:59:23 -0400
-Message-ID: <20100322100305.5518.29500.sendpatchset@localhost.localdomain>
-Cc: netdev@vger.kernel.org, Amerigo Wang <amwang@redhat.com>,
-	David Miller <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Kristian Evensen" <kristrev@simula.no>
+Subject: Performance hit with IP-tunnels
+Date: Mon, 22 Mar 2010 11:17:17 +0100
+Message-ID: <000301cac9a8$dcd53750$967fa5f0$@no>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>, <linux-ppp@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-forward1.uio.no ([129.240.10.70]:57018 "EHLO
+	mail-forward1.uio.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753560Ab0CVKpa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 06:45:30 -0400
+Received: from exim by mail-out1.uio.no with local-bsmtp (Exim 4.69)
+	(envelope-from <kristrev@simula.no>)
+	id 1NtekV-0007W8-64
+	for netdev@vger.kernel.org; Mon, 22 Mar 2010 11:20:43 +0100
+Content-Language: no
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello,
 
-Nowadays, most distributions enable netconsole by default,
-including RHEL, Fedora, Debian, Arch, Opensuse. And
-we don't have any bug reports about it. So I think there
-is no need to mark it as experimental any more.
+I am currently comparing different IP-tunneling protocols/implementations,
+and have stumbled upon something I am not able to explain. Regardless of
+which tunneling technology I use, the latency increases with a couple of 10s
+of ms and I see a significant degradation of throughput (compared to when no
+tunnels are used). The only exception is IP-in-IP, where I get similar
+performance with and without tunnels, but it does unfortunately not work in
+my scenario.
 
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: WANG Cong <amwang@redhat.com>
+First, I thought this was caused by the different tunneling software, but
+after measuring the processing time of the applications (xl2tp and
+pptp-client) and when the packets are seen by the different iptables chains
+(using LOG), these delays seem to be acceptable. However, one delay sticks
+out. After the packet has been decapsulated and fed to PPP, it takes a
+"long" time before it is seen again. My question is, can PPP be the cause of
+the higher latency and lower throughput? 
 
----
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 0ba5b8e..e3d6c52 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -3252,15 +3252,14 @@ config NET_FC
- 	  "SCSI generic support".
- 
- config NETCONSOLE
--	tristate "Network console logging support (EXPERIMENTAL)"
--	depends on EXPERIMENTAL
-+	tristate "Network console logging support"
- 	---help---
- 	If you want to log kernel messages over the network, enable this.
- 	See <file:Documentation/networking/netconsole.txt> for details.
- 
- config NETCONSOLE_DYNAMIC
--	bool "Dynamic reconfiguration of logging targets (EXPERIMENTAL)"
--	depends on NETCONSOLE && SYSFS && EXPERIMENTAL
-+	bool "Dynamic reconfiguration of logging targets"
-+	depends on NETCONSOLE && SYSFS
- 	select CONFIGFS_FS
- 	help
- 	  This option enables the ability to dynamically reconfigure target
+Similar observations are made at both ends of the tunnel.
+
+Thanks in advance for any help,
+Kristian
+
