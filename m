@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: rtnetlink: ignore NETDEV_PRE_TYPE_CHANGE in
- rtnetlink_event()
-Date: Sun, 21 Mar 2010 18:31:57 -0700 (PDT)
-Message-ID: <20100321.183157.71563781.davem@davemloft.net>
-References: <4BA38D50.4090909@trash.net>
+Subject: Re: [net-next-2.6 PATCH] bonding: flush unicast and multicast
+ lists when changing type
+Date: Sun, 21 Mar 2010 18:32:20 -0700 (PDT)
+Message-ID: <20100321.183220.220048937.davem@davemloft.net>
+References: <20100319140023.GC2811@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jpirko@redhat.com, netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net
+To: jpirko@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39746
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39751
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753646Ab0CVBbf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 21:31:35 -0400
-In-Reply-To: <4BA38D50.4090909@trash.net>
+	by vger.kernel.org with ESMTP id S1753716Ab0CVBb5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 21:31:57 -0400
+In-Reply-To: <20100319140023.GC2811@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Fri, 19 Mar 2010 15:42:24 +0100
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Fri, 19 Mar 2010 15:00:23 +0100
 
-> Ignore the new NETDEV_PRE_TYPE_CHANGE event in rtnetlink_event() since
-> there have been no changes userspace needs to be notified of.
+> After the type change, addresses in unicast and multicast lists wouldn't make
+> sense, not to mention possible different lenghts. So flush both lists here.
 > 
-> Also add a comment to the netdev notifier event definitions to remind
-> people to update the exclusion list when adding new event types.
+> Note "dev_addr_discard" will be very soon replaced by "dev_mc_flush" (once
+> mc_list conversion will be done).
 > 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-Applied.
+Applied, but maybe these should be EXPORT_SYMBOL_GPL?  Just
+asking...
