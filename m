@@ -1,121 +1,78 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] pktgen node allocation
-Date: Mon, 22 Mar 2010 08:43:14 +0100
-Message-ID: <1269243794.3029.0.camel@edumazet-laptop>
-References: <19363.14702.909265.380669@gargle.gargle.HOWL>
-	 <1268990933.3048.15.camel@edumazet-laptop>
-	 <19363.32154.39665.185451@gargle.gargle.HOWL>
-	 <1269006465.3048.39.camel@edumazet-laptop>
-	 <19367.3346.643084.604021@gargle.gargle.HOWL>
+Subject: Re: why does there need to lock?
+Date: Mon, 22 Mar 2010 09:05:26 +0100
+Message-ID: <1269245126.3029.3.camel@edumazet-laptop>
+References: <ffe582101003211741v59da3c56yaffdaa151a6821be@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	olofh@kth.se
-To: Robert Olsson <robert@herjulf.net>
+Cc: netdev@vger.kernel.org
+To: =?UTF-8?Q?=E6=9D=A8=E7=A1=95?= <shanqn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f211.google.com ([209.85.218.211]:33256 "EHLO
+Received: from mail-bw0-f211.google.com ([209.85.218.211]:37831 "EHLO
 	mail-bw0-f211.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753417Ab0CVHnS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 03:43:18 -0400
-Received: by bwz3 with SMTP id 3so5091016bwz.29
-        for <netdev@vger.kernel.org>; Mon, 22 Mar 2010 00:43:16 -0700 (PDT)
-In-Reply-To: <19367.3346.643084.604021@gargle.gargle.HOWL>
+	with ESMTP id S1753815Ab0CVIFa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 04:05:30 -0400
+Received: by bwz3 with SMTP id 3so5105240bwz.29
+        for <netdev@vger.kernel.org>; Mon, 22 Mar 2010 01:05:28 -0700 (PDT)
+In-Reply-To: <ffe582101003211741v59da3c56yaffdaa151a6821be@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 22 mars 2010 =C3=A0 07:24 +0100, Robert Olsson a =C3=A9crit :
-> Eric Dumazet writes:
+Le lundi 22 mars 2010 =C3=A0 08:41 +0800, =E6=9D=A8=E7=A1=95 a =C3=A9cr=
+it :
+> Hi, i'm confused about why does "rcu_assign_pointer(dev->ip_ptr,
+> in_dev);" need to rcu lock?
 >=20
->  > Well, you said "Tested this with 10 Intel 82599 ports w. TYAN S702=
-5
->  > E5520 CPU's. Was able to TX/DMA ~80 Gbit/s to Ethernet wires."
->  >=20
->  > I am interested to know what particular setup you did to maximize
->  > throughput then, or are you saing you managed to reduce it ? :)
+
+I am confused by your question
+
+rcu_assign_pointer doesnt need rcu lock.
+
+It only makes sure all previous memory changes are committed to memory
+before the "dev->ip_ptr =3D in_dev;" assignement, so that concurrent
+readers cannot find the new pointer and read previous values of
+dev->ip_ptr->fields
+
+
+> TIA :)
 >=20
->=20
-> Some notes from the experiment, It's getting
-> complex and hairy. Anyway results from the first
-> tests to give you an idea... My colleague Olof=20
-> might have some comments/details
->=20
-> pktgen sending on 10 * 10g interfaces.=20
->=20
-> [From pktgen script]
-> fn()
+> static struct in_device *inetdev_init(struct net_device *dev)
 > {
->   i=3D$1  #ifname
->   c=3D$2  #queue / cpu core
->   n=3D$3  # numa node
->   PGDEV=3D/proc/net/pktgen/kpktgend_$c
->   pgset "add_device eth$i@$c  "
->   PGDEV=3D/proc/net/pktgen/eth$i@$c
->   pgset "node $n"
->   pgset "$COUNT"
->   pgset "flag NODE_ALLOC"
->   pgset "$CLONE_SKB"
->   pgset "$PKT_SIZE"
->   pgset "$DELAY"
->   pgset "dst 10.0.0.0"=20
-> }     =20
+> 	struct in_device *in_dev;
 >=20
-> remove_all
-> # Setup
+> 	ASSERT_RTNL();
 >=20
-> # TYAN S7025 with two nodes.
-> # Each node has own bus with it's own TYLERSBURG bridge
-> # so eth0-eth3 is closest to node0 which in turn "owns"
-> # CPU-cores 0-3 in this HW setup. So we setup so=20
-> # pktgen according to this. clone_skb=3D1000000.
-> # Used slots are PCIe-x16 except when PCIe-x8 is indicated.
+> 	in_dev =3D kzalloc(sizeof(*in_dev), GFP_KERNEL);
+> 	if (!in_dev)
+> 		goto out;
+> 	memcpy(&in_dev->cnf, dev_net(dev)->ipv4.devconf_dflt,
+> 			sizeof(in_dev->cnf));
+> 	in_dev->cnf.sysctl =3D NULL;
+> 	in_dev->dev =3D dev;
+> 	if ((in_dev->arp_parms =3D neigh_parms_alloc(dev, &arp_tbl)) =3D=3D =
+NULL)
+> 		goto out_kfree;
+> 	if (IPV4_DEVCONF(in_dev->cnf, FORWARDING))
+> 		dev_disable_lro(dev);
+> 	/* Reference in_dev->dev */
+> 	dev_hold(dev);
+> 	/* Account for reference dev->ip_ptr (below) */
+> 	in_dev_hold(in_dev);
 >=20
-> # eth0 queue=3D0(CPU) node=3D0
-> fn 0 0 0
-> fn 1 1 0
-> fn 2 2 0
-> fn 3 3 0
-> fn 4 4 1
-> fn 5 5 1
-> fn 6 6 1
-> fn 7 7 1
-> fn 8 12 1
-> fn 9 13 1
+> 	devinet_sysctl_register(in_dev);
+> 	ip_mc_init_dev(in_dev);
+> 	if (dev->flags & IFF_UP)
+> 		ip_mc_up(in_dev);
 >=20
-> Result "manually" tuned.=20
->=20
-> eth0 9617.7 M bit/s      822 k pps=20
-> eth1 9619.1 M bit/s      823 k pps=20
-> eth2 9619.1 M bit/s      823 k pps=20
-> eth3 9619.2 M bit/s      823 k pps=20
-> eth4 5995.2 M bit/s      512 k pps  <-  PCIe-x8
-> eth5 5995.3 M bit/s      512 k pps  <-  PCIe-x8
-> eth6 9619.2 M bit/s      823 k pps=20
-> eth7 9619.2 M bit/s      823 k pps=20
-> eth8 9619.1 M bit/s      823 k pps=20
-> eth9 9619.0 M bit/s      823 k pps=20
->=20
-> > 90 Gbit/s
->=20
-> Result "manually" mistuned by switching node 0 and 1.=20
->=20
-> eth0 9613.6 M bit/s      822 k pps=20
-> eth1 9614.9 M bit/s      822 k pps=20
-> eth2 9615.0 M bit/s      822 k pps=20
-> eth3 9615.1 M bit/s      822 k pps=20
-> eth4 2918.5 M bit/s      249 k pps  <-  PCIe-x8
-> eth5 2918.4 M bit/s      249 k pps  <-  PCIe-x8
-> eth6 8597.0 M bit/s      735 k pps=20
-> eth7 8597.0 M bit/s      735 k pps=20
-> eth8 8568.3 M bit/s      733 k pps=20
-> eth9 8568.3 M bit/s      733 k pps=20
->=20
-> A lot things is to be investgated...
-
-Sure :)
-
-I wonder why eth0-eth3 results are unchanged after a node flip.
-
-Thanks for sharing
+> 	/* we can receive as soon as ip_ptr is set -- do this last */
+> 	rcu_assign_pointer(dev->ip_ptr, in_dev);
+> out:
+> 	return in_dev;
+> out_kfree:
+> 	kfree(in_dev);
+> 	in_dev =3D NULL;
+> 	goto out;
+> }
 
 
