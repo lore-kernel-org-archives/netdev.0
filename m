@@ -1,60 +1,94 @@
-From: Mike Frysinger <vapier.adi@gmail.com>
-Subject: Re: [Uclinux-dist-devel] [PATCH] can: bfin_can: switch to common
-	Blackfin can header
-Date: Mon, 22 Mar 2010 17:09:55 -0400
-Message-ID: <8bd0f97a1003221409w24437f85ke27f4338e82ba44e@mail.gmail.com>
-References: <8bd0f97a1003212054h6c25f99dvb35869f786807c88@mail.gmail.com>
-	<20100321.205818.63035686.davem@davemloft.net> <8bd0f97a1003220004q15ad498fg49914ea06c1b9a8d@mail.gmail.com>
-	<20100322.101720.133896229.davem@davemloft.net>
+From: "Ben Menchaca (ben@bigfootnetworks.com)" <ben@bigfootnetworks.com>
+Subject: RE: Gianfar: RX Recycle skb->len error
+Date: Mon, 22 Mar 2010 14:10:48 -0700
+Message-ID: <A6A1774AFD79E346AE6D49A33CB294530DC19F18@EX-BE-017-SFO.shared.themessagecenter.com>
+References: <A6A1774AFD79E346AE6D49A33CB294530DC19EB5@EX-BE-017-SFO.shared.themessagecenter.com>
+ <20100321.214642.67901344.davem@davemloft.net>
+ <20100322172446.GA32758@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
-	uclinux-dist-devel@blackfin.uclinux.org,
-	oliver.hartkopp@volkswagen.de, urs.thuermann@volkswagen.de
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Sandeep.Kumar@freescale.com" <Sandeep.Kumar@freescale.com>
+To: "avorontsov@ru.mvista.com" <avorontsov@ru.mvista.com>,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:55025 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755428Ab0CVVKR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 17:10:17 -0400
-Received: by gyg8 with SMTP id 8so2853939gyg.19
-        for <netdev@vger.kernel.org>; Mon, 22 Mar 2010 14:10:16 -0700 (PDT)
-In-Reply-To: <20100322.101720.133896229.davem@davemloft.net>
+Received: from out02.themessagecenter.com ([208.113.96.229]:2240 "EHLO
+	out02.themessagecenter.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756010Ab0CVVK6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 17:10:58 -0400
+In-Reply-To: <20100322172446.GA32758@oksana.dev.rtsoft.ru>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 22, 2010 at 13:17, David Miller wrote:
-> From: Mike Frysinger <vapier.adi@gmail.com>
->> On Sun, Mar 21, 2010 at 23:58, David Miller wrote:
->>> From: Mike Frysinger <vapier.adi@gmail.com>
->>> When I say "resubmit" I've deleted your patch from my inbox
->>> and marked it "changed requested" or similar in patchwork
->>> so it doesn't show up in the todo list any more.
->>
->> i missed the relevance of your original "resubmit" because no other
->> maintainer ive worked with so far has exhibited this behavior, and
->> there wasnt any indication as to why a resubmission was necessary
->> considering no changes were made
->
-> So when I ask you to resubmit something you just assume that
-> I have no reason whatsoever for doing so?
+PiBZZXMsIHNrYl91bnJlc2VydmUoKSAob3Igc2tiX3Jlc2V0X3Jlc2VydmVkKCkgZm9yIG5hbWlu
+ZyBjb25zaXN0ZW5jeT8pDQo+IHdvdWxkIGJlIGdyZWF0Lg0KDQpKdXN0IGEgY291cGxlIG9mIG5v
+dGVzOg0KCUl0J3MgeXVja3ksIGJ1dCBza2JfcmVzZXJ2ZShza2IsIC1hbGlnbmFtb3VudCkgd29y
+a3MsIGlmIHlvdSBrbm93IHRoZSBhbGlnbmFtb3VudCAod2hpY2ggSSBkaXNjdXNzIGEgYml0IGJl
+bG93KS4gIElmIHRoYXQncyBub3QgaW50ZW5kZWQsIHRoZW4gc2hvdWxkIGxlbiBiZSB1bnNpZ25l
+ZCBpbnQ/ICBza2JfcHV0LCBza2JfcHVzaCwgYW5kIHNrYl9wdWxsIGFsbCBzZWVtIHRvIGJlIHVu
+c2lnbmVkIGludC4NCg0KCUl0IHNlZW1zIGluIGJvdGggdGhlc2UgY2FzZXMgZm9yIGdpYW5mYXIs
+IHRoZSBhbW91bnQgb2YgdGhlIGFsaWdubWVudCBpcyBub3QgaW1tZWRpYXRlbHkgYXZhaWxhYmxl
+IHRvIHRoZSBjb2RlIHRoZSByZWNvZ25pemVzIHRoYXQgdGhlIHNrYl9yZXNldF9yZXNlcnZlZCgp
+IGlzIHJlcXVpcmVkLiAgQSBiaXQgbGFyZ2VyIHJld29yayBhcHBlYXJzIHRvIGJlIG5lZWRlZC4g
+IA0KDQpJIHRvb2sgYSBzaG90IGF0IHVzaW5nIGEgbmV3IGhldXJpc3RpYyBmb3IgdGhlIHJ4X3Jp
+bmcgdG8gcHJldmVudCBoYXZpbmcgdG8gc2tiX3Jlc2V0X3Jlc2VydmVkKCkgYXQgYWxsLiAgVGhl
+IGlkZWEgaXMgdG8gZ3VhcmFudGVlIHRoYXQgdGhlIGVsZW1lbnRzIGluIHJpbmcgYXJlIHJlc2Vy
+dmUoKS1lZCwgYW5kIHRoYXQgaWYgd2UgZW5jb3VudGVyIGFuIGVycm9yIGNvbmRpdGlvbiB0aGF0
+IHlpZWxkcyB0aGUgdHdvLXNrYiBjYXNlLCBmcmVlIHRoZSBuZXcgc2tiLCBzaW5jZSBpdCBoYXMg
+bm90IHlldCBiZWVuIHJlc2VydmUoKS1lZC4gIExvb2tpbmcgZm9yd2FyZCB0byBoZWFyaW5nIGZy
+b20gRlMgb24gdGhlICJyaWdodCIgd2F5LCB0aG91Z2guDQoNCkJlbiBNZW5jaGFjYQ0KQmlnZm9v
+dCBOZXR3b3Jrcw0KDQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZ2lhbmZhci5jIGIvZHJpdmVy
+cy9uZXQvZ2lhbmZhci5jDQppbmRleCBiNjcxNTU1Li44MmY4NDg2IDEwMDY0NA0KLS0tIGEvZHJp
+dmVycy9uZXQvZ2lhbmZhci5jDQorKysgYi9kcml2ZXJzL25ldC9naWFuZmFyLmMNCkBAIC0xMDks
+NiArMTA5LDcgQEAgc3RhdGljIGludCBnZmFyX3N0YXJ0X3htaXQoc3RydWN0IHNrX2J1ZmYgKnNr
+Yiwgc3RydWN0IG5ldF9kZXZpY2UgKmRldik7DQogc3RhdGljIHZvaWQgZ2Zhcl9yZXNldF90YXNr
+KHN0cnVjdCB3b3JrX3N0cnVjdCAqd29yayk7DQogc3RhdGljIHZvaWQgZ2Zhcl90aW1lb3V0KHN0
+cnVjdCBuZXRfZGV2aWNlICpkZXYpOw0KIHN0YXRpYyBpbnQgZ2Zhcl9jbG9zZShzdHJ1Y3QgbmV0
+X2RldmljZSAqZGV2KTsNCitzdGF0aWMgdm9pZCBnZmFyX3NrYl9yZXNlcnZlX2FsaWduZWQoc3Ry
+dWN0IHNrX2J1ZmYgKnNrYik7DQogc3RydWN0IHNrX2J1ZmYgKmdmYXJfbmV3X3NrYihzdHJ1Y3Qg
+bmV0X2RldmljZSAqZGV2KTsNCiBzdGF0aWMgdm9pZCBnZmFyX25ld19yeGJkcChzdHJ1Y3QgZ2Zh
+cl9wcml2X3J4X3EgKnJ4X3F1ZXVlLCBzdHJ1Y3QgcnhiZDggKmJkcCwNCiAJCXN0cnVjdCBza19i
+dWZmICpza2IpOw0KQEAgLTIxNCw2ICsyMTUsNyBAQCBzdGF0aWMgaW50IGdmYXJfaW5pdF9iZHMo
+c3RydWN0IG5ldF9kZXZpY2UgKm5kZXYpDQogCQkJCQkJCW5kZXYtPm5hbWUpOw0KIAkJCQkJZ290
+byBlcnJfcnhhbGxvY19mYWlsOw0KIAkJCQl9DQorCQkJCWdmYXJfc2tiX3Jlc2VydmVfYWxpZ25l
+ZChuZGV2KTsNCiAJCQkJcnhfcXVldWUtPnJ4X3NrYnVmZltqXSA9IHNrYjsNCiANCiAJCQkJZ2Zh
+cl9uZXdfcnhiZHAocnhfcXVldWUsIHJ4YmRwLCBza2IpOw0KQEAgLTIzNzIsNiArMjM3NCwyMCBA
+QCBzdGF0aWMgdm9pZCBnZmFyX25ld19yeGJkcChzdHJ1Y3QgZ2Zhcl9wcml2X3J4X3EgKnJ4X3F1
+ZXVlLCBzdHJ1Y3QgcnhiZDggKmJkcCwNCiB9DQogDQogDQorc3RhdGljIHZvaWQgZ2Zhcl9za2Jf
+cmVzZXJ2ZV9hbGlnbmVkKHN0cnVjdCBza19idWZmICpza2IpDQorew0KKwl1bnNpZ25lZCBpbnQg
+YWxpZ25hbW91bnQ7DQorDQorICAgICAgICBhbGlnbmFtb3VudCA9IFJYQlVGX0FMSUdOTUVOVCAt
+DQorICAgICAgICAgICAgICAgICgoKHVuc2lnbmVkIGxvbmcpIHNrYi0+ZGF0YSkgJiAoUlhCVUZf
+QUxJR05NRU5UIC0gMSkpOw0KKw0KKyAgICAgICAgLyogV2UgbmVlZCB0aGUgZGF0YSBidWZmZXIg
+dG8gYmUgYWxpZ25lZCBwcm9wZXJseS4gIFdlIHdpbGwgcmVzZXJ2ZQ0KKyAgICAgICAgICogYXMg
+bWFueSBieXRlcyBhcyBuZWVkZWQgdG8gYWxpZ24gdGhlIGRhdGEgcHJvcGVybHkNCisgICAgICAg
+ICAqLw0KKyAgICAgICAgc2tiX3Jlc2VydmUoc2tiLCBhbGlnbmFtb3VudCk7DQorfQ0KKw0KKw0K
+IHN0cnVjdCBza19idWZmICogZ2Zhcl9uZXdfc2tiKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpDQog
+ew0KIAl1bnNpZ25lZCBpbnQgYWxpZ25hbW91bnQ7DQpAQCAtMjM4MywxNyArMjM5OSw2IEBAIHN0
+cnVjdCBza19idWZmICogZ2Zhcl9uZXdfc2tiKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpDQogCQlz
+a2IgPSBuZXRkZXZfYWxsb2Nfc2tiKGRldiwNCiAJCQkJcHJpdi0+cnhfYnVmZmVyX3NpemUgKyBS
+WEJVRl9BTElHTk1FTlQpOw0KIA0KLQlpZiAoIXNrYikNCi0JCXJldHVybiBOVUxMOw0KLQ0KLQlh
+bGlnbmFtb3VudCA9IFJYQlVGX0FMSUdOTUVOVCAtDQotCQkoKCh1bnNpZ25lZCBsb25nKSBza2It
+PmRhdGEpICYgKFJYQlVGX0FMSUdOTUVOVCAtIDEpKTsNCi0NCi0JLyogV2UgbmVlZCB0aGUgZGF0
+YSBidWZmZXIgdG8gYmUgYWxpZ25lZCBwcm9wZXJseS4gIFdlIHdpbGwgcmVzZXJ2ZQ0KLQkgKiBh
+cyBtYW55IGJ5dGVzIGFzIG5lZWRlZCB0byBhbGlnbiB0aGUgZGF0YSBwcm9wZXJseQ0KLQkgKi8N
+Ci0Jc2tiX3Jlc2VydmUoc2tiLCBhbGlnbmFtb3VudCk7DQotDQogCXJldHVybiBza2I7DQogfQ0K
+IA0KQEAgLTI1MzIsMjEgKzI1MzcsMTcgQEAgaW50IGdmYXJfY2xlYW5fcnhfcmluZyhzdHJ1Y3Qg
+Z2Zhcl9wcml2X3J4X3EgKnJ4X3F1ZXVlLCBpbnQgcnhfd29ya19saW1pdCkNCiAJCQlpZiAodW5s
+aWtlbHkoIW5ld3NrYikpDQogCQkJCW5ld3NrYiA9IHNrYjsNCiAJCQllbHNlIGlmIChza2IpIHsN
+Ci0JCQkJLyoNCi0JCQkJICogV2UgbmVlZCB0byByZXNldCAtPmRhdGEgdG8gd2hhdCBpdA0KLQkJ
+CQkgKiB3YXMgYmVmb3JlIGdmYXJfbmV3X3NrYigpIHJlLWFsaWduZWQNCi0JCQkJICogaXQgdG8g
+YW4gUlhCVUZfQUxJR05NRU5UIGJvdW5kYXJ5DQotCQkJCSAqIGJlZm9yZSB3ZSBwdXQgdGhlIHNr
+YiBiYWNrIG9uIHRoZQ0KLQkJCQkgKiByZWN5Y2xlIGxpc3QuDQotCQkJCSAqLw0KLQkJCQlza2It
+PmRhdGEgPSBza2ItPmhlYWQgKyBORVRfU0tCX1BBRDsNCi0JCQkJX19za2JfcXVldWVfaGVhZCgm
+cHJpdi0+cnhfcmVjeWNsZSwgc2tiKTsNCisJCQkJX19za2JfcXVldWVfaGVhZCgmcHJpdi0+cnhf
+cmVjeWNsZSwgbmV3c2tiKTsNCisJCQkJbmV3c2tiID0gc2tiOw0KKwkJCX0gZWxzZSB7DQorCQkJ
+CWdmYXJfc2tiX3Jlc2VydmVfYWxpZ25lZChuZXdza2IpOw0KIAkJCX0NCiAJCX0gZWxzZSB7DQog
+CQkJLyogSW5jcmVtZW50IHRoZSBudW1iZXIgb2YgcGFja2V0cyAqLw0KIAkJCXJ4X3F1ZXVlLT5z
+dGF0cy5yeF9wYWNrZXRzKys7DQogCQkJaG93bWFueSsrOw0KIA0KKwkJCWdmYXJfc2tiX3Jlc2Vy
+dmVfYWxpZ25lZChuZXdza2IpOw0KIAkJCWlmIChsaWtlbHkoc2tiKSkgew0KIAkJCQlwa3RfbGVu
+ID0gYmRwLT5sZW5ndGggLSBFVEhfRkNTX0xFTjsNCiAJCQkJLyogUmVtb3ZlIHRoZSBGQ1MgZnJv
+bSB0aGUgcGFja2V0IGxlbmd0aCAqLw0KDQoNCg==
 
-like i said, the word "resubmit" did not equate exactly with "resend
-the exact same patch".  your e-mail came across (wrt how most every
-one else ive worked with) as "poke me again when it's ready in
-mainline".  once Linus merged things, i gave you a poke.
-
-> Do you still feel this way after people other than me also asked you
-> to do the same exact thing for me? =C2=A0Do you think they are making
-> arbitrary requests as well?
-
-the only other person to say anything did not say "you now need to
-resend your patch".  it was "please wait until Linus has pulled things
-and then Dave has pulled things".  which was not relevant at the point
-it was sent.
-
-> This is the fatal flaw in your logic and behavior.
-
-take a chill pill man
--mike
