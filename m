@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fix PHY polling system blocking
-Date: Sun, 21 Mar 2010 17:56:51 -0700 (PDT)
-Message-ID: <20100321.175651.91333124.davem@davemloft.net>
-References: <1267894258.18869.2.camel@wall-e>
-	<20100312144248.ade8b700.akpm@linux-foundation.org>
-	<1269208490.5748.44.camel@wall-e.seibold.net>
+Subject: Re: RCU problems in fib_table_insert
+Date: Sun, 21 Mar 2010 18:01:40 -0700 (PDT)
+Message-ID: <20100321.180140.45887114.davem@davemloft.net>
+References: <20100321202525.GA966@basil.fritz.box>
+	<20100321213703.GD2517@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, tglx@linutronix.de
-To: stefani@seibold.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1269208490.5748.44.camel@wall-e.seibold.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: andi@firstfloor.org, robert.olsson@its.uu.se,
+	netdev@vger.kernel.org
+To: paulmck@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50358
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753201Ab0CVBBS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 21:01:18 -0400
+In-Reply-To: <20100321213703.GD2517@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stefani Seibold <stefani@seibold.net>
-Date: Sun, 21 Mar 2010 22:54:50 +0100
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Date: Sun, 21 Mar 2010 14:37:03 -0700
 
-> The phylib has also a drawback, because it polls the PHY despite if it
-> has interrupt support for it or not. I can't see a reason for this
-> behavior.
+> net: suppress lockdep-RCU false positive in FIB trie.
+> 
+> Allow fib_find_node() to be called either under rcu_read_lock()
+> protection or with RTNL held.
+> 
+> Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 
-Careful, in my experience many PHYs that do have interrupt
-support have buggy implementations to the point where the
-interrupt support cannot be used at all.
-
-Typically the problem is that events aren't reported reliably.
-
-So I just wanted you to keep in mind that a chip having
-interrupt support doesn't automatically mean it can be used.
+Thanks guys, I applied this copy and added Eric's signoff
+since the two patches were essentially identical :-)
