@@ -1,71 +1,37 @@
-From: Robert Olsson <robert@herjulf.net>
-Subject: Re: [PATCH] pktgen node allocation
-Date: Mon, 22 Mar 2010 19:05:29 +0100
-Message-ID: <19367.45417.306750.626323@gargle.gargle.HOWL>
-References: <19363.14702.909265.380669@gargle.gargle.HOWL>
-	<1268990933.3048.15.camel@edumazet-laptop>
-	<19363.32154.39665.185451@gargle.gargle.HOWL>
-	<1269006465.3048.39.camel@edumazet-laptop>
-	<19367.3346.643084.604021@gargle.gargle.HOWL>
-	<1269243794.3029.0.camel@edumazet-laptop>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH] xfrm: cache bundle lookup results in flow cache
+Date: Mon, 22 Mar 2010 20:31:02 +0200
+Message-ID: <4BA7B766.7070106@iki.fi>
+References: <20100322013257.GA14080@gondor.apana.org.au> <20100321.183656.173864141.davem@davemloft.net> <20100322014010.GA14182@gondor.apana.org.au> <20100321.201258.184825751.davem@davemloft.net> <20100322035241.GB14457@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <robert@herjulf.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	olofh@kth.se
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from av6-1-sn3.vrr.skanova.net ([81.228.9.179]:40756 "EHLO
-	av6-1-sn3.vrr.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753919Ab0CVSWq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 14:22:46 -0400
-In-Reply-To: <1269243794.3029.0.camel@edumazet-laptop>
+Received: from mail-ew0-f216.google.com ([209.85.219.216]:37272 "EHLO
+	mail-ew0-f216.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754687Ab0CVSbJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 14:31:09 -0400
+Received: by ewy8 with SMTP id 8so303154ewy.28
+        for <netdev@vger.kernel.org>; Mon, 22 Mar 2010 11:31:07 -0700 (PDT)
+In-Reply-To: <20100322035241.GB14457@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Herbert Xu wrote:
+> On Sun, Mar 21, 2010 at 08:12:58PM -0700, David Miller wrote:
+>> Good point, I was misunderstanding how things work now and how
+>> that would change with your proposal.
+>>
+>> Having multiple xfrm_dsts exist for an IPSEC route seems fine
+>> to me.
+> 
+> Thanks for the confirmation.
+> 
+> Timo, let's roll along with the per-cpu xfrm_dst approach.
 
-Eric Dumazet writes:
+Okay.
 
- > > Result "manually" tuned. 
- > > 
- > > eth0 9617.7 M bit/s      822 k pps 
- > > eth1 9619.1 M bit/s      823 k pps 
- > > eth2 9619.1 M bit/s      823 k pps 
- > > eth3 9619.2 M bit/s      823 k pps 
- > > eth4 5995.2 M bit/s      512 k pps  <-  PCIe-x8
- > > eth5 5995.3 M bit/s      512 k pps  <-  PCIe-x8
- > > eth6 9619.2 M bit/s      823 k pps 
- > > eth7 9619.2 M bit/s      823 k pps 
- > > eth8 9619.1 M bit/s      823 k pps 
- > > eth9 9619.0 M bit/s      823 k pps 
- > > 
- > > > 90 Gbit/s
+- Timo
 
- DMA potential this box is about four 10g ports.
-
- > > Result "manually" mistuned by switching node 0 and 1. 
- > > 
- > > eth0 9613.6 M bit/s      822 k pps 
- > > eth1 9614.9 M bit/s      822 k pps 
- > > eth2 9615.0 M bit/s      822 k pps 
- > > eth3 9615.1 M bit/s      822 k pps 
- > > eth4 2918.5 M bit/s      249 k pps  <-  PCIe-x8
- > > eth5 2918.4 M bit/s      249 k pps  <-  PCIe-x8
- > > eth6 8597.0 M bit/s      735 k pps 
- > > eth7 8597.0 M bit/s      735 k pps 
- > > eth8 8568.3 M bit/s      733 k pps 
- > > eth9 8568.3 M bit/s      733 k pps 
- > > 
- > I wonder why eth0-eth3 results are unchanged after a node flip.
-
- Yes it's strange. 
-
- With clone_skb=1 we could see differences with just one GIGE interface 
- using 64 byte pkts so it might be very different on 10g.  We're getting 
- unfortunely closer to hardware...
-
- Cheers
-					--ro
-
- 
