@@ -1,32 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: snmp mib cleanup
-Date: Sun, 21 Mar 2010 18:38:06 -0700 (PDT)
-Message-ID: <20100321.183806.55843297.davem@davemloft.net>
-References: <1268980566.2894.231.camel@edumazet-laptop>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] xfrm: cache bundle lookup results in flow cache
+Date: Mon, 22 Mar 2010 09:40:10 +0800
+Message-ID: <20100322014010.GA14182@gondor.apana.org.au>
+References: <20100320151751.GB2950@gondor.apana.org.au> <20100321.182846.232914131.davem@davemloft.net> <20100322013257.GA14080@gondor.apana.org.au> <20100321.183656.173864141.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: timo.teras@iki.fi, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54254
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753778Ab0CVBhn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 21:37:43 -0400
-In-Reply-To: <1268980566.2894.231.camel@edumazet-laptop>
+Received: from rhun.apana.org.au ([64.62.148.172]:41520 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753898Ab0CVBkT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 21:40:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20100321.183656.173864141.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 19 Mar 2010 07:36:06 +0100
+On Sun, Mar 21, 2010 at 06:36:56PM -0700, David Miller wrote:
+>
+> And as a consequence, making the xfrm_dst's be per-cpu would mess with
+> route metrics for TCP.
 
-> There is no point to align or pad mibs to cache lines, they are per cpu
-> allocated with a 8 bytes alignment anyway.
-> This wastes space for no gain. This patch removes __SNMP_MIB_ALIGN__
-> 
-> Since SNMP mibs contain "unsigned long" fields only, we can relax the
-> allocation alignment from "unsigned long long" to "unsigned long"
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Actually xfrm_dst currently relies on IPv4 rt objects to maintain
+the metrics.  So as long as IPv4 routes are still global, then the
+metrics won't be affected as far as can I see.
 
-Also applied, thanks Eric.
+Did I miss something?
+
+> I'm willing to consider this seriously, to be honest.
+
+I would consider that too.  But right now I'm just looking for
+the bare minimum to solve the problem at hand :)
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
