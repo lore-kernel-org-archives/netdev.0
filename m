@@ -1,59 +1,38 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] korina: use resource_size()
-Date: Mon, 22 Mar 2010 15:11:45 +0300
-Message-ID: <20100322121145.GK21571@bicker>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [net-next-2.6 PATCH] bonding: flush unicast and multicast lists
+ when changing type
+Date: Mon, 22 Mar 2010 13:26:45 +0100
+Message-ID: <20100322122644.GA2780@psychotron.lab.eng.brq.redhat.com>
+References: <20100319140023.GC2811@psychotron.redhat.com>
+ <20100321.183220.220048937.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kernel-janitors@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Phil Sutter <n0-1@freewrt.org>, Jiri Pirko <jpirko@redhat.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Joe Perches <joe@perches.com>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:59996 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752014Ab0CVMLz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 08:11:55 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:44911 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754087Ab0CVM05 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Mar 2010 08:26:57 -0400
 Content-Disposition: inline
+In-Reply-To: <20100321.183220.220048937.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This size calculation is wrong.  It should be end - start + 1.
-Use resource_size() to calculate it correctly.
+Mon, Mar 22, 2010 at 02:32:20AM CET, davem@davemloft.net wrote:
+>From: Jiri Pirko <jpirko@redhat.com>
+>Date: Fri, 19 Mar 2010 15:00:23 +0100
+>
+>> After the type change, addresses in unicast and multicast lists wouldn't make
+>> sense, not to mention possible different lenghts. So flush both lists here.
+>> 
+>> Note "dev_addr_discard" will be very soon replaced by "dev_mc_flush" (once
+>> mc_list conversion will be done).
+>> 
+>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>
+>Applied, but maybe these should be EXPORT_SYMBOL_GPL?  Just
+>asking...
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
----
-I don't have a way to test this, or even to compile it.  :/
-
-diff --git a/drivers/net/korina.c b/drivers/net/korina.c
-index 300c224..edaedc7 100644
---- a/drivers/net/korina.c
-+++ b/drivers/net/korina.c
-@@ -1135,7 +1135,7 @@ static int korina_probe(struct platform_device *pdev)
- 
- 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "korina_regs");
- 	dev->base_addr = r->start;
--	lp->eth_regs = ioremap_nocache(r->start, r->end - r->start);
-+	lp->eth_regs = ioremap_nocache(r->start, resource_size(r));
- 	if (!lp->eth_regs) {
- 		printk(KERN_ERR DRV_NAME ": cannot remap registers\n");
- 		rc = -ENXIO;
-@@ -1143,7 +1143,7 @@ static int korina_probe(struct platform_device *pdev)
- 	}
- 
- 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "korina_dma_rx");
--	lp->rx_dma_regs = ioremap_nocache(r->start, r->end - r->start);
-+	lp->rx_dma_regs = ioremap_nocache(r->start, resource_size(r));
- 	if (!lp->rx_dma_regs) {
- 		printk(KERN_ERR DRV_NAME ": cannot remap Rx DMA registers\n");
- 		rc = -ENXIO;
-@@ -1151,7 +1151,7 @@ static int korina_probe(struct platform_device *pdev)
- 	}
- 
- 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "korina_dma_tx");
--	lp->tx_dma_regs = ioremap_nocache(r->start, r->end - r->start);
-+	lp->tx_dma_regs = ioremap_nocache(r->start, resource_size(r));
- 	if (!lp->tx_dma_regs) {
- 		printk(KERN_ERR DRV_NAME ": cannot remap Tx DMA registers\n");
- 		rc = -ENXIO;
+I would keep them EXPORT_SYMBOL as other uc/mc list functions...
