@@ -1,57 +1,41 @@
-From: Amerigo Wang <amwang@redhat.com>
-Subject: [Patch v2] netpoll: warn when there are spaces in parameters
-Date: Mon, 22 Mar 2010 04:59:58 -0400
-Message-ID: <20100322090341.5289.10770.sendpatchset@localhost.localdomain>
-Cc: netdev@vger.kernel.org, elendil@planet.nl,
-	Amerigo Wang <amwang@redhat.com>,
-	David Miller <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Sachin Sant <sachinp@in.ibm.com>
+Subject: -next Mar 22: s390 build failure (drivers/s390/net/qeth_l3)
+Date: Mon, 22 Mar 2010 14:40:59 +0530
+Message-ID: <4BA73423.6080101@in.ibm.com>
+References: <20100322171937.d753bdba.sfr@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	ursula.braun@de.ibm.com, Stephen Hemminger <shemminger@vyatta.com>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>
+To: linux-s390@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100322171937.d753bdba.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-v2: update according to Frans' comments.
+Todays next fails to build on a s390 box with
 
-Currently, if we leave spaces before dst port,
-netconsole will silently accept it as 0. Warn about this.
+  CC [M]  drivers/s390/net/qeth_l3_main.o
+drivers/s390/net/qeth_l3_main.c: In function 'qeth_l3_free_vlan_addresses6':
+drivers/s390/net/qeth_l3_main.c:1931: error: incompatible types in assignment
+drivers/s390/net/qeth_l3_main.c:1931: error: 'struct inet6_ifaddr' has no member named 'lst_next'
+make[2]: *** [drivers/s390/net/qeth_l3_main.o] Error 1
 
-Also, when spaces appear in other places, make them
-visible in error messages.
+commit c2e21293c054817c42eb5fa9c613d2ad51954136
+(ipv6: convert addrconf list to hlist) 
+converted lst_next member of inet6_ifaddr struct to a hlist.
 
-Signed-off-by: WANG Cong <amwang@redhat.com>
-Cc: David Miller <davem@davemloft.net>
+Thanks
+-Sachin
 
----
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 7aa6972..6df1863 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -614,7 +614,7 @@ void netpoll_print_options(struct netpoll *np)
- 			 np->name, np->local_port);
- 	printk(KERN_INFO "%s: local IP %pI4\n",
- 			 np->name, &np->local_ip);
--	printk(KERN_INFO "%s: interface %s\n",
-+	printk(KERN_INFO "%s: interface '%s'\n",
- 			 np->name, np->dev_name);
- 	printk(KERN_INFO "%s: remote port %d\n",
- 			 np->name, np->remote_port);
-@@ -661,6 +661,9 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
- 		if ((delim = strchr(cur, '@')) == NULL)
- 			goto parse_failed;
- 		*delim = 0;
-+		if (*cur == ' ' || *cur == '\t')
-+			printk(KERN_INFO "%s: warning: whitespace"
-+					"is not allowed\n", np->name);
- 		np->remote_port = simple_strtol(cur, NULL, 10);
- 		cur = delim;
- 	}
-@@ -708,7 +711,7 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
- 	return 0;
- 
-  parse_failed:
--	printk(KERN_INFO "%s: couldn't parse config at %s!\n",
-+	printk(KERN_INFO "%s: couldn't parse config at '%s'!\n",
- 	       np->name, cur);
- 	return -1;
- }
+-- 
+
+---------------------------------
+Sachin Sant
+IBM Linux Technology Center
+India Systems and Technology Labs
+Bangalore, India
+---------------------------------
