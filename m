@@ -1,123 +1,35 @@
-From: "Ira W. Snyder" <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
-Subject: Re: [PATCH 2/3] can: add support for Janz VMOD-ICAN3 Intelligent
-	CAN	module
-Date: Mon, 22 Mar 2010 13:12:34 -0700
-Message-ID: <20100322201234.GB19327@ovro.caltech.edu>
-References: <4BA33D5A.8070000@grandegger.com>
-	<20100319151914.GB13672@ovro.caltech.edu>
-	<4BA39C05.8050800@grandegger.com>
-	<20100319200325.GE13672@ovro.caltech.edu>
-	<4BA3DAF1.4090206@grandegger.com>
-	<20100319215227.GF13672@ovro.caltech.edu>
-	<4BA47F64.8030108@grandegger.com>
-	<20100322155318.GA19251@ovro.caltech.edu>
-	<4BA7C236.9060609@grandegger.com> <4BA7C3BE.8040306@grandegger.com>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] via-velocity: FLOW_CNTL_RX does not disable Asymmetric pause
+ in set_mii_flow_control()
+Date: Mon, 22 Mar 2010 21:25:14 +0100
+Message-ID: <4BA7D22A.6080300@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4BA7C3BE.8040306-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+To: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 22, 2010 at 08:23:42PM +0100, Wolfgang Grandegger wrote:
-> Wolfgang Grandegger wrote:
-> > Ira W. Snyder wrote:
-> >> On Sat, Mar 20, 2010 at 08:55:16AM +0100, Wolfgang Grandegger wrote:
-> >>> Ira W. Snyder wrote:
-> > [snip]
-> >>>> Does this seem right? It seems pretty good to me.
-> >>> Yes, I'm just missing an error-passive message. What state does "ip -d
-> >>> link show can0" report.
-> >>>
-> >> Ok, here is what I did:
-> >>
-> >> $ ip link set can0 up type can bitrate 1000000
-> >> $ ip link set can1 up type can bitrate 1000000 berr-reporting on
-> >> $ ip -d -s link
-> >> 5: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UNKNOWN qlen 10
-> >>     link/can       
-> >>     can state ERROR-ACTIVE (berr-counter tx 0 rx 0) restart-ms 0
-> >>     bitrate 1000000 sample-point 0.750
-> >>     tq 125 prop-seg 2 phase-seg1 3 phase-seg2 2 sjw 1
-> >>     janz-ican3: tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
-> >>     clock 8000000  
-> >>     re-started bus-errors arbit-lost error-warn error-pass bus-off
-> >>     0          0          0          0          0          0
-> >>     RX: bytes  packets  errors  dropped overrun mcast
-> >>     0          0        0       0       0       0
-> >>     TX: bytes  packets  errors  dropped carrier collsns
-> >>     0          0        0       0       0       0
-> >> 6: can1: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UNKNOWN qlen 10
-> >>     link/can       
-> >>     can <BERR-REPORTING> state ERROR-ACTIVE (berr-counter tx 0 rx 0) restart-ms 0
-> >>     bitrate 1000000 sample-point 0.750
-> >>     tq 125 prop-seg 2 phase-seg1 3 phase-seg2 2 sjw 1
-> >>     janz-ican3: tseg1 1..16 tseg2 1..8 sjw 1..4 brp 1..64 brp-inc 1
-> >>     clock 8000000  
-> >>     re-started bus-errors arbit-lost error-warn error-pass bus-off
-> >>     0          0          0          0          0          0
-> >>     RX: bytes  packets  errors  dropped overrun mcast
-> >>     0          0        0       0       0       0
-> >>     TX: bytes  packets  errors  dropped carrier collsns
-> >>     0          0        0       0       0       0
-> >>
-> >> Now, in seperate windows, I ran cansequence and candump. I stopped
-> >> cansequence when it could not send any more packets (due to the cable
-> >> being unplugged).
-> >>
-> >> $ cansequence -v -e -p can0
-> >> $ cansequence -v -e -p can1
-> >> $ candump any,0~0,#FFFFFFFF
-> >>   can0  20000004  [8] 00 08 00 00 00 00 00 00   ERRORFRAME
-> >>   can1  20000088  [8] 00 00 80 19 00 00 00 00   ERRORFRAME
-> >>   can1  20000088  [8] 00 00 80 19 00 00 00 00   ERRORFRAME
-> >>   can1  20000088  [8] 00 00 80 19 00 00 00 00   ERRORFRAME
-> >>   can1  20000088  [8] 00 00 80 19 00 00 00 00   ERRORFRAME
-> >>   can1  20000088  [8] 00 00 80 19 00 00 00 00   ERRORFRAME
-> >>   can1  20000088  [8] 00 00 80 19 00 00 00 00   ERRORFRAME
-> >>   can1  20000088  [8] 00 00 80 19 00 00 00 00   ERRORFRAME
-> >>   can1  20000088  [8] 00 00 80 19 00 00 00 00   ERRORFRAME
-> >>   can1  20000088  [8] 00 00 80 19 00 00 00 00   ERRORFRAME
-> >>   can1  20000088  [8] 00 00 80 19 00 00 00 00   ERRORFRAME
-> >>   can1  20000088  [8] 00 00 80 19 00 00 00 00   ERRORFRAME
-> >>   can1  20000004  [8] 00 08 00 00 00 00 00 00   ERRORFRAME
-> >>   can1  20000088  [8] 00 00 80 19 00 00 00 00   ERRORFRAME
-> >>   can1  20000088  [8] 00 00 80 19 00 00 00 00   ERRORFRAME
-> >>   can1  20000088  [8] 00 00 80 19 00 00 00 00   ERRORFRAME
-> >>   can1  20000088  [8] 00 00 80 19 00 00 00 00   ERRORFRAME
-> >>
-> >> This last message is repeated lots more times. That's the flooding we're
-> >> avoiding with berr-reporting off.
-> >>
-> >> I see two types of messages here:
-> >> 1) bus error (only on can1)
-> >> 2) controller problems -- tx warning limit reached (both)
-> >>
-> >> Am I missing some message? My error frame generation was mostly copied
-> >> from the sja1000 driver.
-> > 
-> > It seem that you are not getting the error passive interrupt even...
-> 
-> Because you do not enable/handle it. CEVTIND_EPI seems to be missing:
-> 
-> http://lxr.linux.no/#linux+v2.6.33/drivers/net/can/sja1000/sja1000.c#L403
-> 
+Asymmetric pause was not disabled in the RX case.
 
-See the message I just sent. In short, the firmware coalesces the IRQ_EI
-and IRQ_EPI messages into CEVTIND_EI. You can only tell them apart via
-the rxerr and txerr registers.
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+I spotted this because In the FLOW_CNTL_RX and FLOW_CNTL_TX_RX
+cases the same code is executed, is the amendment below required?
 
-Ira
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index 3a486f3..2d478cf 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -807,7 +807,7 @@ static void set_mii_flow_control(struct velocity_info *vptr)
+ 
+ 	case FLOW_CNTL_RX:
+ 		MII_REG_BITS_ON(ANAR_PAUSE, MII_REG_ANAR, vptr->mac_regs);
+-		MII_REG_BITS_ON(ANAR_ASMDIR, MII_REG_ANAR, vptr->mac_regs);
++		MII_REG_BITS_OFF(ANAR_ASMDIR, MII_REG_ANAR, vptr->mac_regs);
+ 		break;
+ 
+ 	case FLOW_CNTL_TX_RX:
