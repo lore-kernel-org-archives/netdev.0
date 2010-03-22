@@ -1,56 +1,41 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: Gianfar: RX Recycle skb->len error
-Date: Mon, 22 Mar 2010 20:24:46 +0300
-Message-ID: <20100322172446.GA32758@oksana.dev.rtsoft.ru>
-References: <A6A1774AFD79E346AE6D49A33CB294530DC19EB5@EX-BE-017-SFO.shared.themessagecenter.com>
- <20100321.214642.67901344.davem@davemloft.net>
-Reply-To: avorontsov@ru.mvista.com
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [net-next-2.6 PATCH] ipoib: remove addrlen check for mc addresses
+Date: Mon, 22 Mar 2010 18:26:14 +0100
+Message-ID: <20100322172613.GA2884@psychotron.redhat.com>
+References: <20100322132138.GC2780@psychotron.lab.eng.brq.redhat.com>
+ <20100322165916.GE29129@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: ben@bigfootnetworks.com, netdev@vger.kernel.org,
-	Sandeep.Kumar@freescale.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, ogerlitz@voltaire.com,
+	linux-rdma@vger.kernel.org, monis@voltaire.com
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.dev.rtsoft.ru ([213.79.90.226]:43956 "HELO
-	mail.dev.rtsoft.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752062Ab0CVRYs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 13:24:48 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:43454 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754962Ab0CVR0Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Mar 2010 13:26:25 -0400
 Content-Disposition: inline
-In-Reply-To: <20100321.214642.67901344.davem@davemloft.net>
+In-Reply-To: <20100322165916.GE29129@obsidianresearch.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 21, 2010 at 09:46:42PM -0700, David Miller wrote:
-[...]
-> > 				 * recycle list.
-> >  				 */
-> >  				skb->data = skb->head + NET_SKB_PAD;
-> > +				skb_reset_tail_pointer(skb);
-> > 				__skb_queue_head(&priv->rx_recycle, skb);
-> > 			}
-> > 		} else {
-> 
-> This code is essentially trying to undo skb_reserve()
-> but as you found it's doing so in a buggy manner.
-> 
-> skb_reserve() adjusts both the 'data' and 'tail' pointers,
-> but this attempt at a reversal is only modifying 'data'.
-> 
-> Your fix is fine, but really any by-hand modification of
-> skb->data is a bug, and we should provide an skb_unreserve()
-> or similar to hide such details away, and use it here.
-> 
-> Anton?
+Mon, Mar 22, 2010 at 05:59:16PM CET, jgunthorpe@obsidianresearch.com wrote:
+>On Mon, Mar 22, 2010 at 02:21:39PM +0100, Jiri Pirko wrote:
+>> Finally this bit can be removed. Currently, after the bonding driver is
+>> changed/fixed (32a806c194ea112cfab00f558482dd97bee5e44e net-next-2.6),
+>> that's not possible for an addr with different length than dev->addr_len
+>> to be present in list. Removing this check as in new mc_list there will be
+>> no addrlen in the record.
+>
+>Maybe just make this check a WARN_ON?
 
-Yes, skb_unreserve() (or skb_reset_reserved() for naming consistency?)
-would be great.
+As I said, addrlen will no longer be in record (because it would have no
+meaning since length ot the addr is always dev->addr_len)
 
-Ben, note that ucc_geth.c driver is also affected by that bug,
-so I guess it needs a similar fix.
+>Can userspace create a mc_list
+>entry with the wrong size via netlink?
 
-Thanks,
+Nope - this is not possible. dev->addr_len is used.
 
--- 
-Anton Vorontsov
-email: cbouatmailru@gmail.com
-irc://irc.freenode.net/bd2
+>
+>Jason
