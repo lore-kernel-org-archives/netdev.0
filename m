@@ -1,46 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Uclinux-dist-devel] [PATCH] can: bfin_can: switch to common
- Blackfin can header
-Date: Mon, 22 Mar 2010 10:17:20 -0700 (PDT)
-Message-ID: <20100322.101720.133896229.davem@davemloft.net>
-References: <8bd0f97a1003212054h6c25f99dvb35869f786807c88@mail.gmail.com>
-	<20100321.205818.63035686.davem@davemloft.net>
-	<8bd0f97a1003220004q15ad498fg49914ea06c1b9a8d@mail.gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: 2.6.34-rc2: Reported regressions from 2.6.33
+Date: Mon, 22 Mar 2010 10:12:38 -0700 (PDT)
+Message-ID: <alpine.LFD.2.00.1003221012270.18017@i5.linux-foundation.org>
+References: <M9dVcHY7TxH.A.2GC.ZBopLB@chimera>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
-	uclinux-dist-devel@blackfin.uclinux.org,
-	oliver.hartkopp@volkswagen.de, urs.thuermann@volkswagen.de
-To: vapier.adi@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56299
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754010Ab0CVRQ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 13:16:59 -0400
-In-Reply-To: <8bd0f97a1003220004q15ad498fg49914ea06c1b9a8d@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: DRI <dri-devel@lists.sourceforge.net>,
+        Linux SCSI List <linux-scsi@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux Wireless List <linux-wireless@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Linux ACPI <linux-acpi@vger.kernel.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Kernel Testers List <kernel-testers@vger.kernel.org>,
+        Linux PM List <linux-pm@lists.linux-foundation.org>,
+        Maciej Rutecki <maciej.rutecki@gmail.com>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>,
+        Alex Villacis Lasso <avillaci@ceibo.fiec.espol.edu.ec>
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+In-Reply-To: <M9dVcHY7TxH.A.2GC.ZBopLB@chimera>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Mike Frysinger <vapier.adi@gmail.com>
-Date: Mon, 22 Mar 2010 03:04:48 -0400
 
-> On Sun, Mar 21, 2010 at 23:58, David Miller wrote:
->> From: Mike Frysinger <vapier.adi@gmail.com>
->> When I say "resubmit" I've deleted your patch from my inbox
->> and marked it "changed requested" or similar in patchwork
->> so it doesn't show up in the todo list any more.
+On Sun, 21 Mar 2010, Rafael J. Wysocki wrote:
 > 
-> i missed the relevance of your original "resubmit" because no other
-> maintainer ive worked with so far has exhibited this behavior, and
-> there wasnt any indication as to why a resubmission was necessary
-> considering no changes were made
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=15495
+> Subject		: Flood of SELinux denials on polkitd
+> Submitter	: Alex Villacis Lasso <avillaci@ceibo.fiec.espol.edu.ec>
+> Date		: 2010-03-09 16:47 (13 days old)
 
-So when I ask you to resubmit something you just assume that
-I have no reason whatsoever for doing so?
+Fixed by commit 3836a03d978e68b0ae00d3589089343c998cd4ff ("anon_inodes: 
+mark the anon inode private"), I'm pretty sure.
 
-Do you still feel this way after people other than me also asked you
-to do the same exact thing for me?  Do you think they are making
-arbitrary requests as well?
-
-This is the fatal flaw in your logic and behavior.
+		Linus
