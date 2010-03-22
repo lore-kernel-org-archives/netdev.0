@@ -1,112 +1,88 @@
-From: Robert Olsson <robert@herjulf.net>
-Subject: Re: [PATCH] pktgen node allocation
-Date: Mon, 22 Mar 2010 07:24:18 +0100
-Message-ID: <19367.3346.643084.604021@gargle.gargle.HOWL>
-References: <19363.14702.909265.380669@gargle.gargle.HOWL>
-	<1268990933.3048.15.camel@edumazet-laptop>
-	<19363.32154.39665.185451@gargle.gargle.HOWL>
-	<1269006465.3048.39.camel@edumazet-laptop>
+From: Amit Salecha <amit.salecha@qlogic.com>
+Subject: RE: [PATCH] netxen: The driver doesn't work on NX_P3_B1 so cause
+ probe to fail.
+Date: Mon, 22 Mar 2010 01:35:20 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80CFEFED1DB@MNEXMB2.qlogic.org>
+References: <m1y6hqdol4.fsf@fess.ebiederm.org>
+	<99737F4847ED0A48AECC9F4A1974A4B80CFEFED04B@MNEXMB2.qlogic.org>
+	<m11vfic6d0.fsf@fess.ebiederm.org>
+ <20100318.222126.27823381.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: robert@herjulf.net, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, olofh@kth.se
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>
+To: Amit Salecha <amit.salecha@qlogic.com>,
+	David Miller <davem@davemloft.net>,
+	"ebiederm@xmission.com" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from av10-2-sn2.hy.skanova.net ([81.228.8.182]:36795 "EHLO
-	av10-2-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751538Ab0CVGWs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 02:22:48 -0400
-In-Reply-To: <1269006465.3048.39.camel@edumazet-laptop>
+Received: from avexch1.qlogic.com ([198.70.193.115]:43810 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751538Ab0CVGft convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 02:35:49 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David,
+  After discussing this issues with my team, this is fine with Qlogic to remove support of NX_P3_B1.
 
-Eric Dumazet writes:
+  You can go ahead with Eric's patch.
 
- > Well, you said "Tested this with 10 Intel 82599 ports w. TYAN S7025
- > E5520 CPU's. Was able to TX/DMA ~80 Gbit/s to Ethernet wires."
- > 
- > I am interested to know what particular setup you did to maximize
- > throughput then, or are you saing you managed to reduce it ? :)
+  Sorry for all these hiccups.
 
+-Amit Salecha
 
-Some notes from the experiment, It's getting
-complex and hairy. Anyway results from the first
-tests to give you an idea... My colleague Olof 
-might have some comments/details
+-----Original Message-----
+From: Amit Salecha 
+Sent: Friday, March 19, 2010 5:33 PM
+To: 'David Miller'; 'ebiederm@xmission.com'
+Cc: 'netdev@vger.kernel.org'; Ameen Rahman
+Subject: RE: [PATCH] netxen: The driver doesn't work on NX_P3_B1 so cause probe to fail.
 
-pktgen sending on 10 * 10g interfaces. 
+David,
+   Eric's initial problem got resolved by using newer firmware (link problem).
+   He is facing another problem, mac address are all ff:ff:ff.
+   Though this problem goes away with driver reload.
 
-[From pktgen script]
-fn()
-{
-  i=$1  #ifname
-  c=$2  #queue / cpu core
-  n=$3  # numa node
-  PGDEV=/proc/net/pktgen/kpktgend_$c
-  pgset "add_device eth$i@$c  "
-  PGDEV=/proc/net/pktgen/eth$i@$c
-  pgset "node $n"
-  pgset "$COUNT"
-  pgset "flag NODE_ALLOC"
-  pgset "$CLONE_SKB"
-  pgset "$PKT_SIZE"
-  pgset "$DELAY"
-  pgset "dst 10.0.0.0" 
-}      
+   We had asked for fw dump to analyze this problem in detail.
 
-remove_all
-# Setup
+-Amit Salecha 
 
-# TYAN S7025 with two nodes.
-# Each node has own bus with it's own TYLERSBURG bridge
-# so eth0-eth3 is closest to node0 which in turn "owns"
-# CPU-cores 0-3 in this HW setup. So we setup so 
-# pktgen according to this. clone_skb=1000000.
-# Used slots are PCIe-x16 except when PCIe-x8 is indicated.
+-----Original Message-----
+From: Amit Salecha 
+Sent: Friday, March 19, 2010 11:07 AM
+To: 'David Miller'; ebiederm@xmission.com
+Cc: netdev@vger.kernel.org; Ameen Rahman
+Subject: RE: [PATCH] netxen: The driver doesn't work on NX_P3_B1 so cause probe to fail.
 
-# eth0 queue=0(CPU) node=0
-fn 0 0 0
-fn 1 1 0
-fn 2 2 0
-fn 3 3 0
-fn 4 4 1
-fn 5 5 1
-fn 6 6 1
-fn 7 7 1
-fn 8 12 1
-fn 9 13 1
+We are working on this problem, will let you know our decision by end of day.
 
-Result "manually" tuned. 
+-Thanks
 
-eth0 9617.7 M bit/s      822 k pps 
-eth1 9619.1 M bit/s      823 k pps 
-eth2 9619.1 M bit/s      823 k pps 
-eth3 9619.2 M bit/s      823 k pps 
-eth4 5995.2 M bit/s      512 k pps  <-  PCIe-x8
-eth5 5995.3 M bit/s      512 k pps  <-  PCIe-x8
-eth6 9619.2 M bit/s      823 k pps 
-eth7 9619.2 M bit/s      823 k pps 
-eth8 9619.1 M bit/s      823 k pps 
-eth9 9619.0 M bit/s      823 k pps 
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Friday, March 19, 2010 10:51 AM
+To: ebiederm@xmission.com
+Cc: Amit Salecha; netdev@vger.kernel.org; Ameen Rahman
+Subject: Re: [PATCH] netxen: The driver doesn't work on NX_P3_B1 so cause probe to fail.
 
-> 90 Gbit/s
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Thu, 18 Mar 2010 02:43:39 -0700
 
-Result "manually" mistuned by switching node 0 and 1. 
+> Amit Salecha <amit.salecha@qlogic.com> writes:
+> 
+>> Sorry for all the problem you faced.
+>>
+>> But you shouldn't add support of device which is not supported.
+>> Netxen is now owned by Qlogic. You should first contact Qlogic to solve your problem.
+>> Qlogic will take needed action based on problem.
+> 
+> I'm not adding support.  I am sending a patch removing support for cards
+> that do not work with the current driver and have not worked since 2.6.31.
 
-eth0 9613.6 M bit/s      822 k pps 
-eth1 9614.9 M bit/s      822 k pps 
-eth2 9615.0 M bit/s      822 k pps 
-eth3 9615.1 M bit/s      822 k pps 
-eth4 2918.5 M bit/s      249 k pps  <-  PCIe-x8
-eth5 2918.4 M bit/s      249 k pps  <-  PCIe-x8
-eth6 8597.0 M bit/s      735 k pps 
-eth7 8597.0 M bit/s      735 k pps 
-eth8 8568.3 M bit/s      733 k pps 
-eth9 8568.3 M bit/s      733 k pps 
+You qlogic folks better resolve this _FAST_ or else I'll
+make an executive decision about how to handle this and
+I guarentee I'll make a decision that you will not like.
 
-A lot things is to be investgated...
-
-Cheers
-					--ro
+Thanks. :-)
