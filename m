@@ -1,61 +1,64 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [Patch] netconsole: do not depend on experimental
-Date: Mon, 22 Mar 2010 08:59:19 -0400
-Message-ID: <20100322125919.GB4288@hmsreliant.think-freely.org>
-References: <20100322100305.5518.29500.sendpatchset@localhost.localdomain>
+From: Blaschka <frank.blaschka@de.ibm.com>
+Subject: Re: -next Mar 22: s390 build failure (drivers/s390/net/qeth_l3)
+Date: Mon, 22 Mar 2010 14:00:25 +0100
+Message-ID: <20100322130025.GA8558@tuxmaker.boeblingen.de.ibm.com>
+References: <20100322171937.d753bdba.sfr@canb.auug.org.au> <4BA73423.6080101@in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Amerigo Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	davem@davemloft.net
+To: Sachin Sant <sachinp@in.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate6.de.ibm.com ([195.212.17.166]:55271 "EHLO
+	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754765Ab0CVNA1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 09:00:27 -0400
 Content-Disposition: inline
-In-Reply-To: <20100322100305.5518.29500.sendpatchset@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4BA73423.6080101@in.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 22, 2010 at 05:59:23AM -0400, Amerigo Wang wrote:
+On Mon, Mar 22, 2010 at 02:40:59PM +0530, Sachin Sant wrote:
+> Todays next fails to build on a s390 box with
 > 
-> Nowadays, most distributions enable netconsole by default,
-> including RHEL, Fedora, Debian, Arch, Opensuse. And
-> we don't have any bug reports about it. So I think there
-> is no need to mark it as experimental any more.
-> 
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: WANG Cong <amwang@redhat.com>
-> 
-> ---
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index 0ba5b8e..e3d6c52 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -3252,15 +3252,14 @@ config NET_FC
->  	  "SCSI generic support".
->  
->  config NETCONSOLE
-> -	tristate "Network console logging support (EXPERIMENTAL)"
-> -	depends on EXPERIMENTAL
-> +	tristate "Network console logging support"
->  	---help---
->  	If you want to log kernel messages over the network, enable this.
->  	See <file:Documentation/networking/netconsole.txt> for details.
->  
->  config NETCONSOLE_DYNAMIC
-> -	bool "Dynamic reconfiguration of logging targets (EXPERIMENTAL)"
-> -	depends on NETCONSOLE && SYSFS && EXPERIMENTAL
-> +	bool "Dynamic reconfiguration of logging targets"
-> +	depends on NETCONSOLE && SYSFS
->  	select CONFIGFS_FS
->  	help
->  	  This option enables the ability to dynamically reconfigure target
-> --
+>  CC [M]  drivers/s390/net/qeth_l3_main.o
+> drivers/s390/net/qeth_l3_main.c: In function 'qeth_l3_free_vlan_addresses6':
+> drivers/s390/net/qeth_l3_main.c:1931: error: incompatible types in 
+> assignment
+> drivers/s390/net/qeth_l3_main.c:1931: error: 'struct inet6_ifaddr' has no 
+> member named 'lst_next'
+> make[2]: *** [drivers/s390/net/qeth_l3_main.o] Error 1
+>
 
-Seems reasonable.  Netconsole seems pretty mature.
+Hi, this patch should fix the problem
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Thanks
+	Frank
 
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-> 
+--- 
+[PATCH] qeth: l3 fix build error in ipv6 addr list handling
+
+From: Frank Blaschka <frank.blaschka@de.ibm.com>
+
+Adapt qeth l3 to:
+commit c2e21293c054817c42eb5fa9c613d2ad51954136
+(ipv6: convert addrconf list to hlist)
+converted lst_next member of inet6_ifaddr struct to a hlist.
+
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+---
+ drivers/s390/net/qeth_l3_main.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -1928,7 +1928,7 @@ static void qeth_l3_free_vlan_addresses6
+ 	in6_dev = in6_dev_get(vlan_group_get_device(card->vlangrp, vid));
+ 	if (!in6_dev)
+ 		return;
+-	for (ifa = in6_dev->addr_list; ifa; ifa = ifa->lst_next) {
++	list_for_each_entry(ifa, &in6_dev->addr_list, if_list) {
+ 		addr = qeth_l3_get_addr_buffer(QETH_PROT_IPV6);
+ 		if (addr) {
+ 			memcpy(&addr->u.a6.addr, &ifa->addr,
