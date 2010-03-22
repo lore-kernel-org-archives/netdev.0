@@ -1,94 +1,41 @@
-From: "Ben Menchaca (ben@bigfootnetworks.com)" <ben@bigfootnetworks.com>
-Subject: RE: Gianfar: RX Recycle skb->len error
-Date: Mon, 22 Mar 2010 14:10:48 -0700
-Message-ID: <A6A1774AFD79E346AE6D49A33CB294530DC19F18@EX-BE-017-SFO.shared.themessagecenter.com>
-References: <A6A1774AFD79E346AE6D49A33CB294530DC19EB5@EX-BE-017-SFO.shared.themessagecenter.com>
- <20100321.214642.67901344.davem@davemloft.net>
- <20100322172446.GA32758@oksana.dev.rtsoft.ru>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.34-rc2: Reported regressions from 2.6.33
+Date: Mon, 22 Mar 2010 22:20:41 +0100
+Message-ID: <201003222220.41347.rjw@sisk.pl>
+References: <M9dVcHY7TxH.A.2GC.ZBopLB@chimera> <alpine.LFD.2.00.1003221012270.18017@i5.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Sandeep.Kumar@freescale.com" <Sandeep.Kumar@freescale.com>
-To: "avorontsov@ru.mvista.com" <avorontsov@ru.mvista.com>,
-	"David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.themessagecenter.com ([208.113.96.229]:2240 "EHLO
-	out02.themessagecenter.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756010Ab0CVVK6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 17:10:58 -0400
-In-Reply-To: <20100322172446.GA32758@oksana.dev.rtsoft.ru>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Alex Villacis Lasso <avillaci@ceibo.fiec.espol.edu.ec>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.sourceforge.net>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.1003221012270.18017@i5.linux-foundation.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiBZZXMsIHNrYl91bnJlc2VydmUoKSAob3Igc2tiX3Jlc2V0X3Jlc2VydmVkKCkgZm9yIG5hbWlu
-ZyBjb25zaXN0ZW5jeT8pDQo+IHdvdWxkIGJlIGdyZWF0Lg0KDQpKdXN0IGEgY291cGxlIG9mIG5v
-dGVzOg0KCUl0J3MgeXVja3ksIGJ1dCBza2JfcmVzZXJ2ZShza2IsIC1hbGlnbmFtb3VudCkgd29y
-a3MsIGlmIHlvdSBrbm93IHRoZSBhbGlnbmFtb3VudCAod2hpY2ggSSBkaXNjdXNzIGEgYml0IGJl
-bG93KS4gIElmIHRoYXQncyBub3QgaW50ZW5kZWQsIHRoZW4gc2hvdWxkIGxlbiBiZSB1bnNpZ25l
-ZCBpbnQ/ICBza2JfcHV0LCBza2JfcHVzaCwgYW5kIHNrYl9wdWxsIGFsbCBzZWVtIHRvIGJlIHVu
-c2lnbmVkIGludC4NCg0KCUl0IHNlZW1zIGluIGJvdGggdGhlc2UgY2FzZXMgZm9yIGdpYW5mYXIs
-IHRoZSBhbW91bnQgb2YgdGhlIGFsaWdubWVudCBpcyBub3QgaW1tZWRpYXRlbHkgYXZhaWxhYmxl
-IHRvIHRoZSBjb2RlIHRoZSByZWNvZ25pemVzIHRoYXQgdGhlIHNrYl9yZXNldF9yZXNlcnZlZCgp
-IGlzIHJlcXVpcmVkLiAgQSBiaXQgbGFyZ2VyIHJld29yayBhcHBlYXJzIHRvIGJlIG5lZWRlZC4g
-IA0KDQpJIHRvb2sgYSBzaG90IGF0IHVzaW5nIGEgbmV3IGhldXJpc3RpYyBmb3IgdGhlIHJ4X3Jp
-bmcgdG8gcHJldmVudCBoYXZpbmcgdG8gc2tiX3Jlc2V0X3Jlc2VydmVkKCkgYXQgYWxsLiAgVGhl
-IGlkZWEgaXMgdG8gZ3VhcmFudGVlIHRoYXQgdGhlIGVsZW1lbnRzIGluIHJpbmcgYXJlIHJlc2Vy
-dmUoKS1lZCwgYW5kIHRoYXQgaWYgd2UgZW5jb3VudGVyIGFuIGVycm9yIGNvbmRpdGlvbiB0aGF0
-IHlpZWxkcyB0aGUgdHdvLXNrYiBjYXNlLCBmcmVlIHRoZSBuZXcgc2tiLCBzaW5jZSBpdCBoYXMg
-bm90IHlldCBiZWVuIHJlc2VydmUoKS1lZC4gIExvb2tpbmcgZm9yd2FyZCB0byBoZWFyaW5nIGZy
-b20gRlMgb24gdGhlICJyaWdodCIgd2F5LCB0aG91Z2guDQoNCkJlbiBNZW5jaGFjYQ0KQmlnZm9v
-dCBOZXR3b3Jrcw0KDQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZ2lhbmZhci5jIGIvZHJpdmVy
-cy9uZXQvZ2lhbmZhci5jDQppbmRleCBiNjcxNTU1Li44MmY4NDg2IDEwMDY0NA0KLS0tIGEvZHJp
-dmVycy9uZXQvZ2lhbmZhci5jDQorKysgYi9kcml2ZXJzL25ldC9naWFuZmFyLmMNCkBAIC0xMDks
-NiArMTA5LDcgQEAgc3RhdGljIGludCBnZmFyX3N0YXJ0X3htaXQoc3RydWN0IHNrX2J1ZmYgKnNr
-Yiwgc3RydWN0IG5ldF9kZXZpY2UgKmRldik7DQogc3RhdGljIHZvaWQgZ2Zhcl9yZXNldF90YXNr
-KHN0cnVjdCB3b3JrX3N0cnVjdCAqd29yayk7DQogc3RhdGljIHZvaWQgZ2Zhcl90aW1lb3V0KHN0
-cnVjdCBuZXRfZGV2aWNlICpkZXYpOw0KIHN0YXRpYyBpbnQgZ2Zhcl9jbG9zZShzdHJ1Y3QgbmV0
-X2RldmljZSAqZGV2KTsNCitzdGF0aWMgdm9pZCBnZmFyX3NrYl9yZXNlcnZlX2FsaWduZWQoc3Ry
-dWN0IHNrX2J1ZmYgKnNrYik7DQogc3RydWN0IHNrX2J1ZmYgKmdmYXJfbmV3X3NrYihzdHJ1Y3Qg
-bmV0X2RldmljZSAqZGV2KTsNCiBzdGF0aWMgdm9pZCBnZmFyX25ld19yeGJkcChzdHJ1Y3QgZ2Zh
-cl9wcml2X3J4X3EgKnJ4X3F1ZXVlLCBzdHJ1Y3QgcnhiZDggKmJkcCwNCiAJCXN0cnVjdCBza19i
-dWZmICpza2IpOw0KQEAgLTIxNCw2ICsyMTUsNyBAQCBzdGF0aWMgaW50IGdmYXJfaW5pdF9iZHMo
-c3RydWN0IG5ldF9kZXZpY2UgKm5kZXYpDQogCQkJCQkJCW5kZXYtPm5hbWUpOw0KIAkJCQkJZ290
-byBlcnJfcnhhbGxvY19mYWlsOw0KIAkJCQl9DQorCQkJCWdmYXJfc2tiX3Jlc2VydmVfYWxpZ25l
-ZChuZGV2KTsNCiAJCQkJcnhfcXVldWUtPnJ4X3NrYnVmZltqXSA9IHNrYjsNCiANCiAJCQkJZ2Zh
-cl9uZXdfcnhiZHAocnhfcXVldWUsIHJ4YmRwLCBza2IpOw0KQEAgLTIzNzIsNiArMjM3NCwyMCBA
-QCBzdGF0aWMgdm9pZCBnZmFyX25ld19yeGJkcChzdHJ1Y3QgZ2Zhcl9wcml2X3J4X3EgKnJ4X3F1
-ZXVlLCBzdHJ1Y3QgcnhiZDggKmJkcCwNCiB9DQogDQogDQorc3RhdGljIHZvaWQgZ2Zhcl9za2Jf
-cmVzZXJ2ZV9hbGlnbmVkKHN0cnVjdCBza19idWZmICpza2IpDQorew0KKwl1bnNpZ25lZCBpbnQg
-YWxpZ25hbW91bnQ7DQorDQorICAgICAgICBhbGlnbmFtb3VudCA9IFJYQlVGX0FMSUdOTUVOVCAt
-DQorICAgICAgICAgICAgICAgICgoKHVuc2lnbmVkIGxvbmcpIHNrYi0+ZGF0YSkgJiAoUlhCVUZf
-QUxJR05NRU5UIC0gMSkpOw0KKw0KKyAgICAgICAgLyogV2UgbmVlZCB0aGUgZGF0YSBidWZmZXIg
-dG8gYmUgYWxpZ25lZCBwcm9wZXJseS4gIFdlIHdpbGwgcmVzZXJ2ZQ0KKyAgICAgICAgICogYXMg
-bWFueSBieXRlcyBhcyBuZWVkZWQgdG8gYWxpZ24gdGhlIGRhdGEgcHJvcGVybHkNCisgICAgICAg
-ICAqLw0KKyAgICAgICAgc2tiX3Jlc2VydmUoc2tiLCBhbGlnbmFtb3VudCk7DQorfQ0KKw0KKw0K
-IHN0cnVjdCBza19idWZmICogZ2Zhcl9uZXdfc2tiKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpDQog
-ew0KIAl1bnNpZ25lZCBpbnQgYWxpZ25hbW91bnQ7DQpAQCAtMjM4MywxNyArMjM5OSw2IEBAIHN0
-cnVjdCBza19idWZmICogZ2Zhcl9uZXdfc2tiKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpDQogCQlz
-a2IgPSBuZXRkZXZfYWxsb2Nfc2tiKGRldiwNCiAJCQkJcHJpdi0+cnhfYnVmZmVyX3NpemUgKyBS
-WEJVRl9BTElHTk1FTlQpOw0KIA0KLQlpZiAoIXNrYikNCi0JCXJldHVybiBOVUxMOw0KLQ0KLQlh
-bGlnbmFtb3VudCA9IFJYQlVGX0FMSUdOTUVOVCAtDQotCQkoKCh1bnNpZ25lZCBsb25nKSBza2It
-PmRhdGEpICYgKFJYQlVGX0FMSUdOTUVOVCAtIDEpKTsNCi0NCi0JLyogV2UgbmVlZCB0aGUgZGF0
-YSBidWZmZXIgdG8gYmUgYWxpZ25lZCBwcm9wZXJseS4gIFdlIHdpbGwgcmVzZXJ2ZQ0KLQkgKiBh
-cyBtYW55IGJ5dGVzIGFzIG5lZWRlZCB0byBhbGlnbiB0aGUgZGF0YSBwcm9wZXJseQ0KLQkgKi8N
-Ci0Jc2tiX3Jlc2VydmUoc2tiLCBhbGlnbmFtb3VudCk7DQotDQogCXJldHVybiBza2I7DQogfQ0K
-IA0KQEAgLTI1MzIsMjEgKzI1MzcsMTcgQEAgaW50IGdmYXJfY2xlYW5fcnhfcmluZyhzdHJ1Y3Qg
-Z2Zhcl9wcml2X3J4X3EgKnJ4X3F1ZXVlLCBpbnQgcnhfd29ya19saW1pdCkNCiAJCQlpZiAodW5s
-aWtlbHkoIW5ld3NrYikpDQogCQkJCW5ld3NrYiA9IHNrYjsNCiAJCQllbHNlIGlmIChza2IpIHsN
-Ci0JCQkJLyoNCi0JCQkJICogV2UgbmVlZCB0byByZXNldCAtPmRhdGEgdG8gd2hhdCBpdA0KLQkJ
-CQkgKiB3YXMgYmVmb3JlIGdmYXJfbmV3X3NrYigpIHJlLWFsaWduZWQNCi0JCQkJICogaXQgdG8g
-YW4gUlhCVUZfQUxJR05NRU5UIGJvdW5kYXJ5DQotCQkJCSAqIGJlZm9yZSB3ZSBwdXQgdGhlIHNr
-YiBiYWNrIG9uIHRoZQ0KLQkJCQkgKiByZWN5Y2xlIGxpc3QuDQotCQkJCSAqLw0KLQkJCQlza2It
-PmRhdGEgPSBza2ItPmhlYWQgKyBORVRfU0tCX1BBRDsNCi0JCQkJX19za2JfcXVldWVfaGVhZCgm
-cHJpdi0+cnhfcmVjeWNsZSwgc2tiKTsNCisJCQkJX19za2JfcXVldWVfaGVhZCgmcHJpdi0+cnhf
-cmVjeWNsZSwgbmV3c2tiKTsNCisJCQkJbmV3c2tiID0gc2tiOw0KKwkJCX0gZWxzZSB7DQorCQkJ
-CWdmYXJfc2tiX3Jlc2VydmVfYWxpZ25lZChuZXdza2IpOw0KIAkJCX0NCiAJCX0gZWxzZSB7DQog
-CQkJLyogSW5jcmVtZW50IHRoZSBudW1iZXIgb2YgcGFja2V0cyAqLw0KIAkJCXJ4X3F1ZXVlLT5z
-dGF0cy5yeF9wYWNrZXRzKys7DQogCQkJaG93bWFueSsrOw0KIA0KKwkJCWdmYXJfc2tiX3Jlc2Vy
-dmVfYWxpZ25lZChuZXdza2IpOw0KIAkJCWlmIChsaWtlbHkoc2tiKSkgew0KIAkJCQlwa3RfbGVu
-ID0gYmRwLT5sZW5ndGggLSBFVEhfRkNTX0xFTjsNCiAJCQkJLyogUmVtb3ZlIHRoZSBGQ1MgZnJv
-bSB0aGUgcGFja2V0IGxlbmd0aCAqLw0KDQoNCg==
+On Monday 22 March 2010, Linus Torvalds wrote:
+> 
+> On Sun, 21 Mar 2010, Rafael J. Wysocki wrote:
+> > 
+> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=15495
+> > Subject		: Flood of SELinux denials on polkitd
+> > Submitter	: Alex Villacis Lasso <avillaci@ceibo.fiec.espol.edu.ec>
+> > Date		: 2010-03-09 16:47 (13 days old)
+> 
+> Fixed by commit 3836a03d978e68b0ae00d3589089343c998cd4ff ("anon_inodes: 
+> mark the anon inode private"), I'm pretty sure.
 
+Thanks, closed.
+
+Rafael
