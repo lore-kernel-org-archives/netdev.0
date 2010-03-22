@@ -1,30 +1,43 @@
-From: Andreas Hartmann <andi@ahash.de>
-Subject: [PATCH] kaweth: New USB ID 07c9:b010 Allied Telesyn AT-USB10
-Date: Tue, 23 Mar 2010 00:07:46 +0100
-Message-ID: <20100323000746.65aaa3db@zed>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Uclinux-dist-devel] [PATCH] can: bfin_can: switch to common
+ Blackfin can header
+Date: Mon, 22 Mar 2010 16:36:37 -0700 (PDT)
+Message-ID: <20100322.163637.73665927.davem@davemloft.net>
+References: <8bd0f97a1003220004q15ad498fg49914ea06c1b9a8d@mail.gmail.com>
+	<20100322.101720.133896229.davem@davemloft.net>
+	<8bd0f97a1003221409w24437f85ke27f4338e82ba44e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Greg Kroah-Hartman <gregkh@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
+	uclinux-dist-devel@blackfin.uclinux.org,
+	oliver.hartkopp@volkswagen.de, urs.thuermann@volkswagen.de
+To: vapier.adi@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33069
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752146Ab0CVXgO convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Mar 2010 19:36:14 -0400
+In-Reply-To: <8bd0f97a1003221409w24437f85ke27f4338e82ba44e@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-New USB ID 07c9:b010 Allied Telesyn AT-USB10
-Signed-off-by: Andreas Hartmann <andi@ahash.de>
----
-This USB Ethernet adapter has the KL5KUSB101B chip and is so far unknown to the
-kaweth driver. The device was found working with the patch applied.
---- linux-2.6.34-rc2/drivers/net/usb/kaweth.c.orig      2010-03-20 02:17:57.000000000 +0100
-+++ linux-2.6.34-rc2/drivers/net/usb/kaweth.c   2010-03-22 23:30:31.000000000 +0100
-@@ -145,6 +145,7 @@ static struct usb_device_id usb_klsi_tab
-        { USB_DEVICE(0x0707, 0x0100) }, /* SMC 2202USB */
-        { USB_DEVICE(0x07aa, 0x0001) }, /* Correga K.K. */
-        { USB_DEVICE(0x07b8, 0x4000) }, /* D-Link DU-E10 */
-+       { USB_DEVICE(0x07c9, 0xb010) }, /* Allied Telesyn AT-USB10 */
-        { USB_DEVICE(0x0846, 0x1001) }, /* NetGear EA-101 */
-        { USB_DEVICE(0x0846, 0x1002) }, /* NetGear EA-101 */
-        { USB_DEVICE(0x085a, 0x0008) }, /* PortGear Ethernet Adapter */
+=46rom: Mike Frysinger <vapier.adi@gmail.com>
+Date: Mon, 22 Mar 2010 17:09:55 -0400
+
+> On Mon, Mar 22, 2010 at 13:17, David Miller wrote:
+>> From: Mike Frysinger <vapier.adi@gmail.com>
+>> Do you still feel this way after people other than me also asked you
+>> to do the same exact thing for me? =A0Do you think they are making
+>> arbitrary requests as well?
+>=20
+> the only other person to say anything did not say "you now need to
+> resend your patch".  it was "please wait until Linus has pulled thing=
+s
+> and then Dave has pulled things".  which was not relevant at the poin=
+t
+> it was sent.
+
+Wolfgang told you to "just resubmit the patch", just like I asked you
+to, when you said "the code is there just apply the old one."
