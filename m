@@ -1,28 +1,26 @@
-From: "Justin P. mattock" <justinmattock@gmail.com>
-Subject: forcedeth: cat /sys/class/net/eth0/carrier = Invalid argument
-Date: Mon, 22 Mar 2010 10:36:18 -0700
-Message-ID: <4BA7AA92.5040400@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netdev: don't always reset iflink when registering
+Date: Mon, 22 Mar 2010 18:42:43 +0100
+Message-ID: <4BA7AC13.3080408@trash.net>
+References: <20100320013917.GB13239@boeing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Tom Goff <thomas.goff@boeing.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:39967 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754984Ab0CVRmp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 13:42:45 -0400
+In-Reply-To: <20100320013917.GB13239@boeing.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I've pushed my kernel from the latest HEAD to 2.6.31
-and am still seeing:
-cat /sys/class/net/eth0/carrier
-cat: carrier: Invalid argument
+Tom Goff wrote:
+> Bound tunnel devices set their iflink to the ifindex of the underlying
+> network interface when created.  It shouldn't be reset by the
+> registration process.
+>   
 
-with my other machine using sky2
-the same results is:
-cat /sys/class/net/eth0/carrier
-0
-
-is there anything on this? before I start
-a bisect.(looking through bugzilla, I couldn't
-see anything related).
-
-Justin P. Mattock
+Which ones exactly? Usually they do this in ->setup() or later on.
