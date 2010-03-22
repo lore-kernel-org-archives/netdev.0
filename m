@@ -1,41 +1,44 @@
-From: Sachin Sant <sachinp@in.ibm.com>
-Subject: -next Mar 22: s390 build failure (drivers/s390/net/qeth_l3)
-Date: Mon, 22 Mar 2010 14:40:59 +0530
-Message-ID: <4BA73423.6080101@in.ibm.com>
-References: <20100322171937.d753bdba.sfr@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	ursula.braun@de.ibm.com, Stephen Hemminger <shemminger@vyatta.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>
-To: linux-s390@vger.kernel.org
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100322171937.d753bdba.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+From: Amerigo Wang <amwang@redhat.com>
+Subject: [Patch] netconsole: do not depend on experimental
+Date: Mon, 22 Mar 2010 05:59:23 -0400
+Message-ID: <20100322100305.5518.29500.sendpatchset@localhost.localdomain>
+Cc: netdev@vger.kernel.org, Amerigo Wang <amwang@redhat.com>,
+	David Miller <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Todays next fails to build on a s390 box with
 
-  CC [M]  drivers/s390/net/qeth_l3_main.o
-drivers/s390/net/qeth_l3_main.c: In function 'qeth_l3_free_vlan_addresses6':
-drivers/s390/net/qeth_l3_main.c:1931: error: incompatible types in assignment
-drivers/s390/net/qeth_l3_main.c:1931: error: 'struct inet6_ifaddr' has no member named 'lst_next'
-make[2]: *** [drivers/s390/net/qeth_l3_main.o] Error 1
+Nowadays, most distributions enable netconsole by default,
+including RHEL, Fedora, Debian, Arch, Opensuse. And
+we don't have any bug reports about it. So I think there
+is no need to mark it as experimental any more.
 
-commit c2e21293c054817c42eb5fa9c613d2ad51954136
-(ipv6: convert addrconf list to hlist) 
-converted lst_next member of inet6_ifaddr struct to a hlist.
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: WANG Cong <amwang@redhat.com>
 
-Thanks
--Sachin
-
-
--- 
-
----------------------------------
-Sachin Sant
-IBM Linux Technology Center
-India Systems and Technology Labs
-Bangalore, India
----------------------------------
+---
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 0ba5b8e..e3d6c52 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -3252,15 +3252,14 @@ config NET_FC
+ 	  "SCSI generic support".
+ 
+ config NETCONSOLE
+-	tristate "Network console logging support (EXPERIMENTAL)"
+-	depends on EXPERIMENTAL
++	tristate "Network console logging support"
+ 	---help---
+ 	If you want to log kernel messages over the network, enable this.
+ 	See <file:Documentation/networking/netconsole.txt> for details.
+ 
+ config NETCONSOLE_DYNAMIC
+-	bool "Dynamic reconfiguration of logging targets (EXPERIMENTAL)"
+-	depends on NETCONSOLE && SYSFS && EXPERIMENTAL
++	bool "Dynamic reconfiguration of logging targets"
++	depends on NETCONSOLE && SYSFS
+ 	select CONFIGFS_FS
+ 	help
+ 	  This option enables the ability to dynamically reconfigure target
