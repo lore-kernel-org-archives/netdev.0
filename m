@@ -1,50 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pktgen node allocation
-Date: Sun, 21 Mar 2010 20:37:44 -0700 (PDT)
-Message-ID: <20100321.203744.43021126.davem@davemloft.net>
-References: <19363.14702.909265.380669@gargle.gargle.HOWL>
-	<1268990933.3048.15.camel@edumazet-laptop>
-	<19363.32154.39665.185451@gargle.gargle.HOWL>
+Subject: Re: [Uclinux-dist-devel] [PATCH] can: bfin_can: switch to common
+ Blackfin can header
+Date: Sun, 21 Mar 2010 20:39:27 -0700 (PDT)
+Message-ID: <20100321.203927.90806980.davem@davemloft.net>
+References: <8bd0f97a1003162225i439d9900mfdc03eca5de0ff6e@mail.gmail.com>
+	<20100316.225150.213941689.davem@davemloft.net>
+	<8bd0f97a1003182335l3c121d87v9369145852c9545d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: robert@herjulf.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
+	uclinux-dist-devel@blackfin.uclinux.org,
+	oliver.hartkopp@volkswagen.de, urs.thuermann@volkswagen.de
+To: vapier.adi@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52905
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52913
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754063Ab0CVDhW convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 Mar 2010 23:37:22 -0400
-In-Reply-To: <19363.32154.39665.185451@gargle.gargle.HOWL>
+	by vger.kernel.org with ESMTP id S1754063Ab0CVDjE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Mar 2010 23:39:04 -0400
+In-Reply-To: <8bd0f97a1003182335l3c121d87v9369145852c9545d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: robert@herjulf.net
-Date: Fri, 19 Mar 2010 14:35:22 +0100
+From: Mike Frysinger <vapier.adi@gmail.com>
+Date: Fri, 19 Mar 2010 02:35:17 -0400
 
->=20
-> Eric Dumazet writes:
->  > Le vendredi 19 mars 2010 =E0 09:44 +0100, Robert Olsson a =E9crit =
-:
->  >=20
->  > I cannot understand how this can help.
->  >=20
->  > __netdev_alloc_skb() is supposed to already take into account NUMA
->  > properties :
->  >=20
->  > int node =3D dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
->  >=20
->  > If this doesnt work, we should correct core stack, not only pktgen=
- :)
->  >=20
->  > Are you allocating memory in the node where pktgen CPU is running =
-or the
->  > node close to the NIC ?
->=20
->  I didn't say it should help the idea was to give some hooks to=20
->  experiment and see effects with different node memory allocations.
->  There are many degrees of freedom wrt buses(device)/CPU/menory.
+> On Wed, Mar 17, 2010 at 01:51, David Miller wrote:
+>> From: Mike Frysinger <vapier.adi@gmail.com>
+>>> if the next tree is merged into linux-next, then the header is already there
+>>
+>> Just get your stuff merged properly to Linus then resubmit
+>> your patch.
+> 
+> Linus has pulled my tree, so there shouldnt be any reason to not merge
+> this patch now
 
-I think it's a useful feature and by default the netdev alloc
-is still used, so... applied to net-next-2.6
+If you can't understand what the heck the word "RESUMBIT" means,
+then I'm not even going to pay attention to you anymore.
+
+I keep telling you to resubmit the thing when it'll work correctly
+because it makes things 1,000 times easier for me then crawling
+through the mailing list and patchwork history trying to fish out
+your patch and figure out if it's the right one or not.
