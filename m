@@ -1,8 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 1/3] igb: Do not overwrite mdicnfg register when
-	accessing 82580 phy
-Date: Mon, 22 Mar 2010 17:07:26 -0700
-Message-ID: <20100323000724.19939.17642.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 2/3] igb: cleanup usage of virtualization
+	registers
+Date: Mon, 22 Mar 2010 17:07:46 -0700
+Message-ID: <20100323000744.19939.65933.stgit@localhost.localdomain>
+References: <20100323000724.19939.17642.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,78 +12,66 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.westchester.pa.mail.comcast.net ([76.96.62.48]:49769
-	"EHLO qmta05.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752684Ab0CWAHo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 20:07:44 -0400
+Received: from qmta12.westchester.pa.mail.comcast.net ([76.96.59.227]:43475
+	"EHLO qmta12.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753850Ab0CWAIF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 20:08:05 -0400
+In-Reply-To: <20100323000724.19939.17642.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change removes the extra configuration we were doing on the mdicnfg
-register which should be set by EEPROM and which we should not need to
-write again afterwards.  This code was a holdover from some earlier
-development work that was being done on a board with an incomplete EEPROM
-and is no longer needed now that the production EEPROMs are in place.
+The igb driver was incorrectly attempting to write to registers that do not
+exist on 82580 hardware.  This wasn't causing any issues that I can tell,
+but it is not recommended behavior either so I have changed this so we are
+determining which registers to write to based on mac type.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/e1000_82575.c |   20 --------------------
- 1 files changed, 0 insertions(+), 20 deletions(-)
+ drivers/net/igb/igb_main.c |   28 ++++++++++++++++------------
+ 1 files changed, 16 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
-index 0bc990e..ea944f5 100644
---- a/drivers/net/igb/e1000_82575.c
-+++ b/drivers/net/igb/e1000_82575.c
-@@ -1446,7 +1446,6 @@ void igb_vmdq_set_replication_pf(struct e1000_hw *hw, bool enable)
-  **/
- static s32 igb_read_phy_reg_82580(struct e1000_hw *hw, u32 offset, u16 *data)
- {
--	u32 mdicnfg = 0;
- 	s32 ret_val;
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 83431e9..61029e8 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -6158,19 +6158,23 @@ static void igb_vmm_control(struct igb_adapter *adapter)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 reg;
  
- 
-@@ -1454,15 +1453,6 @@ static s32 igb_read_phy_reg_82580(struct e1000_hw *hw, u32 offset, u16 *data)
- 	if (ret_val)
- 		goto out;
- 
--	/*
--	 * We config the phy address in MDICNFG register now. Same bits
--	 * as before. The values in MDIC can be written but will be
--	 * ignored. This allows us to call the old function after
--	 * configuring the PHY address in the new register
--	 */
--	mdicnfg = (hw->phy.addr << E1000_MDIC_PHY_SHIFT);
--	wr32(E1000_MDICNFG, mdicnfg);
+-	/* replication is not supported for 82575 */
+-	if (hw->mac.type == e1000_82575)
++	switch (hw->mac.type) {
++	case e1000_82575:
++	default:
++		/* replication is not supported for 82575 */
+ 		return;
 -
- 	ret_val = igb_read_phy_reg_mdic(hw, offset, data);
- 
- 	hw->phy.ops.release(hw);
-@@ -1481,7 +1471,6 @@ out:
-  **/
- static s32 igb_write_phy_reg_82580(struct e1000_hw *hw, u32 offset, u16 data)
- {
--	u32 mdicnfg = 0;
- 	s32 ret_val;
- 
- 
-@@ -1489,15 +1478,6 @@ static s32 igb_write_phy_reg_82580(struct e1000_hw *hw, u32 offset, u16 data)
- 	if (ret_val)
- 		goto out;
- 
--	/*
--	 * We config the phy address in MDICNFG register now. Same bits
--	 * as before. The values in MDIC can be written but will be
--	 * ignored. This allows us to call the old function after
--	 * configuring the PHY address in the new register
--	 */
--	mdicnfg = (hw->phy.addr << E1000_MDIC_PHY_SHIFT);
--	wr32(E1000_MDICNFG, mdicnfg);
+-	/* enable replication vlan tag stripping */
+-	reg = rd32(E1000_RPLOLR);
+-	reg |= E1000_RPLOLR_STRVLAN;
+-	wr32(E1000_RPLOLR, reg);
 -
- 	ret_val = igb_write_phy_reg_mdic(hw, offset, data);
+-	/* notify HW that the MAC is adding vlan tags */
+-	reg = rd32(E1000_DTXCTL);
+-	reg |= E1000_DTXCTL_VLAN_ADDED;
+-	wr32(E1000_DTXCTL, reg);
++	case e1000_82576:
++		/* notify HW that the MAC is adding vlan tags */
++		reg = rd32(E1000_DTXCTL);
++		reg |= E1000_DTXCTL_VLAN_ADDED;
++		wr32(E1000_DTXCTL, reg);
++	case e1000_82580:
++		/* enable replication vlan tag stripping */
++		reg = rd32(E1000_RPLOLR);
++		reg |= E1000_RPLOLR_STRVLAN;
++		wr32(E1000_RPLOLR, reg);
++		break;
++	}
  
- 	hw->phy.ops.release(hw);
+ 	if (adapter->vfs_allocated_count) {
+ 		igb_vmdq_set_loopback_pf(hw, true);
 
