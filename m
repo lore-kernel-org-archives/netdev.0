@@ -1,37 +1,53 @@
 From: Changli Gao <xiaosuo@gmail.com>
 Subject: Re: [PATCH] rps: make distributing packets fairly among all the
 	online CPUs default
-Date: Tue, 23 Mar 2010 17:56:46 +0800
-Message-ID: <412e6f7f1003230256m109644b0n2988e86a56f1ae1@mail.gmail.com>
-References: <4BA85EA2.1090304@gmail.com> <1269328852.3043.13.camel@edumazet-laptop>
+Date: Tue, 23 Mar 2010 18:03:22 +0800
+Message-ID: <412e6f7f1003230303l69fc142ey1581fff4c3e749be@mail.gmail.com>
+References: <4BA85EA2.1090304@gmail.com> <1269329250.3043.19.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f176.google.com ([209.85.223.176]:48507 "EHLO
+Received: from mail-iw0-f176.google.com ([209.85.223.176]:40779 "EHLO
 	mail-iw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752097Ab0CWJ5I convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 05:57:08 -0400
-Received: by iwn6 with SMTP id 6so1592485iwn.4
-        for <netdev@vger.kernel.org>; Tue, 23 Mar 2010 02:57:06 -0700 (PDT)
-In-Reply-To: <1269328852.3043.13.camel@edumazet-laptop>
+	with ESMTP id S1752120Ab0CWKDo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 06:03:44 -0400
+Received: by iwn6 with SMTP id 6so1597530iwn.4
+        for <netdev@vger.kernel.org>; Tue, 23 Mar 2010 03:03:43 -0700 (PDT)
+In-Reply-To: <1269329250.3043.19.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 23, 2010 at 3:20 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+On Tue, Mar 23, 2010 at 3:27 PM, Eric Dumazet <eric.dumazet@gmail.com> =
 wrote:
 > Le mardi 23 mars 2010 =C3=A0 14:24 +0800, Changli Gao a =C3=A9crit :
+>> make distributing packets fairly among all the online CPUs default.
+>>
+>> Make distributing packets fairly among all the online CPUs default, =
+then
+>> users don't need any explicit configuration to get the benefit of RP=
+S.
+>>
 >
-> You cannot do this like this, these allocations wont be freed.
+> Some people want to dedicate a cpu to network interrupts, cache hits
+> only, to get low latencies.
+> RPS is not a win for all workloads.
 >
-> Better would be to take a look at net/core/net-sysfs.c
+> I think we should not change default without a knob.
+>
+> Didnt we discussed all this during last months ?
 >
 
-Sorry, but I don't know why these allocations won't be freed.
+Ben Hutchings raised this question, but nobody replied with any message=
+=2E
 
+I do think distributing packets fairly among all the online CPUs will
+helps most of users. I remember the smp_affinity of IRQ is the
+online_cpu_mask be default.
 
 --=20
 Regards=EF=BC=8C
