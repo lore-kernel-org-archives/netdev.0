@@ -1,62 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Fix locking in flush_backlog
-Date: Tue, 23 Mar 2010 17:14:04 +0100
-Message-ID: <1269360844.2983.294.camel@edumazet-laptop>
-References: <alpine.DEB.1.00.1003222257470.3718@pokey.mtv.corp.google.com>
-	 <1269325757.3043.11.camel@edumazet-laptop>
-	 <65634d661003230856v3d1737dehf64a883c1e785333@mail.gmail.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [RFC PATCH net-next 0/7 v2]IPv6:netfilter: defragment
+Date: Wed, 24 Mar 2010 01:28:58 +0900
+Message-ID: <4BA8EC4A.9070802@linux-ipv6.org>
+References: <4B88BE30.80206@cn.fujitsu.com> <4B97D34C.4020509@gmail.com> <4B98B4FC.50904@cn.fujitsu.com> <4B9B9766.3090200@linux-ipv6.org> <4B9E5FEC.9010002@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f184.google.com ([209.85.216.184]:37898 "EHLO
-	mail-px0-f184.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754555Ab0CWQOJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 12:14:09 -0400
-Received: by pxi14 with SMTP id 14so4137339pxi.15
-        for <netdev@vger.kernel.org>; Tue, 23 Mar 2010 09:14:09 -0700 (PDT)
-In-Reply-To: <65634d661003230856v3d1737dehf64a883c1e785333@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Shan Wei <shanwei@cn.fujitsu.com>,
+	YOSHIFUJI Hideaki <hideaki.yoshifuji@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4B9E5FEC.9010002@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 23 mars 2010 =C3=A0 08:56 -0700, Tom Herbert a =C3=A9crit :
+Hello.
 
-> Eric,
->=20
-> I'm not sure what you're asking.  Do you just want to add spinlocks i=
-n
-> the flush_backlog function without changing the mechanism to call the
-> function on each CPU, or keep flush_backlog but call it from
-> netdev_run_todo for each queue?
->=20
+Sorry for my slow response.
 
-keep flush_backlog() so that its role is obvious and indentation level
-not too big.
+(2010/03/16 1:27), Patrick McHardy wrote:
+> YOSHIFUJI Hideaki wrote:
+>> (2010/03/11 18:16), Shan Wei wrote:
+>>>> On the other hand, I'd even say we should NOT send
+>>>> icmp here (at least by default) because standard routers
+>>>> never send such packet.
+>>>
+>>> Yes=EF=BC=8Cfor routers, the patch-set does not send icmp message t=
+o
+>>> source host. It only does on destination host with IPv6 connection
+>>> track enable.
+>>
+>> Please make it optional (via parameter) at least.
+>
+> The ICMP messages are only sent if the packet is destined for the
+> local host, similar to what IPv6 defrag would do if conntrack wouldn'=
+t
+> be used. So this patch increases consistency, why should we make this
+> optional?
 
-static void flush_backlog(int cpu)
-{
-	struct softnet_data *queue =3D &per_cpu(softnet_data, cpu);
-	struct sk_buff *skb, *tmp;
-	unsigned long flags;
+Well, in the first place, I do think conntrack should be
+transparent as much as possible.  And, I cannot find other
+netfilter conntrack code (ipv4 or ipv6) sending icmp e.g.
+parameter problem etc.
 
-	spin_lock_irqsave(&queue->input_pkt_queue.lock, flags);
-	skb_queue_walk_safe(&queue->input_pkt_queue, skb, tmp)
-		if (skb->dev =3D=3D dev) {
-			__skb_unlink(skb, &queue->input_pkt_queue);
-			kfree_skb(skb);
-		}
-	spin_unlock_irqrestore(&queue->input_pkt_queue.lock, flags);
-}
+As I said before, I agree that netfilter may drop packets
+by any reasons, but I do think it should be done silently.
+It can increment netfilter's own statistic counting etc.
+but it should not increment the core's (especially,
+specific) statistic counting.
 
-And call it from netdev_run_todo() :
+Reassembling processes are the same.  We should NOT send icmp, and
+if ever desired, we might optionally send icmp (in other
+module maybe).
 
-for_each_online_cpu(i)
-	flush_backlog(i);
+Regards,
 
-This adds two lines to netdev_run_todo() only.
-
-Thanks
-
-
+--yoshfuji
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
