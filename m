@@ -1,57 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC Patch 1/3] netpoll: add generic support for bridge and
- bonding devices
-Date: Mon, 22 Mar 2010 20:49:39 -0700 (PDT)
-Message-ID: <20100322.204939.146100390.davem@davemloft.net>
-References: <20100322082059.4967.63492.sendpatchset@localhost.localdomain>
-	<1269297081.3552.19.camel@calx>
-	<4BA823D7.4010106@redhat.com>
+Subject: Re: forcedeth: cat /sys/class/net/eth0/carrier = Invalid argument
+Date: Mon, 22 Mar 2010 20:51:44 -0700 (PDT)
+Message-ID: <20100322.205144.256859987.davem@davemloft.net>
+References: <4BA7AA92.5040400@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mpm@selenic.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	gospo@redhat.com, nhorman@tuxdriver.com,
-	shemminger@linux-foundation.org,
-	bonding-devel@lists.sourceforge.net, fubar@us.ibm.com,
-	jmoyer@redhat.com
-To: amwang@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35559
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754358Ab0CWDtR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 23:49:17 -0400
-In-Reply-To: <4BA823D7.4010106@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: justinmattock@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4BA7AA92.5040400@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang@redhat.com>
-Date: Tue, 23 Mar 2010 10:13:43 +0800
+From: "Justin P. mattock" <justinmattock@gmail.com>
+Date: Mon, 22 Mar 2010 10:36:18 -0700
 
-> Matt Mackall wrote:
->> Seems like a lot of interface for something to be used by only a
->> couple
->> core drivers. Hopefully Dave has an opinion here.
->> 
+> I've pushed my kernel from the latest HEAD to 2.6.31
+> and am still seeing:
+> cat /sys/class/net/eth0/carrier
+> cat: carrier: Invalid argument
 > 
-> Yeah, I worry about this too, maybe we can group those methods
-> for netpoll together into another struct, and just put a pointer
-> here?
+> with my other machine using sky2
+> the same results is:
+> cat /sys/class/net/eth0/carrier
+> 0
+> 
+> is there anything on this? before I start
+> a bisect.(looking through bugzilla, I couldn't
+> see anything related).
 
-This looks like it's tackled at the wrong layer, to be honest.
+A device is not able to indicate carrier accurately when
+the device is not currently running.
 
-Teaching all of these layers about eachother's states is
-going to end up being a nightmare in the end.
+So you will get an -EINVAL until the device is brought up.
 
-All of this "where is the npinfo" business can be handled
-generically in net/core/dev.c I think, with none of these
-callbacks.
+The reason is that most drivers don't even probe the link
+or negotiate link speed and flow control until the device
+is brought up.  Many don't even power up the PHY when the
+device is down, in order to save power.
 
-For example, something like "if dev lacks ->npinfo, check
-it's master".
-
-Another thing, I wouldn't iterate over all devices, like I
-see in the bonding poll controller method.  Just whichever
-one supports netpoll you see first, use it and exit
-immediately.  Don't send it to every single port, I can't
-see how that might be desirable or useful.
+So the behavior you observe is completely expected.
