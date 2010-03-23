@@ -1,60 +1,53 @@
-From: "Justin P. Mattock" <justinmattock@gmail.com>
-Subject: Re: forcedeth: cat /sys/class/net/eth0/carrier = Invalid argument
-Date: Mon, 22 Mar 2010 21:07:12 -0700
-Message-ID: <4BA83E70.4060906@gmail.com>
-References: <4BA7AA92.5040400@gmail.com> <20100322.205144.256859987.davem@davemloft.net>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [Patch v2] netpoll: warn when there are spaces in parameters
+Date: Mon, 22 Mar 2010 23:24:16 -0500
+Message-ID: <1269318256.3552.49.camel@calx>
+References: <20100322090341.5289.10770.sendpatchset@localhost.localdomain>
+	 <1269296535.3552.10.camel@calx>  <4BA81D18.40509@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100322.205144.256859987.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	elendil@planet.nl, David Miller <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from waste.org ([173.11.57.241]:38506 "EHLO waste.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750744Ab0CWEYV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Mar 2010 00:24:21 -0400
+In-Reply-To: <4BA81D18.40509@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/22/2010 08:51 PM, David Miller wrote:
-> From: "Justin P. mattock"<justinmattock@gmail.com>
-> Date: Mon, 22 Mar 2010 10:36:18 -0700
->
->> I've pushed my kernel from the latest HEAD to 2.6.31
->> and am still seeing:
->> cat /sys/class/net/eth0/carrier
->> cat: carrier: Invalid argument
->>
->> with my other machine using sky2
->> the same results is:
->> cat /sys/class/net/eth0/carrier
->> 0
->>
->> is there anything on this? before I start
->> a bisect.(looking through bugzilla, I couldn't
->> see anything related).
->
-> A device is not able to indicate carrier accurately when
-> the device is not currently running.
->
-> So you will get an -EINVAL until the device is brought up.
+On Tue, 2010-03-23 at 09:44 +0800, Cong Wang wrote:
+> Matt Mackall wrote:
+> > On Mon, 2010-03-22 at 04:59 -0400, Amerigo Wang wrote:
+> >> +			printk(KERN_INFO "%s: warning: whitespace"
+> >> +					"is not allowed\n", np->name);
+> > 
+> > Is it a warning or is it info? If it's a warning, then we probably need
+> > to add "netpoll" or whatever to the message so that people who've got a
+> > warning-level threshold will know what it's about.
+> > 
+> 
+> If you mean KERN_INFO, yeah, I want to keep it in the same level
+> as other messages around.
 
-ah.. the machine was up and running but nothing was running
-(no dhclient, streaming music, etc..)
-now
-just ran the machine with ethernet,(up and running) and carrier reported 1
+I should probably be more direct: I think that's the wrong thing to do.
+It IS a warning (it even says so!) telling users that something probably
+won't work and why and they might miss it if the severity is INFO and
+then come and ask us why things aren't working. So use KERN_WARN,
+please.
 
->
-> The reason is that most drivers don't even probe the link
-> or negotiate link speed and flow control until the device
-> is brought up.  Many don't even power up the PHY when the
-> device is down, in order to save power.
->
-> So the behavior you observe is completely expected.
->
+The other messages are INFO because when things are working, they're not
+interesting.
 
+> Also, I already put "np->name" which will be "netconsole" when
+> we use netconsole.
 
-cool, this had me confused.
+Ahh, right, I have a brain cell somewhere that knew that.
 
-Thanks for the info on this..
-(no bisect for this).
+-- 
+http://selenic.com : development and support for Mercurial and Linux
 
 
-Justin P. Mattock
