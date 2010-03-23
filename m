@@ -1,70 +1,99 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH] rps: memory leak due to forget to release rx queues
-Date: Mon, 22 Mar 2010 23:44:08 -0700
-Message-ID: <65634d661003222344s662000e8ode1b4f49ff73b345@mail.gmail.com>
-References: <4BA85A33.6050004@gmail.com>
+From: Mihamina Rakotomandimby <mihamina@gulfsat.mg>
+Subject: Re: tc download always to "default" [solved]
+Date: Tue, 23 Mar 2010 10:02:07 +0300
+Message-ID: <20100323100207.705ecef8@pbmiha.malagasy.com>
+References: <20100322134309.53fe1bb3@pbmiha.malagasy.com>
+ <20100322143113.GA23778@wolff.to>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:16938 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753720Ab0CWGoL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 02:44:11 -0400
-Received: from hpaq6.eem.corp.google.com (hpaq6.eem.corp.google.com [10.3.21.6])
-	by smtp-out.google.com with ESMTP id o2N6i988021502
-	for <netdev@vger.kernel.org>; Tue, 23 Mar 2010 07:44:09 +0100
-Received: from fxm6 (fxm6.prod.google.com [10.184.13.6])
-	by hpaq6.eem.corp.google.com with ESMTP id o2N6i8sk012160
-	for <netdev@vger.kernel.org>; Tue, 23 Mar 2010 07:44:09 +0100
-Received: by fxm6 with SMTP id 6so128960fxm.18
-        for <netdev@vger.kernel.org>; Mon, 22 Mar 2010 23:44:08 -0700 (PDT)
-In-Reply-To: <4BA85A33.6050004@gmail.com>
+Received: from static-104-36.blueline.mg ([41.204.104.36]:41652 "EHLO
+	mail.blueline.mg" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754621Ab0CWHCV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 03:02:21 -0400
+Received: from localhost (static-104-53.blueline.mg [41.204.104.53])
+	by mail.blueline.mg (Postfix) with ESMTP id 12B9DFD29
+	for <netdev@vger.kernel.org>; Tue, 23 Mar 2010 10:02:19 +0300 (EAT)
+Received: from mail.blueline.mg ([41.204.104.38])
+	by localhost (antivirus2.malagasy.com [41.204.104.53]) (amavisd-new, port 10024)
+	with ESMTP id HgRmwRSQNFnZ for <netdev@vger.kernel.org>;
+	Tue, 23 Mar 2010 10:02:08 +0300 (EAT)
+Received: from pbmiha.malagasy.com (sysadmin-cnc.malagasy.com [41.204.104.9])
+	by mail.blueline.mg (Postfix) with ESMTP id 94C3EF826
+	for <netdev@vger.kernel.org>; Tue, 23 Mar 2010 10:02:13 +0300 (EAT)
+Received: from localhost ([127.0.0.1] helo=pbmiha.malagasy.com)
+	by pbmiha.malagasy.com with esmtp (Exim 4.69)
+	(envelope-from <mihamina@gulfsat.mg>)
+	id 1Nty7s-0000vr-2g
+	for netdev@vger.kernel.org; Tue, 23 Mar 2010 10:02:08 +0300
+In-Reply-To: <20100322143113.GA23778@wolff.to>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2010/3/22 Changli Gao <xiaosuo@gmail.com>:
-> memory leak due to forget to release rx queues.
->
-> rx queues is allocated in alloc_netdev_mq(), but they aren't released=
- in
-> free_netdev(), and the field rps_map is also miss.
->
+> Bruno Wolff III <bruno@wolff.to> :
+>> My problem is all the traffic is caught by "classid 1:10", the
+>> default class.
+>> Nothing is trapped by "classid 1:301" -> "classid 1:426"
+>> At a first glance, would you see something wrong in these?
+>I took a quick look and didn't see anything obvious. But I haven't
+>played with this stuff for a while and my scripts were set up a bit
+>differently.
+>How are you checking that everything is ending up in the default class=
+?
 
-rx_queues can't be free from free_netdev since they contain kobjects
-(only freed when refcnt goes to zero).  They should be freed when the
-device kobject is freed (netdev_unregister_kobject).
+1=C2=B0) As I wrote my rules, each IP address has one handler.
+I use this script to display UP and DOWN traffic for the handler in $1:
 
-Tom
+  #!/bin/sh
 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-> ----
-> net/core/dev.c | 8 ++++++++
-> 1 file changed, 8 insertions(+)
->
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index c0e2608..51b86e0 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -5746,6 +5746,14 @@ void free_netdev(struct net_device *dev)
->
-> =A0 =A0 =A0 =A0release_net(dev_net(dev));
->
-> + =A0 =A0 =A0 if (dev->num_rx_queues) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 int i;
-> +
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 for (i =3D 0; i < dev->num_rx_queues; i=
-++)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 kfree(dev->_rx[i].rps_m=
-ap);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 kfree(dev->_rx);
-> + =A0 =A0 =A0 }
-> +
-> =A0 =A0 =A0 =A0kfree(dev->_tx);
->
-> =A0 =A0 =A0 =A0/* Flush device addresses */
->
->
->
+  INIF=3Deth1
+  OUTIF=3Difb0
+
+  RATEIN=3D$(tc -s -d class show dev $INIF \
+    | egrep -A 5 "class htb 1:$1 " \
+    | egrep "rate .+ backlog" \
+    | awk '{print $2}')
+ =20
+  RATEOUT=3D$(tc -s -d class show dev $OUTIF \
+    | egrep -A 5 "class htb 1:$1 " \
+    | egrep "rate .+ backlog" \
+    | awk '{print $2}')
+
+  echo $RATEIN
+  echo $RATEOUT
+
+I launch it like this:
+# get-bw.sh $NNN
+Where $NNN is the handler.
+
+When I launch it, I see "0bit" for IN traffic, that means nothing is
+trapped.
+When I launch it with the handler of the default, I see much traffic.
+
+2=C2=B0) When varying the "default" allocated bandwidth, I see in my ch=
+arts
+it is the one seen.
+
+>I remember there is a command that tells you how much stuff is ending
+> up getting handled by the different qdiscs. Is that what you are doin=
+g
+> or are you just assuming that's what's happening because traffic isn'=
+t
+> being limited the way you expect?
+
+Anyway, I solved my problem:
+The LAN interface is "eth1" but there is a tunnel "tun0" coupled to it
+(I use coova chilli access point).
+Just to test, I switched to "tun0" and it suddenly worked.
+
+In all the rules I gave, just replacing "eth1" with "tun0" made it!
+(What a dumb I am...)
+
+Thanks for everything.
+
+--=20
+       Architecte Informatique chez Blueline/Gulfsat:
+    Administration Systeme, Recherche & Developpement
+                +261 34 29 155 34 / +261 33 11 207 36
