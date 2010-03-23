@@ -1,26 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: rps: Fix build with CONFIG_SYSFS enabled
-Date: Mon, 22 Mar 2010 18:07:20 -0700 (PDT)
-Message-ID: <20100322.180720.223462073.davem@davemloft.net>
-References: <alpine.DEB.1.00.1003221355380.25849@pokey.mtv.corp.google.com>
-	<4BA7E5BF.1080805@oracle.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2010-03-19
+Date: Mon, 22 Mar 2010 18:16:00 -0700 (PDT)
+Message-ID: <20100322.181600.133424106.davem@davemloft.net>
+References: <20100319204507.GF9552@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, netdev@vger.kernel.org
-To: randy.dunlap@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53046
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756030Ab0CWBG5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 21:06:57 -0400
-In-Reply-To: <4BA7E5BF.1080805@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100319204507.GF9552-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Date: Mon, 22 Mar 2010 14:48:47 -0700
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Fri, 19 Mar 2010 16:45:08 -0400
 
-> Dave, this patch and Eric's patch both build OK.  Your choice...
+> Here is the first big dump of wireless bit for the 2.6.35 cycle...
+> 
+> Included are the usual driver updates, etc.  In particular, the Intel
+> and Nokia guys have been busy as usual. :-)
 
-Yep, I took Tom's, thanks for testing Randy.
+Pulled, I'll push out to kernel.org after some build smoke
+tests.
+
+Thanks!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
