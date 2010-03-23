@@ -1,40 +1,48 @@
-From: Jeff Moyer <jmoyer@redhat.com>
-Subject: Re: [RFC Patch 1/3] netpoll: add generic support for bridge and bonding devices
-Date: Tue, 23 Mar 2010 08:11:13 -0400
-Message-ID: <x49zl1zxmou.fsf@segfault.boston.devel.redhat.com>
-References: <20100322082059.4967.63492.sendpatchset@localhost.localdomain>
-	<1269297081.3552.19.camel@calx>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] rps: make distributing packets fairly among all the
+ online CPUs default
+Date: Tue, 23 Mar 2010 14:06:20 +0100
+Message-ID: <1269349580.2983.113.camel@edumazet-laptop>
+References: <4BA85EA2.1090304@gmail.com>
+	 <1269329250.3043.19.camel@edumazet-laptop>
+	 <412e6f7f1003230303l69fc142ey1581fff4c3e749be@mail.gmail.com>
+	 <1269344306.2983.16.camel@edumazet-laptop>
+	 <412e6f7f1003230458o459b9e45i7327c5330c43e152@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Amerigo Wang <amwang@redhat.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Andy Gospodarek <gospo@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	bonding-devel@lists.sourceforge.net,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	David Miller <davem@davemloft.net>
-To: Matt Mackall <mpm@selenic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1269297081.3552.19.camel@calx> (Matt Mackall's message of "Mon,
-	22 Mar 2010 17:31:21 -0500")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f179.google.com ([209.85.221.179]:39052 "EHLO
+	mail-qy0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753020Ab0CWNGZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 09:06:25 -0400
+Received: by qyk9 with SMTP id 9so751408qyk.1
+        for <netdev@vger.kernel.org>; Tue, 23 Mar 2010 06:06:24 -0700 (PDT)
+In-Reply-To: <412e6f7f1003230458o459b9e45i7327c5330c43e152@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Matt Mackall <mpm@selenic.com> writes:
+Le mardi 23 mars 2010 =C3=A0 19:58 +0800, Changli Gao a =C3=A9crit :
 
-> On Mon, 2010-03-22 at 04:17 -0400, Amerigo Wang wrote:
->> This whole patchset is for adding netpoll support to bridge and bonding
->> devices. I already tested it for bridge, bonding, bridge over bonding,
->> and bonding over bridge. It looks fine now.
->
-> Ages ago, Jeff Moyer took a run at this, added him to the cc: on the off
-> chance he still cares.
+> The sysadmins you mentioned above are Linux experters, and they know
+> how to tunning the system to get the best performance, but the defaul=
+t
+> configuration should be for the ordinary users, who don't know Linux
+> much.
+>=20
 
-I'll take a look at it in a bit.  For now, here is the link to my
-original post on this for Amerigo's reading pleasure:
+I strongly NACK your change at this very moment, many devices run
+without a linux expert to tune them, thanks.
 
-  http://lkml.indiana.edu/hypermail/linux/kernel/0507.0/0206.html
+Ordinary users dont need RPS magic in 2.6.35.
 
-Cheers,
-Jeff
+Maybe in 2.6.38+ we can reconsider this, if RPS deployment happens to b=
+e
+successful, thanks to experts doing their job and reports.
+
+
+
