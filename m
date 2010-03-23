@@ -1,83 +1,70 @@
-From: Sathya Perla <sathyap@serverengines.com>
-Subject: [PATCH net-next-2.6 2/2] be2net: fix unmap_single/page() called
- incorrectly in Tx compl processing
-Date: Tue, 23 Mar 2010 12:11:34 +0530
-Message-ID: <20100323064134.GA3733@serverengines.com>
-Reply-To: Sathya Perla <sathyap@serverengines.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH] rps: memory leak due to forget to release rx queues
+Date: Mon, 22 Mar 2010 23:44:08 -0700
+Message-ID: <65634d661003222344s662000e8ode1b4f49ff73b345@mail.gmail.com>
+References: <4BA85A33.6050004@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: xiaosuo@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:25152 "EHLO
-	sperla-laptop.localdomain" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754431Ab0CWGll (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 02:41:41 -0400
-Content-Disposition: inline
+Received: from smtp-out.google.com ([74.125.121.35]:16938 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753720Ab0CWGoL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 02:44:11 -0400
+Received: from hpaq6.eem.corp.google.com (hpaq6.eem.corp.google.com [10.3.21.6])
+	by smtp-out.google.com with ESMTP id o2N6i988021502
+	for <netdev@vger.kernel.org>; Tue, 23 Mar 2010 07:44:09 +0100
+Received: from fxm6 (fxm6.prod.google.com [10.184.13.6])
+	by hpaq6.eem.corp.google.com with ESMTP id o2N6i8sk012160
+	for <netdev@vger.kernel.org>; Tue, 23 Mar 2010 07:44:09 +0100
+Received: by fxm6 with SMTP id 6so128960fxm.18
+        for <netdev@vger.kernel.org>; Mon, 22 Mar 2010 23:44:08 -0700 (PDT)
+In-Reply-To: <4BA85A33.6050004@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The first wrb seen by tx compl processing does not have a dma handle in it.
-Currently, pci_unmap_single() is attempted on this wrb and pci_unmap_page() on the
-rest. So, pci_unmap_page() gets incorrectly called on the dma hdl of skb->data (that
-was mapped using map_single()). This patch fixes this issue.
+2010/3/22 Changli Gao <xiaosuo@gmail.com>:
+> memory leak due to forget to release rx queues.
+>
+> rx queues is allocated in alloc_netdev_mq(), but they aren't released=
+ in
+> free_netdev(), and the field rps_map is also miss.
+>
 
-Signed-off-by: Sathya Perla <sathyap@serverengines.com>
----
- drivers/net/benet/be_main.c |   33 ++++++++++++---------------------
- 1 files changed, 12 insertions(+), 21 deletions(-)
+rx_queues can't be free from free_netdev since they contain kobjects
+(only freed when refcnt goes to zero).  They should be freed when the
+device kobject is freed (netdev_unregister_kobject).
 
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 0800c63..174e5f8 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -1047,35 +1047,26 @@ static void be_tx_compl_process(struct be_adapter *adapter, u16 last_index)
- 	struct be_eth_wrb *wrb;
- 	struct sk_buff **sent_skbs = adapter->tx_obj.sent_skb_list;
- 	struct sk_buff *sent_skb;
--	u64 busaddr;
--	u16 cur_index, num_wrbs = 0;
-+	u16 cur_index, num_wrbs = 1; /* account for hdr wrb */
-+	bool unmap_skb_hdr = true;
- 
--	cur_index = txq->tail;
--	sent_skb = sent_skbs[cur_index];
-+	sent_skb = sent_skbs[txq->tail];
- 	BUG_ON(!sent_skb);
--	sent_skbs[cur_index] = NULL;
--	wrb = queue_tail_node(txq);
--	be_dws_le_to_cpu(wrb, sizeof(*wrb));
--	busaddr = ((u64)wrb->frag_pa_hi << 32) | (u64)wrb->frag_pa_lo;
--	if (busaddr != 0) {
--		pci_unmap_single(adapter->pdev, busaddr,
--				 wrb->frag_len, PCI_DMA_TODEVICE);
--	}
--	num_wrbs++;
-+	sent_skbs[txq->tail] = NULL;
-+
-+	/* skip header wrb */
- 	queue_tail_inc(txq);
- 
--	while (cur_index != last_index) {
-+	do {
- 		cur_index = txq->tail;
- 		wrb = queue_tail_node(txq);
--		be_dws_le_to_cpu(wrb, sizeof(*wrb));
--		busaddr = ((u64)wrb->frag_pa_hi << 32) | (u64)wrb->frag_pa_lo;
--		if (busaddr != 0) {
--			pci_unmap_page(adapter->pdev, busaddr,
--				       wrb->frag_len, PCI_DMA_TODEVICE);
--		}
-+		unmap_tx_frag(adapter->pdev, wrb, (unmap_skb_hdr &&
-+					sent_skb->len > sent_skb->data_len));
-+		unmap_skb_hdr = false;
-+
- 		num_wrbs++;
- 		queue_tail_inc(txq);
--	}
-+	} while (cur_index != last_index);
- 
- 	atomic_sub(num_wrbs, &txq->used);
- 
--- 
-1.6.3.3
+Tom
 
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> ----
+> net/core/dev.c | 8 ++++++++
+> 1 file changed, 8 insertions(+)
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index c0e2608..51b86e0 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -5746,6 +5746,14 @@ void free_netdev(struct net_device *dev)
+>
+> =A0 =A0 =A0 =A0release_net(dev_net(dev));
+>
+> + =A0 =A0 =A0 if (dev->num_rx_queues) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 int i;
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 for (i =3D 0; i < dev->num_rx_queues; i=
+++)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 kfree(dev->_rx[i].rps_m=
+ap);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 kfree(dev->_rx);
+> + =A0 =A0 =A0 }
+> +
+> =A0 =A0 =A0 =A0kfree(dev->_tx);
+>
+> =A0 =A0 =A0 =A0/* Flush device addresses */
+>
+>
+>
