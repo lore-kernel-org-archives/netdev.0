@@ -1,72 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] via-velocity: FLOW_CNTL_RX does not disable Asymmetric
- pause in set_mii_flow_control()
-Date: Mon, 22 Mar 2010 19:58:31 -0700 (PDT)
-Message-ID: <20100322.195831.233398454.davem@davemloft.net>
-References: <4BA7D22A.6080300@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] can: bfin_can: switch to common
+	Blackfin can header
+Date: Mon, 22 Mar 2010 20:06:32 -0700 (PDT)
+Message-ID: <20100322.200632.129770126.davem@davemloft.net>
+References: <1268150589-27123-1-git-send-email-vapier@gentoo.org>
+	<1269241561-28956-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, davej@redhat.com
-To: roel.kluin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44500
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753359Ab0CWC6K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 22:58:10 -0400
-In-Reply-To: <4BA7D22A.6080300@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org, oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org,
+        urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org
+To: vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org
+Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+In-Reply-To: <1269241561-28956-1-git-send-email-vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://blackfin.uclinux.org/mailman/options/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
+List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
+List-Subscribe: <https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
+Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Roel Kluin <roel.kluin@gmail.com>
-Date: Mon, 22 Mar 2010 21:25:14 +0100
+From: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Date: Mon, 22 Mar 2010 03:06:01 -0400
 
-> Asymmetric pause was not disabled in the RX case.
+> The MMR bits are being moved to this header, so include it.
 > 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> ---
-> I spotted this because In the FLOW_CNTL_RX and FLOW_CNTL_TX_RX
-> cases the same code is executed, is the amendment below required?
+> Signed-off-by: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+> Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 
-The bit settings in the MII_ADVERTISE register should be:
-
-1) RX and TX pause both requested
-
-   set only ADVERTISE_PAUSE_CAP
-
-2) Only TX pause requested
-
-   set only ADVERTISE_PAUSE_ASYM
-
-3) Only RX pause requested
-
-   set both ADVERTISE_PAUSE_CAP and ADVERTISE_PAUSE_ASYM
-
-4) Neither TX nor RX pause requested
-
-   set nothing
-
-(drivers/net/tg3.c:tg3_advert_flowctrl_1000t() is a good
- reference point)
-
-It would be easier to compare the VIA driver with the rest of
-the world if it used the standard mii.h defines instead of
-it's own private ones.  That would be a good change to make at
-some point.
-
-Anyways, the correct fix is therefore something like:
-
-diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-index 3a486f3..bc278d4 100644
---- a/drivers/net/via-velocity.c
-+++ b/drivers/net/via-velocity.c
-@@ -812,7 +812,7 @@ static void set_mii_flow_control(struct velocity_info *vptr)
- 
- 	case FLOW_CNTL_TX_RX:
- 		MII_REG_BITS_ON(ANAR_PAUSE, MII_REG_ANAR, vptr->mac_regs);
--		MII_REG_BITS_ON(ANAR_ASMDIR, MII_REG_ANAR, vptr->mac_regs);
-+		MII_REG_BITS_OFF(ANAR_ASMDIR, MII_REG_ANAR, vptr->mac_regs);
- 		break;
- 
- 	case FLOW_CNTL_DISABLE:
+Applied.
