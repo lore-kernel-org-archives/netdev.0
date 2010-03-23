@@ -1,40 +1,40 @@
-From: Markus Feldmann <feldmann_markus@gmx.de>
-Subject: Does Realtek RTL8110S and RTL8100C work ?
-Date: Tue, 23 Mar 2010 13:09:58 +0100
-Message-ID: <hoab2m$kc0$1@dough.gmane.org>
+From: Jeff Moyer <jmoyer@redhat.com>
+Subject: Re: [RFC Patch 1/3] netpoll: add generic support for bridge and bonding devices
+Date: Tue, 23 Mar 2010 08:11:13 -0400
+Message-ID: <x49zl1zxmou.fsf@segfault.boston.devel.redhat.com>
+References: <20100322082059.4967.63492.sendpatchset@localhost.localdomain>
+	<1269297081.3552.19.camel@calx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:44136 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752143Ab0CWMLA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Mar 2010 08:11:00 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1Nu2wG-0003M8-Tl
-	for netdev@vger.kernel.org; Tue, 23 Mar 2010 13:10:28 +0100
-Received: from 188.96.66.204 ([188.96.66.204])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 23 Mar 2010 13:10:28 +0100
-Received: from feldmann_markus by 188.96.66.204 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 23 Mar 2010 13:10:28 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Amerigo Wang <amwang@redhat.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	Andy Gospodarek <gospo@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	bonding-devel@lists.sourceforge.net,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	David Miller <davem@davemloft.net>
+To: Matt Mackall <mpm@selenic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1269297081.3552.19.camel@calx> (Matt Mackall's message of "Mon,
+	22 Mar 2010 17:31:21 -0500")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi All,
+Matt Mackall <mpm@selenic.com> writes:
 
-i am thinking about buying a Mini-ITX Server with some Realtek Cips on 
-the PCI Network Devices. These are
-Realtek RTL8110S
-Realtek RTL8100C
+> On Mon, 2010-03-22 at 04:17 -0400, Amerigo Wang wrote:
+>> This whole patchset is for adding netpoll support to bridge and bonding
+>> devices. I already tested it for bridge, bonding, bridge over bonding,
+>> and bonding over bridge. It looks fine now.
+>
+> Ages ago, Jeff Moyer took a run at this, added him to the cc: on the off
+> chance he still cares.
 
-The Mini-ITX is a Jetway JNF92.
-Does anybody know whether they work good or should i keep the hands off 
-these?
+I'll take a look at it in a bit.  For now, here is the link to my
+original post on this for Amerigo's reading pleasure:
 
-regards Markus
+  http://lkml.indiana.edu/hypermail/linux/kernel/0507.0/0206.html
 
+Cheers,
+Jeff
