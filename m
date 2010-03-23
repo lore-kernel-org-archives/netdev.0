@@ -1,55 +1,49 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [RFC Patch 3/3] bonding: make bonding support netpoll
-Date: Tue, 23 Mar 2010 09:49:16 +0800
-Message-ID: <4BA81E1C.7070400@redhat.com>
-References: <20100322082059.4967.63492.sendpatchset@localhost.localdomain> <20100322082123.4967.77433.sendpatchset@localhost.localdomain> <20100323005639.GH2108@gospo.rdu.redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] can: bfin_can: switch to common
+ Blackfin can header
+Date: Mon, 22 Mar 2010 18:48:30 -0700 (PDT)
+Message-ID: <20100322.184830.93460099.davem@davemloft.net>
+References: <8bd0f97a1003221409w24437f85ke27f4338e82ba44e@mail.gmail.com>
+	<20100322.163637.73665927.davem@davemloft.net>
+	<8bd0f97a1003221842k4e44bfccmfc7858b9c793b44f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org,
-	Andy Gospodarek <gospo@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	bonding-devel@lists.sourceforge.net,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	David Miller <davem@davemloft.net>
-To: Andy Gospodarek <andy@greyhouse.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100323005639.GH2108@gospo.rdu.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org, oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org,
+        uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+To: vapier.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+In-Reply-To: <8bd0f97a1003221842k4e44bfccmfc7858b9c793b44f-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://blackfin.uclinux.org/mailman/options/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
+List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
+List-Subscribe: <https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
+Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Andy Gospodarek wrote:
-> On Mon, Mar 22, 2010 at 04:17:40AM -0400, Amerigo Wang wrote:
->> Based on Andy's work, but I modify a lot.
->>
->> Similar to the patch for bridge, this patch does:
->>
->> 1) implement the 4 methods to support netpoll for bonding;
->>
->> 2) modify netpoll during forwarding packets in bonding;
->>
->> 3) disable netpoll support of bridge when a netpoll-unabled device
->>    is added to bonding;
->>
->> 4) enable netpoll support when all underlying devices support netpoll.
->>
->> Cc: Andy Gospodarek <gospo@redhat.com>
->> Cc: Neil Horman <nhorman@tuxdriver.com>
->> Cc: Jay Vosburgh <fubar@us.ibm.com>
->> Cc: David Miller <davem@davemloft.net>
->> Signed-off-by: WANG Cong <amwang@redhat.com>
->>
-> 
-> How much testing was done on this?
-> 
-> One of the potential problems with this code is how gracefully the
-> system can handle tear-down of interfaces or removal of the bonding
-> module when netconsole is active.  Was that tested heavily?
-> 
+From: Mike Frysinger <vapier.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Mon, 22 Mar 2010 21:42:43 -0400
 
-For this case you mention, I did test it, but what I did is mainly basic
-functionality testing, including bonding over bridge and bridge over bonding.
+> how about we skip to the end where we agree i'm wrong, you're right,
+> and you just merge the patch that i already resent ...
 
-Thanks!
+Sure, if you wish to make it clear that you have zero
+interest in understanding the substance of this issue.
+
+What part of:
+
+	You only have to deal with me, and I have to deal with
+	hundreds of developers, so make my life as simple as possible
+	ok?
+
+do you not understand?
+
+Multiply every grievance you throw my way by however many other
+patches, bug reports, and issues I deal with on a given day.
+
+I think this is the part you don't get.
