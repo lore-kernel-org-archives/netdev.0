@@ -1,43 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rps: make distributing packets fairly among all the
- online CPUs default
-Date: Tue, 23 Mar 2010 12:09:56 -0700 (PDT)
-Message-ID: <20100323.120956.121236117.davem@davemloft.net>
-References: <1269344306.2983.16.camel@edumazet-laptop>
-	<412e6f7f1003230458o459b9e45i7327c5330c43e152@mail.gmail.com>
-	<1269349580.2983.113.camel@edumazet-laptop>
+From: Atis Elsts <atis.elsts@gmail.com>
+Subject: Re: Reporting Bugs on This List
+Date: Tue, 23 Mar 2010 21:22:30 +0200
+Message-ID: <7f9bf5711003231222u6198e589mba31ffaa50d9cc24@mail.gmail.com>
+References: <b7b22e81003231205v38fa8774y81da6da5278c99a2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: xiaosuo@gmail.com, therbert@google.com, netdev@vger.kernel.org,
-	bhutchings@solarflare.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: Eduardo Panisset <eduardo.panisset@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33533
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753206Ab0CWTJd convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Mar 2010 15:09:33 -0400
-In-Reply-To: <1269349580.2983.113.camel@edumazet-laptop>
+Received: from mail-ew0-f216.google.com ([209.85.219.216]:43616 "EHLO
+	mail-ew0-f216.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753225Ab0CWTWe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 15:22:34 -0400
+Received: by ewy8 with SMTP id 8so826683ewy.28
+        for <netdev@vger.kernel.org>; Tue, 23 Mar 2010 12:22:31 -0700 (PDT)
+In-Reply-To: <b7b22e81003231205v38fa8774y81da6da5278c99a2@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 23 Mar 2010 14:06:20 +0100
+You need to submit patches in a proper format, and with [PATCH] in
+subject line, so they get tracked automatically.
+Reading this may be helpful: http://www.kernel.org/pub/linux/docs/lkml/=
+#s1-10
+Patches to netdev also need to apply clearly to net-2.6 (right?) Linux
+kernel tree.
 
-> Le mardi 23 mars 2010 =E0 19:58 +0800, Changli Gao a =E9crit :
->=20
->> The sysadmins you mentioned above are Linux experters, and they know
->> how to tunning the system to get the best performance, but the defau=
-lt
->> configuration should be for the ordinary users, who don't know Linux
->> much.
->>=20
->=20
-> I strongly NACK your change at this very moment, many devices run
-> without a linux expert to tune them, thanks.
+Also, be prepared that it may take much more time than one day until
+someone reviews them.
 
-Right, we're not GNOME, we don't screw knowledgable users of
-our software by default.
+On Tue, Mar 23, 2010 at 9:05 PM, Eduardo Panisset
+<eduardo.panisset@gmail.com> wrote:
+> Hi All,
+>
+> I have already reported two bugs on XFRM framework since yesterday.
+> However my reports haven't been answered yet (I thought strange as
+> this list is very active) and one of my questions simply disappeared
+> even if its a simple plain text messages without offensive terms
+> neither I think any other constraint.
+> So I would like to know How would be the better way to report bugs on
+> this list ?
+>
+> Thanks in advance,
+> Eduardo Panisset.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
 
-I agree with Eric %100 on this.
+
+--=20
+~Atis
