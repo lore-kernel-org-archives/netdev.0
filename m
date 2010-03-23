@@ -1,29 +1,43 @@
-From: Eduardo Panisset <eduardo.panisset@gmail.com>
-Subject: Reporting Bugs on This List
-Date: Tue, 23 Mar 2010 16:05:59 -0300
-Message-ID: <b7b22e81003231205v38fa8774y81da6da5278c99a2@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] rps: make distributing packets fairly among all the
+ online CPUs default
+Date: Tue, 23 Mar 2010 12:09:56 -0700 (PDT)
+Message-ID: <20100323.120956.121236117.davem@davemloft.net>
+References: <1269344306.2983.16.camel@edumazet-laptop>
+	<412e6f7f1003230458o459b9e45i7327c5330c43e152@mail.gmail.com>
+	<1269349580.2983.113.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: xiaosuo@gmail.com, therbert@google.com, netdev@vger.kernel.org,
+	bhutchings@solarflare.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:39110 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754081Ab0CWTGA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 15:06:00 -0400
-Received: by wwe15 with SMTP id 15so4332446wwe.19
-        for <netdev@vger.kernel.org>; Tue, 23 Mar 2010 12:05:59 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33533
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753206Ab0CWTJd convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Mar 2010 15:09:33 -0400
+In-Reply-To: <1269349580.2983.113.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 23 Mar 2010 14:06:20 +0100
 
-I have already reported two bugs on XFRM framework since yesterday.
-However my reports haven't been answered yet (I thought strange as
-this list is very active) and one of my questions simply disappeared
-even if its a simple plain text messages without offensive terms
-neither I think any other constraint.
-So I would like to know How would be the better way to report bugs on
-this list ?
+> Le mardi 23 mars 2010 =E0 19:58 +0800, Changli Gao a =E9crit :
+>=20
+>> The sysadmins you mentioned above are Linux experters, and they know
+>> how to tunning the system to get the best performance, but the defau=
+lt
+>> configuration should be for the ordinary users, who don't know Linux
+>> much.
+>>=20
+>=20
+> I strongly NACK your change at this very moment, many devices run
+> without a linux expert to tune them, thanks.
 
-Thanks in advance,
-Eduardo Panisset.
+Right, we're not GNOME, we don't screw knowledgable users of
+our software by default.
+
+I agree with Eric %100 on this.
