@@ -1,55 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug 15582] New: BUG: unable to handle kernel NULL pointer
- dereference at 0000000000000028
-Date: Mon, 22 Mar 2010 21:00:43 -0700 (PDT)
-Message-ID: <20100322.210043.66718554.davem@davemloft.net>
-References: <bug-15582-27@http.bugzilla.kernel.org/>
-	<20100322161416.c4b369f9.akpm@linux-foundation.org>
+From: "Justin P. Mattock" <justinmattock@gmail.com>
+Subject: Re: forcedeth: cat /sys/class/net/eth0/carrier = Invalid argument
+Date: Mon, 22 Mar 2010 21:07:12 -0700
+Message-ID: <4BA83E70.4060906@gmail.com>
+References: <4BA7AA92.5040400@gmail.com> <20100322.205144.256859987.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	alexander.h.duyck@intel.com, peter.p.waskiewicz.jr@intel.com,
-	bugzilla-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	stivi@kity.pl
-To: akpm@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37116
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750719Ab0CWEAU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 00:00:20 -0400
-In-Reply-To: <20100322161416.c4b369f9.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100322.205144.256859987.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Mon, 22 Mar 2010 16:14:16 -0700
+On 03/22/2010 08:51 PM, David Miller wrote:
+> From: "Justin P. mattock"<justinmattock@gmail.com>
+> Date: Mon, 22 Mar 2010 10:36:18 -0700
+>
+>> I've pushed my kernel from the latest HEAD to 2.6.31
+>> and am still seeing:
+>> cat /sys/class/net/eth0/carrier
+>> cat: carrier: Invalid argument
+>>
+>> with my other machine using sky2
+>> the same results is:
+>> cat /sys/class/net/eth0/carrier
+>> 0
+>>
+>> is there anything on this? before I start
+>> a bisect.(looking through bugzilla, I couldn't
+>> see anything related).
+>
+> A device is not able to indicate carrier accurately when
+> the device is not currently running.
+>
+> So you will get an -EINVAL until the device is brought up.
 
-> 
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
-> 
-> On Fri, 19 Mar 2010 12:01:10 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
-> 
->> http://bugzilla.kernel.org/show_bug.cgi?id=15582
->> 
->>            Summary: BUG: unable to handle kernel NULL pointer dereference
->>                     at 0000000000000028
-> 
-> A bug in igb or the vlan code, I guess.
+ah.. the machine was up and running but nothing was running
+(no dhclient, streaming music, etc..)
+now
+just ran the machine with ethernet,(up and running) and carrier reported 1
 
-Hmmm, should have been fixed by:
+>
+> The reason is that most drivers don't even probe the link
+> or negotiate link speed and flow control until the device
+> is brought up.  Many don't even power up the PHY when the
+> device is down, in order to save power.
+>
+> So the behavior you observe is completely expected.
+>
 
-commit d1c76af9e2434fac3add561e26c61b06503de986
-Author: Herbert Xu <herbert@gondor.apana.org.au>
-Date:   Mon Mar 16 10:50:02 2009 -0700
 
-    GRO: Move netpoll checks to correct location
-    
+cool, this had me confused.
 
-...
+Thanks for the info on this..
+(no bisect for this).
 
-Nevermind, the backtrace signature is different for this
-one.
+
+Justin P. Mattock
