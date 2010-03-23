@@ -1,87 +1,66 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC PATCH net-next 0/7 v2]IPv6:netfilter: defragment
-Date: Tue, 23 Mar 2010 18:16:14 +0100
-Message-ID: <4BA8F75E.2040303@trash.net>
-References: <4B88BE30.80206@cn.fujitsu.com> <4B97D34C.4020509@gmail.com> <4B98B4FC.50904@cn.fujitsu.com> <4B9B9766.3090200@linux-ipv6.org> <4B9E5FEC.9010002@trash.net> <4BA8EC4A.9070802@linux-ipv6.org>
+From: Malli <mchilakala@gmail.com>
+Subject: Re: ixgbe: Set IXGBE_RSC_CB(skb)->DMA field to zero after unmapping
+	the address
+Date: Tue, 23 Mar 2010 10:40:34 -0700
+Message-ID: <7991c5481003231040u3479778dpcb27d9578383afc0@mail.gmail.com>
+References: <201003221759.o2MHxEaj015546@hera.kernel.org>
+	 <1269316670.8599.101.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Shan Wei <shanwei@cn.fujitsu.com>,
-	YOSHIFUJI Hideaki <hideaki.yoshifuji@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62275 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751343Ab0CWRQR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 13:16:17 -0400
-In-Reply-To: <4BA8EC4A.9070802@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1269316670.8599.101.camel@pasglop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki wrote:
-> Hello.
->
-> Sorry for my slow response.
->
-> (2010/03/16 1:27), Patrick McHardy wrote:
->> YOSHIFUJI Hideaki wrote:
->>> (2010/03/11 18:16), Shan Wei wrote:
->>>>> On the other hand, I'd even say we should NOT send
->>>>> icmp here (at least by default) because standard routers
->>>>> never send such packet.
->>>>
->>>> Yes=EF=BC=8Cfor routers, the patch-set does not send icmp message =
-to
->>>> source host. It only does on destination host with IPv6 connection
->>>> track enable.
->>>
->>> Please make it optional (via parameter) at least.
+On Mon, Mar 22, 2010 at 8:57 PM, Benjamin Herrenschmidt
+<benh@kernel.crashing.org> wrote:
+> On Mon, 2010-03-22 at 17:59 +0000, Linux Kernel Mailing List wrote:
+>> Gitweb: =A0 =A0 http://git.kernel.org/linus/fd3686a842717b890fbe3024=
+b83a616c54d5dba0
+>> Commit: =A0 =A0 fd3686a842717b890fbe3024b83a616c54d5dba0
+>> Parent: =A0 =A0 936332b8e00103fc20eb7e915c9a3bcb2835a11a
+>> Author: =A0 =A0 Mallikarjuna R Chilakala <mallikarjuna.chilakala@int=
+el.com>
+>> AuthorDate: Fri Mar 19 04:41:33 2010 +0000
+>> Committer: =A0David S. Miller <davem@davemloft.net>
+>> CommitDate: Fri Mar 19 21:00:44 2010 -0700
 >>
->> The ICMP messages are only sent if the packet is destined for the
->> local host, similar to what IPv6 defrag would do if conntrack wouldn=
-'t
->> be used. So this patch increases consistency, why should we make thi=
-s
->> optional?
+>> =A0 =A0 ixgbe: Set IXGBE_RSC_CB(skb)->DMA field to zero after unmapp=
+ing the address
+>>
+>> =A0 =A0 As per Simon Horman's feedback set IXGBE_RSC_CB(skb)->dma to=
+ zero
+>> =A0 =A0 after unmapping HWRSC DMA address to avoid double freeing.
+>>
 >
-> Well, in the first place, I do think conntrack should be
-> transparent as much as possible.  And, I cannot find other
-> netfilter conntrack code (ipv4 or ipv6) sending icmp e.g.
-> parameter problem etc.
-
-Agreed on the transparent part, however I consider silently dropping
-packets not transparent. In fact conntrack itself should never drop
-packets except under some very special circumstances when there's
-no other choice in order to operate correctly. Dropping packets is
-supposed to be a policy decision made by the user.
-
-In this case without conntrack, IPv6 would send an ICMPv6 message,
-so in my opinion the transparent thing to do would be to still send
-them. Of course only if reassembly is done on an end host.
-
-There's really no difference in sending these packets from conntrack
-compared to passing the incomplete fragments upwards to IPv6 and
-waiting for another timeout, except that its easier to implement
-consistently by generating the packets within conntrack.
-
-> As I said before, I agree that netfilter may drop packets
-> by any reasons, but I do think it should be done silently.
-> It can increment netfilter's own statistic counting etc.
-> but it should not increment the core's (especially,
-> specific) statistic counting.
-
-It really depends on what you define as "transparent".
-
+> Note that this whole code is bogus :-) You cannot just assume that 0 =
+is
+> a invalid DMA address. It is not. In fact, while you can check if a
+> dma_addr_t is invalid using dma_mapping_error(), the generic APIs
+> don't provide you with a magic "bad" value you can use for what you a=
+re
+> trying to do.
 >
-> Reassembling processes are the same.  We should NOT send icmp, and
-> if ever desired, we might optionally send icmp (in other
-> module maybe).=20
+> Granted, I think we should make our iommu code reserve the first page
+> for the sake of everybody's sanity and to avoid such pitfalls, but
+> this code is wrong with today iommu implementations.
+>
+> Cheers,
+> Ben.
 
-Please see above for my reasoning. There's also the matter of consisten=
-cy
-between IPv4 and IPv6 conntrack.
+Yes. I just realized that i can't assign a zero magic "bad" value. It i=
+s only
+valid in x86/arm/m68k/alpha architecures and not in spark & PowerPC arc=
+h,
+(it should be ~0). In some other architecutres it throws a BUG() on wit=
+h
+dma_mapping_error() checks. So the patch is not a total bogus in some
+architectures :(.
+
+May be it is best to create an internal FLAG in IXGBE_RSC_CB(skb)
+which can be used to avoid this double freeing.
