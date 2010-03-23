@@ -1,48 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Gianfar: RX Recycle skb->len error
-Date: Mon, 22 Mar 2010 20:30:53 -0700 (PDT)
-Message-ID: <20100322.203053.37576243.davem@davemloft.net>
-References: <20100321.214642.67901344.davem@davemloft.net>
-	<20100322172446.GA32758@oksana.dev.rtsoft.ru>
-	<A6A1774AFD79E346AE6D49A33CB294530DC19F18@EX-BE-017-SFO.shared.themessagecenter.com>
+Subject: Re: [PATCH] netxen: The driver doesn't work on NX_P3_B1 so cause
+ probe to fail.
+Date: Mon, 22 Mar 2010 20:32:26 -0700 (PDT)
+Message-ID: <20100322.203226.73369116.davem@davemloft.net>
+References: <m11vfic6d0.fsf@fess.ebiederm.org>
+	<20100318.222126.27823381.davem@davemloft.net>
+	<99737F4847ED0A48AECC9F4A1974A4B80CFEFED1DB@MNEXMB2.qlogic.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: avorontsov@ru.mvista.com, netdev@vger.kernel.org,
-	Sandeep.Kumar@freescale.com
-To: ben@bigfootnetworks.com
+Cc: ebiederm@xmission.com, netdev@vger.kernel.org,
+	ameen.rahman@qlogic.com
+To: amit.salecha@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47219
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47224
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754182Ab0CWDaa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 23:30:30 -0400
-In-Reply-To: <A6A1774AFD79E346AE6D49A33CB294530DC19F18@EX-BE-017-SFO.shared.themessagecenter.com>
+	by vger.kernel.org with ESMTP id S1754182Ab0CWDcD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 23:32:03 -0400
+In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80CFEFED1DB@MNEXMB2.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Ben Menchaca (ben@bigfootnetworks.com)" <ben@bigfootnetworks.com>
-Date: Mon, 22 Mar 2010 14:10:48 -0700
+From: Amit Salecha <amit.salecha@qlogic.com>
+Date: Mon, 22 Mar 2010 01:35:20 -0500
 
-> 	It's yucky, but skb_reserve(skb, -alignamount) works,
+> David,
+>   After discussing this issues with my team, this is fine with Qlogic to remove support of NX_P3_B1.
+> 
+>   You can go ahead with Eric's patch.
+> 
+>   Sorry for all these hiccups.
 
-I have no problem with people using that.
-
-> 	It seems in both these cases for gianfar, the amount of the
-> 	alignment is not immediately available to the code the
-> 	recognizes that the skb_reset_reserved() is required.  A bit
-> 	larger rework appears to be needed.
-
-There's no need to make this so complicated.  Just remember the
-value and then refer to it later, when needed.
-
-struct gianfar_skb_cb {
-       int	alignamount;
-};
-
-#define GIANFAR_CB(skb) ((struct gianfar_skb_cb *)((skb)->cb))
-
-...
-	GIANFAR_CB(skb)->alignamount = alignamount;
-...
-
-		skb_reserve(skb, -GIANFAR_CB(skb)->alignamount);
+Ok, applied.
