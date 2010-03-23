@@ -1,76 +1,33 @@
-From: Sridhar Samudrala <samudrala.sridhar@gmail.com>
-Subject: Re: Unable to create more than 1 guest virtio-net device using
- vhost-net backend
-Date: Mon, 22 Mar 2010 16:41:14 -0700
-Message-ID: <1269301274.18093.40.camel@w-sridhar.beaverton.ibm.com>
-References: <1269037167.5127.12.camel@w-sridhar.beaverton.ibm.com>
-	 <20100321095544.GA6443@redhat.com> <4BA5F0D5.6020801@redhat.com>
-	 <20100321101527.GH6443@redhat.com> <4BA5F50B.8080302@redhat.com>
-	 <20100321113443.GB12339@redhat.com> <4BA609E5.40504@redhat.com>
-	 <20100322181623.GA20188@redhat.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: 2.6.34-rc1 regression: rmmod hangs on modules which interfaces have
+ ipv6 address
+Date: Mon, 22 Mar 2010 18:02:52 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FE4A7FB39@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Avi Kivity <avi@redhat.com>, netdev <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>, gleb@redhat.com,
-	David Stevens <dlstevens@us.ibm.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:63563 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752146Ab0CVXlT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 19:41:19 -0400
-In-Reply-To: <20100322181623.GA20188@redhat.com>
+Received: from mga11.intel.com ([192.55.52.93]:20391 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755716Ab0CWACy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 20:02:54 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-03-22 at 20:16 +0200, Michael S. Tsirkin wrote:
-> On Sun, Mar 21, 2010 at 01:58:29PM +0200, Avi Kivity wrote:
-> > On 03/21/2010 01:34 PM, Michael S. Tsirkin wrote:
-> >> On Sun, Mar 21, 2010 at 12:29:31PM +0200, Avi Kivity wrote:
-> >>    
-> >>> On 03/21/2010 12:15 PM, Michael S. Tsirkin wrote:
-> >>>      
-> >>>>>> Nothing easy that I can see. Each device needs 2 of these.  Avi, Gleb,
-> >>>>>> any objections to increasing the limit to say 16?  That would give us
-> >>>>>> 5 more devices to the limit of 6 per guest.
-> >>>>>>
-> >>>>>>
-> >>>>>>            
-> >>>>> Increase it to 200, then.
-> >>>>>
-> >>>>>          
-> >>>> OK. I think we'll also need a smarter allocator
-> >>>> than bus->dev_count++ than we now have. Right?
-> >>>>
-> >>>>        
-> >>> No, why?
-> >>>      
-> >> We'll run into problems if devices are created/removed in random order,
-> >> won't we?
-> >>    
-> >
-> > unregister_dev() takes care of it.
-> >
-> >>> Eventually we'll want faster scanning than the linear search we employ
-> >>> now, though.
-> >>>      
-> >> Yes I suspect with 200 entries we will :). Let's just make it 16 for
-> >> now?
-> >>    
-> >
-> > Let's make it 200 and fix the performance problems later.  Making it 16  
-> > is just asking for trouble.
-> 
-> I did this and performance with vhost seems to become much more noisy,
-> and drop by about 10% on average, even though in practice only
-> a single device is created. Still trying to figure it out ...
-> Any idea?
+Steps to reproduce:
+1. Load driver
+2. Bring interfaces up with IPv6 address 
+3. rmmod the driver
 
-I am not sure if this 10% variation is due to the increase of NR_IO_BUS_DEVS.
-In our testing, we do see variations of 10% or higher between multiple netperf 
-instances with the same setup/configuration when using virtio/vhost.
+rmmod fails with "waiting for device to become free. Usage count=1"
 
-Thanks
-Sridhar
+Bisecting turned up this patch:
+http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=3e81c6da39a265e11ef48f52bd15bf7ca0068c75
 
+Although I can't confirm this since without it I am not able to assign IPv6 addresses. So it could be caused by whatever this commit is trying to fix.
+
+Thanks,
+Emil
