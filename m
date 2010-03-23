@@ -1,24 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] stmmac: use resource_size()
-Date: Mon, 22 Mar 2010 18:33:23 -0700 (PDT)
-Message-ID: <20100322.183323.172540300.davem@davemloft.net>
-References: <20100322121111.GJ21571@bicker>
-	<4BA78977.6020801@st.com>
+Subject: Re: [patch] ewrk3: range checking problem
+Date: Mon, 22 Mar 2010 18:33:31 -0700 (PDT)
+Message-ID: <20100322.183331.45148439.davem@davemloft.net>
+References: <20100322120728.GD21571@bicker>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: error27@gmail.com, netdev@vger.kernel.org, joe@perches.com,
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, kaber@trash.net,
+	jpirko@redhat.com, adobriyan@gmail.com,
 	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: peppe.cavallaro@st.com
+To: error27@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4BA78977.6020801@st.com>
+In-Reply-To: <20100322120728.GD21571@bicker>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Mon, 22 Mar 2010 16:15:03 +0100
+From: Dan Carpenter <error27@gmail.com>
+Date: Mon, 22 Mar 2010 15:07:28 +0300
 
-> Hi Dan
-> Thanks, the patch can also applied against the net-next driver and it's ok.
+> The range checking here is wrong.  It should be HASH_TABLE_LEN which 
+> is 512.
+> 
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Applied, thanks everyone.
+Applied.
