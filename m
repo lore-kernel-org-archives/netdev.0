@@ -1,37 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: Tree for March 22 (net-sysfs.c)
-Date: Mon, 22 Mar 2010 18:05:18 -0700 (PDT)
-Message-ID: <20100322.180518.24600284.davem@davemloft.net>
-References: <4BA78D3D.9090007@oracle.com>
-	<20100322.102206.148561893.davem@davemloft.net>
-	<1269290922.3043.9.camel@edumazet-laptop>
+Subject: Re: rps: Fix build with CONFIG_SYSFS enabled
+Date: Mon, 22 Mar 2010 18:07:02 -0700 (PDT)
+Message-ID: <20100322.180702.236247715.davem@davemloft.net>
+References: <alpine.DEB.1.00.1003221355380.25849@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: randy.dunlap@oracle.com, sfr@canb.auug.org.au,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, therbert@google.com
-To: eric.dumazet@gmail.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1269290922.3043.9.camel@edumazet-laptop>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53042
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754500Ab0CWBGj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 21:06:39 -0400
+In-Reply-To: <alpine.DEB.1.00.1003221355380.25849@pokey.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 22 Mar 2010 21:48:42 +0100
+From: Tom Herbert <therbert@google.com>
+Date: Mon, 22 Mar 2010 13:57:56 -0700 (PDT)
 
-> [PATCH net-next-2.6] net: RPS depends on CONFIG_SYSFS
+> Fix build with CONFIG_SYSFS not enabled.
 > 
-> Randy Dunlap found net/core/net-sysfs.c could not compile if
-> CONFIG_SYSFS=n
-> 
-> Defines CONFIG_RPS in net/Kconfig to let user disable RPS if wanted.
-> 
-> Reported-by: Randy Dunlap <randy.dunlap@oracle.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-This is interesting but I'd like to be able to use some
-of the RPS infrastructure unconditionally so I'm not ready
-to apply something like this yet.
-
-So I'll add Tom's fix for now, thanks Eric!
+Applied, thanks everyone.
