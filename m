@@ -1,34 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netxen: The driver doesn't work on NX_P3_B1 so cause
- probe to fail.
-Date: Mon, 22 Mar 2010 20:32:26 -0700 (PDT)
-Message-ID: <20100322.203226.73369116.davem@davemloft.net>
-References: <m11vfic6d0.fsf@fess.ebiederm.org>
-	<20100318.222126.27823381.davem@davemloft.net>
-	<99737F4847ED0A48AECC9F4A1974A4B80CFEFED1DB@MNEXMB2.qlogic.org>
+Subject: Re: [RFC Patch 1/3] netpoll: add generic support for bridge and
+ bonding devices
+Date: Mon, 22 Mar 2010 20:49:39 -0700 (PDT)
+Message-ID: <20100322.204939.146100390.davem@davemloft.net>
+References: <20100322082059.4967.63492.sendpatchset@localhost.localdomain>
+	<1269297081.3552.19.camel@calx>
+	<4BA823D7.4010106@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, netdev@vger.kernel.org,
-	ameen.rahman@qlogic.com
-To: amit.salecha@qlogic.com
+Cc: mpm@selenic.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	gospo@redhat.com, nhorman@tuxdriver.com,
+	shemminger@linux-foundation.org,
+	bonding-devel@lists.sourceforge.net, fubar@us.ibm.com,
+	jmoyer@redhat.com
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47224
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35559
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754182Ab0CWDcD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 23:32:03 -0400
-In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80CFEFED1DB@MNEXMB2.qlogic.org>
+	by vger.kernel.org with ESMTP id S1754358Ab0CWDtR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 23:49:17 -0400
+In-Reply-To: <4BA823D7.4010106@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Salecha <amit.salecha@qlogic.com>
-Date: Mon, 22 Mar 2010 01:35:20 -0500
+From: Cong Wang <amwang@redhat.com>
+Date: Tue, 23 Mar 2010 10:13:43 +0800
 
-> David,
->   After discussing this issues with my team, this is fine with Qlogic to remove support of NX_P3_B1.
+> Matt Mackall wrote:
+>> Seems like a lot of interface for something to be used by only a
+>> couple
+>> core drivers. Hopefully Dave has an opinion here.
+>> 
 > 
->   You can go ahead with Eric's patch.
-> 
->   Sorry for all these hiccups.
+> Yeah, I worry about this too, maybe we can group those methods
+> for netpoll together into another struct, and just put a pointer
+> here?
 
-Ok, applied.
+This looks like it's tackled at the wrong layer, to be honest.
+
+Teaching all of these layers about eachother's states is
+going to end up being a nightmare in the end.
+
+All of this "where is the npinfo" business can be handled
+generically in net/core/dev.c I think, with none of these
+callbacks.
+
+For example, something like "if dev lacks ->npinfo, check
+it's master".
+
+Another thing, I wouldn't iterate over all devices, like I
+see in the bonding poll controller method.  Just whichever
+one supports netpoll you see first, use it and exit
+immediately.  Don't send it to every single port, I can't
+see how that might be desirable or useful.
