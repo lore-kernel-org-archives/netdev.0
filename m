@@ -1,72 +1,76 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: inet6_ifa_finish_destroy() blurt
-Date: Tue, 23 Mar 2010 15:35:20 -0700
-Message-ID: <20100323153520.3869ec5d.akpm@linux-foundation.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 1/2] bnx2: Fix netpoll crash.
+Date: Tue, 23 Mar 2010 15:13:11 -0800
+Message-ID: <1269385992-18525-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:60795 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753102Ab0CWWfx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 18:35:53 -0400
+Received: from mms2.broadcom.com ([216.31.210.18]:4811 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753967Ab0CWXC4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Mar 2010 19:02:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Benjamin Li <benli@broadcom.com>
 
-Got this during boot using today's linux-next.  The
-WARN_ON(!hlist_unhashed(&ifp->addr_lst)) triggered. 
+The bnx2 driver calls netif_napi_add() for all the NAPI structs during
+->probe() time but not all of them will be used if we're not in MSI-X
+mode.  This creates a problem for netpoll since it will poll all the
+NAPI structs in the dev_list whether or not they are scheduled, resulting
+in a crash when we access structure fields not initialized for that vector.
 
-c2e21293c054817c42eb5fa9c613d2ad51954136 ("ipv6: convert addrconf list
-to hlist") added it.
+We fix it by moving the netif_napi_add() call to ->open() after the number
+of IRQ vectors has been determined.
+
+Signed-off-by: Benjamin Li <benli@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/bnx2.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 381887b..417de1c 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -246,6 +246,8 @@ static const struct flash_spec flash_5709 = {
+ 
+ MODULE_DEVICE_TABLE(pci, bnx2_pci_tbl);
+ 
++static void bnx2_init_napi(struct bnx2 *bp);
++
+ static inline u32 bnx2_tx_avail(struct bnx2 *bp, struct bnx2_tx_ring_info *txr)
+ {
+ 	u32 diff;
+@@ -6197,6 +6199,7 @@ bnx2_open(struct net_device *dev)
+ 	bnx2_disable_int(bp);
+ 
+ 	bnx2_setup_int_mode(bp, disable_msi);
++	bnx2_init_napi(bp);
+ 	bnx2_napi_enable(bp);
+ 	rc = bnx2_alloc_mem(bp);
+ 	if (rc)
+@@ -8207,7 +8210,7 @@ bnx2_init_napi(struct bnx2 *bp)
+ {
+ 	int i;
+ 
+-	for (i = 0; i < BNX2_MAX_MSIX_VEC; i++) {
++	for (i = 0; i < bp->irq_nvecs; i++) {
+ 		struct bnx2_napi *bnapi = &bp->bnx2_napi[i];
+ 		int (*poll)(struct napi_struct *, int);
+ 
+@@ -8276,7 +8279,6 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	dev->ethtool_ops = &bnx2_ethtool_ops;
+ 
+ 	bp = netdev_priv(dev);
+-	bnx2_init_napi(bp);
+ 
+ 	pci_set_drvdata(pdev, dev);
+ 
+-- 
+1.6.4.GIT
 
 
-
-[   53.677562] calling  init_autofs4_fs+0x0/0x23 [autofs4] @ 3535
-[   53.677931] initcall init_autofs4_fs+0x0/0x23 [autofs4] returned 0 after 57 usecs
-[  247.122112] ------------[ cut here ]------------
-[  247.122187] WARNING: at net/ipv6/addrconf.c:544 inet6_ifa_finish_destroy+0x24/0x9b [ipv6]()
-[  247.122244] Modules linked in: autofs4 sunrpc ipv6 dm_mirror dm_region_hash dm_log dm_multipath dm_mod video output sbs sbshc battery ac lp parport sg ide_cd_mod cdrom serio_raw floppy snd_hda_intel snd_hda_codec snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device button snd_pcm_oss snd_mixer_oss snd_pcm i2c_i801 i2c_core pcspkr snd_timer snd soundcore snd_page_alloc shpchp ehci_hcd ohci_hcd uhci_hcd
-[  247.124152] Pid: 0, comm: swapper Not tainted 2.6.34-rc2-mm1+ #1
-[  247.124208] Call Trace:
-[  247.124255]  <IRQ>  [<ffffffffa01941d3>] ? inet6_ifa_finish_destroy+0x24/0x9b [ipv6]
-[  247.124369]  [<ffffffff81035489>] warn_slowpath_common+0x7e/0x97
-[  247.124425]  [<ffffffff810354b7>] warn_slowpath_null+0x15/0x17
-[  247.124487]  [<ffffffffa01941d3>] inet6_ifa_finish_destroy+0x24/0x9b [ipv6]
-[  247.124550]  [<ffffffffa019666b>] addrconf_prefix_rcv+0x546/0x713 [ipv6]
-[  247.124609]  [<ffffffff812d7625>] ? neigh_update+0x3cc/0x3ec
-[  247.124669]  [<ffffffffa01a01ac>] ndisc_rcv+0xa45/0xf2c [ipv6]
-[  247.124723]  [<ffffffff812d80d1>] ? rtnl_notify+0x2b/0x2d
-[  247.124785]  [<ffffffffa0199962>] ? inet6_rt_notify+0x104/0x129 [ipv6]
-[  247.124851]  [<ffffffffa01a5dd5>] icmpv6_rcv+0x5cb/0x66b [ipv6]
-[  247.124919]  [<ffffffffa01986b4>] ? __ip6_ins_rt+0x3d/0x48 [ipv6]
-[  247.124976]  [<ffffffff8135b0fd>] ? _raw_read_unlock_bh+0x12/0x14
-[  247.125041]  [<ffffffffa01a83e7>] ? ipv6_chk_mcast_addr+0x129/0x14f [ipv6]
-[  247.125104]  [<ffffffffa0192184>] ip6_input_finish+0x19f/0x28b [ipv6]
-[  247.125167]  [<ffffffffa0191b62>] ip6_input+0x4a/0x4e [ipv6]
-[  247.125227]  [<ffffffffa0191c4d>] ip6_mc_input+0xc3/0xd4 [ipv6]
-[  247.125288]  [<ffffffffa0191b86>] ip6_rcv_finish+0x20/0x24 [ipv6]
-[  247.125351]  [<ffffffffa0191fac>] ipv6_rcv+0x34e/0x387 [ipv6]
-[  247.125407]  [<ffffffff812d03fd>] __netif_receive_skb+0x4bf/0x4e4
-[  247.125460]  [<ffffffff812d0515>] netif_receive_skb+0x24/0x32
-[  247.125515]  [<ffffffff812d0bbf>] napi_skb_finish+0x21/0x37
-[  247.125569]  [<ffffffff812d0bff>] napi_gro_receive+0x2a/0x2f
-[  247.125625]  [<ffffffff8125e7e2>] e1000_receive_skb+0x60/0x69
-[  247.125678]  [<ffffffff812606f6>] e1000_clean_rx_irq+0x240/0x2da
-[  247.125734]  [<ffffffff8126241c>] e1000_clean+0x79/0x224
-[  247.125788]  [<ffffffff812d06e4>] net_rx_action+0xca/0x1da
-[  247.125841]  [<ffffffff8103a502>] __do_softirq+0x9e/0x11f
-[  247.125895]  [<ffffffff8100390c>] call_softirq+0x1c/0x28
-[  247.125950]  [<ffffffff81004ff5>] do_softirq+0x33/0x6a
-[  247.126002]  [<ffffffff8103a42e>] irq_exit+0x38/0x3a
-[  247.126055]  [<ffffffff81004ebc>] do_IRQ+0xaa/0xc1
-[  247.126108]  [<ffffffff8135b393>] ret_from_intr+0x0/0xa
-[  247.126159]  <EOI>  [<ffffffff81009d13>] ? mwait_idle+0x59/0x5e
-[  247.126260]  [<ffffffff8100104a>] ? enter_idle+0x20/0x22
-[  247.126425]  [<ffffffff810014c5>] cpu_idle+0x43/0x61
-[  247.126591]  [<ffffffff81355389>] start_secondary+0x1aa/0x1ae
-[  247.126757]  [<ffffffff813551df>] ? start_secondary+0x0/0x1ae
-[  247.126922] ---[ end trace ea6028b997f8cf89 ]---
-[  247.127085] Freeing alive inet6 address ffff88025d872a80
