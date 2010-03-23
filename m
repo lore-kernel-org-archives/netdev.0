@@ -1,38 +1,43 @@
-From: David Miller <davem@davemloft.net>
+From: Cong Wang <amwang@redhat.com>
 Subject: Re: [RFC Patch 2/3] bridge: make bridge support netpoll
-Date: Mon, 22 Mar 2010 21:59:36 -0700 (PDT)
-Message-ID: <20100322.215936.113720990.davem@davemloft.net>
-References: <1269318470.3552.54.camel@calx>
-	<4BA84607.7030304@redhat.com>
-	<1269319861.3552.87.camel@calx>
+Date: Tue, 23 Mar 2010 13:06:12 +0800
+Message-ID: <4BA84C44.4030707@redhat.com>
+References: <4BA82186.3010204@redhat.com>	<1269318470.3552.54.camel@calx>	<4BA84607.7030304@redhat.com> <20100322.215703.77339158.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, linux-kernel@vger.kernel.org,
+Cc: mpm@selenic.com, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
 	gospo@redhat.com, nhorman@tuxdriver.com,
 	shemminger@linux-foundation.org,
 	bonding-devel@lists.sourceforge.net, fubar@us.ibm.com
-To: mpm@selenic.com
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1269319861.3552.87.camel@calx>
+In-Reply-To: <20100322.215703.77339158.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Matt Mackall <mpm@selenic.com>
-Date: Mon, 22 Mar 2010 23:51:01 -0500
-
-> On Tue, 2010-03-23 at 12:39 +0800, Cong Wang wrote:
->> Matt Mackall wrote:
+David Miller wrote:
+> From: Cong Wang <amwang@redhat.com>
+> Date: Tue, 23 Mar 2010 12:39:35 +0800
+> 
 >> How could you let the bridge know netpoll is not sent to
 >> the one that doesn't support netpoll during setup? This will
 >> be complex, I am afraid.
 > 
-> I thought I saw a simple loop over bridge devices at poll time in your
-> patch. So it should be a simple matter of skipping unsupported devices
-> in that loop.
+> Why does this matter at all?
 
-It's because of all that "assign ->npinfo to slaves" crap he has to do
-the way his patches are currently implemented.
+Because currently we check netpoll support by ->ndo_poll_controller,
+for example, tap driver doesn't have ->ndo_poll_controller now,
+if I choose the target "@192.168.0.2/br0" where "192.168.0.2" is owned
+by "tap0" which is managed by "br0", netconsole may not work.
 
-It's basically another sign that the design is wrong.
+
+> 
+> I told you in another mail that we should do away with
+> these callbacks and all the crazy 'npinfo' assignments
+> and just do it in the generic code.
+
+I think ->ndo_poll_controller is not in the case that you talked about.
+
+Thanks.
