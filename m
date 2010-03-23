@@ -1,63 +1,59 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [RFC Patch 1/3] netpoll: add generic support for bridge and bonding
- devices
-Date: Tue, 23 Mar 2010 12:47:39 +0800
-Message-ID: <4BA847EB.9040808@redhat.com>
-References: <20100322082059.4967.63492.sendpatchset@localhost.localdomain>	<1269297081.3552.19.camel@calx>	<4BA823D7.4010106@redhat.com> <20100322.204939.146100390.davem@davemloft.net>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [Patch v2] netpoll: warn when there are spaces in parameters
+Date: Mon, 22 Mar 2010 23:45:20 -0500
+Message-ID: <1269319520.3552.76.camel@calx>
+References: <20100322090341.5289.10770.sendpatchset@localhost.localdomain>
+	 <1269296535.3552.10.camel@calx>  <4BA81D18.40509@redhat.com>
+	 <1269318256.3552.49.camel@calx>  <4BA844E6.6060602@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: mpm@selenic.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	gospo@redhat.com, nhorman@tuxdriver.com,
-	shemminger@linux-foundation.org,
-	bonding-devel@lists.sourceforge.net, fubar@us.ibm.com,
-	jmoyer@redhat.com
-To: David Miller <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	elendil@planet.nl, David Miller <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100322.204939.146100390.davem@davemloft.net>
+In-Reply-To: <4BA844E6.6060602@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Cong Wang <amwang@redhat.com>
-> Date: Tue, 23 Mar 2010 10:13:43 +0800
+On Tue, 2010-03-23 at 12:34 +0800, Cong Wang wrote:
+> Matt Mackall wrote:
+> > On Tue, 2010-03-23 at 09:44 +0800, Cong Wang wrote:
+> >> Matt Mackall wrote:
+> >>> On Mon, 2010-03-22 at 04:59 -0400, Amerigo Wang wrote:
+> >>>> +			printk(KERN_INFO "%s: warning: whitespace"
+> >>>> +					"is not allowed\n", np->name);
+> >>> Is it a warning or is it info? If it's a warning, then we probably need
+> >>> to add "netpoll" or whatever to the message so that people who've got a
+> >>> warning-level threshold will know what it's about.
+> >>>
+> >> If you mean KERN_INFO, yeah, I want to keep it in the same level
+> >> as other messages around.
+> > 
+> > I should probably be more direct: I think that's the wrong thing to do.
+> > It IS a warning (it even says so!) telling users that something probably
+> > won't work and why and they might miss it if the severity is INFO and
+> > then come and ask us why things aren't working. So use KERN_WARN,
+> > please.
 > 
->> Matt Mackall wrote:
->>> Seems like a lot of interface for something to be used by only a
->>> couple
->>> core drivers. Hopefully Dave has an opinion here.
->>>
->> Yeah, I worry about this too, maybe we can group those methods
->> for netpoll together into another struct, and just put a pointer
->> here?
 > 
-> This looks like it's tackled at the wrong layer, to be honest.
-> 
-> Teaching all of these layers about eachother's states is
-> going to end up being a nightmare in the end.
-> 
-> All of this "where is the npinfo" business can be handled
-> generically in net/core/dev.c I think, with none of these
-> callbacks.
-> 
-> For example, something like "if dev lacks ->npinfo, check
-> it's master".
+> They _are_ working, 0 will be assigned by default.
 
-This is a good point! I haven't tried but certainly this is
-worthy a try. Ideally those callbacks can be all removed,
-but I don't know if this is true practically. ;)
+If this patch has any point at all other than filling the logs, it
+should be WARN.
 
-I will try.
-
+> > 
+> > The other messages are INFO because when things are working, they're not
+> > interesting.
+> > 
 > 
-> Another thing, I wouldn't iterate over all devices, like I
-> see in the bonding poll controller method.  Just whichever
-> one supports netpoll you see first, use it and exit
-> immediately.  Don't send it to every single port, I can't
-> see how that might be desirable or useful.
+> They are not all working, take this as an example:
+> 
+>          printk(KERN_INFO "%s: couldn't parse config at %s!\n",
+>                 np->name, cur);
 
-Yeah, for bonding case, probably. But for bridge case, I think
-we still need to check all, right?
+Yeah, that's obviously wrong too. Let's not add more wrongness just for
+consistency's sake.
 
-Thanks!
+-- 
+http://selenic.com : development and support for Mercurial and Linux
