@@ -1,29 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netdev: don't always reset iflink when registering
-Date: Mon, 22 Mar 2010 20:20:22 -0700 (PDT)
-Message-ID: <20100322.202022.139110361.davem@davemloft.net>
-References: <20100320013917.GB13239@boeing.com>
-	<4BA7AC13.3080408@trash.net>
-	<6AFD35BEDB60334C9A31FD694E13EF0D22676C2244@XCH-NW-18V.nw.nos.boeing.com>
+Subject: Re: [PATCH] netlink: use the appropriate namespace pid
+Date: Mon, 22 Mar 2010 20:25:26 -0700 (PDT)
+Message-ID: <20100322.202526.141239221.davem@davemloft.net>
+References: <20100320013850.GA13239@boeing.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: Thomas.Goff@boeing.com
+Cc: netdev@vger.kernel.org
+To: thomas.goff@boeing.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50459
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37689
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752062Ab0CWDT7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 23:19:59 -0400
-In-Reply-To: <6AFD35BEDB60334C9A31FD694E13EF0D22676C2244@XCH-NW-18V.nw.nos.boeing.com>
+	by vger.kernel.org with ESMTP id S1754084Ab0CWDZD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 23:25:03 -0400
+In-Reply-To: <20100320013850.GA13239@boeing.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Goff, Thomas" <Thomas.Goff@boeing.com>
-Date: Mon, 22 Mar 2010 12:06:46 -0700
+From: Tom Goff <thomas.goff@boeing.com>
+Date: Fri, 19 Mar 2010 18:38:50 -0700
 
-> So maybe it makes more sense to change these if that's more consistent
-> with other cases.
+> This was included in OpenVZ kernels but wasn't integrated upstream.
+>>From git://git.openvz.org/pub/linux-2.6.24-openvz:
+> 
+> 	commit 5c69402f18adf7276352e051ece2cf31feefab02
+> 	Author: Alexey Dobriyan <adobriyan@openvz.org>
+> 	Date:   Mon Dec 24 14:37:45 2007 +0300
+> 
+> 	    netlink: fixup ->tgid to work in multiple PID namespaces
+> 
+> Signed-off-by: Tom Goff <thomas.goff@boeing.com>
 
-Yes, it does.  The canonical place to set ->iflink by hand
-is the ->ndo_init() method of the device.
+BTW, we're ok without this.
+
+The 'pid' in this code is just an arbitrary port number.  We are
+merely using the tgid to seed the port allocator, so it doesn't have
+to be the real proper tgid.
+
+I'm therefore dropping this for now.  If Alexey can show why we
+might need this, we can revisit the patch.
