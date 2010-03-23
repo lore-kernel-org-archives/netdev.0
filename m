@@ -1,30 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] korina: use resource_size()
-Date: Mon, 22 Mar 2010 18:33:39 -0700 (PDT)
-Message-ID: <20100322.183339.228963639.davem@davemloft.net>
-References: <20100322121145.GK21571@bicker>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [net-next-2.6 PATCH] ipoib: remove addrlen check for mc
+ addresses
+Date: Mon, 22 Mar 2010 18:34:50 -0700 (PDT)
+Message-ID: <20100322.183450.135981771.davem@davemloft.net>
+References: <20100322132138.GC2780@psychotron.lab.eng.brq.redhat.com>
+	<20100322165916.GE29129@obsidianresearch.com>
+	<20100322172613.GA2884@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	n0-1@freewrt.org, jpirko@redhat.com, shemminger@vyatta.com,
-	joe@perches.com
-To: error27@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59934
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756685Ab0CWBdQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 21:33:16 -0400
-In-Reply-To: <20100322121145.GK21571@bicker>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ogerlitz-smomgflXvOZWk0Htik3J/w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	monis-smomgflXvOZWk0Htik3J/w@public.gmane.org
+To: jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100322172613.GA2884-YzwxZg+R7et1/kRsl7OVgNvLeJWuRmrY@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <error27@gmail.com>
-Date: Mon, 22 Mar 2010 15:11:45 +0300
+From: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Date: Mon, 22 Mar 2010 18:26:14 +0100
 
-> This size calculation is wrong.  It should be end - start + 1.
-> Use resource_size() to calculate it correctly.
+> Mon, Mar 22, 2010 at 05:59:16PM CET, jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org wrote:
+>>On Mon, Mar 22, 2010 at 02:21:39PM +0100, Jiri Pirko wrote:
+>>> Finally this bit can be removed. Currently, after the bonding driver is
+>>> changed/fixed (32a806c194ea112cfab00f558482dd97bee5e44e net-next-2.6),
+>>> that's not possible for an addr with different length than dev->addr_len
+>>> to be present in list. Removing this check as in new mc_list there will be
+>>> no addrlen in the record.
+>>
+>>Maybe just make this check a WARN_ON?
 > 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> As I said, addrlen will no longer be in record (because it would have no
+> meaning since length ot the addr is always dev->addr_len)
+> 
+>>Can userspace create a mc_list
+>>entry with the wrong size via netlink?
+> 
+> Nope - this is not possible. dev->addr_len is used.
 
-Applied.
+I've applied your patch, thanks Jiri.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
