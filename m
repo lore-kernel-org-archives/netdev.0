@@ -1,28 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch] netconsole: do not depend on experimental
-Date: Mon, 22 Mar 2010 18:33:46 -0700 (PDT)
-Message-ID: <20100322.183346.215539298.davem@davemloft.net>
-References: <20100322100305.5518.29500.sendpatchset@localhost.localdomain>
+Subject: Re: [patch] korina: use resource_size()
+Date: Mon, 22 Mar 2010 18:33:39 -0700 (PDT)
+Message-ID: <20100322.183339.228963639.davem@davemloft.net>
+References: <20100322121145.GK21571@bicker>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: amwang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100322100305.5518.29500.sendpatchset@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	n0-1@freewrt.org, jpirko@redhat.com, shemminger@vyatta.com,
+	joe@perches.com
+To: error27@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59934
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756685Ab0CWBdQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 21:33:16 -0400
+In-Reply-To: <20100322121145.GK21571@bicker>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Amerigo Wang <amwang@redhat.com>
-Date: Mon, 22 Mar 2010 05:59:23 -0400
+From: Dan Carpenter <error27@gmail.com>
+Date: Mon, 22 Mar 2010 15:11:45 +0300
 
+> This size calculation is wrong.  It should be end - start + 1.
+> Use resource_size() to calculate it correctly.
 > 
-> Nowadays, most distributions enable netconsole by default,
-> including RHEL, Fedora, Debian, Arch, Opensuse. And
-> we don't have any bug reports about it. So I think there
-> is no need to mark it as experimental any more.
-> 
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: WANG Cong <amwang@redhat.com>
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
 Applied.
