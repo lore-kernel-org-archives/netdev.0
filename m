@@ -1,34 +1,41 @@
-From: Jens Rottmann <JRottmann@LiPPERTEmbedded.de>
-Subject: [PATCH] ksz884x: fix return value of netdev_set_eeprom
-Date: Tue, 23 Mar 2010 15:23:50 +0100
-Message-ID: <4BA8CEF6.2010707@LiPPERTEmbedded.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC PATCH net-next 0/7 v2]IPv6:netfilter: defragment
+Date: Tue, 23 Mar 2010 16:05:19 +0100
+Message-ID: <4BA8D8AF.1040307@trash.net>
+References: <4B88BE30.80206@cn.fujitsu.com> <4B97D34C.4020509@gmail.com> <4B98B4FC.50904@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Tristram Ha <Tristram.Ha@micrel.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: YOSHIFUJI Hideaki <hideaki.yoshifuji@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org,
+	"yoshfuji@linux-ipv6.org >> YOSHIFUJI Hideaki"
+	<yoshfuji@linux-ipv6.org>
+To: Shan Wei <shanwei@cn.fujitsu.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4B98B4FC.50904@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ksz884x: fix return value of netdev_set_eeprom
+Shan Wei wrote:
+>> On the other hand, I'd even say we should NOT send
+>> icmp here (at least by default) because standard routers
+>> never send such packet.
+>>    =20
+>
+> Yes=EF=BC=8Cfor routers, the patch-set does not send icmp message to
+> source host. It only does on destination host with IPv6 connection=20
+> track enable.
+>  =20
 
-netdev_set_eeprom() confused ethtool by just returning 1 on error
-instead of a proper -EINVAL.
-
-Signed-off-by: Jens Rottmann <JRottmann@LiPPERTEmbedded.de>
----
-
---- linux-2.6.34-rc2-git1/drivers/net/ksz884x.c
-+++ return_value_fixed/drivers/net/ksz884x.c
-@@ -6322,7 +6322,7 @@ static int netdev_set_eeprom(struct net_
- 	int len;
-
- 	if (eeprom->magic != EEPROM_MAGIC)
--		return 1;
-+		return -EINVAL;
-
- 	len = (eeprom->offset + eeprom->len + 1) / 2;
- 	for (i = eeprom->offset / 2; i < len; i++)
-_
+The nf-next tree is open again, now would be a good time to resubmit
+these patches.
+Thanks!
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
