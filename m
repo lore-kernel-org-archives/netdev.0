@@ -1,53 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH] net: add additional lock to qdisc to increase
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: RE: [RFC PATCH] net: add additional lock to qdisc to increase
  enqueue/dequeue fairness
-Date: Tue, 23 Mar 2010 23:13:00 +0100
-Message-ID: <1269382380.2915.40.camel@edumazet-laptop>
+Date: Tue, 23 Mar 2010 15:08:12 -0700
+Message-ID: <80769D7B14936844A23C0C43D9FBCF0F254E49AC69@orsmsx501.amr.corp.intel.com>
 References: <20100323202553.21598.10754.stgit@gitlad.jf.intel.com>
-	 <1269377667.2915.25.camel@edumazet-laptop>
-	 <20100323.144512.140757007.davem@davemloft.net>
+	<1269377667.2915.25.camel@edumazet-laptop>
+ <20100323.144512.140757007.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:49102 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751711Ab0CWWNE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 18:13:04 -0400
-Received: by bwz1 with SMTP id 1so2327832bwz.21
-        for <netdev@vger.kernel.org>; Tue, 23 Mar 2010 15:13:03 -0700 (PDT)
+Received: from mga03.intel.com ([143.182.124.21]:55442 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751595Ab0CWWQm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 18:16:42 -0400
 In-Reply-To: <20100323.144512.140757007.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 23 mars 2010 =C3=A0 14:45 -0700, David Miller a =C3=A9crit :
+David Miller wrote:
 > From: Eric Dumazet <eric.dumazet@gmail.com>
 > Date: Tue, 23 Mar 2010 21:54:27 +0100
->=20
-> > Quite frankly, the real problem in this case is not the reduced
-> > throughput, but fact that one cpu can stay a long time doing the xm=
-its
-> > to device, of skb queued by other cpus. This can hurt latencies a l=
-ot,
-> > for real time threads for example...
-> >=20
-> > I wonder if ticket spinlocks are not the problem. Maybe we want a
-> > variant of spinlocks, so that cpu doing transmits can get the lock
-> > before other cpus...
->=20
+> 
+>> Quite frankly, the real problem in this case is not the reduced
+>> throughput, but fact that one cpu can stay a long time doing the
+>> xmits to device, of skb queued by other cpus. This can hurt
+>> latencies a lot, for real time threads for example...
+>> 
+>> I wonder if ticket spinlocks are not the problem. Maybe we want a
+>> variant of spinlocks, so that cpu doing transmits can get the lock
+>> before other cpus...
+> 
 > I want to note that things operate the way they do now
 > intentionally.
->=20
+> 
 > Herbert Xu and Jamal Hadi Salim were active in this area
 > about 4 years ago.
 
-Yes, but ticket spinlocks were added after their work (in 2008 - 2.6.25
-if I remember well) and change things.
+I'll do some digging on this to see what I can find out.  I'm not sure why we would want to do things this way since it seems like the CPU that has qdisc_running is sitting idle due to the fact that the ticket spinlocks have us waiting for all of the other CPU enqueues before we can get around to another dequeue.  It seems like it would be in our best interest to keep qdisc_running going while we are still enqueuing on the other CPUs.
 
-We want cpu owning __QDISC_STATE_RUNNING being able to re-get the lock
-as fast as possible. Alexander results can show the possible speedup.
+I'll also look into the idea of possibly coming up with a more portable solution such as a priority based spinlock solution.
 
+Thanks,
 
+Alex
 
