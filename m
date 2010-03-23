@@ -1,78 +1,52 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH] Fix locking in flush_backlog
-Date: Mon, 22 Mar 2010 23:04:40 -0700 (PDT)
-Message-ID: <alpine.DEB.1.00.1003222257470.3718@pokey.mtv.corp.google.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] rps: memory leak due to forget to release rx queues
+Date: Tue, 23 Mar 2010 14:05:39 +0800
+Message-ID: <4BA85A33.6050004@gmail.com>
+Reply-To: xiaosuo@gmail.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: xiaosuo <xiaosuo@gmail.com>, Tom Herbert <therbert@google.com>,
+	netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:30476 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754138Ab0CWGEo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 02:04:44 -0400
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:35475 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753415Ab0CWGMF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 02:12:05 -0400
+Received: by gwaa18 with SMTP id a18so1352067gwa.19
+        for <netdev@vger.kernel.org>; Mon, 22 Mar 2010 23:12:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Need to take spinlocks when dequeuing from input_pkt_queue in 
-flush_backlog.  Also, with the spinlock the backlog queues can
-be flushed directly from netdev_run_todo.
+memory leak due to forget to release rx queues.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
+rx queues is allocated in alloc_netdev_mq(), but they aren't released in
+free_netdev(), and the field rps_map is also miss.
+
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+net/core/dev.c | 8 ++++++++
+1 file changed, 8 insertions(+)
+
 diff --git a/net/core/dev.c b/net/core/dev.c
-index a03aab4..e7db656 100644
+index c0e2608..51b86e0 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -2765,20 +2765,6 @@ int netif_receive_skb(struct sk_buff *skb)
- }
- EXPORT_SYMBOL(netif_receive_skb);
+@@ -5746,6 +5746,14 @@ void free_netdev(struct net_device *dev)
  
--/* Network device is going away, flush any packets still pending  */
--static void flush_backlog(void *arg)
--{
--	struct net_device *dev = arg;
--	struct softnet_data *queue = &__get_cpu_var(softnet_data);
--	struct sk_buff *skb, *tmp;
--
--	skb_queue_walk_safe(&queue->input_pkt_queue, skb, tmp)
--		if (skb->dev == dev) {
--			__skb_unlink(skb, &queue->input_pkt_queue);
--			kfree_skb(skb);
--		}
--}
--
- static int napi_gro_complete(struct sk_buff *skb)
- {
- 	struct packet_type *ptype;
-@@ -5545,6 +5531,7 @@ void netdev_run_todo(void)
- 	while (!list_empty(&list)) {
- 		struct net_device *dev
- 			= list_first_entry(&list, struct net_device, todo_list);
+ 	release_net(dev_net(dev));
+ 
++	if (dev->num_rx_queues) {
 +		int i;
- 		list_del(&dev->todo_list);
- 
- 		if (unlikely(dev->reg_state != NETREG_UNREGISTERING)) {
-@@ -5556,7 +5543,22 @@ void netdev_run_todo(void)
- 
- 		dev->reg_state = NETREG_UNREGISTERED;
- 
--		on_each_cpu(flush_backlog, dev, 1);
-+		/* Flush backlog queues of any pending packets */
-+		for_each_online_cpu(i) {
-+			struct softnet_data *queue = &per_cpu(softnet_data, i);
-+			struct sk_buff *skb, *tmp;
-+			unsigned long flags;
 +
-+			spin_lock_irqsave(&queue->input_pkt_queue.lock, flags);
-+			skb_queue_walk_safe(&queue->input_pkt_queue, skb, tmp)
-+				if (skb->dev == dev) {
-+					__skb_unlink(skb,
-+					    &queue->input_pkt_queue);
-+					kfree_skb(skb);
-+				}
-+			spin_unlock_irqrestore(&queue->input_pkt_queue.lock,
-+			    flags);
-+		}
++		for (i = 0; i < dev->num_rx_queues; i++)
++			kfree(dev->_rx[i].rps_map);
++		kfree(dev->_rx);
++	}
++
+ 	kfree(dev->_tx);
  
- 		netdev_wait_allrefs(dev);
- 
+ 	/* Flush device addresses */
+
+
