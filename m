@@ -1,48 +1,78 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [RFC Patch 1/3] netpoll: add generic support for bridge and bonding
- devices
-Date: Tue, 23 Mar 2010 13:15:24 +0800
-Message-ID: <4BA84E6C.5030503@redhat.com>
-References: <4BA823D7.4010106@redhat.com>	<20100322.204939.146100390.davem@davemloft.net>	<4BA847EB.9040808@redhat.com> <20100322.215822.123414773.davem@davemloft.net>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH] Fix locking in flush_backlog
+Date: Mon, 22 Mar 2010 23:04:40 -0700 (PDT)
+Message-ID: <alpine.DEB.1.00.1003222257470.3718@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: mpm@selenic.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	gospo@redhat.com, nhorman@tuxdriver.com,
-	shemminger@linux-foundation.org,
-	bonding-devel@lists.sourceforge.net, fubar@us.ibm.com,
-	jmoyer@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39989 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750924Ab0CWFNQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Mar 2010 01:13:16 -0400
-In-Reply-To: <20100322.215822.123414773.davem@davemloft.net>
+Received: from smtp-out.google.com ([216.239.44.51]:30476 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754138Ab0CWGEo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 02:04:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Cong Wang <amwang@redhat.com>
-> Date: Tue, 23 Mar 2010 12:47:39 +0800
-> 
->> Yeah, for bonding case, probably. But for bridge case, I think
->> we still need to check all, right?
-> 
-> Why?  Who cares?
-> 
-> If it goes out one port and reaches it's destination
-> the objective has been achieved.
-> 
-> Sending it out N more times achieves nothing.
+Need to take spinlocks when dequeuing from input_pkt_queue in 
+flush_backlog.  Also, with the spinlock the backlog queues can
+be flushed directly from netdev_run_todo.
 
-We have to check which port has the right destination.
-
-Ideally we should check the right destination address to
-choose the port, but currently we don't have a generic
-way to check this, thus I chose to send it to all ports.
-You are right, this needs to be improved.
-
-Thanks!
-
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a03aab4..e7db656 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2765,20 +2765,6 @@ int netif_receive_skb(struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(netif_receive_skb);
+ 
+-/* Network device is going away, flush any packets still pending  */
+-static void flush_backlog(void *arg)
+-{
+-	struct net_device *dev = arg;
+-	struct softnet_data *queue = &__get_cpu_var(softnet_data);
+-	struct sk_buff *skb, *tmp;
+-
+-	skb_queue_walk_safe(&queue->input_pkt_queue, skb, tmp)
+-		if (skb->dev == dev) {
+-			__skb_unlink(skb, &queue->input_pkt_queue);
+-			kfree_skb(skb);
+-		}
+-}
+-
+ static int napi_gro_complete(struct sk_buff *skb)
+ {
+ 	struct packet_type *ptype;
+@@ -5545,6 +5531,7 @@ void netdev_run_todo(void)
+ 	while (!list_empty(&list)) {
+ 		struct net_device *dev
+ 			= list_first_entry(&list, struct net_device, todo_list);
++		int i;
+ 		list_del(&dev->todo_list);
+ 
+ 		if (unlikely(dev->reg_state != NETREG_UNREGISTERING)) {
+@@ -5556,7 +5543,22 @@ void netdev_run_todo(void)
+ 
+ 		dev->reg_state = NETREG_UNREGISTERED;
+ 
+-		on_each_cpu(flush_backlog, dev, 1);
++		/* Flush backlog queues of any pending packets */
++		for_each_online_cpu(i) {
++			struct softnet_data *queue = &per_cpu(softnet_data, i);
++			struct sk_buff *skb, *tmp;
++			unsigned long flags;
++
++			spin_lock_irqsave(&queue->input_pkt_queue.lock, flags);
++			skb_queue_walk_safe(&queue->input_pkt_queue, skb, tmp)
++				if (skb->dev == dev) {
++					__skb_unlink(skb,
++					    &queue->input_pkt_queue);
++					kfree_skb(skb);
++				}
++			spin_unlock_irqrestore(&queue->input_pkt_queue.lock,
++			    flags);
++		}
+ 
+ 		netdev_wait_allrefs(dev);
+ 
