@@ -1,31 +1,46 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2010-03-19
-Date: Mon, 22 Mar 2010 18:16:00 -0700 (PDT)
-Message-ID: <20100322.181600.133424106.davem@davemloft.net>
-References: <20100319204507.GF9552@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH] igb: add IntMode module parameter
+Date: Mon, 22 Mar 2010 18:28:27 -0700 (PDT)
+Message-ID: <20100322.182827.180417968.davem@davemloft.net>
+References: <20100323000519.19902.14802.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100319204507.GF9552-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	nicholasx.d.nunley@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59368
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756256Ab0CWB2G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Mar 2010 21:28:06 -0400
+In-Reply-To: <20100323000519.19902.14802.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Fri, 19 Mar 2010 16:45:08 -0400
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon, 22 Mar 2010 17:06:20 -0700
 
-> Here is the first big dump of wireless bit for the 2.6.35 cycle...
+> From: Nick Nunley <nicholasx.d.nunley@intel.com>
 > 
-> Included are the usual driver updates, etc.  In particular, the Intel
-> and Nokia guys have been busy as usual. :-)
+> This patch adds the IntMode module parameter to igb. This
+> allows user selection of interrupt mode (MSI-X, MSI, legacy)
+> on driver load.
+> 
+> Signed-off-by: Nicholas Nunley <nicholasx.d.nunley@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Pulled, I'll push out to kernel.org after some build smoke
-tests.
+And IGB is special and needs this for what reason?
 
-Thanks!
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If there are real interrupt issues then:
+
+1) Diagnosing via verification of the problem can be simply performed
+   by asking the user to pass the generic kernel boot option to
+   globally disable MSI and friends.
+
+2) Specifically disabling it for buggy parts belongs in the
+   driver or in the PCI quirk tables.
+
+So from just about any angle, this module option makes no sense.
+
+So I'm not applying it, sorry.
