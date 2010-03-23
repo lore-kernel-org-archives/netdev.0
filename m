@@ -1,45 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Reporting Bugs on This List
-Date: Tue, 23 Mar 2010 12:27:47 -0700 (PDT)
-Message-ID: <20100323.122747.172618601.davem@davemloft.net>
-References: <b7b22e81003231205v38fa8774y81da6da5278c99a2@mail.gmail.com>
+Subject: Re: [Bug 15582] New: BUG: unable to handle kernel NULL pointer
+ dereference at 0000000000000028
+Date: Tue, 23 Mar 2010 12:40:17 -0700 (PDT)
+Message-ID: <20100323.124017.200119329.davem@davemloft.net>
+References: <20100322161416.c4b369f9.akpm@linux-foundation.org>
+	<20100322.210043.66718554.davem@davemloft.net>
+	<80769D7B14936844A23C0C43D9FBCF0F254E49A854@orsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eduardo.panisset@gmail.com
+Cc: akpm@linux-foundation.org, kaber@trash.net,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, peter.p.waskiewicz.jr@intel.com,
+	bugzilla-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	stivi@kity.pl
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42435
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58220
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752782Ab0CWT1Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 15:27:24 -0400
-In-Reply-To: <b7b22e81003231205v38fa8774y81da6da5278c99a2@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1751554Ab0CWTjz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 15:39:55 -0400
+In-Reply-To: <80769D7B14936844A23C0C43D9FBCF0F254E49A854@orsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eduardo Panisset <eduardo.panisset@gmail.com>
-Date: Tue, 23 Mar 2010 16:05:59 -0300
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Date: Tue, 23 Mar 2010 11:32:19 -0700
 
-> I have already reported two bugs on XFRM framework since yesterday.
-> However my reports haven't been answered yet (I thought strange as
-> this list is very active) and one of my questions simply disappeared
-> even if its a simple plain text messages without offensive terms
-> neither I think any other constraint.
+> The patch below should address it.  However I suspect it will get
+> mangled by our email system here so I don't believe it will apply.
+> I have also sent a copy of to Jeff to pull into his tree for testing
+> and submission.
 
-It's incredibly unreasonable to expect immediate responses from a
-group of volunteers.
+Good spotting, thanks Alex.
 
-Personally, it takes me over 2 hours just to make a first pass over
-the day's emails in the morning.  This means not even replying to
-anything or reading any content seriously.  That's just deleting the
-excess postings I have no direct interest in.
-
-Then I go over patches, that can take 3 hours or more.
-
-And then, and only then, can I look at bug reports and other things
-which are not new patches.  And your mail falls into that category
-because you didn't post a proper patch, and if you did you'd need
-to properly signoff on the patch and provide a properly formed
-commit message.
-
-You just need to be patient.
+I'll wait for testing and a final version via Jeff.
