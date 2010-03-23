@@ -1,36 +1,25 @@
-From: Moni Shoua <monis@Voltaire.COM>
-Subject: Re: [net-next-2.6 PATCH] ipoib: remove addrlen check for mc	addresses
-Date: Tue, 23 Mar 2010 13:45:01 +0200
-Message-ID: <4BA8A9BD.9030508@Voltaire.COM>
-References: <20100322132138.GC2780@psychotron.lab.eng.brq.redhat.com>	<20100323103034.GC12224@mtldesk030.lab.mtl.com>	<4BA89925.3050602@Voltaire.com> <20100323113436.GD12224@mtldesk030.lab.mtl.com>
+From: "Santhapuri, Damodar" <x0132156@ti.com>
+Subject: Hi
+Date: Tue, 23 Mar 2010 17:25:21 +0530
+Message-ID: <5A47E75E594F054BAF48C5E4FC4B92AB032221A66F@dbde02.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz@Voltaire.com>, Jiri Pirko <jpirko@redhat.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	linux-rdma@vger.kernel.org, jgunthorpe@obsidianresearch.com
-To: Eli Cohen <eli@dev.mellanox.co.il>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:24808 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751225Ab0CWLpF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Mar 2010 07:45:05 -0400
-In-Reply-To: <20100323113436.GD12224@mtldesk030.lab.mtl.com>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:51238 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751008Ab0CWLzW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 07:55:22 -0400
+Received: from dbdp20.itg.ti.com ([172.24.170.38])
+	by arroyo.ext.ti.com (8.13.7/8.13.7) with ESMTP id o2NBtJii017873
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 23 Mar 2010 06:55:21 -0500
+Received: from dbde70.ent.ti.com (localhost [127.0.0.1])
+	by dbdp20.itg.ti.com (8.13.8/8.13.8) with ESMTP id o2NBtIeG018611
+	for <netdev@vger.kernel.org>; Tue, 23 Mar 2010 17:25:18 +0530 (IST)
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eli Cohen wrote:
-> On Tue, Mar 23, 2010 at 12:34:13PM +0200, Or Gerlitz wrote:
->> basically, as the subject line suggests, it should be in Dave's net-next tree
->>
-> I just need to clone this tree and need the url. Can you give it to me
-> from .git/config?
-> Thanks.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-maybe your'e looking for this one
-http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commit;h=32a806c194ea112cfab00f558482dd97bee5e44e
-
+Subscribe me on it
