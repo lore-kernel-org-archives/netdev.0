@@ -1,53 +1,46 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: [PATCH 00/09] net: remove trailing spaces in
-	messages
-Date: Wed, 24 Mar 2010 22:30:31 +0100
-Message-ID: <201003242230.34217.elendil@planet.nl>
-References: <201003241840.18701.elendil@planet.nl>
-	<20100324.141158.43422101.davem@davemloft.net>
+From: reinette chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 4/7 v2] wireless/iwlwifi: remove trailing space in
+ messages
+Date: Wed, 24 Mar 2010 14:38:16 -0700
+Message-ID: <1269466696.2446.3213.camel@rchatre-DESK>
+References: <201003241927.12434.elendil@planet.nl>
+	 <1269456395-15343-4-git-send-email-elendil@planet.nl>
+	 <201003242220.00328.elendil@planet.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, samuel@sortiz.org,
-	e1000-devel@lists.sourceforge.net, per.liden@ericsson.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, allan.stephens@windriver.com,
-	benh@kernel.crashing.org
-To: David Miller <davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20100324.141158.43422101.davem@davemloft.net>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Zhu, Yi" <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+To: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201003242220.00328.elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 24 March 2010, David Miller wrote:
-> All applied, but I have to make some fixups.
->
-> For example, GIT warns about trailing whitespace on any lines that you
-> touched so I had to fix those up before putting them into the tree.
+On Wed, 2010-03-24 at 14:19 -0700, Frans Pop wrote:
+> Includes minor improvements in debugging messages in iwl-4965.c,
+> function iwl4965_is_temp_calib_needed().
+> 
+> Signed-off-by: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>
+> Cc: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Cc: Reinette Chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Cc: Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+> ---
+> 
+> Rebased against and updated for iwlwifi-2.6.git/master
+> as requested by Reinette.
+> 
 
-I did wonder about fixing that or not. But as the surrounding code also has 
-tons of trailing whitespace, I chose to leave things consistently messy.
+John, I'll take this patch and submit it as part of our regular process.
 
-I'll remove at least trailing whitespace next time.
+Reinette
 
-Thanks David.
 
-------------------------------------------------------------------------------
-Download Intel&#174; Parallel Studio Eval
-Try the new software tools for yourself. Speed compiling, find bugs
-proactively, and fine-tune applications for parallel performance.
-See why Intel Parallel Studio got high marks during beta.
-http://p.sf.net/sfu/intel-sw-dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
