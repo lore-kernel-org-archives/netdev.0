@@ -1,30 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 7/8] netxen: added sanity check for pci map
-Date: Wed, 24 Mar 2010 11:46:20 -0700 (PDT)
-Message-ID: <20100324.114620.37223701.davem@davemloft.net>
-References: <1269437363-2606-1-git-send-email-amit.salecha@qlogic.com>
-	<1269437363-2606-8-git-send-email-amit.salecha@qlogic.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
-To: amit.salecha@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53292
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932177Ab0CXSp5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 14:45:57 -0400
-In-Reply-To: <1269437363-2606-8-git-send-email-amit.salecha@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Frans Pop <elendil@planet.nl>
+Subject: [PATCH 1/7] wireless: remove trailing space in messages
+Date: Wed, 24 Mar 2010 19:46:29 +0100
+Message-ID: <1269456395-15343-1-git-send-email-elendil@planet.nl>
+References: <201003241927.12434.elendil@planet.nl>
+Cc: Frans Pop <elendil@planet.nl>
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201003241927.12434.elendil@planet.nl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Also correct indentation in net/wireless/reg.c.
 
-1) You're leaking the ioremap() mappings in this patch when one of
-   them fails.
+Signed-off-by: Frans Pop <elendil@planet.nl>
+---
+ net/mac80211/agg-tx.c |    4 ++--
+ net/wireless/reg.c    |    6 +++---
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-2) This is too many patches to be submitting to net-2.6 this late in
-   the post-merge-window time period.  If you want some of these fixes
-   in net-2.6 pick a small set of the most important ones and
-   resubmit.
-
-I'm tossing this whole series for now.
+diff --git a/net/mac80211/agg-tx.c b/net/mac80211/agg-tx.c
+index 5538e1b..bb4ac70 100644
+--- a/net/mac80211/agg-tx.c
++++ b/net/mac80211/agg-tx.c
+@@ -414,7 +414,7 @@ static void ieee80211_agg_tx_operational(struct ieee80211_local *local,
+ 					 struct sta_info *sta, u16 tid)
+ {
+ #ifdef CONFIG_MAC80211_HT_DEBUG
+-	printk(KERN_DEBUG "Aggregation is on for tid %d \n", tid);
++	printk(KERN_DEBUG "Aggregation is on for tid %d\n", tid);
+ #endif
+ 
+ 	spin_lock(&local->ampdu_lock);
+@@ -674,7 +674,7 @@ void ieee80211_process_addba_resp(struct ieee80211_local *local,
+ 	del_timer(&sta->ampdu_mlme.tid_tx[tid]->addba_resp_timer);
+ 
+ #ifdef CONFIG_MAC80211_HT_DEBUG
+-	printk(KERN_DEBUG "switched off addBA timer for tid %d \n", tid);
++	printk(KERN_DEBUG "switched off addBA timer for tid %d\n", tid);
+ #endif /* CONFIG_MAC80211_HT_DEBUG */
+ 
+ 	if (le16_to_cpu(mgmt->u.action.u.addba_resp.status)
+diff --git a/net/wireless/reg.c b/net/wireless/reg.c
+index ed89c59..e857d72 100644
+--- a/net/wireless/reg.c
++++ b/net/wireless/reg.c
+@@ -2357,10 +2357,10 @@ static void print_regdomain(const struct ieee80211_regdomain *rd)
+ 					rdev->country_ie_alpha2[1]);
+ 			} else
+ 				printk(KERN_INFO "cfg80211: Current regulatory "
+-					"domain intersected: \n");
++					"domain intersected:\n");
+ 		} else
+-				printk(KERN_INFO "cfg80211: Current regulatory "
+-					"domain intersected: \n");
++			printk(KERN_INFO "cfg80211: Current regulatory "
++				"domain intersected:\n");
+ 	} else if (is_world_regdom(rd->alpha2))
+ 		printk(KERN_INFO "cfg80211: World regulatory "
+ 			"domain updated:\n");
+-- 
+1.6.6.1
