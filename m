@@ -1,51 +1,50 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: Re: bug in bonding driver
-Date: Wed, 24 Mar 2010 13:47:21 -0600
-Message-ID: <4BAA6C49.3040404@nortel.com>
-References: <4BAA58B3.2040504@nortel.com> <21160.1269458000@death.nxdomain.ibm.com>
+From: Brandon Black <blblack@gmail.com>
+Subject: Re: behavior of recvmmsg() on blocking sockets
+Date: Wed, 24 Mar 2010 14:55:28 -0500
+Message-ID: <84621a61003241255i74282f53v3bb0111808895401@mail.gmail.com>
+References: <84621a61003240915p2a4ce6bbjd0c6bfb02ab05ba8@mail.gmail.com>
+	 <4BAA4EE4.3090900@nortel.com>
+	 <84621a61003241128x3afbcea1w387aeaa68c887320@mail.gmail.com>
+	 <4BAA69BF.3080600@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zrtps0kp.nortel.com ([47.140.192.56]:49126 "EHLO
-	zrtps0kp.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751396Ab0CXTtd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 15:49:33 -0400
-In-Reply-To: <21160.1269458000@death.nxdomain.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Chris Friesen <cfriesen@nortel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4BAA69BF.3080600@nortel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/24/2010 01:13 PM, Jay Vosburgh wrote:
-> Chris Friesen <cfriesen@nortel.com> wrote:
+On Wed, Mar 24, 2010 at 2:36 PM, Chris Friesen <cfriesen@nortel.com> wr=
+ote:
+> Note that I said "large numbers of sockets". =C2=A0Like tens of thous=
+ands.
+> In addition to context switch overhead this can also lead to issues w=
+ith
+> memory consumption due to stack frames.
 
->> The catch here is that slave->jiffies may not ever get updated after
->> being set initially, and on long-running systems jiffies will overflow.
->> That could cause this check to be true for a substantial amount of time
->> rather than for just a short period.
+Ok, agreed there.  In my case though, there will only ever be a
+handful of sockets.  Ideally it would be just one socket.  The only
+reason I allocate multiple sockets and spawn threads for them is
+because you can't scale past one CPU core on a single socket, due to
+the NIC and/or the driver and/or the socket locks and/or the basic
+nature of the problem.
 
-> 	Some quick fooling around suggests that if, for example,
-> slave->jiffies is near the top of the range (ULONG_MAX - a few hundred),
-> when jiffies gets up to around ULONG_MAX / 2 time_after_eq will flip
-> from "after" to "before."
-> 
-> 	I don't think this is a particularly farfetched example, since
-> jiffies is intentionally started near the top of the range, so
-> slave->jiffies is likely to be high in the range after bonding is
-> configured at boot.
+> Consider the case where you want to do some other useful work in
+> addition to running your network server. =C2=A0Every cpu cycle spent =
+on the
+> network server is robbed from the other work. =C2=A0In this scenario =
+you want
+> to handle packets as efficiently as possible, so the timeout-based
+> behaviour is better since it is more likely to give you multiple pack=
+ets
+> per syscall.
 
-Agreed.  If I understand it right the result of time_after_eq is only
-valid if the result of the subtraction is less than LONG_MAX.
+That's a good point, I tend to tunnelvision on the dedicated server
+scenario.  I should probably have a user-level option for
+timeout-based operation as well, since the decision here gets to the
+systems admin/engineering level and will be situational.
 
->> One way to fix it would be a boolean which tracks whether or not we've
->> gone past the time, and if we have then we don't bother actually
->> checking the time anymore.
-> 
-> 	It might be clearer to make the slave->jiffies some kind of
-> countdown instead, perhaps reusing the slave->delay used for
-> updelay/downdelay and eliminating slave->jiffies entirely.
-
-Yes, that seems reasonable as well.
-
-Chris
+Thanks,
+-- Brandon
