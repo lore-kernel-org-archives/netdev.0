@@ -1,57 +1,60 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: Re: behavior of recvmmsg() on blocking sockets
-Date: Wed, 24 Mar 2010 13:36:31 -0600
-Message-ID: <4BAA69BF.3080600@nortel.com>
-References: <84621a61003240915p2a4ce6bbjd0c6bfb02ab05ba8@mail.gmail.com>	 <4BAA4EE4.3090900@nortel.com> <84621a61003241128x3afbcea1w387aeaa68c887320@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH 2/3] ixgbe: In SR-IOV mode insert delay before bring
+	the adapter up
+Date: Wed, 24 Mar 2010 12:36:08 -0700
+Message-ID: <20100324193608.6078.61157.stgit@localhost.localdomain>
+References: <20100324193515.6078.27035.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Brandon Black <blblack@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <84621a61003241128x3afbcea1w387aeaa68c887320@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta10.emeryville.ca.mail.comcast.net ([76.96.30.17]:36612 "EHLO
+	qmta10.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751203Ab0CXTmS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 15:42:18 -0400
+In-Reply-To: <20100324193515.6078.27035.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/24/2010 12:28 PM, Brandon Black wrote:
-> On Wed, Mar 24, 2010 at 12:41 PM, Chris Friesen <cfriesen@nortel.com> wrote:
->> On 03/24/2010 10:15 AM, Brandon Black wrote:
->>> It uses a thread-per-socket model
->>
->> This doesn't scale well to large numbers of sockets....you get a lot of
->> unnecessary context switching.
-> 
-> It scales great actually, within my measurement error of linear in
-> testing so far.  These are UDP server sockets, and the traffic pattern
-> is one request packet maps to one response packet, with no longer-term
-> per-client state (this is a DNS server, to be specific).  The "do some
-> work" code doesn't have any inter-thread contention (no locks, no
-> writes to the same memory, etc), so the "threads" here may as well be
-> processes if that makes the discussion less confusing.  I haven't yet
-> found a model that scales as well for me.
+From: Greg Rose <gregory.v.rose@intel.com>
 
-Note that I said "large numbers of sockets".  Like tens of thousands.
-In addition to context switch overhead this can also lead to issues with
-memory consumption due to stack frames.
+VFs running in guest VMs do not respond in as timely a manner to
+PF indication it is going down as they do when running in the host
+domain.  If the adapter is in SR-IOV mode insert a two second delay
+to guarantee that all VFs have had time to respond to the PF reset.
+In any case resetting the PF while VFs are active should be
+discouraged but if it must be done then there will be a two
+second delay to help synchronize resets among the PF and all the
+VFs.
 
-> I'm also just not personally sure whether there are network
-> interfaces/drivers out there that could queue packets to the kernel
-> (to a single socket) faster than recvmsg() could dequeue them to
-> userspace
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-A 10Gig NIC could do this easily depending on your CPU.
+ drivers/net/ixgbe/ixgbe_main.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
-> I still think having a "block until at least one packet arrives" mode
-> for recvmmsg() makes sense though.
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 90565d8..2f8c348 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -3036,6 +3036,14 @@ void ixgbe_reinit_locked(struct ixgbe_adapter *adapter)
+ 	while (test_and_set_bit(__IXGBE_RESETTING, &adapter->state))
+ 		msleep(1);
+ 	ixgbe_down(adapter);
++	/*
++	 * If SR-IOV enabled then wait a bit before bringing the adapter
++	 * back up to give the VFs time to respond to the reset.  The
++	 * two second wait is based upon the watchdog timer cycle in
++	 * the VF driver.
++	 */
++	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
++		msleep(2000);
+ 	ixgbe_up(adapter);
+ 	clear_bit(__IXGBE_RESETTING, &adapter->state);
+ }
 
-Agreed, as long as developers are aware that it won't be the most
-efficient mode of operation.
-
-Consider the case where you want to do some other useful work in
-addition to running your network server.  Every cpu cycle spent on the
-network server is robbed from the other work.  In this scenario you want
-to handle packets as efficiently as possible, so the timeout-based
-behaviour is better since it is more likely to give you multiple packets
-per syscall.
-
-Chris
