@@ -1,102 +1,49 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH] e1000e: Use pr_<level> and netdev_<level>
-Date: Wed, 24 Mar 2010 15:55:30 -0700
-Message-ID: <20100324225529.7104.17189.stgit@localhost.localdomain>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: Seeing new kernel unaligned access messages in linux-next on
+ ia64
+Date: Thu, 25 Mar 2010 00:17:01 +0100 (CET)
+Message-ID: <alpine.LSU.2.01.1003250014400.16715@obet.zrqbmnf.qr>
+References: <12c511ca1003181112t6098eeafm30e384e755a42185@mail.gmail.com> <alpine.LSU.2.01.1003192310450.10055@obet.zrqbmnf.qr> <20100324.102759.107122703.davem@davemloft.net> <alpine.LSU.2.01.1003242059230.4028@obet.zrqbmnf.qr> <m2vdcl5ocj.fsf@igel.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Joe Perches <joe@perches.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, tony.luck@intel.com,
+	netdev@vger.kernel.org
+To: Andreas Schwab <schwab@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.emeryville.ca.mail.comcast.net ([76.96.30.48]:33400 "EHLO
-	qmta05.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751314Ab0CXW4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 18:56:16 -0400
+Received: from borg.medozas.de ([188.40.89.202]:55713 "EHLO borg.medozas.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752107Ab0CXXRD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Mar 2010 19:17:03 -0400
+In-Reply-To: <m2vdcl5ocj.fsf@igel.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
 
-As an alternative to a quite large patch previously submitted by Joe
-Perches to make use of kernel logging API, this patch is much less
-intrusive.
+On Wednesday 2010-03-24 23:47, Andreas Schwab wrote:
+>Jan Engelhardt writes:
+>
+>> Using a temporary and memcpying it off would normally fix this,
+>> as in the patch below. During testing however, I still get
+>> unaligned messages even with the patch - and I would not know
+>> what causes this.
+>
+>The memcpy will not fix the alignment issue because the copy operation
+>is fully equivalent to a direct assignment, and the compiler can still
+>take advantage of the known alignment of the types.  You have to
+>explicitly tell the compiler about the reduced alignment guarantee.
 
-Convert e_<level> to netdev_<level>
-Use #define pr_fmt
-Convert a few printks to pr_<level>
+You're right, I remember seeing that sort of optimization before. So I 
+have changed the function's signature to read
 
-Cc: Joe Perches <joe@perches.com>
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- drivers/net/e1000e/e1000.h  |   19 +++++--------------
- drivers/net/e1000e/netdev.c |    9 +++++----
- 2 files changed, 10 insertions(+), 18 deletions(-)
-
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index 118bdf4..23ab67c 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -42,25 +42,16 @@
- 
- struct e1000_info;
- 
--#define e_printk(level, adapter, format, arg...) \
--	printk(level "%s: %s: " format, pci_name(adapter->pdev), \
--	       adapter->netdev->name, ## arg)
--
--#ifdef DEBUG
- #define e_dbg(format, arg...) \
--	e_printk(KERN_DEBUG , hw->adapter, format, ## arg)
--#else
--#define e_dbg(format, arg...) do { (void)(hw); } while (0)
--#endif
--
-+	netdev_dbg(hw->adapter->netdev, format, ## arg)
- #define e_err(format, arg...) \
--	e_printk(KERN_ERR, adapter, format, ## arg)
-+	netdev_err(adapter->netdev, format, ## arg)
- #define e_info(format, arg...) \
--	e_printk(KERN_INFO, adapter, format, ## arg)
-+	netdev_info(adapter->netdev, format, ## arg)
- #define e_warn(format, arg...) \
--	e_printk(KERN_WARNING, adapter, format, ## arg)
-+	netdev_warn(adapter->netdev, format, ## arg)
- #define e_notice(format, arg...) \
--	e_printk(KERN_NOTICE, adapter, format, ## arg)
-+	netdev_notice(adapter->netdev, format, ## arg)
- 
- 
- /* Interrupt modes, as used by the IntMode parameter */
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index e1cceb6..ad4546e 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -26,6 +26,8 @@
- 
- *******************************************************************************/
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/module.h>
- #include <linux/types.h>
- #include <linux/init.h>
-@@ -5394,10 +5396,9 @@ static struct pci_driver e1000_driver = {
- static int __init e1000_init_module(void)
+-static void copy_rtnl_link_stats64(struct rtnl_link_stats64 *v,
+-                                  const struct net_device_stats *b)
++static void copy_rtnl_link_stats64(void *v, const struct net_device_stats *b)
  {
- 	int ret;
--	printk(KERN_INFO "%s: Intel(R) PRO/1000 Network Driver - %s\n",
--	       e1000e_driver_name, e1000e_driver_version);
--	printk(KERN_INFO "%s: Copyright (c) 1999 - 2009 Intel Corporation.\n",
--	       e1000e_driver_name);
-+	pr_info("Intel(R) PRO/1000 Network Driver - %s\n",
-+		e1000e_driver_version);
-+	pr_info("Copyright (c) 1999 - 2009 Intel Corporation.\n");
- 	ret = pci_register_driver(&e1000_driver);
- 
- 	return ret;
+ ...
+ 	memcpy(v, &a, sizeof(a));
+ }
 
+No more unaligned messages - but is this an acceptable solution?
+
+thanks,
+Jan
