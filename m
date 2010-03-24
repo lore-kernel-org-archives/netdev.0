@@ -1,34 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] Fix locking in flush_backlog
-Date: Tue, 23 Mar 2010 23:17:59 -0700 (PDT)
-Message-ID: <20100323.231759.94840161.davem@davemloft.net>
-References: <alpine.DEB.1.00.1003231635190.360@pokey.mtv.corp.google.com>
-	<1269408882.2915.42.camel@edumazet-laptop>
+Subject: Re: [PATCH 1/2] bnx2: Fix netpoll crash.
+Date: Tue, 23 Mar 2010 23:20:27 -0700 (PDT)
+Message-ID: <20100323.232027.38075593.davem@davemloft.net>
+References: <1269385992-18525-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: therbert@google.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35688
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34404
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754799Ab0CXGRf convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Mar 2010 02:17:35 -0400
-In-Reply-To: <1269408882.2915.42.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1754683Ab0CXGUE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 02:20:04 -0400
+In-Reply-To: <1269385992-18525-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 24 Mar 2010 06:34:42 +0100
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Tue, 23 Mar 2010 15:13:11 -0800
 
-> Le mardi 23 mars 2010 =E0 16:39 -0700, Tom Herbert a =E9crit :
->> Need to take spinlocks when dequeuing from input_pkt_queue in flush_=
-backlog.
->> Also, flush_backlog can now be called directly from netdev_run_todo.
->>=20
->> Signed-off-by: Tom Herbert <therbert@google.com>
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> From: Benjamin Li <benli@broadcom.com>
+> 
+> The bnx2 driver calls netif_napi_add() for all the NAPI structs during
+> ->probe() time but not all of them will be used if we're not in MSI-X
+> mode.  This creates a problem for netpoll since it will poll all the
+> NAPI structs in the dev_list whether or not they are scheduled, resulting
+> in a crash when we access structure fields not initialized for that vector.
+> 
+> We fix it by moving the netif_napi_add() call to ->open() after the number
+> of IRQ vectors has been determined.
+> 
+> Signed-off-by: Benjamin Li <benli@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Applied, thanks everyone.
+Applied.
