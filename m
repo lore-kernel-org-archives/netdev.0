@@ -1,29 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] net: add additional lock to qdisc to increase
- enqueue/dequeue fairness
-Date: Tue, 23 Mar 2010 23:10:05 -0700 (PDT)
-Message-ID: <20100323.231005.254851368.davem@davemloft.net>
-References: <80769D7B14936844A23C0C43D9FBCF0F254E49AC69@orsmsx501.amr.corp.intel.com>
-	<20100323.195855.00471034.davem@davemloft.net>
-	<1269409324.2915.44.camel@edumazet-laptop>
+Subject: Re: [PATCH v2] Fix locking in flush_backlog
+Date: Tue, 23 Mar 2010 23:17:59 -0700 (PDT)
+Message-ID: <20100323.231759.94840161.davem@davemloft.net>
+References: <alpine.DEB.1.00.1003231635190.360@pokey.mtv.corp.google.com>
+	<1269408882.2915.42.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: therbert@google.com, netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36736
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35688
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754592Ab0CXGJm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 02:09:42 -0400
-In-Reply-To: <1269409324.2915.44.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1754799Ab0CXGRf convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Mar 2010 02:17:35 -0400
+In-Reply-To: <1269408882.2915.42.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 24 Mar 2010 06:42:04 +0100
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 24 Mar 2010 06:34:42 +0100
 
-> Do we have a list of such network related documents ?
+> Le mardi 23 mars 2010 =E0 16:39 -0700, Tom Herbert a =E9crit :
+>> Need to take spinlocks when dequeuing from input_pkt_queue in flush_=
+backlog.
+>> Also, flush_backlog can now be called directly from netdev_run_todo.
+>>=20
+>> Signed-off-by: Tom Herbert <therbert@google.com>
+>=20
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Not really, just scan http://vger.kernel.org/netconf200${N}.html
-for the papers :-)
+Applied, thanks everyone.
