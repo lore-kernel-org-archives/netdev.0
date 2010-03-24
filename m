@@ -1,93 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-2.6 PATCH] ixgbe: cleanup maximum number of tx queues
-Date: Wed, 24 Mar 2010 21:08:54 +0100
-Message-ID: <1269461334.2849.3.camel@edumazet-laptop>
-References: <20100324200144.6384.17291.stgit@localhost.localdomain>
+From: "Ben Menchaca (ben@bigfootnetworks.com)" <ben@bigfootnetworks.com>
+Subject: RE: [RFC PATCH] gianfar: fix undo of reserve()
+Date: Wed, 24 Mar 2010 13:13:22 -0700
+Message-ID: <A6A1774AFD79E346AE6D49A33CB294530DC1A006@EX-BE-017-SFO.shared.themessagecenter.com>
+References: <A6A1774AFD79E346AE6D49A33CB294530DC19FC4@EX-BE-017-SFO.shared.themessagecenter.com>
+ <20100324.114759.200629461.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:33922 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750911Ab0CXUJA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 16:09:00 -0400
-Received: by bwz1 with SMTP id 1so277619bwz.21
-        for <netdev@vger.kernel.org>; Wed, 24 Mar 2010 13:08:58 -0700 (PDT)
-In-Reply-To: <20100324200144.6384.17291.stgit@localhost.localdomain>
+Received: from out02.themessagecenter.com ([208.113.96.229]:2680 "EHLO
+	out02.themessagecenter.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756545Ab0CXUNh convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Mar 2010 16:13:37 -0400
+In-Reply-To: <20100324.114759.200629461.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 24 mars 2010 =C3=A0 13:01 -0700, Jeff Kirsher a =C3=A9crit =
-:
-> From: John Fastabend <john.r.fastabend@intel.com>
->=20
-> In the last patch I missed an unecessary min_t comparison.
-> This patch removes it, the path allocates at most
-> 72 tx queues for 82599 and 24 for 82598 there is no need
-> for this check.
->=20
-> Additionally this sets MAX_[TX|RX]_QUEUES to 72.  Which is
-> used as the size for the tx/rx_ring arrays. There is no
-> reason to have more tx_rings/rx_rings then num_tx_queues.
->=20
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> So, is this tested at least a little bit?
+We run a 2.6.31 variant on our board, and this patch fixes the skb->len issue, and we are not observing any strangeness under the stress conditions after this patch, and our asserts are no longer firing.  2.6.31 was pre-multiq for gianfar, though, and that was a large change...I would definitely prefer getting some modern-ish kernel time on it.  If needed, I can probably move our board forward to -next for a bit.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+For some history, and to see the original issue addressed, this appears to have been introduced shortly after recycling in 2.6.30, here:
+commit d4a76f8a619b5d7dfd5a0f122666fee24bb3dcb9
+gianfar: fix BUG under load after introduction of skb recycling
 
-Thanks guys
-> ---
->=20
->  drivers/net/ixgbe/ixgbe.h      |    7 +++++--
->  drivers/net/ixgbe/ixgbe_main.c |    1 -
->  2 files changed, 5 insertions(+), 3 deletions(-)
->=20
-> diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-> index 19e94ee..79c35ae 100644
-> --- a/drivers/net/ixgbe/ixgbe.h
-> +++ b/drivers/net/ixgbe/ixgbe.h
-> @@ -204,14 +204,17 @@ enum ixgbe_ring_f_enum {
->  #define IXGBE_MAX_FDIR_INDICES 64
->  #ifdef IXGBE_FCOE
->  #define IXGBE_MAX_FCOE_INDICES  8
-> +#define MAX_RX_QUEUES (IXGBE_MAX_FDIR_INDICES + IXGBE_MAX_FCOE_INDIC=
-ES)
-> +#define MAX_TX_QUEUES (IXGBE_MAX_FDIR_INDICES + IXGBE_MAX_FCOE_INDIC=
-ES)
-> +#else
-> +#define MAX_RX_QUEUES IXGBE_MAX_FDIR_INDICES
-> +#define MAX_TX_QUEUES IXGBE_MAX_FDIR_INDICES
->  #endif /* IXGBE_FCOE */
->  struct ixgbe_ring_feature {
->  	int indices;
->  	int mask;
->  } ____cacheline_internodealigned_in_smp;
-> =20
-> -#define MAX_RX_QUEUES 128
-> -#define MAX_TX_QUEUES 128
-> =20
->  #define MAX_RX_PACKET_BUFFERS ((adapter->flags & IXGBE_FLAG_DCB_ENAB=
-LED) \
->                                ? 8 : 1)
-> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe=
-_main.c
-> index 315622f..a9147e5 100644
-> --- a/drivers/net/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> @@ -6041,7 +6041,6 @@ static int __devinit ixgbe_probe(struct pci_dev=
- *pdev,
->  	indices +=3D min_t(unsigned int, num_possible_cpus(),
->  			 IXGBE_MAX_FCOE_INDICES);
->  #endif
-> -	indices =3D min_t(unsigned int, indices, MAX_TX_QUEUES);
->  	netdev =3D alloc_etherdev_mq(sizeof(struct ixgbe_adapter), indices)=
-;
->  	if (!netdev) {
->  		err =3D -ENOMEM;
->=20
-> --
-
+- Ben
 
