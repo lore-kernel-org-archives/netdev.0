@@ -1,43 +1,40 @@
-From: reinette chatre <reinette.chatre@intel.com>
-Subject: Re: [PATCH 4/7] wireless/iwlwifi: remove trailing space in messages
-Date: Wed, 24 Mar 2010 13:34:35 -0700
-Message-ID: <1269462875.2446.3209.camel@rchatre-DESK>
-References: <201003241927.12434.elendil@planet.nl>
-	 <1269456395-15343-4-git-send-email-elendil@planet.nl>
-	 <1269461933.2446.3208.camel@rchatre-DESK>
-	 <201003242128.18710.elendil@planet.nl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch] wimax: remove unneeded variable
+Date: Wed, 24 Mar 2010 13:36:56 -0700 (PDT)
+Message-ID: <20100324.133656.200772463.davem@davemloft.net>
+References: <20100324115603.GD21571@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Zhu, Yi" <yi.zhu@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>
-To: Frans Pop <elendil@planet.nl>
+Cc: netdev@vger.kernel.org, andre.goddard@gmail.com,
+	adobriyan@gmail.com, jkosina@suse.cz,
+	kernel-janitors@vger.kernel.org
+To: error27@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:28466 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932457Ab0CXUei (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Mar 2010 16:34:38 -0400
-In-Reply-To: <201003242128.18710.elendil@planet.nl>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42964
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932739Ab0CXUgd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 16:36:33 -0400
+In-Reply-To: <20100324115603.GD21571@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-03-24 at 13:28 -0700, Frans Pop wrote:
-> On Wednesday 24 March 2010, reinette chatre wrote:
-> > Since this patch touches so many things, would it be possible to base
-> > your patch on
-> > git://git.kernel.org/pub/scm/linux/kernel/git/iwlwifi/iwlwifi-2.6.git
-> > instead?
+From: Dan Carpenter <error27@gmail.com>
+Date: Wed, 24 Mar 2010 14:56:03 +0300
+
+> We never actually use "dev" so I removed it.
 > 
-> Sure. Which branch?
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-master
+I think the intention was to pass it into to these
+stupid function call tracing debugging macros the
+WIMAX stuff has.  It's passing NULL currently.
 
-Thank you very much
+Anyways, I've applied this, thanks.
 
-Reinette
+But seriously, why is every developer of some new subsystem or driver
+inclined to add such ugly debugging infrastructure?  It's seemingly
+the first thing they do before writing any code.
 
-
-
+I'd very much like to see a patch that removes all of this junk and
+"rm -f include/linux/wimax/debug.h"
