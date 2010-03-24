@@ -1,34 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] igb: do not modify tx_queue_len on link speed change
-Date: Tue, 23 Mar 2010 23:20:54 -0700 (PDT)
-Message-ID: <20100323.232054.209600587.davem@davemloft.net>
-References: <20100324043456.32036.21219.stgit@localhost.localdomain>
+Subject: Re: [PATCH] igb: only use vlan_gro_receive if vlans are registered
+Date: Tue, 23 Mar 2010 23:21:15 -0700 (PDT)
+Message-ID: <20100323.232115.38318934.davem@davemloft.net>
+References: <20100324043517.32036.81274.stgit@localhost.localdomain>
+	<1269409837.2915.48.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, emil.s.tantilov@intel.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, alexander.h.duyck@intel.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34417
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34422
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754799Ab0CXGUb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 02:20:31 -0400
-In-Reply-To: <20100324043456.32036.21219.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1754799Ab0CXGUw convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Mar 2010 02:20:52 -0400
+In-Reply-To: <1269409837.2915.48.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 23 Mar 2010 21:34:57 -0700
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 24 Mar 2010 06:50:37 +0100
 
-> From: Emil Tantilov <emil.s.tantilov@intel.com>
-> 
-> Previously the driver tweaked txqueuelen to avoid false Tx hang reports seen at half duplex.
-> This had the effect of overriding user set values on link change/reset. Testing shows that
-> adjusting only the timeout factor is sufficient to prevent Tx hang reports at half duplex.
-> 
-> Based on e1000e patch by Franco Fichtner <franco@lastsummer.de>
-> 
-> Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Le mardi 23 mars 2010 =E0 21:35 -0700, Jeff Kirsher a =E9crit :
+>> From: Alexander Duyck <alexander.h.duyck@intel.com>
+>>=20
+>> This change makes it so that vlan_gro_receive is only used if vlans =
+have been
+>> registered to the adapter structure.  Previously we were just sendin=
+g all vlan
+>> tagged frames in via this function but this results in a null pointe=
+r
+>> dereference when vlans are not registered.
+>>=20
+>=20
+> This patch fixes bugzilla entry 15582
 
-Applied.
+I've added a note about this to the commit message.
+
+>> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> ---
+=2E..
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+Applied, thanks everyone.
