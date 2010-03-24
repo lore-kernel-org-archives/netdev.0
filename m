@@ -1,153 +1,59 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 2/2] ixgbevf: convert to use netdev_for_each_mc_addr
-Date: Wed, 24 Mar 2010 01:58:20 -0700
-Message-ID: <20100324085819.32706.384.stgit@localhost.localdomain>
-References: <20100324085733.32706.70587.stgit@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: why not use the tcp_set_state() in inet_csk_listen_start()?
+Date: Wed, 24 Mar 2010 10:02:03 +0100
+Message-ID: <1269421323.3213.16.camel@edumazet-laptop>
+References: <ffe582101003240113i15c48ff2g850bb209c825b11c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Jiri Pirko <jpirko@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?UTF-8?Q?=E6=9D=A8=E7=A1=95?= <shanqn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:47509
-	"EHLO qmta08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752464Ab0CXI6i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 04:58:38 -0400
-In-Reply-To: <20100324085733.32706.70587.stgit@localhost.localdomain>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:40726 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754524Ab0CXJCJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 05:02:09 -0400
+Received: by bwz1 with SMTP id 1so2644483bwz.21
+        for <netdev@vger.kernel.org>; Wed, 24 Mar 2010 02:02:07 -0700 (PDT)
+In-Reply-To: <ffe582101003240113i15c48ff2g850bb209c825b11c@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
+Le mercredi 24 mars 2010 =C3=A0 16:13 +0800, =E6=9D=A8=E7=A1=95 a =C3=A9=
+crit :
+> why use "sk->sk_state =3D TCP_LISTEN" rather than "tcp_set_state(sk, =
+TCP_LISTEN)"?
+>=20
+> TIA :)
+>=20
+> int inet_csk_listen_start(struct sock *sk, const int nr_table_entries=
+)
+> {
+> 	struct inet_sock *inet =3D inet_sk(sk);
+> 	struct inet_connection_sock *icsk =3D inet_csk(sk);
+> 	int rc =3D reqsk_queue_alloc(&icsk->icsk_accept_queue, nr_table_entr=
+ies);
+>=20
+> 	if (rc !=3D 0)
+> 		return rc;
+>=20
+> 	sk->sk_max_ack_backlog =3D 0;
+> 	sk->sk_ack_backlog =3D 0;
+> 	inet_csk_delack_init(sk);
+>=20
+> 	/* There is race window here: we announce ourselves listening,
+> 	 * but this transition is still not validated by get_port().
+> 	 * It is OK, because this socket enters to hash table only
+> 	 * after validation is complete.
+> 	 */
+> 	sk->sk_state =3D TCP_LISTEN;
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Because its not necessary ?
 
- drivers/net/ixgbevf/ixgbevf_main.c |   24 +-----------------------
- drivers/net/ixgbevf/vf.c           |   24 ++++++++++++------------
- drivers/net/ixgbevf/vf.h           |    4 ++--
- 3 files changed, 15 insertions(+), 37 deletions(-)
+tcp_set_state() takes care of particular state transitions.
 
-diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
-index d6cbd94..9aaebd3 100644
---- a/drivers/net/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ixgbevf/ixgbevf_main.c
-@@ -1495,22 +1495,6 @@ static void ixgbevf_restore_vlan(struct ixgbevf_adapter *adapter)
- 	}
- }
- 
--static u8 *ixgbevf_addr_list_itr(struct ixgbe_hw *hw, u8 **mc_addr_ptr,
--				 u32 *vmdq)
--{
--	struct dev_mc_list *mc_ptr;
--	u8 *addr = *mc_addr_ptr;
--	*vmdq = 0;
--
--	mc_ptr = container_of(addr, struct dev_mc_list, dmi_addr[0]);
--	if (mc_ptr->next)
--		*mc_addr_ptr = mc_ptr->next->dmi_addr;
--	else
--		*mc_addr_ptr = NULL;
--
--	return addr;
--}
--
- /**
-  * ixgbevf_set_rx_mode - Multicast set
-  * @netdev: network interface device structure
-@@ -1523,16 +1507,10 @@ static void ixgbevf_set_rx_mode(struct net_device *netdev)
- {
- 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
--	u8 *addr_list = NULL;
--	int addr_count = 0;
- 
- 	/* reprogram multicast list */
--	addr_count = netdev_mc_count(netdev);
--	if (addr_count)
--		addr_list = netdev->mc_list->dmi_addr;
- 	if (hw->mac.ops.update_mc_addr_list)
--		hw->mac.ops.update_mc_addr_list(hw, addr_list, addr_count,
--						ixgbevf_addr_list_itr);
-+		hw->mac.ops.update_mc_addr_list(hw, netdev);
- }
- 
- static void ixgbevf_napi_enable_all(struct ixgbevf_adapter *adapter)
-diff --git a/drivers/net/ixgbevf/vf.c b/drivers/net/ixgbevf/vf.c
-index 4b5dec0..f457c52 100644
---- a/drivers/net/ixgbevf/vf.c
-+++ b/drivers/net/ixgbevf/vf.c
-@@ -252,22 +252,18 @@ static s32 ixgbevf_set_rar_vf(struct ixgbe_hw *hw, u32 index, u8 *addr,
- /**
-  *  ixgbevf_update_mc_addr_list_vf - Update Multicast addresses
-  *  @hw: pointer to the HW structure
-- *  @mc_addr_list: array of multicast addresses to program
-- *  @mc_addr_count: number of multicast addresses to program
-- *  @next: caller supplied function to return next address in list
-+ *  @netdev: pointer to net device structure
-  *
-  *  Updates the Multicast Table Array.
-  **/
--static s32 ixgbevf_update_mc_addr_list_vf(struct ixgbe_hw *hw, u8 *mc_addr_list,
--					u32 mc_addr_count,
--					ixgbe_mc_addr_itr next)
-+static s32 ixgbevf_update_mc_addr_list_vf(struct ixgbe_hw *hw,
-+					  struct net_device *netdev)
- {
-+	struct dev_addr_list *dmi;
- 	struct ixgbe_mbx_info *mbx = &hw->mbx;
- 	u32 msgbuf[IXGBE_VFMAILBOX_SIZE];
- 	u16 *vector_list = (u16 *)&msgbuf[1];
--	u32 vector;
- 	u32 cnt, i;
--	u32 vmdq;
- 
- 	/* Each entry in the list uses 1 16 bit word.  We have 30
- 	 * 16 bit words available in our HW msg buffer (minus 1 for the
-@@ -278,13 +274,17 @@ static s32 ixgbevf_update_mc_addr_list_vf(struct ixgbe_hw *hw, u8 *mc_addr_list,
- 	 * addresses except for in large enterprise network environments.
- 	 */
- 
--	cnt = (mc_addr_count > 30) ? 30 : mc_addr_count;
-+	cnt = netdev_mc_count(netdev);
-+	if (cnt > 30)
-+		cnt = 30;
- 	msgbuf[0] = IXGBE_VF_SET_MULTICAST;
- 	msgbuf[0] |= cnt << IXGBE_VT_MSGINFO_SHIFT;
- 
--	for (i = 0; i < cnt; i++) {
--		vector = ixgbevf_mta_vector(hw, next(hw, &mc_addr_list, &vmdq));
--		vector_list[i] = vector;
-+	i = 0;
-+	netdev_for_each_mc_addr(dmi, netdev) {
-+		if (i == cnt)
-+			break;
-+		vector_list[i++] = ixgbevf_mta_vector(hw, dmi->dmi_addr);
- 	}
- 
- 	mbx->ops.write_posted(hw, msgbuf, IXGBE_VFMAILBOX_SIZE);
-diff --git a/drivers/net/ixgbevf/vf.h b/drivers/net/ixgbevf/vf.h
-index 1f31b05..94b750b 100644
---- a/drivers/net/ixgbevf/vf.h
-+++ b/drivers/net/ixgbevf/vf.h
-@@ -32,6 +32,7 @@
- #include <linux/delay.h>
- #include <linux/interrupt.h>
- #include <linux/if_ether.h>
-+#include <linux/netdevice.h>
- 
- #include "defines.h"
- #include "regs.h"
-@@ -62,8 +63,7 @@ struct ixgbe_mac_operations {
- 	/* RAR, Multicast, VLAN */
- 	s32 (*set_rar)(struct ixgbe_hw *, u32, u8 *, u32);
- 	s32 (*init_rx_addrs)(struct ixgbe_hw *);
--	s32 (*update_mc_addr_list)(struct ixgbe_hw *, u8 *, u32,
--				   ixgbe_mc_addr_itr);
-+	s32 (*update_mc_addr_list)(struct ixgbe_hw *, struct net_device *);
- 	s32 (*enable_mc)(struct ixgbe_hw *);
- 	s32 (*disable_mc)(struct ixgbe_hw *);
- 	s32 (*clear_vfta)(struct ixgbe_hw *);
+In case of inet_csk_listen_start(), old state is TCP_CLOSE, so there is
+nothing special to do in tcp_set_state().
+
+
 
