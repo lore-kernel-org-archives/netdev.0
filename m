@@ -1,47 +1,45 @@
-From: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [patch] mac80211: remove unneed variable from
-	ieee80211_tx_pending()
-Date: Wed, 24 Mar 2010 14:56:41 +0300
-Message-ID: <20100324115641.GE21571@bicker>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] rds: cleanup: remove unneeded variable
+Date: Wed, 24 Mar 2010 14:57:30 +0300
+Message-ID: <20100324115730.GF21571@bicker>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Eric Paris <eparis@redhat.com>, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Andy Grover <andy.grover@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:53932 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755557Ab0CXL5j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 07:57:39 -0400
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We don't need "sdata" any more after:
-	d84f323477260e773d5317ad7cbe50f76115cb47
-	mac80211: remove dev_hold/put calls
+We never use "sk" so this patch removes it.
 
-Signed-off-by: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
-index cbe53ed..08e1f17 100644
---- a/net/mac80211/tx.c
-+++ b/net/mac80211/tx.c
-@@ -2010,14 +2010,12 @@ void ieee80211_tx_pending(unsigned long data)
- 		while (!skb_queue_empty(&local->pending[i])) {
- 			struct sk_buff *skb = __skb_dequeue(&local->pending[i]);
- 			struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
--			struct ieee80211_sub_if_data *sdata;
+diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
+index 853c52b..9abc825 100644
+--- a/net/rds/af_rds.c
++++ b/net/rds/af_rds.c
+@@ -446,7 +446,6 @@ static void rds_sock_inc_info(struct socket *sock, unsigned int len,
+ 			      struct rds_info_lengths *lens)
+ {
+ 	struct rds_sock *rs;
+-	struct sock *sk;
+ 	struct rds_incoming *inc;
+ 	unsigned long flags;
+ 	unsigned int total = 0;
+@@ -456,7 +455,6 @@ static void rds_sock_inc_info(struct socket *sock, unsigned int len,
+ 	spin_lock_irqsave(&rds_sock_lock, flags);
  
- 			if (WARN_ON(!info->control.vif)) {
- 				kfree_skb(skb);
- 				continue;
- 			}
+ 	list_for_each_entry(rs, &rds_sock_list, rs_item) {
+-		sk = rds_rs_to_sk(rs);
+ 		read_lock(&rs->rs_recv_lock);
  
--			sdata = vif_to_sdata(info->control.vif);
- 			spin_unlock_irqrestore(&local->queue_stop_reason_lock,
- 						flags);
- 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 		/* XXX too lazy to maintain counts.. */
