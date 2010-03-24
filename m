@@ -1,45 +1,58 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] rds: cleanup: remove unneeded variable
-Date: Wed, 24 Mar 2010 14:57:30 +0300
-Message-ID: <20100324115730.GF21571@bicker>
+From: Xiaofei Wu <xiaofei_wu08@yahoo.com>
+Subject: [iproute2]  tc pedit   modify  ethhdr ?
+Date: Wed, 24 Mar 2010 05:31:47 -0700 (PDT)
+Message-ID: <370745.69240.qm@web111619.mail.gq1.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Eric Paris <eparis@redhat.com>, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Andy Grover <andy.grover@oracle.com>
+Cc: hadi <hadi@cyberus.ca>, linux netdev <netdev@vger.kernel.org>
+To: stephen.hemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:53932 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755557Ab0CXL5j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 07:57:39 -0400
-Content-Disposition: inline
+Received: from n12.bullet.mail.ac4.yahoo.com ([74.6.228.92]:31092 "HELO
+	n12.bullet.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755742Ab0CXMb7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 08:31:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We never use "sk" so this patch removes it.
+Hi all,
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
+I want to modify  a packet's   h_dest and h_source in  structethhdr { } .
 
-diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
-index 853c52b..9abc825 100644
---- a/net/rds/af_rds.c
-+++ b/net/rds/af_rds.c
-@@ -446,7 +446,6 @@ static void rds_sock_inc_info(struct socket *sock, unsigned int len,
- 			      struct rds_info_lengths *lens)
- {
- 	struct rds_sock *rs;
--	struct sock *sk;
- 	struct rds_incoming *inc;
- 	unsigned long flags;
- 	unsigned int total = 0;
-@@ -456,7 +455,6 @@ static void rds_sock_inc_info(struct socket *sock, unsigned int len,
- 	spin_lock_irqsave(&rds_sock_lock, flags);
- 
- 	list_for_each_entry(rs, &rds_sock_list, rs_item) {
--		sk = rds_rs_to_sk(rs);
- 		read_lock(&rs->rs_recv_lock);
- 
- 		/* XXX too lazy to maintain counts.. */
+in   tc / m_pedit.c
+------
+
+36 explain(void)
+37 {
+38         fprintf(stderr, "Usage: ... pedit munge <MUNGE>\n");
+39         fprintf(stderr,
+40                 "Where: MUNGE := <RAW>|<LAYERED>\n"
+41                 "\t<RAW>:= <OFFSETC>[ATC]<CMD>\n "
+42                 "\t\tOFFSETC:= offset <offval> <u8|u16|u32>\n "
+43                 "\t\tATC:= at <atval> offmask <maskval> shift <shiftval>\n "
+44                 "\t\tNOTE: offval is byte offset, must be multiple of 4\n "
+45                 "\t\tNOTE: maskval is a 32 bit hex number\n "
+46                 "\t\tNOTE: shiftval is a is a shift value\n "
+47                 "\t\tCMD:= clear | invert | set <setval>| retain\n "
+48                 "\t<LAYERED>:= ip <ipdata> | ip6 <ip6data> \n "
+49                 " \t\t| udp <udpdata> | tcp <tcpdata> | icmp <icmpdata> \n"
+50                 "For Example usage look at the examples directory\n");
+51 
+52 }
+------
+
+OFFSETC:= offset <offval> <u8|u16|u32>
+NOTE: offval is byte offset, must be multiple of 4
+
+but the size of ethhdr is 14 bytes, 14 is not multiple of 4 .
+How to use 'tc ... pedit ...'  modify  a packet's   h_dest and h_source 
+of ethhdr ?
+Use ' ... pedit munge offset -14 u16 set 0x0090 munge offset -12 u32 set 0x9600030a ... '   or 
+use ' ... pedit munge offset -16 u32 ... munge offset -12  ... '  ?
+
+
+--
+Wu
+
+
+      
+
