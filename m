@@ -1,40 +1,28 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [RFC Patch 1/3] netpoll: add generic support for bridge and bonding
- devices
-Date: Wed, 24 Mar 2010 10:29:57 +0800
-Message-ID: <4BA97925.2070500@redhat.com>
-References: <20100322082059.4967.63492.sendpatchset@localhost.localdomain>	<1269297081.3552.19.camel@calx> <x49zl1zxmou.fsf@segfault.boston.devel.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] net: add additional lock to qdisc to increase
+ enqueue/dequeue fairness
+Date: Tue, 23 Mar 2010 19:58:55 -0700 (PDT)
+Message-ID: <20100323.195855.00471034.davem@davemloft.net>
+References: <1269377667.2915.25.camel@edumazet-laptop>
+	<20100323.144512.140757007.davem@davemloft.net>
+	<80769D7B14936844A23C0C43D9FBCF0F254E49AC69@orsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Matt Mackall <mpm@selenic.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Andy Gospodarek <gospo@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	bonding-devel@lists.sourceforge.net,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	David Miller <davem@davemloft.net>
-To: Jeff Moyer <jmoyer@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <x49zl1zxmou.fsf@segfault.boston.devel.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: alexander.h.duyck@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43927
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754507Ab0CXC6d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 22:58:33 -0400
+In-Reply-To: <80769D7B14936844A23C0C43D9FBCF0F254E49AC69@orsmsx501.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jeff Moyer wrote:
-> Matt Mackall <mpm@selenic.com> writes:
-> 
->> On Mon, 2010-03-22 at 04:17 -0400, Amerigo Wang wrote:
->>> This whole patchset is for adding netpoll support to bridge and bonding
->>> devices. I already tested it for bridge, bonding, bridge over bonding,
->>> and bonding over bridge. It looks fine now.
->> Ages ago, Jeff Moyer took a run at this, added him to the cc: on the off
->> chance he still cares.
-> 
-> I'll take a look at it in a bit.  For now, here is the link to my
-> original post on this for Amerigo's reading pleasure:
-> 
->   http://lkml.indiana.edu/hypermail/linux/kernel/0507.0/0206.html
-> 
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Date: Tue, 23 Mar 2010 15:08:12 -0700
 
-Thanks, Jeff! I will take a look at it.
+> I'll do some digging on this to see what I can find out.
+
+Please see:  http://vger.kernel.org/jamal_netconf2006.sxi
