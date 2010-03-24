@@ -1,51 +1,49 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [patch] af_key: return error if pfkey_xfrm_policy2msg_prep()
- fails
-Date: Wed, 24 Mar 2010 09:46:23 -0400
-Message-ID: <1269438383.4089.15.camel@bigi>
-References: <20100324114700.GB21571@bicker>
+Subject: Re: [iproute2]  tc pedit   modify  ethhdr ?
+Date: Wed, 24 Mar 2010 09:50:52 -0400
+Message-ID: <1269438652.4089.22.camel@bigi>
+References: <370745.69240.qm@web111619.mail.gq1.yahoo.com>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
+Cc: stephen.hemminger@vyatta.com, linux netdev <netdev@vger.kernel.org>
+To: Xiaofei Wu <xiaofei_wu08@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:45383 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755331Ab0CXNqZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 09:46:25 -0400
-In-Reply-To: <20100324114700.GB21571@bicker>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:56057 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755688Ab0CXNuw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 09:50:52 -0400
+Received: by pwi5 with SMTP id 5so3912949pwi.19
+        for <netdev@vger.kernel.org>; Wed, 24 Mar 2010 06:50:52 -0700 (PDT)
+In-Reply-To: <370745.69240.qm@web111619.mail.gq1.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-03-24 at 14:47 +0300, Dan Carpenter wrote:
-> The original code saved the error value but just returned 0 in the end.
+On Wed, 2010-03-24 at 05:31 -0700, Xiaofei Wu wrote:
 
-Looks reasonable and harmless. 
-If you have time - can you try this one test with your patch and see if
-any strange message shows up when you delete? add a policy on window1,
-on window2 run ip xfrm mon and then back on window1 delete it and watch
-the event on window2
+> but the size of ethhdr is 14 bytes, 14 is not multiple of 4 .
+> How to use 'tc ... pedit ...'  modify  a packet's   h_dest and h_source 
+> of ethhdr ?
+> Use ' ... pedit munge offset -14 u16 set 0x0090 munge offset -12 u32 set 0x9600030a ... '   or 
+> use ' ... pedit munge offset -16 u32 ... munge offset -12  ... '  ?
+> 
 
-----
-window2: ip xfrm mon
+0 is at ip header.
+dst MAC starts at -14
+src MAC at -8
+ethertype at -2
 
-window1, add:
-ip xfrm policy add src 172.16.2.0/24 dst 172.16.1.0/24 \
-        dir fwd ptype main \
-        tmpl src 192.168.2.100 dst 192.168.1.100 \
-        proto esp mode tunnel
-
-
-window1, delete:
-ip xfrm pol del src 172.16.2.0/24 dst 172.16.1.0/24 dir fwd
-----
+Example:
+tc filter add dev eth0 parent ffff: protocol ip prio 10 u32 \
+match ip src 192.168.1.10/32 flowid 1:2 \
+action pedit munge offset -14 u16 set 0x0000 \
+munge offset -12 u32 set 0x00010100 \
+munge offset -8 u32 set 0x0aaf0100 \
+munge offset -4 u32 set 0x0008ec06 pipe \
+action mirred egress redirect dev eth1
 
 cheers,
 jamal
+
 
