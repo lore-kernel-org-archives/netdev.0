@@ -1,85 +1,92 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 1/2] ixgbe: Priority tag FIP frames
-Date: Wed, 24 Mar 2010 15:45:00 -0700
-Message-ID: <20100324224500.6653.28216.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH 2/2] ixgbe: filter FIP frames into the FCoE offload
+	queues
+Date: Wed, 24 Mar 2010 15:45:21 -0700
+Message-ID: <20100324224521.6653.17418.stgit@localhost.localdomain>
+References: <20100324224500.6653.28216.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Robert Love <robert.w.love@intel.com>,
 	Chris Leech <christopher.leech@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta14.emeryville.ca.mail.comcast.net ([76.96.27.212]:48673
-	"EHLO qmta14.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750826Ab0CXWpV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 18:45:21 -0400
+Received: from qmta04.emeryville.ca.mail.comcast.net ([76.96.30.40]:42425 "EHLO
+	qmta04.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751426Ab0CXWpj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 18:45:39 -0400
+In-Reply-To: <20100324224500.6653.28216.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Robert Love <robert.w.love@intel.com>
+From: Chris Leech <christopher.leech@intel.com>
 
-Currently FIP (FCoE Initialization Protocol) frames
-are going untagged. This causes various problems
-with FCFs (switches) that have negotiated a priority
-over dcbx. This patch tags FIP frames with the same
-priority as the FCoE frames.
+During FCF solicitation, the switch is supposed to pad the
+solicited advertisement out to the endpoints specified
+maximum FCoE frame size.  That means that we need to receive
+FIP frames that are larger than the standard MTU.  To make
+sure the receive queue is configured correctly, we should be
+filtering FIP traffic into the FCoE queues.
 
-Signed-off-by: Robert Love <robert.w.love@intel.com>
 Signed-off-by: Chris Leech <christopher.leech@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |   26 +++++++++++++++++---------
- 1 files changed, 17 insertions(+), 9 deletions(-)
+ drivers/net/ixgbe/ixgbe_fcoe.c |   15 +++++++++++++++
+ drivers/net/ixgbe/ixgbe_type.h |    1 +
+ 2 files changed, 16 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index a9147e5..997d997 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -5628,7 +5628,8 @@ static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb)
- 
- #ifdef IXGBE_FCOE
- 	if ((adapter->flags & IXGBE_FLAG_FCOE_ENABLED) &&
--	    (skb->protocol == htons(ETH_P_FCOE))) {
-+	    ((skb->protocol == htons(ETH_P_FCOE)) ||
-+	     (skb->protocol == htons(ETH_P_FIP)))) {
- 		txq &= (adapter->ring_feature[RING_F_FCOE].indices - 1);
- 		txq += adapter->ring_feature[RING_F_FCOE].mask;
- 		return txq;
-@@ -5675,18 +5676,25 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
- 
- 	tx_ring = adapter->tx_ring[skb->queue_mapping];
- 
--	if ((adapter->flags & IXGBE_FLAG_FCOE_ENABLED) &&
--	    (skb->protocol == htons(ETH_P_FCOE))) {
--		tx_flags |= IXGBE_TX_FLAGS_FCOE;
- #ifdef IXGBE_FCOE
-+	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED) {
- #ifdef CONFIG_IXGBE_DCB
--		tx_flags &= ~(IXGBE_TX_FLAGS_VLAN_PRIO_MASK
--			      << IXGBE_TX_FLAGS_VLAN_SHIFT);
--		tx_flags |= ((adapter->fcoe.up << 13)
--			      << IXGBE_TX_FLAGS_VLAN_SHIFT);
--#endif
-+		/* for FCoE with DCB, we force the priority to what
-+		 * was specified by the switch */
-+		if ((skb->protocol == htons(ETH_P_FCOE)) ||
-+		    (skb->protocol == htons(ETH_P_FIP))) {
-+			tx_flags &= ~(IXGBE_TX_FLAGS_VLAN_PRIO_MASK
-+				      << IXGBE_TX_FLAGS_VLAN_SHIFT);
-+			tx_flags |= ((adapter->fcoe.up << 13)
-+				     << IXGBE_TX_FLAGS_VLAN_SHIFT);
-+		}
- #endif
-+		/* flag for FCoE offloads */
-+		if (skb->protocol == htons(ETH_P_FCOE))
-+			tx_flags |= IXGBE_TX_FLAGS_FCOE;
+diff --git a/drivers/net/ixgbe/ixgbe_fcoe.c b/drivers/net/ixgbe/ixgbe_fcoe.c
+index e1978da..9276d59 100644
+--- a/drivers/net/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ixgbe/ixgbe_fcoe.c
+@@ -522,6 +522,9 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
+ 	/* Enable L2 eth type filter for FCoE */
+ 	IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_FCOE),
+ 			(ETH_P_FCOE | IXGBE_ETQF_FCOE | IXGBE_ETQF_FILTER_EN));
++	/* Enable L2 eth type filter for FIP */
++	IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_FIP),
++			(ETH_P_FIP | IXGBE_ETQF_FILTER_EN));
+ 	if (adapter->ring_feature[RING_F_FCOE].indices) {
+ 		/* Use multiple rx queues for FCoE by redirection table */
+ 		for (i = 0; i < IXGBE_FCRETA_SIZE; i++) {
+@@ -532,6 +535,12 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
+ 		}
+ 		IXGBE_WRITE_REG(hw, IXGBE_FCRECTL, IXGBE_FCRECTL_ENA);
+ 		IXGBE_WRITE_REG(hw, IXGBE_ETQS(IXGBE_ETQF_FILTER_FCOE), 0);
++		fcoe_i = f->mask;
++		fcoe_i &= IXGBE_FCRETA_ENTRY_MASK;
++		fcoe_q = adapter->rx_ring[fcoe_i]->reg_idx;
++		IXGBE_WRITE_REG(hw, IXGBE_ETQS(IXGBE_ETQF_FILTER_FIP),
++				IXGBE_ETQS_QUEUE_EN |
++				(fcoe_q << IXGBE_ETQS_RX_QUEUE_SHIFT));
+ 	} else  {
+ 		/* Use single rx queue for FCoE */
+ 		fcoe_i = f->mask;
+@@ -541,6 +550,12 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
+ 				IXGBE_ETQS_QUEUE_EN |
+ 				(fcoe_q << IXGBE_ETQS_RX_QUEUE_SHIFT));
  	}
-+#endif
-+
- 	/* four things can cause us to need a context descriptor */
- 	if (skb_is_gso(skb) ||
- 	    (skb->ip_summed == CHECKSUM_PARTIAL) ||
++	/* send FIP frames to the first FCoE queue */
++	fcoe_i = f->mask;
++	fcoe_q = adapter->rx_ring[fcoe_i]->reg_idx;
++	IXGBE_WRITE_REG(hw, IXGBE_ETQS(IXGBE_ETQF_FILTER_FIP),
++			IXGBE_ETQS_QUEUE_EN |
++			(fcoe_q << IXGBE_ETQS_RX_QUEUE_SHIFT));
+ 
+ 	IXGBE_WRITE_REG(hw, IXGBE_FCRXCTRL,
+ 			IXGBE_FCRXCTRL_FCOELLI |
+diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
+index c574d0a..aed4ed6 100644
+--- a/drivers/net/ixgbe/ixgbe_type.h
++++ b/drivers/net/ixgbe/ixgbe_type.h
+@@ -1298,6 +1298,7 @@
+ #define IXGBE_ETQF_FILTER_BCN            1
+ #define IXGBE_ETQF_FILTER_FCOE           2
+ #define IXGBE_ETQF_FILTER_1588           3
++#define IXGBE_ETQF_FILTER_FIP            4
+ /* VLAN Control Bit Masks */
+ #define IXGBE_VLNCTRL_VET       0x0000FFFF  /* bits 0-15 */
+ #define IXGBE_VLNCTRL_CFI       0x10000000  /* bit 28 */
 
