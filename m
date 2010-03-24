@@ -1,52 +1,37 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH v2 2/2] vlan: updates vlan real_num_tx_queues
-Date: Tue, 23 Mar 2010 17:42:05 -0700
-Message-ID: <20100324004204.31609.55285.stgit@localhost.localdomain>
-References: <20100324004116.31609.73183.stgit@localhost.localdomain>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [RFC PATCH] net: add additional lock to qdisc to increase enqueue/dequeue fairness
+Date: Wed, 24 Mar 2010 03:12:12 +0100
+Message-ID: <87634mh3ib.fsf@basil.nowhere.org>
+References: <20100323202553.21598.10754.stgit@gitlad.jf.intel.com>
+	<20100323.133124.139557595.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Vasu Dev <vasu.dev@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:39317
-	"EHLO qmta04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753560Ab0CXAmY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 20:42:24 -0400
-In-Reply-To: <20100324004116.31609.73183.stgit@localhost.localdomain>
+Received: from one.firstfloor.org ([213.235.205.2]:42355 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752342Ab0CXCMT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Mar 2010 22:12:19 -0400
+In-Reply-To: <20100323.133124.139557595.davem@davemloft.net> (David Miller's message of "Tue, 23 Mar 2010 13:31:24 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasu Dev <vasu.dev@intel.com>
+David Miller <davem@davemloft.net> writes:
 
-Updates real_num_tx_queues in case underlying real device
-has changed real_num_tx_queues.
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> Date: Tue, 23 Mar 2010 13:25:53 -0700
+>
+>> The qdisc layer shows a significant issue when you start transmitting from
+>> multiple CPUs.
+>
+> Why are you hitting any central qdisc lock on a multiqueue
+> configuration?
 
--v2
- As per Eric Dumazet<eric.dumazet@gmail.com> comment:-
-   -- adds BUG_ON to catch case of real_num_tx_queues exceeding num_tx_queues.
-   -- created this self contained patch to just update real_num_tx_queues.
+One thing to remember is that systems can have a lot more CPUs than a NIC queues
+(e.g. 64 vs 8)
 
-Signed-off-by: Vasu Dev <vasu.dev@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+-Andi
 
- net/8021q/vlan.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 4535122..db783d7 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -378,6 +378,8 @@ static void vlan_transfer_features(struct net_device *dev,
- #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
- 	vlandev->fcoe_ddp_xid = dev->fcoe_ddp_xid;
- #endif
-+	vlandev->real_num_tx_queues = dev->real_num_tx_queues;
-+	BUG_ON(vlandev->real_num_tx_queues > vlandev->num_tx_queues);
- 
- 	if (old_features != vlandev->features)
- 		netdev_features_change(vlandev);
-
+-- 
+ak@linux.intel.com -- Speaking for myself only.
