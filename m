@@ -1,34 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] igb: count Rx FIFO errors correctly
-Date: Tue, 23 Mar 2010 23:20:47 -0700 (PDT)
-Message-ID: <20100323.232047.11981843.davem@davemloft.net>
-References: <20100324043437.32036.44229.stgit@localhost.localdomain>
+Subject: Re: [PATCH] igb: do not modify tx_queue_len on link speed change
+Date: Tue, 23 Mar 2010 23:20:54 -0700 (PDT)
+Message-ID: <20100323.232054.209600587.davem@davemloft.net>
+References: <20100324043456.32036.21219.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	mitch.a.williams@intel.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, emil.s.tantilov@intel.com
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34411
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34417
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754799Ab0CXGUY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 02:20:24 -0400
-In-Reply-To: <20100324043437.32036.44229.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1754799Ab0CXGUb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 02:20:31 -0400
+In-Reply-To: <20100324043456.32036.21219.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 23 Mar 2010 21:34:38 -0700
+Date: Tue, 23 Mar 2010 21:34:57 -0700
 
-> From: Mitch Williams <mitch.a.williams@intel.com>
+> From: Emil Tantilov <emil.s.tantilov@intel.com>
 > 
-> Don't aggregate rx_no_buffer_count into rx_fifo_errors. RNBC counts
-> packets that get queued temporarily in the adapter's FIFO. These
-> packets are not dropped and are not errors. The correct counter
-> is rx_missed_errors (MPC).
+> Previously the driver tweaked txqueuelen to avoid false Tx hang reports seen at half duplex.
+> This had the effect of overriding user set values on link change/reset. Testing shows that
+> adjusting only the timeout factor is sufficient to prevent Tx hang reports at half duplex.
 > 
-> Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+> Based on e1000e patch by Franco Fichtner <franco@lastsummer.de>
+> 
+> Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
