@@ -1,11 +1,9 @@
 From: Frans Pop <elendil@planet.nl>
-Subject: [PATCH 4/7] wireless/iwlwifi: remove trailing space in messages
-Date: Wed, 24 Mar 2010 19:46:32 +0100
-Message-ID: <1269456395-15343-4-git-send-email-elendil@planet.nl>
+Subject: [PATCH 3/7] wireless/ipw2x00: remove trailing space in messages
+Date: Wed, 24 Mar 2010 19:46:31 +0100
+Message-ID: <1269456395-15343-3-git-send-email-elendil@planet.nl>
 References: <201003241927.12434.elendil@planet.nl>
-Cc: Frans Pop <elendil@planet.nl>, Zhu Yi <yi.zhu@intel.com>,
-	Reinette Chatre <reinette.chatre@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>
+Cc: Frans Pop <elendil@planet.nl>
 To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -13,316 +11,504 @@ In-Reply-To: <201003241927.12434.elendil@planet.nl>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Includes minor improvements in debugging messages in iwl-4965.c,
-function iwl4965_is_temp_calib_needed().
-
 Signed-off-by: Frans Pop <elendil@planet.nl>
-Cc: Zhu Yi <yi.zhu@intel.com>
-Cc: Reinette Chatre <reinette.chatre@intel.com>
-Cc: Intel Linux Wireless <ilw@linux.intel.com>
-
-wireless/intel
 ---
- drivers/net/wireless/iwlwifi/iwl-3945.c     |    4 ++--
- drivers/net/wireless/iwlwifi/iwl-4965.c     |   12 ++++++------
- drivers/net/wireless/iwlwifi/iwl-agn-rs.c   |    2 +-
- drivers/net/wireless/iwlwifi/iwl-agn.c      |    2 +-
- drivers/net/wireless/iwlwifi/iwl-calib.c    |    2 +-
- drivers/net/wireless/iwlwifi/iwl-core.c     |    6 +++---
- drivers/net/wireless/iwlwifi/iwl-hcmd.c     |    4 ++--
- drivers/net/wireless/iwlwifi/iwl-io.h       |    2 +-
- drivers/net/wireless/iwlwifi/iwl-power.c    |    2 +-
- drivers/net/wireless/iwlwifi/iwl-rx.c       |    2 +-
- drivers/net/wireless/iwlwifi/iwl-scan.c     |    2 +-
- drivers/net/wireless/iwlwifi/iwl-sta.c      |    4 ++--
- drivers/net/wireless/iwlwifi/iwl-tx.c       |    8 ++++----
- drivers/net/wireless/iwlwifi/iwl3945-base.c |    6 +++---
- 14 files changed, 29 insertions(+), 29 deletions(-)
+ drivers/net/wireless/ipw2x00/ipw2100.c |   38 ++++++++--------
+ drivers/net/wireless/ipw2x00/ipw2200.c |   74 ++++++++++++++++----------------
+ 2 files changed, 56 insertions(+), 56 deletions(-)
 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-3945.c b/drivers/net/wireless/iwlwifi/iwl-3945.c
-index 12a42fc..e3e5399 100644
---- a/drivers/net/wireless/iwlwifi/iwl-3945.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-3945.c
-@@ -486,7 +486,7 @@ static void _iwl3945_dbg_report_frame(struct iwl_priv *priv,
- 		 *    but you can hack it to show more, if you'd like to. */
- 		if (dataframe)
- 			IWL_DEBUG_RX(priv, "%s: mhd=0x%04x, dst=0x%02x, "
--				     "len=%u, rssi=%d, chnl=%d, rate=%d, \n",
-+				     "len=%u, rssi=%d, chnl=%d, rate=%d,\n",
- 				     title, le16_to_cpu(fc), header->addr1[5],
- 				     length, rssi, channel, rate);
- 		else {
-@@ -1049,7 +1049,7 @@ static void iwl3945_nic_config(struct iwl_priv *priv)
- 	IWL_DEBUG_INFO(priv, "HW Revision ID = 0x%X\n", rev_id);
+diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
+index fe63bf2..2088ac0 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2100.c
++++ b/drivers/net/wireless/ipw2x00/ipw2100.c
+@@ -2140,7 +2140,7 @@ static void isr_indicate_association_lost(struct ipw2100_priv *priv, u32 status)
+ 	DECLARE_SSID_BUF(ssid);
  
- 	if (rev_id & PCI_CFG_REV_ID_BIT_RTP)
--		IWL_DEBUG_INFO(priv, "RTP type \n");
-+		IWL_DEBUG_INFO(priv, "RTP type\n");
- 	else if (rev_id & PCI_CFG_REV_ID_BIT_BASIC_SKU) {
- 		IWL_DEBUG_INFO(priv, "3945 RADIO-MB type\n");
- 		iwl_set_bit(priv, CSR_HW_IF_CONFIG_REG,
-diff --git a/drivers/net/wireless/iwlwifi/iwl-4965.c b/drivers/net/wireless/iwlwifi/iwl-4965.c
-index 644aacf..ee85e5a 100644
---- a/drivers/net/wireless/iwlwifi/iwl-4965.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-4965.c
-@@ -417,7 +417,7 @@ static void iwl4965_gain_computation(struct iwl_priv *priv,
- 				      sizeof(cmd), &cmd);
- 		if (ret)
- 			IWL_DEBUG_CALIB(priv, "fail sending cmd "
--				     "REPLY_PHY_CALIBRATION_CMD \n");
-+				     "REPLY_PHY_CALIBRATION_CMD\n");
+ 	IPW_DEBUG(IPW_DL_NOTIF | IPW_DL_STATE | IPW_DL_ASSOC,
+-		  "disassociated: '%s' %pM \n",
++		  "disassociated: '%s' %pM\n",
+ 		  print_ssid(ssid, priv->essid, priv->essid_len),
+ 		  priv->bssid);
  
- 		/* TODO we might want recalculate
- 		 * rx_chain in rxon cmd */
-@@ -1619,19 +1619,19 @@ static int iwl4965_is_temp_calib_needed(struct iwl_priv *priv)
+@@ -3285,7 +3285,7 @@ static void ipw2100_irq_tasklet(struct ipw2100_priv *priv)
  
- 	/* get absolute value */
- 	if (temp_diff < 0) {
--		IWL_DEBUG_POWER(priv, "Getting cooler, delta %d, \n", temp_diff);
-+		IWL_DEBUG_POWER(priv, "Getting cooler, delta %d\n", temp_diff);
- 		temp_diff = -temp_diff;
- 	} else if (temp_diff == 0)
--		IWL_DEBUG_POWER(priv, "Same temp, \n");
-+		IWL_DEBUG_POWER(priv, "Temperature unchanged\n");
+ 	if (inta & IPW2100_INTA_PARITY_ERROR) {
+ 		printk(KERN_ERR DRV_NAME
+-		       ": ***** PARITY ERROR INTERRUPT !!!! \n");
++		       ": ***** PARITY ERROR INTERRUPT !!!!\n");
+ 		priv->inta_other++;
+ 		write_register(dev, IPW_REG_INTA, IPW2100_INTA_PARITY_ERROR);
+ 	}
+@@ -6753,7 +6753,7 @@ static int ipw2100_wx_set_freq(struct net_device *dev,
+ 		err = -EOPNOTSUPP;
+ 		goto done;
+ 	} else {		/* Set the channel */
+-		IPW_DEBUG_WX("SET Freq/Channel -> %d \n", fwrq->m);
++		IPW_DEBUG_WX("SET Freq/Channel -> %d\n", fwrq->m);
+ 		err = ipw2100_set_channel(priv, fwrq->m, 0);
+ 	}
+ 
+@@ -6782,7 +6782,7 @@ static int ipw2100_wx_get_freq(struct net_device *dev,
  	else
--		IWL_DEBUG_POWER(priv, "Getting warmer, delta %d, \n", temp_diff);
-+		IWL_DEBUG_POWER(priv, "Getting warmer, delta %d\n", temp_diff);
+ 		wrqu->freq.m = 0;
  
- 	if (temp_diff < IWL_TEMPERATURE_THRESHOLD) {
--		IWL_DEBUG_POWER(priv, "Thermal txpower calib not needed\n");
-+		IWL_DEBUG_POWER(priv, " => thermal txpower calib not needed\n");
- 		return 0;
- 	}
- 
--	IWL_DEBUG_POWER(priv, "Thermal txpower calib needed\n");
-+	IWL_DEBUG_POWER(priv, " => thermal txpower calib needed\n");
- 
- 	return 1;
- }
-diff --git a/drivers/net/wireless/iwlwifi/iwl-agn-rs.c b/drivers/net/wireless/iwlwifi/iwl-agn-rs.c
-index 84271cc..eebc32c 100644
---- a/drivers/net/wireless/iwlwifi/iwl-agn-rs.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-agn-rs.c
-@@ -2004,7 +2004,7 @@ static void rs_rate_scale_perform(struct iwl_priv *priv,
- 	/* rates available for this association, and for modulation mode */
- 	rate_mask = rs_get_supported_rates(lq_sta, hdr, tbl->lq_type);
- 
--	IWL_DEBUG_RATE(priv, "mask 0x%04X \n", rate_mask);
-+	IWL_DEBUG_RATE(priv, "mask 0x%04X\n", rate_mask);
- 
- 	/* mask with station rate restriction */
- 	if (is_legacy(tbl->lq_type)) {
-diff --git a/drivers/net/wireless/iwlwifi/iwl-agn.c b/drivers/net/wireless/iwlwifi/iwl-agn.c
-index efee4e3..5438956 100644
---- a/drivers/net/wireless/iwlwifi/iwl-agn.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
-@@ -2271,7 +2271,7 @@ static int iwl_prepare_card_hw(struct iwl_priv *priv)
- {
- 	int ret = 0;
- 
--	IWL_DEBUG_INFO(priv, "iwl_prepare_card_hw enter \n");
-+	IWL_DEBUG_INFO(priv, "iwl_prepare_card_hw enter\n");
- 
- 	ret = iwl_set_hw_ready(priv);
- 	if (priv->hw_ready)
-diff --git a/drivers/net/wireless/iwlwifi/iwl-calib.c b/drivers/net/wireless/iwlwifi/iwl-calib.c
-index 845831a..dbb50a8 100644
---- a/drivers/net/wireless/iwlwifi/iwl-calib.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-calib.c
-@@ -592,7 +592,7 @@ void iwl_sensitivity_calibration(struct iwl_priv *priv,
- 	IWL_DEBUG_CALIB(priv, "rx_enable_time = %u usecs\n", rx_enable_time);
- 
- 	if (!rx_enable_time) {
--		IWL_DEBUG_CALIB(priv, "<< RX Enable Time == 0! \n");
-+		IWL_DEBUG_CALIB(priv, "<< RX Enable Time == 0!\n");
- 		return;
- 	}
- 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-core.c b/drivers/net/wireless/iwlwifi/iwl-core.c
-index ec435e5..cb2149f 100644
---- a/drivers/net/wireless/iwlwifi/iwl-core.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-core.c
-@@ -444,7 +444,7 @@ void iwl_reset_qos(struct iwl_priv *priv)
- 			priv->qos_data.def_qos_parm.ac[i].reserved1 = 0;
- 		}
- 	}
--	IWL_DEBUG_QOS(priv, "set QoS to default \n");
-+	IWL_DEBUG_QOS(priv, "set QoS to default\n");
- 
- 	spin_unlock_irqrestore(&priv->lock, flags);
- }
-@@ -2009,7 +2009,7 @@ static void iwl_ht_conf(struct iwl_priv *priv,
- 	struct iwl_ht_config *ht_conf = &priv->current_ht_config;
- 	struct ieee80211_sta *sta;
- 
--	IWL_DEBUG_MAC80211(priv, "enter: \n");
-+	IWL_DEBUG_MAC80211(priv, "enter:\n");
- 
- 	if (!ht_conf->is_ht)
- 		return;
-@@ -2567,7 +2567,7 @@ int iwl_alloc_txq_mem(struct iwl_priv *priv)
- 			sizeof(struct iwl_tx_queue) * priv->cfg->num_of_queues,
- 			GFP_KERNEL);
- 	if (!priv->txq) {
--		IWL_ERR(priv, "Not enough memory for txq \n");
-+		IWL_ERR(priv, "Not enough memory for txq\n");
- 		return -ENOMEM;
- 	}
+-	IPW_DEBUG_WX("GET Freq/Channel -> %d \n", priv->channel);
++	IPW_DEBUG_WX("GET Freq/Channel -> %d\n", priv->channel);
  	return 0;
-diff --git a/drivers/net/wireless/iwlwifi/iwl-hcmd.c b/drivers/net/wireless/iwlwifi/iwl-hcmd.c
-index 73681c4..51f89e7 100644
---- a/drivers/net/wireless/iwlwifi/iwl-hcmd.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-hcmd.c
-@@ -169,7 +169,7 @@ int iwl_send_cmd_sync(struct iwl_priv *priv, struct iwl_host_cmd *cmd)
- 	mutex_lock(&priv->sync_cmd_mutex);
  
- 	set_bit(STATUS_HCMD_ACTIVE, &priv->status);
--	IWL_DEBUG_INFO(priv, "Setting HCMD_ACTIVE for command %s \n",
-+	IWL_DEBUG_INFO(priv, "Setting HCMD_ACTIVE for command %s\n",
- 			get_cmd_string(cmd->id));
+ }
+@@ -6794,7 +6794,7 @@ static int ipw2100_wx_set_mode(struct net_device *dev,
+ 	struct ipw2100_priv *priv = libipw_priv(dev);
+ 	int err = 0;
  
- 	cmd_idx = iwl_enqueue_hcmd(priv, cmd);
-@@ -191,7 +191,7 @@ int iwl_send_cmd_sync(struct iwl_priv *priv, struct iwl_host_cmd *cmd)
- 				jiffies_to_msecs(HOST_COMPLETE_TIMEOUT));
+-	IPW_DEBUG_WX("SET Mode -> %d \n", wrqu->mode);
++	IPW_DEBUG_WX("SET Mode -> %d\n", wrqu->mode);
  
- 			clear_bit(STATUS_HCMD_ACTIVE, &priv->status);
--			IWL_DEBUG_INFO(priv, "Clearing HCMD_ACTIVE for command %s \n",
-+			IWL_DEBUG_INFO(priv, "Clearing HCMD_ACTIVE for command %s\n",
- 				       get_cmd_string(cmd->id));
- 			ret = -ETIMEDOUT;
- 			goto cancel;
-diff --git a/drivers/net/wireless/iwlwifi/iwl-io.h b/drivers/net/wireless/iwlwifi/iwl-io.h
-index c719baf..4f54a5f 100644
---- a/drivers/net/wireless/iwlwifi/iwl-io.h
-+++ b/drivers/net/wireless/iwlwifi/iwl-io.h
-@@ -297,7 +297,7 @@ static inline u32 __iwl_read_direct32(const char *f, u32 l,
- 					struct iwl_priv *priv, u32 reg)
+ 	if (wrqu->mode == priv->ieee->iw_mode)
+ 		return 0;
+@@ -7149,7 +7149,7 @@ static int ipw2100_wx_set_nick(struct net_device *dev,
+ 	memset(priv->nick, 0, sizeof(priv->nick));
+ 	memcpy(priv->nick, extra, wrqu->data.length);
+ 
+-	IPW_DEBUG_WX("SET Nickname -> %s \n", priv->nick);
++	IPW_DEBUG_WX("SET Nickname -> %s\n", priv->nick);
+ 
+ 	return 0;
+ }
+@@ -7168,7 +7168,7 @@ static int ipw2100_wx_get_nick(struct net_device *dev,
+ 	memcpy(extra, priv->nick, wrqu->data.length);
+ 	wrqu->data.flags = 1;	/* active */
+ 
+-	IPW_DEBUG_WX("GET Nickname -> %s \n", extra);
++	IPW_DEBUG_WX("GET Nickname -> %s\n", extra);
+ 
+ 	return 0;
+ }
+@@ -7207,7 +7207,7 @@ static int ipw2100_wx_set_rate(struct net_device *dev,
+ 
+ 	err = ipw2100_set_tx_rates(priv, rate, 0);
+ 
+-	IPW_DEBUG_WX("SET Rate -> %04X \n", rate);
++	IPW_DEBUG_WX("SET Rate -> %04X\n", rate);
+       done:
+ 	mutex_unlock(&priv->action_mutex);
+ 	return err;
+@@ -7258,7 +7258,7 @@ static int ipw2100_wx_get_rate(struct net_device *dev,
+ 		wrqu->bitrate.value = 0;
+ 	}
+ 
+-	IPW_DEBUG_WX("GET Rate -> %d \n", wrqu->bitrate.value);
++	IPW_DEBUG_WX("GET Rate -> %d\n", wrqu->bitrate.value);
+ 
+       done:
+ 	mutex_unlock(&priv->action_mutex);
+@@ -7294,7 +7294,7 @@ static int ipw2100_wx_set_rts(struct net_device *dev,
+ 
+ 	err = ipw2100_set_rts_threshold(priv, value);
+ 
+-	IPW_DEBUG_WX("SET RTS Threshold -> 0x%08X \n", value);
++	IPW_DEBUG_WX("SET RTS Threshold -> 0x%08X\n", value);
+       done:
+ 	mutex_unlock(&priv->action_mutex);
+ 	return err;
+@@ -7316,7 +7316,7 @@ static int ipw2100_wx_get_rts(struct net_device *dev,
+ 	/* If RTS is set to the default value, then it is disabled */
+ 	wrqu->rts.disabled = (priv->rts_threshold & RTS_DISABLED) ? 1 : 0;
+ 
+-	IPW_DEBUG_WX("GET RTS Threshold -> 0x%08X \n", wrqu->rts.value);
++	IPW_DEBUG_WX("GET RTS Threshold -> 0x%08X\n", wrqu->rts.value);
+ 
+ 	return 0;
+ }
+@@ -7355,7 +7355,7 @@ static int ipw2100_wx_set_txpow(struct net_device *dev,
+ 
+ 	err = ipw2100_set_tx_power(priv, value);
+ 
+-	IPW_DEBUG_WX("SET TX Power -> %d \n", value);
++	IPW_DEBUG_WX("SET TX Power -> %d\n", value);
+ 
+       done:
+ 	mutex_unlock(&priv->action_mutex);
+@@ -7384,7 +7384,7 @@ static int ipw2100_wx_get_txpow(struct net_device *dev,
+ 
+ 	wrqu->txpower.flags = IW_TXPOW_DBM;
+ 
+-	IPW_DEBUG_WX("GET TX Power -> %d \n", wrqu->txpower.value);
++	IPW_DEBUG_WX("GET TX Power -> %d\n", wrqu->txpower.value);
+ 
+ 	return 0;
+ }
+@@ -7414,7 +7414,7 @@ static int ipw2100_wx_set_frag(struct net_device *dev,
+ 		priv->frag_threshold = priv->ieee->fts;
+ 	}
+ 
+-	IPW_DEBUG_WX("SET Frag Threshold -> %d \n", priv->ieee->fts);
++	IPW_DEBUG_WX("SET Frag Threshold -> %d\n", priv->ieee->fts);
+ 
+ 	return 0;
+ }
+@@ -7432,7 +7432,7 @@ static int ipw2100_wx_get_frag(struct net_device *dev,
+ 	wrqu->frag.fixed = 0;	/* no auto select */
+ 	wrqu->frag.disabled = (priv->frag_threshold & FRAG_DISABLED) ? 1 : 0;
+ 
+-	IPW_DEBUG_WX("GET Frag Threshold -> %d \n", wrqu->frag.value);
++	IPW_DEBUG_WX("GET Frag Threshold -> %d\n", wrqu->frag.value);
+ 
+ 	return 0;
+ }
+@@ -7458,14 +7458,14 @@ static int ipw2100_wx_set_retry(struct net_device *dev,
+ 
+ 	if (wrqu->retry.flags & IW_RETRY_SHORT) {
+ 		err = ipw2100_set_short_retry(priv, wrqu->retry.value);
+-		IPW_DEBUG_WX("SET Short Retry Limit -> %d \n",
++		IPW_DEBUG_WX("SET Short Retry Limit -> %d\n",
+ 			     wrqu->retry.value);
+ 		goto done;
+ 	}
+ 
+ 	if (wrqu->retry.flags & IW_RETRY_LONG) {
+ 		err = ipw2100_set_long_retry(priv, wrqu->retry.value);
+-		IPW_DEBUG_WX("SET Long Retry Limit -> %d \n",
++		IPW_DEBUG_WX("SET Long Retry Limit -> %d\n",
+ 			     wrqu->retry.value);
+ 		goto done;
+ 	}
+@@ -7474,7 +7474,7 @@ static int ipw2100_wx_set_retry(struct net_device *dev,
+ 	if (!err)
+ 		err = ipw2100_set_long_retry(priv, wrqu->retry.value);
+ 
+-	IPW_DEBUG_WX("SET Both Retry Limits -> %d \n", wrqu->retry.value);
++	IPW_DEBUG_WX("SET Both Retry Limits -> %d\n", wrqu->retry.value);
+ 
+       done:
+ 	mutex_unlock(&priv->action_mutex);
+@@ -7508,7 +7508,7 @@ static int ipw2100_wx_get_retry(struct net_device *dev,
+ 		wrqu->retry.value = priv->short_retry_limit;
+ 	}
+ 
+-	IPW_DEBUG_WX("GET Retry -> %d \n", wrqu->retry.value);
++	IPW_DEBUG_WX("GET Retry -> %d\n", wrqu->retry.value);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
+index 6dc0733..d006ae8 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/ipw2x00/ipw2200.c
+@@ -458,7 +458,7 @@ static u8 _ipw_read_reg8(struct ipw_priv *priv, u32 reg)
  {
- 	u32 value = _iwl_read_direct32(priv, reg);
--	IWL_DEBUG_IO(priv, "read_direct32(0x%4X) = 0x%08x - %s %d \n", reg, value,
-+	IWL_DEBUG_IO(priv, "read_direct32(0x%4X) = 0x%08x - %s %d\n", reg, value,
- 		     f, l);
+ 	u32 word;
+ 	_ipw_write32(priv, IPW_INDIRECT_ADDR, reg & IPW_INDIRECT_ADDR_MASK);
+-	IPW_DEBUG_IO(" reg = 0x%8X : \n", reg);
++	IPW_DEBUG_IO(" reg = 0x%8X :\n", reg);
+ 	word = _ipw_read32(priv, IPW_INDIRECT_DATA);
+ 	return (word >> ((reg & 0x3) * 8)) & 0xff;
+ }
+@@ -472,7 +472,7 @@ static u32 _ipw_read_reg32(struct ipw_priv *priv, u32 reg)
+ 
+ 	_ipw_write32(priv, IPW_INDIRECT_ADDR, reg);
+ 	value = _ipw_read32(priv, IPW_INDIRECT_DATA);
+-	IPW_DEBUG_IO(" reg = 0x%4X : value = 0x%4x \n", reg, value);
++	IPW_DEBUG_IO(" reg = 0x%4X : value = 0x%4x\n", reg, value);
  	return value;
  }
-diff --git a/drivers/net/wireless/iwlwifi/iwl-power.c b/drivers/net/wireless/iwlwifi/iwl-power.c
-index 1a1a9f0..21222c6 100644
---- a/drivers/net/wireless/iwlwifi/iwl-power.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-power.c
-@@ -874,7 +874,7 @@ void iwl_tt_initialize(struct iwl_priv *priv)
- 	int size = sizeof(struct iwl_tt_trans) * (IWL_TI_STATE_MAX - 1);
- 	struct iwl_tt_trans *transaction;
  
--	IWL_DEBUG_POWER(priv, "Initialize Thermal Throttling \n");
-+	IWL_DEBUG_POWER(priv, "Initialize Thermal Throttling\n");
+@@ -2738,7 +2738,7 @@ static inline void ipw_fw_dma_reset_command_blocks(struct ipw_priv *priv)
+ static int ipw_fw_dma_enable(struct ipw_priv *priv)
+ {				/* start dma engine but no transfers yet */
  
- 	memset(tt, 0, sizeof(struct iwl_tt_mgmt));
+-	IPW_DEBUG_FW(">> : \n");
++	IPW_DEBUG_FW(">> :\n");
  
-diff --git a/drivers/net/wireless/iwlwifi/iwl-rx.c b/drivers/net/wireless/iwlwifi/iwl-rx.c
-index 8116aa0..7db6c41 100644
---- a/drivers/net/wireless/iwlwifi/iwl-rx.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-rx.c
-@@ -844,7 +844,7 @@ static void iwl_dbg_report_frame(struct iwl_priv *priv,
- 		 *    but you can hack it to show more, if you'd like to. */
- 		if (dataframe)
- 			IWL_DEBUG_RX(priv, "%s: mhd=0x%04x, dst=0x%02x, "
--				     "len=%u, rssi=%d, chnl=%d, rate=%u, \n",
-+				     "len=%u, rssi=%d, chnl=%d, rate=%u,\n",
- 				     title, le16_to_cpu(fc), header->addr1[5],
- 				     length, rssi, channel, bitrate);
- 		else {
-diff --git a/drivers/net/wireless/iwlwifi/iwl-scan.c b/drivers/net/wireless/iwlwifi/iwl-scan.c
-index 84b19b1..8d414ac 100644
---- a/drivers/net/wireless/iwlwifi/iwl-scan.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-scan.c
-@@ -453,7 +453,7 @@ static int iwl_get_channels_for_scan(struct iwl_priv *priv,
- 		added++;
- 	}
+ 	/* Start the dma */
+ 	ipw_fw_dma_reset_command_blocks(priv);
+@@ -2746,7 +2746,7 @@ static int ipw_fw_dma_enable(struct ipw_priv *priv)
+ 	/* Write CB base address */
+ 	ipw_write_reg32(priv, IPW_DMA_I_CB_BASE, IPW_SHARED_SRAM_DMA_CONTROL);
  
--	IWL_DEBUG_SCAN(priv, "total channels to scan %d \n", added);
-+	IWL_DEBUG_SCAN(priv, "total channels to scan %d\n", added);
- 	return added;
+-	IPW_DEBUG_FW("<< : \n");
++	IPW_DEBUG_FW("<< :\n");
+ 	return 0;
  }
  
-diff --git a/drivers/net/wireless/iwlwifi/iwl-sta.c b/drivers/net/wireless/iwlwifi/iwl-sta.c
-index b1aad30..0457d93 100644
---- a/drivers/net/wireless/iwlwifi/iwl-sta.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-sta.c
-@@ -132,7 +132,7 @@ static void iwl_process_add_sta_resp(struct iwl_priv *priv,
- 			sta_id);
- 		break;
- 	case ADD_STA_MODIFY_NON_EXIST_STA:
--		IWL_ERR(priv, "Attempting to modify non-existing station %d \n",
-+		IWL_ERR(priv, "Attempting to modify non-existing station %d\n",
- 			sta_id);
- 		break;
- 	default:
-@@ -885,7 +885,7 @@ int iwl_remove_dynamic_key(struct iwl_priv *priv,
- 	priv->stations[sta_id].sta.mode = STA_CONTROL_MODIFY_MSK;
+@@ -2761,7 +2761,7 @@ static void ipw_fw_dma_abort(struct ipw_priv *priv)
+ 	ipw_write_reg32(priv, IPW_DMA_I_DMA_CONTROL, control);
+ 	priv->sram_desc.last_cb_index = 0;
  
- 	if (iwl_is_rfkill(priv)) {
--		IWL_DEBUG_WEP(priv, "Not sending REPLY_ADD_STA command because RFKILL enabled. \n");
-+		IWL_DEBUG_WEP(priv, "Not sending REPLY_ADD_STA command because RFKILL enabled.\n");
- 		spin_unlock_irqrestore(&priv->sta_lock, flags);
- 		return 0;
- 	}
-diff --git a/drivers/net/wireless/iwlwifi/iwl-tx.c b/drivers/net/wireless/iwlwifi/iwl-tx.c
-index d6222aa..c4fc552 100644
---- a/drivers/net/wireless/iwlwifi/iwl-tx.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-tx.c
-@@ -964,9 +964,9 @@ int iwl_tx_skb(struct iwl_priv *priv, struct sk_buff *skb)
- 	tx_cmd->dram_lsb_ptr = cpu_to_le32(scratch_phys);
- 	tx_cmd->dram_msb_ptr = iwl_get_dma_hi_addr(scratch_phys);
- 
--	IWL_DEBUG_TX(priv, "sequence nr = 0X%x \n",
-+	IWL_DEBUG_TX(priv, "sequence nr = 0X%x\n",
- 		     le16_to_cpu(out_cmd->hdr.sequence));
--	IWL_DEBUG_TX(priv, "tx_flags = 0X%x \n", le32_to_cpu(tx_cmd->tx_flags));
-+	IWL_DEBUG_TX(priv, "tx_flags = 0X%x\n", le32_to_cpu(tx_cmd->tx_flags));
- 	iwl_print_hex_dump(priv, IWL_DL_TX, (u8 *)tx_cmd, sizeof(*tx_cmd));
- 	iwl_print_hex_dump(priv, IWL_DL_TX, (u8 *)tx_cmd->hdr, hdr_len);
- 
-@@ -1283,7 +1283,7 @@ void iwl_tx_cmd_complete(struct iwl_priv *priv, struct iwl_rx_mem_buffer *rxb)
- 
- 	if (!(meta->flags & CMD_ASYNC)) {
- 		clear_bit(STATUS_HCMD_ACTIVE, &priv->status);
--		IWL_DEBUG_INFO(priv, "Clearing HCMD_ACTIVE for command %s \n",
-+		IWL_DEBUG_INFO(priv, "Clearing HCMD_ACTIVE for command %s\n",
- 			       get_cmd_string(cmd->hdr.cmd));
- 		wake_up_interruptible(&priv->wait_command_queue);
- 	}
-@@ -1588,7 +1588,7 @@ void iwl_rx_reply_compressed_ba(struct iwl_priv *priv,
- 			   (unsigned long long)le64_to_cpu(ba_resp->bitmap),
- 			   ba_resp->scd_flow,
- 			   ba_resp->scd_ssn);
--	IWL_DEBUG_TX_REPLY(priv, "DAT start_idx = %d, bitmap = 0x%llx \n",
-+	IWL_DEBUG_TX_REPLY(priv, "DAT start_idx = %d, bitmap = 0x%llx\n",
- 			   agg->start_idx,
- 			   (unsigned long long)agg->bitmap);
- 
-diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-index 2579bbc..c21a498 100644
---- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
-+++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-@@ -597,9 +597,9 @@ static int iwl3945_tx_skb(struct iwl_priv *priv, struct sk_buff *skb)
- 		txq->need_update = 0;
- 	}
- 
--	IWL_DEBUG_TX(priv, "sequence nr = 0X%x \n",
-+	IWL_DEBUG_TX(priv, "sequence nr = 0X%x\n",
- 		     le16_to_cpu(out_cmd->hdr.sequence));
--	IWL_DEBUG_TX(priv, "tx_flags = 0X%x \n", le32_to_cpu(tx_cmd->tx_flags));
-+	IWL_DEBUG_TX(priv, "tx_flags = 0X%x\n", le32_to_cpu(tx_cmd->tx_flags));
- 	iwl_print_hex_dump(priv, IWL_DL_TX, tx_cmd, sizeof(*tx_cmd));
- 	iwl_print_hex_dump(priv, IWL_DL_TX, (u8 *)tx_cmd->hdr,
- 			   ieee80211_hdrlen(fc));
-@@ -1937,7 +1937,7 @@ static int iwl3945_get_channels_for_scan(struct iwl_priv *priv,
- 		added++;
- 	}
- 
--	IWL_DEBUG_SCAN(priv, "total channels to scan %d \n", added);
-+	IWL_DEBUG_SCAN(priv, "total channels to scan %d\n", added);
- 	return added;
+-	IPW_DEBUG_FW("<< \n");
++	IPW_DEBUG_FW("<<\n");
  }
  
+ static int ipw_fw_dma_write_command_block(struct ipw_priv *priv, int index,
+@@ -2812,29 +2812,29 @@ static void ipw_fw_dma_dump_command_block(struct ipw_priv *priv)
+ 
+ 	IPW_DEBUG_FW(">> :\n");
+ 	address = ipw_read_reg32(priv, IPW_DMA_I_CURRENT_CB);
+-	IPW_DEBUG_FW_INFO("Current CB is 0x%x \n", address);
++	IPW_DEBUG_FW_INFO("Current CB is 0x%x\n", address);
+ 
+ 	/* Read the DMA Controlor register */
+ 	register_value = ipw_read_reg32(priv, IPW_DMA_I_DMA_CONTROL);
+-	IPW_DEBUG_FW_INFO("IPW_DMA_I_DMA_CONTROL is 0x%x \n", register_value);
++	IPW_DEBUG_FW_INFO("IPW_DMA_I_DMA_CONTROL is 0x%x\n", register_value);
+ 
+ 	/* Print the CB values */
+ 	cb_fields_address = address;
+ 	register_value = ipw_read_reg32(priv, cb_fields_address);
+-	IPW_DEBUG_FW_INFO("Current CB ControlField is 0x%x \n", register_value);
++	IPW_DEBUG_FW_INFO("Current CB Control Field is 0x%x\n", register_value);
+ 
+ 	cb_fields_address += sizeof(u32);
+ 	register_value = ipw_read_reg32(priv, cb_fields_address);
+-	IPW_DEBUG_FW_INFO("Current CB Source Field is 0x%x \n", register_value);
++	IPW_DEBUG_FW_INFO("Current CB Source Field is 0x%x\n", register_value);
+ 
+ 	cb_fields_address += sizeof(u32);
+ 	register_value = ipw_read_reg32(priv, cb_fields_address);
+-	IPW_DEBUG_FW_INFO("Current CB Destination Field is 0x%x \n",
++	IPW_DEBUG_FW_INFO("Current CB Destination Field is 0x%x\n",
+ 			  register_value);
+ 
+ 	cb_fields_address += sizeof(u32);
+ 	register_value = ipw_read_reg32(priv, cb_fields_address);
+-	IPW_DEBUG_FW_INFO("Current CB Status Field is 0x%x \n", register_value);
++	IPW_DEBUG_FW_INFO("Current CB Status Field is 0x%x\n", register_value);
+ 
+ 	IPW_DEBUG_FW(">> :\n");
+ }
+@@ -2850,7 +2850,7 @@ static int ipw_fw_dma_command_block_index(struct ipw_priv *priv)
+ 	current_cb_index = (current_cb_address - IPW_SHARED_SRAM_DMA_CONTROL) /
+ 	    sizeof(struct command_block);
+ 
+-	IPW_DEBUG_FW_INFO("Current CB index 0x%x address = 0x%X \n",
++	IPW_DEBUG_FW_INFO("Current CB index 0x%x address = 0x%X\n",
+ 			  current_cb_index, current_cb_address);
+ 
+ 	IPW_DEBUG_FW(">> :\n");
+@@ -2909,7 +2909,7 @@ static int ipw_fw_dma_add_buffer(struct ipw_priv *priv, dma_addr_t *src_address,
+ 	int ret, i;
+ 	u32 size;
+ 
+-	IPW_DEBUG_FW(">> \n");
++	IPW_DEBUG_FW(">>\n");
+ 	IPW_DEBUG_FW_INFO("nr=%d dest_address=0x%x len=0x%x\n",
+ 			  nr, dest_address, len);
+ 
+@@ -2926,7 +2926,7 @@ static int ipw_fw_dma_add_buffer(struct ipw_priv *priv, dma_addr_t *src_address,
+ 			IPW_DEBUG_FW_INFO(": Added new cb\n");
+ 	}
+ 
+-	IPW_DEBUG_FW("<< \n");
++	IPW_DEBUG_FW("<<\n");
+ 	return 0;
+ }
+ 
+@@ -2935,7 +2935,7 @@ static int ipw_fw_dma_wait(struct ipw_priv *priv)
+ 	u32 current_index = 0, previous_index;
+ 	u32 watchdog = 0;
+ 
+-	IPW_DEBUG_FW(">> : \n");
++	IPW_DEBUG_FW(">> :\n");
+ 
+ 	current_index = ipw_fw_dma_command_block_index(priv);
+ 	IPW_DEBUG_FW_INFO("sram_desc.last_cb_index:0x%08X\n",
+@@ -2964,7 +2964,7 @@ static int ipw_fw_dma_wait(struct ipw_priv *priv)
+ 	ipw_set_bit(priv, IPW_RESET_REG,
+ 		    IPW_RESET_REG_MASTER_DISABLED | IPW_RESET_REG_STOP_MASTER);
+ 
+-	IPW_DEBUG_FW("<< dmaWaitSync \n");
++	IPW_DEBUG_FW("<< dmaWaitSync\n");
+ 	return 0;
+ }
+ 
+@@ -3025,7 +3025,7 @@ static int ipw_stop_master(struct ipw_priv *priv)
+ {
+ 	int rc;
+ 
+-	IPW_DEBUG_TRACE(">> \n");
++	IPW_DEBUG_TRACE(">>\n");
+ 	/* stop master. typical delay - 0 */
+ 	ipw_set_bit(priv, IPW_RESET_REG, IPW_RESET_REG_STOP_MASTER);
+ 
+@@ -3044,7 +3044,7 @@ static int ipw_stop_master(struct ipw_priv *priv)
+ 
+ static void ipw_arc_release(struct ipw_priv *priv)
+ {
+-	IPW_DEBUG_TRACE(">> \n");
++	IPW_DEBUG_TRACE(">>\n");
+ 	mdelay(5);
+ 
+ 	ipw_clear_bit(priv, IPW_RESET_REG, CBD_RESET_REG_PRINCETON_RESET);
+@@ -3066,7 +3066,7 @@ static int ipw_load_ucode(struct ipw_priv *priv, u8 * data, size_t len)
+ 
+ 	image = (__le16 *) data;
+ 
+-	IPW_DEBUG_TRACE(">> \n");
++	IPW_DEBUG_TRACE(">>\n");
+ 
+ 	rc = ipw_stop_master(priv);
+ 
+@@ -3180,7 +3180,7 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+ 	void **virts;
+ 	dma_addr_t *phys;
+ 
+-	IPW_DEBUG_TRACE("<< : \n");
++	IPW_DEBUG_TRACE("<< :\n");
+ 
+ 	virts = kmalloc(sizeof(void *) * CB_NUMBER_OF_ELEMENTS_SMALL,
+ 			GFP_KERNEL);
+@@ -4481,7 +4481,7 @@ static void ipw_rx_notification(struct ipw_priv *priv,
+ 			case CMAS_ASSOCIATED:{
+ 					IPW_DEBUG(IPW_DL_NOTIF | IPW_DL_STATE |
+ 						  IPW_DL_ASSOC,
+-						  "associated: '%s' %pM \n",
++						  "associated: '%s' %pM\n",
+ 						  print_ssid(ssid, priv->essid,
+ 							     priv->essid_len),
+ 						  priv->bssid);
+@@ -4562,7 +4562,7 @@ static void ipw_rx_notification(struct ipw_priv *priv,
+ 							  IPW_DL_ASSOC,
+ 							  "deauthenticated: '%s' "
+ 							  "%pM"
+-							  ": (0x%04X) - %s \n",
++							  ": (0x%04X) - %s\n",
+ 							  print_ssid(ssid,
+ 								     priv->
+ 								     essid,
+@@ -4613,7 +4613,7 @@ static void ipw_rx_notification(struct ipw_priv *priv,
+ 
+ 					IPW_DEBUG(IPW_DL_NOTIF | IPW_DL_STATE |
+ 						  IPW_DL_ASSOC,
+-						  "disassociated: '%s' %pM \n",
++						  "disassociated: '%s' %pM\n",
+ 						  print_ssid(ssid, priv->essid,
+ 							     priv->essid_len),
+ 						  priv->bssid);
+@@ -4651,7 +4651,7 @@ static void ipw_rx_notification(struct ipw_priv *priv,
+ 			switch (auth->state) {
+ 			case CMAS_AUTHENTICATED:
+ 				IPW_DEBUG(IPW_DL_NOTIF | IPW_DL_STATE,
+-					  "authenticated: '%s' %pM \n",
++					  "authenticated: '%s' %pM\n",
+ 					  print_ssid(ssid, priv->essid,
+ 						     priv->essid_len),
+ 					  priv->bssid);
+@@ -6924,7 +6924,7 @@ static u8 ipw_qos_current_mode(struct ipw_priv * priv)
+ 	} else {
+ 		mode = priv->ieee->mode;
+ 	}
+-	IPW_DEBUG_QOS("QoS network/card mode %d \n", mode);
++	IPW_DEBUG_QOS("QoS network/card mode %d\n", mode);
+ 	return mode;
+ }
+ 
+@@ -6964,7 +6964,7 @@ static int ipw_qos_handle_probe_response(struct ipw_priv *priv,
+ 			       &def_parameters_OFDM, size);
+ 
+ 		if ((network->qos_data.active == 1) && (active_network == 1)) {
+-			IPW_DEBUG_QOS("QoS was disabled call qos_activate \n");
++			IPW_DEBUG_QOS("QoS was disabled call qos_activate\n");
+ 			schedule_work(&priv->qos_activate);
+ 		}
+ 
+@@ -7541,7 +7541,7 @@ static int ipw_associate_network(struct ipw_priv *priv,
+ 		return err;
+ 	}
+ 
+-	IPW_DEBUG(IPW_DL_STATE, "associating: '%s' %pM \n",
++	IPW_DEBUG(IPW_DL_STATE, "associating: '%s' %pM\n",
+ 		  print_ssid(ssid, priv->essid, priv->essid_len),
+ 		  priv->bssid);
+ 
+@@ -8792,7 +8792,7 @@ static int ipw_wx_set_freq(struct net_device *dev,
+ 		}
+ 	}
+ 
+-	IPW_DEBUG_WX("SET Freq/Channel -> %d \n", fwrq->m);
++	IPW_DEBUG_WX("SET Freq/Channel -> %d\n", fwrq->m);
+ 	mutex_lock(&priv->mutex);
+ 	ret = ipw_set_channel(priv, channel);
+ 	mutex_unlock(&priv->mutex);
+@@ -8834,7 +8834,7 @@ static int ipw_wx_get_freq(struct net_device *dev,
+ 		wrqu->freq.m = 0;
+ 
+ 	mutex_unlock(&priv->mutex);
+-	IPW_DEBUG_WX("GET Freq/Channel -> %d \n", priv->channel);
++	IPW_DEBUG_WX("GET Freq/Channel -> %d\n", priv->channel);
+ 	return 0;
+ }
+ 
+@@ -9229,7 +9229,7 @@ static int ipw_wx_get_sens(struct net_device *dev,
+ 	wrqu->sens.value = priv->roaming_threshold;
+ 	mutex_unlock(&priv->mutex);
+ 
+-	IPW_DEBUG_WX("GET roaming threshold -> %s %d \n",
++	IPW_DEBUG_WX("GET roaming threshold -> %s %d\n",
+ 		     wrqu->power.disabled ? "OFF" : "ON", wrqu->power.value);
+ 
+ 	return 0;
+@@ -9357,7 +9357,7 @@ static int ipw_wx_get_rate(struct net_device *dev,
+ 	wrqu->bitrate.value = priv->last_rate;
+ 	wrqu->bitrate.fixed = (priv->config & CFG_FIXED_RATE) ? 1 : 0;
+ 	mutex_unlock(&priv->mutex);
+-	IPW_DEBUG_WX("GET Rate -> %d \n", wrqu->bitrate.value);
++	IPW_DEBUG_WX("GET Rate -> %d\n", wrqu->bitrate.value);
+ 	return 0;
+ }
+ 
+@@ -9380,7 +9380,7 @@ static int ipw_wx_set_rts(struct net_device *dev,
+ 
+ 	ipw_send_rts_threshold(priv, priv->rts_threshold);
+ 	mutex_unlock(&priv->mutex);
+-	IPW_DEBUG_WX("SET RTS Threshold -> %d \n", priv->rts_threshold);
++	IPW_DEBUG_WX("SET RTS Threshold -> %d\n", priv->rts_threshold);
+ 	return 0;
+ }
+ 
+@@ -9394,7 +9394,7 @@ static int ipw_wx_get_rts(struct net_device *dev,
+ 	wrqu->rts.fixed = 0;	/* no auto select */
+ 	wrqu->rts.disabled = (wrqu->rts.value == DEFAULT_RTS_THRESHOLD);
+ 	mutex_unlock(&priv->mutex);
+-	IPW_DEBUG_WX("GET RTS Threshold -> %d \n", wrqu->rts.value);
++	IPW_DEBUG_WX("GET RTS Threshold -> %d\n", wrqu->rts.value);
+ 	return 0;
+ }
+ 
+@@ -9444,7 +9444,7 @@ static int ipw_wx_get_txpow(struct net_device *dev,
+ 	wrqu->power.disabled = (priv->status & STATUS_RF_KILL_MASK) ? 1 : 0;
+ 	mutex_unlock(&priv->mutex);
+ 
+-	IPW_DEBUG_WX("GET TX Power -> %s %d \n",
++	IPW_DEBUG_WX("GET TX Power -> %s %d\n",
+ 		     wrqu->power.disabled ? "OFF" : "ON", wrqu->power.value);
+ 
+ 	return 0;
+@@ -9470,7 +9470,7 @@ static int ipw_wx_set_frag(struct net_device *dev,
+ 
+ 	ipw_send_frag_threshold(priv, wrqu->frag.value);
+ 	mutex_unlock(&priv->mutex);
+-	IPW_DEBUG_WX("SET Frag Threshold -> %d \n", wrqu->frag.value);
++	IPW_DEBUG_WX("SET Frag Threshold -> %d\n", wrqu->frag.value);
+ 	return 0;
+ }
+ 
+@@ -9484,7 +9484,7 @@ static int ipw_wx_get_frag(struct net_device *dev,
+ 	wrqu->frag.fixed = 0;	/* no auto select */
+ 	wrqu->frag.disabled = (wrqu->frag.value == DEFAULT_FTS);
+ 	mutex_unlock(&priv->mutex);
+-	IPW_DEBUG_WX("GET Frag Threshold -> %d \n", wrqu->frag.value);
++	IPW_DEBUG_WX("GET Frag Threshold -> %d\n", wrqu->frag.value);
+ 
+ 	return 0;
+ }
+@@ -9548,7 +9548,7 @@ static int ipw_wx_get_retry(struct net_device *dev,
+ 	}
+ 	mutex_unlock(&priv->mutex);
+ 
+-	IPW_DEBUG_WX("GET retry -> %d \n", wrqu->retry.value);
++	IPW_DEBUG_WX("GET retry -> %d\n", wrqu->retry.value);
+ 
+ 	return 0;
+ }
 -- 
 1.6.6.1
