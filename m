@@ -1,50 +1,75 @@
-From: Brandon Black <blblack@gmail.com>
-Subject: Re: behavior of recvmmsg() on blocking sockets
-Date: Wed, 24 Mar 2010 14:55:28 -0500
-Message-ID: <84621a61003241255i74282f53v3bb0111808895401@mail.gmail.com>
-References: <84621a61003240915p2a4ce6bbjd0c6bfb02ab05ba8@mail.gmail.com>
-	 <4BAA4EE4.3090900@nortel.com>
-	 <84621a61003241128x3afbcea1w387aeaa68c887320@mail.gmail.com>
-	 <4BAA69BF.3080600@nortel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH] ixgbe: cleanup maximum number of tx queues
+Date: Wed, 24 Mar 2010 13:01:45 -0700
+Message-ID: <20100324200144.6384.17291.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Chris Friesen <cfriesen@nortel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4BAA69BF.3080600@nortel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:56270
+	"EHLO qmta10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753992Ab0CXUCF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 16:02:05 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 24, 2010 at 2:36 PM, Chris Friesen <cfriesen@nortel.com> wr=
-ote:
-> Note that I said "large numbers of sockets". =C2=A0Like tens of thous=
-ands.
-> In addition to context switch overhead this can also lead to issues w=
-ith
-> memory consumption due to stack frames.
+From: John Fastabend <john.r.fastabend@intel.com>
 
-Ok, agreed there.  In my case though, there will only ever be a
-handful of sockets.  Ideally it would be just one socket.  The only
-reason I allocate multiple sockets and spawn threads for them is
-because you can't scale past one CPU core on a single socket, due to
-the NIC and/or the driver and/or the socket locks and/or the basic
-nature of the problem.
+In the last patch I missed an unecessary min_t comparison.
+This patch removes it, the path allocates at most
+72 tx queues for 82599 and 24 for 82598 there is no need
+for this check.
 
-> Consider the case where you want to do some other useful work in
-> addition to running your network server. =C2=A0Every cpu cycle spent =
-on the
-> network server is robbed from the other work. =C2=A0In this scenario =
-you want
-> to handle packets as efficiently as possible, so the timeout-based
-> behaviour is better since it is more likely to give you multiple pack=
-ets
-> per syscall.
+Additionally this sets MAX_[TX|RX]_QUEUES to 72.  Which is
+used as the size for the tx/rx_ring arrays. There is no
+reason to have more tx_rings/rx_rings then num_tx_queues.
 
-That's a good point, I tend to tunnelvision on the dedicated server
-scenario.  I should probably have a user-level option for
-timeout-based operation as well, since the decision here gets to the
-systems admin/engineering level and will be situational.
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-Thanks,
--- Brandon
+ drivers/net/ixgbe/ixgbe.h      |    7 +++++--
+ drivers/net/ixgbe/ixgbe_main.c |    1 -
+ 2 files changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index 19e94ee..79c35ae 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -204,14 +204,17 @@ enum ixgbe_ring_f_enum {
+ #define IXGBE_MAX_FDIR_INDICES 64
+ #ifdef IXGBE_FCOE
+ #define IXGBE_MAX_FCOE_INDICES  8
++#define MAX_RX_QUEUES (IXGBE_MAX_FDIR_INDICES + IXGBE_MAX_FCOE_INDICES)
++#define MAX_TX_QUEUES (IXGBE_MAX_FDIR_INDICES + IXGBE_MAX_FCOE_INDICES)
++#else
++#define MAX_RX_QUEUES IXGBE_MAX_FDIR_INDICES
++#define MAX_TX_QUEUES IXGBE_MAX_FDIR_INDICES
+ #endif /* IXGBE_FCOE */
+ struct ixgbe_ring_feature {
+ 	int indices;
+ 	int mask;
+ } ____cacheline_internodealigned_in_smp;
+ 
+-#define MAX_RX_QUEUES 128
+-#define MAX_TX_QUEUES 128
+ 
+ #define MAX_RX_PACKET_BUFFERS ((adapter->flags & IXGBE_FLAG_DCB_ENABLED) \
+                               ? 8 : 1)
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 315622f..a9147e5 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -6041,7 +6041,6 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 	indices += min_t(unsigned int, num_possible_cpus(),
+ 			 IXGBE_MAX_FCOE_INDICES);
+ #endif
+-	indices = min_t(unsigned int, indices, MAX_TX_QUEUES);
+ 	netdev = alloc_etherdev_mq(sizeof(struct ixgbe_adapter), indices);
+ 	if (!netdev) {
+ 		err = -ENOMEM;
+
