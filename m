@@ -1,788 +1,450 @@
 From: Frans Pop <elendil@planet.nl>
-Subject: [PATCH 6/9] net/tokenring: remove trailing space in messages
-Date: Wed, 24 Mar 2010 18:57:33 +0100
-Message-ID: <1269453456-13599-6-git-send-email-elendil@planet.nl>
+Subject: [PATCH 9/9] net/various: remove trailing space in messages
+Date: Wed, 24 Mar 2010 18:57:36 +0100
+Message-ID: <1269453456-13599-9-git-send-email-elendil@planet.nl>
 References: <201003241840.18701.elendil@planet.nl>
 Cc: Frans Pop <elendil@planet.nl>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Cpsmtpm-eml109.kpnxchange.com ([195.121.3.13]:56334 "EHLO
-	CPSMTPM-EML109.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932571Ab0CXR5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 13:57:44 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <201003241840.18701.elendil@planet.nl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Trailing spaces in files in /proc for lanstreamer.c and olympic.c
-have been left as they are.
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Frans Pop <elendil@planet.nl>
 ---
+ drivers/net/benet/be_ethtool.c        |    2 +-
+ drivers/net/benet/be_main.c           |    2 +-
+ drivers/net/bnx2x_link.c              |   12 ++++++------
+ drivers/net/bonding/bond_main.c       |    4 ++--
+ drivers/net/dnet.c                    |    2 +-
+ drivers/net/hamradio/baycom_ser_fdx.c |    2 +-
+ drivers/net/mlx4/en_netdev.c          |    2 +-
+ drivers/net/qla3xxx.c                 |    2 +-
+ drivers/net/qlge/qlge_dbg.c           |    4 ++--
+ drivers/net/sis900.c                  |    4 ++--
+ drivers/net/skfp/fplustm.c            |    2 +-
+ drivers/net/skfp/pcmplc.c             |    4 ++--
+ drivers/net/skfp/srf.c                |    2 +-
+ drivers/net/skge.c                    |    2 +-
+ drivers/net/stmmac/dwmac100.c         |    2 +-
+ drivers/net/stmmac/stmmac_main.c      |    2 +-
+ drivers/net/tlan.c                    |    2 +-
+ drivers/net/tsi108_eth.c              |    6 +++---
+ drivers/net/ucc_geth.c                |    2 +-
+ drivers/net/vxge/vxge-main.c          |    2 +-
+ drivers/net/wan/pc300_drv.c           |    2 +-
+ drivers/net/wan/pc300_tty.c           |    2 +-
+ drivers/net/wan/sdla.c                |    2 +-
+ drivers/net/wimax/i2400m/tx.c         |    2 +-
+ 24 files changed, 35 insertions(+), 35 deletions(-)
 
-I've ignored the many, many (trailing) whitespace issues in 3c359.c
-and olympic.c. Fixing them would drown out the actual changes.
----
- drivers/net/tokenring/3c359.c       |  100 +++++++++++++++++-----------------
- drivers/net/tokenring/lanstreamer.c |   46 ++++++++--------
- drivers/net/tokenring/olympic.c     |   62 +++++++++++-----------
- drivers/net/tokenring/tms380tr.c    |    4 +-
- 4 files changed, 106 insertions(+), 106 deletions(-)
-
-diff --git a/drivers/net/tokenring/3c359.c b/drivers/net/tokenring/3c359.c
-index 0fb930f..7e70d00 100644
---- a/drivers/net/tokenring/3c359.c
-+++ b/drivers/net/tokenring/3c359.c
-@@ -76,7 +76,7 @@ static char version[] __devinitdata  =
- 
- #define FW_NAME		"3com/3C359.bin"
- MODULE_AUTHOR("Mike Phillips <mikep@linuxtr.net>") ; 
--MODULE_DESCRIPTION("3Com 3C359 Velocity XL Token Ring Adapter Driver \n") ;
-+MODULE_DESCRIPTION("3Com 3C359 Velocity XL Token Ring Adapter Driver\n") ;
- MODULE_FIRMWARE(FW_NAME);
- 
- /* Module parameters */
-@@ -162,19 +162,19 @@ static void print_tx_state(struct net_device *dev)
- 	u8 __iomem *xl_mmio = xl_priv->xl_mmio ; 
- 	int i ; 
- 
--	printk("tx_ring_head: %d, tx_ring_tail: %d, free_ent: %d \n",xl_priv->tx_ring_head, 
-+	printk("tx_ring_head: %d, tx_ring_tail: %d, free_ent: %d\n",xl_priv->tx_ring_head, 
- 		xl_priv->tx_ring_tail, xl_priv->free_ring_entries) ; 
--	printk("Ring    , Address ,   FSH  , DnNextPtr, Buffer, Buffer_Len \n"); 
-+	printk("Ring    , Address ,   FSH  , DnNextPtr, Buffer, Buffer_Len\n"); 
- 	for (i = 0; i < 16; i++) {
- 		txd = &(xl_priv->xl_tx_ring[i]) ; 
--		printk("%d, %08lx, %08x, %08x, %08x, %08x \n", i, virt_to_bus(txd), 
-+		printk("%d, %08lx, %08x, %08x, %08x, %08x\n", i, virt_to_bus(txd), 
- 			txd->framestartheader, txd->dnnextptr, txd->buffer, txd->buffer_length ) ; 
+diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
+index 9560d48..d7390da 100644
+--- a/drivers/net/benet/be_ethtool.c
++++ b/drivers/net/benet/be_ethtool.c
+@@ -496,7 +496,7 @@ be_test_ddr_dma(struct be_adapter *adapter)
+ 	ddrdma_cmd.va = pci_alloc_consistent(adapter->pdev, ddrdma_cmd.size,
+ 					&ddrdma_cmd.dma);
+ 	if (!ddrdma_cmd.va) {
+-		dev_err(&adapter->pdev->dev, "Memory allocation failure \n");
++		dev_err(&adapter->pdev->dev, "Memory allocation failure\n");
+ 		return -ENOMEM;
  	}
  
--	printk("DNLISTPTR = %04x \n", readl(xl_mmio + MMIO_DNLISTPTR) ); 
-+	printk("DNLISTPTR = %04x\n", readl(xl_mmio + MMIO_DNLISTPTR) ); 
- 	
--	printk("DmaCtl = %04x \n", readl(xl_mmio + MMIO_DMA_CTRL) ); 
--	printk("Queue status = %0x \n",netif_running(dev) ) ; 
-+	printk("DmaCtl = %04x\n", readl(xl_mmio + MMIO_DMA_CTRL) ); 
-+	printk("Queue status = %0x\n",netif_running(dev) ) ; 
- }
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 174e5f8..50ea056 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -1749,7 +1749,7 @@ static int be_setup_wol(struct be_adapter *adapter, bool enable)
+ 			PCICFG_PM_CONTROL_OFFSET, PCICFG_PM_CONTROL_MASK);
+ 		if (status) {
+ 			dev_err(&adapter->pdev->dev,
+-				"Could not enable Wake-on-lan \n");
++				"Could not enable Wake-on-lan\n");
+ 			pci_free_consistent(adapter->pdev, cmd.size, cmd.va,
+ 					cmd.dma);
+ 			return status;
+diff --git a/drivers/net/bnx2x_link.c b/drivers/net/bnx2x_link.c
+index 32e79c3..ff70be8 100644
+--- a/drivers/net/bnx2x_link.c
++++ b/drivers/net/bnx2x_link.c
+@@ -1594,7 +1594,7 @@ static u8 bnx2x_ext_phy_resolve_fc(struct link_params *params,
+ 				MDIO_AN_REG_ADV_PAUSE_MASK) >> 8;
+ 		pause_result |= (lp_pause &
+ 				 MDIO_AN_REG_ADV_PAUSE_MASK) >> 10;
+-		DP(NETIF_MSG_LINK, "Ext PHY pause result 0x%x \n",
++		DP(NETIF_MSG_LINK, "Ext PHY pause result 0x%x\n",
+ 		   pause_result);
+ 		bnx2x_pause_resolve(vars, pause_result);
+ 		if (vars->flow_ctrl == BNX2X_FLOW_CTRL_NONE &&
+@@ -1616,7 +1616,7 @@ static u8 bnx2x_ext_phy_resolve_fc(struct link_params *params,
+ 				MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_BOTH) >> 7;
  
- static void print_rx_state(struct net_device *dev)
-@@ -185,19 +185,19 @@ static void print_rx_state(struct net_device *dev)
- 	u8 __iomem *xl_mmio = xl_priv->xl_mmio ; 
- 	int i ; 
- 
--	printk("rx_ring_tail: %d \n", xl_priv->rx_ring_tail) ; 
--	printk("Ring    , Address ,   FrameState  , UPNextPtr, FragAddr, Frag_Len \n"); 
-+	printk("rx_ring_tail: %d\n", xl_priv->rx_ring_tail) ; 
-+	printk("Ring    , Address ,   FrameState  , UPNextPtr, FragAddr, Frag_Len\n"); 
- 	for (i = 0; i < 16; i++) { 
- 		/* rxd = (struct xl_rx_desc *)xl_priv->rx_ring_dma_addr + (i * sizeof(struct xl_rx_desc)) ; */
- 		rxd = &(xl_priv->xl_rx_ring[i]) ; 
--		printk("%d, %08lx, %08x, %08x, %08x, %08x \n", i, virt_to_bus(rxd), 
-+		printk("%d, %08lx, %08x, %08x, %08x, %08x\n", i, virt_to_bus(rxd), 
- 			rxd->framestatus, rxd->upnextptr, rxd->upfragaddr, rxd->upfraglen ) ; 
- 	}
- 
--	printk("UPLISTPTR = %04x \n", readl(xl_mmio + MMIO_UPLISTPTR) ); 
-+	printk("UPLISTPTR = %04x\n", readl(xl_mmio + MMIO_UPLISTPTR) ); 
- 	
--	printk("DmaCtl = %04x \n", readl(xl_mmio + MMIO_DMA_CTRL) ); 
--	printk("Queue status = %0x \n",netif_running(dev) ) ;
-+	printk("DmaCtl = %04x\n", readl(xl_mmio + MMIO_DMA_CTRL) ); 
-+	printk("Queue status = %0x\n",netif_running(dev) ) ;
- } 
- #endif
- 
-@@ -390,7 +390,7 @@ static int __devinit xl_init(struct net_device *dev)
- 	struct xl_private *xl_priv = netdev_priv(dev);
- 	int err;
- 
--	printk(KERN_INFO "%s \n", version);
-+	printk(KERN_INFO "%s\n", version);
- 	printk(KERN_INFO "%s: I/O at %hx, MMIO at %p, using irq %d\n",
- 		xl_priv->xl_card_name, (unsigned int)dev->base_addr ,xl_priv->xl_mmio, dev->irq);
- 
-@@ -462,7 +462,7 @@ static int xl_hw_reset(struct net_device *dev)
- 	writel( (IO_WORD_READ | PMBAR),xl_mmio + MMIO_MAC_ACCESS_CMD);  
- 
- #if XL_DEBUG
--	printk(KERN_INFO "Read from PMBAR = %04x \n", readw(xl_mmio + MMIO_MACDATA)) ; 
-+	printk(KERN_INFO "Read from PMBAR = %04x\n", readw(xl_mmio + MMIO_MACDATA)) ; 
- #endif
- 
- 	if ( readw( (xl_mmio + MMIO_MACDATA))  & PMB_CPHOLD ) { 
-@@ -590,9 +590,9 @@ static int xl_hw_reset(struct net_device *dev)
- #if XL_DEBUG
- 	writel(IO_WORD_READ | SWITCHSETTINGS, xl_mmio + MMIO_MAC_ACCESS_CMD) ; 
- 	if ( readw(xl_mmio + MMIO_MACDATA) & 2) { 
--		printk(KERN_INFO "Default ring speed 4 mbps \n") ;
-+		printk(KERN_INFO "Default ring speed 4 mbps\n") ;
- 	} else {
--		printk(KERN_INFO "Default ring speed 16 mbps \n") ; 
-+		printk(KERN_INFO "Default ring speed 16 mbps\n") ; 
- 	} 
- 	printk(KERN_INFO "%s: xl_priv->srb = %04x\n",xl_priv->xl_card_name, xl_priv->srb);
- #endif
-@@ -650,7 +650,7 @@ static int xl_open(struct net_device *dev)
- 
- 	if (open_err != 0) { /* Something went wrong with the open command */
- 		if (open_err & 0x07) { /* Wrong speed, retry at different speed */
--			printk(KERN_WARNING "%s: Open Error, retrying at different ringspeed \n", dev->name) ; 
-+			printk(KERN_WARNING "%s: Open Error, retrying at different ringspeed\n", dev->name) ; 
- 			switchsettings = switchsettings ^ 2 ; 
- 			xl_ee_write(dev,0x08,switchsettings) ; 
- 			xl_hw_reset(dev) ; 
-@@ -702,7 +702,7 @@ static int xl_open(struct net_device *dev)
- 	}
- 
- 	if (i==0) { 
--		printk(KERN_WARNING "%s: Not enough memory to allocate rx buffers. Adapter disabled \n",dev->name) ; 
-+		printk(KERN_WARNING "%s: Not enough memory to allocate rx buffers. Adapter disabled\n",dev->name) ; 
- 		free_irq(dev->irq,dev) ; 
- 		kfree(xl_priv->xl_tx_ring);
- 		kfree(xl_priv->xl_rx_ring);
-@@ -852,7 +852,7 @@ static int xl_open_hw(struct net_device *dev)
-  
- 		writel( (MEM_WORD_READ | 0xD0000 | xl_priv->srb) + 12, xl_mmio + MMIO_MAC_ACCESS_CMD) ; 
- 		xl_priv->arb = swab16(readw(xl_mmio + MMIO_MACDATA)) ;
--		printk(", ARB: %04x \n",xl_priv->arb ) ; 
-+		printk(", ARB: %04x\n",xl_priv->arb ) ; 
- 		writel( (MEM_WORD_READ | 0xD0000 | xl_priv->srb) + 14, xl_mmio + MMIO_MAC_ACCESS_CMD) ; 
- 		vsoff = swab16(readw(xl_mmio + MMIO_MACDATA)) ;
- 
-@@ -866,7 +866,7 @@ static int xl_open_hw(struct net_device *dev)
- 			ver_str[i] = readb(xl_mmio + MMIO_MACDATA) ; 
+ 			bnx2x_pause_resolve(vars, pause_result);
+-			DP(NETIF_MSG_LINK, "Ext PHY CL37 pause result 0x%x \n",
++			DP(NETIF_MSG_LINK, "Ext PHY CL37 pause result 0x%x\n",
+ 				 pause_result);
  		}
- 		ver_str[i] = '\0' ; 
--		printk(KERN_INFO "%s: Microcode version String: %s \n",dev->name,ver_str); 
-+		printk(KERN_INFO "%s: Microcode version String: %s\n",dev->name,ver_str); 
- 	} 	
- 	
+ 	}
+@@ -1974,7 +1974,7 @@ static u8 bnx2x_link_settings_status(struct link_params *params,
+ 		}
+ 	}
+ 
+-	DP(NETIF_MSG_LINK, "gp_status 0x%x  phy_link_up %x line_speed %x \n",
++	DP(NETIF_MSG_LINK, "gp_status 0x%x  phy_link_up %x line_speed %x\n",
+ 		 gp_status, vars->phy_link_up, vars->line_speed);
+ 	DP(NETIF_MSG_LINK, "duplex %x  flow_ctrl 0x%x"
+ 		 " autoneg 0x%x\n",
+@@ -3852,7 +3852,7 @@ static u8 bnx2x_ext_phy_init(struct link_params *params, struct link_vars *vars)
+ 				    SPEED_AUTO_NEG) &&
+ 				   ((params->speed_cap_mask &
+ 				     PORT_HW_CFG_SPEED_CAPABILITY_D0_1G))) {
+-				DP(NETIF_MSG_LINK, "Setting 1G clause37 \n");
++				DP(NETIF_MSG_LINK, "Setting 1G clause37\n");
+ 				bnx2x_cl45_write(bp, params->port, ext_phy_type,
+ 					       ext_phy_addr, MDIO_AN_DEVAD,
+ 					       MDIO_AN_REG_ADV, 0x20);
+@@ -4234,14 +4234,14 @@ static u8 bnx2x_ext_phy_init(struct link_params *params, struct link_vars *vars)
+ 				      ext_phy_addr,
+ 				      MDIO_PMA_DEVAD,
+ 				      MDIO_PMA_REG_10G_CTRL2, &tmp1);
+-				DP(NETIF_MSG_LINK, "1.7 = 0x%x \n", tmp1);
++				DP(NETIF_MSG_LINK, "1.7 = 0x%x\n", tmp1);
+ 
+ 			} else if ((params->req_line_speed ==
+ 				    SPEED_AUTO_NEG) &&
+ 				   ((params->speed_cap_mask &
+ 				     PORT_HW_CFG_SPEED_CAPABILITY_D0_1G))) {
+ 
+-				DP(NETIF_MSG_LINK, "Setting 1G clause37 \n");
++				DP(NETIF_MSG_LINK, "Setting 1G clause37\n");
+ 				bnx2x_cl45_write(bp, params->port, ext_phy_type,
+ 					       ext_phy_addr, MDIO_AN_DEVAD,
+ 					       MDIO_PMA_REG_8727_MISC_CTRL, 0);
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index c2aceaa..f8ab60b 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4667,13 +4667,13 @@ static int bond_check_params(struct bond_params *params)
+ 	}
+ 
+ 	if (num_grat_arp < 0 || num_grat_arp > 255) {
+-		pr_warning("Warning: num_grat_arp (%d) not in range 0-255 so it was reset to 1 \n",
++		pr_warning("Warning: num_grat_arp (%d) not in range 0-255 so it was reset to 1\n",
+ 			   num_grat_arp);
+ 		num_grat_arp = 1;
+ 	}
+ 
+ 	if (num_unsol_na < 0 || num_unsol_na > 255) {
+-		pr_warning("Warning: num_unsol_na (%d) not in range 0-255 so it was reset to 1 \n",
++		pr_warning("Warning: num_unsol_na (%d) not in range 0-255 so it was reset to 1\n",
+ 			   num_unsol_na);
+ 		num_unsol_na = 1;
+ 	}
+diff --git a/drivers/net/dnet.c b/drivers/net/dnet.c
+index 2346852..d51a83e 100644
+--- a/drivers/net/dnet.c
++++ b/drivers/net/dnet.c
+@@ -918,7 +918,7 @@ static int __devinit dnet_probe(struct platform_device *pdev)
+ 
+ 	dev_info(&pdev->dev, "Dave DNET at 0x%p (0x%08x) irq %d %pM\n",
+ 	       bp->regs, mem_base, dev->irq, dev->dev_addr);
+-	dev_info(&pdev->dev, "has %smdio, %sirq, %sgigabit, %sdma \n",
++	dev_info(&pdev->dev, "has %smdio, %sirq, %sgigabit, %sdma\n",
+ 	       (bp->capabilities & DNET_HAS_MDIO) ? "" : "no ",
+ 	       (bp->capabilities & DNET_HAS_IRQ) ? "" : "no ",
+ 	       (bp->capabilities & DNET_HAS_GIGABIT) ? "" : "no ",
+diff --git a/drivers/net/hamradio/baycom_ser_fdx.c b/drivers/net/hamradio/baycom_ser_fdx.c
+index 0cab992..ffc0cbd 100644
+--- a/drivers/net/hamradio/baycom_ser_fdx.c
++++ b/drivers/net/hamradio/baycom_ser_fdx.c
+@@ -429,7 +429,7 @@ static int ser12_open(struct net_device *dev)
+ 		return -EINVAL;
+ 	}
+ 	if (!request_region(dev->base_addr, SER12_EXTENT, "baycom_ser_fdx")) {
+-		printk(KERN_WARNING "BAYCOM_SER_FSX: I/O port 0x%04lx busy \n", 
++		printk(KERN_WARNING "BAYCOM_SER_FSX: I/O port 0x%04lx busy\n", 
+ 		       dev->base_addr);
+ 		return -EACCES;
+ 	}
+diff --git a/drivers/net/mlx4/en_netdev.c b/drivers/net/mlx4/en_netdev.c
+index 7cd0933..5eb96fe 100644
+--- a/drivers/net/mlx4/en_netdev.c
++++ b/drivers/net/mlx4/en_netdev.c
+@@ -503,7 +503,7 @@ static void mlx4_en_do_get_stats(struct work_struct *work)
+ 
+ 	err = mlx4_en_DUMP_ETH_STATS(mdev, priv->port, 0);
+ 	if (err)
+-		en_dbg(HW, priv, "Could not update stats \n");
++		en_dbg(HW, priv, "Could not update stats\n");
+ 
+ 	mutex_lock(&mdev->state_lock);
+ 	if (mdev->device_up) {
+diff --git a/drivers/net/qla3xxx.c b/drivers/net/qla3xxx.c
+index 4ef0afb..fc11ad3 100644
+--- a/drivers/net/qla3xxx.c
++++ b/drivers/net/qla3xxx.c
+@@ -2258,7 +2258,7 @@ static int ql_tx_rx_clean(struct ql3_adapter *qdev,
+ 				       "%x.\n",
+ 				       ndev->name, net_rsp->opcode);
+ 				printk(KERN_ERR PFX
+-				       "0x%08lx 0x%08lx 0x%08lx 0x%08lx \n",
++				       "0x%08lx 0x%08lx 0x%08lx 0x%08lx\n",
+ 				       (unsigned long int)tmp[0],
+ 				       (unsigned long int)tmp[1],
+ 				       (unsigned long int)tmp[2],
+diff --git a/drivers/net/qlge/qlge_dbg.c b/drivers/net/qlge/qlge_dbg.c
+index ff8550d..947a7aa 100644
+--- a/drivers/net/qlge/qlge_dbg.c
++++ b/drivers/net/qlge/qlge_dbg.c
+@@ -1338,7 +1338,7 @@ void ql_mpi_core_to_log(struct work_struct *work)
+ 
+ 	for (i = 0; i < count; i += 8) {
+ 		printk(KERN_ERR "%.08x: %.08x %.08x %.08x %.08x %.08x "
+-			"%.08x %.08x %.08x \n", i,
++			"%.08x %.08x %.08x\n", i,
+ 			tmp[i + 0],
+ 			tmp[i + 1],
+ 			tmp[i + 2],
+@@ -2056,7 +2056,7 @@ void ql_dump_ob_mac_iocb(struct ob_mac_iocb_req *ob_mac_iocb)
+ 	       ob_mac_tso_iocb->flags2 & OB_MAC_TSO_IOCB_LSO ? "LSO" : "",
+ 	       ob_mac_tso_iocb->flags2 & OB_MAC_TSO_IOCB_UC ? "UC" : "",
+ 	       ob_mac_tso_iocb->flags2 & OB_MAC_TSO_IOCB_TC ? "TC" : "");
+-	printk(KERN_ERR PFX "flags3          = %s %s %s \n",
++	printk(KERN_ERR PFX "flags3          = %s %s %s\n",
+ 	       ob_mac_tso_iocb->flags3 & OB_MAC_TSO_IOCB_IC ? "IC" : "",
+ 	       ob_mac_tso_iocb->flags3 & OB_MAC_TSO_IOCB_DFP ? "DFP" : "",
+ 	       ob_mac_tso_iocb->flags3 & OB_MAC_TSO_IOCB_V ? "V" : "");
+diff --git a/drivers/net/sis900.c b/drivers/net/sis900.c
+index cc0c731..bc7ff41 100644
+--- a/drivers/net/sis900.c
++++ b/drivers/net/sis900.c
+@@ -1499,7 +1499,7 @@ static void sis900_read_mode(struct net_device *net_dev, int *speed, int *duplex
+ 	}
+ 
+ 	if(netif_msg_link(sis_priv))
+-		printk(KERN_INFO "%s: Media Link On %s %s-duplex \n",
++		printk(KERN_INFO "%s: Media Link On %s %s-duplex\n",
+ 	       				net_dev->name,
+ 	       				*speed == HW_SPEED_100_MBPS ?
+ 	       					"100mbps" : "10mbps",
+@@ -1523,7 +1523,7 @@ static void sis900_tx_timeout(struct net_device *net_dev)
+ 	int i;
+ 
+ 	if(netif_msg_tx_err(sis_priv))
+-		printk(KERN_INFO "%s: Transmit timeout, status %8.8x %8.8x \n",
++		printk(KERN_INFO "%s: Transmit timeout, status %8.8x %8.8x\n",
+ 	       		net_dev->name, inl(ioaddr + cr), inl(ioaddr + isr));
+ 
+ 	/* Disable interrupts by clearing the interrupt mask. */
+diff --git a/drivers/net/skfp/fplustm.c b/drivers/net/skfp/fplustm.c
+index 6028bbb..9d8d1ac 100644
+--- a/drivers/net/skfp/fplustm.c
++++ b/drivers/net/skfp/fplustm.c
+@@ -1352,7 +1352,7 @@ void rtm_set_timer(struct s_smc *smc)
  	/*
-@@ -990,7 +990,7 @@ static void xl_rx(struct net_device *dev)
- 			skb = dev_alloc_skb(xl_priv->pkt_buf_sz) ; 
- 
- 			if (skb==NULL) { /* Still need to fix the rx ring */
--				printk(KERN_WARNING "%s: dev_alloc_skb failed in rx, single buffer \n",dev->name) ; 
-+				printk(KERN_WARNING "%s: dev_alloc_skb failed in rx, single buffer\n",dev->name) ; 
- 				adv_rx_ring(dev) ; 
- 				dev->stats.rx_dropped++ ; 
- 				writel(ACK_INTERRUPT | UPCOMPACK | LATCH_ACK , xl_mmio + MMIO_COMMAND) ; 
-@@ -1091,7 +1091,7 @@ static irqreturn_t xl_interrupt(int irq, void *dev_id)
+ 	 * MIB timer and hardware timer have the same resolution of 80nS
  	 */
- 	if (intstatus == 0x0001) {  
- 		writel(ACK_INTERRUPT | LATCH_ACK, xl_mmio + MMIO_COMMAND) ;
--		printk(KERN_INFO "%s: 00001 int received \n",dev->name) ;  
-+		printk(KERN_INFO "%s: 00001 int received\n",dev->name) ;  
- 	} else {  
- 		if (intstatus &	(HOSTERRINT | SRBRINT | ARBCINT | UPCOMPINT | DNCOMPINT | HARDERRINT | (1<<8) | TXUNDERRUN | ASBFINT)) { 
- 			
-@@ -1102,9 +1102,9 @@ static irqreturn_t xl_interrupt(int irq, void *dev_id)
- 			 */
+-	DB_RMT("RMT: setting new fddiPATHT_Rmode, t = %d ns \n",
++	DB_RMT("RMT: setting new fddiPATHT_Rmode, t = %d ns\n",
+ 		(int) smc->mib.a[PATH0].fddiPATHT_Rmode,0) ;
+ 	outpd(ADDR(B2_RTM_INI),smc->mib.a[PATH0].fddiPATHT_Rmode) ;
+ }
+diff --git a/drivers/net/skfp/pcmplc.c b/drivers/net/skfp/pcmplc.c
+index e6b33ee..ba45bc7 100644
+--- a/drivers/net/skfp/pcmplc.c
++++ b/drivers/net/skfp/pcmplc.c
+@@ -1277,7 +1277,7 @@ static void pc_rcode_actions(struct s_smc *smc, int bit, struct s_phy *phy)
  
- 			if (intstatus & HOSTERRINT) {
--				printk(KERN_WARNING "%s: Host Error, performing global reset, intstatus = %04x \n",dev->name,intstatus) ; 
-+				printk(KERN_WARNING "%s: Host Error, performing global reset, intstatus = %04x\n",dev->name,intstatus) ; 
- 				writew( GLOBAL_RESET, xl_mmio + MMIO_COMMAND ) ;
--				printk(KERN_WARNING "%s: Resetting hardware: \n", dev->name); 
-+				printk(KERN_WARNING "%s: Resetting hardware:\n", dev->name); 
- 				netif_stop_queue(dev) ;
- 				xl_freemem(dev) ; 
- 				free_irq(dev->irq,dev); 	
-@@ -1127,7 +1127,7 @@ static irqreturn_t xl_interrupt(int irq, void *dev_id)
- 					Must put a timeout check here ! */
- 					/* Empty Loop */
- 				} 
--				printk(KERN_WARNING "%s: TX Underrun received \n",dev->name) ;
-+				printk(KERN_WARNING "%s: TX Underrun received\n",dev->name) ;
- 				writel(ACK_INTERRUPT | LATCH_ACK, xl_mmio + MMIO_COMMAND) ; 
- 			} /* TxUnderRun */
- 	
-@@ -1156,13 +1156,13 @@ static irqreturn_t xl_interrupt(int irq, void *dev_id)
- 				macstatus = readw(xl_mmio + MMIO_MACDATA) ; 
- 				printk(KERN_WARNING "%s: MacStatusError, details: ", dev->name);
- 				if (macstatus & (1<<14)) 
--					printk(KERN_WARNING "tchk error: Unrecoverable error \n") ; 
-+					printk(KERN_WARNING "tchk error: Unrecoverable error\n") ; 
- 				if (macstatus & (1<<3))
--					printk(KERN_WARNING "eint error: Internal watchdog timer expired \n") ;
-+					printk(KERN_WARNING "eint error: Internal watchdog timer expired\n") ;
- 				if (macstatus & (1<<2))
--					printk(KERN_WARNING "aint error: Host tried to perform invalid operation \n") ; 
-+					printk(KERN_WARNING "aint error: Host tried to perform invalid operation\n") ; 
- 				printk(KERN_WARNING "Instatus = %02x, macstatus = %02x\n",intstatus,macstatus) ; 
--				printk(KERN_WARNING "%s: Resetting hardware: \n", dev->name); 
-+				printk(KERN_WARNING "%s: Resetting hardware:\n", dev->name); 
- 				netif_stop_queue(dev) ;
- 				xl_freemem(dev) ; 
- 				free_irq(dev->irq,dev); 
-@@ -1174,7 +1174,7 @@ static irqreturn_t xl_interrupt(int irq, void *dev_id)
- 				return IRQ_HANDLED;
- 			}
- 		} else { 
--			printk(KERN_WARNING "%s: Received Unknown interrupt : %04x \n", dev->name, intstatus) ;
-+			printk(KERN_WARNING "%s: Received Unknown interrupt : %04x\n", dev->name, intstatus) ;
- 			writel(ACK_INTERRUPT | LATCH_ACK, xl_mmio + MMIO_COMMAND) ; 	
- 		}
- 	} 
-@@ -1349,11 +1349,11 @@ static int xl_close(struct net_device *dev)
+ 	mib = phy->mib ;
  
- 	writel(MEM_BYTE_READ | 0xd0000 | xl_priv->srb, xl_mmio + MMIO_MAC_ACCESS_CMD);
- 	if (readb(xl_mmio + MMIO_MACDATA) != CLOSE_NIC) { 
--		printk(KERN_INFO "%s: CLOSE_NIC did not get a CLOSE_NIC response \n",dev->name) ; 
-+		printk(KERN_INFO "%s: CLOSE_NIC did not get a CLOSE_NIC response\n",dev->name) ; 
- 	} else { 
- 		writel((MEM_BYTE_READ | 0xd0000 | xl_priv->srb) +2, xl_mmio + MMIO_MAC_ACCESS_CMD) ;
- 		if (readb(xl_mmio + MMIO_MACDATA)==0) { 
--			printk(KERN_INFO "%s: Adapter has been closed \n",dev->name) ;
-+			printk(KERN_INFO "%s: Adapter has been closed\n",dev->name) ;
- 			writew(ACK_INTERRUPT | SRBRACK | LATCH_ACK, xl_mmio + MMIO_COMMAND) ; 
+-	DB_PCMN(1,"SIG rec %x %x: \n", bit,phy->r_val[bit] ) ;
++	DB_PCMN(1,"SIG rec %x %x:\n", bit,phy->r_val[bit] ) ;
+ 	bit++ ;
  
- 			xl_freemem(dev) ; 
-@@ -1446,11 +1446,11 @@ static void xl_srb_bh(struct net_device *dev)
- 		printk(KERN_INFO "%s: Command: %d - Invalid Command code\n",dev->name,srb_cmd) ; 
- 		break ; 
- 	case 4:
--		printk(KERN_INFO "%s: Command: %d - Adapter is closed, must be open for this command \n",dev->name,srb_cmd) ; 
-+		printk(KERN_INFO "%s: Command: %d - Adapter is closed, must be open for this command\n",dev->name,srb_cmd) ; 
+ 	switch(bit) {
+@@ -1580,7 +1580,7 @@ static void pc_tcode_actions(struct s_smc *smc, const int bit, struct s_phy *phy
+ 		mib->fddiPORTMacIndicated.T_val = phy->t_val[9] ;
  		break ;
- 	
- 	case 6:
--		printk(KERN_INFO "%s: Command: %d - Options Invalid for command \n",dev->name,srb_cmd) ;
-+		printk(KERN_INFO "%s: Command: %d - Options Invalid for command\n",dev->name,srb_cmd) ;
- 		break ;
+ 	}
+-	DB_PCMN(1,"SIG snd %x %x: \n", bit,phy->t_val[bit] ) ;
++	DB_PCMN(1,"SIG snd %x %x:\n", bit,phy->t_val[bit] ) ;
+ }
  
- 	case 0: /* Successful command execution */ 
-@@ -1471,11 +1471,11 @@ static void xl_srb_bh(struct net_device *dev)
- 			break ; 
- 		case SET_FUNC_ADDRESS:
- 			if(xl_priv->xl_message_level) 
--				printk(KERN_INFO "%s: Functional Address Set \n",dev->name) ;  
-+				printk(KERN_INFO "%s: Functional Address Set\n",dev->name) ;  
- 			break ; 
- 		case CLOSE_NIC:
- 			if(xl_priv->xl_message_level)
--				printk(KERN_INFO "%s: Received CLOSE_NIC interrupt in interrupt handler \n",dev->name) ; 	
-+				printk(KERN_INFO "%s: Received CLOSE_NIC interrupt in interrupt handler\n",dev->name) ; 	
- 			break ; 
- 		case SET_MULTICAST_MODE:
- 			if(xl_priv->xl_message_level)
-@@ -1484,9 +1484,9 @@ static void xl_srb_bh(struct net_device *dev)
- 		case SET_RECEIVE_MODE:
- 			if(xl_priv->xl_message_level) {  
- 				if (xl_priv->xl_copy_all_options == 0x0004) 
--					printk(KERN_INFO "%s: Entering promiscuous mode \n", dev->name) ; 
-+					printk(KERN_INFO "%s: Entering promiscuous mode\n", dev->name) ; 
- 				else
--					printk(KERN_INFO "%s: Entering normal receive mode \n",dev->name) ; 
-+					printk(KERN_INFO "%s: Entering normal receive mode\n",dev->name) ; 
- 			}
- 			break ; 
-  
-@@ -1556,20 +1556,20 @@ static void xl_arb_cmd(struct net_device *dev)
- 			xl_freemem(dev) ; 
- 			free_irq(dev->irq,dev);
- 			
--			printk(KERN_WARNING "%s: Adapter has been closed \n", dev->name) ; 
-+			printk(KERN_WARNING "%s: Adapter has been closed\n", dev->name) ; 
- 		} /* If serious error */
- 		
- 		if (xl_priv->xl_message_level) { 
- 			if (lan_status_diff & LSC_SIG_LOSS) 
--					printk(KERN_WARNING "%s: No receive signal detected \n", dev->name) ; 
-+					printk(KERN_WARNING "%s: No receive signal detected\n", dev->name) ; 
- 			if (lan_status_diff & LSC_HARD_ERR)
--					printk(KERN_INFO "%s: Beaconing \n",dev->name);
-+					printk(KERN_INFO "%s: Beaconing\n",dev->name);
- 			if (lan_status_diff & LSC_SOFT_ERR)
--					printk(KERN_WARNING "%s: Adapter transmitted Soft Error Report Mac Frame \n",dev->name);
-+					printk(KERN_WARNING "%s: Adapter transmitted Soft Error Report Mac Frame\n",dev->name);
- 			if (lan_status_diff & LSC_TRAN_BCN) 
- 					printk(KERN_INFO "%s: We are tranmitting the beacon, aaah\n",dev->name);
- 			if (lan_status_diff & LSC_SS) 
--					printk(KERN_INFO "%s: Single Station on the ring \n", dev->name);
-+					printk(KERN_INFO "%s: Single Station on the ring\n", dev->name);
- 			if (lan_status_diff & LSC_RING_REC)
- 					printk(KERN_INFO "%s: Ring recovery ongoing\n",dev->name);
- 			if (lan_status_diff & LSC_FDX_MODE)
-@@ -1578,7 +1578,7 @@ static void xl_arb_cmd(struct net_device *dev)
- 		
- 		if (lan_status_diff & LSC_CO) { 
- 				if (xl_priv->xl_message_level) 
--					printk(KERN_INFO "%s: Counter Overflow \n", dev->name);
-+					printk(KERN_INFO "%s: Counter Overflow\n", dev->name);
- 				/* Issue READ.LOG command */
- 				xl_srb_cmd(dev, READ_LOG) ; 	
- 		}
-@@ -1594,7 +1594,7 @@ static void xl_arb_cmd(struct net_device *dev)
- 	}  /* Lan.change.status */
- 	else if ( arb_cmd == RECEIVE_DATA) { /* Received.Data */
- #if XL_DEBUG
--		printk(KERN_INFO "Received.Data \n") ; 
-+		printk(KERN_INFO "Received.Data\n") ; 
- #endif 		
- 		writel( ((MEM_WORD_READ | 0xD0000 | xl_priv->arb) + 6), xl_mmio + MMIO_MAC_ACCESS_CMD) ;
- 		xl_priv->mac_buffer = swab16(readw(xl_mmio + MMIO_MACDATA)) ;
-@@ -1629,7 +1629,7 @@ static void xl_arb_cmd(struct net_device *dev)
- 		xl_asb_cmd(dev) ; 
- 		
- 	} else {
--		printk(KERN_WARNING "%s: Received unknown arb (xl_priv) command: %02x \n",dev->name,arb_cmd) ; 
-+		printk(KERN_WARNING "%s: Received unknown arb (xl_priv) command: %02x\n",dev->name,arb_cmd) ; 
+ /*
+diff --git a/drivers/net/skfp/srf.c b/drivers/net/skfp/srf.c
+index 6caf713..40882b3 100644
+--- a/drivers/net/skfp/srf.c
++++ b/drivers/net/skfp/srf.c
+@@ -414,7 +414,7 @@ static void smt_send_srf(struct s_smc *smc)
+ 	smt->smt_len = SMT_MAX_INFO_LEN - pcon.pc_len ;
+ 	mb->sm_len = smt->smt_len + sizeof(struct smt_header) ;
+ 
+-	DB_SMT("SRF: sending SRF at %x, len %d \n",smt,mb->sm_len) ;
++	DB_SMT("SRF: sending SRF at %x, len %d\n",smt,mb->sm_len) ;
+ 	DB_SMT("SRF: state SR%d Threshold %d\n",
+ 		smc->srf.sr_state,smc->srf.SRThreshold/TICKS_PER_SECOND) ;
+ #ifdef	DEBUG
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+index d0058e5..bd8c5e8 100644
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -3666,7 +3666,7 @@ static int skge_debug_show(struct seq_file *seq, void *v)
+ 			   t->csum_offs, t->csum_write, t->csum_start);
  	}
  
- 	/* Acknowledge the arb interrupt */
-@@ -1686,13 +1686,13 @@ static void xl_asb_bh(struct net_device *dev)
- 	ret_code = readb(xl_mmio + MMIO_MACDATA) ; 
- 	switch (ret_code) { 
- 		case 0x01:
--			printk(KERN_INFO "%s: ASB Command, unrecognized command code \n",dev->name) ;
-+			printk(KERN_INFO "%s: ASB Command, unrecognized command code\n",dev->name) ;
- 			break ;
- 		case 0x26:
--			printk(KERN_INFO "%s: ASB Command, unexpected receive buffer \n", dev->name) ; 
-+			printk(KERN_INFO "%s: ASB Command, unexpected receive buffer\n", dev->name) ; 
- 			break ; 
- 		case 0x40:
--			printk(KERN_INFO "%s: ASB Command, Invalid Station ID \n", dev->name) ; 
-+			printk(KERN_INFO "%s: ASB Command, Invalid Station ID\n", dev->name) ; 
- 			break ;  
+-	seq_printf(seq, "\nRx Ring: \n");
++	seq_printf(seq, "\nRx Ring:\n");
+ 	for (e = skge->rx_ring.to_clean; ; e = e->next) {
+ 		const struct skge_rx_desc *r = e->desc;
+ 
+diff --git a/drivers/net/stmmac/dwmac100.c b/drivers/net/stmmac/dwmac100.c
+index 803b037..a183de2 100644
+--- a/drivers/net/stmmac/dwmac100.c
++++ b/drivers/net/stmmac/dwmac100.c
+@@ -138,7 +138,7 @@ static void dwmac100_dump_dma_regs(unsigned long ioaddr)
+ {
+ 	int i;
+ 
+-	DBG(KERN_DEBUG "DWMAC 100 DMA CSR \n");
++	DBG(KERN_DEBUG "DWMAC 100 DMA CSR\n");
+ 	for (i = 0; i < 9; i++)
+ 		pr_debug("\t CSR%d (offset 0x%x): 0x%08x\n", i,
+ 		       (DMA_BUS_MODE + i * 4),
+diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
+index 92bef30..963f591 100644
+--- a/drivers/net/stmmac/stmmac_main.c
++++ b/drivers/net/stmmac/stmmac_main.c
+@@ -836,7 +836,7 @@ static int stmmac_open(struct net_device *dev)
+ #ifdef CONFIG_STMMAC_TIMER
+ 	priv->tm = kzalloc(sizeof(struct stmmac_timer *), GFP_KERNEL);
+ 	if (unlikely(priv->tm == NULL)) {
+-		pr_err("%s: ERROR: timer memory alloc failed \n", __func__);
++		pr_err("%s: ERROR: timer memory alloc failed\n", __func__);
+ 		return -ENOMEM;
  	}
- 	xl_priv->asb_queued = 0 ; 
-diff --git a/drivers/net/tokenring/lanstreamer.c b/drivers/net/tokenring/lanstreamer.c
-index dd028fe..01c780f 100644
---- a/drivers/net/tokenring/lanstreamer.c
-+++ b/drivers/net/tokenring/lanstreamer.c
-@@ -357,7 +357,7 @@ static int __devinit streamer_init_one(struct pci_dev *pdev,
- 	pcr |= PCI_COMMAND_SERR;
- 	pci_write_config_word (pdev, PCI_COMMAND, pcr);
- 
--	printk("%s \n", version);
-+	printk("%s\n", version);
- 	printk("%s: %s. I/O at %hx, MMIO at %p, using irq %d\n",dev->name,
- 		streamer_priv->streamer_card_name,
- 		(unsigned int) dev->base_addr,
-@@ -650,7 +650,7 @@ static int streamer_open(struct net_device *dev)
- #if STREAMER_DEBUG
- 		writew(readw(streamer_mmio + LAPWWO),
- 		       streamer_mmio + LAPA);
--		printk("srb open request: \n");
-+		printk("srb open request:\n");
- 		for (i = 0; i < 16; i++) {
- 			printk("%x:", ntohs(readw(streamer_mmio + LAPDINC)));
- 		}
-@@ -700,7 +700,7 @@ static int streamer_open(struct net_device *dev)
- 		if (srb_word != 0) {
- 			if (srb_word == 0x07) {
- 				if (!streamer_priv->streamer_ring_speed && open_finished) {	/* Autosense , first time around */
--					printk(KERN_WARNING "%s: Retrying at different ring speed \n",
-+					printk(KERN_WARNING "%s: Retrying at different ring speed\n",
- 					       dev->name);
- 					open_finished = 0;
- 				} else {
-@@ -716,7 +716,7 @@ static int streamer_open(struct net_device *dev)
- 					    ((error_code & 0x0f) == 0x0d))
- 					{
- 						printk(KERN_WARNING "%s: Tried to autosense ring speed with no monitors present\n", dev->name);
--						printk(KERN_WARNING "%s: Please try again with a specified ring speed \n", dev->name);
-+						printk(KERN_WARNING "%s: Please try again with a specified ring speed\n", dev->name);
- 						free_irq(dev->irq, dev);
- 						return -EIO;
- 					}
-@@ -922,7 +922,7 @@ static void streamer_rx(struct net_device *dev)
- 
- 		if (rx_desc->status & 0x7E830000) {	/* errors */
- 			if (streamer_priv->streamer_message_level) {
--				printk(KERN_WARNING "%s: Rx Error %x \n",
-+				printk(KERN_WARNING "%s: Rx Error %x\n",
- 				       dev->name, rx_desc->status);
- 			}
- 		} else {	/* received without errors */
-@@ -935,7 +935,7 @@ static void streamer_rx(struct net_device *dev)
- 
- 			if (skb == NULL) 
- 			{
--				printk(KERN_WARNING "%s: Not enough memory to copy packet to upper layers. \n",	dev->name);
-+				printk(KERN_WARNING "%s: Not enough memory to copy packet to upper layers.\n",	dev->name);
- 				dev->stats.rx_dropped++;
- 			} else {	/* we allocated an skb OK */
- 				if (buffer_cnt == 1) {
-@@ -1363,7 +1363,7 @@ static void streamer_srb_bh(struct net_device *dev)
- 		case 0x00:
- 		        break;
- 		case 0x01:
--			printk(KERN_WARNING "%s: Unrecognized srb command \n",dev->name);
-+			printk(KERN_WARNING "%s: Unrecognized srb command\n",dev->name);
- 			break;
- 		case 0x04:
- 			printk(KERN_WARNING "%s: Adapter must be open for this operation, doh!!\n", dev->name);
-@@ -1391,13 +1391,13 @@ static void streamer_srb_bh(struct net_device *dev)
- 		case 0x00:
- 		        break;
- 		case 0x01:
--			printk(KERN_WARNING "%s: Unrecognized srb command \n", dev->name);
-+			printk(KERN_WARNING "%s: Unrecognized srb command\n", dev->name);
- 			break;
- 		case 0x04:
- 			printk(KERN_WARNING "%s: Adapter must be open for this operation, doh!!\n", dev->name);
- 			break;
- 		case 0x39:	/* Must deal with this if individual multicast addresses used */
--			printk(KERN_INFO "%s: Group address not found \n", dev->name);
-+			printk(KERN_INFO "%s: Group address not found\n", dev->name);
- 			break;
- 		default:
- 			break;
-@@ -1413,10 +1413,10 @@ static void streamer_srb_bh(struct net_device *dev)
- 		switch (srb_word) {
- 		case 0x00:
- 			if (streamer_priv->streamer_message_level)
--				printk(KERN_INFO "%s: Functional Address Mask Set \n", dev->name);
-+				printk(KERN_INFO "%s: Functional Address Mask Set\n", dev->name);
- 			break;
- 		case 0x01:
--			printk(KERN_WARNING "%s: Unrecognized srb command \n", dev->name);
-+			printk(KERN_WARNING "%s: Unrecognized srb command\n", dev->name);
- 			break;
- 		case 0x04:
- 			printk(KERN_WARNING "%s: Adapter must be open for this operation, doh!!\n", dev->name);
-@@ -1447,7 +1447,7 @@ static void streamer_srb_bh(struct net_device *dev)
- 			}
- 			break;
- 		case 0x01:
--			printk(KERN_WARNING "%s: Unrecognized srb command \n", dev->name);
-+			printk(KERN_WARNING "%s: Unrecognized srb command\n", dev->name);
- 			break;
- 		case 0x04:
- 			printk(KERN_WARNING "%s: Adapter must be open for this operation, doh!!\n", dev->name);
-@@ -1466,7 +1466,7 @@ static void streamer_srb_bh(struct net_device *dev)
- 				printk(KERN_INFO "%s: Read Source Routing Counters issued\n", dev->name);
- 			break;
- 		case 0x01:
--			printk(KERN_WARNING "%s: Unrecognized srb command \n", dev->name);
-+			printk(KERN_WARNING "%s: Unrecognized srb command\n", dev->name);
- 			break;
- 		case 0x04:
- 			printk(KERN_WARNING "%s: Adapter must be open for this operation, doh!!\n", dev->name);
-@@ -1555,7 +1555,7 @@ static void streamer_arb_cmd(struct net_device *dev)
- 					     (streamer_mmio + LAPDINC)));
- 			}
- 
--			printk("next %04x, fs %02x, len %04x \n", next,
-+			printk("next %04x, fs %02x, len %04x\n", next,
- 			       status, len);
- 		}
- #endif
-@@ -1592,7 +1592,7 @@ static void streamer_arb_cmd(struct net_device *dev)
- 
- 		mac_frame->protocol = tr_type_trans(mac_frame, dev);
- #if STREAMER_NETWORK_MONITOR
--		printk(KERN_WARNING "%s: Received MAC Frame, details: \n",
-+		printk(KERN_WARNING "%s: Received MAC Frame, details:\n",
- 		       dev->name);
- 		mac_hdr = tr_hdr(mac_frame);
- 		printk(KERN_WARNING
-@@ -1668,15 +1668,15 @@ drop_frame:
- 		/* If serious error */
- 		if (streamer_priv->streamer_message_level) {
- 			if (lan_status_diff & LSC_SIG_LOSS)
--				printk(KERN_WARNING "%s: No receive signal detected \n", dev->name);
-+				printk(KERN_WARNING "%s: No receive signal detected\n", dev->name);
- 			if (lan_status_diff & LSC_HARD_ERR) 
--				printk(KERN_INFO "%s: Beaconing \n", dev->name);
-+				printk(KERN_INFO "%s: Beaconing\n", dev->name);
- 			if (lan_status_diff & LSC_SOFT_ERR)
--				printk(KERN_WARNING "%s: Adapter transmitted Soft Error Report Mac Frame \n", dev->name);
-+				printk(KERN_WARNING "%s: Adapter transmitted Soft Error Report Mac Frame\n", dev->name);
- 			if (lan_status_diff & LSC_TRAN_BCN)
- 				printk(KERN_INFO "%s: We are tranmitting the beacon, aaah\n", dev->name);
- 			if (lan_status_diff & LSC_SS)
--				printk(KERN_INFO "%s: Single Station on the ring \n", dev->name);
-+				printk(KERN_INFO "%s: Single Station on the ring\n", dev->name);
- 			if (lan_status_diff & LSC_RING_REC)
- 				printk(KERN_INFO "%s: Ring recovery ongoing\n", dev->name);
- 			if (lan_status_diff & LSC_FDX_MODE)
-@@ -1685,7 +1685,7 @@ drop_frame:
- 
- 		if (lan_status_diff & LSC_CO) {
- 			if (streamer_priv->streamer_message_level)
--				printk(KERN_INFO "%s: Counter Overflow \n", dev->name);
-+				printk(KERN_INFO "%s: Counter Overflow\n", dev->name);
- 
- 			/* Issue READ.LOG command */
- 
-@@ -1715,7 +1715,7 @@ drop_frame:
- 		streamer_priv->streamer_lan_status = lan_status;
- 	} /* Lan.change.status */
- 	else
--		printk(KERN_WARNING "%s: Unknown arb command \n", dev->name);
-+		printk(KERN_WARNING "%s: Unknown arb command\n", dev->name);
+ 	priv->tm->freq = tmrate;
+diff --git a/drivers/net/tlan.c b/drivers/net/tlan.c
+index 390540c..05ea30a 100644
+--- a/drivers/net/tlan.c
++++ b/drivers/net/tlan.c
+@@ -2464,7 +2464,7 @@ static void TLan_PhyPrint( struct net_device *dev )
+ 		printk( "TLAN:   Device %s, Unmanaged PHY.\n", dev->name );
+ 	} else if ( phy <= TLAN_PHY_MAX_ADDR ) {
+ 		printk( "TLAN:   Device %s, PHY 0x%02x.\n", dev->name, phy );
+-		printk( "TLAN:      Off.  +0     +1     +2     +3 \n" );
++		printk( "TLAN:      Off.  +0     +1     +2     +3\n" );
+                 for ( i = 0; i < 0x20; i+= 4 ) {
+ 			printk( "TLAN:      0x%02x", i );
+ 			TLan_MiiReadReg( dev, phy, i, &data0 );
+diff --git a/drivers/net/tsi108_eth.c b/drivers/net/tsi108_eth.c
+index 647cdd1..80333a4 100644
+--- a/drivers/net/tsi108_eth.c
++++ b/drivers/net/tsi108_eth.c
+@@ -263,7 +263,7 @@ static inline void tsi108_write_tbi(struct tsi108_prv_data *data,
+ 			return;
+ 		udelay(10);
+ 	}
+-	printk(KERN_ERR "%s function time out \n", __func__);
++	printk(KERN_ERR "%s function time out\n", __func__);
  }
  
- static void streamer_asb_bh(struct net_device *dev)
-@@ -1746,10 +1746,10 @@ static void streamer_asb_bh(struct net_device *dev)
- 		rc=ntohs(readw(streamer_mmio+LAPD)) >> 8;
- 		switch (rc) {
- 		case 0x01:
--			printk(KERN_WARNING "%s: Unrecognized command code \n", dev->name);
-+			printk(KERN_WARNING "%s: Unrecognized command code\n", dev->name);
- 			break;
- 		case 0x26:
--			printk(KERN_WARNING "%s: Unrecognized buffer address \n", dev->name);
-+			printk(KERN_WARNING "%s: Unrecognized buffer address\n", dev->name);
- 			break;
- 		case 0xFF:
- 			/* Valid response, everything should be ok again */
-diff --git a/drivers/net/tokenring/olympic.c b/drivers/net/tokenring/olympic.c
-index 3a25e04..3c4d23b 100644
---- a/drivers/net/tokenring/olympic.c
-+++ b/drivers/net/tokenring/olympic.c
-@@ -302,7 +302,7 @@ static int olympic_init(struct net_device *dev)
- 	olympic_priv=netdev_priv(dev);
- 	olympic_mmio=olympic_priv->olympic_mmio;
- 
--	printk("%s \n", version);
-+	printk("%s\n", version);
- 	printk("%s. I/O at %hx, MMIO at %p, LAP at %p, using irq %d\n", olympic_priv->olympic_card_name, (unsigned int) dev->base_addr,olympic_priv->olympic_mmio, olympic_priv->olympic_lap, dev->irq);
- 
- 	writel(readl(olympic_mmio+BCTL) | BCTL_SOFTRESET,olympic_mmio+BCTL);
-@@ -468,7 +468,7 @@ static int olympic_open(struct net_device *dev)
- #if OLYMPIC_DEBUG
- 	printk("LAPWWO: %x, LAPA: %x\n",readw(olympic_mmio+LAPWWO), readl(olympic_mmio+LAPA));
- 	printk("SISR Mask = %04x\n", readl(olympic_mmio+SISR_MASK));
--	printk("Before the open command \n");
-+	printk("Before the open command\n");
- #endif	
- 	do {
- 		memset_io(init_srb,0,SRB_COMMAND_SIZE);
-@@ -520,7 +520,7 @@ static int olympic_open(struct net_device *dev)
-             			break;
-         		}
- 			if (time_after(jiffies, t + 10*HZ)) {
--				printk(KERN_WARNING "%s: SRB timed out. \n",dev->name) ; 
-+				printk(KERN_WARNING "%s: SRB timed out.\n",dev->name) ; 
- 				olympic_priv->srb_queued=0;
- 				break ; 
- 			} 
-@@ -549,7 +549,7 @@ static int olympic_open(struct net_device *dev)
- 			break;
- 		case 0x07:
- 			if (!olympic_priv->olympic_ring_speed && open_finished) { /* Autosense , first time around */
--				printk(KERN_WARNING "%s: Retrying at different ring speed \n", dev->name); 
-+				printk(KERN_WARNING "%s: Retrying at different ring speed\n", dev->name); 
- 				open_finished = 0 ;  
- 				continue;
- 			}
-@@ -558,7 +558,7 @@ static int olympic_open(struct net_device *dev)
- 
- 			if (!olympic_priv->olympic_ring_speed && ((err & 0x0f) == 0x0d)) { 
- 				printk(KERN_WARNING "%s: Tried to autosense ring speed with no monitors present\n",dev->name);
--				printk(KERN_WARNING "%s: Please try again with a specified ring speed \n",dev->name);
-+				printk(KERN_WARNING "%s: Please try again with a specified ring speed\n",dev->name);
- 			} else {
- 				printk(KERN_WARNING "%s: %s - %s\n", dev->name,
- 					open_maj_error[(err & 0xf0) >> 4],
-@@ -759,7 +759,7 @@ static void olympic_rx(struct net_device *dev)
- 		olympic_priv->rx_status_last_received++ ;
- 		olympic_priv->rx_status_last_received &= (OLYMPIC_RX_RING_SIZE -1);
- #if OLYMPIC_DEBUG
--		printk("rx status: %x rx len: %x \n", le32_to_cpu(rx_status->status_buffercnt), le32_to_cpu(rx_status->fragmentcnt_framelen));
-+		printk("rx status: %x rx len: %x\n", le32_to_cpu(rx_status->status_buffercnt), le32_to_cpu(rx_status->fragmentcnt_framelen));
- #endif
- 		length = le32_to_cpu(rx_status->fragmentcnt_framelen) & 0xffff;
- 		buffer_cnt = le32_to_cpu(rx_status->status_buffercnt) & 0xffff; 
-@@ -774,15 +774,15 @@ static void olympic_rx(struct net_device *dev)
- 			if (l_status_buffercnt & 0x3B000000) {
- 				if (olympic_priv->olympic_message_level) {
- 					if (l_status_buffercnt & (1<<29))  /* Rx Frame Truncated */
--						printk(KERN_WARNING "%s: Rx Frame Truncated \n",dev->name);
-+						printk(KERN_WARNING "%s: Rx Frame Truncated\n",dev->name);
- 					if (l_status_buffercnt & (1<<28)) /*Rx receive overrun */
--						printk(KERN_WARNING "%s: Rx Frame Receive overrun \n",dev->name);
-+						printk(KERN_WARNING "%s: Rx Frame Receive overrun\n",dev->name);
- 					if (l_status_buffercnt & (1<<27)) /* No receive buffers */
--						printk(KERN_WARNING "%s: No receive buffers \n",dev->name);
-+						printk(KERN_WARNING "%s: No receive buffers\n",dev->name);
- 					if (l_status_buffercnt & (1<<25)) /* Receive frame error detect */
--						printk(KERN_WARNING "%s: Receive frame error detect \n",dev->name);
-+						printk(KERN_WARNING "%s: Receive frame error detect\n",dev->name);
- 					if (l_status_buffercnt & (1<<24)) /* Received Error Detect */
--						printk(KERN_WARNING "%s: Received Error Detect \n",dev->name);
-+						printk(KERN_WARNING "%s: Received Error Detect\n",dev->name);
- 				} 
- 				olympic_priv->rx_ring_last_received += i ; 
- 				olympic_priv->rx_ring_last_received &= (OLYMPIC_RX_RING_SIZE -1) ; 
-@@ -796,7 +796,7 @@ static void olympic_rx(struct net_device *dev)
- 				}
- 
- 				if (skb == NULL) {
--					printk(KERN_WARNING "%s: Not enough memory to copy packet to upper layers. \n",dev->name) ;
-+					printk(KERN_WARNING "%s: Not enough memory to copy packet to upper layers.\n",dev->name) ;
- 					dev->stats.rx_dropped++;
- 					/* Update counters even though we don't transfer the frame */
- 					olympic_priv->rx_ring_last_received += i ; 
-@@ -1101,7 +1101,7 @@ static int olympic_close(struct net_device *dev)
-         	}
- 
- 		if (t == 0) { 
--			printk(KERN_WARNING "%s: SRB timed out. May not be fatal. \n",dev->name) ; 
-+			printk(KERN_WARNING "%s: SRB timed out. May not be fatal.\n",dev->name) ; 
- 		} 
- 		olympic_priv->srb_queued=0;
-     	}
-@@ -1239,7 +1239,7 @@ static void olympic_srb_bh(struct net_device *dev)
- 				case 0x00:
- 					break ; 
- 				case 0x01:
--					printk(KERN_WARNING "%s: Unrecognized srb command \n",dev->name) ; 
-+					printk(KERN_WARNING "%s: Unrecognized srb command\n",dev->name) ; 
- 					break ;
- 				case 0x04:
- 					printk(KERN_WARNING "%s: Adapter must be open for this operation, doh!!\n",dev->name); 
-@@ -1266,13 +1266,13 @@ static void olympic_srb_bh(struct net_device *dev)
- 				case 0x00:
- 					break ; 
- 				case 0x01:
--					printk(KERN_WARNING "%s: Unrecognized srb command \n",dev->name) ; 
-+					printk(KERN_WARNING "%s: Unrecognized srb command\n",dev->name) ; 
- 					break ; 
- 				case 0x04:
- 					printk(KERN_WARNING "%s: Adapter must be open for this operation, doh!!\n",dev->name) ; 
- 					break ; 
- 				case 0x39: /* Must deal with this if individual multicast addresses used */
--					printk(KERN_INFO "%s: Group address not found \n",dev->name); 
-+					printk(KERN_INFO "%s: Group address not found\n",dev->name); 
- 					break ;
- 				default:
- 					break ; 
-@@ -1287,10 +1287,10 @@ static void olympic_srb_bh(struct net_device *dev)
- 			switch (readb(srb+2)) { 
- 				case 0x00:
- 					if (olympic_priv->olympic_message_level)
--						printk(KERN_INFO "%s: Functional Address Mask Set \n",dev->name) ; 
-+						printk(KERN_INFO "%s: Functional Address Mask Set\n",dev->name) ; 
- 					break ;
- 				case 0x01:
--					printk(KERN_WARNING "%s: Unrecognized srb command \n",dev->name) ; 
-+					printk(KERN_WARNING "%s: Unrecognized srb command\n",dev->name) ; 
- 					break ; 
- 				case 0x04:
- 					printk(KERN_WARNING "%s: Adapter must be open for this operation, doh!!\n",dev->name) ; 
-@@ -1310,7 +1310,7 @@ static void olympic_srb_bh(struct net_device *dev)
- 						printk(KERN_INFO "%s: Read Log issued\n",dev->name) ; 
- 					break ; 
- 				case 0x01:
--					printk(KERN_WARNING "%s: Unrecognized srb command \n",dev->name) ; 
-+					printk(KERN_WARNING "%s: Unrecognized srb command\n",dev->name) ; 
- 					break ; 
- 				case 0x04:
- 					printk(KERN_WARNING "%s: Adapter must be open for this operation, doh!!\n",dev->name) ; 
-@@ -1328,7 +1328,7 @@ static void olympic_srb_bh(struct net_device *dev)
- 						printk(KERN_INFO "%s: Read Source Routing Counters issued\n",dev->name) ; 
- 					break ; 
- 				case 0x01:
--					printk(KERN_WARNING "%s: Unrecognized srb command \n",dev->name) ; 
-+					printk(KERN_WARNING "%s: Unrecognized srb command\n",dev->name) ; 
- 					break ; 
- 				case 0x04:
- 					printk(KERN_WARNING "%s: Adapter must be open for this operation, doh!!\n",dev->name) ; 
-@@ -1404,7 +1404,7 @@ static void olympic_arb_cmd(struct net_device *dev)
- 			printk("Loc %d = %02x\n",i,readb(frame_data + i)); 
- 		}
- 
--		printk("next %04x, fs %02x, len %04x \n",readw(buf_ptr+offsetof(struct mac_receive_buffer,next)), readb(buf_ptr+offsetof(struct mac_receive_buffer,frame_status)), readw(buf_ptr+offsetof(struct mac_receive_buffer,buffer_length))); 
-+		printk("next %04x, fs %02x, len %04x\n",readw(buf_ptr+offsetof(struct mac_receive_buffer,next)), readb(buf_ptr+offsetof(struct mac_receive_buffer,frame_status)), readw(buf_ptr+offsetof(struct mac_receive_buffer,buffer_length))); 
- }
- #endif 
- 		mac_frame = dev_alloc_skb(frame_len) ; 
-@@ -1426,7 +1426,7 @@ static void olympic_arb_cmd(struct net_device *dev)
- 
- 		if (olympic_priv->olympic_network_monitor) { 
- 			struct trh_hdr *mac_hdr;
--			printk(KERN_WARNING "%s: Received MAC Frame, details: \n",dev->name);
-+			printk(KERN_WARNING "%s: Received MAC Frame, details:\n",dev->name);
- 			mac_hdr = tr_hdr(mac_frame);
- 			printk(KERN_WARNING "%s: MAC Frame Dest. Addr: %pM\n",
- 			       dev->name, mac_hdr->daddr);
-@@ -1489,20 +1489,20 @@ drop_frame:
- 			writel(readl(olympic_mmio+BCTL)&~(3<<13),olympic_mmio+BCTL);
- 			netif_stop_queue(dev);
- 			olympic_priv->srb = readw(olympic_priv->olympic_lap + LAPWWO) ; 
--			printk(KERN_WARNING "%s: Adapter has been closed \n", dev->name) ; 
-+			printk(KERN_WARNING "%s: Adapter has been closed\n", dev->name) ; 
- 		} /* If serious error */
- 		
- 		if (olympic_priv->olympic_message_level) { 
- 			if (lan_status_diff & LSC_SIG_LOSS) 
--					printk(KERN_WARNING "%s: No receive signal detected \n", dev->name) ; 
-+					printk(KERN_WARNING "%s: No receive signal detected\n", dev->name) ; 
- 			if (lan_status_diff & LSC_HARD_ERR)
--					printk(KERN_INFO "%s: Beaconing \n",dev->name);
-+					printk(KERN_INFO "%s: Beaconing\n",dev->name);
- 			if (lan_status_diff & LSC_SOFT_ERR)
--					printk(KERN_WARNING "%s: Adapter transmitted Soft Error Report Mac Frame \n",dev->name);
-+					printk(KERN_WARNING "%s: Adapter transmitted Soft Error Report Mac Frame\n",dev->name);
- 			if (lan_status_diff & LSC_TRAN_BCN) 
- 					printk(KERN_INFO "%s: We are tranmitting the beacon, aaah\n",dev->name);
- 			if (lan_status_diff & LSC_SS) 
--					printk(KERN_INFO "%s: Single Station on the ring \n", dev->name);
-+					printk(KERN_INFO "%s: Single Station on the ring\n", dev->name);
- 			if (lan_status_diff & LSC_RING_REC)
- 					printk(KERN_INFO "%s: Ring recovery ongoing\n",dev->name);
- 			if (lan_status_diff & LSC_FDX_MODE)
-@@ -1512,7 +1512,7 @@ drop_frame:
- 		if (lan_status_diff & LSC_CO) { 
- 					
- 				if (olympic_priv->olympic_message_level) 
--					printk(KERN_INFO "%s: Counter Overflow \n", dev->name);
-+					printk(KERN_INFO "%s: Counter Overflow\n", dev->name);
- 					
- 				/* Issue READ.LOG command */
- 
-@@ -1551,7 +1551,7 @@ drop_frame:
- 	
- 	}  /* Lan.change.status */
- 	else
--		printk(KERN_WARNING "%s: Unknown arb command \n", dev->name);
-+		printk(KERN_WARNING "%s: Unknown arb command\n", dev->name);
+ static int mii_speed(struct mii_if_info *mii)
+@@ -1056,7 +1056,7 @@ static void tsi108_stop_ethernet(struct net_device *dev)
+ 			return;
+ 		udelay(10);
+ 	}
+-	printk(KERN_ERR "%s function time out \n", __func__);
++	printk(KERN_ERR "%s function time out\n", __func__);
  }
  
- static void olympic_asb_bh(struct net_device *dev) 
-@@ -1578,10 +1578,10 @@ static void olympic_asb_bh(struct net_device *dev)
- 	if (olympic_priv->asb_queued == 2) { 
- 		switch (readb(asb_block+2)) {
- 			case 0x01:
--				printk(KERN_WARNING "%s: Unrecognized command code \n", dev->name);
-+				printk(KERN_WARNING "%s: Unrecognized command code\n", dev->name);
- 				break ;
- 			case 0x26:
--				printk(KERN_WARNING "%s: Unrecognized buffer address \n", dev->name);
-+				printk(KERN_WARNING "%s: Unrecognized buffer address\n", dev->name);
- 				break ;
- 			case 0xFF:
- 				/* Valid response, everything should be ok again */
-diff --git a/drivers/net/tokenring/tms380tr.c b/drivers/net/tokenring/tms380tr.c
-index ee71bcf..b545e20 100644
---- a/drivers/net/tokenring/tms380tr.c
-+++ b/drivers/net/tokenring/tms380tr.c
-@@ -1391,7 +1391,7 @@ static int tms380tr_bringup_diags(struct net_device *dev)
- 			Status &= STS_MASK;
+ static void tsi108_reset_ether(struct tsi108_prv_data * data)
+@@ -1233,7 +1233,7 @@ static void tsi108_init_phy(struct net_device *dev)
+ 		udelay(10);
+ 	}
+ 	if (i == 0)
+-		printk(KERN_ERR "%s function time out \n", __func__);
++		printk(KERN_ERR "%s function time out\n", __func__);
  
- 			if(tms380tr_debug > 3)
--				printk(KERN_DEBUG " %04X \n", Status);
-+				printk(KERN_DEBUG " %04X\n", Status);
- 			/* BUD successfully completed */
- 			if(Status == STS_INITIALIZE)
- 				return (1);
-@@ -1847,7 +1847,7 @@ static void tms380tr_chk_irq(struct net_device *dev)
- 			break;
+ 	if (data->phy_type == TSI108_PHY_BCM54XX) {
+ 		tsi108_write_mii(data, 0x09, 0x0300);
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 1b0aef3..75743a7 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3883,7 +3883,7 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 	}
  
- 		case DMA_WRITE_ABORT:
--			printk(KERN_INFO "%s: DMA write operation aborted: \n",
-+			printk(KERN_INFO "%s: DMA write operation aborted:\n",
- 				dev->name);
- 			switch (AdapterCheckBlock[1])
- 			{
+ 	if (netif_msg_probe(&debug))
+-		printk(KERN_INFO "ucc_geth: UCC%1d at 0x%8x (irq = %d) \n",
++		printk(KERN_INFO "ucc_geth: UCC%1d at 0x%8x (irq = %d)\n",
+ 			ug_info->uf_info.ucc_num + 1, ug_info->uf_info.regs,
+ 			ug_info->uf_info.irq);
+ 
+diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
+index 46a7c9e..0006837 100644
+--- a/drivers/net/vxge/vxge-main.c
++++ b/drivers/net/vxge/vxge-main.c
+@@ -4174,7 +4174,7 @@ vxge_probe(struct pci_dev *pdev, const struct pci_device_id *pre)
+ 			ret = pci_enable_sriov(pdev, max_config_dev - 1);
+ 			if (ret)
+ 				vxge_debug_ll_config(VXGE_ERR,
+-					"Failed to enable SRIOV: %d \n", ret);
++					"Failed to enable SRIOV: %d\n", ret);
+ 	}
+ 
+ 	/*
+diff --git a/drivers/net/wan/pc300_drv.c b/drivers/net/wan/pc300_drv.c
+index f4f1c00..cb72cc7 100644
+--- a/drivers/net/wan/pc300_drv.c
++++ b/drivers/net/wan/pc300_drv.c
+@@ -395,7 +395,7 @@ static void tx1_dma_buf_check(pc300_t * card, int ch)
+ 	u16 next_bd = card->chan[ch].tx_next_bd;
+ 	u32 scabase = card->hw.scabase;
+ 
+-	printk ("\nnfree_tx_bd = %d \n", card->chan[ch].nfree_tx_bd);
++	printk ("\nnfree_tx_bd = %d\n", card->chan[ch].nfree_tx_bd);
+ 	printk("#CH%d: f_bd = %d(0x%08x), n_bd = %d(0x%08x)\n", ch,
+ 	       first_bd, TX_BD_ADDR(ch, first_bd),
+ 	       next_bd, TX_BD_ADDR(ch, next_bd));
+diff --git a/drivers/net/wan/pc300_tty.c b/drivers/net/wan/pc300_tty.c
+index 4917a94..4293889 100644
+--- a/drivers/net/wan/pc300_tty.c
++++ b/drivers/net/wan/pc300_tty.c
+@@ -366,7 +366,7 @@ static void cpc_tty_close(struct tty_struct *tty, struct file *flip)
+ 	int res;
+ 
+ 	if (!tty || !tty->driver_data ) {
+-		CPC_TTY_DBG("hdlx-tty: no TTY in close \n");
++		CPC_TTY_DBG("hdlx-tty: no TTY in close\n");
+ 		return;
+ 	}
+ 
+diff --git a/drivers/net/wan/sdla.c b/drivers/net/wan/sdla.c
+index 31c41af..43ae6f4 100644
+--- a/drivers/net/wan/sdla.c
++++ b/drivers/net/wan/sdla.c
+@@ -1352,7 +1352,7 @@ static int sdla_set_config(struct net_device *dev, struct ifmap *map)
+ 		return(-EINVAL);
+ 
+ 	if (!request_region(map->base_addr, SDLA_IO_EXTENTS, dev->name)){
+-		printk(KERN_WARNING "SDLA: io-port 0x%04lx in use \n", dev->base_addr);
++		printk(KERN_WARNING "SDLA: io-port 0x%04lx in use\n", dev->base_addr);
+ 		return(-EINVAL);
+ 	}
+ 	base = map->base_addr;
+diff --git a/drivers/net/wimax/i2400m/tx.c b/drivers/net/wimax/i2400m/tx.c
+index 54480e8..38f9c92 100644
+--- a/drivers/net/wimax/i2400m/tx.c
++++ b/drivers/net/wimax/i2400m/tx.c
+@@ -688,7 +688,7 @@ try_new:
+ 			 pl_type, buf_len);
+ 		tx_msg->num_pls = le16_to_cpu(num_pls+1);
+ 		tx_msg->size += padded_len;
+-		d_printf(2, dev, "TX: appended %zu b (up to %u b) pl #%u \n",
++		d_printf(2, dev, "TX: appended %zu b (up to %u b) pl #%u\n",
+ 			padded_len, tx_msg->size, num_pls+1);
+ 		d_printf(2, dev,
+ 			 "TX: appended hdr @%zu %zu b pl #%u @%zu %zu/%zu b\n",
 -- 
 1.6.6.1
-
