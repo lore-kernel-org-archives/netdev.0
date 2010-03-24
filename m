@@ -1,95 +1,102 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH] e1000e: do not modify tx_queue_len on link speed change
-Date: Wed, 24 Mar 2010 15:55:02 -0700
-Message-ID: <20100324225501.7104.28849.stgit@localhost.localdomain>
+Subject: [PATCH] e1000e: Use pr_<level> and netdev_<level>
+Date: Wed, 24 Mar 2010 15:55:30 -0700
+Message-ID: <20100324225529.7104.17189.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Franco Fichtner <franco@lastsummer.de>,
-	Emil Tantilov <emil.s.tantilov@intel.com>,
+	Joe Perches <joe@perches.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta03.emeryville.ca.mail.comcast.net ([76.96.30.32]:56874 "EHLO
-	qmta03.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751981Ab0CXWz3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 18:55:29 -0400
+Received: from qmta05.emeryville.ca.mail.comcast.net ([76.96.30.48]:33400 "EHLO
+	qmta05.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751314Ab0CXW4Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 18:56:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Previously the driver tweaked txqueuelen to avoid false Tx hang reports seen at half duplex.
-This had the effect of overriding user set values on link change/reset. Testing shows that
-adjusting only the timeout factor is sufficient to prevent Tx hang reports at half duplex.
+As an alternative to a quite large patch previously submitted by Joe
+Perches to make use of kernel logging API, this patch is much less
+intrusive.
 
-This patch removes all instances of tx_queue_len in the driver.
+Convert e_<level> to netdev_<level>
+Use #define pr_fmt
+Convert a few printks to pr_<level>
 
-Originally reported and patched by Franco Fichtner
-CC: Franco Fichtner <franco@lastsummer.de>
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Cc: Joe Perches <joe@perches.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/e1000.h  |    1 -
- drivers/net/e1000e/netdev.c |   11 +----------
- 2 files changed, 1 insertions(+), 11 deletions(-)
+ drivers/net/e1000e/e1000.h  |   19 +++++--------------
+ drivers/net/e1000e/netdev.c |    9 +++++----
+ 2 files changed, 10 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index c2ec095..118bdf4 100644
+index 118bdf4..23ab67c 100644
 --- a/drivers/net/e1000e/e1000.h
 +++ b/drivers/net/e1000e/e1000.h
-@@ -279,7 +279,6 @@ struct e1000_adapter {
+@@ -42,25 +42,16 @@
  
- 	struct napi_struct napi;
+ struct e1000_info;
  
--	unsigned long tx_queue_len;
- 	unsigned int restart_queue;
- 	u32 txd_cmd;
+-#define e_printk(level, adapter, format, arg...) \
+-	printk(level "%s: %s: " format, pci_name(adapter->pdev), \
+-	       adapter->netdev->name, ## arg)
+-
+-#ifdef DEBUG
+ #define e_dbg(format, arg...) \
+-	e_printk(KERN_DEBUG , hw->adapter, format, ## arg)
+-#else
+-#define e_dbg(format, arg...) do { (void)(hw); } while (0)
+-#endif
+-
++	netdev_dbg(hw->adapter->netdev, format, ## arg)
+ #define e_err(format, arg...) \
+-	e_printk(KERN_ERR, adapter, format, ## arg)
++	netdev_err(adapter->netdev, format, ## arg)
+ #define e_info(format, arg...) \
+-	e_printk(KERN_INFO, adapter, format, ## arg)
++	netdev_info(adapter->netdev, format, ## arg)
+ #define e_warn(format, arg...) \
+-	e_printk(KERN_WARNING, adapter, format, ## arg)
++	netdev_warn(adapter->netdev, format, ## arg)
+ #define e_notice(format, arg...) \
+-	e_printk(KERN_NOTICE, adapter, format, ## arg)
++	netdev_notice(adapter->netdev, format, ## arg)
  
+ 
+ /* Interrupt modes, as used by the IntMode parameter */
 diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 88d54d3..e1cceb6 100644
+index e1cceb6..ad4546e 100644
 --- a/drivers/net/e1000e/netdev.c
 +++ b/drivers/net/e1000e/netdev.c
-@@ -2289,8 +2289,6 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	ew32(TCTL, tctl);
+@@ -26,6 +26,8 @@
  
- 	e1000e_config_collision_dist(hw);
--
--	adapter->tx_queue_len = adapter->netdev->tx_queue_len;
- }
+ *******************************************************************************/
  
- /**
-@@ -2877,7 +2875,6 @@ void e1000e_down(struct e1000_adapter *adapter)
- 	del_timer_sync(&adapter->watchdog_timer);
- 	del_timer_sync(&adapter->phy_info_timer);
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
+ #include <linux/module.h>
+ #include <linux/types.h>
+ #include <linux/init.h>
+@@ -5394,10 +5396,9 @@ static struct pci_driver e1000_driver = {
+ static int __init e1000_init_module(void)
+ {
+ 	int ret;
+-	printk(KERN_INFO "%s: Intel(R) PRO/1000 Network Driver - %s\n",
+-	       e1000e_driver_name, e1000e_driver_version);
+-	printk(KERN_INFO "%s: Copyright (c) 1999 - 2009 Intel Corporation.\n",
+-	       e1000e_driver_name);
++	pr_info("Intel(R) PRO/1000 Network Driver - %s\n",
++		e1000e_driver_version);
++	pr_info("Copyright (c) 1999 - 2009 Intel Corporation.\n");
+ 	ret = pci_register_driver(&e1000_driver);
  
--	netdev->tx_queue_len = adapter->tx_queue_len;
- 	netif_carrier_off(netdev);
- 	adapter->link_speed = 0;
- 	adapter->link_duplex = 0;
-@@ -3588,21 +3585,15 @@ static void e1000_watchdog_task(struct work_struct *work)
- 					       "link gets many collisions.\n");
- 			}
- 
--			/*
--			 * tweak tx_queue_len according to speed/duplex
--			 * and adjust the timeout factor
--			 */
--			netdev->tx_queue_len = adapter->tx_queue_len;
-+			/* adjust timeout factor according to speed/duplex */
- 			adapter->tx_timeout_factor = 1;
- 			switch (adapter->link_speed) {
- 			case SPEED_10:
- 				txb2b = 0;
--				netdev->tx_queue_len = 10;
- 				adapter->tx_timeout_factor = 16;
- 				break;
- 			case SPEED_100:
- 				txb2b = 0;
--				netdev->tx_queue_len = 100;
- 				adapter->tx_timeout_factor = 10;
- 				break;
- 			}
+ 	return ret;
 
