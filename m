@@ -1,32 +1,36 @@
-From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Subject: Re: [patch] llc: cleanup: remove dead code from llc_init()
-Date: Wed, 24 Mar 2010 10:54:18 -0300
-Message-ID: <20100324135418.GD23594@ghostprotocols.net>
-References: <20100324115510.GC21571@bicker>
+From: "Goff, Thomas" <Thomas.Goff@boeing.com>
+Subject: RE: [PATCH] netlink: use the appropriate namespace pid
+Date: Wed, 24 Mar 2010 07:18:12 -0700
+Message-ID: <6AFD35BEDB60334C9A31FD694E13EF0D226771E62E@XCH-NW-18V.nw.nos.boeing.com>
+References: <20100320013850.GA13239@boeing.com>
+ 	<20100321.213022.22037430.davem@davemloft.net>
+ <b6fcc0a1003240058i524c95eere17c1349d14267b1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Octavian Purdila <opurdila@ixiacom.com>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"adobriyan@openvz.org" <adobriyan@openvz.org>
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f188.google.com ([209.85.210.188]:52406 "EHLO
-	mail-yx0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755688Ab0CXNyX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 09:54:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20100324115510.GC21571@bicker>
+Received: from stl-smtpout-01.boeing.com ([130.76.96.56]:44299 "EHLO
+	stl-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756381Ab0CXOSf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 10:18:35 -0400
+In-Reply-To: <b6fcc0a1003240058i524c95eere17c1349d14267b1@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Wed, Mar 24, 2010 at 02:55:10PM +0300, Dan Carpenter escreveu:
-> We don't need "dev" any more after:
-> 	a5a04819c5740cb1aa217af2cc8f5ef26f33d744
-> 	[LLC]: station source mac address
-> 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+On Wed March 24, 2010 12:59 AM, Alexey Dobriyan <adobriyan@gmail.com> wrote:
+> ACK tgid patch, should have sent it myself long ago.
 
-Old leftovers, well spotted, Dave, please apply.
+Thanks for reviewing this.
 
+David is correct that pid is arbitrary here anyway so it really
+shouldn't matter.  The patch just lets applications that make an
+incorrect assumption that happens to usually be right for the
+initial namespace work similarly in other namespaces.  So
+including the patch seems more of a policy question.
 
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+  Tom
