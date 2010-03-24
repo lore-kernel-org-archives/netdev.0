@@ -1,44 +1,29 @@
-From: reinette chatre <reinette.chatre@intel.com>
-Subject: Re: [PATCH 4/7] wireless/iwlwifi: remove trailing space in messages
-Date: Wed, 24 Mar 2010 13:18:53 -0700
-Message-ID: <1269461933.2446.3208.camel@rchatre-DESK>
-References: <201003241927.12434.elendil@planet.nl>
-	 <1269456395-15343-4-git-send-email-elendil@planet.nl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] gianfar: fix undo of reserve()
+Date: Wed, 24 Mar 2010 13:21:07 -0700 (PDT)
+Message-ID: <20100324.132107.69971793.davem@davemloft.net>
+References: <A6A1774AFD79E346AE6D49A33CB294530DC19FC4@EX-BE-017-SFO.shared.themessagecenter.com>
+	<20100324.114759.200629461.davem@davemloft.net>
+	<A6A1774AFD79E346AE6D49A33CB294530DC1A006@EX-BE-017-SFO.shared.themessagecenter.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Zhu, Yi" <yi.zhu@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>
-To: Frans Pop <elendil@planet.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1269456395-15343-4-git-send-email-elendil@planet.nl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ben@bigfootnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58443
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751283Ab0CXUUo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 16:20:44 -0400
+In-Reply-To: <A6A1774AFD79E346AE6D49A33CB294530DC1A006@EX-BE-017-SFO.shared.themessagecenter.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Frans,
+From: "Ben Menchaca (ben@bigfootnetworks.com)" <ben@bigfootnetworks.com>
+Date: Wed, 24 Mar 2010 13:13:22 -0700
 
-On Wed, 2010-03-24 at 11:46 -0700, Frans Pop wrote:
-> Includes minor improvements in debugging messages in iwl-4965.c,
-> function iwl4965_is_temp_calib_needed().
-> 
-> Signed-off-by: Frans Pop <elendil@planet.nl>
-> Cc: Zhu Yi <yi.zhu@intel.com>
-> Cc: Reinette Chatre <reinette.chatre@intel.com>
-> Cc: Intel Linux Wireless <ilw@linux.intel.com>
-> 
-> wireless/intel
+> I would definitely prefer getting some modern-ish kernel time on it.
+> If needed, I can probably move our board forward to -next for a bit.
 
-Since this patch touches so many things, would it be possible to base
-your patch on
-git://git.kernel.org/pub/scm/linux/kernel/git/iwlwifi/iwlwifi-2.6.git
-instead? We currently have some code reorganization pending there that
-is undergoing validation before we push it upstream. If you do so you
-can send the patch to me indicating so and I will push it upstream as
-part of our process to ensure there are no conflicts ahead.
-
-Thank you
-
-Reinette
+If anyone can test this on a current kernel that would be
+enough for me.
