@@ -1,39 +1,51 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH 8/8] netxen: update version to 4.0.73
-Date: Wed, 24 Mar 2010 06:29:23 -0700
-Message-ID: <1269437363-2606-9-git-send-email-amit.salecha@qlogic.com>
-References: <1269437363-2606-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
-To: davem@davemloft.net
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [patch] af_key: return error if pfkey_xfrm_policy2msg_prep()
+ fails
+Date: Wed, 24 Mar 2010 09:46:23 -0400
+Message-ID: <1269438383.4089.15.camel@bigi>
+References: <20100324114700.GB21571@bicker>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:16456 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1756259Ab0CXN30 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Mar 2010 09:29:26 -0400
-In-Reply-To: <1269437363-2606-1-git-send-email-amit.salecha@qlogic.com>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:45383 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755331Ab0CXNqZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 09:46:25 -0400
+In-Reply-To: <20100324114700.GB21571@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/netxen/netxen_nic.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+On Wed, 2010-03-24 at 14:47 +0300, Dan Carpenter wrote:
+> The original code saved the error value but just returned 0 in the end.
 
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 33ae5e1..174ac8e 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -53,8 +53,8 @@
- 
- #define _NETXEN_NIC_LINUX_MAJOR 4
- #define _NETXEN_NIC_LINUX_MINOR 0
--#define _NETXEN_NIC_LINUX_SUBVERSION 72
--#define NETXEN_NIC_LINUX_VERSIONID  "4.0.72"
-+#define _NETXEN_NIC_LINUX_SUBVERSION 73
-+#define NETXEN_NIC_LINUX_VERSIONID  "4.0.73"
- 
- #define NETXEN_VERSION_CODE(a, b, c)	(((a) << 24) + ((b) << 16) + (c))
- #define _major(v)	(((v) >> 24) & 0xff)
--- 
-1.6.0.2
+Looks reasonable and harmless. 
+If you have time - can you try this one test with your patch and see if
+any strange message shows up when you delete? add a policy on window1,
+on window2 run ip xfrm mon and then back on window1 delete it and watch
+the event on window2
+
+----
+window2: ip xfrm mon
+
+window1, add:
+ip xfrm policy add src 172.16.2.0/24 dst 172.16.1.0/24 \
+        dir fwd ptype main \
+        tmpl src 192.168.2.100 dst 192.168.1.100 \
+        proto esp mode tunnel
+
+
+window1, delete:
+ip xfrm pol del src 172.16.2.0/24 dst 172.16.1.0/24 dir fwd
+----
+
+cheers,
+jamal
 
