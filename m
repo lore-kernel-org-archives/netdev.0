@@ -1,42 +1,49 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: bug in bonding driver
-Date: Wed, 24 Mar 2010 12:23:47 -0600
-Message-ID: <4BAA58B3.2040504@nortel.com>
+From: Frans Pop <elendil@planet.nl>
+Subject: [PATCH 00/07] net: remove trailing spaces in messages
+Date: Wed, 24 Mar 2010 19:27:09 +0100
+Message-ID: <201003241927.12434.elendil@planet.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zrtps0kp.nortel.com ([47.140.192.56]:36312 "EHLO
-	zrtps0kp.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753119Ab0CXSZz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 14:25:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	Zhu Yi <yi.zhu@intel.com>,
+	Reinette Chatre <reinette.chatre@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	Corey Thomas <coreythomas@charter.net>,
+	libertas-dev@lists.infradead.org
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+This is the third patchset to remove trailing spaces in kernel messages. 
+Patches in this set cover wireless code.
 
-Hi,
+Note that the last patch for libertas changes a debugfs header and not 
+actually a message.
 
-One of our guys pointed out what appears to be a bug in
-bond_ab_arp_inspect().  There's a chunk of code that looks like this:
+Patches have been rebased against current net-next.
 
-	/*
-	 * Give slaves 2*delta after being enslaved or made
-	 * active.  This avoids bouncing, as the last receive
-	 * times need a full ARP monitor cycle to be updated.
-	 */
-	if (!time_after_eq(jiffies, slave->jiffies +
-			   2 * delta_in_ticks))
-		continue;
+Benefits are:
+- general cleanup and consistency
+- minor reduction in kernel size and user's log file size
+- reduced annoyance for people writing logcheck rules
 
-The catch here is that slave->jiffies may not ever get updated after
-being set initially, and on long-running systems jiffies will overflow.
- That could cause this check to be true for a substantial amount of time
-rather than for just a short period.
+Shortstat:
+ 30 files changed, 124 insertions(+), 124 deletions(-)
 
-One way to fix it would be a boolean which tracks whether or not we've
-gone past the time, and if we have then we don't bother actually
-checking the time anymore.
+Frans Pop (7):
+      wireless: remove trailing space in messages
+      wireless/ath: remove trailing space in messages
+      wireless/ipw2x00: remove trailing space in messages
+      wireless/iwlwifi: remove trailing space in messages
+      wireless/prism54: remove trailing space in messages
+      wireless/raylink: remove trailing space in messages
+      wireless/libertas: remove trailing space in debugfs header
 
-Chris
+Cheers,
+FJP
