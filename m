@@ -1,58 +1,57 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 3/3] ixgbe: Change where clear_to_send_flag is reset
-	to zero.
-Date: Wed, 24 Mar 2010 12:36:27 -0700
-Message-ID: <20100324193626.6078.32074.stgit@localhost.localdomain>
-References: <20100324193515.6078.27035.stgit@localhost.localdomain>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: behavior of recvmmsg() on blocking sockets
+Date: Wed, 24 Mar 2010 13:36:31 -0600
+Message-ID: <4BAA69BF.3080600@nortel.com>
+References: <84621a61003240915p2a4ce6bbjd0c6bfb02ab05ba8@mail.gmail.com>	 <4BAA4EE4.3090900@nortel.com> <84621a61003241128x3afbcea1w387aeaa68c887320@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta14.emeryville.ca.mail.comcast.net ([76.96.27.212]:55517
-	"EHLO qmta14.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932354Ab0CXTgo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 15:36:44 -0400
-In-Reply-To: <20100324193515.6078.27035.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Brandon Black <blblack@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <84621a61003241128x3afbcea1w387aeaa68c887320@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Greg Rose <gregory.v.rose@intel.com>
+On 03/24/2010 12:28 PM, Brandon Black wrote:
+> On Wed, Mar 24, 2010 at 12:41 PM, Chris Friesen <cfriesen@nortel.com> wrote:
+>> On 03/24/2010 10:15 AM, Brandon Black wrote:
+>>> It uses a thread-per-socket model
+>>
+>> This doesn't scale well to large numbers of sockets....you get a lot of
+>> unnecessary context switching.
+> 
+> It scales great actually, within my measurement error of linear in
+> testing so far.  These are UDP server sockets, and the traffic pattern
+> is one request packet maps to one response packet, with no longer-term
+> per-client state (this is a DNS server, to be specific).  The "do some
+> work" code doesn't have any inter-thread contention (no locks, no
+> writes to the same memory, etc), so the "threads" here may as well be
+> processes if that makes the discussion less confusing.  I haven't yet
+> found a model that scales as well for me.
 
-The clear_to_send flag is being cleared before the call to ping all
-the VFs.  It should be called after pinging all the VFs.
+Note that I said "large numbers of sockets".  Like tens of thousands.
+In addition to context switch overhead this can also lead to issues with
+memory consumption due to stack frames.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+> I'm also just not personally sure whether there are network
+> interfaces/drivers out there that could queue packets to the kernel
+> (to a single socket) faster than recvmsg() could dequeue them to
+> userspace
 
- drivers/net/ixgbe/ixgbe_main.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+A 10Gig NIC could do this easily depending on your CPU.
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 2f8c348..315622f 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -3224,13 +3224,15 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
- 
- 	/* disable receive for all VFs and wait one second */
- 	if (adapter->num_vfs) {
--		for (i = 0 ; i < adapter->num_vfs; i++)
--			adapter->vfinfo[i].clear_to_send = 0;
--
- 		/* ping all the active vfs to let them know we are going down */
- 		ixgbe_ping_all_vfs(adapter);
-+
- 		/* Disable all VFTE/VFRE TX/RX */
- 		ixgbe_disable_tx_rx(adapter);
-+
-+		/* Mark all the VFs as inactive */
-+		for (i = 0 ; i < adapter->num_vfs; i++)
-+			adapter->vfinfo[i].clear_to_send = 0;
- 	}
- 
- 	/* disable receives */
+> I still think having a "block until at least one packet arrives" mode
+> for recvmmsg() makes sense though.
 
+Agreed, as long as developers are aware that it won't be the most
+efficient mode of operation.
+
+Consider the case where you want to do some other useful work in
+addition to running your network server.  Every cpu cycle spent on the
+network server is robbed from the other work.  In this scenario you want
+to handle packets as efficiently as possible, so the timeout-based
+behaviour is better since it is more likely to give you multiple packets
+per syscall.
+
+Chris
