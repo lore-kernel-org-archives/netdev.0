@@ -1,64 +1,47 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] wimax: remove unneeded variable
-Date: Wed, 24 Mar 2010 14:56:03 +0300
-Message-ID: <20100324115603.GD21571@bicker>
+From: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [patch] mac80211: remove unneed variable from
+	ieee80211_tx_pending()
+Date: Wed, 24 Mar 2010 14:56:41 +0300
+Message-ID: <20100324115641.GE21571@bicker>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: =?iso-8859-1?Q?Andr=E9?= Goddard Rosa <andre.goddard@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Jiri Kosina <jkosina@suse.cz>, kernel-janitors@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:40982 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755762Ab0CXL4N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Mar 2010 07:56:13 -0400
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	Kalle Valo <kalle.valo-X3B1VOXEql0@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-We never actually use "dev" so I removed it.
+We don't need "sdata" any more after:
+	d84f323477260e773d5317ad7cbe50f76115cb47
+	mac80211: remove dev_hold/put calls
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
+Signed-off-by: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-diff --git a/net/wimax/op-reset.c b/net/wimax/op-reset.c
-index 4dc82a5..68bedf3 100644
---- a/net/wimax/op-reset.c
-+++ b/net/wimax/op-reset.c
-@@ -110,7 +110,6 @@ int wimax_gnl_doit_reset(struct sk_buff *skb, struct genl_info *info)
- {
- 	int result, ifindex;
- 	struct wimax_dev *wimax_dev;
--	struct device *dev;
+diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
+index cbe53ed..08e1f17 100644
+--- a/net/mac80211/tx.c
++++ b/net/mac80211/tx.c
+@@ -2010,14 +2010,12 @@ void ieee80211_tx_pending(unsigned long data)
+ 		while (!skb_queue_empty(&local->pending[i])) {
+ 			struct sk_buff *skb = __skb_dequeue(&local->pending[i]);
+ 			struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+-			struct ieee80211_sub_if_data *sdata;
  
- 	d_fnstart(3, NULL, "(skb %p info %p)\n", skb, info);
- 	result = -ENODEV;
-@@ -123,7 +122,6 @@ int wimax_gnl_doit_reset(struct sk_buff *skb, struct genl_info *info)
- 	wimax_dev = wimax_dev_get_by_genl_info(info, ifindex);
- 	if (wimax_dev == NULL)
- 		goto error_no_wimax_dev;
--	dev = wimax_dev_to_dev(wimax_dev);
- 	/* Execute the operation and send the result back to user space */
- 	result = wimax_reset(wimax_dev);
- 	dev_put(wimax_dev->net_dev);
-diff --git a/net/wimax/op-state-get.c b/net/wimax/op-state-get.c
-index 11ad335..aff8776 100644
---- a/net/wimax/op-state-get.c
-+++ b/net/wimax/op-state-get.c
-@@ -53,7 +53,6 @@ int wimax_gnl_doit_state_get(struct sk_buff *skb, struct genl_info *info)
- {
- 	int result, ifindex;
- 	struct wimax_dev *wimax_dev;
--	struct device *dev;
+ 			if (WARN_ON(!info->control.vif)) {
+ 				kfree_skb(skb);
+ 				continue;
+ 			}
  
- 	d_fnstart(3, NULL, "(skb %p info %p)\n", skb, info);
- 	result = -ENODEV;
-@@ -66,7 +65,6 @@ int wimax_gnl_doit_state_get(struct sk_buff *skb, struct genl_info *info)
- 	wimax_dev = wimax_dev_get_by_genl_info(info, ifindex);
- 	if (wimax_dev == NULL)
- 		goto error_no_wimax_dev;
--	dev = wimax_dev_to_dev(wimax_dev);
- 	/* Execute the operation and send the result back to user space */
- 	result = wimax_state_get(wimax_dev);
- 	dev_put(wimax_dev->net_dev);
+-			sdata = vif_to_sdata(info->control.vif);
+ 			spin_unlock_irqrestore(&local->queue_stop_reason_lock,
+ 						flags);
+ 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
