@@ -1,216 +1,101 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH] ixgbe: fix bug with vlan strip in promsic mode
-Date: Thu, 25 Mar 2010 14:34:28 -0700
-Message-ID: <20100325213428.8089.1879.stgit@localhost.localdomain>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [net-2.6 PATCH] bonding: fix broken multicast with round-robin mode
+Date: Thu, 25 Mar 2010 17:40:33 -0400
+Message-ID: <20100325214033.GA28741@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: lhh@redhat.com, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.emeryville.ca.mail.comcast.net ([76.96.30.80]:47916 "EHLO
-	qmta08.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750703Ab0CYVer (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Mar 2010 17:34:47 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:49233 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751426Ab0CYVkm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Mar 2010 17:40:42 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-The ixgbe driver was setting up 82598 hardware correctly, so that
-when promiscuous mode was enabled hardware stripping was turned
-off.  But on 82599 the logic to disable/enable hardware stripping
-is different, and the code was not updated correctly when the
-hardware vlan stripping was enabled as default.
+Round-robin (mode 0) does nothing to ensure that any multicast traffic
+originally destined for the host will continue to arrive at the host when
+the link that sent the IGMP join or membership report goes down.  One of
+the benefits of absolute round-robin transmit.
 
-This change comprises the creation of two new helper functions
-and calling them from the right locations to disable and enable
-hardware stripping of vlan tags at appropriate times.
+Keeping track of subscribed multicast groups for each slave did not seem
+like a good use of resources, so I decided to simply send on the
+curr_active slave of the bond (typically the first enslaved device that
+is up).  This makes failover management simple as IGMP membership
+reports only need to be sent when the curr_active_slave changes.  I
+tested this patch and it appears to work as expected.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Originally reported by Lon Hohberger <lhh@redhat.com>.
+
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+CC: Lon Hohberger <lhh@redhat.com>
+CC: Jay Vosburgh <fubar@us.ibm.com>
+
 ---
+ drivers/net/bonding/bond_main.c |   34 ++++++++++++++++++++++++++--------
+ 1 files changed, 26 insertions(+), 8 deletions(-)
 
- drivers/net/ixgbe/ixgbe_main.c |  115 +++++++++++++++++++++++++---------------
- 1 files changed, 72 insertions(+), 43 deletions(-)
-
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 997d997..3c86707 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2481,12 +2481,74 @@ static void ixgbe_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
- 	hw->mac.ops.set_vfta(&adapter->hw, vid, pool_ndx, false);
- }
- 
-+/**
-+ * ixgbe_vlan_filter_disable - helper to disable hw vlan filtering
-+ * @adapter: driver data
-+ */
-+static void ixgbe_vlan_filter_disable(struct ixgbe_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
-+	int i, j;
-+
-+	switch (hw->mac.type) {
-+	case ixgbe_mac_82598EB:
-+		vlnctrl &= ~(IXGBE_VLNCTRL_VME | IXGBE_VLNCTRL_VFE);
-+		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
-+		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
-+		break;
-+	case ixgbe_mac_82599EB:
-+		vlnctrl &= ~IXGBE_VLNCTRL_VFE;
-+		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
-+		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
-+		for (i = 0; i < adapter->num_rx_queues; i++) {
-+			j = adapter->rx_ring[i]->reg_idx;
-+			vlnctrl = IXGBE_READ_REG(hw, IXGBE_RXDCTL(j));
-+			vlnctrl &= ~IXGBE_RXDCTL_VME;
-+			IXGBE_WRITE_REG(hw, IXGBE_RXDCTL(j), vlnctrl);
-+		}
-+		break;
-+	default:
-+		break;
-+	}
-+}
-+
-+/**
-+ * ixgbe_vlan_filter_enable - helper to enable hw vlan filtering
-+ * @adapter: driver data
-+ */
-+static void ixgbe_vlan_filter_enable(struct ixgbe_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
-+	int i, j;
-+
-+	switch (hw->mac.type) {
-+	case ixgbe_mac_82598EB:
-+		vlnctrl |= IXGBE_VLNCTRL_VME | IXGBE_VLNCTRL_VFE;
-+		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
-+		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
-+		break;
-+	case ixgbe_mac_82599EB:
-+		vlnctrl |= IXGBE_VLNCTRL_VFE;
-+		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
-+		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
-+		for (i = 0; i < adapter->num_rx_queues; i++) {
-+			j = adapter->rx_ring[i]->reg_idx;
-+			vlnctrl = IXGBE_READ_REG(hw, IXGBE_RXDCTL(j));
-+			vlnctrl |= IXGBE_RXDCTL_VME;
-+			IXGBE_WRITE_REG(hw, IXGBE_RXDCTL(j), vlnctrl);
-+		}
-+		break;
-+	default:
-+		break;
-+	}
-+}
-+
- static void ixgbe_vlan_rx_register(struct net_device *netdev,
-                                    struct vlan_group *grp)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
--	u32 ctrl;
--	int i, j;
- 
- 	if (!test_bit(__IXGBE_DOWN, &adapter->state))
- 		ixgbe_irq_disable(adapter);
-@@ -2497,25 +2559,7 @@ static void ixgbe_vlan_rx_register(struct net_device *netdev,
- 	 * still receive traffic from a DCB-enabled host even if we're
- 	 * not in DCB mode.
- 	 */
--	ctrl = IXGBE_READ_REG(&adapter->hw, IXGBE_VLNCTRL);
--
--	/* Disable CFI check */
--	ctrl &= ~IXGBE_VLNCTRL_CFIEN;
--
--	/* enable VLAN tag stripping */
--	if (adapter->hw.mac.type == ixgbe_mac_82598EB) {
--		ctrl |= IXGBE_VLNCTRL_VME;
--	} else if (adapter->hw.mac.type == ixgbe_mac_82599EB) {
--		for (i = 0; i < adapter->num_rx_queues; i++) {
--			u32 ctrl;
--			j = adapter->rx_ring[i]->reg_idx;
--			ctrl = IXGBE_READ_REG(&adapter->hw, IXGBE_RXDCTL(j));
--			ctrl |= IXGBE_RXDCTL_VME;
--			IXGBE_WRITE_REG(&adapter->hw, IXGBE_RXDCTL(j), ctrl);
--		}
--	}
--
--	IXGBE_WRITE_REG(&adapter->hw, IXGBE_VLNCTRL, ctrl);
-+	ixgbe_vlan_filter_enable(adapter);
- 
- 	ixgbe_vlan_rx_add_vid(netdev, 0);
- 
-@@ -2550,17 +2594,17 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
--	u32 fctrl, vlnctrl;
-+	u32 fctrl;
- 
- 	/* Check for Promiscuous and All Multicast modes */
- 
- 	fctrl = IXGBE_READ_REG(hw, IXGBE_FCTRL);
--	vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
- 
- 	if (netdev->flags & IFF_PROMISC) {
- 		hw->addr_ctrl.user_set_promisc = 1;
- 		fctrl |= (IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
--		vlnctrl &= ~IXGBE_VLNCTRL_VFE;
-+		/* don't hardware filter vlans in promisc mode */
-+		ixgbe_vlan_filter_disable(adapter);
- 	} else {
- 		if (netdev->flags & IFF_ALLMULTI) {
- 			fctrl |= IXGBE_FCTRL_MPE;
-@@ -2568,12 +2612,11 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 		} else {
- 			fctrl &= ~(IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 430c022..0b38455 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1235,6 +1235,11 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ 			write_lock_bh(&bond->curr_slave_lock);
  		}
--		vlnctrl |= IXGBE_VLNCTRL_VFE;
-+		ixgbe_vlan_filter_enable(adapter);
- 		hw->addr_ctrl.user_set_promisc = 0;
  	}
- 
- 	IXGBE_WRITE_REG(hw, IXGBE_FCTRL, fctrl);
--	IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
- 
- 	/* reprogram secondary unicast list */
- 	hw->mac.ops.update_uc_addr_list(hw, netdev);
-@@ -2640,7 +2683,7 @@ static void ixgbe_napi_disable_all(struct ixgbe_adapter *adapter)
- static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
--	u32 txdctl, vlnctrl;
-+	u32 txdctl;
- 	int i, j;
- 
- 	ixgbe_dcb_check_config(&adapter->dcb_cfg);
-@@ -2658,22 +2701,8 @@ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
- 		IXGBE_WRITE_REG(hw, IXGBE_TXDCTL(j), txdctl);
- 	}
- 	/* Enable VLAN tag insert/strip */
--	vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
--	if (hw->mac.type == ixgbe_mac_82598EB) {
--		vlnctrl |= IXGBE_VLNCTRL_VME | IXGBE_VLNCTRL_VFE;
--		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
--		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
--	} else if (hw->mac.type == ixgbe_mac_82599EB) {
--		vlnctrl |= IXGBE_VLNCTRL_VFE;
--		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
--		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
--		for (i = 0; i < adapter->num_rx_queues; i++) {
--			j = adapter->rx_ring[i]->reg_idx;
--			vlnctrl = IXGBE_READ_REG(hw, IXGBE_RXDCTL(j));
--			vlnctrl |= IXGBE_RXDCTL_VME;
--			IXGBE_WRITE_REG(hw, IXGBE_RXDCTL(j), vlnctrl);
--		}
--	}
-+	ixgbe_vlan_filter_enable(adapter);
 +
- 	hw->mac.ops.set_vfta(&adapter->hw, 0, 0, true);
++	/* resend IGMP joins since all were sent on curr_active_slave */
++	if (bond->params.mode == BOND_MODE_ROUNDROBIN) {
++		bond_resend_igmp_join_requests(bond);
++	}
  }
  
-
+ /**
+@@ -4138,22 +4143,35 @@ static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev
+ 	struct bonding *bond = netdev_priv(bond_dev);
+ 	struct slave *slave, *start_at;
+ 	int i, slave_no, res = 1;
++	struct iphdr *iph = ip_hdr(skb);
+ 
+ 	read_lock(&bond->lock);
+ 
+ 	if (!BOND_IS_OK(bond))
+ 		goto out;
+-
+ 	/*
+-	 * Concurrent TX may collide on rr_tx_counter; we accept that
+-	 * as being rare enough not to justify using an atomic op here
++	 * Start with the curr_active_slave that joined the bond as the
++	 * default for sending IGMP traffic.  For failover purposes one
++	 * needs to maintain some consistency for the interface that will
++	 * send the join/membership reports.  The curr_active_slave found
++	 * will send all of this type of traffic.
+ 	 */
+-	slave_no = bond->rr_tx_counter++ % bond->slave_cnt;
++	if ((skb->protocol == htons(ETH_P_IP)) &&
++	    (iph->protocol == htons(IPPROTO_IGMP))) {
++		slave = bond->curr_active_slave;
++	} else {
++		/*
++		 * Concurrent TX may collide on rr_tx_counter; we accept
++		 * that as being rare enough not to justify using an
++		 * atomic op here.
++		 */
++		slave_no = bond->rr_tx_counter++ % bond->slave_cnt;
+ 
+-	bond_for_each_slave(bond, slave, i) {
+-		slave_no--;
+-		if (slave_no < 0)
+-			break;
++		bond_for_each_slave(bond, slave, i) {
++			slave_no--;
++			if (slave_no < 0)
++				break;
++		}
+ 	}
+ 
+ 	start_at = slave;
