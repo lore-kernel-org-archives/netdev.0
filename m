@@ -1,93 +1,118 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [RFC PATCH net-next 0/7 v2]IPv6:netfilter: defragment
-Date: Thu, 25 Mar 2010 13:20:38 +0900
-Message-ID: <4BAAE496.8000701@linux-ipv6.org>
-References: <4B88BE30.80206@cn.fujitsu.com> <4B97D34C.4020509@gmail.com> <4B98B4FC.50904@cn.fujitsu.com> <4B9B9766.3090200@linux-ipv6.org> <4B9E5FEC.9010002@trash.net> <4BA8EC4A.9070802@linux-ipv6.org> <4BA8F75E.2040303@trash.net> <4BA90F72.6010404@linux-ipv6.org> <alpine.DEB.2.00.1003232050540.18241@blackhole.kfki.hu>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] RPS: support 802.1q and pppoe session
+Date: Thu, 25 Mar 2010 12:30:33 +0800
+Message-ID: <4BAAE6E9.6030103@gmail.com>
+Reply-To: xiaosuo@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Shan Wei <shanwei@cn.fujitsu.com>,
-	YOSHIFUJI Hideaki <hideaki.yoshifuji@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Cc: Tom Herbert <therbert@google.com>, xiaosuo <xiaosuo@gmail.com>,
+	netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:41761 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751051Ab0CYEVO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Mar 2010 00:21:14 -0400
-In-Reply-To: <alpine.DEB.2.00.1003232050540.18241@blackhole.kfki.hu>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:40344 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750842Ab0CYEaw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Mar 2010 00:30:52 -0400
+Received: by gyg8 with SMTP id 8so3993923gyg.19
+        for <netdev@vger.kernel.org>; Wed, 24 Mar 2010 21:30:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(2010/03/24 5:10), Jozsef Kadlecsik wrote:
+support 802.1q and pppoe session
 
-> On Wed, 24 Mar 2010, YOSHIFUJI Hideaki wrote:
->
->>> In this case without conntrack, IPv6 would send an ICMPv6 message,
->>> so in my opinion the transparent thing to do would be to still send
->>> them. Of course only if reassembly is done on an end host.
->>
->> Well, no.  conntrack should just forward even uncompleted fragments
->> to next process (e.g. core ipv6 code), and then the core would send
->> ICMP error back.  ICMP should be sent by the core ipv6 code according
->> to decision of itself, not according to netfilter.
->
-> But what state could be associated by conntrack to the uncompleted
-> fragments but the INVALID state? In consequence, in any sane setup, the
-> uncompleted fragments will be dropped silently by a filter table rule
-> and no ICMP error message will be sent back.
->
-> Therefore I think iff the destination of the fragments is the host
-> itself, then conntrack should generate an ICMP error message. But that
-> error message must be processed by conntrack to set its state and then
-> the fate of the generated packet can be decided by a rule.
+Support 802.1q and pppoe session, and these two protocols can get the
+benefit from RPS.
 
-Well.... no.
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+net/core/dev.c | 38 ++++++++++++++++++++++++++++++--------
+1 file changed, 30 insertions(+), 8 deletions(-)
 
-First of all. in "sane" setup, people should configure according
-to their own requirements.  They may or may not want send back
-icmp packet.  And, even if the core is to send icmp back, the
-state would be correctly assigned.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a03aab4..647ecc4 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -130,6 +130,10 @@
+ #include <linux/random.h>
+ #include <trace/events/napi.h>
+ 
++#ifdef CONFIG_SMP
++#include <linux/if_pppox.h>
++#endif
++
+ #include "net-sysfs.h"
+ 
+ /* Instead of increasing this, you should create a hash table. */
+@@ -2190,7 +2194,8 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb)
+ 	struct rps_map *map;
+ 	int cpu = -1;
+ 	u8 ip_proto;
+-	u32 addr1, addr2, ports, ihl;
++	__be16 protocol;
++	u32 addr1, addr2, ports, offset;
+ 
+ 	rcu_read_lock();
+ 
+@@ -2214,26 +2219,43 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb)
+ 	if (skb->rxhash)
+ 		goto got_hash; /* Skip hash computation on packet header */
+ 
+-	switch (skb->protocol) {
++	offset = 0;
++	protocol = skb->protocol;
++nest:
++	switch (protocol) {
++	case __constant_htons(ETH_P_8021Q):
++		if (!pskb_may_pull(skb, offset + VLAN_HLEN))
++			goto done;
++		protocol = ((struct vlan_hdr*)(skb->data +
++				offset))->h_vlan_encapsulated_proto;
++		offset += VLAN_HLEN;
++		goto nest;
++	case __constant_htons(ETH_P_PPP_SES):
++		if (!pskb_may_pull(skb, offset + PPPOE_SES_HLEN))
++			goto done;
++		protocol = *((__be16 *)(skb->data + offset +
++				sizeof(struct pppoe_hdr)));
++		offset += PPPOE_SES_HLEN;
++		goto nest;
+ 	case __constant_htons(ETH_P_IP):
+-		if (!pskb_may_pull(skb, sizeof(*ip)))
++		if (!pskb_may_pull(skb, offset + sizeof(*ip)))
+ 			goto done;
+ 
+ 		ip = (struct iphdr *) skb->data;
+ 		ip_proto = ip->protocol;
+ 		addr1 = ip->saddr;
+ 		addr2 = ip->daddr;
+-		ihl = ip->ihl;
++		offset += ip->ihl << 2;
+ 		break;
+ 	case __constant_htons(ETH_P_IPV6):
+-		if (!pskb_may_pull(skb, sizeof(*ip6)))
++		if (!pskb_may_pull(skb, offset + sizeof(*ip6)))
+ 			goto done;
+ 
+ 		ip6 = (struct ipv6hdr *) skb->data;
+ 		ip_proto = ip6->nexthdr;
+ 		addr1 = ip6->saddr.s6_addr32[3];
+ 		addr2 = ip6->daddr.s6_addr32[3];
+-		ihl = (40 >> 2);
++		offset += 40;
+ 		break;
+ 	default:
+ 		goto done;
+@@ -2247,8 +2269,8 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb)
+ 	case IPPROTO_AH:
+ 	case IPPROTO_SCTP:
+ 	case IPPROTO_UDPLITE:
+-		if (pskb_may_pull(skb, (ihl * 4) + 4))
+-			ports = *((u32 *) (skb->data + (ihl * 4)));
++		if (pskb_may_pull(skb, offset + 4))
++			ports = *((u32 *) (skb->data + offset));
+ 		break;
+ 
+ 	default:
 
-We cannot (and should not) do something "cleaver" (excluding
-packet drops) in conntrack in PRE_ROUTING chain.
 
-One reason is that in PRE_ROUTING context, we can NOT determine
-if the address we see in the IP header is really the final
-destination.  The overall situation is the same even if the
-routing entry corresponding the "current" destination points
-the node itself, or even if the node is configured as host.
-
-It might seems that we could do something in the "filter"
-table in LOCAL_IN, FORWARD or LOCAL_OUT (after routing header
-process).
-
-But well, we unfortunately cannot do this (at least
-automatically) because even in LOCAL_IN, the final
-destination has not been decided until we process all
-of extension headers.
-
-Sending ICMP in netfilter (especially in conntrack) is too
-patchy, and is not right.  If we do the right thing (and
-I believe we should do so),  I'd propose to have hooks
-around handlers inside ip6_input_finish().
-
-...I remember that I was thinking about this before.
-
-For my conclusion, first option is just to drop
-uncompleted fragments as we do today.  Second option
-would be  to forward them to the next process so that
-core code could send ICMPv6 etc. or, we could have
-new code to send ICMPV6_TIME_EXCEED in REJECT target.
-In longer term, I think it is better to introduce
-per-exthdr hooks.
-
-Regards,
-
---yoshfuji
