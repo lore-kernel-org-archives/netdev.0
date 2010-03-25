@@ -1,104 +1,93 @@
 From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [RFC PATCH net-next 0/7 v2]IPv6:netfilter: defragment
-Date: Thu, 25 Mar 2010 11:20:20 +0100
-Message-ID: <4BAB38E4.7050706@trash.net>
-References: <4B88BE30.80206@cn.fujitsu.com> <4B97D34C.4020509@gmail.com> <4B98B4FC.50904@cn.fujitsu.com> <4B9B9766.3090200@linux-ipv6.org> <4B9E5FEC.9010002@trash.net> <4BA8EC4A.9070802@linux-ipv6.org> <4BA8F75E.2040303@trash.net> <4BA90F72.6010404@linux-ipv6.org> <alpine.DEB.2.00.1003232050540.18241@blackhole.kfki.hu> <4BAB2121.2030503@plouf.fr.eu.org> <4BAB2954.9010608@cn.fujitsu.com> <alpine.DEB.2.00.1003251028580.21825@blackhole.kfki.hu>
+Date: Thu, 25 Mar 2010 11:25:05 +0100
+Message-ID: <4BAB3A01.1090909@trash.net>
+References: <4B88BE30.80206@cn.fujitsu.com> <4B97D34C.4020509@gmail.com> <4B98B4FC.50904@cn.fujitsu.com> <4B9B9766.3090200@linux-ipv6.org> <4B9E5FEC.9010002@trash.net> <4BA8EC4A.9070802@linux-ipv6.org> <4BA8F75E.2040303@trash.net> <4BA90F72.6010404@linux-ipv6.org> <alpine.DEB.2.00.1003232050540.18241@blackhole.kfki.hu> <4BAAE496.8000701@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080304020808010602060808"
-Cc: Shan Wei <shanwei@cn.fujitsu.com>,
-	Pascal Hambourg <pascal.mail@plouf.fr.eu.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Shan Wei <shanwei@cn.fujitsu.com>,
+	YOSHIFUJI Hideaki <hideaki.yoshifuji@gmail.com>,
 	David Miller <davem@davemloft.net>,
 	Alexey Dobriyan <adobriyan@gmail.com>,
 	Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	netfilter-devel@vger.kernel.org
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:48391 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753781Ab0CYKUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Mar 2010 06:20:21 -0400
-In-Reply-To: <alpine.DEB.2.00.1003251028580.21825@blackhole.kfki.hu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4BAAE496.8000701@linux-ipv6.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080304020808010602060808
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-
-Jozsef Kadlecsik wrote:
-> Why the order of the raw table and defragmentation is reversed for IPv6?
+YOSHIFUJI Hideaki wrote:
+> (2010/03/24 5:10), Jozsef Kadlecsik wrote:
 > 
-> That makes impossible to use the NOTRACK target in IPv6: for example if 
-> someone enters
+>> On Wed, 24 Mar 2010, YOSHIFUJI Hideaki wrote:
+>>
+>>>> In this case without conntrack, IPv6 would send an ICMPv6 message,
+>>>> so in my opinion the transparent thing to do would be to still send
+>>>> them. Of course only if reassembly is done on an end host.
+>>>
+>>> Well, no.  conntrack should just forward even uncompleted fragments
+>>> to next process (e.g. core ipv6 code), and then the core would send
+>>> ICMP error back.  ICMP should be sent by the core ipv6 code according
+>>> to decision of itself, not according to netfilter.
+>>
+>> But what state could be associated by conntrack to the uncompleted
+>> fragments but the INVALID state? In consequence, in any sane setup, the
+>> uncompleted fragments will be dropped silently by a filter table rule
+>> and no ICMP error message will be sent back.
+>>
+>> Therefore I think iff the destination of the fragments is the host
+>> itself, then conntrack should generate an ICMP error message. But that
+>> error message must be processed by conntrack to set its state and then
+>> the fate of the generated packet can be decided by a rule.
 > 
-> ip6tables -t raw -A PREROUTING -p tcp --dport 80 -j NOTRACK
+> Well.... no.
 > 
-> and if we receive fragmented packets then the first fragment will be 
-> untracked and thus skip nf_ct_frag6_gather (and conntrack), while all 
-> subsequent fragments enter nf_ct_frag6_gather and reassembly will never 
-> successfully be finished.
+> First of all. in "sane" setup, people should configure according
+> to their own requirements.  They may or may not want send back
+> icmp packet.  And, even if the core is to send icmp back, the
+> state would be correctly assigned.
 > 
-> IMHO this is a bug and should be fixed. Patrick, please consider applying 
-> the patch below.
+> We cannot (and should not) do something "cleaver" (excluding
+> packet drops) in conntrack in PRE_ROUTING chain.
+> 
+> One reason is that in PRE_ROUTING context, we can NOT determine
+> if the address we see in the IP header is really the final
+> destination.  The overall situation is the same even if the
+> routing entry corresponding the "current" destination points
+> the node itself, or even if the node is configured as host.
 
-Indeed. I've applied your patch with a minor fixup (attached) to
-apply cleanly to the current tree, thanks.
+Agreed, that is a problem.
 
+> It might seems that we could do something in the "filter"
+> table in LOCAL_IN, FORWARD or LOCAL_OUT (after routing header
+> process).
+> 
+> But well, we unfortunately cannot do this (at least
+> automatically) because even in LOCAL_IN, the final
+> destination has not been decided until we process all
+> of extension headers.
+> 
+> Sending ICMP in netfilter (especially in conntrack) is too
+> patchy, and is not right.  If we do the right thing (and
+> I believe we should do so),  I'd propose to have hooks
+> around handlers inside ip6_input_finish().
+> 
+> ...I remember that I was thinking about this before.
+> 
+> For my conclusion, first option is just to drop
+> uncompleted fragments as we do today.  Second option
+> would be  to forward them to the next process so that
+> core code could send ICMPv6 etc. or, we could have
+> new code to send ICMPV6_TIME_EXCEED in REJECT target.
+> In longer term, I think it is better to introduce
+> per-exthdr hooks.
 
---------------080304020808010602060808
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+We'd need something that allows to process the incomplete fragments
+long enough so they can actually reach the IPv6 core (people usually
+don't allow incoming fragments when using conntrack).
 
-commit 9c13886665c43600bd0af4b38e33c654e648e078
-Author: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Date:   Thu Mar 25 11:17:26 2010 +0100
-
-    netfilter: ip6table_raw: fix table priority
-    
-    The order of the IPv6 raw table is currently reversed, that makes impossible
-    to use the NOTRACK target in IPv6: for example if someone enters
-    
-    ip6tables -t raw -A PREROUTING -p tcp --dport 80 -j NOTRACK
-    
-    and if we receive fragmented packets then the first fragment will be
-    untracked and thus skip nf_ct_frag6_gather (and conntrack), while all
-    subsequent fragments enter nf_ct_frag6_gather and reassembly will never
-    successfully be finished.
-    
-    Singed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/include/linux/netfilter_ipv6.h b/include/linux/netfilter_ipv6.h
-index d654873..1f7e300 100644
---- a/include/linux/netfilter_ipv6.h
-+++ b/include/linux/netfilter_ipv6.h
-@@ -59,6 +59,7 @@
- enum nf_ip6_hook_priorities {
- 	NF_IP6_PRI_FIRST = INT_MIN,
- 	NF_IP6_PRI_CONNTRACK_DEFRAG = -400,
-+	NF_IP6_PRI_RAW = -300,
- 	NF_IP6_PRI_SELINUX_FIRST = -225,
- 	NF_IP6_PRI_CONNTRACK = -200,
- 	NF_IP6_PRI_MANGLE = -150,
-diff --git a/net/ipv6/netfilter/ip6table_raw.c b/net/ipv6/netfilter/ip6table_raw.c
-index aef31a2..b9cf7cd 100644
---- a/net/ipv6/netfilter/ip6table_raw.c
-+++ b/net/ipv6/netfilter/ip6table_raw.c
-@@ -13,7 +13,7 @@ static const struct xt_table packet_raw = {
- 	.valid_hooks = RAW_VALID_HOOKS,
- 	.me = THIS_MODULE,
- 	.af = NFPROTO_IPV6,
--	.priority = NF_IP6_PRI_FIRST,
-+	.priority = NF_IP6_PRI_RAW,
- };
- 
- /* The work comes in here from netfilter.c. */
-
---------------080304020808010602060808--
+But for now you've convinced me that this patch is wrong.
