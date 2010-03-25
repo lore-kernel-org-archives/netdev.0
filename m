@@ -1,121 +1,117 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH] igb: update hw_debug macro to make use of netdev_dbg call
-Date: Thu, 25 Mar 2010 16:10:08 -0700
-Message-ID: <20100325231007.8991.24570.stgit@localhost.localdomain>
+From: "Ira W. Snyder" <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
+Subject: Re: [PATCH 1/3] mfd: add support for Janz CMOD-IO PCI MODULbus
+	Carrier Board
+Date: Thu, 25 Mar 2010 16:22:44 -0700
+Message-ID: <20100325232244.GG10454@ovro.caltech.edu>
+References: <> <1268930324-29841-2-git-send-email-iws@ovro.caltech.edu>
+	<20100319163849.GB30409@sortiz.org>
+	<20100319182209.GD13672@ovro.caltech.edu>
+	<20100325225929.GA20618@sortiz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:53104
-	"EHLO qmta08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750978Ab0CYXK1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Mar 2010 19:10:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20100325225929.GA20618-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+On Thu, Mar 25, 2010 at 11:59:30PM +0100, Samuel Ortiz wrote:
+> Hi Ira,
+> 
+> First of all, sorry for the late reply. Then my answers:
+> 
+> On Fri, Mar 19, 2010 at 11:22:09AM -0700, Ira W. Snyder wrote:
+> > 
+> > > > +/*
+> > > > + * Subdevice Support
+> > > > + */
+> > > Please use the mfd-core API for building and registering platform sub devices.
+> > > The pieces of code below should shrink significantly.
+> > > 
+> > 
+> > Using this framework, how is it possible to create  the devices that I
+> > do down below. For each subdevice, I need three resources:
+> > 
+> > 1) MODULbus registers -- PCI BAR3 + (0x200 * module_num)
+> > 2) PLX Control Registers -- PCI BAR4
+> > 3) IRQ
+> > 
+> > Specifically, the way IORESOURCE_MEM resources are copied seems wrong.
+> > They start at the base address of only one resource and use the offsets
+> > provided in the struct mfd_cell. See the if-statement at
+> > drivers/mfd/mfd-core.c line 48.
+> > 
+> > I need two use two different parent resources. The mfd_add_devices()
+> > function doesn't support this.
+> I would still like you to use the mfd-core API. Here is my proposal:
+> 
+> 1) I modify mfd_add_device() to support a NULL mem_base argument. When
+> mem_base is NULL, we would have:
+> 
+> res[r].parent = NULL and res[r].start = cell->resources[r].start;
+> 
+> The platform code will use iomem_resource as the parent for this resource.
+> 
 
-This change updates the igb driver to make use of the netdev_dbg function
-macros now provided in netdevice.h
+I don't know the implications of using iomem_resource as the parent
+resource. If you think it is ok, I have no objections.
 
-This is meant to be provided as an alternative to the patch provided by
-Joe Perches.
+If it helps, I can provide the PCI resource as a parent resource in my
+resources. Then, when mem_base is NULL, the mfd-core could do this:
 
-It also removes igb_get_time_str since I found that it is unused code that
-is no longer used even in debug.
+res[r].parent = cell->resources[r].parent
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+This is basically what I did in my patch. I used the PCI resource as the
+parent of all child resources. I don't know if that is safe, but it
+works. :)
 
- drivers/net/igb/e1000_hw.h |   12 +++++-------
- drivers/net/igb/igb_main.c |   32 +++-----------------------------
- 2 files changed, 8 insertions(+), 36 deletions(-)
+The mfd_add_device() function does this for IORESOURCE_IO resources. It
+only tries to be smart for IORESOURCE_MEM and IORESOURCE_IRQ resources.
 
-diff --git a/drivers/net/igb/e1000_hw.h b/drivers/net/igb/e1000_hw.h
-index 82a533f..fbaff4d 100644
---- a/drivers/net/igb/e1000_hw.h
-+++ b/drivers/net/igb/e1000_hw.h
-@@ -31,6 +31,7 @@
- #include <linux/types.h>
- #include <linux/delay.h>
- #include <linux/io.h>
-+#include <linux/netdevice.h>
- 
- #include "e1000_regs.h"
- #include "e1000_defines.h"
-@@ -502,14 +503,11 @@ struct e1000_hw {
- 	u8  revision_id;
- };
- 
--#ifdef DEBUG
--extern char *igb_get_hw_dev_name(struct e1000_hw *hw);
-+extern struct net_device *igb_get_hw_dev(struct e1000_hw *hw);
- #define hw_dbg(format, arg...) \
--	printk(KERN_DEBUG "%s: " format, igb_get_hw_dev_name(hw), ##arg)
--#else
--#define hw_dbg(format, arg...)
--#endif
--#endif
-+	netdev_dbg(igb_get_hw_dev(hw), format, ##arg)
-+
- /* These functions must be implemented by drivers */
- s32  igb_read_pcie_cap_reg(struct e1000_hw *hw, u32 reg, u16 *value);
- s32  igb_write_pcie_cap_reg(struct e1000_hw *hw, u32 reg, u16 *value);
-+#endif /* _E1000_HW_H_ */
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 01c65c7..1e4d5a6 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -222,43 +222,17 @@ static cycle_t igb_read_clock(const struct cyclecounter *tc)
- 	return stamp;
- }
- 
--#ifdef DEBUG
- /**
-- * igb_get_hw_dev_name - return device name string
-+ * igb_get_hw_dev - return device
-  * used by hardware layer to print debugging information
-  **/
--char *igb_get_hw_dev_name(struct e1000_hw *hw)
-+struct net_device *igb_get_hw_dev(struct e1000_hw *hw)
- {
- 	struct igb_adapter *adapter = hw->back;
--	return adapter->netdev->name;
-+	return adapter->netdev;
- }
- 
- /**
-- * igb_get_time_str - format current NIC and system time as string
-- */
--static char *igb_get_time_str(struct igb_adapter *adapter,
--			      char buffer[160])
--{
--	cycle_t hw = adapter->cycles.read(&adapter->cycles);
--	struct timespec nic = ns_to_timespec(timecounter_read(&adapter->clock));
--	struct timespec sys;
--	struct timespec delta;
--	getnstimeofday(&sys);
--
--	delta = timespec_sub(nic, sys);
--
--	sprintf(buffer,
--		"HW %llu, NIC %ld.%09lus, SYS %ld.%09lus, NIC-SYS %lds + %09luns",
--		hw,
--		(long)nic.tv_sec, nic.tv_nsec,
--		(long)sys.tv_sec, sys.tv_nsec,
--		(long)delta.tv_sec, delta.tv_nsec);
--
--	return buffer;
--}
--#endif
--
--/**
-  * igb_init_module - Driver Registration Routine
-  *
-  * igb_init_module is the first routine called when the driver is
+> 2) Your mfd_cell cells would have 3 resources, and you just need to set the
+> IORESOURCE_MEM ones at probe time, with pci->resource[n]->start + offset as
+> the start field.
+> 
+> Would that make sense to you ?
+> 
 
+Yep, that makes sense.
+
+> > > > +	/* Onboard configuration registers */
+> > > > +	priv->ctrl = pci_ioremap_bar(dev, 4);
+> > > Why 4 ?
+> > > 
+> > > 
+> > 
+> > Because that is how the device works ;) There is a comment up above that
+> > describes them as the "PLX control registers". Are you suggesting that I
+> > add a comment here too?
+> No, that's ok, I missed the comment.
+> 
+> > > > +#define PCI_VENDOR_ID_JANZ		0x13c3
+> > > That probably belongs to pci_ids.h
+> > > 
+> > 
+> > Should I add a patch to the series for this?
+> Either that or merge the pci_ids.h changes with this patch.
+> 
+
+I guess it is a trivial enough change to merge with this patch.
+
+I'll wait for your patch to the mfd-core API before making changes and
+sending out the next round of updates.
+
+Thanks for replying,
+Ira
