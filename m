@@ -1,68 +1,75 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] r8169: Fix rtl8169_rx_interrupt()
-Date: Thu, 25 Mar 2010 14:19:40 +0100
-Message-ID: <1269523180.3626.25.camel@edumazet-laptop>
-References: <20100307192305.GA598@elte.hu>
-	 <20100308125122.GA11242@redhat.com>
-	 <1268686865.2824.4.camel@edumazet-laptop>
-	 <1268699602.2824.14.camel@edumazet-laptop>
-	 <20100316145914.GB3332@swordfish.minsk.epam.com>
-	 <1268751933.3094.45.camel@edumazet-laptop>
-	 <20100316151023.GC3332@swordfish.minsk.epam.com>
-	 <1268752826.3094.48.camel@edumazet-laptop>
-	 <20100316182619.GA3451@swordfish>
-	 <1268765284.2932.17.camel@edumazet-laptop>
-	 <20100325113038.GA3471@swordfish.minsk.epam.com>
+Subject: Re: [PATCH] NETLABEL: Fix an RCU warning
+Date: Thu, 25 Mar 2010 14:32:20 +0100
+Message-ID: <1269523940.3626.37.camel@edumazet-laptop>
+References: <1269516484.3626.21.camel@edumazet-laptop>
+	 <20100325110621.5348.32020.stgit@warthog.procyon.org.uk>
+	 <6522.1269517044@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-To: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Cc: paul.moore@hp.com, netdev@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: David Howells <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:58502 "EHLO
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:53979 "EHLO
 	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752097Ab0CYNTp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Mar 2010 09:19:45 -0400
-Received: by bwz1 with SMTP id 1so832304bwz.21
-        for <netdev@vger.kernel.org>; Thu, 25 Mar 2010 06:19:43 -0700 (PDT)
-In-Reply-To: <20100325113038.GA3471@swordfish.minsk.epam.com>
+	with ESMTP id S1753128Ab0CYNcZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Mar 2010 09:32:25 -0400
+Received: by bwz1 with SMTP id 1so844070bwz.21
+        for <netdev@vger.kernel.org>; Thu, 25 Mar 2010 06:32:23 -0700 (PDT)
+In-Reply-To: <6522.1269517044@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 25 mars 2010 =C3=A0 13:30 +0200, Sergey Senozhatsky a =C3=A9cr=
-it :
-> Hello,
+Le jeudi 25 mars 2010 =C3=A0 11:37 +0000, David Howells a =C3=A9crit :
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
 >=20
-> On (03/16/10 19:48), Eric Dumazet wrote:
-> [..]
-> > OK thanks for the report, this rtl8169_reset_task() seems pretty bu=
-ggy,
-> > or multiple invocation...
+> > Sorry this is not the right fix.
 > >=20
-> > Did you tried removing the rtl8169_schedule_work() call from
-> > rtl8169_rx_interrupt() ?
-> >=20
-> > Maybe the reset is not necessary at all in case of fifo overflow..
-> >=20
-> > Cumulative patch :
-> >=20
-> [..]
+> > Fix is to change the dereference check to take into account the loc=
+k
+> > owned here.
 >=20
-> Eric, I think you can put Tested-by: Sergey Senozhatsky <sergey.senoz=
-hatsky@gmail.com>
-> on the cumulative patch as I don't see any errors with pktgen over LA=
-N testing.
+> Then the comments on netlbl_unlhsh_hash(), netlbl_unlhsh_search_iface=
+(),
+> netlbl_unlhsh_search_iface_def() and netlbl_unlhsh_add_iface() are al=
+l wrong,
+> for all of them say:
 >=20
+> 	* The caller is responsible for calling the rcu_read_[un]lock()
+> 	* functions.
+>=20
+> Furthermore, netlabel_unlhsh_add() and netlabel_unlhsh_remove() _do_ =
+wrap the
+> calls to those functions in rcu_read_lock'd sections.
 
-Hi
+Current code is probably fine.
+Comments are not up to date (as many other comments BTW)
 
-Thanks for the report. Problem is I am not confident enough on this
-driver.
-I believe Fran=C3=A7ois Romieu is the one that can possibly push a patc=
-h ?
+Only the dereference check is bad, as it assumes the rcu_read lock is
+held.
 
-Thanks
+Its not the case, we own a spinlock.
+
+You suggest adding a surrounding rcu lock, but this surrounding lock
+adds overhead on normal kernels, to correct checker warnings only.
+
+If a mutex was protecting existing code, instead of a spinlock, then
+adding rcu_read_lock() would be no correct anyway (existing code would
+not be allowed to call a might_sleep function)
+
+Please take a look at rcu_dereference_check() in :
+
+__sk_free() (file net/core/sock.c)=20
+__in6_dev_get() (file include/net/addrconf.h)
+rcu_dereference_check_fdtable (file include/linux/fdtable.h)
+task_subsys_state() (file include/linux/cgroup.h)
+rcu_dereference_check_sched_domain (file kernel/sched.c)
+=2E..
+
+for examples of proper checks.
+
+Yes, its more difficult, but its the right thing.
 
 
