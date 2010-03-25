@@ -1,39 +1,45 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCHv1 4/4] netxen: update version to 4.0.73
-Date: Thu, 25 Mar 2010 00:06:46 -0700
-Message-ID: <1269500806-15383-5-git-send-email-amit.salecha@qlogic.com>
-References: <1269500806-15383-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
-To: davem@davemloft.net
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH 2/2] ipv4: Restart rt_intern_hash after emergency rebuild
+Date: Thu, 25 Mar 2010 10:44:13 +0300
+Message-ID: <4BAB144D.3070403@openvz.org>
+References: <4BAA4F3F.70703@openvz.org> <20100324195725.GC29364@hmsreliant.think-freely.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:64156 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1753093Ab0CYHGs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Mar 2010 03:06:48 -0400
-In-Reply-To: <1269500806-15383-1-git-send-email-amit.salecha@qlogic.com>
+Received: from mailhub.sw.ru ([195.214.232.25]:12472 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751203Ab0CYHok (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Mar 2010 03:44:40 -0400
+In-Reply-To: <20100324195725.GC29364@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/netxen/netxen_nic.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+>> @@ -1217,6 +1217,12 @@ restart:
+>>  					rt->u.dst.dev->name, num);
+>>  			}
+>>  			rt_emergency_hash_rebuild(net);
+>> +			spin_unlock_bh(rt_hash_lock_addr(hash));
+>> +
+>> +			hash = rt_hash(rt->fl.fl4_dst, rt->fl.fl4_src,
+>> +					in ? rt->fl.iif : rt->fl.oif,
+>> +					rt_genid(net));
+>> +			goto restart;
+>>  		}
+>>  	}
+> Why pass in a flag here?  Perhaps it would be easier just to pass in the ifindex
+> that was origionally used by the caller of rt_intern_hash so that the hash could
+> be redone without needing to toggle on the value of the flag.  
 
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 144d2e8..0f70383 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -53,8 +53,8 @@
- 
- #define _NETXEN_NIC_LINUX_MAJOR 4
- #define _NETXEN_NIC_LINUX_MINOR 0
--#define _NETXEN_NIC_LINUX_SUBVERSION 72
--#define NETXEN_NIC_LINUX_VERSIONID  "4.0.72"
-+#define _NETXEN_NIC_LINUX_SUBVERSION 73
-+#define NETXEN_NIC_LINUX_VERSIONID  "4.0.73"
- 
- #define NETXEN_VERSION_CODE(a, b, c)	(((a) << 24) + ((b) << 16) + (c))
- #define _major(v)	(((v) >> 24) & 0xff)
--- 
-1.6.0.2
+That's perfectly fine with me. I'll resend the patch shortly.
+
+> Regards
+> Neil
+> 
+>>
+> 
 
