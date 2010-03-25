@@ -1,39 +1,216 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: mmotm 2010-03-23 - IPv6 warnings...
-Date: Thu, 25 Mar 2010 13:25:19 -0700 (PDT)
-Message-ID: <20100325.132519.165189904.davem@davemloft.net>
-References: <12096.1269481001@localhost>
-	<20100324184226.3bf42d8f.akpm@linux-foundation.org>
-	<4788.1269535530@localhost>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH] ixgbe: fix bug with vlan strip in promsic mode
+Date: Thu, 25 Mar 2010 14:34:28 -0700
+Message-ID: <20100325213428.8089.1879.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Valdis.Kletnieks@vt.edu
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4788.1269535530@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta08.emeryville.ca.mail.comcast.net ([76.96.30.80]:47916 "EHLO
+	qmta08.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750703Ab0CYVer (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Mar 2010 17:34:47 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Valdis.Kletnieks@vt.edu
-Date: Thu, 25 Mar 2010 12:45:30 -0400
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-> On Wed, 24 Mar 2010 18:42:26 EDT, Andrew Morton said:
->> On Wed, 24 Mar 2010 21:36:41 -0400 Valdis.Kletnieks@vt.edu wrote:
->> 
->> > On Tue, 23 Mar 2010 15:34:59 PDT, akpm@linux-foundation.org said:
->> > > The mm-of-the-moment snapshot 2010-03-23-15-34 has been uploaded to
->> > > 
->> > >    http://userweb.kernel.org/~akpm/mmotm/
->> > 
->> > Seen in my dmesg.  It may be relevant that I'm at home, and my IPv6
->> > prefix arrives via a PPP VPN connection. This happened about 20-25 seconds
->> > after I launched pppd.
->> 
->> Yes, thanks, I get the same - it doesn't seem to break anything.  It
->> also happens some time after boot has completed.
-> 
-> Just doing an 'ifup eth0' on a network with IPv6 on it is sufficient.
+The ixgbe driver was setting up 82598 hardware correctly, so that
+when promiscuous mode was enabled hardware stripping was turned
+off.  But on 82599 the logic to disable/enable hardware stripping
+is different, and the code was not updated correctly when the
+hardware vlan stripping was enabled as default.
 
-I'm going to look into this more deeply tonight.
+This change comprises the creation of two new helper functions
+and calling them from the right locations to disable and enable
+hardware stripping of vlan tags at appropriate times.
+
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/ixgbe/ixgbe_main.c |  115 +++++++++++++++++++++++++---------------
+ 1 files changed, 72 insertions(+), 43 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 997d997..3c86707 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -2481,12 +2481,74 @@ static void ixgbe_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+ 	hw->mac.ops.set_vfta(&adapter->hw, vid, pool_ndx, false);
+ }
+ 
++/**
++ * ixgbe_vlan_filter_disable - helper to disable hw vlan filtering
++ * @adapter: driver data
++ */
++static void ixgbe_vlan_filter_disable(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	u32 vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
++	int i, j;
++
++	switch (hw->mac.type) {
++	case ixgbe_mac_82598EB:
++		vlnctrl &= ~(IXGBE_VLNCTRL_VME | IXGBE_VLNCTRL_VFE);
++		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
++		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
++		break;
++	case ixgbe_mac_82599EB:
++		vlnctrl &= ~IXGBE_VLNCTRL_VFE;
++		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
++		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
++		for (i = 0; i < adapter->num_rx_queues; i++) {
++			j = adapter->rx_ring[i]->reg_idx;
++			vlnctrl = IXGBE_READ_REG(hw, IXGBE_RXDCTL(j));
++			vlnctrl &= ~IXGBE_RXDCTL_VME;
++			IXGBE_WRITE_REG(hw, IXGBE_RXDCTL(j), vlnctrl);
++		}
++		break;
++	default:
++		break;
++	}
++}
++
++/**
++ * ixgbe_vlan_filter_enable - helper to enable hw vlan filtering
++ * @adapter: driver data
++ */
++static void ixgbe_vlan_filter_enable(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	u32 vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
++	int i, j;
++
++	switch (hw->mac.type) {
++	case ixgbe_mac_82598EB:
++		vlnctrl |= IXGBE_VLNCTRL_VME | IXGBE_VLNCTRL_VFE;
++		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
++		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
++		break;
++	case ixgbe_mac_82599EB:
++		vlnctrl |= IXGBE_VLNCTRL_VFE;
++		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
++		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
++		for (i = 0; i < adapter->num_rx_queues; i++) {
++			j = adapter->rx_ring[i]->reg_idx;
++			vlnctrl = IXGBE_READ_REG(hw, IXGBE_RXDCTL(j));
++			vlnctrl |= IXGBE_RXDCTL_VME;
++			IXGBE_WRITE_REG(hw, IXGBE_RXDCTL(j), vlnctrl);
++		}
++		break;
++	default:
++		break;
++	}
++}
++
+ static void ixgbe_vlan_rx_register(struct net_device *netdev,
+                                    struct vlan_group *grp)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+-	u32 ctrl;
+-	int i, j;
+ 
+ 	if (!test_bit(__IXGBE_DOWN, &adapter->state))
+ 		ixgbe_irq_disable(adapter);
+@@ -2497,25 +2559,7 @@ static void ixgbe_vlan_rx_register(struct net_device *netdev,
+ 	 * still receive traffic from a DCB-enabled host even if we're
+ 	 * not in DCB mode.
+ 	 */
+-	ctrl = IXGBE_READ_REG(&adapter->hw, IXGBE_VLNCTRL);
+-
+-	/* Disable CFI check */
+-	ctrl &= ~IXGBE_VLNCTRL_CFIEN;
+-
+-	/* enable VLAN tag stripping */
+-	if (adapter->hw.mac.type == ixgbe_mac_82598EB) {
+-		ctrl |= IXGBE_VLNCTRL_VME;
+-	} else if (adapter->hw.mac.type == ixgbe_mac_82599EB) {
+-		for (i = 0; i < adapter->num_rx_queues; i++) {
+-			u32 ctrl;
+-			j = adapter->rx_ring[i]->reg_idx;
+-			ctrl = IXGBE_READ_REG(&adapter->hw, IXGBE_RXDCTL(j));
+-			ctrl |= IXGBE_RXDCTL_VME;
+-			IXGBE_WRITE_REG(&adapter->hw, IXGBE_RXDCTL(j), ctrl);
+-		}
+-	}
+-
+-	IXGBE_WRITE_REG(&adapter->hw, IXGBE_VLNCTRL, ctrl);
++	ixgbe_vlan_filter_enable(adapter);
+ 
+ 	ixgbe_vlan_rx_add_vid(netdev, 0);
+ 
+@@ -2550,17 +2594,17 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	u32 fctrl, vlnctrl;
++	u32 fctrl;
+ 
+ 	/* Check for Promiscuous and All Multicast modes */
+ 
+ 	fctrl = IXGBE_READ_REG(hw, IXGBE_FCTRL);
+-	vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
+ 
+ 	if (netdev->flags & IFF_PROMISC) {
+ 		hw->addr_ctrl.user_set_promisc = 1;
+ 		fctrl |= (IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
+-		vlnctrl &= ~IXGBE_VLNCTRL_VFE;
++		/* don't hardware filter vlans in promisc mode */
++		ixgbe_vlan_filter_disable(adapter);
+ 	} else {
+ 		if (netdev->flags & IFF_ALLMULTI) {
+ 			fctrl |= IXGBE_FCTRL_MPE;
+@@ -2568,12 +2612,11 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 		} else {
+ 			fctrl &= ~(IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
+ 		}
+-		vlnctrl |= IXGBE_VLNCTRL_VFE;
++		ixgbe_vlan_filter_enable(adapter);
+ 		hw->addr_ctrl.user_set_promisc = 0;
+ 	}
+ 
+ 	IXGBE_WRITE_REG(hw, IXGBE_FCTRL, fctrl);
+-	IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
+ 
+ 	/* reprogram secondary unicast list */
+ 	hw->mac.ops.update_uc_addr_list(hw, netdev);
+@@ -2640,7 +2683,7 @@ static void ixgbe_napi_disable_all(struct ixgbe_adapter *adapter)
+ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	u32 txdctl, vlnctrl;
++	u32 txdctl;
+ 	int i, j;
+ 
+ 	ixgbe_dcb_check_config(&adapter->dcb_cfg);
+@@ -2658,22 +2701,8 @@ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
+ 		IXGBE_WRITE_REG(hw, IXGBE_TXDCTL(j), txdctl);
+ 	}
+ 	/* Enable VLAN tag insert/strip */
+-	vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
+-	if (hw->mac.type == ixgbe_mac_82598EB) {
+-		vlnctrl |= IXGBE_VLNCTRL_VME | IXGBE_VLNCTRL_VFE;
+-		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
+-		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
+-	} else if (hw->mac.type == ixgbe_mac_82599EB) {
+-		vlnctrl |= IXGBE_VLNCTRL_VFE;
+-		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
+-		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
+-		for (i = 0; i < adapter->num_rx_queues; i++) {
+-			j = adapter->rx_ring[i]->reg_idx;
+-			vlnctrl = IXGBE_READ_REG(hw, IXGBE_RXDCTL(j));
+-			vlnctrl |= IXGBE_RXDCTL_VME;
+-			IXGBE_WRITE_REG(hw, IXGBE_RXDCTL(j), vlnctrl);
+-		}
+-	}
++	ixgbe_vlan_filter_enable(adapter);
++
+ 	hw->mac.ops.set_vfta(&adapter->hw, 0, 0, true);
+ }
+ 
+
