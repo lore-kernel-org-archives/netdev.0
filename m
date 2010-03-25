@@ -1,43 +1,58 @@
-From: Nick Bowler <nbowler@elliptictech.com>
-Subject: Re: Question about e06e7c615877026544ad7f8b309d1a3706410383 --
- [IPV4]: The scheduled removal of multipath cached routing support.
-Date: Thu, 25 Mar 2010 13:21:37 -0400
-Message-ID: <20100325172137.GA12751@elliptictech.com>
-References: <2d460de71003251011y2d8d1931u683b396f40df4ed1@mail.gmail.com>
+From: Matthias Kaehlcke <matthias@kaehlcke.net>
+Subject: Re: [BUG] i.MX25: Broken include in mach-mx25pdk.c
+Date: Thu, 25 Mar 2010 18:28:12 +0100
+Message-ID: <20100325172811.GJ2328@darwin>
+References: <20100325161635.GI2328@darwin>
+ <20100325164147.GA27698@jasper.tkos.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@sunset.davemloft.net
-To: Richard Hartmann <richih.mailinglist@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Sascha Hauer <kernel@pengutronix.de>,
+	linux-arm-kernel@lists.infradead.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Baruch Siach <baruch@tkos.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay1-d.mail.gandi.net ([217.70.183.193]:52732 "EHLO
+	relay1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751968Ab0CYR3q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Mar 2010 13:29:46 -0400
 Content-Disposition: inline
-In-Reply-To: <2d460de71003251011y2d8d1931u683b396f40df4ed1@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20100325164147.GA27698@jasper.tkos.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 18:11 Thu 25 Mar     , Richard Hartmann wrote:
-> I was wondering what the rationale for commit
-> e06e7c615877026544ad7f8b309d1a3706410383 is. We upgraded our custom
-> image to 2.6.33 recently and found those options to be missing.
+hi,
 
->From the diff of that commit:
+El Thu, Mar 25, 2010 at 06:41:47PM +0200 Baruch Siach ha dit:
 
--What:	Multipath cached routing support in ipv4
--When:	in 2.6.23
--Why:	Code was merged, then submitter immediately disappeared leaving
--	us with no maintainer and lots of bugs.  The code should not have
--	been merged in the first place, and many aspects of it's
--	implementation are blocking more critical core networking
--	development.  It's marked EXPERIMENTAL and no distribution
--	enables it because it cause obscure crashes due to unfixable bugs
--	(interfaces don't return errors so memory allocation can't be
--	handled, calling contexts of these interfaces make handling
--	errors impossible too because they get called after we've
--	totally commited to creating a route object, for example).
--	This problem has existed for years and no forward progress
--	has ever been made, and nobody steps up to try and salvage
--	this code, so we're going to finally just get rid of it.
--Who:	David S. Miller <davem@davemloft.net>
+> On Thu, Mar 25, 2010 at 05:16:35PM +0100, Matthias Kaehlcke wrote:
+> > compiling arch/arm/mach-mx25/mach-mx25pdk.c fails due to the missing
+> > include "linux/fec.h" and incomplete types that are supposed to
+> > defined in this header
+> > 
+> > i'd send a fix, but greping through the kernel tree i haven't been
+> > able to identify the file defining the missing elements, i suppose it's still
+> > sitting bored in some development tree waiting to be merged
+> 
+> Apply the patch at http://patchwork.ozlabs.org/patch/41235/.
+> 
+> For some reason this patch never made it to the mainline even after my 
+> repeated nagging :(.
+
+thanks for the pointer, baruch!
+
+david: is there any inconvenience to merge the patch to netdev? if so,
+what can be done to make it mergeable?
+
+regards
 
 -- 
-Nick Bowler, Elliptic Technologies (http://www.elliptictech.com/)
+Matthias Kaehlcke
+Embedded Linux Developer
+Barcelona
+
+      The assumption that what currently exists must necessarily
+        exist is the acid that corrodes all visionary thinking
+                                                                 .''`.
+    using free software / Debian GNU/Linux | http://debian.org  : :'  :
+                                                                `. `'`
+gpg --keyserver pgp.mit.edu --recv-keys 47D8E5D4                  `-
