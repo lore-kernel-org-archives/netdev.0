@@ -1,34 +1,35 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH] NETLABEL: Fix an RCU warning
-Date: Thu, 25 Mar 2010 11:37:24 +0000
-Message-ID: <6522.1269517044@redhat.com>
-References: <1269516484.3626.21.camel@edumazet-laptop> <20100325110621.5348.32020.stgit@warthog.procyon.org.uk>
-Cc: dhowells@redhat.com, paul.moore@hp.com, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:65117 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753797Ab0CYLiF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Mar 2010 07:38:05 -0400
-In-Reply-To: <1269516484.3626.21.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: debugging kernel during packet drops
+Date: Thu, 25 Mar 2010 13:42:00 +0100 (CET)
+Message-ID: <alpine.LSU.2.01.1003251338240.27347@obet.zrqbmnf.qr>
+References: <4BA74950.6000305@infopact.nl> <4BA7A5D8.5080101@trash.net>  <4BA8DAC5.6050002@infopact.nl> <1269364893.2983.296.camel@edumazet-laptop>  <4BAA2DC5.7000409@infopact.nl>  <1269447674.3213.64.camel@edumazet-laptop> <1269509574.3626.9.camel@edumazet-laptop>
+ <4BAB3C8B.3030104@trash.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jorrit Kronjee <j.kronjee@infopact.nl>,
+	netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4BAB3C8B.3030104@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> Sorry this is not the right fix.
-> 
-> Fix is to change the dereference check to take into account the lock
-> owned here.
+On Thursday 2010-03-25 11:35, Patrick McHardy wrote:
+>Eric Dumazet wrote:
+>> Here is patch I cooked for xt_hashlimit (on top of net-next-2.6) to make
+>> it use RCU and scale better in your case (allowing several concurrent
+>> cpus once RPS is activated), but also on more general cases.
+>> 
+>> [PATCH] xt_hashlimit: RCU conversion
+>
+>This clashes with some recent cleanups in nf-next-2.6.git. I'm
+>also expecting a patch from Jan to remove the old v0 revision
+>very soon (probably today).
 
-Then the comments on netlbl_unlhsh_hash(), netlbl_unlhsh_search_iface(),
-netlbl_unlhsh_search_iface_def() and netlbl_unlhsh_add_iface() are all wrong,
-for all of them say:
-
-	* The caller is responsible for calling the rcu_read_[un]lock()
-	* functions.
-
-Furthermore, netlabel_unlhsh_add() and netlabel_unlhsh_remove() _do_ wrap the
-calls to those functions in rcu_read_lock'd sections.
-
-David
+I was waiting for you to process
+http://marc.info/?l=netfilter-devel&m=126936212932683&w=2
+which is a prerequisite for the hashlimit v0 removal.
+(I expected that you might miss some mails due to trash.net
+having been down yesterday. No biggie.)
