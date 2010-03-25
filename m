@@ -1,58 +1,76 @@
-From: Matthias Kaehlcke <matthias@kaehlcke.net>
-Subject: Re: [BUG] i.MX25: Broken include in mach-mx25pdk.c
-Date: Thu, 25 Mar 2010 18:28:12 +0100
-Message-ID: <20100325172811.GJ2328@darwin>
-References: <20100325161635.GI2328@darwin>
- <20100325164147.GA27698@jasper.tkos.co.il>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Problem with talking to the kernel and iproute2/ifconfig
+Date: Thu, 25 Mar 2010 18:31:46 +0100
+Message-ID: <4BAB9E02.2040605@trash.net>
+References: <4BAB88A3.9070702@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sascha Hauer <kernel@pengutronix.de>,
-	linux-arm-kernel@lists.infradead.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Baruch Siach <baruch@tkos.co.il>
+Content-Type: multipart/mixed;
+ boundary="------------050604010709000302090708"
+Cc: Linux Network Development list <netdev@vger.kernel.org>
+To: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1-d.mail.gandi.net ([217.70.183.193]:52732 "EHLO
-	relay1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751968Ab0CYR3q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Mar 2010 13:29:46 -0400
-Content-Disposition: inline
-In-Reply-To: <20100325164147.GA27698@jasper.tkos.co.il>
+Received: from stinky.trash.net ([213.144.137.162]:56318 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751514Ab0CYRbs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Mar 2010 13:31:48 -0400
+In-Reply-To: <4BAB88A3.9070702@itcare.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hi,
+This is a multi-part message in MIME format.
+--------------050604010709000302090708
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
-El Thu, Mar 25, 2010 at 06:41:47PM +0200 Baruch Siach ha dit:
-
-> On Thu, Mar 25, 2010 at 05:16:35PM +0100, Matthias Kaehlcke wrote:
-> > compiling arch/arm/mach-mx25/mach-mx25pdk.c fails due to the missing
-> > include "linux/fec.h" and incomplete types that are supposed to
-> > defined in this header
-> > 
-> > i'd send a fix, but greping through the kernel tree i haven't been
-> > able to identify the file defining the missing elements, i suppose it's still
-> > sitting bored in some development tree waiting to be merged
+Paweł Staszewski wrote:
+> Hello
 > 
-> Apply the patch at http://patchwork.ozlabs.org/patch/41235/.
+> I have strange problem with kernel 2.6.33.1
 > 
-> For some reason this patch never made it to the mainline even after my 
-> repeated nagging :(.
+> I have script with 6267 ip's
+> 
+> cat gateways.conf | grep 'addr add' | wc -l
+> 6267
+> 
+> and when i want to commit this interfaces by command:
+> ip -batch gateways.conf
+> 
+> I have only 680 ip interfaces
+> ip a | grep inet | grep ' 10.' | wc -l
+> 680
+> 
+> 
+> I test this on kernels 2.6.29.1 and 2.6.30.1 and all was OK.
+> on kernel 2.6.29.1
+> 
+> ip -batch gateways.conf
+> ip a | grep inet | grep ' 10.' | wc -l
+> 6267
+> 
+> on kernel 2.6.30.1
+> ip -batch gateways.conf
+> ip a | grep inet | grep ' 10.' | wc -l
+> 6267
 
-thanks for the pointer, baruch!
+Does this patch help? When "idx" points to the last device
+of a chain, it will never get incremented past s_idx and we
+fail to reset s_ip_idx.
 
-david: is there any inconvenience to merge the patch to netdev? if so,
-what can be done to make it mergeable?
 
-regards
+--------------050604010709000302090708
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="x"
 
--- 
-Matthias Kaehlcke
-Embedded Linux Developer
-Barcelona
-
-      The assumption that what currently exists must necessarily
-        exist is the acid that corrodes all visionary thinking
-                                                                 .''`.
-    using free software / Debian GNU/Linux | http://debian.org  : :'  :
-                                                                `. `'`
-gpg --keyserver pgp.mit.edu --recv-keys 47D8E5D4                  `-
+ZGlmZiAtLWdpdCBhL25ldC9pcHY0L2RldmluZXQuYyBiL25ldC9pcHY0L2RldmluZXQuYwpp
+bmRleCA1MWNhOTQ2Li4zZmViMmIzIDEwMDY0NAotLS0gYS9uZXQvaXB2NC9kZXZpbmV0LmMK
+KysrIGIvbmV0L2lwdjQvZGV2aW5ldC5jCkBAIC0xMTk0LDcgKzExOTQsNyBAQCBzdGF0aWMg
+aW50IGluZXRfZHVtcF9pZmFkZHIoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldGxp
+bmtfY2FsbGJhY2sgKmNiKQogCQlobGlzdF9mb3JfZWFjaF9lbnRyeV9yY3UoZGV2LCBub2Rl
+LCBoZWFkLCBpbmRleF9obGlzdCkgewogCQkJaWYgKGlkeCA8IHNfaWR4KQogCQkJCWdvdG8g
+Y29udDsKLQkJCWlmIChpZHggPiBzX2lkeCkKKwkJCWlmIChoID4gc19oIHx8IGlkeCA+IHNf
+aWR4KQogCQkJCXNfaXBfaWR4ID0gMDsKIAkJCWluX2RldiA9IF9faW5fZGV2X2dldF9yY3Uo
+ZGV2KTsKIAkJCWlmICghaW5fZGV2KQo=
+--------------050604010709000302090708--
