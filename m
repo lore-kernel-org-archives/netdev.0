@@ -1,78 +1,75 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH] NETLABEL: Fix an RCU warning
-Date: Thu, 25 Mar 2010 10:10:44 -0400
-Message-ID: <201003251010.45128.paul.moore@hp.com>
-References: <1269516484.3626.21.camel@edumazet-laptop> <6522.1269517044@redhat.com> <1269523940.3626.37.camel@edumazet-laptop>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [RFC PATCH net-next 0/7 v2]IPv6:netfilter: defragment
+Date: Thu, 25 Mar 2010 23:14:57 +0900
+Message-ID: <4BAB6FE1.7030304@linux-ipv6.org>
+References: <4B88BE30.80206@cn.fujitsu.com> <4B97D34C.4020509@gmail.com> <4B98B4FC.50904@cn.fujitsu.com> <4B9B9766.3090200@linux-ipv6.org> <4B9E5FEC.9010002@trash.net> <4BA8EC4A.9070802@linux-ipv6.org> <4BA8F75E.2040303@trash.net> <4BA90F72.6010404@linux-ipv6.org> <alpine.DEB.2.00.1003232050540.18241@blackhole.kfki.hu> <4BAAE496.8000701@linux-ipv6.org> <alpine.DEB.2.00.1003251004200.21825@blackhole.kfki.hu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Howells <dhowells@redhat.com>, netdev@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	Shan Wei <shanwei@cn.fujitsu.com>,
+	YOSHIFUJI Hideaki <hideaki.yoshifuji@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:35042 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754146Ab0CYOKt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Mar 2010 10:10:49 -0400
-In-Reply-To: <1269523940.3626.37.camel@edumazet-laptop>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:42096 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754485Ab0CYOPj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Mar 2010 10:15:39 -0400
+In-Reply-To: <alpine.DEB.2.00.1003251004200.21825@blackhole.kfki.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 25 March 2010 09:32:20 am Eric Dumazet wrote:
-> Le jeudi 25 mars 2010 =C3=A0 11:37 +0000, David Howells a =C3=A9crit =
-:
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > > Sorry this is not the right fix.
-> > >=20
-> > > Fix is to change the dereference check to take into account the l=
-ock
-> > > owned here.
-> >=20
-> > Then the comments on netlbl_unlhsh_hash(), netlbl_unlhsh_search_ifa=
-ce(),
-> > netlbl_unlhsh_search_iface_def() and netlbl_unlhsh_add_iface() are =
-all
-> > wrong,
-> >=20
-> > for all of them say:
-> > 	* The caller is responsible for calling the rcu_read_[un]lock()
-> > 	* functions.
-> >=20
-> > Furthermore, netlabel_unlhsh_add() and netlabel_unlhsh_remove() _do=
-_ wrap
-> > the calls to those functions in rcu_read_lock'd sections.
->=20
-> Current code is probably fine.
-> Comments are not up to date (as many other comments BTW)
->=20
-> Only the dereference check is bad, as it assumes the rcu_read lock is
-> held.
->=20
-> Its not the case, we own a spinlock.
->=20
-> You suggest adding a surrounding rcu lock, but this surrounding lock
-> adds overhead on normal kernels, to correct checker warnings only.
+(2010/03/25 18:23), Jozsef Kadlecsik wrote:
 
-The rcu_dereference call, and the outdated comments for that matter, ar=
-e=20
-likely artifacts from an early patch.  When the code was originally bei=
-ng=20
-developed I had assumed that you _always_ needed to hold the RCU read l=
-ock=20
-when doing RCU operations, regardless of if you were already holding th=
-e=20
-associated spinlock.  Thankfully, Paul McKenney was able to review the =
-code=20
-and helped me to understand RCU a bit better, unfortunately, it looks l=
-ike I=20
-still missed a few spots :/
+>> First of all. in "sane" setup, people should configure according
+>> to their own requirements.  They may or may not want send back
+>> icmp packet.  And, even if the core is to send icmp back, the
+>> state would be correctly assigned.
+>
+> I meant the state of the fragmented packets. If we let the uncompleted
+> fragments to enter conntrack, as far as I see their state will be INVALID.
+> Or should we add an exception and set their state to UNTRACKED in
+> conntrack?
 
-Give me a day or two to go through the comments again and do some sanit=
-y=20
-checks and I'll send out a patch.  However, if you've already got somet=
-hing=20
-that is tested and ready to go don't let me stand in your way.
+Got it.  INVALID seems fine to me so far
+while further consideration might be needed.
 
---=20
-paul moore
-linux @ hp
+>> For my conclusion, first option is just to drop
+>> uncompleted fragments as we do today.  Second option
+>> would be  to forward them to the next process so that
+>> core code could send ICMPv6 etc. or, we could have
+>> new code to send ICMPV6_TIME_EXCEED in REJECT target.
+>> In longer term, I think it is better to introduce
+>> per-exthdr hooks.
+>
+> I agree with your conclusion too, except a few question.
+>
+> It is unclear for me how can you forward the packets to the next process:
+> above you pointed out that in defrag/reassembly before conntrack we do not
+> know yet whether the packets are destined to the host or not. So again,
+> how would you let through the fragments on conntrack then?
+>
+> I don't know how could the REJECT target help in any way.
+
+Argh, more explanation.
+
+If you unconditionally send ICMPv6, behavior would be
+broken.
+
+If you do really want to send ICMP in netfilter,
+you could pretend additional rules in filter table.
+For example, ICMP to be sent back only if other exthdrs
+do not exist, and other packets to be silently dropped.
+
+This cannot be our clean/final/full answer, so I said it'd
+be better to introduce per-exthdr hooks in longer term.
+
+Regards,
+
+--yoshfuji
