@@ -1,117 +1,69 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [RFC PATCH net-next 0/7 v2]IPv6:netfilter: defragment
-Date: Thu, 25 Mar 2010 10:23:38 +0100 (CET)
-Message-ID: <alpine.DEB.2.00.1003251004200.21825@blackhole.kfki.hu>
-References: <4B88BE30.80206@cn.fujitsu.com> <4B97D34C.4020509@gmail.com> <4B98B4FC.50904@cn.fujitsu.com> <4B9B9766.3090200@linux-ipv6.org> <4B9E5FEC.9010002@trash.net> <4BA8EC4A.9070802@linux-ipv6.org> <4BA8F75E.2040303@trash.net> <4BA90F72.6010404@linux-ipv6.org>
- <alpine.DEB.2.00.1003232050540.18241@blackhole.kfki.hu> <4BAAE496.8000701@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>,
-	Shan Wei <shanwei@cn.fujitsu.com>,
-	YOSHIFUJI Hideaki <hideaki.yoshifuji@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: [PATCH RFC 0/2] caching bundles instead of policies
+Date: Thu, 25 Mar 2010 11:24:49 +0200
+Message-ID: <1269509091-6440-1-git-send-email-timo.teras@iki.fi>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Timo Teras <timo.teras@iki.fi>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.kfki.hu ([148.6.0.28]:54008 "EHLO smtp2.kfki.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750851Ab0CYJXl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Mar 2010 05:23:41 -0400
-In-Reply-To: <4BAAE496.8000701@linux-ipv6.org>
+Received: from ey-out-2122.google.com ([74.125.78.27]:52529 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751180Ab0CYJZC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Mar 2010 05:25:02 -0400
+Received: by ey-out-2122.google.com with SMTP id d26so870382eyd.19
+        for <netdev@vger.kernel.org>; Thu, 25 Mar 2010 02:25:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 25 Mar 2010, YOSHIFUJI Hideaki wrote:
+This is not yet intended for commit (see below), but rather a
+snapshot of what I'm working with currently. And to get some feedback
+on the direction where I'm going.
 
-> (2010/03/24 5:10), Jozsef Kadlecsik wrote:
-> 
-> > On Wed, 24 Mar 2010, YOSHIFUJI Hideaki wrote:
-> > 
-> > > > In this case without conntrack, IPv6 would send an ICMPv6 message,
-> > > > so in my opinion the transparent thing to do would be to still send
-> > > > them. Of course only if reassembly is done on an end host.
-> > > 
-> > > Well, no.  conntrack should just forward even uncompleted fragments
-> > > to next process (e.g. core ipv6 code), and then the core would send
-> > > ICMP error back.  ICMP should be sent by the core ipv6 code according
-> > > to decision of itself, not according to netfilter.
-> > 
-> > But what state could be associated by conntrack to the uncompleted
-> > fragments but the INVALID state? In consequence, in any sane setup, the
-> > uncompleted fragments will be dropped silently by a filter table rule
-> > and no ICMP error message will be sent back.
-> > 
-> > Therefore I think iff the destination of the fragments is the host
-> > itself, then conntrack should generate an ICMP error message. But that
-> > error message must be processed by conntrack to set its state and then
-> > the fate of the generated packet can be decided by a rule.
-> 
-> Well.... no.
-> 
-> First of all. in "sane" setup, people should configure according
-> to their own requirements.  They may or may not want send back
-> icmp packet.  And, even if the core is to send icmp back, the
-> state would be correctly assigned.
+The first patch changes flow cache reference counting fundamentally.
+It no longer assumes that the cached objects are GC'd later, but instead
+calls the virtualized delete method to delete (or drop it's reference).
+This does now mean that ->delete() call can be slowish. The plan is to
+add ->check() which is called when ever the cache is flushed, add all
+deleted entries to GC list, and have the main flush routine delete the
+GC list entries.
 
-I meant the state of the fragmented packets. If we let the uncompleted 
-fragments to enter conntrack, as far as I see their state will be INVALID. 
-Or should we add an exception and set their state to UNTRACKED in 
-conntrack?
- 
-> We cannot (and should not) do something "cleaver" (excluding
-> packet drops) in conntrack in PRE_ROUTING chain.
+I wanted to suggest this because:
+ - xfrm_policy_put() is currently never guaranteed to be fast, instead
+   it can always result to slow path. Only the flow cache wanted to have
+   fast free when bh is disabled, and this was made possible with the
+   policy GC ensuring that cache is flushed before policies are freed.
+ - now that we can cache bundles or policies, it makes sense to have
+   more selective flushing; otherwise we lose some of the speed ups.
+   This also means that flushing gets faster, and is needed very rarely
+   (sensible points are GC'ing bundles and when interface goes down)
+ - now we don't have to do two periodic/delayed GC's: one for bundles,
+   and one for policies. instead we can have central code for that in
+   the flow cache. this also means that the flow cache hash is the
+   owner of bundle, and when the flow cache entry is expired the bundle
+   is dst_free()'d (which we would want to do anyway). no need to keep
+   bundles in separate global (or policy specific) list
 
-Actually, I have to agree with you.
- 
-> One reason is that in PRE_ROUTING context, we can NOT determine
-> if the address we see in the IP header is really the final
-> destination.  The overall situation is the same even if the
-> routing entry corresponding the "current" destination points
-> the node itself, or even if the node is configured as host.
-> 
-> It might seems that we could do something in the "filter"
-> table in LOCAL_IN, FORWARD or LOCAL_OUT (after routing header
-> process).
-> 
-> But well, we unfortunately cannot do this (at least
-> automatically) because even in LOCAL_IN, the final
-> destination has not been decided until we process all
-> of extension headers.
-> 
-> Sending ICMP in netfilter (especially in conntrack) is too
-> patchy, and is not right.  If we do the right thing (and
-> I believe we should do so),  I'd propose to have hooks
-> around handlers inside ip6_input_finish().
-> 
-> ...I remember that I was thinking about this before.
-> 
-> For my conclusion, first option is just to drop
-> uncompleted fragments as we do today.  Second option
-> would be  to forward them to the next process so that
-> core code could send ICMPv6 etc. or, we could have
-> new code to send ICMPV6_TIME_EXCEED in REJECT target.
-> In longer term, I think it is better to introduce
-> per-exthdr hooks.
+Does this sound acceptable approach?
 
-I agree with your conclusion too, except a few question.
+What the current patch set is missing:
+ - delayed deletion of flow cache objects
+ - doing check() on flush for each object
+ - removing the policy GC
+ - some of the other flow cache improvements from my original patch
 
-It is unclear for me how can you forward the packets to the next process: 
-above you pointed out that in defrag/reassembly before conntrack we do not 
-know yet whether the packets are destined to the host or not. So again, 
-how would you let through the fragments on conntrack then?
+Also, we might want to cache dummy bundles in xfrm_check_policy().
+The reason is that if we matched sub policy originally, we always have
+to do O(n) search for the main policy.
 
-I don't know how could the REJECT target help in any way.
+Timo Teras (2):
+  flow: virtualize get and entry deletion methods
+  xfrm: cache bundles instead of policies for outgoing flows
 
-This is not a simple case at all and I have to think that the "best" way 
-just to drop the packets as we currently do.
+ include/net/flow.h      |   17 +-
+ include/net/xfrm.h      |   12 +-
+ net/core/flow.c         |  102 ++++---
+ net/ipv4/xfrm4_policy.c |   22 --
+ net/ipv6/xfrm6_policy.c |   31 --
+ net/xfrm/xfrm_policy.c  |  755 +++++++++++++++++++++++++----------------------
+ 6 files changed, 471 insertions(+), 468 deletions(-)
 
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlec@mail.kfki.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : KFKI Research Institute for Particle and Nuclear Physics
-          H-1525 Budapest 114, POB. 49, Hungary
