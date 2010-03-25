@@ -1,36 +1,53 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: 2.6.34-rc1: bluetooth oops
-Date: Thu, 25 Mar 2010 15:26:40 +0100
-Message-ID: <20100325142640.GA1602@ucw.cz>
-References: <20100314201434.GE22059@elf.ucw.cz> <1268598500.3897.36.camel@localhost.localdomain> <20100314204434.GB5208@elf.ucw.cz>
+From: Jon Paul Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH 1/1] [TIPC] Removed inactive maintainer
+Date: Thu, 25 Mar 2010 11:35:43 -0400
+Message-ID: <1269531343-27569-1-git-send-email-jon.maloy@ericsson.com>
+References: </home/lmcjoma/tipc/git-tipc/outgoing_patches/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kernel list <linux-kernel@vger.kernel.org>,
-	linux-bluetooth@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>
-To: Marcel Holtmann <marcel@holtmann.org>, netdev@vger.kernel.org,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100314204434.GB5208@elf.ucw.cz>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net, Jon
+To: David Miller <davem@davemloft.net>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: </home/lmcjoma/tipc/git-tipc/outgoing_patches/>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Sun 2010-03-14 21:44:34, Pavel Machek wrote:
-> Hi!
-> 
-> > > I got this after trying to use bnep for few minutes... Machine locked
-> > > after that, not sure if it is related.
-> > 
-> > I can't explain it since we haven't changed the BNEP code. So that might
-> > be a problem in the networking layer. So posting it to netdev might be a
-> > good idea.
-> 
-> Ok, I'll try using bnep some more. I had bad problems with cellphone
-> connection at that point, so maybe it is not easy to repeat, and it
-> the fact I have not seen it before may not mean much...
+From: Jon Maloy <jon.maloy@ericsson.com>
 
-So it seems to repeat about twice a week, definitely a regression :-(.
 
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ MAINTAINERS |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 449d444..5c99bd6 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5423,7 +5423,6 @@ S:	Maintained
+ F:	sound/soc/codecs/twl4030*
+ 
+ TIPC NETWORK LAYER
+-M:	Per Liden <per.liden@ericsson.com>
+ M:	Jon Maloy <jon.maloy@ericsson.com>
+ M:	Allan Stephens <allan.stephens@windriver.com>
+ L:	tipc-discussion@lists.sourceforge.net
 -- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+1.5.4.3
+
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
