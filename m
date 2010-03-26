@@ -1,62 +1,25 @@
-From: Haile Seifu <haile.seifu@gmail.com>
-Subject: IPv6 neighbor advertisements
-Date: Fri, 26 Mar 2010 01:51:41 -0400
-Message-ID: <aa711df21003252251x524d7dd2hac4a88103d0ae3a@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: IPv6 neighbor advertisements
+Date: Thu, 25 Mar 2010 23:07:33 -0700 (PDT)
+Message-ID: <20100325.230733.214002385.davem@davemloft.net>
+References: <aa711df21003252251x524d7dd2hac4a88103d0ae3a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: base64
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: haile.seifu@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:55411 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752771Ab0CZFvt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 01:51:49 -0400
-Received: by gyg13 with SMTP id 13so44778gyg.19
-        for <netdev@vger.kernel.org>; Thu, 25 Mar 2010 22:51:48 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49195
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752817Ab0CZGHK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 02:07:10 -0400
+In-Reply-To: <aa711df21003252251x524d7dd2hac4a88103d0ae3a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGksCgoKSSBoYXZlIGJlZW4gcnVubmluZyBzb21lIHRlc3RzIGludm9sdmluZyBJUHY2IG5laWdo
-Ym9yIGRpc2NvdmVyeS4KCldoZW4gYSBuZWlnaGJvciBhZHZlcnRpc2VtZW50IGlzIHJlY2VpdmVk
-IGJ5IHRoZSBLZXJuZWwgYW5kIHRoZQpmb2xsd2luZyBpcyB0cnVlOgoKoKCgIC0gdGhlIGFkdmVy
-dGlzZW1lbnQncyBzb2xpY2l0ZWQgZmxhZyBpcyBzZXQsCqCgoCAtIHRoZSBhZHZlcnRpc2VtZW50
-J3Mgb3ZlcnJpZGUgZmxhZyBpcyBjbGVhciwKoKCgIC0gdGhlIGFkdmVydGlzZW1lbnQncyBsaW5r
-IGxheWVyIGFkZHJlc3MgZGlmZmVycyBmcm9tIHdoYXQgaXMgaW4KdGhlIGNvcnJlc3BvbmRpbmcg
-bmVpZ2hib3IgY2FjaGUgZW50cnksIGFuZAqgoKAgLSB0aGUgY29ycmVzcG9uZGluZyBuZWlnaGJv
-ciBjYWNoZSBlbnRyeSBzdGF0ZSBpcyBuZWl0aGVyCklOQ09NUExFVEUgb3IgUkVBQ0hBQkxFCgp0
-aGVuIGl0IGFwcGVhcnMgdGhhdCB0aGUgY2FjaGUgZW50cnkgZ2V0cyB1cGRhdGVkIGZyb20gU1RB
-TEUvREVMQVkgdG8KUkVBQ0hBQkxFLqAgQWNjb3JkaW5nIHRvIFJGQyAyNDYxLzQ4NjEgc2VjdGlv
-bgo3LjIuNSwgdGhlIGFkdmVydGlzZW1lbnQgaW4gdGhlIGFib3ZlIHNjZW5hcmlvIHNob3VsZCBi
-ZSBpZ25vcmVkIGFuZApNVVNUIE5PVCB1cGRhdGUgdGhlIG5laWdoYm9yIGNhY2hlIGVudHJ5CgpJ
-IHdhcyBjdXJpb3VzIGFib3V0IHdoeSB0aGUgZm9sbG93aW5nIGNvZGUgaW4gbmV0L2NvcmUvbmVp
-Z2hib3VyLmMsCmZ1bmN0aW9uIG5laWdoX3VwZGF0ZSwgdXBkYXRlcyB0aGUgbmVpZ2gtPmNvbmZp
-cm1lZAphbmQgbmVpZ2gtPnVwZGF0ZWQgZmllbGRzIChpbiBsaW5lcyAxMDM5LTEwNDEpIHdoZW4g
-dGhlIGVsc2UtY29uZGl0aW9uCih0aGUgc2NlbmFyaW8gZGVzY3JpYmVkIGFib3ZlKSBpcyBzdGls
-bCBwb3NzaWJsZSBpbgpsaW5lcyAxMDU1LTEwNTYuCgpCeSB0aGUgd2F5LCB0aGUgIm5ldyIgZmxh
-ZyBpcyBzZXQgYmFzZWQgb24gdGhlIHNvbGljaXRlZCBmbGFnIG9mIHRoZQpuZWlnaGJvciBhZHZl
-cnRpc2VtZW50LCBzbyB0aGUgaWYtY29uZGl0aW9uIG9uIGxpbmUgMTAzOSB3aWxsCmJlIHRydWUu
-CgpuZXQvY29yZS9uZWlnaGJvdXIuYyAodmVyc2lvbiBsaW51eC0yLjYuMzQtcmMxKToKCgo5ODKg
-IGludCBuZWlnaF91cGRhdGUoc3RydWN0IG5laWdoYm91ciAqbmVpZ2gsIGNvbnN0IHU4ICpsbGFk
-ZHIsIHU4IG5ldywKOTgzoKCgoKCgoKCgoKCgoKCgoCB1MzIgZmxhZ3MpCjk4NKAgewouLi4KLi4u
-Ci4uLgoxMDM5oKCgoKCgoCBpZiAobmV3ICYgTlVEX0NPTk5FQ1RFRCkKMTA0MKCgoKCgoKCgoKCg
-oKCgoCBuZWlnaC0+Y29uZmlybWVkID0gamlmZmllczsKMTA0MaCgoKCgoKAgbmVpZ2gtPnVwZGF0
-ZWQgPSBqaWZmaWVzOwoxMDQyCjEwNDOgoKCgoKCgIC8qIElmIGVudHJ5IHdhcyB2YWxpZCBhbmQg
-YWRkcmVzcyBpcyBub3QgY2hhbmdlZCwKMTA0NKCgoKCgoKCgoKAgZG8gbm90IGNoYW5nZSBlbnRy
-eSBzdGF0ZSwgaWYgbmV3IG9uZSBpcyBTVEFMRS4KMTA0NaCgoKCgoKCgICovCjEwNDagoKCgoKCg
-IGVyciA9IDA7CjEwNDegoKCgoKCgIHVwZGF0ZV9pc3JvdXRlciA9IGZsYWdzICYgTkVJR0hfVVBE
-QVRFX0ZfT1ZFUlJJREVfSVNST1VURVI7CjEwNDigoKCgoKCgIGlmIChvbGQgJiBOVURfVkFMSUQp
-IHsKMTA0OaCgoKCgoKCgoKCgoKCgoCBpZiAobGxhZGRyICE9IG5laWdoLT5oYSAmJiAhKGZsYWdz
-ICYKTkVJR0hfVVBEQVRFX0ZfT1ZFUlJJREUpKSB7CjEwNTCgoKCgoKCgoKCgoKCgoKCgoKCgoKCg
-oCB1cGRhdGVfaXNyb3V0ZXIgPSAwOwoxMDUxoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKAgaWYgKChm
-bGFncyAmIE5FSUdIX1VQREFURV9GX1dFQUtfT1ZFUlJJREUpICYmCjEwNTKgoKCgoKCgoKCgoKCg
-oKCgoKCgoKCgoKCgoKAgKG9sZCAmIE5VRF9DT05ORUNURUQpKSB7CjEwNTOgoKCgoKCgoKCgoKCg
-oKCgoKCgoKCgoKCgoKCgoKCgIGxsYWRkciA9IG5laWdoLT5oYTsKMTA1NKCgoKCgoKCgoKCgoKCg
-oKCgoKCgoKCgoKCgoKCgoKAgbmV3ID0gTlVEX1NUQUxFOwoxMDU1oKCgoKCgoKCgoKCgoKCgoKCg
-oKCgoKAgfSBlbHNlCjEwNTagoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgIGdvdG8gb3V0
-OwoxMDU3oKCgoKCgoKCgoKCgoKCgIH0gZWxzZSB7CjEwNTigoKCgoKCgoKCgoKCgoKCgoKCgoKCg
-oCBpZiAobGxhZGRyID09IG5laWdoLT5oYSAmJiBuZXcgPT0gTlVEX1NUQUxFICYmCjEwNTmgoKCg
-oKCgoKCgoKCgoKCgoKCgoKCgoKCgoKAgKChmbGFncyAmIE5FSUdIX1VQREFURV9GX1dFQUtfT1ZF
-UlJJREUpIHx8CjEwNjCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgIChvbGQgJiBOVURfQ09O
-TkVDVEVEKSkKMTA2MaCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoCApCjEwNjKgoKCgoKCgoKCg
-oKCgoKCgoKCgoKCgoKCgoKCgoKCgIG5ldyA9IG9sZDsKMTA2M6CgoKCgoKCgoKCgoKCgoCB9CjEw
-NjSgoKCgoKCgIH0KLgouCi4K
+
+Keep in mind that net/core/neighbour.c is for IPV4 ARP too.
+
+So if there is a conflict between what is allowed by ipv4
+and what is allowed by ipv6 in this scenerio, that would
+explain it.
