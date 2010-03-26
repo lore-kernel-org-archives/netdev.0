@@ -1,30 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: mmotm 2010-03-23 - IPv6 warnings...
-Date: Thu, 25 Mar 2010 23:23:49 -0700 (PDT)
-Message-ID: <20100325.232349.66185070.davem@davemloft.net>
-References: <4788.1269535530@localhost>
-	<20100325.214050.101816448.davem@davemloft.net>
-	<4161.1269584302@localhost>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, shemminger@vyatta.com
-To: Valdis.Kletnieks@vt.edu
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [PATCH net-next-2.6] ipv6: Use __fls() instead of fls() in __ipv6_addr_diff().
+Date: Fri, 26 Mar 2010 17:01:03 +0900
+Message-ID: <201003260801.o2Q8134t023352@94.43.138.210.xn.2iij.net>
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50449
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752651Ab0CZGX1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 02:23:27 -0400
-In-Reply-To: <4161.1269584302@localhost>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:42272 "EHLO
+	94.43.138.210.xn.2iij.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751567Ab0CZIBM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 04:01:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Valdis.Kletnieks@vt.edu
-Date: Fri, 26 Mar 2010 02:18:22 -0400
+Because we have ensured that the argument is non-zero,
+it is better to use __fls() and generate better code.
 
-> Confirming looks like a good fix - no cruft in dmesg, and I have ipv6 addresses:
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ include/net/ipv6.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Great, thanks for testing.
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index e72fb10..619ab34 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -422,7 +422,7 @@ static inline int __ipv6_addr_diff(const void *token1, const void *token2, int a
+ 	for (i = 0; i < addrlen; i++) {
+ 		__be32 xb = a1[i] ^ a2[i];
+ 		if (xb)
+-			return i * 32 + 32 - fls(ntohl(xb));
++			return i * 32 + 32 - __fls(ntohl(xb));
+ 	}
+ 
+ 	/*
+-- 
+1.5.6.5
 
-Andrew your box should be good now too.
