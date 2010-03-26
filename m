@@ -1,45 +1,97 @@
-From: =?iso-8859-1?Q?Fran=E7ois?= Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: Fix rtl8169_rx_interrupt()
-Date: Fri, 26 Mar 2010 21:29:37 +0100
-Message-ID: <20100326202937.GA3406@electric-eye.fr.zoreil.com>
-References: <1268686865.2824.4.camel@edumazet-laptop>
- <1268699602.2824.14.camel@edumazet-laptop>
- <20100316145914.GB3332@swordfish.minsk.epam.com>
- <1268751933.3094.45.camel@edumazet-laptop>
- <20100316151023.GC3332@swordfish.minsk.epam.com>
- <1268752826.3094.48.camel@edumazet-laptop>
- <20100316182619.GA3451@swordfish>
- <1268765284.2932.17.camel@edumazet-laptop>
- <20100325113038.GA3471@swordfish.minsk.epam.com>
- <1269523180.3626.25.camel@edumazet-laptop>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH] e1000: do not modify tx_queue_len on link speed change
+Date: Fri, 26 Mar 2010 14:25:58 -0700
+Message-ID: <20100326212557.18793.62063.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>,
-	Oleg Nesterov <oleg@redhat.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Franco Fichtner <franco@lastsummer.de>,
+	Emil Tantilov <emil.s.tantilov@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 55.58.140-88.rev.gaoland.net ([88.140.58.55]:42677 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751512Ab0CZVBY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 17:01:24 -0400
-Content-Disposition: inline
-In-Reply-To: <1269523180.3626.25.camel@edumazet-laptop>
+Received: from qmta13.emeryville.ca.mail.comcast.net ([76.96.27.243]:59353
+	"EHLO qmta13.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751426Ab0CZV0V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 17:26:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> :
-[...]
-> Thanks for the report. Problem is I am not confident enough on this
-> driver.
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Your patch is simple and it improves things.
+Previously the driver tweaked txqueuelen to avoid false Tx hang reports
+seen at half duplex.  This had the effect of overriding user set values
+on link change/reset. Testing shows that adjusting only the timeout
+factor is sufficient to prevent Tx hang reports at half duplex.
 
-> I believe Fran=E7ois Romieu is the one that can possibly push a patch=
- ?
+This patch removes all instances of tx_queue_len in the driver.
 
-=46eel free to push.
+Based on e1000e patch by Franco Fichtner <franco@lastsummer.de>
 
---=20
-Ueimor
+CC: Franco Fichtner <franco@lastsummer.de>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/e1000/e1000.h      |    1 -
+ drivers/net/e1000/e1000_main.c |    9 +--------
+ 2 files changed, 1 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
+index 9902b33..2f29c21 100644
+--- a/drivers/net/e1000/e1000.h
++++ b/drivers/net/e1000/e1000.h
+@@ -261,7 +261,6 @@ struct e1000_adapter {
+ 	/* TX */
+ 	struct e1000_tx_ring *tx_ring;      /* One per active queue */
+ 	unsigned int restart_queue;
+-	unsigned long tx_queue_len;
+ 	u32 txd_cmd;
+ 	u32 tx_int_delay;
+ 	u32 tx_abs_int_delay;
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 8be6fae..b15ece2 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -383,8 +383,6 @@ static void e1000_configure(struct e1000_adapter *adapter)
+ 		adapter->alloc_rx_buf(adapter, ring,
+ 		                      E1000_DESC_UNUSED(ring));
+ 	}
+-
+-	adapter->tx_queue_len = netdev->tx_queue_len;
+ }
+ 
+ int e1000_up(struct e1000_adapter *adapter)
+@@ -503,7 +501,6 @@ void e1000_down(struct e1000_adapter *adapter)
+ 	del_timer_sync(&adapter->watchdog_timer);
+ 	del_timer_sync(&adapter->phy_info_timer);
+ 
+-	netdev->tx_queue_len = adapter->tx_queue_len;
+ 	adapter->link_speed = 0;
+ 	adapter->link_duplex = 0;
+ 	netif_carrier_off(netdev);
+@@ -2316,19 +2313,15 @@ static void e1000_watchdog(unsigned long data)
+ 			        E1000_CTRL_RFCE) ? "RX" : ((ctrl &
+ 			        E1000_CTRL_TFCE) ? "TX" : "None" )));
+ 
+-			/* tweak tx_queue_len according to speed/duplex
+-			 * and adjust the timeout factor */
+-			netdev->tx_queue_len = adapter->tx_queue_len;
++			/* adjust timeout factor according to speed/duplex */
+ 			adapter->tx_timeout_factor = 1;
+ 			switch (adapter->link_speed) {
+ 			case SPEED_10:
+ 				txb2b = false;
+-				netdev->tx_queue_len = 10;
+ 				adapter->tx_timeout_factor = 16;
+ 				break;
+ 			case SPEED_100:
+ 				txb2b = false;
+-				netdev->tx_queue_len = 100;
+ 				/* maybe add some timeout factor ? */
+ 				break;
+ 			}
+
