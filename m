@@ -1,102 +1,77 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH RFC 1/2] flow: virtualize get and entry deletion methods
-Date: Fri, 26 Mar 2010 08:17:39 +0200
-Message-ID: <4BAC5183.9000308@iki.fi>
-References: <1269509091-6440-1-git-send-email-timo.teras@iki.fi>	<1269509091-6440-2-git-send-email-timo.teras@iki.fi> <20100325.122611.267401605.davem@davemloft.net>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: mmotm 2010-03-23 - IPv6 warnings...
+Date: Fri, 26 Mar 2010 02:18:22 -0400
+Message-ID: <4161.1269584302@localhost>
+References: <12096.1269481001@localhost> <20100324184226.3bf42d8f.akpm@linux-foundation.org> <4788.1269535530@localhost>
+            <20100325.214050.101816448.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: multipart/signed; boundary="==_Exmh_1269584302_4034P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, shemminger@vyatta.com
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f221.google.com ([209.85.219.221]:61319 "EHLO
-	mail-ew0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753113Ab0CZGRm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 02:17:42 -0400
-Received: by ewy21 with SMTP id 21so2025260ewy.25
-        for <netdev@vger.kernel.org>; Thu, 25 Mar 2010 23:17:41 -0700 (PDT)
-In-Reply-To: <20100325.122611.267401605.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: Your message of "Thu, 25 Mar 2010 21:40:50 PDT."
+             <20100325.214050.101816448.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Timo Teras <timo.teras@iki.fi>
-> Date: Thu, 25 Mar 2010 11:24:50 +0200
+--==_Exmh_1269584302_4034P
+Content-Type: text/plain; charset=us-ascii
+
+On Thu, 25 Mar 2010 21:40:50 PDT, David Miller said:
+> From: Valdis.Kletnieks@vt.edu
+> Date: Thu, 25 Mar 2010 12:45:30 -0400
 > 
->> This allows to validate the cached object before returning it.
->> It also allows to destruct object properly, if the last reference
->> was held in flow cache. This is also a prepartion for caching
->> bundles in the flow cache.
->>
->> In return for virtualizing the methods, we save on:
->> - not having to regenerate the whole flow cache on policy removal:
->>   each flow matching a killed policy gets refreshed as the getter
->>   function notices it smartly.
->> - we do not have to call flow_cache_flush from policy gc, since the
->>   flow cache now properly deletes the object if it had any references
->>
->> This also means the flow cache entry deletion does more work. If
->> it's too slow now, may have to implement delayed deletion of flow
->> cache entries. But this is a save because this enables immediate
->> deletion of policies and bundles.
->>
->> Signed-off-by: Timo Teras <timo.teras@iki.fi>
+> > On Wed, 24 Mar 2010 18:42:26 EDT, Andrew Morton said:
+> >> On Wed, 24 Mar 2010 21:36:41 -0400 Valdis.Kletnieks@vt.edu wrote:
+> >> 
+> >> > On Tue, 23 Mar 2010 15:34:59 PDT, akpm@linux-foundation.org said:
+> >> > > The mm-of-the-moment snapshot 2010-03-23-15-34 has been uploaded to
+> >> > > 
+> >> > >    http://userweb.kernel.org/~akpm/mmotm/
+> >> > 
+> >> > Seen in my dmesg.  It may be relevant that I'm at home, and my IPv6
+> >> > prefix arrives via a PPP VPN connection. This happened about 20-25 secon
+ds
+> >> > after I launched pppd.
+> >> 
+> >> Yes, thanks, I get the same - it doesn't seem to break anything.  It
+> >> also happens some time after boot has completed.
+> > 
+> > Just doing an 'ifup eth0' on a network with IPv6 on it is sufficient.
 > 
-> I'm concerned about the new costs being added here.
+> I just checked the following into net-next-2.6 which should at least
+> kill that dmesg log.
 > 
-> We have to now take the policy lock as a reader every time the flow
-> cache wants to grab a reference.  So we now have this plus the
-> indirect function call new overhead.
+> If you still are missing your ipv6 addresses, let me know how
+> they normally get added, maybe that's enough to let me figure
+> it out.
 
-If we want to have the flow cache generic, we pretty much need
-indirect calls. But considering that it might make sense to cache
-bundles, or "xfrm cache entries" on all flow directions (so we can
-track both the main and sub policies) we could make it specialized.
+Confirming looks like a good fix - no cruft in dmesg, and I have ipv6 addresses:
 
-> Maybe we can make the dead state check safe to do asynchronously
-> somehow?  I wonder if the policy layer is overdue for an RCU
-> conversion or similar.
+%  ifconfig ppp0
+ppp0      Link encap:Point-to-Point Protocol  
+          inet addr:128.173.34.103  P-t-P:128.173.32.21  Mask:255.255.255.255
+          inet6 addr: 2001:468:c80:3b04:105d:a65c:28c4:75d1/64 Scope:Global
+          inet6 addr: fe80::105d:a65c:28c4:75d1/10 Scope:Link
+          UP POINTOPOINT RUNNING NOARP MULTICAST  MTU:1460  Metric:1
+          RX packets:79 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:85 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:3 
+          RX bytes:30943 (30.2 KiB)  TX bytes:6746 (6.5 KiB)
 
-I looked at the code and the policy lock is not needed much anymore.
-I think it was most heavily used to protected ->bundles which is
-now removed. But yes, I also previously said that ->walk.dead should
-probably be converted to atomic_t. It is only written once when
-the policy is killed. So we can make it accessible without the lock.
+--==_Exmh_1269584302_4034P
+Content-Type: application/pgp-signature
 
-Considering that the whole cache was broken previously, and we
-needed to take write lock on policy for each forwarded packet,
-it does not sound that bad. Apparently locally originating traffic
-directly to xfrm destination (not via gre) would get cached on the
-socket dst cache and avoids the xfrm_lookup on fast path entirely(?).
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
 
-We can get away from the per-cpu design with RCU hash. But I think
-we still need to track the hash entries similar to this. Though,
-there's probably some other tricks doable with RCU which I'm not
-all familiar with. I will take a quick look on the rcu thingy
-Herbert mentioned earlier.
+iD8DBQFLrFGucC3lWbTT17ARAg2mAKCcelwxtW8pgkKsfI6PI+lOBMGcewCg197d
+FV2sB6YypJHhMfiXB5/DQpg=
+=J1Bp
+-----END PGP SIGNATURE-----
 
-> Anyways, something to think about.  Otherwise I don't mind these
-> changes.
-
-Ok, I'll add "convert walk.dead to atomic_t" so we can access it
-without a lock.
-
-I did also notice that the policy locking is not right exactly.
-E.g. migration can touch templates, and we read templates currently
-without locks. So I think bundle creation should be protected
-with policy read lock. But even this can probably be avoided by
-RCU type bundle creation. We just take bundle genid before starting
-to create it, create bundle, and check if genid was changed while
-doing this we retry.
-
-We might even get away from policy->lock all together. In most
-places it's only used to protect walk.dead. And bundle creation
-can be synchronizes as above. The only remaining place seems to
-be the timer function. I think it's safe to remove locking there
-too, and synchronize using timer deletion. All this is because
-any changes to policy will result in xfrm_policy replacement:
-the old is killed and new one inserted atomically.
-
-Do you think this would work?
-
-- Timo
+--==_Exmh_1269584302_4034P--
