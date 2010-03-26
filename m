@@ -1,37 +1,64 @@
-From: Haile Seifu <haile.seifu@gmail.com>
-Subject: Re: IPv6 neighbor advertisements
-Date: Fri, 26 Mar 2010 10:40:08 -0400
-Message-ID: <aa711df21003260740pd1ba598xdcbd536e0a3fb690@mail.gmail.com>
-References: <aa711df21003252251x524d7dd2hac4a88103d0ae3a@mail.gmail.com>
-	 <20100325.230733.214002385.davem@davemloft.net>
+From: Wolfram Sang <w.sang@pengutronix.de>
+Subject: Re: [PATCH] netdev/fec.c: add phylib supporting to enable carrier
+	detection
+Date: Fri, 26 Mar 2010 15:47:51 +0100
+Message-ID: <20100326144751.GA22937@pengutronix.de>
+References: <1269597052-10104-1-git-send-email-bryan.wu@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f194.google.com ([209.85.222.194]:57785 "EHLO
-	mail-pz0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751397Ab0CZOkJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 10:40:09 -0400
-Received: by pzk32 with SMTP id 32so2634167pzk.4
-        for <netdev@vger.kernel.org>; Fri, 26 Mar 2010 07:40:08 -0700 (PDT)
-In-Reply-To: <20100325.230733.214002385.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Hi,
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="envbJBWh7q8WU6mo"
+Cc: s.hauer@pengutronix.de, gerg@uclinux.org,
+	amit.kucheria@canonical.com, netdev@vger.kernel.org,
+	kernel-team@lists.ubuntu.com, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Bryan Wu <bryan.wu@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1269597052-10104-1-git-send-email-bryan.wu@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-Yes, but the neighbor entry can be checked for the protocol type and
-then the confirmed/updated field can be reset if the else condition is
-taken.
+--envbJBWh7q8WU6mo
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
+On Fri, Mar 26, 2010 at 05:50:52PM +0800, Bryan Wu wrote:
+> BugLink: http://bugs.launchpad.net/bugs/457878
+>=20
+>  - removed old MII phy control code
+>  - add phylib supporting
+>  - add ethtool interface to make user space NetworkManager works
+>=20
+> Tested on Freescale i.MX51 Babbage board.
+>=20
+> This patch is based on a patch from Frederic Rodo <fred.rodo@gmail.com>
+>=20
+> Cc: Frederic Rodo <fred.rodo@gmail.com>
+> Signed-off-by: Bryan Wu <bryan.wu@canonical.com>
 
-On Fri, Mar 26, 2010 at 2:07 AM, David Miller <davem@davemloft.net> wrote:
->
-> Keep in mind that net/core/neighbour.c is for IPV4 ARP too.
->
-> So if there is a conflict between what is allowed by ipv4
-> and what is allowed by ipv6 in this scenerio, that would
-> explain it.
->
+Great, will test it soon.
+
+Regards,
+
+   Wolfram
+
+--=20
+Pengutronix e.K.                           | Wolfram Sang                |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+
+--envbJBWh7q8WU6mo
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkusyRcACgkQD27XaX1/VRus2ACgrco/6/7oqZa1FsTGNvfeCXjX
+26wAoLmbV0eKxR+MsP1y46q5UPRGvBxv
+=zAg0
+-----END PGP SIGNATURE-----
+
+--envbJBWh7q8WU6mo--
