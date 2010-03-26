@@ -1,48 +1,28 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next-2.6] sctp: Use ipv6_addr_diff() in sctp_v6_addr_match_len().
-Date: Sat, 27 Mar 2010 03:34:30 +0900
-Message-ID: <201003261834.o2QIYUhQ009920@94.43.138.210.xn.2iij.net>
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 0/4]netxen: bug fixes
+Date: Fri, 26 Mar 2010 11:51:12 -0700 (PDT)
+Message-ID: <20100326.115112.04715972.davem@davemloft.net>
+References: <1269599410-17809-1-git-send-email-amit.salecha@qlogic.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
+To: amit.salecha@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:33655 "EHLO
-	94.43.138.210.xn.2iij.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750931Ab0CZSek (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 14:34:40 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41910
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751230Ab0CZSuu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 14:50:50 -0400
+In-Reply-To: <1269599410-17809-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- net/sctp/ipv6.c |   15 +--------------
- 1 files changed, 1 insertions(+), 14 deletions(-)
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Date: Fri, 26 Mar 2010 03:30:06 -0700
 
-diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-index 240dceb..216d88f 100644
---- a/net/sctp/ipv6.c
-+++ b/net/sctp/ipv6.c
-@@ -276,20 +276,7 @@ static struct dst_entry *sctp_v6_get_dst(struct sctp_association *asoc,
- static inline int sctp_v6_addr_match_len(union sctp_addr *s1,
- 					 union sctp_addr *s2)
- {
--	struct in6_addr *a1 = &s1->v6.sin6_addr;
--	struct in6_addr *a2 = &s2->v6.sin6_addr;
--	int i, j;
--
--	for (i = 0; i < 4 ; i++) {
--		__be32 a1xora2;
--
--		a1xora2 = a1->s6_addr32[i] ^ a2->s6_addr32[i];
--
--		if ((j = fls(ntohl(a1xora2))))
--			return (i * 32 + 32 - j);
--	}
--
--	return (i*32);
-+	return ipv6_addr_diff(&s1->v6.sin6_addr, &s2->v6.sin6_addr);
- }
- 
- /* Fills in the source address(saddr) based on the destination address(daddr)
--- 
-1.5.6.5
+> David,
+>    Series of 4 patches to fix bugs.
+>    These are v2 patches, fixing ioremap issue reported by you.
+>    Apply them on net-2.6 branch.
 
+All applied, thanks.
