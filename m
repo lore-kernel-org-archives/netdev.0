@@ -1,53 +1,37 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: UDP path MTU discovery
-Date: Fri, 26 Mar 2010 10:48:08 -0700
-Message-ID: <4BACF358.7040001@hp.com>
-References: <1269561751.2891.8.camel@ilion>	<4BAC0577.7070803@hp.com> <20100325.202636.149498207.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ipmr/ip6mr: prevent out-of-bounds vif_table access
+Date: Fri, 26 Mar 2010 11:11:45 -0700 (PDT)
+Message-ID: <20100326.111145.76087355.davem@davemloft.net>
+References: <4BAC823F.8050409@dev.6wind.com>
+	<20100326.095137.165317348.davem@davemloft.net>
+	<4BACECA6.2050506@dev.6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gdt@gdt.id.au, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: nicolas.dichtel@dev.6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:47521 "EHLO
-	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752077Ab0CZRsL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 13:48:11 -0400
-In-Reply-To: <20100325.202636.149498207.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57040
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753056Ab0CZSLW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 14:11:22 -0400
+In-Reply-To: <4BACECA6.2050506@dev.6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Rick Jones <rick.jones2@hp.com>
-> Date: Thu, 25 Mar 2010 17:53:11 -0700
-> 
-> 
->>So, presuming it is indeed a bug what form might a fix take? Are you
->>suggesting there should be a way for an application to say "Please let
->>me see/know about the ICMP messages?"  Is that option available on
->>other platforms as a platform-specific extension?
-> 
-> 
-> We already provide this information.
-> 
-> The socket ends up with EMSGSIZE in it's error queue, so the next time
-> the application does I/O it sees that error immediately from the
-> read/write call and thus knows that path MTU arrived.
+From: Nicolas Dichtel <nicolas.dichtel@dev.6wind.com>
+Date: Fri, 26 Mar 2010 18:19:34 +0100
 
-A possibly pedantic question, but only when it does I/O, or also when/if it is 
-in poll/select?
+> yes, but I think that it is not enough, ip[6]mr_mfc_add() is only
+> called via setsockopt().
+> 
+> When a multicast packet arrived in ip6_mr_input(), if there is no
+> cache ip6mr_cache_unresolved() will be called and this function will
+> add an entry with parent == 65535.
+> 
+> And the second problem is that when a vif is removed, no cleanup is
+> made in cache entry. Hence, we can have a cache entry which points to
+> an invalid vif (dev is set ot NULL).
 
-What distinguishes this EMSGSIZE from a run-of-the-mill EMSGSIZE error such as 
-one gets from trying to send a datagram larger than SO_SNDBUF?
-
-That is something that happens all the time in netperf when people forget a -m 
-option on UDP_STREAM tests :)  Netperf gets the error and exits.  But supposing 
-I wanted to make netperf more sophisticated in that regard - what sort of things 
-must it do?  Call getsockopt(SO_SNDBUF) to check the size of the failed send 
-against SO_SNDBUF and only then decide if it is an error on this send or an ICMP 
-Datagram Too Big arrived indication from a previous send?  I know that netperf 
-already has this information, so using it as the example is a bit stretched, but 
-lets presume for the moment that netperf just has a socket handed to it from 
-"somewhere."
-
-rick jones
+Ok, I'll take another look at your patch, thanks for
+explaining.
