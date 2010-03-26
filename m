@@ -1,123 +1,112 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [net-2.6 PATCH v2] bonding: fix broken multicast with round-robin mode
-Date: Thu, 25 Mar 2010 17:55:14 -0700
-Message-ID: <32741.1269564914@death.nxdomain.ibm.com>
-References: <20100325214033.GA28741@gospo.rdu.redhat.com> <24080.1269556271@death.nxdomain.ibm.com> <20100326004905.GB28741@gospo.rdu.redhat.com>
-Cc: netdev@vger.kernel.org, lhh@redhat.com,
-	bonding-devel@lists.sourceforge.net
-To: Andy Gospodarek <andy@greyhouse.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:58468 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753063Ab0CZAzT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Mar 2010 20:55:19 -0400
-Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
-	by e32.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id o2Q0mfbt022781
-	for <netdev@vger.kernel.org>; Thu, 25 Mar 2010 18:48:41 -0600
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o2Q0tHn7132616
-	for <netdev@vger.kernel.org>; Thu, 25 Mar 2010 18:55:17 -0600
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o2Q0tGH2017581
-	for <netdev@vger.kernel.org>; Thu, 25 Mar 2010 18:55:17 -0600
-In-reply-to: <20100326004905.GB28741@gospo.rdu.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Robert Hancock <hancockrwd@gmail.com>
+Subject: Re: [Regression] r8169: enable 64-bit DMA by default for PCI Express
+	devices (v2)
+Date: Thu, 25 Mar 2010 18:56:03 -0600
+Message-ID: <51f3faa71003251756h17374375yd3a5d2acee2ffab9@mail.gmail.com>
+References: <20100315150806.GA15354@Dublin.logfs.org>
+	 <20100315151041.GA15667@Dublin.logfs.org>
+	 <20100315.115748.13754030.davem@davemloft.net>
+	 <51f3faa71003151628g5edc4d7av8916ac76cb337bfe@mail.gmail.com>
+	 <20100316083501.GA3489@Dublin.logfs.org>
+	 <51f3faa71003161630g69160ea9tc1a2d448682632e5@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	romieu@fr.zoreil.com
+To: =?ISO-8859-1?Q?J=F6rn_Engel?= <joern@dublin.logfs.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51f3faa71003161630g69160ea9tc1a2d448682632e5@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andy Gospodarek <andy@greyhouse.net> wrote:
-[...]
->Here is an updated and tested patch:
+On Tue, Mar 16, 2010 at 5:30 PM, Robert Hancock <hancockrwd@gmail.com> =
+wrote:
+> On Tue, Mar 16, 2010 at 2:35 AM, J=F6rn Engel <joern@dublin.logfs.org=
+> wrote:
+>> On Mon, 15 March 2010 17:28:45 -0600, Robert Hancock wrote:
+>>>
+>>> What are the symptoms?
+>>
+>> No more network. :)
+>>
+>> According to ifconfig the interface is up and running. =A0If I read
+>> /sys/class/net/eth0 correctly, two packets have been sent and none
+>> received. =A0LED on network card and switch is off. =A0mii-tool is
+>> unhappy.
+>>
+>> With patch in:
+>> Bikini:~# mii-tool
+>> =A0No MII transceiver present!.
+>>
+>> With patch reverted:
+>> Bikini:~# mii-tool
+>> eth0: negotiated 100baseTx-FD flow-control, link ok
+>>
+>> I just noticed lspci is also unhappy.
+>>
+>> With patch in:
+>> Bikini:~# lspci -vv > lspci
+>> pcilib: sysfs_read_vpd: read failed: Connection timed out.
+>>
+>> With patch reverted:
+>> Bikini:~# lspci -vv > lspci2
+>> Bikini:~# diff -u lspci*
+>> --- lspci =A0 =A0 =A0 2010-03-16 09:03:02.000000000 +0100
+>> +++ lspci2 =A0 =A0 =A02010-03-16 09:09:36.000000000 +0100
+>> @@ -246,7 +246,7 @@
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Vector table: BAR=3D4 offset=3D000000=
+00
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0PBA: BAR=3D4 offset=3D00000800
+>> =A0 =A0 =A0 =A0Capabilities: [cc] Vital Product Data
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 Not readable
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 Unknown small resource type 00, will n=
+ot decode more.
+>> =A0 =A0 =A0 =A0Capabilities: [100] Advanced Error Reporting
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0UESta: =A0DLP- SDES- TLP- FCP- CmpltT=
+O- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0UEMsk: =A0DLP- SDES- TLP- FCP- CmpltT=
+O- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
+>>
+>> As you might expect, delta is part of the ethernet controller.
+>>
+>> All "With patch in" output above is typed off the screen. =A0Beware =
+of
+>> typos.
+>>
+>>> Does setting use_dac=3D0 in the module options
+>>> for r8169 also resolve the problem?
+>>
+>> /sys/modules/r8169 does not exist. =A0How odd. =A0Anyway, simply cha=
+nging
+>> the default in r8169.c to 0 fixes the problems for me. =A0Good call.
 >
->[net-2.6 PATCH] bonding: fix broken multicast with round-robin mode
 >
->Round-robin (mode 0) does nothing to ensure that any multicast traffic
->originally destined for the host will continue to arrive at the host when
->the link that sent the IGMP join or membership report goes down.  One of
->the benefits of absolute round-robin transmit.
+> I can't really explain how the MII and lspci output is being
+> affected.. However, it's possible that some of the chips supported by
+> this driver don't actually support 64-bit DMA. Your chip is quite a
+> bit older than mine (RTL8102E seems to be one of the older, if not th=
+e
+> oldest, PCI-E chipset supported by the driver).
 >
->Keeping track of subscribed multicast groups for each slave did not seem
->like a good use of resources, so I decided to simply send on the
->curr_active slave of the bond (typically the first enslaved device that
->is up).  This makes failover management simple as IGMP membership
->reports only need to be sent when the curr_active_slave changes.  I
->tested this patch and it appears to work as expected.
+> Francois, do you know if that's the case, or do you have any active
+> contacts at Realtek who can say?
 >
->Originally reported by Lon Hohberger <lhh@redhat.com>.
->
->Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
->CC: Lon Hohberger <lhh@redhat.com>
->CC: Jay Vosburgh <fubar@us.ibm.com>
+> In the meantime, I don't object to reverting the patch for now unless
+> we get this sorted out quickly..
 
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+=46rancois, ping? Is there anyone else that has access to this kind of
+information about these chips?
 
+It's kind of interesting that there's only been one report of this
+though. Either the affected chips are rare among people testing
+2.6.34-rc or there's something more to this. Maybe something
+wierd/unusual about J=F6rn's system?
 
->---
-> drivers/net/bonding/bond_main.c |   40 +++++++++++++++++++++++++++++++-------
-> 1 files changed, 32 insertions(+), 8 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 430c022..5b92fbf 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -1235,6 +1235,11 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
-> 			write_lock_bh(&bond->curr_slave_lock);
-> 		}
-> 	}
->+
->+	/* resend IGMP joins since all were sent on curr_active_slave */
->+	if (bond->params.mode == BOND_MODE_ROUNDROBIN) {
->+		bond_resend_igmp_join_requests(bond);
->+	}
-> }
->
-> /**
->@@ -4138,22 +4143,41 @@ static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev
-> 	struct bonding *bond = netdev_priv(bond_dev);
-> 	struct slave *slave, *start_at;
-> 	int i, slave_no, res = 1;
->+	struct iphdr *iph = ip_hdr(skb);
->
-> 	read_lock(&bond->lock);
->
-> 	if (!BOND_IS_OK(bond))
-> 		goto out;
->-
-> 	/*
->-	 * Concurrent TX may collide on rr_tx_counter; we accept that
->-	 * as being rare enough not to justify using an atomic op here
->+	 * Start with the curr_active_slave that joined the bond as the
->+	 * default for sending IGMP traffic.  For failover purposes one
->+	 * needs to maintain some consistency for the interface that will
->+	 * send the join/membership reports.  The curr_active_slave found
->+	 * will send all of this type of traffic.
-> 	 */
->-	slave_no = bond->rr_tx_counter++ % bond->slave_cnt;
->+	if ((iph->protocol == htons(IPPROTO_IGMP)) &&
->+	    (skb->protocol == htons(ETH_P_IP))) {
->
->-	bond_for_each_slave(bond, slave, i) {
->-		slave_no--;
->-		if (slave_no < 0)
->-			break;
->+		read_lock(&bond->curr_slave_lock);
->+		slave = bond->curr_active_slave;
->+		read_unlock(&bond->curr_slave_lock);
->+
->+		if (!slave)
->+			goto out;
->+	} else {
->+		/*
->+		 * Concurrent TX may collide on rr_tx_counter; we accept
->+		 * that as being rare enough not to justify using an
->+		 * atomic op here.
->+		 */
->+		slave_no = bond->rr_tx_counter++ % bond->slave_cnt;
->+
->+		bond_for_each_slave(bond, slave, i) {
->+			slave_no--;
->+			if (slave_no < 0)
->+				break;
->+		}
-> 	}
->
-> 	start_at = slave;
+J=F6rn, are any other devices on your system working with 64-bit
+addressing? Try doing this:
+
+find /sys -name "*dma_mask_bits*" | xargs cat
+
+Does anything show more than 32?
