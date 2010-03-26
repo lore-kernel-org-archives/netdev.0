@@ -1,57 +1,38 @@
-From: Lee <lee-in-berlin@web.de>
-Subject: Re: WARNING: at net/sched/sch_generic.c:261 dev_watchdog+0x249/0x260()
-Date: Fri, 26 Mar 2010 15:17:33 +0100
-Message-ID: <4BACC1FD.3000609@web.de>
-References: <4BA7D897.9050407@web.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: behavior of recvmmsg() on blocking sockets
+Date: Fri, 26 Mar 2010 15:20:10 +0100
+Message-ID: <1269613210.2839.75.camel@edumazet-laptop>
+References: <84621a61003241128x3afbcea1w387aeaa68c887320@mail.gmail.com>
+	 <g76h4xrt5j1pw2kk3tUYAxe124vaj_firegpg@mail.gmail.com>
+	 <84621a61003241635h65687366t6b28148281d529c9@mail.gmail.com>
+	 <a36005b51003260500v6d8b7a5av1bbba848cc8998a4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate01.web.de ([217.72.192.221]:56901 "EHLO
-	fmmailgate01.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753510Ab0CZOTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 10:19:43 -0400
-Received: from smtp05.web.de (fmsmtp05.dlan.cinetic.de [172.20.4.166])
-	by fmmailgate01.web.de (Postfix) with ESMTP id E1E68151A5E89
-	for <netdev@vger.kernel.org>; Fri, 26 Mar 2010 15:17:34 +0100 (CET)
-Received: from [85.178.194.82] (helo=[10.48.0.23])
-	by smtp05.web.de with asmtp (TLSv1:AES256-SHA:256)
-	(WEB.DE 4.110 #4)
-	id 1NvALu-0007H1-00
-	for netdev@vger.kernel.org; Fri, 26 Mar 2010 15:17:34 +0100
-In-Reply-To: <4BA7D897.9050407@web.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Brandon Black <blblack@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ulrich Drepper <drepper@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <a36005b51003260500v6d8b7a5av1bbba848cc8998a4@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi again,
-
-As this mail went unanswered, did I forget anything? Was it too verbose? 
-Should I file a bug report on bugzilla.kernel.org instead?
-
-Regards,
-Lee
-
-On 22/03/10 21:52, Lee wrote:
-> Hi everyone,
->
-> I get a kernel oops on 2.6.32.10 when I use an rt73usb WLAN stick with
-> hostapd 0.6.10. It's bridged with one of my ethernet (r8169) interfaces.
-> When I have the stick plugged in without hostapd, the kernel oops
-> doesn't happen. It's not easily triggered, it usually happens within a
-> few hours of use with hostapd. I have about a dozen of those from while
-> tracking this bug down, if needed.
->
-> Everything seems to work fine (before and after the oops), but at least
-> on one occasion I had a large delay on my ssh line when the oops happened.
->
-> I have no idea what is causing this, but will happily test any patches
-> that are handed in my direction :)
->
-> Kernel oops, .config and hostapd.conf are attached. Please tell me if
-> anything else is needed to hunt down this bug.
->
-> Regards,
-> Lee
+Le vendredi 26 mars 2010 =C3=A0 05:00 -0700, Ulrich Drepper a =C3=A9cri=
+t :
+> On Wed, Mar 24, 2010 at 16:35, Brandon Black <blblack@gmail.com> wrot=
+e:
+> > +                /* MSG_WAITFORONE turns on MSG_DONTWAIT after one =
+packet */
+> > +               if (!datagrams++ && flags & MSG_WAITFORONE)
+> > +                       flags |=3D MSG_DONTWAIT;
+>=20
+> There should be an extra pair of parenthesis around the & operands bu=
+t
+> aside from that I could imagine this to work.
+>=20
+> Would be nice if the netdev folks would respond.
 
 
+It seems fine, Brandon please submit a formal patch.
+
+Thanks
