@@ -1,36 +1,39 @@
-From: Markus Feldmann <feldmann_markus@gmx.de>
-Subject: Re: Does Realtek RTL8110S and RTL8100C work ?
-Date: Fri, 26 Mar 2010 18:20:27 +0100
-Message-ID: <hoiqcr$dhl$1@dough.gmane.org>
-References: <hoab2m$kc0$1@dough.gmane.org> <4BABC170.7080008@computer.org>
+From: Mattias =?utf-8?Q?R=C3=B6nnblom?= <hofors@lysator.liu.se>
+Subject: ip6_dst_dev for IPv4
+Date: Fri, 26 Mar 2010 17:59:47 +0100
+Message-ID: <871vf76mt8.fsf@isengard.friendlyfire.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:46955 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751671Ab0CZRUo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Mar 2010 13:20:44 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1NvDD9-0001J5-VF
-	for netdev@vger.kernel.org; Fri, 26 Mar 2010 18:20:43 +0100
-Received: from 188.96.76.20 ([188.96.76.20])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 26 Mar 2010 18:20:43 +0100
-Received: from feldmann_markus by 188.96.76.20 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 26 Mar 2010 18:20:43 +0100
-In-Reply-To: <4BABC170.7080008@computer.org>
+Received: from mail.lysator.liu.se ([130.236.254.3]:50058 "EHLO
+	mail.lysator.liu.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751982Ab0CZR25 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 13:28:57 -0400
+Received: from mail.lysator.liu.se (localhost [127.0.0.1])
+	by mail.lysator.liu.se (Postfix) with ESMTP id 8260040012
+	for <netdev@vger.kernel.org>; Fri, 26 Mar 2010 17:59:47 +0100 (CET)
+Received: from fritz.lysator.liu.se (fritz.lysator.liu.se [130.236.254.179])
+	by mail.lysator.liu.se (Postfix) with ESMTP id 4523E4002B
+	for <netdev@vger.kernel.org>; Fri, 26 Mar 2010 17:59:47 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for you answer Jan,
+Hi,
 
-do you know the developer e-mail adress?
-So 1000Mbit/s is not possible at the moment, but does it work stable?
+I'm implemeting per-interface SNMP-style network statistics for IPv4,
+just like what already exists in the current kernel for IPv6
+(/proc/net/dev_snmp6).
 
-regards Markus
+For output packets one needs to determine the output interface, and
+the v6 statistics uses the ip6_dst_idev() function (ip6_fib.h). I
+can't seem to find a corresponding function for IPv4. Is there?
+
+Would someting like:
+struct in_device* out_dev = in_dev_get(skb_dst(skb)->dev);
+work?
+
+Best regards,
+     Mattias
 
