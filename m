@@ -1,97 +1,177 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH] e1000: do not modify tx_queue_len on link speed change
-Date: Fri, 26 Mar 2010 14:25:58 -0700
-Message-ID: <20100326212557.18793.62063.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH] igb: add per-packet timestamping
+Date: Fri, 26 Mar 2010 14:36:47 -0700
+Message-ID: <20100326213545.19028.21468.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Franco Fichtner <franco@lastsummer.de>,
-	Emil Tantilov <emil.s.tantilov@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Nicholas Nunley <nicholasx.d.nunley@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta13.emeryville.ca.mail.comcast.net ([76.96.27.243]:59353
-	"EHLO qmta13.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751426Ab0CZV0V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 17:26:21 -0400
+Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:36732
+	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752248Ab0CZVhG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 17:37:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Nick Nunley <nicholasx.d.nunley@intel.com>
 
-Previously the driver tweaked txqueuelen to avoid false Tx hang reports
-seen at half duplex.  This had the effect of overriding user set values
-on link change/reset. Testing shows that adjusting only the timeout
-factor is sufficient to prevent Tx hang reports at half duplex.
+This patch adds support for per-packet timestamping for the
+82580 adapter. The rx timestamp code is also pulled out of the
+inlined rx hotpath and instead moved to a seperate function.
 
-This patch removes all instances of tx_queue_len in the driver.
+This version adds a comment explaining the per-packet timestamping
+code added to igb_hwtstamp_ioctl().
 
-Based on e1000e patch by Franco Fichtner <franco@lastsummer.de>
-
-CC: Franco Fichtner <franco@lastsummer.de>
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Nicholas Nunley <nicholasx.d.nunley@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000/e1000.h      |    1 -
- drivers/net/e1000/e1000_main.c |    9 +--------
- 2 files changed, 1 insertions(+), 9 deletions(-)
+ drivers/net/igb/e1000_82575.h |    2 ++
+ drivers/net/igb/igb.h         |    2 ++
+ drivers/net/igb/igb_main.c    |   45 ++++++++++++++++++++++++++++++++++-------
+ 3 files changed, 41 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
-index 9902b33..2f29c21 100644
---- a/drivers/net/e1000/e1000.h
-+++ b/drivers/net/e1000/e1000.h
-@@ -261,7 +261,6 @@ struct e1000_adapter {
- 	/* TX */
- 	struct e1000_tx_ring *tx_ring;      /* One per active queue */
- 	unsigned int restart_queue;
--	unsigned long tx_queue_len;
- 	u32 txd_cmd;
- 	u32 tx_int_delay;
- 	u32 tx_abs_int_delay;
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 8be6fae..b15ece2 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -383,8 +383,6 @@ static void e1000_configure(struct e1000_adapter *adapter)
- 		adapter->alloc_rx_buf(adapter, ring,
- 		                      E1000_DESC_UNUSED(ring));
+diff --git a/drivers/net/igb/e1000_82575.h b/drivers/net/igb/e1000_82575.h
+index c1cad8a..cbd1e12 100644
+--- a/drivers/net/igb/e1000_82575.h
++++ b/drivers/net/igb/e1000_82575.h
+@@ -53,6 +53,7 @@ extern void igb_rx_fifo_flush_82575(struct e1000_hw *hw);
+ #define E1000_SRRCTL_DESCTYPE_ADV_ONEBUF                0x02000000
+ #define E1000_SRRCTL_DESCTYPE_HDR_SPLIT_ALWAYS          0x0A000000
+ #define E1000_SRRCTL_DROP_EN                            0x80000000
++#define E1000_SRRCTL_TIMESTAMP                          0x40000000
+ 
+ #define E1000_MRQC_ENABLE_RSS_4Q            0x00000002
+ #define E1000_MRQC_ENABLE_VMDQ              0x00000003
+@@ -109,6 +110,7 @@ union e1000_adv_rx_desc {
+ #define E1000_RXDADV_HDRBUFLEN_MASK      0x7FE0
+ #define E1000_RXDADV_HDRBUFLEN_SHIFT     5
+ #define E1000_RXDADV_STAT_TS             0x10000 /* Pkt was time stamped */
++#define E1000_RXDADV_STAT_TSIP           0x08000 /* timestamp in packet */
+ 
+ /* Transmit Descriptor - Advanced */
+ union e1000_adv_tx_desc {
+diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
+index a177570..4f69b6d 100644
+--- a/drivers/net/igb/igb.h
++++ b/drivers/net/igb/igb.h
+@@ -107,6 +107,7 @@ struct vf_data_storage {
+ #define MAXIMUM_ETHERNET_VLAN_SIZE 1522
+ 
+ /* Supported Rx Buffer Sizes */
++#define IGB_RXBUFFER_64    64     /* Used for packet split */
+ #define IGB_RXBUFFER_128   128    /* Used for packet split */
+ #define IGB_RXBUFFER_1024  1024
+ #define IGB_RXBUFFER_2048  2048
+@@ -324,6 +325,7 @@ struct igb_adapter {
+ 
+ #define IGB_82576_TSYNC_SHIFT 19
+ #define IGB_82580_TSYNC_SHIFT 24
++#define IGB_TS_HDR_LEN        16
+ enum e1000_state_t {
+ 	__IGB_TESTING,
+ 	__IGB_RESETTING,
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 2501c5d..9f9382b 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -2602,6 +2602,8 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
+ 		         E1000_SRRCTL_BSIZEPKT_SHIFT;
+ 		srrctl |= E1000_SRRCTL_DESCTYPE_ADV_ONEBUF;
  	}
--
--	adapter->tx_queue_len = netdev->tx_queue_len;
++	if (hw->mac.type == e1000_82580)
++		srrctl |= E1000_SRRCTL_TIMESTAMP;
+ 	/* Only set Drop Enable if we are supporting multiple queues */
+ 	if (adapter->vfs_allocated_count || adapter->num_rx_queues > 1)
+ 		srrctl |= E1000_SRRCTL_DROP_EN;
+@@ -3936,6 +3938,9 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
+ 	 * i.e. RXBUFFER_2048 --> size-4096 slab
+ 	 */
+ 
++	if (adapter->hw.mac.type == e1000_82580)
++		max_frame += IGB_TS_HDR_LEN;
++
+ 	if (max_frame <= IGB_RXBUFFER_1024)
+ 		rx_buffer_len = IGB_RXBUFFER_1024;
+ 	else if (max_frame <= MAXIMUM_ETHERNET_VLAN_SIZE)
+@@ -3943,6 +3948,14 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
+ 	else
+ 		rx_buffer_len = IGB_RXBUFFER_128;
+ 
++	if ((max_frame == ETH_FRAME_LEN + ETH_FCS_LEN + IGB_TS_HDR_LEN) ||
++	     (max_frame == MAXIMUM_ETHERNET_VLAN_SIZE + IGB_TS_HDR_LEN))
++		rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE + IGB_TS_HDR_LEN;
++
++	if ((adapter->hw.mac.type == e1000_82580) &&
++	    (rx_buffer_len == IGB_RXBUFFER_128))
++		rx_buffer_len += IGB_RXBUFFER_64;
++
+ 	if (netif_running(netdev))
+ 		igb_down(adapter);
+ 
+@@ -5159,7 +5172,7 @@ static inline void igb_rx_checksum_adv(struct igb_ring *ring,
+ 	dev_dbg(&ring->pdev->dev, "cksum success: bits %08X\n", status_err);
  }
  
- int e1000_up(struct e1000_adapter *adapter)
-@@ -503,7 +501,6 @@ void e1000_down(struct e1000_adapter *adapter)
- 	del_timer_sync(&adapter->watchdog_timer);
- 	del_timer_sync(&adapter->phy_info_timer);
+-static inline void igb_rx_hwtstamp(struct igb_q_vector *q_vector, u32 staterr,
++static void igb_rx_hwtstamp(struct igb_q_vector *q_vector, u32 staterr,
+                                    struct sk_buff *skb)
+ {
+ 	struct igb_adapter *adapter = q_vector->adapter;
+@@ -5177,13 +5190,18 @@ static inline void igb_rx_hwtstamp(struct igb_q_vector *q_vector, u32 staterr,
+ 	 * If nothing went wrong, then it should have a skb_shared_tx that we
+ 	 * can turn into a skb_shared_hwtstamps.
+ 	 */
+-	if (likely(!(staterr & E1000_RXDADV_STAT_TS)))
+-		return;
+-	if (!(rd32(E1000_TSYNCRXCTL) & E1000_TSYNCRXCTL_VALID))
+-		return;
++	if (staterr & E1000_RXDADV_STAT_TSIP) {
++		u32 *stamp = (u32 *)skb->data;
++		regval = le32_to_cpu(*(stamp + 2));
++		regval |= (u64)le32_to_cpu(*(stamp + 3)) << 32;
++		skb_pull(skb, IGB_TS_HDR_LEN);
++	} else {
++		if(!(rd32(E1000_TSYNCRXCTL) & E1000_TSYNCRXCTL_VALID))
++			return;
  
--	netdev->tx_queue_len = adapter->tx_queue_len;
- 	adapter->link_speed = 0;
- 	adapter->link_duplex = 0;
- 	netif_carrier_off(netdev);
-@@ -2316,19 +2313,15 @@ static void e1000_watchdog(unsigned long data)
- 			        E1000_CTRL_RFCE) ? "RX" : ((ctrl &
- 			        E1000_CTRL_TFCE) ? "TX" : "None" )));
+-	regval = rd32(E1000_RXSTMPL);
+-	regval |= (u64)rd32(E1000_RXSTMPH) << 32;
++		regval = rd32(E1000_RXSTMPL);
++		regval |= (u64)rd32(E1000_RXSTMPH) << 32;
++	}
  
--			/* tweak tx_queue_len according to speed/duplex
--			 * and adjust the timeout factor */
--			netdev->tx_queue_len = adapter->tx_queue_len;
-+			/* adjust timeout factor according to speed/duplex */
- 			adapter->tx_timeout_factor = 1;
- 			switch (adapter->link_speed) {
- 			case SPEED_10:
- 				txb2b = false;
--				netdev->tx_queue_len = 10;
- 				adapter->tx_timeout_factor = 16;
- 				break;
- 			case SPEED_100:
- 				txb2b = false;
--				netdev->tx_queue_len = 100;
- 				/* maybe add some timeout factor ? */
- 				break;
- 			}
+ 	igb_systim_to_hwtstamp(adapter, skb_hwtstamps(skb), regval);
+ }
+@@ -5291,7 +5309,8 @@ send_up:
+ 			goto next_desc;
+ 		}
+ 
+-		igb_rx_hwtstamp(q_vector, staterr, skb);
++		if (staterr & (E1000_RXDADV_STAT_TSIP | E1000_RXDADV_STAT_TS))
++			igb_rx_hwtstamp(q_vector, staterr, skb);
+ 		total_bytes += skb->len;
+ 		total_packets++;
+ 
+@@ -5571,6 +5590,16 @@ static int igb_hwtstamp_ioctl(struct net_device *netdev,
+ 		return 0;
+ 	}
+ 
++	/*
++	 * Per-packet timestamping only works if all packets are
++	 * timestamped, so enable timestamping in all packets as
++	 * long as one rx filter was configured.
++	 */
++	if ((hw->mac.type == e1000_82580) && tsync_rx_ctl) {
++		tsync_rx_ctl = E1000_TSYNCRXCTL_ENABLED;
++		tsync_rx_ctl |= E1000_TSYNCRXCTL_TYPE_ALL;
++	}
++
+ 	/* enable/disable TX */
+ 	regval = rd32(E1000_TSYNCTXCTL);
+ 	regval &= ~E1000_TSYNCTXCTL_ENABLED;
 
