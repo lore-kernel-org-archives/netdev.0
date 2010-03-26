@@ -1,73 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ipmr/ip6mr: prevent out-of-bounds vif_table access
-Date: Fri, 26 Mar 2010 09:51:37 -0700 (PDT)
-Message-ID: <20100326.095137.165317348.davem@davemloft.net>
-References: <4BAC823F.8050409@dev.6wind.com>
+From: "Alexander E. Patrakov" <patrakov@gmail.com>
+Subject: Re: [Patch] fix packet loss and massive ping spikes with PPP multi-link
+Date: Fri, 26 Mar 2010 22:00:23 +0500
+Message-ID: <4BACE827.4070006@gmail.com>
+References: <2d460de71003260850x7f90d04cy79ac853464108182@mail.gmail.com> <20100326160226.0159ac3b@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nicolas.dichtel@dev.6wind.com
+Cc: Richard Hartmann <richih.mailinglist@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-ppp@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36251
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752422Ab0CZQvN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 12:51:13 -0400
-In-Reply-To: <4BAC823F.8050409@dev.6wind.com>
+Received: from mail-fx0-f223.google.com ([209.85.220.223]:65522 "EHLO
+	mail-fx0-f223.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750795Ab0CZQ6u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 12:58:50 -0400
+In-Reply-To: <20100326160226.0159ac3b@lxorguk.ukuu.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@dev.6wind.com>
-Date: Fri, 26 Mar 2010 10:45:35 +0100
+26.03.2010 21:02, Alan Cox wrote:
 
-> please consider the attached patch about IPv4 and IPv6 multicast.
+> You can then do this
+>
+> static int ml_explode = 1;
+> module_param(ml_explode, int, 0600);
+> MODULE_PARM_DESC(ml_expode, "Set this to zero to disabling multilink \
+> 	fragmentation when talking to cisco devices");
+>
+> which will let you load the module with the option ml_explode = 0 if you
+> want that property.
+>
+> Making it runtime per link selectable would be nicer but thats a bit more
+> work.
 
-Already fixed by Patrick McHardy recently:
+Doesn't it work already via echoing values to 
+/sys/module/ppp/generic/parameters/ml_explode in the above code?
 
-commit a50436f2cd6e85794f7e1aad795ca8302177b896
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed Mar 17 06:04:14 2010 +0000
-
-    net: ipmr/ip6mr: fix potential out-of-bounds vif_table access
-    
-    mfc_parent of cache entries is used to index into the vif_table and is
-    initialised from mfcctl->mfcc_parent. This can take values of to 2^16-1,
-    while the vif_table has only MAXVIFS (32) entries. The same problem
-    affects ip6mr.
-    
-    Refuse invalid values to fix a potential out-of-bounds access. Unlike
-    the other validity checks, this is checked in ipmr_mfc_add() instead of
-    the setsockopt handler since its unused in the delete path and might be
-    uninitialized.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 8582e12..0b9d03c 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -802,6 +802,9 @@ static int ipmr_mfc_add(struct net *net, struct mfcctl *mfc, int mrtsock)
- 	int line;
- 	struct mfc_cache *uc, *c, **cp;
- 
-+	if (mfc->mfcc_parent >= MAXVIFS)
-+		return -ENFILE;
-+
- 	line = MFC_HASH(mfc->mfcc_mcastgrp.s_addr, mfc->mfcc_origin.s_addr);
- 
- 	for (cp = &net->ipv4.mfc_cache_array[line];
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index 52e0f74..23e4ac0 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -1113,6 +1113,9 @@ static int ip6mr_mfc_add(struct net *net, struct mf6cctl *mfc, int mrtsock)
- 	unsigned char ttls[MAXMIFS];
- 	int i;
- 
-+	if (mfc->mf6cc_parent >= MAXMIFS)
-+		return -ENFILE;
-+
- 	memset(ttls, 255, MAXMIFS);
- 	for (i = 0; i < MAXMIFS; i++) {
- 		if (IF_ISSET(i, &mfc->mf6cc_ifset))
+-- 
+Alexander E. Patrakov
