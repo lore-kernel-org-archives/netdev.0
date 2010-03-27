@@ -1,120 +1,47 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] e1000e: typo corrections
-Date: Fri, 26 Mar 2010 23:16:59 -0700
-Message-ID: <1269670619.1603.9.camel@Joe-Laptop.home>
-References: <20100324225529.7104.17189.stgit@localhost.localdomain>
-	 <20100326.210555.251082007.davem@davemloft.net>
+From: =?utf-8?Q?J=F6rn?= Engel <joern@dublin.logfs.org>
+Subject: Re: [Regression] r8169: enable 64-bit DMA by default for PCI
+	Express devices (v2)
+Date: Sat, 27 Mar 2010 07:38:38 +0100
+Message-ID: <20100327063838.GB11959@Dublin.logfs.org>
+References: <20100315150806.GA15354@Dublin.logfs.org> <20100315151041.GA15667@Dublin.logfs.org> <20100315.115748.13754030.davem@davemloft.net> <51f3faa71003151628g5edc4d7av8916ac76cb337bfe@mail.gmail.com> <20100316083501.GA3489@Dublin.logfs.org> <51f3faa71003161630g69160ea9tc1a2d448682632e5@mail.gmail.com> <51f3faa71003251756h17374375yd3a5d2acee2ffab9@mail.gmail.com> <20100326091234.GA11959@Dublin.logfs.org> <4BAD65A0.7090309@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, bruce.w.allan@intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	romieu@fr.zoreil.com
+To: Robert Hancock <hancockrwd@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1162 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751529Ab0C0GRE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Mar 2010 02:17:04 -0400
-In-Reply-To: <20100326.210555.251082007.davem@davemloft.net>
+Received: from [85.183.11.32] ([85.183.11.32]:52831 "EHLO Dublin.logfs.org"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751326Ab0C0Giq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Mar 2010 02:38:46 -0400
+Content-Disposition: inline
+In-Reply-To: <4BAD65A0.7090309@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Here are the other miscellaneous corrections
-done by an earlier larger suggested patch now
-made unnecessary by a less invasive change.
+On Fri, 26 March 2010 19:55:44 -0600, Robert Hancock wrote:
+>
+> Well, that one's 36 bits, but it's unclear whether that driver would =
+=20
+> actually be likely to access anything over 4GB. It's possible that =20
+> there's just some general problem with 64-bit DMA on that machine.
 
-Correct a few missing newlines from logging
-messages and a typo fix.  Fix speed/duplex
-logging message.
+That may very well be.  I've had trouble using a PCIe card in that
+machine as well.  "Solution" was to buy a different computer.  Sad, I
+know, but not my money.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/e1000e/82571.c   |    2 +-
- drivers/net/e1000e/ich8lan.c |    6 +++---
- drivers/net/e1000e/lib.c     |   21 +++++++++------------
- 3 files changed, 13 insertions(+), 16 deletions(-)
+> The fact that even stuff like lspci and MII is breaking seems odd, =20
+> though. It could be that model of card doesn't like the PCIDAC regist=
+er =20
+> bit being set (maybe it means something different on that model, or =20
+> something).
+>
+> I suppose a publicly accessible datasheet for these chips is too much=
+ to =20
+> hope for?
 
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index 712ccc6..4b0016d 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -323,7 +323,7 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
- 	}
- 
- 	/*
--	 * Initialze device specific counter of SMBI acquisition
-+	 * Initialize device specific counter of SMBI acquisition
- 	 * timeouts.
- 	 */
- 	 hw->dev_spec.e82571.smb_counter = 0;
-diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 8b5e157..5059c22 100644
---- a/drivers/net/e1000e/ich8lan.c
-+++ b/drivers/net/e1000e/ich8lan.c
-@@ -1622,7 +1622,7 @@ static s32 e1000_flash_cycle_init_ich8lan(struct e1000_hw *hw)
- 	/* Check if the flash descriptor is valid */
- 	if (hsfsts.hsf_status.fldesvalid == 0) {
- 		e_dbg("Flash descriptor invalid.  "
--			 "SW Sequencing must be used.");
-+			 "SW Sequencing must be used.\n");
- 		return -E1000_ERR_NVM;
- 	}
- 
-@@ -1671,7 +1671,7 @@ static s32 e1000_flash_cycle_init_ich8lan(struct e1000_hw *hw)
- 			hsfsts.hsf_status.flcdone = 1;
- 			ew16flash(ICH_FLASH_HSFSTS, hsfsts.regval);
- 		} else {
--			e_dbg("Flash controller busy, cannot get access");
-+			e_dbg("Flash controller busy, cannot get access\n");
- 		}
- 	}
- 
-@@ -1822,7 +1822,7 @@ static s32 e1000_read_flash_data_ich8lan(struct e1000_hw *hw, u32 offset,
- 				continue;
- 			} else if (hsfsts.hsf_status.flcdone == 0) {
- 				e_dbg("Timeout error - flash cycle "
--					 "did not complete.");
-+					 "did not complete.\n");
- 				break;
- 			}
- 		}
-diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
-index a8b2c0d..b0d2a60 100644
---- a/drivers/net/e1000e/lib.c
-+++ b/drivers/net/e1000e/lib.c
-@@ -1262,24 +1262,21 @@ s32 e1000e_get_speed_and_duplex_copper(struct e1000_hw *hw, u16 *speed, u16 *dup
- 	u32 status;
- 
- 	status = er32(STATUS);
--	if (status & E1000_STATUS_SPEED_1000) {
-+	if (status & E1000_STATUS_SPEED_1000)
- 		*speed = SPEED_1000;
--		e_dbg("1000 Mbs, ");
--	} else if (status & E1000_STATUS_SPEED_100) {
-+	else if (status & E1000_STATUS_SPEED_100)
- 		*speed = SPEED_100;
--		e_dbg("100 Mbs, ");
--	} else {
-+	else
- 		*speed = SPEED_10;
--		e_dbg("10 Mbs, ");
--	}
- 
--	if (status & E1000_STATUS_FD) {
-+	if (status & E1000_STATUS_FD)
- 		*duplex = FULL_DUPLEX;
--		e_dbg("Full Duplex\n");
--	} else {
-+	else
- 		*duplex = HALF_DUPLEX;
--		e_dbg("Half Duplex\n");
--	}
-+
-+	e_dbg("%u Mbps, %s Duplex\n",
-+	      *speed == SPEED_1000 ? 1000 : *speed == SPEED_100 ? 100 : 10,
-+	      *duplex == FULL_DUPLEX ? "Full" : "Half");
- 
- 	return 0;
- }
+Which chips?
 
-
+J=EF=BF=BDrn
