@@ -1,88 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix netlink address dumping in IPv4/IPv6
-Date: Fri, 26 Mar 2010 20:36:27 -0700 (PDT)
-Message-ID: <20100326.203627.215356664.davem@davemloft.net>
-References: <4BACEB4F.9060900@trash.net>
-	<20100326.202828.165365437.davem@davemloft.net>
+Subject: Re: [PATCH] e1000e: Use pr_<level> and netdev_<level>
+Date: Fri, 26 Mar 2010 20:52:48 -0700 (PDT)
+Message-ID: <20100326.205248.258788303.davem@davemloft.net>
+References: <1269474180.1541.11.camel@Joe-Laptop.home>
+	<8DD2590731AB5D4C9DBF71A877482A9061B3334E@orsmsx509.amr.corp.intel.com>
+	<1269475474.1541.20.camel@Joe-Laptop.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: bruce.w.allan@intel.com, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, gospo@redhat.com
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45795
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57694
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752811Ab0C0DgF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 23:36:05 -0400
-In-Reply-To: <20100326.202828.165365437.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1751477Ab0C0Dw1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 23:52:27 -0400
+In-Reply-To: <1269475474.1541.20.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Fri, 26 Mar 2010 20:28:28 -0700 (PDT)
+From: Joe Perches <joe@perches.com>
+Date: Wed, 24 Mar 2010 17:04:34 -0700
 
-> 
-> Applied, thanks.
+> hw and adapter are locally scoped in each function here,
+> but are not local to the macro.  That can make conversions
+> of macros to functions difficult.
 
-BTW, you encoded this patch in such a way that:
+This is pretty common practice in drivers though.
 
-1) patchwork didn't even notice it
+Especially for register accessors and whatnot, and I see no problem
+doing it here.
 
-2) it made more work for me to apply it
+All specifying these args explicitly will do is make the fingers move
+one step closer to carpel tunnel. :-)
 
-Putting just the commit message and the patch itself
-as an attachment isn't going to work.
-
-It ought to be quite simple:
-
-Mail headers:
-
-1) If you wrote the patch the normal "From: " in your
-   email takes care of everything.  Else add a new
-   one at the top of the mail message body for the
-   actual author.
-
-2) Make "Subject: " be the commit message header line.
-   Anything in leading "[]" brackets will be removed by
-   the git tools so you can say things like "[PATCH]" and
-   "[PATCH net-2.6]" there.
-
-3) After any optional "From: " override for the patch author, the
-   content of your email body should start with the commit message.
-
-4) If you want to make more comments that don't end up into the commit
-   message (like: "Dave this should go to -stable for 2.6.33 only")
-   add a line with "---" three dashes then on the following lines say
-   what you want to say
-
-5) Then comes the patch.
-
-This really should be trivial.
-
-Don't use attachments, just:
-
---------------------------------------------------
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH whatever] Commit header line
-
-Commit message
-
----
-
-Any extra side notes.
-
- net/ipv4/devinet.c  |    2 +-
- net/ipv6/addrconf.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 51ca946..3feb2b3 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1194,7 +1194,7 @@ static int inet_dump_ifaddr(struct sk_buff *skb, struct n
-...
---------------------------------------------------
-
-I really should be able to take your email and feed it
-to "git am" and it should "just work".  I can't do that
-with what you're giving me.
