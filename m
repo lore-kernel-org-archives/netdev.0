@@ -1,34 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] gianfar: fix undo of reserve()
-Date: Fri, 26 Mar 2010 20:16:33 -0700 (PDT)
-Message-ID: <20100326.201633.171845481.davem@davemloft.net>
-References: <A6A1774AFD79E346AE6D49A33CB294530DC19FC4@EX-BE-017-SFO.shared.themessagecenter.com>
+Subject: Re: Null dereference in uli526x_rx_packet()
+Date: Fri, 26 Mar 2010 20:21:25 -0700 (PDT)
+Message-ID: <20100326.202125.238456279.davem@davemloft.net>
+References: <20090329053513.GD19602@colo.lackof.org>
+	<20090328.235931.45430524.davem@davemloft.net>
+	<20100207071540.GA9908@lackof.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ben@bigfootnetworks.com
+Cc: kyle@mcmartin.ca, netdev@vger.kernel.org, error27@gmail.com
+To: grundler@parisc-linux.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44603
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53647
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751943Ab0C0DQJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 23:16:09 -0400
-In-Reply-To: <A6A1774AFD79E346AE6D49A33CB294530DC19FC4@EX-BE-017-SFO.shared.themessagecenter.com>
+	by vger.kernel.org with ESMTP id S1751477Ab0C0DVC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 23:21:02 -0400
+In-Reply-To: <20100207071540.GA9908@lackof.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Ben Menchaca (ben@bigfootnetworks.com)" <ben@bigfootnetworks.com>
-Date: Wed, 24 Mar 2010 08:05:02 -0700
+From: Grant Grundler <grundler@parisc-linux.org>
+Date: Sun, 7 Feb 2010 00:15:40 -0700
 
-> From: Ben Menchaca <ben@bigfootnetworks.com>
+> On Sat, Mar 28, 2009 at 11:59:31PM -0700, David Miller wrote:
+> ...
+>> > Patch below looks right to me. Clobbering the skb is certainly wrong.
+>> > 
+>> > Acked-by: Grant Grundler <grundler@parisc-linux.org>
+>> 
+>> It looks correct to me, can we get a proper submission with
+>> signoffs etc.?
 > 
-> Fix undo of reserve() before RX recycle
+> Dave,
+> Looks like this patch was never resubmitted.
 > 
-> gfar_new_skb reserve()s space in the SKB to align it.  If an error occurs,
-> and the skb needs to be returned to the RX recycle queue, the current code
-> attempts to reset head, but did not reset tail.  This patch remembers the
-> alignment amount, and reverses the reserve() when needed.
+> Kyle, can you look at http://lists.openwall.net/netdev/2009/03/27/117
+> and resubmit the code you had then with my "Acked-by" added please?
 > 
-> Signed-off-by: Ben Menchaca <ben@bigfootnetworks.com>
+> Or if you don't want to touch it, let me know and I'll resurrect it.
 
-Applied, thanks.
+I got tired of waiting for this resubmission (a month and a half) and
+just applied the most recent version of the patch to net-2.6.
+
+It looked correct to me too.
