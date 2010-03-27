@@ -1,69 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] Add MSG_WAITFORONE flag to recvmmsg
-Date: Sat, 27 Mar 2010 07:00:04 +0100
-Message-ID: <1269669604.2256.20.camel@edumazet-laptop>
-References: <20100326223530.GA11817@xpc.home>
-	 <1269643470.2256.17.camel@edumazet-laptop>
-	 <84621a61003261555q2c78f6a8o5b438113bed6bd2@mail.gmail.com>
-	 <a36005b51003261907x7ebe057bt2d541f63f20f632b@mail.gmail.com>
-	 <20100327021803.GA10866@xpc.home>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: Null dereference in uli526x_rx_packet()
+Date: Sat, 27 Mar 2010 00:08:24 -0600
+Message-ID: <20100327060823.GA26364@lackof.org>
+References: <20090329053513.GD19602@colo.lackof.org> <20090328.235931.45430524.davem@davemloft.net> <20100207071540.GA9908@lackof.org> <20100326.202125.238456279.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	Ulrich Drepper <drepper@gmail.com>,
-	linux-kernel@vger.kernel.org
-To: Brandon L Black <blblack@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100327021803.GA10866@xpc.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: grundler@parisc-linux.org, kyle@mcmartin.ca,
+	netdev@vger.kernel.org, error27@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from complete.lackof.org ([198.49.126.79]:53991 "EHLO
+	complete.lackof.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750851Ab0C0GIZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Mar 2010 02:08:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20100326.202125.238456279.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 26 mars 2010 =C3=A0 21:18 -0500, Brandon L Black a =C3=A9cr=
-it :
-> From: Brandon L Black <blblack@gmail.com>
->=20
-> Add new flag MSG_WAITFORONE for the recvmmsg() syscall.
-> When this flag is specified for a blocking socket, recvmmsg()
-> will only block until at least 1 packet is available.  The
-> default behavior is to block until all vlen packets are
-> available.  This flag has no effect on non-blocking sockets
-> or when used in combination with MSG_DONTWAIT.
->=20
-> Signed-off-by: Brandon L Black <blblack@gmail.com>
->=20
+On Fri, Mar 26, 2010 at 08:21:25PM -0700, David Miller wrote:
+> From: Grant Grundler <grundler@parisc-linux.org>
+> Date: Sun, 7 Feb 2010 00:15:40 -0700
+> 
+> > On Sat, Mar 28, 2009 at 11:59:31PM -0700, David Miller wrote:
+> > ...
+> >> > Patch below looks right to me. Clobbering the skb is certainly wrong.
+> >> > 
+> >> > Acked-by: Grant Grundler <grundler@parisc-linux.org>
+> >> 
+> >> It looks correct to me, can we get a proper submission with
+> >> signoffs etc.?
+> > 
+> > Dave,
+> > Looks like this patch was never resubmitted.
+> > 
+> > Kyle, can you look at http://lists.openwall.net/netdev/2009/03/27/117
+> > and resubmit the code you had then with my "Acked-by" added please?
+> > 
+> > Or if you don't want to touch it, let me know and I'll resurrect it.
+> 
+> I got tired of waiting for this resubmission (a month and a half) and
+> just applied the most recent version of the patch to net-2.6.
+> 
+> It looked correct to me too.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-> ---
-> diff --git a/include/linux/socket.h b/include/linux/socket.h
-> index 7b3aae2..354cc56 100644
-> --- a/include/linux/socket.h
-> +++ b/include/linux/socket.h
-> @@ -255,6 +255,7 @@ struct ucred {
->  #define MSG_ERRQUEUE	0x2000	/* Fetch message from error queue */
->  #define MSG_NOSIGNAL	0x4000	/* Do not generate SIGPIPE */
->  #define MSG_MORE	0x8000	/* Sender will send more */
-> +#define MSG_WAITFORONE	0x10000	/* recvmmsg(): block until 1+ packets=
- avail */
-> =20
->  #define MSG_EOF         MSG_FIN
-> =20
-> diff --git a/net/socket.c b/net/socket.c
-> index 769c386..f55ffe9 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -2135,6 +2135,10 @@ int __sys_recvmmsg(int fd, struct mmsghdr __us=
-er *mmsg, unsigned int vlen,
->  			break;
->  		++datagrams;
-> =20
-> +		/* MSG_WAITFORONE turns on MSG_DONTWAIT after one packet */
-> +		if (flags & MSG_WAITFORONE)
-> +			flags |=3D MSG_DONTWAIT;
-> +
->  		if (timeout) {
->  			ktime_get_ts(timeout);
->  			*timeout =3D timespec_sub(end_time, *timeout);
-> --
+Thank you!
+grant
