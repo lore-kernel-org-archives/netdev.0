@@ -1,43 +1,36 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH v2] Add MSG_WAITFORONE flag to recvmmsg
-Date: Sat, 27 Mar 2010 11:07:17 -0300
-Message-ID: <20100327140717.GN3625@ghostprotocols.net>
-References: <84621a61003261555q2c78f6a8o5b438113bed6bd2@mail.gmail.com> <a36005b51003261907x7ebe057bt2d541f63f20f632b@mail.gmail.com> <20100327021803.GA10866@xpc.home> <20100326.205428.44779758.davem@davemloft.net>
+From: Jan Ceuleers <jan.ceuleers@computer.org>
+Subject: Re: Does Realtek RTL8110S and RTL8100C work ?
+Date: Sat, 27 Mar 2010 15:12:24 +0100
+Message-ID: <4BAE1248.70201@computer.org>
+References: <hoab2m$kc0$1@dough.gmane.org> <4BABC170.7080008@computer.org> <hoiqcr$dhl$1@dough.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: blblack@gmail.com, netdev@vger.kernel.org, drepper@gmail.com,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Markus Feldmann <feldmann_markus@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3044 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753323Ab0C0OHX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Mar 2010 10:07:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20100326.205428.44779758.davem@davemloft.net>
+Received: from mailrelay007.isp.belgacom.be ([195.238.6.173]:16639 "EHLO
+	mailrelay007.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753327Ab0C0OMn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Mar 2010 10:12:43 -0400
+In-Reply-To: <hoiqcr$dhl$1@dough.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Fri, Mar 26, 2010 at 08:54:28PM -0700, David Miller escreveu:
-> From: Brandon L Black <blblack@gmail.com>
-> Date: Fri, 26 Mar 2010 21:18:03 -0500
+Markus Feldmann wrote:
+> Thanks for you answer Jan,
 > 
-> > 
-> > From: Brandon L Black <blblack@gmail.com>
-> > 
-> > Add new flag MSG_WAITFORONE for the recvmmsg() syscall.
-> > When this flag is specified for a blocking socket, recvmmsg()
-> > will only block until at least 1 packet is available.  The
-> > default behavior is to block until all vlen packets are
-> > available.  This flag has no effect on non-blocking sockets
-> > or when used in combination with MSG_DONTWAIT.
-> > 
-> > Signed-off-by: Brandon L Black <blblack@gmail.com>
+> do you know the developer e-mail adress?
+> So 1000Mbit/s is not possible at the moment, but does it work stable?
 > 
-> Arnaldo, please review this, thanks.
+> regards Markus
 
-I'm ok with it.
+Markus,
 
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+You misunderstood. The first of the interfaces I listed is operating at 1Gbit/s; the second is only operating at 100Mbit/s because the device it is connected to (on the other end of the Ethernet cable) is not capable of anything faster.
 
-- Arnaldo
+I have no reliability issues with these network interfaces. Note though that my mainboard is quite low-end (Via C7 1.5GHz), so that the network interfaces never really get stressed.
+
+Jan
+
+
