@@ -1,48 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: CVE-2009-4537
-Date: Sat, 27 Mar 2010 10:36:00 -0700 (PDT)
-Message-ID: <20100327.103600.246539458.davem@davemloft.net>
-References: <20100327142100.38d21565.michael.s.gilbert@gmail.com>
-	<20100327.103407.260084965.davem@davemloft.net>
+From: Robert Hancock <hancockrwd@gmail.com>
+Subject: Re: [Regression] r8169: enable 64-bit DMA by default for PCI Express
+ devices (v2)
+Date: Sat, 27 Mar 2010 11:46:12 -0600
+Message-ID: <4BAE4464.9060909@gmail.com>
+References: <20100315150806.GA15354@Dublin.logfs.org> <20100315151041.GA15667@Dublin.logfs.org> <20100315.115748.13754030.davem@davemloft.net> <51f3faa71003151628g5edc4d7av8916ac76cb337bfe@mail.gmail.com> <20100316083501.GA3489@Dublin.logfs.org> <51f3faa71003161630g69160ea9tc1a2d448682632e5@mail.gmail.com> <51f3faa71003251756h17374375yd3a5d2acee2ffab9@mail.gmail.com> <20100326091234.GA11959@Dublin.logfs.org> <4BAD65A0.7090309@gmail.com> <20100327063838.GB11959@Dublin.logfs.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	nhorman@tuxdriver.com
-To: michael.s.gilbert@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35519
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753701Ab0C0Rfg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Mar 2010 13:35:36 -0400
-In-Reply-To: <20100327.103407.260084965.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	romieu@fr.zoreil.com
+To: =?UTF-8?B?77+9IEVuZ2Vs?= <joern@dublin.logfs.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100327063838.GB11959@Dublin.logfs.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Sat, 27 Mar 2010 10:34:07 -0700 (PDT)
+On 03/27/2010 12:38 AM, =EF=BF=BD Engel wrote:
+> On Fri, 26 March 2010 19:55:44 -0600, Robert Hancock wrote:
+>>
+>> Well, that one's 36 bits, but it's unclear whether that driver would
+>> actually be likely to access anything over 4GB. It's possible that
+>> there's just some general problem with 64-bit DMA on that machine.
+>
+> That may very well be.  I've had trouble using a PCIe card in that
+> machine as well.  "Solution" was to buy a different computer.  Sad, I
+> know, but not my money.
 
-> From: Michael Gilbert <michael.s.gilbert@gmail.com>
-> Date: Sat, 27 Mar 2010 14:21:00 -0400
-> 
->> Hi,
->> 
->> CVE-2009-4537 has been disclosed without any upstream activity for a
->> while now. Discussion about the issue dried up in January [0], and a
->> patch had been proposed [1], but no arguments were seen either for or
->> against it. Note that redhat has already shipped that in their various
->> kernel security updates.  Would it make sense to merge those changes
->> officially?
-> 
-> A different version of the fix went into the tree.
+Hm, do you recall/have the details of what happened with the other card=
+?
 
-Ignore me, that was a fix for a different problem.
+It's possible this is some general problem with that machine/motherboar=
+d=20
+and not actually an issue with what the driver is doing. What kind of=20
+board is that?
 
-I was waiting for Francois to come up with a cleaner fix
-but he stopped working on it, so yes I should put in
-the fix you mention or something similar.
-
-Neil, can you formally submit a version of the r8169
-CVE for upstream?
-
-Thanks.
+>
+>> The fact that even stuff like lspci and MII is breaking seems odd,
+>> though. It could be that model of card doesn't like the PCIDAC regis=
+ter
+>> bit being set (maybe it means something different on that model, or
+>> something).
+>>
+>> I suppose a publicly accessible datasheet for these chips is too muc=
+h to
+>> hope for?
+>
+> Which chips?
+>
+> J=EF=BF=BDrn
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
