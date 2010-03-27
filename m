@@ -1,57 +1,43 @@
-From: Brandon Black <blblack@gmail.com>
-Subject: Re: behavior of recvmmsg() on blocking sockets
-Date: Sat, 27 Mar 2010 08:19:09 -0500
-Message-ID: <84621a61003270619p6b4fe81bi24bb1961aba77ffb@mail.gmail.com>
-References: <84621a61003240915p2a4ce6bbjd0c6bfb02ab05ba8@mail.gmail.com>
-	 <4BAA4EE4.3090900@nortel.com>
-	 <84621a61003241128x3afbcea1w387aeaa68c887320@mail.gmail.com>
-	 <4BAA69BF.3080600@nortel.com>
-	 <84621a61003241255i74282f53v3bb0111808895401@mail.gmail.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH v2] Add MSG_WAITFORONE flag to recvmmsg
+Date: Sat, 27 Mar 2010 11:07:17 -0300
+Message-ID: <20100327140717.GN3625@ghostprotocols.net>
+References: <84621a61003261555q2c78f6a8o5b438113bed6bd2@mail.gmail.com> <a36005b51003261907x7ebe057bt2d541f63f20f632b@mail.gmail.com> <20100327021803.GA10866@xpc.home> <20100326.205428.44779758.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Chris Friesen <cfriesen@nortel.com>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <84621a61003241255i74282f53v3bb0111808895401@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: blblack@gmail.com, netdev@vger.kernel.org, drepper@gmail.com,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:3044 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753323Ab0C0OHX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Mar 2010 10:07:23 -0400
+Content-Disposition: inline
+In-Reply-To: <20100326.205428.44779758.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 24, 2010 at 2:55 PM, Brandon Black <blblack@gmail.com> wrot=
-e:
-> On Wed, Mar 24, 2010 at 2:36 PM, Chris Friesen <cfriesen@nortel.com> =
-wrote:
->> Consider the case where you want to do some other useful work in
->> addition to running your network server. =C2=A0Every cpu cycle spent=
- on the
->> network server is robbed from the other work. =C2=A0In this scenario=
- you want
->> to handle packets as efficiently as possible, so the timeout-based
->> behaviour is better since it is more likely to give you multiple pac=
-kets
->> per syscall.
->
-> That's a good point, I tend to tunnelvision on the dedicated server
-> scenario. =C2=A0I should probably have a user-level option for
-> timeout-based operation as well, since the decision here gets to the
-> systems admin/engineering level and will be situational.
+Em Fri, Mar 26, 2010 at 08:54:28PM -0700, David Miller escreveu:
+> From: Brandon L Black <blblack@gmail.com>
+> Date: Fri, 26 Mar 2010 21:18:03 -0500
+> 
+> > 
+> > From: Brandon L Black <blblack@gmail.com>
+> > 
+> > Add new flag MSG_WAITFORONE for the recvmmsg() syscall.
+> > When this flag is specified for a blocking socket, recvmmsg()
+> > will only block until at least 1 packet is available.  The
+> > default behavior is to block until all vlen packets are
+> > available.  This flag has no effect on non-blocking sockets
+> > or when used in combination with MSG_DONTWAIT.
+> > 
+> > Signed-off-by: Brandon L Black <blblack@gmail.com>
+> 
+> Arnaldo, please review this, thanks.
 
-I've been playing with the timeout argument to recvmmsg as well now,
-and I'm struggling to see how one would ever use it correctly with the
-current implementation.  It seems to rely on the assumption of a
-never-ending stream of tightly-spaced input packets?  It seems like it
-was meant for usage on blocking sockets.  Given a blocking socket with
-timeout 0 (infinite), and a recvmmsg timeout of 100us, if you had a
-very steady stream of input packets, it recvmmsg would pull in all of
-them that it could within a max timeframe of (100us +
-time_to_execute_one_recvmsg).  However, any disruption to the input
-stream for a time-window of N would result in delaying some
-already-received packets by N.  For example, consider the case that 2
-packets are already queued when you invoke recvmmsg(), but then the
-next packet doesn't arrive for another 300ms.  In this scenario, you'd
-end up with recvmmsg() blocking for 300ms and then returning all 3
-packets, two of which have been delayed way beyond the specified
-timeout.
+I'm ok with it.
 
--- Brandon
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+
+- Arnaldo
