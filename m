@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: r8169 mac reading/writing broken
-Date: Sat, 27 Mar 2010 16:30:05 -0700 (PDT)
-Message-ID: <20100327.163005.28815553.davem@davemloft.net>
-References: <4BAE6C92.2060801@iki.fi>
-	<20100327211133.GA3624@electric-eye.fr.zoreil.com>
-	<1269732054.8653.155.camel@localhost>
+Subject: Re: Seeing new kernel unaligned access messages in linux-next on
+ ia64
+Date: Sat, 27 Mar 2010 16:37:30 -0700 (PDT)
+Message-ID: <20100327.163730.179928738.davem@davemloft.net>
+References: <alpine.LSU.2.01.1003250014400.16715@obet.zrqbmnf.qr>
+	<20100324.203249.97351120.davem@davemloft.net>
+	<alpine.LSU.2.01.1003271313230.2740@obet.zrqbmnf.qr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, timo.teras@iki.fi, ivecera@redhat.com,
-	netdev@vger.kernel.org
-To: ben@decadent.org.uk
+Cc: schwab@linux-m68k.org, tony.luck@intel.com, netdev@vger.kernel.org
+To: jengelh@medozas.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42936
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53941
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754049Ab0C0X3m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Mar 2010 19:29:42 -0400
-In-Reply-To: <1269732054.8653.155.camel@localhost>
+	by vger.kernel.org with ESMTP id S1754049Ab0C0XhH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Mar 2010 19:37:07 -0400
+In-Reply-To: <alpine.LSU.2.01.1003271313230.2740@obet.zrqbmnf.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Sat, 27 Mar 2010 23:20:54 +0000
+From: Jan Engelhardt <jengelh@medozas.de>
+Date: Sat, 27 Mar 2010 13:14:46 +0100 (CET)
 
-> I wonder whether there are special rules that need to be followed
-> for updating such registers and which the driver is not following,
-> or a more general bug in the Realtek chips that should be
-> consistently worked-around for all 64-bit registers.
+> net: fix unaligned access in IFLA_STATS64
 
-I suspect that MMIO to 64-bit registers in 32-bit chunks is not
-reliable with these parts, given all of the information we have so
-far.
+Applied to net-next-2.6, thanks Jan.
+
+Hey, don't we need some adjustments to if_nlmsg_size()?  I don't see
+it accounting for IFLA_STATS64/"struct rtnl_link_stats64" there.
+
