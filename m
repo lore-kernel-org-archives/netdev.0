@@ -1,44 +1,35 @@
-From: =?unknown-8bit?B?RnJhbsOnb2lz?= Romieu <romieu@fr.zoreil.com>
-Subject: Re: [Regression] r8169: enable 64-bit DMA by default for PCI Express
- devices (v2)
-Date: Sat, 27 Mar 2010 12:57:04 +0100
-Message-ID: <20100327115704.GB3432@electric-eye.fr.zoreil.com>
-References: <20100315150806.GA15354@Dublin.logfs.org>
- <20100315151041.GA15667@Dublin.logfs.org>
- <20100315.115748.13754030.davem@davemloft.net>
- <51f3faa71003151628g5edc4d7av8916ac76cb337bfe@mail.gmail.com>
- <20100316083501.GA3489@Dublin.logfs.org>
- <51f3faa71003161630g69160ea9tc1a2d448682632e5@mail.gmail.com>
- <51f3faa71003251756h17374375yd3a5d2acee2ffab9@mail.gmail.com>
- <20100326091234.GA11959@Dublin.logfs.org>
- <4BAD65A0.7090309@gmail.com>
+From: =?iso-8859-1?Q?Fran=E7ois?= Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 mac reading/writing broken
+Date: Sat, 27 Mar 2010 13:03:58 +0100
+Message-ID: <20100327120358.GA5114@electric-eye.fr.zoreil.com>
+References: <4BADDDB7.4010005@iki.fi>
+ <20100327114059.GA3432@electric-eye.fr.zoreil.com>
+ <4BADF01E.9090906@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?unknown-8bit?B?77+9?= Engel <joern@dublin.logfs.org>,
-	David Miller <davem@davemloft.net>,
-	torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Robert Hancock <hancockrwd@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ivan Vecera <ivecera@redhat.com>, netdev@vger.kernel.org
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 55.58.140-88.rev.gaoland.net ([88.140.58.55]:39008 "EHLO
+Received: from 55.58.140-88.rev.gaoland.net ([88.140.58.55]:58946 "EHLO
 	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752786Ab0C0L5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Mar 2010 07:57:42 -0400
+	by vger.kernel.org with ESMTP id S1752770Ab0C0ME0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Mar 2010 08:04:26 -0400
 Content-Disposition: inline
-In-Reply-To: <4BAD65A0.7090309@gmail.com>
+In-Reply-To: <4BADF01E.9090906@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robert Hancock <hancockrwd@gmail.com> :
+Timo Ter=E4s <timo.teras@iki.fi> :
 [...]
-> I suppose a publicly accessible datasheet for these chips is too
-> much to hope for ?
+> I don't think this would do anything. The high part is recorded corre=
+ctly always.
+> It's the 'low' part that gets discarded. I can do similar test if wri=
+ting it
+> more times will help. Will post results soon.
 
-I was granted access to some documentation for the 8169 and the 8168c
-during the "please ask gently and don't disseminate" era then
-experienced "the legal department forbids it" for the 8102.
+You may check whether writing MAC4 before MAC0 makes a difference
+or not as well.
 
-hayeswang at realtek.com is quite supportive though.
-
--- 
+--=20
 Ueimor
