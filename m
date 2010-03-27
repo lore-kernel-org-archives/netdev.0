@@ -1,57 +1,49 @@
-From: Robert Hancock <hancockrwd@gmail.com>
-Subject: Re: [Regression] r8169: enable 64-bit DMA by default for PCI Express
- devices (v2)
-Date: Sat, 27 Mar 2010 11:46:12 -0600
-Message-ID: <4BAE4464.9060909@gmail.com>
-References: <20100315150806.GA15354@Dublin.logfs.org> <20100315151041.GA15667@Dublin.logfs.org> <20100315.115748.13754030.davem@davemloft.net> <51f3faa71003151628g5edc4d7av8916ac76cb337bfe@mail.gmail.com> <20100316083501.GA3489@Dublin.logfs.org> <51f3faa71003161630g69160ea9tc1a2d448682632e5@mail.gmail.com> <51f3faa71003251756h17374375yd3a5d2acee2ffab9@mail.gmail.com> <20100326091234.GA11959@Dublin.logfs.org> <4BAD65A0.7090309@gmail.com> <20100327063838.GB11959@Dublin.logfs.org>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: r8169 mac reading/writing broken
+Date: Sat, 27 Mar 2010 22:37:38 +0200
+Message-ID: <4BAE6C92.2060801@iki.fi>
+References: <4BADDDB7.4010005@iki.fi> <20100327114059.GA3432@electric-eye.fr.zoreil.com> <4BADF01E.9090906@iki.fi> <20100327120358.GA5114@electric-eye.fr.zoreil.com> <4BADF738.2060600@iki.fi> <20100327122642.GA5165@electric-eye.fr.zoreil.com> <4BADFAE4.5040906@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
+Content-Type: text/plain; charset=ISO-8859-1;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	romieu@fr.zoreil.com
-To: =?UTF-8?B?77+9IEVuZ2Vs?= <joern@dublin.logfs.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100327063838.GB11959@Dublin.logfs.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Ivan Vecera <ivecera@redhat.com>, netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Fran=E7ois_Romieu?= <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ey-out-2122.google.com ([74.125.78.27]:40730 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753939Ab0C0Uhn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Mar 2010 16:37:43 -0400
+Received: by ey-out-2122.google.com with SMTP id d26so1041083eyd.19
+        for <netdev@vger.kernel.org>; Sat, 27 Mar 2010 13:37:41 -0700 (PDT)
+In-Reply-To: <4BADFAE4.5040906@iki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/27/2010 12:38 AM, =EF=BF=BD Engel wrote:
-> On Fri, 26 March 2010 19:55:44 -0600, Robert Hancock wrote:
+Timo Ter=E4s wrote:
+> Fran=E7ois Romieu wrote:
+>> Timo Ter=E4s <timo.teras@iki.fi> :
+>> [...]
+>>> It seems that adding single printk between writing MAC0 and MAC4=20
+>>> fixes it.
+>>> I guess it needs a bit of delay between the writes or something.
 >>
->> Well, that one's 36 bits, but it's unclear whether that driver would
->> actually be likely to access anything over 4GB. It's possible that
->> there's just some general problem with 64-bit DMA on that machine.
->
-> That may very well be.  I've had trouble using a PCIe card in that
-> machine as well.  "Solution" was to buy a different computer.  Sad, I
-> know, but not my money.
+>> Can you test with a single RTL_R32 after each MACx write ?
+>=20
+> Adding reading back of the written value fixes it too. Though,
+> disassembly says that it added an extra instructions also (needs to
+> load the 'high' from stack before writing it) so the added delay is
+> probably slightly more than just the io read.
 
-Hm, do you recall/have the details of what happened with the other card=
-?
+I'm not too familiar with PCI details, but this smells a bit
+like that write-combining is happening and the NIC does not like
+that.
 
-It's possible this is some general problem with that machine/motherboar=
-d=20
-and not actually an issue with what the driver is doing. What kind of=20
-board is that?
+Any ideas how to check this?
 
->
->> The fact that even stuff like lspci and MII is breaking seems odd,
->> though. It could be that model of card doesn't like the PCIDAC regis=
-ter
->> bit being set (maybe it means something different on that model, or
->> something).
->>
->> I suppose a publicly accessible datasheet for these chips is too muc=
-h to
->> hope for?
->
-> Which chips?
->
-> J=EF=BF=BDrn
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+The system experiencing this is a "VIA Eden 1.2Ghz" box.
+
+Or is swapping MAC0/MAC4 writes, or adding the extra read an
+acceptable fix/workaround?
+
+- Timo
