@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] Add MSG_WAITFORONE flag to recvmmsg
-Date: Fri, 26 Mar 2010 20:54:28 -0700 (PDT)
-Message-ID: <20100326.205428.44779758.davem@davemloft.net>
-References: <84621a61003261555q2c78f6a8o5b438113bed6bd2@mail.gmail.com>
-	<a36005b51003261907x7ebe057bt2d541f63f20f632b@mail.gmail.com>
-	<20100327021803.GA10866@xpc.home>
+Subject: Re: [PATCH 1/2] ipv4: Cleanup struct net dereference in
+ rt_intern_hash
+Date: Fri, 26 Mar 2010 20:58:14 -0700 (PDT)
+Message-ID: <20100326.205814.106023370.davem@davemloft.net>
+References: <4BAA4F35.3000903@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, acme@redhat.com, drepper@gmail.com,
-	linux-kernel@vger.kernel.org
-To: blblack@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100327021803.GA10866@xpc.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dada1@cosmosbay.com, nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: xemul@openvz.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52379
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752648Ab0C0D5v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Mar 2010 23:57:51 -0400
+In-Reply-To: <4BAA4F35.3000903@openvz.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Brandon L Black <blblack@gmail.com>
-Date: Fri, 26 Mar 2010 21:18:03 -0500
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Wed, 24 Mar 2010 20:43:17 +0300
 
+> There's no need in getting it 3 times and gcc isn't smart enough
+> to understand this himself.
 > 
-> From: Brandon L Black <blblack@gmail.com>
+> This is just a cleanup before the fix (next patch).
 > 
-> Add new flag MSG_WAITFORONE for the recvmmsg() syscall.
-> When this flag is specified for a blocking socket, recvmmsg()
-> will only block until at least 1 packet is available.  The
-> default behavior is to block until all vlen packets are
-> available.  This flag has no effect on non-blocking sockets
-> or when used in combination with MSG_DONTWAIT.
-> 
-> Signed-off-by: Brandon L Black <blblack@gmail.com>
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Arnaldo, please review this, thanks.
+Applied.
