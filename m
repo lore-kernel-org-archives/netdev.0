@@ -1,81 +1,71 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next-2.6] ipv6 fib: Use "Sweezle" to optimize addr_bit_test().
-Date: Sat, 27 Mar 2010 20:24:16 +0900
-Message-ID: <201003271124.o2RBOGjT006944@94.43.138.210.xn.2iij.net>
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: =?iso-8859-1?Q?Fran=E7ois?= Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 mac reading/writing broken
+Date: Sat, 27 Mar 2010 12:40:59 +0100
+Message-ID: <20100327114059.GA3432@electric-eye.fr.zoreil.com>
+References: <4BADDDB7.4010005@iki.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ivan Vecera <ivecera@redhat.com>, netdev@vger.kernel.org
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:45371 "EHLO
-	94.43.138.210.xn.2iij.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752378Ab0C0LYX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Mar 2010 07:24:23 -0400
+Received: from 55.58.140-88.rev.gaoland.net ([88.140.58.55]:47713 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752709Ab0C0Lld (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Mar 2010 07:41:33 -0400
+Content-Disposition: inline
+In-Reply-To: <4BADDDB7.4010005@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-addr_bit_test() is used in various places in IPv6 routing table
-subsystem.  It checks if the given fn_bit is set,
-where fn_bit counts bits from MSB in words in network-order.
+Timo Ter=E4s <timo.teras@iki.fi> :
+[...]
+> I did some more testing, and added debugging info to rtl_rar_set(). I=
+t would
+> appear that even if I write any mac address (with ifconfig) and rerea=
+d the
+> MAC0..MAC5 register, the first four bytes get zeroed. So it would sou=
+nds like
+> the hardware is faulty, or that the rtl_rar_set function is buggy.
+>=20
+> Any suggestions to fix this ?
 
- fn_bit        :   0 .... 31 32 .... 64 65 .... 95 96 ....127
+Try something like the patch below and please send a complete lspci -vv=
+v.
 
-fn_bit >> 5 gives offset of word, and (~fn_bit & 0x1f) gives
-count from LSB in the network-endian word in question.
+I wonder what the bus controler looks like.
 
- fn_bit >> 5   :       0          1          2          3
- ~fn_bit & 0x1f:  31 ....  0 31 ....  0 31 ....  0 31 ....  0
-
-Thus, the mask was generated as htonl(1 << (~fn_bit & 0x1f)).
-This can be optimized by "sweezle" (See include/asm-generic/bitops/le.h).
-
-In little-endian,
-  htonl(1 << bit) = 1 << (bit ^ BITOP_BE32_SWIZZLE)
-where
-  BITOP_BE32_SWIZZLE is (0x1f & ~7)
-So,
-  htonl(1 << (~fn_bit & 0x1f)) = 1 << ((~fn_bit & 0x1f) ^ (0x1f & ~7))
-                               = 1 << ((~fn_bit ^ ~7) & 0x1f)
-                               = 1 << ((~fn_bit ^ BITOP_BE32_SWIZZLE) & 0x1f)
-
-In big-endian, BITOP_BE32_SWIZZLE is equal to 0.
-  1 << ((~fn_bit ^ BITOP_BE32_SWIZZLE) & 0x1f)
-                               = 1 << ((~fn_bit) & 0x1f)
-                               = htonl(1 << (~fn_bit & 0x1f))
-
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- net/ipv6/ip6_fib.c |   15 +++++++++++++--
- 1 files changed, 13 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 2f98479..68119ef 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -127,12 +127,23 @@ static __inline__ u32 fib6_new_sernum(void)
- /*
-  *	test bit
-  */
-+#if defined(__LITTLE_ENDIAN)
-+# define BITOP_BE32_SWIZZLE	(0x1F & ~7)
-+#else
-+# define BITOP_BE32_SWIZZLE	0
-+#endif
- 
- static __inline__ __be32 addr_bit_set(void *token, int fn_bit)
- {
- 	__be32 *addr = token;
--
--	return htonl(1 << ((~fn_bit)&0x1F)) & addr[fn_bit>>5];
-+	/*
-+	 * Here,
-+	 * 	1 << ((~fn_bit ^ BITOP_BE32_SWIZZLE) & 0x1f)
-+	 * is optimized version of
-+	 *	htonl(1 << ((~fn_bit)&0x1F))
-+	 * See include/asm-generic/bitops/le.h.
-+	 */
-+	return (1 << ((~fn_bit ^ BITOP_BE32_SWIZZLE) & 0x1f)) & addr[fn_bit >> 5];
- }
- 
- static __inline__ struct fib6_node * node_alloc(void)
--- 
-1.5.6.5
-
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 9d3ebf3..5db357a 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -2814,6 +2814,7 @@ static void rtl_rar_set(struct rtl8169_private *t=
+p, u8 *addr)
+ 	void __iomem *ioaddr =3D tp->mmio_addr;
+ 	u32 high;
+ 	u32 low;
++	int i;
+=20
+ 	low  =3D addr[0] | (addr[1] << 8) | (addr[2] << 16) | (addr[3] << 24)=
+;
+ 	high =3D addr[4] | (addr[5] << 8);
+@@ -2822,7 +2823,17 @@ static void rtl_rar_set(struct rtl8169_private *=
+tp, u8 *addr)
+=20
+ 	RTL_W8(Cfg9346, Cfg9346_Unlock);
+ 	RTL_W32(MAC0, low);
+-	RTL_W32(MAC4, high);
++	for (i =3D 0; i < 16; i++) {
++		u32 read;
++
++		RTL_W32(MAC4, high);
++		read =3D RTL_R32(MAC4);
++		if (read !=3D high) {
++			printk(KERN_ERR PFX
++			       "failure %02d: read =3D 0x%08x, write =3D 0x%08x\n",
++				i, read, high);
++		}
++	}
+ 	RTL_W8(Cfg9346, Cfg9346_Lock);
+=20
+ 	spin_unlock_irq(&tp->lock);
