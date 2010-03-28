@@ -1,59 +1,70 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH] r8169: fix broken register writes
-Date: Sun, 28 Mar 2010 23:19:24 +0100
-Message-ID: <20100328221924.GG30031@ZenIV.linux.org.uk>
-References: <4BAE6C92.2060801@iki.fi>
- <20100327211133.GA3624@electric-eye.fr.zoreil.com>
- <1269732054.8653.155.camel@localhost>
- <20100327.163005.28815553.davem@davemloft.net>
- <20100328003143.GA8501@electric-eye.fr.zoreil.com>
- <1269737245.8653.162.camel@localhost>
- <20100328212858.GA4220@electric-eye.fr.zoreil.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 1/2] netdev: add support for Receive Side Scaling hash
+ control
+Date: Sun, 28 Mar 2010 15:44:48 -0700
+Message-ID: <20100328154448.701c89ee@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	David Miller <davem@davemloft.net>, timo.teras@iki.fi,
-	ivecera@redhat.com, netdev@vger.kernel.org
-To: Fran?ois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:44105 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755285Ab0C1WTc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Mar 2010 18:19:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20100328212858.GA4220@electric-eye.fr.zoreil.com>
+Received: from mail.vyatta.com ([76.74.103.46]:42930 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755319Ab0C1Wyo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Mar 2010 18:54:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 28, 2010 at 11:28:58PM +0200, Fran?ois Romieu wrote:
-> Ben Hutchings <ben@decadent.org.uk> :
-> [...]
-> > Thanks Fran?ois.  Which hardware have you tested this on so far ?
-> 
-> 10ec:8169 (rev 10) / RTL8169sb/8110sb / XID 10000000
-> 
-> Timo's is a 10ec:8167 / RTL8169sc/8110sc / XID 18000000. He only tested
-> the MAC[04] part.
+This adds ethtool and device feature flag to allow control
+of Receive Side Scaling hashing supported by many modern
+controllers.
 
-FWIW, XID18000000 here (J7F4) loses MAC4 on shutdown; hadn't tested the patch
-yet.  2.6.26 (on that box) and 2.6.31 (on identical mb) work, 2.6.33 doesn't.
-I suspect that bisect would lead to commit cc098dc70 (i.e. the place where we
-started to set address on shutdown).  One more data point: ifconfig hw ether
-done under 2.6.26 did restore the address.  And that's the same function,
-isn't it?
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+---
+I am working on RSS for sky2 device, but the hardware isn't fully cooperating
+but thought others might want to use same API.
 
-Another interesting bit: unlike the older kernel, grep for eth0 in .33 dmesg
-
-eth0: RTL8169sc/8110sc at 0xf87fc000, 00:30:18:a4:65:89, XID 18000000 IRQ 18
-r8169: eth0: link down
-ADDRCONF(NETDEV_UP): eth0: link is not ready
-r8169: eth0: link up
-ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-
-where with .26 (with the same userland) had
-
-eth0: RTL8169sc/8110sc at 0xf87fc000, 00:30:18:a4:65:89, XID 18000000 IRQ 18
-r8169: eth0: link up
-ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-
-Same for .31 on another box, modulo different address there...
+--- a/include/linux/ethtool.h	2010-03-28 14:09:58.611267016 -0700
++++ b/include/linux/ethtool.h	2010-03-28 14:19:45.032516128 -0700
+@@ -310,6 +310,7 @@ struct ethtool_perm_addr {
+ enum ethtool_flags {
+ 	ETH_FLAG_LRO		= (1 << 15),	/* LRO is enabled */
+ 	ETH_FLAG_NTUPLE		= (1 << 27),	/* N-tuple filters enabled */
++	ETH_FLAG_RSS		= (1 << 28),	/* RSS is enabled */
+ };
+ 
+ /* The following structures are for supporting RX network flow
+--- a/include/linux/netdevice.h	2010-03-28 14:12:13.092517615 -0700
++++ b/include/linux/netdevice.h	2010-03-28 14:13:47.232915349 -0700
+@@ -785,6 +785,7 @@ struct net_device {
+ #define NETIF_F_SCTP_CSUM	(1 << 25) /* SCTP checksum offload */
+ #define NETIF_F_FCOE_MTU	(1 << 26) /* Supports max FCoE MTU, 2158 bytes*/
+ #define NETIF_F_NTUPLE		(1 << 27) /* N-tuple filters supported */
++#define NETIF_F_RSS		(1 << 28) /* Receive Side Scaling hash */
+ 
+ 	/* Segmentation offload features */
+ #define NETIF_F_GSO_SHIFT	16
+--- a/net/core/ethtool.c	2010-03-28 14:12:25.012207457 -0700
++++ b/net/core/ethtool.c	2010-03-28 14:19:41.548521569 -0700
+@@ -121,7 +121,7 @@ int ethtool_op_set_ufo(struct net_device
+  * NETIF_F_xxx values in include/linux/netdevice.h
+  */
+ static const u32 flags_dup_features =
+-	(ETH_FLAG_LRO | ETH_FLAG_NTUPLE);
++	(ETH_FLAG_LRO | ETH_FLAG_NTUPLE | ETH_FLAG_RSS);
+ 
+ u32 ethtool_op_get_flags(struct net_device *dev)
+ {
+@@ -152,6 +152,11 @@ int ethtool_op_set_flags(struct net_devi
+ 		features &= ~NETIF_F_NTUPLE;
+ 	}
+ 
++	if (data & ETH_FLAG_RSS)
++		features |= NETIF_F_RSS;
++	else
++		features &= ~NETIF_F_RSS;
++
+ 	dev->features = features;
+ 	return 0;
+ }
