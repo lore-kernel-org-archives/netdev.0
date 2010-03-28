@@ -1,44 +1,33 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] iwlwifi: range checking issue
-Date: Sun, 28 Mar 2010 14:55:00 +0300
-Message-ID: <20100328115500.GX5069@bicker>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC] inetpeer: Support ipv6 addresses.
+Date: Sun, 28 Mar 2010 05:53:12 -0700 (PDT)
+Message-ID: <20100328.055312.58421329.davem@davemloft.net>
+References: <20100327.203120.98894145.davem@davemloft.net>
+	<20100328082250.GA14053@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Reinette Chatre <reinette.chatre@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Abhijeet Kolekar <abhijeet.kolekar@intel.com>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Zhu Yi <yi.zhu@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57492
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754555Ab0C1Mwt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Mar 2010 08:52:49 -0400
+In-Reply-To: <20100328082250.GA14053@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-IWL_RATE_COUNT is 13 and IWL_RATE_COUNT_LEGACY is 12.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sun, 28 Mar 2010 16:22:50 +0800
 
-IWL_RATE_COUNT_LEGACY is the right one here because iwl3945_rates
-doesn't support 60M and also that's how "rates" is defined in
-iwlcore_init_geos() from drivers/net/wireless/iwlwifi/iwl-core.c.
+> On Sat, Mar 27, 2010 at 08:31:20PM -0700, David Miller wrote:
+>>
+>> Finally, we can really move the metrics array into the inetpeer
+>> entries.
+> 
+> My main question is how do we deal with source-address policy
+> routing in a host cache?
 
-        rates = kzalloc((sizeof(struct ieee80211_rate) * IWL_RATE_COUNT_LEGACY),
-                        GFP_KERNEL);
-
-Signed-off-by: Dan Carpenter <error27@gmail.com>
-
-diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-index 54daa38..7d3806a 100644
---- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
-+++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-@@ -1955,7 +1955,7 @@ static void iwl3945_init_hw_rates(struct iwl_priv *priv,
- {
- 	int i;
- 
--	for (i = 0; i < IWL_RATE_COUNT; i++) {
-+	for (i = 0; i < IWL_RATE_COUNT_LEGACY; i++) {
- 		rates[i].bitrate = iwl3945_rates[i].ieee * 5;
- 		rates[i].hw_value = i; /* Rate scaling will work on indexes */
- 		rates[i].hw_value_short = i;
+We don't, the same like how we don't handle fully specified
+IPSEC policies deciding upon the route.
