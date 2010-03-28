@@ -1,52 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH RFC] inetpeer: Support ipv6 addresses.
-Date: Sun, 28 Mar 2010 22:32:35 +0800
-Message-ID: <20100328143235.GA16694@gondor.apana.org.au>
-References: <20100328082250.GA14053@gondor.apana.org.au> <20100328.055312.58421329.davem@davemloft.net> <20100328131112.GA15984@gondor.apana.org.au> <20100328.064012.193708716.davem@davemloft.net> <20100328135931.GA16430@gondor.apana.org.au>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [ANNOUNCEMENT] NET: usb: sierra_net.c driver
+Date: Sun, 28 Mar 2010 08:57:01 -0700
+Message-ID: <1269791821.11714.202.camel@localhost.localdomain>
+References: <1269652919.30630.1.camel@Linuxdev3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Brownell <dbrownell@users.sourceforge.net>,
+	Rory Filer <rfiler@sierrawireless.com>, netdev@vger.kernel.org,
+	linux-usb <linux-usb@vger.kernel.org>
+To: Elina Pasheva <epasheva@sierrawireless.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:51862 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754657Ab0C1Ocj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Mar 2010 10:32:39 -0400
-Content-Disposition: inline
-In-Reply-To: <20100328135931.GA16430@gondor.apana.org.au>
+Received: from senator.holtmann.net ([87.106.208.187]:39327 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751574Ab0C1P5J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Mar 2010 11:57:09 -0400
+In-Reply-To: <1269652919.30630.1.camel@Linuxdev3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 28, 2010 at 09:59:31PM +0800, Herbert Xu wrote:
-> 
-> I don't think they are quite the same.  The TCP time stamp is
-> an attribute of the destination host, it doesn't vary depending
-> on which route you take to reach the host.  The MTU on the other
-> hand is an attribute of the route that reaches the host.
+Hi Elina,
 
-Here's a convoluted scheme that I just thought up as a compromise
-between your wish to expel the metrics and maintaining the policy
-routing semantics.
+> +static const struct driver_info sierra_net_info_68A3 = {
+> +	.description = "Sierra Wireless USB-Ethernet Modem",
+> +	.flags = FLAG_ETHER | FLAG_SEND_ZLP,
+> +	.bind = sierra_net_bind,
+> +	.unbind = sierra_net_unbind,
+> +	.status = sierra_net_status,
+> +	.rx_fixup = sierra_net_rx_fixup,
+> +	.tx_fixup = sierra_net_tx_fixup,
+> +	.data = (unsigned long)&sierra_net_info_data_68A3,
+> +};
 
-Instead of placing the metrics into the inetpeer, we create a new
-global cache for them (let's call it the metrics cache for now).
-However, we don't actually populate this cache every time we create
-an rt object.  Instead, we only create an entry in this cache
-when an event requires it, e.g., when we receive a PMTU message.
+the FLAG_ETHER is wrong here. Please use FLAG_WWAN to clearly mark these
+interfaces.
 
-In order for this to then propagate to the rt objects, we increment
-a genid in the inetpeer cache for the corresponding host.  This
-genid is then checked by the rt object every time.  When it is
-out of step, the rt object can perform a lookup in the metrics cache
-to get the latest data.
+Otherwise we have wrong DEVTYPE uevent assignments and userspace will
+treat them as real Ethernet cards. And that should not happen. As a nice
+benefit the interface name will be wwan%d by default as well.
 
-Of course once an rt object has a pointer to an entry in the metrics
-cache it doesn't need to check the genid anymore, until the metrics
-data expires at which point this process can be repeated.
+Regards
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Marcel
+
+
