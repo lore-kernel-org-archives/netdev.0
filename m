@@ -1,67 +1,45 @@
-From: Stephen Clark <sclark46-ihVZJaRskl1bRRN4PJnoQQ@public.gmane.org>
-Subject: Re: [ANNOUNCEMENT] NET: usb: sierra_net.c driver
-Date: Sun, 28 Mar 2010 15:12:44 -0400
-Message-ID: <4BAFAA2C.8060604@earthlink.net>
-References: <1269652919.30630.1.camel@Linuxdev3> <1269791821.11714.202.camel@localhost.localdomain>
-Reply-To: sclark46-ihVZJaRskl1bRRN4PJnoQQ@public.gmane.org
+From: =?iso-8859-1?Q?Fran=E7ois?= Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: fix broken register writes
+Date: Sun, 28 Mar 2010 23:28:58 +0200
+Message-ID: <20100328212858.GA4220@electric-eye.fr.zoreil.com>
+References: <4BAE6C92.2060801@iki.fi>
+ <20100327211133.GA3624@electric-eye.fr.zoreil.com>
+ <1269732054.8653.155.camel@localhost>
+ <20100327.163005.28815553.davem@davemloft.net>
+ <20100328003143.GA8501@electric-eye.fr.zoreil.com>
+ <1269737245.8653.162.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
-	David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Rory Filer <rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1269791821.11714.202.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, timo.teras@iki.fi,
+	ivecera@redhat.com, netdev@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 55.58.140-88.rev.gaoland.net ([88.140.58.55]:37410 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755214Ab0C1V3t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Mar 2010 17:29:49 -0400
+Content-Disposition: inline
+In-Reply-To: <1269737245.8653.162.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/28/2010 11:57 AM, Marcel Holtmann wrote:
-> Hi Elina,
->
->> +static const struct driver_info sierra_net_info_68A3 = {
->> +	.description = "Sierra Wireless USB-Ethernet Modem",
->> +	.flags = FLAG_ETHER | FLAG_SEND_ZLP,
->> +	.bind = sierra_net_bind,
->> +	.unbind = sierra_net_unbind,
->> +	.status = sierra_net_status,
->> +	.rx_fixup = sierra_net_rx_fixup,
->> +	.tx_fixup = sierra_net_tx_fixup,
->> +	.data = (unsigned long)&sierra_net_info_data_68A3,
->> +};
->
-> the FLAG_ETHER is wrong here. Please use FLAG_WWAN to clearly mark these
-> interfaces.
->
-> Otherwise we have wrong DEVTYPE uevent assignments and userspace will
-> treat them as real Ethernet cards. And that should not happen. As a nice
-Why shouldn't that happen if they look like NIC cards?
+Ben Hutchings <ben@decadent.org.uk> :
+[...]
+> Thanks Fran=E7ois.  Which hardware have you tested this on so far ?
 
-> benefit the interface name will be wwan%d by default as well.
->
-> Regards
->
-> Marcel
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+10ec:8169 (rev 10) / RTL8169sb/8110sb / XID 10000000
 
+Timo's is a 10ec:8167 / RTL8169sc/8110sc / XID 18000000. He only tested
+the MAC[04] part.
 
--- 
+Old stuff.
 
-"They that give up essential liberty to obtain temporary safety,
-deserve neither liberty nor safety."  (Ben Franklin)
+> I was hesitant to make changes because of the huge number of variants=
+=2E
 
-"The course of history shows that as a government grows, liberty
-decreases."  (Thomas Jefferson)
+Things will be amended if they break and reverted if they get out of
+control.
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Ueimor
