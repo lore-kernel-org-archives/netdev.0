@@ -1,48 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH] decnet: Remove unused FIB metric macros.
-Date: Sat, 27 Mar 2010 19:26:21 -0700 (PDT)
-Message-ID: <20100327.192621.229749704.davem@davemloft.net>
+Subject: Re: [PATCH] r8169: fix broken register writes
+Date: Sat, 27 Mar 2010 19:38:15 -0700 (PDT)
+Message-ID: <20100327.193815.242127373.davem@davemloft.net>
+References: <1269732054.8653.155.camel@localhost>
+	<20100327.163005.28815553.davem@davemloft.net>
+	<20100328003143.GA8501@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ben@decadent.org.uk, timo.teras@iki.fi, ivecera@redhat.com,
+	netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36743
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48114
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751319Ab0C1CZ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Mar 2010 22:25:58 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 19D3024C096
-	for <netdev@vger.kernel.org>; Sat, 27 Mar 2010 19:26:22 -0700 (PDT)
+	by vger.kernel.org with ESMTP id S1751671Ab0C1Chx convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Mar 2010 22:37:53 -0400
+In-Reply-To: <20100328003143.GA8501@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: Fran=E7ois Romieu <romieu@fr.zoreil.com>
+Date: Sun, 28 Mar 2010 01:31:43 +0100
 
-Unlike the ipv4 side, these are completely unused.
+> This is quite similar to b39fe41f481d20c201012e4483e76c203802dda7
+> though said registers are not even documented as 64-bit registers
+> - as opposed to the initial TxDescStartAddress ones - but as single
+> bytes which must be combined into 32 bits at the MMIO read/write
+> level before being merged into a 64 bit logical entity.
+>=20
+> Credits go to Ben Hutchings <ben@decadent.org.uk> for the MAR
+> registers (aka "multicast is broken for ages on ARM) and to
+> Timo Ter=E4s <timo.teras@iki.fi> for the MAC registers.
+>=20
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
+Applied, thanks Francois.
 
-Committed to net-next-2.6
+Probably the rest of the driver should be audited for other
+areas where we may end up having this problem.
 
- include/net/dn_fib.h |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+Or, we should create readq/writeq macros (like other drivers do on
+32-bit platforms, f.e. see drivers/net/niu.c) which write the two
+32-bit parts in this required order.  Then access the registers using
+readq/writeq entities throughout the driver.
 
-diff --git a/include/net/dn_fib.h b/include/net/dn_fib.h
-index 52da6c3..bbcde32 100644
---- a/include/net/dn_fib.h
-+++ b/include/net/dn_fib.h
-@@ -50,10 +50,6 @@ struct dn_fib_info {
- 	__le16			fib_prefsrc;
- 	__u32			fib_priority;
- 	__u32			fib_metrics[RTAX_MAX];
--#define dn_fib_mtu  fib_metrics[RTAX_MTU-1]
--#define dn_fib_window fib_metrics[RTAX_WINDOW-1]
--#define dn_fib_rtt fib_metrics[RTAX_RTT-1]
--#define dn_fib_advmss fib_metrics[RTAX_ADVMSS-1]
- 	int			fib_nhs;
- 	int			fib_power;
- 	struct dn_fib_nh	fib_nh[0];
--- 
-1.7.0.3
+This would have two benefits:
 
+1) Coverage for all possible bug cases.
+
+2) Real 64-bit accesses on 64-bit platforms.
+
+Just some suggestions.
+
+Thanks.
