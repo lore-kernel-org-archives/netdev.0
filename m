@@ -1,8 +1,7 @@
 From: sjur.brandeland@stericsson.com
-Subject: [PATCH net-next-2.6 v7 12/12] net-caif-driver: add CAIF serial driver
- (ldisc)
-Date: Tue, 30 Mar 2010 00:11:33 +0200
-Message-ID: <1269900693-9118-13-git-send-email-sjur.brandeland@stericsson.com>
+Subject: [PATCH net-next-2.6 v7 09/12] net-caif: add CAIF netdevice
+Date: Tue, 30 Mar 2010 00:11:30 +0200
+Message-ID: <1269900693-9118-10-git-send-email-sjur.brandeland@stericsson.com>
 References: <1269900693-9118-1-git-send-email-sjur.brandeland@stericsson.com>
  <1269900693-9118-2-git-send-email-sjur.brandeland@stericsson.com>
  <1269900693-9118-3-git-send-email-sjur.brandeland@stericsson.com>
@@ -12,9 +11,6 @@ References: <1269900693-9118-1-git-send-email-sjur.brandeland@stericsson.com>
  <1269900693-9118-7-git-send-email-sjur.brandeland@stericsson.com>
  <1269900693-9118-8-git-send-email-sjur.brandeland@stericsson.com>
  <1269900693-9118-9-git-send-email-sjur.brandeland@stericsson.com>
- <1269900693-9118-10-git-send-email-sjur.brandeland@stericsson.com>
- <1269900693-9118-11-git-send-email-sjur.brandeland@stericsson.com>
- <1269900693-9118-12-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN
 Content-Transfer-Encoding: 7BIT
@@ -24,578 +20,489 @@ To: davem@davemloft.net, netdev@vger.kernel.org, marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from eterpe-smout.broadpark.no ([80.202.8.16]:56310 "EHLO
 	eterpe-smout.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754662Ab0C2XMJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 19:12:09 -0400
+	with ESMTP id S1754624Ab0C2XMB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 19:12:01 -0400
 Received: from ignis-smin.broadpark.no ([unknown] [80.202.8.11])
  by eterpe-smout.broadpark.no
  (Sun Java(tm) System Messaging Server 7u3-12.01 64bit (built Oct 15 2009))
- with ESMTP id <0L0200DYKDNY6080@eterpe-smout.broadpark.no> for
- netdev@vger.kernel.org; Tue, 30 Mar 2010 00:11:58 +0200 (CEST)
+ with ESMTP id <0L0200DXIDNU6080@eterpe-smout.broadpark.no> for
+ netdev@vger.kernel.org; Tue, 30 Mar 2010 00:11:54 +0200 (CEST)
 Received: from localhost.localdomain ([unknown] [84.49.77.207])
  by ignis-smin.broadpark.no
  (Sun Java(tm) System Messaging Server 7u3-12.01 64bit (built Oct 15 2009))
  with ESMTP id <0L0200BAHDNEMOB0@ignis-smin.broadpark.no> for
- netdev@vger.kernel.org; Tue, 30 Mar 2010 00:11:58 +0200 (CEST)
-In-reply-to: <1269900693-9118-12-git-send-email-sjur.brandeland@stericsson.com>
+ netdev@vger.kernel.org; Tue, 30 Mar 2010 00:11:54 +0200 (CEST)
+In-reply-to: <1269900693-9118-9-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-Add CAIF Serial driver. This driver is implemented as a line discipline.
-
-caif_serial uses the following module parameters:
-ser_use_stx - specifies if STart of frame eXtension is in use.
-ser_loop    - sets the interface in loopback mode.
+Adding GPRS Net Device for PDP Contexts.
+The device can be managed by RTNL as defined in if_caif.h.
 
 Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
 ---
- drivers/net/Kconfig            |    2 +
- drivers/net/Makefile           |    1 +
- drivers/net/caif/Kconfig       |   15 ++
- drivers/net/caif/Makefile      |   14 ++
- drivers/net/caif/caif_serial.c |  441 ++++++++++++++++++++++++++++++++++++++++
- include/linux/tty.h            |    4 +-
- 6 files changed, 475 insertions(+), 2 deletions(-)
- create mode 100644 drivers/net/caif/Kconfig
- create mode 100644 drivers/net/caif/Makefile
- create mode 100644 drivers/net/caif/caif_serial.c
+ net/caif/chnl_net.c |  451 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 451 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index dd9a09c..c2e670c 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2789,6 +2789,8 @@ source "drivers/ieee802154/Kconfig"
- 
- source "drivers/s390/net/Kconfig"
- 
-+source "drivers/net/caif/Kconfig"
-+
- config XEN_NETDEV_FRONTEND
- 	tristate "Xen network device frontend driver"
- 	depends on XEN
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index ad1346d..b7ffa35 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -285,5 +285,6 @@ obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
- obj-$(CONFIG_SFC) += sfc/
- 
- obj-$(CONFIG_WIMAX) += wimax/
-+obj-$(CONFIG_CAIF) += caif/
- 
- obj-$(CONFIG_OCTEON_MGMT_ETHERNET) += octeon/
-diff --git a/drivers/net/caif/Kconfig b/drivers/net/caif/Kconfig
+diff --git a/net/caif/chnl_net.c b/net/caif/chnl_net.c
 new file mode 100644
-index 0000000..8a1a273
+index 0000000..73e639d
 --- /dev/null
-+++ b/drivers/net/caif/Kconfig
-@@ -0,0 +1,15 @@
-+#
-+# CAIF physical drivers
-+#
-+
-+if CAIF
-+
-+comment "CAIF transport drivers"
-+
-+config CAIF_TTY
-+	tristate "CAIF TTY transport driver"
-+	default n
-+	---help---
-+	The CAIF TTY transport driver.
-+
-+endif # CAIF
-diff --git a/drivers/net/caif/Makefile b/drivers/net/caif/Makefile
-new file mode 100644
-index 0000000..01784a0
---- /dev/null
-+++ b/drivers/net/caif/Makefile
-@@ -0,0 +1,14 @@
-+ifeq ($(CONFIG_CAIF_DEBUG),1)
-+CAIF_DBG_FLAGS := -DDEBUG
-+endif
-+
-+KBUILD_EXTRA_SYMBOLS=net/caif/Module.symvers
-+
-+ccflags-y := $(CAIF_FLAGS) $(CAIF_DBG_FLAGS)
-+clean-dirs:= .tmp_versions
-+clean-files:= Module.symvers modules.order *.cmd *~ \
-+
-+# Serial interface
-+obj-$(CONFIG_CAIF_TTY) += caif_serial.o
-+
-+
-diff --git a/drivers/net/caif/caif_serial.c b/drivers/net/caif/caif_serial.c
-new file mode 100644
-index 0000000..44d5cde
---- /dev/null
-+++ b/drivers/net/caif/caif_serial.c
-@@ -0,0 +1,441 @@
++++ b/net/caif/chnl_net.c
+@@ -0,0 +1,451 @@
 +/*
 + * Copyright (C) ST-Ericsson AB 2010
-+ * Author:	Sjur Brendeland / sjur.brandeland@stericsson.com
++ * Authors:	Sjur Brendeland/sjur.brandeland@stericsson.com
++ *		Daniel Martensson / Daniel.Martensson@stericsson.com
 + * License terms: GNU General Public License (GPL) version 2
 + */
 +
-+#include <linux/init.h>
 +#include <linux/version.h>
++#include <linux/fs.h>
++#include <linux/init.h>
 +#include <linux/module.h>
-+#include <linux/device.h>
-+#include <linux/types.h>
-+#include <linux/skbuff.h>
 +#include <linux/netdevice.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/tty.h>
-+#include <linux/file.h>
-+#include <linux/if_arp.h>
-+#include <net/caif/caif_device.h>
++#include <linux/if_ether.h>
++#include <linux/moduleparam.h>
++#include <linux/ip.h>
++#include <linux/sched.h>
++#include <linux/sockios.h>
++#include <linux/caif/if_caif.h>
++#include <net/rtnetlink.h>
++#include <net/caif/caif_layer.h>
 +#include <net/caif/cfcnfg.h>
-+#include <linux/err.h>
-+#include <linux/debugfs.h>
++#include <net/caif/cfpkt.h>
++#include <net/caif/caif_dev.h>
 +
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Sjur Brendeland<sjur.brandeland@stericsson.com>");
-+MODULE_DESCRIPTION("CAIF serial device TTY line discipline");
-+MODULE_LICENSE("GPL");
-+MODULE_ALIAS_LDISC(N_CAIF);
++#define CAIF_CONNECT_TIMEOUT 30
++#define SIZE_MTU 1500
++#define SIZE_MTU_MAX 4080
++#define SIZE_MTU_MIN 68
++#define CAIF_NET_DEFAULT_QUEUE_LEN 500
 +
-+#define SEND_QUEUE_LOW 10
-+#define SEND_QUEUE_HIGH 100
-+#define CAIF_SENDING	        1 /* Bit 1 = 0x02*/
-+#define CAIF_FLOW_OFF_SENT	4 /* Bit 4 = 0x10 */
-+#define MAX_WRITE_CHUNK	     4096
-+#define ON 1
-+#define OFF 0
-+#define CAIF_MAX_MTU 4096
++#undef pr_debug
++#define pr_debug pr_warning
 +
 +/*This list is protected by the rtnl lock. */
-+static LIST_HEAD(ser_list);
++static LIST_HEAD(chnl_net_list);
 +
-+static int ser_loop;
-+module_param(ser_loop, bool, S_IRUGO);
-+MODULE_PARM_DESC(ser_loop, "Run in simulated loopback mode.");
++MODULE_LICENSE("GPL");
++MODULE_ALIAS_RTNL_LINK("caif");
 +
-+static int ser_use_stx = 1;
-+module_param(ser_use_stx, bool, S_IRUGO);
-+MODULE_PARM_DESC(ser_use_stx, "STX enabled or not.");
-+
-+static int ser_use_fcs = 1;
-+
-+module_param(ser_use_fcs, bool, S_IRUGO);
-+MODULE_PARM_DESC(ser_use_fcs, "FCS enabled or not.");
-+
-+static int ser_write_chunk = MAX_WRITE_CHUNK;
-+module_param(ser_write_chunk, int, S_IRUGO);
-+
-+MODULE_PARM_DESC(ser_write_chunk, "Maximum size of data written to UART.");
-+
-+static struct dentry *debugfsdir;
-+
-+static int caif_net_open(struct net_device *dev);
-+static int caif_net_close(struct net_device *dev);
-+
-+struct ser_device {
-+	struct caif_dev_common common;
-+	struct list_head node;
-+	struct net_device *dev;
-+	struct sk_buff_head head;
-+	struct tty_struct *tty;
-+	bool tx_started;
-+	unsigned long state;
-+	char *tty_name;
-+#ifdef CONFIG_DEBUG_FS
-+	struct dentry *debugfs_tty_dir;
-+	struct debugfs_blob_wrapper tx_blob;
-+	struct debugfs_blob_wrapper rx_blob;
-+	u8 rx_data[128];
-+	u8 tx_data[128];
-+	u8 tty_status;
-+
-+#endif
++struct chnl_net {
++	struct cflayer chnl;
++	struct net_device_stats stats;
++	struct caif_connect_request conn_req;
++	struct list_head list_field;
++	struct net_device *netdev;
++	char name[256];
++	wait_queue_head_t netmgmt_wq;
++	/* Flow status to remember and control the transmission. */
++	bool flowenabled;
++	bool pending_close;
 +};
 +
-+static void caifdev_setup(struct net_device *dev);
-+static void ldisc_tx_wakeup(struct tty_struct *tty);
-+#ifdef CONFIG_DEBUG_FS
-+static inline void update_tty_status(struct ser_device *ser)
++static void robust_list_del(struct list_head *delete_node)
 +{
-+	ser->tty_status =
-+		ser->tty->stopped << 5 |
-+		ser->tty->hw_stopped << 4 |
-+		ser->tty->flow_stopped << 3 |
-+		ser->tty->packet << 2 |
-+		ser->tty->low_latency << 1 |
-+		ser->tty->warned;
-+}
-+static inline void debugfs_init(struct ser_device *ser, struct tty_struct *tty)
-+{
-+	ser->debugfs_tty_dir =
-+			debugfs_create_dir(tty->name, debugfsdir);
-+	if (!IS_ERR(ser->debugfs_tty_dir)) {
-+		debugfs_create_blob("last_tx_msg", S_IRUSR,
-+				ser->debugfs_tty_dir,
-+				&ser->tx_blob);
-+
-+		debugfs_create_blob("last_rx_msg", S_IRUSR,
-+				ser->debugfs_tty_dir,
-+				&ser->rx_blob);
-+
-+		debugfs_create_x32("ser_state", S_IRUSR,
-+				ser->debugfs_tty_dir,
-+				(u32 *)&ser->state);
-+
-+		debugfs_create_x8("tty_status", S_IRUSR,
-+				ser->debugfs_tty_dir,
-+				&ser->tty_status);
-+
-+	}
-+	ser->tx_blob.data = ser->tx_data;
-+	ser->tx_blob.size = 0;
-+	ser->rx_blob.data = ser->rx_data;
-+	ser->rx_blob.size = 0;
-+}
-+
-+static inline void debugfs_deinit(struct ser_device *ser)
-+{
-+	debugfs_remove_recursive(ser->debugfs_tty_dir);
-+}
-+
-+static inline void debugfs_rx(struct ser_device *ser, const u8 *data, int size)
-+{
-+	if (size > sizeof(ser->rx_data))
-+		size = sizeof(ser->rx_data);
-+	memcpy(ser->rx_data, data, size);
-+	ser->rx_blob.data = ser->rx_data;
-+	ser->rx_blob.size = size;
-+}
-+
-+static inline void debugfs_tx(struct ser_device *ser, const u8 *data, int size)
-+{
-+	if (size > sizeof(ser->tx_data))
-+		size = sizeof(ser->tx_data);
-+	memcpy(ser->tx_data, data, size);
-+	ser->tx_blob.data = ser->tx_data;
-+	ser->tx_blob.size = size;
-+}
-+#else
-+static inline void debugfs_init(struct ser_device *ser, struct tty_struct *tty)
-+{
-+}
-+
-+static inline void debugfs_deinit(struct ser_device *ser)
-+{
-+}
-+
-+static inline void update_tty_status(struct ser_device *ser)
-+{
-+}
-+
-+static inline void debugfs_rx(struct ser_device *ser, const u8 *data, int size)
-+{
-+}
-+
-+static inline void debugfs_tx(struct ser_device *ser, const u8 *data, int size)
-+{
-+}
-+
-+#endif
-+
-+static void ldisc_receive(struct tty_struct *tty, const u8 *data,
-+			char *flags, int count)
-+{
-+	struct sk_buff *skb = NULL;
-+	struct ser_device *ser;
-+	int ret;
-+	u8 *p;
-+	ser = tty->disc_data;
-+
-+	/*
-+	 * NOTE: flags may contain information about break or overrun.
-+	 * This is not yet handled.
-+	 */
-+
-+
-+	/*
-+	 * Workaround for garbage at start of transmission,
-+	 * only enable if STX handling is not enabled.
-+	 */
-+	if (!ser->common.use_stx && !ser->tx_started) {
-+		dev_info(&ser->dev->dev,
-+			"Bytes received before initial transmission -"
-+			"bytes discarded.\n");
-+		return;
-+	}
-+
-+	BUG_ON(ser->dev == NULL);
-+
-+	/* Get a suitable caif packet and copy in data. */
-+	skb = netdev_alloc_skb(ser->dev, count+1);
-+	BUG_ON(skb == NULL);
-+	p = skb_put(skb, count);
-+	memcpy(p, data, count);
-+
-+	skb->protocol = htons(ETH_P_CAIF);
-+	skb_reset_mac_header(skb);
-+	skb->dev = ser->dev;
-+	debugfs_rx(ser, data, count);
-+	/* Push received packet up the stack. */
-+	ret = netif_rx_ni(skb);
-+	if (!ret) {
-+		ser->dev->stats.rx_packets++;
-+		ser->dev->stats.rx_bytes += count;
-+	} else
-+		++ser->dev->stats.rx_dropped;
-+	update_tty_status(ser);
-+}
-+
-+static int handle_tx(struct ser_device *ser)
-+{
-+	struct tty_struct *tty;
-+	struct sk_buff *skb;
-+	int tty_wr, len, room;
-+	tty = ser->tty;
-+	ser->tx_started = true;
-+
-+	/* Enter critical section */
-+	if (test_and_set_bit(CAIF_SENDING, &ser->state))
-+		return 0;
-+
-+	/* skb_peek is safe because handle_tx is called after skb_queue_tail */
-+	while ((skb = skb_peek(&ser->head)) != NULL) {
-+
-+		/* Make sure you don't write too much */
-+		len = skb->len;
-+		room = tty_write_room(tty);
-+		if (!room)
++	struct list_head *list_node;
++	struct list_head *n;
++	ASSERT_RTNL();
++	list_for_each_safe(list_node, n, &chnl_net_list) {
++		if (list_node == delete_node) {
++			list_del(list_node);
 +			break;
-+		if (room > ser_write_chunk)
-+			room = ser_write_chunk;
-+		if (len > room)
-+			len = room;
-+
-+		/* Write to tty or loopback */
-+		if (!ser_loop) {
-+			tty_wr = tty->ops->write(tty, skb->data, len);
-+			update_tty_status(ser);
-+		} else {
-+			tty_wr = len;
-+			ldisc_receive(tty, skb->data, 0, len);
-+		}
-+		ser->dev->stats.tx_packets++;
-+		ser->dev->stats.tx_bytes += tty_wr;
-+
-+		/* Error on TTY ?! */
-+		if (tty_wr < 0)
-+			goto error;
-+		/* Reduce buffer written, and discard if empty */
-+		skb_pull(skb, tty_wr);
-+		if (skb->len == 0) {
-+			struct sk_buff *tmp = skb_dequeue(&ser->head);
-+			BUG_ON(tmp != skb);
-+			if (in_interrupt())
-+				dev_kfree_skb_irq(skb);
-+			else
-+				kfree_skb(skb);
 +		}
 +	}
-+	/* Send flow off if queue is empty */
-+	if (ser->head.qlen <= SEND_QUEUE_LOW &&
-+		test_and_clear_bit(CAIF_FLOW_OFF_SENT, &ser->state) &&
-+		ser->common.flowctrl != NULL)
-+				ser->common.flowctrl(ser->dev, ON);
-+	clear_bit(CAIF_SENDING, &ser->state);
++}
++
++static int chnl_recv_cb(struct cflayer *layr, struct cfpkt *pkt)
++{
++	struct sk_buff *skb;
++	struct chnl_net *priv  = NULL;
++	int pktlen;
++	int err = 0;
++
++	priv = container_of(layr, struct chnl_net, chnl);
++
++	if (!priv)
++		return -EINVAL;
++
++	/* Get length of CAIF packet. */
++	pktlen = cfpkt_getlen(pkt);
++
++	skb = (struct sk_buff *) cfpkt_tonative(pkt);
++	/* Pass some minimum information and
++	 * send the packet to the net stack.
++	 */
++	skb->dev = priv->netdev;
++	skb->protocol = htons(ETH_P_IP);
++
++	/* If we change the header in loop mode, the checksum is corrupted. */
++	if (priv->conn_req.protocol == CAIFPROTO_DATAGRAM_LOOP)
++		skb->ip_summed = CHECKSUM_UNNECESSARY;
++	else
++		skb->ip_summed = CHECKSUM_NONE;
++
++	/* FIXME: Drivers should call this in tasklet context. */
++	if (in_interrupt())
++		netif_rx(skb);
++	else
++		netif_rx_ni(skb);
++
++	/* Update statistics. */
++	priv->netdev->stats.rx_packets++;
++	priv->netdev->stats.rx_bytes += pktlen;
++
++	return err;
++}
++
++static int delete_device(struct chnl_net *dev)
++{
++	ASSERT_RTNL();
++	if (dev->netdev)
++		unregister_netdevice(dev->netdev);
 +	return 0;
-+error:
-+	clear_bit(CAIF_SENDING, &ser->state);
-+	return tty_wr;
 +}
 +
-+static int caif_xmit(struct sk_buff *skb, struct net_device *dev)
++static void close_work(struct work_struct *work)
 +{
-+	struct ser_device *ser;
-+	BUG_ON(dev == NULL);
-+	ser = netdev_priv(dev);
-+
-+	/* Send flow off once, on high water mark */
-+	if (ser->head.qlen > SEND_QUEUE_HIGH &&
-+		!test_and_set_bit(CAIF_FLOW_OFF_SENT, &ser->state) &&
-+		ser->common.flowctrl != NULL)
-+
-+		ser->common.flowctrl(ser->dev, OFF);
-+
-+	skb_queue_tail(&ser->head, skb);
-+	return handle_tx(ser);
-+}
-+
-+
-+static void ldisc_tx_wakeup(struct tty_struct *tty)
-+{
-+	struct ser_device *ser;
-+	ser = tty->disc_data;
-+	BUG_ON(ser == NULL);
-+	BUG_ON(ser->tty != tty);
-+	handle_tx(ser);
-+}
-+
-+
-+static int ldisc_open(struct tty_struct *tty)
-+{
-+	struct ser_device *ser;
-+	struct net_device *dev;
-+	char name[64];
-+	int result;
-+
-+	sprintf(name, "cf%s", tty->name);
-+	dev = alloc_netdev(sizeof(*ser), name, caifdev_setup);
-+	ser = netdev_priv(dev);
-+	ser->tty = tty;
-+	ser->dev = dev;
-+	debugfs_init(ser, tty);
-+	tty->receive_room = N_TTY_BUF_SIZE;
-+	tty->disc_data = ser;
-+	set_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
++	struct chnl_net *dev = NULL;
++	struct list_head *list_node;
++	struct list_head *_tmp;
 +	rtnl_lock();
-+	result = register_netdevice(dev);
-+	if (result) {
-+		rtnl_unlock();
-+		free_netdev(dev);
-+		return -ENODEV;
++	list_for_each_safe(list_node, _tmp, &chnl_net_list) {
++		dev = list_entry(list_node, struct chnl_net, list_field);
++		if (!dev->pending_close)
++			continue;
++		list_del(list_node);
++		delete_device(dev);
++	}
++	rtnl_unlock();
++}
++DECLARE_WORK(close_worker, close_work);
++
++static void chnl_flowctrl_cb(struct cflayer *layr, enum caif_ctrlcmd flow,
++				int phyid)
++{
++	struct chnl_net *priv;
++	pr_debug("CAIF: %s(): NET flowctrl func called flow: %s.\n",
++		__func__,
++		flow == CAIF_CTRLCMD_FLOW_ON_IND ? "ON" :
++		flow == CAIF_CTRLCMD_INIT_RSP ? "INIT" :
++		flow == CAIF_CTRLCMD_FLOW_OFF_IND ? "OFF" :
++		flow == CAIF_CTRLCMD_DEINIT_RSP ? "CLOSE/DEINIT" :
++		flow == CAIF_CTRLCMD_INIT_FAIL_RSP ? "OPEN_FAIL" :
++		flow == CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND ?
++		 "REMOTE_SHUTDOWN" : "UKNOWN CTRL COMMAND");
++
++	priv = container_of(layr, struct chnl_net, chnl);
++
++	switch (flow) {
++	case CAIF_CTRLCMD_FLOW_OFF_IND:
++	case CAIF_CTRLCMD_DEINIT_RSP:
++	case CAIF_CTRLCMD_INIT_FAIL_RSP:
++	case CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND:
++		priv->flowenabled = false;
++		netif_tx_disable(priv->netdev);
++		pr_warning("CAIF: %s(): done\n", __func__);
++		priv->pending_close = 1;
++		schedule_work(&close_worker);
++		break;
++	case CAIF_CTRLCMD_FLOW_ON_IND:
++	case CAIF_CTRLCMD_INIT_RSP:
++		priv->flowenabled = true;
++		netif_wake_queue(priv->netdev);
++		wake_up_interruptible(&priv->netmgmt_wq);
++		break;
++	default:
++		break;
++	}
++}
++
++static int chnl_net_start_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct chnl_net *priv;
++	struct cfpkt *pkt = NULL;
++	int len;
++	int result = -1;
++	/* Get our private data. */
++	priv = netdev_priv(dev);
++
++	if (skb->len > priv->netdev->mtu) {
++		pr_warning("CAIF: %s(): Size of skb exceeded MTU\n", __func__);
++		return -ENOSPC;
 +	}
 +
-+	list_add(&ser->node, &ser_list);
-+	rtnl_unlock();
-+	netif_stop_queue(dev);
-+	update_tty_status(ser);
-+	return 0;
-+}
++	if (!priv->flowenabled) {
++		pr_debug("CAIF: %s(): dropping packets flow off\n", __func__);
++		return NETDEV_TX_BUSY;
++	}
 +
-+static void ldisc_close(struct tty_struct *tty)
-+{
-+	struct ser_device *ser = tty->disc_data;
-+	/* Remove may be called inside or outside of rtnl_lock */
-+	int islocked = rtnl_is_locked();
-+	if (!islocked)
-+		rtnl_lock();
-+	/* device is freed automagically by net-sysfs */
-+	dev_close(ser->dev);
-+	unregister_netdevice(ser->dev);
-+	list_del(&ser->node);
-+	debugfs_deinit(ser);
-+	if (!islocked)
-+		rtnl_unlock();
-+}
++	if (priv->conn_req.protocol == CAIFPROTO_DATAGRAM_LOOP)
++		swap(ip_hdr(skb)->saddr, ip_hdr(skb)->daddr);
 +
-+/* The line discipline structure. */
-+static struct tty_ldisc_ops caif_ldisc = {
-+	.owner =	THIS_MODULE,
-+	.magic =	TTY_LDISC_MAGIC,
-+	.name =		"n_caif",
-+	.open =		ldisc_open,
-+	.close =	ldisc_close,
-+	.receive_buf =	ldisc_receive,
-+	.write_wakeup =	ldisc_tx_wakeup
-+};
++	/* Store original SKB length. */
++	len = skb->len;
 +
-+static int register_ldisc(void)
-+{
-+	int result;
-+	result = tty_register_ldisc(N_CAIF, &caif_ldisc);
-+	if (result < 0) {
-+		pr_err("cannot register CAIF ldisc=%d err=%d\n", N_CAIF,
-+			result);
++	pkt = cfpkt_fromnative(CAIF_DIR_OUT, (void *) skb);
++
++	pr_debug("CAIF: %s(): transmit inst %s %d,%p\n",
++		__func__, dev->name, priv->chnl.dn->id, &priv->chnl.dn);
++
++	/* Send the packet down the stack. */
++	result = priv->chnl.dn->transmit(priv->chnl.dn, pkt);
++	if (result) {
++		if (result == -EAGAIN)
++			result = NETDEV_TX_BUSY;
 +		return result;
 +	}
-+	return result;
++
++	/* Update statistics. */
++	dev->stats.tx_packets++;
++	dev->stats.tx_bytes += len;
++
++	return NETDEV_TX_OK;
 +}
++
++static int chnl_net_open(struct net_device *dev)
++{
++	struct chnl_net *priv = NULL;
++	int result = -1;
++	ASSERT_RTNL();
++
++	priv = netdev_priv(dev);
++	pr_debug("CAIF: %s(): dev name: %s\n", __func__, priv->name);
++
++	if (!priv) {
++		pr_debug("CAIF: %s(): chnl_net_open: no priv\n", __func__);
++		return -ENODEV;
++	}
++	result = caif_connect_client(&priv->conn_req, &priv->chnl);
++	if (result != 0) {
++		pr_debug("CAIF: %s(): err: "
++			 "Unable to register and open device, Err:%d\n",
++			__func__,
++			result);
++		return -ENODEV;
++	}
++	result = wait_event_interruptible(priv->netmgmt_wq, priv->flowenabled);
++
++	if (result == -ERESTARTSYS) {
++		pr_debug("CAIF: %s(): wait_event_interruptible"
++			 " woken by a signal\n", __func__);
++		return -ERESTARTSYS;
++	} else
++		pr_debug("CAIF: %s(): Flow on recieved\n", __func__);
++
++	return 0;
++}
++
++static int chnl_net_stop(struct net_device *dev)
++{
++	struct chnl_net *priv;
++	int result = -1;
++	ASSERT_RTNL();
++	priv = netdev_priv(dev);
++
++	result = caif_disconnect_client(&priv->chnl);
++	if (result != 0) {
++		pr_debug("CAIF: %s(): chnl_net_stop: err: "
++			 "Unable to STOP device, Err:%d\n",
++			 __func__, result);
++		return -EBUSY;
++	}
++	result = wait_event_interruptible(priv->netmgmt_wq,
++					  !priv->flowenabled);
++
++	if (result == -ERESTARTSYS) {
++		pr_debug("CAIF: %s(): wait_event_interruptible woken by"
++			 " signal, signal_pending(current) = %d\n",
++			 __func__,
++			 signal_pending(current));
++	} else {
++		pr_debug("CAIF: %s(): disconnect received\n", __func__);
++
++	}
++
++	return 0;
++}
++
++int chnl_net_init(struct net_device *dev)
++{
++	struct chnl_net *priv;
++	ASSERT_RTNL();
++	priv = netdev_priv(dev);
++	strncpy(priv->name, dev->name, sizeof(priv->name));
++	return 0;
++}
++
++void chnl_net_uninit(struct net_device *dev)
++{
++	struct chnl_net *priv;
++	ASSERT_RTNL();
++	priv = netdev_priv(dev);
++	robust_list_del(&priv->list_field);
++}
++
 +static const struct net_device_ops netdev_ops = {
-+	.ndo_open = caif_net_open,
-+	.ndo_stop = caif_net_close,
-+	.ndo_start_xmit = caif_xmit
++	.ndo_open = chnl_net_open,
++	.ndo_stop = chnl_net_stop,
++	.ndo_init = chnl_net_init,
++	.ndo_uninit = chnl_net_uninit,
++	.ndo_start_xmit = chnl_net_start_xmit,
 +};
 +
-+static void caifdev_setup(struct net_device *dev)
++static void ipcaif_net_setup(struct net_device *dev)
 +{
-+	struct ser_device *serdev = netdev_priv(dev);
-+	dev->features = 0;
++	struct chnl_net *priv;
 +	dev->netdev_ops = &netdev_ops;
-+	dev->type = ARPHRD_CAIF;
-+	dev->flags = IFF_POINTOPOINT | IFF_NOARP;
-+	dev->mtu = CAIF_MAX_MTU;
-+	dev->hard_header_len = CAIF_NEEDED_HEADROOM;
-+	dev->tx_queue_len = 0;
 +	dev->destructor = free_netdev;
-+	skb_queue_head_init(&serdev->head);
-+	serdev->common.link_select = CAIF_LINK_LOW_LATENCY;
-+	serdev->common.use_frag = true;
-+	serdev->common.use_stx = ser_use_stx;
-+	serdev->common.use_fcs = ser_use_fcs;
-+	serdev->dev = dev;
++	dev->flags |= IFF_NOARP;
++	dev->flags |= IFF_POINTOPOINT;
++	dev->needed_headroom = CAIF_NEEDED_HEADROOM;
++	dev->needed_tailroom = CAIF_NEEDED_TAILROOM;
++	dev->mtu = SIZE_MTU;
++	dev->tx_queue_len = CAIF_NET_DEFAULT_QUEUE_LEN;
++
++	priv = netdev_priv(dev);
++	priv->chnl.receive = chnl_recv_cb;
++	priv->chnl.ctrlcmd = chnl_flowctrl_cb;
++	priv->netdev = dev;
++	priv->conn_req.protocol = CAIFPROTO_DATAGRAM;
++	priv->conn_req.link_selector = CAIF_LINK_HIGH_BANDW;
++	priv->conn_req.priority = CAIF_PRIO_LOW;
++	/* Insert illegal value */
++	priv->conn_req.sockaddr.u.dgm.connection_id = -1;
++	priv->flowenabled = false;
++
++	ASSERT_RTNL();
++	init_waitqueue_head(&priv->netmgmt_wq);
++	list_add(&priv->list_field, &chnl_net_list);
 +}
 +
 +
-+static int caif_net_open(struct net_device *dev)
++static int ipcaif_fill_info(struct sk_buff *skb, const struct net_device *dev)
 +{
-+	struct ser_device *ser;
-+	ser = netdev_priv(dev);
-+	netif_wake_queue(dev);
++	struct chnl_net *priv;
++	u8 loop;
++	priv = netdev_priv(dev);
++	NLA_PUT_U32(skb, IFLA_CAIF_IPV4_CONNID,
++		    priv->conn_req.sockaddr.u.dgm.connection_id);
++	NLA_PUT_U32(skb, IFLA_CAIF_IPV6_CONNID,
++		    priv->conn_req.sockaddr.u.dgm.connection_id);
++	loop = priv->conn_req.protocol == CAIFPROTO_DATAGRAM_LOOP;
++	NLA_PUT_U8(skb, IFLA_CAIF_LOOPBACK, loop);
++
++
 +	return 0;
++nla_put_failure:
++	return -EMSGSIZE;
++
 +}
 +
-+static int caif_net_close(struct net_device *dev)
++static void caif_netlink_parms(struct nlattr *data[],
++				struct caif_connect_request *conn_req)
 +{
-+	netif_stop_queue(dev);
-+	return 0;
++	if (!data) {
++		pr_warning("CAIF: %s: no params data found\n", __func__);
++		return;
++	}
++	if (data[IFLA_CAIF_IPV4_CONNID])
++		conn_req->sockaddr.u.dgm.connection_id =
++			nla_get_u32(data[IFLA_CAIF_IPV4_CONNID]);
++	if (data[IFLA_CAIF_IPV6_CONNID])
++		conn_req->sockaddr.u.dgm.connection_id =
++			nla_get_u32(data[IFLA_CAIF_IPV6_CONNID]);
++	if (data[IFLA_CAIF_LOOPBACK]) {
++		if (nla_get_u8(data[IFLA_CAIF_LOOPBACK]))
++			conn_req->protocol = CAIFPROTO_DATAGRAM_LOOP;
++		else
++			conn_req->protocol = CAIFPROTO_DATAGRAM;
++	}
 +}
 +
-+static int __init caif_ser_init(void)
++static int ipcaif_newlink(struct net *src_net, struct net_device *dev,
++			  struct nlattr *tb[], struct nlattr *data[])
 +{
 +	int ret;
-+	ret = register_ldisc();
-+	debugfsdir = debugfs_create_dir("caif_serial", NULL);
++	struct chnl_net *caifdev;
++	ASSERT_RTNL();
++	caifdev = netdev_priv(dev);
++	caif_netlink_parms(data, &caifdev->conn_req);
++	ret = register_netdevice(dev);
++	if (ret)
++		pr_warning("CAIF: %s(): device rtml registration failed\n",
++			   __func__);
 +	return ret;
 +}
 +
-+static void __exit caif_ser_exit(void)
++static int ipcaif_changelink(struct net_device *dev, struct nlattr *tb[],
++				struct nlattr *data[])
 +{
-+	struct ser_device *ser = NULL;
-+	struct list_head *node;
-+	struct list_head *_tmp;
-+	list_for_each_safe(node, _tmp, &ser_list) {
-+		ser = list_entry(node, struct ser_device, node);
-+		dev_close(ser->dev);
-+		unregister_netdevice(ser->dev);
-+		list_del(node);
-+	}
-+	tty_unregister_ldisc(N_CAIF);
-+	debugfs_remove_recursive(debugfsdir);
++	struct chnl_net *caifdev;
++	ASSERT_RTNL();
++	caifdev = netdev_priv(dev);
++	caif_netlink_parms(data, &caifdev->conn_req);
++	netdev_state_change(dev);
++	return 0;
 +}
 +
-+module_init(caif_ser_init);
-+module_exit(caif_ser_exit);
-diff --git a/include/linux/tty.h b/include/linux/tty.h
-index ef3a294..5dd674b 100644
---- a/include/linux/tty.h
-+++ b/include/linux/tty.h
-@@ -23,7 +23,7 @@
-  */
- #define NR_UNIX98_PTY_DEFAULT	4096      /* Default maximum for Unix98 ptys */
- #define NR_UNIX98_PTY_MAX	(1 << MINORBITS) /* Absolute limit */
--#define NR_LDISCS		20
-+#define NR_LDISCS		21
- 
- /* line disciplines */
- #define N_TTY		0
-@@ -46,8 +46,8 @@
- #define N_GIGASET_M101	16	/* Siemens Gigaset M101 serial DECT adapter */
- #define N_SLCAN		17	/* Serial / USB serial CAN Adaptors */
- #define N_PPS		18	/* Pulse per Second */
--
- #define N_V253		19	/* Codec control over voice modem */
-+#define N_CAIF		20      /* CAIF protocol for talking to modems */
- 
- /*
-  * This character is the same as _POSIX_VDISABLE: it cannot be used as
++static size_t ipcaif_get_size(const struct net_device *dev)
++{
++	return
++		/* IFLA_CAIF_IPV4_CONNID */
++		nla_total_size(4) +
++		/* IFLA_CAIF_IPV6_CONNID */
++		nla_total_size(4) +
++		/* IFLA_CAIF_LOOPBACK */
++		nla_total_size(2) +
++		0;
++}
++
++static const struct nla_policy ipcaif_policy[IFLA_CAIF_MAX + 1] = {
++	[IFLA_CAIF_IPV4_CONNID]	      = { .type = NLA_U32 },
++	[IFLA_CAIF_IPV6_CONNID]	      = { .type = NLA_U32 },
++	[IFLA_CAIF_LOOPBACK]	      = { .type = NLA_U8 }
++};
++
++
++static struct rtnl_link_ops ipcaif_link_ops __read_mostly = {
++	.kind		= "caif",
++	.priv_size	= sizeof(struct chnl_net),
++	.setup		= ipcaif_net_setup,
++	.maxtype	= IFLA_CAIF_MAX,
++	.policy		= ipcaif_policy,
++	.newlink	= ipcaif_newlink,
++	.changelink	= ipcaif_changelink,
++	.get_size	= ipcaif_get_size,
++	.fill_info	= ipcaif_fill_info,
++
++};
++
++static int __init chnl_init_module(void)
++{
++	return rtnl_link_register(&ipcaif_link_ops);
++}
++
++static void __exit chnl_exit_module(void)
++{
++	struct chnl_net *dev = NULL;
++	struct list_head *list_node;
++	struct list_head *_tmp;
++	rtnl_link_unregister(&ipcaif_link_ops);
++	rtnl_lock();
++	list_for_each_safe(list_node, _tmp, &chnl_net_list) {
++		dev = list_entry(list_node, struct chnl_net, list_field);
++		list_del(list_node);
++		delete_device(dev);
++	}
++	rtnl_unlock();
++}
++
++module_init(chnl_init_module);
++module_exit(chnl_exit_module);
 -- 
 1.6.3.3
 
