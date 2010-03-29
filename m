@@ -1,63 +1,109 @@
 From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
-Subject: [net-next-2.6 PATCH 3/8] vxge: Align the memory only if it is
- misaligned.
-Date: Mon, 29 Mar 2010 04:09:47 -0400 (EDT)
-Message-ID: <Pine.GSO.4.10.11003290409080.4435-100000@guinness>
+Subject: [net-next-2.6 PATCH 2/8] vxge: Fix starvation of receive ring
+ controller when blasted by short packets.
+Date: Mon, 29 Mar 2010 04:08:30 -0400 (EDT)
+Message-ID: <Pine.GSO.4.10.11003290407500.4435-100000@guinness>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org, support@neterion.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:48131 "EHLO
+Received: from barracuda.s2io.com ([72.1.205.138]:48127 "EHLO
 	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753027Ab0C2IXW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 04:23:22 -0400
+	with ESMTP id S1752858Ab0C2IXT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 04:23:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- Align the memory only if it is misaligned.
+- Fix starvation of receive ring controller when blasted by short packets. This was because the driver was posting 64 rxds initially while the ring controller 
+was expecting to read 256 replenished rxds. While the driver was coming up, 
+the internal rxd memory filled up the 64 buffers provided and the ring 
+controller was left waiting for the remaining 192 rxds to complete the write
+back of completed rxds to the host and generation of an interrupt.
 
 Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
 Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
 ---
-diff -urpN patch2/drivers/net/vxge/vxge-config.h patch3/drivers/net/vxge/vxge-config.h
---- patch2/drivers/net/vxge/vxge-config.h	2010-03-19 16:08:43.000000000 +0530
-+++ patch3/drivers/net/vxge/vxge-config.h	2010-03-22 12:15:04.000000000 +0530
-@@ -1914,20 +1914,32 @@ static inline void *vxge_os_dma_malloc(s
- 	gfp_t flags;
- 	void *vaddr;
- 	unsigned long misaligned = 0;
-+	int realloc_flag = 0;
- 	*p_dma_acch = *p_dmah = NULL;
+diff -urpN patch1/drivers/net/vxge/vxge-config.c patch2/drivers/net/vxge/vxge-config.c
+--- patch1/drivers/net/vxge/vxge-config.c	2010-03-19 15:49:16.000000000 +0530
++++ patch2/drivers/net/vxge/vxge-config.c	2010-03-19 16:16:11.000000000 +0530
+@@ -1217,14 +1217,13 @@ __vxge_hw_ring_mempool_item_alloc(struct
+ }
  
- 	if (in_interrupt())
- 		flags = GFP_ATOMIC | GFP_DMA;
- 	else
- 		flags = GFP_KERNEL | GFP_DMA;
--
--	size += VXGE_CACHE_LINE_SIZE;
--
-+realloc:
- 	vaddr = kmalloc((size), flags);
- 	if (vaddr == NULL)
- 		return vaddr;
--	misaligned = (unsigned long)VXGE_ALIGN(*((u64 *)&vaddr),
-+	misaligned = (unsigned long)VXGE_ALIGN((unsigned long)vaddr,
- 				VXGE_CACHE_LINE_SIZE);
-+	if (realloc_flag)
-+		goto out;
-+
-+	if (misaligned) {
-+		/* misaligned, free current one and try allocating
-+		 * size + VXGE_CACHE_LINE_SIZE memory
-+		 */
-+		kfree((void *) vaddr);
-+		size += VXGE_CACHE_LINE_SIZE;
-+		realloc_flag = 1;
-+		goto realloc;
-+	}
-+out:
- 	*(unsigned long *)p_dma_acch = misaligned;
- 	vaddr = (void *)((u8 *)vaddr + misaligned);
- 	return vaddr;
+ /*
+- * __vxge_hw_ring_initial_replenish - Initial replenish of RxDs
++ * __vxge_hw_ring_replenish - Initial replenish of RxDs
+  * This function replenishes the RxDs from reserve array to work array
+  */
+ enum vxge_hw_status
+-vxge_hw_ring_replenish(struct __vxge_hw_ring *ring, u16 min_flag)
++vxge_hw_ring_replenish(struct __vxge_hw_ring *ring)
+ {
+ 	void *rxd;
+-	int i = 0;
+ 	struct __vxge_hw_channel *channel;
+ 	enum vxge_hw_status status = VXGE_HW_OK;
+ 
+@@ -1245,11 +1244,6 @@ vxge_hw_ring_replenish(struct __vxge_hw_
+ 		}
+ 
+ 		vxge_hw_ring_rxd_post(ring, rxd);
+-		if (min_flag) {
+-			i++;
+-			if (i == VXGE_HW_RING_MIN_BUFF_ALLOCATION)
+-				break;
+-		}
+ 	}
+ 	status = VXGE_HW_OK;
+ exit:
+@@ -1354,7 +1348,7 @@ __vxge_hw_ring_create(struct __vxge_hw_v
+ 	 * Currently we don't have a case when the 1) is done without the 2).
+ 	 */
+ 	if (ring->rxd_init) {
+-		status = vxge_hw_ring_replenish(ring, 1);
++		status = vxge_hw_ring_replenish(ring);
+ 		if (status != VXGE_HW_OK) {
+ 			__vxge_hw_ring_delete(vp);
+ 			goto exit;
+@@ -1416,7 +1410,7 @@ enum vxge_hw_status __vxge_hw_ring_reset
+ 		goto exit;
+ 
+ 	if (ring->rxd_init) {
+-		status = vxge_hw_ring_replenish(ring, 1);
++		status = vxge_hw_ring_replenish(ring);
+ 		if (status != VXGE_HW_OK)
+ 			goto exit;
+ 	}
+diff -urpN patch1/drivers/net/vxge/vxge-main.c patch2/drivers/net/vxge/vxge-main.c
+--- patch1/drivers/net/vxge/vxge-main.c	2010-03-19 15:49:16.000000000 +0530
++++ patch2/drivers/net/vxge/vxge-main.c	2010-03-19 16:11:49.000000000 +0530
+@@ -444,7 +444,7 @@ vxge_rx_1b_compl(struct __vxge_hw_ring *
+ 		ring->ndev->name, __func__, __LINE__);
+ 	ring->pkts_processed = 0;
+ 
+-	vxge_hw_ring_replenish(ringh, 0);
++	vxge_hw_ring_replenish(ringh);
+ 
+ 	do {
+ 		prefetch((char *)dtr + L1_CACHE_BYTES);
+diff -urpN patch1/drivers/net/vxge/vxge-traffic.h patch2/drivers/net/vxge/vxge-traffic.h
+--- patch1/drivers/net/vxge/vxge-traffic.h	2010-03-19 15:55:56.000000000 +0530
++++ patch2/drivers/net/vxge/vxge-traffic.h	2010-03-19 16:12:31.000000000 +0530
+@@ -1955,7 +1955,7 @@ vxge_hw_ring_rxd_post_post(
+ 	void *rxdh);
+ 
+ enum vxge_hw_status
+-vxge_hw_ring_replenish(struct __vxge_hw_ring *ring_handle, u16 min_flag);
++vxge_hw_ring_replenish(struct __vxge_hw_ring *ring_handle);
+ 
+ void
+ vxge_hw_ring_rxd_post_post_wmb(
+@@ -2087,7 +2087,6 @@ void vxge_hw_fifo_txdl_free(
+ 
+ #define VXGE_HW_RING_NEXT_BLOCK_POINTER_OFFSET	(VXGE_HW_BLOCK_SIZE-8)
+ #define VXGE_HW_RING_MEMBLOCK_IDX_OFFSET		(VXGE_HW_BLOCK_SIZE-16)
+-#define VXGE_HW_RING_MIN_BUFF_ALLOCATION		64
+ 
+ /*
+  * struct __vxge_hw_ring_rxd_priv - Receive descriptor HW-private data.
 
