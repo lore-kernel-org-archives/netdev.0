@@ -1,69 +1,39 @@
-From: Stephen Clark <sclark46-ihVZJaRskl1bRRN4PJnoQQ@public.gmane.org>
-Subject: Re: [ANNOUNCEMENT] NET: usb: sierra_net.c driver
-Date: Mon, 29 Mar 2010 08:30:45 -0400
-Message-ID: <4BB09D75.7020500@earthlink.net>
-References: <1269652919.30630.1.camel@Linuxdev3>	 <1269791821.11714.202.camel@localhost.localdomain>	 <4BAFAA2C.8060604@earthlink.net> <1269823442.8653.261.camel@localhost>
-Reply-To: sclark46-ihVZJaRskl1bRRN4PJnoQQ@public.gmane.org
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH RFC 1/2] flow: virtualize get and entry deletion methods
+Date: Mon, 29 Mar 2010 15:33:57 +0300
+Message-ID: <4BB09E35.8070402@iki.fi>
+References: <20100329102639.GA23414@gondor.apana.org.au> <4BB082B8.9030400@iki.fi> <20100329111025.GA23927@gondor.apana.org.au> <4BB08D96.8090909@iki.fi> <20100329113225.GA24159@gondor.apana.org.au> <4BB09178.8050501@iki.fi> <20100329115701.GA24367@gondor.apana.org.au> <4BB0970E.7060405@iki.fi> <20100329121124.GA24470@gondor.apana.org.au> <4BB09AFD.4050304@iki.fi> <20100329122547.GA24666@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
-	David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Rory Filer <rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1269823442.8653.261.camel@localhost>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:62099 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750902Ab0C2MeB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 08:34:01 -0400
+Received: by ewy20 with SMTP id 20so671879ewy.1
+        for <netdev@vger.kernel.org>; Mon, 29 Mar 2010 05:33:59 -0700 (PDT)
+In-Reply-To: <20100329122547.GA24666@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/28/2010 08:44 PM, Ben Hutchings wrote:
-> On Sun, 2010-03-28 at 15:12 -0400, Stephen Clark wrote:
->> On 03/28/2010 11:57 AM, Marcel Holtmann wrote:
->>> Hi Elina,
->>>
->>>> +static const struct driver_info sierra_net_info_68A3 = {
->>>> +	.description = "Sierra Wireless USB-Ethernet Modem",
->>>> +	.flags = FLAG_ETHER | FLAG_SEND_ZLP,
->>>> +	.bind = sierra_net_bind,
->>>> +	.unbind = sierra_net_unbind,
->>>> +	.status = sierra_net_status,
->>>> +	.rx_fixup = sierra_net_rx_fixup,
->>>> +	.tx_fixup = sierra_net_tx_fixup,
->>>> +	.data = (unsigned long)&sierra_net_info_data_68A3,
->>>> +};
->>>
->>> the FLAG_ETHER is wrong here. Please use FLAG_WWAN to clearly mark these
->>> interfaces.
->>>
->>> Otherwise we have wrong DEVTYPE uevent assignments and userspace will
->>> treat them as real Ethernet cards. And that should not happen. As a nice
->> Why shouldn't that happen if they look like NIC cards?
-> [...]
->
-> This information is important for management interfaces.  The user
-> doesn't care what your device looks like at the kernel level - they know
-> it's a wireless broadband device and they expect to see a device
-> labelled as such in Network Manager or whatever they use.
->
-> Ben.
->
-You sound like a windows guy! Whats with everything having to use 
-NetworkManager!? Are people so dumb they can't figure things out from
-the command line. If it acts like a NIC it should be a NIC. I am
-so tired of eveyone trying to make Linux look and act like WINBLOWS.
+Herbert Xu wrote:
+> On Mon, Mar 29, 2010 at 03:20:13PM +0300, Timo Ter=E4s wrote:
+>> But as noted few mails ago, it's not necessary. So I'll just go
+>> ahead and remove all locking from the read side, and move the
+>> xfrm_policy_kill to use plain write.
+>=20
+> No you can't make it a plain write in xfrm_policy_kill.  The same
+> policy may be killed simultaneously, by the timer and user action.
 
--- 
+So we fix up all the callers of xfrm_policy_kill to check properly
+result of __xfrm_policy_unlink(). Since the policy can be only
+once deleted from the hashes (it's protected by xfrm_policy_lock)
+return value of __xfrm_policy_unlink() can be used to give
+responsibility of calling xfrm_policy_kill() exactly once.
 
-"They that give up essential liberty to obtain temporary safety,
-deserve neither liberty nor safety."  (Ben Franklin)
-
-"The course of history shows that as a government grows, liberty
-decreases."  (Thomas Jefferson)
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I thought this was already being done, but apparently it's not
+the case.
