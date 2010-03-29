@@ -1,60 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: UDP path MTU discovery
-Date: Mon, 29 Mar 2010 23:29:12 +0200
-Message-ID: <1269898152.1958.86.camel@edumazet-laptop>
-References: <1269561751.2891.8.camel@ilion>
-	 <877how25kx.fsf@basil.nowhere.org>	<4BB0DCF6.9020401@hp.com>
-	 <20100329201431.GH20695@one.firstfloor.org>
-	 <20100329205035.GA32656@laped.iglesias.mooo.com>  <4BB11510.9000302@hp.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: Add PGM protocol support to the IP stack
+Date: Mon, 29 Mar 2010 23:43:21 +0200
+Message-ID: <20100329214321.GI20695@one.firstfloor.org>
+References: <87tysccjrn.fsf@basil.nowhere.org> <alpine.DEB.2.00.1003220916170.15360@router.home> <20100322163609.GZ20695@one.firstfloor.org> <alpine.DEB.2.00.1003221146260.17230@router.home> <877hp4i76d.fsf@basil.nowhere.org> <alpine.DEB.2.00.1003221300180.17230@router.home> <20100322185310.GA20695@one.firstfloor.org> <alpine.DEB.2.00.1003261231410.30253@router.home> <20100327131138.GD20695@one.firstfloor.org> <alpine.DEB.2.00.1003290952410.14606@router.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Edgar E. Iglesias" <edgar.iglesias@gmail.com>,
-	Andi Kleen <andi@firstfloor.org>, Glen Turner <gdt@gdt.id.au>,
-	netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Christoph Lameter <cl@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:51689 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753285Ab0C2V3R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 17:29:17 -0400
-Received: by bwz1 with SMTP id 1so3928349bwz.21
-        for <netdev@vger.kernel.org>; Mon, 29 Mar 2010 14:29:15 -0700 (PDT)
-In-Reply-To: <4BB11510.9000302@hp.com>
+Received: from one.firstfloor.org ([213.235.205.2]:58308 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754101Ab0C2Vn0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 17:43:26 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.00.1003290952410.14606@router.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 29 mars 2010 =C3=A0 14:01 -0700, Rick Jones a =C3=A9crit :
+On Mon, Mar 29, 2010 at 10:00:57AM -0500, Christoph Lameter wrote:
+> On Sat, 27 Mar 2010, Andi Kleen wrote:
+> 
+> > On Fri, Mar 26, 2010 at 12:33:07PM -0500, Christoph Lameter wrote:
+> > > Here is a pgm.7 manpage describing how the socket API could look like for
+> > > a PGM implementation.
+> > >
+> > > I dumped the RM_* based socket options from the other OS since most of the
+> > > options were unusable.
+> >
+> > I did a quick read and the manpage/interface seem reasonable to me.
+> 
+> Thanks. I will then proceed to get a patch out that implements the
+> network environment. Then we can plug the openpgm logic in there.
 
-> I would get the alphabet soup completely garbled, but the DNS folks a=
-re talking=20
-> about EDNS (?) message sizes upwards of 4096 bytes - encryption/authe=
-ntication=20
-> and other angels being asked to dance on the head of the DNS pin are =
-asking for=20
-> more and more space in the messages.
->=20
-> So, someone will have to blink somewhere - either DNS will have to go=
- TCP and=20
-> *possibly* take RTT hits there depending on various patch streams, or=
- the IEEE=20
-> will have to sanction jumbo frames and people deploy them widely, or =
-it will=20
-> have to become feasible to actually do the occasional IPv6 datagram=20
-> fragmentation and get a timely retransmission out of a UDP applicatio=
-n on a PMTU=20
-> hit.
->=20
+You might still need some reviewing from network maintainers.
 
-1) 4096 bytes UDP messages... well...
-2) Using regular TCP for DNS servers... well...
+> 
+> > You changed the parameter struct fields to lower case. While
+> > that looks definitely more Linuxy than before does it mean programs
+> > have to #ifdef this? It might be good idea to have at least some
+> > optional compat header that #defines.
+> 
+> The socket API will be completely different. The basic handling of the
+> sockets is the same (binding, listening, connecting). There is no way of
+> mapping M$ socket options to Linux socket options with the approach that
+> I proposed in the manpage. The stats structure is different too since some
+> key elements were missing.
 
-I believe some guys were pushing TCPCT (Cookie Transactions) for this
-case ( http://tools.ietf.org/html/draft-simpson-tcpct-00.html )
+Ok.
 
-(That is, using an enhanced TCP for long DNS queries... but not only fo=
-r
-DNS...)
+> 
+> What users are there of the M$ api? I have seen vendors supplying their
+> own pgm implementation (guess due to bit rot in the old M$
+> implementation).
 
+I don't know, it was just a general consideration.
 
+-Andi
 
+-- 
+ak@linux.intel.com -- Speaking for myself only.
