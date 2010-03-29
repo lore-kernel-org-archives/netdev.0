@@ -1,171 +1,125 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] NETLABEL: Fix an RCU warning
-Date: Mon, 29 Mar 2010 08:58:57 -0700
-Message-ID: <20100329155857.GG2569@linux.vnet.ibm.com>
-References: <20100325110621.5348.32020.stgit@warthog.procyon.org.uk>
- <1269516484.3626.21.camel@edumazet-laptop>
- <20100329152453.GC2569@linux.vnet.ibm.com>
- <201003291130.10752.paul.moore@hp.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] r8169: offical fix for CVE-2009-4537 (overlength frame DMAs)
+Date: Mon, 29 Mar 2010 12:03:56 -0400
+Message-ID: <20100329160356.GC22733@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Howells <dhowells@redhat.com>, netdev@vger.kernel.org
-To: Paul Moore <paul.moore@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:45265 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753933Ab0C2P7D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Mar 2010 11:59:03 -0400
-Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
-	by e1.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o2TFsO3n018143
-	for <netdev@vger.kernel.org>; Mon, 29 Mar 2010 11:54:24 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o2TFwxDT136192
-	for <netdev@vger.kernel.org>; Mon, 29 Mar 2010 11:58:59 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o2TFwwP3004564
-	for <netdev@vger.kernel.org>; Mon, 29 Mar 2010 11:58:59 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: michael.s.gilbert@gmail.com, davem@davemeloft.net,
+	nhorman@tuxdriver.com, romieu@fr.zoreil.com, eric.dumazet@gmail.com
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <201003291130.10752.paul.moore@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 29, 2010 at 11:30:10AM -0400, Paul Moore wrote:
-> On Monday 29 March 2010 11:24:53 am Paul E. McKenney wrote:
-> > On Thu, Mar 25, 2010 at 12:28:04PM +0100, Eric Dumazet wrote:
-> > > Le jeudi 25 mars 2010 =E0 11:06 +0000, David Howells a =E9crit :
-> > > > Fix an RCU warning in the netlabel code due to missing rcu read=
- locking
-> > > > around an rcu_dereference() in netlbl_unlhsh_hash() when called=
- from
-> > > > netlbl_unlhsh_netdev_handler():
-> > > >=20
-> > > > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D
-> > > > [ INFO: suspicious rcu_dereference_check() usage. ]
-> > > > ---------------------------------------------------
-> > > > net/netlabel/netlabel_unlabeled.c:246 invoked rcu_dereference_c=
-heck()
-> > > > without protection!
-> > > >=20
-> > > > other info that might help us debug this:
-> > > >=20
-> > > >=20
-> > > > rcu_scheduler_active =3D 1, debug_locks =3D 0
-> > > >=20
-> > > > 2 locks held by ip/5108:
-> > > >  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff812c4a36>]
-> > > >  rtnl_lock+0x12/0x14 #1:  (netlbl_unlhsh_lock){+.+...}, at:
-> > > >  [<ffffffff8134daa4>] netlbl_unlhsh_netdev_handler+0x1e/0x86
-> > > >=20
-> > > > stack backtrace:
-> > > > Pid: 5108, comm: ip Not tainted 2.6.34-rc2-cachefs #114
-> > > >=20
-> > > > Call Trace:
-> > > >  [<ffffffff8105121f>] lockdep_rcu_dereference+0xaa/0xb2
-> > > >  [<ffffffff8134d781>] netlbl_unlhsh_hash+0x3e/0x50
-> > > >  [<ffffffff8134d7a1>] netlbl_unlhsh_search_iface+0xe/0x84
-> > > >  [<ffffffff8134daaf>] netlbl_unlhsh_netdev_handler+0x29/0x86
-> > > >  [<ffffffff81048362>] notifier_call_chain+0x32/0x5e
-> > > >  [<ffffffff810483fe>] raw_notifier_call_chain+0xf/0x11
-> > > >  [<ffffffff812ba924>] call_netdevice_notifiers+0x16/0x18
-> > > >  [<ffffffff812bac22>] __dev_notify_flags+0x37/0x5b
-> > > >  [<ffffffff812bac8c>] dev_change_flags+0x46/0x52
-> > > >  [<ffffffff812c41af>] do_setlink+0x250/0x3cd
-> > > >  [<ffffffff812c4ee8>] rtnl_newlink+0x2b6/0x49d
-> > > >  [<ffffffff812c4cdd>] ? rtnl_newlink+0xab/0x49d
-> > > >  [<ffffffff812c4c17>] rtnetlink_rcv_msg+0x1b7/0x1d2
-> > > >  [<ffffffff812c4a60>] ? rtnetlink_rcv_msg+0x0/0x1d2
-> > > >  [<ffffffff812cc1dc>] netlink_rcv_skb+0x3e/0x8f
-> > > >  [<ffffffff812c4a59>] rtnetlink_rcv+0x21/0x28
-> > > >  [<ffffffff812cbefe>] netlink_unicast+0x218/0x28f
-> > > >  [<ffffffff812cc76e>] netlink_sendmsg+0x26b/0x27a
-> > > >  [<ffffffff812a9f1d>] sock_sendmsg+0xd4/0xf5
-> > > >  [<ffffffff81096dca>] ? might_fault+0x4e/0x9e
-> > > >  [<ffffffff81096dca>] ? might_fault+0x4e/0x9e
-> > > >  [<ffffffff81096e13>] ? might_fault+0x97/0x9e
-> > > >  [<ffffffff81096dca>] ? might_fault+0x4e/0x9e
-> > > >  [<ffffffff812b4122>] ? verify_iovec+0x59/0x97
-> > > >  [<ffffffff812aa1d9>] sys_sendmsg+0x209/0x273
-> > > >  [<ffffffff810976dc>] ? __do_fault+0x395/0x3cd
-> > > >  [<ffffffff8109928f>] ? handle_mm_fault+0x324/0x69d
-> > > >  [<ffffffff81051e4e>] ? trace_hardirqs_on_caller+0x10c/0x130
-> > > >  [<ffffffff81074972>] ? audit_syscall_entry+0x17d/0x1b0
-> > > >  [<ffffffff81364154>] ? trace_hardirqs_on_thunk+0x3a/0x3f
-> > > >  [<ffffffff81001eeb>] system_call_fastpath+0x16/0x1b
-> > > >=20
-> > > > Signed-off-by: David Howells <dhowells@redhat.com>
-> > > > ---
-> > > >=20
-> > > >  net/netlabel/netlabel_unlabeled.c |    2 ++
-> > > >  1 files changed, 2 insertions(+), 0 deletions(-)
-> > > >=20
-> > > > diff --git a/net/netlabel/netlabel_unlabeled.c
-> > > > b/net/netlabel/netlabel_unlabeled.c index 852d9d7..7ea64e4 1006=
-44
-> > > > --- a/net/netlabel/netlabel_unlabeled.c
-> > > > +++ b/net/netlabel/netlabel_unlabeled.c
-> > > > @@ -799,6 +799,7 @@ static int netlbl_unlhsh_netdev_handler(str=
-uct
-> > > > notifier_block *this,
-> > > >=20
-> > > >  	/* XXX - should this be a check for NETDEV_DOWN or _UNREGISTE=
-R? */
-> > > >  	if (event =3D=3D NETDEV_DOWN) {
-> > > >=20
-> > > > +		rcu_read_lock();
-> > > >=20
-> > > >  		spin_lock(&netlbl_unlhsh_lock);
-> > > >  		iface =3D netlbl_unlhsh_search_iface(dev->ifindex);
-> > > >  		if (iface !=3D NULL && iface->valid) {
-> > > >=20
-> > > > @@ -807,6 +808,7 @@ static int netlbl_unlhsh_netdev_handler(str=
-uct
-> > > > notifier_block *this,
-> > > >=20
-> > > >  		} else
-> > > >  	=09
-> > > >  			iface =3D NULL;
-> > > >  	=09
-> > > >  		spin_unlock(&netlbl_unlhsh_lock);
-> > > >=20
-> > > > +		rcu_read_unlock();
-> > > >=20
-> > > >  	}
-> > > >  =09
-> > > >  	if (iface !=3D NULL)
-> > > >=20
-> > > > --
-> > >=20
-> > > Sorry this is not the right fix.
-> > >=20
-> > > Fix is to change the dereference check to take into account the l=
-ock
-> > > owned here.
-> >=20
-> > So we need the rcu_dereference() in netlbl_unlhsh_search_iface()
-> > to become someething like the following?
-> >=20
-> > 	bkt_list =3D &rcu_dereference_check(netlbl_unlhsh,
-> > 					  rcu_read_lock_held() ||
-> > 					  lockdep_is_held(&netlbl_unlhsh_lock))->tbl[bkt];
-> >=20
-> > Or is this the wrong lock?
->=20
-> As Eric pointed out in response to the message above, I believe the s=
-olution=20
-> is to simply remove the rcu_dereference() call in the netlbl_unlhsh_h=
-ash()=20
-> function.
+Official patch to fix the r8169 frame length check error.
 
-It would be at the moment, but this will break once Arnd Bergmann gets
-his sparse-based checks done.  With these checks, we decorate RCU-prote=
-cted
-pointers, and then sparse yells if you access such a pointer without th=
-e
-proper rcu_dereference() invocation.
+Based on this initial thread:
+http://marc.info/?l=linux-netdev&m=126202972828626&w=1
+This is the official patch to fix the frame length problems in the r8169
+driver.  As noted in the previous thread, while this patch incurs a performance
+hit on the driver, its possible to improve performance dynamically by updating
+the mtu and rx_copybreak values at runtime to return performance to what it was
+for those NICS which are unaffected by the ideosyncracy (if there are any).
 
-							Thanx, Paul
+Summary:
+
+    A while back Eric submitted a patch for r8169 in which the proper
+allocated frame size was written to RXMaxSize to prevent the NIC from dmaing too
+much data.  This was done in commit fdd7b4c3302c93f6833e338903ea77245eb510b4.  A
+long time prior to that however, Francois posted
+126fa4b9ca5d9d7cb7d46f779ad3bd3631ca387c, which expiclitly disabled the MaxSize
+setting due to the fact that the hardware behaved in odd ways when overlong
+frames were received on NIC's supported by this driver.  This was mentioned in a
+security conference recently:
+http://events.ccc.de/congress/2009/Fahrplan//events/3596.en.html
+
+It seems that if we can't enable frame size filtering, then, as Eric correctly
+noticed, we can find ourselves DMA-ing too much data to a buffer, causing
+corruption.  As a result is seems that we are forced to allocate a frame which
+is ready to handle a maximally sized receive.
+
+This obviously has performance issues with it, so to mitigate that issue, this
+patch does two things:
+
+1) Raises the copybreak value to the frame allocation size, which should force
+appropriately sized packets to get allocated on rx, rather than a full new 16k
+buffer.
+
+2) This patch only disables frame filtering initially (i.e., during the NIC
+open), changing the MTU results in ring buffer allocation of a size in relation
+to the new mtu (along with a warning indicating that this is dangerous).
+
+Because of item (2), individuals who can't cope with the performance hit (or can
+otherwise filter frames to prevent the bug), or who have hardware they are sure
+is unaffected by this issue, can manually lower the copybreak and reset the mtu
+such that performance is restored easily.
+
+Signed-off-by: Neil Horman <nhorman@redhat.com>
+
+
+ r8169.c |   29 ++++++++++++++++++++++++-----
+ 1 file changed, 24 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 964305c..1db95d4 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -187,7 +187,12 @@ static DEFINE_PCI_DEVICE_TABLE(rtl8169_pci_tbl) = {
+ 
+ MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl);
+ 
+-static int rx_copybreak = 200;
++/*
++ * we set our copybreak very high so that we don't have
++ * to allocate 16k frames all the time (see note in
++ * rtl8169_open()
++ */
++static int rx_copybreak = 16383;
+ static int use_dac = -1;
+ static struct {
+ 	u32 msg_enable;
+@@ -3254,9 +3259,13 @@ static void __devexit rtl8169_remove_one(struct pci_dev *pdev)
+ }
+ 
+ static void rtl8169_set_rxbufsize(struct rtl8169_private *tp,
+-				  struct net_device *dev)
++				  unsigned int mtu)
+ {
+-	unsigned int max_frame = dev->mtu + VLAN_ETH_HLEN + ETH_FCS_LEN;
++	unsigned int max_frame = mtu + VLAN_ETH_HLEN + ETH_FCS_LEN;
++
++	if (max_frame != 16383)
++		printk(KERN_WARNING "WARNING! Changing of MTU on this NIC"
++			"May lead to frame reception errors!\n");
+ 
+ 	tp->rx_buf_sz = (max_frame > RX_BUF_SIZE) ? max_frame : RX_BUF_SIZE;
+ }
+@@ -3269,7 +3278,17 @@ static int rtl8169_open(struct net_device *dev)
+ 
+ 	pm_runtime_get_sync(&pdev->dev);
+ 
+-	rtl8169_set_rxbufsize(tp, dev);
++	/*
++	 * Note that we use a magic value here, its wierd I know
++	 * its done because, some subset of rtl8169 hardware suffers from
++	 * a problem in which frames received that are longer than
++	 * the size set in RxMaxSize register return garbage sizes
++	 * when received.  To avoid this we need to turn off filtering,
++	 * which is done by setting a value of 16383 in the RxMaxSize register
++	 * and allocating 16k frames to handle the largest possible rx value
++	 * thats what the magic math below does.
++	 */
++	rtl8169_set_rxbufsize(tp, 16383 - VLAN_ETH_HLEN - ETH_FCS_LEN);
+ 
+ 	/*
+ 	 * Rx and Tx desscriptors needs 256 bytes alignment.
+@@ -3929,7 +3948,7 @@ static int rtl8169_change_mtu(struct net_device *dev, int new_mtu)
+ 
+ 	rtl8169_down(dev);
+ 
+-	rtl8169_set_rxbufsize(tp, dev);
++	rtl8169_set_rxbufsize(tp, dev->mtu);
+ 
+ 	ret = rtl8169_init_ring(dev);
+ 	if (ret < 0)
