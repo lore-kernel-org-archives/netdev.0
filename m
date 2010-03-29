@@ -1,58 +1,47 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 6/12] drivers/net: Add missing unlock
-Date: Mon, 29 Mar 2010 17:35:05 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1003291734460.21896@ask.diku.dk>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH net-next-2.6] ipv6: Use __fls() instead of fls() in __ipv6_addr_diff().
+Date: Tue, 30 Mar 2010 00:49:07 +0900
+Message-ID: <4BB0CBF3.805@linux-ipv6.org>
+References: <201003260801.o2Q8134t023352@94.43.138.210.xn.2iij.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:41497 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753779Ab0C2PfH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Mar 2010 11:35:07 -0400
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:56480 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751156Ab0C2Pt3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 11:49:29 -0400
+In-Reply-To: <201003260801.o2Q8134t023352@94.43.138.210.xn.2iij.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+Sorry, I withdraw this because this is incorrect;
+__fls() returns fls() - 1.
 
-Unlock the lock before leaving the function.
+--yoshfuji
 
-A simplified version of the semantic patch that finds this problem is as
-follows: (http://coccinelle.lip6.fr/)
+(2010/03/26 17:01), YOSHIFUJI Hideaki wrote:
+> Because we have ensured that the argument is non-zero,
+> it is better to use __fls() and generate better code.
+> 
+> Signed-off-by: YOSHIFUJI Hideaki<yoshfuji@linux-ipv6.org>
+> ---
+>   include/net/ipv6.h |    2 +-
+>   1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+> index e72fb10..619ab34 100644
+> --- a/include/net/ipv6.h
+> +++ b/include/net/ipv6.h
+> @@ -422,7 +422,7 @@ static inline int __ipv6_addr_diff(const void *token1, const void *token2, int a
+>   	for (i = 0; i<  addrlen; i++) {
+>   		__be32 xb = a1[i] ^ a2[i];
+>   		if (xb)
+> -			return i * 32 + 32 - fls(ntohl(xb));
+> +			return i * 32 + 32 - __fls(ntohl(xb));
+>   	}
+> 
+>   	/*
 
-// <smpl>
-@r exists@
-expression E1;
-identifier f;
-@@
-
-f (...) { <+...
-* spin_lock_irqsave (E1,...);
-... when != E1
-* return ...;
-...+> }
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
- drivers/net/sgiseeq.c               |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/sgiseeq.c b/drivers/net/sgiseeq.c
-index ed999d3..37f6a00 100644
---- a/drivers/net/sgiseeq.c
-+++ b/drivers/net/sgiseeq.c
-@@ -592,8 +592,10 @@ static int sgiseeq_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	/* Setup... */
- 	len = skb->len;
- 	if (len < ETH_ZLEN) {
--		if (skb_padto(skb, ETH_ZLEN))
-+		if (skb_padto(skb, ETH_ZLEN)) {
-+			spin_unlock_irqrestore(&sp->tx_lock, flags);
- 			return NETDEV_TX_OK;
-+		}
- 		len = ETH_ZLEN;
- 	}
- 
