@@ -1,35 +1,34 @@
 From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
-Subject: [net-next-2.6 PATCH 7/8] vxge: Version update.
-Date: Mon, 29 Mar 2010 04:13:13 -0400 (EDT)
-Message-ID: <Pine.GSO.4.10.11003290412360.4435-100000@guinness>
+Subject: [net-next-2.6 PATCH 8/8] vxge: Updating Maintainer list of S2IO
+ 10GbE drivers (xframe / vxge).
+Date: Mon, 29 Mar 2010 04:13:50 -0400 (EDT)
+Message-ID: <Pine.GSO.4.10.11003290413160.4435-100000@guinness>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org, support@neterion.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:47950 "EHLO
+Received: from barracuda.s2io.com ([72.1.205.138]:47969 "EHLO
 	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754598Ab0C2INQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 04:13:16 -0400
+	with ESMTP id S1754384Ab0C2INw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 04:13:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- Version update
+- updating Maintainer list of S2IO 10GbE drivers (xframe / vxge).
 
 Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
 Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
 ---
-diff -urpN patch6/drivers/net/vxge/vxge-version.h patch7/drivers/net/vxge/vxge-version.h
---- patch6/drivers/net/vxge/vxge-version.h	2010-03-22 14:40:32.000000000 +0530
-+++ patch7/drivers/net/vxge/vxge-version.h	2010-03-26 15:56:29.000000000 +0530
-@@ -17,7 +17,7 @@
- 
- #define VXGE_VERSION_MAJOR	"2"
- #define VXGE_VERSION_MINOR	"0"
--#define VXGE_VERSION_FIX	"6"
--#define VXGE_VERSION_BUILD	"18937"
-+#define VXGE_VERSION_FIX	"7"
-+#define VXGE_VERSION_BUILD	"20144"
- #define VXGE_VERSION_FOR	"k"
- #endif
+diff -urpN orig/MAINTAINERS patch1/MAINTAINERS
+--- orig/MAINTAINERS	2010-03-22 15:03:44.000000000 +0530
++++ patch1/MAINTAINERS	2010-03-22 15:04:35.000000000 +0530
+@@ -3767,7 +3767,6 @@ M:	Ramkrishna Vepa <ram.vepa@neterion.co
+ M:	Rastapur Santosh <santosh.rastapur@neterion.com>
+ M:	Sivakumar Subramani <sivakumar.subramani@neterion.com>
+ M:	Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
+-M:	Anil Murthy <anil.murthy@neterion.com>
+ L:	netdev@vger.kernel.org
+ W:	http://trac.neterion.com/cgi-bin/trac.cgi/wiki/Linux?Anonymous
+ W:	http://trac.neterion.com/cgi-bin/trac.cgi/wiki/X3100Linux?Anonymous
 
