@@ -1,53 +1,40 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH] r8169: fix broken register writes
-Date: Mon, 29 Mar 2010 02:03:46 +0100
-Message-ID: <20100329010346.GH30031@ZenIV.linux.org.uk>
-References: <4BAE6C92.2060801@iki.fi>
- <20100327211133.GA3624@electric-eye.fr.zoreil.com>
- <1269732054.8653.155.camel@localhost>
- <20100327.163005.28815553.davem@davemloft.net>
- <20100328003143.GA8501@electric-eye.fr.zoreil.com>
- <1269737245.8653.162.camel@localhost>
- <20100328212858.GA4220@electric-eye.fr.zoreil.com>
- <20100328221924.GG30031@ZenIV.linux.org.uk>
+From: Ben Hoyt <benhoyt@gmail.com>
+Subject: Re: CVE-2009-4537
+Date: Mon, 29 Mar 2010 14:27:06 +1300
+Message-ID: <7c93bf1e1003281827x7565b0bds1c18d23d1607540e@mail.gmail.com>
+References: <20100327142100.38d21565.michael.s.gilbert@gmail.com>
+	 <20100327.103407.260084965.davem@davemloft.net>
+	 <20100327.103600.246539458.davem@davemloft.net>
+	 <20100329005046.GA2157@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	David Miller <davem@davemloft.net>, timo.teras@iki.fi,
-	ivecera@redhat.com, netdev@vger.kernel.org
-To: Fran?ois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:34870 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755546Ab0C2BDx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Mar 2010 21:03:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20100328221924.GG30031@ZenIV.linux.org.uk>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:47910 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755460Ab0C2B1H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Mar 2010 21:27:07 -0400
+Received: by pwi5 with SMTP id 5so6224921pwi.19
+        for <netdev@vger.kernel.org>; Sun, 28 Mar 2010 18:27:07 -0700 (PDT)
+In-Reply-To: <20100329005046.GA2157@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 28, 2010 at 11:19:24PM +0100, Al Viro wrote:
+Hi netdev,
 
-> > > Thanks Fran?ois.  Which hardware have you tested this on so far ?
-> > 
-> > 10ec:8169 (rev 10) / RTL8169sb/8110sb / XID 10000000
-> > 
-> > Timo's is a 10ec:8167 / RTL8169sc/8110sc / XID 18000000. He only tested
-> > the MAC[04] part.
-> 
-> FWIW, XID18000000 here (J7F4) loses MAC4 on shutdown; hadn't tested the patch
-> yet.  2.6.26 (on that box) and 2.6.31 (on identical mb) work, 2.6.33 doesn't.
-> I suspect that bisect would lead to commit cc098dc70 (i.e. the place where we
-> started to set address on shutdown).  One more data point: ifconfig hw ether
-> done under 2.6.26 did restore the address.  And that's the same function,
-> isn't it?
+We're working on some TCP networking stuff where the key is low
+latency -- in other words, we don't really care about data throughput,
+but rather getting the end-to-end TCP packet transfer time down.
 
-As the matter of fact, ifconfig eth0 hw ether .... ends up zeroing upper
-32 bits on old kernels once in a while.
+I know there's quite a few networking folks and kernel hackers on this
+list, so I thought I'd see if anyone was interested (or knows someone
+who might be interested) in doing a few hours of consultancy work to
+give us some pointers on this. I'm a competent programmer, but
+kernel-level network programming is not my area of expertise.
 
-What orders accesses as seen by PCI bus in
-        RTL_W8(Cfg9346, Cfg9346_Unlock);
-        RTL_W32(MAC0, low);
-        RTL_W32(MAC4, high);
-        RTL_W8(Cfg9346, Cfg9346_Lock);
-anyway, and don't we need mmiowb() or two in there?
+I'm happy to receive some pointers via this list -- and others might
+benefit from that too -- but I'm also keen on some dedicated
+consultancy hours if anyone's interested.
+
+Thanks,
+Ben.
