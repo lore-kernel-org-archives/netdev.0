@@ -1,66 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build warning after merge of the tree
-Date: Sun, 28 Mar 2010 18:57:07 -0700 (PDT)
-Message-ID: <20100328.185707.161194820.davem@davemloft.net>
-References: <20100329103139.1a735227.sfr@canb.auug.org.au>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: Re: [patch] iwlwifi: range checking issue
+Date: Mon, 29 Mar 2010 10:01:12 +0800
+Message-ID: <1269828072.4043.247.camel@debian>
+References: <20100328115500.GX5069@bicker>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kyle@mcmartin.ca
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100329103139.1a735227.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Chatre, Reinette" <reinette.chatre@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Kolekar, Abhijeet" <abhijeet.kolekar@intel.com>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
+	"Guy, Wey-Yi W" <wey-yi.w.guy@intel.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <error27@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:25096 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755588Ab0C2CAc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Mar 2010 22:00:32 -0400
+In-Reply-To: <20100328115500.GX5069@bicker>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 29 Mar 2010 10:31:39 +1100
-
-> Hi Dave,
+On Sun, 2010-03-28 at 19:55 +0800, Dan Carpenter wrote:
+> IWL_RATE_COUNT is 13 and IWL_RATE_COUNT_LEGACY is 12.
 > 
-> After merging the  tree, today's linux-next build (x86_64 allmodconfig)
-> produced this warning:
+> IWL_RATE_COUNT_LEGACY is the right one here because iwl3945_rates
+> doesn't support 60M and also that's how "rates" is defined in
+> iwlcore_init_geos() from drivers/net/wireless/iwlwifi/iwl-core.c.
 > 
-> drivers/net/tulip/uli526x.c: In function 'uli526x_rx_packet':
-> drivers/net/tulip/uli526x.c:861: warning: assignment makes pointer from integer without a cast
+>         rates = kzalloc((sizeof(struct ieee80211_rate) * IWL_RATE_COUNT_LEGACY),
+>                         GFP_KERNEL);
 > 
-> Introduced by commit ac90a149361a331f697d5aa500bedcff22054669 ("tulip:
-> Fix null dereference in uli526x_rx_packet()") from the net-current tree.
-> There is a missing set of parentheses around an assignment in an "if"
-> condition ...
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Strange, it didn't warn here.
+Acked-by: Zhu Yi <yi.zhu@intel.com>
 
-I just committed the following, let me know if it fixes
-this.
+Thanks,
+-yi
 
-Thanks!
-
-tulip: Add missing parens.
-
-As reported by Stephen Rothwell.
-
-drivers/net/tulip/uli526x.c: In function 'uli526x_rx_packet':
-drivers/net/tulip/uli526x.c:861: warning: assignment makes pointer from integer without a cast
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/tulip/uli526x.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/tulip/uli526x.c b/drivers/net/tulip/uli526x.c
-index 90be57b..a4f09d4 100644
---- a/drivers/net/tulip/uli526x.c
-+++ b/drivers/net/tulip/uli526x.c
-@@ -858,7 +858,7 @@ static void uli526x_rx_packet(struct net_device *dev, struct uli526x_board_info
- 				/* Good packet, send to upper layer */
- 				/* Shorst packet used new SKB */
- 				if ((rxlen < RX_COPY_SIZE) &&
--				    ((new_skb = dev_alloc_skb(rxlen + 2) != NULL))) {
-+				    (((new_skb = dev_alloc_skb(rxlen + 2)) != NULL))) {
- 					skb = new_skb;
- 					/* size less than COPY_SIZE, allocate a rxlen SKB */
- 					skb_reserve(skb, 2); /* 16byte align */
--- 
-1.7.0.3
