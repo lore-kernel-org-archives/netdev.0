@@ -1,44 +1,155 @@
-From: Markus Feldmann <feldmann_markus@gmx.de>
-Subject: Re: Does Realtek RTL8110S and RTL8100C work ?
-Date: Mon, 29 Mar 2010 10:22:24 +0200
-Message-ID: <hopo00$ibe$1@dough.gmane.org>
-References: <hoab2m$kc0$1@dough.gmane.org> <4BABC170.7080008@computer.org> <hoiqcr$dhl$1@dough.gmane.org> <4BAE1248.70201@computer.org>
+From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
+Subject: [net-next-2.6 PATCH 1/8] vxge: Fix a receive stall due to driver
+ being out of synch with chip.
+Date: Mon, 29 Mar 2010 04:07:34 -0400 (EDT)
+Message-ID: <Pine.GSO.4.10.11003290405250.4435-100000@guinness>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, support@neterion.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:37315 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752484Ab0C2IWl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Mar 2010 04:22:41 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1NwAF6-0000p9-Ks
-	for netdev@vger.kernel.org; Mon, 29 Mar 2010 10:22:40 +0200
-Received: from 188.96.89.158 ([188.96.89.158])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 29 Mar 2010 10:22:40 +0200
-Received: from feldmann_markus by 188.96.89.158 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 29 Mar 2010 10:22:40 +0200
-In-Reply-To: <4BAE1248.70201@computer.org>
+Received: from barracuda.s2io.com ([72.1.205.138]:48130 "EHLO
+	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752484Ab0C2IXV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 04:23:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jan Ceuleers schrieb:
-> Markus,
-> 
-> You misunderstood. The first of the interfaces I listed is operating at 1Gbit/s; the second is only operating at 100Mbit/s because the device it is connected to (on the other end of the Ethernet cable) is not capable of anything faster.
-> 
-> I have no reliability issues with these network interfaces. Note though that my mainboard is quite low-end (Via C7 1.5GHz), so that the network interfaces never really get stressed.
-> 
-> Jan
-Thanks Jan,
+- Fix a receive stall due to driver being out of synch with chip. In a corner 
+case scenario the adapter's ring controller may return a RxD with transfer code
+of 0xC, while the host ownership bit is still set to the adapter. The driver 
+needs to assume that this case where (host_ownership == 1 or adapter) and 
+(transfer_code == 0xC) is valid, that is, this RxD has been returned by the 
+receive ring controller but no frame data is associated with the rxd.
 
-do you knonw who is the maintainer for this network device? Or in where 
-can i get more information?
+- Restore the transfer code field of each newly replenished RxD to 0x0. 
 
-regards Markus
+- Code cleanup. Removed usage of magic numbers.
+
+Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
+Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
+---
+diff -urpN orig/drivers/net/vxge/vxge-traffic.c patch1/drivers/net/vxge/vxge-traffic.c
+--- orig/drivers/net/vxge/vxge-traffic.c	2010-03-19 15:42:53.000000000 +0530
++++ patch1/drivers/net/vxge/vxge-traffic.c	2010-03-19 15:54:07.000000000 +0530
+@@ -878,7 +878,7 @@ void vxge_hw_ring_rxd_post_post(struct _
+ 
+ 	channel = &ring->channel;
+ 
+-	rxdp->control_0	|= VXGE_HW_RING_RXD_LIST_OWN_ADAPTER;
++	rxdp->control_0	= VXGE_HW_RING_RXD_LIST_OWN_ADAPTER;
+ 
+ 	if (ring->stats->common_stats.usage_cnt > 0)
+ 		ring->stats->common_stats.usage_cnt--;
+@@ -902,7 +902,7 @@ void vxge_hw_ring_rxd_post(struct __vxge
+ 	channel = &ring->channel;
+ 
+ 	wmb();
+-	rxdp->control_0	|= VXGE_HW_RING_RXD_LIST_OWN_ADAPTER;
++	rxdp->control_0	= VXGE_HW_RING_RXD_LIST_OWN_ADAPTER;
+ 
+ 	vxge_hw_channel_dtr_post(channel, rxdh);
+ 
+@@ -966,6 +966,7 @@ enum vxge_hw_status vxge_hw_ring_rxd_nex
+ 	struct __vxge_hw_channel *channel;
+ 	struct vxge_hw_ring_rxd_1 *rxdp;
+ 	enum vxge_hw_status status = VXGE_HW_OK;
++	u64 control_0, own;
+ 
+ 	channel = &ring->channel;
+ 
+@@ -977,8 +978,12 @@ enum vxge_hw_status vxge_hw_ring_rxd_nex
+ 		goto exit;
+ 	}
+ 
++	control_0 = rxdp->control_0;
++	own = control_0 & VXGE_HW_RING_RXD_LIST_OWN_ADAPTER;
++	*t_code	= (u8)VXGE_HW_RING_RXD_T_CODE_GET(control_0);
++
+ 	/* check whether it is not the end */
+-	if (!(rxdp->control_0 &	VXGE_HW_RING_RXD_LIST_OWN_ADAPTER)) {
++	if (!own || ((*t_code == VXGE_HW_RING_T_CODE_FRM_DROP) && own)) {
+ 
+ 		vxge_assert(((struct vxge_hw_ring_rxd_1 *)rxdp)->host_control !=
+ 				0);
+@@ -986,8 +991,6 @@ enum vxge_hw_status vxge_hw_ring_rxd_nex
+ 		++ring->cmpl_cnt;
+ 		vxge_hw_channel_dtr_complete(channel);
+ 
+-		*t_code	= (u8)VXGE_HW_RING_RXD_T_CODE_GET(rxdp->control_0);
+-
+ 		vxge_assert(*t_code != VXGE_HW_RING_RXD_T_CODE_UNUSED);
+ 
+ 		ring->stats->common_stats.usage_cnt++;
+@@ -1035,12 +1038,13 @@ enum vxge_hw_status vxge_hw_ring_handle_
+ 	 * such as unknown UPV6 header), Drop it !!!
+ 	 */
+ 
+-	if (t_code == 0 || t_code == 5) {
++	if (t_code ==  VXGE_HW_RING_T_CODE_OK ||
++		t_code == VXGE_HW_RING_T_CODE_L3_PKT_ERR) {
+ 		status = VXGE_HW_OK;
+ 		goto exit;
+ 	}
+ 
+-	if (t_code > 0xF) {
++	if (t_code > VXGE_HW_RING_T_CODE_MULTI_ERR) {
+ 		status = VXGE_HW_ERR_INVALID_TCODE;
+ 		goto exit;
+ 	}
+diff -urpN orig/drivers/net/vxge/vxge-traffic.h patch1/drivers/net/vxge/vxge-traffic.h
+--- orig/drivers/net/vxge/vxge-traffic.h	2010-03-19 15:42:53.000000000 +0530
++++ patch1/drivers/net/vxge/vxge-traffic.h	2010-03-19 15:55:56.000000000 +0530
+@@ -1866,6 +1866,51 @@ struct vxge_hw_ring_rxd_info {
+ 	u32	rth_hash_type;
+ 	u32	rth_value;
+ };
++/**
++ * enum vxge_hw_ring_tcode - Transfer codes returned by adapter
++ * @VXGE_HW_RING_T_CODE_OK: Transfer ok.
++ * @VXGE_HW_RING_T_CODE_L3_CKSUM_MISMATCH: Layer 3 checksum presentation
++ *		configuration mismatch.
++ * @VXGE_HW_RING_T_CODE_L4_CKSUM_MISMATCH: Layer 4 checksum presentation
++ *		configuration mismatch.
++ * @VXGE_HW_RING_T_CODE_L3_L4_CKSUM_MISMATCH: Layer 3 and Layer 4 checksum
++ *		presentation configuration mismatch.
++ * @VXGE_HW_RING_T_CODE_L3_PKT_ERR: Layer 3 error unparseable packet,
++ *		such as unknown IPv6 header.
++ * @VXGE_HW_RING_T_CODE_L2_FRM_ERR: Layer 2 error frame integrity
++ *		error, such as FCS or ECC).
++ * @VXGE_HW_RING_T_CODE_BUF_SIZE_ERR: Buffer size error the RxD buffer(
++ *		s) were not appropriately sized and data loss occurred.
++ * @VXGE_HW_RING_T_CODE_INT_ECC_ERR: Internal ECC error RxD corrupted.
++ * @VXGE_HW_RING_T_CODE_BENIGN_OVFLOW: Benign overflow the contents of
++ *		Segment1 exceeded the capacity of Buffer1 and the remainder
++ *		was placed in Buffer2. Segment2 now starts in Buffer3.
++ *		No data loss or errors occurred.
++ * @VXGE_HW_RING_T_CODE_ZERO_LEN_BUFF: Buffer size 0 one of the RxDs
++ *		assigned buffers has a size of 0 bytes.
++ * @VXGE_HW_RING_T_CODE_FRM_DROP: Frame dropped either due to
++ *		VPath Reset or because of a VPIN mismatch.
++ * @VXGE_HW_RING_T_CODE_UNUSED: Unused
++ * @VXGE_HW_RING_T_CODE_MULTI_ERR: Multiple errors more than one
++ *		transfer code condition occurred.
++ *
++ * Transfer codes returned by adapter.
++ */
++enum vxge_hw_ring_tcode {
++	VXGE_HW_RING_T_CODE_OK				= 0x0,
++	VXGE_HW_RING_T_CODE_L3_CKSUM_MISMATCH		= 0x1,
++	VXGE_HW_RING_T_CODE_L4_CKSUM_MISMATCH		= 0x2,
++	VXGE_HW_RING_T_CODE_L3_L4_CKSUM_MISMATCH	= 0x3,
++	VXGE_HW_RING_T_CODE_L3_PKT_ERR			= 0x5,
++	VXGE_HW_RING_T_CODE_L2_FRM_ERR			= 0x6,
++	VXGE_HW_RING_T_CODE_BUF_SIZE_ERR		= 0x7,
++	VXGE_HW_RING_T_CODE_INT_ECC_ERR			= 0x8,
++	VXGE_HW_RING_T_CODE_BENIGN_OVFLOW		= 0x9,
++	VXGE_HW_RING_T_CODE_ZERO_LEN_BUFF		= 0xA,
++	VXGE_HW_RING_T_CODE_FRM_DROP			= 0xC,
++	VXGE_HW_RING_T_CODE_UNUSED			= 0xE,
++	VXGE_HW_RING_T_CODE_MULTI_ERR			= 0xF
++};
+ 
+ /**
+  * enum enum vxge_hw_ring_hash_type - RTH hash types
 
