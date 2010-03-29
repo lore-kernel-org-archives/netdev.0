@@ -1,125 +1,38 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] r8169: offical fix for CVE-2009-4537 (overlength frame DMAs)
-Date: Mon, 29 Mar 2010 12:03:56 -0400
-Message-ID: <20100329160356.GC22733@hmsreliant.think-freely.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: michael.s.gilbert@gmail.com, davem@davemeloft.net,
-	nhorman@tuxdriver.com, romieu@fr.zoreil.com, eric.dumazet@gmail.com
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [PATCH net-next-2.6 (TAKE 2)] ipv6: Use __fls() instead of fls() in __ipv6_addr_diff().
+Date: Tue, 30 Mar 2010 01:00:05 +0900
+Message-ID: <201003291600.o2TG05VI032167@94.43.138.210.xn.2iij.net>
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:50492 "EHLO
+	94.43.138.210.xn.2iij.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752981Ab0C2QEI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 12:04:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Official patch to fix the r8169 frame length check error.
+Because we have ensured that the argument is non-zero,
+it is better to use __fls() and generate better code.
 
-Based on this initial thread:
-http://marc.info/?l=linux-netdev&m=126202972828626&w=1
-This is the official patch to fix the frame length problems in the r8169
-driver.  As noted in the previous thread, while this patch incurs a performance
-hit on the driver, its possible to improve performance dynamically by updating
-the mtu and rx_copybreak values at runtime to return performance to what it was
-for those NICS which are unaffected by the ideosyncracy (if there are any).
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ include/net/ipv6.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Summary:
-
-    A while back Eric submitted a patch for r8169 in which the proper
-allocated frame size was written to RXMaxSize to prevent the NIC from dmaing too
-much data.  This was done in commit fdd7b4c3302c93f6833e338903ea77245eb510b4.  A
-long time prior to that however, Francois posted
-126fa4b9ca5d9d7cb7d46f779ad3bd3631ca387c, which expiclitly disabled the MaxSize
-setting due to the fact that the hardware behaved in odd ways when overlong
-frames were received on NIC's supported by this driver.  This was mentioned in a
-security conference recently:
-http://events.ccc.de/congress/2009/Fahrplan//events/3596.en.html
-
-It seems that if we can't enable frame size filtering, then, as Eric correctly
-noticed, we can find ourselves DMA-ing too much data to a buffer, causing
-corruption.  As a result is seems that we are forced to allocate a frame which
-is ready to handle a maximally sized receive.
-
-This obviously has performance issues with it, so to mitigate that issue, this
-patch does two things:
-
-1) Raises the copybreak value to the frame allocation size, which should force
-appropriately sized packets to get allocated on rx, rather than a full new 16k
-buffer.
-
-2) This patch only disables frame filtering initially (i.e., during the NIC
-open), changing the MTU results in ring buffer allocation of a size in relation
-to the new mtu (along with a warning indicating that this is dangerous).
-
-Because of item (2), individuals who can't cope with the performance hit (or can
-otherwise filter frames to prevent the bug), or who have hardware they are sure
-is unaffected by this issue, can manually lower the copybreak and reset the mtu
-such that performance is restored easily.
-
-Signed-off-by: Neil Horman <nhorman@redhat.com>
-
-
- r8169.c |   29 ++++++++++++++++++++++++-----
- 1 file changed, 24 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 964305c..1db95d4 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -187,7 +187,12 @@ static DEFINE_PCI_DEVICE_TABLE(rtl8169_pci_tbl) = {
- 
- MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl);
- 
--static int rx_copybreak = 200;
-+/*
-+ * we set our copybreak very high so that we don't have
-+ * to allocate 16k frames all the time (see note in
-+ * rtl8169_open()
-+ */
-+static int rx_copybreak = 16383;
- static int use_dac = -1;
- static struct {
- 	u32 msg_enable;
-@@ -3254,9 +3259,13 @@ static void __devexit rtl8169_remove_one(struct pci_dev *pdev)
- }
- 
- static void rtl8169_set_rxbufsize(struct rtl8169_private *tp,
--				  struct net_device *dev)
-+				  unsigned int mtu)
- {
--	unsigned int max_frame = dev->mtu + VLAN_ETH_HLEN + ETH_FCS_LEN;
-+	unsigned int max_frame = mtu + VLAN_ETH_HLEN + ETH_FCS_LEN;
-+
-+	if (max_frame != 16383)
-+		printk(KERN_WARNING "WARNING! Changing of MTU on this NIC"
-+			"May lead to frame reception errors!\n");
- 
- 	tp->rx_buf_sz = (max_frame > RX_BUF_SIZE) ? max_frame : RX_BUF_SIZE;
- }
-@@ -3269,7 +3278,17 @@ static int rtl8169_open(struct net_device *dev)
- 
- 	pm_runtime_get_sync(&pdev->dev);
- 
--	rtl8169_set_rxbufsize(tp, dev);
-+	/*
-+	 * Note that we use a magic value here, its wierd I know
-+	 * its done because, some subset of rtl8169 hardware suffers from
-+	 * a problem in which frames received that are longer than
-+	 * the size set in RxMaxSize register return garbage sizes
-+	 * when received.  To avoid this we need to turn off filtering,
-+	 * which is done by setting a value of 16383 in the RxMaxSize register
-+	 * and allocating 16k frames to handle the largest possible rx value
-+	 * thats what the magic math below does.
-+	 */
-+	rtl8169_set_rxbufsize(tp, 16383 - VLAN_ETH_HLEN - ETH_FCS_LEN);
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index e72fb10..033ddd4 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -422,7 +422,7 @@ static inline int __ipv6_addr_diff(const void *token1, const void *token2, int a
+ 	for (i = 0; i < addrlen; i++) {
+ 		__be32 xb = a1[i] ^ a2[i];
+ 		if (xb)
+-			return i * 32 + 32 - fls(ntohl(xb));
++			return i * 32 + 31 - __fls(ntohl(xb));
+ 	}
  
  	/*
- 	 * Rx and Tx desscriptors needs 256 bytes alignment.
-@@ -3929,7 +3948,7 @@ static int rtl8169_change_mtu(struct net_device *dev, int new_mtu)
- 
- 	rtl8169_down(dev);
- 
--	rtl8169_set_rxbufsize(tp, dev);
-+	rtl8169_set_rxbufsize(tp, dev->mtu);
- 
- 	ret = rtl8169_init_ring(dev);
- 	if (ret < 0)
+-- 
+1.5.6.5
+
