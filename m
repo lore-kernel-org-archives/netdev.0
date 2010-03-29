@@ -1,72 +1,66 @@
-From: Dominik Brodowski <linux@dominikbrodowski.net>
-Subject: Re: [PATCH 09/17] pcmcia: update gfp/slab.h includes
-Date: Mon, 29 Mar 2010 21:32:03 +0200
-Message-ID: <20100329193203.GA8450@comet.dominikbrodowski.net>
-References: <1269885165-18617-1-git-send-email-tj@kernel.org>
- <1269885165-18617-10-git-send-email-tj@kernel.org>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH] NETLABEL: Fix an RCU warning
+Date: Mon, 29 Mar 2010 16:05:48 -0400
+Message-ID: <201003291605.48605.paul.moore@hp.com>
+References: <20100325110621.5348.32020.stgit@warthog.procyon.org.uk> <201003291130.10752.paul.moore@hp.com> <20100329155857.GG2569@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1269885165-18617-10-git-send-email-tj@kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Howells <dhowells@redhat.com>, netdev@vger.kernel.org
+To: paulmck@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:31070 "EHLO
+	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751631Ab0C2UFv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 16:05:51 -0400
+In-Reply-To: <20100329155857.GG2569@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 30, 2010 at 02:52:37AM +0900, Tejun Heo wrote:
-> Implicit slab.h inclusion via percpu.h is about to go away.  Make sure
-> gfp.h or slab.h is included as necessary.
-> 
-> Signed-off-by: Tejun Heo <tj@kernel.org>
-> Cc: Stephen Rothwell <sfr@canb.auug.org.au>
-> Cc: Dominik Brodowski <linux@dominikbrodowski.net>
-Acked-by: Dominik Brodowski <linux@dominikbrodowski.net>
+On Monday 29 March 2010 11:58:57 am Paul E. McKenney wrote:
+> On Mon, Mar 29, 2010 at 11:30:10AM -0400, Paul Moore wrote:
+> > On Monday 29 March 2010 11:24:53 am Paul E. McKenney wrote:
+> > > On Thu, Mar 25, 2010 at 12:28:04PM +0100, Eric Dumazet wrote:
+> > > > Le jeudi 25 mars 2010 =E0 11:06 +0000, David Howells a =E9crit =
+:
+> > > > > Fix an RCU warning in the netlabel code due to missing rcu re=
+ad
+> > > > > locking around an rcu_dereference() in netlbl_unlhsh_hash() w=
+hen
+> > > > > called from netlbl_unlhsh_netdev_handler():
+> > > > >=20
+> > > > > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D
+> > > > > [ INFO: suspicious rcu_dereference_check() usage. ]
+> > > > > ---------------------------------------------------
+> > > > > net/netlabel/netlabel_unlabeled.c:246 invoked
+> > > > > rcu_dereference_check() without protection!
 
+=2E..
 
-> ---
->  drivers/isdn/hardware/avm/avm_cs.c |    1 -
->  drivers/pcmcia/pcmcia_cis.c        |    1 +
->  drivers/pcmcia/rsrc_iodyn.c        |    1 +
->  3 files changed, 2 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/isdn/hardware/avm/avm_cs.c b/drivers/isdn/hardware/avm/avm_cs.c
-> index 8bbc452..f410d0e 100644
-> --- a/drivers/isdn/hardware/avm/avm_cs.c
-> +++ b/drivers/isdn/hardware/avm/avm_cs.c
-> @@ -13,7 +13,6 @@
->  #include <linux/kernel.h>
->  #include <linux/init.h>
->  #include <linux/ptrace.h>
-> -#include <linux/slab.h>
->  #include <linux/string.h>
->  #include <linux/tty.h>
->  #include <linux/serial.h>
-> diff --git a/drivers/pcmcia/pcmcia_cis.c b/drivers/pcmcia/pcmcia_cis.c
-> index 7406387..4a65eaf 100644
-> --- a/drivers/pcmcia/pcmcia_cis.c
-> +++ b/drivers/pcmcia/pcmcia_cis.c
-> @@ -14,6 +14,7 @@
->   *
->   */
->  
-> +#include <linux/slab.h>
->  #include <linux/module.h>
->  #include <linux/kernel.h>
->  #include <linux/netdevice.h>
-> diff --git a/drivers/pcmcia/rsrc_iodyn.c b/drivers/pcmcia/rsrc_iodyn.c
-> index 7791375..d0bf350 100644
-> --- a/drivers/pcmcia/rsrc_iodyn.c
-> +++ b/drivers/pcmcia/rsrc_iodyn.c
-> @@ -12,6 +12,7 @@
->   * (C) 1999		David A. Hinds
->   */
->  
-> +#include <linux/slab.h>
->  #include <linux/module.h>
->  #include <linux/kernel.h>
->  
-> -- 
-> 1.6.4.2
-> 
+> > As Eric pointed out in response to the message above, I believe the
+> > solution is to simply remove the rcu_dereference() call in the
+> > netlbl_unlhsh_hash() function.
+>=20
+> It would be at the moment, but this will break once Arnd Bergmann get=
+s
+> his sparse-based checks done.  With these checks, we decorate RCU-pro=
+tected
+> pointers, and then sparse yells if you access such a pointer without =
+the
+> proper rcu_dereference() invocation.
+
+Okay, is there a recommended approach towards accessing RCU-protected p=
+ointers=20
+both under a RCU read lock and under only a spinlock (or similar lock=20
+construct)?  I know I could do something based on querying the state of=
+ the=20
+RCU/etc. locks but that seems like a hack and could interfere with some=
+ of the=20
+logic used to detect coding problems.
+
+--=20
+paul moore
+linux @ hp
