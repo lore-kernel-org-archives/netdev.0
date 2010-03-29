@@ -1,57 +1,53 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: CVE-2009-4537
-Date: Sun, 28 Mar 2010 20:50:46 -0400
-Message-ID: <20100329005046.GA2157@localhost.localdomain>
-References: <20100327142100.38d21565.michael.s.gilbert@gmail.com>
- <20100327.103407.260084965.davem@davemloft.net>
- <20100327.103600.246539458.davem@davemloft.net>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH] r8169: fix broken register writes
+Date: Mon, 29 Mar 2010 02:03:46 +0100
+Message-ID: <20100329010346.GH30031@ZenIV.linux.org.uk>
+References: <4BAE6C92.2060801@iki.fi>
+ <20100327211133.GA3624@electric-eye.fr.zoreil.com>
+ <1269732054.8653.155.camel@localhost>
+ <20100327.163005.28815553.davem@davemloft.net>
+ <20100328003143.GA8501@electric-eye.fr.zoreil.com>
+ <1269737245.8653.162.camel@localhost>
+ <20100328212858.GA4220@electric-eye.fr.zoreil.com>
+ <20100328221924.GG30031@ZenIV.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: michael.s.gilbert@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+	David Miller <davem@davemloft.net>, timo.teras@iki.fi,
+	ivecera@redhat.com, netdev@vger.kernel.org
+To: Fran?ois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:52430 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755497Ab0C2Au5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Mar 2010 20:50:57 -0400
+Received: from zeniv.linux.org.uk ([195.92.253.2]:34870 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755546Ab0C2BDx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Mar 2010 21:03:53 -0400
 Content-Disposition: inline
-In-Reply-To: <20100327.103600.246539458.davem@davemloft.net>
+In-Reply-To: <20100328221924.GG30031@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 27, 2010 at 10:36:00AM -0700, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Sat, 27 Mar 2010 10:34:07 -0700 (PDT)
-> 
-> > From: Michael Gilbert <michael.s.gilbert@gmail.com>
-> > Date: Sat, 27 Mar 2010 14:21:00 -0400
-> > 
-> >> Hi,
-> >> 
-> >> CVE-2009-4537 has been disclosed without any upstream activity for a
-> >> while now. Discussion about the issue dried up in January [0], and a
-> >> patch had been proposed [1], but no arguments were seen either for or
-> >> against it. Note that redhat has already shipped that in their various
-> >> kernel security updates.  Would it make sense to merge those changes
-> >> officially?
-> > 
-> > A different version of the fix went into the tree.
-> 
-> Ignore me, that was a fix for a different problem.
-> 
-> I was waiting for Francois to come up with a cleaner fix
-> but he stopped working on it, so yes I should put in
-> the fix you mention or something similar.
-> 
-> Neil, can you formally submit a version of the r8169
-> CVE for upstream?
-> 
-> Thanks.
-> 
-Absolutley, I'll review the CVE text and my origional patch tomorrow morning,
-and submit the official patch tomorrow afternoon.
+On Sun, Mar 28, 2010 at 11:19:24PM +0100, Al Viro wrote:
 
-Thanks!
-Neil
+> > > Thanks Fran?ois.  Which hardware have you tested this on so far ?
+> > 
+> > 10ec:8169 (rev 10) / RTL8169sb/8110sb / XID 10000000
+> > 
+> > Timo's is a 10ec:8167 / RTL8169sc/8110sc / XID 18000000. He only tested
+> > the MAC[04] part.
+> 
+> FWIW, XID18000000 here (J7F4) loses MAC4 on shutdown; hadn't tested the patch
+> yet.  2.6.26 (on that box) and 2.6.31 (on identical mb) work, 2.6.33 doesn't.
+> I suspect that bisect would lead to commit cc098dc70 (i.e. the place where we
+> started to set address on shutdown).  One more data point: ifconfig hw ether
+> done under 2.6.26 did restore the address.  And that's the same function,
+> isn't it?
 
+As the matter of fact, ifconfig eth0 hw ether .... ends up zeroing upper
+32 bits on old kernels once in a while.
+
+What orders accesses as seen by PCI bus in
+        RTL_W8(Cfg9346, Cfg9346_Unlock);
+        RTL_W32(MAC0, low);
+        RTL_W32(MAC4, high);
+        RTL_W8(Cfg9346, Cfg9346_Lock);
+anyway, and don't we need mmiowb() or two in there?
