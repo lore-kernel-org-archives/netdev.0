@@ -1,281 +1,387 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH v2 11/12] l2tp: Add support for static unmanaged L2TPv3
- tunnels
-Date: Mon, 29 Mar 2010 11:52:34 +0100
-Message-ID: <4BB08672.7030506@katalix.com>
-References: <20100329095639.30460.30496.stgit@bert.katalix.com>	 <20100329095737.30460.74520.stgit@bert.katalix.com> <1269859231.2164.16.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [PATCH net-next-2.6 1/3] ipv6 mcast: Introduce include/net/mld.h for MLD definitions.
+Date: Mon, 29 Mar 2010 20:01:22 +0900
+Message-ID: <201003291101.o2TB1MWQ006587@94.43.138.210.xn.2iij.net>
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:55128 "EHLO mail.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755252Ab0C2Kwh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Mar 2010 06:52:37 -0400
-In-Reply-To: <1269859231.2164.16.camel@edumazet-laptop>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:58840 "EHLO
+	94.43.138.210.xn.2iij.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755262Ab0C2LB3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 07:01:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Le lundi 29 mars 2010 =E0 10:57 +0100, James Chapman a =E9crit :
->> This patch adds support for static (unmanaged) L2TPv3 tunnels, where
->> the tunnel socket is created by the kernel rather than being created
->> by userspace. This means L2TP tunnels and sessions can be created
->> manually, without needing an L2TP control protocol implemented in
->> userspace. This might be useful where the user wants a simple ethern=
-et
->> over IP tunnel.
->>
->> A patch to iproute2 adds a new command set under "ip l2tp" to make u=
-se
->> of this feature. This will be submitted separately.
->>
->> Signed-off-by: James Chapman <jchapman@katalix.com>
->> Reviewed-by: Randy Dunlap <randy.dunlap@oracle.com>
->> ---
->>  net/l2tp/l2tp_core.c    |  111 ++++++++++++++++++++++++++++++++++++=
-+++++++----
->>  net/l2tp/l2tp_core.h    |    7 +++
->>  net/l2tp/l2tp_netlink.c |   18 ++++++--
->>  3 files changed, 122 insertions(+), 14 deletions(-)
->>
->> diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
->> index c08c859..1431b39 100644
->> --- a/net/l2tp/l2tp_core.c
->> +++ b/net/l2tp/l2tp_core.c
->> @@ -1259,6 +1259,78 @@ void l2tp_tunnel_free(struct l2tp_tunnel *tun=
-nel)
->>  }
->>  EXPORT_SYMBOL_GPL(l2tp_tunnel_free);
->> =20
->> +/* Create a socket for the tunnel, if one isn't set up by
->> + * userspace. This is used for static tunnels where there is no
->> + * managing L2TP daemon.
->> + */
->> +static int l2tp_tunnel_sock_create(u32 tunnel_id, u32 peer_tunnel_i=
-d, struct l2tp_tunnel_cfg *cfg, struct socket **sockp)
->> +{
->> +	int err =3D -EINVAL;
->> +	struct sockaddr_in udp_addr;
->> +	struct sockaddr_l2tpip ip_addr;
->> +	struct socket *sock;
->> +
->> +	switch (cfg->encap) {
->> +	case L2TP_ENCAPTYPE_UDP:
->> +		err =3D sock_create(AF_INET, SOCK_DGRAM, 0, sockp);
->> +		if (err < 0)
->> +			goto out;
->> +
->> +		sock =3D *sockp;
->> +
->> +		memset(&udp_addr, 0, sizeof(udp_addr));
->> +		udp_addr.sin_family =3D AF_INET;
->> +		udp_addr.sin_addr =3D cfg->local_ip;
->> +		udp_addr.sin_port =3D htons(cfg->local_udp_port);
->> +		err =3D kernel_bind(sock, (struct sockaddr *) &udp_addr, sizeof(u=
-dp_addr));
->> +		if (err < 0)
->> +			goto out;
->> +
->=20
-> I cant see how you use cfg->use_udp_checksums, something like : ?
->=20
-> 	if (!cfg->use_udp_checksums)
-> 		sk->sk_no_check =3D UDP_CSUM_NOXMIT;
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ include/net/mld.h |   75 +++++++++++++++++++++++++++++
+ net/ipv6/mcast.c  |  135 ++++++++++++++++-------------------------------------
+ 2 files changed, 115 insertions(+), 95 deletions(-)
+ create mode 100644 include/net/mld.h
 
-Good point. I forgot to add control of UDP checksums for the kernel
-socket case. Thanks!
-
->=20
->> +		udp_addr.sin_family =3D AF_INET;
->> +		udp_addr.sin_addr =3D cfg->peer_ip;
->> +		udp_addr.sin_port =3D htons(cfg->peer_udp_port);
->> +		err =3D kernel_connect(sock, (struct sockaddr *) &udp_addr, sizeo=
-f(udp_addr), 0);
->> +		if (err < 0)
->> +			goto out;
->> +
->> +		break;
->> +	case L2TP_ENCAPTYPE_IP:
->> +		err =3D sock_create(AF_INET, SOCK_DGRAM, IPPROTO_L2TP, sockp);
->> +		if (err < 0)
->> +			goto out;
->> +
->> +		sock =3D *sockp;
->> +
->> +		memset(&ip_addr, 0, sizeof(ip_addr));
->> +		ip_addr.l2tp_family =3D AF_INET;
->> +		ip_addr.l2tp_addr =3D cfg->local_ip;
->> +		ip_addr.l2tp_conn_id =3D tunnel_id;
->> +		err =3D kernel_bind(sock, (struct sockaddr *) &ip_addr, sizeof(ip=
-_addr));
->> +		if (err < 0)
->> +			goto out;
->> +
->> +		ip_addr.l2tp_family =3D AF_INET;
->> +		ip_addr.l2tp_addr =3D cfg->peer_ip;
->> +		ip_addr.l2tp_conn_id =3D peer_tunnel_id;
->> +		err =3D kernel_connect(sock, (struct sockaddr *) &ip_addr, sizeof=
-(ip_addr), 0);
->> +		if (err < 0)
->> +			goto out;
->> +
->> +		break;
->> +
->> +	default:
->> +		goto out;
->> +	}
->> +
->> +out:
->> +	if ((err < 0) && sock) {
->> +		sock_release(sock);
->> +		*sockp =3D NULL;
->> +	}
->> +
->> +	return err;
->> +}
->> +
->>  int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tu=
-nnel_id, u32 peer_tunnel_id, struct l2tp_tunnel_cfg *cfg, struct l2tp_t=
-unnel **tunnelp)
->>  {
->>  	struct l2tp_tunnel *tunnel =3D NULL;
->> @@ -1269,14 +1341,21 @@ int l2tp_tunnel_create(struct net *net, int =
-fd, int version, u32 tunnel_id, u32
->>  	enum l2tp_encap_type encap =3D L2TP_ENCAPTYPE_UDP;
->> =20
->>  	/* Get the tunnel socket from the fd, which was opened by
->> -	 * the userspace L2TP daemon.
->> +	 * the userspace L2TP daemon. If not specified, create a
->> +	 * kernel socket.
->>  	 */
->> -	err =3D -EBADF;
->> -	sock =3D sockfd_lookup(fd, &err);
->> -	if (!sock) {
->> -		printk(KERN_ERR "tunl %hu: sockfd_lookup(fd=3D%d) returned %d\n",
->> -		       tunnel_id, fd, err);
->> -		goto err;
->> +	if (fd < 0) {
->> +		err =3D l2tp_tunnel_sock_create(tunnel_id, peer_tunnel_id, cfg, &=
-sock);
->> +		if (err < 0)
->> +			goto err;
->> +	} else {
->> +		err =3D -EBADF;
->> +		sock =3D sockfd_lookup(fd, &err);
->> +		if (!sock) {
->> +			printk(KERN_ERR "tunl %hu: sockfd_lookup(fd=3D%d) returned %d\n"=
-,
->> +			       tunnel_id, fd, err);
->> +			goto err;
->> +		}
->>  	}
->> =20
->>  	sk =3D sock->sk;
->> @@ -1369,7 +1448,10 @@ err:
->>  	if (tunnelp)
->>  		*tunnelp =3D tunnel;
->> =20
->> -	if (sock)
->> +	/* If tunnel's socket was created by the kernel, it doesn't
->> +	 *  have a file.
->> +	 */
->> +	if (sock && sock->file)
->>  		sockfd_put(sock);
->> =20
->>  	return err;
->> @@ -1381,13 +1463,22 @@ EXPORT_SYMBOL_GPL(l2tp_tunnel_create);
->>  int l2tp_tunnel_delete(struct l2tp_tunnel *tunnel)
->>  {
->>  	int err =3D 0;
->> +	struct socket *sock =3D tunnel->sock ? tunnel->sock->sk_socket : N=
-ULL;
->> =20
->>  	/* Force the tunnel socket to close. This will eventually
->>  	 * cause the tunnel to be deleted via the normal socket close
->>  	 * mechanisms when userspace closes the tunnel socket.
->>  	 */
->> -	if ((tunnel->sock !=3D NULL) && (tunnel->sock->sk_socket !=3D NULL=
-))
->> -		err =3D inet_shutdown(tunnel->sock->sk_socket, 2);
->> +	if (sock !=3D NULL) {
->> +		err =3D inet_shutdown(sock, 2);
->> +
->> +		/* If the tunnel's socket was created by the kernel,
->> +		 * close the socket here since the socket was not
->> +		 * created by userspace.
->> +		 */
->> +		if (sock->file =3D=3D NULL)
->> +			err =3D inet_release(sock);
->> +	}
->> =20
->>  	return err;
->>  }
->> diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
->> index c5f2cc9..7e3387b 100644
->> --- a/net/l2tp/l2tp_core.h
->> +++ b/net/l2tp/l2tp_core.h
->> @@ -146,6 +146,13 @@ struct l2tp_tunnel_cfg {
->>  	int			debug;		/* bitmask of debug message
->>  						 * categories */
->>  	enum l2tp_encap_type	encap;
->> +
->> +	/* Used only for kernel-created sockets */
->> +	struct in_addr		local_ip;
->> +	struct in_addr		peer_ip;
->> +	u16			local_udp_port;
->> +	u16			peer_udp_port;
->> +	int			use_udp_checksums:1;
->>  };
->> =20
->>  struct l2tp_tunnel {
->> diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
->> index e051c13..115ea01 100644
->> --- a/net/l2tp/l2tp_netlink.c
->> +++ b/net/l2tp/l2tp_netlink.c
->> @@ -129,11 +129,21 @@ static int l2tp_nl_cmd_tunnel_create(struct sk=
-_buff *skb, struct genl_info *info
->>  	}
->>  	cfg.encap =3D nla_get_u16(info->attrs[L2TP_ATTR_ENCAP_TYPE]);
->> =20
->> -	if (!info->attrs[L2TP_ATTR_FD]) {
->> -		ret =3D -EINVAL;
->> -		goto out;
->> +	fd =3D -1;
->> +	if (info->attrs[L2TP_ATTR_FD]) {
->> +		fd =3D nla_get_u32(info->attrs[L2TP_ATTR_FD]);
->> +	} else {
->> +		if (info->attrs[L2TP_ATTR_IP_SADDR])
->> +			cfg.local_ip.s_addr =3D nla_get_be32(info->attrs[L2TP_ATTR_IP_SA=
-DDR]);
->> +		if (info->attrs[L2TP_ATTR_IP_DADDR])
->> +			cfg.peer_ip.s_addr =3D nla_get_be32(info->attrs[L2TP_ATTR_IP_DAD=
-DR]);
->> +		if (info->attrs[L2TP_ATTR_UDP_SPORT])
->> +			cfg.local_udp_port =3D nla_get_u16(info->attrs[L2TP_ATTR_UDP_SPO=
-RT]);
->> +		if (info->attrs[L2TP_ATTR_UDP_DPORT])
->> +			cfg.peer_udp_port =3D nla_get_u16(info->attrs[L2TP_ATTR_UDP_DPOR=
-T]);
->> +		if (info->attrs[L2TP_ATTR_UDP_CSUM])
->> +			cfg.use_udp_checksums =3D nla_get_flag(info->attrs[L2TP_ATTR_UDP=
-_CSUM]);
->>  	}
->> -	fd =3D nla_get_u32(info->attrs[L2TP_ATTR_FD]);
->> =20
->>  	if (info->attrs[L2TP_ATTR_DEBUG])
->>  		cfg.debug =3D nla_get_u32(info->attrs[L2TP_ATTR_DEBUG]);
->>
->=20
->=20
->=20
-
-
---=20
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+diff --git a/include/net/mld.h b/include/net/mld.h
+new file mode 100644
+index 0000000..ecc7553
+--- /dev/null
++++ b/include/net/mld.h
+@@ -0,0 +1,75 @@
++#ifndef LINUX_MLD_H
++#define LINUX_MLD_H
++
++#include <linux/in6.h>
++#include <linux/icmpv6.h>
++
++/* MLDv1 Query/Report/Done */
++struct mld_msg {
++	struct icmp6hdr		mld_hdr;
++	struct in6_addr		mld_mca;
++};
++
++#define mld_type		mld_hdr.icmp6_type
++#define mld_code		mld_hdr.icmp6_code
++#define mld_cksum		mld_hdr.icmp6_cksum
++#define mld_maxdelay		mld_hdr.icmp6_maxdelay
++#define mld_reserved		mld_hdr.icmp6_dataun.un_data16[1]
++
++/* Multicast Listener Discovery version 2 headers */
++/* MLDv2 Report */
++struct mld2_grec {
++	__u8		grec_type;
++	__u8		grec_auxwords;
++	__be16		grec_nsrcs;
++	struct in6_addr	grec_mca;
++	struct in6_addr	grec_src[0];
++};
++
++struct mld2_report {
++	struct icmp6hdr		mld2r_hdr;
++	struct mld2_grec	mld2r_grec[0];
++};
++
++#define mld2r_type		mld2r_hdr.icmp6_type
++#define mld2r_resv1		mld2r_hdr.icmp6_code
++#define	mld2r_cksum		mld2r_hdr.icmp6_cksum
++#define mld2r_resv2		mld2r_hdr.icmp6_dataun.un_data16[0]
++#define mld2r_ngrec		mld2r_hdr.icmp6_dataun.un_data16[1]
++
++/* MLDv2 Query */
++struct mld2_query {
++	struct icmp6hdr		mld2q_hdr;
++	struct in6_addr		mld2q_mca;
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	__u8			mld2q_qrv:3,
++				mld2q_suppress:1,
++				mld2q_resv2:4;
++#elif defined(__BIG_ENDIAN_BITFIELD)
++	__u8			mld2q_resv2:4,
++				mld2q_suppress:1,
++				mld2q_qrv:3;
++#else
++#error "Please fix <asm/byteorder.h>"
++#endif
++	__u8			mld2q_qqic;
++	__be16			mld2q_nsrcs;
++	struct in6_addr		mld2q_srcs[0];
++};
++
++#define	mld2q_type		mld2q_hdr.icmp6_type
++#define	mld2q_code		mld2q_hdr.icmp6_code
++#define mld2q_cksum		mld2q_hdr.icmp6_cksum
++#define mld2q_mrc		mld2q_hdr.icmp6_maxdelay
++#define mld2q_resv1		mld2q_hdr.icmp6_dataun.un_data16[1]
++
++/* Max Response Code */
++#define MLDV2_MASK(value, nb) ((nb)>=32 ? (value) : ((1<<(nb))-1) & (value))
++#define MLDV2_EXP(thresh, nbmant, nbexp, value) \
++	((value) < (thresh) ? (value) : \
++	((MLDV2_MASK(value, nbmant) | (1<<(nbmant))) << \
++	(MLDV2_MASK((value) >> (nbmant), nbexp) + (nbexp))))
++
++#define MLDV2_MRC(value) MLDV2_EXP(0x8000, 12, 3, value)
++
++#endif
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index bcd9719..9f62278 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -43,6 +43,7 @@
+ #include <linux/init.h>
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
++#include <net/mld.h>
+ 
+ #include <linux/netfilter.h>
+ #include <linux/netfilter_ipv6.h>
+@@ -70,54 +71,11 @@
+ #define MDBG(x)
+ #endif
+ 
+-/*
+- *  These header formats should be in a separate include file, but icmpv6.h
+- *  doesn't have in6_addr defined in all cases, there is no __u128, and no
+- *  other files reference these.
+- *
+- *  			+-DLS 4/14/03
+- */
+-
+-/* Multicast Listener Discovery version 2 headers */
+-
+-struct mld2_grec {
+-	__u8		grec_type;
+-	__u8		grec_auxwords;
+-	__be16		grec_nsrcs;
+-	struct in6_addr	grec_mca;
+-	struct in6_addr	grec_src[0];
+-};
+-
+-struct mld2_report {
+-	__u8	type;
+-	__u8	resv1;
+-	__sum16	csum;
+-	__be16	resv2;
+-	__be16	ngrec;
+-	struct mld2_grec grec[0];
+-};
+-
+-struct mld2_query {
+-	__u8 type;
+-	__u8 code;
+-	__sum16 csum;
+-	__be16 mrc;
+-	__be16 resv1;
+-	struct in6_addr mca;
+-#if defined(__LITTLE_ENDIAN_BITFIELD)
+-	__u8 qrv:3,
+-	     suppress:1,
+-	     resv2:4;
+-#elif defined(__BIG_ENDIAN_BITFIELD)
+-	__u8 resv2:4,
+-	     suppress:1,
+-	     qrv:3;
+-#else
+-#error "Please fix <asm/byteorder.h>"
+-#endif
+-	__u8 qqic;
+-	__be16 nsrcs;
+-	struct in6_addr srcs[0];
++/* Ensure that we have struct in6_addr aligned on 32bit word. */
++static void *__mld2_query_bugs[] __attribute__((__unused__)) = {
++	BUILD_BUG_ON_NULL(offsetof(struct mld2_query, mld2q_srcs) % 4),
++	BUILD_BUG_ON_NULL(offsetof(struct mld2_report, mld2r_grec) % 4),
++	BUILD_BUG_ON_NULL(offsetof(struct mld2_grec, grec_mca) % 4)
+ };
+ 
+ static struct in6_addr mld2_all_mcr = MLD2_ALL_MCR_INIT;
+@@ -156,14 +114,6 @@ static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
+ 		((idev)->mc_v1_seen && \
+ 		time_before(jiffies, (idev)->mc_v1_seen)))
+ 
+-#define MLDV2_MASK(value, nb) ((nb)>=32 ? (value) : ((1<<(nb))-1) & (value))
+-#define MLDV2_EXP(thresh, nbmant, nbexp, value) \
+-	((value) < (thresh) ? (value) : \
+-	((MLDV2_MASK(value, nbmant) | (1<<(nbmant))) << \
+-	(MLDV2_MASK((value) >> (nbmant), nbexp) + (nbexp))))
+-
+-#define MLDV2_MRC(value) MLDV2_EXP(0x8000, 12, 3, value)
+-
+ #define IPV6_MLD_MAX_MSF	64
+ 
+ int sysctl_mld_max_msf __read_mostly = IPV6_MLD_MAX_MSF;
+@@ -1160,7 +1110,7 @@ int igmp6_event_query(struct sk_buff *skb)
+ 	struct in6_addr *group;
+ 	unsigned long max_delay;
+ 	struct inet6_dev *idev;
+-	struct icmp6hdr *hdr;
++	struct mld_msg *mld;
+ 	int group_type;
+ 	int mark = 0;
+ 	int len;
+@@ -1181,8 +1131,8 @@ int igmp6_event_query(struct sk_buff *skb)
+ 	if (idev == NULL)
+ 		return 0;
+ 
+-	hdr = icmp6_hdr(skb);
+-	group = (struct in6_addr *) (hdr + 1);
++	mld = mld_msg(skb);
++	group = &mld->mld_mca;
+ 	group_type = ipv6_addr_type(group);
+ 
+ 	if (group_type != IPV6_ADDR_ANY &&
+@@ -1196,7 +1146,7 @@ int igmp6_event_query(struct sk_buff *skb)
+ 		/* MLDv1 router present */
+ 
+ 		/* Translate milliseconds to jiffies */
+-		max_delay = (ntohs(hdr->icmp6_maxdelay)*HZ)/1000;
++		max_delay = (ntohs(mld->mld_maxdelay)*HZ)/1000;
+ 
+ 		switchback = (idev->mc_qrv + 1) * max_delay;
+ 		idev->mc_v1_seen = jiffies + switchback;
+@@ -1215,14 +1165,14 @@ int igmp6_event_query(struct sk_buff *skb)
+ 			return -EINVAL;
+ 		}
+ 		mlh2 = (struct mld2_query *)skb_transport_header(skb);
+-		max_delay = (MLDV2_MRC(ntohs(mlh2->mrc))*HZ)/1000;
++		max_delay = (MLDV2_MRC(ntohs(mlh2->mld2q_mrc))*HZ)/1000;
+ 		if (!max_delay)
+ 			max_delay = 1;
+ 		idev->mc_maxdelay = max_delay;
+-		if (mlh2->qrv)
+-			idev->mc_qrv = mlh2->qrv;
++		if (mlh2->mld2q_qrv)
++			idev->mc_qrv = mlh2->mld2q_qrv;
+ 		if (group_type == IPV6_ADDR_ANY) { /* general query */
+-			if (mlh2->nsrcs) {
++			if (mlh2->mld2q_nsrcs) {
+ 				in6_dev_put(idev);
+ 				return -EINVAL; /* no sources allowed */
+ 			}
+@@ -1231,9 +1181,9 @@ int igmp6_event_query(struct sk_buff *skb)
+ 			return 0;
+ 		}
+ 		/* mark sources to include, if group & source-specific */
+-		if (mlh2->nsrcs != 0) {
++		if (mlh2->mld2q_nsrcs != 0) {
+ 			if (!pskb_may_pull(skb, srcs_offset +
+-			    ntohs(mlh2->nsrcs) * sizeof(struct in6_addr))) {
++			    ntohs(mlh2->mld2q_nsrcs) * sizeof(struct in6_addr))) {
+ 				in6_dev_put(idev);
+ 				return -EINVAL;
+ 			}
+@@ -1269,7 +1219,7 @@ int igmp6_event_query(struct sk_buff *skb)
+ 					ma->mca_flags &= ~MAF_GSQUERY;
+ 			}
+ 			if (!(ma->mca_flags & MAF_GSQUERY) ||
+-			    mld_marksources(ma, ntohs(mlh2->nsrcs), mlh2->srcs))
++			    mld_marksources(ma, ntohs(mlh2->mld2q_nsrcs), mlh2->mld2q_srcs))
+ 				igmp6_group_queried(ma, max_delay);
+ 			spin_unlock_bh(&ma->mca_lock);
+ 			break;
+@@ -1285,9 +1235,8 @@ int igmp6_event_query(struct sk_buff *skb)
+ int igmp6_event_report(struct sk_buff *skb)
+ {
+ 	struct ifmcaddr6 *ma;
+-	struct in6_addr *addrp;
+ 	struct inet6_dev *idev;
+-	struct icmp6hdr *hdr;
++	struct mld_msg *mld;
+ 	int addr_type;
+ 
+ 	/* Our own report looped back. Ignore it. */
+@@ -1299,10 +1248,10 @@ int igmp6_event_report(struct sk_buff *skb)
+ 	    skb->pkt_type != PACKET_BROADCAST)
+ 		return 0;
+ 
+-	if (!pskb_may_pull(skb, sizeof(struct in6_addr)))
++	if (!pskb_may_pull(skb, sizeof(*mld) - sizeof(struct icmp6hdr)))
+ 		return -EINVAL;
+ 
+-	hdr = icmp6_hdr(skb);
++	mld = mld_msg(skb);
+ 
+ 	/* Drop reports with not link local source */
+ 	addr_type = ipv6_addr_type(&ipv6_hdr(skb)->saddr);
+@@ -1310,8 +1259,6 @@ int igmp6_event_report(struct sk_buff *skb)
+ 	    !(addr_type&IPV6_ADDR_LINKLOCAL))
+ 		return -EINVAL;
+ 
+-	addrp = (struct in6_addr *) (hdr + 1);
+-
+ 	idev = in6_dev_get(skb->dev);
+ 	if (idev == NULL)
+ 		return -ENODEV;
+@@ -1322,7 +1269,7 @@ int igmp6_event_report(struct sk_buff *skb)
+ 
+ 	read_lock_bh(&idev->lock);
+ 	for (ma = idev->mc_list; ma; ma=ma->next) {
+-		if (ipv6_addr_equal(&ma->mca_addr, addrp)) {
++		if (ipv6_addr_equal(&ma->mca_addr, &mld->mld_mca)) {
+ 			spin_lock(&ma->mca_lock);
+ 			if (del_timer(&ma->mca_timer))
+ 				atomic_dec(&ma->mca_refcnt);
+@@ -1431,11 +1378,11 @@ static struct sk_buff *mld_newpack(struct net_device *dev, int size)
+ 	skb_set_transport_header(skb, skb_tail_pointer(skb) - skb->data);
+ 	skb_put(skb, sizeof(*pmr));
+ 	pmr = (struct mld2_report *)skb_transport_header(skb);
+-	pmr->type = ICMPV6_MLD2_REPORT;
+-	pmr->resv1 = 0;
+-	pmr->csum = 0;
+-	pmr->resv2 = 0;
+-	pmr->ngrec = 0;
++	pmr->mld2r_type = ICMPV6_MLD2_REPORT;
++	pmr->mld2r_resv1 = 0;
++	pmr->mld2r_cksum = 0;
++	pmr->mld2r_resv2 = 0;
++	pmr->mld2r_ngrec = 0;
+ 	return skb;
+ }
+ 
+@@ -1457,9 +1404,10 @@ static void mld_sendpack(struct sk_buff *skb)
+ 	mldlen = skb->tail - skb->transport_header;
+ 	pip6->payload_len = htons(payload_len);
+ 
+-	pmr->csum = csum_ipv6_magic(&pip6->saddr, &pip6->daddr, mldlen,
+-		IPPROTO_ICMPV6, csum_partial(skb_transport_header(skb),
+-					     mldlen, 0));
++	pmr->mld2r_cksum = csum_ipv6_magic(&pip6->saddr, &pip6->daddr, mldlen,
++					   IPPROTO_ICMPV6,
++					   csum_partial(skb_transport_header(skb),
++							mldlen, 0));
+ 
+ 	dst = icmp6_dst_alloc(skb->dev, NULL, &ipv6_hdr(skb)->daddr);
+ 
+@@ -1520,7 +1468,7 @@ static struct sk_buff *add_grhead(struct sk_buff *skb, struct ifmcaddr6 *pmc,
+ 	pgr->grec_nsrcs = 0;
+ 	pgr->grec_mca = pmc->mca_addr;	/* structure copy */
+ 	pmr = (struct mld2_report *)skb_transport_header(skb);
+-	pmr->ngrec = htons(ntohs(pmr->ngrec)+1);
++	pmr->mld2r_ngrec = htons(ntohs(pmr->mld2r_ngrec)+1);
+ 	*ppgr = pgr;
+ 	return skb;
+ }
+@@ -1556,7 +1504,7 @@ static struct sk_buff *add_grec(struct sk_buff *skb, struct ifmcaddr6 *pmc,
+ 
+ 	/* EX and TO_EX get a fresh packet, if needed */
+ 	if (truncate) {
+-		if (pmr && pmr->ngrec &&
++		if (pmr && pmr->mld2r_ngrec &&
+ 		    AVAILABLE(skb) < grec_size(pmc, type, gdeleted, sdeleted)) {
+ 			if (skb)
+ 				mld_sendpack(skb);
+@@ -1769,9 +1717,8 @@ static void igmp6_send(struct in6_addr *addr, struct net_device *dev, int type)
+ 	struct sock *sk = net->ipv6.igmp_sk;
+ 	struct inet6_dev *idev;
+ 	struct sk_buff *skb;
+-	struct icmp6hdr *hdr;
++	struct mld_msg *hdr;
+ 	const struct in6_addr *snd_addr, *saddr;
+-	struct in6_addr *addrp;
+ 	struct in6_addr addr_buf;
+ 	int err, len, payload_len, full_len;
+ 	u8 ra[8] = { IPPROTO_ICMPV6, 0,
+@@ -1819,16 +1766,14 @@ static void igmp6_send(struct in6_addr *addr, struct net_device *dev, int type)
+ 
+ 	memcpy(skb_put(skb, sizeof(ra)), ra, sizeof(ra));
+ 
+-	hdr = (struct icmp6hdr *) skb_put(skb, sizeof(struct icmp6hdr));
+-	memset(hdr, 0, sizeof(struct icmp6hdr));
+-	hdr->icmp6_type = type;
++	hdr = (struct mld_msg *) skb_put(skb, sizeof(struct mld_msg));
++	memset(hdr, 0, sizeof(struct mld_msg));
++	hdr->mld_type = type;
++	ipv6_addr_copy(&hdr->mld_mca, addr);
+ 
+-	addrp = (struct in6_addr *) skb_put(skb, sizeof(struct in6_addr));
+-	ipv6_addr_copy(addrp, addr);
+-
+-	hdr->icmp6_cksum = csum_ipv6_magic(saddr, snd_addr, len,
+-					   IPPROTO_ICMPV6,
+-					   csum_partial(hdr, len, 0));
++	hdr->mld_cksum = csum_ipv6_magic(saddr, snd_addr, len,
++					 IPPROTO_ICMPV6,
++					 csum_partial(hdr, len, 0));
+ 
+ 	idev = in6_dev_get(skb->dev);
+ 
+-- 
+1.5.6.5
 
