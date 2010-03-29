@@ -1,72 +1,132 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH RFC 1/2] flow: virtualize get and entry deletion methods
-Date: Mon, 29 Mar 2010 17:09:27 +0800
-Message-ID: <20100329090927.GA22899@gondor.apana.org.au>
-References: <1269509091-6440-1-git-send-email-timo.teras@iki.fi> <1269509091-6440-2-git-send-email-timo.teras@iki.fi> <20100325.122611.267401605.davem@davemloft.net> <20100329084018.GA22547@gondor.apana.org.au> <4BB06C36.9060105@iki.fi>
+From: James Chapman <jchapman@katalix.com>
+Subject: [PATCH v2 00/12] l2tp: Introduce L2TPv3 support
+Date: Mon, 29 Mar 2010 10:56:40 +0100
+Message-ID: <20100329095639.30460.30496.stgit@bert.katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:60287 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751647Ab0C2JJf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 05:09:35 -0400
-Content-Disposition: inline
-In-Reply-To: <4BB06C36.9060105@iki.fi>
+Received: from katalix.com ([82.103.140.233]:60413 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751658Ab0C2J4X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Mar 2010 05:56:23 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mail.katalix.com (Postfix) with ESMTP id 412F8A620A3
+	for <netdev@vger.kernel.org>; Mon, 29 Mar 2010 10:56:40 +0100 (BST)
+Received: from mail.katalix.com ([127.0.0.1])
+	by localhost (mail.katalix.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id oGJ0FDhHVO7L for <netdev@vger.kernel.org>;
+	Mon, 29 Mar 2010 10:56:40 +0100 (BST)
+Received: from bert.katalix.com (localhost.localdomain [127.0.0.1])
+	by mail.katalix.com (Postfix) with ESMTP id 21340A62087
+	for <netdev@vger.kernel.org>; Mon, 29 Mar 2010 10:56:40 +0100 (BST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 29, 2010 at 12:00:38PM +0300, Timo Ter=E4s wrote:
->
->> Timo, what was the reason for getting rid of the synchronous
->> flush again?
->
-> No, just having the flush call is not enough to guarantee
-> liveliness. The flushing happens in delayed work, and the flows
-> might be in use before the flush has been finished or even
-> started.
->
-> I was also hoping to move the "delayed" deletion part to
-> flow cache core so the code would be shared with policies and
-> bundles.
->
-> As stated before, we don't really need lock for the 'dead' check.
-> It's only written once, and actually read without lock in some
-> other places too. And all the other places that do take the lock,
-> release it right away making the resulting dead check result
-> "old" anyway.=20
+This patch series adds L2TPv3 support. It splits the existing pppol2tp
+driver to separate its L2TP and PPP parts, then adds new L2TPv3
+functionality. The patches implement a new socket family for L2TPv3 IP
+encapsulation, expose virtual netdevices for each L2TPv3 ethernet
+pseudowire and add a netlink interface.
 
-No that's not the point.
+The following drivers are provided:-
 
-The lock is not there to protect reading ->dead, which is atomic
-anyway.
+l2tp_core    - L2TP driver core. Always required.
+l2tp_ppp     - L2TP PPP (PPPoL2TP). L2TPv2 and L2TPv3.
+l2tp_eth     - L2TPv3 ethernet pseudowire.
+l2tp_ip      - L2TPv3 IP encapsulation.
+l2tp_netlink - L2TPv3 netlink API.
 
-It's there to guarantee that you don't increment the ref count
-on a dead policy.
+The combination of l2tp_core and l2tp_ppp provides
+backwards-compatible L2TPv2 pppol2tp functionality. Userspace L2TPv2
+applications using the existing pppol2tp driver should not need to
+change.
 
-=46or the flow cache we didn't need this because the policy code
-would flush the cache synchronously so we can always grab a ref
-count safely as long as BH is still off.
+The implementation is as I described in a previous posting to netdev,
+archived at
+http://marc.info/?l=linux-netdev&m=120845482320143&w=4. Unfortunately,
+splitting the existing pppol2tp driver into l2tp_core and l2tp_ppp
+makes the changes difficult to review. The split is needed to separate
+PPP from L2TP, since in L2TPv3, protocols other than PPP can be
+carried. I have organised the patches so that the split is done first,
+with new features added in separate patches.
 
-So if you leave the flow cache flushing as is, then we should
-still be able to do the it without holding the lock, or checking
-for deadness.
+Relevant RFCs are:-
+- http://www.ietf.org/rfc/rfc3931.txt (L2TPv3)
+- http://www.ietf.org/rfc/rfc4719.txt (L2TPv3 ethernet pseudowire)
 
-> Looks to me that the whole policy locking is not up-to-date
-> anymore. Apparently the only place that actually needs it is
-> the migration code (which just happens to be broke anyway since
-> bundle creation does not take read lock). But it could be
-> relatively easily changed to replace policy with new
-> templates... and the whole policy stuff converted to RCU.
+A patchset is available to iproute2 which adds a number of commands
+for unmanaged L2TPv3 tunnels. This will be submitted separately.
 
-I wouldn't be surprised that the migration code is buggy.  But
-that's orthogonal to your patch.
+TODO:-
+- Add IP pseudowires. These carry only IP frames (no L2 header).
+- Add VLAN pseudowires.
+- Add L2TP tunnel switching.
+- Add ATM pseudowires - RFC3355 and RFC4454.
 
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off-by: James Chapman <jchapman@katalix.com>
+Reviewed-by: Randy Dunlap <randy.dunlap@oracle.com>
+
+---
+
+This patch series has the following changes since the previous version:-
+
+- Fix compile error when CONFIG_COMPAT is defined. Since l2tp_ip is
+  not a UDP socket, use compat_ip_[gs]etsockopt directly instead of
+  config_udp_[gs]etsockopt.
+
+- Fix whitespace issues found by
+  git apply --check --whitespace=error-all
+
+James Chapman (12):
+      l2tp: Relocate pppol2tp driver to new net/l2tp directory
+      l2tp: Split pppol2tp patch into separate l2tp and ppp parts
+      ppp: Add ppp_dev_name() exported function
+      l2tp: Add ppp device name to L2TP ppp session data
+      l2tp: Add L2TPv3 protocol support
+      l2tp: Update PPP-over-L2TP driver to work over L2TPv3
+      l2tp: Add L2TPv3 IP encapsulation (no UDP) support
+      netlink: Export genl_lock() API for use by modules
+      l2tp: Add netlink control API for L2TP
+      l2tp: Add L2TP ethernet pseudowire support
+      l2tp: Add support for static unmanaged L2TPv3 tunnels
+      l2tp: Update documentation
+
+
+
+ Documentation/networking/l2tp.txt |  233 +++
+ drivers/net/Kconfig               |    7 
+ drivers/net/Makefile              |    2 
+ drivers/net/ppp_generic.c         |   19 
+ drivers/net/pppol2tp.c            | 2680 -------------------------------------
+ include/linux/genetlink.h         |    8 
+ include/linux/if_pppol2tp.h       |   16 
+ include/linux/if_pppox.h          |    9 
+ include/linux/l2tp.h              |  164 ++
+ include/linux/ppp_channel.h       |    3 
+ net/Kconfig                       |    1 
+ net/Makefile                      |    1 
+ net/l2tp/Kconfig                  |   94 +
+ net/l2tp/Makefile                 |   11 
+ net/l2tp/l2tp_core.c              | 2015 ++++++++++++++++++++++++++++
+ net/l2tp/l2tp_core.h              |  306 ++++
+ net/l2tp/l2tp_eth.c               |  383 +++++
+ net/l2tp/l2tp_ip.c                |  679 +++++++++
+ net/l2tp/l2tp_netlink.c           |  844 ++++++++++++
+ net/l2tp/l2tp_ppp.c               | 1602 ++++++++++++++++++++++
+ net/netlink/genetlink.c           |    6 
+ 21 files changed, 6359 insertions(+), 2724 deletions(-)
+ delete mode 100644 drivers/net/pppol2tp.c
+ create mode 100644 include/linux/l2tp.h
+ create mode 100644 net/l2tp/Kconfig
+ create mode 100644 net/l2tp/Makefile
+ create mode 100644 net/l2tp/l2tp_core.c
+ create mode 100644 net/l2tp/l2tp_core.h
+ create mode 100644 net/l2tp/l2tp_eth.c
+ create mode 100644 net/l2tp/l2tp_ip.c
+ create mode 100644 net/l2tp/l2tp_netlink.c
+ create mode 100644 net/l2tp/l2tp_ppp.c
+
+
+
