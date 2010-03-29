@@ -1,66 +1,81 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH] NETLABEL: Fix an RCU warning
-Date: Mon, 29 Mar 2010 16:05:48 -0400
-Message-ID: <201003291605.48605.paul.moore@hp.com>
-References: <20100325110621.5348.32020.stgit@warthog.procyon.org.uk> <201003291130.10752.paul.moore@hp.com> <20100329155857.GG2569@linux.vnet.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Network performance - iperf
+Date: Mon, 29 Mar 2010 22:07:38 +0200
+Message-ID: <1269893258.1958.61.camel@edumazet-laptop>
+References: <4BB09021.6020202@petalogix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Howells <dhowells@redhat.com>, netdev@vger.kernel.org
-To: paulmck@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:31070 "EHLO
-	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751631Ab0C2UFv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 16:05:51 -0400
-In-Reply-To: <20100329155857.GG2569@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	John Williams <john.williams@petalogix.com>,
+	netdev@vger.kernel.org, Grant Likely <grant.likely@secretlab.ca>,
+	John Linn <John.Linn@xilinx.com>,
+	"Steven J. Magnani" <steve@digidescorp.com>,
+	Arnd Bergmann <arnd@arndb.de>, akpm@linux-foundation.org
+To: michal.simek@petalogix.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4BB09021.6020202@petalogix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Monday 29 March 2010 11:58:57 am Paul E. McKenney wrote:
-> On Mon, Mar 29, 2010 at 11:30:10AM -0400, Paul Moore wrote:
-> > On Monday 29 March 2010 11:24:53 am Paul E. McKenney wrote:
-> > > On Thu, Mar 25, 2010 at 12:28:04PM +0100, Eric Dumazet wrote:
-> > > > Le jeudi 25 mars 2010 =E0 11:06 +0000, David Howells a =E9crit =
-:
-> > > > > Fix an RCU warning in the netlabel code due to missing rcu re=
-ad
-> > > > > locking around an rcu_dereference() in netlbl_unlhsh_hash() w=
-hen
-> > > > > called from netlbl_unlhsh_netdev_handler():
-> > > > >=20
-> > > > > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D
-> > > > > [ INFO: suspicious rcu_dereference_check() usage. ]
-> > > > > ---------------------------------------------------
-> > > > > net/netlabel/netlabel_unlabeled.c:246 invoked
-> > > > > rcu_dereference_check() without protection!
-
-=2E..
-
-> > As Eric pointed out in response to the message above, I believe the
-> > solution is to simply remove the rcu_dereference() call in the
-> > netlbl_unlhsh_hash() function.
+Le lundi 29 mars 2010 =C3=A0 13:33 +0200, Michal Simek a =C3=A9crit :
+> Hi All,
 >=20
-> It would be at the moment, but this will break once Arnd Bergmann get=
-s
-> his sparse-based checks done.  With these checks, we decorate RCU-pro=
-tected
-> pointers, and then sparse yells if you access such a pointer without =
-the
-> proper rcu_dereference() invocation.
+> I am doing several network benchmarks on Microblaze cpu with MMU.
+> I am seeing one issue which is weird and I would like know where the=20
+> problem is.
+> I am using the same hw design and the same Linux kernel. I have done=20
+> only change in memory size (in DTS).
+>=20
+> 32MB: 18.3Mb/s
+> 64MB: 15.2Mb/s
+> 128MB: 10.6Mb/s
+> 256MB: 3.8Mb/s
+>=20
+> There is huge difference between systems with 32MB and 256MB ram.
+>=20
+> I am running iperf TCP tests with these commands.
+> On x86: iperf -c 192.168.0.105 -i 5 -t 50
+> On microblaze: iperf -s
+>=20
+> I look at pte misses which are the same on all configurations which=20
+> means that the number of do_page_fault exceptions is the same on all=20
+> configurations.
+> I added some hooks to low level kernel code to be able to see number =
+of=20
+> tlb misses. There is big differences between number of misses on syst=
+em=20
+> with 256MB and 32MB. I measured two kernel settings. First column is=20
+> kernel with asm optimized memcpy/memmove function and the second is=20
+> without optimization. (Kernel with asm optimized lib functions is 30%=
+=20
+> faster than system without optimization)
+>=20
+> 32MB: 12703	13641
+> 64MB: 1021750	655644
+> 128MB: 1031644	531879
+> 256MB: 1011322	430027
+>=20
+> Most of them are data tlb misses. Microblaze MMU doesn't use any LRU=20
+> mechanism to find TLB victim that's why we there is naive TLB=20
+> replacement strategy based on incrementing counter. We using 2 tlbs f=
+or=20
+> kernel itself which are not updated that's why we can use "only" 62 T=
+LBs=20
+> from 64.
+>=20
 
-Okay, is there a recommended approach towards accessing RCU-protected p=
-ointers=20
-both under a RCU read lock and under only a spinlock (or similar lock=20
-construct)?  I know I could do something based on querying the state of=
- the=20
-RCU/etc. locks but that seems like a hack and could interfere with some=
- of the=20
-logic used to detect coding problems.
+This probably has nothing to do with tcp stack, but trashing tlb on som=
+e
+pathological cases (you have 62 entries, thats good for working size up
+to 248 Kbytes, all included (program stack, program static & dynamic
+data), given microblaze 4Kbytes page size.
 
---=20
-paul moore
-linux @ hp
+You could try :
+
+echo "4096 8192 32768" >/proc/sys/net/ipv4/tcp_rmem
+
+to reduce memory footprint of iperf (or use iperf parameters)
+
+Of course, I suppose kernel memory is 32 MB max, if you use only two
+tlbs (16 Mbytes each) for kernel...
