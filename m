@@ -1,33 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Network performance - iperf
-Date: Mon, 29 Mar 2010 14:16:34 +0200
-Message-ID: <1269864994.2164.21.camel@edumazet-laptop>
-References: <4BB09021.6020202@petalogix.com>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH RFC 1/2] flow: virtualize get and entry deletion methods
+Date: Mon, 29 Mar 2010 15:20:13 +0300
+Message-ID: <4BB09AFD.4050304@iki.fi>
+References: <20100329090927.GA22899@gondor.apana.org.au> <4BB07BF6.6000505@iki.fi> <20100329102639.GA23414@gondor.apana.org.au> <4BB082B8.9030400@iki.fi> <20100329111025.GA23927@gondor.apana.org.au> <4BB08D96.8090909@iki.fi> <20100329113225.GA24159@gondor.apana.org.au> <4BB09178.8050501@iki.fi> <20100329115701.GA24367@gondor.apana.org.au> <4BB0970E.7060405@iki.fi> <20100329121124.GA24470@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	John Williams <john.williams@petalogix.com>,
-	netdev@vger.kernel.org, Grant Likely <grant.likely@secretlab.ca>,
-	John Linn <John.Linn@xilinx.com>,
-	"Steven J. Magnani" <steve@digidescorp.com>,
-	Arnd Bergmann <arnd@arndb.de>, akpm@linux-foundation.org
-To: michal.simek@petalogix.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:62781 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751728Ab0C2MQk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 08:16:40 -0400
-In-Reply-To: <4BB09021.6020202@petalogix.com>
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:65161 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752322Ab0C2MUS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 08:20:18 -0400
+Received: by ewy20 with SMTP id 20so668127ewy.1
+        for <netdev@vger.kernel.org>; Mon, 29 Mar 2010 05:20:15 -0700 (PDT)
+In-Reply-To: <20100329121124.GA24470@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 29 mars 2010 =C3=A0 13:33 +0200, Michal Simek a =C3=A9crit :
+Herbert Xu wrote:
+> On Mon, Mar 29, 2010 at 03:03:26PM +0300, Timo Ter=E4s wrote:
+>> All of the code treats the walk.dead as a hint. It does not need
+>> strong synchronization with a lock.
+>=20
+> Well then converting it to an atomic_t is completely pointless.
 
-> Do you have any idea howto improve TCP/UDP performance in general?
-> Or tests which can point me on weak places.
+Yes, I came to same conclusion. The only thing I thought justifying
+it, was the xfrm_policy_kill() doing the check of the old value.
 
-Could you post "netstat -s" on your receiver, after fresh boot and your
-iperf session, for 32 MB and 256 MB ram case ?
-
-
+But as noted few mails ago, it's not necessary. So I'll just go
+ahead and remove all locking from the read side, and move the
+xfrm_policy_kill to use plain write.
