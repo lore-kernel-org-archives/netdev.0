@@ -1,77 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] NETLABEL: Fix an RCU warning
-Date: Mon, 29 Mar 2010 22:19:05 +0200
-Message-ID: <1269893945.1958.72.camel@edumazet-laptop>
-References: <20100325110621.5348.32020.stgit@warthog.procyon.org.uk>
-	 <201003291130.10752.paul.moore@hp.com>
-	 <20100329155857.GG2569@linux.vnet.ibm.com>
-	 <201003291605.48605.paul.moore@hp.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: UDP path MTU discovery
+Date: Mon, 29 Mar 2010 13:25:20 -0700
+Message-ID: <4BB10CB0.5090702@hp.com>
+References: <1269561751.2891.8.camel@ilion> <877how25kx.fsf@basil.nowhere.org>	<4BB0DCF6.9020401@hp.com> <20100329201431.GH20695@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: paulmck@linux.vnet.ibm.com, David Howells <dhowells@redhat.com>,
-	netdev@vger.kernel.org
-To: Paul Moore <paul.moore@hp.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Glen Turner <gdt@gdt.id.au>, netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:62395 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751312Ab0C2UTN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 16:19:13 -0400
-Received: by bwz1 with SMTP id 1so3881081bwz.21
-        for <netdev@vger.kernel.org>; Mon, 29 Mar 2010 13:19:11 -0700 (PDT)
-In-Reply-To: <201003291605.48605.paul.moore@hp.com>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:13703 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750957Ab0C2UZW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 16:25:22 -0400
+In-Reply-To: <20100329201431.GH20695@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 29 mars 2010 =C3=A0 16:05 -0400, Paul Moore a =C3=A9crit :
+Andi Kleen wrote:
+> On Mon, Mar 29, 2010 at 10:01:42AM -0700, Rick Jones wrote:
 
-> Okay, is there a recommended approach towards accessing RCU-protected=
- pointers=20
-> both under a RCU read lock and under only a spinlock (or similar lock=
-=20
-> construct)?  I know I could do something based on querying the state =
-of the=20
-> RCU/etc. locks but that seems like a hack and could interfere with so=
-me of the=20
-> logic used to detect coding problems.
->=20
+>>But which of the last N datagrams sent by the application should be 
+>>retained for retransmission?  It could be scores if not hundreds of 
+>>datagrams depending on the behaviour of the application and the latency to 
+>>the narrow part of the network.
+> 
+> 
+> Yes, if there's a large window you lose. I guess it would make protocols
+> like DHCP work at least ("transactional UDP" as the original poster called it)
+> 
+> I don't know if it would fix enough applications to be worth 
+> implementing. The only way to find out would be to try I guess.
+> I don't have any better ideas.
 
-Say you use a common function func1(), that use RCU protection, from a
-pure reader, and from a pure writer.
+I don't think there are any good solutions that do not require either 
+application involvement, or a modification to IPv6.
 
-pure_reader()
-{
-	rcu_read_lock();
-	res =3D func1();
-	rcu_read_unlock();
-}
+How about allowing an application to request that (copies of) ICMP(v6) messages 
+be made available through the socket?  In that way, the application, which 
+ostensibly already has to be keeping track of its sends for its own nefarious 
+retransmission porpoises can receive the "signal" just like TCP does and perhaps 
+there will be enough in the ICMPv6 message for the application to know which 
+message(s) need to be retransmitted.
 
-pure_writer()
-{
-	spin_lock(&some_lock);
-	res =3D func1();
-	spin_unlock(&some_lock);
-}
-
-then, func1 could use
-
-func1()
-{
- ..... ptr =3D rcu_dereference_check(xxx->ptr,
-				   rcu_read_lock_held() ||=20
-				   lockdep_is_held(&some_lock));
-=2E..
-}
-
-
-They are numerous examples in tree.
-If some iterators use implicit rcu_dereference(), you'll probably need
-to define new iterators, so that full condition can be tested.
-
-rcu_dereference() is a shorthand for=20
-	rcu_dereference_check(p, rcu_read_lock_held())
-
-This only deals for pure readers, not potential pure writer :)
-
-
-
+rick jones
