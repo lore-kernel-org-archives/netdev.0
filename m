@@ -1,26 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: offical fix for CVE-2009-4537 (overlength frame
- DMAs)
-Date: Mon, 29 Mar 2010 13:17:29 -0700 (PDT)
-Message-ID: <20100329.131729.125560878.davem@davemloft.net>
-References: <20100329160356.GC22733@hmsreliant.think-freely.org>
+Subject: Re: [PATCH NEXT 0/5]netxen: fw file validation and fixes
+Date: Mon, 29 Mar 2010 13:18:51 -0700 (PDT)
+Message-ID: <20100329.131851.42891236.davem@davemloft.net>
+References: <1269866625-26151-1-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	michael.s.gilbert@gmail.com, romieu@fr.zoreil.com,
-	eric.dumazet@gmail.com
-To: nhorman@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100329160356.GC22733@hmsreliant.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
+To: amit.salecha@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33003
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751045Ab0C2USu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 16:18:50 -0400
+In-Reply-To: <1269866625-26151-1-git-send-email-amit.salecha@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Mon, 29 Mar 2010 12:03:56 -0400
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Date: Mon, 29 Mar 2010 05:43:40 -0700
 
-> Official patch to fix the r8169 frame length check error.
- ...
-> Signed-off-by: Neil Horman <nhorman@redhat.com>
+> Hi
+>   Series of 5 patches to validate unified rom image and bug fixes.
+>   Please apply them on net-next-2.6 branch.
 
-Applied, thanks a lot Neil.
+All applied, thank you.
