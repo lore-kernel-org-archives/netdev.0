@@ -1,53 +1,66 @@
-From: Luis de Bethencourt <luisbg-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2/2] ath: fix macros coding style issue in regd.c
-Date: Tue, 30 Mar 2010 00:39:18 +0100
-Message-ID: <506b70dc1003291639j4a620ef0ve551d97bea26fa2e@mail.gmail.com>
-References: <1269904339-15599-1-git-send-email-luisbg@ubuntu.com>
-	 <1269905624.4558.56.camel@Joe-Laptop.home>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] r8169: offical fix for CVE-2009-4537 (overlength frame
+ DMAs)
+Date: Mon, 29 Mar 2010 19:44:56 -0400
+Message-ID: <20100329234456.GA2070@localhost.localdomain>
+References: <20100329160356.GC22733@hmsreliant.think-freely.org>
+ <1269900105.8653.389.camel@localhost>
+ <20100329.150924.144366212.davem@davemloft.net>
+ <1269901265.8653.408.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1269905624.4558.56.camel-AkRN8/LKpobuYGix6ZUp1Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, michael.s.gilbert@gmail.com,
+	davem@davemeloft.net, romieu@fr.zoreil.com, eric.dumazet@gmail.com
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1269901265.8653.408.camel@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 30, 2010 at 12:33 AM, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
-> On Tue, 2010-03-30 at 00:12 +0100, Luis de Bethencourt wrote:
->> This is a patch to the ath/regd.c file that fixes up three warnings
->> about macros found by the checkpatch.pl tool, these said that
->> complex values should be enclosed in parenthesis.
->
-> Hi Luis.
->
-> Checkpatch isn't always correct.
->
-> Please make sure to compile test your changes
-> before submitting them.
->
-> These macros are used as initializers and
-> can not be surrounded by parentheses.
->
-> =A0 =A0 =A0 =A0.reg_rules =3D {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ATH9K_2GHZ_ALL,
->
-> cheers, Joe
->
->
+On Mon, Mar 29, 2010 at 11:21:05PM +0100, Ben Hutchings wrote:
+> On Mon, 2010-03-29 at 15:09 -0700, David Miller wrote:
+> > From: Ben Hutchings <ben@decadent.org.uk>
+> > Date: Mon, 29 Mar 2010 23:01:45 +0100
+> > 
+> > > It also sucks that the secure but low-performance behaviour is enabled
+> > > for all variants, while AIUI only some suffer from the bug.  I realise
+> > > you probably don't have access to every variant (and neither does
+> > > Francois) but perhaps you could come up with a test case that could be
+> > > used to start whitelisting common variants that don't have the bug?
+> > 
+> > As far as we know all chip variants seem to have the problem.
+> 
+> That's not what I understood from the discussion of the early
+> back-and-forth changes to receive buffer size.
+> 
+As dave mentioned, we have no conclusive evidence that only certain chip
+variants show the behavior.  realtek hasn't said anything about it one way or
+the other.  AFAIK, all you need to do to test given chip is try to receive a
+frame thats longer than configured receive filter.  I only had one NIC variant
+to test, and it failed that test.
 
-Hi Joe,
+> > Furthermore, this issue has been known about and investigated for
+> > about 3 months.  In that time no better options for handling this
+> > issue reliably have been discovered and implemented.
+> >
+> > Feel free to code up (and test) something better yourself if you don't
+> > like the fix as it exists currently. :-)
+> 
+> I would have had a go already, if I actually had some of this hardware
+> to hand.  Luckily I have managed to avoid buying any so far.  But if
+> anyone is prepared to loan me a NIC then I promise to have a go at it.
+> 
+I only had the one variant that failed.  My hope was to make them all safe, and,
+should any variants be found in the field that didn't exhibit the behavior, we
+could whitelist them as they got reported.
 
-Sorry about this. I compiled test the changes but make didn't complain.
+Regards
+Neil
 
-My bad, will try to avoid this better in the future.
-
-Luis
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Ben.
+> 
+> -- 
+> Ben Hutchings
+> Once a job is fouled up, anything done to improve it makes it worse.
