@@ -1,53 +1,42 @@
-From: Marco <ctxspi@gmail.com>
-Subject: Re: Question for iproute
-Date: Mon, 29 Mar 2010 16:37:47 +0200
-Message-ID: <20100329143747.GA1809@alice.it>
-References: <20100328165244.GA6720@alice.it>
- <20100328133742.2f21e842@nehalam>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/7] xfrm: remove policy lock when accessing
+	policy->walk.dead
+Date: Mon, 29 Mar 2010 22:43:39 +0800
+Message-ID: <20100329144339.GA26214@gondor.apana.org.au>
+References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-2-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:59640 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752017Ab0C2Ohz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 10:37:55 -0400
-Received: by wyb39 with SMTP id 39so998322wyb.19
-        for <netdev@vger.kernel.org>; Mon, 29 Mar 2010 07:37:52 -0700 (PDT)
+Received: from ringil.hengli.com.au ([216.59.3.182]:56614 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752713Ab0C2Onn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 10:43:43 -0400
 Content-Disposition: inline
-In-Reply-To: <20100328133742.2f21e842@nehalam>
+In-Reply-To: <1269871964-5412-2-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 28, 2010 at 01:37:42PM -0700, Stephen Hemminger wrote:
-> Date: Sun, 28 Mar 2010 13:37:42 -0700
-> From: Stephen Hemminger <shemminger@linux-foundation.org>
-> Subject: Re: Question for iproute
-> To: Marco <ctxspi@gmail.com>
-> X-Mailer: Claws Mail 3.7.5 (GTK+ 2.18.3; x86_64-pc-linux-gnu)
-> 
-> On Sun, 28 Mar 2010 18:52:44 +0200
-> Marco <ctxspi@gmail.com> wrote:
-> 
-> > Hello, can I ask you one question?
-> > 
-> > Where is official forum or mailing list for iproute tools?
-> > 
-> > lartc is not manteined
-> > 
-> > Thanks.
-> > 
-> 
-> netdev@vger.kernel.org mailing list is the best place to discuss iproute
-> issues.
-> 
-> 
+On Mon, Mar 29, 2010 at 05:12:38PM +0300, Timo Teras wrote:
+>
+> @@ -1132,7 +1119,7 @@ int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
+>  		__xfrm_policy_link(pol, XFRM_POLICY_MAX+dir);
+>  	}
+>  	if (old_pol)
+> -		__xfrm_policy_unlink(old_pol, XFRM_POLICY_MAX+dir);
+> +		old_pol = __xfrm_policy_unlink(old_pol, XFRM_POLICY_MAX+dir);
+>  	write_unlock_bh(&xfrm_policy_lock);
+>  
+>  	if (old_pol) {
 
-Can you help please?
+So when can this actually fail?
 
----fine del testo---
+Otherwise this patch looks good to me.
 
+Thanks,
 -- 
-				Messaggio da Marco 
-	--------------------------------------------------------------------
-	Meglio coltivare GNU/Linux...... tanto Windows si pianta da solo!!!!
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
