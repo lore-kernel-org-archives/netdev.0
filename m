@@ -1,61 +1,47 @@
-From: =?iso-8859-1?Q?Fran=E7ois?= Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: fix broken register writes
-Date: Mon, 29 Mar 2010 23:11:16 +0200
-Message-ID: <20100329211115.GA3251@electric-eye.fr.zoreil.com>
-References: <4BAE6C92.2060801@iki.fi>
- <20100327211133.GA3624@electric-eye.fr.zoreil.com>
- <1269732054.8653.155.camel@localhost>
- <20100327.163005.28815553.davem@davemloft.net>
- <20100328003143.GA8501@electric-eye.fr.zoreil.com>
- <1269737245.8653.162.camel@localhost>
- <20100328212858.GA4220@electric-eye.fr.zoreil.com>
- <20100328221924.GG30031@ZenIV.linux.org.uk>
+From: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [ANNOUNCEMENT] NET: usb: sierra_net.c driver
+Date: Mon, 29 Mar 2010 14:18:26 -0700
+Message-ID: <1269897506.9242.10.camel@Linuxdev3>
+References: <1269791821.11714.202.camel@localhost.localdomain>
+	 <4BAFAA2C.8060604@earthlink.net>
+	 <1269894593.11714.215.camel@localhost.localdomain>
+	 <20100329.134144.57458224.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	David Miller <davem@davemloft.net>, timo.teras@iki.fi,
-	ivecera@redhat.com, netdev@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 55.58.140-88.rev.gaoland.net ([88.140.58.55]:53768 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752768Ab0C2VNp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 17:13:45 -0400
-Content-Disposition: inline
-In-Reply-To: <20100328221924.GG30031@ZenIV.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org" <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	"sclark46-ihVZJaRskl1bRRN4PJnoQQ@public.gmane.org" <sclark46-ihVZJaRskl1bRRN4PJnoQQ@public.gmane.org>,
+	"dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org" <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Rory Filer <rfiler-usJ8hg9QsBLWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100329.134144.57458224.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Al Viro <viro@ZenIV.linux.org.uk> :
-[...]
-> FWIW, XID18000000 here (J7F4) loses MAC4 on shutdown; hadn't tested the patch
-> yet.  2.6.26 (on that box) and 2.6.31 (on identical mb) work, 2.6.33 doesn't.
-> I suspect that bisect would lead to commit cc098dc70 (i.e. the place where we
-> started to set address on shutdown).  One more data point: ifconfig hw ether
-> done under 2.6.26 did restore the address.  And that's the same function,
-> isn't it?
-
-You are right.
-
-> Another interesting bit: unlike the older kernel, grep for eth0 in .33 dmesg
+On Mon, 2010-03-29 at 13:41 -0700, David Miller wrote:
+> From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+> Date: Mon, 29 Mar 2010 13:29:53 -0700
 > 
-> eth0: RTL8169sc/8110sc at 0xf87fc000, 00:30:18:a4:65:89, XID 18000000 IRQ 18
-> r8169: eth0: link down
-> ADDRCONF(NETDEV_UP): eth0: link is not ready
-> r8169: eth0: link up
-> ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+> > because they are not NIC cards. They just use Ethernet emulation. And
+> > they also require a management interface to setup APN and activate them
+> > first.
+> > 
+> > It is important that we tell userspace about the type of a network
+> > interface. We do the same for WiMAX and WiFi btw.
+> 
+> I completely agree with Marcel on this, please fix the device
+> type.
+> 
+Thank you all for reviewing the sierra_net driver and for your comments.
+We fixed the device type, re-tested and re-submitted the driver patch.
+Regards,
+Elina
 
-Remove rtl8169scd_hw_phy_config ?
 
-[...]
-> Same for .31 on another box, modulo different address there...
-
-No, keep it.
-
-
-At first sight it looks like rtl8169_open::rtl8169_check_link_status and
-a LinkChg interrupt (order eventually reversed) while 2.6.26 did not
-notice the interrupt.
-
--- 
-Ueimor
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
