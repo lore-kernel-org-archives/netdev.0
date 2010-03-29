@@ -1,18 +1,74 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 0/3] sky2 minor driver updates
-Date: Mon, 29 Mar 2010 10:36:17 -0700
-Message-ID: <20100329173617.765470658@vyatta.com>
+Subject: [PATCH 1/3] sky2: support Yukon EC_U rev B1 and later
+Date: Mon, 29 Mar 2010 10:36:18 -0700
+Message-ID: <20100329173712.570057135@vyatta.com>
+References: <20100329173617.765470658@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:44274 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:44275 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752824Ab0C2Rkf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Mar 2010 13:40:35 -0400
+	id S1754163Ab0C2Rkk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Mar 2010 13:40:40 -0400
+Content-Disposition: inline; filename=sky2-ec-u-b1.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These are minor changes related to chip versions as described
-in current Marvell driver.
+Need to change logic to support later versions of Yukon 2 EC_U chip.
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+--- a/drivers/net/sky2.c	2010-03-29 08:48:16.490429444 -0700
++++ b/drivers/net/sky2.c	2010-03-29 09:27:36.485594685 -0700
+@@ -876,6 +876,10 @@ static void sky2_mac_init(struct sky2_hw
+ 
+ 	if (hw->dev[port]->mtu > ETH_DATA_LEN)
+ 		reg |= GM_SMOD_JUMBO_ENA;
++
++	if (hw->chip_id == CHIP_ID_YUKON_EC_U &&
++	    hw->chip_rev == CHIP_REV_YU_EC_U_B1)
++		reg |= GM_NEW_FLOW_CTRL;
+ 
+ 	gma_write16(hw, port, GM_SERIAL_MODE, reg);
+ 
+@@ -1413,8 +1417,7 @@ static void sky2_rx_start(struct sky2_po
+ 	/* These chips have no ram buffer?
+ 	 * MAC Rx RAM Read is controlled by hardware */
+ 	if (hw->chip_id == CHIP_ID_YUKON_EC_U &&
+-	    (hw->chip_rev == CHIP_REV_YU_EC_U_A1 ||
+-	     hw->chip_rev == CHIP_REV_YU_EC_U_B0))
++	    hw->chip_rev > CHIP_REV_YU_EC_U_A0)
+ 		sky2_write32(hw, Q_ADDR(rxq, Q_TEST), F_M_RX_RAM_DIS);
+ 
+ 	sky2_prefetch_init(hw, rxq, sky2->rx_le_map, RX_LE_SIZE - 1);
+--- a/drivers/net/sky2.h	2010-03-29 08:52:02.480429332 -0700
++++ b/drivers/net/sky2.h	2010-03-29 09:25:32.122900699 -0700
+@@ -557,6 +557,7 @@ enum yukon_ec_u_rev {
+ 	CHIP_REV_YU_EC_U_A0  = 1,
+ 	CHIP_REV_YU_EC_U_A1  = 2,
+ 	CHIP_REV_YU_EC_U_B0  = 3,
++	CHIP_REV_YU_EC_U_B1  = 5,
+ };
+ enum yukon_fe_rev {
+ 	CHIP_REV_YU_FE_A1    = 1,
+@@ -1775,10 +1776,13 @@ enum {
+ /*	GM_SERIAL_MODE			16 bit r/w	Serial Mode Register */
+ enum {
+ 	GM_SMOD_DATABL_MSK	= 0x1f<<11, /* Bit 15..11:	Data Blinder (r/o) */
+-	GM_SMOD_LIMIT_4		= 1<<10, /* Bit 10:	4 consecutive Tx trials */
+-	GM_SMOD_VLAN_ENA	= 1<<9,	/* Bit  9:	Enable VLAN  (Max. Frame Len) */
+-	GM_SMOD_JUMBO_ENA	= 1<<8,	/* Bit  8:	Enable Jumbo (Max. Frame Len) */
+-	 GM_SMOD_IPG_MSK	= 0x1f	/* Bit 4..0:	Inter-Packet Gap (IPG) */
++	GM_SMOD_LIMIT_4		= 1<<10, /* 4 consecutive Tx trials */
++	GM_SMOD_VLAN_ENA	= 1<<9,	 /* Enable VLAN  (Max. Frame Len) */
++	GM_SMOD_JUMBO_ENA	= 1<<8,	 /* Enable Jumbo (Max. Frame Len) */
++
++	GM_NEW_FLOW_CTRL	= 1<<6,	 /* Enable New Flow-Control */
++
++	GM_SMOD_IPG_MSK		= 0x1f	 /* Bit 4..0:	Inter-Packet Gap (IPG) */
+ };
+ 
+ #define DATA_BLIND_VAL(x)	(((x)<<11) & GM_SMOD_DATABL_MSK)
+
 -- 
 
