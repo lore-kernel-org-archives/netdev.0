@@ -1,36 +1,49 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 3/3] sky2: avoid duplicate link up on Optima chip
-Date: Mon, 29 Mar 2010 10:36:20 -0700
-Message-ID: <20100329173712.815043115@vyatta.com>
-References: <20100329173617.765470658@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:44277 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755176Ab0C2Rkv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Mar 2010 13:40:51 -0400
-Content-Disposition: inline; filename=sky2-ul-link-up.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Network performance - iperf
+Date: Mon, 29 Mar 2010 19:45:17 +0200
+Message-ID: <1269884717.1958.2.camel@edumazet-laptop>
+References: <4BB09021.6020202@petalogix.com>
+	 <1269864994.2164.21.camel@edumazet-laptop> <4BB0BF28.5090505@petalogix.com>
+	 <4BB0C6E1.2090606@petalogix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	John Williams <john.williams@petalogix.com>,
+	netdev@vger.kernel.org, Grant Likely <grant.likely@secretlab.ca>,
+	John Linn <John.Linn@xilinx.com>,
+	"Steven J. Magnani" <steve@digidescorp.com>,
+	Arnd Bergmann <arnd@arndb.de>, akpm@linux-foundation.org
+To: michal.simek@petalogix.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4BB0C6E1.2090606@petalogix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The Optima version has feature to detect link quickly without PHY interrupt,
-but it causes duplicate link up events.
+Le lundi 29 mars 2010 =C3=A0 17:27 +0200, Michal Simek a =C3=A9crit :
+> Michal Simek wrote:
+> > Eric Dumazet wrote:
+> >> Le lundi 29 mars 2010 =C3=A0 13:33 +0200, Michal Simek a =C3=A9cri=
+t :
+> >>
+> >>> Do you have any idea howto improve TCP/UDP performance in general=
+?
+> >>> Or tests which can point me on weak places.
+> >>
+> >> Could you post "netstat -s" on your receiver, after fresh boot and=
+ your
+> >> iperf session, for 32 MB and 256 MB ram case ?
+> >>
+> >=20
+> > I am not sure if is helpful but look below.
+> >=20
+> Sorry I forget to c&p that second part. :-(
+>=20
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Sorry, your netstat is not up2date.
 
---- a/drivers/net/sky2.c	2010-03-29 10:29:17.530956219 -0700
-+++ b/drivers/net/sky2.c	2010-03-29 10:29:18.261894374 -0700
-@@ -2146,7 +2146,8 @@ static void sky2_phy_intr(struct sky2_hw
- 		   istatus, phystat);
- 
- 	if (istatus & PHY_M_IS_AN_COMPL) {
--		if (sky2_autoneg_done(sky2, phystat) == 0)
-+		if (sky2_autoneg_done(sky2, phystat) == 0 &&
-+		    !netif_carrier_ok(dev))
- 			sky2_link_up(sky2);
- 		goto out;
- 	}
+If you cannot correct it to last version
+[ net-tools 1.60 , netstat 1.42 ], please send
 
--- 
-
+cat /proc/net/snmp
+cat /proc/net/netstat
