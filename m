@@ -1,8 +1,12 @@
 From: sjur.brandeland@stericsson.com
-Subject: [PATCH net-next-2.6 v7 01/12] net-caif: add CAIF protocol definitions
-Date: Tue, 30 Mar 2010 00:11:22 +0200
-Message-ID: <1269900693-9118-2-git-send-email-sjur.brandeland@stericsson.com>
+Subject: [PATCH net-next-2.6 v7 04/12] net-caif: add CAIF Link layer device
+ header files
+Date: Tue, 30 Mar 2010 00:11:25 +0200
+Message-ID: <1269900693-9118-5-git-send-email-sjur.brandeland@stericsson.com>
 References: <1269900693-9118-1-git-send-email-sjur.brandeland@stericsson.com>
+ <1269900693-9118-2-git-send-email-sjur.brandeland@stericsson.com>
+ <1269900693-9118-3-git-send-email-sjur.brandeland@stericsson.com>
+ <1269900693-9118-4-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN
 Content-Transfer-Encoding: 7BIT
@@ -12,89 +16,191 @@ To: davem@davemloft.net, netdev@vger.kernel.org, marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from eterpe-smout.broadpark.no ([80.202.8.16]:56310 "EHLO
 	eterpe-smout.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753630Ab0C2XLo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 19:11:44 -0400
+	with ESMTP id S1754510Ab0C2XLv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 19:11:51 -0400
 Received: from ignis-smin.broadpark.no ([unknown] [80.202.8.11])
  by eterpe-smout.broadpark.no
  (Sun Java(tm) System Messaging Server 7u3-12.01 64bit (built Oct 15 2009))
- with ESMTP id <0L0200DURDNG6080@eterpe-smout.broadpark.no> for
- netdev@vger.kernel.org; Tue, 30 Mar 2010 00:11:40 +0200 (CEST)
+ with ESMTP id <0L0200DVWDNM6080@eterpe-smout.broadpark.no> for
+ netdev@vger.kernel.org; Tue, 30 Mar 2010 00:11:46 +0200 (CEST)
 Received: from localhost.localdomain ([unknown] [84.49.77.207])
  by ignis-smin.broadpark.no
  (Sun Java(tm) System Messaging Server 7u3-12.01 64bit (built Oct 15 2009))
  with ESMTP id <0L0200BAHDNEMOB0@ignis-smin.broadpark.no> for
- netdev@vger.kernel.org; Tue, 30 Mar 2010 00:11:40 +0200 (CEST)
-In-reply-to: <1269900693-9118-1-git-send-email-sjur.brandeland@stericsson.com>
+ netdev@vger.kernel.org; Tue, 30 Mar 2010 00:11:46 +0200 (CEST)
+In-reply-to: <1269900693-9118-4-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-Add CAIF definitions to existing header files.
-Files: if_arp.h, if_ether.h, socket.h.
-Types: ARPHRD_CAIF, ETH_P_CAIF, AF_CAIF, PF_CAIF, SOL_CAIF, N_CAIF
+Header files for CAIF Link layer net-device,
+and link-layer registration.
 
 Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
 ---
- include/linux/if_arp.h   |    1 +
- include/linux/if_ether.h |    1 +
- include/linux/socket.h   |    5 ++++-
- 3 files changed, 6 insertions(+), 1 deletions(-)
+ include/net/caif/caif_dev.h    |   90 ++++++++++++++++++++++++++++++++++++++++
+ include/net/caif/caif_device.h |   56 +++++++++++++++++++++++++
+ 2 files changed, 146 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/if_arp.h b/include/linux/if_arp.h
-index e80b7f8..6d722f4 100644
---- a/include/linux/if_arp.h
-+++ b/include/linux/if_arp.h
-@@ -90,6 +90,7 @@
- 
- #define ARPHRD_PHONET	820		/* PhoNet media type		*/
- #define ARPHRD_PHONET_PIPE 821		/* PhoNet pipe header		*/
-+#define ARPHRD_CAIF	822		/* CAIF media type		*/
- 
- #define ARPHRD_VOID	  0xFFFF	/* Void type, nothing is known */
- #define ARPHRD_NONE	  0xFFFE	/* zero header length */
-diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
-index 299b412..bed7a46 100644
---- a/include/linux/if_ether.h
-+++ b/include/linux/if_ether.h
-@@ -109,6 +109,7 @@
- #define ETH_P_TRAILER	0x001C		/* Trailer switch tagging	*/
- #define ETH_P_PHONET	0x00F5		/* Nokia Phonet frames          */
- #define ETH_P_IEEE802154 0x00F6		/* IEEE802.15.4 frame		*/
-+#define ETH_P_CAIF	0x00F7		/* ST-Ericsson CAIF protocol	*/
- 
- /*
-  *	This is an Ethernet frame header.
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 7b3aae2..960659b 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -189,7 +189,8 @@ struct ucred {
- #define AF_ISDN		34	/* mISDN sockets 		*/
- #define AF_PHONET	35	/* Phonet sockets		*/
- #define AF_IEEE802154	36	/* IEEE802154 sockets		*/
--#define AF_MAX		37	/* For now.. */
-+#define AF_CAIF		37	/* CAIF sockets			*/
-+#define AF_MAX		38	/* For now.. */
- 
- /* Protocol families, same as address families. */
- #define PF_UNSPEC	AF_UNSPEC
-@@ -229,6 +230,7 @@ struct ucred {
- #define PF_ISDN		AF_ISDN
- #define PF_PHONET	AF_PHONET
- #define PF_IEEE802154	AF_IEEE802154
-+#define PF_CAIF		AF_CAIF
- #define PF_MAX		AF_MAX
- 
- /* Maximum queue length specifiable by listen.  */
-@@ -300,6 +302,7 @@ struct ucred {
- #define SOL_PNPIPE	275
- #define SOL_RDS		276
- #define SOL_IUCV	277
-+#define SOL_CAIF	278
- 
- /* IPX options */
- #define IPX_TYPE	1
+diff --git a/include/net/caif/caif_dev.h b/include/net/caif/caif_dev.h
+new file mode 100644
+index 0000000..42a7c78
+--- /dev/null
++++ b/include/net/caif/caif_dev.h
+@@ -0,0 +1,90 @@
++/*
++ * Copyright (C) ST-Ericsson AB 2010
++ * Author:	Sjur Brendeland/ sjur.brandeland@stericsson.com
++ * License terms: GNU General Public License (GPL) version 2
++ */
++
++#ifndef CAIF_DEV_H_
++#define CAIF_DEV_H_
++
++#include <net/caif/caif_layer.h>
++#include <net/caif/cfcnfg.h>
++#include <linux/caif/caif_socket.h>
++#include <linux/if.h>
++
++/**
++ * struct caif_param - CAIF parameters.
++ * @size:	Length of data
++ * @data:	Binary Data Blob
++ */
++struct caif_param {
++	u16  size;
++	u8   data[256];
++};
++
++/**
++ * caif_connect_request - Request data for CAIF channel setup.
++ * @sockaddr:		Socket address to connect.
++ * @priority:		Priority of the connection.
++ * @link_selector:	Link selector (high bandwidth or low latency)
++ * @link_name:		Name of the CAIF Link Layer to use.
++ *
++ * This struct is used when connecting a CAIF channel.
++ * It contains all CAIF channel configuration options.
++ */
++struct caif_connect_request {
++	int protocol;
++	struct sockaddr_caif sockaddr;
++	enum caif_channel_priority priority;
++	enum caif_link_selector link_selector;
++	char link_name[16];
++	struct caif_param param;
++};
++
++/**
++ * caif_connect_client - Connect a client to CAIF Core Stack.
++ * @config:		Channel setup parameters, specifying what address
++ *			to connect on the Modem.
++ * @client_layer:	User implementation of client layer. This layer
++ *			MUST have receive and control callback functions
++ *			implemented.
++ *
++ * This function connects a CAIF channel. The Client must implement
++ * the struct cflayer. This layer represents the Client layer and holds
++ * receive functions and control callback functions. Control callback
++ * function will receive information about connect/disconnect responses,
++ * flow control etc (see enum caif_control).
++ * E.g. CAIF Socket will call this function for each socket it connects
++ * and have one client_layer instance for each socket.
++ */
++int caif_connect_client(struct caif_connect_request *config,
++			   struct cflayer *client_layer);
++
++/**
++ * caif_disconnect_client - Disconnects a client from the CAIF stack.
++ *
++ * @client_layer: Client layer to be removed.
++ */
++int caif_disconnect_client(struct cflayer *client_layer);
++
++/**
++ * connect_req_to_link_param - Translate configuration parameters
++ *				from socket format to internal format.
++ * @cnfg:	Pointer to configuration handler
++ * @con_req:	Configuration parameters supplied in function
++ *		caif_connect_client
++ * @channel_setup_param: Parameters supplied to the CAIF Core stack for
++ *			 setting up channels.
++ *
++ */
++int connect_req_to_link_param(struct cfcnfg *cnfg,
++				struct caif_connect_request *con_req,
++				struct cfctrl_link_param *channel_setup_param);
++
++/**
++ * get_caif_conf() - Get the configuration handler.
++ */
++struct cfcnfg *get_caif_conf(void);
++
++
++#endif /* CAIF_DEV_H_ */
+diff --git a/include/net/caif/caif_device.h b/include/net/caif/caif_device.h
+new file mode 100644
+index 0000000..098dcdf
+--- /dev/null
++++ b/include/net/caif/caif_device.h
+@@ -0,0 +1,56 @@
++/*
++ * Copyright (C) ST-Ericsson AB 2010
++ * Author:	Sjur Brendeland/ sjur.brandeland@stericsson.com
++ * License terms: GNU General Public License (GPL) version 2
++ */
++
++#ifndef CAIF_DEVICE_H_
++#define CAIF_DEVICE_H_
++#include <linux/kernel.h>
++#include <linux/net.h>
++#include <linux/netdevice.h>
++#include <linux/caif/caif_socket.h>
++#include <net/caif/caif_device.h>
++
++/**
++ * struct caif_dev_common - data shared between CAIF drivers and stack.
++ * @flowctrl:		Flow Control callback function. This function is
++ *                      supplied by CAIF Core Stack and is used by CAIF
++ *                      Link Layer to send flow-stop to CAIF Core.
++ *                      The flow information will be distributed to all
++ *                      clients of CAIF.
++ *
++ * @link_select:	Profile of device, either high-bandwidth or
++ *			low-latency. This member is set by CAIF Link
++ *			Layer Device in	order to indicate if this device
++ *			is a high bandwidth or low latency device.
++ *
++ * @use_frag:		CAIF Frames may be fragmented.
++ *			Is set by CAIF Link Layer in order to indicate if the
++ *			interface receives fragmented frames that must be
++ *			assembled by CAIF Core Layer.
++ *
++ * @use_fcs:		Indicate if Frame CheckSum (fcs) is used.
++ *			Is set if the physical interface is
++ *			using Frame Checksum on the CAIF Frames.
++ *
++ * @use_stx:		Indicate STart of frame eXtension (stx) in use.
++ *			Is set if the CAIF Link Layer expects
++ *			CAIF Frames to start with the STX byte.
++ *
++ * This structure is shared between the CAIF drivers and the CAIF stack.
++ * It is used by the device to register its behavior.
++ * CAIF Core layer must set the member flowctrl in order to supply
++ * CAIF Link Layer with the flow control function.
++ *
++ */
++ struct caif_dev_common {
++	void (*flowctrl)(struct net_device *net, int on);
++	enum caif_link_selector link_select;
++	int use_frag;
++	int use_fcs;
++	int use_stx;
++};
++
++#endif	/* CAIF_DEVICE_H_ */
++
 -- 
 1.6.3.3
 
