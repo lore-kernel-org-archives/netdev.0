@@ -1,56 +1,64 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 1/5] netxen: fix tx csum status
-Date: Mon, 29 Mar 2010 05:43:41 -0700
-Message-ID: <1269866625-26151-2-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 5/5] netxen: fix interrupt for NX2031
+Date: Mon, 29 Mar 2010 05:43:45 -0700
+Message-ID: <1269866625-26151-6-git-send-email-amit.salecha@qlogic.com>
 References: <1269866625-26151-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:52757 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:33825 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751392Ab0C2Mnq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751477Ab0C2Mnq (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 29 Mar 2010 08:43:46 -0400
 In-Reply-To: <1269866625-26151-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-
-Kernel default tx csum function (ethtool_op_get_tx_csum) doesn't show
-correct csum status. It takes various FLAGS (NETIF_F_ALL_CSUM) in account
-to show tx csum status, which driver doesn't set while disabling tx csum.
-
-Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/netxen/netxen_nic_ethtool.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
-index f8499e5..aecba78 100644
---- a/drivers/net/netxen/netxen_nic_ethtool.c
-+++ b/drivers/net/netxen/netxen_nic_ethtool.c
-@@ -703,6 +703,11 @@ netxen_nic_get_ethtool_stats(struct net_device *dev,
- 	}
- }
- 
-+static u32 netxen_nic_get_tx_csum(struct net_device *dev)
-+{
-+	return dev->features & NETIF_F_IP_CSUM;
-+}
+For NX2031, msix is supported from fw version > 3.4.336.
+This fw version check should take flash fw in consider instead of
+running fw or fw from file.
+---
+ drivers/net/netxen/netxen_nic_main.c |   25 ++++++++++++++++---------
+ 1 files changed, 16 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 68903bf..f1daa9a 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -772,15 +772,22 @@ netxen_check_options(struct netxen_adapter *adapter)
+ 	if (NX_IS_REVISION_P3(adapter->ahw.revision_id)) {
+ 		adapter->msix_supported = !!use_msi_x;
+ 		adapter->rss_supported = !!use_msi_x;
+-	} else if (adapter->fw_version >= NETXEN_VERSION_CODE(3, 4, 336)) {
+-		switch (adapter->ahw.board_type) {
+-		case NETXEN_BRDTYPE_P2_SB31_10G:
+-		case NETXEN_BRDTYPE_P2_SB31_10G_CX4:
+-			adapter->msix_supported = !!use_msi_x;
+-			adapter->rss_supported = !!use_msi_x;
+-			break;
+-		default:
+-			break;
++	} else {
++		u32 flashed_ver = 0;
++		netxen_rom_fast_read(adapter,
++				NX_FW_VERSION_OFFSET, (int *)&flashed_ver);
++		flashed_ver = NETXEN_DECODE_VERSION(flashed_ver);
 +
- static u32 netxen_nic_get_rx_csum(struct net_device *dev)
- {
- 	struct netxen_adapter *adapter = netdev_priv(dev);
-@@ -909,6 +914,7 @@ const struct ethtool_ops netxen_nic_ethtool_ops = {
- 	.set_ringparam = netxen_nic_set_ringparam,
- 	.get_pauseparam = netxen_nic_get_pauseparam,
- 	.set_pauseparam = netxen_nic_set_pauseparam,
-+	.get_tx_csum = netxen_nic_get_tx_csum,
- 	.set_tx_csum = ethtool_op_set_tx_csum,
- 	.set_sg = ethtool_op_set_sg,
- 	.get_tso = netxen_nic_get_tso,
++		if (flashed_ver >= NETXEN_VERSION_CODE(3, 4, 336)) {
++			switch (adapter->ahw.board_type) {
++			case NETXEN_BRDTYPE_P2_SB31_10G:
++			case NETXEN_BRDTYPE_P2_SB31_10G_CX4:
++				adapter->msix_supported = !!use_msi_x;
++				adapter->rss_supported = !!use_msi_x;
++				break;
++			default:
++				break;
++			}
+ 		}
+ 	}
+ 
 -- 
 1.6.0.2
 
