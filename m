@@ -1,37 +1,27 @@
-From: "Luis R. Rodriguez" <lrodriguez@atheros.com>
-Subject: Re: [PATCH] Net: wireless: ath: fix macros coding style issue in
- hw.c
-Date: Mon, 29 Mar 2010 15:24:59 -0700
-Message-ID: <20100329222459.GC2852@tux>
-References: <ath/hw.c>
- <1269894879-13884-1-git-send-email-luisbg@ubuntu.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: Add PGM protocol support to the IP stack
+Date: Mon, 29 Mar 2010 16:01:07 -0700
+Message-ID: <4BB13133.6030500@zytor.com>
+References: <alpine.DEB.2.00.1003181245050.23010@router.home> <87tysccjrn.fsf@basil.nowhere.org> <alpine.DEB.2.00.1003220916170.15360@router.home> <20100322163609.GZ20695@one.firstfloor.org> <alpine.DEB.2.00.1003221146260.17230@router.home> <877hp4i76d.fsf@basil.nowhere.org> <alpine.DEB.2.00.1003221300180.17230@router.home> <20100322185310.GA20695@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "linville@tuxdriver.com" <linville@tuxdriver.com>,
-	Luis Rodriguez <Luis.Rodriguez@Atheros.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Luis de Bethencourt <luisbg@openshine.com>
-To: Luis de Bethencourt <luisbg@ubuntu.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Lameter <cl@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Received: from mail.atheros.com ([10.10.20.108])
-	by sidewinder.atheros.com
-	for <netdev@vger.kernel.org>; Mon, 29 Mar 2010 15:25:01 -0700
-Content-Disposition: inline
-In-Reply-To: <1269894879-13884-1-git-send-email-luisbg@ubuntu.com>
+In-Reply-To: <20100322185310.GA20695@one.firstfloor.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 29, 2010 at 01:34:39PM -0700, Luis de Bethencourt wrote:
-> From: Luis de Bethencourt <luisbg@openshine.com>
+On 03/22/2010 11:53 AM, Andi Kleen wrote:
 > 
-> This is a patch to the ath/hw.c file that fixes up a warning about
-> macros found by the checkpatch.pl tool, that said that complex values
-> should be enclosed in parenthesis.
+> There's just no portable atomic64_t. Ok maybe you can use the socket lock
+> to synchronize all the counts if they are only per socket.
 > 
-> Signed-off-by: Luis de Bethencourt <luisbg@ubuntu.com>
- 
-Acked-by: Luis R. Rodriguez <lrodriguez@atheros.com>
 
-  Luis
+In 2.6.34 there is (although some arches which could support it natively
+don't as of yet... but that's fixable.)  See lib/atomic64.c.
+
+	-hpa
