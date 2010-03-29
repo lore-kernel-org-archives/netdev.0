@@ -1,36 +1,59 @@
-From: <denis@nano-net.ro>
-Subject: Receive Packet Steering  patch - help.
-Date: Tue, 30 Mar 2010 02:02:54 +0300
-Message-ID: <52c61e4e796561ec02041286c968ca8a@mail.nano-net.ro>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH 09/17] pcmcia: update gfp/slab.h includes
+Date: Tue, 30 Mar 2010 10:31:29 +1100
+Message-ID: <20100330103129.b76a70e3.sfr@canb.auug.org.au>
+References: <1269885165-18617-1-git-send-email-tj@kernel.org>
+	<1269885165-18617-10-git-send-email-tj@kernel.org>
+	<20100329193203.GA8450@comet.dominikbrodowski.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org, therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 89.46.17.122.nano-net.ro ([89.46.17.122]:48448 "EHLO
-	MonServ.nano-net.ro" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752272Ab0C2XYf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 19:24:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__30_Mar_2010_10_31_29_+1100_j0GwR2J9BE8V8F+_"
+Cc: Tejun Heo <tj@kernel.org>, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Dominik Brodowski <linux@dominikbrodowski.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100329193203.GA8450@comet.dominikbrodowski.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+--Signature=_Tue__30_Mar_2010_10_31_29_+1100_j0GwR2J9BE8V8F+_
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-hi.
-this patch seems to be a great ideea, but when trying to apply the patch to
-kernel 2.6.33.1 it gives the following output:
+Hi Dominik,
 
-linux-2.6.33.1 # cat ../rps_patch1.diff | patch -p1
-patching file include/linux/netdevice.h
-Hunk #1 succeeded at 844 (offset 86 lines).
-Hunk #2 succeeded at 1281 (offset 108 lines).
-Hunk #3 succeeded at 1323 with fuzz 2 (offset 134 lines).
-Hunk #4 succeeded at 1590 with fuzz 2 (offset 136 lines).
-patching file net/Kconfig
-Hunk #1 succeeded at 45 (offset 20 lines).
-patching file net/core/dev.c
-patch: **** malformed patch at line 112: old backlog weight */
+On Mon, 29 Mar 2010 21:32:03 +0200 Dominik Brodowski <linux@dominikbrodowsk=
+i.net> wrote:
+>
+> On Tue, Mar 30, 2010 at 02:52:37AM +0900, Tejun Heo wrote:
+> > Implicit slab.h inclusion via percpu.h is about to go away.  Make sure
+> > gfp.h or slab.h is included as necessary.
+> >=20
+> > Signed-off-by: Tejun Heo <tj@kernel.org>
+> > Cc: Stephen Rothwell <sfr@canb.auug.org.au>
+> > Cc: Dominik Brodowski <linux@dominikbrodowski.net>
+> Acked-by: Dominik Brodowski <linux@dominikbrodowski.net>
 
-what am i doing wrong?
+The plan here is for you to put this in your tree now.  It is safe to do
+so and Tejun can't carry it because this does not apply to mainline.=20
 
-thanks
+Thanks.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
+--Signature=_Tue__30_Mar_2010_10_31_29_+1100_j0GwR2J9BE8V8F+_
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAkuxOFEACgkQjjKRsyhoI8wdKgCgnGfQHcxCNklpPiYp/3hFTowc
+mj4An35Bf9Gri74vvmfHyetbfYh4tK7L
+=EekT
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__30_Mar_2010_10_31_29_+1100_j0GwR2J9BE8V8F+_--
