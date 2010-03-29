@@ -1,45 +1,38 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: [patch] iwlwifi: range checking issue
-Date: Mon, 29 Mar 2010 10:01:12 +0800
-Message-ID: <1269828072.4043.247.camel@debian>
-References: <20100328115500.GX5069@bicker>
+From: Joe Perches <joe@perches.com>
+Subject: Re: linux-next: build warning after merge of the tree
+Date: Sun, 28 Mar 2010 19:15:44 -0700
+Message-ID: <1269828944.1500.105.camel@Joe-Laptop.home>
+References: <20100329103139.1a735227.sfr@canb.auug.org.au>
+	 <20100328.185707.161194820.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Chatre, Reinette" <reinette.chatre@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"Kolekar, Abhijeet" <abhijeet.kolekar@intel.com>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	"Guy, Wey-Yi W" <wey-yi.w.guy@intel.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <error27@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:25096 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755588Ab0C2CAc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Mar 2010 22:00:32 -0400
-In-Reply-To: <20100328115500.GX5069@bicker>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kyle@mcmartin.ca
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100328.185707.161194820.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2010-03-28 at 19:55 +0800, Dan Carpenter wrote:
-> IWL_RATE_COUNT is 13 and IWL_RATE_COUNT_LEGACY is 12.
-> 
-> IWL_RATE_COUNT_LEGACY is the right one here because iwl3945_rates
-> doesn't support 60M and also that's how "rates" is defined in
-> iwlcore_init_geos() from drivers/net/wireless/iwlwifi/iwl-core.c.
-> 
->         rates = kzalloc((sizeof(struct ieee80211_rate) * IWL_RATE_COUNT_LEGACY),
->                         GFP_KERNEL);
-> 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+On Sun, 2010-03-28 at 18:57 -0700, David Miller wrote:
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> > After merging the  tree, today's linux-next build (x86_64 allmodconfig)
+> > produced this warning:
+> > drivers/net/tulip/uli526x.c: In function 'uli526x_rx_packet':
+> > drivers/net/tulip/uli526x.c:861: warning: assignment makes pointer from integer without a cast
+> I just committed the following, let me know if it fixes
+> this.
+> -				    ((new_skb = dev_alloc_skb(rxlen + 2) != NULL))) {
+> +				    (((new_skb = dev_alloc_skb(rxlen + 2)) != NULL))) {
 
-Acked-by: Zhu Yi <yi.zhu@intel.com>
+You've an extra () there.
 
-Thanks,
--yi
+A close paren could have been moved from after
+the NULL to after the "+ 2"
 
+I think it's more readable as:
+				      (new_skb = dev_alloc_skb(rxlen + 2))) {
+
+cheers, Joe
