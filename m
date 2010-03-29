@@ -1,63 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] inetpeer: Support ipv6 addresses.
-Date: Mon, 29 Mar 2010 15:15:39 -0700 (PDT)
-Message-ID: <20100329.151539.216335891.davem@davemloft.net>
-References: <20100328.064012.193708716.davem@davemloft.net>
-	<20100328135931.GA16430@gondor.apana.org.au>
-	<20100328143235.GA16694@gondor.apana.org.au>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH] r8169: offical fix for CVE-2009-4537 (overlength frame
+ DMAs)
+Date: Mon, 29 Mar 2010 23:21:05 +0100
+Message-ID: <1269901265.8653.408.camel@localhost>
+References: <20100329160356.GC22733@hmsreliant.think-freely.org>
+	 <1269900105.8653.389.camel@localhost>
+	 <20100329.150924.144366212.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-rxVSKLRveN/TUP0Q7fdc"
+Cc: nhorman@tuxdriver.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, michael.s.gilbert@gmail.com,
+	davem@davemeloft.net, romieu@fr.zoreil.com, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43228
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751312Ab0C2WPj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 18:15:39 -0400
-In-Reply-To: <20100328143235.GA16694@gondor.apana.org.au>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:47697 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752422Ab0C2WVN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 18:21:13 -0400
+In-Reply-To: <20100329.150924.144366212.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sun, 28 Mar 2010 22:32:35 +0800
 
-> Instead of placing the metrics into the inetpeer, we create a new
-> global cache for them (let's call it the metrics cache for now).
-> However, we don't actually populate this cache every time we create
-> an rt object.  Instead, we only create an entry in this cache
-> when an event requires it, e.g., when we receive a PMTU message.
-> 
-> In order for this to then propagate to the rt objects, we increment
-> a genid in the inetpeer cache for the corresponding host.  This
-> genid is then checked by the rt object every time.  When it is
-> out of step, the rt object can perform a lookup in the metrics cache
-> to get the latest data.
-> 
-> Of course once an rt object has a pointer to an entry in the metrics
-> cache it doesn't need to check the genid anymore, until the metrics
-> data expires at which point this process can be repeated.
+--=-rxVSKLRveN/TUP0Q7fdc
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Interesting idea, but there is the issue of how to fill in
-new metrics cache entries when these requests come in later.
+On Mon, 2010-03-29 at 15:09 -0700, David Miller wrote:
+> From: Ben Hutchings <ben@decadent.org.uk>
+> Date: Mon, 29 Mar 2010 23:01:45 +0100
+>=20
+> > It also sucks that the secure but low-performance behaviour is enabled
+> > for all variants, while AIUI only some suffer from the bug.  I realise
+> > you probably don't have access to every variant (and neither does
+> > Francois) but perhaps you could come up with a test case that could be
+> > used to start whitelisting common variants that don't have the bug?
+>=20
+> As far as we know all chip variants seem to have the problem.
 
-We'd have to retain a pointer to the routing table fib entry.
-This is because the fib entry states what the initial metric
-values need to be for cached routes.
+That's not what I understood from the discussion of the early
+back-and-forth changes to receive buffer size.
 
-So we'd need a pointer to the fib_info in the routing cache entry, and
-this pointer would need to grab a reference to the fib_info.  And this
-subsequently leads to the question of what to do for route changes
-(f.e. hold the fib_info around until all the route cache entries drop
-their references and have a dead state in the fib_info struct that can
-be checked, and if we find it dead what can we even do as the route
-we're working with might be cached in a socket or similar)
+> Furthermore, this issue has been known about and investigated for
+> about 3 months.  In that time no better options for handling this
+> issue reliably have been discovered and implemented.
+>
+> Feel free to code up (and test) something better yourself if you don't
+> like the fix as it exists currently. :-)
 
-The other option is to relookup the FIB, but we'd then have to
-validate that the route cache entry we're working with matches
-precisely still, and also this lookup alone going to have non-trivial
-cost :-)
+I would have had a go already, if I actually had some of this hardware
+to hand.  Luckily I have managed to avoid buying any so far.  But if
+anyone is prepared to loan me a NIC then I promise to have a go at it.
 
-It's really depressing how hard it is to untangle the way we have
-things currently setup, isn't it. :-)
+Ben.
 
+--=20
+Ben Hutchings
+Once a job is fouled up, anything done to improve it makes it worse.
+
+--=-rxVSKLRveN/TUP0Q7fdc
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIVAwUAS7En0Oe/yOyVhhEJAQL+KQ/+IxUvQw46iljAZkUdX0gCk/LcOFBzmOj/
+yscVtKrbZoqZljXH9Np2kbdBkjKoNatt97sbyKhg5hdhgD9EGqp07yRiS8oCoFMB
+BCgf4cWriO8sE6wGU3tDLvBVLfIKFXfe9R+K2FOc6rOgacBcOf9CGaKrXjHMDVi5
+FE9sn4aqBxYVJ44iJ46McDVe5S10aWk0pWGXoSPkv7mQgNt5ykdgKGZBUA2/6N7r
+RsFuNzFNU0mq9jCBiITZBAyHLVsWniI+AO8VqLvE2Bar8Lu58kUG0rHPuwgtMI/C
+RKgt7So5hYN0+IU4EYNEoWbSqgkNuCaqVUV+v5KWuSabL6GKSgI2r4IRucMStrCX
+1MmLO6K4WrIZfMlMAjj/IPYgxEScvETD9AE5Q7mziYW3R0JPB8K9zfNsiDQAHHoO
+j3/S3YksE+PsHjZ1G5UkTmrRzBgPt5/F7lmHB9WvMlhnqoEc0loBU+smeotHQoB2
+905T01qwQS/+5s6C3FnZ3cTqQQYtmb2eK53Ml1xSqCAkJrFiK8qh72Jnqyb/tJ85
+bLdnWjVNlZSBAu7LyOyDVUDd83xUuxCpYp/b+VoW/95SWSVbbnMEtU9iW4Hi9WDW
+d5zs8pWlO9enuIiBpsZJoT2ZcDvpN6MBOF1Ku6k8oI0SVRnm6LXqhSmRdNoNVlDf
+3g8tBs80h20=
+=xyfb
+-----END PGP SIGNATURE-----
+
+--=-rxVSKLRveN/TUP0Q7fdc--
