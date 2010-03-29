@@ -1,45 +1,28 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: [PATCH next-next-2.6] virtio_net: missing sg_init_table
-Date: Mon, 29 Mar 2010 11:31:58 -0700
-Message-ID: <1269887518.13277.13.camel@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] ipv6: Use __fls() instead of fls() in
+ __ipv6_addr_diff().
+Date: Mon, 29 Mar 2010 11:33:02 -0700 (PDT)
+Message-ID: <20100329.113302.144148264.davem@davemloft.net>
+References: <201003260801.o2Q8134t023352@94.43.138.210.xn.2iij.net>
+	<4BB0CBF3.805@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Thomas =?ISO-8859-1?Q?M=FCller?= <thomas@mathtm.de>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43635
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751441Ab0C2SdB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 14:33:01 -0400
+In-Reply-To: <4BB0CBF3.805@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add missing sg_init_table for sg_set_buf in virtio_net.
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Tue, 30 Mar 2010 00:49:07 +0900
 
-Reported-by: Thomas M=C3=BCller <thomas@mathtm.de>
-Signed-off-by: Shirley Ma <xma@us.ibm.com>
+> Sorry, I withdraw this because this is incorrect;
+> __fls() returns fls() - 1.
 
----
- drivers/net/virtio_net.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 25dc77c..3f5be35 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -326,6 +326,7 @@ static int add_recvbuf_small(struct virtnet_info *v=
-i, gfp_t gfp)
- 	struct scatterlist sg[2];
- 	int err;
-=20
-+	sg_init_table(sg, 2);
- 	skb =3D netdev_alloc_skb_ip_align(vi->dev, MAX_PACKET_LEN);
- 	if (unlikely(!skb))
- 		return -ENOMEM;
-@@ -351,6 +352,7 @@ static int add_recvbuf_big(struct virtnet_info *vi,=
- gfp_t gfp)
- 	char *p;
- 	int i, err, offset;
-=20
-+	sg_init_table(sg, MAX_SKB_FRAGS + 2);
- 	/* page in sg[MAX_SKB_FRAGS + 1] is list tail */
- 	for (i =3D MAX_SKB_FRAGS + 1; i > 1; --i) {
- 		first =3D get_a_page(vi, gfp);
+Ok.
