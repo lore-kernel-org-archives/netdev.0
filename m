@@ -1,83 +1,56 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] r8169: offical fix for CVE-2009-4537 (overlength frame
- DMAs)
-Date: Mon, 29 Mar 2010 23:21:05 +0100
-Message-ID: <1269901265.8653.408.camel@localhost>
-References: <20100329160356.GC22733@hmsreliant.think-freely.org>
-	 <1269900105.8653.389.camel@localhost>
-	 <20100329.150924.144366212.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC] inetpeer: Support ipv6 addresses.
+Date: Mon, 29 Mar 2010 15:21:39 -0700 (PDT)
+Message-ID: <20100329.152139.235700903.davem@davemloft.net>
+References: <20100328131112.GA15984@gondor.apana.org.au>
+	<20100328.064012.193708716.davem@davemloft.net>
+	<20100328135931.GA16430@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-rxVSKLRveN/TUP0Q7fdc"
-Cc: nhorman@tuxdriver.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, michael.s.gilbert@gmail.com,
-	davem@davemeloft.net, romieu@fr.zoreil.com, eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:47697 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752422Ab0C2WVN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 18:21:13 -0400
-In-Reply-To: <20100329.150924.144366212.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59287
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754258Ab0C2WVi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 18:21:38 -0400
+In-Reply-To: <20100328135931.GA16430@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sun, 28 Mar 2010 21:59:31 +0800
 
---=-rxVSKLRveN/TUP0Q7fdc
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> On Sun, Mar 28, 2010 at 06:40:12AM -0700, David Miller wrote:
+>>
+>> Same for all the other metrics at the TCP level.
+> 
+> I don't think they are quite the same.  The TCP time stamp is
+> an attribute of the destination host, it doesn't vary depending
+> on which route you take to reach the host.  The MTU on the other
+> hand is an attribute of the route that reaches the host.
 
-On Mon, 2010-03-29 at 15:09 -0700, David Miller wrote:
-> From: Ben Hutchings <ben@decadent.org.uk>
-> Date: Mon, 29 Mar 2010 23:01:45 +0100
->=20
-> > It also sucks that the secure but low-performance behaviour is enabled
-> > for all variants, while AIUI only some suffer from the bug.  I realise
-> > you probably don't have access to every variant (and neither does
-> > Francois) but perhaps you could come up with a test case that could be
-> > used to start whitelisting common variants that don't have the bug?
->=20
-> As far as we know all chip variants seem to have the problem.
+It does make a difference, I think.
 
-That's not what I understood from the discussion of the early
-back-and-forth changes to receive buffer size.
+When we use IPSEC rules on ports and crazy stuff like that,
+we end up with cases such as:
 
-> Furthermore, this issue has been known about and investigated for
-> about 3 months.  In that time no better options for handling this
-> issue reliably have been discovered and implemented.
->
-> Feel free to code up (and test) something better yourself if you don't
-> like the fix as it exists currently. :-)
+1) We're going over a VPN so RTT, RTTVAR, SSTHRESH, CWND, and other
+   TCP metrics which are based upon aspects of the path can end up
+   being wildly different.
 
-I would have had a go already, if I actually had some of this hardware
-to hand.  Luckily I have managed to avoid buying any so far.  But if
-anyone is prepared to loan me a NIC then I promise to have a go at it.
+2) even the end host can be different in some convoluted
+   setups
 
-Ben.
+IPSEC encapsulation can effectively change the entire universe in fact
+:-) Also, even considering only case #1 above, that's nearly half of
+the metrics which we arguably can't move into something like the
+inetpeer cache.
 
---=20
-Ben Hutchings
-Once a job is fouled up, anything done to improve it makes it worse.
+This is basically why I've been resistent in the past to these kinds
+of ideas to simplify metric handling, as it has the potential to break
+something.
 
---=-rxVSKLRveN/TUP0Q7fdc
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIVAwUAS7En0Oe/yOyVhhEJAQL+KQ/+IxUvQw46iljAZkUdX0gCk/LcOFBzmOj/
-yscVtKrbZoqZljXH9Np2kbdBkjKoNatt97sbyKhg5hdhgD9EGqp07yRiS8oCoFMB
-BCgf4cWriO8sE6wGU3tDLvBVLfIKFXfe9R+K2FOc6rOgacBcOf9CGaKrXjHMDVi5
-FE9sn4aqBxYVJ44iJ46McDVe5S10aWk0pWGXoSPkv7mQgNt5ykdgKGZBUA2/6N7r
-RsFuNzFNU0mq9jCBiITZBAyHLVsWniI+AO8VqLvE2Bar8Lu58kUG0rHPuwgtMI/C
-RKgt7So5hYN0+IU4EYNEoWbSqgkNuCaqVUV+v5KWuSabL6GKSgI2r4IRucMStrCX
-1MmLO6K4WrIZfMlMAjj/IPYgxEScvETD9AE5Q7mziYW3R0JPB8K9zfNsiDQAHHoO
-j3/S3YksE+PsHjZ1G5UkTmrRzBgPt5/F7lmHB9WvMlhnqoEc0loBU+smeotHQoB2
-905T01qwQS/+5s6C3FnZ3cTqQQYtmb2eK53Ml1xSqCAkJrFiK8qh72Jnqyb/tJ85
-bLdnWjVNlZSBAu7LyOyDVUDd83xUuxCpYp/b+VoW/95SWSVbbnMEtU9iW4Hi9WDW
-d5zs8pWlO9enuIiBpsZJoT2ZcDvpN6MBOF1Ku6k8oI0SVRnm6LXqhSmRdNoNVlDf
-3g8tBs80h20=
-=xyfb
------END PGP SIGNATURE-----
-
---=-rxVSKLRveN/TUP0Q7fdc--
+The gains of being able to pull this off are still enticing which
+is why this topic keeps getting revisited nonetheless :-)
