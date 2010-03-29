@@ -1,58 +1,72 @@
-From: =?UTF-8?B?VGhvbWFzIE3DvGxsZXI=?= <thomas@mathtm.de>
-Subject: Re: [PATCH next-next-2.6] virtio_net: missing sg_init_table
-Date: Mon, 29 Mar 2010 21:31:28 +0200
-Message-ID: <4BB10010.5060505@mathtm.de>
-References: <1269887518.13277.13.camel@localhost.localdomain>
+From: Dominik Brodowski <linux@dominikbrodowski.net>
+Subject: Re: [PATCH 09/17] pcmcia: update gfp/slab.h includes
+Date: Mon, 29 Mar 2010 21:32:03 +0200
+Message-ID: <20100329193203.GA8450@comet.dominikbrodowski.net>
+References: <1269885165-18617-1-git-send-email-tj@kernel.org>
+ <1269885165-18617-10-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1269887518.13277.13.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1269885165-18617-10-git-send-email-tj@kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 29.03.2010 20:31, schrieb Shirley Ma:
-> Add missing sg_init_table for sg_set_buf in virtio_net.
->=20
-> Reported-by: Thomas M=C3=BCller <thomas@mathtm.de>
-> Signed-off-by: Shirley Ma <xma@us.ibm.com>
-
-I've just tested the patch and it works fine, so I guess you can add a
-Tested-by: Thomas M=C3=BCller <thomas@mathtm.de>
-line, if you like.
-
-Thanks,
-Thomas
+On Tue, Mar 30, 2010 at 02:52:37AM +0900, Tejun Heo wrote:
+> Implicit slab.h inclusion via percpu.h is about to go away.  Make sure
+> gfp.h or slab.h is included as necessary.
+> 
+> Signed-off-by: Tejun Heo <tj@kernel.org>
+> Cc: Stephen Rothwell <sfr@canb.auug.org.au>
+> Cc: Dominik Brodowski <linux@dominikbrodowski.net>
+Acked-by: Dominik Brodowski <linux@dominikbrodowski.net>
 
 
 > ---
->  drivers/net/virtio_net.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
->=20
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 25dc77c..3f5be35 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -326,6 +326,7 @@ static int add_recvbuf_small(struct virtnet_info =
-*vi, gfp_t gfp)
->  	struct scatterlist sg[2];
->  	int err;
-> =20
-> +	sg_init_table(sg, 2);
->  	skb =3D netdev_alloc_skb_ip_align(vi->dev, MAX_PACKET_LEN);
->  	if (unlikely(!skb))
->  		return -ENOMEM;
-> @@ -351,6 +352,7 @@ static int add_recvbuf_big(struct virtnet_info *v=
-i, gfp_t gfp)
->  	char *p;
->  	int i, err, offset;
-> =20
-> +	sg_init_table(sg, MAX_SKB_FRAGS + 2);
->  	/* page in sg[MAX_SKB_FRAGS + 1] is list tail */
->  	for (i =3D MAX_SKB_FRAGS + 1; i > 1; --i) {
->  		first =3D get_a_page(vi, gfp);
->=20
->=20
+>  drivers/isdn/hardware/avm/avm_cs.c |    1 -
+>  drivers/pcmcia/pcmcia_cis.c        |    1 +
+>  drivers/pcmcia/rsrc_iodyn.c        |    1 +
+>  3 files changed, 2 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/isdn/hardware/avm/avm_cs.c b/drivers/isdn/hardware/avm/avm_cs.c
+> index 8bbc452..f410d0e 100644
+> --- a/drivers/isdn/hardware/avm/avm_cs.c
+> +++ b/drivers/isdn/hardware/avm/avm_cs.c
+> @@ -13,7 +13,6 @@
+>  #include <linux/kernel.h>
+>  #include <linux/init.h>
+>  #include <linux/ptrace.h>
+> -#include <linux/slab.h>
+>  #include <linux/string.h>
+>  #include <linux/tty.h>
+>  #include <linux/serial.h>
+> diff --git a/drivers/pcmcia/pcmcia_cis.c b/drivers/pcmcia/pcmcia_cis.c
+> index 7406387..4a65eaf 100644
+> --- a/drivers/pcmcia/pcmcia_cis.c
+> +++ b/drivers/pcmcia/pcmcia_cis.c
+> @@ -14,6 +14,7 @@
+>   *
+>   */
+>  
+> +#include <linux/slab.h>
+>  #include <linux/module.h>
+>  #include <linux/kernel.h>
+>  #include <linux/netdevice.h>
+> diff --git a/drivers/pcmcia/rsrc_iodyn.c b/drivers/pcmcia/rsrc_iodyn.c
+> index 7791375..d0bf350 100644
+> --- a/drivers/pcmcia/rsrc_iodyn.c
+> +++ b/drivers/pcmcia/rsrc_iodyn.c
+> @@ -12,6 +12,7 @@
+>   * (C) 1999		David A. Hinds
+>   */
+>  
+> +#include <linux/slab.h>
+>  #include <linux/module.h>
+>  #include <linux/kernel.h>
+>  
+> -- 
+> 1.6.4.2
+> 
