@@ -1,52 +1,33 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH RFC 1/2] flow: virtualize get and entry deletion methods
-Date: Mon, 29 Mar 2010 20:11:24 +0800
-Message-ID: <20100329121124.GA24470@gondor.apana.org.au>
-References: <20100329090927.GA22899@gondor.apana.org.au> <4BB07BF6.6000505@iki.fi> <20100329102639.GA23414@gondor.apana.org.au> <4BB082B8.9030400@iki.fi> <20100329111025.GA23927@gondor.apana.org.au> <4BB08D96.8090909@iki.fi> <20100329113225.GA24159@gondor.apana.org.au> <4BB09178.8050501@iki.fi> <20100329115701.GA24367@gondor.apana.org.au> <4BB0970E.7060405@iki.fi>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Network performance - iperf
+Date: Mon, 29 Mar 2010 14:16:34 +0200
+Message-ID: <1269864994.2164.21.camel@edumazet-laptop>
+References: <4BB09021.6020202@petalogix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	John Williams <john.williams@petalogix.com>,
+	netdev@vger.kernel.org, Grant Likely <grant.likely@secretlab.ca>,
+	John Linn <John.Linn@xilinx.com>,
+	"Steven J. Magnani" <steve@digidescorp.com>,
+	Arnd Bergmann <arnd@arndb.de>, akpm@linux-foundation.org
+To: michal.simek@petalogix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:47146 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752312Ab0C2MLb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 08:11:31 -0400
-Content-Disposition: inline
-In-Reply-To: <4BB0970E.7060405@iki.fi>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:62781 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751728Ab0C2MQk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 08:16:40 -0400
+In-Reply-To: <4BB09021.6020202@petalogix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 29, 2010 at 03:03:26PM +0300, Timo Ter=E4s wrote:
-> Herbert Xu wrote:
->> I'm not talking about the flow cache.  The current flow cache
->> code doesn't even take the lock.
->>
->> I'm talking about the other places that you have to convert in
->> order to make this into an atomic_t.
->
-> Did you check the other places?
->
-> All other places do:
->  fox x policies:
->    lock(x)
->    pol_dead |=3D x->walk.dead;
->    unlock(x)
->  if pol_dead
->    abort
->
-> or similar.
->
-> And some cases don't even bother to lock the policy currently
-> when reading walk.dead.
->
-> All of the code treats the walk.dead as a hint. It does not need
-> strong synchronization with a lock.
+Le lundi 29 mars 2010 =C3=A0 13:33 +0200, Michal Simek a =C3=A9crit :
 
-Well then converting it to an atomic_t is completely pointless.
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Do you have any idea howto improve TCP/UDP performance in general?
+> Or tests which can point me on weak places.
+
+Could you post "netstat -s" on your receiver, after fresh boot and your
+iperf session, for 32 MB and 256 MB ram case ?
+
+
