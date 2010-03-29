@@ -1,150 +1,93 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH] NETLABEL: Fix an RCU warning
-Date: Mon, 29 Mar 2010 11:30:10 -0400
-Message-ID: <201003291130.10752.paul.moore@hp.com>
-References: <20100325110621.5348.32020.stgit@warthog.procyon.org.uk> <1269516484.3626.21.camel@edumazet-laptop> <20100329152453.GC2569@linux.vnet.ibm.com>
+From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
+Subject: eth1: Detected Hardware Unit Hang
+Date: Mon, 29 Mar 2010 17:33:39 +0200
+Message-ID: <4BB0C853.2080607@itcare.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Howells <dhowells@redhat.com>, netdev@vger.kernel.org
-To: paulmck@linux.vnet.ibm.com
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Linux Network Development list <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:24800 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752338Ab0C2PaN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 11:30:13 -0400
-In-Reply-To: <20100329152453.GC2569@linux.vnet.ibm.com>
+Received: from smtp.iq.pl ([86.111.241.19]:58662 "EHLO smtp.iq.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753745Ab0C2Pdo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Mar 2010 11:33:44 -0400
+Received: from unknown (HELO [192.168.1.101]) (itcare_pstaszewski@[95.48.69.170])
+          (envelope-sender <pstaszewski@itcare.pl>)
+          by smtp2.iq.pl with AES256-SHA encrypted SMTP
+          for <netdev@vger.kernel.org>; 29 Mar 2010 15:33:42 -0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 29 March 2010 11:24:53 am Paul E. McKenney wrote:
-> On Thu, Mar 25, 2010 at 12:28:04PM +0100, Eric Dumazet wrote:
-> > Le jeudi 25 mars 2010 =E0 11:06 +0000, David Howells a =E9crit :
-> > > Fix an RCU warning in the netlabel code due to missing rcu read l=
-ocking
-> > > around an rcu_dereference() in netlbl_unlhsh_hash() when called f=
-rom
-> > > netlbl_unlhsh_netdev_handler():
-> > >=20
-> > > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D
-> > > [ INFO: suspicious rcu_dereference_check() usage. ]
-> > > ---------------------------------------------------
-> > > net/netlabel/netlabel_unlabeled.c:246 invoked rcu_dereference_che=
-ck()
-> > > without protection!
-> > >=20
-> > > other info that might help us debug this:
-> > >=20
-> > >=20
-> > > rcu_scheduler_active =3D 1, debug_locks =3D 0
-> > >=20
-> > > 2 locks held by ip/5108:
-> > >  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff812c4a36>]
-> > >  rtnl_lock+0x12/0x14 #1:  (netlbl_unlhsh_lock){+.+...}, at:
-> > >  [<ffffffff8134daa4>] netlbl_unlhsh_netdev_handler+0x1e/0x86
-> > >=20
-> > > stack backtrace:
-> > > Pid: 5108, comm: ip Not tainted 2.6.34-rc2-cachefs #114
-> > >=20
-> > > Call Trace:
-> > >  [<ffffffff8105121f>] lockdep_rcu_dereference+0xaa/0xb2
-> > >  [<ffffffff8134d781>] netlbl_unlhsh_hash+0x3e/0x50
-> > >  [<ffffffff8134d7a1>] netlbl_unlhsh_search_iface+0xe/0x84
-> > >  [<ffffffff8134daaf>] netlbl_unlhsh_netdev_handler+0x29/0x86
-> > >  [<ffffffff81048362>] notifier_call_chain+0x32/0x5e
-> > >  [<ffffffff810483fe>] raw_notifier_call_chain+0xf/0x11
-> > >  [<ffffffff812ba924>] call_netdevice_notifiers+0x16/0x18
-> > >  [<ffffffff812bac22>] __dev_notify_flags+0x37/0x5b
-> > >  [<ffffffff812bac8c>] dev_change_flags+0x46/0x52
-> > >  [<ffffffff812c41af>] do_setlink+0x250/0x3cd
-> > >  [<ffffffff812c4ee8>] rtnl_newlink+0x2b6/0x49d
-> > >  [<ffffffff812c4cdd>] ? rtnl_newlink+0xab/0x49d
-> > >  [<ffffffff812c4c17>] rtnetlink_rcv_msg+0x1b7/0x1d2
-> > >  [<ffffffff812c4a60>] ? rtnetlink_rcv_msg+0x0/0x1d2
-> > >  [<ffffffff812cc1dc>] netlink_rcv_skb+0x3e/0x8f
-> > >  [<ffffffff812c4a59>] rtnetlink_rcv+0x21/0x28
-> > >  [<ffffffff812cbefe>] netlink_unicast+0x218/0x28f
-> > >  [<ffffffff812cc76e>] netlink_sendmsg+0x26b/0x27a
-> > >  [<ffffffff812a9f1d>] sock_sendmsg+0xd4/0xf5
-> > >  [<ffffffff81096dca>] ? might_fault+0x4e/0x9e
-> > >  [<ffffffff81096dca>] ? might_fault+0x4e/0x9e
-> > >  [<ffffffff81096e13>] ? might_fault+0x97/0x9e
-> > >  [<ffffffff81096dca>] ? might_fault+0x4e/0x9e
-> > >  [<ffffffff812b4122>] ? verify_iovec+0x59/0x97
-> > >  [<ffffffff812aa1d9>] sys_sendmsg+0x209/0x273
-> > >  [<ffffffff810976dc>] ? __do_fault+0x395/0x3cd
-> > >  [<ffffffff8109928f>] ? handle_mm_fault+0x324/0x69d
-> > >  [<ffffffff81051e4e>] ? trace_hardirqs_on_caller+0x10c/0x130
-> > >  [<ffffffff81074972>] ? audit_syscall_entry+0x17d/0x1b0
-> > >  [<ffffffff81364154>] ? trace_hardirqs_on_thunk+0x3a/0x3f
-> > >  [<ffffffff81001eeb>] system_call_fastpath+0x16/0x1b
-> > >=20
-> > > Signed-off-by: David Howells <dhowells@redhat.com>
-> > > ---
-> > >=20
-> > >  net/netlabel/netlabel_unlabeled.c |    2 ++
-> > >  1 files changed, 2 insertions(+), 0 deletions(-)
-> > >=20
-> > > diff --git a/net/netlabel/netlabel_unlabeled.c
-> > > b/net/netlabel/netlabel_unlabeled.c index 852d9d7..7ea64e4 100644
-> > > --- a/net/netlabel/netlabel_unlabeled.c
-> > > +++ b/net/netlabel/netlabel_unlabeled.c
-> > > @@ -799,6 +799,7 @@ static int netlbl_unlhsh_netdev_handler(struc=
-t
-> > > notifier_block *this,
-> > >=20
-> > >  	/* XXX - should this be a check for NETDEV_DOWN or _UNREGISTER?=
- */
-> > >  	if (event =3D=3D NETDEV_DOWN) {
-> > >=20
-> > > +		rcu_read_lock();
-> > >=20
-> > >  		spin_lock(&netlbl_unlhsh_lock);
-> > >  		iface =3D netlbl_unlhsh_search_iface(dev->ifindex);
-> > >  		if (iface !=3D NULL && iface->valid) {
-> > >=20
-> > > @@ -807,6 +808,7 @@ static int netlbl_unlhsh_netdev_handler(struc=
-t
-> > > notifier_block *this,
-> > >=20
-> > >  		} else
-> > >  	=09
-> > >  			iface =3D NULL;
-> > >  	=09
-> > >  		spin_unlock(&netlbl_unlhsh_lock);
-> > >=20
-> > > +		rcu_read_unlock();
-> > >=20
-> > >  	}
-> > >  =09
-> > >  	if (iface !=3D NULL)
-> > >=20
-> > > --
-> >=20
-> > Sorry this is not the right fix.
-> >=20
-> > Fix is to change the dereference check to take into account the loc=
-k
-> > owned here.
->=20
-> So we need the rcu_dereference() in netlbl_unlhsh_search_iface()
-> to become someething like the following?
->=20
-> 	bkt_list =3D &rcu_dereference_check(netlbl_unlhsh,
-> 					  rcu_read_lock_held() ||
-> 					  lockdep_is_held(&netlbl_unlhsh_lock))->tbl[bkt];
->=20
-> Or is this the wrong lock?
+After update to kernel from 2.6.29.1 to 2.6.33.1 i have this info in dmesg:
 
-As Eric pointed out in response to the message above, I believe the sol=
-ution=20
-is to simply remove the rcu_dereference() call in the netlbl_unlhsh_has=
-h()=20
-function.
+0000:05:00.0: eth1: Detected Hardware Unit Hang:
+   TDH <1e>
+   TDT <a>
+   next_to_use <a>
+   next_to_clean <1d>
+buffer_info[next_to_clean]:
+   time_stamp <33bae15>
+   next_to_watch <20>
+   jiffies <33bafaf>
+   next_to_watch.status <0>
+MAC Status <80080783>
+PHY Status <796d>
+PHY 1000BASE-T Status <3800>
+PHY Extended Status <3000>
+PCI Status <10>
+0000:05:00.0: eth1: Detected Hardware Unit Hang:
+   TDH <1e>
+   TDT <a>
+   next_to_use <a>
+   next_to_clean <1d>
+buffer_info[next_to_clean]:
+   time_stamp <33bae15>
+   next_to_watch <20>
+   jiffies <33bb1a3>
+   next_to_watch.status <0>
+MAC Status <80080783>
+PHY Status <796d>
+PHY 1000BASE-T Status <3800>
+PHY Extended Status <3000>
+PCI Status <10>
+0000:05:00.0: eth1: Detected Hardware Unit Hang:
+   TDH <1e>
+   TDT <a>
+   next_to_use <a>
+   next_to_clean <1d>
+buffer_info[next_to_clean]:
+   time_stamp <33bae15>
+   next_to_watch <20>
+   jiffies <33bb397>
+   next_to_watch.status <0>
+MAC Status <80080783>
+PHY Status <796d>
+PHY 1000BASE-T Status <3800>
+PHY Extended Status <3000>
+PCI Status <10>
+------------[ cut here ]------------
+WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x118/0x19c()
+Hardware name: X7DCT
+NETDEV WATCHDOG: eth1 (e1000e): transmit queue 0 timed out
+Modules linked in:
+Pid: 0, comm: swapper Not tainted 2.6.33.1 #2
+Call Trace:
+  [<c1024e3d>] ? warn_slowpath_common+0x52/0x71
+  [<c1024e49>] ? warn_slowpath_common+0x5e/0x71
+  [<c1024e8e>] ? warn_slowpath_fmt+0x26/0x2a
+  [<c1261f54>] ? dev_watchdog+0x118/0x19c
+  [<c102135c>] ? __wake_up+0x29/0x39
+  [<c10320c6>] ? insert_work+0x40/0x44
+  [<c1261e3c>] ? dev_watchdog+0x0/0x19c
+  [<c102cc15>] ? run_timer_softirq+0x11a/0x173
+  [<c1028e5b>] ? __do_softirq+0x74/0xdf
+  [<c1028ee9>] ? do_softirq+0x23/0x27
+  [<c10290be>] ? irq_exit+0x26/0x58
+  [<c10102d7>] ? smp_apic_timer_interrupt+0x6c/0x76
+  [<c12c5f9a>] ? apic_timer_interrupt+0x2a/0x30
+  [<c1007e06>] ? mwait_idle+0x49/0x4e
+  [<c10017e8>] ? cpu_idle+0x41/0x5a
+---[ end trace bcca9926a046332c ]---
 
---=20
-paul moore
-linux @ hp
+
+With kernel 2.6.29.1 all was ok.
