@@ -1,47 +1,75 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Network performance - iperf
-Date: Mon, 29 Mar 2010 09:57:33 -0700
-Message-ID: <4BB0DBFD.30904@hp.com>
-References: <4BB09021.6020202@petalogix.com> <4BB0D9A1.3090107@hp.com>
+From: "Ira W. Snyder" <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
+Subject: [PATCH 0/3] add support for Janz MODULbus devices
+Date: Mon, 29 Mar 2010 09:58:49 -0700
+Message-ID: <1269881932-3803-1-git-send-email-iws@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	John Williams <john.williams@petalogix.com>,
-	netdev@vger.kernel.org, Grant Likely <grant.likely@secretlab.ca>,
-	John Linn <John.Linn@xilinx.com>,
-	"Steven J. Magnani" <steve@digidescorp.com>,
-	Arnd Bergmann <arnd@arndb.de>, akpm@linux-foundation.org
-To: michal.simek@petalogix.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4BB0D9A1.3090107@hp.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <>
+References: <>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Rick Jones wrote:
-> I don't know how to set fixed socket buffer sizes in iperf, if you were 
-> running netperf though I would suggest fixing the socket buffer sizes 
-> with the test-specific -s (affects local) and -S (affects remote) options:
-> 
-> netperf -t TCP_STREAM -H <remote> -l 30 -- -s 32K -S 32K -m 32K
-> 
-> to test the hypothesis that the autotuning of the socket buffers/window 
-> size is allowing the windows to grow in the larger memory cases beyond 
-> what the TLB in your processor is comfortable with.
+This patch series adds support for the Janz CMOD-IO carrier board, as well
+as the Janz VMOD-ICAN3 Intelligent CAN controller and the Janz VMOD-TTL
+Digital IO controller. The CMOD-IO carrier board is a PCI to MODULbus
+bridge, into which plug MODULbus daughterboards.  I only have access to two
+types of daughtercards, the VMOD-ICAN3 and VMOD-TTL boards mentioned above.
 
-BTW, by default, netperf will allocate a "ring" of send buffers - the number 
-allocated will be one more than the socket buffer size divided by the send size 
-- so in the example above, there will be two 32KB buffers allocated in netperf's 
-send ring.  A similar calculation may happen on the receive side.
+The CAN driver has been tested under high loads. I am able to generate ~60%
+bus utilization. With two VMOD-ICAN3 boards looped back to each other,
+neither one loses any packets when only a single board is generating
+packets at maximum speed. Once both boards start generating packets, one
+board will sometimes loose arbitration, and cause some lost packets.
 
-That can be controlled via the global (before the "--") -W option.
+After much review from the last posting of the series, I believe that this
+should be ready for mainline. Many thanks to everyone that helped!
 
-     -W send,recv      Set the number of send,recv buffers
+RFCv4 -> RFCv5:
+- removed some dev_dbg() statements
+- change default MODULbus modules to "none"
+- accept both "empty" and "" in the MODULbus modules parameter
+- print an error message when no MODULbus modules are specified
+- add sysfs support to get/set CAN bus termination
+- fix error-active and error-passive state reporting
+- add support for netlink bus-error messages
+- fixed sparse warnings
+- used mfd-core API for multifunction device probing
 
-So, you might make the netperf command:
+RFCv3 -> RFCv4:
+- addressed many review comments
+- switch to NAPI
+- add TX flow control
+- mark functions with __devinit and __devexit
+- add sysfs readout of MODULbus number (hex switch)
+- implement GPIO driver for VMOD-TTL
 
-netperf -t TCP_STREAM -H <remote> -l 30 -W 1,1 -- -s 32K -S 32K -m 32K
+RFCv2 -> RFCv3:
+- addressed many review comments
+- correct CAN bus error handling
+- use struct device to track subdevices
+- use structures for register layout
+- add lots of #defines for register values
+- use better function prefixes
 
-happy benchmarking,
+RFCv1 -> RFCv2:
+- converted to a multi-driver model
+- addressed many review comments
+- added CAN bus error handling
+- use a work function only instead of work + NAPI
+- use SJA1000 bittiming calculation code
 
-rick jones
+Thanks,
+Ira
