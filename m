@@ -1,40 +1,52 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: Re: behavior of recvmmsg() on blocking sockets
-Date: Mon, 29 Mar 2010 10:18:23 -0600
-Message-ID: <4BB0D2CF.9040903@nortel.com>
-References: <84621a61003240915p2a4ce6bbjd0c6bfb02ab05ba8@mail.gmail.com>	 <4BAA4EE4.3090900@nortel.com>	 <84621a61003241128x3afbcea1w387aeaa68c887320@mail.gmail.com>	 <4BAA69BF.3080600@nortel.com>	 <84621a61003241255i74282f53v3bb0111808895401@mail.gmail.com> <84621a61003270619p6b4fe81bi24bb1961aba77ffb@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH net-next-2.6 2/3] bridge br_multicast: Make functions
+ less ipv4 dependent.
+Date: Mon, 29 Mar 2010 09:12:32 -0700
+Message-ID: <20100329091232.50eae040@nehalam>
+References: <201003291101.o2TB1R0W006599@94.43.138.210.xn.2iij.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Brandon Black <blblack@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <84621a61003270619p6b4fe81bi24bb1961aba77ffb@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:54628 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754220Ab0C2Q3G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Mar 2010 12:29:06 -0400
+In-Reply-To: <201003291101.o2TB1R0W006599@94.43.138.210.xn.2iij.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/27/2010 07:19 AM, Brandon Black wrote:
+On Mon, 29 Mar 2010 20:01:27 +0900
+YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org> wrote:
 
-> I've been playing with the timeout argument to recvmmsg as well now,
-> and I'm struggling to see how one would ever use it correctly with the
-> current implementation.
+> Introduce struct br_ip{} to store ip address and protocol
+> and make functions more generic so that we can support
+> both IPv4 and IPv6 with less pain.
+> 
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> ---
+>  net/bridge/br_multicast.c |  181 +++++++++++++++++++++++++++++++--------------
+>  net/bridge/br_private.h   |   12 +++-
+>  2 files changed, 135 insertions(+), 58 deletions(-)
+> 
+> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+> index 9f0c4f0..5338574 100644
+> --- a/net/bridge/br_multicast.c
+> +++ b/net/bridge/br_multicast.c
+> @@ -27,48 +27,86 @@
+>  
+>  #include "br_private.h"
+>  
+> -static inline int br_ip_hash(struct net_bridge_mdb_htable *mdb, __be32 ip)
+> +#define IP4_BRIP(ip)	(struct br_ip) {			\
+> +				.u.ip4 = ip,			\
+> +				.proto = htons(ETH_P_IP),	\
+> +			}
+> +
 
-I'd probably do something like this:
-
-prev = current time
-loop forever
-	cur = current time
-	timeout = max_latency - (cur - prev)
-	recvmmsg(timeout)
-	process all received messages
-	prev = cur
+Too messy with macros, I will fix.
 
 
-Basically you determine the max latency you're willing to wait for a
-packet to be handled, then subtract the amount of time you spent
-processing messages from that and pass it into the recvmmsg() call as
-the timeout.  That way no messages will be delayed for longer than the
-max latency. (Not considering scheduling delays.)
-
-Chris
+-- 
