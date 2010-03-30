@@ -1,56 +1,54 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH 09/17] pcmcia: update gfp/slab.h includes
-Date: Tue, 30 Mar 2010 19:23:39 +1100
-Message-ID: <20100330192339.46d5d079.sfr@canb.auug.org.au>
-References: <1269885165-18617-1-git-send-email-tj@kernel.org>
-	<1269885165-18617-10-git-send-email-tj@kernel.org>
-	<20100329193203.GA8450@comet.dominikbrodowski.net>
-	<20100330103129.b76a70e3.sfr@canb.auug.org.au>
-	<4BB14D7B.4010602@kernel.org>
-	<20100330063609.GA4498@comet.dominikbrodowski.net>
-	<20100330065605.GA12764@core.coreip.homeip.net>
+From: "Edgar E. Iglesias" <edgar.iglesias@gmail.com>
+Subject: Re: UDP path MTU discovery
+Date: Tue, 30 Mar 2010 10:20:13 +0200
+Message-ID: <20100330082013.GA18300@edde.se.axis.com>
+References: <877how25kx.fsf@basil.nowhere.org>
+ <4BB0DCF6.9020401@hp.com>
+ <20100329201431.GH20695@one.firstfloor.org>
+ <20100329205035.GA32656@laped.iglesias.mooo.com>
+ <4BB11510.9000302@hp.com>
+ <1269898152.1958.86.camel@edumazet-laptop>
+ <E1829B60731D1740BB7A0626B4FAF0A649E05EAAB5@XCH-NW-01V.nw.nos.boeing.com>
+ <20100330052044.GJ20695@one.firstfloor.org>
+ <20100330061627.GA22436@laped.iglesias.mooo.com>
+ <20100330061952.GO20695@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__30_Mar_2010_19_23_39_+1100_WVIfq3RvvWzy_UZ_"
-Cc: Dominik Brodowski <linux@dominikbrodowski.net>,
-	Tejun Heo <tj@kernel.org>, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100330065605.GA12764@core.coreip.homeip.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---Signature=_Tue__30_Mar_2010_19_23_39_+1100_WVIfq3RvvWzy_UZ_
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
+Cc: "Templin, Fred L" <Fred.L.Templin@boeing.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Rick Jones <rick.jones2@hp.com>, Glen Turner <gdt@gdt.id.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from miranda.se.axis.com ([193.13.178.8]:48744 "EHLO
+	miranda.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755960Ab0C3IZN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 04:25:13 -0400
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <20100330061952.GO20695@one.firstfloor.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dmitry,
+On Tue, Mar 30, 2010 at 08:19:52AM +0200, Andi Kleen wrote:
+> > If you don't want to hassle with all of that, the app can stick to
+> > 1280 (or I guess for the extreme/lazy cases turn on fragmentation)..
+> 
+> See the early mails in this thread. This is about apps who can't
+> limit themselves to 1280, but still don't want full blown PMTU.
+> [They probably should, but it can be a lot of work]
+> 
+> The MTU would allow to force fragmentation on the sending host
+> as a workaround similar to IPv4.
 
-On Mon, 29 Mar 2010 23:56:05 -0700 Dmitry Torokhov <dmitry.torokhov@gmail.c=
-om> wrote:
->
-> Yes, I will roll teh relevant parts into respective patches if you don't
-> mind.
+Yes, but I dont see why you need an option with semantics of setting an MTU.
 
-Great, thanks.
+If an UDP app wants to use fragmentation (for whatever reason) setting
+a boolean flag like XXX_PMTUDISC_DONT should be enough. The kernel will for
+IPv6 have to work with the real PMTU or stick to 1280 when generating the
+fragments. Keep in mind that unlike IPv4, IPv6 has no DF flag. It's up to
+the sender to create the the fragments.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+Where does the application controllable per socket MTU come into the
+picture?
 
---Signature=_Tue__30_Mar_2010_19_23_39_+1100_WVIfq3RvvWzy_UZ_
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAkuxtQsACgkQjjKRsyhoI8zNkwCfQCBCL9XhvBMIMspWfgDe0H9g
-hBcAniV2p7gt32WdOxKuSfK7f0F5NMwP
-=FNfQ
------END PGP SIGNATURE-----
-
---Signature=_Tue__30_Mar_2010_19_23_39_+1100_WVIfq3RvvWzy_UZ_--
+Cheers
