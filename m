@@ -1,44 +1,56 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 09/17] pcmcia: update gfp/slab.h includes
-Date: Tue, 30 Mar 2010 10:01:47 +0900
-Message-ID: <4BB14D7B.4010602@kernel.org>
-References: <1269885165-18617-1-git-send-email-tj@kernel.org>	<1269885165-18617-10-git-send-email-tj@kernel.org>	<20100329193203.GA8450@comet.dominikbrodowski.net> <20100330103129.b76a70e3.sfr@canb.auug.org.au>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: [PATCH next-next-2.6 v2] virtio_net: missing sg_init_table
+Date: Mon, 29 Mar 2010 18:19:15 -0700
+Message-ID: <1269911955.14013.4.camel@localhost.localdomain>
+References: <1269887518.13277.13.camel@localhost.localdomain>
+	 <4BB10010.5060505@mathtm.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Dominik Brodowski <linux@dominikbrodowski.net>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100330103129.b76a70e3.sfr@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thomas =?ISO-8859-1?Q?M=FCller?= <thomas@mathtm.de>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:40957 "EHLO e2.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754540Ab0C3BTT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Mar 2010 21:19:19 -0400
+In-Reply-To: <4BB10010.5060505@mathtm.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Add missing sg_init_table for sg_set_buf in virtio_net which
+induced in defer skb patch.
 
-On 03/30/2010 08:31 AM, Stephen Rothwell wrote:
-> Hi Dominik,
-> On Mon, 29 Mar 2010 21:32:03 +0200 Dominik Brodowski <linux@dominikbrodowski.net> wrote:
->>
->> On Tue, Mar 30, 2010 at 02:52:37AM +0900, Tejun Heo wrote:
->>> Implicit slab.h inclusion via percpu.h is about to go away.  Make sure
->>> gfp.h or slab.h is included as necessary.
->>>
->>> Signed-off-by: Tejun Heo <tj@kernel.org>
->>> Cc: Stephen Rothwell <sfr@canb.auug.org.au>
->>> Cc: Dominik Brodowski <linux@dominikbrodowski.net>
->> Acked-by: Dominik Brodowski <linux@dominikbrodowski.net>
-> 
-> The plan here is for you to put this in your tree now.  It is safe to do
-> so and Tejun can't carry it because this does not apply to mainline. 
+Reported-by: Thomas M=C3=BCller <thomas@mathtm.de>
+Tested-by: Thomas M=C3=BCller <thomas@mathtm.de>
+Signed-off-by: Shirley Ma <xma@us.ibm.com>
 
-Yeap, something I completely forgot about when I asked Stephen to pull
-from the slabh tree.  It would be great if you can apply this one and
-Stephen's patches on drivers/input/misc/ad714x.c and pcf8574_keypad.c
-into input tree.
+---
+ drivers/net/virtio_net.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Thank you.
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 25dc77c..3f5be35 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -326,6 +326,7 @@ static int add_recvbuf_small(struct virtnet_info *v=
+i, gfp_t gfp)
+ 	struct scatterlist sg[2];
+ 	int err;
+=20
++	sg_init_table(sg, 2);
+ 	skb =3D netdev_alloc_skb_ip_align(vi->dev, MAX_PACKET_LEN);
+ 	if (unlikely(!skb))
+ 		return -ENOMEM;
+@@ -351,6 +352,7 @@ static int add_recvbuf_big(struct virtnet_info *vi,=
+ gfp_t gfp)
+ 	char *p;
+ 	int i, err, offset;
+=20
++	sg_init_table(sg, MAX_SKB_FRAGS + 2);
+ 	/* page in sg[MAX_SKB_FRAGS + 1] is list tail */
+ 	for (i =3D MAX_SKB_FRAGS + 1; i > 1; --i) {
+ 		first =3D get_a_page(vi, gfp);
 
--- 
-tejun
+
