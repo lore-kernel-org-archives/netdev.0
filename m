@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 2/6] kobj: Add basic infrastructure for dealing with namespaces.
-Date: Tue, 30 Mar 2010 11:31:25 -0700
-Message-ID: <1269973889-25260-2-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 5/6] sysfs: Implement sysfs_delete_link
+Date: Tue, 30 Mar 2010 11:31:28 -0700
+Message-ID: <1269973889-25260-5-git-send-email-ebiederm@xmission.com>
 References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
 Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org,
 	Tejun Heo <tj@kernel.org>,
@@ -10,339 +10,104 @@ Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	Benjamin LaHaise <bcrl@lhnet.ca>,
 	Serge Hallyn <serue@us.ibm.com>, <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Benjamin Thery <benjamin.thery@bull.net>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>
 To: Greg Kroah-Hartman <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:57854 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755663Ab0C3Sbn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 14:31:43 -0400
+Received: from out01.mta.xmission.com ([166.70.13.231]:57418 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755713Ab0C3Sbq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 14:31:46 -0400
 In-Reply-To: <m1fx3hk6gw.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric W. Biederman <ebiederm@xmission.com>
 
-Move complete knowledge of namespaces into the kobject layer
-so we can use that information when reporting kobjects to
-userspace.
+When removing a symlink sysfs_remove_link does not provide
+enough information to figure out which tagged directory the symlink
+falls in.  So I need sysfs_delete_link which is passed the target
+of the symlink to delete.
+
+sysfs_rename_link is updated to call sysfs_delete_link instead
+of sysfs_remove_link as we have all of the information necessary
+and the callers are interesting.
+
+Both of these functions now have enough information to find a symlink
+in a tagged directory.  The only restriction is that they must be called
+before the target kobject is renamed or deleted.  If they are called
+later I loose track of which tag the target kobject was marked with
+and can no longer find the old symlink to remove it.
+
+This patch was split from an earlier patch.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
+Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+Acked-by: Tejun Heo <tj@kernel.org>
 ---
- drivers/base/class.c    |    9 ++++
- drivers/base/core.c     |   77 ++++++++++++++++++++++++++++------
- include/linux/device.h  |    3 +
- include/linux/kobject.h |   26 ++++++++++++
- lib/kobject.c           |  103 +++++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 204 insertions(+), 14 deletions(-)
+ fs/sysfs/symlink.c    |   20 ++++++++++++++++++++
+ include/linux/sysfs.h |    8 ++++++++
+ 2 files changed, 28 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/base/class.c b/drivers/base/class.c
-index 0147f47..36723d2 100644
---- a/drivers/base/class.c
-+++ b/drivers/base/class.c
-@@ -63,6 +63,14 @@ static void class_release(struct kobject *kobj)
- 	kfree(cp);
+diff --git a/fs/sysfs/symlink.c b/fs/sysfs/symlink.c
+index 56ccdc6..cd11bf4 100644
+--- a/fs/sysfs/symlink.c
++++ b/fs/sysfs/symlink.c
+@@ -108,6 +108,26 @@ int sysfs_create_link_nowarn(struct kobject *kobj, struct kobject *target,
  }
  
-+static const struct kobj_ns_type_operations *class_child_ns_type(struct kobject *kobj)
-+{
-+	struct class_private *cp = to_class(kobj);
-+	struct class *class = cp->class;
-+
-+	return class->ns_type;
-+}
-+
- static const struct sysfs_ops class_sysfs_ops = {
- 	.show	= class_attr_show,
- 	.store	= class_attr_store,
-@@ -71,6 +79,7 @@ static const struct sysfs_ops class_sysfs_ops = {
- static struct kobj_type class_ktype = {
- 	.sysfs_ops	= &class_sysfs_ops,
- 	.release	= class_release,
-+	.child_ns_type	= class_child_ns_type,
- };
- 
- /* Hotplug events for classes go to the class class_subsys */
-diff --git a/drivers/base/core.c b/drivers/base/core.c
-index ef55df3..6b32f6e 100644
---- a/drivers/base/core.c
-+++ b/drivers/base/core.c
-@@ -132,9 +132,21 @@ static void device_release(struct kobject *kobj)
- 	kfree(p);
- }
- 
-+static const void *device_namespace(struct kobject *kobj)
-+{
-+	struct device *dev = to_dev(kobj);
-+	const void *ns = NULL;
-+
-+	if (dev->class && dev->class->ns_type)
-+		ns = dev->class->namespace(dev);
-+
-+	return ns;
-+}
-+
- static struct kobj_type device_ktype = {
- 	.release	= device_release,
- 	.sysfs_ops	= &dev_sysfs_ops,
-+	.namespace	= device_namespace,
- };
- 
- 
-@@ -596,11 +608,59 @@ static struct kobject *virtual_device_parent(struct device *dev)
- 	return virtual_dir;
- }
- 
--static struct kobject *get_device_parent(struct device *dev,
--					 struct device *parent)
-+struct class_dir {
-+	struct kobject kobj;
-+	struct class *class;
-+};
-+
-+#define to_class_dir(obj) container_of(obj, struct class_dir, kobj)
-+
-+static void class_dir_release(struct kobject *kobj)
-+{
-+	struct class_dir *dir = to_class_dir(kobj);
-+	kfree(dir);
-+}
-+
-+static const
-+struct kobj_ns_type_operations *class_dir_child_ns_type(struct kobject *kobj)
- {
-+	struct class_dir *dir = to_class_dir(kobj);
-+	return dir->class->ns_type;
-+}
-+
-+static struct kobj_type class_dir_ktype = {
-+	.release	= class_dir_release,
-+	.sysfs_ops	= &kobj_sysfs_ops,
-+	.child_ns_type	= class_dir_child_ns_type
-+};
-+
-+static struct kobject *
-+class_dir_create_and_add(struct class *class, struct kobject *parent_kobj)
-+{
-+	struct class_dir *dir;
- 	int retval;
- 
-+	dir = kzalloc(sizeof(*dir), GFP_KERNEL);
-+	if (!dir)
-+		return NULL;
-+
-+	dir->class = class;
-+	kobject_init(&dir->kobj, &class_dir_ktype);
-+
-+	dir->kobj.kset = &class->p->class_dirs;
-+
-+	retval = kobject_add(&dir->kobj, parent_kobj, "%s", class->name);
-+	if (retval < 0) {
-+		kobject_put(&dir->kobj);
-+		return NULL;
-+	}
-+	return &dir->kobj;
-+}
-+
-+
-+static struct kobject *get_device_parent(struct device *dev,
-+					 struct device *parent)
-+{
- 	if (dev->class) {
- 		static DEFINE_MUTEX(gdp_mutex);
- 		struct kobject *kobj = NULL;
-@@ -635,18 +695,7 @@ static struct kobject *get_device_parent(struct device *dev,
- 		}
- 
- 		/* or create a new class-directory at the parent device */
--		k = kobject_create();
--		if (!k) {
--			mutex_unlock(&gdp_mutex);
--			return NULL;
--		}
--		k->kset = &dev->class->p->class_dirs;
--		retval = kobject_add(k, parent_kobj, "%s", dev->class->name);
--		if (retval < 0) {
--			mutex_unlock(&gdp_mutex);
--			kobject_put(k);
--			return NULL;
--		}
-+		k = class_dir_create_and_add(dev->class, parent_kobj);
- 		/* do not emit an uevent for this simple "glue" directory */
- 		mutex_unlock(&gdp_mutex);
- 		return k;
-diff --git a/include/linux/device.h b/include/linux/device.h
-index 1821928..638a8f3 100644
---- a/include/linux/device.h
-+++ b/include/linux/device.h
-@@ -203,6 +203,9 @@ struct class {
- 	int (*suspend)(struct device *dev, pm_message_t state);
- 	int (*resume)(struct device *dev);
- 
-+	const struct kobj_ns_type_operations *ns_type;
-+	const void *(*namespace)(struct device *dev);
-+
- 	const struct dev_pm_ops *pm;
- 
- 	struct class_private *p;
-diff --git a/include/linux/kobject.h b/include/linux/kobject.h
-index 3950d3c..d9456f6 100644
---- a/include/linux/kobject.h
-+++ b/include/linux/kobject.h
-@@ -108,6 +108,8 @@ struct kobj_type {
- 	void (*release)(struct kobject *kobj);
- 	const struct sysfs_ops *sysfs_ops;
- 	struct attribute **default_attrs;
-+	const struct kobj_ns_type_operations *(*child_ns_type)(struct kobject *kobj);
-+	const void *(*namespace)(struct kobject *kobj);
- };
- 
- struct kobj_uevent_env {
-@@ -134,6 +136,30 @@ struct kobj_attribute {
- 
- extern const struct sysfs_ops kobj_sysfs_ops;
- 
-+enum kobj_ns_type {
-+	KOBJ_NS_TYPE_NONE = 0,
-+	KOBJ_NS_TYPES
-+};
-+
-+struct sock;
-+struct kobj_ns_type_operations {
-+	enum kobj_ns_type type;
-+	const void *(*current_ns)(void);
-+	const void *(*netlink_ns)(struct sock *sk);
-+	const void *(*initial_ns)(void);
-+};
-+
-+int kobj_ns_type_register(const struct kobj_ns_type_operations *ops);
-+int kobj_ns_type_registered(enum kobj_ns_type type);
-+const struct kobj_ns_type_operations *kobj_child_ns_ops(struct kobject *parent);
-+const struct kobj_ns_type_operations *kobj_ns_ops(struct kobject *kobj);
-+
-+const void *kobj_ns_current(enum kobj_ns_type type);
-+const void *kobj_ns_netlink(enum kobj_ns_type type, struct sock *sk);
-+const void *kobj_ns_initial(enum kobj_ns_type type);
-+void kobj_ns_exit(enum kobj_ns_type type, const void *ns);
-+
-+
  /**
-  * struct kset - a set of kobjects of a specific type, belonging to a specific subsystem.
-  *
-diff --git a/lib/kobject.c b/lib/kobject.c
-index 8115eb1..bbb2bb4 100644
---- a/lib/kobject.c
-+++ b/lib/kobject.c
-@@ -850,6 +850,109 @@ struct kset *kset_create_and_add(const char *name,
- }
- EXPORT_SYMBOL_GPL(kset_create_and_add);
++ *	sysfs_delete_link - remove symlink in object's directory.
++ *	@kobj:	object we're acting for.
++ *	@targ:	object we're pointing to.
++ *	@name:	name of the symlink to remove.
++ *
++ *	Unlike sysfs_remove_link sysfs_delete_link has enough information
++ *	to successfully delete symlinks in tagged directories.
++ */
++void sysfs_delete_link(struct kobject *kobj, struct kobject *targ,
++			const char *name)
++{
++	const void *ns = NULL;
++	spin_lock(&sysfs_assoc_lock);
++	if (targ->sd)
++		ns = targ->sd->s_ns;
++	spin_unlock(&sysfs_assoc_lock);
++	sysfs_hash_and_remove(kobj->sd, ns, name);
++}
++
++/**
+  *	sysfs_remove_link - remove symlink in object's directory.
+  *	@kobj:	object we're acting for.
+  *	@name:	name of the symlink to remove.
+diff --git a/include/linux/sysfs.h b/include/linux/sysfs.h
+index 1885d21..976c466 100644
+--- a/include/linux/sysfs.h
++++ b/include/linux/sysfs.h
+@@ -155,6 +155,9 @@ void sysfs_remove_link(struct kobject *kobj, const char *name);
+ int sysfs_rename_link(struct kobject *kobj, struct kobject *target,
+ 			const char *old_name, const char *new_name);
  
++void sysfs_delete_link(struct kobject *dir, struct kobject *targ,
++			const char *name);
 +
-+static DEFINE_SPINLOCK(kobj_ns_type_lock);
-+static const struct kobj_ns_type_operations *kobj_ns_ops_tbl[KOBJ_NS_TYPES];
-+
-+int kobj_ns_type_register(const struct kobj_ns_type_operations *ops)
-+{
-+	enum kobj_ns_type type = ops->type;
-+	int error;
-+
-+	spin_lock(&kobj_ns_type_lock);
-+
-+	error = -EINVAL;
-+	if (type >= KOBJ_NS_TYPES)
-+		goto out;
-+
-+	error = -EINVAL;
-+	if (type <= KOBJ_NS_TYPE_NONE)
-+		goto out;
-+
-+	error = -EBUSY;
-+	if (kobj_ns_ops_tbl[type])
-+		goto out;
-+
-+	error = 0;
-+	kobj_ns_ops_tbl[type] = ops;
-+
-+out:
-+	spin_unlock(&kobj_ns_type_lock);
-+	return error;
-+}
-+
-+int kobj_ns_type_registered(enum kobj_ns_type type)
-+{
-+	int registered = 0;
-+
-+	spin_lock(&kobj_ns_type_lock);
-+	if ((type > KOBJ_NS_TYPE_NONE) && (type < KOBJ_NS_TYPES))
-+		registered = kobj_ns_ops_tbl[type] != NULL;
-+	spin_unlock(&kobj_ns_type_lock);
-+
-+	return registered;
-+}
-+
-+const struct kobj_ns_type_operations *kobj_child_ns_ops(struct kobject *parent)
-+{
-+	const struct kobj_ns_type_operations *ops = NULL;
-+
-+	if (parent && parent->ktype->child_ns_type)
-+		ops = parent->ktype->child_ns_type(parent);
-+
-+	return ops;
-+}
-+
-+const struct kobj_ns_type_operations *kobj_ns_ops(struct kobject *kobj)
-+{
-+	return kobj_child_ns_ops(kobj->parent);
-+}
-+
-+
-+const void *kobj_ns_current(enum kobj_ns_type type)
-+{
-+	const void *ns = NULL;
-+
-+	spin_lock(&kobj_ns_type_lock);
-+	if ((type > KOBJ_NS_TYPE_NONE) && (type < KOBJ_NS_TYPES) &&
-+	    kobj_ns_ops_tbl[type])
-+		ns = kobj_ns_ops_tbl[type]->current_ns();
-+	spin_unlock(&kobj_ns_type_lock);
-+
-+	return ns;
-+}
-+
-+const void *kobj_ns_netlink(enum kobj_ns_type type, struct sock *sk)
-+{
-+	const void *ns = NULL;
-+
-+	spin_lock(&kobj_ns_type_lock);
-+	if ((type > KOBJ_NS_TYPE_NONE) && (type < KOBJ_NS_TYPES) &&
-+	    kobj_ns_ops_tbl[type])
-+		ns = kobj_ns_ops_tbl[type]->netlink_ns(sk);
-+	spin_unlock(&kobj_ns_type_lock);
-+
-+	return ns;
-+}
-+
-+const void *kobj_ns_initial(enum kobj_ns_type type)
-+{
-+	const void *ns = NULL;
-+
-+	spin_lock(&kobj_ns_type_lock);
-+	if ((type > KOBJ_NS_TYPE_NONE) && (type < KOBJ_NS_TYPES) &&
-+	    kobj_ns_ops_tbl[type])
-+		ns = kobj_ns_ops_tbl[type]->initial_ns();
-+	spin_unlock(&kobj_ns_type_lock);
-+
-+	return ns;
-+}
-+
-+void kobj_ns_exit(enum kobj_ns_type type, const void *ns)
+ int __must_check sysfs_create_group(struct kobject *kobj,
+ 				    const struct attribute_group *grp);
+ int sysfs_update_group(struct kobject *kobj,
+@@ -269,6 +272,11 @@ static inline int sysfs_rename_link(struct kobject *k, struct kobject *t,
+ 	return 0;
+ }
+ 
++static inline void sysfs_delete_link(struct kobject *k, struct kobject *t,
++				     const char *name)
 +{
 +}
 +
-+
- EXPORT_SYMBOL(kobject_get);
- EXPORT_SYMBOL(kobject_put);
- EXPORT_SYMBOL(kobject_del);
+ static inline int sysfs_create_group(struct kobject *kobj,
+ 				     const struct attribute_group *grp)
+ {
 -- 
 1.6.5.2.143.g8cc62
 
