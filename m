@@ -1,51 +1,34 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 5/6] cxgb4: Add main driver file and driver Makefile
-Date: Tue, 30 Mar 2010 14:19:04 -0700
-Message-ID: <20100330141904.5236fe44@nehalam>
-References: <1269975142-30896-1-git-send-email-dm@chelsio.com>
-	<1269975142-30896-2-git-send-email-dm@chelsio.com>
-	<1269975142-30896-3-git-send-email-dm@chelsio.com>
-	<1269975142-30896-4-git-send-email-dm@chelsio.com>
-	<1269975142-30896-5-git-send-email-dm@chelsio.com>
-	<1269975142-30896-6-git-send-email-dm@chelsio.com>
+From: Jasen Betts <Jasen@treshna.com>
+Subject: Re: [Bugme-new] [Bug 15571] New: TCP madness - some packets are
+	shunned.
+Date: Wed, 31 Mar 2010 10:08:12 +1300
+Message-ID: <20100330210812.GA31047@treshna.com>
+References: <bug-15571-10286@http.bugzilla.kernel.org/> <20100322143711.b78c7a93.akpm@linux-foundation.org> <4BAB8281.8000905@nets.rwth-aachen.de> <20100326053151.GA23938@treshna.com> <4BAC733A.1070403@nets.rwth-aachen.de> <20100327212644.4bfda1ac@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dimitris Michailidis <dm@chelsio.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44580 "EHLO mail.vyatta.com"
+Received: from treshna.com ([210.48.71.196]:39159 "EHLO tyreal.treshna.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754868Ab0C3VTY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Mar 2010 17:19:24 -0400
-In-Reply-To: <1269975142-30896-6-git-send-email-dm@chelsio.com>
+	id S1750902Ab0C3V2J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Mar 2010 17:28:09 -0400
+Content-Disposition: inline
+In-Reply-To: <20100327212644.4bfda1ac@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 30 Mar 2010 10:52:21 -0800
-Dimitris Michailidis <dm@chelsio.com> wrote:
+On Sat, Mar 27, 2010 at 09:26:44PM -0700, Stephen Hemminger wrote:
+> 
+> The window is also settable on a per route basis as well.
+> 
+> http://lwn.net/Articles/92727/
+ 
+ Have used this on our squid proxy server, all is good now.
+ thanks.
 
-> +static struct cxgb4_proc_entry proc_files[] = {
-> +#ifdef CONFIG_PROC_FS
-> +	{ "l2t", 0444, ADAP_NEED_L2T, 0, &t4_l2t_proc_fops },
-> +#endif
-> +	{ "lb_stats", 0444, 0, 0, &lb_stats_proc_fops },
-> +	{ "path_mtus", 0644, 0, 0, &mtutab_proc_fops },
-> +	{ "qstats", 0444, 0, 0, &sge_stats_proc_fops },
-> +	{ "rss", 0444, 0, 0, &rss_proc_fops },
-> +	{ "tcp_stats", 0444, 0, 0, &tcp_stats_proc_fops },
-> +	{ "tids", 0444, ADAP_NEED_OFLD, 0, &tid_info_proc_fops },
-> +	{ "tp_err_stats", 0444, 0, 0, &tp_err_stats_proc_fops },
-> +	{ "trace0", 0644, 0, 0, &mps_trc_proc_fops },
-> +	{ "trace1", 0644, 0, 1, &mps_trc_proc_fops },
-> +	{ "trace2", 0644, 0, 2, &mps_trc_proc_fops },
-> +	{ "trace3", 0644, 0, 3, &mps_trc_proc_fops },
-> +	{ "uld", 0444, 0, 0, &uld_proc_fops },
-> +};
-> +
+ ip route add 121.199.32.220  via  upstream.ip.router.addr  window 65535
 
-Do you really need this large number of /proc files.
-It creates another stable API to worry about.  If it is just for
-debugging move it to debugfs, or better yet just drop it.
-
--- 
