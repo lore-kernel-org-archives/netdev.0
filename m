@@ -1,37 +1,85 @@
-From: Holger Schurig <hs4233@mail.mn-solutions.de>
-Subject: Re: [PATCH] net/wireless/libertas: do not call wiphy_unregister() w/o wiphy_register()
-Date: Tue, 30 Mar 2010 11:49:13 +0200
-Message-ID: <201003301149.13462.hs4233@mail.mn-solutions.de>
-References: <1269875658-3324-1-git-send-email-daniel@caiaq.de> <201003300849.07441.hs4233@mail.mn-solutions.de> <20100330085253.GL30801@buzzloop.caiaq.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Dan Williams <dcbw@redhat.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Bing Zhao <bzhao@marvell.com>,
-	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Daniel Mack <daniel@caiaq.de>
+From: Anders Darander <anders.darander@gmail.com>
+Subject: [PATCH] Allow MACB to connect to a higher addresses PHY.
+Date: Tue, 30 Mar 2010 11:58:32 +0200
+Message-ID: <1269943112-6975-1-git-send-email-anders.darander@gmail.com>
+Cc: Ralf Baechle <ralf@linux-mips.org>,
+	Maxime Bizon <mbizon@freebox.fr>,
+	Anders Darander <ad@datarespons.se>,
+	David Daney <ddaney@caviumnetworks.com>,
+	Sekhar Nori <nsekhar@ti.com>,
+	Anton Vorontsov <avorontsov@ru.mvista.com>,
+	Andy Fleming <afleming@freescale.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100330085253.GL30801@buzzloop.caiaq.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> If there's any better solution, I'd happily test it.
+From: Anders Darander <ad@datarespons.se>
 
-Not from me, unfortunately. I'm not really interested into getting full 
-cfg80211 into Libertas. That is, until either _one_ of this two options 
-happen:
+Using the Atmel MACB together with an integrated switch, can make only port 1
+work. This is caused by macb_mii_probe trying to attach the MAC to the first
+PHY, which often is on one of the external ports.
 
-* someone that actually uses/wants the proprietary Libertas mesh steps  
-forward and says "We'll look after this and make it work with cfg80211"
-* we remove the proprietary Libertas mesh support
+E.g. the Micrel KSZ8873 connects to the MAC on port 3, thus phy_addr should be
+set to 3.
 
-That is: I won't work on Libertas mesh. I can't justify this time investment 
-with my employer for something that I'll never need. For my device, my own 
-version of Libertas + cfg80211 (without any WEXT anymore) works quite nice.
+Signed-off-by: Anders Darander <ad@datarespons.se>
+---
+ drivers/net/phy/Kconfig      |   19 ++++++++++++++++++-
+ drivers/net/phy/phy_device.c |    4 ++++
+ 2 files changed, 22 insertions(+), 1 deletions(-)
 
-
-So, if neither of the above things happens, then Libertas will work for the 
-rest of the world with WEXT, as it did before.
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index fc5938b..64aa003 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -15,11 +15,28 @@ if PHYLIB
+ 
+ comment "MII PHY device drivers"
+ 
++config SWITCHING_PHY
++	bool "An Ethernet switch is connected to the MAC"
++	depends on MACB
++	help
++	  If an Ethernet switch is connected to the MAC, it
++	  is quite common to have the connection on a port
++	  higher than the first port. This option allows to
++	  select the desired port number
++
++config SWITCHING_PHY_ADDR
++	int "PHYA address"
++	depends on SWITCHING_PHY
++	default "3"
++	help
++	  On e.g. the Micrel KSZ8873MLL, port 3 (and thus phy_addr
++	  3) is the one connected to the MAC of the MCU.
++
+ config MARVELL_PHY
+ 	tristate "Drivers for Marvell PHYs"
+ 	---help---
+ 	  Currently has a driver for the 88E1011S
+-	
++
+ config DAVICOM_PHY
+ 	tristate "Drivers for Davicom PHYs"
+ 	---help---
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index db17945..891bd0d 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -284,7 +284,11 @@ struct phy_device *phy_find_first(struct mii_bus *bus)
+ {
+ 	int addr;
+ 
++#ifdef CONFIG_SWITCHING_PHY
++	for (addr = CONFIG_SWITCHING_PHY_ADDR; addr < PHY_MAX_ADDR; addr++) {
++#else
+ 	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
++#endif
+ 		if (bus->phy_map[addr])
+ 			return bus->phy_map[addr];
+ 	}
+-- 
+1.7.0.3
