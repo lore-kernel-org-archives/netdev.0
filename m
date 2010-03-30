@@ -1,129 +1,147 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] Allow MACB to connect to a higher addresses PHY.
-Date: Tue, 30 Mar 2010 08:41:43 -0600
-Message-ID: <fa686aa41003300741x5ef9bdbpf56133304fe4d6e6@mail.gmail.com>
-References: <1269943112-6975-1-git-send-email-anders.darander@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Tiny patch (w/ discussion) to provide the peer information on
+ unix domain sockets
+Date: Tue, 30 Mar 2010 16:56:53 +0200
+Message-ID: <1269961013.2012.61.camel@edumazet-laptop>
+References: <20100330143512.GF7980@coffee.modeemi.cs.tut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Maxime Bizon <mbizon@freebox.fr>,
-	Anders Darander <ad@datarespons.se>,
-	David Daney <ddaney@caviumnetworks.com>,
-	Sekhar Nori <nsekhar@ti.com>,
-	Anton Vorontsov <avorontsov@ru.mvista.com>,
-	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Anders Darander <anders.darander@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:62821 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752144Ab0C3OmG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 10:42:06 -0400
-In-Reply-To: <1269943112-6975-1-git-send-email-anders.darander@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Erkki Seppala <flux-lkml@inside.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100330143512.GF7980@coffee.modeemi.cs.tut.fi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 30, 2010 at 3:58 AM, Anders Darander
-<anders.darander@gmail.com> wrote:
-> From: Anders Darander <ad@datarespons.se>
->
-> Using the Atmel MACB together with an integrated switch, can make onl=
-y port 1
-> work. This is caused by macb_mii_probe trying to attach the MAC to th=
-e first
-> PHY, which often is on one of the external ports.
->
-> E.g. the Micrel KSZ8873 connects to the MAC on port 3, thus phy_addr =
-should be
-> set to 3.
->
-> Signed-off-by: Anders Darander <ad@datarespons.se>
-
-Hi Anders,
-
-I understand what you are trying to do, but this is the wrong way to
-go about it.  Hard coding it into Kconfig breaks multiplatform
-kernels.  Besides, systems may have more than one physical MDIO bus.
-This patch would make CONFIG_SWITCHING_PHY_ADDR the only address
-accessible on all MDIO busses.
-
-Nak.
-
-The right thing to do is to add a runtime configuration option (ie.
-kernel parameter or platform data) to the mac driver to specify
-exactly which PHY address it is supposed to use.
-
-g.
-
-> ---
-> =A0drivers/net/phy/Kconfig =A0 =A0 =A0| =A0 19 ++++++++++++++++++-
-> =A0drivers/net/phy/phy_device.c | =A0 =A04 ++++
-> =A02 files changed, 22 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-> index fc5938b..64aa003 100644
-> --- a/drivers/net/phy/Kconfig
-> +++ b/drivers/net/phy/Kconfig
-> @@ -15,11 +15,28 @@ if PHYLIB
->
-> =A0comment "MII PHY device drivers"
->
-> +config SWITCHING_PHY
-> + =A0 =A0 =A0 bool "An Ethernet switch is connected to the MAC"
-> + =A0 =A0 =A0 depends on MACB
-> + =A0 =A0 =A0 help
-> + =A0 =A0 =A0 =A0 If an Ethernet switch is connected to the MAC, it
-> + =A0 =A0 =A0 =A0 is quite common to have the connection on a port
-> + =A0 =A0 =A0 =A0 higher than the first port. This option allows to
-> + =A0 =A0 =A0 =A0 select the desired port number
+Le mardi 30 mars 2010 =C3=A0 17:35 +0300, Erkki Seppala a =C3=A9crit :
+> Hello,
+>=20
+> Attached you will find a patch that appends the field 'Peer' to
+> /proc/net/unix indicating the peer of a connected unix domain
+> socket. It shows its kernel address, as this is how unix domain
+> sockets are identified in the same file. The preceding optional file
+> name (actual address of the socket) field is replaced with "-" if it
+> is not set. If there is no peer, 0 is used in its place.
+>=20
+> The purpose of the patch is to provide information on onto which
+> services processes are connected. This information is readily
+> available for TCP/IP sockets but not for unix domain sockets. The
+> information can be retrieved with relative ease by using the followin=
+g
+> scripts for GDB, if you have GDB 7.1 and debugging symbols around:
+>=20
+>   http://www.modeemi.fi/~flux/software/list-unix-sockets.tar.gz
+>=20
+> But obviously this is not optimal :). With the patch, this is how you
+> can find out the peers of the sockets of the X server:
+>=20
+>   # grep -E $(lsof -p `pidof X` | grep unix | awk '{print s $6; s=3D"=
+|"}' |
+>               tr -d '\n' | sed 's/0x//g;s/.*/(&)$/') /proc/net/unix
+>   d913b000: 00000003 00000000 00000000 0001 03  5494 - d913b200
+>   d9085600: 00000003 00000000 00000000 0001 03  5487 - d9085800
+>   ..
+>=20
+> The number in the first column is the address, for which the process
+> can be most easily found with lsof:=20
+>=20
+>   # lsof | grep d913b000=20
+>   gnome-pow 1245        gdm    3u     unix 0xd913b000      0t0       =
+5494 -
+>=20
+> Hopefully this kind of work would be integrated into lsof to display
+> the information more easily.
+>=20
+> The patch does break the current API, but the impact seems rather
+> light. I'm happy to incorporate alternative approaches if this seems
+> to severe.
+>=20
+> Originally the last field in the field was fully optional: if it was
+> not known, the line would terminate immediately after the field
+> preceding it. Because we append a new field (instead of inserting it
+> before Path, which causes more severe problems), the missing field
+> value is indicated with a hyphen instead. So this (where $ indicates
+> EOL):
+>=20
+>   de38f800: 00000003 00000000 00000000 0001 03  2323$
+>=20
+> becomes this:
+>=20
+>   de38f800: 00000003 00000000 00000000 0001 03  2323 - de2e4400$
+>=20
+> This changes the output of netstat -x for unix domain sockets that
+> don't have a known address. I'm pretty sure nobody cares,
+> though.. Similarly this changes the behavior of lsof, which before th=
+e
+> patch can display:
+>=20
+>   rxvt      17693         ese    6u     unix 0xffff880050ba8900      =
+0t0     746261 socket
+>=20
+> but after the patch:
+>=20
+>   gconf-hel 1377        gdm    3u     unix 0xd9197800      0t0       =
+5796 -
+>=20
+> Pretty sure this is pretty much the same for everyone as well
+> :). Although that could likely be worked around by using "@" in place
+> of "-". Infact this might be the proper thing to do: I'm not sure wha=
+t
+> the meaning of UNIX_ABSTRACT used in af_unix.c:unix_seq_show is,
+> perhaps just that there is no name to be found? I cannot use the
+> macro, though, because it uses the nondefined field addr.
+>=20
+> Btw, I noticed that af_unix.c:unix_seq_show does not quote the unix
+> domain socket path (possibly due to lacking convenient quoting
+> function in seq_file.c), which allows spoofing the contents of the
+> file into a certain extent. Atleast spaces should be quoted for this
+> patch to work properly in the cases when socket names have spaces in
+> them.
+>=20
+> Here is the patch, also available at=20
+>=20
+>   http://www.modeemi.fi/~flux/software/linux-2.6.31-procfs-unix_peer_=
+information.patch
+>=20
+> --- linux-2.6.31/net/unix/af_unix.c	2010-03-30 16:19:52.306372568 +03=
+00
+> +++ linux-2.6.31-flux/net/unix/af_unix.c	2010-03-30 14:32:47.00000000=
+0 +0300
+> @@ -2154,7 +2154,7 @@
+> =20
+>  	if (v =3D=3D SEQ_START_TOKEN)
+>  		seq_puts(seq, "Num       RefCount Protocol Flags    Type St "
+> -			 "Inode Path\n");
+> +			 "Inode Path Peer\n");
+>  	else {
+>  		struct sock *s =3D v;
+>  		struct unix_sock *u =3D unix_sk(s);
+> @@ -2185,7 +2185,14 @@
+>  			}
+>  			for ( ; i < len; i++)
+>  				seq_putc(seq, u->addr->name->sun_path[i]);
+> -		}
+> +		} else
+> +			seq_puts(seq, " -");
 > +
-> +config SWITCHING_PHY_ADDR
-> + =A0 =A0 =A0 int "PHYA address"
-> + =A0 =A0 =A0 depends on SWITCHING_PHY
-> + =A0 =A0 =A0 default "3"
-> + =A0 =A0 =A0 help
-> + =A0 =A0 =A0 =A0 On e.g. the Micrel KSZ8873MLL, port 3 (and thus phy=
-_addr
-> + =A0 =A0 =A0 =A0 3) is the one connected to the MAC of the MCU.
-> +
-> =A0config MARVELL_PHY
-> =A0 =A0 =A0 =A0tristate "Drivers for Marvell PHYs"
-> =A0 =A0 =A0 =A0---help---
-> =A0 =A0 =A0 =A0 =A0Currently has a driver for the 88E1011S
-> -
-> +
-> =A0config DAVICOM_PHY
-> =A0 =A0 =A0 =A0tristate "Drivers for Davicom PHYs"
-> =A0 =A0 =A0 =A0---help---
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_devic=
-e.c
-> index db17945..891bd0d 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -284,7 +284,11 @@ struct phy_device *phy_find_first(struct mii_bus=
- *bus)
-> =A0{
-> =A0 =A0 =A0 =A0int addr;
->
-> +#ifdef CONFIG_SWITCHING_PHY
-> + =A0 =A0 =A0 for (addr =3D CONFIG_SWITCHING_PHY_ADDR; addr < PHY_MAX=
-_ADDR; addr++) {
-> +#else
-> =A0 =A0 =A0 =A0for (addr =3D 0; addr < PHY_MAX_ADDR; addr++) {
-> +#endif
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (bus->phy_map[addr])
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return bus->phy_map[ad=
-dr];
-> =A0 =A0 =A0 =A0}
-> --
-> 1.7.0.3
->
->
+> +		if (u->peer)
+> +			seq_printf(seq, " %p", u->peer);
+> +		else
+> +			seq_puts(seq, " 0");
+> +	=09
+>  		unix_state_unlock(s);
+>  		seq_putc(seq, '\n');
+>  	}
+>=20
+Hi Erkki
+
+Such patches should be sent to netdev
+
+I believe you missed some necessary locking.
 
 
+Prior art from Kenan Kalajdzic :
 
---=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+ http://patchwork.ozlabs.org/patch/46561/
