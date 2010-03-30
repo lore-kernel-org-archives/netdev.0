@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 1/6] sysfs: Basic support for multiple super blocks
-Date: Tue, 30 Mar 2010 11:31:24 -0700
-Message-ID: <1269973889-25260-1-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 4/6] sysfs: Add support for tagged directories with untagged members.
+Date: Tue, 30 Mar 2010 11:31:27 -0700
+Message-ID: <1269973889-25260-4-git-send-email-ebiederm@xmission.com>
 References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
 Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org,
 	Tejun Heo <tj@kernel.org>,
@@ -10,114 +10,84 @@ Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	Benjamin LaHaise <bcrl@lhnet.ca>,
 	Serge Hallyn <serue@us.ibm.com>, <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+	"Eric W. Biederman" <ebiederm@maxwell.aristanetworks.com>,
+	"Eric W. Biederman" <ebiederm@aristanetworks.com>
 To: Greg Kroah-Hartman <gregkh@suse.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <m1fx3hk6gw.fsf@fess.ebiederm.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric W. Biederman <ebiederm@xmission.com>
+From: Eric W. Biederman <ebiederm@maxwell.aristanetworks.com>
 
-Add all of the necessary bioler plate to support
-multiple superblocks in sysfs.
+I had hopped to avoid this but the bonding driver adds a file
+to /sys/class/net/  and the easiest way to handle that file is
+to make it untagged and to register it only once.
 
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+So relax the rules on tagged directories, and make bonding work.
+
+Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
 ---
- fs/sysfs/mount.c |   58 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
- fs/sysfs/sysfs.h |    3 ++
- 2 files changed, 59 insertions(+), 2 deletions(-)
+ fs/sysfs/dir.c   |   12 +++---------
+ fs/sysfs/inode.c |    2 ++
+ 2 files changed, 5 insertions(+), 9 deletions(-)
 
-diff --git a/fs/sysfs/mount.c b/fs/sysfs/mount.c
-index 0cb1088..6a433ac 100644
---- a/fs/sysfs/mount.c
-+++ b/fs/sysfs/mount.c
-@@ -71,16 +71,70 @@ static int sysfs_fill_super(struct super_block *sb, void *data, int silent)
- 	return 0;
+diff --git a/fs/sysfs/dir.c b/fs/sysfs/dir.c
+index b0e7911..d3dd097 100644
+--- a/fs/sysfs/dir.c
++++ b/fs/sysfs/dir.c
+@@ -383,12 +383,6 @@ int __sysfs_add_one(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd)
+ 	if (sysfs_find_dirent(acxt->parent_sd, sd->s_ns, sd->s_name))
+ 		return -EEXIST;
+ 
+-	if (sysfs_ns_type(acxt->parent_sd) && !sd->s_ns) {
+-		WARN(1, KERN_WARNING "sysfs: ns required in '%s' for '%s'\n",
+-			acxt->parent_sd->s_name, sd->s_name);
+-		return -EINVAL;
+-	}
+-
+ 	sd->s_parent = sysfs_get(acxt->parent_sd);
+ 
+ 	sysfs_link_sibling(sd);
+@@ -545,7 +539,7 @@ struct sysfs_dirent *sysfs_find_dirent(struct sysfs_dirent *parent_sd,
+ 	struct sysfs_dirent *sd;
+ 
+ 	for (sd = parent_sd->s_dir.children; sd; sd = sd->s_sibling) {
+-		if (sd->s_ns != ns)
++		if (ns && sd->s_ns && (sd->s_ns != ns))
+ 			continue;
+ 		if (!strcmp(sd->s_name, name))
+ 			return sd;
+@@ -879,7 +873,7 @@ static struct sysfs_dirent *sysfs_dir_pos(const void *ns,
+ 		while (pos && (ino > pos->s_ino))
+ 			pos = pos->s_sibling;
+ 	}
+-	while (pos && pos->s_ns != ns)
++	while (pos && pos->s_ns && pos->s_ns != ns)
+ 		pos = pos->s_sibling;
+ 	return pos;
  }
- 
-+static int sysfs_test_super(struct super_block *sb, void *data)
-+{
-+	struct sysfs_super_info *sb_info = sysfs_info(sb);
-+	struct sysfs_super_info *info = data;
-+	int found = 1;
-+	return found;
-+}
-+
-+static int sysfs_set_super(struct super_block *sb, void *data)
-+{
-+	int error;
-+	error = set_anon_super(sb, data);
-+	if (!error)
-+		sb->s_fs_info = data;
-+	return error;
-+}
-+
- static int sysfs_get_sb(struct file_system_type *fs_type,
- 	int flags, const char *dev_name, void *data, struct vfsmount *mnt)
- {
--	return get_sb_single(fs_type, flags, data, sysfs_fill_super, mnt);
-+	struct sysfs_super_info *info;
-+	struct super_block *sb;
-+	int error;
-+
-+	error = -ENOMEM;
-+	info = kzalloc(sizeof(*info), GFP_KERNEL);
-+	if (!info)
-+		goto out;
-+	sb = sget(fs_type, sysfs_test_super, sysfs_set_super, info);
-+	if (IS_ERR(sb) || sb->s_fs_info != info)
-+		kfree(info);
-+	if (IS_ERR(sb)) {
-+		kfree(info);
-+		error = PTR_ERR(sb);
-+		goto out;
-+	}
-+	if (!sb->s_root) {
-+		sb->s_flags = flags;
-+		error = sysfs_fill_super(sb, data, flags & MS_SILENT ? 1 : 0);
-+		if (error) {
-+			deactivate_locked_super(sb);
-+			goto out;
-+		}
-+		sb->s_flags |= MS_ACTIVE;
-+	}
-+
-+	simple_set_mnt(mnt, sb);
-+	error = 0;
-+out:
-+	return error;
-+}
-+
-+static void sysfs_kill_sb(struct super_block *sb)
-+{
-+	struct sysfs_super_info *info = sysfs_info(sb);
-+
-+	kill_anon_super(sb);
-+	kfree(info);
+@@ -890,7 +884,7 @@ static struct sysfs_dirent *sysfs_dir_next_pos(const void *ns,
+ 	pos = sysfs_dir_pos(ns, parent_sd, ino, pos);
+ 	if (pos)
+ 		pos = pos->s_sibling;
+-	while (pos && pos->s_ns != ns)
++	while (pos && pos->s_ns && pos->s_ns != ns)
+ 		pos = pos->s_sibling;
+ 	return pos;
  }
+diff --git a/fs/sysfs/inode.c b/fs/sysfs/inode.c
+index 90a899e..6c962ca 100644
+--- a/fs/sysfs/inode.c
++++ b/fs/sysfs/inode.c
+@@ -334,6 +334,8 @@ int sysfs_hash_and_remove(struct sysfs_dirent *dir_sd, const void *ns, const cha
+ 	sysfs_addrm_start(&acxt, dir_sd);
  
- static struct file_system_type sysfs_fs_type = {
- 	.name		= "sysfs",
- 	.get_sb		= sysfs_get_sb,
--	.kill_sb	= kill_anon_super,
-+	.kill_sb	= sysfs_kill_sb,
- };
- 
- int __init sysfs_init(void)
-diff --git a/fs/sysfs/sysfs.h b/fs/sysfs/sysfs.h
-index 30f5a44..030a39d 100644
---- a/fs/sysfs/sysfs.h
-+++ b/fs/sysfs/sysfs.h
-@@ -114,6 +114,9 @@ struct sysfs_addrm_cxt {
- /*
-  * mount.c
-  */
-+struct sysfs_super_info {
-+};
-+#define sysfs_info(SB) ((struct sysfs_super_info *)(SB->s_fs_info))
- extern struct sysfs_dirent sysfs_root;
- extern struct kmem_cache *sysfs_dir_cachep;
+ 	sd = sysfs_find_dirent(dir_sd, ns, name);
++	if (sd && (sd->s_ns != ns))
++		sd = NULL;
+ 	if (sd)
+ 		sysfs_remove_one(&acxt, sd);
  
 -- 
 1.6.5.2.143.g8cc62
