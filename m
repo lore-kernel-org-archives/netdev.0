@@ -1,39 +1,52 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: linux-next: manual merge of the net tree with the
-	wireless-current tree
-Date: Tue, 30 Mar 2010 09:12:21 -0400
-Message-ID: <20100330131220.GA13120@tuxdriver.com>
-References: <20100330133745.27295ee0.sfr@canb.auug.org.au>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: XT_ALIGN changed to use ALIGN breaks iproute2
+Date: Tue, 30 Mar 2010 16:15:48 +0300
+Message-ID: <b6fcc0a1003300615k54092120nfb8b5378771657@mail.gmail.com>
+References: <20100330092829.GA3106@amd64.fatal.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Shanyu Zhao <shanyu.zhao@intel.com>, Zhu Yi <yi.zhu@intel.com>,
-	Reinette Chatre <reinette.chatre@intel.com>,
-	Johannes Berg <johannes.berg@intel.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100330133745.27295ee0.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	jamal <hadi@cyberus.ca>, netdev@vger.kernel.org
+To: Andreas Henriksson <andreas@fatal.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:55158 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755360Ab0C3NPt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 09:15:49 -0400
+Received: by pwi5 with SMTP id 5so7677916pwi.19
+        for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 06:15:49 -0700 (PDT)
+In-Reply-To: <20100330092829.GA3106@amd64.fatal.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 30, 2010 at 01:37:45PM +1100, Stephen Rothwell wrote:
-> Hi all,
-> 
-> Today's linux-next merge of the net tree got a conflict in
-> drivers/net/wireless/iwlwifi/iwl-agn.c between commit
-> d4dca4e53fde2953d74198a2c445db1d36ed9fd2 ("iwlwifi: clear unattended
-> interrupts in tasklet") from the wireless-current tree and commit
-> a4c8b2a692601de0a7bcb032b69f806050944dff ("iwlwifi: move ICT data to agn
-> part of union") from the net tree.
-> 
-> I fixed it up (see below) and can carry the fix for a while.
+On Tue, Mar 30, 2010 at 12:28 PM, Andreas Henriksson <andreas@fatal.se> wrote:
+> You updated the kernel header include/linux/netfilter/x_tables.h
+> in torvalds/linux-2.6.git commit 42107f5009da223daa800d6da6904d77297ae829
+> with the comment "Use ALIGN() macro while I'm at it for same types.".
+>
+> When this header was synced into iproute2 the build broke because the
+> ALIGN macro apparently only is defined in kernel headers.
+>
+> (For iproute2 the problem was introduced in
+> 8ecdcce08319d0e39b0d32c1d17db3f69d85a35c and found by Stephen
+> and worked around in 609ceb807deba8e23 and edaaa11e5a3cf2c9c1a39)
+>
+> I'm guessing the problem in the iproute2 header sync is just a heads
+> up for what's going to happen when distributions updates their
+> system headers to match linux 2.6.33.
+>
+>
+> Could someone who knows how the userspace version of the kernel
+> headers are generated please find a suitable solution?
 
-Yes, that looks correct to me -- at least, that's what I did in
-wireless-testing. :-)
+We can export ALIGN to userspace, but the name is so generic,
+so it's not clear what breakage more risky.
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+XT_ALIGN is a macro so breakage will appear only when it's used,
+not when header is included directly or indirectly.
+
+We have tc, iptables, both carry their own copy of headers, what else?
+
+Right now, I'd say, do nothing, and iptables will carry fixlet as in tc,
+eventually.
