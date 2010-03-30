@@ -1,47 +1,52 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH 1/7] xfrm: remove policy lock when accessing policy->walk.dead
-Date: Tue, 30 Mar 2010 18:36:37 +0300
-Message-ID: <4BB21A85.2030203@iki.fi>
-References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-2-git-send-email-timo.teras@iki.fi> <20100329144339.GA26214@gondor.apana.org.au> <4BB1842B.9010704@iki.fi> <20100330115351.GA5731@gondor.apana.org.au> <4BB1E8B1.4030604@iki.fi> <4BB2044B.5080704@iki.fi> <20100330142914.GA6840@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Luis de Bethencourt <luisbg@ubuntu.com>
+Subject: [PATCH 2/2] ath: fix code readability in regd.c
+Date: Tue, 30 Mar 2010 16:44:33 +0100
+Message-ID: <1269963873-2070-1-git-send-email-luisbg@ubuntu.com>
+References: <ath/regd.c>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Luis de Bethencourt <luisbg@ubuntu.com>
+To: linville@tuxdriver.com, lrodriguez@atheros.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f220.google.com ([209.85.219.220]:55554 "EHLO
-	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751297Ab0C3Pgj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 11:36:39 -0400
-Received: by ewy20 with SMTP id 20so1381240ewy.1
-        for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 08:36:38 -0700 (PDT)
-In-Reply-To: <20100330142914.GA6840@gondor.apana.org.au>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:47624 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753126Ab0C3Pom (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 11:44:42 -0400
+In-Reply-To: <ath/regd.c>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Tue, Mar 30, 2010 at 05:01:47PM +0300, Timo Ter=E4s wrote:
->> Since the exported function xfrm_policy_byid() can result in deletio=
-n
->> of socket policy, it's safer to leave this change in. This is can be
->> even triggered via xfrm_user since it does not check 'dir' for the
->> policy expired message it handles. Any custom module could do simila=
-r
->> harm.
->=20
-> That's a bug.  Socket policies should never be deleted by anyone
-> other than the socket owner through a setsockopt.
+This is a patch to the ath/regd.c file that fixes two code
+readability issues. A space between to separate two defines
+and the indentation inside the ath_redg_is_eeprom_valid
+function.
 
-Ok. I can remove the change to xfrm_sk_policy_insert() if you want.
+Signed-off-by: Luis de Bethencourt <luisbg@ubuntu.com>
+---
+ drivers/net/wireless/ath/regd.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-I only added it because it's non-trivial to figure out if there's
-any code path that could race. It's a great help for reader of the
-code to see that it's correct even if it's not strictly needed.
-My initial feeling is that the change produces better code as the
-original 'old_pol' does not have to get stored and restored.
+diff --git a/drivers/net/wireless/ath/regd.c b/drivers/net/wireless/ath/regd.c
+index 04abd1f..d5c2332 100644
+--- a/drivers/net/wireless/ath/regd.c
++++ b/drivers/net/wireless/ath/regd.c
+@@ -51,6 +51,7 @@
+ 
+ #define ATH9K_5GHZ_ALL		ATH9K_5GHZ_5150_5350, \
+ 				ATH9K_5GHZ_5470_5850
++
+ /* This one skips what we call "mid band" */
+ #define ATH9K_5GHZ_NO_MIDBAND	ATH9K_5GHZ_5150_5350, \
+ 				ATH9K_5GHZ_5725_5850
+@@ -361,7 +362,7 @@ EXPORT_SYMBOL(ath_reg_notifier_apply);
+ 
+ static bool ath_regd_is_eeprom_valid(struct ath_regulatory *reg)
+ {
+-	 u16 rd = ath_regd_get_eepromRD(reg);
++	u16 rd = ath_regd_get_eepromRD(reg);
+ 	int i;
+ 
+ 	if (rd & COUNTRY_ERD_FLAG) {
+-- 
+1.6.3.3
 
-I'm fine either way.
-
-I will also include a patch to fix the missing 'dir' check in
-xfrm_user.
