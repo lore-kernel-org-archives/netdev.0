@@ -1,35 +1,48 @@
-From: Mikael Abrahamsson <swmike@swm.pp.se>
-Subject: Re: Minimizing TCP latency
-Date: Tue, 30 Mar 2010 06:05:47 +0200 (CEST)
-Message-ID: <alpine.DEB.1.10.1003300559040.28550@uplift.swm.pp.se>
-References: <7c93bf1e1003281829h3ddba989w198df86ac9f2d27c@mail.gmail.com>  <7c93bf1e1003282024p75e70011j31577b42f29cc153@mail.gmail.com>  <1269840891.2256.28.camel@edumazet-laptop> <7c93bf1e1003291935k6c9060bah11e1138568ba6998@mail.gmail.com>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH 1/7] xfrm: remove policy lock when accessing policy->walk.dead
+Date: Tue, 30 Mar 2010 07:55:07 +0300
+Message-ID: <4BB1842B.9010704@iki.fi>
+References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-2-git-send-email-timo.teras@iki.fi> <20100329144339.GA26214@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Ben Hoyt <benhoyt@gmail.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swm.pp.se ([212.247.200.143]:57949 "EHLO uplift.swm.pp.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750899Ab0C3EOL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Mar 2010 00:14:11 -0400
-In-Reply-To: <7c93bf1e1003291935k6c9060bah11e1138568ba6998@mail.gmail.com>
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:54540 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753996Ab0C3EzL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 00:55:11 -0400
+Received: by ewy20 with SMTP id 20so1033042ewy.1
+        for <netdev@vger.kernel.org>; Mon, 29 Mar 2010 21:55:10 -0700 (PDT)
+In-Reply-To: <20100329144339.GA26214@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 30 Mar 2010, Ben Hoyt wrote:
+Herbert Xu wrote:
+> On Mon, Mar 29, 2010 at 05:12:38PM +0300, Timo Teras wrote:
+>> @@ -1132,7 +1119,7 @@ int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
+>>  		__xfrm_policy_link(pol, XFRM_POLICY_MAX+dir);
+>>  	}
+>>  	if (old_pol)
+>> -		__xfrm_policy_unlink(old_pol, XFRM_POLICY_MAX+dir);
+>> +		old_pol = __xfrm_policy_unlink(old_pol, XFRM_POLICY_MAX+dir);
+>>  	write_unlock_bh(&xfrm_policy_lock);
+>>  
+>>  	if (old_pol) {
+> 
+> So when can this actually fail?
 
-> We're currently seeing a round-trip time of about 40us between two
-> Linux servers on our network (so presumably about 20us one way).
-> Anything quicker than that would be nice, but we're hoping to get down
-> to about half that.
+Considering that the socket reference is received from the sk->sk_policy,
+and the hash bucket we use is "XFRM_POLICY_MAX+dir", it's non-obvious if
+it can fail or not.
 
-Serialisation delay on GigE for a 512 byte packet is 4us if my 
-calculations are correct, so if you have some equipment in between that 
-means two serialisations either way, meaning on GigE just the 
-serialisation delay is 16us RTT.
+It would look like the timer can kill a policy and unlink it, but it
+would still be found from sk_policy.
 
-You'd probably be better off directly connection the two machines with 
-10GE NIC, or at least buy equipment that'll do cut-through switching if 
-you want to bring the delay down. I'm even surprised you got it down this 
-low...
+It probably doesn't really make sense to insert per-socket policy that
+expires. But in case someone does something like that, I'd think we
+need the above just to be sure.
 
+Considering this, xfrm_sk_policy_lookup() should probably check the
+dead flag, and cleanup sk_policy if it was killed by a timer.
