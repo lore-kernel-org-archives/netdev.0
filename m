@@ -1,54 +1,50 @@
-From: "Edgar E. Iglesias" <edgar.iglesias@gmail.com>
-Subject: Re: UDP path MTU discovery
-Date: Tue, 30 Mar 2010 10:20:13 +0200
-Message-ID: <20100330082013.GA18300@edde.se.axis.com>
-References: <877how25kx.fsf@basil.nowhere.org>
- <4BB0DCF6.9020401@hp.com>
- <20100329201431.GH20695@one.firstfloor.org>
- <20100329205035.GA32656@laped.iglesias.mooo.com>
- <4BB11510.9000302@hp.com>
- <1269898152.1958.86.camel@edumazet-laptop>
- <E1829B60731D1740BB7A0626B4FAF0A649E05EAAB5@XCH-NW-01V.nw.nos.boeing.com>
- <20100330052044.GJ20695@one.firstfloor.org>
- <20100330061627.GA22436@laped.iglesias.mooo.com>
- <20100330061952.GO20695@one.firstfloor.org>
+From: Daniel Mack <daniel@caiaq.de>
+Subject: Re: [PATCH] net/wireless/libertas: do not call wiphy_unregister()
+ w/o wiphy_register()
+Date: Tue, 30 Mar 2010 10:52:53 +0200
+Message-ID: <20100330085253.GL30801@buzzloop.caiaq.de>
+References: <1269875658-3324-1-git-send-email-daniel@caiaq.de>
+ <201003300849.07441.hs4233@mail.mn-solutions.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Templin, Fred L" <Fred.L.Templin@boeing.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Rick Jones <rick.jones2@hp.com>, Glen Turner <gdt@gdt.id.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from miranda.se.axis.com ([193.13.178.8]:48744 "EHLO
-	miranda.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755960Ab0C3IZN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 04:25:13 -0400
+Cc: linux-kernel@vger.kernel.org, Dan Williams <dcbw@redhat.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Bing Zhao <bzhao@marvell.com>,
+	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Holger Schurig <hs4233@mail.mn-solutions.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20100330061952.GO20695@one.firstfloor.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <201003300849.07441.hs4233@mail.mn-solutions.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 30, 2010 at 08:19:52AM +0200, Andi Kleen wrote:
-> > If you don't want to hassle with all of that, the app can stick to
-> > 1280 (or I guess for the extreme/lazy cases turn on fragmentation)..
+On Tue, Mar 30, 2010 at 08:49:07AM +0200, Holger Schurig wrote:
+> > The libertas driver calls wiphy_unregister() without a prior
+> > wiphy_register() when a devices fails initialization. Fix this by
+> > introducing a private flag.
 > 
-> See the early mails in this thread. This is about apps who can't
-> limit themselves to 1280, but still don't want full blown PMTU.
-> [They probably should, but it can be a lot of work]
+> Nice.
 > 
-> The MTU would allow to force fragmentation on the sending host
-> as a workaround similar to IPv4.
+> However, I wonder: do we really need a private variable?  Does each driver 
+> introduce a private variable for this?
 
-Yes, but I dont see why you need an option with semantics of setting an MTU.
+I didn't check other drivers thoroughly. I just saw the comment on the
+function which does the wiphy allocation and considered libertas to be
+special in the way it deals with the wireless core:
 
-If an UDP app wants to use fragmentation (for whatever reason) setting
-a boolean flag like XXX_PMTUDISC_DONT should be enough. The kernel will for
-IPv6 have to work with the real PMTU or stick to 1280 when generating the
-fragments. Keep in mind that unlike IPv4, IPv6 has no DF flag. It's up to
-the sender to create the the fragments.
+/*
+ * At this time lbs_private *priv doesn't even exist, so we just allocate
+ * memory and don't initialize the wiphy further. This is postponed until we
+ * can talk to the firmware and happens at registration time in
+ * lbs_cfg_wiphy_register().
+ */
 
-Where does the application controllable per socket MTU come into the
-picture?
+And as I didn't find any function to tell me whether a wiphy has been
+registered and not just allocated, I saw no other way than manually
+track what the libertas driver does.
 
-Cheers
+If there's any better solution, I'd happily test it.
+
+Thanks,
+Daniel
