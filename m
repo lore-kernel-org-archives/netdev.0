@@ -1,52 +1,85 @@
-From: Kay Sievers <kay.sievers@vrfy.org>
-Subject: Re: [PATCH 0/6] tagged sysfs support
-Date: Tue, 30 Mar 2010 20:53:25 +0200
-Message-ID: <ac3eb2511003301153i43a60720hb015071e2c992199@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/6] sysfs: Basic support for multiple super blocks
+Date: Tue, 30 Mar 2010 21:23:32 +0200
+Message-ID: <1269977012.2048.0.camel@edumazet-laptop>
 References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
+	 <1269973889-25260-1-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Greg Kroah-Hartman <gregkh@suse.de>, Greg KH <greg@kroah.com>,
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg Kroah-Hartman <gregkh@suse.de>,
+	Kay Sievers <kay.sievers@vrfy.org>,
 	linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
 	Cornelia Huck <cornelia.huck@de.ibm.com>,
-	linux-fsdevel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Benjamin LaHaise <bcrl@lhnet.ca>,
+	linux-fsdevel@vger.kernel.org, Benjamin LaHaise <bcrl@lhnet.ca>,
 	Serge Hallyn <serue@us.ibm.com>, netdev@vger.kernel.org
 To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <m1fx3hk6gw.fsf@fess.ebiederm.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1269973889-25260-1-git-send-email-ebiederm@xmission.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 30, 2010 at 20:30, Eric W. Biederman <ebiederm@xmission.com> wrote:
->
-> The main short coming of using multiple network namespaces today
-> is that only network devices for the primary network namespaces
-> can be put in the kobject layer and sysfs.
->
-> This is essentially the earlier version of this patchset that was
-> reviewed before, just now on top of a version of sysfs that doesn't
-> need cleanup patches to support it.
+Le mardi 30 mars 2010 =C3=A0 11:31 -0700, Eric W. Biederman a =C3=A9cri=
+t :
+> From: Eric W. Biederman <ebiederm@xmission.com>
+>=20
+> Add all of the necessary bioler plate to support
+> multiple superblocks in sysfs.
+>=20
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> ---
+>  fs/sysfs/mount.c |   58 ++++++++++++++++++++++++++++++++++++++++++++=
+++++++++-
+>  fs/sysfs/sysfs.h |    3 ++
+>  2 files changed, 59 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/fs/sysfs/mount.c b/fs/sysfs/mount.c
+> index 0cb1088..6a433ac 100644
+> --- a/fs/sysfs/mount.c
+> +++ b/fs/sysfs/mount.c
+> @@ -71,16 +71,70 @@ static int sysfs_fill_super(struct super_block *s=
+b, void *data, int silent)
+>  	return 0;
+>  }
+> =20
+> +static int sysfs_test_super(struct super_block *sb, void *data)
+> +{
+> +	struct sysfs_super_info *sb_info =3D sysfs_info(sb);
+> +	struct sysfs_super_info *info =3D data;
+> +	int found =3D 1;
+> +	return found;
+> +}
+> +
+> +static int sysfs_set_super(struct super_block *sb, void *data)
+> +{
+> +	int error;
+> +	error =3D set_anon_super(sb, data);
+> +	if (!error)
+> +		sb->s_fs_info =3D data;
+> +	return error;
+> +}
+> +
+>  static int sysfs_get_sb(struct file_system_type *fs_type,
+>  	int flags, const char *dev_name, void *data, struct vfsmount *mnt)
+>  {
+> -	return get_sb_single(fs_type, flags, data, sysfs_fill_super, mnt);
+> +	struct sysfs_super_info *info;
+> +	struct super_block *sb;
+> +	int error;
+> +
+> +	error =3D -ENOMEM;
+> +	info =3D kzalloc(sizeof(*info), GFP_KERNEL);
+> +	if (!info)
+> +		goto out;
+> +	sb =3D sget(fs_type, sysfs_test_super, sysfs_set_super, info);
+> +	if (IS_ERR(sb) || sb->s_fs_info !=3D info)
+> +		kfree(info);
+> +	if (IS_ERR(sb)) {
+> +		kfree(info);
 
-Just to check if we are not in conflict with planned changes, and how
-to possibly handle them:
+double kfree(info) ?
 
-There is the plan and ongoing work to unify classes and buses, export
-them at /sys/subsystem in the same layout of the current /sys/bus/.
-The decision to export buses and classes as two different things
-(which they aren't) is the last major piece in the sysfs layout which
-needs to be fixed.
-
-It would mean that /sys/subsystem/net/devices/* would look like
-/sys/class/net/* today. But at the /sys/subsystem/net/ directory could
-be global network-subsystem-wide control files which would need to be
-namespaced too. (The network subsystem does not use subsytem-global
-files today, but a bunch of other classes do.)
-
-This could be modeled into the current way of doing sysfs namespaces?
-A /sys/bus/<subsystem>/ directory hierarchy would need to be
-namespaced, not just a single plain directory with symlinks. Would
-that work?
-
-Thanks,
-Kay
+> +		error =3D PTR_ERR(sb);
+> +		goto out;
+> +	}
+> +
