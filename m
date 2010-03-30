@@ -1,43 +1,70 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@exar.com>
-Subject: RE: [net-next-2.6 PATCH 3/8] vxge: Align the memory only if it is misaligned.
-Date: Mon, 29 Mar 2010 20:04:43 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77064C43D7@nekter>
-References: <Pine.GSO.4.10.11003290409080.4435-100000@guinness> <20100329.165945.157920838.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 1/2] netdev: ethtool RXHASH flag
+Date: Mon, 29 Mar 2010 17:47:27 -0700
+Message-ID: <20100329174727.4654e19c@nehalam>
+References: <20100328154448.701c89ee@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, "support" <support@neterion.com>
-To: "David Miller" <davem@davemloft.net>,
-	"Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:51314 "EHLO owa.neterion.com"
+Received: from mail.vyatta.com ([76.74.103.46]:48933 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754540Ab0C3AT6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 20:19:58 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20100329.165945.157920838.davem@davemloft.net>
+	id S1754881Ab0C3AyK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Mar 2010 20:54:10 -0400
+In-Reply-To: <20100328154448.701c89ee@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
-> Date: Mon, 29 Mar 2010 04:09:47 -0400 (EDT)
-> 
-> > - Align the memory only if it is misaligned.
-> >
-> > Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
-> > Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
-> 
-> Applied, but this vxge_os_dma_malloc code is completely
-> unnecessary.
-> 
-> If you want to allocate 4K chunks and make sure they are at least 128
-> byte aligned, you can allocated pages (which are always PAGE_SIZE
-> aligned) and chop them up into the appropriate block size as needed.
-> 
-> This is exactly how drivers/net/niu.c handles this situation.
-> 
-> See drivers/net/niu.c:niu_rbr_add_page()
-Thanks. We'll make this change.
+This adds ethtool and device feature flag to allow control
+of receive hashing offload.
 
-Ram
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+---
+Supersedes earlier patch, decided to call it RXHASH not RSS since
+we don't care about other vendors acronyms
+
+--- a/include/linux/ethtool.h	2010-03-28 14:09:58.611267016 -0700
++++ b/include/linux/ethtool.h	2010-03-28 14:19:45.032516128 -0700
+@@ -310,6 +310,7 @@ struct ethtool_perm_addr {
+ enum ethtool_flags {
+ 	ETH_FLAG_LRO		= (1 << 15),	/* LRO is enabled */
+ 	ETH_FLAG_NTUPLE		= (1 << 27),	/* N-tuple filters enabled */
++	ETH_FLAG_RXHASH		= (1 << 28),
+ };
+ 
+ /* The following structures are for supporting RX network flow
+--- a/include/linux/netdevice.h	2010-03-28 14:12:13.092517615 -0700
++++ b/include/linux/netdevice.h	2010-03-28 14:13:47.232915349 -0700
+@@ -785,6 +785,7 @@ struct net_device {
+ #define NETIF_F_SCTP_CSUM	(1 << 25) /* SCTP checksum offload */
+ #define NETIF_F_FCOE_MTU	(1 << 26) /* Supports max FCoE MTU, 2158 bytes*/
+ #define NETIF_F_NTUPLE		(1 << 27) /* N-tuple filters supported */
++#define NETIF_F_RXHASH		(1 << 28) /* Receive hashing offload */
+ 
+ 	/* Segmentation offload features */
+ #define NETIF_F_GSO_SHIFT	16
+--- a/net/core/ethtool.c	2010-03-28 14:12:25.012207457 -0700
++++ b/net/core/ethtool.c	2010-03-28 14:19:41.548521569 -0700
+@@ -121,7 +121,7 @@ int ethtool_op_set_ufo(struct net_device
+  * NETIF_F_xxx values in include/linux/netdevice.h
+  */
+ static const u32 flags_dup_features =
+-	(ETH_FLAG_LRO | ETH_FLAG_NTUPLE);
++	(ETH_FLAG_LRO | ETH_FLAG_NTUPLE | ETH_FLAG_RXHASH);
+ 
+ u32 ethtool_op_get_flags(struct net_device *dev)
+ {
+@@ -152,6 +152,11 @@ int ethtool_op_set_flags(struct net_devi
+ 		features &= ~NETIF_F_NTUPLE;
+ 	}
+ 
++	if (data & ETH_FLAG_RXHASH)
++		features |= NETIF_F_RXHASH;
++	else
++		features &= ~NETIF_F_RXHASH;
++
+ 	dev->features = features;
+ 	return 0;
+ }
