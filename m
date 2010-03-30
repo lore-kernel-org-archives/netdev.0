@@ -1,41 +1,58 @@
-From: Holger Schurig <hs4233@mail.mn-solutions.de>
-Subject: Re: [PATCH] net/wireless/libertas: do not call wiphy_unregister() w/o wiphy_register()
-Date: Tue, 30 Mar 2010 12:59:23 +0200
-Message-ID: <201003301259.23973.hs4233@mail.mn-solutions.de>
-References: <1269875658-3324-1-git-send-email-daniel@caiaq.de> <201003301149.13462.hs4233@mail.mn-solutions.de> <20100330105029.GO30801@buzzloop.caiaq.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/7] xfrm: remove policy lock when accessing
+	policy->walk.dead
+Date: Tue, 30 Mar 2010 19:53:51 +0800
+Message-ID: <20100330115351.GA5731@gondor.apana.org.au>
+References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-2-git-send-email-timo.teras@iki.fi> <20100329144339.GA26214@gondor.apana.org.au> <4BB1842B.9010704@iki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Dan Williams <dcbw@redhat.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Bing Zhao <bzhao@marvell.com>,
-	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Daniel Mack <daniel@caiaq.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100330105029.GO30801@buzzloop.caiaq.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([216.59.3.182]:39898 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754513Ab0C3Lxz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 07:53:55 -0400
+Content-Disposition: inline
+In-Reply-To: <4BB1842B.9010704@iki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> I don't get your point. The patch I submitted fixes an Ooops in the
-> driver, due to wrong handling of an API. What does that have to do with
-> principle discussions about the frameworks in use?
+On Tue, Mar 30, 2010 at 07:55:07AM +0300, Timo Ter=E4s wrote:
+> Herbert Xu wrote:
+>> On Mon, Mar 29, 2010 at 05:12:38PM +0300, Timo Teras wrote:
+>>> @@ -1132,7 +1119,7 @@ int xfrm_sk_policy_insert(struct sock *sk, in=
+t dir, struct xfrm_policy *pol)
+>>>  		__xfrm_policy_link(pol, XFRM_POLICY_MAX+dir);
+>>>  	}
+>>>  	if (old_pol)
+>>> -		__xfrm_policy_unlink(old_pol, XFRM_POLICY_MAX+dir);
+>>> +		old_pol =3D __xfrm_policy_unlink(old_pol, XFRM_POLICY_MAX+dir);
+>>>  	write_unlock_bh(&xfrm_policy_lock);
+>>>   	if (old_pol) {
+>>
+>> So when can this actually fail?
+>
+> Considering that the socket reference is received from the sk->sk_pol=
+icy,
+> and the hash bucket we use is "XFRM_POLICY_MAX+dir", it's non-obvious=
+ if
+> it can fail or not.
+>
+> It would look like the timer can kill a policy and unlink it, but it
+> would still be found from sk_policy.
 
-I asked if there is a better method, and you said that you would test a better 
-solution. That means that someone else should make a better solution.
+Socket policies cannot expire.
 
-I just pointed out that I won't be the one who creates the better solution, 
-because for fundamental reasons I don't see the libertas+cfg80211 approach 
-going forward. That issue has nothing to do with you or your patch, so please 
-don't feel offended or confused.
+In fact, they probably shouldn't even be on the bydst or any other
+hash table.  I think the only reason they're there at all is because
+the hash table was added to __xfrm_policy_link which happens to be
+used by socket policies.
 
-
-Basically, I neither ack nor nak you patch. Given that it fixes an oops the 
-patch should go in, and probably to stable at well. I just gave a hint, to 
-make you think if you could come up with something better.
-
-
-
-BTW, testing/fixing of failure paths in libertas as well as simplifying the 
-call sequence of functions during initialisation could be quite useful.
+Cheers,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
