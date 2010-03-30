@@ -1,32 +1,60 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/7] xfrm: remove policy lock when accessing
-	policy->walk.dead
-Date: Tue, 30 Mar 2010 20:48:15 +0800
-Message-ID: <20100330124815.GA6378@gondor.apana.org.au>
-References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-2-git-send-email-timo.teras@iki.fi> <20100329144339.GA26214@gondor.apana.org.au> <4BB1842B.9010704@iki.fi> <20100330115351.GA5731@gondor.apana.org.au> <4BB1E8B1.4030604@iki.fi> <20100330121427.GD5731@gondor.apana.org.au> <4BB1ECBF.50000@iki.fi> <20100330122301.GG5731@gondor.apana.org.au> <4BB1F15E.3030402@iki.fi>
+From: Paulius Zaleckas <paulius.zaleckas@gmail.com>
+Subject: [PATCH] skb_put: remove not needed check for skb linearity
+Date: Tue, 30 Mar 2010 16:01:31 +0300
+Message-ID: <20100330130131.8432.43671.stgit@pauliusz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:48412 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755720Ab0C3MsS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 08:48:18 -0400
-Content-Disposition: inline
-In-Reply-To: <4BB1F15E.3030402@iki.fi>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:56288 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755937Ab0C3NBf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 09:01:35 -0400
+Received: by bwz1 with SMTP id 1so4342526bwz.21
+        for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 06:01:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 30, 2010 at 03:41:02PM +0300, Timo Ter=E4s wrote:
->
-> So it'd make more sense to nuke the hashes entirely for
-> per-socket policies?
+It is safe to call skb_put() on packets containing fragments.
 
-Absolutely.
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Actually I have a case where I allocate packet header with some
+extra headroom and then I dynamically add data as frag_list. After
+adding frags I have to add more data to header and skb_put()
+just BUG's on me :)
+
+And we will save couple instructions for CPU.
+
+Signed-off-by: Paulius Zaleckas <paulius.zaleckas@gmail.com>
+---
+
+ include/linux/skbuff.h |    1 -
+ net/core/skbuff.c      |    1 -
+ 2 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 124f90c..194e9fa 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1108,7 +1108,6 @@ extern unsigned char *skb_put(struct sk_buff *skb, unsigned int len);
+ static inline unsigned char *__skb_put(struct sk_buff *skb, unsigned int len)
+ {
+ 	unsigned char *tmp = skb_tail_pointer(skb);
+-	SKB_LINEAR_ASSERT(skb);
+ 	skb->tail += len;
+ 	skb->len  += len;
+ 	return tmp;
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 93c4e06..ea1ca61 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1011,7 +1011,6 @@ EXPORT_SYMBOL(skb_pad);
+ unsigned char *skb_put(struct sk_buff *skb, unsigned int len)
+ {
+ 	unsigned char *tmp = skb_tail_pointer(skb);
+-	SKB_LINEAR_ASSERT(skb);
+ 	skb->tail += len;
+ 	skb->len  += len;
+ 	if (unlikely(skb->tail > skb->end))
+
