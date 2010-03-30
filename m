@@ -1,42 +1,37 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] 9p: saving negative to unsigned char
-Date: Tue, 30 Mar 2010 12:42:09 +0300
-Message-ID: <20100330094209.GI5069@bicker>
+From: Holger Schurig <hs4233@mail.mn-solutions.de>
+Subject: Re: [PATCH] net/wireless/libertas: do not call wiphy_unregister() w/o wiphy_register()
+Date: Tue, 30 Mar 2010 11:49:13 +0200
+Message-ID: <201003301149.13462.hs4233@mail.mn-solutions.de>
+References: <1269875658-3324-1-git-send-email-daniel@caiaq.de> <201003300849.07441.hs4233@mail.mn-solutions.de> <20100330085253.GL30801@buzzloop.caiaq.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Abhishek Kulkarni <adkulkar@umail.iu.edu>,
-	Sripathi Kodi <sripathik@in.ibm.com>,
-	Latchesar Ionkov <lucho@ionkov.net>,
-	Venkateswararao Jujjuri <jvrao@us.ibm.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Eric Van Hensbergen <ericvh@gmail.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Dan Williams <dcbw@redhat.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Bing Zhao <bzhao@marvell.com>,
+	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Daniel Mack <daniel@caiaq.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <20100330085253.GL30801@buzzloop.caiaq.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Saving -EINVAL as unsigned char truncates the high bits and changes it 
-into 234 instead of -22.  This breaks the test for "if (ret == -EINVAL)"
-in parse_opts().
+> If there's any better solution, I'd happily test it.
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
+Not from me, unfortunately. I'm not really interested into getting full 
+cfg80211 into Libertas. That is, until either _one_ of this two options 
+happen:
 
-diff --git a/net/9p/client.c b/net/9p/client.c
-index e3e5bf4..edf31aa 100644
---- a/net/9p/client.c
-+++ b/net/9p/client.c
-@@ -71,9 +71,10 @@ inline int p9_is_proto_dotu(struct p9_client *clnt)
- EXPORT_SYMBOL(p9_is_proto_dotu);
- 
- /* Interpret mount option for protocol version */
--static unsigned char get_protocol_version(const substring_t *name)
-+static int get_protocol_version(const substring_t *name)
- {
--	unsigned char version = -EINVAL;
-+	int version = -EINVAL;
-+
- 	if (!strncmp("9p2000", name->from, name->to-name->from)) {
- 		version = p9_proto_legacy;
- 		P9_DPRINTK(P9_DEBUG_9P, "Protocol version: Legacy\n");
+* someone that actually uses/wants the proprietary Libertas mesh steps  
+forward and says "We'll look after this and make it work with cfg80211"
+* we remove the proprietary Libertas mesh support
+
+That is: I won't work on Libertas mesh. I can't justify this time investment 
+with my employer for something that I'll never need. For my device, my own 
+version of Libertas + cfg80211 (without any WEXT anymore) works quite nice.
+
+
+So, if neither of the above things happens, then Libertas will work for the 
+rest of the world with WEXT, as it did before.
