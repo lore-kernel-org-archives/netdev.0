@@ -1,45 +1,32 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 3/7] flow: allocate hash table for online cpus only
-Date: Tue, 30 Mar 2010 20:12:55 +0800
-Message-ID: <20100330121255.GC5731@gondor.apana.org.au>
-References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-4-git-send-email-timo.teras@iki.fi>
+Subject: Re: [PATCH 1/7] xfrm: remove policy lock when accessing
+	policy->walk.dead
+Date: Tue, 30 Mar 2010 20:14:27 +0800
+Message-ID: <20100330121427.GD5731@gondor.apana.org.au>
+References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-2-git-send-email-timo.teras@iki.fi> <20100329144339.GA26214@gondor.apana.org.au> <4BB1842B.9010704@iki.fi> <20100330115351.GA5731@gondor.apana.org.au> <4BB1E8B1.4030604@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>
-To: Timo Teras <timo.teras@iki.fi>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:42946 "EHLO
+Received: from ringil.hengli.com.au ([216.59.3.182]:34666 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756492Ab0C3MM6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 08:12:58 -0400
+	with ESMTP id S932083Ab0C3MOa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 08:14:30 -0400
 Content-Disposition: inline
-In-Reply-To: <1269871964-5412-4-git-send-email-timo.teras@iki.fi>
+In-Reply-To: <4BB1E8B1.4030604@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 29, 2010 at 05:12:40PM +0300, Timo Teras wrote:
-> Instead of unconditionally allocating hash table for all possible
-> cpu's, allocate it only for online cpu's and release related
-> memory if cpu goes down.
-> 
-> Signed-off-by: Timo Teras <timo.teras@iki.fi>
+On Tue, Mar 30, 2010 at 03:04:01PM +0300, Timo Ter=E4s wrote:
+>> I think it's hashed so socket policies are included in the policy
+> db dumps and counts.
 
-Hmm that's where we started but then Rusty changed it back in 2004:
-
-commit 0a32dc4d8e83c48f7535d66731eb35d1916b39a8
-Author: Rusty Russell <rusty@rustcorp.com.au>
-Date:   Wed Jan 21 18:14:37 2004 -0800
-
-    [NET]: Simplify net/flow.c per-cpu handling.
-
-    The cpu handling in net/core/flow.c is complex: it tries to allocate
-    flow cache as each CPU comes up.  It might as well allocate them for
-    each possible CPU at boot.
-
-So I'd like to hear his opinion on changing it back again.
+No we use a linked list for that.
 
 Cheers,
--- 
+--=20
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
