@@ -1,45 +1,36 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] net/wireless/libertas: do not call wiphy_unregister()
-	w/o wiphy_register()
-Date: Tue, 30 Mar 2010 13:20:08 -0400
-Message-ID: <20100330172008.GD13120@tuxdriver.com>
-References: <1269875658-3324-1-git-send-email-daniel@caiaq.de> <201003301149.13462.hs4233@mail.mn-solutions.de> <20100330105029.GO30801@buzzloop.caiaq.de> <201003301259.23973.hs4233@mail.mn-solutions.de> <1269968673.3019.37.camel@localhost.localdomain>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 2/2] ethtool: RXHASH flag support
+Date: Tue, 30 Mar 2010 10:32:07 -0700
+Message-ID: <20100330103207.7fc5681a@nehalam>
+References: <20100328154448.701c89ee@nehalam>
+	<20100329174727.4654e19c@nehalam>
+	<20100329175352.38008e05@nehalam>
+	<4BB234DD.9040800@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Holger Schurig <hs4233@mail.mn-solutions.de>,
-	Daniel Mack <daniel@caiaq.de>,
-	libertas-dev@lists.infradead.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1269968673.3019.37.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:33675 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754778Ab0C3Rca (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Mar 2010 13:32:30 -0400
+In-Reply-To: <4BB234DD.9040800@garzik.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 30, 2010 at 10:04:33AM -0700, Dan Williams wrote:
-> On Tue, 2010-03-30 at 12:59 +0200, Holger Schurig wrote:
-> > > I don't get your point. The patch I submitted fixes an Ooops in the
-> > > driver, due to wrong handling of an API. What does that have to do with
-> > > principle discussions about the frameworks in use?
-> > 
-> > I asked if there is a better method, and you said that you would test a better 
-> > solution. That means that someone else should make a better solution.
-> > 
-> > I just pointed out that I won't be the one who creates the better solution, 
-> > because for fundamental reasons I don't see the libertas+cfg80211 approach 
-> > going forward. That issue has nothing to do with you or your patch, so please 
-> > don't feel offended or confused.
-> 
-> Fine; just rip out the mesh code and do the vanilla cfg80211 conversion
-> for infra & adhoc, and we'll add the mesh code back later.  I don't have
-> time to do the cfg80211 bits, neither do the OLPC guys (AFAIK), so lets
-> take advantage of your willingness to do this and just move the driver
-> forward.
+On Tue, 30 Mar 2010 13:29:01 -0400
+Jeff Garzik <jeff@garzik.org> wrote:
 
-Someone post a feature removal patch, please?
+> By blindly sync'ing the ethtool.h header, ETHTOOL_MAX_NTUPLE_LIST_ENTRY 
+> and its sibling ETHTOOL_MAX_NTUPLE_STRING_PER_ENTRY were removed, 
+> breaking the ethtool build.
 
-John
+In the patch I moved it to ethtool.c to have local entries.
+
+I believe that all cloned headers should only come from the result
+of kernel "make install_headers".  Not locally different vrsions.
+
+
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
