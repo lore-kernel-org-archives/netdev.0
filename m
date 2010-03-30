@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 6/6] driver core: Implement ns directory support for device classes.
-Date: Tue, 30 Mar 2010 11:31:29 -0700
-Message-ID: <1269973889-25260-6-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 1/6] sysfs: Basic support for multiple super blocks
+Date: Tue, 30 Mar 2010 11:31:24 -0700
+Message-ID: <1269973889-25260-1-git-send-email-ebiederm@xmission.com>
 References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
 Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org,
 	Tejun Heo <tj@kernel.org>,
@@ -10,8 +10,7 @@ Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	Benjamin LaHaise <bcrl@lhnet.ca>,
 	Serge Hallyn <serue@us.ibm.com>, <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Benjamin Thery <benjamin.thery@bull.net>
+	"Eric W. Biederman" <ebiederm@xmission.com>
 To: Greg Kroah-Hartman <gregkh@suse.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <m1fx3hk6gw.fsf@fess.ebiederm.org>
@@ -20,81 +19,105 @@ List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com>
 
-device_del and device_rename were modified to use
-sysfs_delete_link and sysfs_rename_link respectively to ensure
-when these operations happen on devices whose classes
-are in namespace directories they work properly.
+Add all of the necessary bioler plate to support
+multiple superblocks in sysfs.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
 ---
- drivers/base/core.c |   21 ++++++++++++---------
- 1 files changed, 12 insertions(+), 9 deletions(-)
+ fs/sysfs/mount.c |   58 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ fs/sysfs/sysfs.h |    3 ++
+ 2 files changed, 59 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/base/core.c b/drivers/base/core.c
-index 6b32f6e..73c352d 100644
---- a/drivers/base/core.c
-+++ b/drivers/base/core.c
-@@ -787,7 +787,7 @@ out_device:
- out_busid:
- 	if (dev->kobj.parent != &dev->class->p->class_subsys.kobj &&
- 	    device_is_not_partition(dev))
--		sysfs_remove_link(&dev->class->p->class_subsys.kobj,
-+		sysfs_delete_link(&dev->class->p->class_subsys.kobj, &dev->kobj,
- 				  dev_name(dev));
- #else
- 	/* link in the class directory pointing to the device */
-@@ -805,7 +805,7 @@ out_busid:
+diff --git a/fs/sysfs/mount.c b/fs/sysfs/mount.c
+index 0cb1088..6a433ac 100644
+--- a/fs/sysfs/mount.c
++++ b/fs/sysfs/mount.c
+@@ -71,16 +71,70 @@ static int sysfs_fill_super(struct super_block *sb, void *data, int silent)
  	return 0;
+ }
  
- out_busid:
--	sysfs_remove_link(&dev->class->p->class_subsys.kobj, dev_name(dev));
-+	sysfs_delete_link(&dev->class->p->class_subsys.kobj, &dev->kobj, dev_name(dev));
- #endif
- 
- out_subsys:
-@@ -833,13 +833,13 @@ static void device_remove_class_symlinks(struct device *dev)
- 
- 	if (dev->kobj.parent != &dev->class->p->class_subsys.kobj &&
- 	    device_is_not_partition(dev))
--		sysfs_remove_link(&dev->class->p->class_subsys.kobj,
-+		sysfs_delete_link(&dev->class->p->class_subsys.kobj, &dev->kobj,
- 				  dev_name(dev));
- #else
- 	if (dev->parent && device_is_not_partition(dev))
- 		sysfs_remove_link(&dev->kobj, "device");
- 
--	sysfs_remove_link(&dev->class->p->class_subsys.kobj, dev_name(dev));
-+	sysfs_delete_link(&dev->class->p->class_subsys.kobj, &dev->kobj, dev_name(dev));
- #endif
- 
- 	sysfs_remove_link(&dev->kobj, "subsystem");
-@@ -1619,6 +1619,14 @@ int device_rename(struct device *dev, char *new_name)
- 		goto out;
- 	}
- 
-+#ifndef CONFIG_SYSFS_DEPRECATED
-+	if (dev->class) {
-+		error = sysfs_rename_link(&dev->class->p->class_subsys.kobj,
-+			&dev->kobj, old_device_name, new_name);
-+		if (error)
-+			goto out;
++static int sysfs_test_super(struct super_block *sb, void *data)
++{
++	struct sysfs_super_info *sb_info = sysfs_info(sb);
++	struct sysfs_super_info *info = data;
++	int found = 1;
++	return found;
++}
++
++static int sysfs_set_super(struct super_block *sb, void *data)
++{
++	int error;
++	error = set_anon_super(sb, data);
++	if (!error)
++		sb->s_fs_info = data;
++	return error;
++}
++
+ static int sysfs_get_sb(struct file_system_type *fs_type,
+ 	int flags, const char *dev_name, void *data, struct vfsmount *mnt)
+ {
+-	return get_sb_single(fs_type, flags, data, sysfs_fill_super, mnt);
++	struct sysfs_super_info *info;
++	struct super_block *sb;
++	int error;
++
++	error = -ENOMEM;
++	info = kzalloc(sizeof(*info), GFP_KERNEL);
++	if (!info)
++		goto out;
++	sb = sget(fs_type, sysfs_test_super, sysfs_set_super, info);
++	if (IS_ERR(sb) || sb->s_fs_info != info)
++		kfree(info);
++	if (IS_ERR(sb)) {
++		kfree(info);
++		error = PTR_ERR(sb);
++		goto out;
 +	}
-+#endif
- 	error = kobject_rename(&dev->kobj, new_name);
- 	if (error)
- 		goto out;
-@@ -1633,11 +1641,6 @@ int device_rename(struct device *dev, char *new_name)
- 						  new_class_name);
- 		}
- 	}
--#else
--	if (dev->class) {
--		error = sysfs_rename_link(&dev->class->p->class_subsys.kobj,
--					  &dev->kobj, old_device_name, new_name);
--	}
- #endif
++	if (!sb->s_root) {
++		sb->s_flags = flags;
++		error = sysfs_fill_super(sb, data, flags & MS_SILENT ? 1 : 0);
++		if (error) {
++			deactivate_locked_super(sb);
++			goto out;
++		}
++		sb->s_flags |= MS_ACTIVE;
++	}
++
++	simple_set_mnt(mnt, sb);
++	error = 0;
++out:
++	return error;
++}
++
++static void sysfs_kill_sb(struct super_block *sb)
++{
++	struct sysfs_super_info *info = sysfs_info(sb);
++
++	kill_anon_super(sb);
++	kfree(info);
+ }
  
- out:
+ static struct file_system_type sysfs_fs_type = {
+ 	.name		= "sysfs",
+ 	.get_sb		= sysfs_get_sb,
+-	.kill_sb	= kill_anon_super,
++	.kill_sb	= sysfs_kill_sb,
+ };
+ 
+ int __init sysfs_init(void)
+diff --git a/fs/sysfs/sysfs.h b/fs/sysfs/sysfs.h
+index 30f5a44..030a39d 100644
+--- a/fs/sysfs/sysfs.h
++++ b/fs/sysfs/sysfs.h
+@@ -114,6 +114,9 @@ struct sysfs_addrm_cxt {
+ /*
+  * mount.c
+  */
++struct sysfs_super_info {
++};
++#define sysfs_info(SB) ((struct sysfs_super_info *)(SB->s_fs_info))
+ extern struct sysfs_dirent sysfs_root;
+ extern struct kmem_cache *sysfs_dir_cachep;
+ 
 -- 
 1.6.5.2.143.g8cc62
