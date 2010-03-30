@@ -1,45 +1,41 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: XT_ALIGN changed to use ALIGN breaks iproute2
-Date: Tue, 30 Mar 2010 11:28:29 +0200
-Message-ID: <20100330092829.GA3106@amd64.fatal.se>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: which stable PCI DSL Modem card
+Date: Tue, 30 Mar 2010 13:32:35 +0400
+Message-ID: <4BB1C533.5010909@msgid.tls.msk.ru>
+References: <hoqbhd$pod$1@dough.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>, jamal <hadi@cyberus.ca>,
-	netdev@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>,
-	Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Markus Feldmann <feldmann_markus@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay-b12.telenor.se ([62.127.194.21]:41193 "EHLO
-	smtprelay-b12.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755964Ab0C3J2N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 05:28:13 -0400
-Received: from ipb2.telenor.se (ipb2.telenor.se [195.54.127.165])
-	by smtprelay-b12.telenor.se (Postfix) with ESMTP id C4762EB1E9
-	for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 11:28:08 +0200 (CEST)
-Content-Disposition: inline
+Received: from isrv.corpit.ru ([81.13.33.159]:36846 "EHLO isrv.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756031Ab0C3Jch (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Mar 2010 05:32:37 -0400
+In-Reply-To: <hoqbhd$pod$1@dough.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Alexey (and everyone else)!
+Markus Feldmann Wrote:
+> Hi All,
+> 
+> i am searching for a stable PCI DSL Modem card for Linux (Debian Lenny).
+> It should be exist a driver in the Kernel not extra software driver. I
+> have a 6000MBit/s DSL wire.
+> 
+> Does anybody know some interesting device for me? Any further information?
 
-You updated the kernel header include/linux/netfilter/x_tables.h
-in torvalds/linux-2.6.git commit 42107f5009da223daa800d6da6904d77297ae829
-with the comment "Use ALIGN() macro while I'm at it for same types.".
+As far as I can see they stopped producing PCI DSL modems quite a while
+ago.  They sell USB and ethernet ones, but not PCI.  And even at "old
+good" times there were only 2 or 3 models with PCI interface, the rest
+were USB or Ether.
 
-When this header was synced into iproute2 the build broke because the
-ALIGN macro apparently only is defined in kernel headers.
+I personally recommend ethernet modem - it will work with any OS including
+linux.  USB modems with linux support exists, but that support is somewhat
+flaky.
 
-(For iproute2 the problem was introduced in
-8ecdcce08319d0e39b0d32c1d17db3f69d85a35c and found by Stephen
-and worked around in 609ceb807deba8e23 and edaaa11e5a3cf2c9c1a39)
+Also, many DSL modems nowadays comes with 4-port ethernet switch and
+wireless access point, which may be handy too.  Both optional.
 
-I'm guessing the problem in the iproute2 header sync is just a heads
-up for what's going to happen when distributions updates their
-system headers to match linux 2.6.33.
-
-
-Could someone who knows how the userspace version of the kernel
-headers are generated please find a suitable solution?
-
--- 
-Andreas Henriksson
+/mjt
