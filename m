@@ -1,44 +1,46 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH net-next-2.6 v7 04/12] net-caif: add CAIF Link layer
- device header files
-Date: Mon, 29 Mar 2010 18:29:27 -0700
-Message-ID: <1269912567.11714.223.camel@localhost.localdomain>
-References: <1269900693-9118-3-git-send-email-sjur.brandeland@stericsson.com>
-	 <1269900693-9118-4-git-send-email-sjur.brandeland@stericsson.com>
-	 <1269900693-9118-5-git-send-email-sjur.brandeland@stericsson.com>
-	 <20100329.171108.98400982.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: sjur.brandeland@stericsson.com, netdev@vger.kernel.org,
-	daniel.martensson@stericsson.com, sjurbr@gmail.com
-To: David Miller <davem@davemloft.net>
+From: Andy Fleming <afleming@freescale.com>
+Subject: [PATCH] gianfar: Fix a memory leak in gianfar close code
+Date: Mon, 29 Mar 2010 20:42:23 -0500
+Message-ID: <1269913343-6566-1-git-send-email-afleming@freescale.com>
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	Sandeep.Kumar@freescale.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:39830 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753288Ab0C3B3d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 21:29:33 -0400
-In-Reply-To: <20100329.171108.98400982.davem@davemloft.net>
+Received: from az33egw02.freescale.net ([192.88.158.103]:55202 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753591Ab0C3Bm1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 21:42:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+gianfar needed to ensure existence of the *skbuff arrays before
+freeing the skbs in them, rather than ensuring their nonexistence.
 
-> > +#endif	/* CAIF_DEVICE_H_ */
-> > +
-> 
-> There are extra empty newlines at the end of several files
-> just like this here, GIT warns about this when I try to
-> apply your patches, therefore please fix this.
-> 
-> It happens in several files in several of your patch postings,
-> so please audit them all for this problem.
+Signed-off-by: Andy Fleming <afleming@freescale.com>
+---
+ drivers/net/gianfar.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-some editors tend to do this for no reason. I don't know which ones, but
-I have seen it lately as well :(
-
-Regards
-
-Marcel
-
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index b671555..ad59608 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -1638,13 +1638,13 @@ static void free_skb_resources(struct gfar_private *priv)
+ 	/* Go through all the buffer descriptors and free their data buffers */
+ 	for (i = 0; i < priv->num_tx_queues; i++) {
+ 		tx_queue = priv->tx_queue[i];
+-		if(!tx_queue->tx_skbuff)
++		if(tx_queue->tx_skbuff)
+ 			free_skb_tx_queue(tx_queue);
+ 	}
+ 
+ 	for (i = 0; i < priv->num_rx_queues; i++) {
+ 		rx_queue = priv->rx_queue[i];
+-		if(!rx_queue->rx_skbuff)
++		if(rx_queue->rx_skbuff)
+ 			free_skb_rx_queue(rx_queue);
+ 	}
+ 
+-- 
+1.6.5.2.g6ff9a
 
