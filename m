@@ -1,36 +1,57 @@
 From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH 2/7] flow: structurize flow cache
-Date: Tue, 30 Mar 2010 15:02:42 +0300
-Message-ID: <4BB1E862.8090302@iki.fi>
-References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-3-git-send-email-timo.teras@iki.fi> <20100330120104.GB5731@gondor.apana.org.au>
+Subject: Re: [PATCH 1/7] xfrm: remove policy lock when accessing policy->walk.dead
+Date: Tue, 30 Mar 2010 15:04:01 +0300
+Message-ID: <4BB1E8B1.4030604@iki.fi>
+References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-2-git-send-email-timo.teras@iki.fi> <20100329144339.GA26214@gondor.apana.org.au> <4BB1842B.9010704@iki.fi> <20100330115351.GA5731@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:56388 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756408Ab0C3MCo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 08:02:44 -0400
-Received: by ey-out-2122.google.com with SMTP id d26so1224771eyd.19
-        for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 05:02:43 -0700 (PDT)
-In-Reply-To: <20100330120104.GB5731@gondor.apana.org.au>
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:62884 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756469Ab0C3MEF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 08:04:05 -0400
+Received: by ewy20 with SMTP id 20so1173433ewy.1
+        for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 05:04:02 -0700 (PDT)
+In-Reply-To: <20100330115351.GA5731@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Herbert Xu wrote:
-> On Mon, Mar 29, 2010 at 05:12:39PM +0300, Timo Teras wrote:
->> Group all per-cpu data to one structure instead of having many
->> globals. Also prepare the internals so that we can have multiple
->> instances of the flow cache if needed.
-> 
-> Grouping everything together looks sane.  But adding the flow
-> cache pointer to everything seems to be unnecessary.  Why would
-> we need multiple flow caches?
+> On Tue, Mar 30, 2010 at 07:55:07AM +0300, Timo Ter=E4s wrote:
+>> Herbert Xu wrote:
+>>> On Mon, Mar 29, 2010 at 05:12:38PM +0300, Timo Teras wrote:
+>>>> @@ -1132,7 +1119,7 @@ int xfrm_sk_policy_insert(struct sock *sk, i=
+nt dir, struct xfrm_policy *pol)
+>>>>  		__xfrm_policy_link(pol, XFRM_POLICY_MAX+dir);
+>>>>  	}
+>>>>  	if (old_pol)
+>>>> -		__xfrm_policy_unlink(old_pol, XFRM_POLICY_MAX+dir);
+>>>> +		old_pol =3D __xfrm_policy_unlink(old_pol, XFRM_POLICY_MAX+dir);
+>>>>  	write_unlock_bh(&xfrm_policy_lock);
+>>>>   	if (old_pol) {
+>>> So when can this actually fail?
+>> Considering that the socket reference is received from the sk->sk_po=
+licy,
+>> and the hash bucket we use is "XFRM_POLICY_MAX+dir", it's non-obviou=
+s if
+>> it can fail or not.
+>>
+>> It would look like the timer can kill a policy and unlink it, but it
+>> would still be found from sk_policy.
+>=20
+> Socket policies cannot expire.
 
-Just a precaution since it doable cheaply.
+Was not aware of that. The above is not needed then.
 
-If we want generic flow cache, we might want to have multiple
-instance in future. It might also make sense to have per-net
-flow cache.
+> In fact, they probably shouldn't even be on the bydst or any other
+> hash table.  I think the only reason they're there at all is because
+> the hash table was added to __xfrm_policy_link which happens to be
+> used by socket policies.
+
+I think it's hashed so socket policies are included in the policy
+db dumps and counts.
+
