@@ -1,57 +1,44 @@
-From: Kim Phillips <kim.phillips@freescale.com>
-Subject: [PATCH 1/2] net: gianfar - initialize per-queue statistics
-Date: Tue, 30 Mar 2010 16:54:21 -0500
-Message-ID: <1269986062-1697-1-git-send-email-kim.phillips@freescale.com>
-Cc: Kim Phillips <kim.phillips@freescale.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Anton Vorontsov <avorontsov@ru.mvista.com>,
-	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>,
-	Kumar Gala <galak@kernel.crashing.org>,
-	Andy Flem
+From: "Edgar E. Iglesias" <edgar.iglesias@gmail.com>
+Subject: Re: UDP path MTU discovery
+Date: Wed, 31 Mar 2010 00:04:51 +0200
+Message-ID: <20100330220450.GA14304@laped.iglesias.mooo.com>
+References: <20100329201431.GH20695@one.firstfloor.org>
+ <20100329205035.GA32656@laped.iglesias.mooo.com>
+ <4BB11510.9000302@hp.com>
+ <1269898152.1958.86.camel@edumazet-laptop>
+ <E1829B60731D1740BB7A0626B4FAF0A649E05EAAB5@XCH-NW-01V.nw.nos.boeing.com>
+ <20100330052044.GJ20695@one.firstfloor.org>
+ <20100330061627.GA22436@laped.iglesias.mooo.com>
+ <20100330061952.GO20695@one.firstfloor.org>
+ <20100330082013.GA18300@edde.se.axis.com>
+ <20100330141237.GP20695@one.firstfloor.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "Templin, Fred L" <Fred.L.Templin@boeing.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Rick Jones <rick.jones2@hp.com>, Glen Turner <gdt@gdt.id.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:54974 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754475Ab0C3Vqk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 17:46:40 -0400
-Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id o2ULkdNQ006914
-	for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 14:46:39 -0700 (MST)
-Received: from az33exm22.fsl.freescale.net (az33exm22.am.freescale.net [10.64.32.10])
-	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id o2ULsBSt007633
-	for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 16:54:11 -0500 (CDT)
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:55952 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753883Ab0C3WE5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 18:04:57 -0400
+Received: by ewy20 with SMTP id 20so1701345ewy.1
+        for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 15:04:56 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20100330141237.GP20695@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Interfaces come up claiming having already received 3.0 GiB.
-Use kzalloc to properly initialize per-queue data.
+On Tue, Mar 30, 2010 at 04:12:37PM +0200, Andi Kleen wrote:
+> > Where does the application controllable per socket MTU come into the
+> > picture?
+> 
+> To set the minimum path MTU so that there is a guarantee that IPv6 routers
+> (which are unable to fragment themselves) will never drop it.
 
-Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
----
- drivers/net/gianfar.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Not sure I agree with that kind of solution but thats probably
+because of missunderstandings on my side :)
 
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 669de02..d557ab6 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -676,7 +676,7 @@ static int gfar_of_init(struct of_device *ofdev, struct net_device **pdev)
- 		priv->rx_queue[i] = NULL;
- 
- 	for (i = 0; i < priv->num_tx_queues; i++) {
--		priv->tx_queue[i] =  (struct gfar_priv_tx_q *)kmalloc(
-+		priv->tx_queue[i] =  (struct gfar_priv_tx_q *)kzalloc(
- 				sizeof (struct gfar_priv_tx_q), GFP_KERNEL);
- 		if (!priv->tx_queue[i]) {
- 			err = -ENOMEM;
-@@ -689,7 +689,7 @@ static int gfar_of_init(struct of_device *ofdev, struct net_device **pdev)
- 	}
- 
- 	for (i = 0; i < priv->num_rx_queues; i++) {
--		priv->rx_queue[i] = (struct gfar_priv_rx_q *)kmalloc(
-+		priv->rx_queue[i] = (struct gfar_priv_rx_q *)kzalloc(
- 					sizeof (struct gfar_priv_rx_q), GFP_KERNEL);
- 		if (!priv->rx_queue[i]) {
- 			err = -ENOMEM;
--- 
-1.7.0.2
-
+Thanks for explaning.
