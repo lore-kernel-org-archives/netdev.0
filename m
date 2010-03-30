@@ -1,50 +1,61 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Re [RFC PATCH 1/2] iproute2: Add libnl support.
-Date: Tue, 30 Mar 2010 14:40:12 -0700
-Message-ID: <20100330144012.6ad28c1f@nehalam>
-References: <20100329140642.7305bdfc@nehalam>
-	<4BB1ACDA.8030808@katalix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+From: Kim Phillips <kim.phillips@freescale.com>
+Subject: [PATCH 2/2] net: gianfar - align BD ring size console messages
+Date: Tue, 30 Mar 2010 16:54:22 -0500
+Message-ID: <1269986062-1697-2-git-send-email-kim.phillips@freescale.com>
+References: <1269986062-1697-1-git-send-email-kim.phillips@freescale.com>
+Cc: Kim Phillips <kim.phillips@freescale.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Anton Vorontsov <avorontsov@ru.mvista.com>,
+	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>,
+	Kumar Gala <galak@kernel.crashing.org>,
+	Andy Flem
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45594 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754049Ab0C3Vk3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Mar 2010 17:40:29 -0400
-In-Reply-To: <4BB1ACDA.8030808@katalix.com>
+Received: from az33egw02.freescale.net ([192.88.158.103]:54973 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750967Ab0C3Vqk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 17:46:40 -0400
+Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id o2ULkdGY006915
+	for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 14:46:39 -0700 (MST)
+Received: from az33exm22.fsl.freescale.net (az33exm22.am.freescale.net [10.64.32.10])
+	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id o2ULsBHt007639
+	for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 16:54:11 -0500 (CDT)
+In-Reply-To: <1269986062-1697-1-git-send-email-kim.phillips@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 30 Mar 2010 08:48:42 +0100
-James Chapman <jchapman@katalix.com> wrote:
+fix this:
 
-> Stephen Hemminger wrote:
-> >> This patch links the ip utility with libnl, which must be separately
-> >> installed. This lets new functionality use libnl to implement its
-> >> netlink interfaces.
-> >>
-> >> Package developers will need to add libnl to the iproute2 package
-> >> dependencies.
-> >> ---
-> >>  Makefile |    2 +-
-> >>  1 files changed, 1 insertions(+), 1 deletions(-)
-> > 
-> > No. I don't want to make iproute2 dependent on libnl.
-> > It doesn't make sense to have dependency without major need for new
-> > functionality.  There are already netlink library routines in iproute2
-> 
-> True, but libnetlink doesn't provide utility routines for building genl
-> interfaces like it does, say, for rtnl. To use libnetlink for this code,
-> we'd have to c&p some code from genl/ctrl.c to handle the interface
-> family registration, for example. It's all there in libnl already.
-> 
-> But I understand your reservation about introducing a new library
-> dependency. Since the rest of our netlink code uses libnl, I'm leaning
-> towards having a separate utility for these commands so we can keep it
-> libnl.
-> 
+eth2: :RX BD ring size for Q[0]: 256
+eth2:TX BD ring size for Q[0]: 256
 
-Please use extend genl/ctrl.c to handle your lt2pv3 messages.
+to look like:
+
+eth2: RX BD ring size for Q[0]: 256
+eth2: TX BD ring size for Q[0]: 256
+
+Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
+---
+ drivers/net/gianfar.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index d557ab6..5131d12 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -1120,10 +1120,10 @@ static int gfar_probe(struct of_device *ofdev,
+ 	/* provided which set of benchmarks. */
+ 	printk(KERN_INFO "%s: Running with NAPI enabled\n", dev->name);
+ 	for (i = 0; i < priv->num_rx_queues; i++)
+-		printk(KERN_INFO "%s: :RX BD ring size for Q[%d]: %d\n",
++		printk(KERN_INFO "%s: RX BD ring size for Q[%d]: %d\n",
+ 			dev->name, i, priv->rx_queue[i]->rx_ring_size);
+ 	for(i = 0; i < priv->num_tx_queues; i++)
+-		 printk(KERN_INFO "%s:TX BD ring size for Q[%d]: %d\n",
++		 printk(KERN_INFO "%s: TX BD ring size for Q[%d]: %d\n",
+ 			dev->name, i, priv->tx_queue[i]->tx_ring_size);
+ 
+ 	return 0;
+-- 
+1.7.0.2
+
