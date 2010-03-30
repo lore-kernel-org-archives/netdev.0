@@ -1,47 +1,30 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net/pcmcia 3com: replacements of printk() with
- dev_info() and friends (fwd)
-Date: Tue, 30 Mar 2010 10:22:13 -0700
-Message-ID: <1269969733.4558.171.camel@Joe-Laptop.home>
-References: <alpine.DEB.1.10.1003302019200.11637@blala.de>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/2] netdev: ethtool RXHASH flag
+Date: Tue, 30 Mar 2010 13:19:20 -0400
+Message-ID: <4BB23298.6010601@garzik.org>
+References: <20100328154448.701c89ee@nehalam> <20100329174727.4654e19c@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ken Kawasaki <ken_kawasaki@spring.nifty.jp>,
-	Dominik Brodowski <linux@dominikbrodowski.net>,
-	Magnus Damm <damm@opensource.se>,
-	Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexander Kurz <akurz@blala.de>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1259 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754874Ab0C3RWP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Mar 2010 13:22:15 -0400
-In-Reply-To: <alpine.DEB.1.10.1003302019200.11637@blala.de>
+Received: from mail-iw0-f199.google.com ([209.85.223.199]:43410 "EHLO
+	mail-iw0-f199.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754975Ab0C3RZe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 13:25:34 -0400
+Received: by iwn37 with SMTP id 37so475401iwn.15
+        for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 10:25:32 -0700 (PDT)
+In-Reply-To: <20100329174727.4654e19c@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-03-30 at 21:01 +0400, Alexander Kurz wrote:
->   I wrote a patch as suggested by kernel-janitors.
->   It is my first patch, so I highly welcome comments and hints,
->   thanks, Alexander Kurz
+On 03/29/2010 08:47 PM, Stephen Hemminger wrote:
+> This adds ethtool and device feature flag to allow control
+> of receive hashing offload.
+>
+> Signed-off-by: Stephen Hemminger<shemminger@vyatta.com>
 
-As this is a network driver, you could use netdev_<level>
-for most of this.  Also, you could coalesce the format
-strings to go beyond 80 columns.  It makes grepping
-a bit easier.
-
-> -	printk(KERN_INFO "%s: %s at io %#3lx, irq %d, "
-> +	dev_info(&dev->dev, "%s: %s at io %#3lx, irq %d, "
->   	       "hw_addr %pM.\n",
-
-This could become:
-
-	netdev_info(dev, "%s at io %#3lx, irq %d, hw_addr %pM\n"
-		    cardname, dev->base_addr, dev->irq, dev->dev_addr);
-
-etc.
+Acked-by: Jeff Garzik <jgarzik@redhat.com>
 
 
