@@ -1,31 +1,36 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 4/7] flow: delayed deletion of flow cache entries
-Date: Tue, 30 Mar 2010 20:22:17 +0800
-Message-ID: <20100330122217.GF5731@gondor.apana.org.au>
-References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-5-git-send-email-timo.teras@iki.fi>
+Subject: Re: [PATCH 1/7] xfrm: remove policy lock when accessing
+	policy->walk.dead
+Date: Tue, 30 Mar 2010 20:23:01 +0800
+Message-ID: <20100330122301.GG5731@gondor.apana.org.au>
+References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-2-git-send-email-timo.teras@iki.fi> <20100329144339.GA26214@gondor.apana.org.au> <4BB1842B.9010704@iki.fi> <20100330115351.GA5731@gondor.apana.org.au> <4BB1E8B1.4030604@iki.fi> <20100330121427.GD5731@gondor.apana.org.au> <4BB1ECBF.50000@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Timo Teras <timo.teras@iki.fi>
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:32883 "EHLO
+Received: from ringil.hengli.com.au ([216.59.3.182]:32885 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932091Ab0C3MWT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 08:22:19 -0400
+	with ESMTP id S932091Ab0C3MXF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 08:23:05 -0400
 Content-Disposition: inline
-In-Reply-To: <1269871964-5412-5-git-send-email-timo.teras@iki.fi>
+In-Reply-To: <4BB1ECBF.50000@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 29, 2010 at 05:12:41PM +0300, Timo Teras wrote:
-> Speed up lookups by freeing flow cache entries later. This is also in
-> preparation to have virtual entry destructor that might do more
-> work.
+On Tue, Mar 30, 2010 at 03:21:19PM +0300, Timo Ter=E4s wrote:
+>
+> Hmm... is it possible to modify/delete per-socket policies from
+> userland via xfrm_user? That would be also another race why
+> we'd need to check the unlinking result.
 
-So how does this speed up lookups exactly?
+How would the user be able to specify the socket?
+
+The answer is no.
 
 Cheers,
--- 
+--=20
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
