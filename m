@@ -1,60 +1,41 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: [PATCH 09/17] pcmcia: update gfp/slab.h includes
-Date: Mon, 29 Mar 2010 23:56:05 -0700
-Message-ID: <20100330065605.GA12764__42653.0148987242$1269932202$gmane$org@core.coreip.homeip.net>
-References: <1269885165-18617-1-git-send-email-tj@kernel.org>
- <1269885165-18617-10-git-send-email-tj@kernel.org>
- <20100329193203.GA8450@comet.dominikbrodowski.net>
- <20100330103129.b76a70e3.sfr@canb.auug.org.au>
- <4BB14D7B.4010602@kernel.org>
- <20100330063609.GA4498@comet.dominikbrodowski.net>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH] Add hotplug support to mcp251x driver
+Date: Tue, 30 Mar 2010 09:23:35 +0200
+Message-ID: <4BB1A6F7.1090600@grandegger.com>
+References: <1269889076-5611-1-git-send-email-maz@misterjones.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Dominik Brodowski <linux@dominikbrodowski.net>,
-	Tejun Heo <tj@kernel.org>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@v
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f172.google.com ([209.85.211.172]:54941 "EHLO
-	mail-yw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752764Ab0C3G4L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 02:56:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20100330063609.GA4498@comet.dominikbrodowski.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Edwin Peer <epeer-edQ+oOd84Ub6AMQ9O9Cv5/d9D2ou9A/h@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Marc Zyngier <maz-20xNzvSXLT6hUMvJH42dtQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1269889076-5611-1-git-send-email-maz-20xNzvSXLT6hUMvJH42dtQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 30, 2010 at 08:36:09AM +0200, Dominik Brodowski wrote:
-> On Tue, Mar 30, 2010 at 10:01:47AM +0900, Tejun Heo wrote:
-> > Hello,
-> > 
-> > On 03/30/2010 08:31 AM, Stephen Rothwell wrote:
-> > > Hi Dominik,
-> > > On Mon, 29 Mar 2010 21:32:03 +0200 Dominik Brodowski <linux@dominikbrodowski.net> wrote:
-> > >>
-> > >> On Tue, Mar 30, 2010 at 02:52:37AM +0900, Tejun Heo wrote:
-> > >>> Implicit slab.h inclusion via percpu.h is about to go away.  Make sure
-> > >>> gfp.h or slab.h is included as necessary.
-> > >>>
-> > >>> Signed-off-by: Tejun Heo <tj@kernel.org>
-> > >>> Cc: Stephen Rothwell <sfr@canb.auug.org.au>
-> > >>> Cc: Dominik Brodowski <linux@dominikbrodowski.net>
-> > >> Acked-by: Dominik Brodowski <linux@dominikbrodowski.net>
-> > > 
-> > > The plan here is for you to put this in your tree now.  It is safe to do
-> > > so and Tejun can't carry it because this does not apply to mainline. 
+Marc Zyngier wrote:
+> Chip model can now be selected directly by matching the modalias name
+> (instead of filling the .model field in platform_data), and allows the
+> module to be auto-loaded. Previous behaviour is of course still supported.
 > 
-> Okay, applied it.
+> Convert the two in-tree users to this feature (icontrol & zeus).
+> Tested on an Zeus platform (mcp2515).
 > 
-> > Stephen's patches on drivers/input/misc/ad714x.c and pcf8574_keypad.c
-> > into input tree.
-> 
-> That's nothing I can do anything about -- Dmitry?
-> 
+> Signed-off-by: Marc Zyngier <maz-20xNzvSXLT6hUMvJH42dtQ@public.gmane.org>
+> Acked-by: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
+> Cc: Edwin Peer <epeer-edQ+oOd84Ub6AMQ9O9Cv5/d9D2ou9A/h@public.gmane.org>
 
-Yes, I will roll teh relevant parts into respective patches if you don't
-mind.
+Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 
--- 
-Dmitry
+for the Socket-CAN part.
+
+Wolfgang.
