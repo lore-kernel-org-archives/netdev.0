@@ -1,33 +1,30 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: UDP path MTU discovery
-Date: Tue, 30 Mar 2010 16:12:37 +0200
-Message-ID: <20100330141237.GP20695@one.firstfloor.org>
-References: <4BB0DCF6.9020401@hp.com> <20100329201431.GH20695@one.firstfloor.org> <20100329205035.GA32656@laped.iglesias.mooo.com> <4BB11510.9000302@hp.com> <1269898152.1958.86.camel@edumazet-laptop> <E1829B60731D1740BB7A0626B4FAF0A649E05EAAB5@XCH-NW-01V.nw.nos.boeing.com> <20100330052044.GJ20695@one.firstfloor.org> <20100330061627.GA22436@laped.iglesias.mooo.com> <20100330061952.GO20695@one.firstfloor.org> <20100330082013.GA18300@edde.se.axis.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: debugging kernel during packet drops
+Date: Tue, 30 Mar 2010 16:12:59 +0200
+Message-ID: <4BB206EB.1000808@trash.net>
+References: <4BA74950.6000305@infopact.nl> <4BA7A5D8.5080101@trash.net>  <4BA8DAC5.6050002@infopact.nl> <1269364893.2983.296.camel@edumazet-laptop>  <4BAA2DC5.7000409@infopact.nl>  <1269447674.3213.64.camel@edumazet-laptop> <1269509574.3626.9.camel@edumazet-laptop> <4BAB3C8B.3030104@trash.net> <alpine.LSU.2.01.1003301405490.10802@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	"Templin, Fred L" <Fred.L.Templin@boeing.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Rick Jones <rick.jones2@hp.com>, Glen Turner <gdt@gdt.id.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Edgar E. Iglesias" <edgar.iglesias@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:40004 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752979Ab0C3OMl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 10:12:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20100330082013.GA18300@edde.se.axis.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jorrit Kronjee <j.kronjee@infopact.nl>,
+	netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.01.1003301405490.10802@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Where does the application controllable per socket MTU come into the
-> picture?
+Jan Engelhardt wrote:
+> On Thursday 2010-03-25 11:35, Patrick McHardy wrote:
+> 
+>> This clashes with some recent cleanups in nf-next-2.6.git. I'm
+>> also expecting a patch from Jan to remove the old v0 revision
+>> very soon (probably today). Please rediff once I've pushed that out.
+> 
+> One 12-series request has been sitting there for a while. Was there 
+> something not in order with it?
 
-To set the minimum path MTU so that there is a guarantee that IPv6 routers
-(which are unable to fragment themselves) will never drop it.
+No, I'm currently a bit backlogged due to getting sick. I'm running
+your series for testing though, I'll probably push it out tommorrow.
 
--Andi
-
--- 
-ak@linux.intel.com -- Speaking for myself only.
