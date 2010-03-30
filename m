@@ -1,52 +1,46 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: XT_ALIGN changed to use ALIGN breaks iproute2
-Date: Tue, 30 Mar 2010 16:15:48 +0300
-Message-ID: <b6fcc0a1003300615k54092120nfb8b5378771657@mail.gmail.com>
-References: <20100330092829.GA3106@amd64.fatal.se>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH 1/7] xfrm: remove policy lock when accessing policy->walk.dead
+Date: Tue, 30 Mar 2010 16:33:52 +0300
+Message-ID: <4BB1FDC0.5020200@iki.fi>
+References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-2-git-send-email-timo.teras@iki.fi> <20100329144339.GA26214@gondor.apana.org.au> <4BB1842B.9010704@iki.fi> <20100330115351.GA5731@gondor.apana.org.au> <4BB1E8B1.4030604@iki.fi> <20100330121427.GD5731@gondor.apana.org.au> <4BB1ECBF.50000@iki.fi> <20100330122301.GG5731@gondor.apana.org.au> <4BB1F15E.3030402@iki.fi> <20100330124815.GA6378@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	jamal <hadi@cyberus.ca>, netdev@vger.kernel.org
-To: Andreas Henriksson <andreas@fatal.se>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:55158 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755360Ab0C3NPt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 09:15:49 -0400
-Received: by pwi5 with SMTP id 5so7677916pwi.19
-        for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 06:15:49 -0700 (PDT)
-In-Reply-To: <20100330092829.GA3106@amd64.fatal.se>
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:37738 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755213Ab0C3Ndz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 09:33:55 -0400
+Received: by ewy20 with SMTP id 20so1247920ewy.1
+        for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 06:33:53 -0700 (PDT)
+In-Reply-To: <20100330124815.GA6378@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 30, 2010 at 12:28 PM, Andreas Henriksson <andreas@fatal.se> wrote:
-> You updated the kernel header include/linux/netfilter/x_tables.h
-> in torvalds/linux-2.6.git commit 42107f5009da223daa800d6da6904d77297ae829
-> with the comment "Use ALIGN() macro while I'm at it for same types.".
->
-> When this header was synced into iproute2 the build broke because the
-> ALIGN macro apparently only is defined in kernel headers.
->
-> (For iproute2 the problem was introduced in
-> 8ecdcce08319d0e39b0d32c1d17db3f69d85a35c and found by Stephen
-> and worked around in 609ceb807deba8e23 and edaaa11e5a3cf2c9c1a39)
->
-> I'm guessing the problem in the iproute2 header sync is just a heads
-> up for what's going to happen when distributions updates their
-> system headers to match linux 2.6.33.
->
->
-> Could someone who knows how the userspace version of the kernel
-> headers are generated please find a suitable solution?
+Herbert Xu wrote:
+> On Tue, Mar 30, 2010 at 03:41:02PM +0300, Timo Ter=E4s wrote:
+>> So it'd make more sense to nuke the hashes entirely for
+>> per-socket policies?
+>=20
+> Absolutely.
 
-We can export ALIGN to userspace, but the name is so generic,
-so it's not clear what breakage more risky.
+I checked now the xfrm_user, and mostly it seems to prevent
+modification to per-socket policies.
 
-XT_ALIGN is a macro so breakage will appear only when it's used,
-not when header is included directly or indirectly.
+The only exception is XFRM_MSG_POLEXPIRE handler
+xfrm_add_pol_expire(). It calls xfrm_policy_byid() without
+verifying the direction, and can thus complete successfully on
+a per-socket policy. This can actually result in per-socket
+policy deletion via netlink.
 
-We have tc, iptables, both carry their own copy of headers, what else?
+I guess the proper thing is to add the direction check there.
 
-Right now, I'd say, do nothing, and iptables will carry fixlet as in tc,
-eventually.
+It also seems that the by-index hash is also used when
+generating new index. It's to double check that the index
+is unique. So deleting the by-index hash from per-socket
+policies seems tricky.
+
+Removing bydst hashing should be trivial.
