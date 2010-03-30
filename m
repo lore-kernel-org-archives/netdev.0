@@ -1,35 +1,57 @@
-From: Ben Hoyt <benhoyt@gmail.com>
-Subject: Re: Minimizing TCP latency
-Date: Tue, 30 Mar 2010 15:36:46 +1300
-Message-ID: <7c93bf1e1003291936v4b0f610eiae07c236dfc72047@mail.gmail.com>
-References: <7c93bf1e1003281829h3ddba989w198df86ac9f2d27c@mail.gmail.com>
-	 <7c93bf1e1003282024p75e70011j31577b42f29cc153@mail.gmail.com>
-	 <1269876229.2092.3.camel@achroite.uk.solarflarecom.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net tree with the wireless-current
+ tree
+Date: Tue, 30 Mar 2010 13:37:45 +1100
+Message-ID: <20100330133745.27295ee0.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:47426 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754788Ab0C3Cgq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Mar 2010 22:36:46 -0400
-Received: by pwi5 with SMTP id 5so7374975pwi.19
-        for <netdev@vger.kernel.org>; Mon, 29 Mar 2010 19:36:46 -0700 (PDT)
-In-Reply-To: <1269876229.2092.3.camel@achroite.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Shanyu Zhao <shanyu.zhao@intel.com>, Zhu Yi <yi.zhu@intel.com>,
+	Reinette Chatre <reinette.chatre@intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes.berg@intel.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Choose low-latency NICs. =A0Read the tuning guide, but run your own
-> benchmarks.
+Hi all,
 
-Is this the tuning guide you're referring to?
-http://fasterdata.es.net/TCP-tuning/linux.html
+Today's linux-next merge of the net tree got a conflict in
+drivers/net/wireless/iwlwifi/iwl-agn.c between commit
+d4dca4e53fde2953d74198a2c445db1d36ed9fd2 ("iwlwifi: clear unattended
+interrupts in tasklet") from the wireless-current tree and commit
+a4c8b2a692601de0a7bcb032b69f806050944dff ("iwlwifi: move ICT data to agn
+part of union") from the net tree.
 
->> FYI, we're using RHE release 4 and kernel version 2.6.9 on x86_64 ma=
-chines.
-> You're not going to get much help here in working on that kernel.
+I fixed it up (see below) and can carry the fix for a while.
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-Thanks for that. I didn't realise 2.6.9 was so old -- I'll upgrade.
-
--Ben
+diff --cc drivers/net/wireless/iwlwifi/iwl-agn.c
+index e4c2e1e,0a376f7..0000000
+--- a/drivers/net/wireless/iwlwifi/iwl-agn.c
++++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
+@@@ -1258,17 -1236,9 +1236,17 @@@ static void iwl_irq_tasklet(struct iwl_
+  	/* Ack/clear/reset pending uCode interrupts.
+  	 * Note:  Some bits in CSR_INT are "OR" of bits in CSR_FH_INT_STATUS,
+  	 */
+ -	iwl_write32(priv, CSR_INT, priv->_agn.inta);
+ +	/* There is a hardware bug in the interrupt mask function that some
+ +	 * interrupts (i.e. CSR_INT_BIT_SCD) can still be generated even if
+ +	 * they are disabled in the CSR_INT_MASK register. Furthermore the
+ +	 * ICT interrupt handling mechanism has another bug that might cause
+ +	 * these unmasked interrupts fail to be detected. We workaround the
+ +	 * hardware bugs here by ACKing all the possible interrupts so that
+ +	 * interrupt coalescing can still be achieved.
+ +	 */
+- 	iwl_write32(priv, CSR_INT, priv->inta | ~priv->inta_mask);
+++	iwl_write32(priv, CSR_INT, priv->_agn.inta | ~priv->inta_mask);
+  
+- 	inta = priv->inta;
++ 	inta = priv->_agn.inta;
+  
+  #ifdef CONFIG_IWLWIFI_DEBUG
+  	if (iwl_get_debug_level(priv) & IWL_DL_ISR) {
