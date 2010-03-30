@@ -1,113 +1,41 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 5/6] sysfs: Implement sysfs_delete_link
-Date: Tue, 30 Mar 2010 11:31:28 -0700
-Message-ID: <1269973889-25260-5-git-send-email-ebiederm@xmission.com>
-References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
-Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org,
-	Tejun Heo <tj@kernel.org>,
-	Cornelia Huck <cornelia.huck@de.ibm.com>,
-	linux-fsdevel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Benjamin LaHaise <bcrl@lhnet.ca>,
-	Serge Hallyn <serue@us.ibm.com>, <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Benjamin Thery <benjamin.thery@bull.net>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>
-To: Greg Kroah-Hartman <gregkh@suse.de>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH -next] x86, fs: add sys_compat_write for net/socket.c
+Date: Tue, 30 Mar 2010 20:48:58 +0200
+Message-ID: <201003302048.59350.arnd@arndb.de>
+References: <1269971469-1254-1-git-send-email-fw@strlen.de> <4BB23B35.7060401@zytor.com> <20100330181757.GB14721@Chamillionaire.breakpoint.cc>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "H. Peter Anvin" <hpa@zytor.com>, linux-fsdevel@vger.kernel.org,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	"David S. Miller" <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@elte.hu>, x86@kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:57418 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755713Ab0C3Sbq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 14:31:46 -0400
-In-Reply-To: <m1fx3hk6gw.fsf@fess.ebiederm.org>
+Received: from moutng.kundenserver.de ([212.227.126.186]:60499 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755853Ab0C3StX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 14:49:23 -0400
+In-Reply-To: <20100330181757.GB14721@Chamillionaire.breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric W. Biederman <ebiederm@xmission.com>
+On Tuesday 30 March 2010 20:17:57 Florian Westphal wrote:
+> Now, I realize that adding a write compat syscall is borderline
+> insanity, and I am open to suggestions.
 
-When removing a symlink sysfs_remove_link does not provide
-enough information to figure out which tagged directory the symlink
-falls in.  So I need sysfs_delete_link which is passed the target
-of the symlink to delete.
+Another option, which may be marginally better, would be to redefine
+the data structures to be compatible, and assign them new numbers,
+with kernel compat support for the numbers in x86-32 binaries.
 
-sysfs_rename_link is updated to call sysfs_delete_link instead
-of sysfs_remove_link as we have all of the information necessary
-and the callers are interesting.
+If you manually add padding to the new data structures in the places
+that the other architectures have implicit padding, the hack will only
+be needed on x86-32 and compat x86-64.
 
-Both of these functions now have enough information to find a symlink
-in a tagged directory.  The only restriction is that they must be called
-before the target kobject is renamed or deleted.  If they are called
-later I loose track of which tag the target kobject was marked with
-and can no longer find the old symlink to remove it.
+The obvious disadvantage is that you need to recompile the x86-32
+binaries to work in compat mode.
 
-This patch was split from an earlier patch.
-
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
-Acked-by: Tejun Heo <tj@kernel.org>
----
- fs/sysfs/symlink.c    |   20 ++++++++++++++++++++
- include/linux/sysfs.h |    8 ++++++++
- 2 files changed, 28 insertions(+), 0 deletions(-)
-
-diff --git a/fs/sysfs/symlink.c b/fs/sysfs/symlink.c
-index 56ccdc6..cd11bf4 100644
---- a/fs/sysfs/symlink.c
-+++ b/fs/sysfs/symlink.c
-@@ -108,6 +108,26 @@ int sysfs_create_link_nowarn(struct kobject *kobj, struct kobject *target,
- }
- 
- /**
-+ *	sysfs_delete_link - remove symlink in object's directory.
-+ *	@kobj:	object we're acting for.
-+ *	@targ:	object we're pointing to.
-+ *	@name:	name of the symlink to remove.
-+ *
-+ *	Unlike sysfs_remove_link sysfs_delete_link has enough information
-+ *	to successfully delete symlinks in tagged directories.
-+ */
-+void sysfs_delete_link(struct kobject *kobj, struct kobject *targ,
-+			const char *name)
-+{
-+	const void *ns = NULL;
-+	spin_lock(&sysfs_assoc_lock);
-+	if (targ->sd)
-+		ns = targ->sd->s_ns;
-+	spin_unlock(&sysfs_assoc_lock);
-+	sysfs_hash_and_remove(kobj->sd, ns, name);
-+}
-+
-+/**
-  *	sysfs_remove_link - remove symlink in object's directory.
-  *	@kobj:	object we're acting for.
-  *	@name:	name of the symlink to remove.
-diff --git a/include/linux/sysfs.h b/include/linux/sysfs.h
-index 1885d21..976c466 100644
---- a/include/linux/sysfs.h
-+++ b/include/linux/sysfs.h
-@@ -155,6 +155,9 @@ void sysfs_remove_link(struct kobject *kobj, const char *name);
- int sysfs_rename_link(struct kobject *kobj, struct kobject *target,
- 			const char *old_name, const char *new_name);
- 
-+void sysfs_delete_link(struct kobject *dir, struct kobject *targ,
-+			const char *name);
-+
- int __must_check sysfs_create_group(struct kobject *kobj,
- 				    const struct attribute_group *grp);
- int sysfs_update_group(struct kobject *kobj,
-@@ -269,6 +272,11 @@ static inline int sysfs_rename_link(struct kobject *k, struct kobject *t,
- 	return 0;
- }
- 
-+static inline void sysfs_delete_link(struct kobject *k, struct kobject *t,
-+				     const char *name)
-+{
-+}
-+
- static inline int sysfs_create_group(struct kobject *kobj,
- 				     const struct attribute_group *grp)
- {
--- 
-1.6.5.2.143.g8cc62
-
+	Arnd
