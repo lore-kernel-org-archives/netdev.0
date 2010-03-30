@@ -1,54 +1,57 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the net tree with the
- wireless-current tree
-Date: Wed, 31 Mar 2010 00:51:34 +1100
-Message-ID: <20100331005134.67f76605.sfr@canb.auug.org.au>
-References: <20100330133745.27295ee0.sfr@canb.auug.org.au>
-	<20100330131220.GA13120@tuxdriver.com>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH 1/7] xfrm: remove policy lock when accessing policy->walk.dead
+Date: Tue, 30 Mar 2010 17:01:47 +0300
+Message-ID: <4BB2044B.5080704@iki.fi>
+References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-2-git-send-email-timo.teras@iki.fi> <20100329144339.GA26214@gondor.apana.org.au> <4BB1842B.9010704@iki.fi> <20100330115351.GA5731@gondor.apana.org.au> <4BB1E8B1.4030604@iki.fi>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__31_Mar_2010_00_51_34_+1100_i/gON9eVEyq2kS3F"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Shanyu Zhao <shanyu.zhao@intel.com>, Zhu Yi <yi.zhu@intel.com>,
-	Reinette Chatre <reinette.chatre@intel.com>,
-	Johannes Berg <johannes.berg@intel.com>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100330131220.GA13120@tuxdriver.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:56608 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751822Ab0C3OBu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 10:01:50 -0400
+Received: by ewy20 with SMTP id 20so1277371ewy.1
+        for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 07:01:48 -0700 (PDT)
+In-Reply-To: <4BB1E8B1.4030604@iki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Wed__31_Mar_2010_00_51_34_+1100_i/gON9eVEyq2kS3F
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Timo Ter=E4s wrote:
+> Herbert Xu wrote:
+>> On Tue, Mar 30, 2010 at 07:55:07AM +0300, Timo Ter=E4s wrote:
+>>> Herbert Xu wrote:
+>>>> On Mon, Mar 29, 2010 at 05:12:38PM +0300, Timo Teras wrote:
+>>>>> @@ -1132,7 +1119,7 @@ int xfrm_sk_policy_insert(struct sock *sk,=20
+>>>>> int dir, struct xfrm_policy *pol)
+>>>>>          __xfrm_policy_link(pol, XFRM_POLICY_MAX+dir);
+>>>>>      }
+>>>>>      if (old_pol)
+>>>>> -        __xfrm_policy_unlink(old_pol, XFRM_POLICY_MAX+dir);
+>>>>> +        old_pol =3D __xfrm_policy_unlink(old_pol, XFRM_POLICY_MA=
+X+dir);
+>>>>>      write_unlock_bh(&xfrm_policy_lock);
+>>>>>       if (old_pol) {
+>>>> So when can this actually fail?
+>>> Considering that the socket reference is received from the=20
+>>> sk->sk_policy,
+>>> and the hash bucket we use is "XFRM_POLICY_MAX+dir", it's non-obvio=
+us if
+>>> it can fail or not.
+>>>
+>>> It would look like the timer can kill a policy and unlink it, but i=
+t
+>>> would still be found from sk_policy.
+>>
+>> Socket policies cannot expire.
+>=20
+> Was not aware of that. The above is not needed then.
 
-Hi John,
-
-On Tue, 30 Mar 2010 09:12:21 -0400 "John W. Linville" <linville@tuxdriver.c=
-om> wrote:
->
-> Yes, that looks correct to me -- at least, that's what I did in
-> wireless-testing. :-)
-
-Thanks for the confirmation.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Wed__31_Mar_2010_00_51_34_+1100_i/gON9eVEyq2kS3F
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAkuyAeYACgkQjjKRsyhoI8zeAQCcDMNEGPnD70EHi/IHyaSeCD/G
-lzUAnRX6rxemH7AyGIYHPmk2Fm8McCfq
-=W/as
------END PGP SIGNATURE-----
-
---Signature=_Wed__31_Mar_2010_00_51_34_+1100_i/gON9eVEyq2kS3F--
+Since the exported function xfrm_policy_byid() can result in deletion
+of socket policy, it's safer to leave this change in. This is can be
+even triggered via xfrm_user since it does not check 'dir' for the
+policy expired message it handles. Any custom module could do similar
+harm.
