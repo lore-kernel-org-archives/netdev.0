@@ -1,57 +1,68 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net tree with the wireless-current
- tree
-Date: Tue, 30 Mar 2010 13:37:45 +1100
-Message-ID: <20100330133745.27295ee0.sfr@canb.auug.org.au>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [iproute2] a 'ip rule ...' bug?
+Date: Mon, 29 Mar 2010 19:42:14 -0700
+Message-ID: <20100329194214.3ea61b67@s6510>
+References: <f4f837ab1003260515y54f0db76vc19c966f39e1d3a1@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Shanyu Zhao <shanyu.zhao@intel.com>, Zhu Yi <yi.zhu@intel.com>,
-	Reinette Chatre <reinette.chatre@intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes.berg@intel.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: thomas yang <lampsu@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:53163 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754882Ab0C3CmR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Mar 2010 22:42:17 -0400
+In-Reply-To: <f4f837ab1003260515y54f0db76vc19c966f39e1d3a1@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Fri, 26 Mar 2010 20:15:30 +0800
+thomas yang <lampsu@gmail.com> wrote:
 
-Today's linux-next merge of the net tree got a conflict in
-drivers/net/wireless/iwlwifi/iwl-agn.c between commit
-d4dca4e53fde2953d74198a2c445db1d36ed9fd2 ("iwlwifi: clear unattended
-interrupts in tasklet") from the wireless-current tree and commit
-a4c8b2a692601de0a7bcb032b69f806050944dff ("iwlwifi: move ICT data to agn
-part of union") from the net tree.
+> in  /etc/iproute2/rt_dsfield
+> ...
+> # Newer RFC2597 values
+> 0x28	AF11
+> 0x30	AF12
+> 0x38	AF13
+> ...
 
-I fixed it up (see below) and can carry the fix for a while.
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
 
-diff --cc drivers/net/wireless/iwlwifi/iwl-agn.c
-index e4c2e1e,0a376f7..0000000
---- a/drivers/net/wireless/iwlwifi/iwl-agn.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
-@@@ -1258,17 -1236,9 +1236,17 @@@ static void iwl_irq_tasklet(struct iwl_
-  	/* Ack/clear/reset pending uCode interrupts.
-  	 * Note:  Some bits in CSR_INT are "OR" of bits in CSR_FH_INT_STATUS,
-  	 */
- -	iwl_write32(priv, CSR_INT, priv->_agn.inta);
- +	/* There is a hardware bug in the interrupt mask function that some
- +	 * interrupts (i.e. CSR_INT_BIT_SCD) can still be generated even if
- +	 * they are disabled in the CSR_INT_MASK register. Furthermore the
- +	 * ICT interrupt handling mechanism has another bug that might cause
- +	 * these unmasked interrupts fail to be detected. We workaround the
- +	 * hardware bugs here by ACKing all the possible interrupts so that
- +	 * interrupt coalescing can still be achieved.
- +	 */
-- 	iwl_write32(priv, CSR_INT, priv->inta | ~priv->inta_mask);
-++	iwl_write32(priv, CSR_INT, priv->_agn.inta | ~priv->inta_mask);
-  
-- 	inta = priv->inta;
-+ 	inta = priv->_agn.inta;
-  
-  #ifdef CONFIG_IWLWIFI_DEBUG
-  	if (iwl_get_debug_level(priv) & IWL_DL_ISR) {
+> ---in   ip  man page ---
+> ip rule add - insert a new rule
+> 
+> tos TOS
+> dsfield TOS
+>     select the TOS value to match.
+> ---
+
+Read the syntax on the man page:
+       ip rule  [ list | add | del | flush ] SELECTOR ACTION
+
+       SELECTOR := [ from PREFIX ] [ to PREFIX ] [ tos TOS ] [ fwmark
+               FWMARK[/MASK] ] [ dev STRING ] [ pref NUMBER ]
+
+
+There is no mention of dsfield argument.
+
+> 
+> [root@localhost ~]# ip rule add dsfield 0x28 table 200
+> Error: argument "dsfield" is wrong: Failed to parse rule type
+> 
+> why???
+> how to match 'dsfield' ?
+> 
+> [root@localhost ~]# ip rule add tos 0x28 table 200
+> RTNETLINK answers: Invalid argument
+> 
+> (My OS is Fedora 11 :  kernel-2.6.30.10-105.2.23.fc11.i586 ,
+> iproute-2.6.29-2.fc11.i586 ;
+> on my another linux box ( Fedora 7)   'ip rule'  also has the same
+> problem  to match  tos and dsfield. )
+
+TOS field is masked by down to only 2 bits. 
+See include/net/route.h in kernel source.
+I think the reason was that with original TOS (pre dsfield) route design,
+the implementors wanted to save space.
+
