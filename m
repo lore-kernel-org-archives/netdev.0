@@ -1,54 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 v8 00/12] net-caif: introducing CAIF
- protocol stack
-Date: Tue, 30 Mar 2010 01:05:19 -0700 (PDT)
-Message-ID: <20100330.010519.128602651.davem@davemloft.net>
-References: <1269934228-23292-1-git-send-email-sjur.brandeland@stericsson.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH 2/3] can: add support for Janz VMOD-ICAN3 Intelligent
+	CAN	module
+Date: Tue, 30 Mar 2010 10:14:18 +0200
+Message-ID: <4BB1B2DA.60002@grandegger.com>
+References: <> <1269881932-3803-3-git-send-email-iws@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, marcel@holtmann.org,
-	daniel.martensson@stericsson.com, sjurbr@gmail.com
-To: sjur.brandeland@stericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35798
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752764Ab0C3IFT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 04:05:19 -0400
-In-Reply-To: <1269934228-23292-1-git-send-email-sjur.brandeland@stericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
+To: "Ira W. Snyder" <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1269881932-3803-3-git-send-email-iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-DQpZb3UncmUgZGlyZWN0bHkgYWNjZXNzaW5nIFNLQiBkYXRhIG1lbWJlcnMgaW5zdGVhZCBvZiB1
-c2luZw0KdGhlIHBvcnRhYmxlIGludGVyZmFjZXMgZGVmaW5lZCBpbiBsaW51eC9za2J1ZmYuaCwg
-dGhlcmVmb3JlDQp0aGUgYnVpbGQgZmFpbHMgb24gNjQtYml0Lg0KDQpIb3cgbWFueSByZXZpc2lv
-bnMgb2YgdGhpcyBwYXRjaCBzZXQgYW5kIG5vdCBvbmNlIGhhcyBpdCBiZWVuIGV2ZW4NCmJ1aWxk
-IHRlc3RlZCBvbiA2NC1iaXQ/DQoNCm5ldC9jYWlmL2NmcGt0X3NrYnVmZi5jOiBJbiBmdW5jdGlv
-biChY2Zwa3RfcGVla19oZWFkojoNCm5ldC9jYWlmL2NmcGt0X3NrYnVmZi5jOjEyMTogZXJyb3I6
-IGludmFsaWQgb3BlcmFuZHMgdG8gYmluYXJ5IC0gKGhhdmUgoXNrX2J1ZmZfZGF0YV90oiBhbmQg
-oXVuc2lnbmVkIGNoYXIgKqIpDQpuZXQvY2FpZi9jZnBrdF9za2J1ZmYuYzogSW4gZnVuY3Rpb24g
-oWNmcGt0X2FwcGVuZKI6DQpuZXQvY2FpZi9jZnBrdF9za2J1ZmYuYzozMzY6IGVycm9yOiBpbnZh
-bGlkIG9wZXJhbmRzIHRvIGJpbmFyeSAtIChoYXZlIKFza19idWZmX2RhdGFfdKIgYW5kIKF1bnNp
-Z25lZCBjaGFyICqiKQ0KbmV0L2NhaWYvY2Zwa3Rfc2tidWZmLmM6MzUyOiBlcnJvcjogaW52YWxp
-ZCBvcGVyYW5kcyB0byBiaW5hcnkgLSAoaGF2ZSChc2tfYnVmZl9kYXRhX3SiIGFuZCChdW5zaWdu
-ZWQgY2hhciAqoikNCm5ldC9jYWlmL2NmcGt0X3NrYnVmZi5jOjM1ODogd2FybmluZzogYXNzaWdu
-bWVudCBtYWtlcyBpbnRlZ2VyIGZyb20gcG9pbnRlciB3aXRob3V0IGEgY2FzdA0KbmV0L2NhaWYv
-Y2Zwa3Rfc2tidWZmLmM6MzY0OiBlcnJvcjogaW52YWxpZCBvcGVyYW5kcyB0byBiaW5hcnkgLSAo
-aGF2ZSChc2tfYnVmZl9kYXRhX3SiIGFuZCChdW5zaWduZWQgY2hhciAqoikNCm5ldC9jYWlmL2Nm
-cGt0X3NrYnVmZi5jOjM2NDogd2FybmluZzogcGFzc2luZyBhcmd1bWVudCAxIG9mIKFfX2J1aWx0
-aW5fbWVtY3B5oiBtYWtlcyBwb2ludGVyIGZyb20gaW50ZWdlciB3aXRob3V0IGEgY2FzdA0KbmV0
-L2NhaWYvY2Zwa3Rfc2tidWZmLmM6MzY0OiBub3RlOiBleHBlY3RlZCChdm9pZCAqoiBidXQgYXJn
-dW1lbnQgaXMgb2YgdHlwZSChc2tfYnVmZl9kYXRhX3SiDQpuZXQvY2FpZi9jZnBrdF9za2J1ZmYu
-YzogSW4gZnVuY3Rpb24goWNmcGt0X3NwbGl0ojoNCm5ldC9jYWlmL2NmcGt0X3NrYnVmZi5jOjM3
-NzogZXJyb3I6IGludmFsaWQgb3BlcmFuZHMgdG8gYmluYXJ5IC0gKGhhdmUgoXNrX2J1ZmZfZGF0
-YV90oiBhbmQgoXU4ICqiKQ0KbmV0L2NhaWYvY2Zwa3Rfc2tidWZmLmM6MzgyOiB3YXJuaW5nOiBj
-b21wYXJpc29uIGJldHdlZW4gcG9pbnRlciBhbmQgaW50ZWdlcg0KbmV0L2NhaWYvY2Zwa3Rfc2ti
-dWZmLmM6Mzk3OiB3YXJuaW5nOiBhc3NpZ25tZW50IG1ha2VzIGludGVnZXIgZnJvbSBwb2ludGVy
-IHdpdGhvdXQgYSBjYXN0DQpuZXQvY2FpZi9jZnBrdF9za2J1ZmYuYzogSW4gZnVuY3Rpb24goWNm
-cGt0X2xvZ19wa3SiOg0KbmV0L2NhaWYvY2Zwa3Rfc2tidWZmLmM6NDI1OiBlcnJvcjogaW52YWxp
-ZCBvcGVyYW5kcyB0byBiaW5hcnkgLSAoaGF2ZSChc2tfYnVmZl9kYXRhX3SiIGFuZCChdW5zaWdu
-ZWQgY2hhciAqoikNCm5ldC9jYWlmL2NmcGt0X3NrYnVmZi5jOjQyNzogZXJyb3I6IGludmFsaWQg
-b3BlcmFuZHMgdG8gYmluYXJ5IC0gKGhhdmUgoXNrX2J1ZmZfZGF0YV90oiBhbmQgoXVuc2lnbmVk
-IGNoYXIgKqIpDQpuZXQvY2FpZi9jZnBrdF9za2J1ZmYuYzo0MzA6IGVycm9yOiBpbnZhbGlkIG9w
-ZXJhbmRzIHRvIGJpbmFyeSAtIChoYXZlIKFza19idWZmX2RhdGFfdKIgYW5kIKF1bnNpZ25lZCBj
-aGFyICqiKQ0K
+Ira W. Snyder wrote:
+> The Janz VMOD-ICAN3 is a MODULbus daughterboard which fits onto any
+> MODULbus carrier board. It is an intelligent CAN controller with a
+> microcontroller and associated firmware.
+> 
+> Signed-off-by: Ira W. Snyder <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
+
+Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
