@@ -1,38 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 4/7] flow: delayed deletion of flow cache entries
-Date: Tue, 30 Mar 2010 20:36:12 +0800
-Message-ID: <20100330123612.GB6174@gondor.apana.org.au>
-References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-5-git-send-email-timo.teras@iki.fi> <20100330122217.GF5731@gondor.apana.org.au> <4BB1EF7A.7030407@iki.fi>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH 1/7] xfrm: remove policy lock when accessing policy->walk.dead
+Date: Tue, 30 Mar 2010 15:41:02 +0300
+Message-ID: <4BB1F15E.3030402@iki.fi>
+References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-2-git-send-email-timo.teras@iki.fi> <20100329144339.GA26214@gondor.apana.org.au> <4BB1842B.9010704@iki.fi> <20100330115351.GA5731@gondor.apana.org.au> <4BB1E8B1.4030604@iki.fi> <20100330121427.GD5731@gondor.apana.org.au> <4BB1ECBF.50000@iki.fi> <20100330122301.GG5731@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:60679 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754445Ab0C3MgP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 08:36:15 -0400
-Content-Disposition: inline
-In-Reply-To: <4BB1EF7A.7030407@iki.fi>
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:50306 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755360Ab0C3MlE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 08:41:04 -0400
+Received: by ewy20 with SMTP id 20so1199871ewy.1
+        for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 05:41:03 -0700 (PDT)
+In-Reply-To: <20100330122301.GG5731@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 30, 2010 at 03:32:58PM +0300, Timo Ter=E4s wrote:
-> If flow cache regeneration or shrinking is triggered in lookup,
-> it would previously free it in place. Now that is deferred. But
-> yes, it's more useful after the next patches that call the
-> virtual destructor. Should have explained this better.
+Herbert Xu wrote:
+> On Tue, Mar 30, 2010 at 03:21:19PM +0300, Timo Ter=E4s wrote:
+>> Hmm... is it possible to modify/delete per-socket policies from
+>> userland via xfrm_user? That would be also another race why
+>> we'd need to check the unlinking result.
+>=20
+> How would the user be able to specify the socket?
+>=20
+> The answer is no.
 
-Any chance you can refactor them so that this comes after the
-virtual get/put patch?
+I thought it was possible since they can be dumped.
 
-That way can evaluate this on its own merit rather than being
-a prerequisite for the more important stuff.
+But yes, I now see that the policy direction check does not
+allow the per-socket policies to be specified.
 
-Thanks,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+So it'd make more sense to nuke the hashes entirely for
+per-socket policies?
