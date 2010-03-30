@@ -1,36 +1,33 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH v3 10/12] l2tp: Add L2TP ethernet pseudowire support
-Date: Tue, 30 Mar 2010 09:30:55 -0700
-Message-ID: <20100330093055.49336856@nehalam>
+Subject: Re: [PATCH v3 04/12] l2tp: Add ppp device name to L2TP ppp session
+ data
+Date: Tue, 30 Mar 2010 09:29:14 -0700
+Message-ID: <20100330092914.4f3e9ed3@nehalam>
 References: <20100330161725.9628.69994.stgit@bert.katalix.com>
-	<20100330161819.9628.10853.stgit@bert.katalix.com>
+	<20100330161746.9628.40723.stgit@bert.katalix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33048 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:33057 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754433Ab0C3R0n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Mar 2010 13:26:43 -0400
-In-Reply-To: <20100330161819.9628.10853.stgit@bert.katalix.com>
+	id S1755115Ab0C3R0u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Mar 2010 13:26:50 -0400
+In-Reply-To: <20100330161746.9628.40723.stgit@bert.katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 30 Mar 2010 17:18:19 +0100
+On Tue, 30 Mar 2010 17:17:46 +0100
 James Chapman <jchapman@katalix.com> wrote:
 
-> +
-> +	/* Derive a MAC address for the new interface. We use the L2TP
-> +	 * session's session-id to guarantee a system-wide unique
-> +	 * address. This MAC is only visible within the L2TP session.
-> +	 */
-> +	dev->dev_addr[0] = 0x02; /* IEEE 802 local */
-> +	dev->dev_addr[1] = 'L';
-> +	memcpy(&dev->dev_addr[2], &sid, 4);
+> When dumping L2TP PPP sessions using /proc/net/l2tp, get
+> the assigned PPP device name from PPP using ppp_dev_name().
+> 
+> Signed-off-by: James Chapman <jchapman@katalix.com>
+> Reviewed-by: Randy Dunlap <randy.dunlap@oracle.com>
+>
 
-Why not random ether address?
-
-
--- 
+Why is this a necessary API?
+Why not put it in debugfs if just a debugging tool?
