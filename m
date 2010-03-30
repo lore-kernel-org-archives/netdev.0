@@ -1,57 +1,40 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH 1/7] xfrm: remove policy lock when accessing policy->walk.dead
-Date: Tue, 30 Mar 2010 15:04:01 +0300
-Message-ID: <4BB1E8B1.4030604@iki.fi>
-References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-2-git-send-email-timo.teras@iki.fi> <20100329144339.GA26214@gondor.apana.org.au> <4BB1842B.9010704@iki.fi> <20100330115351.GA5731@gondor.apana.org.au>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: debugging kernel during packet drops
+Date: Tue, 30 Mar 2010 14:06:37 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1003301405490.10802@obet.zrqbmnf.qr>
+References: <4BA74950.6000305@infopact.nl> <4BA7A5D8.5080101@trash.net>  <4BA8DAC5.6050002@infopact.nl> <1269364893.2983.296.camel@edumazet-laptop>  <4BAA2DC5.7000409@infopact.nl>  <1269447674.3213.64.camel@edumazet-laptop> <1269509574.3626.9.camel@edumazet-laptop>
+ <4BAB3C8B.3030104@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f220.google.com ([209.85.219.220]:62884 "EHLO
-	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756469Ab0C3MEF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 08:04:05 -0400
-Received: by ewy20 with SMTP id 20so1173433ewy.1
-        for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 05:04:02 -0700 (PDT)
-In-Reply-To: <20100330115351.GA5731@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jorrit Kronjee <j.kronjee@infopact.nl>,
+	netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4BAB3C8B.3030104@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Tue, Mar 30, 2010 at 07:55:07AM +0300, Timo Ter=E4s wrote:
->> Herbert Xu wrote:
->>> On Mon, Mar 29, 2010 at 05:12:38PM +0300, Timo Teras wrote:
->>>> @@ -1132,7 +1119,7 @@ int xfrm_sk_policy_insert(struct sock *sk, i=
-nt dir, struct xfrm_policy *pol)
->>>>  		__xfrm_policy_link(pol, XFRM_POLICY_MAX+dir);
->>>>  	}
->>>>  	if (old_pol)
->>>> -		__xfrm_policy_unlink(old_pol, XFRM_POLICY_MAX+dir);
->>>> +		old_pol =3D __xfrm_policy_unlink(old_pol, XFRM_POLICY_MAX+dir);
->>>>  	write_unlock_bh(&xfrm_policy_lock);
->>>>   	if (old_pol) {
->>> So when can this actually fail?
->> Considering that the socket reference is received from the sk->sk_po=
-licy,
->> and the hash bucket we use is "XFRM_POLICY_MAX+dir", it's non-obviou=
-s if
->> it can fail or not.
->>
->> It would look like the timer can kill a policy and unlink it, but it
->> would still be found from sk_policy.
->=20
-> Socket policies cannot expire.
+On Thursday 2010-03-25 11:35, Patrick McHardy wrote:
 
-Was not aware of that. The above is not needed then.
+>Eric Dumazet wrote:
+>> Here is patch I cooked for xt_hashlimit (on top of net-next-2.6) to make
+>> it use RCU and scale better in your case (allowing several concurrent
+>> cpus once RPS is activated), but also on more general cases.
+>> 
+>> [PATCH] xt_hashlimit: RCU conversion
+>> 
+>> xt_hashlimit uses a central lock per hash table and suffers from
+>> contention on some workloads.
+>> 
+>> After RCU conversion, central lock is only used when a writer wants to
+>> add or delete an entry. For 'readers', updating an existing entry, they
+>> use an individual lock per entry.
+>
+>This clashes with some recent cleanups in nf-next-2.6.git. I'm
+>also expecting a patch from Jan to remove the old v0 revision
+>very soon (probably today). Please rediff once I've pushed that out.
 
-> In fact, they probably shouldn't even be on the bydst or any other
-> hash table.  I think the only reason they're there at all is because
-> the hash table was added to __xfrm_policy_link which happens to be
-> used by socket policies.
-
-I think it's hashed so socket policies are included in the policy
-db dumps and counts.
+One 12-series request has been sitting there for a while. Was there 
+something not in order with it?
 
