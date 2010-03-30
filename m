@@ -1,75 +1,57 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH -next] x86, fs: add sys_compat_write for net/socket.c
-Date: Tue, 30 Mar 2010 20:17:57 +0200
-Message-ID: <20100330181757.GB14721@Chamillionaire.breakpoint.cc>
-References: <1269971469-1254-1-git-send-email-fw@strlen.de>
- <4BB23B35.7060401@zytor.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 0/6] tagged sysfs support
+Date: Tue, 30 Mar 2010 11:30:23 -0700
+Message-ID: <m1fx3hk6gw.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, linux-fsdevel@vger.kernel.org,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, x86@kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "H. Peter Anvin" <hpa@zytor.com>
+Cc: Kay Sievers <kay.sievers@vrfy.org>, Greg KH <greg@kroah.com>,
+	linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
+	Cornelia Huck <cornelia.huck@de.ibm.com>,
+	linux-fsdevel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Benjamin LaHaise <bcrl@lhnet.ca>,
+	Serge Hallyn <serue@us.ibm.com>, <netdev@vger.kernel.org>
+To: Greg Kroah-Hartman <gregkh@suse.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4BB23B35.7060401@zytor.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-H. Peter Anvin <hpa@zytor.com> wrote:
-> > On some configurations, e.g. x86_64 with 32bit userspace, netlink/xfrm
-> > misinterprets messages from userspace due to different structure
-> > layout (u64 has different alignment requirements on x86 vs. x86_64).
 
-[..]
+The main short coming of using multiple network namespaces today
+is that only network devices for the primary network namespaces
+can be put in the kobject layer and sysfs.
 
-> > As long as messages are sent via sendmsg(), this could be handled via
-> > net/compat.c; it will set the CMSG_MSG_COMPAT flag in struct msghdr
-> > for compat tasks, which would allow to the xfrm_user code to detect
-> > when messages need compat fixups.
-> > 
-> > Unfortunately, some programs (e.g. pluto ike daemon), send netlink data
-> > to the kernel using write().
-> > 
-> > Thus, introduce f_ops->compat_aio_write and compat_sys_write to treat
-> > writes on sockets specially.
-> > 
-> > This only wires up compat_sys_write for x86/x86_64 -- at the moment this
-> > is only required to parse xfrm netlink messages, which happen to only
-> > need special treatment in case of COMPAT_FOR_U64_ALIGNMENT=y.
-> > 
-> > Setting CMSG_MSG_COMPAT depending on plain is_compat_task() in net/socket.c
-> > was not done due to concerns regarding the kernel doing socket
-> > writes in response to a user event (which might set MSG_COMPAT erronously).
-> > 
-> 
-> OK... I have to ask the question:
-> 
-> This only applies if you're using unpacked structures with
-> non-naturally-aligned objects in them.  Where to we have those, and can
-> we shoot the authors?
+This is essentially the earlier version of this patchset that was
+reviewed before, just now on top of a version of sysfs that doesn't
+need cleanup patches to support it.
 
-Fair enough.
-This happens e.g. when trying to add xfrm policies or SAs from 32bit x86
-userspace on x86_64 kernels, e.g. commands like "ip xfrm pol add dir in"
-fail due to user/kernelspace structure size mismatch.
+I have been running these patches in some form for well over a
+year so the basics should at least be solid.  
 
-One structure that has this problem is struct xfrm_userpolicy_info, but
-there are more.
+This patchset is currently against 2.6.34-rc1.
 
-Now, I realize that adding a write compat syscall is borderline
-insanity, and I am open to suggestions.
+This patchset is just the basic infrastructure a couple of more pretty
+trivial patches are needed to actually enable network namespaces to use this.
+My current plan is to send those after these patches have made it through
+review.
 
-In fact, I would even accept a "userspace must use sendmsg() when dealing
-with xfrm netlink"; the only problem is that my pending xfrm compat patches
-depend on this patch being accepted [ or, rather, they depend
-on the MSG_COMPAT flag being set; which is currently only done when userspace
-uses sendmsg().
+ drivers/base/class.c    |    9 ++++
+ drivers/base/core.c     |   98 +++++++++++++++++++++++++++++++++----------
+ drivers/gpio/gpiolib.c  |    2 +-
+ drivers/md/bitmap.c     |    4 +-
+ drivers/md/md.c         |    6 +-
+ fs/sysfs/bin.c          |    2 +-
+ fs/sysfs/dir.c          |  106 ++++++++++++++++++++++++++++++++++++-----------
+ fs/sysfs/file.c         |   17 ++++---
+ fs/sysfs/group.c        |    6 +-
+ fs/sysfs/inode.c        |    6 ++-
+ fs/sysfs/mount.c        |   91 +++++++++++++++++++++++++++++++++++++++-
+ fs/sysfs/symlink.c      |   35 ++++++++++++++-
+ fs/sysfs/sysfs.h        |   23 ++++++++--
+ include/linux/device.h  |    3 +
+ include/linux/kobject.h |   26 +++++++++++
+ include/linux/sysfs.h   |   18 ++++++++
+ lib/kobject.c           |  104 ++++++++++++++++++++++++++++++++++++++++++++++
+ 17 files changed, 480 insertions(+), 76 deletions(-)
 
-In fact, "ip xfrm .. " even works with the xfrm compat patch set applied
-because ip xfrm ... happens to use sendmsg(). But not all userspace apps do this ].
-
-Thanks, Florian
+Eric
