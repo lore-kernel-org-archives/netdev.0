@@ -1,52 +1,37 @@
-From: Luis de Bethencourt <luisbg@ubuntu.com>
-Subject: [PATCH 2/2] ath: fix code readability in regd.c
-Date: Tue, 30 Mar 2010 16:44:33 +0100
-Message-ID: <1269963873-2070-1-git-send-email-luisbg@ubuntu.com>
-References: <ath/regd.c>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Luis de Bethencourt <luisbg@ubuntu.com>
-To: linville@tuxdriver.com, lrodriguez@atheros.com
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: UDP path MTU discovery
+Date: Tue, 30 Mar 2010 18:06:02 +0200
+Message-ID: <20100330160602.GS20695@one.firstfloor.org>
+References: <4BB0DCF6.9020401@hp.com> <20100329201431.GH20695@one.firstfloor.org> <20100329205035.GA32656@laped.iglesias.mooo.com> <4BB11510.9000302@hp.com> <1269898152.1958.86.camel@edumazet-laptop> <E1829B60731D1740BB7A0626B4FAF0A649E05EAAB5@XCH-NW-01V.nw.nos.boeing.com> <20100330052044.GJ20695@one.firstfloor.org> <20100330061627.GA22436@laped.iglesias.mooo.com> <20100330061952.GO20695@one.firstfloor.org> <E1829B60731D1740BB7A0626B4FAF0A649E05EABD5@XCH-NW-01V.nw.nos.boeing.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>,
+	"Edgar E. Iglesias" <edgar.iglesias@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Rick Jones <rick.jones2@hp.com>, Glen Turner <gdt@gdt.id.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Templin, Fred L" <Fred.L.Templin@boeing.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:47624 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753126Ab0C3Pom (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 11:44:42 -0400
-In-Reply-To: <ath/regd.c>
+Received: from one.firstfloor.org ([213.235.205.2]:55845 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754079Ab0C3QGH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 12:06:07 -0400
+Content-Disposition: inline
+In-Reply-To: <E1829B60731D1740BB7A0626B4FAF0A649E05EABD5@XCH-NW-01V.nw.nos.boeing.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a patch to the ath/regd.c file that fixes two code
-readability issues. A space between to separate two defines
-and the indentation inside the ath_redg_is_eeprom_valid
-function.
+> Right again. Unlike IPv4, however, IPv6 does not allow
+> in-the-network fragmentation. So when in doubt, apps
+> that need to send isolated packets that may violate the
+> path MTU should really perform host-based fragmentation
+> with a maximum fragment size of 1280. Isn't there a
+> socket option "IPV6_USE_MIN_MTU" that apps can use to
+> force fragmentation on large packets (RFC3542)?
 
-Signed-off-by: Luis de Bethencourt <luisbg@ubuntu.com>
----
- drivers/net/wireless/ath/regd.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+Thanks for the pointer. The option is right now only defined,
+but not implemented.  But yes it would help. 
 
-diff --git a/drivers/net/wireless/ath/regd.c b/drivers/net/wireless/ath/regd.c
-index 04abd1f..d5c2332 100644
---- a/drivers/net/wireless/ath/regd.c
-+++ b/drivers/net/wireless/ath/regd.c
-@@ -51,6 +51,7 @@
- 
- #define ATH9K_5GHZ_ALL		ATH9K_5GHZ_5150_5350, \
- 				ATH9K_5GHZ_5470_5850
-+
- /* This one skips what we call "mid band" */
- #define ATH9K_5GHZ_NO_MIDBAND	ATH9K_5GHZ_5150_5350, \
- 				ATH9K_5GHZ_5725_5850
-@@ -361,7 +362,7 @@ EXPORT_SYMBOL(ath_reg_notifier_apply);
- 
- static bool ath_regd_is_eeprom_valid(struct ath_regulatory *reg)
- {
--	 u16 rd = ath_regd_get_eepromRD(reg);
-+	u16 rd = ath_regd_get_eepromRD(reg);
- 	int i;
- 
- 	if (rd & COUNTRY_ERD_FLAG) {
+-Andi
 -- 
-1.6.3.3
-
+ak@linux.intel.com -- Speaking for myself only.
