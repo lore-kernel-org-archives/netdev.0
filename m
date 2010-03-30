@@ -1,38 +1,31 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH] virtio_net: avoid BUG_ON() with large packets when CONFIG_DEBUG_SG=y
-Date: Tue, 30 Mar 2010 15:26:35 +1030
-Message-ID: <201003301526.35720.rusty@rustcorp.com.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] virtio_net: avoid BUG_ON() with large packets when
+ CONFIG_DEBUG_SG=y
+Date: Mon, 29 Mar 2010 22:08:59 -0700 (PDT)
+Message-ID: <20100329.220859.94049113.davem@davemloft.net>
+References: <201003301526.35720.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, mst@redhat.com
+To: rusty@rustcorp.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:47677 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754212Ab0C3E4j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Mar 2010 00:56:39 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48102
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751498Ab0C3FJA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 01:09:00 -0400
+In-Reply-To: <201003301526.35720.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-AFAICT only weird kvm setups and lguest traverse this code path now.
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Tue, 30 Mar 2010 15:26:35 +1030
 
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
----
- drivers/net/virtio_net.c |    3 +++
- 1 file changed, 3 insertions(+)
+> AFAICT only weird kvm setups and lguest traverse this code path now.
+> 
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -351,6 +351,9 @@ static int add_recvbuf_big(struct virtne
- 	char *p;
- 	int i, err, offset;
- 
-+	/* This is a waste of cycles, but satisfies CONFIG_DEBUG_SG. */
-+	sg_init_table(sg, ARRAY_SIZE(sg));
-+
- 	/* page in sg[MAX_SKB_FRAGS + 1] is list tail */
- 	for (i = MAX_SKB_FRAGS + 1; i > 1; --i) {
- 		first = get_a_page(vi, gfp);
+Shirley Ma already posted a fix for this, and you missed the
+add_recvbuf_small() case in your version.
+
+I'll be applying Shirley's patch to net-next-2.6
