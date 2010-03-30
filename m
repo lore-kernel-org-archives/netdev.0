@@ -1,29 +1,30 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/7] xfrm: remove policy lock when accessing
-	policy->walk.dead
-Date: Tue, 30 Mar 2010 20:14:27 +0800
-Message-ID: <20100330121427.GD5731@gondor.apana.org.au>
-References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-2-git-send-email-timo.teras@iki.fi> <20100329144339.GA26214@gondor.apana.org.au> <4BB1842B.9010704@iki.fi> <20100330115351.GA5731@gondor.apana.org.au> <4BB1E8B1.4030604@iki.fi>
+Subject: Re: [PATCH 2/7] flow: structurize flow cache
+Date: Tue, 30 Mar 2010 20:15:42 +0800
+Message-ID: <20100330121542.GE5731@gondor.apana.org.au>
+References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-3-git-send-email-timo.teras@iki.fi> <20100330120104.GB5731@gondor.apana.org.au> <4BB1E862.8090302@iki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:34666 "EHLO
+Received: from ringil.hengli.com.au ([216.59.3.182]:34676 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932083Ab0C3MOa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 08:14:30 -0400
+	with ESMTP id S1756551Ab0C3MPo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 08:15:44 -0400
 Content-Disposition: inline
-In-Reply-To: <4BB1E8B1.4030604@iki.fi>
+In-Reply-To: <4BB1E862.8090302@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 30, 2010 at 03:04:01PM +0300, Timo Ter=E4s wrote:
->> I think it's hashed so socket policies are included in the policy
-> db dumps and counts.
+On Tue, Mar 30, 2010 at 03:02:42PM +0300, Timo Ter=E4s wrote:
+>
+> If we want generic flow cache, we might want to have multiple
+> instance in future. It might also make sense to have per-net
+> flow cache.
 
-No we use a linked list for that.
+OK that makes sense.
 
 Cheers,
 --=20
