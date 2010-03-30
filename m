@@ -1,91 +1,301 @@
 From: James Chapman <jchapman@katalix.com>
-Subject: [PATCH v3 03/12] ppp: Add ppp_dev_name() exported function
-Date: Tue, 30 Mar 2010 17:17:41 +0100
-Message-ID: <20100330161741.9628.22693.stgit@bert.katalix.com>
+Subject: [PATCH v3 06/12] l2tp: Update PPP-over-L2TP driver to work over L2TPv3
+Date: Tue, 30 Mar 2010 17:17:57 +0100
+Message-ID: <20100330161757.9628.92101.stgit@bert.katalix.com>
 References: <20100330161725.9628.69994.stgit@bert.katalix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:49339 "EHLO mail.katalix.com"
+Received: from katalix.com ([82.103.140.233]:51118 "EHLO mail.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752790Ab0C3QR2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Mar 2010 12:17:28 -0400
+	id S1753591Ab0C3QRz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Mar 2010 12:17:55 -0400
 Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.katalix.com (Postfix) with ESMTP id 6A338A620B1
-	for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 17:17:47 +0100 (BST)
+	by mail.katalix.com (Postfix) with ESMTP id 514C8A62087
+	for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 17:18:14 +0100 (BST)
 Received: from mail.katalix.com ([127.0.0.1])
 	by localhost (mail.katalix.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id o0zdTvgAK9Qr for <netdev@vger.kernel.org>;
-	Tue, 30 Mar 2010 17:17:42 +0100 (BST)
+	with ESMTP id SHC9+qFQ+7bB for <netdev@vger.kernel.org>;
+	Tue, 30 Mar 2010 17:18:08 +0100 (BST)
 Received: from bert.katalix.com (localhost.localdomain [127.0.0.1])
-	by mail.katalix.com (Postfix) with ESMTP id 7A120A620AC
-	for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 17:17:41 +0100 (BST)
+	by mail.katalix.com (Postfix) with ESMTP id 6D600A620AC
+	for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 17:17:57 +0100 (BST)
 In-Reply-To: <20100330161725.9628.69994.stgit@bert.katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ppp_dev_name() gives PPP users visibility of a ppp channel's device
-name. This can be used by L2TP drivers to dump the assigned PPP
-interface name.
+This patch makes changes to the L2TP PPP code for L2TPv3.
+
+The existing code has some assumptions about the L2TP header which are
+broken by L2TPv3. Also the sockaddr_pppol2tp structure of the original
+code is too small to support the increased size of the L2TPv3 tunnel
+and session id, so a new sockaddr_pppol2tpv3 structure is needed. In
+the socket calls, the size of this structure is used to tell if the
+operation is for L2TPv2 or L2TPv3.
 
 Signed-off-by: James Chapman <jchapman@katalix.com>
 Reviewed-by: Randy Dunlap <randy.dunlap@oracle.com>
 ---
- drivers/net/ppp_generic.c   |   19 +++++++++++++++++++
- include/linux/ppp_channel.h |    3 +++
- 2 files changed, 22 insertions(+), 0 deletions(-)
+ include/linux/if_pppol2tp.h |   14 +++++
+ include/linux/if_pppox.h    |    9 +++
+ net/l2tp/l2tp_ppp.c         |  120 +++++++++++++++++++++++++++----------------
+ 3 files changed, 97 insertions(+), 46 deletions(-)
 
-diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
-index 6d61602..8a0dd8a 100644
---- a/drivers/net/ppp_generic.c
-+++ b/drivers/net/ppp_generic.c
-@@ -2163,6 +2163,24 @@ int ppp_unit_number(struct ppp_channel *chan)
- }
+diff --git a/include/linux/if_pppol2tp.h b/include/linux/if_pppol2tp.h
+index 1a1fb6e..184bc55 100644
+--- a/include/linux/if_pppol2tp.h
++++ b/include/linux/if_pppol2tp.h
+@@ -35,6 +35,20 @@ struct pppol2tp_addr {
+ 	__u16 d_tunnel, d_session;	/* For sending outgoing packets */
+ };
  
- /*
-+ * Return the PPP device interface name of a channel.
++/* The L2TPv3 protocol changes tunnel and session ids from 16 to 32
++ * bits. So we need a different sockaddr structure.
 + */
-+char *ppp_dev_name(struct ppp_channel *chan)
-+{
-+	struct channel *pch = chan->ppp;
-+	char *name = NULL;
++struct pppol2tpv3_addr {
++	pid_t	pid;			/* pid that owns the fd.
++					 * 0 => current */
++	int	fd;			/* FD of UDP or IP socket to use */
 +
-+	if (pch) {
-+		read_lock_bh(&pch->upl);
-+		if (pch->ppp && pch->ppp->dev)
-+			name = pch->ppp->dev->name;
-+		read_unlock_bh(&pch->upl);
-+	}
-+	return name;
-+}
++	struct sockaddr_in addr;	/* IP address and port to send to */
 +
++	__u32 s_tunnel, s_session;	/* For matching incoming packets */
++	__u32 d_tunnel, d_session;	/* For sending outgoing packets */
++};
 +
-+/*
-  * Disconnect a channel from the generic layer.
-  * This must be called in process context.
-  */
-@@ -2890,6 +2908,7 @@ EXPORT_SYMBOL(ppp_register_channel);
- EXPORT_SYMBOL(ppp_unregister_channel);
- EXPORT_SYMBOL(ppp_channel_index);
- EXPORT_SYMBOL(ppp_unit_number);
-+EXPORT_SYMBOL(ppp_dev_name);
- EXPORT_SYMBOL(ppp_input);
- EXPORT_SYMBOL(ppp_input_error);
- EXPORT_SYMBOL(ppp_output_wakeup);
-diff --git a/include/linux/ppp_channel.h b/include/linux/ppp_channel.h
-index 0d3fa63..bff98ec 100644
---- a/include/linux/ppp_channel.h
-+++ b/include/linux/ppp_channel.h
-@@ -72,6 +72,9 @@ extern int ppp_channel_index(struct ppp_channel *);
- /* Get the unit number associated with a channel, or -1 if none */
- extern int ppp_unit_number(struct ppp_channel *);
+ /* Socket options:
+  * DEBUG	- bitmask of debug message categories
+  * SENDSEQ	- 0 => don't send packets with sequence numbers
+diff --git a/include/linux/if_pppox.h b/include/linux/if_pppox.h
+index 90b5fae..a6577af 100644
+--- a/include/linux/if_pppox.h
++++ b/include/linux/if_pppox.h
+@@ -72,6 +72,15 @@ struct sockaddr_pppol2tp {
+ 	struct pppol2tp_addr pppol2tp;
+ }__attribute__ ((packed));
  
-+/* Get the device name associated with a channel, or NULL if none */
-+extern char *ppp_dev_name(struct ppp_channel *);
++/* The L2TPv3 protocol changes tunnel and session ids from 16 to 32
++ * bits. So we need a different sockaddr structure.
++ */
++struct sockaddr_pppol2tpv3 {
++	sa_family_t     sa_family;      /* address family, AF_PPPOX */
++	unsigned int    sa_protocol;    /* protocol identifier */
++	struct pppol2tpv3_addr pppol2tp;
++} __attribute__ ((packed));
 +
- /*
-  * SMP locking notes:
-  * The channel code must ensure that when it calls ppp_unregister_channel,
+ /*********************************************************************
+  *
+  * ioctl interface for defining forwarding of connections
+diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+index dc27543..907cfbd 100644
+--- a/net/l2tp/l2tp_ppp.c
++++ b/net/l2tp/l2tp_ppp.c
+@@ -291,17 +291,6 @@ static void pppol2tp_session_sock_put(struct l2tp_session *session)
+  * Transmit handling
+  ***********************************************************************/
+ 
+-/* Tell how big L2TP headers are for a particular session. This
+- * depends on whether sequence numbers are being used.
+- */
+-static inline int pppol2tp_l2tp_header_len(struct l2tp_session *session)
+-{
+-	if (session->send_seq)
+-		return PPPOL2TP_L2TP_HDR_SIZE_SEQ;
+-
+-	return PPPOL2TP_L2TP_HDR_SIZE_NOSEQ;
+-}
+-
+ /* This is the sendmsg for the PPPoL2TP pppol2tp_session socket.  We come here
+  * when a user application does a sendmsg() on the session socket. L2TP and
+  * PPP headers must be inserted into the user's data.
+@@ -394,7 +383,6 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
+ 	static const u8 ppph[2] = { 0xff, 0x03 };
+ 	struct sock *sk = (struct sock *) chan->private;
+ 	struct sock *sk_tun;
+-	int hdr_len;
+ 	struct l2tp_session *session;
+ 	struct l2tp_tunnel *tunnel;
+ 	struct pppol2tp_session *ps;
+@@ -417,9 +405,6 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
+ 	if (tunnel == NULL)
+ 		goto abort_put_sess;
+ 
+-	/* What header length is configured for this session? */
+-	hdr_len = pppol2tp_l2tp_header_len(session);
+-
+ 	old_headroom = skb_headroom(skb);
+ 	if (skb_cow_head(skb, sizeof(ppph)))
+ 		goto abort_put_sess_tun;
+@@ -432,7 +417,7 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
+ 	skb->data[0] = ppph[0];
+ 	skb->data[1] = ppph[1];
+ 
+-	l2tp_xmit_skb(session, skb, hdr_len);
++	l2tp_xmit_skb(session, skb, session->hdr_len);
+ 
+ 	sock_put(sk_tun);
+ 	sock_put(sk);
+@@ -629,6 +614,7 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
+ {
+ 	struct sock *sk = sock->sk;
+ 	struct sockaddr_pppol2tp *sp = (struct sockaddr_pppol2tp *) uservaddr;
++	struct sockaddr_pppol2tpv3 *sp3 = (struct sockaddr_pppol2tpv3 *) uservaddr;
+ 	struct pppox_sock *po = pppox_sk(sk);
+ 	struct l2tp_session *session = NULL;
+ 	struct l2tp_tunnel *tunnel;
+@@ -636,6 +622,10 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
+ 	struct dst_entry *dst;
+ 	struct l2tp_session_cfg cfg = { 0, };
+ 	int error = 0;
++	u32 tunnel_id, peer_tunnel_id;
++	u32 session_id, peer_session_id;
++	int ver = 2;
++	int fd;
+ 
+ 	lock_sock(sk);
+ 
+@@ -653,21 +643,40 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
+ 	if (sk->sk_user_data)
+ 		goto end; /* socket is already attached */
+ 
+-	/* Don't bind if s_tunnel is 0 */
++	/* Get params from socket address. Handle L2TPv2 and L2TPv3 */
++	if (sockaddr_len == sizeof(struct sockaddr_pppol2tp)) {
++		fd = sp->pppol2tp.fd;
++		tunnel_id = sp->pppol2tp.s_tunnel;
++		peer_tunnel_id = sp->pppol2tp.d_tunnel;
++		session_id = sp->pppol2tp.s_session;
++		peer_session_id = sp->pppol2tp.d_session;
++	} else if (sockaddr_len == sizeof(struct sockaddr_pppol2tpv3)) {
++		ver = 3;
++		fd = sp3->pppol2tp.fd;
++		tunnel_id = sp3->pppol2tp.s_tunnel;
++		peer_tunnel_id = sp3->pppol2tp.d_tunnel;
++		session_id = sp3->pppol2tp.s_session;
++		peer_session_id = sp3->pppol2tp.d_session;
++	} else {
++		error = -EINVAL;
++		goto end; /* bad socket address */
++	}
++
++	/* Don't bind if tunnel_id is 0 */
+ 	error = -EINVAL;
+-	if (sp->pppol2tp.s_tunnel == 0)
++	if (tunnel_id == 0)
+ 		goto end;
+ 
+-	/* Special case: create tunnel context if s_session and
+-	 * d_session is 0. Otherwise look up tunnel using supplied
++	/* Special case: create tunnel context if session_id and
++	 * peer_session_id is 0. Otherwise look up tunnel using supplied
+ 	 * tunnel id.
+ 	 */
+-	if ((sp->pppol2tp.s_session == 0) && (sp->pppol2tp.d_session == 0)) {
+-		error = l2tp_tunnel_create(sock_net(sk), sp->pppol2tp.fd, 2, sp->pppol2tp.s_tunnel, sp->pppol2tp.d_tunnel, NULL, &tunnel);
++	if ((session_id == 0) && (peer_session_id == 0)) {
++		error = l2tp_tunnel_create(sock_net(sk), fd, ver, tunnel_id, peer_tunnel_id, NULL, &tunnel);
+ 		if (error < 0)
+ 			goto end;
+ 	} else {
+-		tunnel = l2tp_tunnel_find(sock_net(sk), sp->pppol2tp.s_tunnel);
++		tunnel = l2tp_tunnel_find(sock_net(sk), tunnel_id);
+ 
+ 		/* Error if we can't find the tunnel */
+ 		error = -ENOENT;
+@@ -684,20 +693,21 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
+ 
+ 	/* Check that this session doesn't already exist */
+ 	error = -EEXIST;
+-	session = l2tp_session_find(sock_net(sk), tunnel, sp->pppol2tp.s_session);
++	session = l2tp_session_find(sock_net(sk), tunnel, session_id);
+ 	if (session != NULL)
+ 		goto end;
+ 
+-	/* Default MTU must allow space for UDP/L2TP/PPP
+-	 * headers.
+-	 */
+-	cfg.mtu = cfg.mru = 1500 - PPPOL2TP_HEADER_OVERHEAD;
++	/* Default MTU values. */
++	if (cfg.mtu == 0)
++		cfg.mtu = 1500 - PPPOL2TP_HEADER_OVERHEAD;
++	if (cfg.mru == 0)
++		cfg.mru = cfg.mtu;
+ 	cfg.debug = tunnel->debug;
+ 
+ 	/* Allocate and initialize a new session context. */
+ 	session = l2tp_session_create(sizeof(struct pppol2tp_session),
+-				      tunnel, sp->pppol2tp.s_session,
+-				      sp->pppol2tp.d_session, &cfg);
++				      tunnel, session_id,
++				      peer_session_id, &cfg);
+ 	if (session == NULL) {
+ 		error = -ENOMEM;
+ 		goto end;
+@@ -773,8 +783,7 @@ end:
+ static int pppol2tp_getname(struct socket *sock, struct sockaddr *uaddr,
+ 			    int *usockaddr_len, int peer)
+ {
+-	int len = sizeof(struct sockaddr_pppol2tp);
+-	struct sockaddr_pppol2tp sp;
++	int len = 0;
+ 	int error = 0;
+ 	struct l2tp_session *session;
+ 	struct l2tp_tunnel *tunnel;
+@@ -800,21 +809,40 @@ static int pppol2tp_getname(struct socket *sock, struct sockaddr *uaddr,
+ 		goto end_put_sess;
+ 	}
+ 
+-	memset(&sp, 0, len);
+-	sp.sa_family	= AF_PPPOX;
+-	sp.sa_protocol	= PX_PROTO_OL2TP;
+-	sp.pppol2tp.fd  = tunnel->fd;
+-	sp.pppol2tp.pid = pls->owner;
+-	sp.pppol2tp.s_tunnel = tunnel->tunnel_id;
+-	sp.pppol2tp.d_tunnel = tunnel->peer_tunnel_id;
+-	sp.pppol2tp.s_session = session->session_id;
+-	sp.pppol2tp.d_session = session->peer_session_id;
+ 	inet = inet_sk(sk);
+-	sp.pppol2tp.addr.sin_family = AF_INET;
+-	sp.pppol2tp.addr.sin_port = inet->inet_dport;
+-	sp.pppol2tp.addr.sin_addr.s_addr = inet->inet_daddr;
+-
+-	memcpy(uaddr, &sp, len);
++	if (tunnel->version == 2) {
++		struct sockaddr_pppol2tp sp;
++		len = sizeof(sp);
++		memset(&sp, 0, len);
++		sp.sa_family	= AF_PPPOX;
++		sp.sa_protocol	= PX_PROTO_OL2TP;
++		sp.pppol2tp.fd  = tunnel->fd;
++		sp.pppol2tp.pid = pls->owner;
++		sp.pppol2tp.s_tunnel = tunnel->tunnel_id;
++		sp.pppol2tp.d_tunnel = tunnel->peer_tunnel_id;
++		sp.pppol2tp.s_session = session->session_id;
++		sp.pppol2tp.d_session = session->peer_session_id;
++		sp.pppol2tp.addr.sin_family = AF_INET;
++		sp.pppol2tp.addr.sin_port = inet->inet_dport;
++		sp.pppol2tp.addr.sin_addr.s_addr = inet->inet_daddr;
++		memcpy(uaddr, &sp, len);
++	} else if (tunnel->version == 3) {
++		struct sockaddr_pppol2tpv3 sp;
++		len = sizeof(sp);
++		memset(&sp, 0, len);
++		sp.sa_family	= AF_PPPOX;
++		sp.sa_protocol	= PX_PROTO_OL2TP;
++		sp.pppol2tp.fd  = tunnel->fd;
++		sp.pppol2tp.pid = pls->owner;
++		sp.pppol2tp.s_tunnel = tunnel->tunnel_id;
++		sp.pppol2tp.d_tunnel = tunnel->peer_tunnel_id;
++		sp.pppol2tp.s_session = session->session_id;
++		sp.pppol2tp.d_session = session->peer_session_id;
++		sp.pppol2tp.addr.sin_family = AF_INET;
++		sp.pppol2tp.addr.sin_port = inet->inet_dport;
++		sp.pppol2tp.addr.sin_addr.s_addr = inet->inet_daddr;
++		memcpy(uaddr, &sp, len);
++	}
+ 
+ 	*usockaddr_len = len;
+ 
 
