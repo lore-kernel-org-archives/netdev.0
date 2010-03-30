@@ -1,46 +1,54 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH 1/7] xfrm: remove policy lock when accessing policy->walk.dead
-Date: Tue, 30 Mar 2010 16:33:52 +0300
-Message-ID: <4BB1FDC0.5020200@iki.fi>
-References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-2-git-send-email-timo.teras@iki.fi> <20100329144339.GA26214@gondor.apana.org.au> <4BB1842B.9010704@iki.fi> <20100330115351.GA5731@gondor.apana.org.au> <4BB1E8B1.4030604@iki.fi> <20100330121427.GD5731@gondor.apana.org.au> <4BB1ECBF.50000@iki.fi> <20100330122301.GG5731@gondor.apana.org.au> <4BB1F15E.3030402@iki.fi> <20100330124815.GA6378@gondor.apana.org.au>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the net tree with the
+ wireless-current tree
+Date: Wed, 31 Mar 2010 00:51:34 +1100
+Message-ID: <20100331005134.67f76605.sfr@canb.auug.org.au>
+References: <20100330133745.27295ee0.sfr@canb.auug.org.au>
+	<20100330131220.GA13120@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f220.google.com ([209.85.219.220]:37738 "EHLO
-	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755213Ab0C3Ndz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 09:33:55 -0400
-Received: by ewy20 with SMTP id 20so1247920ewy.1
-        for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 06:33:53 -0700 (PDT)
-In-Reply-To: <20100330124815.GA6378@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__31_Mar_2010_00_51_34_+1100_i/gON9eVEyq2kS3F"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Shanyu Zhao <shanyu.zhao@intel.com>, Zhu Yi <yi.zhu@intel.com>,
+	Reinette Chatre <reinette.chatre@intel.com>,
+	Johannes Berg <johannes.berg@intel.com>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100330131220.GA13120@tuxdriver.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Tue, Mar 30, 2010 at 03:41:02PM +0300, Timo Ter=E4s wrote:
->> So it'd make more sense to nuke the hashes entirely for
->> per-socket policies?
->=20
-> Absolutely.
+--Signature=_Wed__31_Mar_2010_00_51_34_+1100_i/gON9eVEyq2kS3F
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I checked now the xfrm_user, and mostly it seems to prevent
-modification to per-socket policies.
+Hi John,
 
-The only exception is XFRM_MSG_POLEXPIRE handler
-xfrm_add_pol_expire(). It calls xfrm_policy_byid() without
-verifying the direction, and can thus complete successfully on
-a per-socket policy. This can actually result in per-socket
-policy deletion via netlink.
+On Tue, 30 Mar 2010 09:12:21 -0400 "John W. Linville" <linville@tuxdriver.c=
+om> wrote:
+>
+> Yes, that looks correct to me -- at least, that's what I did in
+> wireless-testing. :-)
 
-I guess the proper thing is to add the direction check there.
+Thanks for the confirmation.
 
-It also seems that the by-index hash is also used when
-generating new index. It's to double check that the index
-is unique. So deleting the by-index hash from per-socket
-policies seems tricky.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-Removing bydst hashing should be trivial.
+--Signature=_Wed__31_Mar_2010_00_51_34_+1100_i/gON9eVEyq2kS3F
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAkuyAeYACgkQjjKRsyhoI8zeAQCcDMNEGPnD70EHi/IHyaSeCD/G
+lzUAnRX6rxemH7AyGIYHPmk2Fm8McCfq
+=W/as
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__31_Mar_2010_00_51_34_+1100_i/gON9eVEyq2kS3F--
