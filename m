@@ -1,28 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: crucial fixes only for net-2.6 please
-Date: Wed, 31 Mar 2010 03:27:18 -0700 (PDT)
-Message-ID: <20100331.032718.82540413.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55405
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753109Ab0CaK1R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 06:27:17 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id EEA5F24C020
-	for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 03:27:18 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: nf-next: TEE and nesting
+Date: Wed, 31 Mar 2010 12:38:48 +0200
+Message-ID: <1270031934-15940-1-git-send-email-jengelh@medozas.de>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-I really don't want to see any more patches for net-2.6 unless they
-fix a bug that eats someones disk and then sends all of their user's
-passwords to an arbitray remote site.
+> Hi,
+>
+> next on the calendar is the xt_TEE submission.
+>
+>
+> The following changes since commit b44672889c11e13e4f4dc0a8ee23f0e64f1e57c6:
+>   Jan Engelhardt (1):
+>         netfilter: xtables: merge registration structure to NFPROTO_UNSPEC
+>
+> are available in the git repository at:
+>
+>   git://dev.medozas.de/linux master
+>
+> Jan Engelhardt (5):
+>       netfilter: ipv6: move POSTROUTING invocation before fragmentation
+>       net: ipv6: add IPSKB_REROUTED exclusion to NF_HOOK/POSTROUTING invocation
+>       netfilter: xtables: inclusion of xt_TEE
+>       netfilter: xtables2: make ip_tables reentrant
+>       netfilter: xt_TEE: have cloned packet travel through Xtables too
 
-I'm very serious.  Things should be going into net-2.6 at a very slow
-trickle at this point.
-
-Thanks.
+cc'd netdev due to larger changes to the IPv6 code.
