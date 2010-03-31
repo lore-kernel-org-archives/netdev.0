@@ -1,53 +1,43 @@
-From: Glen Turner <gdt@gdt.id.au>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
 Subject: Re: UDP path MTU discovery
-Date: Thu, 01 Apr 2010 10:27:44 +1030
-Message-ID: <1270079864.2389.48.camel@ilion>
+Date: Thu, 1 Apr 2010 01:51:49 +0200
+Message-ID: <20100331235149.GE3042@nuttenaction>
 References: <1269561751.2891.8.camel@ilion>
-	 <20100325.202424.201654947.davem@davemloft.net>
-	 <87bpe825z2.fsf@basil.nowhere.org>
+ <4BAC0577.7070803@hp.com>
+ <20100325.202636.149498207.davem@davemloft.net>
+ <1270078923.2389.31.camel@ilion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	netdev@vger.kernel.org
+To: Glen Turner <gdt@gdt.id.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:48546 "EHLO
-	aix.gdt.id.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755072Ab0CaX40 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 19:56:26 -0400
-In-Reply-To: <87bpe825z2.fsf@basil.nowhere.org>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:56604 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756351Ab0CaX7u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 19:59:50 -0400
+Content-Disposition: inline
+In-Reply-To: <1270078923.2389.31.camel@ilion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2010-03-28 at 10:41 +0200, Andi Kleen wrote:
+* Glen Turner | 2010-04-01 10:12:03 [+1030]:
 
-> It means though that all IPv6 UDP applications essentially have
-> to implement path mtu discovery support (which is non trivial) 
+>Does select() return from its blocking so the application can make
+>use of this indication immediately, rather than after the
+>application's exponentially-increasing wait?
 
-It is trivial from the applications point of view to let the
-kernel find the UDP Path MTU. We just need more information
-from the kernel as to when it would like to see those packets
-(ie, for performance we'd like to feed in the packet to re-send
-as soon as the ICMP Packet Too Big arrives for the previous
-packet).
+Yes, poll() will return immediately with POLLERR.
 
-> Will be likely a long time until they're all fixed.
+>Is an incoming ICMP the only cause of EMSGSIZE?  That is, can an
+>application safely retransmit immediately?
 
-There's no need to make that assumption.  We'd very much like
-transactional UDP protocols to work well in advanced networks.
-The other choices -- holding down millions of TCP sockets,
-or using new protocols (and there are competing proposals) --
-don't exactly fill our operations teams with confidence.
+IIRC, yes.
 
-We'd very much like to use UDP were we can and something else
-where we must.
 
-> Seems like a big hole not considered by the IPv6 designers?
-
-Yeah. The sockets API for IPv6 required an additional feature that
-the IETF did not foresee.
+Cheers, Hagen
 
 -- 
- Glen Turner
- www.gdt.id.au/~gdt
-
+Hagen Paul Pfeifer <hagen@jauu.net>  ||  http://jauu.net/
+Telephone: +49 174 5455209           ||  Key Id: 0x98350C22
+Key Fingerprint: 490F 557B 6C48 6D7E 5706 2EA2 4A22 8D45 9835 0C22
