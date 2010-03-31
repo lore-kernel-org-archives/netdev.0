@@ -1,51 +1,54 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH] netdev/fec.c: add phylib supporting to enable carrier
-	detection
-Date: Wed, 31 Mar 2010 10:12:08 +0200
-Message-ID: <20100331081208.GP2241@pengutronix.de>
-References: <1269597052-10104-1-git-send-email-bryan.wu@canonical.com> <20100326102957.GG5539@matterhorn.verdurent.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH 3/6] sysfs: Implement sysfs tagged directory support.
+Date: Wed, 31 Mar 2010 17:17:36 +0900
+Message-ID: <4BB30520.2030100@kernel.org>
+References: <m1fx3hk6gw.fsf@fess.ebiederm.org>	<1269973889-25260-3-git-send-email-ebiederm@xmission.com>	<4BB2F083.1050803@kernel.org> <m11vf12ayb.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Bryan Wu <bryan.wu@canonical.com>, gerg@uclinux.org,
-	netdev@vger.kernel.org, kernel-team@lists.ubuntu.com,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	w.sang@p
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Greg Kroah-Hartman <gregkh@suse.de>,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	linux-kernel@vger.kernel.org,
+	Cornelia Huck <cornelia.huck@de.ibm.com>,
+	linux-fsdevel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Benjamin LaHaise <bcrl@lhnet.ca>,
+	Serge Hallyn <serue@us.ibm.com>, netdev@vger.kernel.org,
+	Benjamin Thery <benjamin.thery@bull.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100326102957.GG5539@matterhorn.verdurent.com>
+In-Reply-To: <m11vf12ayb.fsf@fess.ebiederm.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 26, 2010 at 12:29:57PM +0200, Amit Kucheria wrote:
-> On 10 Mar 26, Bryan Wu wrote:
-> > BugLink: http://bugs.launchpad.net/bugs/457878
-> > 
-> >  - removed old MII phy control code
-> >  - add phylib supporting
-> >  - add ethtool interface to make user space NetworkManager works
-> > 
-> > Tested on Freescale i.MX51 Babbage board.
-> > 
-> > This patch is based on a patch from Frederic Rodo <fred.rodo@gmail.com>
-> > 
-> > Cc: Frederic Rodo <fred.rodo@gmail.com>
-> > Signed-off-by: Bryan Wu <bryan.wu@canonical.com>
+Hello, Eric.
+
+On 03/31/2010 04:43 PM, Eric W. Biederman wrote:
+>> Is it at all possible to implement it in properly layered manner?
+>> ie. sysfs providing mechanisms for selective visibility, driver model
+>> wraps it and exports it and namespace implements namespaces on top of
+>> those mechanisms?
 > 
-> While I ack this patch, I wonder if we should add to the various board
-> Kconfig options, a dependency select'ing the right phylib for that board.
-> 
-> This would prevent breakage of ethernet on those boards because they forgot
-> to select the right phylib after this change.
+> I think that is roughly what I have.
 
-I wouldn't go that far. I never saw a board which doesn't work with the
-generic phy implementation, so I would only select the specific phy if
-I knew that the generic phy does not work.
+Yeah, well, in a sense.  It's all a matter of degree.
 
-Sascha
+> As for the layering itself.  Down in sysfs there are only two bits
+> visible.  A void * pointer that in addition to the name is what we use
+> to define selective visibility.  A context that we capture when we
+> mount sysfs.  Those bits are fundamental things sysfs needs to do.
 
+Well, I guess all I wanna say is... is there *ANY* way to do it w/
+less callbacks?  It's very difficult to follow what's going on for
+what.
+
+If you think all those callbacks are absolute necessities, can you
+please at least add boatload of comments around them explaning what
+they're meant to do and how they're gonna be used?  It's probably
+because I don't have any experience with namespaces but I really can't
+wrap my head around it as it currently stands.
+
+Thanks.
 
 -- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+tejun
