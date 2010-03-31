@@ -1,79 +1,87 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH][V2] MACB: Set PHY address in kernel parameters
-Date: Wed, 31 Mar 2010 11:48:26 +0200
-Message-ID: <4BB31A6A.1000503@pengutronix.de>
-References: <1270025218-7245-1-git-send-email-anders.darander@gmail.com> <4BB31345.5050101@pengutronix.de> <20100331093956.GI4837@datarespons.se>
+From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
+Subject: Re: iproute u32 filter - server hang
+Date: Wed, 31 Mar 2010 11:59:49 +0200
+Message-ID: <4BB31D15.3000500@itcare.pl>
+References: <4BB3116F.803@itcare.pl> <4BB31731.9060104@trash.net> <4BB31908.5090601@itcare.pl> <4BB31A08.90809@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigE182812377EC455E0692276B"
-Cc: Haavard Skinnemoen <hskinnemoen@atmel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Erik Waling <erik.waling@konftel.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Anders Darander <anders.darander@datarespons.se>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Network Development list <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:41404 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755925Ab0CaJsm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 05:48:42 -0400
-In-Reply-To: <20100331093956.GI4837@datarespons.se>
+Received: from smtp.iq.pl ([86.111.241.19]:54611 "EHLO smtp.iq.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933077Ab0CaJ74 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Mar 2010 05:59:56 -0400
+In-Reply-To: <4BB31A08.90809@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigE182812377EC455E0692276B
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+W dniu 2010-03-31 11:46, Patrick McHardy pisze:
+> Pawe=C5=82 Staszewski wrote:
+>   =20
+>> W dniu 2010-03-31 11:34, Patrick McHardy pisze:
+>>     =20
+>>> Pawe=C5=82 Staszewski wrote:
+>>>
+>>>       =20
+>>>> I find some problem with iproute2 and u32 filters
+>>>>
+>>>> To reproduce the problem (need to make one mistake in filter paren=
+t
+>>>> declaration 1:101):
+>>>>
+>>>> ...
+>>>> tc filter add dev eth0 protocol ip parent 1:101 u32 match ip proto=
+col 1
+>>>> 0xff flowid 1:101
+>>>>
+>>>> ping 212.77.100.101
+>>>> And after this server will stop responding to anything - without a=
+ny
+>>>> error (hang).
+>>>>
+>>>>         =20
+>>> This is caused by hfsc_classify() looping endlessly since the filte=
+r
+>>> points to the originating class. hfsc_bind_tcf() is actually suppos=
+ed
+>>> to prevent this, but it only prevents resolving the filter immediat=
+ely
+>>> and we still run into the loop at runtime.
+>>>
+>>> This patch (based on how CBQ handles this) should abort classificat=
+ion
+>>> and fall back to the default class. It would be better to simply ca=
+tch
+>>> this at configuration time, but that looks a bit more involved. I'l=
+l try
+>>> to look into it this weekend.
+>>>
+>>>
+>>>
+>>>       =20
+>> I check this also with htb and the same problem like with hfsc.
+>> This rules also hang my server.
+>>     =20
+> Yes, HTB doesn't even catch loops when binding filters. As I said,
+> its a larger piece of work, for now please just try the patch I
+> sent.
+>   =20
 
-Anders Darander wrote:
-> * Marc Kleine-Budde <mkl@pengutronix.de> [100331 11:18]:
->> We're using phy_mask in one of our projects, it's still using 2.6.29,
->> though. I think it's worth testing if it's still working.
->=20
-> Well, that was obviously something I overlooked / misinterpreted when I=
-
-> tried to solve our problem!
->=20
-> As I understand it, phy_mask is a bitfield for setting which PHYs shoul=
-d
-> be enabled... Then this should have worked OK for us!
-
-Yes, it's a bitmask of PHYs that should be probed.
-
->> static struct at91_eth_data __initdata p298_macb_data =3D {
->>        .is_rmii        =3D 0,
->>        .phy_mask       =3D ~(1 << 8),
->> };
->=20
->> at91_add_device_eth(&p298_macb_data);
->=20
-> I've not tested it, but it should probably have worked.
-
-Cheers, Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Yes.
+Your patch fix this problem.
 
 
---------------enigE182812377EC455E0692276B
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Thanks
+Pawe=C5=82
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
 
-iEYEARECAAYFAkuzGm0ACgkQjTAFq1RaXHP/LwCffHp5r4vbIXqApoISTtG0iEvH
-XOAAoIikIu69SmyOExQt6vXU2UWsXR9X
-=k7tM
------END PGP SIGNATURE-----
-
---------------enigE182812377EC455E0692276B--
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
+>   =20
