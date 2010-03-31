@@ -1,112 +1,47 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 4/8] qlcnic: fix onchip memory access
-Date: Wed, 31 Mar 2010 05:03:42 -0700
-Message-ID: <1270037026-9062-5-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 1/8] qlcnic: fix fw load from file
+Date: Wed, 31 Mar 2010 05:03:39 -0700
+Message-ID: <1270037026-9062-2-git-send-email-amit.salecha@qlogic.com>
 References: <1270037026-9062-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:28555 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:43998 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1756996Ab0CaMDs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757175Ab0CaMDs (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 31 Mar 2010 08:03:48 -0400
 In-Reply-To: <1270037026-9062-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Rarely: Fw file size can be unaligned to 8.
 
-Fix incorrect offset calculation and remove unnecessary remap
-of the region in bar 0 to access onchip memory.
-
-This was leading to read incorrect values by debug tools.
-
-Signed-off-by: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic_hw.c |   39 ++-------------------------------------
- 1 files changed, 2 insertions(+), 37 deletions(-)
+ drivers/net/qlcnic/qlcnic_init.c |   10 ++++++++++
+ 1 files changed, 10 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic_hw.c b/drivers/net/qlcnic/qlcnic_hw.c
-index 419f46e..0933c2d 100644
---- a/drivers/net/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/qlcnic/qlcnic_hw.c
-@@ -53,18 +53,6 @@ static inline void writeq(u64 val, void __iomem *addr)
- }
- #endif
+diff --git a/drivers/net/qlcnic/qlcnic_init.c b/drivers/net/qlcnic/qlcnic_init.c
+index 7c34e4e..0a424e0 100644
+--- a/drivers/net/qlcnic/qlcnic_init.c
++++ b/drivers/net/qlcnic/qlcnic_init.c
+@@ -949,6 +949,16 @@ qlcnic_load_firmware(struct qlcnic_adapter *adapter)
  
--#define PCI_OFFSET_FIRST_RANGE(adapter, off)    \
--	((adapter)->ahw.pci_base0 + (off))
--
--static void __iomem *pci_base_offset(struct qlcnic_adapter *adapter,
--					    unsigned long off)
--{
--	if (ADDR_IN_RANGE(off, FIRST_PAGE_GROUP_START, FIRST_PAGE_GROUP_END))
--		return PCI_OFFSET_FIRST_RANGE(adapter, off);
--
--	return NULL;
--}
--
- static const struct crb_128M_2M_block_map
- crb_128M_2M_map[64] __cacheline_aligned_in_smp = {
-     {{{0, 0,         0,         0} } },		/* 0: PCI */
-@@ -871,13 +859,6 @@ qlcnic_pci_set_window_2M(struct qlcnic_adapter *adapter,
- 		u64 addr, u32 *start)
- {
- 	u32 window;
--	struct pci_dev *pdev = adapter->pdev;
--
--	if ((addr & 0x00ff800) == 0xff800) {
--		if (printk_ratelimit())
--			dev_warn(&pdev->dev, "QM access not handled\n");
--		return -EIO;
--	}
- 
- 	window = OCM_WIN_P3P(addr);
- 
-@@ -894,8 +875,7 @@ static int
- qlcnic_pci_mem_access_direct(struct qlcnic_adapter *adapter, u64 off,
- 		u64 *data, int op)
- {
--	void __iomem *addr, *mem_ptr = NULL;
--	resource_size_t mem_base;
-+	void __iomem *addr;
- 	int ret;
- 	u32 start;
- 
-@@ -905,21 +885,8 @@ qlcnic_pci_mem_access_direct(struct qlcnic_adapter *adapter, u64 off,
- 	if (ret != 0)
- 		goto unlock;
- 
--	addr = pci_base_offset(adapter, start);
--	if (addr)
--		goto noremap;
--
--	mem_base = pci_resource_start(adapter->pdev, 0) + (start & PAGE_MASK);
--
--	mem_ptr = ioremap(mem_base, PAGE_SIZE);
--	if (mem_ptr == NULL) {
--		ret = -EIO;
--		goto unlock;
--	}
--
--	addr = mem_ptr + (start & (PAGE_SIZE - 1));
-+	addr = adapter->ahw.pci_base0 + start;
- 
--noremap:
- 	if (op == 0)	/* read */
- 		*data = readq(addr);
- 	else		/* write */
-@@ -928,8 +895,6 @@ noremap:
- unlock:
- 	mutex_unlock(&adapter->ahw.mem_lock);
- 
--	if (mem_ptr)
--		iounmap(mem_ptr);
- 	return ret;
- }
- 
+ 			flashaddr += 8;
+ 		}
++
++		size = (__force u32)qlcnic_get_fw_size(adapter) % 8;
++		if (size) {
++			data = cpu_to_le64(ptr64[i]);
++
++			if (qlcnic_pci_mem_write_2M(adapter,
++						flashaddr, data))
++				return -EIO;
++		}
++
+ 	} else {
+ 		u64 data;
+ 		u32 hi, lo;
 -- 
 1.6.0.2
 
