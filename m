@@ -1,48 +1,56 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH] can: Add driver for SJA1000 based PCI CAN interface cards
-	by	esd
-Date: Wed, 31 Mar 2010 15:35:14 +0200
-Message-ID: <4BB34F92.5010308@grandegger.com>
-References: <201003311428.05749.matthias.fuchs@esd.eu>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 3/4] xfrm: remove policy lock when accessing
+ policy->walk.dead
+Date: Wed, 31 Mar 2010 09:39:55 -0400
+Message-ID: <1270042795.26743.31.camel@bigi>
+References: <1270030626-16687-1-git-send-email-timo.teras@iki.fi>
+	 <1270030626-16687-5-git-send-email-timo.teras@iki.fi>
+	 <20100331110345.GC12845@gondor.apana.org.au>
+	 <1270040773.26743.12.camel@bigi>
+	 <20100331131131.GA13793@gondor.apana.org.au>
+	 <20100331132622.GA13908@gondor.apana.org.au>
+	 <1270042356.26743.30.camel@bigi>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <201003311428.05749.matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Timo Teras <timo.teras@iki.fi>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f179.google.com ([209.85.221.179]:33904 "EHLO
+	mail-qy0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933359Ab0CaNj6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 09:39:58 -0400
+Received: by qyk9 with SMTP id 9so101838qyk.1
+        for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 06:39:57 -0700 (PDT)
+In-Reply-To: <1270042356.26743.30.camel@bigi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Matthias,
 
-Matthias Fuchs wrote:
-> This patch adds support for SJA1000 based PCI CAN interface cards
-> from electronic system design gmbh.
-> 
-> These boards are supported:
-> 
->         CAN-PCI/200 (PCI)
->         CAN-PCI/266 (PCI)
->         CAN-PMC266 (PMC module)
->         CAN-PCIe/2000 (PCI Express)
->         CAN-CPCI/200 (Compact PCI, 3U)
->         CAN-PCI104 (PCI104)
-> 
-> This driver is part of the SocketCAN SVN repository since
-> April 2009.
-> 
-> Signed-off-by: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
 
-Since a while we have a generic PCI PLX driver in the mainline kernel,
-which could support the esd cards as well, I believe.
+On Wed, 2010-03-31 at 09:32 -0400, jamal wrote:
 
-Wolfgang.
+> I did not touch pfkey. That behavior remains there. 
+
+Sorry - I lied. I did touch pfkey. Here was my reasoning.
+
+RFC 2367 says flushing behavior should be:
+1) user space -> kernel: flush
+2) kernel: flush
+3) kernel -> user space: flush event to ALL listeners
+
+This is not realistic today in the presence of selinux policies
+which may reject the flush etc. So we make the sequence become:
+1) user space -> kernel: flush
+2) kernel: flush
+3) kernel -> user space: flush response to originater from #1
+4) if there were no errors then:
+kernel -> user space: flush event to ALL listeners
+
+This was in the logs.
+
+cheers,
+jamal
+
