@@ -1,70 +1,57 @@
-From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Subject: RE: re-submit2 [ANNOUNCEMENT] NET: usb: sierra_net.c driver
-Date: Thu, 01 Apr 2010 00:26:09 +0100
-Message-ID: <1270077969.8653.491.camel@localhost>
-References: <1269893596.9242.7.camel@Linuxdev3>
-	 <20100330.230932.244208287.davem@davemloft.net>
-	 <20100330.231051.113008279.davem@davemloft.net>
-	 <8F90F944E50427428C60E12A34A309D22FC800D825@carmd-exchmb01.sierrawireless.local>
-	 <1270069108.6053.5.camel@Linuxdev3>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCHv3] drivers/net/usb: Add new driver ipheth
+Date: Thu, 01 Apr 2010 00:28:30 +0100
+Message-ID: <1270078110.8653.493.camel@localhost>
+References: <1269984864-28159-1-git-send-email-agimenez@sysvalve.es>
+	 <1270064527-8485-1-git-send-email-agimenez@sysvalve.es>
+	 <1270077538.8653.484.camel@localhost>  <20100331232516.GA27730@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Rory Filer <rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
-	"dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org" <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1270069108.6053.5.camel@Linuxdev3>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "L. Alberto Gim?nez" <agimenez@sysvalve.es>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, oliver@neukum.org,
+	linville@tuxdriver.com, j.dumon@option.com,
+	steve.glendinning@smsc.com, davem@davemloft.net, dgiagio@gmail.com,
+	dborca@yahoo.com
+To: Greg KH <gregkh@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:50870 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758269Ab0CaX2g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 19:28:36 -0400
+In-Reply-To: <20100331232516.GA27730@suse.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-03-31 at 13:58 -0700, Elina Pasheva wrote:
-> On Tue, 2010-03-30 at 23:21 -0700, Rory Filer wrote:
-> > -----Original Message-----
-> > > >
-> > > > Applied, thanks.
-> > >=20
-> > > Nevermind, reverted, it doesn't even build.
-> > >=20
-> > > drivers/net/usb/sierra_net.c: In function 'check_ethip_packet':
-> > > drivers/net/usb/sierra_net.c:221:3: error: implicit declaration o=
-f
-> > > function 'deverr'
-> > >=20
-> > > Really, this should never ever happen, and there is simply
-> > > no excuse at all for this.
-> >=20
-> > Well actually there is an excuse, but I'm sure you don't want to
-> > know what it is.=20
-> =EF=BB=BF
-> The patch was posted saying it had only been tested on 2.6.33.1.
-> There was failure-to-build and boot problems  beyond our control with=
- 2.6.34-rc2.
-> Now that 2.6.34-rc3 is available (and we are able to build and boot o=
-n our Ubuntu platform)
-> I will modify the driver to reflect the fact that deverr is no longer=
- in existence
-> and is replaced by another function. I will submit the modified drive=
-r tested on 2.6.34-rc3 shortly.
+On Wed, 2010-03-31 at 16:25 -0700, Greg KH wrote:
+> On Thu, Apr 01, 2010 at 12:18:58AM +0100, Ben Hutchings wrote:
+> > On Wed, 2010-03-31 at 21:42 +0200, L. Alberto Gim??nez wrote:
+[...]
+> > > +#include <linux/usb.h>
+> > > +#include <linux/workqueue.h>
+> > > +
+> > > +#define USB_VENDOR_APPLE        0x05ac
+> > > +#define USB_PRODUCT_IPHETH     0x1290
+> > > +#define USB_PRODUCT_IPHETH_3G   0x1292
+> > > +#define USB_PRODUCT_IPHETH_3GS  0x1294
+> > 
+> > Apple doesn't assign device ids to ipheth so either the names are
+> > incorrect or you should get proper device ids.  I believe the Linux
+> > Foundation has a USB vendor id and could assign device ids under that.
+> 
+> You mean there is an application on the iphone that sets the device id
+> here?  I thought this was the iphone device ids already assigned to
+> apple.
+[...]
 
-You should be sending patches based on David Miller's net-next-2.6 or
-net-2.6 git repository, where he will be applying them.  As this is a
-new driver I assume it can go into net-2.6.
-
-> Perhaps we should have waited until the build problem was fixed.
-
-Or come up with a fix yourself.
+That's why my first suggestion was that the names are incorrect; they
+should probably include IPHONE not IPHETH.
 
 Ben.
 
---=20
+-- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
