@@ -1,39 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] igb: update hw_debug macro to make use of netdev_dbg
- call
-Date: Tue, 30 Mar 2010 23:01:23 -0700 (PDT)
-Message-ID: <20100330.230123.266658399.davem@davemloft.net>
-References: <20100325231007.8991.24570.stgit@localhost.localdomain>
+Subject: Re: [PATCH] e1000e: typo corrections
+Date: Tue, 30 Mar 2010 23:01:35 -0700 (PDT)
+Message-ID: <20100330.230135.194760828.davem@davemloft.net>
+References: <20100324225529.7104.17189.stgit@localhost.localdomain>
+	<20100326.210555.251082007.davem@davemloft.net>
+	<1269670619.1603.9.camel@Joe-Laptop.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	alexander.h.duyck@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, bruce.w.allan@intel.com
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52819
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52824
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756637Ab0CaGBW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 02:01:22 -0400
-In-Reply-To: <20100325231007.8991.24570.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S932494Ab0CaGBe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 02:01:34 -0400
+In-Reply-To: <1269670619.1603.9.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 25 Mar 2010 16:10:08 -0700
+From: Joe Perches <joe@perches.com>
+Date: Fri, 26 Mar 2010 23:16:59 -0700
 
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> Here are the other miscellaneous corrections
+> done by an earlier larger suggested patch now
+> made unnecessary by a less invasive change.
 > 
-> This change updates the igb driver to make use of the netdev_dbg function
-> macros now provided in netdevice.h
+> Correct a few missing newlines from logging
+> messages and a typo fix.  Fix speed/duplex
+> logging message.
 > 
-> This is meant to be provided as an alternative to the patch provided by
-> Joe Perches.
-> 
-> It also removes igb_get_time_str since I found that it is unused code that
-> is no longer used even in debug.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
 I'll apply this to net-next-2.6, thanks.
