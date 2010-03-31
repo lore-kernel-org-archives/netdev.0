@@ -1,38 +1,53 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH] can: Add driver for SJA1000 based PCI CAN interface cards
-	by esd
-Date: Wed, 31 Mar 2010 19:05:53 +0200
-Message-ID: <4BB380F1.3010909@grandegger.com>
-References: <201003311428.05749.matthias.fuchs@esd.eu>	<4BB34F92.5010308@grandegger.com>
-	<201003311617.50061.matthias.fuchs@esd.eu>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH 0/6] tagged sysfs support
+Date: Wed, 31 Mar 2010 12:21:10 -0500
+Message-ID: <20100331172110.GA18838@us.ibm.com>
+References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <201003311617.50061.matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg Kroah-Hartman <gregkh@suse.de>,
+	Kay Sievers <kay.sievers@vrfy.org>, Greg KH <greg@kroah.com>,
+	linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
+	Cornelia Huck <cornelia.huck@de.ibm.com>,
+	linux-fsdevel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Benjamin LaHaise <bcrl@lhnet.ca>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <m1fx3hk6gw.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matthias Fuchs wrote:
-> Hi Wolfgang,
+Quoting Eric W. Biederman (ebiederm@xmission.com):
 > 
-> I am aware of the PCI PLX driver. It should be possible to
-> adapt that one. It lacks PLX9056 support so it's not done by just
-> adding some PCI device IDs.
+> The main short coming of using multiple network namespaces today
+> is that only network devices for the primary network namespaces
+> can be put in the kobject layer and sysfs.
 > 
-> But if that's how it should be done I will do so.
+> This is essentially the earlier version of this patchset that was
+> reviewed before, just now on top of a version of sysfs that doesn't
+> need cleanup patches to support it.
+> 
+> I have been running these patches in some form for well over a
+> year so the basics should at least be solid.  
+> 
+> This patchset is currently against 2.6.34-rc1.
+> 
+> This patchset is just the basic infrastructure a couple of more pretty
+> trivial patches are needed to actually enable network namespaces to use this.
+> My current plan is to send those after these patches have made it through
+> review.
 
->From the maintenance point of view, that's the preferred solution.
-Thanks for your effort.
+Thanks very much for keeping this going, Eric!  I'm going to keep
+looking through the code some more, but so far I see no problems.
 
-Wolfgang.
+Acked-by: Serge Hallyn <serue@us.ibm.com>
+
+to the full patchset.  I'm really hoping you'll also include the
+patch to implement the netns support (i.e. basically commit
+fdc0adeaa8bfab9a179e1eb349cab400ddb70403 that you sent inline this
+morning to Tejun).
+
+thanks,
+-serge
