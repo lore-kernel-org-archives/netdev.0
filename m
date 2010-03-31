@@ -1,42 +1,48 @@
-From: Neil Horman <nhorman@redhat.com>
-Subject: Re: [r8169] WARNING: at net/sched/sch_generic.c
-Date: Wed, 31 Mar 2010 09:35:33 -0400
-Message-ID: <20100331133533.GD13963@hmsreliant.think-freely.org>
-References: <20100331102142.GA3294@swordfish.minsk.epam.com>
- <20100331111942.GB13963@hmsreliant.think-freely.org>
- <20100331121426.GB3294@swordfish.minsk.epam.com>
- <1270038569.2103.24.camel@edumazet-laptop>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH] can: Add driver for SJA1000 based PCI CAN interface cards
+	by	esd
+Date: Wed, 31 Mar 2010 15:35:14 +0200
+Message-ID: <4BB34F92.5010308@grandegger.com>
+References: <201003311428.05749.matthias.fuchs@esd.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>,
-	netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1270038569.2103.24.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <201003311428.05749.matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 31, 2010 at 02:29:29PM +0200, Eric Dumazet wrote:
-> Le mercredi 31 mars 2010 =E0 15:14 +0300, Sergey Senozhatsky a =E9cri=
-t :
->=20
->=20
-> > PKT_SIZE=3D"pkt_size 2048"
-> >=20
->=20
-> If you use 1024 bytes pktgen messages, do you still have the problem =
-?
->=20
-+1 I wouldn't be suprised if using something over the nominal 1522 byte=
- frame
-length on r8169 caused tx errors.  The driver doesn't seem to support J=
-umbo
-frames, so my guess is you have to keep the packet size below 1522 byte=
-s.
-Neil
+Hi Matthias,
 
->=20
+Matthias Fuchs wrote:
+> This patch adds support for SJA1000 based PCI CAN interface cards
+> from electronic system design gmbh.
+> 
+> These boards are supported:
+> 
+>         CAN-PCI/200 (PCI)
+>         CAN-PCI/266 (PCI)
+>         CAN-PMC266 (PMC module)
+>         CAN-PCIe/2000 (PCI Express)
+>         CAN-CPCI/200 (Compact PCI, 3U)
+>         CAN-PCI104 (PCI104)
+> 
+> This driver is part of the SocketCAN SVN repository since
+> April 2009.
+> 
+> Signed-off-by: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
+
+Since a while we have a generic PCI PLX driver in the mainline kernel,
+which could support the esd cards as well, I believe.
+
+Wolfgang.
