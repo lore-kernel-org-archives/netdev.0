@@ -1,81 +1,48 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH][V2] MACB: Set PHY address in kernel parameters
-Date: Wed, 31 Mar 2010 11:17:57 +0200
-Message-ID: <4BB31345.5050101@pengutronix.de>
-References: <1270025218-7245-1-git-send-email-anders.darander@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] virtio_net: avoid BUG_ON() with large packets when
+	CONFIG_DEBUG_SG=y
+Date: Wed, 31 Mar 2010 12:17:46 +0300
+Message-ID: <20100331091746.GB31085@redhat.com>
+References: <201003301526.35720.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig859552936876718C43367115"
-Cc: Haavard Skinnemoen <hskinnemoen@atmel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Erik Waling <erik.waling@konftel.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Anders Darander <ad@datarespons.se>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Anders Darander <anders.darander@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:53531 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933001Ab0CaJSV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 05:18:21 -0400
-In-Reply-To: <1270025218-7245-1-git-send-email-anders.darander@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:30458 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932976Ab0CaJVX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Mar 2010 05:21:23 -0400
+Content-Disposition: inline
+In-Reply-To: <201003301526.35720.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig859552936876718C43367115
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Tue, Mar 30, 2010 at 03:26:35PM +1030, Rusty Russell wrote:
+> AFAICT only weird kvm setups and lguest traverse this code path now.
+> 
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 
-Anders Darander wrote:
-> From: Anders Darander <ad@datarespons.se>
->=20
-> Add the possibility to set the phy address. This is needed if an integr=
-ated
-> switch is connected to the MAC, as it is often the case that the highes=
-t port
-> is the one connected to the MAC of the MCU.
->=20
-> E.g. in the case of the Micrel KSZ8873, port 3 is the one to connect to=
- the
-> MCU, thus, the MAC needs to connect to phy address 0x03, instead of the=
- first
-> phy found.
+vhost still lacks support mergeable buffers so it uses this path.
 
-We're using phy_mask in one of our projects, it's still using 2.6.29,
-though. I think it's worth testing if it's still working.
+> ---
+>  drivers/net/virtio_net.c |    3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -351,6 +351,9 @@ static int add_recvbuf_big(struct virtne
+>  	char *p;
+>  	int i, err, offset;
+>  
+> +	/* This is a waste of cycles, but satisfies CONFIG_DEBUG_SG. */
+> +	sg_init_table(sg, ARRAY_SIZE(sg));
+> +
 
-static struct at91_eth_data __initdata p298_macb_data =3D {
-       .is_rmii        =3D 0,
-       .phy_mask       =3D ~(1 << 8),
-};
+How about moving sg into virtnet_info? This way we could call
+this only once, right?
 
-at91_add_device_eth(&p298_macb_data);
-
-cheers, Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig859552936876718C43367115
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iEYEARECAAYFAkuzE0kACgkQjTAFq1RaXHOWSwCfe4KjEgh3Cfju3ikZySkBoHHq
-iOoAnRZE7V1ztWR2kSVXUs9ThmqjMpqh
-=TZD2
------END PGP SIGNATURE-----
-
---------------enig859552936876718C43367115--
+>  	/* page in sg[MAX_SKB_FRAGS + 1] is list tail */
+>  	for (i = MAX_SKB_FRAGS + 1; i > 1; --i) {
+>  		first = get_a_page(vi, gfp);
