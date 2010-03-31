@@ -1,39 +1,40 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: [PATCH] tipc: define needless global scoped variable static
-Date: Wed, 31 Mar 2010 02:24:12 +0200
-Message-ID: <1269995052-10905-1-git-send-email-hagen@jauu.net>
-Cc: per.liden@nospam.ericsson.com, davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/7] xfrm: remove policy lock when accessing
+	policy->walk.dead
+Date: Wed, 31 Mar 2010 08:43:00 +0800
+Message-ID: <20100331004259.GA9977@gondor.apana.org.au>
+References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-2-git-send-email-timo.teras@iki.fi> <20100329144339.GA26214@gondor.apana.org.au> <4BB1842B.9010704@iki.fi> <20100330115351.GA5731@gondor.apana.org.au> <4BB1E8B1.4030604@iki.fi> <4BB2044B.5080704@iki.fi> <20100330142914.GA6840@gondor.apana.org.au> <4BB21A85.2030203@iki.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:60994 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756312Ab0CaAeu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 20:34:50 -0400
+Received: from ringil.hengli.com.au ([216.59.3.182]:54010 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755594Ab0CaAnE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 20:43:04 -0400
+Content-Disposition: inline
+In-Reply-To: <4BB21A85.2030203@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-struct _zone *tipc_zones has local scope level and
-should defined with the correct scoping.
+On Tue, Mar 30, 2010 at 06:36:37PM +0300, Timo Ter=E4s wrote:
+>
+> I only added it because it's non-trivial to figure out if there's
+> any code path that could race. It's a great help for reader of the
+> code to see that it's correct even if it's not strictly needed.
 
-CC: Per Liden <per.liden@nospam.ericsson.com>
-Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
----
- net/tipc/net.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+No that's bad because you're misleading people into thinking
+something that isn't allowed can happen.  It's much better to
+add a comment instead.
 
-diff --git a/net/tipc/net.c b/net/tipc/net.c
-index 79ce8fa..d7cd1e0 100644
---- a/net/tipc/net.c
-+++ b/net/tipc/net.c
-@@ -116,7 +116,7 @@
- */
- 
- DEFINE_RWLOCK(tipc_net_lock);
--struct _zone *tipc_zones[256] = { NULL, };
-+static struct _zone *tipc_zones[256] = { NULL, };
- struct network tipc_net = { tipc_zones };
- 
- struct tipc_node *tipc_net_select_remote_node(u32 addr, u32 ref)
--- 
-1.6.6.196.g1f735.dirty
+> I will also include a patch to fix the missing 'dir' check in
+> xfrm_user.
 
+Thanks,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
