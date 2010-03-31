@@ -1,65 +1,51 @@
 From: Glen Turner <gdt@gdt.id.au>
 Subject: Re: UDP path MTU discovery
-Date: Thu, 01 Apr 2010 10:13:04 +1030
-Message-ID: <1270078984.2389.33.camel@ilion>
+Date: Thu, 01 Apr 2010 10:27:44 +1030
+Message-ID: <1270079864.2389.48.camel@ilion>
 References: <1269561751.2891.8.camel@ilion>
-	 <877how25kx.fsf@basil.nowhere.org>  <4BB0DCF6.9020401@hp.com>
+	 <20100325.202424.201654947.davem@davemloft.net>
+	 <87bpe825z2.fsf@basil.nowhere.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:36029 "EHLO
+Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:48546 "EHLO
 	aix.gdt.id.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754139Ab0CaXl6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 19:41:58 -0400
-In-Reply-To: <4BB0DCF6.9020401@hp.com>
+	with ESMTP id S1755072Ab0CaX40 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 19:56:26 -0400
+In-Reply-To: <87bpe825z2.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-03-29 at 10:01 -0700, Rick Jones wrote:
+On Sun, 2010-03-28 at 10:41 +0200, Andi Kleen wrote:
 
-> But which of the last N datagrams sent by the application should be retained for 
-> retransmission?  It could be scores if not hundreds of datagrams depending on 
-> the behaviour of the application and the latency to the narrow part of the network.
+> It means though that all IPv6 UDP applications essentially have
+> to implement path mtu discovery support (which is non trivial) 
 
-We don't need that sort of exotica from the kernel.  The applications
-have to be prepared to retransmit lost packets in any case.
+It is trivial from the applications point of view to let the
+kernel find the UDP Path MTU. We just need more information
+from the kernel as to when it would like to see those packets
+(ie, for performance we'd like to feed in the packet to re-send
+as soon as the ICMP Packet Too Big arrives for the previous
+packet).
 
-What we need is an API for an instant notification that a ICMP Packet
-Too Big message has arrived concerning the socket.
+> Will be likely a long time until they're all fixed.
 
-Then the application simply retransmits immediately, without adding
-to the exponential backoff penalty which the application maintains.
-The application maintain a overall packet-transmitted limit to prevent
-a DoS.
+There's no need to make that assumption.  We'd very much like
+transactional UDP protocols to work well in advanced networks.
+The other choices -- holding down millions of TCP sockets,
+or using new protocols (and there are competing proposals) --
+don't exactly fill our operations teams with confidence.
 
->From this application behaviour the kernel sees a stream of packets
-it can use for UDP Path MTU Discovery (paced at the RTT, so not
-contributing to congestion collapse). That stream halts when the
-first packet makes it to the end system.
+We'd very much like to use UDP were we can and something else
+where we must.
 
-As for David Miller's rant, the applications currently have no choice
-but to "do it stupidly" as the kernel doesn't pass enough information
-for user space to do it intelligently.  If the kernel passed user space
-the same indication as TCP gets, then we could -- and would -- do it
-right.
+> Seems like a big hole not considered by the IPv6 designers?
 
-Re-writing the applications to take advantage of the API is no great
-shakes -- there aren't many of them, they are written by people with
-a good knowledge of networking, but unfortunately they tend to do
-important stuff (allocate addresses, serve names, authenticate link
-layer access).
-
-It would be nice if the API had some commonality between platforms.
-But there's no shortage of #ifdefs already, and one more to make
-these applications work well for IPv6 on jumbo frames on the platform
-of choice for networking infrastructure would be seen by application
-authors as well worthwhile.
-
-Thanks for your consideration,
-Glen
+Yeah. The sockets API for IPv6 required an additional feature that
+the IETF did not foresee.
 
 -- 
  Glen Turner
