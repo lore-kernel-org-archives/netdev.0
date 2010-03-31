@@ -1,138 +1,99 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: rps: keep the old behavior on SMP without rps
-Date: Wed, 31 Mar 2010 13:28:53 +0800
-Message-ID: <4BB2DD95.90402@gmail.com>
-Reply-To: xiaosuo@gmail.com
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH 1/6] sysfs: Basic support for multiple super blocks
+Date: Wed, 31 Mar 2010 14:41:44 +0900
+Message-ID: <4BB2E098.7030202@kernel.org>
+References: <m1fx3hk6gw.fsf@fess.ebiederm.org> <1269973889-25260-1-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>, xiaosuo <xiaosuo@gmail.com>,
-	netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:42883 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754272Ab0CaF3U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 01:29:20 -0400
-Received: by gyg13 with SMTP id 13so2604369gyg.19
-        for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 22:29:18 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Greg Kroah-Hartman <gregkh@suse.de>,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	linux-kernel@vger.kernel.org,
+	Cornelia Huck <cornelia.huck@de.ibm.com>,
+	linux-fsdevel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Benjamin LaHaise <bcrl@lhnet.ca>,
+	Serge Hallyn <serue@us.ibm.com>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1269973889-25260-1-git-send-email-ebiederm@xmission.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-keep the old behavior on SMP without rps
+Hello, Eric.
 
-RPS introduces a lock operation to per cpu variable input_pkt_queue on
-SMP whenever rps is enabled or not. On SMP without RPS, this lock isn't
-needed at all.
+On 03/31/2010 03:31 AM, Eric W. Biederman wrote:
+> From: Eric W. Biederman <ebiederm@xmission.com>
+> 
+> Add all of the necessary bioler plate to support
+                           boiler :-)
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
-net/core/dev.c | 34 ++++++++++++++++++++++++++--------
-1 file changed, 26 insertions(+), 8 deletions(-)
+> +static int sysfs_test_super(struct super_block *sb, void *data)
+> +{
+> +	struct sysfs_super_info *sb_info = sysfs_info(sb);
+> +	struct sysfs_super_info *info = data;
+> +	int found = 1;
+> +	return found;
+> +}
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3e7fa16..14ad3b7 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2314,13 +2314,19 @@ static int enqueue_to_backlog(struct sk_buff *skb, int cpu)
- 	local_irq_save(flags);
- 	__get_cpu_var(netdev_rx_stat).total++;
- 
-+#ifdef CONFIG_RPS
- 	spin_lock(&queue->input_pkt_queue.lock);
-+#endif
- 	if (queue->input_pkt_queue.qlen <= netdev_max_backlog) {
- 		if (queue->input_pkt_queue.qlen) {
- enqueue:
- 			__skb_queue_tail(&queue->input_pkt_queue, skb);
-+#ifdef CONFIG_RPS
- 			spin_unlock_irqrestore(&queue->input_pkt_queue.lock,
- 			    flags);
-+#else
-+			local_irq_restore(flags);
-+#endif
- 			return NET_RX_SUCCESS;
- 		}
- 
-@@ -2342,7 +2348,9 @@ enqueue:
- 		goto enqueue;
- 	}
- 
-+#ifdef CONFIG_RPS
- 	spin_unlock(&queue->input_pkt_queue.lock);
-+#endif
- 
- 	__get_cpu_var(netdev_rx_stat).dropped++;
- 	local_irq_restore(flags);
-@@ -2767,19 +2775,23 @@ int netif_receive_skb(struct sk_buff *skb)
- EXPORT_SYMBOL(netif_receive_skb);
- 
- /* Network device is going away, flush any packets still pending  */
--static void flush_backlog(struct net_device *dev, int cpu)
-+static void flush_backlog(void *arg)
- {
--	struct softnet_data *queue = &per_cpu(softnet_data, cpu);
-+	struct net_device *dev = arg;
-+	struct softnet_data *queue = &__get_cpu_var(softnet_data);
- 	struct sk_buff *skb, *tmp;
--	unsigned long flags;
- 
--	spin_lock_irqsave(&queue->input_pkt_queue.lock, flags);
-+#ifdef CONFIG_RPS
-+	spin_lock(&queue->input_pkt_queue.lock);
-+#endif
- 	skb_queue_walk_safe(&queue->input_pkt_queue, skb, tmp)
- 		if (skb->dev == dev) {
- 			__skb_unlink(skb, &queue->input_pkt_queue);
- 			kfree_skb(skb);
- 		}
--	spin_unlock_irqrestore(&queue->input_pkt_queue.lock, flags);
-+#ifdef CONFIG_RPS
-+	spin_unlock(&queue->input_pkt_queue.lock);
-+#endif
- }
- 
- static int napi_gro_complete(struct sk_buff *skb)
-@@ -3092,14 +3104,22 @@ static int process_backlog(struct napi_struct *napi, int quota)
- 	do {
- 		struct sk_buff *skb;
- 
-+#ifdef CONFIG_RPS
- 		spin_lock_irq(&queue->input_pkt_queue.lock);
-+#else
-+		local_irq_disable();
-+#endif
- 		skb = __skb_dequeue(&queue->input_pkt_queue);
- 		if (!skb) {
- 			__napi_complete(napi);
- 			spin_unlock_irq(&queue->input_pkt_queue.lock);
- 			break;
- 		}
-+#ifdef CONFIG_RPS
- 		spin_unlock_irq(&queue->input_pkt_queue.lock);
-+#else
-+		local_irq_enable();
-+#endif
- 
- 		__netif_receive_skb(skb);
- 	} while (++work < quota && jiffies == start_time);
-@@ -5549,7 +5569,6 @@ void netdev_run_todo(void)
- 	while (!list_empty(&list)) {
- 		struct net_device *dev
- 			= list_first_entry(&list, struct net_device, todo_list);
--		int i;
- 		list_del(&dev->todo_list);
- 
- 		if (unlikely(dev->reg_state != NETREG_UNREGISTERING)) {
-@@ -5561,8 +5580,7 @@ void netdev_run_todo(void)
- 
- 		dev->reg_state = NETREG_UNREGISTERED;
- 
--		for_each_online_cpu(i)
--			flush_backlog(dev, i);
-+		on_each_cpu(flush_backlog, dev, 1);
- 
- 		netdev_wait_allrefs(dev);
- 
+Can you please make it return bool?
 
+>  static int sysfs_get_sb(struct file_system_type *fs_type,
+>  	int flags, const char *dev_name, void *data, struct vfsmount *mnt)
+>  {
+> -	return get_sb_single(fs_type, flags, data, sysfs_fill_super, mnt);
+> +	struct sysfs_super_info *info;
+> +	struct super_block *sb;
+> +	int error;
+> +
+> +	error = -ENOMEM;
+> +	info = kzalloc(sizeof(*info), GFP_KERNEL);
+> +	if (!info)
+> +		goto out;
+> +	sb = sget(fs_type, sysfs_test_super, sysfs_set_super, info);
+> +	if (IS_ERR(sb) || sb->s_fs_info != info)
+> +		kfree(info);
+> +	if (IS_ERR(sb)) {
+> +		kfree(info);
+> +		error = PTR_ERR(sb);
+> +		goto out;
+> +	}
+> +	if (!sb->s_root) {
+> +		sb->s_flags = flags;
+> +		error = sysfs_fill_super(sb, data, flags & MS_SILENT ? 1 : 0);
+> +		if (error) {
+> +			deactivate_locked_super(sb);
+> +			goto out;
+> +		}
+> +		sb->s_flags |= MS_ACTIVE;
+> +	}
+> +
+> +	simple_set_mnt(mnt, sb);
+> +	error = 0;
+> +out:
+> +	return error;
+> +}
 
+I haven't looked at later patches but I suppose this is gonna be
+filled with more meaningful stuff later.  One (possibly silly) thing
+that stands out compared to get_sb_single() is missing remount
+handling.  Is it intended?
+
+> index 30f5a44..030a39d 100644
+> --- a/fs/sysfs/sysfs.h
+> +++ b/fs/sysfs/sysfs.h
+> @@ -114,6 +114,9 @@ struct sysfs_addrm_cxt {
+>  /*
+>   * mount.c
+>   */
+> +struct sysfs_super_info {
+> +};
+> +#define sysfs_info(SB) ((struct sysfs_super_info *)(SB->s_fs_info))
+
+Another nit picking.  It would be better to wrap SB in the macro
+definition.  Also, wouldn't an inline function be better?
+
+Thanks.
+
+-- 
+tejun
