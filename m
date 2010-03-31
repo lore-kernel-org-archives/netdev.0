@@ -1,39 +1,29 @@
-From: Dimitris Michailidis <dm@chelsio.com>
-Subject: Re: [PATCH 1/6] cxgb4: Add register, message, and FW definitions
-Date: Tue, 30 Mar 2010 18:25:56 -0700
-Message-ID: <4BB2A4A4.8050904@chelsio.com>
-References: <1269975142-30896-1-git-send-email-dm@chelsio.com>	<1269975142-30896-2-git-send-email-dm@chelsio.com> <20100330140928.3a9c3f34@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH next-next-2.6 v2] virtio_net: missing sg_init_table
+Date: Tue, 30 Mar 2010 18:32:19 -0700 (PDT)
+Message-ID: <20100330.183219.40571153.davem@davemloft.net>
+References: <1269887518.13277.13.camel@localhost.localdomain>
+	<4BB10010.5060505@mathtm.de>
+	<1269911955.14013.4.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:11740 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756431Ab0CaB0A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 21:26:00 -0400
-In-Reply-To: <20100330140928.3a9c3f34@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: thomas@mathtm.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: mashirle@us.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1269911955.14013.4.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Tue, 30 Mar 2010 10:52:17 -0800
-> Dimitris Michailidis <dm@chelsio.com> wrote:
-> 
->> +union opcode_tid {
->> +	__be32 opcode_tid;
->> +	__u8 opcode;
->> +};
->> +
-> 
-> The intent of the __types like __u8 etc are that these types
-> should only be used by structures that are part in some way of
-> a kernel to userspace API. Any structures which are only used
-> in the kernel should just use the regular type (ie u8).
-> 
-> I say intent because many places do not follow this practice.
-> 
+=46rom: Shirley Ma <mashirle@us.ibm.com>
+Date: Mon, 29 Mar 2010 18:19:15 -0700
 
-These headers aren't meant to be seen by user space and I can certainly 
-replace __u8 with u8.  I'll update the patch.
+> Add missing sg_init_table for sg_set_buf in virtio_net which
+> induced in defer skb patch.
+>=20
+> Reported-by: Thomas M=FCller <thomas@mathtm.de>
+> Tested-by: Thomas M=FCller <thomas@mathtm.de>
+> Signed-off-by: Shirley Ma <xma@us.ibm.com>
+
+Applied, thanks.
