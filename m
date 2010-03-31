@@ -1,46 +1,40 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [Patch] bonding: fix potential deadlock in bond_uninit()
-Date: Wed, 31 Mar 2010 16:02:37 -0700
-Message-ID: <20100331160237.73560dfe@s6510>
-References: <20100331105559.5607.38643.sendpatchset@localhost.localdomain>
-	<m1d3ykzq5a.fsf@fess.ebiederm.org>
+Subject: Re: iproute2: silence errors about kernel missing 6rd on "ip tun
+ show".
+Date: Wed, 31 Mar 2010 16:06:42 -0700
+Message-ID: <20100331160642.75766629@s6510>
+References: <20100331080854.GA3810@amd64.fatal.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Amerigo Wang <amwang@redhat.com>, linux-kernel@vger.kernel.org,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	bonding-devel@lists.sourceforge.net,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: ebiederm@xmission.com (Eric W. Biederman)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <m1d3ykzq5a.fsf@fess.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Alexandre Cassen <acassen@freebox.fr>, 575970@bugs.debian.org,
+	netdev@vger.kernel.org
+To: Andreas Henriksson <andreas@fatal.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:56373 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754553Ab0CaXGt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Mar 2010 19:06:49 -0400
+In-Reply-To: <20100331080854.GA3810@amd64.fatal.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 31 Mar 2010 04:28:33 -0700
-ebiederm@xmission.com (Eric W. Biederman) wrote:
+On Wed, 31 Mar 2010 10:08:54 +0200
+Andreas Henriksson <andreas@fatal.se> wrote:
 
-> Amerigo Wang <amwang@redhat.com> writes:
+> Hello!
 > 
-> > bond_uninit() is invoked with rtnl_lock held, when it does destroy_workqueue()
-> > which will potentially flush all works in this workqueue, if we hold rtnl_lock
-> > again in the work function, it will deadlock.
-> >
-> > So unlock rtnl_lock before calling destroy_workqueue().
+> As reported in http://bugs.debian.org/575970 there is currently a warning
+> printed for every tunnel when using latest iproute2 on atleast <= 2.6.32
+> kernels (missing 6rd?!).
 > 
-> Ouch.  That seems rather rude to our caller, and likely very
-> dangerous.
+> The attached patch avoids perror when errno is EINVAL, which I assume
+> is the way to detect missing 6rd support. A better/cleaner
+> method to detect and avoid 6rd when there's no kernel support
+> is more then welcome.
 > 
-> Is this a deadlock you actually hit, or is this something lockdep
-> warned about?
+> Regards,
+> Andreas Henriksson
 > 
-> My gut feel says we need to move the destroy_workqueue into
-> the network device destructor.
-> 
-> Eric
 
-Why is there one workqueue per bond device rather than just one workqueue for
-all bonding devices controlled by the module instance? It would be cleaner
-on removal and less space and overhead.  I can't see that doing arp/mii or alb
-work is high parallel and load activity.
+I will wait (a little while) to see if Alexandre has a preferred alternative.
