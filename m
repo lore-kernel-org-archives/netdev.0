@@ -1,64 +1,78 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: iproute u32 filter - server hang
-Date: Wed, 31 Mar 2010 12:01:02 +0200
-Message-ID: <4BB31D5E.5040800@trash.net>
-References: <4BB3116F.803@itcare.pl> <4BB31731.9060104@trash.net> <4BB31908.5090601@itcare.pl> <4BB31A08.90809@trash.net> <4BB31D15.3000500@itcare.pl>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH] MACB: Set PHY address in kernel parameters
+Date: Wed, 31 Mar 2010 12:03:13 +0200
+Message-ID: <20100331100313.GA4053@psychotron.lab.eng.brq.redhat.com>
+References: <1270021902-6556-1-git-send-email-anders.darander@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58761 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933144Ab0CaKBE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 06:01:04 -0400
-In-Reply-To: <4BB31D15.3000500@itcare.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Haavard Skinnemoen <hskinnemoen@atmel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Erik Waling <erik.waling@konftel.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Anders Darander <ad@datarespons.se>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Anders Darander <anders.darander@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1270021902-6556-1-git-send-email-anders.darander@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Pawe=C5=82 Staszewski wrote:
-> W dniu 2010-03-31 11:46, Patrick McHardy pisze:
->>>>> tc filter add dev eth0 protocol ip parent 1:101 u32 match ip
->>>>> protocol 1
->>>>> 0xff flowid 1:101
->>>>>
->>>>> ping 212.77.100.101
->>>>> And after this server will stop responding to anything - without =
-any
->>>>> error (hang).
->>>>>
->>>>>         =20
->>>> This is caused by hfsc_classify() looping endlessly since the filt=
-er
->>>> points to the originating class. hfsc_bind_tcf() is actually suppo=
-sed
->>>> to prevent this, but it only prevents resolving the filter immedia=
-tely
->>>> and we still run into the loop at runtime.
->>>>
->>>> This patch (based on how CBQ handles this) should abort classifica=
-tion
->>>> and fall back to the default class. It would be better to simply c=
-atch
->>>> this at configuration time, but that looks a bit more involved. I'=
-ll
->>>> try
->>>> to look into it this weekend.
->>>>
->>>>
->>>>
->>>>       =20
->>> I check this also with htb and the same problem like with hfsc.
->>> This rules also hang my server.
->>>     =20
->> Yes, HTB doesn't even catch loops when binding filters. As I said,
->> its a larger piece of work, for now please just try the patch I
->> sent.
->>   =20
->=20
-> Yes.
-> Your patch fix this problem.
+Wed, Mar 31, 2010 at 09:51:42AM CEST, anders.darander@gmail.com wrote:
+>From: Anders Darander <ad@datarespons.se>
+>
+>Add the possibility to set the phy address. This is needed if an integrated
+>switch is connected to the MAC, as it is often the case that the highest port
+>is the one connected to the MAC of the MCU.
+>
+>E.g. in the case of the Micrel KSZ8873, port 3 is the one to connect to the
+>MCU, thus, the MAC needs to connect to phy address 0x03, instead of the first
+>phy found.
+>
+>Signed-off-by: Anders Darander <ad@datarespons.se>
+>---
+> drivers/net/macb.c |   14 +++++++++++++-
+> 1 files changed, 13 insertions(+), 1 deletions(-)
+>
+>diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+>index c8a18a6..9b4e301 100644
+>--- a/drivers/net/macb.c
+>+++ b/drivers/net/macb.c
+>@@ -53,6 +53,14 @@
+> #define MACB_RX_INT_FLAGS	(MACB_BIT(RCOMP) | MACB_BIT(RXUBR)	\
+> 				 | MACB_BIT(ISR_ROVR))
+> 
+>+/*
+>+ * Setup PHY probeing
+>+ */
+>+
+>+static int phy_addr = PHY_MAX_ADDR;
+>+module_param(phy_addr, ushort, 0);
+>+MODULE_PARAM_DESC(phy_addr, "PHY address connected to the MACB");
+>+
+> static void __macb_set_hwaddr(struct macb *bp)
+> {
+> 	u32 bottom;
+>@@ -193,7 +201,11 @@ static int macb_mii_probe(struct net_device *dev)
+> 	struct eth_platform_data *pdata;
+> 	int ret;
+> 
+>-	phydev = phy_find_first(bp->mii_bus);
+>+	if (phy_addr >= PHY_MAX_ADDRESS)
+>+		phydev = phy_find_first(bp->mii_bus);
+>+	else
+>+		phydev = bp->mii_bus->phy_map[phy_addr];
+>+
+> 	if (!phydev) {
+> 		printk (KERN_ERR "%s: no PHY found\n", dev->name);
+> 		return -1;
+>-- 
+>1.7.0.3
+>
 
-Thanks for testing, I'll let you know once I have a complete
-patch for this problem.
+This is really ugly :( Should be done differently, more general. I've been
+thinking about this for a while. Maybe the solution is to integrate the switch
+into DSA subsystem. See net/dsa. Not sure though...
+
+Jirka
