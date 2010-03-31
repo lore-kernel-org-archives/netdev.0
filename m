@@ -1,47 +1,40 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 3/4] xfrm: remove policy lock when accessing
- policy->walk.dead
-Date: Wed, 31 Mar 2010 13:47:57 -0400
-Message-ID: <1270057677.26743.116.camel@bigi>
-References: <1270030626-16687-1-git-send-email-timo.teras@iki.fi>
-	 <1270030626-16687-5-git-send-email-timo.teras@iki.fi>
-	 <20100331110345.GC12845@gondor.apana.org.au>
-	 <1270040773.26743.12.camel@bigi>
-	 <20100331131131.GA13793@gondor.apana.org.au>
-	 <1270042092.26743.26.camel@bigi>
-	 <20100331135331.GB14082@gondor.apana.org.au>  <4BB37B48.5020308@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Geoff Levand <geoffrey.levand@am.sony.com>
+Subject: Re: [PATCH v2 5/7] drivers/net: Remove local #define IW_IOCTL, use
+ STD_IW_HANDLER
+Date: Wed, 31 Mar 2010 10:55:15 -0700
+Message-ID: <4BB38C83.9090808@am.sony.com>
+References: <cover.1268892663.git.joe@perches.com> <696c60e097ff35aeb2d746d1a0edf167514f2b61.1268892664.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Timo Teras <timo.teras@iki.fi>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f220.google.com ([209.85.219.220]:39785 "EHLO
-	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757910Ab0CaRsE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 13:48:04 -0400
-Received: by ewy20 with SMTP id 20so112819ewy.1
-        for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 10:48:02 -0700 (PDT)
-In-Reply-To: <4BB37B48.5020308@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Richard Kennedy <richard@rsk.demon.co.uk>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Zhu Yi <yi.zhu@intel.com>,
+	Reinette Chatre <reinette.chatre@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"linuxppc-dev@ozlabs.org" <linuxppc-dev@ozlabs.org>,
+	"cbe-oss-dev@ozlabs.org" <cbe-oss-dev@ozlabs.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <696c60e097ff35aeb2d746d1a0edf167514f2b61.1268892664.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2010-03-31 at 18:41 +0200, Patrick McHardy wrote:
+Hi,
 
-> I agree with Herbert, the flush notification indicates that
-> the table is now empty, independant of its previous state.
+On 03/17/2010 11:21 PM, Joe Perches wrote:
+> Use #define STD_IW_HANDLER from wireless.h instead
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  drivers/net/ps3_gelic_wireless.c       |   35 +++++++-------
+>  drivers/net/wireless/ipw2x00/ipw2200.c |   83 ++++++++++++++++----------------
+>  2 files changed, 58 insertions(+), 60 deletions(-)
 
-What purpose does it serve?
+Sorry for the delay.  This looks fine for the PS3.
 
-As an example, if i delete an entry, the fact i deleted an entry is 
-of interest to some manager in user space for the purpose of syncing.
-If i brought a link down, same thing. If i brought a link down
-that was already down - why would that be of interest to generate
-as an event? etc.
-
-cheers,
-jamal
-
+Acked-by: Geoff Levand <geoff@infradead.org>
