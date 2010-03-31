@@ -1,398 +1,52 @@
-From: Matthias Fuchs <matthias.fuchs@esd.eu>
-Subject: [PATCH] can: Add driver for SJA1000 based PCI CAN interface cards by esd
-Date: Wed, 31 Mar 2010 14:28:05 +0200
-Message-ID: <201003311428.05749.matthias.fuchs@esd.eu>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 3/7] flow: allocate hash table for online cpus only
+Date: Wed, 31 Mar 2010 23:02:51 +1030
+Message-ID: <201003312302.51683.rusty@rustcorp.com.au>
+References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-4-git-send-email-timo.teras@iki.fi> <20100330121255.GC5731@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core@lists.berlios.de
-To: netdev@vger.kernel.org
+Cc: Timo Teras <timo.teras@iki.fi>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.9]:62965 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932831Ab0CaMa1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 08:30:27 -0400
-Content-Disposition: inline
+Received: from ozlabs.org ([203.10.76.45]:36942 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932875Ab0CaMcz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Mar 2010 08:32:55 -0400
+In-Reply-To: <20100330121255.GC5731@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for SJA1000 based PCI CAN interface cards
-from electronic system design gmbh.
+On Tue, 30 Mar 2010 10:42:55 pm Herbert Xu wrote:
+> On Mon, Mar 29, 2010 at 05:12:40PM +0300, Timo Teras wrote:
+> > Instead of unconditionally allocating hash table for all possible
+> > cpu's, allocate it only for online cpu's and release related
+> > memory if cpu goes down.
+> > 
+> > Signed-off-by: Timo Teras <timo.teras@iki.fi>
+> 
+> Hmm that's where we started but then Rusty changed it back in 2004:
+> 
+> commit 0a32dc4d8e83c48f7535d66731eb35d1916b39a8
+> Author: Rusty Russell <rusty@rustcorp.com.au>
+> Date:   Wed Jan 21 18:14:37 2004 -0800
+> 
+>     [NET]: Simplify net/flow.c per-cpu handling.
+> 
+>     The cpu handling in net/core/flow.c is complex: it tries to allocate
+>     flow cache as each CPU comes up.  It might as well allocate them for
+>     each possible CPU at boot.
+> 
+> So I'd like to hear his opinion on changing it back again.
 
-These boards are supported:
+It was pretty unique at the time, it no longer is, so the arguments are less
+compelling IMHO.
 
-        CAN-PCI/200 (PCI)
-        CAN-PCI/266 (PCI)
-        CAN-PMC266 (PMC module)
-        CAN-PCIe/2000 (PCI Express)
-        CAN-CPCI/200 (Compact PCI, 3U)
-        CAN-PCI104 (PCI104)
+However, we can now use a dynamic percpu variable and get it as a real
+per-cpu thing (which currently means it *will* be for every available cpu,
+not just online ones).  Haven't thought about it, but that change might be
+worth considering instead?
 
-This driver is part of the SocketCAN SVN repository since
-April 2009.
-
-Signed-off-by: Matthias Fuchs <matthias.fuchs@esd.eu>
----
- drivers/net/can/sja1000/Kconfig   |    9 +
- drivers/net/can/sja1000/Makefile  |    1 +
- drivers/net/can/sja1000/esd_pci.c |  315 +++++++++++++++++++++++++++++++++++++
- 3 files changed, 325 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/can/sja1000/esd_pci.c
-
-diff --git a/drivers/net/can/sja1000/Kconfig b/drivers/net/can/sja1000/Kconfig
-index 9e277d6..c01eb4e 100644
---- a/drivers/net/can/sja1000/Kconfig
-+++ b/drivers/net/can/sja1000/Kconfig
-@@ -37,6 +37,15 @@ config CAN_EMS_PCI
- 	  CPC-PCIe and CPC-104P cards from EMS Dr. Thomas Wuensche
- 	  (http://www.ems-wuensche.de).
- 
-+config CAN_ESD_PCI
-+	tristate "ESD PCI Cards"
-+	depends on PCI
-+	---help---
-+	  This driver supports the esd PCI CAN cards CAN-PCI/200,
-+	  CAN-PCI/266, CAN-PMC/266 (PMC), CAN-CPCI/200 (CompactPCI),
-+	  CAN-PCIe2000 (PCI Express) and CAN-PCI104/200 (PCI104)
-+	  from the esd electronic system design gmbh (http://www.esd.eu).
-+
- config CAN_KVASER_PCI
- 	tristate "Kvaser PCIcanx and Kvaser PCIcan PCI Cards"
- 	depends on PCI
-diff --git a/drivers/net/can/sja1000/Makefile b/drivers/net/can/sja1000/Makefile
-index ce92455..a8dcbe0 100644
---- a/drivers/net/can/sja1000/Makefile
-+++ b/drivers/net/can/sja1000/Makefile
-@@ -7,6 +7,7 @@ obj-$(CONFIG_CAN_SJA1000_ISA) += sja1000_isa.o
- obj-$(CONFIG_CAN_SJA1000_PLATFORM) += sja1000_platform.o
- obj-$(CONFIG_CAN_SJA1000_OF_PLATFORM) += sja1000_of_platform.o
- obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o
-+obj-$(CONFIG_CAN_ESD_PCI) += esd_pci.o
- obj-$(CONFIG_CAN_KVASER_PCI) += kvaser_pci.o
- obj-$(CONFIG_CAN_PLX_PCI) += plx_pci.o
- 
-diff --git a/drivers/net/can/sja1000/esd_pci.c b/drivers/net/can/sja1000/esd_pci.c
-new file mode 100644
-index 0000000..98389f2
---- /dev/null
-+++ b/drivers/net/can/sja1000/esd_pci.c
-@@ -0,0 +1,315 @@
-+/*
-+ * Copyright (C) 2007 Wolfgang Grandegger <wg@grandegger.com>
-+ * Copyright (C) 2008 Sascha Hauer <s.hauer@pengutronix.de>, Pengutronix
-+ * Copyright (C) 2009 Matthias Fuchs <matthias.fuchs@esd.eu>, esd gmbh
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software Foundation,
-+ * Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/interrupt.h>
-+#include <linux/netdevice.h>
-+#include <linux/delay.h>
-+#include <linux/pci.h>
-+#include <linux/can.h>
-+#include <linux/can/dev.h>
-+#include <linux/io.h>
-+
-+#include "sja1000.h"
-+
-+#define DRV_NAME  "esd_pci"
-+
-+MODULE_AUTHOR("Matthias Fuchs <matthias.fuchs@esd.eu");
-+MODULE_DESCRIPTION("Socket-CAN driver for esd PCI/PMC/CPCI/PCIe/PCI104 " \
-+		   "CAN cards");
-+MODULE_SUPPORTED_DEVICE("esd CAN-PCI/200, CAN-PCI/266, CAN-PMC266, " \
-+			"CAN-PCIe/2000, CAN-CPCI/200, CAN-PCI104");
-+MODULE_LICENSE("GPL v2");
-+
-+/* Maximum number of interfaces supported on one card. */
-+#define ESD_PCI_MAX_CAN 2
-+
-+struct esd_pci {
-+	struct pci_dev *pci_dev;
-+	struct net_device *dev[ESD_PCI_MAX_CAN];
-+	void __iomem *conf_addr;
-+	void __iomem *base_addr;
-+};
-+
-+#define ESD_PCI_CAN_CLOCK	(16000000 / 2)
-+
-+#define ESD_PCI_OCR		(OCR_TX0_PUSHPULL | OCR_TX1_PUSHPULL)
-+#define ESD_PCI_CDR		0
-+
-+#define CHANNEL_OFFSET		0x100
-+
-+#define INTCSR_OFFSET		0x4c /* Offset in PLX9050 conf registers */
-+#define INTCSR_LINTI1		(1 << 0)
-+#define INTCSR_PCI		(1 << 6)
-+
-+#define INTCSR9056_OFFSET	0x68 /* Offset in PLX9056 conf registers */
-+#define INTCSR9056_LINTI	(1 << 11)
-+#define INTCSR9056_PCI		(1 << 8)
-+
-+/* PCI subsystem IDs of esd's SJA1000 based CAN cards */
-+
-+/* CAN-PCI/200: PCI, 33MHz only, bridge: PLX9050 */
-+#define ESD_PCI_SUB_SYS_ID_PCI200	0x0004
-+
-+/* CAN-PCI/266: PCI, 33/66MHz, bridge: PLX9056 */
-+#define ESD_PCI_SUB_SYS_ID_PCI266	0x0009
-+
-+/* CAN-PMC/266: PMC module, 33/66MHz, bridge: PLX9056 */
-+#define ESD_PCI_SUB_SYS_ID_PMC266	0x000e
-+
-+/* CAN-CPCI/200: Compact PCI, 33MHz only, bridge: PLX9030 */
-+#define ESD_PCI_SUB_SYS_ID_CPCI200	0x010b
-+
-+/* CAN-PCIE/2000: PCI Express 1x, bridge: PEX8311 = PEX8111 + PLX9056 */
-+#define ESD_PCI_SUB_SYS_ID_PCIE2000	0x0200
-+
-+/* CAN-PCI/104: PCI104 module, 33MHz only, bridge: PLX9030 */
-+#define ESD_PCI_SUB_SYS_ID_PCI104200	0x0501
-+
-+static DEFINE_PCI_DEVICE_TABLE(esd_pci_tbl) = {
-+	{PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9050,
-+	 PCI_VENDOR_ID_ESDGMBH, ESD_PCI_SUB_SYS_ID_PCI200},
-+	{PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9056,
-+	 PCI_VENDOR_ID_ESDGMBH, ESD_PCI_SUB_SYS_ID_PCI266},
-+	{PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9056,
-+	 PCI_VENDOR_ID_ESDGMBH, ESD_PCI_SUB_SYS_ID_PMC266},
-+	{PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9030,
-+	 PCI_VENDOR_ID_ESDGMBH, ESD_PCI_SUB_SYS_ID_CPCI200},
-+	{PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9056,
-+	 PCI_VENDOR_ID_ESDGMBH, ESD_PCI_SUB_SYS_ID_PCIE2000},
-+	{PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9030,
-+	 PCI_VENDOR_ID_ESDGMBH, ESD_PCI_SUB_SYS_ID_PCI104200},
-+	{0,}
-+};
-+
-+#define ESD_PCI_BASE_SIZE  0x200
-+
-+MODULE_DEVICE_TABLE(pci, esd_pci_tbl);
-+
-+static u8 esd_pci_read_reg(const struct sja1000_priv *priv, int port)
-+{
-+	return readb(priv->reg_base + port);
-+}
-+
-+static void esd_pci_write_reg(const struct sja1000_priv *priv, int port, u8 val)
-+{
-+	writeb(val, priv->reg_base + port);
-+}
-+
-+static void esd_pci_del_chan(struct pci_dev *pdev, struct net_device *ndev)
-+{
-+	dev_info(&pdev->dev, "Removing device %s\n", ndev->name);
-+
-+	unregister_sja1000dev(ndev);
-+
-+	free_sja1000dev(ndev);
-+}
-+
-+static struct net_device * __devinit esd_pci_add_chan(struct pci_dev *pdev,
-+						      void __iomem *base_addr)
-+{
-+	struct net_device *ndev;
-+	struct sja1000_priv *priv;
-+	int err;
-+
-+	ndev = alloc_sja1000dev(0);
-+	if (ndev == NULL)
-+		return ERR_PTR(-ENOMEM);
-+
-+	priv = netdev_priv(ndev);
-+
-+	priv->reg_base = base_addr;
-+
-+	priv->read_reg = esd_pci_read_reg;
-+	priv->write_reg = esd_pci_write_reg;
-+
-+	priv->can.clock.freq = ESD_PCI_CAN_CLOCK;
-+
-+	priv->ocr = ESD_PCI_OCR;
-+	priv->cdr = ESD_PCI_CDR;
-+
-+	/* Set and enable PCI interrupts */
-+	priv->irq_flags = IRQF_SHARED;
-+	ndev->irq = pdev->irq;
-+
-+	dev_dbg(&pdev->dev, "reg_base=0x%p irq=%d\n",
-+			priv->reg_base, ndev->irq);
-+
-+	SET_NETDEV_DEV(ndev, &pdev->dev);
-+
-+	err = register_sja1000dev(ndev);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to register (err=%d)\n", err);
-+		goto failure;
-+	}
-+
-+	return ndev;
-+
-+failure:
-+	free_sja1000dev(ndev);
-+	return ERR_PTR(err);
-+}
-+
-+static int __devinit esd_pci_init_one(struct pci_dev *pdev,
-+				       const struct pci_device_id *ent)
-+{
-+	struct esd_pci *board;
-+	int err;
-+	void __iomem *base_addr;
-+	void __iomem *conf_addr;
-+
-+	dev_info(&pdev->dev,
-+		 "Initializing device %04x:%04x %04x:%04x\n",
-+		 pdev->vendor, pdev->device,
-+		 pdev->subsystem_vendor, pdev->subsystem_device);
-+
-+	board = kzalloc(sizeof(*board), GFP_KERNEL);
-+	if (!board)
-+		return -ENOMEM;
-+
-+	err = pci_enable_device(pdev);
-+	if (err)
-+		goto failure;
-+
-+	err = pci_request_regions(pdev, DRV_NAME);
-+	if (err)
-+		goto failure;
-+
-+	conf_addr = pci_iomap(pdev, 0, ESD_PCI_BASE_SIZE);
-+	if (conf_addr == NULL) {
-+		err = -ENODEV;
-+		goto failure_release_pci;
-+	}
-+
-+	board->conf_addr = conf_addr;
-+
-+	base_addr = pci_iomap(pdev, 2, ESD_PCI_BASE_SIZE);
-+	if (base_addr == NULL) {
-+		err = -ENODEV;
-+		goto failure_iounmap_conf;
-+	}
-+
-+	board->base_addr = base_addr;
-+
-+	board->dev[0] = esd_pci_add_chan(pdev, base_addr);
-+	if (IS_ERR(board->dev[0]))
-+		goto failure_iounmap_base;
-+
-+	/* Check if second channel is available */
-+	writeb(MOD_RM, base_addr + CHANNEL_OFFSET + REG_MOD);
-+	writeb(CDR_CBP, base_addr + CHANNEL_OFFSET + REG_CDR);
-+	writeb(MOD_RM, base_addr + CHANNEL_OFFSET + REG_MOD);
-+	if (readb(base_addr + CHANNEL_OFFSET + REG_MOD) == 0x21) {
-+		writeb(MOD_SM | MOD_AFM | MOD_STM | MOD_LOM | MOD_RM,
-+		       base_addr + CHANNEL_OFFSET + REG_MOD);
-+		if (readb(base_addr + CHANNEL_OFFSET + REG_MOD) == 0x3f) {
-+			writeb(MOD_RM, base_addr + CHANNEL_OFFSET + REG_MOD);
-+			board->dev[1] =
-+				esd_pci_add_chan(pdev,
-+						 base_addr + CHANNEL_OFFSET);
-+			if (IS_ERR(board->dev[1]))
-+				goto failure_unreg_dev0;
-+		} else
-+			writeb(MOD_RM, base_addr + CHANNEL_OFFSET + REG_MOD);
-+	} else
-+		writeb(MOD_RM, base_addr + CHANNEL_OFFSET + REG_MOD);
-+
-+	if ((pdev->device == PCI_DEVICE_ID_PLX_9050) ||
-+	    (pdev->device == PCI_DEVICE_ID_PLX_9030)) {
-+		/* Enable interrupts in PLX9050 */
-+		writel(INTCSR_LINTI1 | INTCSR_PCI,
-+		       board->conf_addr + INTCSR_OFFSET);
-+	} else {
-+		/* Enable interrupts in PLX9056*/
-+		writel(INTCSR9056_LINTI | INTCSR9056_PCI,
-+		       board->conf_addr + INTCSR9056_OFFSET);
-+	}
-+
-+	pci_set_drvdata(pdev, board);
-+
-+	return 0;
-+
-+failure_unreg_dev0:
-+	esd_pci_del_chan(pdev, board->dev[0]);
-+
-+failure_iounmap_base:
-+	pci_iounmap(pdev, board->base_addr);
-+
-+failure_iounmap_conf:
-+	pci_iounmap(pdev, board->conf_addr);
-+
-+failure_release_pci:
-+	pci_release_regions(pdev);
-+
-+failure:
-+	kfree(board);
-+
-+	return err;
-+}
-+
-+static void esd_pci_remove_one(struct pci_dev *pdev)
-+{
-+	struct esd_pci *board = pci_get_drvdata(pdev);
-+	int i;
-+
-+	if ((pdev->device == PCI_DEVICE_ID_PLX_9050) ||
-+	    (pdev->device == PCI_DEVICE_ID_PLX_9030)) {
-+		/* Disable interrupts in PLX9050*/
-+		writel(0, board->conf_addr + INTCSR_OFFSET);
-+	} else {
-+		/* Disable interrupts in PLX9056*/
-+		writel(0, board->conf_addr + INTCSR9056_OFFSET);
-+	}
-+
-+	for (i = 0; i < ESD_PCI_MAX_CAN; i++) {
-+		if (!board->dev[i])
-+			break;
-+		esd_pci_del_chan(pdev, board->dev[i]);
-+	}
-+
-+	pci_iounmap(pdev, board->base_addr);
-+	pci_iounmap(pdev, board->conf_addr);
-+
-+	pci_release_regions(pdev);
-+	pci_disable_device(pdev);
-+	pci_set_drvdata(pdev, NULL);
-+
-+	kfree(board);
-+}
-+
-+static struct pci_driver esd_pci_driver = {
-+	.name = DRV_NAME,
-+	.id_table = esd_pci_tbl,
-+	.probe = esd_pci_init_one,
-+	.remove = esd_pci_remove_one,
-+};
-+
-+static int __init esd_pci_init(void)
-+{
-+	return pci_register_driver(&esd_pci_driver);
-+}
-+
-+static void __exit esd_pci_exit(void)
-+{
-+	pci_unregister_driver(&esd_pci_driver);
-+}
-+
-+module_init(esd_pci_init);
-+module_exit(esd_pci_exit);
--- 
-1.6.1
-
+Thanks!
+Rusty.
