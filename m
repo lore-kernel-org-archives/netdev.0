@@ -1,83 +1,46 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 0/6] tagged sysfs support
-Date: Tue, 30 Mar 2010 23:52:56 -0700
-Message-ID: <m1d3yl6kzb.fsf@fess.ebiederm.org>
-References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
-	<ac3eb2511003301153i43a60720hb015071e2c992199@mail.gmail.com>
-	<m14ojxh0mz.fsf@fess.ebiederm.org>
-	<s2hac3eb2511003302251rcbae8767ne21e9daf1546c849@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] skb_put: remove not needed check for skb linearity
+Date: Tue, 30 Mar 2010 23:55:55 -0700 (PDT)
+Message-ID: <20100330.235555.235686050.davem@davemloft.net>
+References: <20100330130131.8432.43671.stgit@pauliusz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@suse.de>, Greg KH <greg@kroah.com>,
-	linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
-	Cornelia Huck <cornelia.huck@de.ibm.com>,
-	linux-fsdevel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Benjamin LaHaise <bcrl@lhnet.ca>,
-	Serge Hallyn <serue@us.ibm.com>, netdev@vger.kernel.org
-To: Kay Sievers <kay.sievers@vrfy.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <s2hac3eb2511003302251rcbae8767ne21e9daf1546c849@mail.gmail.com> (Kay Sievers's message of "Wed\, 31 Mar 2010 07\:51\:49 +0200")
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: paulius.zaleckas@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45759
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752026Ab0CaGzx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 02:55:53 -0400
+In-Reply-To: <20100330130131.8432.43671.stgit@pauliusz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Kay Sievers <kay.sievers@vrfy.org> writes:
+From: Paulius Zaleckas <paulius.zaleckas@gmail.com>
+Date: Tue, 30 Mar 2010 16:01:31 +0300
 
-> On Wed, Mar 31, 2010 at 01:04, Eric W. Biederman <ebiederm@xmission.com> wrote:
->> Kay Sievers <kay.sievers@vrfy.org> writes:
->
-> Yeah, /sys/bus/, which is the only sane layout of the needlessly
-> different 3 versions of the same thing (bus, class, block).
->
-> /sys/bus/<subsys> can just be a plain symlinks to the
-> /sys/subsystem/<subsys> directories.
->
-> /sys/class/<subsys> *could* be a symlink to the
-> /sys/subsystem/<subsys>/devices/ directory, but we really don't want
-> to continue to stupidly mix subsystem-wide control files with device
-> lists anymore. The "devices" directory needs to be a strict list of
-> devices, not some collection of random stuff, that it is today. :)
->
-> So we either leave all the conceptually broken class attributes behind
-> us, and put them at the  /sys/subsystem/<subsys>/ level only, or we
-> need to create the /sys/class/<subsys>/* stuff all as symlinks like we
-> do today. I expect, we have to create /sys/class as we do today.
+> It is safe to call skb_put() on packets containing fragments.
+> 
+> Actually I have a case where I allocate packet header with some
+> extra headroom and then I dynamically add data as frag_list. After
+> adding frags I have to add more data to header and skb_put()
+> just BUG's on me :)
+> 
+> And we will save couple instructions for CPU.
+> 
+> Signed-off-by: Paulius Zaleckas <paulius.zaleckas@gmail.com>
 
-Ideally we will keep new subsystem attributes from creeping into 
-/sys/class/xxxx/ directories.
+No, you really cannot do this, that check is very much intentional and
+needs to be there.  Otherwise we will allow violations of the
+semantics of the SKB data area.
 
-> Another problem to solve is that sysfs does not allow us to symlink
-> regular files, only directories, so we can currently not create the
-> class-wide attributes as symlinks to the proper file in
-> /sys/subsystem/.
+Once you put even one byte of non-linear data into the skb, all data
+must be "put" to the end of that non-linear area, without exception.
 
-That seems to be part of the everything is a kobject interface, and
-all kobjects are directories.  I don't think supporting the symlinks
-will be particularly hard, although there are issues to consider with
-respect to making the symlinks come and go when the attributes do.
+You can't just stuff arbitrary things "in-between" the linear and the
+non-linear stuff.
 
->>
->> I'm not entirely clear on what you are doing but it all sounds like it
->> will fit within what I am doing.
->
-> The goal is to unify the 3 needlessly different versions of "device
-> lists of the same subsystem". We have /sys/class, /sys/bus,
-> /sys/block, and all of them will be unified at /sys/subsystem/ leaving
-> the old names as compat links only. Unlike block and class, the
-> /sys/subsystem/<subsys> directory can be extended with custom
-> subdirectories and files, without mixing random files into device
-> lists.
-
-That makes sense.  I took a quick look and /sys/block is already
-a compatibility define.   So I don't expect any issues there.
-
-At a practical level there don't appear to be too many class attributes
-that will cause problems, but even a couple are enough to be a pain.
-
-> Yeah, it did not makes sense it the first place to mix devices lists
-> with global attributes. It's a real mess what people do in sysfs.
-
-I was very disappointed in sysfs the first time I saw someone add writable
-attributes.  But sysfs is here now.
-
-Eric
+You'll need to find a way to construct your SKBs properly such that
+the entirety of the linear area is constructed before you start
+adding non-linear elements.
