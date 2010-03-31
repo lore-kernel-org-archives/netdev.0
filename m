@@ -1,51 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 04/12] l2tp: Add ppp device name to L2TP ppp session
- data
-Date: Wed, 31 Mar 2010 01:46:31 -0700 (PDT)
-Message-ID: <20100331.014631.65794997.davem@davemloft.net>
-References: <20100330161746.9628.40723.stgit@bert.katalix.com>
-	<20100330092914.4f3e9ed3@nehalam>
-	<4BB2FD0D.1080105@katalix.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: jchapman@katalix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57110
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932711Ab0CaIqb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 04:46:31 -0400
-In-Reply-To: <4BB2FD0D.1080105@katalix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Anders Darander <anders.darander@gmail.com>
+Subject: [PATCH][V2] MACB: Set PHY address in kernel parameters
+Date: Wed, 31 Mar 2010 10:46:58 +0200
+Message-ID: <1270025218-7245-1-git-send-email-anders.darander@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Erik Waling <erik.waling@konftel.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Anders Darander <ad@datarespons.se>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Haavard Skinnemoen <hskinnemoen@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: James Chapman <jchapman@katalix.com>
-Date: Wed, 31 Mar 2010 08:43:09 +0100
+From: Anders Darander <ad@datarespons.se>
 
-> Stephen Hemminger wrote:
->> On Tue, 30 Mar 2010 17:17:46 +0100
->> James Chapman <jchapman@katalix.com> wrote:
->> 
->>> When dumping L2TP PPP sessions using /proc/net/l2tp, get
->>> the assigned PPP device name from PPP using ppp_dev_name().
->>>
->>> Signed-off-by: James Chapman <jchapman@katalix.com>
->>> Reviewed-by: Randy Dunlap <randy.dunlap@oracle.com>
->>>
->> 
->> Why is this a necessary API?
->> Why not put it in debugfs if just a debugging tool?
-> 
-> With the original driver (merged in 2.6.23), some people use horrible
-> hacks in scripts to derive info about their L2TP connections from /proc.
-> So I was reluctant to move it to debugfs in the new driver. If it is ok
-> to move an existing /proc file to debugfs, I'm happy to do so. People
-> should obtain such info from their L2TP userspace daemon, or through
-> netlink anyway.
+Add the possibility to set the phy address. This is needed if an integrated
+switch is connected to the MAC, as it is often the case that the highest port
+is the one connected to the MAC of the MCU.
 
-Existing stuff you shouldn't move around, people do depend on it
-and thus it has to be retained.
+E.g. in the case of the Micrel KSZ8873, port 3 is the one to connect to the
+MCU, thus, the MAC needs to connect to phy address 0x03, instead of the first
+phy found.
 
-But for new stuff, we can try to think about better ways to export the
-information if possible.
+Signed-off-by: Anders Darander <ad@datarespons.se>
+---
+
+Changes from V1:
+	* Made the variable type consistent with the module parameter
+	  declaration. (I.e. made it unsigned short).
+
+ drivers/net/macb.c |   14 +++++++++++++-
+ 1 files changed, 13 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+index c8a18a6..af7b61b 100644
+--- a/drivers/net/macb.c
++++ b/drivers/net/macb.c
+@@ -53,6 +53,14 @@
+ #define MACB_RX_INT_FLAGS	(MACB_BIT(RCOMP) | MACB_BIT(RXUBR)	\
+ 				 | MACB_BIT(ISR_ROVR))
+ 
++/*
++ * Setup PHY probeing
++ */
++
++static unsigned short phy_addr = PHY_MAX_ADDR;
++module_param(phy_addr, ushort, 0);
++MODULE_PARAM_DESC(phy_addr, "PHY address connected to the MACB");
++
+ static void __macb_set_hwaddr(struct macb *bp)
+ {
+ 	u32 bottom;
+@@ -193,7 +201,11 @@ static int macb_mii_probe(struct net_device *dev)
+ 	struct eth_platform_data *pdata;
+ 	int ret;
+ 
+-	phydev = phy_find_first(bp->mii_bus);
++	if (phy_addr >= PHY_MAX_ADDRESS)
++		phydev = phy_find_first(bp->mii_bus);
++	else
++		phydev = bp->mii_bus->phy_map[phy_addr];
++
+ 	if (!phydev) {
+ 		printk (KERN_ERR "%s: no PHY found\n", dev->name);
+ 		return -1;
+-- 
+1.7.0.3
