@@ -1,119 +1,149 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 1/6] sysfs: Basic support for multiple super blocks
-Date: Tue, 30 Mar 2010 22:51:35 -0700
-Message-ID: <m1634d82e0.fsf@fess.ebiederm.org>
-References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
-	<1269973889-25260-1-git-send-email-ebiederm@xmission.com>
-	<4BB2E098.7030202@kernel.org>
+From: Kay Sievers <kay.sievers@vrfy.org>
+Subject: Re: [PATCH 0/6] tagged sysfs support
+Date: Wed, 31 Mar 2010 07:51:49 +0200
+Message-ID: <s2hac3eb2511003302251rcbae8767ne21e9daf1546c849@mail.gmail.com>
+References: <m1fx3hk6gw.fsf@fess.ebiederm.org> <ac3eb2511003301153i43a60720hb015071e2c992199@mail.gmail.com>
+	<m14ojxh0mz.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@suse.de>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg Kroah-Hartman <gregkh@suse.de>, Greg KH <greg@kroah.com>,
+	linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
 	Cornelia Huck <cornelia.huck@de.ibm.com>,
 	linux-fsdevel@vger.kernel.org,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	Benjamin LaHaise <bcrl@lhnet.ca>,
 	Serge Hallyn <serue@us.ibm.com>, netdev@vger.kernel.org
-To: Tejun Heo <tj@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:36935 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754272Ab0CaFvm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 01:51:42 -0400
-In-Reply-To: <4BB2E098.7030202@kernel.org> (Tejun Heo's message of "Wed\, 31 Mar 2010 14\:41\:44 +0900")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <m14ojxh0mz.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tejun Heo <tj@kernel.org> writes:
-
-> Hello, Eric.
+On Wed, Mar 31, 2010 at 01:04, Eric W. Biederman <ebiederm@xmission.com=
+> wrote:
+> Kay Sievers <kay.sievers@vrfy.org> writes:
+>> On Tue, Mar 30, 2010 at 20:30, Eric W. Biederman <ebiederm@xmission.=
+com> wrote:
+>>>
+>>> The main short coming of using multiple network namespaces today
+>>> is that only network devices for the primary network namespaces
+>>> can be put in the kobject layer and sysfs.
+>>>
+>>> This is essentially the earlier version of this patchset that was
+>>> reviewed before, just now on top of a version of sysfs that doesn't
+>>> need cleanup patches to support it.
+>>
+>> Just to check if we are not in conflict with planned changes, and ho=
+w
+>> to possibly handle them:
+>>
+>> There is the plan and ongoing work to unify classes and buses, expor=
+t
+>> them at /sys/subsystem in the same layout of the current /sys/bus/.
+>> The decision to export buses and classes as two different things
+>> (which they aren't) is the last major piece in the sysfs layout whic=
+h
+>> needs to be fixed.
 >
-> On 03/31/2010 03:31 AM, Eric W. Biederman wrote:
->> From: Eric W. Biederman <ebiederm@xmission.com>
->> 
->> Add all of the necessary bioler plate to support
->                            boiler :-)
+> Interesting. =C2=A0We will symlinks ie:
+> /sys/class -> /sys/subsystem
+> /sys/bus -> /sys/subsystem
+> to keep from breaking userspace.
+
+Yeah, /sys/bus/, which is the only sane layout of the needlessly
+different 3 versions of the same thing (bus, class, block).
+
+/sys/bus/<subsys> can just be a plain symlinks to the
+/sys/subsystem/<subsys> directories.
+
+/sys/class/<subsys> *could* be a symlink to the
+/sys/subsystem/<subsys>/devices/ directory, but we really don't want
+to continue to stupidly mix subsystem-wide control files with device
+lists anymore. The "devices" directory needs to be a strict list of
+devices, not some collection of random stuff, that it is today. :)
+
+So we either leave all the conceptually broken class attributes behind
+us, and put them at the  /sys/subsystem/<subsys>/ level only, or we
+need to create the /sys/class/<subsys>/* stuff all as symlinks like we
+do today. I expect, we have to create /sys/class as we do today.
+
+Another problem to solve is that sysfs does not allow us to symlink
+regular files, only directories, so we can currently not create the
+class-wide attributes as symlinks to the proper file in
+/sys/subsystem/.
+
+>> It would mean that /sys/subsystem/net/devices/* would look like
+>> /sys/class/net/* today. But at the /sys/subsystem/net/ directory cou=
+ld
+>> be global network-subsystem-wide control files which would need to b=
+e
+>> namespaced too. (The network subsystem does not use subsytem-global
+>> files today, but a bunch of other classes do.)
+>>
+>> This could be modeled into the current way of doing sysfs namespaces=
+?
+>> A /sys/bus/<subsystem>/ directory hierarchy would need to be
+>> namespaced, not just a single plain directory with symlinks. Would
+>> that work?
 >
->> +static int sysfs_test_super(struct super_block *sb, void *data)
->> +{
->> +	struct sysfs_super_info *sb_info = sysfs_info(sb);
->> +	struct sysfs_super_info *info = data;
->> +	int found = 1;
->> +	return found;
->> +}
->
-> Can you please make it return bool?
+> I'm not entirely clear on what you are doing but it all sounds like i=
+t
+> will fit within what I am doing.
 
-Nope.  That would mean I could not use it with sget.
+The goal is to unify the 3 needlessly different versions of "device
+lists of the same subsystem". We have /sys/class, /sys/bus,
+/sys/block, and all of them will be unified at /sys/subsystem/ leaving
+the old names as compat links only. Unlike block and class, the
+/sys/subsystem/<subsys> directory can be extended with custom
+subdirectories and files, without mixing random files into device
+lists.
 
->>  static int sysfs_get_sb(struct file_system_type *fs_type,
->>  	int flags, const char *dev_name, void *data, struct vfsmount *mnt)
->>  {
->> -	return get_sb_single(fs_type, flags, data, sysfs_fill_super, mnt);
->> +	struct sysfs_super_info *info;
->> +	struct super_block *sb;
->> +	int error;
->> +
->> +	error = -ENOMEM;
->> +	info = kzalloc(sizeof(*info), GFP_KERNEL);
->> +	if (!info)
->> +		goto out;
->> +	sb = sget(fs_type, sysfs_test_super, sysfs_set_super, info);
->> +	if (IS_ERR(sb) || sb->s_fs_info != info)
->> +		kfree(info);
->> +	if (IS_ERR(sb)) {
->> +		kfree(info);
->> +		error = PTR_ERR(sb);
->> +		goto out;
->> +	}
->> +	if (!sb->s_root) {
->> +		sb->s_flags = flags;
->> +		error = sysfs_fill_super(sb, data, flags & MS_SILENT ? 1 : 0);
->> +		if (error) {
->> +			deactivate_locked_super(sb);
->> +			goto out;
->> +		}
->> +		sb->s_flags |= MS_ACTIVE;
->> +	}
->> +
->> +	simple_set_mnt(mnt, sb);
->> +	error = 0;
->> +out:
->> +	return error;
->> +}
->
-> I haven't looked at later patches but I suppose this is gonna be
-> filled with more meaningful stuff later. 
+With /sys/subsystem/, userspace can uniquely identify and find all
+devices at /sys/<subsys>/devices/<device-name>/ with only the
+subsystem and the device name.
 
-Yes it will.
+All devices in /sys/devices already have a symlink called "subsystem"
+which will point back to the corresponding /sys/subsystem/<subsys>
+directory, and the event environment already contains a variable
+SUBSYSTEM with the name.
 
-> One (possibly silly) thing
-> that stands out compared to get_sb_single() is missing remount
-> handling.  Is it intended?
+That would be the first time sysfs device interfaces have some idea of
+consistency. :)
 
-There is nothing for a remount to do so I ignore it.   The only
-thing that would possibly be meaningful is a read-only mount,
-and nothing I know of sysfs suggests read-only mounts of sysfs
-work, or make any sense.
+> Right now I have /sys/class/net,
+> /sys/devices/virtual/net and a bunch of other net directories becomin=
+g
+> tagged and only showing up in the appropriately mounted sysfs. =C2=A0=
+We
+> track them all in the class kset and as long as we extend that capabi=
+lity
+> when the subsystem change happens in sysfs all should be well.
 
->> index 30f5a44..030a39d 100644
->> --- a/fs/sysfs/sysfs.h
->> +++ b/fs/sysfs/sysfs.h
->> @@ -114,6 +114,9 @@ struct sysfs_addrm_cxt {
->>  /*
->>   * mount.c
->>   */
->> +struct sysfs_super_info {
->> +};
->> +#define sysfs_info(SB) ((struct sysfs_super_info *)(SB->s_fs_info))
->
-> Another nit picking.  It would be better to wrap SB in the macro
-> definition.  Also, wouldn't an inline function be better?
+Ok, sounds good.
 
-Good spotting.  That doesn't bite today but it will certainly bite
-someday if it isn't fixed.
+> Today we have /sys/class/net/bonding_master. =C2=A0For now I have tha=
+t as
+> an untagged but the implementation is aware of which network namespac=
+e
+> your current process is in. =C2=A0Thinking about that a little more i=
+t
+> would be better to make that file tagged so that userspace can see
+> different versions for the different network namespaces. =C2=A0Joy.
 
-I wonder how that has slipped through the review all of this time.
+Yeah, that might make more sense in the end.
 
-Eric
+> I expect other control files will be the same.
+
+Sounds like, yes.
+
+> In general it doesn't make sense to add control files for networking.
+> as they easily conflict with legal network device names and thus crea=
+te
+> the possibility of breaking someones userspace.
+
+Yeah, it did not makes sense it the first place to mix devices lists
+with global attributes. It's a real mess what people do in sysfs.
+
+Thanks,
+Kay
