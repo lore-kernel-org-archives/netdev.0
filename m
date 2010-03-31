@@ -1,37 +1,79 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: Severe regression in bnx2 driver with bonding in post
- 2.6.30 kernels
-Date: Wed, 31 Mar 2010 09:01:28 -0700
-Message-ID: <C27F8246C663564A84BB7AB3439772421AF2CD5940@IRVEXCHCCR01.corp.ad.broadcom.com>
-References: <4BB3463A.2000801@openobjects.com>
+From: jamal <hadi@cyberus.ca>
+Subject: [RFC] SPD basic actions per netdev
+Date: Wed, 31 Mar 2010 12:37:58 -0400
+Message-ID: <1270053478.26743.111.camel@bigi>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-To: "'Stuart Shelton'" <stuart@openobjects.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	Timo Teras <timo.teras@iki.fi>,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1947 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757162Ab0CaQBk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 12:01:40 -0400
-In-Reply-To: <4BB3463A.2000801@openobjects.com>
-Content-Language: en-US
+Received: from ey-out-2122.google.com ([74.125.78.26]:45199 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757759Ab0CaQiE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 12:38:04 -0400
+Received: by ey-out-2122.google.com with SMTP id d26so22871eyd.19
+        for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 09:38:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stuart Shelton wrote:
 
-> The Broadcom NetXtreme II driver appears to have a severe
-> regression in
-> all kernels post 2.6.30 - I've observed problems with 2.6.31, 2.6.32.
-> and 2.6.33.
->
-> The hardware impacted is an IBM Bladecenter LS21 Blade, model
-> 7971.  We
-> have a large number of these, and all are affected.
->
+This may be oversight in current implementation and possibly
+nobody has needed it before - hence it is not functional.
 
-Can you provide me ethtool -i eth0 to see what the NVRAM-based
-firmware version is?  Thanks.
+I want to have a drop-all policy on a per-interface level
+for incoming packets and add exceptions as i need them.
+[using the flow table is cheap if you have xfrm built in].
+i.e something along the lines of:
+
+#eth0, wild-card drop all
+ip xfrm policy add src 0.0.0.0/0 dst 0.0.0.0/0 dev eth0 \
+       dir in ptype main action block priority $SOME-HIGH-value
+#eth0, exception
+ip xfrm policy add blah blah dev eth0 \
+dir in ptype main action allow priority $SOME-small-value
+#eth1, wild-card drop all
+ip xfrm policy add src 0.0.0.0/0 dst 0.0.0.0/0 dev eth1 \
+       dir in ptype main action block priority $SOME-HIGH-value
+#eth1 exception ...
+
+The problem is this works as long as i dont specify an interface.
+i.e, this would work in the in-direction:
+
+ip xfrm policy add src 0.0.0.0/0 dst 0.0.0.0/0 \
+        dir in ptype main action block priority $SOME-HIGH-value
+
+This would not work:
+ip xfrm policy add src 0.0.0.0/0 dst 0.0.0.0/0 dev eth0 \
+       dir in ptype main action block priority $SOME-HIGH-value
+
+
+The checks in the selector matching is the culprit, example for v4:
+
+__xfrm4_selector_match(struct xfrm_selector *sel, struct flowi *fl)
+{
+        return  .... &&
+                .... &&
+                (fl->oif == sel->ifindex || !sel->ifindex);
+}
+
+i.e in the second case i have a non-zero sel->ifindex but
+a zero fl->oif; so it wont match.
+
+One approach to fix this is to pass the direction then i can do
+in the function call, then i can do something along the lines of
+matching if:
+(fl_dir == FLOW_DIR_IN && (fl->iif == sel->ifindex || !sel->ifindex) ||
+(fl->oif == sel->ifindex || !sel->ifindex);
+
+Is there any reason the selector matching only assumes fl->oif?
+Are there any unforeseen issues/breakages if i added a check for the
+above.
+
+cheers,
+jamal
 
