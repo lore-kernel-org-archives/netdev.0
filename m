@@ -1,186 +1,190 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 2/8] qlcnic: handle queue manager access
-Date: Wed, 31 Mar 2010 05:03:40 -0700
-Message-ID: <1270037026-9062-3-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 6/8] qlcnic: add driver debug support
+Date: Wed, 31 Mar 2010 05:03:44 -0700
+Message-ID: <1270037026-9062-7-git-send-email-amit.salecha@qlogic.com>
 References: <1270037026-9062-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:45168 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:20938 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1757170Ab0CaMDs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Mar 2010 08:03:48 -0400
+	id S932222Ab0CaMDt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Mar 2010 08:03:49 -0400
 In-Reply-To: <1270037026-9062-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
-
-Check the access by tools for hardware queue engine and handle it
-separately than other block registers, otherwise incorrect data
-is returned.
-
-Signed-off-by: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic.h      |    5 +++++
- drivers/net/qlcnic/qlcnic_hdr.h  |    3 ++-
- drivers/net/qlcnic/qlcnic_hw.c   |   25 ++++++++++++++++++++++---
- drivers/net/qlcnic/qlcnic_main.c |   35 +++++++++++++++++++++++++++--------
- 4 files changed, 56 insertions(+), 12 deletions(-)
+ drivers/net/qlcnic/qlcnic.h         |    9 ++++++++-
+ drivers/net/qlcnic/qlcnic_ethtool.c |   16 ++++++++++++++++
+ drivers/net/qlcnic/qlcnic_hw.c      |    6 +++++-
+ drivers/net/qlcnic/qlcnic_main.c    |   23 ++++++++++++++++++++---
+ 4 files changed, 49 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 0da94b2..8a3446d 100644
+index 87cd1a7..dbf6335 100644
 --- a/drivers/net/qlcnic/qlcnic.h
 +++ b/drivers/net/qlcnic/qlcnic.h
-@@ -994,6 +994,11 @@ u32 qlcnic_hw_read_wx_2M(struct qlcnic_adapter *adapter, ulong off);
- int qlcnic_hw_write_wx_2M(struct qlcnic_adapter *, ulong off, u32 data);
- int qlcnic_pci_mem_write_2M(struct qlcnic_adapter *, u64 off, u64 data);
- int qlcnic_pci_mem_read_2M(struct qlcnic_adapter *, u64 off, u64 *data);
-+void qlcnic_pci_camqm_read_2M(struct qlcnic_adapter *, u64, u64 *);
-+void qlcnic_pci_camqm_write_2M(struct qlcnic_adapter *, u64, u64);
+@@ -960,7 +960,7 @@ struct qlcnic_adapter {
+ 	u8 diag_cnt;
+ 	u8 reset_ack_timeo;
+ 	u8 dev_init_timeo;
+-	u8 rsrd1;
++	u8 msglvl;
+ 
+ 	u8 mac_addr[ETH_ALEN];
+ 
+@@ -1135,4 +1135,11 @@ static inline u32 qlcnic_tx_avail(struct qlcnic_host_tx_ring *tx_ring)
+ 
+ extern const struct ethtool_ops qlcnic_ethtool_ops;
+ 
++#define QLCDB(adapter, _fmt, _args...) do { \
++	if (adapter->msglvl) \
++		printk(KERN_INFO "%s: %s: " _fmt,		\
++			dev_name(&adapter->pdev->dev),\
++			__func__, ##_args);		\
++	} while (0)
 +
-+#define ADDR_IN_RANGE(addr, low, high)	\
-+	(((addr) < (high)) && ((addr) >= (low)))
- 
- #define QLCRD32(adapter, off) \
- 	(qlcnic_hw_read_wx_2M(adapter, off))
-diff --git a/drivers/net/qlcnic/qlcnic_hdr.h b/drivers/net/qlcnic/qlcnic_hdr.h
-index 0469f84..25465a9 100644
---- a/drivers/net/qlcnic/qlcnic_hdr.h
-+++ b/drivers/net/qlcnic/qlcnic_hdr.h
-@@ -435,9 +435,10 @@ enum {
- #define QLCNIC_PCI_MS_2M	(0x80000)
- #define QLCNIC_PCI_OCM0_2M	(0x000c0000UL)
- #define QLCNIC_PCI_CRBSPACE	(0x06000000UL)
-+#define QLCNIC_PCI_CAMQM	(0x04800000UL)
-+#define QLCNIC_PCI_CAMQM_END	(0x04800800UL)
- #define QLCNIC_PCI_2MB_SIZE	(0x00200000UL)
- #define QLCNIC_PCI_CAMQM_2M_BASE	(0x000ff800UL)
--#define QLCNIC_PCI_CAMQM_2M_END 	(0x04800800UL)
- 
- #define QLCNIC_CRB_CAM	QLCNIC_PCI_CRB_WINDOW(QLCNIC_HW_PX_MAP_CRB_CAM)
- 
-diff --git a/drivers/net/qlcnic/qlcnic_hw.c b/drivers/net/qlcnic/qlcnic_hw.c
-index da00e16..b977874 100644
---- a/drivers/net/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/qlcnic/qlcnic_hw.c
-@@ -53,9 +53,6 @@ static inline void writeq(u64 val, void __iomem *addr)
- }
- #endif
- 
--#define ADDR_IN_RANGE(addr, low, high)	\
--	(((addr) < (high)) && ((addr) >= (low)))
--
- #define PCI_OFFSET_FIRST_RANGE(adapter, off)    \
- 	((adapter)->ahw.pci_base0 + (off))
- 
-@@ -936,6 +933,28 @@ unlock:
- 	return ret;
- }
- 
-+void
-+qlcnic_pci_camqm_read_2M(struct qlcnic_adapter *adapter, u64 off, u64 *data)
-+{
-+	void __iomem *addr = adapter->ahw.pci_base0 +
-+		QLCNIC_PCI_CAMQM_2M_BASE + (off - QLCNIC_PCI_CAMQM);
-+
-+	mutex_lock(&adapter->ahw.mem_lock);
-+	*data = readq(addr);
-+	mutex_unlock(&adapter->ahw.mem_lock);
-+}
-+
-+void
-+qlcnic_pci_camqm_write_2M(struct qlcnic_adapter *adapter, u64 off, u64 data)
-+{
-+	void __iomem *addr = adapter->ahw.pci_base0 +
-+		QLCNIC_PCI_CAMQM_2M_BASE + (off - QLCNIC_PCI_CAMQM);
-+
-+	mutex_lock(&adapter->ahw.mem_lock);
-+	writeq(data, addr);
-+	mutex_unlock(&adapter->ahw.mem_lock);
-+}
-+
- #define MAX_CTL_CHECK   1000
- 
- int
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index fc72156..a234622 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -2386,14 +2386,21 @@ static int
- qlcnic_sysfs_validate_crb(struct qlcnic_adapter *adapter,
- 		loff_t offset, size_t size)
- {
-+	size_t crb_size = 4;
-+
- 	if (!(adapter->flags & QLCNIC_DIAG_ENABLED))
- 		return -EIO;
- 
--	if ((size != 4) || (offset & 0x3))
--		return  -EINVAL;
-+	if (offset < QLCNIC_PCI_CRBSPACE) {
-+		if (ADDR_IN_RANGE(offset, QLCNIC_PCI_CAMQM,
-+					QLCNIC_PCI_CAMQM_END))
-+			crb_size = 8;
-+		else
-+			return -EINVAL;
-+	}
- 
--	if (offset < QLCNIC_PCI_CRBSPACE)
--		return -EINVAL;
-+	if ((size != crb_size) || (offset & (crb_size-1)))
-+		return  -EINVAL;
- 
+ #endif				/* __QLCNIC_H_ */
+diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
+index f83e15f..1cf3e59 100644
+--- a/drivers/net/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/qlcnic/qlcnic_ethtool.c
+@@ -998,6 +998,20 @@ static int qlcnic_set_flags(struct net_device *netdev, u32 data)
  	return 0;
  }
-@@ -2405,14 +2412,20 @@ qlcnic_sysfs_read_crb(struct kobject *kobj, struct bin_attribute *attr,
- 	struct device *dev = container_of(kobj, struct device, kobj);
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
- 	u32 data;
-+	u64 qmdata;
- 	int ret;
  
- 	ret = qlcnic_sysfs_validate_crb(adapter, offset, size);
- 	if (ret != 0)
- 		return ret;
++static u32 qlcnic_get_msglevel(struct net_device *netdev)
++{
++	struct qlcnic_adapter *adapter = netdev_priv(netdev);
++
++	return adapter->msglvl;
++}
++
++static void qlcnic_set_msglevel(struct net_device *netdev, u32 msglvl)
++{
++	struct qlcnic_adapter *adapter = netdev_priv(netdev);
++
++	adapter->msglvl = !!msglvl;
++}
++
+ const struct ethtool_ops qlcnic_ethtool_ops = {
+ 	.get_settings = qlcnic_get_settings,
+ 	.set_settings = qlcnic_set_settings,
+@@ -1029,4 +1043,6 @@ const struct ethtool_ops qlcnic_ethtool_ops = {
+ 	.get_flags = ethtool_op_get_flags,
+ 	.set_flags = qlcnic_set_flags,
+ 	.phys_id = qlcnic_blink_led,
++	.set_msglevel = qlcnic_set_msglevel,
++	.get_msglevel = qlcnic_get_msglevel,
+ };
+diff --git a/drivers/net/qlcnic/qlcnic_hw.c b/drivers/net/qlcnic/qlcnic_hw.c
+index 0933c2d..14c999a 100644
+--- a/drivers/net/qlcnic/qlcnic_hw.c
++++ b/drivers/net/qlcnic/qlcnic_hw.c
+@@ -294,8 +294,12 @@ qlcnic_pcie_sem_lock(struct qlcnic_adapter *adapter, int sem, u32 id_reg)
+ 		done = QLCRD32(adapter, QLCNIC_PCIE_REG(PCIE_SEM_LOCK(sem)));
+ 		if (done == 1)
+ 			break;
+-		if (++timeout >= QLCNIC_PCIE_SEM_TIMEOUT)
++		if (++timeout >= QLCNIC_PCIE_SEM_TIMEOUT) {
++			dev_err(&adapter->pdev->dev,
++				"Failed to acquire sem=%d lock;reg_id=%d\n",
++				sem, id_reg);
+ 			return -EIO;
++		}
+ 		msleep(1);
+ 	}
  
--	data = QLCRD32(adapter, offset);
--	memcpy(buf, &data, size);
-+	if (ADDR_IN_RANGE(offset, QLCNIC_PCI_CAMQM, QLCNIC_PCI_CAMQM_END)) {
-+		qlcnic_pci_camqm_read_2M(adapter, offset, &qmdata);
-+		memcpy(buf, &qmdata, size);
-+	} else {
-+		data = QLCRD32(adapter, offset);
-+		memcpy(buf, &data, size);
-+	}
- 	return size;
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index 38e0829..87511f1 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -1742,6 +1742,7 @@ static void qlcnic_tx_timeout_task(struct work_struct *work)
+ request_reset:
+ 	adapter->need_fw_reset = 1;
+ 	clear_bit(__QLCNIC_RESETTING, &adapter->state);
++	QLCDB(adapter, "Resetting adapter\n");
  }
  
-@@ -2423,14 +2436,20 @@ qlcnic_sysfs_write_crb(struct kobject *kobj, struct bin_attribute *attr,
- 	struct device *dev = container_of(kobj, struct device, kobj);
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
- 	u32 data;
-+	u64 qmdata;
- 	int ret;
+ static struct net_device_stats *qlcnic_get_stats(struct net_device *netdev)
+@@ -2046,6 +2047,7 @@ qlcnic_can_start_firmware(struct qlcnic_adapter *adapter)
+ 	}
  
- 	ret = qlcnic_sysfs_validate_crb(adapter, offset, size);
- 	if (ret != 0)
- 		return ret;
+ 	prev_state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
++	QLCDB(adapter, "Device state = %u\n", prev_state);
  
--	memcpy(&data, buf, size);
--	QLCWR32(adapter, offset, data);
-+	if (ADDR_IN_RANGE(offset, QLCNIC_PCI_CAMQM, QLCNIC_PCI_CAMQM_END)) {
-+		memcpy(&qmdata, buf, size);
-+		qlcnic_pci_camqm_write_2M(adapter, offset, qmdata);
-+	} else {
-+		memcpy(&data, buf, size);
-+		QLCWR32(adapter, offset, data);
+ 	switch (prev_state) {
+ 	case QLCNIC_DEV_COLD:
+@@ -2082,8 +2084,11 @@ start_fw:
+ 	} while ((QLCRD32(adapter, QLCNIC_CRB_DEV_STATE) != QLCNIC_DEV_READY)
+ 			&& --dev_init_timeo);
+ 
+-	if (!dev_init_timeo)
++	if (!dev_init_timeo) {
++		dev_err(&adapter->pdev->dev,
++			"Waiting for device to initialize timeout\n");
+ 		return -1;
 +	}
- 	return size;
- }
  
+ 	if (qlcnic_api_lock(adapter))
+ 		return -1;
+@@ -2113,6 +2118,7 @@ qlcnic_fwinit_work(struct work_struct *work)
+ 			return;
+ 		}
+ 
++		QLCDB(adapter, "Resetting FW\n");
+ 		if (!qlcnic_start_firmware(adapter)) {
+ 			qlcnic_schedule_work(adapter, qlcnic_attach_work, 0);
+ 			return;
+@@ -2121,10 +2127,15 @@ qlcnic_fwinit_work(struct work_struct *work)
+ 		goto err_ret;
+ 	}
+ 
+-	if (adapter->fw_wait_cnt++ > (adapter->dev_init_timeo / 2))
++	if (adapter->fw_wait_cnt++ > (adapter->dev_init_timeo / 2)) {
++		dev_err(&adapter->pdev->dev,
++				"Waiting for device to reset timeout\n");
+ 		goto err_ret;
++	}
+ 
+ 	dev_state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
++	QLCDB(adapter, "Func waiting: Device state=%d\n", dev_state);
++
+ 	switch (dev_state) {
+ 	case QLCNIC_DEV_READY:
+ 		if (!qlcnic_start_firmware(adapter)) {
+@@ -2177,6 +2188,8 @@ qlcnic_detach_work(struct work_struct *work)
+ 	return;
+ 
+ err_ret:
++	dev_err(&adapter->pdev->dev, "detach failed; status=%d temp=%d\n",
++			status, adapter->temp);
+ 	qlcnic_clr_all_drv_state(adapter);
+ 
+ }
+@@ -2194,6 +2207,7 @@ qlcnic_dev_request_reset(struct qlcnic_adapter *adapter)
+ 	if (state != QLCNIC_DEV_INITALIZING && state != QLCNIC_DEV_NEED_RESET) {
+ 		QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_NEED_RESET);
+ 		set_bit(__QLCNIC_START_FW, &adapter->state);
++		QLCDB(adapter, "NEED_RESET state set\n");
+ 	}
+ 
+ 	qlcnic_api_unlock(adapter);
+@@ -2290,8 +2304,11 @@ detach:
+ 		QLCNIC_DEV_NEED_RESET;
+ 
+ 	if ((auto_fw_reset == AUTO_FW_RESET_ENABLED) &&
+-			!test_and_set_bit(__QLCNIC_RESETTING, &adapter->state))
++		!test_and_set_bit(__QLCNIC_RESETTING, &adapter->state)) {
++
+ 		qlcnic_schedule_work(adapter, qlcnic_detach_work, 0);
++		QLCDB(adapter, "fw recovery scheduled.\n");
++	}
+ 
+ 	return 1;
+ }
 -- 
 1.6.0.2
 
