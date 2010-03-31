@@ -1,159 +1,280 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH 1/2] phylib: Support phy module autoloading
-Date: Wed, 31 Mar 2010 02:18:54 +0100
-Message-ID: <1269998334.18090.278.camel@macbook.infradead.org>
+Subject: [PATCH 2/2] phylib: Add module table to all existing phy drivers
+Date: Wed, 31 Mar 2010 02:19:46 +0100
+Message-ID: <1269998386.18090.281.camel@macbook.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:60193 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:60198 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753276Ab0CaBS5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 21:18:57 -0400
+	with ESMTP id S1753360Ab0CaBTu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Mar 2010 21:19:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We don't use the normal hotplug mechanism because it doesn't work. It will
-load the module some time after the device appears, but that's not good
-enough for us -- we need the driver loaded _immediately_ because otherwise
-the NIC driver may just abort and then the phy 'device' goes away.
-
-Instead, we just issue a request_module() directly in phy_device_create().
-
-The device aliases take the form 'phy:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
-with a binary representation of the phy_id. This means that the "don't
-care" bits of driver's phy_id_mask can be question marks which modprobe
-will interpret correctly as wildcards.
-
-So a driver with { .phy_id = 0x02345600, .phy_id_mask = 0x0fffff00 }
-will have an alias of phy:????00100011010001010110???????? and will be
-loaded whenever any matching phy is created by phy_device_create().
-
 Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 ---
- drivers/net/phy/phy_device.c    |   13 +++++++++++++
- include/linux/mod_devicetable.h |   20 ++++++++++++++++++++
- include/linux/phy.h             |    1 +
- scripts/mod/file2alias.c        |   25 +++++++++++++++++++++++++
- 4 files changed, 59 insertions(+), 0 deletions(-)
+Life's too short to split this up into separate patches unless someone
+really cares.
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index db17945..b35ec7e 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -149,6 +149,8 @@ EXPORT_SYMBOL(phy_scan_fixups);
- struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
- {
- 	struct phy_device *dev;
-+	char modid[37];
-+
- 	/* We allocate the device, and initialize the
- 	 * default values */
- 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
-@@ -179,6 +181,17 @@ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
- 	mutex_init(&dev->lock);
- 	INIT_DELAYED_WORK(&dev->state_queue, phy_state_machine);
+ drivers/net/phy/bcm63xx.c  |    8 ++++++++
+ drivers/net/phy/broadcom.c |   16 ++++++++++++++++
+ drivers/net/phy/cicada.c   |    8 ++++++++
+ drivers/net/phy/davicom.c  |    9 +++++++++
+ drivers/net/phy/et1011c.c  |    7 +++++++
+ drivers/net/phy/icplus.c   |    7 +++++++
+ drivers/net/phy/lxt.c      |    8 ++++++++
+ drivers/net/phy/marvell.c  |   13 +++++++++++++
+ drivers/net/phy/national.c |    7 +++++++
+ drivers/net/phy/qsemi.c    |    7 +++++++
+ drivers/net/phy/realtek.c  |    7 +++++++
+ drivers/net/phy/smsc.c     |   11 +++++++++++
+ drivers/net/phy/ste10Xp.c  |    8 ++++++++
+ drivers/net/phy/vitesse.c  |    8 ++++++++
+ 14 files changed, 124 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/phy/bcm63xx.c b/drivers/net/phy/bcm63xx.c
+index 4fed95e..4edd212 100644
+--- a/drivers/net/phy/bcm63xx.c
++++ b/drivers/net/phy/bcm63xx.c
+@@ -130,3 +130,11 @@ static void __exit bcm63xx_phy_exit(void)
  
-+#ifdef CONFIG_MODULES
-+	/* Request the appropriate module unconditionally. A hotplug
-+	   event would have done so anyway. But normal hotplug won't
-+	   work for MDIO -- because it relies on the device staying
-+	   around for long enough for the driver to get loaded. With
-+	   MDIO, the NIC driver will get bored and give up as soon
-+	   as it finds that there's no driver _already_ loaded. */
-+	sprintf(modid, "phy:" PHYID_FMT, PHYID_ARGS(phy_id));
-+	request_module(modid);
-+#endif
+ module_init(bcm63xx_phy_init);
+ module_exit(bcm63xx_phy_exit);
 +
- 	return dev;
- }
- EXPORT_SYMBOL(phy_device_create);
-diff --git a/include/linux/mod_devicetable.h b/include/linux/mod_devicetable.h
-index f58e9d8..0c3e300 100644
---- a/include/linux/mod_devicetable.h
-+++ b/include/linux/mod_devicetable.h
-@@ -474,4 +474,24 @@ struct platform_device_id {
- 			__attribute__((aligned(sizeof(kernel_ulong_t))));
- };
- 
-+#define PHY_MODULE_PREFIX	"phy:"
-+
-+#define PHYID_FMT "%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d"
-+#define PHYID_ARGS(_id) \
-+	(_id)>>31, ((_id)>>30) & 1, ((_id)>>29) & 1, ((_id)>>28) & 1,	\
-+	((_id)>>27) & 1, ((_id)>>26) & 1, ((_id)>>25) & 1, ((_id)>>24) & 1, \
-+	((_id)>>23) & 1, ((_id)>>22) & 1, ((_id)>>21) & 1, ((_id)>>20) & 1, \
-+	((_id)>>19) & 1, ((_id)>>18) & 1, ((_id)>>17) & 1, ((_id)>>16) & 1, \
-+	((_id)>>15) & 1, ((_id)>>14) & 1, ((_id)>>13) & 1, ((_id)>>12) & 1, \
-+	((_id)>>11) & 1, ((_id)>>10) & 1, ((_id)>>9) & 1, ((_id)>>8) & 1, \
-+	((_id)>>7) & 1, ((_id)>>6) & 1, ((_id)>>5) & 1, ((_id)>>4) & 1, \
-+	((_id)>>3) & 1, ((_id)>>2) & 1, ((_id)>>1) & 1, (_id) & 1
-+
-+
-+
-+struct phy_device_id {
-+	uint32_t phy_id;
-+	uint32_t phy_id_mask;
++static struct phy_device_id bcm63xx_tbl[] = {
++	{ 0x00406000, 0xfffffc00 },
++	{ 0x002bdc00, 0xfffffc00 },
++	{ }
 +};
 +
- #endif /* LINUX_MOD_DEVICETABLE_H */
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 14d7fdf..f269f1b 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -24,6 +24,7 @@
- #include <linux/mii.h>
- #include <linux/timer.h>
- #include <linux/workqueue.h>
-+#include <linux/mod_devicetable.h>
++MODULE_DEVICE_TABLE(phy, bcm64xx_tbl);
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index f482fc4..c4facaa 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -908,3 +908,19 @@ static void __exit broadcom_exit(void)
  
- #include <asm/atomic.h>
+ module_init(broadcom_init);
+ module_exit(broadcom_exit);
++
++static struct phy_device_id broadcom_tbl[] = {
++	{ 0x00206070, 0xfffffff0 },
++	{ 0x002060e0, 0xfffffff0 },
++	{ 0x002060c0, 0xfffffff0 },
++	{ 0x002060b0, 0xfffffff0 },
++	{ 0x0143bca0, 0xfffffff0 },
++	{ 0x0143bcb0, 0xfffffff0 },
++	{ PHY_ID_BCM50610, 0xfffffff0 },
++	{ PHY_ID_BCM50610M, 0xfffffff0 },
++	{ PHY_ID_BCM57780, 0xfffffff0 },
++	{ PHY_ID_BCMAC131, 0xfffffff0 },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(phy, broadcom_tbl);
+diff --git a/drivers/net/phy/cicada.c b/drivers/net/phy/cicada.c
+index a1bd599..976a909 100644
+--- a/drivers/net/phy/cicada.c
++++ b/drivers/net/phy/cicada.c
+@@ -159,3 +159,11 @@ static void __exit cicada_exit(void)
  
-diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
-index 220213e..b412185 100644
---- a/scripts/mod/file2alias.c
-+++ b/scripts/mod/file2alias.c
-@@ -796,6 +796,27 @@ static int do_platform_entry(const char *filename,
- 	return 1;
- }
+ module_init(cicada_init);
+ module_exit(cicada_exit);
++
++static struct phy_device_id cicada_tbl[] = {
++	{ 0x000fc410, 0x000ffff0 },
++	{ 0x000fc440, 0x000fffc0 },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(phy, cicada_tbl);
+diff --git a/drivers/net/phy/davicom.c b/drivers/net/phy/davicom.c
+index d926168..04b3277 100644
+--- a/drivers/net/phy/davicom.c
++++ b/drivers/net/phy/davicom.c
+@@ -219,3 +219,12 @@ static void __exit davicom_exit(void)
  
-+static int do_phy_entry(const char *filename,
-+			struct phy_device_id *id, char *alias)
-+{
-+	char str[33];
-+	int i;
+ module_init(davicom_init);
+ module_exit(davicom_exit);
 +
-+	str[32] = 0;
++static struct phy_device_id davicom_tbl[] = {
++	{ 0x0181b880, 0x0ffffff0 },
++	{ 0x0181b8a0, 0x0ffffff0 },
++	{ 0x00181b80, 0x0ffffff0 },
++	{ }
++};
 +
-+	for (i = 0; i < 32; i++) {
-+		if (!((id->phy_id_mask >> (31-i)) & 1))
-+			str[i] = '?';
-+		else if ((id->phy_id >> (31-i)) & 1)
-+			str[i] = '1';
-+		else
-+			str[i] = '0';
-+	}
-+
-+	sprintf(alias, PHY_MODULE_PREFIX "%s", str);
-+	return 1;
-+}
-+
- /* Ignore any prefix, eg. some architectures prepend _ */
- static inline int sym_is(const char *symbol, const char *name)
- {
-@@ -943,6 +964,10 @@ void handle_moddevtable(struct module *mod, struct elf_info *info,
- 		do_table(symval, sym->st_size,
- 			 sizeof(struct platform_device_id), "platform",
- 			 do_platform_entry, mod);
-+	else if (sym_is(symname, "__mod_phy_device_table"))
-+		do_table(symval, sym->st_size,
-+			 sizeof(struct phy_device_id), "phy",
-+			 do_phy_entry, mod);
- 	free(zeros);
- }
++MODULE_DEVICE_TABLE(phy, davicom_tbl);
+diff --git a/drivers/net/phy/et1011c.c b/drivers/net/phy/et1011c.c
+index b031fa2..b7a9c23 100644
+--- a/drivers/net/phy/et1011c.c
++++ b/drivers/net/phy/et1011c.c
+@@ -111,3 +111,10 @@ static void __exit et1011c_exit(void)
  
+ module_init(et1011c_init);
+ module_exit(et1011c_exit);
++
++static struct phy_device_id et1011c_tbl[] = {
++	{ 0x0282f014, 0xfffffff0 },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(phy, et1011c_tbl);
+diff --git a/drivers/net/phy/icplus.c b/drivers/net/phy/icplus.c
+index af3f1f2..61472ce 100644
+--- a/drivers/net/phy/icplus.c
++++ b/drivers/net/phy/icplus.c
+@@ -132,3 +132,10 @@ static void __exit ip175c_exit(void)
+ 
+ module_init(ip175c_init);
+ module_exit(ip175c_exit);
++
++static struct phy_device_id icplus_tbl[] = {
++	{ 0x02430d80, 0x0ffffff0 },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(phy, icplus_tbl);
+diff --git a/drivers/net/phy/lxt.c b/drivers/net/phy/lxt.c
+index 4cf3324..fcd72b0 100644
+--- a/drivers/net/phy/lxt.c
++++ b/drivers/net/phy/lxt.c
+@@ -174,3 +174,11 @@ static void __exit lxt_exit(void)
+ 
+ module_init(lxt_init);
+ module_exit(lxt_exit);
++
++static struct phy_device_id lxt_tbl[] = {
++	{ 0x78100000, 0xfffffff0 },
++	{ 0x001378e0, 0xfffffff0 },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(phy, lxt_tbl);
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index 65ed385..bf6e101 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -649,3 +649,16 @@ static void __exit marvell_exit(void)
+ 
+ module_init(marvell_init);
+ module_exit(marvell_exit);
++
++static struct phy_device_id marvell_tbl[] = {
++	{ 0x01410c60, 0xfffffff0 },
++	{ 0x01410c90, 0xfffffff0 },
++	{ 0x01410cc0, 0xfffffff0 },
++	{ 0x01410e10, 0xfffffff0 },
++	{ 0x01410cb0, 0xfffffff0 },
++	{ 0x01410cd0, 0xfffffff0 },
++	{ 0x01410e30, 0xfffffff0 },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(phy, marvell_tbl);
+diff --git a/drivers/net/phy/national.c b/drivers/net/phy/national.c
+index 6c636eb..8196243 100644
+--- a/drivers/net/phy/national.c
++++ b/drivers/net/phy/national.c
+@@ -153,3 +153,10 @@ MODULE_LICENSE("GPL");
+ 
+ module_init(ns_init);
+ module_exit(ns_exit);
++
++static struct phy_device_id ns_tbl[] = {
++	{ DP83865_PHY_ID, 0xfffffff0 },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(phy, ns_tbl);
+diff --git a/drivers/net/phy/qsemi.c b/drivers/net/phy/qsemi.c
+index 23062d0..62f8d38 100644
+--- a/drivers/net/phy/qsemi.c
++++ b/drivers/net/phy/qsemi.c
+@@ -138,3 +138,10 @@ static void __exit qs6612_exit(void)
+ 
+ module_init(qs6612_init);
+ module_exit(qs6612_exit);
++
++static struct phy_device_id qs6612_tbl[] = {
++	{ 0x00181440, 0xfffffff0 },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(phy, qs6612_tbl);
+diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
+index a052a67..41bfb19 100644
+--- a/drivers/net/phy/realtek.c
++++ b/drivers/net/phy/realtek.c
+@@ -78,3 +78,10 @@ static void __exit realtek_exit(void)
+ 
+ module_init(realtek_init);
+ module_exit(realtek_exit);
++
++static struct phy_device_id realtek_tbl[] = {
++	{ 0x001cc912, 0x001fffff },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(phy, realtek_tbl);
+diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+index ed2644a..f230a6a 100644
+--- a/drivers/net/phy/smsc.c
++++ b/drivers/net/phy/smsc.c
+@@ -253,3 +253,14 @@ MODULE_LICENSE("GPL");
+ 
+ module_init(smsc_init);
+ module_exit(smsc_exit);
++
++static struct phy_device_id smsc_tbl[] = {
++	{ 0x0007c0a0, 0xfffffff0 },
++	{ 0x0007c0b0, 0xfffffff0 },
++	{ 0x0007c0c0, 0xfffffff0 },
++	{ 0x0007c0d0, 0xfffffff0 },
++	{ 0x0007c0f0, 0xfffffff0 },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(phy, smsc_tbl);
+diff --git a/drivers/net/phy/ste10Xp.c b/drivers/net/phy/ste10Xp.c
+index 6bdb0d5..1332aed 100644
+--- a/drivers/net/phy/ste10Xp.c
++++ b/drivers/net/phy/ste10Xp.c
+@@ -132,6 +132,14 @@ static void __exit ste10Xp_exit(void)
+ module_init(ste10Xp_init);
+ module_exit(ste10Xp_exit);
+ 
++static struct phy_device_id ste10Xp_tbl[] = {
++	{ STE101P_PHY_ID, 0xfffffff0 },
++	{ STE100P_PHY_ID, 0xffffffff },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(phy, ste10Xp_tbl);
++
+ MODULE_DESCRIPTION("STMicroelectronics STe10Xp PHY driver");
+ MODULE_AUTHOR("Giuseppe Cavallaro <peppe.cavallaro@st.com>");
+ MODULE_LICENSE("GPL");
+diff --git a/drivers/net/phy/vitesse.c b/drivers/net/phy/vitesse.c
+index dd3b244..c616e57 100644
+--- a/drivers/net/phy/vitesse.c
++++ b/drivers/net/phy/vitesse.c
+@@ -191,3 +191,11 @@ static void __exit vsc82xx_exit(void)
+ 
+ module_init(vsc82xx_init);
+ module_exit(vsc82xx_exit);
++
++static struct phy_device_id vitesse_tbl[] = {
++	{ PHY_ID_VSC8244, 0x000fffc0 },
++	{ PHY_ID_VSC8221, 0x000ffff0 },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(phy, vitesse_tbl);
 -- 
 1.6.6.1
 
