@@ -1,62 +1,88 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH 1/4] xfrm: increment genid before bumping state genids
-Date: Wed, 31 Mar 2010 14:01:03 +0300
-Message-ID: <4BB32B6F.7060403@iki.fi>
-References: <1270030626-16687-1-git-send-email-timo.teras@iki.fi> <1270030626-16687-3-git-send-email-timo.teras@iki.fi> <20100331105023.GA12845@gondor.apana.org.au> <4BB32A11.1030708@iki.fi>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 3/4] xfrm: remove policy lock when accessing
+	policy->walk.dead
+Date: Wed, 31 Mar 2010 19:03:45 +0800
+Message-ID: <20100331110345.GC12845@gondor.apana.org.au>
+References: <1270030626-16687-1-git-send-email-timo.teras@iki.fi> <1270030626-16687-5-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <hadi@cyberus.ca>,
+	"David S. Miller" <davem@davemloft.net>
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f220.google.com ([209.85.219.220]:34234 "EHLO
-	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756787Ab0CaLBI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 07:01:08 -0400
-Received: by ewy20 with SMTP id 20so1827363ewy.1
-        for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 04:01:07 -0700 (PDT)
-In-Reply-To: <4BB32A11.1030708@iki.fi>
+Received: from ringil.hengli.com.au ([216.59.3.182]:42016 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756833Ab0CaLDy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 07:03:54 -0400
+Content-Disposition: inline
+In-Reply-To: <1270030626-16687-5-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Timo Ter=E4s wrote:
-> Herbert Xu wrote:
->> On Wed, Mar 31, 2010 at 01:17:03PM +0300, Timo Teras wrote:
->>> __xfrm_state_bump_genids() is used to update the genid of all
->>> matching xfrm_state's, so any bundle using the state would get
->>> refreshed with the newly inserted state.
->>>
->>> However, since __xfrm_state_bump_genids() is called before the
->>> __xfrm_state_insert() which actually bumps the genid counter,
->>> it is possible that the genid was not updated at all (if there
->>> was no state inserts previously).
->>>
->>> This is fixed by moving the genid incrementation to
->>> __xfrm_state_bump_genids() so the older states are guaranteed
->>> to get different genid.
->>>
->>> Signed-off-by: Timo Teras <timo.teras@iki.fi>
->>
->> It would appear that not all xfrm_state_insert calls are preceded
->> by xfrm_state_bump_genids so this patch isn't correct.
->=20
-> Yes, I noticed that there's one. But __xfrm_state_insert() is
-> called to replace an acquire in that case. Acquires are never
-> used in bundle, so this is good.
->=20
-> But maybe it'd be more explicit if the genid increment is done
-> before each __xfrm_state_insert()?
+On Wed, Mar 31, 2010 at 01:17:05PM +0300, Timo Teras wrote:
+> All of the code considers ->dead as a hint that the cached policy
+> needs to get refreshed. The read side can just drop the read lock
+> without any side effects.
+> 
+> The write side needs to make sure that it's written only exactly
+> once. Only possible race is at xfrm_policy_kill(). This is fixed
+> by checking result of __xfrm_policy_unlink() when needed. It will
+> always succeed if the policy object is looked up from the hash
+> list (so some checks are removed), but it needs to be checked if
+> we are trying to unlink policy via a reference (appropriate
+> checks added).
+> 
+> Since policy->walk.dead is written exactly once, it no longer
+> needs to be protected with a write lock.
+> 
+> Signed-off-by: Timo Teras <timo.teras@iki.fi>
 
-Actually. Search for xfrm_state_genid in xfrm_state.c. It's only
-used in two places: __xfrm_state_bumb_genid() and _insert().
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-The only case when it needs to get incremented is in the bump
-function. If we are adding a state for the first time, there's
-no need to bump the genid as it's per-matching state. The actual
-work to invalidate states is done in the bump function, so it's
-the only place that needs to increment it.
+> @@ -794,10 +783,9 @@ int xfrm_policy_flush(struct net *net, u8 type, struct xfrm_audit *audit_info)
+>  				     &net->xfrm.policy_inexact[dir], bydst) {
+>  			if (pol->type != type)
+>  				continue;
+> -			dp = __xfrm_policy_unlink(pol, dir);
+> +			__xfrm_policy_unlink(pol, dir);
+>  			write_unlock_bh(&xfrm_policy_lock);
+> -			if (dp)
+> -				cnt++;
+> +			cnt++;
+>  
+>  			xfrm_audit_policy_delete(pol, 1, audit_info->loginuid,
+>  						 audit_info->sessionid,
 
-If any other xfrm_state_insert place needs to invalidate old
-states it needs an additional bumping call. So the bumping function
-is the right place to increment the genid.
+I was intrigued to find that my local source never had this dp
+stuff.
+
+It seems that this was added recently:
+
+commit 2f1eb65f366b81aa3c22c31e6e8db26168777ec5
+Author: Jamal Hadi Salim <hadi@cyberus.ca>
+Date:   Fri Feb 19 02:00:42 2010 +0000
+
+    xfrm: Flushing empty SPD generates false events
+
+    To see the effect make sure you have an empty SPD.
+    On window1 "ip xfrm mon" and on window2 issue "ip xfrm policy flush"
+    You get prompt back in window2 and you see the flush event on window1.
+    With this fix, you still get prompt on window1 but no event on window2.
+
+    Thanks to Alexey Dobriyan for finding a bug in earlier version
+    when using pfkey to do the flushing.
+
+    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+This seems to be bogus to me.  Just because the DB was empty
+before the flush doesn't mean that the flush didn't happen.
+
+We should revert this patch in its entirety.
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
