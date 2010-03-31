@@ -1,62 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 3/4] xfrm: remove policy lock when accessing
-	policy->walk.dead
-Date: Wed, 31 Mar 2010 21:26:23 +0800
-Message-ID: <20100331132622.GA13908@gondor.apana.org.au>
-References: <1270030626-16687-1-git-send-email-timo.teras@iki.fi> <1270030626-16687-5-git-send-email-timo.teras@iki.fi> <20100331110345.GC12845@gondor.apana.org.au> <1270040773.26743.12.camel@bigi> <20100331131131.GA13793@gondor.apana.org.au>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH 3/7] flow: allocate hash table for online cpus only
+Date: Wed, 31 Mar 2010 16:27:36 +0300
+Message-ID: <4BB34DC8.7080903@iki.fi>
+References: <1269871964-5412-1-git-send-email-timo.teras@iki.fi> <1269871964-5412-4-git-send-email-timo.teras@iki.fi> <20100330121255.GC5731@gondor.apana.org.au> <201003312302.51683.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Timo Teras <timo.teras@iki.fi>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:59726 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757451Ab0CaN0h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 09:26:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20100331131131.GA13793@gondor.apana.org.au>
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:39972 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757686Ab0CaN1l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 09:27:41 -0400
+Received: by ewy20 with SMTP id 20so28535ewy.1
+        for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 06:27:39 -0700 (PDT)
+In-Reply-To: <201003312302.51683.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 31, 2010 at 09:11:31PM +0800, Herbert Xu wrote:
+Rusty Russell wrote:
+> On Tue, 30 Mar 2010 10:42:55 pm Herbert Xu wrote:
+>> On Mon, Mar 29, 2010 at 05:12:40PM +0300, Timo Teras wrote:
+>>> Instead of unconditionally allocating hash table for all possible
+>>> cpu's, allocate it only for online cpu's and release related
+>>> memory if cpu goes down.
+>>>
+>>> Signed-off-by: Timo Teras <timo.teras@iki.fi>
+>> Hmm that's where we started but then Rusty changed it back in 2004:
+>>
+>> So I'd like to hear his opinion on changing it back again.
 > 
-> > This is a consistent definition of the semantics everywhere tables
-> > are flushed (not just in Linux)..
+> It was pretty unique at the time, it no longer is, so the arguments are less
+> compelling IMHO.
 > 
-> Please give specific examples in the kernel.
+> However, we can now use a dynamic percpu variable and get it as a real
+> per-cpu thing (which currently means it *will* be for every available cpu,
+> not just online ones).  Haven't thought about it, but that change might be
+> worth considering instead?
 
-In fact the previous behaviour is also consistent with RFC2367:
+I did convert most of the static percpu variables to a struct which
+is allocated dynamically using alloc_percpu. See:
+ http://marc.info/?l=linux-netdev&m=127003066905912&w=2
 
-3.1.9 SADB_FLUSH
+This patch is on top of that, to avoid allocating the larger hash
+table unconditionally as amount of possible cpu's can be large.
+If you take a look at the actual patch to add back the hash allocation
+for only 'online' cpu's, it's not that complicated IMHO:
+ http://marc.info/?l=linux-netdev&m=126987200927472&w=2
 
-   The SADB_FLUSH message causes the kernel to delete all entries in its
-   key table for a certain sadb_msg_satype.  Only the base header is
-   required for a flush message.  If sadb_msg_satype is filled in with a
-   specific value, only associations of that type are deleted.  If it is
-   filled in with SADB_SATYPE_UNSPEC, ALL associations are deleted.
-
-     The messaging behavior for SADB_FLUSH is:
-
-           Send an SADB_FLUSH message from a user process to the kernel.
-
-           <base>
-
-           The kernel will return an SADB_FLUSH message to all listening
-           sockets.
-
-           <base>
-
-           The reply message happens only after the actual flushing
-           of security associations has been attempted.
-
-There is no special treatment for an empty DB.
-
-Please send a revert.
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
