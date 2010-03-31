@@ -1,53 +1,112 @@
-From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: [PATCH 3/3] be2net: fix bug in vlan rx path for big endian
- architecture
-Date: Wed, 31 Mar 2010 17:30:32 +0530
-Message-ID: <20100331120021.GA9185@serverengines.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 4/8] qlcnic: fix onchip memory access
+Date: Wed, 31 Mar 2010 05:03:42 -0700
+Message-ID: <1270037026-9062-5-git-send-email-amit.salecha@qlogic.com>
+References: <1270037026-9062-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:54490 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755790Ab0CaMAX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 08:00:23 -0400
-Content-Disposition: inline
+Received: from mvnat01.qlogic.com ([198.186.3.73]:28555 "HELO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1756996Ab0CaMDs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Mar 2010 08:03:48 -0400
+In-Reply-To: <1270037026-9062-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-vlan traffic on big endian architecture is broken.
-Need to swap the vid before giving packet to stack.
-This patch fixes it.
+From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
 
-Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+Fix incorrect offset calculation and remove unnecessary remap
+of the region in bar 0 to access onchip memory.
+
+This was leading to read incorrect values by debug tools.
+
+Signed-off-by: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/benet/be_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/qlcnic/qlcnic_hw.c |   39 ++-------------------------------------
+ 1 files changed, 2 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index b0faaa2..ec6ace8 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -807,7 +807,7 @@ static void be_rx_compl_process(struct be_adapter *adapter,
- 			return;
- 		}
- 		vid = AMAP_GET_BITS(struct amap_eth_rx_compl, vlan_tag, rxcp);
--		vid = be16_to_cpu(vid);
-+		vid = swab16(vid);
- 		vlan_hwaccel_receive_skb(skb, adapter->vlan_grp, vid);
- 	} else {
- 		netif_receive_skb(skb);
-@@ -884,7 +884,7 @@ static void be_rx_compl_process_gro(struct be_adapter *adapter,
- 		napi_gro_frags(&eq_obj->napi);
- 	} else {
- 		vid = AMAP_GET_BITS(struct amap_eth_rx_compl, vlan_tag, rxcp);
--		vid = be16_to_cpu(vid);
-+		vid = swab16(vid);
+diff --git a/drivers/net/qlcnic/qlcnic_hw.c b/drivers/net/qlcnic/qlcnic_hw.c
+index 419f46e..0933c2d 100644
+--- a/drivers/net/qlcnic/qlcnic_hw.c
++++ b/drivers/net/qlcnic/qlcnic_hw.c
+@@ -53,18 +53,6 @@ static inline void writeq(u64 val, void __iomem *addr)
+ }
+ #endif
  
- 		if (!adapter->vlan_grp || adapter->vlans_added == 0)
- 			return;
+-#define PCI_OFFSET_FIRST_RANGE(adapter, off)    \
+-	((adapter)->ahw.pci_base0 + (off))
+-
+-static void __iomem *pci_base_offset(struct qlcnic_adapter *adapter,
+-					    unsigned long off)
+-{
+-	if (ADDR_IN_RANGE(off, FIRST_PAGE_GROUP_START, FIRST_PAGE_GROUP_END))
+-		return PCI_OFFSET_FIRST_RANGE(adapter, off);
+-
+-	return NULL;
+-}
+-
+ static const struct crb_128M_2M_block_map
+ crb_128M_2M_map[64] __cacheline_aligned_in_smp = {
+     {{{0, 0,         0,         0} } },		/* 0: PCI */
+@@ -871,13 +859,6 @@ qlcnic_pci_set_window_2M(struct qlcnic_adapter *adapter,
+ 		u64 addr, u32 *start)
+ {
+ 	u32 window;
+-	struct pci_dev *pdev = adapter->pdev;
+-
+-	if ((addr & 0x00ff800) == 0xff800) {
+-		if (printk_ratelimit())
+-			dev_warn(&pdev->dev, "QM access not handled\n");
+-		return -EIO;
+-	}
+ 
+ 	window = OCM_WIN_P3P(addr);
+ 
+@@ -894,8 +875,7 @@ static int
+ qlcnic_pci_mem_access_direct(struct qlcnic_adapter *adapter, u64 off,
+ 		u64 *data, int op)
+ {
+-	void __iomem *addr, *mem_ptr = NULL;
+-	resource_size_t mem_base;
++	void __iomem *addr;
+ 	int ret;
+ 	u32 start;
+ 
+@@ -905,21 +885,8 @@ qlcnic_pci_mem_access_direct(struct qlcnic_adapter *adapter, u64 off,
+ 	if (ret != 0)
+ 		goto unlock;
+ 
+-	addr = pci_base_offset(adapter, start);
+-	if (addr)
+-		goto noremap;
+-
+-	mem_base = pci_resource_start(adapter->pdev, 0) + (start & PAGE_MASK);
+-
+-	mem_ptr = ioremap(mem_base, PAGE_SIZE);
+-	if (mem_ptr == NULL) {
+-		ret = -EIO;
+-		goto unlock;
+-	}
+-
+-	addr = mem_ptr + (start & (PAGE_SIZE - 1));
++	addr = adapter->ahw.pci_base0 + start;
+ 
+-noremap:
+ 	if (op == 0)	/* read */
+ 		*data = readq(addr);
+ 	else		/* write */
+@@ -928,8 +895,6 @@ noremap:
+ unlock:
+ 	mutex_unlock(&adapter->ahw.mem_lock);
+ 
+-	if (mem_ptr)
+-		iounmap(mem_ptr);
+ 	return ret;
+ }
+ 
 -- 
-1.6.3.3
+1.6.0.2
 
