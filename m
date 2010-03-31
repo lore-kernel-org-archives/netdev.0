@@ -1,150 +1,406 @@
 From: Timo Teras <timo.teras@iki.fi>
-Subject: [PATCH 3/4] xfrm: remove policy lock when accessing policy->walk.dead
-Date: Wed, 31 Mar 2010 13:17:05 +0300
-Message-ID: <1270030626-16687-5-git-send-email-timo.teras@iki.fi>
+Subject: [PATCH 4/4] flow: structurize flow cache
+Date: Wed, 31 Mar 2010 13:17:06 +0300
+Message-ID: <1270030626-16687-6-git-send-email-timo.teras@iki.fi>
 References: <1270030626-16687-1-git-send-email-timo.teras@iki.fi>
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	Timo Teras <timo.teras@iki.fi>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f220.google.com ([209.85.219.220]:34536 "EHLO
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:57950 "EHLO
 	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933203Ab0CaKRb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 06:17:31 -0400
-Received: by mail-ew0-f220.google.com with SMTP id 20so1817152ewy.1
-        for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 03:17:30 -0700 (PDT)
+	with ESMTP id S933195Ab0CaKRd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 06:17:33 -0400
+Received: by mail-ew0-f220.google.com with SMTP id 20so1817145ewy.1
+        for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 03:17:32 -0700 (PDT)
 In-Reply-To: <1270030626-16687-1-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All of the code considers ->dead as a hint that the cached policy
-needs to get refreshed. The read side can just drop the read lock
-without any side effects.
+Group all per-cpu data to one structure instead of having many
+globals. Also prepare the internals so that we can have multiple
+instances of the flow cache if needed.
 
-The write side needs to make sure that it's written only exactly
-once. Only possible race is at xfrm_policy_kill(). This is fixed
-by checking result of __xfrm_policy_unlink() when needed. It will
-always succeed if the policy object is looked up from the hash
-list (so some checks are removed), but it needs to be checked if
-we are trying to unlink policy via a reference (appropriate
-checks added).
-
-Since policy->walk.dead is written exactly once, it no longer
-needs to be protected with a write lock.
+Only the kmem_cache is left as a global as all flow caches share
+the same element size, and benefit from using a common cache.
 
 Signed-off-by: Timo Teras <timo.teras@iki.fi>
 ---
- net/xfrm/xfrm_policy.c |   31 +++++++++----------------------
- net/xfrm/xfrm_user.c   |    6 +-----
- 2 files changed, 10 insertions(+), 27 deletions(-)
+ net/core/flow.c |  223 +++++++++++++++++++++++++++++--------------------------
+ 1 files changed, 119 insertions(+), 104 deletions(-)
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 843e066..82789cf 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -156,7 +156,7 @@ static void xfrm_policy_timer(unsigned long data)
+diff --git a/net/core/flow.c b/net/core/flow.c
+index 9601587..1d27ca6 100644
+--- a/net/core/flow.c
++++ b/net/core/flow.c
+@@ -35,104 +35,105 @@ struct flow_cache_entry {
+ 	atomic_t		*object_ref;
+ };
  
- 	read_lock(&xp->lock);
- 
--	if (xp->walk.dead)
-+	if (unlikely(xp->walk.dead))
- 		goto out;
- 
- 	dir = xfrm_policy_id2dir(xp->index);
-@@ -297,17 +297,7 @@ static DECLARE_WORK(xfrm_policy_gc_work, xfrm_policy_gc_task);
- 
- static void xfrm_policy_kill(struct xfrm_policy *policy)
- {
--	int dead;
+-atomic_t flow_cache_genid = ATOMIC_INIT(0);
 -
--	write_lock_bh(&policy->lock);
--	dead = policy->walk.dead;
- 	policy->walk.dead = 1;
--	write_unlock_bh(&policy->lock);
+-static u32 flow_hash_shift;
+-#define flow_hash_size	(1 << flow_hash_shift)
+-static DEFINE_PER_CPU(struct flow_cache_entry **, flow_tables) = { NULL };
 -
--	if (unlikely(dead)) {
--		WARN_ON(1);
--		return;
--	}
+-#define flow_table(cpu) (per_cpu(flow_tables, cpu))
+-
+-static struct kmem_cache *flow_cachep __read_mostly;
+-
+-static int flow_lwm, flow_hwm;
+-
+-struct flow_percpu_info {
+-	int hash_rnd_recalc;
+-	u32 hash_rnd;
+-	int count;
++struct flow_cache_percpu {
++	struct flow_cache_entry **	hash_table;
++	int				hash_count;
++	u32				hash_rnd;
++	int				hash_rnd_recalc;
++	struct tasklet_struct		flush_tasklet;
+ };
+-static DEFINE_PER_CPU(struct flow_percpu_info, flow_hash_info) = { 0 };
+-
+-#define flow_hash_rnd_recalc(cpu) \
+-	(per_cpu(flow_hash_info, cpu).hash_rnd_recalc)
+-#define flow_hash_rnd(cpu) \
+-	(per_cpu(flow_hash_info, cpu).hash_rnd)
+-#define flow_count(cpu) \
+-	(per_cpu(flow_hash_info, cpu).count)
+-
+-static struct timer_list flow_hash_rnd_timer;
+-
+-#define FLOW_HASH_RND_PERIOD	(10 * 60 * HZ)
  
- 	spin_lock_bh(&xfrm_policy_gc_lock);
- 	hlist_add_head(&policy->bydst, &xfrm_policy_gc_list);
-@@ -776,7 +766,6 @@ xfrm_policy_flush_secctx_check(struct net *net, u8 type, struct xfrm_audit *audi
- int xfrm_policy_flush(struct net *net, u8 type, struct xfrm_audit *audit_info)
+ struct flow_flush_info {
+-	atomic_t cpuleft;
+-	struct completion completion;
++	struct flow_cache *		cache;
++	atomic_t			cpuleft;
++	struct completion		completion;
+ };
+-static DEFINE_PER_CPU(struct tasklet_struct, flow_flush_tasklets) = { NULL };
+ 
+-#define flow_flush_tasklet(cpu) (&per_cpu(flow_flush_tasklets, cpu))
++struct flow_cache {
++	u32				hash_shift;
++	unsigned long			order;
++	struct flow_cache_percpu *	percpu;
++	struct notifier_block		hotcpu_notifier;
++	int				low_watermark;
++	int				high_watermark;
++	struct timer_list		rnd_timer;
++};
++
++atomic_t flow_cache_genid = ATOMIC_INIT(0);
++static struct flow_cache flow_cache_global;
++static struct kmem_cache *flow_cachep;
++
++#define flow_cache_hash_size(cache)	(1 << (cache)->hash_shift)
++#define FLOW_HASH_RND_PERIOD		(10 * 60 * HZ)
+ 
+ static void flow_cache_new_hashrnd(unsigned long arg)
  {
- 	int dir, err = 0, cnt = 0;
--	struct xfrm_policy *dp;
++	struct flow_cache *fc = (void *) arg;
+ 	int i;
  
- 	write_lock_bh(&xfrm_policy_lock);
+ 	for_each_possible_cpu(i)
+-		flow_hash_rnd_recalc(i) = 1;
++		per_cpu_ptr(fc->percpu, i)->hash_rnd_recalc = 1;
  
-@@ -794,10 +783,9 @@ int xfrm_policy_flush(struct net *net, u8 type, struct xfrm_audit *audit_info)
- 				     &net->xfrm.policy_inexact[dir], bydst) {
- 			if (pol->type != type)
- 				continue;
--			dp = __xfrm_policy_unlink(pol, dir);
-+			__xfrm_policy_unlink(pol, dir);
- 			write_unlock_bh(&xfrm_policy_lock);
--			if (dp)
--				cnt++;
-+			cnt++;
+-	flow_hash_rnd_timer.expires = jiffies + FLOW_HASH_RND_PERIOD;
+-	add_timer(&flow_hash_rnd_timer);
++	fc->rnd_timer.expires = jiffies + FLOW_HASH_RND_PERIOD;
++	add_timer(&fc->rnd_timer);
+ }
  
- 			xfrm_audit_policy_delete(pol, 1, audit_info->loginuid,
- 						 audit_info->sessionid,
-@@ -816,10 +804,9 @@ int xfrm_policy_flush(struct net *net, u8 type, struct xfrm_audit *audit_info)
- 					     bydst) {
- 				if (pol->type != type)
- 					continue;
--				dp = __xfrm_policy_unlink(pol, dir);
-+				__xfrm_policy_unlink(pol, dir);
- 				write_unlock_bh(&xfrm_policy_lock);
--				if (dp)
--					cnt++;
-+				cnt++;
+-static void flow_entry_kill(int cpu, struct flow_cache_entry *fle)
++static void flow_entry_kill(struct flow_cache *fc,
++			    struct flow_cache_percpu *fcp,
++			    struct flow_cache_entry *fle)
+ {
+ 	if (fle->object)
+ 		atomic_dec(fle->object_ref);
+ 	kmem_cache_free(flow_cachep, fle);
+-	flow_count(cpu)--;
++	fcp->hash_count--;
+ }
  
- 				xfrm_audit_policy_delete(pol, 1,
- 							 audit_info->loginuid,
-@@ -1132,6 +1119,9 @@ int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
- 		__xfrm_policy_link(pol, XFRM_POLICY_MAX+dir);
- 	}
- 	if (old_pol)
-+		/* Unlinking succeeds always. This is the only function
-+		 * allowed to delete or replace socket policy.
-+		 */
- 		__xfrm_policy_unlink(old_pol, XFRM_POLICY_MAX+dir);
- 	write_unlock_bh(&xfrm_policy_lock);
+-static void __flow_cache_shrink(int cpu, int shrink_to)
++static void __flow_cache_shrink(struct flow_cache *fc,
++				struct flow_cache_percpu *fcp,
++				int shrink_to)
+ {
+ 	struct flow_cache_entry *fle, **flp;
+ 	int i;
  
-@@ -1737,11 +1727,8 @@ restart:
- 			goto error;
+-	for (i = 0; i < flow_hash_size; i++) {
++	for (i = 0; i < flow_cache_hash_size(fc); i++) {
+ 		int k = 0;
+ 
+-		flp = &flow_table(cpu)[i];
++		flp = &fcp->hash_table[i];
+ 		while ((fle = *flp) != NULL && k < shrink_to) {
+ 			k++;
+ 			flp = &fle->next;
  		}
+ 		while ((fle = *flp) != NULL) {
+ 			*flp = fle->next;
+-			flow_entry_kill(cpu, fle);
++			flow_entry_kill(fc, fcp, fle);
+ 		}
+ 	}
+ }
  
--		for (pi = 0; pi < npols; pi++) {
--			read_lock_bh(&pols[pi]->lock);
-+		for (pi = 0; pi < npols; pi++)
- 			pol_dead |= pols[pi]->walk.dead;
--			read_unlock_bh(&pols[pi]->lock);
--		}
+-static void flow_cache_shrink(int cpu)
++static void flow_cache_shrink(struct flow_cache *fc,
++			      struct flow_cache_percpu *fcp)
+ {
+-	int shrink_to = flow_lwm / flow_hash_size;
++	int shrink_to = fc->low_watermark / flow_cache_hash_size(fc);
  
- 		write_lock_bh(&policy->lock);
- 		if (unlikely(pol_dead || stale_bundle(dst))) {
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index da5ba86..a267fbd 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -1770,13 +1770,9 @@ static int xfrm_add_pol_expire(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	if (xp == NULL)
- 		return -ENOENT;
+-	__flow_cache_shrink(cpu, shrink_to);
++	__flow_cache_shrink(fc, fcp, shrink_to);
+ }
  
--	read_lock(&xp->lock);
--	if (xp->walk.dead) {
--		read_unlock(&xp->lock);
-+	if (unlikely(xp->walk.dead))
- 		goto out;
--	}
+-static void flow_new_hash_rnd(int cpu)
++static void flow_new_hash_rnd(struct flow_cache *fc,
++			      struct flow_cache_percpu *fcp)
+ {
+-	get_random_bytes(&flow_hash_rnd(cpu), sizeof(u32));
+-	flow_hash_rnd_recalc(cpu) = 0;
+-
+-	__flow_cache_shrink(cpu, 0);
++	get_random_bytes(&fcp->hash_rnd, sizeof(u32));
++	fcp->hash_rnd_recalc = 0;
++	__flow_cache_shrink(fc, fcp, 0);
+ }
  
--	read_unlock(&xp->lock);
- 	err = 0;
- 	if (up->hard) {
- 		uid_t loginuid = NETLINK_CB(skb).loginuid;
+-static u32 flow_hash_code(struct flowi *key, int cpu)
++static u32 flow_hash_code(struct flow_cache *fc,
++			  struct flow_cache_percpu *fcp,
++			  struct flowi *key)
+ {
+ 	u32 *k = (u32 *) key;
+ 
+-	return (jhash2(k, (sizeof(*key) / sizeof(u32)), flow_hash_rnd(cpu)) &
+-		(flow_hash_size - 1));
++	return (jhash2(k, (sizeof(*key) / sizeof(u32)), fcp->hash_rnd)
++		& (flow_cache_hash_size(fc) - 1));
+ }
+ 
+ #if (BITS_PER_LONG == 64)
+@@ -168,24 +169,25 @@ static int flow_key_compare(struct flowi *key1, struct flowi *key2)
+ void *flow_cache_lookup(struct net *net, struct flowi *key, u16 family, u8 dir,
+ 			flow_resolve_t resolver)
+ {
++	struct flow_cache *fc = &flow_cache_global;
++	struct flow_cache_percpu *fcp;
+ 	struct flow_cache_entry *fle, **head;
+ 	unsigned int hash;
+-	int cpu;
+ 
+ 	local_bh_disable();
+-	cpu = smp_processor_id();
++	fcp = per_cpu_ptr(fc->percpu, smp_processor_id());
+ 
+ 	fle = NULL;
+ 	/* Packet really early in init?  Making flow_cache_init a
+ 	 * pre-smp initcall would solve this.  --RR */
+-	if (!flow_table(cpu))
++	if (!fcp->hash_table)
+ 		goto nocache;
+ 
+-	if (flow_hash_rnd_recalc(cpu))
+-		flow_new_hash_rnd(cpu);
+-	hash = flow_hash_code(key, cpu);
++	if (fcp->hash_rnd_recalc)
++		flow_new_hash_rnd(fc, fcp);
++	hash = flow_hash_code(fc, fcp, key);
+ 
+-	head = &flow_table(cpu)[hash];
++	head = &fcp->hash_table[hash];
+ 	for (fle = *head; fle; fle = fle->next) {
+ 		if (fle->family == family &&
+ 		    fle->dir == dir &&
+@@ -204,8 +206,8 @@ void *flow_cache_lookup(struct net *net, struct flowi *key, u16 family, u8 dir,
+ 	}
+ 
+ 	if (!fle) {
+-		if (flow_count(cpu) > flow_hwm)
+-			flow_cache_shrink(cpu);
++		if (fcp->hash_count > fc->high_watermark)
++			flow_cache_shrink(fc, fcp);
+ 
+ 		fle = kmem_cache_alloc(flow_cachep, GFP_ATOMIC);
+ 		if (fle) {
+@@ -215,7 +217,7 @@ void *flow_cache_lookup(struct net *net, struct flowi *key, u16 family, u8 dir,
+ 			fle->dir = dir;
+ 			memcpy(&fle->key, key, sizeof(*key));
+ 			fle->object = NULL;
+-			flow_count(cpu)++;
++			fcp->hash_count++;
+ 		}
+ 	}
+ 
+@@ -249,14 +251,15 @@ nocache:
+ static void flow_cache_flush_tasklet(unsigned long data)
+ {
+ 	struct flow_flush_info *info = (void *)data;
++	struct flow_cache *fc = info->cache;
++	struct flow_cache_percpu *fcp;
+ 	int i;
+-	int cpu;
+ 
+-	cpu = smp_processor_id();
+-	for (i = 0; i < flow_hash_size; i++) {
++	fcp = per_cpu_ptr(fc->percpu, smp_processor_id());
++	for (i = 0; i < flow_cache_hash_size(fc); i++) {
+ 		struct flow_cache_entry *fle;
+ 
+-		fle = flow_table(cpu)[i];
++		fle = fcp->hash_table[i];
+ 		for (; fle; fle = fle->next) {
+ 			unsigned genid = atomic_read(&flow_cache_genid);
+ 
+@@ -272,7 +275,6 @@ static void flow_cache_flush_tasklet(unsigned long data)
+ 		complete(&info->completion);
+ }
+ 
+-static void flow_cache_flush_per_cpu(void *) __attribute__((__unused__));
+ static void flow_cache_flush_per_cpu(void *data)
+ {
+ 	struct flow_flush_info *info = data;
+@@ -280,8 +282,7 @@ static void flow_cache_flush_per_cpu(void *data)
+ 	struct tasklet_struct *tasklet;
+ 
+ 	cpu = smp_processor_id();
+-
+-	tasklet = flow_flush_tasklet(cpu);
++	tasklet = &per_cpu_ptr(info->cache->percpu, cpu)->flush_tasklet;
+ 	tasklet->data = (unsigned long)info;
+ 	tasklet_schedule(tasklet);
+ }
+@@ -294,6 +295,7 @@ void flow_cache_flush(void)
+ 	/* Don't want cpus going down or up during this. */
+ 	get_online_cpus();
+ 	mutex_lock(&flow_flush_sem);
++	info.cache = &flow_cache_global;
+ 	atomic_set(&info.cpuleft, num_online_cpus());
+ 	init_completion(&info.completion);
+ 
+@@ -307,62 +309,75 @@ void flow_cache_flush(void)
+ 	put_online_cpus();
+ }
+ 
+-static void __init flow_cache_cpu_prepare(int cpu)
++static void __init flow_cache_cpu_prepare(struct flow_cache *fc,
++					  struct flow_cache_percpu *fcp)
+ {
+-	struct tasklet_struct *tasklet;
+-	unsigned long order;
+-
+-	for (order = 0;
+-	     (PAGE_SIZE << order) <
+-		     (sizeof(struct flow_cache_entry *)*flow_hash_size);
+-	     order++)
+-		/* NOTHING */;
+-
+-	flow_table(cpu) = (struct flow_cache_entry **)
+-		__get_free_pages(GFP_KERNEL|__GFP_ZERO, order);
+-	if (!flow_table(cpu))
+-		panic("NET: failed to allocate flow cache order %lu\n", order);
+-
+-	flow_hash_rnd_recalc(cpu) = 1;
+-	flow_count(cpu) = 0;
+-
+-	tasklet = flow_flush_tasklet(cpu);
+-	tasklet_init(tasklet, flow_cache_flush_tasklet, 0);
++	fcp->hash_table = (struct flow_cache_entry **)
++		__get_free_pages(GFP_KERNEL|__GFP_ZERO, fc->order);
++	if (!fcp->hash_table)
++		panic("NET: failed to allocate flow cache order %lu\n", fc->order);
++
++	fcp->hash_rnd_recalc = 1;
++	fcp->hash_count = 0;
++	tasklet_init(&fcp->flush_tasklet, flow_cache_flush_tasklet, 0);
+ }
+ 
+ static int flow_cache_cpu(struct notifier_block *nfb,
+ 			  unsigned long action,
+ 			  void *hcpu)
+ {
++	struct flow_cache *fc = container_of(nfb, struct flow_cache, hotcpu_notifier);
++	int cpu = (unsigned long) hcpu;
++	struct flow_cache_percpu *fcp = per_cpu_ptr(fc->percpu, cpu);
++
+ 	if (action == CPU_DEAD || action == CPU_DEAD_FROZEN)
+-		__flow_cache_shrink((unsigned long)hcpu, 0);
++		__flow_cache_shrink(fc, fcp, 0);
+ 	return NOTIFY_OK;
+ }
+ 
+-static int __init flow_cache_init(void)
++static int flow_cache_init(struct flow_cache *fc)
+ {
++	unsigned long order;
+ 	int i;
+ 
+-	flow_cachep = kmem_cache_create("flow_cache",
+-					sizeof(struct flow_cache_entry),
+-					0, SLAB_PANIC,
+-					NULL);
+-	flow_hash_shift = 10;
+-	flow_lwm = 2 * flow_hash_size;
+-	flow_hwm = 4 * flow_hash_size;
++	fc->hash_shift = 10;
++	fc->low_watermark = 2 * flow_cache_hash_size(fc);
++	fc->high_watermark = 4 * flow_cache_hash_size(fc);
++
++	for (order = 0;
++	     (PAGE_SIZE << order) <
++		     (sizeof(struct flow_cache_entry *)*flow_cache_hash_size(fc));
++	     order++)
++		/* NOTHING */;
++	fc->order = order;
++	fc->percpu = alloc_percpu(struct flow_cache_percpu);
+ 
+-	setup_timer(&flow_hash_rnd_timer, flow_cache_new_hashrnd, 0);
+-	flow_hash_rnd_timer.expires = jiffies + FLOW_HASH_RND_PERIOD;
+-	add_timer(&flow_hash_rnd_timer);
++	setup_timer(&fc->rnd_timer, flow_cache_new_hashrnd,
++		    (unsigned long) fc);
++	fc->rnd_timer.expires = jiffies + FLOW_HASH_RND_PERIOD;
++	add_timer(&fc->rnd_timer);
+ 
+ 	for_each_possible_cpu(i)
+-		flow_cache_cpu_prepare(i);
++		flow_cache_cpu_prepare(fc, per_cpu_ptr(fc->percpu, i));
++
++	fc->hotcpu_notifier = (struct notifier_block){
++		.notifier_call = flow_cache_cpu,
++	};
++	register_hotcpu_notifier(&fc->hotcpu_notifier);
+ 
+-	hotcpu_notifier(flow_cache_cpu, 0);
+ 	return 0;
+ }
+ 
+-module_init(flow_cache_init);
++static int __init flow_cache_init_global(void)
++{
++	flow_cachep = kmem_cache_create("flow_cache",
++					sizeof(struct flow_cache_entry),
++					0, SLAB_PANIC, NULL);
++
++	return flow_cache_init(&flow_cache_global);
++}
++
++module_init(flow_cache_init_global);
+ 
+ EXPORT_SYMBOL(flow_cache_genid);
+ EXPORT_SYMBOL(flow_cache_lookup);
 -- 
 1.6.3.3
 
