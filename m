@@ -1,65 +1,65 @@
-From: Anders Darander <anders.darander@gmail.com>
-Subject: [PATCH] MACB: Set PHY address in kernel parameters
-Date: Wed, 31 Mar 2010 09:51:42 +0200
-Message-ID: <1270021902-6556-1-git-send-email-anders.darander@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Erik Waling <erik.waling@konftel.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Anders Darander <ad@datarespons.se>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Haavard Skinnemoen <hskinnemoen@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH] netdev/fec.c: add phylib supporting to enable carrier
+	detection
+Date: Wed, 31 Mar 2010 09:57:46 +0200
+Message-ID: <20100331075746.GO2241@pengutronix.de>
+References: <1269597052-10104-1-git-send-email-bryan.wu@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: gerg@uclinux.org, amit.kucheria@canonical.com,
+	kernel-team@lists.ubuntu.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	w.sang@pengutronix.de
+To: Bryan Wu <bryan.wu@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:58777 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757227Ab0CaH5t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 03:57:49 -0400
+Content-Disposition: inline
+In-Reply-To: <1269597052-10104-1-git-send-email-bryan.wu@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Anders Darander <ad@datarespons.se>
+On Fri, Mar 26, 2010 at 05:50:52PM +0800, Bryan Wu wrote:
+> BugLink: http://bugs.launchpad.net/bugs/457878
+> 
+>  - removed old MII phy control code
+>  - add phylib supporting
+>  - add ethtool interface to make user space NetworkManager works
+> 
+> Tested on Freescale i.MX51 Babbage board.
+> 
+> This patch is based on a patch from Frederic Rodo <fred.rodo@gmail.com>
+> 
 
-Add the possibility to set the phy address. This is needed if an integrated
-switch is connected to the MAC, as it is often the case that the highest port
-is the one connected to the MAC of the MCU.
 
-E.g. in the case of the Micrel KSZ8873, port 3 is the one to connect to the
-MCU, thus, the MAC needs to connect to phy address 0x03, instead of the first
-phy found.
+Hi Bryan,
 
-Signed-off-by: Anders Darander <ad@datarespons.se>
----
- drivers/net/macb.c |   14 +++++++++++++-
- 1 files changed, 13 insertions(+), 1 deletions(-)
+The MII speed is calculated twice with this patch applied, one time
+in fec_enet_mii_init and one time in fec_enet_init.
 
-diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-index c8a18a6..9b4e301 100644
---- a/drivers/net/macb.c
-+++ b/drivers/net/macb.c
-@@ -53,6 +53,14 @@
- #define MACB_RX_INT_FLAGS	(MACB_BIT(RCOMP) | MACB_BIT(RXUBR)	\
- 				 | MACB_BIT(ISR_ROVR))
- 
-+/*
-+ * Setup PHY probeing
-+ */
-+
-+static int phy_addr = PHY_MAX_ADDR;
-+module_param(phy_addr, ushort, 0);
-+MODULE_PARAM_DESC(phy_addr, "PHY address connected to the MACB");
-+
- static void __macb_set_hwaddr(struct macb *bp)
- {
- 	u32 bottom;
-@@ -193,7 +201,11 @@ static int macb_mii_probe(struct net_device *dev)
- 	struct eth_platform_data *pdata;
- 	int ret;
- 
--	phydev = phy_find_first(bp->mii_bus);
-+	if (phy_addr >= PHY_MAX_ADDRESS)
-+		phydev = phy_find_first(bp->mii_bus);
-+	else
-+		phydev = bp->mii_bus->phy_map[phy_addr];
-+
- 	if (!phydev) {
- 		printk (KERN_ERR "%s: no PHY found\n", dev->name);
- 		return -1;
+The patch didn't work for me because the calculation is wrong (which of
+course is not your fault, it was wrong before).
+According to the Datasheet the MII clock is clk_get_rate() / (MII * 2).
+When we want to have a clock of 2.5MHz we have to do:
+
+clk_get_rate() / 5000000
+
+With rounding this would be:
+
+(clk_get_rate() + 4999999) / 5000000
+
+So you might want to add the following to your patch:
+
+	fep->phy_speed = ((clk_get_rate(fep->clk) + 4999999) / 5000000) << 1;
+
+Otherwise the patch looks good to me.
+
+Sascha
+
 -- 
-1.7.0.3
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
