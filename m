@@ -1,42 +1,40 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] Allow MACB to connect to a higher addresses PHY.
-Date: Wed, 31 Mar 2010 00:08:28 -0600
-Message-ID: <x2gfa686aa41003302308r8c4f84acy5ab0c7368313aa5@mail.gmail.com>
-References: <1269943112-6975-1-git-send-email-anders.darander@gmail.com>
-	<fa686aa41003300741x5ef9bdbpf56133304fe4d6e6@mail.gmail.com>
-	<20100331055306.GC4837@datarespons.se>
+From: Rory Filer <rfiler-usJ8hg9QsBLWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
+Subject: RE: re-submit2 [ANNOUNCEMENT] NET: usb: sierra_net.c driver
+Date: Tue, 30 Mar 2010 23:21:25 -0700
+Message-ID: <8F90F944E50427428C60E12A34A309D22FC800D825@carmd-exchmb01.sierrawireless.local>
+References: <1269893596.9242.7.camel@Linuxdev3>
+	<20100330.230932.244208287.davem@davemloft.net>
+ <20100330.231051.113008279.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Maxime Bizon <mbizon@freebox.fr>,
-	David Daney <ddaney@caviumnetworks.com>,
-	Sekhar Nori <nsekhar@ti.com>,
-	Anton Vorontsov <avorontsov@ru.mvista.com>,
-	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Anders Darander <anders.darander@datarespons.se>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100331055306.GC4837@datarespons.se>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org" <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100330.231051.113008279.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Language: en-US
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 30, 2010 at 11:53 PM, Anders Darander
-<anders.darander@datarespons.se> wrote:
-> * Grant Likely <grant.likely@secretlab.ca> [100330 16:42]:
-> One question, if I add such an kernel parameter, would it be OK to
-> implement something like this in the macb-driver:
->
-> if parameter =3D=3D SOME_DEFAULT
-> =A0 =A0 =A0 =A0phydev =3D phy_find_first(bp->mii_bus);
-> else
-> =A0 =A0 =A0 =A0phydev =3D bp->mii_bus->phy_map[parameter];
->
-> I.e. if the parameter is set to some default value, the old behaviour=
- is
-> retained, otherwise the specified parameter is used for the phy_addr?
+ -----Original Message-----
+> >
+> > Applied, thanks.
+> 
+> Nevermind, reverted, it doesn't even build.
+> 
+> drivers/net/usb/sierra_net.c: In function 'check_ethip_packet':
+> drivers/net/usb/sierra_net.c:221:3: error: implicit declaration of
+> function 'deverr'
+> 
+> Really, this should never ever happen, and there is simply
+> no excuse at all for this.
 
-Absolutely.
-
-g.
+Well actually there is an excuse, but I'm sure you don't want to
+know what it is. 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
