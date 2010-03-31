@@ -1,705 +1,522 @@
-From: linux@kbdbabel.org
-Subject: [PATCH] net/pcmcia/3c589_cs: using netdev_info and friends where appropriate
-Date: Wed, 31 Mar 2010 16:42:10 +0400
-Message-ID: <1270039330-5775-1-git-send-email-linux@kbdbabel.org>
-References: <1269969733.4558.171.camel@Joe-Laptop.home>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ken Kawasaki <ken_kawasaki@spring.nifty.jp>,
-	Dominik Brodowski <linux@dominikbrodowski.net>,
-	Magnus Damm <damm@opensource.se>,
-	Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux@kbdbabel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1269969733.4558.171.camel@Joe-Laptop.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+Subject: [net-next PATCH] be2net: Adding PCI SRIOV support
+Date: Wed, 31 Mar 2010 18:26:12 +0530
+Message-ID: <20100331125601.GA9725@serverengines.com>
+Reply-To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from segment-124-30.sify.net ([124.30.166.146]:63255 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932101Ab0CaM4G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 08:56:06 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Kurz <linux@kbdbabel.org>
+- Patch adds support to enable PCI SRIOV in the driver and changes to handle initialization of PCI virtual functions.
+- Function handler to change mac addresses for VF from its corresponding PF.
 
-Signed-off-by: Alexander Kurz <linux@kbdbabel.org>
+Signed-off-by: Sarveshwar Bandi <sarveshwarb@serverengines.com>
 ---
- drivers/net/pcmcia/3c589_cs.c |  286 +++++++++++++++++++++--------------------
- 1 files changed, 147 insertions(+), 139 deletions(-)
+ drivers/net/benet/be.h      |    9 ++
+ drivers/net/benet/be_cmds.c |    4 +
+ drivers/net/benet/be_cmds.h |    2 
+ drivers/net/benet/be_hw.h   |    3 +
+ drivers/net/benet/be_main.c |  222 ++++++++++++++++++++++++++++++++++---------
+ 5 files changed, 191 insertions(+), 49 deletions(-)
 
-diff --git a/drivers/net/pcmcia/3c589_cs.c b/drivers/net/pcmcia/3c589_cs.c
-index 091e0b0..580977f 100644
---- a/drivers/net/pcmcia/3c589_cs.c
-+++ b/drivers/net/pcmcia/3c589_cs.c
-@@ -1,20 +1,20 @@
- /*======================================================================
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index 8f07525..20842c5 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -83,6 +83,8 @@ #define RX_FRAGS_REFILL_WM	(RX_Q_LEN - M
  
-     A PCMCIA ethernet driver for the 3com 3c589 card.
--    
+ #define FW_VER_LEN		32
+ 
++#define BE_MAX_VF		32
 +
-     Copyright (C) 1999 David A. Hinds -- dahinds@users.sourceforge.net
- 
-     3c589_cs.c 1.162 2001/10/13 00:08:50
- 
-     The network driver code is based on Donald Becker's 3c589 code:
--    
+ struct be_dma_mem {
+ 	void *va;
+ 	dma_addr_t dma;
+@@ -280,8 +282,15 @@ struct be_adapter {
+ 	u8 port_type;
+ 	u8 transceiver;
+ 	u8 generation;		/* BladeEngine ASIC generation */
 +
-     Written 1994 by Donald Becker.
-     Copyright 1993 United States Government as represented by the
-     Director, National Security Agency.  This software may be used and
-     distributed according to the terms of the GNU General Public License,
-     incorporated herein by reference.
-     Donald Becker may be reached at becker@scyld.com
--    
-+
-     Updated for 2.5.x by Alan Cox <alan@lxorguk.ukuu.org.uk>
- 
- ======================================================================*/
-@@ -69,31 +69,54 @@
- /* The top five bits written to EL3_CMD are a command, the lower
-    11 bits are the parameter, if applicable. */
- enum c509cmd {
--    TotalReset = 0<<11, SelectWindow = 1<<11, StartCoax = 2<<11,
--    RxDisable = 3<<11, RxEnable = 4<<11, RxReset = 5<<11, RxDiscard = 8<<11,
--    TxEnable = 9<<11, TxDisable = 10<<11, TxReset = 11<<11,
--    FakeIntr = 12<<11, AckIntr = 13<<11, SetIntrEnb = 14<<11,
--    SetStatusEnb = 15<<11, SetRxFilter = 16<<11, SetRxThreshold = 17<<11,
--    SetTxThreshold = 18<<11, SetTxStart = 19<<11, StatsEnable = 21<<11,
--    StatsDisable = 22<<11, StopCoax = 23<<11,
-+	TotalReset	= 0<<11,
-+	SelectWindow	= 1<<11,
-+	StartCoax	= 2<<11,
-+	RxDisable	= 3<<11,
-+	RxEnable	= 4<<11,
-+	RxReset		= 5<<11,
-+	RxDiscard	= 8<<11,
-+	TxEnable	= 9<<11,
-+	TxDisable	= 10<<11,
-+	TxReset		= 11<<11,
-+	FakeIntr	= 12<<11,
-+	AckIntr		= 13<<11,
-+	SetIntrEnb	= 14<<11,
-+	SetStatusEnb	= 15<<11,
-+	SetRxFilter	= 16<<11,
-+	SetRxThreshold	= 17<<11,
-+	SetTxThreshold	= 18<<11,
-+	SetTxStart	= 19<<11,
-+	StatsEnable	= 21<<11,
-+	StatsDisable	= 22<<11,
-+	StopCoax	= 23<<11
++	bool sriov_enabled;
++	u32 vf_if_handle[BE_MAX_VF];
++	u32 vf_pmac_id[BE_MAX_VF];
++	u8 base_eq_id;
  };
  
- enum c509status {
--    IntLatch = 0x0001, AdapterFailure = 0x0002, TxComplete = 0x0004,
--    TxAvailable = 0x0008, RxComplete = 0x0010, RxEarly = 0x0020,
--    IntReq = 0x0040, StatsFull = 0x0080, CmdBusy = 0x1000
-+	IntLatch	= 0x0001,
-+	AdapterFailure	= 0x0002,
-+	TxComplete	= 0x0004,
-+	TxAvailable	= 0x0008,
-+	RxComplete	= 0x0010,
-+	RxEarly		= 0x0020,
-+	IntReq		= 0x0040,
-+	StatsFull	= 0x0080,
-+	CmdBusy		= 0x1000
- };
- 
- /* The SetRxFilter command accepts the following classes: */
- enum RxFilter {
--    RxStation = 1, RxMulticast = 2, RxBroadcast = 4, RxProm = 8
-+	RxStation	= 1,
-+	RxMulticast	= 2,
-+	RxBroadcast	= 4,
-+	RxProm		= 8
- };
- 
- /* Register window 1 offsets, the window used in normal operation. */
- #define TX_FIFO		0x00
- #define RX_FIFO		0x00
--#define RX_STATUS 	0x08
--#define TX_STATUS 	0x0B
-+#define RX_STATUS	0x08
-+#define TX_STATUS	0x0B
- #define TX_FREE		0x0C	/* Remaining free bytes in Tx buffer. */
- 
- #define WN0_IRQ		0x08	/* Window 0: Set IRQ line in bits 12-15. */
-@@ -106,13 +129,13 @@ enum RxFilter {
- 
- struct el3_private {
- 	struct pcmcia_device	*p_dev;
--    dev_node_t 		node;
--    /* For transceiver monitoring */
--    struct timer_list	media;
--    u16			media_status;
--    u16			fast_poll;
--    unsigned long	last_irq;
--    spinlock_t		lock;
-+	dev_node_t		node;
-+	/* For transceiver monitoring */
-+	struct timer_list	media;
-+	u16			media_status;
-+	u16			fast_poll;
-+	unsigned long		last_irq;
-+	spinlock_t		lock;
- };
- 
- static const char *if_names[] = { "auto", "10baseT", "10base2", "AUI" };
-@@ -164,15 +187,15 @@ static void tc589_detach(struct pcmcia_device *p_dev);
- ======================================================================*/
- 
- static const struct net_device_ops el3_netdev_ops = {
--	.ndo_open 		= el3_open,
--	.ndo_stop 		= el3_close,
-+	.ndo_open		= el3_open,
-+	.ndo_stop		= el3_close,
- 	.ndo_start_xmit		= el3_start_xmit,
--	.ndo_tx_timeout 	= el3_tx_timeout,
-+	.ndo_tx_timeout		= el3_tx_timeout,
- 	.ndo_set_config		= el3_config,
- 	.ndo_get_stats		= el3_get_stats,
- 	.ndo_set_multicast_list = set_multicast_list,
- 	.ndo_change_mtu		= eth_change_mtu,
--	.ndo_set_mac_address 	= eth_mac_addr,
-+	.ndo_set_mac_address	= eth_mac_addr,
- 	.ndo_validate_addr	= eth_validate_addr,
- };
- 
-@@ -236,7 +259,7 @@ static void tc589_detach(struct pcmcia_device *link)
-     tc589_config() is scheduled to run after a CARD_INSERTION event
-     is received, to configure the PCMCIA socket, and to make the
-     ethernet device available to the system.
--    
++#define be_physfn(adapter) (!adapter->pdev->is_virtfn)
 +
- ======================================================================*/
- 
- static int tc589_config(struct pcmcia_device *link)
-@@ -249,7 +272,7 @@ static int tc589_config(struct pcmcia_device *link)
-     char *ram_split[] = {"5:3", "3:1", "1:1", "3:5"};
-     u8 *buf;
-     size_t len;
--    
-+
-     dev_dbg(&link->dev, "3c589_config\n");
- 
-     phys_addr = (__be16 *)dev->dev_addr;
-@@ -278,7 +301,7 @@ static int tc589_config(struct pcmcia_device *link)
-     ret = pcmcia_request_configuration(link, &link->conf);
-     if (ret)
- 	    goto failed;
--	
-+
-     dev->irq = link->irq.AssignedIRQ;
-     dev->base_addr = link->io.BasePort1;
-     ioaddr = dev->base_addr;
-@@ -312,7 +335,7 @@ static int tc589_config(struct pcmcia_device *link)
- 	dev->if_port = if_port;
-     else
- 	printk(KERN_ERR "3c589_cs: invalid if_port requested\n");
--    
-+
-     link->dev_node = &lp->node;
-     SET_NETDEV_DEV(dev, &link->dev);
- 
-@@ -324,13 +347,12 @@ static int tc589_config(struct pcmcia_device *link)
- 
-     strcpy(lp->node.dev_name, dev->name);
- 
--    printk(KERN_INFO "%s: 3Com 3c%s, io %#3lx, irq %d, "
--	   "hw_addr %pM\n",
--	   dev->name, (multi ? "562" : "589"), dev->base_addr, dev->irq,
--	   dev->dev_addr);
--    printk(KERN_INFO "  %dK FIFO split %s Rx:Tx, %s xcvr\n",
--	   (fifo & 7) ? 32 : 8, ram_split[(fifo >> 16) & 3],
--	   if_names[dev->if_port]);
-+    netdev_info(dev, "3Com 3c%s, io %#3lx, irq %d, hw_addr %pM\n",
-+		(multi ? "562" : "589"), dev->base_addr, dev->irq,
-+		dev->dev_addr);
-+    netdev_info(dev, "  %dK FIFO split %s Rx:Tx, %s xcvr\n",
-+		(fifo & 7) ? 32 : 8, ram_split[(fifo >> 16) & 3],
-+		if_names[dev->if_port]);
-     return 0;
- 
- failed:
-@@ -343,7 +365,7 @@ failed:
-     After a card is removed, tc589_release() will unregister the net
-     device, and release the PCMCIA configuration.  If the device is
-     still open, this will be postponed until it is closed.
--    
-+
- ======================================================================*/
- 
- static void tc589_release(struct pcmcia_device *link)
-@@ -365,7 +387,7 @@ static int tc589_resume(struct pcmcia_device *link)
+ /* BladeEngine Generation numbers */
+ #define BE_GEN2 2
+ #define BE_GEN3 3
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index 50e6259..9f53d9e 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -843,7 +843,8 @@ int be_cmd_q_destroy(struct be_adapter *
+  * Uses mbox
+  */
+ int be_cmd_if_create(struct be_adapter *adapter, u32 cap_flags, u32 en_flags,
+-		u8 *mac, bool pmac_invalid, u32 *if_handle, u32 *pmac_id)
++		u8 *mac, bool pmac_invalid, u32 *if_handle, u32 *pmac_id,
++		u32 domain)
  {
- 	struct net_device *dev = link->priv;
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_req_if_create *req;
+@@ -860,6 +861,7 @@ int be_cmd_if_create(struct be_adapter *
+ 	be_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
+ 		OPCODE_COMMON_NTWK_INTERFACE_CREATE, sizeof(*req));
  
-- 	if (link->open) {
-+	if (link->open) {
- 		tc589_reset(dev);
- 		netif_device_attach(dev);
- 	}
-@@ -385,8 +407,7 @@ static void tc589_wait_for_completion(struct net_device *dev, int cmd)
-     while (--i > 0)
- 	if (!(inw(dev->base_addr + EL3_STATUS) & 0x1000)) break;
-     if (i == 0)
--	printk(KERN_WARNING "%s: command 0x%04x did not complete!\n",
--	       dev->name, cmd);
-+	netdev_warn(dev, "command 0x%04x did not complete!\n", cmd);
++	req->hdr.domain = domain;
+ 	req->capability_flags = cpu_to_le32(cap_flags);
+ 	req->enable_flags = cpu_to_le32(en_flags);
+ 	req->pmac_invalid = pmac_invalid;
+diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
+index cce61f9..763dc19 100644
+--- a/drivers/net/benet/be_cmds.h
++++ b/drivers/net/benet/be_cmds.h
+@@ -878,7 +878,7 @@ extern int be_cmd_pmac_add(struct be_ada
+ extern int be_cmd_pmac_del(struct be_adapter *adapter, u32 if_id, u32 pmac_id);
+ extern int be_cmd_if_create(struct be_adapter *adapter, u32 cap_flags,
+ 			u32 en_flags, u8 *mac, bool pmac_invalid,
+-			u32 *if_handle, u32 *pmac_id);
++			u32 *if_handle, u32 *pmac_id, u32 domain);
+ extern int be_cmd_if_destroy(struct be_adapter *adapter, u32 if_handle);
+ extern int be_cmd_eq_create(struct be_adapter *adapter,
+ 			struct be_queue_info *eq, int eq_delay);
+diff --git a/drivers/net/benet/be_hw.h b/drivers/net/benet/be_hw.h
+index 2d4a4b8..063026d 100644
+--- a/drivers/net/benet/be_hw.h
++++ b/drivers/net/benet/be_hw.h
+@@ -99,6 +99,9 @@ #define DB_MCCQ_RING_ID_MASK		0x7FF	/* b
+ /* Number of entries posted */
+ #define DB_MCCQ_NUM_POSTED_SHIFT	(16)	/* bits 16 - 29 */
+ 
++/********** SRIOV VF PCICFG OFFSET ********/
++#define SRIOV_VF_PCICFG_OFFSET		(4096)
++
+ /* Flashrom related descriptors */
+ #define IMAGE_TYPE_FIRMWARE		160
+ #define IMAGE_TYPE_BOOTCODE		224
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 50ea056..881c87d 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -26,8 +26,11 @@ MODULE_AUTHOR("ServerEngines Corporation
+ MODULE_LICENSE("GPL");
+ 
+ static unsigned int rx_frag_size = 2048;
++static unsigned int num_vfs;
+ module_param(rx_frag_size, uint, S_IRUGO);
++module_param(num_vfs, uint, S_IRUGO);
+ MODULE_PARM_DESC(rx_frag_size, "Size of a fragment that holds rcvd data.");
++MODULE_PARM_DESC(num_vfs, "Number of PCI VFs to initialize");
+ 
+ static DEFINE_PCI_DEVICE_TABLE(be_dev_ids) = {
+ 	{ PCI_DEVICE(BE_VENDOR_ID, BE_DEVICE_ID1) },
+@@ -138,12 +141,19 @@ static int be_mac_addr_set(struct net_de
+ 	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 
++	/* MAC addr configuration will be done in hardware for VFs
++	 * by their corresponding PFs. Just copy to netdev addr here
++	 */
++	if (!be_physfn(adapter))
++		goto netdev_addr;
++
+ 	status = be_cmd_pmac_del(adapter, adapter->if_handle, adapter->pmac_id);
+ 	if (status)
+ 		return status;
+ 
+ 	status = be_cmd_pmac_add(adapter, (u8 *)addr->sa_data,
+ 			adapter->if_handle, &adapter->pmac_id);
++netdev_addr:
+ 	if (!status)
+ 		memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+ 
+@@ -576,6 +586,9 @@ static void be_vlan_add_vid(struct net_d
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+ 
++	if (!be_physfn(adapter))
++		return;
++
+ 	adapter->vlan_tag[vid] = 1;
+ 	adapter->vlans_added++;
+ 	if (adapter->vlans_added <= (adapter->max_vlans + 1))
+@@ -586,6 +599,9 @@ static void be_vlan_rem_vid(struct net_d
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+ 
++	if (!be_physfn(adapter))
++		return;
++
+ 	adapter->vlan_tag[vid] = 0;
+ 	vlan_group_set_device(adapter->vlan_grp, vid, NULL);
+ 	adapter->vlans_added--;
+@@ -623,6 +639,28 @@ done:
+ 	return;
  }
  
- /*
-@@ -412,7 +433,7 @@ static void tc589_set_xcvr(struct net_device *dev, int if_port)
- {
-     struct el3_private *lp = netdev_priv(dev);
-     unsigned int ioaddr = dev->base_addr;
--    
++static int be_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
++{
++	struct be_adapter *adapter = netdev_priv(netdev);
++	int status;
 +
-     EL3WINDOW(0);
-     switch (if_port) {
-     case 0: case 1: outw(0, ioaddr + 6); break;
-@@ -435,14 +456,13 @@ static void dump_status(struct net_device *dev)
++	if (!adapter->sriov_enabled)
++		return -EPERM;
++
++	if (!is_valid_ether_addr(mac) || (vf >= num_vfs))
++		return -EINVAL;
++
++	status = be_cmd_pmac_del(adapter, adapter->vf_if_handle[vf],
++				adapter->vf_pmac_id[vf]);
++
++	status = be_cmd_pmac_add(adapter, mac, adapter->vf_if_handle[vf],
++				&adapter->vf_pmac_id[vf]);
++	if (!status)
++		dev_err(&adapter->pdev->dev, "MAC %pM set on VF %d Failed\n",
++				mac, vf);
++	return status;
++}
++
+ static void be_rx_rate_update(struct be_adapter *adapter)
  {
-     unsigned int ioaddr = dev->base_addr;
-     EL3WINDOW(1);
--    printk(KERN_INFO "  irq status %04x, rx status %04x, tx status "
--	   "%02x  tx free %04x\n", inw(ioaddr+EL3_STATUS),
--	   inw(ioaddr+RX_STATUS), inb(ioaddr+TX_STATUS),
--	   inw(ioaddr+TX_FREE));
-+    netdev_info(dev, "  irq status %04x, rx status %04x, tx status %02x  tx free %04x\n",
-+		inw(ioaddr+EL3_STATUS), inw(ioaddr+RX_STATUS),
-+		inb(ioaddr+TX_STATUS), inw(ioaddr+TX_FREE));
-     EL3WINDOW(4);
--    printk(KERN_INFO "  diagnostics: fifo %04x net %04x ethernet %04x"
--	   " media %04x\n", inw(ioaddr+0x04), inw(ioaddr+0x06),
--	   inw(ioaddr+0x08), inw(ioaddr+0x0a));
-+    netdev_info(dev, "  diagnostics: fifo %04x net %04x ethernet %04x media %04x\n",
-+		inw(ioaddr+0x04), inw(ioaddr+0x06), inw(ioaddr+0x08),
-+		inw(ioaddr+0x0a));
-     EL3WINDOW(1);
+ 	struct be_drvr_stats *stats = drvr_stats(adapter);
+@@ -1281,6 +1319,8 @@ static int be_tx_queues_create(struct be
+ 	/* Ask BE to create Tx Event queue */
+ 	if (be_cmd_eq_create(adapter, eq, adapter->tx_eq.cur_eqd))
+ 		goto tx_eq_free;
++	adapter->base_eq_id = adapter->tx_eq.q.id;
++
+ 	/* Alloc TX eth compl queue */
+ 	cq = &adapter->tx_obj.cq;
+ 	if (be_queue_alloc(adapter, cq, TX_CQ_LEN,
+@@ -1408,7 +1448,7 @@ rx_eq_free:
+ /* There are 8 evt ids per func. Retruns the evt id's bit number */
+ static inline int be_evt_bit_get(struct be_adapter *adapter, u32 eq_id)
+ {
+-	return eq_id % 8;
++	return eq_id - adapter->base_eq_id;
  }
  
-@@ -451,18 +471,18 @@ static void tc589_reset(struct net_device *dev)
- {
-     unsigned int ioaddr = dev->base_addr;
-     int i;
--    
-+
-     EL3WINDOW(0);
--    outw(0x0001, ioaddr + 4);			/* Activate board. */ 
-+    outw(0x0001, ioaddr + 4);			/* Activate board. */
-     outw(0x3f00, ioaddr + 8);			/* Set the IRQ line. */
--    
-+
-     /* Set the station address in window 2. */
-     EL3WINDOW(2);
-     for (i = 0; i < 6; i++)
- 	outb(dev->dev_addr[i], ioaddr + i);
- 
-     tc589_set_xcvr(dev, dev->if_port);
--    
-+
-     /* Switch to the stats window, and clear all stats by reading. */
-     outw(StatsDisable, ioaddr + EL3_CMD);
-     EL3WINDOW(6);
-@@ -470,7 +490,7 @@ static void tc589_reset(struct net_device *dev)
- 	inb(ioaddr+i);
-     inw(ioaddr + 10);
-     inw(ioaddr + 12);
--    
-+
-     /* Switch to register set 1 for normal use. */
-     EL3WINDOW(1);
- 
-@@ -504,8 +524,7 @@ static int el3_config(struct net_device *dev, struct ifmap *map)
-     if ((map->port != (u_char)(-1)) && (map->port != dev->if_port)) {
- 	if (map->port <= 3) {
- 	    dev->if_port = map->port;
--	    printk(KERN_INFO "%s: switched to %s port\n",
--		   dev->name, if_names[dev->if_port]);
-+	    netdev_info(dev, "switched to %s port\n", if_names[dev->if_port]);
- 	    tc589_set_xcvr(dev, dev->if_port);
- 	} else
- 	    return -EINVAL;
-@@ -517,13 +536,13 @@ static int el3_open(struct net_device *dev)
- {
-     struct el3_private *lp = netdev_priv(dev);
-     struct pcmcia_device *link = lp->p_dev;
--    
-+
-     if (!pcmcia_dev_present(link))
- 	return -ENODEV;
- 
-     link->open++;
-     netif_start_queue(dev);
--    
-+
-     tc589_reset(dev);
-     init_timer(&lp->media);
-     lp->media.function = &media_check;
-@@ -533,15 +552,15 @@ static int el3_open(struct net_device *dev)
- 
-     dev_dbg(&link->dev, "%s: opened, status %4.4x.\n",
- 	  dev->name, inw(dev->base_addr + EL3_STATUS));
--    
-+
-     return 0;
+ static irqreturn_t be_intx(int irq, void *dev)
+@@ -1586,6 +1626,28 @@ static void be_msix_enable(struct be_ada
+ 	return;
  }
  
- static void el3_tx_timeout(struct net_device *dev)
- {
-     unsigned int ioaddr = dev->base_addr;
--    
--    printk(KERN_WARNING "%s: Transmit timed out!\n", dev->name);
++static void be_sriov_enable(struct be_adapter *adapter)
++{
++#ifdef CONFIG_PCI_IOV
++	int status;
++	if (be_physfn(adapter) && num_vfs) {
++		status = pci_enable_sriov(adapter->pdev, num_vfs);
++		adapter->sriov_enabled = status ? false : true;
++	}
++#endif
++	return;
++}
 +
-+    netdev_warn(dev, "Transmit timed out!\n");
-     dump_status(dev);
-     dev->stats.tx_errors++;
-     dev->trans_start = jiffies;
-@@ -555,19 +574,18 @@ static void pop_tx_status(struct net_device *dev)
- {
-     unsigned int ioaddr = dev->base_addr;
-     int i;
--    
++static void be_sriov_disable(struct be_adapter *adapter)
++{
++#ifdef CONFIG_PCI_IOV
++	if (adapter->sriov_enabled) {
++		pci_disable_sriov(adapter->pdev);
++		adapter->sriov_enabled = false;
++	}
++#endif
++}
 +
-     /* Clear the Tx status stack. */
-     for (i = 32; i > 0; i--) {
- 	u_char tx_status = inb(ioaddr + TX_STATUS);
- 	if (!(tx_status & 0x84)) break;
- 	/* reset transmitter on jabber error or underrun */
- 	if (tx_status & 0x30)
--	    tc589_wait_for_completion(dev, TxReset);
-+		tc589_wait_for_completion(dev, TxReset);
- 	if (tx_status & 0x38) {
--	    pr_debug("%s: transmit error: status 0x%02x\n",
--		  dev->name, tx_status);
--	    outw(TxEnable, ioaddr + EL3_CMD);
--	    dev->stats.tx_aborted_errors++;
-+		netdev_dbg(dev, "transmit error: status 0x%02x\n", tx_status);
-+		outw(TxEnable, ioaddr + EL3_CMD);
-+		dev->stats.tx_aborted_errors++;
+ static inline int be_msix_vec_get(struct be_adapter *adapter, u32 eq_id)
+ {
+ 	return adapter->msix_entries[
+@@ -1643,6 +1705,9 @@ static int be_irq_register(struct be_ada
+ 		status = be_msix_register(adapter);
+ 		if (status == 0)
+ 			goto done;
++		/* INTx is not supported for VF */
++		if (!be_physfn(adapter))
++			return status;
  	}
- 	outb(0x00, ioaddr + TX_STATUS); /* Pop the status stack. */
-     }
-@@ -580,11 +598,10 @@ static netdev_tx_t el3_start_xmit(struct sk_buff *skb,
-     struct el3_private *priv = netdev_priv(dev);
-     unsigned long flags;
  
--    pr_debug("%s: el3_start_xmit(length = %ld) called, "
--	  "status %4.4x.\n", dev->name, (long)skb->len,
--	  inw(ioaddr + EL3_STATUS));
-+    netdev_dbg(dev, "el3_start_xmit(length = %ld) called, status %4.4x.\n",
-+	       (long)skb->len, inw(ioaddr + EL3_STATUS));
+ 	/* INTx */
+@@ -1716,14 +1781,17 @@ static int be_open(struct net_device *ne
+ 		goto ret_sts;
+ 	be_link_status_update(adapter, link_up);
  
--    spin_lock_irqsave(&priv->lock, flags);    
-+    spin_lock_irqsave(&priv->lock, flags);
+-	status = be_vid_config(adapter);
++	if (be_physfn(adapter))
++		status = be_vid_config(adapter);
+ 	if (status)
+ 		goto ret_sts;
  
-     dev->stats.tx_bytes += skb->len;
+-	status = be_cmd_set_flow_control(adapter,
+-					adapter->tx_fc, adapter->rx_fc);
+-	if (status)
+-		goto ret_sts;
++	if (be_physfn(adapter)) {
++		status = be_cmd_set_flow_control(adapter,
++				adapter->tx_fc, adapter->rx_fc);
++		if (status)
++			goto ret_sts;
++	}
  
-@@ -602,9 +619,9 @@ static netdev_tx_t el3_start_xmit(struct sk_buff *skb,
-     }
- 
-     pop_tx_status(dev);
--    spin_unlock_irqrestore(&priv->lock, flags);    
-+    spin_unlock_irqrestore(&priv->lock, flags);
-     dev_kfree_skb(skb);
--    
+ 	schedule_delayed_work(&adapter->work, msecs_to_jiffies(100));
+ ret_sts:
+@@ -1771,22 +1839,48 @@ static int be_setup_wol(struct be_adapte
+ static int be_setup(struct be_adapter *adapter)
+ {
+ 	struct net_device *netdev = adapter->netdev;
+-	u32 cap_flags, en_flags;
++	u32 cap_flags, en_flags, vf = 0;
+ 	int status;
++	u8 mac[ETH_ALEN];
 +
-     return NETDEV_TX_OK;
++	cap_flags = en_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST;
+ 
+-	cap_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST |
+-			BE_IF_FLAGS_MCAST_PROMISCUOUS |
+-			BE_IF_FLAGS_PROMISCUOUS |
+-			BE_IF_FLAGS_PASS_L3L4_ERRORS;
+-	en_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST |
+-			BE_IF_FLAGS_PASS_L3L4_ERRORS;
++	if (be_physfn(adapter)) {
++		cap_flags |= BE_IF_FLAGS_MCAST_PROMISCUOUS |
++				BE_IF_FLAGS_PROMISCUOUS |
++				BE_IF_FLAGS_PASS_L3L4_ERRORS;
++		en_flags |= BE_IF_FLAGS_PASS_L3L4_ERRORS;
++	}
+ 
+ 	status = be_cmd_if_create(adapter, cap_flags, en_flags,
+ 			netdev->dev_addr, false/* pmac_invalid */,
+-			&adapter->if_handle, &adapter->pmac_id);
++			&adapter->if_handle, &adapter->pmac_id, 0);
+ 	if (status != 0)
+ 		goto do_none;
+ 
++	if (be_physfn(adapter)) {
++		while (vf < num_vfs) {
++			cap_flags = en_flags = BE_IF_FLAGS_UNTAGGED
++					| BE_IF_FLAGS_BROADCAST;
++			status = be_cmd_if_create(adapter, cap_flags, en_flags,
++					mac, true, &adapter->vf_if_handle[vf],
++					NULL, vf+1);
++			if (status) {
++				dev_err(&adapter->pdev->dev,
++				"Interface Create failed for VF %d\n", vf);
++				goto if_destroy;
++			}
++			vf++;
++		} while (vf < num_vfs);
++	} else if (!be_physfn(adapter)) {
++		status = be_cmd_mac_addr_query(adapter, mac,
++			MAC_ADDRESS_TYPE_NETWORK, false, adapter->if_handle);
++		if (!status) {
++			memcpy(adapter->netdev->dev_addr, mac, ETH_ALEN);
++			memcpy(adapter->netdev->perm_addr, mac, ETH_ALEN);
++		}
++	}
++
+ 	status = be_tx_queues_create(adapter);
+ 	if (status != 0)
+ 		goto if_destroy;
+@@ -1808,6 +1902,9 @@ rx_qs_destroy:
+ tx_qs_destroy:
+ 	be_tx_queues_destroy(adapter);
+ if_destroy:
++	for (vf = 0; vf < num_vfs; vf++)
++		if (adapter->vf_if_handle[vf])
++			be_cmd_if_destroy(adapter, adapter->vf_if_handle[vf]);
+ 	be_cmd_if_destroy(adapter, adapter->if_handle);
+ do_none:
+ 	return status;
+@@ -2088,6 +2185,7 @@ static struct net_device_ops be_netdev_o
+ 	.ndo_vlan_rx_register	= be_vlan_register,
+ 	.ndo_vlan_rx_add_vid	= be_vlan_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= be_vlan_rem_vid,
++	.ndo_set_vf_mac		= be_set_vf_mac
+ };
+ 
+ static void be_netdev_init(struct net_device *netdev)
+@@ -2129,37 +2227,48 @@ static void be_unmap_pci_bars(struct be_
+ 		iounmap(adapter->csr);
+ 	if (adapter->db)
+ 		iounmap(adapter->db);
+-	if (adapter->pcicfg)
++	if (adapter->pcicfg && be_physfn(adapter))
+ 		iounmap(adapter->pcicfg);
  }
  
-@@ -616,37 +633,32 @@ static irqreturn_t el3_interrupt(int irq, void *dev_id)
-     unsigned int ioaddr;
-     __u16 status;
-     int i = 0, handled = 1;
--    
-+
-     if (!netif_device_present(dev))
- 	return IRQ_NONE;
+ static int be_map_pci_bars(struct be_adapter *adapter)
+ {
+ 	u8 __iomem *addr;
+-	int pcicfg_reg;
++	int pcicfg_reg, db_reg;
  
-     ioaddr = dev->base_addr;
- 
--    pr_debug("%s: interrupt, status %4.4x.\n",
--	  dev->name, inw(ioaddr + EL3_STATUS));
-+    netdev_dbg(dev, "interrupt, status %4.4x.\n", inw(ioaddr + EL3_STATUS));
- 
--    spin_lock(&lp->lock);    
-+    spin_lock(&lp->lock);
-     while ((status = inw(ioaddr + EL3_STATUS)) &
- 	(IntLatch | RxComplete | StatsFull)) {
- 	if ((status & 0xe000) != 0x2000) {
--	    pr_debug("%s: interrupt from dead card\n", dev->name);
--	    handled = 0;
--	    break;
-+		netdev_dbg(dev, "interrupt from dead card\n");
-+		handled = 0;
-+		break;
- 	}
--	
- 	if (status & RxComplete)
--	    el3_rx(dev);
--	
-+		el3_rx(dev);
- 	if (status & TxAvailable) {
--	    pr_debug("    TX room bit was handled.\n");
--	    /* There's room in the FIFO for a full-sized packet. */
--	    outw(AckIntr | TxAvailable, ioaddr + EL3_CMD);
--	    netif_wake_queue(dev);
-+		netdev_dbg(dev, "    TX room bit was handled.\n");
-+		/* There's room in the FIFO for a full-sized packet. */
-+		outw(AckIntr | TxAvailable, ioaddr + EL3_CMD);
-+		netif_wake_queue(dev);
- 	}
--	
- 	if (status & TxComplete)
--	    pop_tx_status(dev);
+-	addr = ioremap_nocache(pci_resource_start(adapter->pdev, 2),
+-			pci_resource_len(adapter->pdev, 2));
+-	if (addr == NULL)
+-		return -ENOMEM;
+-	adapter->csr = addr;
 -
-+		pop_tx_status(dev);
- 	if (status & (AdapterFailure | RxEarly | StatsFull)) {
- 	    /* Handle all uncommon interrupts. */
- 	    if (status & StatsFull)		/* Empty statistics. */
-@@ -660,8 +672,8 @@ static irqreturn_t el3_interrupt(int irq, void *dev_id)
- 		EL3WINDOW(4);
- 		fifo_diag = inw(ioaddr + 4);
- 		EL3WINDOW(1);
--		printk(KERN_WARNING "%s: adapter failure, FIFO diagnostic"
--		       " register %04x.\n", dev->name, fifo_diag);
-+		netdev_warn(dev, "adapter failure, FIFO diagnostic register %04x.\n",
-+			    fifo_diag);
- 		if (fifo_diag & 0x0400) {
- 		    /* Tx overrun */
- 		    tc589_wait_for_completion(dev, TxReset);
-@@ -676,22 +688,20 @@ static irqreturn_t el3_interrupt(int irq, void *dev_id)
- 		outw(AckIntr | AdapterFailure, ioaddr + EL3_CMD);
- 	    }
- 	}
--	
- 	if (++i > 10) {
--	    printk(KERN_ERR "%s: infinite loop in interrupt, "
--		   "status %4.4x.\n", dev->name, status);
--	    /* Clear all interrupts */
--	    outw(AckIntr | 0xFF, ioaddr + EL3_CMD);
--	    break;
-+		netdev_err(dev, "infinite loop in interrupt, status %4.4x.\n",
-+			   status);
-+		/* Clear all interrupts */
-+		outw(AckIntr | 0xFF, ioaddr + EL3_CMD);
-+		break;
- 	}
- 	/* Acknowledge the IRQ. */
- 	outw(AckIntr | IntReq | IntLatch, ioaddr + EL3_CMD);
-     }
+-	addr = ioremap_nocache(pci_resource_start(adapter->pdev, 4),
+-			128 * 1024);
+-	if (addr == NULL)
+-		goto pci_map_err;
+-	adapter->db = addr;
++	if (be_physfn(adapter)) {
++		addr = ioremap_nocache(pci_resource_start(adapter->pdev, 2),
++				pci_resource_len(adapter->pdev, 2));
++		if (addr == NULL)
++			return -ENOMEM;
++		adapter->csr = addr;
++	}
+ 
+-	if (adapter->generation == BE_GEN2)
++	if (adapter->generation == BE_GEN2) {
+ 		pcicfg_reg = 1;
+-	else
++		db_reg = 4;
++	} else {
+ 		pcicfg_reg = 0;
 -
-     lp->last_irq = jiffies;
--    spin_unlock(&lp->lock);    
--    pr_debug("%s: exiting interrupt, status %4.4x.\n",
--	  dev->name, inw(ioaddr + EL3_STATUS));
-+    spin_unlock(&lp->lock);
-+    netdev_dbg(dev, "exiting interrupt, status %4.4x.\n",
-+	       inw(ioaddr + EL3_STATUS));
-     return IRQ_RETVAL(handled);
- }
+-	addr = ioremap_nocache(pci_resource_start(adapter->pdev, pcicfg_reg),
+-			pci_resource_len(adapter->pdev, pcicfg_reg));
++		if (be_physfn(adapter))
++			db_reg = 4;
++		else
++			db_reg = 0;
++	}
++	addr = ioremap_nocache(pci_resource_start(adapter->pdev, db_reg),
++				pci_resource_len(adapter->pdev, db_reg));
+ 	if (addr == NULL)
+ 		goto pci_map_err;
+-	adapter->pcicfg = addr;
++	adapter->db = addr;
++
++	if (be_physfn(adapter)) {
++		addr = ioremap_nocache(
++				pci_resource_start(adapter->pdev, pcicfg_reg),
++				pci_resource_len(adapter->pdev, pcicfg_reg));
++		if (addr == NULL)
++			goto pci_map_err;
++		adapter->pcicfg = addr;
++	} else
++		adapter->pcicfg = adapter->db + SRIOV_VF_PCICFG_OFFSET;
  
-@@ -710,7 +720,7 @@ static void media_check(unsigned long arg)
-     if ((inw(ioaddr + EL3_STATUS) & IntLatch) &&
- 	(inb(ioaddr + EL3_TIMER) == 0xff)) {
- 	if (!lp->fast_poll)
--	    printk(KERN_WARNING "%s: interrupt(s) dropped!\n", dev->name);
-+		netdev_warn(dev, "interrupt(s) dropped!\n");
+ 	return 0;
+ pci_map_err:
+@@ -2273,6 +2382,8 @@ static void __devexit be_remove(struct p
  
- 	local_irq_save(flags);
- 	el3_interrupt(dev->irq, dev);
-@@ -727,7 +737,7 @@ static void media_check(unsigned long arg)
+ 	be_ctrl_cleanup(adapter);
  
-     /* lp->lock guards the EL3 window. Window should always be 1 except
-        when the lock is held */
--    spin_lock_irqsave(&lp->lock, flags);    
-+    spin_lock_irqsave(&lp->lock, flags);
-     EL3WINDOW(4);
-     media = inw(ioaddr+WN4_MEDIA) & 0xc810;
++	be_sriov_disable(adapter);
++
+ 	be_msix_disable(adapter);
  
-@@ -747,32 +757,30 @@ static void media_check(unsigned long arg)
-     if (media != lp->media_status) {
- 	if ((media & lp->media_status & 0x8000) &&
- 	    ((lp->media_status ^ media) & 0x0800))
--	    printk(KERN_INFO "%s: %s link beat\n", dev->name,
--		   (lp->media_status & 0x0800 ? "lost" : "found"));
-+		netdev_info(dev, "%s link beat\n",
-+			    (lp->media_status & 0x0800 ? "lost" : "found"));
- 	else if ((media & lp->media_status & 0x4000) &&
- 		 ((lp->media_status ^ media) & 0x0010))
--	    printk(KERN_INFO "%s: coax cable %s\n", dev->name,
--		   (lp->media_status & 0x0010 ? "ok" : "problem"));
-+		netdev_info(dev, "coax cable %s\n",
-+			    (lp->media_status & 0x0010 ? "ok" : "problem"));
- 	if (dev->if_port == 0) {
- 	    if (media & 0x8000) {
- 		if (media & 0x0800)
--		    printk(KERN_INFO "%s: flipped to 10baseT\n",
--			   dev->name);
-+			netdev_info(dev, "flipped to 10baseT\n");
- 		else
--		    tc589_set_xcvr(dev, 2);
-+			tc589_set_xcvr(dev, 2);
- 	    } else if (media & 0x4000) {
- 		if (media & 0x0010)
- 		    tc589_set_xcvr(dev, 1);
- 		else
--		    printk(KERN_INFO "%s: flipped to 10base2\n",
--			   dev->name);
-+		    netdev_info(dev, "flipped to 10base2\n");
- 	    }
+ 	pci_set_drvdata(pdev, NULL);
+@@ -2297,16 +2408,20 @@ static int be_get_config(struct be_adapt
+ 		return status;
+ 
+ 	memset(mac, 0, ETH_ALEN);
+-	status = be_cmd_mac_addr_query(adapter, mac,
++
++	if (be_physfn(adapter)) {
++		status = be_cmd_mac_addr_query(adapter, mac,
+ 			MAC_ADDRESS_TYPE_NETWORK, true /*permanent */, 0);
+-	if (status)
+-		return status;
+ 
+-	if (!is_valid_ether_addr(mac))
+-		return -EADDRNOTAVAIL;
++		if (status)
++			return status;
+ 
+-	memcpy(adapter->netdev->dev_addr, mac, ETH_ALEN);
+-	memcpy(adapter->netdev->perm_addr, mac, ETH_ALEN);
++		if (!is_valid_ether_addr(mac))
++			return -EADDRNOTAVAIL;
++
++		memcpy(adapter->netdev->dev_addr, mac, ETH_ALEN);
++		memcpy(adapter->netdev->perm_addr, mac, ETH_ALEN);
++	}
+ 
+ 	if (adapter->cap & 0x400)
+ 		adapter->max_vlans = BE_NUM_VLANS_SUPPORTED/4;
+@@ -2323,6 +2438,7 @@ static int __devinit be_probe(struct pci
+ 	struct be_adapter *adapter;
+ 	struct net_device *netdev;
+ 
++
+ 	status = pci_enable_device(pdev);
+ 	if (status)
+ 		goto do_none;
+@@ -2371,24 +2487,28 @@ static int __devinit be_probe(struct pci
+ 		}
  	}
- 	lp->media_status = media;
-     }
--    
-+
-     EL3WINDOW(1);
--    spin_unlock_irqrestore(&lp->lock, flags);    
-+    spin_unlock_irqrestore(&lp->lock, flags);
  
- reschedule:
-     lp->media.expires = jiffies + HZ;
-@@ -786,7 +794,7 @@ static struct net_device_stats *el3_get_stats(struct net_device *dev)
-     struct pcmcia_device *link = lp->p_dev;
++	be_sriov_enable(adapter);
++
+ 	status = be_ctrl_init(adapter);
+ 	if (status)
+ 		goto free_netdev;
  
-     if (pcmcia_dev_present(link)) {
--    	spin_lock_irqsave(&lp->lock, flags);
-+	spin_lock_irqsave(&lp->lock, flags);
- 	update_stats(dev);
- 	spin_unlock_irqrestore(&lp->lock, flags);
-     }
-@@ -798,21 +806,21 @@ static struct net_device_stats *el3_get_stats(struct net_device *dev)
-   single-threaded if the device is active. This is expected to be a rare
-   operation, and it's simpler for the rest of the driver to assume that
-   window 1 is always valid rather than use a special window-state variable.
--  
+ 	/* sync up with fw's ready state */
+-	status = be_cmd_POST(adapter);
+-	if (status)
+-		goto ctrl_clean;
++	if (be_physfn(adapter)) {
++		status = be_cmd_POST(adapter);
++		if (status)
++			goto ctrl_clean;
 +
-   Caller must hold the lock for this
- */
- static void update_stats(struct net_device *dev)
- {
-     unsigned int ioaddr = dev->base_addr;
++		status = be_cmd_reset_function(adapter);
++		if (status)
++			goto ctrl_clean;
++	}
  
--    pr_debug("%s: updating the statistics.\n", dev->name);
-+    netdev_dbg(dev, "updating the statistics.\n");
-     /* Turn off statistics updates while reading. */
-     outw(StatsDisable, ioaddr + EL3_CMD);
-     /* Switch to the stats window, and read everything. */
-     EL3WINDOW(6);
--    dev->stats.tx_carrier_errors 	+= inb(ioaddr + 0);
-+    dev->stats.tx_carrier_errors	+= inb(ioaddr + 0);
-     dev->stats.tx_heartbeat_errors	+= inb(ioaddr + 1);
--    /* Multiple collisions. */	   	inb(ioaddr + 2);
-+    /* Multiple collisions. */		inb(ioaddr + 2);
-     dev->stats.collisions		+= inb(ioaddr + 3);
-     dev->stats.tx_window_errors		+= inb(ioaddr + 4);
-     dev->stats.rx_fifo_errors		+= inb(ioaddr + 5);
-@@ -821,7 +829,7 @@ static void update_stats(struct net_device *dev)
-     /* Tx deferrals */			inb(ioaddr + 8);
-     /* Rx octets */			inw(ioaddr + 10);
-     /* Tx octets */			inw(ioaddr + 12);
--    
-+
-     /* Back to window 1, and turn statistics back on. */
-     EL3WINDOW(1);
-     outw(StatsEnable, ioaddr + EL3_CMD);
-@@ -832,9 +840,9 @@ static int el3_rx(struct net_device *dev)
-     unsigned int ioaddr = dev->base_addr;
-     int worklimit = 32;
-     short rx_status;
--    
--    pr_debug("%s: in rx_packet(), status %4.4x, rx_status %4.4x.\n",
--	  dev->name, inw(ioaddr+EL3_STATUS), inw(ioaddr+RX_STATUS));
-+
-+    netdev_dbg(dev, "in rx_packet(), status %4.4x, rx_status %4.4x.\n",
-+	       inw(ioaddr+EL3_STATUS), inw(ioaddr+RX_STATUS));
-     while (!((rx_status = inw(ioaddr + RX_STATUS)) & 0x8000) &&
- 		    worklimit > 0) {
- 	worklimit--;
-@@ -852,11 +860,11 @@ static int el3_rx(struct net_device *dev)
- 	} else {
- 	    short pkt_len = rx_status & 0x7ff;
- 	    struct sk_buff *skb;
--	    
-+
- 	    skb = dev_alloc_skb(pkt_len+5);
--	    
--	    pr_debug("    Receiving packet size %d status %4.4x.\n",
--		  pkt_len, rx_status);
-+
-+	    netdev_dbg(dev, "    Receiving packet size %d status %4.4x.\n",
-+		       pkt_len, rx_status);
- 	    if (skb != NULL) {
- 		skb_reserve(skb, 2);
- 		insl(ioaddr+RX_FIFO, skb_put(skb, pkt_len),
-@@ -866,8 +874,8 @@ static int el3_rx(struct net_device *dev)
- 		dev->stats.rx_packets++;
- 		dev->stats.rx_bytes += pkt_len;
- 	    } else {
--		pr_debug("%s: couldn't allocate a sk_buff of"
--		      " size %d.\n", dev->name, pkt_len);
-+		netdev_dbg(dev, "couldn't allocate a sk_buff of size %d.\n",
-+			   pkt_len);
- 		dev->stats.rx_dropped++;
- 	    }
+ 	/* tell fw we're ready to fire cmds */
+ 	status = be_cmd_fw_init(adapter);
+ 	if (status)
+ 		goto ctrl_clean;
+ 
+-	status = be_cmd_reset_function(adapter);
+-	if (status)
+-		goto ctrl_clean;
+-
+ 	status = be_stats_init(adapter);
+ 	if (status)
+ 		goto ctrl_clean;
+@@ -2418,6 +2538,7 @@ ctrl_clean:
+ 	be_ctrl_cleanup(adapter);
+ free_netdev:
+ 	be_msix_disable(adapter);
++	be_sriov_disable(adapter);
+ 	free_netdev(adapter->netdev);
+ 	pci_set_drvdata(pdev, NULL);
+ rel_reg:
+@@ -2614,6 +2735,13 @@ static int __init be_init_module(void)
+ 		rx_frag_size = 2048;
  	}
-@@ -875,7 +883,7 @@ static int el3_rx(struct net_device *dev)
- 	tc589_wait_for_completion(dev, RxDiscard);
-     }
-     if (worklimit == 0)
--	printk(KERN_WARNING "%s: too much work in el3_rx!\n", dev->name);
-+	netdev_warn(dev, "too much work in el3_rx!\n");
-     return 0;
+ 
++	if (num_vfs > 32) {
++		printk(KERN_WARNING DRV_NAME
++			" : Module param num_vfs must not be greater than 32."
++			"Using 32\n");
++		num_vfs = 32;
++	}
++
+ 	return pci_register_driver(&be_driver);
  }
- 
-@@ -906,17 +914,17 @@ static int el3_close(struct net_device *dev)
-     struct el3_private *lp = netdev_priv(dev);
-     struct pcmcia_device *link = lp->p_dev;
-     unsigned int ioaddr = dev->base_addr;
--    
-+
-     dev_dbg(&link->dev, "%s: shutting down ethercard.\n", dev->name);
- 
-     if (pcmcia_dev_present(link)) {
- 	/* Turn off statistics ASAP.  We update dev->stats below. */
- 	outw(StatsDisable, ioaddr + EL3_CMD);
--	
-+
- 	/* Disable the receiver and transmitter. */
- 	outw(RxDisable, ioaddr + EL3_CMD);
- 	outw(TxDisable, ioaddr + EL3_CMD);
--	
-+
- 	if (dev->if_port == 2)
- 	    /* Turn off thinnet power.  Green! */
- 	    outw(StopCoax, ioaddr + EL3_CMD);
-@@ -925,12 +933,12 @@ static int el3_close(struct net_device *dev)
- 	    EL3WINDOW(4);
- 	    outw(0, ioaddr + WN4_MEDIA);
- 	}
--	
-+
- 	/* Switching back to window 0 disables the IRQ. */
- 	EL3WINDOW(0);
- 	/* But we explicitly zero the IRQ line select anyway. */
- 	outw(0x0f00, ioaddr + WN0_IRQ);
--        
-+
- 	/* Check if the card still exists */
- 	if ((inw(ioaddr+EL3_STATUS) & 0xe000) == 0x2000)
- 	    update_stats(dev);
-@@ -939,7 +947,7 @@ static int el3_close(struct net_device *dev)
-     link->open--;
-     netif_stop_queue(dev);
-     del_timer_sync(&lp->media);
--    
-+
-     return 0;
- }
- 
-@@ -961,7 +969,7 @@ static struct pcmcia_driver tc589_driver = {
- 	},
- 	.probe		= tc589_probe,
- 	.remove		= tc589_detach,
--        .id_table       = tc589_ids,
-+	.id_table	= tc589_ids,
- 	.suspend	= tc589_suspend,
- 	.resume		= tc589_resume,
- };
+ module_init(be_init_module);
 -- 
-1.7.0
+1.4.0
+
