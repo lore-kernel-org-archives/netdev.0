@@ -1,174 +1,110 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 5/8] qlcnic: use IDC defined timeout value
-Date: Wed, 31 Mar 2010 05:03:43 -0700
-Message-ID: <1270037026-9062-6-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 7/8] qlcnic: fix interface attach sequence
+Date: Wed, 31 Mar 2010 05:03:45 -0700
+Message-ID: <1270037026-9062-8-git-send-email-amit.salecha@qlogic.com>
 References: <1270037026-9062-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:23402 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:19748 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S932209Ab0CaMDt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Mar 2010 08:03:49 -0400
+	id S932204Ab0CaMDs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Mar 2010 08:03:48 -0400
 In-Reply-To: <1270037026-9062-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Interface should be visible even if resource allocation fails.
+netif_device_attach should be called for every netif_device_detach.
 
-o USE/Read IDC defined timeout value from ROM.
-o While resetting chip, don't wait for other pci-func to respond,
-  more than reset_ack_timeo seconds,
-
-Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic.h      |    4 +++-
- drivers/net/qlcnic/qlcnic_hdr.h  |    2 ++
- drivers/net/qlcnic/qlcnic_init.c |   16 ++++++++++++++++
- drivers/net/qlcnic/qlcnic_main.c |   26 ++++++++++++++++----------
- 4 files changed, 37 insertions(+), 11 deletions(-)
+ drivers/net/qlcnic/qlcnic_main.c |   20 ++++++++++----------
+ 1 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 8a3446d..87cd1a7 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -958,8 +958,9 @@ struct qlcnic_adapter {
- 	u8 dev_state;
- 	u8 diag_test;
- 	u8 diag_cnt;
-+	u8 reset_ack_timeo;
-+	u8 dev_init_timeo;
- 	u8 rsrd1;
--	u16 rsrd2;
- 
- 	u8 mac_addr[ETH_ALEN];
- 
-@@ -1040,6 +1041,7 @@ int qlcnic_need_fw_reset(struct qlcnic_adapter *adapter);
- void qlcnic_request_firmware(struct qlcnic_adapter *adapter);
- void qlcnic_release_firmware(struct qlcnic_adapter *adapter);
- int qlcnic_pinit_from_rom(struct qlcnic_adapter *adapter);
-+void qlcnic_setup_idc_param(struct qlcnic_adapter *adapter);
- 
- int qlcnic_rom_fast_read(struct qlcnic_adapter *adapter, int addr, int *valp);
- int qlcnic_rom_fast_read_words(struct qlcnic_adapter *adapter, int addr,
-diff --git a/drivers/net/qlcnic/qlcnic_hdr.h b/drivers/net/qlcnic/qlcnic_hdr.h
-index e9fb692..51fa3fb 100644
---- a/drivers/net/qlcnic/qlcnic_hdr.h
-+++ b/drivers/net/qlcnic/qlcnic_hdr.h
-@@ -695,6 +695,8 @@ enum {
- #define QLCNIC_CRB_DRV_SCRATCH             (QLCNIC_CAM_RAM(0x148))
- #define QLCNIC_CRB_DEV_PARTITION_INFO      (QLCNIC_CAM_RAM(0x14c))
- #define QLCNIC_CRB_DRV_IDC_VER             (QLCNIC_CAM_RAM(0x14c))
-+#define QLCNIC_ROM_DEV_INIT_TIMEOUT	(0x3e885c)
-+#define QLCNIC_ROM_DRV_RESET_TIMEOUT	(0x3e8860)
- 
- 		 /* Device State */
- #define QLCNIC_DEV_COLD 		1
-diff --git a/drivers/net/qlcnic/qlcnic_init.c b/drivers/net/qlcnic/qlcnic_init.c
-index 0a424e0..ccd24f4 100644
---- a/drivers/net/qlcnic/qlcnic_init.c
-+++ b/drivers/net/qlcnic/qlcnic_init.c
-@@ -529,6 +529,22 @@ int qlcnic_pinit_from_rom(struct qlcnic_adapter *adapter)
- 	return 0;
- }
- 
-+void
-+qlcnic_setup_idc_param(struct qlcnic_adapter *adapter) {
-+
-+	int timeo;
-+
-+	if (qlcnic_rom_fast_read(adapter, QLCNIC_ROM_DEV_INIT_TIMEOUT, &timeo))
-+		timeo = 30;
-+
-+	adapter->dev_init_timeo = timeo;
-+
-+	if (qlcnic_rom_fast_read(adapter, QLCNIC_ROM_DRV_RESET_TIMEOUT, &timeo))
-+		timeo = 10;
-+
-+	adapter->reset_ack_timeo = timeo;
-+}
-+
- static int
- qlcnic_has_mn(struct qlcnic_adapter *adapter)
- {
 diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index a234622..38e0829 100644
+index 87511f1..6faabf4 100644
 --- a/drivers/net/qlcnic/qlcnic_main.c
 +++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -649,7 +649,10 @@ qlcnic_start_firmware(struct qlcnic_adapter *adapter)
- 	if (err)
- 		return err;
+@@ -952,11 +952,11 @@ void qlcnic_diag_free_res(struct net_device *netdev, int max_sds_rings)
+ 	adapter->max_sds_rings = max_sds_rings;
  
--	if (!qlcnic_can_start_firmware(adapter))
-+	err = qlcnic_can_start_firmware(adapter);
-+	if (err < 0)
-+		return err;
-+	else if (!err)
- 		goto wait_init;
+ 	if (qlcnic_attach(adapter))
+-		return;
++		goto out;
  
- 	first_boot = QLCRD32(adapter, QLCNIC_CAM_RAM(0x1fc));
-@@ -1138,6 +1141,7 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_out_iounmap;
- 	}
- 
-+	qlcnic_setup_idc_param(adapter);
- 
- 	err = qlcnic_start_firmware(adapter);
- 	if (err)
-@@ -2027,7 +2031,7 @@ static int
- qlcnic_can_start_firmware(struct qlcnic_adapter *adapter)
- {
- 	u32 val, prev_state;
--	int cnt = 0;
-+	u8 dev_init_timeo = adapter->dev_init_timeo;
- 	int portnum = adapter->portnum;
- 
- 	if (qlcnic_api_lock(adapter))
-@@ -2072,12 +2076,13 @@ start_fw:
- 	}
- 
- 	qlcnic_api_unlock(adapter);
--	msleep(1000);
--	while ((QLCRD32(adapter, QLCNIC_CRB_DEV_STATE) != QLCNIC_DEV_READY) &&
--			++cnt < 20)
-+
-+	do {
- 		msleep(1000);
-+	} while ((QLCRD32(adapter, QLCNIC_CRB_DEV_STATE) != QLCNIC_DEV_READY)
-+			&& --dev_init_timeo);
- 
--	if (cnt >= 20)
-+	if (!dev_init_timeo)
- 		return -1;
- 
- 	if (qlcnic_api_lock(adapter))
-@@ -2099,12 +2104,10 @@ qlcnic_fwinit_work(struct work_struct *work)
- 			struct qlcnic_adapter, fw_work.work);
- 	int dev_state;
- 
--	if (++adapter->fw_wait_cnt > FW_POLL_THRESH)
--		goto err_ret;
+ 	if (netif_running(netdev))
+ 		__qlcnic_up(adapter, netdev);
 -
- 	if (test_bit(__QLCNIC_START_FW, &adapter->state)) {
++out:
+ 	netif_device_attach(netdev);
+ }
  
--		if (qlcnic_check_drv_state(adapter)) {
-+		if (qlcnic_check_drv_state(adapter) &&
-+			(adapter->fw_wait_cnt++ < adapter->reset_ack_timeo)) {
- 			qlcnic_schedule_work(adapter,
- 					qlcnic_fwinit_work, FW_POLL_DELAY);
- 			return;
-@@ -2118,6 +2121,9 @@ qlcnic_fwinit_work(struct work_struct *work)
- 		goto err_ret;
+@@ -978,8 +978,10 @@ int qlcnic_diag_alloc_res(struct net_device *netdev, int test)
+ 	adapter->diag_test = test;
+ 
+ 	ret = qlcnic_attach(adapter);
+-	if (ret)
++	if (ret) {
++		netif_device_attach(netdev);
+ 		return ret;
++	}
+ 
+ 	if (adapter->diag_test == QLCNIC_INTERRUPT_TEST) {
+ 		for (ring = 0; ring < adapter->max_sds_rings; ring++) {
+@@ -1012,16 +1014,12 @@ qlcnic_reset_context(struct qlcnic_adapter *adapter)
+ 		if (netif_running(netdev)) {
+ 			err = qlcnic_attach(adapter);
+ 			if (!err)
+-				err = __qlcnic_up(adapter, netdev);
+-
+-			if (err)
+-				goto done;
++				__qlcnic_up(adapter, netdev);
+ 		}
+ 
+ 		netif_device_attach(netdev);
  	}
  
-+	if (adapter->fw_wait_cnt++ > (adapter->dev_init_timeo / 2))
-+		goto err_ret;
-+
- 	dev_state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
- 	switch (dev_state) {
- 	case QLCNIC_DEV_READY:
+-done:
+ 	clear_bit(__QLCNIC_RESETTING, &adapter->state);
+ 	return err;
+ }
+@@ -1337,6 +1335,7 @@ err_out_detach:
+ 	qlcnic_detach(adapter);
+ err_out:
+ 	qlcnic_clr_all_drv_state(adapter);
++	netif_device_attach(netdev);
+ 	return err;
+ }
+ #endif
+@@ -2152,6 +2151,7 @@ qlcnic_fwinit_work(struct work_struct *work)
+ 	}
+ 
+ err_ret:
++	netif_device_attach(adapter->netdev);
+ 	qlcnic_clr_all_drv_state(adapter);
+ }
+ 
+@@ -2190,6 +2190,7 @@ qlcnic_detach_work(struct work_struct *work)
+ err_ret:
+ 	dev_err(&adapter->pdev->dev, "detach failed; status=%d temp=%d\n",
+ 			status, adapter->temp);
++	netif_device_attach(netdev);
+ 	qlcnic_clr_all_drv_state(adapter);
+ 
+ }
+@@ -2252,9 +2253,8 @@ qlcnic_attach_work(struct work_struct *work)
+ 		qlcnic_config_indev_addr(netdev, NETDEV_UP);
+ 	}
+ 
+-	netif_device_attach(netdev);
+-
+ done:
++	netif_device_attach(netdev);
+ 	adapter->fw_fail_cnt = 0;
+ 	clear_bit(__QLCNIC_RESETTING, &adapter->state);
+ 
 -- 
 1.6.0.2
 
