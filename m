@@ -1,38 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: gianfar - align BD ring size console messages
-Date: Tue, 30 Mar 2010 23:09:19 -0700 (PDT)
-Message-ID: <20100330.230919.75786481.davem@davemloft.net>
-References: <1269986062-1697-1-git-send-email-kim.phillips@freescale.com>
-	<1269986062-1697-2-git-send-email-kim.phillips@freescale.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: re-submit2 [ANNOUNCEMENT] NET: usb: sierra_net.c driver
+Date: Tue, 30 Mar 2010 23:09:32 -0700 (PDT)
+Message-ID: <20100330.230932.244208287.davem@davemloft.net>
+References: <1269893596.9242.7.camel@Linuxdev3>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: avorontsov@ru.mvista.com, Sandeep.Kumar@freescale.com,
-	galak@kernel.crashing.org, afleming@freescale.com,
-	netdev@vger.kernel.org
-To: kim.phillips@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56793
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932609Ab0CaGJS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 02:09:18 -0400
-In-Reply-To: <1269986062-1697-2-git-send-email-kim.phillips@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1269893596.9242.7.camel@Linuxdev3>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Kim Phillips <kim.phillips@freescale.com>
-Date: Tue, 30 Mar 2010 16:54:22 -0500
+From: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
+Date: Mon, 29 Mar 2010 13:13:16 -0700
 
-> fix this:
-> 
-> eth2: :RX BD ring size for Q[0]: 256
-> eth2:TX BD ring size for Q[0]: 256
-> 
-> to look like:
-> 
-> eth2: RX BD ring size for Q[0]: 256
-> eth2: TX BD ring size for Q[0]: 256
-> 
-> Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
+> Subject: re-submit2 [ANNOUNCEMENT] NET: usb: sierra_net.c driver
+> From: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
 
-Applied.
+Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
