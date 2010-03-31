@@ -1,52 +1,47 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [net-next-2.6 PATCH] netfilter: ctnetlink: compute message size
- properly
-Date: Wed, 31 Mar 2010 19:46:50 +0200
-Message-ID: <4BB38A8A.9050501@trash.net>
-References: <20100331151102.GB8043@psychotron.lab.eng.brq.redhat.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 3/4] xfrm: remove policy lock when accessing
+ policy->walk.dead
+Date: Wed, 31 Mar 2010 13:47:57 -0400
+Message-ID: <1270057677.26743.116.camel@bigi>
+References: <1270030626-16687-1-git-send-email-timo.teras@iki.fi>
+	 <1270030626-16687-5-git-send-email-timo.teras@iki.fi>
+	 <20100331110345.GC12845@gondor.apana.org.au>
+	 <1270040773.26743.12.camel@bigi>
+	 <20100331131131.GA13793@gondor.apana.org.au>
+	 <1270042092.26743.26.camel@bigi>
+	 <20100331135331.GB14082@gondor.apana.org.au>  <4BB37B48.5020308@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, davem@davemloft.net,
-	Krzysztof Oledzki <ole@ans.pl>
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <20100331151102.GB8043@psychotron.lab.eng.brq.redhat.com>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Timo Teras <timo.teras@iki.fi>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:39785 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757910Ab0CaRsE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 13:48:04 -0400
+Received: by ewy20 with SMTP id 20so112819ewy.1
+        for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 10:48:02 -0700 (PDT)
+In-Reply-To: <4BB37B48.5020308@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jiri Pirko wrote:
-> Message size should be dependent on net->ct.sysctl_acct, not on
-> CONFIG_NF_CT_ACCT definition.
+On Wed, 2010-03-31 at 18:41 +0200, Patrick McHardy wrote:
 
-Krzysztof actually wanted to get rid of the config option entirely
-some time ago, but at that time there were some (now solved) problems
-that prevented his. I've CCed him, hoping that this will finally
-get completed :)
+> I agree with Herbert, the flush notification indicates that
+> the table is now empty, independant of its previous state.
 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> 
-> diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-> index 569410a..2b0cfa4 100644
-> --- a/net/netfilter/nf_conntrack_netlink.c
-> +++ b/net/netfilter/nf_conntrack_netlink.c
-> @@ -426,6 +426,19 @@ ctnetlink_proto_size(const struct nf_conn *ct)
->  }
->  
->  static inline size_t
-> +ctnetlink_counters_size(const struct nf_conn *ct)
-> +{
-> +	struct net *net = nf_ct_net(ct);
-> +
-> +	if (!net->ct.sysctl_acct)
-> +		return 0;
-> +	return 2 * nla_total_size(0) /* CTA_COUNTERS_ORIG|REPL */
-> +	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_PACKETS */
-> +	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_BYTES */
-> +	       ;
+What purpose does it serve?
 
-This is also not fully correct since the sysctl only affects newly
-created conntracks, existing ones still have counters that are dumped.
-I'd suggest to simple check whether the conntrack has an accounting
-extension.
+As an example, if i delete an entry, the fact i deleted an entry is 
+of interest to some manager in user space for the purpose of syncing.
+If i brought a link down, same thing. If i brought a link down
+that was already down - why would that be of interest to generate
+as an event? etc.
+
+cheers,
+jamal
+
