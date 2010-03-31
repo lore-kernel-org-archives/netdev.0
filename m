@@ -1,49 +1,40 @@
-From: Neil Brown <neilb@suse.de>
-Subject: Undefined behaviour of connect(fd, NULL, 0);
-Date: Wed, 31 Mar 2010 22:36:37 +1100
-Message-ID: <20100331223637.31f5f6ed@notabene.brown>
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: [PATCH 1/3] be2net: fix a bug in flashing the redboot section
+Date: Wed, 31 Mar 2010 17:17:45 +0530
+Message-ID: <20100331114735.GA9068@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:53633 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751249Ab0CaLgp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Mar 2010 07:36:45 -0400
-Received: from relay1.suse.de (charybdis-ext.suse.de [195.135.221.2])
-	by mx2.suse.de (Postfix) with ESMTP id D1F2B86391
-	for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 13:36:44 +0200 (CEST)
+Received: from segment-124-30.sify.net ([124.30.166.146]:52107 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756841Ab0CaLri (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 07:47:38 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Hi Netdev.
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+---
+ drivers/net/benet/be_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-We have a customer who was reporting strangely unpredictable behaviour of an
-in-house application that used networking.
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 43e8032..a08faf3 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -1855,7 +1855,7 @@ static bool be_flash_redboot(struct be_adapter *adapter,
+ 	p += crc_offset;
+ 
+ 	status = be_cmd_get_flash_crc(adapter, flashed_crc,
+-			(img_start + image_size - 4));
++			(image_size - 4));
+ 	if (status) {
+ 		dev_err(&adapter->pdev->dev,
+ 		"could not get crc from flash, not flashing redboot\n");
+-- 
+1.6.3.3
 
-It called connect on a non-blocking socket and subsequently called
-   connect(fd, NULL, 0)
-
-to check if the connection had succeeded.
-This would sometime "work" and sometimes close the connection.
-
-Looking at the code (sys_connect, move_addr_to_kernel, inet_stream_connect),
-it seems that in this case an uninitialised on-stack address is passed
-to inet_stream_connect and it makes a decision based on ->sa_family (which is
-uninitialised).
-
-It seems clear that connect(fd, NULL, 0) is the wrong thing to do in this
-circumstance, but I think it would be good if it failed consistently rather
-than unpredictably.
-
-Would it be appropriate for move_addr_to_kernel to zero out the remainder of
-the address?
-   memset(kaddr+ulen, 0, MAX_SOCK_ADDR-ulen);
-??
-
-Then connect(fd, NULL, 0) would always break the connection.
-
-Thanks,
-NeilBrown
