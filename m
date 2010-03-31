@@ -1,60 +1,119 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/6] cxgb4: Add main driver file and driver Makefile
-Date: Tue, 30 Mar 2010 22:50:42 -0700 (PDT)
-Message-ID: <20100330.225042.107712654.davem@davemloft.net>
-References: <1269975142-30896-5-git-send-email-dm@chelsio.com>
-	<1269975142-30896-6-git-send-email-dm@chelsio.com>
-	<20100330141904.5236fe44@nehalam>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/6] sysfs: Basic support for multiple super blocks
+Date: Tue, 30 Mar 2010 22:51:35 -0700
+Message-ID: <m1634d82e0.fsf@fess.ebiederm.org>
+References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
+	<1269973889-25260-1-git-send-email-ebiederm@xmission.com>
+	<4BB2E098.7030202@kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dm@chelsio.com, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg Kroah-Hartman <gregkh@suse.de>,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	linux-kernel@vger.kernel.org,
+	Cornelia Huck <cornelia.huck@de.ibm.com>,
+	linux-fsdevel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Benjamin LaHaise <bcrl@lhnet.ca>,
+	Serge Hallyn <serue@us.ibm.com>, netdev@vger.kernel.org
+To: Tejun Heo <tj@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33646
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757144Ab0CaFul (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 01:50:41 -0400
-In-Reply-To: <20100330141904.5236fe44@nehalam>
+Received: from out02.mta.xmission.com ([166.70.13.232]:36935 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754272Ab0CaFvm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 01:51:42 -0400
+In-Reply-To: <4BB2E098.7030202@kernel.org> (Tejun Heo's message of "Wed\, 31 Mar 2010 14\:41\:44 +0900")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 30 Mar 2010 14:19:04 -0700
+Tejun Heo <tj@kernel.org> writes:
 
-> On Tue, 30 Mar 2010 10:52:21 -0800
-> Dimitris Michailidis <dm@chelsio.com> wrote:
-> 
->> +static struct cxgb4_proc_entry proc_files[] = {
->> +#ifdef CONFIG_PROC_FS
->> +	{ "l2t", 0444, ADAP_NEED_L2T, 0, &t4_l2t_proc_fops },
->> +#endif
->> +	{ "lb_stats", 0444, 0, 0, &lb_stats_proc_fops },
->> +	{ "path_mtus", 0644, 0, 0, &mtutab_proc_fops },
->> +	{ "qstats", 0444, 0, 0, &sge_stats_proc_fops },
->> +	{ "rss", 0444, 0, 0, &rss_proc_fops },
->> +	{ "tcp_stats", 0444, 0, 0, &tcp_stats_proc_fops },
->> +	{ "tids", 0444, ADAP_NEED_OFLD, 0, &tid_info_proc_fops },
->> +	{ "tp_err_stats", 0444, 0, 0, &tp_err_stats_proc_fops },
->> +	{ "trace0", 0644, 0, 0, &mps_trc_proc_fops },
->> +	{ "trace1", 0644, 0, 1, &mps_trc_proc_fops },
->> +	{ "trace2", 0644, 0, 2, &mps_trc_proc_fops },
->> +	{ "trace3", 0644, 0, 3, &mps_trc_proc_fops },
->> +	{ "uld", 0444, 0, 0, &uld_proc_fops },
->> +};
+> Hello, Eric.
+>
+> On 03/31/2010 03:31 AM, Eric W. Biederman wrote:
+>> From: Eric W. Biederman <ebiederm@xmission.com>
+>> 
+>> Add all of the necessary bioler plate to support
+>                            boiler :-)
+>
+>> +static int sysfs_test_super(struct super_block *sb, void *data)
+>> +{
+>> +	struct sysfs_super_info *sb_info = sysfs_info(sb);
+>> +	struct sysfs_super_info *info = data;
+>> +	int found = 1;
+>> +	return found;
+>> +}
+>
+> Can you please make it return bool?
+
+Nope.  That would mean I could not use it with sget.
+
+>>  static int sysfs_get_sb(struct file_system_type *fs_type,
+>>  	int flags, const char *dev_name, void *data, struct vfsmount *mnt)
+>>  {
+>> -	return get_sb_single(fs_type, flags, data, sysfs_fill_super, mnt);
+>> +	struct sysfs_super_info *info;
+>> +	struct super_block *sb;
+>> +	int error;
 >> +
-> 
-> Do you really need this large number of /proc files.
-> It creates another stable API to worry about.  If it is just for
-> debugging move it to debugfs, or better yet just drop it.
+>> +	error = -ENOMEM;
+>> +	info = kzalloc(sizeof(*info), GFP_KERNEL);
+>> +	if (!info)
+>> +		goto out;
+>> +	sb = sget(fs_type, sysfs_test_super, sysfs_set_super, info);
+>> +	if (IS_ERR(sb) || sb->s_fs_info != info)
+>> +		kfree(info);
+>> +	if (IS_ERR(sb)) {
+>> +		kfree(info);
+>> +		error = PTR_ERR(sb);
+>> +		goto out;
+>> +	}
+>> +	if (!sb->s_root) {
+>> +		sb->s_flags = flags;
+>> +		error = sysfs_fill_super(sb, data, flags & MS_SILENT ? 1 : 0);
+>> +		if (error) {
+>> +			deactivate_locked_super(sb);
+>> +			goto out;
+>> +		}
+>> +		sb->s_flags |= MS_ACTIVE;
+>> +	}
+>> +
+>> +	simple_set_mnt(mnt, sb);
+>> +	error = 0;
+>> +out:
+>> +	return error;
+>> +}
+>
+> I haven't looked at later patches but I suppose this is gonna be
+> filled with more meaningful stuff later. 
 
-I also find this a bit too much.
+Yes it will.
 
-We have all kinds of ways to export whatever statistics you
-want.  In particular we have ethtool stats of which you
-can have as many as you wish.
+> One (possibly silly) thing
+> that stands out compared to get_sb_single() is missing remount
+> handling.  Is it intended?
 
-If necessary, we could add a feature to define "views" of ethtool
-stats so that we can have domains of driver specific statistics if the
-problem is that you don't want all of these debugging stats to clutter
-up the "main" ethtool stats.
+There is nothing for a remount to do so I ignore it.   The only
+thing that would possibly be meaningful is a read-only mount,
+and nothing I know of sysfs suggests read-only mounts of sysfs
+work, or make any sense.
+
+>> index 30f5a44..030a39d 100644
+>> --- a/fs/sysfs/sysfs.h
+>> +++ b/fs/sysfs/sysfs.h
+>> @@ -114,6 +114,9 @@ struct sysfs_addrm_cxt {
+>>  /*
+>>   * mount.c
+>>   */
+>> +struct sysfs_super_info {
+>> +};
+>> +#define sysfs_info(SB) ((struct sysfs_super_info *)(SB->s_fs_info))
+>
+> Another nit picking.  It would be better to wrap SB in the macro
+> definition.  Also, wouldn't an inline function be better?
+
+Good spotting.  That doesn't bite today but it will certainly bite
+someday if it isn't fixed.
+
+I wonder how that has slipped through the review all of this time.
+
+Eric
