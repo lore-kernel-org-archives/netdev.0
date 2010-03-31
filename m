@@ -1,62 +1,53 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [net-next-2.6 PATCH] netfilter: ctnetlink: compute message size
- properly
-Date: Wed, 31 Mar 2010 17:11:03 +0200
-Message-ID: <20100331151102.GB8043@psychotron.lab.eng.brq.redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-2.6 PATCH] bonding: fix broken multicast with round-robin
+  mode
+Date: Wed, 31 Mar 2010 17:14:08 +0200
+Message-ID: <1270048448.2103.28.camel@edumazet-laptop>
+References: <20100325214033.GA28741@gospo.rdu.redhat.com>
+	 <1270026517.2103.9.camel@edumazet-laptop>
+	 <m2x7b667921003310749v5c8b6e62g7339eff24a51e6d8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, kaber@trash.net,
-	netfilter@vger.kernel.org, davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	lhh@redhat.com, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42122 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751813Ab0CaPLL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Mar 2010 11:11:11 -0400
-Content-Disposition: inline
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:49088 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752490Ab0CaPON (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 11:14:13 -0400
+Received: by bwz1 with SMTP id 1so155907bwz.21
+        for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 08:14:12 -0700 (PDT)
+In-Reply-To: <m2x7b667921003310749v5c8b6e62g7339eff24a51e6d8@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Message size should be dependent on net->ct.sysctl_acct, not on
-CONFIG_NF_CT_ACCT definition.
+Le mercredi 31 mars 2010 =C3=A0 10:49 -0400, Andy Gospodarek a =C3=A9cr=
+it :
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> Curious what version of GCC are you using?  Before applying your patc=
+h
+> it compiles without warning on my x86_64 F11-ish system with:
+>=20
+> gcc version 4.4.1 20090725 (Red Hat 4.4.1-2) (GCC)
+>=20
 
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index 569410a..2b0cfa4 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -426,6 +426,19 @@ ctnetlink_proto_size(const struct nf_conn *ct)
- }
- 
- static inline size_t
-+ctnetlink_counters_size(const struct nf_conn *ct)
-+{
-+	struct net *net = nf_ct_net(ct);
-+
-+	if (!net->ct.sysctl_acct)
-+		return 0;
-+	return 2 * nla_total_size(0) /* CTA_COUNTERS_ORIG|REPL */
-+	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_PACKETS */
-+	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_BYTES */
-+	       ;
-+}
-+
-+static inline size_t
- ctnetlink_nlmsg_size(const struct nf_conn *ct)
- {
- 	return NLMSG_ALIGN(sizeof(struct nfgenmsg))
-@@ -435,11 +448,7 @@ ctnetlink_nlmsg_size(const struct nf_conn *ct)
- 	       + 3 * nla_total_size(sizeof(u_int8_t)) /* CTA_PROTO_NUM */
- 	       + nla_total_size(sizeof(u_int32_t)) /* CTA_ID */
- 	       + nla_total_size(sizeof(u_int32_t)) /* CTA_STATUS */
--#ifdef CONFIG_NF_CT_ACCT
--	       + 2 * nla_total_size(0) /* CTA_COUNTERS_ORIG|REPL */
--	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_PACKETS */
--	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_BYTES */
--#endif
-+	       + ctnetlink_counters_size(ct)
- 	       + nla_total_size(sizeof(u_int32_t)) /* CTA_TIMEOUT */
- 	       + nla_total_size(0) /* CTA_PROTOINFO */
- 	       + nla_total_size(0) /* CTA_HELP */
+ARCH=3Dx86_64 CROSS_COMPILE=3Dx86_64-unknown-linux- make vmlinux
+
+so, it was a cross compiler :
+
+/data/x86-64/bin/x86_64-unknown-linux-gcc-4.1.2 -v
+Using built-in specs.
+Target: x86_64-unknown-linux
+Configured with: ../gcc-4.1.2/configure --prefix=3D/data/x86-64
+--target=3Dx86_64-unknown-linux --enable-languages=3Dc --disable-shared
+--disable-multilib --disable-threads --disable-libssp --without-headers
+--disable-libmudflap
+Thread model: single
+gcc version 4.1.2
+
+
+
 
