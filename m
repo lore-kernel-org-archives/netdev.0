@@ -1,406 +1,206 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: [PATCH 4/4] flow: structurize flow cache
-Date: Wed, 31 Mar 2010 13:17:06 +0300
-Message-ID: <1270030626-16687-6-git-send-email-timo.teras@iki.fi>
-References: <1270030626-16687-1-git-send-email-timo.teras@iki.fi>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Timo Teras <timo.teras@iki.fi>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f220.google.com ([209.85.219.220]:57950 "EHLO
-	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933195Ab0CaKRd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 06:17:33 -0400
-Received: by mail-ew0-f220.google.com with SMTP id 20so1817145ewy.1
-        for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 03:17:32 -0700 (PDT)
-In-Reply-To: <1270030626-16687-1-git-send-email-timo.teras@iki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben McKeegan <ben@netservers.co.uk>
+Subject: Re: [Patch] fix packet loss and massive ping spikes with PPP multi-link
+Date: Wed, 31 Mar 2010 11:03:44 +0100
+Message-ID: <4BB31E00.8060204@netservers.co.uk>
+References: <2d460de71003260850x7f90d04cy79ac853464108182@mail.gmail.com>	<20100326160226.0159ac3b@lxorguk.ukuu.org.uk>	<4BACE827.4070006@gmail.com> <20100326170428.6c1ad66c@lxorguk.ukuu.org.uk>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------090600080204040506070408"
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	"Alexander E. Patrakov" <patrakov@gmail.com>,
+	Richard Hartmann <richih.mailinglist@gmail.com>,
+	linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org, linux-ppp@vger.kernel.org
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <20100326170428.6c1ad66c@lxorguk.ukuu.org.uk>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Group all per-cpu data to one structure instead of having many
-globals. Also prepare the internals so that we can have multiple
-instances of the flow cache if needed.
+This is a multi-part message in MIME format.
+--------------090600080204040506070408
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Only the kmem_cache is left as a global as all flow caches share
-the same element size, and benefit from using a common cache.
+>>> Making it runtime per link selectable would be nicer but thats a bit more
+>>> work.
+>> Doesn't it work already via echoing values to 
+>> /sys/module/ppp/generic/parameters/ml_explode in the above code?
+> 
+> Thats runtime (and why I set 0600 in the permissions for the example) but
+> not per link.
+> 
 
-Signed-off-by: Timo Teras <timo.teras@iki.fi>
----
- net/core/flow.c |  223 +++++++++++++++++++++++++++++--------------------------
- 1 files changed, 119 insertions(+), 104 deletions(-)
+I needed to do something similar a while back and I took a very 
+different approach, which I think is more flexible.   Rather than 
+implement a new round-robin scheduler I simply introduced a target 
+minimum fragment size into the fragment size calculation, as a per 
+bundle parameter that can be configured via a new ioctl.  This modifies 
+the algorithm so that it tries to limit the number of fragments such 
+that each fragment is at least the minimum size.  If the minimum size is 
+greater than the packet size it will not be fragmented all but will 
+instead just get sent down the next available channel.
 
-diff --git a/net/core/flow.c b/net/core/flow.c
-index 9601587..1d27ca6 100644
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -35,104 +35,105 @@ struct flow_cache_entry {
- 	atomic_t		*object_ref;
- };
- 
--atomic_t flow_cache_genid = ATOMIC_INIT(0);
--
--static u32 flow_hash_shift;
--#define flow_hash_size	(1 << flow_hash_shift)
--static DEFINE_PER_CPU(struct flow_cache_entry **, flow_tables) = { NULL };
--
--#define flow_table(cpu) (per_cpu(flow_tables, cpu))
--
--static struct kmem_cache *flow_cachep __read_mostly;
--
--static int flow_lwm, flow_hwm;
--
--struct flow_percpu_info {
--	int hash_rnd_recalc;
--	u32 hash_rnd;
--	int count;
-+struct flow_cache_percpu {
-+	struct flow_cache_entry **	hash_table;
-+	int				hash_count;
-+	u32				hash_rnd;
-+	int				hash_rnd_recalc;
-+	struct tasklet_struct		flush_tasklet;
- };
--static DEFINE_PER_CPU(struct flow_percpu_info, flow_hash_info) = { 0 };
--
--#define flow_hash_rnd_recalc(cpu) \
--	(per_cpu(flow_hash_info, cpu).hash_rnd_recalc)
--#define flow_hash_rnd(cpu) \
--	(per_cpu(flow_hash_info, cpu).hash_rnd)
--#define flow_count(cpu) \
--	(per_cpu(flow_hash_info, cpu).count)
--
--static struct timer_list flow_hash_rnd_timer;
--
--#define FLOW_HASH_RND_PERIOD	(10 * 60 * HZ)
- 
- struct flow_flush_info {
--	atomic_t cpuleft;
--	struct completion completion;
-+	struct flow_cache *		cache;
-+	atomic_t			cpuleft;
-+	struct completion		completion;
- };
--static DEFINE_PER_CPU(struct tasklet_struct, flow_flush_tasklets) = { NULL };
- 
--#define flow_flush_tasklet(cpu) (&per_cpu(flow_flush_tasklets, cpu))
-+struct flow_cache {
-+	u32				hash_shift;
-+	unsigned long			order;
-+	struct flow_cache_percpu *	percpu;
-+	struct notifier_block		hotcpu_notifier;
-+	int				low_watermark;
-+	int				high_watermark;
-+	struct timer_list		rnd_timer;
-+};
-+
-+atomic_t flow_cache_genid = ATOMIC_INIT(0);
-+static struct flow_cache flow_cache_global;
-+static struct kmem_cache *flow_cachep;
-+
-+#define flow_cache_hash_size(cache)	(1 << (cache)->hash_shift)
-+#define FLOW_HASH_RND_PERIOD		(10 * 60 * HZ)
- 
- static void flow_cache_new_hashrnd(unsigned long arg)
- {
-+	struct flow_cache *fc = (void *) arg;
- 	int i;
- 
- 	for_each_possible_cpu(i)
--		flow_hash_rnd_recalc(i) = 1;
-+		per_cpu_ptr(fc->percpu, i)->hash_rnd_recalc = 1;
- 
--	flow_hash_rnd_timer.expires = jiffies + FLOW_HASH_RND_PERIOD;
--	add_timer(&flow_hash_rnd_timer);
-+	fc->rnd_timer.expires = jiffies + FLOW_HASH_RND_PERIOD;
-+	add_timer(&fc->rnd_timer);
- }
- 
--static void flow_entry_kill(int cpu, struct flow_cache_entry *fle)
-+static void flow_entry_kill(struct flow_cache *fc,
-+			    struct flow_cache_percpu *fcp,
-+			    struct flow_cache_entry *fle)
- {
- 	if (fle->object)
- 		atomic_dec(fle->object_ref);
- 	kmem_cache_free(flow_cachep, fle);
--	flow_count(cpu)--;
-+	fcp->hash_count--;
- }
- 
--static void __flow_cache_shrink(int cpu, int shrink_to)
-+static void __flow_cache_shrink(struct flow_cache *fc,
-+				struct flow_cache_percpu *fcp,
-+				int shrink_to)
- {
- 	struct flow_cache_entry *fle, **flp;
- 	int i;
- 
--	for (i = 0; i < flow_hash_size; i++) {
-+	for (i = 0; i < flow_cache_hash_size(fc); i++) {
- 		int k = 0;
- 
--		flp = &flow_table(cpu)[i];
-+		flp = &fcp->hash_table[i];
- 		while ((fle = *flp) != NULL && k < shrink_to) {
- 			k++;
- 			flp = &fle->next;
- 		}
- 		while ((fle = *flp) != NULL) {
- 			*flp = fle->next;
--			flow_entry_kill(cpu, fle);
-+			flow_entry_kill(fc, fcp, fle);
- 		}
- 	}
- }
- 
--static void flow_cache_shrink(int cpu)
-+static void flow_cache_shrink(struct flow_cache *fc,
-+			      struct flow_cache_percpu *fcp)
- {
--	int shrink_to = flow_lwm / flow_hash_size;
-+	int shrink_to = fc->low_watermark / flow_cache_hash_size(fc);
- 
--	__flow_cache_shrink(cpu, shrink_to);
-+	__flow_cache_shrink(fc, fcp, shrink_to);
- }
- 
--static void flow_new_hash_rnd(int cpu)
-+static void flow_new_hash_rnd(struct flow_cache *fc,
-+			      struct flow_cache_percpu *fcp)
- {
--	get_random_bytes(&flow_hash_rnd(cpu), sizeof(u32));
--	flow_hash_rnd_recalc(cpu) = 0;
--
--	__flow_cache_shrink(cpu, 0);
-+	get_random_bytes(&fcp->hash_rnd, sizeof(u32));
-+	fcp->hash_rnd_recalc = 0;
-+	__flow_cache_shrink(fc, fcp, 0);
- }
- 
--static u32 flow_hash_code(struct flowi *key, int cpu)
-+static u32 flow_hash_code(struct flow_cache *fc,
-+			  struct flow_cache_percpu *fcp,
-+			  struct flowi *key)
- {
- 	u32 *k = (u32 *) key;
- 
--	return (jhash2(k, (sizeof(*key) / sizeof(u32)), flow_hash_rnd(cpu)) &
--		(flow_hash_size - 1));
-+	return (jhash2(k, (sizeof(*key) / sizeof(u32)), fcp->hash_rnd)
-+		& (flow_cache_hash_size(fc) - 1));
- }
- 
- #if (BITS_PER_LONG == 64)
-@@ -168,24 +169,25 @@ static int flow_key_compare(struct flowi *key1, struct flowi *key2)
- void *flow_cache_lookup(struct net *net, struct flowi *key, u16 family, u8 dir,
- 			flow_resolve_t resolver)
- {
-+	struct flow_cache *fc = &flow_cache_global;
-+	struct flow_cache_percpu *fcp;
- 	struct flow_cache_entry *fle, **head;
- 	unsigned int hash;
--	int cpu;
- 
- 	local_bh_disable();
--	cpu = smp_processor_id();
-+	fcp = per_cpu_ptr(fc->percpu, smp_processor_id());
- 
- 	fle = NULL;
- 	/* Packet really early in init?  Making flow_cache_init a
- 	 * pre-smp initcall would solve this.  --RR */
--	if (!flow_table(cpu))
-+	if (!fcp->hash_table)
- 		goto nocache;
- 
--	if (flow_hash_rnd_recalc(cpu))
--		flow_new_hash_rnd(cpu);
--	hash = flow_hash_code(key, cpu);
-+	if (fcp->hash_rnd_recalc)
-+		flow_new_hash_rnd(fc, fcp);
-+	hash = flow_hash_code(fc, fcp, key);
- 
--	head = &flow_table(cpu)[hash];
-+	head = &fcp->hash_table[hash];
- 	for (fle = *head; fle; fle = fle->next) {
- 		if (fle->family == family &&
- 		    fle->dir == dir &&
-@@ -204,8 +206,8 @@ void *flow_cache_lookup(struct net *net, struct flowi *key, u16 family, u8 dir,
- 	}
- 
- 	if (!fle) {
--		if (flow_count(cpu) > flow_hwm)
--			flow_cache_shrink(cpu);
-+		if (fcp->hash_count > fc->high_watermark)
-+			flow_cache_shrink(fc, fcp);
- 
- 		fle = kmem_cache_alloc(flow_cachep, GFP_ATOMIC);
- 		if (fle) {
-@@ -215,7 +217,7 @@ void *flow_cache_lookup(struct net *net, struct flowi *key, u16 family, u8 dir,
- 			fle->dir = dir;
- 			memcpy(&fle->key, key, sizeof(*key));
- 			fle->object = NULL;
--			flow_count(cpu)++;
-+			fcp->hash_count++;
- 		}
- 	}
- 
-@@ -249,14 +251,15 @@ nocache:
- static void flow_cache_flush_tasklet(unsigned long data)
- {
- 	struct flow_flush_info *info = (void *)data;
-+	struct flow_cache *fc = info->cache;
-+	struct flow_cache_percpu *fcp;
- 	int i;
--	int cpu;
- 
--	cpu = smp_processor_id();
--	for (i = 0; i < flow_hash_size; i++) {
-+	fcp = per_cpu_ptr(fc->percpu, smp_processor_id());
-+	for (i = 0; i < flow_cache_hash_size(fc); i++) {
- 		struct flow_cache_entry *fle;
- 
--		fle = flow_table(cpu)[i];
-+		fle = fcp->hash_table[i];
- 		for (; fle; fle = fle->next) {
- 			unsigned genid = atomic_read(&flow_cache_genid);
- 
-@@ -272,7 +275,6 @@ static void flow_cache_flush_tasklet(unsigned long data)
- 		complete(&info->completion);
- }
- 
--static void flow_cache_flush_per_cpu(void *) __attribute__((__unused__));
- static void flow_cache_flush_per_cpu(void *data)
- {
- 	struct flow_flush_info *info = data;
-@@ -280,8 +282,7 @@ static void flow_cache_flush_per_cpu(void *data)
- 	struct tasklet_struct *tasklet;
- 
- 	cpu = smp_processor_id();
--
--	tasklet = flow_flush_tasklet(cpu);
-+	tasklet = &per_cpu_ptr(info->cache->percpu, cpu)->flush_tasklet;
- 	tasklet->data = (unsigned long)info;
- 	tasklet_schedule(tasklet);
- }
-@@ -294,6 +295,7 @@ void flow_cache_flush(void)
- 	/* Don't want cpus going down or up during this. */
- 	get_online_cpus();
- 	mutex_lock(&flow_flush_sem);
-+	info.cache = &flow_cache_global;
- 	atomic_set(&info.cpuleft, num_online_cpus());
- 	init_completion(&info.completion);
- 
-@@ -307,62 +309,75 @@ void flow_cache_flush(void)
- 	put_online_cpus();
- }
- 
--static void __init flow_cache_cpu_prepare(int cpu)
-+static void __init flow_cache_cpu_prepare(struct flow_cache *fc,
-+					  struct flow_cache_percpu *fcp)
- {
--	struct tasklet_struct *tasklet;
--	unsigned long order;
--
--	for (order = 0;
--	     (PAGE_SIZE << order) <
--		     (sizeof(struct flow_cache_entry *)*flow_hash_size);
--	     order++)
--		/* NOTHING */;
--
--	flow_table(cpu) = (struct flow_cache_entry **)
--		__get_free_pages(GFP_KERNEL|__GFP_ZERO, order);
--	if (!flow_table(cpu))
--		panic("NET: failed to allocate flow cache order %lu\n", order);
--
--	flow_hash_rnd_recalc(cpu) = 1;
--	flow_count(cpu) = 0;
--
--	tasklet = flow_flush_tasklet(cpu);
--	tasklet_init(tasklet, flow_cache_flush_tasklet, 0);
-+	fcp->hash_table = (struct flow_cache_entry **)
-+		__get_free_pages(GFP_KERNEL|__GFP_ZERO, fc->order);
-+	if (!fcp->hash_table)
-+		panic("NET: failed to allocate flow cache order %lu\n", fc->order);
-+
-+	fcp->hash_rnd_recalc = 1;
-+	fcp->hash_count = 0;
-+	tasklet_init(&fcp->flush_tasklet, flow_cache_flush_tasklet, 0);
- }
- 
- static int flow_cache_cpu(struct notifier_block *nfb,
- 			  unsigned long action,
- 			  void *hcpu)
- {
-+	struct flow_cache *fc = container_of(nfb, struct flow_cache, hotcpu_notifier);
-+	int cpu = (unsigned long) hcpu;
-+	struct flow_cache_percpu *fcp = per_cpu_ptr(fc->percpu, cpu);
-+
- 	if (action == CPU_DEAD || action == CPU_DEAD_FROZEN)
--		__flow_cache_shrink((unsigned long)hcpu, 0);
-+		__flow_cache_shrink(fc, fcp, 0);
- 	return NOTIFY_OK;
- }
- 
--static int __init flow_cache_init(void)
-+static int flow_cache_init(struct flow_cache *fc)
- {
-+	unsigned long order;
- 	int i;
- 
--	flow_cachep = kmem_cache_create("flow_cache",
--					sizeof(struct flow_cache_entry),
--					0, SLAB_PANIC,
--					NULL);
--	flow_hash_shift = 10;
--	flow_lwm = 2 * flow_hash_size;
--	flow_hwm = 4 * flow_hash_size;
-+	fc->hash_shift = 10;
-+	fc->low_watermark = 2 * flow_cache_hash_size(fc);
-+	fc->high_watermark = 4 * flow_cache_hash_size(fc);
-+
-+	for (order = 0;
-+	     (PAGE_SIZE << order) <
-+		     (sizeof(struct flow_cache_entry *)*flow_cache_hash_size(fc));
-+	     order++)
-+		/* NOTHING */;
-+	fc->order = order;
-+	fc->percpu = alloc_percpu(struct flow_cache_percpu);
- 
--	setup_timer(&flow_hash_rnd_timer, flow_cache_new_hashrnd, 0);
--	flow_hash_rnd_timer.expires = jiffies + FLOW_HASH_RND_PERIOD;
--	add_timer(&flow_hash_rnd_timer);
-+	setup_timer(&fc->rnd_timer, flow_cache_new_hashrnd,
-+		    (unsigned long) fc);
-+	fc->rnd_timer.expires = jiffies + FLOW_HASH_RND_PERIOD;
-+	add_timer(&fc->rnd_timer);
- 
- 	for_each_possible_cpu(i)
--		flow_cache_cpu_prepare(i);
-+		flow_cache_cpu_prepare(fc, per_cpu_ptr(fc->percpu, i));
-+
-+	fc->hotcpu_notifier = (struct notifier_block){
-+		.notifier_call = flow_cache_cpu,
-+	};
-+	register_hotcpu_notifier(&fc->hotcpu_notifier);
- 
--	hotcpu_notifier(flow_cache_cpu, 0);
- 	return 0;
- }
- 
--module_init(flow_cache_init);
-+static int __init flow_cache_init_global(void)
-+{
-+	flow_cachep = kmem_cache_create("flow_cache",
-+					sizeof(struct flow_cache_entry),
-+					0, SLAB_PANIC, NULL);
-+
-+	return flow_cache_init(&flow_cache_global);
-+}
-+
-+module_init(flow_cache_init_global);
- 
- EXPORT_SYMBOL(flow_cache_genid);
- EXPORT_SYMBOL(flow_cache_lookup);
--- 
-1.6.3.3
+A pppd plugin generates the ioctl call allowing this to be tweaked per 
+connection.  It is more flexible in that you can still have the larger 
+packets fragmented if you wish.
 
+We've used a variant of this patch on our ADSL LNS pool for a few years 
+now with varying results.  We originally did it to save bandwidth as we 
+have a per packet overhead and fragmenting tiny packets such as VoIP 
+across a bundle of 4 lines made no sense at all.  We've experimented 
+with higher minimum settings up to and above the link MTU, thus 
+achieving the equivalent of Richard's patch.
+
+In some cases this has improved performance, others it makes it worse. 
+It depends a lot on the lines and traffic patterns, and it is certainly 
+not a change we would wish to have on by default.  Any solution going 
+into mainline kernel would need to be tunable per connection.  One of 
+the issues seems to be with poor recovery from packet loss on low 
+volume, highly delay sensitive traffic on large bundles of lines.  With 
+Linux at both ends you are relying on received sequence numbers to 
+detect loss.  When packets are being fragmented across all channels and 
+a fragment is lost, the receiving system is able to spot the lost 
+fragment fairly quickly.  Once you start sending some multilink frames 
+down individual channels, it takes a lot longer for the receiver to 
+notice the packet loss on an individual channel.  Until another fragment 
+is successfully received on the lossy channel, the fragments of the 
+incomplete frame sit in the queue clogging up the other channels (the 
+receiver is attempting to preserve the original packet order and is 
+still waiting for the lost fragment).
+
+Original patch attached.   This almost certainly needs updating to take 
+account of other more recent changes in multi link algorithm but it may 
+provide some inspiration.
+
+Regards,
+Ben.
+
+
+--------------090600080204040506070408
+Content-Type: text/x-diff;
+ name="mppp-min-frag-size.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="mppp-min-frag-size.patch"
+
+diff -ubdr linux-2.6.16.16-l2tp/drivers/net/ppp_generic.c linux-2.6.16.16-l2tp-mppp/drivers/net/ppp_generic.c
+--- linux-2.6.16.16-l2tp/drivers/net/ppp_generic.c	2006-05-11 02:56:24.000000000 +0100
++++ linux-2.6.16.16-l2tp-mppp/drivers/net/ppp_generic.c	2007-07-03 18:23:35.000000000 +0100
+@@ -64,7 +64,7 @@
+ 
+ #define MPHDRLEN	6	/* multilink protocol header length */
+ #define MPHDRLEN_SSN	4	/* ditto with short sequence numbers */
+-#define MIN_FRAG_SIZE	64
++#define MIN_FRAG_SIZE	256
+ 
+ /*
+  * An instance of /dev/ppp can be associated with either a ppp
+@@ -120,6 +120,7 @@
+ 	unsigned long	last_recv;	/* jiffies when last pkt rcvd a0 */
+ 	struct net_device *dev;		/* network interface device a4 */
+ #ifdef CONFIG_PPP_MULTILINK
++        int             minfragsize;    /* minimum size for a fragment */
+ 	int		nxchan;		/* next channel to send something on */
+ 	u32		nxseq;		/* next sequence number to send */
+ 	int		mrru;		/* MP: max reconst. receive unit */
+@@ -767,6 +768,15 @@
+ 		ppp_recv_unlock(ppp);
+ 		err = 0;
+ 		break;
++
++	case PPPIOCSMINFRAG:
++	        if (get_user(val, p))
++	                break;
++	        ppp_recv_lock(ppp);
++	        ppp->minfragsize = val < 0 ? 0 : val;
++	        ppp_recv_unlock(ppp);
++	        err = 0;
++	        break;
+ #endif /* CONFIG_PPP_MULTILINK */
+ 
+ 	default:
+@@ -1254,7 +1264,7 @@
+ 	int len, fragsize;
+ 	int i, bits, hdrlen, mtu;
+ 	int flen;
+-	int navail, nfree;
++	int navail, nfree, nfrag;
+ 	int nbigger;
+ 	unsigned char *p, *q;
+ 	struct list_head *list;
+@@ -1285,7 +1295,7 @@
+ 	 * the channels are free.  This gives much better TCP
+ 	 * performance if we have a lot of channels.
+ 	 */
+-	if (nfree == 0 || nfree < navail / 2)
++	if (nfree == 0 || (nfree < navail / 2 && ppp->minfragsize == 0))
+ 		return 0;	/* can't take now, leave it in xmit_pending */
+ 
+ 	/* Do protocol field compression (XXX this should be optional) */
+@@ -1302,13 +1312,24 @@
+ 	 * how small they are (i.e. even 0 length) in order to minimize
+ 	 * the time that it will take to detect when a channel drops
+ 	 * a fragment.
++         * However, if ppp->minfragsize > 0 we try to avoid creating
++         * fragments smaller than ppp->minfragsize and thus do not
++         * always use all free channels
+ 	 */
++	if (ppp->minfragsize > 0) {
++	  nfrag= len / ppp->minfragsize;
++	  if (nfrag < 1)
++	        nfrag = 1;
++	  else if (nfrag > nfree)
++	        nfrag = nfree;
++	} else
++	        nfrag = nfree;
+ 	fragsize = len;
+-	if (nfree > 1)
+-		fragsize = DIV_ROUND_UP(fragsize, nfree);
++	if (nfrag > 1)
++	        fragsize = DIV_ROUND_UP(fragsize, nfrag);
+ 	/* nbigger channels get fragsize bytes, the rest get fragsize-1,
+ 	   except if nbigger==0, then they all get fragsize. */
+-	nbigger = len % nfree;
++	nbigger = len % nfrag;
+ 
+ 	/* skip to the channel after the one we last used
+ 	   and start at that one */
+@@ -1323,7 +1344,7 @@
+ 
+ 	/* create a fragment for each channel */
+ 	bits = B;
+-	while (nfree > 0 || len > 0) {
++	while (len > 0 || (nfree > 0 && ppp->minfragsize == 0)) {
+ 		list = list->next;
+ 		if (list == &ppp->channels) {
+ 			i = 0;
+@@ -1371,7 +1392,7 @@
+ 			mtu = 4;
+ 		if (flen > mtu)
+ 			flen = mtu;
+-		if (flen == len && nfree == 0)
++		if (flen == len && (nfree == 0 || ppp->minfragsize != 0))
+ 			bits |= E;
+ 		frag = alloc_skb(flen + hdrlen + (flen == 0), GFP_ATOMIC);
+ 		if (frag == 0)
+@@ -2435,6 +2456,7 @@
+ 	spin_lock_init(&ppp->rlock);
+ 	spin_lock_init(&ppp->wlock);
+ #ifdef CONFIG_PPP_MULTILINK
++	ppp->minfragsize = MIN_FRAG_SIZE;
+ 	ppp->minseq = -1;
+ 	skb_queue_head_init(&ppp->mrq);
+ #endif /* CONFIG_PPP_MULTILINK */
+diff -ubdr linux-2.6.16.16-l2tp/include/linux/if_ppp.h linux-2.6.16.16-l2tp-mppp/include/linux/if_ppp.h
+--- linux-2.6.16.16-l2tp/include/linux/if_ppp.h	2006-05-12 13:45:00.000000000 +0100
++++ linux-2.6.16.16-l2tp-mppp/include/linux/if_ppp.h	2007-07-03 18:15:27.000000000 +0100
+@@ -162,6 +162,7 @@
+ #define PPPIOCATTCHAN	_IOW('t', 56, int)	/* attach to ppp channel */
+ #define PPPIOCGCHAN	_IOR('t', 55, int)	/* get ppp channel number */
+ #define PPPIOCGL2TPSTATS _IOR('t', 54, struct pppol2tp_ioc_stats)
++#define PPPIOCSMINFRAG  _IOW('t', 53, int)  /* minimum fragment size */
+ 
+ #define SIOCGPPPSTATS   (SIOCDEVPRIVATE + 0)
+ #define SIOCGPPPVER     (SIOCDEVPRIVATE + 1)	/* NEVER change this!! */
+
+--------------090600080204040506070408--
