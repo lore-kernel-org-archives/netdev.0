@@ -1,79 +1,39 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [RFC] SPD basic actions per netdev
-Date: Wed, 31 Mar 2010 12:37:58 -0400
-Message-ID: <1270053478.26743.111.camel@bigi>
-Reply-To: hadi@cyberus.ca
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 3/4] xfrm: remove policy lock when accessing	policy->walk.dead
+Date: Wed, 31 Mar 2010 18:41:44 +0200
+Message-ID: <4BB37B48.5020308@trash.net>
+References: <1270030626-16687-1-git-send-email-timo.teras@iki.fi> <1270030626-16687-5-git-send-email-timo.teras@iki.fi> <20100331110345.GC12845@gondor.apana.org.au> <1270040773.26743.12.camel@bigi> <20100331131131.GA13793@gondor.apana.org.au> <1270042092.26743.26.camel@bigi> <20100331135331.GB14082@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	Timo Teras <timo.teras@iki.fi>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
+Cc: jamal <hadi@cyberus.ca>, Timo Teras <timo.teras@iki.fi>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.26]:45199 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757759Ab0CaQiE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 12:38:04 -0400
-Received: by ey-out-2122.google.com with SMTP id d26so22871eyd.19
-        for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 09:38:02 -0700 (PDT)
+Received: from stinky.trash.net ([213.144.137.162]:33153 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757772Ab0CaQlq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 12:41:46 -0400
+In-Reply-To: <20100331135331.GB14082@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Herbert Xu wrote:
+> On Wed, Mar 31, 2010 at 09:28:12AM -0400, jamal wrote:
+>> -sudo ip route add 192.168.11.100 dev eth0 table 15
+>> generates an event
+>> -sudo ip route flush table 15
+>> generates an event
+>> -sudo ip route flush table 15
+>> No event
+> 
+> That's completely different.  We don't have a route flush event,
+> instead we're sending route delete events.  That's why when the
+> table is empty you get no events.
+> 
+> If we had a route flush event then it would behave exactly the
+> same.
 
-This may be oversight in current implementation and possibly
-nobody has needed it before - hence it is not functional.
-
-I want to have a drop-all policy on a per-interface level
-for incoming packets and add exceptions as i need them.
-[using the flow table is cheap if you have xfrm built in].
-i.e something along the lines of:
-
-#eth0, wild-card drop all
-ip xfrm policy add src 0.0.0.0/0 dst 0.0.0.0/0 dev eth0 \
-       dir in ptype main action block priority $SOME-HIGH-value
-#eth0, exception
-ip xfrm policy add blah blah dev eth0 \
-dir in ptype main action allow priority $SOME-small-value
-#eth1, wild-card drop all
-ip xfrm policy add src 0.0.0.0/0 dst 0.0.0.0/0 dev eth1 \
-       dir in ptype main action block priority $SOME-HIGH-value
-#eth1 exception ...
-
-The problem is this works as long as i dont specify an interface.
-i.e, this would work in the in-direction:
-
-ip xfrm policy add src 0.0.0.0/0 dst 0.0.0.0/0 \
-        dir in ptype main action block priority $SOME-HIGH-value
-
-This would not work:
-ip xfrm policy add src 0.0.0.0/0 dst 0.0.0.0/0 dev eth0 \
-       dir in ptype main action block priority $SOME-HIGH-value
-
-
-The checks in the selector matching is the culprit, example for v4:
-
-__xfrm4_selector_match(struct xfrm_selector *sel, struct flowi *fl)
-{
-        return  .... &&
-                .... &&
-                (fl->oif == sel->ifindex || !sel->ifindex);
-}
-
-i.e in the second case i have a non-zero sel->ifindex but
-a zero fl->oif; so it wont match.
-
-One approach to fix this is to pass the direction then i can do
-in the function call, then i can do something along the lines of
-matching if:
-(fl_dir == FLOW_DIR_IN && (fl->iif == sel->ifindex || !sel->ifindex) ||
-(fl->oif == sel->ifindex || !sel->ifindex);
-
-Is there any reason the selector matching only assumes fl->oif?
-Are there any unforeseen issues/breakages if i added a check for the
-above.
-
-cheers,
-jamal
-
+I was just about to say the exact same thing when I noticed your
+email. I agree with Herbert, the flush notification indicates that
+the table is now empty, independant of its previous state.
