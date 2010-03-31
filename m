@@ -1,56 +1,38 @@
-From: Anders Darander <anders.darander@datarespons.se>
-Subject: Re: [PATCH] MACB: Set PHY address in kernel parameters
-Date: Wed, 31 Mar 2010 12:11:20 +0200
-Message-ID: <20100331101120.GJ4837@datarespons.se>
-References: <1270021902-6556-1-git-send-email-anders.darander@gmail.com>
- <20100331100313.GA4053@psychotron.lab.eng.brq.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH next-next-2.6 v2] virtio_net: missing sg_init_table
+Date: Wed, 31 Mar 2010 03:16:36 -0700 (PDT)
+Message-ID: <20100331.031636.04083770.davem@davemloft.net>
+References: <4BB10010.5060505@mathtm.de>
+	<1269911955.14013.4.camel@localhost.localdomain>
+	<20100331092022.GA31911@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Haavard Skinnemoen <hskinnemoen@atmel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Erik Waling <erik.waling@konftel.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw01.datarespons.com ([81.0.189.39]:2160 "EHLO
-	mailgw01.datarespons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933001Ab0CaKL3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 06:11:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20100331100313.GA4053@psychotron.lab.eng.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mashirle@us.ibm.com, thomas@mathtm.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100331092022.GA31911@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-* Jiri Pirko <jpirko@redhat.com> [100331 12:03]:
-> Wed, Mar 31, 2010 at 09:51:42AM CEST, anders.darander@gmail.com wrote:
-> > 
-> >-	phydev = phy_find_first(bp->mii_bus);
-> >+	if (phy_addr >= PHY_MAX_ADDRESS)
-> >+		phydev = phy_find_first(bp->mii_bus);
-> >+	else
-> >+		phydev = bp->mii_bus->phy_map[phy_addr];
-> >+
-> > 	if (!phydev) {
-> > 		printk (KERN_ERR "%s: no PHY found\n", dev->name);
-> > 		return -1;
-> 
-> This is really ugly :( Should be done differently, more general. I've been
-> thinking about this for a while. Maybe the solution is to integrate the switch
-> into DSA subsystem. See net/dsa. Not sure though...
+=46rom: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Wed, 31 Mar 2010 12:20:22 +0300
 
-A more general solution is always welcome...
+> On Mon, Mar 29, 2010 at 06:19:15PM -0700, Shirley Ma wrote:
+>> Add missing sg_init_table for sg_set_buf in virtio_net which
+>> induced in defer skb patch.
+>>=20
+>> Reported-by: Thomas M=FCller <thomas@mathtm.de>
+>> Tested-by: Thomas M=FCller <thomas@mathtm.de>
+>> Signed-off-by: Shirley Ma <xma@us.ibm.com>
+>=20
+> I'm concerned that the 'big' path might cause a performance regressio=
+n.
+> Let's move sg into virtnet_info so that this needs to be only called
+> once?
 
-However, although I've not tested it, I think that Marc Kleine-Budde
-came up with the correct solution. That was using phy_mask, and set it
-up in the *eth_data structure in the board setup code.
+Yeah that might improve things.
 
-Thus, it seems that the needed functionality is readily available.
-(Working in the embedded field, I've no problem with defining HW-related
-things in the board setup code, as opposite of having it dynamically
-defined).
-
-Regards,
-Anders
-
+Shirley's change is already in net-next-2.6 so anything implementing
+this would need to be submitted relative to that.
