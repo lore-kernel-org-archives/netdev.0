@@ -1,60 +1,79 @@
-From: Neil Horman <nhorman@redhat.com>
-Subject: Re: [r8169] WARNING: at net/sched/sch_generic.c
-Date: Wed, 31 Mar 2010 07:19:42 -0400
-Message-ID: <20100331111942.GB13963@hmsreliant.think-freely.org>
-References: <20100331102142.GA3294@swordfish.minsk.epam.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/4] xfrm: increment genid before bumping state genids
+Date: Wed, 31 Mar 2010 19:19:49 +0800
+Message-ID: <20100331111949.GD12845@gondor.apana.org.au>
+References: <1270030626-16687-1-git-send-email-timo.teras@iki.fi> <1270030626-16687-3-git-send-email-timo.teras@iki.fi> <20100331105023.GA12845@gondor.apana.org.au> <4BB32A11.1030708@iki.fi> <4BB32B6F.7060403@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-To: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([216.59.3.182]:43886 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757158Ab0CaLTx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 07:19:53 -0400
 Content-Disposition: inline
-In-Reply-To: <20100331102142.GA3294@swordfish.minsk.epam.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4BB32B6F.7060403@iki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 31, 2010 at 01:21:42PM +0300, Sergey Senozhatsky wrote:
-> Hello,
-> I have the following problem:
-> 
-> [  296.337510] ------------[ cut here ]------------
-> [  296.337523] WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0xc1/0x125()
-> [  296.337527] Hardware name: F3JC                
-> [  296.337530] NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
-> [  296.337533] Modules linked in: pktgen ipv6 snd_hwdep snd_hda_codec_si3054 snd_hda_codec_realtek sdhci_pci sdhci asus_laptop sparse_keymap mmc_core led_class snd_hda_intel
-> snd_hda_codec psmouse snd_pcm snd_timer snd soundcore snd_page_alloc serio_raw i2c_i801 rng_core evdev sg r8169 mii usbhid hid uhci_hcd ehci_hcd sr_mod cdrom sd_mod usbcore
-> ata_piix
-> [  296.337586] Pid: 0, comm: swapper Not tainted 2.6.34-rc3-dbg #74
-> [  296.337589] Call Trace:
-> [  296.337597]  [<c102e71f>] warn_slowpath_common+0x65/0x7c
-> [  296.337603]  [<c126e30c>] ? dev_watchdog+0xc1/0x125
-> [  296.337608]  [<c102e76a>] warn_slowpath_fmt+0x24/0x27
-> [  296.337613]  [<c126e30c>] dev_watchdog+0xc1/0x125
-> [  296.337620]  [<c1040039>] ? prepare_to_wait_exclusive+0x52/0x5b
-> [  296.337627]  [<c1037053>] ? run_timer_softirq+0x120/0x1eb
-> [  296.337632]  [<c10370a9>] run_timer_softirq+0x176/0x1eb
-> [  296.337637]  [<c1037053>] ? run_timer_softirq+0x120/0x1eb
-> [  296.337643]  [<c126e24b>] ? dev_watchdog+0x0/0x125
-> [  296.337650]  [<c10331c9>] __do_softirq+0x8d/0x117
-> [  296.337655]  [<c103327e>] do_softirq+0x2b/0x43
-> [  296.337660]  [<c10333a3>] irq_exit+0x38/0x75
-> [  296.337667]  [<c1015138>] smp_apic_timer_interrupt+0x6d/0x7b
-> [  296.337673]  [<c12cbada>] apic_timer_interrupt+0x36/0x3c
-> [  296.337679]  [<c104007b>] ? prepare_to_wait+0x39/0x57
-> [  296.337685]  [<c11dd835>] ? acpi_idle_enter_simple+0x119/0x144
-> [  296.337692]  [<c124d358>] cpuidle_idle_call+0x6d/0xa5
-> [  296.337697]  [<c1001b51>] cpu_idle+0x92/0xc1
-> [  296.337704]  [<c12c63d0>] start_secondary+0x1f3/0x1fa
-> [  296.337708] ---[ end trace cd4a1b50139837df ]---
-> 
-> 
-> Reproducing 100% with pktgen tests.
-> 
-What kind of packets are you sending with pktgen?
-Neil
+On Wed, Mar 31, 2010 at 02:01:03PM +0300, Timo Ter=E4s wrote:
+>
+> If any other xfrm_state_insert place needs to invalidate old
+> states it needs an additional bumping call. So the bumping function
+> is the right place to increment the genid.
 
-> 
-> 	Sergey
+Right.  In fact, this thing doesn't need to be incremented on every
+insert.  How about this patch?
+
+xfrm: Remove xfrm_state_genid
+
+The xfrm state genid only needs to be matched against the copy
+saved in xfrm_dst.  So we don't need a global genid at all.  In
+fact, we don't even need to initialise it.
+
+Based on observation by Timo Ter=E4s.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 17d5b96..71f8f33 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -37,7 +37,6 @@
+ static DEFINE_SPINLOCK(xfrm_state_lock);
+=20
+ static unsigned int xfrm_state_hashmax __read_mostly =3D 1 * 1024 * 10=
+24;
+-static unsigned int xfrm_state_genid;
+=20
+ static struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned int fa=
+mily);
+ static void xfrm_state_put_afinfo(struct xfrm_state_afinfo *afinfo);
+@@ -923,8 +922,6 @@ static void __xfrm_state_insert(struct xfrm_state *=
+x)
+ 	struct net *net =3D xs_net(x);
+ 	unsigned int h;
+=20
+-	x->genid =3D ++xfrm_state_genid;
+-
+ 	list_add(&x->km.all, &net->xfrm.state_all);
+=20
+ 	h =3D xfrm_dst_hash(net, &x->id.daddr, &x->props.saddr,
+@@ -970,7 +967,7 @@ static void __xfrm_state_bump_genids(struct xfrm_st=
+ate *xnew)
+ 		    (mark & x->mark.m) =3D=3D x->mark.v &&
+ 		    !xfrm_addr_cmp(&x->id.daddr, &xnew->id.daddr, family) &&
+ 		    !xfrm_addr_cmp(&x->props.saddr, &xnew->props.saddr, family))
+-			x->genid =3D xfrm_state_genid;
++			x->genid++;
+ 	}
+ }
+=20
+Cheers,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
