@@ -1,59 +1,61 @@
-From: Stuart Shelton <stuart@openobjects.com>
-Subject: Re: Severe regression in bnx2 driver with bonding in post 2.6.30 kernels
-Date: Wed, 31 Mar 2010 19:04:34 +0100
-Message-ID: <6B2CE77E-B4DD-484F-A69A-6752A4E698DE@openobjects.com>
-References: <C27F8246C663564A84BB7AB3439772421AF2CD5940@IRVEXCHCCR01.corp.ad.broadcom.com>
-Mime-Version: 1.0 (Apple Message framework v1078)
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 0/6] tagged sysfs support
+Date: Wed, 31 Mar 2010 11:09:46 -0700
+Message-ID: <m1vdccwefp.fsf@fess.ebiederm.org>
+References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
+	<20100331172110.GA18838@us.ibm.com>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
+Cc: Greg Kroah-Hartman <gregkh@suse.de>,
+	Kay Sievers <kay.sievers@vrfy.org>, Greg KH <greg@kroah.com>,
+	linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
+	Cornelia Huck <cornelia.huck@de.ibm.com>,
+	linux-fsdevel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Benjamin LaHaise <bcrl@lhnet.ca>, netdev@vger.kernel.org
+To: "Serge E. Hallyn" <serue@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 157.187.34.193.bridgep.com ([193.34.187.157]:7181 "EHLO
-	smtp.openobjects.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752890Ab0CaSEg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 14:04:36 -0400
-In-Reply-To: <C27F8246C663564A84BB7AB3439772421AF2CD5940@IRVEXCHCCR01.corp.ad.broadcom.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:35526 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757910Ab0CaSJz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 14:09:55 -0400
+In-Reply-To: <20100331172110.GA18838@us.ibm.com> (Serge E. Hallyn's message of "Wed\, 31 Mar 2010 12\:21\:10 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+"Serge E. Hallyn" <serue@us.ibm.com> writes:
 
-Hi Michael,
-
-Thanks for the reply.  When I first became aware of this problem, I checked ibm.com and applied the most recent Bladecenter/LS21 firmware updates - so the NIC firmware should be current compared to what IBM officially offers.
-
-The ethtool output is:
-
-$ sudo ethtool -i eg0
-driver: bnx2
-version: 2.0.1
-firmware-version: 4.6.1 ipms 1.6.0
-bus-info: 0000:02:04.0
-
-The latest IBM firmware update appears to be:
-
-http://www-947.ibm.com/systems/support/supportsite.wss/docdisplay?lndocid=MIGR-5083668&brandind=5000020
-
-Many thanks,
-
-Stuart
-
-
-On 31 Mar 2010, at 17:01, Michael Chan wrote:
-
-> Stuart Shelton wrote:
-> 
->> The Broadcom NetXtreme II driver appears to have a severe
->> regression in
->> all kernels post 2.6.30 - I've observed problems with 2.6.31, 2.6.32.
->> and 2.6.33.
+> Quoting Eric W. Biederman (ebiederm@xmission.com):
 >> 
->> The hardware impacted is an IBM Bladecenter LS21 Blade, model
->> 7971.  We
->> have a large number of these, and all are affected.
+>> The main short coming of using multiple network namespaces today
+>> is that only network devices for the primary network namespaces
+>> can be put in the kobject layer and sysfs.
 >> 
-> 
-> Can you provide me ethtool -i eth0 to see what the NVRAM-based
-> firmware version is?  Thanks.
-> 
+>> This is essentially the earlier version of this patchset that was
+>> reviewed before, just now on top of a version of sysfs that doesn't
+>> need cleanup patches to support it.
+>> 
+>> I have been running these patches in some form for well over a
+>> year so the basics should at least be solid.  
+>> 
+>> This patchset is currently against 2.6.34-rc1.
+>> 
+>> This patchset is just the basic infrastructure a couple of more pretty
+>> trivial patches are needed to actually enable network namespaces to use this.
+>> My current plan is to send those after these patches have made it through
+>> review.
+>
+> Thanks very much for keeping this going, Eric!  I'm going to keep
+> looking through the code some more, but so far I see no problems.
+>
+> Acked-by: Serge Hallyn <serue@us.ibm.com>
+>
+> to the full patchset.  I'm really hoping you'll also include the
+> patch to implement the netns support (i.e. basically commit
+> fdc0adeaa8bfab9a179e1eb349cab400ddb70403 that you sent inline this
+> morning to Tejun).
 
+One step at a time.  My goal is to have it all send out and reviewed
+in time for 2.6.35.
+
+Eric
