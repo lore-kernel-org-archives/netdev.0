@@ -1,32 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: rps: keep the old behavior on SMP without rps
-Date: Tue, 30 Mar 2010 22:40:04 -0700 (PDT)
-Message-ID: <20100330.224004.258514158.davem@davemloft.net>
-References: <4BB2DD95.90402@gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH RFC] inetpeer: Support ipv6 addresses.
+Date: Tue, 30 Mar 2010 22:43:46 -0700
+Message-ID: <m1mxxp82r1.fsf@fess.ebiederm.org>
+References: <20100328082250.GA14053@gondor.apana.org.au>
+	<20100328.055312.58421329.davem@davemloft.net>
+	<20100328131112.GA15984@gondor.apana.org.au>
+	<20100328.064012.193708716.davem@davemloft.net>
+	<20100328135931.GA16430@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33628
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757065Ab0CaFkE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 01:40:04 -0400
-In-Reply-To: <4BB2DD95.90402@gmail.com>
+Received: from out01.mta.xmission.com ([166.70.13.231]:47620 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757108Ab0CaFnv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 01:43:51 -0400
+In-Reply-To: <20100328135931.GA16430@gondor.apana.org.au> (Herbert Xu's message of "Sun\, 28 Mar 2010 21\:59\:31 +0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Wed, 31 Mar 2010 13:28:53 +0800
+Herbert Xu <herbert@gondor.apana.org.au> writes:
 
-> keep the old behavior on SMP without rps
-> 
-> RPS introduces a lock operation to per cpu variable input_pkt_queue on
-> SMP whenever rps is enabled or not. On SMP without RPS, this lock isn't
-> needed at all.
-> 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 
-Instead of peppering the file with lots of ifdefs, encapsulate
-the thing thats changing into a set of inline functions.
+> BTW, it appears that the inetpeer cache doesn't take namespaces
+> into account.  This means that information could potentially leak
+> from one namespace into another.  I'm not sure whether that's a
+> big deal or not but it's something for the namespaces folks to
+> consider.
+
+Bother. I wrote a patch a while back, I even remember people
+commenting on it, but it certainly doesn't look like anything
+ever made it in.
+
+I will see if I can make some time to dig that up and post
+the patch.
+
+Thanks for noticing,
+Eric
