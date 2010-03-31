@@ -1,49 +1,65 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 3/4] xfrm: remove policy lock when accessing
-	policy->walk.dead
-Date: Wed, 31 Mar 2010 22:15:25 +0800
-Message-ID: <20100331141525.GA14331@gondor.apana.org.au>
-References: <1270030626-16687-1-git-send-email-timo.teras@iki.fi> <1270030626-16687-5-git-send-email-timo.teras@iki.fi> <20100331110345.GC12845@gondor.apana.org.au> <1270040773.26743.12.camel@bigi> <20100331131131.GA13793@gondor.apana.org.au> <20100331132622.GA13908@gondor.apana.org.au> <1270042356.26743.30.camel@bigi> <1270042795.26743.31.camel@bigi> <20100331135505.GC14082@gondor.apana.org.au> <1270044768.26743.58.camel@bigi>
+From: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
+Subject: Re: [PATCH] can: Add driver for SJA1000 based PCI CAN interface cards
+	=?iso-8859-1?q?by=09esd?=
+Date: Wed, 31 Mar 2010 16:17:49 +0200
+Message-ID: <201003311617.50061.matthias.fuchs@esd.eu>
+References: <201003311428.05749.matthias.fuchs@esd.eu>
+	<4BB34F92.5010308@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Timo Teras <timo.teras@iki.fi>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: jamal <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:48279 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756436Ab0CaOPm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 10:15:42 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4BB34F92.5010308-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1270044768.26743.58.camel@bigi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 31, 2010 at 10:12:48AM -0400, jamal wrote:
-> On Wed, 2010-03-31 at 21:55 +0800, Herbert Xu wrote:
+Hi Wolfgang,
+
+I am aware of the PCI PLX driver. It should be possible to
+adapt that one. It lacks PLX9056 support so it's not done by just
+adding some PCI device IDs.
+
+But if that's how it should be done I will do so.
+
+Matthias
+
+On Wednesday 31 March 2010 15:35, Wolfgang Grandegger wrote:
+> Hi Matthias,
 > 
-> > Eliding the notification if SELinux says so is fine, but eliding
-> > it because the table is empty is wrong.
+> Matthias Fuchs wrote:
+> > This patch adds support for SJA1000 based PCI CAN interface cards
+> > from electronic system design gmbh.
 > > 
-> > The flush did not fail just because the table was empty to begin
-> > with.
+> > These boards are supported:
+> > 
+> >         CAN-PCI/200 (PCI)
+> >         CAN-PCI/266 (PCI)
+> >         CAN-PMC266 (PMC module)
+> >         CAN-PCIe/2000 (PCI Express)
+> >         CAN-CPCI/200 (Compact PCI, 3U)
+> >         CAN-PCI104 (PCI104)
+> > 
+> > This driver is part of the SocketCAN SVN repository since
+> > April 2009.
+> > 
+> > Signed-off-by: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
 > 
-> Like i said i didnt touch the behavior except for the selinux case
-> (which sounds very reasonable). I believe there maybe historical legacy
-> reasons for that semantic in pfkey. 
-> Can you point to something in the kernel (or anywhere else) that behaves
-> like this on table flushing? Actually if there was an app that depended
-> on netlink flush being exposed on empty table - then i think theres
-> reason for a revert.
-> Other than that i will say again: i respectfully disagree.
+> Since a while we have a generic PCI PLX driver in the mainline kernel,
+> which could support the esd cards as well, I believe.
+> 
+> Wolfgang.
+> 
+> 
 
-OK I give up.
-
-Dave can keep or revert this as he likes.
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
