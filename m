@@ -1,31 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/6] cxgb4: Add main driver file and driver Makefile
-Date: Wed, 31 Mar 2010 14:13:25 -0700 (PDT)
-Message-ID: <20100331.141325.107258329.davem@davemloft.net>
-References: <20100330141904.5236fe44@nehalam>
-	<20100330.225042.107712654.davem@davemloft.net>
-	<4BB3A301.3090100@opengridcomputing.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Undefined behaviour of connect(fd, NULL, 0);
+Date: Wed, 31 Mar 2010 14:14:45 -0700
+Message-ID: <20100331141445.031fc3fb@s6510>
+References: <20100331223637.31f5f6ed@notabene.brown>
+	<20100331114936.3549ca90@s6510>
+	<20100401072412.032aa8e6@notabene.brown>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, dm@chelsio.com, netdev@vger.kernel.org
-To: swise@opengridcomputing.com
+Cc: netdev@vger.kernel.org
+To: Neil Brown <neilb@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47634
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758176Ab0CaVNY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 17:13:24 -0400
-In-Reply-To: <4BB3A301.3090100@opengridcomputing.com>
+Received: from mail.vyatta.com ([76.74.103.46]:51345 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932241Ab0CaVPN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Mar 2010 17:15:13 -0400
+In-Reply-To: <20100401072412.032aa8e6@notabene.brown>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Wise <swise@opengridcomputing.com>
-Date: Wed, 31 Mar 2010 14:31:13 -0500
+On Thu, 1 Apr 2010 07:24:12 +1100
+Neil Brown <neilb@suse.de> wrote:
 
-> This sounds interesting.  Dave, how would you envision the ethtool
-> interface for this?  A new modifier to --statistics?  Like: 'ethtool
-> --statistics ethX viewname' where viewname could maybe be passed to
-> the driver to allow arbitrary views?  Or something else?
+> On Wed, 31 Mar 2010 11:49:36 -0700
+> Stephen Hemminger <shemminger@vyatta.com> wrote:
+> 
+> > On Wed, 31 Mar 2010 22:36:37 +1100
+> > Neil Brown <neilb@suse.de> wrote:
+> > 
+> > > 
+> > > Hi Netdev.
+> > > 
+> > > We have a customer who was reporting strangely unpredictable behaviour of an
+> > > in-house application that used networking.
+> > > 
+> > > It called connect on a non-blocking socket and subsequently called
+> > >    connect(fd, NULL, 0)
+> > > 
+> > > to check if the connection had succeeded.
+> > > This would sometime "work" and sometimes close the connection.
+> > > 
+> > > Looking at the code (sys_connect, move_addr_to_kernel, inet_stream_connect),
+> > > it seems that in this case an uninitialised on-stack address is passed
+> > > to inet_stream_connect and it makes a decision based on ->sa_family (which is
+> > > uninitialised).
+> > > 
+> > > It seems clear that connect(fd, NULL, 0) is the wrong thing to do in this
+> > > circumstance, but I think it would be good if it failed consistently rather
+> > > than unpredictably.
+> > > 
+> > > Would it be appropriate for move_addr_to_kernel to zero out the remainder of
+> > > the address?
+> > >    memset(kaddr+ulen, 0, MAX_SOCK_ADDR-ulen);
+> > > ??
+> > > 
+> > > Then connect(fd, NULL, 0) would always break the connection.
+> > 
+> > I think the problem is inet_stream_connect referencing past addr_len.
+> > 
+> > --- a/net/ipv4/af_inet.c	2010-03-31 11:47:01.952910248 -0700
+> > +++ b/net/ipv4/af_inet.c	2010-03-31 11:48:09.852938406 -0700
+> > @@ -575,7 +575,7 @@ int inet_stream_connect(struct socket *s
+> >  
+> >  	lock_sock(sk);
+> >  
+> > -	if (uaddr->sa_family == AF_UNSPEC) {
+> > +	if (addr_len < sizeof(sa_family_t) || uaddr->sa_family == AF_UNSPEC) {
+> >  		err = sk->sk_prot->disconnect(sk, flags);
+> >  		sock->state = err ? SS_DISCONNECTING : SS_UNCONNECTED;
+> >  		goto out;
+> 
+> Thanks for the reply.
+> 
+> The implication of this patch is that
+>    connect(fd, NULL, 0)
+> is actually a valid way to check if an in-progress connection has completed.
+> 
+> Is that the intention?
+The rationale is that move_addr_to_kernel, explcitly allow addr=NULL with addr_len=0
+so if it is allowed there why not let it through. The implication of this is that
+addr_len is the same as AF_UNSPEC.
 
-I really don't care much about the userland side, I'm only
-interested in how you implement this in the kernel :-)
+> Does all other address manipulation code check the addr_len ?? (probably).
+
+Not sure.
+Someone ought to check BSD/Solaris to see if there is some standard here.
