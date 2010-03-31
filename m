@@ -1,28 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next trivial] MAINTAINERS: ipg: Jesse Huang's email
- address bounces
-Date: Tue, 30 Mar 2010 23:42:41 -0700 (PDT)
-Message-ID: <20100330.234241.175899800.davem@davemloft.net>
-References: <1269801345.1500.32.camel@Joe-Laptop.home>
-	<1269801736.1500.36.camel@Joe-Laptop.home>
+Subject: Re: [net-next-2.6 PATCH] igb: add per-packet timestamping
+Date: Tue, 30 Mar 2010 23:42:49 -0700 (PDT)
+Message-ID: <20100330.234249.190071261.davem@davemloft.net>
+References: <20100326213545.19028.21468.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, sorbica@icplus.com.tw,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	nicholasx.d.nunley@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50951
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50956
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932846Ab0CaGmj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 02:42:39 -0400
-In-Reply-To: <1269801736.1500.36.camel@Joe-Laptop.home>
+	by vger.kernel.org with ESMTP id S932893Ab0CaGmr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 02:42:47 -0400
+In-Reply-To: <20100326213545.19028.21468.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Sun, 28 Mar 2010 11:42:16 -0700
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 26 Mar 2010 14:36:47 -0700
 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> From: Nick Nunley <nicholasx.d.nunley@intel.com>
+> 
+> This patch adds support for per-packet timestamping for the
+> 82580 adapter. The rx timestamp code is also pulled out of the
+> inlined rx hotpath and instead moved to a seperate function.
+> 
+> This version adds a comment explaining the per-packet timestamping
+> code added to igb_hwtstamp_ioctl().
+> 
+> Signed-off-by: Nicholas Nunley <nicholasx.d.nunley@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
