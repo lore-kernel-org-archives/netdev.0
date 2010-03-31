@@ -1,55 +1,108 @@
-From: Neil Brown <neilb@suse.de>
-Subject: Re: Undefined behaviour of connect(fd, NULL, 0);
-Date: Thu, 1 Apr 2010 09:07:56 +1100
-Message-ID: <20100401090756.69bfb57d@notabene.brown>
-References: <20100331223637.31f5f6ed@notabene.brown>
-	<20100331114936.3549ca90@s6510>
-	<20100401072412.032aa8e6@notabene.brown>
-	<20100331.141732.225997212.davem@davemloft.net>
+From: Daniel Borca <dborca@yahoo.com>
+Subject: Re: [PATCHv3] drivers/net/usb: Add new driver ipheth
+Date: Wed, 31 Mar 2010 15:10:52 -0700 (PDT)
+Message-ID: <917081.88187.qm@web110406.mail.gq1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:53367 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756220Ab0CaWIG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Mar 2010 18:08:06 -0400
-In-Reply-To: <20100331.141732.225997212.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?iso-8859-1?Q?L=2E_Alberto_Gim=E9nez?= <agimenez@sysvalve.es>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>,
+	"j.dumon@option.com" <j.dumon@option.com>,
+	"steve.glendinning@smsc.com" <steve.glendinning@smsc.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"gregkh@suse.de" <gregkh@suse.de>,
+	"dgiagio@gmail.com" <dgiagio@gmail.com>
+To: Oliver Neukum <oliver@neukum.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 31 Mar 2010 14:17:32 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+Hello,
 
-> From: Neil Brown <neilb@suse.de>
-> Date: Thu, 1 Apr 2010 07:24:12 +1100
-> 
-> >> --- a/net/ipv4/af_inet.c	2010-03-31 11:47:01.952910248 -0700
-> >> +++ b/net/ipv4/af_inet.c	2010-03-31 11:48:09.852938406 -0700
-> >> @@ -575,7 +575,7 @@ int inet_stream_connect(struct socket *s
-> >>  
-> >>  	lock_sock(sk);
-> >>  
-> >> -	if (uaddr->sa_family == AF_UNSPEC) {
-> >> +	if (addr_len < sizeof(sa_family_t) || uaddr->sa_family == AF_UNSPEC) {
-> >>  		err = sk->sk_prot->disconnect(sk, flags);
-> >>  		sock->state = err ? SS_DISCONNECTING : SS_UNCONNECTED;
-> >>  		goto out;
-> > 
-> > Thanks for the reply.
-> > 
-> > The implication of this patch is that
-> >    connect(fd, NULL, 0)
-> > is actually a valid way to check if an in-progress connection has completed.
-> > 
-> > Is that the intention?
-> 
-> That's not how I read the patch, the result is that connect(fd, NULL...)
-> will now disconnect the socket.
+Thanks for the comments.  I've already fixed a few things.  We'll fix t=
+he remaining ones (below) ASAP. =20
 
-Yes, you are right - I read it upside-down.  Sorry.
+Regards,
+Daniel Borca
 
-Thanks,
-NeilBrown
+On 31.03.2010, at 23:33, Oliver Neukum <oliver@neukum.org> wrote:
+
+Am Mittwoch, 31. M=E4rz 2010 21:42:07 schrieb L. Alberto Gim=E9nez:
+
+Hi,
+
+a few comments below.
+
+   Regards
+       Oliver
+
++
++static int ipheth_open(struct net_device *net)
++{
++    struct ipheth_device *dev =3D netdev_priv(net);
++    struct usb_device *udev =3D dev->udev;
++    int retval =3D 0;
++
++    usb_set_interface(udev, IPHETH_INTFNUM, IPHETH_ALT_INTFNUM);
++    usb_clear_halt(udev, usb_rcvbulkpipe(udev, dev->bulk_in));
++    usb_clear_halt(udev, usb_sndbulkpipe(udev, dev->bulk_out));
+
+Is this really needed? If so, please add a comment.
+
++
++    retval =3D ipheth_carrier_set(dev);
++    if (retval)
++        goto error;
++
++    retval =3D ipheth_rx_submit(dev, GFP_KERNEL);
++    if (retval)
++        goto error;
++
++    schedule_delayed_work(&dev->carrier_work, IPHETH_CARRIER_CHECK_TIM=
+EOUT);
+
+Does it make sense to start rx while you have no carrier?
+
++static int ipheth_tx(struct sk_buff *skb, struct net_device *net)
++{
++    struct ipheth_device *dev =3D netdev_priv(net);
++    struct usb_device *udev =3D dev->udev;
++    int retval;
++
++    /* Paranoid */
++    if (skb->len > IPHETH_BUF_SIZE) {
++        err("%s: skb too large: %d bytes", __func__, skb->len);
++        dev->stats.tx_dropped++;
++        dev_kfree_skb_irq(skb);
++        goto exit;
++    }
++
++    memset(dev->tx_buf, 0, IPHETH_BUF_SIZE);
++    memcpy(dev->tx_buf, skb->data, skb->len);
+
+a bit wasteful
+
++static void ipheth_disconnect(struct usb_interface *intf)
++{
++    struct ipheth_device *dev;
++
++    dev =3D usb_get_intfdata(intf);
++    if (dev !=3D NULL) {
+
+is this check needed?
+
++static struct usb_driver ipheth_driver =3D {
++    .name =3D        "ipheth",
++    .probe =3D    ipheth_probe,
++    .disconnect =3D    ipheth_disconnect,
++    .id_table =3D    ipheth_table,
++    .supports_autosuspend =3D 0,
+
+redundant
+
+
+
+     =20
