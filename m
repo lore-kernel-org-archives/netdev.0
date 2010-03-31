@@ -1,78 +1,59 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: eth1: Detected Hardware Unit Hang
-Date: Wed, 31 Mar 2010 12:03:30 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FE4CC716B@rrsmsx501.amr.corp.intel.com>
-References: <4BB0C853.2080607@itcare.pl>
- <8DD2590731AB5D4C9DBF71A877482A9061BB3254@orsmsx509.amr.corp.intel.com>
- <4BB0E394.2060908@itcare.pl> <4BB2FE03.4090608@itcare.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Linux Network Development list <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: =?iso-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>
+From: Stuart Shelton <stuart@openobjects.com>
+Subject: Re: Severe regression in bnx2 driver with bonding in post 2.6.30 kernels
+Date: Wed, 31 Mar 2010 19:04:34 +0100
+Message-ID: <6B2CE77E-B4DD-484F-A69A-6752A4E698DE@openobjects.com>
+References: <C27F8246C663564A84BB7AB3439772421AF2CD5940@IRVEXCHCCR01.corp.ad.broadcom.com>
+Mime-Version: 1.0 (Apple Message framework v1078)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:22707 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757642Ab0CaSDm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 14:03:42 -0400
-In-Reply-To: <4BB2FE03.4090608@itcare.pl>
-Content-Language: en-US
+Received: from 157.187.34.193.bridgep.com ([193.34.187.157]:7181 "EHLO
+	smtp.openobjects.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752890Ab0CaSEg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 14:04:36 -0400
+In-Reply-To: <C27F8246C663564A84BB7AB3439772421AF2CD5940@IRVEXCHCCR01.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pawel Staszewski wrote:
-> Hello
+
+Hi Michael,
+
+Thanks for the reply.  When I first became aware of this problem, I checked ibm.com and applied the most recent Bladecenter/LS21 firmware updates - so the NIC firmware should be current compared to what IBM officially offers.
+
+The ethtool output is:
+
+$ sudo ethtool -i eg0
+driver: bnx2
+version: 2.0.1
+firmware-version: 4.6.1 ipms 1.6.0
+bus-info: 0000:02:04.0
+
+The latest IBM firmware update appears to be:
+
+http://www-947.ibm.com/systems/support/supportsite.wss/docdisplay?lndocid=MIGR-5083668&brandind=5000020
+
+Many thanks,
+
+Stuart
+
+
+On 31 Mar 2010, at 17:01, Michael Chan wrote:
+
+> Stuart Shelton wrote:
 > 
-> I reproduce this problem on other machine with the same hardware and
-> here is dmesg output: (kernel 2.6.33)
+>> The Broadcom NetXtreme II driver appears to have a severe
+>> regression in
+>> all kernels post 2.6.30 - I've observed problems with 2.6.31, 2.6.32.
+>> and 2.6.33.
+>> 
+>> The hardware impacted is an IBM Bladecenter LS21 Blade, model
+>> 7971.  We
+>> have a large number of these, and all are affected.
+>> 
 > 
-> Mar 27 18:19:16 TM_01_C1 [1817894.769395] 0000:04:00.0: eth0: Detected
-> Hardware Unit Hang:
-> Mar 27 18:19:16 TM_01_C1 [1817894.769396]   TDH <2e>
-> Mar 27 18:19:16 TM_01_C1 [1817894.769397]   TDT <1a>
-> Mar 27 18:19:16 TM_01_C1 [1817894.769397]   next_to_use <1a>
-> Mar 27 18:19:16 TM_01_C1 [1817894.769398]   next_to_clean <2d>
-> Mar 27 18:19:16 TM_01_C1 [1817894.769398] buffer_info[next_to_clean]:
-> Mar 27 18:19:16 TM_01_C1 [1817894.769399]   time_stamp <11b1591e9>
-> Mar 27 18:19:16 TM_01_C1 [1817894.769399]   next_to_watch <2f>
-> Mar 27 18:19:16 TM_01_C1 [1817894.769400]   jiffies <11b1592e4>
-> Mar 27 18:19:16 TM_01_C1 [1817894.769401]   next_to_watch.status <0>
-> Mar 27 18:19:16 TM_01_C1 [1817894.769401] MAC Status <80080783>
-> Mar 27 18:19:16 TM_01_C1 [1817894.769402] PHY Status <796d>
-> Mar 27 18:19:16 TM_01_C1 [1817894.769402] PHY 1000BASE-T Status <3800>
-> Mar 27 18:19:16 TM_01_C1 [1817894.769403] PHY Extended Status <3000>
-> Mar 27 18:19:16 TM_01_C1 [1817894.769404] PCI Status <10>
-> Mar 27 18:19:18 TM_01_C1 [1817896.773365] 0000:04:00.0: eth0: Detected
-> Hardware Unit Hang:
-> Mar 27 18:19:18 TM_01_C1 [1817896.773367]   TDH <2e>
-> Mar 27 18:19:18 TM_01_C1 [1817896.773368]   TDT <1a>
-> Mar 27 18:19:18 TM_01_C1 [1817896.773368]   next_to_use <1a>
-> Mar 27 18:19:18 TM_01_C1 [1817896.773369]   next_to_clean <2d>
-> Mar 27 18:19:18 TM_01_C1 [1817896.773369] buffer_info[next_to_clean]:
-> Mar 27 18:19:18 TM_01_C1 [1817896.773370]   time_stamp <11b1591e9>
-> Mar 27 18:19:18 TM_01_C1 [1817896.773370]   next_to_watch <2f>
-> Mar 27 18:19:18 TM_01_C1 [1817896.773371]   jiffies <11b1594d8>
-> Mar 27 18:19:18 TM_01_C1 [1817896.773372]   next_to_watch.status <0>
-> Mar 27 18:19:18 TM_01_C1 [1817896.773372] MAC Status <80080783>
-> Mar 27 18:19:18 TM_01_C1 [1817896.773373] PHY Status <796d>
-> Mar 27 18:19:18 TM_01_C1 [1817896.773373] PHY 1000BASE-T Status <3800>
-> Mar 27 18:19:18 TM_01_C1 [1817896.773374] PHY Extended Status <3000>
-> Mar 27 18:19:18 TM_01_C1 [1817896.773375] PCI Status <10>
-> Mar 27 18:19:20 TM_01_C1 [1817898.769353] 0000:04:00.0: eth0: Detected
+> Can you provide me ethtool -i eth0 to see what the NVRAM-based
+> firmware version is?  Thanks.
+> 
 
-<snip>
-
-I have a similar (not the same model) system in the lab with 82573E/L on board, but was not able to reproduce the Tx hangs you reported. So at this point we need to start looking into more details. Could you please file a bug at e1000.sf.net? Include the information you provided so far and also:
-1. output from ethtoool -e
-2. ethtool -d
-3. cat /proc/interrupts
-4. full dmesg output from boot to the point where Tx hangs occurred.
-5. kernel config file
-
-Looking at the description of your system (Supermicro X7DCT) I see this board has IPMI option. Do you have IPMI in your system?
-
-Thanks,
-Emil
