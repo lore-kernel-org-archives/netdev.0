@@ -1,190 +1,174 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 6/8] qlcnic: add driver debug support
-Date: Wed, 31 Mar 2010 05:03:44 -0700
-Message-ID: <1270037026-9062-7-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 5/8] qlcnic: use IDC defined timeout value
+Date: Wed, 31 Mar 2010 05:03:43 -0700
+Message-ID: <1270037026-9062-6-git-send-email-amit.salecha@qlogic.com>
 References: <1270037026-9062-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:20938 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:23402 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S932222Ab0CaMDt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932209Ab0CaMDt (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 31 Mar 2010 08:03:49 -0400
 In-Reply-To: <1270037026-9062-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+
+o USE/Read IDC defined timeout value from ROM.
+o While resetting chip, don't wait for other pci-func to respond,
+  more than reset_ack_timeo seconds,
+
+Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic.h         |    9 ++++++++-
- drivers/net/qlcnic/qlcnic_ethtool.c |   16 ++++++++++++++++
- drivers/net/qlcnic/qlcnic_hw.c      |    6 +++++-
- drivers/net/qlcnic/qlcnic_main.c    |   23 ++++++++++++++++++++---
- 4 files changed, 49 insertions(+), 5 deletions(-)
+ drivers/net/qlcnic/qlcnic.h      |    4 +++-
+ drivers/net/qlcnic/qlcnic_hdr.h  |    2 ++
+ drivers/net/qlcnic/qlcnic_init.c |   16 ++++++++++++++++
+ drivers/net/qlcnic/qlcnic_main.c |   26 ++++++++++++++++----------
+ 4 files changed, 37 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 87cd1a7..dbf6335 100644
+index 8a3446d..87cd1a7 100644
 --- a/drivers/net/qlcnic/qlcnic.h
 +++ b/drivers/net/qlcnic/qlcnic.h
-@@ -960,7 +960,7 @@ struct qlcnic_adapter {
+@@ -958,8 +958,9 @@ struct qlcnic_adapter {
+ 	u8 dev_state;
+ 	u8 diag_test;
  	u8 diag_cnt;
- 	u8 reset_ack_timeo;
- 	u8 dev_init_timeo;
--	u8 rsrd1;
-+	u8 msglvl;
++	u8 reset_ack_timeo;
++	u8 dev_init_timeo;
+ 	u8 rsrd1;
+-	u16 rsrd2;
  
  	u8 mac_addr[ETH_ALEN];
  
-@@ -1135,4 +1135,11 @@ static inline u32 qlcnic_tx_avail(struct qlcnic_host_tx_ring *tx_ring)
+@@ -1040,6 +1041,7 @@ int qlcnic_need_fw_reset(struct qlcnic_adapter *adapter);
+ void qlcnic_request_firmware(struct qlcnic_adapter *adapter);
+ void qlcnic_release_firmware(struct qlcnic_adapter *adapter);
+ int qlcnic_pinit_from_rom(struct qlcnic_adapter *adapter);
++void qlcnic_setup_idc_param(struct qlcnic_adapter *adapter);
  
- extern const struct ethtool_ops qlcnic_ethtool_ops;
+ int qlcnic_rom_fast_read(struct qlcnic_adapter *adapter, int addr, int *valp);
+ int qlcnic_rom_fast_read_words(struct qlcnic_adapter *adapter, int addr,
+diff --git a/drivers/net/qlcnic/qlcnic_hdr.h b/drivers/net/qlcnic/qlcnic_hdr.h
+index e9fb692..51fa3fb 100644
+--- a/drivers/net/qlcnic/qlcnic_hdr.h
++++ b/drivers/net/qlcnic/qlcnic_hdr.h
+@@ -695,6 +695,8 @@ enum {
+ #define QLCNIC_CRB_DRV_SCRATCH             (QLCNIC_CAM_RAM(0x148))
+ #define QLCNIC_CRB_DEV_PARTITION_INFO      (QLCNIC_CAM_RAM(0x14c))
+ #define QLCNIC_CRB_DRV_IDC_VER             (QLCNIC_CAM_RAM(0x14c))
++#define QLCNIC_ROM_DEV_INIT_TIMEOUT	(0x3e885c)
++#define QLCNIC_ROM_DRV_RESET_TIMEOUT	(0x3e8860)
  
-+#define QLCDB(adapter, _fmt, _args...) do { \
-+	if (adapter->msglvl) \
-+		printk(KERN_INFO "%s: %s: " _fmt,		\
-+			dev_name(&adapter->pdev->dev),\
-+			__func__, ##_args);		\
-+	} while (0)
-+
- #endif				/* __QLCNIC_H_ */
-diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
-index f83e15f..1cf3e59 100644
---- a/drivers/net/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/qlcnic/qlcnic_ethtool.c
-@@ -998,6 +998,20 @@ static int qlcnic_set_flags(struct net_device *netdev, u32 data)
+ 		 /* Device State */
+ #define QLCNIC_DEV_COLD 		1
+diff --git a/drivers/net/qlcnic/qlcnic_init.c b/drivers/net/qlcnic/qlcnic_init.c
+index 0a424e0..ccd24f4 100644
+--- a/drivers/net/qlcnic/qlcnic_init.c
++++ b/drivers/net/qlcnic/qlcnic_init.c
+@@ -529,6 +529,22 @@ int qlcnic_pinit_from_rom(struct qlcnic_adapter *adapter)
  	return 0;
  }
  
-+static u32 qlcnic_get_msglevel(struct net_device *netdev)
-+{
-+	struct qlcnic_adapter *adapter = netdev_priv(netdev);
++void
++qlcnic_setup_idc_param(struct qlcnic_adapter *adapter) {
 +
-+	return adapter->msglvl;
++	int timeo;
++
++	if (qlcnic_rom_fast_read(adapter, QLCNIC_ROM_DEV_INIT_TIMEOUT, &timeo))
++		timeo = 30;
++
++	adapter->dev_init_timeo = timeo;
++
++	if (qlcnic_rom_fast_read(adapter, QLCNIC_ROM_DRV_RESET_TIMEOUT, &timeo))
++		timeo = 10;
++
++	adapter->reset_ack_timeo = timeo;
 +}
 +
-+static void qlcnic_set_msglevel(struct net_device *netdev, u32 msglvl)
-+{
-+	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-+
-+	adapter->msglvl = !!msglvl;
-+}
-+
- const struct ethtool_ops qlcnic_ethtool_ops = {
- 	.get_settings = qlcnic_get_settings,
- 	.set_settings = qlcnic_set_settings,
-@@ -1029,4 +1043,6 @@ const struct ethtool_ops qlcnic_ethtool_ops = {
- 	.get_flags = ethtool_op_get_flags,
- 	.set_flags = qlcnic_set_flags,
- 	.phys_id = qlcnic_blink_led,
-+	.set_msglevel = qlcnic_set_msglevel,
-+	.get_msglevel = qlcnic_get_msglevel,
- };
-diff --git a/drivers/net/qlcnic/qlcnic_hw.c b/drivers/net/qlcnic/qlcnic_hw.c
-index 0933c2d..14c999a 100644
---- a/drivers/net/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/qlcnic/qlcnic_hw.c
-@@ -294,8 +294,12 @@ qlcnic_pcie_sem_lock(struct qlcnic_adapter *adapter, int sem, u32 id_reg)
- 		done = QLCRD32(adapter, QLCNIC_PCIE_REG(PCIE_SEM_LOCK(sem)));
- 		if (done == 1)
- 			break;
--		if (++timeout >= QLCNIC_PCIE_SEM_TIMEOUT)
-+		if (++timeout >= QLCNIC_PCIE_SEM_TIMEOUT) {
-+			dev_err(&adapter->pdev->dev,
-+				"Failed to acquire sem=%d lock;reg_id=%d\n",
-+				sem, id_reg);
- 			return -EIO;
-+		}
- 		msleep(1);
- 	}
- 
+ static int
+ qlcnic_has_mn(struct qlcnic_adapter *adapter)
+ {
 diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 38e0829..87511f1 100644
+index a234622..38e0829 100644
 --- a/drivers/net/qlcnic/qlcnic_main.c
 +++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -1742,6 +1742,7 @@ static void qlcnic_tx_timeout_task(struct work_struct *work)
- request_reset:
- 	adapter->need_fw_reset = 1;
- 	clear_bit(__QLCNIC_RESETTING, &adapter->state);
-+	QLCDB(adapter, "Resetting adapter\n");
- }
+@@ -649,7 +649,10 @@ qlcnic_start_firmware(struct qlcnic_adapter *adapter)
+ 	if (err)
+ 		return err;
  
- static struct net_device_stats *qlcnic_get_stats(struct net_device *netdev)
-@@ -2046,6 +2047,7 @@ qlcnic_can_start_firmware(struct qlcnic_adapter *adapter)
+-	if (!qlcnic_can_start_firmware(adapter))
++	err = qlcnic_can_start_firmware(adapter);
++	if (err < 0)
++		return err;
++	else if (!err)
+ 		goto wait_init;
+ 
+ 	first_boot = QLCRD32(adapter, QLCNIC_CAM_RAM(0x1fc));
+@@ -1138,6 +1141,7 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_out_iounmap;
  	}
  
- 	prev_state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
-+	QLCDB(adapter, "Device state = %u\n", prev_state);
++	qlcnic_setup_idc_param(adapter);
  
- 	switch (prev_state) {
- 	case QLCNIC_DEV_COLD:
-@@ -2082,8 +2084,11 @@ start_fw:
- 	} while ((QLCRD32(adapter, QLCNIC_CRB_DEV_STATE) != QLCNIC_DEV_READY)
- 			&& --dev_init_timeo);
- 
--	if (!dev_init_timeo)
-+	if (!dev_init_timeo) {
-+		dev_err(&adapter->pdev->dev,
-+			"Waiting for device to initialize timeout\n");
- 		return -1;
-+	}
+ 	err = qlcnic_start_firmware(adapter);
+ 	if (err)
+@@ -2027,7 +2031,7 @@ static int
+ qlcnic_can_start_firmware(struct qlcnic_adapter *adapter)
+ {
+ 	u32 val, prev_state;
+-	int cnt = 0;
++	u8 dev_init_timeo = adapter->dev_init_timeo;
+ 	int portnum = adapter->portnum;
  
  	if (qlcnic_api_lock(adapter))
- 		return -1;
-@@ -2113,6 +2118,7 @@ qlcnic_fwinit_work(struct work_struct *work)
- 			return;
- 		}
- 
-+		QLCDB(adapter, "Resetting FW\n");
- 		if (!qlcnic_start_firmware(adapter)) {
- 			qlcnic_schedule_work(adapter, qlcnic_attach_work, 0);
- 			return;
-@@ -2121,10 +2127,15 @@ qlcnic_fwinit_work(struct work_struct *work)
- 		goto err_ret;
- 	}
- 
--	if (adapter->fw_wait_cnt++ > (adapter->dev_init_timeo / 2))
-+	if (adapter->fw_wait_cnt++ > (adapter->dev_init_timeo / 2)) {
-+		dev_err(&adapter->pdev->dev,
-+				"Waiting for device to reset timeout\n");
- 		goto err_ret;
-+	}
- 
- 	dev_state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
-+	QLCDB(adapter, "Func waiting: Device state=%d\n", dev_state);
-+
- 	switch (dev_state) {
- 	case QLCNIC_DEV_READY:
- 		if (!qlcnic_start_firmware(adapter)) {
-@@ -2177,6 +2188,8 @@ qlcnic_detach_work(struct work_struct *work)
- 	return;
- 
- err_ret:
-+	dev_err(&adapter->pdev->dev, "detach failed; status=%d temp=%d\n",
-+			status, adapter->temp);
- 	qlcnic_clr_all_drv_state(adapter);
- 
- }
-@@ -2194,6 +2207,7 @@ qlcnic_dev_request_reset(struct qlcnic_adapter *adapter)
- 	if (state != QLCNIC_DEV_INITALIZING && state != QLCNIC_DEV_NEED_RESET) {
- 		QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_NEED_RESET);
- 		set_bit(__QLCNIC_START_FW, &adapter->state);
-+		QLCDB(adapter, "NEED_RESET state set\n");
+@@ -2072,12 +2076,13 @@ start_fw:
  	}
  
  	qlcnic_api_unlock(adapter);
-@@ -2290,8 +2304,11 @@ detach:
- 		QLCNIC_DEV_NEED_RESET;
- 
- 	if ((auto_fw_reset == AUTO_FW_RESET_ENABLED) &&
--			!test_and_set_bit(__QLCNIC_RESETTING, &adapter->state))
-+		!test_and_set_bit(__QLCNIC_RESETTING, &adapter->state)) {
+-	msleep(1000);
+-	while ((QLCRD32(adapter, QLCNIC_CRB_DEV_STATE) != QLCNIC_DEV_READY) &&
+-			++cnt < 20)
 +
- 		qlcnic_schedule_work(adapter, qlcnic_detach_work, 0);
-+		QLCDB(adapter, "fw recovery scheduled.\n");
-+	}
++	do {
+ 		msleep(1000);
++	} while ((QLCRD32(adapter, QLCNIC_CRB_DEV_STATE) != QLCNIC_DEV_READY)
++			&& --dev_init_timeo);
  
- 	return 1;
- }
+-	if (cnt >= 20)
++	if (!dev_init_timeo)
+ 		return -1;
+ 
+ 	if (qlcnic_api_lock(adapter))
+@@ -2099,12 +2104,10 @@ qlcnic_fwinit_work(struct work_struct *work)
+ 			struct qlcnic_adapter, fw_work.work);
+ 	int dev_state;
+ 
+-	if (++adapter->fw_wait_cnt > FW_POLL_THRESH)
+-		goto err_ret;
+-
+ 	if (test_bit(__QLCNIC_START_FW, &adapter->state)) {
+ 
+-		if (qlcnic_check_drv_state(adapter)) {
++		if (qlcnic_check_drv_state(adapter) &&
++			(adapter->fw_wait_cnt++ < adapter->reset_ack_timeo)) {
+ 			qlcnic_schedule_work(adapter,
+ 					qlcnic_fwinit_work, FW_POLL_DELAY);
+ 			return;
+@@ -2118,6 +2121,9 @@ qlcnic_fwinit_work(struct work_struct *work)
+ 		goto err_ret;
+ 	}
+ 
++	if (adapter->fw_wait_cnt++ > (adapter->dev_init_timeo / 2))
++		goto err_ret;
++
+ 	dev_state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
+ 	switch (dev_state) {
+ 	case QLCNIC_DEV_READY:
 -- 
 1.6.0.2
 
