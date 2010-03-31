@@ -1,88 +1,60 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 3/4] xfrm: remove policy lock when accessing
-	policy->walk.dead
-Date: Wed, 31 Mar 2010 19:03:45 +0800
-Message-ID: <20100331110345.GC12845@gondor.apana.org.au>
-References: <1270030626-16687-1-git-send-email-timo.teras@iki.fi> <1270030626-16687-5-git-send-email-timo.teras@iki.fi>
+From: Neil Horman <nhorman@redhat.com>
+Subject: Re: [r8169] WARNING: at net/sched/sch_generic.c
+Date: Wed, 31 Mar 2010 07:19:42 -0400
+Message-ID: <20100331111942.GB13963@hmsreliant.think-freely.org>
+References: <20100331102142.GA3294@swordfish.minsk.epam.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jamal Hadi Salim <hadi@cyberus.ca>,
-	"David S. Miller" <davem@davemloft.net>
-To: Timo Teras <timo.teras@iki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:42016 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756833Ab0CaLDy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 07:03:54 -0400
+Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1270030626-16687-5-git-send-email-timo.teras@iki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20100331102142.GA3294@swordfish.minsk.epam.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 31, 2010 at 01:17:05PM +0300, Timo Teras wrote:
-> All of the code considers ->dead as a hint that the cached policy
-> needs to get refreshed. The read side can just drop the read lock
-> without any side effects.
+On Wed, Mar 31, 2010 at 01:21:42PM +0300, Sergey Senozhatsky wrote:
+> Hello,
+> I have the following problem:
 > 
-> The write side needs to make sure that it's written only exactly
-> once. Only possible race is at xfrm_policy_kill(). This is fixed
-> by checking result of __xfrm_policy_unlink() when needed. It will
-> always succeed if the policy object is looked up from the hash
-> list (so some checks are removed), but it needs to be checked if
-> we are trying to unlink policy via a reference (appropriate
-> checks added).
+> [  296.337510] ------------[ cut here ]------------
+> [  296.337523] WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0xc1/0x125()
+> [  296.337527] Hardware name: F3JC                
+> [  296.337530] NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
+> [  296.337533] Modules linked in: pktgen ipv6 snd_hwdep snd_hda_codec_si3054 snd_hda_codec_realtek sdhci_pci sdhci asus_laptop sparse_keymap mmc_core led_class snd_hda_intel
+> snd_hda_codec psmouse snd_pcm snd_timer snd soundcore snd_page_alloc serio_raw i2c_i801 rng_core evdev sg r8169 mii usbhid hid uhci_hcd ehci_hcd sr_mod cdrom sd_mod usbcore
+> ata_piix
+> [  296.337586] Pid: 0, comm: swapper Not tainted 2.6.34-rc3-dbg #74
+> [  296.337589] Call Trace:
+> [  296.337597]  [<c102e71f>] warn_slowpath_common+0x65/0x7c
+> [  296.337603]  [<c126e30c>] ? dev_watchdog+0xc1/0x125
+> [  296.337608]  [<c102e76a>] warn_slowpath_fmt+0x24/0x27
+> [  296.337613]  [<c126e30c>] dev_watchdog+0xc1/0x125
+> [  296.337620]  [<c1040039>] ? prepare_to_wait_exclusive+0x52/0x5b
+> [  296.337627]  [<c1037053>] ? run_timer_softirq+0x120/0x1eb
+> [  296.337632]  [<c10370a9>] run_timer_softirq+0x176/0x1eb
+> [  296.337637]  [<c1037053>] ? run_timer_softirq+0x120/0x1eb
+> [  296.337643]  [<c126e24b>] ? dev_watchdog+0x0/0x125
+> [  296.337650]  [<c10331c9>] __do_softirq+0x8d/0x117
+> [  296.337655]  [<c103327e>] do_softirq+0x2b/0x43
+> [  296.337660]  [<c10333a3>] irq_exit+0x38/0x75
+> [  296.337667]  [<c1015138>] smp_apic_timer_interrupt+0x6d/0x7b
+> [  296.337673]  [<c12cbada>] apic_timer_interrupt+0x36/0x3c
+> [  296.337679]  [<c104007b>] ? prepare_to_wait+0x39/0x57
+> [  296.337685]  [<c11dd835>] ? acpi_idle_enter_simple+0x119/0x144
+> [  296.337692]  [<c124d358>] cpuidle_idle_call+0x6d/0xa5
+> [  296.337697]  [<c1001b51>] cpu_idle+0x92/0xc1
+> [  296.337704]  [<c12c63d0>] start_secondary+0x1f3/0x1fa
+> [  296.337708] ---[ end trace cd4a1b50139837df ]---
 > 
-> Since policy->walk.dead is written exactly once, it no longer
-> needs to be protected with a write lock.
 > 
-> Signed-off-by: Timo Teras <timo.teras@iki.fi>
+> Reproducing 100% with pktgen tests.
+> 
+What kind of packets are you sending with pktgen?
+Neil
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-> @@ -794,10 +783,9 @@ int xfrm_policy_flush(struct net *net, u8 type, struct xfrm_audit *audit_info)
->  				     &net->xfrm.policy_inexact[dir], bydst) {
->  			if (pol->type != type)
->  				continue;
-> -			dp = __xfrm_policy_unlink(pol, dir);
-> +			__xfrm_policy_unlink(pol, dir);
->  			write_unlock_bh(&xfrm_policy_lock);
-> -			if (dp)
-> -				cnt++;
-> +			cnt++;
->  
->  			xfrm_audit_policy_delete(pol, 1, audit_info->loginuid,
->  						 audit_info->sessionid,
-
-I was intrigued to find that my local source never had this dp
-stuff.
-
-It seems that this was added recently:
-
-commit 2f1eb65f366b81aa3c22c31e6e8db26168777ec5
-Author: Jamal Hadi Salim <hadi@cyberus.ca>
-Date:   Fri Feb 19 02:00:42 2010 +0000
-
-    xfrm: Flushing empty SPD generates false events
-
-    To see the effect make sure you have an empty SPD.
-    On window1 "ip xfrm mon" and on window2 issue "ip xfrm policy flush"
-    You get prompt back in window2 and you see the flush event on window1.
-    With this fix, you still get prompt on window1 but no event on window2.
-
-    Thanks to Alexey Dobriyan for finding a bug in earlier version
-    when using pfkey to do the flushing.
-
-    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-This seems to be bogus to me.  Just because the DB was empty
-before the flush doesn't mean that the flush didn't happen.
-
-We should revert this patch in its entirety.
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> 
+> 	Sergey
