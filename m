@@ -1,61 +1,99 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 0/6] tagged sysfs support
-Date: Wed, 31 Mar 2010 11:09:46 -0700
-Message-ID: <m1vdccwefp.fsf@fess.ebiederm.org>
-References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
-	<20100331172110.GA18838@us.ibm.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [net-next-2.6 PATCH] netfilter: ctnetlink: compute message size
+ properly
+Date: Wed, 31 Mar 2010 20:21:17 +0200
+Message-ID: <20100331182116.GB2822@psychotron.redhat.com>
+References: <20100331151102.GB8043@psychotron.lab.eng.brq.redhat.com>
+ <4BB38A8A.9050501@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@suse.de>,
-	Kay Sievers <kay.sievers@vrfy.org>, Greg KH <greg@kroah.com>,
-	linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
-	Cornelia Huck <cornelia.huck@de.ibm.com>,
-	linux-fsdevel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Benjamin LaHaise <bcrl@lhnet.ca>, netdev@vger.kernel.org
-To: "Serge E. Hallyn" <serue@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:35526 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757910Ab0CaSJz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 14:09:55 -0400
-In-Reply-To: <20100331172110.GA18838@us.ibm.com> (Serge E. Hallyn's message of "Wed\, 31 Mar 2010 12\:21\:10 -0500")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, davem@davemloft.net,
+	Krzysztof Oledzki <ole@ans.pl>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4BB38A8A.9050501@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-"Serge E. Hallyn" <serue@us.ibm.com> writes:
-
-> Quoting Eric W. Biederman (ebiederm@xmission.com):
->> 
->> The main short coming of using multiple network namespaces today
->> is that only network devices for the primary network namespaces
->> can be put in the kobject layer and sysfs.
->> 
->> This is essentially the earlier version of this patchset that was
->> reviewed before, just now on top of a version of sysfs that doesn't
->> need cleanup patches to support it.
->> 
->> I have been running these patches in some form for well over a
->> year so the basics should at least be solid.  
->> 
->> This patchset is currently against 2.6.34-rc1.
->> 
->> This patchset is just the basic infrastructure a couple of more pretty
->> trivial patches are needed to actually enable network namespaces to use this.
->> My current plan is to send those after these patches have made it through
->> review.
+Wed, Mar 31, 2010 at 07:46:50PM CEST, kaber@trash.net wrote:
+>Jiri Pirko wrote:
+>> Message size should be dependent on net->ct.sysctl_acct, not on
+>> CONFIG_NF_CT_ACCT definition.
 >
-> Thanks very much for keeping this going, Eric!  I'm going to keep
-> looking through the code some more, but so far I see no problems.
+>Krzysztof actually wanted to get rid of the config option entirely
+>some time ago, but at that time there were some (now solved) problems
+>that prevented his. I've CCed him, hoping that this will finally
+>get completed :)
 >
-> Acked-by: Serge Hallyn <serue@us.ibm.com>
+>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>> 
+>> diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+>> index 569410a..2b0cfa4 100644
+>> --- a/net/netfilter/nf_conntrack_netlink.c
+>> +++ b/net/netfilter/nf_conntrack_netlink.c
+>> @@ -426,6 +426,19 @@ ctnetlink_proto_size(const struct nf_conn *ct)
+>>  }
+>>  
+>>  static inline size_t
+>> +ctnetlink_counters_size(const struct nf_conn *ct)
+>> +{
+>> +	struct net *net = nf_ct_net(ct);
+>> +
+>> +	if (!net->ct.sysctl_acct)
+>> +		return 0;
+>> +	return 2 * nla_total_size(0) /* CTA_COUNTERS_ORIG|REPL */
+>> +	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_PACKETS */
+>> +	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_BYTES */
+>> +	       ;
 >
-> to the full patchset.  I'm really hoping you'll also include the
-> patch to implement the netns support (i.e. basically commit
-> fdc0adeaa8bfab9a179e1eb349cab400ddb70403 that you sent inline this
-> morning to Tejun).
+>This is also not fully correct since the sysctl only affects newly
+>created conntracks, existing ones still have counters that are dumped.
+>I'd suggest to simple check whether the conntrack has an accounting
+>extension.
 
-One step at a time.  My goal is to have it all send out and reviewed
-in time for 2.6.35.
+Okay, I see your point. How about this:
 
-Eric
+Subject: [net-next-2.6 PATCH] netfilter: ctnetlink: compute message size properly V2
+
+Message size should be dependent on net->ct.sysctl_acct, not on
+CONFIG_NF_CT_ACCT definition.
+
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 569410a..44487d8 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -426,6 +426,17 @@ ctnetlink_proto_size(const struct nf_conn *ct)
+ }
+ 
+ static inline size_t
++ctnetlink_counters_size(const struct nf_conn *ct)
++{
++	if (!nf_ct_ext_exist(ct, NF_CT_EXT_ACCT))
++		return 0;
++	return 2 * nla_total_size(0) /* CTA_COUNTERS_ORIG|REPL */
++	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_PACKETS */
++	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_BYTES */
++	       ;
++}
++
++static inline size_t
+ ctnetlink_nlmsg_size(const struct nf_conn *ct)
+ {
+ 	return NLMSG_ALIGN(sizeof(struct nfgenmsg))
+@@ -435,11 +446,7 @@ ctnetlink_nlmsg_size(const struct nf_conn *ct)
+ 	       + 3 * nla_total_size(sizeof(u_int8_t)) /* CTA_PROTO_NUM */
+ 	       + nla_total_size(sizeof(u_int32_t)) /* CTA_ID */
+ 	       + nla_total_size(sizeof(u_int32_t)) /* CTA_STATUS */
+-#ifdef CONFIG_NF_CT_ACCT
+-	       + 2 * nla_total_size(0) /* CTA_COUNTERS_ORIG|REPL */
+-	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_PACKETS */
+-	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_BYTES */
+-#endif
++	       + ctnetlink_counters_size(ct)
+ 	       + nla_total_size(sizeof(u_int32_t)) /* CTA_TIMEOUT */
+ 	       + nla_total_size(0) /* CTA_PROTOINFO */
+ 	       + nla_total_size(0) /* CTA_HELP */
