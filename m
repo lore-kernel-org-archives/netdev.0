@@ -1,46 +1,90 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Undefined behaviour of connect(fd, NULL, 0);
-Date: Wed, 31 Mar 2010 14:17:32 -0700 (PDT)
-Message-ID: <20100331.141732.225997212.davem@davemloft.net>
-References: <20100331223637.31f5f6ed@notabene.brown>
-	<20100331114936.3549ca90@s6510>
-	<20100401072412.032aa8e6@notabene.brown>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-2.6 PATCH] bonding: fix broken multicast with round-robin
+ mode
+Date: Wed, 31 Mar 2010 23:23:06 +0200
+Message-ID: <1270070586.2593.6.camel@edumazet-laptop>
+References: <1270026517.2103.9.camel@edumazet-laptop>
+	 <m2x7b667921003310749v5c8b6e62g7339eff24a51e6d8@mail.gmail.com>
+	 <1270048448.2103.28.camel@edumazet-laptop>
+	 <20100331.140055.246389406.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: neilb@suse.de
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: andy@greyhouse.net, netdev@vger.kernel.org, lhh@redhat.com,
+	fubar@us.ibm.com, bonding-devel@lists.sourceforge.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42786
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932236Ab0CaVRb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 17:17:31 -0400
-In-Reply-To: <20100401072412.032aa8e6@notabene.brown>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:36578 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758129Ab0CaVX2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 17:23:28 -0400
+Received: by bwz1 with SMTP id 1so415060bwz.21
+        for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 14:23:26 -0700 (PDT)
+In-Reply-To: <20100331.140055.246389406.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Brown <neilb@suse.de>
-Date: Thu, 1 Apr 2010 07:24:12 +1100
+Le mercredi 31 mars 2010 =C3=A0 14:00 -0700, David Miller a =C3=A9crit =
+:
 
->> --- a/net/ipv4/af_inet.c	2010-03-31 11:47:01.952910248 -0700
->> +++ b/net/ipv4/af_inet.c	2010-03-31 11:48:09.852938406 -0700
->> @@ -575,7 +575,7 @@ int inet_stream_connect(struct socket *s
->>  
->>  	lock_sock(sk);
->>  
->> -	if (uaddr->sa_family == AF_UNSPEC) {
->> +	if (addr_len < sizeof(sa_family_t) || uaddr->sa_family == AF_UNSPEC) {
->>  		err = sk->sk_prot->disconnect(sk, flags);
->>  		sock->state = err ? SS_DISCONNECTING : SS_UNCONNECTED;
->>  		goto out;
-> 
-> Thanks for the reply.
-> 
-> The implication of this patch is that
->    connect(fd, NULL, 0)
-> is actually a valid way to check if an in-progress connection has completed.
-> 
-> Is that the intention?
+> Funny how going back in time gives us better diagnostic messages from
+> the compiler :-)
+>=20
+> FWIW I also didn't get the warning, and that was with gcc-4.5 built
+> from the gcc trunk just the other day.
+>=20
+> I suspect this is to do with a change to what warnings get enabled by
+> default with the -W options we put in the cflags rather than gcc
+> losing the ability to detect this case.
 
-That's not how I read the patch, the result is that connect(fd, NULL...)
-will now disconnect the socket.
+  x86_64-unknown-linux-gcc -Wp,-MD,drivers/net/bonding/.bond_main.o.d
+-nostdinc
+-isystem /data/x86-64/lib/gcc/x86_64-unknown-linux/4.1.2/include
+-I/data/src/linux-2.6/arch/x86/include -Iinclude  -include
+include/generated/autoconf.h -D__KERNEL__ -Wall -Wundef
+-Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common
+-Werror-implicit-function-declaration -Wno-format-security
+-fno-delete-null-pointer-checks -O2 -m64 -mno-red-zone -mcmodel=3Dkerne=
+l
+-funit-at-a-time -maccumulate-outgoing-args -DCONFIG_AS_CFI=3D1
+-DCONFIG_AS_CFI_SIGNAL_FRAME=3D1 -pipe -Wno-sign-compare
+-fno-asynchronous-unwind-tables -mno-sse -mno-mmx -mno-sse2 -mno-3dnow
+-fno-stack-protector -fno-omit-frame-pointer -fno-optimize-sibling-call=
+s
+-g -pg -Wdeclaration-after-statement -Wno-pointer-sign
+-D"KBUILD_STR(s)=3D#s" -D"KBUILD_BASENAME=3DKBUILD_STR(bond_main)"
+-D"KBUILD_MODNAME=3DKBUILD_STR(bonding)"  -c -o
+drivers/net/bonding/.tmp_bond_main.o drivers/net/bonding/bond_main.c
+drivers/net/bonding/bond_main.c: In function =E2=80=98bond_xmit_roundro=
+bin=E2=80=99:
+drivers/net/bonding/bond_main.c:4159: warning: comparison is always
+false due to limited range of data type
+
+
+while with gcc-4.4.2 (native compiler, no warning displayed)
+
+ gcc -Wp,-MD,drivers/net/bonding/.bond_main.o.d  -nostdinc
+-isystem /usr/lib/gcc/x86_64-linux-gnu/4.4.3/include
+-I/usr/src/git/linux-2.6/arch/x86/include -Iinclude  -include
+include/generated/autoconf.h -D__KERNEL__ -Wall -Wundef
+-Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common
+-Werror-implicit-function-declaration -Wno-format-security
+-fno-delete-null-pointer-checks -O2 -m64 -mtune=3Dgeneric -mno-red-zone
+-mcmodel=3Dkernel -funit-at-a-time -maccumulate-outgoing-args
+-DCONFIG_AS_CFI=3D1 -DCONFIG_AS_CFI_SIGNAL_FRAME=3D1 -pipe -Wno-sign-co=
+mpare
+-fno-asynchronous-unwind-tables -mno-sse -mno-mmx -mno-sse2 -mno-3dnow
+-Wframe-larger-than=3D1024 -fno-stack-protector -fno-omit-frame-pointer
+-fno-optimize-sibling-calls -g -Wdeclaration-after-statement
+-Wno-pointer-sign -fno-strict-overflow -fno-dwarf2-cfi-asm
+-fconserve-stack   -D"KBUILD_STR(s)=3D#s"
+-D"KBUILD_BASENAME=3DKBUILD_STR(bond_main)"
+-D"KBUILD_MODNAME=3DKBUILD_STR(bond_main)"  -c -o
+drivers/net/bonding/.tmp_bond_main.o drivers/net/bonding/bond_main.c
+
+
+New compiler got these new options :  -Wframe-larger-than=3D1024
+-fno-strict-overflow -fno-dwarf2-cfi-asm -fconserve-stack
+
+
+
