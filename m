@@ -1,80 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next-2.6 PATCH] netfilter: ctnetlink: compute message
- size properly
-Date: Wed, 31 Mar 2010 20:35:43 +0200
-Message-ID: <1270060543.1931.20.camel@edumazet-laptop>
-References: <20100331151102.GB8043@psychotron.lab.eng.brq.redhat.com>
-	 <4BB38A8A.9050501@trash.net>  <20100331182116.GB2822@psychotron.redhat.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Undefined behaviour of connect(fd, NULL, 0);
+Date: Wed, 31 Mar 2010 11:49:36 -0700
+Message-ID: <20100331114936.3549ca90@s6510>
+References: <20100331223637.31f5f6ed@notabene.brown>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	davem@davemloft.net, Krzysztof Oledzki <ole@ans.pl>
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <20100331182116.GB2822@psychotron.redhat.com>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Neil Brown <neilb@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:44772 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750968Ab0CaSti (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Mar 2010 14:49:38 -0400
+In-Reply-To: <20100331223637.31f5f6ed@notabene.brown>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 31 mars 2010 =C3=A0 20:21 +0200, Jiri Pirko a =C3=A9crit :
-> Okay, I see your point. How about this:
->=20
-> Subject: [net-next-2.6 PATCH] netfilter: ctnetlink: compute message s=
-ize properly V2
->=20
-> Message size should be dependent on net->ct.sysctl_acct, not on
-> CONFIG_NF_CT_ACCT definition.
->=20
+On Wed, 31 Mar 2010 22:36:37 +1100
+Neil Brown <neilb@suse.de> wrote:
 
-Then Changelog is not updated with the actual test :)
+> 
+> Hi Netdev.
+> 
+> We have a customer who was reporting strangely unpredictable behaviour of an
+> in-house application that used networking.
+> 
+> It called connect on a non-blocking socket and subsequently called
+>    connect(fd, NULL, 0)
+> 
+> to check if the connection had succeeded.
+> This would sometime "work" and sometimes close the connection.
+> 
+> Looking at the code (sys_connect, move_addr_to_kernel, inet_stream_connect),
+> it seems that in this case an uninitialised on-stack address is passed
+> to inet_stream_connect and it makes a decision based on ->sa_family (which is
+> uninitialised).
+> 
+> It seems clear that connect(fd, NULL, 0) is the wrong thing to do in this
+> circumstance, but I think it would be good if it failed consistently rather
+> than unpredictably.
+> 
+> Would it be appropriate for move_addr_to_kernel to zero out the remainder of
+> the address?
+>    memset(kaddr+ulen, 0, MAX_SOCK_ADDR-ulen);
+> ??
+> 
+> Then connect(fd, NULL, 0) would always break the connection.
 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->=20
-> diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_=
-conntrack_netlink.c
-> index 569410a..44487d8 100644
-> --- a/net/netfilter/nf_conntrack_netlink.c
-> +++ b/net/netfilter/nf_conntrack_netlink.c
-> @@ -426,6 +426,17 @@ ctnetlink_proto_size(const struct nf_conn *ct)
->  }
-> =20
->  static inline size_t
-> +ctnetlink_counters_size(const struct nf_conn *ct)
-> +{
-> +	if (!nf_ct_ext_exist(ct, NF_CT_EXT_ACCT))
-> +		return 0;
-> +	return 2 * nla_total_size(0) /* CTA_COUNTERS_ORIG|REPL */
-> +	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_PACKE=
-TS */
-> +	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_BYTES=
- */
-> +	       ;
-> +}
-> +
-> +static inline size_t
->  ctnetlink_nlmsg_size(const struct nf_conn *ct)
->  {
->  	return NLMSG_ALIGN(sizeof(struct nfgenmsg))
-> @@ -435,11 +446,7 @@ ctnetlink_nlmsg_size(const struct nf_conn *ct)
->  	       + 3 * nla_total_size(sizeof(u_int8_t)) /* CTA_PROTO_NUM */
->  	       + nla_total_size(sizeof(u_int32_t)) /* CTA_ID */
->  	       + nla_total_size(sizeof(u_int32_t)) /* CTA_STATUS */
-> -#ifdef CONFIG_NF_CT_ACCT
-> -	       + 2 * nla_total_size(0) /* CTA_COUNTERS_ORIG|REPL */
-> -	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_PACKE=
-TS */
-> -	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_BYTES=
- */
-> -#endif
-> +	       + ctnetlink_counters_size(ct)
->  	       + nla_total_size(sizeof(u_int32_t)) /* CTA_TIMEOUT */
->  	       + nla_total_size(0) /* CTA_PROTOINFO */
->  	       + nla_total_size(0) /* CTA_HELP */
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
+I think the problem is inet_stream_connect referencing past addr_len.
 
+--- a/net/ipv4/af_inet.c	2010-03-31 11:47:01.952910248 -0700
++++ b/net/ipv4/af_inet.c	2010-03-31 11:48:09.852938406 -0700
+@@ -575,7 +575,7 @@ int inet_stream_connect(struct socket *s
+ 
+ 	lock_sock(sk);
+ 
+-	if (uaddr->sa_family == AF_UNSPEC) {
++	if (addr_len < sizeof(sa_family_t) || uaddr->sa_family == AF_UNSPEC) {
+ 		err = sk->sk_prot->disconnect(sk, flags);
+ 		sock->state = err ? SS_DISCONNECTING : SS_UNCONNECTED;
+ 		goto out;
 
