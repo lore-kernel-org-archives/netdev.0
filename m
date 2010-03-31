@@ -1,41 +1,60 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH RFC] virtio_net: use NAPI for xmit (UNTESTED)
-Date: Tue, 30 Mar 2010 22:44:44 -0700
-Message-ID: <1270014284.25337.3.camel@localhost.localdomain>
-References: <201003311429.57793.rusty@rustcorp.com.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 5/6] cxgb4: Add main driver file and driver Makefile
+Date: Tue, 30 Mar 2010 22:50:42 -0700 (PDT)
+Message-ID: <20100330.225042.107712654.davem@davemloft.net>
+References: <1269975142-30896-5-git-send-email-dm@chelsio.com>
+	<1269975142-30896-6-git-send-email-dm@chelsio.com>
+	<20100330141904.5236fe44@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: dm@chelsio.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:35303 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757006Ab0CaFos (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 01:44:48 -0400
-Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
-	by e37.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id o2V5hEOA006308
-	for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 23:43:14 -0600
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o2V5ikTb144734
-	for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 23:44:46 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o2V5ijBP029411
-	for <netdev@vger.kernel.org>; Tue, 30 Mar 2010 23:44:46 -0600
-In-Reply-To: <201003311429.57793.rusty@rustcorp.com.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33646
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757144Ab0CaFul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 01:50:41 -0400
+In-Reply-To: <20100330141904.5236fe44@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Rusty,
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Tue, 30 Mar 2010 14:19:04 -0700
 
-On Wed, 2010-03-31 at 14:29 +1030, Rusty Russell wrote:
-> I don't have time to chase this, but it's been sitting in my patch
-> queue
-> for a while.  Wondered if Michael or Shirley wanted to toy with it
+> On Tue, 30 Mar 2010 10:52:21 -0800
+> Dimitris Michailidis <dm@chelsio.com> wrote:
 > 
+>> +static struct cxgb4_proc_entry proc_files[] = {
+>> +#ifdef CONFIG_PROC_FS
+>> +	{ "l2t", 0444, ADAP_NEED_L2T, 0, &t4_l2t_proc_fops },
+>> +#endif
+>> +	{ "lb_stats", 0444, 0, 0, &lb_stats_proc_fops },
+>> +	{ "path_mtus", 0644, 0, 0, &mtutab_proc_fops },
+>> +	{ "qstats", 0444, 0, 0, &sge_stats_proc_fops },
+>> +	{ "rss", 0444, 0, 0, &rss_proc_fops },
+>> +	{ "tcp_stats", 0444, 0, 0, &tcp_stats_proc_fops },
+>> +	{ "tids", 0444, ADAP_NEED_OFLD, 0, &tid_info_proc_fops },
+>> +	{ "tp_err_stats", 0444, 0, 0, &tp_err_stats_proc_fops },
+>> +	{ "trace0", 0644, 0, 0, &mps_trc_proc_fops },
+>> +	{ "trace1", 0644, 0, 1, &mps_trc_proc_fops },
+>> +	{ "trace2", 0644, 0, 2, &mps_trc_proc_fops },
+>> +	{ "trace3", 0644, 0, 3, &mps_trc_proc_fops },
+>> +	{ "uld", 0444, 0, 0, &uld_proc_fops },
+>> +};
+>> +
+> 
+> Do you really need this large number of /proc files.
+> It creates another stable API to worry about.  If it is just for
+> debugging move it to debugfs, or better yet just drop it.
 
-Does this patch build on top of net-next-2.6?
+I also find this a bit too much.
 
-Shirley
+We have all kinds of ways to export whatever statistics you
+want.  In particular we have ethtool stats of which you
+can have as many as you wish.
 
+If necessary, we could add a feature to define "views" of ethtool
+stats so that we can have domains of driver specific statistics if the
+problem is that you don't want all of these debugging stats to clutter
+up the "main" ethtool stats.
