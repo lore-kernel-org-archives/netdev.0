@@ -1,183 +1,158 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH] stmmac: add documentation for the driver.
-Date: Thu,  1 Apr 2010 09:44:04 +0200
-Message-ID: <1270107844-23457-2-git-send-email-peppe.cavallaro@st.com>
-References: <1270107844-23457-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Subject: [PATCH 2/2] acenic: use the dma state API instead of the pci equivalents
+Date: Thu,  1 Apr 2010 17:13:06 +0900
+Message-ID: <1270109586-9193-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+References: <1270109586-9193-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+Cc: netdev@vger.kernel.org, fujita.tomonori@lab.ntt.co.jp
+To: linux-acenic@sunsite.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:42227 "EHLO
-	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753656Ab0DAHoN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 03:44:13 -0400
-Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id E544089
-	for <netdev@vger.kernel.org>; Thu,  1 Apr 2010 07:44:09 +0000 (GMT)
-Received: from mail3.ctn.st.com (mail3.ctn.st.com [164.130.116.150])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id CB4A11084
-	for <netdev@vger.kernel.org>; Thu,  1 Apr 2010 07:44:08 +0000 (GMT)
-In-Reply-To: <1270107844-23457-1-git-send-email-peppe.cavallaro@st.com>
+Received: from sh.osrg.net ([192.16.179.4]:48854 "EHLO sh.osrg.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753979Ab0DAIRR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Apr 2010 04:17:17 -0400
+In-Reply-To: <1270109586-9193-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add Documentation/networking/stmmac.txt for the
-stmmac network driver.
+The DMA API is preferred.
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 ---
- Documentation/networking/stmmac.txt |  143 +++++++++++++++++++++++++++++++++++
- 1 files changed, 143 insertions(+), 0 deletions(-)
- create mode 100644 Documentation/networking/stmmac.txt
+ drivers/net/acenic.c |   26 +++++++++++++-------------
+ drivers/net/acenic.h |    6 +++---
+ 2 files changed, 16 insertions(+), 16 deletions(-)
 
-diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
-new file mode 100644
-index 0000000..7ee770b
---- /dev/null
-+++ b/Documentation/networking/stmmac.txt
-@@ -0,0 +1,143 @@
-+       STMicroelectronics 10/100/1000 Synopsys Ethernet driver
-+
-+Copyright (C) 2007-2010  STMicroelectronics Ltd
-+Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-+
-+This is the driver for the MAC 10/100/1000 on-chip Ethernet controllers
-+(Synopsys IP blocks); it has been fully tested on STLinux platforms.
-+
-+Currently this network device driver is for all STM embedded MAC/GMAC
-+(7xxx SoCs).
-+
-+DWC Ether MAC 10/100/1000 Universal version 3.41a and DWC Ether MAC 10/100
-+Universal version 4.0 have been used for developing the first code
-+implementation.
-+
-+Please, for more information also visit: www.stlinux.com
-+
-+1) Kernel Configuration
-+The kernel configuration option is STMMAC_ETH:
-+ Device Drivers ---> Network device support ---> Ethernet (1000 Mbit) --->
-+ STMicroelectronics 10/100/1000 Ethernet driver (STMMAC_ETH)
-+
-+2) Driver parameters list:
-+	debug: message level (0: no output, 16: all);
-+	phyaddr: to manually provide the physical address to the PHY device;
-+	dma_rxsize: DMA rx ring size;
-+	dma_txsize: DMA tx ring size;
-+	buf_sz: DMA buffer size;
-+	tc: control the HW FIFO threshold;
-+	tx_coe: Enable/Disable Tx Checksum Offload engine;
-+	watchdog: transmit timeout (in milliseconds);
-+	flow_ctrl: Flow control ability [on/off];
-+	pause: Flow Control Pause Time;
-+	tmrate: timer period (only if timer optimisation is configured).
-+
-+3) Command line options
-+Driver parameters can be also passed in command line by using:
-+	stmmaceth=dma_rxsize:128,dma_txsize:512
-+
-+4) Driver information and notes
-+
-+4.1) Transmit process
-+The xmit method is invoked when the kernel needs to transmit a packet; it sets
-+the descriptors in the ring and informs the DMA engine that there is a packet
-+ready to be transmitted.
-+Once the controller has finished transmitting the packet, an interrupt is
-+triggered; So the driver will be able to release the socket buffers.
-+By default, the driver sets the NETIF_F_SG bit in the features field of the
-+net_device structure enabling the scatter/gather feature.
-+
-+4.2) Receive process
-+When one or more packets are received, an interrupt happens. The interrupts
-+are not queued so the driver has to scan all the descriptors in the ring during
-+the receive process.
-+This is based on NAPI so the interrupt handler signals only if there is work to be
-+done, and it exits.
-+Then the poll method will be scheduled at some future point.
-+The incoming packets are stored, by the DMA, in a list of pre-allocated socket
-+buffers in order to avoid the memcpy (Zero-copy).
-+
-+4.3) Timer-Driver Interrupt
-+Instead of having the device that asynchronously notifies the frame receptions, the
-+driver configures a timer to generate an interrupt at regular intervals.
-+Based on the granularity of the timer, the frames that are received by the device
-+will experience different levels of latency. Some NICs have dedicated timer
-+device to perform this task. STMMAC can use either the RTC device or the TMU
-+channel 2  on STLinux platforms.
-+The timers frequency can be passed to the driver as parameter; when change it,
-+take care of both hardware capability and network stability/performance impact.
-+Several performance tests on STM platforms showed this optimisation allows to spare
-+the CPU while having the maximum throughput.
-+
-+4.4) WOL
-+Wake up on Lan feature through Magic Frame is only supported for the GMAC
-+core.
-+
-+4.5) DMA descriptors
-+Driver handles both normal and enhanced descriptors. The latter has been only
-+tested on DWC Ether MAC 10/100/1000 Universal version 3.41a.
-+
-+4.6) Ethtool support
-+Ethtool is supported. Driver statistics and internal errors can be taken using:
-+ethtool -S ethX command. It is possible to dump registers etc.
-+
-+4.7) Jumbo and Segmentation Offloading
-+Jumbo frames are supported and tested for the GMAC.
-+The GSO has been also added but it's performed in software.
-+LRO is not supported.
-+
-+4.8) Physical
-+The driver is compatible with PAL to work with PHY and GPHY devices.
-+
-+4.9) Platform information
-+Several information came from the platform; please refer to the
-+driver's Header file in include/linux directory.
-+
-+struct plat_stmmacenet_data {
-+        int bus_id;
-+        int pbl;
-+        int has_gmac;
-+        void (*fix_mac_speed)(void *priv, unsigned int speed);
-+        void (*bus_setup)(unsigned long ioaddr);
-+#ifdef CONFIG_STM_DRIVERS
-+        struct stm_pad_config *pad_config;
-+#endif
-+        void *bsp_priv;
-+};
-+
-+Where:
-+- pbl (Programmable Burst Length) is maximum number of
-+  beats to be transferred in one DMA transaction.
-+  GMAC also enables the 4xPBL by default.
-+- fix_mac_speed and bus_setup are used to configure internal target
-+  registers (on STM platforms);
-+- has_gmac: GMAC core is on board (get it at run-time in the next step);
-+- bus_id: bus identifier.
-+
-+struct plat_stmmacphy_data {
-+        int bus_id;
-+        int phy_addr;
-+        unsigned int phy_mask;
-+        int interface;
-+        int (*phy_reset)(void *priv);
-+        void *priv;
-+};
-+
-+Where:
-+- bus_id: bus identifier;
-+- phy_addr: physical address used for the attached phy device;
-+            set it to -1 to get it at run-time;
-+- interface: physical MII interface mode;
-+- phy_reset: hook to reset HW function.
-+
-+TODO:
-+- Continue to make the driver more generic and suitable for other Synopsys
-+  Ethernet controllers used on other architectures (i.e. ARM).
-+- 10G controllers are not supported.
-+- MAC uses Normal descriptors and GMAC uses enhanced ones.
-+  This is a limit that should be reviewed. MAC could want to
-+  use the enhanced structure.
-+- Checksumming: Rx/Tx csum is done in HW in case of GMAC only.
-+- Review the timer optimisation code to use an embedded device that seems to be
-+  available in new chip generations.
+diff --git a/drivers/net/acenic.c b/drivers/net/acenic.c
+index 02a4746..1328eb9 100644
+--- a/drivers/net/acenic.c
++++ b/drivers/net/acenic.c
+@@ -661,7 +661,7 @@ static void __devexit acenic_remove_one(struct pci_dev *pdev)
+ 			dma_addr_t mapping;
+ 
+ 			ringp = &ap->skb->rx_std_skbuff[i];
+-			mapping = pci_unmap_addr(ringp, mapping);
++			mapping = dma_unmap_addr(ringp, mapping);
+ 			pci_unmap_page(ap->pdev, mapping,
+ 				       ACE_STD_BUFSIZE,
+ 				       PCI_DMA_FROMDEVICE);
+@@ -681,7 +681,7 @@ static void __devexit acenic_remove_one(struct pci_dev *pdev)
+ 				dma_addr_t mapping;
+ 
+ 				ringp = &ap->skb->rx_mini_skbuff[i];
+-				mapping = pci_unmap_addr(ringp,mapping);
++				mapping = dma_unmap_addr(ringp,mapping);
+ 				pci_unmap_page(ap->pdev, mapping,
+ 					       ACE_MINI_BUFSIZE,
+ 					       PCI_DMA_FROMDEVICE);
+@@ -700,7 +700,7 @@ static void __devexit acenic_remove_one(struct pci_dev *pdev)
+ 			dma_addr_t mapping;
+ 
+ 			ringp = &ap->skb->rx_jumbo_skbuff[i];
+-			mapping = pci_unmap_addr(ringp, mapping);
++			mapping = dma_unmap_addr(ringp, mapping);
+ 			pci_unmap_page(ap->pdev, mapping,
+ 				       ACE_JUMBO_BUFSIZE,
+ 				       PCI_DMA_FROMDEVICE);
+@@ -1683,7 +1683,7 @@ static void ace_load_std_rx_ring(struct ace_private *ap, int nr_bufs)
+ 				       ACE_STD_BUFSIZE,
+ 				       PCI_DMA_FROMDEVICE);
+ 		ap->skb->rx_std_skbuff[idx].skb = skb;
+-		pci_unmap_addr_set(&ap->skb->rx_std_skbuff[idx],
++		dma_unmap_addr_set(&ap->skb->rx_std_skbuff[idx],
+ 				   mapping, mapping);
+ 
+ 		rd = &ap->rx_std_ring[idx];
+@@ -1744,7 +1744,7 @@ static void ace_load_mini_rx_ring(struct ace_private *ap, int nr_bufs)
+ 				       ACE_MINI_BUFSIZE,
+ 				       PCI_DMA_FROMDEVICE);
+ 		ap->skb->rx_mini_skbuff[idx].skb = skb;
+-		pci_unmap_addr_set(&ap->skb->rx_mini_skbuff[idx],
++		dma_unmap_addr_set(&ap->skb->rx_mini_skbuff[idx],
+ 				   mapping, mapping);
+ 
+ 		rd = &ap->rx_mini_ring[idx];
+@@ -1800,7 +1800,7 @@ static void ace_load_jumbo_rx_ring(struct ace_private *ap, int nr_bufs)
+ 				       ACE_JUMBO_BUFSIZE,
+ 				       PCI_DMA_FROMDEVICE);
+ 		ap->skb->rx_jumbo_skbuff[idx].skb = skb;
+-		pci_unmap_addr_set(&ap->skb->rx_jumbo_skbuff[idx],
++		dma_unmap_addr_set(&ap->skb->rx_jumbo_skbuff[idx],
+ 				   mapping, mapping);
+ 
+ 		rd = &ap->rx_jumbo_ring[idx];
+@@ -2013,7 +2013,7 @@ static void ace_rx_int(struct net_device *dev, u32 rxretprd, u32 rxretcsm)
+ 		skb = rip->skb;
+ 		rip->skb = NULL;
+ 		pci_unmap_page(ap->pdev,
+-			       pci_unmap_addr(rip, mapping),
++			       dma_unmap_addr(rip, mapping),
+ 			       mapsize,
+ 			       PCI_DMA_FROMDEVICE);
+ 		skb_put(skb, retdesc->size);
+@@ -2085,7 +2085,7 @@ static inline void ace_tx_int(struct net_device *dev,
+ 
+ 		if (dma_unmap_len(info, maplen)) {
+ 			pci_unmap_page(ap->pdev, dma_unmap_addr(info, mapping),
+-				       pci_unmap_len(info, maplen),
++				       dma_unmap_len(info, maplen),
+ 				       PCI_DMA_TODEVICE);
+ 			dma_unmap_len_set(info, maplen, 0);
+ 		}
+@@ -2392,7 +2392,7 @@ static int ace_close(struct net_device *dev)
+ 				memset(ap->tx_ring + i, 0,
+ 				       sizeof(struct tx_desc));
+ 			pci_unmap_page(ap->pdev, dma_unmap_addr(info, mapping),
+-				       pci_unmap_len(info, maplen),
++				       dma_unmap_len(info, maplen),
+ 				       PCI_DMA_TODEVICE);
+ 			dma_unmap_len_set(info, maplen, 0);
+ 		}
+@@ -2429,8 +2429,8 @@ ace_map_tx_skb(struct ace_private *ap, struct sk_buff *skb,
+ 
+ 	info = ap->skb->tx_skbuff + idx;
+ 	info->skb = tail;
+-	pci_unmap_addr_set(info, mapping, mapping);
+-	pci_unmap_len_set(info, maplen, skb->len);
++	dma_unmap_addr_set(info, mapping, mapping);
++	dma_unmap_len_set(info, maplen, skb->len);
+ 	return mapping;
+ }
+ 
+@@ -2549,8 +2549,8 @@ restart:
+ 			} else {
+ 				info->skb = NULL;
+ 			}
+-			pci_unmap_addr_set(info, mapping, mapping);
+-			pci_unmap_len_set(info, maplen, frag->size);
++			dma_unmap_addr_set(info, mapping, mapping);
++			dma_unmap_len_set(info, maplen, frag->size);
+ 			ace_load_tx_bd(ap, desc, mapping, flagsize, vlan_tag);
+ 		}
+ 	}
+diff --git a/drivers/net/acenic.h b/drivers/net/acenic.h
+index 17079b9..0681da7 100644
+--- a/drivers/net/acenic.h
++++ b/drivers/net/acenic.h
+@@ -589,7 +589,7 @@ struct ace_info {
+ 
+ struct ring_info {
+ 	struct sk_buff		*skb;
+-	DECLARE_PCI_UNMAP_ADDR(mapping)
++	DEFINE_DMA_UNMAP_ADDR(mapping);
+ };
+ 
+ 
+@@ -600,8 +600,8 @@ struct ring_info {
+  */
+ struct tx_ring_info {
+ 	struct sk_buff		*skb;
+-	DECLARE_PCI_UNMAP_ADDR(mapping)
+-	DECLARE_PCI_UNMAP_LEN(maplen)
++	DEFINE_DMA_UNMAP_ADDR(mapping);
++	DEFINE_DMA_UNMAP_LEN(maplen);
+ };
+ 
+ 
 -- 
-1.6.0.4
+1.7.0
 
