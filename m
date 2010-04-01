@@ -1,88 +1,37 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] xtables: make XT_ALIGN() usable in exported headers
-Date: Thu, 1 Apr 2010 15:02:14 +0300
-Message-ID: <n2ib6fcc0a1004010502z8c25a68cg11c5aa2f90ad4826@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] xtables: make XT_ALIGN() usable in exported headers
+Date: Thu, 01 Apr 2010 14:06:40 +0200
+Message-ID: <4BB48C50.2000000@trash.net>
+References: <n2ib6fcc0a1004010502z8c25a68cg11c5aa2f90ad4826@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=000e0cd25eae319a6a04832ba25f
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 Cc: Stephen Hemminger <shemminger@vyatta.com>,
 	Ben Hutchings <bhutchings@solarflare.com>,
 	Andreas Henriksson <andreas@fatal.se>, jamal <hadi@cyberus.ca>,
 	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f179.google.com ([209.85.222.179]:49487 "EHLO
-	mail-pz0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755769Ab0DAMCQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 08:02:16 -0400
-Received: by pzk9 with SMTP id 9so1015774pzk.21
-        for <netdev@vger.kernel.org>; Thu, 01 Apr 2010 05:02:15 -0700 (PDT)
+Received: from stinky.trash.net ([213.144.137.162]:50911 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753487Ab0DAMGm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 08:06:42 -0400
+In-Reply-To: <n2ib6fcc0a1004010502z8c25a68cg11c5aa2f90ad4826@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---000e0cd25eae319a6a04832ba25f
-Content-Type: text/plain; charset=ISO-8859-1
+Alexey Dobriyan wrote:
+> On Thu, Apr 1, 2010 at 1:50 PM, Patrick McHardy <kaber@trash.net> wrote:
+>> I can't think of anything but to restore the XT_ALIGN macro.
+>> We could add a XT_ALIGN definition to xtables.h, but that might
+>> still leave problems for other users.
+>>
+>> Alexey, do you have any better suggestions?
+> 
+> I like __KERNEL_ALIGN trick.
+> 
+> Sorry for attachment, my patch sending facility is broke.
+> Tested on iptables compilation.
+> 
 
-On Thu, Apr 1, 2010 at 1:50 PM, Patrick McHardy <kaber@trash.net> wrote:
-> I can't think of anything but to restore the XT_ALIGN macro.
-> We could add a XT_ALIGN definition to xtables.h, but that might
-> still leave problems for other users.
->
-> Alexey, do you have any better suggestions?
-
-I like __KERNEL_ALIGN trick.
-
-Sorry for attachment, my patch sending facility is broke.
-Tested on iptables compilation.
-
---000e0cd25eae319a6a04832ba25f
-Content-Type: text/x-diff; charset=US-ASCII; name="xt-align.patch"
-Content-Disposition: attachment; filename="xt-align.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_g7hilf1f0
-
-W1BBVENIXSB4dGFibGVzOiBtYWtlIFhUX0FMSUdOKCkgdXNhYmxlIGluIGV4cG9ydGVkIGhlYWRl
-cnMKClhUX0FMSUdOKCkgd2FzIHJld3JpdHRlbiB0aHJvdWdoIEFMSUdOKCkgYnkgY29tbWl0IDQy
-MTA3ZjUwMDlkYTIyM2RhYTgwMGQ2ZGE2OTA0ZDc3Mjk3YWU4MjkKIm5ldGZpbHRlcjogeHRhYmxl
-czogc3ltbWV0cmljIENPTVBBVF9YVF9BTElHTiBkZWZpbml0aW9uIi4KQUxJR04oKSBpcyBub3Qg
-ZXhwb3J0ZWQgaW4gdXNlcnNwYWNlIGhlYWRlcnMsIHdoaWNoIGNyZWF0ZWQgY29tcGlsZSBwcm9i
-bGVtIGZvciB0Yyg4KQphbmQgd2lsbCBjcmVhdGUgcHJvYmxlbSBmb3IgaXB0YWJsZXMoOCkuCgpX
-ZSBjYW4ndCBleHBvcnQgZ2VuZXJpYyBsb29raW5nIG5hbWUgQUxJR04oKSBidXQgd2UgY2FuIGV4
-cG9ydCBsZXNzIGdlbmVyaWMKX19BTElHTl9LRVJORUwoKSAoc3VnZ2VzdGVkIGJ5IEJlbiBIdXRj
-aGluZ3MpLgpHb29nbGUga25vd3Mgbm90aGluZyBhYm91dCBfX0FMSUdOX0tFUk5FTCgpLgoKQ09N
-UEFUX1hUX0FMSUdOKCkgY2hhbmdlZCBmb3Igc3ltbWV0cnkuCgpSZXBvcnRlZC1ieTogQW5kcmVh
-cyBIZW5yaWtzc29uIDxhbmRyZWFzQGZhdGFsLnNlPgpTaWduZWQtb2ZmLWJ5OiBBbGV4ZXkgRG9i
-cml5YW4gPGFkb2JyaXlhbkBnbWFpbC5jb20+Ci0tLQoKIGluY2x1ZGUvbGludXgva2VybmVsLmgg
-ICAgICAgICAgICAgfCAgICA1ICsrKy0tCiBpbmNsdWRlL2xpbnV4L25ldGZpbHRlci94X3RhYmxl
-cy5oIHwgICAgNiArKystLS0KIDIgZmlsZXMgY2hhbmdlZCwgNiBpbnNlcnRpb25zKCspLCA1IGRl
-bGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgva2VybmVsLmggYi9pbmNsdWRl
-L2xpbnV4L2tlcm5lbC5oCmluZGV4IDdmMDcwNzQuLjI4NGVhOTkgMTAwNjQ0Ci0tLSBhL2luY2x1
-ZGUvbGludXgva2VybmVsLmgKKysrIGIvaW5jbHVkZS9saW51eC9rZXJuZWwuaApAQCAtNCw2ICs0
-LDggQEAKIC8qCiAgKiAna2VybmVsLmgnIGNvbnRhaW5zIHNvbWUgb2Z0ZW4tdXNlZCBmdW5jdGlv
-biBwcm90b3R5cGVzIGV0YwogICovCisjZGVmaW5lIF9fQUxJR05fS0VSTkVMKHgsIGEpCQlfX0FM
-SUdOX0tFUk5FTF9NQVNLKHgsICh0eXBlb2YoeCkpKGEpIC0gMSkKKyNkZWZpbmUgX19BTElHTl9L
-RVJORUxfTUFTSyh4LCBtYXNrKQkoKCh4KSArIChtYXNrKSkgJiB+KG1hc2spKQogCiAjaWZkZWYg
-X19LRVJORUxfXwogCkBAIC0zNyw4ICszOSw3IEBAIGV4dGVybiBjb25zdCBjaGFyIGxpbnV4X3By
-b2NfYmFubmVyW107CiAKICNkZWZpbmUgU1RBQ0tfTUFHSUMJMHhkZWFkYmVlZgogCi0jZGVmaW5l
-IEFMSUdOKHgsYSkJCV9fQUxJR05fTUFTSyh4LCh0eXBlb2YoeCkpKGEpLTEpCi0jZGVmaW5lIF9f
-QUxJR05fTUFTSyh4LG1hc2spCSgoKHgpKyhtYXNrKSkmfihtYXNrKSkKKyNkZWZpbmUgQUxJR04o
-eCwgYSkJCV9fQUxJR05fS0VSTkVMKCh4KSwgKGEpKQogI2RlZmluZSBQVFJfQUxJR04ocCwgYSkJ
-CSgodHlwZW9mKHApKUFMSUdOKCh1bnNpZ25lZCBsb25nKShwKSwgKGEpKSkKICNkZWZpbmUgSVNf
-QUxJR05FRCh4LCBhKQkJKCgoeCkgJiAoKHR5cGVvZih4KSkoYSkgLSAxKSkgPT0gMCkKIApkaWZm
-IC0tZ2l0IGEvaW5jbHVkZS9saW51eC9uZXRmaWx0ZXIveF90YWJsZXMuaCBiL2luY2x1ZGUvbGlu
-dXgvbmV0ZmlsdGVyL3hfdGFibGVzLmgKaW5kZXggODRjN2M5Mi4uZjAxZGRiZSAxMDA2NDQKLS0t
-IGEvaW5jbHVkZS9saW51eC9uZXRmaWx0ZXIveF90YWJsZXMuaAorKysgYi9pbmNsdWRlL2xpbnV4
-L25ldGZpbHRlci94X3RhYmxlcy5oCkBAIC0xLDYgKzEsNiBAQAogI2lmbmRlZiBfWF9UQUJMRVNf
-SAogI2RlZmluZSBfWF9UQUJMRVNfSAotCisjaW5jbHVkZSA8bGludXgva2VybmVsLmg+CiAjaW5j
-bHVkZSA8bGludXgvdHlwZXMuaD4KIAogI2RlZmluZSBYVF9GVU5DVElPTl9NQVhOQU1FTEVOIDMw
-CkBAIC05Myw3ICs5Myw3IEBAIHN0cnVjdCBfeHRfYWxpZ24gewogCV9fdTY0IHU2NDsKIH07CiAK
-LSNkZWZpbmUgWFRfQUxJR04ocykgQUxJR04oKHMpLCBfX2FsaWdub2ZfXyhzdHJ1Y3QgX3h0X2Fs
-aWduKSkKKyNkZWZpbmUgWFRfQUxJR04ocykgX19BTElHTl9LRVJORUwoKHMpLCBfX2FsaWdub2Zf
-XyhzdHJ1Y3QgX3h0X2FsaWduKSkKIAogLyogU3RhbmRhcmQgcmV0dXJuIHZlcmRpY3QsIG9yIGRv
-IGp1bXAuICovCiAjZGVmaW5lIFhUX1NUQU5EQVJEX1RBUkdFVCAiIgpAQCAtNTk4LDcgKzU5OCw3
-IEBAIHN0cnVjdCBfY29tcGF0X3h0X2FsaWduIHsKIAljb21wYXRfdTY0IHU2NDsKIH07CiAKLSNk
-ZWZpbmUgQ09NUEFUX1hUX0FMSUdOKHMpIEFMSUdOKChzKSwgX19hbGlnbm9mX18oc3RydWN0IF9j
-b21wYXRfeHRfYWxpZ24pKQorI2RlZmluZSBDT01QQVRfWFRfQUxJR04ocykgX19BTElHTl9LRVJO
-RUwoKHMpLCBfX2FsaWdub2ZfXyhzdHJ1Y3QgX2NvbXBhdF94dF9hbGlnbikpCiAKIGV4dGVybiB2
-b2lkIHh0X2NvbXBhdF9sb2NrKHVfaW50OF90IGFmKTsKIGV4dGVybiB2b2lkIHh0X2NvbXBhdF91
-bmxvY2sodV9pbnQ4X3QgYWYpOwo=
---000e0cd25eae319a6a04832ba25f--
+Seems fine to me, thanks. I'll wait a bit for others to comment.
