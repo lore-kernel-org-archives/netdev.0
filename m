@@ -1,51 +1,183 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH] stmmac: fix kconfig for crc32 build error
-Date: Thu,  1 Apr 2010 09:44:03 +0200
-Message-ID: <1270107844-23457-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Carmelo AMOROSO <carmelo.amoroso@st.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Subject: [PATCH] stmmac: add documentation for the driver.
+Date: Thu,  1 Apr 2010 09:44:04 +0200
+Message-ID: <1270107844-23457-2-git-send-email-peppe.cavallaro@st.com>
+References: <1270107844-23457-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:42191 "EHLO
+Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:42227 "EHLO
 	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752522Ab0DAHoJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 03:44:09 -0400
+	by vger.kernel.org with ESMTP id S1753656Ab0DAHoN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 03:44:13 -0400
 Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 6B20EEC
-	for <netdev@vger.kernel.org>; Thu,  1 Apr 2010 07:44:04 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id E544089
+	for <netdev@vger.kernel.org>; Thu,  1 Apr 2010 07:44:09 +0000 (GMT)
 Received: from mail3.ctn.st.com (mail3.ctn.st.com [164.130.116.150])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 52ED51095
-	for <netdev@vger.kernel.org>; Thu,  1 Apr 2010 07:44:04 +0000 (GMT)
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id CB4A11084
+	for <netdev@vger.kernel.org>; Thu,  1 Apr 2010 07:44:08 +0000 (GMT)
+In-Reply-To: <1270107844-23457-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carmelo AMOROSO <carmelo.amoroso@st.com>
+Add Documentation/networking/stmmac.txt for the
+stmmac network driver.
 
-stmmac uses crc32 functions so it needs to select CRC32.
-
-Fixes build error:
-drivers/built-in.o: In function `dwmac1000_set_filter':
-dwmac1000_core.c:(.text+0x3c380): undefined reference to `crc32_le'
-dwmac1000_core.c:(.text+0x3c384): undefined reference to `bitrev32'
-
-Signed-off-by: Carmelo Amoroso <carmelo.amoroso@st.com>
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/stmmac/Kconfig |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ Documentation/networking/stmmac.txt |  143 +++++++++++++++++++++++++++++++++++
+ 1 files changed, 143 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/networking/stmmac.txt
 
-diff --git a/drivers/net/stmmac/Kconfig b/drivers/net/stmmac/Kconfig
-index fb28764..eb63d44 100644
---- a/drivers/net/stmmac/Kconfig
-+++ b/drivers/net/stmmac/Kconfig
-@@ -2,6 +2,7 @@ config STMMAC_ETH
- 	tristate "STMicroelectronics 10/100/1000 Ethernet driver"
- 	select MII
- 	select PHYLIB
-+	select CRC32
- 	depends on NETDEVICES && CPU_SUBTYPE_ST40
- 	help
- 	  This is the driver for the Ethernet IPs are built around a
+diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
+new file mode 100644
+index 0000000..7ee770b
+--- /dev/null
++++ b/Documentation/networking/stmmac.txt
+@@ -0,0 +1,143 @@
++       STMicroelectronics 10/100/1000 Synopsys Ethernet driver
++
++Copyright (C) 2007-2010  STMicroelectronics Ltd
++Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
++
++This is the driver for the MAC 10/100/1000 on-chip Ethernet controllers
++(Synopsys IP blocks); it has been fully tested on STLinux platforms.
++
++Currently this network device driver is for all STM embedded MAC/GMAC
++(7xxx SoCs).
++
++DWC Ether MAC 10/100/1000 Universal version 3.41a and DWC Ether MAC 10/100
++Universal version 4.0 have been used for developing the first code
++implementation.
++
++Please, for more information also visit: www.stlinux.com
++
++1) Kernel Configuration
++The kernel configuration option is STMMAC_ETH:
++ Device Drivers ---> Network device support ---> Ethernet (1000 Mbit) --->
++ STMicroelectronics 10/100/1000 Ethernet driver (STMMAC_ETH)
++
++2) Driver parameters list:
++	debug: message level (0: no output, 16: all);
++	phyaddr: to manually provide the physical address to the PHY device;
++	dma_rxsize: DMA rx ring size;
++	dma_txsize: DMA tx ring size;
++	buf_sz: DMA buffer size;
++	tc: control the HW FIFO threshold;
++	tx_coe: Enable/Disable Tx Checksum Offload engine;
++	watchdog: transmit timeout (in milliseconds);
++	flow_ctrl: Flow control ability [on/off];
++	pause: Flow Control Pause Time;
++	tmrate: timer period (only if timer optimisation is configured).
++
++3) Command line options
++Driver parameters can be also passed in command line by using:
++	stmmaceth=dma_rxsize:128,dma_txsize:512
++
++4) Driver information and notes
++
++4.1) Transmit process
++The xmit method is invoked when the kernel needs to transmit a packet; it sets
++the descriptors in the ring and informs the DMA engine that there is a packet
++ready to be transmitted.
++Once the controller has finished transmitting the packet, an interrupt is
++triggered; So the driver will be able to release the socket buffers.
++By default, the driver sets the NETIF_F_SG bit in the features field of the
++net_device structure enabling the scatter/gather feature.
++
++4.2) Receive process
++When one or more packets are received, an interrupt happens. The interrupts
++are not queued so the driver has to scan all the descriptors in the ring during
++the receive process.
++This is based on NAPI so the interrupt handler signals only if there is work to be
++done, and it exits.
++Then the poll method will be scheduled at some future point.
++The incoming packets are stored, by the DMA, in a list of pre-allocated socket
++buffers in order to avoid the memcpy (Zero-copy).
++
++4.3) Timer-Driver Interrupt
++Instead of having the device that asynchronously notifies the frame receptions, the
++driver configures a timer to generate an interrupt at regular intervals.
++Based on the granularity of the timer, the frames that are received by the device
++will experience different levels of latency. Some NICs have dedicated timer
++device to perform this task. STMMAC can use either the RTC device or the TMU
++channel 2  on STLinux platforms.
++The timers frequency can be passed to the driver as parameter; when change it,
++take care of both hardware capability and network stability/performance impact.
++Several performance tests on STM platforms showed this optimisation allows to spare
++the CPU while having the maximum throughput.
++
++4.4) WOL
++Wake up on Lan feature through Magic Frame is only supported for the GMAC
++core.
++
++4.5) DMA descriptors
++Driver handles both normal and enhanced descriptors. The latter has been only
++tested on DWC Ether MAC 10/100/1000 Universal version 3.41a.
++
++4.6) Ethtool support
++Ethtool is supported. Driver statistics and internal errors can be taken using:
++ethtool -S ethX command. It is possible to dump registers etc.
++
++4.7) Jumbo and Segmentation Offloading
++Jumbo frames are supported and tested for the GMAC.
++The GSO has been also added but it's performed in software.
++LRO is not supported.
++
++4.8) Physical
++The driver is compatible with PAL to work with PHY and GPHY devices.
++
++4.9) Platform information
++Several information came from the platform; please refer to the
++driver's Header file in include/linux directory.
++
++struct plat_stmmacenet_data {
++        int bus_id;
++        int pbl;
++        int has_gmac;
++        void (*fix_mac_speed)(void *priv, unsigned int speed);
++        void (*bus_setup)(unsigned long ioaddr);
++#ifdef CONFIG_STM_DRIVERS
++        struct stm_pad_config *pad_config;
++#endif
++        void *bsp_priv;
++};
++
++Where:
++- pbl (Programmable Burst Length) is maximum number of
++  beats to be transferred in one DMA transaction.
++  GMAC also enables the 4xPBL by default.
++- fix_mac_speed and bus_setup are used to configure internal target
++  registers (on STM platforms);
++- has_gmac: GMAC core is on board (get it at run-time in the next step);
++- bus_id: bus identifier.
++
++struct plat_stmmacphy_data {
++        int bus_id;
++        int phy_addr;
++        unsigned int phy_mask;
++        int interface;
++        int (*phy_reset)(void *priv);
++        void *priv;
++};
++
++Where:
++- bus_id: bus identifier;
++- phy_addr: physical address used for the attached phy device;
++            set it to -1 to get it at run-time;
++- interface: physical MII interface mode;
++- phy_reset: hook to reset HW function.
++
++TODO:
++- Continue to make the driver more generic and suitable for other Synopsys
++  Ethernet controllers used on other architectures (i.e. ARM).
++- 10G controllers are not supported.
++- MAC uses Normal descriptors and GMAC uses enhanced ones.
++  This is a limit that should be reviewed. MAC could want to
++  use the enhanced structure.
++- Checksumming: Rx/Tx csum is done in HW in case of GMAC only.
++- Review the timer optimisation code to use an embedded device that seems to be
++  available in new chip generations.
 -- 
 1.6.0.4
 
