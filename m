@@ -1,83 +1,47 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [Patch V2] bonding: fix potential deadlock in bond_uninit()
-Date: Wed, 31 Mar 2010 23:12:22 -0700
-Message-ID: <m1r5mzsnuh.fsf@fess.ebiederm.org>
-References: <20100401061014.4815.7341.sendpatchset@localhost.localdomain>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [RFC] SPD basic actions per netdev
+Date: Thu, 01 Apr 2010 09:20:40 +0300
+Message-ID: <4BB43B38.1060004@iki.fi>
+References: <1270053478.26743.111.camel@bigi> <20100401003352.GA19147@gondor.apana.org.au> <1270089323.26743.138.camel@bigi> <20100401025247.GA19994@gondor.apana.org.au> <4BB42692.9010105@iki.fi> <20100401060145.GB20865@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Jiri Pirko <jpirko@redhat.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	bonding-devel@lists.sourceforge.net,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: Amerigo Wang <amwang@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jamal <hadi@cyberus.ca>, "David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:56815 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753198Ab0DAGM2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 02:12:28 -0400
-In-Reply-To: <20100401061014.4815.7341.sendpatchset@localhost.localdomain> (Amerigo Wang's message of "Thu\, 1 Apr 2010 02\:06\:28 -0400")
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:42906 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753421Ab0DAGUn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 02:20:43 -0400
+Received: by ewy20 with SMTP id 20so247290ewy.1
+        for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 23:20:42 -0700 (PDT)
+In-Reply-To: <20100401060145.GB20865@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Amerigo Wang <amwang@redhat.com> writes:
+Herbert Xu wrote:
+> On Thu, Apr 01, 2010 at 07:52:34AM +0300, Timo Ter=E4s wrote:
+>> IMHO, it's slightly confusing that in/fwd is split, but out is not.
+>> But that's the way it works. If you now override the how interface
+>> is checked for 'out' policy, it'll break current behaviour.
+>=20
+> Unless I've misunderstood what his patch is trying to do, it would
+> seem that out policies would be completely unchanged.
+>=20
+> Forward policies are not used on output.
 
-> bond_uninit() is invoked with rtnl_lock held, when it does destroy_workqueue()
-> which will potentially flush all works in this workqueue, if we hold rtnl_lock
-> again in the work function, it will deadlock.
->
-> So move destroy_workqueue() to destructor where rtnl_lock is not held any more,
-> suggested by Eric.
+Oh, that right.
 
-The error handling on creating a bond device needs to be updated as well.
+But my statement still holds. If iif/oif is swapped, it's changing
+current semantics and can end up breaking setups. Both are still
+valid for 'in' and 'fwd' policies too, right? What if I'm using
+'in' policy to make sure that all stuff arriving via 'eth0' is
+encrypted, but 'eth1' is trusted and does not need xfrm. This
+would break.
 
-Eric
-
-
-> Signed-off-by: WANG Cong <amwang@redhat.com>
-> Cc: Jay Vosburgh <fubar@us.ibm.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Stephen Hemminger <shemminger@vyatta.com>
-> Cc: Jiri Pirko <jpirko@redhat.com>
-> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
->
-> ---
->
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 5b92fbf..9f0aaa2 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -4450,6 +4450,14 @@ static const struct net_device_ops bond_netdev_ops = {
->  	.ndo_vlan_rx_kill_vid	= bond_vlan_rx_kill_vid,
->  };
->  
-> +static void bond_destructor(struct net_device *bond_dev)
-> +{
-> +	struct bonding *bond = netdev_priv(bond_dev);
-> +	if (bond->wq)
-> +		destroy_workqueue(bond->wq);
-> +	free_netdev(bond_dev);
-> +}
-> +
->  static void bond_setup(struct net_device *bond_dev)
->  {
->  	struct bonding *bond = netdev_priv(bond_dev);
-> @@ -4470,7 +4478,7 @@ static void bond_setup(struct net_device *bond_dev)
->  	bond_dev->ethtool_ops = &bond_ethtool_ops;
->  	bond_set_mode_ops(bond, bond->params.mode);
->  
-> -	bond_dev->destructor = free_netdev;
-> +	bond_dev->destructor = bond_destructor;
->  
->  	/* Initialize the device options */
->  	bond_dev->tx_queue_len = 0;
-> @@ -4542,9 +4550,6 @@ static void bond_uninit(struct net_device *bond_dev)
->  
->  	bond_remove_proc_entry(bond);
->  
-> -	if (bond->wq)
-> -		destroy_workqueue(bond->wq);
-> -
->  	netif_addr_lock_bh(bond_dev);
->  	bond_mc_list_destroy(bond);
->  	netif_addr_unlock_bh(bond_dev);
+I do like the idea very much. In fact I remember asking this exact
+feature long time ago. But I think it should be done by explicitly
+allowing user to specify both iif and oif; even if it's more
+intrusive.
