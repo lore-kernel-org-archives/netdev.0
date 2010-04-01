@@ -1,16 +1,22 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next-2.6] ipv6 fib: Make ip6_fib{} more cache-line aware.
-Date: Thu, 1 Apr 2010 17:18:35 +0900
-Message-ID: <201004010818.o318IZ6f025510@94.43.138.210.xn.2iij.net>
+Subject: [PATCH net-next-2.6] ipv6 fib: Make rt6_info{} more cache-line aware.
+Date: Thu, 01 Apr 2010 17:24:22 +0900
+Message-ID: <4BB45836.2060104@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:51226 "EHLO
-	94.43.138.210.xn.2iij.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754193Ab0DAISn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 04:18:43 -0400
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:58285 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754217Ab0DAIZM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 04:25:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+The head element of rt6_info{} is dst_entry{}, and
+IPv6 specific elements follow.
 
 Because elements at the end of dst_entry{} are frequently
 updated, it is not good to put frequently-used static
@@ -20,7 +26,7 @@ same cache line.
 On the other hand, fib6_table, rt6i_node or rt6i_gateway are
 rarely used, so it is okay to stay in the same cache line.
 
-Let's rearrange ip6_fib{}.
+Let's rearrange rt6_info{}.
 
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
@@ -85,3 +91,7 @@ index 86f46c4..4b1dc11 100644
 -- 
 1.5.6.5
 
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
