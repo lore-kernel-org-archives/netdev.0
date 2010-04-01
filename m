@@ -1,65 +1,82 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Any ideas about a crash on reboot with igb and intel_iommu?
-Date: Thu, 01 Apr 2010 11:13:47 -0700
-Message-ID: <adabpe3f3c4.fsf@roland-alpha.cisco.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH v2] Add Mergeable RX buffer feature to vhost_net
+Date: Thu, 1 Apr 2010 11:22:37 -0700
+Message-ID: <OF9AF90021.62EF0EE4-ON882576F8.00618B3E-882576F8.0064F223@us.ibm.com>
+References: <20100401105415.GA3323@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Woodhouse <dwmw2@infradead.org>
-To: netdev@vger.kernel.org, iommu@lists.linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-3.cisco.com ([171.71.176.72]:24264 "EHLO
-	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754563Ab0DASNv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 14:13:51 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: kvm@vger.kernel.org, kvm-owner@vger.kernel.org,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au,
+	virtualization@lists.osdl.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20100401105415.GA3323@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi everyone,
+kvm-owner@vger.kernel.org wrote on 04/01/2010 03:54:15 AM:
 
-I've been asked to help debug a strange crash, and I'm wondering if
-anyone has seen something similar.  The setup is a bit awkward because
-this is happening in manufacturing burn-in and we have not reproduced it
-in the lab yet, so my ability to do specific experiments is still
-limited.
+> On Wed, Mar 31, 2010 at 03:04:43PM -0700, David Stevens wrote:
 
-Anyway, we have a fairly standard two-socket Xeon server product that
-passes all tests with Nehalem CPUs.  However, when we use Westmere CPUs
-(which also requires a new BIOS of course), some fraction of the systems
-are crashing during burn-in, which basically runs a cycle where it runs
-CPU and memory stress tests and then reboots the system for the next
-round of tests.  The crash is happening on reboot, and unfortunately I
-only have a bunch of pictures of the traceback output, but we've seen
-multiple cases where the system is crashing with a traceback like:
+> > 
+> > > > +               head.iov_base = (void 
+*)vhost_get_vq_desc(&net->dev, 
+> > vq,
+> > > > +                       vq->iov, ARRAY_SIZE(vq->iov), &out, &in, 
+NULL, 
+> > 
+> > > > NULL);
+> > > 
+> > > I this casting confusing.
+> > > Is it really expensive to add an array of heads so that
+> > > we do not need to cast?
+> > 
+> >         It needs the heads and the lengths, which looks a lot
+> > like an iovec. I was trying to resist adding a new
+> > struct XXX { unsigned head; unsigned len; } just for this,
+> > but I could make these parallel arrays, one with head index and
+> > the other with length.
 
-  rb_erase
-  __free_iova
-  flush_unmaps
-  intel_unmap_page
-  igb_clean_rx_ring
-  igb_down
-  igb_close
-  __igb_shutdown
-  igb_shutdown
-  pci_device_shutdown
-  device_shutdown
-  kernel_restart_prepare
-  kernel_restart
-  sys_reboot
+        Michael, on this one, if I add vq->heads as an argument to
+vhost_get_heads (aka vhost_get_desc_n), I'd need the length too.
+Would you rather this 1) remain an iovec (and a single arg added) but
+cast still there, 2) 2 arrays (head and length) and 2 args added, or
+3) a new struct type of {unsigned,int} to carry for the heads+len
+instead of iovec?
+        My preference would be 1). I agree the casts are ugly, but
+it is essentially an iovec the way we use it; it's just that the
+base isn't a pointer but a descriptor index instead.
 
-The newest kernel they've been able to try is 2.6.30.9, but from looking
-at the kernel changelogs for igb and intel_iommu at least, I don't see
-anything particularly promising that was fixed since then.
+> > 
+> >         EAGAIN is not possible after the change, because we don't
+> > even enter the loop unless we have an skb on the read queue; the
+> > other cases bomb out, so I figured the comment for future work is
+> > now done. :-)
+> 
+> Guest could be buggy so we'll get EFAULT.
+> If skb is taken off the rx queue (as below), we might get EAGAIN.
 
-One other data point is that enabling the BIOS option "maximize memory
-under 4GB" (which apparently just allocates less space for PCI BARs
-below 4GB) seems to make this crash go away again.
+        We break on any error. If we get EAGAIN because someone read
+on the socket, this code would break the loop, but EAGAIN is a more
+serious problem if it changed since we peeked (because it means
+someone else is reading the socket).
+        But I don't understand -- are you suggesting that the error
+handling be different than that, or that the comment is still
+relevant? My intention here is to do the "TODO" from the comment
+so that it can be removed, by handling all error cases. I think
+because of the peek, EAGAIN isn't something to be ignored anymore,
+but the effect is the same whether we break out of the loop or
+not, since we retry the packet next time around. Essentially, we
+ignore every error since we will redo it with the same packet the
+next time around. Maybe we should print something here, but since
+we'll be retrying the packet that's still on the socket, a permanent
+error would spew continuously. Maybe we should shut down entirely
+if we get any negative return value here (including EAGAIN, since
+that tells us someone messed with the socket when we don't want them
+to).
+        If you want the comment still there, ok, but I do think EAGAIN
+isn't a special case per the comment anymore, and is handled as all
+other errors are: by exiting the loop and retrying next time.
 
-Anyway, does this tickle anyone's memory?  I'm trying to get a better
-handle on things, but if this has been seen before, I'd sure love to
-skip some of the pain of debugging this.
+                                                                +-DLS
 
-Thanks,
-  Roland
--- 
-Roland Dreier <rolandd@cisco.com> || For corporate legal information go to:
-http://www.cisco.com/web/about/doing_business/legal/cri/index.html
