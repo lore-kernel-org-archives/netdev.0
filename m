@@ -1,36 +1,41 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2010-03-31
-Date: Wed, 31 Mar 2010 19:33:48 -0700 (PDT)
-Message-ID: <20100331.193348.196563619.davem@davemloft.net>
-References: <20100331144649.GC3024@tuxdriver.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC] SPD basic actions per netdev
+Date: Wed, 31 Mar 2010 22:35:23 -0400
+Message-ID: <1270089323.26743.138.camel@bigi>
+References: <1270053478.26743.111.camel@bigi>
+	 <20100401003352.GA19147@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtJ0xCFg78z1Mw@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100331144649.GC3024-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Timo Teras <timo.teras@iki.fi>,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qw-out-2122.google.com ([74.125.92.27]:18801 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752010Ab0DACf2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 22:35:28 -0400
+Received: by qw-out-2122.google.com with SMTP id 8so255467qwh.37
+        for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 19:35:27 -0700 (PDT)
+In-Reply-To: <20100401003352.GA19147@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Wed, 31 Mar 2010 10:46:49 -0400
+On Thu, 2010-04-01 at 08:33 +0800, Herbert Xu wrote:
 
-> Here is a batch of fixes intended for 2.6.34.  Included are a few
-> device IDs, along with several almost-one-liners to fix a variety of
-> issues, including a NULL deref, a potential overflow, a misues of the
-> USB API, a regulatory error for iwlwifi, a race condition in mac80211,
-> and some other more minor fixes.
-> 
-> I saw your note about only "eats someones disk" bugs.  I'm not
-> sure all of these meet that test, but I hope you will take them.
-> I've been sitting on them a while and letting them cook in linux-next,
-> mostly to test one particular patch (which I backed-out yesterday).
-> I promise I'll tighten-up after this batch! :-)
+> If we're going to change this then we should just add a second
+> interface field to the selector, rather than trying to overload
+> the existing one.
 
-Ok, pulled, thanks John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Do you mean to have a selector->iif/oif? Sure that makes sense - but is
+a much larger surgery and user space will need to be taught.
+
+Did you look at the patch i sent? i tried to retain current behavior
+except for the input check path. output path was working in classifying
+with specific netdevs. 
+
+cheers,
+jamal
+
