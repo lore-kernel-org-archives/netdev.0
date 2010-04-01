@@ -1,36 +1,96 @@
-From: =?UTF-8?B?VGltbyBUZXLDpHM=?= <timo.teras@iki.fi>
-Subject: Re: [RFC] SPD basic actions per netdev
-Date: Thu, 01 Apr 2010 14:47:22 +0300
-Message-ID: <4BB487CA.3020603@iki.fi>
-References: <1270053478.26743.111.camel@bigi>	 <20100401003352.GA19147@gondor.apana.org.au>	 <1270089323.26743.138.camel@bigi>	 <20100401025247.GA19994@gondor.apana.org.au> <4BB42692.9010105@iki.fi>	 <20100401060145.GB20865@gondor.apana.org.au> <4BB43B38.1060004@iki.fi>	 <20100401062840.GA21284@gondor.apana.org.au> <4BB43DE6.9060300@iki.fi>	 <20100401063956.GA21422@gondor.apana.org.au> <1270121385.26743.169.camel@bigi>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH net-next] bnx2x: Added GRO support
+Date: Thu, 1 Apr 2010 14:49:33 +0300
+Message-ID: <1270122573.22693.6.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, eilong@broadcom.com, vladz@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.27]:37379 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755693Ab0DALr0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 07:47:26 -0400
-Received: by ey-out-2122.google.com with SMTP id d26so71916eyd.19
-        for <netdev@vger.kernel.org>; Thu, 01 Apr 2010 04:47:24 -0700 (PDT)
-In-Reply-To: <1270121385.26743.169.camel@bigi>
+Received: from mms1.broadcom.com ([216.31.210.17]:1493 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755644Ab0DALtq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 07:49:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-jamal wrote:
-> Q: So if all i want to achieve for now is to make sure that i can
-> specify a "dev blah" in the forward or in direction and have it work to
-> identify the incoming device, wouldnt this patch suffice?
-> 
-> I am attaching this patch with a fix to check for FWD as well if you
-> have a chance i would appreciate if you re-look at it again.
+Resend, since original mail has typo in Dave's address
 
-The thing is that currently FWD 'dev blah' matches the interface
-to which the packet is being forwarded to. Someone might be using
-this feature already.
+---
+Adding GRO support on top of the HW LRO (TPA) support =E2=80=93
+there is no measurable performance drawback of adding GRO
+on top of it, and it allows better performance when LRO (TPA)
+is turned off for virtualization or bridging.
 
-Your patch changes semantics on how FWD policies are matched.
+
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/bnx2x_main.c |   20 +++++++++++---------
+ 1 files changed, 11 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+index 6c042a7..f4ea99d 100644
+--- a/drivers/net/bnx2x_main.c
++++ b/drivers/net/bnx2x_main.c
+@@ -57,8 +57,8 @@
+ #include "bnx2x_init_ops.h"
+ #include "bnx2x_dump.h"
+=20
+-#define DRV_MODULE_VERSION	"1.52.1-7"
+-#define DRV_MODULE_RELDATE	"2010/02/28"
++#define DRV_MODULE_VERSION	"1.52.1-8"
++#define DRV_MODULE_RELDATE	"2010/04/01"
+ #define BNX2X_BC_VER		0x040200
+=20
+ #include <linux/firmware.h>
+@@ -1441,12 +1441,12 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, st=
+ruct bnx2x_fastpath *fp,
+ #ifdef BCM_VLAN
+ 			if ((bp->vlgrp !=3D NULL) && is_vlan_cqe &&
+ 			    (!is_not_hwaccel_vlan_cqe))
+-				vlan_hwaccel_receive_skb(skb, bp->vlgrp,
+-						le16_to_cpu(cqe->fast_path_cqe.
+-							    vlan_tag));
++				vlan_gro_receive(&fp->napi, bp->vlgrp,
++						 le16_to_cpu(cqe->fast_path_cqe.
++							     vlan_tag), skb);
+ 			else
+ #endif
+-				netif_receive_skb(skb);
++				napi_gro_receive(&fp->napi, skb);
+ 		} else {
+ 			DP(NETIF_MSG_RX_STATUS, "Failed to allocate new pages"
+ 			   " - dropping packet!\n");
+@@ -1699,11 +1699,11 @@ reuse_rx:
+ 		if ((bp->vlgrp !=3D NULL) && (bp->flags & HW_VLAN_RX_FLAG) &&
+ 		    (le16_to_cpu(cqe->fast_path_cqe.pars_flags.flags) &
+ 		     PARSING_FLAGS_VLAN))
+-			vlan_hwaccel_receive_skb(skb, bp->vlgrp,
+-				le16_to_cpu(cqe->fast_path_cqe.vlan_tag));
++			vlan_gro_receive(&fp->napi, bp->vlgrp,
++				le16_to_cpu(cqe->fast_path_cqe.vlan_tag), skb);
+ 		else
+ #endif
+-			netif_receive_skb(skb);
++			napi_gro_receive(&fp->napi, skb);
+=20
+=20
+ next_rx:
+@@ -8935,6 +8935,8 @@ static int __devinit bnx2x_init_bp(struct bnx2x *=
+bp)
+ 	bp->multi_mode =3D multi_mode;
+=20
+=20
++	bp->dev->features |=3D NETIF_F_GRO;
++
+ 	/* Set TPA flags */
+ 	if (disable_tpa) {
+ 		bp->flags &=3D ~TPA_ENABLE_FLAG;
+--=20
+1.6.3.3
+
+
+
+
