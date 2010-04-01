@@ -1,74 +1,29 @@
-From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Subject: Re: [r8169] WARNING: at net/sched/sch_generic.c
-Date: Thu, 1 Apr 2010 12:29:31 +0300
-Message-ID: <20100401092931.GD3294@swordfish.minsk.epam.com>
-References: <20100331102142.GA3294@swordfish.minsk.epam.com>
- <20100331111942.GB13963@hmsreliant.think-freely.org>
- <20100331121426.GB3294@swordfish.minsk.epam.com>
- <1270038569.2103.24.camel@edumazet-laptop>
- <20100331133533.GD13963@hmsreliant.think-freely.org>
- <20100331201426.GA3228@electric-eye.fr.zoreil.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/5] netfilter: ipv6: move POSTROUTING invocation before
+ fragmentation
+Date: Thu, 01 Apr 2010 12:23:55 +0200
+Message-ID: <4BB4743B.3080604@trash.net>
+References: <1270031934-15940-1-git-send-email-jengelh@medozas.de> <1270031934-15940-2-git-send-email-jengelh@medozas.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="YToU2i3Vx8H2dn7O"
-Cc: Neil Horman <nhorman@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-To: =?iso-8859-1?Q?Fran=E7ois?= Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:51441 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754363Ab0DAJ3b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 05:29:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20100331201426.GA3228@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1270031934-15940-2-git-send-email-jengelh@medozas.de>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Jan Engelhardt wrote:
+> Patrick McHardy notes: "We used to invoke IPv4 POST_ROUTING after
+> fragmentation as well just to defragment the packets in conntrack
+> immediately afterwards, but that got changed during the
+> netfilter-ipsec integration. Ideally IPv6 would behave like IPv4."
+> 
+> This patch makes it so. Sending an oversized frame (e.g. `ping6
+> -s64000 -c1 ::1`) will now show up in POSTROUTING as a single skb
+> rather than multiple ones.
 
---YToU2i3Vx8H2dn7O
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Looks good to me. I'll wait until next week in case anyone
+else has comments on this patch.
 
-Hello,
-
-On (03/31/10 22:14), Fran=E7ois Romieu wrote:
-> -1
->=20
-> The driver does not support Jumbo frames because the original 8169 will n=
-ot
-> go much beyond 7200 (see r8169.c::SafeMtu and netdev circa 2004 december =
-7).
->=20
-> /me checks... Apparently it still works a bit.
->=20
-
-> Sergey, can you 'dmesg | grep XID' and send the output of a lspci as
-> well as the MTU used during the test ?
->=20
-
-Sure.=20
-
-dmesg | grep XID
-[   11.761633] r8169 0000:02:00.0: eth0: RTL8168b/8111b at 0xfd1da000, 00:1=
-a:92:c9:a0:68, XID 18000000 IRQ 28
-
-
-	Sergey
---YToU2i3Vx8H2dn7O
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iJwEAQECAAYFAku0Z3sACgkQfKHnntdSXjS4kAP/dG+cl8E8bRSRNaLdtNx3gvva
-4TKd2BMFauXmNelHFuNMgtaho12rLx09YDVcznw5y8LIu0b3iIXbGXSlamzRtJkx
-BKprP2G1r2yhWs6f+Wf99+wmVzz21J/oltioxYH4/gjD1/VZh48x1842RSvGrIH1
-sEiWfbv4vl5Gz81N8kA=
-=WeE9
------END PGP SIGNATURE-----
-
---YToU2i3Vx8H2dn7O--
