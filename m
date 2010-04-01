@@ -1,96 +1,118 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net-next] bnx2x: Added GRO support
-Date: Thu, 1 Apr 2010 14:49:33 +0300
-Message-ID: <1270122573.22693.6.camel@lb-tlvb-dmitry>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 3/5] netfilter: xtables: inclusion of xt_TEE
+Date: Thu, 01 Apr 2010 13:54:43 +0200
+Message-ID: <4BB48983.909@trash.net>
+References: <1270031934-15940-1-git-send-email-jengelh@medozas.de> <1270031934-15940-4-git-send-email-jengelh@medozas.de> <4BB47698.6070102@trash.net> <alpine.LSU.2.01.1004011304350.17429@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, eilong@broadcom.com, vladz@broadcom.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1493 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755644Ab0DALtq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 07:49:46 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.01.1004011304350.17429@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Resend, since original mail has typo in Dave's address
+Jan Engelhardt wrote:
+> On Thursday 2010-04-01 12:34, Patrick McHardy wrote:
+>>> +static bool
+>>> +tee_tg_route4(struct sk_buff *skb, const struct xt_tee_tginfo *inf=
+o)
+>>> +{
+>>> +	const struct iphdr *iph =3D ip_hdr(skb);
+>>> +	struct rtable *rt;
+>>> +	struct flowi fl;
+>>> +	int err;
+>>> +
+>>> +	memset(&fl, 0, sizeof(fl));
+>>> +	fl.iif  =3D skb->skb_iif;
+>> I'm not sure you really should set iif here. We usually (tunnels, RE=
+JECT
+>> etc) packets generated locally as new packets.
+>>> +	fl.mark =3D skb->mark;
+>> The same applies to mark.
+>=20
+> If you use TEE in PREROUTING or INPUT, teeing acts more like FORWARD =
+than
+> OUTPUT, though. All TEE does is lookup a route to a new fl.dst, but i=
+t keeps
+> the original src address in fl.src, so if somebody has some source-ba=
+sed policy
+> routing, it could suddenly behave different. What do you think?
 
----
-Adding GRO support on top of the HW LRO (TPA) support =E2=80=93
-there is no measurable performance drawback of adding GRO
-on top of it, and it allows better performance when LRO (TPA)
-is turned off for virtualization or bridging.
+That might make it unnessarily complicated to use src-based routing
+when using TEE. I guess you'd usually have a host for logging or IDS
+somewhere on a private network and TEE packets there. So specifying
+oif and gateway seems most useful to me.
 
+>>> +/*
+>>> + * To detect and deter routed packet loopback when using the --tee=
+ option, we
+>>> + * take a page out of the raw.patch book: on the copied skb, we se=
+t up a fake
+>>> + * ->nfct entry, pointing to the local &route_tee_track. We skip r=
+outing
+>>> + * packets when we see they already have that ->nfct.
+>> So without conntrack, people may create loops? If that's the case,
+>> I'd suggest to simply forbid TEE'ing packets to loopback. That
+>> doesn't seem to be very useful anyways.
+>=20
+>>> +#ifdef WITH_CONNTRACK
+>>> +	if (skb->nfct =3D=3D &tee_track.ct_general)
+>>> +		/*
+>>> +		 * Loopback - a packet we already routed, is to be
+>>> +		 * routed another time. Avoid that, now.
+>>> +		 */
+> 	printk("loopback - dropped\n");
+>>> +		return NF_DROP;
+>>> +#endif
+>=20
+> We are looking at a historic piece of code - and comments, which
+> traces back to when xt_NOTRACK was still in POM.
+>=20
+> {
+>     =E2=86=92   /* Previously seen (loopback)? Ignore. */
+>     =E2=86=92   if ((*pskb)->nfct !=3D NULL)
+>     =E2=86=92       =E2=86=92   return IPT_CONTINUE;
+>=20
+>     =E2=86=92   /* Attach fake conntrack entry.=C2=B7
+>     =E2=86=92      If there is a real ct entry correspondig to this p=
+acket,=C2=B7
+>     =E2=86=92      it'll hang aroun till timing out. We don't deal wi=
+th it
+>     =E2=86=92      for performance reasons. JK */
+>     =E2=86=92   (*pskb)->nfct =3D &ip_conntrack_untracked.infos[IP_CT=
+_NEW];
+>     =E2=86=92   nf_conntrack_get((*pskb)->nfct);
+>=20
+>     =E2=86=92   return IPT_CONTINUE;
+> }
+>=20
+> Let's look at the condition "skb->nfct =3D=3D &tee_track.ct_general" =
+in detail. An
+> skb can only already have tee_track when it has been teed.
+>=20
+> The teed packet however never traversed Xtables at all. Of course tha=
+t changes
+> once the nesting patch is applied. But was someone really thinking of=
+ this, 6
+> years ago?
+>=20
+> That actually made me wonder and dig in history, and it turns out tha=
+t
+> ipt_ROUTE allowed the packet to be fed back into netif_rx (commit
+> bee4e80167e3d024bdb80f400f4ecc8de47cfb03 in pom-ng.git), which would
+> explain all the loopback stuff. Since modern xt_TEE does not do
+> that evil thing, the comment is a walnut-hard remainder of past times=
+=2E
+>=20
+> I shall remove it now that it has been spotted.
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x_main.c |   20 +++++++++++---------
- 1 files changed, 11 insertions(+), 9 deletions(-)
+Yeah, but currently it does allow packets to be looped back. These
+packets will also go through the netfilter hooks again.
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 6c042a7..f4ea99d 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -57,8 +57,8 @@
- #include "bnx2x_init_ops.h"
- #include "bnx2x_dump.h"
-=20
--#define DRV_MODULE_VERSION	"1.52.1-7"
--#define DRV_MODULE_RELDATE	"2010/02/28"
-+#define DRV_MODULE_VERSION	"1.52.1-8"
-+#define DRV_MODULE_RELDATE	"2010/04/01"
- #define BNX2X_BC_VER		0x040200
-=20
- #include <linux/firmware.h>
-@@ -1441,12 +1441,12 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, st=
-ruct bnx2x_fastpath *fp,
- #ifdef BCM_VLAN
- 			if ((bp->vlgrp !=3D NULL) && is_vlan_cqe &&
- 			    (!is_not_hwaccel_vlan_cqe))
--				vlan_hwaccel_receive_skb(skb, bp->vlgrp,
--						le16_to_cpu(cqe->fast_path_cqe.
--							    vlan_tag));
-+				vlan_gro_receive(&fp->napi, bp->vlgrp,
-+						 le16_to_cpu(cqe->fast_path_cqe.
-+							     vlan_tag), skb);
- 			else
- #endif
--				netif_receive_skb(skb);
-+				napi_gro_receive(&fp->napi, skb);
- 		} else {
- 			DP(NETIF_MSG_RX_STATUS, "Failed to allocate new pages"
- 			   " - dropping packet!\n");
-@@ -1699,11 +1699,11 @@ reuse_rx:
- 		if ((bp->vlgrp !=3D NULL) && (bp->flags & HW_VLAN_RX_FLAG) &&
- 		    (le16_to_cpu(cqe->fast_path_cqe.pars_flags.flags) &
- 		     PARSING_FLAGS_VLAN))
--			vlan_hwaccel_receive_skb(skb, bp->vlgrp,
--				le16_to_cpu(cqe->fast_path_cqe.vlan_tag));
-+			vlan_gro_receive(&fp->napi, bp->vlgrp,
-+				le16_to_cpu(cqe->fast_path_cqe.vlan_tag), skb);
- 		else
- #endif
--			netif_receive_skb(skb);
-+			napi_gro_receive(&fp->napi, skb);
-=20
-=20
- next_rx:
-@@ -8935,6 +8935,8 @@ static int __devinit bnx2x_init_bp(struct bnx2x *=
-bp)
- 	bp->multi_mode =3D multi_mode;
-=20
-=20
-+	bp->dev->features |=3D NETIF_F_GRO;
-+
- 	/* Set TPA flags */
- 	if (disable_tpa) {
- 		bp->flags &=3D ~TPA_ENABLE_FLAG;
---=20
-1.6.3.3
-
-
-
-
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
