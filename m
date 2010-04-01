@@ -1,81 +1,87 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: [PATCH 1/2] acenic: fix the misusage of zero dma address
-Date: Thu,  1 Apr 2010 17:13:05 +0900
-Message-ID: <1270109586-9193-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-Cc: netdev@vger.kernel.org, fujita.tomonori@lab.ntt.co.jp
-To: linux-acenic@sunsite.dk
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [PATCH net-next-2.6] ipv6 fib: Make ip6_fib{} more cache-line aware.
+Date: Thu, 1 Apr 2010 17:18:35 +0900
+Message-ID: <201004010818.o318IZ6f025510@94.43.138.210.xn.2iij.net>
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sh.osrg.net ([192.16.179.4]:48853 "EHLO sh.osrg.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754144Ab0DAIRR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Apr 2010 04:17:17 -0400
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:51226 "EHLO
+	94.43.138.210.xn.2iij.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754193Ab0DAISn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 04:18:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-acenic wrongly assumes that zero is an invalid dma address (calls
-dma_unmap_page for only non zero dma addresses). Zero is a valid dma
-address on some architectures. The dma length can be used here.
+Because elements at the end of dst_entry{} are frequently
+updated, it is not good to put frequently-used static
+elements, such as rt6i_idev, rt6i_dst or rt6i_flags in the
+same cache line.
 
-Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+On the other hand, fib6_table, rt6i_node or rt6i_gateway are
+rarely used, so it is okay to stay in the same cache line.
+
+Let's rearrange ip6_fib{}.
+
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- drivers/net/acenic.c |   16 ++++++----------
- 1 files changed, 6 insertions(+), 10 deletions(-)
+ include/net/ip6_fib.h |   29 ++++++++++++++++-------------
+ 1 files changed, 16 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/acenic.c b/drivers/net/acenic.c
-index 97a3dfd..02a4746 100644
---- a/drivers/net/acenic.c
-+++ b/drivers/net/acenic.c
-@@ -2078,18 +2078,16 @@ static inline void ace_tx_int(struct net_device *dev,
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index 86f46c4..4b1dc11 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -88,34 +88,37 @@ struct rt6_info {
+ 		struct dst_entry	dst;
+ 	} u;
  
- 	do {
- 		struct sk_buff *skb;
--		dma_addr_t mapping;
- 		struct tx_ring_info *info;
+-	struct inet6_dev		*rt6i_idev;
+-
+ #define rt6i_dev			u.dst.dev
+ #define rt6i_nexthop			u.dst.neighbour
+ #define rt6i_expires			u.dst.expires
  
- 		info = ap->skb->tx_skbuff + idx;
- 		skb = info->skb;
--		mapping = pci_unmap_addr(info, mapping);
++	/*
++	 * Tail elements of dst_entry (__refcnt etc.)
++	 * and these elements (rarely used in hot path) are in
++	 * the same cache line.
++	 */
++	struct fib6_table		*rt6i_table;
+ 	struct fib6_node		*rt6i_node;
  
--		if (mapping) {
--			pci_unmap_page(ap->pdev, mapping,
-+		if (dma_unmap_len(info, maplen)) {
-+			pci_unmap_page(ap->pdev, dma_unmap_addr(info, mapping),
- 				       pci_unmap_len(info, maplen),
- 				       PCI_DMA_TODEVICE);
--			pci_unmap_addr_set(info, mapping, 0);
-+			dma_unmap_len_set(info, maplen, 0);
- 		}
+ 	struct in6_addr			rt6i_gateway;
+-	
+-	u32				rt6i_flags;
+-	u32				rt6i_metric;
+-	atomic_t			rt6i_ref;
  
- 		if (skb) {
-@@ -2377,14 +2375,12 @@ static int ace_close(struct net_device *dev)
+-	/* more non-fragment space at head required */
+-	unsigned short			rt6i_nfheader_len;
+-
+-	u8				rt6i_protocol;
++	atomic_t			rt6i_ref;
  
- 	for (i = 0; i < ACE_TX_RING_ENTRIES(ap); i++) {
- 		struct sk_buff *skb;
--		dma_addr_t mapping;
- 		struct tx_ring_info *info;
+-	struct fib6_table		*rt6i_table;
++	/* These are in a separate cache line. */
++	struct rt6key			rt6i_dst ____cacheline_aligned_in_smp;
++	u32				rt6i_flags;
++	struct rt6key			rt6i_src;
++	u32				rt6i_metric;
  
- 		info = ap->skb->tx_skbuff + i;
- 		skb = info->skb;
--		mapping = pci_unmap_addr(info, mapping);
+-	struct rt6key			rt6i_dst;
++	struct inet6_dev		*rt6i_idev;
  
--		if (mapping) {
-+		if (dma_unmap_len(info, maplen)) {
- 			if (ACE_IS_TIGON_I(ap)) {
- 				/* NB: TIGON_1 is special, tx_ring is in io space */
- 				struct tx_desc __iomem *tx;
-@@ -2395,10 +2391,10 @@ static int ace_close(struct net_device *dev)
- 			} else
- 				memset(ap->tx_ring + i, 0,
- 				       sizeof(struct tx_desc));
--			pci_unmap_page(ap->pdev, mapping,
-+			pci_unmap_page(ap->pdev, dma_unmap_addr(info, mapping),
- 				       pci_unmap_len(info, maplen),
- 				       PCI_DMA_TODEVICE);
--			pci_unmap_addr_set(info, mapping, 0);
-+			dma_unmap_len_set(info, maplen, 0);
- 		}
- 		if (skb) {
- 			dev_kfree_skb(skb);
+ #ifdef CONFIG_XFRM
+ 	u32				rt6i_flow_cache_genid;
+ #endif
++	/* more non-fragment space at head required */
++	unsigned short			rt6i_nfheader_len;
+ 
+-	struct rt6key			rt6i_src;
++	u8				rt6i_protocol;
+ };
+ 
+ static inline struct inet6_dev *ip6_dst_idev(struct dst_entry *dst)
 -- 
-1.7.0
+1.5.6.5
 
