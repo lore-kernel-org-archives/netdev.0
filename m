@@ -1,46 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/6] cxgb4: Add main driver file and driver Makefile
-Date: Wed, 31 Mar 2010 17:24:01 -0700 (PDT)
-Message-ID: <20100331.172401.00333850.davem@davemloft.net>
-References: <20100330141904.5236fe44@nehalam>
-	<20100330.225042.107712654.davem@davemloft.net>
-	<4BB3E689.4050001@chelsio.com>
+From: Brandon Philips <brandon@ifup.org>
+Subject: Re: [PATCH] r8169: offical fix for CVE-2009-4537 (overlength frame
+ DMAs)
+Date: Wed, 31 Mar 2010 17:24:50 -0700
+Message-ID: <20100401002450.GA19117@jenkins.home.ifup.org>
+References: <20100329160356.GC22733@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: dm@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46238
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755628Ab0DAAYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 20:24:00 -0400
-In-Reply-To: <4BB3E689.4050001@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	michael.s.gilbert@gmail.com, davem@davemeloft.net,
+	romieu@fr.zoreil.com, eric.dumazet@gmail.com
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100329160356.GC22733@hmsreliant.think-freely.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dimitris Michailidis <dm@chelsio.com>
-Date: Wed, 31 Mar 2010 17:19:21 -0700
+On 12:03 Mon 29 Mar 2010, Neil Horman wrote:
+> Signed-off-by: Neil Horman <nhorman@redhat.com>
 
-> So, I propose getting rid of 3-4 of these files that are of lesser
-> value and moving the rest to debugfs for now.  If some alternative
-> through ethtool or something becomes available I can get rid of
-> anything that can be handled through a more general facility.  Would
-> that be acceptable?
+Cc: stable@kernel.org?
+Tested-by: Brandon Philips <bphilips@suse.de>
 
-You can use sysfs.
+> +	if (max_frame != 16383)
+> +		printk(KERN_WARNING "WARNING! Changing of MTU on this NIC"
+> +			"May lead to frame reception errors!\n");
 
-I have a similar issue on NIU wherein a top-level set of logic
-behaves like a parent virtual device and contains attributes
-I'd like to export.
+This needs a space to look right. You might as well add the PFX too:
 
-I create a dummy platform device to represent this node and
-hang the device sysfs information in that device's sysfs
-directory.  It shows up as /sys/devices/platform/niu.%d
-and the network ports underneath this parent appear as
-symlinks named "port%d"  (part of this is setup in
-drivers/net/niu.c:niu_get_parent() and niu_new_parent())
+		printk(KERN_WARNING PFX "WARNING! Changing of MTU on this "
+			"NIC may lead to frame reception errors!\n");
 
-You could do something similar to represent the fact that
-these statistics are virtualized and belong to some centralized
-virtual entity that represents one or more actual device ports.
+Thanks Neil.
+
+Cheers,
+
+	Brandon
