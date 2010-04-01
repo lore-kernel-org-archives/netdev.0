@@ -1,44 +1,38 @@
-From: Taylor Lewick <taylor.lewick@gmail.com>
-Subject: Increased Latencies when upgrading kernel version
-Date: Thu, 1 Apr 2010 14:12:57 -0500
-Message-ID: <o2vd585dc4f1004011212s65cc2beewed2f19321210a249@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 2/3] can: add support for Janz VMOD-ICAN3 Intelligent
+ CAN module
+Date: Thu, 1 Apr 2010 13:03:59 -0700
+Message-ID: <20100401130359.9a9b5c7b.akpm@linux-foundation.org>
+References: <1269881932-3803-3-git-send-email-iws@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:47910 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756633Ab0DATM7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 15:12:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, socketcan-core@lists.berlios.de,
+	netdev@vger.kernel.org, sameo@linux.intel.com
+To: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1269881932-3803-3-git-send-email-iws@ovro.caltech.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-For some time now we've been running an older kernel, 2.6.16.60.  When
-we tried to upgrade, first going to 2.6.27.19 and then to 2.6.32.1 and
-2.6.33.1 we noticed that latencies increased.  At first we noticed it
-by doing network tests via udpping, netperf, etc.  We made some
-tweaks, and were able to get network latency to within 1 to 2
-microseconds of where we were previously on 2.6.16.60.  Then we did
-some more testing, and noticed that system latency also seems higher.
+On Mon, 29 Mar 2010 09:58:51 -0700
+"Ira W. Snyder" <iws@ovro.caltech.edu> wrote:
 
-We've done our tests on identical hardware servers, same NICs,
-connected through same network gear.  Basically, we've tried to keep
-everything identical except the kernel versions, and we are unable to
-achieve the same performance for system latency on the newer kernels,
-despite adjusting various kernel settings and recompiling.
+> The Janz VMOD-ICAN3 is a MODULbus daughterboard which fits onto any
+> MODULbus carrier board. It is an intelligent CAN controller with a
+> microcontroller and associated firmware.
+> 
 
-The latency differences are about 15 microseconds per transaction.
+A neat-looking driver.
 
-At this point, I don't know what else to try.  I haven't played around
-with the /proc/sys/kernel/sched_* paramaters under the newer kernels
-yet.  Have tried changing pre-emption modes with little effect, in
-fact, voluntary preemption seems to be peforming the best for us.
+> ...
+>
+> +	spin_lock_irqsave(&mod->lock, flags);
+>
+> ...
 
-At this time the realtime patch isn't really an option for us to
-consider, at least not yet.
+It does this rather a lot.  it seems to be doing quite a lot of work
+under that lock, too - quite a lot of memcpy_toio(), other stuff.
 
-Any suggestions?  Is this a known issue when upgrading to more recent
-kernel versions?
-
-Thanks,
-Taylor
+Is there potential here to disable interrupt for too long?  Not
+possible to use spin_lock_bh() here?
