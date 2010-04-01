@@ -1,54 +1,65 @@
-From: =?UTF-8?B?IllPU0hJRlVKSSBIaWRlYWtpICjlkInol6Qg6Iux5piOKSI=?=
-	<hideaki@yoshifuji.org>
-Subject: Re: [PATCH] xtables: make XT_ALIGN() usable in exported headers
-Date: Thu, 01 Apr 2010 21:25:25 +0900
-Message-ID: <4BB490B5.1040200@yoshifuji.org>
-References: <n2ib6fcc0a1004010502z8c25a68cg11c5aa2f90ad4826@mail.gmail.com> <4BB48C50.2000000@trash.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC] SPD basic actions per netdev
+Date: Thu, 01 Apr 2010 08:34:16 -0400
+Message-ID: <1270125256.26743.195.camel@bigi>
+References: <1270053478.26743.111.camel@bigi>
+	 <20100401003352.GA19147@gondor.apana.org.au>
+	 <1270089323.26743.138.camel@bigi>
+	 <20100401025247.GA19994@gondor.apana.org.au> <4BB42692.9010105@iki.fi>
+	 <20100401060145.GB20865@gondor.apana.org.au> <4BB43B38.1060004@iki.fi>
+	 <20100401062840.GA21284@gondor.apana.org.au> <4BB43DE6.9060300@iki.fi>
+	 <20100401063956.GA21422@gondor.apana.org.au>
+	 <1270121385.26743.169.camel@bigi>  <4BB487CA.3020603@iki.fi>
+	 <1270123246.26743.177.camel@bigi>  <4BB48D1C.80205@iki.fi>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Andreas Henriksson <andreas@fatal.se>, jamal <hadi@cyberus.ca>,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Timo =?ISO-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:53137 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754453Ab0DAM0D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 08:26:03 -0400
-In-Reply-To: <4BB48C50.2000000@trash.net>
+Received: from qw-out-2122.google.com ([74.125.92.24]:25339 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752572Ab0DAMeW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 08:34:22 -0400
+Received: by qw-out-2122.google.com with SMTP id 8so361090qwh.37
+        for <netdev@vger.kernel.org>; Thu, 01 Apr 2010 05:34:21 -0700 (PDT)
+In-Reply-To: <4BB48D1C.80205@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I think it is better to solicit comments on LKML.
+On Thu, 2010-04-01 at 15:10 +0300, Timo Ter=C3=A4s wrote:
 
-This is not a new issue but rather a common one
-(e.g. CMSG_ALIGN uses its own definition).
+> On entry to ip_forward the routing decision has already been made.
+> Both oif and iif are valid on entry.
 
-Regards,
+ah, ok - yes;->
 
---yoshfuji
+> Currently policy_check() uses oif for SPD matching.
 
-(2010/04/01 21:06), Patrick McHardy wrote:
-> Alexey Dobriyan wrote:
->> On Thu, Apr 1, 2010 at 1:50 PM, Patrick McHardy<kaber@trash.net>  wrote:
->>> I can't think of anything but to restore the XT_ALIGN macro.
->>> We could add a XT_ALIGN definition to xtables.h, but that might
->>> still leave problems for other users.
->>>
->>> Alexey, do you have any better suggestions?
->>
->> I like __KERNEL_ALIGN trick.
->>
->> Sorry for attachment, my patch sending facility is broke.
->> Tested on iptables compilation.
->>
->
-> Seems fine to me, thanks. I'll wait a bit for others to comment.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+indeed it does.
+
+So i can see the dilemma with fwd path. It would be nice
+to be able to classify on both iif and oif.
+
+So that leaves only IN direction. If i only worried about that
+and use skb->skb_iif then at least i wont be breaking the semantics
+for FWD/OUT (i.e the patch without check for FWD).=20
+
+That would make semantics for selector ifindex as follows:
+table    current    patch
+----------------------------
+OUT       fl->oif   fl->oif
+=46WD       fl->oif   fl->oif
+IN        N/A       skb->skb_iif
+
+By "N/A" it means really you cant set it. If you do it doesnt work.
+
+cheers,
+jamal
+
+
+
 
