@@ -1,37 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 04/12] l2tp: Add ppp device name to L2TP ppp session
- data
-Date: Thu, 01 Apr 2010 00:34:59 -0700 (PDT)
-Message-ID: <20100401.003459.88028238.davem@davemloft.net>
-References: <4BB2FD0D.1080105@katalix.com>
-	<20100331160811.16351eb7@s6510>
-	<4BB4490F.8090406@katalix.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the slabh tree
+Date: Thu, 1 Apr 2010 18:40:30 +1100
+Message-ID: <20100401184030.804c8eb3.sfr@canb.auug.org.au>
+References: <20100401164110.80e3b18f.sfr@canb.auug.org.au>
+	<20100401.002908.267643090.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: jchapman@katalix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51133
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751209Ab0DAHe6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 03:34:58 -0400
-In-Reply-To: <4BB4490F.8090406@katalix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Thu__1_Apr_2010_18_40_30_+1100_tXNwSJsUQpDL1QHo"
+Cc: tj@kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, sjur.brandeland@stericsson.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100401.002908.267643090.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: James Chapman <jchapman@katalix.com>
-Date: Thu, 01 Apr 2010 08:19:43 +0100
+--Signature=_Thu__1_Apr_2010_18_40_30_+1100_tXNwSJsUQpDL1QHo
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> There might be thousands of L2TP sessions in some setups. Populating
-> sysfs with a link for each of those sessions isn't practical. The
-> existing /proc file dumps its info as a single text file for this
-> reason. I'd also like to provide the device name in the session netlink
-> message, which is the interface used by l2tp userspace, so I need a
-> kernel API to retrieve the device name from ppp.
+Hi Dave,
 
-Scalability concerns are also another reason _not_ to use
-procfs.
+On Thu, 01 Apr 2010 00:29:08 -0700 (PDT) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Thu, 1 Apr 2010 16:41:10 +1100
+>=20
+> > I have applied the following patch for today.  Dave, could you apply th=
+is
+> > to the net tree please?
+>=20
+> Done.
 
-Use netlink or similar, which can dump with filtering and
-proper queueing.
+Thanks.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Thu__1_Apr_2010_18_40_30_+1100_tXNwSJsUQpDL1QHo
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAku0Te4ACgkQjjKRsyhoI8wPYQCgi3e1/yxTzF+fFvf/+A7kfhfp
+bVYAoJZw8trXY8josG4ceyKRjw0eBsJL
+=lGff
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__1_Apr_2010_18_40_30_+1100_tXNwSJsUQpDL1QHo--
