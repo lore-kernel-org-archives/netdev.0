@@ -1,63 +1,54 @@
-From: =?UTF-8?B?VGltbyBUZXLDpHM=?= <timo.teras@iki.fi>
-Subject: Re: [RFC] SPD basic actions per netdev
-Date: Thu, 01 Apr 2010 15:10:04 +0300
-Message-ID: <4BB48D1C.80205@iki.fi>
-References: <1270053478.26743.111.camel@bigi>	 <20100401003352.GA19147@gondor.apana.org.au>	 <1270089323.26743.138.camel@bigi>	 <20100401025247.GA19994@gondor.apana.org.au> <4BB42692.9010105@iki.fi>	 <20100401060145.GB20865@gondor.apana.org.au> <4BB43B38.1060004@iki.fi>	 <20100401062840.GA21284@gondor.apana.org.au> <4BB43DE6.9060300@iki.fi>	 <20100401063956.GA21422@gondor.apana.org.au>	 <1270121385.26743.169.camel@bigi>  <4BB487CA.3020603@iki.fi> <1270123246.26743.177.camel@bigi>
+From: =?UTF-8?B?IllPU0hJRlVKSSBIaWRlYWtpICjlkInol6Qg6Iux5piOKSI=?=
+	<hideaki@yoshifuji.org>
+Subject: Re: [PATCH] xtables: make XT_ALIGN() usable in exported headers
+Date: Thu, 01 Apr 2010 21:25:25 +0900
+Message-ID: <4BB490B5.1040200@yoshifuji.org>
+References: <n2ib6fcc0a1004010502z8c25a68cg11c5aa2f90ad4826@mail.gmail.com> <4BB48C50.2000000@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexey Dobriyan <adobriyan@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Andreas Henriksson <andreas@fatal.se>, jamal <hadi@cyberus.ca>,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f220.google.com ([209.85.219.220]:56033 "EHLO
-	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754108Ab0DAMKI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 08:10:08 -0400
-Received: by ewy20 with SMTP id 20so318448ewy.1
-        for <netdev@vger.kernel.org>; Thu, 01 Apr 2010 05:10:06 -0700 (PDT)
-In-Reply-To: <1270123246.26743.177.camel@bigi>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:53137 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754453Ab0DAM0D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 08:26:03 -0400
+In-Reply-To: <4BB48C50.2000000@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-jamal wrote:
-> On Thu, 2010-04-01 at 14:47 +0300, Timo Ter=C3=A4s wrote:
->=20
->> The thing is that currently FWD 'dev blah' matches the interface
->> to which the packet is being forwarded to. Someone might be using
->> this feature already.
->=20
-> So this is the part i am missing i think. If i look at:
->=20
-> int ip_forward(struct sk_buff *skb)
-> {
-> .....
->         if (!xfrm4_policy_check(NULL, XFRM_POLICY_FWD, skb))
->                 goto drop;
-> ....
-> ........later forwarding happens here ...
->         if (!xfrm4_route_forward(skb))
->                 goto drop;
-> ...
-> }
->=20
-> On entry we have a legit skb->skb_iif.
-> The validity check is before forwarding decision (where the interface
-> the packet is being forwarded to is recognized).
+I think it is better to solicit comments on LKML.
 
-On entry to ip_forward the routing decision has already been made.
-Both oif and iif are valid on entry.
+This is not a new issue but rather a common one
+(e.g. CMSG_ALIGN uses its own definition).
 
-Currently policy_check() uses oif for SPD matching.
+Regards,
 
-Do note that xfrm4_route_forward() is a no-op if there's no matching
-policy. It has nothing to do with routing decision, it's purpose
-is to wrap the dst_entry with xfrm_dst if the flow matches a valid
-SPD.
+--yoshfuji
 
->> Your patch changes semantics on how FWD policies are matched.
->=20
-> I agree if what you say earlier is true.
+(2010/04/01 21:06), Patrick McHardy wrote:
+> Alexey Dobriyan wrote:
+>> On Thu, Apr 1, 2010 at 1:50 PM, Patrick McHardy<kaber@trash.net>  wrote:
+>>> I can't think of anything but to restore the XT_ALIGN macro.
+>>> We could add a XT_ALIGN definition to xtables.h, but that might
+>>> still leave problems for other users.
+>>>
+>>> Alexey, do you have any better suggestions?
+>>
+>> I like __KERNEL_ALIGN trick.
+>>
+>> Sorry for attachment, my patch sending facility is broke.
+>> Tested on iptables compilation.
+>>
+>
+> Seems fine to me, thanks. I'll wait a bit for others to comment.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
