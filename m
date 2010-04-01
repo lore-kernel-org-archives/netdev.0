@@ -1,57 +1,61 @@
-From: Stefan Assmann <sassmann@redhat.com>
-Subject: [PATCH net-next-2.6] igb: restrict WoL for 82576 ET2 Quad Port Server
- Adapter
-Date: Thu, 01 Apr 2010 19:00:44 +0200
-Message-ID: <4BB4D13C.8030303@redhat.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH 1/2] phylib: Support phy module autoloading
+Date: Thu, 01 Apr 2010 18:03:48 +0100
+Message-ID: <1270141428.3101.399.camel@macbook.infradead.org>
+References: <1269998334.18090.278.camel@macbook.infradead.org>
+	 <1270096441.12516.18.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	jeffrey.t.kirsher@intel.com
-To: netdev <netdev@vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, 553024@bugs.debian.org
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19348 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752562Ab0DARAw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Apr 2010 13:00:52 -0400
+Received: from bombadil.infradead.org ([18.85.46.34]:45820 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753331Ab0DARER (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 13:04:17 -0400
+In-Reply-To: <1270096441.12516.18.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Assmann <sassmann@redhat.com>
+On Thu, 2010-04-01 at 05:34 +0100, Ben Hutchings wrote:
+> On Wed, 2010-03-31 at 02:18 +0100, David Woodhouse wrote:
+> > We don't use the normal hotplug mechanism because it doesn't work. It will
+> > load the module some time after the device appears, but that's not good
+> > enough for us -- we need the driver loaded _immediately_ because otherwise
+> > the NIC driver may just abort and then the phy 'device' goes away.
+> > 
+> > Instead, we just issue a request_module() directly in phy_device_create().
+> [...]
+> 
+> Thanks for doing this, David.  I had a stab at it earlier when this
+> problem was reported in Debian <http://bugs.debian.org/553024>.  I
+> didn't complete this because (a) I didn't understand all the details of
+> adding new device table type, and (b) I tried to avoid duplicating
+> information, which turns out to be rather difficult in modules with
+> multiple drivers.
 
-Restrict Wake-on-LAN to first port on 82576 ET2 quad port NICs, as it is
-only supported there.
+It shouldn't be _that_ hard.
 
-Signed-off-by: Stefan Assmann <sassmann@redhat.com>
----
- drivers/net/igb/igb_ethtool.c |    1 +
- drivers/net/igb/igb_main.c    |    1 +
- 2 files changed, 2 insertions(+), 0 deletions(-)
+You could contrive a macro which you use inside the driver definition
+and which takes the phy_id and phy_id_mask as arguments, and has the
+side-effect of setting up the MODULE_DEVICE_TABLE data.
 
-diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
-index 1d4ee41..cdebfbf 100644
---- a/drivers/net/igb/igb_ethtool.c
-+++ b/drivers/net/igb/igb_ethtool.c
-@@ -1863,6 +1863,7 @@ static int igb_wol_exclusion(struct igb_adapter *adapter,
- 		retval = 0;
- 		break;
- 	case E1000_DEV_ID_82576_QUAD_COPPER:
-+	case E1000_DEV_ID_82576_QUAD_COPPER_ET2:
- 		/* quad port adapters only support WoL on port A */
- 		if (!(adapter->flags & IGB_FLAG_QUAD_PORT_A)) {
- 			wol->supported = 0;
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index ea87570..5426f41 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -1597,6 +1597,7 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 			adapter->eeprom_wol = 0;
- 		break;
- 	case E1000_DEV_ID_82576_QUAD_COPPER:
-+	case E1000_DEV_ID_82576_QUAD_COPPER_ET2:
- 		/* if quad port adapter, disable WoL on all but port A */
- 		if (global_quad_port_a != 0)
- 			adapter->eeprom_wol = 0;
+> Since you've dealt with (a), and (b) is not really as important, I would
+> just like to suggest some minor changes to your patch 1 (see below).
+> Feel free to fold them in.  Your patch 2 would then need the
+> substitutions s/phy_device_id/mdio_device_id/; s/TABLE(phy/TABLE(mdio/.
+
+I'll tolerate the silly __u32 crap if I must for consistency, but
+normally I prefer to write in C.
+
+I did think about 'mdio:' for the module alias, but I decided that
+'phy:' probably made more sense since these are PHY driver modules and
+the number is the phy_id.
+
+Kernel-doc is good though.
+
 -- 
-1.6.6.1
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
 
