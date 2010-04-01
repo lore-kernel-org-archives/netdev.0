@@ -1,63 +1,88 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] SPD basic actions per netdev
-Date: Thu, 01 Apr 2010 08:00:46 -0400
-Message-ID: <1270123246.26743.177.camel@bigi>
-References: <1270053478.26743.111.camel@bigi>
-	 <20100401003352.GA19147@gondor.apana.org.au>
-	 <1270089323.26743.138.camel@bigi>
-	 <20100401025247.GA19994@gondor.apana.org.au> <4BB42692.9010105@iki.fi>
-	 <20100401060145.GB20865@gondor.apana.org.au> <4BB43B38.1060004@iki.fi>
-	 <20100401062840.GA21284@gondor.apana.org.au> <4BB43DE6.9060300@iki.fi>
-	 <20100401063956.GA21422@gondor.apana.org.au>
-	 <1270121385.26743.169.camel@bigi>  <4BB487CA.3020603@iki.fi>
-Reply-To: hadi@cyberus.ca
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] xtables: make XT_ALIGN() usable in exported headers
+Date: Thu, 1 Apr 2010 15:02:14 +0300
+Message-ID: <n2ib6fcc0a1004010502z8c25a68cg11c5aa2f90ad4826@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Timo =?ISO-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Content-Type: multipart/mixed; boundary=000e0cd25eae319a6a04832ba25f
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Andreas Henriksson <andreas@fatal.se>, jamal <hadi@cyberus.ca>,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.26]:57390 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755727Ab0DAMAv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 08:00:51 -0400
-Received: by qw-out-2122.google.com with SMTP id 8so353942qwh.37
-        for <netdev@vger.kernel.org>; Thu, 01 Apr 2010 05:00:50 -0700 (PDT)
-In-Reply-To: <4BB487CA.3020603@iki.fi>
+Received: from mail-pz0-f179.google.com ([209.85.222.179]:49487 "EHLO
+	mail-pz0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755769Ab0DAMCQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 08:02:16 -0400
+Received: by pzk9 with SMTP id 9so1015774pzk.21
+        for <netdev@vger.kernel.org>; Thu, 01 Apr 2010 05:02:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-04-01 at 14:47 +0300, Timo Ter=C3=A4s wrote:
+--000e0cd25eae319a6a04832ba25f
+Content-Type: text/plain; charset=ISO-8859-1
 
->=20
-> The thing is that currently FWD 'dev blah' matches the interface
-> to which the packet is being forwarded to. Someone might be using
-> this feature already.
+On Thu, Apr 1, 2010 at 1:50 PM, Patrick McHardy <kaber@trash.net> wrote:
+> I can't think of anything but to restore the XT_ALIGN macro.
+> We could add a XT_ALIGN definition to xtables.h, but that might
+> still leave problems for other users.
+>
+> Alexey, do you have any better suggestions?
 
-So this is the part i am missing i think. If i look at:
+I like __KERNEL_ALIGN trick.
 
-int ip_forward(struct sk_buff *skb)
-{
-=2E....
-        if (!xfrm4_policy_check(NULL, XFRM_POLICY_FWD, skb))
-                goto drop;
-=2E...
-=2E.......later forwarding happens here ...
-        if (!xfrm4_route_forward(skb))
-                goto drop;
-=2E..
-}
+Sorry for attachment, my patch sending facility is broke.
+Tested on iptables compilation.
 
-On entry we have a legit skb->skb_iif.
-The validity check is before forwarding decision (where the interface
-the packet is being forwarded to is recognized).
+--000e0cd25eae319a6a04832ba25f
+Content-Type: text/x-diff; charset=US-ASCII; name="xt-align.patch"
+Content-Disposition: attachment; filename="xt-align.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_g7hilf1f0
 
-> Your patch changes semantics on how FWD policies are matched.
-
-I agree if what you say earlier is true.
-
-cheers,
-jamal
-
+W1BBVENIXSB4dGFibGVzOiBtYWtlIFhUX0FMSUdOKCkgdXNhYmxlIGluIGV4cG9ydGVkIGhlYWRl
+cnMKClhUX0FMSUdOKCkgd2FzIHJld3JpdHRlbiB0aHJvdWdoIEFMSUdOKCkgYnkgY29tbWl0IDQy
+MTA3ZjUwMDlkYTIyM2RhYTgwMGQ2ZGE2OTA0ZDc3Mjk3YWU4MjkKIm5ldGZpbHRlcjogeHRhYmxl
+czogc3ltbWV0cmljIENPTVBBVF9YVF9BTElHTiBkZWZpbml0aW9uIi4KQUxJR04oKSBpcyBub3Qg
+ZXhwb3J0ZWQgaW4gdXNlcnNwYWNlIGhlYWRlcnMsIHdoaWNoIGNyZWF0ZWQgY29tcGlsZSBwcm9i
+bGVtIGZvciB0Yyg4KQphbmQgd2lsbCBjcmVhdGUgcHJvYmxlbSBmb3IgaXB0YWJsZXMoOCkuCgpX
+ZSBjYW4ndCBleHBvcnQgZ2VuZXJpYyBsb29raW5nIG5hbWUgQUxJR04oKSBidXQgd2UgY2FuIGV4
+cG9ydCBsZXNzIGdlbmVyaWMKX19BTElHTl9LRVJORUwoKSAoc3VnZ2VzdGVkIGJ5IEJlbiBIdXRj
+aGluZ3MpLgpHb29nbGUga25vd3Mgbm90aGluZyBhYm91dCBfX0FMSUdOX0tFUk5FTCgpLgoKQ09N
+UEFUX1hUX0FMSUdOKCkgY2hhbmdlZCBmb3Igc3ltbWV0cnkuCgpSZXBvcnRlZC1ieTogQW5kcmVh
+cyBIZW5yaWtzc29uIDxhbmRyZWFzQGZhdGFsLnNlPgpTaWduZWQtb2ZmLWJ5OiBBbGV4ZXkgRG9i
+cml5YW4gPGFkb2JyaXlhbkBnbWFpbC5jb20+Ci0tLQoKIGluY2x1ZGUvbGludXgva2VybmVsLmgg
+ICAgICAgICAgICAgfCAgICA1ICsrKy0tCiBpbmNsdWRlL2xpbnV4L25ldGZpbHRlci94X3RhYmxl
+cy5oIHwgICAgNiArKystLS0KIDIgZmlsZXMgY2hhbmdlZCwgNiBpbnNlcnRpb25zKCspLCA1IGRl
+bGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgva2VybmVsLmggYi9pbmNsdWRl
+L2xpbnV4L2tlcm5lbC5oCmluZGV4IDdmMDcwNzQuLjI4NGVhOTkgMTAwNjQ0Ci0tLSBhL2luY2x1
+ZGUvbGludXgva2VybmVsLmgKKysrIGIvaW5jbHVkZS9saW51eC9rZXJuZWwuaApAQCAtNCw2ICs0
+LDggQEAKIC8qCiAgKiAna2VybmVsLmgnIGNvbnRhaW5zIHNvbWUgb2Z0ZW4tdXNlZCBmdW5jdGlv
+biBwcm90b3R5cGVzIGV0YwogICovCisjZGVmaW5lIF9fQUxJR05fS0VSTkVMKHgsIGEpCQlfX0FM
+SUdOX0tFUk5FTF9NQVNLKHgsICh0eXBlb2YoeCkpKGEpIC0gMSkKKyNkZWZpbmUgX19BTElHTl9L
+RVJORUxfTUFTSyh4LCBtYXNrKQkoKCh4KSArIChtYXNrKSkgJiB+KG1hc2spKQogCiAjaWZkZWYg
+X19LRVJORUxfXwogCkBAIC0zNyw4ICszOSw3IEBAIGV4dGVybiBjb25zdCBjaGFyIGxpbnV4X3By
+b2NfYmFubmVyW107CiAKICNkZWZpbmUgU1RBQ0tfTUFHSUMJMHhkZWFkYmVlZgogCi0jZGVmaW5l
+IEFMSUdOKHgsYSkJCV9fQUxJR05fTUFTSyh4LCh0eXBlb2YoeCkpKGEpLTEpCi0jZGVmaW5lIF9f
+QUxJR05fTUFTSyh4LG1hc2spCSgoKHgpKyhtYXNrKSkmfihtYXNrKSkKKyNkZWZpbmUgQUxJR04o
+eCwgYSkJCV9fQUxJR05fS0VSTkVMKCh4KSwgKGEpKQogI2RlZmluZSBQVFJfQUxJR04ocCwgYSkJ
+CSgodHlwZW9mKHApKUFMSUdOKCh1bnNpZ25lZCBsb25nKShwKSwgKGEpKSkKICNkZWZpbmUgSVNf
+QUxJR05FRCh4LCBhKQkJKCgoeCkgJiAoKHR5cGVvZih4KSkoYSkgLSAxKSkgPT0gMCkKIApkaWZm
+IC0tZ2l0IGEvaW5jbHVkZS9saW51eC9uZXRmaWx0ZXIveF90YWJsZXMuaCBiL2luY2x1ZGUvbGlu
+dXgvbmV0ZmlsdGVyL3hfdGFibGVzLmgKaW5kZXggODRjN2M5Mi4uZjAxZGRiZSAxMDA2NDQKLS0t
+IGEvaW5jbHVkZS9saW51eC9uZXRmaWx0ZXIveF90YWJsZXMuaAorKysgYi9pbmNsdWRlL2xpbnV4
+L25ldGZpbHRlci94X3RhYmxlcy5oCkBAIC0xLDYgKzEsNiBAQAogI2lmbmRlZiBfWF9UQUJMRVNf
+SAogI2RlZmluZSBfWF9UQUJMRVNfSAotCisjaW5jbHVkZSA8bGludXgva2VybmVsLmg+CiAjaW5j
+bHVkZSA8bGludXgvdHlwZXMuaD4KIAogI2RlZmluZSBYVF9GVU5DVElPTl9NQVhOQU1FTEVOIDMw
+CkBAIC05Myw3ICs5Myw3IEBAIHN0cnVjdCBfeHRfYWxpZ24gewogCV9fdTY0IHU2NDsKIH07CiAK
+LSNkZWZpbmUgWFRfQUxJR04ocykgQUxJR04oKHMpLCBfX2FsaWdub2ZfXyhzdHJ1Y3QgX3h0X2Fs
+aWduKSkKKyNkZWZpbmUgWFRfQUxJR04ocykgX19BTElHTl9LRVJORUwoKHMpLCBfX2FsaWdub2Zf
+XyhzdHJ1Y3QgX3h0X2FsaWduKSkKIAogLyogU3RhbmRhcmQgcmV0dXJuIHZlcmRpY3QsIG9yIGRv
+IGp1bXAuICovCiAjZGVmaW5lIFhUX1NUQU5EQVJEX1RBUkdFVCAiIgpAQCAtNTk4LDcgKzU5OCw3
+IEBAIHN0cnVjdCBfY29tcGF0X3h0X2FsaWduIHsKIAljb21wYXRfdTY0IHU2NDsKIH07CiAKLSNk
+ZWZpbmUgQ09NUEFUX1hUX0FMSUdOKHMpIEFMSUdOKChzKSwgX19hbGlnbm9mX18oc3RydWN0IF9j
+b21wYXRfeHRfYWxpZ24pKQorI2RlZmluZSBDT01QQVRfWFRfQUxJR04ocykgX19BTElHTl9LRVJO
+RUwoKHMpLCBfX2FsaWdub2ZfXyhzdHJ1Y3QgX2NvbXBhdF94dF9hbGlnbikpCiAKIGV4dGVybiB2
+b2lkIHh0X2NvbXBhdF9sb2NrKHVfaW50OF90IGFmKTsKIGV4dGVybiB2b2lkIHh0X2NvbXBhdF91
+bmxvY2sodV9pbnQ4X3QgYWYpOwo=
+--000e0cd25eae319a6a04832ba25f--
