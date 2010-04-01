@@ -1,45 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] SPD basic actions per netdev
-Date: Thu, 1 Apr 2010 10:52:47 +0800
-Message-ID: <20100401025247.GA19994@gondor.apana.org.au>
-References: <1270053478.26743.111.camel@bigi> <20100401003352.GA19147@gondor.apana.org.au> <1270089323.26743.138.camel@bigi>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: Undefined behaviour of connect(fd, NULL, 0);
+Date: Thu, 1 Apr 2010 11:00:23 +0800
+Message-ID: <n2w412e6f7f1003312000o3a69802j120acd3946458517@mail.gmail.com>
+References: <20100331223637.31f5f6ed@notabene.brown> <20100331114936.3549ca90@s6510>
+	<20100401072412.032aa8e6@notabene.brown> <20100331.141732.225997212.davem@davemloft.net>
+	<20100401090756.69bfb57d@notabene.brown>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Timo Teras <timo.teras@iki.fi>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: Neil Brown <neilb@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:59380 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752539Ab0DACxJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 22:53:09 -0400
-Content-Disposition: inline
-In-Reply-To: <1270089323.26743.138.camel@bigi>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:61702 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755798Ab0DADAo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 23:00:44 -0400
+Received: by gwaa18 with SMTP id a18so566910gwa.19
+        for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 20:00:43 -0700 (PDT)
+In-Reply-To: <20100401090756.69bfb57d@notabene.brown>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 31, 2010 at 10:35:23PM -0400, jamal wrote:
-> On Thu, 2010-04-01 at 08:33 +0800, Herbert Xu wrote:
-> 
-> > If we're going to change this then we should just add a second
-> > interface field to the selector, rather than trying to overload
-> > the existing one.
-> 
-> Do you mean to have a selector->iif/oif? Sure that makes sense - but is
-> a much larger surgery and user space will need to be taught.
-> 
-> Did you look at the patch i sent? i tried to retain current behavior
-> except for the input check path. output path was working in classifying
-> with specific netdevs. 
+I think the following patch is what Neil wants. The old code implies that
+connect(fd, NULL, 0) is used to check the socket connecting status, but
+Stephen's patch breaks it. The old code is wrong when it checks the address's
+faimly but not check the sizeof of the address to determine the family member
+is valid or not before.
 
-OK, I guess the chances of an existing app breaking is slim.
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index be1a6ac..3ff51f0 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -576,7 +576,8 @@ int inet_stream_connect(struct socket *sock,
+struct sockaddr *uaddr,
 
-BTW, you should treat FLOW_DIR_FWD as FLOW_DIR_IN.
+ 	lock_sock(sk);
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+-	if (uaddr->sa_family == AF_UNSPEC) {
++	if (addr_len >= sizeof(uaddr->sa_family) &&
++	    uaddr->sa_family == AF_UNSPEC) {
+ 		err = sk->sk_prot->disconnect(sk, flags);
+ 		sock->state = err ? SS_DISCONNECTING : SS_UNCONNECTED;
+ 		goto out;
