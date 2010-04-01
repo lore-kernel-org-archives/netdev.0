@@ -1,74 +1,77 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: UDP path MTU discovery
-Date: Wed, 31 Mar 2010 17:06:19 -0700
-Message-ID: <4BB3E37B.8040400@hp.com>
-References: <1269561751.2891.8.camel@ilion> <4BAC0577.7070803@hp.com>	<20100325.202636.149498207.davem@davemloft.net>	<1270078923.2389.31.camel@ilion> <20100331235149.GE3042@nuttenaction>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: Re: [PATCH 5/6] cxgb4: Add main driver file and driver Makefile
+Date: Wed, 31 Mar 2010 17:19:21 -0700
+Message-ID: <4BB3E689.4050001@chelsio.com>
+References: <1269975142-30896-5-git-send-email-dm@chelsio.com>	<1269975142-30896-6-git-send-email-dm@chelsio.com>	<20100330141904.5236fe44@nehalam> <20100330.225042.107712654.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Glen Turner <gdt@gdt.id.au>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Hagen Paul Pfeifer <hagen@jauu.net>
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:34796 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755072Ab0DAAGW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 20:06:22 -0400
-In-Reply-To: <20100331235149.GE3042@nuttenaction>
+Received: from stargate.chelsio.com ([67.207.112.58]:15688 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750795Ab0DAAT2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 20:19:28 -0400
+In-Reply-To: <20100330.225042.107712654.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hagen Paul Pfeifer wrote:
-> * Glen Turner | 2010-04-01 10:12:03 [+1030]:
+David Miller wrote:
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Tue, 30 Mar 2010 14:19:04 -0700
 > 
+>> On Tue, 30 Mar 2010 10:52:21 -0800
+>> Dimitris Michailidis <dm@chelsio.com> wrote:
+>>
+>>> +static struct cxgb4_proc_entry proc_files[] = {
+>>> +#ifdef CONFIG_PROC_FS
+>>> +	{ "l2t", 0444, ADAP_NEED_L2T, 0, &t4_l2t_proc_fops },
+>>> +#endif
+>>> +	{ "lb_stats", 0444, 0, 0, &lb_stats_proc_fops },
+>>> +	{ "path_mtus", 0644, 0, 0, &mtutab_proc_fops },
+>>> +	{ "qstats", 0444, 0, 0, &sge_stats_proc_fops },
+>>> +	{ "rss", 0444, 0, 0, &rss_proc_fops },
+>>> +	{ "tcp_stats", 0444, 0, 0, &tcp_stats_proc_fops },
+>>> +	{ "tids", 0444, ADAP_NEED_OFLD, 0, &tid_info_proc_fops },
+>>> +	{ "tp_err_stats", 0444, 0, 0, &tp_err_stats_proc_fops },
+>>> +	{ "trace0", 0644, 0, 0, &mps_trc_proc_fops },
+>>> +	{ "trace1", 0644, 0, 1, &mps_trc_proc_fops },
+>>> +	{ "trace2", 0644, 0, 2, &mps_trc_proc_fops },
+>>> +	{ "trace3", 0644, 0, 3, &mps_trc_proc_fops },
+>>> +	{ "uld", 0444, 0, 0, &uld_proc_fops },
+>>> +};
+>>> +
+>> Do you really need this large number of /proc files.
+>> It creates another stable API to worry about.  If it is just for
+>> debugging move it to debugfs, or better yet just drop it.
 > 
->>Does select() return from its blocking so the application can make
->>use of this indication immediately, rather than after the
->>application's exponentially-increasing wait?
+> I also find this a bit too much.
 > 
+> We have all kinds of ways to export whatever statistics you
+> want.  In particular we have ethtool stats of which you
+> can have as many as you wish.
 > 
-> Yes, poll() will return immediately with POLLERR.
-> 
-> 
->>Is an incoming ICMP the only cause of EMSGSIZE?  That is, can an
->>application safely retransmit immediately?
-> 
-> 
-> IIRC, yes.
+> If necessary, we could add a feature to define "views" of ethtool
+> stats so that we can have domains of driver specific statistics if the
+> problem is that you don't want all of these debugging stats to clutter
+> up the "main" ethtool stats.
 
-Under Linux perhaps, and assuming it can guess which prior send triggered the 
-EMSGSIZE, but under HP-UX EMSGSIZE means you tried to send a datagram larger 
-than the socket buffer:
+It wasn't a concern with having too many ethtool stats that led to the use 
+of proc, rather it was that most of this information isn't associated with 
+netdevs.  Let me give an example.  Like most virtualized NICs this device 
+contains a switch.  Some of the switch statistics are provided in the proc 
+files.  While they are statistics, logically they are not associated with 
+any of the netdevs.  If ethtool were to be extended so that the specified 
+interface would access the underlying HW to get information possibly 
+unrelated to the interface personally I'd be OK with that, I am just 
+pointing out what kind of extension we are talking about.
 
-tusc src/netperf -t UDP_RR -- -s 1024 -r 60K
-...
-send(4, 0x4000ee68, 61440, 0) ............................ ERR#218 EMSGSIZE
+Also some of the files here aren't statistics but report other functionality 
+  of the device, usually also not tied to netdevs (e.g., the trace* files 
+are again related to the switch).
 
-I've not checked BSD, Solaris or AIX.
-
-On a 2.6.22 kernel where I do the same thing, it returns ENOBUFS instead.
-
-strace src/netperf -H localhost -t UDP_RR -- -s 1024 -r 60K
-...
-send(4, "netperf\0netperf\0netperf\0netperf\0n"..., 61440, 0) = -1 ENOBUFS (No 
-buffer space available)
-
-Of course the send() manpage on various Linux systems I've tried says:
-
-        EMSGSIZE
-               The  socket  type  requires that message be sent atomically, and
-               the size of the message to be sent made this impossible.
-
-        ENOBUFS
-               The output queue for a network interface was full.  This  gener-
-               ally  indicates  that the interface has stopped sending, but may
-               be caused by transient congestion.   (Normally,  this  does  not
-               occur in Linux.  Packets are just silently dropped when a device
-               queue overflows.)
-
-I suppose they are old on that system.  Netperf interprets an ENOBUFS per the 
-manpage, and will not exit immediately in a UDP_STREAM test, but will simply 
-count the send as failed and try again.  Not sure if it is worth trying to teach 
-netperf differently here or not.
-
-rick jones
+So, I propose getting rid of 3-4 of these files that are of lesser value and 
+moving the rest to debugfs for now.  If some alternative through ethtool or 
+something becomes available I can get rid of anything that can be handled 
+through a more general facility.  Would that be acceptable?
