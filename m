@@ -1,29 +1,28 @@
-From: thomas yang <lampsu@gmail.com>
-Subject: [netfilter / iptables] question
-Date: Fri, 2 Apr 2010 00:44:44 +0800
-Message-ID: <v2if4f837ab1004010944yd08c37c5u23d6f2d07df7ccc6@mail.gmail.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [netfilter / iptables] question
+Date: Thu, 1 Apr 2010 18:57:50 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1004011857440.788@obet.zrqbmnf.qr>
+References: <v2if4f837ab1004010944yd08c37c5u23d6f2d07df7ccc6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, jengelh@medozas.de
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: thomas yang <lampsu@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:38935 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758607Ab0DAQop (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 12:44:45 -0400
-Received: by pwi5 with SMTP id 5so1180354pwi.19
-        for <netdev@vger.kernel.org>; Thu, 01 Apr 2010 09:44:44 -0700 (PDT)
+Received: from borg.medozas.de ([188.40.89.202]:42234 "EHLO borg.medozas.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752988Ab0DAQ5v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Apr 2010 12:57:51 -0400
+In-Reply-To: <v2if4f837ab1004010944yd08c37c5u23d6f2d07df7ccc6@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thursday 2010-04-01 18:44, thomas yang wrote:
 
-I want to copy/ clone a  sk_buff  *skb  to  *skb2  on my Linux router,
-  then transmit both  skb2   and  skb  .
-
-How to do this with   netfilter hook function  / iptables  ?
-
-
-
---
-Tom
+>Hi,
+>
+>I want to copy/ clone a  sk_buff  *skb  to  *skb2  on my Linux router,
+>  then transmit both  skb2   and  skb  .
+>
+>How to do this with   netfilter hook function  / iptables  ?
+>
+Wait for xt_TEE to be merged.
