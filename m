@@ -1,45 +1,36 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] r8169: clean up my printk uglyness
-Date: Thu, 1 Apr 2010 10:53:56 -0400
-Message-ID: <20100401145356.GB14069@shamino.rdu.redhat.com>
+From: Alan <alan@lxorguk.ukuu.org.uk>
+Subject: CAIF device
+Date: Thu, 1 Apr 2010 16:09:16 +0100
+Message-ID: <20100401160916.2a2574f4@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, romieu@fr.zoreil.com, nhorman@tuxdriver.com,
-	brandon@ifup.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:33933 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754185Ab0DAOzX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 10:55:23 -0400
-Content-Disposition: inline
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:38528 "EHLO
+	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752251Ab0DAPFN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 11:05:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix formatting on r8169 printk
+I was reading through the CAIF code and I noticed a couple of bugs
 
-Brandon Philips noted that I had a spacing issue in my printk for the last r8169
-patch that made it quite ugly.  Fix that up and add the PFX macro to it as well
-so it looks like the other r8169 printks
+Doesn't check there is a write method so set on a read only
+device it's not good news (doubly so as there seem to be no
+permission checks ?) plus no permissions checks and also the
+following which looks unsafe
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+        dev_close(ser->dev);
+        unregister_netdevice(ser->dev);
+        list_del(&ser->node);
+        debugfs_deinit(ser);
 
+Now ser is the netdev private data so what stops it going away when
+unregister_netdev is called ?
 
- r8169.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Secondly tty devices are ref counted and this for some reason didn't get
+fixed in the driver yet.
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 9674005..a119885 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -3227,8 +3227,8 @@ static void rtl8169_set_rxbufsize(struct rtl8169_private *tp,
- 	unsigned int max_frame = mtu + VLAN_ETH_HLEN + ETH_FCS_LEN;
- 
- 	if (max_frame != 16383)
--		printk(KERN_WARNING "WARNING! Changing of MTU on this NIC"
--			"May lead to frame reception errors!\n");
-+		printk(KERN_WARNING PFX "WARNING! Changing of MTU on this "
-+			"NIC May lead to frame reception errors!\n");
- 
- 	tp->rx_buf_sz = (max_frame > RX_BUF_SIZE) ? max_frame : RX_BUF_SIZE;
- }
+[Patches to follow for the write and kref bugs, the others need the
+authors and someone who knows the netdev code these days to fix]
