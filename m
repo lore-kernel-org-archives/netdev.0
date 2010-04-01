@@ -1,57 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/6] cxgb4: Add main driver file and driver Makefile
-Date: Wed, 31 Mar 2010 19:18:44 -0700 (PDT)
-Message-ID: <20100331.191844.186998605.davem@davemloft.net>
-References: <4BB3E689.4050001@chelsio.com>
-	<20100331.172401.00333850.davem@davemloft.net>
-	<4BB3F827.3010402@chelsio.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 3/4] xfrm: remove policy lock when accessing
+ policy->walk.dead
+Date: Wed, 31 Mar 2010 22:19:11 -0400
+Message-ID: <1270088351.26743.121.camel@bigi>
+References: <20100331135505.GC14082@gondor.apana.org.au>
+	 <1270044768.26743.58.camel@bigi>
+	 <20100331141525.GA14331@gondor.apana.org.au>
+	 <20100331.135735.00480230.davem@davemloft.net>
+	 <20100401002244.GA18893@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: dm@chelsio.com
+Cc: David Miller <davem@davemloft.net>, timo.teras@iki.fi,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47703
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751629Ab0DACSn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 22:18:43 -0400
-In-Reply-To: <4BB3F827.3010402@chelsio.com>
+Received: from qw-out-2122.google.com ([74.125.92.24]:32596 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756463Ab0DACTQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Mar 2010 22:19:16 -0400
+Received: by qw-out-2122.google.com with SMTP id 8so251966qwh.37
+        for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 19:19:14 -0700 (PDT)
+In-Reply-To: <20100401002244.GA18893@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dimitris Michailidis <dm@chelsio.com>
-Date: Wed, 31 Mar 2010 18:34:31 -0700
+On Thu, 2010-04-01 at 08:22 +0800, Herbert Xu wrote:
 
-> David Miller wrote:
-> 
->>> So, I propose getting rid of 3-4 of these files that are of lesser
->>> value and moving the rest to debugfs for now.  If some alternative
->>> through ethtool or something becomes available I can get rid of
->>> anything that can be handled through a more general facility.  Would
->>> that be acceptable?
->> You can use sysfs.
-> 
-> sysfs is a possibility but I thought Stephen's initial concern was
-> that I was adding too many of these proc files and that they were
-> creating a potential API.
+> OK, in that case please change xfrm_state_flush too.  Right now
+> it also notifies on empty.
 
-Yes, since procfs is essentially deprecated these days.
+It shouldnt. I will double check it tomorrow..
 
-> sysfs will result in a lot more files with its value-per-file model
-> and I think sysfs and proc are similar in "APIness". So it's not
-> clear to me how going to sysfs would address Stephen's point. The
-> remove-a-few plus move-to-debugfs proposal was in order to end up
-> with fewer files in a non-API filesystem.
+cheers,
+jamal
 
-It's in fact easier to retain API by using sysfs.  Instead of having
-to worry about the format of a procfs file listing entries one by one
-per line, under sysfs you just add a new file to export new values.
-
-> As these builtin switches become more common I expect an official way
-> to represent and access them will emerge but maybe it's not a good
-> idea to introduce a sysfs model for them as part of this driver
-> submission.
-
-What nodes you create under your own device object in sysfs is your
-domain and your business.  Since it's one value per file there is no
-real complexity in making sure tools can display the values properly.
