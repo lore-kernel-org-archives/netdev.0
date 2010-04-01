@@ -1,46 +1,65 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 1/2] phylib: Support phy module autoloading
-Date: Thu, 1 Apr 2010 19:05:12 +0100
-Message-ID: <20100401180511.GQ16821@decadent.org.uk>
-References: <1269998334.18090.278.camel@macbook.infradead.org> <1270096441.12516.18.camel@localhost> <1270141428.3101.399.camel@macbook.infradead.org>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Any ideas about a crash on reboot with igb and intel_iommu?
+Date: Thu, 01 Apr 2010 11:13:47 -0700
+Message-ID: <adabpe3f3c4.fsf@roland-alpha.cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, 553024@bugs.debian.org
-To: David Woodhouse <dwmw2@infradead.org>
+Cc: David Woodhouse <dwmw2@infradead.org>
+To: netdev@vger.kernel.org, iommu@lists.linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52698 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758670Ab0DASFY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 14:05:24 -0400
-Content-Disposition: inline
-In-Reply-To: <1270141428.3101.399.camel@macbook.infradead.org>
+Received: from sj-iport-3.cisco.com ([171.71.176.72]:24264 "EHLO
+	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754563Ab0DASNv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 14:13:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 01, 2010 at 06:03:48PM +0100, David Woodhouse wrote:
-> On Thu, 2010-04-01 at 05:34 +0100, Ben Hutchings wrote:
-[...]
-> > Since you've dealt with (a), and (b) is not really as important, I would
-> > just like to suggest some minor changes to your patch 1 (see below).
-> > Feel free to fold them in.  Your patch 2 would then need the
-> > substitutions s/phy_device_id/mdio_device_id/; s/TABLE(phy/TABLE(mdio/.
-> 
-> I'll tolerate the silly __u32 crap if I must for consistency, but
-> normally I prefer to write in C.
-> 
-> I did think about 'mdio:' for the module alias, but I decided that
-> 'phy:' probably made more sense since these are PHY driver modules and
-> the number is the phy_id.
-[...]
+Hi everyone,
 
-Many multi-layered communication standards have distinct PHY devices,
-and they presumably have their own ID spaces.  phylib deals only with
-management of Ethernet PHYs over an MDIO bus, identified using MDIO
-ID registers.
+I've been asked to help debug a strange crash, and I'm wondering if
+anyone has seen something similar.  The setup is a bit awkward because
+this is happening in manufacturing burn-in and we have not reproduced it
+in the lab yet, so my ability to do specific experiments is still
+limited.
 
-Ben.
+Anyway, we have a fairly standard two-socket Xeon server product that
+passes all tests with Nehalem CPUs.  However, when we use Westmere CPUs
+(which also requires a new BIOS of course), some fraction of the systems
+are crashing during burn-in, which basically runs a cycle where it runs
+CPU and memory stress tests and then reboots the system for the next
+round of tests.  The crash is happening on reboot, and unfortunately I
+only have a bunch of pictures of the traceback output, but we've seen
+multiple cases where the system is crashing with a traceback like:
 
+  rb_erase
+  __free_iova
+  flush_unmaps
+  intel_unmap_page
+  igb_clean_rx_ring
+  igb_down
+  igb_close
+  __igb_shutdown
+  igb_shutdown
+  pci_device_shutdown
+  device_shutdown
+  kernel_restart_prepare
+  kernel_restart
+  sys_reboot
+
+The newest kernel they've been able to try is 2.6.30.9, but from looking
+at the kernel changelogs for igb and intel_iommu at least, I don't see
+anything particularly promising that was fixed since then.
+
+One other data point is that enabling the BIOS option "maximize memory
+under 4GB" (which apparently just allocates less space for PCI BARs
+below 4GB) seems to make this crash go away again.
+
+Anyway, does this tickle anyone's memory?  I'm trying to get a better
+handle on things, but if this has been seen before, I'd sure love to
+skip some of the pain of debugging this.
+
+Thanks,
+  Roland
 -- 
-Ben Hutchings
-We get into the habit of living before acquiring the habit of thinking.
-                                                              - Albert Camus
+Roland Dreier <rolandd@cisco.com> || For corporate legal information go to:
+http://www.cisco.com/web/about/doing_business/legal/cri/index.html
