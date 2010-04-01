@@ -1,68 +1,45 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH nf-next-2.6] xt_hashlimit: RCU conversion
-Date: Thu, 01 Apr 2010 14:36:54 +0200
-Message-ID: <4BB49366.4030001@trash.net>
-References: <4BA74950.6000305@infopact.nl> <4BA7A5D8.5080101@trash.net>	 <4BA8DAC5.6050002@infopact.nl> <1269364893.2983.296.camel@edumazet-laptop>	 <4BAA2DC5.7000409@infopact.nl>  <1269447674.3213.64.camel@edumazet-laptop>	 <1269509574.3626.9.camel@edumazet-laptop>  <4BAB3C8B.3030104@trash.net>	 <1269514928.3626.13.camel@edumazet-laptop>	 <1270038210.2103.23.camel@edumazet-laptop>  <4BB47D81.3060400@trash.net> <1270123804.2229.91.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jorrit Kronjee <j.kronjee@infopact.nl>,
-	netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1270123804.2229.91.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Timo Teras <timo.teras@iki.fi>
+Subject: [PATCH 0/4] caching bundles, iteration 3
+Date: Thu,  1 Apr 2010 15:52:16 +0300
+Message-ID: <1270126340-30181-1-git-send-email-timo.teras@iki.fi>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Timo Teras <timo.teras@iki.fi>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:37371 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756507Ab0DAMw0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 08:52:26 -0400
+Received: by ewy20 with SMTP id 20so329232ewy.1
+        for <netdev@vger.kernel.org>; Thu, 01 Apr 2010 05:52:25 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Le jeudi 01 avril 2010 =E0 13:03 +0200, Patrick McHardy a =E9crit :
->>> -/* allocate dsthash_ent, initialize dst, put in htable and lock it=
- */
->>> -static struct dsthash_ent *
->>> -dsthash_alloc_init(struct xt_hashlimit_htable *ht,
->>> -		   const struct dsthash_dst *dst)
->> Is there a reason for moving this function downwards in the file?
->> That unnecessarily increases the diff and makes the patch harder to
->> review. For review purposes I moved it back up, resulting in 42
->> lines less diff.
->> --
->=20
-> Well, this is because I had to move inside this function various
-> initializations and these inits use user2credits() which was defined
-> after dsthash_alloc_init().
+Applies on top of the previous patches I sent.
 
-I thought I also tried to compile it after my change, but apparently
-I made some mistake :)
+Changes to previous iteration:
+ - "flow: delayed deletion of flow cache entries" refactored to go
+   after the other patches per Herbert's request
+ - fixed hlist searching in the above mentioned patch
+ - uses now ERR_CAST and other similar functions for better readability
+ - added basic gc for per-socket bundles
+ - some other minor clean ups
 
-> But we can avoid this since we hold the entry spinlock, and before ha=
-sh
-> insertion.
->=20
-> Only the lookup fields and the spinlock MUST be committed to memory
-> before the insert. Other fields can be initialized later by caller.
->=20
-> Here is V2 of patch, I added locking as well in dl_seq_real_show()
-> because we call rateinfo_recalc(). htable main lock doesnt anymore
-> protects each entry rateinfo.
->=20
-> Thanks
->=20
-> [PATCH nf-next-2.6] xt_hashlimit: RCU conversion
->=20
-> xt_hashlimit uses a central lock per hash table and suffers from
-> contention on some workloads. (Multiqueue NIC or if RPS is enabled)
->=20
-> After RCU conversion, central lock is only used when a writer wants t=
-o
-> add or delete an entry.
->=20
-> For 'readers', updating an existing entry, they use an individual loc=
-k
-> per entry.
+I'm now running this on a test box, with my specific setup, and it
+seems to be working pretty well. However, this changes quite a bit
+of things, so detailed review is needed.
 
-Applied, thanks a lot Eric.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Timo Teras (4):
+  flow: virtualize flow cache entry methods
+  xfrm: cache bundles instead of policies for outgoing flows
+  xfrm: remove policy garbage collection
+  flow: delayed deletion of flow cache entries
+
+ include/net/flow.h      |   18 +-
+ include/net/xfrm.h      |   12 +-
+ net/core/flow.c         |  203 +++++++-----
+ net/ipv4/xfrm4_policy.c |   22 --
+ net/ipv6/xfrm6_policy.c |   31 --
+ net/xfrm/xfrm_policy.c  |  822 +++++++++++++++++++++++++----------------------
+ 6 files changed, 583 insertions(+), 525 deletions(-)
+
