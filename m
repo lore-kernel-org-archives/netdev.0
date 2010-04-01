@@ -1,55 +1,61 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [RFC] SPD basic actions per netdev
-Date: Thu, 01 Apr 2010 07:52:34 +0300
-Message-ID: <4BB42692.9010105@iki.fi>
-References: <1270053478.26743.111.camel@bigi> <20100401003352.GA19147@gondor.apana.org.au> <1270089323.26743.138.camel@bigi> <20100401025247.GA19994@gondor.apana.org.au>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the slabh tree
+Date: Thu, 1 Apr 2010 16:41:10 +1100
+Message-ID: <20100401164110.80e3b18f.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, "David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.27]:3845 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752483Ab0DAEwi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 00:52:38 -0400
-Received: by ey-out-2122.google.com with SMTP id d26so51808eyd.19
-        for <netdev@vger.kernel.org>; Wed, 31 Mar 2010 21:52:36 -0700 (PDT)
-In-Reply-To: <20100401025247.GA19994@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Wed, Mar 31, 2010 at 10:35:23PM -0400, jamal wrote:
->> On Thu, 2010-04-01 at 08:33 +0800, Herbert Xu wrote:
->>
->>> If we're going to change this then we should just add a second
->>> interface field to the selector, rather than trying to overload
->>> the existing one.
->> Do you mean to have a selector->iif/oif? Sure that makes sense - but is
->> a much larger surgery and user space will need to be taught.
->>
->> Did you look at the patch i sent? i tried to retain current behavior
->> except for the input check path. output path was working in classifying
->> with specific netdevs. 
-> 
-> OK, I guess the chances of an existing app breaking is slim.
-> 
-> BTW, you should treat FLOW_DIR_FWD as FLOW_DIR_IN.
+Hi Tejun,
 
-I think we need iif and oif. The separation is clear in in/fwd policies,
-as each is matched properly. But 'out' policies are used for both:
-locally generated, and forwarded traffic.
+After merging the slabh tree, today's linux-next build (x86_64
+allmodconfig) failed like this:
 
-Basically it goes like:
- in - for policy_check for traffic that is received locally
- fwd - for policy_check for traffic that is forwarded
- out - all (local and forwarded) traffic that goes out of box
+net/caif/cfcnfg.c: In function 'cfcnfg_create':
+net/caif/cfcnfg.c:68: error: implicit declaration of function 'kmalloc'
+net/caif/cfcnfg.c:68: warning: assignment makes pointer from integer without a cast
+net/caif/cfcnfg.c:100: error: implicit declaration of function 'kfree'
 
-IMHO, it's slightly confusing that in/fwd is split, but out is not.
-But that's the way it works. If you now override the how interface
-is checked for 'out' policy, it'll break current behaviour.
+Caused by commit 15c9ac0c80e390df09ce5730a7b08b13e07a8dd5 ("net-caif: add
+CAIF generic caif support functions") from the net interacting with
+commit de380b55f92986c1a84198149cb71b7228d15fbd ("percpu: don't
+implicitly include slab.h from percpu.h") from the slabh tree.
 
-- Timo
+I have applied the following patch for today.  Dave, could you apply this
+to the net tree please?
 
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 1 Apr 2010 16:31:50 +1100
+Subject: [PATCH] net-caif: using kmalloc/kfree requires the include of slab.h
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ net/caif/cfcnfg.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/caif/cfcnfg.c b/net/caif/cfcnfg.c
+index 70a733d..c873e3d 100644
+--- a/net/caif/cfcnfg.c
++++ b/net/caif/cfcnfg.c
+@@ -5,6 +5,7 @@
+  */
+ #include <linux/kernel.h>
+ #include <linux/stddef.h>
++#include <linux/slab.h>
+ #include <net/caif/caif_layer.h>
+ #include <net/caif/cfpkt.h>
+ #include <net/caif/cfcnfg.h>
+-- 
+1.7.0.3
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
