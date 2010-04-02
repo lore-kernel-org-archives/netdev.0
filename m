@@ -1,63 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
 Subject: Re: [PATCH] rfs: Receive Flow Steering
-Date: Fri, 02 Apr 2010 18:28:55 +0200
-Message-ID: <1270225735.11099.20.camel@edumazet-laptop>
-References: <alpine.DEB.1.00.1004012045560.4252@pokey.mtv.corp.google.com>
-	 <1270197304.1936.179.camel@edumazet-laptop>
-	 <1270211871.11099.2.camel@edumazet-laptop>
+Date: Fri, 02 Apr 2010 10:01:42 -0700
+Message-ID: <4BB622F6.10606@hp.com>
+References: <alpine.DEB.1.00.1004012045560.4252@pokey.mtv.corp.google.com>	<j2u412e6f7f1004012204r76dd8ccbg2e6e78d46541b85@mail.gmail.com> <1270193393.1936.52.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Cc: Changli Gao <xiaosuo@gmail.com>, Tom Herbert <therbert@google.com>,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f217.google.com ([209.85.218.217]:52485 "EHLO
-	mail-bw0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752168Ab0DBQ3A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 12:29:00 -0400
-Received: by bwz9 with SMTP id 9so1719325bwz.29
-        for <netdev@vger.kernel.org>; Fri, 02 Apr 2010 09:28:59 -0700 (PDT)
-In-Reply-To: <1270211871.11099.2.camel@edumazet-laptop>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:32722 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755502Ab0DBRBp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 13:01:45 -0400
+In-Reply-To: <1270193393.1936.52.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some more thoughts ...
+Eric Dumazet wrote:
+> 
+> Your claim of RPS being not good for applications is wrong, our test
+> results show an improvement as is. Maybe your applications dont scale,
+> because of bad habits, or collidings heuristics, I dont know.
 
-Do we really want to call inet_rps_record_flow(sk) from inet_sendmsg() &
-inet_sendpage() ?
+The progression in HP-UX was IPS (10.20) (aka RPS) then TOPS (11.0) (aka RFS). 
+We found that IPS was great for single-flow-per-thread-of-execution stuff and 
+that TOPS was better for multiple-flow-per-thread-of-execution stuff.  It was 
+long enough ago now that I can safely say for one system-level benchmark not 
+known to be a "networking" benchmark, and without a massive kernel component, 
+TOPS was a 10% win.  Not too shabby.
 
-This seems not necessary to me...
+It wasn't that IPS wasn't good in its context - just that TOPS was even better.
 
+We also preferred the concept of the scheduler giving networking clues as to 
+where to process an application's packets rather than networking trying to tell 
+the scheduler.  There was some discussion of out of order worries, but we were 
+willing to trust to the basic soundness of the scheduler - if it was moving 
+threads around willy nilly at a rate able to cause big packet reordering it had 
+fundamental problems that would have to be addressed anyway.  And while it may 
+be incindiary to point this out :)  I suspect (without concrete data :) that 
+bonding mode 0 is a much, Much, MUCH larger source of out-of-order traffic than 
+any plausible scheduler thrashing.
 
-This bit :
+happy benchmarking,
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index f4df5f9..3060c17 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1674,6 +1674,10 @@ process:
- 
- 	skb->dev = NULL;
- 
-+#ifdef CONFIG_RPS
-+	inet_sk(sk)->rxhash = skb->rxhash;
-+#endif
-+
- 	bh_lock_sock_nested(sk);
- 	ret = 0;
- 	if (!sock_owned_by_user(sk)) {
-
-
-
-1) It's not pretty, could you define a helper ?
-
-2) Why should we set inet_sk(sk)->rxhash at each packet ?
-
-rxhash is a constant given the (src,dst,sport,dport) tuple and could be
-set at connection time. This way we could set inet_sk(sk)->rxhash both
-for TCP and UDP.
-
-(Currently, you dont set inet_sk(sk)->rxhash on UDP)
-
-
-
+rick jones
