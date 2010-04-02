@@ -1,432 +1,479 @@
 From: xiaohui.xin@intel.com
-Subject: [RFC] [PATCH v2 2/3] Provides multiple submits and asynchronous notifications.
-Date: Fri,  2 Apr 2010 15:28:09 +0800
-Message-ID: <1270193289-6810-1-git-send-email-xiaohui.xin@intel.com>
+Subject: [RFC] [PATCH v2 3/3] Let host NIC driver to DMA to guest user space.
+Date: Fri,  2 Apr 2010 15:30:10 +0800
+Message-ID: <1270193410-6877-1-git-send-email-xiaohui.xin@intel.com>
 Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mingo@elte.hu, mst@redhat.com,
 	jdike@c2.user-mode-linux.org, davem@davemloft.net
-Return-path: <kvm-owner@vger.kernel.org>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:53272 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759309Ab0DBH10 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Apr 2010 03:27:26 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-The vhost-net backend now only supports synchronous send/recv
-operations. The patch provides multiple submits and asynchronous
-notifications. This is needed for zero-copy case.
+The patch let host NIC driver to receive user space skb,
+then the driver has chance to directly DMA to guest user
+space buffers thru single ethX interface.
+We want it to be more generic as a zero copy framework.
 
 Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+Signed-off-by: Zhao Yu <yzhao81@gmail.com>
+Sigend-off-by: Jeff Dike <jdike@c2.user-mode-linux.org>
 ---
 
- drivers/vhost/net.c   |  189 +++++++++++++++++++++++++++++++++++++++++++++++--
- drivers/vhost/vhost.h |   10 +++
- 2 files changed, 192 insertions(+), 7 deletions(-)
+We consider 2 way to utilize the user buffres, but not sure which one
+is better. Please give any comments.
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 22d5fef..2aafd90 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -17,11 +17,13 @@
- #include <linux/workqueue.h>
- #include <linux/rcupdate.h>
- #include <linux/file.h>
-+#include <linux/aio.h>
+One:    Modify __alloc_skb() function a bit, it can only allocate a
+        structure of sk_buff, and the data pointer is pointing to a
+        user buffer which is coming from a page constructor API.
+        Then the shinfo of the skb is also from guest.
+        When packet is received from hardware, the skb->data is filled
+        directly by h/w. What we have done is in this way.
+
+        Pros:   We can avoid any copy here.
+        Cons:   Guest virtio-net driver needs to allocate skb as almost
+                the same method with the host NIC drivers, say the size
+                of netdev_alloc_skb() and the same reserved space in the
+                head of skb. Many NIC drivers are the same with guest and
+                ok for this. But some lastest NIC drivers reserves special
+                room in skb head. To deal with it, we suggest to provide
+                a method in guest virtio-net driver to ask for parameter
+                we interest from the NIC driver when we know which device
+                we have bind to do zero-copy. Then we ask guest to do so.
+                Is that reasonable?
+
+Two:    Modify driver to get user buffer allocated from a page constructor
+        API(to substitute alloc_page()), the user buffer are used as payload
+        buffers and filled by h/w directly when packet is received. Driver
+        should associate the pages with skb (skb_shinfo(skb)->frags). For
+        the head buffer side, let host allocates skb, and h/w fills it.
+        After that, the data filled in host skb header will be copied into
+        guest header buffer which is submitted together with the payload buffer.
+
+        Pros:   We could less care the way how guest or host allocates their
+                buffers.
+        Cons:   We still need a bit copy here for the skb header.
+
+We are not sure which way is the better here. This is the first thing we want
+to get comments from the community. We wish the modification to the network
+part will be generic which not used by vhost-net backend only, but a user
+application may use it as well when the zero-copy device may provides async
+read/write operations later.
+
+
+Thanks
+Xiaohui
+
+ include/linux/netdevice.h |   69 ++++++++++++++++++++++++++++++++++++++++-
+ include/linux/skbuff.h    |   30 ++++++++++++++++--
+ net/core/dev.c            |   63 ++++++++++++++++++++++++++++++++++++++
+ net/core/skbuff.c         |   74 ++++++++++++++++++++++++++++++++++++++++----
+ 4 files changed, 224 insertions(+), 12 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 94958c1..ba48eb0 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -485,6 +485,17 @@ struct netdev_queue {
+ 	unsigned long		tx_dropped;
+ } ____cacheline_aligned_in_smp;
  
- #include <linux/net.h>
- #include <linux/if_packet.h>
- #include <linux/if_arp.h>
- #include <linux/if_tun.h>
-+#include <linux/mpassthru.h>
- 
- #include <net/sock.h>
- 
-@@ -47,6 +49,7 @@ struct vhost_net {
- 	struct vhost_dev dev;
- 	struct vhost_virtqueue vqs[VHOST_NET_VQ_MAX];
- 	struct vhost_poll poll[VHOST_NET_VQ_MAX];
-+	struct kmem_cache       *cache;
- 	/* Tells us whether we are polling a socket for TX.
- 	 * We only do this when socket buffer fills up.
- 	 * Protected by tx vq lock. */
-@@ -91,11 +94,88 @@ static void tx_poll_start(struct vhost_net *net, struct socket *sock)
- 	net->tx_poll_state = VHOST_NET_POLL_STARTED;
- }
- 
-+struct kiocb *notify_dequeue(struct vhost_virtqueue *vq)
-+{
-+	struct kiocb *iocb = NULL;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&vq->notify_lock, flags);
-+	if (!list_empty(&vq->notifier)) {
-+		iocb = list_first_entry(&vq->notifier,
-+				struct kiocb, ki_list);
-+		list_del(&iocb->ki_list);
-+	}
-+	spin_unlock_irqrestore(&vq->notify_lock, flags);
-+	return iocb;
-+}
-+
-+static void handle_async_rx_events_notify(struct vhost_net *net,
-+					struct vhost_virtqueue *vq)
-+{
-+	struct kiocb *iocb = NULL;
-+	struct vhost_log *vq_log = NULL;
-+	int rx_total_len = 0;
-+	int log, size;
-+
-+	if (vq->link_state != VHOST_VQ_LINK_ASYNC)
-+		return;
-+
-+	if (vq->receiver)
-+		vq->receiver(vq);
-+
-+	vq_log = unlikely(vhost_has_feature(
-+				&net->dev, VHOST_F_LOG_ALL)) ? vq->log : NULL;
-+	while ((iocb = notify_dequeue(vq)) != NULL) {
-+		vhost_add_used_and_signal(&net->dev, vq,
-+				iocb->ki_pos, iocb->ki_nbytes);
-+		log = (int)iocb->ki_user_data;
-+		size = iocb->ki_nbytes;
-+		rx_total_len += iocb->ki_nbytes;
-+
-+		if (iocb->ki_dtor)
-+			iocb->ki_dtor(iocb);
-+		kmem_cache_free(net->cache, iocb);
-+
-+		if (unlikely(vq_log))
-+			vhost_log_write(vq, vq_log, log, size);
-+		if (unlikely(rx_total_len >= VHOST_NET_WEIGHT)) {
-+			vhost_poll_queue(&vq->poll);
-+			break;
-+		}
-+	}
-+}
-+
-+static void handle_async_tx_events_notify(struct vhost_net *net,
-+					struct vhost_virtqueue *vq)
-+{
-+	struct kiocb *iocb = NULL;
-+	int tx_total_len = 0;
-+
-+	if (vq->link_state != VHOST_VQ_LINK_ASYNC)
-+		return;
-+
-+	while ((iocb = notify_dequeue(vq)) != NULL) {
-+		vhost_add_used_and_signal(&net->dev, vq,
-+				iocb->ki_pos, 0);
-+		tx_total_len += iocb->ki_nbytes;
-+
-+		if (iocb->ki_dtor)
-+			iocb->ki_dtor(iocb);
-+
-+		kmem_cache_free(net->cache, iocb);
-+		if (unlikely(tx_total_len >= VHOST_NET_WEIGHT)) {
-+			vhost_poll_queue(&vq->poll);
-+			break;
-+		}
-+	}
-+}
-+
- /* Expects to be always run from workqueue - which acts as
-  * read-size critical section for our kind of RCU. */
- static void handle_tx(struct vhost_net *net)
- {
- 	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_TX];
-+	struct kiocb *iocb = NULL;
- 	unsigned head, out, in, s;
- 	struct msghdr msg = {
- 		.msg_name = NULL,
-@@ -124,6 +204,8 @@ static void handle_tx(struct vhost_net *net)
- 		tx_poll_stop(net);
- 	hdr_size = vq->hdr_size;
- 
-+	handle_async_tx_events_notify(net, vq);
-+
- 	for (;;) {
- 		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
- 					 ARRAY_SIZE(vq->iov),
-@@ -151,6 +233,15 @@ static void handle_tx(struct vhost_net *net)
- 		/* Skip header. TODO: support TSO. */
- 		s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, out);
- 		msg.msg_iovlen = out;
-+
-+		if (vq->link_state == VHOST_VQ_LINK_ASYNC) {
-+			iocb = kmem_cache_zalloc(net->cache, GFP_KERNEL);
-+			if (!iocb)
-+				break;
-+			iocb->ki_pos = head;
-+			iocb->private = (void *)vq;
-+		}
-+
- 		len = iov_length(vq->iov, out);
- 		/* Sanity check */
- 		if (!len) {
-@@ -160,12 +251,16 @@ static void handle_tx(struct vhost_net *net)
- 			break;
- 		}
- 		/* TODO: Check specific error and bomb out unless ENOBUFS? */
--		err = sock->ops->sendmsg(NULL, sock, &msg, len);
-+		err = sock->ops->sendmsg(iocb, sock, &msg, len);
- 		if (unlikely(err < 0)) {
- 			vhost_discard_vq_desc(vq);
- 			tx_poll_start(net, sock);
- 			break;
- 		}
-+
-+		if (vq->link_state == VHOST_VQ_LINK_ASYNC)
-+			continue;
-+
- 		if (err != len)
- 			pr_err("Truncated TX packet: "
- 			       " len %d != %zd\n", err, len);
-@@ -177,6 +272,8 @@ static void handle_tx(struct vhost_net *net)
- 		}
- 	}
- 
-+	handle_async_tx_events_notify(net, vq);
-+
- 	mutex_unlock(&vq->mutex);
- 	unuse_mm(net->dev.mm);
- }
-@@ -186,6 +283,7 @@ static void handle_tx(struct vhost_net *net)
- static void handle_rx(struct vhost_net *net)
- {
- 	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_RX];
-+	struct kiocb *iocb = NULL;
- 	unsigned head, out, in, log, s;
- 	struct vhost_log *vq_log;
- 	struct msghdr msg = {
-@@ -206,7 +304,8 @@ static void handle_rx(struct vhost_net *net)
- 	int err;
- 	size_t hdr_size;
- 	struct socket *sock = rcu_dereference(vq->private_data);
--	if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
-+	if (!sock || (skb_queue_empty(&sock->sk->sk_receive_queue) &&
-+			vq->link_state == VHOST_VQ_LINK_SYNC))
- 		return;
- 
- 	use_mm(net->dev.mm);
-@@ -214,9 +313,18 @@ static void handle_rx(struct vhost_net *net)
- 	vhost_disable_notify(vq);
- 	hdr_size = vq->hdr_size;
- 
--	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
-+	/* In async cases, for write logging, the simple way is to get
-+	 * the log info always, and really logging is decided later.
-+	 * Thus, when logging enabled, we can get log, and when logging
-+	 * disabled, we can get log disabled accordingly.
-+	 */
-+
-+	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) |
-+		(vq->link_state == VHOST_VQ_LINK_ASYNC) ?
- 		vq->log : NULL;
- 
-+	handle_async_rx_events_notify(net, vq);
-+
- 	for (;;) {
- 		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
- 					 ARRAY_SIZE(vq->iov),
-@@ -245,6 +353,14 @@ static void handle_rx(struct vhost_net *net)
- 		s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, in);
- 		msg.msg_iovlen = in;
- 		len = iov_length(vq->iov, in);
-+		if (vq->link_state == VHOST_VQ_LINK_ASYNC) {
-+			iocb = kmem_cache_zalloc(net->cache, GFP_KERNEL);
-+			if (!iocb)
-+				break;
-+			iocb->private = vq;
-+			iocb->ki_pos = head;
-+			iocb->ki_user_data = log;
-+		}
- 		/* Sanity check */
- 		if (!len) {
- 			vq_err(vq, "Unexpected header len for RX: "
-@@ -252,13 +368,18 @@ static void handle_rx(struct vhost_net *net)
- 			       iov_length(vq->hdr, s), hdr_size);
- 			break;
- 		}
--		err = sock->ops->recvmsg(NULL, sock, &msg,
-+
-+		err = sock->ops->recvmsg(iocb, sock, &msg,
- 					 len, MSG_DONTWAIT | MSG_TRUNC);
- 		/* TODO: Check specific error and bomb out unless EAGAIN? */
- 		if (err < 0) {
- 			vhost_discard_vq_desc(vq);
- 			break;
- 		}
-+
-+		if (vq->link_state == VHOST_VQ_LINK_ASYNC)
-+			continue;
-+
- 		/* TODO: Should check and handle checksum. */
- 		if (err > len) {
- 			pr_err("Discarded truncated rx packet: "
-@@ -284,10 +405,13 @@ static void handle_rx(struct vhost_net *net)
- 		}
- 	}
- 
-+	handle_async_rx_events_notify(net, vq);
-+
- 	mutex_unlock(&vq->mutex);
- 	unuse_mm(net->dev.mm);
- }
- 
-+
- static void handle_tx_kick(struct work_struct *work)
- {
- 	struct vhost_virtqueue *vq;
-@@ -338,6 +462,7 @@ static int vhost_net_open(struct inode *inode, struct file *f)
- 	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, POLLOUT);
- 	vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, POLLIN);
- 	n->tx_poll_state = VHOST_NET_POLL_DISABLED;
-+	n->cache = NULL;
- 	return 0;
- }
- 
-@@ -398,6 +523,17 @@ static void vhost_net_flush(struct vhost_net *n)
- 	vhost_net_flush_vq(n, VHOST_NET_VQ_RX);
- }
- 
-+static void vhost_notifier_cleanup(struct vhost_net *n)
-+{
-+	struct vhost_virtqueue *vq = &n->dev.vqs[VHOST_NET_VQ_RX];
-+	struct kiocb *iocb = NULL;
-+	if (n->cache) {
-+		while ((iocb = notify_dequeue(vq)) != NULL)
-+			kmem_cache_free(n->cache, iocb);
-+		kmem_cache_destroy(n->cache);
-+	}
-+}
-+
- static int vhost_net_release(struct inode *inode, struct file *f)
- {
- 	struct vhost_net *n = f->private_data;
-@@ -414,6 +550,7 @@ static int vhost_net_release(struct inode *inode, struct file *f)
- 	/* We do an extra flush before freeing memory,
- 	 * since jobs can re-queue themselves. */
- 	vhost_net_flush(n);
-+	vhost_notifier_cleanup(n);
- 	kfree(n);
- 	return 0;
- }
-@@ -462,7 +599,19 @@ static struct socket *get_tun_socket(int fd)
- 	return sock;
- }
- 
--static struct socket *get_socket(int fd)
-+static struct socket *get_mp_socket(int fd)
-+{
-+	struct file *file = fget(fd);
-+	struct socket *sock;
-+	if (!file)
-+		return ERR_PTR(-EBADF);
-+	sock = mp_get_socket(file);
-+	if (IS_ERR(sock))
-+		fput(file);
-+	return sock;
-+}
-+
-+static struct socket *get_socket(struct vhost_virtqueue *vq, int fd)
- {
- 	struct socket *sock;
- 	if (fd == -1)
-@@ -473,9 +622,31 @@ static struct socket *get_socket(int fd)
- 	sock = get_tun_socket(fd);
- 	if (!IS_ERR(sock))
- 		return sock;
-+	sock = get_mp_socket(fd);
-+	if (!IS_ERR(sock)) {
-+		vq->link_state = VHOST_VQ_LINK_ASYNC;
-+		return sock;
-+	}
- 	return ERR_PTR(-ENOTSOCK);
- }
- 
-+static void vhost_init_link_state(struct vhost_net *n, int index)
-+{
-+	struct vhost_virtqueue *vq = n->vqs + index;
-+
-+	WARN_ON(!mutex_is_locked(&vq->mutex));
-+	if (vq->link_state == VHOST_VQ_LINK_ASYNC) {
-+		vq->receiver = NULL;
-+		INIT_LIST_HEAD(&vq->notifier);
-+		spin_lock_init(&vq->notify_lock);
-+		if (!n->cache) {
-+			n->cache = kmem_cache_create("vhost_kiocb",
-+					sizeof(struct kiocb), 0,
-+					SLAB_HWCACHE_ALIGN, NULL);
-+		}
-+	}
-+}
-+
- static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
- {
- 	struct socket *sock, *oldsock;
-@@ -493,12 +664,15 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
- 	}
- 	vq = n->vqs + index;
- 	mutex_lock(&vq->mutex);
--	sock = get_socket(fd);
-+	vq->link_state = VHOST_VQ_LINK_SYNC;
-+	sock = get_socket(vq, fd);
- 	if (IS_ERR(sock)) {
- 		r = PTR_ERR(sock);
- 		goto err;
- 	}
- 
-+	vhost_init_link_state(n, index);
-+
- 	/* start polling new socket */
- 	oldsock = vq->private_data;
- 	if (sock == oldsock)
-@@ -507,8 +681,8 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
- 	vhost_net_disable_vq(n, vq);
- 	rcu_assign_pointer(vq->private_data, sock);
- 	vhost_net_enable_vq(n, vq);
--	mutex_unlock(&vq->mutex);
- done:
-+	mutex_unlock(&vq->mutex);
- 	mutex_unlock(&n->dev.mutex);
- 	if (oldsock) {
- 		vhost_net_flush_vq(n, index);
-@@ -516,6 +690,7 @@ done:
- 	}
- 	return r;
- err:
-+	mutex_unlock(&vq->mutex);
- 	mutex_unlock(&n->dev.mutex);
- 	return r;
- }
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index d1f0453..cffe39a 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -43,6 +43,11 @@ struct vhost_log {
- 	u64 len;
- };
- 
-+enum vhost_vq_link_state {
-+	VHOST_VQ_LINK_SYNC = 	0,
-+	VHOST_VQ_LINK_ASYNC = 	1,
++#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
++struct mpassthru_port	{
++	int		hdr_len;
++	int		data_len;
++	int		npages;
++	unsigned	flags;
++	struct socket	*sock;
++	struct skb_user_page	*(*ctor)(struct mpassthru_port *,
++				struct sk_buff *, int);
 +};
-+
- /* The virtqueue structure describes a queue attached to a device. */
- struct vhost_virtqueue {
- 	struct vhost_dev *dev;
-@@ -96,6 +101,11 @@ struct vhost_virtqueue {
- 	/* Log write descriptors */
- 	void __user *log_base;
- 	struct vhost_log log[VHOST_NET_MAX_SG];
-+	/*Differiate async socket for 0-copy from normal*/
-+	enum vhost_vq_link_state link_state;
-+	struct list_head notifier;
-+	spinlock_t notify_lock;
-+	void (*receiver)(struct vhost_virtqueue *);
++#endif
+ 
+ /*
+  * This structure defines the management hooks for network devices.
+@@ -636,6 +647,10 @@ struct net_device_ops {
+ 	int			(*ndo_fcoe_ddp_done)(struct net_device *dev,
+ 						     u16 xid);
+ #endif
++#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
++	int			(*ndo_mp_port_prep)(struct net_device *dev,
++						struct mpassthru_port *port);
++#endif
  };
  
- struct vhost_dev {
+ /*
+@@ -891,7 +906,8 @@ struct net_device
+ 	struct macvlan_port	*macvlan_port;
+ 	/* GARP */
+ 	struct garp_port	*garp_port;
+-
++	/* mpassthru */
++	struct mpassthru_port	*mp_port;
+ 	/* class/net/name entry */
+ 	struct device		dev;
+ 	/* space for optional statistics and wireless sysfs groups */
+@@ -2013,6 +2029,55 @@ static inline u32 dev_ethtool_get_flags(struct net_device *dev)
+ 		return 0;
+ 	return dev->ethtool_ops->get_flags(dev);
+ }
+-#endif /* __KERNEL__ */
+ 
++/* To support zero-copy between user space application and NIC driver,
++ * we'd better ask NIC driver for the capability it can provide, especially
++ * for packet split mode, now we only ask for the header size, and the
++ * payload once a descriptor may carry.
++ */
++
++#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
++static inline int netdev_mp_port_prep(struct net_device *dev,
++		struct mpassthru_port *port)
++{
++	int rc;
++	int npages, data_len;
++	const struct net_device_ops *ops = dev->netdev_ops;
++
++	/* needed by packet split */
++	if (ops->ndo_mp_port_prep) {
++		rc = ops->ndo_mp_port_prep(dev, port);
++		if (rc)
++			return rc;
++	} else {
++		/* If the NIC driver did not report this,
++		 * then we try to use it as igb driver.
++		 */
++		port->hdr_len = 128;
++		port->data_len = 2048;
++		port->npages = 1;
++	}
++
++	if (port->hdr_len <= 0)
++		goto err;
++
++	npages = port->npages;
++	data_len = port->data_len;
++	if (npages <= 0 || npages > MAX_SKB_FRAGS ||
++			(data_len < PAGE_SIZE * (npages - 1) ||
++			 data_len > PAGE_SIZE * npages))
++		goto err;
++
++	return 0;
++err:
++	dev_warn(&dev->dev, "invalid page constructor parameters\n");
++
++	return -EINVAL;
++}
++
++extern int netdev_mp_port_attach(struct net_device *dev,
++				struct mpassthru_port *port);
++extern void netdev_mp_port_detach(struct net_device *dev);
++#endif /* CONFIG_VHOST_PASSTHRU */
++#endif /* __KERNEL__ */
+ #endif	/* _LINUX_NETDEVICE_H */
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index df7b23a..e59fa57 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -209,6 +209,13 @@ struct skb_shared_info {
+ 	void *		destructor_arg;
+ };
+ 
++struct skb_user_page {
++	u8              *start;
++	int             size;
++	struct skb_frag_struct *frags;
++	struct skb_shared_info *ushinfo;
++	void		(*dtor)(struct skb_user_page *);
++};
+ /* We divide dataref into two halves.  The higher 16 bits hold references
+  * to the payload part of skb->data.  The lower 16 bits hold references to
+  * the entire skb->data.  A clone of a headerless skb holds the length of
+@@ -441,17 +448,18 @@ extern void kfree_skb(struct sk_buff *skb);
+ extern void consume_skb(struct sk_buff *skb);
+ extern void	       __kfree_skb(struct sk_buff *skb);
+ extern struct sk_buff *__alloc_skb(unsigned int size,
+-				   gfp_t priority, int fclone, int node);
++				   gfp_t priority, int fclone,
++				   int node, struct net_device *dev);
+ static inline struct sk_buff *alloc_skb(unsigned int size,
+ 					gfp_t priority)
+ {
+-	return __alloc_skb(size, priority, 0, -1);
++	return __alloc_skb(size, priority, 0, -1, NULL);
+ }
+ 
+ static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
+ 					       gfp_t priority)
+ {
+-	return __alloc_skb(size, priority, 1, -1);
++	return __alloc_skb(size, priority, 1, -1, NULL);
+ }
+ 
+ extern int skb_recycle_check(struct sk_buff *skb, int skb_size);
+@@ -1509,6 +1517,22 @@ static inline void netdev_free_page(struct net_device *dev, struct page *page)
+ 	__free_page(page);
+ }
+ 
++extern struct skb_user_page *netdev_alloc_user_pages(struct net_device *dev,
++			struct sk_buff *skb, int npages);
++
++static inline struct skb_user_page *netdev_alloc_user_page(
++		struct net_device *dev,
++		struct sk_buff *skb, unsigned int size)
++{
++	struct skb_user_page *user;
++	int npages = (size < PAGE_SIZE) ? 1 : (size / PAGE_SIZE);
++
++	user = netdev_alloc_user_pages(dev, skb, npages);
++	if (likely(user))
++		return user;
++	return NULL;
++}
++
+ /**
+  *	skb_clone_writable - is the header of a clone writable
+  *	@skb: buffer to check
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b8f74cf..b50bdcb 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2265,6 +2265,61 @@ void netif_nit_deliver(struct sk_buff *skb)
+ 	rcu_read_unlock();
+ }
+ 
++/* Add a hook to intercept zero-copy packets, and insert it
++ * to the socket queue specially.
++ */
++#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
++int netdev_mp_port_attach(struct net_device *dev,
++			struct mpassthru_port *port)
++{
++	/* locked by mp_mutex */
++	if (rcu_dereference(dev->mp_port))
++		return -EBUSY;
++
++	rcu_assign_pointer(dev->mp_port, port);
++
++	return 0;
++}
++EXPORT_SYMBOL(netdev_mp_port_attach);
++
++void netdev_mp_port_detach(struct net_device *dev)
++{
++	/* locked by mp_mutex */
++	if (!rcu_dereference(dev->mp_port))
++		return;
++
++	rcu_assign_pointer(dev->mp_port, NULL);
++	synchronize_rcu();
++}
++EXPORT_SYMBOL(netdev_mp_port_detach);
++
++static inline struct sk_buff *handle_mpassthru(struct sk_buff *skb,
++					struct packet_type **pt_prev,
++					int *ret, struct net_device *orig_dev)
++{
++	struct mpassthru_port *mp_port = NULL;
++	struct sock *sk = NULL;
++
++	if (skb->dev)
++		mp_port = skb->dev->mp_port;
++	if (!mp_port)
++		return skb;
++
++	if (*pt_prev) {
++		*ret = deliver_skb(skb, *pt_prev, orig_dev);
++		*pt_prev = NULL;
++	}
++
++	sk = mp_port->sock->sk;
++	skb_queue_tail(&sk->sk_receive_queue, skb);
++	sk->sk_data_ready(sk, skb->len);
++
++	return NULL;
++}
++#else
++#define handle_mpassthru(skb, pt_prev, ret, orig_dev)      (skb)
++#endif
++
+ /**
+  *	netif_receive_skb - process receive buffer from network
+  *	@skb: buffer to process
+@@ -2342,6 +2397,9 @@ int netif_receive_skb(struct sk_buff *skb)
+ 		goto out;
+ ncls:
+ #endif
++	skb = handle_mpassthru(skb, &pt_prev, &ret, orig_dev);
++	if (!skb)
++		goto out;
+ 
+ 	skb = handle_bridge(skb, &pt_prev, &ret, orig_dev);
+ 	if (!skb)
+@@ -2455,6 +2513,11 @@ int dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ 	if (skb_is_gso(skb) || skb_has_frags(skb))
+ 		goto normal;
+ 
++#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
++	if (skb->dev && skb->dev->mp_port)
++		goto normal;
++#endif
++
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(ptype, head, list) {
+ 		if (ptype->type != type || ptype->dev || !ptype->gro_receive)
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 80a9616..e684898 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -170,13 +170,15 @@ EXPORT_SYMBOL(skb_under_panic);
+  *	%GFP_ATOMIC.
+  */
+ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+-			    int fclone, int node)
++			    int fclone, int node, struct net_device *dev)
+ {
+ 	struct kmem_cache *cache;
+ 	struct skb_shared_info *shinfo;
+ 	struct sk_buff *skb;
+ 	u8 *data;
+-
++#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
++	struct skb_user_page *user = NULL;
++#endif
+ 	cache = fclone ? skbuff_fclone_cache : skbuff_head_cache;
+ 
+ 	/* Get the HEAD */
+@@ -185,8 +187,26 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ 		goto out;
+ 
+ 	size = SKB_DATA_ALIGN(size);
+-	data = kmalloc_node_track_caller(size + sizeof(struct skb_shared_info),
+-			gfp_mask, node);
++#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
++	if (!dev || !dev->mp_port) { /* Legacy alloc func */
++#endif
++		data = kmalloc_node_track_caller(
++				size + sizeof(struct skb_shared_info),
++				gfp_mask, node);
++#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
++	} else { /* Allocation may from page constructor of device */
++		user = netdev_alloc_user_page(dev, skb, size);
++		if (!user) {
++			data = kmalloc_node_track_caller(
++				size + sizeof(struct skb_shared_info),
++				gfp_mask, node);
++			printk(KERN_INFO "can't alloc user buffer.\n");
++		} else {
++			data = user->start;
++			size = SKB_DATA_ALIGN(user->size);
++		}
++	}
++#endif
+ 	if (!data)
+ 		goto nodata;
+ 
+@@ -208,6 +228,11 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ 	skb->mac_header = ~0U;
+ #endif
+ 
++#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
++	if (user)
++		memcpy(user->ushinfo, skb_shinfo(skb),
++				sizeof(struct skb_shared_info));
++#endif
+ 	/* make sure we initialize shinfo sequentially */
+ 	shinfo = skb_shinfo(skb);
+ 	atomic_set(&shinfo->dataref, 1);
+@@ -231,6 +256,10 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ 
+ 		child->fclone = SKB_FCLONE_UNAVAILABLE;
+ 	}
++#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
++	shinfo->destructor_arg = user;
++#endif
++
+ out:
+ 	return skb;
+ nodata:
+@@ -259,7 +288,7 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
+ 	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
+ 	struct sk_buff *skb;
+ 
+-	skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask, 0, node);
++	skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask, 0, node, dev);
+ 	if (likely(skb)) {
+ 		skb_reserve(skb, NET_SKB_PAD);
+ 		skb->dev = dev;
+@@ -278,6 +307,24 @@ struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask)
+ }
+ EXPORT_SYMBOL(__netdev_alloc_page);
+ 
++#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
++struct skb_user_page *netdev_alloc_user_pages(struct net_device *dev,
++			struct sk_buff *skb, int npages)
++{
++	struct mpassthru_port *ctor;
++	struct skb_user_page *user = NULL;
++
++	ctor = rcu_dereference(dev->mp_port);
++	if (!ctor)
++		goto out;
++	BUG_ON(npages > ctor->npages);
++	user = ctor->ctor(ctor, skb, npages);
++out:
++	return user;
++}
++EXPORT_SYMBOL(netdev_alloc_user_pages);
++#endif
++
+ void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
+ 		int size)
+ {
+@@ -338,6 +385,10 @@ static void skb_clone_fraglist(struct sk_buff *skb)
+ 
+ static void skb_release_data(struct sk_buff *skb)
+ {
++#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
++	struct skb_user_page *user = skb_shinfo(skb)->destructor_arg;
++#endif
++
+ 	if (!skb->cloned ||
+ 	    !atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
+ 			       &skb_shinfo(skb)->dataref)) {
+@@ -349,7 +400,10 @@ static void skb_release_data(struct sk_buff *skb)
+ 
+ 		if (skb_has_frags(skb))
+ 			skb_drop_fraglist(skb);
+-
++#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
++		if (skb->dev && skb->dev->mp_port && user && user->dtor)
++			user->dtor(user);
++#endif
+ 		kfree(skb->head);
+ 	}
+ }
+@@ -503,8 +557,14 @@ int skb_recycle_check(struct sk_buff *skb, int skb_size)
+ 	if (skb_shared(skb) || skb_cloned(skb))
+ 		return 0;
+ 
+-	skb_release_head_state(skb);
++#if defined(CONFIG_VHOST_PASSTHRU) || defined(CONFIG_VHOST_PASSTHRU_MODULE)
++	if (skb->dev && skb->dev->mp_port)
++		return 0;
++#endif
++
+ 	shinfo = skb_shinfo(skb);
++
++	skb_release_head_state(skb);
+ 	atomic_set(&shinfo->dataref, 1);
+ 	shinfo->nr_frags = 0;
+ 	shinfo->gso_size = 0;
 -- 
 1.5.4.4
 
