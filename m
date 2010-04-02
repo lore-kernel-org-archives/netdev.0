@@ -1,42 +1,36 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Unaligned access in xfrm_user:copy_to_user_state
-Date: Fri, 2 Apr 2010 22:18:59 +0200 (CEST)
-Message-ID: <alpine.LSU.2.01.1004022210270.30875@obet.zrqbmnf.qr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [BUG] latest net-next-2.6 doesnt fly
+Date: Fri, 02 Apr 2010 13:35:04 -0700 (PDT)
+Message-ID: <20100402.133504.134680676.davem@davemloft.net>
+References: <1270200783.1989.4.camel@edumazet-laptop>
+	<1270201248.1989.8.camel@edumazet-laptop>
+	<1270202304.1989.14.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fujita.tomonori@lab.ntt.co.jp
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from borg.medozas.de ([188.40.89.202]:43005 "EHLO borg.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752917Ab0DBUTA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Apr 2010 16:19:00 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60714
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752969Ab0DBUfD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 16:35:03 -0400
+In-Reply-To: <1270202304.1989.14.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 02 Apr 2010 11:58:24 +0200
 
+> [PATCH net-next-2.6] net: illegal_highdma() fix
+> 
+> Followup to commit 5acbbd428db47b12f137a8a2aa96b3c0a96b744e
+> (net: change illegal_highdma to use dma_mask)
+> 
+> If dev->dev.parent is NULL, we should not try to dereference it.
+> 
+> Dont force inline illegal_highdma() as its pretty big now.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-since we seem to be dealing with unaligned access quite recently, here's 
-my turn in reporting one:
-
-22:09 ares:/etc # uname -a
-Linux ares 2.6.34-rc1 #17 SMP Thu Mar 25 00:08:55 CET 2010 sparc64 
-sparc64 sparc64 GNU/Linux
-(This is kaber/nf-next)
-
-Apr  2 22:09:53 ares kernel: Kernel unaligned access at TPC[101a0c18] 
-copy_to_user_state+0x18/0x120 [xfrm_user]
-
-0000000000000c00 <copy_to_user_state>:
-     c00:       9d e3 bf 50     save  %sp, -176, %sp
-     c04:       ce 5e 20 80     ldx  [ %i0 + 0x80 ], %g7
-     c08:       86 06 20 80     add  %i0, 0x80, %g3
-     c0c:       84 06 60 38     add  %i1, 0x38, %g2
-     c10:       82 06 20 98     add  %i0, 0x98, %g1
-     c14:       90 06 60 60     add  %i1, 0x60, %o0
-     c18:       ce 76 60 38     stx  %g7, [ %i1 + 0x38 ]
-
-That happens when strongswan is trying to handle a new incoming tunnel 
-request between two IPv6 endpoints (it does not seem to get triggered
-for IPv4).
+Applied, thanks for tracking this down.
