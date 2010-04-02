@@ -1,85 +1,74 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH 1/2] phylib: Support phy module autoloading
-Date: Fri, 02 Apr 2010 11:38:23 +0100
-Message-ID: <1270204703.3101.2368.camel@macbook.infradead.org>
-References: <1269998334.18090.278.camel@macbook.infradead.org>
-	 <1270096441.12516.18.camel@localhost>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] rfs: Receive Flow Steering
+Date: Fri, 2 Apr 2010 18:58:28 +0800
+Message-ID: <o2j412e6f7f1004020358mf9455fcbqdbb2d762d94a7aa2@mail.gmail.com>
+References: <alpine.DEB.1.00.1004012045560.4252@pokey.mtv.corp.google.com>
+	<j2u412e6f7f1004012204r76dd8ccbg2e6e78d46541b85@mail.gmail.com>
+	<1270193393.1936.52.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, 553024@bugs.debian.org
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:38990 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758426Ab0DBKi3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 06:38:29 -0400
-In-Reply-To: <1270096441.12516.18.camel@localhost>
+Received: from mail-yw0-f172.google.com ([209.85.211.172]:59444 "EHLO
+	mail-yw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753223Ab0DBK6t convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 06:58:49 -0400
+Received: by ywh2 with SMTP id 2so1318947ywh.33
+        for <netdev@vger.kernel.org>; Fri, 02 Apr 2010 03:58:48 -0700 (PDT)
+In-Reply-To: <1270193393.1936.52.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-04-01 at 05:34 +0100, Ben Hutchings wrote:
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -188,7 +188,7 @@ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
->  	   around for long enough for the driver to get loaded. With
->  	   MDIO, the NIC driver will get bored and give up as soon
->  	   as it finds that there's no driver _already_ loaded. */
-> -	sprintf(modid, "phy:" PHYID_FMT, PHYID_ARGS(phy_id));
-> +	sprintf(modid, MDIO_MODULE_PREFIX MDIO_ID_FMT, MDIO_ID_ARGS(phy_id));
->  	request_module(modid);
+On Fri, Apr 2, 2010 at 3:29 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
+rote:
+> Le vendredi 02 avril 2010 =C3=A0 13:04 +0800, Changli Gao a =C3=A9cri=
+t :
+>
+>
+> Your claim of RPS being not good for applications is wrong, our test
+> results show an improvement as is. Maybe your applications dont scale=
+,
+> because of bad habits, or collidings heuristics, I dont know.
+>
 
-You forgot to increase the size of the 'modid' storage there, and it
-needed to grow by one character. But that's OK. I forgot that
-request_module() takes printf-style arguments. So now I've killed the
-temporary 'modid' buffer altogether, and I just call
-request_module(MDIO_MODULE_PREFIX ...). I dropped the ifdef, too.
+I didn't mean RPS isn't good for applications. I mean that the
+performance improvement of applications isn't as much as firewalls'.
+In the other words, we can do much better than the current RPS,  as
+RFS does.
 
-> -#define PHY_MODULE_PREFIX	"phy:"
-> +#define MDIO_MODULE_PREFIX	"mdio:"
->  
-> -#define PHYID_FMT "%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d"
-> -#define PHYID_ARGS(_id) \
-> +#define MDIO_ID_FMT "%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d"
-> +#define MDIO_ID_ARGS(_id) \
->  	(_id)>>31, ((_id)>>30) & 1, ((_id)>>29) & 1, ((_id)>>28) & 1,	\
->  	((_id)>>27) & 1, ((_id)>>26) & 1, ((_id)>>25) & 1, ((_id)>>24) & 1, \
->  	((_id)>>23) & 1, ((_id)>>22) & 1, ((_id)>>21) & 1, ((_id)>>20) & 1, \
-> @@ -487,11 +487,17 @@ struct platform_device_id {
->  	((_id)>>7) & 1, ((_id)>>6) & 1, ((_id)>>5) & 1, ((_id)>>4) & 1, \
->  	((_id)>>3) & 1, ((_id)>>2) & 1, ((_id)>>1) & 1, (_id) & 1
+>
+> Whole point of Herbert patches is you dont need to change application=
+s
+> and put complex logic in them, knowing exact machine topology.
+>
+> Your suggestion is very complex, because you must bind each thread on=
+ a
+> particular cpu, and this is pretty bad for many reasons. We should al=
+low
+> thread migrations, because scheduler or admin know better than the
+> application.
+>
+> Application writers should rely on standard kernel mechanisms, and
+> schedulers, because an application have a limited point of view of wh=
+at
+> really happens on the machine.
+>
 
-Still tempted to add a %b format to the kernel's printf... some runtimes
-have it.
+Yes, it is more complex. Some high performance server use the
+event-driven model, such as memcached, nginx and lighttpd. This model
+has high performance on UP with no doubt, and on SMP they usually use
+one individual epoll fd for each Core/CPU, and the acceptor dispatches
+works among these epoll fds. This program model is popular, and  it
+bypass the  system scheduler. I think the socket option SO_RPSCPU can
+help this kind of applications work better, why not do that?
+Compatility with other Unixes isn't a good cause, for high performance
+applications, there are always lots of OS special features used. For
+example: epoll vs kqueue, tcp defer accept vs accept filter.
 
-> -
-> -
-> -struct phy_device_id {
-> -	uint32_t phy_id;
-> -	uint32_t phy_id_mask;
-> +/**
-> + * struct mdio_device_id - identifies PHY devices on an MDIO/MII bus
-> + * @phy_id: The result of
-> + *     (mdio_read(&MII_PHYSID1) << 16 | mdio_read(&PHYSID2)) & @phy_id_mask
-> + *     for this PHY type
-> + * @phy_id_mask: Defines the significant bits of @phy_id.  A value of 0
-> + *     is used to terminate an array of struct mdio_device_id.
 
-That last sentence is a lie; I removed it. file2alias.c just ignores the
-last entry in the array regardless of what it contains. I have no idea
-why we use a 'terminator' in these arrays. Legacy, perhaps?
-
->  static int do_phy_entry(const char *filename,
-> -			struct phy_device_id *id, char *alias)
-> +			struct mdio_device_id *id, char *alias)
-
-I made that 'do_mdio_entry()' for cosmetic reasons.
-
-> -			 sizeof(struct phy_device_id), "phy",
-> +			 sizeof(struct mdio_device_id), "phy",
-
-And that "mdio", not "phy", so that it works.
-
--- 
-dwmw2
-
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
