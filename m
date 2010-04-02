@@ -1,249 +1,326 @@
 From: James Chapman <jchapman@katalix.com>
-Subject: [PATCH net-next-2.6 v4 13/14] l2tp: Add support for static unmanaged
-	L2TPv3 tunnels
-Date: Fri, 02 Apr 2010 17:19:40 +0100
-Message-ID: <20100402161940.11367.9120.stgit@bert.katalix.com>
+Subject: [PATCH net-next-2.6 v4 14/14] l2tp: Update documentation
+Date: Fri, 02 Apr 2010 17:19:46 +0100
+Message-ID: <20100402161945.11367.52981.stgit@bert.katalix.com>
 References: <20100402161822.11367.70454.stgit@bert.katalix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:33949 "EHLO mail.katalix.com"
+Received: from katalix.com ([82.103.140.233]:33953 "EHLO mail.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754801Ab0DBQTQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Apr 2010 12:19:16 -0400
+	id S1754918Ab0DBQTX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Apr 2010 12:19:23 -0400
 Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.katalix.com (Postfix) with ESMTP id 31128A620AC
-	for <netdev@vger.kernel.org>; Fri,  2 Apr 2010 17:19:41 +0100 (BST)
+	by mail.katalix.com (Postfix) with ESMTP id 4FD58A620A3
+	for <netdev@vger.kernel.org>; Fri,  2 Apr 2010 17:19:47 +0100 (BST)
 Received: from mail.katalix.com ([127.0.0.1])
 	by localhost (mail.katalix.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id zqvQi3CGudcs for <netdev@vger.kernel.org>;
-	Fri,  2 Apr 2010 17:19:40 +0100 (BST)
+	with ESMTP id WlGyUz7g5SmZ for <netdev@vger.kernel.org>;
+	Fri,  2 Apr 2010 17:19:46 +0100 (BST)
 Received: from bert.katalix.com (localhost.localdomain [127.0.0.1])
-	by mail.katalix.com (Postfix) with ESMTP id C0A08A62087
-	for <netdev@vger.kernel.org>; Fri,  2 Apr 2010 17:19:40 +0100 (BST)
+	by mail.katalix.com (Postfix) with ESMTP id 0EE48A62087
+	for <netdev@vger.kernel.org>; Fri,  2 Apr 2010 17:19:46 +0100 (BST)
 In-Reply-To: <20100402161822.11367.70454.stgit@bert.katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for static (unmanaged) L2TPv3 tunnels, where
-the tunnel socket is created by the kernel rather than being created
-by userspace. This means L2TP tunnels and sessions can be created
-manually, without needing an L2TP control protocol implemented in
-userspace. This might be useful where the user wants a simple ethernet
-over IP tunnel.
-
-A patch to iproute2 adds a new command set under "ip l2tp" to make use
-of this feature. This will be submitted separately.
+This patch adds documentation about the L2TPv3 functionality.
 
 Signed-off-by: James Chapman <jchapman@katalix.com>
 Reviewed-by: Randy Dunlap <randy.dunlap@oracle.com>
 ---
- net/l2tp/l2tp_core.c    |  115 +++++++++++++++++++++++++++++++++++++++++++----
- net/l2tp/l2tp_core.h    |    7 +++
- net/l2tp/l2tp_netlink.c |   18 ++++++-
- 3 files changed, 126 insertions(+), 14 deletions(-)
+ Documentation/networking/l2tp.txt |  247 ++++++++++++++++++++++++++++++++-----
+ 1 files changed, 213 insertions(+), 34 deletions(-)
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 473cf2d..13ed85b 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1218,6 +1218,82 @@ void l2tp_tunnel_free(struct l2tp_tunnel *tunnel)
- }
- EXPORT_SYMBOL_GPL(l2tp_tunnel_free);
+diff --git a/Documentation/networking/l2tp.txt b/Documentation/networking/l2tp.txt
+index 63214b2..e7bf397 100644
+--- a/Documentation/networking/l2tp.txt
++++ b/Documentation/networking/l2tp.txt
+@@ -1,44 +1,95 @@
+-This brief document describes how to use the kernel's PPPoL2TP driver
+-to provide L2TP functionality. L2TP is a protocol that tunnels one or
+-more PPP sessions over a UDP tunnel. It is commonly used for VPNs
++This document describes how to use the kernel's L2TP drivers to
++provide L2TP functionality. L2TP is a protocol that tunnels one or
++more sessions over an IP tunnel. It is commonly used for VPNs
+ (L2TP/IPSec) and by ISPs to tunnel subscriber PPP sessions over an IP
+-network infrastructure.
++network infrastructure. With L2TPv3, it is also useful as a Layer-2
++tunneling infrastructure.
++
++Features
++========
++
++L2TPv2 (PPP over L2TP (UDP tunnels)).
++L2TPv3 ethernet pseudowires.
++L2TPv3 PPP pseudowires.
++L2TPv3 IP encapsulation.
++Netlink sockets for L2TPv3 configuration management.
++
++History
++=======
++
++The original pppol2tp driver was introduced in 2.6.23 and provided
++L2TPv2 functionality (rfc2661). L2TPv2 is used to tunnel one or more PPP
++sessions over a UDP tunnel.
++
++L2TPv3 (rfc3931) changes the protocol to allow different frame types
++to be passed over an L2TP tunnel by moving the PPP-specific parts of
++the protocol out of the core L2TP packet headers. Each frame type is
++known as a pseudowire type. Ethernet, PPP, HDLC, Frame Relay and ATM
++pseudowires for L2TP are defined in separate RFC standards. Another
++change for L2TPv3 is that it can be carried directly over IP with no
++UDP header (UDP is optional). It is also possible to create static
++unmanaged L2TPv3 tunnels manually without a control protocol
++(userspace daemon) to manage them.
++
++To support L2TPv3, the original pppol2tp driver was split up to
++separate the L2TP and PPP functionality. Existing L2TPv2 userspace
++apps should be unaffected as the original pppol2tp sockets API is
++retained. L2TPv3, however, uses netlink to manage L2TPv3 tunnels and
++sessions.
  
-+/* Create a socket for the tunnel, if one isn't set up by
-+ * userspace. This is used for static tunnels where there is no
-+ * managing L2TP daemon.
-+ */
-+static int l2tp_tunnel_sock_create(u32 tunnel_id, u32 peer_tunnel_id, struct l2tp_tunnel_cfg *cfg, struct socket **sockp)
-+{
-+	int err = -EINVAL;
-+	struct sockaddr_in udp_addr;
-+	struct sockaddr_l2tpip ip_addr;
-+	struct socket *sock;
-+
-+	switch (cfg->encap) {
-+	case L2TP_ENCAPTYPE_UDP:
-+		err = sock_create(AF_INET, SOCK_DGRAM, 0, sockp);
-+		if (err < 0)
-+			goto out;
-+
-+		sock = *sockp;
-+
-+		memset(&udp_addr, 0, sizeof(udp_addr));
-+		udp_addr.sin_family = AF_INET;
-+		udp_addr.sin_addr = cfg->local_ip;
-+		udp_addr.sin_port = htons(cfg->local_udp_port);
-+		err = kernel_bind(sock, (struct sockaddr *) &udp_addr, sizeof(udp_addr));
-+		if (err < 0)
-+			goto out;
-+
-+		udp_addr.sin_family = AF_INET;
-+		udp_addr.sin_addr = cfg->peer_ip;
-+		udp_addr.sin_port = htons(cfg->peer_udp_port);
-+		err = kernel_connect(sock, (struct sockaddr *) &udp_addr, sizeof(udp_addr), 0);
-+		if (err < 0)
-+			goto out;
-+
-+		if (!cfg->use_udp_checksums)
-+			sock->sk->sk_no_check = UDP_CSUM_NOXMIT;
-+
-+		break;
-+
-+	case L2TP_ENCAPTYPE_IP:
-+		err = sock_create(AF_INET, SOCK_DGRAM, IPPROTO_L2TP, sockp);
-+		if (err < 0)
-+			goto out;
-+
-+		sock = *sockp;
-+
-+		memset(&ip_addr, 0, sizeof(ip_addr));
-+		ip_addr.l2tp_family = AF_INET;
-+		ip_addr.l2tp_addr = cfg->local_ip;
-+		ip_addr.l2tp_conn_id = tunnel_id;
-+		err = kernel_bind(sock, (struct sockaddr *) &ip_addr, sizeof(ip_addr));
-+		if (err < 0)
-+			goto out;
-+
-+		ip_addr.l2tp_family = AF_INET;
-+		ip_addr.l2tp_addr = cfg->peer_ip;
-+		ip_addr.l2tp_conn_id = peer_tunnel_id;
-+		err = kernel_connect(sock, (struct sockaddr *) &ip_addr, sizeof(ip_addr), 0);
-+		if (err < 0)
-+			goto out;
-+
-+		break;
-+
-+	default:
-+		goto out;
-+	}
-+
-+out:
-+	if ((err < 0) && sock) {
-+		sock_release(sock);
-+		*sockp = NULL;
-+	}
-+
-+	return err;
-+}
-+
- int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32 peer_tunnel_id, struct l2tp_tunnel_cfg *cfg, struct l2tp_tunnel **tunnelp)
- {
- 	struct l2tp_tunnel *tunnel = NULL;
-@@ -1228,14 +1304,21 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
- 	enum l2tp_encap_type encap = L2TP_ENCAPTYPE_UDP;
+ Design
+ ======
  
- 	/* Get the tunnel socket from the fd, which was opened by
--	 * the userspace L2TP daemon.
-+	 * the userspace L2TP daemon. If not specified, create a
-+	 * kernel socket.
- 	 */
--	err = -EBADF;
--	sock = sockfd_lookup(fd, &err);
--	if (!sock) {
--		printk(KERN_ERR "tunl %hu: sockfd_lookup(fd=%d) returned %d\n",
--		       tunnel_id, fd, err);
--		goto err;
-+	if (fd < 0) {
-+		err = l2tp_tunnel_sock_create(tunnel_id, peer_tunnel_id, cfg, &sock);
-+		if (err < 0)
-+			goto err;
-+	} else {
-+		err = -EBADF;
-+		sock = sockfd_lookup(fd, &err);
-+		if (!sock) {
-+			printk(KERN_ERR "tunl %hu: sockfd_lookup(fd=%d) returned %d\n",
-+			       tunnel_id, fd, err);
-+			goto err;
-+		}
- 	}
- 
- 	sk = sock->sk;
-@@ -1329,7 +1412,10 @@ err:
- 	if (tunnelp)
- 		*tunnelp = tunnel;
- 
--	if (sock)
-+	/* If tunnel's socket was created by the kernel, it doesn't
-+	 *  have a file.
-+	 */
-+	if (sock && sock->file)
- 		sockfd_put(sock);
- 
- 	return err;
-@@ -1341,13 +1427,22 @@ EXPORT_SYMBOL_GPL(l2tp_tunnel_create);
- int l2tp_tunnel_delete(struct l2tp_tunnel *tunnel)
- {
- 	int err = 0;
-+	struct socket *sock = tunnel->sock ? tunnel->sock->sk_socket : NULL;
- 
- 	/* Force the tunnel socket to close. This will eventually
- 	 * cause the tunnel to be deleted via the normal socket close
- 	 * mechanisms when userspace closes the tunnel socket.
- 	 */
--	if ((tunnel->sock != NULL) && (tunnel->sock->sk_socket != NULL))
--		err = inet_shutdown(tunnel->sock->sk_socket, 2);
-+	if (sock != NULL) {
-+		err = inet_shutdown(sock, 2);
+-The PPPoL2TP driver, drivers/net/pppol2tp.c, provides a mechanism by
+-which PPP frames carried through an L2TP session are passed through
+-the kernel's PPP subsystem. The standard PPP daemon, pppd, handles all
+-PPP interaction with the peer. PPP network interfaces are created for
+-each local PPP endpoint.
+-
+-The L2TP protocol http://www.faqs.org/rfcs/rfc2661.html defines L2TP
+-control and data frames. L2TP control frames carry messages between
+-L2TP clients/servers and are used to setup / teardown tunnels and
+-sessions. An L2TP client or server is implemented in userspace and
+-will use a regular UDP socket per tunnel. L2TP data frames carry PPP
+-frames, which may be PPP control or PPP data. The kernel's PPP
++The L2TP protocol separates control and data frames.  The L2TP kernel
++drivers handle only L2TP data frames; control frames are always
++handled by userspace. L2TP control frames carry messages between L2TP
++clients/servers and are used to setup / teardown tunnels and
++sessions. An L2TP client or server is implemented in userspace.
 +
-+		/* If the tunnel's socket was created by the kernel,
-+		 * close the socket here since the socket was not
-+		 * created by userspace.
-+		 */
-+		if (sock->file == NULL)
-+			err = inet_release(sock);
-+	}
- 
- 	return err;
- }
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index 5713355..a961c77 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -146,6 +146,13 @@ struct l2tp_tunnel_cfg {
- 	int			debug;		/* bitmask of debug message
- 						 * categories */
- 	enum l2tp_encap_type	encap;
++Each L2TP tunnel is implemented using a UDP or L2TPIP socket; L2TPIP
++provides L2TPv3 IP encapsulation (no UDP) and is implemented using a
++new l2tpip socket family. The tunnel socket is typically created by
++userspace, though for unmanaged L2TPv3 tunnels, the socket can also be
++created by the kernel. Each L2TP session (pseudowire) gets a network
++interface instance. In the case of PPP, these interfaces are created
++indirectly by pppd using a pppol2tp socket. In the case of ethernet,
++the netdevice is created upon a netlink request to create an L2TPv3
++ethernet pseudowire.
 +
-+	/* Used only for kernel-created sockets */
-+	struct in_addr		local_ip;
-+	struct in_addr		peer_ip;
-+	u16			local_udp_port;
-+	u16			peer_udp_port;
-+	int			use_udp_checksums:1;
- };
++For PPP, the PPPoL2TP driver, net/l2tp/l2tp_ppp.c, provides a
++mechanism by which PPP frames carried through an L2TP session are
++passed through the kernel's PPP subsystem. The standard PPP daemon,
++pppd, handles all PPP interaction with the peer. PPP network
++interfaces are created for each local PPP endpoint. The kernel's PPP
+ subsystem arranges for PPP control frames to be delivered to pppd,
+ while data frames are forwarded as usual.
  
- struct l2tp_tunnel {
-diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
-index 3d0f7f6..12341a6 100644
---- a/net/l2tp/l2tp_netlink.c
-+++ b/net/l2tp/l2tp_netlink.c
-@@ -129,11 +129,21 @@ static int l2tp_nl_cmd_tunnel_create(struct sk_buff *skb, struct genl_info *info
- 	}
- 	cfg.encap = nla_get_u16(info->attrs[L2TP_ATTR_ENCAP_TYPE]);
++For ethernet, the L2TPETH driver, net/l2tp/l2tp_eth.c, implements a
++netdevice driver, managing virtual ethernet devices, one per
++pseudowire. These interfaces can be managed using standard Linux tools
++such as "ip" and "ifconfig". If only IP frames are passed over the
++tunnel, the interface can be given an IP addresses of itself and its
++peer. If non-IP frames are to be passed over the tunnel, the interface
++can be added to a bridge using brctl. All L2TP datapath protocol
++functions are handled by the L2TP core driver.
++
+ Each tunnel and session within a tunnel is assigned a unique tunnel_id
+ and session_id. These ids are carried in the L2TP header of every
+-control and data packet. The pppol2tp driver uses them to lookup
+-internal tunnel and/or session contexts. Zero tunnel / session ids are
+-treated specially - zero ids are never assigned to tunnels or sessions
+-in the network. In the driver, the tunnel context keeps a pointer to
+-the tunnel UDP socket. The session context keeps a pointer to the
+-PPPoL2TP socket, as well as other data that lets the driver interface
+-to the kernel PPP subsystem.
+-
+-Note that the pppol2tp kernel driver handles only L2TP data frames;
+-L2TP control frames are simply passed up to userspace in the UDP
+-tunnel socket. The kernel handles all datapath aspects of the
+-protocol, including data packet resequencing (if enabled).
+-
+-There are a number of requirements on the userspace L2TP daemon in
+-order to use the pppol2tp driver.
++control and data packet. (Actually, in L2TPv3, the tunnel_id isn't
++present in data frames - it is inferred from the IP connection on
++which the packet was received.) The L2TP driver uses the ids to lookup
++internal tunnel and/or session contexts to determine how to handle the
++packet. Zero tunnel / session ids are treated specially - zero ids are
++never assigned to tunnels or sessions in the network. In the driver,
++the tunnel context keeps a reference to the tunnel UDP or L2TPIP
++socket. The session context holds data that lets the driver interface
++to the kernel's network frame type subsystems, i.e. PPP, ethernet.
++
++Userspace Programming
++=====================
++
++For L2TPv2, there are a number of requirements on the userspace L2TP
++daemon in order to use the pppol2tp driver.
  
--	if (!info->attrs[L2TP_ATTR_FD]) {
--		ret = -EINVAL;
--		goto out;
-+	fd = -1;
-+	if (info->attrs[L2TP_ATTR_FD]) {
-+		fd = nla_get_u32(info->attrs[L2TP_ATTR_FD]);
-+	} else {
-+		if (info->attrs[L2TP_ATTR_IP_SADDR])
-+			cfg.local_ip.s_addr = nla_get_be32(info->attrs[L2TP_ATTR_IP_SADDR]);
-+		if (info->attrs[L2TP_ATTR_IP_DADDR])
-+			cfg.peer_ip.s_addr = nla_get_be32(info->attrs[L2TP_ATTR_IP_DADDR]);
-+		if (info->attrs[L2TP_ATTR_UDP_SPORT])
-+			cfg.local_udp_port = nla_get_u16(info->attrs[L2TP_ATTR_UDP_SPORT]);
-+		if (info->attrs[L2TP_ATTR_UDP_DPORT])
-+			cfg.peer_udp_port = nla_get_u16(info->attrs[L2TP_ATTR_UDP_DPORT]);
-+		if (info->attrs[L2TP_ATTR_UDP_CSUM])
-+			cfg.use_udp_checksums = nla_get_flag(info->attrs[L2TP_ATTR_UDP_CSUM]);
- 	}
--	fd = nla_get_u32(info->attrs[L2TP_ATTR_FD]);
+ 1. Use a UDP socket per tunnel.
  
- 	if (info->attrs[L2TP_ATTR_DEBUG])
- 		cfg.debug = nla_get_u32(info->attrs[L2TP_ATTR_DEBUG]);
+@@ -86,6 +137,35 @@ In addition to the standard PPP ioctls, a PPPIOCGL2TPSTATS is provided
+ to retrieve tunnel and session statistics from the kernel using the
+ PPPoX socket of the appropriate tunnel or session.
+ 
++For L2TPv3, userspace must use the netlink API defined in
++include/linux/l2tp.h to manage tunnel and session contexts. The
++general procedure to create a new L2TP tunnel with one session is:-
++
++1. Open a GENL socket using L2TP_GENL_NAME for configuring the kernel
++   using netlink.
++
++2. Create a UDP or L2TPIP socket for the tunnel.
++
++3. Create a new L2TP tunnel using a L2TP_CMD_TUNNEL_CREATE
++   request. Set attributes according to desired tunnel parameters,
++   referencing the UDP or L2TPIP socket created in the previous step.
++
++4. Create a new L2TP session in the tunnel using a
++   L2TP_CMD_SESSION_CREATE request.
++
++The tunnel and all of its sessions are closed when the tunnel socket
++is closed. The netlink API may also be used to delete sessions and
++tunnels. Configuration and status info may be set or read using netlink.
++
++The L2TP driver also supports static (unmanaged) L2TPv3 tunnels. These
++are where there is no L2TP control message exchange with the peer to
++setup the tunnel; the tunnel is configured manually at each end of the
++tunnel. There is no need for an L2TP userspace application in this
++case -- the tunnel socket is created by the kernel and configured
++using parameters sent in the L2TP_CMD_TUNNEL_CREATE netlink
++request. The "ip" utility of iproute2 has commands for managing static
++L2TPv3 tunnels; do "ip l2tp help" for more information.
++
+ Debugging
+ =========
+ 
+@@ -102,6 +182,69 @@ PPPOL2TP_MSG_CONTROL  userspace - kernel interface
+ PPPOL2TP_MSG_SEQ      sequence numbers handling
+ PPPOL2TP_MSG_DATA     data packets
+ 
++If enabled, files under a l2tp debugfs directory can be used to dump
++kernel state about L2TP tunnels and sessions. To access it, the
++debugfs filesystem must first be mounted.
++
++# mount -t debugfs debugfs /debug
++
++Files under the l2tp directory can then be accessed.
++
++# cat /debug/l2tp/tunnels
++
++The debugfs files should not be used by applications to obtain L2TP
++state information because the file format is subject to change. It is
++implemented to provide extra debug information to help diagnose
++problems.) Users should use the netlink API.
++
++/proc/net/pppol2tp is also provided for backwards compaibility with
++the original pppol2tp driver. It lists information about L2TPv2
++tunnels and sessions only. Its use is discouraged.
++
++Unmanaged L2TPv3 Tunnels
++========================
++
++Some commercial L2TP products support unmanaged L2TPv3 ethernet
++tunnels, where there is no L2TP control protocol; tunnels are
++configured at each side manually. New commands are available in
++iproute2's ip utility to support this.
++
++To create an L2TPv3 ethernet pseudowire between local host 192.168.1.1
++and peer 192.168.1.2, using IP addresses 10.5.1.1 and 10.5.1.2 for the
++tunnel endpoints:-
++
++# modprobe l2tp_eth
++# modprobe l2tp_netlink
++
++# ip l2tp add tunnel tunnel_id 1 peer_tunnel_id 1 udp_sport 5000 \
++  udp_dport 5000 encap udp local 192.168.1.1 remote 192.168.1.2
++# ip l2tp add session tunnel_id 1 session_id 1 peer_session_id 1
++# ifconfig -a
++# ip addr add 10.5.1.2/32 peer 10.5.1.1/32 dev l2tpeth0
++# ifconfig l2tpeth0 up
++
++Choose IP addresses to be the address of a local IP interface and that
++of the remote system. The IP addresses of the l2tpeth0 interface can be
++anything suitable.
++
++Repeat the above at the peer, with ports, tunnel/session ids and IP
++addresses reversed.  The tunnel and session IDs can be any non-zero
++32-bit number, but the values must be reversed at the peer.
++
++Host 1                         Host2
++udp_sport=5000                 udp_sport=5001
++udp_dport=5001                 udp_dport=5000
++tunnel_id=42                   tunnel_id=45
++peer_tunnel_id=45              peer_tunnel_id=42
++session_id=128                 session_id=5196755
++peer_session_id=5196755        peer_session_id=128
++
++When done at both ends of the tunnel, it should be possible to send
++data over the network. e.g.
++
++# ping 10.5.1.1
++
++
+ Sample Userspace Code
+ =====================
+ 
+@@ -158,12 +301,48 @@ Sample Userspace Code
+         }
+         return 0;
+ 
++Internal Implementation
++=======================
++
++The driver keeps a struct l2tp_tunnel context per L2TP tunnel and a
++struct l2tp_session context for each session. The l2tp_tunnel is
++always associated with a UDP or L2TP/IP socket and keeps a list of
++sessions in the tunnel. The l2tp_session context keeps kernel state
++about the session. It has private data which is used for data specific
++to the session type. With L2TPv2, the session always carried PPP
++traffic. With L2TPv3, the session can also carry ethernet frames
++(ethernet pseudowire) or other data types such as ATM, HDLC or Frame
++Relay.
++
++When a tunnel is first opened, the reference count on the socket is
++increased using sock_hold(). This ensures that the kernel socket
++cannot be removed while L2TP's data structures reference it.
++
++Some L2TP sessions also have a socket (PPP pseudowires) while others
++do not (ethernet pseudowires). We can't use the socket reference count
++as the reference count for session contexts. The L2TP implementation
++therefore has its own internal reference counts on the session
++contexts.
++
++To Do
++=====
++
++Add L2TP tunnel switching support. This would route tunneled traffic
++from one L2TP tunnel into another. Specified in
++http://tools.ietf.org/html/draft-ietf-l2tpext-tunnel-switching-08
++
++Add L2TPv3 VLAN pseudowire support.
++
++Add L2TPv3 IP pseudowire support.
++
++Add L2TPv3 ATM pseudowire support.
++
+ Miscellaneous
+-============
++=============
+ 
+-The PPPoL2TP driver was developed as part of the OpenL2TP project by
++The L2TP drivers were developed as part of the OpenL2TP project by
+ Katalix Systems Ltd. OpenL2TP is a full-featured L2TP client / server,
+ designed from the ground up to have the L2TP datapath in the
+ kernel. The project also implemented the pppol2tp plugin for pppd
+ which allows pppd to use the kernel driver. Details can be found at
+-http://openl2tp.sourceforge.net.
++http://www.openl2tp.org.
 
