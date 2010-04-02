@@ -1,50 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Unaligned access in xfrm_user:copy_to_user_state
-Date: Fri, 02 Apr 2010 14:03:34 -0700 (PDT)
-Message-ID: <20100402.140334.254864935.davem@davemloft.net>
-References: <alpine.LSU.2.01.1004022210270.30875@obet.zrqbmnf.qr>
+Subject: Re: [PATCH 1/2] phylib: Support phy module autoloading
+Date: Fri, 02 Apr 2010 14:31:23 -0700 (PDT)
+Message-ID: <20100402.143123.230371935.davem@davemloft.net>
+References: <20100401.193810.172601735.davem@davemloft.net>
+	<1270206327.3101.2436.camel@macbook.infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jengelh@medozas.de
+Cc: netdev@vger.kernel.org, ben@decadent.org.uk
+To: dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53542
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58989
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754389Ab0DBVDc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 17:03:32 -0400
-In-Reply-To: <alpine.LSU.2.01.1004022210270.30875@obet.zrqbmnf.qr>
+	by vger.kernel.org with ESMTP id S1754809Ab0DBVbW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 17:31:22 -0400
+In-Reply-To: <1270206327.3101.2436.camel@macbook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Engelhardt <jengelh@medozas.de>
-Date: Fri, 2 Apr 2010 22:18:59 +0200 (CEST)
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Fri, 02 Apr 2010 12:05:27 +0100
 
-> since we seem to be dealing with unaligned access quite recently, here's 
-> my turn in reporting one:
+> We don't use the normal hotplug mechanism because it doesn't work. It will
+> load the module some time after the device appears, but that's not good
+> enough for us -- we need the driver loaded _immediately_ because otherwise
+> the NIC driver may just abort and then the phy 'device' goes away.
 > 
-> 22:09 ares:/etc # uname -a
-> Linux ares 2.6.34-rc1 #17 SMP Thu Mar 25 00:08:55 CET 2010 sparc64 
-> sparc64 sparc64 GNU/Linux
-> (This is kaber/nf-next)
+> [bwh: s/phy/mdio/ in module alias, kerneldoc for struct mdio_device_id]
 > 
-> Apr  2 22:09:53 ares kernel: Kernel unaligned access at TPC[101a0c18] 
-> copy_to_user_state+0x18/0x120 [xfrm_user]
-> 
-> 0000000000000c00 <copy_to_user_state>:
->      c00:       9d e3 bf 50     save  %sp, -176, %sp
->      c04:       ce 5e 20 80     ldx  [ %i0 + 0x80 ], %g7
->      c08:       86 06 20 80     add  %i0, 0x80, %g3
->      c0c:       84 06 60 38     add  %i1, 0x38, %g2
->      c10:       82 06 20 98     add  %i0, 0x98, %g1
->      c14:       90 06 60 60     add  %i1, 0x60, %o0
->      c18:       ce 76 60 38     stx  %g7, [ %i1 + 0x38 ]
-> 
-> That happens when strongswan is trying to handle a new incoming tunnel 
-> request between two IPv6 endpoints (it does not seem to get triggered
-> for IPv4).
+> Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 
-Yes, we need to "void *" untype the arguments to memcpy so that
-GCC doesn't inline the thing.
-
-Patches welcome.
+Applied.
