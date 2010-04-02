@@ -1,51 +1,44 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: Receive steering and hash and cache misses
-Date: Fri, 2 Apr 2010 10:59:43 -0700
-Message-ID: <g2l65634d661004021059z94214a43v82409d15a0fb09b6@mail.gmail.com>
-References: <20100402102650.5bdb5b52@nehalam>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: Any ideas about a crash on reboot with igb and intel_iommu?
+Date: Fri, 02 Apr 2010 11:13:03 -0700
+Message-ID: <adahbnt7mfk.fsf@roland-alpha.cisco.com>
+References: <adabpe3f3c4.fsf@roland-alpha.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: iommu@lists.linux-foundation.org,
+	David Woodhouse <dwmw2@infradead.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:34010 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755861Ab0DBR7r convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 13:59:47 -0400
-Received: from wpaz1.hot.corp.google.com (wpaz1.hot.corp.google.com [172.24.198.65])
-	by smtp-out.google.com with ESMTP id o32HxjNl013579
-	for <netdev@vger.kernel.org>; Fri, 2 Apr 2010 19:59:45 +0200
-Received: from gyd12 (gyd12.prod.google.com [10.243.49.204])
-	by wpaz1.hot.corp.google.com with ESMTP id o32Hxh3r002809
-	for <netdev@vger.kernel.org>; Fri, 2 Apr 2010 10:59:44 -0700
-Received: by gyd12 with SMTP id 12so1003874gyd.16
-        for <netdev@vger.kernel.org>; Fri, 02 Apr 2010 10:59:43 -0700 (PDT)
-In-Reply-To: <20100402102650.5bdb5b52@nehalam>
+Received: from sj-iport-1.cisco.com ([171.71.176.70]:63170 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751236Ab0DBSNJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 14:13:09 -0400
+In-Reply-To: <adabpe3f3c4.fsf@roland-alpha.cisco.com> (Roland Dreier's message
+	of "Thu, 01 Apr 2010 11:13:47 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 2, 2010 at 10:26 AM, Stephen Hemminger
-<shemminger@vyatta.com> wrote:
->
-> Although Receive Packet Steering can use a hardware generated receive=
- hash
-> the device driver still causes an unnecessary cache miss on the inter=
-rupt
-> processing CPU. =A0The current Ethernet network device driver receive=
- processing
-> has the device driver calling eth_type_trans() which causes a the
-> interrupt CPU to read the received frame header.
->
+So actually I found the following change that went into 2.6.31:
 
-It should be possible to deduce the values set by eth_type_trans from
-the RX descriptor along with the RX hash.  I'll post the patch getting
-rxhash from bnx2x which does this.
+    commit 91615f765a2935b6cbae424b9eee1585ed681ae6
+    Author: Jesse Brandeburg <jesse.brandeburg@intel.com>
+    Date:   Tue Jun 30 12:45:15 2009 +0000
 
-> Is there some way the hardware receive hash value could be used to
-> steer to the receive CPU, then have the receive CPU find the Ethernet
-> type field (eth_type_trans)?
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+        igb: fix unmap length bug
+        
+        driver was mixing NET_IP_ALIGN count bytes in map/unmap calls
+        unevenly. Only map the bytes that the hardware might dma into
+
+igb in 2.6.30.y is doing pci_map_single(<some length>) and doing
+pci_unmap_single(<some other length>).
+
+However I haven't been able to provoke the crash yet, even by bouncing
+an igb interface (with VT-d turned on and with CONFIG_DMAR_DEFAULT_ON enabled).
+Does this make sense as the sort of thing that might corrupt the iova
+rbtree and lead to a crash in the __free_iova / rb_erase code?
+
+Thanks,
+  Roland
+-- 
+Roland Dreier <rolandd@cisco.com> || For corporate legal information go to:
+http://www.cisco.com/web/about/doing_business/legal/cri/index.html
