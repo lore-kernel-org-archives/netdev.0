@@ -1,48 +1,50 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] rfs: Receive Flow Steering
-Date: Fri, 02 Apr 2010 10:01:42 -0700
-Message-ID: <4BB622F6.10606@hp.com>
-References: <alpine.DEB.1.00.1004012045560.4252@pokey.mtv.corp.google.com>	<j2u412e6f7f1004012204r76dd8ccbg2e6e78d46541b85@mail.gmail.com> <1270193393.1936.52.camel@edumazet-laptop>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 0/2] Fix ethernet driver for Octeon based Movidis
+	hardware
+Date: Fri, 2 Apr 2010 10:04:24 -0700
+Message-ID: <20100402170424.GC32293@suse.de>
+References: <1270171075-12741-1-git-send-email-ddaney@caviumnetworks.com> <20100401.182045.106908204.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Changli Gao <xiaosuo@gmail.com>, Tom Herbert <therbert@google.com>,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: ddaney@caviumnetworks.com, ralf@linux-mips.org,
+	linux-mips@linux-mips.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:32722 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755502Ab0DBRBp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 13:01:45 -0400
-In-Reply-To: <1270193393.1936.52.camel@edumazet-laptop>
+Received: from cantor2.suse.de ([195.135.220.15]:51762 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755558Ab0DBRFO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Apr 2010 13:05:14 -0400
+Content-Disposition: inline
+In-Reply-To: <20100401.182045.106908204.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
+On Thu, Apr 01, 2010 at 06:20:45PM -0700, David Miller wrote:
+> From: David Daney <ddaney@caviumnetworks.com>
+> Date: Thu,  1 Apr 2010 18:17:53 -0700
 > 
-> Your claim of RPS being not good for applications is wrong, our test
-> results show an improvement as is. Maybe your applications dont scale,
-> because of bad habits, or collidings heuristics, I dont know.
+> > The Movidis X16 bootloader doesn't enable the mdio bus.  The first
+> > patch fixes this by enabling the mdio bus when the driver is
+> > initialized.
+> > 
+> > Also the addresses of the PHYs was unknown for this device.  The
+> > second patch adds the corresponding PHY addresses.
+> > 
+> > With both patches applied I can successfully use all eight Ethernet
+> > ports.
+> > 
+> > Please consider for 2.6.34.  Since Octeon is an embedded MIPS SOC it
+> > is unlikely to break the kernel for any workstations.  Any or all of
+> > these could be considered for merging via Ralf's linux-mips.org tree.
+> 
+> Ralf please merge this via your MIPS tree, thanks:
+> 
+> Acked-by: David S. Miller <davem@davemloft.net>
 
-The progression in HP-UX was IPS (10.20) (aka RPS) then TOPS (11.0) (aka RFS). 
-We found that IPS was great for single-flow-per-thread-of-execution stuff and 
-that TOPS was better for multiple-flow-per-thread-of-execution stuff.  It was 
-long enough ago now that I can safely say for one system-level benchmark not 
-known to be a "networking" benchmark, and without a massive kernel component, 
-TOPS was a 10% win.  Not too shabby.
+I agree, Ralf, please take these and you can add:
+	Acked-by: Greg Kroah-Hartman <gregkh@suse.de>
+to them.
 
-It wasn't that IPS wasn't good in its context - just that TOPS was even better.
+thanks,
 
-We also preferred the concept of the scheduler giving networking clues as to 
-where to process an application's packets rather than networking trying to tell 
-the scheduler.  There was some discussion of out of order worries, but we were 
-willing to trust to the basic soundness of the scheduler - if it was moving 
-threads around willy nilly at a rate able to cause big packet reordering it had 
-fundamental problems that would have to be addressed anyway.  And while it may 
-be incindiary to point this out :)  I suspect (without concrete data :) that 
-bonding mode 0 is a much, Much, MUCH larger source of out-of-order traffic than 
-any plausible scheduler thrashing.
-
-happy benchmarking,
-
-rick jones
+greg k-h
