@@ -1,61 +1,62 @@
 From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: [PATCH 1/2] benet: use the dma state API instead of the pci equivalents
-Date: Fri,  2 Apr 2010 11:53:22 +0900
-Message-ID: <1270176803-8561-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+Subject: [PATCH 2/2] benet: fix the misusage of zero dma address
+Date: Fri,  2 Apr 2010 11:53:23 +0900
+Message-ID: <1270176803-8561-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+References: <1270176803-8561-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 Cc: sarveshwarb@serverengines.com, ajitk@serverengines.com,
 	netdev@vger.kernel.org, fujita.tomonori@lab.ntt.co.jp
 To: sathyap@serverengines.com, subbus@serverengines.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sh.osrg.net ([192.16.179.4]:48540 "EHLO sh.osrg.net"
+Received: from sh.osrg.net ([192.16.179.4]:48539 "EHLO sh.osrg.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759160Ab0DBC5D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Apr 2010 22:57:03 -0400
+	id S1759117Ab0DBC5C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Apr 2010 22:57:02 -0400
+In-Reply-To: <1270176803-8561-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The DMA API is preferred.
+benet driver wrongly assumes that zero is an invalid dma address
+(calls dma_unmap_page for only non zero dma addresses). Zero is a
+valid dma address on some architectures. The dma length can be used
+here.
 
 Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 ---
- drivers/net/benet/be.h      |    2 +-
- drivers/net/benet/be_main.c |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/benet/be_main.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
-index 8f07525..bddae08 100644
---- a/drivers/net/benet/be.h
-+++ b/drivers/net/benet/be.h
-@@ -206,7 +206,7 @@ struct be_tx_obj {
- /* Struct to remember the pages posted for rx frags */
- struct be_rx_page_info {
- 	struct page *page;
--	dma_addr_t bus;
-+	DEFINE_DMA_UNMAP_ADDR(bus);
- 	u16 page_offset;
- 	bool last_page_user;
- };
 diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 17282df..8d5e27b 100644
+index 8d5e27b..8828c7d 100644
 --- a/drivers/net/benet/be_main.c
 +++ b/drivers/net/benet/be_main.c
-@@ -682,7 +682,7 @@ get_rx_page_info(struct be_adapter *adapter, u16 frag_idx)
- 	BUG_ON(!rx_page_info->page);
+@@ -394,13 +394,15 @@ static void unmap_tx_frag(struct pci_dev *pdev, struct be_eth_wrb *wrb,
+ 	be_dws_le_to_cpu(wrb, sizeof(*wrb));
  
- 	if (rx_page_info->last_page_user) {
--		pci_unmap_page(adapter->pdev, pci_unmap_addr(rx_page_info, bus),
-+		pci_unmap_page(adapter->pdev, dma_unmap_addr(rx_page_info, bus),
- 			adapter->big_page_size, PCI_DMA_FROMDEVICE);
- 		rx_page_info->last_page_user = false;
+ 	dma = (u64)wrb->frag_pa_hi << 32 | (u64)wrb->frag_pa_lo;
+-	if (dma != 0) {
++	if (wrb->frag_len) {
+ 		if (unmap_single)
+ 			pci_unmap_single(pdev, dma, wrb->frag_len,
+ 				PCI_DMA_TODEVICE);
+ 		else
+ 			pci_unmap_page(pdev, dma, wrb->frag_len,
+ 				PCI_DMA_TODEVICE);
++
++		wrb->frag_len = 0;
  	}
-@@ -993,7 +993,7 @@ static void be_post_rx_frags(struct be_adapter *adapter)
- 		}
- 		page_offset = page_info->page_offset;
- 		page_info->page = pagep;
--		pci_unmap_addr_set(page_info, bus, page_dmaaddr);
-+		dma_unmap_addr_set(page_info, bus, page_dmaaddr);
- 		frag_dmaaddr = page_dmaaddr + page_info->page_offset;
+ }
  
- 		rxd = queue_head_node(rxq);
+@@ -466,9 +468,9 @@ dma_err:
+ 	txq->head = map_head;
+ 	while (copied) {
+ 		wrb = queue_head_node(txq);
++		copied -= wrb->frag_len;
+ 		unmap_tx_frag(pdev, wrb, map_single);
+ 		map_single = false;
+-		copied -= wrb->frag_len;
+ 		queue_head_inc(txq);
+ 	}
+ 	return 0;
 -- 
 1.7.0
 
