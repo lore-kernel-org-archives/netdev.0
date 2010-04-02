@@ -1,81 +1,229 @@
 From: James Chapman <jchapman@katalix.com>
-Subject: [PATCH net-next-2.6 v4 08/14] netlink: Export genl_lock() API for use
-	by modules
-Date: Fri, 02 Apr 2010 17:19:05 +0100
-Message-ID: <20100402161905.11367.28514.stgit@bert.katalix.com>
+Subject: [PATCH net-next-2.6 v4 10/14] l2tp: Convert rwlock to RCU
+Date: Fri, 02 Apr 2010 17:19:16 +0100
+Message-ID: <20100402161916.11367.32252.stgit@bert.katalix.com>
 References: <20100402161822.11367.70454.stgit@bert.katalix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:33928 "EHLO mail.katalix.com"
+Received: from katalix.com ([82.103.140.233]:33937 "EHLO mail.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754210Ab0DBQSl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Apr 2010 12:18:41 -0400
+	id S1754661Ab0DBQS5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Apr 2010 12:18:57 -0400
 Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.katalix.com (Postfix) with ESMTP id 96E10A620B1
-	for <netdev@vger.kernel.org>; Fri,  2 Apr 2010 17:19:05 +0100 (BST)
+	by mail.katalix.com (Postfix) with ESMTP id D3AB8A62087
+	for <netdev@vger.kernel.org>; Fri,  2 Apr 2010 17:19:20 +0100 (BST)
 Received: from mail.katalix.com ([127.0.0.1])
 	by localhost (mail.katalix.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id gsf8bLLeYBU0 for <netdev@vger.kernel.org>;
-	Fri,  2 Apr 2010 17:19:05 +0100 (BST)
+	with ESMTP id Cr+ISFgqT0-p for <netdev@vger.kernel.org>;
+	Fri,  2 Apr 2010 17:19:20 +0100 (BST)
 Received: from bert.katalix.com (localhost.localdomain [127.0.0.1])
-	by mail.katalix.com (Postfix) with ESMTP id 7B890A620B0
-	for <netdev@vger.kernel.org>; Fri,  2 Apr 2010 17:19:05 +0100 (BST)
+	by mail.katalix.com (Postfix) with ESMTP id 612B0A620AC
+	for <netdev@vger.kernel.org>; Fri,  2 Apr 2010 17:19:16 +0100 (BST)
 In-Reply-To: <20100402161822.11367.70454.stgit@bert.katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This lets kernel modules which use genl netlink APIs serialize netlink
-processing.
+Reader/write locks are discouraged because they are slower than spin
+locks. So this patch converts the rwlocks used in the per_net structs
+to rcu.
 
 Signed-off-by: James Chapman <jchapman@katalix.com>
-Reviewed-by: Randy Dunlap <randy.dunlap@oracle.com>
 ---
- include/linux/genetlink.h |    8 ++++++++
- net/netlink/genetlink.c   |    6 ++++--
- 2 files changed, 12 insertions(+), 2 deletions(-)
+ net/l2tp/l2tp_core.c |   78 +++++++++++++++++++++++++++-----------------------
+ 1 files changed, 42 insertions(+), 36 deletions(-)
 
-diff --git a/include/linux/genetlink.h b/include/linux/genetlink.h
-index b834ef6..61549b2 100644
---- a/include/linux/genetlink.h
-+++ b/include/linux/genetlink.h
-@@ -80,4 +80,12 @@ enum {
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index fbd1f21..473cf2d 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -21,6 +21,7 @@
+ #include <linux/module.h>
+ #include <linux/string.h>
+ #include <linux/list.h>
++#include <linux/rculist.h>
+ #include <linux/uaccess.h>
  
- #define CTRL_ATTR_MCAST_GRP_MAX (__CTRL_ATTR_MCAST_GRP_MAX - 1)
+ #include <linux/kernel.h>
+@@ -105,9 +106,9 @@ static atomic_t l2tp_session_count;
+ static unsigned int l2tp_net_id;
+ struct l2tp_net {
+ 	struct list_head l2tp_tunnel_list;
+-	rwlock_t l2tp_tunnel_list_lock;
++	spinlock_t l2tp_tunnel_list_lock;
+ 	struct hlist_head l2tp_session_hlist[L2TP_HASH_SIZE_2];
+-	rwlock_t l2tp_session_hlist_lock;
++	spinlock_t l2tp_session_hlist_lock;
+ };
  
-+#ifdef __KERNEL__
-+
-+/* All generic netlink requests are serialized by a global lock.  */
-+extern void genl_lock(void);
-+extern void genl_unlock(void);
-+
-+#endif /* __KERNEL__ */
-+
- #endif	/* __LINUX_GENERIC_NETLINK_H */
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index a4b6e14..a28fda7 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -20,15 +20,17 @@
+ static inline struct l2tp_net *l2tp_pernet(struct net *net)
+@@ -139,14 +140,14 @@ static struct l2tp_session *l2tp_session_find_2(struct net *net, u32 session_id)
+ 	struct l2tp_session *session;
+ 	struct hlist_node *walk;
  
- static DEFINE_MUTEX(genl_mutex); /* serialization of message processing */
+-	read_lock_bh(&pn->l2tp_session_hlist_lock);
+-	hlist_for_each_entry(session, walk, session_list, global_hlist) {
++	rcu_read_lock_bh();
++	hlist_for_each_entry_rcu(session, walk, session_list, global_hlist) {
+ 		if (session->session_id == session_id) {
+-			read_unlock_bh(&pn->l2tp_session_hlist_lock);
++			rcu_read_unlock_bh();
+ 			return session;
+ 		}
+ 	}
+-	read_unlock_bh(&pn->l2tp_session_hlist_lock);
++	rcu_read_unlock_bh();
  
--static inline void genl_lock(void)
-+void genl_lock(void)
- {
- 	mutex_lock(&genl_mutex);
+ 	return NULL;
  }
-+EXPORT_SYMBOL(genl_lock);
+@@ -225,17 +226,17 @@ struct l2tp_session *l2tp_session_find_by_ifname(struct net *net, char *ifname)
+ 	struct hlist_node *walk;
+ 	struct l2tp_session *session;
  
--static inline void genl_unlock(void)
-+void genl_unlock(void)
- {
- 	mutex_unlock(&genl_mutex);
+-	read_lock_bh(&pn->l2tp_session_hlist_lock);
++	rcu_read_lock_bh();
+ 	for (hash = 0; hash < L2TP_HASH_SIZE_2; hash++) {
+-		hlist_for_each_entry(session, walk, &pn->l2tp_session_hlist[hash], global_hlist) {
++		hlist_for_each_entry_rcu(session, walk, &pn->l2tp_session_hlist[hash], global_hlist) {
+ 			if (!strcmp(session->ifname, ifname)) {
+-				read_unlock_bh(&pn->l2tp_session_hlist_lock);
++				rcu_read_unlock_bh();
+ 				return session;
+ 			}
+ 		}
+ 	}
+ 
+-	read_unlock_bh(&pn->l2tp_session_hlist_lock);
++	rcu_read_unlock_bh();
+ 
+ 	return NULL;
  }
-+EXPORT_SYMBOL(genl_unlock);
+@@ -248,14 +249,14 @@ struct l2tp_tunnel *l2tp_tunnel_find(struct net *net, u32 tunnel_id)
+ 	struct l2tp_tunnel *tunnel;
+ 	struct l2tp_net *pn = l2tp_pernet(net);
  
- #define GENL_FAM_TAB_SIZE	16
- #define GENL_FAM_TAB_MASK	(GENL_FAM_TAB_SIZE - 1)
+-	read_lock_bh(&pn->l2tp_tunnel_list_lock);
+-	list_for_each_entry(tunnel, &pn->l2tp_tunnel_list, list) {
++	rcu_read_lock_bh();
++	list_for_each_entry_rcu(tunnel, &pn->l2tp_tunnel_list, list) {
+ 		if (tunnel->tunnel_id == tunnel_id) {
+-			read_unlock_bh(&pn->l2tp_tunnel_list_lock);
++			rcu_read_unlock_bh();
+ 			return tunnel;
+ 		}
+ 	}
+-	read_unlock_bh(&pn->l2tp_tunnel_list_lock);
++	rcu_read_unlock_bh();
+ 
+ 	return NULL;
+ }
+@@ -267,15 +268,15 @@ struct l2tp_tunnel *l2tp_tunnel_find_nth(struct net *net, int nth)
+ 	struct l2tp_tunnel *tunnel;
+ 	int count = 0;
+ 
+-	read_lock_bh(&pn->l2tp_tunnel_list_lock);
+-	list_for_each_entry(tunnel, &pn->l2tp_tunnel_list, list) {
++	rcu_read_lock_bh();
++	list_for_each_entry_rcu(tunnel, &pn->l2tp_tunnel_list, list) {
+ 		if (++count > nth) {
+-			read_unlock_bh(&pn->l2tp_tunnel_list_lock);
++			rcu_read_unlock_bh();
+ 			return tunnel;
+ 		}
+ 	}
+ 
+-	read_unlock_bh(&pn->l2tp_tunnel_list_lock);
++	rcu_read_unlock_bh();
+ 
+ 	return NULL;
+ }
+@@ -1167,9 +1168,10 @@ again:
+ 			if (tunnel->version != L2TP_HDR_VER_2) {
+ 				struct l2tp_net *pn = l2tp_pernet(tunnel->l2tp_net);
+ 
+-				write_lock_bh(&pn->l2tp_session_hlist_lock);
+-				hlist_del_init(&session->global_hlist);
+-				write_unlock_bh(&pn->l2tp_session_hlist_lock);
++				spin_lock_bh(&pn->l2tp_session_hlist_lock);
++				hlist_del_init_rcu(&session->global_hlist);
++				spin_unlock_bh(&pn->l2tp_session_hlist_lock);
++				synchronize_rcu();
+ 			}
+ 
+ 			if (session->session_close != NULL)
+@@ -1206,9 +1208,10 @@ void l2tp_tunnel_free(struct l2tp_tunnel *tunnel)
+ 	       "%s: free...\n", tunnel->name);
+ 
+ 	/* Remove from tunnel list */
+-	write_lock_bh(&pn->l2tp_tunnel_list_lock);
+-	list_del_init(&tunnel->list);
+-	write_unlock_bh(&pn->l2tp_tunnel_list_lock);
++	spin_lock_bh(&pn->l2tp_tunnel_list_lock);
++	list_del_rcu(&tunnel->list);
++	spin_unlock_bh(&pn->l2tp_tunnel_list_lock);
++	synchronize_rcu();
+ 
+ 	atomic_dec(&l2tp_tunnel_count);
+ 	kfree(tunnel);
+@@ -1310,9 +1313,10 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
+ 
+ 	/* Add tunnel to our list */
+ 	INIT_LIST_HEAD(&tunnel->list);
+-	write_lock_bh(&pn->l2tp_tunnel_list_lock);
+-	list_add(&tunnel->list, &pn->l2tp_tunnel_list);
+-	write_unlock_bh(&pn->l2tp_tunnel_list_lock);
++	spin_lock_bh(&pn->l2tp_tunnel_list_lock);
++	list_add_rcu(&tunnel->list, &pn->l2tp_tunnel_list);
++	spin_unlock_bh(&pn->l2tp_tunnel_list_lock);
++	synchronize_rcu();
+ 	atomic_inc(&l2tp_tunnel_count);
+ 
+ 	/* Bump the reference count. The tunnel context is deleted
+@@ -1370,9 +1374,10 @@ void l2tp_session_free(struct l2tp_session *session)
+ 		if (tunnel->version != L2TP_HDR_VER_2) {
+ 			struct l2tp_net *pn = l2tp_pernet(tunnel->l2tp_net);
+ 
+-			write_lock_bh(&pn->l2tp_session_hlist_lock);
+-			hlist_del_init(&session->global_hlist);
+-			write_unlock_bh(&pn->l2tp_session_hlist_lock);
++			spin_lock_bh(&pn->l2tp_session_hlist_lock);
++			hlist_del_init_rcu(&session->global_hlist);
++			spin_unlock_bh(&pn->l2tp_session_hlist_lock);
++			synchronize_rcu();
+ 		}
+ 
+ 		if (session->session_id != 0)
+@@ -1494,10 +1499,11 @@ struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunn
+ 		if (tunnel->version != L2TP_HDR_VER_2) {
+ 			struct l2tp_net *pn = l2tp_pernet(tunnel->l2tp_net);
+ 
+-			write_lock_bh(&pn->l2tp_session_hlist_lock);
+-			hlist_add_head(&session->global_hlist,
+-				       l2tp_session_id_hash_2(pn, session_id));
+-			write_unlock_bh(&pn->l2tp_session_hlist_lock);
++			spin_lock_bh(&pn->l2tp_session_hlist_lock);
++			hlist_add_head_rcu(&session->global_hlist,
++					   l2tp_session_id_hash_2(pn, session_id));
++			spin_unlock_bh(&pn->l2tp_session_hlist_lock);
++			synchronize_rcu();
+ 		}
+ 
+ 		/* Ignore management session in session count value */
+@@ -1524,12 +1530,12 @@ static __net_init int l2tp_init_net(struct net *net)
+ 		return -ENOMEM;
+ 
+ 	INIT_LIST_HEAD(&pn->l2tp_tunnel_list);
+-	rwlock_init(&pn->l2tp_tunnel_list_lock);
++	spin_lock_init(&pn->l2tp_tunnel_list_lock);
+ 
+ 	for (hash = 0; hash < L2TP_HASH_SIZE_2; hash++)
+ 		INIT_HLIST_HEAD(&pn->l2tp_session_hlist[hash]);
+ 
+-	rwlock_init(&pn->l2tp_session_hlist_lock);
++	spin_lock_init(&pn->l2tp_session_hlist_lock);
+ 
+ 	err = net_assign_generic(net, l2tp_net_id, pn);
+ 	if (err)
 
