@@ -1,74 +1,167 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] rfs: Receive Flow Steering
-Date: Fri, 2 Apr 2010 18:58:28 +0800
-Message-ID: <o2j412e6f7f1004020358mf9455fcbqdbb2d762d94a7aa2@mail.gmail.com>
-References: <alpine.DEB.1.00.1004012045560.4252@pokey.mtv.corp.google.com>
-	<j2u412e6f7f1004012204r76dd8ccbg2e6e78d46541b85@mail.gmail.com>
-	<1270193393.1936.52.camel@edumazet-laptop>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: [PATCH 1/2] phylib: Support phy module autoloading
+Date: Fri, 02 Apr 2010 12:05:27 +0100
+Message-ID: <1270206327.3101.2436.camel@macbook.infradead.org>
+References: <20100401.193810.172601735.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ben@decadent.org.uk
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f172.google.com ([209.85.211.172]:59444 "EHLO
-	mail-yw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753223Ab0DBK6t convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 06:58:49 -0400
-Received: by ywh2 with SMTP id 2so1318947ywh.33
-        for <netdev@vger.kernel.org>; Fri, 02 Apr 2010 03:58:48 -0700 (PDT)
-In-Reply-To: <1270193393.1936.52.camel@edumazet-laptop>
+Received: from casper.infradead.org ([85.118.1.10]:44299 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752909Ab0DBLFa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 07:05:30 -0400
+In-Reply-To: <20100401.193810.172601735.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 2, 2010 at 3:29 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> Le vendredi 02 avril 2010 =C3=A0 13:04 +0800, Changli Gao a =C3=A9cri=
-t :
->
->
-> Your claim of RPS being not good for applications is wrong, our test
-> results show an improvement as is. Maybe your applications dont scale=
-,
-> because of bad habits, or collidings heuristics, I dont know.
->
+We don't use the normal hotplug mechanism because it doesn't work. It will
+load the module some time after the device appears, but that's not good
+enough for us -- we need the driver loaded _immediately_ because otherwise
+the NIC driver may just abort and then the phy 'device' goes away.
 
-I didn't mean RPS isn't good for applications. I mean that the
-performance improvement of applications isn't as much as firewalls'.
-In the other words, we can do much better than the current RPS,  as
-RFS does.
+[bwh: s/phy/mdio/ in module alias, kerneldoc for struct mdio_device_id]
 
->
-> Whole point of Herbert patches is you dont need to change application=
-s
-> and put complex logic in them, knowing exact machine topology.
->
-> Your suggestion is very complex, because you must bind each thread on=
- a
-> particular cpu, and this is pretty bad for many reasons. We should al=
-low
-> thread migrations, because scheduler or admin know better than the
-> application.
->
-> Application writers should rely on standard kernel mechanisms, and
-> schedulers, because an application have a limited point of view of wh=
-at
-> really happens on the machine.
->
+Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+I redid the bit in file2alias.c too, so it generates the string directly
+in place instead of in a temporary buffer.
 
-Yes, it is more complex. Some high performance server use the
-event-driven model, such as memcached, nginx and lighttpd. This model
-has high performance on UP with no doubt, and on SMP they usually use
-one individual epoll fd for each Core/CPU, and the acceptor dispatches
-works among these epoll fds. This program model is popular, and  it
-bypass the  system scheduler. I think the socket option SO_RPSCPU can
-help this kind of applications work better, why not do that?
-Compatility with other Unixes isn't a good cause, for high performance
-applications, there are always lots of OS special features used. For
-example: epoll vs kqueue, tcp defer accept vs accept filter.
+ drivers/net/phy/phy_device.c    |   12 ++++++++++++
+ include/linux/mod_devicetable.h |   26 ++++++++++++++++++++++++++
+ include/linux/phy.h             |    1 +
+ scripts/mod/file2alias.c        |   26 ++++++++++++++++++++++++++
+ 4 files changed, 65 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index db17945..1a99bb2 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -149,6 +149,7 @@ EXPORT_SYMBOL(phy_scan_fixups);
+ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
+ {
+ 	struct phy_device *dev;
++
+ 	/* We allocate the device, and initialize the
+ 	 * default values */
+ 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+@@ -179,6 +180,17 @@ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
+ 	mutex_init(&dev->lock);
+ 	INIT_DELAYED_WORK(&dev->state_queue, phy_state_machine);
+ 
++	/* Request the appropriate module unconditionally; don't
++	   bother trying to do so only if it isn't already loaded,
++	   because that gets complicated. A hotplug event would have
++	   done an unconditional modprobe anyway.
++	   We don't do normal hotplug because it won't work for MDIO
++	   -- because it relies on the device staying around for long
++	   enough for the driver to get loaded. With MDIO, the NIC
++	   driver will get bored and give up as soon as it finds that
++	   there's no driver _already_ loaded. */
++	request_module(MDIO_MODULE_PREFIX MDIO_ID_FMT, MDIO_ID_ARGS(phy_id));
++
+ 	return dev;
+ }
+ EXPORT_SYMBOL(phy_device_create);
+diff --git a/include/linux/mod_devicetable.h b/include/linux/mod_devicetable.h
+index f58e9d8..55f1f9c 100644
+--- a/include/linux/mod_devicetable.h
++++ b/include/linux/mod_devicetable.h
+@@ -474,4 +474,30 @@ struct platform_device_id {
+ 			__attribute__((aligned(sizeof(kernel_ulong_t))));
+ };
+ 
++#define MDIO_MODULE_PREFIX	"mdio:"
++
++#define MDIO_ID_FMT "%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d"
++#define MDIO_ID_ARGS(_id) \
++	(_id)>>31, ((_id)>>30) & 1, ((_id)>>29) & 1, ((_id)>>28) & 1,	\
++	((_id)>>27) & 1, ((_id)>>26) & 1, ((_id)>>25) & 1, ((_id)>>24) & 1, \
++	((_id)>>23) & 1, ((_id)>>22) & 1, ((_id)>>21) & 1, ((_id)>>20) & 1, \
++	((_id)>>19) & 1, ((_id)>>18) & 1, ((_id)>>17) & 1, ((_id)>>16) & 1, \
++	((_id)>>15) & 1, ((_id)>>14) & 1, ((_id)>>13) & 1, ((_id)>>12) & 1, \
++	((_id)>>11) & 1, ((_id)>>10) & 1, ((_id)>>9) & 1, ((_id)>>8) & 1, \
++	((_id)>>7) & 1, ((_id)>>6) & 1, ((_id)>>5) & 1, ((_id)>>4) & 1, \
++	((_id)>>3) & 1, ((_id)>>2) & 1, ((_id)>>1) & 1, (_id) & 1
++
++/**
++ * struct mdio_device_id - identifies PHY devices on an MDIO/MII bus
++ * @phy_id: The result of
++ *     (mdio_read(&MII_PHYSID1) << 16 | mdio_read(&PHYSID2)) & @phy_id_mask
++ *     for this PHY type
++ * @phy_id_mask: Defines the significant bits of @phy_id.  A value of 0
++ *     is used to terminate an array of struct mdio_device_id.
++ */
++struct mdio_device_id {
++	__u32 phy_id;
++	__u32 phy_id_mask;
++};
++
+ #endif /* LINUX_MOD_DEVICETABLE_H */
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 14d7fdf..f269f1b 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -24,6 +24,7 @@
+ #include <linux/mii.h>
+ #include <linux/timer.h>
+ #include <linux/workqueue.h>
++#include <linux/mod_devicetable.h>
+ 
+ #include <asm/atomic.h>
+ 
+diff --git a/scripts/mod/file2alias.c b/scripts/mod/file2alias.c
+index 220213e..36a60a8 100644
+--- a/scripts/mod/file2alias.c
++++ b/scripts/mod/file2alias.c
+@@ -796,6 +796,28 @@ static int do_platform_entry(const char *filename,
+ 	return 1;
+ }
+ 
++static int do_mdio_entry(const char *filename,
++			 struct mdio_device_id *id, char *alias)
++{
++	int i;
++
++	alias += sprintf(alias, MDIO_MODULE_PREFIX);
++
++	for (i = 0; i < 32; i++) {
++		if (!((id->phy_id_mask >> (31-i)) & 1))
++			*(alias++) = '?';
++		else if ((id->phy_id >> (31-i)) & 1)
++			*(alias++) = '1';
++		else
++			*(alias++) = '0';
++	}
++
++	/* Terminate the string */
++	*alias = 0;
++
++	return 1;
++}
++
+ /* Ignore any prefix, eg. some architectures prepend _ */
+ static inline int sym_is(const char *symbol, const char *name)
+ {
+@@ -943,6 +965,10 @@ void handle_moddevtable(struct module *mod, struct elf_info *info,
+ 		do_table(symval, sym->st_size,
+ 			 sizeof(struct platform_device_id), "platform",
+ 			 do_platform_entry, mod);
++	else if (sym_is(symname, "__mod_mdio_device_table"))
++		do_table(symval, sym->st_size,
++			 sizeof(struct mdio_device_id), "mdio",
++			 do_mdio_entry, mod);
+ 	free(zeros);
+ }
+ 
+-- 
+1.6.6.1
 
 
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+-- 
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
+
