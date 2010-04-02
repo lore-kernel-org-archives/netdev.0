@@ -1,68 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlabel: Fix several rcu_dereference() calls used
- without RCU read locks
-Date: Thu, 01 Apr 2010 17:27:21 -0700 (PDT)
-Message-ID: <20100401.172721.144384691.davem@davemloft.net>
-References: <20100401204357.9795.80383.stgit@flek.lan>
-	<1270155407.2192.5.camel@edumazet-laptop>
+From: "Ira W. Snyder" <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org>
+Subject: Re: [PATCH 2/3] can: add support for Janz VMOD-ICAN3 Intelligent
+	CAN module
+Date: Thu, 1 Apr 2010 17:43:11 -0700
+Message-ID: <20100402004311.GB25412@ovro.caltech.edu>
+References: <1269881932-3803-3-git-send-email-iws@ovro.caltech.edu>
+	<20100401130359.9a9b5c7b.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: paul.moore@hp.com, netdev@vger.kernel.org,
-	paulmck@linux.vnet.ibm.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60855
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753374Ab0DBA1U convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Apr 2010 20:27:20 -0400
-In-Reply-To: <1270155407.2192.5.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
+To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20100401130359.9a9b5c7b.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 01 Apr 2010 22:56:47 +0200
+On Thu, Apr 01, 2010 at 01:03:59PM -0700, Andrew Morton wrote:
+> On Mon, 29 Mar 2010 09:58:51 -0700
+> "Ira W. Snyder" <iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org> wrote:
+> 
+> > The Janz VMOD-ICAN3 is a MODULbus daughterboard which fits onto any
+> > MODULbus carrier board. It is an intelligent CAN controller with a
+> > microcontroller and associated firmware.
+> > 
+> 
+> A neat-looking driver.
+> 
+> > ...
+> >
+> > +	spin_lock_irqsave(&mod->lock, flags);
+> >
+> > ...
+> 
+> It does this rather a lot.  it seems to be doing quite a lot of work
+> under that lock, too - quite a lot of memcpy_toio(), other stuff.
+> 
 
-> Le jeudi 01 avril 2010 =E0 16:43 -0400, Paul Moore a =E9crit :
->> The recent changes to add RCU lock verification to rcu_dereference()=
- calls
->> caught out a problem with netlbl_unlhsh_hash(), see below.
->>=20
->>  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D
->>  [ INFO: suspicious rcu_dereference_check() usage. ]
->>  ---------------------------------------------------
->>  net/netlabel/netlabel_unlabeled.c:246 invoked rcu_dereference_check=
-()
->>  without protection!
->>=20
->> This patch fixes this problem as well as others like it in the NetLa=
-bel
->> code.  Also included in this patch is the identification of future w=
-ork
->> to eliminate the RCU read lock in netlbl_domhsh_add(), but in the in=
-terest
->> of getting this patch out quickly that work will happen in another p=
-atch
->> to be finished later.
->>=20
->> Thanks to Eric Dumazet and Paul McKenney for their help in understan=
-ding
->> the recent RCU changes.
->>=20
->> Signed-off-by: Paul Moore <paul.moore@hp.com>
->> Reported-by: David Howells <dhowells@redhat.com>
->> CC: Eric Dumazet <eric.dumazet@gmail.com>
->> CC: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
->> ---
->>  net/netlabel/netlabel_domainhash.c |   28 ++++++++++-----
->>  net/netlabel/netlabel_unlabeled.c  |   66 ++++++++++---------------=
------------
->>  2 files changed, 37 insertions(+), 57 deletions(-)
->>=20
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Like most similar cards, the host computer communicates to the
+microcontroller through a dual ported memory (DPM) interface. In this
+card, it is split into 256x 256 byte pages/windows.
 
-Applied.
+The lock ensures that once code sets a window, it doesn't change while
+the memcpy/iowrite happens.
+
+> Is there potential here to disable interrupt for too long?  Not
+> possible to use spin_lock_bh() here?
+> 
+
+The largest possible memcpy_(to|from)io() in the driver is 256 bytes.
+Not too huge, but I understand the concern.
+
+Looking at this again, I don't take the lock in the interrupt handler
+(nor do I need to). What contexts do the network driver's xmit() and
+napi() routines run in? hardirq and softirq respectively, right? In that
+case, I think spin_lock_bh() is probably enough.
+
+Ira
