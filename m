@@ -1,84 +1,85 @@
-From: Samuel Ortiz <sameo@linux.intel.com>
-Subject: Re: [PATCH 0/3] add support for Janz MODULbus devices
-Date: Fri, 2 Apr 2010 12:00:05 +0200
-Message-ID: <20100402100004.GB8010@sortiz.org>
-References: <>
- <1269881932-3803-1-git-send-email-iws@ovro.caltech.edu>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH 1/2] phylib: Support phy module autoloading
+Date: Fri, 02 Apr 2010 11:38:23 +0100
+Message-ID: <1270204703.3101.2368.camel@macbook.infradead.org>
+References: <1269998334.18090.278.camel@macbook.infradead.org>
+	 <1270096441.12516.18.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, socketcan-core@lists.berlios.de,
-	netdev@vger.kernel.org
-To: "Ira W. Snyder" <iws@ovro.caltech.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1269881932-3803-1-git-send-email-iws@ovro.caltech.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, 553024@bugs.debian.org
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:38990 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758426Ab0DBKi3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 06:38:29 -0400
+In-Reply-To: <1270096441.12516.18.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Ira,
+On Thu, 2010-04-01 at 05:34 +0100, Ben Hutchings wrote:
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -188,7 +188,7 @@ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
+>  	   around for long enough for the driver to get loaded. With
+>  	   MDIO, the NIC driver will get bored and give up as soon
+>  	   as it finds that there's no driver _already_ loaded. */
+> -	sprintf(modid, "phy:" PHYID_FMT, PHYID_ARGS(phy_id));
+> +	sprintf(modid, MDIO_MODULE_PREFIX MDIO_ID_FMT, MDIO_ID_ARGS(phy_id));
+>  	request_module(modid);
 
-On Mon, Mar 29, 2010 at 09:58:49AM -0700, Ira W. Snyder wrote:
-> This patch series adds support for the Janz CMOD-IO carrier board, as well
-> as the Janz VMOD-ICAN3 Intelligent CAN controller and the Janz VMOD-TTL
-> Digital IO controller. The CMOD-IO carrier board is a PCI to MODULbus
-> bridge, into which plug MODULbus daughterboards.  I only have access to two
-> types of daughtercards, the VMOD-ICAN3 and VMOD-TTL boards mentioned above.
-> 
-> The CAN driver has been tested under high loads. I am able to generate ~60%
-> bus utilization. With two VMOD-ICAN3 boards looped back to each other,
-> neither one loses any packets when only a single board is generating
-> packets at maximum speed. Once both boards start generating packets, one
-> board will sometimes loose arbitration, and cause some lost packets.
-> 
-> After much review from the last posting of the series, I believe that this
-> should be ready for mainline. Many thanks to everyone that helped!
-All 3 patches applied, thanks a lot.
-After talking with Jesse Barnes (PCI maintainer), I moved the JANZ PCI id back
-to the mfd driver. Jesse was saying that when a PCI id is used by only one
-driver, it should be defined there and not in pci_ids.h. Sorry for the
-mislead.
+You forgot to increase the size of the 'modid' storage there, and it
+needed to grow by one character. But that's OK. I forgot that
+request_module() takes printf-style arguments. So now I've killed the
+temporary 'modid' buffer altogether, and I just call
+request_module(MDIO_MODULE_PREFIX ...). I dropped the ifdef, too.
 
-Cheers,
-Samuel.
+> -#define PHY_MODULE_PREFIX	"phy:"
+> +#define MDIO_MODULE_PREFIX	"mdio:"
+>  
+> -#define PHYID_FMT "%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d"
+> -#define PHYID_ARGS(_id) \
+> +#define MDIO_ID_FMT "%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d"
+> +#define MDIO_ID_ARGS(_id) \
+>  	(_id)>>31, ((_id)>>30) & 1, ((_id)>>29) & 1, ((_id)>>28) & 1,	\
+>  	((_id)>>27) & 1, ((_id)>>26) & 1, ((_id)>>25) & 1, ((_id)>>24) & 1, \
+>  	((_id)>>23) & 1, ((_id)>>22) & 1, ((_id)>>21) & 1, ((_id)>>20) & 1, \
+> @@ -487,11 +487,17 @@ struct platform_device_id {
+>  	((_id)>>7) & 1, ((_id)>>6) & 1, ((_id)>>5) & 1, ((_id)>>4) & 1, \
+>  	((_id)>>3) & 1, ((_id)>>2) & 1, ((_id)>>1) & 1, (_id) & 1
 
+Still tempted to add a %b format to the kernel's printf... some runtimes
+have it.
 
-> RFCv4 -> RFCv5:
-> - removed some dev_dbg() statements
-> - change default MODULbus modules to "none"
-> - accept both "empty" and "" in the MODULbus modules parameter
-> - print an error message when no MODULbus modules are specified
-> - add sysfs support to get/set CAN bus termination
-> - fix error-active and error-passive state reporting
-> - add support for netlink bus-error messages
-> - fixed sparse warnings
-> - used mfd-core API for multifunction device probing
-> 
-> RFCv3 -> RFCv4:
-> - addressed many review comments
-> - switch to NAPI
-> - add TX flow control
-> - mark functions with __devinit and __devexit
-> - add sysfs readout of MODULbus number (hex switch)
-> - implement GPIO driver for VMOD-TTL
-> 
-> RFCv2 -> RFCv3:
-> - addressed many review comments
-> - correct CAN bus error handling
-> - use struct device to track subdevices
-> - use structures for register layout
-> - add lots of #defines for register values
-> - use better function prefixes
-> 
-> RFCv1 -> RFCv2:
-> - converted to a multi-driver model
-> - addressed many review comments
-> - added CAN bus error handling
-> - use a work function only instead of work + NAPI
-> - use SJA1000 bittiming calculation code
-> 
-> Thanks,
-> Ira
+> -
+> -
+> -struct phy_device_id {
+> -	uint32_t phy_id;
+> -	uint32_t phy_id_mask;
+> +/**
+> + * struct mdio_device_id - identifies PHY devices on an MDIO/MII bus
+> + * @phy_id: The result of
+> + *     (mdio_read(&MII_PHYSID1) << 16 | mdio_read(&PHYSID2)) & @phy_id_mask
+> + *     for this PHY type
+> + * @phy_id_mask: Defines the significant bits of @phy_id.  A value of 0
+> + *     is used to terminate an array of struct mdio_device_id.
+
+That last sentence is a lie; I removed it. file2alias.c just ignores the
+last entry in the array regardless of what it contains. I have no idea
+why we use a 'terminator' in these arrays. Legacy, perhaps?
+
+>  static int do_phy_entry(const char *filename,
+> -			struct phy_device_id *id, char *alias)
+> +			struct mdio_device_id *id, char *alias)
+
+I made that 'do_mdio_entry()' for cosmetic reasons.
+
+> -			 sizeof(struct phy_device_id), "phy",
+> +			 sizeof(struct mdio_device_id), "phy",
+
+And that "mdio", not "phy", so that it works.
 
 -- 
-Intel Open Source Technology Centre
-http://oss.intel.com/
+dwmw2
+
