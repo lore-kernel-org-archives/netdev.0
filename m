@@ -1,79 +1,67 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] [PATCH v2 3/3] Let host NIC driver to DMA to guest user
- space.
-Date: Fri, 2 Apr 2010 08:55:56 -0700
-Message-ID: <20100402085556.75a8ff7c@nehalam>
-References: <1270193410-6877-1-git-send-email-xiaohui.xin@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 10/12] l2tp: Add L2TP ethernet pseudowire support
+Date: Fri, 02 Apr 2010 17:58:51 +0200
+Message-ID: <1270223931.11099.7.camel@edumazet-laptop>
+References: <20100330161725.9628.69994.stgit@bert.katalix.com>
+	 <20100330161819.9628.10853.stgit@bert.katalix.com>
+	 <20100330093252.60d9cbee@nehalam> <4BB31761.2090906@katalix.com>
+	 <20100331173836.GG2461@linux.vnet.ibm.com>
+	 <20100402152402.GA6017@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mingo@elte.hu, mst@redhat.com,
-	jdike@c2.user-mode-linux.org, davem@davemloft.net
-To: xiaohui.xin@intel.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1270193410-6877-1-git-send-email-xiaohui.xin@intel.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: James Chapman <jchapman@katalix.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org
+To: paulmck@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f217.google.com ([209.85.218.217]:42307 "EHLO
+	mail-bw0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751519Ab0DBP65 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 11:58:57 -0400
+Received: by bwz9 with SMTP id 9so1700089bwz.29
+        for <netdev@vger.kernel.org>; Fri, 02 Apr 2010 08:58:55 -0700 (PDT)
+In-Reply-To: <20100402152402.GA6017@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri,  2 Apr 2010 15:30:10 +0800
-xiaohui.xin@intel.com wrote:
+Le vendredi 02 avril 2010 =C3=A0 08:24 -0700, Paul E. McKenney a =C3=A9=
+crit :
+> On Wed, Mar 31, 2010 at 10:38:36AM -0700, Paul E. McKenney wrote:
 
-> From: Xin Xiaohui <xiaohui.xin@intel.com>
-> 
-> The patch let host NIC driver to receive user space skb,
-> then the driver has chance to directly DMA to guest user
-> space buffers thru single ethX interface.
-> We want it to be more generic as a zero copy framework.
-> 
-> Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-> Signed-off-by: Zhao Yu <yzhao81@gmail.com>
-> Sigend-off-by: Jeff Dike <jdike@c2.user-mode-linux.org>
-> ---
-> 
-> We consider 2 way to utilize the user buffres, but not sure which one
-> is better. Please give any comments.
-> 
-> One:    Modify __alloc_skb() function a bit, it can only allocate a
->         structure of sk_buff, and the data pointer is pointing to a
->         user buffer which is coming from a page constructor API.
->         Then the shinfo of the skb is also from guest.
->         When packet is received from hardware, the skb->data is filled
->         directly by h/w. What we have done is in this way.
-> 
->         Pros:   We can avoid any copy here.
->         Cons:   Guest virtio-net driver needs to allocate skb as almost
->                 the same method with the host NIC drivers, say the size
->                 of netdev_alloc_skb() and the same reserved space in the
->                 head of skb. Many NIC drivers are the same with guest and
->                 ok for this. But some lastest NIC drivers reserves special
->                 room in skb head. To deal with it, we suggest to provide
->                 a method in guest virtio-net driver to ask for parameter
->                 we interest from the NIC driver when we know which device
->                 we have bind to do zero-copy. Then we ask guest to do so.
->                 Is that reasonable?
-> 
-> Two:    Modify driver to get user buffer allocated from a page constructor
->         API(to substitute alloc_page()), the user buffer are used as payload
->         buffers and filled by h/w directly when packet is received. Driver
->         should associate the pages with skb (skb_shinfo(skb)->frags). For
->         the head buffer side, let host allocates skb, and h/w fills it.
->         After that, the data filled in host skb header will be copied into
->         guest header buffer which is submitted together with the payload buffer.
-> 
->         Pros:   We could less care the way how guest or host allocates their
->                 buffers.
->         Cons:   We still need a bit copy here for the skb header.
-> 
-> We are not sure which way is the better here. This is the first thing we want
-> to get comments from the community. We wish the modification to the network
-> part will be generic which not used by vhost-net backend only, but a user
-> application may use it as well when the zero-copy device may provides async
-> read/write operations later.
-> 
-> 
-> Thanks
-> Xiaohui
+> > The list_is_last() is RCU-safe already, since the ->next pointer is
+> > only compared, never dereferenced.  I suggest adding a comment to i=
+ts
+> > header stating that it is RCU-safe.
+> >=20
+> > Feel free to create a list_for_each_entry_safe_rcu(), and I will be
+> > happy to review it.
+>=20
+> Right.  When using RCU, list_for_each_entry_safe_rcu() is not needed,
+> because destruction of the element you removed doesn't happen until t=
+he
+> end of a subsequent grace period.  By which time you will be done wit=
+h
+> your RCU read-side critical section.
+>=20
+> So you can just use list_for_each_entry_rcu(), you do not need a new
+> list_for_each_entry_safe_rcu().
+>=20
+> But you did have me going for a bit!!!  ;-)
 
-How do you deal with the DoS problem of hostile user space app posting huge
-number of receives and never getting anything. 
+Just wondering Paul if you need to rest :)
+
+list_for_each_entry_safe_rcu() is not needed not because of various (an=
+d
+very intersting) reasons you gave !!!
+
+But because list_for_each_entry_safe() is OK, since if we are in a
+destroy phase, we are a writer, and can use regular list primitive.
+
+Remember _rcu() versions of list iterators are for readers, and readers
+are NOT supposed to delete an item from the list !
+
+Eric
+
+
+
