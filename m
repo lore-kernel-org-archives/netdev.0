@@ -1,50 +1,89 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [PATCH 0/2] Fix ethernet driver for Octeon based Movidis
-	hardware
-Date: Fri, 2 Apr 2010 10:04:24 -0700
-Message-ID: <20100402170424.GC32293@suse.de>
-References: <1270171075-12741-1-git-send-email-ddaney@caviumnetworks.com> <20100401.182045.106908204.davem@davemloft.net>
+From: =?UTF-8?B?IkwuIEFsYmVydG8gR2ltw6luZXoi?= <agimenez@sysvalve.es>
+Subject: Re: [PATCHv3] drivers/net/usb: Add new driver ipheth
+Date: Fri, 02 Apr 2010 19:15:12 +0200
+Message-ID: <4BB62620.3070807@sysvalve.es>
+References: <1269984864-28159-1-git-send-email-agimenez@sysvalve.es>	 <1270064527-8485-1-git-send-email-agimenez@sysvalve.es> <1270077538.8653.484.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ddaney@caviumnetworks.com, ralf@linux-mips.org,
-	linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:51762 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755558Ab0DBRFO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Apr 2010 13:05:14 -0400
-Content-Disposition: inline
-In-Reply-To: <20100401.182045.106908204.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, oliver@neukum.org,
+	linville@tuxdriver.com, j.dumon@option.com,
+	steve.glendinning@smsc.com, davem@davemloft.net, gregkh@suse.de,
+	dgiagio@gmail.com, dborca@yahoo.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1270077538.8653.484.camel@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 01, 2010 at 06:20:45PM -0700, David Miller wrote:
-> From: David Daney <ddaney@caviumnetworks.com>
-> Date: Thu,  1 Apr 2010 18:17:53 -0700
-> 
-> > The Movidis X16 bootloader doesn't enable the mdio bus.  The first
-> > patch fixes this by enabling the mdio bus when the driver is
-> > initialized.
-> > 
-> > Also the addresses of the PHYs was unknown for this device.  The
-> > second patch adds the corresponding PHY addresses.
-> > 
-> > With both patches applied I can successfully use all eight Ethernet
-> > ports.
-> > 
-> > Please consider for 2.6.34.  Since Octeon is an embedded MIPS SOC it
-> > is unlikely to break the kernel for any workstations.  Any or all of
-> > these could be considered for merging via Ralf's linux-mips.org tree.
-> 
-> Ralf please merge this via your MIPS tree, thanks:
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+On 04/01/2010 01:18 AM, Ben Hutchings wrote:
+> On Wed, 2010-03-31 at 21:42 +0200, L. Alberto Gim=C3=A9nez wrote:
+> [...]
+>> --- /dev/null
+>> +++ b/drivers/net/usb/ipheth.c
+> [...]
 
-I agree, Ralf, please take these and you can add:
-	Acked-by: Greg Kroah-Hartman <gregkh@suse.de>
-to them.
+Hi Ben,
 
-thanks,
+Upstream has fixed several errors pointed out by you and Oliver (thanks
+for that), but some of them are still pending.
 
-greg k-h
+I will send patches on top of my last driver submission (if the proper
+way would be resubmit the whole code, please tell me. Anyway I need to
+clarify some doubts...
+
+>> +	usb_fill_bulk_urb(dev->tx_urb, udev,
+>> +			  usb_sndbulkpipe(udev, dev->bulk_out),
+>> +			  dev->tx_buf, IPHETH_BUF_SIZE,
+>> +			  ipheth_sndbulk_callback,
+>> +			  dev);
+>> +	dev->tx_urb->transfer_flags |=3D URB_NO_TRANSFER_DMA_MAP;
+>> +
+>> +	retval =3D usb_submit_urb(dev->tx_urb, GFP_ATOMIC);
+>> +	if (retval) {
+>> +		err("%s: usb_submit_urb: %d", __func__, retval);
+>> +		dev->stats.tx_errors++;
+>> +		dev_kfree_skb_irq(skb);
+>> +	} else {
+>> +		net->trans_start =3D jiffies;
+>=20
+> No longer needed.
+
+What is not longer needed? The assignment, the whole "else" branch? If
+the assignment is what is not needed, can I just remove that line, righ=
+t?
+
+> [...]
+>> +#ifdef HAVE_NET_DEVICE_OPS
+>> +static const struct net_device_ops ipheth_netdev_ops =3D {
+>> +       .ndo_open =3D &ipheth_open,
+>> +       .ndo_stop =3D &ipheth_close,
+>> +       .ndo_start_xmit =3D &ipheth_tx,
+>> +       .ndo_tx_timeout =3D &ipheth_tx_timeout,
+>> +       .ndo_get_stats =3D &ipheth_stats,
+>> +};
+>> +#endif
+>=20
+> Remove the #ifdef, there is no question whether we have net_device_op=
+s.
+
+Ok, I will just remove both #ifdefs, but why is that? Maybe in previous
+versions of the kernel the net_device_ops struct was introduced and now
+it's present no matter how you configure your kernel?
+
+> I have no idea about USB so I haven't checked the USB API usage at al=
+l.
+
+I think that Greg is the maintainer for the USB subsystem, so if he has
+no further commets, I will try to submit fixes for both your and
+Oliver's comments along with the upstream developers.
+
+Thanks for your comments.
+
+
+Best regards,
+--=20
+L. Alberto Gim=C3=A9nez
+JabberID agimenez@jabber.sysvalve.es
+GnuPG key ID 0x3BAABDE1
