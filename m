@@ -1,60 +1,108 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Receive steering and hash and cache misses
-Date: Fri, 02 Apr 2010 21:36:31 +0200
-Message-ID: <1270236991.1978.17.camel@edumazet-laptop>
-References: <20100402102650.5bdb5b52@nehalam>
-	 <g2l65634d661004021059z94214a43v82409d15a0fb09b6@mail.gmail.com>
-	 <20100402115439.348575c9@nehalam>
+Subject: Re: [PATCH] rfs: Receive Flow Steering
+Date: Fri, 02 Apr 2010 21:43:55 +0200
+Message-ID: <1270237435.2545.4.camel@edumazet-laptop>
+References: <alpine.DEB.1.00.1004012045560.4252@pokey.mtv.corp.google.com>
+	 <1270197304.1936.179.camel@edumazet-laptop>
+	 <1270211871.11099.2.camel@edumazet-laptop>
+	 <1270225735.11099.20.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f217.google.com ([209.85.218.217]:57509 "EHLO
+Received: from mail-bw0-f217.google.com ([209.85.218.217]:59148 "EHLO
 	mail-bw0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753473Ab0DBTgg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 15:36:36 -0400
-Received: by bwz9 with SMTP id 9so1827310bwz.29
-        for <netdev@vger.kernel.org>; Fri, 02 Apr 2010 12:36:34 -0700 (PDT)
-In-Reply-To: <20100402115439.348575c9@nehalam>
+	with ESMTP id S1750759Ab0DBToA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 15:44:00 -0400
+Received: by bwz9 with SMTP id 9so1831176bwz.29
+        for <netdev@vger.kernel.org>; Fri, 02 Apr 2010 12:43:59 -0700 (PDT)
+In-Reply-To: <1270225735.11099.20.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 02 avril 2010 =C3=A0 11:54 -0700, Stephen Hemminger a =C3=A9=
-crit :
-> On Fri, 2 Apr 2010 10:59:43 -0700
-> Tom Herbert <therbert@google.com> wrote:
+Le vendredi 02 avril 2010 =C3=A0 18:28 +0200, Eric Dumazet a =C3=A9crit=
+ :
+> Some more thoughts ...
 >=20
-> > On Fri, Apr 2, 2010 at 10:26 AM, Stephen Hemminger
-> > <shemminger@vyatta.com> wrote:
-> > >
-> > > Although Receive Packet Steering can use a hardware generated rec=
-eive hash
-> > > the device driver still causes an unnecessary cache miss on the i=
-nterrupt
-> > > processing CPU.  The current Ethernet network device driver recei=
-ve processing
-> > > has the device driver calling eth_type_trans() which causes a the
-> > > interrupt CPU to read the received frame header.
-> > >
-> >=20
-> > It should be possible to deduce the values set by eth_type_trans fr=
-om
-> > the RX descriptor along with the RX hash.  I'll post the patch gett=
-ing
-> > rxhash from bnx2x which does this.
-> >=20
+> Do we really want to call inet_rps_record_flow(sk) from inet_sendmsg(=
+) &
+> inet_sendpage() ?
 >=20
-> On sky2, I get only RSS, Checksum, and length from descriptor info.
+> This seems not necessary to me...
+>=20
 
-Doesnt sky2 also provide vlan id (OP_RXVLAN/OP_RXCHKSVLAN) ?
+I think I get it, you want to catch unidirectional flows (apps that onl=
+y
+send data), and let ACK packets be processed by the sender cpu :=3D)
 
-A future version of hardware could provide more info perhaps...
 
-Must eth_type_trans() be done *before* netif_receive_skb() ?
+I did following patch to remove one conditional branch :
 
-If a device provides a rxhash, maybe we can delay eth_type_trans() too.
-If not, we need to access IP header anyway in the first cpu.
+ net/core/dev.c |   20 +++++---------------
+ 1 file changed, 5 insertions(+), 15 deletions(-)
+
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0a9ced8..cfe46d8 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2225,8 +2225,6 @@ static int get_rps_cpu(struct net_device *dev, st=
+ruct sk_buff *skb,
+ 	u16 tcpu;
+ 	u32 addr1, addr2, ports, ihl;
+=20
+-	*rflowp =3D NULL;
+-
+ 	if (skb_rx_queue_recorded(skb)) {
+ 		u16 index =3D skb_get_rx_queue(skb);
+ 		if (unlikely(index >=3D dev->num_rx_queues)) {
+@@ -2443,7 +2441,7 @@ int netif_rx(struct sk_buff *skb)
+ {
+ 	unsigned int qtail;
+ #ifdef CONFIG_RPS
+-	struct rps_dev_flow *rflow;
++	struct rps_dev_flow voidflow, *rflow =3D &voidflow;
+ 	int cpu, err;
+ #endif
+=20
+@@ -2461,10 +2459,7 @@ int netif_rx(struct sk_buff *skb)
+ 	if (cpu < 0)
+ 		cpu =3D smp_processor_id();
+=20
+-	err =3D enqueue_to_backlog(skb, cpu, &qtail);
+-
+-	if (rflow)
+-		rflow->last_qtail =3D qtail;
++	err =3D enqueue_to_backlog(skb, cpu, &rflow->last_qtail);
+=20
+ 	rcu_read_unlock();
+=20
+@@ -2839,7 +2834,7 @@ out:
+ int netif_receive_skb(struct sk_buff *skb)
+ {
+ #ifdef CONFIG_RPS
+-	struct rps_dev_flow *rflow;
++	struct rps_dev_flow voidflow, *rflow =3D &voidflow;
+ 	int cpu, err;
+=20
+ 	rcu_read_lock();
+@@ -2848,13 +2843,8 @@ int netif_receive_skb(struct sk_buff *skb)
+=20
+ 	if (cpu < 0)
+ 		err =3D __netif_receive_skb(skb);
+-	else {
+-		unsigned int qtail;
+-
+-		err =3D enqueue_to_backlog(skb, cpu, &qtail);
+-		if (rflow)
+-			rflow->last_qtail =3D qtail;
+-	}
++	else
++		err =3D enqueue_to_backlog(skb, cpu, &rflow->last_qtail);
+=20
+ 	rcu_read_unlock();
+=20
 
 
