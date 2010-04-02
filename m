@@ -1,127 +1,100 @@
 From: James Chapman <jchapman@katalix.com>
-Subject: [PATCH net-next-2.6 v4 12/14] l2tp: Add debugfs files for dumping
-	l2tp debug info
-Date: Fri, 02 Apr 2010 17:19:33 +0100
-Message-ID: <20100402161932.11367.99134.stgit@bert.katalix.com>
+Subject: [PATCH net-next-2.6 v4 11/14] l2tp: Add L2TP ethernet pseudowire
+	support
+Date: Fri, 02 Apr 2010 17:19:26 +0100
+Message-ID: <20100402161925.11367.91095.stgit@bert.katalix.com>
 References: <20100402161822.11367.70454.stgit@bert.katalix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:33943 "EHLO mail.katalix.com"
+Received: from katalix.com ([82.103.140.233]:33945 "EHLO mail.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754801Ab0DBQTN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Apr 2010 12:19:13 -0400
+	id S1754861Ab0DBQTP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Apr 2010 12:19:15 -0400
 Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.katalix.com (Postfix) with ESMTP id E4458A620AC
-	for <netdev@vger.kernel.org>; Fri,  2 Apr 2010 17:19:35 +0100 (BST)
+	by mail.katalix.com (Postfix) with ESMTP id C0238A620A3
+	for <netdev@vger.kernel.org>; Fri,  2 Apr 2010 17:19:39 +0100 (BST)
 Received: from mail.katalix.com ([127.0.0.1])
 	by localhost (mail.katalix.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id neYfnsxLonCO for <netdev@vger.kernel.org>;
-	Fri,  2 Apr 2010 17:19:35 +0100 (BST)
+	with ESMTP id vb2eCHm5v7MG for <netdev@vger.kernel.org>;
+	Fri,  2 Apr 2010 17:19:36 +0100 (BST)
 Received: from bert.katalix.com (localhost.localdomain [127.0.0.1])
-	by mail.katalix.com (Postfix) with ESMTP id 80E80A620A3
-	for <netdev@vger.kernel.org>; Fri,  2 Apr 2010 17:19:33 +0100 (BST)
+	by mail.katalix.com (Postfix) with ESMTP id 86088A62087
+	for <netdev@vger.kernel.org>; Fri,  2 Apr 2010 17:19:26 +0100 (BST)
 In-Reply-To: <20100402161822.11367.70454.stgit@bert.katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The existing pppol2tp driver exports debug info to
-/proc/net/pppol2tp. Rather than adding info to that file for the new
-functionality added in this patch series, we add new files in debugfs,
-leaving the old /proc file for backwards compatibility (L2TPv2 only).
-
-Currently only one file is provided: l2tp/tunnels, which lists
-internal debug info for all l2tp tunnels and sessions. More files may
-be added later. The info is for debug and problem analysis only -
-userspace apps should use netlink to obtain status about l2tp tunnels
-and sessions.
-
-Although debugfs does not support net namespaces, the tunnels and
-sessions dumped in l2tp/tunnels are only those in the net namespace of
-the process reading the file.
+This driver presents a regular net_device for each L2TP ethernet
+pseudowire instance. These interfaces are named l2tpethN by default,
+though userspace can specify an alternative name when the L2TP
+session is created, if preferred. When the pseudowire is established,
+regular Linux networking utilities may be used to configure the
+interface, i.e. give it IP address info or add it to a bridge. Any
+data passed over the interface is carried over an L2TP tunnel.
 
 Signed-off-by: James Chapman <jchapman@katalix.com>
+Reviewed-by: Randy Dunlap <randy.dunlap@oracle.com>
 ---
- net/l2tp/Kconfig        |   13 ++
- net/l2tp/Makefile       |    1 
- net/l2tp/l2tp_core.h    |    8 +
- net/l2tp/l2tp_debugfs.c |  341 +++++++++++++++++++++++++++++++++++++++++++++++
- net/l2tp/l2tp_eth.c     |   14 ++
- net/l2tp/l2tp_ppp.c     |   17 ++
- 6 files changed, 392 insertions(+), 2 deletions(-)
- create mode 100644 net/l2tp/l2tp_debugfs.c
+ net/l2tp/Kconfig    |   24 ++++
+ net/l2tp/Makefile   |    1 
+ net/l2tp/l2tp_eth.c |  347 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 372 insertions(+), 0 deletions(-)
+ create mode 100644 net/l2tp/l2tp_eth.c
 
 diff --git a/net/l2tp/Kconfig b/net/l2tp/Kconfig
-index a292270..4b1e717 100644
+index 0a11ccf..a292270 100644
 --- a/net/l2tp/Kconfig
 +++ b/net/l2tp/Kconfig
-@@ -31,6 +31,19 @@ menuconfig L2TP
- 	  If you don't need L2TP, say N. To compile all L2TP code as
- 	  modules, choose M here.
+@@ -68,3 +68,27 @@ config L2TP_IP
  
-+config L2TP_DEBUGFS
-+	tristate "L2TP debugfs support"
-+	depends on L2TP && DEBUG_FS
-+	help
-+	  Support for l2tp directory in debugfs filesystem. This may be
-+	  used to dump internal state of the l2tp drivers for problem
-+	  analysis.
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called l2tp_ip.
 +
-+	  If unsure, say 'Y'.
++config L2TP_ETH
++	tristate "L2TP ethernet pseudowire support for L2TPv3"
++	depends on L2TP_V3
++	help
++	  Support for carrying raw ethernet frames over L2TPv3.
++
++	  From RFC 4719 <http://www.ietf.org/rfc/rfc4719.txt>.
++
++	  The Layer 2 Tunneling Protocol, Version 3 (L2TPv3) can be
++	  used as a control protocol and for data encapsulation to set
++	  up Pseudowires for transporting layer 2 Packet Data Units
++	  across an IP network [RFC3931].
++
++	  This driver provides an ethernet virtual interface for each
++	  L2TP ethernet pseudowire instance. Standard Linux tools may
++	  be used to assign an IP address to the local virtual
++	  interface, or add the interface to a bridge.
++
++	  If you are using L2TPv3, you will almost certainly want to
++	  enable this option.
 +
 +	  To compile this driver as a module, choose M here. The module
-+	  will be called l2tp_debugfs.
-+
- config L2TP_V3
- 	bool "L2TPv3 support (EXPERIMENTAL)"
- 	depends on EXPERIMENTAL && L2TP
++	  will be called l2tp_eth.
 diff --git a/net/l2tp/Makefile b/net/l2tp/Makefile
-index bddbf04..110e7bc 100644
+index 2c4a14b..bddbf04 100644
 --- a/net/l2tp/Makefile
 +++ b/net/l2tp/Makefile
-@@ -9,3 +9,4 @@ obj-$(subst y,$(CONFIG_L2TP),$(CONFIG_PPPOL2TP)) += l2tp_ppp.o
+@@ -8,3 +8,4 @@ obj-$(CONFIG_L2TP) += l2tp_core.o
+ obj-$(subst y,$(CONFIG_L2TP),$(CONFIG_PPPOL2TP)) += l2tp_ppp.o
  obj-$(subst y,$(CONFIG_L2TP),$(CONFIG_L2TP_IP)) += l2tp_ip.o
  obj-$(subst y,$(CONFIG_L2TP),$(CONFIG_L2TP_V3)) += l2tp_netlink.o
- obj-$(subst y,$(CONFIG_L2TP),$(CONFIG_L2TP_ETH)) += l2tp_eth.o
-+obj-$(subst y,$(CONFIG_L2TP),$(CONFIG_L2TP_DEBUGFS)) += l2tp_debugfs.o
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index 2974d9a..5713355 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -133,7 +133,9 @@ struct l2tp_session {
- 	void (*session_close)(struct l2tp_session *session);
- 	void (*ref)(struct l2tp_session *session);
- 	void (*deref)(struct l2tp_session *session);
--
-+#ifdef CONFIG_L2TP_DEBUGFS
-+	void (*show)(struct seq_file *m, void *priv);
-+#endif
- 	uint8_t			priv[0];	/* private data */
- };
- 
-@@ -166,7 +168,9 @@ struct l2tp_tunnel {
- 	struct net		*l2tp_net;	/* the net we belong to */
- 
- 	atomic_t		ref_count;
--
-+#ifdef CONFIG_DEBUG_FS
-+	void (*show)(struct seq_file *m, void *arg);
-+#endif
- 	int (*recv_payload_hook)(struct sk_buff *skb);
- 	void (*old_sk_destruct)(struct sock *);
- 	struct sock		*sock;		/* Parent socket */
-diff --git a/net/l2tp/l2tp_debugfs.c b/net/l2tp/l2tp_debugfs.c
++obj-$(subst y,$(CONFIG_L2TP),$(CONFIG_L2TP_ETH)) += l2tp_eth.o
+diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
 new file mode 100644
-index 0000000..908f10f
+index 0000000..755c297
 --- /dev/null
-+++ b/net/l2tp/l2tp_debugfs.c
-@@ -0,0 +1,341 @@
++++ b/net/l2tp/l2tp_eth.c
+@@ -0,0 +1,347 @@
 +/*
-+ * L2TP subsystem debugfs
++ * L2TPv3 ethernet pseudowire driver
 + *
-+ * Copyright (c) 2010 Katalix Systems Ltd
++ * Copyright (c) 2008,2009,2010 Katalix Systems Ltd
 + *
 + *	This program is free software; you can redistribute it and/or
 + *	modify it under the terms of the GNU General Public License
@@ -137,7 +110,6 @@ index 0000000..908f10f
 +#include <linux/in.h>
 +#include <linux/etherdevice.h>
 +#include <linux/spinlock.h>
-+#include <linux/debugfs.h>
 +#include <net/sock.h>
 +#include <net/ip.h>
 +#include <net/icmp.h>
@@ -152,378 +124,318 @@ index 0000000..908f10f
 +
 +#include "l2tp_core.h"
 +
-+static struct dentry *rootdir;
-+static struct dentry *tunnels;
++/* Default device name. May be overridden by name specified by user */
++#define L2TP_ETH_DEV_NAME	"l2tpeth%d"
 +
-+struct l2tp_dfs_seq_data {
-+	struct net *net;
-+	int tunnel_idx;			/* current tunnel */
-+	int session_idx;		/* index of session within current tunnel */
-+	struct l2tp_tunnel *tunnel;
-+	struct l2tp_session *session;	/* NULL means get next tunnel */
++/* via netdev_priv() */
++struct l2tp_eth {
++	struct net_device	*dev;
++	struct sock		*tunnel_sock;
++	struct l2tp_session	*session;
++	struct list_head	list;
 +};
 +
-+static void l2tp_dfs_next_tunnel(struct l2tp_dfs_seq_data *pd)
-+{
-+	pd->tunnel = l2tp_tunnel_find_nth(pd->net, pd->tunnel_idx);
-+	pd->tunnel_idx++;
-+}
-+
-+static void l2tp_dfs_next_session(struct l2tp_dfs_seq_data *pd)
-+{
-+	pd->session = l2tp_session_find_nth(pd->tunnel, pd->session_idx);
-+	pd->session_idx++;
-+
-+	if (pd->session == NULL) {
-+		pd->session_idx = 0;
-+		l2tp_dfs_next_tunnel(pd);
-+	}
-+
-+}
-+
-+static void *l2tp_dfs_seq_start(struct seq_file *m, loff_t *offs)
-+{
-+	struct l2tp_dfs_seq_data *pd = SEQ_START_TOKEN;
-+	loff_t pos = *offs;
-+
-+	if (!pos)
-+		goto out;
-+
-+	BUG_ON(m->private == NULL);
-+	pd = m->private;
-+
-+	if (pd->tunnel == NULL)
-+		l2tp_dfs_next_tunnel(pd);
-+	else
-+		l2tp_dfs_next_session(pd);
-+
-+	/* NULL tunnel and session indicates end of list */
-+	if ((pd->tunnel == NULL) && (pd->session == NULL))
-+		pd = NULL;
-+
-+out:
-+	return pd;
-+}
-+
-+
-+static void *l2tp_dfs_seq_next(struct seq_file *m, void *v, loff_t *pos)
-+{
-+	(*pos)++;
-+	return NULL;
-+}
-+
-+static void l2tp_dfs_seq_stop(struct seq_file *p, void *v)
-+{
-+	/* nothing to do */
-+}
-+
-+static void l2tp_dfs_seq_tunnel_show(struct seq_file *m, void *v)
-+{
-+	struct l2tp_tunnel *tunnel = v;
-+	int session_count = 0;
-+	int hash;
-+	struct hlist_node *walk;
-+	struct hlist_node *tmp;
-+
-+	read_lock_bh(&tunnel->hlist_lock);
-+	for (hash = 0; hash < L2TP_HASH_SIZE; hash++) {
-+		hlist_for_each_safe(walk, tmp, &tunnel->session_hlist[hash]) {
-+			struct l2tp_session *session;
-+
-+			session = hlist_entry(walk, struct l2tp_session, hlist);
-+			if (session->session_id == 0)
-+				continue;
-+
-+			session_count++;
-+		}
-+	}
-+	read_unlock_bh(&tunnel->hlist_lock);
-+
-+	seq_printf(m, "\nTUNNEL %u peer %u", tunnel->tunnel_id, tunnel->peer_tunnel_id);
-+	if (tunnel->sock) {
-+		struct inet_sock *inet = inet_sk(tunnel->sock);
-+		seq_printf(m, " from " NIPQUAD_FMT " to " NIPQUAD_FMT "\n",
-+			   NIPQUAD(inet->inet_saddr), NIPQUAD(inet->inet_daddr));
-+		if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
-+			seq_printf(m, " source port %hu, dest port %hu\n",
-+				   ntohs(inet->inet_sport), ntohs(inet->inet_dport));
-+	}
-+	seq_printf(m, " L2TPv%d, %s\n", tunnel->version,
-+		   tunnel->encap == L2TP_ENCAPTYPE_UDP ? "UDP" :
-+		   tunnel->encap == L2TP_ENCAPTYPE_IP ? "IP" :
-+		   "");
-+	seq_printf(m, " %d sessions, refcnt %d/%d\n", session_count,
-+		   tunnel->sock ? atomic_read(&tunnel->sock->sk_refcnt) : 0,
-+		   atomic_read(&tunnel->ref_count));
-+
-+	seq_printf(m, " %08x rx %llu/%llu/%llu rx %llu/%llu/%llu\n",
-+		   tunnel->debug,
-+		   (unsigned long long)tunnel->stats.tx_packets,
-+		   (unsigned long long)tunnel->stats.tx_bytes,
-+		   (unsigned long long)tunnel->stats.tx_errors,
-+		   (unsigned long long)tunnel->stats.rx_packets,
-+		   (unsigned long long)tunnel->stats.rx_bytes,
-+		   (unsigned long long)tunnel->stats.rx_errors);
-+
-+	if (tunnel->show != NULL)
-+		tunnel->show(m, tunnel);
-+}
-+
-+static void l2tp_dfs_seq_session_show(struct seq_file *m, void *v)
-+{
-+	struct l2tp_session *session = v;
-+
-+	seq_printf(m, "  SESSION %u, peer %u, %s\n", session->session_id,
-+		   session->peer_session_id,
-+		   session->pwtype == L2TP_PWTYPE_ETH ? "ETH" :
-+		   session->pwtype == L2TP_PWTYPE_PPP ? "PPP" :
-+		   "");
-+	if (session->send_seq || session->recv_seq)
-+		seq_printf(m, "   nr %hu, ns %hu\n", session->nr, session->ns);
-+	seq_printf(m, "   refcnt %d\n", atomic_read(&session->ref_count));
-+	seq_printf(m, "   config %d/%d/%c/%c/%s/%s %08x %u\n",
-+		   session->mtu, session->mru,
-+		   session->recv_seq ? 'R' : '-',
-+		   session->send_seq ? 'S' : '-',
-+		   session->data_seq == 1 ? "IPSEQ" :
-+		   session->data_seq == 2 ? "DATASEQ" : "-",
-+		   session->lns_mode ? "LNS" : "LAC",
-+		   session->debug,
-+		   jiffies_to_msecs(session->reorder_timeout));
-+	seq_printf(m, "   offset %hu l2specific %hu/%hu\n",
-+		   session->offset, session->l2specific_type, session->l2specific_len);
-+	if (session->cookie_len) {
-+		seq_printf(m, "   cookie %02x%02x%02x%02x",
-+			   session->cookie[0], session->cookie[1],
-+			   session->cookie[2], session->cookie[3]);
-+		if (session->cookie_len == 8)
-+			seq_printf(m, "%02x%02x%02x%02x",
-+				   session->cookie[4], session->cookie[5],
-+				   session->cookie[6], session->cookie[7]);
-+		seq_printf(m, "\n");
-+	}
-+	if (session->peer_cookie_len) {
-+		seq_printf(m, "   peer cookie %02x%02x%02x%02x",
-+			   session->peer_cookie[0], session->peer_cookie[1],
-+			   session->peer_cookie[2], session->peer_cookie[3]);
-+		if (session->peer_cookie_len == 8)
-+			seq_printf(m, "%02x%02x%02x%02x",
-+				   session->peer_cookie[4], session->peer_cookie[5],
-+				   session->peer_cookie[6], session->peer_cookie[7]);
-+		seq_printf(m, "\n");
-+	}
-+
-+	seq_printf(m, "   %hu/%hu tx %llu/%llu/%llu rx %llu/%llu/%llu\n",
-+		   session->nr, session->ns,
-+		   (unsigned long long)session->stats.tx_packets,
-+		   (unsigned long long)session->stats.tx_bytes,
-+		   (unsigned long long)session->stats.tx_errors,
-+		   (unsigned long long)session->stats.rx_packets,
-+		   (unsigned long long)session->stats.rx_bytes,
-+		   (unsigned long long)session->stats.rx_errors);
-+
-+	if (session->show != NULL)
-+		session->show(m, session);
-+}
-+
-+static int l2tp_dfs_seq_show(struct seq_file *m, void *v)
-+{
-+	struct l2tp_dfs_seq_data *pd = v;
-+
-+	/* display header on line 1 */
-+	if (v == SEQ_START_TOKEN) {
-+		seq_puts(m, "TUNNEL ID, peer ID from IP to IP\n");
-+		seq_puts(m, " L2TPv2/L2TPv3, UDP/IP\n");
-+		seq_puts(m, " sessions session-count, refcnt refcnt/sk->refcnt\n");
-+		seq_puts(m, " debug tx-pkts/bytes/errs rx-pkts/bytes/errs\n");
-+		seq_puts(m, "  SESSION ID, peer ID, PWTYPE\n");
-+		seq_puts(m, "   refcnt cnt\n");
-+		seq_puts(m, "   offset OFFSET l2specific TYPE/LEN\n");
-+		seq_puts(m, "   [ cookie ]\n");
-+		seq_puts(m, "   [ peer cookie ]\n");
-+		seq_puts(m, "   config mtu/mru/rcvseq/sendseq/dataseq/lns debug reorderto\n");
-+		seq_puts(m, "   nr/ns tx-pkts/bytes/errs rx-pkts/bytes/errs\n");
-+		goto out;
-+	}
-+
-+	/* Show the tunnel or session context */
-+	if (pd->session == NULL)
-+		l2tp_dfs_seq_tunnel_show(m, pd->tunnel);
-+	else
-+		l2tp_dfs_seq_session_show(m, pd->session);
-+
-+out:
-+	return 0;
-+}
-+
-+static const struct seq_operations l2tp_dfs_seq_ops = {
-+	.start		= l2tp_dfs_seq_start,
-+	.next		= l2tp_dfs_seq_next,
-+	.stop		= l2tp_dfs_seq_stop,
-+	.show		= l2tp_dfs_seq_show,
++/* via l2tp_session_priv() */
++struct l2tp_eth_sess {
++	struct net_device	*dev;
 +};
 +
-+static int l2tp_dfs_seq_open(struct inode *inode, struct file *file)
++/* per-net private data for this module */
++static unsigned int l2tp_eth_net_id;
++struct l2tp_eth_net {
++	struct list_head l2tp_eth_dev_list;
++	spinlock_t l2tp_eth_lock;
++};
++
++static inline struct l2tp_eth_net *l2tp_eth_pernet(struct net *net)
 +{
-+	struct l2tp_dfs_seq_data *pd;
-+	struct seq_file *seq;
-+	int rc = -ENOMEM;
-+
-+	pd = kzalloc(GFP_KERNEL, sizeof(*pd));
-+	if (pd == NULL)
-+		goto out;
-+
-+	/* Derive the network namespace from the pid opening the
-+	 * file.
-+	 */
-+	pd->net = get_net_ns_by_pid(current->pid);
-+	if (IS_ERR(pd->net)) {
-+		rc = -PTR_ERR(pd->net);
-+		goto err_free_pd;
-+	}
-+
-+	rc = seq_open(file, &l2tp_dfs_seq_ops);
-+	if (rc)
-+		goto err_free_net;
-+
-+	seq = file->private_data;
-+	seq->private = pd;
-+
-+out:
-+	return rc;
-+
-+err_free_net:
-+	put_net(pd->net);
-+err_free_pd:
-+	kfree(pd);
-+	goto out;
++	return net_generic(net, l2tp_eth_net_id);
 +}
 +
-+static int l2tp_dfs_seq_release(struct inode *inode, struct file *file)
++static int l2tp_eth_dev_init(struct net_device *dev)
 +{
-+	struct l2tp_dfs_seq_data *pd;
-+	struct seq_file *seq;
++	struct l2tp_eth *priv = netdev_priv(dev);
 +
-+	seq = file->private_data;
-+	pd = seq->private;
-+	if (pd->net)
-+		put_net(pd->net);
-+	kfree(pd);
-+	seq_release(inode, file);
++	priv->dev = dev;
++	random_ether_addr(dev->dev_addr);
++	memset(&dev->broadcast[0], 0xff, 6);
 +
 +	return 0;
 +}
 +
-+static const struct file_operations l2tp_dfs_fops = {
-+	.owner		= THIS_MODULE,
-+	.open		= l2tp_dfs_seq_open,
-+	.read		= seq_read,
-+	.llseek		= seq_lseek,
-+	.release	= l2tp_dfs_seq_release,
++static void l2tp_eth_dev_uninit(struct net_device *dev)
++{
++	struct l2tp_eth *priv = netdev_priv(dev);
++	struct l2tp_eth_net *pn = l2tp_eth_pernet(dev_net(dev));
++
++	spin_lock(&pn->l2tp_eth_lock);
++	list_del_init(&priv->list);
++	spin_unlock(&pn->l2tp_eth_lock);
++	dev_put(dev);
++}
++
++static int l2tp_eth_dev_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct l2tp_eth *priv = netdev_priv(dev);
++	struct l2tp_session *session = priv->session;
++
++	l2tp_xmit_skb(session, skb, session->hdr_len);
++
++	dev->stats.tx_bytes += skb->len;
++	dev->stats.tx_packets++;
++
++	return 0;
++}
++
++static struct net_device_ops l2tp_eth_netdev_ops = {
++	.ndo_init		= l2tp_eth_dev_init,
++	.ndo_uninit		= l2tp_eth_dev_uninit,
++	.ndo_start_xmit		= l2tp_eth_dev_xmit,
 +};
 +
-+static int __init l2tp_debugfs_init(void)
++static void l2tp_eth_dev_setup(struct net_device *dev)
 +{
-+	int rc = 0;
++	ether_setup(dev);
 +
-+	rootdir = debugfs_create_dir("l2tp", NULL);
-+	if (IS_ERR(rootdir)) {
-+		rc = PTR_ERR(rootdir);
-+		rootdir = NULL;
-+		goto out;
-+	}
-+
-+	tunnels = debugfs_create_file("tunnels", 0600, rootdir, NULL, &l2tp_dfs_fops);
-+	if (tunnels == NULL)
-+		rc = -EIO;
-+
-+	printk(KERN_INFO "L2TP debugfs support\n");
-+
-+out:
-+	if (rc)
-+		printk(KERN_WARNING "l2tp debugfs: unable to init\n");
-+
-+	return rc;
++	dev->netdev_ops		= &l2tp_eth_netdev_ops;
++	dev->destructor		= free_netdev;
 +}
 +
-+static void __exit l2tp_debugfs_exit(void)
++static void l2tp_eth_dev_recv(struct l2tp_session *session, struct sk_buff *skb, int data_len)
 +{
-+	debugfs_remove(tunnels);
-+	debugfs_remove(rootdir);
-+}
-+
-+module_init(l2tp_debugfs_init);
-+module_exit(l2tp_debugfs_exit);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("James Chapman <jchapman@katalix.com>");
-+MODULE_DESCRIPTION("L2TP debugfs driver");
-+MODULE_VERSION("1.0");
-diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-index 755c297..9848faa 100644
---- a/net/l2tp/l2tp_eth.c
-+++ b/net/l2tp/l2tp_eth.c
-@@ -172,6 +172,17 @@ static void l2tp_eth_delete(struct l2tp_session *session)
- 	}
- }
- 
-+#ifdef CONFIG_L2TP_DEBUGFS
-+static void l2tp_eth_show(struct seq_file *m, void *arg)
-+{
-+	struct l2tp_session *session = arg;
 +	struct l2tp_eth_sess *spriv = l2tp_session_priv(session);
 +	struct net_device *dev = spriv->dev;
 +
-+	seq_printf(m, "   interface %s\n", dev->name);
++	if (session->debug & L2TP_MSG_DATA) {
++		unsigned int length;
++		int offset;
++		u8 *ptr = skb->data;
++
++		length = min(32u, skb->len);
++		if (!pskb_may_pull(skb, length))
++			goto error;
++
++		printk(KERN_DEBUG "%s: eth recv: ", session->name);
++
++		offset = 0;
++		do {
++			printk(" %02X", ptr[offset]);
++		} while (++offset < length);
++
++		printk("\n");
++	}
++
++	if (data_len < ETH_HLEN)
++		goto error;
++
++	secpath_reset(skb);
++
++	/* checksums verified by L2TP */
++	skb->ip_summed = CHECKSUM_NONE;
++
++	skb_dst_drop(skb);
++	nf_reset(skb);
++
++	if (dev_forward_skb(dev, skb) == NET_RX_SUCCESS) {
++		dev->last_rx = jiffies;
++		dev->stats.rx_packets++;
++		dev->stats.rx_bytes += data_len;
++	} else
++		dev->stats.rx_errors++;
++
++	return;
++
++error:
++	dev->stats.rx_errors++;
++	kfree_skb(skb);
 +}
-+#endif
 +
- static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
- {
- 	struct net_device *dev;
-@@ -233,6 +244,9 @@ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 p
- 	priv->tunnel_sock = tunnel->sock;
- 	session->recv_skb = l2tp_eth_dev_recv;
- 	session->session_close = l2tp_eth_delete;
-+#ifdef CONFIG_L2TP_DEBUGFS
-+	session->show = l2tp_eth_show;
-+#endif
- 
- 	spriv = l2tp_session_priv(session);
- 	spriv->dev = dev;
-diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-index d64f081..1ef10e4 100644
---- a/net/l2tp/l2tp_ppp.c
-+++ b/net/l2tp/l2tp_ppp.c
-@@ -597,6 +597,20 @@ out:
- 	return error;
- }
- 
-+#ifdef CONFIG_L2TP_DEBUGFS
-+static void pppol2tp_show(struct seq_file *m, void *arg)
++static void l2tp_eth_delete(struct l2tp_session *session)
 +{
-+	struct l2tp_session *session = arg;
-+	struct pppol2tp_session *ps = l2tp_session_priv(session);
++	struct l2tp_eth_sess *spriv;
++	struct net_device *dev;
 +
-+	if (ps) {
-+		struct pppox_sock *po = pppox_sk(ps->sock);
-+		if (po)
-+			seq_printf(m, "   interface %s\n", ppp_dev_name(&po->chan));
++	if (session) {
++		spriv = l2tp_session_priv(session);
++		dev = spriv->dev;
++		if (dev) {
++			unregister_netdev(dev);
++			spriv->dev = NULL;
++		}
 +	}
 +}
-+#endif
 +
- /* connect() handler. Attach a PPPoX socket to a tunnel UDP socket
-  */
- static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
-@@ -734,6 +748,9 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
- 
- 	session->recv_skb	= pppol2tp_recv;
- 	session->session_close	= pppol2tp_session_close;
-+#ifdef CONFIG_L2TP_DEBUGFS
-+	session->show		= pppol2tp_show;
-+#endif
- 
- 	/* We need to know each time a skb is dropped from the reorder
- 	 * queue.
++static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
++{
++	struct net_device *dev;
++	char name[IFNAMSIZ];
++	struct l2tp_tunnel *tunnel;
++	struct l2tp_session *session;
++	struct l2tp_eth *priv;
++	struct l2tp_eth_sess *spriv;
++	int rc;
++	struct l2tp_eth_net *pn;
++
++	tunnel = l2tp_tunnel_find(net, tunnel_id);
++	if (!tunnel) {
++		rc = -ENODEV;
++		goto out;
++	}
++
++	session = l2tp_session_find(net, tunnel, session_id);
++	if (session) {
++		rc = -EEXIST;
++		goto out;
++	}
++
++	if (cfg->ifname) {
++		dev = dev_get_by_name(net, cfg->ifname);
++		if (dev) {
++			dev_put(dev);
++			rc = -EEXIST;
++			goto out;
++		}
++		strlcpy(name, cfg->ifname, IFNAMSIZ);
++	} else
++		strcpy(name, L2TP_ETH_DEV_NAME);
++
++	session = l2tp_session_create(sizeof(*spriv), tunnel, session_id,
++				      peer_session_id, cfg);
++	if (!session) {
++		rc = -ENOMEM;
++		goto out;
++	}
++
++	dev = alloc_netdev(sizeof(*priv), name, l2tp_eth_dev_setup);
++	if (!dev) {
++		rc = -ENOMEM;
++		goto out_del_session;
++	}
++
++	dev_net_set(dev, net);
++	if (session->mtu == 0)
++		session->mtu = dev->mtu - session->hdr_len;
++	dev->mtu = session->mtu;
++	dev->needed_headroom += session->hdr_len;
++
++	priv = netdev_priv(dev);
++	priv->dev = dev;
++	priv->session = session;
++	INIT_LIST_HEAD(&priv->list);
++
++	priv->tunnel_sock = tunnel->sock;
++	session->recv_skb = l2tp_eth_dev_recv;
++	session->session_close = l2tp_eth_delete;
++
++	spriv = l2tp_session_priv(session);
++	spriv->dev = dev;
++
++	rc = register_netdev(dev);
++	if (rc < 0)
++		goto out_del_dev;
++
++	/* Must be done after register_netdev() */
++	strlcpy(session->ifname, dev->name, IFNAMSIZ);
++
++	dev_hold(dev);
++	pn = l2tp_eth_pernet(dev_net(dev));
++	spin_lock(&pn->l2tp_eth_lock);
++	list_add(&priv->list, &pn->l2tp_eth_dev_list);
++	spin_unlock(&pn->l2tp_eth_lock);
++
++	return 0;
++
++out_del_dev:
++	free_netdev(dev);
++out_del_session:
++	l2tp_session_delete(session);
++out:
++	return rc;
++}
++
++static __net_init int l2tp_eth_init_net(struct net *net)
++{
++	struct l2tp_eth_net *pn;
++	int err;
++
++	pn = kzalloc(sizeof(*pn), GFP_KERNEL);
++	if (!pn)
++		return -ENOMEM;
++
++	INIT_LIST_HEAD(&pn->l2tp_eth_dev_list);
++	spin_lock_init(&pn->l2tp_eth_lock);
++
++	err = net_assign_generic(net, l2tp_eth_net_id, pn);
++	if (err)
++		goto out;
++
++	return 0;
++
++out:
++	kfree(pn);
++	return err;
++}
++
++static __net_exit void l2tp_eth_exit_net(struct net *net)
++{
++	struct l2tp_eth_net *pn;
++
++	pn = net_generic(net, l2tp_eth_net_id);
++	/*
++	 * if someone has cached our net then
++	 * further net_generic call will return NULL
++	 */
++	net_assign_generic(net, l2tp_eth_net_id, NULL);
++	kfree(pn);
++}
++
++static __net_initdata struct pernet_operations l2tp_eth_net_ops = {
++	.init = l2tp_eth_init_net,
++	.exit = l2tp_eth_exit_net,
++	.id   = &l2tp_eth_net_id,
++	.size = sizeof(struct l2tp_eth_net),
++};
++
++
++static const struct l2tp_nl_cmd_ops l2tp_eth_nl_cmd_ops = {
++	.session_create	= l2tp_eth_create,
++	.session_delete	= l2tp_session_delete,
++};
++
++
++static int __init l2tp_eth_init(void)
++{
++	int err = 0;
++
++	err = l2tp_nl_register_ops(L2TP_PWTYPE_ETH, &l2tp_eth_nl_cmd_ops);
++	if (err)
++		goto out;
++
++	err = register_pernet_device(&l2tp_eth_net_ops);
++	if (err)
++		goto out_unreg;
++
++	printk(KERN_INFO "L2TP ethernet pseudowire support (L2TPv3)\n");
++
++	return 0;
++
++out_unreg:
++	l2tp_nl_unregister_ops(L2TP_PWTYPE_ETH);
++out:
++	return err;
++}
++
++static void __exit l2tp_eth_exit(void)
++{
++	unregister_pernet_device(&l2tp_eth_net_ops);
++	l2tp_nl_unregister_ops(L2TP_PWTYPE_ETH);
++}
++
++module_init(l2tp_eth_init);
++module_exit(l2tp_eth_exit);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("James Chapman <jchapman@katalix.com>");
++MODULE_DESCRIPTION("L2TP ethernet pseudowire driver");
++MODULE_VERSION("1.0");
 
