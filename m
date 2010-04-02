@@ -1,45 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch V3] bonding: fix potential deadlock in bond_uninit()
-Date: Thu, 01 Apr 2010 17:26:35 -0700 (PDT)
-Message-ID: <20100401.172635.38081142.davem@davemloft.net>
-References: <20100401061014.4815.7341.sendpatchset@localhost.localdomain>
-	<m1r5mzsnuh.fsf@fess.ebiederm.org>
-	<4BB44BAC.2070304@redhat.com>
+Subject: Re: [PATCH] stmmac: fix kconfig for crc32 build error
+Date: Thu, 01 Apr 2010 17:26:42 -0700 (PDT)
+Message-ID: <20100401.172642.117466667.davem@davemloft.net>
+References: <1270107844-23457-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, linux-kernel@vger.kernel.org,
-	jpirko@redhat.com, shemminger@vyatta.com, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net, fubar@us.ibm.com
-To: amwang@redhat.com
+Cc: netdev@vger.kernel.org, carmelo.amoroso@st.com
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60835
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60842
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753108Ab0DBA0f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 20:26:35 -0400
-In-Reply-To: <4BB44BAC.2070304@redhat.com>
+	by vger.kernel.org with ESMTP id S1755865Ab0DBA0m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Apr 2010 20:26:42 -0400
+In-Reply-To: <1270107844-23457-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
-Date: Thu, 01 Apr 2010 15:30:52 +0800
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Thu,  1 Apr 2010 09:44:03 +0200
 
-> Eric W. Biederman wrote:
->> Amerigo Wang <amwang@redhat.com> writes:
->> 
->>> bond_uninit() is invoked with rtnl_lock held, when it does
->>> destroy_workqueue()
->>> which will potentially flush all works in this workqueue, if we hold
->>> rtnl_lock
->>> again in the work function, it will deadlock.
->>>
->>> So move destroy_workqueue() to destructor where rtnl_lock is not held
->>> any more,
->>> suggested by Eric.
->> The error handling on creating a bond device needs to be updated as
->> well.
->> 
+> From: Carmelo AMOROSO <carmelo.amoroso@st.com>
 > 
-> Done.
+> stmmac uses crc32 functions so it needs to select CRC32.
+> 
+> Fixes build error:
+> drivers/built-in.o: In function `dwmac1000_set_filter':
+> dwmac1000_core.c:(.text+0x3c380): undefined reference to `crc32_le'
+> dwmac1000_core.c:(.text+0x3c384): undefined reference to `bitrev32'
+> 
+> Signed-off-by: Carmelo Amoroso <carmelo.amoroso@st.com>
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-Applied, thanks.
+Applied.
