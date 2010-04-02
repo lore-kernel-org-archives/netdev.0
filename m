@@ -1,27 +1,26 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] ethtool: RXHASH flag support (v2)
-Date: Fri, 02 Apr 2010 13:26:39 -0400
-Message-ID: <4BB628CF.7060109@garzik.org>
-References: <20100402081515.1b963562@nehalam>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Receive steering and hash and cache misses
+Date: Fri, 2 Apr 2010 10:26:50 -0700
+Message-ID: <20100402102650.5bdb5b52@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f173.google.com ([209.85.221.173]:36922 "EHLO
-	mail-qy0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755299Ab0DBR0r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 13:26:47 -0400
-Received: by qyk4 with SMTP id 4so2796950qyk.24
-        for <netdev@vger.kernel.org>; Fri, 02 Apr 2010 10:26:46 -0700 (PDT)
-In-Reply-To: <20100402081515.1b963562@nehalam>
+Received: from mail.vyatta.com ([76.74.103.46]:43013 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755789Ab0DBR1M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Apr 2010 13:27:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Both patches look great, thanks.  Will apply after Easter holiday...
+Although Receive Packet Steering can use a hardware generated receive hash
+the device driver still causes an unnecessary cache miss on the interrupt
+processing CPU.  The current Ethernet network device driver receive processing
+has the device driver calling eth_type_trans() which causes a the
+interrupt CPU to read the received frame header.
 
-	Jeff
-
-
-
+Is there some way the hardware receive hash value could be used to
+steer to the receive CPU, then have the receive CPU find the Ethernet
+type field (eth_type_trans)?
