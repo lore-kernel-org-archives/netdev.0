@@ -1,44 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next-2.6] igb: restrict WoL for 82576 ET2 Quad Port
- Server Adapter
-Date: Thu, 01 Apr 2010 21:12:58 -0700
-Message-ID: <1270181578.14388.25.camel@localhost.localdomain>
-References: <4BB4D13C.8030303@redhat.com>
-	 <20100401.193435.223373423.davem@davemloft.net>
+Subject: Re: [PATCH 1/1] e1000e: stop cleaning when we reach
+ tx_ring->next_to_use
+Date: Thu, 01 Apr 2010 21:13:18 -0700
+Message-ID: <1270181598.14388.26.camel@localhost.localdomain>
+References: <4BB3AA30.3060906@hp.com>
+	 <20100401.193355.255461107.davem@davemloft.net>
 Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "sassmann@redhat.com" <sassmann@redhat.com>,
+Cc: "terry.loftin@hp.com" <terry.loftin@hp.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:48976 "EHLO mga02.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:59337 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750714Ab0DBENA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Apr 2010 00:13:00 -0400
-In-Reply-To: <20100401.193435.223373423.davem@davemloft.net>
+	id S1751279Ab0DBENU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Apr 2010 00:13:20 -0400
+In-Reply-To: <20100401.193355.255461107.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-04-01 at 19:34 -0700, David Miller wrote:
-> From: Stefan Assmann <sassmann@redhat.com>
-> Date: Thu, 01 Apr 2010 19:00:44 +0200
+On Thu, 2010-04-01 at 19:33 -0700, David Miller wrote:
+> From: Terry Loftin <terry.loftin@hp.com>
+> Date: Wed, 31 Mar 2010 14:01:52 -0600
 > 
-> > From: Stefan Assmann <sassmann@redhat.com>
+> > Tx ring buffers after tx_ring->next_to_use are volatile and could
+> > change, possibly causing a crash.  Stop cleaning when we hit
+> > tx_ring->next_to_use.
 > > 
-> > Restrict Wake-on-LAN to first port on 82576 ET2 quad port NICs, as it is
-> > only supported there.
-> > 
-> > Signed-off-by: Stefan Assmann <sassmann@redhat.com>
+> > Signed-off-by: Terry Loftin <terry.loftin@hp.com>
 > 
-> Intel folks I assume you will suck this in and resubmit to
-> me?
+> Intel folks please look carefully at this fix.  I want to
+> get it into net-2.6 if it's correct.
 > 
 > Thanks.
 
-Correct, I am sucking this in to my tree.
+Got this one as well...
+
 -- 
 Cheers,
 Jeff
