@@ -1,150 +1,113 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [RFC][PATCH v2 0/3] Provide a zero-copy method on KVM
- virtio-net.
-Date: Fri, 02 Apr 2010 16:51:08 -0700
-Message-ID: <1270252268.13897.14.camel@w-sridhar.beaverton.ibm.com>
-References: <1270193100-6769-1-git-send-email-xiaohui.xin@intel.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH 0/6] tagged sysfs support
+Date: Sat, 03 Apr 2010 01:58:23 +0100
+Message-ID: <1270256303.12516.234.camel@localhost>
+References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
+	 <ac3eb2511003301153i43a60720hb015071e2c992199@mail.gmail.com>
+	 <m14ojxh0mz.fsf@fess.ebiederm.org>
+	 <s2hac3eb2511003302251rcbae8767ne21e9daf1546c849@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mingo@elte.hu, mst@redhat.com,
-	jdike@c2.user-mode-linux.org, davem@davemloft.net
-To: xiaohui.xin@intel.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1270193100-6769-1-git-send-email-xiaohui.xin@intel.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-PlT9U4DmwiuG74DiJlKJ"
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>, Greg KH <greg@kroah.com>,
+	linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
+	Cornelia Huck <cornelia.huck@de.ibm.com>,
+	linux-fsdevel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Benjamin LaHaise <bcrl@lhnet.ca>,
+	Serge Hallyn <serue@us.ibm.com>, netdev@vger.kernel.org
+To: Kay Sievers <kay.sievers@vrfy.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52820 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754465Ab0DCA7A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 20:59:00 -0400
+In-Reply-To: <s2hac3eb2511003302251rcbae8767ne21e9daf1546c849@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-04-02 at 15:25 +0800, xiaohui.xin@intel.com wrote:
-> The idea is simple, just to pin the guest VM user space and then
-> let host NIC driver has the chance to directly DMA to it. 
-> The patches are based on vhost-net backend driver. We add a device
-> which provides proto_ops as sendmsg/recvmsg to vhost-net to
-> send/recv directly to/from the NIC driver. KVM guest who use the
-> vhost-net backend may bind any ethX interface in the host side to
-> get copyless data transfer thru guest virtio-net frontend.
 
-What is the advantage of this approach compared to PCI-passthrough
-of the host NIC to the guest?
-Does this require pinning of the entire guest memory? Or only the
-send/receive buffers?
+--=-PlT9U4DmwiuG74DiJlKJ
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Thanks
-Sridhar
-> 
-> The scenario is like this:
-> 
-> The guest virtio-net driver submits multiple requests thru vhost-net
-> backend driver to the kernel. And the requests are queued and then
-> completed after corresponding actions in h/w are done.
-> 
-> For read, user space buffers are dispensed to NIC driver for rx when
-> a page constructor API is invoked. Means NICs can allocate user buffers
-> from a page constructor. We add a hook in netif_receive_skb() function
-> to intercept the incoming packets, and notify the zero-copy device.
-> 
-> For write, the zero-copy deivce may allocates a new host skb and puts
-> payload on the skb_shinfo(skb)->frags, and copied the header to skb->data.
-> The request remains pending until the skb is transmitted by h/w.
-> 
-> Here, we have ever considered 2 ways to utilize the page constructor
-> API to dispense the user buffers.
-> 
-> One:	Modify __alloc_skb() function a bit, it can only allocate a 
-> 	structure of sk_buff, and the data pointer is pointing to a 
-> 	user buffer which is coming from a page constructor API.
-> 	Then the shinfo of the skb is also from guest.
-> 	When packet is received from hardware, the skb->data is filled
-> 	directly by h/w. What we have done is in this way.
-> 
-> 	Pros:	We can avoid any copy here.
-> 	Cons:	Guest virtio-net driver needs to allocate skb as almost
-> 		the same method with the host NIC drivers, say the size
-> 		of netdev_alloc_skb() and the same reserved space in the
-> 		head of skb. Many NIC drivers are the same with guest and
-> 		ok for this. But some lastest NIC drivers reserves special
-> 		room in skb head. To deal with it, we suggest to provide
-> 		a method in guest virtio-net driver to ask for parameter
-> 		we interest from the NIC driver when we know which device 
-> 		we have bind to do zero-copy. Then we ask guest to do so.
-> 		Is that reasonable?
-> 
-> Two:	Modify driver to get user buffer allocated from a page constructor
-> 	API(to substitute alloc_page()), the user buffer are used as payload
-> 	buffers and filled by h/w directly when packet is received. Driver
-> 	should associate the pages with skb (skb_shinfo(skb)->frags). For 
-> 	the head buffer side, let host allocates skb, and h/w fills it. 
-> 	After that, the data filled in host skb header will be copied into
-> 	guest header buffer which is submitted together with the payload buffer.
-> 
-> 	Pros:	We could less care the way how guest or host allocates their
-> 		buffers.
-> 	Cons:	We still need a bit copy here for the skb header.
-> 
-> We are not sure which way is the better here. This is the first thing we want
-> to get comments from the community. We wish the modification to the network
-> part will be generic which not used by vhost-net backend only, but a user
-> application may use it as well when the zero-copy device may provides async
-> read/write operations later.
-> 
-> Please give comments especially for the network part modifications.
-> 
-> 
-> We provide multiple submits and asynchronous notifiicaton to 
-> vhost-net too.
-> 
-> Our goal is to improve the bandwidth and reduce the CPU usage.
-> Exact performance data will be provided later. But for simple
-> test with netperf, we found bindwidth up and CPU % up too,
-> but the bindwidth up ratio is much more than CPU % up ratio.
-> 
-> What we have not done yet:
-> 	packet split support
-> 	To support GRO
-> 	Performance tuning
-> 
-> what we have done in v1:
-> 	polish the RCU usage
-> 	deal with write logging in asynchroush mode in vhost
-> 	add notifier block for mp device
-> 	rename page_ctor to mp_port in netdevice.h to make it looks generic
-> 	add mp_dev_change_flags() for mp device to change NIC state
-> 	add CONIFG_VHOST_MPASSTHRU to limit the usage when module is not load
-> 	a small fix for missing dev_put when fail
-> 	using dynamic minor instead of static minor number
-> 	a __KERNEL__ protect to mp_get_sock()
-> 
-> what we have done in v2:
-> 	
-> 	remove most of the RCU usage, since the ctor pointer is only
-> 	changed by BIND/UNBIND ioctl, and during that time, NIC will be
-> 	stopped to get good cleanup(all outstanding requests are finished),
-> 	so the ctor pointer cannot be raced into wrong situation.
-> 
-> 	Remove the struct vhost_notifier with struct kiocb.
-> 	Let vhost-net backend to alloc/free the kiocb and transfer them
-> 	via sendmsg/recvmsg.
-> 
-> 	use get_user_pages_fast() and set_page_dirty_lock() when read.
-> 
-> 	Add some comments for netdev_mp_port_prep() and handle_mpassthru().
-> 
-> 
-> Comments not addressed yet in this time:
-> 	the async write logging is not satified by vhost-net
-> 	Qemu needs a sync write
-> 	a limit for locked pages from get_user_pages_fast()
-> 	
-> 		
-> performance:
-> 	using netperf with GSO/TSO disabled, 10G NIC, 
-> 	disabled packet split mode, with raw socket case compared to vhost.
-> 
-> 	bindwidth will be from 1.1Gbps to 1.7Gbps
-> 	CPU % from 120%-140% to 140%-160%
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Wed, 2010-03-31 at 07:51 +0200, Kay Sievers wrote:
+> On Wed, Mar 31, 2010 at 01:04, Eric W. Biederman <ebiederm@xmission.com> =
+wrote:
+> > Kay Sievers <kay.sievers@vrfy.org> writes:
+> >> On Tue, Mar 30, 2010 at 20:30, Eric W. Biederman <ebiederm@xmission.co=
+m> wrote:
+> >>>
+> >>> The main short coming of using multiple network namespaces today
+> >>> is that only network devices for the primary network namespaces
+> >>> can be put in the kobject layer and sysfs.
+> >>>
+> >>> This is essentially the earlier version of this patchset that was
+> >>> reviewed before, just now on top of a version of sysfs that doesn't
+> >>> need cleanup patches to support it.
+> >>
+> >> Just to check if we are not in conflict with planned changes, and how
+> >> to possibly handle them:
+> >>
+> >> There is the plan and ongoing work to unify classes and buses, export
+> >> them at /sys/subsystem in the same layout of the current /sys/bus/.
+> >> The decision to export buses and classes as two different things
+> >> (which they aren't) is the last major piece in the sysfs layout which
+> >> needs to be fixed.
+> >
+> > Interesting.  We will symlinks ie:
+> > /sys/class -> /sys/subsystem
+> > /sys/bus -> /sys/subsystem
+> > to keep from breaking userspace.
+>=20
+> Yeah, /sys/bus/, which is the only sane layout of the needlessly
+> different 3 versions of the same thing (bus, class, block).
+[...]
 
+block vs class/block is arguable, but as for abstracting the difference
+between bus and class... why?
+
+Each bus defines a device interface covering enumeration,
+identification, power management and various aspects of their connection
+to the host.  This interface is implemented by the bus driver.
+
+Each class defines a device interface covering functionality provided to
+user-space or higher level kernel components (block interface to
+filesystems, net driver interface to the networking core, etc).  This
+interface is implemented by multiple device-specific drivers.
+
+So while buses and classes both define device interfaces, they are
+fundamentally different types of interface.  And there are 'subsystems'
+that don't have devices at all (time, RCU, perf, ...).  If you're going
+to expose the set of subsystems, don't they belong in there?  But then,
+what would you put in their directories?
+
+Ben.
+
+--=20
+Ben Hutchings
+Once a job is fouled up, anything done to improve it makes it worse.
+
+--=-PlT9U4DmwiuG74DiJlKJ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIVAwUAS7aSq+e/yOyVhhEJAQJEZw/+OU6TO5XXg6e81XOoC6dxgh25Z6gC5Rvu
+VbW1+7wK/NVALQLcQCIPVB8FHJZPcr1I10qJgnL2TuO5NHfIXWZL9WRznXTceyJO
+Sq6BrhFM+KDmNDvt+UPESMJ4u6FOpWq5Bgi0dGi3I82aTdV1pL/Ojm0mAIHUv8wr
+UokeX1Ja8NgME+f4ur73utSeOVQAMLpQI0UiXN/mtzv2fhaHc8JG2FzeUNoJ9ZyL
+KPyxvP2H9a5Lu18O5Bkf3sqMOh6A5RVyQ02jLZlih2smzBcSZ3MSQGjZrwA9hP2+
+Cjd1yuD4OhB3iY/7MMbxSfoOnAI7z8hb+hsWQOfek4o7hIWVXLpe7Q8QqZfE8xUC
+TATNTK6BliwW4hYqyDZu8bV2lHZz3L5su9Bph2bWudy1QGBsXUV6BT3PiKcD05hn
+EReoW8UU6QOMRnEZBHOjjVdoIzklGd5Z344B/yw23Sgouf79G0kAq5PqWGCJTDit
+XjNUNJtO0FZONnBSk7FbhutcBzIqIxpVxn3dXDKdkjDLix0EZ+1hK0ooZtumu6zL
+bWyXP/1keX+Avh8cxmjd+ovavxjDj2vvnr1JfaWAIKQ3IS8xAgRqh6GihrPgd0as
+yST3Bd0TTKYcWQASBcq2PRK5GSTIB6vQdXgB7fOgXIe+RhEtOaPAzOCwHgCR+5TU
+fodLL/0h/zE=
+=u6dY
+-----END PGP SIGNATURE-----
+
+--=-PlT9U4DmwiuG74DiJlKJ--
