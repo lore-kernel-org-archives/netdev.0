@@ -1,97 +1,50 @@
-From: Kay Sievers <kay.sievers@vrfy.org>
-Subject: Re: [PATCH 0/6] tagged sysfs support
-Date: Sat, 3 Apr 2010 10:35:57 +0200
-Message-ID: <h2gac3eb2511004030135q2a2f5002z912974c1d2ab8853@mail.gmail.com>
-References: <m1fx3hk6gw.fsf@fess.ebiederm.org> <ac3eb2511003301153i43a60720hb015071e2c992199@mail.gmail.com>
-	<m14ojxh0mz.fsf@fess.ebiederm.org> <s2hac3eb2511003302251rcbae8767ne21e9daf1546c849@mail.gmail.com>
-	<1270256303.12516.234.camel@localhost>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH 1/4] flow: virtualize flow cache entry methods
+Date: Sat, 03 Apr 2010 16:50:08 +0300
+Message-ID: <4BB74790.7070109@iki.fi>
+References: <1270126340-30181-1-git-send-email-timo.teras@iki.fi> <1270126340-30181-2-git-send-email-timo.teras@iki.fi> <20100403033857.GA2205@gondor.apana.org.au> <20100403083609.GA3654@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>, Greg KH <greg@kroah.com>,
-	linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
-	Cornelia Huck <cornelia.huck@de.ibm.com>,
-	linux-fsdevel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Benjamin LaHaise <bcrl@lhnet.ca>,
-	Serge Hallyn <serue@us.ibm.com>, netdev@vger.kernel.org
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1270256303.12516.234.camel@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:61625 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752755Ab0DCNuR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Apr 2010 09:50:17 -0400
+Received: by ewy20 with SMTP id 20so760738ewy.1
+        for <netdev@vger.kernel.org>; Sat, 03 Apr 2010 06:50:15 -0700 (PDT)
+In-Reply-To: <20100403083609.GA3654@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 3, 2010 at 02:58, Ben Hutchings <ben@decadent.org.uk> wrote=
-:
-> On Wed, 2010-03-31 at 07:51 +0200, Kay Sievers wrote:
->> Yeah, /sys/bus/, which is the only sane layout of the needlessly
->> different 3 versions of the same thing (bus, class, block).
-> [...]
->
-> block vs class/block is arguable,
+Herbert Xu wrote:
+> With repsect to removing the cache flush upon policy removal,
+> what takes care of the timely purging of the corresponding cache
+> entries if no new traffic comes through?
+> 
+> The concern is that if they're not purged in the absence of new
+> traffic, then we may hold references on all sorts of objects,
+> leading to consequences such as the inability to unregister net
+> devices.
 
-That's already done long ago.
+The flow cache is randomized every ten minutes. Thus all flow
+cache entries get recreated regularly.
 
-> but as for abstracting the difference
-> between bus and class... why?
+> On Sat, Apr 03, 2010 at 11:38:57AM +0800, Herbert Xu wrote:
+>> With repsect to removing the cache flush upon policy removal,
+>> what takes care of the timely purging of the corresponding cache
+>> entries if no new traffic comes through?
+> 
+> In fact this change would seem to render the existing bundle
+> pruning mechanism when devices are unregistered ineffective.
+> 
+> xfrm_prune_bundles walks through active policy lists to find
+> the bundles to purge.  However, if a policy has been deleted
+> while a bundle referencing it is still in the cache, that bundle
+> will not be pruned.
 
-There is absolutely no need to needlessly export two versions of the
-same thing. These directories serve no other purpose than to collect
-all devices of the same subsystem. There is no useful information that
-belongs to the type class or bus, they are both the same. Like
-"inputX" is implemented as a class, but is much more like a bus. And
-"usb" are devices, which are more a class of devices, and the
-interfaces and contollers belong to a bus.
-
-There is really no point to make userspace needlessly complicated to
-distinguish the both.
-
-We also have already a buch of subsystems which moved from class to
-bus because they needed to express hierarchy between the same devices.
-So the goal is to have only one type of subsystem to solve these
-problems.
-
-> Each bus defines a device interface covering enumeration,
-> identification, power management and various aspects of their connect=
-ion
-> to the host. =C2=A0This interface is implemented by the bus driver.
-
-Sure, but that does not mean that class is a useful layout, or that
-class devices can not do the same.
-
-> Each class defines a device interface covering functionality provided=
- to
-> user-space or higher level kernel components (block interface to
-> filesystems, net driver interface to the networking core, etc). =C2=A0=
-This
-> interface is implemented by multiple device-specific drivers.
-
-That's absolutely wrong. Classes are just too simple uses of the same
-thing. We have many class devices which are not "interfaces", and we
-have bus devices which are interfaces.
-
-> So while buses and classes both define device interfaces, they are
-> fundamentally different types of interface.
-
-No, they are not. They are just "devices". There is no useful
-difference these two different types expose. And the class layout is
-fundamentally broken, and not extendable. Peole mix lists of devices
-with custom subsystem-wide attributes, which we need to stop from
-doing this. The bus layout can carry custom directories, which is why
-we want that by default for all "classifications".
-
-> And there are 'subsystems'
-> that don't have devices at all (time, RCU, perf, ...). =C2=A0If you'r=
-e going
-> to expose the set of subsystems, don't they belong in there?
-> But then,
-
-We are talking about the current users in /sys, and the difference in
-the sysfs export between /sys/bus and /sys/class.
-
-> what would you put in their directories?
-
-We are not talking about anything not in /sys currently.
-
-Kay
+When policy is killed, the policy->genid is incremented which
+makes xfrm_bundle_ok check fail and the bundle to get pruned
+immediately on flush.
