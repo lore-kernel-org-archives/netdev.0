@@ -1,73 +1,61 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Receive steering and hash and cache misses
-Date: Fri, 2 Apr 2010 15:52:14 -0700
-Message-ID: <20100402155214.0adfa9e2@nehalam>
-References: <20100402102650.5bdb5b52@nehalam>
- <g2l65634d661004021059z94214a43v82409d15a0fb09b6@mail.gmail.com>
- <20100402115439.348575c9@nehalam>
- <1270236991.1978.17.camel@edumazet-laptop>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/4] flow: virtualize flow cache entry methods
+Date: Sat, 3 Apr 2010 11:38:57 +0800
+Message-ID: <20100403033857.GA2205@gondor.apana.org.au>
+References: <1270126340-30181-1-git-send-email-timo.teras@iki.fi> <1270126340-30181-2-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34312 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755425Ab0DCBxZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 21:53:25 -0400
-In-Reply-To: <1270236991.1978.17.camel@edumazet-laptop>
+Received: from helcar.apana.org.au ([209.40.204.226]:34011 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754216Ab0DCDjB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Apr 2010 23:39:01 -0400
+Content-Disposition: inline
+In-Reply-To: <1270126340-30181-2-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 02 Apr 2010 21:36:31 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Thu, Apr 01, 2010 at 03:52:17PM +0300, Timo Teras wrote:
+> This allows to validate the cached object before returning it.
+> It also allows to destruct object properly, if the last reference
+> was held in flow cache. This is also a prepartion for caching
+> bundles in the flow cache.
+> 
+> In return for virtualizing the methods, we save on:
+> - not having to regenerate the whole flow cache on policy removal:
+>   each flow matching a killed policy gets refreshed as the getter
+>   function notices it smartly.
+> - we do not have to call flow_cache_flush from policy gc, since the
+>   flow cache now properly deletes the object if it had any references
+> 
+> Signed-off-by: Timo Teras <timo.teras@iki.fi>
 
-> Le vendredi 02 avril 2010 =C3=A0 11:54 -0700, Stephen Hemminger a =C3=
-=A9crit :
-> > On Fri, 2 Apr 2010 10:59:43 -0700
-> > Tom Herbert <therbert@google.com> wrote:
-> >=20
-> > > On Fri, Apr 2, 2010 at 10:26 AM, Stephen Hemminger
-> > > <shemminger@vyatta.com> wrote:
-> > > >
-> > > > Although Receive Packet Steering can use a hardware generated r=
-eceive hash
-> > > > the device driver still causes an unnecessary cache miss on the=
- interrupt
-> > > > processing CPU.  The current Ethernet network device driver rec=
-eive processing
-> > > > has the device driver calling eth_type_trans() which causes a t=
-he
-> > > > interrupt CPU to read the received frame header.
-> > > >
-> > >=20
-> > > It should be possible to deduce the values set by eth_type_trans =
-from
-> > > the RX descriptor along with the RX hash.  I'll post the patch ge=
-tting
-> > > rxhash from bnx2x which does this.
-> > >=20
-> >=20
-> > On sky2, I get only RSS, Checksum, and length from descriptor info.
->=20
-> Doesnt sky2 also provide vlan id (OP_RXVLAN/OP_RXCHKSVLAN) ?
->=20
-> A future version of hardware could provide more info perhaps...
+With repsect to removing the cache flush upon policy removal,
+what takes care of the timely purging of the corresponding cache
+entries if no new traffic comes through?
 
-I have only some information from Marvell and no idea what they might
-do with future hardware.=20
+The concern is that if they're not purged in the absence of new
+traffic, then we may hold references on all sorts of objects,
+leading to consequences such as the inability to unregister net
+devices.
+  
+>  struct flow_cache_entry {
+> -	struct flow_cache_entry	*next;
+> -	u16			family;
+> -	u8			dir;
+> -	u32			genid;
+> -	struct flowi		key;
+> -	void			*object;
+> -	atomic_t		*object_ref;
+> +	struct flow_cache_entry *	next;
 
-> Must eth_type_trans() be done *before* netif_receive_skb() ?
+Please follow the existing coding style.
 
-In current arch yes, because netif_receive_skb is used for multiple
-hardware types and the backlog queue could theoretically contain
-skb's of different hardware types.  Also GRO works against RPS
-since it does lookup work on the initial CPU and dirties the skb.
-
-This is mostly theoretical at this point the bigger performance bottlen=
-ecks
-are farther down the packet processing chain.
-
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
