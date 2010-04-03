@@ -1,51 +1,84 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH 1/4] flow: virtualize flow cache entry methods
-Date: Sat, 03 Apr 2010 23:19:04 +0300
-Message-ID: <4BB7A2B8.4040405@iki.fi>
-References: <1270126340-30181-1-git-send-email-timo.teras@iki.fi> <1270126340-30181-2-git-send-email-timo.teras@iki.fi> <20100403033857.GA2205@gondor.apana.org.au> <20100403083609.GA3654@gondor.apana.org.au> <4BB74790.7070109@iki.fi> <20100403141709.GA5165@gondor.apana.org.au> <4BB74FF8.2020303@iki.fi> <20100403155353.GA5618@gondor.apana.org.au>
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Subject: [PATCH  kernel 2.6.34-rc3] smc91c92_cs: fix the problem of
+ "Unable to find hardware address"
+Date: Sun, 4 Apr 2010 06:14:34 +0900
+Message-ID: <20100404061434.eb98ef3e.ken_kawasaki@spring.nifty.jp>
+References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
+	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
+	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
+	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
+	<20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
+	<20091221205849.dae4e929.ken_kawasaki@spring.nifty.jp>
+	<20091223171004.77316fa5.ken_kawasaki@spring.nifty.jp>
+	<20100123065625.db751a12.ken_kawasaki@spring.nifty.jp>
+	<20100228083420.9ca8e285.ken_kawasaki@spring.nifty.jp>
+	<20100328055537.13ef6c01.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ken_kawasaki@spring.nifty.jp
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f220.google.com ([209.85.219.220]:55441 "EHLO
-	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755900Ab0DCUTJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Apr 2010 16:19:09 -0400
-Received: by ewy20 with SMTP id 20so805473ewy.1
-        for <netdev@vger.kernel.org>; Sat, 03 Apr 2010 13:19:08 -0700 (PDT)
-In-Reply-To: <20100403155353.GA5618@gondor.apana.org.au>
+Received: from userg506.nifty.com ([202.248.238.86]:52784 "EHLO
+	userg506.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755970Ab0DCVOx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Apr 2010 17:14:53 -0400
+In-Reply-To: <20100328055537.13ef6c01.ken_kawasaki@spring.nifty.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Sat, Apr 03, 2010 at 05:26:00PM +0300, Timo Ter=E4s wrote:
->> Why would this block? The device down hook calls flow cache
->> flush. On flush all bundles with non-up devices get pruned
->> immediately (via stale_bundle check).
->=20
-> Perhaps I missed something in your patch, but the flush that
-> we currently perform is limited to the bundles from hashed policies.
-> So if a policy has just recently been removed, then its bundles
-> won't be flushed.
 
-If a policy is removed, policy->genid is incremented invalidating
-the bundles. Those bundles get freed when:
- - specific flow gets hit
- - cache is flushed due to GC call, or interface going down
- - flow cache randomization
+smc91c92_cs:
+ *cvt_ascii_address returns 0, if success.
+ *call free_netdev, if we can't find hardware address.
 
-If someone is then removing a net driver, we still execute
-flush on the 'device down' hook, and all stale bundles
-get flushed.
+Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
 
-But yes, this means that xfrm_policy struct can now be held
-allocated up to ten extra minutes. But it's only memory that
-it's holding, not any extra refs. And it's still reclaimable
-by the GC.
+---
 
-If this feels troublesome, we could add asynchronous flush
-request that would be called on policy removal. Or even stick
-to the synchronous one.
+--- linux-2.6.34-rc3/drivers/net/pcmcia/smc91c92_cs.c.orig	2010-04-03 09:41:20.000000000 +0900
++++ linux-2.6.34-rc3/drivers/net/pcmcia/smc91c92_cs.c	2010-04-03 20:34:06.000000000 +0900
+@@ -493,13 +493,14 @@ static int pcmcia_get_versmac(struct pcm
+ {
+ 	struct net_device *dev = priv;
+ 	cisparse_t parse;
++	u8 *buf;
+ 
+ 	if (pcmcia_parse_tuple(tuple, &parse))
+ 		return -EINVAL;
+ 
+-	if ((parse.version_1.ns > 3) &&
+-	    (cvt_ascii_address(dev,
+-			       (parse.version_1.str + parse.version_1.ofs[3]))))
++	buf = parse.version_1.str + parse.version_1.ofs[3];
++
++	if ((parse.version_1.ns > 3) && (cvt_ascii_address(dev, buf) == 0))
+ 		return 0;
+ 
+ 	return -EINVAL;
+@@ -528,7 +529,7 @@ static int mhz_setup(struct pcmcia_devic
+     len = pcmcia_get_tuple(link, 0x81, &buf);
+     if (buf && len >= 13) {
+ 	    buf[12] = '\0';
+-	    if (cvt_ascii_address(dev, buf))
++	    if (cvt_ascii_address(dev, buf) == 0)
+ 		    rc = 0;
+     }
+     kfree(buf);
+@@ -910,7 +911,7 @@ static int smc91c92_config(struct pcmcia
+ 
+     if (i != 0) {
+ 	printk(KERN_NOTICE "smc91c92_cs: Unable to find hardware address.\n");
+-	goto config_undo;
++	goto config_failed;
+     }
+ 
+     smc->duplex = 0;
+@@ -998,6 +999,7 @@ config_undo:
+     unregister_netdev(dev);
+ config_failed:
+     smc91c92_release(link);
++    free_netdev(dev);
+     return -ENODEV;
+ } /* smc91c92_config */
+ 
