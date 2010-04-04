@@ -1,58 +1,54 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: small packets sent through ne2k-pci delayed
-Date: Sun, 4 Apr 2010 10:23:42 -0700 (PDT)
-Message-ID: <4059442.59771270401822892.JavaMail.root@tahiti.vyatta.com>
-References: <27697562.59751270401801591.JavaMail.root@tahiti.vyatta.com>
+From: Alexandre Cassen <acassen@freebox.fr>
+Subject: Bug#575970: iproute2: silence errors about kernel missing 6rd on "ip tun show".
+Date: Sun, 4 Apr 2010 22:23:43 +0200 (CEST)
+Message-ID: <alpine.DEB.2.00.1004042217520.24519@lnxos.staff.proxad.net>
+References: <20100331080854.GA3810@amd64.fatal.se> <20100331160642.75766629@s6510>
+Reply-To: Alexandre Cassen <acassen@freebox.fr>, 575970@bugs.debian.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: p gortmaker <p_gortmaker@yahoo.com>, netdev@vger.kernel.org
-To: Florian Zumbiehl <florz@florz.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:32964 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751613Ab0DDRYE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Apr 2010 13:24:04 -0400
-In-Reply-To: <27697562.59751270401801591.JavaMail.root@tahiti.vyatta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Andreas Henriksson <andreas@fatal.se>, 575970@bugs.debian.org,
+    netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
+Resent-Message-ID: <handler.575970.B575970.127041263715568@bugs.debian.org>
+In-Reply-To: <20100331160642.75766629@s6510>
+List-Post: <mailto:debian-bugs-dist@lists.debian.org>
+List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
+List-Id: netdev.vger.kernel.org
+
+Hello,
+
+On Wed, 31 Mar 2010, Stephen Hemminger wrote:
+> On Wed, 31 Mar 2010 10:08:54 +0200
+> Andreas Henriksson <andreas@fatal.se> wrote:
+>
+>> Hello!
+>>
+>> As reported in http://bugs.debian.org/575970 there is currently a warning
+>> printed for every tunnel when using latest iproute2 on atleast <= 2.6.32
+>> kernels (missing 6rd?!).
+>>
+>> The attached patch avoids perror when errno is EINVAL, which I assume
+>> is the way to detect missing 6rd support. A better/cleaner
+>> method to detect and avoid 6rd when there's no kernel support
+>> is more then welcome.
+>>
+>> Regards,
+>> Andreas Henriksson
+>>
+>
+> I will wait (a little while) to see if Alexandre has a preferred alternative.
 
 
------ "Florian Zumbiehl" <florz@florz.de> wrote:
+IMHO, the proper way to detect 6rd kernel missing support is to catch 
+EINVAL, but not others errno since they might be usefull in some case.
 
-> Hi,
-> 
-> I noticed today that a 2.6.33 kernel with an ne2k-pci card of mine
-> transmits small packets (those that result in frames < 61 bytes)
-> only with some major delay - or more exactly, it seems that they are
-> being transmitted only when the next packet to be transmitted comes
-> along.
-> 
-> Now, this patch seems to fix it for me, but I am not that sure that
-> that's
-> how it should be fixed:
-> 
-> di
+Reading the code again, there is also a need to test tunnel protocol since 
+6rd scope is ipv6/ip only.
 
-> I _think_ that this problem did not exist with 2.6.22-rc4 - but I
-> didn't
-> have a chance to (re-)test that yet, I just think that I did things in
-> the
-> past (when that kernel was still running on that machine) that would
-> imply
-> that the problem did not exist at the time ...
-> 
-> So, any suggestions what I should try, other than re-testing with
-> 2.6.22-rc4 (some time soon, I can do that, too, just not now)?
-> 
-> What might be interesting to know: those 61-byte frames do actually
-> arrive
-> at the recipient as 61-byte frames ...
-> 
-> Florian
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I will send another email with a proposed patch to fix those 2 issues.
 
-The standard correct way to do this is skb_padto()
+Regs,
+Alexandre
