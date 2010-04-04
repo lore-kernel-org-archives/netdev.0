@@ -1,73 +1,231 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6 v4 00/14] l2tp: Introduce L2TPv3 support
-Date: Sun, 04 Apr 2010 10:14:06 +0200
-Message-ID: <1270368846.1971.7.camel@edumazet-laptop>
-References: <20100402161822.11367.70454.stgit@bert.katalix.com>
-	 <20100403.142522.01040744.davem@davemloft.net>
-	 <1270367668.1971.3.camel@edumazet-laptop>
-	 <20100404.010259.161188935.davem@davemloft.net>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: RE: [PATCH] bnx2x: use the dma state API instead of the pci
+ equivalents
+Date: Sun, 4 Apr 2010 01:19:07 -0700
+Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDC525ADDB@SJEXCHCCR02.corp.ad.broadcom.com>
+References: <20100402115054A.fujita.tomonori@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jchapman@katalix.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Eilon Greenstein" <eilong@broadcom.com>
+To: "FUJITA Tomonori" <fujita.tomonori@lab.ntt.co.jp>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:48613 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751537Ab0DDIOM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Apr 2010 04:14:12 -0400
-Received: by bwz1 with SMTP id 1so2276802bwz.21
-        for <netdev@vger.kernel.org>; Sun, 04 Apr 2010 01:14:10 -0700 (PDT)
-In-Reply-To: <20100404.010259.161188935.davem@davemloft.net>
+Received: from mms1.broadcom.com ([216.31.210.17]:3180 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751537Ab0DDITX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Apr 2010 04:19:23 -0400
+In-Reply-To: <20100402115054A.fujita.tomonori@lab.ntt.co.jp>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 04 avril 2010 =C3=A0 01:02 -0700, David Miller a =C3=A9crit=
- :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Sun, 04 Apr 2010 09:54:28 +0200
->=20
-> > [PATCH net-next-2.6] l2tp: unmanaged L2TPv3 tunnels fixes
-> >=20
-> > Followup to commit 789a4a2c=20
-> > (l2tp: Add support for static unmanaged L2TPv3 tunnels)
-> >=20
-> > One missing init in l2tp_tunnel_sock_create() could access random k=
-ernel
-> > memory, and a bit field should be unsigned.
-> >=20
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> Applied, thanks Eric.
+Why is it preferable? As far as I can see the current patch is not going to introduce any functional change.
 
-I am going to work on net/l2tp/l2tp_core.c, since RCU conversion is
-wrong (but original code was wong too...)
+Is there a plan to remove pci_map_X()/pci_alloc_consistent() functions family in the future and completely replaced with dma_X() functions? Is it appropriate to use dma_X() in all the places where pci_X() is used? For instance, we do use DAC mode and as far as I understand we should use pci_X() interface in this case. Is this rule not relevant anymore?
 
-Example :
+So, if we don't need to use pci_X() interface anymore, lets replace pci_X() properly all over the bnx2x with dma_X() functions. And if not, this patch mixes the macros from one API (dma_X) and functions from another (pci_X()) which may hardly be called "preferable"...
 
-There is no real protection in following code, since no refcount is
-taken on session before releasing rcu_read_lock :
+Thanks,
+vlad
 
-static struct l2tp_session *l2tp_session_find_2(struct net *net, u32 se=
-ssion_id)
-{
-        struct l2tp_net *pn =3D l2tp_pernet(net);
-        struct hlist_head *session_list =3D
-                l2tp_session_id_hash_2(pn, session_id);
-        struct l2tp_session *session;
-        struct hlist_node *walk;
-
-        rcu_read_lock_bh();
-        hlist_for_each_entry_rcu(session, walk, session_list, global_hl=
-ist) {
-                if (session->session_id =3D=3D session_id) {
-                        rcu_read_unlock_bh();
-                        return session;
-                }
-        }
-        rcu_read_unlock_bh();
-
-        return NULL;
-}
-
-
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org 
+> [mailto:netdev-owner@vger.kernel.org] On Behalf Of FUJITA Tomonori
+> Sent: Friday, April 02, 2010 5:57 AM
+> To: netdev@vger.kernel.org
+> Cc: Eilon Greenstein
+> Subject: [PATCH] bnx2x: use the dma state API instead of the 
+> pci equivalents
+> 
+> The DMA API is preferred.
+> 
+> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+> ---
+>  drivers/net/bnx2x.h      |    4 ++--
+>  drivers/net/bnx2x_main.c |   28 ++++++++++++++--------------
+>  2 files changed, 16 insertions(+), 16 deletions(-)
+> 
+> diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
+> index 3c48a7a..ae9c89e 100644
+> --- a/drivers/net/bnx2x.h
+> +++ b/drivers/net/bnx2x.h
+> @@ -163,7 +163,7 @@ do {					
+> 			 \
+>  
+>  struct sw_rx_bd {
+>  	struct sk_buff	*skb;
+> -	DECLARE_PCI_UNMAP_ADDR(mapping)
+> +	DEFINE_DMA_UNMAP_ADDR(mapping);
+>  };
+>  
+>  struct sw_tx_bd {
+> @@ -176,7 +176,7 @@ struct sw_tx_bd {
+>  
+>  struct sw_rx_page {
+>  	struct page	*page;
+> -	DECLARE_PCI_UNMAP_ADDR(mapping)
+> +	DEFINE_DMA_UNMAP_ADDR(mapping);
+>  };
+>  
+>  union db_prod {
+> diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+> index 6c042a7..2a77611 100644
+> --- a/drivers/net/bnx2x_main.c
+> +++ b/drivers/net/bnx2x_main.c
+> @@ -1086,7 +1086,7 @@ static inline void 
+> bnx2x_free_rx_sge(struct bnx2x *bp,
+>  	if (!page)
+>  		return;
+>  
+> -	pci_unmap_page(bp->pdev, pci_unmap_addr(sw_buf, mapping),
+> +	pci_unmap_page(bp->pdev, dma_unmap_addr(sw_buf, mapping),
+>  		       SGE_PAGE_SIZE*PAGES_PER_SGE, PCI_DMA_FROMDEVICE);
+>  	__free_pages(page, PAGES_PER_SGE_SHIFT);
+>  
+> @@ -1123,7 +1123,7 @@ static inline int 
+> bnx2x_alloc_rx_sge(struct bnx2x *bp,
+>  	}
+>  
+>  	sw_buf->page = page;
+> -	pci_unmap_addr_set(sw_buf, mapping, mapping);
+> +	dma_unmap_addr_set(sw_buf, mapping, mapping);
+>  
+>  	sge->addr_hi = cpu_to_le32(U64_HI(mapping));
+>  	sge->addr_lo = cpu_to_le32(U64_LO(mapping));
+> @@ -1151,7 +1151,7 @@ static inline int 
+> bnx2x_alloc_rx_skb(struct bnx2x *bp,
+>  	}
+>  
+>  	rx_buf->skb = skb;
+> -	pci_unmap_addr_set(rx_buf, mapping, mapping);
+> +	dma_unmap_addr_set(rx_buf, mapping, mapping);
+>  
+>  	rx_bd->addr_hi = cpu_to_le32(U64_HI(mapping));
+>  	rx_bd->addr_lo = cpu_to_le32(U64_LO(mapping));
+> @@ -1174,12 +1174,12 @@ static void bnx2x_reuse_rx_skb(struct 
+> bnx2x_fastpath *fp,
+>  	struct eth_rx_bd *prod_bd = &fp->rx_desc_ring[prod];
+>  
+>  	pci_dma_sync_single_for_device(bp->pdev,
+> -				       
+> pci_unmap_addr(cons_rx_buf, mapping),
+> +				       
+> dma_unmap_addr(cons_rx_buf, mapping),
+>  				       RX_COPY_THRESH, 
+> PCI_DMA_FROMDEVICE);
+>  
+>  	prod_rx_buf->skb = cons_rx_buf->skb;
+> -	pci_unmap_addr_set(prod_rx_buf, mapping,
+> -			   pci_unmap_addr(cons_rx_buf, mapping));
+> +	dma_unmap_addr_set(prod_rx_buf, mapping,
+> +			   dma_unmap_addr(cons_rx_buf, mapping));
+>  	*prod_bd = *cons_bd;
+>  }
+>  
+> @@ -1285,7 +1285,7 @@ static void bnx2x_tpa_start(struct 
+> bnx2x_fastpath *fp, u16 queue,
+>  	prod_rx_buf->skb = fp->tpa_pool[queue].skb;
+>  	mapping = pci_map_single(bp->pdev, 
+> fp->tpa_pool[queue].skb->data,
+>  				 bp->rx_buf_size, PCI_DMA_FROMDEVICE);
+> -	pci_unmap_addr_set(prod_rx_buf, mapping, mapping);
+> +	dma_unmap_addr_set(prod_rx_buf, mapping, mapping);
+>  
+>  	/* move partial skb from cons to pool (don't unmap yet) */
+>  	fp->tpa_pool[queue] = *cons_rx_buf;
+> @@ -1361,7 +1361,7 @@ static int bnx2x_fill_frag_skb(struct 
+> bnx2x *bp, struct bnx2x_fastpath *fp,
+>  		}
+>  
+>  		/* Unmap the page as we r going to pass it to 
+> the stack */
+> -		pci_unmap_page(bp->pdev, 
+> pci_unmap_addr(&old_rx_pg, mapping),
+> +		pci_unmap_page(bp->pdev, 
+> dma_unmap_addr(&old_rx_pg, mapping),
+>  			      SGE_PAGE_SIZE*PAGES_PER_SGE, 
+> PCI_DMA_FROMDEVICE);
+>  
+>  		/* Add one frag and update the appropriate 
+> fields in the skb */
+> @@ -1389,7 +1389,7 @@ static void bnx2x_tpa_stop(struct bnx2x 
+> *bp, struct bnx2x_fastpath *fp,
+>  	/* Unmap skb in the pool anyway, as we are going to change
+>  	   pool entry status to BNX2X_TPA_STOP even if new skb 
+> allocation
+>  	   fails. */
+> -	pci_unmap_single(bp->pdev, pci_unmap_addr(rx_buf, mapping),
+> +	pci_unmap_single(bp->pdev, dma_unmap_addr(rx_buf, mapping),
+>  			 bp->rx_buf_size, PCI_DMA_FROMDEVICE);
+>  
+>  	if (likely(new_skb)) {
+> @@ -1621,7 +1621,7 @@ static int bnx2x_rx_int(struct 
+> bnx2x_fastpath *fp, int budget)
+>  			}
+>  
+>  			pci_dma_sync_single_for_device(bp->pdev,
+> -					pci_unmap_addr(rx_buf, mapping),
+> +					dma_unmap_addr(rx_buf, mapping),
+>  						       pad + 
+> RX_COPY_THRESH,
+>  						       
+> PCI_DMA_FROMDEVICE);
+>  			prefetch(skb);
+> @@ -1666,7 +1666,7 @@ static int bnx2x_rx_int(struct 
+> bnx2x_fastpath *fp, int budget)
+>  			} else
+>  			if (likely(bnx2x_alloc_rx_skb(bp, fp, 
+> bd_prod) == 0)) {
+>  				pci_unmap_single(bp->pdev,
+> -					pci_unmap_addr(rx_buf, mapping),
+> +					dma_unmap_addr(rx_buf, mapping),
+>  						 bp->rx_buf_size,
+>  						 PCI_DMA_FROMDEVICE);
+>  				skb_reserve(skb, pad);
+> @@ -4941,7 +4941,7 @@ static inline void 
+> bnx2x_free_tpa_pool(struct bnx2x *bp,
+>  
+>  		if (fp->tpa_state[i] == BNX2X_TPA_START)
+>  			pci_unmap_single(bp->pdev,
+> -					 pci_unmap_addr(rx_buf, 
+> mapping),
+> +					 dma_unmap_addr(rx_buf, 
+> mapping),
+>  					 bp->rx_buf_size, 
+> PCI_DMA_FROMDEVICE);
+>  
+>  		dev_kfree_skb(skb);
+> @@ -4978,7 +4978,7 @@ static void bnx2x_init_rx_rings(struct 
+> bnx2x *bp)
+>  					fp->disable_tpa = 1;
+>  					break;
+>  				}
+> -				pci_unmap_addr_set((struct sw_rx_bd *)
+> +				dma_unmap_addr_set((struct sw_rx_bd *)
+>  							
+> &bp->fp->tpa_pool[i],
+>  						   mapping, 0);
+>  				fp->tpa_state[i] = BNX2X_TPA_STOP;
+> @@ -6907,7 +6907,7 @@ static void bnx2x_free_rx_skbs(struct bnx2x *bp)
+>  				continue;
+>  
+>  			pci_unmap_single(bp->pdev,
+> -					 pci_unmap_addr(rx_buf, 
+> mapping),
+> +					 dma_unmap_addr(rx_buf, 
+> mapping),
+>  					 bp->rx_buf_size, 
+> PCI_DMA_FROMDEVICE);
+>  
+>  			rx_buf->skb = NULL;
+> -- 
+> 1.7.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
