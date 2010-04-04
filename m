@@ -1,54 +1,49 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: UDP path MTU discovery
-Date: Sun, 4 Apr 2010 12:25:20 +0200
-Message-ID: <20100404102520.GB18855@one.firstfloor.org>
-References: <1269561751.2891.8.camel@ilion> <877how25kx.fsf@basil.nowhere.org> <4BB0DCF6.9020401@hp.com> <1270078984.2389.33.camel@ilion> <20100401005539.GZ20695@one.firstfloor.org> <1270186918.2119.27.camel@ilion>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/4] flow: virtualize flow cache entry methods
+Date: Sun, 4 Apr 2010 18:42:30 +0800
+Message-ID: <20100404104230.GA10368@gondor.apana.org.au>
+References: <1270126340-30181-1-git-send-email-timo.teras@iki.fi> <1270126340-30181-2-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, Rick Jones <rick.jones2@hp.com>,
-	netdev@vger.kernel.org
-To: Glen Turner <gdt@gdt.id.au>
+Cc: netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:59282 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752988Ab0DDKZV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Apr 2010 06:25:21 -0400
+Received: from helcar.apana.org.au ([209.40.204.226]:56554 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753364Ab0DDKmd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Apr 2010 06:42:33 -0400
 Content-Disposition: inline
-In-Reply-To: <1270186918.2119.27.camel@ilion>
+In-Reply-To: <1270126340-30181-2-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 02, 2010 at 04:11:58PM +1030, Glen Turner wrote:
-> On Thu, 2010-04-01 at 02:55 +0200, Andi Kleen wrote:
-> > > What we need is an API for an instant notification that a ICMP Packet
-> > > Too Big message has arrived concerning the socket.
-> > 
-> > That already exists of course: IP_RECVERR
-> 
-> Hi Andi,
-> 
-> So what should I code?  The suggested EMSGSIZE or your suggestion
-> of grabbing all returning ICMP and parsing it?  Noting that the
+On Thu, Apr 01, 2010 at 03:52:17PM +0300, Timo Teras wrote:
+>
+> -extern void *flow_cache_lookup(struct net *net, struct flowi *key, u16 family,
+> -			       u8 dir, flow_resolve_t resolver);
+> +struct flow_cache_entry_ops {
+> +	struct flow_cache_entry_ops ** (*get)(struct flow_cache_entry_ops **);
+> +	int (*check)(struct flow_cache_entry_ops **);
+> +	void (*delete)(struct flow_cache_entry_ops **);
+> +};
+> +
+> +typedef struct flow_cache_entry_ops **(*flow_resolve_t)(
+> +		struct net *net, struct flowi *key, u16 family,
+> +		u8 dir, struct flow_cache_entry_ops **old_ops, void *ctx);
 
-You don't need to parse any ICMPs, the kernel does that for you. 
-See the documentation of IP_RECVERR in ip(7). The MTU is in ee_info
+OK this bit really bugs me.
 
-First you need to enable path mtu discovery for the socket
-using IP_MTU_DISCOVER.
+When I first looked at it, my reaction was why on earth are we
+returning an ops pointer? Only after some digging around do I see
+the fact that this ops pointer is in fact embedded in xfrm_policy.
 
-So you can either keep track of the MTU yourself based on extended
-errors coming out of IP_RECVERR, or ask the kernel using IP_MTU when
-the socket is connected or simply lower when you see a EMSGSIZE. It's also 
-possible to do this with a dummy socket that gets connected/unconnected too.
+How about embedding flow_cache_entry in xfrm_policy instead? Returning
+flow_cache_entry * would make a lot more sense than a nested pointer
+to flow_cache_entry_ops.
 
-> second choice is pretty ugly.  That both seem specific to Linux is
-> frustrating, but that is life -- adding support for an operating
-> system seems to inevitably add #ifdefs for this sort of code.
-
-Well when the other OS see the need they will hopefully add similar
-interfaces, with some luck even compatible to the ones in Linux.
-
--Andi
-
+Cheers,
 -- 
-ak@linux.intel.com -- Speaking for myself only.
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
