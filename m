@@ -1,231 +1,38 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [PATCH] bnx2x: use the dma state API instead of the pci
- equivalents
-Date: Sun, 4 Apr 2010 01:19:07 -0700
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDC525ADDB@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <20100402115054A.fujita.tomonori@lab.ntt.co.jp>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/4] flow: virtualize flow cache entry methods
+Date: Sun, 4 Apr 2010 16:35:56 +0800
+Message-ID: <20100404083556.GA10223@gondor.apana.org.au>
+References: <20100403141709.GA5165@gondor.apana.org.au> <4BB74FF8.2020303@iki.fi> <20100403155353.GA5618@gondor.apana.org.au> <4BB7A2B8.4040405@iki.fi> <20100404020657.GA8520@gondor.apana.org.au> <4BB828B1.5090109@iki.fi> <20100404055830.GA9484@gondor.apana.org.au> <4BB82C90.70809@iki.fi> <20100404061941.GA9642@gondor.apana.org.au> <4BB8319B.3040209@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "Eilon Greenstein" <eilong@broadcom.com>
-To: "FUJITA Tomonori" <fujita.tomonori@lab.ntt.co.jp>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3180 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751537Ab0DDITX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Apr 2010 04:19:23 -0400
-In-Reply-To: <20100402115054A.fujita.tomonori@lab.ntt.co.jp>
-Content-Language: en-US
+Received: from helcar.apana.org.au ([209.40.204.226]:39040 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751904Ab0DDIf7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Apr 2010 04:35:59 -0400
+Content-Disposition: inline
+In-Reply-To: <4BB8319B.3040209@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Why is it preferable? As far as I can see the current patch is not going to introduce any functional change.
+On Sun, Apr 04, 2010 at 09:28:43AM +0300, Timo Ter=E4s wrote:
+>
+> No. The flow cache flush removal does not prevent bundle deletion.
+> The flow cache flush is in current code *after* deleting the bundles
+> from the policy. Freeing bundles and flushing cache are completely
+> two separate things in current code. Only in 2/4 the bundle deletion
+> becomes dependent on flow cache flush.
 
-Is there a plan to remove pci_map_X()/pci_alloc_consistent() functions family in the future and completely replaced with dma_X() functions? Is it appropriate to use dma_X() in all the places where pci_X() is used? For instance, we do use DAC mode and as far as I understand we should use pci_X() interface in this case. Is this rule not relevant anymore?
-
-So, if we don't need to use pci_X() interface anymore, lets replace pci_X() properly all over the bnx2x with dma_X() functions. And if not, this patch mixes the macros from one API (dma_X) and functions from another (pci_X()) which may hardly be called "preferable"...
+Ah yes I confused myself.  The problem I thought would occur
+doesn't because 1/4 doesn't put the bundles in the flow cache
+yet.
 
 Thanks,
-vlad
-
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org 
-> [mailto:netdev-owner@vger.kernel.org] On Behalf Of FUJITA Tomonori
-> Sent: Friday, April 02, 2010 5:57 AM
-> To: netdev@vger.kernel.org
-> Cc: Eilon Greenstein
-> Subject: [PATCH] bnx2x: use the dma state API instead of the 
-> pci equivalents
-> 
-> The DMA API is preferred.
-> 
-> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-> ---
->  drivers/net/bnx2x.h      |    4 ++--
->  drivers/net/bnx2x_main.c |   28 ++++++++++++++--------------
->  2 files changed, 16 insertions(+), 16 deletions(-)
-> 
-> diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-> index 3c48a7a..ae9c89e 100644
-> --- a/drivers/net/bnx2x.h
-> +++ b/drivers/net/bnx2x.h
-> @@ -163,7 +163,7 @@ do {					
-> 			 \
->  
->  struct sw_rx_bd {
->  	struct sk_buff	*skb;
-> -	DECLARE_PCI_UNMAP_ADDR(mapping)
-> +	DEFINE_DMA_UNMAP_ADDR(mapping);
->  };
->  
->  struct sw_tx_bd {
-> @@ -176,7 +176,7 @@ struct sw_tx_bd {
->  
->  struct sw_rx_page {
->  	struct page	*page;
-> -	DECLARE_PCI_UNMAP_ADDR(mapping)
-> +	DEFINE_DMA_UNMAP_ADDR(mapping);
->  };
->  
->  union db_prod {
-> diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-> index 6c042a7..2a77611 100644
-> --- a/drivers/net/bnx2x_main.c
-> +++ b/drivers/net/bnx2x_main.c
-> @@ -1086,7 +1086,7 @@ static inline void 
-> bnx2x_free_rx_sge(struct bnx2x *bp,
->  	if (!page)
->  		return;
->  
-> -	pci_unmap_page(bp->pdev, pci_unmap_addr(sw_buf, mapping),
-> +	pci_unmap_page(bp->pdev, dma_unmap_addr(sw_buf, mapping),
->  		       SGE_PAGE_SIZE*PAGES_PER_SGE, PCI_DMA_FROMDEVICE);
->  	__free_pages(page, PAGES_PER_SGE_SHIFT);
->  
-> @@ -1123,7 +1123,7 @@ static inline int 
-> bnx2x_alloc_rx_sge(struct bnx2x *bp,
->  	}
->  
->  	sw_buf->page = page;
-> -	pci_unmap_addr_set(sw_buf, mapping, mapping);
-> +	dma_unmap_addr_set(sw_buf, mapping, mapping);
->  
->  	sge->addr_hi = cpu_to_le32(U64_HI(mapping));
->  	sge->addr_lo = cpu_to_le32(U64_LO(mapping));
-> @@ -1151,7 +1151,7 @@ static inline int 
-> bnx2x_alloc_rx_skb(struct bnx2x *bp,
->  	}
->  
->  	rx_buf->skb = skb;
-> -	pci_unmap_addr_set(rx_buf, mapping, mapping);
-> +	dma_unmap_addr_set(rx_buf, mapping, mapping);
->  
->  	rx_bd->addr_hi = cpu_to_le32(U64_HI(mapping));
->  	rx_bd->addr_lo = cpu_to_le32(U64_LO(mapping));
-> @@ -1174,12 +1174,12 @@ static void bnx2x_reuse_rx_skb(struct 
-> bnx2x_fastpath *fp,
->  	struct eth_rx_bd *prod_bd = &fp->rx_desc_ring[prod];
->  
->  	pci_dma_sync_single_for_device(bp->pdev,
-> -				       
-> pci_unmap_addr(cons_rx_buf, mapping),
-> +				       
-> dma_unmap_addr(cons_rx_buf, mapping),
->  				       RX_COPY_THRESH, 
-> PCI_DMA_FROMDEVICE);
->  
->  	prod_rx_buf->skb = cons_rx_buf->skb;
-> -	pci_unmap_addr_set(prod_rx_buf, mapping,
-> -			   pci_unmap_addr(cons_rx_buf, mapping));
-> +	dma_unmap_addr_set(prod_rx_buf, mapping,
-> +			   dma_unmap_addr(cons_rx_buf, mapping));
->  	*prod_bd = *cons_bd;
->  }
->  
-> @@ -1285,7 +1285,7 @@ static void bnx2x_tpa_start(struct 
-> bnx2x_fastpath *fp, u16 queue,
->  	prod_rx_buf->skb = fp->tpa_pool[queue].skb;
->  	mapping = pci_map_single(bp->pdev, 
-> fp->tpa_pool[queue].skb->data,
->  				 bp->rx_buf_size, PCI_DMA_FROMDEVICE);
-> -	pci_unmap_addr_set(prod_rx_buf, mapping, mapping);
-> +	dma_unmap_addr_set(prod_rx_buf, mapping, mapping);
->  
->  	/* move partial skb from cons to pool (don't unmap yet) */
->  	fp->tpa_pool[queue] = *cons_rx_buf;
-> @@ -1361,7 +1361,7 @@ static int bnx2x_fill_frag_skb(struct 
-> bnx2x *bp, struct bnx2x_fastpath *fp,
->  		}
->  
->  		/* Unmap the page as we r going to pass it to 
-> the stack */
-> -		pci_unmap_page(bp->pdev, 
-> pci_unmap_addr(&old_rx_pg, mapping),
-> +		pci_unmap_page(bp->pdev, 
-> dma_unmap_addr(&old_rx_pg, mapping),
->  			      SGE_PAGE_SIZE*PAGES_PER_SGE, 
-> PCI_DMA_FROMDEVICE);
->  
->  		/* Add one frag and update the appropriate 
-> fields in the skb */
-> @@ -1389,7 +1389,7 @@ static void bnx2x_tpa_stop(struct bnx2x 
-> *bp, struct bnx2x_fastpath *fp,
->  	/* Unmap skb in the pool anyway, as we are going to change
->  	   pool entry status to BNX2X_TPA_STOP even if new skb 
-> allocation
->  	   fails. */
-> -	pci_unmap_single(bp->pdev, pci_unmap_addr(rx_buf, mapping),
-> +	pci_unmap_single(bp->pdev, dma_unmap_addr(rx_buf, mapping),
->  			 bp->rx_buf_size, PCI_DMA_FROMDEVICE);
->  
->  	if (likely(new_skb)) {
-> @@ -1621,7 +1621,7 @@ static int bnx2x_rx_int(struct 
-> bnx2x_fastpath *fp, int budget)
->  			}
->  
->  			pci_dma_sync_single_for_device(bp->pdev,
-> -					pci_unmap_addr(rx_buf, mapping),
-> +					dma_unmap_addr(rx_buf, mapping),
->  						       pad + 
-> RX_COPY_THRESH,
->  						       
-> PCI_DMA_FROMDEVICE);
->  			prefetch(skb);
-> @@ -1666,7 +1666,7 @@ static int bnx2x_rx_int(struct 
-> bnx2x_fastpath *fp, int budget)
->  			} else
->  			if (likely(bnx2x_alloc_rx_skb(bp, fp, 
-> bd_prod) == 0)) {
->  				pci_unmap_single(bp->pdev,
-> -					pci_unmap_addr(rx_buf, mapping),
-> +					dma_unmap_addr(rx_buf, mapping),
->  						 bp->rx_buf_size,
->  						 PCI_DMA_FROMDEVICE);
->  				skb_reserve(skb, pad);
-> @@ -4941,7 +4941,7 @@ static inline void 
-> bnx2x_free_tpa_pool(struct bnx2x *bp,
->  
->  		if (fp->tpa_state[i] == BNX2X_TPA_START)
->  			pci_unmap_single(bp->pdev,
-> -					 pci_unmap_addr(rx_buf, 
-> mapping),
-> +					 dma_unmap_addr(rx_buf, 
-> mapping),
->  					 bp->rx_buf_size, 
-> PCI_DMA_FROMDEVICE);
->  
->  		dev_kfree_skb(skb);
-> @@ -4978,7 +4978,7 @@ static void bnx2x_init_rx_rings(struct 
-> bnx2x *bp)
->  					fp->disable_tpa = 1;
->  					break;
->  				}
-> -				pci_unmap_addr_set((struct sw_rx_bd *)
-> +				dma_unmap_addr_set((struct sw_rx_bd *)
->  							
-> &bp->fp->tpa_pool[i],
->  						   mapping, 0);
->  				fp->tpa_state[i] = BNX2X_TPA_STOP;
-> @@ -6907,7 +6907,7 @@ static void bnx2x_free_rx_skbs(struct bnx2x *bp)
->  				continue;
->  
->  			pci_unmap_single(bp->pdev,
-> -					 pci_unmap_addr(rx_buf, 
-> mapping),
-> +					 dma_unmap_addr(rx_buf, 
-> mapping),
->  					 bp->rx_buf_size, 
-> PCI_DMA_FROMDEVICE);
->  
->  			rx_buf->skb = NULL;
-> -- 
-> 1.7.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
