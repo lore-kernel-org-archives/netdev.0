@@ -1,54 +1,105 @@
 From: Alexandre Cassen <acassen@freebox.fr>
-Subject: Bug#575970: iproute2: silence errors about kernel missing 6rd on "ip tun show".
-Date: Sun, 4 Apr 2010 22:23:43 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.1004042217520.24519@lnxos.staff.proxad.net>
-References: <20100331080854.GA3810@amd64.fatal.se> <20100331160642.75766629@s6510>
-Reply-To: Alexandre Cassen <acassen@freebox.fr>, 575970@bugs.debian.org
+Subject: [PATCH][iproute2] Detect 6rd kernel missing support / 6rd tunnel
+ scope
+Date: Sun, 4 Apr 2010 22:40:14 +0200
+Message-ID: <20100404204014.GA24602@lnxos.staff.proxad.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Andreas Henriksson <andreas@fatal.se>, 575970@bugs.debian.org,
-    netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
-Resent-Message-ID: <handler.575970.B575970.127041263715568@bugs.debian.org>
-In-Reply-To: <20100331160642.75766629@s6510>
-List-Post: <mailto:debian-bugs-dist@lists.debian.org>
-List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
-List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
-List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpfb2-g21.free.fr ([212.27.42.10]:44073 "EHLO
+	smtpfb2-g21.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752249Ab0DDUuR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Apr 2010 16:50:17 -0400
+Received: from smtp2-g21.free.fr (smtp2-g21.free.fr [212.27.42.2])
+	by smtpfb2-g21.free.fr (Postfix) with ESMTP id 8C388D19C4F
+	for <netdev@vger.kernel.org>; Sun,  4 Apr 2010 22:41:23 +0200 (CEST)
+Received: from smtp2-g21.free.fr (localhost [127.0.0.1])
+	by smtp2-g21.free.fr (Postfix) with ESMTP id 76E794B00E8
+	for <netdev@vger.kernel.org>; Sun,  4 Apr 2010 22:40:16 +0200 (CEST)
+Received: from mail.lnxos.net (lnxos.staff.proxad.net [213.228.1.83])
+	by smtp2-g21.free.fr (Postfix) with ESMTP id 9B9BD4B0012
+	for <netdev@vger.kernel.org>; Sun,  4 Apr 2010 22:40:14 +0200 (CEST)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+This patch fix two issues:
 
-On Wed, 31 Mar 2010, Stephen Hemminger wrote:
-> On Wed, 31 Mar 2010 10:08:54 +0200
-> Andreas Henriksson <andreas@fatal.se> wrote:
->
->> Hello!
->>
->> As reported in http://bugs.debian.org/575970 there is currently a warning
->> printed for every tunnel when using latest iproute2 on atleast <= 2.6.32
->> kernels (missing 6rd?!).
->>
->> The attached patch avoids perror when errno is EINVAL, which I assume
->> is the way to detect missing 6rd support. A better/cleaner
->> method to detect and avoid 6rd when there's no kernel support
->> is more then welcome.
->>
->> Regards,
->> Andreas Henriksson
->>
->
-> I will wait (a little while) to see if Alexandre has a preferred alternative.
+* If kernel is not supporting 6rd then ioctl() call
+  will return EINVAL, if so just skip perror call.
 
+* 6rd scope is ipv6/ip tunnels. Dont try to fetch
+  6rd tunnel parms if tunnel protocol != IPPROTO_IPV6.
 
-IMHO, the proper way to detect 6rd kernel missing support is to catch 
-EINVAL, but not others errno since they might be usefull in some case.
+Signed-off-by: Alexandre Cassen <acassen@freebox.fr>
+---
+ ip/iptunnel.c |    2 +-
+ ip/tunnel.c   |   11 ++++++-----
+ 2 files changed, 7 insertions(+), 6 deletions(-)
 
-Reading the code again, there is also a need to test tunnel protocol since 
-6rd scope is ipv6/ip only.
+diff --git a/ip/iptunnel.c b/ip/iptunnel.c
+index 1cd9fbd..3525fbb 100644
+--- a/ip/iptunnel.c
++++ b/ip/iptunnel.c
+@@ -365,7 +365,7 @@ static void print_tunnel(struct ip_tunnel_parm *p)
+ 	if (!(p->iph.frag_off&htons(IP_DF)))
+ 		printf(" nopmtudisc");
+ 
+-	if (!tnl_ioctl_get_6rd(p->name, &ip6rd) && ip6rd.prefixlen) {
++	if (p->iph.protocol == IPPROTO_IPV6 && !tnl_ioctl_get_6rd(p->name, &ip6rd) && ip6rd.prefixlen) {
+ 		printf(" 6rd-prefix %s/%u ",
+ 		       inet_ntop(AF_INET6, &ip6rd.prefix, s1, sizeof(s1)),
+ 		       ip6rd.prefixlen);
+diff --git a/ip/tunnel.c b/ip/tunnel.c
+index d389e86..6efbd2d 100644
+--- a/ip/tunnel.c
++++ b/ip/tunnel.c
+@@ -26,6 +26,7 @@
+ #include <stdio.h>
+ #include <string.h>
+ #include <unistd.h>
++#include <errno.h>
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <sys/ioctl.h>
+@@ -168,7 +169,7 @@ int tnl_del_ioctl(const char *basedev, const char *name, void *p)
+ 	return err;
+ }
+ 
+-static int tnl_gen_ioctl(int cmd, const char *name, void *p)
++static int tnl_gen_ioctl(int cmd, const char *name, void *p, int skiperr)
+ {
+ 	struct ifreq ifr;
+ 	int fd;
+@@ -178,7 +179,7 @@ static int tnl_gen_ioctl(int cmd, const char *name, void *p)
+ 	ifr.ifr_ifru.ifru_data = p;
+ 	fd = socket(preferred_family, SOCK_DGRAM, 0);
+ 	err = ioctl(fd, cmd, &ifr);
+-	if (err)
++	if (err && errno != skiperr)
+ 		perror("ioctl");
+ 	close(fd);
+ 	return err;
+@@ -186,15 +187,15 @@ static int tnl_gen_ioctl(int cmd, const char *name, void *p)
+ 
+ int tnl_prl_ioctl(int cmd, const char *name, void *p)
+ {
+-	return tnl_gen_ioctl(cmd, name, p);
++	return tnl_gen_ioctl(cmd, name, p, -1);
+ }
+ 
+ int tnl_6rd_ioctl(int cmd, const char *name, void *p)
+ {
+-	return tnl_gen_ioctl(cmd, name, p);
++	return tnl_gen_ioctl(cmd, name, p, -1);
+ }
+ 
+ int tnl_ioctl_get_6rd(const char *name, void *p)
+ {
+-	return tnl_gen_ioctl(SIOCGET6RD, name, p);
++	return tnl_gen_ioctl(SIOCGET6RD, name, p, EINVAL);
+ }
+-- 
+1.6.3.3
 
-I will send another email with a proposed patch to fix those 2 issues.
-
-Regs,
-Alexandre
