@@ -1,52 +1,82 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build warning after merge of the tree
-Date: Sun, 4 Apr 2010 17:26:05 +1000
-Message-ID: <20100404172605.098eb8ad.sfr@canb.auug.org.au>
-References: <20100329103139.1a735227.sfr@canb.auug.org.au>
-	<20100328.185707.161194820.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6 v4 00/14] l2tp: Introduce L2TPv3 support
+Date: Sun, 04 Apr 2010 09:54:28 +0200
+Message-ID: <1270367668.1971.3.camel@edumazet-laptop>
+References: <20100402161822.11367.70454.stgit@bert.katalix.com>
+	 <20100403.142522.01040744.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Sun__4_Apr_2010_17_26_05_+1000_ouKpu5uhsFq5sqW+"
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kyle@mcmartin.ca
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jchapman@katalix.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100328.185707.161194820.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:35643 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751509Ab0DDHye (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Apr 2010 03:54:34 -0400
+Received: by bwz1 with SMTP id 1so2272387bwz.21
+        for <netdev@vger.kernel.org>; Sun, 04 Apr 2010 00:54:32 -0700 (PDT)
+In-Reply-To: <20100403.142522.01040744.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Sun__4_Apr_2010_17_26_05_+1000_ouKpu5uhsFq5sqW+
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hi Dave,
-
-On Sun, 28 Mar 2010 18:57:07 -0700 (PDT) David Miller <davem@davemloft.net>=
- wrote:
->
-> Strange, it didn't warn here.
+Le samedi 03 avril 2010 =C3=A0 14:25 -0700, David Miller a =C3=A9crit :
+> From: James Chapman <jchapman@katalix.com>
+> Date: Fri, 02 Apr 2010 17:18:23 +0100
 >=20
-> I just committed the following, let me know if it fixes
-> this.
+> > This patch series adds L2TPv3 support. It splits the existing pppol=
+2tp
+> > driver to separate its L2TP and PPP parts, then adds new L2TPv3
+> > functionality. The patches implement a new socket family for L2TPv3=
+ IP
+> > encapsulation, expose virtual netdevices for each L2TPv3 ethernet
+> > pseudowire and add a netlink interface.
+>=20
+> Ok I'm going to toss this into net-next-2.6, we have time to
+> fixup any remaining issues people might discover.
+>=20
 
-Yeah, that did it, thanks
+[PATCH net-next-2.6] l2tp: unmanaged L2TPv3 tunnels fixes
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+=46ollowup to commit 789a4a2c=20
+(l2tp: Add support for static unmanaged L2TPv3 tunnels)
 
---Signature=_Sun__4_Apr_2010_17_26_05_+1000_ouKpu5uhsFq5sqW+
-Content-Type: application/pgp-signature
+One missing init in l2tp_tunnel_sock_create() could access random kerne=
+l
+memory, and a bit field should be unsigned.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/l2tp/l2tp_core.c |    2 +-
+ net/l2tp/l2tp_core.h |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-iEYEARECAAYFAku4Pw0ACgkQjjKRsyhoI8zU5ACdGMLv3IV3wVDr0W4XvCF2S9KD
-VpwAoK6flZ40PViuzZuh/TD2on9axKtf
-=omtc
------END PGP SIGNATURE-----
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 13ed85b..98dfcce 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1227,7 +1227,7 @@ static int l2tp_tunnel_sock_create(u32 tunnel_id,=
+ u32 peer_tunnel_id, struct l2t
+ 	int err =3D -EINVAL;
+ 	struct sockaddr_in udp_addr;
+ 	struct sockaddr_l2tpip ip_addr;
+-	struct socket *sock;
++	struct socket *sock =3D NULL;
+=20
+ 	switch (cfg->encap) {
+ 	case L2TP_ENCAPTYPE_UDP:
+diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
+index 91b1b9c..f0f318e 100644
+--- a/net/l2tp/l2tp_core.h
++++ b/net/l2tp/l2tp_core.h
+@@ -152,7 +152,7 @@ struct l2tp_tunnel_cfg {
+ 	struct in_addr		peer_ip;
+ 	u16			local_udp_port;
+ 	u16			peer_udp_port;
+-	int			use_udp_checksums:1;
++	unsigned int		use_udp_checksums:1;
+ };
+=20
+ struct l2tp_tunnel {
 
---Signature=_Sun__4_Apr_2010_17_26_05_+1000_ouKpu5uhsFq5sqW+--
+
