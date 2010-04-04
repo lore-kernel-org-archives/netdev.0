@@ -1,37 +1,118 @@
-From: Brice Goglin <brice@myri.com>
-Subject: [PATCH] myri10ge: fix rx_pause in myri10ge_set_pauseparam
-Date: Sun, 04 Apr 2010 17:19:00 +0200
-Message-ID: <4BB8ADE4.5090304@myri.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH] 3c503: Fix IRQ probing
+Date: Sun, 04 Apr 2010 17:33:29 +0100
+Message-ID: <1270398809.8341.47.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Network Development list <netdev@vger.kernel.org>,
-	"Andrew J. Gallatin" <gallatin@myri.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, 566522@bugs.debian.org,
+	Piotr =?ISO-8859-1?Q?Sk=F3lski?= <sql7@wp.pl>
+To: Paul Gortmaker <p_gortmaker@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1916 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754563Ab0DDPnR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Apr 2010 11:43:17 -0400
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:37516 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752809Ab0DDQdj convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 Apr 2010 12:33:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix rx_pause in myri10ge_set_pauseparam().
+The driver attempts to select an IRQ for the NIC automatically by
+testing which of the supported IRQs are available and then probing
+each available IRQ with probe_irq_{on,off}().  There are obvious race
+conditions here, besides which:
+1. The test for availability is done by passing a NULL handler, which
+   now always returns -EINVAL, thus the device cannot be opened:
+   <http://bugs.debian.org/566522>
+2. probe_irq_off() will report only the first ISA IRQ handled,
+   potentially leading to a false negative.
 
-Signed-off-by: Brice Goglin <brice@myri.com>
+There was another bug that meant it ignored all error codes from
+request_irq() except -EBUSY, so it would 'succeed' despite this
+(possibly causing conflicts with other ISA devices).  This was fixed
+by ab08999d6029bb2c79c16be5405d63d2bedbdfea 'WARNING: some
+request_irq() failures ignored in el2_open()', which exposed bug 1.
 
-diff --git a/drivers/net/myri10ge/myri10ge.c
-b/drivers/net/myri10ge/myri10ge.c
-index e84dd3e..3cb7607 100644
---- a/drivers/net/myri10ge/myri10ge.c
-+++ b/drivers/net/myri10ge/myri10ge.c
-@@ -1689,7 +1689,7 @@ myri10ge_set_pauseparam(struct net_device *netdev,
-     if (pause->tx_pause != mgp->pause)
-         return myri10ge_change_pause(mgp, pause->tx_pause);
-     if (pause->rx_pause != mgp->pause)
--        return myri10ge_change_pause(mgp, pause->tx_pause);
-+        return myri10ge_change_pause(mgp, pause->rx_pause);
-     if (pause->autoneg != 0)
-         return -EINVAL;
-     return 0;
+This patch:
+1. Replaces the use of probe_irq_{on,off}() with a real interrupt handler
+2. Adds a delay before checking the interrupt-seen flag
+3. Disables interrupts on all failure paths
+4. Distinguishes error codes from the second request_irq() call,
+   consistently with the first
+
+Compile-tested only.
+
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+ drivers/net/3c503.c |   42 ++++++++++++++++++++++++++++++------------
+ 1 files changed, 30 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/3c503.c b/drivers/net/3c503.c
+index 66e0323..b74a0ea 100644
+--- a/drivers/net/3c503.c
++++ b/drivers/net/3c503.c
+@@ -380,6 +380,12 @@ out:
+     return retval;
+ }
+ 
++static irqreturn_t el2_probe_interrupt(int irq, void *seen)
++{
++	*(bool *)seen = true;
++	return IRQ_HANDLED;
++}
++
+ static int
+ el2_open(struct net_device *dev)
+ {
+@@ -391,23 +397,35 @@ el2_open(struct net_device *dev)
+ 
+ 	outb(EGACFR_NORM, E33G_GACFR);	/* Enable RAM and interrupts. */
+ 	do {
+-	    retval = request_irq(*irqp, NULL, 0, "bogus", dev);
+-	    if (retval >= 0) {
++		bool seen;
++
++		retval = request_irq(*irqp, el2_probe_interrupt, 0,
++				     dev->name, &seen);
++		if (retval == -EBUSY)
++			continue;
++		if (retval < 0)
++			goto err_disable;
++
+ 		/* Twinkle the interrupt, and check if it's seen. */
+-		unsigned long cookie = probe_irq_on();
++		seen = false;
++		smp_wmb();
+ 		outb_p(0x04 << ((*irqp == 9) ? 2 : *irqp), E33G_IDCFR);
+ 		outb_p(0x00, E33G_IDCFR);
+-		if (*irqp == probe_irq_off(cookie) &&	/* It's a good IRQ line! */
+-		    ((retval = request_irq(dev->irq = *irqp,
+-					   eip_interrupt, 0,
+-					   dev->name, dev)) == 0))
+-		    break;
+-	    } else {
+-		    if (retval != -EBUSY)
+-			    return retval;
+-	    }
++		msleep(1);
++		free_irq(*irqp, el2_probe_interrupt);
++		if (!seen)
++			continue;
++
++		retval = request_irq(dev->irq = *irqp, eip_interrupt, 0,
++				     dev->name, dev);
++		if (retval == -EBUSY)
++			continue;
++		if (retval < 0)
++			goto err_disable;
+ 	} while (*++irqp);
++
+ 	if (*irqp == 0) {
++	err_disable:
+ 	    outb(EGACFR_IRQOFF, E33G_GACFR);	/* disable interrupts. */
+ 	    return -EAGAIN;
+ 	}
+-- 
+1.7.0.3
+
 
