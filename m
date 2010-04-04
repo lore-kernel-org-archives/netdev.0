@@ -1,118 +1,216 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH] 3c503: Fix IRQ probing
-Date: Sun, 04 Apr 2010 17:33:29 +0100
-Message-ID: <1270398809.8341.47.camel@localhost>
+From: John Hughes <john@Calva.COM>
+Subject: Patch to fix kernel bug 15678 - x25 code accesses fields beyond the
+ end of packet.
+Date: Sun, 04 Apr 2010 18:40:17 +0200
+Message-ID: <4BB8C0F1.2090100@Calva.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, 566522@bugs.debian.org,
-	Piotr =?ISO-8859-1?Q?Sk=F3lski?= <sql7@wp.pl>
-To: Paul Gortmaker <p_gortmaker@yahoo.com>
+Content-Type: multipart/mixed;
+ boundary="------------050603040900000809040201"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:37516 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752809Ab0DDQdj convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Apr 2010 12:33:39 -0400
+Received: from oceanic.CalvaEDI.COM ([89.202.194.168]:44753 "EHLO
+	oceanic.CalvaEDI.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750762Ab0DDQpf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Apr 2010 12:45:35 -0400
+Received: from [192.168.14.6] (colmar.atlantech.com [82.224.234.55])
+	(authenticated (0 bits))
+	by oceanic.CalvaEDI.COM (8.11.1-20030923/8.11.1/6.32) with ESMTP id o34GeHg04839
+	(using TLSv1/SSLv3 with cipher RC4-MD5 (128 bits) verified NO)
+	for <netdev@vger.kernel.org>; Sun, 4 Apr 2010 18:40:20 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver attempts to select an IRQ for the NIC automatically by
-testing which of the supported IRQs are available and then probing
-each available IRQ with probe_irq_{on,off}().  There are obvious race
-conditions here, besides which:
-1. The test for availability is done by passing a NULL handler, which
-   now always returns -EINVAL, thus the device cannot be opened:
-   <http://bugs.debian.org/566522>
-2. probe_irq_off() will report only the first ISA IRQ handled,
-   potentially leading to a false negative.
+This is a multi-part message in MIME format.
+--------------050603040900000809040201
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-There was another bug that meant it ignored all error codes from
-request_irq() except -EBUSY, so it would 'succeed' despite this
-(possibly causing conflicts with other ISA devices).  This was fixed
-by ab08999d6029bb2c79c16be5405d63d2bedbdfea 'WARNING: some
-request_irq() failures ignored in el2_open()', which exposed bug 1.
+The current X.25 code attempts to decode fields in X.25 packets that are 
+not present.  Here is a little patch that checks the received packet 
+length before attempting to decode the missing fields.  It also improves 
+error checking for malformed packets.
 
-This patch:
-1. Replaces the use of probe_irq_{on,off}() with a real interrupt handler
-2. Adds a delay before checking the interrupt-seen flag
-3. Disables interrupts on all failure paths
-4. Distinguishes error codes from the second request_irq() call,
-   consistently with the first
 
-Compile-tested only.
+--------------050603040900000809040201
+Content-Type: text/x-patch;
+ name="x25-overrun.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x25-overrun.patch"
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
- drivers/net/3c503.c |   42 ++++++++++++++++++++++++++++++------------
- 1 files changed, 30 insertions(+), 12 deletions(-)
+From: John Hughes <john@calva.com>
+Subject: Patch to fix bug 15678 - x25 accesses fields beyond end of packet.
 
-diff --git a/drivers/net/3c503.c b/drivers/net/3c503.c
-index 66e0323..b74a0ea 100644
---- a/drivers/net/3c503.c
-+++ b/drivers/net/3c503.c
-@@ -380,6 +380,12 @@ out:
-     return retval;
- }
+Here is a patch to stop X.25 examining fields beyond the end of the packet.
+
+For example, when a simple CALL ACCEPTED was received:
+
+	10 10 0f
+
+x25_parse_facilities was attempting to decode the FACILITIES field, but this
+packet contains no facilities field.
+
+Signed-off-by: John Hughes <john@calva.com>
+
+diff --git a/include/net/x25.h b/include/net/x25.h
+index 9baa07d..33f67fb 100644
+--- a/include/net/x25.h
++++ b/include/net/x25.h
+@@ -182,6 +182,10 @@ extern int  sysctl_x25_clear_request_timeout;
+ extern int  sysctl_x25_ack_holdback_timeout;
+ extern int  sysctl_x25_forward;
  
-+static irqreturn_t el2_probe_interrupt(int irq, void *seen)
++extern int x25_parse_address_block(struct sk_buff *skb,
++		struct x25_address *called_addr,
++		struct x25_address *calling_addr);
++
+ extern int  x25_addr_ntoa(unsigned char *, struct x25_address *,
+ 			  struct x25_address *);
+ extern int  x25_addr_aton(unsigned char *, struct x25_address *,
+diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+index 9796f3e..fe26c01 100644
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -82,6 +82,41 @@ struct compat_x25_subscrip_struct {
+ };
+ #endif
+ 
++
++int x25_parse_address_block(struct sk_buff *skb,
++		struct x25_address *called_addr,
++		struct x25_address *calling_addr)
 +{
-+	*(bool *)seen = true;
-+	return IRQ_HANDLED;
++	unsigned char len;
++	int needed;
++	int rc;
++
++	if (skb->len < 1) {
++		/* packet has no address block */
++		rc = 0;
++		goto empty;
++	}
++
++	len = *skb->data;
++	needed = 1 + (len >> 4) + (len & 0x0f);
++
++	if (skb->len < needed) {
++		/* packet is too short to hold the addresses it claims
++		   to hold */
++		rc = -1;
++		goto empty;
++	}
++
++	return x25_addr_ntoa(skb->data, called_addr, calling_addr);
++
++empty:
++	*called_addr->x25_addr = 0;
++	*calling_addr->x25_addr = 0;
++
++	return rc;
 +}
 +
- static int
- el2_open(struct net_device *dev)
++
+ int x25_addr_ntoa(unsigned char *p, struct x25_address *called_addr,
+ 		  struct x25_address *calling_addr)
  {
-@@ -391,23 +397,35 @@ el2_open(struct net_device *dev)
+@@ -921,16 +956,26 @@ int x25_rx_call_request(struct sk_buff *skb, struct x25_neigh *nb,
+ 	/*
+ 	 *	Extract the X.25 addresses and convert them to ASCII strings,
+ 	 *	and remove them.
++	 *
++	 *	Address block is mandatory in call request packets
+ 	 */
+-	addr_len = x25_addr_ntoa(skb->data, &source_addr, &dest_addr);
++	addr_len = x25_parse_address_block(skb, &source_addr, &dest_addr);
++	if (addr_len <= 0)
++		goto out_clear_request;
+ 	skb_pull(skb, addr_len);
  
- 	outb(EGACFR_NORM, E33G_GACFR);	/* Enable RAM and interrupts. */
- 	do {
--	    retval = request_irq(*irqp, NULL, 0, "bogus", dev);
--	    if (retval >= 0) {
-+		bool seen;
+ 	/*
+ 	 *	Get the length of the facilities, skip past them for the moment
+ 	 *	get the call user data because this is needed to determine
+ 	 *	the correct listener
++	 *
++	 *	Facilities length is mandatory in call request packets
+ 	 */
++	if (skb->len < 1)
++		goto out_clear_request;
+ 	len = skb->data[0] + 1;
++	if (skb->len < len)
++		goto out_clear_request;
+ 	skb_pull(skb,len);
+ 
+ 	/*
+diff --git a/net/x25/x25_facilities.c b/net/x25/x25_facilities.c
+index a21f664..a2765c6 100644
+--- a/net/x25/x25_facilities.c
++++ b/net/x25/x25_facilities.c
+@@ -35,7 +35,7 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
+ 		struct x25_dte_facilities *dte_facs, unsigned long *vc_fac_mask)
+ {
+ 	unsigned char *p = skb->data;
+-	unsigned int len = *p++;
++	unsigned int len;
+ 
+ 	*vc_fac_mask = 0;
+ 
+@@ -50,6 +50,14 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
+ 	memset(dte_facs->called_ae, '\0', sizeof(dte_facs->called_ae));
+ 	memset(dte_facs->calling_ae, '\0', sizeof(dte_facs->calling_ae));
+ 
++	if (skb->len < 1)
++		return 0;
 +
-+		retval = request_irq(*irqp, el2_probe_interrupt, 0,
-+				     dev->name, &seen);
-+		if (retval == -EBUSY)
-+			continue;
-+		if (retval < 0)
-+			goto err_disable;
++	len = *p++;
 +
- 		/* Twinkle the interrupt, and check if it's seen. */
--		unsigned long cookie = probe_irq_on();
-+		seen = false;
-+		smp_wmb();
- 		outb_p(0x04 << ((*irqp == 9) ? 2 : *irqp), E33G_IDCFR);
- 		outb_p(0x00, E33G_IDCFR);
--		if (*irqp == probe_irq_off(cookie) &&	/* It's a good IRQ line! */
--		    ((retval = request_irq(dev->irq = *irqp,
--					   eip_interrupt, 0,
--					   dev->name, dev)) == 0))
--		    break;
--	    } else {
--		    if (retval != -EBUSY)
--			    return retval;
--	    }
-+		msleep(1);
-+		free_irq(*irqp, el2_probe_interrupt);
-+		if (!seen)
-+			continue;
++	if (len >= skb->len)
++		return -1;
 +
-+		retval = request_irq(dev->irq = *irqp, eip_interrupt, 0,
-+				     dev->name, dev);
-+		if (retval == -EBUSY)
-+			continue;
-+		if (retval < 0)
-+			goto err_disable;
- 	} while (*++irqp);
+ 	while (len > 0) {
+ 		switch (*p & X25_FAC_CLASS_MASK) {
+ 		case X25_FAC_CLASS_A:
+@@ -247,6 +255,8 @@ int x25_negotiate_facilities(struct sk_buff *skb, struct sock *sk,
+ 	memcpy(new, ours, sizeof(*new));
+ 
+ 	len = x25_parse_facilities(skb, &theirs, dte, &x25->vc_facil_mask);
++	if (len < 0)
++		return len;
+ 
+ 	/*
+ 	 *	They want reverse charging, we won't accept it.
+diff --git a/net/x25/x25_in.c b/net/x25/x25_in.c
+index 96d9227..b39072f 100644
+--- a/net/x25/x25_in.c
++++ b/net/x25/x25_in.c
+@@ -89,6 +89,7 @@ static int x25_queue_rx_frame(struct sock *sk, struct sk_buff *skb, int more)
+ static int x25_state1_machine(struct sock *sk, struct sk_buff *skb, int frametype)
+ {
+ 	struct x25_address source_addr, dest_addr;
++	int len;
+ 
+ 	switch (frametype) {
+ 		case X25_CALL_ACCEPTED: {
+@@ -106,11 +107,17 @@ static int x25_state1_machine(struct sock *sk, struct sk_buff *skb, int frametyp
+ 			 *	Parse the data in the frame.
+ 			 */
+ 			skb_pull(skb, X25_STD_MIN_LEN);
+-			skb_pull(skb, x25_addr_ntoa(skb->data, &source_addr, &dest_addr));
+-			skb_pull(skb,
+-				 x25_parse_facilities(skb, &x25->facilities,
 +
- 	if (*irqp == 0) {
-+	err_disable:
- 	    outb(EGACFR_IRQOFF, E33G_GACFR);	/* disable interrupts. */
- 	    return -EAGAIN;
- 	}
--- 
-1.7.0.3
++			len = x25_parse_address_block(skb, &source_addr,
++						&dest_addr);
++			if (len > 0)
++				skb_pull(skb, len);
++
++			len = x25_parse_facilities(skb, &x25->facilities,
+ 						&x25->dte_facilities,
+-						&x25->vc_facil_mask));
++						&x25->vc_facil_mask);
++			if (len > 0)
++				skb_pull(skb, len);
+ 			/*
+ 			 *	Copy any Call User Data.
+ 			 */
 
-
+--------------050603040900000809040201--
