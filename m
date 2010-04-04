@@ -1,52 +1,88 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: Re: [BUG] latest net-next-2.6 doesnt fly
-Date: Sun, 4 Apr 2010 19:19:07 +0900
-Message-ID: <20100404191804R.fujita.tomonori@lab.ntt.co.jp>
-References: <1270202304.1989.14.camel@edumazet-laptop>
-	<20100404181542N.fujita.tomonori@lab.ntt.co.jp>
-	<1270373395.1971.13.camel@edumazet-laptop>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: RE: [PATCH] bnx2x: use the dma state API instead of the pci
+ equivalents
+Date: Sun, 4 Apr 2010 03:24:46 -0700
+Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDC525ADDD@SJEXCHCCR02.corp.ad.broadcom.com>
+References: <8628FE4E7912BF47A96AE7DD7BAC0AADDDC525ADDB@SJEXCHCCR02.corp.ad.broadcom.com>
+ <20100404.013920.120463402.davem@davemloft.net>
+ <8628FE4E7912BF47A96AE7DD7BAC0AADDDC525ADDC@SJEXCHCCR02.corp.ad.broadcom.com>
+ <20100404190116N.fujita.tomonori@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fujita.tomonori@lab.ntt.co.jp, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: eric.dumazet@gmail.com
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "FUJITA Tomonori" <fujita.tomonori@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sh.osrg.net ([192.16.179.4]:51172 "EHLO sh.osrg.net"
+Received: from mms1.broadcom.com ([216.31.210.17]:1095 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752734Ab0DDKTO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Apr 2010 06:19:14 -0400
-In-Reply-To: <1270373395.1971.13.camel@edumazet-laptop>
+	id S1752988Ab0DDKY4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Apr 2010 06:24:56 -0400
+In-Reply-To: <20100404190116N.fujita.tomonori@lab.ntt.co.jp>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 04 Apr 2010 11:29:55 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Ok. Got it now. Thanks, Fujita. I think we should patch the bnx2x to use the generic model (not just the mapping macros).
 
-> > I think, if pdev is null, returning 1 here is safer since the device
-> > doesn't set up dma info properly.
-> > 
-> > Do you know what device hits this bug? You said that you use bnx2 and
-> > tg3. Both call SET_NETDEV_DEV with pdev->dev. I tested bnx2 and seems
-> > that netdev->dev.parent is set up correctly.
-> > --
-> 
-> Might be because of my setup, I suspect I had two reasons to hit the
-> bug :
-> 
-> A bonding of eth2 (bnx2) and eth3 (tg3)
-> 
-> Then vlans on top of this bond0
-> 
-> When first dev_queue_xmit() was called, it was for a virtual device :)
+One last question: since which kernel version the generic DMA layer may be used instead of PCI DMA layer?
 
-Thanks! So it's due to bond or vlan (or both).
+Thanks,
+vlad
 
-I guess that returning zero here with a null pdev is fine. If we
-return 1, probably some people would complain about performance
-regression. Like the block layer does, coping the dma restriction info
-from the lower devices can solve this problem but I guess that it's
-over engineering. My original patch doesn't loosen the DMA restriction
-checking so returning zero shouldn't break anything. If when we fix
-the usage of NETIF_F_HIGHDMA in each driver and also check the usage
-of netdev->dev.parent, everything should be fine.
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org 
+> [mailto:netdev-owner@vger.kernel.org] On Behalf Of FUJITA Tomonori
+> Sent: Sunday, April 04, 2010 1:03 PM
+> To: Vladislav Zolotarov
+> Cc: davem@davemloft.net; fujita.tomonori@lab.ntt.co.jp; 
+> netdev@vger.kernel.org; Eilon Greenstein
+> Subject: RE: [PATCH] bnx2x: use the dma state API instead of 
+> the pci equivalents
+> 
+> On Sun, 4 Apr 2010 02:15:52 -0700
+> "Vladislav Zolotarov" <vladz@broadcom.com> wrote:
+> 
+> > According to the changes in a PCI-DMA-mapping.txt it sounds like the
+> > trend is to stop using the pci_dma_* API and start using the dma_*
+> > API instead. Does this mean that using the pci_dma_* API is
+> > deprecated?
+> 
+> Sorry that I didn't put the enough information in the patch
+> description.
+> 
+> In the long term, I want to remove the pci_dma_* API.
+> 
+> We had the various bus-specific DMA API (pci, sbus, etc). It was the
+> headache for driver writers that handle multiple bus devices. So we
+> invented the generic DMA API long ago. Now we have only two bus
+> specific APIs: pci and ssb so I want to remove them and make sure that
+> driver writers are always able to use the generic DMA API with any
+> bus.
+> 
+> http://lwn.net/Articles/374137/
+> 
+> 
+> I don't plan to convert the whole tree to use the DMA API over the PCI
+> DMA API all together. I convert the drivers gradually. I already
+> removed the PCI DMA API from the docs under Documentation/. It would
+> be nice if some driver maintainers (or others) convert their drivers.
+> 
+> The patchset convert only the pci state API (such as
+> DECLARE_PCI_UNMAP_ADDR) because akpm complained of the API and I
+> promised him to clean up it:
+> 
+> http://lkml.org/lkml/2010/2/12/415
+> 
+> 
+> I'll send a patch if you like me to convert bnx2x to use the the DMA
+> API completely.
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
