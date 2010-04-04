@@ -1,58 +1,121 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH 1/4] flow: virtualize flow cache entry methods
-Date: Sun, 04 Apr 2010 09:28:43 +0300
-Message-ID: <4BB8319B.3040209@iki.fi>
-References: <20100403083609.GA3654@gondor.apana.org.au> <4BB74790.7070109@iki.fi> <20100403141709.GA5165@gondor.apana.org.au> <4BB74FF8.2020303@iki.fi> <20100403155353.GA5618@gondor.apana.org.au> <4BB7A2B8.4040405@iki.fi> <20100404020657.GA8520@gondor.apana.org.au> <4BB828B1.5090109@iki.fi> <20100404055830.GA9484@gondor.apana.org.au> <4BB82C90.70809@iki.fi> <20100404061941.GA9642@gondor.apana.org.au>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [PATCHv3] drivers/net/usb: Add new driver ipheth
+Date: Sun, 4 Apr 2010 09:24:43 +0200
+Message-ID: <201004040924.43949.oliver@neukum.org>
+References: <1269984864-28159-1-git-send-email-agimenez@sysvalve.es> <201003312233.26130.oliver@neukum.org> <4BB63619.6070607@sysvalve.es>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: Text/Plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linville@tuxdriver.com,
+	j.dumon@option.com, steve.glendinning@smsc.com,
+	davem@davemloft.net, gregkh@suse.de, dgiagio@gmail.com,
+	dborca@yahoo.com
+To: "L. Alberto =?utf-8?q?Gim=C3=A9nez?=" <agimenez@sysvalve.es>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.27]:45179 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751140Ab0DDG2r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Apr 2010 02:28:47 -0400
-Received: by ey-out-2122.google.com with SMTP id 9so66834eyd.5
-        for <netdev@vger.kernel.org>; Sat, 03 Apr 2010 23:28:46 -0700 (PDT)
-In-Reply-To: <20100404061941.GA9642@gondor.apana.org.au>
+Received: from smtp-out002.kontent.com ([81.88.40.216]:38925 "EHLO
+	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751436Ab0DDHYo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Apr 2010 03:24:44 -0400
+In-Reply-To: <4BB63619.6070607@sysvalve.es>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Sun, Apr 04, 2010 at 09:07:12AM +0300, Timo Ter=E4s wrote:
->> With 1/4 only, the bundle deletion is not touched. In that case
->> the policy GC deletes explicitly the bundles. The bundles get
->> deleted immediately, and only the struct xfrm_policy might get
->> held up allocated longer.
->>
->> The code flow would be:
->> 1. xfrm_policy_kill() queues to GC
->> 2. xfrm_policy_gc_kill() called from xfrm_policy_gc_task()
->>    frees all bundles in that policy
->> 3. xfrm_policy_gc_kill() releases it's reference
->> 4. ... time passes (flush, randomization, or flow hit occurs)
->> 5. flow cache releases it's final reference, calls
->>    xfrm_policy_destroy() which only frees the xfrm_policy memory
+Am Freitag, 2. April 2010 20:23:21 schrieb L. Alberto Gim=C3=A9nez:
+> On 03/31/2010 10:33 PM, Oliver Neukum wrote:
+> > Am Mittwoch, 31. M=C3=A4rz 2010 21:42:07 schrieb L. Alberto Gim=C3=A9=
+nez:
 >=20
-> With 1/4 only, you've removed the flow cache flush when policies
-> are deleted.  However, you don't add the flow cache flush to the
-> NETDEV_DOWN case until 2/4.  So with only 1/4, bundles (and hence
-> netdev objects) may be held for up to 10 minutes.
+> Hi Oliver,
+>=20
+> Just like with Ben's comments I still have a couple of doubts about y=
+our
+> comments.
+>=20
+>=20
+> >> +
+> >> +static int ipheth_open(struct net_device *net)
+> >> +{
+> >> +	struct ipheth_device *dev =3D netdev_priv(net);
+> >> +	struct usb_device *udev =3D dev->udev;
+> >> +	int retval =3D 0;
+> >> +
+> >> +	usb_set_interface(udev, IPHETH_INTFNUM, IPHETH_ALT_INTFNUM);
+> >> +	usb_clear_halt(udev, usb_rcvbulkpipe(udev, dev->bulk_in));
+> >> +	usb_clear_halt(udev, usb_sndbulkpipe(udev, dev->bulk_out));
+> >=20
+> > Is this really needed? If so, please add a comment.
+>=20
+> I understand that usb_clear_halt is only needed when the device has
+> transmitted data, and as it is "open" time, we can assume that no
+> transmissions ere made, so we don't need to clear anything (aka: remo=
+ve
+> both lines), am I right?
 
-No. The flow cache flush removal does not prevent bundle deletion.
-The flow cache flush is in current code *after* deleting the bundles
-from the policy. Freeing bundles and flushing cache are completely
-two separate things in current code. Only in 2/4 the bundle deletion
-becomes dependent on flow cache flush.
+Clearing a halt is necessary only when a device has stalled due to an
+error condition. Unless the device is buggy and produces errors for
+no good reason you don't need these lines.
+=20
+> >> +
+> >> +	retval =3D ipheth_carrier_set(dev);
+> >> +	if (retval)
+> >> +		goto error;
+> >> +
+> >> +	retval =3D ipheth_rx_submit(dev, GFP_KERNEL);
+> >> +	if (retval)
+> >> +		goto error;
+> >> +
+> >> +	schedule_delayed_work(&dev->carrier_work, IPHETH_CARRIER_CHECK_T=
+IMEOUT);
+> >=20
+> > Does it make sense to start rx while you have no carrier?
+>=20
+> Well, I have no clue about this one. I think that upstream developers
+> should take a look into this (Dario, Daniel, could you?) since I don'=
+t
+> have the knowledge to decide what to do about it.
+>=20
+> But I assume that as with the previous one, we have just opened the
+> device and we aren't (yet) doing anything with it, so we shouldn't st=
+art rx?
 
-Please, read xfrm_policy_kill() and xfrm_policy_gc_kill() in current
-code, and after applying 1/4. The diff of 1/4 is not as informative
-as the bundle deletion code is not shown there (since it's not touched)=
-=2E
+Your code as is is correct, I just wondered whether it could be made mo=
+re
+efficient.
 
-The only reason why current code does flow cache flush on policy
-removal, is to make sure that it's not the flow cache atomic_dec
-to drop last reference; if that happened xfrm_policy_destroy would
-not get ever called.
+> >> +static void ipheth_disconnect(struct usb_interface *intf)
+> >> +{
+> >> +	struct ipheth_device *dev;
+> >> +
+> >> +	dev =3D usb_get_intfdata(intf);
+> >> +	if (dev !=3D NULL) {
+> >=20
+> > is this check needed?
+>=20
+> Does usb_get_infdata always return not NULL? I haven't found anything
+
+It returns what you gave it with  usb_set_intfdata().
+
+> about it (just manual pages for the function, but can't spot if it
+> cannot return NULL). We disconnected the device, but I understand tha=
+t
+> the kernel still has the information and the allocated memory, so the
+> cleanup code is still needed, isn't it?
+
+It is definitely needed.
+
+> >> +static struct usb_driver ipheth_driver =3D {
+> >> +	.name =3D		"ipheth",
+> >> +	.probe =3D	ipheth_probe,
+> >> +	.disconnect =3D	ipheth_disconnect,
+> >> +	.id_table =3D	ipheth_table,
+> >> +	.supports_autosuspend =3D 0,
+> >=20
+> > redundant
+>=20
+> Why?
+
+0 is the default.
+
+	Regards
+		Oliver
