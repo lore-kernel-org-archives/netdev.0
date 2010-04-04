@@ -1,216 +1,133 @@
 From: John Hughes <john@Calva.COM>
-Subject: Patch to fix kernel bug 15678 - x25 code accesses fields beyond the
- end of packet.
-Date: Sun, 04 Apr 2010 18:40:17 +0200
-Message-ID: <4BB8C0F1.2090100@Calva.COM>
+Subject: patch to improve x.25 throughput negotiation
+Date: Sun, 04 Apr 2010 18:48:10 +0200
+Message-ID: <4BB8C2CA.6040102@Calva.COM>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------050603040900000809040201"
+ boundary="------------020500020107000904040300"
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oceanic.CalvaEDI.COM ([89.202.194.168]:44753 "EHLO
+Received: from oceanic.CalvaEDI.COM ([89.202.194.168]:44771 "EHLO
 	oceanic.CalvaEDI.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750762Ab0DDQpf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Apr 2010 12:45:35 -0400
+	with ESMTP id S1750793Ab0DDQsN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Apr 2010 12:48:13 -0400
 Received: from [192.168.14.6] (colmar.atlantech.com [82.224.234.55])
 	(authenticated (0 bits))
-	by oceanic.CalvaEDI.COM (8.11.1-20030923/8.11.1/6.32) with ESMTP id o34GeHg04839
+	by oceanic.CalvaEDI.COM (8.11.1-20030923/8.11.1/6.32) with ESMTP id o34GmAg05061
 	(using TLSv1/SSLv3 with cipher RC4-MD5 (128 bits) verified NO)
-	for <netdev@vger.kernel.org>; Sun, 4 Apr 2010 18:40:20 +0200 (CEST)
+	for <netdev@vger.kernel.org>; Sun, 4 Apr 2010 18:48:11 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------050603040900000809040201
+--------------020500020107000904040300
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-The current X.25 code attempts to decode fields in X.25 packets that are 
-not present.  Here is a little patch that checks the received packet 
-length before attempting to decode the missing fields.  It also improves 
-error checking for malformed packets.
+The current X.25 code has some bugs in throughput negotiation:
+
+   1. It does negotiation in all cases, usually there is no need
+   2. It incorrectly attempts to negotiate the throughput class in one
+      direction only.  There are separate throughput classes for input
+      and output and if either is negotiated both mist be negotiates.
+
+This is bug https://bugzilla.kernel.org/show_bug.cgi?id=15681
+
+This bug was first reported by Daniel Ferenci to the linux-x25 mailing 
+list on 6/8/2004, but is still present.
 
 
---------------050603040900000809040201
+--------------020500020107000904040300
 Content-Type: text/x-patch;
- name="x25-overrun.patch"
+ name="throughput.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="x25-overrun.patch"
+ filename="throughput.patch"
 
 From: John Hughes <john@calva.com>
-Subject: Patch to fix bug 15678 - x25 accesses fields beyond end of packet.
+Subject: x.25 attempts to negotiate invalid throughput
 
-Here is a patch to stop X.25 examining fields beyond the end of the packet.
+The current (2.6.34) x.25 code doesn't seem to know that the X.25 throughput
+facility includes two values, one for the required throughput outbound, one
+for inbound.
 
-For example, when a simple CALL ACCEPTED was received:
+This causes it to attempt to negotiate throughput 0x0A, which is throughput
+9600 inbound and the illegal value "0" for inbound throughput.
 
-	10 10 0f
+Because of this some X.25 devices (e.g. Cisco 1600) refuse to connect to Linux
+X.25.
 
-x25_parse_facilities was attempting to decode the FACILITIES field, but this
-packet contains no facilities field.
+The following patch fixes this behaviour.  Unless the user specifies a required
+throughput it does not attempt to negotiate.  If the user does not specify
+a throughput it accepts the suggestion of the remote X.25 system.  If the
+user requests a throughput then it validates both the input and output
+throughputs and correctly negotiates them with the remote end.
 
 Signed-off-by: John Hughes <john@calva.com>
 
-diff --git a/include/net/x25.h b/include/net/x25.h
-index 9baa07d..33f67fb 100644
---- a/include/net/x25.h
-+++ b/include/net/x25.h
-@@ -182,6 +182,10 @@ extern int  sysctl_x25_clear_request_timeout;
- extern int  sysctl_x25_ack_holdback_timeout;
- extern int  sysctl_x25_forward;
- 
-+extern int x25_parse_address_block(struct sk_buff *skb,
-+		struct x25_address *called_addr,
-+		struct x25_address *calling_addr);
-+
- extern int  x25_addr_ntoa(unsigned char *, struct x25_address *,
- 			  struct x25_address *);
- extern int  x25_addr_aton(unsigned char *, struct x25_address *,
 diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index 9796f3e..fe26c01 100644
+index 9796f3e..f391f61 100644
 --- a/net/x25/af_x25.c
 +++ b/net/x25/af_x25.c
-@@ -82,6 +82,41 @@ struct compat_x25_subscrip_struct {
- };
- #endif
- 
-+
-+int x25_parse_address_block(struct sk_buff *skb,
-+		struct x25_address *called_addr,
-+		struct x25_address *calling_addr)
-+{
-+	unsigned char len;
-+	int needed;
-+	int rc;
-+
-+	if (skb->len < 1) {
-+		/* packet has no address block */
-+		rc = 0;
-+		goto empty;
-+	}
-+
-+	len = *skb->data;
-+	needed = 1 + (len >> 4) + (len & 0x0f);
-+
-+	if (skb->len < needed) {
-+		/* packet is too short to hold the addresses it claims
-+		   to hold */
-+		rc = -1;
-+		goto empty;
-+	}
-+
-+	return x25_addr_ntoa(skb->data, called_addr, calling_addr);
-+
-+empty:
-+	*called_addr->x25_addr = 0;
-+	*calling_addr->x25_addr = 0;
-+
-+	return rc;
-+}
-+
-+
- int x25_addr_ntoa(unsigned char *p, struct x25_address *called_addr,
- 		  struct x25_address *calling_addr)
- {
-@@ -921,16 +956,26 @@ int x25_rx_call_request(struct sk_buff *skb, struct x25_neigh *nb,
- 	/*
- 	 *	Extract the X.25 addresses and convert them to ASCII strings,
- 	 *	and remove them.
-+	 *
-+	 *	Address block is mandatory in call request packets
- 	 */
--	addr_len = x25_addr_ntoa(skb->data, &source_addr, &dest_addr);
-+	addr_len = x25_parse_address_block(skb, &source_addr, &dest_addr);
-+	if (addr_len <= 0)
-+		goto out_clear_request;
- 	skb_pull(skb, addr_len);
- 
- 	/*
- 	 *	Get the length of the facilities, skip past them for the moment
- 	 *	get the call user data because this is needed to determine
- 	 *	the correct listener
-+	 *
-+	 *	Facilities length is mandatory in call request packets
- 	 */
-+	if (skb->len < 1)
-+		goto out_clear_request;
- 	len = skb->data[0] + 1;
-+	if (skb->len < len)
-+		goto out_clear_request;
- 	skb_pull(skb,len);
- 
- 	/*
+@@ -553,7 +553,8 @@ static int x25_create(struct net *net, struct socket *sock, int protocol,
+ 	x25->facilities.winsize_out = X25_DEFAULT_WINDOW_SIZE;
+ 	x25->facilities.pacsize_in  = X25_DEFAULT_PACKET_SIZE;
+ 	x25->facilities.pacsize_out = X25_DEFAULT_PACKET_SIZE;
+-	x25->facilities.throughput  = X25_DEFAULT_THROUGHPUT;
++	x25->facilities.throughput  = 0;	/* by default don't negotiate
++						   throughput */
+ 	x25->facilities.reverse     = X25_DEFAULT_REVERSE;
+ 	x25->dte_facilities.calling_len = 0;
+ 	x25->dte_facilities.called_len = 0;
+@@ -1414,9 +1415,20 @@ static int x25_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 			if (facilities.winsize_in < 1 ||
+ 			    facilities.winsize_in > 127)
+ 				break;
+-			if (facilities.throughput < 0x03 ||
+-			    facilities.throughput > 0xDD)
+-				break;
++			if (facilities.throughput) {
++				int out = facilities.throughput & 0xf0;
++				int in  = facilities.throughput & 0x0f;
++				if (!out)
++					facilities.throughput |=
++						X25_DEFAULT_THROUGHPUT << 4;
++				else if (out < 0x30 || out > 0xD0)
++					break;
++				if (!in)
++					facilities.throughput |=
++						X25_DEFAULT_THROUGHPUT;
++				else if (in < 0x03 || in > 0x0D)
++					break;
++			}
+ 			if (facilities.reverse &&
+ 				(facilities.reverse & 0x81) != 0x81)
+ 				break;
 diff --git a/net/x25/x25_facilities.c b/net/x25/x25_facilities.c
-index a21f664..a2765c6 100644
+index a21f664..b447a66 100644
 --- a/net/x25/x25_facilities.c
 +++ b/net/x25/x25_facilities.c
-@@ -35,7 +35,7 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
- 		struct x25_dte_facilities *dte_facs, unsigned long *vc_fac_mask)
- {
- 	unsigned char *p = skb->data;
--	unsigned int len = *p++;
-+	unsigned int len;
+@@ -259,9 +259,18 @@ int x25_negotiate_facilities(struct sk_buff *skb, struct sock *sk,
+ 	new->reverse = theirs.reverse;
  
- 	*vc_fac_mask = 0;
+ 	if (theirs.throughput) {
+-		if (theirs.throughput < ours->throughput) {
+-			SOCK_DEBUG(sk, "X.25: throughput negotiated down\n");
+-			new->throughput = theirs.throughput;
++		int theirs_in =  theirs.throughput & 0x0f;
++		int theirs_out = theirs.throughput & 0xf0;
++		int ours_in  = ours->throughput & 0x0f;
++		int ours_out = ours->throughput & 0xf0;
++		if (!ours_in || theirs_in < ours_in) {
++			SOCK_DEBUG(sk, "X.25: inbound throughput negotiated\n");
++			new->throughput = (new->throughput & 0xf0) | theirs_in;
++		}
++		if (!ours_out || theirs_out < ours_out) {
++			SOCK_DEBUG(sk,
++				"X.25: outbound throughput negotiated\n");
++			new->throughput = (new->throughput & 0x0f) | theirs_out;
+ 		}
+ 	}
  
-@@ -50,6 +50,14 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
- 	memset(dte_facs->called_ae, '\0', sizeof(dte_facs->called_ae));
- 	memset(dte_facs->calling_ae, '\0', sizeof(dte_facs->calling_ae));
- 
-+	if (skb->len < 1)
-+		return 0;
-+
-+	len = *p++;
-+
-+	if (len >= skb->len)
-+		return -1;
-+
- 	while (len > 0) {
- 		switch (*p & X25_FAC_CLASS_MASK) {
- 		case X25_FAC_CLASS_A:
-@@ -247,6 +255,8 @@ int x25_negotiate_facilities(struct sk_buff *skb, struct sock *sk,
- 	memcpy(new, ours, sizeof(*new));
- 
- 	len = x25_parse_facilities(skb, &theirs, dte, &x25->vc_facil_mask);
-+	if (len < 0)
-+		return len;
- 
- 	/*
- 	 *	They want reverse charging, we won't accept it.
-diff --git a/net/x25/x25_in.c b/net/x25/x25_in.c
-index 96d9227..b39072f 100644
---- a/net/x25/x25_in.c
-+++ b/net/x25/x25_in.c
-@@ -89,6 +89,7 @@ static int x25_queue_rx_frame(struct sock *sk, struct sk_buff *skb, int more)
- static int x25_state1_machine(struct sock *sk, struct sk_buff *skb, int frametype)
- {
- 	struct x25_address source_addr, dest_addr;
-+	int len;
- 
- 	switch (frametype) {
- 		case X25_CALL_ACCEPTED: {
-@@ -106,11 +107,17 @@ static int x25_state1_machine(struct sock *sk, struct sk_buff *skb, int frametyp
- 			 *	Parse the data in the frame.
- 			 */
- 			skb_pull(skb, X25_STD_MIN_LEN);
--			skb_pull(skb, x25_addr_ntoa(skb->data, &source_addr, &dest_addr));
--			skb_pull(skb,
--				 x25_parse_facilities(skb, &x25->facilities,
-+
-+			len = x25_parse_address_block(skb, &source_addr,
-+						&dest_addr);
-+			if (len > 0)
-+				skb_pull(skb, len);
-+
-+			len = x25_parse_facilities(skb, &x25->facilities,
- 						&x25->dte_facilities,
--						&x25->vc_facil_mask));
-+						&x25->vc_facil_mask);
-+			if (len > 0)
-+				skb_pull(skb, len);
- 			/*
- 			 *	Copy any Call User Data.
- 			 */
 
---------------050603040900000809040201--
+--------------020500020107000904040300--
