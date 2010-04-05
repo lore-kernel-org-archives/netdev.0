@@ -1,76 +1,51 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: Undefined behaviour of connect(fd, NULL, 0);
-Date: Mon, 5 Apr 2010 17:23:50 +0800
-Message-ID: <w2n412e6f7f1004050223j3e15df91tcdf133670c636a85@mail.gmail.com>
-References: <n2w412e6f7f1003312000o3a69802j120acd3946458517@mail.gmail.com>
-	<20100401143805.1f83a161@notabene.brown> <x2j412e6f7f1003312116rd3b3ba96t31267545efe7660f@mail.gmail.com>
-	<20100401.002319.236233308.davem@davemloft.net>
+From: Sjur BRENDELAND <sjur.brandeland@stericsson.com>
+Subject: RE: CAIF device
+Date: Mon, 5 Apr 2010 13:19:14 +0200
+Message-ID: <81C3A93C17462B4BBD7E272753C105791696B5DCF0@EXDCVYMBSTM005.EQ1STM.local>
+References: <20100401160916.2a2574f4@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: neilb@suse.de, shemminger@vyatta.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Alan <alan@lxorguk.ukuu.org.uk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:60854 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752002Ab0DEJYL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 05:24:11 -0400
-Received: by gyg13 with SMTP id 13so1923511gyg.19
-        for <netdev@vger.kernel.org>; Mon, 05 Apr 2010 02:24:10 -0700 (PDT)
-In-Reply-To: <20100401.002319.236233308.davem@davemloft.net>
+Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:56586 "EHLO
+	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751786Ab0DELTl convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Apr 2010 07:19:41 -0400
+In-Reply-To: <20100401160916.2a2574f4@lxorguk.ukuu.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 1, 2010 at 3:23 PM, David Miller <davem@davemloft.net> wrot=
-e:
->
-> This seems logical, but I believe it is wrong.
->
-> We already know for a fact that it is guarenteed to not work
-> reliably for every single kernel in existence in the world
-> right now.
->
-> Every system. =C2=A0Ones that have been deployed for 10 years as
-> well as those built from GIT 10 seconds ago.
->
-> So you tell me, if you put this into an application that you
-> wish to deploy anywhere, are you not being completely stupid?
->
-> Therefore, if it's illogical to use this in an application, what valu=
-e
-> is there in starting to support it now in the kernel?
->
-> I'll tell you, the value is absolutely zero.
->
-> Yes we need to add the length check, but the behavior we give to this
-> case as a result, is completely arbitrary. =C2=A0And I would in fact =
-argue
-> for a hard error in these cases.
->
-> Simply mark it as invalid to call connect() this way.
->
+Hi Alan.
 
-I found this from the man page of FreeBSD's connect(2).
+Alan wrote:
+> I was reading through the CAIF code and I noticed a couple of bugs
+> 
+> Doesn't check there is a write method so set on a read only
+> device it's not good news (doubly so as there seem to be no
+> permission checks ?) plus no permissions checks and also the
+> following which looks unsafe
+> 
+>         dev_close(ser->dev);
+>         unregister_netdevice(ser->dev);
+>         list_del(&ser->node);
+>         debugfs_deinit(ser);
+> 
+> Now ser is the netdev private data so what stops it going away when
+> unregister_netdev is called ?
 
-     Generally, stream sockets may successfully connect() only
-     once; datagram sockets may use connect() multiple times to change =
-their
-     association.  Datagram sockets may dissolve the association by con=
-necting
-     to an invalid address, such as a null address.
+I think this should work fine as the unregistration of the ser->dev is done after rtnl_lock,
+this delays the freeing of the device until rtnl_unlock.
+> 
+> Secondly tty devices are ref counted and this for some reason didn't
+> get fixed in the driver yet.
+> 
+> [Patches to follow for the write and kref bugs, the others need the
+> authors and someone who knows the netdev code these days to fix]
 
-And this from the man page of Darwin's connect(2).
+Thanks, looking forward to review your patches.
 
-     Datagram sockets may dissolve the association by connecting to an
-     invalid address, such as a null address or an address with the add=
-ress
-     family set to AF_UNSPEC (the error EAFNOSUPPORT will be harmlessly
-     returned).
-
-Since null address behavior has been defined by the others. I think
-Linux should be compatible with the others. So the  patch submitted on
-this by me should not been applied. I'll work out another patch later.
-
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+BR/Sjur
