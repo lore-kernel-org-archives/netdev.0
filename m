@@ -1,251 +1,76 @@
-From: Amerigo Wang <amwang@redhat.com>
-Subject: [v2 Patch 2/3] bridge: make bridge support netpoll
-Date: Mon, 5 Apr 2010 05:12:30 -0400
-Message-ID: <20100405091617.4890.30552.sendpatchset@localhost.localdomain>
-References: <20100405091605.4890.31181.sendpatchset@localhost.localdomain>
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Andy Gospodarek <gospo@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Amerigo Wang <amwang@redhat.com>,
-	Jeff Moyer <jmoyer@redhat.com>, Matt Mackall <mpm@selenic.com>,
-	bonding-devel@lists.sourceforge.net,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	David Miller <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: Undefined behaviour of connect(fd, NULL, 0);
+Date: Mon, 5 Apr 2010 17:23:50 +0800
+Message-ID: <w2n412e6f7f1004050223j3e15df91tcdf133670c636a85@mail.gmail.com>
+References: <n2w412e6f7f1003312000o3a69802j120acd3946458517@mail.gmail.com>
+	<20100401143805.1f83a161@notabene.brown> <x2j412e6f7f1003312116rd3b3ba96t31267545efe7660f@mail.gmail.com>
+	<20100401.002319.236233308.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: neilb@suse.de, shemminger@vyatta.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39349 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751941Ab0DEJMy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Apr 2010 05:12:54 -0400
-In-Reply-To: <20100405091605.4890.31181.sendpatchset@localhost.localdomain>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:60854 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752002Ab0DEJYL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 05:24:11 -0400
+Received: by gyg13 with SMTP id 13so1923511gyg.19
+        for <netdev@vger.kernel.org>; Mon, 05 Apr 2010 02:24:10 -0700 (PDT)
+In-Reply-To: <20100401.002319.236233308.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Apr 1, 2010 at 3:23 PM, David Miller <davem@davemloft.net> wrot=
+e:
+>
+> This seems logical, but I believe it is wrong.
+>
+> We already know for a fact that it is guarenteed to not work
+> reliably for every single kernel in existence in the world
+> right now.
+>
+> Every system. =C2=A0Ones that have been deployed for 10 years as
+> well as those built from GIT 10 seconds ago.
+>
+> So you tell me, if you put this into an application that you
+> wish to deploy anywhere, are you not being completely stupid?
+>
+> Therefore, if it's illogical to use this in an application, what valu=
+e
+> is there in starting to support it now in the kernel?
+>
+> I'll tell you, the value is absolutely zero.
+>
+> Yes we need to add the length check, but the behavior we give to this
+> case as a result, is completely arbitrary. =C2=A0And I would in fact =
+argue
+> for a hard error in these cases.
+>
+> Simply mark it as invalid to call connect() this way.
+>
 
-Based on the previous patch, make bridge support netpoll by:
+I found this from the man page of FreeBSD's connect(2).
 
-1) implement the 2 methods to support netpoll for bridge;
+     Generally, stream sockets may successfully connect() only
+     once; datagram sockets may use connect() multiple times to change =
+their
+     association.  Datagram sockets may dissolve the association by con=
+necting
+     to an invalid address, such as a null address.
 
-2) modify netpoll during forwarding packets via bridge;
+And this from the man page of Darwin's connect(2).
 
-3) disable netpoll support of bridge when a netpoll-unabled device
-   is added to bridge;
+     Datagram sockets may dissolve the association by connecting to an
+     invalid address, such as a null address or an address with the add=
+ress
+     family set to AF_UNSPEC (the error EAFNOSUPPORT will be harmlessly
+     returned).
 
-4) enable netpoll support when all underlying devices support netpoll.
+Since null address behavior has been defined by the others. I think
+Linux should be compatible with the others. So the  patch submitted on
+this by me should not been applied. I'll work out another patch later.
 
-Cc: David Miller <davem@davemloft.net>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>
-Cc: Matt Mackall <mpm@selenic.com>
-Signed-off-by: WANG Cong <amwang@redhat.com>
-
----
-
-Index: linux-2.6/net/bridge/br_device.c
-===================================================================
---- linux-2.6.orig/net/bridge/br_device.c
-+++ linux-2.6/net/bridge/br_device.c
-@@ -13,8 +13,10 @@
- 
- #include <linux/kernel.h>
- #include <linux/netdevice.h>
-+#include <linux/netpoll.h>
- #include <linux/etherdevice.h>
- #include <linux/ethtool.h>
-+#include <linux/list.h>
- 
- #include <asm/uaccess.h>
- #include "br_private.h"
-@@ -162,6 +164,59 @@ static int br_set_tx_csum(struct net_dev
- 	return 0;
- }
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+bool br_devices_support_netpoll(struct net_bridge *br)
-+{
-+	struct net_bridge_port *p;
-+	bool ret = true;
-+	int count = 0;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&br->lock, flags);
-+	list_for_each_entry(p, &br->port_list, list) {
-+		count++;
-+		if (p->dev->priv_flags & IFF_DISABLE_NETPOLL
-+				|| !p->dev->netdev_ops->ndo_poll_controller)
-+			ret = false;
-+	}
-+	spin_unlock_irqrestore(&br->lock, flags);
-+	return count != 0 && ret;
-+}
-+
-+static void br_poll_controller(struct net_device *br_dev)
-+{
-+	struct netpoll *np = br_dev->npinfo->netpoll;
-+
-+	if (np->real_dev != br_dev)
-+		netpoll_poll_dev(np->real_dev);
-+}
-+
-+void br_netpoll_cleanup(struct net_device *br_dev)
-+{
-+	struct net_bridge *br = netdev_priv(br_dev);
-+	struct net_bridge_port *p, *n;
-+	const struct net_device_ops *ops;
-+
-+	br->dev->npinfo = NULL;
-+	list_for_each_entry_safe(p, n, &br->port_list, list) {
-+		if (p->dev) {
-+			ops = p->dev->netdev_ops;
-+			if (ops->ndo_netpoll_cleanup)
-+				ops->ndo_netpoll_cleanup(p->dev);
-+			else
-+				p->dev->npinfo = NULL;
-+		}
-+	}
-+}
-+
-+#else
-+
-+void br_netpoll_cleanup(struct net_device *br_dev)
-+{
-+}
-+
-+#endif
-+
- static const struct ethtool_ops br_ethtool_ops = {
- 	.get_drvinfo    = br_getinfo,
- 	.get_link	= ethtool_op_get_link,
-@@ -184,6 +239,10 @@ static const struct net_device_ops br_ne
- 	.ndo_set_multicast_list	 = br_dev_set_multicast_list,
- 	.ndo_change_mtu		 = br_change_mtu,
- 	.ndo_do_ioctl		 = br_dev_ioctl,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_netpoll_cleanup	 = br_netpoll_cleanup,
-+	.ndo_poll_controller	 = br_poll_controller,
-+#endif
- };
- 
- void br_dev_setup(struct net_device *dev)
-Index: linux-2.6/net/bridge/br_forward.c
-===================================================================
---- linux-2.6.orig/net/bridge/br_forward.c
-+++ linux-2.6/net/bridge/br_forward.c
-@@ -14,6 +14,7 @@
- #include <linux/err.h>
- #include <linux/kernel.h>
- #include <linux/netdevice.h>
-+#include <linux/netpoll.h>
- #include <linux/skbuff.h>
- #include <linux/if_vlan.h>
- #include <linux/netfilter_bridge.h>
-@@ -49,7 +50,13 @@ int br_dev_queue_push_xmit(struct sk_buf
- 		else {
- 			skb_push(skb, ETH_HLEN);
- 
--			dev_queue_xmit(skb);
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+			if (skb->dev->priv_flags & IFF_IN_NETPOLL) {
-+				netpoll_send_skb(skb->dev->npinfo->netpoll, skb);
-+				skb->dev->priv_flags &= ~IFF_IN_NETPOLL;
-+			} else
-+#endif
-+				dev_queue_xmit(skb);
- 		}
- 	}
- 
-@@ -65,9 +72,23 @@ int br_forward_finish(struct sk_buff *sk
- 
- static void __br_deliver(const struct net_bridge_port *to, struct sk_buff *skb)
- {
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	struct net_bridge *br = to->br;
-+	if (br->dev->priv_flags & IFF_IN_NETPOLL) {
-+		struct netpoll *np;
-+		to->dev->npinfo = skb->dev->npinfo;
-+		np = skb->dev->npinfo->netpoll;
-+		np->real_dev = np->dev = to->dev;
-+		to->dev->priv_flags |= IFF_IN_NETPOLL;
-+	}
-+#endif
- 	skb->dev = to->dev;
- 	NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_OUT, skb, NULL, skb->dev,
- 			br_forward_finish);
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	if (skb->dev->npinfo)
-+		skb->dev->npinfo->netpoll->dev = br->dev;
-+#endif
- }
- 
- static void __br_forward(const struct net_bridge_port *to, struct sk_buff *skb)
-Index: linux-2.6/net/bridge/br_if.c
-===================================================================
---- linux-2.6.orig/net/bridge/br_if.c
-+++ linux-2.6/net/bridge/br_if.c
-@@ -19,6 +19,7 @@
- #include <linux/init.h>
- #include <linux/rtnetlink.h>
- #include <linux/if_ether.h>
-+#include <linux/netpoll.h>
- #include <net/sock.h>
- 
- #include "br_private.h"
-@@ -152,6 +153,14 @@ static void del_nbp(struct net_bridge_po
- 	kobject_uevent(&p->kobj, KOBJ_REMOVE);
- 	kobject_del(&p->kobj);
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	if (br_devices_support_netpoll(br))
-+		br->dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
-+	if (dev->netdev_ops->ndo_netpoll_cleanup)
-+		dev->netdev_ops->ndo_netpoll_cleanup(dev);
-+	else
-+		dev->npinfo = NULL;
-+#endif
- 	call_rcu(&p->rcu, destroy_nbp_rcu);
- }
- 
-@@ -164,6 +173,8 @@ static void del_br(struct net_bridge *br
- 		del_nbp(p);
- 	}
- 
-+	br_netpoll_cleanup(br->dev);
-+
- 	del_timer_sync(&br->gc_timer);
- 
- 	br_sysfs_delbr(br->dev);
-@@ -437,6 +448,20 @@ int br_add_if(struct net_bridge *br, str
- 
- 	kobject_uevent(&p->kobj, KOBJ_ADD);
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	if (br_devices_support_netpoll(br)) {
-+		br->dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
-+		if (br->dev->npinfo)
-+			dev->npinfo = br->dev->npinfo;
-+	} else if (!(br->dev->priv_flags & IFF_DISABLE_NETPOLL)) {
-+		br->dev->priv_flags |= IFF_DISABLE_NETPOLL;
-+		printk(KERN_INFO "New device %s does not support netpoll\n",
-+			dev->name);
-+		printk(KERN_INFO "Disabling netpoll for %s\n",
-+			br->dev->name);
-+	}
-+#endif
-+
- 	return 0;
- err2:
- 	br_fdb_delete_by_port(br, p, 1);
-Index: linux-2.6/net/bridge/br_private.h
-===================================================================
---- linux-2.6.orig/net/bridge/br_private.h
-+++ linux-2.6/net/bridge/br_private.h
-@@ -233,6 +233,8 @@ static inline int br_is_root_bridge(cons
- extern void br_dev_setup(struct net_device *dev);
- extern netdev_tx_t br_dev_xmit(struct sk_buff *skb,
- 			       struct net_device *dev);
-+extern bool br_devices_support_netpoll(struct net_bridge *br);
-+extern void br_netpoll_cleanup(struct net_device *br_dev);
- 
- /* br_fdb.c */
- extern int br_fdb_init(void);
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
