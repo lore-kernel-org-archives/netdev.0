@@ -1,58 +1,54 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: Re: [PATCH 2/2] benet: fix the misusage of zero dma address
-Date: Mon, 5 Apr 2010 17:38:40 +0900
-Message-ID: <20100405173724G.fujita.tomonori@lab.ntt.co.jp>
-References: <20100405071059.GA32671@serverengines.com>
-	<20100405163942P.fujita.tomonori@lab.ntt.co.jp>
-	<20100405082202.GB32671@serverengines.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 1/2] netdev: buffer infrastructure to log network
+ driver's information
+Date: Mon, 05 Apr 2010 10:42:26 +0200
+Message-ID: <1270456946.1971.27.camel@edumazet-laptop>
+References: <4BB98828.5030302@jp.fujitsu.com>
+	 <4BB988C9.9070709@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fujita.tomonori@lab.ntt.co.jp, subbus@serverengines.com,
-	sarveshwarb@serverengines.com, ajitk@serverengines.com,
-	netdev@vger.kernel.org
-To: sathyap@serverengines.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, izumi.taku@jp.fujitsu.com,
+	kaneshige.kenji@jp.fujitsu.com, davem@davemloft.net,
+	nhorman@tuxdriver.com, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	alexander.h.duyck@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com
+To: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sh.osrg.net ([192.16.179.4]:47724 "EHLO sh.osrg.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751145Ab0DEIip (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Apr 2010 04:38:45 -0400
-In-Reply-To: <20100405082202.GB32671@serverengines.com>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:42410 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750954Ab0DEIme (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 04:42:34 -0400
+Received: by bwz1 with SMTP id 1so2657954bwz.21
+        for <netdev@vger.kernel.org>; Mon, 05 Apr 2010 01:42:32 -0700 (PDT)
+In-Reply-To: <4BB988C9.9070709@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 5 Apr 2010 13:52:02 +0530
-Sathya Perla <sathyap@serverengines.com> wrote:
+Le lundi 05 avril 2010 =C3=A0 15:52 +0900, Koki Sanagi a =C3=A9crit :
+> This patch implements buffer infrastructure under driver/net.
+> This buffer records information from network driver.
+>=20
+> Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+> ---
+>   drivers/net/Kconfig     |    8 +
+>   drivers/net/Makefile    |    1 +
+>   drivers/net/ndrvbuf.c   |  535 ++++++++++++++++++++++++++++++++++++=
++++++++++++
+>   include/linux/ndrvbuf.h |   57 +++++
+>   4 files changed, 601 insertions(+), 0 deletions(-)
+>=20
 
-> On 05/04/10 16:40 +0900, FUJITA Tomonori wrote:
-> > > > +		wrb->frag_len = 0;
-> > > Why does wrb->frag_len need to be reset here?
-> > > In the TX path, it is set to the proper value for data wrbs and zero
-> > > for dummy and hdr wrbs.
-> > 
-> > I guess that I misunderstood why unmap_tx_frag() checks a dma address.
-> > The checking is necessary to avoid calling pci_unamp_* API for dummy
-> > hdr wrbs?
-> Yes.
-> > 
-> > Anyway, if wrb->frag_len doesn't need to be reset here, the following
-> > patch is ok?
-> Yes. Thanks.
-> 
-> Acked-by: Sathya Perla <sathyap@serverengines.com>
+Wow, 600 lines... thats what I call bloat...
 
-Thanks!
+Why no use a very simple interface (printk like) ?
 
-Can I also get your ack on "[PATCH 1/2] benet: use the dma state API
-instead of the pci equivalents"?
+xxx_printf(dev->trace, "xmit qidx=3D%u ntu=3D%d->%d\n",
+	   tx_ring->queue_index, first, tx_ring->next_to_use);
 
-http://patchwork.ozlabs.org/patch/49265/
+Anyway, this has nothing to do with network drivers and should be
+discussed on lkml.
 
 
-The reason why I want to replace the PCI DMA state API is:
 
-http://marc.info/?l=linux-netdev&m=127037540020276&w=2
-
-Note that I use DEFINE_DMA_UNMAP_ADDR for bus in struct
-be_rx_page_info because dma_unmap_addr and DEFINE_DMA_UNMAP_ADDR are
-supposed to be used together.
