@@ -1,105 +1,131 @@
-From: Alexandre Cassen <acassen@freebox.fr>
-Subject: [PATCH][iproute2] Detect 6rd kernel missing support / 6rd tunnel
- scope
-Date: Sun, 4 Apr 2010 22:40:14 +0200
-Message-ID: <20100404204014.GA24602@lnxos.staff.proxad.net>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Subject: [PATCH] ARM: dmabounce: fix partial sync in dma_sync_single_* API
+Date: Mon, 5 Apr 2010 12:39:32 +0900
+Message-ID: <20100405123847C.fujita.tomonori@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	davem@davemloft.net, linux-kernel@vger.kernel.org
+To: linux@arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpfb2-g21.free.fr ([212.27.42.10]:44073 "EHLO
-	smtpfb2-g21.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752249Ab0DDUuR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Apr 2010 16:50:17 -0400
-Received: from smtp2-g21.free.fr (smtp2-g21.free.fr [212.27.42.2])
-	by smtpfb2-g21.free.fr (Postfix) with ESMTP id 8C388D19C4F
-	for <netdev@vger.kernel.org>; Sun,  4 Apr 2010 22:41:23 +0200 (CEST)
-Received: from smtp2-g21.free.fr (localhost [127.0.0.1])
-	by smtp2-g21.free.fr (Postfix) with ESMTP id 76E794B00E8
-	for <netdev@vger.kernel.org>; Sun,  4 Apr 2010 22:40:16 +0200 (CEST)
-Received: from mail.lnxos.net (lnxos.staff.proxad.net [213.228.1.83])
-	by smtp2-g21.free.fr (Postfix) with ESMTP id 9B9BD4B0012
-	for <netdev@vger.kernel.org>; Sun,  4 Apr 2010 22:40:14 +0200 (CEST)
-Content-Disposition: inline
+Received: from sh.osrg.net ([192.16.179.4]:36110 "EHLO sh.osrg.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753889Ab0DEDjx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 Apr 2010 23:39:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fix two issues:
+I don't have arm hardware that uses dmabounce so I can't confirm the
+problem but seems that dmabounce doesn't work for some drivers...
 
-* If kernel is not supporting 6rd then ioctl() call
-  will return EINVAL, if so just skip perror call.
+=
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Subject: [PATCH] ARM: dmabounce: fix partial sync in dma_sync_single_* API
 
-* 6rd scope is ipv6/ip tunnels. Dont try to fetch
-  6rd tunnel parms if tunnel protocol != IPPROTO_IPV6.
+Some network drivers do a partial sync with
+dma_sync_single_for_{device|cpu}. The dma_addr argument might not be
+the same as one as passed into the mapping API.
 
-Signed-off-by: Alexandre Cassen <acassen@freebox.fr>
+This adds some tricks to find_safe_buffer() for
+dma_sync_single_for_{device|cpu}.
+
+Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 ---
- ip/iptunnel.c |    2 +-
- ip/tunnel.c   |   11 ++++++-----
- 2 files changed, 7 insertions(+), 6 deletions(-)
+ arch/arm/common/dmabounce.c |   31 +++++++++++++++++++++----------
+ 1 files changed, 21 insertions(+), 10 deletions(-)
 
-diff --git a/ip/iptunnel.c b/ip/iptunnel.c
-index 1cd9fbd..3525fbb 100644
---- a/ip/iptunnel.c
-+++ b/ip/iptunnel.c
-@@ -365,7 +365,7 @@ static void print_tunnel(struct ip_tunnel_parm *p)
- 	if (!(p->iph.frag_off&htons(IP_DF)))
- 		printf(" nopmtudisc");
+diff --git a/arch/arm/common/dmabounce.c b/arch/arm/common/dmabounce.c
+index cc0a932..87eb160 100644
+--- a/arch/arm/common/dmabounce.c
++++ b/arch/arm/common/dmabounce.c
+@@ -163,7 +163,8 @@ alloc_safe_buffer(struct dmabounce_device_info *device_info, void *ptr,
  
--	if (!tnl_ioctl_get_6rd(p->name, &ip6rd) && ip6rd.prefixlen) {
-+	if (p->iph.protocol == IPPROTO_IPV6 && !tnl_ioctl_get_6rd(p->name, &ip6rd) && ip6rd.prefixlen) {
- 		printf(" 6rd-prefix %s/%u ",
- 		       inet_ntop(AF_INET6, &ip6rd.prefix, s1, sizeof(s1)),
- 		       ip6rd.prefixlen);
-diff --git a/ip/tunnel.c b/ip/tunnel.c
-index d389e86..6efbd2d 100644
---- a/ip/tunnel.c
-+++ b/ip/tunnel.c
-@@ -26,6 +26,7 @@
- #include <stdio.h>
- #include <string.h>
- #include <unistd.h>
-+#include <errno.h>
- #include <sys/types.h>
- #include <sys/socket.h>
- #include <sys/ioctl.h>
-@@ -168,7 +169,7 @@ int tnl_del_ioctl(const char *basedev, const char *name, void *p)
- 	return err;
+ /* determine if a buffer is from our "safe" pool */
+ static inline struct safe_buffer *
+-find_safe_buffer(struct dmabounce_device_info *device_info, dma_addr_t safe_dma_addr)
++find_safe_buffer(struct dmabounce_device_info *device_info, dma_addr_t safe_dma_addr,
++		 int for_sync)
+ {
+ 	struct safe_buffer *b, *rb = NULL;
+ 	unsigned long flags;
+@@ -171,10 +172,17 @@ find_safe_buffer(struct dmabounce_device_info *device_info, dma_addr_t safe_dma_
+ 	read_lock_irqsave(&device_info->lock, flags);
+ 
+ 	list_for_each_entry(b, &device_info->safe_buffers, node)
+-		if (b->safe_dma_addr == safe_dma_addr) {
+-			rb = b;
+-			break;
+-		}
++		if (for_sync) {
++			if (b->safe_dma_addr <= safe_dma_addr &&
++			    safe_dma_addr < b->safe_dma_addr + b->size) {
++				rb = b;
++				break;
++			}
++		} else
++			if (b->safe_dma_addr == safe_dma_addr) {
++				rb = b;
++				break;
++			}
+ 
+ 	read_unlock_irqrestore(&device_info->lock, flags);
+ 	return rb;
+@@ -205,7 +213,8 @@ free_safe_buffer(struct dmabounce_device_info *device_info, struct safe_buffer *
+ /* ************************************************** */
+ 
+ static struct safe_buffer *find_safe_buffer_dev(struct device *dev,
+-		dma_addr_t dma_addr, const char *where)
++						dma_addr_t dma_addr, const char *where,
++						int for_sync)
+ {
+ 	if (!dev || !dev->archdata.dmabounce)
+ 		return NULL;
+@@ -216,7 +225,7 @@ static struct safe_buffer *find_safe_buffer_dev(struct device *dev,
+ 			pr_err("unknown device: Trying to %s invalid mapping\n", where);
+ 		return NULL;
+ 	}
+-	return find_safe_buffer(dev->archdata.dmabounce, dma_addr);
++	return find_safe_buffer(dev->archdata.dmabounce, dma_addr, for_sync);
  }
  
--static int tnl_gen_ioctl(int cmd, const char *name, void *p)
-+static int tnl_gen_ioctl(int cmd, const char *name, void *p, int skiperr)
+ static inline dma_addr_t map_single(struct device *dev, void *ptr, size_t size,
+@@ -286,7 +295,7 @@ static inline dma_addr_t map_single(struct device *dev, void *ptr, size_t size,
+ static inline void unmap_single(struct device *dev, dma_addr_t dma_addr,
+ 		size_t size, enum dma_data_direction dir)
  {
- 	struct ifreq ifr;
- 	int fd;
-@@ -178,7 +179,7 @@ static int tnl_gen_ioctl(int cmd, const char *name, void *p)
- 	ifr.ifr_ifru.ifru_data = p;
- 	fd = socket(preferred_family, SOCK_DGRAM, 0);
- 	err = ioctl(fd, cmd, &ifr);
--	if (err)
-+	if (err && errno != skiperr)
- 		perror("ioctl");
- 	close(fd);
- 	return err;
-@@ -186,15 +187,15 @@ static int tnl_gen_ioctl(int cmd, const char *name, void *p)
+-	struct safe_buffer *buf = find_safe_buffer_dev(dev, dma_addr, "unmap");
++	struct safe_buffer *buf = find_safe_buffer_dev(dev, dma_addr, "unmap", 0);
  
- int tnl_prl_ioctl(int cmd, const char *name, void *p)
- {
--	return tnl_gen_ioctl(cmd, name, p);
-+	return tnl_gen_ioctl(cmd, name, p, -1);
- }
+ 	if (buf) {
+ 		BUG_ON(buf->size != size);
+@@ -398,7 +407,7 @@ int dmabounce_sync_for_cpu(struct device *dev, dma_addr_t addr,
+ 	dev_dbg(dev, "%s(dma=%#x,off=%#lx,sz=%zx,dir=%x)\n",
+ 		__func__, addr, off, sz, dir);
  
- int tnl_6rd_ioctl(int cmd, const char *name, void *p)
- {
--	return tnl_gen_ioctl(cmd, name, p);
-+	return tnl_gen_ioctl(cmd, name, p, -1);
- }
+-	buf = find_safe_buffer_dev(dev, addr, __func__);
++	buf = find_safe_buffer_dev(dev, addr, __func__, 1);
+ 	if (!buf)
+ 		return 1;
  
- int tnl_ioctl_get_6rd(const char *name, void *p)
- {
--	return tnl_gen_ioctl(SIOCGET6RD, name, p);
-+	return tnl_gen_ioctl(SIOCGET6RD, name, p, EINVAL);
- }
+@@ -411,6 +420,8 @@ int dmabounce_sync_for_cpu(struct device *dev, dma_addr_t addr,
+ 	DO_STATS(dev->archdata.dmabounce->bounce_count++);
+ 
+ 	if (dir == DMA_FROM_DEVICE || dir == DMA_BIDIRECTIONAL) {
++		if (addr != buf->safe_dma_addr)
++			off = addr - buf->safe_dma_addr;
+ 		dev_dbg(dev, "%s: copy back safe %p to unsafe %p size %d\n",
+ 			__func__, buf->safe + off, buf->ptr + off, sz);
+ 		memcpy(buf->ptr + off, buf->safe + off, sz);
+@@ -427,7 +438,7 @@ int dmabounce_sync_for_device(struct device *dev, dma_addr_t addr,
+ 	dev_dbg(dev, "%s(dma=%#x,off=%#lx,sz=%zx,dir=%x)\n",
+ 		__func__, addr, off, sz, dir);
+ 
+-	buf = find_safe_buffer_dev(dev, addr, __func__);
++	buf = find_safe_buffer_dev(dev, addr, __func__, 1);
+ 	if (!buf)
+ 		return 1;
+ 
 -- 
-1.6.3.3
+1.7.0
 
