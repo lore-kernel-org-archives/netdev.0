@@ -1,44 +1,43 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] [V2] Add non-Virtex5 support for LL TEMAC driver
-Date: Mon, 5 Apr 2010 13:31:55 -0600
-Message-ID: <t2qfa686aa41004051231v40d7b456y90f14abfca9a06bf@mail.gmail.com>
-References: <bda26c8d-00b2-411d-b4b7-ad6954b9049e@SG2EHSMHS005.ehs.local>
-	<fa686aa41003171302v46738069pae51061ba83d0818@mail.gmail.com>
-	<q2xfa686aa41004051110hc960e9a0sd1d5e61f7e2a5412@mail.gmail.com>
-	<20100405.121647.91426186.davem@davemloft.net>
+From: Nick Hilliard <nick@inex.ie>
+Subject: Re: [PATCH 1/3] IPv6: Generic TTL Security Mechanism (original version)
+Date: Mon, 05 Apr 2010 20:06:17 +0100
+Message-ID: <4BBA34A9.6080802@inex.ie>
+References: <20100403232103.923025940@vyatta.com> <20100403232922.489187907@vyatta.com> <4BB96B9A.3000203@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	jwboyer@linux.vnet.ibm.com, john.williams@petalogix.com,
-	michal.simek@petalogix.com, jtyner@cs.ucr.edu, john.linn@xilinx.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>, davem@davemloft.net,
+	Pekka Savola <pekkas@netcore.fi>, netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f217.google.com ([209.85.217.217]:44700 "EHLO
-	mail-gx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756114Ab0DETcQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 15:32:16 -0400
-Received: by gxk9 with SMTP id 9so3132808gxk.8
-        for <netdev@vger.kernel.org>; Mon, 05 Apr 2010 12:32:15 -0700 (PDT)
-In-Reply-To: <20100405.121647.91426186.davem@davemloft.net>
+Received: from mail.acquirer.com ([87.198.142.193]:49615 "EHLO
+	mail.acquirer.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756104Ab0DEThT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 15:37:19 -0400
+In-Reply-To: <4BB96B9A.3000203@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 5, 2010 at 1:16 PM, David Miller <davem@davemloft.net> wrote:
-> From: Grant Likely <grant.likely@secretlab.ca>
-> Date: Mon, 5 Apr 2010 12:10:51 -0600
+On 05/04/2010 05:48, YOSHIFUJI Hideaki wrote:
+> I am for 1/3 (original), not for 2/3, 3/3.
 >
->> David, are you going to pick up this patch, or would you like me to?
->
-> The submitter, when asked, stated that he couldn't even get
-> the driver to build on microblaze against mainline.
->
-> So I marked the patch "changed requested" because being able
-> to build is... you know... sort of a requirement for integration.
+> Because we should allow users to set respective value
+> for IPv4 and IPv6, as we allow users to do so for TTL
+> and hoplimit itself.
 
-Heh, the current driver doesn't build on microblaze either.  However,
-John, since you're removing the depends on PPC_DCR_NATIVE, can you
-please respin the patch to make it depend on CONFIG_PPC and CONFIG_OF.
- Looking at it now I see that as-is it will cause collateral damage to
-allmodconfig on every other architecture.
+<non-linux-user>
 
-g.
+I concur.  ipv4 mapped addresses need special handling in lots of cases, 
+and I don't believe that patch 2/3 adds anything here - except possibly 
+confusion.
+
+Regarding case 3/3, ipv4 and ipv6 are separate protocols.  Treating them 
+as the same from the setsockopt() point of view is a clear case of the 
+Wrong Thing.
+
+</non-linux-user>
+
+Case 1/3 is IMO a better approach.  It satisfies both KISS (keep it 
+simple...) and POLA (principle of least astonishment).
+
+Nick
