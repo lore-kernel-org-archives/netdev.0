@@ -1,149 +1,318 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 09/12] tg3: The case of switches
-Date: Mon, 5 Apr 2010 13:19:27 -0700
-Message-ID: <1270498770-23765-10-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 08/12] tg3: Whitespace, constant, and comment
+ updates
+Date: Mon, 5 Apr 2010 13:19:26 -0700
+Message-ID: <1270498770-23765-9-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1361 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1350 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756456Ab0DEUTo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756463Ab0DEUTo (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 5 Apr 2010 16:19:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes checkpatch errors related to switch statements.
+This patch fixes whitespace errors, preprocessor definition placement
+oddities and updates comments.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 ---
- drivers/net/tg3.c |   80 ++++++++++++++++++++++++++--------------------------
- 1 files changed, 40 insertions(+), 40 deletions(-)
+ drivers/net/tg3.c |   72 +++++++++++++++++++++++++++-------------------------
+ drivers/net/tg3.h |    6 ++--
+ 2 files changed, 40 insertions(+), 38 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 88934b8..902fb9b 100644
+index 80df3e8..88934b8 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -581,11 +581,11 @@ static int tg3_ape_lock(struct tg3 *tp, int locknum)
- 		return 0;
+@@ -101,7 +101,7 @@
+ #define TG3_DEF_RX_RING_PENDING		200
+ #define TG3_RX_JUMBO_RING_SIZE		256
+ #define TG3_DEF_RX_JUMBO_RING_PENDING	100
+-#define TG3_RSS_INDIR_TBL_SIZE 128
++#define TG3_RSS_INDIR_TBL_SIZE		128
  
- 	switch (locknum) {
--		case TG3_APE_LOCK_GRC:
--		case TG3_APE_LOCK_MEM:
--			break;
--		default:
--			return -EINVAL;
-+	case TG3_APE_LOCK_GRC:
-+	case TG3_APE_LOCK_MEM:
-+		break;
-+	default:
-+		return -EINVAL;
- 	}
+ /* Do not place this n-ring entries value into the tp struct itself,
+  * we really want to expose these constants to GCC so that modulo et
+@@ -142,6 +142,8 @@
+ #define TG3_RX_JMB_BUFF_RING_SIZE \
+ 	(sizeof(struct ring_info) * TG3_RX_JUMBO_RING_SIZE)
  
- 	off = 4 * locknum;
-@@ -619,11 +619,11 @@ static void tg3_ape_unlock(struct tg3 *tp, int locknum)
- 		return;
- 
- 	switch (locknum) {
--		case TG3_APE_LOCK_GRC:
--		case TG3_APE_LOCK_MEM:
--			break;
--		default:
--			return;
-+	case TG3_APE_LOCK_GRC:
-+	case TG3_APE_LOCK_MEM:
-+		break;
-+	default:
-+		return;
- 	}
- 
- 	off = 4 * locknum;
-@@ -3428,7 +3428,7 @@ static int tg3_fiber_aneg_smachine(struct tg3 *tp,
- 	ap->rxconfig = rx_cfg_reg;
- 	ret = ANEG_OK;
- 
--	switch(ap->state) {
-+	switch (ap->state) {
- 	case ANEG_STATE_UNKNOWN:
- 		if (ap->flags & (MR_AN_ENABLE | MR_RESTART_AN))
- 			ap->state = ANEG_STATE_AN_ENABLE;
-@@ -6565,35 +6565,35 @@ static void tg3_ape_driver_state_change(struct tg3 *tp, int kind)
- 		return;
- 
- 	switch (kind) {
--		case RESET_KIND_INIT:
--			tg3_ape_write32(tp, TG3_APE_HOST_SEG_SIG,
--					APE_HOST_SEG_SIG_MAGIC);
--			tg3_ape_write32(tp, TG3_APE_HOST_SEG_LEN,
--					APE_HOST_SEG_LEN_MAGIC);
--			apedata = tg3_ape_read32(tp, TG3_APE_HOST_INIT_COUNT);
--			tg3_ape_write32(tp, TG3_APE_HOST_INIT_COUNT, ++apedata);
--			tg3_ape_write32(tp, TG3_APE_HOST_DRIVER_ID,
--					APE_HOST_DRIVER_ID_MAGIC);
--			tg3_ape_write32(tp, TG3_APE_HOST_BEHAVIOR,
--					APE_HOST_BEHAV_NO_PHYLOCK);
--
--			event = APE_EVENT_STATUS_STATE_START;
--			break;
--		case RESET_KIND_SHUTDOWN:
--			/* With the interface we are currently using,
--			 * APE does not track driver state.  Wiping
--			 * out the HOST SEGMENT SIGNATURE forces
--			 * the APE to assume OS absent status.
--			 */
--			tg3_ape_write32(tp, TG3_APE_HOST_SEG_SIG, 0x0);
-+	case RESET_KIND_INIT:
-+		tg3_ape_write32(tp, TG3_APE_HOST_SEG_SIG,
-+				APE_HOST_SEG_SIG_MAGIC);
-+		tg3_ape_write32(tp, TG3_APE_HOST_SEG_LEN,
-+				APE_HOST_SEG_LEN_MAGIC);
-+		apedata = tg3_ape_read32(tp, TG3_APE_HOST_INIT_COUNT);
-+		tg3_ape_write32(tp, TG3_APE_HOST_INIT_COUNT, ++apedata);
-+		tg3_ape_write32(tp, TG3_APE_HOST_DRIVER_ID,
-+				APE_HOST_DRIVER_ID_MAGIC);
-+		tg3_ape_write32(tp, TG3_APE_HOST_BEHAVIOR,
-+				APE_HOST_BEHAV_NO_PHYLOCK);
++#define TG3_RSS_MIN_NUM_MSIX_VECS	2
 +
-+		event = APE_EVENT_STATUS_STATE_START;
-+		break;
-+	case RESET_KIND_SHUTDOWN:
-+		/* With the interface we are currently using,
-+		 * APE does not track driver state.  Wiping
-+		 * out the HOST SEGMENT SIGNATURE forces
-+		 * the APE to assume OS absent status.
-+		 */
-+		tg3_ape_write32(tp, TG3_APE_HOST_SEG_SIG, 0x0);
+ /* minimum number of free TX descriptors required to wake up TX process */
+ #define TG3_TX_WAKEUP_THRESH(tnapi)		((tnapi)->tx_pending / 4)
  
--			event = APE_EVENT_STATUS_STATE_UNLOAD;
--			break;
--		case RESET_KIND_SUSPEND:
--			event = APE_EVENT_STATUS_STATE_SUSPEND;
--			break;
--		default:
--			return;
-+		event = APE_EVENT_STATUS_STATE_UNLOAD;
-+		break;
-+	case RESET_KIND_SUSPEND:
-+		event = APE_EVENT_STATUS_STATE_SUSPEND;
-+		break;
-+	default:
-+		return;
+@@ -152,6 +154,8 @@
+ 
+ #define TG3_NUM_TEST		6
+ 
++#define TG3_FW_UPDATE_TIMEOUT_SEC	5
++
+ #define FIRMWARE_TG3		"tigon/tg3.bin"
+ #define FIRMWARE_TG3TSO		"tigon/tg3_tso.bin"
+ #define FIRMWARE_TG3TSO5	"tigon/tg3_tso5.bin"
+@@ -167,8 +171,6 @@ MODULE_FIRMWARE(FIRMWARE_TG3);
+ MODULE_FIRMWARE(FIRMWARE_TG3TSO);
+ MODULE_FIRMWARE(FIRMWARE_TG3TSO5);
+ 
+-#define TG3_RSS_MIN_NUM_MSIX_VECS	2
+-
+ static int tg3_debug = -1;	/* -1 == use TG3_DEF_MSG_ENABLE as value */
+ module_param(tg3_debug, int, 0);
+ MODULE_PARM_DESC(tg3_debug, "Tigon3 bitmapped debugging message enable value");
+@@ -496,16 +498,16 @@ static void tg3_write32_mbox_5906(struct tg3 *tp, u32 off, u32 val)
+ 	writel(val, tp->regs + off + GRCMBOX_BASE);
+ }
+ 
+-#define tw32_mailbox(reg, val)	tp->write32_mbox(tp, reg, val)
++#define tw32_mailbox(reg, val)		tp->write32_mbox(tp, reg, val)
+ #define tw32_mailbox_f(reg, val)	tw32_mailbox_flush(tp, (reg), (val))
+-#define tw32_rx_mbox(reg, val)	tp->write32_rx_mbox(tp, reg, val)
+-#define tw32_tx_mbox(reg, val)	tp->write32_tx_mbox(tp, reg, val)
+-#define tr32_mailbox(reg)	tp->read32_mbox(tp, reg)
++#define tw32_rx_mbox(reg, val)		tp->write32_rx_mbox(tp, reg, val)
++#define tw32_tx_mbox(reg, val)		tp->write32_tx_mbox(tp, reg, val)
++#define tr32_mailbox(reg)		tp->read32_mbox(tp, reg)
+ 
+-#define tw32(reg,val)		tp->write32(tp, reg, val)
+-#define tw32_f(reg,val)		_tw32_flush(tp,(reg),(val), 0)
+-#define tw32_wait_f(reg,val,us)	_tw32_flush(tp,(reg),(val), (us))
+-#define tr32(reg)		tp->read32(tp, reg)
++#define tw32(reg, val)			tp->write32(tp, reg, val)
++#define tw32_f(reg, val)		_tw32_flush(tp, (reg), (val), 0)
++#define tw32_wait_f(reg, val, us)	_tw32_flush(tp, (reg), (val), (us))
++#define tr32(reg)			tp->read32(tp, reg)
+ 
+ static void tg3_write_mem(struct tg3 *tp, u32 off, u32 val)
+ {
+@@ -651,6 +653,7 @@ static void tg3_enable_ints(struct tg3 *tp)
+ 	tp->coal_now = tp->coalesce_mode | HOSTCC_MODE_ENABLE;
+ 	for (i = 0; i < tp->irq_cnt; i++) {
+ 		struct tg3_napi *tnapi = &tp->napi[i];
++
+ 		tw32_mailbox_f(tnapi->int_mbox, tnapi->last_tag << 24);
+ 		if (tp->tg3_flags2 & TG3_FLG2_1SHOT_MSI)
+ 			tw32_mailbox_f(tnapi->int_mbox, tnapi->last_tag << 24);
+@@ -1437,7 +1440,7 @@ static void tg3_adjust_link(struct net_device *dev)
+ 	    phydev->speed != tp->link_config.active_speed ||
+ 	    phydev->duplex != tp->link_config.active_duplex ||
+ 	    oldflowctrl != tp->link_config.active_flowctrl)
+-	    linkmesg = 1;
++		linkmesg = 1;
+ 
+ 	tp->link_config.active_speed = phydev->speed;
+ 	tp->link_config.active_duplex = phydev->duplex;
+@@ -2007,8 +2010,8 @@ out:
+ 		u32 phy_reg;
+ 
+ 		if (!tg3_readphy(tp, MII_TG3_EXT_CTRL, &phy_reg))
+-		    tg3_writephy(tp, MII_TG3_EXT_CTRL,
+-				 phy_reg | MII_TG3_EXT_CTRL_FIFO_ELASTIC);
++			tg3_writephy(tp, MII_TG3_EXT_CTRL,
++				     phy_reg | MII_TG3_EXT_CTRL_FIFO_ELASTIC);
  	}
  
- 	event |= APE_EVENT_STATUS_DRIVER_EVNT | APE_EVENT_STATUS_STATE_CHNGE;
-@@ -11102,7 +11102,7 @@ static int tg3_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 		return phy_mii_ioctl(phydev, data, cmd);
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906) {
+@@ -4211,6 +4214,7 @@ static void tg3_serdes_parallel_detect(struct tg3 *tp)
+ 		tp->serdes_counter--;
+ 		return;
+ 	}
++
+ 	if (!netif_carrier_ok(tp->dev) &&
+ 	    (tp->link_config.autoneg == AUTONEG_ENABLE)) {
+ 		u32 bmcr;
+@@ -4519,8 +4523,8 @@ static void tg3_recycle_rx(struct tg3_napi *tnapi,
+ 	struct tg3 *tp = tnapi->tp;
+ 	struct tg3_rx_buffer_desc *src_desc, *dest_desc;
+ 	struct ring_info *src_map, *dest_map;
+-	int dest_idx;
+ 	struct tg3_rx_prodring_set *spr = &tp->prodring[0];
++	int dest_idx;
+ 
+ 	switch (opaque_key) {
+ 	case RXD_OPAQUE_RING_STD:
+@@ -4981,7 +4985,7 @@ static int tg3_poll_msix(struct napi_struct *napi, int budget)
+ 		if (unlikely(work_done >= budget))
+ 			break;
+ 
+-		/* tp->last_tag is used in tg3_restart_ints() below
++		/* tp->last_tag is used in tg3_int_reenable() below
+ 		 * to tell the hw how much work has been processed,
+ 		 * so we must read it before checking for more work.
+ 		 */
+@@ -5496,7 +5500,6 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
+ 	struct netdev_queue *txq;
+ 	unsigned int i, last;
+ 
+-
+ 	txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
+ 	tnapi = &tp->napi[skb_get_queue_mapping(skb)];
+ 	if (tp->tg3_flags3 & TG3_FLG3_ENABLE_TSS)
+@@ -5700,7 +5703,6 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
+ 	struct netdev_queue *txq;
+ 	unsigned int i, last;
+ 
+-
+ 	txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
+ 	tnapi = &tp->napi[skb_get_queue_mapping(skb)];
+ 	if (tp->tg3_flags3 & TG3_FLG3_ENABLE_TSS)
+@@ -6013,7 +6015,7 @@ static void tg3_rx_prodring_free(struct tg3 *tp,
+ 	}
+ }
+ 
+-/* Initialize tx/rx rings for packet processing.
++/* Initialize rx rings for packet processing.
+  *
+  * The chip has been shut down and the driver detached from
+  * the networking, so no interrupts or new tx packets will
+@@ -8491,8 +8493,8 @@ static void tg3_timer(unsigned long __opaque)
+ 			tg3_write_mem(tp, NIC_SRAM_FW_CMD_MBOX,
+ 				      FWCMD_NICDRV_ALIVE3);
+ 			tg3_write_mem(tp, NIC_SRAM_FW_CMD_LEN_MBOX, 4);
+-			/* 5 seconds timeout */
+-			tg3_write_mem(tp, NIC_SRAM_FW_CMD_DATA_MBOX, 5);
++			tg3_write_mem(tp, NIC_SRAM_FW_CMD_DATA_MBOX,
++				      TG3_FW_UPDATE_TIMEOUT_SEC);
+ 
+ 			tg3_generate_fw_event(tp);
+ 		}
+@@ -9634,7 +9636,7 @@ static int tg3_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
+ 		memcpy(data, ((char*)&val) + b_offset, b_count);
+ 		len -= b_count;
+ 		offset += b_count;
+-	        eeprom->len += b_count;
++		eeprom->len += b_count;
  	}
  
--	switch(cmd) {
-+	switch (cmd) {
- 	case SIOCGMIIPHY:
- 		data->phy_id = tp->phy_addr;
+ 	/* read bytes upto the last 4 byte boundary */
+@@ -10182,8 +10184,8 @@ static int tg3_set_rx_csum(struct net_device *dev, u32 data)
+ 	if (tp->tg3_flags & TG3_FLAG_BROKEN_CHECKSUMS) {
+ 		if (data != 0)
+ 			return -EINVAL;
+-  		return 0;
+-  	}
++		return 0;
++	}
  
+ 	spin_lock_bh(&tp->lock);
+ 	if (data)
+@@ -10202,8 +10204,8 @@ static int tg3_set_tx_csum(struct net_device *dev, u32 data)
+ 	if (tp->tg3_flags & TG3_FLAG_BROKEN_CHECKSUMS) {
+ 		if (data != 0)
+ 			return -EINVAL;
+-  		return 0;
+-  	}
++		return 0;
++	}
+ 
+ 	if (tp->tg3_flags3 & TG3_FLG3_5755_PLUS)
+ 		ethtool_op_set_tx_ipv6_csum(dev, data);
+@@ -10477,7 +10479,7 @@ static int tg3_test_registers(struct tg3 *tp)
+ 		{ MAC_ADDR_0_HIGH, 0x0000,
+ 			0x00000000, 0x0000ffff },
+ 		{ MAC_ADDR_0_LOW, 0x0000,
+-		       	0x00000000, 0xffffffff },
++			0x00000000, 0xffffffff },
+ 		{ MAC_RX_MTU_SIZE, 0x0000,
+ 			0x00000000, 0x0000ffff },
+ 		{ MAC_TX_MODE, 0x0000,
+@@ -11913,7 +11915,7 @@ static int tg3_nvram_write_block_unbuffered(struct tg3 *tp, u32 offset, u32 len,
+ 		if (ret)
+ 			break;
+ 
+-	        page_off = offset & pagemask;
++		page_off = offset & pagemask;
+ 		size = pagesize;
+ 		if (len < size)
+ 			size = len;
+@@ -11941,7 +11943,7 @@ static int tg3_nvram_write_block_unbuffered(struct tg3 *tp, u32 offset, u32 len,
+ 		nvram_cmd = NVRAM_CMD_GO | NVRAM_CMD_DONE | NVRAM_CMD_WR |
+ 			NVRAM_CMD_FIRST | NVRAM_CMD_LAST | NVRAM_CMD_ERASE;
+ 
+-	        if (tg3_nvram_exec_cmd(tp, nvram_cmd))
++		if (tg3_nvram_exec_cmd(tp, nvram_cmd))
+ 			break;
+ 
+ 		/* Issue another write enable to start the write. */
+@@ -11995,7 +11997,7 @@ static int tg3_nvram_write_block_buffered(struct tg3 *tp, u32 offset, u32 len,
+ 		memcpy(&data, buf + i, 4);
+ 		tw32(NVRAM_WRDATA, be32_to_cpu(data));
+ 
+-	        page_off = offset % tp->nvram_pagesize;
++		page_off = offset % tp->nvram_pagesize;
+ 
+ 		phy_addr = tg3_nvram_phys_addr(tp, offset);
+ 
+@@ -12003,7 +12005,7 @@ static int tg3_nvram_write_block_buffered(struct tg3 *tp, u32 offset, u32 len,
+ 
+ 		nvram_cmd = NVRAM_CMD_GO | NVRAM_CMD_DONE | NVRAM_CMD_WR;
+ 
+-	        if ((page_off == 0) || (i == 0))
++		if (page_off == 0 || i == 0)
+ 			nvram_cmd |= NVRAM_CMD_FIRST;
+ 		if (page_off == (tp->nvram_pagesize - 4))
+ 			nvram_cmd |= NVRAM_CMD_LAST;
+@@ -12949,9 +12951,9 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ {
+ 	static struct pci_device_id write_reorder_chipsets[] = {
+ 		{ PCI_DEVICE(PCI_VENDOR_ID_AMD,
+-		             PCI_DEVICE_ID_AMD_FE_GATE_700C) },
++			     PCI_DEVICE_ID_AMD_FE_GATE_700C) },
+ 		{ PCI_DEVICE(PCI_VENDOR_ID_AMD,
+-		             PCI_DEVICE_ID_AMD_8131_BRIDGE) },
++			     PCI_DEVICE_ID_AMD_8131_BRIDGE) },
+ 		{ PCI_DEVICE(PCI_VENDOR_ID_VIA,
+ 			     PCI_DEVICE_ID_VIA_8385_0) },
+ 		{ },
+@@ -13240,8 +13242,8 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 		tp->tg3_flags3 |= TG3_FLG3_USE_JUMBO_BDFLAG;
+ 
+ 	if (!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS) ||
+-	     (tp->tg3_flags2 & TG3_FLG2_5780_CLASS) ||
+-		 (tp->tg3_flags3 & TG3_FLG3_USE_JUMBO_BDFLAG))
++	    (tp->tg3_flags2 & TG3_FLG2_5780_CLASS) ||
++	    (tp->tg3_flags3 & TG3_FLG3_USE_JUMBO_BDFLAG))
+ 		tp->tg3_flags |= TG3_FLAG_JUMBO_CAPABLE;
+ 
+ 	pci_read_config_dword(tp->pdev, TG3PCI_PCISTATE,
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 4836f56..5d7f72a 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -23,7 +23,7 @@
+ #define TG3_BDINFO_NIC_ADDR		0xcUL /* 32-bit */
+ #define TG3_BDINFO_SIZE			0x10UL
+ 
+-#define RX_COPY_THRESHOLD  		256
++#define RX_COPY_THRESHOLD		256
+ 
+ #define TG3_RX_INTERNAL_RING_SZ_5906	32
+ 
+@@ -252,7 +252,7 @@
+ /* 0x94 --> 0x98 unused */
+ #define TG3PCI_STD_RING_PROD_IDX	0x00000098 /* 64-bit */
+ #define TG3PCI_RCV_RET_RING_CON_IDX	0x000000a0 /* 64-bit */
+-/* 0xa0 --> 0xb8 unused */
++/* 0xa8 --> 0xb8 unused */
+ #define TG3PCI_DUAL_MAC_CTRL		0x000000b8
+ #define  DUAL_MAC_CTRL_CH_MASK		 0x00000003
+ #define  DUAL_MAC_CTRL_ID		 0x00000004
+@@ -2561,7 +2561,7 @@ struct tg3_bufmgr_config {
+ 
+ struct tg3_ethtool_stats {
+ 	/* Statistics maintained by Receive MAC. */
+-	u64 	    	rx_octets;
++	u64		rx_octets;
+ 	u64		rx_fragments;
+ 	u64		rx_ucast_packets;
+ 	u64		rx_mcast_packets;
 -- 
 1.6.4.4
 
