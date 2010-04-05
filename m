@@ -1,43 +1,158 @@
-From: Nick Hilliard <nick@inex.ie>
-Subject: Re: [PATCH 1/3] IPv6: Generic TTL Security Mechanism (original version)
-Date: Mon, 05 Apr 2010 20:06:17 +0100
-Message-ID: <4BBA34A9.6080802@inex.ie>
-References: <20100403232103.923025940@vyatta.com> <20100403232922.489187907@vyatta.com> <4BB96B9A.3000203@linux-ipv6.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 15681] New: X25 fails to negotiate connection
+ with Cisco router due to bad value for X25_DEFAULT_THROUGHPUT
+Date: Mon, 5 Apr 2010 12:37:48 -0700
+Message-ID: <20100405123748.2e338f69.akpm@linux-foundation.org>
+References: <bug-15681-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, davem@davemloft.net,
-	Pekka Savola <pekkas@netcore.fi>, netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Ralf Baechle <ralf@linux-mips.org>, netdev@vger.kernel.org
+To: john@calva.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.acquirer.com ([87.198.142.193]:49615 "EHLO
-	mail.acquirer.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756104Ab0DEThT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 15:37:19 -0400
-In-Reply-To: <4BB96B9A.3000203@linux-ipv6.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:34051 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756104Ab0DETil (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 15:38:41 -0400
+In-Reply-To: <bug-15681-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/04/2010 05:48, YOSHIFUJI Hideaki wrote:
-> I am for 1/3 (original), not for 2/3, 3/3.
->
-> Because we should allow users to set respective value
-> for IPv4 and IPv6, as we allow users to do so for TTL
-> and hoplimit itself.
 
-<non-linux-user>
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-I concur.  ipv4 mapped addresses need special handling in lots of cases, 
-and I don't believe that patch 2/3 adds anything here - except possibly 
-confusion.
+On Fri, 2 Apr 2010 14:48:17 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
-Regarding case 3/3, ipv4 and ipv6 are separate protocols.  Treating them 
-as the same from the setsockopt() point of view is a clear case of the 
-Wrong Thing.
+> https://bugzilla.kernel.org/show_bug.cgi?id=15681
+> 
+>            Summary: X25 fails to negotiate connection with Cisco router
+>                     due to bad value for X25_DEFAULT_THROUGHPUT
+>            Product: Networking
+>            Version: 2.5
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: acme@ghostprotocols.net
+>         ReportedBy: john@calva.com
+>         Regression: No
+> 
+> 
+> X.25 connection with a Cisco router fails because Linux X.25 tries to negotiate
+> an illegal value "0" for the inbound throughput.
+> 
+> This bug was first reported by Daniel Ferenci to the linux-x25 mailing list on
+> 6/8/2004, but is still present.
+> 
+> X25_DEFAULT_THROUGHPUT is defined as 0x0A, i.e. when the Linux system calls it
+> wants a throughput of at least 0xA (9600bps) outbound and at least 0x0
+> (Reserved value) inbound.
+> 
+> See X.25 (1988) section 7.2.2.2
 
-</non-linux-user>
+Thanks, but...  please don't send patches via bugzilla - it bypasses
+all our review and merge processes and tools.
 
-Case 1/3 is IMO a better approach.  It satisfies both KISS (keep it 
-simple...) and POLA (principle of least astonishment).
+I merged your patch as below and shall send it on to Ralf and David for
+review.
 
-Nick
+
+
+From: John Hughes <john@calva.com>
+
+The current (2.6.34) x.25 code doesn't seem to know that the X.25
+throughput facility includes two values, one for the required throughput
+outbound, one for inbound.
+
+This causes it to attempt to negotiate throughput 0x0A, which is
+throughput 9600 inbound and the illegal value "0" for inbound throughput.
+
+Because of this some X.25 devices (e.g.  Cisco 1600) refuse to connect to
+Linux X.25.
+
+The patch fixes this behaviour.  Unless the user specifies a required
+throughput it does not attempt to negotiate.  If the user does not specify
+a throughput it accepts the suggestion of the remote X.25 system.  If the
+user requests a throughput then it validates both the input and output
+throughputs and correctly negotiates them with the remote end.
+
+Signed-off-by: John Hughes <john@calva.com>
+Cc: Ralf Baechle <ralf@linux-mips.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ net/x25/af_x25.c         |   20 ++++++++++++++++----
+ net/x25/x25_facilities.c |   15 ++++++++++++---
+ 2 files changed, 28 insertions(+), 7 deletions(-)
+
+diff -puN net/x25/af_x25.c~a net/x25/af_x25.c
+--- a/net/x25/af_x25.c~a
++++ a/net/x25/af_x25.c
+@@ -554,7 +554,8 @@ static int x25_create(struct net *net, s
+ 	x25->facilities.winsize_out = X25_DEFAULT_WINDOW_SIZE;
+ 	x25->facilities.pacsize_in  = X25_DEFAULT_PACKET_SIZE;
+ 	x25->facilities.pacsize_out = X25_DEFAULT_PACKET_SIZE;
+-	x25->facilities.throughput  = X25_DEFAULT_THROUGHPUT;
++	x25->facilities.throughput  = 0;	/* by default don't negotiate
++						   throughput */
+ 	x25->facilities.reverse     = X25_DEFAULT_REVERSE;
+ 	x25->dte_facilities.calling_len = 0;
+ 	x25->dte_facilities.called_len = 0;
+@@ -1415,9 +1416,20 @@ static int x25_ioctl(struct socket *sock
+ 			if (facilities.winsize_in < 1 ||
+ 			    facilities.winsize_in > 127)
+ 				break;
+-			if (facilities.throughput < 0x03 ||
+-			    facilities.throughput > 0xDD)
+-				break;
++			if (facilities.throughput) {
++				int out = facilities.throughput & 0xf0;
++				int in  = facilities.throughput & 0x0f;
++				if (!out)
++					facilities.throughput |=
++						X25_DEFAULT_THROUGHPUT << 4;
++				else if (out < 0x30 || out > 0xD0)
++					break;
++				if (!in)
++					facilities.throughput |=
++						X25_DEFAULT_THROUGHPUT;
++				else if (in < 0x03 || in > 0x0D)
++					break;
++			}
+ 			if (facilities.reverse &&
+ 				(facilities.reverse & 0x81) != 0x81)
+ 				break;
+diff -puN net/x25/x25_facilities.c~a net/x25/x25_facilities.c
+--- a/net/x25/x25_facilities.c~a
++++ a/net/x25/x25_facilities.c
+@@ -259,9 +259,18 @@ int x25_negotiate_facilities(struct sk_b
+ 	new->reverse = theirs.reverse;
+ 
+ 	if (theirs.throughput) {
+-		if (theirs.throughput < ours->throughput) {
+-			SOCK_DEBUG(sk, "X.25: throughput negotiated down\n");
+-			new->throughput = theirs.throughput;
++		int theirs_in =  theirs.throughput & 0x0f;
++		int theirs_out = theirs.throughput & 0xf0;
++		int ours_in  = ours->throughput & 0x0f;
++		int ours_out = ours->throughput & 0xf0;
++		if (!ours_in || theirs_in < ours_in) {
++			SOCK_DEBUG(sk, "X.25: inbound throughput negotiated\n");
++			new->throughput = (new->throughput & 0xf0) | theirs_in;
++		}
++		if (!ours_out || theirs_out < ours_out) {
++			SOCK_DEBUG(sk,
++				"X.25: outbound throughput negotiated\n");
++			new->throughput = (new->throughput & 0x0f) | theirs_out;
+ 		}
+ 	}
+ 
+_
+
