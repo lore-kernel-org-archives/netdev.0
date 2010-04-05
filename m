@@ -1,56 +1,65 @@
-From: John Linn <John.Linn@xilinx.com>
-Subject: RE: [PATCH] [V2] Add non-Virtex5 support for LL TEMAC driver
-Date: Mon, 5 Apr 2010 13:52:04 -0600
-Message-ID: <660bba19-87fe-454e-a780-ca30bda6b723@SG2EHSMHS006.ehs.local>
-References: <bda26c8d-00b2-411d-b4b7-ad6954b9049e@SG2EHSMHS005.ehs.local><fa686aa41003171302v46738069pae51061ba83d0818@mail.gmail.com><q2xfa686aa41004051110hc960e9a0sd1d5e61f7e2a5412@mail.gmail.com> <20100405.121647.91426186.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 15683] New: XFRM IS NOT UPDATING ETH TYPE
+ FIELD FOR INNER PACKET ON ETH
+Date: Mon, 5 Apr 2010 12:53:42 -0700
+Message-ID: <20100405125342.bea34bc1.akpm@linux-foundation.org>
+References: <bug-15683-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
-	<jwboyer@linux.vnet.ibm.com>, <john.williams@petalogix.com>,
-	<michal.simek@petalogix.com>, <jtyner@cs.ucr.edu>
-To: "David Miller" <davem@davemloft.net>, <grant.likely@secretlab.ca>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, jamal <hadi@cyberus.ca>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sg2ehsobe005.messaging.microsoft.com ([207.46.51.79]:26915 "EHLO
-	SG2EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756353Ab0DETxP convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Apr 2010 15:53:15 -0400
-Content-Class: urn:content-classes:message
-In-Reply-To: <20100405.121647.91426186.davem@davemloft.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:44084 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756096Ab0DETyp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 15:54:45 -0400
+In-Reply-To: <bug-15683-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Monday, April 05, 2010 1:17 PM
-> To: grant.likely@secretlab.ca
-> Cc: netdev@vger.kernel.org; linuxppc-dev@ozlabs.org;
-jwboyer@linux.vnet.ibm.com;
-> john.williams@petalogix.com; michal.simek@petalogix.com;
-jtyner@cs.ucr.edu; John Linn
-> Subject: Re: [PATCH] [V2] Add non-Virtex5 support for LL TEMAC driver
+
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Fri, 2 Apr 2010 18:17:07 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
+
+> https://bugzilla.kernel.org/show_bug.cgi?id=15683
 > 
-> From: Grant Likely <grant.likely@secretlab.ca>
-> Date: Mon, 5 Apr 2010 12:10:51 -0600
+>            Summary: XFRM IS NOT UPDATING ETH TYPE FIELD FOR INNER PACKET
+>                     ON ETH
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.28-2
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: acme@ghostprotocols.net
+>         ReportedBy: eduardo.panisset@gmail.com
+>         Regression: No
 > 
-> > David, are you going to pick up this patch, or would you like me to?
 > 
-> The submitter, when asked, stated that he couldn't even get
-> the driver to build on microblaze against mainline.
+> Before doing this change wireshark was showing the inner packet as
+> "malformed" as it uses the ethernet's type field to classify the L3
+> packets as IPv6, IPv4 and so on.
+> The problem is when the inner packet is reinserted into Linux stack
+> and the ethernet header keeps holding on its type field a value for
+> the protocol of outer packet.
 > 
-> So I marked the patch "changed requested" because being able
-> to build is... you know... sort of a requirement for integration.
-
-More changes made it into the MicroBlaze mainline and it looks like I
-need to respin the patch again as there are some minor changes on the
-top of the tree.
-
-It built and ran fine on PowerPc, but not MicroBlaze. I'll check now.
-
-Thanks,
-John
-
-This email and any attachments are intended for the sole use of the named recipient(s) and contain(s) confidential information that may be proprietary, privileged or copyrighted under applicable law. If you are not the intended recipient, do not read, copy, or forward this email message or any attachments. Delete this email message and any attachments immediately.
-
+> Below my correction on file net/xfrm/xfrm_input.c, function xfrm_prepare_input:
+> 
+> ...
+> 
+> skb->protocol = inner_mode->afinfo->eth_proto; // existing code
+> eth_hdr(skb)->h_proto = skb->protocol; // my change, adding this line
+> 
+> ...
+> 
 
