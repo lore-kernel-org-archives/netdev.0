@@ -1,37 +1,46 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 1/3] IPv6: Generic TTL Security Mechanism (original version)
-Date: Mon, 05 Apr 2010 13:48:26 +0900
-Message-ID: <4BB96B9A.3000203@linux-ipv6.org>
-References: <20100403232103.923025940@vyatta.com> <20100403232922.489187907@vyatta.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Pekka Savola <pekkas@netcore.fi>,
-	Nick Hilliard <nick@inex.ie>, netdev@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] mac80211: Ensure initializing private mc_list in prepare_multicast().
+Date: Mon, 5 Apr 2010 12:59:30 +0900
+Message-ID: <201004050457.o354v6ec008492@94.43.138.210.xn.2iij.net>
+Cc: jpirko@redhat.com, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:32879 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750732Ab0DEEsv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 00:48:51 -0400
-In-Reply-To: <20100403232922.489187907@vyatta.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:59830 "EHLO
+	94.43.138.210.xn.2iij.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750732Ab0DEE53 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 00:57:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Fix kernel panic by NULL pointer dereference in the context of
+ieee80211_ops->prepare_multicast().
 
-(2010/04/04 8:21), Stephen Hemminger wrote:
-> The original proposed code; the IPV6 and IPV4 socket options are seperate.
-> With this method, the server does have to deal with both IPv4 and IPv6
-> socket options and the client has to handle the different for each
-> family.
+This bug was introduced by commit 22bedad3c.. ("net: convert
+multicast list to list_head").
 
-I am for 1/3 (original), not for 2/3, 3/3.
+Call __hw_addr_init() in ieee80211_alloc_hw() to initialize
+list_head of private device multicast list, like we do in
+bond_init().
 
-Because we should allow users to set respective value
-for IPv4 and IPv6, as we allow users to do so for TTL
-and hoplimit itself.
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/mac80211/main.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
---yoshfuji
+diff --git a/net/mac80211/main.c b/net/mac80211/main.c
+index 84ad249..0b82cd2 100644
+--- a/net/mac80211/main.c
++++ b/net/mac80211/main.c
+@@ -388,6 +388,9 @@ struct ieee80211_hw *ieee80211_alloc_hw(size_t priv_data_len,
+ 	local->uapsd_max_sp_len = IEEE80211_DEFAULT_MAX_SP_LEN;
+ 
+ 	INIT_LIST_HEAD(&local->interfaces);
++
++	__hw_addr_init(&local->mc_list);
++
+ 	mutex_init(&local->iflist_mtx);
+ 	mutex_init(&local->scan_mtx);
+ 
+-- 
+1.5.6.5
 
