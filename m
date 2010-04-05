@@ -1,48 +1,53 @@
-From: =?UTF-8?B?IkwuIEFsYmVydG8gR2ltw6luZXoi?= <agimenez-lqZFv/KUvpAxAGwisGp4zA@public.gmane.org>
-Subject: Re: [PATCHv3] drivers/net/usb: Add new driver ipheth
-Date: Mon, 05 Apr 2010 20:51:23 +0200
-Message-ID: <4BBA312B.2030100@sysvalve.es>
-References: <1269984864-28159-1-git-send-email-agimenez@sysvalve.es> <201003312233.26130.oliver@neukum.org> <4BB63619.6070607@sysvalve.es> <201004040924.43949.oliver@neukum.org>
+From: Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Subject: Re: tulip_stop_rxtx() failed (CSR5 0xf0260000 CSR6 0xb3862002) on
+ DEC Alpha Personal Workstation 433au
+Date: Mon, 5 Apr 2010 20:59:02 +0200
+Message-ID: <20100405185902.GA22607@physik.fu-berlin.de>
+References: <20100405171318.GA18915@physik.fu-berlin.de>
+ <1270488982.31062.28.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org, steve.glendinning-sdUf+H5yV5I@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org, dgiagio-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	dborca-/E1597aS9LQAvxtiuMwx3w@public.gmane.org
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201004040924.43949.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	Kyle McMartin <kyle@mcmartin.ca>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outpost1.zedat.fu-berlin.de ([130.133.4.66]:34683 "EHLO
+	outpost1.zedat.fu-berlin.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755879Ab0DES7H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 14:59:07 -0400
+Content-Disposition: inline
+In-Reply-To: <1270488982.31062.28.camel@Joe-Laptop.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/04/2010 09:24 AM, Oliver Neukum wrote:
-> Am Freitag, 2. April 2010 20:23:21 schrieb L. Alberto Gim=C3=A9nez:
->> On 03/31/2010 10:33 PM, Oliver Neukum wrote:
->>> Am Mittwoch, 31. M=C3=A4rz 2010 21:42:07 schrieb L. Alberto Gim=C3=A9=
-nez:
->>>> +static struct usb_driver ipheth_driver =3D {
->>>> +	.name =3D		"ipheth",
->>>> +	.probe =3D	ipheth_probe,
->>>> +	.disconnect =3D	ipheth_disconnect,
->>>> +	.id_table =3D	ipheth_table,
->>>> +	.supports_autosuspend =3D 0,
->>> redundant
->> Why?
->=20
-> 0 is the default.
+Hi Joe,
 
-Heh, I thought that you meant that the whole struct was redundant, and
-that puzzled me a little bit. Now everything is clear (my fault for not
-realizing the redundant initialization to 0).
+On Mon, Apr 05, 2010 at 10:36:22AM -0700, Joe Perches wrote:
+> On Mon, 2010-04-05 at 19:13 +0200, Adrian Glaubitz wrote:
+> > Hi guys,
+> > 
+> > I installed Debian unstable on an old digital workstation "DEC Digital
+> > Personal Workstation 433au" (Miata) which has an on-board tulip
+> > network controller. I'm not really using that network controller but
+> > an off-board intel e1000 controller. However, I found that the tulip
+> > driver produces a lot of noise in the message log, the following
+> > message is repated periodically and spams the whole message log:
+> > 
+> > 0000:00:03.0: tulip_stop_rxtx() failed (CSR5 0xf0260000 CSR6 0xb3862002)
+> > 
+> > Do you think this is related to the fact that no cable is connected to
+> > the network controller?
+> 
+> Probably something is trying periodically to open the device.
+> Maybe this helps reduce the message log noise:
 
-Regards,
---=20
-L. Alberto Gim=C3=A9nez
-JabberID agimenez-eu7EghD4TOHJ13y34KW5H97lo5+wdyHW@public.gmane.org
-GnuPG key ID 0x3BAABDE1
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks for the patch. I will apply it to a current rc of 2.6.34 and
+build a new kernel, probably not before tomorrow as I cannot reboot
+the Alpha remotely as the "aboot" boot loader does not boot
+automatically.
+
+Thanks,
+
+Adrian
