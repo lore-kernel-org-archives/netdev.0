@@ -1,44 +1,78 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH 1/4] flow: virtualize flow cache entry methods
-Date: Mon, 05 Apr 2010 11:53:07 +0300
-Message-ID: <4BB9A4F3.9050003@iki.fi>
-References: <1270450824-2928-1-git-send-email-timo.teras@iki.fi> <1270450824-2928-2-git-send-email-timo.teras@iki.fi> <20100405083302.GA16636@gondor.apana.org.au> <4BB9A113.30601@iki.fi> <20100405084422.GB16788@gondor.apana.org.au> <20100405084902.GA16912@gondor.apana.org.au>
+From: Sathya Perla <sathyap@serverengines.com>
+Subject: Re: [PATCH 1/2] benet: use the dma state API instead of the pci
+ equivalents
+Date: Mon, 5 Apr 2010 14:34:57 +0530
+Message-ID: <20100405090457.GA2541@serverengines.com>
+References: <1270176803-8561-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+Reply-To: Sathya Perla <sathyap@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: sathyap@serverengines.com, subbus@serverengines.com,
+	sarveshwarb@serverengines.com, ajitk@serverengines.com,
+	netdev@vger.kernel.org
+To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f220.google.com ([209.85.219.220]:38445 "EHLO
-	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750954Ab0DEIxK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 04:53:10 -0400
-Received: by ewy20 with SMTP id 20so992259ewy.1
-        for <netdev@vger.kernel.org>; Mon, 05 Apr 2010 01:53:09 -0700 (PDT)
-In-Reply-To: <20100405084902.GA16912@gondor.apana.org.au>
+Received: from segment-124-30.sify.net ([124.30.166.146]:58559 "EHLO
+	sperla-laptop.localdomain" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751025Ab0DEJF1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 05:05:27 -0400
+Content-Disposition: inline
+In-Reply-To: <1270176803-8561-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Mon, Apr 05, 2010 at 04:44:22PM +0800, Herbert Xu wrote:
->>> It might actually make more sense to pass struct flow_cache_object**
->>> so the resolver can twiddle the flow_cache_entry's object. Then it'd
->>> be more explicit that the resolver is replacing entries.
->> Yes that sounds good.
-> 
-> Alternatively you can pass in a struct flow_cache_entry *.
-> 
-> Yet another way would be to keep it the same but move the NULL
-> setting before the resolver call:
-> 
-> 	flo = NULL;
-> 	if (fle) {
-> 		flo = fle->object;
-> 		fle->object = NULL;
-> 	}
-> 	flo = resolver(..., flo, ...);
-> 
-> This way it's obvious that we've given the reference over to
-> the resolver.
+Thanks.
 
-Right. I'm fine either way. Is there any preference?
+Acked-by: Sathya Perla <sathyap@serverengines.com>
+
+On 02/04/10 11:53 +0900, FUJITA Tomonori wrote:
+> The DMA API is preferred.
+> 
+> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+> ---
+>  drivers/net/benet/be.h      |    2 +-
+>  drivers/net/benet/be_main.c |    4 ++--
+>  2 files changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+> index 8f07525..bddae08 100644
+> --- a/drivers/net/benet/be.h
+> +++ b/drivers/net/benet/be.h
+> @@ -206,7 +206,7 @@ struct be_tx_obj {
+>  /* Struct to remember the pages posted for rx frags */
+>  struct be_rx_page_info {
+>  	struct page *page;
+> -	dma_addr_t bus;
+> +	DEFINE_DMA_UNMAP_ADDR(bus);
+>  	u16 page_offset;
+>  	bool last_page_user;
+>  };
+> diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+> index 17282df..8d5e27b 100644
+> --- a/drivers/net/benet/be_main.c
+> +++ b/drivers/net/benet/be_main.c
+> @@ -682,7 +682,7 @@ get_rx_page_info(struct be_adapter *adapter, u16 frag_idx)
+>  	BUG_ON(!rx_page_info->page);
+>  
+>  	if (rx_page_info->last_page_user) {
+> -		pci_unmap_page(adapter->pdev, pci_unmap_addr(rx_page_info, bus),
+> +		pci_unmap_page(adapter->pdev, dma_unmap_addr(rx_page_info, bus),
+>  			adapter->big_page_size, PCI_DMA_FROMDEVICE);
+>  		rx_page_info->last_page_user = false;
+>  	}
+> @@ -993,7 +993,7 @@ static void be_post_rx_frags(struct be_adapter *adapter)
+>  		}
+>  		page_offset = page_info->page_offset;
+>  		page_info->page = pagep;
+> -		pci_unmap_addr_set(page_info, bus, page_dmaaddr);
+> +		dma_unmap_addr_set(page_info, bus, page_dmaaddr);
+>  		frag_dmaaddr = page_dmaaddr + page_info->page_offset;
+>  
+>  		rxd = queue_head_node(rxq);
+> -- 
+> 1.7.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
