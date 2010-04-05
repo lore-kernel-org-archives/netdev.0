@@ -1,41 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 11/11] drivers/uwb: Rename dev_info to wdi
-Date: Mon, 05 Apr 2010 14:51:44 -0700 (PDT)
-Message-ID: <20100405.145144.207421561.davem@davemloft.net>
-References: <20100304232928.2e45bdd1.akpm@linux-foundation.org>
-	<6bd4d4dacf32631b72c3827a3b133a26e2e8b889.1270493677.git.joe@perches.com>
-	<1270503858.31062.43.camel@Joe-Laptop.home>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] rps: fixed missed rps_unlock
+Date: Tue, 6 Apr 2010 06:23:57 +0800
+Message-ID: <z2m412e6f7f1004051523p6198556ak3e2ab9a52a3167d4@mail.gmail.com>
+References: <alpine.DEB.1.00.1004051426140.22393@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, david.vrabel@csr.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59598
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756439Ab0DEVvm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 17:51:42 -0400
-In-Reply-To: <1270503858.31062.43.camel@Joe-Laptop.home>
+Received: from mail-yx0-f191.google.com ([209.85.210.191]:39137 "EHLO
+	mail-yx0-f191.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756439Ab0DEWYS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 18:24:18 -0400
+Received: by yxe29 with SMTP id 29so2310000yxe.4
+        for <netdev@vger.kernel.org>; Mon, 05 Apr 2010 15:24:18 -0700 (PDT)
+In-Reply-To: <alpine.DEB.1.00.1004051426140.22393@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Mon, 05 Apr 2010 14:44:18 -0700
+On Tue, Apr 6, 2010 at 5:30 AM, Tom Herbert <therbert@google.com> wrote=
+:
+> Fix spin_unlock_irq which needs to be rps_unlock.
+>
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 2a9b7dd..74f77ca 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -3120,7 +3120,7 @@ static int process_backlog(struct napi_struct *=
+napi, int quota)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0skb =3D __skb_=
+dequeue(&queue->input_pkt_queue);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!skb) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0__napi_complete(napi);
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 spin_unlock_irq(&queue->input_pkt_queue.lock);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 rps_unlock(queue);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0break;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0rps_unlock(que=
+ue);
 
-> On Mon, 2010-04-05 at 12:05 -0700, Joe Perches wrote:
->> There is a macro called dev_info that prints struct device specific
->> information.  Having variables with the same name can be confusing and
->> prevents conversion of the macro to a function.
->> 
->> Rename the existing dev_info variables to something else in preparation
->> to converting the dev_info macro to a function.
-> 
-> http://patchwork.ozlabs.org/patch/49421/
-> 
-> This marked as RFC in patchwork.
-> It's not intended to be.
+It seems that irq isn't enabled when breaking the loop. Please add
+   local_irq_enable();
+after rps_unlock(queue);
 
-Because I can't apply the entire set, I'd like someone else
-to take this in since it's not really a networking specific
-patch.
+
+
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
