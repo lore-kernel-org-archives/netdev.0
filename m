@@ -1,38 +1,36 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH] rps: fixed missed rps_unlock
-Date: Mon, 5 Apr 2010 14:40:23 -0700
-Message-ID: <t2z65634d661004051440p8b39275w99ce9101b30090d0@mail.gmail.com>
-References: <alpine.DEB.1.00.1004051426140.22393@pokey.mtv.corp.google.com>
-	 <1270503358.9013.38.camel@edumazet-laptop>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 11/11] drivers/uwb: Rename dev_info to wdi
+Date: Mon, 05 Apr 2010 14:44:18 -0700
+Message-ID: <1270503858.31062.43.camel@Joe-Laptop.home>
+References: <20100304232928.2e45bdd1.akpm@linux-foundation.org>
+	 <6bd4d4dacf32631b72c3827a3b133a26e2e8b889.1270493677.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Vrabel <david.vrabel@csr.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:13097 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756439Ab0DEVk1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 17:40:27 -0400
-Received: from kpbe17.cbf.corp.google.com (kpbe17.cbf.corp.google.com [172.25.105.81])
-	by smtp-out.google.com with ESMTP id o35LePQt015453
-	for <netdev@vger.kernel.org>; Mon, 5 Apr 2010 23:40:25 +0200
-Received: from pwi2 (pwi2.prod.google.com [10.241.219.2])
-	by kpbe17.cbf.corp.google.com with ESMTP id o35LeNUq031316
-	for <netdev@vger.kernel.org>; Mon, 5 Apr 2010 14:40:24 -0700
-Received: by pwi2 with SMTP id 2so3989920pwi.0
-        for <netdev@vger.kernel.org>; Mon, 05 Apr 2010 14:40:23 -0700 (PDT)
-In-Reply-To: <1270503358.9013.38.camel@edumazet-laptop>
+Received: from mail.perches.com ([173.55.12.10]:1400 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756407Ab0DEVoU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Apr 2010 17:44:20 -0400
+In-Reply-To: <6bd4d4dacf32631b72c3827a3b133a26e2e8b889.1270493677.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
--
->
-> Yes, and rps_lock()/rps_unlock() are not well chosen either, but no
-> clever names come to my mind right now.
->
-input_queue_lock/input_queue_unlock ?
+On Mon, 2010-04-05 at 12:05 -0700, Joe Perches wrote:
+> There is a macro called dev_info that prints struct device specific
+> information.  Having variables with the same name can be confusing and
+> prevents conversion of the macro to a function.
+> 
+> Rename the existing dev_info variables to something else in preparation
+> to converting the dev_info macro to a function.
 
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
->
->
->
+http://patchwork.ozlabs.org/patch/49421/
+
+This marked as RFC in patchwork.
+It's not intended to be.
+
+
