@@ -1,39 +1,58 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH 1/4] flow: virtualize flow cache entry methods
-Date: Mon, 05 Apr 2010 11:36:35 +0300
-Message-ID: <4BB9A113.30601@iki.fi>
-References: <1270450824-2928-1-git-send-email-timo.teras@iki.fi> <1270450824-2928-2-git-send-email-timo.teras@iki.fi> <20100405083302.GA16636@gondor.apana.org.au>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Subject: Re: [PATCH 2/2] benet: fix the misusage of zero dma address
+Date: Mon, 5 Apr 2010 17:38:40 +0900
+Message-ID: <20100405173724G.fujita.tomonori@lab.ntt.co.jp>
+References: <20100405071059.GA32671@serverengines.com>
+	<20100405163942P.fujita.tomonori@lab.ntt.co.jp>
+	<20100405082202.GB32671@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: fujita.tomonori@lab.ntt.co.jp, subbus@serverengines.com,
+	sarveshwarb@serverengines.com, ajitk@serverengines.com,
+	netdev@vger.kernel.org
+To: sathyap@serverengines.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f220.google.com ([209.85.219.220]:48190 "EHLO
-	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750930Ab0DEIgj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 04:36:39 -0400
-Received: by ewy20 with SMTP id 20so990290ewy.1
-        for <netdev@vger.kernel.org>; Mon, 05 Apr 2010 01:36:37 -0700 (PDT)
-In-Reply-To: <20100405083302.GA16636@gondor.apana.org.au>
+Received: from sh.osrg.net ([192.16.179.4]:47724 "EHLO sh.osrg.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751145Ab0DEIip (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Apr 2010 04:38:45 -0400
+In-Reply-To: <20100405082202.GB32671@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Mon, Apr 05, 2010 at 10:00:21AM +0300, Timo Teras wrote:
->> @@ -219,33 +222,32 @@ void *flow_cache_lookup(struct net *net, struct flowi *key, u16 family, u8 dir,
->> +	flo = resolver(net, key, family, dir, fle ? fle->object : NULL, ctx);
->> +	if (fle) {
->> +		fle->genid = atomic_read(&flow_cache_genid);
->> +		if (IS_ERR(flo)) {
->> +			fle->genid--;
->> +			fle->object = NULL;
+On Mon, 5 Apr 2010 13:52:02 +0530
+Sathya Perla <sathyap@serverengines.com> wrote:
+
+> On 05/04/10 16:40 +0900, FUJITA Tomonori wrote:
+> > > > +		wrb->frag_len = 0;
+> > > Why does wrb->frag_len need to be reset here?
+> > > In the TX path, it is set to the proper value for data wrbs and zero
+> > > for dummy and hdr wrbs.
+> > 
+> > I guess that I misunderstood why unmap_tx_frag() checks a dma address.
+> > The checking is necessary to avoid calling pci_unamp_* API for dummy
+> > hdr wrbs?
+> Yes.
+> > 
+> > Anyway, if wrb->frag_len doesn't need to be reset here, the following
+> > patch is ok?
+> Yes. Thanks.
 > 
-> Shouldn't we call fle->object->ops->delete here?
+> Acked-by: Sathya Perla <sathyap@serverengines.com>
 
-The resolver function releases the old object.
+Thanks!
 
-It might actually make more sense to pass struct flow_cache_object**
-so the resolver can twiddle the flow_cache_entry's object. Then it'd
-be more explicit that the resolver is replacing entries.
+Can I also get your ack on "[PATCH 1/2] benet: use the dma state API
+instead of the pci equivalents"?
 
+http://patchwork.ozlabs.org/patch/49265/
+
+
+The reason why I want to replace the PCI DMA state API is:
+
+http://marc.info/?l=linux-netdev&m=127037540020276&w=2
+
+Note that I use DEFINE_DMA_UNMAP_ADDR for bus in struct
+be_rx_page_info because dma_unmap_addr and DEFINE_DMA_UNMAP_ADDR are
+supposed to be used together.
