@@ -1,285 +1,347 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 11/12] tg3: Remove tg3_dump_state()
-Date: Mon, 5 Apr 2010 13:19:29 -0700
-Message-ID: <1270498770-23765-12-git-send-email-mcarlson@broadcom.com>
+From: John Linn <john.linn@xilinx.com>
+Subject: [PATCH] [V3] Add non-Virtex5 support for LL TEMAC driver
+Date: Mon, 5 Apr 2010 15:11:33 -0600
+Message-ID: <d9134316-bd07-46a8-91d4-c30f27baeb60@SG2EHSMHS007.ehs.local>
 Mime-Version: 1.0
 Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
-To: davem@davemloft.net
+Cc: john.williams@petalogix.com, michal.simek@petalogix.com,
+	John Linn <john.linn@xilinx.com>,
+	John Tyner <jtyner@cs.ucr.edu>
+To: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	grant.likely@secretlab.ca, jwboyer@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2378 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756512Ab0DEUTs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Apr 2010 16:19:48 -0400
+Received: from sg2ehsobe005.messaging.microsoft.com ([207.46.51.79]:28240 "EHLO
+	SG2EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756412Ab0DEVMT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 17:12:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The tg3_dump_state() function is commented out and doesn't get used much
-when debugging efforts are underway.  The chip architecture has also
-changed enough that any debugging effort that might use it would have to
-tailor it to the capabilities of the hardware.  This patch just removes
-the function entirely.
+This patch adds support for using the LL TEMAC Ethernet driver on
+non-Virtex 5 platforms by adding support for accessing the Soft DMA
+registers as if they were memory mapped instead of solely through the
+DCR's (available on the Virtex 5).
 
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Reviewed-by: Michael Chan <mchan@broadcom.com>
-Reviewed-by: Benjamin Li <benli@broadcom.com>
+The patch also updates the driver so that it runs on the MicroBlaze.
+The changes were tested on the PowerPC 440, PowerPC 405, and the
+MicroBlaze platforms.
+
+Signed-off-by: John Tyner <jtyner@cs.ucr.edu>
+Signed-off-by: John Linn <john.linn@xilinx.com>
+
 ---
- drivers/net/tg3.c |  233 -----------------------------------------------------
- 1 files changed, 0 insertions(+), 233 deletions(-)
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 47dea55..af14bcc 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -8925,236 +8925,6 @@ err_out1:
- 	return err;
+V2 - Incorporated comments from Grant and added more logic to allow the driver
+to work on MicroBlaze.
+
+V3 - Only updated it to apply to head, minor change to include slab.h. Also
+verified that it now builds for MicroBlaze. Retested on PowerPC and MicroBlaze.
+---
+ drivers/net/Kconfig         |    1 -
+ drivers/net/ll_temac.h      |   17 +++++-
+ drivers/net/ll_temac_main.c |  124 ++++++++++++++++++++++++++++++++++---------
+ 3 files changed, 113 insertions(+), 29 deletions(-)
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 0ba5b8e..17044dc 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2435,7 +2435,6 @@ config MV643XX_ETH
+ config XILINX_LL_TEMAC
+ 	tristate "Xilinx LL TEMAC (LocalLink Tri-mode Ethernet MAC) driver"
+ 	select PHYLIB
+-	depends on PPC_DCR_NATIVE
+ 	help
+ 	  This driver supports the Xilinx 10/100/1000 LocalLink TEMAC
+ 	  core used in Xilinx Spartan and Virtex FPGAs
+diff --git a/drivers/net/ll_temac.h b/drivers/net/ll_temac.h
+index 1af66a1..915aa34 100644
+--- a/drivers/net/ll_temac.h
++++ b/drivers/net/ll_temac.h
+@@ -5,8 +5,11 @@
+ #include <linux/netdevice.h>
+ #include <linux/of.h>
+ #include <linux/spinlock.h>
++
++#ifdef CONFIG_PPC_DCR
+ #include <asm/dcr.h>
+ #include <asm/dcr-regs.h>
++#endif
+ 
+ /* packet size info */
+ #define XTE_HDR_SIZE			14      /* size of Ethernet header */
+@@ -290,8 +293,12 @@ This option defaults to enabled (set) */
+ 
+ #define TX_CONTROL_CALC_CSUM_MASK   1
+ 
++/* Align the IP data in the packet on word boundaries as MicroBlaze
++ * needs it.
++ */
++
+ #define XTE_ALIGN       32
+-#define BUFFER_ALIGN(adr) ((XTE_ALIGN - ((u32) adr)) % XTE_ALIGN)
++#define BUFFER_ALIGN(adr) ((34 - ((u32) adr)) % XTE_ALIGN)
+ 
+ #define MULTICAST_CAM_TABLE_NUM 4
+ 
+@@ -335,9 +342,15 @@ struct temac_local {
+ 	struct mii_bus *mii_bus;	/* MII bus reference */
+ 	int mdio_irqs[PHY_MAX_ADDR];	/* IRQs table for MDIO bus */
+ 
+-	/* IO registers and IRQs */
++	/* IO registers, dma functions and IRQs */
+ 	void __iomem *regs;
++	void __iomem *sdma_regs;
++#ifdef CONFIG_PPC_DCR
+ 	dcr_host_t sdma_dcrs;
++#endif
++	u32 (*dma_in)(struct temac_local *, int);
++	void (*dma_out)(struct temac_local *, int, u32);
++
+ 	int tx_irq;
+ 	int rx_irq;
+ 	int emac_num;
+diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
+index ba617e3..801b076 100644
+--- a/drivers/net/ll_temac_main.c
++++ b/drivers/net/ll_temac_main.c
+@@ -20,9 +20,6 @@
+  *   or rx, so this should be okay.
+  *
+  * TODO:
+- * - Fix driver to work on more than just Virtex5.  Right now the driver
+- *   assumes that the locallink DMA registers are accessed via DCR
+- *   instructions.
+  * - Factor out locallink DMA code into separate driver
+  * - Fix multicast assignment.
+  * - Fix support for hardware checksumming.
+@@ -116,17 +113,86 @@ void temac_indirect_out32(struct temac_local *lp, int reg, u32 value)
+ 	temac_iow(lp, XTE_CTL0_OFFSET, CNTLREG_WRITE_ENABLE_MASK | reg);
  }
  
--#if 0
--/*static*/ void tg3_dump_state(struct tg3 *tp)
--{
--	u32 val32, val32_2, val32_3, val32_4, val32_5;
--	u16 val16;
--	int i;
--	struct tg3_hw_status *sblk = tp->napi[0]->hw_status;
--
--	pci_read_config_word(tp->pdev, PCI_STATUS, &val16);
--	pci_read_config_dword(tp->pdev, TG3PCI_PCISTATE, &val32);
--	printk("DEBUG: PCI status [%04x] TG3PCI state[%08x]\n",
--	       val16, val32);
--
--	/* MAC block */
--	printk("DEBUG: MAC_MODE[%08x] MAC_STATUS[%08x]\n",
--	       tr32(MAC_MODE), tr32(MAC_STATUS));
--	printk("       MAC_EVENT[%08x] MAC_LED_CTRL[%08x]\n",
--	       tr32(MAC_EVENT), tr32(MAC_LED_CTRL));
--	printk("DEBUG: MAC_TX_MODE[%08x] MAC_TX_STATUS[%08x]\n",
--	       tr32(MAC_TX_MODE), tr32(MAC_TX_STATUS));
--	printk("       MAC_RX_MODE[%08x] MAC_RX_STATUS[%08x]\n",
--	       tr32(MAC_RX_MODE), tr32(MAC_RX_STATUS));
--
--	/* Send data initiator control block */
--	printk("DEBUG: SNDDATAI_MODE[%08x] SNDDATAI_STATUS[%08x]\n",
--	       tr32(SNDDATAI_MODE), tr32(SNDDATAI_STATUS));
--	printk("       SNDDATAI_STATSCTRL[%08x]\n",
--	       tr32(SNDDATAI_STATSCTRL));
--
--	/* Send data completion control block */
--	printk("DEBUG: SNDDATAC_MODE[%08x]\n", tr32(SNDDATAC_MODE));
--
--	/* Send BD ring selector block */
--	printk("DEBUG: SNDBDS_MODE[%08x] SNDBDS_STATUS[%08x]\n",
--	       tr32(SNDBDS_MODE), tr32(SNDBDS_STATUS));
--
--	/* Send BD initiator control block */
--	printk("DEBUG: SNDBDI_MODE[%08x] SNDBDI_STATUS[%08x]\n",
--	       tr32(SNDBDI_MODE), tr32(SNDBDI_STATUS));
--
--	/* Send BD completion control block */
--	printk("DEBUG: SNDBDC_MODE[%08x]\n", tr32(SNDBDC_MODE));
--
--	/* Receive list placement control block */
--	printk("DEBUG: RCVLPC_MODE[%08x] RCVLPC_STATUS[%08x]\n",
--	       tr32(RCVLPC_MODE), tr32(RCVLPC_STATUS));
--	printk("       RCVLPC_STATSCTRL[%08x]\n",
--	       tr32(RCVLPC_STATSCTRL));
--
--	/* Receive data and receive BD initiator control block */
--	printk("DEBUG: RCVDBDI_MODE[%08x] RCVDBDI_STATUS[%08x]\n",
--	       tr32(RCVDBDI_MODE), tr32(RCVDBDI_STATUS));
--
--	/* Receive data completion control block */
--	printk("DEBUG: RCVDCC_MODE[%08x]\n",
--	       tr32(RCVDCC_MODE));
--
--	/* Receive BD initiator control block */
--	printk("DEBUG: RCVBDI_MODE[%08x] RCVBDI_STATUS[%08x]\n",
--	       tr32(RCVBDI_MODE), tr32(RCVBDI_STATUS));
--
--	/* Receive BD completion control block */
--	printk("DEBUG: RCVCC_MODE[%08x] RCVCC_STATUS[%08x]\n",
--	       tr32(RCVCC_MODE), tr32(RCVCC_STATUS));
--
--	/* Receive list selector control block */
--	printk("DEBUG: RCVLSC_MODE[%08x] RCVLSC_STATUS[%08x]\n",
--	       tr32(RCVLSC_MODE), tr32(RCVLSC_STATUS));
--
--	/* Mbuf cluster free block */
--	printk("DEBUG: MBFREE_MODE[%08x] MBFREE_STATUS[%08x]\n",
--	       tr32(MBFREE_MODE), tr32(MBFREE_STATUS));
--
--	/* Host coalescing control block */
--	printk("DEBUG: HOSTCC_MODE[%08x] HOSTCC_STATUS[%08x]\n",
--	       tr32(HOSTCC_MODE), tr32(HOSTCC_STATUS));
--	printk("DEBUG: HOSTCC_STATS_BLK_HOST_ADDR[%08x%08x]\n",
--	       tr32(HOSTCC_STATS_BLK_HOST_ADDR + TG3_64BIT_REG_HIGH),
--	       tr32(HOSTCC_STATS_BLK_HOST_ADDR + TG3_64BIT_REG_LOW));
--	printk("DEBUG: HOSTCC_STATUS_BLK_HOST_ADDR[%08x%08x]\n",
--	       tr32(HOSTCC_STATUS_BLK_HOST_ADDR + TG3_64BIT_REG_HIGH),
--	       tr32(HOSTCC_STATUS_BLK_HOST_ADDR + TG3_64BIT_REG_LOW));
--	printk("DEBUG: HOSTCC_STATS_BLK_NIC_ADDR[%08x]\n",
--	       tr32(HOSTCC_STATS_BLK_NIC_ADDR));
--	printk("DEBUG: HOSTCC_STATUS_BLK_NIC_ADDR[%08x]\n",
--	       tr32(HOSTCC_STATUS_BLK_NIC_ADDR));
--
--	/* Memory arbiter control block */
--	printk("DEBUG: MEMARB_MODE[%08x] MEMARB_STATUS[%08x]\n",
--	       tr32(MEMARB_MODE), tr32(MEMARB_STATUS));
--
--	/* Buffer manager control block */
--	printk("DEBUG: BUFMGR_MODE[%08x] BUFMGR_STATUS[%08x]\n",
--	       tr32(BUFMGR_MODE), tr32(BUFMGR_STATUS));
--	printk("DEBUG: BUFMGR_MB_POOL_ADDR[%08x] BUFMGR_MB_POOL_SIZE[%08x]\n",
--	       tr32(BUFMGR_MB_POOL_ADDR), tr32(BUFMGR_MB_POOL_SIZE));
--	printk("DEBUG: BUFMGR_DMA_DESC_POOL_ADDR[%08x] "
--	       "BUFMGR_DMA_DESC_POOL_SIZE[%08x]\n",
--	       tr32(BUFMGR_DMA_DESC_POOL_ADDR),
--	       tr32(BUFMGR_DMA_DESC_POOL_SIZE));
--
--	/* Read DMA control block */
--	printk("DEBUG: RDMAC_MODE[%08x] RDMAC_STATUS[%08x]\n",
--	       tr32(RDMAC_MODE), tr32(RDMAC_STATUS));
--
--	/* Write DMA control block */
--	printk("DEBUG: WDMAC_MODE[%08x] WDMAC_STATUS[%08x]\n",
--	       tr32(WDMAC_MODE), tr32(WDMAC_STATUS));
--
--	/* DMA completion block */
--	printk("DEBUG: DMAC_MODE[%08x]\n",
--	       tr32(DMAC_MODE));
--
--	/* GRC block */
--	printk("DEBUG: GRC_MODE[%08x] GRC_MISC_CFG[%08x]\n",
--	       tr32(GRC_MODE), tr32(GRC_MISC_CFG));
--	printk("DEBUG: GRC_LOCAL_CTRL[%08x]\n",
--	       tr32(GRC_LOCAL_CTRL));
--
--	/* TG3_BDINFOs */
--	printk("DEBUG: RCVDBDI_JUMBO_BD[%08x%08x:%08x:%08x]\n",
--	       tr32(RCVDBDI_JUMBO_BD + 0x0),
--	       tr32(RCVDBDI_JUMBO_BD + 0x4),
--	       tr32(RCVDBDI_JUMBO_BD + 0x8),
--	       tr32(RCVDBDI_JUMBO_BD + 0xc));
--	printk("DEBUG: RCVDBDI_STD_BD[%08x%08x:%08x:%08x]\n",
--	       tr32(RCVDBDI_STD_BD + 0x0),
--	       tr32(RCVDBDI_STD_BD + 0x4),
--	       tr32(RCVDBDI_STD_BD + 0x8),
--	       tr32(RCVDBDI_STD_BD + 0xc));
--	printk("DEBUG: RCVDBDI_MINI_BD[%08x%08x:%08x:%08x]\n",
--	       tr32(RCVDBDI_MINI_BD + 0x0),
--	       tr32(RCVDBDI_MINI_BD + 0x4),
--	       tr32(RCVDBDI_MINI_BD + 0x8),
--	       tr32(RCVDBDI_MINI_BD + 0xc));
--
--	tg3_read_mem(tp, NIC_SRAM_SEND_RCB + 0x0, &val32);
--	tg3_read_mem(tp, NIC_SRAM_SEND_RCB + 0x4, &val32_2);
--	tg3_read_mem(tp, NIC_SRAM_SEND_RCB + 0x8, &val32_3);
--	tg3_read_mem(tp, NIC_SRAM_SEND_RCB + 0xc, &val32_4);
--	printk("DEBUG: SRAM_SEND_RCB_0[%08x%08x:%08x:%08x]\n",
--	       val32, val32_2, val32_3, val32_4);
--
--	tg3_read_mem(tp, NIC_SRAM_RCV_RET_RCB + 0x0, &val32);
--	tg3_read_mem(tp, NIC_SRAM_RCV_RET_RCB + 0x4, &val32_2);
--	tg3_read_mem(tp, NIC_SRAM_RCV_RET_RCB + 0x8, &val32_3);
--	tg3_read_mem(tp, NIC_SRAM_RCV_RET_RCB + 0xc, &val32_4);
--	printk("DEBUG: SRAM_RCV_RET_RCB_0[%08x%08x:%08x:%08x]\n",
--	       val32, val32_2, val32_3, val32_4);
--
--	tg3_read_mem(tp, NIC_SRAM_STATUS_BLK + 0x0, &val32);
--	tg3_read_mem(tp, NIC_SRAM_STATUS_BLK + 0x4, &val32_2);
--	tg3_read_mem(tp, NIC_SRAM_STATUS_BLK + 0x8, &val32_3);
--	tg3_read_mem(tp, NIC_SRAM_STATUS_BLK + 0xc, &val32_4);
--	tg3_read_mem(tp, NIC_SRAM_STATUS_BLK + 0x10, &val32_5);
--	printk("DEBUG: SRAM_STATUS_BLK[%08x:%08x:%08x:%08x:%08x]\n",
--	       val32, val32_2, val32_3, val32_4, val32_5);
--
--	/* SW status block */
--	printk(KERN_DEBUG
--	 "Host status block [%08x:%08x:(%04x:%04x:%04x):(%04x:%04x)]\n",
--	       sblk->status,
--	       sblk->status_tag,
--	       sblk->rx_jumbo_consumer,
--	       sblk->rx_consumer,
--	       sblk->rx_mini_consumer,
--	       sblk->idx[0].rx_producer,
--	       sblk->idx[0].tx_consumer);
--
--	/* SW statistics block */
--	printk("DEBUG: Host statistics block [%08x:%08x:%08x:%08x]\n",
--	       ((u32 *)tp->hw_stats)[0],
--	       ((u32 *)tp->hw_stats)[1],
--	       ((u32 *)tp->hw_stats)[2],
--	       ((u32 *)tp->hw_stats)[3]);
--
--	/* Mailboxes */
--	printk("DEBUG: SNDHOST_PROD[%08x%08x] SNDNIC_PROD[%08x%08x]\n",
--	       tr32_mailbox(MAILBOX_SNDHOST_PROD_IDX_0 + 0x0),
--	       tr32_mailbox(MAILBOX_SNDHOST_PROD_IDX_0 + 0x4),
--	       tr32_mailbox(MAILBOX_SNDNIC_PROD_IDX_0 + 0x0),
--	       tr32_mailbox(MAILBOX_SNDNIC_PROD_IDX_0 + 0x4));
--
--	/* NIC side send descriptors. */
--	for (i = 0; i < 6; i++) {
--		unsigned long txd;
--
--		txd = tp->regs + NIC_SRAM_WIN_BASE + NIC_SRAM_TX_BUFFER_DESC
--			+ (i * sizeof(struct tg3_tx_buffer_desc));
--		printk("DEBUG: NIC TXD(%d)[%08x:%08x:%08x:%08x]\n",
--		       i,
--		       readl(txd + 0x0), readl(txd + 0x4),
--		       readl(txd + 0x8), readl(txd + 0xc));
--	}
--
--	/* NIC side RX descriptors. */
--	for (i = 0; i < 6; i++) {
--		unsigned long rxd;
--
--		rxd = tp->regs + NIC_SRAM_WIN_BASE + NIC_SRAM_RX_BUFFER_DESC
--			+ (i * sizeof(struct tg3_rx_buffer_desc));
--		printk("DEBUG: NIC RXD_STD(%d)[0][%08x:%08x:%08x:%08x]\n",
--		       i,
--		       readl(rxd + 0x0), readl(rxd + 0x4),
--		       readl(rxd + 0x8), readl(rxd + 0xc));
--		rxd += (4 * sizeof(u32));
--		printk("DEBUG: NIC RXD_STD(%d)[1][%08x:%08x:%08x:%08x]\n",
--		       i,
--		       readl(rxd + 0x0), readl(rxd + 0x4),
--		       readl(rxd + 0x8), readl(rxd + 0xc));
--	}
--
--	for (i = 0; i < 6; i++) {
--		unsigned long rxd;
--
--		rxd = tp->regs + NIC_SRAM_WIN_BASE + NIC_SRAM_RX_JUMBO_BUFFER_DESC
--			+ (i * sizeof(struct tg3_rx_buffer_desc));
--		printk("DEBUG: NIC RXD_JUMBO(%d)[0][%08x:%08x:%08x:%08x]\n",
--		       i,
--		       readl(rxd + 0x0), readl(rxd + 0x4),
--		       readl(rxd + 0x8), readl(rxd + 0xc));
--		rxd += (4 * sizeof(u32));
--		printk("DEBUG: NIC RXD_JUMBO(%d)[1][%08x:%08x:%08x:%08x]\n",
--		       i,
--		       readl(rxd + 0x0), readl(rxd + 0x4),
--		       readl(rxd + 0x8), readl(rxd + 0xc));
--	}
--}
--#endif
--
- static struct net_device_stats *tg3_get_stats(struct net_device *);
- static struct tg3_ethtool_stats *tg3_get_estats(struct tg3 *);
++/**
++ * temac_dma_in32 - Memory mapped DMA read, this function expects a
++ * register input that is based on DCR word addresses which
++ * are then converted to memory mapped byte addresses
++ */
+ static u32 temac_dma_in32(struct temac_local *lp, int reg)
+ {
+-	return dcr_read(lp->sdma_dcrs, reg);
++	return in_be32((u32 *)(lp->sdma_regs + (reg << 2)));
+ }
  
-@@ -9173,9 +8943,6 @@ static int tg3_close(struct net_device *dev)
- 	tg3_phy_stop(tp);
++/**
++ * temac_dma_out32 - Memory mapped DMA read, this function expects a
++ * register input that is based on DCR word addresses which
++ * are then converted to memory mapped byte addresses
++ */
+ static void temac_dma_out32(struct temac_local *lp, int reg, u32 value)
+ {
++	out_be32((u32 *)(lp->sdma_regs + (reg << 2)), value);
++}
++
++/* DMA register access functions can be DCR based or memory mapped.
++ * The PowerPC 440 is DCR based, the PowerPC 405 and MicroBlaze are both
++ * memory mapped.
++ */
++#ifdef CONFIG_PPC_DCR
++
++/**
++ * temac_dma_dcr_in32 - DCR based DMA read
++ */
++static u32 temac_dma_dcr_in(struct temac_local *lp, int reg)
++{
++	return dcr_read(lp->sdma_dcrs, reg);
++}
++
++/**
++ * temac_dma_dcr_out32 - DCR based DMA write
++ */
++static void temac_dma_dcr_out(struct temac_local *lp, int reg, u32 value)
++{
+ 	dcr_write(lp->sdma_dcrs, reg, value);
+ }
  
- 	tg3_full_lock(tp, 1);
--#if 0
--	tg3_dump_state(tp);
--#endif
+ /**
++ * temac_dcr_setup - If the DMA is DCR based, then setup the address and
++ * I/O  functions
++ */
++static int temac_dcr_setup(struct temac_local *lp, struct of_device *op,
++				struct device_node *np)
++{
++	unsigned int dcrs;
++
++	/* setup the dcr address mapping if it's in the device tree */
++
++	dcrs = dcr_resource_start(np, 0);
++	if (dcrs != 0) {
++		lp->sdma_dcrs = dcr_map(np, dcrs, dcr_resource_len(np, 0));
++		lp->dma_in = temac_dma_dcr_in;
++		lp->dma_out = temac_dma_dcr_out;
++		dev_dbg(&op->dev, "DCR base: %x\n", dcrs);
++		return 0;
++	}
++	/* no DCR in the device tree, indicate a failure */
++	return -1;
++}
++
++#else
++
++/*
++ * temac_dcr_setup - This is a stub for when DCR is not supported,
++ * such as with MicroBlaze
++ */
++static int temac_dcr_setup(struct temac_local *lp, struct of_device *op,
++				struct device_node *np)
++{
++	return -1;
++}
++
++#endif
++
++/**
+  * temac_dma_bd_init - Setup buffer descriptor rings
+  */
+ static int temac_dma_bd_init(struct net_device *ndev)
+@@ -173,23 +239,23 @@ static int temac_dma_bd_init(struct net_device *ndev)
+ 		lp->rx_bd_v[i].app0 = STS_CTRL_APP0_IRQONEND;
+ 	}
  
- 	tg3_disable_ints(tp);
+-	temac_dma_out32(lp, TX_CHNL_CTRL, 0x10220400 |
++	lp->dma_out(lp, TX_CHNL_CTRL, 0x10220400 |
+ 					  CHNL_CTRL_IRQ_EN |
+ 					  CHNL_CTRL_IRQ_DLY_EN |
+ 					  CHNL_CTRL_IRQ_COAL_EN);
+ 	/* 0x10220483 */
+ 	/* 0x00100483 */
+-	temac_dma_out32(lp, RX_CHNL_CTRL, 0xff010000 |
++	lp->dma_out(lp, RX_CHNL_CTRL, 0xff010000 |
+ 					  CHNL_CTRL_IRQ_EN |
+ 					  CHNL_CTRL_IRQ_DLY_EN |
+ 					  CHNL_CTRL_IRQ_COAL_EN |
+ 					  CHNL_CTRL_IRQ_IOE);
+ 	/* 0xff010283 */
  
+-	temac_dma_out32(lp, RX_CURDESC_PTR,  lp->rx_bd_p);
+-	temac_dma_out32(lp, RX_TAILDESC_PTR,
++	lp->dma_out(lp, RX_CURDESC_PTR,  lp->rx_bd_p);
++	lp->dma_out(lp, RX_TAILDESC_PTR,
+ 		       lp->rx_bd_p + (sizeof(*lp->rx_bd_v) * (RX_BD_NUM - 1)));
+-	temac_dma_out32(lp, TX_CURDESC_PTR, lp->tx_bd_p);
++	lp->dma_out(lp, TX_CURDESC_PTR, lp->tx_bd_p);
+ 
+ 	return 0;
+ }
+@@ -427,9 +493,9 @@ static void temac_device_reset(struct net_device *ndev)
+ 	temac_indirect_out32(lp, XTE_RXC1_OFFSET, val & ~XTE_RXC1_RXEN_MASK);
+ 
+ 	/* Reset Local Link (DMA) */
+-	temac_dma_out32(lp, DMA_CONTROL_REG, DMA_CONTROL_RST);
++	lp->dma_out(lp, DMA_CONTROL_REG, DMA_CONTROL_RST);
+ 	timeout = 1000;
+-	while (temac_dma_in32(lp, DMA_CONTROL_REG) & DMA_CONTROL_RST) {
++	while (lp->dma_in(lp, DMA_CONTROL_REG) & DMA_CONTROL_RST) {
+ 		udelay(1);
+ 		if (--timeout == 0) {
+ 			dev_err(&ndev->dev,
+@@ -437,7 +503,7 @@ static void temac_device_reset(struct net_device *ndev)
+ 			break;
+ 		}
+ 	}
+-	temac_dma_out32(lp, DMA_CONTROL_REG, DMA_TAIL_ENABLE);
++	lp->dma_out(lp, DMA_CONTROL_REG, DMA_TAIL_ENABLE);
+ 
+ 	temac_dma_bd_init(ndev);
+ 
+@@ -598,7 +664,7 @@ static int temac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 		lp->tx_bd_tail = 0;
+ 
+ 	/* Kick off the transfer */
+-	temac_dma_out32(lp, TX_TAILDESC_PTR, tail_p); /* DMA start */
++	lp->dma_out(lp, TX_TAILDESC_PTR, tail_p); /* DMA start */
+ 
+ 	return NETDEV_TX_OK;
+ }
+@@ -664,7 +730,7 @@ static void ll_temac_recv(struct net_device *ndev)
+ 		cur_p = &lp->rx_bd_v[lp->rx_bd_ci];
+ 		bdstat = cur_p->app0;
+ 	}
+-	temac_dma_out32(lp, RX_TAILDESC_PTR, tail_p);
++	lp->dma_out(lp, RX_TAILDESC_PTR, tail_p);
+ 
+ 	spin_unlock_irqrestore(&lp->rx_lock, flags);
+ }
+@@ -675,8 +741,8 @@ static irqreturn_t ll_temac_tx_irq(int irq, void *_ndev)
+ 	struct temac_local *lp = netdev_priv(ndev);
+ 	unsigned int status;
+ 
+-	status = temac_dma_in32(lp, TX_IRQ_REG);
+-	temac_dma_out32(lp, TX_IRQ_REG, status);
++	status = lp->dma_in(lp, TX_IRQ_REG);
++	lp->dma_out(lp, TX_IRQ_REG, status);
+ 
+ 	if (status & (IRQ_COAL | IRQ_DLY))
+ 		temac_start_xmit_done(lp->ndev);
+@@ -693,8 +759,8 @@ static irqreturn_t ll_temac_rx_irq(int irq, void *_ndev)
+ 	unsigned int status;
+ 
+ 	/* Read and clear the status registers */
+-	status = temac_dma_in32(lp, RX_IRQ_REG);
+-	temac_dma_out32(lp, RX_IRQ_REG, status);
++	status = lp->dma_in(lp, RX_IRQ_REG);
++	lp->dma_out(lp, RX_IRQ_REG, status);
+ 
+ 	if (status & (IRQ_COAL | IRQ_DLY))
+ 		ll_temac_recv(lp->ndev);
+@@ -795,7 +861,7 @@ static ssize_t temac_show_llink_regs(struct device *dev,
+ 	int i, len = 0;
+ 
+ 	for (i = 0; i < 0x11; i++)
+-		len += sprintf(buf + len, "%.8x%s", temac_dma_in32(lp, i),
++		len += sprintf(buf + len, "%.8x%s", lp->dma_in(lp, i),
+ 			       (i % 8) == 7 ? "\n" : " ");
+ 	len += sprintf(buf + len, "\n");
+ 
+@@ -821,7 +887,6 @@ temac_of_probe(struct of_device *op, const struct of_device_id *match)
+ 	struct net_device *ndev;
+ 	const void *addr;
+ 	int size, rc = 0;
+-	unsigned int dcrs;
+ 
+ 	/* Init network device structure */
+ 	ndev = alloc_etherdev(sizeof(*lp));
+@@ -871,13 +936,20 @@ temac_of_probe(struct of_device *op, const struct of_device_id *match)
+ 		goto nodev;
+ 	}
+ 
+-	dcrs = dcr_resource_start(np, 0);
+-	if (dcrs == 0) {
+-		dev_err(&op->dev, "could not get DMA register address\n");
+-		goto nodev;
++	/* Setup the DMA register accesses, could be DCR or memory mapped */
++	if (temac_dcr_setup(lp, op, np)) {
++
++		/* no DCR in the device tree, try non-DCR */
++		lp->sdma_regs = of_iomap(np, 0);
++		if (lp->sdma_regs) {
++			lp->dma_in = temac_dma_in32;
++			lp->dma_out = temac_dma_out32;
++			dev_dbg(&op->dev, "MEM base: %p\n", lp->sdma_regs);
++		} else {
++			dev_err(&op->dev, "unable to map DMA registers\n");
++			goto nodev;
++		}
+ 	}
+-	lp->sdma_dcrs = dcr_map(np, dcrs, dcr_resource_len(np, 0));
+-	dev_dbg(&op->dev, "DCR base: %x\n", dcrs);
+ 
+ 	lp->rx_irq = irq_of_parse_and_map(np, 0);
+ 	lp->tx_irq = irq_of_parse_and_map(np, 1);
 -- 
-1.6.4.4
+1.6.2.1
+
+
+
+This email and any attachments are intended for the sole use of the named recipient(s) and contain(s) confidential information that may be proprietary, privileged or copyrighted under applicable law. If you are not the intended recipient, do not read, copy, or forward this email message or any attachments. Delete this email message and any attachments immediately.
 
 
