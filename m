@@ -1,52 +1,64 @@
 From: John Linn <John.Linn@xilinx.com>
-Subject: RE: [PATCH] [V2] Add non-Virtex5 support for LL TEMAC driver
-Date: Mon, 5 Apr 2010 15:28:32 -0600
-Message-ID: <1952de2f-eb73-4c5f-899f-e9ee1926df2e@SG2EHSMHS007.ehs.local>
-References: <bda26c8d-00b2-411d-b4b7-ad6954b9049e@SG2EHSMHS005.ehs.local><fa686aa41003171302v46738069pae51061ba83d0818@mail.gmail.com><q2xfa686aa41004051110hc960e9a0sd1d5e61f7e2a5412@mail.gmail.com> <20100405.121647.91426186.davem@davemloft.net>
+Subject: RE: [PATCH] [V3] Add non-Virtex5 support for LL TEMAC driver
+Date: Mon, 5 Apr 2010 15:33:42 -0600
+Message-ID: <7a42d507-bf50-40f3-a2a0-8de682b314d7@SG2EHSMHS017.ehs.local>
+References: <d9134316-bd07-46a8-91d4-c30f27baeb60@SG2EHSMHS007.ehs.local> <1270502993.9013.36.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
-	<jwboyer@linux.vnet.ibm.com>, <john.williams@petalogix.com>,
-	<michal.simek@petalogix.com>, <jtyner@cs.ucr.edu>
-To: "David Miller" <davem@davemloft.net>, <grant.likely@secretlab.ca>
+	<grant.likely@secretlab.ca>, <jwboyer@linux.vnet.ibm.com>,
+	<john.williams@petalogix.com>, <michal.simek@petalogix.com>,
+	"John Tyner" <jtyner@cs.ucr.edu>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sg2ehsobe001.messaging.microsoft.com ([207.46.51.75]:21026 "EHLO
-	SG2EHSOBE001.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756407Ab0DEVds convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Apr 2010 17:33:48 -0400
+Received: from sg2ehsobe005.messaging.microsoft.com ([207.46.51.79]:28678 "EHLO
+	SG2EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756242Ab0DEVe0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 17:34:26 -0400
 Content-Class: urn:content-classes:message
-In-Reply-To: <20100405.121647.91426186.davem@davemloft.net>
+In-Reply-To: <1270502993.9013.36.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Monday, April 05, 2010 1:17 PM
-> To: grant.likely@secretlab.ca
-> Cc: netdev@vger.kernel.org; linuxppc-dev@ozlabs.org;
-jwboyer@linux.vnet.ibm.com;
-> john.williams@petalogix.com; michal.simek@petalogix.com;
-jtyner@cs.ucr.edu; John Linn
-> Subject: Re: [PATCH] [V2] Add non-Virtex5 support for LL TEMAC driver
-> 
-> From: Grant Likely <grant.likely@secretlab.ca>
-> Date: Mon, 5 Apr 2010 12:10:51 -0600
-> 
-> > David, are you going to pick up this patch, or would you like me to?
-> 
-> The submitter, when asked, stated that he couldn't even get
-> the driver to build on microblaze against mainline.
-> 
-> So I marked the patch "changed requested" because being able
-> to build is... you know... sort of a requirement for integration.
-
-Pushed out V3 of the patch, forgot to copy you David.
-
-Thanks,
-John
-
-This email and any attachments are intended for the sole use of the named recipient(s) and contain(s) confidential information that may be proprietary, privileged or copyrighted under applicable law. If you are not the intended recipient, do not read, copy, or forward this email message or any attachments. Delete this email message and any attachments immediately.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBNb25kYXksIEFwcmlsIDA1LCAyMDEw
+IDM6MzAgUE0NCj4gVG86IEpvaG4gTGlubg0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsg
+bGludXhwcGMtZGV2QG96bGFicy5vcmc7IGdyYW50Lmxpa2VseUBzZWNyZXRsYWIuY2E7DQo+IGp3
+Ym95ZXJAbGludXgudm5ldC5pYm0uY29tOyBqb2huLndpbGxpYW1zQHBldGFsb2dpeC5jb207IG1p
+Y2hhbC5zaW1la0BwZXRhbG9naXguY29tOyBKb2huIFR5bmVyDQo+IFN1YmplY3Q6IFJlOiBbUEFU
+Q0hdIFtWM10gQWRkIG5vbi1WaXJ0ZXg1IHN1cHBvcnQgZm9yIExMIFRFTUFDIGRyaXZlcg0KPiAN
+Cj4gTGUgbHVuZGkgMDUgYXZyaWwgMjAxMCDDoCAxNToxMSAtMDYwMCwgSm9obiBMaW5uIGEgw6lj
+cml0IDoNCj4gPiBUaGlzIHBhdGNoIGFkZHMgc3VwcG9ydCBmb3IgdXNpbmcgdGhlIExMIFRFTUFD
+IEV0aGVybmV0IGRyaXZlciBvbg0KPiA+IG5vbi1WaXJ0ZXggNSBwbGF0Zm9ybXMgYnkgYWRkaW5n
+IHN1cHBvcnQgZm9yIGFjY2Vzc2luZyB0aGUgU29mdCBETUENCj4gPiByZWdpc3RlcnMgYXMgaWYg
+dGhleSB3ZXJlIG1lbW9yeSBtYXBwZWQgaW5zdGVhZCBvZiBzb2xlbHkgdGhyb3VnaCB0aGUNCj4g
+PiBEQ1IncyAoYXZhaWxhYmxlIG9uIHRoZSBWaXJ0ZXggNSkuDQo+ID4NCj4gPiBUaGUgcGF0Y2gg
+YWxzbyB1cGRhdGVzIHRoZSBkcml2ZXIgc28gdGhhdCBpdCBydW5zIG9uIHRoZSBNaWNyb0JsYXpl
+Lg0KPiA+IFRoZSBjaGFuZ2VzIHdlcmUgdGVzdGVkIG9uIHRoZSBQb3dlclBDIDQ0MCwgUG93ZXJQ
+QyA0MDUsIGFuZCB0aGUNCj4gPiBNaWNyb0JsYXplIHBsYXRmb3Jtcy4NCj4gPg0KPiA+IFNpZ25l
+ZC1vZmYtYnk6IEpvaG4gVHluZXIgPGp0eW5lckBjcy51Y3IuZWR1Pg0KPiA+IFNpZ25lZC1vZmYt
+Ynk6IEpvaG4gTGlubiA8am9obi5saW5uQHhpbGlueC5jb20+DQo+ID4NCj4gPiAtLS0NCj4gDQo+
+ID4gKy8qIEFsaWduIHRoZSBJUCBkYXRhIGluIHRoZSBwYWNrZXQgb24gd29yZCBib3VuZGFyaWVz
+IGFzIE1pY3JvQmxhemUNCj4gPiArICogbmVlZHMgaXQuDQo+ID4gKyAqLw0KPiA+ICsNCj4gPiAg
+I2RlZmluZSBYVEVfQUxJR04gICAgICAgMzINCj4gPiAtI2RlZmluZSBCVUZGRVJfQUxJR04oYWRy
+KSAoKFhURV9BTElHTiAtICgodTMyKSBhZHIpKSAlIFhURV9BTElHTikNCj4gPiArI2RlZmluZSBC
+VUZGRVJfQUxJR04oYWRyKSAoKDM0IC0gKCh1MzIpIGFkcikpICUgWFRFX0FMSUdOKQ0KPiA+DQo+
+IA0KPiBWZXJ5IGludGVyZXN0aW5nIHdheSBvZiBkb2luZyB0aGlzLCBidXQgd2h5IHN1Y2ggY29u
+dm9sdXRlZCB0aGluZyA/DQoNCkdyYW50IG1pZ2h0IGhhdmUgaW5zaWdodCBpbnRvIHdoeSB0aGlz
+IHN0YXJ0ZWQgdGhpcyB3YXksIEkganVzdCB1cGRhdGVkIHRvIGhlbHAgd2l0aCBNaWNyb0JsYXpl
+IGFsaWdubWVudC4NCg0KPiANCj4gQmVjYXVzZSBvZiB0aGUgJSAzMiwgdGhpcyBpcyBlcXVpdmFs
+ZW50IHRvIDoNCj4gDQo+ICNkZWZpbmUgQlVGRkVSX0FMSUdOKGFkcikgKCgyIC0gKCh1MzIpIGFk
+cikpICUgWFRFX0FMSUdOKQ0KPiANCj4gQnV0IHdhaXQsIGRvbnQgd2UgcmVjb2duaXNlIHRoZSBt
+YWdpYyBjb25zdGFudCBORVRfSVBfQUxJR04gPw0KPiANCj4gU28sIEkgYXNrLCBjYW50IHlvdSB1
+c2UgbmV0ZGV2X2FsbG9jX3NrYl9pcF9hbGlnbigpIGluIHRoaXMgZHJpdmVyID8NCj4gDQo+IA0K
+V2lsbCBoYXZlIHRvIGxvb2sgYXQgaXQgdG8gYmV0dGVyIHVuZGVyc3RhbmQsIG1heWJlLg0KDQpU
+aGFua3MsDQpKb2huDQoNCgpUaGlzIGVtYWlsIGFuZCBhbnkgYXR0YWNobWVudHMgYXJlIGludGVu
+ZGVkIGZvciB0aGUgc29sZSB1c2Ugb2YgdGhlIG5hbWVkIHJlY2lwaWVudChzKSBhbmQgY29udGFp
+bihzKSBjb25maWRlbnRpYWwgaW5mb3JtYXRpb24gdGhhdCBtYXkgYmUgcHJvcHJpZXRhcnksIHBy
+aXZpbGVnZWQgb3IgY29weXJpZ2h0ZWQgdW5kZXIgYXBwbGljYWJsZSBsYXcuIElmIHlvdSBhcmUg
+bm90IHRoZSBpbnRlbmRlZCByZWNpcGllbnQsIGRvIG5vdCByZWFkLCBjb3B5LCBvciBmb3J3YXJk
+IHRoaXMgZW1haWwgbWVzc2FnZSBvciBhbnkgYXR0YWNobWVudHMuIERlbGV0ZSB0aGlzIGVtYWls
+IG1lc3NhZ2UgYW5kIGFueSBhdHRhY2htZW50cyBpbW1lZGlhdGVseS4K
 
 
