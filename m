@@ -1,490 +1,447 @@
-From: Taylor Lewick <taylor.lewick@gmail.com>
-Subject: Re: Increased Latencies when upgrading kernel version
-Date: Mon, 5 Apr 2010 12:34:54 -0500
-Message-ID: <m2jd585dc4f1004051034ka36301d6xdce95defe6388836@mail.gmail.com>
-References: <o2vd585dc4f1004011212s65cc2beewed2f19321210a249@mail.gmail.com>
-	 <1270156741.2192.14.camel@edumazet-laptop>
-	 <r2pd585dc4f1004011853q405eaadcq14b50a9e7a4dcf21@mail.gmail.com>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH] [V2] Add non-Virtex5 support for LL TEMAC driver
+Date: Mon, 5 Apr 2010 12:10:51 -0600
+Message-ID: <q2xfa686aa41004051110hc960e9a0sd1d5e61f7e2a5412@mail.gmail.com>
+References: <bda26c8d-00b2-411d-b4b7-ad6954b9049e@SG2EHSMHS005.ehs.local>
+	<fa686aa41003171302v46738069pae51061ba83d0818@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	jwboyer@linux.vnet.ibm.com, john.williams@petalogix.com,
+	michal.simek@petalogix.com, John Tyner <jtyner@cs.ucr.edu>,
+	John Linn <john.linn@xilinx.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f201.google.com ([209.85.221.201]:46140 "EHLO
-	mail-qy0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751625Ab0DERmN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 13:42:13 -0400
-In-Reply-To: <r2pd585dc4f1004011853q405eaadcq14b50a9e7a4dcf21@mail.gmail.com>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:53254 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751847Ab0DESLO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 14:11:14 -0400
+Received: by gwb19 with SMTP id 19so1301935gwb.19
+        for <netdev@vger.kernel.org>; Mon, 05 Apr 2010 11:11:13 -0700 (PDT)
+In-Reply-To: <fa686aa41003171302v46738069pae51061ba83d0818@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Okay, don't know what to officially file this under, as a regression
-with regards to performance or what, but here is the data.  Again,
-I've noticed system and network latency appear to have worsened with
-later kernel versions.
+David, are you going to pick up this patch, or would you like me to?
 
-I was turned onto this problem via the following links:
-http://www.kernel.org/pub/linux/kernel/people/christoph/ols2009/ols-200=
-9-paper.pdf
-and http://kerneltrap.org/mailarchive/linux-netdev/2009/4/16/5491284
+Thanks,
+g
 
-So I set up a test on two servers with Identical hardware, servers,
-nics, etc, and used hackbench, udpping, and an internally written app
-to compare latency.
-
-Here are just the hackbench results with just the averages across a 5
-runs for two different hackbench tests.  The 2.6.16 and 2.6.27 kernels
-as set up were configured with voluntary preemption, and 250 HZ, so I
-just repeated that initially for 2.6.33.1 test.  I also tested no
-preemption at same HZ setting of 250.
-
-I ran 2.6.16.60 on one server, and the other kernel versions on
-another server.  These tests are repeatable across different servers,
-as in I verified I
-don't have a bad server.
-
-Kernel Version         HB1 (25 process 300)    HB2 (100 process 300)
-2.6.16.60                 .5402                           1.8946
-2.6.27.19                 .619                             2.6268
-2.6.32.3-voluntary     .5636                           2.3484
-2.6.33.1-voluntary     .5404                           2.2872
-2.6.33.1-nopreempt   .5606                           2.3466
-
-So 2.6.16.60 is fast, 2.6.27.19 is slow, and 2.6.33.1 with voluntary
-preemption is the next best, but results didn't hold up well as
-Hackbench tests used larger numbers of groups., for example, 2.6.16.60
-and 2.6.33.1-voluntary were basically the same for HB1, but that
-didn't hold when hackebnch tests used more groups.
-
-At this point, I'm looking for ideas in kernel build to tweak, but I'm
-not a developer.  So SLAB vs SLUB, sparse vs dense IRQ numbering, etc.
-Running a -rt kernel isn't an option at this time.  I did test that as
-well, and latencies were quite a bit worse, but I wasn't adjusting
-code to take advantage of a real time OS.
-
-I can make some changes or repeat tests.
-
-Below is some hardware comparisons betweent the two machines.
-Differences I noticed was more interrupts and CPU flags on later
-kernel version.
-
-HostA 2.6.16.60
-cat /proc/interrupts
-         CPU0       CPU1       CPU2       CPU3       CPU4       CPU5
-    CPU6       CPU7
-  0:  108509762          0          0          0          0          0
-         0          0    IO-APIC-edge  timer
-  8:          1          0          0          0          0          0
-         0          0    IO-APIC-edge  rtc
-  9:          0          0          0          0          0          0
-         0          0   IO-APIC-level  acpi
- 58:        305          0    5157735        220    2980100       5927
-      1187          0   IO-APIC-level  libata
-162:          0          0          0          0          0          0
-         0          0   IO-APIC-level  uhci_hcd:usb1
-170:          0          0          0          0          0          0
-         0          0   IO-APIC-level  uhci_hcd:usb2
-177:       6326          0     229018          0     283720      35597
-       367          0   IO-APIC-level  megasas
-178:        122          0       1784       1103       3531         20
-      1457          0   IO-APIC-level  uhci_hcd:usb3, ehci_hcd:usb6
-186:          0          0          0          0          0          0
-         0          0   IO-APIC-level  uhci_hcd:usb4
-194:         22          0          0          0          0          0
-         0          0   IO-APIC-level  ehci_hcd:usb5
-210:    1790109        577          0          0          0          0
-         0          0       PCI-MSI-X  eth4-0
-218:     233811         93          0          0          0          0
-         0          0       PCI-MSI-X  eth4-1
-NMI:          0          0          0          0          0          0
-         0          0
-LOC:  108509683  108509662  108509637  108509614  108509588  108509566
- 108509541  108509516
-ERR:          7
-MIS:          0
-
-lspci
-00:00.0 Host bridge: Intel Corporation QuickPath Architecture I/O Hub
-to ESI Port (rev 13)
-00:01.0 PCI bridge: Intel Corporation QuickPath Architecture I/O Hub
-PCI Express Root Port 1 (rev 13)
-00:03.0 PCI bridge: Intel Corporation QuickPath Architecture I/O Hub
-PCI Express Root Port 3 (rev 13)
-00:07.0 PCI bridge: Intel Corporation QuickPath Architecture I/O Hub
-PCI Express Root Port 7 (rev 13)
-00:09.0 PCI bridge: Intel Corporation QuickPath Architecture I/O Hub
-PCI Express Root Port 9 (rev 13)
-00:14.0 PIC: Intel Corporation QuickPath Architecture I/O Hub System
-Management Registers (rev 13)
-00:14.1 PIC: Intel Corporation QuickPath Architecture I/O Hub GPIO and
-Scratch Pad Registers (rev 13)
-00:14.2 PIC: Intel Corporation QuickPath Architecture I/O Hub Control
-Status and RAS Registers (rev 13)
-00:16.0 System peripheral: Intel Corporation DMA Engine (rev 13)
-00:16.1 System peripheral: Intel Corporation DMA Engine (rev 13)
-00:16.2 System peripheral: Intel Corporation DMA Engine (rev 13)
-00:16.3 System peripheral: Intel Corporation DMA Engine (rev 13)
-00:16.4 System peripheral: Intel Corporation DMA Engine (rev 13)
-00:16.5 System peripheral: Intel Corporation DMA Engine (rev 13)
-00:16.6 System peripheral: Intel Corporation DMA Engine (rev 13)
-00:16.7 System peripheral: Intel Corporation DMA Engine (rev 13)
-00:1a.0 USB Controller: Intel Corporation 82801I (ICH9 Family) USB
-UHCI Controller #4 (rev 02)
-00:1a.1 USB Controller: Intel Corporation 82801I (ICH9 Family) USB
-UHCI Controller #5 (rev 02)
-00:1a.7 USB Controller: Intel Corporation 82801I (ICH9 Family) USB2
-EHCI Controller #2 (rev 02)
-00:1c.0 PCI bridge: Intel Corporation 82801I (ICH9 Family) PCI Express
-Port 1 (rev 02)
-00:1d.0 USB Controller: Intel Corporation 82801I (ICH9 Family) USB
-UHCI Controller #1 (rev 02)
-00:1d.1 USB Controller: Intel Corporation 82801I (ICH9 Family) USB
-UHCI Controller #2 (rev 02)
-00:1d.7 USB Controller: Intel Corporation 82801I (ICH9 Family) USB2
-EHCI Controller #1 (rev 02)
-00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev 92)
-00:1f.0 ISA bridge: Intel Corporation 82801IB (ICH9) LPC Interface
-Controller (rev 02)
-00:1f.2 IDE interface: Intel Corporation 82801IB (ICH9) 2 port SATA
-IDE Controller (rev 02)
-03:00.0 RAID bus controller: LSI Logic / Symbios Logic MegaRAID SAS
-1078 (rev 04)
-04:00.0 PCI bridge: Integrated Device Technology, Inc. Unknown device
-8018 (rev 0e)
-05:02.0 PCI bridge: Integrated Device Technology, Inc. Unknown device
-8018 (rev 0e)
-05:04.0 PCI bridge: Integrated Device Technology, Inc. Unknown device
-8018 (rev 0e)
-06:00.0 Ethernet controller: Intel Corporation 82575GB Gigabit Network
-Connection (rev 02)
-06:00.1 Ethernet controller: Intel Corporation 82575GB Gigabit Network
-Connection (rev 02)
-07:00.0 Ethernet controller: Intel Corporation 82575GB Gigabit Network
-Connection (rev 02)
-07:00.1 Ethernet controller: Intel Corporation 82575GB Gigabit Network
-Connection (rev 02)
-08:00.0 Ethernet controller: Solarflare Communications Unknown device
-0710 (rev 02)
-09:03.0 VGA compatible controller: Matrox Graphics, Inc. Unknown
-device 0532 (rev 0a)
-
-cat /proc/cpuinfo (just showing first CPU for brevity)
-processor       : 0
-vendor_id       : GenuineIntel
-cpu family      : 6
-model           : 26
-model name      : Intel(R) Xeon(R) CPU           X5570  @ 2.93GHz
-stepping        : 5
-cpu MHz         : 2926.090
-cache size      : 8192 KB
-physical id     : 1
-siblings        : 4
-core id         : 0
-cpu cores       : 4
-fpu             : yes
-fpu_exception   : yes
-cpuid level     : 11
-wp              : yes
-flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge
-mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm syscall
-nx rdtscp lm constant_tsc pni monitor d
-s_cpl vmx est tm2 cx16 xtpr dca popcnt lahf_lm
-bogomips        : 5857.34
-clflush size    : 64
-cache_alignment : 64
-address sizes   : 40 bits physical, 48 bits virtual
-power management:
-
-ethtool -c eth4
-Coalesce parameters for eth4:
-Adaptive RX: on  TX: off
-stats-block-usecs: 0
-sample-interval: 0
-pkt-rate-low: 0
-pkt-rate-high: 0
-
-rx-usecs: 0
-rx-frames: 0
-rx-usecs-irq: 60
-rx-frames-irq: 0
-
-tx-usecs: 0
-tx-frames: 0
-tx-usecs-irq: 0
-tx-frames-irq: 0
-
-rx-usecs-low: 0
-rx-frame-low: 0
-tx-usecs-low: 0
-tx-frame-low: 0
-
-rx-usecs-high: 0
-rx-frame-high: 0
-tx-usecs-high: 0
-tx-frame-high: 0
-
-
-HostB 2.6.33.1
-    CPU0       CPU1       CPU2       CPU3       CPU4       CPU5
-CPU6       CPU7
-   0:       8637          0          0          0          0
-0          0          0   IO-APIC-edge      timer
-   1:          2          0          0          0          0
-0          0          0   IO-APIC-edge      i8042
-   3:          2          0          0          0          0
-0          0          0   IO-APIC-edge
-   4:          2          0          0          0          0
-0          0          0   IO-APIC-edge
-   8:          1          0          0          0          0
-0          0          0   IO-APIC-edge      rtc0
-   9:          0          0          0          0          0
-0          0          0   IO-APIC-fasteoi   acpi
-  12:          4          0          0          0          0
-0          0          0   IO-APIC-edge      i8042
-  16:       7434        683          0          0          0
-0          0          0   IO-APIC-fasteoi   megasas
-  17:          0          0          0          0          0
-0          0          0   IO-APIC-fasteoi   uhci_hcd:usb3
-  18:          0          0          0          0          0
-0          0          0   IO-APIC-fasteoi   uhci_hcd:usb4
-  19:         23          0          0          0          0
-0          0          0   IO-APIC-fasteoi   ehci_hcd:usb1
-  20:          0          0          0          0          0
-0          0          0   IO-APIC-fasteoi   uhci_hcd:usb6
-  21:        129          0         15          0          0
-0          0          0   IO-APIC-fasteoi   ehci_hcd:usb2,
-uhci_hcd:usb5
-  23:        369          0          0          0          0
-0          0          0   IO-APIC-fasteoi   ata_piix
-  67:       2346        731          0          0          0
-0          0          0   PCI-MSI-edge      eth4-0
-  68:       1809        404          0          0          0
-0          0          0   PCI-MSI-edge      eth4-1
- NMI:          0          0          0          0          0
-0          0          0   Non-maskable interrupts
- LOC:      33071      38348      47397      23246      15715
-11065       9004      10391   Local timer interrupts
- SPU:          0          0          0          0          0
-0          0          0   Spurious interrupts
- PMI:          0          0          0          0          0
-0          0          0   Performance monitoring interrupts
- PND:          0          0          0          0          0
-0          0          0   Performance pending work
- RES:       2490       2124       4187       4974       1724
-5548       1892       2871   Rescheduling interrupts
- CAL:        497       2166        141        115        133
-144        140        144   Function call interrupts
- TLB:        243        244        928        945        289
-187        134         93   TLB shootdowns
- TRM:          0          0          0          0          0
-0          0          0   Thermal event interrupts
- THR:          0          0          0          0          0
-0          0          0   Threshold APIC interrupts
- MCE:          0          0          0          0          0
-0          0          0   Machine check exceptions
- MCP:          2          2          2          2          2
-2          2          2   Machine check polls
- ERR:          7
- MIS:          0
-
-lspci
-00:00.0 Host bridge: Intel Corporation X58 I/O Hub to ESI Port (rev 13)
-00:01.0 PCI bridge: Intel Corporation X58 I/O Hub PCI Express Root
-Port 1 (rev 13)
-00:03.0 PCI bridge: Intel Corporation X58 I/O Hub PCI Express Root
-Port 3 (rev 13)
-00:07.0 PCI bridge: Intel Corporation X58 I/O Hub PCI Express Root
-Port 7 (rev 13)
-00:09.0 PCI bridge: Intel Corporation X58 I/O Hub PCI Express Root
-Port 9 (rev 13)
-00:14.0 PIC: Intel Corporation X58 I/O Hub System Management Registers =
-(rev 13)
-00:14.1 PIC: Intel Corporation X58 I/O Hub GPIO and Scratch Pad
-Registers (rev 13)
-00:14.2 PIC: Intel Corporation X58 I/O Hub Control Status and RAS
-Registers (rev 13)
-00:1a.0 USB Controller: Intel Corporation 82801I (ICH9 Family) USB
-UHCI Controller #4 (rev 02)
-00:1a.1 USB Controller: Intel Corporation 82801I (ICH9 Family) USB
-UHCI Controller #5 (rev 02)
-00:1a.7 USB Controller: Intel Corporation 82801I (ICH9 Family) USB2
-EHCI Controller #2 (rev 02)
-00:1c.0 PCI bridge: Intel Corporation 82801I (ICH9 Family) PCI Express
-Port 1 (rev 02)
-00:1d.0 USB Controller: Intel Corporation 82801I (ICH9 Family) USB
-UHCI Controller #1 (rev 02)
-00:1d.1 USB Controller: Intel Corporation 82801I (ICH9 Family) USB
-UHCI Controller #2 (rev 02)
-00:1d.7 USB Controller: Intel Corporation 82801I (ICH9 Family) USB2
-EHCI Controller #1 (rev 02)
-00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev 92)
-00:1f.0 ISA bridge: Intel Corporation 82801IB (ICH9) LPC Interface
-Controller (rev 02)
-00:1f.2 IDE interface: Intel Corporation 82801IB (ICH9) 2 port SATA
-IDE Controller (rev 02)
-03:00.0 RAID bus controller: LSI Logic / Symbios Logic MegaRAID SAS
-1078 (rev 04)
-04:00.0 PCI bridge: Integrated Device Technology, Inc. PES12N3A PCI
-Express Switch (rev 0e)
-05:02.0 PCI bridge: Integrated Device Technology, Inc. PES12N3A PCI
-Express Switch (rev 0e)
-05:04.0 PCI bridge: Integrated Device Technology, Inc. PES12N3A PCI
-Express Switch (rev 0e)
-06:00.0 Ethernet controller: Intel Corporation 82575GB Gigabit Network
-Connection (rev 02)
-06:00.1 Ethernet controller: Intel Corporation 82575GB Gigabit Network
-Connection (rev 02)
-07:00.0 Ethernet controller: Intel Corporation 82575GB Gigabit Network
-Connection (rev 02)
-07:00.1 Ethernet controller: Intel Corporation 82575GB Gigabit Network
-Connection (rev 02)
-08:00.0 Ethernet controller: Solarflare Communications SFC4000 rev B
-[Solarstorm] (rev 02)
-09:03.0 VGA compatible controller: Matrox Graphics, Inc. MGA G200eW
-WPCM450 (rev 0a)
-
-cat /proc/cpuinfo (just showing first CPU for brevity)
-processor       : 0
-vendor_id       : GenuineIntel
-cpu family      : 6
-model           : 26
-model name      : Intel(R) Xeon(R) CPU           X5570  @ 2.93GHz
-stepping        : 5
-cpu MHz         : 2925.888
-cache size      : 8192 KB
-physical id     : 1
-siblings        : 4
-core id         : 0
-cpu cores       : 4
-apicid          : 16
-initial apicid  : 16
-fpu             : yes
-fpu_exception   : yes
-cpuid level     : 11
-wp              : yes
-flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge
-mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe
-syscall nx rdtscp lm constant_tsc arch_perfmon pebs bt
-s rep_good xtopology nonstop_tsc aperfmperf pni dtes64 monitor ds_cpl
-vmx est tm2 ssse3 cx16 xtpr pdcm dca sse4_1 sse4_2 popcnt lahf_lm ida
-tpr_shadow vnmi flexpriority ept vpid
-bogomips        : 5851.77
-clflush size    : 64
-cache_alignment : 64
-address sizes   : 40 bits physical, 48 bits virtual
-power management:
-
-ethtool -c eth4
-Coalesce parameters for eth4:
-Adaptive RX: on  TX: off
-stats-block-usecs: 0
-sample-interval: 0
-pkt-rate-low: 0
-pkt-rate-high: 0
-
-rx-usecs: 0
-rx-frames: 0
-rx-usecs-irq: 60
-rx-frames-irq: 0
-
-tx-usecs: 0
-tx-frames: 0
-tx-usecs-irq: 0
-tx-frames-irq: 0
-
-rx-usecs-low: 0
-rx-frame-low: 0
-tx-usecs-low: 0
-tx-frame-low: 0
-
-rx-usecs-high: 0
-rx-frame-high: 0
-tx-usecs-high: 0
-tx-frame-high: 0
-
-
-
-On Thu, Apr 1, 2010 at 8:53 PM, Taylor Lewick <taylor.lewick@gmail.com>=
- wrote:
-> Okay. =A0I will get this info out to the list Monday. =A0Briefly, I'm
-> using identical hardware (server), identical NICs, same drivers,
-> connected to same switch, and using udpping, hackbench, and an
-> internall written app to test latency. =A0Without exception the
-> evolution has looked like the following.
+On Wed, Mar 17, 2010 at 2:02 PM, Grant Likely <grant.likely@secretlab.c=
+a> wrote:
+> On Fri, Mar 12, 2010 at 7:05 PM, John Linn <john.linn@xilinx.com> wro=
+te:
+>> This patch adds support for using the LL TEMAC Ethernet driver on
+>> non-Virtex 5 platforms by adding support for accessing the Soft DMA
+>> registers as if they were memory mapped instead of solely through th=
+e
+>> DCR's (available on the Virtex 5).
+>>
+>> The patch also updates the driver so that it runs on the MicroBlaze.
+>> The changes were tested on the PowerPC 440, PowerPC 405, and the
+>> MicroBlaze platforms.
+>>
+>> Signed-off-by: John Tyner <jtyner@cs.ucr.edu>
+>> Signed-off-by: John Linn <john.linn@xilinx.com>
+>> ---
 >
-> 2.6.16.60 latencies for system and network are fast. =A0Meaning
-> hackbench and udpping win, and win by quite a bit.
+> I've not booted this, but it looks right, and it compiles fine. =A0Th=
+e
+> issues that Michal raised need to be delt with too, but they are
+> preexisting bugs unrelated to this change which you should fix up in =
+a
+> separate patch.
 >
-> 2.6.27.19 was awful. =A02.6.32.1 and 2.6.331. were better for network=
-ing
-> (with some tweaks, i.e. disable netfilter, etc), and I was able to ge=
-t
-> networking latencies to within 1-3 microseconds of 2.6.16.60
-> latencies, but the hackbench results are still pretty bad.
+> Acked-by: Grant Likely <grant.likely@secretlab.ca>
 >
-> Again, I'll post numbers and more detailed hardware info on Monday
-> when I'm back at office...
->
-> On Thu, Apr 1, 2010 at 4:19 PM, Eric Dumazet <eric.dumazet@gmail.com>=
- wrote:
->> Le jeudi 01 avril 2010 =E0 14:12 -0500, Taylor Lewick a =E9crit :
->>> For some time now we've been running an older kernel, 2.6.16.60. =A0=
-When
->>> we tried to upgrade, first going to 2.6.27.19 and then to 2.6.32.1 =
-and
->>> 2.6.33.1 we noticed that latencies increased. =A0At first we notice=
-d it
->>> by doing network tests via udpping, netperf, etc. =A0We made some
->>> tweaks, and were able to get network latency to within 1 to 2
->>> microseconds of where we were previously on 2.6.16.60. =A0Then we d=
-id
->>> some more testing, and noticed that system latency also seems highe=
-r.
->>>
->>> We've done our tests on identical hardware servers, same NICs,
->>> connected through same network gear. =A0Basically, we've tried to k=
-eep
->>> everything identical except the kernel versions, and we are unable =
-to
->>> achieve the same performance for system latency on the newer kernel=
-s,
->>> despite adjusting various kernel settings and recompiling.
->>>
->>> The latency differences are about 15 microseconds per transaction.
->>>
->>> At this point, I don't know what else to try. =A0I haven't played a=
-round
->>> with the /proc/sys/kernel/sched_* paramaters under the newer kernel=
-s
->>> yet. =A0Have tried changing pre-emption modes with little effect, i=
-n
->>> fact, voluntary preemption seems to be peforming the best for us.
->>>
->>> At this time the realtime patch isn't really an option for us to
->>> consider, at least not yet.
->>>
->>> Any suggestions? =A0Is this a known issue when upgrading to more re=
-cent
->>> kernel versions?
->>>
 >>
->> Hi Taylor
+>> V2 - Incorporated comments from Grant and added more logic to allow =
+the driver
+>> to work on MicroBlaze.
 >>
->> Well, this is bit difficult to generically answer to your generic
->> question. 15 us more latency per transaction seems pretty bad.
+>> =A0drivers/net/Kconfig =A0 =A0 =A0 =A0 | =A0 =A01 -
+>> =A0drivers/net/ll_temac.h =A0 =A0 =A0| =A0 17 +++++-
+>> =A0drivers/net/ll_temac_main.c | =A0124 ++++++++++++++++++++++++++++=
+++++++---------
+>> =A03 files changed, 113 insertions(+), 29 deletions(-)
 >>
->> Some inputs would be nice, describing your workload and
->> software/hardware architecture.
+>> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+>> index 9b6efe1..5402105 100644
+>> --- a/drivers/net/Kconfig
+>> +++ b/drivers/net/Kconfig
+>> @@ -2443,7 +2443,6 @@ config MV643XX_ETH
+>> =A0config XILINX_LL_TEMAC
+>> =A0 =A0 =A0 =A0tristate "Xilinx LL TEMAC (LocalLink Tri-mode Etherne=
+t MAC) driver"
+>> =A0 =A0 =A0 =A0select PHYLIB
+>> - =A0 =A0 =A0 depends on PPC_DCR_NATIVE
+>> =A0 =A0 =A0 =A0help
+>> =A0 =A0 =A0 =A0 =A0This driver supports the Xilinx 10/100/1000 Local=
+Link TEMAC
+>> =A0 =A0 =A0 =A0 =A0core used in Xilinx Spartan and Virtex FPGAs
+>> diff --git a/drivers/net/ll_temac.h b/drivers/net/ll_temac.h
+>> index 1af66a1..915aa34 100644
+>> --- a/drivers/net/ll_temac.h
+>> +++ b/drivers/net/ll_temac.h
+>> @@ -5,8 +5,11 @@
+>> =A0#include <linux/netdevice.h>
+>> =A0#include <linux/of.h>
+>> =A0#include <linux/spinlock.h>
+>> +
+>> +#ifdef CONFIG_PPC_DCR
+>> =A0#include <asm/dcr.h>
+>> =A0#include <asm/dcr-regs.h>
+>> +#endif
 >>
->> lspci
->> cat /proc/cpuinfo
->> cat /proc/interrupts
->> dmesg
->> ethtool -S eth0
->> ethtool -c eth0
+>> =A0/* packet size info */
+>> =A0#define XTE_HDR_SIZE =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 14 =A0 =A0=
+ =A0/* size of Ethernet header */
+>> @@ -290,8 +293,12 @@ This option defaults to enabled (set) */
 >>
+>> =A0#define TX_CONTROL_CALC_CSUM_MASK =A0 1
+>>
+>> +/* Align the IP data in the packet on word boundaries as MicroBlaze
+>> + * needs it.
+>> + */
+>> +
+>> =A0#define XTE_ALIGN =A0 =A0 =A0 32
+>> -#define BUFFER_ALIGN(adr) ((XTE_ALIGN - ((u32) adr)) % XTE_ALIGN)
+>> +#define BUFFER_ALIGN(adr) ((34 - ((u32) adr)) % XTE_ALIGN)
+>>
+>> =A0#define MULTICAST_CAM_TABLE_NUM 4
+>>
+>> @@ -335,9 +342,15 @@ struct temac_local {
+>> =A0 =A0 =A0 =A0struct mii_bus *mii_bus; =A0 =A0 =A0 =A0/* MII bus re=
+ference */
+>> =A0 =A0 =A0 =A0int mdio_irqs[PHY_MAX_ADDR]; =A0 =A0/* IRQs table for=
+ MDIO bus */
+>>
+>> - =A0 =A0 =A0 /* IO registers and IRQs */
+>> + =A0 =A0 =A0 /* IO registers, dma functions and IRQs */
+>> =A0 =A0 =A0 =A0void __iomem *regs;
+>> + =A0 =A0 =A0 void __iomem *sdma_regs;
+>> +#ifdef CONFIG_PPC_DCR
+>> =A0 =A0 =A0 =A0dcr_host_t sdma_dcrs;
+>> +#endif
+>> + =A0 =A0 =A0 u32 (*dma_in)(struct temac_local *, int);
+>> + =A0 =A0 =A0 void (*dma_out)(struct temac_local *, int, u32);
+>> +
+>> =A0 =A0 =A0 =A0int tx_irq;
+>> =A0 =A0 =A0 =A0int rx_irq;
+>> =A0 =A0 =A0 =A0int emac_num;
+>> diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main=
+=2Ec
+>> index a18e348..9aedf9b 100644
+>> --- a/drivers/net/ll_temac_main.c
+>> +++ b/drivers/net/ll_temac_main.c
+>> @@ -20,9 +20,6 @@
+>> =A0* =A0 or rx, so this should be okay.
+>> =A0*
+>> =A0* TODO:
+>> - * - Fix driver to work on more than just Virtex5. =A0Right now the=
+ driver
+>> - * =A0 assumes that the locallink DMA registers are accessed via DC=
+R
+>> - * =A0 instructions.
+>> =A0* - Factor out locallink DMA code into separate driver
+>> =A0* - Fix multicast assignment.
+>> =A0* - Fix support for hardware checksumming.
+>> @@ -115,17 +112,86 @@ void temac_indirect_out32(struct temac_local *=
+lp, int reg, u32 value)
+>> =A0 =A0 =A0 =A0temac_iow(lp, XTE_CTL0_OFFSET, CNTLREG_WRITE_ENABLE_M=
+ASK | reg);
+>> =A0}
+>>
+>> +/**
+>> + * temac_dma_in32 - Memory mapped DMA read, this function expects a
+>> + * register input that is based on DCR word addresses which
+>> + * are then converted to memory mapped byte addresses
+>> + */
+>> =A0static u32 temac_dma_in32(struct temac_local *lp, int reg)
+>> =A0{
+>> - =A0 =A0 =A0 return dcr_read(lp->sdma_dcrs, reg);
+>> + =A0 =A0 =A0 return in_be32((u32 *)(lp->sdma_regs + (reg << 2)));
+>> =A0}
+>>
+>> +/**
+>> + * temac_dma_out32 - Memory mapped DMA read, this function expects =
+a
+>> + * register input that is based on DCR word addresses which
+>> + * are then converted to memory mapped byte addresses
+>> + */
+>> =A0static void temac_dma_out32(struct temac_local *lp, int reg, u32 =
+value)
+>> =A0{
+>> + =A0 =A0 =A0 out_be32((u32 *)(lp->sdma_regs + (reg << 2)), value);
+>> +}
+>> +
+>> +/* DMA register access functions can be DCR based or memory mapped.
+>> + * The PowerPC 440 is DCR based, the PowerPC 405 and MicroBlaze are=
+ both
+>> + * memory mapped.
+>> + */
+>> +#ifdef CONFIG_PPC_DCR
+>> +
+>> +/**
+>> + * temac_dma_dcr_in32 - DCR based DMA read
+>> + */
+>> +static u32 temac_dma_dcr_in(struct temac_local *lp, int reg)
+>> +{
+>> + =A0 =A0 =A0 return dcr_read(lp->sdma_dcrs, reg);
+>> +}
+>> +
+>> +/**
+>> + * temac_dma_dcr_out32 - DCR based DMA write
+>> + */
+>> +static void temac_dma_dcr_out(struct temac_local *lp, int reg, u32 =
+value)
+>> +{
+>> =A0 =A0 =A0 =A0dcr_write(lp->sdma_dcrs, reg, value);
+>> =A0}
+>>
+>> =A0/**
+>> + * temac_dcr_setup - If the DMA is DCR based, then setup the addres=
+s and
+>> + * I/O =A0functions
+>> + */
+>> +static int temac_dcr_setup(struct temac_local *lp, struct of_device=
+ *op,
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct=
+ device_node *np)
+>> +{
+>> + =A0 =A0 =A0 unsigned int dcrs;
+>> +
+>> + =A0 =A0 =A0 /* setup the dcr address mapping if it's in the device=
+ tree */
+>> +
+>> + =A0 =A0 =A0 dcrs =3D dcr_resource_start(np, 0);
+>> + =A0 =A0 =A0 if (dcrs !=3D 0) {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->sdma_dcrs =3D dcr_map(np, dcrs, dc=
+r_resource_len(np, 0));
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->dma_in =3D temac_dma_dcr_in;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->dma_out =3D temac_dma_dcr_out;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_dbg(&op->dev, "DCR base: %x\n", dc=
+rs);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 0;
+>> + =A0 =A0 =A0 }
+>> + =A0 =A0 =A0 /* no DCR in the device tree, indicate a failure */
+>> + =A0 =A0 =A0 return -1;
+>> +}
+>> +
+>> +#else
+>> +
+>> +/*
+>> + * temac_dcr_setup - This is a stub for when DCR is not supported,
+>> + * such as with MicroBlaze
+>> + */
+>> +static int temac_dcr_setup(struct temac_local *lp, struct of_device=
+ *op,
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct=
+ device_node *np)
+>> +{
+>> + =A0 =A0 =A0 return -1;
+>> +}
+>> +
+>> +#endif
+>> +
+>> +/**
+>> =A0* temac_dma_bd_init - Setup buffer descriptor rings
+>> =A0*/
+>> =A0static int temac_dma_bd_init(struct net_device *ndev)
+>> @@ -172,23 +238,23 @@ static int temac_dma_bd_init(struct net_device=
+ *ndev)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0lp->rx_bd_v[i].app0 =3D STS_CTRL_APP0=
+_IRQONEND;
+>> =A0 =A0 =A0 =A0}
+>>
+>> - =A0 =A0 =A0 temac_dma_out32(lp, TX_CHNL_CTRL, 0x10220400 |
+>> + =A0 =A0 =A0 lp->dma_out(lp, TX_CHNL_CTRL, 0x10220400 |
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 =A0CHNL_CTRL_IRQ_EN |
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 =A0CHNL_CTRL_IRQ_DLY_EN |
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 =A0CHNL_CTRL_IRQ_COAL_EN);
+>> =A0 =A0 =A0 =A0/* 0x10220483 */
+>> =A0 =A0 =A0 =A0/* 0x00100483 */
+>> - =A0 =A0 =A0 temac_dma_out32(lp, RX_CHNL_CTRL, 0xff010000 |
+>> + =A0 =A0 =A0 lp->dma_out(lp, RX_CHNL_CTRL, 0xff010000 |
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 =A0CHNL_CTRL_IRQ_EN |
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 =A0CHNL_CTRL_IRQ_DLY_EN |
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 =A0CHNL_CTRL_IRQ_COAL_EN |
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 =A0CHNL_CTRL_IRQ_IOE);
+>> =A0 =A0 =A0 =A0/* 0xff010283 */
+>>
+>> - =A0 =A0 =A0 temac_dma_out32(lp, RX_CURDESC_PTR, =A0lp->rx_bd_p);
+>> - =A0 =A0 =A0 temac_dma_out32(lp, RX_TAILDESC_PTR,
+>> + =A0 =A0 =A0 lp->dma_out(lp, RX_CURDESC_PTR, =A0lp->rx_bd_p);
+>> + =A0 =A0 =A0 lp->dma_out(lp, RX_TAILDESC_PTR,
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->rx_bd_p + (sizeof(*l=
+p->rx_bd_v) * (RX_BD_NUM - 1)));
+>> - =A0 =A0 =A0 temac_dma_out32(lp, TX_CURDESC_PTR, lp->tx_bd_p);
+>> + =A0 =A0 =A0 lp->dma_out(lp, TX_CURDESC_PTR, lp->tx_bd_p);
+>>
+>> =A0 =A0 =A0 =A0return 0;
+>> =A0}
+>> @@ -426,9 +492,9 @@ static void temac_device_reset(struct net_device=
+ *ndev)
+>> =A0 =A0 =A0 =A0temac_indirect_out32(lp, XTE_RXC1_OFFSET, val & ~XTE_=
+RXC1_RXEN_MASK);
+>>
+>> =A0 =A0 =A0 =A0/* Reset Local Link (DMA) */
+>> - =A0 =A0 =A0 temac_dma_out32(lp, DMA_CONTROL_REG, DMA_CONTROL_RST);
+>> + =A0 =A0 =A0 lp->dma_out(lp, DMA_CONTROL_REG, DMA_CONTROL_RST);
+>> =A0 =A0 =A0 =A0timeout =3D 1000;
+>> - =A0 =A0 =A0 while (temac_dma_in32(lp, DMA_CONTROL_REG) & DMA_CONTR=
+OL_RST) {
+>> + =A0 =A0 =A0 while (lp->dma_in(lp, DMA_CONTROL_REG) & DMA_CONTROL_R=
+ST) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0udelay(1);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (--timeout =3D=3D 0) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_err(&ndev->dev,
+>> @@ -436,7 +502,7 @@ static void temac_device_reset(struct net_device=
+ *ndev)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+>> =A0 =A0 =A0 =A0}
+>> - =A0 =A0 =A0 temac_dma_out32(lp, DMA_CONTROL_REG, DMA_TAIL_ENABLE);
+>> + =A0 =A0 =A0 lp->dma_out(lp, DMA_CONTROL_REG, DMA_TAIL_ENABLE);
+>>
+>> =A0 =A0 =A0 =A0temac_dma_bd_init(ndev);
+>>
+>> @@ -597,7 +663,7 @@ static int temac_start_xmit(struct sk_buff *skb,=
+ struct net_device *ndev)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0lp->tx_bd_tail =3D 0;
+>>
+>> =A0 =A0 =A0 =A0/* Kick off the transfer */
+>> - =A0 =A0 =A0 temac_dma_out32(lp, TX_TAILDESC_PTR, tail_p); /* DMA s=
+tart */
+>> + =A0 =A0 =A0 lp->dma_out(lp, TX_TAILDESC_PTR, tail_p); /* DMA start=
+ */
+>>
+>> =A0 =A0 =A0 =A0return NETDEV_TX_OK;
+>> =A0}
+>> @@ -663,7 +729,7 @@ static void ll_temac_recv(struct net_device *nde=
+v)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0cur_p =3D &lp->rx_bd_v[lp->rx_bd_ci];
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bdstat =3D cur_p->app0;
+>> =A0 =A0 =A0 =A0}
+>> - =A0 =A0 =A0 temac_dma_out32(lp, RX_TAILDESC_PTR, tail_p);
+>> + =A0 =A0 =A0 lp->dma_out(lp, RX_TAILDESC_PTR, tail_p);
+>>
+>> =A0 =A0 =A0 =A0spin_unlock_irqrestore(&lp->rx_lock, flags);
+>> =A0}
+>> @@ -674,8 +740,8 @@ static irqreturn_t ll_temac_tx_irq(int irq, void=
+ *_ndev)
+>> =A0 =A0 =A0 =A0struct temac_local *lp =3D netdev_priv(ndev);
+>> =A0 =A0 =A0 =A0unsigned int status;
+>>
+>> - =A0 =A0 =A0 status =3D temac_dma_in32(lp, TX_IRQ_REG);
+>> - =A0 =A0 =A0 temac_dma_out32(lp, TX_IRQ_REG, status);
+>> + =A0 =A0 =A0 status =3D lp->dma_in(lp, TX_IRQ_REG);
+>> + =A0 =A0 =A0 lp->dma_out(lp, TX_IRQ_REG, status);
+>>
+>> =A0 =A0 =A0 =A0if (status & (IRQ_COAL | IRQ_DLY))
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0temac_start_xmit_done(lp->ndev);
+>> @@ -692,8 +758,8 @@ static irqreturn_t ll_temac_rx_irq(int irq, void=
+ *_ndev)
+>> =A0 =A0 =A0 =A0unsigned int status;
+>>
+>> =A0 =A0 =A0 =A0/* Read and clear the status registers */
+>> - =A0 =A0 =A0 status =3D temac_dma_in32(lp, RX_IRQ_REG);
+>> - =A0 =A0 =A0 temac_dma_out32(lp, RX_IRQ_REG, status);
+>> + =A0 =A0 =A0 status =3D lp->dma_in(lp, RX_IRQ_REG);
+>> + =A0 =A0 =A0 lp->dma_out(lp, RX_IRQ_REG, status);
+>>
+>> =A0 =A0 =A0 =A0if (status & (IRQ_COAL | IRQ_DLY))
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ll_temac_recv(lp->ndev);
+>> @@ -794,7 +860,7 @@ static ssize_t temac_show_llink_regs(struct devi=
+ce *dev,
+>> =A0 =A0 =A0 =A0int i, len =3D 0;
+>>
+>> =A0 =A0 =A0 =A0for (i =3D 0; i < 0x11; i++)
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 len +=3D sprintf(buf + len, "%.8x%s", =
+temac_dma_in32(lp, i),
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 len +=3D sprintf(buf + len, "%.8x%s", =
+lp->dma_in(lp, i),
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 (i % 8) =
+=3D=3D 7 ? "\n" : " ");
+>> =A0 =A0 =A0 =A0len +=3D sprintf(buf + len, "\n");
+>>
+>> @@ -820,7 +886,6 @@ temac_of_probe(struct of_device *op, const struc=
+t of_device_id *match)
+>> =A0 =A0 =A0 =A0struct net_device *ndev;
+>> =A0 =A0 =A0 =A0const void *addr;
+>> =A0 =A0 =A0 =A0int size, rc =3D 0;
+>> - =A0 =A0 =A0 unsigned int dcrs;
+>>
+>> =A0 =A0 =A0 =A0/* Init network device structure */
+>> =A0 =A0 =A0 =A0ndev =3D alloc_etherdev(sizeof(*lp));
+>> @@ -870,13 +935,20 @@ temac_of_probe(struct of_device *op, const str=
+uct of_device_id *match)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto nodev;
+>> =A0 =A0 =A0 =A0}
+>>
+>> - =A0 =A0 =A0 dcrs =3D dcr_resource_start(np, 0);
+>> - =A0 =A0 =A0 if (dcrs =3D=3D 0) {
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_err(&op->dev, "could not get DMA r=
+egister address\n");
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto nodev;
+>> + =A0 =A0 =A0 /* Setup the DMA register accesses, could be DCR or me=
+mory mapped */
+>> + =A0 =A0 =A0 if (temac_dcr_setup(lp, op, np)) {
+>> +
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* no DCR in the device tree, try non-=
+DCR */
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->sdma_regs =3D of_iomap(np, 0);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (lp->sdma_regs) {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->dma_in =3D temac_d=
+ma_in32;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->dma_out =3D temac_=
+dma_out32;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_dbg(&op->dev, "MEM=
+ base: %p\n", lp->sdma_regs);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 } else {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_err(&op->dev, "una=
+ble to map DMA registers\n");
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto nodev;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>> =A0 =A0 =A0 =A0}
+>> - =A0 =A0 =A0 lp->sdma_dcrs =3D dcr_map(np, dcrs, dcr_resource_len(n=
+p, 0));
+>> - =A0 =A0 =A0 dev_dbg(&op->dev, "DCR base: %x\n", dcrs);
+>>
+>> =A0 =A0 =A0 =A0lp->rx_irq =3D irq_of_parse_and_map(np, 0);
+>> =A0 =A0 =A0 =A0lp->tx_irq =3D irq_of_parse_and_map(np, 1);
+>> --
+>> 1.6.2.1
+>>
+>>
+>>
+>> This email and any attachments are intended for the sole use of the =
+named recipient(s) and contain(s) confidential information that may be =
+proprietary, privileged or copyrighted under applicable law. If you are=
+ not the intended recipient, do not read, copy, or forward this email m=
+essage or any attachments. Delete this email message and any attachment=
+s immediately.
 >>
 >>
 >>
 >
+>
+>
+> --
+> Grant Likely, B.Sc., P.Eng.
+> Secret Lab Technologies Ltd.
+>
+
+
+
+--=20
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
