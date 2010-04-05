@@ -1,52 +1,95 @@
-From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Subject: Re: [PATCH 33/37] sound/soc: use .dev.of_node instead of .node in
-	struct of_device
-Date: Mon, 5 Apr 2010 17:47:48 -0600
-Message-ID: <q2tfa686aa41004051647p4c8182d0h807583d09714761a@mail.gmail.com>
-References: <20100311174830.4824.19820.stgit@angua> <20100311180649.4824.10368.stgit@angua>
-	<20100405230301.GF32401@fluff.org.uk>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: net-next: 2.6.34-rc1 regression: panic when running diagnostic
+ on interface with IPv6
+Date: Mon, 5 Apr 2010 17:50:38 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FE4E2E334@rrsmsx501.amr.corp.intel.com>
+References: <EA929A9653AAE14F841771FB1DE5A1365FE4ADAB2A@rrsmsx501.amr.corp.intel.com>
+	<20100323.233323.93371615.davem@davemloft.net>
+	<EA929A9653AAE14F841771FB1DE5A1365FE4E2E26C@rrsmsx501.amr.corp.intel.com>
+ <20100405.161221.159637463.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org, benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org, jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org, dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
-	jeremy.kerr-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org, James.Bottomley-l3A5Bk7waGM@public.gmane.org,
-	broonie-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org,
-	microblaze-uclinux-rVRm/Wmeqae7NGdpmJTKYQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linuxppc-dev-mnsaURCQ41sdnm+yROfE0A@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org
-To: Ben Dooks <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>
-Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100405230301.GF32401-elnMNo+KYs3pIgCt6eIbzw@public.gmane.org>
-Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:32255 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756727Ab0DEXuk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 19:50:40 -0400
+In-Reply-To: <20100405.161221.159637463.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Ben, thanks for the comment.  Reply below...
+David Miller wrote:
+> From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+> Date: Mon, 5 Apr 2010 17:03:56 -0600
+> 
+>> David Miller wrote:
+>>> From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+>>> Date: Tue, 23 Mar 2010 12:28:08 -0600
+>>> 
+>>>> Bisecting points to this patch:
+>>>> http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=84e8b803f1e16f3a2b8b80f80a63fa2f2f8a9be6
+>>>> 
+>>>> And I confirmed that the issue goes away after reverting it.
+>>>> 
+>>>> Steps to reproduce:
+>>>> 1. Load the driver and configure IPv6 address.
+>>>> 2. Run ethtool diag:
+>>>> ethtool -t eth0
+>>>> 
+>>>> 3. If this doesn't brake it try again, or just do ifdown/up. Other
+>>>> operations on the interface will eventually panic the system:
+>>> 
+>>> Stephen please fix this, thanks.
+>> 
+>> Just FYI - I still see this issue with latest pull from net-2.6.
+> 
+> It's net-next-2.6 that introduced the problem and has the follow-on
+> fixes, not net-2.6
 
-On Mon, Apr 5, 2010 at 5:03 PM, Ben Dooks <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org> wrote:
-> On Thu, Mar 11, 2010 at 11:06:50AM -0700, Grant Likely wrote:
->> .node is being removed
-[...]
->> --- a/sound/soc/fsl/mpc8610_hpcd.c
->> +++ b/sound/soc/fsl/mpc8610_hpcd.c
->> @@ -202,7 +202,7 @@ static struct snd_soc_ops mpc8610_hpcd_ops =3D {
->> =A0static int mpc8610_hpcd_probe(struct of_device *ofdev,
->> =A0 =A0 =A0 const struct of_device_id *match)
->> =A0{
->> - =A0 =A0 struct device_node *np =3D ofdev->node;
->> + =A0 =A0 struct device_node *np =3D ofdev->dev.of_node;
->> =A0 =A0 =A0 struct device_node *codec_np =3D NULL;
->> =A0 =A0 =A0 struct device_node *guts_np =3D NULL;
->> =A0 =A0 =A0 struct device_node *dma_np =3D NULL;
->
-> This looks like one case where an inline function would have been a
-> help.
+Same in net-next:
 
-In what regard (how would you like it to look)?  The node pointer
-location is very unlikely to move again, and I prefer the clarity of
-direct dereferencing.
+[   55.706583] WARNING: at net/ipv6/ip6_fib.c:1170 fib6_del+0x44/0x39f [ipv6]()
+[   55.714851] Hardware name: S5520HC
+[   55.719037] Modules linked in: ipv6 e1000e e1000
+[   55.724866] Pid: 5599, comm: ifconfig Not tainted 2.6.34-rc1-net-next-e1000e-040510 #9
+[   55.734418] Call Trace:
+[   55.737540]  [<ffffffff81033a3e>] ? __wake_up+0x43/0x50
+[   55.743773]  [<ffffffffa006cb4e>] ? fib6_del+0x44/0x39f [ipv6]
+[   55.750687]  [<ffffffff81038b1e>] warn_slowpath_common+0x77/0x8f
+[   55.757793]  [<ffffffff81038b45>] warn_slowpath_null+0xf/0x11
+[   55.764608]  [<ffffffffa006cb4e>] fib6_del+0x44/0x39f [ipv6]
+[   55.771314]  [<ffffffffa006a13b>] __ip6_del_rt+0x49/0x68 [ipv6]
+[   55.778319]  [<ffffffffa006a2aa>] ip6_del_rt+0x38/0x3a [ipv6]
+[   55.785136]  [<ffffffffa0065573>] __ipv6_ifa_notify+0x141/0x17d [ipv6]
+[   55.792816]  [<ffffffffa00660a4>] addrconf_ifdown+0x1ed/0x2cb [ipv6]
+[   55.800300]  [<ffffffffa0067126>] addrconf_notify+0x705/0x7b6 [ipv6]
+[   55.807788]  [<ffffffff810456ce>] ? spin_unlock_irqrestore+0x9/0xb
+[   55.815088]  [<ffffffff81045b80>] ? __mod_timer+0x125/0x137
+[   55.821703]  [<ffffffff8144eb60>] ? _raw_write_unlock_bh+0x12/0x14
+[   55.828995]  [<ffffffff8103e37d>] ? local_bh_enable_ip+0x9/0xb
+[   55.835906]  [<ffffffff8144ec75>] ? _raw_spin_unlock_bh+0x12/0x14
+[   55.843109]  [<ffffffffa006ca9b>] ? fib6_run_gc+0xca/0xcf [ipv6]
+[   55.850213]  [<ffffffff81451b29>] notifier_call_chain+0x33/0x5b
+[   55.857216]  [<ffffffff81055575>] __raw_notifier_call_chain+0x9/0xb
+[   55.864604]  [<ffffffff81055586>] raw_notifier_call_chain+0xf/0x11
+[   55.871901]  [<ffffffff81397d8f>] call_netdevice_notifiers+0x16/0x18
+[   55.879390]  [<ffffffff81397eb2>] __dev_notify_flags+0x35/0x59
+[   55.886293]  [<ffffffff81397f1c>] dev_change_flags+0x46/0x52
+[   55.893007]  [<ffffffff813f0844>] devinet_ioctl+0x27f/0x54b
+[   55.899614]  [<ffffffff813f2c18>] inet_ioctl+0x8a/0xa2
+[   55.905733]  [<ffffffff81387275>] sock_do_ioctl+0x26/0x46
+[   55.912149]  [<ffffffff81387490>] sock_ioctl+0x1fb/0x20e
+[   55.918461]  [<ffffffff810e7b4b>] vfs_ioctl+0x2a/0x9d
+[   55.924495]  [<ffffffff810e80c2>] do_vfs_ioctl+0x48c/0x4dd
+[   55.930999]  [<ffffffff810e816a>] sys_ioctl+0x57/0x7a
+[   55.937033]  [<ffffffff81002a2b>] system_call_fastpath+0x16/0x1b
+[   55.944123] ---[ end trace c1c390412f982fb6 ]---
+[   55.949677] Freeing alive inet6 address ffff8801eee32000
+[   56.034060] fib6_clean_node: del failed: rt=ffff8801ec984e00@(null) err=-2
 
-g.
+Emil
