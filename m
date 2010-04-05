@@ -1,73 +1,66 @@
-From: Sathya Perla <sathyap@serverengines.com>
-Subject: Re: [PATCH 2/2] benet: fix the misusage of zero dma address
-Date: Mon, 5 Apr 2010 13:52:02 +0530
-Message-ID: <20100405082202.GB32671@serverengines.com>
-References: <1270176803-8561-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
- <1270176803-8561-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
- <20100405071059.GA32671@serverengines.com>
- <20100405163942P.fujita.tomonori@lab.ntt.co.jp>
-Reply-To: Sathya Perla <sathyap@serverengines.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 2/2] netdev: an usage example on igb
+Date: Mon, 05 Apr 2010 10:30:24 +0200
+Message-ID: <1270456224.1971.15.camel@edumazet-laptop>
+References: <4BB98828.5030302@jp.fujitsu.com>
+	 <4BB98940.5070003@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sathyap@serverengines.com, subbus@serverengines.com,
-	sarveshwarb@serverengines.com, ajitk@serverengines.com,
-	netdev@vger.kernel.org
-To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, izumi.taku@jp.fujitsu.com,
+	kaneshige.kenji@jp.fujitsu.com, davem@davemloft.net,
+	nhorman@tuxdriver.com, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	alexander.h.duyck@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com
+To: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:45796 "EHLO
-	sperla-laptop.localdomain" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751223Ab0DEIWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 04:22:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20100405163942P.fujita.tomonori@lab.ntt.co.jp>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:55031 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750835Ab0DEIad (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 04:30:33 -0400
+Received: by bwz1 with SMTP id 1so2653380bwz.21
+        for <netdev@vger.kernel.org>; Mon, 05 Apr 2010 01:30:32 -0700 (PDT)
+In-Reply-To: <4BB98940.5070003@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/04/10 16:40 +0900, FUJITA Tomonori wrote:
-> > > +		wrb->frag_len = 0;
-> > Why does wrb->frag_len need to be reset here?
-> > In the TX path, it is set to the proper value for data wrbs and zero
-> > for dummy and hdr wrbs.
-> 
-> I guess that I misunderstood why unmap_tx_frag() checks a dma address.
-> The checking is necessary to avoid calling pci_unamp_* API for dummy
-> hdr wrbs?
-Yes.
-> 
-> Anyway, if wrb->frag_len doesn't need to be reset here, the following
-> patch is ok?
-Yes. Thanks.
-
-Acked-by: Sathya Perla <sathyap@serverengines.com>
-> 
-> =
-> From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-> Subject: [PATCH v2 2/2] benet: fix the misusage of zero dma address
-> 
-> benet driver wrongly assumes that zero is an invalid dma address
-> (calls dma_unmap_page for only non zero dma addresses). Zero is a
-> valid dma address on some architectures. The dma length can be used
-> here.
-> 
-> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Le lundi 05 avril 2010 =C3=A0 15:54 +0900, Koki Sanagi a =C3=A9crit :
+> This patch is usage example of previous patch's buffer on igb.
+> The output is like below.
+>=20
+> # cat /sys/kernel/debug/ndrvbuf/igb-trace-0000\:03\:00.0/buffer
+> [  1] 50462.369207: clean_tx qidx=3D1 ntu=3D154->156
+> [  0] 50462.369241: clean_rx qidx=3D0 ntu=3D111->112
+> [  0] 50462.369250: xmit qidx=3D1 ntu=3D156->158
+> [  1] 50462.369256: clean_tx qidx=3D1 ntu=3D156->158
+> [  1] 50462.369342: clean_rx qidx=3D0 ntu=3D113->114
+> [  1] 50462.369439: clean_rx qidx=3D0 ntu=3D114->115
+>=20
+> This example outputs original print style, because it sets original p=
+rint
+> function(igb_trace_read) when registered.
+>=20
+> register_ndrvbuf(buname, 1000000, igb_trace_read);
+>=20
+> If you set NULL to arg3, outputs by ndrvbuf default style.
+> If you set 0 to size(arg2), recording is disabled at first(but small =
+buffer is
+> alloced).
+> When you set non-zero to size, recording becomes enabled.
+>=20
+> Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
 > ---
->  drivers/net/benet/be_main.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-> index a27a0a1..c95e1a2 100644
-> --- a/drivers/net/benet/be_main.c
-> +++ b/drivers/net/benet/be_main.c
-> @@ -404,7 +404,7 @@ static void unmap_tx_frag(struct pci_dev *pdev, struct be_eth_wrb *wrb,
->  	be_dws_le_to_cpu(wrb, sizeof(*wrb));
->  
->  	dma = (u64)wrb->frag_pa_hi << 32 | (u64)wrb->frag_pa_lo;
-> -	if (dma != 0) {
-> +	if (wrb->frag_len) {
->  		if (unmap_single)
->  			pci_unmap_single(pdev, dma, wrb->frag_len,
->  				PCI_DMA_TODEVICE);
-> -- 
-> 1.7.0
-> 
-> 
+>   drivers/net/igb/Makefile    |    2 +-
+>   drivers/net/igb/igb.h       |    1 +
+>   drivers/net/igb/igb_main.c  |   10 +++++-
+>   drivers/net/igb/igb_trace.c |   81 ++++++++++++++++++++++++++++++++=
++++++++++++
+>   drivers/net/igb/igb_trace.h |   21 +++++++++++
+>   5 files changed, 113 insertions(+), 2 deletions(-)
+>=20
+
+This depends on NDRVBUF, yet I see no Kconfig change in this patch.
+
+
+
