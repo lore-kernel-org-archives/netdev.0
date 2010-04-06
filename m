@@ -1,44 +1,40 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] IPVS: replace sprintf to snprintf to avoid stack buffer
-	overflow
-Date: Tue, 6 Apr 2010 10:58:28 +0800
-Message-ID: <k2l412e6f7f1004051958h7c50f439r6b7a84379c35cba5@mail.gmail.com>
-References: <20100406025020.GA2741@localhost.localdomain>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] virtio-net: move sg off stack
+Date: Tue, 6 Apr 2010 12:44:28 +0930
+Message-ID: <201004061244.29187.rusty@rustcorp.com.au>
+References: <20100331.031636.04083770.davem@davemloft.net> <20100331124156.GA4598@redhat.com> <20100401.192648.185498218.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, wensong@linux-vs.org,
-	netdev@vger.kernel.org, lvs-devel@vger.kernel.org
-To: wzt.wzt@gmail.com
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, jpirko@redhat.com, xma@us.ibm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f200.google.com ([209.85.210.200]:39292 "EHLO
-	mail-yx0-f200.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757168Ab0DFC6t convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 22:58:49 -0400
-In-Reply-To: <20100406025020.GA2741@localhost.localdomain>
+Received: from ozlabs.org ([203.10.76.45]:58126 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751115Ab0DFDOb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Apr 2010 23:14:31 -0400
+In-Reply-To: <20100401.192648.185498218.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 6, 2010 at 10:50 AM,  <wzt.wzt@gmail.com> wrote:
-> IPVS not check the length of pp->name, use sprintf will cause stack b=
-uffer overflow.
-> struct ip_vs_protocol{} declare name as char *, if register a protoco=
-l as:
-> struct ip_vs_protocol ip_vs_test =3D {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0.name =3D =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 "aaaaaaaa....128...aaa",
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0.debug_packet =3D =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 ip_vs_tcpudp_debug_packet,
-> };
->
-> when called ip_vs_tcpudp_debug_packet(), sprintf(buf, "%s TRUNCATED",=
- pp->name);
-> will cause stack buffer overflow.
->
+On Fri, 2 Apr 2010 12:56:48 pm David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Wed, 31 Mar 2010 15:41:58 +0300
+> 
+> > Move sg structure off stack and into virtnet_info structure.
+> > This helps remove extra sg_init_table calls as well as reduce
+> > stack usage.
+> > 
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > ---
+> > 
+> > Compile-tested only for now.
+> > Shirley, Rusty Russell, does this fix CONFIG_DEBUG_SG=y for you?
 
-Long messages will be truncated instead of buffer overflow. We need to
-find a way to handle long messages elegantly.
+Yes, this fixes the BUG_ON() for me (trivial changes to base on Linus'
+tree only).
 
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+Thanks,
+Rusty.
