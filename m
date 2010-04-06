@@ -1,144 +1,59 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [RFC][PATCH] ipmr: Fix struct mfcctl to be independent of MAXVIFS.
-Date: Tue, 06 Apr 2010 05:16:22 -0700
-Message-ID: <m1mxxgbwtl.fsf@fess.ebiederm.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] sky2: rx hash offload
+Date: Tue, 06 Apr 2010 14:33:30 +0200
+Message-ID: <1270557210.2081.8.camel@edumazet-laptop>
+References: <20100405084800.3bcec66a@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Ilia K <mail4ilia@gmail.com>, Tom Goff <thomas.goff@boeing.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Tom Herbert <therbert@google.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:42615 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752404Ab0DFMQ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 08:16:27 -0400
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:54496 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754256Ab0DFMdi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 08:33:38 -0400
+Received: by bwz1 with SMTP id 1so3554610bwz.21
+        for <netdev@vger.kernel.org>; Tue, 06 Apr 2010 05:33:35 -0700 (PDT)
+In-Reply-To: <20100405084800.3bcec66a@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le lundi 05 avril 2010 =C3=A0 08:48 -0700, Stephen Hemminger a =C3=A9cr=
+it :
+> Marvell Yukon 2 hardware supports hardware receive hash calculation.
+> Now that Receive Packet Steering is available, add support
+> to enable it.
+>=20
+> Note: still experimental, tested on only a few variants.
+> No performance testing has been done.
+>=20
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>=20
+> ---
+>  drivers/net/sky2.c |   75 ++++++++++++++++++++++++++++++++++++++++++=
++++++++++--
+>  drivers/net/sky2.h |   23 ++++++++++++++++
+>  2 files changed, 96 insertions(+), 2 deletions(-)
 
-Right now if you recompile the kernel to support more VIFS users of
-the MRT_ADD_VIF and MRT_DEL_VIF will break because the ABI changes.
+I am wondering if introducing hardware computed rxhash wouldnt force us
+to clear rxhash in several paths (tunneling...), so that we perform a
+software recompute after decapsulation, to enable RFS
 
-Correct this by forcing the number of VIFS handled in mfcctl to 32.
-Allow for larger MAXVIFS by placing a second array of ttls at the end
-of struct mfcctl.
+Not mandatory but recommended I would say...
 
-struct mfcctl is insane.  The last 4 fields are dead, and the mfc_ttls
-array is only 2 byte aligned, with a 2 byte hole right after it.
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 2f302d3..3f0aba4 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -379,6 +379,7 @@ static int ipip_rcv(struct sk_buff *skb)
+ 		skb_dst_drop(skb);
+ 		nf_reset(skb);
+ 		ipip_ecn_decapsulate(iph, skb);
++		skb->rxhash =3D 0;
+ 		netif_rx(skb);
+ 		rcu_read_unlock();
+ 		return 0;
 
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
----
- include/linux/mroute.h |    4 +++-
- net/ipv4/ipmr.c        |   29 +++++++++++++++++++++++------
- 2 files changed, 26 insertions(+), 7 deletions(-)
-
-diff --git a/include/linux/mroute.h b/include/linux/mroute.h
-index c5f3d53..c5e066c 100644
---- a/include/linux/mroute.h
-+++ b/include/linux/mroute.h
-@@ -76,15 +76,17 @@ struct vifctl {
-  *	Cache manipulation structures for mrouted and PIMd
-  */
-  
-+#define MFCCTL_VIFS 32
- struct mfcctl {
- 	struct in_addr mfcc_origin;		/* Origin of mcast	*/
- 	struct in_addr mfcc_mcastgrp;		/* Group in question	*/
- 	vifi_t	mfcc_parent;			/* Where it arrived	*/
--	unsigned char mfcc_ttls[MAXVIFS];	/* Where it is going	*/
-+	unsigned char mfcc_ttls[MFCCTL_VIFS];	/* Where it is going	*/
- 	unsigned int mfcc_pkt_cnt;		/* pkt count for src-grp */
- 	unsigned int mfcc_byte_cnt;
- 	unsigned int mfcc_wrong_if;
- 	int	     mfcc_expire;
-+	unsigned char mfcc_ttls_extra[];	/* The rest of where it is going */
- };
- 
- /* 
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 0b9d03c..2120668 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -797,7 +797,8 @@ static int ipmr_mfc_delete(struct net *net, struct mfcctl *mfc)
- 	return -ENOENT;
- }
- 
--static int ipmr_mfc_add(struct net *net, struct mfcctl *mfc, int mrtsock)
-+static int ipmr_mfc_add(struct net *net, struct mfcctl *mfc,
-+			unsigned char *ttls, int mrtsock)
- {
- 	int line;
- 	struct mfc_cache *uc, *c, **cp;
-@@ -817,7 +818,7 @@ static int ipmr_mfc_add(struct net *net, struct mfcctl *mfc, int mrtsock)
- 	if (c != NULL) {
- 		write_lock_bh(&mrt_lock);
- 		c->mfc_parent = mfc->mfcc_parent;
--		ipmr_update_thresholds(c, mfc->mfcc_ttls);
-+		ipmr_update_thresholds(c, ttls);
- 		if (!mrtsock)
- 			c->mfc_flags |= MFC_STATIC;
- 		write_unlock_bh(&mrt_lock);
-@@ -834,7 +835,7 @@ static int ipmr_mfc_add(struct net *net, struct mfcctl *mfc, int mrtsock)
- 	c->mfc_origin = mfc->mfcc_origin.s_addr;
- 	c->mfc_mcastgrp = mfc->mfcc_mcastgrp.s_addr;
- 	c->mfc_parent = mfc->mfcc_parent;
--	ipmr_update_thresholds(c, mfc->mfcc_ttls);
-+	ipmr_update_thresholds(c, ttls);
- 	if (!mrtsock)
- 		c->mfc_flags |= MFC_STATIC;
- 
-@@ -954,6 +955,8 @@ int ip_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, unsi
- 	int ret;
- 	struct vifctl vif;
- 	struct mfcctl mfc;
-+	unsigned char ttls[MAXVIFS];
-+	unsigned extra_oifs;
- 	struct net *net = sock_net(sk);
- 
- 	if (optname != MRT_INIT) {
-@@ -961,7 +964,7 @@ int ip_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, unsi
- 			return -EACCES;
- 	}
- 
--	switch (optname) {
-+	switch (optname){
- 	case MRT_INIT:
- 		if (sk->sk_type != SOCK_RAW ||
- 		    inet_sk(sk)->inet_num != IPPROTO_IGMP)
-@@ -1012,15 +1015,29 @@ int ip_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, unsi
- 		 */
- 	case MRT_ADD_MFC:
- 	case MRT_DEL_MFC:
--		if (optlen != sizeof(mfc))
-+		/* How many extra interfaces do we have information for? */
-+		extra_oifs = optlen - sizeof(mfc);
-+		if (extra_oifs > (MAXVIFS - MFCCTL_VIFS))
-+			extra_oifs = MAXVIFS - MFCCTL_VIFS;
-+
-+		if (optlen < sizeof(mfc))
- 			return -EINVAL;
- 		if (copy_from_user(&mfc, optval, sizeof(mfc)))
- 			return -EFAULT;
-+
-+		memcpy(ttls, mfc.mfcc_ttls, sizeof(mfc.mfcc_ttls));
-+		memset(ttls + MFCCTL_VIFS, 255, MAXVIFS - MFCCTL_VIFS);
-+		if (copy_from_user(ttls + MFCCTL_VIFS,optval + sizeof(mfc),
-+				   extra_oifs))
-+			return -EFAULT;
-+
-+
- 		rtnl_lock();
- 		if (optname == MRT_DEL_MFC)
- 			ret = ipmr_mfc_delete(net, &mfc);
- 		else
--			ret = ipmr_mfc_add(net, &mfc, sk == net->ipv4.mroute_sk);
-+			ret = ipmr_mfc_add(net, &mfc, ttls,
-+					   sk == net->ipv4.mroute_sk);
- 		rtnl_unlock();
- 		return ret;
- 		/*
--- 
-1.6.5.2.143.g8cc62
 
