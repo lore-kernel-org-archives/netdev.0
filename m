@@ -1,63 +1,54 @@
-From: "Steven J. Magnani" <steve@digidescorp.com>
-Subject: RE: [PATCH] [V3] Add non-Virtex5 support for LL TEMAC driver
-Date: Tue, 06 Apr 2010 10:08:02 -0500
-Message-ID: <1270566482.3949.4.camel@iscandar.digidescorp.com>
-References: <d9134316-bd07-46a8-91d4-c30f27baeb60@SG2EHSMHS007.ehs.local>
-	 <1270502993.9013.36.camel@edumazet-laptop>
-	 <7a42d507-bf50-40f3-a2a0-8de682b314d7@SG2EHSMHS017.ehs.local>
-Reply-To: steve@digidescorp.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] rfs: Receive Flow Steering
+Date: Tue, 06 Apr 2010 17:10:52 +0200
+Message-ID: <1270566652.2081.38.camel@edumazet-laptop>
+References: <alpine.DEB.1.00.1004052248390.29212@pokey.mtv.corp.google.com>
+	 <1270559096.2081.35.camel@edumazet-laptop>
+	 <v2n65634d661004060725paf401b5bg1ee692caef565d33@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, grant.likely@secretlab.ca,
-	jwboyer@linux.vnet.ibm.com, john.williams@petalogix.com,
-	michal.simek@petalogix.com, John Tyner <jtyner@cs.ucr.edu>
-To: John Linn <John.Linn@xilinx.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.digidescorp.com ([66.244.163.200]:36391 "EHLO
-	digidescorp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751665Ab0DFPIJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 11:08:09 -0400
-Received: from [10.10.6.102] by digidescorp.com (Cipher SSLv3:RC4-MD5:128) (MDaemon PRO v10.1.1)
-	with ESMTP id md50001246428.msg
-	for <netdev@vger.kernel.org>; Tue, 06 Apr 2010 10:08:08 -0500
-In-Reply-To: <7a42d507-bf50-40f3-a2a0-8de682b314d7@SG2EHSMHS017.ehs.local>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:55781 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753717Ab0DFPK7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 11:10:59 -0400
+Received: by bwz1 with SMTP id 1so3710054bwz.21
+        for <netdev@vger.kernel.org>; Tue, 06 Apr 2010 08:10:56 -0700 (PDT)
+In-Reply-To: <v2n65634d661004060725paf401b5bg1ee692caef565d33@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-04-05 at 15:33 -0600, John Linn wrote:
-> > > +/* Align the IP data in the packet on word boundaries as MicroBlaze
-> > > + * needs it.
-> > > + */
-> > > +
-> > >  #define XTE_ALIGN       32
-> > > -#define BUFFER_ALIGN(adr) ((XTE_ALIGN - ((u32) adr)) % XTE_ALIGN)
-> > > +#define BUFFER_ALIGN(adr) ((34 - ((u32) adr)) % XTE_ALIGN)
-> > >
-> > 
-> > Very interesting way of doing this, but why such convoluted thing ?
-> 
-> Grant might have insight into why this started this way, I just updated to help with MicroBlaze alignment.
-> 
-> > 
-> > Because of the % 32, this is equivalent to :
-> > 
-> > #define BUFFER_ALIGN(adr) ((2 - ((u32) adr)) % XTE_ALIGN)
-> > 
-> > But wait, dont we recognise the magic constant NET_IP_ALIGN ?
-> > 
-> > So, I ask, cant you use netdev_alloc_skb_ip_align() in this driver ?
-> > 
+Le mardi 06 avril 2010 =C3=A0 07:25 -0700, Tom Herbert a =C3=A9crit :
 
-That should work. I switched to that in the older xilinx_lltemac driver
-without any problem. 
+> > 2) inet_rps_save_rxhash(sk, skb->rxhash);
+> >
+> >        It should have a check to make sure some part of the stack d=
+oesnt feed
+> > many different rxhash for a given socket (Make sure we dont pollute=
+ flow
+> > table with pseudo random values)
+> >
+> If packets for a connection are always received on the same device, i=
+s
+> it reasonable to assume the rxhash is constant for that connection?
+>=20
+> I suppose it's possible that packets for a same sockets are being
+> constantly received on two different devices that are giving differen=
+t
+> rxhashes.  This would already be bad in that OOO is probably happenin=
+g
+> anyway.  I don't know if thrashing the sock_flow_table is going to
+> aggravate this scenario much.
+>=20
+> Are there any other degenerative cases you're worried about?
 
-------------------------------------------------------------------------
- Steven J. Magnani               "I claim this network for MARS!
- www.digidescorp.com              Earthling, return my space modulator!"
-
- #include <standard.disclaimer>
-
+No, I was only considering this mostly as a debugging aid, before RPS i=
+s
+stable, because mismatches could be unnoticed and performance not
+optimal.
+=20
 
 
