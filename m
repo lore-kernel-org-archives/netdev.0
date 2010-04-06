@@ -1,80 +1,62 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] [V3] Add non-Virtex5 support for LL TEMAC driver
-Date: Mon, 5 Apr 2010 18:08:33 -0600
-Message-ID: <l2hfa686aa41004051708h1abd23b1qe52d06731089764c@mail.gmail.com>
-References: <d9134316-bd07-46a8-91d4-c30f27baeb60@SG2EHSMHS007.ehs.local>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC PATCH 1/2] netdev: buffer infrastructure to log network
+ driver's information
+Date: Mon, 5 Apr 2010 20:10:34 -0400
+Message-ID: <20100406001034.GA2156@localhost.localdomain>
+References: <4BB98828.5030302@jp.fujitsu.com>
+ <4BB988C9.9070709@jp.fujitsu.com>
+ <1270456946.1971.27.camel@edumazet-laptop>
+ <20100405.123155.263974951.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	jwboyer@linux.vnet.ibm.com, john.williams@petalogix.com,
-	michal.simek@petalogix.com, John Tyner <jtyner@cs.ucr.edu>,
-	David Miller <davem@davemloft.net>
-To: John Linn <john.linn@xilinx.com>
+Cc: eric.dumazet@gmail.com, sanagi.koki@jp.fujitsu.com,
+	netdev@vger.kernel.org, izumi.taku@jp.fujitsu.com,
+	kaneshige.kenji@jp.fujitsu.com, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	alexander.h.duyck@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:51440 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755264Ab0DFAIy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 20:08:54 -0400
-Received: by gwb19 with SMTP id 19so1464673gwb.19
-        for <netdev@vger.kernel.org>; Mon, 05 Apr 2010 17:08:53 -0700 (PDT)
-In-Reply-To: <d9134316-bd07-46a8-91d4-c30f27baeb60@SG2EHSMHS007.ehs.local>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57517 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755517Ab0DFAKr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 20:10:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20100405.123155.263974951.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 5, 2010 at 3:11 PM, John Linn <john.linn@xilinx.com> wrote:
-> This patch adds support for using the LL TEMAC Ethernet driver on
-> non-Virtex 5 platforms by adding support for accessing the Soft DMA
-> registers as if they were memory mapped instead of solely through the
-> DCR's (available on the Virtex 5).
->
-> The patch also updates the driver so that it runs on the MicroBlaze.
-> The changes were tested on the PowerPC 440, PowerPC 405, and the
-> MicroBlaze platforms.
->
-> Signed-off-by: John Tyner <jtyner@cs.ucr.edu>
-> Signed-off-by: John Linn <john.linn@xilinx.com>
->
-> ---
->
-> V2 - Incorporated comments from Grant and added more logic to allow t=
-he driver
-> to work on MicroBlaze.
->
-> V3 - Only updated it to apply to head, minor change to include slab.h=
-=2E Also
-> verified that it now builds for MicroBlaze. Retested on PowerPC and M=
-icroBlaze.
-> ---
-> =A0drivers/net/Kconfig =A0 =A0 =A0 =A0 | =A0 =A01 -
-> =A0drivers/net/ll_temac.h =A0 =A0 =A0| =A0 17 +++++-
-> =A0drivers/net/ll_temac_main.c | =A0124 +++++++++++++++++++++++++++++=
-+++++---------
-> =A03 files changed, 113 insertions(+), 29 deletions(-)
->
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index 0ba5b8e..17044dc 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -2435,7 +2435,6 @@ config MV643XX_ETH
-> =A0config XILINX_LL_TEMAC
-> =A0 =A0 =A0 =A0tristate "Xilinx LL TEMAC (LocalLink Tri-mode Ethernet=
- MAC) driver"
-> =A0 =A0 =A0 =A0select PHYLIB
-> - =A0 =A0 =A0 depends on PPC_DCR_NATIVE
-> =A0 =A0 =A0 =A0help
-> =A0 =A0 =A0 =A0 =A0This driver supports the Xilinx 10/100/1000 LocalL=
-ink TEMAC
-> =A0 =A0 =A0 =A0 =A0core used in Xilinx Spartan and Virtex FPGAs
+On Mon, Apr 05, 2010 at 12:31:55PM -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 05 Apr 2010 10:42:26 +0200
+>=20
+> > Le lundi 05 avril 2010 =E0 15:52 +0900, Koki Sanagi a =E9crit :
+> >> This patch implements buffer infrastructure under driver/net.
+> >> This buffer records information from network driver.
+> >>=20
+> >> Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+> >> ---
+> >>   drivers/net/Kconfig     |    8 +
+> >>   drivers/net/Makefile    |    1 +
+> >>   drivers/net/ndrvbuf.c   |  535 +++++++++++++++++++++++++++++++++=
+++++++++++++++
+> >>   include/linux/ndrvbuf.h |   57 +++++
+> >>   4 files changed, 601 insertions(+), 0 deletions(-)
+> >>=20
+> >=20
+> > Wow, 600 lines... thats what I call bloat...
+>=20
+> And we have all sorts of facilities for creating filesystem
+> streams and ring buffers of debug information.
+>=20
+> You could even hook into 'perf' to log and process these
+> events in probably like 12 lines of code.
+>=20
+I'm still having a hard time understanding why this approach is prefera=
+ble to
+the previous approach you took using tracepoints.  Granted you can't ge=
+t driver
+internal state as easily, but its generic and doesn't do...this.
+Neil
 
-
-This still at the very least needs to depend on CONFIG_OF.  Otherwise
-allmodconfig and allyesconfig on x86 and others will break.  The
-driver also doesn't build on sparc, so you'll need to either exclude
-CONFIG_SPARC or depend on (PPC || MICROBLAZE) too.
-
-g.
-
---=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
