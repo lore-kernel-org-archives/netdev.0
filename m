@@ -1,34 +1,27 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: NET: sb1250: Fix compile warning in driver
-Date: Tue, 6 Apr 2010 10:33:20 +0100
-Message-ID: <20100406093320.GA31967@linux-mips.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/12] tg3: Bugfix, msg fixups, and checkpatch
+ cleanups
+Date: Tue, 06 Apr 2010 03:59:39 -0700 (PDT)
+Message-ID: <20100406.035939.244334407.davem@davemloft.net>
+References: <1270498770-23765-1-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andy@greyhouse.net
+To: mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h5.dl5rb.org.uk ([81.2.74.5]:43278 "EHLO h5.dl5rb.org.uk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753043Ab0DFK3i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Apr 2010 06:29:38 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44273
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752199Ab0DFK7j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 06:59:39 -0400
+In-Reply-To: <1270498770-23765-1-git-send-email-mcarlson@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Mon, 5 Apr 2010 13:19:18 -0700
 
- drivers/net/sb1250-mac.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+> This patchset fixes a minor APD bug, elaborates on the recent messaging
+> improvements, and implements some checkpatch cleanups.
 
-diff --git a/drivers/net/sb1250-mac.c b/drivers/net/sb1250-mac.c
-index 9944e5d..142261b 100644
---- a/drivers/net/sb1250-mac.c
-+++ b/drivers/net/sb1250-mac.c
-@@ -2664,7 +2664,6 @@ static int sbmac_close(struct net_device *dev)
- static int sbmac_poll(struct napi_struct *napi, int budget)
- {
- 	struct sbmac_softc *sc = container_of(napi, struct sbmac_softc, napi);
--	struct net_device *dev = sc->sbm_dev;
- 	int work_done;
- 
- 	work_done = sbdma_rx_process(sc, &(sc->sbm_rxdma), budget, 1);
+These all look fine, applied to net-next-2.6, thanks!
