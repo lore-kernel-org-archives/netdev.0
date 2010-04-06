@@ -1,70 +1,26 @@
-From: John Linn <John.Linn@xilinx.com>
-Subject: RE: [PATCH] [V3] Add non-Virtex5 support for LL TEMAC driver
-Date: Tue, 6 Apr 2010 10:12:05 -0600
-Message-ID: <2fefb2a2-d0dc-461d-ac8c-3e7d177b7cf8@VA3EHSMHS032.ehs.local>
-References: <d9134316-bd07-46a8-91d4-c30f27baeb60@SG2EHSMHS007.ehs.local> <1270502993.9013.36.camel@edumazet-laptop>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH 5/5] netfilter: xt_TEE: have cloned packet travel through
+ Xtables too
+Date: Tue, 6 Apr 2010 18:14:54 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1004061814120.13186@obet.zrqbmnf.qr>
+References: <1270031934-15940-1-git-send-email-jengelh@medozas.de> <1270031934-15940-6-git-send-email-jengelh@medozas.de> <4BB47768.1050405@trash.net> <alpine.LSU.2.01.1004011258060.17429@obet.zrqbmnf.qr> <4BB47EEA.4020809@trash.net>
+ <alpine.LSU.2.01.1004011511180.1174@obet.zrqbmnf.qr> <4BB49E10.8080608@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
-	<grant.likely@secretlab.ca>, <jwboyer@linux.vnet.ibm.com>,
-	<john.williams@petalogix.com>, <michal.simek@petalogix.com>,
-	"John Tyner" <jtyner@cs.ucr.edu>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe005.messaging.microsoft.com ([216.32.180.15]:20290
-	"EHLO VA3EHSOBE006.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752232Ab0DFQNH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 12:13:07 -0400
-Content-Class: urn:content-classes:message
-In-Reply-To: <1270502993.9013.36.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBNb25kYXksIEFwcmlsIDA1LCAyMDEw
-IDM6MzAgUE0NCj4gVG86IEpvaG4gTGlubg0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsg
-bGludXhwcGMtZGV2QG96bGFicy5vcmc7IGdyYW50Lmxpa2VseUBzZWNyZXRsYWIuY2E7DQo+IGp3
-Ym95ZXJAbGludXgudm5ldC5pYm0uY29tOyBqb2huLndpbGxpYW1zQHBldGFsb2dpeC5jb207IG1p
-Y2hhbC5zaW1la0BwZXRhbG9naXguY29tOyBKb2huIFR5bmVyDQo+IFN1YmplY3Q6IFJlOiBbUEFU
-Q0hdIFtWM10gQWRkIG5vbi1WaXJ0ZXg1IHN1cHBvcnQgZm9yIExMIFRFTUFDIGRyaXZlcg0KPiAN
-Cj4gTGUgbHVuZGkgMDUgYXZyaWwgMjAxMCDDoCAxNToxMSAtMDYwMCwgSm9obiBMaW5uIGEgw6lj
-cml0IDoNCj4gPiBUaGlzIHBhdGNoIGFkZHMgc3VwcG9ydCBmb3IgdXNpbmcgdGhlIExMIFRFTUFD
-IEV0aGVybmV0IGRyaXZlciBvbg0KPiA+IG5vbi1WaXJ0ZXggNSBwbGF0Zm9ybXMgYnkgYWRkaW5n
-IHN1cHBvcnQgZm9yIGFjY2Vzc2luZyB0aGUgU29mdCBETUENCj4gPiByZWdpc3RlcnMgYXMgaWYg
-dGhleSB3ZXJlIG1lbW9yeSBtYXBwZWQgaW5zdGVhZCBvZiBzb2xlbHkgdGhyb3VnaCB0aGUNCj4g
-PiBEQ1IncyAoYXZhaWxhYmxlIG9uIHRoZSBWaXJ0ZXggNSkuDQo+ID4NCj4gPiBUaGUgcGF0Y2gg
-YWxzbyB1cGRhdGVzIHRoZSBkcml2ZXIgc28gdGhhdCBpdCBydW5zIG9uIHRoZSBNaWNyb0JsYXpl
-Lg0KPiA+IFRoZSBjaGFuZ2VzIHdlcmUgdGVzdGVkIG9uIHRoZSBQb3dlclBDIDQ0MCwgUG93ZXJQ
-QyA0MDUsIGFuZCB0aGUNCj4gPiBNaWNyb0JsYXplIHBsYXRmb3Jtcy4NCj4gPg0KPiA+IFNpZ25l
-ZC1vZmYtYnk6IEpvaG4gVHluZXIgPGp0eW5lckBjcy51Y3IuZWR1Pg0KPiA+IFNpZ25lZC1vZmYt
-Ynk6IEpvaG4gTGlubiA8am9obi5saW5uQHhpbGlueC5jb20+DQo+ID4NCj4gPiAtLS0NCj4gDQo+
-ID4gKy8qIEFsaWduIHRoZSBJUCBkYXRhIGluIHRoZSBwYWNrZXQgb24gd29yZCBib3VuZGFyaWVz
-IGFzIE1pY3JvQmxhemUNCj4gPiArICogbmVlZHMgaXQuDQo+ID4gKyAqLw0KPiA+ICsNCj4gPiAg
-I2RlZmluZSBYVEVfQUxJR04gICAgICAgMzINCj4gPiAtI2RlZmluZSBCVUZGRVJfQUxJR04oYWRy
-KSAoKFhURV9BTElHTiAtICgodTMyKSBhZHIpKSAlIFhURV9BTElHTikNCj4gPiArI2RlZmluZSBC
-VUZGRVJfQUxJR04oYWRyKSAoKDM0IC0gKCh1MzIpIGFkcikpICUgWFRFX0FMSUdOKQ0KPiA+DQo+
-IA0KPiBWZXJ5IGludGVyZXN0aW5nIHdheSBvZiBkb2luZyB0aGlzLCBidXQgd2h5IHN1Y2ggY29u
-dm9sdXRlZCB0aGluZyA/DQoNClRoaXMgaXMgdHJ5aW5nIHRvIGFsaWduIGZvciBhIGNhY2hlIGxp
-bmUgKDMyIGJ5dGVzKSBiZWZvcmUgbXkgY2hhbmdlLg0KDQpNeSBjaGFuZ2Ugd2FzIHRoZW4gYWxz
-byBtYWtpbmcgaXQgYWxpZ24gdGhlIElQIGRhdGEgb24gYSB3b3JkIGJvdW5kYXJ5LiANCg0KPiAN
-Cj4gQmVjYXVzZSBvZiB0aGUgJSAzMiwgdGhpcyBpcyBlcXVpdmFsZW50IHRvIDoNCj4gDQo+ICNk
-ZWZpbmUgQlVGRkVSX0FMSUdOKGFkcikgKCgyIC0gKCh1MzIpIGFkcikpICUgWFRFX0FMSUdOKQ0K
-PiANCg0KWWVzLCBidXQgSSdtIG5vdCBzdXJlIHRoYXQncyBjbGVhcmVyIElNSE8uDQoNCj4gQnV0
-IHdhaXQsIGRvbnQgd2UgcmVjb2duaXNlIHRoZSBtYWdpYyBjb25zdGFudCBORVRfSVBfQUxJR04g
-Pw0KDQpZZXMgaXQgY291bGQgYmUgdXNlZC4gIEknbSBzdHJ1Z2dsaW5nIHdpdGggaG93IHRvIG1h
-a2UgdGhpcyBhbGwgYmUgY2xlYXJlci4NCg0KSG93IGFib3V0IHRoaXM/DQoNCiNkZWZpbmUgQlVG
-RkVSX0FMSUdOKGFkcikgKCgoWFRFX0FMSUdOICsgTkVUX0lQX0FMSUdOKSAtICgodTMyKSBhZHIp
-KSAlIFhURV9BTElHTikNCg0KPiANCj4gU28sIEkgYXNrLCBjYW50IHlvdSB1c2UgbmV0ZGV2X2Fs
-bG9jX3NrYl9pcF9hbGlnbigpIGluIHRoaXMgZHJpdmVyID8NCg0KRnJvbSB3aGF0IEkgY2FuIHRl
-bGwsIHRoaXMgd291bGRuJ3Qgd29yayBhcyBpdCBvbmx5IHJlc2VydmVzIHRoZSAyIGJ5dGVzIHRv
-IGFsaWduIHdpdGggDQphIHdvcmQgYm91bmRhcnkuDQoNClRoYW5rcywNCkpvaG4NCg0KPiANCj4g
-DQoNCgpUaGlzIGVtYWlsIGFuZCBhbnkgYXR0YWNobWVudHMgYXJlIGludGVuZGVkIGZvciB0aGUg
-c29sZSB1c2Ugb2YgdGhlIG5hbWVkIHJlY2lwaWVudChzKSBhbmQgY29udGFpbihzKSBjb25maWRl
-bnRpYWwgaW5mb3JtYXRpb24gdGhhdCBtYXkgYmUgcHJvcHJpZXRhcnksIHByaXZpbGVnZWQgb3Ig
-Y29weXJpZ2h0ZWQgdW5kZXIgYXBwbGljYWJsZSBsYXcuIElmIHlvdSBhcmUgbm90IHRoZSBpbnRl
-bmRlZCByZWNpcGllbnQsIGRvIG5vdCByZWFkLCBjb3B5LCBvciBmb3J3YXJkIHRoaXMgZW1haWwg
-bWVzc2FnZSBvciBhbnkgYXR0YWNobWVudHMuIERlbGV0ZSB0aGlzIGVtYWlsIG1lc3NhZ2UgYW5k
-IGFueSBhdHRhY2htZW50cyBpbW1lZGlhdGVseS4K
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4BB49E10.8080608@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+On Thursday 2010-04-01 15:22, Patrick McHardy wrote:
+>> Or should we be using skb_alloc and copying the data portion over, like 
+>> ipt_REJECT does since v2.6.24-2931-g9ba99b0?
+>
+>I guess pskb_copy() would be most optimal since we can modify
+>the header, but the non-linear area could be shared
+
+Trying to improve my understanding: when doing skb_pull,
+does the skb->head that is relevant for pskb_copy move?
