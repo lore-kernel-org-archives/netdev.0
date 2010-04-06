@@ -1,98 +1,148 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v2] rfs: Receive Flow Steering
-Date: Tue, 6 Apr 2010 07:25:56 -0700
-Message-ID: <v2n65634d661004060725paf401b5bg1ee692caef565d33@mail.gmail.com>
-References: <alpine.DEB.1.00.1004052248390.29212@pokey.mtv.corp.google.com>
-	 <1270559096.2081.35.camel@edumazet-laptop>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH] packet: support for TX time stamps on RAW sockets
+Date: Tue, 6 Apr 2010 16:30:30 +0200
+Message-ID: <20100406143030.GA26954@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: patrick.ohly@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:22160 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751669Ab0DFO0B convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 10:26:01 -0400
-Received: from hpaq1.eem.corp.google.com (hpaq1.eem.corp.google.com [10.3.21.1])
-	by smtp-out.google.com with ESMTP id o36EPww6026969
-	for <netdev@vger.kernel.org>; Tue, 6 Apr 2010 07:25:59 -0700
-Received: from pwj9 (pwj9.prod.google.com [10.241.219.73])
-	by hpaq1.eem.corp.google.com with ESMTP id o36EPuCi014316
-	for <netdev@vger.kernel.org>; Tue, 6 Apr 2010 16:25:57 +0200
-Received: by pwj9 with SMTP id 9so1150267pwj.5
-        for <netdev@vger.kernel.org>; Tue, 06 Apr 2010 07:25:56 -0700 (PDT)
-In-Reply-To: <1270559096.2081.35.camel@edumazet-laptop>
+Received: from mail-fx0-f223.google.com ([209.85.220.223]:43844 "EHLO
+	mail-fx0-f223.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752917Ab0DFOak (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 10:30:40 -0400
+Received: by fxm23 with SMTP id 23so3815128fxm.21
+        for <netdev@vger.kernel.org>; Tue, 06 Apr 2010 07:30:39 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->
-> Running on a preprod machine here, seems fine.
->
-> Some questions :
->
-> 1) The need to add "rps_flow_entries=3Dxxx" at boot time is problemat=
-ic.
-> =A0 Maybe we can allow it being dynamic (and use vmalloc() instead of
-> alloc_large_system_hash())
->
-Okay, could be a sysctl with vmalloc.
+Enable the SO_TIMESTAMPING socket infrastructure for raw packet sockets.
+For lack of a better idea, we have elected to use PACKET_RECV_OUTPUT for
+the control message cmsg_type. This macro currently is not used anywhere
+within the kernel.
 
-> 2) inet_rps_save_rxhash(sk, skb->rxhash);
->
-> =A0 =A0 =A0 =A0It should have a check to make sure some part of the s=
-tack doesnt feed
-> many different rxhash for a given socket (Make sure we dont pollute f=
-low
-> table with pseudo random values)
->
-If packets for a connection are always received on the same device, is
-it reasonable to assume the rxhash is constant for that connection?
+Similar support for UDP and CAN sockets was added in commit
+51f31cabe3ce5345b51e4a4f82138b38c4d5dc91
 
-I suppose it's possible that packets for a same sockets are being
-constantly received on two different devices that are giving different
-rxhashes.  This would already be bad in that OOO is probably happening
-anyway.  I don't know if thrashing the sock_flow_table is going to
-aggravate this scenario much.
+Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
+---
+ net/packet/af_packet.c |   60 +++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 59 insertions(+), 1 deletions(-)
 
-Are there any other degenerative cases you're worried about?
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index b0f037c..4513222 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -81,6 +81,7 @@
+ #include <linux/mutex.h>
+ #include <linux/if_vlan.h>
+ #include <linux/virtio_net.h>
++#include <linux/errqueue.h>
+ 
+ #ifdef CONFIG_INET
+ #include <net/inet_common.h>
+@@ -314,6 +315,8 @@ static inline struct packet_sock *pkt_sk(struct sock *sk)
+ 
+ static void packet_sock_destruct(struct sock *sk)
+ {
++	skb_queue_purge(&sk->sk_error_queue);
++
+ 	WARN_ON(atomic_read(&sk->sk_rmem_alloc));
+ 	WARN_ON(atomic_read(&sk->sk_wmem_alloc));
+ 
+@@ -482,6 +485,9 @@ retry:
+ 	skb->dev = dev;
+ 	skb->priority = sk->sk_priority;
+ 	skb->mark = sk->sk_mark;
++	err = sock_tx_timestamp(msg, sk, skb_tx(skb));
++	if (err < 0)
++		goto out_unlock;
+ 
+ 	dev_queue_xmit(skb);
+ 	rcu_read_unlock();
+@@ -1187,6 +1193,9 @@ static int packet_snd(struct socket *sock,
+ 	err = skb_copy_datagram_from_iovec(skb, offset, msg->msg_iov, 0, len);
+ 	if (err)
+ 		goto out_free;
++	err = sock_tx_timestamp(msg, sk, skb_tx(skb));
++	if (err < 0)
++		goto out_free;
+ 
+ 	skb->protocol = proto;
+ 	skb->dev = dev;
+@@ -1486,6 +1495,50 @@ out:
+ 	return err;
+ }
+ 
++static int packet_recv_error(struct sock *sk, struct msghdr *msg, int len)
++{
++	struct sock_exterr_skb *serr;
++	struct sk_buff *skb, *skb2;
++	int copied, err;
++
++	err = -EAGAIN;
++	skb = skb_dequeue(&sk->sk_error_queue);
++	if (skb == NULL)
++		goto out;
++
++	copied = skb->len;
++	if (copied > len) {
++		msg->msg_flags |= MSG_TRUNC;
++		copied = len;
++	}
++	err = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, copied);
++	if (err)
++		goto out_free_skb;
++
++	sock_recv_timestamp(msg, sk, skb);
++
++	serr = SKB_EXT_ERR(skb);
++	put_cmsg(msg,SOL_PACKET,PACKET_RECV_OUTPUT,sizeof(serr->ee),&serr->ee);
++
++	msg->msg_flags |= MSG_ERRQUEUE;
++	err = copied;
++
++	/* Reset and regenerate socket error */
++	spin_lock_bh(&sk->sk_error_queue.lock);
++	sk->sk_err = 0;
++	if ((skb2 = skb_peek(&sk->sk_error_queue)) != NULL) {
++		sk->sk_err = SKB_EXT_ERR(skb2)->ee.ee_errno;
++		spin_unlock_bh(&sk->sk_error_queue.lock);
++		sk->sk_error_report(sk);
++	} else
++		spin_unlock_bh(&sk->sk_error_queue.lock);
++
++out_free_skb:
++	kfree_skb(skb);
++out:
++	return err;
++}
++
+ /*
+  *	Pull a packet from our receive queue and hand it to the user.
+  *	If necessary we block.
+@@ -1501,7 +1554,7 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	int vnet_hdr_len = 0;
+ 
+ 	err = -EINVAL;
+-	if (flags & ~(MSG_PEEK|MSG_DONTWAIT|MSG_TRUNC|MSG_CMSG_COMPAT))
++	if (flags & ~(MSG_PEEK|MSG_DONTWAIT|MSG_TRUNC|MSG_CMSG_COMPAT|MSG_ERRQUEUE))
+ 		goto out;
+ 
+ #if 0
+@@ -1510,6 +1563,11 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		return -ENODEV;
+ #endif
+ 
++	if (flags & MSG_ERRQUEUE) {
++		err = packet_recv_error(sk, msg, len);
++		goto out;
++	}
++
+ 	/*
+ 	 *	Call the generic datagram receiver. This handles all sorts
+ 	 *	of horrible races and re-entrancy so we can forget about it
+-- 
+1.6.0.4
 
-> 3) UDP connected sockets dont benefit of RFS currently
-> =A0 (Not sure many apps use connected UDP sockets, I do have some of =
-them
-> in house)
->
-Makes sense to support that.
-
-> I am trying following code for IPV4 only :
->
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index 7af756d..5c2d37a 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -1216,6 +1216,7 @@ int udp_disconnect(struct sock *sk, int flags)
-> =A0 =A0 =A0 =A0sk->sk_state =3D TCP_CLOSE;
-> =A0 =A0 =A0 =A0inet->inet_daddr =3D 0;
-> =A0 =A0 =A0 =A0inet->inet_dport =3D 0;
-> + =A0 =A0 =A0 inet_rps_save_rxhash(sk, 0);
-> =A0 =A0 =A0 =A0sk->sk_bound_dev_if =3D 0;
-> =A0 =A0 =A0 =A0if (!(sk->sk_userlocks & SOCK_BINDADDR_LOCK))
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0inet_reset_saddr(sk);
-> @@ -1257,8 +1258,12 @@ EXPORT_SYMBOL(udp_lib_unhash);
->
-> =A0static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *sk=
-b)
-> =A0{
-> - =A0 =A0 =A0 int rc =3D sock_queue_rcv_skb(sk, skb);
-> + =A0 =A0 =A0 int rc;
-> +
-> + =A0 =A0 =A0 if (inet_sk(sk)->inet_daddr)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 inet_rps_save_rxhash(sk, skb->rxhash);
->
-> + =A0 =A0 =A0 rc =3D sock_queue_rcv_skb(sk, skb);
-> =A0 =A0 =A0 =A0if (rc < 0) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0int is_udplite =3D IS_UDPLITE(sk);
->
->
->
->
