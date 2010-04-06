@@ -1,40 +1,38 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] virtio-net: move sg off stack
-Date: Tue, 6 Apr 2010 12:44:28 +0930
-Message-ID: <201004061244.29187.rusty@rustcorp.com.au>
-References: <20100331.031636.04083770.davem@davemloft.net> <20100331124156.GA4598@redhat.com> <20100401.192648.185498218.davem@davemloft.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] IPVS: replace sprintf to snprintf to avoid stack
+ buffer overflow
+Date: Tue, 6 Apr 2010 13:22:49 +1000
+Message-ID: <20100406032248.GF30359@verge.net.au>
+References: <20100406025020.GA2741@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, jpirko@redhat.com, xma@us.ibm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:58126 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751115Ab0DFDOb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Apr 2010 23:14:31 -0400
-In-Reply-To: <20100401.192648.185498218.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: wzt.wzt@gmail.com
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100406025020.GA2741@localhost.localdomain>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2 Apr 2010 12:56:48 pm David Miller wrote:
-> From: "Michael S. Tsirkin" <mst@redhat.com>
-> Date: Wed, 31 Mar 2010 15:41:58 +0300
+On Tue, Apr 06, 2010 at 10:50:20AM +0800, wzt.wzt@gmail.com wrote:
+> IPVS not check the length of pp->name, use sprintf will cause stack buffer overflow.
+> struct ip_vs_protocol{} declare name as char *, if register a protocol as:
+> struct ip_vs_protocol ip_vs_test = {
+>         .name =			"aaaaaaaa....128...aaa",
+> 	.debug_packet =         ip_vs_tcpudp_debug_packet,
+> };
 > 
-> > Move sg structure off stack and into virtnet_info structure.
-> > This helps remove extra sg_init_table calls as well as reduce
-> > stack usage.
-> > 
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > ---
-> > 
-> > Compile-tested only for now.
-> > Shirley, Rusty Russell, does this fix CONFIG_DEBUG_SG=y for you?
+> when called ip_vs_tcpudp_debug_packet(), sprintf(buf, "%s TRUNCATED", pp->name); 
+> will cause stack buffer overflow.
+>
+> Signed-off-by: Zhitong Wang <zhitong.wangzt@alibaba-inc.com>
 
-Yes, this fixes the BUG_ON() for me (trivial changes to base on Linus'
-tree only).
+I think that the simple answer is, don't do that.
+But your patch seems entirely reasonable to me.
 
-Thanks,
-Rusty.
+Acked-by: Simon Horman <horms@verge.net.au>
+
+Patrick, please consider merging this.
+
