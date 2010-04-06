@@ -1,452 +1,398 @@
-From: David L Stevens <dlstevens@us.ibm.com>
-Subject: [PATCH v3] Add Mergeable receive buffer support to vhost_net
-Date: Tue, 06 Apr 2010 13:32:53 -0700
-Message-ID: <1270585973.28407.3.camel@lab1.dls>
-Reply-To: dlstevens@us.ibm.com
+From: =?iso-8859-1?Q?Fran=E7ois?= Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH net-next] via-velocity: remove private #define
+Date: Tue, 6 Apr 2010 22:58:10 +0200
+Message-ID: <20100406205810.GA8077@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, rusty@rustcorp.com.au,
-	virtualization@lists.osdl.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Simon Kagstrom <simon.kagstrom@netinsight.net>,
+	Jan Ceuleers <jan.ceuleers@computer.org>,
+	=?iso-8859-1?Q?S=E9guier_R=E9gis?= <rseguier@e-teleport.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:38830 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752187Ab0DFUf0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 16:35:26 -0400
+Received: from 55.58.140-88.rev.gaoland.net ([88.140.58.55]:57836 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753744Ab0DFU7B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 16:59:01 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Registers and their bits from mii.h. Courtesy from ed.
 
-This patch adds support for the Mergeable Receive Buffers feature to
-vhost_net.
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/via-velocity.c |  114 ++++++++++++++++++++++----------------------
+ drivers/net/via-velocity.h |   77 +----------------------------
+ 2 files changed, 60 insertions(+), 131 deletions(-)
 
-						+-DLS
-
-Changes from previous revision:
-1) renamed:
-	vhost_discard_vq_desc -> vhost_discard_desc
-	vhost_get_heads -> vhost_get_desc_n
-	vhost_get_vq_desc -> vhost_get_desc
-2) added heads as argument to ghost_get_desc_n
-3) changed "vq->heads" from iovec to vring_used_elem, removed casts
-4) changed vhost_add_used to do multiple elements in a single
-copy_to_user,
-	or two when we wrap the ring.
-5) removed rxmaxheadcount and available buffer checks in favor of
-running until
-	an allocation failure, but making sure we break the loop if we get
-	two in a row, indicating we have at least 1 buffer, but not enough
-	for the current receive packet
-6) restore non-vnet header handling
-
-Signed-Off-By: David L Stevens <dlstevens@us.ibm.com>
-
-diff -ruNp net-next-p0/drivers/vhost/net.c
-net-next-v3/drivers/vhost/net.c
---- net-next-p0/drivers/vhost/net.c	2010-03-22 12:04:38.000000000 -0700
-+++ net-next-v3/drivers/vhost/net.c	2010-04-06 12:54:56.000000000 -0700
-@@ -130,9 +130,8 @@ static void handle_tx(struct vhost_net *
- 	hdr_size = vq->hdr_size;
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index 91f3b84..078903f 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -719,30 +719,30 @@ static u32 mii_check_media_mode(struct mac_regs __iomem *regs)
+ 	u32 status = 0;
+ 	u16 ANAR;
  
- 	for (;;) {
--		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
--					 ARRAY_SIZE(vq->iov),
--					 &out, &in,
-+		head = vhost_get_desc(&net->dev, vq, vq->iov,
-+					 ARRAY_SIZE(vq->iov), &out, &in,
- 					 NULL, NULL);
- 		/* Nothing new?  Wait for eventfd to tell us they refilled. */
- 		if (head == vq->num) {
-@@ -167,8 +166,15 @@ static void handle_tx(struct vhost_net *
- 		/* TODO: Check specific error and bomb out unless ENOBUFS? */
- 		err = sock->ops->sendmsg(NULL, sock, &msg, len);
- 		if (unlikely(err < 0)) {
--			vhost_discard_vq_desc(vq);
--			tx_poll_start(net, sock);
-+			if (err == -EAGAIN) {
-+				vhost_discard_desc(vq, 1);
-+				tx_poll_start(net, sock);
-+			} else {
-+				vq_err(vq, "sendmsg: errno %d\n", -err);
-+				/* drop packet; do not discard/resend */
-+				vhost_add_used_and_signal(&net->dev, vq, head,
-+							  0);
-+			}
- 			break;
- 		}
- 		if (err != len)
-@@ -186,12 +192,25 @@ static void handle_tx(struct vhost_net *
- 	unuse_mm(net->dev.mm);
- }
+-	if (!MII_REG_BITS_IS_ON(BMSR_LNK, MII_REG_BMSR, regs))
++	if (!MII_REG_BITS_IS_ON(BMSR_LSTATUS, MII_BMSR, regs))
+ 		status |= VELOCITY_LINK_FAIL;
  
-+static int vhost_head_len(struct sock *sk)
-+{
-+	struct sk_buff *head;
-+	int len = 0;
-+
-+	lock_sock(sk);
-+	head = skb_peek(&sk->sk_receive_queue);
-+	if (head)
-+		len = head->len;
-+	release_sock(sk);
-+	return len;
-+}
-+
- /* Expects to be always run from workqueue - which acts as
-  * read-size critical section for our kind of RCU. */
- static void handle_rx(struct vhost_net *net)
- {
- 	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_RX];
--	unsigned head, out, in, log, s;
-+	unsigned in, log, s;
- 	struct vhost_log *vq_log;
- 	struct msghdr msg = {
- 		.msg_name = NULL,
-@@ -202,13 +221,14 @@ static void handle_rx(struct vhost_net *
- 		.msg_flags = MSG_DONTWAIT,
- 	};
- 
--	struct virtio_net_hdr hdr = {
--		.flags = 0,
--		.gso_type = VIRTIO_NET_HDR_GSO_NONE
-+	struct virtio_net_hdr_mrg_rxbuf hdr = {
-+		.hdr.flags = 0,
-+		.hdr.gso_type = VIRTIO_NET_HDR_GSO_NONE
- 	};
- 
-+	int retries = 0;
- 	size_t len, total_len = 0;
--	int err;
-+	int err, headcount, datalen;
- 	size_t hdr_size;
- 	struct socket *sock = rcu_dereference(vq->private_data);
- 	if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
-@@ -222,31 +242,25 @@ static void handle_rx(struct vhost_net *
- 	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
- 		vq->log : NULL;
- 
--	for (;;) {
--		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
--					 ARRAY_SIZE(vq->iov),
--					 &out, &in,
--					 vq_log, &log);
-+	while ((datalen = vhost_head_len(sock->sk))) {
-+		headcount = vhost_get_desc_n(vq, vq->heads, datalen, &in,
-+					     vq_log, &log);
- 		/* OK, now we need to know about added descriptors. */
--		if (head == vq->num) {
--			if (unlikely(vhost_enable_notify(vq))) {
-+		if (!headcount) {
-+			if (retries == 0 && unlikely(vhost_enable_notify(vq))) {
- 				/* They have slipped one in as we were
- 				 * doing that: check again. */
- 				vhost_disable_notify(vq);
-+				retries++;
- 				continue;
- 			}
-+			retries = 0;
- 			/* Nothing new?  Wait for eventfd to tell us
- 			 * they refilled. */
- 			break;
- 		}
- 		/* We don't need to be notified again. */
--		if (out) {
--			vq_err(vq, "Unexpected descriptor format for RX: "
--			       "out %d, int %d\n",
--			       out, in);
--			break;
--		}
--		/* Skip header. TODO: support TSO/mergeable rx buffers. */
-+		/* Skip header. TODO: support TSO. */
- 		s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, in);
- 		msg.msg_iovlen = in;
- 		len = iov_length(vq->iov, in);
-@@ -261,14 +275,33 @@ static void handle_rx(struct vhost_net *
- 					 len, MSG_DONTWAIT | MSG_TRUNC);
- 		/* TODO: Check specific error and bomb out unless EAGAIN? */
- 		if (err < 0) {
--			vhost_discard_vq_desc(vq);
-+			vhost_discard_desc(vq, headcount);
- 			break;
- 		}
- 		/* TODO: Should check and handle checksum. */
-+		if (vhost_has_feature(&net->dev, VIRTIO_NET_F_MRG_RXBUF)) {
-+			struct virtio_net_hdr_mrg_rxbuf *vhdr =
-+				(struct virtio_net_hdr_mrg_rxbuf *)
-+				vq->iov[0].iov_base;
-+			/* add num_buffers */
-+			if (vhost_has_feature(&net->dev,
-+					      VHOST_NET_F_VIRTIO_NET_HDR))
-+				hdr.num_buffers = headcount;
-+			else if (vq->iov[0].iov_len < sizeof(*vhdr)) {
-+				vq_err(vq, "tiny buffers < %d unsupported",
-+					vq->iov[0].iov_len);
-+				vhost_discard_desc(vq, headcount);
-+				break;
-+			} else if (put_user(headcount, &vhdr->num_buffers)) {
-+				vq_err(vq, "Failed num_buffers write");
-+				vhost_discard_desc(vq, headcount);
-+				break;
-+			}
-+		}
- 		if (err > len) {
- 			pr_err("Discarded truncated rx packet: "
- 			       " len %d > %zd\n", err, len);
--			vhost_discard_vq_desc(vq);
-+			vhost_discard_desc(vq, headcount);
- 			continue;
- 		}
- 		len = err;
-@@ -279,7 +312,7 @@ static void handle_rx(struct vhost_net *
- 			break;
- 		}
- 		len += hdr_size;
--		vhost_add_used_and_signal(&net->dev, vq, head, len);
-+		vhost_add_used_and_signal_n(&net->dev, vq, vq->heads, headcount);
- 		if (unlikely(vq_log))
- 			vhost_log_write(vq, vq_log, log, len);
- 		total_len += len;
-@@ -560,9 +593,14 @@ done:
- 
- static int vhost_net_set_features(struct vhost_net *n, u64 features)
- {
--	size_t hdr_size = features & (1 << VHOST_NET_F_VIRTIO_NET_HDR) ?
--		sizeof(struct virtio_net_hdr) : 0;
-+	size_t hdr_size = 0;
- 	int i;
-+
-+	if (features & (1 << VHOST_NET_F_VIRTIO_NET_HDR)) {
-+		hdr_size = sizeof(struct virtio_net_hdr);
-+		if (features & (1 << VIRTIO_NET_F_MRG_RXBUF))
-+			hdr_size = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-+	}
- 	mutex_lock(&n->dev.mutex);
- 	if ((features & (1 << VHOST_F_LOG_ALL)) &&
- 	    !vhost_log_access_ok(&n->dev)) {
-diff -ruNp net-next-p0/drivers/vhost/vhost.c
-net-next-v3/drivers/vhost/vhost.c
---- net-next-p0/drivers/vhost/vhost.c	2010-03-22 12:04:38.000000000
--0700
-+++ net-next-v3/drivers/vhost/vhost.c	2010-04-06 12:57:51.000000000
--0700
-@@ -856,6 +856,47 @@ static unsigned get_indirect(struct vhos
- 	return 0;
- }
- 
-+/* This is a multi-buffer version of vhost_get_vq_desc
-+ * @vq		- the relevant virtqueue
-+ * datalen	- data length we'll be reading
-+ * @iovcount	- returned count of io vectors we fill
-+ * @log		- vhost log
-+ * @log_num	- log offset
-+ *	returns number of buffer heads allocated, 0 on error
-+ */
-+int vhost_get_desc_n(struct vhost_virtqueue *vq, struct vring_used_elem
-*heads,
-+		     int datalen, int *iovcount, struct vhost_log *log,
-+		     unsigned int *log_num)
-+{
-+	int out, in;
-+	int seg = 0;		/* iov index */
-+	int hc = 0;		/* head count */
-+
-+	while (datalen > 0) {
-+		if (hc >= VHOST_NET_MAX_SG)
-+			goto err;
-+		heads[hc].id = vhost_get_desc(vq->dev, vq, vq->iov+seg,
-+					      ARRAY_SIZE(vq->iov)-seg, &out,
-+					      &in, log, log_num);
-+		if (heads[hc].id == vq->num)
-+			goto err;
-+		if (out || in <= 0) {
-+			vq_err(vq, "unexpected descriptor format for RX: "
-+				"out %d, in %d\n", out, in);
-+			goto err;
-+		}
-+		heads[hc].len = iov_length(vq->iov+seg, in);
-+		datalen -= heads[hc].len;
-+		hc++;
-+		seg += in;
-+	}
-+	*iovcount = seg;
-+	return hc;
-+err:
-+	vhost_discard_desc(vq, hc);
-+	return 0;
-+}
-+
- /* This looks in the virtqueue and for the first available buffer, and
-converts
-  * it to an iovec for convenient access.  Since descriptors consist of
-some
-  * number of output then some number of input descriptors, it's
-actually two
-@@ -863,7 +904,7 @@ static unsigned get_indirect(struct vhos
-  *
-  * This function returns the descriptor number found, or vq->num (which
-  * is never a valid descriptor number) if none was found. */
--unsigned vhost_get_vq_desc(struct vhost_dev *dev, struct
-vhost_virtqueue *vq,
-+unsigned vhost_get_desc(struct vhost_dev *dev, struct vhost_virtqueue
-*vq,
- 			   struct iovec iov[], unsigned int iov_size,
- 			   unsigned int *out_num, unsigned int *in_num,
- 			   struct vhost_log *log, unsigned int *log_num)
-@@ -981,31 +1022,42 @@ unsigned vhost_get_vq_desc(struct vhost_
- }
- 
- /* Reverse the effect of vhost_get_vq_desc. Useful for error handling.
-*/
--void vhost_discard_vq_desc(struct vhost_virtqueue *vq)
-+void vhost_discard_desc(struct vhost_virtqueue *vq, int n)
- {
--	vq->last_avail_idx--;
-+	vq->last_avail_idx -= n;
- }
- 
- /* After we've used one of their buffers, we tell them about it.  We'll
-then
-  * want to notify the guest, using eventfd. */
--int vhost_add_used(struct vhost_virtqueue *vq, unsigned int head, int
-len)
-+int vhost_add_used(struct vhost_virtqueue *vq, struct vring_used_elem
-*heads,
-+		   int count)
- {
- 	struct vring_used_elem *used;
-+	int start, n;
-+
-+	if (count <= 0)
-+		return -EINVAL;
- 
--	/* The virtqueue contains a ring of used buffers.  Get a pointer to
-the
--	 * next entry in that used ring. */
--	used = &vq->used->ring[vq->last_used_idx % vq->num];
--	if (put_user(head, &used->id)) {
--		vq_err(vq, "Failed to write used id");
-+	start = vq->last_used_idx % vq->num;
-+	if (vq->num - start < count)
-+		n = vq->num - start;
-+	else
-+		n = count;
-+	used = vq->used->ring + start;
-+	if (copy_to_user(used, heads, sizeof(heads[0])*n)) {
-+		vq_err(vq, "Failed to write used");
- 		return -EFAULT;
+-	if (MII_REG_BITS_IS_ON(G1000CR_1000FD, MII_REG_G1000CR, regs))
++	if (MII_REG_BITS_IS_ON(ADVERTISE_1000FULL, MII_CTRL1000, regs))
+ 		status |= VELOCITY_SPEED_1000 | VELOCITY_DUPLEX_FULL;
+-	else if (MII_REG_BITS_IS_ON(G1000CR_1000, MII_REG_G1000CR, regs))
++	else if (MII_REG_BITS_IS_ON(ADVERTISE_1000HALF, MII_CTRL1000, regs))
+ 		status |= (VELOCITY_SPEED_1000);
+ 	else {
+-		velocity_mii_read(regs, MII_REG_ANAR, &ANAR);
+-		if (ANAR & ANAR_TXFD)
++		velocity_mii_read(regs, MII_ADVERTISE, &ANAR);
++		if (ANAR & ADVERTISE_100FULL)
+ 			status |= (VELOCITY_SPEED_100 | VELOCITY_DUPLEX_FULL);
+-		else if (ANAR & ANAR_TX)
++		else if (ANAR & ADVERTISE_100HALF)
+ 			status |= VELOCITY_SPEED_100;
+-		else if (ANAR & ANAR_10FD)
++		else if (ANAR & ADVERTISE_10FULL)
+ 			status |= (VELOCITY_SPEED_10 | VELOCITY_DUPLEX_FULL);
+ 		else
+ 			status |= (VELOCITY_SPEED_10);
  	}
--	if (put_user(len, &used->len)) {
--		vq_err(vq, "Failed to write used len");
--		return -EFAULT;
-+	if (n < count) {	/* wrapped the ring */
-+		used = vq->used->ring;
-+		if (copy_to_user(used, heads+n, sizeof(heads[0])*(count-n))) {
-+			vq_err(vq, "Failed to write used");
-+			return -EFAULT;
-+		}
- 	}
- 	/* Make sure buffer is written before we update index. */
- 	smp_wmb();
--	if (put_user(vq->last_used_idx + 1, &vq->used->idx)) {
-+	if (put_user(vq->last_used_idx+count, &vq->used->idx)) {
- 		vq_err(vq, "Failed to increment used idx");
- 		return -EFAULT;
- 	}
-@@ -1023,7 +1075,7 @@ int vhost_add_used(struct vhost_virtqueu
- 		if (vq->log_ctx)
- 			eventfd_signal(vq->log_ctx, 1);
- 	}
--	vq->last_used_idx++;
-+	vq->last_used_idx += count;
- 	return 0;
- }
  
-@@ -1049,10 +1101,23 @@ void vhost_signal(struct vhost_dev *dev,
+-	if (MII_REG_BITS_IS_ON(BMCR_AUTO, MII_REG_BMCR, regs)) {
+-		velocity_mii_read(regs, MII_REG_ANAR, &ANAR);
+-		if ((ANAR & (ANAR_TXFD | ANAR_TX | ANAR_10FD | ANAR_10))
+-		    == (ANAR_TXFD | ANAR_TX | ANAR_10FD | ANAR_10)) {
+-			if (MII_REG_BITS_IS_ON(G1000CR_1000 | G1000CR_1000FD, MII_REG_G1000CR, regs))
++	if (MII_REG_BITS_IS_ON(BMCR_ANENABLE, MII_BMCR, regs)) {
++		velocity_mii_read(regs, MII_ADVERTISE, &ANAR);
++		if ((ANAR & (ADVERTISE_100FULL | ADVERTISE_100HALF | ADVERTISE_10FULL | ADVERTISE_10HALF))
++		    == (ADVERTISE_100FULL | ADVERTISE_100HALF | ADVERTISE_10FULL | ADVERTISE_10HALF)) {
++			if (MII_REG_BITS_IS_ON(ADVERTISE_1000HALF | ADVERTISE_1000FULL, MII_CTRL1000, regs))
+ 				status |= VELOCITY_AUTONEG_ENABLE;
+ 		}
+ 	}
+@@ -801,23 +801,23 @@ static void set_mii_flow_control(struct velocity_info *vptr)
+ 	/*Enable or Disable PAUSE in ANAR */
+ 	switch (vptr->options.flow_cntl) {
+ 	case FLOW_CNTL_TX:
+-		MII_REG_BITS_OFF(ANAR_PAUSE, MII_REG_ANAR, vptr->mac_regs);
+-		MII_REG_BITS_ON(ANAR_ASMDIR, MII_REG_ANAR, vptr->mac_regs);
++		MII_REG_BITS_OFF(ADVERTISE_PAUSE_CAP, MII_ADVERTISE, vptr->mac_regs);
++		MII_REG_BITS_ON(ADVERTISE_PAUSE_ASYM, MII_ADVERTISE, vptr->mac_regs);
+ 		break;
  
- /* And here's the combo meal deal.  Supersize me! */
- void vhost_add_used_and_signal(struct vhost_dev *dev,
--			       struct vhost_virtqueue *vq,
--			       unsigned int head, int len)
-+			       struct vhost_virtqueue *vq, unsigned int id,
-+			       int len)
-+{
-+	struct vring_used_elem head;
-+
-+	head.id = id;
-+	head.len = len;
-+	vhost_add_used(vq, &head, 1);
-+	vhost_signal(dev, vq);
-+}
-+
-+/* multi-buffer version of vhost_add_used_and_signal */
-+void vhost_add_used_and_signal_n(struct vhost_dev *dev,
-+				 struct vhost_virtqueue *vq,
-+				 struct vring_used_elem *heads, int count)
+ 	case FLOW_CNTL_RX:
+-		MII_REG_BITS_ON(ANAR_PAUSE, MII_REG_ANAR, vptr->mac_regs);
+-		MII_REG_BITS_ON(ANAR_ASMDIR, MII_REG_ANAR, vptr->mac_regs);
++		MII_REG_BITS_ON(ADVERTISE_PAUSE_CAP, MII_ADVERTISE, vptr->mac_regs);
++		MII_REG_BITS_ON(ADVERTISE_PAUSE_ASYM, MII_ADVERTISE, vptr->mac_regs);
+ 		break;
+ 
+ 	case FLOW_CNTL_TX_RX:
+-		MII_REG_BITS_ON(ANAR_PAUSE, MII_REG_ANAR, vptr->mac_regs);
+-		MII_REG_BITS_ON(ANAR_ASMDIR, MII_REG_ANAR, vptr->mac_regs);
++		MII_REG_BITS_ON(ADVERTISE_PAUSE_CAP, MII_ADVERTISE, vptr->mac_regs);
++		MII_REG_BITS_ON(ADVERTISE_PAUSE_ASYM, MII_ADVERTISE, vptr->mac_regs);
+ 		break;
+ 
+ 	case FLOW_CNTL_DISABLE:
+-		MII_REG_BITS_OFF(ANAR_PAUSE, MII_REG_ANAR, vptr->mac_regs);
+-		MII_REG_BITS_OFF(ANAR_ASMDIR, MII_REG_ANAR, vptr->mac_regs);
++		MII_REG_BITS_OFF(ADVERTISE_PAUSE_CAP, MII_ADVERTISE, vptr->mac_regs);
++		MII_REG_BITS_OFF(ADVERTISE_PAUSE_ASYM, MII_ADVERTISE, vptr->mac_regs);
+ 		break;
+ 	default:
+ 		break;
+@@ -832,10 +832,10 @@ static void set_mii_flow_control(struct velocity_info *vptr)
+  */
+ static void mii_set_auto_on(struct velocity_info *vptr)
  {
--	vhost_add_used(vq, head, len);
-+	vhost_add_used(vq, heads, count);
- 	vhost_signal(dev, vq);
+-	if (MII_REG_BITS_IS_ON(BMCR_AUTO, MII_REG_BMCR, vptr->mac_regs))
+-		MII_REG_BITS_ON(BMCR_REAUTO, MII_REG_BMCR, vptr->mac_regs);
++	if (MII_REG_BITS_IS_ON(BMCR_ANENABLE, MII_BMCR, vptr->mac_regs))
++		MII_REG_BITS_ON(BMCR_ANRESTART, MII_BMCR, vptr->mac_regs);
+ 	else
+-		MII_REG_BITS_ON(BMCR_AUTO, MII_REG_BMCR, vptr->mac_regs);
++		MII_REG_BITS_ON(BMCR_ANENABLE, MII_BMCR, vptr->mac_regs);
  }
  
-diff -ruNp net-next-p0/drivers/vhost/vhost.h
-net-next-v3/drivers/vhost/vhost.h
---- net-next-p0/drivers/vhost/vhost.h	2010-03-22 12:04:38.000000000
--0700
-+++ net-next-v3/drivers/vhost/vhost.h	2010-04-05 20:33:57.000000000
--0700
-@@ -85,6 +85,7 @@ struct vhost_virtqueue {
- 	struct iovec iov[VHOST_NET_MAX_SG];
- 	struct iovec hdr[VHOST_NET_MAX_SG];
- 	size_t hdr_size;
-+	struct vring_used_elem heads[VHOST_NET_MAX_SG];
- 	/* We use a kind of RCU to access private pointer.
- 	 * All readers access it from workqueue, which makes it possible to
- 	 * flush the workqueue instead of synchronize_rcu. Therefore readers
-do
-@@ -120,16 +121,22 @@ long vhost_dev_ioctl(struct vhost_dev *,
- int vhost_vq_access_ok(struct vhost_virtqueue *vq);
- int vhost_log_access_ok(struct vhost_dev *);
+ static u32 check_connection_type(struct mac_regs __iomem *regs)
+@@ -860,11 +860,11 @@ static u32 check_connection_type(struct mac_regs __iomem *regs)
+ 	else
+ 		status |= VELOCITY_SPEED_100;
  
--unsigned vhost_get_vq_desc(struct vhost_dev *, struct vhost_virtqueue
-*,
-+int vhost_get_desc_n(struct vhost_virtqueue *, struct vring_used_elem
-*heads,
-+		     int datalen, int *iovcount, struct vhost_log *log,
-+		     unsigned int *log_num);
-+unsigned vhost_get_desc(struct vhost_dev *, struct vhost_virtqueue *,
- 			   struct iovec iov[], unsigned int iov_count,
- 			   unsigned int *out_num, unsigned int *in_num,
- 			   struct vhost_log *log, unsigned int *log_num);
--void vhost_discard_vq_desc(struct vhost_virtqueue *);
-+void vhost_discard_desc(struct vhost_virtqueue *, int);
+-	if (MII_REG_BITS_IS_ON(BMCR_AUTO, MII_REG_BMCR, regs)) {
+-		velocity_mii_read(regs, MII_REG_ANAR, &ANAR);
+-		if ((ANAR & (ANAR_TXFD | ANAR_TX | ANAR_10FD | ANAR_10))
+-		    == (ANAR_TXFD | ANAR_TX | ANAR_10FD | ANAR_10)) {
+-			if (MII_REG_BITS_IS_ON(G1000CR_1000 | G1000CR_1000FD, MII_REG_G1000CR, regs))
++	if (MII_REG_BITS_IS_ON(BMCR_ANENABLE, MII_BMCR, regs)) {
++		velocity_mii_read(regs, MII_ADVERTISE, &ANAR);
++		if ((ANAR & (ADVERTISE_100FULL | ADVERTISE_100HALF | ADVERTISE_10FULL | ADVERTISE_10HALF))
++		    == (ADVERTISE_100FULL | ADVERTISE_100HALF | ADVERTISE_10FULL | ADVERTISE_10HALF)) {
++			if (MII_REG_BITS_IS_ON(ADVERTISE_1000HALF | ADVERTISE_1000FULL, MII_CTRL1000, regs))
+ 				status |= VELOCITY_AUTONEG_ENABLE;
+ 		}
+ 	}
+@@ -905,7 +905,7 @@ static int velocity_set_media_mode(struct velocity_info *vptr, u32 mii_status)
+ 	 */
  
--int vhost_add_used(struct vhost_virtqueue *, unsigned int head, int
-len);
--void vhost_signal(struct vhost_dev *, struct vhost_virtqueue *);
-+int vhost_add_used(struct vhost_virtqueue *, struct vring_used_elem
-*heads,
-+		    int count);
- void vhost_add_used_and_signal(struct vhost_dev *, struct
-vhost_virtqueue *,
--			       unsigned int head, int len);
-+			       unsigned int id, int len);
-+void vhost_add_used_and_signal_n(struct vhost_dev *, struct
-vhost_virtqueue *,
-+			       struct vring_used_elem *heads, int count);
-+void vhost_signal(struct vhost_dev *, struct vhost_virtqueue *);
- void vhost_disable_notify(struct vhost_virtqueue *);
- bool vhost_enable_notify(struct vhost_virtqueue *);
+ 	if (PHYID_GET_PHY_ID(vptr->phy_id) == PHYID_CICADA_CS8201)
+-		MII_REG_BITS_ON(AUXCR_MDPPS, MII_REG_AUXCR, vptr->mac_regs);
++		MII_REG_BITS_ON(AUXCR_MDPPS, MII_NCONFIG, vptr->mac_regs);
  
-@@ -149,7 +156,8 @@ enum {
- 	VHOST_FEATURES = (1 << VIRTIO_F_NOTIFY_ON_EMPTY) |
- 			 (1 << VIRTIO_RING_F_INDIRECT_DESC) |
- 			 (1 << VHOST_F_LOG_ALL) |
--			 (1 << VHOST_NET_F_VIRTIO_NET_HDR),
-+			 (1 << VHOST_NET_F_VIRTIO_NET_HDR) |
-+			 (1 << VIRTIO_NET_F_MRG_RXBUF),
+ 	/*
+ 	 *	If connection type is AUTO
+@@ -915,9 +915,9 @@ static int velocity_set_media_mode(struct velocity_info *vptr, u32 mii_status)
+ 		/* clear force MAC mode bit */
+ 		BYTE_REG_BITS_OFF(CHIPGCR_FCMODE, &regs->CHIPGCR);
+ 		/* set duplex mode of MAC according to duplex mode of MII */
+-		MII_REG_BITS_ON(ANAR_TXFD | ANAR_TX | ANAR_10FD | ANAR_10, MII_REG_ANAR, vptr->mac_regs);
+-		MII_REG_BITS_ON(G1000CR_1000FD | G1000CR_1000, MII_REG_G1000CR, vptr->mac_regs);
+-		MII_REG_BITS_ON(BMCR_SPEED1G, MII_REG_BMCR, vptr->mac_regs);
++		MII_REG_BITS_ON(ADVERTISE_100FULL | ADVERTISE_100HALF | ADVERTISE_10FULL | ADVERTISE_10HALF, MII_ADVERTISE, vptr->mac_regs);
++		MII_REG_BITS_ON(ADVERTISE_1000FULL | ADVERTISE_1000HALF, MII_CTRL1000, vptr->mac_regs);
++		MII_REG_BITS_ON(BMCR_SPEED1000, MII_BMCR, vptr->mac_regs);
+ 
+ 		/* enable AUTO-NEGO mode */
+ 		mii_set_auto_on(vptr);
+@@ -952,31 +952,31 @@ static int velocity_set_media_mode(struct velocity_info *vptr, u32 mii_status)
+ 				BYTE_REG_BITS_ON(TCR_TB2BDIS, &regs->TCR);
+ 		}
+ 
+-		MII_REG_BITS_OFF(G1000CR_1000FD | G1000CR_1000, MII_REG_G1000CR, vptr->mac_regs);
++		MII_REG_BITS_OFF(ADVERTISE_1000FULL | ADVERTISE_1000HALF, MII_CTRL1000, vptr->mac_regs);
+ 
+ 		if (!(mii_status & VELOCITY_DUPLEX_FULL) && (mii_status & VELOCITY_SPEED_10))
+ 			BYTE_REG_BITS_OFF(TESTCFG_HBDIS, &regs->TESTCFG);
+ 		else
+ 			BYTE_REG_BITS_ON(TESTCFG_HBDIS, &regs->TESTCFG);
+ 
+-		/* MII_REG_BITS_OFF(BMCR_SPEED1G, MII_REG_BMCR, vptr->mac_regs); */
+-		velocity_mii_read(vptr->mac_regs, MII_REG_ANAR, &ANAR);
+-		ANAR &= (~(ANAR_TXFD | ANAR_TX | ANAR_10FD | ANAR_10));
++		/* MII_REG_BITS_OFF(BMCR_SPEED1000, MII_BMCR, vptr->mac_regs); */
++		velocity_mii_read(vptr->mac_regs, MII_ADVERTISE, &ANAR);
++		ANAR &= (~(ADVERTISE_100FULL | ADVERTISE_100HALF | ADVERTISE_10FULL | ADVERTISE_10HALF));
+ 		if (mii_status & VELOCITY_SPEED_100) {
+ 			if (mii_status & VELOCITY_DUPLEX_FULL)
+-				ANAR |= ANAR_TXFD;
++				ANAR |= ADVERTISE_100FULL;
+ 			else
+-				ANAR |= ANAR_TX;
++				ANAR |= ADVERTISE_100HALF;
+ 		} else {
+ 			if (mii_status & VELOCITY_DUPLEX_FULL)
+-				ANAR |= ANAR_10FD;
++				ANAR |= ADVERTISE_10FULL;
+ 			else
+-				ANAR |= ANAR_10;
++				ANAR |= ADVERTISE_10HALF;
+ 		}
+-		velocity_mii_write(vptr->mac_regs, MII_REG_ANAR, ANAR);
++		velocity_mii_write(vptr->mac_regs, MII_ADVERTISE, ANAR);
+ 		/* enable AUTO-NEGO mode */
+ 		mii_set_auto_on(vptr);
+-		/* MII_REG_BITS_ON(BMCR_AUTO, MII_REG_BMCR, vptr->mac_regs); */
++		/* MII_REG_BITS_ON(BMCR_ANENABLE, MII_BMCR, vptr->mac_regs); */
+ 	}
+ 	/* vptr->mii_status=mii_check_media_mode(vptr->mac_regs); */
+ 	/* vptr->mii_status=check_connection_type(vptr->mac_regs); */
+@@ -1178,36 +1178,36 @@ static void mii_init(struct velocity_info *vptr, u32 mii_status)
+ 		/*
+ 		 *	Reset to hardware default
+ 		 */
+-		MII_REG_BITS_OFF((ANAR_ASMDIR | ANAR_PAUSE), MII_REG_ANAR, vptr->mac_regs);
++		MII_REG_BITS_OFF((ADVERTISE_PAUSE_ASYM | ADVERTISE_PAUSE_CAP), MII_ADVERTISE, vptr->mac_regs);
+ 		/*
+ 		 *	Turn on ECHODIS bit in NWay-forced full mode and turn it
+ 		 *	off it in NWay-forced half mode for NWay-forced v.s.
+ 		 *	legacy-forced issue.
+ 		 */
+ 		if (vptr->mii_status & VELOCITY_DUPLEX_FULL)
+-			MII_REG_BITS_ON(TCSR_ECHODIS, MII_REG_TCSR, vptr->mac_regs);
++			MII_REG_BITS_ON(TCSR_ECHODIS, MII_SREVISION, vptr->mac_regs);
+ 		else
+-			MII_REG_BITS_OFF(TCSR_ECHODIS, MII_REG_TCSR, vptr->mac_regs);
++			MII_REG_BITS_OFF(TCSR_ECHODIS, MII_SREVISION, vptr->mac_regs);
+ 		/*
+ 		 *	Turn on Link/Activity LED enable bit for CIS8201
+ 		 */
+-		MII_REG_BITS_ON(PLED_LALBE, MII_REG_PLED, vptr->mac_regs);
++		MII_REG_BITS_ON(PLED_LALBE, MII_TPISTATUS, vptr->mac_regs);
+ 		break;
+ 	case PHYID_VT3216_32BIT:
+ 	case PHYID_VT3216_64BIT:
+ 		/*
+ 		 *	Reset to hardware default
+ 		 */
+-		MII_REG_BITS_ON((ANAR_ASMDIR | ANAR_PAUSE), MII_REG_ANAR, vptr->mac_regs);
++		MII_REG_BITS_ON((ADVERTISE_PAUSE_ASYM | ADVERTISE_PAUSE_CAP), MII_ADVERTISE, vptr->mac_regs);
+ 		/*
+ 		 *	Turn on ECHODIS bit in NWay-forced full mode and turn it
+ 		 *	off it in NWay-forced half mode for NWay-forced v.s.
+ 		 *	legacy-forced issue
+ 		 */
+ 		if (vptr->mii_status & VELOCITY_DUPLEX_FULL)
+-			MII_REG_BITS_ON(TCSR_ECHODIS, MII_REG_TCSR, vptr->mac_regs);
++			MII_REG_BITS_ON(TCSR_ECHODIS, MII_SREVISION, vptr->mac_regs);
+ 		else
+-			MII_REG_BITS_OFF(TCSR_ECHODIS, MII_REG_TCSR, vptr->mac_regs);
++			MII_REG_BITS_OFF(TCSR_ECHODIS, MII_SREVISION, vptr->mac_regs);
+ 		break;
+ 
+ 	case PHYID_MARVELL_1000:
+@@ -1219,15 +1219,15 @@ static void mii_init(struct velocity_info *vptr, u32 mii_status)
+ 		/*
+ 		 *	Reset to hardware default
+ 		 */
+-		MII_REG_BITS_ON((ANAR_ASMDIR | ANAR_PAUSE), MII_REG_ANAR, vptr->mac_regs);
++		MII_REG_BITS_ON((ADVERTISE_PAUSE_ASYM | ADVERTISE_PAUSE_CAP), MII_ADVERTISE, vptr->mac_regs);
+ 		break;
+ 	default:
+ 		;
+ 	}
+-	velocity_mii_read(vptr->mac_regs, MII_REG_BMCR, &BMCR);
+-	if (BMCR & BMCR_ISO) {
+-		BMCR &= ~BMCR_ISO;
+-		velocity_mii_write(vptr->mac_regs, MII_REG_BMCR, BMCR);
++	velocity_mii_read(vptr->mac_regs, MII_BMCR, &BMCR);
++	if (BMCR & BMCR_ISOLATE) {
++		BMCR &= ~BMCR_ISOLATE;
++		velocity_mii_write(vptr->mac_regs, MII_BMCR, BMCR);
+ 	}
+ }
+ 
+@@ -2953,13 +2953,13 @@ static int velocity_set_wol(struct velocity_info *vptr)
+ 
+ 	if (vptr->mii_status & VELOCITY_AUTONEG_ENABLE) {
+ 		if (PHYID_GET_PHY_ID(vptr->phy_id) == PHYID_CICADA_CS8201)
+-			MII_REG_BITS_ON(AUXCR_MDPPS, MII_REG_AUXCR, vptr->mac_regs);
++			MII_REG_BITS_ON(AUXCR_MDPPS, MII_NCONFIG, vptr->mac_regs);
+ 
+-		MII_REG_BITS_OFF(G1000CR_1000FD | G1000CR_1000, MII_REG_G1000CR, vptr->mac_regs);
++		MII_REG_BITS_OFF(ADVERTISE_1000FULL | ADVERTISE_1000HALF, MII_CTRL1000, vptr->mac_regs);
+ 	}
+ 
+ 	if (vptr->mii_status & VELOCITY_SPEED_1000)
+-		MII_REG_BITS_ON(BMCR_REAUTO, MII_REG_BMCR, vptr->mac_regs);
++		MII_REG_BITS_ON(BMCR_ANRESTART, MII_BMCR, vptr->mac_regs);
+ 
+ 	BYTE_REG_BITS_ON(CHIPGCR_FCMODE, &regs->CHIPGCR);
+ 
+diff --git a/drivers/net/via-velocity.h b/drivers/net/via-velocity.h
+index ef4a0f6..c381911 100644
+--- a/drivers/net/via-velocity.h
++++ b/drivers/net/via-velocity.h
+@@ -1240,86 +1240,16 @@ struct velocity_context {
+ 	u32 pattern[8];
  };
  
- static inline int vhost_has_feature(struct vhost_dev *dev, int bit)
-
+-
+-/*
+- *	MII registers.
+- */
+-
+-
+ /*
+  *	Registers in the MII (offset unit is WORD)
+  */
+ 
+-#define MII_REG_BMCR        0x00	// physical address
+-#define MII_REG_BMSR        0x01	//
+-#define MII_REG_PHYID1      0x02	// OUI
+-#define MII_REG_PHYID2      0x03	// OUI + Module ID + REV ID
+-#define MII_REG_ANAR        0x04	//
+-#define MII_REG_ANLPAR      0x05	//
+-#define MII_REG_G1000CR     0x09	//
+-#define MII_REG_G1000SR     0x0A	//
+-#define MII_REG_MODCFG      0x10	//
+-#define MII_REG_TCSR        0x16	//
+-#define MII_REG_PLED        0x1B	//
+-// NS, MYSON only
+-#define MII_REG_PCR         0x17	//
+-// ESI only
+-#define MII_REG_PCSR        0x17	//
+-#define MII_REG_AUXCR       0x1C	//
+-
+ // Marvell 88E1000/88E1000S
+ #define MII_REG_PSCR        0x10	// PHY specific control register
+ 
+ //
+-// Bits in the BMCR register
+-//
+-#define BMCR_RESET          0x8000	//
+-#define BMCR_LBK            0x4000	//
+-#define BMCR_SPEED100       0x2000	//
+-#define BMCR_AUTO           0x1000	//
+-#define BMCR_PD             0x0800	//
+-#define BMCR_ISO            0x0400	//
+-#define BMCR_REAUTO         0x0200	//
+-#define BMCR_FDX            0x0100	//
+-#define BMCR_SPEED1G        0x0040	//
+-//
+-// Bits in the BMSR register
+-//
+-#define BMSR_AUTOCM         0x0020	//
+-#define BMSR_LNK            0x0004	//
+-
+-//
+-// Bits in the ANAR register
+-//
+-#define ANAR_ASMDIR         0x0800	// Asymmetric PAUSE support
+-#define ANAR_PAUSE          0x0400	// Symmetric PAUSE Support
+-#define ANAR_T4             0x0200	//
+-#define ANAR_TXFD           0x0100	//
+-#define ANAR_TX             0x0080	//
+-#define ANAR_10FD           0x0040	//
+-#define ANAR_10             0x0020	//
+-//
+-// Bits in the ANLPAR register
+-//
+-#define ANLPAR_ASMDIR       0x0800	// Asymmetric PAUSE support
+-#define ANLPAR_PAUSE        0x0400	// Symmetric PAUSE Support
+-#define ANLPAR_T4           0x0200	//
+-#define ANLPAR_TXFD         0x0100	//
+-#define ANLPAR_TX           0x0080	//
+-#define ANLPAR_10FD         0x0040	//
+-#define ANLPAR_10           0x0020	//
+-
+-//
+-// Bits in the G1000CR register
+-//
+-#define G1000CR_1000FD      0x0200	// PHY is 1000-T Full-duplex capable
+-#define G1000CR_1000        0x0100	// PHY is 1000-T Half-duplex capable
+-
+-//
+-// Bits in the G1000SR register
++// Bits in the Silicon revision register
+ //
+-#define G1000SR_1000FD      0x0800	// LP PHY is 1000-T Full-duplex capable
+-#define G1000SR_1000        0x0400	// LP PHY is 1000-T Half-duplex capable
+ 
+ #define TCSR_ECHODIS        0x2000	//
+ #define AUXCR_MDPPS         0x0004	//
+@@ -1338,7 +1268,6 @@ struct velocity_context {
+ 
+ #define PHYID_REV_ID_MASK   0x0000000FUL
+ 
+-#define PHYID_GET_PHY_REV_ID(i)     ((i) & PHYID_REV_ID_MASK)
+ #define PHYID_GET_PHY_ID(i)         ((i) & ~PHYID_REV_ID_MASK)
+ 
+ #define MII_REG_BITS_ON(x,i,p) do {\
+@@ -1362,8 +1291,8 @@ struct velocity_context {
+ 
+ #define MII_GET_PHY_ID(p) ({\
+     u32 id;\
+-    velocity_mii_read((p),MII_REG_PHYID2,(u16 *) &id);\
+-    velocity_mii_read((p),MII_REG_PHYID1,((u16 *) &id)+1);\
++    velocity_mii_read((p),MII_PHYSID2,(u16 *) &id);\
++    velocity_mii_read((p),MII_PHYSID1,((u16 *) &id)+1);\
+     (id);})
+ 
+ /*
+-- 
+1.6.6.1
 
