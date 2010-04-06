@@ -1,162 +1,417 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH 1/1] TIPC: Updated topology subscription
-	protocol according to latest spec
-Date: Tue, 6 Apr 2010 17:40:52 -0400
-Message-ID: <1270590052-975-1-git-send-email-jon.maloy@ericsson.com>
+From: John Linn <john.linn@xilinx.com>
+Subject: [PATCH] [V4] Add non-Virtex5 support for LL TEMAC driver
+Date: Tue, 6 Apr 2010 15:43:28 -0600
+Message-ID: <c9d5909d-4f62-4791-82ef-5ddb9c7662ad@SG2EHSMHS003.ehs.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net, Jon
-To: David Miller <davem@davemloft.net>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: john.williams@petalogix.com, michal.simek@petalogix.com,
+	John Linn <john.linn@xilinx.com>,
+	John Tyner <jtyner@cs.ucr.edu>
+To: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	grant.likely@secretlab.ca, jwboyer@linux.vnet.ibm.com,
+	eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sg2ehsobe002.messaging.microsoft.com ([207.46.51.76]:39099 "EHLO
+	SG2EHSOBE002.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754836Ab0DFVnp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 17:43:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch makes it explicit in the API that all fields in subscriptions and events exchanged with the Topology Server must be in
-network byte order.
-It also ensures that all fields of a subscription are compared when cancelling a subscription, in order to avoid inadvertent
-cancelling of the wrong subscription.
-Finally, the tipc module version is updated to 2.0.0, to reflect the API change.
+This patch adds support for using the LL TEMAC Ethernet driver on
+non-Virtex 5 platforms by adding support for accessing the Soft DMA
+registers as if they were memory mapped instead of solely through the
+DCR's (available on the Virtex 5).
 
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+The patch also updates the driver so that it runs on the MicroBlaze.
+The changes were tested on the PowerPC 440, PowerPC 405, and the
+MicroBlaze platforms.
+
+Signed-off-by: John Tyner <jtyner@cs.ucr.edu>
+Signed-off-by: John Linn <john.linn@xilinx.com>
+
 ---
- include/linux/tipc.h |   30 ++++++++++++------------------
- net/tipc/core.c      |    2 +-
- net/tipc/subscr.c    |   15 ++++++++++-----
- 3 files changed, 23 insertions(+), 24 deletions(-)
 
-diff --git a/include/linux/tipc.h b/include/linux/tipc.h
-index 3d92396..9536d8a 100644
---- a/include/linux/tipc.h
-+++ b/include/linux/tipc.h
-@@ -127,23 +127,17 @@ static inline unsigned int tipc_node(__u32 addr)
-  * TIPC topology subscription service definitions
-  */
+V2 - Incorporated comments from Grant and added more logic to allow the driver
+to work on MicroBlaze.
+
+V3 - Only updated it to apply to head, minor change to include slab.h. Also
+verified that it now builds for MicroBlaze. Retested on PowerPC and MicroBlaze.
+
+V4 - Removed buffer alignment for skb and called the network functions that
+already do the alignment for cache line and word alignment. Added constants
+to MicroBlaze system to make sure network alignment is maintained. Also updated
+the Kconfig so it depends on Microblaze or PPC based on Grant's comment.
+---
+ arch/microblaze/include/asm/system.h |   11 +++
+ drivers/net/Kconfig                  |    2 +-
+ drivers/net/ll_temac.h               |   14 +++-
+ drivers/net/ll_temac_main.c          |  137 +++++++++++++++++++++++++--------
+ 4 files changed, 126 insertions(+), 38 deletions(-)
+
+diff --git a/arch/microblaze/include/asm/system.h b/arch/microblaze/include/asm/system.h
+index 59efb3f..48c4f03 100644
+--- a/arch/microblaze/include/asm/system.h
++++ b/arch/microblaze/include/asm/system.h
+@@ -12,6 +12,7 @@
+ #include <asm/registers.h>
+ #include <asm/setup.h>
+ #include <asm/irqflags.h>
++#include <asm/cache.h>
  
--#define TIPC_SUB_PORTS     	0x01  	/* filter for port availability */
--#define TIPC_SUB_SERVICE     	0x02  	/* filter for service availability */
--#define TIPC_SUB_CANCEL         0x04    /* cancel a subscription */
--#if 0
--/* The following filter options are not currently implemented */
--#define TIPC_SUB_NO_BIND_EVTS	0x04	/* filter out "publish" events */
--#define TIPC_SUB_NO_UNBIND_EVTS	0x08	/* filter out "withdraw" events */
--#define TIPC_SUB_SINGLE_EVT	0x10	/* expire after first event */
--#endif
-+#define TIPC_SUB_SERVICE     	0x00  	/* Filter for service availability    */
-+#define TIPC_SUB_PORTS     	0x01  	/* Filter for port availability  */
-+#define TIPC_SUB_CANCEL         0x04    /* Cancel a subscription         */
+ #include <asm-generic/cmpxchg.h>
+ #include <asm-generic/cmpxchg-local.h>
+@@ -96,4 +97,14 @@ extern struct dentry *of_debugfs_root;
  
- #define TIPC_WAIT_FOREVER	~0	/* timeout for permanent subscription */
+ #define arch_align_stack(x) (x)
  
- struct tipc_subscr {
--	struct tipc_name_seq seq;	/* name sequence of interest */
--	__u32 timeout;			/* subscription duration (in ms) */
--        __u32 filter;   		/* bitmask of filter options */
--	char usr_handle[8];		/* available for subscriber use */
-+	struct tipc_name_seq seq;	/* NBO. Name sequence of interest */
-+	__u32 timeout;			/* NBO. Subscription duration (in ms) */
-+        __u32 filter;   		/* NBO. Bitmask of filter options */
-+	char usr_handle[8];		/* Opaque. Available for subscriber use */
- };
++/*
++ * MicroBlaze doesn't handle unaligned accesses in hardware.
++ *
++ * Based on this we force the IP header alignment in network drivers.
++ * We also modify NET_SKB_PAD to be a cacheline in size, thus maintaining
++ * cacheline alignment of buffers.
++ */
++#define NET_IP_ALIGN	2
++#define NET_SKB_PAD	L1_CACHE_BYTES
++
+ #endif /* _ASM_MICROBLAZE_SYSTEM_H */
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 0ba5b8e..207a57d 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2434,8 +2434,8 @@ config MV643XX_ETH
  
- #define TIPC_PUBLISHED		1	/* publication event */
-@@ -151,11 +145,11 @@ struct tipc_subscr {
- #define TIPC_SUBSCR_TIMEOUT	3	/* subscription timeout event */
+ config XILINX_LL_TEMAC
+ 	tristate "Xilinx LL TEMAC (LocalLink Tri-mode Ethernet MAC) driver"
++	depends on PPC || MICROBLAZE
+ 	select PHYLIB
+-	depends on PPC_DCR_NATIVE
+ 	help
+ 	  This driver supports the Xilinx 10/100/1000 LocalLink TEMAC
+ 	  core used in Xilinx Spartan and Virtex FPGAs
+diff --git a/drivers/net/ll_temac.h b/drivers/net/ll_temac.h
+index 1af66a1..c033584 100644
+--- a/drivers/net/ll_temac.h
++++ b/drivers/net/ll_temac.h
+@@ -5,8 +5,11 @@
+ #include <linux/netdevice.h>
+ #include <linux/of.h>
+ #include <linux/spinlock.h>
++
++#ifdef CONFIG_PPC_DCR
+ #include <asm/dcr.h>
+ #include <asm/dcr-regs.h>
++#endif
  
- struct tipc_event {
--	__u32 event;			/* event type */
--	__u32 found_lower;		/* matching name seq instances */
--	__u32 found_upper;		/*    "      "    "     "      */
--	struct tipc_portid port;	/* associated port */
--	struct tipc_subscr s;		/* associated subscription */
-+	__u32 event;			/* NBO. Event type, as defined above */
-+	__u32 found_lower;		/* NBO. Matching name seq instances  */
-+	__u32 found_upper;		/*  "      "       "   "    "        */
-+	struct tipc_portid port;	/* NBO. Associated port              */
-+	struct tipc_subscr s;		/* Original, associated subscription */
- };
+ /* packet size info */
+ #define XTE_HDR_SIZE			14      /* size of Ethernet header */
+@@ -290,9 +293,6 @@ This option defaults to enabled (set) */
  
- /*
-diff --git a/net/tipc/core.c b/net/tipc/core.c
-index 52c571f..4e84c84 100644
---- a/net/tipc/core.c
-+++ b/net/tipc/core.c
-@@ -49,7 +49,7 @@
- #include "config.h"
+ #define TX_CONTROL_CALC_CSUM_MASK   1
  
+-#define XTE_ALIGN       32
+-#define BUFFER_ALIGN(adr) ((XTE_ALIGN - ((u32) adr)) % XTE_ALIGN)
+-
+ #define MULTICAST_CAM_TABLE_NUM 4
  
--#define TIPC_MOD_VER "1.6.4"
-+#define TIPC_MOD_VER "2.0.0"
+ /* TX/RX CURDESC_PTR points to first descriptor */
+@@ -335,9 +335,15 @@ struct temac_local {
+ 	struct mii_bus *mii_bus;	/* MII bus reference */
+ 	int mdio_irqs[PHY_MAX_ADDR];	/* IRQs table for MDIO bus */
  
- #ifndef CONFIG_TIPC_ZONES
- #define CONFIG_TIPC_ZONES 3
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index ff123e5..ab6eab4 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -274,7 +274,7 @@ static void subscr_cancel(struct tipc_subscr *s,
- {
- 	struct subscription *sub;
- 	struct subscription *sub_temp;
--	__u32 type, lower, upper;
-+	__u32 type, lower, upper, timeout, filter;
- 	int found = 0;
- 
- 	/* Find first matching subscription, exit if not found */
-@@ -282,12 +282,18 @@ static void subscr_cancel(struct tipc_subscr *s,
- 	type = ntohl(s->seq.type);
- 	lower = ntohl(s->seq.lower);
- 	upper = ntohl(s->seq.upper);
-+	timeout = ntohl(s->timeout);
-+	filter = ntohl(s->filter) & ~TIPC_SUB_CANCEL;
- 
- 	list_for_each_entry_safe(sub, sub_temp, &subscriber->subscription_list,
- 				 subscription_list) {
- 			if ((type == sub->seq.type) &&
- 			    (lower == sub->seq.lower) &&
--			    (upper == sub->seq.upper)) {
-+			    (upper == sub->seq.upper) &&
-+			    (timeout == sub->timeout) &&
-+                            (filter == sub->filter) &&
-+                             !memcmp(s->usr_handle,sub->evt.s.usr_handle,
-+				     sizeof(s->usr_handle)) ){
- 				found = 1;
- 				break;
- 			}
-@@ -304,7 +310,7 @@ static void subscr_cancel(struct tipc_subscr *s,
- 		k_term_timer(&sub->timer);
- 		spin_lock_bh(subscriber->lock);
- 	}
--	dbg("Cancel: removing sub %u,%u,%u from subscriber %x list\n",
-+	dbg("Cancel: removing sub %u,%u,%u from subscriber %p list\n",
- 	    sub->seq.type, sub->seq.lower, sub->seq.upper, subscriber);
- 	subscr_del(sub);
+-	/* IO registers and IRQs */
++	/* IO registers, dma functions and IRQs */
+ 	void __iomem *regs;
++	void __iomem *sdma_regs;
++#ifdef CONFIG_PPC_DCR
+ 	dcr_host_t sdma_dcrs;
++#endif
++	u32 (*dma_in)(struct temac_local *, int);
++	void (*dma_out)(struct temac_local *, int, u32);
++
+ 	int tx_irq;
+ 	int rx_irq;
+ 	int emac_num;
+diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
+index ba617e3..6270bb0 100644
+--- a/drivers/net/ll_temac_main.c
++++ b/drivers/net/ll_temac_main.c
+@@ -20,9 +20,6 @@
+  *   or rx, so this should be okay.
+  *
+  * TODO:
+- * - Fix driver to work on more than just Virtex5.  Right now the driver
+- *   assumes that the locallink DMA registers are accessed via DCR
+- *   instructions.
+  * - Factor out locallink DMA code into separate driver
+  * - Fix multicast assignment.
+  * - Fix support for hardware checksumming.
+@@ -116,17 +113,86 @@ void temac_indirect_out32(struct temac_local *lp, int reg, u32 value)
+ 	temac_iow(lp, XTE_CTL0_OFFSET, CNTLREG_WRITE_ENABLE_MASK | reg);
  }
-@@ -352,8 +358,7 @@ static struct subscription *subscr_subscribe(struct tipc_subscr *s,
- 	sub->seq.upper = ntohl(s->seq.upper);
- 	sub->timeout = ntohl(s->timeout);
- 	sub->filter = ntohl(s->filter);
--	if ((!(sub->filter & TIPC_SUB_PORTS) ==
--	     !(sub->filter & TIPC_SUB_SERVICE)) ||
-+	if ((sub->filter && (sub->filter != TIPC_SUB_PORTS)) ||
- 	    (sub->seq.lower > sub->seq.upper)) {
- 		warn("Subscription rejected, illegal request\n");
- 		kfree(sub);
+ 
++/**
++ * temac_dma_in32 - Memory mapped DMA read, this function expects a
++ * register input that is based on DCR word addresses which
++ * are then converted to memory mapped byte addresses
++ */
+ static u32 temac_dma_in32(struct temac_local *lp, int reg)
+ {
+-	return dcr_read(lp->sdma_dcrs, reg);
++	return in_be32((u32 *)(lp->sdma_regs + (reg << 2)));
+ }
+ 
++/**
++ * temac_dma_out32 - Memory mapped DMA read, this function expects a
++ * register input that is based on DCR word addresses which
++ * are then converted to memory mapped byte addresses
++ */
+ static void temac_dma_out32(struct temac_local *lp, int reg, u32 value)
+ {
++	out_be32((u32 *)(lp->sdma_regs + (reg << 2)), value);
++}
++
++/* DMA register access functions can be DCR based or memory mapped.
++ * The PowerPC 440 is DCR based, the PowerPC 405 and MicroBlaze are both
++ * memory mapped.
++ */
++#ifdef CONFIG_PPC_DCR
++
++/**
++ * temac_dma_dcr_in32 - DCR based DMA read
++ */
++static u32 temac_dma_dcr_in(struct temac_local *lp, int reg)
++{
++	return dcr_read(lp->sdma_dcrs, reg);
++}
++
++/**
++ * temac_dma_dcr_out32 - DCR based DMA write
++ */
++static void temac_dma_dcr_out(struct temac_local *lp, int reg, u32 value)
++{
+ 	dcr_write(lp->sdma_dcrs, reg, value);
+ }
+ 
+ /**
++ * temac_dcr_setup - If the DMA is DCR based, then setup the address and
++ * I/O  functions
++ */
++static int temac_dcr_setup(struct temac_local *lp, struct of_device *op,
++				struct device_node *np)
++{
++	unsigned int dcrs;
++
++	/* setup the dcr address mapping if it's in the device tree */
++
++	dcrs = dcr_resource_start(np, 0);
++	if (dcrs != 0) {
++		lp->sdma_dcrs = dcr_map(np, dcrs, dcr_resource_len(np, 0));
++		lp->dma_in = temac_dma_dcr_in;
++		lp->dma_out = temac_dma_dcr_out;
++		dev_dbg(&op->dev, "DCR base: %x\n", dcrs);
++		return 0;
++	}
++	/* no DCR in the device tree, indicate a failure */
++	return -1;
++}
++
++#else
++
++/*
++ * temac_dcr_setup - This is a stub for when DCR is not supported,
++ * such as with MicroBlaze
++ */
++static int temac_dcr_setup(struct temac_local *lp, struct of_device *op,
++				struct device_node *np)
++{
++	return -1;
++}
++
++#endif
++
++/**
+  * temac_dma_bd_init - Setup buffer descriptor rings
+  */
+ static int temac_dma_bd_init(struct net_device *ndev)
+@@ -156,14 +222,14 @@ static int temac_dma_bd_init(struct net_device *ndev)
+ 		lp->rx_bd_v[i].next = lp->rx_bd_p +
+ 				sizeof(*lp->rx_bd_v) * ((i + 1) % RX_BD_NUM);
+ 
+-		skb = alloc_skb(XTE_MAX_JUMBO_FRAME_SIZE
+-				+ XTE_ALIGN, GFP_ATOMIC);
++		skb = netdev_alloc_skb_ip_align(ndev,
++						XTE_MAX_JUMBO_FRAME_SIZE);
++
+ 		if (skb == 0) {
+ 			dev_err(&ndev->dev, "alloc_skb error %d\n", i);
+ 			return -1;
+ 		}
+ 		lp->rx_skb[i] = skb;
+-		skb_reserve(skb,  BUFFER_ALIGN(skb->data));
+ 		/* returns physical address of skb->data */
+ 		lp->rx_bd_v[i].phys = dma_map_single(ndev->dev.parent,
+ 						     skb->data,
+@@ -173,23 +239,23 @@ static int temac_dma_bd_init(struct net_device *ndev)
+ 		lp->rx_bd_v[i].app0 = STS_CTRL_APP0_IRQONEND;
+ 	}
+ 
+-	temac_dma_out32(lp, TX_CHNL_CTRL, 0x10220400 |
++	lp->dma_out(lp, TX_CHNL_CTRL, 0x10220400 |
+ 					  CHNL_CTRL_IRQ_EN |
+ 					  CHNL_CTRL_IRQ_DLY_EN |
+ 					  CHNL_CTRL_IRQ_COAL_EN);
+ 	/* 0x10220483 */
+ 	/* 0x00100483 */
+-	temac_dma_out32(lp, RX_CHNL_CTRL, 0xff010000 |
++	lp->dma_out(lp, RX_CHNL_CTRL, 0xff010000 |
+ 					  CHNL_CTRL_IRQ_EN |
+ 					  CHNL_CTRL_IRQ_DLY_EN |
+ 					  CHNL_CTRL_IRQ_COAL_EN |
+ 					  CHNL_CTRL_IRQ_IOE);
+ 	/* 0xff010283 */
+ 
+-	temac_dma_out32(lp, RX_CURDESC_PTR,  lp->rx_bd_p);
+-	temac_dma_out32(lp, RX_TAILDESC_PTR,
++	lp->dma_out(lp, RX_CURDESC_PTR,  lp->rx_bd_p);
++	lp->dma_out(lp, RX_TAILDESC_PTR,
+ 		       lp->rx_bd_p + (sizeof(*lp->rx_bd_v) * (RX_BD_NUM - 1)));
+-	temac_dma_out32(lp, TX_CURDESC_PTR, lp->tx_bd_p);
++	lp->dma_out(lp, TX_CURDESC_PTR, lp->tx_bd_p);
+ 
+ 	return 0;
+ }
+@@ -427,9 +493,9 @@ static void temac_device_reset(struct net_device *ndev)
+ 	temac_indirect_out32(lp, XTE_RXC1_OFFSET, val & ~XTE_RXC1_RXEN_MASK);
+ 
+ 	/* Reset Local Link (DMA) */
+-	temac_dma_out32(lp, DMA_CONTROL_REG, DMA_CONTROL_RST);
++	lp->dma_out(lp, DMA_CONTROL_REG, DMA_CONTROL_RST);
+ 	timeout = 1000;
+-	while (temac_dma_in32(lp, DMA_CONTROL_REG) & DMA_CONTROL_RST) {
++	while (lp->dma_in(lp, DMA_CONTROL_REG) & DMA_CONTROL_RST) {
+ 		udelay(1);
+ 		if (--timeout == 0) {
+ 			dev_err(&ndev->dev,
+@@ -437,7 +503,7 @@ static void temac_device_reset(struct net_device *ndev)
+ 			break;
+ 		}
+ 	}
+-	temac_dma_out32(lp, DMA_CONTROL_REG, DMA_TAIL_ENABLE);
++	lp->dma_out(lp, DMA_CONTROL_REG, DMA_TAIL_ENABLE);
+ 
+ 	temac_dma_bd_init(ndev);
+ 
+@@ -598,7 +664,7 @@ static int temac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 		lp->tx_bd_tail = 0;
+ 
+ 	/* Kick off the transfer */
+-	temac_dma_out32(lp, TX_TAILDESC_PTR, tail_p); /* DMA start */
++	lp->dma_out(lp, TX_TAILDESC_PTR, tail_p); /* DMA start */
+ 
+ 	return NETDEV_TX_OK;
+ }
+@@ -640,16 +706,15 @@ static void ll_temac_recv(struct net_device *ndev)
+ 		ndev->stats.rx_packets++;
+ 		ndev->stats.rx_bytes += length;
+ 
+-		new_skb = alloc_skb(XTE_MAX_JUMBO_FRAME_SIZE + XTE_ALIGN,
+-				GFP_ATOMIC);
++		new_skb = netdev_alloc_skb_ip_align(ndev,
++						XTE_MAX_JUMBO_FRAME_SIZE);
++
+ 		if (new_skb == 0) {
+ 			dev_err(&ndev->dev, "no memory for new sk_buff\n");
+ 			spin_unlock_irqrestore(&lp->rx_lock, flags);
+ 			return;
+ 		}
+ 
+-		skb_reserve(new_skb, BUFFER_ALIGN(new_skb->data));
+-
+ 		cur_p->app0 = STS_CTRL_APP0_IRQONEND;
+ 		cur_p->phys = dma_map_single(ndev->dev.parent, new_skb->data,
+ 					     XTE_MAX_JUMBO_FRAME_SIZE,
+@@ -664,7 +729,7 @@ static void ll_temac_recv(struct net_device *ndev)
+ 		cur_p = &lp->rx_bd_v[lp->rx_bd_ci];
+ 		bdstat = cur_p->app0;
+ 	}
+-	temac_dma_out32(lp, RX_TAILDESC_PTR, tail_p);
++	lp->dma_out(lp, RX_TAILDESC_PTR, tail_p);
+ 
+ 	spin_unlock_irqrestore(&lp->rx_lock, flags);
+ }
+@@ -675,8 +740,8 @@ static irqreturn_t ll_temac_tx_irq(int irq, void *_ndev)
+ 	struct temac_local *lp = netdev_priv(ndev);
+ 	unsigned int status;
+ 
+-	status = temac_dma_in32(lp, TX_IRQ_REG);
+-	temac_dma_out32(lp, TX_IRQ_REG, status);
++	status = lp->dma_in(lp, TX_IRQ_REG);
++	lp->dma_out(lp, TX_IRQ_REG, status);
+ 
+ 	if (status & (IRQ_COAL | IRQ_DLY))
+ 		temac_start_xmit_done(lp->ndev);
+@@ -693,8 +758,8 @@ static irqreturn_t ll_temac_rx_irq(int irq, void *_ndev)
+ 	unsigned int status;
+ 
+ 	/* Read and clear the status registers */
+-	status = temac_dma_in32(lp, RX_IRQ_REG);
+-	temac_dma_out32(lp, RX_IRQ_REG, status);
++	status = lp->dma_in(lp, RX_IRQ_REG);
++	lp->dma_out(lp, RX_IRQ_REG, status);
+ 
+ 	if (status & (IRQ_COAL | IRQ_DLY))
+ 		ll_temac_recv(lp->ndev);
+@@ -795,7 +860,7 @@ static ssize_t temac_show_llink_regs(struct device *dev,
+ 	int i, len = 0;
+ 
+ 	for (i = 0; i < 0x11; i++)
+-		len += sprintf(buf + len, "%.8x%s", temac_dma_in32(lp, i),
++		len += sprintf(buf + len, "%.8x%s", lp->dma_in(lp, i),
+ 			       (i % 8) == 7 ? "\n" : " ");
+ 	len += sprintf(buf + len, "\n");
+ 
+@@ -821,7 +886,6 @@ temac_of_probe(struct of_device *op, const struct of_device_id *match)
+ 	struct net_device *ndev;
+ 	const void *addr;
+ 	int size, rc = 0;
+-	unsigned int dcrs;
+ 
+ 	/* Init network device structure */
+ 	ndev = alloc_etherdev(sizeof(*lp));
+@@ -871,13 +935,20 @@ temac_of_probe(struct of_device *op, const struct of_device_id *match)
+ 		goto nodev;
+ 	}
+ 
+-	dcrs = dcr_resource_start(np, 0);
+-	if (dcrs == 0) {
+-		dev_err(&op->dev, "could not get DMA register address\n");
+-		goto nodev;
++	/* Setup the DMA register accesses, could be DCR or memory mapped */
++	if (temac_dcr_setup(lp, op, np)) {
++
++		/* no DCR in the device tree, try non-DCR */
++		lp->sdma_regs = of_iomap(np, 0);
++		if (lp->sdma_regs) {
++			lp->dma_in = temac_dma_in32;
++			lp->dma_out = temac_dma_out32;
++			dev_dbg(&op->dev, "MEM base: %p\n", lp->sdma_regs);
++		} else {
++			dev_err(&op->dev, "unable to map DMA registers\n");
++			goto nodev;
++		}
+ 	}
+-	lp->sdma_dcrs = dcr_map(np, dcrs, dcr_resource_len(np, 0));
+-	dev_dbg(&op->dev, "DCR base: %x\n", dcrs);
+ 
+ 	lp->rx_irq = irq_of_parse_and_map(np, 0);
+ 	lp->tx_irq = irq_of_parse_and_map(np, 1);
 -- 
-1.5.4.3
+1.6.2.1
 
 
-------------------------------------------------------------------------------
-Download Intel&#174; Parallel Studio Eval
-Try the new software tools for yourself. Speed compiling, find bugs
-proactively, and fine-tune applications for parallel performance.
-See why Intel Parallel Studio got high marks during beta.
-http://p.sf.net/sfu/intel-sw-dev
+
+This email and any attachments are intended for the sole use of the named recipient(s) and contain(s) confidential information that may be proprietary, privileged or copyrighted under applicable law. If you are not the intended recipient, do not read, copy, or forward this email message or any attachments. Delete this email message and any attachments immediately.
+
+
