@@ -1,60 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/4] xfrm: cache bundles instead of policies for
-	outgoing flows
-Date: Tue, 6 Apr 2010 20:40:14 +0800
-Message-ID: <20100406124014.GA24412@gondor.apana.org.au>
-References: <1270450824-2928-1-git-send-email-timo.teras@iki.fi> <1270450824-2928-3-git-send-email-timo.teras@iki.fi>
+From: David Vrabel <david.vrabel@csr.com>
+Subject: Re: [PATCH 11/11] drivers/uwb: Rename dev_info to wdi
+Date: Tue, 06 Apr 2010 13:42:58 +0100
+Message-ID: <4BBB2C52.7080905@csr.com>
+References: <20100304232928.2e45bdd1.akpm@linux-foundation.org>	<6bd4d4dacf32631b72c3827a3b133a26e2e8b889.1270493677.git.joe@perches.com>	<1270503858.31062.43.camel@Joe-Laptop.home> <20100405.145144.207421561.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Timo Teras <timo.teras@iki.fi>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: joe@perches.com, akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:43603 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752199Ab0DFMkR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 08:40:17 -0400
-Content-Disposition: inline
-In-Reply-To: <1270450824-2928-3-git-send-email-timo.teras@iki.fi>
+Received: from cluster-d.mailcontrol.com ([85.115.60.190]:40065 "EHLO
+	cluster-d.mailcontrol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754426Ab0DFMqE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 08:46:04 -0400
+In-Reply-To: <20100405.145144.207421561.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 05, 2010 at 10:00:22AM +0300, Timo Teras wrote:
->
-> @@ -623,33 +618,11 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
->  		schedule_work(&net->xfrm.policy_hash_work);
->  
->  	read_lock_bh(&xfrm_policy_lock);
-> -	gc_list = NULL;
->  	entry = &policy->bydst;
-> -	hlist_for_each_entry_continue(policy, entry, bydst) {
-> -		struct dst_entry *dst;
-> -
-> -		write_lock(&policy->lock);
-> -		dst = policy->bundles;
-> -		if (dst) {
-> -			struct dst_entry *tail = dst;
-> -			while (tail->next)
-> -				tail = tail->next;
-> -			tail->next = gc_list;
-> -			gc_list = dst;
-> -
-> -			policy->bundles = NULL;
-> -		}
-> -		write_unlock(&policy->lock);
-> -	}
-> +	hlist_for_each_entry_continue(policy, entry, bydst)
-> +		atomic_inc(&policy->genid);
+David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Mon, 05 Apr 2010 14:44:18 -0700
+> 
+>> On Mon, 2010-04-05 at 12:05 -0700, Joe Perches wrote:
+>>> There is a macro called dev_info that prints struct device specific
+>>> information.  Having variables with the same name can be confusing and
+>>> prevents conversion of the macro to a function.
+>>>
+>>> Rename the existing dev_info variables to something else in preparation
+>>> to converting the dev_info macro to a function.
+>> http://patchwork.ozlabs.org/patch/49421/
+>>
+>> This marked as RFC in patchwork.
+>> It's not intended to be.
+> 
+> Because I can't apply the entire set, I'd like someone else
+> to take this in since it's not really a networking specific
+> patch.
 
-Do we still need this since we're invalidating the whole flow
-cache?
+I've taken it.
 
-The current code is necessary since otherwise the bundles won't
-get freed.  But with your new code, this is essentially doing
-nothing, no?
-
-Cheers,
+David
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+David Vrabel, Senior Software Engineer, Drivers
+CSR, Churchill House, Cambridge Business Park,  Tel: +44 (0)1223 692562
+Cowley Road, Cambridge, CB4 0WZ                 http://www.csr.com/
+
+
+Member of the CSR plc group of companies. CSR plc registered in England and Wales, registered number 4187346, registered office Churchill House, Cambridge Business Park, Cowley Road, Cambridge, CB4 0WZ, United Kingdom
