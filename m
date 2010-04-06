@@ -1,114 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: John Linn <John.Linn@xilinx.com>
 Subject: RE: [PATCH] [V3] Add non-Virtex5 support for LL TEMAC driver
-Date: Tue, 06 Apr 2010 19:00:33 +0200
-Message-ID: <1270573233.2081.47.camel@edumazet-laptop>
-References: <d9134316-bd07-46a8-91d4-c30f27baeb60@SG2EHSMHS007.ehs.local>
-	 <1270502993.9013.36.camel@edumazet-laptop>
-	 <2fefb2a2-d0dc-461d-ac8c-3e7d177b7cf8@VA3EHSMHS032.ehs.local>
+Date: Tue, 6 Apr 2010 11:11:53 -0600
+Message-ID: <bf8eac92-5008-4c1f-9b99-0199e62436fa@SG2EHSMHS010.ehs.local>
+References: <d9134316-bd07-46a8-91d4-c30f27baeb60@SG2EHSMHS007.ehs.local> <1270502993.9013.36.camel@edumazet-laptop> <2fefb2a2-d0dc-461d-ac8c-3e7d177b7cf8@VA3EHSMHS032.ehs.local> <1270573233.2081.47.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	grant.likely@secretlab.ca, jwboyer@linux.vnet.ibm.com,
-	john.williams@petalogix.com, michal.simek@petalogix.com,
-	John Tyner <jtyner@cs.ucr.edu>
-To: John Linn <John.Linn@xilinx.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
+	<grant.likely@secretlab.ca>, <jwboyer@linux.vnet.ibm.com>,
+	<john.williams@petalogix.com>, <michal.simek@petalogix.com>,
+	"John Tyner" <jtyner@cs.ucr.edu>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:35953 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757471Ab0DFRAm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 13:00:42 -0400
-Received: by bwz1 with SMTP id 1so94091bwz.21
-        for <netdev@vger.kernel.org>; Tue, 06 Apr 2010 10:00:40 -0700 (PDT)
-In-Reply-To: <2fefb2a2-d0dc-461d-ac8c-3e7d177b7cf8@VA3EHSMHS032.ehs.local>
+Received: from sg2ehsobe001.messaging.microsoft.com ([207.46.51.75]:40622 "EHLO
+	SG2EHSOBE001.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753018Ab0DFRMK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 13:12:10 -0400
+Content-Class: urn:content-classes:message
+In-Reply-To: <1270573233.2081.47.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 06 avril 2010 =C3=A0 10:12 -0600, John Linn a =C3=A9crit :
-> > -----Original Message-----
-> > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
-> > Sent: Monday, April 05, 2010 3:30 PM
-> > To: John Linn
-> > Cc: netdev@vger.kernel.org; linuxppc-dev@ozlabs.org; grant.likely@s=
-ecretlab.ca;
-> > jwboyer@linux.vnet.ibm.com; john.williams@petalogix.com; michal.sim=
-ek@petalogix.com; John Tyner
-> > Subject: Re: [PATCH] [V3] Add non-Virtex5 support for LL TEMAC driv=
-er
-> >=20
-> > Le lundi 05 avril 2010 =C3=A0 15:11 -0600, John Linn a =C3=A9crit :
-> > > This patch adds support for using the LL TEMAC Ethernet driver on
-> > > non-Virtex 5 platforms by adding support for accessing the Soft D=
-MA
-> > > registers as if they were memory mapped instead of solely through=
- the
-> > > DCR's (available on the Virtex 5).
-> > >
-> > > The patch also updates the driver so that it runs on the MicroBla=
-ze.
-> > > The changes were tested on the PowerPC 440, PowerPC 405, and the
-> > > MicroBlaze platforms.
-> > >
-> > > Signed-off-by: John Tyner <jtyner@cs.ucr.edu>
-> > > Signed-off-by: John Linn <john.linn@xilinx.com>
-> > >
-> > > ---
-> >=20
-> > > +/* Align the IP data in the packet on word boundaries as MicroBl=
-aze
-> > > + * needs it.
-> > > + */
-> > > +
-> > >  #define XTE_ALIGN       32
-> > > -#define BUFFER_ALIGN(adr) ((XTE_ALIGN - ((u32) adr)) % XTE_ALIGN=
-)
-> > > +#define BUFFER_ALIGN(adr) ((34 - ((u32) adr)) % XTE_ALIGN)
-> > >
-> >=20
-> > Very interesting way of doing this, but why such convoluted thing ?
->=20
-> This is trying to align for a cache line (32 bytes) before my change.
->=20
-> My change was then also making it align the IP data on a word boundar=
-y.=20
->=20
-> >=20
-> > Because of the % 32, this is equivalent to :
-> >=20
-> > #define BUFFER_ALIGN(adr) ((2 - ((u32) adr)) % XTE_ALIGN)
-> >=20
->=20
-> Yes, but I'm not sure that's clearer IMHO.
->=20
-> > But wait, dont we recognise the magic constant NET_IP_ALIGN ?
->=20
-> Yes it could be used.  I'm struggling with how to make this all be cl=
-earer.
->=20
-
-I am not saying its clearer, I am saying we have a standard way to
-handle this exact problem (aligning rcvs buffer so that IP header is
-aligned)
-
-There is no need to invent new ones, this makes reviewing of this drive=
-r
-more difficult.
-
-
-> How about this?
-> #define BUFFER_ALIGN(adr) (((XTE_ALIGN + NET_IP_ALIGN) - ((u32) adr))=
- % XTE_ALIGN)
->=20
-
-Sorry, I still dont understand why you need XTE_ALIGN + ...
-
-((A + B) - C) % A   is equal to (B - C) % A
-
-Which one is more readable ?
-
-Please take a look at existing and clean code, no magic macro, and we
-can understand the intention.
-
-find drivers/net | xargs grep -n netdev_alloc_skb_ip_align
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBBcHJpbCAwNiwgMjAx
+MCAxMTowMSBBTQ0KPiBUbzogSm9obiBMaW5uDQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
+OyBsaW51eHBwYy1kZXZAb3psYWJzLm9yZzsgZ3JhbnQubGlrZWx5QHNlY3JldGxhYi5jYTsNCj4g
+andib3llckBsaW51eC52bmV0LmlibS5jb207IGpvaG4ud2lsbGlhbXNAcGV0YWxvZ2l4LmNvbTsg
+bWljaGFsLnNpbWVrQHBldGFsb2dpeC5jb207IEpvaG4gVHluZXINCj4gU3ViamVjdDogUkU6IFtQ
+QVRDSF0gW1YzXSBBZGQgbm9uLVZpcnRleDUgc3VwcG9ydCBmb3IgTEwgVEVNQUMgZHJpdmVyDQo+
+IA0KPiBMZSBtYXJkaSAwNiBhdnJpbCAyMDEwIMOgIDEwOjEyIC0wNjAwLCBKb2huIExpbm4gYSDD
+qWNyaXQgOg0KPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+IEZyb206IEVy
+aWMgRHVtYXpldCBbbWFpbHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dDQo+ID4gPiBTZW50OiBN
+b25kYXksIEFwcmlsIDA1LCAyMDEwIDM6MzAgUE0NCj4gPiA+IFRvOiBKb2huIExpbm4NCj4gPiA+
+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eHBwYy1kZXZAb3psYWJzLm9yZzsgZ3Jh
+bnQubGlrZWx5QHNlY3JldGxhYi5jYTsNCj4gPiA+IGp3Ym95ZXJAbGludXgudm5ldC5pYm0uY29t
+OyBqb2huLndpbGxpYW1zQHBldGFsb2dpeC5jb207IG1pY2hhbC5zaW1la0BwZXRhbG9naXguY29t
+OyBKb2huIFR5bmVyDQo+ID4gPiBTdWJqZWN0OiBSZTogW1BBVENIXSBbVjNdIEFkZCBub24tVmly
+dGV4NSBzdXBwb3J0IGZvciBMTCBURU1BQyBkcml2ZXINCj4gPiA+DQo+ID4gPiBMZSBsdW5kaSAw
+NSBhdnJpbCAyMDEwIMOgIDE1OjExIC0wNjAwLCBKb2huIExpbm4gYSDDqWNyaXQgOg0KPiA+ID4g
+PiBUaGlzIHBhdGNoIGFkZHMgc3VwcG9ydCBmb3IgdXNpbmcgdGhlIExMIFRFTUFDIEV0aGVybmV0
+IGRyaXZlciBvbg0KPiA+ID4gPiBub24tVmlydGV4IDUgcGxhdGZvcm1zIGJ5IGFkZGluZyBzdXBw
+b3J0IGZvciBhY2Nlc3NpbmcgdGhlIFNvZnQgRE1BDQo+ID4gPiA+IHJlZ2lzdGVycyBhcyBpZiB0
+aGV5IHdlcmUgbWVtb3J5IG1hcHBlZCBpbnN0ZWFkIG9mIHNvbGVseSB0aHJvdWdoIHRoZQ0KPiA+
+ID4gPiBEQ1IncyAoYXZhaWxhYmxlIG9uIHRoZSBWaXJ0ZXggNSkuDQo+ID4gPiA+DQo+ID4gPiA+
+IFRoZSBwYXRjaCBhbHNvIHVwZGF0ZXMgdGhlIGRyaXZlciBzbyB0aGF0IGl0IHJ1bnMgb24gdGhl
+IE1pY3JvQmxhemUuDQo+ID4gPiA+IFRoZSBjaGFuZ2VzIHdlcmUgdGVzdGVkIG9uIHRoZSBQb3dl
+clBDIDQ0MCwgUG93ZXJQQyA0MDUsIGFuZCB0aGUNCj4gPiA+ID4gTWljcm9CbGF6ZSBwbGF0Zm9y
+bXMuDQo+ID4gPiA+DQo+ID4gPiA+IFNpZ25lZC1vZmYtYnk6IEpvaG4gVHluZXIgPGp0eW5lckBj
+cy51Y3IuZWR1Pg0KPiA+ID4gPiBTaWduZWQtb2ZmLWJ5OiBKb2huIExpbm4gPGpvaG4ubGlubkB4
+aWxpbnguY29tPg0KPiA+ID4gPg0KPiA+ID4gPiAtLS0NCj4gPiA+DQo+ID4gPiA+ICsvKiBBbGln
+biB0aGUgSVAgZGF0YSBpbiB0aGUgcGFja2V0IG9uIHdvcmQgYm91bmRhcmllcyBhcyBNaWNyb0Js
+YXplDQo+ID4gPiA+ICsgKiBuZWVkcyBpdC4NCj4gPiA+ID4gKyAqLw0KPiA+ID4gPiArDQo+ID4g
+PiA+ICAjZGVmaW5lIFhURV9BTElHTiAgICAgICAzMg0KPiA+ID4gPiAtI2RlZmluZSBCVUZGRVJf
+QUxJR04oYWRyKSAoKFhURV9BTElHTiAtICgodTMyKSBhZHIpKSAlIFhURV9BTElHTikNCj4gPiA+
+ID4gKyNkZWZpbmUgQlVGRkVSX0FMSUdOKGFkcikgKCgzNCAtICgodTMyKSBhZHIpKSAlIFhURV9B
+TElHTikNCj4gPiA+ID4NCj4gPiA+DQo+ID4gPiBWZXJ5IGludGVyZXN0aW5nIHdheSBvZiBkb2lu
+ZyB0aGlzLCBidXQgd2h5IHN1Y2ggY29udm9sdXRlZCB0aGluZyA/DQo+ID4NCj4gPiBUaGlzIGlz
+IHRyeWluZyB0byBhbGlnbiBmb3IgYSBjYWNoZSBsaW5lICgzMiBieXRlcykgYmVmb3JlIG15IGNo
+YW5nZS4NCj4gPg0KPiA+IE15IGNoYW5nZSB3YXMgdGhlbiBhbHNvIG1ha2luZyBpdCBhbGlnbiB0
+aGUgSVAgZGF0YSBvbiBhIHdvcmQgYm91bmRhcnkuDQo+ID4NCj4gPiA+DQo+ID4gPiBCZWNhdXNl
+IG9mIHRoZSAlIDMyLCB0aGlzIGlzIGVxdWl2YWxlbnQgdG8gOg0KPiA+ID4NCj4gPiA+ICNkZWZp
+bmUgQlVGRkVSX0FMSUdOKGFkcikgKCgyIC0gKCh1MzIpIGFkcikpICUgWFRFX0FMSUdOKQ0KPiA+
+ID4NCj4gPg0KPiA+IFllcywgYnV0IEknbSBub3Qgc3VyZSB0aGF0J3MgY2xlYXJlciBJTUhPLg0K
+PiA+DQo+ID4gPiBCdXQgd2FpdCwgZG9udCB3ZSByZWNvZ25pc2UgdGhlIG1hZ2ljIGNvbnN0YW50
+IE5FVF9JUF9BTElHTiA/DQo+ID4NCj4gPiBZZXMgaXQgY291bGQgYmUgdXNlZC4gIEknbSBzdHJ1
+Z2dsaW5nIHdpdGggaG93IHRvIG1ha2UgdGhpcyBhbGwgYmUgY2xlYXJlci4NCj4gPg0KPiANCj4g
+SSBhbSBub3Qgc2F5aW5nIGl0cyBjbGVhcmVyLCBJIGFtIHNheWluZyB3ZSBoYXZlIGEgc3RhbmRh
+cmQgd2F5IHRvDQo+IGhhbmRsZSB0aGlzIGV4YWN0IHByb2JsZW0gKGFsaWduaW5nIHJjdnMgYnVm
+ZmVyIHNvIHRoYXQgSVAgaGVhZGVyIGlzDQo+IGFsaWduZWQpDQo+IA0KPiBUaGVyZSBpcyBubyBu
+ZWVkIHRvIGludmVudCBuZXcgb25lcywgdGhpcyBtYWtlcyByZXZpZXdpbmcgb2YgdGhpcyBkcml2
+ZXINCj4gbW9yZSBkaWZmaWN1bHQuDQo+IA0KPiANCj4gPiBIb3cgYWJvdXQgdGhpcz8NCj4gPiAj
+ZGVmaW5lIEJVRkZFUl9BTElHTihhZHIpICgoKFhURV9BTElHTiArIE5FVF9JUF9BTElHTikgLSAo
+KHUzMikgYWRyKSkgJSBYVEVfQUxJR04pDQo+ID4NCj4gDQo+IFNvcnJ5LCBJIHN0aWxsIGRvbnQg
+dW5kZXJzdGFuZCB3aHkgeW91IG5lZWQgWFRFX0FMSUdOICsgLi4uDQo+IA0KPiAoKEEgKyBCKSAt
+IEMpICUgQSAgIGlzIGVxdWFsIHRvIChCIC0gQykgJSBBDQo+IA0KPiBXaGljaCBvbmUgaXMgbW9y
+ZSByZWFkYWJsZSA/DQoNCkknbSBmaW5lIHdpdGggeW91ciBzdWdnZXN0aW9uLg0KDQojZGVmaW5l
+IEJVRkZFUl9BTElHTihhZHIpICgoMiAtICgodTMyKSBhZHIpKSAlIFhURV9BTElHTikNCg0KPiAN
+Cj4gUGxlYXNlIHRha2UgYSBsb29rIGF0IGV4aXN0aW5nIGFuZCBjbGVhbiBjb2RlLCBubyBtYWdp
+YyBtYWNybywgYW5kIHdlDQo+IGNhbiB1bmRlcnN0YW5kIHRoZSBpbnRlbnRpb24uDQo+IA0KPiBm
+aW5kIGRyaXZlcnMvbmV0IHwgeGFyZ3MgZ3JlcCAtbiBuZXRkZXZfYWxsb2Nfc2tiX2lwX2FsaWdu
+DQo+IA0KPiANCg0KWWVzIEkgc2VlIGhvdyBpdCdzIHVzZWQsIGJ1dCBpdCBvbmx5IGFsbG93cyB5
+b3UgdG8gcmVzZXJ2ZSAyIGJ5dGVzIGluIHRoZSBza2Igd2l0aCBubyBvcHRpb25zLg0KDQoNCg0K
+ClRoaXMgZW1haWwgYW5kIGFueSBhdHRhY2htZW50cyBhcmUgaW50ZW5kZWQgZm9yIHRoZSBzb2xl
+IHVzZSBvZiB0aGUgbmFtZWQgcmVjaXBpZW50KHMpIGFuZCBjb250YWluKHMpIGNvbmZpZGVudGlh
+bCBpbmZvcm1hdGlvbiB0aGF0IG1heSBiZSBwcm9wcmlldGFyeSwgcHJpdmlsZWdlZCBvciBjb3B5
+cmlnaHRlZCB1bmRlciBhcHBsaWNhYmxlIGxhdy4gSWYgeW91IGFyZSBub3QgdGhlIGludGVuZGVk
+IHJlY2lwaWVudCwgZG8gbm90IHJlYWQsIGNvcHksIG9yIGZvcndhcmQgdGhpcyBlbWFpbCBtZXNz
+YWdlIG9yIGFueSBhdHRhY2htZW50cy4gRGVsZXRlIHRoaXMgZW1haWwgbWVzc2FnZSBhbmQgYW55
+IGF0dGFjaG1lbnRzIGltbWVkaWF0ZWx5Lgo=
 
 
