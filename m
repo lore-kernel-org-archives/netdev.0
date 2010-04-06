@@ -1,62 +1,43 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC][PATCH] ipmr:  Fix struct mfcctl to be independent of MAXVIFS
- v2
-Date: Tue, 06 Apr 2010 09:57:34 -0700
-Message-ID: <4BBB67FE.6020209@candelatech.com>
-References: <m1mxxgbwtl.fsf@fess.ebiederm.org> <m1eiis8uc6.fsf@fess.ebiederm.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH] [V3] Add non-Virtex5 support for LL TEMAC driver
+Date: Tue, 06 Apr 2010 19:47:37 +0200
+Message-ID: <1270576057.2081.100.camel@edumazet-laptop>
+References: <d9134316-bd07-46a8-91d4-c30f27baeb60@SG2EHSMHS007.ehs.local>
+	 <1270502993.9013.36.camel@edumazet-laptop>
+	 <2fefb2a2-d0dc-461d-ac8c-3e7d177b7cf8@VA3EHSMHS032.ehs.local>
+	 <1270573233.2081.47.camel@edumazet-laptop>
+	 <bf8eac92-5008-4c1f-9b99-0199e62436fa@SG2EHSMHS010.ehs.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Ilia K <mail4ilia@gmail.com>, Tom Goff <thomas.goff@boeing.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	grant.likely@secretlab.ca, jwboyer@linux.vnet.ibm.com,
+	john.williams@petalogix.com, michal.simek@petalogix.com,
+	John Tyner <jtyner@cs.ucr.edu>
+To: John Linn <John.Linn@xilinx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:44570 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754649Ab0DFRdn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 13:33:43 -0400
-In-Reply-To: <m1eiis8uc6.fsf@fess.ebiederm.org>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:34483 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756735Ab0DFRrn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 13:47:43 -0400
+Received: by bwz1 with SMTP id 1so133317bwz.21
+        for <netdev@vger.kernel.org>; Tue, 06 Apr 2010 10:47:40 -0700 (PDT)
+In-Reply-To: <bf8eac92-5008-4c1f-9b99-0199e62436fa@SG2EHSMHS010.ehs.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/06/2010 08:38 AM, Eric W. Biederman wrote:
->
-> Right now if you recompile the kernel increasing MAXVIFS
-> to support more VIFS users of the MRT_ADD_VIF and MRT_DEL_VIF
-> will break because the ABI changed.
->
-> My goal is an API that works with just a recompile of existing
-> applications, and an ABI that continues to work for old
-> applications.
->
-> The unused/dead fields at the end of struct mfcctl make this
-> exercise more difficult than it should be.
->
-> - Rename the existing struct mfcctl mfcctl_old.
-> - Define a new and larger struct mfcctl that we can detect
->    by size.
->
->    The new and larger struct mfcctl won't have trailing garbage
->    fields so we can accept anything of that size or larger,
->    and simply ignore the entries that are above MAXVIFS.
->
-> My new struct mfcctl is now 128 bytes which is noticeable on
-> the stack but should still be small enough not to cause problems.
->
-> v2:  Rework the support larger arrays so that most/all? existing
->     applications can simply be recompiled and work with a larger
->     maximum number of VIFS.
 
-If we're going to change the ABI, can we not support an arbitrary
-number of VIFS instead of just a larger fixed maximum?
-
-Thanks,
-Ben
+> 
+> Yes I see how it's used, but it only allows you to reserve 2 bytes in the skb with no options.
 
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Really ? This would be a bug !
+
+__alloc_skb() uses kmalloc(XXXX), this gives you the guarantee you want,
+or maybe comment you wrote is not what is _really_ necessary ?
+
+/* Align the IP data in the packet on word boundaries as MicroBlaze
+ * needs it.
+ */
+
 
