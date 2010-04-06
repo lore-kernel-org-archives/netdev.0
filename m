@@ -1,51 +1,55 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] [V3] Add non-Virtex5 support for LL TEMAC driver
-Date: Tue, 6 Apr 2010 11:54:42 -0600
-Message-ID: <p2vfa686aa41004061054qad1495bbxdf6deb5d5d9dd4bf@mail.gmail.com>
-References: <d9134316-bd07-46a8-91d4-c30f27baeb60@SG2EHSMHS007.ehs.local>
-	<1270502993.9013.36.camel@edumazet-laptop>
-	<7a42d507-bf50-40f3-a2a0-8de682b314d7@SG2EHSMHS017.ehs.local>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [PATCH] vhost: Make it more scalable by creating a vhost	thread
+ per device.
+Date: Tue, 06 Apr 2010 21:49:17 +0300
+Message-ID: <4BBB822D.7050400@redhat.com>
+References: <1270229480.13897.8.camel@w-sridhar.beaverton.ibm.com>	 <20100404111433.GD3189@redhat.com> <1270488911.27874.43.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org, John Tyner <jtyner@cs.ucr.edu>,
-	michal.simek@petalogix.com, john.williams@petalogix.com
-To: John Linn <John.Linn@xilinx.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <7a42d507-bf50-40f3-a2a0-8de682b314d7@SG2EHSMHS017.ehs.local>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Tom Lendacky <toml@us.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33047 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757428Ab0DFStW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Apr 2010 14:49:22 -0400
+In-Reply-To: <1270488911.27874.43.camel@w-sridhar.beaverton.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 5, 2010 at 3:33 PM, John Linn <John.Linn@xilinx.com> wrote:
-> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
->> > +/* Align the IP data in the packet on word boundaries as MicroBlaze
->> > + * needs it.
->> > + */
->> > +
->> > =A0#define XTE_ALIGN =A0 =A0 =A0 32
->> > -#define BUFFER_ALIGN(adr) ((XTE_ALIGN - ((u32) adr)) % XTE_ALIGN)
->> > +#define BUFFER_ALIGN(adr) ((34 - ((u32) adr)) % XTE_ALIGN)
->> >
+On 04/05/2010 08:35 PM, Sridhar Samudrala wrote:
+> On Sun, 2010-04-04 at 14:14 +0300, Michael S. Tsirkin wrote:
+>    
+>> On Fri, Apr 02, 2010 at 10:31:20AM -0700, Sridhar Samudrala wrote:
+>>      
+>>> Make vhost scalable by creating a separate vhost thread per vhost
+>>> device. This provides better scaling across multiple guests and with
+>>> multiple interfaces in a guest.
+>>>        
+>> Thanks for looking into this. An alternative approach is
+>> to simply replace create_singlethread_workqueue with
+>> create_workqueue which would get us a thread per host CPU.
 >>
->> Very interesting way of doing this, but why such convoluted thing ?
->
-> Grant might have insight into why this started this way, I just updated t=
-o help with MicroBlaze alignment.
+>> It seems that in theory this should be the optimal approach
+>> wrt CPU locality, however, in practice a single thread
+>> seems to get better numbers. I have a TODO to investigate this.
+>> Could you try looking into this?
+>>      
+> Yes. I tried using create_workqueue(), but the results were not good
+> atleast when the number of guest interfaces is less than the number
+> of CPUs. I didn't try more than 8 guests.
+> Creating a separate thread per guest interface seems to be more
+> scalable based on the testing i have done so far.
+>    
 
-It was that way in the code I received from Yoshio Kashiwagi and David
-H. Lynch.  I have no problem with it being changed.
+Thread per guest is also easier to account.  I'm worried about guests 
+impacting other guests' performance outside scheduler control by 
+extensive use of vhost.
 
-Personally I would probably write a followup patch to change this to
-netdev_alloc_skb_ip_align(), just to keep changes logically separated.
- But I'm okay with it rolled into this patch also.
+-- 
+Do not meddle in the internals of kernels, for they are subtle and quick to panic.
 
-g.
