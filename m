@@ -1,211 +1,85 @@
-From: <Suryanarayana.Garlapati@Emerson.com>
-Subject: Re: [PATCH 1/2] TIPC: Updated topology
-	subscriptionprotocol according to latest spec
-Date: Tue, 6 Apr 2010 13:11:42 +0800
-Message-ID: <89D32649C0790143AB985A5BF77A104F031A1797@etsmsg-hkexm05.etsmsg.org>
-References: <../outgoing_patches/>
-	<1270516572-27789-1-git-send-email-jon.maloy@ericsson.com>
+From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Subject: Re: [RFC PATCH 2/2] netdev: an usage example on igb
+Date: Tue, 06 Apr 2010 14:40:52 +0900
+Message-ID: <4BBAC964.4070505@jp.fujitsu.com>
+References: <4BB98828.5030302@jp.fujitsu.com>	 <4BB98940.5070003@jp.fujitsu.com> <1270456224.1971.15.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net, Jon
-To: <jon.maloy@ericsson.com>, <davem@davemloft.net>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-Content-Class: urn:content-classes:message
-In-Reply-To: <1270516572-27789-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, izumi.taku@jp.fujitsu.com,
+	kaneshige.kenji@jp.fujitsu.com, davem@davemloft.net,
+	nhorman@tuxdriver.com, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	alexander.h.duyck@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:54520 "EHLO
+	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750992Ab0DFFks (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 01:40:48 -0400
+Received: from m4.gw.fujitsu.co.jp ([10.0.50.74])
+	by fgwmail7.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o365ekV6023224
+	for <netdev@vger.kernel.org> (envelope-from sanagi.koki@jp.fujitsu.com);
+	Tue, 6 Apr 2010 14:40:46 +0900
+Received: from smail (m4 [127.0.0.1])
+	by outgoing.m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 4498445DE70
+	for <netdev@vger.kernel.org>; Tue,  6 Apr 2010 14:40:46 +0900 (JST)
+Received: from s4.gw.fujitsu.co.jp (s4.gw.fujitsu.co.jp [10.0.50.94])
+	by m4.gw.fujitsu.co.jp (Postfix) with ESMTP id F090B45DE79
+	for <netdev@vger.kernel.org>; Tue,  6 Apr 2010 14:40:45 +0900 (JST)
+Received: from s4.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id B997DE18003
+	for <netdev@vger.kernel.org>; Tue,  6 Apr 2010 14:40:45 +0900 (JST)
+Received: from ml13.s.css.fujitsu.com (ml13.s.css.fujitsu.com [10.249.87.103])
+	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id 6F348E18005
+	for <netdev@vger.kernel.org>; Tue,  6 Apr 2010 14:40:45 +0900 (JST)
+In-Reply-To: <1270456224.1971.15.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jon,
-Is this patch portable to versions TIPC 1.7.x?
+(2010/04/05 17:30), Eric Dumazet wrote:
+> Le lundi 05 avril 2010 =C3=A0 15:54 +0900, Koki Sanagi a =C3=A9crit :
+>> This patch is usage example of previous patch's buffer on igb.
+>> The output is like below.
+>>
+>> # cat /sys/kernel/debug/ndrvbuf/igb-trace-0000\:03\:00.0/buffer
+>> [  1] 50462.369207: clean_tx qidx=3D1 ntu=3D154->156
+>> [  0] 50462.369241: clean_rx qidx=3D0 ntu=3D111->112
+>> [  0] 50462.369250: xmit qidx=3D1 ntu=3D156->158
+>> [  1] 50462.369256: clean_tx qidx=3D1 ntu=3D156->158
+>> [  1] 50462.369342: clean_rx qidx=3D0 ntu=3D113->114
+>> [  1] 50462.369439: clean_rx qidx=3D0 ntu=3D114->115
+>>
+>> This example outputs original print style, because it sets original =
+print
+>> function(igb_trace_read) when registered.
+>>
+>> register_ndrvbuf(buname, 1000000, igb_trace_read);
+>>
+>> If you set NULL to arg3, outputs by ndrvbuf default style.
+>> If you set 0 to size(arg2), recording is disabled at first(but small=
+ buffer is
+>> alloced).
+>> When you set non-zero to size, recording becomes enabled.
+>>
+>> Signed-off-by: Koki Sanagi<sanagi.koki@jp.fujitsu.com>
+>> ---
+>>    drivers/net/igb/Makefile    |    2 +-
+>>    drivers/net/igb/igb.h       |    1 +
+>>    drivers/net/igb/igb_main.c  |   10 +++++-
+>>    drivers/net/igb/igb_trace.c |   81 ++++++++++++++++++++++++++++++=
++++++++++++++
+>>    drivers/net/igb/igb_trace.h |   21 +++++++++++
+>>    5 files changed, 113 insertions(+), 2 deletions(-)
+>>
+>
+> This depends on NDRVBUF, yet I see no Kconfig change in this patch.
+>
+This igb can exist without ndrvbuf.
+If ndrvbuf modules is not loaded, igb operates originally.
+So this doesn't depend on ndrvbuf.
+ =20
 
-Regards
-Surya
 
-> -----Original Message-----
-> From: Jon Maloy [mailto:jon.maloy@ericsson.com] 
-> Sent: Tuesday, April 06, 2010 6:46 AM
-> To: David Miller
-> Cc: Maloy; netdev@vger.kernel.org; 
-> tipc-discussion@lists.sourceforge.net; Jon
-> Subject: [tipc-discussion] [PATCH 1/2] TIPC: Updated topology 
-> subscriptionprotocol according to latest spec
-> 
-> ---
->  include/linux/tipc.h |   30 ++++++++++++------------------
->  net/tipc/core.c      |    2 +-
->  net/tipc/subscr.c    |   15 ++++++++++-----
->  3 files changed, 23 insertions(+), 24 deletions(-)
-> 
-> diff --git a/include/linux/tipc.h b/include/linux/tipc.h 
-> index 3d92396..9536d8a 100644
-> --- a/include/linux/tipc.h
-> +++ b/include/linux/tipc.h
-> @@ -127,23 +127,17 @@ static inline unsigned int tipc_node(__u32 addr)
->   * TIPC topology subscription service definitions
->   */
->  
-> -#define TIPC_SUB_PORTS     	0x01  	/* filter for port 
-> availability */
-> -#define TIPC_SUB_SERVICE     	0x02  	/* filter for 
-> service availability */
-> -#define TIPC_SUB_CANCEL         0x04    /* cancel a subscription */
-> -#if 0
-> -/* The following filter options are not currently implemented */
-> -#define TIPC_SUB_NO_BIND_EVTS	0x04	/* filter out 
-> "publish" events */
-> -#define TIPC_SUB_NO_UNBIND_EVTS	0x08	/* filter out 
-> "withdraw" events */
-> -#define TIPC_SUB_SINGLE_EVT	0x10	/* expire after first event */
-> -#endif
-> +#define TIPC_SUB_SERVICE     	0x00  	/* Filter for 
-> service availability    */
-> +#define TIPC_SUB_PORTS     	0x01  	/* Filter for port 
-> availability  */
-> +#define TIPC_SUB_CANCEL         0x04    /* Cancel a 
-> subscription         */
->  
->  #define TIPC_WAIT_FOREVER	~0	/* timeout for 
-> permanent subscription */
->  
->  struct tipc_subscr {
-> -	struct tipc_name_seq seq;	/* name sequence of interest */
-> -	__u32 timeout;			/* subscription 
-> duration (in ms) */
-> -        __u32 filter;   		/* bitmask of filter options */
-> -	char usr_handle[8];		/* available for 
-> subscriber use */
-> +	struct tipc_name_seq seq;	/* NBO. Name sequence 
-> of interest */
-> +	__u32 timeout;			/* NBO. Subscription 
-> duration (in ms) */
-> +        __u32 filter;   		/* NBO. Bitmask of 
-> filter options */
-> +	char usr_handle[8];		/* Opaque. Available 
-> for subscriber use */
->  };
->  
->  #define TIPC_PUBLISHED		1	/* publication event */
-> @@ -151,11 +145,11 @@ struct tipc_subscr {
->  #define TIPC_SUBSCR_TIMEOUT	3	/* subscription timeout event */
->  
->  struct tipc_event {
-> -	__u32 event;			/* event type */
-> -	__u32 found_lower;		/* matching name seq 
-> instances */
-> -	__u32 found_upper;		/*    "      "    "     
-> "      */
-> -	struct tipc_portid port;	/* associated port */
-> -	struct tipc_subscr s;		/* associated subscription */
-> +	__u32 event;			/* NBO. Event type, as 
-> defined above */
-> +	__u32 found_lower;		/* NBO. Matching name 
-> seq instances  */
-> +	__u32 found_upper;		/*  "      "       "   
-> "    "        */
-> +	struct tipc_portid port;	/* NBO. Associated port 
->              */
-> +	struct tipc_subscr s;		/* Original, associated 
-> subscription */
->  };
->  
->  /*
-> diff --git a/net/tipc/core.c b/net/tipc/core.c index 
-> 52c571f..4e84c84 100644
-> --- a/net/tipc/core.c
-> +++ b/net/tipc/core.c
-> @@ -49,7 +49,7 @@
->  #include "config.h"
->  
->  
-> -#define TIPC_MOD_VER "1.6.4"
-> +#define TIPC_MOD_VER "2.0.0"
->  
->  #ifndef CONFIG_TIPC_ZONES
->  #define CONFIG_TIPC_ZONES 3
-> diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c index 
-> ff123e5..ab6eab4 100644
-> --- a/net/tipc/subscr.c
-> +++ b/net/tipc/subscr.c
-> @@ -274,7 +274,7 @@ static void subscr_cancel(struct 
-> tipc_subscr *s,  {
->  	struct subscription *sub;
->  	struct subscription *sub_temp;
-> -	__u32 type, lower, upper;
-> +	__u32 type, lower, upper, timeout, filter;
->  	int found = 0;
->  
->  	/* Find first matching subscription, exit if not found 
-> */ @@ -282,12 +282,18 @@ static void subscr_cancel(struct 
-> tipc_subscr *s,
->  	type = ntohl(s->seq.type);
->  	lower = ntohl(s->seq.lower);
->  	upper = ntohl(s->seq.upper);
-> +	timeout = ntohl(s->timeout);
-> +	filter = ntohl(s->filter) & ~TIPC_SUB_CANCEL;
->  
->  	list_for_each_entry_safe(sub, sub_temp, 
-> &subscriber->subscription_list,
->  				 subscription_list) {
->  			if ((type == sub->seq.type) &&
->  			    (lower == sub->seq.lower) &&
-> -			    (upper == sub->seq.upper)) {
-> +			    (upper == sub->seq.upper) &&
-> +			    (timeout == sub->timeout) &&
-> +                            (filter == sub->filter) &&
-> +                             
-> !memcmp(s->usr_handle,sub->evt.s.usr_handle,
-> +				     sizeof(s->usr_handle)) ){
->  				found = 1;
->  				break;
->  			}
-> @@ -304,7 +310,7 @@ static void subscr_cancel(struct tipc_subscr *s,
->  		k_term_timer(&sub->timer);
->  		spin_lock_bh(subscriber->lock);
->  	}
-> -	dbg("Cancel: removing sub %u,%u,%u from subscriber %x list\n",
-> +	dbg("Cancel: removing sub %u,%u,%u from subscriber %p list\n",
->  	    sub->seq.type, sub->seq.lower, sub->seq.upper, subscriber);
->  	subscr_del(sub);
->  }
-> @@ -352,8 +358,7 @@ static struct subscription 
-> *subscr_subscribe(struct tipc_subscr *s,
->  	sub->seq.upper = ntohl(s->seq.upper);
->  	sub->timeout = ntohl(s->timeout);
->  	sub->filter = ntohl(s->filter);
-> -	if ((!(sub->filter & TIPC_SUB_PORTS) ==
-> -	     !(sub->filter & TIPC_SUB_SERVICE)) ||
-> +	if ((sub->filter && (sub->filter != TIPC_SUB_PORTS)) ||
->  	    (sub->seq.lower > sub->seq.upper)) {
->  		warn("Subscription rejected, illegal request\n");
->  		kfree(sub);
-> --
-> 1.5.4.3
-> 
-> 
-> --------------------------------------------------------------
-> ----------------
-> Download Intel&#174; Parallel Studio Eval
-> Try the new software tools for yourself. Speed compiling, find bugs
-> proactively, and fine-tune applications for parallel performance.
-> See why Intel Parallel Studio got high marks during beta.
-> http://p.sf.net/sfu/intel-sw-dev
-> _______________________________________________
-> tipc-discussion mailing list
-> tipc-discussion@lists.sourceforge.net
-> https://lists.sourceforge.net/lists/listinfo/tipc-discussion
-> 
-
-------------------------------------------------------------------------------
-Download Intel&#174; Parallel Studio Eval
-Try the new software tools for yourself. Speed compiling, find bugs
-proactively, and fine-tune applications for parallel performance.
-See why Intel Parallel Studio got high marks during beta.
-http://p.sf.net/sfu/intel-sw-dev
