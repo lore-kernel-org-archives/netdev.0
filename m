@@ -1,154 +1,164 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] [V3] Add non-Virtex5 support for LL TEMAC driver
-Date: Tue, 6 Apr 2010 12:53:56 -0600
-Message-ID: <k2mfa686aa41004061153q3d065924o9172b1cf6038d917@mail.gmail.com>
-References: <d9134316-bd07-46a8-91d4-c30f27baeb60@SG2EHSMHS007.ehs.local>
-	<1270502993.9013.36.camel@edumazet-laptop> <2fefb2a2-d0dc-461d-ac8c-3e7d177b7cf8@VA3EHSMHS032.ehs.local>
-	<1270573233.2081.47.camel@edumazet-laptop> <bf8eac92-5008-4c1f-9b99-0199e62436fa@SG2EHSMHS010.ehs.local>
+From: Eduardo Panisset <eduardo.panisset@gmail.com>
+Subject: Re: [Bugme-new] [Bug 15682] New: XFRM is not updating RTAX_ADVMSS
+	metric
+Date: Tue, 6 Apr 2010 16:02:12 -0300
+Message-ID: <y2jb7b22e81004061202uac6ef8eeodc70d6deb65f7699@mail.gmail.com>
+References: <bug-15682-10286@https.bugzilla.kernel.org/>
+	 <20100405125055.cdc1e279.akpm@linux-foundation.org>
+	 <1270561240.7198.3.camel@bigi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, jwboyer@linux.vnet.ibm.com,
-	john.williams@petalogix.com, michal.simek@petalogix.com,
-	John Tyner <jtyner@cs.ucr.edu>
-To: John Linn <John.Linn@xilinx.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:61525 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757084Ab0DFSyR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 14:54:17 -0400
-Received: by gyg13 with SMTP id 13so79544gyg.19
-        for <netdev@vger.kernel.org>; Tue, 06 Apr 2010 11:54:16 -0700 (PDT)
-In-Reply-To: <bf8eac92-5008-4c1f-9b99-0199e62436fa@SG2EHSMHS010.ehs.local>
+Received: from mail-fx0-f227.google.com ([209.85.220.227]:64286 "EHLO
+	mail-fx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755648Ab0DFTCO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 15:02:14 -0400
+Received: by fxm27 with SMTP id 27so242974fxm.28
+        for <netdev@vger.kernel.org>; Tue, 06 Apr 2010 12:02:12 -0700 (PDT)
+In-Reply-To: <1270561240.7198.3.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 6, 2010 at 11:11 AM, John Linn <John.Linn@xilinx.com> wrote=
-:
->> -----Original Message-----
->> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
->> Sent: Tuesday, April 06, 2010 11:01 AM
->> To: John Linn
->> Cc: netdev@vger.kernel.org; linuxppc-dev@ozlabs.org; grant.likely@se=
-cretlab.ca;
->> jwboyer@linux.vnet.ibm.com; john.williams@petalogix.com; michal.sime=
-k@petalogix.com; John Tyner
->> Subject: RE: [PATCH] [V3] Add non-Virtex5 support for LL TEMAC drive=
-r
->>
->> Le mardi 06 avril 2010 =E0 10:12 -0600, John Linn a =E9crit :
->> > > -----Original Message-----
->> > > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
->> > > Sent: Monday, April 05, 2010 3:30 PM
->> > > To: John Linn
->> > > Cc: netdev@vger.kernel.org; linuxppc-dev@ozlabs.org; grant.likel=
-y@secretlab.ca;
->> > > jwboyer@linux.vnet.ibm.com; john.williams@petalogix.com; michal.=
-simek@petalogix.com; John Tyner
->> > > Subject: Re: [PATCH] [V3] Add non-Virtex5 support for LL TEMAC d=
-river
->> > >
->> > > Le lundi 05 avril 2010 =E0 15:11 -0600, John Linn a =E9crit :
->> > > > This patch adds support for using the LL TEMAC Ethernet driver=
- on
->> > > > non-Virtex 5 platforms by adding support for accessing the Sof=
-t DMA
->> > > > registers as if they were memory mapped instead of solely thro=
-ugh the
->> > > > DCR's (available on the Virtex 5).
->> > > >
->> > > > The patch also updates the driver so that it runs on the Micro=
-Blaze.
->> > > > The changes were tested on the PowerPC 440, PowerPC 405, and t=
-he
->> > > > MicroBlaze platforms.
->> > > >
->> > > > Signed-off-by: John Tyner <jtyner@cs.ucr.edu>
->> > > > Signed-off-by: John Linn <john.linn@xilinx.com>
->> > > >
->> > > > ---
->> > >
->> > > > +/* Align the IP data in the packet on word boundaries as Micr=
-oBlaze
->> > > > + * needs it.
->> > > > + */
->> > > > +
->> > > > =A0#define XTE_ALIGN =A0 =A0 =A0 32
->> > > > -#define BUFFER_ALIGN(adr) ((XTE_ALIGN - ((u32) adr)) % XTE_AL=
-IGN)
->> > > > +#define BUFFER_ALIGN(adr) ((34 - ((u32) adr)) % XTE_ALIGN)
->> > > >
->> > >
->> > > Very interesting way of doing this, but why such convoluted thin=
-g ?
->> >
->> > This is trying to align for a cache line (32 bytes) before my chan=
-ge.
->> >
->> > My change was then also making it align the IP data on a word boun=
-dary.
->> >
->> > >
->> > > Because of the % 32, this is equivalent to :
->> > >
->> > > #define BUFFER_ALIGN(adr) ((2 - ((u32) adr)) % XTE_ALIGN)
->> > >
->> >
->> > Yes, but I'm not sure that's clearer IMHO.
->> >
->> > > But wait, dont we recognise the magic constant NET_IP_ALIGN ?
->> >
->> > Yes it could be used. =A0I'm struggling with how to make this all =
-be clearer.
->> >
->>
->> I am not saying its clearer, I am saying we have a standard way to
->> handle this exact problem (aligning rcvs buffer so that IP header is
->> aligned)
->>
->> There is no need to invent new ones, this makes reviewing of this dr=
-iver
->> more difficult.
+Hi,
 
-Hold on.... BUFFER_ALIGN is being used to align the DMA buffer on a
-cache line boundary.  I don't think netdev_alloc_skb() makes any
-guarantees about how the start of the IP header lines up against cache
-line boundaries.  The amount of padding needed is not known until an
-skbuff is obtained from netdev_alloc_skb(), and
-netdev_alloc_skb_ip_align() can only handle a fixed size padding,
+My intention is only to report a problem that I have faced. The
+solution proposed isn't (I know that) probably the best one to adopt
+as I'm not a kernel specialist, it is more illustrative to allow you
+guys understanding what I'm meaning and solve that on the better way
+(hence I haven't submited a patch).
 
-It doesn't look like netdev_alloc_skb_ip_align() is the right thing in
-this regard.
+Regards,
+Eduardo Panisset.
 
->> > How about this?
->> > #define BUFFER_ALIGN(adr) (((XTE_ALIGN + NET_IP_ALIGN) - ((u32) ad=
-r)) % XTE_ALIGN)
->> >
->>
->> Sorry, I still dont understand why you need XTE_ALIGN + ...
->>
->> ((A + B) - C) % A =A0 is equal to (B - C) % A
->>
->> Which one is more readable ?
+On Tue, Apr 6, 2010 at 10:40 AM, jamal <hadi@cyberus.ca> wrote:
 >
-> I'm fine with your suggestion.
+> Herbert would give better answers. I dont think what Eduardo is
+> doing is correct. You cant just start factoring in tcp headers
+> at the xfrm level - and besides, the mtu calculation
+> already takes care tunnel headers - so tcp should be able to
+> compute correct MSS.
 >
-> #define BUFFER_ALIGN(adr) ((2 - ((u32) adr)) % XTE_ALIGN)
+> cheers,
+> jamal
 >
+> On Mon, 2010-04-05 at 12:50 -0700, Andrew Morton wrote:
+>> (switched to email. =A0Please respond via emailed reply-to-all, not =
+via the
+>> bugzilla web interface).
 >>
->> Please take a look at existing and clean code, no magic macro, and w=
-e
->> can understand the intention.
+>> On Fri, 2 Apr 2010 17:34:35 GMT
+>> bugzilla-daemon@bugzilla.kernel.org wrote:
 >>
->> find drivers/net | xargs grep -n netdev_alloc_skb_ip_align
+>> > https://bugzilla.kernel.org/show_bug.cgi?id=3D15682
+>> >
+>> > =A0 =A0 =A0 =A0 =A0 =A0Summary: XFRM is not updating RTAX_ADVMSS m=
+etric
+>> > =A0 =A0 =A0 =A0 =A0 =A0Product: Networking
+>> > =A0 =A0 =A0 =A0 =A0 =A0Version: 2.5
+>> > =A0 =A0 Kernel Version: 2.6.28-2
+>> > =A0 =A0 =A0 =A0 =A0 Platform: All
+>> > =A0 =A0 =A0 =A0 OS/Version: Linux
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 Tree: Mainline
+>> > =A0 =A0 =A0 =A0 =A0 =A0 Status: NEW
+>> > =A0 =A0 =A0 =A0 =A0 Severity: normal
+>> > =A0 =A0 =A0 =A0 =A0 Priority: P1
+>> > =A0 =A0 =A0 =A0 =A0Component: Other
+>> > =A0 =A0 =A0 =A0 AssignedTo: acme@ghostprotocols.net
+>> > =A0 =A0 =A0 =A0 ReportedBy: eduardo.panisset@gmail.com
+>> > =A0 =A0 =A0 =A0 Regression: No
+>> >
+>> >
+>> > I have been testing DSMIPv6 code which uses all kind of advanced
+>> > features of XFRM framework and I believe I have found a bug relate=
+d to
+>> > update RTAX_ADVMSS route metric.
+>> > The XFRM code on net/xfrm/xfrm_policy.c by its functions
+>> > xfrm_init_pmtu and xfrm_bundle_ok updates RTAX_MTU route caching
+>> > metric however I believe it must update RTAX_ADVMSS as this later =
+is
+>> > used by tcp connect function for adverting the MSS value on SYN
+>> > messages.
+>> >
+>> > As MSS is not being updated by XFRM the TCP SYN messages (e.g.
+>> > originated from a internet browser) =A0is erroneously informing it=
+s MSS
+>> > (without taking into account the overhead added to IP packet size =
+by
+>> > XFRM transformations). =A0One result of that is the browser gets
+>> > "frozen" after starts a TCP connection because TCP messages sent b=
+y
+>> > TCP server will never get to it (TCP server is sending too large
+>> > segments to browser).
+>> >
+>> > Below I describe the changes I have done (on xfrm_init_pmtu and
+>> > xfrm_bundle_ok) and that seem to fix this problem:
+>> >
+>> > xfrm_init_pmtu:
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.
+>> >
+>> > =A0 =A0 =A0 =A0 dst->metrics[RTAX_MTU-1] =3D pmtu; // original cod=
+e, below my changes
+>> >
+>> > =A0 =A0 =A0 =A0 if (dst->xfrm->props.mode =3D=3D XFRM_MODE_TUNNEL)
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0switch (dst->xfrm->props.family=
+)
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0{
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0case AF_INET:
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dst->metrics[RTAX_ADVMSS-1] =3D=
+ max_t(unsigned int,
+>> > pmtu - sizeof(struct iphdr) - sizeof(struct tcphdr), 256);
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
+>> >
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0case AF_INET6:
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dst->metrics[RTAX_ADVMSS-1] =3D=
+ max_t(unsigned int,
+>> > pmtu - sizeof(struct ipv6hdr) - sizeof(struct tcphdr),
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_net(ds=
+t->dev)->ipv6.
+>> > sysctl.ip6_rt_min_advmss);
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+>> >
+>> > xfrm_bundle_ok:
+>> >
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.
+>> >
+>> > =A0 =A0 =A0 =A0 dst->metrics[RTAX_MTU-1] =3D mtu; // original code=
+, below my changes
+>> >
+>> > =A0 =A0 =A0 =A0 if (dst->xfrm->props.mode =3D=3D XFRM_MODE_TUNNEL)
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 switch (dst->xfrm->props.family)
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 {
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 case AF_INET:
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dst->metrics[RTAX_=
+ADVMSS-1] =3D max_t(unsigned
+>> > int, mtu - sizeof(struct iphdr) - sizeof(struct tcphdr), 256);
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+>> >
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 case AF_INET6:
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dst->metrics[RTAX_=
+ADVMSS-1] =3D max_t(unsigned
+>> > int, mtu - sizeof(struct ipv6hdr) - sizeof(struct tcphdr),
+>> >
+>> > dev_net(dst->dev)->ipv6.sysctl.ip6_rt_min_advmss);
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>> >
 >>
->>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
 >
-> Yes I see how it's used, but it only allows you to reserve 2 bytes in=
- the skb with no options.
-
-Eric is here.  The mod operation means that BUFFER_ALIGN using either
-2 or 34 is equivalent.
-
-g.
+>
