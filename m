@@ -1,40 +1,70 @@
-From: Denys Fedorysychenko <nuclearcat@nuclearcat.com>
-Subject: Re: HFSC classes going out of bounds, regression in recent kernels?
-Date: Tue, 6 Apr 2010 18:45:42 +0300
-Message-ID: <201004061845.42766.nuclearcat@nuclearcat.com>
-References: <201004061822.21735.nuclearcat@nuclearcat.com> <4BBB5543.40607@trash.net>
+From: John Linn <John.Linn@xilinx.com>
+Subject: RE: [PATCH] [V3] Add non-Virtex5 support for LL TEMAC driver
+Date: Tue, 6 Apr 2010 10:12:05 -0600
+Message-ID: <2fefb2a2-d0dc-461d-ac8c-3e7d177b7cf8@VA3EHSMHS032.ehs.local>
+References: <d9134316-bd07-46a8-91d4-c30f27baeb60@SG2EHSMHS007.ehs.local> <1270502993.9013.36.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
+	<grant.likely@secretlab.ca>, <jwboyer@linux.vnet.ibm.com>,
+	<john.williams@petalogix.com>, <michal.simek@petalogix.com>,
+	"John Tyner" <jtyner@cs.ucr.edu>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:45483 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751212Ab0DFPqs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 11:46:48 -0400
-In-Reply-To: <4BBB5543.40607@trash.net>
+Received: from va3ehsobe005.messaging.microsoft.com ([216.32.180.15]:20290
+	"EHLO VA3EHSOBE006.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752232Ab0DFQNH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 12:13:07 -0400
+Content-Class: urn:content-classes:message
+In-Reply-To: <1270502993.9013.36.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 06 April 2010 18:37:39 Patrick McHardy wrote:
-> Denys Fedorysychenko wrote:
-> > I notice on one of my QoS machines that HFSC start going out of bandwidth
-> > limits. The most terrible thing - it happens suddenly, and if i just
-> > relaunch QoS script - everything will work fine.
-> 
-> That sounds like there's an overflow somewhere.
-> 
-> > I'm not sure it is not my mistake, but most probably it is a bug.
-> > I can't tell for sure when it is happened, last kernel was on this
-> > machine 2.6.28 i guess, or maybe even older.
-> 
-> Looking through the recent patches in this area, my prime suspect
-> is the attached patch. Does reverting it make any difference?
-> 
-I will try to upgrade soon, it is critical router, so probably i will do this 
-tonight. 
-I guess with reverting this patch also it will hurt shaper resolution on high 
-speeds... not a case for me, but for other people.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBNb25kYXksIEFwcmlsIDA1LCAyMDEw
+IDM6MzAgUE0NCj4gVG86IEpvaG4gTGlubg0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsg
+bGludXhwcGMtZGV2QG96bGFicy5vcmc7IGdyYW50Lmxpa2VseUBzZWNyZXRsYWIuY2E7DQo+IGp3
+Ym95ZXJAbGludXgudm5ldC5pYm0uY29tOyBqb2huLndpbGxpYW1zQHBldGFsb2dpeC5jb207IG1p
+Y2hhbC5zaW1la0BwZXRhbG9naXguY29tOyBKb2huIFR5bmVyDQo+IFN1YmplY3Q6IFJlOiBbUEFU
+Q0hdIFtWM10gQWRkIG5vbi1WaXJ0ZXg1IHN1cHBvcnQgZm9yIExMIFRFTUFDIGRyaXZlcg0KPiAN
+Cj4gTGUgbHVuZGkgMDUgYXZyaWwgMjAxMCDDoCAxNToxMSAtMDYwMCwgSm9obiBMaW5uIGEgw6lj
+cml0IDoNCj4gPiBUaGlzIHBhdGNoIGFkZHMgc3VwcG9ydCBmb3IgdXNpbmcgdGhlIExMIFRFTUFD
+IEV0aGVybmV0IGRyaXZlciBvbg0KPiA+IG5vbi1WaXJ0ZXggNSBwbGF0Zm9ybXMgYnkgYWRkaW5n
+IHN1cHBvcnQgZm9yIGFjY2Vzc2luZyB0aGUgU29mdCBETUENCj4gPiByZWdpc3RlcnMgYXMgaWYg
+dGhleSB3ZXJlIG1lbW9yeSBtYXBwZWQgaW5zdGVhZCBvZiBzb2xlbHkgdGhyb3VnaCB0aGUNCj4g
+PiBEQ1IncyAoYXZhaWxhYmxlIG9uIHRoZSBWaXJ0ZXggNSkuDQo+ID4NCj4gPiBUaGUgcGF0Y2gg
+YWxzbyB1cGRhdGVzIHRoZSBkcml2ZXIgc28gdGhhdCBpdCBydW5zIG9uIHRoZSBNaWNyb0JsYXpl
+Lg0KPiA+IFRoZSBjaGFuZ2VzIHdlcmUgdGVzdGVkIG9uIHRoZSBQb3dlclBDIDQ0MCwgUG93ZXJQ
+QyA0MDUsIGFuZCB0aGUNCj4gPiBNaWNyb0JsYXplIHBsYXRmb3Jtcy4NCj4gPg0KPiA+IFNpZ25l
+ZC1vZmYtYnk6IEpvaG4gVHluZXIgPGp0eW5lckBjcy51Y3IuZWR1Pg0KPiA+IFNpZ25lZC1vZmYt
+Ynk6IEpvaG4gTGlubiA8am9obi5saW5uQHhpbGlueC5jb20+DQo+ID4NCj4gPiAtLS0NCj4gDQo+
+ID4gKy8qIEFsaWduIHRoZSBJUCBkYXRhIGluIHRoZSBwYWNrZXQgb24gd29yZCBib3VuZGFyaWVz
+IGFzIE1pY3JvQmxhemUNCj4gPiArICogbmVlZHMgaXQuDQo+ID4gKyAqLw0KPiA+ICsNCj4gPiAg
+I2RlZmluZSBYVEVfQUxJR04gICAgICAgMzINCj4gPiAtI2RlZmluZSBCVUZGRVJfQUxJR04oYWRy
+KSAoKFhURV9BTElHTiAtICgodTMyKSBhZHIpKSAlIFhURV9BTElHTikNCj4gPiArI2RlZmluZSBC
+VUZGRVJfQUxJR04oYWRyKSAoKDM0IC0gKCh1MzIpIGFkcikpICUgWFRFX0FMSUdOKQ0KPiA+DQo+
+IA0KPiBWZXJ5IGludGVyZXN0aW5nIHdheSBvZiBkb2luZyB0aGlzLCBidXQgd2h5IHN1Y2ggY29u
+dm9sdXRlZCB0aGluZyA/DQoNClRoaXMgaXMgdHJ5aW5nIHRvIGFsaWduIGZvciBhIGNhY2hlIGxp
+bmUgKDMyIGJ5dGVzKSBiZWZvcmUgbXkgY2hhbmdlLg0KDQpNeSBjaGFuZ2Ugd2FzIHRoZW4gYWxz
+byBtYWtpbmcgaXQgYWxpZ24gdGhlIElQIGRhdGEgb24gYSB3b3JkIGJvdW5kYXJ5LiANCg0KPiAN
+Cj4gQmVjYXVzZSBvZiB0aGUgJSAzMiwgdGhpcyBpcyBlcXVpdmFsZW50IHRvIDoNCj4gDQo+ICNk
+ZWZpbmUgQlVGRkVSX0FMSUdOKGFkcikgKCgyIC0gKCh1MzIpIGFkcikpICUgWFRFX0FMSUdOKQ0K
+PiANCg0KWWVzLCBidXQgSSdtIG5vdCBzdXJlIHRoYXQncyBjbGVhcmVyIElNSE8uDQoNCj4gQnV0
+IHdhaXQsIGRvbnQgd2UgcmVjb2duaXNlIHRoZSBtYWdpYyBjb25zdGFudCBORVRfSVBfQUxJR04g
+Pw0KDQpZZXMgaXQgY291bGQgYmUgdXNlZC4gIEknbSBzdHJ1Z2dsaW5nIHdpdGggaG93IHRvIG1h
+a2UgdGhpcyBhbGwgYmUgY2xlYXJlci4NCg0KSG93IGFib3V0IHRoaXM/DQoNCiNkZWZpbmUgQlVG
+RkVSX0FMSUdOKGFkcikgKCgoWFRFX0FMSUdOICsgTkVUX0lQX0FMSUdOKSAtICgodTMyKSBhZHIp
+KSAlIFhURV9BTElHTikNCg0KPiANCj4gU28sIEkgYXNrLCBjYW50IHlvdSB1c2UgbmV0ZGV2X2Fs
+bG9jX3NrYl9pcF9hbGlnbigpIGluIHRoaXMgZHJpdmVyID8NCg0KRnJvbSB3aGF0IEkgY2FuIHRl
+bGwsIHRoaXMgd291bGRuJ3Qgd29yayBhcyBpdCBvbmx5IHJlc2VydmVzIHRoZSAyIGJ5dGVzIHRv
+IGFsaWduIHdpdGggDQphIHdvcmQgYm91bmRhcnkuDQoNClRoYW5rcywNCkpvaG4NCg0KPiANCj4g
+DQoNCgpUaGlzIGVtYWlsIGFuZCBhbnkgYXR0YWNobWVudHMgYXJlIGludGVuZGVkIGZvciB0aGUg
+c29sZSB1c2Ugb2YgdGhlIG5hbWVkIHJlY2lwaWVudChzKSBhbmQgY29udGFpbihzKSBjb25maWRl
+bnRpYWwgaW5mb3JtYXRpb24gdGhhdCBtYXkgYmUgcHJvcHJpZXRhcnksIHByaXZpbGVnZWQgb3Ig
+Y29weXJpZ2h0ZWQgdW5kZXIgYXBwbGljYWJsZSBsYXcuIElmIHlvdSBhcmUgbm90IHRoZSBpbnRl
+bmRlZCByZWNpcGllbnQsIGRvIG5vdCByZWFkLCBjb3B5LCBvciBmb3J3YXJkIHRoaXMgZW1haWwg
+bWVzc2FnZSBvciBhbnkgYXR0YWNobWVudHMuIERlbGV0ZSB0aGlzIGVtYWlsIG1lc3NhZ2UgYW5k
+IGFueSBhdHRhY2htZW50cyBpbW1lZGlhdGVseS4K
+
+
