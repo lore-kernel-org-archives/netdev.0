@@ -1,108 +1,186 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: net-next: 2.6.34-rc1 regression: panic when running diagnostic
- on interface with IPv6
-Date: Mon, 5 Apr 2010 20:37:23 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FE4E2E41C@rrsmsx501.amr.corp.intel.com>
-References: <EA929A9653AAE14F841771FB1DE5A1365FE4ADAB2A@rrsmsx501.amr.corp.intel.com>
-	<20100323.233323.93371615.davem@davemloft.net>
-	<EA929A9653AAE14F841771FB1DE5A1365FE4E2E26C@rrsmsx501.amr.corp.intel.com>
-	<20100405.161221.159637463.davem@davemloft.net>
-	<EA929A9653AAE14F841771FB1DE5A1365FE4E2E334@rrsmsx501.amr.corp.intel.com>
- <20100405191524.2a7848f3@nehalam>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [v2 Patch 3/3] bonding: make bonding support netpoll
+Date: Tue, 06 Apr 2010 10:43:39 +0800
+Message-ID: <4BBA9FDB.4040909@redhat.com>
+References: <20100405091605.4890.31181.sendpatchset@localhost.localdomain> <20100405091628.4890.30541.sendpatchset@localhost.localdomain> <20100405194356.GA10488@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:9758 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756970Ab0DFChZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Apr 2010 22:37:25 -0400
-In-Reply-To: <20100405191524.2a7848f3@nehalam>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Matt Mackall <mpm@selenic.com>,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	Andy Gospodarek <gospo@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jeff Moyer <jmoyer@redhat.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	bonding-devel@lists.sourceforge.net,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	David Miller <davem@davemloft.net>
+To: Andy Gospodarek <andy@greyhouse.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100405194356.GA10488@gospo.rdu.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Mon, 5 Apr 2010 17:50:38 -0600
-> "Tantilov, Emil S" <emil.s.tantilov@intel.com> wrote:
+Andy Gospodarek wrote:
 > 
->> David Miller wrote:
->>> From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
->>> Date: Mon, 5 Apr 2010 17:03:56 -0600
->>> 
->>>> David Miller wrote:
->>>>> From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
->>>>> Date: Tue, 23 Mar 2010 12:28:08 -0600
->>>>> 
->>>>>> Bisecting points to this patch:
->>>>>> http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=84e8b803f1e16f3a2b8b80f80a63fa2f2f8a9be6
->>>>>> 
->>>>>> And I confirmed that the issue goes away after reverting it.
->>>>>> 
->>>>>> Steps to reproduce:
->>>>>> 1. Load the driver and configure IPv6 address.
->>>>>> 2. Run ethtool diag:
->>>>>> ethtool -t eth0
->>>>>> 
->>>>>> 3. If this doesn't brake it try again, or just do ifdown/up.
->>>>>> Other operations on the interface will eventually panic the
->>>>>> system: 
->>>>> 
->>>>> Stephen please fix this, thanks.
->>>> 
->>>> Just FYI - I still see this issue with latest pull from net-2.6.
->>> 
->>> It's net-next-2.6 that introduced the problem and has the follow-on
->>> fixes, not net-2.6
->> 
->> Same in net-next:
->> 
->> [   55.706583] WARNING: at net/ipv6/ip6_fib.c:1170
->> fib6_del+0x44/0x39f [ipv6]() [   55.714851] Hardware name: S5520HC
->> [   55.719037] Modules linked in: ipv6 e1000e e1000
->> [   55.724866] Pid: 5599, comm: ifconfig Not tainted
->> 2.6.34-rc1-net-next-e1000e-040510 #9 [   55.734418] Call Trace: [  
->> 55.737540]  [<ffffffff81033a3e>] ? __wake_up+0x43/0x50 [  
->> 55.743773]  [<ffffffffa006cb4e>] ? fib6_del+0x44/0x39f [ipv6] [  
->> 55.750687]  [<ffffffff81038b1e>] warn_slowpath_common+0x77/0x8f [  
->> 55.757793]  [<ffffffff81038b45>] warn_slowpath_null+0xf/0x11 [  
->> 55.764608]  [<ffffffffa006cb4e>] fib6_del+0x44/0x39f [ipv6] [  
->> 55.771314]  [<ffffffffa006a13b>] __ip6_del_rt+0x49/0x68 [ipv6] [  
->> 55.778319]  [<ffffffffa006a2aa>] ip6_del_rt+0x38/0x3a [ipv6] [  
->> 55.785136]  [<ffffffffa0065573>] __ipv6_ifa_notify+0x141/0x17d
->> [ipv6] [   55.792816]  [<ffffffffa00660a4>]
->> addrconf_ifdown+0x1ed/0x2cb [ipv6] [   55.800300] 
->> [<ffffffffa0067126>] addrconf_notify+0x705/0x7b6 [ipv6] [  
->> 55.807788]  [<ffffffff810456ce>] ? spin_unlock_irqrestore+0x9/0xb [ 
->> 55.815088]  [<ffffffff81045b80>] ? __mod_timer+0x125/0x137 [  
->> 55.821703]  [<ffffffff8144eb60>] ? _raw_write_unlock_bh+0x12/0x14 [ 
->> 55.828995]  [<ffffffff8103e37d>] ? local_bh_enable_ip+0x9/0xb [  
->> 55.835906]  [<ffffffff8144ec75>] ? _raw_spin_unlock_bh+0x12/0x14 [  
->> 55.843109]  [<ffffffffa006ca9b>] ? fib6_run_gc+0xca/0xcf [ipv6] [  
->> 55.850213]  [<ffffffff81451b29>] notifier_call_chain+0x33/0x5b [  
->> 55.857216]  [<ffffffff81055575>] __raw_notifier_call_chain+0x9/0xb [
->> 55.864604]  [<ffffffff81055586>] raw_notifier_call_chain+0xf/0x11 [ 
->> 55.871901]  [<ffffffff81397d8f>] call_netdevice_notifiers+0x16/0x18
->> [   55.879390]  [<ffffffff81397eb2>] __dev_notify_flags+0x35/0x59 [ 
->> 55.886293]  [<ffffffff81397f1c>] dev_change_flags+0x46/0x52 [  
->> 55.893007]  [<ffffffff813f0844>] devinet_ioctl+0x27f/0x54b [  
->> 55.899614]  [<ffffffff813f2c18>] inet_ioctl+0x8a/0xa2 [   55.905733]
->> [<ffffffff81387275>] sock_do_ioctl+0x26/0x46 [   55.912149] 
->> [<ffffffff81387490>] sock_ioctl+0x1fb/0x20e [   55.918461] 
->> [<ffffffff810e7b4b>] vfs_ioctl+0x2a/0x9d [   55.924495] 
->> [<ffffffff810e80c2>] do_vfs_ioctl+0x48c/0x4dd [   55.930999] 
->> [<ffffffff810e816a>] sys_ioctl+0x57/0x7a [   55.937033] 
->> [<ffffffff81002a2b>] system_call_fastpath+0x16/0x1b [   55.944123]
->> ---[ end trace c1c390412f982fb6 ]--- [   55.949677] Freeing alive
->> inet6 address ffff8801eee32000 [   56.034060] fib6_clean_node: del
->> failed: rt=ffff8801ec984e00@(null) err=-2  
->> 
+> I tried these patches on top of Linus' latest tree and still get
+> deadlocks.  Your line numbers might differ a bit, but you should be
+> seeing them too.
 > 
-> Which driver is this, the test function is driver dependent?
 
-I have seen the panic with e1000e and bnx2. 
 
-Emil
+Yeah, my local clone is some days behind Linus' latest tree. :)
+
+
+> # echo 7 4 1 7 > /proc/sys/kernel/printk 
+> # ifup bond0 
+> bonding: bond0: setting mode to balance-rr (0).                                                 
+> bonding: bond0: Setting MII monitoring interval to 1000.                                        
+> ADDRCONF(NETDEV_UP): bond0: link is not ready                                                   
+> bonding: bond0: Adding slave eth4.                                                              
+> bnx2 0000:10:00.0: eth4: using MSIX                                                             
+> bonding: bond0: enslaving eth4 as an active interface with a down link.                         
+> bonding: bond0: Adding slave eth5.                                                              
+> bnx2 0000:10:00.1: eth5: using MSIX                                                             
+> bonding: bond0: enslaving eth5 as an active interface with a down link.                         
+> bnx2 0000:10:00.0: eth4: NIC Copper Link is Up, 100 Mbps full duplex,
+> receive & transmit flow control ON
+> bonding: bond0: link status definitely up for interface eth4.                                   
+> ADDRCONF(NETDEV_CHANGE): bond0: link becomes ready                                              
+> bnx2 0000:10:00.1: eth5: NIC Copper Link is Up, 100 Mbps full duplex,
+> receive & transmit flow control ON
+> bond0: IPv6 duplicate address fe80::210:18ff:fe36:ad4 detected!                                 
+> bonding: bond0: link status definitely up for interface eth5.                                   
+> # cat /proc/net/bonding/bond0                                                    
+> Ethernet Channel Bonding Driver: v3.6.0 (September 26, 2009)                                    
+>                                                                                                 
+> Bonding Mode: load balancing (round-robin)                                                      
+> MII Status: up                                                                                  
+> MII Polling Interval (ms): 1000                                                                 
+> Up Delay (ms): 0                                                                                
+> Down Delay (ms): 0                                                                              
+>                                                                                                 
+> Slave Interface: eth4                                                                           
+> MII Status: up                                                                                  
+> Link Failure Count: 0
+> Permanent HW addr: 00:10:18:36:0a:d4
+> 
+> Slave Interface: eth5
+> MII Status: up
+> Link Failure Count: 0
+> Permanent HW addr: 00:10:18:36:0a:d6
+> # modprobe netconsole 
+> netconsole: local port 1234
+> netconsole: local IP 10.0.100.2
+> netconsole: interface 'bond0'
+> netconsole: remote port 6666
+> netconsole: remote IP 10.0.100.1
+> netconsole: remote ethernet address 00:e0:81:71:ee:aa
+> console [netcon0] enabled
+> netconsole: network logging started
+> # echo -eth4 > /sys/class/net/bond0/bonding/slaves  
+> bonding: bond0: Removing slave eth4
+> 
+> [ now the system is hung ]
+> 
+> My suspicion from dealing with this problem in the past is that there is
+> contention over bond->lock.
+> 
+> Since there statements that will result in netconsole messages inside
+> the write_lock_bh in bond_release:
+> 
+> 1882         write_lock_bh(&bond->lock);
+> 1883 
+> 1884         slave = bond_get_slave_by_dev(bond, slave_dev);
+> 1885         if (!slave) {
+> 1886                 /* not a slave of this bond */
+> 1887                 pr_info("%s: %s not enslaved\n",
+> 1888                         bond_dev->name, slave_dev->name);
+> 1889                 write_unlock_bh(&bond->lock);
+> 1890                 return -EINVAL;
+> 1891         }
+> 1892 
+> 1893         if (!bond->params.fail_over_mac) {
+> 1894                 if (!compare_ether_addr(bond_dev->dev_addr, slave->perm_hwaddr) &&
+> 1895                     bond->slave_cnt > 1)
+> 1896                         pr_warning("%s: Warning: the permanent HWaddr of %s - %pM - is still in use by %s.
+> 
+> we are getting stuck at 1986 since bond_xmit_roundrobin (in my case)
+> will try and acquire bond->lock for reading.
+> 
+> One valuable aspect netpoll_start_xmit routine was that is could be used
+> to check to be sure that bond->lock could be taken for writing.  This
+> made us sure that we were not in a call stack that has already taken the
+> lock and queuing the skb to be sent later would prevent the imminent
+> deadlock.
+> 
+> A way to prevent this is needed and a first-pass might be to do
+> something similar to what I below above for all the xmit routines.  I
+> confirmed the following patch prevents that deadlock:
+> 
+> # git diff drivers/net/bonding/
+> diff --git a/drivers/net/bonding/bond_main.c
+> b/drivers/net/bonding/bond_main.c
+> index 4a41886..53b39cc 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -4232,7 +4232,8 @@ static int bond_xmit_roundrobin(struct sk_buff *skb, struc
+>         int i, slave_no, res = 1;
+>         struct iphdr *iph = ip_hdr(skb);
+>  
+> -       read_lock(&bond->lock);
+> +       if (!read_trylock(&bond->lock))
+> +               return NETDEV_TX_BUSY;
+>  
+>         if (!BOND_IS_OK(bond))
+>                 goto out;
+> 
+> The kernel no longer hangs, but a new warning message shows up (over
+> netconsole even!):
+> 
+> ------------[ cut here ]------------
+> WARNING: at kernel/softirq.c:143 local_bh_enable+0x43/0xba()
+> Hardware name: HP xw4400 Workstation
+> Modules linked in: tg3 netconsole bonding ipt_REJECT bridge stp autofs4
+> i2c_dev i2c_core hidp rfcomm l2cap crc16 bluetooth rfkill sunrpc 8021q
+> iptable_filter ip_tables ip6t_REJECT xt_tcpudp ip6table_filter
+> ip6_tables x_tables ipv6 cpufreq_ondemand acpi_cpufreq dm_multipath
+> video output sbs sbshc battery acpi_memhotplug ac lp sg ide_cd_mod
+> tpm_tis rtc_cmos rtc_core serio_raw cdrom libphy e1000e floppy
+> parport_pc parport button tpm tpm_bios bnx2 rtc_lib tulip pcspkr shpchp
+> dm_snapshot dm_zero dm_mirror dm_region_hash dm_log dm_mod ata_piix ahci
+> libata sd_mod scsi_mod ext3 jbd uhci_hcd ohci_hcd ehci_hcd [last
+> unloaded: tg3]
+> Pid: 9, comm: events/0 Not tainted 2.6.34-rc3 #6
+> Call Trace:
+>  [<ffffffff81058754>] ? cpu_clock+0x2d/0x41
+>  [<ffffffff810404d9>] ? local_bh_enable+0x43/0xba
+>  [<ffffffff8103a350>] warn_slowpath_common+0x77/0x8f
+>  [<ffffffff812a4659>] ? dev_queue_xmit+0x408/0x467
+>  [<ffffffff8103a377>] warn_slowpath_null+0xf/0x11
+>  [<ffffffff810404d9>] local_bh_enable+0x43/0xba
+>  [<ffffffff812a4659>] dev_queue_xmit+0x408/0x467
+>  [<ffffffff812a435e>] ? dev_queue_xmit+0x10d/0x467
+>  [<ffffffffa04a3868>] bond_dev_queue_xmit+0x1cd/0x1f9 [bonding]
+>  [<ffffffffa04a4217>] bond_start_xmit+0x139/0x3e9 [bonding]
+>  [<ffffffff812b0e9a>] queue_process+0xa8/0x160
+>  [<ffffffff812b0df2>] ? queue_process+0x0/0x160
+>  [<ffffffff81003794>] kernel_thread_helper+0x4/0x10
+>  [<ffffffff813362bc>] ? restore_args+0x0/0x30
+>  [<ffffffff81053884>] ? kthread+0x0/0x85
+> 
+> to point out possible locking issues (probably in netpoll_send_skb) that
+> I would suggest you investigate further.  It may point to why we cannot
+> perform an:
+> 
+> # rmmod bonding
+> 
+> without the system deadlocking (even with my patch above).
+> 
+
+Thanks a lot for testing!
+
+Before I try to reproduce it, could you please try to replace the 'read_lock()'
+in slaves_support_netpoll() with 'read_lock_bh()'? (read_unlock() too) Try if this helps.
+
+After I reproduce this, I will try it too.
