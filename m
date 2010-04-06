@@ -1,81 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] [V3] Add non-Virtex5 support for LL TEMAC driver
-Date: Tue, 06 Apr 2010 22:24:01 +0200
-Message-ID: <1270585441.2091.65.camel@edumazet-laptop>
-References: <d9134316-bd07-46a8-91d4-c30f27baeb60@SG2EHSMHS007.ehs.local>
-	 <1270502993.9013.36.camel@edumazet-laptop>
-	 <2fefb2a2-d0dc-461d-ac8c-3e7d177b7cf8@VA3EHSMHS032.ehs.local>
-	 <1270573233.2081.47.camel@edumazet-laptop>
-	 <bf8eac92-5008-4c1f-9b99-0199e62436fa@SG2EHSMHS010.ehs.local>
-	 <k2mfa686aa41004061153q3d065924o9172b1cf6038d917@mail.gmail.com>
+From: John Linn <John.Linn@xilinx.com>
+Subject: RE: [PATCH] [V3] Add non-Virtex5 support for LL TEMAC driver
+Date: Tue, 6 Apr 2010 14:32:08 -0600
+Message-ID: <74b4ba01-1409-4756-b737-49591c6f4cf0@VA3EHSMHS031.ehs.local>
+References: <d9134316-bd07-46a8-91d4-c30f27baeb60@SG2EHSMHS007.ehs.local> <1270502993.9013.36.camel@edumazet-laptop> <2fefb2a2-d0dc-461d-ac8c-3e7d177b7cf8@VA3EHSMHS032.ehs.local> <1270573233.2081.47.camel@edumazet-laptop> <bf8eac92-5008-4c1f-9b99-0199e62436fa@SG2EHSMHS010.ehs.local> <k2mfa686aa41004061153q3d065924o9172b1cf6038d917@mail.gmail.com> <1270585441.2091.65.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: John Linn <John.Linn@xilinx.com>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, jwboyer@linux.vnet.ibm.com,
-	john.williams@petalogix.com, michal.simek@petalogix.com,
-	John Tyner <jtyner@cs.ucr.edu>
-To: Grant Likely <grant.likely@secretlab.ca>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
+	<jwboyer@linux.vnet.ibm.com>, <john.williams@petalogix.com>,
+	<michal.simek@petalogix.com>, "John Tyner" <jtyner@cs.ucr.edu>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	<grant.likely@secretlab.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:34291 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753224Ab0DFUYJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 16:24:09 -0400
-Received: by bwz1 with SMTP id 1so260125bwz.21
-        for <netdev@vger.kernel.org>; Tue, 06 Apr 2010 13:24:06 -0700 (PDT)
-In-Reply-To: <k2mfa686aa41004061153q3d065924o9172b1cf6038d917@mail.gmail.com>
+Received: from va3ehsobe003.messaging.microsoft.com ([216.32.180.13]:26098
+	"EHLO VA3EHSOBE003.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752927Ab0DFUcx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 16:32:53 -0400
+Content-Class: urn:content-classes:message
+In-Reply-To: <1270585441.2091.65.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 06 avril 2010 =C3=A0 12:53 -0600, Grant Likely a =C3=A9crit :
-
-> Hold on.... BUFFER_ALIGN is being used to align the DMA buffer on a
-> cache line boundary.  I don't think netdev_alloc_skb() makes any
-> guarantees about how the start of the IP header lines up against cach=
-e
-> line boundaries.  The amount of padding needed is not known until an
-> skbuff is obtained from netdev_alloc_skb(), and
-> netdev_alloc_skb_ip_align() can only handle a fixed size padding,
->=20
-> It doesn't look like netdev_alloc_skb_ip_align() is the right thing i=
-n
-> this regard.
->=20
-
-OK, time to have a long explanation :
-
-netdev_alloc_skb_ip_align() is doing the right thing, but it seems you
-guys insist to invent a new private stuff.
-
-I am only wondering if you really know why you do this.=20
-
-Many drivers do have same requirements, so every driver should reinvent
-the wheel ? Really this is beyond me.
-
-Original code was aligning the buffer on a 32 bytes boundary (because o=
-f
-a hardware requirement on NIC, I only trust original code on this).
-
-Then you want to change this to align buffer on this 32 bytes boundary
-PLUS 2. What is this kind of new requirement ?=20
-
-1) Hardware requirement really changed that much. (firmware changed on
-NIC). If not using this new alignement, NIC doesnt work at all.
-
-2) or Microblaze arch requires that IP header is aligned on a word
-boundary to avoid unaligned traps in IP stack ? (like many arches)
-
-If this is the latest requirement, then use standard mechanism.
-skb data is naturally aligned on L1_CACHE_SIZE + SKB_PAD boundaries.
-(32 bytes alignment)
-
-netdev_alloc_skb_ip_align()() then skips 2 bytes to make skb data
-aligned so that 2 + 14 (sizeof eth header) =3D 16 : IP header is aligne=
-d
-(modulo 16)
-
-It just works. If not, we should correct it, please fill a bug report.
-
-Thanks
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBBcHJpbCAwNiwgMjAx
+MCAyOjI0IFBNDQo+IFRvOiBncmFudC5saWtlbHlAc2VjcmV0bGFiLmNhDQo+IENjOiBKb2huIExp
+bm47IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4cHBjLWRldkBvemxhYnMub3JnOyBqd2Jv
+eWVyQGxpbnV4LnZuZXQuaWJtLmNvbTsNCj4gam9obi53aWxsaWFtc0BwZXRhbG9naXguY29tOyBt
+aWNoYWwuc2ltZWtAcGV0YWxvZ2l4LmNvbTsgSm9obiBUeW5lcg0KPiBTdWJqZWN0OiBSZTogW1BB
+VENIXSBbVjNdIEFkZCBub24tVmlydGV4NSBzdXBwb3J0IGZvciBMTCBURU1BQyBkcml2ZXINCj4g
+DQo+IExlIG1hcmRpIDA2IGF2cmlsIDIwMTAgw6AgMTI6NTMgLTA2MDAsIEdyYW50IExpa2VseSBh
+IMOpY3JpdCA6DQo+IA0KPiA+IEhvbGQgb24uLi4uIEJVRkZFUl9BTElHTiBpcyBiZWluZyB1c2Vk
+IHRvIGFsaWduIHRoZSBETUEgYnVmZmVyIG9uIGENCj4gPiBjYWNoZSBsaW5lIGJvdW5kYXJ5LiAg
+SSBkb24ndCB0aGluayBuZXRkZXZfYWxsb2Nfc2tiKCkgbWFrZXMgYW55DQo+ID4gZ3VhcmFudGVl
+cyBhYm91dCBob3cgdGhlIHN0YXJ0IG9mIHRoZSBJUCBoZWFkZXIgbGluZXMgdXAgYWdhaW5zdCBj
+YWNoZQ0KPiA+IGxpbmUgYm91bmRhcmllcy4gIFRoZSBhbW91bnQgb2YgcGFkZGluZyBuZWVkZWQg
+aXMgbm90IGtub3duIHVudGlsIGFuDQo+ID4gc2tidWZmIGlzIG9idGFpbmVkIGZyb20gbmV0ZGV2
+X2FsbG9jX3NrYigpLCBhbmQNCj4gPiBuZXRkZXZfYWxsb2Nfc2tiX2lwX2FsaWduKCkgY2FuIG9u
+bHkgaGFuZGxlIGEgZml4ZWQgc2l6ZSBwYWRkaW5nLA0KPiA+DQo+ID4gSXQgZG9lc24ndCBsb29r
+IGxpa2UgbmV0ZGV2X2FsbG9jX3NrYl9pcF9hbGlnbigpIGlzIHRoZSByaWdodCB0aGluZyBpbg0K
+PiA+IHRoaXMgcmVnYXJkLg0KPiA+DQo+IA0KPiBPSywgdGltZSB0byBoYXZlIGEgbG9uZyBleHBs
+YW5hdGlvbiA6DQo+IA0KPiBuZXRkZXZfYWxsb2Nfc2tiX2lwX2FsaWduKCkgaXMgZG9pbmcgdGhl
+IHJpZ2h0IHRoaW5nLCBidXQgaXQgc2VlbXMgeW91DQo+IGd1eXMgaW5zaXN0IHRvIGludmVudCBh
+IG5ldyBwcml2YXRlIHN0dWZmLg0KPiANCj4gSSBhbSBvbmx5IHdvbmRlcmluZyBpZiB5b3UgcmVh
+bGx5IGtub3cgd2h5IHlvdSBkbyB0aGlzLg0KPiANCj4gTWFueSBkcml2ZXJzIGRvIGhhdmUgc2Ft
+ZSByZXF1aXJlbWVudHMsIHNvIGV2ZXJ5IGRyaXZlciBzaG91bGQgcmVpbnZlbnQNCj4gdGhlIHdo
+ZWVsID8gUmVhbGx5IHRoaXMgaXMgYmV5b25kIG1lLg0KPiANCj4gT3JpZ2luYWwgY29kZSB3YXMg
+YWxpZ25pbmcgdGhlIGJ1ZmZlciBvbiBhIDMyIGJ5dGVzIGJvdW5kYXJ5IChiZWNhdXNlIG9mDQo+
+IGEgaGFyZHdhcmUgcmVxdWlyZW1lbnQgb24gTklDLCBJIG9ubHkgdHJ1c3Qgb3JpZ2luYWwgY29k
+ZSBvbiB0aGlzKS4NCj4gDQo+IFRoZW4geW91IHdhbnQgdG8gY2hhbmdlIHRoaXMgdG8gYWxpZ24g
+YnVmZmVyIG9uIHRoaXMgMzIgYnl0ZXMgYm91bmRhcnkNCj4gUExVUyAyLiBXaGF0IGlzIHRoaXMg
+a2luZCBvZiBuZXcgcmVxdWlyZW1lbnQgPw0KPiANCj4gMSkgSGFyZHdhcmUgcmVxdWlyZW1lbnQg
+cmVhbGx5IGNoYW5nZWQgdGhhdCBtdWNoLiAoZmlybXdhcmUgY2hhbmdlZCBvbg0KPiBOSUMpLiBJ
+ZiBub3QgdXNpbmcgdGhpcyBuZXcgYWxpZ25lbWVudCwgTklDIGRvZXNudCB3b3JrIGF0IGFsbC4N
+Cj4gDQo+IDIpIG9yIE1pY3JvYmxhemUgYXJjaCByZXF1aXJlcyB0aGF0IElQIGhlYWRlciBpcyBh
+bGlnbmVkIG9uIGEgd29yZA0KPiBib3VuZGFyeSB0byBhdm9pZCB1bmFsaWduZWQgdHJhcHMgaW4g
+SVAgc3RhY2sgPyAobGlrZSBtYW55IGFyY2hlcykNCg0KWWVzLg0KDQo+IA0KPiBJZiB0aGlzIGlz
+IHRoZSBsYXRlc3QgcmVxdWlyZW1lbnQsIHRoZW4gdXNlIHN0YW5kYXJkIG1lY2hhbmlzbS4NCj4g
+c2tiIGRhdGEgaXMgbmF0dXJhbGx5IGFsaWduZWQgb24gTDFfQ0FDSEVfU0laRSArIFNLQl9QQUQg
+Ym91bmRhcmllcy4NCj4gKDMyIGJ5dGVzIGFsaWdubWVudCkNCj4gDQo+IG5ldGRldl9hbGxvY19z
+a2JfaXBfYWxpZ24oKSgpIHRoZW4gc2tpcHMgMiBieXRlcyB0byBtYWtlIHNrYiBkYXRhDQo+IGFs
+aWduZWQgc28gdGhhdCAyICsgMTQgKHNpemVvZiBldGggaGVhZGVyKSA9IDE2IDogSVAgaGVhZGVy
+IGlzIGFsaWduZWQNCj4gKG1vZHVsbyAxNikNCj4gDQo+IEl0IGp1c3Qgd29ya3MuIElmIG5vdCwg
+d2Ugc2hvdWxkIGNvcnJlY3QgaXQsIHBsZWFzZSBmaWxsIGEgYnVnIHJlcG9ydC4NCj4gDQoNClRy
+eWluZyBpdCBub3csIHRoYW5rcyBmb3IgdGhlIGhlbHAgYW5kIHBhdGllbmNlIDopDQoNCi0tIEpv
+aG4NCg0KPiBUaGFua3MNCj4gDQo+IA0KDQoKVGhpcyBlbWFpbCBhbmQgYW55IGF0dGFjaG1lbnRz
+IGFyZSBpbnRlbmRlZCBmb3IgdGhlIHNvbGUgdXNlIG9mIHRoZSBuYW1lZCByZWNpcGllbnQocykg
+YW5kIGNvbnRhaW4ocykgY29uZmlkZW50aWFsIGluZm9ybWF0aW9uIHRoYXQgbWF5IGJlIHByb3By
+aWV0YXJ5LCBwcml2aWxlZ2VkIG9yIGNvcHlyaWdodGVkIHVuZGVyIGFwcGxpY2FibGUgbGF3LiBJ
+ZiB5b3UgYXJlIG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50LCBkbyBub3QgcmVhZCwgY29weSwg
+b3IgZm9yd2FyZCB0aGlzIGVtYWlsIG1lc3NhZ2Ugb3IgYW55IGF0dGFjaG1lbnRzLiBEZWxldGUg
+dGhpcyBlbWFpbCBtZXNzYWdlIGFuZCBhbnkgYXR0YWNobWVudHMgaW1tZWRpYXRlbHkuCg==
 
 
