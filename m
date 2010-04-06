@@ -1,92 +1,60 @@
-From: John Linn <John.Linn@xilinx.com>
-Subject: RE: [PATCH] [V3] Add non-Virtex5 support for LL TEMAC driver
-Date: Tue, 6 Apr 2010 11:11:53 -0600
-Message-ID: <bf8eac92-5008-4c1f-9b99-0199e62436fa@SG2EHSMHS010.ehs.local>
-References: <d9134316-bd07-46a8-91d4-c30f27baeb60@SG2EHSMHS007.ehs.local> <1270502993.9013.36.camel@edumazet-laptop> <2fefb2a2-d0dc-461d-ac8c-3e7d177b7cf8@VA3EHSMHS032.ehs.local> <1270573233.2081.47.camel@edumazet-laptop>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC][PATCH] ipmr:  Fix struct mfcctl to be independent of MAXVIFS v2
+Date: Tue, 06 Apr 2010 10:23:08 -0700
+Message-ID: <m14ojo7awz.fsf@fess.ebiederm.org>
+References: <m1mxxgbwtl.fsf@fess.ebiederm.org>
+	<m1eiis8uc6.fsf@fess.ebiederm.org> <4BBB67FE.6020209@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
-	<grant.likely@secretlab.ca>, <jwboyer@linux.vnet.ibm.com>,
-	<john.williams@petalogix.com>, <michal.simek@petalogix.com>,
-	"John Tyner" <jtyner@cs.ucr.edu>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Ilia K <mail4ilia@gmail.com>, Tom Goff <thomas.goff@boeing.com>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sg2ehsobe001.messaging.microsoft.com ([207.46.51.75]:40622 "EHLO
-	SG2EHSOBE001.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753018Ab0DFRMK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 13:12:10 -0400
-Content-Class: urn:content-classes:message
-In-Reply-To: <1270573233.2081.47.camel@edumazet-laptop>
+Received: from out02.mta.xmission.com ([166.70.13.232]:39338 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753123Ab0DFRXO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 13:23:14 -0400
+In-Reply-To: <4BBB67FE.6020209@candelatech.com> (Ben Greear's message of "Tue\, 06 Apr 2010 09\:57\:34 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBBcHJpbCAwNiwgMjAx
-MCAxMTowMSBBTQ0KPiBUbzogSm9obiBMaW5uDQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
-OyBsaW51eHBwYy1kZXZAb3psYWJzLm9yZzsgZ3JhbnQubGlrZWx5QHNlY3JldGxhYi5jYTsNCj4g
-andib3llckBsaW51eC52bmV0LmlibS5jb207IGpvaG4ud2lsbGlhbXNAcGV0YWxvZ2l4LmNvbTsg
-bWljaGFsLnNpbWVrQHBldGFsb2dpeC5jb207IEpvaG4gVHluZXINCj4gU3ViamVjdDogUkU6IFtQ
-QVRDSF0gW1YzXSBBZGQgbm9uLVZpcnRleDUgc3VwcG9ydCBmb3IgTEwgVEVNQUMgZHJpdmVyDQo+
-IA0KPiBMZSBtYXJkaSAwNiBhdnJpbCAyMDEwIMOgIDEwOjEyIC0wNjAwLCBKb2huIExpbm4gYSDD
-qWNyaXQgOg0KPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+IEZyb206IEVy
-aWMgRHVtYXpldCBbbWFpbHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dDQo+ID4gPiBTZW50OiBN
-b25kYXksIEFwcmlsIDA1LCAyMDEwIDM6MzAgUE0NCj4gPiA+IFRvOiBKb2huIExpbm4NCj4gPiA+
-IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eHBwYy1kZXZAb3psYWJzLm9yZzsgZ3Jh
-bnQubGlrZWx5QHNlY3JldGxhYi5jYTsNCj4gPiA+IGp3Ym95ZXJAbGludXgudm5ldC5pYm0uY29t
-OyBqb2huLndpbGxpYW1zQHBldGFsb2dpeC5jb207IG1pY2hhbC5zaW1la0BwZXRhbG9naXguY29t
-OyBKb2huIFR5bmVyDQo+ID4gPiBTdWJqZWN0OiBSZTogW1BBVENIXSBbVjNdIEFkZCBub24tVmly
-dGV4NSBzdXBwb3J0IGZvciBMTCBURU1BQyBkcml2ZXINCj4gPiA+DQo+ID4gPiBMZSBsdW5kaSAw
-NSBhdnJpbCAyMDEwIMOgIDE1OjExIC0wNjAwLCBKb2huIExpbm4gYSDDqWNyaXQgOg0KPiA+ID4g
-PiBUaGlzIHBhdGNoIGFkZHMgc3VwcG9ydCBmb3IgdXNpbmcgdGhlIExMIFRFTUFDIEV0aGVybmV0
-IGRyaXZlciBvbg0KPiA+ID4gPiBub24tVmlydGV4IDUgcGxhdGZvcm1zIGJ5IGFkZGluZyBzdXBw
-b3J0IGZvciBhY2Nlc3NpbmcgdGhlIFNvZnQgRE1BDQo+ID4gPiA+IHJlZ2lzdGVycyBhcyBpZiB0
-aGV5IHdlcmUgbWVtb3J5IG1hcHBlZCBpbnN0ZWFkIG9mIHNvbGVseSB0aHJvdWdoIHRoZQ0KPiA+
-ID4gPiBEQ1IncyAoYXZhaWxhYmxlIG9uIHRoZSBWaXJ0ZXggNSkuDQo+ID4gPiA+DQo+ID4gPiA+
-IFRoZSBwYXRjaCBhbHNvIHVwZGF0ZXMgdGhlIGRyaXZlciBzbyB0aGF0IGl0IHJ1bnMgb24gdGhl
-IE1pY3JvQmxhemUuDQo+ID4gPiA+IFRoZSBjaGFuZ2VzIHdlcmUgdGVzdGVkIG9uIHRoZSBQb3dl
-clBDIDQ0MCwgUG93ZXJQQyA0MDUsIGFuZCB0aGUNCj4gPiA+ID4gTWljcm9CbGF6ZSBwbGF0Zm9y
-bXMuDQo+ID4gPiA+DQo+ID4gPiA+IFNpZ25lZC1vZmYtYnk6IEpvaG4gVHluZXIgPGp0eW5lckBj
-cy51Y3IuZWR1Pg0KPiA+ID4gPiBTaWduZWQtb2ZmLWJ5OiBKb2huIExpbm4gPGpvaG4ubGlubkB4
-aWxpbnguY29tPg0KPiA+ID4gPg0KPiA+ID4gPiAtLS0NCj4gPiA+DQo+ID4gPiA+ICsvKiBBbGln
-biB0aGUgSVAgZGF0YSBpbiB0aGUgcGFja2V0IG9uIHdvcmQgYm91bmRhcmllcyBhcyBNaWNyb0Js
-YXplDQo+ID4gPiA+ICsgKiBuZWVkcyBpdC4NCj4gPiA+ID4gKyAqLw0KPiA+ID4gPiArDQo+ID4g
-PiA+ICAjZGVmaW5lIFhURV9BTElHTiAgICAgICAzMg0KPiA+ID4gPiAtI2RlZmluZSBCVUZGRVJf
-QUxJR04oYWRyKSAoKFhURV9BTElHTiAtICgodTMyKSBhZHIpKSAlIFhURV9BTElHTikNCj4gPiA+
-ID4gKyNkZWZpbmUgQlVGRkVSX0FMSUdOKGFkcikgKCgzNCAtICgodTMyKSBhZHIpKSAlIFhURV9B
-TElHTikNCj4gPiA+ID4NCj4gPiA+DQo+ID4gPiBWZXJ5IGludGVyZXN0aW5nIHdheSBvZiBkb2lu
-ZyB0aGlzLCBidXQgd2h5IHN1Y2ggY29udm9sdXRlZCB0aGluZyA/DQo+ID4NCj4gPiBUaGlzIGlz
-IHRyeWluZyB0byBhbGlnbiBmb3IgYSBjYWNoZSBsaW5lICgzMiBieXRlcykgYmVmb3JlIG15IGNo
-YW5nZS4NCj4gPg0KPiA+IE15IGNoYW5nZSB3YXMgdGhlbiBhbHNvIG1ha2luZyBpdCBhbGlnbiB0
-aGUgSVAgZGF0YSBvbiBhIHdvcmQgYm91bmRhcnkuDQo+ID4NCj4gPiA+DQo+ID4gPiBCZWNhdXNl
-IG9mIHRoZSAlIDMyLCB0aGlzIGlzIGVxdWl2YWxlbnQgdG8gOg0KPiA+ID4NCj4gPiA+ICNkZWZp
-bmUgQlVGRkVSX0FMSUdOKGFkcikgKCgyIC0gKCh1MzIpIGFkcikpICUgWFRFX0FMSUdOKQ0KPiA+
-ID4NCj4gPg0KPiA+IFllcywgYnV0IEknbSBub3Qgc3VyZSB0aGF0J3MgY2xlYXJlciBJTUhPLg0K
-PiA+DQo+ID4gPiBCdXQgd2FpdCwgZG9udCB3ZSByZWNvZ25pc2UgdGhlIG1hZ2ljIGNvbnN0YW50
-IE5FVF9JUF9BTElHTiA/DQo+ID4NCj4gPiBZZXMgaXQgY291bGQgYmUgdXNlZC4gIEknbSBzdHJ1
-Z2dsaW5nIHdpdGggaG93IHRvIG1ha2UgdGhpcyBhbGwgYmUgY2xlYXJlci4NCj4gPg0KPiANCj4g
-SSBhbSBub3Qgc2F5aW5nIGl0cyBjbGVhcmVyLCBJIGFtIHNheWluZyB3ZSBoYXZlIGEgc3RhbmRh
-cmQgd2F5IHRvDQo+IGhhbmRsZSB0aGlzIGV4YWN0IHByb2JsZW0gKGFsaWduaW5nIHJjdnMgYnVm
-ZmVyIHNvIHRoYXQgSVAgaGVhZGVyIGlzDQo+IGFsaWduZWQpDQo+IA0KPiBUaGVyZSBpcyBubyBu
-ZWVkIHRvIGludmVudCBuZXcgb25lcywgdGhpcyBtYWtlcyByZXZpZXdpbmcgb2YgdGhpcyBkcml2
-ZXINCj4gbW9yZSBkaWZmaWN1bHQuDQo+IA0KPiANCj4gPiBIb3cgYWJvdXQgdGhpcz8NCj4gPiAj
-ZGVmaW5lIEJVRkZFUl9BTElHTihhZHIpICgoKFhURV9BTElHTiArIE5FVF9JUF9BTElHTikgLSAo
-KHUzMikgYWRyKSkgJSBYVEVfQUxJR04pDQo+ID4NCj4gDQo+IFNvcnJ5LCBJIHN0aWxsIGRvbnQg
-dW5kZXJzdGFuZCB3aHkgeW91IG5lZWQgWFRFX0FMSUdOICsgLi4uDQo+IA0KPiAoKEEgKyBCKSAt
-IEMpICUgQSAgIGlzIGVxdWFsIHRvIChCIC0gQykgJSBBDQo+IA0KPiBXaGljaCBvbmUgaXMgbW9y
-ZSByZWFkYWJsZSA/DQoNCkknbSBmaW5lIHdpdGggeW91ciBzdWdnZXN0aW9uLg0KDQojZGVmaW5l
-IEJVRkZFUl9BTElHTihhZHIpICgoMiAtICgodTMyKSBhZHIpKSAlIFhURV9BTElHTikNCg0KPiAN
-Cj4gUGxlYXNlIHRha2UgYSBsb29rIGF0IGV4aXN0aW5nIGFuZCBjbGVhbiBjb2RlLCBubyBtYWdp
-YyBtYWNybywgYW5kIHdlDQo+IGNhbiB1bmRlcnN0YW5kIHRoZSBpbnRlbnRpb24uDQo+IA0KPiBm
-aW5kIGRyaXZlcnMvbmV0IHwgeGFyZ3MgZ3JlcCAtbiBuZXRkZXZfYWxsb2Nfc2tiX2lwX2FsaWdu
-DQo+IA0KPiANCg0KWWVzIEkgc2VlIGhvdyBpdCdzIHVzZWQsIGJ1dCBpdCBvbmx5IGFsbG93cyB5
-b3UgdG8gcmVzZXJ2ZSAyIGJ5dGVzIGluIHRoZSBza2Igd2l0aCBubyBvcHRpb25zLg0KDQoNCg0K
-ClRoaXMgZW1haWwgYW5kIGFueSBhdHRhY2htZW50cyBhcmUgaW50ZW5kZWQgZm9yIHRoZSBzb2xl
-IHVzZSBvZiB0aGUgbmFtZWQgcmVjaXBpZW50KHMpIGFuZCBjb250YWluKHMpIGNvbmZpZGVudGlh
-bCBpbmZvcm1hdGlvbiB0aGF0IG1heSBiZSBwcm9wcmlldGFyeSwgcHJpdmlsZWdlZCBvciBjb3B5
-cmlnaHRlZCB1bmRlciBhcHBsaWNhYmxlIGxhdy4gSWYgeW91IGFyZSBub3QgdGhlIGludGVuZGVk
-IHJlY2lwaWVudCwgZG8gbm90IHJlYWQsIGNvcHksIG9yIGZvcndhcmQgdGhpcyBlbWFpbCBtZXNz
-YWdlIG9yIGFueSBhdHRhY2htZW50cy4gRGVsZXRlIHRoaXMgZW1haWwgbWVzc2FnZSBhbmQgYW55
-IGF0dGFjaG1lbnRzIGltbWVkaWF0ZWx5Lgo=
+Ben Greear <greearb@candelatech.com> writes:
 
+> On 04/06/2010 08:38 AM, Eric W. Biederman wrote:
+>>
+>> Right now if you recompile the kernel increasing MAXVIFS
+>> to support more VIFS users of the MRT_ADD_VIF and MRT_DEL_VIF
+>> will break because the ABI changed.
+>>
+>> My goal is an API that works with just a recompile of existing
+>> applications, and an ABI that continues to work for old
+>> applications.
+>>
+>> The unused/dead fields at the end of struct mfcctl make this
+>> exercise more difficult than it should be.
+>>
+>> - Rename the existing struct mfcctl mfcctl_old.
+>> - Define a new and larger struct mfcctl that we can detect
+>>    by size.
+>>
+>>    The new and larger struct mfcctl won't have trailing garbage
+>>    fields so we can accept anything of that size or larger,
+>>    and simply ignore the entries that are above MAXVIFS.
+>>
+>> My new struct mfcctl is now 128 bytes which is noticeable on
+>> the stack but should still be small enough not to cause problems.
+>>
+>> v2:  Rework the support larger arrays so that most/all? existing
+>>     applications can simply be recompiled and work with a larger
+>>     maximum number of VIFS.
+>
+> If we're going to change the ABI, can we not support an arbitrary
+> number of VIFS instead of just a larger fixed maximum?
 
+The ABI as I have specified should work for any larger structure than
+I have specified.  But like select many applications will limit themselves
+to use the definition of struct mfcctl that is passed to them.
+
+Eric
