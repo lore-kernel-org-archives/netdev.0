@@ -1,54 +1,144 @@
-From: andrew hendry <andrew.hendry@gmail.com>
-Subject: Re: patch to improve x.25 throughput negotiation
-Date: Tue, 6 Apr 2010 22:09:10 +1000
-Message-ID: <v2jd45a3acc1004060509u88f32fa1va0c374154806535b@mail.gmail.com>
-References: <4BB8C2CA.6040102@Calva.COM>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [RFC][PATCH] ipmr: Fix struct mfcctl to be independent of MAXVIFS.
+Date: Tue, 06 Apr 2010 05:16:22 -0700
+Message-ID: <m1mxxgbwtl.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: John Hughes <john@calva.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Ilia K <mail4ilia@gmail.com>, Tom Goff <thomas.goff@boeing.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:55242 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752558Ab0DFMJM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 08:09:12 -0400
-Received: by pwj9 with SMTP id 9so1075343pwj.19
-        for <netdev@vger.kernel.org>; Tue, 06 Apr 2010 05:09:11 -0700 (PDT)
-In-Reply-To: <4BB8C2CA.6040102@Calva.COM>
+Received: from out02.mta.xmission.com ([166.70.13.232]:42615 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752404Ab0DFMQ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 08:16:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have reproduced a few ways.
-1. X25_MASK_THROUGHPUT on the x25_subscript_struct, then call
-SIOCX25SSUBSCRIP, then call SIOCX25FACILITIES without setting the
-throughput field. Call connect.
-2. No subscrip setting, call SIOCX25FACILITIES without setting the
-throughput field. Call connect.
-3. No subcrip, no facilities ioctl, call connect.
 
-The patch removes the bad facility and makes the router accept the
-call for the above cases.
-I don't currently have a setup to test both direction throughput negoti=
-ation.
+Right now if you recompile the kernel to support more VIFS users of
+the MRT_ADD_VIF and MRT_DEL_VIF will break because the ABI changes.
 
-Tested-by: Andrew Hendry <andrew.hendry@gmail.com>
+Correct this by forcing the number of VIFS handled in mfcctl to 32.
+Allow for larger MAXVIFS by placing a second array of ttls at the end
+of struct mfcctl.
 
-On Mon, Apr 5, 2010 at 2:48 AM, John Hughes <john@calva.com> wrote:
-> The current X.25 code has some bugs in throughput negotiation:
->
-> =A01. It does negotiation in all cases, usually there is no need
-> =A02. It incorrectly attempts to negotiate the throughput class in on=
-e
-> =A0 =A0 direction only. =A0There are separate throughput classes for =
-input
-> =A0 =A0 and output and if either is negotiated both mist be negotiate=
-s.
->
-> This is bug https://bugzilla.kernel.org/show_bug.cgi?id=3D15681
->
-> This bug was first reported by Daniel Ferenci to the linux-x25 mailin=
-g list
-> on 6/8/2004, but is still present.
->
->
+struct mfcctl is insane.  The last 4 fields are dead, and the mfc_ttls
+array is only 2 byte aligned, with a 2 byte hole right after it.
+
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ include/linux/mroute.h |    4 +++-
+ net/ipv4/ipmr.c        |   29 +++++++++++++++++++++++------
+ 2 files changed, 26 insertions(+), 7 deletions(-)
+
+diff --git a/include/linux/mroute.h b/include/linux/mroute.h
+index c5f3d53..c5e066c 100644
+--- a/include/linux/mroute.h
++++ b/include/linux/mroute.h
+@@ -76,15 +76,17 @@ struct vifctl {
+  *	Cache manipulation structures for mrouted and PIMd
+  */
+  
++#define MFCCTL_VIFS 32
+ struct mfcctl {
+ 	struct in_addr mfcc_origin;		/* Origin of mcast	*/
+ 	struct in_addr mfcc_mcastgrp;		/* Group in question	*/
+ 	vifi_t	mfcc_parent;			/* Where it arrived	*/
+-	unsigned char mfcc_ttls[MAXVIFS];	/* Where it is going	*/
++	unsigned char mfcc_ttls[MFCCTL_VIFS];	/* Where it is going	*/
+ 	unsigned int mfcc_pkt_cnt;		/* pkt count for src-grp */
+ 	unsigned int mfcc_byte_cnt;
+ 	unsigned int mfcc_wrong_if;
+ 	int	     mfcc_expire;
++	unsigned char mfcc_ttls_extra[];	/* The rest of where it is going */
+ };
+ 
+ /* 
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 0b9d03c..2120668 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -797,7 +797,8 @@ static int ipmr_mfc_delete(struct net *net, struct mfcctl *mfc)
+ 	return -ENOENT;
+ }
+ 
+-static int ipmr_mfc_add(struct net *net, struct mfcctl *mfc, int mrtsock)
++static int ipmr_mfc_add(struct net *net, struct mfcctl *mfc,
++			unsigned char *ttls, int mrtsock)
+ {
+ 	int line;
+ 	struct mfc_cache *uc, *c, **cp;
+@@ -817,7 +818,7 @@ static int ipmr_mfc_add(struct net *net, struct mfcctl *mfc, int mrtsock)
+ 	if (c != NULL) {
+ 		write_lock_bh(&mrt_lock);
+ 		c->mfc_parent = mfc->mfcc_parent;
+-		ipmr_update_thresholds(c, mfc->mfcc_ttls);
++		ipmr_update_thresholds(c, ttls);
+ 		if (!mrtsock)
+ 			c->mfc_flags |= MFC_STATIC;
+ 		write_unlock_bh(&mrt_lock);
+@@ -834,7 +835,7 @@ static int ipmr_mfc_add(struct net *net, struct mfcctl *mfc, int mrtsock)
+ 	c->mfc_origin = mfc->mfcc_origin.s_addr;
+ 	c->mfc_mcastgrp = mfc->mfcc_mcastgrp.s_addr;
+ 	c->mfc_parent = mfc->mfcc_parent;
+-	ipmr_update_thresholds(c, mfc->mfcc_ttls);
++	ipmr_update_thresholds(c, ttls);
+ 	if (!mrtsock)
+ 		c->mfc_flags |= MFC_STATIC;
+ 
+@@ -954,6 +955,8 @@ int ip_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, unsi
+ 	int ret;
+ 	struct vifctl vif;
+ 	struct mfcctl mfc;
++	unsigned char ttls[MAXVIFS];
++	unsigned extra_oifs;
+ 	struct net *net = sock_net(sk);
+ 
+ 	if (optname != MRT_INIT) {
+@@ -961,7 +964,7 @@ int ip_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, unsi
+ 			return -EACCES;
+ 	}
+ 
+-	switch (optname) {
++	switch (optname){
+ 	case MRT_INIT:
+ 		if (sk->sk_type != SOCK_RAW ||
+ 		    inet_sk(sk)->inet_num != IPPROTO_IGMP)
+@@ -1012,15 +1015,29 @@ int ip_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, unsi
+ 		 */
+ 	case MRT_ADD_MFC:
+ 	case MRT_DEL_MFC:
+-		if (optlen != sizeof(mfc))
++		/* How many extra interfaces do we have information for? */
++		extra_oifs = optlen - sizeof(mfc);
++		if (extra_oifs > (MAXVIFS - MFCCTL_VIFS))
++			extra_oifs = MAXVIFS - MFCCTL_VIFS;
++
++		if (optlen < sizeof(mfc))
+ 			return -EINVAL;
+ 		if (copy_from_user(&mfc, optval, sizeof(mfc)))
+ 			return -EFAULT;
++
++		memcpy(ttls, mfc.mfcc_ttls, sizeof(mfc.mfcc_ttls));
++		memset(ttls + MFCCTL_VIFS, 255, MAXVIFS - MFCCTL_VIFS);
++		if (copy_from_user(ttls + MFCCTL_VIFS,optval + sizeof(mfc),
++				   extra_oifs))
++			return -EFAULT;
++
++
+ 		rtnl_lock();
+ 		if (optname == MRT_DEL_MFC)
+ 			ret = ipmr_mfc_delete(net, &mfc);
+ 		else
+-			ret = ipmr_mfc_add(net, &mfc, sk == net->ipv4.mroute_sk);
++			ret = ipmr_mfc_add(net, &mfc, ttls,
++					   sk == net->ipv4.mroute_sk);
+ 		rtnl_unlock();
+ 		return ret;
+ 		/*
+-- 
+1.6.5.2.143.g8cc62
+
