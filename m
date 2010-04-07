@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] TIPC: Updated topology subscription protocol
- according to latest spec
-Date: Tue, 06 Apr 2010 19:51:13 -0700 (PDT)
-Message-ID: <20100406.195113.229269173.davem@davemloft.net>
-References: <1270590052-975-1-git-send-email-jon.maloy@ericsson.com>
+Subject: Re: [PATCH] socket: remove duplicate declaration of struct timespec
+Date: Tue, 06 Apr 2010 19:51:24 -0700 (PDT)
+Message-ID: <20100406.195124.178688602.davem@davemloft.net>
+References: <1270568392-22030-1-git-send-email-hagen@jauu.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
+Cc: netdev@vger.kernel.org
+To: hagen@jauu.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47027
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47031
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753181Ab0DGCvK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 22:51:10 -0400
-In-Reply-To: <1270590052-975-1-git-send-email-jon.maloy@ericsson.com>
+	by vger.kernel.org with ESMTP id S1752199Ab0DGCvU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 22:51:20 -0400
+In-Reply-To: <1270568392-22030-1-git-send-email-hagen@jauu.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Tue, 6 Apr 2010 17:40:52 -0400
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Date: Tue,  6 Apr 2010 17:39:52 +0200
 
-> This patch makes it explicit in the API that all fields in subscriptions and events exchanged with the Topology Server must be in
-> network byte order.
-> It also ensures that all fields of a subscription are compared when cancelling a subscription, in order to avoid inadvertent
-> cancelling of the wrong subscription.
-> Finally, the tipc module version is updated to 2.0.0, to reflect the API change.
+> struct timespec ts was alreay defined. Reuse the previously
+> defined one and reduce the memory footprint on the stack by
+> 16 bytes.
 > 
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+> Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
 
-Applied to net-next-2.6, thanks.
+Applied, thanks.
