@@ -1,50 +1,44 @@
-From: Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Subject: Re: tulip_stop_rxtx() failed (CSR5 0xf0260000 CSR6 0xb3862002) on
- DEC Alpha Personal Workstation 433au
-Date: Wed, 7 Apr 2010 15:42:28 +0200
-Message-ID: <20100407134228.GC31252@physik.fu-berlin.de>
-References: <20100405171318.GA18915@physik.fu-berlin.de>
- <1270488982.31062.28.camel@Joe-Laptop.home>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH v3 0/4] xfrm: add x86 CONFIG_COMPAT support
+Date: Wed, 07 Apr 2010 15:45:51 +0200
+Message-ID: <4BBC8C8F.9020907@trash.net>
+References: <1270506431-25578-1-git-send-email-fw@strlen.de> <20100407.030850.04450543.davem@davemloft.net> <20100407133528.GD22518@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Grant Grundler <grundler@parisc-linux.org>,
-	Kyle McMartin <kyle@mcmartin.ca>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1270488982.31062.28.camel@Joe-Laptop.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	johannes@sipsolutions.net
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:47791 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932407Ab0DGNpx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 09:45:53 -0400
+In-Reply-To: <20100407133528.GD22518@Chamillionaire.breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On Mon, Apr 05, 2010 at 10:36:22AM -0700, Joe Perches wrote:
-> On Mon, 2010-04-05 at 19:13 +0200, Adrian Glaubitz wrote:
-> > Hi guys,
-> > 
-> > I installed Debian unstable on an old digital workstation "DEC Digital
-> > Personal Workstation 433au" (Miata) which has an on-board tulip
-> > network controller. I'm not really using that network controller but
-> > an off-board intel e1000 controller. However, I found that the tulip
-> > driver produces a lot of noise in the message log, the following
-> > message is repated periodically and spams the whole message log:
-> > 
-> > 0000:00:03.0: tulip_stop_rxtx() failed (CSR5 0xf0260000 CSR6 0xb3862002)
-> > 
-> > Do you think this is related to the fact that no cable is connected to
-> > the network controller?
+Florian Westphal wrote:
+> David Miller <davem@davemloft.net> wrote:
+>> From: Florian Westphal <fw@strlen.de>
+>> Date: Tue,  6 Apr 2010 00:27:07 +0200
 > 
-> Probably something is trying periodically to open the device.
-> Maybe this helps reduce the message log noise:
+> [..]
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+>>> I sent a patch that solved this by adding a sys_compat_write syscall
+>>> and a ->compat_aio_write() to struct file_operations to the
+>>> vfs mailing list, but that patch was ignored by the vfs people,
+>>> and the x86 folks did not exactly like the idea either.
+>>>
+>>> So this leaves three alternatives:
+>>> 1 - drop the whole idea and keep the current status.
+>>> 2 - Add new structure definitions (with new numbering) that would work
+>>>     everywhere, keep the old ones for backwards compatibility (This
+>>>     was suggested by Arnd Bergmann).
 
-Acked-by: Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Given that there is only a quite small number of users of this
+interface, that would in my opinion be the best way.
 
-Patch works perfectly. Now the message log looks pretty normal.
-
-Thanks,
-
-Adrian
+>>> 3 - apply this patch set and tell userspace to move the sendmsg() when
+>>>     they want to work with xfrm on x86_64 with 32 bit userland.
+>> So do we know of any xfrm netlink apps that do not use sendmsg()?
