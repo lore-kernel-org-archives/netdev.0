@@ -1,176 +1,129 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: hackbench regression due to commit 9dfc6e68bfe6e
-Date: Wed, 07 Apr 2010 08:39:12 +0200
-Message-ID: <1270622352.2091.702.camel@edumazet-laptop>
-References: <1269506457.4513.141.camel@alexs-hp.sh.intel.com>
-	 <alpine.DEB.2.00.1003250942080.2670@router.home>
-	 <1269570902.9614.92.camel@alexs-hp.sh.intel.com>
-	 <1270114166.2078.107.camel@ymzhang.sh.intel.com>
-	 <alpine.DEB.2.00.1004011050340.16531@router.home>
-	 <1270195589.2078.116.camel@ymzhang.sh.intel.com>
-	 <alpine.DEB.2.00.1004050853300.23149@router.home>
-	 <i2z84144f021004051030k7ff5190cyc083aa12c552dfac@mail.gmail.com>
-	 <4BBA8DF9.8010409@kernel.org>
-	 <1270542497.2078.123.camel@ymzhang.sh.intel.com>
-	 <alpine.DEB.2.00.1004061033330.18750@router.home>
-	 <alpine.DEB.2.00.1004061552500.19151@router.home>
-	 <1270591841.2091.170.camel@edumazet-laptop>
-	 <1270607668.2078.259.camel@ymzhang.sh.intel.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: RCU problems in fib_table_insert
+Date: Tue, 6 Apr 2010 23:45:03 -0700
+Message-ID: <20100407064503.GD2471@linux.vnet.ibm.com>
+References: <20100321202525.GA966@basil.fritz.box>
+ <19367.3002.324694.563877@gargle.gargle.HOWL>
+ <20100322065133.GG2517@linux.vnet.ibm.com>
+ <19388.8645.99295.495371@gargle.gargle.HOWL>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux-foundation.org>,
-	netdev <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>,
-	Pekka Enberg <penberg@cs.helsinki.fi>, alex.shi@intel.com,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Ma, Ling" <ling.ma@intel.com>,
-	"Chen, Tim C" <tim.c.chen@intel.com>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>, robert.olsson@its.uu.se,
+	netdev@vger.kernel.org, Jens.Laas@its.uu.se
+To: Robert Olsson <robert@herjulf.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:50001 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932071Ab0DGGjU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 02:39:20 -0400
-In-Reply-To: <1270607668.2078.259.camel@ymzhang.sh.intel.com>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:44821 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753301Ab0DGGpG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Apr 2010 02:45:06 -0400
+Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
+	by e4.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o376XPrc026956
+	for <netdev@vger.kernel.org>; Wed, 7 Apr 2010 02:33:25 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o376j6p7171690
+	for <netdev@vger.kernel.org>; Wed, 7 Apr 2010 02:45:06 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o376j5N0013516
+	for <netdev@vger.kernel.org>; Wed, 7 Apr 2010 02:45:05 -0400
+Content-Disposition: inline
+In-Reply-To: <19388.8645.99295.495371@gargle.gargle.HOWL>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 07 avril 2010 =C3=A0 10:34 +0800, Zhang, Yanmin a =C3=A9cri=
-t :
+On Wed, Apr 07, 2010 at 08:10:13AM +0200, Robert Olsson wrote:
+> 
+> Paul E. McKenney writes:
+>  > On Mon, Mar 22, 2010 at 07:18:34AM +0100, Robert Olsson wrote:
+>  > > 
+>  > > Seems like Paul and Eric fixed this problem... We use fib_trie with 
+>  > > major infrastructure but always disable preempt. It was unsafe w.
+>  > > preempt at least before Jareks P. patches about a year ago. I havn't
+>  > > tested w. preempt after that but maybe someone else have...
+> 
+> 
+>  > Though I must admit that I would be surprised if there wasn't
+>  > more adjustment required in net/ipv4/fib_trie.c -- lots of
+>  > rcu_dereference()s in there.
+> 
+>  Hi, a follow on this thread. 
+> 
+>  Maybe I was to pessimistic... we've setup  for stress test running during 
+>  easter vacation
+> 
+>  Testing the fib_trie with preempt enabled. Continuesly loading/flushing  
+>  "full BGP" via a test script, while routing without the route cache 
+>  to further stress locking. Average load about 300 kpps. Some more test 
+>  details below.
+> 
+>  The test was manually stopped after 6 days. So it seems like preempt/rcu 
+>  has been improved with fib_trie.
 
-> I collected retired instruction, dtlb miss and LLC miss.
-> Below is data of LLC miss.
->=20
-> Kernel 2.6.33:
-> # Samples: 11639436896 LLC-load-misses
-> #
-> # Overhead          Command                                          =
- Shared Object  Symbol
-> # ........  ...............  ........................................=
-=2E.............  ......
-> #
->     20.94%        hackbench  [kernel.kallsyms]                       =
-                [k] copy_user_generic_string
->     14.56%        hackbench  [kernel.kallsyms]                       =
-                [k] unix_stream_recvmsg
->     12.88%        hackbench  [kernel.kallsyms]                       =
-                [k] kfree
->      7.37%        hackbench  [kernel.kallsyms]                       =
-                [k] kmem_cache_free
->      7.18%        hackbench  [kernel.kallsyms]                       =
-                [k] kmem_cache_alloc_node
->      6.78%        hackbench  [kernel.kallsyms]                       =
-                [k] kfree_skb
->      6.27%        hackbench  [kernel.kallsyms]                       =
-                [k] __kmalloc_node_track_caller
->      2.73%        hackbench  [kernel.kallsyms]                       =
-                [k] __slab_free
->      2.21%        hackbench  [kernel.kallsyms]                       =
-                [k] get_partial_node
->      2.01%        hackbench  [kernel.kallsyms]                       =
-                [k] _raw_spin_lock
->      1.59%        hackbench  [kernel.kallsyms]                       =
-                [k] schedule
->      1.27%        hackbench  hackbench                               =
-                [.] receiver
->      0.99%        hackbench  libpthread-2.9.so                       =
-                [.] __read
->      0.87%        hackbench  [kernel.kallsyms]                       =
-                [k] unix_stream_sendmsg
->=20
->=20
->=20
->=20
-> Kernel 2.6.34-rc3:
-> # Samples: 13079611308 LLC-load-misses
-> #
-> # Overhead          Command                                          =
-               Shared Object  Symbol
-> # ........  ...............  ........................................=
-=2E...........................  ......
-> #
->     18.55%        hackbench  [kernel.kallsyms]                       =
-                              [k] copy_user_generic_str
-> ing
->     13.19%        hackbench  [kernel.kallsyms]                       =
-                              [k] unix_stream_recvmsg
->     11.62%        hackbench  [kernel.kallsyms]                       =
-                              [k] kfree
->      8.54%        hackbench  [kernel.kallsyms]                       =
-                              [k] kmem_cache_free
->      7.88%        hackbench  [kernel.kallsyms]                       =
-                              [k] __kmalloc_node_track_
-> caller
->      6.54%        hackbench  [kernel.kallsyms]                       =
-                              [k] kmem_cache_alloc_node
->      5.94%        hackbench  [kernel.kallsyms]                       =
-                              [k] kfree_skb
->      3.48%        hackbench  [kernel.kallsyms]                       =
-                              [k] __slab_free
->      2.15%        hackbench  [kernel.kallsyms]                       =
-                              [k] _raw_spin_lock
->      1.83%        hackbench  [kernel.kallsyms]                       =
-                              [k] schedule
->      1.82%        hackbench  [kernel.kallsyms]                       =
-                              [k] get_partial_node
->      1.59%        hackbench  hackbench                               =
-                              [.] receiver
->      1.37%        hackbench  libpthread-2.9.so                       =
-                              [.] __read
->=20
->=20
+Always happy to be pleasantly surprised.  ;-)
 
-Please check values of /proc/sys/net/core/rmem_default
-and /proc/sys/net/core/wmem_default on your machines.
+							Thanx, Paul
 
-Their values can also change hackbench results, because increasing
-wmem_default allows af_unix senders to consume much more skbs and stres=
-s
-slab allocators (__slab_free), way beyond slub_min_order can tune them.
-
-When 2000 senders are running (and 2000 receivers), we might consume
-something like 2000 * 100.000 bytes of kernel memory for skbs. TLB
-trashing is expected, because all these skbs can span many 2MB pages.
-Maybe some node imbalance happens too.
-
-
-
-You could try to boot your machine with less ram per node and check :
-
-# cat /proc/buddyinfo=20
-Node 0, zone      DMA      2      1      2      2      1      1      1 =
-     0      1      1      3=20
-Node 0, zone    DMA32    219    298    143    584    145     57     44 =
-    41     31     26    517=20
-Node 1, zone    DMA32      4      1     17      1      0      3      2 =
-     2      2      2    123=20
-Node 1, zone   Normal    126    169     83      8      7      5     59 =
-    59     49     28    459=20
-
-
-One experiment on your Nehalem machine would be to change hackbench so
-that each group (20 senders/ 20 receivers) run on a particular NUMA
-node.
-
-x86info -c ->
-
-CPU #1
-EFamily: 0 EModel: 1 Family: 6 Model: 26 Stepping: 5
-CPU Model: Core i7 (Nehalem)
-Processor name string: Intel(R) Xeon(R) CPU           X5570  @ 2.93GHz
-Type: 0 (Original OEM)	Brand: 0 (Unsupported)
-Number of cores per physical package=3D8
-Number of logical processors per socket=3D16
-Number of logical processors per core=3D2
-APIC ID: 0x10	Package: 0  Core: 1   SMT ID 0
-Cache info
- L1 Instruction cache: 32KB, 4-way associative. 64 byte line size.
- L1 Data cache: 32KB, 8-way associative. 64 byte line size.
- L2 (MLC): 256KB, 8-way associative. 64 byte line size.
-TLB info
- Data TLB: 4KB pages, 4-way associative, 64 entries
- 64 byte prefetching.
-=46ound unknown cache descriptors: 55 5a b2 ca e4=20
-
-
+>  Thanks
+> 					--ro
+> 
+> HW
+> --
+> CPU  Opteron 2 * 6174, TYAN S8230. Intel 82599
+> 
+> Kernel from net-next-2.6
+> ------------------------
+> Version 2.6.34-rc1bifrost-x86_64 (gcc version 4.3.2 (GCC) ) #4 SMP PREEMPT
+> CONFIG_PREEMPT=y
+> CONFIG_DEBUG_PREEMPT=y
+> CONFIG_IP_FIB_TRIE=y
+> CONFIG_FIB_RULES=y
+> CONFIG_TREE_RCU=y
+> CONFIG_RCU_FANOUT=64
+> 
+> IP table
+> --------
+> "BGP" 279 k routes
+> 
+> Test duration
+> -------------
+> 09:34:14 up 6 days, 20:57,  4 users,  load average: 5.28, 5.87, 5.53
+> 
+> Test script
+> -----------
+> #! /bin/bash
+> while(true) do
+>   ip -batch /etc/inet_route_add.bat; 
+>   ip route list | wc -l;  ( 279 k routes )
+>   ifconfig eth1 down 
+>   ifconfig eth1 10.10.11.1 netmask 255.255.255.0
+>   ip route list | wc -l;  ( 3 routes )
+> done;
+> 
+> /proc/net/softnet_stat
+> 
+> 0000d503 00000000 00000014 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 4cc1ecfb 00000000 02bb1bcb 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 4cb95da1 00000000 02cc6574 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 4cb17932 00000000 02e1abdf 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 4cc40ad9 00000000 02f53db0 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 4cbfe34f 00000000 0306a88d 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 4ccb10e9 00000000 03d3a11d 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 4ca84c29 00000000 03be0ca1 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 4cb710f8 00000000 04070289 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 0b505d55 00000000 038a9bc0 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 0b54a7be 00000000 03a5de6d 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 0b5be81f 00000000 03be018c 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 0b51fdd0 00000000 0559fdd6 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 0b4fa6fd 00000000 056311dc 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 0b4a61d3 00000000 056a9276 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 0b454970 00000000 0572add1 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 
+> FYI. CPU0 is resvered for BGP/ssh/stats etc
