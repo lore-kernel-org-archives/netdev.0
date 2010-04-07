@@ -1,8 +1,7 @@
 From: Manfred Rudigier <Manfred.Rudigier@omicron.at>
-Subject: [RFC PATCH net-next 1/4] gianfar: Added stub support for
- SIOCSHWTSTAMP
-Date: Wed, 7 Apr 2010 11:46:08 +0200
-Message-ID: <95DC1AA8EC908B48939B72CF375AA5E311A9F4DF@alice.at.omicron.at>
+Subject: [RFC PATCH net-next 2/4] gianfar: Added timer feature for eTSEC
+Date: Wed, 7 Apr 2010 11:46:24 +0200
+Message-ID: <95DC1AA8EC908B48939B72CF375AA5E311A9F4E0@alice.at.omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -12,82 +11,93 @@ To: "'sandeep.kumar@freescale.com'" <sandeep.kumar@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from ns.omicron.at ([212.183.10.25]:60232 "EHLO ns.omicron.at"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757713Ab0DGKYJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 06:24:09 -0400
+	id S1757799Ab0DGKYM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 06:24:12 -0400
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This ioctl command is required for enabling hardware time stamping support
-for network packets, see Documentation/networking/timestamping.txt. At the
-moment nothing will be done for all requests that enable time stamping and
-thus ERANGE will be returned.
+The timer clock module is an intrinsic feature of every eTSEC. It supports
+hardware time stamping of all incoming and outgoing network packets. This
+patch checks if the underlying hardware is an eTSEC and adds the
+new FSL_GIANFAR_DEV_HAS_TIMER flag to the device flags. This flag is then
+used in the SIOCSHWTSTAMP ioctl command to determine if HW time stamping
+support is available.
 
 Signed-off-by: Manfred Rudigier <manfred.rudigier@omicron.at>
 ---
- drivers/net/gianfar.c |   36 ++++++++++++++++++++++++++++++++++++
- 1 files changed, 36 insertions(+), 0 deletions(-)
+ drivers/net/gianfar.c |   12 +++++++++++-
+ drivers/net/gianfar.h |    3 +++
+ 2 files changed, 14 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 080d1ce..309bab0 100644
+index 309bab0..41e7726 100644
 --- a/drivers/net/gianfar.c
 +++ b/drivers/net/gianfar.c
-@@ -82,6 +82,7 @@
- #include <linux/tcp.h>
- #include <linux/udp.h>
- #include <linux/in.h>
-+#include <linux/net_tstamp.h>
+@@ -743,7 +743,8 @@ static int gfar_of_init(struct of_device *ofdev, struct net_device **pdev)
+ 			FSL_GIANFAR_DEV_HAS_CSUM |
+ 			FSL_GIANFAR_DEV_HAS_VLAN |
+ 			FSL_GIANFAR_DEV_HAS_MAGIC_PACKET |
+-			FSL_GIANFAR_DEV_HAS_EXTENDED_HASH;
++			FSL_GIANFAR_DEV_HAS_EXTENDED_HASH |
++			FSL_GIANFAR_DEV_HAS_TIMER;
  
- #include <asm/io.h>
- #include <asm/irq.h>
-@@ -772,6 +773,38 @@ err_grp_init:
- 	return err;
- }
+ 	ctype = of_get_property(np, "phy-connection-type", NULL);
  
-+static int gfar_hwtstamp_ioctl(struct net_device *netdev,
-+			struct ifreq *ifr, int cmd)
-+{
-+	struct hwtstamp_config config;
-+
-+	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
-+		return -EFAULT;
-+
-+	/* reserved for future extensions */
-+	if (config.flags)
-+		return -EINVAL;
-+
-+	switch (config.tx_type) {
-+	case HWTSTAMP_TX_OFF:
-+		break;
-+	case HWTSTAMP_TX_ON:
-+		return -ERANGE;
-+	default:
-+		return -ERANGE;
-+	}
-+
-+	switch (config.rx_filter) {
-+	case HWTSTAMP_FILTER_NONE:
-+		break;
-+	default:
-+		return -ERANGE;
-+	}
-+
-+	return copy_to_user(ifr->ifr_data, &config, sizeof(config)) ?
-+		-EFAULT : 0;
-+}
-+
- /* Ioctl MII Interface */
- static int gfar_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+@@ -777,6 +778,7 @@ static int gfar_hwtstamp_ioctl(struct net_device *netdev,
+ 			struct ifreq *ifr, int cmd)
  {
-@@ -780,6 +813,9 @@ static int gfar_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	if (!netif_running(dev))
- 		return -EINVAL;
+ 	struct hwtstamp_config config;
++	struct gfar_private *priv = netdev_priv(netdev);
  
-+	if (cmd == SIOCSHWTSTAMP)
-+		return gfar_hwtstamp_ioctl(dev, rq, cmd);
-+
- 	if (!priv->phydev)
- 		return -ENODEV;
+ 	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
+ 		return -EFAULT;
+@@ -787,8 +789,12 @@ static int gfar_hwtstamp_ioctl(struct net_device *netdev,
+ 
+ 	switch (config.tx_type) {
+ 	case HWTSTAMP_TX_OFF:
++		priv->hwts_tx_en = 0;
+ 		break;
+ 	case HWTSTAMP_TX_ON:
++		if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_TIMER))
++			return -ERANGE;
++		priv->hwts_tx_en = 1;
+ 		return -ERANGE;
+ 	default:
+ 		return -ERANGE;
+@@ -796,8 +802,12 @@ static int gfar_hwtstamp_ioctl(struct net_device *netdev,
+ 
+ 	switch (config.rx_filter) {
+ 	case HWTSTAMP_FILTER_NONE:
++		priv->hwts_rx_en = 0;
+ 		break;
+ 	default:
++		if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_TIMER))
++			return -ERANGE;
++		priv->hwts_rx_en = 1;
+ 		return -ERANGE;
+ 	}
+ 
+diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
+index 17d25e7..380ea48 100644
+--- a/drivers/net/gianfar.h
++++ b/drivers/net/gianfar.h
+@@ -885,6 +885,7 @@ struct gfar {
+ #define FSL_GIANFAR_DEV_HAS_MAGIC_PACKET	0x00000100
+ #define FSL_GIANFAR_DEV_HAS_BD_STASHING		0x00000200
+ #define FSL_GIANFAR_DEV_HAS_BUF_STASHING	0x00000400
++#define FSL_GIANFAR_DEV_HAS_TIMER		0x00000800
+ 
+ #if (MAXGROUPS == 2)
+ #define DEFAULT_MAPPING 	0xAA
+@@ -1084,6 +1085,8 @@ struct gfar_private {
+ 		extended_hash:1,
+ 		bd_stash_en:1,
+ 		rx_filer_enable:1,
++		hwts_tx_en:1, /* HW time stamping enabled for TX packets */
++		hwts_rx_en:1, /* HW time stamping enabled for RX packets */
+ 		wol_en:1; /* Wake-on-LAN enabled */
+ 	unsigned short padding;
  
 -- 
 1.6.3.3
