@@ -1,55 +1,48 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] IPVS: replace sprintf to snprintf to avoid stack
- buffer overflow
-Date: Thu, 8 Apr 2010 08:34:46 +1000
-Message-ID: <20100407223445.GA15810@verge.net.au>
-References: <20100406025020.GA2741@localhost.localdomain>
- <20100406032248.GF30359@verge.net.au>
- <4BBCAE52.9080501@trash.net>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH Resubmission] drivers/net/usb: Add new driver ipheth
+Date: Wed, 07 Apr 2010 15:37:15 -0700
+Message-ID: <ada6342zy78.fsf@roland-alpha.cisco.com>
+References: <1269984864-28159-1-git-send-email-agimenez@sysvalve.es>
+	<1270678281-20750-1-git-send-email-agimenez@sysvalve.es>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: wzt.wzt@gmail.com, linux-kernel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4BBCAE52.9080501@trash.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, dgiagio@gmail.com, dborca@yahoo.com,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jonas =?utf-8?Q?Sj=C3=B6quist?= <jonas.sjoquist@ericsson.com>,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	Torgny Johansson <torgny.johansson@gmail.com>,
+	David Brownell <dbrownell@users.sourceforge.net>,
+	Omar Laazimani <omar.oberthur@gmail.com>,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: "L. Alberto =?utf-8?Q?Gim=C3=A9nez?=" <agimenez@sysvalve.es>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-5.cisco.com ([171.68.10.87]:41833 "EHLO
+	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751929Ab0DGWh3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 18:37:29 -0400
+In-Reply-To: <1270678281-20750-1-git-send-email-agimenez@sysvalve.es>
+	("L. Alberto =?utf-8?Q?Gim=C3=A9nez=22's?= message of "Thu, 8 Apr 2010
+ 00:11:20 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 07, 2010 at 06:09:54PM +0200, Patrick McHardy wrote:
-> Simon Horman wrote:
-> > On Tue, Apr 06, 2010 at 10:50:20AM +0800, wzt.wzt@gmail.com wrote:
-> >> IPVS not check the length of pp->name, use sprintf will cause stack buffer overflow.
-> >> struct ip_vs_protocol{} declare name as char *, if register a protocol as:
-> >> struct ip_vs_protocol ip_vs_test = {
-> >>         .name =			"aaaaaaaa....128...aaa",
-> >> 	.debug_packet =         ip_vs_tcpudp_debug_packet,
-> >> };
-> >>
-> >> when called ip_vs_tcpudp_debug_packet(), sprintf(buf, "%s TRUNCATED", pp->name); 
-> >> will cause stack buffer overflow.
-> >>
-> >> Signed-off-by: Zhitong Wang <zhitong.wangzt@alibaba-inc.com>
-> > 
-> > I think that the simple answer is, don't do that.
-> 
-> Indeed.
-> 
-> > But your patch seems entirely reasonable to me.
-> > 
-> > Acked-by: Simon Horman <horms@verge.net.au>
-> > 
-> > Patrick, please consider merging this.
-> 
-> I think this fix is a bit silly, we can simply print the name in
-> the pr_debug() statement and avoid both the potential overflow
-> and truncation.
-> 
-> How does this look?
+These are a few of the cosmetic issues alluded to, and by no means merge
+blockers, but:
 
-Looks good to me:
+ > +	schedule_delayed_work(&dev->carrier_work, IPHETH_CARRIER_CHECK_TIMEOUT);
 
-Acked-by: Simon Horman <horms@verge.net.au>
+Seems this might as well be round_jiffies_relative(IPHETH_CARRIER_CHECK_TIMEOUT)
+to avoid extra wakeups.
+
+ > +	netdev = alloc_etherdev(sizeof(struct ipheth_device));
+
+This means that the interface will get an ethX name and look to
+networkmanager et al like an ethernet device.  Seems we would maybe want
+to make this a "wwan" type device (cf drivers/net/usb/usbnet.c and how
+it handles FLAG_WWAN)?
+
+ - R.
+-- 
+Roland Dreier <rolandd@cisco.com> || For corporate legal information go to:
+http://www.cisco.com/web/about/doing_business/legal/cri/index.html
