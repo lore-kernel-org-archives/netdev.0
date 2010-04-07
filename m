@@ -1,55 +1,29 @@
-From: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 1/1] NET: usb: Adding URB_ZERO_PACKET flag to usbnet.c
-Date: Wed, 7 Apr 2010 16:07:16 -0700
-Message-ID: <1270681636.6401.5.camel@Linuxdev4-laptop>
-References: <1270599787.8900.8.camel@Linuxdev4-laptop>
-	 <201004071414.33917.david-b@pacbell.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fix definition of netdev_for_each_mc_addr()
+Date: Wed, 07 Apr 2010 16:40:17 -0700 (PDT)
+Message-ID: <20100407.164017.238909355.davem@davemloft.net>
+References: <20100407220100.13604.6636.stgit@mj.roinet.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Rory Filer <rfiler-usJ8hg9QsBLWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201004071414.33917.david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: proski@gnu.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59037
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751451Ab0DGXkP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 19:40:15 -0400
+In-Reply-To: <20100407220100.13604.6636.stgit@mj.roinet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-04-07 at 14:14 -0700, David Brownell wrote:
-> On Tuesday 06 April 2010, you wrote:
-> Recall that the reason to avoid sending zero length packts
-> (ZLPs) is that many systems don't cope well with them...
-> 
-> The ""don't cope well" can be at the hardware level,
-> or drivers not limited to device firmware.  I've seen
-> the failures be very context-dependent .... as in, one
-> standalone ZLP might work, but mix it in with back-to-back
-> delivery of other packets and trouble ensues...
->   
-> In short, it's hard to know which combinations of
-> hardware an firmware would need it .... versus which
-> ones it would break.
-> 
-> ... and thus risky to try sending ZLPs through systems
-> shere for many years) we've carefully avoided doing that.
-> 
-> 
-> - Dave
-> 
-Hi Dave, 
-Nice to hear your opinion on this matter. Are you recommending our patch
-be retracted? If so, we can look at other ways to fix the problem when a
-zero length packet is missing. 
+From: Pavel Roskin <proski@gnu.org>
+Date: Wed, 07 Apr 2010 18:01:52 -0400
 
-Regards, 
-Elina
+> The first argument should be called ha, not mclist.  All callers use the
+> name "ha", but if they used a different name, there would be a compile
+> error.
+> 
+> Signed-off-by: Pavel Roskin <proski@gnu.org>
 
-
- 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thank you.
