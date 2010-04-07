@@ -1,58 +1,54 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [Bugme-new] [Bug 15682] New: XFRM is not updating RTAX_ADVMSS
- metric
-Date: Wed, 07 Apr 2010 08:19:11 -0400
-Message-ID: <1270642751.7198.17.camel@bigi>
-References: <bug-15682-10286@https.bugzilla.kernel.org/>
-	 <20100405125055.cdc1e279.akpm@linux-foundation.org>
-	 <1270561240.7198.3.camel@bigi>
-	 <y2jb7b22e81004061202uac6ef8eeodc70d6deb65f7699@mail.gmail.com>
-Reply-To: hadi@cyberus.ca
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: [PATCH] Caif: Ref counting
+Date: Wed, 7 Apr 2010 14:13:19 +0100
+Message-ID: <20100407141319.318ebb6f@lxorguk.ukuu.org.uk>
+References: <20100401160916.2a2574f4@lxorguk.ukuu.org.uk>
+	<81C3A93C17462B4BBD7E272753C105791696B5DCF0@EXDCVYMBSTM005.EQ1STM.local>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	hideaki@yoshifuji.org, netdev@vger.kernel.org,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Eduardo Panisset <eduardo.panisset@gmail.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Sjur BRENDELAND <sjur.brandeland@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f193.google.com ([209.85.222.193]:47239 "EHLO
-	mail-pz0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751216Ab0DGMTW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 08:19:22 -0400
-Received: by pzk31 with SMTP id 31so958666pzk.33
-        for <netdev@vger.kernel.org>; Wed, 07 Apr 2010 05:19:21 -0700 (PDT)
-In-Reply-To: <y2jb7b22e81004061202uac6ef8eeodc70d6deb65f7699@mail.gmail.com>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:55212 "EHLO
+	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756470Ab0DGNJK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 09:09:10 -0400
+In-Reply-To: <81C3A93C17462B4BBD7E272753C105791696B5DCF0@EXDCVYMBSTM005.EQ1STM.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eduardo,
+caif: tty's are kref objects so take a reference
 
-As a first step, I dont know what the real cause is but 
-what you showed as a solution didnt look right. I am also not familiar
-with DSMIPv6. I know a lot of other xfrm subsystems work fine with
-the current code. So thats why i pointed to Herbert who is more
-knowledgeable. I am adding Yoshfuji to the list. 
-If you tell me what kernel options to turn on and a very
-basic test setup to reproduce it (I dont have much hardware, so make it
-very minimal maybe requiring one or two PCs max) then I could make time
-and try to reproduce it.
+From: Alan Cox <alan@linux.intel.com>
 
-cheers,
-jamal
+I don't think this can be abused in this case but do things properly.
 
-On Tue, 2010-04-06 at 16:02 -0300, Eduardo Panisset wrote:
-> Hi,
-> 
-> My intention is only to report a problem that I have faced. The
-> solution proposed isn't (I know that) probably the best one to adopt
-> as I'm not a kernel specialist, it is more illustrative to allow you
-> guys understanding what I'm meaning and solve that on the better way
-> (hence I haven't submited a patch).
-> 
-> Regards,
-> Eduardo Panisset.
+Signed-off-by: Alan Cox <alan@linux.intel.com>
+---
 
+ drivers/net/caif/caif_serial.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+
+diff --git a/drivers/net/caif/caif_serial.c b/drivers/net/caif/caif_serial.c
+index 3502f60..b271aa0 100644
+--- a/drivers/net/caif/caif_serial.c
++++ b/drivers/net/caif/caif_serial.c
+@@ -315,7 +315,7 @@ static int ldisc_open(struct tty_struct *tty)
+ 	sprintf(name, "cf%s", tty->name);
+ 	dev = alloc_netdev(sizeof(*ser), name, caifdev_setup);
+ 	ser = netdev_priv(dev);
+-	ser->tty = tty;
++	ser->tty = tty_kref_get(tty);
+ 	ser->dev = dev;
+ 	debugfs_init(ser, tty);
+ 	tty->receive_room = N_TTY_BUF_SIZE;
+@@ -348,6 +348,7 @@ static void ldisc_close(struct tty_struct *tty)
+ 	unregister_netdevice(ser->dev);
+ 	list_del(&ser->node);
+ 	debugfs_deinit(ser);
++	tty_kref_put(ser->tty);
+ 	if (!islocked)
+ 		rtnl_unlock();
+ }
