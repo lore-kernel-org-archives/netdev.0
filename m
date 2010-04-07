@@ -1,44 +1,61 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v3 0/4] xfrm: add x86 CONFIG_COMPAT support
-Date: Wed, 07 Apr 2010 15:45:51 +0200
-Message-ID: <4BBC8C8F.9020907@trash.net>
-References: <1270506431-25578-1-git-send-email-fw@strlen.de> <20100407.030850.04450543.davem@davemloft.net> <20100407133528.GD22518@Chamillionaire.breakpoint.cc>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bugme-new] [Bug 15682] New: XFRM is not updating RTAX_ADVMSS
+	metric
+Date: Wed, 7 Apr 2010 21:54:46 +0800
+Message-ID: <20100407135446.GA13394@gondor.apana.org.au>
+References: <bug-15682-10286@https.bugzilla.kernel.org/> <20100405125055.cdc1e279.akpm@linux-foundation.org> <1270561240.7198.3.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	johannes@sipsolutions.net
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, eduardo.panisset@gmail.com,
+	"David S. Miller" <davem@davemloft.net>
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:47791 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932407Ab0DGNpx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 09:45:53 -0400
-In-Reply-To: <20100407133528.GD22518@Chamillionaire.breakpoint.cc>
+Received: from helcar.apana.org.au ([209.40.204.226]:59685 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753355Ab0DGNzJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 09:55:09 -0400
+Content-Disposition: inline
+In-Reply-To: <1270561240.7198.3.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Florian Westphal wrote:
-> David Miller <davem@davemloft.net> wrote:
->> From: Florian Westphal <fw@strlen.de>
->> Date: Tue,  6 Apr 2010 00:27:07 +0200
+On Tue, Apr 06, 2010 at 09:40:40AM -0400, jamal wrote:
 > 
-> [..]
-> 
->>> I sent a patch that solved this by adding a sys_compat_write syscall
->>> and a ->compat_aio_write() to struct file_operations to the
->>> vfs mailing list, but that patch was ignored by the vfs people,
->>> and the x86 folks did not exactly like the idea either.
->>>
->>> So this leaves three alternatives:
->>> 1 - drop the whole idea and keep the current status.
->>> 2 - Add new structure definitions (with new numbering) that would work
->>>     everywhere, keep the old ones for backwards compatibility (This
->>>     was suggested by Arnd Bergmann).
+> Herbert would give better answers. I dont think what Eduardo is 
+> doing is correct. You cant just start factoring in tcp headers
+> at the xfrm level - and besides, the mtu calculation
+> already takes care tunnel headers - so tcp should be able to 
+> compute correct MSS. 
 
-Given that there is only a quite small number of users of this
-interface, that would in my opinion be the best way.
+I think Eduardo is basically right.
 
->>> 3 - apply this patch set and tell userspace to move the sendmsg() when
->>>     they want to work with xfrm on x86_64 with 32 bit userland.
->> So do we know of any xfrm netlink apps that do not use sendmsg()?
+Unfortunately, we've kind of stuffed up in how we handle ADVMSS.
+In particular, we don't update it at all when we get a normal
+non-IPsec PTMU message.
+
+As a result, if we now start updating it it may actually break
+existing users.
+
+We do provide a locked bit for the user to use, however, because
+the fact that we have never updated ADVMSS on the fly before,
+people out there may not be aware of the locked bit.
+
+Dave, what do you think about us starting to update ADVMSS on
+the fly, just like the MTU?
+
+The only risk is that existing users who are forcing ADVMSS to
+a value higher than what it would otherwise be would now get a
+lower value, if they're not using the "lock" keyword.
+
+This shouldn't be fatal as it would only result in smaller packets
+which should still work, and they can always start using the
+"lock" keyword to get back the old behaviour.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
