@@ -1,35 +1,55 @@
-From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: 2.6.34-rc3-git6: Reported regressions from 2.6.33
-Date: Wed, 7 Apr 2010 15:22:20 -0700 (PDT)
-Message-ID: <alpine.LFD.2.00.1004071521500.3586@i5.linux-foundation.org>
-References: <6Pphclm24fK.A.lSF.qsPvLB@chimera> <alpine.LFD.2.00.1004071444440.3586@i5.linux-foundation.org> <20100407221941.GL30031@ZenIV.linux.org.uk>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] IPVS: replace sprintf to snprintf to avoid stack
+ buffer overflow
+Date: Thu, 8 Apr 2010 08:34:46 +1000
+Message-ID: <20100407223445.GA15810@verge.net.au>
+References: <20100406025020.GA2741@localhost.localdomain>
+ <20100406032248.GF30359@verge.net.au>
+ <4BBCAE52.9080501@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100407221941.GL30031-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: wzt.wzt@gmail.com, linux-kernel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4BBCAE52.9080501@trash.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On Wed, 7 Apr 2010, Al Viro wrote:
+On Wed, Apr 07, 2010 at 06:09:54PM +0200, Patrick McHardy wrote:
+> Simon Horman wrote:
+> > On Tue, Apr 06, 2010 at 10:50:20AM +0800, wzt.wzt@gmail.com wrote:
+> >> IPVS not check the length of pp->name, use sprintf will cause stack buffer overflow.
+> >> struct ip_vs_protocol{} declare name as char *, if register a protocol as:
+> >> struct ip_vs_protocol ip_vs_test = {
+> >>         .name =			"aaaaaaaa....128...aaa",
+> >> 	.debug_packet =         ip_vs_tcpudp_debug_packet,
+> >> };
+> >>
+> >> when called ip_vs_tcpudp_debug_packet(), sprintf(buf, "%s TRUNCATED", pp->name); 
+> >> will cause stack buffer overflow.
+> >>
+> >> Signed-off-by: Zhitong Wang <zhitong.wangzt@alibaba-inc.com>
+> > 
+> > I think that the simple answer is, don't do that.
 > 
-> No, it's not the same thing; the fix is to have nfs ->d_revalidate()
-> return an error on failing open attempt (in insane codepath that has
-> ->d_revalidate() handling open()).  Confirmed to work by reporter...
+> Indeed.
+> 
+> > But your patch seems entirely reasonable to me.
+> > 
+> > Acked-by: Simon Horman <horms@verge.net.au>
+> > 
+> > Patrick, please consider merging this.
+> 
+> I think this fix is a bit silly, we can simply print the name in
+> the pr_debug() statement and avoid both the potential overflow
+> and truncation.
+> 
+> How does this look?
 
-Ok, can you do the proper changelog description and sign-offs etc?
+Looks good to me:
 
-		Linus
+Acked-by: Simon Horman <horms@verge.net.au>
