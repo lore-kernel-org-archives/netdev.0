@@ -1,135 +1,121 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the rr tree with the net tree
-Date: Wed, 7 Apr 2010 13:51:17 +1000
-Message-ID: <20100407135117.1111c4a0.sfr@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [v2 Patch 3/3] bonding: make bonding support netpoll
+Date: Wed, 7 Apr 2010 00:02:39 -0400
+Message-ID: <70501020920527933@unknownmsgid>
+References: <20100405091605.4890.31181.sendpatchset@localhost.localdomain>
+	<20100405091628.4890.30541.sendpatchset@localhost.localdomain>
+	<20100405194356.GA10488@gospo.rdu.redhat.com>
+	<4BBA9FDB.4040909@redhat.com> <4BBABAB8.4010401@redhat.com>
+	<20100406144824.GB10488@gospo.rdu.redhat.com>
+	<4BBBEEAA.1050100@redhat.com>
+Mime-Version: 1.0 (iPhone Mail 7E18)
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Woodhouse <dwmw2@infradead.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Ondrej Zary <linux@rainbow-software.org>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Cc: Jay Vosburgh <fubar@us.ibm.com>, Neil Horman <nhorman@tuxdriver.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Matt Mackall <mpm@selenic.com>,
+        "bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        David Miller <davem@davemloft.net>, Jeff Moyer <jmoyer@redhat.com>,
+        Andy Gospodarek <gospo@redhat.com>,
+        "bonding-devel@lists.sourceforge.net"
+	<bonding-devel@lists.sourceforge.net>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <4BBBEEAA.1050100@redhat.com>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi Rusty,
+On Apr 6, 2010, at 10:32 PM, Cong Wang <amwang@redhat.com> wrote:
 
-Today's linux-next merge of the rr tree got a conflict in
-include/linux/mod_devicetable.h scripts/mod/file2alias.c between commit
-8626d3b4328061f5b82b11ae1d6918a0c3602f42 ("phylib: Support phy module
-autoloading") from the net tree and commits
-df73f69d6a29eb5a22327009627f23c7ae4be007
-("modules:isapnp-mod_devicetable.h") and a8e67afa03daca8b570115ba9b33f508cc5a9133 ("MODULE_DEVICE_TABLE(isapnp, ...) does nothing") from the rr tree.
+> Andy Gospodarek wrote:
+>> On Tue, Apr 06, 2010 at 12:38:16PM +0800, Cong Wang wrote:
+>>> Cong Wang wrote:
+>>>> Before I try to reproduce it, could you please try to replace
+>>>> the  'read_lock()'
+>>>> in slaves_support_netpoll() with 'read_lock_bh()'? (read_unlock()
+>>>> too)  Try if this helps.
+>>>>
+>>> Confirmed. Please use the attached patch instead, for your testing.
+>>>
+>>> Thanks!
+>>>
+>> Moving those locks to bh-locks will not resolve this.  I tried that
+>> yesterday and tried your new patch today without success.  That
+>> warning
+>> is a WARN_ON_ONCE so you need to reboot to see that it is still a
+>> problem.  Simply unloading and loading the new module is not an
+>> accurate
+>> test.
+>> Also, my system still hangs when removing the bonding module.  I do
+>> not
+>> think you intended to fix this with the patch, but wanted it to be
+>> clear
+>> to everyone on the list.
+>
+>
+> Actually I did reboot and then tested the module. I didn't get any
+> warning.
+> I just tried again today, and no warnings at all.
+>
+> For removing bonding module, you may need another fix of mine,
+> which is to fix a potential deadlock of workqueue. Try:
+>
+> http://lkml.org/lkml/2010/4/1/58
+>
+>> You should also configure your kernel with a some of the lock
+>> debugging
+>> enabled.  I've been using the following:
+>> CONFIG_DETECT_HUNG_TASK=y
+>> CONFIG_DEBUG_SPINLOCK=y
+>> CONFIG_DEBUG_MUTEXES=y
+>> CONFIG_DEBUG_LOCK_ALLOC=y
+>> CONFIG_PROVE_LOCKING=y
+>> CONFIG_LOCKDEP=y
+>> CONFIG_LOCK_STAT=y
+>> CONFIG_DEBUG_LOCKDEP=y
+>
+>
+> Sure, I always keep these.
+>
+>> Here is the output when I remove a slave from the bond.  My
+>> xmit_roundrobin patch from earlier (replacing read_lock with
+>> read_trylock) was applied.  It might be helpful for you when
+>> debugging
+>> these issues.
+>
+>
+> I don't apply your patch, just tested my patch.
+>
+>> Dead loop on virtual device bond0, fix it urgently!
+>
+> Please provide your bonding configuration and steps to reproduce it.
+>
 
-Just overlapping additions.  I fixed it up (see below) and can carry the
-fix as necessary.
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+My first response in this thread provides the commands and
+configuration needed to reproduce this.
 
-diff --cc include/linux/mod_devicetable.h
-index 55f1f9c,e69d69f..0000000
---- a/include/linux/mod_devicetable.h
-+++ b/include/linux/mod_devicetable.h
-@@@ -474,30 -474,11 +474,37 @@@ struct platform_device_id 
-  			__attribute__((aligned(sizeof(kernel_ulong_t))));
-  };
-  
- +#define MDIO_MODULE_PREFIX	"mdio:"
- +
- +#define MDIO_ID_FMT "%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d"
- +#define MDIO_ID_ARGS(_id) \
- +	(_id)>>31, ((_id)>>30) & 1, ((_id)>>29) & 1, ((_id)>>28) & 1,	\
- +	((_id)>>27) & 1, ((_id)>>26) & 1, ((_id)>>25) & 1, ((_id)>>24) & 1, \
- +	((_id)>>23) & 1, ((_id)>>22) & 1, ((_id)>>21) & 1, ((_id)>>20) & 1, \
- +	((_id)>>19) & 1, ((_id)>>18) & 1, ((_id)>>17) & 1, ((_id)>>16) & 1, \
- +	((_id)>>15) & 1, ((_id)>>14) & 1, ((_id)>>13) & 1, ((_id)>>12) & 1, \
- +	((_id)>>11) & 1, ((_id)>>10) & 1, ((_id)>>9) & 1, ((_id)>>8) & 1, \
- +	((_id)>>7) & 1, ((_id)>>6) & 1, ((_id)>>5) & 1, ((_id)>>4) & 1, \
- +	((_id)>>3) & 1, ((_id)>>2) & 1, ((_id)>>1) & 1, (_id) & 1
- +
- +/**
- + * struct mdio_device_id - identifies PHY devices on an MDIO/MII bus
- + * @phy_id: The result of
- + *     (mdio_read(&MII_PHYSID1) << 16 | mdio_read(&PHYSID2)) & @phy_id_mask
- + *     for this PHY type
- + * @phy_id_mask: Defines the significant bits of @phy_id.  A value of 0
- + *     is used to terminate an array of struct mdio_device_id.
- + */
- +struct mdio_device_id {
- +	__u32 phy_id;
- +	__u32 phy_id_mask;
- +};
- +
-+ #define ISAPNP_ANY_ID		0xffff
-+ struct isapnp_device_id {
-+ 	unsigned short card_vendor, card_device;
-+ 	unsigned short vendor, function;
-+ 	kernel_ulong_t driver_data;	/* data private to the driver */
-+ };
-+ 
-  #endif /* LINUX_MOD_DEVICETABLE_H */
-diff --cc scripts/mod/file2alias.c
-index 36a60a8,6494f5b..0000000
---- a/scripts/mod/file2alias.c
-+++ b/scripts/mod/file2alias.c
-@@@ -796,28 -796,19 +796,41 @@@ static int do_platform_entry(const cha
-  	return 1;
-  }
-  
- +static int do_mdio_entry(const char *filename,
- +			 struct mdio_device_id *id, char *alias)
- +{
- +	int i;
- +
- +	alias += sprintf(alias, MDIO_MODULE_PREFIX);
- +
- +	for (i = 0; i < 32; i++) {
- +		if (!((id->phy_id_mask >> (31-i)) & 1))
- +			*(alias++) = '?';
- +		else if ((id->phy_id >> (31-i)) & 1)
- +			*(alias++) = '1';
- +		else
- +			*(alias++) = '0';
- +	}
- +
- +	/* Terminate the string */
- +	*alias = 0;
- +
- +	return 1;
- +}
- +
-+ /* looks like: "pnp:dD" */
-+ static int do_isapnp_entry(const char *filename,
-+ 			   struct isapnp_device_id *id, char *alias)
-+ {
-+ 	sprintf(alias, "pnp:d%c%c%c%x%x%x%x*",
-+ 		'A' + ((id->vendor >> 2) & 0x3f) - 1,
-+ 		'A' + (((id->vendor & 3) << 3) | ((id->vendor >> 13) & 7)) - 1,
-+ 		'A' + ((id->vendor >> 8) & 0x1f) - 1,
-+ 		(id->function >> 4) & 0x0f, id->function & 0x0f,
-+ 		(id->function >> 12) & 0x0f, (id->function >> 8) & 0x0f);
-+ 	return 1;
-+ }
-+ 
-  /* Ignore any prefix, eg. some architectures prepend _ */
-  static inline int sym_is(const char *symbol, const char *name)
-  {
-@@@ -965,10 -956,10 +978,14 @@@ void handle_moddevtable(struct module *
-  		do_table(symval, sym->st_size,
-  			 sizeof(struct platform_device_id), "platform",
-  			 do_platform_entry, mod);
- +	else if (sym_is(symname, "__mod_mdio_device_table"))
- +		do_table(symval, sym->st_size,
- +			 sizeof(struct mdio_device_id), "mdio",
- +			 do_mdio_entry, mod);
-+ 	else if (sym_is(symname, "__mod_isapnp_device_table"))
-+ 		do_table(symval, sym->st_size,
-+ 			sizeof(struct isapnp_device_id), "isa",
-+ 			do_isapnp_entry, mod);
-  	free(zeros);
-  }
-  
+> What I did is:
+>
+> 1. Load bonding module with "mode=0 miimon=100"
+> 2. Enslave eth0 and active bond0
+> 3. Load netconsole and send messages via bond0
+> 4. Remove eth0 from bond0
+> 5. Remove bonding module
+> 6. Remove netconsole module
+
+Thanks for sending your configuration.
+
+What values are in /proc/sys/kernel/printk?
+
+> And no deadlocks, no warnings.
+>
+> Thanks.
