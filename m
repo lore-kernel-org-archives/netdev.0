@@ -1,50 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/4] xfrm: add x86 CONFIG_COMPAT support
-Date: Wed, 07 Apr 2010 16:48:42 -0700 (PDT)
-Message-ID: <20100407.164842.54065324.davem@davemloft.net>
-References: <20100407.030850.04450543.davem@davemloft.net>
-	<20100407133528.GD22518@Chamillionaire.breakpoint.cc>
-	<4BBC8C8F.9020907@trash.net>
+Subject: Re: [PATCH] CAIF: write check
+Date: Wed, 07 Apr 2010 16:49:40 -0700 (PDT)
+Message-ID: <20100407.164940.235874045.davem@davemloft.net>
+References: <20100401160916.2a2574f4@lxorguk.ukuu.org.uk>
+	<81C3A93C17462B4BBD7E272753C105791696B5DCF0@EXDCVYMBSTM005.EQ1STM.local>
+	<20100407141703.7c0a4a65@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fw@strlen.de, netdev@vger.kernel.org, johannes@sipsolutions.net
-To: kaber@trash.net
+Cc: sjur.brandeland@stericsson.com, netdev@vger.kernel.org
+To: alan@lxorguk.ukuu.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48195
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48200
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756122Ab0DGXsj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 19:48:39 -0400
-In-Reply-To: <4BBC8C8F.9020907@trash.net>
+	by vger.kernel.org with ESMTP id S1756060Ab0DGXth (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 19:49:37 -0400
+In-Reply-To: <20100407141703.7c0a4a65@lxorguk.ukuu.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed, 07 Apr 2010 15:45:51 +0200
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Date: Wed, 7 Apr 2010 14:17:03 +0100
 
-> Florian Westphal wrote:
->> David Miller <davem@davemloft.net> wrote:
->>> From: Florian Westphal <fw@strlen.de>
->>> Date: Tue,  6 Apr 2010 00:27:07 +0200
->> 
->> [..]
->> 
->>>> I sent a patch that solved this by adding a sys_compat_write syscall
->>>> and a ->compat_aio_write() to struct file_operations to the
->>>> vfs mailing list, but that patch was ignored by the vfs people,
->>>> and the x86 folks did not exactly like the idea either.
->>>>
->>>> So this leaves three alternatives:
->>>> 1 - drop the whole idea and keep the current status.
->>>> 2 - Add new structure definitions (with new numbering) that would work
->>>>     everywhere, keep the old ones for backwards compatibility (This
->>>>     was suggested by Arnd Bergmann).
+> caif: check write operations
 > 
-> Given that there is only a quite small number of users of this
-> interface, that would in my opinion be the best way.
+> From: Alan Cox <alan@linux.intel.com>
+> 
+> write is optional for a tty device. Check that we have a write op rather
+> than calling NULL.
+> 
+> Signed-off-by: Alan Cox <alan@linux.intel.com>
 
-Can you explain that line of reasoning?
-
-It's not that there are only "3 or 4 tools" using these interfaces,
-it's the fact that 32-bit binaries of those tools are on millions and
-millions of systems out there.
+Applied, thanks Alan.
